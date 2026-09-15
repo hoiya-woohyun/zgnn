@@ -1,0 +1,2070 @@
+[
+ {
+  "id": "278ddc10-ceae-81e3-a299-fd3f2515be4f",
+  "type": "stay",
+  "name": "솔숲펜션",
+  "region": {
+   "direction": "east",
+   "town": "구좌읍",
+   "raw": "동쪽 (구좌읍)"
+  },
+  "features": "세화 해수욕장에서 차로 5분 거리에 위치한 곳이에요. 넓은 마당에서 바베큐와 불멍을 즐길 수 있어요. 가성비 갑!",
+  "petPolicyText": "1~5kg 1만원.\n6~10kg 1.5만원.",
+  "reviewUrl": "https://blog.naver.com/sorkekajrdj777/223444269811",
+  "naverUrl": "https://naver.me/xIgKjUqT",
+  "naverPlaceId": "1118214877",
+  "geo": {
+   "lat": 33.5111848,
+   "lng": 126.8488419
+  },
+  "address": "제주 제주시 구좌읍 충렬로 141-15 솔숲펜션",
+  "category": "펜션",
+  "images": [],
+  "stay": {
+   "price": {
+    "text": "59,000원 ~ 79,000원",
+    "min": 59000,
+    "max": 79000
+   },
+   "amenitiesText": "강아지 계단, 식기, 배변 패드"
+  }
+ },
+ {
+  "id": "278ddc10-ceae-811f-bcee-d05a31480417",
+  "type": "stay",
+  "name": "그리너리빌리지 펜션",
+  "region": {
+   "direction": "south",
+   "town": "서귀포",
+   "raw": "남쪽 (서귀포)"
+  },
+  "features": "화이트톤의 해외 휴양지 느낌 가득. 자유롭게 돌아다닐 수 있는 개별 마당과 입욕을 즐길 수 있는 개별 자쿠지가 있어요.",
+  "petPolicyText": "5kg 이하의 1마리만 가능.\n숙박일 관계없이 청소비 5만원 추가.",
+  "reviewUrl": "https://blog.naver.com/jwkeb/223251384052",
+  "naverUrl": "https://naver.me/GgP8DY34",
+  "naverPlaceId": "1568626251",
+  "geo": {
+   "lat": 33.261539,
+   "lng": 126.3841657
+  },
+  "address": "제주 서귀포시 소보리당로 200",
+  "category": "펜션",
+  "images": [],
+  "stay": {
+   "price": {
+    "text": "160,000원 ~ 200,000원",
+    "min": 160000,
+    "max": 200000
+   },
+   "amenitiesText": "없음."
+  }
+ },
+ {
+  "id": "278ddc10-ceae-812c-bbd2-ce9e137669b3",
+  "type": "stay",
+  "name": "호텔 핀코",
+  "region": {
+   "direction": "east",
+   "town": "구좌읍",
+   "raw": "동쪽 (구좌읍)"
+  },
+  "features": "독채 펜션으로 강아지가 뛰어놀 수 있는 잔디 마당과 개별 자쿠지가 있어요. 강아지 동반시 필요한 물품을 거의 모두 갖추고 있어요!",
+  "petPolicyText": "견종 제한, 몸무게 제한 없음.\n1마리당 3만원. (최대 2마리까지 가능)",
+  "reviewUrl": "https://blog.naver.com/ngene91/223509689323",
+  "naverUrl": "https://naver.me/xWTFdjWY",
+  "naverPlaceId": "1046119313",
+  "geo": {
+   "lat": 33.4888791,
+   "lng": 126.9060536
+  },
+  "address": "제주 제주시 구좌읍 해맞이해안로 2428-2",
+  "category": "펜션",
+  "images": [],
+  "stay": {
+   "price": {
+    "text": "200,000원 ~ 300,000원",
+    "min": 200000,
+    "max": 300000
+   },
+   "amenitiesText": "강아지 침대, 샴푸, 튜브, 간식 어메니티까지 세심하게 모두 구비!"
+  }
+ },
+ {
+  "id": "278ddc10-ceae-8192-be51-fe60cf4ee9be",
+  "type": "stay",
+  "name": "달중이네 쉬멍",
+  "region": {
+   "direction": "west",
+   "town": "애월읍",
+   "raw": "서쪽 (애월읍)"
+  },
+  "features": "딱 한 팀만 머무를 수 있는 독채 숙소에요. 넓은 잔디마당과 자쿠지도 있어요.",
+  "petPolicyText": "최대 3마리까지 가능. (15kg까지)\n1마리 이상 2만원 추가. (마리당)",
+  "reviewUrl": "https://blog.naver.com/albam_album/223526553485",
+  "naverUrl": "https://naver.me/5MS2E2hb",
+  "naverPlaceId": "1157446123",
+  "geo": {
+   "lat": 33.4550546,
+   "lng": 126.3695751
+  },
+  "images": [],
+  "stay": {
+   "price": {
+    "text": "230,000원 (3인)",
+    "min": 230000,
+    "max": 230000,
+    "note": "3인"
+   },
+   "amenitiesText": "기본적인 용품은 모두 구비. 펫드라이룸도 있어요!"
+  }
+ },
+ {
+  "id": "278ddc10-ceae-8119-a62f-f337fcc12b9c",
+  "type": "stay",
+  "name": "바라던바다",
+  "region": {
+   "direction": "east",
+   "town": "구좌읍",
+   "raw": "동쪽 (구좌읍)"
+  },
+  "features": "창문 너머의 당근밭을 볼 수 있는 제주 감성 그 잡채 숙소! 넓은 마당이 있어 뛰어놀기 좋아요.",
+  "petPolicyText": "10kg 미만의 최대 2마리 가능.",
+  "reviewUrl": "https://blog.naver.com/jangshell/223068803975",
+  "naverUrl": "https://naver.me/xTbFb94R",
+  "naverPlaceId": "1452977248",
+  "geo": {
+   "lat": 33.5483602,
+   "lng": 126.7719199
+  },
+  "address": "제주 제주시 구좌읍 김월남길 111",
+  "category": "펜션",
+  "images": [],
+  "stay": {
+   "price": {
+    "text": "140,000원 ~ 170,000원",
+    "min": 140000,
+    "max": 170000
+   },
+   "amenitiesText": "없음."
+  }
+ },
+ {
+  "id": "278ddc10-ceae-8113-b966-c14a1aceaa2c",
+  "type": "stay",
+  "name": "프레임스파빌 오션뷰펜션",
+  "region": {
+   "direction": "west",
+   "town": "애월읍",
+   "raw": "서쪽 (애월읍)"
+  },
+  "features": "바다가 보이는 오션뷰 숙소에요. 강아지 전용 놀이터가 있어 뛰어놀기 좋아요.",
+  "petPolicyText": "7kg 미만의 1마리만 가능. (2만원 추가)",
+  "reviewUrl": "https://blog.naver.com/orangegaon/223550899167",
+  "naverUrl": "https://naver.me/Gedc4r7p",
+  "naverPlaceId": "36296761",
+  "geo": {
+   "lat": 33.4849135,
+   "lng": 126.3924138
+  },
+  "address": "제주 제주시 애월읍 애월해안로 907 프레임스파빌 오션뷰펜션",
+  "category": "펜션",
+  "images": [],
+  "stay": {
+   "price": {
+    "text": "77,000원 ~ 88,000원",
+    "min": 77000,
+    "max": 88000
+   },
+   "amenitiesText": "기본적인 용품 구비."
+  }
+ },
+ {
+  "id": "278ddc10-ceae-8111-8e39-f36e18f37029",
+  "type": "stay",
+  "name": "쉼멍스테이",
+  "region": {
+   "direction": "west",
+   "town": "대정읍",
+   "raw": "서쪽 (대정읍)"
+  },
+  "features": "강아지 펜션답게 드넓은 잔디 마당이 있어 뛰어놀기 너무 좋은 곳이에요. 호텔 부럽지 않은 조식을 먹을 수 있어요. 사람들 후기 진짜 좋은 곳!",
+  "petPolicyText": "7kg 미만의 최대 2마리 가능.\n1마리당 1만원.",
+  "reviewUrl": "https://blog.naver.com/luna0723/223202865136",
+  "naverUrl": "https://naver.me/GyNxBCbx",
+  "naverPlaceId": "1109024946",
+  "geo": {
+   "lat": 33.223636,
+   "lng": 126.2459806
+  },
+  "address": "제주 서귀포시 대정읍 신영로 16-14 제주애견펜션 쉼멍스테이",
+  "category": "펜션",
+  "images": [],
+  "stay": {
+   "price": {
+    "text": "110,000원 ~ 120,000원",
+    "min": 110000,
+    "max": 120000
+   },
+   "amenitiesText": "기본적인 용품 구비."
+  }
+ },
+ {
+  "id": "278ddc10-ceae-8117-9d64-c4ca29d14941",
+  "type": "stay",
+  "name": "아름다운 호야네",
+  "region": {
+   "direction": "south",
+   "town": "표선면",
+   "raw": "남쪽 (표선면)"
+  },
+  "features": "700명 규모의 예쁜 정원이 있는 숙소에요. 곳곳에 포토존이 있어 사진 찍기도 좋아요. (맛있는 조식도 줍니당)",
+  "petPolicyText": "10kg 미만의 최대 2마리 가능.\n1마리당 1만원.",
+  "reviewUrl": "https://blog.naver.com/yj_997/222035991632",
+  "naverUrl": "https://naver.me/x3qfa0bb",
+  "naverPlaceId": "1787698882",
+  "geo": {
+   "lat": 33.3301608,
+   "lng": 126.7605455
+  },
+  "address": "제주 서귀포시 표선면 토산중앙로 487-134",
+  "category": "펜션",
+  "images": [],
+  "stay": {
+   "price": {
+    "text": "120,000원",
+    "min": 120000,
+    "max": 120000
+   },
+   "amenitiesText": "기본적인 용품 구비."
+  }
+ },
+ {
+  "id": "278ddc10-ceae-8129-ad4a-febab76cac54",
+  "type": "stay",
+  "name": "소길스테이",
+  "region": {
+   "direction": "west",
+   "town": "애월읍",
+   "raw": "서쪽 (애월읍)"
+  },
+  "features": "넓은 잔디 마당이 있어 뛰어놀기 좋은 곳이에요.",
+  "petPolicyText": "10kg 미만의 1마리만 가능. (1만원 추가)",
+  "reviewUrl": "https://blog.naver.com/cu2rie/223196867515",
+  "naverUrl": "https://naver.me/Gn0RpHZo",
+  "naverPlaceId": "1213462405",
+  "geo": {
+   "lat": 33.4392008,
+   "lng": 126.383878
+  },
+  "address": "제주 제주시 애월읍 장소로 147-23",
+  "category": "민박",
+  "images": [],
+  "stay": {
+   "price": {
+    "text": "90,000원 ~ 120,000원",
+    "min": 90000,
+    "max": 120000
+   },
+   "amenitiesText": "없음."
+  }
+ },
+ {
+  "id": "278ddc10-ceae-81f7-95d9-ef29d3e794b2",
+  "type": "stay",
+  "name": "서쪽에서 귤이네",
+  "region": {
+   "direction": "west",
+   "town": "한경면",
+   "raw": "서쪽 (한경면)"
+  },
+  "features": "오래된 제주의 돌담주택을 리모델링 한 감성 숙소에요. 내부 사진을 보면 반할 수 밖에 없음! 마당에선 바베큐와 불멍도 즐길 수 있어요.",
+  "petPolicyText": "정보 없음. (문의해보시면 가장 정확할 것 같아요)",
+  "reviewUrl": "https://blog.naver.com/with__mong/223442263095",
+  "naverUrl": "https://naver.me/53l13hNk",
+  "naverPlaceId": "1825214446",
+  "geo": {
+   "lat": 33.3175813,
+   "lng": 126.2708443
+  },
+  "address": "제주 제주시 한경면 명이3길 64",
+  "category": "펜션",
+  "images": [],
+  "stay": {
+   "price": {
+    "text": "200,000원",
+    "min": 200000,
+    "max": 200000
+   },
+   "amenitiesText": "기본적인 용품 구비."
+  }
+ },
+ {
+  "id": "278ddc10-ceae-8117-a75c-fea607fde7cd",
+  "type": "stay",
+  "name": "제주블루스",
+  "region": {
+   "direction": "west",
+   "town": "대정읍",
+   "raw": "서쪽 (대정읍)"
+  },
+  "features": "돌담 인테리어가 진짜 예쁜 곳이에요. 제주스러움을 찾는다면 바로 여기! (웰컴 와인도 주십니다)",
+  "petPolicyText": "정보 없음. (문의해보시면 가장 정확할 것 같아요)",
+  "reviewUrl": "https://blog.naver.com/jwkeb/223229920905",
+  "naverUrl": "https://naver.me/Fqi3KdJh",
+  "naverPlaceId": "1771913853",
+  "geo": {
+   "lat": 33.2462351,
+   "lng": 126.2825956
+  },
+  "address": "제주 서귀포시 대정읍 인성로 30-1 1층",
+  "category": "펜션",
+  "images": [],
+  "stay": {
+   "price": {
+    "text": "120,000원 ~ 150,000원",
+    "min": 120000,
+    "max": 150000
+   },
+   "amenitiesText": "정보 없음."
+  }
+ },
+ {
+  "id": "278ddc10-ceae-81ff-9b0b-ddf30c1d5347",
+  "type": "stay",
+  "name": "수선화민박",
+  "region": {
+   "direction": "east",
+   "town": "구좌읍",
+   "raw": "동쪽 (구좌읍)"
+  },
+  "features": "거실 통창으로 멋진 일몰과 한라산을 감상할 수 있어요. 큰방과 작은방이 있어 가족들과 머물기 좋아요.",
+  "petPolicyText": "정보 없음. (문의해보시면 가장 정확할 것 같아요)",
+  "reviewUrl": "https://blog.naver.com/y_jen/223413687666",
+  "naverUrl": "https://naver.me/xv36QyaM",
+  "naverPlaceId": "1767019461",
+  "geo": {
+   "lat": 33.5373964,
+   "lng": 126.8345235
+  },
+  "address": "제주 제주시 구좌읍 계룡길 25-11",
+  "category": "민박",
+  "images": [],
+  "stay": {
+   "price": {
+    "text": "200,000원 ~ 240,000원",
+    "min": 200000,
+    "max": 240000
+   },
+   "amenitiesText": "없음."
+  }
+ },
+ {
+  "id": "278ddc10-ceae-8129-bea9-e09a45eb1d15",
+  "type": "stay",
+  "name": "백화stay",
+  "region": {
+   "direction": "east",
+   "town": "조천읍",
+   "raw": "동쪽 (조천읍)"
+  },
+  "features": "넓은 잔디 마당이 있는 독채 숙소에요. 최대 6인이라 가족 여행에 추천!",
+  "petPolicyText": "견종 제한, 견수 제한 없음.\n반려동물 추가금 없음.",
+  "reviewUrl": "https://blog.naver.com/outsun_/223438096007",
+  "naverUrl": "https://naver.me/5VlR3pgP",
+  "naverPlaceId": "1345972084",
+  "geo": {
+   "lat": 33.4710642,
+   "lng": 126.7088724
+  },
+  "address": "제주 제주시 조천읍 선교로 403",
+  "category": "민박",
+  "images": [],
+  "stay": {
+   "price": {
+    "text": "250,000원 (4인)",
+    "min": 250000,
+    "max": 250000,
+    "note": "4인"
+   },
+   "amenitiesText": "기본적인 용품 구비."
+  }
+ },
+ {
+  "id": "278ddc10-ceae-81f7-b483-d3d441d7dd0e",
+  "type": "stay",
+  "name": "돌담연가",
+  "region": {
+   "direction": "east",
+   "town": "조천읍",
+   "raw": "동쪽 (조천읍)"
+  },
+  "features": "600평 규모의 정원이 있는 유럽 느낌 물씬 풍기는 독채 숙소에요. 자쿠지 겸 실내 미니 풀장도 있어요.",
+  "petPolicyText": "1마리당 5만원.",
+  "reviewUrl": "https://blog.naver.com/210606_/223463424498",
+  "naverUrl": "https://naver.me/xxR9VpKq",
+  "naverPlaceId": "1524319016",
+  "geo": {
+   "lat": 33.512442,
+   "lng": 126.6382661
+  },
+  "address": "제주 제주시 조천읍 조와로5길 45-2 1층",
+  "category": "펜션",
+  "images": [],
+  "stay": {
+   "price": {
+    "text": "240,000원 ~ 270,000원",
+    "min": 240000,
+    "max": 270000
+   },
+   "amenitiesText": "기본적인 용품 구비."
+  }
+ },
+ {
+  "id": "278ddc10-ceae-8134-92a1-d78e8a84ce65",
+  "type": "stay",
+  "name": "제주애빛",
+  "region": {
+   "direction": "east",
+   "town": "구좌읍",
+   "raw": "동쪽 (구좌읍)"
+  },
+  "features": "아늑하고 따뜻한 분위기의 숙소에요. 평대해변과 가까워 바다를 거닐며 산책하기 좋아요. 대형 자쿠지도 있어요!",
+  "petPolicyText": "정보 없음. (문의해보시면 가장 정확할 것 같아요)\n반려묘도 동반 가능!!",
+  "reviewUrl": "https://blog.naver.com/dkanjdi34/223078440274",
+  "naverUrl": "https://naver.me/5teiUgbN",
+  "naverPlaceId": "1388430357",
+  "geo": {
+   "lat": 33.5416173,
+   "lng": 126.8311893
+  },
+  "address": "제주 제주시 구좌읍 해맞이해안로 1016",
+  "category": "펜션",
+  "images": [],
+  "stay": {
+   "price": {
+    "text": "300,000원 ~ 500,000원",
+    "min": 300000,
+    "max": 500000
+   },
+   "amenitiesText": "정보 없음."
+  }
+ },
+ {
+  "id": "278ddc10-ceae-810e-9b37-c2a83b442865",
+  "type": "stay",
+  "name": "스테이다랑쉬",
+  "region": {
+   "direction": "east",
+   "town": "구좌읍",
+   "raw": "동쪽 (구좌읍)"
+  },
+  "features": "원룸형 객실이지만 쾌적하고 깔끔한 숙소에요. 비자림 근처라 초록초록한 뷰를 감상할 수 있어요.",
+  "petPolicyText": "7kg 이하의 최대 2마리 가능.",
+  "reviewUrl": "https://blog.naver.com/cozyzzz-/223462763478",
+  "naverUrl": "https://naver.me/GLAYqrTL",
+  "naverPlaceId": "1097661082",
+  "geo": {
+   "lat": 33.4953141,
+   "lng": 126.8084044
+  },
+  "address": "제주 제주시 구좌읍 비자림로 2239 스테이다랑쉬",
+  "category": "기타숙박업",
+  "images": [],
+  "stay": {
+   "price": {
+    "text": "103,000원",
+    "min": 103000,
+    "max": 103000
+   },
+   "amenitiesText": "기본적인 용품 구비."
+  }
+ },
+ {
+  "id": "278ddc10-ceae-8150-9b14-c3de29aa3898",
+  "type": "stay",
+  "name": "디어마이프렌즈 제주",
+  "region": {
+   "direction": "west",
+   "town": "한경면",
+   "raw": "서쪽 (한경면)"
+  },
+  "features": "유럽 작은 시골 마을에 있는 것 같은 느낌을 주는 숙소에요. 강아지들이 뛰어놀 수 있는 넓은 잔디 마당과 함께 물놀이를 즐길 수 있는 야외 자쿠지가 있어요!",
+  "petPolicyText": "최대 2마리까지 가능. (10kg까지)\n1마리당 5만원.",
+  "reviewUrl": "https://blog.naver.com/qkrdbsgp02/223400357984",
+  "naverUrl": "https://naver.me/xmtMDa4Q",
+  "naverPlaceId": "1839662983",
+  "geo": {
+   "lat": 33.3204113,
+   "lng": 126.2452844
+  },
+  "address": "제주 제주시 한경면 청수로 14",
+  "category": "펜션",
+  "images": [],
+  "stay": {
+   "price": {
+    "text": "250,000원 ~ 260,000원",
+    "min": 250000,
+    "max": 260000
+   },
+   "amenitiesText": "기본적인 용품 구비. 펫드라이룸도 있어요! (강아지 방이 따로 있어요)"
+  }
+ },
+ {
+  "id": "278ddc10-ceae-81bd-800f-d915b9ecc8b9",
+  "type": "stay",
+  "name": "맘앤도그",
+  "region": {
+   "direction": "east",
+   "town": "구좌읍",
+   "raw": "동쪽 (구좌읍)"
+  },
+  "features": "가정집 같은 느낌의 프라이빗한 독채 펜션이에요. 필요한 물품은 모두 구비되어 있어 가족 단위로 오래 머물기 좋아요.",
+  "petPolicyText": "정보 없음. (문의해보시면 가장 정확할 것 같아요)\n대형견도 동반 가능!!",
+  "reviewUrl": "https://blog.naver.com/hapheee/223172699441",
+  "naverUrl": "https://naver.me/5K5Vh1hT",
+  "naverPlaceId": "1130494400",
+  "geo": {
+   "lat": 33.4708931,
+   "lng": 126.7844898
+  },
+  "address": "제주 제주시 구좌읍 송당4길 5",
+  "category": "펜션",
+  "images": [],
+  "stay": {
+   "price": {
+    "text": "200,000원 ~ 270,000원 (4인)",
+    "min": 200000,
+    "max": 270000,
+    "note": "4인"
+   },
+   "amenitiesText": "기본적인 용품 구비."
+  }
+ },
+ {
+  "id": "278ddc10-ceae-8154-b98c-e740d70ee3e4",
+  "type": "stay",
+  "name": "부띠크풀빌라 나미브",
+  "region": {
+   "direction": "west",
+   "town": "한경면",
+   "raw": "서쪽 (한경면)"
+  },
+  "features": "프라이빗한 독채 풀빌라에요. 야외 잔디 마당이 있어 강아지들이 뛰어놀기 좋고, 개별 수영장에서 함께 물놀이도 즐길 수 있어요.",
+  "petPolicyText": "소형견에 한해 동반 입실 가능.\n1마리당 3만원.",
+  "reviewUrl": "https://blog.naver.com/yd2470/223502274506",
+  "naverUrl": "https://naver.me/xXEHUPcc",
+  "naverPlaceId": "1151029120",
+  "geo": {
+   "lat": 33.3656559,
+   "lng": 126.2035218
+  },
+  "address": "제주 제주시 한경면 판포4길 41-41 부띠끄풀빌라나미브",
+  "category": "펜션",
+  "images": [],
+  "stay": {
+   "price": {
+    "text": "279,300원 ~ 449,000원",
+    "min": 279300,
+    "max": 449000
+   },
+   "amenitiesText": "기본적인 용품 구비."
+  }
+ },
+ {
+  "id": "278ddc10-ceae-81fe-abea-eac5bbdbf35f",
+  "type": "stay",
+  "name": "웨스티하우스",
+  "region": {
+   "direction": "south",
+   "town": "안덕면",
+   "raw": "남쪽 (안덕면)"
+  },
+  "features": "통나무 집에 대한 로망이 있다면 바로 여기! 동남아 휴양지에 온 것 같은 넓은 정원이 예쁜 곳이에요.",
+  "petPolicyText": "10kg 미만의 경우 최대 2마리 가능. 20kg 미만(중형견)의 경우 최대 1마리 가능.\n1마리당 1-2만원.",
+  "reviewUrl": "https://blog.naver.com/dnflqordl/223408528685",
+  "naverUrl": "https://naver.me/GjZu4Jej",
+  "naverPlaceId": "31462608",
+  "geo": {
+   "lat": 33.261082,
+   "lng": 126.3565274
+  },
+  "address": "제주 서귀포시 안덕면 일주서로1488번길 9 웨스티하우스",
+  "category": "펜션",
+  "images": [],
+  "stay": {
+   "price": {
+    "text": "140,000원 ~ 220,000원",
+    "min": 140000,
+    "max": 220000
+   },
+   "amenitiesText": "기본적인 용품 구비."
+  }
+ },
+ {
+  "id": "278ddc10-ceae-817e-a3a9-e105f0cfae13",
+  "type": "stay",
+  "name": "오늘도제주 애월오제",
+  "region": {
+   "direction": "west",
+   "town": "애월읍",
+   "raw": "서쪽 (애월읍)"
+  },
+  "features": "유튜버 리쥬라이크 유준이가 제주살이 한 집! 호텔에서는 느낄 수 없는 제주 분위기가 낭낭한 프라이빗 숙소에요.",
+  "petPolicyText": "1마리당 3만원. (최대 2마리 15kg 미만)",
+  "reviewUrl": "https://blog.naver.com/seja_cheakbong/223677504616",
+  "naverUrl": "https://naver.me/GlmBHM9x",
+  "naverPlaceId": "1280403326",
+  "geo": {
+   "lat": 33.4180174,
+   "lng": 126.3112806
+  },
+  "address": "제주 제주시 애월읍 봉성로 45-1",
+  "category": "펜션",
+  "images": [],
+  "stay": {
+   "price": {
+    "text": "170,000원 ~ 190,000원",
+    "min": 170000,
+    "max": 190000
+   },
+   "amenitiesText": "기본적인 용품 구비."
+  }
+ },
+ {
+  "id": "278ddc10-ceae-81b1-af5d-ca8dc858c6d7",
+  "type": "stay",
+  "name": "스테이모슬",
+  "region": {
+   "direction": "west",
+   "town": "대정읍",
+   "raw": "서쪽 (대정읍)"
+  },
+  "features": "우리 강아지랑 함께 즐길 수 있는 초록색의 감성 야외 자쿠지가 있어요. 모든 견종이 동반 가능하답니다 :-)",
+  "petPolicyText": "1마리당 2만원. (무게 제한 없이 대형견도 가능해요)",
+  "reviewUrl": "https://blog.naver.com/ekrodsyd1/223449951589",
+  "naverUrl": "https://naver.me/F88DDdQJ",
+  "naverPlaceId": "1128963933",
+  "geo": {
+   "lat": 33.2218358,
+   "lng": 126.2584061
+  },
+  "address": "제주 서귀포시 대정읍 영서중로 45-3 1층",
+  "category": "펜션",
+  "images": [],
+  "stay": {
+   "price": {
+    "text": "240,000원",
+    "min": 240000,
+    "max": 240000
+   },
+   "amenitiesText": "기본적인 용품 구비."
+  }
+ },
+ {
+  "id": "278ddc10-ceae-81d9-b584-fbbc031c91be",
+  "type": "stay",
+  "name": "13월봄",
+  "region": {
+   "direction": "west",
+   "town": "애월읍",
+   "raw": "서쪽 (애월읍)"
+  },
+  "features": "빈티지한 소품으로 정성스럽게 꾸며진 아기자기한 숙소에요. 400평 규모의 넓은 잔디 마당도 있어요!",
+  "petPolicyText": "10kg 미만의 경우 최대 2마리까지 가능.",
+  "reviewUrl": "https://blog.naver.com/tnswooo/223820026859",
+  "naverUrl": "https://naver.me/GubySkw8",
+  "naverPlaceId": "1625161932",
+  "geo": {
+   "lat": 33.4278948,
+   "lng": 126.3123074
+  },
+  "address": "제주 제주시 애월읍 구몰동길 6 13월봄",
+  "category": "펜션",
+  "images": [],
+  "stay": {
+   "price": {
+    "text": "190,000원 ~ 240,000원",
+    "min": 190000,
+    "max": 240000
+   },
+   "amenitiesText": "강아지 식기, 티슈, 탈취제만 구비."
+  }
+ },
+ {
+  "id": "278ddc10-ceae-814b-8874-f910bda10a1c",
+  "type": "stay",
+  "name": "요호르기 스테이",
+  "region": {
+   "direction": "west",
+   "town": "애월읍",
+   "raw": "서쪽 (애월읍)"
+  },
+  "features": "옛날 돌담의 시골집 감성을 물씬 느낄 수 있는 독채펜션이에요! 넓은 마당이 있어 강아지가 자유롭게 뛰어놀 수 있어요.",
+  "petPolicyText": "대형견 2마리까지 무료 동반 가능.",
+  "reviewUrl": "https://blog.naver.com/gpdls2001/223844816726",
+  "naverUrl": "https://naver.me/Gq8V8KW0",
+  "naverPlaceId": "1268585477",
+  "images": [],
+  "stay": {
+   "price": {
+    "text": "150,000원 ~ 200,000원\n(인스타 DM이 빨라요)",
+    "min": 150000,
+    "max": 200000,
+    "note": "인스타 DM이 빨라요"
+   },
+   "amenitiesText": "기본적인 용품 구비."
+  }
+ },
+ {
+  "id": "278ddc10-ceae-81b9-8cfc-c1b0274892a7",
+  "type": "stay",
+  "name": "캄 : Kalm",
+  "region": {
+   "direction": "south",
+   "town": "표선면",
+   "raw": "남쪽 (표선면)"
+  },
+  "features": "화이트와 우드 조화의 깔끔하고 아늑한 숙소! 주인도 강쥐도 모두 좋아하는 예쁜 야외 정원이 있어요.",
+  "petPolicyText": "1마리당 3만원. (2마리 또는 10kg 이상 4만원)",
+  "reviewUrl": "https://blog.naver.com/needyouu/223716326245",
+  "naverUrl": "https://naver.me/5XJtuMAs",
+  "naverPlaceId": "1646483770",
+  "geo": {
+   "lat": 33.3087502,
+   "lng": 126.7758322
+  },
+  "address": "제주 서귀포시 표선면 토산중앙로49번길 29-3",
+  "category": "민박",
+  "images": [],
+  "stay": {
+   "price": {
+    "text": "180,000원 ~ 270,000원",
+    "min": 180000,
+    "max": 270000
+   },
+   "amenitiesText": "기본적인 용품 구비."
+  }
+ },
+ {
+  "id": "27bddc10-ceae-8081-b9c2-f20b8d3ea045",
+  "type": "stay",
+  "name": "제주하도",
+  "region": {
+   "direction": "east",
+   "town": "구좌읍",
+   "raw": "동쪽 (구좌읍)"
+  },
+  "features": "제주도 감성을 정말 찐하게 느껴보고 싶다면! 오래된 제주식 가옥을 리모델링한 독채숙소로, 자쿠지가 있어 강아지와 프라이빗하게 물놀이를 즐길 수 있어요~",
+  "petPolicyText": "10kg 미만의 1마리만 가능. (3만원 추가)",
+  "reviewUrl": "https://blog.naver.com/jiwon9117/223846308359",
+  "naverUrl": "https://naver.me/5jJTqx52",
+  "naverPlaceId": "895534061",
+  "geo": {
+   "lat": 33.521147,
+   "lng": 126.8871384
+  },
+  "address": "제주 제주시 구좌읍 문주란로5길 23-4 제주하도",
+  "category": "펜션",
+  "images": [],
+  "stay": {
+   "price": {
+    "text": "170,000원 ~ 190,000원",
+    "min": 170000,
+    "max": 190000
+   },
+   "amenitiesText": "기본적인 용품 구비."
+  }
+ },
+ {
+  "id": "278ddc10-ceae-81aa-801a-fb6184c3b397",
+  "type": "restaurant",
+  "name": "부부키친",
+  "region": {
+   "direction": "east",
+   "town": "성산읍",
+   "raw": "동쪽 (성산읍)"
+  },
+  "features": "일본 가정식과 소바 전문점으로 치킨난반정식을 꼭 먹어야 해요.",
+  "petPolicyText": "실내 불가능. 바깥 하우스 자리만 가능. (근데 귤밭이라 더 예뻐요)",
+  "reviewUrl": "https://blog.naver.com/gowoon0924/223024670104",
+  "naverUrl": "https://naver.me/xWpYWqiM",
+  "naverPlaceId": "1099838358",
+  "geo": {
+   "lat": 33.4430953,
+   "lng": 126.8880797
+  },
+  "address": "제주 서귀포시 성산읍 서성일로 1024 부부키친",
+  "category": "일식당",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-8186-af44-f5be0a0174e8",
+  "type": "restaurant",
+  "name": "정체불명",
+  "region": {
+   "direction": "east",
+   "town": "성산읍",
+   "raw": "동쪽 (성산읍)"
+  },
+  "features": "이색적인 분위기의 수제버거집으로, 룸에서 프라이빗하게 식사를 할 수 있어요. 예약제 운영. 귀여운 사장님네 반려견 ‘로린이’를 만날 수 있어요.",
+  "petPolicyText": "실내외 모두 가능하다고 나오지만, 방문 전 꼭 전화로 확인하고 가세요.",
+  "reviewUrl": "https://blog.naver.com/kimsy0_4/222080722126",
+  "naverUrl": "https://naver.me/Fm2DnPqh",
+  "naverPlaceId": "1282162525",
+  "geo": {
+   "lat": 33.3721207,
+   "lng": 126.8508026
+  },
+  "address": "제주 서귀포시 성산읍 삼달로163번길 34",
+  "category": "카페,디저트",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-81ed-9ff5-d3f7e4e1a263",
+  "type": "restaurant",
+  "name": "모닥식탁",
+  "region": {
+   "direction": "east",
+   "town": "구좌읍",
+   "raw": "동쪽 (구좌읍)"
+  },
+  "features": "딱새우 카레와 돌문어 카레를 먹을 수 있는 특색있는 찐 카레 맛집이에요.",
+  "petPolicyText": "케이지 동반시 가능.",
+  "reviewUrl": "https://blog.naver.com/minipuzzle/223185834587",
+  "naverUrl": "https://naver.me/FiOROES1",
+  "naverPlaceId": "1382122382",
+  "geo": {
+   "lat": 33.5309576,
+   "lng": 126.8173387
+  },
+  "address": "제주 제주시 구좌읍 한동로 136",
+  "category": "카레",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-8115-b521-c7966bb294e4",
+  "type": "restaurant",
+  "name": "복자씨연탄구이",
+  "region": {
+   "direction": "east",
+   "town": "성산읍",
+   "raw": "동쪽 (성산읍)"
+  },
+  "features": "성산에서 꼭 먹어야 하는 흑돼지구이 맛집이에요. 구워주시기도 하셔서 편안하게 식사할 수 있어요.",
+  "petPolicyText": "케이지 동반시 가능.",
+  "reviewUrl": "https://blog.naver.com/yesmiran/223155227418",
+  "naverUrl": "https://naver.me/5iz06hu3",
+  "naverPlaceId": "35769744",
+  "geo": {
+   "lat": 33.4693028,
+   "lng": 126.9199372
+  },
+  "address": "제주 서귀포시 성산읍 해맞이해안로 2764",
+  "category": "돼지고기구이",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-818c-9079-de7669613029",
+  "type": "restaurant",
+  "name": "평대반점(바당반점)",
+  "region": {
+   "direction": "east",
+   "town": "구좌읍",
+   "raw": "동쪽 (구좌읍)"
+  },
+  "features": "야채와 고기가 듬뿍 들어간 짬뽕 맛집이에요. 평대해변 바다 뷰를 보며 식사할 수 있어요.",
+  "petPolicyText": "케이지 동반시 가능.",
+  "reviewUrl": "https://blog.naver.com/t_mimi_/223154396515",
+  "naverUrl": "https://naver.me/GBF0Y7xn",
+  "naverPlaceId": "1368610213",
+  "geo": {
+   "lat": 33.5367098,
+   "lng": 126.8402676
+  },
+  "address": "제주 제주시 구좌읍 해맞이해안로 1140 1층 평대바당반점",
+  "category": "중식당",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-81ce-b287-fa0526ba0f13",
+  "type": "restaurant",
+  "name": "제주그리미",
+  "region": {
+   "direction": "east",
+   "town": "조천읍",
+   "raw": "동쪽 (조천읍)"
+  },
+  "features": "정갈하고 알차게 나오는 백반 한상이에요. 아이도 함께 가기 좋아요.",
+  "petPolicyText": "케이지 동반시 가능.",
+  "reviewUrl": "https://blog.naver.com/aritaul_ruya/223286947375",
+  "naverUrl": "https://naver.me/GUQThnek",
+  "naverPlaceId": "1061427081",
+  "geo": {
+   "lat": 33.5047978,
+   "lng": 126.7076403
+  },
+  "address": "제주 제주시 조천읍 중산간동로 1364 1층",
+  "category": "한식",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-8124-a2a5-f1ea72225ff7",
+  "type": "restaurant",
+  "name": "고기굽는 해녀",
+  "region": {
+   "direction": "east",
+   "town": "구좌읍",
+   "raw": "동쪽 (구좌읍)"
+  },
+  "features": "흑오겹살 맛집이지만 꽃게가 들어간 된장찌개와 인생 비빔냉면을 먹을 수 있어요. 직접 구워주셔서 편안하게 식사할 수 있어요.",
+  "petPolicyText": "케이지 동반시 가능.",
+  "reviewUrl": "https://blog.naver.com/outsun_/223119258281",
+  "naverUrl": "https://naver.me/xfk2gd6z",
+  "naverPlaceId": "1614019309",
+  "geo": {
+   "lat": 33.5360199,
+   "lng": 126.8267704
+  },
+  "address": "제주 제주시 구좌읍 한동로1길 25 1층",
+  "category": "육류,고기요리",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-819c-bab9-dea5ccc91d1f",
+  "type": "restaurant",
+  "name": "동카름",
+  "region": {
+   "direction": "east",
+   "town": "조천읍",
+   "raw": "동쪽 (조천읍)"
+  },
+  "features": "매콤한 낙지볶음이 유명한 곳으로, 맵기 조절도 가능해요.",
+  "petPolicyText": "케이지 동반시 가능.",
+  "reviewUrl": "https://blog.naver.com/hyeon8302/223447482812",
+  "naverUrl": "https://naver.me/5L3o3mxM",
+  "naverPlaceId": "1668139213",
+  "geo": {
+   "lat": 33.5378813,
+   "lng": 126.623317
+  },
+  "address": "제주 제주시 조천읍 신촌9길 40-3 동카름식당",
+  "category": "한식",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-8145-8f1d-dbbdafaa67ec",
+  "type": "restaurant",
+  "name": "무거버거",
+  "region": {
+   "direction": "east",
+   "town": "조천읍",
+   "raw": "동쪽 (조천읍)"
+  },
+  "features": "당근 버거와 시금치 버거 등 건강한 수제버거로 유명해요. 메뉴에 따라 빵의 색깔도 달라 눈으로도 즐길 수 있어요.",
+  "petPolicyText": "실내에서는 케이지 필수. 실외는 자유롭게 이용 가능.",
+  "reviewUrl": "https://blog.naver.com/marshmallow_travel/223508976929",
+  "naverUrl": "https://naver.me/xec1ygqG",
+  "naverPlaceId": "70213029",
+  "geo": {
+   "lat": 33.5490359,
+   "lng": 126.65508
+  },
+  "address": "제주 제주시 조천읍 조함해안로 356 무거버거",
+  "category": "햄버거",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-81cc-acc2-d947cdc49681",
+  "type": "restaurant",
+  "name": "함덕해물라면 오빠네",
+  "region": {
+   "direction": "east",
+   "town": "조천읍",
+   "raw": "동쪽 (조천읍)"
+  },
+  "features": "자칭 ‘라면이 요리가 되는 집’. 해물라면과 보말칼국수가 유명해요. 전복치즈밥도 별미~",
+  "petPolicyText": "케이지 동반시 가능.",
+  "reviewUrl": "https://blog.naver.com/ubtr11/223358958271",
+  "naverUrl": "https://naver.me/5fP1JlQh",
+  "naverPlaceId": "1773810139",
+  "geo": {
+   "lat": 33.5428723,
+   "lng": 126.6726233
+  },
+  "address": "제주 제주시 조천읍 평사길 2 1층",
+  "category": "종합분식",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-81ec-8982-f66e2b6b2999",
+  "type": "restaurant",
+  "name": "호자",
+  "region": {
+   "direction": "east",
+   "town": "구좌읍",
+   "raw": "동쪽 (구좌읍)"
+  },
+  "features": "부드러운 고기와 바삭한 튀김옷의 돈까스 맛집이에요. 가격도 착해서 가성비가 좋아요.",
+  "petPolicyText": "케이지 동반시 가능.",
+  "reviewUrl": "https://blog.naver.com/xodidsid/222973914887",
+  "naverUrl": "https://naver.me/GB51zhHi",
+  "naverPlaceId": "1186764486",
+  "geo": {
+   "lat": 33.5214316,
+   "lng": 126.8576031
+  },
+  "address": "제주 제주시 구좌읍 세화8길 7 1층",
+  "category": "돈가스",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-81a5-bdc6-f899283c1a5b",
+  "type": "restaurant",
+  "name": "커뮤니테이블",
+  "region": {
+   "direction": "south",
+   "town": "서귀포시",
+   "detail": "월평로",
+   "raw": "남쪽 (서귀포시 월평로)"
+  },
+  "features": "옛날 제주 구옥을 개조한 곳으로, 천연 조미료만 사용해요. 고등어 파스타가 유명해요.",
+  "petPolicyText": "케이지 동반시 가능.",
+  "reviewUrl": "https://blog.naver.com/boryhome/223343882772",
+  "naverUrl": "https://naver.me/GMWjYpbf",
+  "naverPlaceId": "1124081828",
+  "geo": {
+   "lat": 33.2447904,
+   "lng": 126.459311
+  },
+  "address": "제주 서귀포시 월평로 15 우측 바깥채",
+  "category": "백반,가정식",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-8141-8fc4-ecefdf377c2c",
+  "type": "restaurant",
+  "name": "탐라갈치",
+  "region": {
+   "direction": "south",
+   "town": "서귀포시",
+   "detail": "소암로",
+   "raw": "남쪽 (서귀포시 소암로)"
+  },
+  "features": "갈치조림 맛집으로, 갈치회, 갈치탕수 등 다양한 갈치 요리를 맛볼 수 있어요. 반려동물 동반 공간이 따로 마련되어 있어 편안하게 식사할 수 있어요.",
+  "petPolicyText": "케이지 없이도 가능.",
+  "reviewUrl": "https://blog.naver.com/jaksim2day/222837154958",
+  "naverUrl": "https://naver.me/GpJfpKQx",
+  "naverPlaceId": "33875610",
+  "geo": {
+   "lat": 33.2449132,
+   "lng": 126.569612
+  },
+  "address": "제주 서귀포시 소암로 37",
+  "category": "생선회",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-815b-8c0b-dc86d14ce964",
+  "type": "restaurant",
+  "name": "호루의 한끼",
+  "region": {
+   "direction": "south",
+   "town": "서귀포시",
+   "raw": "남쪽 (서귀포시)"
+  },
+  "features": "담백하고 정갈한 한끼 밥상을 즐길 수 있는 곳이에요. 쌈밥도시락과 옥돔미역국이 유명해요. (사장님네 강아지 이름이 ‘호루’래요)",
+  "petPolicyText": "케이지 동반시 가능.",
+  "reviewUrl": "https://blog.naver.com/toqha1010/223397259039",
+  "naverUrl": "https://naver.me/FYIi85Fk",
+  "naverPlaceId": "1567674734",
+  "geo": {
+   "lat": 33.2787122,
+   "lng": 126.5831143
+  },
+  "address": "제주 서귀포시 516로277번길 29 1층",
+  "category": "한식",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-8159-8727-dad69655676d",
+  "type": "restaurant",
+  "name": "테이블앤데스크",
+  "region": {
+   "direction": "south",
+   "town": "남원읍",
+   "raw": "남쪽 (남원읍)"
+  },
+  "features": "하루에 30인분만 준비하는 양식당이에요. 가지튀김이 유명하고, ‘이 주의 메뉴’라는 매주 바뀌는 새로운 메뉴도 즐길 수 있어요.",
+  "petPolicyText": "케이지 동반시 가능.",
+  "reviewUrl": "https://blog.naver.com/olyvia8484/223152352757",
+  "naverUrl": "https://naver.me/x0zY9eDM",
+  "naverPlaceId": "910166441",
+  "geo": {
+   "lat": 33.2695617,
+   "lng": 126.6744927
+  },
+  "address": "제주 서귀포시 남원읍 태위로360번길 192 바깥집",
+  "category": "양식",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-81fb-9a7f-f431cda4dee1",
+  "type": "restaurant",
+  "name": "아일랜드 오아시스",
+  "region": {
+   "direction": "west",
+   "town": "한경면",
+   "raw": "서쪽 (한경면)"
+  },
+  "features": "마을의 과일 창고(선과장)를 개조한 곳으로, 스테이크, 파스타, 피자 등을 파는 캐쥬얼 레스토랑이에요. 식전 에피타이저로 주는 통밀빵과 카이막이 정말 맛있어요. (펫프렌들리한 곳이라 케이지 안이 아닌 옆자리에서 식사가 가능해요)",
+  "petPolicyText": "케이지 없이도 가능.",
+  "reviewUrl": "https://blog.naver.com/ecodongdong/223073432688",
+  "naverUrl": "https://naver.me/x4u2w1io",
+  "naverPlaceId": "1567301804",
+  "geo": {
+   "lat": 33.3379266,
+   "lng": 126.2281892
+  },
+  "address": "제주 제주시 한경면 홍수암로 555 더크러스트",
+  "category": "베이커리",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-8143-8d89-c35e11883ead",
+  "type": "restaurant",
+  "name": "심바카레",
+  "region": {
+   "direction": "west",
+   "town": "애월읍",
+   "raw": "서쪽 (애월읍)"
+  },
+  "features": "간판/컵/심지어 샌드위치 빵에서까지 귀여운 사장님네 강아지 ‘심바’ 캐릭터가 반겨주는 곳이에요. 일본식 카레와 돈까스를 먹을 수 있고, 야외 자리에서는 강아지가 자유롭게 돌아다닐 수 있어요.",
+  "petPolicyText": "케이지 동반시 가능.",
+  "reviewUrl": "https://blog.naver.com/tkj02084/223403845665",
+  "naverUrl": "https://naver.me/x2hCZB76",
+  "naverPlaceId": "878974631",
+  "geo": {
+   "lat": 33.4633813,
+   "lng": 126.316839
+  },
+  "address": "제주 제주시 애월읍 애월로 87-16 심바카레",
+  "category": "카레",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-81a3-bb70-e7a6cc040bf8",
+  "type": "restaurant",
+  "name": "신창해물라면와랑식탁",
+  "region": {
+   "direction": "west",
+   "town": "한경면",
+   "raw": "서쪽 (한경면)"
+  },
+  "features": "해물라면이 인기인 곳으로, 하루 40그릇만 판매하니 서둘러야 해요. 분리된 넓은 공간에서 반려동물과 편안하게 식사할 수 있어요.",
+  "petPolicyText": "케이지 동반시 가능. (대형견도 환영)",
+  "reviewUrl": "https://blog.naver.com/samoyed_kingmaru/222979802288",
+  "naverUrl": "https://naver.me/GCaoxMDR",
+  "naverPlaceId": "1126427625",
+  "geo": {
+   "lat": 33.3431902,
+   "lng": 126.17592
+  },
+  "address": "제주 제주시 한경면 한경해안로 512-8 1층",
+  "category": "라면",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-8127-af41-c13ca56b5ded",
+  "type": "restaurant",
+  "name": "모메든식당",
+  "region": {
+   "direction": "south",
+   "town": "서귀포시",
+   "detail": "일주서로",
+   "raw": "남쪽 (서귀포시 일주서로)"
+  },
+  "features": "흑돼지 삼겹살이 유명한 한식당이에요. 콜키지도 무료라 원하는 와인이 가져가서 같이 먹을 수 있어요. (강아지 방석도 챙겨주신답니담)",
+  "petPolicyText": "케이지 동반시 가능.",
+  "reviewUrl": "https://blog.naver.com/shanyday/223456421400",
+  "naverUrl": "https://naver.me/GJEy9NLH",
+  "naverPlaceId": "35644626",
+  "geo": {
+   "lat": 33.2534895,
+   "lng": 126.4545301
+  },
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-81f9-a98a-eef12e80e3a4",
+  "type": "restaurant",
+  "name": "미트타운",
+  "region": {
+   "direction": "west",
+   "town": "애월읍",
+   "raw": "서쪽 (애월읍)"
+  },
+  "features": "하와이를 연상케 하는 이국적인 느낌의 수제버거집이에요. 정통 수제버거뿐만 아니라 제주도만의 특별한 딱새우버거도 즐길 수 있어요.",
+  "petPolicyText": "케이지 동반시 가능.",
+  "reviewUrl": "https://blog.naver.com/mayura-88/223490098009",
+  "naverUrl": "https://naver.me/FhUcoeVR",
+  "naverPlaceId": "1523067573",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-8133-abd3-c9b353b0978c",
+  "type": "restaurant",
+  "name": "위미애머물다락쿤",
+  "region": {
+   "direction": "south",
+   "town": "남원읍",
+   "raw": "남쪽 (남원읍)"
+  },
+  "features": "정통 태국 요리를 전문으로 하는 곳이에요. 탁 트인 바다 뷰를 보며 식사할 수 있어요.",
+  "petPolicyText": "케이지 동반시 가능.",
+  "reviewUrl": "https://blog.naver.com/boryhome/223183439143",
+  "naverUrl": "https://naver.me/I5FcSV2C",
+  "naverPlaceId": "1968404203",
+  "geo": {
+   "lat": 33.5551025,
+   "lng": 126.8003965
+  },
+  "address": "제주 제주시 구좌읍 행원로1길 32-5",
+  "category": "태국음식",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-8198-aac4-f2cb97e365ec",
+  "type": "restaurant",
+  "name": "바당길",
+  "region": {
+   "direction": "west",
+   "town": "한림읍",
+   "raw": "서쪽 (한림읍)"
+  },
+  "features": "제주 해녀분들이 직접 채취한 최상급 보말을 보말칼국수가 유명해요.",
+  "petPolicyText": "케이지 동반시 가능.",
+  "reviewUrl": "https://blog.naver.com/lyj971219/223375813935",
+  "naverUrl": "https://naver.me/FvFVRix0",
+  "naverPlaceId": "819376798",
+  "geo": {
+   "lat": 33.4097747,
+   "lng": 126.2585115
+  },
+  "address": "제주 제주시 한림읍 한림서길 18 바당길",
+  "category": "칼국수,만두",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-811d-8d1b-e3eb89f19cd1",
+  "type": "restaurant",
+  "name": "백록집",
+  "region": {
+   "direction": "east",
+   "town": "조천읍",
+   "raw": "동쪽 (조천읍)"
+  },
+  "features": "제주도 조첩읍 함덕에 위치한 노포 횟집이에요. 술과 함께 해산물을 즐기기 딱인 곳!",
+  "petPolicyText": "케이지 동반시 가능.",
+  "reviewUrl": "https://blog.naver.com/heeee_jjin/223193128099",
+  "naverUrl": "https://naver.me/GFB75KKR",
+  "naverPlaceId": "1917333580",
+  "geo": {
+   "lat": 33.541813,
+   "lng": 126.6727518
+  },
+  "address": "제주 제주시 조천읍 함덕로 24",
+  "category": "생선회",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-8155-bfa9-c12d8a69b9c6",
+  "type": "restaurant",
+  "name": "달이뜨는식탁",
+  "region": {
+   "direction": "east",
+   "town": "구좌읍",
+   "raw": "동쪽 (구좌읍)"
+  },
+  "features": "흑돼지 돈까스가 유명한 현지인 맛집이에요. 양도 많아서 가성비가 좋아요.",
+  "petPolicyText": "케이지 동반시 가능.",
+  "reviewUrl": "https://blog.naver.com/from_luna/223713509553",
+  "naverUrl": "https://naver.me/Gmb4rfwn",
+  "naverPlaceId": "1019541842",
+  "geo": {
+   "lat": 33.5531535,
+   "lng": 126.7907932
+  },
+  "address": "제주 제주시 구좌읍 월정1길 14 달이뜨는식탁",
+  "category": "양식",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-813e-aa39-f5c8b9031c79",
+  "type": "restaurant",
+  "name": "오데뜨",
+  "region": {
+   "direction": "west",
+   "town": "한림읍",
+   "raw": "서쪽 (한림읍)"
+  },
+  "features": "제주도의 해산물과 이탈리안 음식이 합쳐진 느낌. 강아지를 위한 저염으로 만든 스테이크 등 전용 메뉴도 있어요.",
+  "petPolicyText": "케이지 동반시 가능.",
+  "reviewUrl": "https://blog.naver.com/xhakxh227/223453621666",
+  "naverUrl": "https://naver.me/GOP8ByJZ",
+  "naverPlaceId": "38554778",
+  "geo": {
+   "lat": 33.4108749,
+   "lng": 126.2955745
+  },
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-8172-877d-e2e03c64acfc",
+  "type": "restaurant",
+  "name": "협재고기부엌",
+  "region": {
+   "direction": "west",
+   "town": "한림읍",
+   "raw": "서쪽 (한림읍)"
+  },
+  "features": "가게 바로 앞이 협재해수욕장이라 바다를 보며 먹을 수 있어요. 고기를 직접 구워주셔서 편하게 먹을 수 있답니다.",
+  "petPolicyText": "케이지 동반시 가능. (중형견도 가능)",
+  "reviewUrl": "https://blog.naver.com/yjanna0212/223719188053",
+  "naverUrl": "https://naver.me/FDnyW3ka",
+  "naverPlaceId": "1774044671",
+  "geo": {
+   "lat": 33.3955984,
+   "lng": 126.2421547
+  },
+  "address": "제주 제주시 한림읍 협재1길 1 1층 협재고기부엌",
+  "category": "돼지고기구이",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-81bd-97a1-f2b808341e6a",
+  "type": "restaurant",
+  "name": "떠돌이식객",
+  "region": {
+   "direction": "east",
+   "town": "성산읍",
+   "raw": "동쪽 (성산읍)"
+  },
+  "features": "맛있는 해산물이 듬뿍 들어간 라면을 먹고 싶다면 여기! (강아지랑 함께 앉으려면 야외석만 가능해요 ㅜ)",
+  "petPolicyText": "케이지 동반시 가능.",
+  "reviewUrl": "https://blog.naver.com/bunny-dog/223814921063",
+  "naverUrl": "https://naver.me/Gj6X2vSx",
+  "naverPlaceId": "36606104",
+  "geo": {
+   "lat": 33.4369835,
+   "lng": 126.920753
+  },
+  "address": "제주 서귀포시 성산읍 신고로22번길 37",
+  "category": "한식",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-8108-b4a7-dd006de52649",
+  "type": "restaurant",
+  "name": "온오프",
+  "region": {
+   "direction": "udo",
+   "town": "우도면",
+   "raw": "우도면"
+  },
+  "features": "바질 치즈 돈까스가 유명해요. 바다뷰를 즐기며 식사할 수 있어요.",
+  "petPolicyText": "케이지 동반시 가능.",
+  "reviewUrl": "https://blog.naver.com/greenmang0987/223811606713",
+  "naverUrl": "https://naver.me/xv3GSDCh",
+  "naverPlaceId": "1894902699",
+  "geo": {
+   "lat": 33.5129056,
+   "lng": 126.9614323
+  },
+  "address": "제주 제주시 우도면 우도해안길 876 온오프",
+  "category": "돈가스",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-818a-a4a2-cbe4e40a430b",
+  "type": "restaurant",
+  "name": "갈치음식점 궁서체",
+  "region": {
+   "direction": "north",
+   "town": "제주시",
+   "raw": "북쪽 (제주시)"
+  },
+  "features": "제주 공항 근처에 위치한 갈치 요리에 진심인 집. 전복 물회도 맛있어요.",
+  "petPolicyText": "케이지 동반시 가능.",
+  "reviewUrl": "https://blog.naver.com/pcmm1/223617741496",
+  "naverUrl": "https://naver.me/FA2xV4gj",
+  "naverPlaceId": "1537128894",
+  "geo": {
+   "lat": 33.516817,
+   "lng": 126.5170075
+  },
+  "address": "제주 제주시 탑동로11길 6 2층 궁서체",
+  "category": "한식",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-8120-8b42-f09a0995a1ea",
+  "type": "restaurant",
+  "name": "돌담위에흑돼지",
+  "region": {
+   "direction": "west",
+   "town": "애월읍",
+   "raw": "서쪽 (애월읍)"
+  },
+  "features": "애월 바다뷰가 예쁜 흑돼지 맛집이에요. 고기를 직접 구워주셔서 편하게 먹을 수 있어요.",
+  "petPolicyText": "케이지 동반시 가능.",
+  "reviewUrl": "https://blog.naver.com/ghwjddms22/222961736702",
+  "naverUrl": "https://naver.me/5ISHAZox",
+  "naverPlaceId": "1144133108",
+  "geo": {
+   "lat": 33.4778488,
+   "lng": 126.3683375
+  },
+  "address": "제주 제주시 애월읍 애월해안로 608 1층",
+  "category": "돼지고기구이",
+  "images": []
+ },
+ {
+  "id": "27bddc10-ceae-802a-9feb-d9e02de8930f",
+  "type": "restaurant",
+  "name": "이어돈",
+  "region": {
+   "direction": "east",
+   "town": "성산읍",
+   "raw": "동쪽 (성산읍)"
+  },
+  "features": "흑돼지 삼겹살과 진한 된장찌개를 드셔보세요. 직접 구워주셔서 편안하게 식사할 수 있어요!",
+  "petPolicyText": "케이지 동반시 가능.",
+  "reviewUrl": "https://blog.naver.com/chuu-poo/224006098068",
+  "naverUrl": "https://naver.me/5fIpxxLd",
+  "naverPlaceId": "1049921095",
+  "geo": {
+   "lat": 33.4668202,
+   "lng": 126.9307086
+  },
+  "address": "제주 서귀포시 성산읍 성산등용로 44 이어돈 성산흑돼지",
+  "category": "돼지고기구이",
+  "images": []
+ },
+ {
+  "id": "27bddc10-ceae-8011-ac5d-fbf6364366c4",
+  "type": "restaurant",
+  "name": "취향의섬",
+  "region": {
+   "direction": "south",
+   "town": "남원읍",
+   "raw": "남쪽 (남원읍)"
+  },
+  "features": "흔하지 않은 메뉴를 먹어보고 싶다면 꼭 가봐야 하는 곳! 고등어 오일 파스타와 고사리 멜젓 파스타가 유명해요~",
+  "petPolicyText": "케이지 동반시 가능.",
+  "reviewUrl": "https://blog.naver.com/jiwon9117/223972302046",
+  "naverUrl": "https://naver.me/x3jFLvZw",
+  "naverPlaceId": "1694312549",
+  "geo": {
+   "lat": 33.2743475,
+   "lng": 126.6897617
+  },
+  "address": "제주 서귀포시 남원읍 태위로398번길 7 취향의 섬",
+  "category": "퓨전음식",
+  "images": []
+ },
+ {
+  "id": "27bddc10-ceae-804a-a692-ecf5df7410fb",
+  "type": "restaurant",
+  "name": "형제도식당본점",
+  "region": {
+   "direction": "south",
+   "town": "서귀포시",
+   "detail": "일주서로",
+   "raw": "남쪽 (서귀포시 일주서로)"
+  },
+  "features": "갈치구이냐, 조림이냐 힘든 고민할 필요없이 모두 다 먹어볼 수 있어요. 직원분들이 강아지도 엄청 신경써 주셔서 눈치 안보고 마음 편히 식사할 수 있는 곳이라고 합니다!",
+  "petPolicyText": "케이지 동반시 가능.",
+  "reviewUrl": "https://blog.naver.com/orosi_kitchen_/223995426317",
+  "naverUrl": "https://naver.me/FpxlIkOd",
+  "naverPlaceId": "37293796",
+  "geo": {
+   "lat": 33.2577805,
+   "lng": 126.4127863
+  },
+  "address": "제주 서귀포시 일주서로 915",
+  "category": "해물,생선요리",
+  "images": []
+ },
+ {
+  "id": "27bddc10-ceae-8045-a4ff-f79610004d2f",
+  "type": "restaurant",
+  "name": "배롱정원협재",
+  "region": {
+   "direction": "west",
+   "town": "한림읍",
+   "raw": "서쪽 (한림읍)"
+  },
+  "features": "딱새우 감바스와 딱새우 파스타가 유명해요. 야외 마당에 강아지를 자유롭게 풀어놓을 수도 있고, 식당 내부에서도 꼭 가방 안에 들어가 있지 않아도 되서 의자에 그냥 앉혀두거나 품에 안고 있어도 됩니다!",
+  "petPolicyText": "케이지 없이도 가능.",
+  "reviewUrl": "https://blog.naver.com/banhol/223604085203",
+  "naverUrl": "https://naver.me/xv3DjT2A",
+  "naverPlaceId": "1683086259",
+  "geo": {
+   "lat": 33.392996,
+   "lng": 126.2415118
+  },
+  "address": "제주 제주시 한림읍 협재4길 19 배롱정원",
+  "category": "브런치",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-8192-8c3e-f40ffc9b39e1",
+  "type": "cafe",
+  "name": "제이아일랜드",
+  "region": {
+   "direction": "east",
+   "town": "성산읍",
+   "raw": "동쪽 (성산읍)"
+  },
+  "features": "바다가 보이는 2층 카페로, 반려견과 함께 올레길을 걸은 후 방문하기 좋은 곳이에요.",
+  "petPolicyText": "실내외 모두 가능하지만 실내에서는 리드줄 착용 필요. 대형견도 입장 가능.",
+  "reviewUrl": "https://blog.naver.com/innapink/222797866956",
+  "naverUrl": "https://naver.me/GI36LpgM",
+  "naverPlaceId": "818364393",
+  "geo": {
+   "lat": 33.3787796,
+   "lng": 126.8797327
+  },
+  "address": "제주 서귀포시 성산읍 환해장성로 69 제이아일랜드",
+  "category": "카페,디저트",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-81e6-9c7a-df5dc9458d79",
+  "type": "cafe",
+  "name": "오늘당근",
+  "region": {
+   "direction": "east",
+   "town": "성산읍",
+   "raw": "동쪽 (성산읍)"
+  },
+  "features": "유기농 착즙 당근주스로 유명한 카페로, 바다를 보며 반려견과 함께 쉴 수 있어요.",
+  "petPolicyText": "실내외 모두 가능",
+  "reviewUrl": "https://blog.naver.com/rirajok/223231006217",
+  "naverUrl": "https://naver.me/5FmclAJR",
+  "naverPlaceId": "1529832283",
+  "geo": {
+   "lat": 33.3860994,
+   "lng": 126.8822504
+  },
+  "address": "제주 서귀포시 성산읍 일주동로 5023",
+  "category": "카페,디저트",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-8196-a113-f04ed0014668",
+  "type": "cafe",
+  "name": "개떼목장",
+  "region": {
+   "direction": "west",
+   "town": "안덕면",
+   "raw": "서쪽 (안덕면)"
+  },
+  "features": "대형견도 편안하게 뛰어놀 수 있는 넓은 놀이터를 갖춘 카페로, 반려견 전용 시설이 잘 갖추어져 있어요.",
+  "petPolicyText": "실내외 모두 가능",
+  "reviewUrl": "https://blog.naver.com/lucia_215/223220441594",
+  "naverUrl": "https://naver.me/GUQNY3Jc",
+  "naverPlaceId": "1778883516",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-8111-87db-fa748222c1da",
+  "type": "cafe",
+  "name": "카페글렌코",
+  "region": {
+   "direction": "east",
+   "town": "구좌읍",
+   "raw": "동쪽 (구좌읍)"
+  },
+  "features": "비자림로에 위치한 감성적인 분위기의 카페로, 반려견과 함께 할 수 있는 힐링 카페로 유명해요.",
+  "petPolicyText": "실내외 모두 가능",
+  "reviewUrl": "https://blog.naver.com/ssemi1012/223261280443",
+  "naverUrl": "https://naver.me/xdfaI3bA",
+  "naverPlaceId": "1281784128",
+  "geo": {
+   "lat": 33.4336731,
+   "lng": 126.7332423
+  },
+  "address": "제주 제주시 구좌읍 비자림로 1202",
+  "category": "카페,디저트",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-81e4-bb35-dfdefdcdd40e",
+  "type": "cafe",
+  "name": "쪼끌락",
+  "region": {
+   "direction": "east",
+   "town": "구좌읍",
+   "raw": "동쪽 (구좌읍)"
+  },
+  "features": "아늑한 분위기의 카페로, 반려견과 함께 조용한 시간을 보낼 수 있는 곳이에요.",
+  "petPolicyText": "실내외 모두 가능. (리드줄 착용 필수)",
+  "reviewUrl": "https://blog.naver.com/jini_photo/223418974767",
+  "naverUrl": "https://naver.me/Gi9E3u9C",
+  "naverPlaceId": "36399029",
+  "geo": {
+   "lat": 33.5578626,
+   "lng": 126.7552167
+  },
+  "address": "제주 제주시 구좌읍 김녕로21길 21 쪼끌락카페",
+  "category": "카페,디저트",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-8171-a585-e49734667b8a",
+  "type": "cafe",
+  "name": "브릭스제주",
+  "region": {
+   "direction": "east",
+   "town": "구좌읍",
+   "raw": "동쪽 (구좌읍)"
+  },
+  "features": "친절한 사장님이 직접 만드신 레고들을 구경할 수 있어요. 귀여운 고양이 ‘채영이’도 만날 수 있어요.",
+  "petPolicyText": "실내외 모두 가능",
+  "reviewUrl": "https://blog.naver.com/candy040991/223421076714",
+  "naverUrl": "https://naver.me/xuIiFsnv",
+  "naverPlaceId": "36830542",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-81a6-b1e9-c75a3fad9a21",
+  "type": "cafe",
+  "name": "롯지먼트",
+  "region": {
+   "direction": "east",
+   "town": "구좌읍",
+   "raw": "동쪽 (구좌읍)"
+  },
+  "features": "아기자기하고 예쁜 소품들이 많아요. 인스타 감성 좋아한다면 추천~ (우리 주인들도 즐겨야죠)",
+  "petPolicyText": "실내외 모두 가능",
+  "reviewUrl": "https://blog.naver.com/outsun_/223378906514",
+  "naverUrl": "https://naver.me/x2200t8F",
+  "naverPlaceId": "1090098579",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-8161-b4ec-cc9781707615",
+  "type": "cafe",
+  "name": "카페스누피",
+  "region": {
+   "direction": "east",
+   "town": "구좌읍",
+   "raw": "동쪽 (구좌읍)"
+  },
+  "features": "1천여 평의 실내 테마홀과 2만5천여 평의 야외 가든으로 구성된 자연형 체험 테마 가든이에요. 매주 수요일에는 ‘반려동물 동반데이’로 함께 입장이 가능해요.",
+  "petPolicyText": "실내외 모두 가능하지만 실내에서는 유모차/이동 가방 필요.",
+  "reviewUrl": "https://blog.naver.com/noriro_/223418650253",
+  "naverUrl": "https://naver.me/FxFBXVSi",
+  "naverPlaceId": "1837212560",
+  "geo": {
+   "lat": 33.4434523,
+   "lng": 126.7796945
+  },
+  "address": "제주 제주시 구좌읍 금백조로 916 스누피 가든",
+  "category": "카페,디저트",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-81c8-8e9f-c37fb7419e5d",
+  "type": "cafe",
+  "name": "블리스풀",
+  "region": {
+   "direction": "west",
+   "town": "애월읍",
+   "raw": "서쪽 (애월읍)"
+  },
+  "features": "소형견과 중대형견을 위한 별도의 운동장이 있어 안전하게 놀 수 있으며, 포토존도 마련되어 있어 반려견과의 추억을 남길 수 있어요.",
+  "petPolicyText": "실내 불가능. 운동장 입장만 가능.",
+  "reviewUrl": "https://blog.naver.com/richsm_/223231479763",
+  "naverUrl": "https://naver.me/Fyexecrl",
+  "naverPlaceId": "1990281218",
+  "geo": {
+   "lat": 33.4047013,
+   "lng": 126.4076925
+  },
+  "address": "제주 제주시 애월읍 산록서로 383 1층",
+  "category": "애견카페",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-8168-9bff-e49aa95facb0",
+  "type": "cafe",
+  "name": "미스틱3도",
+  "region": {
+   "direction": "north",
+   "town": "제주시",
+   "raw": "북쪽 (제주시)"
+  },
+  "features": "도깨비도로 근처에 위치한 카페로, 넓은 정원과 포니, 돼지, 토끼 등 다양한 동물 친구들을 만날 수 있어요.",
+  "petPolicyText": "실내외 모두 가능",
+  "reviewUrl": "https://blog.naver.com/kkukkokka_/223347000745",
+  "naverUrl": "https://naver.me/xuiyy7s3",
+  "naverPlaceId": "1864122424",
+  "geo": {
+   "lat": 33.4499129,
+   "lng": 126.4876289
+  },
+  "address": "제주 제주시 1100로 2894-49 1층",
+  "category": "카페",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-812c-8e31-d536b01d718d",
+  "type": "cafe",
+  "name": "카페유주",
+  "region": {
+   "direction": "west",
+   "town": "한림읍",
+   "raw": "서쪽 (한림읍)"
+  },
+  "features": "옛날 제주 주택을 개조한 듯한 아늑한 분위기의 돌담 카페에요. 상주견 ‘해피’가 있어 반려견 동반시 주의가 필요해요.",
+  "petPolicyText": "실내외 모두 가능",
+  "reviewUrl": "https://blog.naver.com/hjkinu_u3241/223497184787",
+  "naverUrl": "https://naver.me/FPB76FMR",
+  "naverPlaceId": "1584217766",
+  "geo": {
+   "lat": 33.4054844,
+   "lng": 126.2572396
+  },
+  "address": "제주 제주시 한림읍 한림상로 17 1층",
+  "category": "카페,디저트",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-81b7-a8cf-cd39afb7b8f7",
+  "type": "cafe",
+  "name": "살롱드라방",
+  "region": {
+   "direction": "north",
+   "town": "제주시",
+   "raw": "북쪽 (제주시)"
+  },
+  "features": "평온한 분위기의 카페로, 귀여운 고양이와 강아지가 있어요. 독서와 사색을 즐기기 좋은 곳..인데 우리 강아지와 함께라면..? (가능할까)",
+  "petPolicyText": "실내외 모두 가능하다고 나오지만, 방문 전 꼭 전화로 확인하고 가세요.",
+  "reviewUrl": "https://blog.naver.com/wionong/223512136977",
+  "naverUrl": "https://naver.me/5apBe0gx",
+  "naverPlaceId": "35357431",
+  "geo": {
+   "lat": 33.4578787,
+   "lng": 126.3489791
+  },
+  "address": "제주 제주시 애월읍 하가로 146-9",
+  "category": "카페",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-81b2-b145-f186771b8e67",
+  "type": "cafe",
+  "name": "비수기애호가",
+  "region": {
+   "direction": "east",
+   "town": "구좌읍",
+   "raw": "동쪽 (구좌읍)"
+  },
+  "features": "카페 내부 전체가 바다 뷰에요. 당근색으로 꾸며져 따뜻하고 아늑한 감성을 느낄 수 있어요.",
+  "petPolicyText": "실내외 모두 가능",
+  "reviewUrl": "https://blog.naver.com/xlo_ah/223308186003",
+  "naverUrl": "https://naver.me/xi2erj3o",
+  "naverPlaceId": "1676430300",
+  "geo": {
+   "lat": 33.5431809,
+   "lng": 126.8308007
+  },
+  "address": "제주 제주시 구좌읍 해맞이해안로 997 2층",
+  "category": "카페,디저트",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-81a7-a6db-de90d073a673",
+  "type": "cafe",
+  "name": "평대코지카페",
+  "region": {
+   "direction": "east",
+   "town": "구좌읍",
+   "raw": "동쪽 (구좌읍)"
+  },
+  "features": "강아지를 좋아하는 사장님과 귀여운 비글 친구 찰리가 있어요. 반려동물과 편안하게 바다 뷰를 감상할 수 있어요.",
+  "petPolicyText": "실내외 모두 가능",
+  "reviewUrl": "https://blog.naver.com/hhhm1n/223368281443",
+  "naverUrl": "https://naver.me/xJaity1x",
+  "naverPlaceId": "1161082450",
+  "geo": {
+   "lat": 33.5367757,
+   "lng": 126.8400864
+  },
+  "address": "제주 제주시 구좌읍 해맞이해안로 1138 2층",
+  "category": "카페,디저트",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-8160-9d36-c27fe4e7bc54",
+  "type": "cafe",
+  "name": "프릳츠",
+  "region": {
+   "direction": "east",
+   "town": "성산읍",
+   "raw": "동쪽 (성산읍)"
+  },
+  "features": "커피 맛집이지만 빵 맛집으로도 유명한 곳이에요. 카페 내부에서 바로 성산일출봉과 바다 뷰를 볼 수 있어요.",
+  "petPolicyText": "실내외 모두 가능. (리드줄 착용 필수)",
+  "reviewUrl": "https://blog.naver.com/armanino2/223418867334",
+  "naverUrl": "https://naver.me/xYTJR9Aw",
+  "naverPlaceId": "1647560156",
+  "geo": {
+   "lat": 33.4595094,
+   "lng": 126.930137
+  },
+  "address": "제주 서귀포시 성산읍 일출로 222",
+  "category": "카페,디저트",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-8146-85e5-fd90929fb34c",
+  "type": "cafe",
+  "name": "카페구할구",
+  "region": {
+   "direction": "east",
+   "town": "구좌읍",
+   "raw": "동쪽 (구좌읍)"
+  },
+  "features": "월정리 해수욕장 근처에 있는 카페로, 제주 감성이 뿜뿜하는 곳이에요. 카페 주변의 귀여운 고양이들이 반겨줘요.",
+  "petPolicyText": "실내 불가능. 야외 테이블만 가능.",
+  "reviewUrl": "https://blog.naver.com/daily_chiaro/223480632102",
+  "naverUrl": "https://naver.me/5KOTmPpB",
+  "naverPlaceId": "1797133750",
+  "geo": {
+   "lat": 33.5545552,
+   "lng": 126.7951162
+  },
+  "address": "제주 제주시 구좌읍 월정5길 48-2 카페구할구 제주",
+  "category": "카페,디저트",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-81e7-98e2-e860a2daf60b",
+  "type": "cafe",
+  "name": "제주포슬",
+  "region": {
+   "direction": "west",
+   "town": "대정읍",
+   "raw": "서쪽 (대정읍)"
+  },
+  "features": "구옥을 개조한 빈티지한 느낌의 작은 카페로, 100% 쌀가루로 만든 시그니처 케이크가 있어요.",
+  "petPolicyText": "실내외 모두 가능",
+  "reviewUrl": "https://blog.naver.com/byesol0207/223446046425",
+  "naverUrl": "https://naver.me/xZG5YOaN",
+  "naverPlaceId": "1763853610",
+  "geo": {
+   "lat": 33.2906786,
+   "lng": 126.3042649
+  },
+  "address": "제주 서귀포시 안덕면 녹차분재로 44-26",
+  "category": "카페,디저트",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-81e1-bc1c-e8d4fa3db693",
+  "type": "cafe",
+  "name": "명월국민학교",
+  "region": {
+   "direction": "west",
+   "town": "한림읍",
+   "raw": "서쪽 (한림읍)"
+  },
+  "features": "2008년 폐교한 학교 건물을 개조한 카페로, JTBC 드라마 ‘웰컴투 삼달리’도 여기서 촬영했어요.",
+  "petPolicyText": "실내외 모두 가능. (리드줄 착용 필수)",
+  "reviewUrl": "https://blog.naver.com/jiwon9117/223545384733",
+  "naverUrl": "https://naver.me/GnvP0mlL",
+  "naverPlaceId": "1383910337",
+  "geo": {
+   "lat": 33.3887536,
+   "lng": 126.264844
+  },
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-8198-a263-dbec4a9f44ca",
+  "type": "cafe",
+  "name": "청춘부부",
+  "region": {
+   "direction": "west",
+   "town": "대정읍",
+   "raw": "서쪽 (대정읍)"
+  },
+  "features": "감귤 창고를 개조한 카페로, 포토존이 있어 감귤나무를 배경으로 사진을 찍을 수 있어요. 소형견부터 중형견, 대형견까지 실내 착석이 가능해요.",
+  "petPolicyText": "실내외 모두 가능하지만 실내에서는 리드줄 착용 필요. 대형견도 입장 가능.",
+  "reviewUrl": "https://blog.naver.com/gogowithyou/223031928527",
+  "naverUrl": "https://naver.me/xxR88Yjf",
+  "naverPlaceId": "1494501123",
+  "geo": {
+   "lat": 33.2659186,
+   "lng": 126.2791166
+  },
+  "address": "제주 서귀포시 대정읍 추사로38번길 181 1층",
+  "category": "카페,디저트",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-81f7-bc38-f93a8ab75ec6",
+  "type": "cafe",
+  "name": "핀스",
+  "region": {
+   "direction": "west",
+   "town": "대정읍",
+   "raw": "서쪽 (대정읍)"
+  },
+  "features": "외관이 아주 멋진 카페에요. 돌고래 스팟으로 유명한 대정읍 노을해안로에 위치해 있어, 운이 좋으면 돌고래까지 볼 수 있어요.",
+  "petPolicyText": "실내외 모두 가능",
+  "reviewUrl": "https://blog.naver.com/begood1258/223535192501",
+  "naverUrl": "https://naver.me/x95ozMd1",
+  "naverPlaceId": "1850674104",
+  "geo": {
+   "lat": 33.2635558,
+   "lng": 126.1822164
+  },
+  "address": "제주 서귀포시 대정읍 노을해안로532번길 8 대정읍 노을해안로 532번길 8",
+  "category": "카페,디저트",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-81e9-9b10-d8e8bfadf36e",
+  "type": "cafe",
+  "name": "인스밀",
+  "region": {
+   "direction": "west",
+   "town": "대정읍",
+   "raw": "서쪽 (대정읍)"
+  },
+  "features": "야자수와 붉은 자갈이 잔뜩 있는 이국적인 느낌의 카페에요. 입구에서부터 핫플의 냄새가 난다는..",
+  "petPolicyText": "실내외 모두 가능",
+  "reviewUrl": "https://blog.naver.com/pingors/223543343675",
+  "naverUrl": "https://naver.me/5wAj1kfM",
+  "naverPlaceId": "1864290419",
+  "geo": {
+   "lat": 33.2384679,
+   "lng": 126.2292446
+  },
+  "address": "제주 서귀포시 대정읍 일과대수로27번길 22 1층",
+  "category": "카페,디저트",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-81f0-a3b3-ce47153f1ec1",
+  "type": "cafe",
+  "name": "모알보알",
+  "region": {
+   "direction": "east",
+   "town": "구좌읍",
+   "raw": "동쪽 (구좌읍)"
+  },
+  "features": "이국적 인테리어로 동남아 감성을 제대로 느낄 수 있어요! 일몰을 보기 좋답니다 :-)",
+  "petPolicyText": "실내외 모두 가능",
+  "reviewUrl": "https://blog.naver.com/skdms8295/223768104583",
+  "naverUrl": "https://naver.me/Gub1HBHk",
+  "naverPlaceId": "1992920098",
+  "geo": {
+   "lat": 33.5595662,
+   "lng": 126.7279527
+  },
+  "address": "제주 제주시 구좌읍 구좌해안로 141 카페 모알보알",
+  "category": "카페,디저트",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-81a0-b593-cfdadcc5fbac",
+  "type": "cafe",
+  "name": "아오오",
+  "region": {
+   "direction": "east",
+   "town": "성산읍",
+   "raw": "동쪽 (성산읍)"
+  },
+  "features": "통창으로 멋진 바다뷰를 감상할 수 있는 곳. 페스츄리 맛집이에요.",
+  "petPolicyText": "실내외 모두 가능",
+  "reviewUrl": "https://blog.naver.com/mu_nee/223220229092",
+  "naverUrl": "https://naver.me/GrmTQv8e",
+  "naverPlaceId": "1767660317",
+  "geo": {
+   "lat": 33.3790888,
+   "lng": 126.8799584
+  },
+  "address": "제주 서귀포시 성산읍 환해장성로 75",
+  "category": "카페,디저트",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-81c0-8734-e6bd0061c289",
+  "type": "cafe",
+  "name": "카페살레",
+  "region": {
+   "direction": "udo",
+   "town": "우도면",
+   "raw": "우도면"
+  },
+  "features": "케이크가 맛있는 오션뷰 카페. 우도 땅콩 아이스크림을 먹어야 해요.",
+  "petPolicyText": "실내외 모두 가능",
+  "reviewUrl": "https://blog.naver.com/kim0901a/223798677287",
+  "naverUrl": "https://naver.me/FCAfEyOq",
+  "naverPlaceId": "1811092583",
+  "geo": {
+   "lat": 33.5131314,
+   "lng": 126.9577602
+  },
+  "address": "제주 제주시 우도면 우도해안길 816 1,2층",
+  "category": "카페,디저트",
+  "images": []
+ },
+ {
+  "id": "278ddc10-ceae-813e-90cb-c49215c7c684",
+  "type": "cafe",
+  "name": "서울앵무새 제주",
+  "region": {
+   "direction": "south",
+   "town": "서귀포시",
+   "raw": "남쪽 (서귀포시)"
+  },
+  "features": "대형 베이커리. 제주에서만 먹을 수 있는 구좌 당근 식빵과 오메기 찰빵이 있어요!",
+  "petPolicyText": "실내외 모두 가능. (대형견까지 입장 가능)",
+  "reviewUrl": "https://blog.naver.com/lauren0303/223784162679",
+  "naverUrl": "https://naver.me/GvcyVHFP",
+  "naverPlaceId": "1796838412",
+  "geo": {
+   "lat": 33.2694822,
+   "lng": 126.4169176
+  },
+  "images": []
+ },
+ {
+  "id": "27bddc10-ceae-80cc-a07e-d66a724b4a6a",
+  "type": "cafe",
+  "name": "하와이안비치카페",
+  "region": {
+   "direction": "east",
+   "town": "성산읍",
+   "raw": "동쪽 (성산읍)"
+  },
+  "features": "이국적 블루 인테리어와 시원한 바다뷰! 따뜻한 차 한 잔 마시면서 파도 소리를 들으며 하루를 마무리하셔도 좋아요~",
+  "petPolicyText": "실내외 모두 가능",
+  "reviewUrl": "https://blog.naver.com/iraland/223977864849",
+  "naverUrl": "https://naver.me/xgNSYrgt",
+  "naverPlaceId": "1022918000",
+  "geo": {
+   "lat": 33.4351645,
+   "lng": 126.9175189
+  },
+  "address": "제주 서귀포시 성산읍 신양로122번길 57 2층",
+  "category": "카페,디저트",
+  "images": []
+ }
+]

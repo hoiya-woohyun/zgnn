@@ -1,0 +1,8 @@
+node_modules
+dist
+data/raw/
+.omc/
+.playwright-mcp/
+.DS_Store
+dev-dist
+.env.local
