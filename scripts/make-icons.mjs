@@ -7,8 +7,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 const OUT = new URL('../public/icons/', import.meta.url);
 await mkdir(OUT, { recursive: true });
 
-const BG = '#2a2724'; // 현무암
-const FG = '#ee6f0c'; // 감귤
+const BG = '#2e2327'; // 잉크 (theme.css --color-ink)
+const FG = '#f0a3b7'; // 로즈 (theme.css --color-brand-300)
 
 /**
  * 발자국. 네 개의 발가락과 하나의 발바닥, 전부 타원이다.

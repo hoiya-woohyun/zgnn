@@ -53,23 +53,24 @@ export const TYPE_META: Record<TPlaceType, { label: string; blurb: string }> = {
 };
 
 /**
- * 숙소=바다, 식당=감귤, 카페=현무암. 저장 하트만 동백 붉은색을 따로 쓴다.
+ * 숙소=바다, 식당=감귤, 카페=라떼. 저장 하트는 브랜드 로즈를 그대로 쓴다.
  * 장소 사진이 없는 것이 기본이라 이 색이 화면에서 타입을 구분하는 주된 신호다.
+ * 브랜드 로즈와 색상환에서 붙지 않게 식당은 노란빛 앰버로 뺐다. styles/theme.css 의 --color-stay 등과 같은 값.
  */
 export const TYPE_COLOR: Record<TPlaceType, string> = {
-  stay: '#0c7a80',
-  restaurant: '#ee6f0c',
-  cafe: '#5a4f45',
+  stay: '#3b8ea5',
+  restaurant: '#cf8330',
+  cafe: '#8c6e5a',
 };
 
 /**
- * 흰 글씨를 얹는 면에 쓰는 진한 쪽. 셋 다 흰색 대비 7:1 이상이다.
- * 카페는 현무암 회색 그대로 진하게 하면 앱 기본 텍스트색과 구분이 안 돼서 갈색 쪽으로 틀었다.
+ * 흰 글씨를 얹는 면에 쓰는 진한 쪽. 셋 다 흰색 대비 5:1 이상이다(숙소 6.1, 식당 5.8, 카페 8.3).
+ * 카페는 회색으로 진하게 하면 앱 기본 텍스트색과 구분이 안 돼서 갈색 쪽으로 틀었다.
  */
 export const TYPE_COLOR_DEEP: Record<TPlaceType, string> = {
-  stay: '#075055',
-  restaurant: '#a04806',
-  cafe: '#4a3a2b',
+  stay: '#2a6a7c',
+  restaurant: '#94561c',
+  cafe: '#5f4a3d',
 };
 
 /** 상세 제목 판의 바탕. 평평한 색 한 장보다 깊이가 생긴다. */

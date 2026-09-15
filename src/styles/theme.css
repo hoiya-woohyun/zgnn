@@ -125,32 +125,35 @@
     --color-alpha-white: rgb(255 255 255);
     --color-alpha-black: rgb(0 0 0);
 
-    --color-brand-25: #fffaf5;
-    --color-brand-50: #fff4ea;
-    --color-brand-100: #ffe4cb;
-    --color-brand-200: #fdc79a;
-    --color-brand-300: #fba566;
-    --color-brand-400: #f68a39;
-    --color-brand-500: #ee6f0c;
-    --color-brand-600: #c85a07;
-    --color-brand-700: #a04806;
-    --color-brand-800: #7e3907;
-    --color-brand-900: #642e08;
-    --color-brand-950: #3a1a04;
+    /* 브랜드 — 더스티 로즈. 채도를 눌러 화면 대부분을 차지하는 크림 위에서 튀지 않게 했다.
+       700 이 bg-brand-solid(흰 글씨, 5.8:1), 600 이 크림 위 강조 글씨(4.4:1), 500 이 포커스 링이다. */
+    --color-brand-25: #fffafb;
+    --color-brand-50: #fdf2f5;
+    --color-brand-100: #fbe4ea;
+    --color-brand-200: #f7c9d5;
+    --color-brand-300: #f0a3b7;
+    --color-brand-400: #e57a96;
+    --color-brand-500: #d65a7b;
+    --color-brand-600: #c4486a;
+    --color-brand-700: #b03a58;
+    --color-brand-800: #922f48;
+    --color-brand-900: #742640;
+    --color-brand-950: #45141f;
 
-    /* 현무암·모래 웜 그레이 */
-    --color-gray-25: #fdfcfb;
-    --color-gray-50: #faf8f5;
-    --color-gray-100: #f3efe9;
-    --color-gray-200: #e7dfd2;
-    --color-gray-300: #d8cdba;
-    --color-gray-400: #a89e93;
-    --color-gray-500: #7d746a;
-    --color-gray-600: #5f574e;
-    --color-gray-700: #4a443e;
-    --color-gray-800: #3a352f;
-    --color-gray-900: #2a2724;
-    --color-gray-950: #1a1816;
+    /* 크림·오트밀 웜 그레이. 아래 시맨틱 토큰(text/bg/border/fg)이 전부 neutral 을 가리키므로
+       Tailwind 기본 무채색 neutral 을 이 스케일로 덮어쓴다 — 화면의 바탕색이 곧 이 값이다. */
+    --color-neutral-25: #fdfcfa;
+    --color-neutral-50: #faf8f4;
+    --color-neutral-100: #f4f0ea;
+    --color-neutral-200: #e8e2d9;
+    --color-neutral-300: #d7cfc4;
+    --color-neutral-400: #a69d93;
+    --color-neutral-500: #7d756c;
+    --color-neutral-600: #605953;
+    --color-neutral-700: #4a443f;
+    --color-neutral-800: #37322e;
+    --color-neutral-900: #272320;
+    --color-neutral-950: #191614;
 
     /* LIGHT MODE VARIABLES */
 
@@ -877,19 +880,25 @@
 /*
   앱 고유 토큰 — 브랜드 스케일과 별개로 유지한다.
 
-  타입 색(숙소=바다 / 식당=귤 / 카페=현무암)은 장소 사진이 없는 이 앱에서 종류를 구분하는
-  주된 신호라, 브랜드 색에 흡수시키면 화면에서 세 종류가 구분되지 않는다.
-  _deep 쪽은 흰 글씨를 얹는 면에 쓰며 셋 다 흰색 대비 5:1 이상이다.
+  타입 색(숙소=바다 / 식당=감귤 / 카페=라떼)은 장소 사진이 없는 이 앱에서 종류를 구분하는
+  주된 신호라, 브랜드 색에 흡수시키면 화면에서 세 종류가 구분되지 않는다. 브랜드 로즈와
+  색상환에서 붙지 않게 식당은 붉은 주황이 아니라 노란빛 감귤 앰버로 뺐다.
+  -deep 쪽은 흰 글씨를 얹는 면에 쓰며 셋 다 흰색 대비 5:1 이상이다.
+  값은 lib/places.ts 의 TYPE_COLOR / TYPE_COLOR_DEEP 과 같아야 한다.
 */
 @theme {
-  --color-stay: #0c7a80;
-  --color-stay-deep: #075055;
-  --color-restaurant: #ee6f0c;
-  --color-restaurant-deep: #a04806;
-  --color-cafe: #5a4f45;
-  --color-cafe-deep: #4a3a2b;
+  --color-stay: #3b8ea5;
+  --color-stay-deep: #2a6a7c;
+  --color-restaurant: #cf8330;
+  --color-restaurant-deep: #94561c;
+  --color-cafe: #8c6e5a;
+  --color-cafe-deep: #5f4a3d;
 
-  /* 저장 하트만 쓰는 동백 붉은색. 브랜드 귤과 섞이지 않게 따로 둔다. */
-  --color-camellia: #c43a4c;
-  --color-camellia-wash: #fbe6e9;
+  /* 홈 히어로 바탕. 현무암 질감 위에 브랜드 로즈를 아주 조금 섞은 잉크색. */
+  --color-ink: #2e2327;
+
+  /* 저장 하트. 브랜드 로즈를 그대로 쓴다 — 하트가 분홍인 건 자연스럽고, 따로 붉은색을 두면
+     브랜드와 구분이 안 된다. 이름은 사용처(saveButton)와의 계약이라 남긴다. */
+  --color-camellia: var(--color-brand-600);
+  --color-camellia-wash: var(--color-brand-50);
 }

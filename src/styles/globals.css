@@ -11,10 +11,11 @@
 @plugin "tailwindcss-animate";
 
 /*
-  디자인 방향 — "현무암과 귤" 을 Untitled UI 토큰 체계 위에 올린다.
+  디자인 방향 — "크림 위의 로즈" 를 Untitled UI 토큰 체계 위에 올린다.
 
   색·타이포·radius·shadow 는 styles/theme.css 의 Untitled UI 토큰을 그대로 쓴다.
-  브랜드 스케일만 제주 귤로, 회색은 현무암·모래 쪽 웜 그레이로 바꿔 끼웠다.
+  브랜드 스케일은 채도를 누른 더스티 로즈, 회색(neutral)은 크림·오트밀 웜 그레이로 바꿔 끼웠다.
+  분홍은 강조(버튼·링크·저장 하트)에만 쓰고 바탕은 크림과 흰색으로 비워 둔다.
   화면에서 종류(숙소·식당·카페)를 가르는 타입 색은 브랜드와 별개 토큰으로 남아 있다.
 
   다크 모드는 이번 범위가 아니다. 토큰은 theme.css 에 준비돼 있지만 .dark-mode 를 켜지 않는다.
@@ -65,9 +66,9 @@
   }
 }
 
-/* 현무암 반점 — 제주 화산암의 구멍을 흉내낸 질감. 이미지 없이 CSS 로만. */
+/* 현무암 반점 — 제주 화산암의 구멍을 흉내낸 질감. 이미지 없이 CSS 로만. 바탕은 --color-ink. */
 @utility basalt {
-  background-color: var(--color-gray-900);
+  background-color: var(--color-ink);
   background-image:
     radial-gradient(circle at 21% 32%, rgba(255, 255, 255, 0.062) 0 1.3px, transparent 1.4px),
     radial-gradient(circle at 68% 61%, rgba(255, 255, 255, 0.045) 0 1.7px, transparent 1.8px),
@@ -116,7 +117,7 @@
 /* Leaflet 기본 스킨을 앱 팔레트에 맞춘다. */
 .leaflet-container {
   font-family: inherit;
-  background: var(--color-gray-100);
+  background: var(--color-neutral-100);
 }
 
 .leaflet-control-attribution {

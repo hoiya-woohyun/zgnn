@@ -63,7 +63,7 @@ const markerIcon = (type: TPlaceType, selected: boolean): L.DivIcon => {
   const size = selected ? 26 : 18;
   const icon = L.divIcon({
     className: 'zgnn-marker',
-    html: `<span style="display:block;width:${size}px;height:${size}px;border-radius:50%;background:${TYPE_COLOR[type]};border:${selected ? 3.5 : 2.5}px solid #fff;box-shadow:0 1px 5px rgba(42,39,36,.45)"></span>`,
+    html: `<span style="display:block;width:${size}px;height:${size}px;border-radius:50%;background:${TYPE_COLOR[type]};border:${selected ? 3.5 : 2.5}px solid #fff;box-shadow:0 1px 5px rgba(46,35,39,.45)"></span>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   });

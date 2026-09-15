@@ -29,7 +29,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#2a2724',
+  themeColor: '#2e2327',
   // 다크 모드는 범위 밖이다. 토큰은 준비돼 있지만 .dark-mode 를 켜지 않는다.
   colorScheme: 'light',
 };
