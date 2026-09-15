@@ -1,4 +1,7 @@
-import { Link, useNavigate } from 'react-router';
+'use client';
+
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Heart, Map01 } from '@untitledui/icons';
 import { HomeTypeCard } from './homeTypeCard';
 import { Button } from '../components/base/button';
@@ -28,7 +31,7 @@ function PawMark() {
 }
 
 export function HomePage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const savedCount = useSavedCount();
   const season = useAppStore((state) => state.season);
   const setSeason = useAppStore((state) => state.setSeason);
@@ -38,7 +41,7 @@ export function HomePage() {
 
   const startChecklist = (value: TSeasonFilter) => {
     setSeason(value);
-    navigate('/checklist');
+    router.push('/checklist');
   };
 
   return (
@@ -112,7 +115,7 @@ export function HomePage() {
           </div>
 
           <Link
-            to="/checklist"
+            href="/checklist"
             className="mt-4 flex h-12 items-center justify-between rounded-lg bg-secondary px-4 text-sm font-semibold text-primary transition-colors hover:bg-tertiary"
           >
             준비물 {progress.total}가지 확인하기
@@ -123,7 +126,7 @@ export function HomePage() {
 
       <section className="mt-8 px-4 md:px-6">
         <Link
-          to="/saved"
+          href="/saved"
           className="flex items-center gap-3 rounded-2xl border border-secondary bg-primary px-4 py-4 transition-colors hover:bg-secondary"
         >
           <span

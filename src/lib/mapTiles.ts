@@ -6,10 +6,13 @@
  * 그래서 키가 있으면 CARTO Voyager 를, 없으면 키가 필요 없는 OpenStreetMap 기본 타일을 쓴다.
  *
  * CARTO 키를 받았다면 프로젝트 루트에 .env.local 을 만들고 아래 한 줄을 넣으면 된다.
- *   VITE_CARTO_API_KEY=발급받은_키
+ *   NEXT_PUBLIC_CARTO_API_KEY=발급받은_키
+ *
+ * Next 는 빌드 때 이 표현을 문자열로 바꿔 넣는다. 그래서 `process.env` 를 통째로
+ * 넘기거나 키 이름을 변수로 만들면 값이 사라진다 — 반드시 이 형태 그대로 둘 것.
  */
 
-const CARTO_KEY = import.meta.env.VITE_CARTO_API_KEY;
+const CARTO_KEY = process.env.NEXT_PUBLIC_CARTO_API_KEY;
 
 const CARTO_ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';

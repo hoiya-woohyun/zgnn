@@ -9,26 +9,46 @@ Node 22, pnpm 이 필요합니다.
 
 ```bash
 pnpm i
-pnpm dev      # 개발 서버
-pnpm build    # 타입 검사 + 프로덕션 빌드 → dist/
-pnpm preview  # 빌드 결과 확인
+pnpm dev      # 개발 서버 (next dev --webpack)
+pnpm build    # 정적 내보내기 → out/
+pnpm preview  # out/ 을 정적 서버로 띄워 확인
 pnpm test     # 반려동물 이용 조건 파서 테스트
 pnpm lint     # eslint
 pnpm icons    # PWA 아이콘 재생성 (팔레트가 바뀔 때만)
 ```
+
+`dev` 와 `build` 에 붙은 `--webpack` 은 취향이 아니라 필수입니다. 서비스워커를 만드는
+`@serwist/next` 는 webpack 플러그인이라 Turbopack(Next 16 기본)에서는 동작하지 않습니다.
+이 플래그를 빼면 빌드는 통과하지만 `sw.js` 가 만들어지지 않아 PWA 가 조용히 사라집니다.
+
+빌드 산출물은 `out/` 이고 서버가 필요 없는 정적 파일입니다(`output: 'export'`).
 
 ## 화면
 
 | 경로 | 화면 |
 |---|---|
 | `/` | 홈. 인사말, 숙소·식당·카페 요약, 준비물과 저장한 곳 진입 |
-| `/places/:type` | 둘러보기. 이름·특징·읍면 검색, 방향·반려동물 조건 필터, 숙소는 가격 정렬 |
-| `/place/:id` | 상세. 사진, 반려동물 이용 조건(원문 포함), 요금, 근처 장소 |
+| `/places/[type]` | 둘러보기. 이름·특징·읍면 검색, 방향·반려동물 조건 필터, 숙소는 가격 정렬 |
+| `/place/[id]` | 상세. 사진, 반려동물 이용 조건(원문 포함), 요금, 근처 장소 |
 | `/map` | 지도. 타입·방향 필터, 마커를 누르면 미니 카드(모바일은 하단 시트, ≥1024px 은 좌측 목록 패널). `?saved=1` 은 저장한 곳만 |
 | `/checklist` | 준비물. 계절별 목록, 체크 상태 저장, 숙소 구비 용품 반영 |
 | `/saved` | 저장한 곳. 타입별 묶음 |
 
+`src/app/**/page.tsx` 는 주소와 메타데이터만 맡는 서버 컴포넌트이고, 화면을 그리는 본체는
+`src/screens/` 의 클라이언트 컴포넌트입니다. 정적 내보내기라 서버 렌더에서 얻는 것은
+검색·공유용 메타 태그뿐이고, 화면 동작은 전부 브라우저에서 돕니다.
+
+`src/screens/` 라는 이름을 쓰는 이유는 Next 가 `src/pages/` 를 옛 Pages Router 로 인식하기
+때문입니다. 거기에 두면 `useChecklistAmenities.ts` 같은 파일까지 라우트로 잡힙니다.
+
+종류(`stay`/`restaurant`/`cafe`)와 장소 id 86개는 `generateStaticParams` 로 빌드 때 전부
+만들어 두고 `dynamicParams = false` 로 그 밖의 주소는 404 입니다. 목록 없는 id 를 받아도
+빈 화면이 아니라 404 가 뜨는 편이 낫기 때문입니다.
+
 저장한 곳, 준비물 체크, 계절 선택은 `localStorage` 에 남습니다(zustand persist).
+읽기는 마운트 뒤로 미룹니다(`skipHydration` + `src/providers/storeHydration.tsx`) —
+HTML 이 빌드 때 만들어지므로 첫 렌더에서 localStorage 를 읽으면 값이 어긋납니다.
+그래서 화면이 뜬 직후 아주 잠깐 저장 개수가 0 으로 보이는 것은 의도한 동작입니다.
 
 화면 틀은 폭에 따라 갈립니다. 768px 미만은 상단 앱바 + 하단 탭바, 768px 이상은 좌측 고정
 사이드바입니다. 지도만 1024px 이상에서 목록 패널과 지도의 2단이 됩니다.
@@ -55,8 +75,27 @@ pnpm data:normalize        # Notion export + 이미지 매니페스트 → src/d
 `cover` 와 `images` 를 읽는 코드 경로는 그대로 남겨뒀으니, 나중에 직접 찍은 사진을
 `src/data/places.json` 에 채우면 코드 수정 없이 사진이 나옵니다(불러오기에 실패하면 아이콘으로 되돌아갑니다).
 
-사진이 다시 생기더라도 용량이 커서 PWA precache 에는 넣지 않습니다. 런타임 캐시로만
-다루도록 workbox 설정(`globIgnores` 와 `/images/places/` CacheFirst 규칙)은 유지돼 있습니다.
+사진이 다시 생기더라도 용량이 커서 PWA precache 에는 넣지 않습니다. `/images/places/` 는
+런타임 CacheFirst 규칙으로만 다루도록 `src/app/sw.ts` 에 남겨 뒀습니다.
+
+## PWA
+
+서비스워커는 `@serwist/next` 로 만듭니다. 손으로 쓰는 쪽은 `src/app/sw.ts` 하나이고,
+빌드가 그것을 `public/sw.js` 로 번들해 `out/sw.js` 로 내보냅니다. 웹 매니페스트는
+`src/app/manifest.ts` 입니다. 등록은 플러그인이 알아서 합니다.
+
+프리캐시 목록은 `next.config.mjs` 에서 직접 만듭니다. 정적 내보내기의 HTML 은 webpack 이
+만드는 자산이 아니라 컴파일이 끝난 뒤에 따로 쓰이기 때문에, 그냥 두면 매니페스트에 JS·CSS 만
+들어오고 화면 주소는 하나도 들어오지 않습니다. 그래서 `places.json` 에서 라우트 93개
+(홈·지도·준비물·저장·종류 3개·장소 86개)를 만들어 `additionalPrecacheEntries` 로 넣고,
+`/404.html` 과 `/manifest.webmanifest`, 아이콘 4장을 더합니다. 최근 빌드 기준 139개입니다.
+
+아이콘을 직접 넣는 것도 같은 이유입니다. `@serwist/next` 는 `additionalPrecacheEntries` 를
+주면 `public/` 을 훑는 자기 동작(`globPublicPatterns`)을 **대신하지 않고 통째로 건너뜁니다**.
+둘은 더해지지 않습니다.
+
+라우트 HTML 은 파일명에 해시가 없어서 `revision` 이 필요합니다. 이 레포는 커밋 해시를
+쓸 수 없던 시기에 만들어져 `src/` 전체와 `package.json`, `pnpm-lock.yaml` 을 해싱한 값을 씁니다.
 
 ## 손대게 될 만한 곳
 
@@ -77,7 +116,7 @@ CARTO Voyager 가 원래 선택이지만 CARTO 는 API 키 없이 받은 타일�
 아래 한 줄을 넣으면 CARTO 로 바뀝니다.
 
 ```
-VITE_CARTO_API_KEY=발급받은_키
+NEXT_PUBLIC_CARTO_API_KEY=발급받은_키
 ```
 
 ## UI — Untitled UI
@@ -96,10 +135,15 @@ VITE_CARTO_API_KEY=발급받은_키
 종류 색(숙소=바다 / 식당=귤 / 카페=현무암)만 브랜드와 별개 토큰으로 남아 있습니다 —
 사진이 없는 화면에서 종류를 가르는 주된 신호라 브랜드 색에 흡수시키지 않았습니다.
 
-`@/` 는 `src/` 를 가리킵니다(`vite.config.ts` 의 `resolve.alias` 와 `tsconfig.json` 의 `paths`).
-Untitled UI 컴포넌트끼리 이 경로로 서로를 참조하므로 둘을 같은 값으로 유지해야 합니다.
+`@/` 는 `src/` 를 가리킵니다(`tsconfig.json` 의 `paths`). Untitled UI 컴포넌트끼리 이 경로로
+서로를 참조합니다. 테스트는 Next 를 거치지 않으므로 `vitest.config.mts` 가
+`vite-tsconfig-paths` 로 같은 값을 다시 읽습니다.
+
+react-aria 의 `Link` · `Button href` 가 전체 새로고침 대신 Next 라우터로 움직이도록
+`src/providers/router-provider.tsx` 가 `RouterProvider` 에 `useRouter().push` 를 물려 둡니다.
+`target="_blank"` 가 붙은 외부 링크는 여기 걸리지 않고 그대로 새 탭으로 열립니다.
 
 ## 스택
 
-Vite · React 19 · TypeScript · Tailwind CSS v4 · react-router v7 · zustand ·
-react-aria-components + Untitled UI · leaflet + react-leaflet · vite-plugin-pwa · vitest
+Next.js 16 (App Router, 정적 내보내기) · React 19 · TypeScript · Tailwind CSS v4 · zustand ·
+react-aria-components + Untitled UI · leaflet + react-leaflet · @serwist/next · vitest

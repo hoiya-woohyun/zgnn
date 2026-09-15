@@ -1,5 +1,5 @@
 import { ArrowLeft } from '@untitledui/icons';
-import { Link } from 'react-router';
+import Link from 'next/link';
 import { AppBar } from '../components/layout/appBar';
 import { PLACE_TYPE_ICON } from '../components/icons/placeTypeIcon';
 import { categoryLabel } from '../lib/category';
@@ -25,7 +25,7 @@ export function PlaceDetailHeader({ place }: { place: TPlaceEntry }) {
           여기 헤더판 안에 별도의 뒤로가기 링크를 하나 둔다.
         */}
         <Link
-          to={backTo}
+          href={backTo}
           className="hidden items-center gap-1.5 text-sm font-semibold text-white/85 hover:text-white md:flex"
         >
           <ArrowLeft size={18} aria-hidden="true" />

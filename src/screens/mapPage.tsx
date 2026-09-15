@@ -1,5 +1,7 @@
+'use client';
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { useRouter, useSearchParams } from 'next/navigation';
 import L from 'leaflet';
 import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet';
 import { AlertTriangle, Heart } from '@untitledui/icons';
@@ -70,7 +72,8 @@ const markerIcon = (type: TPlaceType, selected: boolean): L.DivIcon => {
 };
 
 export function MapPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const savedOnly = searchParams.get('saved') === '1';
   const savedPlaces = useSavedPlaces();
   const isWide = useMapPageWideLayout();
@@ -95,13 +98,21 @@ export function MapPage() {
   const missingGeoCount = filtered.length - withGeo.length;
   const selected = withGeo.find((place) => place.id === selectedId) ?? null;
 
-  // 조건에 걸러진 장소의 선택은 남겨 두지 않는다.
-  // 남겨 두면 조건을 되돌렸을 때 닫았던 시트가 저절로 다시 열린다.
-  useEffect(() => {
+  /*
+   * 조건에 걸러진 장소의 선택은 남겨 두지 않는다.
+   * 남겨 두면 조건을 되돌렸을 때 닫았던 시트가 저절로 다시 열린다.
+   *
+   * 이 정리는 effect 가 아니라 렌더 중에 한다 — effect 로 하면 선택이 남은 채로
+   * 한 프레임이 먼저 그려지고, 그 뒤 setState 가 렌더를 한 번 더 돌린다.
+   * 렌더 중 같은 컴포넌트의 setState 는 React 가 커밋 전에 흡수한다.
+   */
+  const [lastWithGeo, setLastWithGeo] = useState(withGeo);
+  if (lastWithGeo !== withGeo) {
+    setLastWithGeo(withGeo);
     if (selectedId !== null && !withGeo.some((place) => place.id === selectedId)) {
       setSelectedId(null);
     }
-  }, [withGeo, selectedId]);
+  }
 
   // 마커를 누르면 데스크톱 패널에서도 그 항목이 보이도록 끌어온다.
   useEffect(() => {
@@ -270,7 +281,7 @@ export function MapPage() {
               {savedOnly && (
                 <button
                   type="button"
-                  onClick={() => setSearchParams({})}
+                  onClick={() => router.replace('/map')}
                   aria-label="전체 장소 보기"
                   className="pointer-events-auto rounded-full bg-camellia px-3 py-1 text-xs font-semibold text-white shadow-sm"
                 >

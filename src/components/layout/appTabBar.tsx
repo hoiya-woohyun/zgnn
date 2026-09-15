@@ -1,4 +1,5 @@
-import { Link, useLocation } from 'react-router';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { NAV_ITEMS } from './navItems';
 import { useSavedCount } from '../../store/useAppStore';
 import { cx } from '../../utils/cx';
@@ -10,7 +11,7 @@ import { cx } from '../../utils/cx';
  * 여기 숫자를 바꾸면 appShell 의 TAB_BAR_HEIGHT 도 같이 바꾼다.
  */
 export function AppTabBar() {
-  const { pathname } = useLocation();
+  const pathname = usePathname();
   const savedCount = useSavedCount();
 
   return (
@@ -24,7 +25,7 @@ export function AppTabBar() {
           return (
             <li key={item.to} className="flex-1">
               <Link
-                to={item.to}
+                href={item.to}
                 aria-current={active ? 'page' : undefined}
                 className={cx(
                   'relative flex h-full flex-col items-center justify-center gap-0.5 text-xs font-semibold',

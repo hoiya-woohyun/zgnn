@@ -1,7 +1,11 @@
+/*
+  leaflet 스킨을 먼저 읽는다. 아래 .leaflet-container 등의 덮어쓰기가
+  leaflet 원본보다 뒤에 와야 이기기 때문이다.
+*/
 @import 'leaflet/dist/leaflet.css';
 @import 'tailwindcss';
-@import './styles/theme.css';
-@import './styles/typography.css';
+@import './theme.css';
+@import './typography.css';
 
 @plugin "tailwindcss-react-aria-components";
 @plugin "tailwindcss-animate";
@@ -18,6 +22,7 @@
 
 @custom-variant dark (&:where(.dark-mode, .dark-mode *));
 @custom-variant label (& [data-label]);
+@custom-variant focus-input-within (&:has(input:focus));
 
 @layer base {
   html {
@@ -80,6 +85,14 @@
   &::-webkit-scrollbar {
     display: none;
   }
+}
+
+/* Untitled UI base 컴포넌트가 쓰는 상류 유틸리티. 직접 부르는 곳은 없지만 지운다고
+   우리 코드가 고쳐지지 않는다 — components/base 안에서 쓰인다. */
+@utility transition-inherit-all {
+  transition-property: inherit;
+  transition-duration: inherit;
+  transition-timing-function: inherit;
 }
 
 @utility clamp-1 {

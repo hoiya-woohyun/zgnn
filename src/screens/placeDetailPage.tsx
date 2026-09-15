@@ -1,37 +1,40 @@
-import { LinkExternal01, MarkerPin01, Share01 } from '@untitledui/icons';
-import { useParams } from 'react-router';
+'use client';
+
+import { useSyncExternalStore } from 'react';
+import { LinkExternal01, Share01 } from '@untitledui/icons';
+import { notFound } from 'next/navigation';
 import { PlaceDetailHeader } from './placeDetailHeader';
 import { PlaceDetailGallery } from './placeDetailGallery';
 import { PlaceDetailNearby } from './placeDetailNearby';
 import { Button } from '../components/base/button';
-import { EmptyState } from '../components/layout/emptyState';
 import { PetBadges } from '../components/petBadges';
 import { SaveButton } from '../components/saveButton';
 import { formatStayPrice } from '../lib/format';
 import { TYPE_META, getPlace } from '../lib/places';
 
-export function PlaceDetailPage() {
-  const { id } = useParams();
+/** 바뀔 일이 없는 값을 useSyncExternalStore 로 읽을 때 쓰는 빈 구독. */
+const subscribeNever = () => () => {};
+
+/**
+ * id 는 라우트가 정해 준다(`app/place/[id]/page.tsx`). 거기서 이미 존재를 확인하므로
+ * 여기 notFound 는 실제로는 걸리지 않는다 — 타입을 좁히려고 둔다.
+ */
+export function PlaceDetailPage({ id }: { id: string }) {
   const place = getPlace(id);
+  if (!place) notFound();
 
-  if (!place) {
-    return (
-      <div className="px-4 pt-16 md:px-6">
-        <EmptyState
-          Icon={MarkerPin01}
-          title="찾을 수 없는 장소예요"
-          description="주소가 바뀌었거나 삭제된 장소입니다."
-          action={
-            <Button color="primary" size="md" href="/">
-              홈으로 가기
-            </Button>
-          }
-        />
-      </div>
-    );
-  }
+  /*
+   * 공유 버튼은 Web Share API 가 있는 기기에만 둔다.
+   * 그 값은 브라우저에서만 알 수 있는데, 화면은 빌드 때 미리 그려진다 —
+   * 렌더 중에 navigator 를 보면 미리 그린 HTML(버튼 없음)과 첫 클라이언트 렌더(버튼 있음)가
+   * 어긋나 하이드레이션이 깨진다. 그래서 서버 스냅샷을 false 로 고정하고 마운트 뒤에 맞춘다.
+   */
+  const canShare = useSyncExternalStore(
+    subscribeNever,
+    () => 'share' in navigator,
+    () => false,
+  );
 
-  const canShare = typeof navigator !== 'undefined' && 'share' in navigator;
   const share = () => {
     void navigator
       .share({ title: `${place.name} | 강아지랑 제주`, text: place.features, url: window.location.href })

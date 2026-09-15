@@ -1,4 +1,4 @@
-import { Link } from 'react-router';
+import Link from 'next/link';
 import { PetBadges } from '../components/petBadges';
 import { PlaceThumb } from '../components/placeThumb';
 import { SaveButton } from '../components/saveButton';
@@ -24,7 +24,7 @@ type TMapPageSheetCardProps = {
 export function MapPageSheetCard({ place }: TMapPageSheetCardProps) {
   return (
     <div>
-      <Link to={`/place/${place.id}`} className="block">
+      <Link href={`/place/${place.id}`} className="block">
         <div className="flex items-start gap-3">
           <PlaceThumb src={place.cover ?? place.images[0]} type={place.type} size={44} />
           <div className="min-w-0 flex-1 pr-8">

@@ -1,3 +1,5 @@
+'use client';
+
 import { Heart, MarkerPin01 } from '@untitledui/icons';
 import { Button } from '../components/base/button';
 import { PageHeader } from '../components/layout/pageHeader';

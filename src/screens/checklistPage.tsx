@@ -1,3 +1,5 @@
+'use client';
+
 import { useState } from 'react';
 import { ChevronDown, LinkExternal01 } from '@untitledui/icons';
 import { useChecklistAmenities } from './useChecklistAmenities';
@@ -112,7 +114,7 @@ export function ChecklistPage() {
               // 26곳 중 23곳이 '기본적인 용품 구비.' 처럼 뭉뚱그려 적혀 있다.
               // 아무 일도 일어나지 않은 것처럼 두지 않고, 왜 반영이 안 되는지 그대로 말한다.
               <p className="mt-3 text-sm text-tertiary">
-                이 숙소는 '{selected.stay.amenitiesText}' 로만 적혀 있어 반영할 항목이 없어요.
+                이 숙소는 ‘{selected.stay.amenitiesText}’ 로만 적혀 있어 반영할 항목이 없어요.
               </p>
             ))}
         </div>

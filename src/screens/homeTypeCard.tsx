@@ -1,4 +1,4 @@
-import { Link } from 'react-router';
+import Link from 'next/link';
 import { Badge } from '../components/base/badges';
 import { PLACE_TYPE_ICON } from '../components/icons/placeTypeIcon';
 import { TYPE_COLOR, TYPE_COLOR_DEEP, TYPE_META, countByType, topTowns, typeTint } from '../lib/places';
@@ -15,7 +15,7 @@ export function HomeTypeCard({ type }: { type: TPlaceType }) {
 
   return (
     <Link
-      to={`/places/${type}`}
+      href={`/places/${type}`}
       className="block rounded-2xl p-4 transition-opacity active:opacity-85"
       style={{
         background: typeTint(type, 11),

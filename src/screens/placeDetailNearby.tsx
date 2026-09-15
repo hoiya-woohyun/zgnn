@@ -1,4 +1,4 @@
-import { Link } from 'react-router';
+import Link from 'next/link';
 import { PlaceThumb } from '../components/placeThumb';
 import { TownChip } from '../components/townChip';
 import { formatKm } from '../lib/format';
@@ -16,7 +16,7 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
         {nearby.map(({ place: other, km }) => (
           <li key={other.id} className="w-44 shrink-0">
             <Link
-              to={`/place/${other.id}`}
+              href={`/place/${other.id}`}
               className="flex h-full flex-col rounded-2xl border border-secondary bg-primary p-3 transition-colors hover:bg-secondary"
             >
               <div className="flex items-center justify-between">

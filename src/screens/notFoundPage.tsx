@@ -1,3 +1,5 @@
+'use client';
+
 import { SearchMd } from '@untitledui/icons';
 import { Button } from '../components/base/button';
 import { EmptyState } from '../components/layout/emptyState';

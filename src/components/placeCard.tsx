@@ -1,4 +1,4 @@
-import { Link } from 'react-router';
+import Link from 'next/link';
 import { PetBadges } from './petBadges';
 import { PlaceThumb } from './placeThumb';
 import { SaveButton } from './saveButton';
@@ -22,7 +22,7 @@ export function PlaceCard({ place }: TPlaceCardProps) {
   return (
     <li className="relative">
       <Link
-        to={`/place/${place.id}`}
+        href={`/place/${place.id}`}
         className="block rounded-2xl border border-secondary bg-primary p-4 transition-colors hover:bg-secondary"
       >
         <div className="flex items-start gap-3">

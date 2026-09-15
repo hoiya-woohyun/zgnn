@@ -1,22 +1,24 @@
+'use client';
+
 import { useMemo, useState } from 'react';
-import { Link, Navigate, useParams } from 'react-router';
+import Link from 'next/link';
 import { SearchMd } from '@untitledui/icons';
 import { PlacesPageFilters } from './placesPageFilters';
 import { PlaceCard } from '../components/placeCard';
 import { EmptyState } from '../components/layout/emptyState';
 import { Button } from '../components/base/button';
 import { Input } from '../components/base/input';
-import { PLACE_TYPES, TYPE_META, isPlaceType, placesOfType } from '../lib/places';
+import { PLACE_TYPES, TYPE_META, placesOfType } from '../lib/places';
 import { PET_FILTERS, comparePrice, type TPetFilterKey, type TPriceSort } from '../lib/placeFilters';
 import { cx } from '../utils/cx';
 import type { TDirection, TPlaceType } from '../types';
 
-export function PlacesPage() {
-  const { type: typeParam } = useParams();
-  const type = isPlaceType(typeParam) ? typeParam : undefined;
-
-  if (!type) return <Navigate to="/places/stay" replace />;
-
+/**
+ * 종류는 라우트가 정해 준다(`app/places/[type]/page.tsx`).
+ * generateStaticParams 가 세 종류만 만들고 dynamicParams 도 꺼 두었으므로
+ * 여기까지 온 type 은 항상 유효하다.
+ */
+export function PlacesPage({ type }: { type: TPlaceType }) {
   /*
    * 종류마다 조건 항목이 달라서, 종류를 바꾸면 조건은 처음부터 다시 고른다.
    * 리셋을 useEffect 로 하면 이전 조건이 적용된 목록이 한 프레임 먼저 그려진다.
@@ -95,7 +97,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
                 return (
                   <li key={candidate} className="flex-1">
                     <Link
-                      to={`/places/${candidate}`}
+                      href={`/places/${candidate}`}
                       aria-current={active ? 'page' : undefined}
                       className={cx(
                         'flex h-11 items-center justify-center rounded-md text-sm font-semibold transition-colors',

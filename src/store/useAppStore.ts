@@ -35,6 +35,12 @@ export const useAppStore = create<TAppState>()(
     }),
     {
       name: 'zgnn-jeju',
+      /*
+       * 서버에서 미리 그려 둔 HTML 과 첫 렌더가 어긋나지 않게, localStorage 읽기는
+       * 마운트 뒤로 미룬다(providers/storeHydration.tsx 가 rehydrate 를 부른다).
+       * 그 잠깐 동안 저장 개수가 0 으로 보이는 것은 의도한 동작이다.
+       */
+      skipHydration: true,
       /**
        * 저장해 둔 장소가 데이터에서 빠지면 그 id 는 localStorage 에 그대로 남는다.
        * 불러오는 시점에 한 번 걸러내지 않으면 화면마다 다른 숫자가 나온다.
