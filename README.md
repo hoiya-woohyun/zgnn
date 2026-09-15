@@ -132,13 +132,17 @@ NEXT_PUBLIC_CARTO_API_KEY=발급받은_키
 | 위치 | 무엇 |
 |---|---|
 | `src/components/base/` | Untitled UI 에서 가져온 컴포넌트. 원본 이름(kebab-case)을 그대로 씁니다. **직접 고치지 마세요** — 규칙도 eslint 에서 이 폴더만 따로 꺼 뒀습니다 |
-| `src/styles/theme.css` | Untitled UI 토큰. 브랜드 스케일만 제주 귤로, 회색은 현무암·모래 웜 그레이로 바꿔 끼웠습니다 |
+| `src/styles/theme.css` | Untitled UI 토큰. 브랜드 스케일은 더스티 로즈, 바탕 회색(`--color-neutral-*`)은 크림·오트밀 웜 그레이로 덮어썼습니다. 분홍은 버튼·링크·활성 탭·저장 하트 같은 강조에만 쓰고 바탕은 크림으로 비워 둡니다 |
 | `src/components/layout/` | 앱 셸(사이드바·탭바·앱바)과 `PageHeader` / `Section` / `EmptyState` |
 | `src/components/icons/` | `@untitledui/icons` 에 없는 숙소·식당·카페 아이콘 3종(24×24, stroke 2) |
 
 색은 `bg-primary` · `text-secondary` · `bg-brand-solid` 같은 시맨틱 토큰으로만 씁니다.
-종류 색(숙소=바다 / 식당=귤 / 카페=현무암)만 브랜드와 별개 토큰으로 남아 있습니다 —
-사진이 없는 화면에서 종류를 가르는 주된 신호라 브랜드 색에 흡수시키지 않았습니다.
+종류 색(숙소=바다 / 식당=감귤 앰버 / 카페=라떼)만 브랜드와 별개 토큰으로 남아 있습니다 —
+사진이 없는 화면에서 종류를 가르는 주된 신호라 브랜드 색에 흡수시키지 않았습니다. 식당을 붉은
+주황이 아니라 노란빛 앰버로 둔 것은 브랜드 로즈와 색상환에서 붙지 않게 하려는 의도입니다.
+같은 값이 `src/styles/theme.css` 와 `src/lib/places.ts`(지도 마커) 두 곳에 있어 함께 고쳐야 합니다.
+팔레트를 바꾸면 `pnpm icons` 로 PWA 아이콘을 다시 만들고 `layout.tsx`·`manifest.ts` 의
+`theme_color` 도 맞춥니다.
 
 `@/` 는 `src/` 를 가리킵니다(`tsconfig.json` 의 `paths`). Untitled UI 컴포넌트끼리 이 경로로
 서로를 참조합니다. 테스트는 Next 를 거치지 않으므로 `vitest.config.mts` 가
