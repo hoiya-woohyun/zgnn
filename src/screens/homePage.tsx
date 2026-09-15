@@ -84,7 +84,7 @@ export function HomePage() {
           ))}
         </div>
 
-        <Button color="primary" size="lg" iconLeading={Map01} href="/map" className="mt-3 w-full">
+        <Button color="primary" size="lg" iconLeading={Map01} href="/map/" className="mt-3 w-full">
           지도로 보기
         </Button>
       </section>

@@ -46,9 +46,26 @@ const mediaCache: RuntimeCaching[] = [
 
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
+  precacheOptions: {
+    /*
+     * 프리캐시를 뒤질 때 무시할 검색 파라미터.
+     *
+     * 기본값은 `utm_` 과 `fbclid` 뿐이라, 저장 화면의 "지도에서 보기"(`/map/?saved=1`)로
+     * 오프라인에서 하드 내비게이션이 일어나면 `/map/` 항목을 못 찾고 404 로 떨어진다.
+     * 기본값을 덮어쓰는 옵션이라 `saved` 만 적으면 안 되고 셋을 함께 적는다.
+     *
+     * RSC 페이로드가 붙이는 `_rsc` 는 일부러 넣지 않는다. 넣으면 페이로드를 받으러 간
+     * fetch 가 HTML 을 돌려받는다.
+     */
+    ignoreURLParametersMatching: [/^utm_/, /^fbclid$/, /^saved$/],
+  },
   skipWaiting: true,
   clientsClaim: true,
-  navigationPreload: true,
+  /*
+   * 내비게이션 프리로드는 끈다. 화면 주소가 모두 프리캐시에 있어 캐시가 먼저 응답하므로,
+   * 프리로드로 미리 보낸 요청은 그대로 버려진다 — 네트워크만 쓰고 쓰이지 않는다.
+   */
+  navigationPreload: false,
   // 우리 규칙을 먼저 본다. 뒤의 defaultCache 에 이미지 전체를 받는 규칙이 있어서,
   // 순서가 바뀌면 장소 사진이 place-images 캐시로 가지 않는다.
   runtimeCaching: [...mediaCache, ...defaultCache],

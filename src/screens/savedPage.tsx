@@ -26,7 +26,7 @@ export function SavedPage() {
             title="하트를 눌러 모아보세요"
             description="저장한 곳은 지도에서 한 번에 확인할 수 있어요."
             action={
-              <Button color="primary" size="md" href="/places/stay">
+              <Button color="primary" size="md" href="/places/stay/">
                 장소 둘러보기
               </Button>
             }
@@ -35,7 +35,7 @@ export function SavedPage() {
       ) : (
         <>
           <div className="px-4 pt-4 md:px-6">
-            <Button color="primary" size="lg" iconLeading={MarkerPin01} href="/map?saved=1" className="w-full">
+            <Button color="primary" size="lg" iconLeading={MarkerPin01} href="/map/?saved=1" className="w-full">
               지도에서 보기
             </Button>
           </div>

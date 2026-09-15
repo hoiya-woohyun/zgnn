@@ -9,7 +9,7 @@ Node 22, pnpm 이 필요합니다.
 
 ```bash
 pnpm i
-pnpm dev      # 개발 서버 (next dev --webpack)
+pnpm dev      # 개발 서버 (next dev --turbopack)
 pnpm build    # 정적 내보내기 → out/
 pnpm preview  # out/ 을 정적 서버로 띄워 확인
 pnpm test     # 반려동물 이용 조건 파서 테스트
@@ -17,9 +17,14 @@ pnpm lint     # eslint
 pnpm icons    # PWA 아이콘 재생성 (팔레트가 바뀔 때만)
 ```
 
-`dev` 와 `build` 에 붙은 `--webpack` 은 취향이 아니라 필수입니다. 서비스워커를 만드는
+`build` 에 붙은 `--webpack` 은 취향이 아니라 필수입니다. 서비스워커를 만드는
 `@serwist/next` 는 webpack 플러그인이라 Turbopack(Next 16 기본)에서는 동작하지 않습니다.
 이 플래그를 빼면 빌드는 통과하지만 `sw.js` 가 만들어지지 않아 PWA 가 조용히 사라집니다.
+
+`dev` 는 반대로 Turbopack 으로 띄웁니다. 개발 모드에서는 `disable: true` 라 플러그인이
+webpack 훅에서 바로 돌아 나오고 서비스워커도 만들지 않으므로, webpack 을 쓸 이유가 없습니다.
+`--turbopack` 을 명시하는 이유는 Next 16 이 "webpack 설정은 있는데 turbopack 설정이 없다" 며
+빌드를 멈추기 때문입니다 — `@serwist/next` 가 항상 `webpack` 키를 붙이는 탓입니다.
 
 빌드 산출물은 `out/` 이고 서버가 필요 없는 정적 파일입니다(`output: 'export'`).
 

@@ -43,7 +43,7 @@ export function MapPageSheetCard({ place }: TMapPageSheetCardProps) {
       </Link>
 
       <div className="mt-4 flex gap-2">
-        <Button color="primary" size="lg" href={`/place/${place.id}`} className="flex-1">
+        <Button color="primary" size="lg" href={`/place/${place.id}/`} className="flex-1">
           자세히 보기
         </Button>
         <SaveButton id={place.id} name={place.name} variant="full" className="w-24 shrink-0" />

@@ -8,7 +8,7 @@ import { cx } from '../../utils/cx';
  * 모바일 하단 탭바. 데스크톱(md 이상)에서는 사이드바가 대신하므로 숨는다.
  *
  * 높이를 고정해 두는 이유는 appShell 이 이 값만큼 콘텐츠 아래를 비워야 하기 때문이다.
- * 여기 숫자를 바꾸면 appShell 의 TAB_BAR_HEIGHT 도 같이 바꾼다.
+ * 여기 숫자를 바꾸면 appShell 의 CONTENT_BOTTOM_SPACE 도 같이 바꾼다.
  */
 export function AppTabBar() {
   const pathname = usePathname();

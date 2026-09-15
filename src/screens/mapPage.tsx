@@ -306,7 +306,7 @@ export function MapPage() {
                   title="저장한 곳이 아직 없어요"
                   description="마음에 드는 곳의 하트를 누르면 여기에 모여요."
                   action={
-                    <Button color="primary" size="lg" href="/places/stay">
+                    <Button color="primary" size="lg" href="/places/stay/">
                       장소 둘러보기
                     </Button>
                   }

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { ArrowLeft } from '@untitledui/icons';
 import { useRouter } from 'next/navigation';
-import { hasInAppHistory } from '../../lib/appHistory';
+import { canGoBackInApp, markReplacedNavigation } from '../../lib/appHistory';
 
 type TAppBarProps = {
   title: string;
@@ -16,16 +16,21 @@ type TAppBarProps = {
  * 모바일 상단 앱바. 데스크톱에서는 사이드바가 현재 위치를 알려주므로 숨는다.
  *
  * 뒤로가기는 history 를 되감되, 링크를 받아 이 화면으로 바로 들어온 경우에는
- * 되감을 앱 안 화면이 없어 앱 밖으로 나가 버린다. 그래서 이 탭에서 앱 안 이동이
- * 한 번이라도 있었는지를 보고(lib/appHistory.ts), 없었으면 backTo 로 올려보낸다.
+ * 되감을 앱 안 화면이 없어 앱 밖으로 나가 버린다. 그래서 지금 history 항목이 앱 안에서
+ * 몇 번째인지를 보고(lib/appHistory.ts), 첫 화면이면 backTo 로 올려보낸다.
  */
 export function AppBar({ title, backTo, actions, tone = 'default' }: TAppBarProps) {
   const router = useRouter();
   const onColor = tone === 'onColor';
 
   const goBack = () => {
-    if (backTo && !hasInAppHistory()) router.replace(backTo);
-    else router.back();
+    if (backTo && !canGoBackInApp()) {
+      // 항목을 갈아 끼우는 이동이라 깊이는 그대로여야 한다.
+      markReplacedNavigation();
+      router.replace(backTo);
+    } else {
+      router.back();
+    }
   };
 
   return (

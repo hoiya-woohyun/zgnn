@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { AppShell } from '@/components/layout/appShell';
-import { RouteProvider } from '@/providers/router-provider';
+import { RouteProvider } from '@/providers/routerProvider';
 import { StoreHydration } from '@/providers/storeHydration';
 import '@/styles/globals.css';
 

@@ -10,7 +10,8 @@ const ROOT = import.meta.dirname;
  *
  * 정적 내보내기의 HTML 은 파일명에 해시가 붙지 않는다(`/place/xxx/index.html`).
  * 그래서 revision 을 null 로 둘 수 없고, 내용이 바뀌면 값도 바뀌어야 한다.
- * git 이 없는 프로젝트라 커밋 해시를 쓸 수 없어 `src/` 전체와 package.json 을 해싱한다.
+ * 커밋 해시 대신 `src/` 전체와 설정·잠금 파일을 해싱한다 — 커밋하지 않은 워킹트리로
+ * 빌드해도 내용이 바뀐 만큼 revision 이 따라오게 하려는 것이다.
  */
 const hashInto = (dir, hash) => {
   for (const name of readdirSync(dir).sort()) {
@@ -26,6 +27,9 @@ hashInto(path.join(ROOT, 'src'), revisionHash);
 // revision 이 그대로라, 이미 방문한 사람의 HTML 이 사라진 청크를 계속 가리킨다.
 revisionHash.update(readFileSync(path.join(ROOT, 'package.json')));
 revisionHash.update(readFileSync(path.join(ROOT, 'pnpm-lock.yaml')));
+// 이 파일도 넣는다. 프리캐시 목록과 빌드 설정이 여기 있어서, 라우트를 더하거나 설정만
+// 바꿔도 HTML 내용이 달라진다. src/ 만 보면 그때 revision 이 그대로다.
+revisionHash.update(readFileSync(path.join(ROOT, 'next.config.mjs')));
 const revision = revisionHash.digest('hex').slice(0, 16);
 
 /*
@@ -84,6 +88,12 @@ const nextConfig = {
   output: 'export',
   trailingSlash: true,
   images: { unoptimized: true },
+  /*
+   * `next dev` 가 프로젝트 루트에 AGENTS.md / CLAUDE.md 를 자동 생성하는 기능을 끈다.
+   * 이 레포는 `.claude/` 와 사용자 전역 규칙을 이미 쓰고 있어서, Next 가 만든 파일이
+   * Claude Code 에 프로젝트 지침으로 잘못 읽힌다.
+   */
+  agentRules: false,
   experimental: {
     /*
      * Untitled UI 스타터킷이 켜 두고 오는 설정이라 그대로 둔다.
