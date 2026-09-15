@@ -5,16 +5,11 @@ import { useRouter } from 'next/navigation';
 import { Heart, Map01 } from '@untitledui/icons';
 import { HomeTypeCard } from './homeTypeCard';
 import { Button } from '../components/base/button';
+import { SeasonChips } from '../components/seasonChips';
 import { META, PLACE_TYPES, TYPE_META, countByType } from '../lib/places';
 import { checklistProgress } from '../lib/checklist';
 import { useAppStore, useSavedCount } from '../store/useAppStore';
 import type { TSeasonFilter } from '../store/useAppStore';
-
-const SEASON_CHIPS: { label: string; value: TSeasonFilter }[] = [
-  { label: '사계절', value: null },
-  { label: '여름', value: '여름' },
-  { label: '겨울', value: '겨울' },
-];
 
 function PawMark() {
   return (
@@ -95,24 +90,8 @@ export function HomePage() {
           <p className="text-sm text-tertiary">{META.itemsIntro.split('\n')[0]}</p>
 
           {/* 계절칩은 필터가 아니라 '고르면 바로 준비물로 이동'하는 진입점이다.
-              그래도 지금 스토어에 저장된 계절은 보여줘야 해서 토글형 버튼 + aria-pressed 로 만든다. */}
-          <div className="mt-3 flex gap-2" role="group" aria-label="계절 선택">
-            {SEASON_CHIPS.map((chip) => {
-              const active = season === chip.value;
-              return (
-                <Button
-                  key={chip.label}
-                  type="button"
-                  size="sm"
-                  color={active ? 'primary' : 'secondary'}
-                  aria-pressed={active}
-                  onClick={() => startChecklist(chip.value)}
-                >
-                  {chip.label}
-                </Button>
-              );
-            })}
-          </div>
+              그래도 지금 스토어에 저장된 계절은 보여줘야 해서 눌림 상태를 가진 같은 칩을 쓴다. */}
+          <SeasonChips value={season} onSelect={startChecklist} label="계절 선택" className="mt-3" />
 
           <Link
             href="/checklist"

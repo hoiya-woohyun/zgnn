@@ -8,17 +8,12 @@ import { Button } from '../components/base/button';
 import { Checkbox } from '../components/base/checkbox';
 import { PageHeader } from '../components/layout/pageHeader';
 import { Section } from '../components/layout/section';
+import { SeasonChips } from '../components/seasonChips';
 import { META } from '../lib/places';
 import { checklistProgress } from '../lib/checklist';
 import { linkLabel } from '../lib/format';
 import { cx } from '../utils/cx';
-import { useAppStore, type TSeasonFilter } from '../store/useAppStore';
-
-const SEASON_CHIPS: { label: string; value: TSeasonFilter }[] = [
-  { label: '사계절', value: null },
-  { label: '여름', value: '여름' },
-  { label: '겨울', value: '겨울' },
-];
+import { useAppStore } from '../store/useAppStore';
 
 export function ChecklistPage() {
   const season = useAppStore((state) => state.season);
@@ -38,35 +33,7 @@ export function ChecklistPage() {
       />
 
       <div className="px-4 pt-4 md:px-6">
-        {/*
-          계절은 탭이 아니라 아래 한 목록을 걸러내는 세그먼트 컨트롤이다.
-
-          처음엔 react-aria Tabs 로 만들었는데, 탭에는 짝이 되는 패널이 있어야 한다.
-          패널 없이 TabList 만 쓰면 고른 탭에 aria-controls 가 붙은 채 그 id 를 가진
-          요소가 화면에 없어서, 보조기술이 존재하지 않는 영역을 가리키게 된다.
-          걸러내는 버튼은 aria-pressed 로 눌림 상태만 말하면 충분하다.
-        */}
-        <div className="flex gap-2" role="group" aria-label="계절">
-          {SEASON_CHIPS.map((chip) => {
-            const active = season === chip.value;
-            return (
-              <button
-                key={chip.label}
-                type="button"
-                onClick={() => setSeason(chip.value)}
-                aria-pressed={active}
-                className={cx(
-                  'h-11 rounded-lg px-4 text-sm font-semibold transition-colors',
-                  active
-                    ? 'bg-brand-primary text-brand-secondary'
-                    : 'text-tertiary hover:bg-secondary',
-                )}
-              >
-                {chip.label}
-              </button>
-            );
-          })}
-        </div>
+        <SeasonChips value={season} onSelect={setSeason} label="계절" />
 
         <p className="mt-3 text-sm text-tertiary">
           {total}가지 중 {checkedCount}가지 챙겼어요
