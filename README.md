@@ -3,6 +3,12 @@
 짱구누나의 반려견 동반 제주 가이드. 강아지와 함께 갈 수 있는 제주 숙소·식당·카페 86곳과
 여행 준비물을 모바일에서 보는 PWA 입니다.
 
+## 문서
+
+제품 컨셉과 설계 문서는 `docs/` 에 있습니다. [docs/CONCEPT.md](docs/CONCEPT.md) 가 "왜 만드는가",
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) 가 "어떻게 짜여 있는가" 의 허브입니다.
+이 README 는 실행과 온보딩만 다룹니다.
+
 ## 실행
 
 Node 22, pnpm 이 필요합니다.
