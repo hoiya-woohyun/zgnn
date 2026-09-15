@@ -18,7 +18,7 @@ const SEASON_CHIPS: { label: string; value: TSeasonFilter }[] = [
 
 function PawMark() {
   return (
-    <svg viewBox="0 0 48 48" className="h-9 w-9 text-white" aria-hidden="true">
+    <svg viewBox="0 0 48 48" className="h-9 w-9 text-brand-300" aria-hidden="true">
       <ellipse cx="14.5" cy="15.5" rx="5" ry="6.4" fill="currentColor" />
       <ellipse cx="25.5" cy="11.5" rx="5" ry="6.8" fill="currentColor" />
       <ellipse cx="36" cy="16.5" rx="4.8" ry="6.2" fill="currentColor" />

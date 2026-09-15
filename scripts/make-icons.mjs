@@ -8,7 +8,7 @@ const OUT = new URL('../public/icons/', import.meta.url);
 await mkdir(OUT, { recursive: true });
 
 const BG = '#2e2327'; // 잉크 (theme.css --color-ink)
-const FG = '#f0a3b7'; // 로즈 (theme.css --color-brand-300)
+const FG = '#fe9bbd'; // 핑크 (theme.css --color-brand-300)
 
 /**
  * 발자국. 네 개의 발가락과 하나의 발바닥, 전부 타원이다.

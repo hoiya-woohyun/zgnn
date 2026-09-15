@@ -53,9 +53,9 @@ export const TYPE_META: Record<TPlaceType, { label: string; blurb: string }> = {
 };
 
 /**
- * 숙소=바다, 식당=감귤, 카페=라떼. 저장 하트는 브랜드 로즈를 그대로 쓴다.
+ * 숙소=바다, 식당=감귤, 카페=라떼. 저장 하트는 브랜드 핑크를 그대로 쓴다.
  * 장소 사진이 없는 것이 기본이라 이 색이 화면에서 타입을 구분하는 주된 신호다.
- * 브랜드 로즈와 색상환에서 붙지 않게 식당은 노란빛 앰버로 뺐다. styles/theme.css 의 --color-stay 등과 같은 값.
+ * 브랜드 핑크와 색상환에서 붙지 않게 식당은 노란빛 앰버로 뺐다. styles/theme.css 의 --color-stay 등과 같은 값.
  */
 export const TYPE_COLOR: Record<TPlaceType, string> = {
   stay: '#3b8ea5',
