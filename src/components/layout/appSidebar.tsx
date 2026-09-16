@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LinkExternal01 } from '@untitledui/icons';
 import { NAV_ITEMS } from './navItems';
+import { AuthorAvatar } from '../authorAvatar';
 import { META } from '../../lib/places';
 import { useSavedCount } from '../../store/useAppStore';
 import { cx } from '../../utils/cx';
@@ -57,18 +58,21 @@ export function AppSidebar() {
         </ul>
       </nav>
 
-      <footer className="border-t border-secondary px-5 py-4 text-xs text-tertiary">
-        <p>{META.author}님이 정리한 자료입니다.</p>
-        <a
-          href={META.sourceUrl}
-          target="_blank"
-          rel="noreferrer"
-          /* 문장 안의 인라인 링크(homePage 푸터)와 달리 이건 혼자 선 링크라 44px 예외가 아니다. */
-          className="mt-1.5 inline-flex min-h-11 items-center gap-1 font-semibold text-brand-secondary hover:underline"
-        >
-          원본 노션 보기
-          <LinkExternal01 size={14} />
-        </a>
+      <footer className="flex items-start gap-3 border-t border-secondary px-5 py-4 text-xs text-tertiary">
+        <AuthorAvatar className="size-10" />
+        <div>
+          <p>{META.author}님이 정리한 자료입니다.</p>
+          <a
+            href={META.sourceUrl}
+            target="_blank"
+            rel="noreferrer"
+            /* 문장 안의 인라인 링크(homePage 푸터)와 달리 이건 혼자 선 링크라 44px 예외가 아니다. */
+            className="mt-1.5 inline-flex min-h-11 items-center gap-1 font-semibold text-brand-secondary hover:underline"
+          >
+            원본 노션 보기
+            <LinkExternal01 size={14} />
+          </a>
+        </div>
       </footer>
     </aside>
   );

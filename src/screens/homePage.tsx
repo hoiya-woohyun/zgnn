@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Heart, Map01 } from '@untitledui/icons';
 import { HomeTypeCard } from './homeTypeCard';
+import { AuthorAvatar } from '../components/authorAvatar';
 import { Button } from '../components/base/button';
 import { SeasonChips } from '../components/seasonChips';
 import { META, PLACE_TYPES, TYPE_META, countByType, placesOfType } from '../lib/places';
@@ -88,7 +89,11 @@ export function HomePage() {
       <div className="px-4 md:px-6">
         <section className="-mt-10 rounded-2xl border border-secondary bg-primary p-5 shadow-lg">
           <p className="whitespace-pre-line text-sm text-secondary">{META.intro}</p>
-          <p className="mt-3 text-right text-sm font-semibold text-brand-secondary">{META.author}</p>
+          {/* 편지 서명처럼 오른쪽 아래. 첫 화면에서 "누가 쓴 자료인가" 를 얼굴로 한 번 더 말한다. */}
+          <p className="mt-3 flex items-center justify-end gap-2 text-sm font-semibold text-brand-secondary">
+            <AuthorAvatar className="size-9" />
+            {META.author}
+          </p>
         </section>
       </div>
 

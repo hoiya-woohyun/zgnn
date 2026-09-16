@@ -1,5 +1,6 @@
 # PWA · 서비스워커 · 오프라인
 
+> 최종 수정: 2026-09-16 (v2: public/images/ 도 프리캐시 대상에 추가 — 작성자 초상)
 > 최종 수정: 2026-09-15 (v1: 신설)
 
 ## 개요
@@ -23,7 +24,7 @@ next.config.mjs: additionalPrecacheEntries (라우트 HTML 93개 + 매니페스�
 정적 내보내기의 HTML 은 webpack 자산이 아니라 컴파일 뒤 따로 쓰인다. 그냥 두면 매니페스트에 JS·CSS 만 들어오고 화면 주소가 하나도 안 들어온다.
 그래서 `next.config.mjs` 가 `places.json` 에서 라우트 93개(홈·지도·준비물·저장·종류 3·장소 86)를 만들어 `additionalPrecacheEntries` 로 넣는다.
 
-- **주의**: `additionalPrecacheEntries` 를 주면 플러그인은 `public/` 을 훑는 자기 동작을 **건너뛴다**. 둘은 더해지지 않는다. 그래서 아이콘·404·매니페스트도 직접 넣는다.
+- **주의**: `additionalPrecacheEntries` 를 주면 플러그인은 `public/` 을 훑는 자기 동작을 **건너뛴다**. 둘은 더해지지 않는다. 그래서 `public/icons/`·`public/images/`(작성자 초상)·404·매니페스트도 직접 넣는다. `public/` 에 디렉터리를 새로 만들면 `next.config.mjs` 의 `publicEntries` 목록에도 더해야 한다 — 빼먹으면 온라인에선 보이고 오프라인에서만 조용히 빠진다.
 - 라우트 HTML 은 파일명에 해시가 없어 `revision` 이 필요하다. `src/` 전체와 `package.json`, `pnpm-lock.yaml` 을 해싱한 값을 쓴다. 코드가 바뀌면 전부 갱신되는 보수적 전략이다.
 
 ## 런타임 캐시 (`src/app/sw.ts`)
@@ -47,7 +48,7 @@ next.config.mjs: additionalPrecacheEntries (라우트 HTML 93개 + 매니페스�
 때문이다(근거: [ADR-006](../decisions/ADR-006-responsive-scale-and-font.md)). `next/font/local` 이
 `src/app/layout.tsx` 에서 읽어 `_next/static/media/*.woff2` 로 굽고, serwist 가 그 파일을 빌드 산출물로
 인식해 **프리캐시 목록에 자동으로 넣는다**(`additionalPrecacheEntries` 에 손으로 적을 필요 없다.
-아이콘과 다른 점 — 아이콘은 `public/` 이라 직접 넣어야 한다).
+아이콘·이미지와 다른 점 — 그쪽은 `public/` 이라 직접 넣어야 한다).
 
 원본은 굵기당 2.1MB TTF 라 서브셋해서 쓴다. 다시 만들 일이 생기면:
 
@@ -70,4 +71,4 @@ pyftsubset NanumSquareNeoTTF-bRg.ttf   --output-file=src/app/fonts/NanumSquareNe
 
 ## 관련 파일
 
-`src/app/sw.ts`, `next.config.mjs`, `src/app/manifest.ts`, `src/app/layout.tsx`, `src/app/fonts/`, `scripts/make-icons.mjs`, `public/icons/`
+`src/app/sw.ts`, `next.config.mjs`, `src/app/manifest.ts`, `src/app/layout.tsx`, `src/app/fonts/`, `scripts/make-icons.mjs`, `public/icons/`, `public/images/`

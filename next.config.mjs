@@ -52,23 +52,31 @@ const routes = [
 ];
 
 /*
- * public/ 의 아이콘.
+ * public/ 의 아이콘과 이미지.
  *
  * @serwist/next 는 `additionalPrecacheEntries` 를 주면 public/ 을 훑는 자기 동작
  * (`globPublicPatterns`)을 아예 건너뛴다 — 둘은 보태지는 게 아니라 하나가 다른 하나를
  * 대신한다. 그래서 아이콘도 여기서 같이 넣어야 홈 화면에 추가한 뒤 오프라인에서 아이콘이 뜬다.
- * revision 은 파일 내용 해시라, 아이콘을 바꾸면 그 항목만 다시 받는다.
+ * revision 은 파일 내용 해시라, 파일을 바꾸면 그 항목만 다시 받는다.
+ *
+ * public/ 에 새 디렉터리를 만들면 여기 목록에도 더해야 한다 — 빌드는 통과하고 온라인에선
+ * 보이는데 오프라인에서만 조용히 빠지는 자리다.
  */
-const iconEntries = readdirSync(path.join(ROOT, 'public/icons')).map((name) => ({
-  url: `/icons/${name}`,
-  revision: createHash('sha256')
-    .update(readFileSync(path.join(ROOT, 'public/icons', name)))
-    .digest('hex'),
-}));
+const publicEntries = ['icons', 'images'].flatMap((dir) =>
+  readdirSync(path.join(ROOT, 'public', dir))
+    // 하위 디렉터리는 건너뛴다 — readFileSync 가 EISDIR 로 빌드를 멈춘다.
+    .filter((name) => statSync(path.join(ROOT, 'public', dir, name)).isFile())
+    .map((name) => ({
+      url: `/${dir}/${name}`,
+      revision: createHash('sha256')
+        .update(readFileSync(path.join(ROOT, 'public', dir, name)))
+        .digest('hex'),
+    })),
+);
 
 const additionalPrecacheEntries = [
   ...routes.map((url) => ({ url, revision })),
-  ...iconEntries,
+  ...publicEntries,
   // 오프라인에서 모르는 주소로 들어왔을 때 보여줄 화면.
   { url: '/404.html', revision },
   // app/manifest.ts 가 만드는 웹 매니페스트. public/ 이 아니라 라우트라 직접 넣는다.
