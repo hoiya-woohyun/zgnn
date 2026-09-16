@@ -10,6 +10,7 @@ import { MapPageSheetCard } from './mapPageSheet';
 import { useMapPageWideLayout } from './useMapPageWideLayout';
 import { BottomSheet } from '@/components/base/bottom-sheet';
 import { Button } from '@/components/base/button';
+import { Select } from '@/components/base/select';
 import { EmptyState } from '../components/layout/emptyState';
 import { PlaceThumb } from '../components/placeThumb';
 import { TownChip } from '../components/townChip';
@@ -21,12 +22,24 @@ import {
   JEJU_ZOOM,
   PLACES,
   PLACE_TYPES,
+  TOWN_OPTIONS,
   TYPE_COLOR,
   TYPE_META,
 } from '../lib/places';
-import { useSavedPlaces } from '../store/useAppStore';
+import { useAppStore, useSavedPlaces } from '../store/useAppStore';
 import { cx } from '../utils/cx';
-import type { TDirection, TPlaceType } from '../types';
+import type { TDirection, TGeo, TPlaceType } from '../types';
+
+/** 읍면 선택 시 그 읍면 마커들로 지도 시야를 맞춘다. 종류·방향 조건이 바뀌어 같은 읍면 안 마커가 줄어도 다시 맞춘다. */
+function MapPageFitTown({ town, points }: { town: string | null; points: TGeo[] }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!town || points.length === 0) return;
+    const bounds = L.latLngBounds(points.map((point) => [point.lat, point.lng]));
+    map.fitBounds(bounds, { padding: [48, 48], maxZoom: 14 });
+  }, [town, points, map]);
+  return null;
+}
 
 /**
  * 지도 높이가 100dvh 기준이라 첫 렌더 때 Leaflet 이 잰 크기와 실제 크기가 어긋난다.
@@ -106,6 +119,10 @@ export function MapPage() {
   const savedPlaces = useSavedPlaces();
   const isWide = useMapPageWideLayout();
 
+  // 둘러보기·근처 장소와 공유하는 읍면 필터. 여기서 고르면 그쪽에도 유지된다.
+  const town = useAppStore((state) => state.town);
+  const setTown = useAppStore((state) => state.setTown);
+
   const [types, setTypes] = useState<TPlaceType[]>([]);
   const [directions, setDirections] = useState<TDirection[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -119,10 +136,12 @@ export function MapPage() {
     if (directions.length > 0) {
       list = list.filter((place) => directions.includes(place.region.direction));
     }
+    if (town) list = list.filter((place) => place.region.town === town);
     return list;
-  }, [savedOnly, savedPlaces, types, directions]);
+  }, [savedOnly, savedPlaces, types, directions, town]);
 
   const withGeo = useMemo(() => filtered.filter((place) => place.geo), [filtered]);
+  const townPoints = useMemo(() => withGeo.map((place) => place.geo!), [withGeo]);
   const missingGeoCount = filtered.length - withGeo.length;
   const selected = withGeo.find((place) => place.id === selectedId) ?? null;
 
@@ -187,6 +206,7 @@ export function MapPage() {
       className="h-full w-full"
     >
       <MapPageAutoResize />
+      <MapPageFitTown town={town} points={townPoints} />
       <TileLayer
         url={TILE_SOURCE.url}
         attribution={TILE_SOURCE.attribution}
@@ -334,6 +354,27 @@ export function MapPage() {
                   </button>
                 );
               })}
+            </div>
+
+            {/*
+              읍면은 목록이 길어(20여 곳) 가로 스크롤 칩보다 Select 가 낫다. 둘러보기·근처 장소와
+              같은 스토어 값을 쓰므로, 여기서 고른 읍면이 그쪽에도 그대로 남는다.
+            */}
+            <div className="pointer-events-auto px-3">
+              <Select
+                aria-label="읍면"
+                size="sm"
+                selectedKey={town ?? 'all'}
+                onSelectionChange={(key) => setTown(key === 'all' ? null : String(key))}
+                className="w-40"
+              >
+                <Select.Item id="all">읍면 전체</Select.Item>
+                {TOWN_OPTIONS.map((option) => (
+                  <Select.Item key={option} id={option}>
+                    {option}
+                  </Select.Item>
+                ))}
+              </Select>
             </div>
 
             <div className="flex flex-wrap items-center gap-2 px-3 lg:hidden">

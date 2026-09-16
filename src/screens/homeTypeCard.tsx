@@ -1,7 +1,8 @@
 import Link from 'next/link';
-import { Badge } from '../components/base/badges';
+import { useRouter } from 'next/navigation';
 import { PLACE_TYPE_ICON } from '../components/icons/placeTypeIcon';
 import { TYPE_COLOR, TYPE_COLOR_DEEP, TYPE_META, countByType, topTowns, typeTint } from '../lib/places';
+import { useAppStore } from '../store/useAppStore';
 import type { TPlaceType } from '../types';
 
 /**
@@ -9,50 +10,70 @@ import type { TPlaceType } from '../types';
  * 사진 대신 타입 색과 아이콘, 건수, 장소가 많은 읍면 세 곳으로 구성한다.
  */
 export function HomeTypeCard({ type }: { type: TPlaceType }) {
+  const router = useRouter();
+  const setTown = useAppStore((state) => state.setTown);
   const meta = TYPE_META[type];
   const towns = topTowns(type, 3);
   const Icon = PLACE_TYPE_ICON[type];
 
+  // 읍면은 스토어 값이라, 여기서 골라도 둘러보기 화면의 읍면 필터에 그대로 이어진다.
+  const goToTown = (town: string) => {
+    setTown(town);
+    router.push(`/places/${type}`);
+  };
+
   return (
-    <Link
-      href={`/places/${type}`}
-      className="block rounded-2xl p-4 transition-opacity active:opacity-85"
+    <div
+      className="rounded-2xl p-4"
       style={{
         background: typeTint(type, 11),
         boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${TYPE_COLOR[type]} 22%, #fff)`,
       }}
     >
-      <div className="flex items-center gap-3">
-        <span
-          aria-hidden="true"
-          className="grid size-12 shrink-0 place-items-center rounded-xl bg-primary/80"
-          style={{ color: TYPE_COLOR[type] }}
-        >
-          <Icon size={24} />
-        </span>
+      <Link href={`/places/${type}`} className="block transition-opacity active:opacity-85">
+        <div className="flex items-center gap-3">
+          <span
+            aria-hidden="true"
+            className="grid size-12 shrink-0 place-items-center rounded-xl bg-primary/80"
+            style={{ color: TYPE_COLOR[type] }}
+          >
+            <Icon size={24} />
+          </span>
 
-        <div className="min-w-0 flex-1">
-          <p className="text-lg font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>
-            {meta.label}
+          <div className="min-w-0 flex-1">
+            <p className="text-lg font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>
+              {meta.label}
+            </p>
+            <p className="text-sm text-secondary">{meta.blurb}</p>
+          </div>
+
+          <p className="text-xl font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>
+            {countByType[type]}
+            <span className="text-sm font-semibold">곳</span>
           </p>
-          <p className="text-sm text-secondary">{meta.blurb}</p>
         </div>
+      </Link>
 
-        <p className="text-xl font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>
-          {countByType[type]}
-          <span className="text-sm font-semibold">곳</span>
-        </p>
-      </div>
-
-      {/* 읍면 칩은 색 대비보다 '어디에 많은지'가 정보라, 타입색 대신
-          공용 Badge(gray) 로 통일한다 — 계약서가 명시한 컴포넌트다. */}
-      <div className="mt-3 flex flex-wrap gap-1.5">
+      {/*
+        읍면 칩을 누르면 그 읍면으로 둘러보기 필터를 걸고 바로 이동한다(2026-09-15 리뷰 P1 —
+        예전엔 눌러도 반응이 없었다). 카드 전체가 이미 위 Link 라 버튼을 그 안에 중첩하지 않고
+        별도 줄로 뺐다 — <a> 안에 <button> 을 넣으면 안 된다.
+        색 대비보다 '어디에 많은지'가 정보라 타입색 대신 중립 배지 톤을 쓰되, 클릭 가능해졌으니
+        높이는 다른 필터 칩과 같은 44px 로 맞춘다.
+      */}
+      <div className="mt-3 flex flex-wrap gap-1.5" role="group" aria-label="읍면 바로가기">
         {towns.map((entry) => (
-          <Badge key={entry.town} size="sm" color="gray">
+          <button
+            key={entry.town}
+            type="button"
+            onClick={() => goToTown(entry.town)}
+            aria-label={`${entry.town} ${meta.label} 보기`}
+            className="flex h-11 items-center rounded-full bg-primary/80 px-2.5 text-xs font-medium text-secondary ring-1 ring-inset ring-primary transition-colors hover:bg-primary active:opacity-80"
+          >
             {entry.town}
-          </Badge>
+          </button>
         ))}
       </div>
-    </Link>
+    </div>
   );
 }

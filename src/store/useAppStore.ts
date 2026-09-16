@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { PLACES_BY_ID, selectSavedPlaces } from '../lib/places';
+import { ALL_TOWNS, PLACES_BY_ID, selectSavedPlaces } from '../lib/places';
 import type { TCarrier, TDogProfile, TDogSize } from '../types';
 
 /** 사계절 항목은 항상 보이므로, 계절 선택은 여름/겨울 둘 중 하나이거나 선택 안 함(null)이다. */
@@ -17,6 +17,11 @@ type TAppState = {
   dog: TDogProfile | null;
   /** 이번 여행에 실내 자리가 꼭 필요한지 — 강아지 정보가 아니라 여행 정보라 따로 둔다. */
   needsIndoor: boolean;
+  /**
+   * 지금 둘러보는 읍면. 한 번 고르면 둘러보기·지도·홈을 넘나들어도 유지된다(2026-09-15 리뷰 P1 —
+   * "하나만 고치면: 읍면 한 번 고르면 숙소·식당·카페·지도 모두 유지").
+   */
+  town: string | null;
   toggleSaved: (id: string) => void;
   toggleChecked: (id: string) => void;
   setSeason: (season: TSeasonFilter) => void;
@@ -24,6 +29,7 @@ type TAppState = {
   setDog: (dog: TDogProfile) => void;
   clearDog: () => void;
   setNeedsIndoor: (needsIndoor: boolean) => void;
+  setTown: (town: string | null) => void;
 };
 
 const toggle = (list: string[], id: string) =>
@@ -65,6 +71,7 @@ export const useAppStore = create<TAppState>()(
       amenityStayId: null,
       dog: null,
       needsIndoor: false,
+      town: null,
       toggleSaved: (id) => set((state) => ({ savedIds: toggle(state.savedIds, id) })),
       toggleChecked: (id) => set((state) => ({ checkedItemIds: toggle(state.checkedItemIds, id) })),
       setSeason: (season) => set({ season }),
@@ -72,6 +79,7 @@ export const useAppStore = create<TAppState>()(
       setDog: (dog) => set({ dog }),
       clearDog: () => set({ dog: null }),
       setNeedsIndoor: (needsIndoor) => set({ needsIndoor }),
+      setTown: (town) => set({ town }),
     }),
     {
       name: 'zgnn-jeju',
@@ -98,6 +106,8 @@ export const useAppStore = create<TAppState>()(
               : null,
           dog: sanitizeDog(persisted.dog),
           needsIndoor: typeof persisted.needsIndoor === 'boolean' ? persisted.needsIndoor : false,
+          town:
+            typeof persisted.town === 'string' && ALL_TOWNS.has(persisted.town) ? persisted.town : null,
         };
       },
     },

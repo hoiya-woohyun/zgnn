@@ -97,6 +97,15 @@ export const topTowns = (type: TPlaceType, limit = 3): { town: string; count: nu
     .slice(0, limit);
 };
 
+/** 데이터에 실제로 존재하는 읍면 전체(타입 무관). 스토어가 유지하는 `town` 값의 유효성 검사에 쓴다. */
+export const ALL_TOWNS: Set<string> = new Set(PLACES.map((place) => place.region.town));
+
+/**
+ * 지도 필터용 읍면 목록(타입 무관, 가나다순). `topTowns` 는 타입별 상위 N 곳만 주지만
+ * 지도는 종류를 따로 고르므로 전체 읍면이 있어야 한다.
+ */
+export const TOWN_OPTIONS: string[] = [...ALL_TOWNS].sort((a, b) => a.localeCompare(b, 'ko'));
+
 export const isPlaceType = (value: string | undefined): value is TPlaceType =>
   value === 'stay' || value === 'restaurant' || value === 'cafe';
 

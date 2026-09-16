@@ -1,36 +1,90 @@
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { Button } from '../components/base/button';
 import { PlaceThumb } from '../components/placeThumb';
 import { TownChip } from '../components/townChip';
 import { formatKm } from '../lib/format';
-import { nearbyPlaces, type TPlaceEntry } from '../lib/places';
+import { nearbyPlaces, TYPE_META, type TPlaceEntry } from '../lib/places';
+import type { TPlaceType } from '../types';
 
-/** 근처 장소 3곳. 좌표가 있는 장소만 계산되므로(nearbyPlaces), 없으면 섹션째 숨긴다. */
+type TNearbyFilter = 'all' | TPlaceType;
+
+const NEARBY_FILTERS: { id: TNearbyFilter; label: string }[] = [
+  { id: 'all', label: '전체' },
+  { id: 'stay', label: TYPE_META.stay.label },
+  { id: 'restaurant', label: TYPE_META.restaurant.label },
+  { id: 'cafe', label: TYPE_META.cafe.label },
+];
+
+/** 근처 장소. 좌표가 있는 장소만 계산되므로(nearbyPlaces), 아예 없으면 섹션째 숨긴다. */
 export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
-  const nearby = nearbyPlaces(place, 3);
-  if (nearby.length === 0) return null;
+  const [filter, setFilter] = useState<TNearbyFilter>('all');
+
+  // 종류로 걸러도 3곳을 채울 여유가 있게 넉넉히 가져온 뒤, 같은 읍면을 우선으로 다시 정렬한다.
+  const candidates = useMemo(() => nearbyPlaces(place, 20), [place]);
+
+  const nearby = useMemo(() => {
+    const filtered =
+      filter === 'all' ? candidates : candidates.filter(({ place: other }) => other.type === filter);
+    return [...filtered]
+      .sort((a, b) => {
+        const aSameTown = a.place.region.town === place.region.town ? 0 : 1;
+        const bSameTown = b.place.region.town === place.region.town ? 0 : 1;
+        return aSameTown - bSameTown || a.km - b.km;
+      })
+      .slice(0, 3);
+  }, [candidates, filter, place.region.town]);
+
+  if (candidates.length === 0) return null;
 
   return (
     <section className="mt-8">
       <h2 className="px-4 text-lg font-bold text-primary md:px-6">근처 장소</h2>
-      <ul className="no-scrollbar mt-3 flex gap-2.5 overflow-x-auto px-4 pb-1 md:px-6">
-        {nearby.map(({ place: other, km }) => (
-          <li key={other.id} className="w-44 shrink-0">
-            <Link
-              href={`/place/${other.id}`}
-              className="flex h-full flex-col rounded-2xl border border-secondary bg-primary p-3 transition-colors hover:bg-secondary"
-            >
-              <div className="flex items-center justify-between">
-                <PlaceThumb src={other.cover ?? other.images[0]} type={other.type} size={40} />
-                <span className="text-sm font-bold text-secondary">{formatKm(km)}</span>
-              </div>
-              <p className="clamp-2 mt-2 text-sm font-bold text-primary">{other.name}</p>
-              <div className="mt-2">
-                <TownChip town={other.region.town} type={other.type} />
-              </div>
-            </Link>
-          </li>
+
+      <div
+        className="no-scrollbar mt-2 flex gap-2 overflow-x-auto px-4 md:px-6"
+        role="group"
+        aria-label="근처 장소 종류"
+      >
+        {NEARBY_FILTERS.map((option) => (
+          <Button
+            key={option.id}
+            size="sm"
+            color={filter === option.id ? 'primary' : 'secondary'}
+            aria-pressed={filter === option.id}
+            className="h-11 shrink-0"
+            onClick={() => setFilter(option.id)}
+          >
+            {option.label}
+          </Button>
         ))}
-      </ul>
+      </div>
+
+      {nearby.length === 0 ? (
+        <p className="mt-3 px-4 text-sm text-tertiary md:px-6">
+          근처에 {NEARBY_FILTERS.find((option) => option.id === filter)?.label}가 없어요.
+        </p>
+      ) : (
+        <ul className="no-scrollbar mt-3 flex gap-2.5 overflow-x-auto px-4 pb-1 md:px-6">
+          {nearby.map(({ place: other, km }) => (
+            <li key={other.id} className="w-44 shrink-0">
+              <Link
+                href={`/place/${other.id}`}
+                className="flex h-full flex-col rounded-2xl border border-secondary bg-primary p-3 transition-colors hover:bg-secondary"
+              >
+                <div className="flex items-center justify-between">
+                  <PlaceThumb src={other.cover ?? other.images[0]} type={other.type} size={40} />
+                  <span className="text-sm font-bold text-secondary">{formatKm(km)}</span>
+                </div>
+                <p className="clamp-2 mt-2 text-sm font-bold text-primary">{other.name}</p>
+                <div className="mt-2">
+                  <TownChip town={other.region.town} type={other.type} />
+                </div>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

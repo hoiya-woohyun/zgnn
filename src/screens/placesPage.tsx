@@ -10,6 +10,7 @@ import { Button } from '../components/base/button';
 import { Input } from '../components/base/input';
 import { PLACE_TYPES, TYPE_META, placesOfType } from '../lib/places';
 import { PET_FILTERS, comparePrice, type TPetFilterKey, type TPriceSort } from '../lib/placeFilters';
+import { useAppStore } from '../store/useAppStore';
 import { cx } from '../utils/cx';
 import type { TDirection, TPlaceType } from '../types';
 
@@ -28,13 +29,23 @@ export function PlacesPage({ type }: { type: TPlaceType }) {
 }
 
 function PlacesPageOfType({ type }: { type: TPlaceType }) {
+  // 읍면은 이 화면만의 조건이 아니라 지도·근처 장소와도 공유하는 스토어 값이라 로컬 상태로 두지 않는다.
+  const town = useAppStore((state) => state.town);
+  const setTown = useAppStore((state) => state.setTown);
   const [query, setQuery] = useState('');
   const [directions, setDirections] = useState<TDirection[]>([]);
   const [petKeys, setPetKeys] = useState<TPetFilterKey[]>([]);
   const [sort, setSort] = useState<TPriceSort>('none');
 
+  // 다른 조건과 별개로 먼저 걸러 둔다 — 이 종류에 그 읍면 자체가 없으면(0곳) 전용 빈 상태를 보여줘야 한다.
+  const byTown = useMemo(() => {
+    const list = placesOfType(type);
+    return town ? list.filter((place) => place.region.town === town) : list;
+  }, [type, town]);
+  const townHasNoPlaces = town !== null && byTown.length === 0;
+
   const results = useMemo(() => {
-    let list = placesOfType(type);
+    let list = byTown;
 
     const normalizedQuery = query.trim().toLowerCase();
     if (normalizedQuery) {
@@ -56,13 +67,18 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
       list = [...list].sort(comparePrice(sort));
     }
     return list;
-  }, [type, query, directions, petKeys, sort]);
+  }, [byTown, type, query, directions, petKeys, sort]);
 
   const hasFilters =
-    query.trim().length > 0 || directions.length > 0 || petKeys.length > 0 || sort !== 'none';
+    query.trim().length > 0 ||
+    town !== null ||
+    directions.length > 0 ||
+    petKeys.length > 0 ||
+    sort !== 'none';
 
   const resetFilters = () => {
     setQuery('');
+    setTown(null);
     setDirections([]);
     setPetKeys([]);
     setSort('none');
@@ -127,9 +143,11 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
 
         <PlacesPageFilters
           type={type}
+          town={town}
           directions={directions}
           petKeys={petKeys}
           sort={sort}
+          onSelectTown={setTown}
           onToggleDirection={toggleDirection}
           onTogglePetKey={togglePetKey}
           onChangeSort={setSort}
@@ -151,6 +169,19 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
             <PlaceCard key={place.id} place={place} />
           ))}
         </ul>
+      ) : townHasNoPlaces ? (
+        <div className="px-4 pt-6 md:px-6">
+          <EmptyState
+            Icon={SearchMd}
+            title={`${town}엔 ${TYPE_META[type].label}가 없어요`}
+            description="다른 읍면을 골라 보세요."
+            action={
+              <Button color="primary" size="md" onClick={() => setTown(null)}>
+                읍면 해제
+              </Button>
+            }
+          />
+        </div>
       ) : (
         <div className="px-4 pt-6 md:px-6">
           <EmptyState
