@@ -21,6 +21,34 @@
   다크 모드는 이번 범위가 아니다. 토큰은 theme.css 에 준비돼 있지만 .dark-mode 를 켜지 않는다.
 */
 
+/*
+  화면이 커지면 레이아웃만 바뀌는 게 아니라 **크기 자체가 커진다.**
+
+  이 레포의 타이포·간격·컨트롤 높이는 전부 `calc(var(--spacing) * n)` 으로 파생된다
+  (styles/theme.css 의 --text-* 참조). 그래서 축은 하나면 된다 — `--spacing` 을 브레이크포인트
+  마다 키우면 글자·여백·버튼 높이가 **같은 비율로** 함께 커진다. 자리마다 md:text-lg 를 손으로
+  붙이는 방식과 달리, 새로 만드는 컴포넌트도 아무것도 안 해도 규칙을 따른다.
+
+  4 → 4.5 → 5px (1 → 1.125 → 1.25배).
+  - 모바일 4px 은 건드리지 않는다. 44px 터치 기준(h-11 = --spacing * 11)이 여기에 걸려 있다.
+  - 확대 방향으로만 간다. --spacing 을 줄이면 그 기준이 같이 무너진다.
+  - 폭이 아니라 "이 화면을 손으로 만지는가"가 기준이라, 태블릿(768)은 한 단만 올린다.
+
+  px 로 박힌 것들(지도 마커, PlaceThumb, 아이콘 size prop)은 여기에 안 따라온다 — 의도적이다.
+  지도 마커는 카토그래피 결정이고(mapPage.tsx markerIcon 주석), 나머지는 별도 판단이다.
+*/
+@media (min-width: 48rem) {
+  :root {
+    --spacing: 0.28125rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  :root {
+    --spacing: 0.3125rem;
+  }
+}
+
 @custom-variant dark (&:where(.dark-mode, .dark-mode *));
 @custom-variant label (& [data-label]);
 @custom-variant focus-input-within (&:has(input:focus));
