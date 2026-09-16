@@ -5,11 +5,18 @@ import { TYPE_COLOR, TYPE_COLOR_DEEP, TYPE_META, countByType, topTowns, typeTint
 import { useAppStore } from '../store/useAppStore';
 import type { TPlaceType } from '../types';
 
+type THomeTypeCardProps = {
+  type: TPlaceType;
+  /** 우리 강아지 기준 "갈 수 있는 곳"(가능+조건부) 개수. 없으면(undefined) 프로필이 없다는 뜻 —
+   *  기존처럼 전체 건수만 보여준다. */
+  reachable?: number;
+};
+
 /**
  * 홈의 종류별 진입 카드.
  * 사진 대신 타입 색과 아이콘, 건수, 장소가 많은 읍면 세 곳으로 구성한다.
  */
-export function HomeTypeCard({ type }: { type: TPlaceType }) {
+export function HomeTypeCard({ type, reachable }: THomeTypeCardProps) {
   const router = useRouter();
   const setTown = useAppStore((state) => state.setTown);
   const meta = TYPE_META[type];
@@ -47,9 +54,26 @@ export function HomeTypeCard({ type }: { type: TPlaceType }) {
             <p className="text-sm text-secondary">{meta.blurb}</p>
           </div>
 
-          <p className="text-xl font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>
-            {countByType[type]}
-            <span className="text-sm font-semibold">곳</span>
+          <p
+            className="text-xl font-bold"
+            style={{ color: TYPE_COLOR_DEEP[type] }}
+            aria-label={
+              reachable !== undefined
+                ? `갈 수 있는 곳 ${reachable} / 전체 ${countByType[type]}곳`
+                : undefined
+            }
+          >
+            {reachable !== undefined ? (
+              <>
+                {reachable}
+                <span className="text-sm font-semibold text-secondary"> / {countByType[type]}</span>
+              </>
+            ) : (
+              <>
+                {countByType[type]}
+                <span className="text-sm font-semibold">곳</span>
+              </>
+            )}
           </p>
         </div>
       </Link>

@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { SearchMd } from '@untitledui/icons';
+import { PlacesPageEligibilityToggles } from './placesPageEligibilityToggles';
 import { PlacesPageFilters } from './placesPageFilters';
 import { PlaceCard } from '../components/placeCard';
 import { EmptyState } from '../components/layout/emptyState';
@@ -10,7 +11,9 @@ import { Button } from '../components/base/button';
 import { Input } from '../components/base/input';
 import { PLACE_TYPES, TYPE_META, placesOfType } from '../lib/places';
 import { PET_FILTERS, comparePrice, type TPetFilterKey, type TPriceSort } from '../lib/placeFilters';
-import { useAppStore } from '../store/useAppStore';
+import { sortByEligibility } from '../lib/sortByEligibility';
+import { useAppStore, useDog } from '../store/useAppStore';
+import { useEligibilityMap } from '../store/useDogEligibility';
 import { cx } from '../utils/cx';
 import type { TDirection, TPlaceType } from '../types';
 
@@ -32,10 +35,16 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
   // 읍면은 이 화면만의 조건이 아니라 지도·근처 장소와도 공유하는 스토어 값이라 로컬 상태로 두지 않는다.
   const town = useAppStore((state) => state.town);
   const setTown = useAppStore((state) => state.setTown);
+  const dog = useDog();
+  const eligibilityMap = useEligibilityMap();
+  const needsIndoor = useAppStore((state) => state.needsIndoor);
+  const setNeedsIndoor = useAppStore((state) => state.setNeedsIndoor);
   const [query, setQuery] = useState('');
   const [directions, setDirections] = useState<TDirection[]>([]);
   const [petKeys, setPetKeys] = useState<TPetFilterKey[]>([]);
   const [sort, setSort] = useState<TPriceSort>('none');
+  // 화면 로컬 상태 — 강아지 프로필이 없으면 "어려움" 개념이 없어 애초에 토글이 보이지 않는다.
+  const [hideHard, setHideHard] = useState(false);
 
   // 다른 조건과 별개로 먼저 걸러 둔다 — 이 종류에 그 읍면 자체가 없으면(0곳) 전용 빈 상태를 보여줘야 한다.
   const byTown = useMemo(() => {
@@ -63,18 +72,29 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     if (activeTests.length > 0) {
       list = list.filter((place) => activeTests.every((filter) => filter.test(place.policy)));
     }
+    // "실내 자리 필요"(needsIndoor)는 이미 judgeEligibility(opts) 를 통해 야외 전용 장소를
+    // 어려움으로 밀어 올린다 — 그 결과를 hideHard 가 걸러낸다. 여기서 policy.indoor 를
+    // 직접 다시 걸러내지 않는 이유는 판정 로직을 화면에서 중복하지 않기 위해서다.
+    if (hideHard && eligibilityMap) {
+      list = list.filter((place) => eligibilityMap.get(place.id)?.level !== 'hard');
+    }
     if (type === 'stay' && sort !== 'none') {
+      // 가격 정렬을 고르면 가격이 우선이다(2026-09-15 리뷰 후속 B3 결정).
       list = [...list].sort(comparePrice(sort));
+    } else if (eligibilityMap) {
+      // 프로필이 있으면 기본 정렬은 가능 → 조건부 → 정보 없음 → 어려움.
+      list = sortByEligibility(list, eligibilityMap, (place) => place.id);
     }
     return list;
-  }, [byTown, type, query, directions, petKeys, sort]);
+  }, [byTown, type, query, directions, petKeys, sort, hideHard, eligibilityMap]);
 
   const hasFilters =
     query.trim().length > 0 ||
     town !== null ||
     directions.length > 0 ||
     petKeys.length > 0 ||
-    sort !== 'none';
+    sort !== 'none' ||
+    hideHard;
 
   const resetFilters = () => {
     setQuery('');
@@ -82,6 +102,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     setDirections([]);
     setPetKeys([]);
     setSort('none');
+    setHideHard(false);
   };
 
   const toggleDirection = (direction: TDirection) =>
@@ -152,10 +173,27 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
           onTogglePetKey={togglePetKey}
           onChangeSort={setSort}
         />
+
+        {dog && (
+          <PlacesPageEligibilityToggles
+            type={type}
+            hideHard={hideHard}
+            onToggleHideHard={() => setHideHard((value) => !value)}
+            needsIndoor={needsIndoor}
+            onToggleNeedsIndoor={() => setNeedsIndoor(!needsIndoor)}
+          />
+        )}
       </div>
 
       <div className="flex items-center justify-between px-4 pt-4 md:px-6">
-        <p className="text-sm text-tertiary">{results.length}곳</p>
+        <div>
+          <p className="text-sm text-tertiary">{results.length}곳</p>
+          {/* 조건을 여러 개 겹쳐 0~1곳만 남았을 때 "왜 이렇게 적지" 하고 이탈하지 않도록
+              조건을 하나 풀어보라고 먼저 알려준다(2026-09-15 리뷰 §1 — 세 필터 켜면 0~1곳 안내 없음). */}
+          {hasFilters && results.length === 1 && (
+            <p className="mt-0.5 text-xs text-tertiary">조건을 하나 풀어 보면 더 볼 수 있어요.</p>
+          )}
+        </div>
         {hasFilters && (
           <Button color="link-color" size="sm" onClick={resetFilters}>
             조건 지우기
@@ -187,7 +225,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
           <EmptyState
             Icon={SearchMd}
             title="조건에 맞는 곳이 없어요"
-            description="검색어나 방향, 반려동물 조건을 조금 줄여보세요."
+            description="조건을 하나 풀어 보세요."
             action={
               <Button color="primary" size="md" onClick={resetFilters}>
                 조건 지우기

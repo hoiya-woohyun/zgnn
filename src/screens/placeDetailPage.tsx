@@ -5,6 +5,7 @@ import { LinkExternal01, Share01 } from '@untitledui/icons';
 import { notFound } from 'next/navigation';
 import { PlaceDetailHeader } from './placeDetailHeader';
 import { PlaceDetailGallery } from './placeDetailGallery';
+import { HighlightedPolicyText, PlaceDetailEligibilityCard } from './placeDetailEligibilityCard';
 import { PlaceDetailNearby } from './placeDetailNearby';
 import { Button } from '../components/base/button';
 import { PetBadges } from '../components/petBadges';
@@ -62,14 +63,40 @@ export function PlaceDetailPage({ id }: { id: string }) {
 
       <section className="mt-6 px-4 md:px-6">
         <h2 className="text-lg font-bold text-primary">반려동물 이용</h2>
-        <div className="mt-2 rounded-2xl border border-secondary bg-primary p-4">
-          {/* 파서가 조건을 놓쳤을 수 있어, 구조화 배지와 원문을 함께 보여준다. */}
-          <PetBadges policy={place.policy} className="mb-3" />
-          <p className="whitespace-pre-line text-sm text-secondary">{place.petPolicyText}</p>
-          <p className="mt-3 text-xs text-tertiary">
-            {TYPE_META[place.type].label} 정보는 바뀔 수 있어요. 방문 전 한 번 더 확인해 주세요.
-          </p>
+        <div className="mt-2">
+          {/* 우리 강아지 기준 판정. 원문 카드보다 먼저 보여준다 — 원문은 판정의 근거일 뿐,
+              사용자가 먼저 알고 싶은 건 "우리 강아지가 갈 수 있는가"다. */}
+          <PlaceDetailEligibilityCard place={place} />
+          <div className="rounded-2xl border border-secondary bg-primary p-4">
+            {/* 파서가 조건을 놓쳤을 수 있어, 구조화 배지와 원문을 함께 보여준다. */}
+            <PetBadges policy={place.policy} className="mb-3" />
+            <p className="whitespace-pre-line text-sm text-secondary">
+              <HighlightedPolicyText text={place.petPolicyText} place={place} />
+            </p>
+            <p className="mt-3 text-xs text-tertiary">
+              {TYPE_META[place.type].label} 정보는 바뀔 수 있어요. 방문 전 한 번 더 확인해 주세요.
+            </p>
+          </div>
         </div>
+
+        {/*
+          네이버 지도 버튼을 '반려동물 이용' 카드 바로 아래로 옮겼다(2026-09-15 리뷰 §2③ —
+          숙소는 아래 요금 섹션에 밀려 네이버 버튼이 한 화면 아래로 내려갔다). 어려움 판정이어도
+          네이버로 가서 직접 확인할 수 있어야 하므로 판정과 무관하게 항상 보여준다.
+        */}
+        {place.naverUrl && (
+          <Button
+            color="primary"
+            size="lg"
+            iconTrailing={LinkExternal01}
+            href={place.naverUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-3 w-full"
+          >
+            네이버 지도에서 열기
+          </Button>
+        )}
       </section>
 
       {place.stay && (
@@ -91,52 +118,39 @@ export function PlaceDetailPage({ id }: { id: string }) {
         </section>
       )}
 
-      <section className="mt-6 space-y-2 px-4 md:px-6">
-        {place.naverUrl && (
-          <Button
-            color="primary"
-            size="lg"
-            iconTrailing={LinkExternal01}
-            href={place.naverUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="w-full"
-          >
-            네이버 지도에서 열기
-          </Button>
-        )}
-
-        {(place.reviewUrl || canShare) && (
-          <div className="flex gap-2">
-            {place.reviewUrl && (
-              <Button
-                color="secondary"
-                size="lg"
-                href={place.reviewUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="flex-1"
-              >
-                후기 보기
-              </Button>
-            )}
-            {canShare && (
-              <Button
-                color="secondary"
-                size="lg"
-                iconLeading={Share01}
-                onClick={share}
-                aria-label={`${place.name} 공유하기`}
-                className="flex-1"
-              >
-                공유
-              </Button>
-            )}
-          </div>
-        )}
-
-        <SaveButton id={place.id} name={place.name} variant="full" className="w-full" />
-      </section>
+      {/*
+        저장은 위 특징 옆 하트 하나로 충분하다(2026-09-15 리뷰 §2② — 하단 풀버튼 저장까지
+        있으면 같은 기능이 두 곳에 있어 헷갈린다). 네이버 버튼도 위 '반려동물 이용' 아래로
+        옮겼으니, 여기 남는 건 후기·공유뿐이다.
+      */}
+      {(place.reviewUrl || canShare) && (
+        <section className="mt-6 flex gap-2 px-4 md:px-6">
+          {place.reviewUrl && (
+            <Button
+              color="secondary"
+              size="lg"
+              href={place.reviewUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="flex-1"
+            >
+              후기 보기
+            </Button>
+          )}
+          {canShare && (
+            <Button
+              color="secondary"
+              size="lg"
+              iconLeading={Share01}
+              onClick={share}
+              aria-label={`${place.name} 공유하기`}
+              className="flex-1"
+            >
+              공유
+            </Button>
+          )}
+        </section>
+      )}
 
       <PlaceDetailNearby place={place} />
 

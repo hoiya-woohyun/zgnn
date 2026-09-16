@@ -38,10 +38,18 @@ export function PlaceDetailHeader({ place }: { place: TPlaceEntry }) {
         </div>
 
         {/*
-          모바일은 위 AppBar 가 이미 같은 이름을 제목으로 읽어 주므로(중복 낭독 방지),
-          여기 큰 이름은 데스크톱에서만 보인다 — pageHeader.tsx 의 desktopOnlyTitle 과 같은 처리.
+          모바일에서 워시 판이 빈 면으로 보이던 문제(2026-09-15 리뷰 §0 ①) — 큰 이름을
+          모바일에도 보이게 한다. 다만 위 AppBar 가 이미 같은 이름을 실제 h1 로 읽어 주므로
+          (모바일에서만 보이는 md:hidden 헤더), 여기 큰 이름을 h1 으로 또 두면 스크린리더가
+          같은 이름을 두 번 듣는다. 그래서 모바일에서는 이 텍스트를 aria-hidden 순수 장식으로,
+          데스크톱에서는(AppBar 가 md:hidden 이라 안 보임) 이걸 유일한 h1 으로 쓴다 —
+          하나의 h1 이 화면 폭에 따라 자리만 바뀌는 게 아니라, 폭마다 "진짜 제목" 을 담당하는
+          쪽이 다르다.
         */}
-        <h1 className="sr-only mt-2 text-display-sm font-bold text-primary md:not-sr-only">{place.name}</h1>
+        <p aria-hidden="true" className="mt-2 text-display-sm font-bold text-primary md:hidden">
+          {place.name}
+        </p>
+        <h1 className="mt-2 hidden text-display-sm font-bold text-primary md:block">{place.name}</h1>
 
         <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-sm text-secondary">
           <span className="font-semibold" style={{ color: TYPE_COLOR_DEEP[place.type] }}>

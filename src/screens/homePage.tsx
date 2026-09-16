@@ -1,19 +1,22 @@
 'use client';
 
+import { useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Heart, Map01 } from '@untitledui/icons';
 import { HomeTypeCard } from './homeTypeCard';
 import { Button } from '../components/base/button';
 import { SeasonChips } from '../components/seasonChips';
-import { META, PLACE_TYPES, TYPE_META, countByType } from '../lib/places';
+import { META, PLACE_TYPES, TYPE_META, countByType, placesOfType } from '../lib/places';
 import { checklistProgress } from '../lib/checklist';
-import { useAppStore, useSavedCount } from '../store/useAppStore';
+import { useAppStore, useDog, useSavedCount } from '../store/useAppStore';
+import { useEligibilityMap } from '../store/useDogEligibility';
 import type { TSeasonFilter } from '../store/useAppStore';
+import type { TPlaceType } from '../types';
 
-function PawMark() {
+function PawMark({ className = 'h-9 w-9 text-brand-300' }: { className?: string }) {
   return (
-    <svg viewBox="0 0 48 48" className="h-9 w-9 text-brand-300" aria-hidden="true">
+    <svg viewBox="0 0 48 48" className={className} aria-hidden="true">
       <ellipse cx="14.5" cy="15.5" rx="5" ry="6.4" fill="currentColor" />
       <ellipse cx="25.5" cy="11.5" rx="5" ry="6.8" fill="currentColor" />
       <ellipse cx="36" cy="16.5" rx="4.8" ry="6.2" fill="currentColor" />
@@ -34,6 +37,22 @@ export function HomePage() {
   // 준비물 화면과 같은 계절 기준으로 센다. 두 화면이 다른 숫자를 보여주면 안 된다.
   const progress = checklistProgress(season, checkedItemIds);
 
+  const dog = useDog();
+  const eligibilityMap = useEligibilityMap();
+  // 종류별 "갈 수 있는 곳" 개수(가능+조건부). useEligibilityMap 이 이미 dog·needsIndoor 가
+  // 바뀔 때만 재계산하므로, 여기서는 그 결과를 종류별로 집계만 한다.
+  const reachableByType = useMemo(() => {
+    if (!eligibilityMap) return null;
+    const counts = {} as Record<TPlaceType, number>;
+    for (const type of PLACE_TYPES) {
+      counts[type] = placesOfType(type).filter((place) => {
+        const level = eligibilityMap.get(place.id)?.level;
+        return level === 'ok' || level === 'cond';
+      }).length;
+    }
+    return counts;
+  }, [eligibilityMap]);
+
   const startChecklist = (value: TSeasonFilter) => {
     setSeason(value);
     router.push('/checklist');
@@ -49,7 +68,9 @@ export function HomePage() {
       >
         <PawMark />
         <h1 className="mt-3 text-display-sm font-bold">강아지랑 제주</h1>
-        <p className="mt-1.5 text-sm text-white/65">짱구누나의 반려견 동반 제주 가이드</p>
+        <p className="mt-1.5 text-sm text-white/65">
+          {dog ? `${dog.name}랑 제주 어디 갈까요?` : '짱구누나의 반려견 동반 제주 가이드'}
+        </p>
 
         <dl className="mt-7 flex overflow-hidden rounded-2xl border border-white/12 bg-white/6">
           {PLACE_TYPES.map((type, index) => (
@@ -71,11 +92,33 @@ export function HomePage() {
         </section>
       </div>
 
+      {/* 프로필이 없을 때만. 첫 진입 강제 등록은 이탈로 이어진다는 리뷰 지적이 있어(2026-09-15
+          §1) 조용한 카드 하나로만 유도하고, 강제 라우팅은 하지 않는다. */}
+      {!dog && (
+        <div className="px-4 md:px-6">
+          <Link
+            href="/dog"
+            className="mt-4 flex items-center gap-3 rounded-2xl border border-secondary bg-primary px-4 py-4 transition-colors hover:bg-secondary"
+          >
+            <span
+              aria-hidden="true"
+              className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-primary"
+            >
+              <PawMark className="h-5 w-5 text-brand-secondary" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-primary">우리 강아지 등록하기</p>
+              <p className="text-sm text-tertiary">등록하면 갈 수 있는 곳을 바로 보여드려요</p>
+            </div>
+          </Link>
+        </div>
+      )}
+
       <section className="mt-8 px-4 md:px-6">
         <h2 className="text-lg font-bold text-primary">어디로 갈까요</h2>
         <div className="mt-3 space-y-3">
           {PLACE_TYPES.map((type) => (
-            <HomeTypeCard key={type} type={type} />
+            <HomeTypeCard key={type} type={type} reachable={reachableByType?.[type]} />
           ))}
         </div>
 

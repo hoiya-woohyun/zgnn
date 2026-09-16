@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { EligibilityBadge } from './eligibilityBadge';
 import { PetBadges } from './petBadges';
 import { PlaceThumb } from './placeThumb';
 import { SaveButton } from './saveButton';
@@ -6,6 +7,8 @@ import { TownChip } from './townChip';
 import { categoryLabel } from '../lib/category';
 import { formatStayPrice } from '../lib/format';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
+import { useDog } from '../store/useAppStore';
+import { useEligibility } from '../store/useDogEligibility';
 
 type TPlaceCardProps = {
   place: TPlaceEntry;
@@ -17,8 +20,15 @@ type TPlaceCardProps = {
  * 장소 사진이 없는 것이 기본 상태라 이름과 특징 문장이 카드를 이끌고, 타입 색 타일과
  * 읍면 칩이 종류·위치를 알려준다. 반려동물 조건은 앞 세 개만 배지로 보여준다 —
  * 전부 늘어놓으면 카드마다 높이가 크게 달라져 목록을 훑기 어려워진다.
+ *
+ * 우리 강아지 프로필이 있으면(`useEligibility`) 판정 배지를 배지 줄 맨 앞에 얹고, 파서 배지는
+ * 그만큼 줄여 카드 높이(총 배지 개수)를 그대로 유지한다. 프로필이 없으면 이 훅은 null 을
+ * 돌려주므로 카드는 지금과 완전히 같은 모습이다.
  */
 export function PlaceCard({ place }: TPlaceCardProps) {
+  const dog = useDog();
+  const eligibility = useEligibility(place);
+
   return (
     <li className="relative">
       <Link
@@ -39,14 +49,25 @@ export function PlaceCard({ place }: TPlaceCardProps) {
         </div>
 
         {place.stay && (
-          <p className="mt-3 text-sm font-bold text-brand-secondary">
-            {formatStayPrice(place.stay.price)}
-          </p>
+          // brand-700 은 CTA 색이라 26개 숙소 가격이 전부 그 색이면 "눌러야 할 것"과
+          // "읽을 것"이 섞인다(2026-09-15 디자인 리뷰 ①) — 본문 색 + bold 로 내린다.
+          <p className="mt-3 text-sm font-bold text-primary">{formatStayPrice(place.stay.price)}</p>
         )}
 
         <p className="clamp-2 mt-2 text-sm text-secondary">{place.features}</p>
 
-        <PetBadges policy={place.policy} limit={3} className="mt-3" />
+        {/* "두부 · 1마리당 1만원" — fee 문구(petPolicy/eligibility 가 만든 것)는 손대지 않고
+            앞에 우리 강아지 이름만 붙인다(2026-09-15 디자인 리뷰 §1 "이름 넣은 요금 한 줄"). */}
+        {dog && eligibility?.fee && (
+          <p className="mt-1 text-sm text-secondary">
+            {dog.name} · {eligibility.fee}
+          </p>
+        )}
+
+        <div className="mt-3 flex flex-wrap items-center gap-1">
+          {eligibility && <EligibilityBadge level={eligibility.level} />}
+          <PetBadges policy={place.policy} limit={eligibility ? 2 : 3} />
+        </div>
       </Link>
 
       <SaveButton id={place.id} name={place.name} className="absolute top-2 right-2" />

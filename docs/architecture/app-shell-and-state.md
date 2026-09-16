@@ -28,7 +28,7 @@ src/app/place/[id]/page.tsx   ─ 서버: generateStaticParams(86개) · generat
 | ≥ 768px | 좌측 고정 `AppSidebar`. `AppBar` 는 숨김 |
 | ≥ 1024px (지도만) | 목록 패널 + 지도 2단 (`useMapPageWideLayout`) |
 
-- `AppBar` 의 `tone="overlay"` 는 상세 제목 판처럼 **부모가 이미 바탕색을 가진 경우**다. 배경·테두리 없이 얹히고 sticky 도 아니다.
+- `AppBar` 의 `tone="overlay"` 는 상세 제목 판처럼 **부모가 이미 바탕색을 가진 경우**다. 배경·테두리 없이 얹히고 sticky 도 아니다. 상세 제목 판(`placeDetailHeader.tsx`) 은 큰 이름을 모바일에선 `aria-hidden` 장식(실제 h1 은 `AppBar` 쪽), 데스크톱에선(`AppBar` 가 `md:hidden`) 유일한 `h1` 로 — 폭에 따라 "진짜 제목" 을 맡는 쪽이 갈린다.
 - 홈 히어로만 셸의 중앙 정렬 폭을 넘어 화면 끝까지 깔린다. 나머지는 `PageHeader` / `Section` 의 좌우 패딩 계약을 따른다.
 
 ### 뒤로가기 (`src/lib/appHistory.ts`)
@@ -53,8 +53,8 @@ Untitled UI 의 `Button href` / `Link` 는 react-aria 라 기본은 전체 새�
 | `checkedItemIds` | 챙긴 준비물 id | 준비물, 홈 진행률 |
 | `season` | `null`(사계절) / 여름 / 겨울 | 준비물 필터, 홈 계절 칩(`SeasonChips` 공용) |
 | `amenityStayId` | 구비 용품을 반영할 숙소 | 준비물 "숙소 용품 반영" (`useChecklistAmenities`, `src/lib/amenities.ts`) |
-| `dog` | 우리 강아지 프로필(`TDogProfile \| null`) | `/dog` 프로필 폼, 판정(`useEligibility`/`useEligibilityMap`, `src/store/useDogEligibility.ts`) |
-| `needsIndoor` | 이번 여행에 실내 자리가 꼭 필요한지 | 판정의 `opts.needsIndoor` — 강아지 정보가 아니라 여행 정보라 `dog` 와 분리(→ [features/dog-profile.md](../features/dog-profile.md)) |
+| `dog` | 우리 강아지 프로필(`TDogProfile \| null`) | `/dog` 프로필 폼, 판정(`useEligibility`/`useEligibilityMap`, `src/store/useDogEligibility.ts`). 목록·홈·지도·근처 장소(`placeCard.tsx`, `placesPage.tsx`, `homePage.tsx`, `mapPage.tsx`, `mapPageSheet.tsx`, `placeDetailNearby.tsx`)는 이 값이 `null` 이면 판정 관련 UI 를 아예 그리지 않는다(v0 화면 유지) |
+| `needsIndoor` | 이번 여행에 실내 자리가 꼭 필요한지 | 판정의 `opts.needsIndoor` — 강아지 정보가 아니라 여행 정보라 `dog` 와 분리(→ [features/dog-profile.md](../features/dog-profile.md)). 둘러보기 식당·카페 탭의 "실내 자리 필요" 토글(`placesPageEligibilityToggles.tsx`)이 값을 바꾼다 |
 | `town` | 지금 둘러보는 읍면(`string \| null`) | 둘러보기 읍면 칩(`placesPageFilters.tsx`), 지도 읍면 Select(`mapPage.tsx`), 홈 종류 카드 읍면 바로가기(`homeTypeCard.tsx`) — 한 번 고르면 셋을 넘나들어도 유지된다(2026-09-15 리뷰 P1) |
 
 - **하이드레이션**: HTML 이 빌드 때 만들어지므로 첫 렌더에서 localStorage 를 읽으면 서버 HTML 과 어긋난다.

@@ -11,9 +11,11 @@ import { useMapPageWideLayout } from './useMapPageWideLayout';
 import { BottomSheet } from '@/components/base/bottom-sheet';
 import { Button } from '@/components/base/button';
 import { Select } from '@/components/base/select';
+import { ELIGIBILITY_META } from '../components/eligibilityBadge';
 import { EmptyState } from '../components/layout/emptyState';
 import { PlaceThumb } from '../components/placeThumb';
 import { TownChip } from '../components/townChip';
+import type { TEligibilityLevel } from '../lib/eligibility';
 import { TILE_SOURCE } from '../lib/mapTiles';
 import {
   DIRECTIONS,
@@ -26,11 +28,12 @@ import {
   TYPE_COLOR,
   TYPE_META,
 } from '../lib/places';
-import { useAppStore, useSavedPlaces } from '../store/useAppStore';
+import { useAppStore, useDog, useSavedPlaces } from '../store/useAppStore';
+import { useEligibilityMap } from '../store/useDogEligibility';
 import { cx } from '../utils/cx';
 import type { TDirection, TGeo, TPlaceType } from '../types';
 
-/** 읍면 선택 시 그 읍면 마커들로 지도 시야를 맞춘다. 종류·방향 조건이 바뀌어 같은 읍면 안 마커가 줄어도 다시 맞춘다. */
+/** 읍면 선택 시 그 읍면 마커들로 지도 시야를 맞춘다. 종류·방향·"어려움 숨기기" 가 바뀌어 같은 읍면 안 마커가 줄어도 다시 맞춘다. */
 function MapPageFitTown({ town, points }: { town: string | null; points: TGeo[] }) {
   const map = useMap();
   useEffect(() => {
@@ -63,11 +66,14 @@ function MapPageAutoResize() {
 }
 
 /**
- * 마커 아이콘은 타입×선택여부 6가지뿐이라 한 번 만들어 두고 계속 쓴다.
+ * 마커 아이콘은 타입×선택여부×판정레벨 뿐이라 한 번 만들어 두고 계속 쓴다.
  * 렌더마다 새 객체를 넘기면 react-leaflet 이 마커 전체에 setIcon 을 다시 건다.
  *
  * 아이콘 자체는 타입별로 같은 모양(원/둥근사각/물방울)을 쓰므로 캐시 키에 장소별 정보(이름 등)를
  * 넣지 않는다 — aria-label 처럼 장소마다 다른 값은 Marker 의 eventHandlers.add 에서 DOM 에 직접 얹는다.
+ * 판정레벨은 캐시 키에 넣는다 — 우리 강아지 프로필이 있으면 테두리·투명도로 판정을 구분하기 때문이다
+ * (2026-09-15 리뷰 후속 B3). 프로필이 없으면 level 은 항상 undefined → 캐시 키가 이전과 같아
+ * v0 마커 모양이 그대로 나온다.
  */
 const MARKER_ICONS = new Map<string, L.DivIcon>();
 
@@ -79,16 +85,25 @@ const MARKER_SHAPE_STYLE: Record<TPlaceType, string> = {
   cafe: 'border-radius:50% 50% 50% 0;transform:rotate(-45deg)',
 };
 
-const markerIcon = (type: TPlaceType, selected: boolean): L.DivIcon => {
-  const key = `${type}:${selected}`;
+/** 정보 없음 마커의 테두리 색. 팔레트의 중립 회색(neutral-400) — 배지의 '정보 없음' 톤과 같은 계열. */
+const MARKER_UNKNOWN_BORDER = 'var(--color-neutral-400, #a69d93)';
+
+/** 어려움 마커의 투명도. 아예 숨기지 않고 "갈 수는 있지만 눈에 덜 띄게"로 낮춘다. */
+const MARKER_HARD_OPACITY = 0.45;
+
+const markerIcon = (type: TPlaceType, selected: boolean, level?: TEligibilityLevel): L.DivIcon => {
+  const key = `${type}:${selected}:${level ?? 'none'}`;
   const cached = MARKER_ICONS.get(key);
   if (cached) return cached;
 
   const size = selected ? 26 : 18;
   const border = selected ? 3 : 2;
+  const borderStyle = level === 'cond' ? 'dashed' : 'solid';
+  const borderColor = level === 'unknown' ? MARKER_UNKNOWN_BORDER : '#fff';
+  const opacity = level === 'hard' ? MARKER_HARD_OPACITY : 1;
   const icon = L.divIcon({
     className: 'zgnn-marker',
-    html: `<span style="display:block;width:${size}px;height:${size}px;background:${TYPE_COLOR[type]};border:${border}px solid #fff;box-shadow:0 1px 5px rgba(46,35,39,.45);${MARKER_SHAPE_STYLE[type]}"></span>`,
+    html: `<span style="display:block;width:${size}px;height:${size}px;background:${TYPE_COLOR[type]};border:${border}px ${borderStyle} ${borderColor};box-shadow:0 1px 5px rgba(46,35,39,.45);opacity:${opacity};${MARKER_SHAPE_STYLE[type]}"></span>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   });
@@ -123,6 +138,11 @@ export function MapPage() {
   const town = useAppStore((state) => state.town);
   const setTown = useAppStore((state) => state.setTown);
 
+  const dog = useDog();
+  const eligibilityMap = useEligibilityMap();
+  // 화면 로컬 상태 — 프로필이 없으면 토글 자체가 보이지 않는다(v0 화면 유지).
+  const [hideHard, setHideHard] = useState(false);
+
   const [types, setTypes] = useState<TPlaceType[]>([]);
   const [directions, setDirections] = useState<TDirection[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -137,8 +157,11 @@ export function MapPage() {
       list = list.filter((place) => directions.includes(place.region.direction));
     }
     if (town) list = list.filter((place) => place.region.town === town);
+    if (hideHard && eligibilityMap) {
+      list = list.filter((place) => eligibilityMap.get(place.id)?.level !== 'hard');
+    }
     return list;
-  }, [savedOnly, savedPlaces, types, directions, town]);
+  }, [savedOnly, savedPlaces, types, directions, town, hideHard, eligibilityMap]);
 
   const withGeo = useMemo(() => filtered.filter((place) => place.geo), [filtered]);
   const townPoints = useMemo(() => withGeo.map((place) => place.geo!), [withGeo]);
@@ -212,22 +235,26 @@ export function MapPage() {
         attribution={TILE_SOURCE.attribution}
         maxZoom={TILE_SOURCE.maxZoom}
       />
-      {withGeo.map((place) => (
-        <Marker
-          key={place.id}
-          position={[place.geo!.lat, place.geo!.lng]}
-          icon={markerIcon(place.type, place.id === selectedId)}
-          title={place.name}
-          alt={place.name}
-          zIndexOffset={place.id === selectedId ? 1000 : 0}
-          eventHandlers={{
-            click: () => setSelectedId(place.id),
-            add: makeMarkerAddHandler(`${place.name}, ${TYPE_META[place.type].label}`, () =>
-              setSelectedId(place.id),
-            ),
-          }}
-        />
-      ))}
+      {withGeo.map((place) => {
+        const level = eligibilityMap?.get(place.id)?.level;
+        const label = level
+          ? `${place.name}, ${TYPE_META[place.type].label}, ${ELIGIBILITY_META[level].label}`
+          : `${place.name}, ${TYPE_META[place.type].label}`;
+        return (
+          <Marker
+            key={place.id}
+            position={[place.geo!.lat, place.geo!.lng]}
+            icon={markerIcon(place.type, place.id === selectedId, level)}
+            title={place.name}
+            alt={place.name}
+            zIndexOffset={place.id === selectedId ? 1000 : 0}
+            eventHandlers={{
+              click: () => setSelectedId(place.id),
+              add: makeMarkerAddHandler(label, () => setSelectedId(place.id)),
+            }}
+          />
+        );
+      })}
     </MapContainer>
   );
 
@@ -376,6 +403,25 @@ export function MapPage() {
                 ))}
               </Select>
             </div>
+
+            {/* 프로필이 없으면 "어려움" 개념이 없어 토글 자체를 그리지 않는다(v0 화면 유지). */}
+            {dog && (
+              <div className="pointer-events-auto px-3">
+                <button
+                  type="button"
+                  onClick={() => setHideHard((value) => !value)}
+                  aria-pressed={hideHard}
+                  className={cx(
+                    'flex h-11 items-center rounded-full border px-3.5 text-sm font-semibold shadow-sm backdrop-blur transition-colors',
+                    hideHard
+                      ? 'border-brand bg-brand-solid text-white'
+                      : 'border-secondary bg-primary/92 text-secondary',
+                  )}
+                >
+                  어려움 숨기기
+                </button>
+              </div>
+            )}
 
             <div className="flex flex-wrap items-center gap-2 px-3 lg:hidden">
               <span className="pointer-events-auto rounded-full bg-primary/92 px-3 py-1 text-xs font-semibold text-secondary shadow-sm backdrop-blur">
