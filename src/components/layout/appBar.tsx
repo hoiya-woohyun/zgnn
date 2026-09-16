@@ -37,26 +37,29 @@ export function AppBar({ title, backTo, actions, tone = 'default' }: TAppBarProp
     <header
       className={
         overlay
-          ? 'flex h-14 items-center gap-1 px-2 md:hidden'
-          : 'sticky top-0 z-30 flex h-14 items-center gap-1 border-b border-secondary bg-primary/95 px-2 backdrop-blur md:hidden'
+          ? 'pt-safe px-2 md:hidden'
+          : 'sticky top-0 z-30 border-b border-secondary bg-primary/95 px-2 pt-safe backdrop-blur md:hidden'
       }
     >
-      {backTo && (
-        <button
-          type="button"
-          onClick={goBack}
-          aria-label="뒤로 가기"
-          className="grid size-11 shrink-0 place-items-center rounded-full text-secondary"
+      {/* 노치가 있는 기기에서 pt-safe 가 위쪽에 여백을 더해도, 뒤로가기·제목 줄 자체의 높이(h-14)는 그대로 유지한다. */}
+      <div className="flex h-14 items-center gap-1">
+        {backTo && (
+          <button
+            type="button"
+            onClick={goBack}
+            aria-label="뒤로 가기"
+            className="grid size-11 shrink-0 place-items-center rounded-full text-secondary"
+          >
+            <ArrowLeft size={22} />
+          </button>
+        )}
+        <h1
+          className="clamp-1 flex-1 px-2 text-md font-bold text-primary"
         >
-          <ArrowLeft size={22} />
-        </button>
-      )}
-      <h1
-        className="clamp-1 flex-1 px-2 text-md font-bold text-primary"
-      >
-        {title}
-      </h1>
-      {actions && <div className="flex shrink-0 items-center gap-1 pr-1">{actions}</div>}
+          {title}
+        </h1>
+        {actions && <div className="flex shrink-0 items-center gap-1 pr-1">{actions}</div>}
+      </div>
     </header>
   );
 }

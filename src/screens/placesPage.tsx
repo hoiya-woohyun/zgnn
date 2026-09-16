@@ -78,7 +78,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
 
   return (
     <div>
-      <div className="sticky top-0 z-30 border-b border-secondary bg-secondary/95 backdrop-blur">
+      <div className="sticky top-0 z-30 border-b border-secondary bg-secondary/95 pt-safe backdrop-blur">
         <div className="px-4 pt-4 pb-3 md:px-6">
           <h1 className="sr-only">{TYPE_META[type].label} 둘러보기</h1>
 

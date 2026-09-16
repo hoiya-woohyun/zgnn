@@ -35,8 +35,9 @@ export interface CommonProps {
 }
 
 export const sizes = {
+    // min-h-11(44px) — 터치 타깃·주변 h-11 버튼과 높이를 맞춘다(디자인 리뷰 P3).
     sm: {
-        root: "py-2 pl-3 pr-2.5 gap-2 *:data-icon:size-4 *:data-icon:stroke-[2.25px]",
+        root: "min-h-11 py-2 pl-3 pr-2.5 gap-2 *:data-icon:size-4 *:data-icon:stroke-[2.25px]",
         withIcon: "",
         text: "text-sm",
         textContainer: "gap-x-1.5",

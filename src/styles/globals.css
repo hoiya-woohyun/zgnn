@@ -114,6 +114,10 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
 /* Leaflet 기본 스킨을 앱 팔레트에 맞춘다. */
 .leaflet-container {
   font-family: inherit;

@@ -60,7 +60,7 @@ export const TYPE_META: Record<TPlaceType, { label: string; blurb: string }> = {
 export const TYPE_COLOR: Record<TPlaceType, string> = {
   stay: '#3b8ea5',
   restaurant: '#cf8330',
-  cafe: '#8c6e5a',
+  cafe: '#9a6846',
 };
 
 /**

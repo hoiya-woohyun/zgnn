@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import L from 'leaflet';
 import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet';
 import { AlertTriangle, Heart } from '@untitledui/icons';
@@ -9,7 +10,6 @@ import { MapPageSheetCard } from './mapPageSheet';
 import { useMapPageWideLayout } from './useMapPageWideLayout';
 import { BottomSheet } from '@/components/base/bottom-sheet';
 import { Button } from '@/components/base/button';
-import { Badge } from '@/components/base/badges';
 import { EmptyState } from '../components/layout/emptyState';
 import { PlaceThumb } from '../components/placeThumb';
 import { TownChip } from '../components/townChip';
@@ -52,8 +52,19 @@ function MapPageAutoResize() {
 /**
  * 마커 아이콘은 타입×선택여부 6가지뿐이라 한 번 만들어 두고 계속 쓴다.
  * 렌더마다 새 객체를 넘기면 react-leaflet 이 마커 전체에 setIcon 을 다시 건다.
+ *
+ * 아이콘 자체는 타입별로 같은 모양(원/둥근사각/물방울)을 쓰므로 캐시 키에 장소별 정보(이름 등)를
+ * 넣지 않는다 — aria-label 처럼 장소마다 다른 값은 Marker 의 eventHandlers.add 에서 DOM 에 직접 얹는다.
  */
 const MARKER_ICONS = new Map<string, L.DivIcon>();
+
+/** 색만으로 구분하기 어려운 베이지 바탕에서도 모양으로 타입을 가르기 위한 CSS. */
+const MARKER_SHAPE_STYLE: Record<TPlaceType, string> = {
+  stay: 'border-radius:50%',
+  restaurant: 'border-radius:28%',
+  // 물방울(핀) 모양 — 정사각형을 45도 돌리고 한쪽 모서리만 각지게 남긴다.
+  cafe: 'border-radius:50% 50% 50% 0;transform:rotate(-45deg)',
+};
 
 const markerIcon = (type: TPlaceType, selected: boolean): L.DivIcon => {
   const key = `${type}:${selected}`;
@@ -61,15 +72,32 @@ const markerIcon = (type: TPlaceType, selected: boolean): L.DivIcon => {
   if (cached) return cached;
 
   const size = selected ? 26 : 18;
+  const border = selected ? 3 : 2;
   const icon = L.divIcon({
     className: 'zgnn-marker',
-    html: `<span style="display:block;width:${size}px;height:${size}px;border-radius:50%;background:${TYPE_COLOR[type]};border:${selected ? 3.5 : 2.5}px solid #fff;box-shadow:0 1px 5px rgba(46,35,39,.45)"></span>`,
+    html: `<span style="display:block;width:${size}px;height:${size}px;background:${TYPE_COLOR[type]};border:${border}px solid #fff;box-shadow:0 1px 5px rgba(46,35,39,.45);${MARKER_SHAPE_STYLE[type]}"></span>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   });
   MARKER_ICONS.set(key, icon);
   return icon;
 };
+
+/** 지도 마커를 키보드로도 열 수 있게 한다 — role/tabindex/aria-label 은 장소별로 다르므로 DOM 에 직접 얹는다. */
+const makeMarkerAddHandler =
+  (label: string, onActivate: () => void) =>
+  (event: L.LeafletEvent) => {
+    const el = (event.target as L.Marker).getElement();
+    if (!el) return;
+    el.setAttribute('role', 'button');
+    el.setAttribute('tabindex', '0');
+    el.setAttribute('aria-label', label);
+    el.addEventListener('keydown', (keyEvent: KeyboardEvent) => {
+      if (keyEvent.key !== 'Enter' && keyEvent.key !== ' ') return;
+      keyEvent.preventDefault();
+      onActivate();
+    });
+  };
 
 export function MapPage() {
   const router = useRouter();
@@ -97,6 +125,22 @@ export function MapPage() {
   const withGeo = useMemo(() => filtered.filter((place) => place.geo), [filtered]);
   const missingGeoCount = filtered.length - withGeo.length;
   const selected = withGeo.find((place) => place.id === selectedId) ?? null;
+
+  /*
+   * "좌표 없는 N곳 제외" 는 지도만 보는 사용자에게 무슨 뜻인지 안 와닿는다(2026-09-15 리뷰 P2).
+   * 종류별로 몇 곳이 빠졌는지 세어, 그 종류의 목록 페이지로 바로 갈 수 있게 한다.
+   */
+  const missingByType = useMemo(() => {
+    const counts = new Map<TPlaceType, number>();
+    for (const place of filtered) {
+      if (place.geo) continue;
+      counts.set(place.type, (counts.get(place.type) ?? 0) + 1);
+    }
+    return PLACE_TYPES.filter((type) => counts.has(type)).map((type) => ({
+      type,
+      count: counts.get(type)!,
+    }));
+  }, [filtered]);
 
   /*
    * 조건에 걸러진 장소의 선택은 남겨 두지 않는다.
@@ -156,7 +200,12 @@ export function MapPage() {
           title={place.name}
           alt={place.name}
           zIndexOffset={place.id === selectedId ? 1000 : 0}
-          eventHandlers={{ click: () => setSelectedId(place.id) }}
+          eventHandlers={{
+            click: () => setSelectedId(place.id),
+            add: makeMarkerAddHandler(`${place.name}, ${TYPE_META[place.type].label}`, () =>
+              setSelectedId(place.id),
+            ),
+          }}
         />
       ))}
     </MapContainer>
@@ -170,10 +219,20 @@ export function MapPage() {
         <aside className="hidden w-[360px] shrink-0 flex-col border-r border-secondary bg-primary lg:flex">
           <div className="border-b border-secondary px-4 py-3">
             <h1 className="text-lg font-bold text-primary">지도</h1>
-            <p className="mt-0.5 text-sm text-tertiary">
-              {withGeo.length}곳 표시 중
-              {missingGeoCount > 0 && ` · 좌표 없는 ${missingGeoCount}곳 제외`}
-            </p>
+            <p className="mt-0.5 text-sm text-tertiary">{withGeo.length}곳 표시 중</p>
+            {missingByType.length > 0 && (
+              <p className="mt-1 text-xs text-tertiary">
+                지도에 없는 {missingGeoCount}곳은 목록에서 보기:{' '}
+                {missingByType.map(({ type, count }, index) => (
+                  <span key={type}>
+                    {index > 0 && ', '}
+                    <Link href={`/places/${type}`} className="text-brand-secondary underline">
+                      {TYPE_META[type].label} {count}곳
+                    </Link>
+                  </span>
+                ))}
+              </p>
+            )}
           </div>
 
           <ul className="flex-1 overflow-y-auto p-2">
@@ -219,8 +278,11 @@ export function MapPage() {
         <div className="relative min-w-0 flex-1">
           {mapEl}
 
-          {/* 지도 위 필터. Leaflet 타일보다 위, 시트보다 아래에 온다. */}
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-[1000] space-y-2 pt-3">
+          {/* 지도 위 필터. Leaflet 타일보다 위, 시트보다 아래에 온다. 노치 기기에서 상태바에 가리지 않도록 safe-area 만큼 더 내린다. */}
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0 z-[1000] space-y-2"
+            style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
+          >
             <div
               className="no-scrollbar pointer-events-auto flex gap-2 overflow-x-auto px-3"
               role="group"
@@ -288,13 +350,15 @@ export function MapPage() {
                   저장한 곳만 보는 중
                 </button>
               )}
-              {missingGeoCount > 0 && (
-                <span className="pointer-events-auto">
-                  <Badge size="sm" color="warning">
-                    좌표 없는 {missingGeoCount}곳 제외
-                  </Badge>
-                </span>
-              )}
+              {missingByType.map(({ type, count }) => (
+                <Link
+                  key={type}
+                  href={`/places/${type}`}
+                  className="pointer-events-auto rounded-full bg-primary/92 px-3 py-1 text-xs font-semibold text-brand-secondary underline shadow-sm backdrop-blur"
+                >
+                  지도에 없는 {TYPE_META[type].label} {count}곳 보기
+                </Link>
+              ))}
             </div>
           </div>
 

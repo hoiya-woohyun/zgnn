@@ -356,7 +356,11 @@
     --color-fg-primary: var(--color-neutral-900);
     --color-fg-brand-secondary: var(--color-brand-500);
     --color-fg-brand-primary: var(--color-brand-600);
-    --color-fg-quaternary: var(--color-neutral-400);
+    /* neutral-400(#a69d93) 그대로 쓰면 흰 배경 2.67:1 로 비텍스트 대비 3:1 에 못 미친다(검색 아이콘·셀렉트
+       화살표 등 fg-quaternary 를 쓰는 자리는 전부 아이콘이라 텍스트 4.5:1 이 아니라 3:1 기준).
+       neutral-400 자체는 다른 곳에서도 참조돼 건드리지 않고, 이 토큰만 살짝 어둡게 덮어쓴다.
+       #8f867c 는 bg-primary(흰색) 3.58:1 · bg-secondary(크림, neutral-50) 3.37:1 로 둘 다 통과. */
+    --color-fg-quaternary: #8f867c;
     --color-fg-quaternary_hover: var(--color-neutral-500);
     --color-fg-error-primary: var(--color-red-600);
     --color-fg-warning-secondary: var(--color-yellow-500);
@@ -892,7 +896,11 @@
   --color-stay-deep: #2a6a7c;
   --color-restaurant: #cf8330;
   --color-restaurant-deep: #94561c;
-  --color-cafe: #8c6e5a;
+  /* 카페 라떼색. oklch 크로마 0.045(거의 무채색) 에서 0.08 로 올려 흰 바탕·22% 워시에서도
+     색으로 읽히게 했다(기존 값 #8c6e5a 는 흰 바탕과 채널당 4~9 차이라 회색과 구분이 안 됐다).
+     명도·색상(oklch L≈0.562, H≈55°)은 그대로 두고 채도만 올렸다 — 값은 lib/places.ts 의
+     TYPE_COLOR.cafe 와 반드시 같아야 한다 — 화면은 그쪽 값을 읽는다. */
+  --color-cafe: #9a6846;
   --color-cafe-deep: #5f4a3d;
 
   /* 홈 히어로·로고 바탕. 현무암 질감 위에 분홍을 아주 조금 섞은 잉크색. 브랜드가 바뀌어도 유지한다. */
