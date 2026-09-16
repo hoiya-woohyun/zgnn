@@ -100,6 +100,59 @@ describe('parsePetPolicy — 숙소', () => {
   });
 });
 
+describe('parsePetPolicy — tiers', () => {
+  it('웨스티하우스: 문장이 다르면 tier 도 따로 쌓인다', () => {
+    const p = parsePetPolicy(
+      '10kg 미만의 경우 최대 2마리 가능. 20kg 미만(중형견)의 경우 최대 1마리 가능.\n1마리당 1-2만원.',
+    );
+    expect(p.tiers).toEqual([
+      { maxWeightKg: 10, weightInclusive: false, maxDogs: 2, source: '10kg 미만의 경우 최대 2마리 가능' },
+      { maxWeightKg: 20, weightInclusive: false, maxDogs: 1, source: '20kg 미만(중형견)의 경우 최대 1마리 가능' },
+    ]);
+    expect(p.weightLimitKg).toBe(20);
+    expect(p.maxDogs).toBe(2);
+  });
+
+  it('달중이네: 무게만 있는 문장과 마릿수만 있는 문장을 한 tier 로 합친다', () => {
+    const p = parsePetPolicy('최대 3마리까지 가능. (15kg까지)\n1마리 이상 2만원 추가. (마리당)');
+    expect(p.tiers).toEqual([{ maxWeightKg: 15, weightInclusive: true, maxDogs: 3, source: '최대 3마리까지 가능. (15kg까지)' }]);
+    expect(p.weightLimitKg).toBe(15);
+    expect(p.maxDogs).toBe(3);
+  });
+
+  it('오제: 한 문장에 마릿수와 무게가 같이 있으면 그대로 한 tier', () => {
+    const p = parsePetPolicy('1마리당 3만원. (최대 2마리 15kg 미만)');
+    expect(p.tiers).toEqual([{ maxWeightKg: 15, weightInclusive: false, maxDogs: 2, source: '(최대 2마리 15kg 미만)' }]);
+  });
+
+  it('요호르기: 무게 없이 마릿수만 있으면 짝 없는 tier 하나로 남는다', () => {
+    const p = parsePetPolicy('대형견 2마리까지 무료 동반 가능.');
+    expect(p.tiers).toEqual([{ maxDogs: 2, source: '대형견 2마리까지 무료 동반 가능' }]);
+    expect(p.largeDogOk).toBe(true);
+    expect(p.feeFree).toBe(true);
+  });
+
+  it('백화stay: 견수 제한 없음은 unlimitedDogs 로 잡고 견종 제한 없음은 대형견 OK 로 유지한다', () => {
+    const p = parsePetPolicy('견종 제한, 견수 제한 없음.\n반려동물 추가금 없음.');
+    expect(p.unlimitedDogs).toBe(true);
+    expect(p.largeDogOk).toBe(true);
+    expect((p.maxDogs ?? 0) >= 2 || p.unlimitedDogs).toBe(true);
+  });
+
+  it('솔숲펜션: 구간 요금표는 tier 로 읽지 않고 feeLines 두 줄만 남는다', () => {
+    const p = parsePetPolicy('1~5kg 1만원.\n6~10kg 1.5만원.');
+    expect(p.tiers).toEqual([]);
+    expect(p.feeLines).toEqual(['1~5kg 1만원', '6~10kg 1.5만원']);
+    expect(p.feeText).toBe('1~5kg 1만원');
+  });
+
+  it('카페스누피: sources.indoor 에 실제 걸린 문장이 담긴다', () => {
+    const p = parsePetPolicy('실내외 모두 가능하지만 실내에서는 유모차/이동 가방 필요.');
+    expect(p.indoor).toBe('cage');
+    expect(p.sources.indoor).toBe('실내외 모두 가능하지만 실내에서는 유모차/이동 가방 필요');
+  });
+});
+
 describe('toPetBadges', () => {
   it('정보 없음이면 전화 확인 배지를 겹쳐 붙이지 않는다', () => {
     const p = parsePetPolicy('정보 없음. 방문 전 전화로 확인해 주세요.');

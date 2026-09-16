@@ -1,6 +1,7 @@
 # 반려동물 이용 조건 파서와 "우리 강아지 갈 수 있나" 판정
 
 > 최종 수정: 2026-09-15 (v1: 신설. 파서(구현됨)와 판정(계획)을 한 문서에 두고 경계를 표시)
+> v2: 파서에 `tiers`(계단식 무게·마릿수) · `outdoorFree` · `unlimitedDogs` · `feeLines` · `sources`(근거 문장) 추가. 판정 층이 "가장 센 조건" 을 고를 재료를 여기서 만든다 — §1 참고.
 
 ## 개요
 
@@ -31,8 +32,13 @@ flowchart LR
 | `smallDogOnly` · `mediumDogOk` · `largeDogOk` | 크기 언급 | 전부 false 면 크기 언급 없음 |
 | `maxDogs?` | 마릿수 상한. "견수 제한 없음" 처럼 숫자가 없으면 비움 | 비움 — 숫자를 지어내지 않는다 |
 | `leash` · `callFirst` | 리드줄 필수 / 사전 전화 | false |
-| `feeFree` · `feeText?` | 추가 요금 없음 / 요금 원문 | |
+| `feeFree` · `feeText?` | 추가 요금 없음 / 요금 원문(= `feeLines[0]`) | |
 | `noInfo` | 원문이 비었거나 "정보 없음" | |
+| `tiers` | 계단식 무게·마릿수 조건. `{ maxWeightKg?, weightInclusive?, maxDogs?, source }[]`. 웨스티하우스 → `[{10,미만,2},{20,미만,1}]`. `weightLimitKg`/`maxDogs` 는 여기서 최댓값을 뽑아 파생(화면·필터 호환) | `[]` |
+| `outdoorFree` | "실외는 자유", "실내외 모두 가능" 이거나 `indoor==='outdoorOnly'` — 야외 이용이 열려 있음 | `false` |
+| `unlimitedDogs` | "견수 제한 없음" 처럼 숫자 없이 마릿수 무제한. `maxDogs` 가 비어 있어도 필터가 "2마리 이상" 으로 잡을 수 있게 한다(백화stay) | `false` |
+| `feeLines` | 요금 문장 전부(원문 순서). 구간 요금표("1~5kg 1만원.\n6~10kg 1.5만원.")도 여기엔 두 줄로 남는다 | `[]` |
+| `sources` | 규칙별 근거 문장(원문 그대로). `indoor`\|`largeDogOk`\|`mediumDogOk`\|`smallDogOnly`\|`callFirst`\|`leash`\|`feeFree`\|`noInfo` 키만 있고, 실제로 해당 규칙이 걸린 곳만 채워진다. 판정 층이 `reasons[].quote` 로 쓴다 | `{}` |
 
 ### 규칙 테이블
 

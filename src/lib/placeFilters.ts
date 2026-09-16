@@ -24,9 +24,9 @@ const DINING_FILTERS: TPetFilter[] = [
 const STAY_FILTERS: TPetFilter[] = [
   { key: 'feeFree', label: '추가요금 없음', test: (p) => p.feeFree },
   { key: 'largeDog', label: '대형견 OK', test: (p) => p.largeDogOk },
-  // 원문에 마릿수가 적힌 곳만 걸린다. '견수 제한 없음' 처럼 숫자가 없는 표현은 빠지므로
-  // 필터를 켠 결과가 실제보다 적을 수 있다. 숫자를 지어내기보다 빠뜨리는 쪽을 택했다.
-  { key: 'multiDog', label: '2마리 이상', test: (p) => (p.maxDogs ?? 0) >= 2 },
+  // 원문에 마릿수 숫자가 적혀 있거나('최대 2마리') '견수 제한 없음' 처럼 무제한이라고
+  // 못박은 곳만 걸린다. 숫자도 무제한 단서도 없으면 지어내지 않고 빠뜨린다.
+  { key: 'multiDog', label: '2마리 이상', test: (p) => (p.maxDogs ?? 0) >= 2 || p.unlimitedDogs },
 ];
 
 export const PET_FILTERS: Record<TPlaceType, TPetFilter[]> = {
