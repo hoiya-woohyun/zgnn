@@ -5,8 +5,13 @@ import type { TEligibilityLevel } from '../lib/eligibility';
 /**
  * 판정 레벨 하나를 배지로. 카드·상세·지도 시트가 같은 라벨과 색을 쓴다.
  *
- * 색은 PetBadges(파서 배지)와 겹치지 않게 골랐다 — 파서 배지는 brand/gray/indigo 를 쓰므로
- * 판정은 "가능" 만 brand 로 같고, 조건부는 orange, 정보 없음은 gray 테두리, 어려움은 slate(잉크).
+ * 색 이름은 Untitled UI 의 키를 그대로 쓰지만, 값은 theme.css 에서 팔레트 안으로 덮어 놨다.
+ * 특히 slate 는 원래 주석이 "잉크" 라고 적어 뒀는데 Tailwind 기본 slate 는 H 257° 의 차가운
+ * 청회색이라 의도와 반대였다 — placeCard 의 배지 줄에서 크림 gray 칩(H 78°)과 맞닿아
+ * 회색 두 개가 색상환 179° 차이로 붙어 보였다. 지금은 neutral 을 한 단계 진하게 당겨 쓴다.
+ *
+ * 네 단계는 "무게" 로 읽히게 정렬돼 있다: 가능(브랜드 핑크) → 조건부(앰버) →
+ * 정보 없음(크림 뉴트럴) → 어려움(잉크, 가장 무거움).
  * 어려움을 error(빨강)로 두지 않은 것은 "불가" 가 아니라 "어려움" 이라는 톤 때문(ADR-005).
  */
 export const ELIGIBILITY_META: Record<TEligibilityLevel, { label: string; color: BadgeColors }> = {

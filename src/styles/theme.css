@@ -1,10 +1,16 @@
 @theme {
-    /* FONT FAMILY */
-    --font-body: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard Variable", Pretendard,
+    /*
+     * FONT FAMILY
+     *
+     * 1순위는 나눔스퀘어 네오(`--font-nanum`, app/layout.tsx 의 next/font/local 이 정의).
+     * 뒤의 시스템 스택은 폰트가 아직 안 왔거나(display: swap) 서브셋 밖 글자(한자 등)일 때
+     * 받아 주는 자리다 — 지우면 그 순간 글자가 깨지므로 남겨 둔다.
+     */
+    --font-body: var(--font-nanum), -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard Variable", Pretendard,
         "Noto Sans KR", "Malgun Gothic", sans-serif;
-    --font-sans: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard Variable", Pretendard,
+    --font-sans: var(--font-nanum), -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard Variable", Pretendard,
         "Noto Sans KR", "Malgun Gothic", sans-serif;
-    --font-display: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard Variable", Pretendard,
+    --font-display: var(--font-nanum), -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard Variable", Pretendard,
         "Noto Sans KR", "Malgun Gothic", sans-serif;
     --font-mono: ui-monospace, "Roboto Mono", SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
@@ -155,6 +161,64 @@
     --color-neutral-800: #37322e;
     --color-neutral-900: #272320;
     --color-neutral-950: #191614;
+
+    /* ── 배지 계열 색을 팔레트 안으로 되돌린다 ────────────────────────────────
+       badges.tsx 의 utility-* 는 여기 프리미티브를 그대로 가리킨다(light 는 같은 단계,
+       dark 는 반전 단계). 그래서 프리미티브만 덮으면 두 모드가 한 번에 맞는다.
+       Tailwind 기본값을 그대로 두면 slate(H 257°)·indigo(H 277°) 가 딸려 오는데,
+       이 앱의 색상환은 따뜻한 호(354°~85°) + 바다색 강조(219°) 하나뿐이라 둘 다 이방인이다.
+       실제로 placeCard.tsx 의 배지 줄에서 slate(H 257°) 칩과 크림 gray(H 78°) 칩이
+       맞닿아 회색 두 개가 색상환 179° 차이로 붙어 있었다. */
+
+    /* 앰버 — "조건부·확인 필요". 채도를 0.110 으로 눌러 브랜드(0.205)보다 아래에 둔다.
+       보조 정보 칩이 주 버튼보다 진해지는 위계 역전을 막는 것이 이 값의 목적이다.
+       색상 71° 는 카페(54°)와 크림(78°) 사이 — 식당(64°)과 이웃하지만 칩과 큰 파스텔 워시는
+       형태가 달라 부딪히지 않는다. 700 이 50 위에서 5.33:1(기존 Tailwind orange 는 4.74:1). */
+    --color-orange-25: #fffaf4;
+    --color-orange-50: #fff1e0;
+    --color-orange-100: #ffe3c3;
+    --color-orange-200: #f6cc9a;
+    --color-orange-300: #e2b073;
+    --color-orange-400: #c38c45;
+    --color-orange-500: #a9742b;
+    --color-orange-600: #98651c;
+    --color-orange-700: #8a5a11;
+    --color-orange-800: #6e4609;
+    --color-orange-900: #54360b;
+    --color-orange-950: #301d04;
+
+    /* 잉크 — "어려움". eligibilityBadge 주석이 처음부터 "slate(잉크)" 라고 적어 뒀는데
+       --color-ink 는 #2e2327(H 355°, 따뜻함) 인 반면 Tailwind slate 는 H 257°(차가운 청회색)라
+       의도가 화면에 도달하지 못했다. neutral 을 한 단계씩 진하게 당겨 쓴다 — gray 배지(neutral 그대로)
+       보다 항상 한 톤 무겁고, 같은 크림 계열이라 나란히 놓여도 재질이 같다. 700/50 = 11.16:1. */
+    --color-slate-25: var(--color-neutral-50);
+    --color-slate-50: var(--color-neutral-100);
+    --color-slate-100: var(--color-neutral-200);
+    --color-slate-200: var(--color-neutral-300);
+    --color-slate-300: var(--color-neutral-400);
+    --color-slate-400: var(--color-neutral-400);
+    --color-slate-500: var(--color-neutral-500);
+    --color-slate-600: var(--color-neutral-700);
+    --color-slate-700: var(--color-neutral-800);
+    --color-slate-800: var(--color-neutral-900);
+    --color-slate-900: var(--color-neutral-950);
+    --color-slate-950: var(--color-neutral-950);
+
+    /* 점토 — 지금은 어느 배지도 쓰지 않는다(warn 은 앰버로 합쳤다). Tailwind 기본 indigo 가
+       H 277°·채도 0.240 으로 앱에서 가장 진한 색이었던 자리라, 비워 두면 같은 사고가 재발한다.
+       따뜻한 호 안(34°)의 예비 강조색으로 바꿔 둔다 — 나중에 누가 집어 써도 팔레트를 벗어나지 않는다. */
+    --color-indigo-25: #fff9f7;
+    --color-indigo-50: #ffeee9;
+    --color-indigo-100: #ffdcd3;
+    --color-indigo-200: #fbc1b3;
+    --color-indigo-300: #e9a190;
+    --color-indigo-400: #ca7a67;
+    --color-indigo-500: #af5f4d;
+    --color-indigo-600: #994d3c;
+    --color-indigo-700: #844030;
+    --color-indigo-800: #683125;
+    --color-indigo-900: #4f251c;
+    --color-indigo-950: #2d130d;
 
     /* LIGHT MODE VARIABLES */
 

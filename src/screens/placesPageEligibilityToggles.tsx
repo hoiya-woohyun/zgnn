@@ -1,5 +1,22 @@
-import { Button } from '../components/base/button';
+import { cx } from '../utils/cx';
 import type { TPlaceType } from '../types';
+
+/**
+ * 켜진 필터의 표시는 앱 전체에서 한 가지 규칙을 따른다: **지도 오버레이 위의 컨트롤만**
+ * 진한 브랜드 면(bg-brand-solid + 흰 글씨)을 쓰고, 그 밖의 선택 상태는 전부 연한 워시
+ * (bg-brand-primary + 진한 브랜드 글씨)다. 지도 칩이 진한 것은 지도라는 복잡한 바탕 위에서
+ * 읽혀야 하기 때문이고, 일반 화면에는 그 이유가 없다.
+ *
+ * 이 두 토글은 원래 진한 면이었다 — 같은 역할인 placesPage 의 타입 탭·seasonChips 는 워시라,
+ * 한 화면 안에서 "켜짐" 이 두 가지 언어로 그려지고 있었다.
+ * 공용 버튼 컴포넌트를 벗었으므로 그것이 주던 focus-visible 링을 여기서 직접 갖춘다.
+ */
+const chipClass = (active: boolean) =>
+  cx(
+    'h-11 cursor-pointer rounded-full px-4 text-sm font-semibold transition-colors',
+    'focus-visible:outline-2 focus-visible:outline-offset-2 outline-focus-ring',
+    active ? 'bg-brand-primary text-brand-secondary' : 'bg-tertiary text-secondary hover:bg-quaternary',
+  );
 
 type TPlacesPageEligibilityTogglesProps = {
   type: TPlaceType;
@@ -25,25 +42,13 @@ export function PlacesPageEligibilityToggles({
 }: TPlacesPageEligibilityTogglesProps) {
   return (
     <div className="flex flex-wrap items-center gap-2 px-4 md:px-6" role="group" aria-label="판정 조건">
-      <Button
-        size="sm"
-        color={hideHard ? 'primary' : 'secondary'}
-        aria-pressed={hideHard}
-        className="h-11"
-        onClick={onToggleHideHard}
-      >
+      <button type="button" aria-pressed={hideHard} className={chipClass(hideHard)} onClick={onToggleHideHard}>
         어려움 숨기기
-      </Button>
+      </button>
       {type !== 'stay' && (
-        <Button
-          size="sm"
-          color={needsIndoor ? 'primary' : 'secondary'}
-          aria-pressed={needsIndoor}
-          className="h-11"
-          onClick={onToggleNeedsIndoor}
-        >
+        <button type="button" aria-pressed={needsIndoor} className={chipClass(needsIndoor)} onClick={onToggleNeedsIndoor}>
           실내 자리 필요
-        </Button>
+        </button>
       )}
     </div>
   );
