@@ -41,8 +41,19 @@ export const styles = sortCx({
             ].join(" "),
             linkRoot: "gap-1 *:data-text:underline-offset-4",
         },
+        // 로컬 변경(Untitled UI 원본과 다름): `min-h-11`.
+        //
+        // lg 가 44px 인 것은 설계가 아니라 산술적 우연이다 — py-2.5(20px) + text-md line-height(24px).
+        // 우연에 기대면 프리셋 구성이 바뀌는 순간(색 variant 가 p-0! 로 패딩을 지우거나, line-height
+        // 토큰만 따로 조정되거나) 터치 타깃이 조용히 무너진다. 44px 은 이 레포가 의식적으로 지키는
+        // 기준이므로(docs/reviews/2026-09-15-design-review.md) 바닥을 적어 계약으로 만든다.
+        // 현재 렌더 기하는 그대로다(no-op).
+        //
+        // 주의: min-h-11 도 `--spacing` 파생이라 **절대 44px 이 아니다.** 모바일(--spacing 4px)에서
+        // 44px 이고 화면이 커지면 같이 커진다(ADR-006). 화면 폭과 무관한 절대 바닥이 필요해지면
+        // 그때는 min-h-[44px] 여야 하고, 그건 다시 판단할 문제다.
         lg: {
-            root: "gap-1.5 rounded-lg px-4 py-2.5 text-md font-semibold before:rounded-[7px] data-icon-only:p-3",
+            root: "min-h-11 gap-1.5 rounded-lg px-4 py-2.5 text-md font-semibold before:rounded-[7px] data-icon-only:p-3",
             linkRoot: "gap-1.5 *:data-text:underline-offset-4",
         },
         xl: {

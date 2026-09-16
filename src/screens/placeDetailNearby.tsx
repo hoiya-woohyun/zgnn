@@ -80,7 +80,7 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
                   className="flex h-full flex-col rounded-2xl border border-secondary bg-primary p-3 transition-colors hover:bg-secondary"
                 >
                   <div className="flex items-center justify-between">
-                    <PlaceThumb src={other.cover ?? other.images[0]} type={other.type} size={40} />
+                    <PlaceThumb src={other.cover ?? other.images[0]} type={other.type} variant="compact" />
                     <span className="text-sm font-bold text-secondary">{formatKm(km)}</span>
                   </div>
                   <p className="clamp-2 mt-2 text-sm font-bold text-primary">{other.name}</p>

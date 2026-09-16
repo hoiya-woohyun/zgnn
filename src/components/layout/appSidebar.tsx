@@ -63,7 +63,8 @@ export function AppSidebar() {
           href={META.sourceUrl}
           target="_blank"
           rel="noreferrer"
-          className="mt-1.5 inline-flex items-center gap-1 font-semibold text-brand-secondary hover:underline"
+          /* 문장 안의 인라인 링크(homePage 푸터)와 달리 이건 혼자 선 링크라 44px 예외가 아니다. */
+          className="mt-1.5 inline-flex min-h-11 items-center gap-1 font-semibold text-brand-secondary hover:underline"
         >
           원본 노션 보기
           <LinkExternal01 size={14} />

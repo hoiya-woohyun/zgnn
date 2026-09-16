@@ -36,7 +36,8 @@ export function DogProfileWeightRows({ values, errors, onChange, onAdd, onRemove
                 value={value}
                 onChange={(next) => onChange(index, next)}
                 isInvalid={Boolean(errors[index])}
-                wrapperClassName="h-11"
+                /* 겉박스만 키우는 wrapperClassName="h-11" 대신 input 자체가 44px 인 lg 프리셋. */
+                size="lg"
               />
               {errors[index] && <HintText isInvalid>{errors[index]}</HintText>}
             </div>

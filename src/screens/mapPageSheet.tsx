@@ -30,7 +30,7 @@ export function MapPageSheetCard({ place }: TMapPageSheetCardProps) {
     <div>
       <Link href={`/place/${place.id}`} className="block">
         <div className="flex items-start gap-3">
-          <PlaceThumb src={place.cover ?? place.images[0]} type={place.type} size={44} />
+          <PlaceThumb src={place.cover ?? place.images[0]} type={place.type} />
           <div className="min-w-0 flex-1 pr-8">
             <p className="text-md font-bold text-primary">{place.name}</p>
             <div className="mt-1 flex flex-wrap items-center gap-1.5">

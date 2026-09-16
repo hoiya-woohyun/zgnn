@@ -159,7 +159,9 @@ export function DogProfilePage() {
                 onChange={setName}
                 isInvalid={Boolean(nameError)}
                 maxLength={NAME_MAX_LENGTH}
-                wrapperClassName="h-11"
+                /* wrapperClassName="h-11" 은 겉박스만 44px 로 키워 위아래 2px 가 탭해도 포커스가
+                   안 잡히는 죽은 띠로 남았다. lg 프리셋은 input 자체가 44px 다. */
+                size="lg"
               />
               {nameError && <HintText isInvalid>{nameError}</HintText>}
             </div>
@@ -182,7 +184,7 @@ export function DogProfilePage() {
             <DogProfileSizeOverride computedSize={computedSize} value={sizeOverride} onChange={setSizeOverride} />
 
             <div className="space-y-3 pt-2">
-              <Button type="submit" size="lg" className="h-11 w-full">
+              <Button type="submit" size="lg" className="w-full">
                 저장
               </Button>
               {dog && (
@@ -190,7 +192,7 @@ export function DogProfilePage() {
                   type="button"
                   color="secondary-destructive"
                   size="lg"
-                  className="h-11 w-full"
+                  className="w-full"
                   onClick={handleDelete}
                 >
                   프로필 삭제

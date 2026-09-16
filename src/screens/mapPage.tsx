@@ -96,6 +96,12 @@ const markerIcon = (type: TPlaceType, selected: boolean, level?: TEligibilityLev
   const cached = MARKER_ICONS.get(key);
   if (cached) return cached;
 
+  // 18px 은 44px 터치 기준의 **의도된 예외**다(2026-09-16 사이즈 감사에서 남긴 판단).
+  // 마커 크기는 UI 컨트롤 크기가 아니라 카토그래피 결정이다 — 86곳이 제주 동부·애월에 몰려 있어
+  // 핀을 키우면 서로 겹쳐 어느 곳을 눌렀는지 알 수 없게 되고, 히트 영역만 키우면 겹친 영역이
+  // 이웃의 탭을 가로챈다. 작게 두되 다른 경로로 보완한다: 선택 시 26px 로 커지고,
+  // role=button + tabindex 로 키보드에서 순서대로 닿을 수 있고(makeMarkerAddHandler),
+  // 같은 장소를 44px 행으로 고를 수 있는 목록(`/places/*`)이 항상 있다.
   const size = selected ? 26 : 18;
   const border = selected ? 3 : 2;
   const borderStyle = level === 'cond' ? 'dashed' : 'solid';
@@ -296,7 +302,7 @@ export function MapPage() {
                       active ? 'bg-brand-primary' : 'hover:bg-secondary',
                     )}
                   >
-                    <PlaceThumb src={place.cover ?? place.images[0]} type={place.type} size={40} />
+                    <PlaceThumb src={place.cover ?? place.images[0]} type={place.type} variant="compact" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-bold text-primary">
                         {place.name}
@@ -432,7 +438,7 @@ export function MapPage() {
                   type="button"
                   onClick={() => router.replace('/map')}
                   aria-label="전체 장소 보기"
-                  className="pointer-events-auto rounded-full bg-camellia px-3 py-1 text-xs font-semibold text-white shadow-sm"
+                  className="pointer-events-auto inline-flex min-h-11 cursor-pointer items-center rounded-full bg-camellia px-3.5 text-xs font-semibold text-white shadow-sm"
                 >
                   저장한 곳만 보는 중
                 </button>
@@ -441,7 +447,7 @@ export function MapPage() {
                 <Link
                   key={type}
                   href={`/places/${type}`}
-                  className="pointer-events-auto rounded-full bg-primary/92 px-3 py-1 text-xs font-semibold text-brand-secondary underline shadow-sm backdrop-blur"
+                  className="pointer-events-auto inline-flex min-h-11 items-center rounded-full bg-primary/92 px-3.5 text-xs font-semibold text-brand-secondary underline shadow-sm backdrop-blur"
                 >
                   지도에 없는 {TYPE_META[type].label} {count}곳 보기
                 </Link>

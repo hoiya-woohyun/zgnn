@@ -82,7 +82,10 @@ export const InputBase = ({
             shortcut: "pr-2",
         },
         lg: {
-            root: cx("px-3.5 py-2.5 text-md", hasLeadingIcon && "pl-10.5", hasTrailingIcon && "pr-9.5"),
+            // 로컬 변경(Untitled UI 원본과 다름): `min-h-11` — button.tsx 의 lg 프리셋과 같은 이유
+            // (우연히 44px 인 조합을 바닥으로 적어 둔 것이지, --spacing 과 무관한 절대값이 아니다).
+            // md(py-2 + text-md = 40px)로는 44px 에 못 미쳐, 44px 이 필요한 입력은 lg 를 쓴다.
+            root: cx("min-h-11 px-3.5 py-2.5 text-md", hasLeadingIcon && "pl-10.5", hasTrailingIcon && "pr-9.5"),
             iconLeading: "left-3.5 size-5",
             iconTrailing: "right-3.5",
             shortcut: "pr-2.5",

@@ -158,6 +158,10 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
               placeholder="이름·특징·읍면 검색"
               value={query}
               onChange={setQuery}
+              /* Input 의 기본 md 프리셋은 py-2 + text-md 라 input 자체가 40px 다.
+                 wrapperClassName="h-11" 로 겉박스만 44px 로 키우면 위아래 2px 가 탭해도 포커스가
+                 안 잡히는 죽은 띠로 남는다(측정으로 확인). lg 프리셋은 py-2.5 라 input 자체가 44px 다. */
+              size="lg"
             />
           </div>
         </div>
@@ -195,7 +199,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
           )}
         </div>
         {hasFilters && (
-          <Button color="link-color" size="sm" onClick={resetFilters}>
+          <Button color="link-color" size="sm" className="min-h-11" onClick={resetFilters}>
             조건 지우기
           </Button>
         )}
