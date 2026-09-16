@@ -27,6 +27,7 @@ alwaysApply: true
 | `src/app/**`, `src/screens/**`, `src/components/layout/**`, `src/store/**`, `src/providers/**`, `src/lib/appHistory.ts` | `docs/architecture/app-shell-and-state.md` |
 | `src/app/sw.ts`, `src/app/manifest.ts`, `next.config.mjs`, `scripts/make-icons.mjs` | `docs/architecture/pwa-offline.md` |
 | `src/styles/theme.css`, `src/lib/places.ts` 의 색 상수 | `docs/decisions/ADR-003-untitled-ui-and-palette.md` |
+| `src/styles/globals.css` 의 `--spacing`·브레이크포인트, `src/app/fonts/**` | `docs/decisions/ADR-006-responsive-scale-and-font.md` |
 | 라우트·디렉토리·스택 변경 | `docs/ARCHITECTURE.md` 의 해당 섹션 |
 
 ## 신규 생성 vs 기존 수정

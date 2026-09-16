@@ -1,6 +1,9 @@
 # 강아지랑 제주 — 제품 컨셉
 
-> 최종 수정: 2026-09-15 (v1: 컨셉 문서 신설. "가이드 열람" 에서 "내 강아지 기준 판정" 으로 목적을 명문화)
+> 최종 수정: 2026-09-16 (v2: v1(내 강아지 기준 판정)이 출하됐다 — DogProfile 을 "구현 전" 에서 "구현됨" 으로,
+> 지금/목표 다이어그램을 현재 상태로 갱신)
+>
+> 2026-09-15 (v1: 컨셉 문서 신설. "가이드 열람" 에서 "내 강아지 기준 판정" 으로 목적을 명문화)
 
 ## 한 줄 정의
 
@@ -32,26 +35,26 @@
 |---|---|---|
 | **장소(Place)** | 숙소/식당/카페 중 하나. 읍면·방향·특징·이용 조건 원문·좌표·네이버 링크를 가진다. 사진은 없다(→ [ADR-002](./decisions/ADR-002-no-place-photos.md)) | `src/types.ts`, `src/data/places.json` |
 | **이용 조건(PetPolicy)** | 원문 문장에서 규칙으로 뽑아낸 구조화 조건. 실내 가능 여부, 무게 제한, 마릿수, 요금 등. 원문은 항상 함께 보여준다 | `src/lib/petPolicy.ts` |
-| **내 강아지(DogProfile)** | 사용자가 등록하는 기준. 이용 조건과 맞춰 장소별 **판정(eligibility)** 을 낸다. **아직 구현 전** — 지금은 일반 필터(대형견 OK 등)로 대신한다 | 계획: [features/dog-profile.md](./features/dog-profile.md) |
+| **내 강아지(DogProfile)** | 사용자가 등록하는 기준(`/dog`). 이용 조건과 맞춰 장소별 **판정(eligibility)** 을 낸다. **구현됨(v1)** — 프로필이 없으면 일반 필터로 폴백한다 | `src/lib/eligibility.ts`, [features/dog-profile.md](./features/dog-profile.md) |
 
 ## 지금 상태와 목표 상태
 
 ```mermaid
 flowchart LR
-  subgraph now["지금 (v0)"]
+  subgraph fallback["프로필이 없을 때 (폴백)"]
     A[장소 목록] --> B[사용자가 필터를 켠다<br/>실내 OK · 대형견 OK …]
     B --> C[상세에서 원문을 읽고<br/>스스로 판단]
   end
-  subgraph goal["목표 (v1)"]
-    P[내 강아지 등록<br/>몸무게 · 마릿수 · 이동가방] --> E[장소별 판정<br/>가능 / 조건부 / 어려움 / 정보 없음]
-    E --> L[목록 · 지도 · 상세에<br/>판정이 먼저 보임]
+  subgraph now["프로필이 있을 때 (v1, 현재)"]
+    P["내 강아지 등록 /dog<br/>몸무게 · 마릿수 · 이동 수단"] --> E[장소별 판정<br/>가능 / 조건부 / 어려움 / 정보 없음]
+    E --> L[홈 · 목록 · 지도 · 상세에<br/>판정이 먼저 보임]
     L --> C2[원문은 근거로 함께 표시]
   end
-  now -. 프로필 도입 .-> goal
+  fallback -. 프로필을 등록하면 .-> now
 ```
 
-- v0 는 완성돼 있다(6개 화면, 저장·준비물 체크, 오프라인).
-- v1 의 핵심은 `DogProfile × PetPolicy → Eligibility` 함수 하나다. 화면은 그 결과를 배지와 정렬로 드러내면 된다.
+- v0(7개 화면, 저장·준비물 체크, 오프라인)와 v1(프로필 판정) 모두 출하됐다.
+- v1 의 핵심은 `DogProfile × PetPolicy → Eligibility` 함수 하나이고, 화면은 그 결과를 배지와 정렬로 드러낸다.
   판정 규칙은 [architecture/pet-policy-and-eligibility.md](./architecture/pet-policy-and-eligibility.md) 에 표로 정리했다.
 
 ## 하지 않는 것

@@ -1,15 +1,19 @@
 # 반려동물 이용 조건 파서와 "우리 강아지 갈 수 있나" 판정
 
-> 최종 수정: 2026-09-15 (v1: 신설. 파서(구현됨)와 판정(계획)을 한 문서에 두고 경계를 표시)
-> v2: 파서에 `tiers`(계단식 무게·마릿수) · `outdoorFree` · `unlimitedDogs` · `feeLines` · `sources`(근거 문장) 추가. 판정 층이 "가장 센 조건" 을 고를 재료를 여기서 만든다 — §1 참고.
+> 최종 수정: 2026-09-16 (v4: 화면 반영 완료를 반영 — 판정이 홈·둘러보기·상세·지도에 붙었다. "다음 웨이브"·"계획" 표기를 걷어냈다)
+>
 > v3: 판정(§3)을 "구현됨" 으로. `judgeEligibility` 가 "먼저 걸린 규칙" 대신 **전부 평가해 가장 센 레벨** 을 채택하도록 바뀌었고, `DogProfile` 스펙이 v2(마리별 몸무게 배열·이동 수단 4택·`needsIndoor` 분리)로 확정됐다 — [ADR-005](../decisions/ADR-005-dog-profile-eligibility.md).
+>
+> v2: 파서에 `tiers`(계단식 무게·마릿수) · `outdoorFree` · `unlimitedDogs` · `feeLines` · `sources`(근거 문장) 추가. 판정 층이 "가장 센 조건" 을 고를 재료를 여기서 만든다 — §1 참고.
+>
+> 2026-09-15 (v1: 신설. 파서(구현됨)와 판정(계획)을 한 문서에 두고 경계를 표시)
 
 ## 개요
 
 장소마다 반려동물 이용 조건이 사람이 쓴 문장(`petPolicyText`)으로 있다. 이 문서는 두 층을 다룬다.
 
 1. **파서(구현됨)** — 문장 → `TPetPolicy`. 화면 배지와 필터가 쓴다.
-2. **판정(계획, v1)** — `DogProfile × TPetPolicy → Eligibility`. 앱의 목적 그 자체다(→ [CONCEPT.md](../CONCEPT.md)).
+2. **판정(구현됨, v1)** — `DogProfile × TPetPolicy → Eligibility`. 앱의 목적 그 자체다(→ [CONCEPT.md](../CONCEPT.md)).
 
 ```mermaid
 flowchart LR
@@ -18,8 +22,8 @@ flowchart LR
   P -->|PET_FILTERS| F[둘러보기 필터]
   D[TDogProfile] -->|judgeEligibility| E[TEligibility<br/>ok · cond · unknown · hard]
   P --> E
-  T -->|항상 병기| UI[상세 화면]
-  E -.->|화면 반영은 B2·B3| UI
+  T -->|항상 병기| UI["화면: 홈·목록·상세·지도"]
+  E -->|배지·정렬·판정 카드| UI
 ```
 
 ## 1. 파서 — `src/lib/petPolicy.ts`
@@ -115,15 +119,22 @@ carrier 에 따라 H5/C2/C3/C4 는 배타적이다(정확히 한 갈래만 걸�
 
 **미해결 제품 판단 1건**: 원 스펙 초안은 "필요한 이동 수단을 정확히 갖춘 경우(예: 케이지 필수 식당에 케이지를 들고 감)" 도 조건부로 봤으나, carrier 4택을 배타적으로 나눈 규칙표(H5/C2/C3/C4)에는 그 조합에 해당하는 규칙이 없어 `ok` 로 판정된다 — 정확한 이동 수단을 가진 경우까지 조건부로 만들면 케이지/이동가방을 구분한 의미가 없어지기 때문(§2 리뷰어③ 지적과 같은 맥락)에 규칙표를 그대로 두었다. 더 보수적인 판정을 원하면 `ruleLargeNeedsCage`/`ruleNoCarrierNoOutdoor` 옆에 "carrier==='cage' 도 cond" 규칙을 추가하면 된다.
 
-### 화면 반영 (다음 웨이브: B2·B3)
+### 화면 반영 (구현됨)
 
-- 목록·지도 카드: 판정 배지 하나를 종류 색 옆에. 정렬은 가능 → 조건부 → 정보 없음 → 어려움.
-- 상세: 판정 + 근거 문구(`reasons[].quote`) → 그 아래 기존 원문 카드에서 강조.
-- 프로필이 없으면 지금과 같은 화면(필터만). 홈에 "우리 강아지 등록하기" 진입(`/dog`).
+- 목록·지도 카드: 판정 배지 하나를 종류 색 옆에. 정렬은 가능 → 조건부 → 정보 없음 → 어려움
+  (`src/lib/sortByEligibility.ts`, `src/components/eligibilityBadge.tsx`).
+- 상세: 판정 + 근거 문구(`reasons[].quote`)를 판정 카드로, 그 아래 원문 카드에서 강조
+  (`src/screens/placeDetailEligibilityCard.tsx`).
+- 둘러보기: "어려움 숨기기" · "실내 자리 필요" 토글(`src/screens/placesPageEligibilityToggles.tsx`).
+- 홈: 종류별 "갈 수 있는 곳" 개수(`src/screens/homePage.tsx`).
+- 지도: 마커 색과 시트 라벨이 판정 레벨을 따른다(`src/screens/mapPage.tsx`, `mapPageSheet.tsx`).
+- 프로필이 없으면 필터만 있는 화면으로 폴백하고, 홈에 "우리 강아지 등록하기" 진입(`/dog`).
 
 ## 관련 파일
 
 - 파서: `src/lib/petPolicy.ts`, `src/lib/petPolicy.test.ts`, `src/lib/placeFilters.ts`, `src/components/petBadges.tsx`
 - 판정: `src/lib/eligibility.ts`, `src/lib/eligibility.test.ts`
 - 프로필: `src/types.ts`(`TDogProfile`), `src/store/useAppStore.ts`, `src/store/useDogEligibility.ts`, `src/screens/dogProfilePage.tsx`, [features/dog-profile.md](../features/dog-profile.md)
-- 화면 반영(계획): `placeDetailPage.tsx`, `placeCard.tsx`, `mapPage.tsx` 등 — B2·B3
+- 화면 반영: `src/components/eligibilityBadge.tsx`, `src/lib/sortByEligibility.ts`,
+  `src/screens/{placeDetailEligibilityCard,placesPageEligibilityToggles,homePage,mapPage,mapPageSheet,placeDetailNearby}.tsx`,
+  `src/components/placeCard.tsx`

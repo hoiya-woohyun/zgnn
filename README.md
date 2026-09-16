@@ -18,7 +18,7 @@ pnpm i
 pnpm dev      # 개발 서버 (next dev --turbopack)
 pnpm build    # 정적 내보내기 → out/
 pnpm preview  # out/ 을 정적 서버로 띄워 확인
-pnpm test     # 반려동물 이용 조건 파서 테스트
+pnpm test     # vitest — 파서·판정·필터·정렬·히스토리 단위 테스트
 pnpm lint     # eslint
 pnpm icons    # PWA 아이콘 재생성 (팔레트가 바뀔 때만)
 ```
@@ -40,10 +40,11 @@ webpack 훅에서 바로 돌아 나오고 서비스워커도 만들지 않으므
 |---|---|
 | `/` | 홈. 인사말, 숙소·식당·카페 요약, 준비물과 저장한 곳 진입 |
 | `/places/[type]` | 둘러보기. 이름·특징·읍면 검색, 방향·반려동물 조건 필터, 숙소는 가격 정렬 |
-| `/place/[id]` | 상세. 사진, 반려동물 이용 조건(원문 포함), 요금, 근처 장소 |
+| `/place/[id]` | 상세. 반려동물 이용 조건(원문 포함), 판정 카드, 요금, 근처 장소 |
 | `/map` | 지도. 타입·방향 필터, 마커를 누르면 미니 카드(모바일은 하단 시트, ≥1024px 은 좌측 목록 패널). `?saved=1` 은 저장한 곳만 |
 | `/checklist` | 준비물. 계절별 목록, 체크 상태 저장, 숙소 구비 용품 반영 |
 | `/saved` | 저장한 곳. 타입별 묶음 |
+| `/dog` | 우리 강아지 등록. 이름·마리별 몸무게·이동 수단 → 장소별 판정의 입력 |
 
 `src/app/**/page.tsx` 는 주소와 메타데이터만 맡는 서버 컴포넌트이고, 화면을 그리는 본체는
 `src/screens/` 의 클라이언트 컴포넌트입니다. 정적 내보내기라 서버 렌더에서 얻는 것은
@@ -114,6 +115,9 @@ pnpm data:normalize        # Notion export + 이미지 매니페스트 → src/d
   마릿수, 요금 같은 조건을 뽑아냅니다. 판단 규칙이 파일 위쪽 테이블에 모여 있어서
   새로운 표현이 나오면 정규식 한 줄만 추가하면 됩니다. 규칙을 고치면 `pnpm test` 로 확인하세요.
   화면에는 항상 원문을 함께 보여주므로, 파서가 놓친 조건도 사용자가 읽을 수 있습니다.
+- **`src/lib/eligibility.ts`** — 강아지 프로필 × 이용 조건 → 판정(`ok`/`cond`/`unknown`/`hard`).
+  판정 등급이 목록 정렬(`src/lib/sortByEligibility.ts`)과 배지(`src/components/eligibilityBadge.tsx`)를
+  함께 움직이므로, 등급을 늘리면 세 곳을 같이 봅니다. `pnpm test` 에 24개 케이스가 있습니다.
 - **`src/lib/category.ts`** — 네이버 카테고리 문자열을 화면 라벨로 다듬습니다.
   아이콘은 여기가 아니라 `src/components/icons/placeTypeIcon.ts` 의 종류별 3종을 씁니다.
 - **`src/lib/amenities.ts`** — 숙소 구비 용품과 준비물을 잇는 매핑 테이블.
@@ -155,7 +159,7 @@ NEXT_PUBLIC_CARTO_API_KEY=발급받은_키
 `vite-tsconfig-paths` 로 같은 값을 다시 읽습니다.
 
 react-aria 의 `Link` · `Button href` 가 전체 새로고침 대신 Next 라우터로 움직이도록
-`src/providers/router-provider.tsx` 가 `RouterProvider` 에 `useRouter().push` 를 물려 둡니다.
+`src/providers/routerProvider.tsx` 가 `RouterProvider` 에 `useRouter().push` 를 물려 둡니다.
 `target="_blank"` 가 붙은 외부 링크는 여기 걸리지 않고 그대로 새 탭으로 열립니다.
 
 ## 스택
