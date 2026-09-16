@@ -1,6 +1,7 @@
 # 라우팅 · 화면 셸 · 클라이언트 상태
 
-> 최종 수정: 2026-09-15 (v1: 신설)
+> 최종 수정: 2026-09-16 (v2: 브레이크포인트가 레이아웃뿐 아니라 크기도 바꾼다 — `--spacing` 스케일과 글꼴 배선)
+> 이전 (v1: 신설)
 
 ## 개요
 
@@ -27,6 +28,12 @@ src/app/place/[id]/page.tsx   ─ 서버: generateStaticParams(86개) · generat
 | < 768px | 상단 `AppBar`(뒤로가기·제목·액션) + 하단 `AppTabBar`(홈·지도·둘러보기·준비물·저장) |
 | ≥ 768px | 좌측 고정 `AppSidebar`. `AppBar` 는 숨김 |
 | ≥ 1024px (지도만) | 목록 패널 + 지도 2단 (`useMapPageWideLayout`) |
+
+**브레이크포인트는 배치만이 아니라 크기도 바꾼다.** `globals.css` 가 `--spacing` 을 768px·1024px 에서
+4 → 4.5 → 5px 로 올리고, 이 레포의 타이포·간격·컨트롤 높이가 전부 그 파생이라 화면 전체가 같은 비율로
+커진다. 모바일 4px 은 44px 터치 기준이 걸려 있어 고정이다([ADR-006](../decisions/ADR-006-responsive-scale-and-font.md)).
+본문 글꼴(나눔스퀘어 네오)도 `src/app/layout.tsx` 의 `next/font/local` 이 `<html>` 에 변수로 얹어,
+`theme.css` 의 `--font-body` 가 그것을 1순위로 읽는다.
 
 - `AppBar` 의 `tone="overlay"` 는 상세 제목 판처럼 **부모가 이미 바탕색을 가진 경우**다. 배경·테두리 없이 얹히고 sticky 도 아니다. 상세 제목 판(`placeDetailHeader.tsx`) 은 큰 이름을 모바일에선 `aria-hidden` 장식(실제 h1 은 `AppBar` 쪽), 데스크톱에선(`AppBar` 가 `md:hidden`) 유일한 `h1` 로 — 폭에 따라 "진짜 제목" 을 맡는 쪽이 갈린다.
 - 홈 히어로만 셸의 중앙 정렬 폭을 넘어 화면 끝까지 깔린다. 나머지는 `PageHeader` / `Section` 의 좌우 패딩 계약을 따른다.

@@ -41,6 +41,28 @@ next.config.mjs: additionalPrecacheEntries (라우트 HTML 93개 + 매니페스�
 - 아이콘은 `scripts/make-icons.mjs` 가 SVG(잉크 둥근 사각 + brand-300 발자국)를 sharp 로 PNG 4장으로 만든다. 팔레트가 바뀔 때만 `pnpm icons`.
   maskable 은 기기가 바깥을 잘라내므로 발자국을 안쪽으로 모은다.
 
+## 글꼴 self-host
+
+본문 글꼴(나눔스퀘어 네오)은 CDN 이 아니라 번들에 넣는다 — 오프라인에서도 같은 글꼴로 떠야 하기
+때문이다(근거: [ADR-006](../decisions/ADR-006-responsive-scale-and-font.md)). `next/font/local` 이
+`src/app/layout.tsx` 에서 읽어 `_next/static/media/*.woff2` 로 굽고, serwist 가 그 파일을 빌드 산출물로
+인식해 **프리캐시 목록에 자동으로 넣는다**(`additionalPrecacheEntries` 에 손으로 적을 필요 없다.
+아이콘과 다른 점 — 아이콘은 `public/` 이라 직접 넣어야 한다).
+
+원본은 굵기당 2.1MB TTF 라 서브셋해서 쓴다. 다시 만들 일이 생기면:
+
+```bash
+# 1) 원본 (네이버 배포본)
+curl -O https://hangeul.pstatic.net/hangeul_static/webfont/NanumSquareNeo/NanumSquareNeoTTF-bRg.ttf
+curl -O https://hangeul.pstatic.net/hangeul_static/webfont/NanumSquareNeo/NanumSquareNeoTTF-cBd.ttf
+
+# 2) 서브셋 + woff2 (fonttools 필요: pip install fonttools brotli)
+pyftsubset NanumSquareNeoTTF-bRg.ttf   --output-file=src/app/fonts/NanumSquareNeo-Regular.woff2 --flavor=woff2 --layout-features='*'   --unicodes="U+0020-007E,U+00A0-00FF,U+2010-2027,U+2030-205E,U+20A9,U+2192,U+AC00-D7A3,U+1100-11FF,U+3130-318F,U+3000-303F,U+FF00-FFEF"
+```
+
+굵기당 353KB 가 나온다. 한글 완성형(U+AC00-D7A3) 11,172자를 통째로 넣는 이유와 굵기를 400·700 둘로
+제한한 이유는 ADR-006 에 있다.
+
 ## 확인 방법
 
 `pnpm build && pnpm preview` 로 `out/` 을 띄우고, DevTools → Application 에서 `sw.js` 등록과 프리캐시 개수(최근 139개)를 본다.
@@ -48,4 +70,4 @@ next.config.mjs: additionalPrecacheEntries (라우트 HTML 93개 + 매니페스�
 
 ## 관련 파일
 
-`src/app/sw.ts`, `next.config.mjs`, `src/app/manifest.ts`, `src/app/layout.tsx`, `scripts/make-icons.mjs`, `public/icons/`
+`src/app/sw.ts`, `next.config.mjs`, `src/app/manifest.ts`, `src/app/layout.tsx`, `src/app/fonts/`, `scripts/make-icons.mjs`, `public/icons/`
