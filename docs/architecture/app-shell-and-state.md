@@ -1,6 +1,7 @@
 # 라우팅 · 화면 셸 · 클라이언트 상태
 
-> 최종 수정: 2026-09-16 (v2: 브레이크포인트가 레이아웃뿐 아니라 크기도 바꾼다 — `--spacing` 스케일과 글꼴 배선)
+> 최종 수정: 2026-09-16 (v4: 긴 목록 select 는 모바일에서 하단 시트로 — `SheetSelect`, `useMediaQuery`)
+> 이전 (v2: 브레이크포인트가 레이아웃뿐 아니라 크기도 바꾼다 — `--spacing` 스케일과 글꼴 배선)
 > 이전 (v1: 신설)
 
 ## 개요
@@ -44,6 +45,28 @@ src/app/place/[id]/page.tsx   ─ 서버: generateStaticParams(86개) · generat
 그래서 history 항목이 앱 안에서 몇 번째인지를 세어 두고, 첫 화면이면 `router.back()` 대신 `backTo`(목록)로 `replace` 한다.
 `markReplacedNavigation()` 은 이 교체 이동이 깊이를 늘리지 않게 한다. 테스트: `src/lib/appHistory.test.ts`.
 
+### 긴 목록 select 는 모바일에서 하단 시트로 (`SheetSelect`)
+
+Untitled UI 의 `Select` 는 트리거 폭에 맞춘 앵커 팝오버(최대 224px)라, 읍면(20여 곳)·숙소(26곳)처럼
+긴 목록을 넣으면 폰에서 `w-40` 폭 안에 다섯 줄씩 보이는 좁은 드롭다운이 된다. 그래서
+`src/components/sheetSelect.tsx` 가 **<768px 에서는 `BottomSheet` 피커, 그 이상은 보통 `Select`** 로 가른다.
+지도 읍면(`mapPage.tsx`)과 준비물의 숙소 선택(`checklistPage.tsx`, 예전엔 native `<select>`)이 쓴다.
+
+- **항목이 서너 개면 그냥 `Select` 를 쓴다** — 가격 정렬(3)·강아지 크기(3)는 그대로다. 정렬은 이미
+  `PlacesPageFilterSheet` 안에 있어서 시트 위에 시트가 되기도 한다.
+- 폭 기준(md)인 이유: 시트는 `document.body` 로 포털되어 CSS(`md:hidden`)로 못 숨기므로 JS 로 갈라야 하고,
+  둘러보기 조건 시트와 같은 지점에서 갈라 화면마다 규칙이 다르지 않게 했다. `src/hooks/useMediaQuery.ts`
+  (기존 `useMapPageWideLayout` 을 일반화)가 `useSyncExternalStore` 로 읽는다 — 정적 HTML 의 첫 프레임은
+  서버 스냅샷 `false`(= 드롭다운 쪽)로 그려지지만 트리거 모양이 같아 티가 안 난다.
+- 시트는 `selectionMode='single'` 인데 react-aria 는 이 모드에서 항목을 눌러도 `onAction` 을 안 부르고,
+  이미 고른 항목을 다시 누르면 선택을 **비운다**. 그래서 `onSelectionChange` 하나로 받되 빈 선택은
+  "값 유지 + 닫기" 로 다룬다 — 어느 행을 눌러도 시트가 닫힌다.
+- 숙소 피커는 저장한 숙소를 위에 한 번 더 보여 주는데(전체 목록에서 빼지 않는다, 과거에 선택이 풀리던
+  버그 때문), react-aria 컬렉션은 키가 겹치면 안 된다. `src/lib/checklistPageStayPicker.ts` 가 위쪽 사본에만
+  `saved:` 접두어를 붙이고 값으로 쓸 때 떼어 낸다(테스트 있음).
+- `base/select-item.tsx` 의 `sm` 행에 `min-h-11` 을 넣었다(Untitled 복사본이지만 `select-shared.tsx` 의
+  트리거 44px 조정과 같은 선례). 트리거만 44px 이고 드롭다운 행은 38px 이던 불일치를 맞춘 것.
+
 ### react-aria 링크와 Next 라우터
 
 Untitled UI 의 `Button href` / `Link` 는 react-aria 라 기본은 전체 새로고침이다.
@@ -62,7 +85,7 @@ Untitled UI 의 `Button href` / `Link` 는 react-aria 라 기본은 전체 새�
 | `amenityStayId` | 구비 용품을 반영할 숙소 | 준비물 "숙소 용품 반영" (`useChecklistAmenities`, `src/lib/amenities.ts`) |
 | `dog` | 우리 강아지 프로필(`TDogProfile \| null`) | `/dog` 프로필 폼, 판정(`useEligibility`/`useEligibilityMap`, `src/store/useDogEligibility.ts`). 목록·홈·지도·근처 장소(`placeCard.tsx`, `placesPage.tsx`, `homePage.tsx`, `mapPage.tsx`, `mapPageSheet.tsx`, `placeDetailNearby.tsx`)는 이 값이 `null` 이면 판정 관련 UI 를 아예 그리지 않는다(v0 화면 유지) |
 | `needsIndoor` | 이번 여행에 실내 자리가 꼭 필요한지 | 판정의 `opts.needsIndoor` — 강아지 정보가 아니라 여행 정보라 `dog` 와 분리(→ [features/dog-profile.md](../features/dog-profile.md)). 둘러보기 식당·카페 탭의 "실내 자리 필요" 토글(`placesPageEligibilityToggles.tsx`)이 값을 바꾼다 |
-| `town` | 지금 둘러보는 읍면(`string \| null`) | 둘러보기 읍면 칩(`placesPageFilters.tsx`), 지도 읍면 Select(`mapPage.tsx`), 홈 종류 카드 읍면 바로가기(`homeTypeCard.tsx`) — 한 번 고르면 셋을 넘나들어도 유지된다(2026-09-15 리뷰 P1) |
+| `town` | 지금 둘러보는 읍면(`string \| null`) | 둘러보기 읍면 칩(`placesPageFilters.tsx`), 지도 읍면 피커(`mapPage.tsx`, `SheetSelect`), 홈 종류 카드 읍면 바로가기(`homeTypeCard.tsx`) — 한 번 고르면 셋을 넘나들어도 유지된다(2026-09-15 리뷰 P1) |
 
 - **하이드레이션**: HTML 이 빌드 때 만들어지므로 첫 렌더에서 localStorage 를 읽으면 서버 HTML 과 어긋난다.
   `skipHydration: true` 로 두고 `src/providers/storeHydration.tsx` 가 마운트 뒤 `rehydrate()` 한다. 첫 프레임의 "저장한 곳 0" 은 의도.

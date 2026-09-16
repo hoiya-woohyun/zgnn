@@ -9,8 +9,11 @@ import type { SelectItemType } from "./select-shared";
 import { SelectContext } from "./select-shared";
 
 const sizes = {
+    // min-h-11(44px) — 트리거(select-shared)만 44px 로 올리고 목록 행은 38px 로 남아 있었다.
+    // 모바일에서 실제로 손가락이 닿는 곳은 이 행이라 같은 기준을 건다. --spacing 축을 타므로
+    // 데스크톱에서는 트리거와 함께 ~55px 이 된다 — 행이 트리거보다 낮지 않게, 의도한 밀도다.
     sm: {
-        root: "p-2 pr-2.5 gap-2 *:data-icon:size-4 *:data-icon:stroke-[2.25px]",
+        root: "min-h-11 p-2 pr-2.5 gap-2 *:data-icon:size-4 *:data-icon:stroke-[2.25px]",
         text: "text-sm",
         textContainer: "gap-x-1.5",
         check: "size-4 stroke-[2.25px]",

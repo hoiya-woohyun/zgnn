@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ChevronDown, LinkExternal01 } from '@untitledui/icons';
 import { useChecklistAmenities } from './useChecklistAmenities';
 import { Badge } from '../components/base/badges';
@@ -9,8 +9,14 @@ import { Checkbox } from '../components/base/checkbox';
 import { PageHeader } from '../components/layout/pageHeader';
 import { Section } from '../components/layout/section';
 import { SeasonChips } from '../components/seasonChips';
+import { SheetSelect } from '../components/sheetSelect';
 import { META } from '../lib/places';
 import { checklistProgress } from '../lib/checklist';
+import {
+  checklistPageStayIdFromKey,
+  checklistPageStayKey,
+  checklistPageStaySections,
+} from '../lib/checklistPageStayPicker';
 import { linkLabel } from '../lib/format';
 import { cx } from '../utils/cx';
 import { useAppStore } from '../store/useAppStore';
@@ -24,6 +30,7 @@ export function ChecklistPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const { items, total, checked: checkedCount } = checklistProgress(season, checkedItemIds);
+  const staySections = useMemo(() => checklistPageStaySections(allStays, savedStays), [allStays, savedStays]);
 
   return (
     <div>
@@ -45,33 +52,15 @@ export function ChecklistPage() {
           <p className="text-sm text-tertiary">
             묵을 숙소를 고르면 그 숙소에 있는 물건은 흐리게 표시돼요.
           </p>
-          <label className="mt-3 block">
-            <span className="sr-only">숙소 선택</span>
-            <select
-              value={selected?.id ?? ''}
-              onChange={(event) => setAmenityStayId(event.target.value || null)}
-              className="h-11 w-full rounded-lg border border-primary bg-primary px-3 text-sm font-semibold text-primary shadow-xs outline-hidden focus:ring-2 focus:ring-brand"
-            >
-              <option value="">숙소를 고르지 않음</option>
-              {/* 저장한 숙소는 찾기 쉽게 위로 올려 두기만 한다. 아래 전체 목록에도 그대로 남는다. */}
-              {savedStays.length > 0 && (
-                <optgroup label="저장한 숙소">
-                  {savedStays.map((stay) => (
-                    <option key={`saved-${stay.id}`} value={stay.id}>
-                      {stay.name} ({stay.region.town})
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-              <optgroup label="모든 숙소">
-                {allStays.map((stay) => (
-                  <option key={stay.id} value={stay.id}>
-                    {stay.name} ({stay.region.town})
-                  </option>
-                ))}
-              </optgroup>
-            </select>
-          </label>
+          {/* 저장한 숙소는 찾기 쉽게 위로 올려 두기만 한다. 아래 전체 목록에도 그대로 남는다(checklistPageStayPicker). */}
+          <SheetSelect
+            label="숙소 선택"
+            value={checklistPageStayKey(selected?.id ?? null, savedStays)}
+            onChange={(key) => setAmenityStayId(checklistPageStayIdFromKey(key))}
+            sections={staySections}
+            noneLabel="숙소를 고르지 않음"
+            className="mt-3"
+          />
           {selected?.stay &&
             (providedItemIds.size > 0 ? (
               <p className="mt-3 text-sm text-secondary">

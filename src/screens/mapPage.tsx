@@ -10,7 +10,7 @@ import { MapPageSheetCard } from './mapPageSheet';
 import { useMapPageWideLayout } from './useMapPageWideLayout';
 import { BottomSheet } from '@/components/base/bottom-sheet';
 import { Button } from '@/components/base/button';
-import { Select } from '@/components/base/select';
+import { SheetSelect } from '@/components/sheetSelect';
 import { ELIGIBILITY_META } from '../components/eligibilityBadge';
 import { EmptyState } from '../components/layout/emptyState';
 import { PlaceThumb } from '../components/placeThumb';
@@ -32,6 +32,9 @@ import { useAppStore, useDog, useSavedPlaces } from '../store/useAppStore';
 import { useEligibilityMap } from '../store/useDogEligibility';
 import { cx } from '../utils/cx';
 import type { TDirection, TGeo, TPlaceType } from '../types';
+
+/** 읍면 피커 섹션. 제목 없이 한 덩어리 — "읍면 전체" 는 SheetSelect 의 noneLabel 이 맡는다. */
+const TOWN_SECTIONS = [{ options: TOWN_OPTIONS.map((town) => ({ id: town, label: town })) }];
 
 /** 읍면 선택 시 그 읍면 마커들로 지도 시야를 맞춘다. 종류·방향·"어려움 숨기기" 가 바뀌어 같은 읍면 안 마커가 줄어도 다시 맞춘다. */
 function MapPageFitTown({ town, points }: { town: string | null; points: TGeo[] }) {
@@ -390,24 +393,19 @@ export function MapPage() {
             </div>
 
             {/*
-              읍면은 목록이 길어(20여 곳) 가로 스크롤 칩보다 Select 가 낫다. 둘러보기·근처 장소와
-              같은 스토어 값을 쓰므로, 여기서 고른 읍면이 그쪽에도 그대로 남는다.
+              읍면은 목록이 길어(20여 곳) 가로 스크롤 칩보다 고르는 컨트롤이 낫다. 좁은 화면에서는
+              하단 시트로 열린다(SheetSelect). 둘러보기·근처 장소와 같은 스토어 값을 쓰므로,
+              여기서 고른 읍면이 그쪽에도 그대로 남는다.
             */}
             <div className="pointer-events-auto px-3">
-              <Select
-                aria-label="읍면"
-                size="sm"
-                selectedKey={town ?? 'all'}
-                onSelectionChange={(key) => setTown(key === 'all' ? null : String(key))}
+              <SheetSelect
+                label="읍면"
+                value={town}
+                onChange={setTown}
+                sections={TOWN_SECTIONS}
+                noneLabel="읍면 전체"
                 className="w-40"
-              >
-                <Select.Item id="all">읍면 전체</Select.Item>
-                {TOWN_OPTIONS.map((option) => (
-                  <Select.Item key={option} id={option}>
-                    {option}
-                  </Select.Item>
-                ))}
-              </Select>
+              />
             </div>
 
             {/* 프로필이 없으면 "어려움" 개념이 없어 토글 자체를 그리지 않는다(v0 화면 유지). */}
