@@ -73,8 +73,8 @@ export function SheetSelect({ label, value, onChange, sections, noneLabel, class
       selectedKey={value ?? NONE_KEY}
       onSelectionChange={(key) => onChange(key === NONE_KEY ? null : String(key))}
       className={className}
-      // 기본 224px 은 긴 목록엔 좁다. 데스크톱은 세로가 넉넉하니 더 보여 준다.
-      popoverClassName="max-h-96!"
+      // 기본은 트리거 폭×224px 이라 긴 목록엔 좁다(읍면 트리거는 w-40). 데스크톱은 자리가 넉넉하니 더 보여 준다.
+      popoverClassName="max-h-96! min-w-60"
     >
       <Select.Item id={NONE_KEY}>{noneLabel}</Select.Item>
       {sections.map((section, index) =>

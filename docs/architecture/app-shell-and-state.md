@@ -1,6 +1,6 @@
 # 라우팅 · 화면 셸 · 클라이언트 상태
 
-> 최종 수정: 2026-09-16 (v4: 긴 목록 select 는 모바일에서 하단 시트로 — `SheetSelect`, `useMediaQuery`)
+> 최종 수정: 2026-09-16 (v4: 긴 목록 select 는 모바일에서 하단 시트로 — `SheetSelect`, `useMediaQuery`. 하단 시트에 핸들·끌어내려 닫기)
 > 이전 (v2: 브레이크포인트가 레이아웃뿐 아니라 크기도 바꾼다 — `--spacing` 스케일과 글꼴 배선)
 > 이전 (v1: 신설)
 
@@ -64,6 +64,10 @@ Untitled UI 의 `Select` 는 트리거 폭에 맞춘 앵커 팝오버(최대 224
 - 숙소 피커는 저장한 숙소를 위에 한 번 더 보여 주는데(전체 목록에서 빼지 않는다, 과거에 선택이 풀리던
   버그 때문), react-aria 컬렉션은 키가 겹치면 안 된다. `src/lib/checklistPageStayPicker.ts` 가 위쪽 사본에만
   `saved:` 접두어를 붙이고 값으로 쓸 때 떼어 낸다(테스트 있음).
+- `BottomSheet` 는 위쪽 핸들 띠(28px, `touch-action: none`)를 **터치로** 끌어내리면 닫힌다(96px 이상 또는
+  빠른 튕김). 시트 전체를 잡게 하지 않는 이유: `touch-action` 은 조상이 막으면 자식이 되살릴 수 없어
+  안쪽 목록 스크롤과 양립이 안 된다. 끌리는 이동은 `AriaDialog` 에 걸어 `AriaModal` 의 닫힘 keyframe 과
+  안 싸우고, 그 상태는 닫히면 언마운트되는 패널 컴포넌트에 둬 되돌리는 effect 가 없다. 마우스는 제외.
 - `base/select-item.tsx` 의 `sm` 행에 `min-h-11` 을 넣었다(Untitled 복사본이지만 `select-shared.tsx` 의
   트리거 44px 조정과 같은 선례). 트리거만 44px 이고 드롭다운 행은 38px 이던 불일치를 맞춘 것.
 
