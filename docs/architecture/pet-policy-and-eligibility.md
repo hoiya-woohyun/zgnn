@@ -2,6 +2,7 @@
 
 > 최종 수정: 2026-09-15 (v1: 신설. 파서(구현됨)와 판정(계획)을 한 문서에 두고 경계를 표시)
 > v2: 파서에 `tiers`(계단식 무게·마릿수) · `outdoorFree` · `unlimitedDogs` · `feeLines` · `sources`(근거 문장) 추가. 판정 층이 "가장 센 조건" 을 고를 재료를 여기서 만든다 — §1 참고.
+> v3: 판정(§3)을 "구현됨" 으로. `judgeEligibility` 가 "먼저 걸린 규칙" 대신 **전부 평가해 가장 센 레벨** 을 채택하도록 바뀌었고, `DogProfile` 스펙이 v2(마리별 몸무게 배열·이동 수단 4택·`needsIndoor` 분리)로 확정됐다 — [ADR-005](../decisions/ADR-005-dog-profile-eligibility.md).
 
 ## 개요
 
@@ -15,10 +16,10 @@ flowchart LR
   T["petPolicyText<br/>(원문)"] -->|parsePetPolicy| P[TPetPolicy]
   P -->|toPetBadges| B[배지: ok / cond / warn]
   P -->|PET_FILTERS| F[둘러보기 필터]
-  D[DogProfile<br/>계획] -->|judgeEligibility<br/>계획| E[Eligibility<br/>가능 · 조건부 · 어려움 · 정보 없음]
+  D[TDogProfile] -->|judgeEligibility| E[TEligibility<br/>ok · cond · unknown · hard]
   P --> E
   T -->|항상 병기| UI[상세 화면]
-  E -.-> UI
+  E -.->|화면 반영은 B2·B3| UI
 ```
 
 ## 1. 파서 — `src/lib/petPolicy.ts`
@@ -58,47 +59,71 @@ flowchart LR
 - `PET_FILTERS`(`src/lib/placeFilters.ts`) 는 종류별로 다르다. 식당·카페는 실내/케이지/대형견/리드줄, 숙소는 추가요금/대형견/2마리 이상.
   원문에 적힌 정보의 종류가 다르기 때문이다.
 
-## 3. 판정 — 계획 (v1)
+## 3. 판정 — 구현됨
 
-### 입력 `DogProfile`
+### 입력 `TDogProfile` (`src/types.ts`)
 
 | 필드 | 타입 | 왜 필요한가 |
 |---|---|---|
 | `name` | string | 화면 문구("짱구가 갈 수 있는 곳") |
-| `weightKg` | number | `weightLimitKg` 비교, 크기 분류 |
-| `size` | `small` / `medium` / `large` | 몸무게에서 기본값을 내되 사용자가 고칠 수 있게. 기준(소형 <10kg, 중형 10~25, 대형 >25)은 통상 관례라 데이터 원문의 "대형견" 과 정확히 일치한다는 보장이 없다 |
-| `count` | number | `maxDogs` 비교 |
-| `hasCarrier` | boolean | 케이지·이동가방·유모차가 있는가. `indoor === 'cage'` 인 곳의 실내 가능 여부가 여기서 갈린다 |
-| `needsIndoor` | boolean | 야외석만 가능한 곳을 "조건부" 로 볼지 "어려움" 으로 볼지 |
+| `weightsKg` | number[] (1~3) | 마리별 몸무게. 무게 상한 비교는 **최댓값**, 마릿수는 `length`. 28kg+17kg 를 `count=2, weightKg=28` 로 뭉개면 실제보다 후하게 판정한다(디자인 리뷰 §1③) |
+| `carrier` | `'none' \| 'bag' \| 'cage' \| 'stroller'` | 케이지 필수인 곳에서 슬링백을 케이지로 오해하면 위험하다(리뷰 §1③) — 넷으로 나눠 판정을 갈랐다 |
+| `sizeOverride?` | `TDogSize` | 몸무게 기준 자동 계산(소형 <10kg · 중형 10~25kg · 대형 >25kg)이 원문의 "대형견" 과 어긋날 수 있어 프로필 폼의 "크기 수정" 으로 고칠 수 있다 |
 
-프로필은 기기 안(localStorage, `useAppStore`)에만 둔다. 여러 마리는 우선 `count` 로만 다루고, 마리별 프로필은 범위 밖.
+`needsIndoor`(실내 자리가 꼭 필요한지)는 프로필이 아니라 **여행 정보**라 스토어의 별도 토글(`useAppStore.needsIndoor`)로 분리했다 — 계절이 바뀌면 강아지는 그대로인데 필요한 자리는 바뀐다(리뷰 §1②).
 
-### 판정 규칙 (초안)
+프로필은 기기 안(localStorage, `useAppStore`)에만 둔다. 마리별 프로필(성향·견종)은 범위 밖.
 
-결과는 네 단계다. **위에서부터 먼저 걸리는 규칙이 결과**이고, 근거 문구를 함께 돌려준다.
+### 판정 규칙 — `src/lib/eligibility.ts` 의 `RULES`
 
-| 순서 | 조건 | 결과 | 근거 문구 예 |
+**"먼저 걸린 규칙이 이긴다" 던 초안과 달리, 전부 평가해 가장 센 레벨을 채택한다** — 한 문장에 여러 조건이 섞인 원문(예: "실내는 케이지, 실외는 자유")에서 근거 하나를 놓치지 않기 위해서다. 레벨은 hard 하나라도 있으면 hard, 아니면 `noInfo` 면 unknown, 아니면 cond 있으면 cond, 그 외 ok. reasons 는 심각도순(hard→cond→unknown→info)으로 정렬한다.
+
+| # | 조건 | 레벨 | 문구 |
 |---|---|---|---|
-| 1 | `policy.noInfo` | 정보 없음 | "이용 조건이 적혀 있지 않아요" |
-| 2 | `weightLimitKg` 있고 `dog.weightKg > weightLimitKg` | 어려움 | "10kg 이하만 가능해요" |
-| 3 | `maxDogs` 있고 `dog.count > maxDogs` | 어려움 | "2마리까지만 가능해요" |
-| 4 | `smallDogOnly` 이고 `dog.size !== 'small'` | 어려움 | "소형견만 가능해요" |
-| 5 | `dog.size === 'large'` 이고 `largeDogOk === false` | 조건부 | "대형견 가능 여부를 확인해 주세요" |
-| 6 | `indoor === 'outdoorOnly'` | `needsIndoor` 면 어려움, 아니면 조건부 | "야외 자리만 가능해요" |
-| 7 | `indoor === 'cage'` 이고 `!dog.hasCarrier` | 조건부 | "실내는 이동가방이 필요해요" |
-| 8 | `callFirst` | 조건부 | "방문 전 전화 확인이 필요해요" |
-| 9 | 그 외 | 가능 | `feeText` 가 있으면 "추가 요금 {feeText}" 를 정보로 덧붙임 |
+| H1 | `tiers` 중 무게 조건이 있는 칸이 있는데, 최댓값 몸무게가 그 어느 칸에도 못 들어감 | hard | "{N}kg {미만/이하}만 가능해요" |
+| H2 | 무게로 들어가는 칸은 있지만(칸이 여럿이면 마릿수 상한이 가장 큰 칸 기준) 그 칸의 마릿수 상한보다 마릿수가 많음 | hard | "{N}kg {미만/이하}은 {M}마리까지예요" |
+| H3 | `smallDogOnly` · size ≠ small | hard | "소형견만 가능해요" |
+| H4 | `indoor==='cage'` · size==='large' · carrier≠'cage' | !outdoorFree ? hard : (needsIndoor ? hard : cond) | "실내는 케이지 필수라 대형견은 어려워요" / "…야외 자리만 가능해요" |
+| H5 | `indoor==='cage'` · carrier==='none' · !outdoorFree · size≠'large' | hard | "케이지 동반시에만 가능해요" (대형견은 H4 가 대신) |
+| H6 | `indoor==='outdoorOnly'` · needsIndoor | hard | "야외 자리만 가능해요" |
+| C1 | `indoor==='outdoorOnly'` · !needsIndoor | cond | "야외 자리만 가능해요" |
+| C2 | `indoor==='cage'` · carrier==='bag' | cond | "케이지라고 적혀 있어요 — 이동가방도 되는지 확인해 주세요" |
+| C3 | `indoor==='cage'` · carrier==='stroller' · 원문에 "유모차" 언급 없음 | cond | "케이지라고 적혀 있어요 — 유모차도 되는지 확인해 주세요" |
+| C4 | `indoor==='cage'` · carrier==='none' · outdoorFree | needsIndoor ? hard : cond | "실내는 케이지, 야외는 자유예요" |
+| C5 | size==='large' · !largeDogOk · `tiers` 없음 · H4 미해당 | cond | "대형견 언급이 없어요 — 확인해 주세요" |
+| C6 | `callFirst` | cond | "방문 전 전화 확인이 필요해요" |
+| U1 | `noInfo` | unknown | "이용 조건이 적혀 있지 않아요" |
+| U1 보강 | `noInfo` · `largeDogOk` (맘앤도그처럼 "정보 없음" 이라 적고도 힌트가 붙은 경우) | info | "원문에 대형견도 가능하다는 문구가 있어요" — 레벨은 그대로 unknown, 힌트만 얹는다 |
+| I1 | `feeForDog(policy, dog)` 결과 | info | "{이름} {요금}" |
 
-- "어려움" 을 "불가" 라 부르지 않는다. 파서가 놓친 예외("대형견은 사장님 재량")가 실제로 있어서다. 상세 화면은 어려움이어도 원문과 네이버 링크를 그대로 둔다.
-- 규칙 5·6 의 강도(조건부로 볼지 어려움으로 볼지)는 **제품 판단**이라 사용자가 정한다. 코드로 옮길 때 이 표를 그대로 테이블 상수로 만들고 순서를 바꾸는 것으로 조정할 수 있게 한다.
+carrier 에 따라 H5/C2/C3/C4 는 배타적이다(정확히 한 갈래만 걸린다). H4(대형견+케이지 미보유)는 이들과 별개로 평가되되, 대형견이면 H5 가 물러나 같은 문장을 두 번 근거로 내지 않는다. H4 가 걸리면 C5 도 다시 내지 않는다. 야외 자리를 답으로 내리는 H4·C4 는 둘 다 `needsIndoor` 를 본다.
 
-### 화면 반영 (계획)
+`feeForDog(policy, dog)`: `feeLines` 중 최댓값 몸무게가 들어가는 구간("6~10kg 1.5만원")을 찾는다. 없으면 구간이 아닌 요금 줄("1마리당 1만원")로 물러나고, 그마저 없으면 비운다 — 28kg 강아지에게 "1~5kg 1만원" 을 이름까지 붙여 보여주지 않기 위해서다. `feeFree` 면 "추가 요금 없음".
+
+### 검증 — 보리+콩(28kg+17kg·이동 수단 없음) 실사 재확인
+
+디자인 리뷰 §1 의 사람 판단과 구현 결과를 86곳 전체로 비교했다(`eligibility.test.ts`):
+
+| 구분 | 사람 판단 | 구현 |
+|---|---|---|
+| 가능 | 9 | 7 |
+| 조건부 | 30 | 32 |
+| 어려움 | 42 | 42 |
+| 정보 없음 | 5 | 5 |
+
+전부 ±5 안. 규칙표를 억지로 맞추지 않고 그대로 채택했다.
+
+**미해결 제품 판단 1건**: 원 스펙 초안은 "필요한 이동 수단을 정확히 갖춘 경우(예: 케이지 필수 식당에 케이지를 들고 감)" 도 조건부로 봤으나, carrier 4택을 배타적으로 나눈 규칙표(H5/C2/C3/C4)에는 그 조합에 해당하는 규칙이 없어 `ok` 로 판정된다 — 정확한 이동 수단을 가진 경우까지 조건부로 만들면 케이지/이동가방을 구분한 의미가 없어지기 때문(§2 리뷰어③ 지적과 같은 맥락)에 규칙표를 그대로 두었다. 더 보수적인 판정을 원하면 `ruleLargeNeedsCage`/`ruleNoCarrierNoOutdoor` 옆에 "carrier==='cage' 도 cond" 규칙을 추가하면 된다.
+
+### 화면 반영 (다음 웨이브: B2·B3)
 
 - 목록·지도 카드: 판정 배지 하나를 종류 색 옆에. 정렬은 가능 → 조건부 → 정보 없음 → 어려움.
-- 상세: 판정 + 근거 문구 → 그 아래 기존 원문 카드.
-- 프로필이 없으면 지금과 같은 화면(필터만). 홈에 "우리 강아지 등록하기" 진입.
+- 상세: 판정 + 근거 문구(`reasons[].quote`) → 그 아래 기존 원문 카드에서 강조.
+- 프로필이 없으면 지금과 같은 화면(필터만). 홈에 "우리 강아지 등록하기" 진입(`/dog`).
 
 ## 관련 파일
 
-- 구현: `src/lib/petPolicy.ts`, `src/lib/petPolicy.test.ts`, `src/lib/placeFilters.ts`, `src/components/petBadges.tsx`
-- 계획: `src/lib/eligibility.ts`(신규), `src/store/useAppStore.ts`(프로필 필드), [features/dog-profile.md](../features/dog-profile.md)
+- 파서: `src/lib/petPolicy.ts`, `src/lib/petPolicy.test.ts`, `src/lib/placeFilters.ts`, `src/components/petBadges.tsx`
+- 판정: `src/lib/eligibility.ts`, `src/lib/eligibility.test.ts`
+- 프로필: `src/types.ts`(`TDogProfile`), `src/store/useAppStore.ts`, `src/store/useDogEligibility.ts`, `src/screens/dogProfilePage.tsx`, [features/dog-profile.md](../features/dog-profile.md)
+- 화면 반영(계획): `placeDetailPage.tsx`, `placeCard.tsx`, `mapPage.tsx` 등 — B2·B3

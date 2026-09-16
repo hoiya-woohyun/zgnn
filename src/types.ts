@@ -41,6 +41,25 @@ export type TPlace = {
   stay?: TStayInfo;
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 강아지 프로필 — src/lib/eligibility.ts 의 입력
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type TDogSize = 'small' | 'medium' | 'large';
+
+/** 이동 수단. 'none' 이면 케이지·이동가방·유모차가 전혀 없다는 뜻. */
+export type TCarrier = 'none' | 'bag' | 'cage' | 'stroller';
+
+export type TDogProfile = {
+  /** 여러 마리여도 이름은 하나("두부와 친구들" 처럼 사용자가 직접 적는다). */
+  name: string;
+  /** 마리별 몸무게. 1~3마리. 판정은 최댓값으로, 마릿수는 length 로 본다. */
+  weightsKg: number[];
+  carrier: TCarrier;
+  /** 자동 계산된 크기(최댓값 기준)를 사용자가 고친 값. 없으면 자동 계산을 그대로 쓴다. */
+  sizeOverride?: TDogSize;
+};
+
 export type TSeason = '사계절' | '여름' | '겨울';
 
 export type TItem = {

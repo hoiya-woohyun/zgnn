@@ -11,7 +11,7 @@
 
 이 프로젝트(`zgnn`)는 반려견 동반 제주 여행 가이드 **강아지랑 제주** 의 PWA 다.
 핵심은 **내 강아지 조건 × 장소의 이용 조건 → 갈 수 있는가** 판정이다(→ [CONCEPT.md](./CONCEPT.md)).
-지금(v0)은 일반 필터까지 구현돼 있고, 강아지 프로필 기반 판정(v1)은 계획 단계다.
+지금(v0)의 일반 필터에 더해, 강아지 프로필 기반 판정(v1)의 등록·판정 로직은 구현됐고 화면 반영은 다음 웨이브다.
 
 ---
 
@@ -52,7 +52,7 @@ Notion 공개 페이지 ──(scripts, 무인증 API)──▶ data/jejudo-noti
 
 - `petPolicyText`(사람이 쓴 문장) → `parsePetPolicy()` → `TPetPolicy`(실내 가능 여부·무게 제한·마릿수·요금 …).
 - 규칙은 `src/lib/petPolicy.ts` 상단 테이블에 모여 있고, 화면은 항상 **원문을 함께** 보여준다.
-- v1 계획: `DogProfile × TPetPolicy → Eligibility(가능/조건부/어려움/정보 없음)`.
+- v1 구현됨: `judgeEligibility(TDogProfile, TPetPolicy, opts) → TEligibility(ok/cond/unknown/hard)`. 화면 반영(상세·목록·지도·홈)은 다음 웨이브.
 
 ---
 
@@ -67,6 +67,7 @@ Notion 공개 페이지 ──(scripts, 무인증 API)──▶ data/jejudo-noti
 /map              지도 — 종류·방향 필터, 마커 → 미니 카드. ?saved=1 은 저장한 곳만
 /checklist        준비물 — 계절별, 체크 상태 저장, 숙소 구비 용품 반영
 /saved            저장한 곳
+/dog              우리 강아지 등록 — 이름·마리별 몸무게·이동 수단. 저장하면 판정(v1)의 입력이 된다
 ```
 
 `src/app/**/page.tsx` 는 주소·메타데이터·`generateStaticParams` 만 맡는 서버 컴포넌트,
@@ -78,7 +79,7 @@ Notion 공개 페이지 ──(scripts, 무인증 API)──▶ data/jejudo-noti
 
 > 상세: [architecture/app-shell-and-state.md](./architecture/app-shell-and-state.md#클라이언트-상태)
 
-- 스토어 하나(`src/store/useAppStore.ts`, persist 키 `zgnn-jeju`): 저장한 곳·준비물 체크·계절·구비용품 기준 숙소.
+- 스토어 하나(`src/store/useAppStore.ts`, persist 키 `zgnn-jeju`): 저장한 곳·준비물 체크·계절·구비용품 기준 숙소·우리 강아지 프로필·실내 필요 여부.
 - HTML 이 빌드 때 만들어지므로 localStorage 읽기는 마운트 뒤(`skipHydration`). 첫 프레임의 "저장 0" 은 의도.
 
 ---
@@ -119,6 +120,7 @@ src/
 │   └── *.tsx                 # placeCard · placeThumb · petBadges · saveButton · seasonChips · townChip
 ├── lib/                      # 순수 로직. petPolicy · placeFilters · checklist · amenities · places · mapTiles · appHistory
 ├── store/useAppStore.ts      # zustand persist
+├── store/useDogEligibility.ts # useEligibility · useEligibilityMap
 ├── providers/                # storeHydration · routerProvider(react-aria Link → Next router)
 ├── data/                     # 빌드에 박히는 JSON 3개
 ├── styles/                   # theme.css(토큰) · globals.css · typography.css
@@ -133,7 +135,7 @@ data/                         # Notion 추출본(커밋) · raw/(무시)
 
 | 문서 | 상태 | 내용 |
 |---|---|---|
-| [dog-profile.md](./features/dog-profile.md) | 제안 | 내 강아지 등록과 장소별 판정. v1 의 핵심 기능 |
+| [dog-profile.md](./features/dog-profile.md) | 구현 중 | 내 강아지 등록과 장소별 판정. v1 의 핵심 기능. 등록·판정 로직은 구현, 화면 반영은 다음 웨이브 |
 
 ## 주요 의사결정 (ADR)
 
@@ -143,7 +145,7 @@ data/                         # Notion 추출본(커밋) · raw/(무시)
 | [ADR-002](./decisions/ADR-002-no-place-photos.md) | 장소 사진을 쓰지 않는다 |
 | [ADR-003](./decisions/ADR-003-untitled-ui-and-palette.md) | Untitled UI 토큰 위에 핑크·크림·잉크 팔레트 |
 | [ADR-004](./decisions/ADR-004-pet-policy-parser.md) | 이용 조건은 수동 태깅 대신 규칙 파서 + 원문 병기 |
-| [ADR-005](./decisions/ADR-005-dog-profile-eligibility.md) | 강아지 프로필 기반 판정을 v1 의 중심으로 (제안) |
+| [ADR-005](./decisions/ADR-005-dog-profile-eligibility.md) | 강아지 프로필 기반 판정을 v1 의 중심으로 (채택) |
 
 ## 버그 기록
 

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { PLACES_BY_ID, selectSavedPlaces } from '../lib/places';
+import type { TCarrier, TDogProfile, TDogSize } from '../types';
 
 /** 사계절 항목은 항상 보이므로, 계절 선택은 여름/겨울 둘 중 하나이거나 선택 안 함(null)이다. */
 export type TSeasonFilter = '여름' | '겨울' | null;
@@ -12,14 +13,48 @@ type TAppState = {
   season: TSeasonFilter;
   /** 준비물 화면에서 '숙소 용품 반영'에 쓰는 숙소. */
   amenityStayId: string | null;
+  /** 우리 강아지 프로필. 없으면(null) 판정 없이 v0 화면 그대로. */
+  dog: TDogProfile | null;
+  /** 이번 여행에 실내 자리가 꼭 필요한지 — 강아지 정보가 아니라 여행 정보라 따로 둔다. */
+  needsIndoor: boolean;
   toggleSaved: (id: string) => void;
   toggleChecked: (id: string) => void;
   setSeason: (season: TSeasonFilter) => void;
   setAmenityStayId: (id: string | null) => void;
+  setDog: (dog: TDogProfile) => void;
+  clearDog: () => void;
+  setNeedsIndoor: (needsIndoor: boolean) => void;
 };
 
 const toggle = (list: string[], id: string) =>
   list.includes(id) ? list.filter((value) => value !== id) : [...list, id];
+
+const CARRIERS: TCarrier[] = ['none', 'bag', 'cage', 'stroller'];
+const SIZES: TDogSize[] = ['small', 'medium', 'large'];
+
+/**
+ * localStorage 에 남아 있던 값이 스펙과 어긋나면(예전 버전이 남긴 형태, 수동 편집 등)
+ * 조용히 잘못 판정하는 대신 프로필을 통째로 비운다 — 절반만 맞는 강아지 정보가 더 위험하다.
+ */
+const sanitizeDog = (value: unknown): TDogProfile | null => {
+  if (!value || typeof value !== 'object') return null;
+  const candidate = value as Partial<TDogProfile>;
+  if (typeof candidate.name !== 'string') return null;
+  const weights = candidate.weightsKg;
+  if (
+    !Array.isArray(weights) ||
+    weights.length < 1 ||
+    weights.length > 3 ||
+    !weights.every((w) => typeof w === 'number' && w > 0)
+  ) {
+    return null;
+  }
+  if (!CARRIERS.includes(candidate.carrier as TCarrier)) return null;
+  const sizeOverride = SIZES.includes(candidate.sizeOverride as TDogSize)
+    ? (candidate.sizeOverride as TDogSize)
+    : undefined;
+  return { name: candidate.name, weightsKg: weights, carrier: candidate.carrier as TCarrier, sizeOverride };
+};
 
 export const useAppStore = create<TAppState>()(
   persist(
@@ -28,10 +63,15 @@ export const useAppStore = create<TAppState>()(
       checkedItemIds: [],
       season: null,
       amenityStayId: null,
+      dog: null,
+      needsIndoor: false,
       toggleSaved: (id) => set((state) => ({ savedIds: toggle(state.savedIds, id) })),
       toggleChecked: (id) => set((state) => ({ checkedItemIds: toggle(state.checkedItemIds, id) })),
       setSeason: (season) => set({ season }),
       setAmenityStayId: (amenityStayId) => set({ amenityStayId }),
+      setDog: (dog) => set({ dog }),
+      clearDog: () => set({ dog: null }),
+      setNeedsIndoor: (needsIndoor) => set({ needsIndoor }),
     }),
     {
       name: 'zgnn-jeju',
@@ -56,11 +96,15 @@ export const useAppStore = create<TAppState>()(
             persisted.amenityStayId && exists(persisted.amenityStayId)
               ? persisted.amenityStayId
               : null,
+          dog: sanitizeDog(persisted.dog),
+          needsIndoor: typeof persisted.needsIndoor === 'boolean' ? persisted.needsIndoor : false,
         };
       },
     },
   ),
 );
+
+export const useDog = () => useAppStore((state) => state.dog);
 
 export const useIsSaved = (id: string) => useAppStore((state) => state.savedIds.includes(id));
 
