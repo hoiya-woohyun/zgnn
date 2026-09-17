@@ -10,15 +10,18 @@ import type { TEligibilityLevel } from '../lib/eligibility';
  * 청회색이라 의도와 반대였다 — placeCard 의 배지 줄에서 크림 gray 칩(H 78°)과 맞닿아
  * 회색 두 개가 색상환 179° 차이로 붙어 보였다. 지금은 neutral 을 한 단계 진하게 당겨 쓴다.
  *
- * 네 단계는 "무게" 로 읽히게 정렬돼 있다: 가능(브랜드 핑크) → 조건부(앰버) →
- * 정보 없음(크림 뉴트럴) → 어려움(잉크, 가장 무거움).
- * 어려움을 error(빨강)로 두지 않은 것은 "불가" 가 아니라 "어려움" 이라는 톤 때문(ADR-005).
+ * 네 단계는 "무게" 로 읽히게 정렬돼 있다: ok "갈 수 있어요"(브랜드 핑크) → cond "확인이 필요해요"(앰버) →
+ * unknown "정보가 없어요"(크림 뉴트럴) → hard "이용하기 어려워요"(잉크, 가장 무거움).
+ * hard 를 error(빨강)로 두지 않은 것은 "불가" 가 아니라 "어려움" 이라는 톤 때문(ADR-005).
+ *
+ * 라벨은 문장형이다 — "조건부"·"정보 없음" 같은 축약 명사형은 처음 보는 사람이 뜻을 되물어야 했다.
+ * 상세 머리글(placeDetailEligibilityCard 의 HEADLINE)은 앞에 이름이 붙어 어미가 조금 다르다.
  */
 export const ELIGIBILITY_META: Record<TEligibilityLevel, { label: string; color: BadgeColors }> = {
-  ok: { label: '가능', color: 'brand' },
-  cond: { label: '조건부', color: 'orange' },
-  unknown: { label: '정보 없음', color: 'gray' },
-  hard: { label: '어려움', color: 'slate' },
+  ok: { label: '갈 수 있어요', color: 'brand' },
+  cond: { label: '확인이 필요해요', color: 'orange' },
+  unknown: { label: '정보가 없어요', color: 'gray' },
+  hard: { label: '이용하기 어려워요', color: 'slate' },
 };
 
 type TEligibilityBadgeProps = {

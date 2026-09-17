@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { NAV_ITEMS } from './navItems';
-import { useSavedCount } from '../../store/useAppStore';
 import { cx } from '../../utils/cx';
 
 /**
@@ -12,7 +11,6 @@ import { cx } from '../../utils/cx';
  */
 export function AppTabBar() {
   const pathname = usePathname();
-  const savedCount = useSavedCount();
 
   return (
     <nav
@@ -37,11 +35,6 @@ export function AppTabBar() {
                   className={active ? 'text-brand-secondary' : 'text-quaternary'}
                 />
                 {item.label}
-                {item.showsSavedCount && savedCount > 0 && (
-                  <span className="absolute top-1.5 right-[calc(50%-1.5rem)] min-w-[18px] rounded-full bg-camellia px-1 text-center text-[10px] leading-[18px] font-bold text-white">
-                    {savedCount}
-                  </span>
-                )}
               </Link>
             </li>
           );

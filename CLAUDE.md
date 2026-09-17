@@ -11,11 +11,13 @@ Tailwind v4 + Untitled UI · zustand persist · leaflet. 데이터는 빌드 시
 |---|---|
 | 빌드·PWA·서비스워커가 안 됨 | [README.md](README.md#실행) → [docs/architecture/pwa-offline.md](docs/architecture/pwa-offline.md) |
 | 이용 조건 파싱·판정 로직 | [docs/architecture/pet-policy-and-eligibility.md](docs/architecture/pet-policy-and-eligibility.md) · `src/lib/petPolicy.ts` · `src/lib/eligibility.ts` |
+| 준비물·장소별 필요 물건 | [docs/features/checklist.md](docs/features/checklist.md) · [docs/decisions/ADR-009-trip-derived-checklist.md](docs/decisions/ADR-009-trip-derived-checklist.md) · `src/lib/itemNeeds.ts` |
 | 라우팅·화면 셸·클라이언트 상태 | [docs/architecture/app-shell-and-state.md](docs/architecture/app-shell-and-state.md) · `src/store/useAppStore.ts` |
+| 뒤로가기가 안 보임·새 화면 추가 | [docs/decisions/ADR-007-shell-owned-back-navigation.md](docs/decisions/ADR-007-shell-owned-back-navigation.md) · `src/lib/appRoutes.ts` |
 | 데이터 갱신·정규화 | [docs/architecture/data-pipeline.md](docs/architecture/data-pipeline.md) · `scripts/normalize.mjs` |
 | 색·토큰·팔레트 | [docs/decisions/ADR-003-untitled-ui-and-palette.md](docs/decisions/ADR-003-untitled-ui-and-palette.md) · `src/styles/theme.css` |
 | 크기 스케일·반응형·글꼴 | [docs/decisions/ADR-006-responsive-scale-and-font.md](docs/decisions/ADR-006-responsive-scale-and-font.md) · `src/styles/globals.css` |
-| "왜 이렇게 했나" | [docs/decisions/](docs/decisions/) (ADR 6편) · 전체 지도는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| "왜 이렇게 했나" | [docs/decisions/](docs/decisions/) (ADR 9편) · 전체 지도는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 
 탐색 전에 위 표를 먼저 본다. 전체 구조가 필요하면 `docs/ARCHITECTURE.md` 하나만 읽으면 된다.
 
@@ -26,8 +28,18 @@ Tailwind v4 + Untitled UI · zustand persist · leaflet. 데이터는 빌드 시
 - **`pnpm build` 의 `--webpack` 은 필수.** `@serwist/next` 가 webpack 플러그인이라, 빼면
   빌드는 통과하지만 `sw.js` 가 안 만들어져 PWA 가 조용히 사라진다. `dev` 의 `--turbopack`
   명시도 필수(webpack 설정만 있으면 Next 16 이 빌드를 멈춘다).
+- **Kakao 지도는 출처(origin)를 콘솔에 등록해야 뜬다.** JS 키가 맞아도 Kakao Developers →
+  플랫폼 → Web 에 주소가 없으면 인증 오류만 내고 지도 자리가 빈다. 코드를 아무리 봐도
+  원인이 안 보이는 종류의 고장이다(→ [ADR-008](docs/decisions/ADR-008-kakao-map.md)).
+- **Kakao 의 확대 수준(`level`)은 leaflet 의 `zoom` 과 방향이 반대다** — 작을수록 확대(1~14).
+  숫자를 옮겨 쓸 수 없고, 부호를 뒤집어도 빌드·테스트는 통과한다. 지금 쓰는 값은
+  `src/lib/places.ts` 의 `JEJU_LEVEL` 하나뿐이고, 시야를 코드로 옮기는 기능을 다시 넣는다면
+  [ADR-008](docs/decisions/ADR-008-kakao-map.md) 의 `setBounds` 함정을 먼저 읽을 것.
 - **`additionalPrecacheEntries` 는 `globPublicPatterns` 를 대체한다** — 더해지지 않는다.
   그래서 아이콘을 `next.config.mjs` 에 손으로 나열한다. 지우면 아이콘이 프리캐시에서 빠진다.
+- **이동가방·케이지·유모차는 준비물 표(`ITEM_NEEDS`)에 넣지 않는다.** 판정(`eligibility.ts` H4·H5·C2·C3)이
+  이미 같은 말을 한다 — 넣으면 한 화면에서 "갈 수 있어요"와 "가방을 안 챙겼어요"가 **서로 반대를**
+  말한다. 빌드·테스트는 그대로 통과한다(→ [ADR-009](docs/decisions/ADR-009-trip-derived-checklist.md)).
 - **종류 색(숙소·식당·카페)은 두 곳에 같은 값이 있다** — `src/styles/theme.css` 와
   `src/lib/places.ts`(지도 마커). 한쪽만 고치면 지도와 화면 색이 어긋난다.
 - **팔레트를 바꾸면** `pnpm icons` 로 아이콘을 다시 만들고 `src/app/layout.tsx` ·
@@ -47,10 +59,12 @@ Tailwind v4 + Untitled UI · zustand persist · leaflet. 데이터는 빌드 시
 
 ## 작성 규칙
 
+- **뒤로가기는 화면이 아니라 셸이 붙인다.** 새 화면에 `AppBar` 를 직접 달지 않는다 —
+  탭바에 넣을 화면이면 `src/lib/appRoutes.ts` 의 `ROOT_ROUTES` 에 한 줄 더하고, 아니면 아무것도 안 한다.
 - **화면 본체는 `src/screens/`** (클라이언트), `src/app/**/page.tsx` 는 주소·메타·
   `generateStaticParams` 만. `src/pages/` 는 Next 가 옛 Pages Router 로 인식해서 못 쓴다.
 - **단일 소유자 파일은 소유자 접두어**를 파일명과 대표 export 에 붙인다(camelCase).
-  예: `dogProfileWeightRows.tsx` → `DogProfileWeightRows`.
+  예: `dogProfileDogRows.tsx` → `DogProfileDogRows`.
 - `@/` 는 `src/` 다. 테스트는 Next 를 안 거치므로 `vitest.config.mts` 가 같은 경로를 다시 읽는다.
 - 로직은 `src/lib/` 에 순수 함수로 두고 단위 테스트를 붙인다(`pnpm test`).
 

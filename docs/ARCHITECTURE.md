@@ -3,6 +3,12 @@
 > AI 와 개발자 모두를 위한 빠른 참조 문서.
 > 각 섹션은 상세 문서로 연결된다.
 >
+> 최종 수정: 2026-09-16 (v4: 저장 탭 → 설정 탭(`/settings` 루트, `/saved`·`/dog` 는 그 안). 프로필이 마리별 이름(`dogs[]`)을 갖고, 요금 문구(`lib/dogFee.ts`)·한국어 호칭(`lib/korean.ts`)이 순수 함수로 분리됐다)
+>
+> 최종 수정: 2026-09-17 (v4: 지도를 leaflet 에서 Kakao 지도 SDK 로 교체(ADR-008))
+>
+> 최종 수정: 2026-09-16 (v3: 뒤로가기를 셸이 자동으로 붙인다(ADR-007, `lib/appRoutes.ts`). 둘러보기 조건은 모바일에서 바텀시트로 접힌다)
+>
 > 최종 수정: 2026-09-16 (v2: 강아지 프로필 v1 화면 반영 완료를 반영 — 판정이 홈·목록·상세·지도에 붙었다. 클라이언트 상태에 읍면(town) 추가, lib·컴포넌트 목록과 테스트 현황 갱신)
 >
 > 최종 수정: 2026-09-15 (v1: 문서 체계 신설 — 컨셉·아키텍처 4편·ADR 5편·기능 문서 1편. 팔레트를 핑크+크림으로 확정하고 상세 헤더를 파스텔 워시로 바꾼 직후 기준)
@@ -25,10 +31,10 @@
 | 프레임워크 | Next.js 16 App Router, **정적 내보내기**(`output: 'export'`, 서버 없음) |
 | 스타일 | Tailwind CSS v4 + Untitled UI(소스 복사 방식, `src/components/base/`) |
 | 상태 | zustand + persist(localStorage). 서버 상태 없음 |
-| 지도 | leaflet + react-leaflet, OSM 타일(CARTO 키 있으면 CARTO) |
+| 지도 | Kakao 지도 JavaScript SDK (스크립트 로드, npm 패키지 아님) |
 | PWA | `@serwist/next` (webpack 플러그인 — 빌드만 webpack, dev 는 Turbopack) |
 | 데이터 | 빌드 시점 JSON (`src/data/*.json`), Notion 에서 스크립트로 추출 |
-| 테스트 | vitest — `src/lib/*.test.ts` 5개 스위트 75케이스(파서·판정·정렬·필터·히스토리) |
+| 테스트 | vitest — `src/lib/*.test.ts` 10개 스위트 133케이스(파서·판정·요금·호칭·프로필 변환·정렬·필터·히스토리·라우트·숙소 피커) |
 
 ---
 
@@ -70,9 +76,10 @@ Notion 공개 페이지 ──(scripts, 무인증 API)──▶ data/jejudo-noti
 /places/[type]    둘러보기 — 검색·방향·이용 조건 필터, 숙소는 가격 정렬
 /place/[id]       상세 — 이용 조건(원문 포함), 판정 카드, 요금, 근처 장소
 /map              지도 — 종류·방향 필터, 마커 → 미니 카드. ?saved=1 은 저장한 곳만
-/checklist        준비물 — 계절별, 체크 상태 저장, 숙소 구비 용품 반영
-/saved            저장한 곳
-/dog              우리 강아지 등록 — 이름·마리별 몸무게·이동 수단. 저장하면 판정(v1)의 입력이 된다
+/checklist        준비물 — 저장한 곳 × 계절로 좁힘, 저장한 숙소 구비 용품 자동 반영
+/settings         설정(탭) — 우리 강아지 카드, 저장한 곳 진입, 자료 출처
+/saved            저장한 곳 (설정 안 — 뒤로가기는 /settings)
+/dog              우리 강아지 등록 — 마리별 이름·몸무게·이동 수단 (설정 안). 저장하면 판정(v1)의 입력이 된다
 ```
 
 `src/app/**/page.tsx` 는 주소·메타데이터·`generateStaticParams` 만 맡는 서버 컴포넌트,
@@ -84,8 +91,8 @@ Notion 공개 페이지 ──(scripts, 무인증 API)──▶ data/jejudo-noti
 
 > 상세: [architecture/app-shell-and-state.md](./architecture/app-shell-and-state.md#클라이언트-상태)
 
-- 스토어 하나(`src/store/useAppStore.ts`, persist 키 `zgnn-jeju`). 퍼시스트 필드 7개:
-  저장한 곳(`savedIds`) · 준비물 체크(`checkedItemIds`) · 계절(`season`) · 구비용품 기준 숙소(`amenityStayId`) ·
+- 스토어 하나(`src/store/useAppStore.ts`, persist 키 `zgnn-jeju`). 퍼시스트 필드 6개:
+  저장한 곳(`savedIds`) · 준비물 체크(`checkedItemIds`) · 계절(`season`) ·
   우리 강아지 프로필(`dog`) · 실내 필요 여부(`needsIndoor`) · 읍면 선택(`town`).
 - 읍면 선택은 스토어에 있어 둘러보기·지도·근처 장소 사이를 오가도 유지된다.
 - `merge` 로 퍼시스트 값을 현재 데이터에 맞춰 걸러낸다(없어진 id·깨진 프로필은 버린다).
@@ -97,7 +104,7 @@ Notion 공개 페이지 ──(scripts, 무인증 API)──▶ data/jejudo-noti
 
 > 상세: [architecture/pwa-offline.md](./architecture/pwa-offline.md)
 
-- 라우트 HTML 93개 + 매니페스트·아이콘·404 를 **직접 만든 프리캐시 목록**으로 넣는다(정적 내보내기 HTML 은 webpack 자산이 아니라서).
+- 라우트 HTML 95개 + 매니페스트·아이콘·404 를 **직접 만든 프리캐시 목록**으로 넣는다(정적 내보내기 HTML 은 webpack 자산이 아니라서).
 - 지도 타일·장소 이미지는 런타임 CacheFirst.
 
 ---
@@ -129,9 +136,9 @@ src/
 │   ├── layout/               # AppShell · AppBar · 사이드바 · 탭바 · PageHeader · Section · EmptyState
 │   ├── icons/                # 숙소·식당·카페 아이콘 3종
 │   ├── foundations/          # Untitled UI 부속 아이콘(dot-icon)
-│   └── *.tsx                 # placeCard · placeThumb · petBadges · eligibilityBadge · saveButton · seasonChips · townChip
-├── lib/                      # 순수 로직. petPolicy · eligibility · sortByEligibility · placeFilters
-│                             #            checklist · amenities · places · category · format · mapTiles · appHistory
+│   └── *.tsx                 # placeCard · placeThumb · petBadges · eligibilityBadge · saveButton · seasonChips · townChip · missingItemsNote
+├── lib/                      # 순수 로직. petPolicy · eligibility · dogFee · korean · dogProfile · sortByEligibility · placeFilters
+│                             #            checklist · itemNeeds · amenities · places · category · format · appHistory · appRoutes
 ├── store/useAppStore.ts      # zustand persist
 ├── store/useDogEligibility.ts # useEligibility · useEligibilityMap
 ├── providers/                # storeHydration · routerProvider(react-aria Link → Next router)
@@ -160,6 +167,8 @@ data/                         # Notion 추출본(커밋) · raw/(무시)
 | [ADR-004](./decisions/ADR-004-pet-policy-parser.md) | 이용 조건은 수동 태깅 대신 규칙 파서 + 원문 병기 |
 | [ADR-005](./decisions/ADR-005-dog-profile-eligibility.md) | 강아지 프로필 기반 판정을 v1 의 중심으로 (채택) |
 | [ADR-006](./decisions/ADR-006-responsive-scale-and-font.md) | 화면이 커지면 크기도 커진다 — `--spacing` 한 축 + 나눔스퀘어 네오 self-host (채택) |
+| [ADR-007](./decisions/ADR-007-shell-owned-back-navigation.md) | 뒤로가기는 화면이 아니라 셸이 붙인다 — 메인 탭 5개만 루트 (채택) |
+| [ADR-008](./decisions/ADR-008-kakao-map.md) | 지도를 Kakao 지도 SDK 로, 마커는 표준 핀으로 (채택) |
 
 ## 버그 기록
 

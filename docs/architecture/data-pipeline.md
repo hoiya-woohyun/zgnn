@@ -57,7 +57,7 @@ flowchart LR
 |---|---|---|
 | `TPlace` | `id`, `type`, `name`, `region`, `features`, `petPolicyText`, `geo?`, `address?`, `naverUrl?`, `reviewUrl?`, `stay?` | `id` 는 Notion 블록 id. 라우트 `/place/[id]` 와 저장 목록의 키 |
 | `TStayInfo` | `price: TStayPrice`, `amenitiesText` | 숙소만. `amenitiesText` 는 준비물 화면의 구비 용품 매핑에 쓰인다(`src/lib/amenities.ts`) |
-| `TItem` | `id`, `name`, `emoji`, `seasons`, `reason`, `linkUrl?` | 준비물. `linkUrl` 은 쿠팡 파트너스 링크라 `meta.disclosure` 를 함께 표시 |
+| `TItem` | `id`, `name`, `emoji`, `seasons`, `reason`, `linkUrl?`, `variants?` | 준비물. `linkUrl` 은 쿠팡 파트너스 링크라 `meta.disclosure` 를 함께 표시. `variants` 는 원본의 여러 줄을 `lib/places.ts` 의 `ITEM_VARIANTS` 가 한 항목으로 합치면서 생긴다(기내용 가방의 5kg 이하/이상) — JSON 에는 없는 파생 필드다 |
 | `TMeta` | `author`, `sourceUrl`, `intro`, … | 화면 문구 |
 
 ## 관련 파일

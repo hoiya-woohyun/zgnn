@@ -2,17 +2,16 @@
 
 import { useMemo } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Heart, Map01 } from '@untitledui/icons';
 import { HomeTypeCard } from './homeTypeCard';
 import { AuthorAvatar } from '../components/authorAvatar';
 import { Button } from '../components/base/button';
 import { SeasonChips } from '../components/seasonChips';
+import { dogCallNames, withJosa } from '../lib/korean';
 import { META, PLACE_TYPES, TYPE_META, countByType, placesOfType } from '../lib/places';
-import { checklistProgress } from '../lib/checklist';
-import { useAppStore, useDog, useSavedCount } from '../store/useAppStore';
+import { checklistView } from '../lib/checklist';
+import { useAppStore, useDog, useSavedPlaces } from '../store/useAppStore';
 import { useEligibilityMap } from '../store/useDogEligibility';
-import type { TSeasonFilter } from '../store/useAppStore';
 import type { TPlaceType } from '../types';
 
 function PawMark({ className = 'h-9 w-9 text-brand-300' }: { className?: string }) {
@@ -30,17 +29,21 @@ function PawMark({ className = 'h-9 w-9 text-brand-300' }: { className?: string 
 }
 
 export function HomePage() {
-  const router = useRouter();
-  const savedCount = useSavedCount();
+  const savedPlaces = useSavedPlaces();
+  const savedCount = savedPlaces.length;
   const season = useAppStore((state) => state.season);
   const setSeason = useAppStore((state) => state.setSeason);
   const checkedItemIds = useAppStore((state) => state.checkedItemIds);
-  // 준비물 화면과 같은 계절 기준으로 센다. 두 화면이 다른 숫자를 보여주면 안 된다.
-  const progress = checklistProgress(season, checkedItemIds);
+  // 준비물 화면과 같은 함수로 센다 — 저장한 곳이 있으면 거기 필요한 것만, 없으면 계절 전체.
+  // 두 화면이 다른 숫자를 보여주면 안 된다.
+  const progress = useMemo(
+    () => checklistView(season, checkedItemIds, savedPlaces),
+    [season, checkedItemIds, savedPlaces],
+  );
 
   const dog = useDog();
   const eligibilityMap = useEligibilityMap();
-  // 종류별 "갈 수 있는 곳" 개수(가능+조건부). useEligibilityMap 이 이미 dog·needsIndoor 가
+  // 종류별 "갈 수 있는 곳" 개수(ok+cond). useEligibilityMap 이 이미 dog·needsIndoor 가
   // 바뀔 때만 재계산하므로, 여기서는 그 결과를 종류별로 집계만 한다.
   const reachableByType = useMemo(() => {
     if (!eligibilityMap) return null;
@@ -54,11 +57,6 @@ export function HomePage() {
     return counts;
   }, [eligibilityMap]);
 
-  const startChecklist = (value: TSeasonFilter) => {
-    setSeason(value);
-    router.push('/checklist');
-  };
-
   return (
     <div>
       {/* 히어로는 AppShell 의 중앙 정렬 폭을 넘어 화면 끝까지 깔리는 유일한 구역이라
@@ -70,7 +68,9 @@ export function HomePage() {
         <PawMark />
         <h1 className="mt-3 text-display-sm font-bold">강아지랑 제주</h1>
         <p className="mt-1.5 text-sm text-white/65">
-          {dog ? `${dog.name}랑 제주 어디 갈까요?` : '짱구누나의 반려견 동반 제주 가이드'}
+          {dog
+            ? `${withJosa(dogCallNames(dog.dogs.map((d) => d.name)), '이랑/랑')} 제주 어디 갈까요?`
+            : '짱구누나의 반려견 동반 제주 가이드'}
         </p>
 
         <dl className="mt-7 flex overflow-hidden rounded-2xl border border-white/12 bg-white/6">
@@ -135,18 +135,22 @@ export function HomePage() {
       <section className="mt-8 px-4 md:px-6">
         <h2 className="text-lg font-bold text-primary">여행 준비물</h2>
         <div className="mt-3 rounded-2xl border border-secondary bg-primary p-4">
-          <p className="text-sm text-tertiary">{META.itemsIntro.split('\n')[0]}</p>
+          <p className="text-sm text-tertiary">
+            {progress.scopedToTrip
+              ? `저장한 ${savedCount}곳에 가려면 이만큼이 필요해요.`
+              : META.itemsIntro.split('\n')[0]}
+          </p>
 
-          {/* 계절칩은 필터가 아니라 '고르면 바로 준비물로 이동'하는 진입점이다.
-              그래도 지금 스토어에 저장된 계절은 보여줘야 해서 눌림 상태를 가진 같은 칩을 쓴다. */}
-          <SeasonChips value={season} onSelect={startChecklist} label="계절 선택" className="mt-3" />
+          {/* 계절칩은 고르기만 한다 — 누르자마자 화면이 넘어가면 다른 계절을 비교해 볼 수 없다.
+              준비물로 가는 건 아래 링크이고, 그 숫자가 계절에 따라 바뀌어 고른 결과가 바로 보인다. */}
+          <SeasonChips value={season} onSelect={setSeason} label="계절 선택" className="mt-3" />
 
           <Link
             href="/checklist"
             className="mt-4 flex h-12 items-center justify-between rounded-lg bg-secondary px-4 text-sm font-semibold text-primary transition-colors hover:bg-tertiary"
           >
             준비물 {progress.total}가지 확인하기
-            <span className="text-sm font-semibold text-tertiary">{progress.checked}개 챙김</span>
+            <span className="text-sm font-semibold text-tertiary">{progress.ready}개 준비됨</span>
           </Link>
         </div>
       </section>

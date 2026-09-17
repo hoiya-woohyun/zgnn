@@ -159,7 +159,7 @@ describe('toPetBadges', () => {
     expect(p.noInfo).toBe(true);
     expect(p.callFirst).toBe(true);
     const labels = toPetBadges(p).map((b) => b.label);
-    expect(labels).toContain('정보 없음');
+    expect(labels).toContain('확인된 정보 없음');
     expect(labels).not.toContain('전화 확인');
   });
 

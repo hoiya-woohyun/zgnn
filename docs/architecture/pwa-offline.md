@@ -1,5 +1,6 @@
 # PWA · 서비스워커 · 오프라인
 
+> 최종 수정: 2026-09-16 (v3: 설정 탭 `/settings/` 와 그 안의 `/dog/` 를 프리캐시 라우트에 추가 — 95개)
 > 최종 수정: 2026-09-16 (v2: public/images/ 도 프리캐시 대상에 추가 — 작성자 초상)
 > 최종 수정: 2026-09-15 (v1: 신설)
 
@@ -22,7 +23,7 @@ next.config.mjs: additionalPrecacheEntries (라우트 HTML 93개 + 매니페스�
 ## 프리캐시 목록을 직접 만드는 이유
 
 정적 내보내기의 HTML 은 webpack 자산이 아니라 컴파일 뒤 따로 쓰인다. 그냥 두면 매니페스트에 JS·CSS 만 들어오고 화면 주소가 하나도 안 들어온다.
-그래서 `next.config.mjs` 가 `places.json` 에서 라우트 93개(홈·지도·준비물·저장·종류 3·장소 86)를 만들어 `additionalPrecacheEntries` 로 넣는다.
+그래서 `next.config.mjs` 가 `places.json` 에서 라우트 95개(홈·지도·준비물·설정·저장·강아지 등록·종류 3·장소 86)를 만들어 `additionalPrecacheEntries` 로 넣는다.
 
 - **주의**: `additionalPrecacheEntries` 를 주면 플러그인은 `public/` 을 훑는 자기 동작을 **건너뛴다**. 둘은 더해지지 않는다. 그래서 `public/icons/`·`public/images/`(작성자 초상)·404·매니페스트도 직접 넣는다. `public/` 에 디렉터리를 새로 만들면 `next.config.mjs` 의 `publicEntries` 목록에도 더해야 한다 — 빼먹으면 온라인에선 보이고 오프라인에서만 조용히 빠진다.
 - 라우트 HTML 은 파일명에 해시가 없어 `revision` 이 필요하다. `src/` 전체와 `package.json`, `pnpm-lock.yaml` 을 해싱한 값을 쓴다. 코드가 바뀌면 전부 갱신되는 보수적 전략이다.
@@ -32,7 +33,8 @@ next.config.mjs: additionalPrecacheEntries (라우트 HTML 93개 + 매니페스�
 | 대상 | 전략 | 이유 |
 |---|---|---|
 | `/images/places/*` | CacheFirst + 만료 | 있어도 용량이 커서 프리캐시에 넣지 않는다. 지금은 이미지가 없어 사실상 비활성 |
-| `tile.openstreetmap.org`, `basemaps.cartocdn.com` | CacheFirst + 만료 | 지도 타일. 한 번 본 지역은 오프라인에서도 보인다 |
+| `*.daumcdn.net` | CacheFirst + `statuses: [0, 200]` + 만료 | Kakao 지도 타일·스프라이트. 한 번 본 지역은 오프라인에서도 보인다(2026-09-17 실측). **`statuses: [0,200]` 이 빠지면 조용히 아무것도 캐시되지 않는다** — 타일은 `crossorigin` 없는 `<img>` 라 응답이 opaque(status 0)이고 CacheFirst 는 기본으로 200 만 저장한다. 옛 OSM/CARTO 규칙이 그 상태였다. opaque 응답은 할당량을 패딩해 먹으므로 `maxEntries` 는 200 으로 묶어 둔다 |
+| `dapi.kakao.com` | StaleWhileRevalidate + 만료 | Kakao 지도 SDK. **이 앱에서 유일하게 런타임에 받는 외부 코드**라 캐시가 없으면 비행기 모드에서 지도 화면이 통째로 빈다(타일이 있어도 그릴 코드가 없다). 우리가 버전을 못 정하는 남의 코드여서 CacheFirst 로 못 박지 않는다 (→ [ADR-008](../decisions/ADR-008-kakao-map.md)) |
 | 그 외 | serwist `defaultCache` | |
 | 문서 요청 실패 | `/404.html` 폴백 | 오프라인에서 프리캐시에 없는 주소를 열었을 때 빈 화면 대신 404 |
 
@@ -66,7 +68,7 @@ pyftsubset NanumSquareNeoTTF-bRg.ttf   --output-file=src/app/fonts/NanumSquareNe
 
 ## 확인 방법
 
-`pnpm build && pnpm preview` 로 `out/` 을 띄우고, DevTools → Application 에서 `sw.js` 등록과 프리캐시 개수(최근 139개)를 본다.
+`pnpm build && pnpm preview` 로 `out/` 을 띄우고, DevTools → Application 에서 `sw.js` 등록과 프리캐시 개수(최근 150개)를 본다.
 `pnpm dev` 에서는 서비스워커가 없으므로 오프라인 동작은 반드시 빌드본으로 본다.
 
 ## 관련 파일

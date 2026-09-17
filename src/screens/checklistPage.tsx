@@ -1,36 +1,73 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ChevronDown, LinkExternal01 } from '@untitledui/icons';
-import { useChecklistAmenities } from './useChecklistAmenities';
-import { Badge } from '../components/base/badges';
-import { Button } from '../components/base/button';
-import { Checkbox } from '../components/base/checkbox';
+import Link from 'next/link';
+import { ChevronDown } from '@untitledui/icons';
+import { ChecklistPageGroupList } from './checklistPageGroupList';
+import { ChecklistPageItemRow } from './checklistPageItemRow';
 import { PageHeader } from '../components/layout/pageHeader';
-import { Section } from '../components/layout/section';
 import { SeasonChips } from '../components/seasonChips';
-import { SheetSelect } from '../components/sheetSelect';
 import { META } from '../lib/places';
-import { checklistProgress } from '../lib/checklist';
-import {
-  checklistPageStayIdFromKey,
-  checklistPageStayKey,
-  checklistPageStaySections,
-} from '../lib/checklistPageStayPicker';
-import { linkLabel } from '../lib/format';
+import { checklistView } from '../lib/checklist';
+import { ITEM_GROUP_LABEL, groupItems, groupOfItem } from '../lib/itemGroups';
 import { cx } from '../utils/cx';
-import { useAppStore } from '../store/useAppStore';
+import { useAppStore, useSavedPlaces } from '../store/useAppStore';
+import type { TItem } from '../types';
+
+/** 저장한 곳과 무관하게 필요한 묶음. 섹션으로 따로 빼 맨 위에 둔다 — 아래 주석 참고. */
+const isTravelItem = (item: TItem) => groupOfItem(item) === 'travel';
 
 export function ChecklistPage() {
   const season = useAppStore((state) => state.season);
   const setSeason = useAppStore((state) => state.setSeason);
   const checkedItemIds = useAppStore((state) => state.checkedItemIds);
   const toggleChecked = useAppStore((state) => state.toggleChecked);
-  const { allStays, savedStays, selected, providedItemIds, setAmenityStayId } = useChecklistAmenities();
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const savedPlaces = useSavedPlaces();
 
-  const { items, total, checked: checkedCount } = checklistProgress(season, checkedItemIds);
-  const staySections = useMemo(() => checklistPageStaySections(allStays, savedStays), [allStays, savedStays]);
+  const view = useMemo(
+    () => checklistView(season, checkedItemIds, savedPlaces),
+    [season, checkedItemIds, savedPlaces],
+  );
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [restOpen, setRestOpen] = useState(false);
+
+  const savedStays = savedPlaces.filter((place) => place.type === 'stay');
+
+  /*
+    '오가는 길에'(기내용 가방·유모차)만 따로 떼어 맨 위 섹션으로 올린다.
+
+    이 묶음은 장소 규칙이 없어서 — 비행기와 차의 물건이지 숙소·식당의 물건이 아니다 —
+    저장한 곳이 아무리 많아도 '이번 여행에 필요해요' 에 들어가지 못하고, 늘 접혀 있는
+    '그 밖에' 아래로 떨어진다. 제주로 가는 사람에게 기내용 가방이 접힌 채 묻히는 것은
+    순서가 거꾸로다. 그래서 여기서만 묶음 하나를 섹션으로 승격시킨다.
+  */
+  const travelItems = useMemo(
+    () => [...view.tripItems, ...view.restItems].filter(isTravelItem),
+    [view.tripItems, view.restItems],
+  );
+  const tripGroups = useMemo(
+    () => groupItems(view.tripItems.filter((item) => !isTravelItem(item))),
+    [view.tripItems],
+  );
+  const restGroups = useMemo(
+    () => groupItems(view.restItems.filter((item) => !isTravelItem(item))),
+    [view.restItems],
+  );
+  const restCount = restGroups.reduce((sum, group) => sum + group.items.length, 0);
+
+  const percent = view.total > 0 ? Math.round((view.ready / view.total) * 100) : 0;
+
+  const renderRow = (item: TItem) => (
+    <ChecklistPageItemRow
+      key={item.id}
+      item={item}
+      checked={checkedItemIds.includes(item.id)}
+      provided={view.providedItemIds.has(item.id)}
+      expanded={expandedId === item.id}
+      onToggleChecked={() => toggleChecked(item.id)}
+      onToggleExpanded={() => setExpandedId(expandedId === item.id ? null : item.id)}
+    />
+  );
 
   return (
     <div>
@@ -43,116 +80,108 @@ export function ChecklistPage() {
         <SeasonChips value={season} onSelect={setSeason} label="계절" />
 
         <p className="mt-3 text-sm text-tertiary">
-          {total}가지 중 {checkedCount}가지 챙겼어요
+          {view.scopedToTrip && '저장한 곳 기준 '}
+          {view.total}가지 중 {view.ready}가지 준비됐어요
         </p>
+        {/*
+          숫자 옆에 막대를 하나 둔다. "12가지 중 4가지" 는 읽어서 비율로 옮겨야 알지만,
+          막대는 눈이 먼저 안다. 진행률은 위 문장이 이미 말하므로 막대는 장식이다(aria-hidden).
+        */}
+        <div aria-hidden="true" className="mt-2 h-1.5 overflow-hidden rounded-full bg-tertiary">
+          <div
+            className="h-full rounded-full bg-brand-solid transition-[width] duration-300 ease-out"
+            style={{ width: `${percent}%` }}
+          />
+        </div>
       </div>
 
-      <Section title="숙소 용품 반영" className="mt-6">
-        <div className="rounded-2xl border border-secondary bg-primary p-4">
-          <p className="text-sm text-tertiary">
-            묵을 숙소를 고르면 그 숙소에 있는 물건은 흐리게 표시돼요.
+      {travelItems.length > 0 && (
+        <section className="mt-6 px-4 md:px-6">
+          <h2 className="text-lg font-bold text-primary">{ITEM_GROUP_LABEL.travel}</h2>
+          <p className="mt-0.5 text-sm text-tertiary">
+            비행기와 차에서 쓰는 것이라, 어디를 저장했든 똑같이 필요해요.
           </p>
-          {/* 저장한 숙소는 찾기 쉽게 위로 올려 두기만 한다. 아래 전체 목록에도 그대로 남는다(checklistPageStayPicker). */}
-          <SheetSelect
-            label="숙소 선택"
-            value={checklistPageStayKey(selected?.id ?? null, savedStays)}
-            onChange={(key) => setAmenityStayId(checklistPageStayIdFromKey(key))}
-            sections={staySections}
-            noneLabel="숙소를 고르지 않음"
-            className="mt-3"
-          />
-          {selected?.stay &&
-            (providedItemIds.size > 0 ? (
-              <p className="mt-3 text-sm text-secondary">
-                <span className="font-semibold">구비 용품</span> {selected.stay.amenitiesText}
-              </p>
-            ) : (
-              // 26곳 중 23곳이 '기본적인 용품 구비.' 처럼 뭉뚱그려 적혀 있다.
-              // 아무 일도 일어나지 않은 것처럼 두지 않고, 왜 반영이 안 되는지 그대로 말한다.
-              <p className="mt-3 text-sm text-tertiary">
-                이 숙소는 ‘{selected.stay.amenitiesText}’ 로만 적혀 있어 반영할 항목이 없어요.
-              </p>
-            ))}
-        </div>
-      </Section>
+          <ul className="mt-3 space-y-2">{travelItems.map(renderRow)}</ul>
+        </section>
+      )}
 
-      <ul className="mt-6 space-y-2 px-4 md:px-6">
-        {items.map((item) => {
-          const checked = checkedItemIds.includes(item.id);
-          const provided = providedItemIds.has(item.id);
-          const expanded = expandedId === item.id;
+      {view.scopedToTrip ? (
+        <section className="mt-6 px-4 md:px-6">
+          <h2 className="text-lg font-bold text-primary">이번 여행에 필요해요</h2>
+          <p className="mt-0.5 text-sm text-tertiary">
+            저장한 {savedPlaces.length}곳에 가려면 이만큼이 필요해요.
+            {/*
+              숙소 선택 셀렉트를 없앴다 — 이미 하트로 저장해 둔 숙소를 준비물 화면에서 또
+              고르게 하는 것이 이 화면에서 가장 번거로운 단계였다. 대신 저장한 숙소 전부의
+              구비 용품을 자동으로 반영한다.
+            */}
+            {view.providedItemIds.size > 0 && ' 저장한 숙소에 있는 물건은 흐리게 표시했어요.'}
+          </p>
+          {savedStays.length > 0 && view.providedItemIds.size === 0 && (
+            // 26곳 중 23곳이 '기본적인 용품 구비.' 처럼 뭉뚱그려 적혀 있다.
+            // 아무 일도 일어나지 않은 것처럼 두지 않고, 왜 반영이 안 되는지 그대로 말한다.
+            <p className="mt-1 text-sm text-tertiary">
+              저장한 숙소는 구비 용품이 뭉뚱그려 적혀 있어 반영할 항목이 없어요.
+            </p>
+          )}
+          <div className="mt-3">
+            <ChecklistPageGroupList groups={tripGroups} renderRow={renderRow} />
+          </div>
+        </section>
+      ) : (
+        <section className="mt-6 px-4 md:px-6">
+          {/* 저장한 곳이 없으면 좁힐 근거가 없어 전체를 보여준다. 대신 좁히는 법을 알려준다. */}
+          <Link
+            href="/places/stay"
+            className="block rounded-2xl border border-secondary bg-primary p-4 transition-colors hover:bg-secondary"
+          >
+            <p className="text-sm font-bold text-primary">갈 곳을 저장해 보세요</p>
+            <p className="mt-0.5 text-sm text-tertiary">
+              저장한 곳이 있으면 거기에 필요한 준비물만 모아 드려요.
+            </p>
+          </Link>
+        </section>
+      )}
 
-          return (
-            <li
-              key={item.id}
-              className={cx('rounded-2xl border border-secondary bg-primary', provided && 'opacity-65')}
-            >
-              <div className="flex items-center gap-1 p-2">
-                <Checkbox
-                  size="md"
-                  aria-label={`${item.name} 챙김`}
-                  isSelected={checked}
-                  onChange={() => toggleChecked(item.id)}
-                  className="h-11 w-11 items-center justify-center"
-                />
-
-                <button
-                  type="button"
-                  onClick={() => setExpandedId(expanded ? null : item.id)}
-                  aria-expanded={expanded}
-                  className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2 text-left"
-                >
-                  {/* item.emoji 는 데이터 콘텐츠라 장식용 이모지 금지 규칙의 예외로 그대로 보여준다. */}
-                  <span className="text-xl" aria-hidden="true">
-                    {item.emoji}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span
-                      className={cx(
-                        'block text-sm font-semibold',
-                        checked ? 'text-tertiary line-through' : 'text-primary',
-                      )}
-                    >
-                      {item.name}
-                    </span>
-                    {provided && (
-                      <Badge size="sm" color="success" className="mt-1">
-                        숙소에 있어요
-                      </Badge>
-                    )}
-                  </span>
-                  <ChevronDown
-                    aria-hidden="true"
-                    className={cx(
-                      'size-5 shrink-0 text-tertiary transition-transform',
-                      expanded && 'rotate-180',
-                    )}
-                  />
-                </button>
-              </div>
-
-              {expanded && (
-                <div className="border-t border-secondary px-3 py-3">
-                  {item.reason && <p className="text-sm text-secondary">{item.reason}</p>}
-                  {item.linkUrl && (
-                    <Button
-                      href={item.linkUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      color="tertiary"
-                      size="sm"
-                      iconTrailing={LinkExternal01}
-                      className={cx('h-11 w-full', item.reason ? 'mt-3' : 'mt-0')}
-                    >
-                      {linkLabel(item.linkUrl)}
-                    </Button>
+      {restCount > 0 && (
+        <section className="mt-6 px-4 md:px-6">
+          {view.scopedToTrip ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setRestOpen(!restOpen)}
+                aria-expanded={restOpen}
+                className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg text-left"
+              >
+                <span className="text-lg font-bold text-primary">
+                  그 밖에 챙기면 좋아요 {restCount}가지
+                </span>
+                <ChevronDown
+                  aria-hidden="true"
+                  className={cx(
+                    'size-5 shrink-0 text-tertiary transition-transform duration-200',
+                    restOpen && 'rotate-180',
                   )}
+                />
+              </button>
+              <div
+                className={cx(
+                  'grid transition-[grid-template-rows] duration-200 ease-out',
+                  restOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
+                )}
+              >
+                <div className="overflow-hidden">
+                  <div className="pt-3">
+                    <ChecklistPageGroupList groups={restGroups} renderRow={renderRow} />
+                  </div>
                 </div>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+              </div>
+            </>
+          ) : (
+            <ChecklistPageGroupList groups={restGroups} renderRow={renderRow} />
+          )}
+        </section>
+      )}
 
       <footer className="mt-8 space-y-3 px-4 pb-8 md:px-6">
         <p className="rounded-2xl border border-secondary bg-primary p-4 text-sm text-secondary">

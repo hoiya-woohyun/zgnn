@@ -4,7 +4,6 @@ import { LinkExternal01 } from '@untitledui/icons';
 import { NAV_ITEMS } from './navItems';
 import { AuthorAvatar } from '../authorAvatar';
 import { META } from '../../lib/places';
-import { useSavedCount } from '../../store/useAppStore';
 import { cx } from '../../utils/cx';
 
 /**
@@ -13,7 +12,6 @@ import { cx } from '../../utils/cx';
  */
 export function AppSidebar() {
   const pathname = usePathname();
-  const savedCount = useSavedCount();
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-secondary bg-primary md:flex">
@@ -46,11 +44,6 @@ export function AppSidebar() {
                     className={active ? 'text-brand-secondary' : 'text-quaternary'}
                   />
                   <span className="flex-1">{item.label}</span>
-                  {item.showsSavedCount && savedCount > 0 && (
-                    <span className="min-w-[22px] rounded-full bg-camellia px-1.5 text-center text-xs leading-[22px] font-bold text-white">
-                      {savedCount}
-                    </span>
-                  )}
                 </Link>
               </li>
             );

@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { sanitizeDog } from '../lib/dogProfile';
 import { ALL_TOWNS, PLACES_BY_ID, selectSavedPlaces } from '../lib/places';
-import type { TCarrier, TDogProfile, TDogSize } from '../types';
+import type { TDogProfile } from '../types';
 
 /** 사계절 항목은 항상 보이므로, 계절 선택은 여름/겨울 둘 중 하나이거나 선택 안 함(null)이다. */
 export type TSeasonFilter = '여름' | '겨울' | null;
@@ -11,8 +12,6 @@ type TAppState = {
   savedIds: string[];
   checkedItemIds: string[];
   season: TSeasonFilter;
-  /** 준비물 화면에서 '숙소 용품 반영'에 쓰는 숙소. */
-  amenityStayId: string | null;
   /** 우리 강아지 프로필. 없으면(null) 판정 없이 v0 화면 그대로. */
   dog: TDogProfile | null;
   /** 이번 여행에 실내 자리가 꼭 필요한지 — 강아지 정보가 아니라 여행 정보라 따로 둔다. */
@@ -25,7 +24,6 @@ type TAppState = {
   toggleSaved: (id: string) => void;
   toggleChecked: (id: string) => void;
   setSeason: (season: TSeasonFilter) => void;
-  setAmenityStayId: (id: string | null) => void;
   setDog: (dog: TDogProfile) => void;
   clearDog: () => void;
   setNeedsIndoor: (needsIndoor: boolean) => void;
@@ -35,47 +33,18 @@ type TAppState = {
 const toggle = (list: string[], id: string) =>
   list.includes(id) ? list.filter((value) => value !== id) : [...list, id];
 
-const CARRIERS: TCarrier[] = ['none', 'bag', 'cage', 'stroller'];
-const SIZES: TDogSize[] = ['small', 'medium', 'large'];
-
-/**
- * localStorage 에 남아 있던 값이 스펙과 어긋나면(예전 버전이 남긴 형태, 수동 편집 등)
- * 조용히 잘못 판정하는 대신 프로필을 통째로 비운다 — 절반만 맞는 강아지 정보가 더 위험하다.
- */
-const sanitizeDog = (value: unknown): TDogProfile | null => {
-  if (!value || typeof value !== 'object') return null;
-  const candidate = value as Partial<TDogProfile>;
-  if (typeof candidate.name !== 'string') return null;
-  const weights = candidate.weightsKg;
-  if (
-    !Array.isArray(weights) ||
-    weights.length < 1 ||
-    weights.length > 3 ||
-    !weights.every((w) => typeof w === 'number' && w > 0)
-  ) {
-    return null;
-  }
-  if (!CARRIERS.includes(candidate.carrier as TCarrier)) return null;
-  const sizeOverride = SIZES.includes(candidate.sizeOverride as TDogSize)
-    ? (candidate.sizeOverride as TDogSize)
-    : undefined;
-  return { name: candidate.name, weightsKg: weights, carrier: candidate.carrier as TCarrier, sizeOverride };
-};
-
 export const useAppStore = create<TAppState>()(
   persist(
     (set) => ({
       savedIds: [],
       checkedItemIds: [],
       season: null,
-      amenityStayId: null,
       dog: null,
       needsIndoor: false,
       town: null,
       toggleSaved: (id) => set((state) => ({ savedIds: toggle(state.savedIds, id) })),
       toggleChecked: (id) => set((state) => ({ checkedItemIds: toggle(state.checkedItemIds, id) })),
       setSeason: (season) => set({ season }),
-      setAmenityStayId: (amenityStayId) => set({ amenityStayId }),
       setDog: (dog) => set({ dog }),
       clearDog: () => set({ dog: null }),
       setNeedsIndoor: (needsIndoor) => set({ needsIndoor }),
@@ -100,10 +69,7 @@ export const useAppStore = create<TAppState>()(
           ...currentState,
           ...persisted,
           savedIds: (persisted.savedIds ?? []).filter(exists),
-          amenityStayId:
-            persisted.amenityStayId && exists(persisted.amenityStayId)
-              ? persisted.amenityStayId
-              : null,
+          // 옛 모양(`{ name, weightsKg }`)은 여기서 올려 변환된다 — lib/dogProfile.ts 참고.
           dog: sanitizeDog(persisted.dog),
           needsIndoor: typeof persisted.needsIndoor === 'boolean' ? persisted.needsIndoor : false,
           town:
@@ -124,5 +90,5 @@ export const useSavedPlaces = () => {
   return useMemo(() => selectSavedPlaces(savedIds), [savedIds]);
 };
 
-/** 탭바 배지와 홈이 쓰는 개수. 저장 화면의 목록 길이와 반드시 같다. */
+/** 홈 카드와 설정 화면의 "저장한 곳" 행이 쓰는 개수. 저장 화면의 목록 길이와 반드시 같다. */
 export const useSavedCount = () => useSavedPlaces().length;

@@ -7,7 +7,6 @@ import { TownChip } from './townChip';
 import { categoryLabel } from '../lib/category';
 import { formatStayPrice } from '../lib/format';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
-import { useDog } from '../store/useAppStore';
 import { useEligibility } from '../store/useDogEligibility';
 
 type TPlaceCardProps = {
@@ -26,7 +25,6 @@ type TPlaceCardProps = {
  * 돌려주므로 카드는 지금과 완전히 같은 모습이다.
  */
 export function PlaceCard({ place }: TPlaceCardProps) {
-  const dog = useDog();
   const eligibility = useEligibility(place);
 
   return (
@@ -56,17 +54,13 @@ export function PlaceCard({ place }: TPlaceCardProps) {
 
         <p className="clamp-2 mt-2 text-sm text-secondary">{place.features}</p>
 
-        {/* "두부 · 1마리당 1만원" — fee 문구(petPolicy/eligibility 가 만든 것)는 손대지 않고
-            앞에 우리 강아지 이름만 붙인다(2026-09-15 디자인 리뷰 §1 "이름 넣은 요금 한 줄"). */}
-        {dog && eligibility?.fee && (
-          <p className="mt-1 text-sm text-secondary">
-            {dog.name} · {eligibility.fee}
-          </p>
-        )}
+        {/* "두부는 1만원 (1~5kg)" — 이름까지 붙은 완성 문장(lib/dogFee.ts)이라 그대로 출력한다.
+            상세의 info 근거와 같은 문자열이어야 한다(2026-09-15 디자인 리뷰 §1 "이름 넣은 요금 한 줄"). */}
+        {eligibility?.fee && <p className="mt-1 text-sm text-secondary">{eligibility.fee}</p>}
 
         <div className="mt-3 flex flex-wrap items-center gap-1">
           {eligibility && <EligibilityBadge level={eligibility.level} />}
-          <PetBadges policy={place.policy} limit={eligibility ? 2 : 3} />
+          <PetBadges policy={place.policy} limit={eligibility ? 2 : 3} hideNoInfo={Boolean(eligibility)} />
         </div>
       </Link>
 

@@ -12,6 +12,8 @@
  */
 
 import type { TCarrier, TDogProfile, TDogSize } from '../types';
+import { formatDogFee } from './dogFee';
+import { maxWeightKg } from './dogProfile';
 import type { TPetPolicy, TPolicyTier } from './petPolicy';
 
 export type TEligibilityLevel = 'ok' | 'cond' | 'unknown' | 'hard';
@@ -29,7 +31,7 @@ export type TEligibility = {
   level: TEligibilityLevel;
   /** 심각도순(hard → cond → unknown → info)으로 정렬돼 있다. */
   reasons: TReason[];
-  /** 우리 강아지 기준 요금 한 줄. `feeForDog` 와 같다(화면이 이름을 붙여 쓴다). */
+  /** 우리 강아지 기준 요금 한 줄("두부는 1만원 (1~5kg)"). `formatDogFee` 와 같고 이름까지 붙어 있어 그대로 출력한다. */
   fee?: string;
 };
 
@@ -40,7 +42,7 @@ type TJudgeOpts = {
 
 const LEVEL_ORDER: Record<TEligibilityLevel, number> = { ok: 0, cond: 1, unknown: 2, hard: 3 };
 
-/** ok < cond < unknown < hard. 목록 정렬(가능 → 조건부 → 정보 없음 → 어려움)에 쓴다. */
+/** ok < cond < unknown < hard. 목록 정렬(갈 수 있어요 → 확인이 필요해요 → 정보가 없어요 → 이용하기 어려워요)에 쓴다. */
 export const compareEligibility = (a: TEligibilityLevel, b: TEligibilityLevel): number =>
   LEVEL_ORDER[a] - LEVEL_ORDER[b];
 
@@ -50,10 +52,6 @@ const REASON_ORDER: Record<TReasonLevel, number> = { hard: 0, cond: 1, unknown: 
  *  프로필 폼의 "크기 수정" 으로 사용자가 고칠 수 있다(`sizeOverride`). */
 const SIZE_BOUNDARY_SMALL = 10;
 const SIZE_BOUNDARY_MEDIUM = 25;
-
-/** 빈 배열이면 0 — `Math.max()` 의 -Infinity 가 조용히 '소형' 으로 새는 것을 막는다. */
-const maxWeightKg = (dog: TDogProfile): number =>
-  dog.weightsKg.length > 0 ? Math.max(...dog.weightsKg) : 0;
 
 export const dogSize = (dog: TDogProfile): TDogSize => {
   if (dog.sizeOverride) return dog.sizeOverride;
@@ -110,7 +108,7 @@ const ruleTooManyForWeight: TRule = (dog, policy) => {
 
   const selected = fitting.reduce((a, b) => ((b.maxDogs ?? Infinity) > (a.maxDogs ?? Infinity) ? b : a));
   if (selected.maxDogs === undefined) return null;
-  if (selected.maxDogs >= dog.weightsKg.length) return null;
+  if (selected.maxDogs >= dog.dogs.length) return null;
 
   const topic = weightBoundTopic(selected);
   const text = topic ? `${topic} ${selected.maxDogs}마리까지예요` : `${selected.maxDogs}마리까지예요`;
@@ -259,26 +257,6 @@ const RULES: TRule[] = [
   ruleNoInfoHint, // U1 보강
 ];
 
-/**
- * 우리 강아지 기준 요금 한 줄. `feeLines` 중 최대 몸무게가 들어가는 구간("6~10kg 1.5만원")을
- * 찾는다. 들어가는 구간이 없으면 구간이 아닌 요금 줄("1마리당 1만원")로 물러나고, 그마저 없으면
- * 비운다 — 28kg 강아지에게 "1~5kg 1만원" 을 이름까지 붙여 확정된 숫자처럼 보여주지 않기 위해서다.
- * 이름을 붙이는 건 화면(또는 `judgeEligibility` 의 info reason) 몫이다.
- */
-export const feeForDog = (policy: TPetPolicy, dog: TDogProfile): string | undefined => {
-  if (policy.feeFree) return '추가 요금 없음';
-  if (policy.feeLines.length === 0) return undefined;
-
-  const weight = maxWeightKg(dog);
-  const RANGE_RE = /(\d+)\s*~\s*(\d+)\s*kg/;
-  const matched = policy.feeLines.find((line) => {
-    const m = RANGE_RE.exec(line);
-    if (!m) return false;
-    return weight >= Number(m[1]) && weight <= Number(m[2]);
-  });
-  return matched ?? policy.feeLines.find((line) => !RANGE_RE.test(line));
-};
-
 export const judgeEligibility = (
   dog: TDogProfile,
   policy: TPetPolicy,
@@ -286,8 +264,9 @@ export const judgeEligibility = (
 ): TEligibility => {
   const reasons = RULES.map((rule) => rule(dog, policy, opts)).filter((r): r is TReason => r !== null);
 
-  const fee = feeForDog(policy, dog);
-  if (fee) reasons.push({ level: 'info', text: `${dog.name} ${fee}` });
+  // 요금은 이름까지 붙은 완성 문장(`dogFee.ts`)이라 카드·상세가 같은 줄을 그대로 보여준다.
+  const fee = formatDogFee(policy, dog);
+  if (fee) reasons.push({ level: 'info', text: fee });
 
   // Array#sort 는 안정 정렬이라 같은 레벨 안에서는 RULES 순서(표시 순서)가 그대로 유지된다.
   reasons.sort((a, b) => REASON_ORDER[a.level] - REASON_ORDER[b.level]);

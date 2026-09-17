@@ -1,6 +1,10 @@
 # 반려동물 이용 조건 파서와 "우리 강아지 갈 수 있나" 판정
 
-> 최종 수정: 2026-09-16 (v4: 화면 반영 완료를 반영 — 판정이 홈·둘러보기·상세·지도에 붙었다. "다음 웨이브"·"계획" 표기를 걷어냈다)
+> 최종 수정: 2026-09-16 (v6: 리뷰 P1 — 형제 줄에 마릿수·무게 조건이 남아 있으면 곱하지 않는 가드(캄 사례)와 구간 합산의 `maxDogs` 가드. 입력 표를 `dogs[]` 로)
+>
+> v5: 요금 문구가 마릿수 합산 규칙을 갖는 `formatDogFee`(`dogFee.ts`)로 옮겨 갔고, 이름 붙는 문장은 `korean.ts` 의 조사·애칭 헬퍼를 쓴다. 프로필은 마리별 이름(`dogs[]`)을 갖는다 — ADR-005 v3)
+>
+> v4: 화면 반영 완료를 반영 — 판정이 홈·둘러보기·상세·지도에 붙었다. "다음 웨이브"·"계획" 표기를 걷어냈다)
 >
 > v3: 판정(§3)을 "구현됨" 으로. `judgeEligibility` 가 "먼저 걸린 규칙" 대신 **전부 평가해 가장 센 레벨** 을 채택하도록 바뀌었고, `DogProfile` 스펙이 v2(마리별 몸무게 배열·이동 수단 4택·`needsIndoor` 분리)로 확정됐다 — [ADR-005](../decisions/ADR-005-dog-profile-eligibility.md).
 >
@@ -69,8 +73,7 @@ flowchart LR
 
 | 필드 | 타입 | 왜 필요한가 |
 |---|---|---|
-| `name` | string | 화면 문구("짱구가 갈 수 있는 곳") |
-| `weightsKg` | number[] (1~3) | 마리별 몸무게. 무게 상한 비교는 **최댓값**, 마릿수는 `length`. 28kg+17kg 를 `count=2, weightKg=28` 로 뭉개면 실제보다 후하게 판정한다(디자인 리뷰 §1③) |
+| `dogs` | `{ name: string; weightKg: number }[]` (1~3) | 마리별 이름·몸무게. 무게 상한 비교는 **최댓값**(`maxWeightKg`, `dogProfile.ts`), 마릿수는 `length`. 28kg+17kg 를 `count=2, weightKg=28` 로 뭉개면 실제보다 후하게 판정한다(디자인 리뷰 §1③). 이름이 마리별인 이유는 [ADR-005 v3](../decisions/ADR-005-dog-profile-eligibility.md) |
 | `carrier` | `'none' \| 'bag' \| 'cage' \| 'stroller'` | 케이지 필수인 곳에서 슬링백을 케이지로 오해하면 위험하다(리뷰 §1③) — 넷으로 나눠 판정을 갈랐다 |
 | `sizeOverride?` | `TDogSize` | 몸무게 기준 자동 계산(소형 <10kg · 중형 10~25kg · 대형 >25kg)이 원문의 "대형견" 과 어긋날 수 있어 프로필 폼의 "크기 수정" 으로 고칠 수 있다 |
 
@@ -98,11 +101,31 @@ flowchart LR
 | C6 | `callFirst` | cond | "방문 전 전화 확인이 필요해요" |
 | U1 | `noInfo` | unknown | "이용 조건이 적혀 있지 않아요" |
 | U1 보강 | `noInfo` · `largeDogOk` (맘앤도그처럼 "정보 없음" 이라 적고도 힌트가 붙은 경우) | info | "원문에 대형견도 가능하다는 문구가 있어요" — 레벨은 그대로 unknown, 힌트만 얹는다 |
-| I1 | `feeForDog(policy, dog)` 결과 | info | "{이름} {요금}" |
+| I1 | `formatDogFee(policy, dog)` 결과(아래 §요금) | info | "악동이는 3만원" · "악동이와 두부는 2.5만원 (1~5kg 1만원 · 6~10kg 1.5만원)" — 이름까지 붙은 완성 문장 |
 
 carrier 에 따라 H5/C2/C3/C4 는 배타적이다(정확히 한 갈래만 걸린다). H4(대형견+케이지 미보유)는 이들과 별개로 평가되되, 대형견이면 H5 가 물러나 같은 문장을 두 번 근거로 내지 않는다. H4 가 걸리면 C5 도 다시 내지 않는다. 야외 자리를 답으로 내리는 H4·C4 는 둘 다 `needsIndoor` 를 본다.
 
-`feeForDog(policy, dog)`: `feeLines` 중 최댓값 몸무게가 들어가는 구간("6~10kg 1.5만원")을 찾는다. 없으면 구간이 아닌 요금 줄("1마리당 1만원")로 물러나고, 그마저 없으면 비운다 — 28kg 강아지에게 "1~5kg 1만원" 을 이름까지 붙여 보여주지 않기 위해서다. `feeFree` 면 "추가 요금 없음".
+### 요금 — `formatDogFee(policy, dog)` (`src/lib/dogFee.ts`)
+
+목록 카드·상세의 info 근거가 **같은 문자열**을 그대로 출력한다(예전에는 화면이 이름을 따로 붙였다). 원칙은 파서와 같다 — **숫자를 지어내지 않는다.** 마릿수만큼 곱해도 되는 것이 원문에서 확실할 때만 곱한다.
+
+| 원문 줄 | 곱하나 | 문구(악동 4kg · 두부 8kg 기준) |
+|---|---|---|
+| `feeFree` | — | "악동이와 두부는 추가 요금 없음" |
+| 마리당 단일 금액 `1마리당 3만원` (괄호·뒤의 "추가" 허용) | 곱한다 — 단 `maxDogs` 를 넘는 마릿수면 그 요금이 우리에게 적용된다고 볼 수 없어 안 곱한다 | 1마리 "악동이는 3만원" / 2마리 "악동이와 두부는 6만원 (1마리당 3만원)" |
+| 무게 구간 `1~5kg 1만원` · `6~10kg 1.5만원` | **마리별 몸무게**로 각자 구간을 찾아, 모든 마리가 들어가고 금액이 단일값이면 합산. 쓰인 구간만 `feeLines` 순서로 나열(중복 제거) | 1마리 "악동이는 1만원 (1~5kg)" / 2마리 "악동이와 두부는 2.5만원 (1~5kg 1만원 · 6~10kg 1.5만원)" |
+| 그 외 — 범위 금액 `1마리당 1-2만원`, 단위 불명 `5만원`, `(2만원 추가)`, 청소비 등 | 안 곱한다 | "악동이와 두부 · 2만원 추가" (앞뒤 괄호는 벗긴다) |
+| 곱할 줄 **말고 다른 줄**이 마릿수·무게 조건을 말함 — 캄(Kalm) `1마리당 3만원. (2마리 또는 10kg 이상 4만원)` | 안 곱한다. 첫 줄만 곱하면 2마리가 6만원(원문은 4만원)이라 원문과 반대되는 숫자가 된다. 조건 줄까지 함께 보여준다 | "악동이와 두부 · 1마리당 3만원 · 2마리 또는 10kg 이상 4만원" |
+
+`maxDogs` 가드는 마리당 곱셈과 구간 합산 양쪽에 걸린다. 구간 합산에서 "안 쓴 구간 줄" 은 조건이 아니라 같은 요금표의 다른 칸이라 가드 대상이 아니다. 줄을 고르는 순서는 예전 `feeForDog` 그대로다: 최대 몸무게가 들어가는 구간 줄 → 구간이 아닌 첫 줄 → 없으면 비운다. 한 마리라도 구간 밖이면 합산하지 않고 이 순서로 물러난다 — 28kg 강아지에게 "1~5kg 1만원" 을 이름까지 붙여 확정된 숫자처럼 보여주지 않기 위해서다. 금액은 만원 단위 소수 1자리(15000 → "1.5만원"), 1만 미만은 "5,000원".
+
+### 한국어 호칭 — `src/lib/korean.ts`
+
+이름이 들어가는 문장은 전부 이 헬퍼를 거친다. 자리마다 따로 구현하면 한 곳만 고쳐져 어긋난다.
+
+- `dogCallName(name)`: 보호자가 부르는 이름. 받침으로 끝나면 '이' 를 붙인다(우현 → 우현이). 받침이 없으면 그대로라 이미 '악동이' 로 등록한 이름에 '이' 가 겹치지 않는다.
+- `dogCallNames(names)`: 여러 마리를 한 덩어리로 — "악동이" / "악동이와 두부" / "악동이, 두부, 콩이". **조사는 붙이지 않는다** — 호출부가 문맥에 맞는 조사를 `withJosa(word, '은/는' | '이/가' | '을/를' | '과/와' | '이랑/랑' | '아/야')` 로 붙인다. 그래야 "악동이와 두부**는** 갈 수 있어요" 와 "악동이와 두부**랑** 제주 어디 갈까요?" 가 한 함수에서 나온다.
+- 받침 판별은 한글 완성형(U+AC00–D7A3)만. 영문·숫자는 받침 없음으로 보고 뒤 조사를 쓴다("Coco는") — 발음을 추측하지 않는다.
 
 ### 검증 — 보리+콩(28kg+17kg·이동 수단 없음) 실사 재확인
 
@@ -121,11 +144,11 @@ carrier 에 따라 H5/C2/C3/C4 는 배타적이다(정확히 한 갈래만 걸�
 
 ### 화면 반영 (구현됨)
 
-- 목록·지도 카드: 판정 배지 하나를 종류 색 옆에. 정렬은 가능 → 조건부 → 정보 없음 → 어려움
+- 목록·지도 카드: 판정 배지 하나를 종류 색 옆에. 정렬은 ok → cond → unknown → hard. 배지 라벨은 문장형("갈 수 있어요 / 확인이 필요해요 / 정보가 없어요 / 이용하기 어려워요"). 판정 배지가 있는 줄에서는 원문 배지 "확인된 정보 없음" 을 뺀다(`PetBadges hideNoInfo`) — 같은 말을 두 번 하지 않기 위해
   (`src/lib/sortByEligibility.ts`, `src/components/eligibilityBadge.tsx`).
 - 상세: 판정 + 근거 문구(`reasons[].quote`)를 판정 카드로, 그 아래 원문 카드에서 강조
   (`src/screens/placeDetailEligibilityCard.tsx`).
-- 둘러보기: "어려움 숨기기" · "실내 자리 필요" 토글(`src/screens/placesPageEligibilityToggles.tsx`).
+- 둘러보기: "어려운 곳 숨기기" · "실내 자리 필요" 토글(`src/screens/placesPageEligibilityToggles.tsx`).
 - 홈: 종류별 "갈 수 있는 곳" 개수(`src/screens/homePage.tsx`).
 - 지도: 마커 색과 시트 라벨이 판정 레벨을 따른다(`src/screens/mapPage.tsx`, `mapPageSheet.tsx`).
 - 프로필이 없으면 필터만 있는 화면으로 폴백하고, 홈에 "우리 강아지 등록하기" 진입(`/dog`).
@@ -134,7 +157,8 @@ carrier 에 따라 H5/C2/C3/C4 는 배타적이다(정확히 한 갈래만 걸�
 
 - 파서: `src/lib/petPolicy.ts`, `src/lib/petPolicy.test.ts`, `src/lib/placeFilters.ts`, `src/components/petBadges.tsx`
 - 판정: `src/lib/eligibility.ts`, `src/lib/eligibility.test.ts`
-- 프로필: `src/types.ts`(`TDogProfile`), `src/store/useAppStore.ts`, `src/store/useDogEligibility.ts`, `src/screens/dogProfilePage.tsx`, [features/dog-profile.md](../features/dog-profile.md)
+- 요금·호칭: `src/lib/dogFee.ts`(+test), `src/lib/korean.ts`(+test)
+- 프로필: `src/types.ts`(`TDogProfile`·`TDogEntry`), `src/lib/dogProfile.ts`(`sanitizeDog` 옛 모양 변환, `maxWeightKg`), `src/store/useAppStore.ts`, `src/store/useDogEligibility.ts`, `src/screens/dogProfilePage.tsx`, [features/dog-profile.md](../features/dog-profile.md)
 - 화면 반영: `src/components/eligibilityBadge.tsx`, `src/lib/sortByEligibility.ts`,
   `src/screens/{placeDetailEligibilityCard,placesPageEligibilityToggles,homePage,mapPage,mapPageSheet,placeDetailNearby}.tsx`,
   `src/components/placeCard.tsx`

@@ -1,10 +1,20 @@
+import type { ReactNode } from 'react';
 import { Button } from '../components/base/button';
 import { Select } from '../components/base/select';
 import { DIRECTIONS, DIRECTION_LABEL, topTowns } from '../lib/places';
 import { PET_FILTERS, type TPetFilterKey, type TPriceSort } from '../lib/placeFilters';
 import type { TDirection, TPlaceType } from '../types';
 
+/**
+ * 같은 조건을 두 자리에서 보여준다.
+ * - `bar`: 목록 위 고정 영역. 줄마다 가로 스크롤 — 데스크톱처럼 세로가 넉넉할 때.
+ * - `sheet`: 모바일 필터 시트 안. 이름표를 달고 줄바꿈으로 펼친다 — 가로 스크롤은
+ *   숨은 칩을 만들지만, 시트는 세로로 얼마든지 늘어날 수 있어 그럴 이유가 없다.
+ */
+export type TFiltersVariant = 'bar' | 'sheet';
+
 type TPlacesPageFiltersProps = {
+  variant: TFiltersVariant;
   type: TPlaceType;
   town: string | null;
   directions: TDirection[];
@@ -22,7 +32,44 @@ const SORT_OPTIONS: { id: TPriceSort; label: string }[] = [
   { id: 'desc', label: '가격 높은순' },
 ];
 
+/*
+ * 가로 스크롤 줄 오른쪽 끝을 살짝 흐려서 "더 있다" 는 신호를 준다.
+ * 마스크가 마지막 칩까지 가리면 안 되므로, 마스크가 시작되는 지점보다
+ * 넓게 오른쪽 padding 을 잡아 마지막 칩은 항상 마스크 밖(완전 불투명)에 있게 한다.
+ */
+const SCROLL_ROW_CLASS =
+  'no-scrollbar flex items-center gap-2 overflow-x-auto px-4 pr-8 md:px-6 md:pr-10 ' +
+  '[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] ' +
+  '[-webkit-mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]';
+
+/** 조건 한 묶음. bar 에서는 이름표 없는 스크롤 줄, sheet 에서는 이름표를 단 줄바꿈 묶음. */
+function FilterGroup({
+  variant,
+  label,
+  children,
+}: {
+  variant: TFiltersVariant;
+  label: string;
+  children: ReactNode;
+}) {
+  if (variant === 'bar') {
+    return (
+      <div className={SCROLL_ROW_CLASS} role="group" aria-label={label}>
+        {children}
+      </div>
+    );
+  }
+
+  return (
+    <section role="group" aria-label={label}>
+      <h3 className="text-sm font-semibold text-secondary">{label}</h3>
+      <div className="mt-2 flex flex-wrap gap-2">{children}</div>
+    </section>
+  );
+}
+
 export function PlacesPageFilters({
+  variant,
   type,
   town,
   directions,
@@ -33,27 +80,19 @@ export function PlacesPageFilters({
   onTogglePetKey,
   onChangeSort,
 }: TPlacesPageFiltersProps) {
-  /*
-   * 가로 스크롤 줄 오른쪽 끝을 살짝 흐려서 "더 있다" 는 신호를 준다.
-   * 마스크가 마지막 칩까지 가리면 안 되므로, 마스크가 시작되는 지점보다
-   * 넓게 오른쪽 padding 을 잡아 마지막 칩은 항상 마스크 밖(완전 불투명)에 있게 한다.
-   */
-  const scrollRowClassName =
-    'no-scrollbar flex items-center gap-2 overflow-x-auto px-4 pr-8 md:px-6 md:pr-10 ' +
-    '[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] ' +
-    '[-webkit-mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]';
-
   // 이 종류에 실제로 장소가 있는 읍면만 보여준다 — 0곳인 읍면 칩을 눌러 빈 목록을 만들 이유가 없다.
   const towns = topTowns(type, Number.MAX_SAFE_INTEGER);
 
+  const chipClass = variant === 'bar' ? 'h-11 shrink-0' : 'h-11';
+
   return (
-    <div className="space-y-2 pb-3">
+    <div className={variant === 'bar' ? 'space-y-2 pb-3' : 'space-y-5'}>
       {/*
         읍면은 검색어·타입 탭을 넘어 유지되는 유일한 조건이라(스토어 `town`) 맨 위에 둔다
         (2026-09-15 리뷰 P1 — "하나만 고치면: 읍면 한 번 고르면 숙소·식당·카페·지도 모두 유지").
         방향·반려동물 조건은 종류를 바꾸면 초기화되는 화면 로컬 상태다.
       */}
-      <div className={scrollRowClassName} role="group" aria-label="읍면">
+      <FilterGroup variant={variant} label="읍면">
         {towns.map(({ town: candidate, count }) => {
           const active = town === candidate;
           return (
@@ -62,16 +101,16 @@ export function PlacesPageFilters({
               size="sm"
               color={active ? 'primary' : 'secondary'}
               aria-pressed={active}
-              className="h-11 shrink-0"
+              className={chipClass}
               onClick={() => onSelectTown(active ? null : candidate)}
             >
               {candidate} {count}
             </Button>
           );
         })}
-      </div>
+      </FilterGroup>
 
-      <div className={scrollRowClassName} role="group" aria-label="방향">
+      <FilterGroup variant={variant} label="방향">
         {DIRECTIONS.map((direction) => {
           const active = directions.includes(direction);
           return (
@@ -80,41 +119,32 @@ export function PlacesPageFilters({
               size="sm"
               color={active ? 'primary' : 'secondary'}
               aria-pressed={active}
-              className="h-11 shrink-0"
+              className={chipClass}
               onClick={() => onToggleDirection(direction)}
             >
               {DIRECTION_LABEL[direction]}
             </Button>
           );
         })}
-      </div>
+      </FilterGroup>
 
       {/*
         가격 정렬은 조건 칩이 아니라서 가로 스크롤 줄에 묶이면 첫 화면 폭에서
         스크롤해야만 보였다(P1). 조건 칩 줄과 분리한 자기 줄로 올려
         스크롤 없이 바로 보이게 한다.
       */}
-      {type === 'stay' && (
-        <div className="flex justify-end px-4 md:px-6">
-          <Select
-            aria-label="숙소 가격 정렬"
-            size="sm"
-            selectedKey={sort}
-            onSelectionChange={(key) => {
-              if (key) onChangeSort(key as TPriceSort);
-            }}
-            className="w-36"
-          >
-            {SORT_OPTIONS.map((option) => (
-              <Select.Item key={option.id} id={option.id}>
-                {option.label}
-              </Select.Item>
-            ))}
-          </Select>
-        </div>
-      )}
+      {type === 'stay' &&
+        (variant === 'bar' ? (
+          <div className="flex justify-end px-4 md:px-6">
+            <SortSelect sort={sort} onChangeSort={onChangeSort} />
+          </div>
+        ) : (
+          <FilterGroup variant={variant} label="가격 정렬">
+            <SortSelect sort={sort} onChangeSort={onChangeSort} />
+          </FilterGroup>
+        ))}
 
-      <div className={scrollRowClassName} role="group" aria-label="반려동물 조건">
+      <FilterGroup variant={variant} label="반려동물">
         {PET_FILTERS[type].map((filter) => {
           const active = petKeys.includes(filter.key);
           return (
@@ -123,14 +153,40 @@ export function PlacesPageFilters({
               size="sm"
               color={active ? 'primary' : 'secondary'}
               aria-pressed={active}
-              className="h-11 shrink-0"
+              className={chipClass}
               onClick={() => onTogglePetKey(filter.key)}
             >
               {filter.label}
             </Button>
           );
         })}
-      </div>
+      </FilterGroup>
     </div>
+  );
+}
+
+function SortSelect({
+  sort,
+  onChangeSort,
+}: {
+  sort: TPriceSort;
+  onChangeSort: (sort: TPriceSort) => void;
+}) {
+  return (
+    <Select
+      aria-label="숙소 가격 정렬"
+      size="sm"
+      selectedKey={sort}
+      onSelectionChange={(key) => {
+        if (key) onChangeSort(key as TPriceSort);
+      }}
+      className="w-36"
+    >
+      {SORT_OPTIONS.map((option) => (
+        <Select.Item key={option.id} id={option.id}>
+          {option.label}
+        </Select.Item>
+      ))}
+    </Select>
   );
 }

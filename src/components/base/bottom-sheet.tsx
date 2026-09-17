@@ -133,7 +133,8 @@ function BottomSheetPanel({ label, onDismiss, children }: { label: string; onDis
       aria-label={label}
       style={drag.style}
       // 모바일은 위쪽 핸들 띠(h-7) 밑으로 내용이 들어가지 않게 pt-6. 데스크톱은 핸들이 없다.
-      className="pb-safe relative rounded-t-2xl border border-secondary bg-primary p-4 pt-6 shadow-xl outline-hidden sm:rounded-2xl sm:pt-4"
+      // 바닥은 pb-sheet — p-4 의 바닥분과 홈 인디케이터(safe-area)를 합친 값이다(globals.css 주석).
+      className="pb-sheet relative rounded-t-2xl border border-secondary bg-primary p-4 pt-6 shadow-xl outline-hidden sm:rounded-2xl sm:pt-4"
     >
       {/*
         끌어내리는 핸들. 띠(h-1)만 보이지만 잡는 영역은 위쪽 28px 전체라 손가락이 빗나가도 잡힌다.

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { EligibilityBadge } from '../components/eligibilityBadge';
+import { MissingItemsNote } from '../components/missingItemsNote';
 import { PetBadges } from '../components/petBadges';
 import { PlaceThumb } from '../components/placeThumb';
 import { SaveButton } from '../components/saveButton';
@@ -52,8 +53,11 @@ export function MapPageSheetCard({ place }: TMapPageSheetCardProps) {
         )}
 
         <p className="clamp-2 mt-2.5 text-sm text-secondary">{place.features}</p>
-        <PetBadges policy={place.policy} limit={3} className="mt-2.5" />
+        <PetBadges policy={place.policy} limit={3} hideNoInfo={Boolean(eligibility)} className="mt-2.5" />
       </Link>
+
+      {/* 카드 본문 바깥에 둔다 — 자기도 링크라서 위 <Link> 안에 넣으면 a 안에 a 가 된다. */}
+      <MissingItemsNote place={place} className="mt-3" />
 
       <div className="mt-4 flex gap-2">
         <Button color="primary" size="lg" href={`/place/${place.id}/`} className="flex-1">

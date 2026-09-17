@@ -89,7 +89,7 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
                   </div>
                   <div className="mt-1.5 flex flex-wrap items-center gap-1">
                     {level && <EligibilityBadge level={level} />}
-                    <PetBadges policy={other.policy} limit={1} />
+                    <PetBadges policy={other.policy} limit={1} hideNoInfo={Boolean(level)} />
                   </div>
                 </Link>
               </li>

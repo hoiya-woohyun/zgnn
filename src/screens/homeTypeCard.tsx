@@ -7,7 +7,7 @@ import type { TPlaceType } from '../types';
 
 type THomeTypeCardProps = {
   type: TPlaceType;
-  /** 우리 강아지 기준 "갈 수 있는 곳"(가능+조건부) 개수. 없으면(undefined) 프로필이 없다는 뜻 —
+  /** 우리 강아지 기준 "갈 수 있는 곳"(ok+cond) 개수. 없으면(undefined) 프로필이 없다는 뜻 —
    *  기존처럼 전체 건수만 보여준다. */
   reachable?: number;
 };

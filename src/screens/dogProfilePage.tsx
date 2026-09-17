@@ -4,27 +4,53 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '../components/base/button';
 import { HintText } from '../components/base/hint-text';
-import { Input } from '../components/base/input';
 import { PageHeader } from '../components/layout/pageHeader';
+import { DOG_NAME_MAX_LENGTH, MAX_DOGS } from '../lib/dogProfile';
 import { dogSize } from '../lib/eligibility';
 import { useAppStore, useDog } from '../store/useAppStore';
 import { DogProfileCarrierPicker } from './dogProfileCarrierPicker';
+import { DogProfileDogRows, type TDogRowDraft, type TDogRowError } from './dogProfileDogRows';
 import { DogProfileSizeOverride } from './dogProfileSizeOverride';
-import { DogProfileWeightRows } from './dogProfileWeightRows';
-import type { TCarrier, TDogProfile, TDogSize } from '../types';
+import type { TCarrier, TDogEntry, TDogProfile, TDogSize } from '../types';
 
-const NAME_MAX_LENGTH = 12;
+const EMPTY_ROW: TDogRowDraft = { name: '', weightKg: '' };
 
-/** 문자열 행 중 숫자로 읽히는 양수만. 빈 칸·잘못 입력된 값은 걸러진다. */
-const parseValidWeights = (rows: string[]): number[] =>
-  rows.map(Number).filter((n) => Number.isFinite(n) && n > 0);
-
-/** 채워는 넣었는데 0 이하거나 숫자가 아닌 행에만 에러를 붙인다. 빈 행은 "아직 안 채운 것" 이라 에러가 아니다. */
-const rowError = (raw: string): string | undefined => {
+const parseWeight = (raw: string): number | undefined => {
   if (raw.trim() === '') return undefined;
   const n = Number(raw);
-  return Number.isFinite(n) && n > 0 ? undefined : '0보다 큰 숫자를 입력해 주세요';
+  return Number.isFinite(n) && n > 0 ? n : undefined;
 };
+
+/** 이름·몸무게가 모두 유효한 행만 강아지로 읽는다. 빈 행·잘못 입력된 행은 걸러진다. */
+const parseValidDogs = (rows: TDogRowDraft[]): TDogEntry[] =>
+  rows.flatMap((row) => {
+    const name = row.name.trim();
+    const weightKg = parseWeight(row.weightKg);
+    return name && name.length <= DOG_NAME_MAX_LENGTH && weightKg !== undefined ? [{ name, weightKg }] : [];
+  });
+
+/**
+ * 입력 중 보여주는 행 에러. 채워는 넣었는데 0 이하거나 숫자가 아닌 몸무게에만 붙는다.
+ * 빈 칸은 "아직 안 채운 것" 이라 에러가 아니다 — 빈 이름은 저장을 눌렀을 때만(`submitErrors`) 잡는다.
+ */
+const liveRowError = (row: TDogRowDraft): TDogRowError => {
+  const error: TDogRowError = {};
+  if (row.weightKg.trim() !== '' && parseWeight(row.weightKg) === undefined) {
+    error.weightKg = '0보다 큰 숫자를 입력해 주세요';
+  }
+  if (row.name.trim().length > DOG_NAME_MAX_LENGTH) error.name = `${DOG_NAME_MAX_LENGTH}자 이내로 적어 주세요`;
+  return error;
+};
+
+/** 저장 시점의 행 에러. 여기서는 빈 칸도 에러다 — 모든 행이 이름과 몸무게를 가져야 저장된다. */
+const submitRowError = (row: TDogRowDraft): TDogRowError => {
+  const error = liveRowError(row);
+  if (row.name.trim() === '') error.name = '이름을 입력해 주세요';
+  if (row.weightKg.trim() === '') error.weightKg = '몸무게를 입력해 주세요';
+  return error;
+};
+
+const hasRowError = (error: TDogRowError) => Boolean(error.name || error.weightKg);
 
 /**
  * `useAppStore` 가 `skipHydration: true` 라 첫 렌더는 항상 `dog: null` 이다(providers/storeHydration.tsx).
@@ -60,12 +86,11 @@ export function DogProfilePage() {
   const setDog = useAppStore((state) => state.setDog);
   const clearDog = useAppStore((state) => state.clearDog);
 
-  const [name, setName] = useState('');
-  const [weights, setWeights] = useState<string[]>(['']);
+  const [rows, setRows] = useState<TDogRowDraft[]>([EMPTY_ROW]);
   const [carrier, setCarrier] = useState<TCarrier>('none');
   const [sizeOverride, setSizeOverride] = useState<TDogSize | undefined>(undefined);
-  const [nameError, setNameError] = useState<string | null>(null);
-  const [weightError, setWeightError] = useState<string | null>(null);
+  /** 저장을 눌렀을 때 잡힌 행 에러. 입력을 고치면 `liveRowError` 가 대신한다. */
+  const [submitErrors, setSubmitErrors] = useState<TDogRowError[] | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
 
   /**
@@ -77,8 +102,7 @@ export function DogProfilePage() {
   if (hydrated && seededFor === 'pending') {
     setSeededFor(dog);
     if (dog) {
-      setName(dog.name);
-      setWeights(dog.weightsKg.map(String));
+      setRows(dog.dogs.map((d) => ({ name: d.name, weightKg: String(d.weightKg) })));
       setCarrier(dog.carrier);
       setSizeOverride(dog.sizeOverride);
     }
@@ -90,45 +114,34 @@ export function DogProfilePage() {
     return () => clearTimeout(timer);
   }, [banner]);
 
-  const validWeights = parseValidWeights(weights);
-  const rowErrors = weights.map(rowError);
-  const computedSize = validWeights.length > 0 ? dogSize({ name: '', weightsKg: validWeights, carrier }) : undefined;
+  const validDogs = parseValidDogs(rows);
+  const rowErrors = submitErrors ?? rows.map(liveRowError);
+  const computedSize = validDogs.length > 0 ? dogSize({ dogs: validDogs, carrier }) : undefined;
+
+  const updateRows = (next: (prev: TDogRowDraft[]) => TDogRowDraft[]) => {
+    setRows(next);
+    setSubmitErrors(null);
+  };
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
 
-    const trimmedName = name.trim();
-    let hasError = false;
-
-    if (!trimmedName) {
-      setNameError('이름을 입력해 주세요');
-      hasError = true;
-    } else if (trimmedName.length > NAME_MAX_LENGTH) {
-      setNameError(`${NAME_MAX_LENGTH}자 이내로 적어 주세요`);
-      hasError = true;
-    } else {
-      setNameError(null);
+    const errors = rows.map(submitRowError);
+    if (errors.some(hasRowError)) {
+      setSubmitErrors(errors);
+      return;
     }
 
-    if (validWeights.length === 0 || rowErrors.some(Boolean)) {
-      setWeightError('몸무게를 1kg 이상 입력해 주세요');
-      hasError = true;
-    } else {
-      setWeightError(null);
-    }
-
-    if (hasError) return;
-
-    setDog({ name: trimmedName, weightsKg: validWeights, carrier, sizeOverride });
+    setDog({ dogs: parseValidDogs(rows), carrier, sizeOverride });
     router.push('/');
   };
 
   const handleDelete = () => {
     clearDog();
-    setName('');
-    setWeights(['']);
+    setRows([EMPTY_ROW]);
     setCarrier('none');
     setSizeOverride(undefined);
+    setSubmitErrors(null);
     setBanner('프로필을 삭제했어요');
   };
 
@@ -151,32 +164,16 @@ export function DogProfilePage() {
         ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <Input
-                label="이름"
-                isRequired
-                placeholder="예: 두부"
-                value={name}
-                onChange={setName}
-                isInvalid={Boolean(nameError)}
-                maxLength={NAME_MAX_LENGTH}
-                /* wrapperClassName="h-11" 은 겉박스만 44px 로 키워 위아래 2px 가 탭해도 포커스가
-                   안 잡히는 죽은 띠로 남았다. lg 프리셋은 input 자체가 44px 다. */
-                size="lg"
-              />
-              {nameError && <HintText isInvalid>{nameError}</HintText>}
-            </div>
-
-            <div>
-              <DogProfileWeightRows
-                values={weights}
+              <DogProfileDogRows
+                values={rows}
                 errors={rowErrors}
-                onChange={(index, value) =>
-                  setWeights((prev) => prev.map((v, i) => (i === index ? value : v)))
+                onChange={(index, patch) =>
+                  updateRows((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)))
                 }
-                onAdd={() => setWeights((prev) => (prev.length < 3 ? [...prev, ''] : prev))}
-                onRemove={(index) => setWeights((prev) => prev.filter((_, i) => i !== index))}
+                onAdd={() => updateRows((prev) => (prev.length < MAX_DOGS ? [...prev, EMPTY_ROW] : prev))}
+                onRemove={(index) => updateRows((prev) => prev.filter((_, i) => i !== index))}
               />
-              {weightError && <HintText isInvalid>{weightError}</HintText>}
+              {submitErrors?.some(hasRowError) && <HintText isInvalid>이름과 몸무게를 모두 채워 주세요</HintText>}
             </div>
 
             <DogProfileCarrierPicker value={carrier} onChange={setCarrier} />

@@ -285,6 +285,9 @@ export type TPetBadge = {
   tone: TBadgeTone;
 };
 
+/** 원문이 "정보 없음" 인 곳의 배지. 판정 배지("정보가 없어요")와 같은 줄에 서면 같은 말이라 `PetBadges` 가 이 라벨로 걸러낸다. */
+export const NO_INFO_BADGE_LABEL = '확인된 정보 없음';
+
 const INDOOR_BADGE: Record<TIndoorPolicy, TPetBadge | null> = {
   free: { label: '실내 OK', tone: 'ok' },
   cage: { label: '케이지 필요', tone: 'cond' },
@@ -323,7 +326,7 @@ export const toPetBadges = (policy: TPetPolicy): TPetBadge[] => {
 
   // '정보 없음. (문의해보시면 가장 정확할 것 같아요)' 는 두 규칙에 다 걸린다.
   // 같은 말을 두 번 하지 않도록 '정보 없음' 이 있으면 '전화 확인' 은 생략한다.
-  if (policy.noInfo) badges.push({ label: '정보 없음', tone: 'warn' });
+  if (policy.noInfo) badges.push({ label: NO_INFO_BADGE_LABEL, tone: 'warn' });
   else if (policy.callFirst) badges.push({ label: '전화 확인', tone: 'warn' });
 
   return badges;
