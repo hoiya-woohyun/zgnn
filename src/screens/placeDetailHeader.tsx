@@ -13,16 +13,16 @@ export function PlaceDetailHeader({ place }: { place: TPlaceEntry }) {
 
   return (
     /*
-      뒤로가기 줄은 셸이 이 화면 위에 이미 얹어 두었다(appShell). 그 줄은 투명하고 문서 흐름
-      안에 있어서, 그냥 두면 종류 색 판이 그 줄 아래에서 시작해 맨 위에 회색 띠가 남는다.
-      판을 그 줄 높이(h-14)만큼 끌어올려 같은 크기의 위 여백으로 되돌리면, 색은 그 줄 위까지
-      이어지고 뒤로가기 버튼은 그 색 위에 얹힌다.
+      **자기를 위로 끌어올리지 않는다.** 셸이 얹어 둔 뒤로가기 줄(appShell) 아래에서 그냥
+      시작하므로, 그 줄 자리와 그 위 상태바 인셋이 전부 크림으로 남는다 — 맨 위 면을 전 화면
+      크림으로 통일한 결과다(ADR-010 v3). `/saved`·`/dog` 같은 다른 하위 화면이 원래 그랬고,
+      상세만 예외였던 것이 없어졌다.
 
-      상태바(safe-area-inset-top)까지는 여기서 끌어올리지 않는다 — 그 자리는 셸이 같은 종류
-      색 띠로 칠한다(ADR-010, appRoutes.topSurfaceColorOf). 그라디언트의 맨 위 색과 띠 색이
-      같아 이음매가 보이지 않는다.
+      예전에는 `under-app-bar`(앱바 h-14 + 인셋)로, 그 전에는 `-mt-14 pt-14` 로 끌어올려 색을
+      맨 위까지 이었다. 그 음수 마진이 사라지면서 **앱바를 `fixed` 로 못 바꾸던 이유도 함께
+      사라졌다**(appBar 주석 참고).
     */
-    <header className="-mt-14 pt-14" style={{ background: typeHeaderBackground(place.type) }}>
+    <header style={{ backgroundImage: typeHeaderBackground(place.type) }}>
       <div className="px-4 pt-2 pb-7 md:px-6 md:pt-4">
         <div style={{ color: TYPE_COLOR_DEEP[place.type] }}>
           <Icon size={32} />

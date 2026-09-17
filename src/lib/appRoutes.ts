@@ -13,7 +13,7 @@
  * 자기 것으로 보기 때문에(탭 하이라이트용) 상세가 루트로 분류돼 뒤로가기를 잃는다.
  * 저기는 "어느 탭에 불이 들어오나", 여기는 "되돌아 나올 곳이 있나" 로 질문이 다르다.
  */
-import { PLACE_TYPES, getPlace, typeTint } from './places';
+import { PLACE_TYPES, getPlace } from './places';
 
 /** 주소 끝의 `/` 를 떼어 비교를 한 가지 모양으로 맞춘다(정적 내보내기라 `/dog/` 로도 들어온다). */
 const normalize = (pathname: string) => {
@@ -56,36 +56,4 @@ export const parentRouteOf = (pathname: string): string => {
   if (path === '/saved' || path === '/dog') return '/settings';
 
   return '/';
-};
-
-/**
- * 화면 맨 위 면의 색 — 상태바(safe-area-inset-top) 뒤를 이 색으로 칠한다.
- *
- * 인셋 처리는 뒤로가기와 같은 이유로 셸이 맡는다(ADR-010). 화면마다 "위쪽 판을 인셋만큼
- * 끌어올려 자기 색으로 채우기" 를 반복하면 새 화면을 만들 때마다 그 계산을 기억해야 하고,
- * 하나만 빠져도 노치 기기에서만 제목이 상태바 밑으로 들어간다. 대신 셸이 인셋 높이의 띠를
- * 화면 위에 고정해 두고, 어느 색으로 칠할지만 여기서 답한다.
- *
- * - 홈: 현무암 히어로(잉크)가 맨 위 면이라 그 색.
- * - 상세: 종류 색 워시 판. 판이 위에서 아래로 옅어지는 그라디언트라 **맨 위 색**(22% tint)을 쓴다.
- * - 지도: `null` — 타일이 상태바 밑까지 깔리는 편이 지도답다. 셸은 띠도 위 여백도 두지 않는다.
- * - 나머지: 페이지 바탕(크림). 모르는 경로도 이쪽 — 새 화면의 기본값이다.
- *
- * **여기서 답한 색은 그 화면 첫 블록의 배경과 정확히 같아야 한다.** iOS 에서는 띠가 인셋이
- * 0 인 브라우저 탭에서도 최소 4px 남아(globals.css 의 h-status-bar) 첫 블록 위를 덮는데,
- * 색이 같아야 보이지 않는다. 맨 위 면이 페이지 바탕이 아닌 화면을 새로 만들면 여기 한 줄을
- * 더한다 — 빠뜨리면 그 화면만 iOS Safari 탭에서 4px 짜리 다른 색 줄이 남는다.
- */
-export const topSurfaceColorOf = (pathname: string): string | null => {
-  const path = normalize(pathname);
-
-  if (path === '/') return 'var(--color-ink)';
-  if (path === '/map') return null;
-
-  if (path.startsWith('/place/')) {
-    const place = getPlace(path.slice('/place/'.length));
-    if (place) return typeTint(place.type, 22);
-  }
-
-  return 'var(--color-bg-secondary)';
 };

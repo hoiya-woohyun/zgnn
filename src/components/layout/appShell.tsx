@@ -6,7 +6,7 @@ import { AppBar } from './appBar';
 import { AppSidebar } from './appSidebar';
 import { AppTabBar } from './appTabBar';
 import { stampHistoryDepth } from '../../lib/appHistory';
-import { isRootRoute, parentRouteOf, topSurfaceColorOf } from '../../lib/appRoutes';
+import { isRootRoute, parentRouteOf } from '../../lib/appRoutes';
 
 /**
  * 스크롤 화면의 아래 여백. 탭바 높이(appTabBar)에 여유를 더해
@@ -27,16 +27,24 @@ const CONTENT_BOTTOM_SPACE = 'calc(76px + env(safe-area-inset-bottom, 0px))';
  * 손대면 되고 화면 쪽에서는 아무것도 하지 않는다.
  *
  * 상태바(safe-area-inset-top)도 같은 방식이다(ADR-010). `viewportFit: cover` 라 내용이 상태바
- * 밑까지 깔리는데, 그 자리를 화면마다 자기 색으로 메우게 두면 하나만 빠져도 노치 기기에서만
- * 깨진다. 그래서 셸이 인셋 높이의 띠를 화면 위에 고정하고 내용은 그만큼 내려 시작한다 —
- * 띠 색은 `topSurfaceColorOf` 가 화면 맨 위 면과 같게 답한다(홈은 잉크, 상세는 종류 색).
- * 지도만 `null` 이라 띠도 여백도 없다 — 타일이 상태바 밑까지 깔리는 편이 지도답다.
+ * 밑까지 깔리는데, 그 자리를 화면마다 알아서 피하게 두면 하나만 빠져도 노치 기기에서만 깨진다.
+ * 그래서 **여백은 여기 한 곳에서만 준다** — `<main>` 에 인셋만큼 위 여백. 화면 쪽에서
+ * `pt-safe` 를 붙일 일이 없다.
+ *
+ * 그 여백은 아무도 칠하지 않아 페이지 바탕(크림)이 비친다. **맨 위 면은 전 화면 크림이므로
+ * 그것으로 끝난다**(ADR-010 v3) — 셸은 어떤 화면의 맨 위가 무슨 색인지 알 필요가 없다.
+ *
+ * v1 은 셸이 인셋 높이의 띠를 fixed 로 깔고 경로표가 그 색을 복제했고, v2 는 그 띠를 버린
+ * 대신 화면 첫 블록(`data-top-surface`)의 색을 읽어 `<html>` 배경에 옮겨 담았다. 둘 다 "화면마다
+ * 맨 위 색이 다르다" 는 전제에서 나온 장치다. 그 전제를 없애니 장치도 함께 없어졌다 —
+ * `<html>` 배경은 globals.css 가 크림으로 정적으로 칠하고, 아무도 덮어쓰지 않는다.
+ *
+ * 지도만 여백이 없다 — 타일이 상태바 밑까지 깔리는 편이 지도답다.
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isMap = pathname.startsWith('/map');
   const showBack = !isRootRoute(pathname);
-  const topSurfaceColor = topSurfaceColorOf(pathname);
 
   useEffect(() => {
     // 화면을 옮기면 스크롤을 위로 되돌린다. 목록에서 상세로 갔다가 돌아올 때 위치가 튀지 않게.
@@ -49,15 +57,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh bg-secondary">
       <AppSidebar />
-
-      {/* 상태바 뒤의 띠. 시트·모달(z-50 이상)보다는 아래라 오버레이가 상태바까지 어둡게 덮는다. */}
-      {topSurfaceColor && (
-        <div
-          aria-hidden="true"
-          className="h-status-bar pointer-events-none fixed inset-x-0 top-0 z-40 md:left-64"
-          style={{ backgroundColor: topSurfaceColor }}
-        />
-      )}
 
       <div className="md:pl-64">
         <main

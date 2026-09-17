@@ -150,23 +150,25 @@
 }
 
 /*
-  상태바 뒤에 고정되는 띠(appShell)의 높이. 색은 lib/appRoutes.ts 의 topSurfaceColorOf 가 정한다.
+  상태바 인셋 자리를 **자기 배경으로** 칠하며 위로 번지는 블록(ADR-010 v2).
 
-  iOS 에서만 최소 4px 을 준다 — Safari 26 은 theme-color 를 무시하고, 화면 위·아래 가장자리에
-  붙은 fixed 요소의 background-color 를 읽어 자기 툴바를 칠한다(폭 80% 이상·높이 3px 이상).
-  브라우저 탭에서는 인셋이 0 이라 띠 높이도 0 이 돼 읽히지 않으므로, 읽힐 만큼만 남긴다.
-  화면에서는 바로 아래 내용과 같은 색이라 보이지 않는다. -webkit-touch-callout 은 iOS 에만
-  있는 속성이라 데스크톱·Android 에는 이 최소 높이가 걸리지 않는다.
+  셸은 `<main>` 에 인셋만큼 위 여백을 주기만 한다 — 그 여백은 아무도 칠하지 않으므로 페이지
+  바탕(크림)이 비친다. **맨 위 면은 전 화면 크림이라(ADR-010 v3) 그 비침이 곧 정답이고**,
+  이 유틸이 남은 자리는 하나뿐이다 — 둘러보기의 sticky 검색 줄(`bleed-top-4`). 위에 붙었을 때
+  자기 블러 배경으로 인셋 자리를 덮으려는 것이지 색을 바꾸려는 게 아니다. 숫자는 인셋이 없을
+  때의 원래 위 여백이다.
+
+  **색을 다른 곳에 베껴 적지 않는 것이 요점이다.** 예전에는 셸이 인셋 높이의 띠를 fixed 로
+  깔고 경로표(topSurfaceColorOf)가 화면 첫 블록의 색을 문자열로 복제해 칠했다. 색이 어긋나면
+  그 화면에서만 다른 색 줄이 남고, 띠가 fixed 라 스크롤을 내리면 색이 맞지 않는 내용 위에
+  홀로 떠 있었다. 진짜 색을 가진 블록이 직접 번지면 두 고장이 정의상 불가능하다.
 */
-@utility h-status-bar {
-  height: env(safe-area-inset-top, 0px);
-
-  @supports (-webkit-touch-callout: none) {
-    height: max(env(safe-area-inset-top, 0px), 4px);
-  }
+@utility bleed-top-* {
+  margin-top: calc(-1 * env(safe-area-inset-top, 0px));
+  padding-top: calc(var(--spacing) * --value(integer) + env(safe-area-inset-top, 0px));
 }
 
-/* 스크롤을 따라오는 줄(appBar · 둘러보기 검색 줄)이 상태바 띠 바로 아래에 붙도록. */
+/* 스크롤을 따라오는 줄(appBar)이 상태바 밑에 깔리지 않고 그 아래에 붙도록. */
 @utility top-safe {
   top: env(safe-area-inset-top, 0px);
 }

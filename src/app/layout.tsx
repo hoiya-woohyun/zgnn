@@ -42,7 +42,18 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: '강아지랑제주',
-    statusBarStyle: 'black-translucent',
+    /*
+      맨 위 면이 전 화면 크림이 되면서(ADR-010 v3) 흰 글씨를 강제하는 `black-translucent` 는
+      쓸 수 없다 — 크림 위의 흰 글씨는 읽히지 않는다. `default` 가 검정 글씨 쪽 값이다.
+
+      **`viewport-fit: cover` 와 만났을 때 내용이 상태바 밑까지 깔리는지는 실기기 확인 대상이다**
+      (iOS 버전마다 보고가 갈린다). 레이아웃이 안 깨지는 것까지만 단언할 수 있다 — 깔리면 셸이
+      주는 인셋 여백(크림)이 그 자리를 쓰고, 안 깔리면 인셋이 0 이 되어 여백만 사라진다.
+
+      안 깔리는 경우 그 띠는 우리 뷰포트 밖이라 iOS 가 칠한다. 아래 `themeColor`(크림)를 쓸지
+      시스템 흰색으로 떨어질지는 **확인 전까지 모른다.** 글씨가 검정이 되는 것만 보장된다.
+    */
+    statusBarStyle: 'default',
   },
   icons: {
     icon: [{ url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
@@ -54,7 +65,12 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#2e2327',
+  /*
+    페이지 바탕(크림, `--color-neutral-50`). 예전에는 잉크(#2e2327)였다 — 홈 히어로가 맨 위
+    면이던 시절의 값이라 나머지 화면에서는 어두운 띠가 됐다. 맨 위 면을 전 화면 크림으로
+    통일하면서(ADR-010 v3) 한 값으로 맞는다. manifest.ts 의 `theme_color` 와 같이 움직인다.
+  */
+  themeColor: '#faf8f4',
   // 다크 모드는 범위 밖이다. 토큰은 준비돼 있지만 .dark-mode 를 켜지 않는다.
   colorScheme: 'light',
 };

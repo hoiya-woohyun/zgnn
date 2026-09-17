@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Heart, Map01 } from '@untitledui/icons';
 import { HomeTypeCard } from './homeTypeCard';
 import { AuthorAvatar } from '../components/authorAvatar';
+import { CollapsingTitleBar } from '../components/layout/collapsingTitleBar';
 import { Button } from '../components/base/button';
 import { SeasonChips } from '../components/seasonChips';
 import { dogCallNames, withJosa } from '../lib/korean';
@@ -59,32 +60,43 @@ export function HomePage() {
 
   return (
     <div>
-      {/* 히어로는 AppShell 의 중앙 정렬 폭을 넘어 화면 끝까지 깔리는 유일한 구역이라
-          여기만 px-4 md:px-6, 그 아래부터는 계약서가 정한 좌우 패딩을 그대로 쓴다. */}
-      <header className="basalt px-4 pt-10 pb-16 text-white md:px-6">
-        <PawMark />
-        <h1 className="mt-3 text-display-sm font-bold">강아지랑 제주</h1>
-        <p className="mt-1.5 text-sm text-white/65">
-          {dog
-            ? `${withJosa(dogCallNames(dog.dogs.map((d) => d.name)), '이랑/랑')} 제주 어디 갈까요?`
-            : '짱구누나의 반려견 동반 제주 가이드'}
-        </p>
+      {/* 잉크 히어로가 화면 밖으로 나가면 크림 바탕만 남아 위쪽이 허전해진다 —
+          그때 축약 줄이 대신 자리를 잡는다. 히어로가 곧 제목 블록이라 이것만 감싼다. */}
+      <CollapsingTitleBar title="강아지랑 제주">
+        {/* 히어로는 이제 크림 위에 뜬 라운드 판이다. 좌우 여백·시작 높이를 PageHeader 와 같은
+            `px-4 pt-6 md:px-6 md:pt-10` 으로 맞춰, 다른 루트 화면과 첫 블록이 같은 자리에서
+            시작한다. 예전에는 이 구역만 끝까지 깔린 데다 상태바 뒤까지 번졌는데(bleed-top-10),
+            맨 위 면을 전 화면 크림으로 통일하면서 그 예외를 버렸다(ADR-010 v3) — 위에 남는
+            크림이 곧 상태바 띠 색이라 셸이 브라우저에 색을 건네줄 일이 없어졌다. */}
+        <div className="px-4 pt-6 md:px-6 md:pt-10">
+          <header className="basalt rounded-2xl p-6 text-white">
+            <PawMark />
+            <h1 className="mt-3 text-display-sm font-bold">강아지랑 제주</h1>
+            <p className="mt-1.5 text-sm text-white/65">
+              {dog
+                ? `${withJosa(dogCallNames(dog.dogs.map((d) => d.name)), '이랑/랑')} 제주 어디 갈까요?`
+                : '짱구누나의 반려견 동반 제주 가이드'}
+            </p>
 
-        <dl className="mt-7 flex overflow-hidden rounded-2xl border border-white/12 bg-white/6">
-          {PLACE_TYPES.map((type, index) => (
-            <div key={type} className={`flex-1 px-3 py-2.5 ${index > 0 ? 'border-l border-white/12' : ''}`}>
-              <dt className="text-xs text-white/55">{TYPE_META[type].label}</dt>
-              <dd className="text-lg font-bold text-white">
-                {countByType[type]}
-                <span className="text-sm font-normal text-white/55">곳</span>
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </header>
+            <dl className="mt-6 flex overflow-hidden rounded-xl border border-white/12 bg-white/6">
+              {PLACE_TYPES.map((type, index) => (
+                <div key={type} className={`flex-1 px-3 py-2.5 ${index > 0 ? 'border-l border-white/12' : ''}`}>
+                  <dt className="text-xs text-white/55">{TYPE_META[type].label}</dt>
+                  <dd className="text-lg font-bold text-white">
+                    {countByType[type]}
+                    <span className="text-sm font-normal text-white/55">곳</span>
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </header>
+        </div>
+      </CollapsingTitleBar>
 
+      {/* 예전에는 `-mt-10` 으로 히어로 위에 겹쳐 올렸다. 히어로가 라운드 판이 되면서 그 겹침이
+          판의 아래 모서리를 덮어 버려(같은 폭이다) 판으로 보이지 않게 된다 — 겹치지 않고 아래에 둔다. */}
       <div className="px-4 md:px-6">
-        <section className="-mt-10 rounded-2xl border border-secondary bg-primary p-5 shadow-lg">
+        <section className="mt-4 rounded-2xl border border-secondary bg-primary p-5 shadow-lg">
           <p className="whitespace-pre-line text-sm text-secondary">{META.intro}</p>
           {/* 편지 서명처럼 오른쪽 아래. 첫 화면에서 "누가 쓴 자료인가" 를 얼굴로 한 번 더 말한다. */}
           <p className="mt-3 flex items-center justify-end gap-2 text-sm font-semibold text-brand-secondary">

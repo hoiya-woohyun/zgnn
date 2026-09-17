@@ -12,7 +12,9 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: '/',
     display: 'standalone',
     orientation: 'portrait',
-    theme_color: '#2e2327',
+    // 맨 위 면이 전 화면 크림이라 스플래시 바탕과 같은 값이다(ADR-010 v3).
+    // layout.tsx 의 viewport.themeColor 와 짝이다 — 한쪽만 바꾸면 어긋난다.
+    theme_color: '#faf8f4',
     background_color: '#faf8f4',
     icons: [
       { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
