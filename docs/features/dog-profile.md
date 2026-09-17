@@ -1,7 +1,8 @@
 # 내 강아지 프로필과 장소별 판정
 
 > 상태: 구현됨 — 프로필 등록·판정 로직(A2·B1), 상세 화면 반영(B2), 목록·지도·홈 반영(B3) 모두 완료.
-> 최종 수정: 2026-09-16 (v2: 마리별 이름 — `TDogProfile.dogs[]`, 옛 `{name, weightsKg}` 는 읽을 때 올려 변환. 요금 문구가 마릿수 합산(`formatDogFee`)·애칭 조사(`korean.ts`)를 갖고, 판정 레벨 문구를 문장형으로("갈 수 있어요 / 확인이 필요해요 / 정보가 없어요 / 이용하기 어려워요"). 프로필 진입이 설정 탭으로)
+> 최종 수정: 2026-09-17 (v3: 폼이 기다리는 기준을 "읽기가 끝났나" 로 — 저장된 값이 깨지면 로딩에 갇히던 문제 → BUG-002)
+> 이전 (v2: 마리별 이름 — `TDogProfile.dogs[]`, 옛 `{name, weightsKg}` 는 읽을 때 올려 변환. 요금 문구가 마릿수 합산(`formatDogFee`)·애칭 조사(`korean.ts`)를 갖고, 판정 레벨 문구를 문장형으로("갈 수 있어요 / 확인이 필요해요 / 정보가 없어요 / 이용하기 어려워요"). 프로필 진입이 설정 탭으로)
 > 이전 (v1 · B3: 둘러보기·홈·지도·근처 장소에 판정 반영)
 > 결정 근거: [ADR-005](../decisions/ADR-005-dog-profile-eligibility.md) · 판정 규칙: [architecture/pet-policy-and-eligibility.md](../architecture/pet-policy-and-eligibility.md)
 
@@ -59,6 +60,7 @@ export type TDogProfile = {
 
 - 마리별 행(`DogProfileDogRows`, 최대 3행, "한 마리 더"/행 삭제) — 행마다 이름(필수, 12자) + 몸무게. 입력 중에는 채워 넣은 값이 틀렸을 때만(0 이하·숫자 아님·12자 초과) 행 에러를 보이고, 빈 칸은 저장을 눌렀을 때 잡는다("이름을 입력해 주세요"/"몸무게를 입력해 주세요") · 이동 수단 4택(`DogProfileCarrierPicker`, 각 한 줄 설명) · "크기 수정" 접힘(`DogProfileSizeOverride`, 자동 계산값 표시 + 셀렉트로 override) · 저장(홈으로 이동) · 등록돼 있으면 삭제(확인 없이 즉시 + 화면 안 배너로 안내, `window.confirm` 미사용).
 - `useAppStore` 가 `skipHydration: true` 라 첫 렌더는 항상 `dog: null` 이다. 폼은 하이드레이션이 끝날 때까지 그리지 않고("불러오는 중"), 끝난 시점의 `dog` 로 한 번만 초기값을 채운다(렌더 중 상태 조정 패턴 — 이펙트로 하면 빈 폼이 한 프레임 보였다가 채워진다).
+  - 기다리는 기준은 **"읽기가 끝났나"**(`useStoreHydrated()`)지 "성공했나"(`persist.hasHydrated()`)가 아니다. 저장된 값이 깨지면 후자는 영원히 false 라 이 화면이 "불러오는 중이에요…" 에 갇혔다(→ [BUG-002](../bugs/BUG-002-hydration-deadlock.md)). 읽기에 실패했으면 **저장된 것이 없는 사람과 같은 상태**로 빈 폼을 그린다.
 
 ## 판정 — 구현됨
 

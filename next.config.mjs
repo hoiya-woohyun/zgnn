@@ -97,6 +97,21 @@ const withSerwist = withSerwistInit({
 const nextConfig = {
   output: 'export',
   trailingSlash: true,
+  /*
+   * 폰에서 `next dev` 를 LAN 주소로 볼 때 필요하다.
+   *
+   * Next 16 은 localhost 가 아닌 출처의 `/_next/*` 요청을 403 으로 막고 HMR 웹소켓
+   * 핸드셰이크도 거절한다. 그러면 HTML 과 링크는 멀쩡한데 **하이드레이션만 죽어서**,
+   * 버튼을 눌러도 시트가 안 열리고 스크롤해도 접히는 줄이 안 나타난다 — "iOS 사파리에서만
+   * 고장" 처럼 보이는 자리다(데스크톱은 localhost 로 보니까). 콘솔에 남는 단서는
+   * `ws://<IP>:7727/_next/hmr ... ERR_INVALID_HTTP_RESPONSE` 하나뿐이다.
+   *
+   * 사설 대역을 통째로 적는다. 특정 IP 를 박아 두면 공유기가 주소를 다시 나눠 줄 때마다
+   * 같은 고장이 돌아오는데, 그때 단서가 위 한 줄뿐이라 원인을 다시 찾게 된다.
+   *
+   * 개발 서버에만 적용된다 — `output: 'export'` 산출물에는 아무 영향이 없다.
+   */
+  allowedDevOrigins: ['192.168.*.*', '10.*.*.*'],
   images: { unoptimized: true },
   /*
    * `next dev` 가 프로젝트 루트에 AGENTS.md / CLAUDE.md 를 자동 생성하는 기능을 끈다.

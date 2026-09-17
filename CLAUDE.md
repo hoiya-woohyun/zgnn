@@ -13,6 +13,7 @@ Tailwind v4 + Untitled UI · zustand persist · leaflet. 데이터는 빌드 시
 | 이용 조건 파싱·판정 로직 | [docs/architecture/pet-policy-and-eligibility.md](docs/architecture/pet-policy-and-eligibility.md) · `src/lib/petPolicy.ts` · `src/lib/eligibility.ts` |
 | 준비물·장소별 필요 물건 | [docs/features/checklist.md](docs/features/checklist.md) · [docs/decisions/ADR-009-trip-derived-checklist.md](docs/decisions/ADR-009-trip-derived-checklist.md) · `src/lib/itemNeeds.ts` |
 | 라우팅·화면 셸·클라이언트 상태 | [docs/architecture/app-shell-and-state.md](docs/architecture/app-shell-and-state.md) · `src/store/useAppStore.ts` |
+| 둘러보기 좌우 스와이프·탭 전환 애니메이션 | [docs/decisions/ADR-013-places-swipe-pager.md](docs/decisions/ADR-013-places-swipe-pager.md) · `src/screens/placesPageSwipe.ts` · `src/lib/swipePager.ts` |
 | 뒤로가기가 안 보임·새 화면 추가 | [docs/decisions/ADR-007-shell-owned-back-navigation.md](docs/decisions/ADR-007-shell-owned-back-navigation.md) · `src/lib/appRoutes.ts` |
 | 노치·상태바 밑으로 내용이 들어감 | [docs/decisions/ADR-010-shell-owned-safe-area.md](docs/decisions/ADR-010-shell-owned-safe-area.md) · `src/lib/appRoutes.ts` 의 `topSurfaceColorOf` |
 | 데이터 갱신·정규화 | [docs/architecture/data-pipeline.md](docs/architecture/data-pipeline.md) · `scripts/normalize.mjs` |
@@ -27,6 +28,10 @@ Tailwind v4 + Untitled UI · zustand persist · leaflet. 데이터는 빌드 시
 
 빌드가 통과하거나 화면이 그려지는데도 기능이 사라지는 경우들이다.
 
+- **폰에서 버튼·스크롤 반응만 죽고 콘솔에 `_next/hmr` 웹소켓 에러만 있으면 iOS 가 아니라
+  `allowedDevOrigins` 다.** Next 16 이 localhost 밖 출처의 dev 요청을 막는데, 정적 HTML 과
+  링크는 그대로라 하이드레이션만 조용히 안 끝난다. 사설 대역은 `next.config.mjs` 에 넣어 뒀고,
+  `172.16~31.*.*`·`*.local`·터널 도메인은 한 줄 더한다(→ [BUG-004](docs/bugs/BUG-004-lan-dev-origin-blocked.md)).
 - **`pnpm build` 의 `--webpack` 은 필수.** `@serwist/next` 가 webpack 플러그인이라, 빼면
   빌드는 통과하지만 `sw.js` 가 안 만들어져 PWA 가 조용히 사라진다. `dev` 의 `--turbopack`
   명시도 필수(webpack 설정만 있으면 Next 16 이 빌드를 멈춘다).

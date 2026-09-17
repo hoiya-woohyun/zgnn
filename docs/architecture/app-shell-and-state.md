@@ -1,7 +1,9 @@
 # 라우팅 · 화면 셸 · 클라이언트 상태
 
-> 최종 수정: 2026-09-17 (v10: 메인 탭에서 제목이 스크롤로 사라지면 축약 줄이 대신 나타난다 — `CollapsingTitleBar`(홈·준비물))
-> 최종 수정: 2026-09-17 (v10: 맨 위 면을 전 화면 크림으로 통일 — `<html>` 배경 동기화·`under-app-bar` 삭제, 홈 히어로는 라운드 판 → [ADR-010 v3](../decisions/ADR-010-shell-owned-safe-area.md))
+> 최종 수정: 2026-09-17 (v12: 둘러보기 종류를 손가락으로 좌우로 넘긴다 — 끌리는 동안 이웃 목록이 옆에서 엿보이고, 놓으면 밀어낸 뒤 주소를 바꾼다(`placesPageSwipe`·`placesPageSwipePeek`) → [ADR-013](../decisions/ADR-013-places-swipe-pager.md))
+> 이전 (v11: 축약 줄이 상태바 뒤에서 미끄러져 내려온다. 둘러보기 종류 전환에 방향을 붙였다 — 알약이 옮겨 가고 목록이 그쪽에서 들어온다(`placesPageTypeTabs`·`placesPageTypeSwitch`). 하이드레이션 신호를 "성공했나" 에서 "끝났나" 로 → [BUG-002](../bugs/BUG-002-hydration-deadlock.md))
+> 이전 (v10: 메인 탭에서 제목이 스크롤로 사라지면 축약 줄이 대신 나타난다 — `CollapsingTitleBar`(홈·준비물))
+> 이전 (v10: 맨 위 면을 전 화면 크림으로 통일 — `<html>` 배경 동기화·`under-app-bar` 삭제, 홈 히어로는 라운드 판 → [ADR-010 v3](../decisions/ADR-010-shell-owned-safe-area.md))
 > 이전 (v9: 상태바 인셋의 색 띠를 버리고 첫 블록이 직접 위로 번지게(`bleed-top-*`) — `topSurfaceColorOf` 삭제 → [ADR-010 v2](../decisions/ADR-010-shell-owned-safe-area.md). 있는 탭을 다시 누르면 맨 위로)
 > 이전 (v8: 상태바 인셋도 셸이 처리 — 인셋 높이의 색 띠 + 내용 여백, 색은 `topSurfaceColorOf` → [ADR-010](../decisions/ADR-010-shell-owned-safe-area.md). 탭바 불투명)
 > 이전 (v7: 뒤로가기 줄이 스크롤을 따라온다(`sticky`) → [ADR-007 v2](../decisions/ADR-007-shell-owned-back-navigation.md). 하단 시트 바닥 여백 = 내용 여백 + safe-area(`pb-sheet`). 준비물 묶음을 '어디서 쓰는가' 로 → [ADR-009 v2](../decisions/ADR-009-trip-derived-checklist.md))
@@ -141,6 +143,44 @@ viewport 에 고정돼 스크롤을 내리면 색이 안 맞는 내용 위에 �
   을 함께 본다.
 - 줄 전체가 `aria-hidden` 이다. 제목도 진행률도 본문에 진짜가 있고 여기 것은 복사본이라,
   스크린리더가 두 번 읽으면 안 된다.
+- **상태바 뒤에서 미끄러져 내려온다.** 접히면 `-translate-y-full` → `0`. 이 요소의 높이에는
+  상태바 인셋(`paddingTop`)이 들어 있어서 올라가 있는 동안에는 인셋까지 통째로 화면 밖이다 —
+  그래서 "노치 위에서 내려온다" 로 보인다. 페이드만 하던 판은 같은 자리에서 색만 짙어져,
+  없던 줄이 생겼다기보다 화면이 얼룩진 것처럼 보였다.
+  배경(`bg-secondary`)은 페이지 바탕과 **같은 값**이라(ADR-010 v3 의 크림) 내려오는 동안
+  새 면이 덮이는 느낌이 아니라 제목과 아래 경계선만 나타난다. 여기서 다른 색을 쓰면 그
+  순간 화면이 두 층으로 쪼개져 보인다. 들어올 때 300ms `ease-out`, 나갈 때 200ms `ease-in`.
+
+### 종류 전환은 방향을 가진다 (`placesPageTypeTabs` · `placesPageTypeSwitch`)
+
+둘러보기의 숙소·식당·카페는 나란히 놓인 세 묶음이다. 고른 탭의 배경을 켜고 끄기만 하면
+"옛 것이 꺼지고 새 것이 켜졌다" 일 뿐, **그 사이를 옮겨 갔다는 말은 못 한다.** 그래서 알약
+하나가 탭 사이를 옮겨 다니고, 새 목록도 알약이 간 쪽에서 따라 들어온다.
+
+- **"어디서 왔는지" 는 모듈 변수에만 남는다.** 종류를 바꾸면 화면이 통째로 새로 마운트된다
+  (`key={type}` — 조건을 리셋하려고 일부러 그렇게 뒀다). 그래서 어떤 컴포넌트 상태도
+  전환을 넘어 살아남지 못한다. `placesPageTypeSwitch.ts` 의 `lastType` 이 그 자리다.
+  주소를 새로 열면 `null` 이라 아무 데서도 오지 않은 것이 되고, 그때는 움직이지 않는다 —
+  첫 화면이 이유 없이 흔들리지 않게.
+- **알약의 렌더는 늘 도착점이다.** 출발점을 그렸다가 옮기는 방법은 이펙트가 곧바로 리렌더를
+  부르는 모양이라 린트가 막는다(`react-hooks/set-state-in-effect`). 대신 도착점에 그려 두고
+  거기까지 오는 길만 `element.animate()` 로 따로 그린다 — **애니메이션의 중간 좌표는 리액트가
+  알아야 할 상태가 아니다.** 정적 HTML 에도 올바른 자리로 박혀 나온다.
+- 알약 폭은 `calc((100% - var(--spacing) * 2) / 종류 수)`. 절대 위치의 기준이 `nav` 의 padding box 라
+  이 식이 탭 하나의 폭과 정확히 같고, 종류가 늘어도 식은 그대로다. 패딩을 `0.5rem` 으로 굳히면
+  안 된다 — `p-1` 은 `--spacing` 파생이라 브레이크포인트마다 값이 바뀐다(ADR-006).
+- 목록은 `animate-in` + `slide-in-from-{left,right}-4`. 들어오는 동안 잠깐 밖에 있는 1rem 이
+  가로 스크롤을 만들지 않게 `overflow-x-clip` 으로 막는다(`hidden` 과 달리 스크롤 컨테이너를
+  만들지 않아 위의 `sticky` 를 건드리지 않는다).
+- 모션을 줄이기로 한 사용자에게는 둘 다 도착점만. CSS 쪽은 `globals.css` 의 전역
+  `prefers-reduced-motion` 리셋이 이미 끄고, WAAPI 는 그 리셋이 닿지 않으므로 알약 쪽은
+  `matchMedia` 로 직접 판단한다(`appTabBar` 와 같은 규칙).
+- **손가락으로도 넘긴다**(`placesPageSwipe`). 가로로 잠기면 목록과 알약이 손가락을 따라가고,
+  이웃 종류의 본문이 옆에서 엿보인다(`placesPageSwipePeek` — 절대 위치·`inert`, 새 화면이
+  마운트됐을 때와 같은 모습). 놓으면 남은 거리를 밀어낸 뒤 `router.push`. 새 화면이 또
+  미끄러지지 않도록 도착점을 `lastType` 에 미리 적는다(`arriveBySwipe`). 왜 캐러셀이 아니라
+  엿보기인지, 축 고정·`touch-action`·끝 저항·iOS 가장자리는 [ADR-013](../decisions/ADR-013-places-swipe-pager.md).
+  본문(개수 줄·목록·빈 상태)은 `placesPageResults` 로 떼어 두어 지금 화면과 엿보기가 같은 것을 그린다.
 
 ### 둘러보기 조건은 모바일에서 접힌다
 
@@ -204,6 +244,13 @@ Untitled UI 의 `Button href` / `Link` 는 react-aria 라 기본은 전체 새�
 
 - **하이드레이션**: HTML 이 빌드 때 만들어지므로 첫 렌더에서 localStorage 를 읽으면 서버 HTML 과 어긋난다.
   `skipHydration: true` 로 두고 `src/providers/storeHydration.tsx` 가 마운트 뒤 `rehydrate()` 한다. 첫 프레임의 "저장한 곳 0" 은 의도.
+- **"읽기가 끝났나" 는 `useStoreHydrated()` 로 묻는다. `persist.hasHydrated()` 를 쓰지 않는다** —
+  그쪽은 "성공했나" 라서 저장된 값이 깨져 있으면 **영원히 false** 다. 그것을 "아직 읽는 중" 으로
+  읽은 화면은 로딩 문구에 갇힌다(→ [BUG-002](../bugs/BUG-002-hydration-deadlock.md)).
+  스토어가 성공·실패를 가리지 않는 신호(`hydrationSettled`)를 따로 올리고, 실패한 값은
+  `onRehydrateStorage` 에서 지운다 — 남겨 두면 다음 로드에서도 같은 자리에서 또 실패한다.
+  이 훅이 필요한 곳은 **없는 것을 근거로 말을 거는 화면**뿐이다(등록 폼·"아직 안 챙겼어요").
+  "0 에서 실제 값으로 채워지는" 것은 첫 프레임이 틀려도 해가 없어 그냥 그리면 된다.
 - **정합성**: `merge` 에서 데이터에 더 이상 없는 id 를 걸러낸다. Notion 자료가 바뀌어 장소가 사라져도 저장 목록이 깨지지 않는다. `town` 도 같은 이유로 `ALL_TOWNS`(`lib/places.ts`)에 없는 값이면 `null` 로 되돌린다.
 - v1 의 강아지 프로필도 이 스토어에 필드로 들어간다(→ [features/dog-profile.md](../features/dog-profile.md)). 서버가 없으니 다른 선택지가 없다.
 

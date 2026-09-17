@@ -19,8 +19,17 @@ import { cx } from '../../utils/cx';
  * 위에 떠서 그 자리를 덮는 것은 자기 배경을 그만큼 위로 늘려야 한다 — 안 그러면 노치
  * 기기에서 이 줄 위로 내용이 스쳐 지나간다.
  *
+ * **상태바 뒤에서 미끄러져 내려온다.** 접히는 순간 `-translate-y-full` → `0` 으로 제자리를
+ * 찾는다. 이 요소의 높이에는 상태바 인셋(`paddingTop`)이 들어 있어서, 올라가 있는 동안에는
+ * 인셋까지 통째로 화면 밖이다 — 그래서 "노치 위에서 내려온다" 로 보인다. 페이드만 하던
+ * 예전 판은 같은 자리에서 색만 짙어져, 없던 줄이 생겼다기보다 화면이 얼룩진 것처럼 보였다.
+ *
+ * 배경색(`bg-secondary`)은 페이지 바탕과 **같은 값**이다(ADR-010 v3 의 크림). 그래서 내려오는
+ * 동안 새 면이 덮이는 느낌이 아니라 제목 줄과 아래 경계선만 나타난다 — 여기서 다른 색을
+ * 쓰면 그 순간 화면이 두 층으로 쪼개져 보인다.
+ *
  * **배경은 불투명이어야 한다.** 이 줄은 `fixed top-0` 이고, 접히지 않은 동안 사라지는 게
- * 아니라 `opacity-0` 으로 **남아 있다.** iOS 26 Safari 는 가장자리에 붙은 fixed/sticky 요소의
+ * 아니라 화면 위로 물러난 채 **남아 있다.** iOS 26 Safari 는 가장자리에 붙은 fixed/sticky 요소의
  * `background-color` 를 읽어 자기 툴바를 칠하는데, 그 휴리스틱이 opacity 까지 보는지는 알 수
  * 없다 — 즉 **보이지 않는 이 줄이 브라우저 띠 색을 결정할 수 있다.** 반투명이면 흐려진 색이
  * 건너간다. 탭바를 불투명으로 바꾼 것과 같은 이유다(ADR-010). 맨 위 면이 전 화면 크림인
@@ -94,8 +103,13 @@ export function CollapsingTitleBar({ title, trailing, percent, children }: TColl
       <div
         aria-hidden="true"
         className={cx(
-          'fixed inset-x-0 top-0 z-30 border-b border-secondary bg-secondary transition-opacity duration-200 md:left-64',
-          collapsed ? 'opacity-100' : 'pointer-events-none opacity-0',
+          'fixed inset-x-0 top-0 z-30 border-b border-secondary bg-secondary md:left-64',
+          'transition-[transform,opacity] will-change-transform',
+          collapsed
+            ? 'translate-y-0 opacity-100 duration-300 ease-out'
+            : 'pointer-events-none -translate-y-full opacity-0 duration-200 ease-in',
+          // 모션을 줄이기로 한 사용자에게는 미끄러짐 없이 페이드만. 도착점은 같다(appTabBar 와 같은 규칙).
+          'motion-reduce:translate-y-0 motion-reduce:transition-opacity',
         )}
         style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
       >

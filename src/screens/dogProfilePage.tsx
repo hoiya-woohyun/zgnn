@@ -7,6 +7,7 @@ import { HintText } from '../components/base/hint-text';
 import { PageHeader } from '../components/layout/pageHeader';
 import { DOG_NAME_MAX_LENGTH, MAX_DOGS } from '../lib/dogProfile';
 import { dogSize } from '../lib/eligibility';
+import { useStoreHydrated } from '../providers/storeHydration';
 import { useAppStore, useDog } from '../store/useAppStore';
 import { DogProfileCarrierPicker } from './dogProfileCarrierPicker';
 import { DogProfileDogRows, type TDogRowDraft, type TDogRowError } from './dogProfileDogRows';
@@ -52,32 +53,16 @@ const submitRowError = (row: TDogRowDraft): TDogRowError => {
 
 const hasRowError = (error: TDogRowError) => Boolean(error.name || error.weightKg);
 
-/**
- * `useAppStore` 가 `skipHydration: true` 라 첫 렌더는 항상 `dog: null` 이다(providers/storeHydration.tsx).
- * 하이드레이션이 끝나기 전에 폼 초기값을 비워 둔 채로 보여주면, 이미 등록해 둔 프로필이 있는
- * 사용자에게 "삭제" 버튼이 없다가 잠깐 뒤에 나타나거나(깜빡임), 그 틈에 저장을 누르면 기존
- * 프로필을 빈 값으로 덮어써 버릴 수 있다. 그래서 하이드레이션이 끝날 때까지 폼을 그리지 않는다.
+/*
+ * 폼을 하이드레이션 뒤로 미루는 이유 — `useAppStore` 가 `skipHydration: true` 라 첫 렌더는
+ * 항상 `dog: null` 이다(providers/storeHydration.tsx). 그 상태로 폼을 먼저 그리면 이미
+ * 등록해 둔 사용자에게 "삭제" 버튼이 없다가 뒤늦게 나타나고(깜빡임), 그 틈에 저장을 누르면
+ * 기존 프로필을 빈 값으로 덮어쓴다.
+ *
+ * 기다리는 기준은 **"읽기가 끝났나"** 지 "성공했나" 가 아니다. 예전에는 이 화면이
+ * `persist.hasHydrated()` 를 보는 자기 훅을 따로 갖고 있었는데, 저장된 값이 깨지면 그 값이
+ * 영원히 false 라 "불러오는 중이에요…" 에서 멈췄다(BUG-002). 공용 훅 하나만 쓴다.
  */
-function useStoreHydrated(): boolean {
-  // 정적 내보내기라 이 컴포넌트는 빌드 시점에 Node 에서도 한 번 렌더된다(프리렌더).
-  // 그 렌더 중에 `useAppStore.persist` 를 곧바로 만지면(예: useState 의 lazy 이니셜라이저)
-  // 브라우저 전용 가정이 깨질 수 있어, 초기값은 항상 false 로 두고 useEffect 안에서만
-  // 접근한다 — providers/storeHydration.tsx 와 같은 원칙.
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    const unsubscribe = useAppStore.persist.onFinishHydration(() => setHydrated(true));
-    // 클라이언트 라우팅으로 들어온 경우 하이드레이션이 이미 오래전에 끝나 있어
-    // onFinishHydration 이벤트가 다시 오지 않는다. 마이크로태스크로 한 번 더 확인한다
-    // (setState 를 이펙트 본문에서 곧장 부르면 린트에 걸려 콜백 안에서 부른다).
-    Promise.resolve().then(() => {
-      if (useAppStore.persist.hasHydrated()) setHydrated(true);
-    });
-    return unsubscribe;
-  }, []);
-
-  return hydrated;
-}
 
 export function DogProfilePage() {
   const router = useRouter();

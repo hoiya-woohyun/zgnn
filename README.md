@@ -36,6 +36,13 @@ localStorage·IndexedDB·**서비스워커 등록**을 통째로 공유합니다
 이 앱의 `fallbacks` 가 캐시에 없는 document 를 `/404.html` 로 돌려주므로, 남의 앱이
 엉뚱한 HTML 을 받고 조용히 깨집니다. 포트를 갈라두면 이 문제가 애초에 생기지 않습니다.
 
+**폰에서 보려면 LAN 주소(`http://192.168.x.x:7727`)로 열면 되는데, 그 출처가
+`next.config.mjs` 의 `allowedDevOrigins` 에 있어야 합니다.** Next 16 이 localhost 밖의 출처를
+막는데, 막혀도 화면은 다 그려지고 링크도 움직여서 **버튼·스크롤 반응만 조용히 죽습니다** —
+"iOS 에서만 안 된다" 로 보이는 고장입니다. 지금은 사설 대역(`192.168.*.*`, `10.*.*.*`)이 통째로
+들어 있어 IP 가 바뀌어도 되지만, `172.16~31.*.*`·`*.local`·터널 도메인은 한 줄 더해야 합니다
+(→ [BUG-004](docs/bugs/BUG-004-lan-dev-origin-blocked.md)).
+
 `build` 에 붙은 `--webpack` 은 취향이 아니라 필수입니다. 서비스워커를 만드는
 `@serwist/next` 는 webpack 플러그인이라 Turbopack(Next 16 기본)에서는 동작하지 않습니다.
 이 플래그를 빼면 빌드는 통과하지만 `sw.js` 가 만들어지지 않아 PWA 가 조용히 사라집니다.

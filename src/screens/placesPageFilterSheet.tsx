@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { FilterLines } from '@untitledui/icons';
 import { PlacesPageEligibilityToggles } from './placesPageEligibilityToggles';
 import { PlacesPageFilters } from './placesPageFilters';
@@ -9,6 +8,9 @@ import type { TPetFilterKey, TPriceSort } from '../lib/placeFilters';
 import type { TDirection, TPlaceType } from '../types';
 
 type TPlacesPageFilterSheetProps = {
+  /** 열림 상태는 placesPage 가 가진다 — 목록의 빈 상태 버튼도 이 시트를 열어야 해서다. */
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
   type: TPlaceType;
   town: string | null;
   directions: TDirection[];
@@ -44,6 +46,8 @@ type TPlacesPageFilterSheetProps = {
  * 조건을 하나씩 풀어 보기에도 낫다.
  */
 export function PlacesPageFilterSheet({
+  isOpen,
+  onOpenChange,
   type,
   town,
   directions,
@@ -57,8 +61,6 @@ export function PlacesPageFilterSheet({
   activeCount,
   onReset,
 }: TPlacesPageFilterSheetProps) {
-  const [isOpen, setIsOpen] = useState(false);
-
   return (
     <>
       <Button
@@ -68,7 +70,7 @@ export function PlacesPageFilterSheet({
         className="h-11 shrink-0"
         aria-haspopup="dialog"
         aria-expanded={isOpen}
-        onClick={() => setIsOpen(true)}
+        onClick={() => onOpenChange(true)}
       >
         필터
         {activeCount > 0 && (
@@ -83,12 +85,34 @@ export function PlacesPageFilterSheet({
         )}
       </Button>
 
-      <BottomSheet isOpen={isOpen} onOpenChange={setIsOpen} label="필터 고르기">
-        {/* 읍면 칩이 많아 시트가 화면보다 길어질 수 있다. 시트 안에서만 스크롤시킨다. */}
-        <div className="max-h-[70dvh] overflow-y-auto pt-2 pr-10">
-          <h2 className="text-md font-bold text-primary">필터</h2>
+      <BottomSheet isOpen={isOpen} onOpenChange={onOpenChange} label="필터 고르기">
+        {/*
+          시트 전체를 세로 flex 로 묶고 **가운데 조건 줄만** 스크롤시킨다.
 
-          <div className="mt-4 space-y-5">
+          예전에는 조건 묶음 하나에 `max-h-[70dvh] overflow-y-auto` 를 걸었다. 그 높이는
+          제목·"필터 모두 지우기" 줄·시트 안쪽 여백을 세지 않은 값이라, 실제 시트는 화면의
+          84% 를 차지하면서 정작 마지막 조건("우리 강아지 기준")은 **칩 한가운데가 잘린 채**
+          멈췄다. 잘린 높이가 18px 뿐이라 스크롤바도 안 보이고, 잘린 게 아니라 원래 그런
+          줄로 읽힌다 — 필터가 고장 난 것처럼 보이는 자리였다.
+
+          `flex-1 min-h-0` 이 요점이다. flex 자식은 기본 `min-height:auto` 라 내용보다 작아지지
+          않는데, 그러면 아무리 바깥을 묶어도 스크롤이 안 생기고 밖으로 삐져나간다.
+        */}
+        <div className="flex max-h-[80dvh] flex-col">
+          {/* 닫기 버튼(오른쪽 위)과 겹치지 않게 제목 줄만 오른쪽을 비운다. */}
+          <h2 className="shrink-0 pt-2 pr-10 text-md font-bold text-primary">필터</h2>
+
+          <div
+            className={cx(
+              'mt-4 min-h-0 flex-1 space-y-5 overflow-y-auto',
+              // 스크롤 줄 끝을 살짝 흐려 "아래 더 있다" 를 알린다 — 가로 조건 줄이 쓰는
+              // 것과 같은 장치의 세로판이다(placesPageFilters 의 SCROLL_ROW_CLASS).
+              // 아래 여백을 마스크 시작점보다 넓게 잡아 마지막 칩은 마스크 밖에 남긴다.
+              'pb-6',
+              '[mask-image:linear-gradient(to_bottom,black_calc(100%-1.5rem),transparent)]',
+              '[-webkit-mask-image:linear-gradient(to_bottom,black_calc(100%-1.5rem),transparent)]',
+            )}
+          >
             <PlacesPageFilters
               variant="sheet"
               type={type}
@@ -113,27 +137,29 @@ export function PlacesPageFilterSheet({
               />
             )}
           </div>
-        </div>
 
-        {/*
-          누르면 시트를 함께 닫는다. 닫지 않으면 조건이 0이 되면서 이 버튼이 손가락 밑에서
-          사라지고, 시트만 그대로 남아 아무 일도 안 일어난 것처럼 보인다.
-        */}
-        {activeCount > 0 && (
-          <div className="mt-4 border-t border-secondary pt-3">
-            <Button
-              color="link-color"
-              size="md"
-              className="min-h-11"
-              onClick={() => {
-                onReset();
-                setIsOpen(false);
-              }}
-            >
-              필터 모두 지우기
-            </Button>
-          </div>
-        )}
+          {/*
+            누르면 시트를 함께 닫는다. 닫지 않으면 조건이 0이 되면서 이 버튼이 손가락 밑에서
+            사라지고, 시트만 그대로 남아 아무 일도 안 일어난 것처럼 보인다.
+
+            스크롤 줄 **밖**이라 조건을 아무리 내려도 늘 같은 자리에 있다.
+          */}
+          {activeCount > 0 && (
+            <div className="shrink-0 border-t border-secondary pt-3">
+              <Button
+                color="link-color"
+                size="md"
+                className="min-h-11"
+                onClick={() => {
+                  onReset();
+                  onOpenChange(false);
+                }}
+              >
+                필터 모두 지우기
+              </Button>
+            </div>
+          )}
+        </div>
       </BottomSheet>
     </>
   );

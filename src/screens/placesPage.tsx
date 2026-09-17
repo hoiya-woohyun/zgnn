@@ -1,16 +1,17 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import Link from 'next/link';
+import { useMemo, useRef, useState } from 'react';
 import { SearchMd } from '@untitledui/icons';
 import { PlacesPageEligibilityToggles } from './placesPageEligibilityToggles';
 import { PlacesPageFilters } from './placesPageFilters';
 import { PlacesPageFilterSheet } from './placesPageFilterSheet';
-import { PlaceCard } from '../components/placeCard';
-import { EmptyState } from '../components/layout/emptyState';
-import { Button } from '../components/base/button';
+import { PlacesPageResults } from './placesPageResults';
+import { usePlacesPageSwipe } from './placesPageSwipe';
+import { PlacesPageSwipePeek } from './placesPageSwipePeek';
+import { PlacesPageTypeTabs } from './placesPageTypeTabs';
+import { usePlaceTypeSwitch } from './placesPageTypeSwitch';
 import { Input } from '../components/base/input';
-import { PLACE_TYPES, TYPE_META, placesOfType } from '../lib/places';
+import { TYPE_META, placesOfType } from '../lib/places';
 import { PET_FILTERS, comparePrice, type TPetFilterKey, type TPriceSort } from '../lib/placeFilters';
 import { sortByEligibility } from '../lib/sortByEligibility';
 import { useAppStore, useDog } from '../store/useAppStore';
@@ -34,6 +35,10 @@ export function PlacesPage({ type }: { type: TPlaceType }) {
 
 function PlacesPageOfType({ type }: { type: TPlaceType }) {
   // 읍면은 이 화면만의 조건이 아니라 지도·근처 장소와도 공유하는 스토어 값이라 로컬 상태로 두지 않는다.
+  // 종류를 "어디서 어디로" 바꿨는지. 탭의 알약과 아래 목록이 같은 방향으로 움직이게 하는 값이다.
+  const typeSwitch = usePlaceTypeSwitch(type);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const { peek, stageRef, currentRef, leftRef, rightRef, pillRef, stageProps } = usePlacesPageSwipe(type, headerRef);
   const town = useAppStore((state) => state.town);
   const setTown = useAppStore((state) => state.setTown);
   const dog = useDog();
@@ -46,6 +51,12 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
   const [sort, setSort] = useState<TPriceSort>('none');
   // 화면 로컬 상태 — 강아지 프로필이 없으면 hard 판정 개념이 없어 애초에 토글이 보이지 않는다.
   const [hideHard, setHideHard] = useState(false);
+  /*
+   * 모바일 필터 시트의 열림 상태. 시트 안이 아니라 여기에 두는 이유는 빈 상태의 버튼이
+   * 시트를 열어야 하기 때문이다 — "다른 읍면을 골라 보세요" 라고 써 놓고 버튼은 읍면을
+   * *지우기만* 하면 글과 동작이 반대를 말한다. 종류를 바꾸면 `key={type}` 로 함께 리셋된다.
+   */
+  const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
 
   // 다른 조건과 별개로 먼저 걸러 둔다 — 이 종류에 그 읍면 자체가 없으면(0곳) 전용 빈 상태를 보여줘야 한다.
   const byTown = useMemo(() => {
@@ -123,6 +134,13 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     resetConditions();
   };
 
+  const enterAnimationClass = typeSwitch.enterFrom
+    ? cx(
+        'duration-300 ease-out animate-in fade-in motion-reduce:animate-none',
+        typeSwitch.enterFrom === 'right' ? 'slide-in-from-right-4' : 'slide-in-from-left-4',
+      )
+    : undefined;
+
   const toggleDirection = (direction: TDirection) =>
     setDirections((prev) =>
       prev.includes(direction) ? prev.filter((value) => value !== direction) : [...prev, direction],
@@ -135,41 +153,16 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     <div>
       {/* 상태바 인셋 위로 번져(bleed-top-4) 자기 블러 배경이 그 자리를 덮으므로 top-safe 가
           아니라 top-0 에 붙는다 — 사이에 다른 색 띠가 끼지 않는다(ADR-010 v2). */}
-      <div className="sticky top-0 z-30 border-b border-secondary bg-secondary/95 backdrop-blur">
+      <div ref={headerRef} className="sticky top-0 z-30 border-b border-secondary bg-secondary/95 backdrop-blur">
         <div className="bleed-top-4 px-4 pb-3 md:px-6">
           <h1 className="sr-only">{TYPE_META[type].label} 둘러보기</h1>
 
-          {/*
-            생김새는 탭이지만 실제로는 주소를 바꾸는 링크다.
-
-            react-aria Tabs 에 href 를 주면 <a> 로 그려주긴 하는데, 고른 탭에 aria-controls 가
-            붙은 채 짝이 되는 TabPanel 이 없어서 존재하지 않는 영역을 가리키게 된다.
-            여기는 탭마다 패널이 바뀌는 게 아니라 주소 자체가 바뀌는 자리라 패널을 만들 수도 없다.
-            그래서 그냥 링크로 두고, 현재 위치는 aria-current 로만 알린다.
-          */}
-          <nav aria-label="장소 종류">
-            <ul className="flex gap-1 rounded-lg border border-secondary bg-primary p-1">
-              {PLACE_TYPES.map((candidate) => {
-                const active = candidate === type;
-                return (
-                  <li key={candidate} className="flex-1">
-                    <Link
-                      href={`/places/${candidate}`}
-                      aria-current={active ? 'page' : undefined}
-                      className={cx(
-                        'flex h-11 items-center justify-center rounded-md text-sm font-semibold transition-colors',
-                        active
-                          ? 'bg-brand-primary text-brand-secondary'
-                          : 'text-tertiary hover:bg-secondary',
-                      )}
-                    >
-                      {TYPE_META[candidate].label}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
+          <PlacesPageTypeTabs
+            type={type}
+            fromIndex={typeSwitch.fromIndex}
+            toIndex={typeSwitch.toIndex}
+            pillRef={pillRef}
+          />
 
           <div className="mt-3 flex items-center gap-2">
             <Input
@@ -188,6 +181,8 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
             {/* 조건은 모바일에서만 접는다 — 아래 펼친 판이 md 부터 대신 나온다. */}
             <div className="md:hidden">
               <PlacesPageFilterSheet
+                isOpen={isFilterSheetOpen}
+                onOpenChange={setIsFilterSheetOpen}
                 type={type}
                 town={town}
                 directions={directions}
@@ -245,55 +240,61 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
         </div>
       </div>
 
-      <div className="flex items-center justify-between px-4 pt-4 md:px-6">
-        <div>
-          <p className="text-sm text-tertiary">{results.length}곳</p>
-          {/* 조건을 여러 개 겹쳐 0~1곳만 남았을 때 "왜 이렇게 적지" 하고 이탈하지 않도록
-              조건을 하나 풀어보라고 먼저 알려준다(2026-09-15 리뷰 §1 — 세 필터 켜면 0~1곳 안내 없음). */}
-          {hasFilters && results.length === 1 && (
-            <p className="mt-0.5 text-xs text-tertiary">필터를 하나 풀어 보면 더 볼 수 있어요.</p>
-          )}
+      {/*
+        무대: 손가락으로 좌우로 넘기는 표면(placesPageSwipe). `touch-pan-y` 라 세로는 브라우저가
+        스크롤로 가져가고 가로만 여기로 온다. `pinch-zoom` 은 pan-y 만 적으면 같이 꺼지므로 되살린다.
+
+        `overflow-x-clip` 은 끌려 나가는 목록과 옆에서 들어오는 엿보기가 가로 스크롤을 만들지
+        않게 막는다. 요소는 자기 transform 을 자기 overflow 로 못 자르므로 움직이는 것들의
+        **부모**에 건다(`hidden` 과 달리 스크롤 컨테이너를 만들지 않아 위의 sticky 를 안 건드린다).
+      */}
+      <div
+        ref={stageRef}
+        {...stageProps}
+        className="relative touch-pan-y touch-pinch-zoom overflow-x-clip"
+      >
+        {/*
+          종류를 바꿔 들어온 목록은 탭이 움직인 쪽에서 따라 들어온다 — 알약만 움직이고 아래가
+          툭 바뀌면 둘이 다른 화면처럼 논다. 주소를 새로 열었을 때나 스와이프로 왔을 때는
+          (enterFrom 이 null) 아무것도 하지 않는다. 필터를 바꿀 때도 다시 뛰지 않는다 — 이
+          애니메이션은 마운트될 때 한 번이고, 필터는 같은 마운트 안에서 목록만 갈아끼우기 때문이다.
+
+          들어오는 애니메이션과 손가락이 끄는 transform 은 다른 요소에 건다 — CSS 애니메이션이
+          인라인 transform 을 덮어써서, 마운트 직후 바로 끌면 300ms 동안 손가락을 안 따라온다.
+        */}
+        <div ref={currentRef}>
+          <div className={enterAnimationClass}>
+            <PlacesPageResults
+              type={type}
+              town={town}
+              results={results}
+              townHasNoPlaces={townHasNoPlaces}
+              hasFilters={hasFilters}
+              onResetFilters={resetFilters}
+              onOpenFilters={() => setIsFilterSheetOpen(true)}
+            />
+          </div>
         </div>
-        {hasFilters && (
-          <Button color="link-color" size="sm" className="min-h-11" onClick={resetFilters}>
-            필터 지우기
-          </Button>
+
+        {peek?.left && (
+          <PlacesPageSwipePeek
+            ref={leftRef}
+            side="left"
+            type={peek.left}
+            top={peek.top}
+            height={peek.height}
+          />
+        )}
+        {peek?.right && (
+          <PlacesPageSwipePeek
+            ref={rightRef}
+            side="right"
+            type={peek.right}
+            top={peek.top}
+            height={peek.height}
+          />
         )}
       </div>
-
-      {results.length > 0 ? (
-        <ul className="mt-3 space-y-3 px-4 md:px-6">
-          {results.map((place) => (
-            <PlaceCard key={place.id} place={place} />
-          ))}
-        </ul>
-      ) : townHasNoPlaces ? (
-        <div className="px-4 pt-6 md:px-6">
-          <EmptyState
-            Icon={SearchMd}
-            title={`${town}엔 ${TYPE_META[type].label}가 없어요`}
-            description="다른 읍면을 골라 보세요."
-            action={
-              <Button color="primary" size="md" onClick={() => setTown(null)}>
-                읍면 해제
-              </Button>
-            }
-          />
-        </div>
-      ) : (
-        <div className="px-4 pt-6 md:px-6">
-          <EmptyState
-            Icon={SearchMd}
-            title="필터에 맞는 곳이 없어요"
-            description="필터를 하나 풀어 보세요."
-            action={
-              <Button color="primary" size="md" onClick={resetFilters}>
-                필터 지우기
-              </Button>
-            }
-          />
-        </div>
-      )}
     </div>
   );
 }
