@@ -70,6 +70,11 @@ export const parentRouteOf = (pathname: string): string => {
  * - 상세: 종류 색 워시 판. 판이 위에서 아래로 옅어지는 그라디언트라 **맨 위 색**(22% tint)을 쓴다.
  * - 지도: `null` — 타일이 상태바 밑까지 깔리는 편이 지도답다. 셸은 띠도 위 여백도 두지 않는다.
  * - 나머지: 페이지 바탕(크림). 모르는 경로도 이쪽 — 새 화면의 기본값이다.
+ *
+ * **여기서 답한 색은 그 화면 첫 블록의 배경과 정확히 같아야 한다.** iOS 에서는 띠가 인셋이
+ * 0 인 브라우저 탭에서도 최소 4px 남아(globals.css 의 h-status-bar) 첫 블록 위를 덮는데,
+ * 색이 같아야 보이지 않는다. 맨 위 면이 페이지 바탕이 아닌 화면을 새로 만들면 여기 한 줄을
+ * 더한다 — 빠뜨리면 그 화면만 iOS Safari 탭에서 4px 짜리 다른 색 줄이 남는다.
  */
 export const topSurfaceColorOf = (pathname: string): string | null => {
   const path = normalize(pathname);

@@ -66,7 +66,7 @@ AppShell ─ isRootRoute(pathname)?
 상세 화면은 길다. 판정 카드 · 원문 · 요금 · 근처 장소를 다 읽고 되돌아 나오려면
 **맨 위까지 다시 올려야** 했다. 뒤로가기가 있어도 닿지 않으면 없는 것과 같다.
 
-`AppBar` 를 `sticky top-0 z-30` 으로 바꾼다.
+`AppBar` 를 `sticky top-0 z-30` 으로 바꾼다(→ v3 에서 `top-safe` 로 옮김, [ADR-010](ADR-010-shell-owned-safe-area.md)).
 
 ### `fixed` 가 아니라 `sticky` 인 이유
 
