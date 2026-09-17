@@ -3,6 +3,8 @@
 > AI 와 개발자 모두를 위한 빠른 참조 문서.
 > 각 섹션은 상세 문서로 연결된다.
 >
+> 최종 수정: 2026-09-17 (v5: 회원 잠금·Supabase·개인정보 결정을 ADR-011·012 로 등재. **아직 제안 단계라 위 본문의 "런타임 fetch 없음"·프리캐시 설명은 현재 코드 기준 그대로다**)
+>
 > 최종 수정: 2026-09-16 (v4: 저장 탭 → 설정 탭(`/settings` 루트, `/saved`·`/dog` 는 그 안). 프로필이 마리별 이름(`dogs[]`)을 갖고, 요금 문구(`lib/dogFee.ts`)·한국어 호칭(`lib/korean.ts`)이 순수 함수로 분리됐다)
 >
 > 최종 수정: 2026-09-17 (v4: 지도를 leaflet 에서 Kakao 지도 SDK 로 교체(ADR-008))
@@ -171,6 +173,8 @@ data/                         # Notion 추출본(커밋) · raw/(무시)
 | [ADR-008](./decisions/ADR-008-kakao-map.md) | 지도를 Kakao 지도 SDK 로, 마커는 표준 핀으로 (채택) |
 | [ADR-009](./decisions/ADR-009-trip-derived-checklist.md) | 준비물을 목록이 아니라 여행의 파생값으로 (채택) |
 | [ADR-010](./decisions/ADR-010-shell-owned-safe-area.md) | 상태바 인셋도 화면이 아니라 셸이 처리한다 — 색 띠 + `topSurfaceColorOf` (채택) |
+| [ADR-011](./decisions/ADR-011-app-gate-and-supabase.md) | 앱 전체를 잠그되 정적 내보내기는 버리지 않는다 — 데이터를 번들 밖 Supabase 로 (**제안**) |
+| [ADR-012](./decisions/ADR-012-personal-data-and-consent.md) | 휴대폰 번호를 받는 순간 필요한 것들 — 약관·동의 기록·파기 (**제안**) |
 
 ## 버그 기록
 
