@@ -15,13 +15,26 @@ Node 22, pnpm 이 필요합니다.
 
 ```bash
 pnpm i
-pnpm dev      # 개발 서버 (next dev --turbopack)
+pnpm dev      # 개발 서버 (next dev --turbopack) → http://localhost:7727
 pnpm build    # 정적 내보내기 → out/
-pnpm preview  # out/ 을 정적 서버로 띄워 확인
+pnpm preview  # out/ 을 정적 서버로 띄워 확인 → http://localhost:7727
 pnpm test     # vitest — 파서·판정·필터·정렬·히스토리 단위 테스트
 pnpm lint     # eslint
 pnpm icons    # PWA 아이콘 재생성 (팔레트가 바뀔 때만)
 ```
+
+**포트 7727 은 고정입니다.** 흔한 3000 을 쓰지 않는 이유가 두 가지 있습니다.
+
+첫째, Kakao 지도 키는 **출처(origin)를 포트까지 봐서** 막습니다. 콘솔에 등록된 주소가
+`http://localhost:7727` 이라, 다른 포트로 띄우면 SDK 가 `401` 을 내고 지도 자리만 빕니다 —
+코드는 멀쩡한데 화면만 비어서 원인을 엉뚱한 데서 찾게 되는 종류의 고장입니다
+(→ [ADR-008](docs/decisions/ADR-008-kakao-map.md)). 포트를 바꾸려면 콘솔에 먼저 등록하세요.
+
+둘째, `localhost:3000` 은 **하나의 origin** 이라 그 포트를 쓰는 다른 프로젝트와
+localStorage·IndexedDB·**서비스워커 등록**을 통째로 공유합니다. `pnpm preview` 로 한 번
+서비스워커를 띄우면 scope `/` 로 등록돼 그 뒤로 **다른 앱의 요청까지 가로챕니다** —
+이 앱의 `fallbacks` 가 캐시에 없는 document 를 `/404.html` 로 돌려주므로, 남의 앱이
+엉뚱한 HTML 을 받고 조용히 깨집니다. 포트를 갈라두면 이 문제가 애초에 생기지 않습니다.
 
 `build` 에 붙은 `--webpack` 은 취향이 아니라 필수입니다. 서비스워커를 만드는
 `@serwist/next` 는 webpack 플러그인이라 Turbopack(Next 16 기본)에서는 동작하지 않습니다.
@@ -43,8 +56,9 @@ webpack 훅에서 바로 돌아 나오고 서비스워커도 만들지 않으므
 | `/place/[id]` | 상세. 반려동물 이용 조건(원문 포함), 판정 카드, 요금, 근처 장소 |
 | `/map` | 지도. 타입·방향 필터, 마커를 누르면 미니 카드(모바일은 하단 시트, ≥1024px 은 좌측 목록 패널). `?saved=1` 은 저장한 곳만 |
 | `/checklist` | 준비물. 계절별 목록, 체크 상태 저장, 숙소 구비 용품 반영 |
-| `/saved` | 저장한 곳. 타입별 묶음 |
-| `/dog` | 우리 강아지 등록. 이름·마리별 몸무게·이동 수단 → 장소별 판정의 입력 |
+| `/settings` | 설정(탭). 우리 강아지 카드, 저장한 곳 진입, 자료 출처 |
+| `/saved` | 저장한 곳. 타입별 묶음(설정 안) |
+| `/dog` | 우리 강아지 등록. 마리별 이름·몸무게·이동 수단 → 장소별 판정의 입력(설정 안) |
 
 `src/app/**/page.tsx` 는 주소와 메타데이터만 맡는 서버 컴포넌트이고, 화면을 그리는 본체는
 `src/screens/` 의 클라이언트 컴포넌트입니다. 정적 내보내기라 서버 렌더에서 얻는 것은
@@ -98,9 +112,9 @@ pnpm data:normalize        # Notion export + 이미지 매니페스트 → src/d
 
 프리캐시 목록은 `next.config.mjs` 에서 직접 만듭니다. 정적 내보내기의 HTML 은 webpack 이
 만드는 자산이 아니라 컴파일이 끝난 뒤에 따로 쓰이기 때문에, 그냥 두면 매니페스트에 JS·CSS 만
-들어오고 화면 주소는 하나도 들어오지 않습니다. 그래서 `places.json` 에서 라우트 93개
-(홈·지도·준비물·저장·종류 3개·장소 86개)를 만들어 `additionalPrecacheEntries` 로 넣고,
-`/404.html` 과 `/manifest.webmanifest`, 아이콘 4장을 더합니다. 최근 빌드 기준 139개입니다.
+들어오고 화면 주소는 하나도 들어오지 않습니다. 그래서 `places.json` 에서 라우트 95개
+(홈·지도·준비물·설정·저장·강아지 등록·종류 3개·장소 86개)를 만들어 `additionalPrecacheEntries` 로 넣고,
+`/404.html` 과 `/manifest.webmanifest`, 아이콘 4장을 더합니다. 최근 빌드 기준 150개입니다.
 
 아이콘을 직접 넣는 것도 같은 이유입니다. `@serwist/next` 는 `additionalPrecacheEntries` 를
 주면 `public/` 을 훑는 자기 동작(`globPublicPatterns`)을 **대신하지 않고 통째로 건너뜁니다**.
