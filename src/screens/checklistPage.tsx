@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ChevronDown } from '@untitledui/icons';
 import { ChecklistPageGroupList } from './checklistPageGroupList';
 import { ChecklistPageItemRow } from './checklistPageItemRow';
+import { CollapsingTitleBar } from '../components/layout/collapsingTitleBar';
 import { PageHeader } from '../components/layout/pageHeader';
 import { SeasonChips } from '../components/seasonChips';
 import { META } from '../lib/places';
@@ -71,29 +72,38 @@ export function ChecklistPage() {
 
   return (
     <div>
-      <PageHeader
+      {/* 제목·계절·진행률이 한 덩어리라 통째로 감싼다 — 이 덩어리가 화면 밖으로 나가는
+          순간이 축약 줄이 대신 나서는 지점이다. 준비물은 목록이 길어 아래에서 "몇 개
+          남았더라" 를 확인하려면 맨 위까지 되올라가야 했다. */}
+      <CollapsingTitleBar
         title="여행 준비물"
-        description={<span className="whitespace-pre-line">{META.itemsIntro}</span>}
-      />
+        trailing={`${view.ready}/${view.total} 준비됨`}
+        percent={percent}
+      >
+        <PageHeader
+          title="여행 준비물"
+          description={<span className="whitespace-pre-line">{META.itemsIntro}</span>}
+        />
 
-      <div className="px-4 pt-4 md:px-6">
-        <SeasonChips value={season} onSelect={setSeason} label="계절" />
+        <div className="px-4 pt-4 md:px-6">
+          <SeasonChips value={season} onSelect={setSeason} label="계절" />
 
-        <p className="mt-3 text-sm text-tertiary">
-          {view.scopedToTrip && '저장한 곳 기준 '}
-          {view.total}가지 중 {view.ready}가지 준비됐어요
-        </p>
-        {/*
-          숫자 옆에 막대를 하나 둔다. "12가지 중 4가지" 는 읽어서 비율로 옮겨야 알지만,
-          막대는 눈이 먼저 안다. 진행률은 위 문장이 이미 말하므로 막대는 장식이다(aria-hidden).
-        */}
-        <div aria-hidden="true" className="mt-2 h-1.5 overflow-hidden rounded-full bg-tertiary">
-          <div
-            className="h-full rounded-full bg-brand-solid transition-[width] duration-300 ease-out"
-            style={{ width: `${percent}%` }}
-          />
+          <p className="mt-3 text-sm text-tertiary">
+            {view.scopedToTrip && '저장한 곳 기준 '}
+            {view.total}가지 중 {view.ready}가지 준비됐어요
+          </p>
+          {/*
+            숫자 옆에 막대를 하나 둔다. "12가지 중 4가지" 는 읽어서 비율로 옮겨야 알지만,
+            막대는 눈이 먼저 안다. 진행률은 위 문장이 이미 말하므로 막대는 장식이다(aria-hidden).
+          */}
+          <div aria-hidden="true" className="mt-2 h-1.5 overflow-hidden rounded-full bg-tertiary">
+            <div
+              className="h-full rounded-full bg-brand-solid transition-[width] duration-300 ease-out"
+              style={{ width: `${percent}%` }}
+            />
+          </div>
         </div>
-      </div>
+      </CollapsingTitleBar>
 
       {travelItems.length > 0 && (
         <section className="mt-6 px-4 md:px-6">
