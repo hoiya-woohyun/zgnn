@@ -61,10 +61,7 @@ export function HomePage() {
     <div>
       {/* 히어로는 AppShell 의 중앙 정렬 폭을 넘어 화면 끝까지 깔리는 유일한 구역이라
           여기만 px-4 md:px-6, 그 아래부터는 계약서가 정한 좌우 패딩을 그대로 쓴다. */}
-      <header
-        className="basalt px-4 pb-16 text-white md:px-6"
-        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 2.5rem)' }}
-      >
+      <header className="basalt px-4 pt-10 pb-16 text-white md:px-6">
         <PawMark />
         <h1 className="mt-3 text-display-sm font-bold">강아지랑 제주</h1>
         <p className="mt-1.5 text-sm text-white/65">

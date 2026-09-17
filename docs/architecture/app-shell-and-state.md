@@ -1,6 +1,7 @@
 # 라우팅 · 화면 셸 · 클라이언트 상태
 
-> 최종 수정: 2026-09-17 (v7: 뒤로가기 줄이 스크롤을 따라온다(`sticky`) → [ADR-007 v2](../decisions/ADR-007-shell-owned-back-navigation.md). 하단 시트 바닥 여백 = 내용 여백 + safe-area(`pb-sheet`). 준비물 묶음을 '어디서 쓰는가' 로 → [ADR-009 v2](../decisions/ADR-009-trip-derived-checklist.md))
+> 최종 수정: 2026-09-17 (v8: 상태바 인셋도 셸이 처리 — 인셋 높이의 색 띠 + 내용 여백, 색은 `topSurfaceColorOf` → [ADR-010](../decisions/ADR-010-shell-owned-safe-area.md). 탭바 불투명)
+> 이전 (v7: 뒤로가기 줄이 스크롤을 따라온다(`sticky`) → [ADR-007 v2](../decisions/ADR-007-shell-owned-back-navigation.md). 하단 시트 바닥 여백 = 내용 여백 + safe-area(`pb-sheet`). 준비물 묶음을 '어디서 쓰는가' 로 → [ADR-009 v2](../decisions/ADR-009-trip-derived-checklist.md))
 > 이전 (v6: 준비물을 저장한 곳 기준으로 좁힘 — `amenityStayId` 와 숙소 선택 셀렉트 제거 → [ADR-009](../decisions/ADR-009-trip-derived-checklist.md))
 > 이전 (v5: 저장 탭이 설정 탭으로 — `/settings` 가 루트, `/saved`·`/dog` 는 그 안의 화면. 탭바의 저장 개수 배지 제거. 홈 계절칩은 이동하지 않고 고르기만)
 > 이전 (v4: 긴 목록 select 는 모바일에서 하단 시트로 — `SheetSelect`, `useMediaQuery`. 하단 시트에 핸들·끌어내려 닫기)
@@ -64,12 +65,20 @@ src/app/place/[id]/page.tsx   ─ 서버: generateStaticParams(86개) · generat
   `/place/:id` 까지 자기 것으로 보므로, 상세가 루트로 분류돼 뒤로가기를 잃는다.
 - `AppBar` 는 배경을 칠하지 않는다. 화면마다 맨 위 바탕색이 달라서(상세는 종류 색 판, 나머지는 회색)
   투명해야 어느 화면 위에든 얹힌다. 상세 제목 판은 그 줄 높이만큼 `-mt-14 pt-14` 로 끌어올려
-  색이 화면 맨 위까지 이어지게 한다.
-- `AppBar` 는 **`sticky top-0`** 이라 스크롤을 따라온다. `fixed` 로 바꾸면 안 된다 — 흐름에서
+  색이 그 줄 위까지 이어지게 한다.
+- `AppBar` 는 **`sticky top-safe`** 라 스크롤을 따라온다. `fixed` 로 바꾸면 안 된다 — 흐름에서
   빠져 높이가 0 이 되고, 바로 위 줄의 `-mt-14` 가 상세 제목 판을 화면 밖으로 밀어낸다.
   줄은 투명한 채로 두고 **버튼에만** 반투명 알약 배경을 준다. 줄 전체는 `pointer-events-none`,
   버튼만 `pointer-events-auto` — 아니면 빈 줄이 아래 내용의 터치를 가로챈다(→ [ADR-007 v2](../decisions/ADR-007-shell-owned-back-navigation.md)).
 - 제목은 셸이 모른다(경로만 안다). 그래서 상세의 큰 이름이 폭과 무관하게 그 화면의 유일한 `h1` 이다.
+
+### 상태바 인셋 — 이것도 셸이 처리한다
+
+`viewportFit: cover` 라 내용이 상태바 밑까지 깔린다. 셸이 **인셋 높이의 띠를 화면 위에
+고정**(`h-status-bar`)하고 `<main>` 을 그만큼 내려 시작한다. 띠 색은 `lib/appRoutes.ts` 의
+`topSurfaceColorOf` 가 답한다 — 홈은 잉크, 상세는 종류 색 워시의 맨 위 색, 지도는 없음(띠도
+여백도 안 둠), 나머지·모르는 경로는 페이지 바탕. 화면은 인셋을 계산하지 않는다 — 따라오는
+줄만 `top-safe` 로 띠 아래에 붙는다(→ [ADR-010](../decisions/ADR-010-shell-owned-safe-area.md)).
 
 **딥링크 보정(`src/lib/appHistory.ts`)** — 링크로 상세에 바로 들어온 사용자가 뒤로가기를 누르면 앱 밖으로 나간다.
 그래서 history 항목이 앱 안에서 몇 번째인지를 세어 두고, 첫 화면이면 `router.back()` 대신

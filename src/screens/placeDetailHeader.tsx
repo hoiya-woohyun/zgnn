@@ -15,21 +15,14 @@ export function PlaceDetailHeader({ place }: { place: TPlaceEntry }) {
     /*
       뒤로가기 줄은 셸이 이 화면 위에 이미 얹어 두었다(appShell). 그 줄은 투명하고 문서 흐름
       안에 있어서, 그냥 두면 종류 색 판이 그 줄 아래에서 시작해 맨 위에 회색 띠가 남는다.
-      판을 그 줄 높이만큼 끌어올려 같은 크기의 위 여백으로 되돌리면, 색은 화면 맨 위까지
+      판을 그 줄 높이(h-14)만큼 끌어올려 같은 크기의 위 여백으로 되돌리면, 색은 그 줄 위까지
       이어지고 뒤로가기 버튼은 그 색 위에 얹힌다.
 
-      그 줄의 실제 높이는 h-14 가 아니라 **h-14 + safe-area**다(appBar 의 pt-safe). 홈 화면
-      PWA(viewportFit: cover)의 노치 기기에서는 safe-area 가 0 이 아니라, -mt-14 만 쓰면 딱 그
-      높이만큼 회색 띠가 남는다. h-14 는 --spacing 축을 따라 커지므로(ADR-006) 3.5rem 으로
-      고정하지 않고 같은 식으로 계산한다.
+      상태바(safe-area-inset-top)까지는 여기서 끌어올리지 않는다 — 그 자리는 셸이 같은 종류
+      색 띠로 칠한다(ADR-010, appRoutes.topSurfaceColorOf). 그라디언트의 맨 위 색과 띠 색이
+      같아 이음매가 보이지 않는다.
     */
-    <header
-      style={{
-        background: typeHeaderBackground(place.type),
-        marginTop: 'calc(-1 * (var(--spacing) * 14 + env(safe-area-inset-top, 0px)))',
-        paddingTop: 'calc(var(--spacing) * 14 + env(safe-area-inset-top, 0px))',
-      }}
-    >
+    <header className="-mt-14 pt-14" style={{ background: typeHeaderBackground(place.type) }}>
       <div className="px-4 pt-2 pb-7 md:px-6 md:pt-4">
         <div style={{ color: TYPE_COLOR_DEEP[place.type] }}>
           <Icon size={32} />

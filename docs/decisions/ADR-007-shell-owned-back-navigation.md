@@ -1,6 +1,7 @@
 # ADR-007 — 뒤로가기는 화면이 아니라 셸이 붙인다
 
-> 최종 수정: 2026-09-17 (v2: 뒤로가기 줄이 스크롤을 따라온다 — `sticky`, 버튼에만 알약 배경)
+> 최종 수정: 2026-09-17 (v3: 인셋(`pt-safe`)은 셸의 상태바 띠로 옮겨짐 → [ADR-010](ADR-010-shell-owned-safe-area.md). 줄은 `top-safe` 로 띠 아래에 붙는다)
+> 이전 (v2: 뒤로가기 줄이 스크롤을 따라온다 — `sticky`, 버튼에만 알약 배경)
 > 이전 (v1: 신설)
 
 ## 맥락
@@ -83,8 +84,9 @@ AppShell ─ isRootRoute(pathname)?
 줄 전체에는 `pointer-events-none`, 버튼·제목·액션에만 `pointer-events-auto` 를 준다.
 그러지 않으면 투명한 빈 줄이 화면 폭 전체에서 아래로 지나가는 내용의 터치를 가로챈다.
 
-위쪽 여백의 `pt-safe`(safe-area-inset-top)는 v1 그대로다. 따라다니는 줄이 된 뒤로는
-이것이 더 중요해졌다 — 스크롤을 내려도 노치·상태바 밑에 뒤로가기가 깔리지 않아야 한다.
+위쪽 여백의 `pt-safe`(safe-area-inset-top)는 v1 그대로였으나, v3 에서 셸의 상태바 띠로
+옮겼다([ADR-010](ADR-010-shell-owned-safe-area.md)). 줄은 `top-safe` 로 그 띠 바로 아래에
+붙어 따라온다 — 스크롤을 내려도 노치·상태바 밑에 뒤로가기가 깔리지 않는다.
 
 ## 관련
 

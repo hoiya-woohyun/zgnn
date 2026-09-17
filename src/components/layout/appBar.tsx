@@ -29,8 +29,9 @@ type TAppBarProps = {
  * 동안 무엇 위에 얹힐지 모르는 **버튼에만** 반투명 알약 배경을 준다. 줄 전체는
  * `pointer-events-none` 이라, 비어 있는 부분 밑으로 지나가는 내용의 터치를 가로채지 않는다.
  *
- * 위쪽 여백은 노치(safe-area-inset-top)를 더한다. 따라다니는 줄이라 스크롤을 내려도
- * 이 여백이 유지돼야 상태바 밑에 뒤로가기가 깔리지 않는다.
+ * 노치(safe-area-inset-top)는 셸이 처리한다(ADR-010) — 셸이 상태바 뒤에 띠를 고정해 두고
+ * 내용을 그만큼 내려 시작하므로, 이 줄은 `top-safe` 로 그 띠 바로 아래에 붙어 따라오기만
+ * 하면 된다. 스크롤을 내려도 상태바 밑에 뒤로가기가 깔리지 않는다.
  *
  * 뒤로가기는 history 를 되감되, 링크를 받아 이 화면으로 바로 들어온 경우에는
  * 되감을 앱 안 화면이 없어 앱 밖으로 나가 버린다. 그래서 지금 history 항목이 앱 안에서
@@ -50,8 +51,7 @@ export function AppBar({ backTo, title, actions }: TAppBarProps) {
   };
 
   return (
-    <header className="pointer-events-none sticky top-0 z-30 px-2 pt-safe md:px-4">
-      {/* 노치가 있는 기기에서 pt-safe 가 위쪽에 여백을 더해도, 뒤로가기 줄 자체의 높이(h-14)는 그대로 유지한다. */}
+    <header className="pointer-events-none sticky top-safe z-30 px-2 md:px-4">
       <div className="flex h-14 items-center gap-1">
         <button
           type="button"

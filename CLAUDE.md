@@ -14,10 +14,11 @@ Tailwind v4 + Untitled UI · zustand persist · leaflet. 데이터는 빌드 시
 | 준비물·장소별 필요 물건 | [docs/features/checklist.md](docs/features/checklist.md) · [docs/decisions/ADR-009-trip-derived-checklist.md](docs/decisions/ADR-009-trip-derived-checklist.md) · `src/lib/itemNeeds.ts` |
 | 라우팅·화면 셸·클라이언트 상태 | [docs/architecture/app-shell-and-state.md](docs/architecture/app-shell-and-state.md) · `src/store/useAppStore.ts` |
 | 뒤로가기가 안 보임·새 화면 추가 | [docs/decisions/ADR-007-shell-owned-back-navigation.md](docs/decisions/ADR-007-shell-owned-back-navigation.md) · `src/lib/appRoutes.ts` |
+| 노치·상태바 밑으로 내용이 들어감 | [docs/decisions/ADR-010-shell-owned-safe-area.md](docs/decisions/ADR-010-shell-owned-safe-area.md) · `src/lib/appRoutes.ts` 의 `topSurfaceColorOf` |
 | 데이터 갱신·정규화 | [docs/architecture/data-pipeline.md](docs/architecture/data-pipeline.md) · `scripts/normalize.mjs` |
 | 색·토큰·팔레트 | [docs/decisions/ADR-003-untitled-ui-and-palette.md](docs/decisions/ADR-003-untitled-ui-and-palette.md) · `src/styles/theme.css` |
 | 크기 스케일·반응형·글꼴 | [docs/decisions/ADR-006-responsive-scale-and-font.md](docs/decisions/ADR-006-responsive-scale-and-font.md) · `src/styles/globals.css` |
-| "왜 이렇게 했나" | [docs/decisions/](docs/decisions/) (ADR 9편) · 전체 지도는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| "왜 이렇게 했나" | [docs/decisions/](docs/decisions/) (ADR 10편) · 전체 지도는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 
 탐색 전에 위 표를 먼저 본다. 전체 구조가 필요하면 `docs/ARCHITECTURE.md` 하나만 읽으면 된다.
 
@@ -61,6 +62,9 @@ Tailwind v4 + Untitled UI · zustand persist · leaflet. 데이터는 빌드 시
 
 - **뒤로가기는 화면이 아니라 셸이 붙인다.** 새 화면에 `AppBar` 를 직접 달지 않는다 —
   탭바에 넣을 화면이면 `src/lib/appRoutes.ts` 의 `ROOT_ROUTES` 에 한 줄 더하고, 아니면 아무것도 안 한다.
+- **상태바 인셋도 셸이 처리한다**(ADR-010). 화면에서 `env(safe-area-inset-top)` 이나 `pt-safe` 를
+  쓰지 않는다 — 맨 위 면이 페이지 바탕이 아닌 화면만 `appRoutes.ts` 의 `topSurfaceColorOf` 에 색을
+  한 줄 더한다. 스크롤을 따라오는 줄은 `top-safe`.
 - **화면 본체는 `src/screens/`** (클라이언트), `src/app/**/page.tsx` 는 주소·메타·
   `generateStaticParams` 만. `src/pages/` 는 Next 가 옛 Pages Router 로 인식해서 못 쓴다.
 - **단일 소유자 파일은 소유자 접두어**를 파일명과 대표 export 에 붙인다(camelCase).

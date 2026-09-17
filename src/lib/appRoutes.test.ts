@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { isRootRoute, parentRouteOf } from './appRoutes';
-import { PLACES } from './places';
+import { isRootRoute, parentRouteOf, topSurfaceColorOf } from './appRoutes';
+import { PLACES, typeTint } from './places';
 
 const cafeId = PLACES.find((place) => place.type === 'cafe')!.id;
 
@@ -49,5 +49,26 @@ describe('parentRouteOf — 되감을 화면이 없을 때 올라갈 곳', () =>
 
   it('그 밖의 하위 화면은 홈으로 올라간다', () => {
     expect(parentRouteOf('/something-new')).toBe('/');
+  });
+});
+
+describe('topSurfaceColorOf — 셸이 상태바 뒤를 칠할 색', () => {
+  it('홈은 현무암 히어로 색이다', () => {
+    expect(topSurfaceColorOf('/')).toBe('var(--color-ink)');
+  });
+
+  it('상세는 종류 색 워시 판의 맨 위 색이다 — 그라디언트와 이음매 없이 붙도록', () => {
+    expect(topSurfaceColorOf(`/place/${cafeId}`)).toBe(typeTint('cafe', 22));
+  });
+
+  it('지도는 칠하지 않는다 — 타일이 상태바 밑까지 깔린다', () => {
+    expect(topSurfaceColorOf('/map')).toBeNull();
+    expect(topSurfaceColorOf('/map/')).toBeNull();
+  });
+
+  it('나머지·모르는 경로·없는 장소는 페이지 바탕이다 — 새 화면의 기본값', () => {
+    for (const path of ['/checklist', '/settings', '/saved', '/dog', '/places/stay', '/something-new', '/place/nope']) {
+      expect(topSurfaceColorOf(path)).toBe('var(--color-bg-secondary)');
+    }
   });
 });

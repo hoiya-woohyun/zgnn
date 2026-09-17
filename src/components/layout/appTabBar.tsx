@@ -15,7 +15,10 @@ export function AppTabBar() {
   return (
     <nav
       aria-label="주요 화면"
-      className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-secondary bg-primary/95 backdrop-blur md:hidden"
+      // 배경은 불투명하게 둔다. 반투명 + backdrop-blur 로 두면 홈 인디케이터 자리(pb-safe)에
+      // 밑을 지나는 내용이 비쳐 탭바가 거기까지 이어져 보이지 않고, Safari 26 은 이 요소의
+      // background-color 를 읽어 자기 툴바를 칠하므로 흐린 색이 그대로 툴바로 번진다(ADR-010).
+      className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-secondary bg-primary md:hidden"
     >
       <ul className="mx-auto flex h-[60px] w-full max-w-lg">
         {NAV_ITEMS.map((item) => {
