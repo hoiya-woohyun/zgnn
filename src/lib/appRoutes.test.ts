@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { isRootRoute, parentRouteOf } from './appRoutes';
+import {
+  SWIPE_ROUTES,
+  canStartSwipeAt,
+  isRootRoute,
+  isWithinPlacesSwipe,
+  parentRouteOf,
+  swipeIndexOf,
+} from './appRoutes';
 import { PLACES } from './places';
 
 const cafeId = PLACES.find((place) => place.type === 'cafe')!.id;
@@ -49,5 +56,68 @@ describe('parentRouteOf — 되감을 화면이 없을 때 올라갈 곳', () =>
 
   it('그 밖의 하위 화면은 홈으로 올라간다', () => {
     expect(parentRouteOf('/something-new')).toBe('/');
+  });
+});
+
+describe('SWIPE_ROUTES — 손가락으로 넘기는 한 줄', () => {
+  it('탭바 순서대로이되 둘러보기만 종류 셋으로 펼쳐져 있다', () => {
+    expect([...SWIPE_ROUTES]).toEqual([
+      '/',
+      '/map',
+      '/places/stay',
+      '/places/restaurant',
+      '/places/cafe',
+      '/checklist',
+      '/settings',
+    ]);
+  });
+
+  it('루트 화면과 같은 집합이다 — 스와이프로 가는데 뒤로가기가 붙으면 그게 버그다', () => {
+    for (const route of SWIPE_ROUTES) expect(isRootRoute(route)).toBe(true);
+  });
+
+  it('카페에서 한 번 더 밀면 준비물이다 — 둘러보기의 끝은 막다른 길이 아니다', () => {
+    expect(SWIPE_ROUTES[swipeIndexOf('/places/cafe') + 1]).toBe('/checklist');
+  });
+
+  it('지도에서 왼쪽으로 밀면 둘러보기의 첫 종류로 들어온다', () => {
+    expect(SWIPE_ROUTES[swipeIndexOf('/map') + 1]).toBe('/places/stay');
+  });
+
+  it('수열에 없는 화면은 -1 이다', () => {
+    expect(swipeIndexOf('/saved')).toBe(-1);
+  });
+});
+
+describe('isWithinPlacesSwipe — 제스처의 주인을 가른다', () => {
+  it('둘러보기 안에서 끝나면 화면 쪽(placesPageSwipe)의 것이다', () => {
+    expect(isWithinPlacesSwipe(swipeIndexOf('/places/stay'), swipeIndexOf('/places/restaurant'))).toBe(true);
+  });
+
+  it('둘러보기 밖으로 나가면 셸(appShellSwipe)의 것이다', () => {
+    expect(isWithinPlacesSwipe(swipeIndexOf('/places/stay'), swipeIndexOf('/map'))).toBe(false);
+    expect(isWithinPlacesSwipe(swipeIndexOf('/places/cafe'), swipeIndexOf('/checklist'))).toBe(false);
+  });
+
+  it('수열 밖(끝을 넘어선 자리)은 아무의 것도 아니다', () => {
+    expect(isWithinPlacesSwipe(swipeIndexOf('/settings'), SWIPE_ROUTES.length)).toBe(false);
+    expect(isWithinPlacesSwipe(swipeIndexOf('/'), -1)).toBe(false);
+  });
+});
+
+describe('canStartSwipeAt — 어디서 밀기 시작할 수 있나', () => {
+  it('지도는 제외다 — 가로로 끄는 동작이 이미 지도의 것이다', () => {
+    expect(canStartSwipeAt('/map')).toBe(false);
+  });
+
+  it('지도를 뺀 탭바 화면에서는 시작할 수 있다', () => {
+    for (const route of SWIPE_ROUTES.filter((value) => value !== '/map')) {
+      expect(canStartSwipeAt(route)).toBe(true);
+    }
+  });
+
+  it('하위 화면에서는 시작할 수 없다 — 거기엔 뒤로가기가 있다', () => {
+    expect(canStartSwipeAt(`/place/${cafeId}`)).toBe(false);
+    expect(canStartSwipeAt('/saved')).toBe(false);
   });
 });

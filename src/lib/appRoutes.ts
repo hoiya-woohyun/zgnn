@@ -16,26 +16,73 @@
 import { PLACE_TYPES, getPlace } from './places';
 
 /** 주소 끝의 `/` 를 떼어 비교를 한 가지 모양으로 맞춘다(정적 내보내기라 `/dog/` 로도 들어온다). */
-const normalize = (pathname: string) => {
+export const normalizeRoute = (pathname: string) => {
   const trimmed = pathname.replace(/\/+$/, '');
   return trimmed === '' ? '/' : trimmed;
 };
+
+/**
+ * 좌우 스와이프로 넘나드는 화면들을 **한 줄로 늘어놓은 순서**.
+ *
+ * 탭바(bottomNav)의 다섯 자리와 같은 순서이되, 둘러보기만 종류 셋으로 펼쳐져 있다.
+ * 펼쳐 두는 것이 요점이다 — 지도에서 왼쪽으로 밀면 숙소가 나오고, 계속 밀면 식당·카페를
+ * 지나 준비물로 간다. "둘러보기 안의 탭 전환" 과 "화면 사이 이동" 은 손가락에게 같은
+ * 동작이므로 자리표도 하나여야 한다. 둘을 따로 세면 카페에서 한 번 더 미는 순간
+ * "다음이 무엇인가" 에 답할 수 있는 곳이 아무 데도 없다(→ ADR-014).
+ *
+ * 탭바의 하이라이트는 여전히 다섯 칸이다(`components/layout/navItems.ts` 의 `isActive`) —
+ * 여기는 "다음이 무엇인가", 저기는 "어느 탭에 불이 들어오나" 로 질문이 다르다.
+ */
+export const SWIPE_ROUTES: readonly string[] = [
+  '/',
+  '/map',
+  ...PLACE_TYPES.map((type) => `/places/${type}`),
+  '/checklist',
+  '/settings',
+];
 
 /**
  * 탭바·사이드바로 한 번에 갈 수 있는 화면. 여기 있는 경로에는 뒤로가기가 붙지 않는다.
  *
  * 둘러보기는 종류마다 주소가 다르지만(`/places/stay|restaurant|cafe`) 사용자에게는
  * 한 화면 안의 탭 전환이라 셋 다 루트다 — 카페 목록에서 뒤로가기가 나오면 안 된다.
+ *
+ * **`SWIPE_ROUTES` 에서 파생한다** — 둘은 같은 집합이어야 한다. 스와이프로 갈 수 있는데
+ * 뒤로가기가 붙는 화면(또는 그 반대)이 생기면 그게 버그다. 따로 적어 두면 한쪽만 고치는 날이 온다.
  */
-const ROOT_ROUTES = new Set<string>([
-  '/',
-  '/map',
-  ...PLACE_TYPES.map((type) => `/places/${type}`),
-  '/checklist',
-  '/settings',
-]);
+const ROOT_ROUTES = new Set<string>(SWIPE_ROUTES);
 
-export const isRootRoute = (pathname: string): boolean => ROOT_ROUTES.has(normalize(pathname));
+export const isRootRoute = (pathname: string): boolean => ROOT_ROUTES.has(normalizeRoute(pathname));
+
+/** 스와이프 수열에서의 자리. 수열에 없는 화면(= 하위 화면)이면 -1. */
+export const swipeIndexOf = (pathname: string): number => SWIPE_ROUTES.indexOf(normalizeRoute(pathname));
+
+/** 그 자리가 둘러보기(`/places/*`)인가. 수열 밖이면 false. */
+export const isPlacesSwipeIndex = (index: number): boolean =>
+  SWIPE_ROUTES[index]?.startsWith('/places/') ?? false;
+
+/**
+ * 둘러보기 안에서 끝나는 이동인가 — `/places/*` 에서 `/places/*` 로.
+ *
+ * **이 한 줄이 제스처의 주인을 가른다.** 둘러보기 안의 이동은 화면 쪽(`screens/placesPageSwipe`)이
+ * 헤더는 세워 둔 채 목록과 알약만 끌고, 경계를 넘는 이동은 셸(`components/layout/appShellSwipe`)이
+ * 화면을 통째로 끈다. 두 인식기가 같은 포인터 이벤트를 보면서도 싸우지 않는 이유는 서로
+ * 신호를 주고받아서가 아니라 **둘 다 여기에 같은 질문을 던지고 같은 답을 받기 때문**이다.
+ */
+export const isWithinPlacesSwipe = (from: number, to: number): boolean =>
+  isPlacesSwipeIndex(from) && isPlacesSwipeIndex(to);
+
+/**
+ * 이 화면에서 스와이프를 **시작**할 수 있는가.
+ *
+ * 지도는 예외다 — 화면 전체가 카카오 지도 캔버스라 가로로 끄는 동작이 이미 지도의 것이다.
+ * 지도로 스와이프해 들어올 수는 있고(그쪽은 도착점일 뿐이다), 나갈 때만 탭바를 쓴다.
+ * 하위 화면(`/place/:id` 등)도 수열 밖이라 여기서 걸린다 — 거기엔 뒤로가기가 있다.
+ */
+export const canStartSwipeAt = (pathname: string): boolean => {
+  const path = normalizeRoute(pathname);
+  return ROOT_ROUTES.has(path) && path !== '/map';
+};
 
 /**
  * 되감을 앱 안 화면이 없을 때(딥링크로 바로 들어온 경우) 올라갈 부모 경로.
@@ -46,7 +93,7 @@ export const isRootRoute = (pathname: string): boolean => ROOT_ROUTES.has(normal
  * 설정으로, 그 밖의 화면은 홈으로 올려보낸다.
  */
 export const parentRouteOf = (pathname: string): string => {
-  const path = normalize(pathname);
+  const path = normalizeRoute(pathname);
 
   if (path.startsWith('/place/')) {
     const place = getPlace(path.slice('/place/'.length));

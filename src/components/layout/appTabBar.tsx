@@ -11,7 +11,7 @@ const normalize = (pathname: string) => pathname.replace(/\/+$/, '') || '/';
  * 모바일 하단 탭바. 데스크톱(md 이상)에서는 사이드바가 대신하므로 숨는다.
  *
  * 높이를 고정해 두는 이유는 appShell 이 이 값만큼 콘텐츠 아래를 비워야 하기 때문이다.
- * 여기 숫자를 바꾸면 appShell 의 CONTENT_BOTTOM_SPACE 도 같이 바꾼다.
+ * 여기 숫자를 바꾸면 `appShellSurface.ts` 의 CONTENT_BOTTOM_SPACE 도 같이 바꾼다.
  *
  * **이미 있는 탭을 다시 누르면 맨 위로 부드럽게 돌아간다** — 네이티브 탭바의 관례다.
  * 조건으로 `item.isActive` 를 쓰면 안 된다. 둘러보기 항목은 탭 하이라이트를 위해 상세
@@ -19,9 +19,12 @@ const normalize = (pathname: string) => pathname.replace(/\/+$/, '') || '/';
  * 못하고 제자리에서 스크롤만 한다. 여기서 묻는 것은 "어느 탭에 불이 들어오나" 가 아니라
  * "지금 이 주소에 서 있나" 다(같은 혼동을 `lib/appRoutes.ts` 도 경고한다).
  *
- * 다른 탭으로 옮길 때는 아무것도 하지 않는다 — 셸이 경로가 바뀌면 스크롤을 0 으로
- * 되돌리는데, 여기서 부드러운 스크롤을 같이 걸면 둘이 경쟁한다. 전역
- * `scroll-behavior: smooth` 를 쓰지 않는 이유도 같다(그 리셋까지 애니메이션된다).
+ * 다른 탭으로 옮길 때는 아무것도 하지 않는다 — 셸이 경로가 바뀌면 그 화면의 자리로
+ * 스크롤을 되돌리는데(`lib/appScroll.ts`), 여기서 부드러운 스크롤을 같이 걸면 둘이 경쟁한다.
+ * 전역 `scroll-behavior: smooth` 를 쓰지 않는 이유도 같다(그 복원까지 애니메이션된다).
+ *
+ * **탭바는 손가락으로 화면을 넘길 때도 움직이지 않는다**(ADR-014) — 화면들을 담는 틀이지
+ * 화면이 아니다. 스와이프로 옮겨도 여기 하이라이트는 `isActive` 가 새 주소로 다시 계산한다.
  */
 export function AppTabBar() {
   const pathname = usePathname();

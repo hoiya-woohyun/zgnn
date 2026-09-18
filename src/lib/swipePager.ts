@@ -2,7 +2,9 @@
  * 좌우 스와이프로 페이지를 넘기는 산수. DOM 을 모른다 — 손가락이 움직인 거리·속도와
  * 페이지 폭만 받아 "화면에 얼마나 옮길지" 와 "놓으면 어디로 갈지" 만 답한다.
  *
- * 둘러보기의 숙소·식당·카페 전환(`screens/placesPageSwipe.ts`)이 쓴다.
+ * 두 인식기가 이것을 함께 쓴다 — 둘러보기 안의 종류 전환(`screens/placesPageSwipe.ts`)과
+ * 화면 사이 이동(`components/layout/appShellSwipe.ts`). **느낌이 갈리면 안 되기 때문에**
+ * 손가락에 관한 숫자는 전부 여기 한 곳에 둔다. 한쪽에만 복사해 두면 어느 날 한쪽만 바뀐다.
  */
 
 /**
@@ -55,4 +57,37 @@ export const settleSwipe = ({ index, count, dx, velocity, width }: TSwipeRelease
   if (!flick && !far) return index;
   const next = dx < 0 ? index + 1 : index - 1;
   return Math.min(count - 1, Math.max(0, next));
+};
+
+/** 이만큼(px) 움직이기 전엔 세로 스크롤인지 가로 스와이프인지 정하지 않는다. */
+export const AXIS_SLOP_PX = 10;
+/** 화면 왼쪽 가장자리 이 폭(px)에서 시작한 제스처는 iOS Safari 의 뒤로가기라 건드리지 않는다. */
+export const BACK_SWIPE_EDGE_PX = 24;
+/** 놓은 뒤 남은 거리를 밀어내는 시간. 알약이 탭 클릭으로 움직일 때와 같은 곡선(placesPageTypeTabs). */
+export const SETTLE_MS = 260;
+export const SETTLE_EASING = 'cubic-bezier(0.16, 1, 0.3, 1)';
+/**
+ * 속도는 이 구간(ms) 안의 샘플로 잰다. 마지막 두 move 만 보면 손가락이 떨어지기 직전 잠깐
+ * 멈칫한 것이 0 으로 읽혀 플릭이 죽는다(실기에서 "끝까지 끌어야 넘어간다" 로 느껴진 원인).
+ */
+export const VELOCITY_WINDOW_MS = 100;
+
+/** 손가락이 지나간 자리 하나. */
+export type TSample = { x: number; t: number };
+
+/**
+ * 속도를 잴 구간만 남긴다.
+ *
+ * 멈춘 채로 있다가 떼면 move 가 안 오므로 오래된 샘플이 그대로 남는다 — 그래서 뗄 때도
+ * **그 시각 기준으로** 다시 걸러야 한다. `at` 을 받는 이유가 그것이다.
+ */
+export const recentSamples = (samples: TSample[], at: number): TSample[] =>
+  samples.filter((sample) => at - sample.t <= VELOCITY_WINDOW_MS);
+
+/** 구간의 첫·끝으로 잰 속도(px/ms). 샘플이 하나뿐이면 잴 수 없으니 0. */
+export const velocityOf = (samples: TSample[]): number => {
+  const first = samples[0];
+  const last = samples[samples.length - 1];
+  if (!first || !last || samples.length < 2) return 0;
+  return (last.x - first.x) / Math.max(1, last.t - first.t);
 };

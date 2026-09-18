@@ -10,22 +10,21 @@ import {
   type RefObject,
 } from 'react';
 import { arriveBySwipe } from './placesPageTypeSwitch';
+import { isWithinPlacesSwipe, swipeIndexOf } from '../lib/appRoutes';
+import { rememberScroll } from '../lib/appScroll';
 import { PLACE_TYPES } from '../lib/places';
-import { resistedOffset, settleSwipe } from '../lib/swipePager';
+import {
+  AXIS_SLOP_PX,
+  BACK_SWIPE_EDGE_PX,
+  SETTLE_EASING,
+  SETTLE_MS,
+  recentSamples,
+  resistedOffset,
+  settleSwipe,
+  velocityOf,
+  type TSample,
+} from '../lib/swipePager';
 import type { TPlaceType } from '../types';
-
-/** 이만큼(px) 움직이기 전엔 세로 스크롤인지 가로 스와이프인지 정하지 않는다. */
-const AXIS_SLOP_PX = 10;
-/** 화면 왼쪽 가장자리 이 폭(px)에서 시작한 제스처는 iOS Safari 의 뒤로가기라 건드리지 않는다. */
-const BACK_SWIPE_EDGE_PX = 24;
-/** 놓은 뒤 남은 거리를 밀어내는 시간. 알약이 탭 클릭으로 움직일 때와 같은 곡선(placesPageTypeTabs). */
-const SETTLE_MS = 260;
-const SETTLE_EASING = 'cubic-bezier(0.16, 1, 0.3, 1)';
-/**
- * 속도는 이 구간(ms) 안의 샘플로 잰다. 마지막 두 move 만 보면 손가락이 떨어지기 직전 잠깐
- * 멈칫한 것이 0 으로 읽혀 플릭이 죽는다(실기에서 "끝까지 끌어야 넘어간다" 로 느껴진 원인).
- */
-const VELOCITY_WINDOW_MS = 100;
 
 export type TPlacesPagePeek = {
   /** 이웃 종류. 끝이라 이웃이 없으면 null. */
@@ -35,8 +34,6 @@ export type TPlacesPagePeek = {
   top: number;
   height: number;
 };
-
-type TSample = { x: number; t: number };
 
 type TGesture = {
   pointerId: number;
@@ -67,6 +64,12 @@ type TGesture = {
  * state 로 두지만 그건 작은 시트 하나라서고, 여기서 pointermove 마다 state 를 바꾸면 카드
  * 수십 장이 매 프레임 리렌더된다. 리액트가 알아야 하는 것은 "엿보기를 그릴지" 뿐이다.
  *
+ * **둘러보기 밖으로 나가는 방향은 여기서 놓는다.** 숙소에서 오른쪽으로, 카페에서 왼쪽으로
+ * 미는 것은 지도·준비물로 가는 이동이고 그건 셸이 화면을 통째로 끈다
+ * (`components/layout/appShellSwipe.ts`). 두 인식기가 같은 포인터 이벤트를 다 받지만, 방향이
+ * 정해지는 순간 `isWithinPlacesSwipe` 에 같은 질문을 던져 정확히 한쪽만 잠긴다 — 서로에게
+ * 신호를 보내지 않는다(→ `lib/appRoutes.ts`).
+ *
  * 터치만 받는다. 마우스로 목록을 끄는 동작은 데스크톱에서 어색하고, 거기선 탭이 있다.
  * 표면에는 `touch-action: pan-y` 가 걸려 있어야 한다 — 세로는 브라우저가 스크롤로 가져가고
  * (그때 pointercancel 이 온다), 가로만 여기로 온다. `none` 을 걸면 세로 스크롤이 죽는다.
@@ -81,6 +84,8 @@ export function usePlacesPageSwipe(type: TPlaceType, headerRef: RefObject<HTMLEl
   const router = useRouter();
   const index = PLACE_TYPES.indexOf(type);
   const count = PLACE_TYPES.length;
+  /** 같은 화면의 자리를 셸과 같은 수열(`SWIPE_ROUTES`)에서도 센 값. 주인을 가를 때만 쓴다. */
+  const swipeIndex = swipeIndexOf(`/places/${type}`);
 
   const stageRef = useRef<HTMLDivElement>(null);
   const currentRef = useRef<HTMLDivElement>(null);
@@ -143,6 +148,18 @@ export function usePlacesPageSwipe(type: TPlaceType, headerRef: RefObject<HTMLEl
           const next = PLACE_TYPES[target];
           if (window.location.pathname.startsWith(`/places/${next}`)) return;
           arriveBySwipe(next);
+          /*
+           * 도착점은 맨 위다. 셸은 **모든** 화면의 스크롤 자리를 되돌려 놓지만(lib/appScroll.ts),
+           * 이 이동만은 엿보기가 이웃을 **맨 위**로 그리므로(위 2번 계약) 옛 자리로 앉히면
+           * 손가락을 놓는 순간 목록이 그만큼 튄다. "어떻게 왔는지" 는 주소에 안 남으니
+           * 셸이 가릴 수 없다 — 이동하는 쪽이 도착점을 적어 말한다.
+           *
+           * **이 한 줄이 스와이프 경로를 떠받친다.** appScroll 에는 주소로 된 예외가 없으므로,
+           * 지우면 빌드도 테스트도 통과한 채 밀어서 바꾼 종류만 옛 자리로 앉는다. (알약을 탭해서
+           * 바꾸는 경로는 `next/link` 라 어차피 맨 위로 간다 — appScroll 의 "탭으로 옮기면
+           * 복원되지 않는다" 참고. 그쪽이 고쳐지면 이 줄이 알약 경로까지 떠받쳐야 한다.)
+           */
+          rememberScroll(`/places/${next}`, 0);
           router.push(`/places/${next}`);
           return;
         }
@@ -186,6 +203,12 @@ export function usePlacesPageSwipe(type: TPlaceType, headerRef: RefObject<HTMLEl
         current.axis = 'off';
         return;
       }
+      // 둘러보기 밖으로 나가는 방향이면 이 제스처는 셸의 것이다(appShellSwipe). 여기서 잠그면
+      // 헤더는 선 채 목록만 끌려 나가 "화면을 넘긴다" 가 아니라 "목록이 빠진다" 로 보인다.
+      if (!isWithinPlacesSwipe(swipeIndex, swipeIndex + (dx < 0 ? 1 : -1))) {
+        current.axis = 'off';
+        return;
+      }
       const stage = stageRef.current;
       const header = headerRef.current;
       if (!stage || !header) return;
@@ -218,7 +241,7 @@ export function usePlacesPageSwipe(type: TPlaceType, headerRef: RefObject<HTMLEl
     }
 
     const sample = { x: event.clientX, t: event.timeStamp };
-    current.samples = [...current.samples.filter((s) => sample.t - s.t <= VELOCITY_WINDOW_MS), sample];
+    current.samples = [...recentSamples(current.samples, sample.t), sample];
     current.dx = resistedOffset(event.clientX - current.startX, index, count);
     paint(current.dx, current.width);
   };
@@ -230,11 +253,7 @@ export function usePlacesPageSwipe(type: TPlaceType, headerRef: RefObject<HTMLEl
     if (current.axis !== 'x') return;
 
     const { dx, width } = current;
-    // 멈춘 채로 있다가 떼면 move 가 안 오므로 오래된 샘플이 그대로 남는다 — 떼는 시각 기준으로 다시 거른다.
-    const samples = current.samples.filter((s) => event.timeStamp - s.t <= VELOCITY_WINDOW_MS);
-    const first = samples[0];
-    const last = samples[samples.length - 1];
-    const velocity = samples.length > 1 ? (last.x - first.x) / Math.max(1, last.t - first.t) : 0;
+    const velocity = velocityOf(recentSamples(current.samples, event.timeStamp));
     settle(settleSwipe({ index, count, dx, velocity, width }), width);
   };
 
