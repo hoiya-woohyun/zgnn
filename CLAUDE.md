@@ -13,14 +13,15 @@ Tailwind v4 + Untitled UI · zustand persist · leaflet. 데이터는 빌드 시
 | 이용 조건 파싱·판정 로직 | [docs/architecture/pet-policy-and-eligibility.md](docs/architecture/pet-policy-and-eligibility.md) · `src/lib/petPolicy.ts` · `src/lib/eligibility.ts` |
 | 준비물·장소별 필요 물건 | [docs/features/checklist.md](docs/features/checklist.md) · [docs/decisions/ADR-009-trip-derived-checklist.md](docs/decisions/ADR-009-trip-derived-checklist.md) · `src/lib/itemNeeds.ts` |
 | 라우팅·화면 셸·클라이언트 상태 | [docs/architecture/app-shell-and-state.md](docs/architecture/app-shell-and-state.md) · `src/store/useAppStore.ts` |
-| 둘러보기 좌우 스와이프·탭 전환 애니메이션 | [docs/decisions/ADR-013-places-swipe-pager.md](docs/decisions/ADR-013-places-swipe-pager.md) · `src/screens/placesPageSwipe.ts` · `src/lib/swipePager.ts` |
+| 화면 간 좌우 스와이프·스크롤 복원 | [docs/decisions/ADR-014-shell-owned-swipe-pager.md](docs/decisions/ADR-014-shell-owned-swipe-pager.md) · `src/components/layout/appShellSwipe.ts` · `src/lib/appScroll.ts` |
+| 둘러보기 안의 종류 스와이프·탭 전환 애니메이션 | [docs/decisions/ADR-013-places-swipe-pager.md](docs/decisions/ADR-013-places-swipe-pager.md) · `src/screens/placesPageSwipe.ts` · `src/lib/swipePager.ts` |
 | 뒤로가기가 안 보임·새 화면 추가 | [docs/decisions/ADR-007-shell-owned-back-navigation.md](docs/decisions/ADR-007-shell-owned-back-navigation.md) · `src/lib/appRoutes.ts` |
-| 노치·상태바 밑으로 내용이 들어감 | [docs/decisions/ADR-010-shell-owned-safe-area.md](docs/decisions/ADR-010-shell-owned-safe-area.md) · `src/lib/appRoutes.ts` 의 `topSurfaceColorOf` |
+| 노치·상태바 밑으로 내용이 들어감 | [docs/decisions/ADR-010-shell-owned-safe-area.md](docs/decisions/ADR-010-shell-owned-safe-area.md) · `src/components/layout/appShell.tsx` |
 | 데이터 갱신·정규화 | [docs/architecture/data-pipeline.md](docs/architecture/data-pipeline.md) · `scripts/normalize.mjs` |
 | 색·토큰·팔레트 | [docs/decisions/ADR-003-untitled-ui-and-palette.md](docs/decisions/ADR-003-untitled-ui-and-palette.md) · `src/styles/theme.css` |
 | 크기 스케일·반응형·글꼴 | [docs/decisions/ADR-006-responsive-scale-and-font.md](docs/decisions/ADR-006-responsive-scale-and-font.md) · `src/styles/globals.css` |
 | 회원·로그인·개인정보를 붙이려 함 | [docs/decisions/ADR-011-app-gate-and-supabase.md](docs/decisions/ADR-011-app-gate-and-supabase.md) · [ADR-012](docs/decisions/ADR-012-personal-data-and-consent.md) — **둘 다 제안 단계라 코드에 대응물이 없다** |
-| "왜 이렇게 했나" | [docs/decisions/](docs/decisions/) (ADR 10편) · 전체 지도는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| "왜 이렇게 했나" | [docs/decisions/](docs/decisions/) (ADR 14편) · 전체 지도는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 
 탐색 전에 위 표를 먼저 본다. 전체 구조가 필요하면 `docs/ARCHITECTURE.md` 하나만 읽으면 된다.
 
@@ -47,6 +48,11 @@ Tailwind v4 + Untitled UI · zustand persist · leaflet. 데이터는 빌드 시
 - **이동가방·케이지·유모차는 준비물 표(`ITEM_NEEDS`)에 넣지 않는다.** 판정(`eligibility.ts` H4·H5·C2·C3)이
   이미 같은 말을 한다 — 넣으면 한 화면에서 "갈 수 있어요"와 "가방을 안 챙겼어요"가 **서로 반대를**
   말한다. 빌드·테스트는 그대로 통과한다(→ [ADR-009](docs/decisions/ADR-009-trip-derived-checklist.md)).
+- **`<main>` 안에 `position: fixed` 를 새로 두면 스와이프 중에 자리가 어긋난다.** 셸이 화면을
+  끌 때 `<main>` 에 transform 이 걸리는데, transform 이 걸린 조상이 있으면 `fixed` 는 화면이 아니라
+  그 조상 기준이 된다 — `top: 0` 이 문서 맨 위를 가리켜, 내려 본 상태에서 끌면 그 요소가 화면
+  위로 사라진다. 축약 줄(`collapsingTitleBar`)이 `--swipe-viewport-top` 으로 상쇄하는 이유다
+  (→ [ADR-014](docs/decisions/ADR-014-shell-owned-swipe-pager.md)).
 - **종류 색(숙소·식당·카페)은 두 곳에 같은 값이 있다** — `src/styles/theme.css` 와
   `src/lib/places.ts`(지도 마커). 한쪽만 고치면 지도와 화면 색이 어긋난다.
 - **팔레트를 바꾸면** `pnpm icons` 로 아이콘을 다시 만들고 `src/app/layout.tsx` ·

@@ -1,6 +1,7 @@
 # 라우팅 · 화면 셸 · 클라이언트 상태
 
-> 최종 수정: 2026-09-17 (v12: 둘러보기 종류를 손가락으로 좌우로 넘긴다 — 끌리는 동안 이웃 목록이 옆에서 엿보이고, 놓으면 밀어낸 뒤 주소를 바꾼다(`placesPageSwipe`·`placesPageSwipePeek`) → [ADR-013](../decisions/ADR-013-places-swipe-pager.md))
+> 최종 수정: 2026-09-18 (v13: 탭바 화면 사이도 손가락으로 넘긴다 — 일곱 칸 한 줄(`SWIPE_ROUTES`), 셸이 `<main>` 을 통째로 끌고 이웃 화면을 `fixed` 엿보기로 띄운다. 탭바 화면은 떠날 때의 스크롤 자리를 지킨다(`lib/appScroll.ts`) → [ADR-014](../decisions/ADR-014-shell-owned-swipe-pager.md))
+> 이전 (v12: 둘러보기 종류를 손가락으로 좌우로 넘긴다 — 끌리는 동안 이웃 목록이 옆에서 엿보이고, 놓으면 밀어낸 뒤 주소를 바꾼다(`placesPageSwipe`·`placesPageSwipePeek`) → [ADR-013](../decisions/ADR-013-places-swipe-pager.md))
 > 이전 (v11: 축약 줄이 상태바 뒤에서 미끄러져 내려온다. 둘러보기 종류 전환에 방향을 붙였다 — 알약이 옮겨 가고 목록이 그쪽에서 들어온다(`placesPageTypeTabs`·`placesPageTypeSwitch`). 하이드레이션 신호를 "성공했나" 에서 "끝났나" 로 → [BUG-002](../bugs/BUG-002-hydration-deadlock.md))
 > 이전 (v10: 메인 탭에서 제목이 스크롤로 사라지면 축약 줄이 대신 나타난다 — `CollapsingTitleBar`(홈·준비물))
 > 이전 (v10: 맨 위 면을 전 화면 크림으로 통일 — `<html>` 배경 동기화·`under-app-bar` 삭제, 홈 히어로는 라운드 판 → [ADR-010 v3](../decisions/ADR-010-shell-owned-safe-area.md))
@@ -49,8 +50,8 @@ src/app/place/[id]/page.tsx   ─ 서버: generateStaticParams(86개) · generat
 그 탭의 주소와 같은가" 이며, `navItems.isActive` 를 쓰면 안 된다 — 둘러보기 항목은 탭
 하이라이트를 위해 `/place/:id` 까지 자기 것으로 보므로, 상세에서 둘러보기를 눌러도 목록으로
 가지 못하고 제자리에서 스크롤만 한다. 다른 탭으로 옮길 때는 아무것도 하지 않는다(셸이
-경로가 바뀌면 스크롤을 0 으로 되돌린다). 전역 `scroll-behavior: smooth` 도 쓰지 않는다 —
-그 리셋까지 애니메이션돼 화면 전환마다 스크롤이 흐른다.
+경로가 바뀌면 그 화면의 자리로 스크롤을 되돌린다 — 아래 참고). 전역 `scroll-behavior: smooth`
+도 쓰지 않는다 — 그 복원까지 애니메이션돼 화면 전환마다 스크롤이 흐른다.
 
 **브레이크포인트는 배치만이 아니라 크기도 바꾼다.** `globals.css` 가 `--spacing` 을 768px·1024px 에서
 4 → 4.5 → 5px 로 올리고, 이 레포의 타이포·간격·컨트롤 높이가 전부 그 파생이라 화면 전체가 같은 비율로
@@ -115,6 +116,68 @@ viewport 에 고정돼 스크롤을 내리면 색이 안 맞는 내용 위에 �
 `parentRouteOf(pathname)` 으로 `replace` 한다. 상세의 부모는 장소 종류에 따라 갈리므로(카페 상세 → `/places/cafe`)
 경로만 보지 않고 데이터를 본다. `markReplacedNavigation()` 은 이 교체 이동이 깊이를 늘리지 않게 한다.
 테스트: `src/lib/appHistory.test.ts`, `src/lib/appRoutes.test.ts`.
+
+### 화면 사이도 손가락으로 넘긴다 — 셸이 소유하는 한 줄
+
+> 왜 이렇게 했는지는 [ADR-014](../decisions/ADR-014-shell-owned-swipe-pager.md).
+> 둘러보기 **안**의 종류 전환은 [ADR-013](../decisions/ADR-013-places-swipe-pager.md).
+
+탭바의 다섯 자리를 둘러보기만 종류 셋으로 펼쳐 **한 줄로 늘어놓는다**
+(`lib/appRoutes.ts` 의 `SWIPE_ROUTES`). 손가락에게는 이게 전부다:
+
+```
+홈 ─ 지도 ─ 숙소 ─ 식당 ─ 카페 ─ 준비물 ─ 설정
+```
+
+`ROOT_ROUTES`(뒤로가기 판정)는 이 배열에서 파생한다 — 스와이프로 가는데 뒤로가기가 붙는
+화면이 생기면 그게 버그다. 탭 하이라이트는 여전히 다섯 칸(`navItems.isActive`)이다.
+
+| 이동 | 주인 | 움직이는 것 |
+|---|---|---|
+| `/places/*` → `/places/*` | `screens/placesPageSwipe.ts` | 헤더는 선 채 목록과 탭 알약만 |
+| 그 밖 | `components/layout/appShellSwipe.ts` | `<main>` 통째로. 탭바는 제자리 |
+
+두 인식기가 같은 포인터 이벤트를 다 받지만, 축이 가로로 잠기는 순간 둘 다
+`isWithinPlacesSwipe(지금, 다음)` 에 같은 질문을 던져 정확히 한쪽만 잠긴다 — **서로에게 신호를
+보내지 않는다.** 손가락에 관한 숫자(거리·속도·저항·축 고정·밀어내는 시간)는 전부
+`lib/swipePager.ts` 한 곳에 있다.
+
+- **지도에서는 밀어서 나갈 수 없다**(`canStartSwipeAt`). 화면 전체가 캔버스라 가로로 끄는 동작이
+  이미 지도의 것이다. 들어오는 것은 되고, 나갈 때는 탭바를 쓴다. 같은 이유로 지도에서는
+  `touch-action` 도 걸지 않는다.
+- **이웃은 진짜 화면을 그린다**(`appShellSwipePeek`) — `<main>` 밖에 `fixed` 로, `inert` 로.
+  지도만 예외로 "갓 마운트된 지도" 대역(크림 한 장)을 세운다. 카카오 SDK 를 제스처 중에
+  받기 시작하면 첫 프레임이 걸린다.
+- **`<main>` 에 transform 이 걸리면 그 안의 `position: fixed` 는 화면이 아니라 `<main>` 기준이
+  된다.** 축약 줄이 그래서 `top: var(--swipe-viewport-top, 0px)` 를 쓴다(셸이 잠기는 순간 지금
+  스크롤 값을 적어 상쇄). **화면 안에 `fixed` 를 새로 두면 같은 함정을 밟는다.**
+- 화면 규격(`<main>` 의 폭·여백)은 `appShellSurface.ts` 에 있고 **셸과 엿보기가 같은 함수를
+  부른다** — 어긋나면 놓는 순간 내용이 옆으로 튄다.
+
+### 스크롤은 화면마다 제자리를 지킨다 (`lib/appScroll.ts`)
+
+옆으로 미는 동작은 화면들이 나란히 떠 있다고 말한다. 나란히 떠 있는 것은 눈을 뗐다고 맨 위로
+되감기지 않는다. 목록도 마찬가지다 — 상세를 들렀다 나오면 보고 있던 항목이 다시 보여야 한다.
+그래서 **모든 화면이** 떠날 때의 세로 위치를 모듈 변수에 적어 두고 도착할 때 되돌려 놓는다.
+자리는 스크롤 이벤트로 ref 에 받아 둔다(경로가 바뀐 **뒤에** `window.scrollY` 를 읽으면 이미 늦다).
+
+**주소로 된 예외는 하나도 없다.** "방금 연 것" 과 "되돌아온 것" 은 주소로 구별되지 않아서,
+주소로 가르면 반드시 한쪽이 틀린다(→ [ADR-014](../decisions/ADR-014-shell-owned-swipe-pager.md) §5).
+맨 위에서 시작해야 하는 이동은 **그 이동을 하는 쪽**이 도착점 기억을 0 으로 적어 말한다.
+
+**복원이 실제로 보이는 이동은 스와이프와 뒤로/앞으로뿐이다.** 탭바·사이드바·알약(`next/link`)을
+탭해서 옮기면 도착이 늘 맨 위다(2026-09-18 실측, 원인 미확인 — ADR-014 §5). 이전 정책에서도
+같았다.
+
+맨 위에서 시작하도록 **코드가 직접 말하는** 곳은 하나다:
+
+- **둘러보기의 종류 전환**(`screens/placesPageSwipe.ts` 의 `settle`) — 종류를 바꾸면 조건이 전부
+  리셋되는데(`key={type}`) 자리만 남기면 한 화면이 두 가지 말을 한다. 종류 전환의 엿보기가
+  이웃을 맨 위로 그리는 것과도 짝이 맞는다(ADR-013). 같은 화면을 떠나서 **돌아오는** 것은
+  예외가 아니다 — 카페에서 준비물로 밀고 돌아오면 제자리다.
+
+스와이프의 `router.push` 에는 `scroll: false` 를 준다 — Next 의 기본 리셋과 셸의 복원이 같은
+프레임에 싸우면 어느 쪽이 이겼는지 알 수 없다.
 
 ### 제목이 사라지면 축약 줄이 대신 선다 (`CollapsingTitleBar`)
 
