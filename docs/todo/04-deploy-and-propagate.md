@@ -41,8 +41,9 @@ Studio 에서 status 변경  ──▶  Supabase Database Webhook (places: INSER
 - [ ] `candidates` 가 아니라 **`places`** 에 건다. 승인(candidates) 자체는 화면에 아무 영향이 없고, `data:apply` 가
       `places` 를 만질 때 비로소 반영할 것이 생긴다.
 - [ ] Deploy Hook URL 은 시크릿이다. Supabase 웹훅 설정 화면에만 존재한다. 새 나가면 Vercel 에서 폐기·재발급(05).
-- [ ] 🙋 **승인 N건 = 빌드 N번.** Vercel Hobby 는 빌드 시간 한도가 있다(월 100시간 — 문서 확인). 한 번에 20건 승인하면
-      빌드 20번이 줄줄이 선다(Vercel 이 같은 브랜치의 대기 중 빌드를 건너뛰긴 한다). 대안:
+- [ ] 🙋 **승인 N건 = 빌드 N번.** 한 번에 20건 승인하면 빌드 20번이 줄줄이 선다(Vercel 이 같은 브랜치의 대기 중 빌드를
+      건너뛰긴 한다). Hobby 에서 **먼저 걸리는 한도가 하루 배포 횟수인지 월 빌드 시간인지**를 첫 달에 관찰한다 — 그게
+      아래 세 갈래 중 무엇을 고를지 정한다. 대안:
       - (기본) 그냥 둔다. 주 2회 수 건이면 문제없다.
       - 웹훅을 `places` 가 아니라 별도 `deploy_requests` 테이블에 걸고, 관리 화면의 "반영" 버튼이 거기에 한 줄 넣는다.
       - Actions 수집 잡 끝에서만 Deploy Hook 을 `curl` 한다(승인은 모였다가 다음 수집 때 반영).

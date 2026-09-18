@@ -57,7 +57,10 @@ create table candidates (
 create table place_sources ( place_id text references places(id), post_url text references blog_posts(url), primary key (place_id, post_url) );
 ```
 
-- `status='archived'` 는 폐업. 지우지 않는다 — 저장 목록(localStorage)에 id 가 남아 있는 사람이 있다.
+- `status='archived'` 는 폐업. 행은 지우지 않는다(출처·이력 보존). 단 `data:pull` 은 `published` 만 가져오므로 **아카이브된 곳은
+  `places.json`·라우트·프리캐시에서 빠지고, 저장 목록에서도 조용히 사라진다** — `selectSavedPlaces` 가 `PLACES.filter` 라
+  모르는 id 는 오류 없이 버려지고 개수만 준다(`src/lib/places.ts`). 저장한 사람에게 "폐업" 을 보여 주고 싶으면 archived 도
+  pull 해 화면에 상태를 그려야 한다 — 🙋 기능 변경이라 지금 범위 밖, 필요해지면 `docs/features/` 에.
 - `updated_at` 트리거 하나. 나중에 "무엇이 바뀌었나" 를 볼 유일한 단서다.
 
 ## RLS
