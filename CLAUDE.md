@@ -21,8 +21,8 @@ Tailwind v4 + Untitled UI · zustand persist · leaflet. 데이터는 빌드 시
 | 색·토큰·팔레트 | [docs/decisions/ADR-003-untitled-ui-and-palette.md](docs/decisions/ADR-003-untitled-ui-and-palette.md) · `src/styles/theme.css` |
 | 크기 스케일·반응형·글꼴 | [docs/decisions/ADR-006-responsive-scale-and-font.md](docs/decisions/ADR-006-responsive-scale-and-font.md) · `src/styles/globals.css` |
 | 회원·로그인·개인정보를 붙이려 함 | [docs/decisions/ADR-011-app-gate-and-supabase.md](docs/decisions/ADR-011-app-gate-and-supabase.md) · [ADR-012](docs/decisions/ADR-012-personal-data-and-consent.md) — **둘 다 제안 단계라 코드에 대응물이 없다** |
-| 블로그 수집·AI 분석·승인·Supabase·Vercel 배포를 붙이려 함 | [docs/todo/README.md](docs/todo/README.md) — **계획 단계. 가정 두 개(원본=Supabase, 반영=재빌드)가 맨 위에 있고 아직 사용자 확인 전** |
-| "왜 이렇게 했나" | [docs/decisions/](docs/decisions/) (ADR 14편) · 전체 지도는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| 블로그 수집·AI 분석·승인·Supabase·Vercel 배포를 붙이려 함 | [docs/todo/README.md](docs/todo/README.md) · 결정은 [ADR-015](docs/decisions/ADR-015-supabase-source-and-rebuild.md)(원본=Supabase, 반영=재빌드, 회원은 범위 밖) — **계획 단계, 코드 없음** |
+| "왜 이렇게 했나" | [docs/decisions/](docs/decisions/) (ADR 15편) · 전체 지도는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 
 탐색 전에 위 표를 먼저 본다. 전체 구조가 필요하면 `docs/ARCHITECTURE.md` 하나만 읽으면 된다.
 

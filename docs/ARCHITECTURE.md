@@ -55,7 +55,7 @@ Notion 공개 페이지 ──(scripts, 무인증 API)──▶ data/jejudo-noti
 ```
 
 - 앱은 런타임에 아무것도 fetch 하지 않는다. 장소 86곳(숙소 26·식당 34·카페 26), 준비물 15가지.
-- 원본을 Supabase 로 옮기고 블로그 수집·AI 분석·승인·자동 재빌드를 붙이는 계획은 [todo/](./todo/README.md) — 계획 단계.
+- 원본을 Supabase 로 옮기고 블로그 수집·AI 분석·승인·자동 재빌드를 붙이는 계획은 [todo/](./todo/README.md), 결정은 [ADR-015](./decisions/ADR-015-supabase-source-and-rebuild.md) — 아직 코드 없음.
 - 좌표는 81곳, 도로명주소는 76곳에 있다. 없는 곳은 지도에서 빠지고 "좌표 없는 N곳 제외" 로 알린다.
 
 ---

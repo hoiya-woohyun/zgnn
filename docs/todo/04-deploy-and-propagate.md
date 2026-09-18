@@ -1,7 +1,7 @@
 # 4. Vercel 배포 · 빌드 시 DB 읽기 · 승인되면 재빌드
 
 > 최종 수정: 2026-09-18 (v1: 신설)
-> 상태: 계획. 선행: 4a 는 [01](01-schema-and-seed.md), 4b 는 [03](03-analyze-and-review.md). **가정 2(재빌드 방식)** 위에 서 있다 — [README](README.md).
+> 상태: 계획. 선행: 4a 는 [01](01-schema-and-seed.md), 4b 는 [03](03-analyze-and-review.md). 재빌드 방식은 [ADR-015](../decisions/ADR-015-supabase-source-and-rebuild.md) §2 로 확정.
 
 ## 왜 런타임 fetch 가 아니라 재빌드인가
 
