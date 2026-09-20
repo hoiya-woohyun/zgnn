@@ -11,3 +11,4 @@ data/raw/
 .playwright-mcp/
 .DS_Store
 .env.local
+.vercel
