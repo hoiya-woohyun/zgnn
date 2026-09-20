@@ -12,6 +12,8 @@
     "data:pull": "node --env-file-if-exists=.env.local scripts/pull-db.mjs",
     "data:seed": "node --env-file-if-exists=.env.local scripts/seed-db.mjs",
     "data:collect": "node --env-file-if-exists=.env.local scripts/collect-blog.mjs",
+    "data:analyze": "node --env-file-if-exists=.env.local scripts/analyze-candidates.mjs",
+    "data:apply": "node --env-file-if-exists=.env.local scripts/apply-approved.mjs",
     "data:fetch-images": "node scripts/fetch-blog-images.mjs",
     "data:optimize-images": "node scripts/optimize-images.mjs",
     "data:normalize": "node scripts/normalize.mjs"
@@ -26,6 +28,7 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.127.0",
     "@eslint/js": "^9.36.0",
     "@serwist/next": "^9.5.12",
     "@supabase/supabase-js": "^2.116.0",
