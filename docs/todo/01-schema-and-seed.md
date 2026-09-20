@@ -99,6 +99,7 @@ create table place_sources ( place_id text references places(id), post_url text 
 
 ## 끝났다고 볼 조건
 
-- [ ] Studio 에서 한 장소의 `features` 를 고치고 → 로컬에서 `pnpm data:pull && pnpm build && pnpm preview` → 화면에 반영. **아직 안 해봄.**
+- [x] DB 에서 한 장소의 `features` 를 고치고(`supabase db query`) → `pnpm data:pull` → `git diff src/data` 에 **그 한 줄만** 나오고,
+      `updated_at` 트리거가 발화하고, 되돌리면 diff 0 (2026-09-20). 화면(`build && preview`)은 JSON 이 곧 입력이라 따로 보지 않았다.
 - [x] `pnpm test` 기존 케이스 그대로 통과(2026-09-20: 217 passed · 5 skipped 는 03 의 `matchPlace` 본체 자리)(화면·lib 코드는 손대지 않았으니 당연해야 한다).
 - [x] `docs/architecture/data-pipeline.md` v2: 다이어그램의 원본을 Supabase 로, "동기화는 수동" 문장을 고친다.
