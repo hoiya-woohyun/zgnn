@@ -1,8 +1,9 @@
 # 0. Supabase · Vercel · GitHub — 계정과 시크릿 자리 잡기
 
-> 최종 수정: 2026-09-20 (v2: Supabase 생성 완료, Vercel 은 대시보드 Git 연동으로 이미 붙어 있음. 빈 마이그레이션 함정·`gh` 계정 전환 기록)
+> 최종 수정: 2026-09-21 (v3: Vercel CLI link·env·빌드 명령·Node·Kakao 도메인 확인 완료 반영. `vercel.json` 의 `outputDirectory` 함정(BUG-005). 남은 것은 Deploy Hook·GitHub Secrets 4개·외부 키)
+> 이전 (v2: Supabase 생성 완료, Vercel 은 대시보드 Git 연동으로 이미 붙어 있음. 빈 마이그레이션 함정·`gh` 계정 전환 기록)
 > 이전 (v1: 신설)
-> 상태: 진행 중. Supabase 생성·GitHub Secrets 일부는 끝났고, Vercel CLI 로그인/link·env·Deploy Hook·Kakao 도메인 등록이 남았다.
+> 상태: 진행 중. Supabase·Vercel(link·env·빌드 명령)·Kakao 도메인은 끝났다. 남은 것: Deploy Hook(4b), GitHub Secrets 4개(네이버·Anthropic·Kakao REST), 외부 키 발급.
 
 ## 되돌릴 수 없는 것부터
 
@@ -33,20 +34,28 @@
 - [x] Git 연동은 이미 돼 있다 — 대시보드에서 `hoiya-woohyun/zgnn` 의 `main` → Production 으로 붙여 놨고
       `vercel[bot]` 이 실제로 배포 중이다.
 - [x] `npm i -g vercel` 로 CLI 설치.
-- [ ] `vercel login` · `vercel link` 는 아직 — CLI 로 이 레포를 프로젝트에 연결하는 절차가 남아 있다
-      (Git 연동과 별개다. `.vercel/` 은 `.gitignore`).
-- [ ] Framework Preset: Next.js. **Build Command 를 `pnpm data:pull && pnpm build` 로 바꾼다**(4a 에서, 아직 기본값).
-      Output Directory 는 `out`. `--webpack` 은 `package.json` 의 `build` 에 이미 있다(→ CLAUDE.md "조용히 깨지는 것").
-- [ ] Node 24 (기본값). `pnpm` 은 `packageManager` 필드 또는 lockfile 로 자동 감지.
-- [ ] 환경변수는 대시보드 또는 `vercel env add` 로. 범위는 Production · Preview 둘 다, **Sensitive 토글 켬**. (아직 하나도 없음)
+- [x] `vercel login` · `vercel link` 완료(`.vercel/project.json`, `.gitignore` 됨). `vercel pull --environment=production` 으로
+      대시보드 설정을 `.vercel/project.json` 에 받아 볼 수 있다 — `settings.outputDirectory` 가 `null` 인지 볼 때 쓴다(BUG-005).
+- [x] Framework Preset: Next.js. Build Command 는 `vercel.json` 의 `buildCommand: "pnpm data:pull && pnpm build"`(4a).
+      **Output Directory 는 비워 둔다** — `out` 을 적으면 Next 프리셋이 `out/routes-manifest.json` 을 찾다 배포만 실패한다
+      (→ [BUG-005](../bugs/BUG-005-vercel-output-directory.md)). `--webpack` 은 `package.json` 의 `build` 에 이미 있다(→ CLAUDE.md "조용히 깨지는 것").
+- [x] Node 24 (대시보드 `nodeVersion: 24.x` 확인). `pnpm` 은 lockfile 로 자동 감지됐다(빌드 로그의 `pnpm install`).
+- [x] 환경변수: `SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY` 가 Production·Preview 에 있고 키는 Sensitive(`vercel env ls` 에 `Secret`).
+      **함정**: Sensitive 값은 `vercel pull` 로 내려받으면 `[SENSITIVE]` 자리표시자가 온다 — 로컬 `vercel build` 는 그 값이
+      `.env.local` 보다 우선돼 `Invalid API key` 로 죽는다. 재현할 때는 `.vercel/.env.production.local` 의 그 줄을 손으로 바꾼다.
+      Vercel Marketplace 의 Supabase 연동이 `POSTGRES_*`·`SUPABASE_ANON_KEY`·`SUPABASE_SECRET_KEY`·`SUPABASE_JWT_SECRET` 도
+      Production 에 넣어 뒀다 — 빌드는 아무것도 안 쓰고, `NEXT_PUBLIC_` 이 아니라 번들에도 안 들어간다. 🙋 안 쓰는 시크릿을
+      지워 노출면을 줄일지는 05 에서.
 - [ ] Deploy Hook 을 하나 만든다(Settings → Git → Deploy Hooks, 브랜치 `main`). URL 자체가 비밀이다 → Supabase 웹훅 설정에만 붙여 넣고 다른 데 적지 않는다.
 
 ## Kakao 지도 — 배포 주소 등록
 
-- [ ] Kakao Developers → 플랫폼 → Web 에 **Vercel 도메인(`*.vercel.app` 과 커스텀 도메인)을 등록**한다.
+- [x] Kakao Developers → 플랫폼 → Web 에 **Vercel 도메인(`*.vercel.app` 과 커스텀 도메인)을 등록**한다.
+      → `https://zgnn.vercel.app/map` 에서 SDK·타일이 200, 콘솔 오류 0 으로 확인(2026-09-21).
       안 하면 JS 키가 맞아도 지도 자리가 빈다(→ [ADR-008](../decisions/ADR-008-kakao-map.md), CLAUDE.md "조용히 깨지는 것").
       프리뷰 URL 은 배포마다 바뀌므로 와일드카드가 안 되면 프리뷰에서는 지도가 안 뜨는 걸 감수한다.
-- [ ] `NEXT_PUBLIC_KAKAO_JS_KEY` 는 이미 공개 전제의 키다(도메인 제한이 방어선). Vercel env 에 넣는다.
+- [x] 지도 키는 `NEXT_PUBLIC_KAKAO_MAP_KEY`(`src/lib/kakaoMap.ts`, 문서 초안의 `_JS_KEY` 는 오기)이고 코드에 공개 기본값이 있어
+      Vercel env 에 넣지 않아도 뜬다. 공개 전제의 키 — 도메인 제한이 방어선.
 
 ## GitHub
 
@@ -68,4 +77,4 @@
 ## 끝났다고 볼 조건
 
 - Supabase 대시보드에 서울 리전 프로젝트가 있고, Vercel 에 Git 연동된 프로젝트가 있고, `main` 푸시로 지금 상태의 사이트가 **그대로** 배포된다(아직 DB 안 읽음). — **여기까지는 됐다.**
-- 시크릿 6개의 이름이 GitHub·Vercel 에 자리 잡혀 있다(값은 비어 있어도 됨). — **아직**: GitHub 는 2/6, Vercel 은 0개.
+- 시크릿 6개의 이름이 GitHub·Vercel 에 자리 잡혀 있다(값은 비어 있어도 됨). — GitHub 는 2/6(**아직**), Vercel 은 빌드에 필요한 2개가 다 있다.

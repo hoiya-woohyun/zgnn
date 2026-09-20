@@ -188,3 +188,4 @@ data/                         # Notion 추출본(커밋) · raw/(무시)
 `docs/bugs/BUG-NNN-{slug}.md` (증상 / 재현 조건 / 원인 / 수정 내용 / 관련 문서).
 
 - [BUG-001](./bugs/BUG-001-bottom-sheet-bottom-padding.md) — 하단 시트 바닥 여백이 사라지거나 홈 인디케이터에 깔린다(`p-4 pb-safe` 덮어쓰기)
+- [BUG-005](./bugs/BUG-005-vercel-output-directory.md) — Vercel 배포가 빌드를 다 끝내고 `out/routes-manifest.json` 없음으로 죽는다(`vercel.json` 의 `outputDirectory: "out"` + Next 프리셋)

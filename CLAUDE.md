@@ -34,6 +34,10 @@ Tailwind v4 + Untitled UI · zustand persist · leaflet. 데이터는 빌드 시
   `allowedDevOrigins` 다.** Next 16 이 localhost 밖 출처의 dev 요청을 막는데, 정적 HTML 과
   링크는 그대로라 하이드레이션만 조용히 안 끝난다. 사설 대역은 `next.config.mjs` 에 넣어 뒀고,
   `172.16~31.*.*`·`*.local`·터널 도메인은 한 줄 더한다(→ [BUG-004](docs/bugs/BUG-004-lan-dev-origin-blocked.md)).
+- **`vercel.json` 에 `outputDirectory: "out"` 을 넣지 않는다.** `framework: "nextjs"` 일 때 Vercel 빌더는
+  `.next/` 의 매니페스트를 읽은 뒤 `output: 'export'` 를 스스로 감지해 `out/` 을 서빙한다. `out` 을 못 박으면
+  `pull`·`next build`·유출 검사가 전부 통과한 **뒤에** `out/routes-manifest.json` 없음으로 배포만 실패한다
+  (→ [BUG-005](docs/bugs/BUG-005-vercel-output-directory.md)). 배포 설정 검증은 로컬 `vercel build --prod`(배포 없음).
 - **`pnpm build` 의 `--webpack` 은 필수.** `@serwist/next` 가 webpack 플러그인이라, 빼면
   빌드는 통과하지만 `sw.js` 가 안 만들어져 PWA 가 조용히 사라진다. `dev` 의 `--turbopack`
   명시도 필수(webpack 설정만 있으면 Next 16 이 빌드를 멈춘다).
