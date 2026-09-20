@@ -1,7 +1,8 @@
 # 5. 보안 — 키 분리 · RLS · 웹훅 · 프리뷰 보호
 
-> 최종 수정: 2026-09-18 (v1: 신설)
-> 상태: 계획. 0 에서 시작해 단계마다 한 항목씩 붙는다. "Vercel 내의 보안 조치" 는 대부분 **키가 번들에 들어가지 않게 하는 것**이다.
+> 최종 수정: 2026-09-20 (v2: 유출 검사·`.env.example`·RLS·Actions 권한 항목 완료 반영)
+> 이전 (v1: 신설)
+> 상태: 진행 중. 0 에서 시작해 단계마다 한 항목씩 붙는다. "Vercel 내의 보안 조치" 는 대부분 **키가 번들에 들어가지 않게 하는 것**이다.
 
 ## 1순위 — 정적 번들에 시크릿이 구워지는 것
 
@@ -19,14 +20,17 @@
 | Deploy Hook URL | — | Supabase 웹훅 설정 **만** | 아무나 빌드를 돌릴 수 있음 → Vercel 에서 폐기·재발급 |
 | anon key | (지금 안 씀) | — | 관리 화면(03 후반)을 만들 때 `NEXT_PUBLIC_` 로 들어간다. 공개돼도 되는 키 — 방어선은 RLS |
 
-- [ ] **`out/` 유출 검사를 빌드에 넣는다.** `package.json` 의 `build` 뒤에 `scripts/check-bundle.mjs`:
-      `out/` 전체에서 `service_role`·`sk-ant-`·`eyJ`(JWT 접두) 를 찾으면 **빌드 실패**. 로컬·Vercel 모두 돈다.
-      실수로 `NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY` 라고 적는 날을 위한 자물쇠다.
-- [ ] `.env*` 는 `.gitignore` 에 이미 있는지 확인. `.env.example` 에 **이름만** 적어 커밋한다.
+- [x] **`out/` 유출 검사를 빌드에 넣는다.** `package.json` 의 `build`(`next build --webpack && node scripts/check-bundle.mjs`):
+      `out/` 전체에서 `service_role`·`sk-ant-`·`sb_secret_`·JWT(헤더·페이로드 둘 다 base64url — `eyJ` 만 보면 오탐)·
+      `supabase.co` 를 찾으면 **빌드 실패**. 로컬·Vercel 모두 돈다. 실수로 `NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY` 라고
+      적는 날을 위한 자물쇠다.
+- [x] `.env*` 는 `.gitignore` 에 이미 있는지 확인. `.env.example` 에 **이름만** 적어 커밋한다. → 완료.
 
 ## Supabase
 
-- [ ] **모든 테이블 RLS ON, 정책 0개**(01). anon 으로 `select` 해서 빈 결과가 오는지 확인한다.
+- [x] **모든 테이블 RLS ON, 정책 0개**(01). SQL 로 확인 완료(`relrowsecurity` true × 5, `pg_policies` 0행).
+- [ ] anon 으로 `select` 해서 빈 결과가 오는지 확인한다. **아직 미확인** — 앱이 아직 클라이언트에서 DB 를 안 부르므로
+      anon key 자체를 어디에도 안 넣어 뒀다.
 - [ ] Studio 접근은 Supabase 계정 로그인 = 사실상 관리자 인증. 2FA 켠다.
 - [ ] `service_role` 키는 회전 가능하다(Settings → API). 회전하면 Vercel·GitHub 두 곳을 같이 갱신 — 한 곳만 하면
       다음 빌드/수집이 조용히 실패한다.
@@ -45,10 +49,10 @@
 
 ## GitHub Actions
 
-- [ ] `permissions: contents: read` 기본. 04 의 "스냅샷 PR 자동화" 를 켤 때만 `write`.
+- [x] `permissions: contents: read` 기본(`collect.yml` 에 적용됨). 04 의 "스냅샷 PR 자동화" 를 켤 때만 `write`.
 - [ ] 시크릿을 `echo` 하지 않는다. 디버그 로그에 요청 헤더가 찍히지 않게 `fetch` 에러 메시지에서 헤더를 뺀다.
-- [ ] 서드파티 액션은 `actions/checkout`·`pnpm/action-setup`·`actions/setup-node` 만, **커밋 SHA 고정**.
-- [ ] 포크 PR 에서는 시크릿이 안 들어온다 — 수집 잡은 `schedule`·`workflow_dispatch` 에서만 돌게 하고 `pull_request` 트리거를 안 건다.
+- [x] 서드파티 액션은 `actions/checkout`·`pnpm/action-setup`·`actions/setup-node` 만, **커밋 SHA 고정**(v7.0.1·v6.1.0·v7.0.0).
+- [x] 포크 PR 에서는 시크릿이 안 들어온다 — 수집 잡은 `schedule`·`workflow_dispatch` 에서만 돌게 하고 `pull_request` 트리거를 안 건다.
 
 ## 관리 화면을 만들게 되면 (03 후반, 지금 아님)
 
@@ -59,6 +63,7 @@
 
 ## 끝났다고 볼 조건
 
-- `pnpm build` 뒤 유출 검사가 돌고, 일부러 `NEXT_PUBLIC_TEST_LEAK=service_role` 을 넣은 빌드가 **실패**한다.
-- anon 키로 `places` 를 `select` 하면 0행. Preview URL 을 시크릿 창에서 열면 로그인 화면.
-- 시크릿 회전 절차(위 표의 "새면" 열)가 이 문서에 있고, 한 번은 실제로 회전해 본다.
+- [x] `pnpm build` 뒤 유출 검사가 돈다(`scripts/check-bundle.mjs`). `out/` 에 `service_role` 문자열을 심은 파일을 두고 검사기를
+      돌려 **exit 1** 을 확인했다(2026-09-20). env → 번들 경로까지 한 번에 보는 `NEXT_PUBLIC_TEST_LEAK` 빌드는 아직.
+- [ ] anon 키로 `places` 를 `select` 하면 0행. Preview URL 을 시크릿 창에서 열면 로그인 화면. — **미확인**.
+- [ ] 시크릿 회전 절차(위 표의 "새면" 열)가 이 문서에 있고, 한 번은 실제로 회전해 본다. — 표는 있고, 회전은 아직.

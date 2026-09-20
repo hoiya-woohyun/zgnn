@@ -1,7 +1,8 @@
 # 1. 스키마 · RLS · 시드 · `data:pull`
 
-> 최종 수정: 2026-09-18 (v1: 신설)
-> 상태: 계획. 선행: [00](00-setup-supabase-vercel.md). 이 단계가 끝나면 **Supabase 가 원본**이고 `src/data/*.json` 은 그 스냅샷이다.
+> 최종 수정: 2026-09-20 (v2: 스키마 적용·RLS·시드·`data:pull` 코드 완료. `sort` 컬럼 반영, [data-pipeline.md v2](../architecture/data-pipeline.md) 작성)
+> 이전 (v1: 신설)
+> 상태: 코드는 끝났다. 선행: [00](00-setup-supabase-vercel.md). 남은 건 Studio 수정 → 반영 확인과 Vercel 빌드 전환(4a).
 
 ## 원칙
 
@@ -30,9 +31,11 @@ create table places (
   stay_price_text text, stay_amenities_text text,   -- 숙소만
   status        text not null default 'published' check (status in ('draft','published','archived')),
   source        text not null default 'notion' check (source in ('notion','blog','manual')),
+  sort          int,                                -- 기존 JSON 순서(종류별 → Notion 순) 보존용. 새 행은 null, pull 은 nulls last
   created_at timestamptz default now(), updated_at timestamptz default now()
 );
 
+-- items 도 같은 이유로 sort 를 갖는다: 정렬 기준이 없으면 pull 때마다 순서가 흔들린다
 create table items ( id text primary key, name text, emoji text, seasons text[], reason text, link_url text, sort int );
 
 -- 2 단계가 채운다. url 이 곧 키.
@@ -61,35 +64,41 @@ create table place_sources ( place_id text references places(id), post_url text 
   `places.json`·라우트·프리캐시에서 빠지고, 저장 목록에서도 조용히 사라진다** — `selectSavedPlaces` 가 `PLACES.filter` 라
   모르는 id 는 오류 없이 버려지고 개수만 준다(`src/lib/places.ts`). 저장한 사람에게 "폐업" 을 보여 주고 싶으면 archived 도
   pull 해 화면에 상태를 그려야 한다 — 🙋 기능 변경이라 지금 범위 밖, 필요해지면 `docs/features/` 에.
-- `updated_at` 트리거 하나. 나중에 "무엇이 바뀌었나" 를 볼 유일한 단서다.
+- `updated_at` 트리거(`set_updated_at()`, `places` 만) 하나. 나중에 "무엇이 바뀌었나" 를 볼 유일한 단서다.
+  함수는 `set search_path = ''` 로 고정 — 트리거 함수의 search path 하이재킹을 막는 표준 방어다.
 
 ## RLS
 
-- [ ] **모든 테이블에 RLS 를 켠다. 정책은 하나도 만들지 않는다.** → anon·authenticated 는 아무것도 못 읽는다.
+- [x] **모든 테이블에 RLS 를 켠다. 정책은 하나도 만들지 않는다.** → anon·authenticated 는 아무것도 못 읽는다.
       빌드와 Actions 는 `service_role` 로 접근하므로 정책이 필요 없다.
+      SQL 로 확인 완료: `relrowsecurity` true × 5 테이블, `pg_policies` 0행.
 - 앱이 런타임에 DB 를 읽지 않는 (A) 에서는 이게 전부다. 관리 화면(03 후반)이나 (B) 로 가면 그때 정책을 더한다.
+  **함정**: "RLS 안 켜도 anon 은 어차피 막힌다" 는 틀렸다 — PostgREST 는 RLS 가 꺼져 있으면 anon 키로 다 읽어 준다.
 
 ## 시드 — 지금의 86곳·15개를 옮기기
 
-- [ ] `scripts/seed-db.mjs`: `src/data/places.json` · `items.json` 을 읽어 upsert. **1회용**이지만 레포에 둔다(재현성).
-- [ ] `id` 는 Notion 블록 id 를 그대로 — 라우트·저장 목록 키가 바뀌지 않는다.
-- [ ] 좌표 없는 5곳(요호르기 스테이·미트타운·개떼목장·브릭스제주·롯지먼트)은 `lat/lng null` 그대로. 지어내지 않는다.
-- [ ] 시드 뒤 `data:pull` → `git diff src/data/` 가 **비어 있어야** 한다. 이게 합격 기준이다.
+- [x] `scripts/seed-db.mjs`(`pnpm data:seed`): `src/data/places.json` · `items.json` 을 읽어 upsert(`sort` = 배열 인덱스). **1회용**이지만 레포에 둔다(재현성).
+- [x] `id` 는 Notion 블록 id 를 그대로 — 라우트·저장 목록 키가 바뀌지 않는다.
+- [x] 좌표 없는 5곳(요호르기 스테이·미트타운·개떼목장·브릭스제주·롯지먼트)은 `lat/lng null` 그대로. 지어내지 않는다.
+- [x] 시드 뒤 `data:pull` → `git diff src/data/` 가 **비어 있어야** 한다. 이게 합격 기준이다. → 확인 완료.
 
 ## `scripts/pull-db.mjs` (`pnpm data:pull`)
 
-- [ ] `status='published'` 인 `places` 와 `items` 전체를 읽어 `src/data/places.json` · `items.json` 을 **정렬된 키·안정된 순서**로
-      쓴다(diff 가 읽히게). `region_raw` → `TRegion`, `stay_price_text` → `TStayPrice` 변환은 지금 `normalize.mjs` 에 있는
-      함수를 **그대로 재사용**한다 — 그 파일에서 함수를 뽑아 `scripts/lib/` 로 옮긴다.
-- [ ] `normalize.mjs` 는 남긴다. Notion export → 시드 경로로 한 번 더 쓸 수 있다. 하지만 `data:normalize` 가 더 이상
-      "데이터를 만드는 명령" 이 아님을 `data-pipeline.md` 에 적는다.
-- [ ] 키가 없으면(로컬) **명확히 실패**한다. 조용히 스냅샷을 쓰지 않는다 — CI 에서 조용히 옛 데이터로 빌드되는 것이
-      CLAUDE.md 가 경고하는 고장 유형이다. 로컬 dev 는 `data:pull` 을 안 부르면 그만이다.
-- [ ] `supabase-js` 를 **devDependency** 로. 앱 번들에 들어가지 않는다(`scripts/` 만 쓴다). 나중에 `out/` 에서
+- [x] `status='published'` 인 `places` 와 `items` 전체를 읽어 `src/data/places.json` · `items.json` 을 **정렬된 키·안정된 순서**로
+      쓴다(diff 가 읽히게). `region_raw` → `TRegion`, `stay_price_text` → `TStayPrice` 변환은 지금 `normalize.mjs` 에 있던
+      함수를 **그대로 재사용**한다 — `scripts/lib/placeFields.mjs` 로 뽑았고 `parseRegion`·`parsePrice`·`clean`·`toPlace`·`toItem`·
+      `writeDataJson` 을 `normalize.mjs` 도 함께 쓴다. `toPlace` 의 키 순서와 `writeDataJson`(indent 1, 끝 개행 없음)이
+      Notion export 경로와 Supabase 경로가 **같은 바이트**를 내는 근거다.
+- [x] `normalize.mjs` 는 남긴다. Notion export → 시드 경로로 한 번 더 쓸 수 있다. `data:normalize` 는 이제
+      "데이터를 만드는 명령" 이 아니라 "Notion 을 다시 시드하는 명령" 이다 — `data-pipeline.md` v2 에 적었다.
+- [x] 키가 없으면(로컬) **명확히 실패**한다(`exit 1`). 조용히 스냅샷을 쓰지 않는다 — CI 에서 조용히 옛 데이터로 빌드되는 것이
+      CLAUDE.md 가 경고하는 고장 유형이다. 로컬 dev 는 `data:pull` 을 안 부르면 그만이다. env 는
+      `node --env-file-if-exists=.env.local` 로 읽는다(Node 22.9+, dotenv 의존성 없음).
+- [x] `supabase-js` 를 **devDependency** 로. 앱 번들에 들어가지 않는다(`scripts/` 만 쓴다). 나중에 `out/` 에서
       `supabase` 문자열이 나오면 뭔가 잘못된 것이다(→ 05 의 유출 검사).
 
 ## 끝났다고 볼 조건
 
-- Studio 에서 한 장소의 `features` 를 고치고 → 로컬에서 `pnpm data:pull && pnpm build && pnpm preview` → 화면에 반영.
-- `pnpm test` 133 케이스 그대로 통과(화면·lib 코드는 손대지 않았으니 당연해야 한다).
-- `docs/architecture/data-pipeline.md` v2: 다이어그램의 원본을 Supabase 로, "동기화는 수동" 문장을 고친다.
+- [ ] Studio 에서 한 장소의 `features` 를 고치고 → 로컬에서 `pnpm data:pull && pnpm build && pnpm preview` → 화면에 반영. **아직 안 해봄.**
+- [x] `pnpm test` 기존 케이스 그대로 통과(2026-09-20: 217 passed · 5 skipped 는 03 의 `matchPlace` 본체 자리)(화면·lib 코드는 손대지 않았으니 당연해야 한다).
+- [x] `docs/architecture/data-pipeline.md` v2: 다이어그램의 원본을 Supabase 로, "동기화는 수동" 문장을 고친다.

@@ -97,6 +97,9 @@ pnpm data:optimize-images  # webp 변환 → public/images/places/ + data/place-
 pnpm data:normalize        # Notion export + 이미지 매니페스트 → src/data/*.json
 ```
 
+원본을 Supabase 로 옮기는 작업이 진행 중이다(`pnpm data:pull` 로 갱신) — 자세한 건
+[docs/architecture/data-pipeline.md](docs/architecture/data-pipeline.md), 계획은 [docs/todo/](docs/todo/README.md).
+
 ### 장소 사진은 없습니다
 
 후기 포스트 대부분이 작성자 본인이 아닌 타인의 블로그라, 저작권 문제로 사진을 모두 뺐습니다.
