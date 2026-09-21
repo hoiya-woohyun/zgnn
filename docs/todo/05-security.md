@@ -17,7 +17,7 @@
 | 키 | 접두어 | 어디에 | 새면 |
 |---|---|---|---|
 | `SUPABASE_SERVICE_ROLE_KEY` | **절대 `NEXT_PUBLIC_` 금지** | **GitHub Secrets 만.** Vercel 은 anon(publishable) 경로라 필요 없고, 로컬은 운영자 세션(ADR-016 v4) | RLS 가 통째로 무의미. 즉시 회전 |
-| 운영자 세션(JWT) | — | macOS 키체인(`zgnn`/`SUPABASE_SESSION`), `pnpm data:login` 이 넣는다. 파일·env 없음 | `exp`(≤12시간) 뒤 자동 무효. 급하면 대시보드에서 그 사용자 비밀번호 변경 |
+| 운영자 세션(JWT) | — | macOS 키체인(`zgnn`/`SUPABASE_SESSION`), `pnpm data:login` 이 넣는다. 파일·env 없음 | `exp` 뒤 자동 무효(코드 상한 ≤ 1일 `SESSION_MAX_TTL_S`, 권장 8~12시간). 급하면 대시보드에서 그 사용자 비밀번호 변경 |
 | `SUPABASE_URL` · publishable 키 | (공개값) | 코드 상수(`scripts/lib/supabaseClient.mjs` 의 `PROJECT_REF`·`PUBLISHABLE_KEY`) | 무방 — 방어선은 RLS |
 | `CLAUDE_CODE_OAUTH_TOKEN` | 금지 | GitHub Secrets 만 (Vercel 엔 없다 — 빌드는 AI 를 안 부른다). 로컬은 `claude` 로그인을 쓰므로 어디에도 없다 | **구독 계정 그 자체**다 — 새면 `claude setup-token` 을 다시 발급하고 Anthropic 계정 설정에서 기존 세션을 끊는다. API 키와 달리 예산 상한이 없고 한도(5시간 창)만 있다 |
 | `NAVER_CLIENT_SECRET` | 금지 | GitHub Secrets 만(로컬에서 수집을 돌릴 일이 있으면 `NAVER_CLIENT_ID=… NAVER_CLIENT_SECRET=… pnpm data:collect` 로 그 셸에서만) | 재발급 |

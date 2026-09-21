@@ -92,7 +92,7 @@ flowchart LR
 
 ## 다음 할 일 (2026-09-22 기준 — 새 세션은 여기서 시작)
 
-브랜치 `feature/supabase-login-model`(**미push**, 로컬 커밋 4개). ADR-016 v4 는 구현·**실측 완료** — publishable 키 채움, `operators` = `zgnn@gmail.com`,
+브랜치 `feature/supabase-login-model`(2026-09-22 self-cr 뒤 push, `main` 미머지). ADR-016 v4 는 구현·**실측 완료** — publishable 키 채움, `operators` = `zgnn@gmail.com`,
 `data:apply --dry-run` 이 세션 없음·비운영자(`zgnn-test@gmail.com`)·운영자에서 세 결과로 갈렸다(2026-09-21).
 
 **사용자 결론(2026-09-22): Claude 는 민감정보(DB 접속 정보, 키, 토큰)를 알아선 안 된다.** 이 원칙의 함정은 "값을 숨기면 된다" 가 아니라는 것이다 —
@@ -125,8 +125,10 @@ flowchart LR
    - **(c) Actions 폐지** — 수집·분석·반영을 사용자가 `pnpm data:login` 한 로컬 세션에서만 돌린다. GitHub 에 시크릿이 0개. 대신 네이버·Kakao·Claude 토큰을 로컬에서
      어떻게 넘길지(키체인 확장) 설계가 하나 더 필요하고, 화·금 자동 수집이 사라진다.
    - (b) 보류 항목 GRANT 회수·`for all` 축소는 (a)·(c) 어느 쪽이든 같이 한다.
-3. **push·배포 확인(Claude)** — 1 의 Vercel 항목이 끝난 **뒤에**: self-cr → push → Preview 빌드가 `publishable(anon)` 로그로 도는지 → `main` 머지 → 프로덕션 확인.
-   순서가 어긋나면 옛 env 로 빌드가 돈다.
+3. **배포 확인(Claude)** — ~~self-cr → push~~(2026-09-22 완료. self-cr major 1 반영: `readOnly` 는 CI 에 service 키가 남아 있어도 anon — "빌드는 anon" 이 env 정리
+   순서가 아니라 코드 불변식이 됐다) → Preview 빌드 로그가 `publishable(anon)` 인지 → 1 의 Vercel 정리 → `main` 머지 → 프로덕션 확인.
+   self-cr 미반영(minor, 다음에): `login.mjs` readHidden 의 ESC 처리가 CSI 만 맞음(SS3·단독 ESC 는 비밀번호에 글자 섞임 — 보안 아님, 오타) · `writeSession` 이 비-JWT 도
+   저장함(전제를 3세그먼트 JWT 로) · `sessionKeychain.mjs`·`readHidden` 테스트 없음(`run` 주입·reducer 분리) · 만료 메시지에 skew 30분이 안 드러남.
 4. **키 → GitHub Secrets(사용자, 2 가 (a) 일 때)** — `gh auth switch` 뒤 `gh secret set NAME`: 봇 계정 2개 · `claude setup-token` → `CLAUDE_CODE_OAUTH_TOKEN` ·
    네이버 개발자센터 → `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET` · Kakao REST 키(선택). `SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY` 시크릿은 삭제.
 5. **로컬 dry-run(Claude, 사용자가 `pnpm data:login` 한 상태에서)** — `pnpm data:analyze --dry-run --limit 5`. 백로그는 `--limit 30` 씩(구독 세션 한도). 세션 창 30분 주의(1 의 JWT expiry).

@@ -28,7 +28,7 @@
   | `SUPABASE_SERVICE_ROLE_KEY` | **GitHub Actions 만** | **RLS 를 우회하는 키. 절대 `NEXT_PUBLIC_` 금지, 절대 커밋 금지, Vercel·로컬에 두지 않는다** |
   | 운영자 계정(이메일·비밀번호) | 대시보드 Authentication → Users | 비밀번호는 비밀번호 관리자에만. `pnpm data:login` 이 세션으로 바꾼다 |
 - [x] Vercel Marketplace 의 Supabase 연동 여부와 무관하게 **리전은 서울로 확인됐다**(`projects list` 의 `ap-northeast-2`).
-      단 Vercel 쪽에 Supabase env 는 아직 하나도 없다 — 자동 주입이 안 됐으니 4a 에서 손으로 넣는다.
+      (v4 이전엔 "Vercel env 를 4a 에서 손으로 넣는다" 였다 — ADR-016 v4 뒤로 Vercel 엔 Supabase env 가 **하나도 필요 없고**, 있던 것은 지운다. 아래 47~49 줄.)
 - [ ] **대시보드 Authentication 세 가지**(ADR-016 v4, 사용자): Users → Add user(이메일+비밀번호, Auto Confirm) → 만들었다고 알리면 Claude 가
       `operators` 에 넣는다 · Settings → JWT expiry 8~12시간(`43200`) · Sign In / Providers → **Allow new users to sign up: off**.
 - [ ] Database Webhooks 를 켤 수 있는지 확인(Database → Webhooks). 4b 에서 쓴다.

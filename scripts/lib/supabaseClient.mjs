@@ -77,16 +77,18 @@ export function resolveSupabaseCredentials({
   publishableKey = PUBLISHABLE_KEY,
 } = {}) {
   const url = projectUrl(PROJECT_REF);
-  if (env.SUPABASE_SERVICE_ROLE_KEY) {
-    // service 키는 CI(GitHub Actions `CI=true`, Vercel `CI=1`)에서만 받아들인다. 로컬 env 에 남아 있으면 조용히 RLS 를 우회하는 대신 여기서 멈춘다 —
-    // 실측: 옛 .env.local 이 남아 있어 `data:pull` 이 세션 없이 service 로 붙었다. 트립와이어다(CI=1 을 붙이면 넘어간다) — 경계가 아니라 사고 감지용.
-    if (env.CI !== 'true' && env.CI !== '1') {
-      throw new Error('로컬 env 에 SUPABASE_SERVICE_ROLE_KEY 가 있다 — ADR-016 v4 는 service 키를 CI 에서만 쓴다. .env.local·셸에서 지우고 `pnpm data:login` 세션으로 붙는다.');
-    }
-    return { url: env.SUPABASE_URL || url, key: env.SUPABASE_SERVICE_ROLE_KEY, source: 'service' };
+  const inCi = env.CI === 'true' || env.CI === '1'; // GitHub Actions `CI=true`, Vercel `CI=1`
+  // service 키는 CI 에서만 받아들인다. 로컬 env 에 남아 있으면 조용히 RLS 를 우회하는 대신 여기서 멈춘다 — readOnly 라도 같다(anon 으로 넘어가지 않는다:
+  // 실측: 옛 .env.local 이 남아 있어 `data:pull` 이 세션 없이 service 로 붙었다). 트립와이어다(CI=1 을 붙이면 넘어간다) — 경계가 아니라 사고 감지용.
+  if (env.SUPABASE_SERVICE_ROLE_KEY && !inCi) {
+    throw new Error('로컬 env 에 SUPABASE_SERVICE_ROLE_KEY 가 있다 — ADR-016 v4 는 service 키를 CI 에서만 쓴다. .env.local·셸에서 지우고 `pnpm data:login` 세션으로 붙는다.');
   }
-  // Actions 러너에서 시크릿이 비었을 때 "로그인하라" 는 안내는 틀린 방향이다 — 그 자리에서 시크릿 이름을 말한다.
-  if (env.GITHUB_ACTIONS === 'true') throw new Error('GitHub Secrets 의 SUPABASE_SERVICE_ROLE_KEY 가 비어 있다 — `gh secret set SUPABASE_SERVICE_ROLE_KEY`.');
+  // readOnly 는 CI 에 service 키가 남아 있어도 anon 이다 — "빌드는 anon" 이 Vercel env 정리 순서가 아니라 코드 불변식이 되게(self-cr 지적). 아래 anon 반환.
+  if (!readOnly) {
+    if (env.SUPABASE_SERVICE_ROLE_KEY) return { url: env.SUPABASE_URL || url, key: env.SUPABASE_SERVICE_ROLE_KEY, source: 'service' };
+    // Actions 러너에서 시크릿이 비었을 때 "로그인하라" 는 안내는 틀린 방향이다 — 그 자리에서 시크릿 이름을 말한다.
+    if (env.GITHUB_ACTIONS === 'true') throw new Error('GitHub Secrets 의 SUPABASE_SERVICE_ROLE_KEY 가 비어 있다 — `gh secret set SUPABASE_SERVICE_ROLE_KEY`.');
+  }
   if (linkedRef && linkedRef !== PROJECT_REF) {
     throw new Error(`link 된 프로젝트(${linkedRef})가 코드의 PROJECT_REF(${PROJECT_REF})와 다르다 — 스키마와 데이터가 다른 프로젝트를 가리킨다. 둘 중 하나를 고친다.`);
   }

@@ -52,6 +52,12 @@ describe('resolveSupabaseCredentials — 출처', () => {
     expect(resolve({ env: { CI: 'true', SUPABASE_SERVICE_ROLE_KEY: 'k' }, publishableKey: '', linkedRef: 'other' }).source).toBe('service');
   });
 
+  it('readOnly 는 CI 에 service key 가 남아 있어도 anon 이다 — "빌드는 anon" 이 Vercel env 정리 순서에 기대지 않게', () => {
+    expect(resolve({ env: { CI: '1', SUPABASE_URL: 'https://u', SUPABASE_SERVICE_ROLE_KEY: 'k' }, readOnly: true }))
+      .toEqual({ url: PINNED, key: PUB, source: 'anon' });
+    expect(resolve({ env: { CI: 'true', GITHUB_ACTIONS: 'true' }, readOnly: true }).source).toBe('anon'); // 시크릿 없는 러너도 읽기는 된다
+  });
+
   it('로컬(CI 아님)에 service key 가 있으면 조용히 RLS 를 우회하지 않고 멈춘다 — 남은 .env.local 이 그 사고였다', () => {
     expect(() => resolve({ env: { SUPABASE_SERVICE_ROLE_KEY: 'k' }, readSession: () => valid })).toThrow(/CI 에서만/);
     expect(() => resolve({ env: { SUPABASE_SERVICE_ROLE_KEY: 'k' }, readOnly: true })).toThrow(/CI 에서만/);
