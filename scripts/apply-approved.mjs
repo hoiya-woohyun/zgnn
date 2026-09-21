@@ -17,11 +17,11 @@
 //
 // `--dry-run`: DB 에 아무것도 쓰지 않고 무엇을 할지 한 줄씩만 찍는다. 읽기는 한다(patch 를 계산하려면 기존 행이 필요).
 // 로그에 시크릿·응답 본문·헤더를 남기지 않는다 — 후보 id · 장소 id/이름 · 채울 컬럼명 · error.message 만(docs/todo/05).
-import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
 import { mergeIntoExisting, toNewPlaceRow, toRecheckCandidate } from './analyze/applyApproved.mjs';
 import { matchPlace, THRESHOLD } from './analyze/matchPlace.mjs';
 import { fromPlaceRow } from './lib/placeFields.mjs';
+import { createSupabase } from './lib/supabaseClient.mjs';
 
 // 인자는 --dry-run 하나뿐. 모르는 인자(--dryrun 오타)로 실제 쓰기가 도는 일이 없게 거부한다(analyze 의 parseArgs 와 같은 원칙).
 const argv = process.argv.slice(2);
@@ -33,13 +33,7 @@ if (unknown.length > 0) {
 const dryRun = argv.includes('--dry-run');
 console.log(dryRun ? '모드: dry-run — DB 에 쓰지 않는다' : '모드: 반영 — places · place_sources · candidates 에 쓴다');
 
-const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.error('SUPABASE_URL · SUPABASE_SERVICE_ROLE_KEY 가 필요합니다. `pnpm secrets ls` 로 키체인을 확인하세요.');
-  process.exit(1);
-}
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+const supabase = createSupabase();
 
 // 쓰기는 전부 이 한 곳을 지난다 — dry-run 분기를 호출처마다 두면 하나를 빠뜨리는 순간 dry-run 이 DB 를 건드린다.
 async function write(label, run) {
@@ -65,7 +59,7 @@ const { data: placeRows, error: placesError } = await supabase.from('places').se
 if (placesError) throw new Error(`places 조회 실패: ${placesError.message}`);
 // 86곳이 있어야 정상이다. 비어 있으면 다른 프로젝트·잘못된 키다 — 그대로 가면 재대조가 무력화돼 신규가 전부 draft 로 들어간다(analyze 와 같은 가드).
 if (placeRows.length === 0) {
-  console.error('places 가 비어 있다 — SUPABASE_URL 이 맞는 프로젝트인지 확인. 아무것도 반영하지 않고 멈춘다.');
+  console.error('places 가 비어 있다 — link 된 프로젝트(supabase/.temp/project-ref)가 맞는지 확인. 아무것도 반영하지 않고 멈춘다.');
   process.exit(1);
 }
 const existing = placeRows.map(fromPlaceRow);

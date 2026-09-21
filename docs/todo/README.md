@@ -1,6 +1,6 @@
 # TODO — 블로그 수집 → AI 분석 → 승인 → DB → 자동 배포
 
-> 최종 수정: 2026-09-21 (v5: 배포 복구 확인 완료. 시크릿의 집이 `.env.local` → 키체인(ADR-016) — 다음 할 일 1·2 를 그 절차로, 세션 로그)
+> 최종 수정: 2026-09-21 (v5: 배포 복구 확인 완료. 시크릿은 저장하지 않고 로그인된 CLI 로 실행 시점에(ADR-016) — 다음 할 일 1·2 를 그 절차로, 세션 로그)
 > 이전 (v4: 3 코드 완료(Claude 는 구독 `claude -p`), 4a 완료(+BUG-005 수정), 5 검증 항목 완료. 세션 로그·🙋 표 갱신)
 > 이전 (v3: 0·1·2·5 에 실제 코드가 생겨 진행 상태를 항목별로 쪼갬. 세션 로그 절 추가)
 > 이전 (v2: 가정 두 개가 확정돼 ADR-015 로 옮김. 회원은 todo 범위 밖으로)
@@ -81,28 +81,27 @@ flowchart LR
 
 ## 다음 할 일 (2026-09-21 기준 — 새 세션은 여기서 시작)
 
-순서대로. ①②는 사람만 할 수 있고(값을 입력하는 일), 나머지는 키가 들어오면 Claude 가 이어서 한다.
-**시크릿 값은 `.env.local` 에 적지 않는다** — macOS 키체인에 `pnpm secrets set` 으로 넣고 `pnpm secrets push gh` 로 보낸다(ADR-016).
+순서대로. ①②는 값을 붙여넣는 일이라 사람만 할 수 있고, 나머지는 Claude 가 이어서 한다.
+**시크릿 값은 어디에도 저장하지 않는다**(ADR-016) — 로컬은 `supabase login` 으로 실행 시점에 받고, GitHub·Vercel 에는 터미널 프롬프트로 붙여넣는다.
+값을 채팅에 붙여넣지 않는다.
 
-1. **서비스 롤 키 회전 + `.env.local` 삭제(사용자 터미널)** — 옛 값은 에이전트 대화 기록에 실렸을 수 있으니 **노출됐다고 보고 회전**한다.
-   그러면 이관이 필요 없다(옛 값은 죽은 값). 새 값은 처음부터 키체인에만.
+1. **서비스 롤 키 회전 + `.env.local` 삭제(사용자)** — 옛 값은 에이전트 대화 기록에 실렸을 수 있으니 **노출됐다고 보고 회전**한다. 로컬은 할 게 없다.
    ```sh
-   # ① Supabase 대시보드 → Project Settings → API Keys → 새 secret key 발급(또는 legacy service_role 회전). 값을 복사만 한다
-   pnpm secrets set SUPABASE_SERVICE_ROLE_KEY        # 숨김 입력 두 번 — 새 값 붙여넣기
-   pnpm secrets set SUPABASE_URL                     # https://<ref>.supabase.co (대시보드 Project Settings → General 의 Reference ID)
-   rm .env.local                                     # 옛 키·VERCEL_OIDC_TOKEN 이 든 파일. 이제 없어도 돈다
-   pnpm secrets ls                                   # SUPABASE_URL·SUPABASE_SERVICE_ROLE_KEY 에 ✓, ⚠ 없음
+   # ① Supabase 대시보드 → Project Settings → API Keys → 새 secret key 발급, 옛 것(legacy service_role 포함)은 폐기. 값을 복사만 한다
+   gh secret set SUPABASE_SERVICE_ROLE_KEY                                    # "Paste your secret" 숨김 입력에 붙여넣기
+   vercel env add SUPABASE_SERVICE_ROLE_KEY production --sensitive --force    # 프롬프트에 붙여넣기(또는 Vercel 대시보드)
+   vercel env add SUPABASE_SERVICE_ROLE_KEY preview --sensitive --force
+   rm -f .env.local                                                           # 옛 키·VERCEL_OIDC_TOKEN 이 든 파일. 이제 없어도 돈다
+   pnpm data:pull                                                             # 로그인된 CLI 로 새 키를 받아 86곳 읽으면 끝(diff 없음)
    ```
-   → 그다음은 Claude 가: `pnpm secrets push vercel production` · `push vercel preview` · `push gh`(값이 화면에 안 찍힌다) →
-   `pnpm data:pull` → 빈 커밋으로 Vercel 재빌드 확인. 옛 키가 남았을 수 있는 이 프로젝트의 옛 세션은 `/delete-sessions` 로 지운다(선택 — 회전했으면 죽은 값).
-2. **키 3종 발급 → 키체인 → GitHub Secrets** (`gh auth switch` 로 `hoiya-woohyun` 계정 먼저. 값은 사용자 터미널에서만 입력)
-   - `claude setup-token` → `pnpm secrets set CLAUDE_CODE_OAUTH_TOKEN` (구독 인증. 러너에서 도는지는 이걸로 처음 시험. 로컬 실행엔 안 들어간다)
-   - 네이버 개발자센터 → `pnpm secrets set NAVER_CLIENT_ID` · `NAVER_CLIENT_SECRET` (없으면 파이프라인 입구가 막혀 있다)
-   - Kakao REST 키(지도 JS 키와 다름) → `pnpm secrets set KAKAO_REST_API_KEY` (선택. 없으면 좌표 없이 대조)
-   - 그다음 `pnpm secrets push gh` — 키체인에 있는 것만 올라가고 값은 화면에 안 찍힌다. 이건 Claude 가 해도 된다.
-3. **첫 실행** — Actions `블로그 수집 · 분석 · 반영` 을 `workflow_dispatch` 로 한 번. 실패해도 그 로그가 다음 할 일이다
+   → 그다음은 Claude 가 빈 커밋으로 Vercel 재빌드를 확인한다. 옛 키가 남았을 수 있는 이 프로젝트의 옛 세션은 `/delete-sessions` 로 지운다(선택 — 회전했으면 죽은 값).
+2. **키 3종 발급 → GitHub Secrets(사용자)** — `gh auth status` 에서 활성 계정이 `hoiya-woohyun` 인지 먼저. 각각 `gh secret set NAME` 에 붙여넣기.
+   - `claude setup-token` → `gh secret set CLAUDE_CODE_OAUTH_TOKEN` (구독 인증. 러너에서 도는지는 이걸로 처음 시험. 로컬엔 넣지 않는다)
+   - 네이버 개발자센터 → `gh secret set NAVER_CLIENT_ID` · `gh secret set NAVER_CLIENT_SECRET` (없으면 파이프라인 입구가 막혀 있다)
+   - Kakao REST 키(지도 JS 키와 다름) → `gh secret set KAKAO_REST_API_KEY` (선택. 없으면 좌표 없이 대조)
+3. **첫 실행(Claude)** — Actions `블로그 수집 · 분석 · 반영` 을 `workflow_dispatch` 로 한 번. 실패해도 그 로그가 다음 할 일이다
    (러너 OAuth · 네이버 IP 차단 여부).
-4. **후보 첫 확인은 로컬 dry-run** — `pnpm data:analyze --dry-run --limit 5` (DB 안 씀, 로컬 `claude` 로그인 사용). 프롬프트·임계값을
+4. **후보 첫 확인은 로컬 dry-run(Claude)** — `pnpm data:analyze --dry-run --limit 5` (DB 안 씀, 로컬 `claude`·`supabase` 로그인 사용). 프롬프트·임계값을
    손볼지 여기서 판단. 백로그는 `--limit 30` 씩 나눠 돌린다(구독 세션 한도).
 5. **Studio 에서 후보 20건쯤 본 뒤 결정(🙋)** — `AUTO_APPROVE`, `WEIGHT`·`THRESHOLD`(재대조 0.85 경계 포함), `ask` 승인 절차.
 6. **4b** — 승인이 실제로 생긴 뒤 DB 웹훅 → Deploy Hook.
@@ -112,12 +111,12 @@ flowchart LR
 세션이 끝나거나 컨텍스트가 커져 나눌 때 여기에 한 항목. 체크박스가 정본이고 로그는 인수인계 메모.
 
 - 2026-09-21 (2) — (1) **배포 복구 확인 완료**: Preview `0d625f6` Ready(13h 전 프로덕션 Error 는 로그로 BUG-005 확인, `data:pull` 은 통과했었다)
-  → `main` 에 ff 머지·push → 프로덕션 `zgnn-cku27ygkx` Ready. `zgnn.vercel.app` 응답에 `x-content-type-options: nosniff`·`referrer-policy`·
-  `permissions-policy` 세 개 다 붙음(`sw.js` 포함. 캐시 우회 `?cb=` 로 `age: 0` 확인). (2) **시크릿의 집을 `.env.local` → macOS 키체인으로**
-  (사용자 결정 "Claude 가 값을 읽는 순간부터 문제", ADR-016): `scripts/secrets.mjs`(set/ls/rm/push gh|vercel/run) + `data:*` 가 `secrets run` 을
-  거친다. `.claude/settings.json` deny 가 **bypass 세션에서도 실제로 막히는 걸 실측**(sed .env.local·security find-generic-password 거부).
-  그래서 기존 키 이관은 Claude 가 못 하고 사용자 터미널 몫(다음 할 일 1). 다음 할 일 2 의 `gh secret set -f .env.local` 은 폐기.
-  (3) 사용자 지적 "이미 노출됐다" → 이관 대신 **회전**으로 바꾸고, `SUPABASE_URL` 도 키체인으로 보내 **레포에 env 파일 0개**(`.env.local` 선택).
+  → `main` 에 ff 머지·push → 프로덕션 Ready. `zgnn.vercel.app` 응답에 `x-content-type-options: nosniff`·`referrer-policy`·
+  `permissions-policy` 세 개 다 붙음(`sw.js` 포함. 캐시 우회 `?cb=` 로 `age: 0` 확인). (2) **시크릿 처리 방식 두 번 바뀜**(사용자 결정
+  "Claude 가 값을 읽는 순간부터 문제" → "관리 스크립트 말고 로그인 방식으로 단순하게"): 1차로 macOS 키체인 + `scripts/secrets.mjs` 를 만들어
+  main 에 머지했다가, 2차로 **로그인 모델**(ADR-016 v3)로 교체 — `scripts/lib/supabaseClient.mjs` 가 env(CI·Vercel) → 로그인된 `supabase` CLI
+  (`projects api-keys --reveal`) 순으로 키를 실행 시점에 받는다. 로컬에 값이 어디에도 없고 `.env.local` 은 선택. `.claude/settings.json` deny 가
+  **bypass 세션에서도 실제로 막히는 걸 실측**(`--help` 조차). 옛 `.env.local` 의 키는 노출로 보고 **회전**(다음 할 일 1) — 로컬은 할 게 없다.
 
 - 2026-09-21 — 브랜치 `feature/todo-analyze-pipeline`(작업 중엔 push·머지·Vercel 트리거 없이 로컬 커밋만 — 사용자 지시. 리포트 뒤 지시로 **push 함**, main 머지는 아직). 한 것:
   (1) Vercel 배포 실패 원인 = `vercel.json` 의 `outputDirectory: "out"` → 제거(BUG-005, 로컬 `vercel build --prod` 로 재현·확인).

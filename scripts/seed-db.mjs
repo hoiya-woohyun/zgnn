@@ -2,15 +2,9 @@
 // ADR-015: 원본이 Supabase 로 바뀐 뒤로는 이 명령이 데이터를 "만드는" 경로가 아니지만, 재현성을 위해 레포에 둔다
 // (스키마를 다시 만들거나 다른 프로젝트로 옮길 때 처음부터 다시 짤 필요가 없게). 여러 번 돌려도 안전하다(upsert).
 import { readFile } from 'node:fs/promises';
-import { createClient } from '@supabase/supabase-js';
+import { createSupabase } from './lib/supabaseClient.mjs';
 
-const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.error('SUPABASE_URL · SUPABASE_SERVICE_ROLE_KEY 가 필요합니다. `pnpm secrets ls` 로 키체인을 확인하세요.');
-  process.exit(1);
-}
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+const supabase = createSupabase();
 
 const ROOT = new URL('../', import.meta.url);
 const read = async (p) => JSON.parse(await readFile(new URL(p, ROOT), 'utf8'));

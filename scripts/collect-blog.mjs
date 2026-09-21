@@ -2,17 +2,17 @@
 // HTML 을 통째로 긁지 않는 이유 — 네이버 약관(HTML 크롤링 금지)과 저작권(ADR-002 와 같은 기준). 검색 API 는
 // 공식 · 하루 25,000회 무료이고 title·link·description·postdate 만 준다. **본문은 여기서도, DB 에도 저장하지 않는다** —
 // 03(분석) 이 링크를 열어 그 순간에만 읽고 버린다. docs/todo/02-collect-naver-blog.md 가 정본.
-import { createClient } from '@supabase/supabase-js';
 import { readFile } from 'node:fs/promises';
+import { createSupabase } from './lib/supabaseClient.mjs';
 import { WINDOW_DAYS, dedupeByUrl, isWithinDays, parsePostdate, toBlogPostRow } from './collect/naverBlog.mjs';
 
-const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, NAVER_CLIENT_ID, NAVER_CLIENT_SECRET } = process.env;
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
-  console.error('SUPABASE_URL · SUPABASE_SERVICE_ROLE_KEY · NAVER_CLIENT_ID · NAVER_CLIENT_SECRET 이 모두 필요합니다. `pnpm secrets ls` 로 키체인을 확인하세요.');
+const { NAVER_CLIENT_ID, NAVER_CLIENT_SECRET } = process.env;
+if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
+  console.error('NAVER_CLIENT_ID · NAVER_CLIENT_SECRET 이 필요합니다(GitHub Secrets). 로컬은 env 로 넘긴다.');
   process.exit(1);
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+const supabase = createSupabase();
 
 const ROOT = new URL('./', import.meta.url);
 const keywords = JSON.parse(await readFile(new URL('collect/keywords.json', ROOT), 'utf8'));

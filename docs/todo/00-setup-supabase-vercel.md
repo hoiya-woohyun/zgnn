@@ -1,6 +1,6 @@
 # 0. Supabase · Vercel · GitHub — 계정과 시크릿 자리 잡기
 
-> 최종 수정: 2026-09-21 (v4: 로컬 시크릿의 집이 `.env.local` → 키체인(ADR-016). `gh secret set -f .env.local` 폐기, `vercel env pull` 금지)
+> 최종 수정: 2026-09-21 (v4: 로컬에 시크릿을 두지 않는다 — 로그인된 `supabase` CLI 에게 실행 시점에(ADR-016). `gh secret set -f .env.local` 폐기, `vercel env pull` 금지)
 > 이전 (v3: Vercel CLI link·env·빌드 명령·Node·Kakao 도메인 확인 완료 반영. `vercel.json` 의 `outputDirectory` 함정(BUG-005). 남은 것은 Deploy Hook·GitHub Secrets 4개·외부 키)
 > 이전 (v2: Supabase 생성 완료, Vercel 은 대시보드 Git 연동으로 이미 붙어 있음. 빈 마이그레이션 함정·`gh` 계정 전환 기록)
 > 이전 (v1: 신설)
@@ -20,7 +20,7 @@
 ## Supabase
 
 - [x] 생성 뒤 받아 둘 값 세 개 — 어디에 두는지는 [05-security.md](05-security.md) 표가 정본. 로컬에서는
-      `SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY` 둘 다 macOS 키체인(`pnpm secrets ls`, ADR-016)에 있다 — env 파일 없음.
+      둘 다 저장하지 않는다 — `supabase login`·`link` 만 돼 있으면 스크립트가 실행 시점에 받는다(ADR-016). env 파일 없음.
   | 값 | 쓰는 곳 | 성격 |
   |---|---|---|
   | `SUPABASE_URL` | 빌드(`data:pull`) · GitHub Actions | 공개돼도 무방 |
@@ -43,7 +43,7 @@
 - [x] Node 24 (대시보드 `nodeVersion: 24.x` 확인). `pnpm` 은 lockfile 로 자동 감지됐다(빌드 로그의 `pnpm install`).
 - [x] 환경변수: `SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY` 가 Production·Preview 에 있고 키는 Sensitive(`vercel env ls` 에 `Secret`).
       **함정**: Sensitive 값은 `vercel pull` 로 내려받으면 `[SENSITIVE]` 자리표시자가 온다 — 로컬 `vercel build` 는 그 값이
-      키체인 값보다 우선돼 `Invalid API key` 로 죽는다. 재현할 때는 `.vercel/.env.production.local` 의 그 줄을 사용자가 손으로 바꾼다.
+      CLI 경로보다 우선돼 `Invalid API key` 로 죽는다. 재현할 때는 `.vercel/.env.production.local` 의 그 줄을 사용자가 손으로 바꾸고 끝나면 지운다.
       `vercel env pull` 은 쓰지 않는다 — `.env.local` 을 시크릿으로 덮어쓴다(ADR-016).
       Vercel Marketplace 의 Supabase 연동이 `POSTGRES_*`·`SUPABASE_ANON_KEY`·`SUPABASE_SECRET_KEY`·`SUPABASE_JWT_SECRET` 도
       Production 에 넣어 뒀다 — 빌드는 아무것도 안 쓰고, `NEXT_PUBLIC_` 이 아니라 번들에도 안 들어간다. 🙋 안 쓰는 시크릿을
@@ -64,8 +64,7 @@
 - [ ] Settings → Secrets and variables → Actions 에 2·3 단계가 쓸 시크릿 자리를 만든다:
       `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, `CLAUDE_CODE_OAUTH_TOKEN`, `KAKAO_REST_API_KEY`.
       값은 각 단계에서 채운다. → 지금 6개 중 `SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY` 2개만 등록됨
-      (등록은 `pnpm secrets push gh` — 키체인 값을 `gh secret set` 의 stdin 으로만 흘려 화면에 띄우지 않는다, ADR-016.
-      `SUPABASE_URL` 도 같은 통로로 간다 — 이미 등록돼 있다).
+      (등록은 사용자 터미널에서 `gh secret set NAME` — 숨김 입력에 붙여넣는다. 파일을 거치지 않는다, ADR-016).
 - [x] Actions 권한: Settings → Actions → General → Workflow permissions 는 기본값이 이미 **Read** 였다.
 - [ ] **비직관적 함정**: 이 레포 소유 계정(`hoiya-woohyun`)이 `gh` 의 기본 활성 계정이 아니다. 레포가 안 보이면
       먼저 `gh auth switch` 로 계정을 바꾼다.

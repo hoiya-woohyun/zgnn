@@ -24,7 +24,6 @@
 //    남기고 사람이 Studio 에서 본다 — 단순하게.
 //  - `--dry-run` 은 DB 에 쓰지 않는다(analyzed_at 도). Claude 는 부른다 — 토큰은 쓰인다. 무엇이 후보가 되는지 보는 용도.
 //  - 로그에 시크릿·응답 본문·헤더·본문 텍스트를 남기지 않는다(docs/todo/05). 글 URL·제목, 후보 요약 한 줄, error.message 만.
-import { createClient } from '@supabase/supabase-js';
 import {
   formatCandidateLine,
   formatSummary,
@@ -39,6 +38,7 @@ import { pickKakaoPlace, searchKakaoPlace } from './analyze/kakaoLocal.mjs';
 import { matchPlace, normalizeName, townOf } from './analyze/matchPlace.mjs';
 import { fetchPostText } from './analyze/naverPostBody.mjs';
 import { fromPlaceRow } from './lib/placeFields.mjs';
+import { createSupabase } from './lib/supabaseClient.mjs';
 
 let args;
 try {
@@ -50,11 +50,7 @@ try {
 const { limit, dryRun } = args;
 console.log(dryRun ? '모드: dry-run — DB 에 쓰지 않는다(Claude 는 부른다)' : '모드: 분석 — candidates · blog_posts.analyzed_at 에 쓴다');
 
-const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, KAKAO_REST_API_KEY } = process.env;
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.error('SUPABASE_URL · SUPABASE_SERVICE_ROLE_KEY 가 필요합니다. `pnpm secrets ls` 로 키체인을 확인하세요.');
-  process.exit(1);
-}
+const { KAKAO_REST_API_KEY } = process.env;
 // Claude 인증은 env 로 검사하지 않는다 — 로컬은 `claude` 의 키체인 로그인, Actions 는 CLAUDE_CODE_OAUTH_TOKEN 이고 둘 다 CLI 가 읽는다.
 // 안 돼 있으면 첫 글에서 ClaudeCliError(auth, fatal) 가 나와 루프가 끊긴다.
 // 좌표 보강은 선택이다 — 키가 없으면 후보는 좌표·주소 없이 들어가고, matchPlace 는 이름·종류만으로 대조한다(감점 없음).
@@ -62,7 +58,7 @@ if (!KAKAO_REST_API_KEY) console.log('KAKAO_REST_API_KEY 없음 — 좌표·주�
 // ANALYZE_MODEL 이 조용히 무시되는 일이 없게 실제로 쓰는 모델을 한 번 찍는다.
 console.log(`모델 ${MODEL} · 글 최대 ${limit}건`);
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+const supabase = createSupabase();
 const meter = createUsageMeter();
 
 const KAKAO_DELAY_MS = 200;
@@ -94,7 +90,7 @@ if (placesError) throw new Error(`places 조회 실패: ${placesError.message}`)
 const existing = placeRows.map(fromPlaceRow);
 // 86곳이 있어야 정상이다. 비어 있으면 다른 프로젝트·잘못된 키다 — 그대로 가면 후보 전부가 '신규' 로 기록된다(리뷰 지적).
 if (existing.length === 0) {
-  console.error('places 가 비어 있다 — SUPABASE_URL 이 맞는 프로젝트인지 확인. 후보를 만들지 않고 멈춘다.');
+  console.error('places 가 비어 있다 — link 된 프로젝트(supabase/.temp/project-ref)가 맞는지 확인. 후보를 만들지 않고 멈춘다.');
   process.exit(1);
 }
 

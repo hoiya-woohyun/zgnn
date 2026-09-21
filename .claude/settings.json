@@ -1,10 +1,17 @@
 {
   "permissions": {
     "deny": [
-      "Read(./.env.local)",
       "Read(./.env)",
+      "Read(./.env.local)",
       "Read(./.env.*.local)",
+      "Read(./.env.development)",
+      "Read(./.env.production)",
+      "Read(./.env.test)",
       "Read(./.vercel/.env*)",
+      "Bash(supabase projects api-keys)",
+      "Bash(supabase projects api-keys *)",
+      "Bash(pnpm exec supabase projects api-keys *)",
+      "Bash(npx supabase projects api-keys *)",
       "Bash(security find-generic-password *)",
       "Bash(security dump-keychain *)",
       "Bash(vercel env pull)",
