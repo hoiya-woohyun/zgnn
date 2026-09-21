@@ -106,9 +106,10 @@ flowchart LR
      → 터미널에서 `gh auth switch`(계정 `hoiya-woohyun`) 뒤 `gh secret set SUPABASE_SERVICE_ROLE_KEY` 에 붙여넣기. GitHub Actions 만 쓴다.
 2. **연결 확인(Claude + 사용자)** — 1 이 끝난 뒤. 순서가 중요하다:
    - Claude: `PUBLISHABLE_KEY` 채움 → (사용자가 CLI 로그인을 잠깐 열면) `operators` insert → 사용자가 **별도 터미널**에서 `pnpm data:login` →
-     Claude 가 `pnpm data:pull`(항상 anon — 로그 `Supabase 인증: publishable(anon …)`, diff 없음, 86·15 행) → **세션 확인은 `pnpm data:apply`**(승인 후보 0건이면
-     `candidates` 를 읽기만 하고 끝난다 — 로그 `로그인 세션(JWT …)`) → `pnpm data:logout` 뒤 `data:apply` 가 "로그인이 필요하다" 로 멈추는지.
-     **RLS 는 PostgREST 로만 검증**: 비운영자 계정 세션으로 `data:apply` → `candidates` 빈 결과(정책이 닫힘)까지 보면 끝. 이 항목이 끝나기 전엔 RLS 검증은 "추론" 이다.
+     Claude 가 `pnpm data:pull`(항상 anon — 로그 `Supabase 인증: publishable(anon …)`, diff 없음, 86·15 행) → **세션 확인은 `pnpm data:apply --dry-run`**(쓰지 않는다.
+     운영자 세션이면 `candidates` 0건·`places` 86행을 읽고 `[dry-run] 반영 0건` exit 0 · **비운영자** 세션이면 정책이 닫혀 `places 가 비어 있다` exit 1 · 세션 없으면
+     "로그인이 필요하다" — 세 결과가 다 다르므로 이것이 PostgREST 를 통한 RLS 판정이다) → `pnpm data:logout` 뒤 같은 명령이 로그인 안내로 멈추는지.
+     비운영자 케이스는 운영자 아닌 계정을 하나 더 만들어 로그인해 본다. 이 항목이 끝나기 전엔 RLS 검증은 "추론" 이다.
    - self-cr → 커밋·push → Preview 빌드(Vercel env 를 이미 지웠으니 **anon 경로**로 돈다 — `PUBLISHABLE_KEY` 가 채워진 커밋이 먼저 올라가야 한다) → `main` 머지 → 프로덕션 확인.
 3. **키 3종 → GitHub Secrets(사용자)** — `gh auth status` 활성 계정 `hoiya-woohyun` 확인 후 각각 `gh secret set NAME` 에 붙여넣기:
    `claude setup-token` → `CLAUDE_CODE_OAUTH_TOKEN` · 네이버 개발자센터 → `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET` · Kakao REST 키(선택) → `KAKAO_REST_API_KEY`.

@@ -42,8 +42,8 @@ v3 은 로그인 한 번이 영구 service_role 접근이었다. 요구 ⑤는 "
 3. **통로는 `scripts/lib/supabaseClient.mjs` 하나.** `createSupabase({ readOnly })` 가 출처를 고른다:
    env `SUPABASE_SERVICE_ROLE_KEY`(**CI 에서만** 받아들인다 — 로컬에 있으면 멈춘다, 트립와이어) → `readOnly` 면 **항상 anon**(세션이 있어도 싣지 않는다 —
    published 만 읽는 스크립트에 운영자 토큰을 실을 이유가 없고, Vercel 과 로컬이 같은 경로로 돈다) → 쓰기 스크립트는 키체인 세션.
-   세션은 `exp` 30분 앞을 만료로 본다(20분짜리 `data:analyze` 가 중간에 401 로 죽지 않게) 하고, **수명이 하루를 넘으면 거부한다**(요구 ⑤를 코드가 단언 —
-   대시보드 JWT expiry 는 값 없이 검증할 수 없다). **쓰기 스크립트는 세션이 없거나 만료면 그 자리에서 멈추고 `pnpm data:login` 을 안내한다** — anon 으로 보내면
+   세션은 `exp` 30분 앞을 만료로 본다(20분짜리 `data:analyze` 가 중간에 401 로 죽지 않게 — **JWT expiry ≥ 8시간을 전제한다.** 원격 기본값 3600 인 채면
+   로그인 뒤 30분만 쓸 수 있으니 대시보드 값이 먼저다) 하고, **수명이 하루를 넘으면 거부한다**(요구 ⑤를 코드가 단언 — 대시보드 JWT expiry 는 값 없이 검증할 수 없다). **쓰기 스크립트는 세션이 없거나 만료면 그 자리에서 멈추고 `pnpm data:login` 을 안내한다** — anon 으로 보내면
    첫 insert 에서 RLS 42501 로 죽는데 그 메시지는 "로그인하라" 로 읽히지 않는다. `data:pull` 은 결과가 비면 파일을 덮어쓰지 않고 exit 1(빈 사이트 배포 방지).
    어느 출처를 썼는지 **이름만** 한 줄 찍는다(`Supabase 인증: 로그인 세션(JWT …)`) — `data:pull` 은 세 출처 모두 같은 결과를 내서 로그 없이는 구분이 안 된다.
    `GITHUB_ACTIONS=true` 인데 service key 가 없으면 "로그인하라" 가 아니라 시크릿 이름을 말한다.
@@ -87,7 +87,8 @@ v3 은 로그인 한 번이 영구 service_role 접근이었다. 요구 ⑤는 "
   운영자 비밀번호는 대시보드 Users 에서 바꾸고 `pnpm data:login` 을 다시.
 - 확인 방법: **RLS 는 PostgREST 를 통해서만 검증한다** — `supabase db query`(postgres 역할)도 service_role 도 RLS 를 우회해서 정책이 깨져 있어도
   멀쩡해 보인다. anon 이 정책 없는 테이블(`candidates`)에서 `[]`, 운영자 JWT 가 같은 테이블에서 행(또는 insert 성공)을 얻으면 정책이 산 것이다.
-  `data:pull` 은 항상 anon 이라 세션의 증거가 못 된다 — 세션 확인은 `pnpm data:apply`(승인 후보 0건이면 `candidates` 를 읽기만 하고 끝난다)로.
+  `data:pull` 은 항상 anon 이라 세션의 증거가 못 된다 — 세션 확인은 `pnpm data:apply --dry-run`: 운영자면 `반영 0건` exit 0, 비운영자면 정책이 닫혀
+  `places 가 비어 있다` exit 1, 세션 없으면 로그인 안내. 쓰지 않으면서 세 경우가 갈린다.
   **2026-09-21 현재 이 검증은 추론 단계다** — 리뷰가 `db query` 안에서 `set role` 로 정책을 실측했지만 그건 PostgREST 가 아니고, `auth.users` 0명·`PUBLISHABLE_KEY` 빈 값이다.
 - 실측(2026-09-21): 마이그레이션 2개 push, 어드바이저 "No issues found", 키체인 쓰기·덮어쓰기·삭제·형식 거부 스모크 통과, `resolveSupabaseCredentials`
   분기 14 테스트. `pnpm data:login </dev/null` 은 TTY 가드로 exit 1. PostgREST 경유 확인은 publishable 키·운영자 계정이 생긴 뒤(다음 할 일 1·2).
