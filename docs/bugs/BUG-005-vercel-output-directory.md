@@ -50,7 +50,7 @@ Vercel 을 건드리지 않고 검증할 수 있는 경로다.
 
 ## 아직 열려 있는 것
 
-- 이 수정은 커밋만 됐고 push 전이다. push 되면 다음 배포에서 확인한다.
+- 이 수정은 브랜치에 push 됐다(2026-09-21). Vercel Preview → `main` 머지 → 프로덕션 배포에서 확인한다.
 - 대시보드의 Output Directory 를 손으로 `out` 으로 바꿔도 같은 고장이 난다. `vercel.json` 에 없는 설정은
   대시보드 값이 이기므로, 다시 이 증상이 나면 `vercel pull` 로 `.vercel/project.json` 의 `settings.outputDirectory` 를 본다.
 

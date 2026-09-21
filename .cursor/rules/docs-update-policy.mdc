@@ -29,7 +29,7 @@ alwaysApply: true
 | `src/styles/theme.css`, `src/lib/places.ts` 의 색 상수 | `docs/decisions/ADR-003-untitled-ui-and-palette.md` |
 | `src/styles/globals.css` 의 `--spacing`·브레이크포인트, `src/app/fonts/**` | `docs/decisions/ADR-006-responsive-scale-and-font.md` |
 | 라우트·디렉토리·스택 변경 | `docs/ARCHITECTURE.md` 의 해당 섹션 |
-| `scripts/pull-db.mjs`, `scripts/collect-blog.mjs`, `scripts/analyze-candidates.mjs`, `.github/workflows/**`, `vercel.ts` | `docs/todo/` 의 해당 단계 문서 `[ ]` 갱신 + `docs/architecture/data-pipeline.md` |
+| `scripts/pull-db.mjs`, `scripts/collect-blog.mjs`, `scripts/analyze-candidates.mjs`, `scripts/apply-approved.mjs`, `.github/workflows/**`, `vercel.json` | `docs/todo/` 의 해당 단계 문서 `[ ]` 갱신 + `docs/architecture/data-pipeline.md` |
 
 ## 신규 생성 vs 기존 수정
 

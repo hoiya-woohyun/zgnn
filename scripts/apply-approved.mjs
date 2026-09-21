@@ -23,7 +23,14 @@ import { mergeIntoExisting, toNewPlaceRow, toRecheckCandidate } from './analyze/
 import { matchPlace, THRESHOLD } from './analyze/matchPlace.mjs';
 import { fromPlaceRow } from './lib/placeFields.mjs';
 
-const dryRun = process.argv.includes('--dry-run');
+// 인자는 --dry-run 하나뿐. 모르는 인자(--dryrun 오타)로 실제 쓰기가 도는 일이 없게 거부한다(analyze 의 parseArgs 와 같은 원칙).
+const argv = process.argv.slice(2);
+const unknown = argv.filter((a) => a !== '--dry-run');
+if (unknown.length > 0) {
+  console.error(`알 수 없는 인자: ${unknown.join(' ')} — 사용법: pnpm data:apply [--dry-run]`);
+  process.exit(1);
+}
+const dryRun = argv.includes('--dry-run');
 console.log(dryRun ? '모드: dry-run — DB 에 쓰지 않는다' : '모드: 반영 — places · place_sources · candidates 에 쓴다');
 
 const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
@@ -56,12 +63,18 @@ if (candidatesError) throw new Error(`candidates 조회 실패: ${candidatesErro
 // 신규 후보 재대조용 현재 장소 목록(archived 제외). 이 실행이 draft 를 만들면 여기에도 넣어 다음 후보가 그것과 대조되게 한다.
 const { data: placeRows, error: placesError } = await supabase.from('places').select('*').neq('status', 'archived');
 if (placesError) throw new Error(`places 조회 실패: ${placesError.message}`);
+// 86곳이 있어야 정상이다. 비어 있으면 다른 프로젝트·잘못된 키다 — 그대로 가면 재대조가 무력화돼 신규가 전부 draft 로 들어간다(analyze 와 같은 가드).
+if (placeRows.length === 0) {
+  console.error('places 가 비어 있다 — SUPABASE_URL 이 맞는 프로젝트인지 확인. 아무것도 반영하지 않고 멈춘다.');
+  process.exit(1);
+}
 const existing = placeRows.map(fromPlaceRow);
 const rowById = new Map(placeRows.map((row) => [row.id, row]));
 
 let merged = 0;
 let created = 0;
 let failed = 0;
+let returned = 0; // 영구 실패 → pending 으로 되돌린 수
 
 for (const candidate of candidates) {
   console.log(`후보 ${candidate.id} (${candidate.extracted?.name ?? '이름 없음'})`);
@@ -87,7 +100,9 @@ for (const candidate of candidates) {
         target = data;
       }
       if (!target) throw new Error(`match_place_id ${targetId} 가 places 에 없다`);
-      if (target.status === 'archived') throw new Error(`${target.name}(${target.id}) 은 archived — 폐업한 곳에는 병합하지 않는다. Studio 에서 확인`);
+      if (target.status === 'archived') {
+        throw Object.assign(new Error(`${target.name}(${target.id}) 은 archived — 폐업한 곳에는 병합하지 않는다. Studio 에서 확인`), { permanent: true });
+      }
 
       const patch = mergeIntoExisting(target, candidate.extracted);
       if (patch) {
@@ -135,12 +150,27 @@ for (const candidate of candidates) {
     if (kind === 'merged') merged += 1;
     else created += 1;
   } catch (e) {
+    // 다음 실행에도 같을 실패(type other · 이름 없음 · archived 대상)는 approved 로 두면 매 실행 빨갛게 반복된다 — pending 으로 되돌리고
+    // reviewer_note 에 사유를 덧붙여 사람이 Studio 에서 보게 한다. 일시 실패(DB 오류)만 failed 로 세어 exit code 에 반영.
+    if (e?.permanent === true) {
+      const note = `${candidate.reviewer_note ? `${candidate.reviewer_note}\n` : ''}[data:apply 반영 불가] ${e.message}`;
+      try {
+        await write(`후보 ${candidate.id} → pending (반영 불가: ${e.message})`, () =>
+          supabase.from('candidates').update({ status: 'pending', reviewer_note: note }).eq('id', candidate.id),
+        );
+        returned += 1;
+      } catch (writeError) {
+        failed += 1;
+        console.error(`  실패: ${e.message} (pending 되돌리기도 실패: ${writeError.message})`);
+      }
+      continue;
+    }
     failed += 1;
     console.error(`  실패: ${e.message}`);
   }
 }
 
 const prefix = dryRun ? '[dry-run] ' : '';
-console.log(`${prefix}반영 ${merged + created}건 (보강 ${merged} · 신규 ${created} · 실패 ${failed})`);
+console.log(`${prefix}반영 ${merged + created}건 (보강 ${merged} · 신규 ${created} · 실패 ${failed}${returned ? ` · pending 되돌림 ${returned}` : ''})`);
 // process.exit() 은 파이프로 나가던 stdout 을 잘라먹을 수 있다 — 요약 한 줄이 Actions 의 유일한 관측이라 자연 종료를 기다린다.
 process.exitCode = Math.min(failed, 255);

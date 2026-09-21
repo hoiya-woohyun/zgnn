@@ -31,7 +31,7 @@ export async function searchKakaoPlace(query, restKey, fetchImpl = fetch) {
   const url = new URL(KAKAO_KEYWORD_URL);
   url.searchParams.set('query', q);
 
-  const res = await fetchImpl(url, { headers: { Authorization: `KakaoAK ${restKey}` } });
+  const res = await fetchImpl(url, { headers: { Authorization: `KakaoAK ${restKey}` }, signal: AbortSignal.timeout(15_000) });
   // status 를 에러에 실어 두는 이유 — 401/403(키 문제)은 잠깐의 장애가 아니라 실행 전체를 세워야 하는 설정 오류다(analyze-candidates.mjs).
   if (!res.ok) throw Object.assign(new Error(`Kakao 로컬 검색 실패: status=${res.status} query=${q}`), { status: res.status });
   const body = await res.json();

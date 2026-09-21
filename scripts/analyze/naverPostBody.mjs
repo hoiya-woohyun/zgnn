@@ -11,10 +11,10 @@
 //
 // 컨테이너를 못 찾으면 '' 다 — 페이지 전체 텍스트를 본문인 척 넘기면 AI 가 사이드바·댓글에서 장소를 지어낸다.
 
-/** 본문이 이보다 길면 잘라서 준다. 여행기 하나가 이 길이를 넘는 일은 드물고, 넘으면 대개 사진 캡션·광고다. */
 /** 파싱에 넣을 원본 HTML 상한. 실제 글은 200~600KB — 2MB 를 넘는 건 정상 글이 아니다. */
 export const MAX_HTML_CHARS = 2_000_000;
 
+/** 본문이 이보다 길면 잘라서 준다. 여행기 하나가 이 길이를 넘는 일은 드물고, 넘으면 대개 사진 캡션·광고다. */
 export const MAX_BODY_CHARS = 20_000;
 
 /** 본문을 실제로 주는 주소(위 머리 주석). blogId·logNo 는 URL 인코딩된다. */
@@ -111,8 +111,11 @@ export function extractPostText(html) {
  * 글 하나를 받아 본문 텍스트를 돌려준다. 비 2xx 면 throw — 메시지에는 status 와 blogId/logNo 만 넣는다.
  * 응답 본문·헤더는 로그에 남기지 않는다(docs/todo/05). fetchImpl 은 테스트 주입용.
  */
+/** 본문 요청 상한. undici 기본(300초)은 글 하나가 잡 시간을 다 먹을 수 있다. 넘기면 status 없는 에러 → 재시도 분류. */
+export const FETCH_TIMEOUT_MS = 15_000;
+
 export async function fetchPostText({ blogId, logNo }, fetchImpl = fetch) {
-  const res = await fetchImpl(postViewUrl(blogId, logNo));
+  const res = await fetchImpl(postViewUrl(blogId, logNo), { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
   // status 를 에러에 싣고, 404·410(삭제된 글)만 permanent 로 표시한다 — 호출자가 "분석 불가" 로 닫는다. 403 은 봇 차단일 수 있고
   // 5xx·네트워크는 잠깐일 수 있으니 permanent 가 아니다(다음 실행에 재시도). 4xx 전부를 닫으면 차단 한 번에 백로그가 통째로 닫힌다(리뷰 지적).
   if (!res.ok) {

@@ -64,7 +64,7 @@ flowchart LR
   - [ ] 실행 — 네이버 개발자센터 키 발급 전이라 아직 한 번도 안 돌림
 - **3** 분석·승인
   - [x] 코드 — `scripts/analyze/{naverPostBody,extractPlaces,kakaoLocal,matchPlace,analyzeCandidates,applyApproved}.mjs`(테스트 포함) ·
-        `scripts/analyze-candidates.mjs` · `scripts/apply-approved.mjs` · `collect.yml` 에 analyze→apply step. `pnpm test` 384
+        `scripts/analyze-candidates.mjs` · `scripts/apply-approved.mjs` · `collect.yml` 에 analyze→apply step. `pnpm test` 393
   - [x] `matchPlace` 본체 — 기본안 구현(🙋 였던 자리. `THRESHOLD`·`WEIGHT` 로 조정). 자동 승인은 `AUTO_APPROVE=false` 로 시작
   - [x] 엔드투엔드 1건 — 실제 후기 링크로 본문 → `claude -p` → 대조까지(DB 쓰기 없이)
   - [ ] 실행 — `blog_posts` 가 비어 있어(02) 아직. 시크릿 등록 뒤 `workflow_dispatch`
@@ -98,7 +98,7 @@ flowchart LR
 
 세션이 끝나거나 컨텍스트가 커져 나눌 때 여기에 한 항목. 체크박스가 정본이고 로그는 인수인계 메모.
 
-- 2026-09-21 — 브랜치 `feature/todo-analyze-pipeline`(**push 안 함, main 머지 안 함, Vercel 트리거 안 함** — 사용자 지시). 한 것:
+- 2026-09-21 — 브랜치 `feature/todo-analyze-pipeline`(작업 중엔 push·머지·Vercel 트리거 없이 로컬 커밋만 — 사용자 지시. 리포트 뒤 지시로 **push 함**, main 머지는 아직). 한 것:
   (1) Vercel 배포 실패 원인 = `vercel.json` 의 `outputDirectory: "out"` → 제거(BUG-005, 로컬 `vercel build --prod` 로 재현·확인).
   프로덕션은 3시간 전 배포가 그대로 살아 있고 push 하면 복구된다. (2) 보안 헤더 3개를 `vercel.json` 에. (3) 03 전체 코드 —
   **Claude 는 API 키 대신 구독(`claude setup-token` → `CLAUDE_CODE_OAUTH_TOKEN`)으로 `claude -p --json-schema` 를 돌린다**(사용자 결정,

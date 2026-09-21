@@ -184,8 +184,9 @@ const LIMIT_RE = /rate.?limit|session limit|usage limit|overloaded|too many requ
 // CLI 오류 결과는 두 모양이다(2.1.278 바이너리의 스키마): 로그인 실패처럼 subtype 이 'success' 인데 is_error 인 것(result 에 문구),
 // 그리고 subtype 이 'error_*' 인 것(result 없이 errors[]). 둘 다 여기로 온다.
 function errorText(result) {
-  if (typeof result.result === 'string' && result.result) return result.result.slice(0, 160);
+  // error_* 변형은 errors[] 만 본다 — 어떤 버전이 마지막 모델 시도를 result 에 담아도 본문 파생 텍스트를 로그에 싣지 않게(05).
   if (Array.isArray(result.errors)) return result.errors.filter((e) => typeof e === 'string').join(' · ').slice(0, 160);
+  if (result.subtype === 'success' && typeof result.result === 'string') return result.result.slice(0, 160);
   return '';
 }
 
@@ -238,7 +239,8 @@ export function parseExtraction(result) {
  */
 export function runClaudeCli(args, input, { env = process.env, bin = 'claude', timeoutMs = CLI_TIMEOUT_MS } = {}) {
   return new Promise((resolve, reject) => {
-    const { CLAUDECODE: _omit, ...childEnv } = env;
+    // 자식에 넘길 env 에서 이 파이프라인의 다른 시크릿을 뺀다 — CLI 에 필요 없고, 최소 권한(05). CLAUDECODE 는 중첩 세션 표시.
+    const { CLAUDECODE: _a, SUPABASE_SERVICE_ROLE_KEY: _b, SUPABASE_URL: _c, KAKAO_REST_API_KEY: _d, NAVER_CLIENT_ID: _e, NAVER_CLIENT_SECRET: _f, ...childEnv } = env;
     let child;
     try {
       child = spawn(bin, args, { env: childEnv, stdio: ['pipe', 'pipe', 'pipe'] });
@@ -248,7 +250,13 @@ export function runClaudeCli(args, input, { env = process.env, bin = 'claude', t
     }
     // spawn 의 timeout 옵션 대신 자체 타이머 — ENOENT 로 'error' 가 난 뒤에도 내부 타이머가 살아 프로세스가 5분을 더 기다린다(리뷰 지적).
     let timedOut = false;
-    const timer = setTimeout(() => { timedOut = true; child.kill('SIGTERM'); }, timeoutMs);
+    let killer = null;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill('SIGTERM');
+      // SIGTERM 을 무시하면 close 가 영영 안 온다 — 5초 뒤 SIGKILL.
+      killer = setTimeout(() => child.kill('SIGKILL'), 5_000);
+    }, timeoutMs);
     let stdout = '';
     let stderr = '';
     child.stdout.setEncoding('utf8');
@@ -257,6 +265,7 @@ export function runClaudeCli(args, input, { env = process.env, bin = 'claude', t
     child.stderr.on('data', (chunk) => { stderr += chunk; });
     child.on('error', (e) => {
       clearTimeout(timer);
+      clearTimeout(killer);
       if (e.code === 'ENOENT') {
         reject(new ClaudeCliError('not_found', `\`${bin}\` 를 찾을 수 없다 — Claude Code CLI 설치가 필요하다(npm i -g @anthropic-ai/claude-code)`, { fatal: true }));
       } else {
@@ -265,6 +274,7 @@ export function runClaudeCli(args, input, { env = process.env, bin = 'claude', t
     });
     child.on('close', (code, signal) => {
       clearTimeout(timer);
+      clearTimeout(killer);
       if (timedOut || signal) {
         reject(new ClaudeCliError('timeout', `claude 가 ${signal ?? 'SIGTERM'} 로 종료됨(타임아웃 ${timeoutMs}ms)`, { retryable: true }));
         return;

@@ -74,11 +74,12 @@ const PLACE_TYPES = new Set(['stay', 'restaurant', 'cafe']);
 export function toNewPlaceRow(candidate, { id }) {
   const extracted = candidate.extracted ?? {};
   const type = extracted.type;
-  if (type === 'other') throw new Error(`후보 ${candidate.id}: type 'other' 는 신규 장소가 될 수 없다`);
-  if (!PLACE_TYPES.has(type)) throw new Error(`후보 ${candidate.id}: type '${type}' 은 places.type 에 없다`);
+  // permanent: 다음 실행에도 같다 — apply-approved.mjs 가 후보를 pending 으로 되돌리고 reviewer_note 에 사유를 남긴다(매 실행 빨갛게 되지 않게).
+  if (type === 'other') throw Object.assign(new Error(`후보 ${candidate.id}: type 'other' 는 신규 장소가 될 수 없다`), { permanent: true });
+  if (!PLACE_TYPES.has(type)) throw Object.assign(new Error(`후보 ${candidate.id}: type '${type}' 은 places.type 에 없다`), { permanent: true });
 
   const name = text(extracted.name);
-  if (!name) throw new Error(`후보 ${candidate.id}: name 이 비어 있다`);
+  if (!name) throw Object.assign(new Error(`후보 ${candidate.id}: name 이 비어 있다`), { permanent: true });
 
   const geo = validGeo(extracted.geo) ? extracted.geo : null;
 

@@ -17,7 +17,7 @@
 | `CLAUDE_CODE_OAUTH_TOKEN` | 금지 | GitHub Secrets 만 (Vercel 엔 없다 — 빌드는 AI 를 안 부른다). 로컬은 `claude` 로그인을 쓰므로 `.env.local` 에도 없다 | **구독 계정 그 자체**다 — 새면 `claude setup-token` 을 다시 발급하고 Anthropic 계정 설정에서 기존 세션을 끊는다. API 키와 달리 예산 상한이 없고 한도(5시간 창)만 있다 |
 | `NAVER_CLIENT_SECRET` | 금지 | GitHub Secrets 만 | 재발급 |
 | `KAKAO_REST_API_KEY` | 금지 | GitHub Secrets 만 | 재발급 |
-| `NEXT_PUBLIC_KAKAO_JS_KEY` | 공개 전제 | Vercel env | 도메인 제한이 방어선. 새 도메인 등록만 조심 |
+| `NEXT_PUBLIC_KAKAO_MAP_KEY` | 공개 전제 | 코드 기본값(`src/lib/kakaoMap.ts`) — Vercel env 불필요 | 도메인 제한이 방어선. 새 도메인 등록만 조심 |
 | Deploy Hook URL | — | Supabase 웹훅 설정 **만** | 아무나 빌드를 돌릴 수 있음 → Vercel 에서 폐기·재발급 |
 | anon key | (지금 안 씀) | — | 관리 화면(03 후반)을 만들 때 `NEXT_PUBLIC_` 로 들어간다. 공개돼도 되는 키 — 방어선은 RLS |
 
