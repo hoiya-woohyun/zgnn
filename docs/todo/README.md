@@ -84,12 +84,17 @@ flowchart LR
 순서대로. ①②는 사람만 할 수 있고(값을 입력하는 일), 나머지는 키가 들어오면 Claude 가 이어서 한다.
 **시크릿 값은 `.env.local` 에 적지 않는다** — macOS 키체인에 `pnpm secrets set` 으로 넣고 `pnpm secrets push gh` 로 보낸다(ADR-016).
 
-1. **기존 키 이관(사용자 터미널)** — `.env.local` 의 `SUPABASE_SERVICE_ROLE_KEY` 를 키체인으로. Claude 는 값을 읽을 수 없어 대신 못 한다.
+1. **서비스 롤 키 회전 + `.env.local` 삭제(사용자 터미널)** — 옛 값은 에이전트 대화 기록에 실렸을 수 있으니 **노출됐다고 보고 회전**한다.
+   그러면 이관이 필요 없다(옛 값은 죽은 값). 새 값은 처음부터 키체인에만.
    ```sh
-   pnpm secrets set SUPABASE_SERVICE_ROLE_KEY        # 숨김 입력 두 번 — .env.local 의 값을 붙여넣기
-   sed -i '' -e '/^SUPABASE_SERVICE_ROLE_KEY=/d' -e '/^# Created by Vercel CLI$/d' -e '/^VERCEL_OIDC_TOKEN=/d' .env.local
-   pnpm secrets ls && pnpm data:pull && git status --short src/data   # ✓ 표시, exit 0, diff 없음이면 끝
+   # ① Supabase 대시보드 → Project Settings → API Keys → 새 secret key 발급(또는 legacy service_role 회전). 값을 복사만 한다
+   pnpm secrets set SUPABASE_SERVICE_ROLE_KEY        # 숨김 입력 두 번 — 새 값 붙여넣기
+   pnpm secrets set SUPABASE_URL                     # https://<ref>.supabase.co (대시보드 Project Settings → General 의 Reference ID)
+   rm .env.local                                     # 옛 키·VERCEL_OIDC_TOKEN 이 든 파일. 이제 없어도 돈다
+   pnpm secrets ls                                   # SUPABASE_URL·SUPABASE_SERVICE_ROLE_KEY 에 ✓, ⚠ 없음
    ```
+   → 그다음은 Claude 가: `pnpm secrets push vercel production` · `push vercel preview` · `push gh`(값이 화면에 안 찍힌다) →
+   `pnpm data:pull` → 빈 커밋으로 Vercel 재빌드 확인. 옛 키가 남았을 수 있는 이 프로젝트의 옛 세션은 `/delete-sessions` 로 지운다(선택 — 회전했으면 죽은 값).
 2. **키 3종 발급 → 키체인 → GitHub Secrets** (`gh auth switch` 로 `hoiya-woohyun` 계정 먼저. 값은 사용자 터미널에서만 입력)
    - `claude setup-token` → `pnpm secrets set CLAUDE_CODE_OAUTH_TOKEN` (구독 인증. 러너에서 도는지는 이걸로 처음 시험. 로컬 실행엔 안 들어간다)
    - 네이버 개발자센터 → `pnpm secrets set NAVER_CLIENT_ID` · `NAVER_CLIENT_SECRET` (없으면 파이프라인 입구가 막혀 있다)
@@ -112,6 +117,7 @@ flowchart LR
   (사용자 결정 "Claude 가 값을 읽는 순간부터 문제", ADR-016): `scripts/secrets.mjs`(set/ls/rm/push gh|vercel/run) + `data:*` 가 `secrets run` 을
   거친다. `.claude/settings.json` deny 가 **bypass 세션에서도 실제로 막히는 걸 실측**(sed .env.local·security find-generic-password 거부).
   그래서 기존 키 이관은 Claude 가 못 하고 사용자 터미널 몫(다음 할 일 1). 다음 할 일 2 의 `gh secret set -f .env.local` 은 폐기.
+  (3) 사용자 지적 "이미 노출됐다" → 이관 대신 **회전**으로 바꾸고, `SUPABASE_URL` 도 키체인으로 보내 **레포에 env 파일 0개**(`.env.local` 선택).
 
 - 2026-09-21 — 브랜치 `feature/todo-analyze-pipeline`(작업 중엔 push·머지·Vercel 트리거 없이 로컬 커밋만 — 사용자 지시. 리포트 뒤 지시로 **push 함**, main 머지는 아직). 한 것:
   (1) Vercel 배포 실패 원인 = `vercel.json` 의 `outputDirectory: "out"` → 제거(BUG-005, 로컬 `vercel build --prod` 로 재현·확인).

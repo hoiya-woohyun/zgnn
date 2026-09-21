@@ -36,8 +36,8 @@ flowchart LR
 - `src/data/*.json` 은 계속 **커밋**한다 — 키 없이도 `pnpm dev`·`pnpm test` 가 돌아야 하고, Supabase 가
   무료 티어 7일 비활성으로 잠들어도 마지막 스냅샷으로 빌드된다.
 - 키가 없으면 `data:pull` 은 조용히 옛 스냅샷을 쓰는 대신 **명확히 실패한다**(`exit 1`) — CI 가 조용히 옛 데이터로
-  빌드되는 사고를 막기 위해서다. env 는 `pnpm secrets run`(`scripts/secrets.mjs`) 이 넣는다 — 시크릿은 macOS 키체인에서,
-  비밀이 아닌 값은 `node --env-file-if-exists=.env.local` 로(Node 22.9+, dotenv 없이). 우선순위는 **셸 env > 키체인 > `.env.local`**(실측) —
+  빌드되는 사고를 막기 위해서다. env 는 `pnpm secrets run`(`scripts/secrets.mjs`) 이 넣는다 — `SUPABASE_URL` 까지 macOS 키체인에서(레포에 env 파일 없음),
+  선택 설정만 `node --env-file-if-exists=.env.local` 로(Node 22.9+, dotenv 없이). 우선순위는 **셸 env > 키체인 > `.env.local`**(실측) —
   CI 와 같은 규칙이고, 이관 전 `.env.local` 에 남은 줄은 키체인 값에 밀려 무해하다. Linux(Actions·Vercel)에선 env 를 그대로 넘긴다(ADR-016).
 
 ## 두 입구가 같은 바이트를 내는 이유 — `scripts/lib/placeFields.mjs`

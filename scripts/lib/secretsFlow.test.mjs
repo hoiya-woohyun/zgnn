@@ -7,7 +7,7 @@ describe('selectNames — 어떤 이름이 어디로 흐르는가', () => {
     for (const flow of ['run', 'gh', 'vercel']) {
       expect(selectNames(flow)).toEqual(Object.keys(SECRETS).filter((n) => SECRETS[n][flow]));
     }
-    expect(selectNames('vercel')).toEqual(['SUPABASE_SERVICE_ROLE_KEY']);
+    expect(selectNames('vercel')).toEqual(['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']);
     expect(selectNames('run')).not.toContain('CLAUDE_CODE_OAUTH_TOKEN');
   });
 
@@ -37,6 +37,7 @@ describe('leakedEnvNames — .env.local 에 남은 시크릿을 Node 파서 기�
   it('SECRETS 이름과 비밀처럼 생긴 이름은 잡고, 빈 자리표시자·공개 값은 넘긴다', () => {
     const text = [
       'SUPABASE_URL=https://x.supabase.co',
+      'ANALYZE_MODEL=claude-haiku-4-5-20251001',
       'SUPABASE_SERVICE_ROLE_KEY=eyJ...',
       'KAKAO_REST_API_KEY=   # 03 좌표 보강 — .env.example 을 복사한 빈 줄',
       'NAVER_CLIENT_ID=""',
@@ -44,13 +45,13 @@ describe('leakedEnvNames — .env.local 에 남은 시크릿을 Node 파서 기�
       'VERCEL_OIDC_TOKEN=abc',
       'NEXT_PUBLIC_KAKAO_MAP_KEY=public',
     ].join('\n');
-    expect(leakedEnvNames(text)).toEqual(['SUPABASE_SERVICE_ROLE_KEY', 'VERCEL_OIDC_TOKEN']);
+    expect(leakedEnvNames(text)).toEqual(['SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_URL', 'VERCEL_OIDC_TOKEN']);
   });
 
   it('`export` 접두어·따옴표·CRLF 도 Node 가 읽는 그대로 본다', () => {
     expect(leakedEnvNames('export NAVER_CLIENT_SECRET=abc')).toEqual(['NAVER_CLIENT_SECRET']);
     expect(leakedEnvNames("NAVER_CLIENT_SECRET='abc'")).toEqual(['NAVER_CLIENT_SECRET']);
-    expect(leakedEnvNames('NAVER_CLIENT_SECRET=abc\r\nSUPABASE_URL=u\r\n')).toEqual(['NAVER_CLIENT_SECRET']);
+    expect(leakedEnvNames('NAVER_CLIENT_SECRET=abc\r\nANALYZE_MODEL=m\r\n')).toEqual(['NAVER_CLIENT_SECRET']);
     expect(leakedEnvNames('')).toEqual([]);
   });
 });

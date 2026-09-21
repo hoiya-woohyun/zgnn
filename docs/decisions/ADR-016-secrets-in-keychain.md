@@ -1,6 +1,7 @@
 # ADR-016 — 시크릿은 `.env.local` 이 아니라 키체인에, 에이전트는 값을 보지 못한다
 
-> 최종 수정: 2026-09-21 (v1: 신설 — 사용자 결정 "Claude 가 시크릿 값을 읽는 순간부터 문제다")
+> 최종 수정: 2026-09-21 (v2: `SUPABASE_URL` 도 키체인으로 — 레포에 env 파일 0개, `.env.local` 은 선택. 노출된 키는 이관하지 않고 회전한다)
+> 이전 (v1: 신설 — 사용자 결정 "Claude 가 시크릿 값을 읽는 순간부터 문제다")
 > 상태: 결정. 통로는 `scripts/secrets.mjs` 하나, 흐름 표(`scripts/lib/secretsFlow.mjs` 의 `SECRETS`)가 정본.
 
 ## 맥락
@@ -15,8 +16,9 @@ GitHub Secrets 등록도 `gh secret set -f .env.local` 로 할 계획이었다([
 
 ## 결정
 
-1. **값의 집은 macOS 키체인**(`security` CLI, service `zgnn`, account = 변수 이름). `.env.local` 에는 비밀이 아닌 값
-   (`SUPABASE_URL`·`ANALYZE_MODEL`·`NEXT_PUBLIC_KAKAO_MAP_KEY`)만 남는다. `.env.example` 이 어느 쪽인지 적는다.
+1. **값의 집은 macOS 키체인**(`security` CLI, service `zgnn`, account = 변수 이름). 비밀이 아닌 `SUPABASE_URL` 도 같은 통로로 보낸다 —
+   그래야 **레포에 env 파일이 0개**가 된다. `.env.local` 은 선택 설정(`ANALYZE_MODEL`·`NEXT_PUBLIC_KAKAO_MAP_KEY`)을 바꿀 때만 만든다.
+   `.env.example` 이 어느 쪽인지 적는다.
 2. **통로는 `scripts/secrets.mjs` 하나.** 값이 이 프로세스 밖으로 나가는 길은 두 가지뿐이다 — 자식 프로세스의 env(`run`),
    `gh`/`vercel` 의 stdin 파이프(`push`). 화면에 찍는 명령이 없다. 그래서 에이전트가 `pnpm secrets ls`·`push`·`data:*` 를
    실행해도 값을 보지 못한다. **`run` 은 `RUNNABLE` 목록(시크릿이 필요한 `data:*` 다섯 — 테스트가 package.json 과의 드리프트를 잡는다)만 받는다** — 아무 경로나 받으면 "값을 찍는 한 줄짜리
@@ -53,9 +55,10 @@ GitHub Secrets 등록도 `gh secret set -f .env.local` 로 할 계획이었다([
 
 ## 결과
 
-- `.env.local` 에서 시크릿 줄을 지우는 **이관은 사용자가 터미널에서 한다** — 에이전트는 값을 읽을 수 없으므로 옮길 수도 없다.
-  순서: `pnpm secrets set SUPABASE_SERVICE_ROLE_KEY` → `.env.local` 에서 그 줄·`VERCEL_OIDC_TOKEN` 줄 삭제 → `pnpm secrets ls`
-  → `pnpm data:pull` 로 확인(`src/data` 에 diff 없음).
+- **이미 파일에 있던 키는 이관하지 않고 회전한다.** 에이전트 대화 기록(로컬 `~/.claude/projects/**/*.jsonl` 과 API 전송분)에 실렸을 수
+  있는 값은 노출된 것으로 본다 — 옮겨 봤자 같은 값이다. 회전한 새 값은 사용자 터미널에서 `pnpm secrets set` 으로 키체인에만 넣고,
+  `.env.local` 은 `rm`. 이후 `pnpm secrets push vercel production`·`push vercel preview`·`push gh` 로 세 곳을 한 번에 맞춘다 —
+  05-security 가 경고하는 "한 곳만 갱신해 다음 빌드가 조용히 실패" 를 이 세 명령이 막는다.
 - GitHub Secrets 등록: `pnpm secrets push gh` (gh 활성 계정이 `hoiya-woohyun` 이어야 한다). Vercel 회전: `pnpm secrets push vercel production`.
 - 새 시크릿을 더할 때: `scripts/lib/secretsFlow.mjs` 의 `SECRETS` 표에 한 줄 → `pnpm secrets set` → `push`. `.env.example` 의 이름 목록도 맞춘다.
   `run` 을 타야 할 스크립트가 늘면 `RUNNABLE` 과 package.json 을 같이 — 한쪽만 고치면 테스트가 잡는다.

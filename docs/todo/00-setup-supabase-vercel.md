@@ -20,7 +20,7 @@
 ## Supabase
 
 - [x] 생성 뒤 받아 둘 값 세 개 — 어디에 두는지는 [05-security.md](05-security.md) 표가 정본. 로컬에서는
-      `SUPABASE_URL` 이 `.env.local`(gitignored), `SUPABASE_SERVICE_ROLE_KEY` 는 macOS 키체인(`pnpm secrets ls`, ADR-016)에 있다.
+      `SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY` 둘 다 macOS 키체인(`pnpm secrets ls`, ADR-016)에 있다 — env 파일 없음.
   | 값 | 쓰는 곳 | 성격 |
   |---|---|---|
   | `SUPABASE_URL` | 빌드(`data:pull`) · GitHub Actions | 공개돼도 무방 |
@@ -65,7 +65,7 @@
       `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, `CLAUDE_CODE_OAUTH_TOKEN`, `KAKAO_REST_API_KEY`.
       값은 각 단계에서 채운다. → 지금 6개 중 `SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY` 2개만 등록됨
       (등록은 `pnpm secrets push gh` — 키체인 값을 `gh secret set` 의 stdin 으로만 흘려 화면에 띄우지 않는다, ADR-016.
-      `SUPABASE_URL` 은 비밀이 아니라 키체인에 없으므로 `gh secret set SUPABASE_URL --body <url>` 로 따로 — 이미 등록돼 있다).
+      `SUPABASE_URL` 도 같은 통로로 간다 — 이미 등록돼 있다).
 - [x] Actions 권한: Settings → Actions → General → Workflow permissions 는 기본값이 이미 **Read** 였다.
 - [ ] **비직관적 함정**: 이 레포 소유 계정(`hoiya-woohyun`)이 `gh` 의 기본 활성 계정이 아니다. 레포가 안 보이면
       먼저 `gh auth switch` 로 계정을 바꾼다.

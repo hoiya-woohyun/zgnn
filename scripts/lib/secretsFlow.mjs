@@ -5,6 +5,8 @@ import { parseEnv } from 'node:util';
 // 어떤 이름이 어디로 흐르는가. run = 로컬 스크립트 env, gh = GitHub Secrets, vercel = Vercel env.
 // 여기 없는 이름은 `set` 도 거부한다 — 오타로 고아 항목이 생기고 `run` 은 모르는 채 지나가는 걸 막는다.
 export const SECRETS = {
+  // 비밀은 아니지만(프로젝트 주소) 같은 통로로 보낸다 — 그래야 로컬에 .env.local 이 없어도 되고, 레포에 env 파일이 0개가 된다.
+  SUPABASE_URL: { run: true, gh: true, vercel: true, why: '프로젝트 주소. 비밀 아님 — .env.local 을 없애려고 같은 통로' },
   SUPABASE_SERVICE_ROLE_KEY: { run: true, gh: true, vercel: true, why: 'RLS 우회 키. data:* 전부·Vercel 빌드(data:pull)' },
   KAKAO_REST_API_KEY: { run: true, gh: true, vercel: false, why: '03 좌표 보강(선택). 지도 JS 키와 다른 키' },
   NAVER_CLIENT_ID: { run: true, gh: true, vercel: false, why: '02 수집' },
@@ -39,11 +41,12 @@ export function selectNames(flow, requested = []) {
   return requested;
 }
 
-// .env.local 에 값과 함께 남아 있으면 안 되는 이름. SECRETS 전부 + 이름만 봐도 비밀인 것(`vercel env pull` 이 남기는 VERCEL_OIDC_TOKEN 등).
+// .env.local 에 값과 함께 남아 있으면 안 되는 이름(.env.local 자체가 없는 게 기본이다). SECRETS 전부 + 이름만 봐도 비밀인 것(`vercel env pull` 이 남기는 VERCEL_OIDC_TOKEN 등).
 // Node 가 `--env-file` 에 쓰는 파서(util.parseEnv)로 읽는다 — `export X=`·따옴표·`# 주석`·CRLF 를 직접 흉내 내면 어긋난다.
 // 빈 값(`NAME=` · `NAME=""` · `NAME=  # 주석`)은 .env.example 을 복사한 자리표시자라 시크릿이 아니다.
 export function leakedEnvNames(envFileText) {
   return Object.entries(parseEnv(envFileText))
     .filter(([name, value]) => value !== '' && (isSecretName(name) || /(SECRET|TOKEN|PASSWORD|SERVICE_ROLE)/.test(name)))
-    .map(([name]) => name);
+    .map(([name]) => name)
+    .sort(); // parseEnv 의 키 순서는 줄 순서가 아니다 — 출력을 안정시킨다
 }

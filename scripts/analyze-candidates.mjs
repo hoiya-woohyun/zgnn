@@ -52,7 +52,7 @@ console.log(dryRun ? '모드: dry-run — DB 에 쓰지 않는다(Claude 는 부
 
 const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, KAKAO_REST_API_KEY } = process.env;
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.error('SUPABASE_URL · SUPABASE_SERVICE_ROLE_KEY 가 필요합니다. `pnpm secrets ls` 로 키체인을, SUPABASE_URL 은 .env.local 을 확인하세요.');
+  console.error('SUPABASE_URL · SUPABASE_SERVICE_ROLE_KEY 가 필요합니다. `pnpm secrets ls` 로 키체인을 확인하세요.');
   process.exit(1);
 }
 // Claude 인증은 env 로 검사하지 않는다 — 로컬은 `claude` 의 키체인 로그인, Actions 는 CLAUDE_CODE_OAUTH_TOKEN 이고 둘 다 CLI 가 읽는다.

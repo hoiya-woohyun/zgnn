@@ -22,7 +22,7 @@ Tailwind v4 + Untitled UI · zustand persist · leaflet. 데이터는 빌드 시
 | 크기 스케일·반응형·글꼴 | [docs/decisions/ADR-006-responsive-scale-and-font.md](docs/decisions/ADR-006-responsive-scale-and-font.md) · `src/styles/globals.css` |
 | 회원·로그인·개인정보를 붙이려 함 | [docs/decisions/ADR-011-app-gate-and-supabase.md](docs/decisions/ADR-011-app-gate-and-supabase.md) · [ADR-012](docs/decisions/ADR-012-personal-data-and-consent.md) — **둘 다 제안 단계라 코드에 대응물이 없다** |
 | 블로그 수집·AI 분석·승인·Supabase·Vercel 배포 | [docs/todo/README.md](docs/todo/README.md)(진행 트래커) · [docs/architecture/data-pipeline.md](docs/architecture/data-pipeline.md) · 결정은 [ADR-015](docs/decisions/ADR-015-supabase-source-and-rebuild.md)(원본=Supabase, 반영=재빌드, 회원은 범위 밖). 코드는 `scripts/collect*`·`scripts/analyze*`·`scripts/apply-approved.mjs`·`.github/workflows/collect.yml` — **Claude 는 구독(`claude -p`)으로 부른다, API 키 아님** |
-| 시크릿·API 키·`.env.local` | [ADR-016](docs/decisions/ADR-016-secrets-in-keychain.md) · `scripts/secrets.mjs` — **값은 macOS 키체인에만**. `.env.local` 엔 비밀이 아닌 값만 |
+| 시크릿·API 키·`.env.local` | [ADR-016](docs/decisions/ADR-016-secrets-in-keychain.md) · `scripts/secrets.mjs` — **값은 macOS 키체인에만**. 레포에 env 파일은 없다(`.env.local` 은 선택) |
 | "왜 이렇게 했나" | [docs/decisions/](docs/decisions/) (ADR 16편) · 전체 지도는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 
 탐색 전에 위 표를 먼저 본다. 전체 구조가 필요하면 `docs/ARCHITECTURE.md` 하나만 읽으면 된다.

@@ -8,7 +8,7 @@ import { WINDOW_DAYS, dedupeByUrl, isWithinDays, parsePostdate, toBlogPostRow } 
 
 const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, NAVER_CLIENT_ID, NAVER_CLIENT_SECRET } = process.env;
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
-  console.error('SUPABASE_URL · SUPABASE_SERVICE_ROLE_KEY · NAVER_CLIENT_ID · NAVER_CLIENT_SECRET 이 모두 필요합니다. `pnpm secrets ls` 로 키체인을, SUPABASE_URL 은 .env.local 을 확인하세요.');
+  console.error('SUPABASE_URL · SUPABASE_SERVICE_ROLE_KEY · NAVER_CLIENT_ID · NAVER_CLIENT_SECRET 이 모두 필요합니다. `pnpm secrets ls` 로 키체인을 확인하세요.');
   process.exit(1);
 }
 
