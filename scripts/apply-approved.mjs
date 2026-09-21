@@ -35,7 +35,7 @@ console.log(dryRun ? '모드: dry-run — DB 에 쓰지 않는다' : '모드: �
 
 const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.error('SUPABASE_URL · SUPABASE_SERVICE_ROLE_KEY 가 필요합니다. .env.local 을 확인하세요.');
+  console.error('SUPABASE_URL · SUPABASE_SERVICE_ROLE_KEY 가 필요합니다. `pnpm secrets ls` 로 키체인을, SUPABASE_URL 은 .env.local 을 확인하세요.');
   process.exit(1);
 }
 

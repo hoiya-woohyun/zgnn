@@ -1,6 +1,7 @@
 # 5. 보안 — 키 분리 · RLS · 웹훅 · 프리뷰 보호
 
-> 최종 수정: 2026-09-21 (v3: anon select·env→번들 유출 경로·보안 헤더(vercel.json) 확인 완료. Anthropic API 키 대신 `CLAUDE_CODE_OAUTH_TOKEN`(구독). Vercel 마켓플레이스가 넣은 여분 시크릿 항목)
+> 최종 수정: 2026-09-21 (v4: 로컬 시크릿의 집을 `.env.local` → macOS 키체인으로(ADR-016). 에이전트가 값을 못 보게 하는 게 목적)
+> 이전 (v3: anon select·env→번들 유출 경로·보안 헤더(vercel.json) 확인 완료. Anthropic API 키 대신 `CLAUDE_CODE_OAUTH_TOKEN`(구독). Vercel 마켓플레이스가 넣은 여분 시크릿 항목)
 > 이전 (v2: 유출 검사·`.env.example`·RLS·Actions 권한 항목 완료 반영)
 > 이전 (v1: 신설)
 > 상태: 진행 중. 0 에서 시작해 단계마다 한 항목씩 붙는다. "Vercel 내의 보안 조치" 는 대부분 **키가 번들에 들어가지 않게 하는 것**이다.
@@ -12,11 +13,11 @@
 
 | 키 | 접두어 | 어디에 | 새면 |
 |---|---|---|---|
-| `SUPABASE_SERVICE_ROLE_KEY` | **절대 `NEXT_PUBLIC_` 금지** | Vercel env(Sensitive) · GitHub Secrets | RLS 가 통째로 무의미. 즉시 회전 |
+| `SUPABASE_SERVICE_ROLE_KEY` | **절대 `NEXT_PUBLIC_` 금지** | Vercel env(Sensitive) · GitHub Secrets · 로컬은 키체인(`.env.local` 아님) | RLS 가 통째로 무의미. 즉시 회전 |
 | `SUPABASE_URL` | 없음 | 위와 같음 | 무방(프로젝트 주소) |
-| `CLAUDE_CODE_OAUTH_TOKEN` | 금지 | GitHub Secrets 만 (Vercel 엔 없다 — 빌드는 AI 를 안 부른다). 로컬은 `claude` 로그인을 쓰므로 `.env.local` 에도 없다 | **구독 계정 그 자체**다 — 새면 `claude setup-token` 을 다시 발급하고 Anthropic 계정 설정에서 기존 세션을 끊는다. API 키와 달리 예산 상한이 없고 한도(5시간 창)만 있다 |
-| `NAVER_CLIENT_SECRET` | 금지 | GitHub Secrets 만 | 재발급 |
-| `KAKAO_REST_API_KEY` | 금지 | GitHub Secrets 만 | 재발급 |
+| `CLAUDE_CODE_OAUTH_TOKEN` | 금지 | GitHub Secrets 만 (Vercel 엔 없다 — 빌드는 AI 를 안 부른다). 로컬은 `claude` 로그인을 쓰므로 키체인에 두더라도 `run` 에는 안 들어간다(`.env.local` 엔 절대 없다) | **구독 계정 그 자체**다 — 새면 `claude setup-token` 을 다시 발급하고 Anthropic 계정 설정에서 기존 세션을 끊는다. API 키와 달리 예산 상한이 없고 한도(5시간 창)만 있다 |
+| `NAVER_CLIENT_SECRET` | 금지 | GitHub Secrets(로컬 실행이 필요하면 키체인) | 재발급 |
+| `KAKAO_REST_API_KEY` | 금지 | GitHub Secrets(로컬 dry-run 은 키체인) | 재발급 |
 | `NEXT_PUBLIC_KAKAO_MAP_KEY` | 공개 전제 | 코드 기본값(`src/lib/kakaoMap.ts`) — Vercel env 불필요 | 도메인 제한이 방어선. 새 도메인 등록만 조심 |
 | Deploy Hook URL | — | Supabase 웹훅 설정 **만** | 아무나 빌드를 돌릴 수 있음 → Vercel 에서 폐기·재발급 |
 | anon key | (지금 안 씀) | — | 관리 화면(03 후반)을 만들 때 `NEXT_PUBLIC_` 로 들어간다. 공개돼도 되는 키 — 방어선은 RLS |
@@ -26,6 +27,9 @@
       `supabase.co` 를 찾으면 **빌드 실패**. 로컬·Vercel 모두 돈다. 실수로 `NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY` 라고
       적는 날을 위한 자물쇠다.
 - [x] `.env*` 는 `.gitignore` 에 이미 있는지 확인. `.env.example` 에 **이름만** 적어 커밋한다. → 완료.
+- [x] **로컬 시크릿은 `.env.local` 이 아니라 macOS 키체인**(`pnpm secrets`, [ADR-016](../decisions/ADR-016-secrets-in-keychain.md)).
+      에이전트가 파일을 읽어도 값이 없다. `.claude/settings.json` 의 deny(`Read(./.env.local)`·`security find-generic-password`·
+      `vercel env pull`)가 2차 자물쇠 — bypass 세션에서도 막히는 걸 실측했다. 🙋 기존 `.env.local` 의 키 이관은 사용자 터미널에서.
 
 ## Supabase
 

@@ -22,7 +22,8 @@ Tailwind v4 + Untitled UI · zustand persist · leaflet. 데이터는 빌드 시
 | 크기 스케일·반응형·글꼴 | [docs/decisions/ADR-006-responsive-scale-and-font.md](docs/decisions/ADR-006-responsive-scale-and-font.md) · `src/styles/globals.css` |
 | 회원·로그인·개인정보를 붙이려 함 | [docs/decisions/ADR-011-app-gate-and-supabase.md](docs/decisions/ADR-011-app-gate-and-supabase.md) · [ADR-012](docs/decisions/ADR-012-personal-data-and-consent.md) — **둘 다 제안 단계라 코드에 대응물이 없다** |
 | 블로그 수집·AI 분석·승인·Supabase·Vercel 배포 | [docs/todo/README.md](docs/todo/README.md)(진행 트래커) · [docs/architecture/data-pipeline.md](docs/architecture/data-pipeline.md) · 결정은 [ADR-015](docs/decisions/ADR-015-supabase-source-and-rebuild.md)(원본=Supabase, 반영=재빌드, 회원은 범위 밖). 코드는 `scripts/collect*`·`scripts/analyze*`·`scripts/apply-approved.mjs`·`.github/workflows/collect.yml` — **Claude 는 구독(`claude -p`)으로 부른다, API 키 아님** |
-| "왜 이렇게 했나" | [docs/decisions/](docs/decisions/) (ADR 15편) · 전체 지도는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| 시크릿·API 키·`.env.local` | [ADR-016](docs/decisions/ADR-016-secrets-in-keychain.md) · `scripts/secrets.mjs` — **값은 macOS 키체인에만**. `.env.local` 엔 비밀이 아닌 값만 |
+| "왜 이렇게 했나" | [docs/decisions/](docs/decisions/) (ADR 16편) · 전체 지도는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 
 탐색 전에 위 표를 먼저 본다. 전체 구조가 필요하면 `docs/ARCHITECTURE.md` 하나만 읽으면 된다.
 
@@ -77,6 +78,9 @@ Tailwind v4 + Untitled UI · zustand persist · leaflet. 데이터는 빌드 시
 
 ## 작성 규칙
 
+- **시크릿 값은 읽지도 찍지도 않는다**(ADR-016). 값은 키체인에 있고 `pnpm secrets ls`(이름만)·`pnpm secrets push`·`pnpm data:*` 로만
+  흐른다. `pnpm secrets set` 은 사용자 터미널에서만 된다(TTY 가드) — 값이 필요해 보이면 값 없이 되는 검사로 바꾼다. `vercel env pull` 금지
+  (`.env.local` 을 시크릿으로 덮어쓴다). `.claude/settings.json` 의 deny 가 2차 자물쇠다.
 - **뒤로가기는 화면이 아니라 셸이 붙인다.** 새 화면에 `AppBar` 를 직접 달지 않는다 —
   탭바에 넣을 화면이면 `src/lib/appRoutes.ts` 의 `ROOT_ROUTES` 에 한 줄 더하고, 아니면 아무것도 안 한다.
 - **상태바 인셋도 셸이 처리한다**(ADR-010). 화면에서 `env(safe-area-inset-top)` 이나 `pt-safe` 를

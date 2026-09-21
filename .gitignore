@@ -10,5 +10,6 @@ data/raw/
 .omc/
 .playwright-mcp/
 .DS_Store
-.env.local
+.env*
+!.env.example
 .vercel

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env.local)",
+      "Read(./.env)",
+      "Read(./.env.*.local)",
+      "Read(./.vercel/.env*)",
+      "Bash(security find-generic-password *)",
+      "Bash(security dump-keychain *)",
+      "Bash(vercel env pull)",
+      "Bash(vercel env pull *)"
+    ]
+  }
+}

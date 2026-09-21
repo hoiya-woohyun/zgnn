@@ -1,6 +1,7 @@
 # BUG-005 — Vercel 배포가 빌드는 다 끝내고 마지막에 죽는다 (`out/routes-manifest.json` 없음)
 
-> 최종 수정: 2026-09-21 (v1: 신설)
+> 최종 수정: 2026-09-21 (v2: 프로덕션 배포로 수정 확인. 로컬 재현 절차에서 `.env.local` 값 참조를 키체인(ADR-016)으로)
+> 이전 (v1: 신설)
 
 ## 증상
 
@@ -20,7 +21,8 @@ Error: The file "/vercel/path0/out/routes-manifest.json" couldn't be found.
 - `vercel.json` 에 `"framework": "nextjs"` 와 `"outputDirectory": "out"` 이 **같이** 있다.
 - 로컬에서도 그대로 재현된다: `vercel pull --environment=production` 뒤 `vercel build --prod` → 같은 메시지.
   (`SUPABASE_SERVICE_ROLE_KEY` 가 Sensitive 라 `vercel pull` 은 `[SENSITIVE]` 자리표시자를 내려받는다 —
-  로컬 재현 때는 `.vercel/.env.production.local` 의 그 줄을 `.env.local` 값으로 바꿔야 `data:pull` 이 통과한다.
+  로컬 재현 때는 `.vercel/.env.production.local` 의 그 줄을 실제 값으로 바꿔야 `data:pull` 이 통과한다 — 값은 키체인에 있으니
+  사용자가 직접 한다(ADR-016).
   두 파일 다 gitignored.)
 
 ## 원인

@@ -1,6 +1,7 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-09-21 (v3: "수집 · 분석 · 승인" 절을 실제 흐름·상태 머신으로. Claude 는 구독 `claude -p`. Vercel 빌드 명령 전환[4a]·`fromPlaceRow`)
+> 최종 수정: 2026-09-21 (v4: env 는 `pnpm secrets run` 이 넣는다 — 시크릿은 키체인(ADR-016). 우선순위 셸 env > 키체인 > `.env.local`)
+> 이전 (v3: "수집 · 분석 · 승인" 절을 실제 흐름·상태 머신으로. Claude 는 구독 `claude -p`. Vercel 빌드 명령 전환[4a]·`fromPlaceRow`)
 > 이전 (v2: 원본을 Supabase 로 전환[ADR-015]. Notion 경로는 1회 시드 이력으로 내리고, 갱신 경로·`sort`·`data:normalize` 의 바뀐 역할을 적음)
 > 이전 (v1: 신설 — Notion 이 원본이던 시절)
 
@@ -35,7 +36,9 @@ flowchart LR
 - `src/data/*.json` 은 계속 **커밋**한다 — 키 없이도 `pnpm dev`·`pnpm test` 가 돌아야 하고, Supabase 가
   무료 티어 7일 비활성으로 잠들어도 마지막 스냅샷으로 빌드된다.
 - 키가 없으면 `data:pull` 은 조용히 옛 스냅샷을 쓰는 대신 **명확히 실패한다**(`exit 1`) — CI 가 조용히 옛 데이터로
-  빌드되는 사고를 막기 위해서다. env 는 `node --env-file-if-exists=.env.local` 로 읽는다(Node 22.9+, dotenv 없이).
+  빌드되는 사고를 막기 위해서다. env 는 `pnpm secrets run`(`scripts/secrets.mjs`) 이 넣는다 — 시크릿은 macOS 키체인에서,
+  비밀이 아닌 값은 `node --env-file-if-exists=.env.local` 로(Node 22.9+, dotenv 없이). 우선순위는 **셸 env > 키체인 > `.env.local`**(실측) —
+  CI 와 같은 규칙이고, 이관 전 `.env.local` 에 남은 줄은 키체인 값에 밀려 무해하다. Linux(Actions·Vercel)에선 env 를 그대로 넘긴다(ADR-016).
 
 ## 두 입구가 같은 바이트를 내는 이유 — `scripts/lib/placeFields.mjs`
 

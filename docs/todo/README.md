@@ -1,6 +1,7 @@
 # TODO — 블로그 수집 → AI 분석 → 승인 → DB → 자동 배포
 
-> 최종 수정: 2026-09-21 (v4: 3 코드 완료(Claude 는 구독 `claude -p`), 4a 완료(+BUG-005 수정), 5 검증 항목 완료. 세션 로그·🙋 표 갱신)
+> 최종 수정: 2026-09-21 (v5: 배포 복구 확인 완료. 시크릿의 집이 `.env.local` → 키체인(ADR-016) — 다음 할 일 1·2 를 그 절차로, 세션 로그)
+> 이전 (v4: 3 코드 완료(Claude 는 구독 `claude -p`), 4a 완료(+BUG-005 수정), 5 검증 항목 완료. 세션 로그·🙋 표 갱신)
 > 이전 (v3: 0·1·2·5 에 실제 코드가 생겨 진행 상태를 항목별로 쪼갬. 세션 로그 절 추가)
 > 이전 (v2: 가정 두 개가 확정돼 ADR-015 로 옮김. 회원은 todo 범위 밖으로)
 > 이전 (v1: 신설 — 5단계 파이프라인의 실행 트래커)
@@ -80,13 +81,20 @@ flowchart LR
 
 ## 다음 할 일 (2026-09-21 기준 — 새 세션은 여기서 시작)
 
-순서대로. ①②는 사람만 할 수 있고, 나머지는 키가 들어오면 Claude 가 이어서 한다.
+순서대로. ①②는 사람만 할 수 있고(값을 입력하는 일), 나머지는 키가 들어오면 Claude 가 이어서 한다.
+**시크릿 값은 `.env.local` 에 적지 않는다** — macOS 키체인에 `pnpm secrets set` 으로 넣고 `pnpm secrets push gh` 로 보낸다(ADR-016).
 
-1. **배포 복구 확인** — 브랜치 push 됨. Vercel Preview 가 Ready 면 BUG-005 수정이 맞는 것 → `main` 에 머지 → 프로덕션 배포 확인.
-2. **키 3종 발급 → GitHub Secrets** (값은 `.env.local` 에 넣고 `gh secret set -f .env.local`; `gh auth switch` 로 `hoiya-woohyun` 계정 먼저)
-   - `claude setup-token` → `CLAUDE_CODE_OAUTH_TOKEN` (구독 인증. 러너에서 도는지는 이걸로 처음 시험)
-   - 네이버 개발자센터 → `NAVER_CLIENT_ID` · `NAVER_CLIENT_SECRET` (없으면 파이프라인 입구가 막혀 있다)
-   - Kakao REST 키(지도 JS 키와 다름) → `KAKAO_REST_API_KEY` (선택. 없으면 좌표 없이 대조)
+1. **기존 키 이관(사용자 터미널)** — `.env.local` 의 `SUPABASE_SERVICE_ROLE_KEY` 를 키체인으로. Claude 는 값을 읽을 수 없어 대신 못 한다.
+   ```sh
+   pnpm secrets set SUPABASE_SERVICE_ROLE_KEY        # 숨김 입력 두 번 — .env.local 의 값을 붙여넣기
+   sed -i '' -e '/^SUPABASE_SERVICE_ROLE_KEY=/d' -e '/^# Created by Vercel CLI$/d' -e '/^VERCEL_OIDC_TOKEN=/d' .env.local
+   pnpm secrets ls && pnpm data:pull && git status --short src/data   # ✓ 표시, exit 0, diff 없음이면 끝
+   ```
+2. **키 3종 발급 → 키체인 → GitHub Secrets** (`gh auth switch` 로 `hoiya-woohyun` 계정 먼저. 값은 사용자 터미널에서만 입력)
+   - `claude setup-token` → `pnpm secrets set CLAUDE_CODE_OAUTH_TOKEN` (구독 인증. 러너에서 도는지는 이걸로 처음 시험. 로컬 실행엔 안 들어간다)
+   - 네이버 개발자센터 → `pnpm secrets set NAVER_CLIENT_ID` · `NAVER_CLIENT_SECRET` (없으면 파이프라인 입구가 막혀 있다)
+   - Kakao REST 키(지도 JS 키와 다름) → `pnpm secrets set KAKAO_REST_API_KEY` (선택. 없으면 좌표 없이 대조)
+   - 그다음 `pnpm secrets push gh` — 키체인에 있는 것만 올라가고 값은 화면에 안 찍힌다. 이건 Claude 가 해도 된다.
 3. **첫 실행** — Actions `블로그 수집 · 분석 · 반영` 을 `workflow_dispatch` 로 한 번. 실패해도 그 로그가 다음 할 일이다
    (러너 OAuth · 네이버 IP 차단 여부).
 4. **후보 첫 확인은 로컬 dry-run** — `pnpm data:analyze --dry-run --limit 5` (DB 안 씀, 로컬 `claude` 로그인 사용). 프롬프트·임계값을
@@ -97,6 +105,13 @@ flowchart LR
 ## 세션 로그
 
 세션이 끝나거나 컨텍스트가 커져 나눌 때 여기에 한 항목. 체크박스가 정본이고 로그는 인수인계 메모.
+
+- 2026-09-21 (2) — (1) **배포 복구 확인 완료**: Preview `0d625f6` Ready(13h 전 프로덕션 Error 는 로그로 BUG-005 확인, `data:pull` 은 통과했었다)
+  → `main` 에 ff 머지·push → 프로덕션 `zgnn-cku27ygkx` Ready. `zgnn.vercel.app` 응답에 `x-content-type-options: nosniff`·`referrer-policy`·
+  `permissions-policy` 세 개 다 붙음(`sw.js` 포함. 캐시 우회 `?cb=` 로 `age: 0` 확인). (2) **시크릿의 집을 `.env.local` → macOS 키체인으로**
+  (사용자 결정 "Claude 가 값을 읽는 순간부터 문제", ADR-016): `scripts/secrets.mjs`(set/ls/rm/push gh|vercel/run) + `data:*` 가 `secrets run` 을
+  거친다. `.claude/settings.json` deny 가 **bypass 세션에서도 실제로 막히는 걸 실측**(sed .env.local·security find-generic-password 거부).
+  그래서 기존 키 이관은 Claude 가 못 하고 사용자 터미널 몫(다음 할 일 1). 다음 할 일 2 의 `gh secret set -f .env.local` 은 폐기.
 
 - 2026-09-21 — 브랜치 `feature/todo-analyze-pipeline`(작업 중엔 push·머지·Vercel 트리거 없이 로컬 커밋만 — 사용자 지시. 리포트 뒤 지시로 **push 함**, main 머지는 아직). 한 것:
   (1) Vercel 배포 실패 원인 = `vercel.json` 의 `outputDirectory: "out"` → 제거(BUG-005, 로컬 `vercel build --prod` 로 재현·확인).
