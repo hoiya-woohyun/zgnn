@@ -1,6 +1,7 @@
 # 1. 스키마 · RLS · 시드 · `data:pull`
 
-> 최종 수정: 2026-09-21 (v3: 키는 로그인된 `supabase` CLI 에게 실행 시점에(ADR-016) — 포인터만)
+> 최종 수정: 2026-09-21 (v4: 인증은 운영자 세션(`pnpm data:login`)+RLS, `data:pull` 은 anon(ADR-016 v4) — 포인터만)
+> 이전 (v3: 키는 로그인된 `supabase` CLI 에게 실행 시점에(ADR-016) — 포인터만)
 > 이전 (v2: 스키마 적용·RLS·시드·`data:pull` 코드 완료. `sort` 컬럼 반영, [data-pipeline.md v2](../architecture/data-pipeline.md) 작성)
 > 이전 (v1: 신설)
 > 상태: 코드는 끝났다. 선행: [00](00-setup-supabase-vercel.md). 남은 건 Studio 수정 → 반영 확인과 Vercel 빌드 전환(4a).
@@ -94,7 +95,7 @@ create table place_sources ( place_id text references places(id), post_url text 
       "데이터를 만드는 명령" 이 아니라 "Notion 을 다시 시드하는 명령" 이다 — `data-pipeline.md` v2 에 적었다.
 - [x] 키가 없으면(로컬) **명확히 실패**한다(`exit 1`). 조용히 스냅샷을 쓰지 않는다 — CI 에서 조용히 옛 데이터로 빌드되는 것이
       CLAUDE.md 가 경고하는 고장 유형이다. 로컬 dev 는 `data:pull` 을 안 부르면 그만이다. env 는
-      CI·Vercel 은 env, 로컬은 `scripts/lib/supabaseClient.mjs` 가 로그인된 `supabase` CLI 에게 실행 시점에 받는다(ADR-016. 처음엔 `.env.local` 에 다 뒀었다).
+      Actions 는 env(service_role), 로컬 쓰기는 운영자 세션(`pnpm data:login`, RLS 안), `data:pull` 은 publishable(anon)만 — `scripts/lib/supabaseClient.mjs`(ADR-016 v4. 처음엔 `.env.local` 에 다 뒀었다).
 - [x] `supabase-js` 를 **devDependency** 로. 앱 번들에 들어가지 않는다(`scripts/` 만 쓴다). 나중에 `out/` 에서
       `supabase` 문자열이 나오면 뭔가 잘못된 것이다(→ 05 의 유출 검사).
 

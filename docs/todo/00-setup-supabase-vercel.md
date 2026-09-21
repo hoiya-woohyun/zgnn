@@ -1,6 +1,7 @@
 # 0. Supabase · Vercel · GitHub — 계정과 시크릿 자리 잡기
 
-> 최종 수정: 2026-09-21 (v4: 로컬에 시크릿을 두지 않는다 — 로그인된 `supabase` CLI 에게 실행 시점에(ADR-016). `gh secret set -f .env.local` 폐기, `vercel env pull` 금지)
+> 최종 수정: 2026-09-21 (v5: Auth 로그인 모델(ADR-016 v4) — `SUPABASE_URL` 은 코드 상수라 시크릿에서 빠지고(6→5개), Vercel 은 Supabase env 가 필요 없어진다. 대시보드 할 일 3개 추가)
+> 이전 (v4: 로컬에 시크릿을 두지 않는다 — 로그인된 `supabase` CLI 에게 실행 시점에(ADR-016). `gh secret set -f .env.local` 폐기, `vercel env pull` 금지)
 > 이전 (v3: Vercel CLI link·env·빌드 명령·Node·Kakao 도메인 확인 완료 반영. `vercel.json` 의 `outputDirectory` 함정(BUG-005). 남은 것은 Deploy Hook·GitHub Secrets 4개·외부 키)
 > 이전 (v2: Supabase 생성 완료, Vercel 은 대시보드 Git 연동으로 이미 붙어 있음. 빈 마이그레이션 함정·`gh` 계정 전환 기록)
 > 이전 (v1: 신설)
@@ -19,15 +20,17 @@
 
 ## Supabase
 
-- [x] 생성 뒤 받아 둘 값 세 개 — 어디에 두는지는 [05-security.md](05-security.md) 표가 정본. 로컬에서는
-      둘 다 저장하지 않는다 — `supabase login`·`link` 만 돼 있으면 스크립트가 실행 시점에 받는다(ADR-016). env 파일 없음.
+- [x] 생성 뒤 받아 둘 값 — 어디에 두는지는 [05-security.md](05-security.md) 표가 정본. 로컬에는 시크릿이 없다 —
+      운영자가 `pnpm data:login` 으로 만든 짧은 세션만 키체인에 있다([ADR-016 v4](../decisions/ADR-016-secrets-by-login.md)). env 파일 없음.
   | 값 | 쓰는 곳 | 성격 |
   |---|---|---|
-  | `SUPABASE_URL` | 빌드(`data:pull`) · GitHub Actions | 공개돼도 무방 |
-  | `SUPABASE_SERVICE_ROLE_KEY` | 빌드 · Actions | **RLS 를 우회하는 키. 절대 `NEXT_PUBLIC_` 금지, 절대 커밋 금지** |
-  | anon key | (지금은 아무 데도) | 앱이 런타임에 DB 를 안 읽으므로 쓸 곳이 없다. (B) 로 가면 그때 |
+  | 프로젝트 ref(= `SUPABASE_URL`) · publishable 키 | 코드 상수(`scripts/lib/supabaseClient.mjs`) — 빌드(`data:pull`)·로컬·Actions 공통 | 공개값. 방어선은 RLS |
+  | `SUPABASE_SERVICE_ROLE_KEY` | **GitHub Actions 만** | **RLS 를 우회하는 키. 절대 `NEXT_PUBLIC_` 금지, 절대 커밋 금지, Vercel·로컬에 두지 않는다** |
+  | 운영자 계정(이메일·비밀번호) | 대시보드 Authentication → Users | 비밀번호는 비밀번호 관리자에만. `pnpm data:login` 이 세션으로 바꾼다 |
 - [x] Vercel Marketplace 의 Supabase 연동 여부와 무관하게 **리전은 서울로 확인됐다**(`projects list` 의 `ap-northeast-2`).
       단 Vercel 쪽에 Supabase env 는 아직 하나도 없다 — 자동 주입이 안 됐으니 4a 에서 손으로 넣는다.
+- [ ] **대시보드 Authentication 세 가지**(ADR-016 v4, 사용자): Users → Add user(이메일+비밀번호, Auto Confirm) → 만들었다고 알리면 Claude 가
+      `operators` 에 넣는다 · Settings → JWT expiry 8~12시간(`43200`) · Sign In / Providers → **Allow new users to sign up: off**.
 - [ ] Database Webhooks 를 켤 수 있는지 확인(Database → Webhooks). 4b 에서 쓴다.
 
 ## Vercel
@@ -42,6 +45,8 @@
       (→ [BUG-005](../bugs/BUG-005-vercel-output-directory.md)). `--webpack` 은 `package.json` 의 `build` 에 이미 있다(→ CLAUDE.md "조용히 깨지는 것").
 - [x] Node 24 (대시보드 `nodeVersion: 24.x` 확인). `pnpm` 은 lockfile 로 자동 감지됐다(빌드 로그의 `pnpm install`).
 - [x] 환경변수: `SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY` 가 Production·Preview 에 있고 키는 Sensitive(`vercel env ls` 에 `Secret`).
+      → **ADR-016 v4 뒤로는 둘 다 필요 없다**(빌드는 publishable 키로 published 만 읽는다). 코드의 `PUBLISHABLE_KEY` 가 채워져 배포된 뒤 지운다 —
+      순서가 바뀌면 `data:pull` 이 "publishable 키가 코드에 없다" 로 죽는다(이전 배포는 산다). → todo/README 다음 할 일 2.
       **함정**: Sensitive 값은 `vercel pull` 로 내려받으면 `[SENSITIVE]` 자리표시자가 온다 — 로컬 `vercel build` 는 그 값이
       CLI 경로보다 우선돼 `Invalid API key` 로 죽는다. 재현할 때는 `.vercel/.env.production.local` 의 그 줄을 사용자가 손으로 바꾸고 끝나면 지운다.
       `vercel env pull` 은 쓰지 않는다 — `.env.local` 을 시크릿으로 덮어쓴다(ADR-016).
@@ -62,8 +67,9 @@
 ## GitHub
 
 - [ ] Settings → Secrets and variables → Actions 에 2·3 단계가 쓸 시크릿 자리를 만든다:
-      `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, `CLAUDE_CODE_OAUTH_TOKEN`, `KAKAO_REST_API_KEY`.
-      값은 각 단계에서 채운다. → 지금 6개 중 `SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY` 2개만 등록됨
+      `SUPABASE_SERVICE_ROLE_KEY`, `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, `CLAUDE_CODE_OAUTH_TOKEN`, `KAKAO_REST_API_KEY`.
+      (`SUPABASE_URL` 은 코드 상수가 돼 시크릿에서 빠졌다 — 등록돼 있는 건 지워도 된다.) 값은 각 단계에서 채운다.
+      → 지금 5개 중 `SUPABASE_SERVICE_ROLE_KEY` 1개만 등록됨(회전 예정 — 다음 할 일 1)
       (등록은 사용자 터미널에서 `gh secret set NAME` — 숨김 입력에 붙여넣는다. 파일을 거치지 않는다, ADR-016).
 - [x] Actions 권한: Settings → Actions → General → Workflow permissions 는 기본값이 이미 **Read** 였다.
 - [ ] **비직관적 함정**: 이 레포 소유 계정(`hoiya-woohyun`)이 `gh` 의 기본 활성 계정이 아니다. 레포가 안 보이면

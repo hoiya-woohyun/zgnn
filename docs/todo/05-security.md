@@ -1,6 +1,7 @@
 # 5. 보안 — 키 분리 · RLS · 웹훅 · 프리뷰 보호
 
-> 최종 수정: 2026-09-21 (v4: 로컬에 시크릿을 두지 않는다 — 로그인된 `supabase` CLI 에게 실행 시점에(ADR-016). 에이전트가 값을 못 보게 하는 게 목적)
+> 최종 수정: 2026-09-21 (v5: Auth 로그인 모델(ADR-016 v4) — 로컬은 운영자 세션(짧은 JWT)+RLS, service_role 은 GitHub Actions 만. RLS 정책 절 갱신, `NAVER_*` 로컬 문구 통일)
+> 이전 (v4: 로컬에 시크릿을 두지 않는다 — 로그인된 `supabase` CLI 에게 실행 시점에(ADR-016). 에이전트가 값을 못 보게 하는 게 목적)
 > 이전 (v3: anon select·env→번들 유출 경로·보안 헤더(vercel.json) 확인 완료. Anthropic API 키 대신 `CLAUDE_CODE_OAUTH_TOKEN`(구독). Vercel 마켓플레이스가 넣은 여분 시크릿 항목)
 > 이전 (v2: 유출 검사·`.env.example`·RLS·Actions 권한 항목 완료 반영)
 > 이전 (v1: 신설)
@@ -13,32 +14,40 @@
 
 | 키 | 접두어 | 어디에 | 새면 |
 |---|---|---|---|
-| `SUPABASE_SERVICE_ROLE_KEY` | **절대 `NEXT_PUBLIC_` 금지** | Vercel env(Sensitive) · GitHub Secrets · 로컬엔 없음(CLI 로그인으로 실행 시점에) | RLS 가 통째로 무의미. 즉시 회전 |
-| `SUPABASE_URL` | 없음 | 위와 같음(로컬은 link 된 ref 로 만든다) | 무방(프로젝트 주소) |
+| `SUPABASE_SERVICE_ROLE_KEY` | **절대 `NEXT_PUBLIC_` 금지** | **GitHub Secrets 만.** Vercel 은 anon(publishable) 경로라 필요 없고, 로컬은 운영자 세션(ADR-016 v4) | RLS 가 통째로 무의미. 즉시 회전 |
+| 운영자 세션(JWT) | — | macOS 키체인(`zgnn`/`SUPABASE_SESSION`), `pnpm data:login` 이 넣는다. 파일·env 없음 | `exp`(≤12시간) 뒤 자동 무효. 급하면 대시보드에서 그 사용자 비밀번호 변경 |
+| `SUPABASE_URL` · publishable 키 | (공개값) | 코드 상수(`scripts/lib/supabaseClient.mjs` 의 `PROJECT_REF`·`PUBLISHABLE_KEY`) | 무방 — 방어선은 RLS |
 | `CLAUDE_CODE_OAUTH_TOKEN` | 금지 | GitHub Secrets 만 (Vercel 엔 없다 — 빌드는 AI 를 안 부른다). 로컬은 `claude` 로그인을 쓰므로 어디에도 없다 | **구독 계정 그 자체**다 — 새면 `claude setup-token` 을 다시 발급하고 Anthropic 계정 설정에서 기존 세션을 끊는다. API 키와 달리 예산 상한이 없고 한도(5시간 창)만 있다 |
-| `NAVER_CLIENT_SECRET` | 금지 | GitHub Secrets 만(로컬 수집은 안 돌린다) | 재발급 |
+| `NAVER_CLIENT_SECRET` | 금지 | GitHub Secrets 만(로컬에서 수집을 돌릴 일이 있으면 `NAVER_CLIENT_ID=… NAVER_CLIENT_SECRET=… pnpm data:collect` 로 그 셸에서만) | 재발급 |
 | `KAKAO_REST_API_KEY` | 금지 | GitHub Secrets(로컬 dry-run 이 필요하면 `KAKAO_REST_API_KEY=… pnpm data:analyze` 로 그 셸에서만) | 재발급 |
 | `NEXT_PUBLIC_KAKAO_MAP_KEY` | 공개 전제 | 코드 기본값(`src/lib/kakaoMap.ts`) — Vercel env 불필요 | 도메인 제한이 방어선. 새 도메인 등록만 조심 |
 | Deploy Hook URL | — | Supabase 웹훅 설정 **만** | 아무나 빌드를 돌릴 수 있음 → Vercel 에서 폐기·재발급 |
-| anon key | (지금 안 씀) | — | 관리 화면(03 후반)을 만들 때 `NEXT_PUBLIC_` 로 들어간다. 공개돼도 되는 키 — 방어선은 RLS |
+| anon(publishable) key | 공개 전제 | 위 코드 상수. Vercel `data:pull` 이 이걸로 published 만 읽는다 | 공개돼도 되는 키 — 방어선은 RLS |
 
 - [x] **`out/` 유출 검사를 빌드에 넣는다.** `package.json` 의 `build`(`next build --webpack && node scripts/check-bundle.mjs`):
       `out/` 전체에서 `service_role`·`sk-ant-`·`sb_secret_`·JWT(헤더·페이로드 둘 다 base64url — `eyJ` 만 보면 오탐)·
       `supabase.co` 를 찾으면 **빌드 실패**. 로컬·Vercel 모두 돈다. 실수로 `NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY` 라고
       적는 날을 위한 자물쇠다.
 - [x] `.env*` 는 `.gitignore` 에 이미 있는지 확인. `.env.example` 에 **이름만** 적어 커밋한다. → 완료.
-- [x] **로컬에 시크릿을 저장하지 않는다** — `supabase login` 만 돼 있으면 스크립트가 실행 시점에 받는다([ADR-016](../decisions/ADR-016-secrets-by-login.md)).
-      에이전트가 파일을 읽어도 값이 없다. `.claude/settings.json` 의 deny(`Read(./.env.local)`·`supabase projects api-keys`·
-      `vercel env pull`)가 2차 자물쇠 — bypass 세션에서도 막히는 걸 실측했다. 🙋 옛 `.env.local` 의 키는 노출로 보고 회전(아래).
+- [x] **로컬에 시크릿을 저장하지 않는다** — 운영자가 `pnpm data:login` 으로 만든 **짧은 세션(JWT)** 만 키체인에 있고, `pnpm data:*` 는 그걸로 RLS 안에서 논다
+      ([ADR-016 v4](../decisions/ADR-016-secrets-by-login.md)). 세션이 만료되면 관리자가 다시 로그인하기 전까지 아무 스크립트도 DB 에 쓰지 못한다.
+      에이전트가 파일을 읽어도 값이 없다. `.claude/settings.json` 의 deny 는 사고 방지 장치지 경계가 아니다(키체인은 `node -e` 로 읽힌다) — 경계는
+      "값이 파일에 없다 · exp ≤ 1일 · RLS 범위" 셋이다(ADR-016 결정 7). [ ] **이 머신의 잔존 영구 키 5개는 아직 열려 있다** → ADR-016 "잔존 위험" 표(사용자 터미널).
 
 ## Supabase
 
-- [x] **모든 테이블 RLS ON, 정책 0개**(01). SQL 로 확인 완료(`relrowsecurity` true × 5, `pg_policies` 0행).
-- [x] anon 으로 `select` 해서 빈 결과가 오는지 확인한다 → 5개 테이블 모두 `[]`·HTTP 200, 같은 순간 service_role 은 86행(2026-09-21).
-      anon key 는 Vercel 마켓플레이스 연동이 넣어 둔 `SUPABASE_ANON_KEY` 를 썼다(앱은 여전히 어디서도 안 쓴다).
+- [x] **모든 테이블 RLS ON**(01). 정책은 ADR-016 v4 에서 8개(마이그레이션 `20260921075901`·`20260921080333`): 운영자(`operators` 허용 목록)만 5 테이블 all,
+      anon 은 `places(status='published')`·`items` select 만. `authenticated` 이지만 허용 목록 밖이면 아무것도 못 한다(회원가입이 열려 있어도).
+      어드바이저 `supabase db advisors --linked` = No issues.
+- [x] anon 으로 `select` 해서 빈 결과가 오는지 확인한다 → 정책 0개 시절 5개 테이블 모두 `[]`(2026-09-21). **정책이 생긴 뒤의 확인은 PostgREST 로만** —
+      `db query`(postgres)·service_role 은 RLS 를 우회해서 증거가 안 된다. anon 은 `candidates` 에서 `[]`, 운영자 JWT 는 같은 테이블에서 행/insert 성공이 기준
+      (→ todo/README 다음 할 일 2). [ ] **미실행(추론 단계)** — 리뷰가 `db query` 안 `set role` 로 정책을 실측했지만 PostgREST 가 아니다. publishable 키·운영자 계정이 생긴 뒤.
+- [ ] 대시보드 Authentication: **회원가입 끄기**(Sign In / Providers → Allow new users to sign up: off) · **JWT expiry 8~12시간**(요구 ⑤ — 코드가 86400 초과를 거부한다) ·
+      **Secure password change 켜기**(access token 만으로 비밀번호를 바꿔 짧은 세션을 영구화하는 경로를 막는다) · 최소 비밀번호 길이 ≥ 12 ·
+      운영자 계정은 Users → Add user(Auto Confirm). 이메일 확인·매직링크는 안 쓴다(SMTP 없음).
 - [ ] Studio 접근은 Supabase 계정 로그인 = 사실상 관리자 인증. 2FA 켠다.
-- [ ] `service_role` 키는 회전 가능하다(Settings → API). 회전하면 Vercel·GitHub 두 곳을 같이 갱신 — 한 곳만 하면
-      다음 빌드/수집이 조용히 실패한다. 절차는 대시보드에서 새 secret 키 발급 → `gh secret set SUPABASE_SERVICE_ROLE_KEY` → `vercel env add SUPABASE_SERVICE_ROLE_KEY production --sensitive --force`(preview 도). 로컬은 없음(ADR-016).
+- [ ] `service_role` 키는 회전 가능하다(Settings → API Keys). 이제 쓰는 곳은 **GitHub Secrets 하나** — 대시보드에서 새 secret 키 발급(legacy 폐기) →
+      `gh secret set SUPABASE_SERVICE_ROLE_KEY`. Vercel(anon 경로)·로컬(세션)엔 없다(ADR-016 v4).
       **첫 회전은 2026-09-21 다음 할 일 1** — 옛 값이 에이전트 대화 기록에 실렸을 수 있어 노출로 간주.
 - [ ] 무료 티어 7일 일시정지: 수집 잡(주 2회)이 깨운다. **수집 잡이 7일 이상 실패하면 프로젝트가 잠들고, 그러면 `data:pull` 도
       실패해 재배포가 막힌다.** 이전 배포는 산다. 복구는 대시보드에서 Restore.
@@ -47,8 +56,8 @@
 
 - [x] env 는 Sensitive 로 — 만든 뒤 대시보드에서도 값을 못 본다. 잃어버리면 재발급이 정답. `vercel pull` 도 `[SENSITIVE]` 자리표시자만 준다(00).
 - [ ] 🙋 Vercel 마켓플레이스의 Supabase 연동이 Production 에 `POSTGRES_URL`·`POSTGRES_PASSWORD`·`SUPABASE_JWT_SECRET`·`SUPABASE_SECRET_KEY` 등을
-      넣어 뒀다. 빌드는 하나도 안 쓰고 `NEXT_PUBLIC_` 이 아니라 번들에도 안 들어가지만, 안 쓰는 시크릿은 노출면이다 — 연동을 끊고
-      `SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY` 둘만 남길지.
+      넣어 뒀다. 빌드는 하나도 안 쓰고 `NEXT_PUBLIC_` 이 아니라 번들에도 안 들어가지만, 안 쓰는 시크릿은 노출면이다 — ADR-016 v4 뒤로 Vercel 은
+      **Supabase 시크릿이 하나도 필요 없다**(anon 경로). 연동을 끊고 `SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY` 도 지운다(→ todo/README 다음 할 일 2).
 - [ ] Deployment Protection: Preview 에 Vercel Authentication(무료). Production 은 공개.
 - [ ] Deploy Hook 은 하나만, 이름에 용도(`supabase-places-webhook`). 정체 모를 빌드가 돌면 이 훅부터 폐기.
 - [x] 헤더는 **`vercel.json` 의 `headers`** 로 걸었다(`vercel.ts` 로 옮기지 않았다 — `@vercel/config` 의존성 없이 기존 파일에 넣는 쪽이 작고,
@@ -68,8 +77,8 @@
 
 ## 관리 화면을 만들게 되면 (03 후반, 지금 아님)
 
-- 앱 번들에 `@supabase/supabase-js` + anon key 가 들어간다. 그 순간부터 방어선은 **RLS 정책**이다:
-  `candidates`·`places` 의 update 는 `auth.uid()` 가 관리자 테이블에 있는 사용자만. 관리자 계정은 Supabase Auth 이메일 매직링크 하나.
+- 앱 번들에 `@supabase/supabase-js` + publishable key 가 들어간다. 그 순간부터 방어선은 **RLS 정책**이다 — 이미 있다:
+  `operators` 허용 목록과 `is_operator()`(ADR-016 v4). 관리 화면은 `pnpm data:login` 과 같은 `signInWithPassword` 로 같은 운영자 계정에 로그인하면 된다.
 - 이건 회원 가입이 아니다(관리자 1~2명). [ADR-012](../decisions/ADR-012-personal-data-and-consent.md) 의 약관·처리방침 의무는
   **일반 사용자의 개인정보를 받을 때** 생긴다. 관리자 본인 이메일은 그 범위가 아니다 — 하지만 선을 넘는 순간 ADR-012 전체가 살아난다.
 
@@ -79,5 +88,5 @@
       돌려 **exit 1** 을 확인했다(2026-09-20). env → 번들 경로도 확인(2026-09-21): `NEXT_PUBLIC_TEST_LEAK=service_role… pnpm build` 만으론
       **통과한다** — Next 는 코드에서 `process.env.NEXT_PUBLIC_X` 로 **참조된** 변수만 번들에 넣는다. 임시로 참조를 넣고 빌드하면
       `[service_role] out/_next/static/chunks/….js` 로 exit 1. 즉 이 자물쇠는 "누가 코드에 참조를 쓴 날" 에 걸린다 — 그게 맞는 자리다.
-- [x] anon 키로 `places` 를 `select` 하면 0행(확인). — [ ] Preview URL 을 시크릿 창에서 열면 로그인 화면 — **미확인**(Deployment Protection 은 대시보드).
+- [x] anon 키로 `places` 를 `select` 하면 0행(정책 0개 시절 확인). 정책 뒤 기준은 위 Supabase 절. — [ ] Preview URL 을 시크릿 창에서 열면 로그인 화면 — **미확인**(Deployment Protection 은 대시보드).
 - [ ] 시크릿 회전 절차(위 표의 "새면" 열)가 이 문서에 있고, 한 번은 실제로 회전해 본다. — 표는 있고, 회전은 아직.

@@ -1,6 +1,7 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-09-21 (v4: 키는 CI·Vercel 에선 env, 로컬에선 로그인된 `supabase` CLI 에게 실행 시점에(ADR-016). `.env.local` 은 선택 설정만)
+> 최종 수정: 2026-09-21 (v5: 인증 출처 세 가지 — Actions 는 service_role env, 로컬은 `pnpm data:login` 세션(JWT)+RLS, Vercel 빌드는 publishable(anon). ADR-016 v4)
+> 이전 (v4: 키는 CI·Vercel 에선 env, 로컬에선 로그인된 `supabase` CLI 에게 실행 시점에(ADR-016). `.env.local` 은 선택 설정만)
 > 이전 (v3: "수집 · 분석 · 승인" 절을 실제 흐름·상태 머신으로. Claude 는 구독 `claude -p`. Vercel 빌드 명령 전환[4a]·`fromPlaceRow`)
 > 이전 (v2: 원본을 Supabase 로 전환[ADR-015]. Notion 경로는 1회 시드 이력으로 내리고, 갱신 경로·`sort`·`data:normalize` 의 바뀐 역할을 적음)
 > 이전 (v1: 신설 — Notion 이 원본이던 시절)
@@ -36,9 +37,12 @@ flowchart LR
 - `src/data/*.json` 은 계속 **커밋**한다 — 키 없이도 `pnpm dev`·`pnpm test` 가 돌아야 하고, Supabase 가
   무료 티어 7일 비활성으로 잠들어도 마지막 스냅샷으로 빌드된다.
 - 키가 없으면 `data:pull` 은 조용히 옛 스냅샷을 쓰는 대신 **명확히 실패한다**(`exit 1`) — CI 가 조용히 옛 데이터로
-  빌드되는 사고를 막기 위해서다. 키는 `scripts/lib/supabaseClient.mjs` 가 준다 — env(`SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY`, CI·Vercel)가 먼저,
-  없으면 로그인된 `supabase` CLI 에게 실행 시점에 받는다(로컬. 레포에 env 파일 없음, ADR-016). 선택 설정만 `node --env-file-if-exists=.env.local`
-  로(Node 22.9+, dotenv 없이).
+  빌드되는 사고를 막기 위해서다. 인증은 `scripts/lib/supabaseClient.mjs` 가 고른다([ADR-016 v4](../decisions/ADR-016-secrets-by-login.md)):
+  env `SUPABASE_SERVICE_ROLE_KEY`(GitHub Actions 만) → 키체인의 운영자 세션(`pnpm data:login`, 로컬 — 만료면 멈춘다) → publishable 키만(anon).
+  `data:pull` 은 `readOnly` 라 세션 없이 anon 으로 돈다 — Vercel 빌드가 이 경로이고 RLS 가 `places(published)`·`items` select 만 연다.
+  쓰기 스크립트(seed·collect·analyze·apply)는 세션이 없으면 그 자리에서 "pnpm data:login" 으로 멈춘다. URL·publishable 키는 코드 상수(공개값).
+  어느 출처로 붙었는지는 첫 로그 줄 `Supabase 인증: …` 이 말한다. `data:pull` 은 세션이 있어도 **항상 anon** 이고, 결과가 비면 파일을 덮어쓰지 않고 exit 1.
+  레포에 env 파일 없음 — `data:*` 는 env 파일을 읽지 않는다(`ANALYZE_MODEL` 은 셸 env 로).
 
 ## 두 입구가 같은 바이트를 내는 이유 — `scripts/lib/placeFields.mjs`
 

@@ -22,7 +22,7 @@ Tailwind v4 + Untitled UI · zustand persist · leaflet. 데이터는 빌드 시
 | 크기 스케일·반응형·글꼴 | [docs/decisions/ADR-006-responsive-scale-and-font.md](docs/decisions/ADR-006-responsive-scale-and-font.md) · `src/styles/globals.css` |
 | 회원·로그인·개인정보를 붙이려 함 | [docs/decisions/ADR-011-app-gate-and-supabase.md](docs/decisions/ADR-011-app-gate-and-supabase.md) · [ADR-012](docs/decisions/ADR-012-personal-data-and-consent.md) — **둘 다 제안 단계라 코드에 대응물이 없다** |
 | 블로그 수집·AI 분석·승인·Supabase·Vercel 배포 | [docs/todo/README.md](docs/todo/README.md)(진행 트래커) · [docs/architecture/data-pipeline.md](docs/architecture/data-pipeline.md) · 결정은 [ADR-015](docs/decisions/ADR-015-supabase-source-and-rebuild.md)(원본=Supabase, 반영=재빌드, 회원은 범위 밖). 코드는 `scripts/collect*`·`scripts/analyze*`·`scripts/apply-approved.mjs`·`.github/workflows/collect.yml` — **Claude 는 구독(`claude -p`)으로 부른다, API 키 아님** |
-| 시크릿·API 키·`.env.local` | [ADR-016](docs/decisions/ADR-016-secrets-by-login.md) · `scripts/lib/supabaseClient.mjs` — **값을 저장하지 않는다**. 로그인된 `supabase` CLI 에게 실행 시점에 받는다. 레포에 env 파일은 없다(`.env.local` 은 선택) |
+| 시크릿·API 키·`.env.local`·`pnpm data:login` | [ADR-016](docs/decisions/ADR-016-secrets-by-login.md) · `scripts/lib/supabaseClient.mjs` · `scripts/login.mjs` — **값을 저장하지 않는다**. 운영자가 `pnpm data:login` 한 짧은 세션(JWT)으로 RLS 안에서 쓰고, 만료면 멈춘다. 레포에 env 파일은 없다(`.env.local` 은 선택) |
 | "왜 이렇게 했나" | [docs/decisions/](docs/decisions/) (ADR 16편) · 전체 지도는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 
 탐색 전에 위 표를 먼저 본다. 전체 구조가 필요하면 `docs/ARCHITECTURE.md` 하나만 읽으면 된다.
@@ -63,6 +63,8 @@ Tailwind v4 + Untitled UI · zustand persist · leaflet. 데이터는 빌드 시
   `src/lib/places.ts`(지도 마커). 한쪽만 고치면 지도와 화면 색이 어긋난다.
 - **팔레트를 바꾸면** `pnpm icons` 로 아이콘을 다시 만들고 `src/app/layout.tsx` ·
   `src/app/manifest.ts` 의 `theme_color` 도 함께 맞춘다.
+- **`pnpm data:pull` 이 빈 결과를 받으면 파일을 덮어쓰지 않고 exit 1** 한다. RLS 정책이 바뀌거나 다른 프로젝트를 가리키면 PostgREST 는 에러가 아니라 `[]` 를
+  주고, 그대로 쓰면 빌드는 초록인데 사이트가 빈다. "places 0" 로 멈추면 정책·`PROJECT_REF` 를 본다(→ [ADR-016](docs/decisions/ADR-016-secrets-by-login.md)).
 - **첫 프레임에 "저장 0" 으로 보이는 것은 의도**다(`skipHydration`). 정적 HTML 이라
   localStorage 를 마운트 뒤에 읽는다 — 버그로 보고 고치지 않는다.
 - **`src/components/base/` 는 Untitled UI 복사본**이라 직접 고치지 않는다(eslint 도 이
@@ -78,10 +80,11 @@ Tailwind v4 + Untitled UI · zustand persist · leaflet. 데이터는 빌드 시
 
 ## 작성 규칙
 
-- **시크릿 값은 읽지도 찍지도 않는다**(ADR-016). 로컬엔 값이 어디에도 없다 — `pnpm data:*` 가 로그인된 `supabase` CLI 에게 실행 시점에 받는다.
-  값이 필요해 보이면 값 없이 되는 검사로 바꾼다(`pnpm data:pull` 의 exit 0, `vercel env ls`·`gh secret list` 의 이름). GitHub·Vercel 에 넣는 건
-  사용자가 터미널 프롬프트로(`gh secret set NAME`·`vercel env add NAME …`). `supabase projects api-keys`·`vercel env pull` 금지 —
-  `.claude/settings.json` 의 deny 가 2차 자물쇠다.
+- **시크릿 값은 읽지도 찍지도 않는다**(ADR-016 v4). 로컬엔 장기 키가 없다 — `pnpm data:*` 는 운영자가 별도 터미널에서 `pnpm data:login` 한 짧은 세션(키체인)으로 붙고,
+  세션이 없거나 만료면 "pnpm data:login" 으로 멈춘다. **그때는 사용자에게 로그인을 요청하고 기다린다** — `pnpm data:login` 은 에이전트가 부를 수 없다(TTY 가드).
+  값이 필요해 보이면 값 없이 되는 검사로 바꾼다(`pnpm data:pull` 의 exit 0, `gh secret list` 의 이름). GitHub 에 넣는 건 사용자가 터미널 프롬프트로
+  (`gh secret set NAME`). `supabase projects api-keys`·`security find-generic-password`·`vercel env pull` 금지 — `.claude/settings.json` 의 deny 는 사고 방지 장치지
+  경계가 아니다(경계는 "값이 파일에 없다 · exp ≤ 1일 · RLS 범위"). `supabase` CLI 는 휴지 상태가 로그아웃이라 `db push`·`db query` 가 안 되면 사용자에게 로그인을 요청한다.
 - **뒤로가기는 화면이 아니라 셸이 붙인다.** 새 화면에 `AppBar` 를 직접 달지 않는다 —
   탭바에 넣을 화면이면 `src/lib/appRoutes.ts` 의 `ROOT_ROUTES` 에 한 줄 더하고, 아니면 아무것도 안 한다.
 - **상태바 인셋도 셸이 처리한다**(ADR-010). 화면에서 `env(safe-area-inset-top)` 이나 `pt-safe` 를

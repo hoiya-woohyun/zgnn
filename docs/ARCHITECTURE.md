@@ -3,7 +3,8 @@
 > AI 와 개발자 모두를 위한 빠른 참조 문서.
 > 각 섹션은 상세 문서로 연결된다.
 >
-> 최종 수정: 2026-09-21 (v10: ADR-015·016 을 결정 표에 등재 — 016 은 시크릿을 저장하지 않고 로그인된 CLI 에게 실행 시점에 받는다)
+> 최종 수정: 2026-09-21 (v11: ADR-016 v4 — 로컬 DB 접근은 운영자 로그인 세션(짧은 JWT)+RLS. service_role 은 Actions 만)
+> 이전 (v10: ADR-015·016 을 결정 표에 등재 — 016 은 시크릿을 저장하지 않고 로그인된 CLI 에게 실행 시점에 받는다)
 > 이전 (v9: 0·1·2·5 에 코드가 생겨 원본이 Supabase 로 넘어가는 중. 진행 상태는 [todo/README.md](./todo/README.md) 참고)
 > 이전 (v8: `docs/todo/` 등재 — 블로그 수집→AI 분석→승인→Supabase→재빌드 계획. **아직 계획이라 아래 데이터 흐름은 현재 코드 기준 그대로다**)
 > 이전 (v7: ADR-014 셸이 소유하는 화면 간 스와이프 등재)
@@ -184,7 +185,7 @@ data/                         # Notion 추출본(커밋) · raw/(무시)
 | [ADR-013](./decisions/ADR-013-places-swipe-pager.md) | 둘러보기 종류를 손가락으로 넘긴다 — 캐러셀이 아니라 엿보기(peek) + 놓으면 push |
 | [ADR-014](./decisions/ADR-014-shell-owned-swipe-pager.md) | 탭바 화면 사이도 손가락으로 넘긴다 — 둘러보기를 펼친 일곱 칸 한 줄, 셸이 소유 |
 | [ADR-015](./decisions/ADR-015-supabase-source-and-rebuild.md) | 원본은 Supabase, 반영은 재빌드 — 회원은 범위 밖 |
-| [ADR-016](./decisions/ADR-016-secrets-by-login.md) | 시크릿은 저장하지 않는다 — `supabase login` 만 돼 있으면 실행 시점에 받는다. 에이전트는 값을 보지 못한다 |
+| [ADR-016](./decisions/ADR-016-secrets-by-login.md) | 시크릿은 저장하지 않는다 — 운영자가 `pnpm data:login` 하면 짧은 세션(JWT)으로 RLS 안에서 쓴다. 관리자가 없으면(만료) 아무 스크립트도 DB 에 쓰지 못한다. service_role 은 GitHub Actions 만 |
 
 ## 버그 기록
 

@@ -1,6 +1,7 @@
 # 4. Vercel 배포 · 빌드 시 DB 읽기 · 승인되면 재빌드
 
-> 최종 수정: 2026-09-21 (v2: 4a 완료 — `vercel.json` 빌드 명령·env 확인, `outputDirectory` 함정(BUG-005) 수정. 4b 는 아직)
+> 최종 수정: 2026-09-21 (v3: 빌드의 `data:pull` 은 service_role 이 아니라 publishable(anon) 키로 published 만 읽는다(ADR-016 v4) — Vercel env 에서 Supabase 시크릿이 사라진다)
+> 이전 (v2: 4a 완료 — `vercel.json` 빌드 명령·env 확인, `outputDirectory` 함정(BUG-005) 수정. 4b 는 아직)
 > 이전 (v1: 신설)
 > 상태: 4a 는 코드·설정이 끝났고 push 뒤 첫 배포 확인만 남았다. 4b 는 계획. 선행: 4a 는 [01](01-schema-and-seed.md), 4b 는 [03](03-analyze-and-review.md). 재빌드 방식은 [ADR-015](../decisions/ADR-015-supabase-source-and-rebuild.md) §2 로 확정.
 
@@ -18,9 +19,10 @@
 - [x] Vercel Build Command: `pnpm data:pull && pnpm build` — `vercel.json` 의 `buildCommand`(대시보드가 아니라 레포에 둔다).
       **`outputDirectory` 는 적지 않는다** — `out` 을 적으면 pull·빌드·유출 검사가 다 통과한 뒤 배포만 죽는다
       (→ [BUG-005](../bugs/BUG-005-vercel-output-directory.md)). 로컬 `vercel build --prod` 로 검증했고 배포는 push 뒤.
-- [x] `SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY` 를 Vercel env(Production·Preview, Sensitive). **`NEXT_PUBLIC_` 없이.**
-      빌드 단계에서만 읽히고 `out/` 에는 들어가지 않는다 — 05 의 유출 검사가 이걸 매 빌드 확인한다.
-      → Vercel 빌드 로그에서 `pull 완료: places 86 (published) · items 15` 와 `번들 유출 검사 통과` 를 봤다(2026-09-20 배포).
+- [x] ~~`SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY` 를 Vercel env(Production·Preview, Sensitive)~~ → **ADR-016 v4 로 바뀜**: 빌드는 코드 상수의
+      publishable 키로 `places(published)`·`items` 만 읽는다(`createSupabase({ readOnly: true })`, RLS 가 그 집합만 연다). Vercel 에 Supabase 시크릿이 없다.
+      빌드 로그의 `Supabase 인증: publishable(anon — published 읽기만)` 이 그 증거다. [ ] env 삭제 뒤 빈 커밋으로 확인(todo/README 다음 할 일 2).
+      → 이전(service 경로): Vercel 빌드 로그에서 `pull 완료: places 86 (published) · items 15` 와 `번들 유출 검사 통과` 를 봤다(2026-09-20 배포).
 - [x] `data:pull` 실패 = 빌드 실패. Vercel 은 실패한 배포를 올리지 않으니 **이전 배포가 그대로 산다.** 조용히 옛
       데이터로 새 배포가 나가는 것보다 낫다. → BUG-005 때 실제로 그랬다: 배포는 Error, 사이트는 이전 배포로 그대로.
 - [x] 로컬 `pnpm build` 는 `data:pull` 없이 커밋된 스냅샷으로 — 지금과 같다.

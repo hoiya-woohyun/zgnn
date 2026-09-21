@@ -1,6 +1,7 @@
 # BUG-005 — Vercel 배포가 빌드는 다 끝내고 마지막에 죽는다 (`out/routes-manifest.json` 없음)
 
-> 최종 수정: 2026-09-21 (v2: 프로덕션 배포로 수정 확인. 로컬 재현 절차의 `.env.local` 값 참조 제거(ADR-016 — 로컬엔 값이 없다))
+> 최종 수정: 2026-09-21 (v3: 재현 때 손으로 넣은 `.vercel/.env.production.local` 이 남아 있던 것을 이력 주석으로 — 빌드는 이제 anon 키라 값을 넣을 일이 없다(ADR-016 v4))
+> 이전 (v2: 프로덕션 배포로 수정 확인. 로컬 재현 절차의 `.env.local` 값 참조 제거(ADR-016 — 로컬엔 값이 없다))
 > 이전 (v1: 신설)
 
 ## 증상
@@ -20,9 +21,9 @@ Error: The file "/vercel/path0/out/routes-manifest.json" couldn't be found.
 
 - `vercel.json` 에 `"framework": "nextjs"` 와 `"outputDirectory": "out"` 이 **같이** 있다.
 - 로컬에서도 그대로 재현된다: `vercel pull --environment=production` 뒤 `vercel build --prod` → 같은 메시지.
-  (`SUPABASE_SERVICE_ROLE_KEY` 가 Sensitive 라 `vercel pull` 은 `[SENSITIVE]` 자리표시자를 내려받는다 —
-  로컬 재현 때는 `.vercel/.env.production.local` 의 그 줄을 실제 값으로 바꿔야 `data:pull` 이 통과한다 — 로컬엔 값이 없으니(ADR-016)
-  대시보드에서 복사해 사용자가 직접 넣고, 끝나면 그 파일을 지운다.
+  (당시엔 `SUPABASE_SERVICE_ROLE_KEY` 가 Sensitive 라 `vercel pull` 이 `[SENSITIVE]` 자리표시자를 내려받아, `.vercel/.env.production.local` 의 그 줄을
+  실제 값으로 손으로 바꿔야 `data:pull` 이 통과했다 — **그 파일이 지워지지 않은 채 남아 보안 리뷰에서 발견됐다**(ADR-016 v4 "잔존 위험" #1).
+  이제는 빌드가 publishable(anon) 키로 돌아 Vercel env 에 Supabase 시크릿이 없고, 로컬 `vercel build` 도 값을 손으로 넣을 일이 없다.
   두 파일 다 gitignored.)
 
 ## 원인
