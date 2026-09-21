@@ -1,6 +1,7 @@
 # 5. 보안 — 키 분리 · RLS · 웹훅 · 프리뷰 보호
 
-> 최종 수정: 2026-09-21 (v5: Auth 로그인 모델(ADR-016 v4) — 로컬은 운영자 세션(짧은 JWT)+RLS, service_role 은 GitHub Actions 만. RLS 정책 절 갱신, `NAVER_*` 로컬 문구 통일)
+> 최종 수정: 2026-09-21 (v6: RLS 를 PostgREST 로 실측 완료 — anon·세션 없음·비운영자·운영자 네 경우. JWT expiry 는 사용자 결정으로 기본 3600 유지)
+> 이전 (v5: Auth 로그인 모델(ADR-016 v4) — 로컬은 운영자 세션(짧은 JWT)+RLS, service_role 은 GitHub Actions 만. RLS 정책 절 갱신, `NAVER_*` 로컬 문구 통일)
 > 이전 (v4: 로컬에 시크릿을 두지 않는다 — 로그인된 `supabase` CLI 에게 실행 시점에(ADR-016). 에이전트가 값을 못 보게 하는 게 목적)
 > 이전 (v3: anon select·env→번들 유출 경로·보안 헤더(vercel.json) 확인 완료. Anthropic API 키 대신 `CLAUDE_CODE_OAUTH_TOKEN`(구독). Vercel 마켓플레이스가 넣은 여분 시크릿 항목)
 > 이전 (v2: 유출 검사·`.env.example`·RLS·Actions 권한 항목 완료 반영)
@@ -41,7 +42,7 @@
       어드바이저 `supabase db advisors --linked` = No issues.
 - [x] anon 으로 `select` 해서 빈 결과가 오는지 확인한다 → 정책 0개 시절 5개 테이블 모두 `[]`(2026-09-21). **정책이 생긴 뒤의 확인은 PostgREST 로만** —
       `db query`(postgres)·service_role 은 RLS 를 우회해서 증거가 안 된다. anon 은 `candidates` 에서 `[]`, 운영자 JWT 는 같은 테이블에서 행/insert 성공이 기준
-      (→ todo/README 다음 할 일 2). [ ] **미실행(추론 단계)** — 리뷰가 `db query` 안 `set role` 로 정책을 실측했지만 PostgREST 가 아니다. publishable 키·운영자 계정이 생긴 뒤.
+      (→ todo/README 다음 할 일 2). [x] **실측 완료(2026-09-21 (4))** — anon `data:pull` 86·15 행, `data:apply --dry-run` 이 세션 없음·비운영자·운영자에서 세 결과로 갈림.
 - [ ] 대시보드 Authentication: **회원가입 끄기**(Sign In / Providers → Allow new users to sign up: off) · **JWT expiry 8~12시간**(요구 ⑤ — 코드가 86400 초과를 거부한다) ·
       **Secure password change 켜기**(access token 만으로 비밀번호를 바꿔 짧은 세션을 영구화하는 경로를 막는다) · 최소 비밀번호 길이 ≥ 12 ·
       운영자 계정은 Users → Add user(Auto Confirm). 이메일 확인·매직링크는 안 쓴다(SMTP 없음).

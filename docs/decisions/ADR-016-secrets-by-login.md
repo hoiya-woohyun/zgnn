@@ -89,8 +89,10 @@ v3 은 로그인 한 번이 영구 service_role 접근이었다. 요구 ⑤는 "
   멀쩡해 보인다. anon 이 정책 없는 테이블(`candidates`)에서 `[]`, 운영자 JWT 가 같은 테이블에서 행(또는 insert 성공)을 얻으면 정책이 산 것이다.
   `data:pull` 은 항상 anon 이라 세션의 증거가 못 된다 — 세션 확인은 `pnpm data:apply --dry-run`: 운영자면 `반영 0건` exit 0, 비운영자면 정책이 닫혀
   `places 가 비어 있다` exit 1, 세션 없으면 로그인 안내. 쓰지 않으면서 세 경우가 갈린다.
-  **2026-09-21 현재 anon 정책만 PostgREST 로 실측됐다** — `PUBLISHABLE_KEY` 를 채운 뒤 `pnpm data:pull` 이 `publishable(anon)` 으로 86·15 행을 받고 diff 없음.
-  운영자·비운영자 정책은 아직 추론이다 — 리뷰가 `db query` 안에서 `set role` 로 실측했지만 그건 PostgREST 가 아니고, `auth.users` 0명이다.
+  **2026-09-21 (4) PostgREST 로 실측 완료** — anon: `pnpm data:pull` 이 `publishable(anon)` 으로 86·15 행, diff 없음. 세션: `pnpm data:apply --dry-run` 이
+  세션 없음 → 로그인 안내 exit 1 · 비운영자(`zgnn-test@gmail.com`, `operators` 밖) → `places 가 비어 있다` exit 1 · 운영자(`zgnn@gmail.com`) → `반영 0건` exit 0.
+  같은 코드·같은 테이블에서 계정만 바꿔 세 결과가 갈렸으므로 정책이 산 것이다. 단, 원격 JWT expiry 는 기본 3600 그대로(사용자 결정) — 30분 skew 와 합치면 실효 세션이 30분이라
+  긴 `data:analyze` 전에 43200 으로 올리거나 skew 를 줄여야 한다.
 - 실측(2026-09-21): 마이그레이션 2개 push, 어드바이저 "No issues found", 키체인 쓰기·덮어쓰기·삭제·형식 거부 스모크 통과, `resolveSupabaseCredentials`
   분기 14 테스트. `pnpm data:login </dev/null` 은 TTY 가드로 exit 1. PostgREST 경유 확인은 publishable 키·운영자 계정이 생긴 뒤(다음 할 일 1·2).
 - **남아 있던 구멍(2026-09-21 발견, 사용자가 지운다)**: `.env.local`(`SUPABASE_SERVICE_ROLE_KEY`·`SUPABASE_URL`·`VERCEL_OIDC_TOKEN`)과
