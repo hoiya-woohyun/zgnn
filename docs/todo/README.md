@@ -81,30 +81,40 @@ flowchart LR
 
 ## 다음 할 일 (2026-09-21 기준 — 새 세션은 여기서 시작)
 
-순서대로. ①②는 값을 붙여넣는 일이라 사람만 할 수 있고, 나머지는 Claude 가 이어서 한다.
-**시크릿 값은 어디에도 저장하지 않는다**(ADR-016) — 로컬은 `supabase login` 으로 실행 시점에 받고, GitHub·Vercel 에는 터미널 프롬프트로 붙여넣는다.
-값을 채팅에 붙여넣지 않는다.
+브랜치 `feature/supabase-login-model`(**미push**, main 대비 1커밋). 시크릿 설계는 **Auth 로그인 모델**로 최종 결정 — 아직 구현 전이고,
+브랜치에 있는 "CLI(PAT) 로그인" 코드(`scripts/lib/supabaseClient.mjs`)는 그 골격으로 재사용한다. 사용자가 그린 요구 5개:
+① Claude 는 시크릿을 모른다 ② 작업자가 있을 때 로그인을 요청 ③ 사용자가 직접 로그인 ④ 그 토큰으로 사용 ⑤ 토큰 유효기간 1일 미만.
+PAT(`supabase login`)는 만료가 없어 ⑤를 못 채우므로 **Supabase Auth 사용자 로그인 + RLS + 짧은 JWT** 로 간다(ADR-016 v4 로 적는다).
 
-1. **서비스 롤 키 회전 + `.env.local` 삭제(사용자)** — 옛 값은 에이전트 대화 기록에 실렸을 수 있으니 **노출됐다고 보고 회전**한다. 로컬은 할 게 없다.
-   ```sh
-   # ① Supabase 대시보드 → Project Settings → API Keys → 새 secret key 발급, 옛 것(legacy service_role 포함)은 폐기. 값을 복사만 한다
-   gh secret set SUPABASE_SERVICE_ROLE_KEY                                    # "Paste your secret" 숨김 입력에 붙여넣기
-   vercel env add SUPABASE_SERVICE_ROLE_KEY production --sensitive --force    # 프롬프트에 붙여넣기(또는 Vercel 대시보드)
-   vercel env add SUPABASE_SERVICE_ROLE_KEY preview --sensitive --force
-   rm -f .env.local                                                           # 옛 키·VERCEL_OIDC_TOKEN 이 든 파일. 이제 없어도 돈다
-   pnpm data:pull                                                             # 로그인된 CLI 로 새 키를 받아 86곳 읽으면 끝(diff 없음)
-   ```
-   → 그다음은 Claude 가 빈 커밋으로 Vercel 재빌드를 확인한다. 옛 키가 남았을 수 있는 이 프로젝트의 옛 세션은 `/delete-sessions` 로 지운다(선택 — 회전했으면 죽은 값).
-2. **키 3종 발급 → GitHub Secrets(사용자)** — `gh auth status` 에서 활성 계정이 `hoiya-woohyun` 인지 먼저. 각각 `gh secret set NAME` 에 붙여넣기.
-   - `claude setup-token` → `gh secret set CLAUDE_CODE_OAUTH_TOKEN` (구독 인증. 러너에서 도는지는 이걸로 처음 시험. 로컬엔 넣지 않는다)
-   - 네이버 개발자센터 → `gh secret set NAVER_CLIENT_ID` · `gh secret set NAVER_CLIENT_SECRET` (없으면 파이프라인 입구가 막혀 있다)
-   - Kakao REST 키(지도 JS 키와 다름) → `gh secret set KAKAO_REST_API_KEY` (선택. 없으면 좌표 없이 대조)
-3. **첫 실행(Claude)** — Actions `블로그 수집 · 분석 · 반영` 을 `workflow_dispatch` 로 한 번. 실패해도 그 로그가 다음 할 일이다
-   (러너 OAuth · 네이버 IP 차단 여부).
-4. **후보 첫 확인은 로컬 dry-run(Claude)** — `pnpm data:analyze --dry-run --limit 5` (DB 안 씀, 로컬 `claude`·`supabase` 로그인 사용). 프롬프트·임계값을
-   손볼지 여기서 판단. 백로그는 `--limit 30` 씩 나눠 돌린다(구독 세션 한도).
-5. **Studio 에서 후보 20건쯤 본 뒤 결정(🙋)** — `AUTO_APPROVE`, `WEIGHT`·`THRESHOLD`(재대조 0.85 경계 포함), `ask` 승인 절차.
-6. **4b** — 승인이 실제로 생긴 뒤 DB 웹훅 → Deploy Hook.
+0. **Auth 로그인 모델 구현(Claude)** — 값을 다루지 않는 작업이라 전부 Claude 가 한다.
+   - 마이그레이션 1개: `operators(user_id uuid pk references auth.users)` + RLS 정책 — `authenticated` 이면서 `operators` 에 있는 사용자만
+     `places`·`items`·`blog_posts`·`candidates`·`place_sources` 에 select/insert/update/delete. `anon` 은 `places`(status='published')·`items` **select 만**
+     (Vercel 빌드 `data:pull` 용 — 이미 사이트에 공개된 데이터라 새로 노출되는 게 없다). 적용은 `pnpm exec supabase db push`(CLI 로그인은 스키마 관리에만 계속 쓴다).
+   - `pnpm login`(`scripts/login.mjs`): **TTY 가드**(에이전트가 부르면 거부) → 이메일·비밀번호 숨김 입력 → `signInWithPassword` → **access token 만**
+     키체인(`security add-generic-password -s zgnn -a SUPABASE_SESSION`)에 저장, refresh token 은 버린다(무료 플랜엔 세션 타임박스가 없어 저장하면 영구가 된다).
+   - `scripts/lib/supabaseClient.mjs`: 출처 우선순위 = env `SUPABASE_SERVICE_ROLE_KEY`(GitHub Actions 만) → 키체인 JWT(로컬; `exp` 지났으면
+     "로그인이 필요합니다 — 터미널에서 `pnpm login`" 으로 exit 1) → publishable 키만(anon, Vercel `data:pull`). URL 은 link 된 ref, publishable 키는 공개값이라
+     코드에 상수로. **`supabase projects api-keys` 호출은 제거**(PAT 경로 폐기).
+   - 직전 리뷰(2차, 미반영) 중 이 설계에도 해당하는 것: env 가 반쪽(`SUPABASE_URL` 만)일 때 "link 하라" 대신 env 안내 · `JSON.parse` 예외 문구에 stdout
+     조각이 실리지 않게 · `resolveSupabaseCredentials` 에 spawn/read 주입해 분기별 테스트 · deny 에 `pnpm supabase projects api-keys`·`node_modules/.bin/supabase …`·
+     인자 없는 형태 추가 · 문서 7개의 최종 수정 줄을 제자리 수정 말고 위에 쌓기 · `collect-blog.mjs:11` 과 05 표의 "로컬 수집" 문구 통일 ·
+     `extractPlaces.mjs:243` 자식 env 제거 목록에 `SUPABASE_ACCESS_TOKEN` · ADR 의 "에이전트는 값을 보지 못한다" 를 "`pnpm data:*` 로는 보지 못한다,
+     값을 반환하는 함수를 부르는 임시 스크립트는 deny 가 못 막는다(2차 방어)" 로 완화.
+   - `supabase/config.toml` 의 `jwt_expiry` 는 로컬 스택용 — 원격은 대시보드(아래 1).
+1. **대시보드 세 가지(사용자)** — 순서 무관, 0 과 병렬.
+   - Authentication → Users → **Add user**: 이메일 + 비밀번호, Auto Confirm. 만들었다고만 알려 주면 Claude 가 `supabase db query --linked` 로 uid 를 읽어
+     `operators` 에 넣는다(비밀번호 불필요).
+   - Authentication → Settings → **JWT expiry**: 8~12시간(예 `43200`). 이 값이 곧 "하루 한 번 로그인".
+   - Project Settings → API Keys → **새 secret key 발급 + legacy `service_role` 폐기**(옛 값은 에이전트 대화 기록에 실렸을 수 있어 노출로 본다)
+     → 터미널에서 `gh secret set SUPABASE_SERVICE_ROLE_KEY` 에 붙여넣기(GitHub Actions 만 쓴다). `rm -f .env.local`.
+2. **연결 확인(Claude + 사용자)** — `operators` insert → 사용자가 별도 터미널에서 `pnpm login` → Claude 가 `pnpm data:pull`(diff 없음) →
+   Vercel env 에서 `SUPABASE_SERVICE_ROLE_KEY`·`SUPABASE_URL` 을 지우고(anon 경로) 빈 커밋으로 빌드 확인 → self-cr → push → Preview → main.
+3. **키 3종 → GitHub Secrets(사용자)** — `gh auth status` 활성 계정 `hoiya-woohyun` 확인 후 각각 `gh secret set NAME` 에 붙여넣기:
+   `claude setup-token` → `CLAUDE_CODE_OAUTH_TOKEN` · 네이버 개발자센터 → `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET` · Kakao REST 키(선택) → `KAKAO_REST_API_KEY`.
+4. **첫 실행(Claude)** — Actions `블로그 수집 · 분석 · 반영` 을 `workflow_dispatch` 로 한 번. 실패해도 그 로그가 다음 할 일이다.
+5. **로컬 dry-run(Claude)** — `pnpm data:analyze --dry-run --limit 5`. 백로그는 `--limit 30` 씩(구독 세션 한도).
+6. **Studio 에서 후보 20건쯤 본 뒤 결정(🙋)** — `AUTO_APPROVE`, `WEIGHT`·`THRESHOLD`(재대조 0.85 경계), `ask` 승인 절차.
+7. **4b** — 승인이 실제로 생긴 뒤 DB 웹훅 → Deploy Hook.
 
 ## 세션 로그
 
@@ -117,6 +127,8 @@ flowchart LR
   main 에 머지했다가, 2차로 **로그인 모델**(ADR-016 v3)로 교체 — `scripts/lib/supabaseClient.mjs` 가 env(CI·Vercel) → 로그인된 `supabase` CLI
   (`projects api-keys --reveal`) 순으로 키를 실행 시점에 받는다. 로컬에 값이 어디에도 없고 `.env.local` 은 선택. `.claude/settings.json` deny 가
   **bypass 세션에서도 실제로 막히는 걸 실측**(`--help` 조차). 옛 `.env.local` 의 키는 노출로 보고 **회전**(다음 할 일 1) — 로컬은 할 게 없다.
+  (3) 그 로그인 모델도 **PAT 는 만료가 없어** 사용자 요구 ⑤(토큰 1일 미만)를 못 채운다 → **Auth 사용자 로그인 + RLS + 짧은 JWT** 로 재설계 결정,
+  구현은 다음 세션(다음 할 일 0). 브랜치의 2차 리뷰(12건: major 3 — spawn 실패 시 TypeError, 반쪽 env 진단 회귀, deny 누락)는 미반영 상태로 목록만 다음 할 일에 남겼다.
 
 - 2026-09-21 — 브랜치 `feature/todo-analyze-pipeline`(작업 중엔 push·머지·Vercel 트리거 없이 로컬 커밋만 — 사용자 지시. 리포트 뒤 지시로 **push 함**, main 머지는 아직). 한 것:
   (1) Vercel 배포 실패 원인 = `vercel.json` 의 `outputDirectory: "out"` → 제거(BUG-005, 로컬 `vercel build --prod` 로 재현·확인).

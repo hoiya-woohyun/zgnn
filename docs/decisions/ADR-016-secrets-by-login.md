@@ -4,7 +4,8 @@
 > 사용자 결정 "값을 저장·관리하는 스크립트 말고, 로그인하는 방식으로 단순하게". 파일명 `secrets-in-keychain` → `secrets-by-login`)
 > 이전 (v2: `SUPABASE_URL` 도 키체인으로, 노출된 키는 회전 — 커밋 전 폐기)
 > 이전 (v1: 신설 — macOS 키체인 + `scripts/secrets.mjs`. 사용자 결정 "Claude 가 시크릿 값을 읽는 순간부터 문제다")
-> 상태: 결정. 통로는 `scripts/lib/supabaseClient.mjs` 하나.
+> 상태: **v3 는 보류** — PAT 는 만료가 없어 "토큰 1일 미만" 요구를 못 채운다. Supabase Auth 사용자 로그인 + RLS + 짧은 JWT 로 재설계하기로
+> 결정(2026-09-21), 구현·v4 작성은 다음 세션([todo/README](../todo/README.md) 다음 할 일 0). 통로가 `scripts/lib/supabaseClient.mjs` 하나인 건 그대로.
 
 ## 맥락
 
