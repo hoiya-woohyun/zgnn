@@ -70,6 +70,10 @@ flowchart LR
 - **자기충돌 검사**가 테스트에 있다: 86곳 각각을 후보로 만들어 나머지 85곳과 대조했을 때 `ASK` 를 넘는 쌍이 0 이어야 한다.
   깨지면 임계값을 올리지 말고 `nameSimilarity` 를 조인다.
 
+**🙋 재대조의 경계값**: 부분 일치 0.7 + 100m 안 +0.15 = **정확히 0.85 = `AUTO_MERGE`** 이고 `apply` 의 재대조는 `≥` 다. 그래서 사람이
+`new` 후보를 승인해도 이름이 부분만 겹치는 이웃 가게(100m 안)에 조용히 합쳐질 수 있다 — `AUTO_APPROVE` 와 별개 경로다. 리뷰에서는
+"임계값 결정" 으로 분류됐다. 보수적으로 가려면 `GEO_NEAR_BONUS` 를 0.1 로 낮추거나 재대조에 `>` 를 쓴다.
+
 **🙋 자동 승인은 기본 꺼져 있다**(`scripts/analyze/analyzeCandidates.mjs` 의 `AUTO_APPROVE = false`). `auto` 구간도 `pending` 으로
 들어가고 `extracted.match.tier = 'auto'` 로 표시만 된다 — Studio 에서 `extracted->match->>tier = 'auto'` 로 걸러 한꺼번에 승인한다.
 켜면 같은 잡의 `data:apply` 가 사람 확인 없이 `places` 를 고친다(빈 칸만이지만 좌표·주소·category 는 "빈 칸" 이라 그대로 들어간다).
