@@ -8,7 +8,7 @@ import { WINDOW_DAYS, dedupeByUrl, isWithinDays, parsePostdate, toBlogPostRow } 
 
 const { NAVER_CLIENT_ID, NAVER_CLIENT_SECRET } = process.env;
 if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
-  console.error('NAVER_CLIENT_ID · NAVER_CLIENT_SECRET 이 필요합니다(GitHub Secrets). 로컬은 env 로 넘긴다.');
+  console.error('NAVER_CLIENT_ID · NAVER_CLIENT_SECRET 이 필요합니다(GitHub Secrets 만). 로컬에서 돌릴 일이 있으면 그 셸에서만 env 로 넘긴다(docs/todo/05).');
   process.exit(1);
 }
 

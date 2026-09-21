@@ -1,6 +1,7 @@
 # 네이버 블로그 수집(pnpm data:collect) → AI 분석(data:analyze) → 승인된 후보 반영(data:apply) 을 정기 실행한다.
 # 왜 Vercel Cron 이 아니라 Actions 인가 — 이 앱은 output: 'export' 라 부를 서버 함수가 없다. 부수효과로 이 잡이
 # Supabase 무료 티어의 7일 비활성 일시정지도 깨운다(docs/todo/02-collect-naver-blog.md).
+# URL 은 시크릿이 아니라 scripts/lib/supabaseClient.mjs 의 PROJECT_REF(공개값)에서 만든다 — SUPABASE_URL 시크릿은 없어도 된다.
 # 세 step 은 한 잡 안에서 순서대로 돈다. 수집·분석이 실패하면 잡은 빨갛게 되지만 반영(data:apply)은 그래도 돈다 — 사람이 승인한 것의
 # 반영이 분석 장애에 막히지 않게(docs/todo/03-analyze-and-review.md). 시크릿은 각 step 에 필요한 것만 준다.
 name: 블로그 수집 · 분석 · 반영
@@ -37,7 +38,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm data:collect
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
@@ -54,7 +54,6 @@ jobs:
         if: ${{ !cancelled() }}
         timeout-minutes: 20
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
@@ -63,5 +62,4 @@ jobs:
       - run: pnpm data:apply
         if: ${{ !cancelled() }}
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

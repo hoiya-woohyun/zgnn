@@ -15,6 +15,7 @@ import {
   parseExtraction,
   resolveModel,
   runClaudeCli,
+  claudeChildEnv,
 } from './extractPlaces.mjs';
 
 // 실제 claude 는 부르지 않는다. `claude -p --output-format json` 이 stdout 에 쓰는 result 객체 모양만 흉내 낸 가짜
@@ -391,6 +392,14 @@ describe('runClaudeCli — 자식 프로세스', () => {
       expect(e.retryable).toBe(true);
       expect(e.message.length).toBeLessThan(260);
     }
+  });
+
+  it('자식 env 는 허용 목록 — 이름을 모르는 시크릿도 넘어가지 않고, CLAUDECODE 도 빠진다', async () => {
+    const env = { PATH: process.env.PATH, HOME: '/h', CLAUDE_CODE_OAUTH_TOKEN: 't', CLAUDECODE: '1', SUPABASE_SERVICE_ROLE_KEY: 's', POSTGRES_URL: 'p', VERCEL_TOKEN: 'v', GH_TOKEN: 'g' };
+    expect(claudeChildEnv(env)).toEqual({ PATH: process.env.PATH, HOME: '/h', CLAUDE_CODE_OAUTH_TOKEN: 't' });
+    const out = await runClaudeCli(nodeScript('process.stdout.write(JSON.stringify({keys: Object.keys(process.env).sort()}))'), '', { bin: 'node', env });
+    // macOS 가 자식마다 __CF_USER_TEXT_ENCODING 을 끼워 넣는다 — 우리가 넘긴 것만 본다.
+    expect(JSON.parse(out).keys.filter((k) => !k.startsWith('__'))).toEqual(['CLAUDE_CODE_OAUTH_TOKEN', 'HOME', 'PATH']);
   });
 
   it('JSON 앞에 다른 줄(경고)이 섞여도 첫 { 부터 돌려준다', async () => {

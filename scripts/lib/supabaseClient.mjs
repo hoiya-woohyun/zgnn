@@ -1,31 +1,48 @@
-// Supabase 클라이언트를 만드는 유일한 곳(ADR-016 로그인 모델). 키는 두 경로로만 들어온다:
-//   1. env(SUPABASE_URL · SUPABASE_SERVICE_ROLE_KEY) — GitHub Actions·Vercel. 시크릿은 거기서 이미 env 로 들어온다.
-//   2. 로컬 — `supabase login` 된 CLI 에게 실행 시점에 받는다(`supabase projects api-keys`). 값을 어디에도 저장하지 않는다:
-//      회전하면 다음 실행이 새 키를 받고, 로그인이 없으면 여기서 멈춘다. 값은 이 프로세스 안에만 있고 찍지 않는다 —
-//      에이전트(Claude)가 `pnpm data:*` 를 실행해도 키를 볼 수 없다(`supabase projects api-keys` 자체는 .claude/settings.json 이 deny).
-import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+// Supabase 클라이언트를 만드는 유일한 곳(ADR-016 v4: Auth 로그인 모델). 인증은 세 출처 중 하나로, 이 순서로 정해진다:
+//   1. env `SUPABASE_SERVICE_ROLE_KEY` — GitHub Actions 만. RLS 를 우회하는 키라 러너 밖엔 두지 않는다.
+//   2. 키체인의 로그인 세션(`pnpm data:login` 이 넣은 access token) — 로컬. publishable 키 + `Authorization: Bearer <JWT>` 로
+//      PostgREST 에 가고, RLS 가 `operators` 허용 목록으로 가른다. `exp` 가 지났으면 여기서 멈추고 다시 로그인하라고 한다.
+//   3. publishable 키만(anon) — Vercel 빌드의 `data:pull`. RLS 가 published places·items 의 select 만 허용한다.
+// 값은 이 프로세스 안에만 있고 찍지 않는다 — 어느 출처를 썼는지(이름)만 로그에 남긴다. 경계는 세 가지뿐이다: 파일에 값이 없다 · `exp`(≤1일) ·
+// RLS 범위. 키체인 deny 는 이 머신에서 경계가 아니다(`node -e` 로 읽힌다) — 읽어도 하루면 죽고 운영자 권한 밖은 못 하게 하는 것이 설계다.
+import { readFileSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
+import { readSession as readKeychainSession } from './sessionKeychain.mjs';
 
 const ROOT = new URL('../../', import.meta.url);
+
+// 둘 다 공개값이다. ref 는 API 주소의 서브도메인이고, publishable 키는 브라우저 번들에 실으라고 만든 키다(RLS 가 방어선).
+// 코드 상수인 이유: Vercel·Actions 엔 `supabase/.temp/project-ref`(gitignored) 가 없다. link 된 ref 가 이 값과 다르면 아래서 멈춘다.
+export const PROJECT_REF = 'qfzasaszpwcgtbzirujx';
+export const PUBLISHABLE_KEY = '';
+
+// "공개 상수" 자리에 secret/service_role 키를 붙여 넣어도 PostgREST 는 그대로 동작한다(오히려 RLS 우회) — 형식으로 막는다.
+export function assertPublishableKey(key) {
+  if (key && !/^sb_publishable_[A-Za-z0-9_-]{16,}$/.test(key)) {
+    throw new Error('PUBLISHABLE_KEY 는 sb_publishable_ 로 시작해야 한다 — secret/service_role/legacy JWT 를 넣으면 레포에 시크릿이 커밋된다.');
+  }
+}
+assertPublishableKey(PUBLISHABLE_KEY);
+
+// 만료 직전 토큰으로 긴 `data:analyze`(20분 상한) 를 시작해 중간에 401 로 죽지 않게, 이만큼 앞당겨 "만료" 로 본다.
+export const SESSION_EXP_SKEW_S = 30 * 60;
+// 요구 ⑤ "토큰 1일 미만" 을 코드가 단언한다 — 대시보드 JWT expiry 는 값 없이 검증할 수 없으니, 더 긴 토큰은 세션으로 쓰지도 저장하지도 않는다.
+export const SESSION_MAX_TTL_S = 24 * 60 * 60;
 
 export function projectUrl(ref) {
   return `https://${ref}.supabase.co`;
 }
 
-// `supabase projects api-keys -o json` 의 목록에서 쓰기 키 하나. 새 secret 키(sb_secret_…, 개별 폐기 가능)를 우선하고,
-// 없으면(아직 안 만든 프로젝트) legacy service_role JWT. 둘 다 없으면 undefined — 호출처가 멈춘다.
-export function pickServiceKey(apiKeys) {
-  const secret = apiKeys.find((k) => k.type === 'secret' && k.api_key);
-  const legacy = apiKeys.find((k) => k.name === 'service_role' && k.api_key);
-  return (secret ?? legacy)?.api_key;
-}
-
-// pnpm 이 아니라 `node scripts/x.mjs` 로 직접 불러도 devDependency 의 CLI 를 찾도록 node_modules/.bin 을 먼저 본다.
-function cliBinary() {
-  const local = fileURLToPath(new URL('node_modules/.bin/supabase', ROOT));
-  return existsSync(local) ? local : 'supabase';
+// JWT 의 `exp`(초) 또는 undefined(JWT 가 아님). 서명은 확인하지 않는다 — 서버가 한다. 여기선 안내 문구를 고르기 위한 것.
+export function jwtExpiresAt(token) {
+  const parts = typeof token === 'string' ? token.split('.') : [];
+  if (parts.length !== 3) return undefined;
+  try {
+    const exp = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8')).exp;
+    return Number.isFinite(exp) ? exp : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function linkedProjectRef() {
@@ -36,34 +53,78 @@ function linkedProjectRef() {
   }
 }
 
-// { url, key } 또는 throw. env 가 먼저(CI 와 같은 규칙), 그다음 로그인된 CLI.
-export function resolveSupabaseCredentials(env = process.env) {
-  if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) return { url: env.SUPABASE_URL, key: env.SUPABASE_SERVICE_ROLE_KEY };
-  const ref = linkedProjectRef();
-  if (!ref) throw new Error('Supabase 프로젝트가 link 돼 있지 않다 — `pnpm exec supabase link --project-ref <ref>` 를 먼저(supabase/.temp/project-ref).');
-  // --reveal 이 없으면 새 secret 키는 마스킹된 값(sb_secret_…)이 와서 'Invalid API key' 가 난다(실측). legacy JWT 는 항상 전체가 온다.
-  const r = spawnSync(cliBinary(), ['projects', 'api-keys', '--project-ref', ref, '--reveal', '-o', 'json'], {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  if (r.error?.code === 'ENOENT') throw new Error('Supabase CLI 가 없다 — `pnpm install`.');
-  if (r.status !== 0) {
-    // 대표적으로 "Access token not provided" — 로그인이 안 돼 있다. 값은 없고 안내만 있는 stderr 라 그대로 보여 준다.
-    throw new Error(`Supabase 키를 받지 못했다 — 사용자 터미널에서 \`pnpm exec supabase login\`(브라우저 로그인) 뒤 다시 실행.\n${r.stderr.trim()}`);
+const LOGIN_HINT = '사용자 터미널에서 `pnpm data:login`(이메일·비밀번호) 뒤 다시 실행. 에이전트 세션 안에서는 되지 않는다.';
+
+// 세션 수명이 하루를 넘으면 세션으로 쓰지 않는다(login.mjs 도 저장 전에 같은 검사). 반환: 문제 없으면 undefined, 있으면 이유.
+export function sessionTtlProblem(exp, now) {
+  if (exp - now > SESSION_MAX_TTL_S) {
+    return `세션 수명이 하루를 넘는다(만료 ${new Date(exp * 1000).toLocaleString('ko-KR')}) — 대시보드 Authentication → JWT expiry 를 86400 이하로 내리고 다시 pnpm data:login`;
   }
-  const key = pickServiceKey(JSON.parse(r.stdout));
-  if (!key) throw new Error(`프로젝트 ${ref} 에 secret/service_role 키가 없다 — 대시보드 Project Settings → API Keys 확인.`);
-  return { url: projectUrl(ref), key };
+  return undefined;
 }
 
+// 순수 함수: 출처를 골라 { url, key, source, accessToken? } 를 돌려주거나 throw. 값을 읽는 쪽(env·키체인·시계)은 전부 주입 가능.
+// readOnly(pull-db): **항상 anon** — 세션이 있어도 쓰지 않는다. published 만 읽는 스크립트에 운영자 토큰을 실을 이유가 없고, 그래야
+// Vercel 과 로컬이 같은 경로로 돌며, 비운영자 세션이 빈 결과를 내는 경우도 없다. 쓰기 스크립트는 세션이 없거나 만료면 그 자리에서 멈춘다 —
+// anon 으로 보내면 첫 insert 에서 RLS 42501 로 죽는데, 그 메시지는 "로그인하라" 로 읽히지 않는다.
+// URL 은 세션·anon 경로에서 코드 상수로 고정한다 — env 로 바꿀 수 있으면 `SUPABASE_URL=https://attacker pnpm data:apply` 한 줄이 키체인 JWT 를 밖으로 보낸다.
+export function resolveSupabaseCredentials({
+  env = process.env,
+  readSession = readKeychainSession,
+  now = () => Date.now() / 1000,
+  readOnly = false,
+  linkedRef = linkedProjectRef(),
+  publishableKey = PUBLISHABLE_KEY,
+} = {}) {
+  const url = projectUrl(PROJECT_REF);
+  if (env.SUPABASE_SERVICE_ROLE_KEY) {
+    // service 키는 CI(GitHub Actions `CI=true`, Vercel `CI=1`)에서만 받아들인다. 로컬 env 에 남아 있으면 조용히 RLS 를 우회하는 대신 여기서 멈춘다 —
+    // 실측: 옛 .env.local 이 남아 있어 `data:pull` 이 세션 없이 service 로 붙었다. 트립와이어다(CI=1 을 붙이면 넘어간다) — 경계가 아니라 사고 감지용.
+    if (env.CI !== 'true' && env.CI !== '1') {
+      throw new Error('로컬 env 에 SUPABASE_SERVICE_ROLE_KEY 가 있다 — ADR-016 v4 는 service 키를 CI 에서만 쓴다. .env.local·셸에서 지우고 `pnpm data:login` 세션으로 붙는다.');
+    }
+    return { url: env.SUPABASE_URL || url, key: env.SUPABASE_SERVICE_ROLE_KEY, source: 'service' };
+  }
+  // Actions 러너에서 시크릿이 비었을 때 "로그인하라" 는 안내는 틀린 방향이다 — 그 자리에서 시크릿 이름을 말한다.
+  if (env.GITHUB_ACTIONS === 'true') throw new Error('GitHub Secrets 의 SUPABASE_SERVICE_ROLE_KEY 가 비어 있다 — `gh secret set SUPABASE_SERVICE_ROLE_KEY`.');
+  if (linkedRef && linkedRef !== PROJECT_REF) {
+    throw new Error(`link 된 프로젝트(${linkedRef})가 코드의 PROJECT_REF(${PROJECT_REF})와 다르다 — 스키마와 데이터가 다른 프로젝트를 가리킨다. 둘 중 하나를 고친다.`);
+  }
+  assertPublishableKey(publishableKey);
+  if (!publishableKey) throw new Error('publishable 키가 코드에 없다 — scripts/lib/supabaseClient.mjs 의 PUBLISHABLE_KEY(대시보드 Project Settings → API Keys 의 Publishable key 행, 공개값).');
+  if (readOnly) return { url, key: publishableKey, source: 'anon' };
+
+  const token = readSession();
+  if (!token) throw new Error(`로그인이 필요하다 — ${LOGIN_HINT}`);
+  const exp = jwtExpiresAt(token);
+  if (exp === undefined) throw new Error(`저장된 세션이 JWT 가 아니다 — ${LOGIN_HINT}`);
+  const tooLong = sessionTtlProblem(exp, now());
+  if (tooLong) throw new Error(tooLong);
+  if (exp - SESSION_EXP_SKEW_S <= now()) throw new Error(`로그인 세션이 만료됐다(${new Date(exp * 1000).toLocaleString('ko-KR')}) — ${LOGIN_HINT}`);
+  return { url, key: publishableKey, source: 'session', accessToken: token, expiresAt: exp };
+}
+
+const SOURCE_LABEL = {
+  service: 'env(service key — RLS 우회)',
+  session: '로그인 세션(JWT — operators RLS)',
+  anon: 'publishable(anon — published 읽기만)',
+};
+
 // 스크립트 진입점용: 실패하면 이유를 찍고 exit 1. 조용히 스냅샷으로 넘어가지 않는다(CI 가 옛 데이터로 빌드되는 걸 막는다).
-export function createSupabase() {
+// 어느 출처를 썼는지 한 줄 찍는다 — `data:pull` 은 세 출처 모두에서 같은 결과가 나와 로그 없이는 무엇으로 붙었는지 알 수 없다.
+export function createSupabase({ readOnly = false } = {}) {
   let creds;
   try {
-    creds = resolveSupabaseCredentials();
+    creds = resolveSupabaseCredentials({ readOnly });
   } catch (e) {
     console.error(e.message);
     process.exit(1);
   }
-  return createClient(creds.url, creds.key, { auth: { persistSession: false } });
+  const until = creds.expiresAt ? ` · 만료 ${new Date(creds.expiresAt * 1000).toLocaleString('ko-KR')}` : '';
+  console.log(`Supabase 인증: ${SOURCE_LABEL[creds.source]}${until}`);
+  return createClient(creds.url, creds.key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    // 사용자 JWT 는 두 번째 인자(apikey)가 아니라 Authorization 헤더로 간다 — apikey 자리에 넣으면 401 이 나서 RLS 버그처럼 보인다.
+    ...(creds.accessToken ? { global: { headers: { Authorization: `Bearer ${creds.accessToken}` } } } : {}),
+  });
 }

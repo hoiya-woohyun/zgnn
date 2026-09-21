@@ -237,10 +237,20 @@ export function parseExtraction(result) {
  * 끝나므로 종료 코드로 판단하지 않는다 — stdout 이 JSON 이면 그대로 넘기고 parseExtraction 이 가른다.
  * stderr 는 로그에 남기지 않는다(앞 160자만 에러 메시지에). CLAUDECODE 는 빼고 넘긴다 — 대화형 세션 안에서 돌릴 때 중첩 표시.
  */
+// `claude` 자식에 넘기는 env 는 허용 목록이다 — 거부 목록은 아직 이름이 없는 시크릿(POSTGRES_URL·VERCEL_TOKEN·GH_TOKEN…)을 못 거른다(리뷰 지적).
+// 프로세스·로케일·네트워크 경로(프록시·CA)·CLI 자신의 설정 위치·인증·모델 선택만. CLAUDECODE 는 일부러 뺀다 — 대화형 세션 안에서 돌릴 때 중첩 표시.
+const CLAUDE_CHILD_ENV_KEEP = [
+  'PATH', 'HOME', 'USER', 'SHELL', 'TERM', 'TMPDIR', 'LANG', 'LC_ALL', 'LC_CTYPE', 'TZ',
+  'HTTP_PROXY', 'HTTPS_PROXY', 'NO_PROXY', 'http_proxy', 'https_proxy', 'no_proxy', 'SSL_CERT_FILE', 'NODE_EXTRA_CA_CERTS',
+  'XDG_CONFIG_HOME', 'CLAUDE_CONFIG_DIR', 'CLAUDE_CODE_OAUTH_TOKEN', 'ANALYZE_MODEL', 'CI', 'GITHUB_ACTIONS',
+];
+export function claudeChildEnv(env) {
+  return Object.fromEntries(CLAUDE_CHILD_ENV_KEEP.filter((k) => env[k] !== undefined).map((k) => [k, env[k]]));
+}
+
 export function runClaudeCli(args, input, { env = process.env, bin = 'claude', timeoutMs = CLI_TIMEOUT_MS } = {}) {
   return new Promise((resolve, reject) => {
-    // 자식에 넘길 env 에서 이 파이프라인의 다른 시크릿을 뺀다 — CLI 에 필요 없고, 최소 권한(05). CLAUDECODE 는 중첩 세션 표시.
-    const { CLAUDECODE: _a, SUPABASE_SERVICE_ROLE_KEY: _b, SUPABASE_URL: _c, KAKAO_REST_API_KEY: _d, NAVER_CLIENT_ID: _e, NAVER_CLIENT_SECRET: _f, ...childEnv } = env;
+    const childEnv = claudeChildEnv(env);
     let child;
     try {
       child = spawn(bin, args, { env: childEnv, stdio: ['pipe', 'pipe', 'pipe'] });
