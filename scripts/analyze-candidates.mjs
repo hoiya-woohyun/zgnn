@@ -10,10 +10,11 @@
 //    같은 가게가 두 번 뜬다. published 만 보는 pull-db.mjs 와 다른 점이다.
 //  - 자동 병합(auto)은 바로 approved 로 넣는다 — 병합은 빈 칸만 채우므로(applyApproved.mjs) 틀려도 사람이 쓴 값이 덮이지 않는다.
 //    03 의 THRESHOLD 주석이 말하는 "위험이 작다" 가 이것이다.
-//  - 글 하나가 실패하면 그 글만 건너뛴다. 다시 받아도 같을 실패(본문 4xx · 본문 컨테이너 없음 · blog_id 없음 · 모델이 스키마를 못 맞춤)는
-//    analyzed_at 을 찍어 **닫는다** — 안 찍으면 매 실행 --limit 창을 잠식하며 영원히 재시도한다(리뷰 지적). 잠깐의 실패(5xx · 네트워크 ·
-//    한도 · 타임아웃 · DB 쓰기 실패)는 analyzed_at 을 비워 둬 다음 실행이 다시 시도한다. 글 단위 실패는 exit code 를 올리지 않는다.
-//    시도한 글이 **전부** 실패했을 때만 exit 1 로 잡을 빨갛게 한다(네이버가 데이터센터 IP 를 막는 등 구조적 문제 — 02 가 걱정한 그 경우).
+//  - 글 하나가 실패하면 그 글만 건너뛴다. 다시 받아도 같을 실패(본문 404/410 · 본문 컨테이너 없음 · blog_id 없음 · 모델이 스키마 재시도를
+//    소진)는 analyzed_at 을 찍어 **닫는다** — 안 찍으면 매 실행 --limit 창을 잠식하며 영원히 재시도한다. 잠깐의 실패(403 차단 · 5xx ·
+//    네트워크 · 한도 · 타임아웃 · DB 쓰기 실패)는 analyzed_at 을 비워 둬 다음 실행이 다시 시도한다. 글 단위 실패는 exit code 를 올리지 않는다.
+//    단 닫기는 **루프 끝에 몰아서, 이 실행에서 성공한 글이 1건이라도 있을 때만** 쓴다 — 전부 "분석 불가" 면 글이 아니라 파이프라인이
+//    고장 난 것(에디터 구조 변경 · 차단 페이지가 200 으로 옴)이라 아무것도 닫지 않고 exit 1(리뷰 지적). 시도한 글 중 성공이 0 이면 exit 1.
 //  - 같은 글의 후보는 insert 한 번에 넣는다(PostgREST 의 한 요청 = 한 문장이라 원자적). insert 와 analyzed_at 사이에서 죽으면
 //    다음 실행이 그 글의 후보를 한 번 더 만든다 — 창은 작고, Studio 에서 보인다.
 //  - Claude 는 API SDK 가 아니라 `claude -p`(구독, setup-token) 로 부른다 — extractPlaces.mjs 머리 주석. 인증 실패·CLI 없음 같은
@@ -33,9 +34,9 @@ import {
   toCandidateRow,
   toMatchCandidate,
 } from './analyze/analyzeCandidates.mjs';
-import { createUsageMeter, ExtractionError, extractPlaces, isFatal, isRetryable, MODEL, runClaudeCli } from './analyze/extractPlaces.mjs';
+import { createUsageMeter, extractPlaces, isFatal, isRetryable, MODEL, runClaudeCli } from './analyze/extractPlaces.mjs';
 import { pickKakaoPlace, searchKakaoPlace } from './analyze/kakaoLocal.mjs';
-import { matchPlace, normalizeName } from './analyze/matchPlace.mjs';
+import { matchPlace, normalizeName, townOf } from './analyze/matchPlace.mjs';
 import { fetchPostText } from './analyze/naverPostBody.mjs';
 import { fromPlaceRow } from './lib/placeFields.mjs';
 
@@ -101,11 +102,11 @@ console.log(`미분석 글 ${posts.length}건 · 기존 장소 ${existing.length
 
 // Kakao 가 잠깐 죽었다고 글 전체를 버리지 않는다 — 실패하면 좌표 없이 간다(status 만 로그). 단 401/403 은 키가 틀린 것이라 실행을
 // 세운다: 조용히 이름만으로 대조하면 같은 이름의 다른 가게가 ask 대신 auto 로 올라간다(리뷰 지적). 검색 사이 200ms 는 collect-blog.mjs 와 같은 예의.
-async function enrichWithKakao(name) {
+async function enrichWithKakao(name, town) {
   if (!KAKAO_REST_API_KEY) return null;
   try {
     const documents = await searchKakaoPlace(name, KAKAO_REST_API_KEY);
-    return pickKakaoPlace(documents, { name });
+    return pickKakaoPlace(documents, { name, town });
   } catch (e) {
     if (e?.status === 401 || e?.status === 403) {
       throw Object.assign(new Error(`Kakao 인증 실패(status=${e.status}) — KAKAO_REST_API_KEY 를 확인. 좌표 없이 대조하면 판정이 흐려져 실행을 멈춘다`), { fatal: true });
@@ -117,13 +118,11 @@ async function enrichWithKakao(name) {
   }
 }
 
-// 다시 받아도 같을 실패인가 — 그러면 analyzed_at 을 찍어 닫는다. 판단이 애매한 것(CLI 출력이 result 가 아님·structured_output 없음)은
-// CLI 버전·설정 문제일 수 있어 닫지 않는다. DB 쓰기 실패는 여기 오기 전에 걸러진다(permanent 표시가 없다).
+// 다시 받아도 같을 실패인가 — 던진 쪽이 permanent 를 명시한 것만 믿는다(본문 404/410 · 컨테이너 없음 · blog_id 없음 · 모델 스키마 소진).
+// status 4xx 를 일반 규칙으로 닫지 않는 이유 — 네이버 403 은 차단, Claude 4xx 는 설정 오류라 글의 잘못이 아니다(리뷰 지적).
+// CLI 출력이 result 가 아니거나 structured_output 이 없는 것도 CLI 버전·설정 문제일 수 있어 닫지 않는다.
 function isPermanentFailure(e) {
-  if (e?.permanent === true) return true;
-  if (typeof e?.status === 'number' && e.status >= 400 && e.status < 500 && e.status !== 429) return true;
-  if (e instanceof ExtractionError) return !['not_result', 'no_structured_output'].includes(e.code);
-  return false;
+  return e?.permanent === true;
 }
 
 // 건너뛴 이유를 한 단어 더 — 일시 오류(다음 실행에 될 가능성 큼)와 모델 응답 문제(다음에도 같을 수 있음)를 사람이 구분하게.
@@ -135,6 +134,7 @@ function skipHint(e) {
 
 const stats = { analyzed: 0, skipped: 0, dropped: 0, candidates: 0, auto: 0, ask: 0, new: 0 };
 let fatal = false;
+const pendingCloses = []; // { url, reason } — 루프 끝에 성공이 1건이라도 있을 때만 analyzed_at 을 찍는다
 const newNamesSeen = new Map(); // normalizeName(이름) → 먼저 나온 글 URL
 
 for (const post of posts) {
@@ -152,7 +152,8 @@ for (const post of posts) {
         console.log(`  제외 ${extracted.name} (${extracted.type}${extracted.isJeju ? '' : ' · 제주 아님'})`);
         continue;
       }
-      const kakao = await enrichWithKakao(extracted.name);
+      // 같은 이름이 여럿일 때 AI 가 읽은 읍·면(regionRaw 또는 본문 주소)이 Kakao 결과를 고르는 힌트다 — 우도 카페살레 vs 본섬 동명(리뷰 지적).
+      const kakao = await enrichWithKakao(extracted.name, townOf(extracted.regionRaw) ?? townOf(extracted.address));
       // regionRaw 는 주소 기반이 우선(analyzeCandidates.mjs). 주소는 Kakao → 본문 순.
       const regionRaw = resolveRegionRaw(kakao?.address ?? extracted.address, extracted.regionRaw, existing);
       const matched = matchPlace(toMatchCandidate(extracted, kakao), existing);
@@ -189,23 +190,36 @@ for (const post of posts) {
       break;
     }
     if (isPermanentFailure(e)) {
-      // 닫는다 — 후보 없이 analyzed_at 만. 이 write 마저 실패하면 다음 실행이 한 번 더 시도하는 것뿐이다.
-      try {
-        await write(`analyzed_at 기록 (분석 불가: ${e.message})`, () =>
-          supabase.from('blog_posts').update({ analyzed_at: new Date().toISOString() }).eq('url', post.url),
-        );
-        stats.dropped += 1;
-        continue;
-      } catch (writeError) {
-        console.error(`  analyzed_at 기록 실패: ${writeError.message}`);
-      }
+      console.error(`  분석 불가(루프 끝에 닫는다): ${e.message}`);
+      pendingCloses.push({ url: post.url, reason: e.message });
+      continue;
     }
     stats.skipped += 1;
     console.error(`  건너뜀: ${e.message}${skipHint(e)}`);
   }
 }
 
+// "분석 불가" 닫기 — 성공이 1건이라도 있어야 파이프라인이 살아 있다는 증거다. 아니면 글이 아니라 구조가 고장 난 것이니 닫지 않는다.
+if (pendingCloses.length > 0) {
+  if (stats.analyzed > 0) {
+    for (const { url, reason } of pendingCloses) {
+      try {
+        await write(`analyzed_at 기록 ${url} (분석 불가: ${reason.slice(0, 80)})`, () =>
+          supabase.from('blog_posts').update({ analyzed_at: new Date().toISOString() }).eq('url', url),
+        );
+        stats.dropped += 1;
+      } catch (writeError) {
+        stats.skipped += 1;
+        console.error(`  analyzed_at 기록 실패(다음 실행에 재시도): ${writeError.message}`);
+      }
+    }
+  } else {
+    stats.skipped += pendingCloses.length;
+    console.error(`분석 성공이 0건이라 "분석 불가" ${pendingCloses.length}건을 닫지 않는다 — 글이 아니라 파이프라인 문제일 수 있다(에디터 구조 변경·차단 페이지). 다음 실행에 재시도.`);
+  }
+}
+
 console.log(formatSummary(stats, meter.summary(), { dryRun }));
-// 글 단위 실패는 정상 경로(다음 실행에 재시도)라 exit 0. 시도한 글이 전부 실패했을 때만 1 — 구조적 문제를 잡이 빨갛게 알린다.
+// 글 단위 실패는 정상 경로(다음 실행에 재시도)라 exit 0. 시도한 글 중 성공이 0 이면 1 — "분석 불가" 도 성공이 아니다(위에서 닫지도 않았다).
 // process.exit() 은 파이프로 나가던 stdout 을 잘라먹을 수 있어 자연 종료를 기다린다.
-process.exitCode = fatal || (posts.length > 0 && stats.analyzed === 0 && stats.dropped === 0) ? 1 : 0;
+process.exitCode = fatal || (posts.length > 0 && stats.analyzed === 0) ? 1 : 0;

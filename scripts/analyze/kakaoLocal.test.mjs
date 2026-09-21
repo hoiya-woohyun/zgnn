@@ -66,6 +66,16 @@ describe('searchKakaoPlace', () => {
 
 describe('pickKakaoPlace', () => {
 
+  it('같은 이름이 여럿이면 AI 가 읽은 읍·면(town)의 것을 우선한다 — 우도 카페살레 vs 본섬 동명', () => {
+    const mainland = { place_name: '카페살레', address_name: '제주특별자치도 서귀포시 성산읍 고성리 1', x: '126.9', y: '33.45' };
+    const udo = { place_name: '카페살레', address_name: '제주특별자치도 제주시 우도면 연평리 1', x: '126.95', y: '33.5' };
+    expect(pickKakaoPlace([mainland, udo], { name: '카페살레', town: '우도면' }).address).toContain('우도면');
+    expect(pickKakaoPlace([mainland, udo], { name: '카페살레', town: '성산읍' }).address).toContain('성산읍');
+    // town 이 없거나 어느 결과에도 없으면 Kakao 정확도순 첫 것
+    expect(pickKakaoPlace([mainland, udo], { name: '카페살레' }).address).toContain('성산읍');
+    expect(pickKakaoPlace([mainland, udo], { name: '카페살레', town: '한림읍' }).address).toContain('성산읍');
+  });
+
   it('부분 일치(0.7)는 받지 않는다 — "고기부엌" 에 "협재고기부엌" 이 오면 null (엉뚱한 좌표가 places 에 쓰인다)', () => {
     const docs = [{ place_name: '협재고기부엌', address_name: '제주특별자치도 제주시 한림읍 협재리 1', x: '126.2', y: '33.4' }];
     expect(pickKakaoPlace(docs, { name: '고기부엌' })).toBeNull();

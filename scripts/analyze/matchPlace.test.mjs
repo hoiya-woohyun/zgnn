@@ -99,6 +99,15 @@ describe('townOf', () => {
  * 기대값은 "이렇게 판정돼야 데이터가 안 썩는다" 를 적은 것이다 — 임계값·가중치를 바꾸면 기대값도 같이 손본다.
  */
 describe('matchPlace — 실제 86곳으로', () => {
+
+  it('점수는 소수 둘째 자리 — 0.7 − 0.3 이 0.3999… 로 ASK 아래에 떨어지지 않는다', () => {
+    const salle = byName('카페살레');
+    const far = { lat: salle.geo.lat + 0.5, lng: salle.geo.lng }; // 55km
+    const r = matchPlace({ name: '카페살레', geo: far, type: 'cafe' }, places);
+    expect(r.confidence).toBe(0.7);
+    const r2 = matchPlace({ name: '살레', geo: far, type: 'restaurant', address: '제주 서귀포시 성산읍 1' }, places);
+    expect(Number.isInteger(r2.confidence * 100)).toBe(true);
+  });
   it('naverPlaceId 가 같으면 이름이 달라도 확실', () => {
     const r = matchPlace({ name: '전혀다른이름', naverPlaceId: byName('솔숲펜션').naverPlaceId }, places);
     expect(r.match?.id).toBe(byName('솔숲펜션').id);

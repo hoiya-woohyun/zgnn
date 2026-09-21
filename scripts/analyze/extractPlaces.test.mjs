@@ -225,7 +225,7 @@ describe('parseExtraction — result 객체 → places', () => {
     }
   });
 
-  it('is_error + api_error_status 로도 가른다: 401 → auth, 429/529 → limit, 400 → api_error', () => {
+  it('is_error + api_error_status 로도 가른다: 401 → auth, 429/529 → limit, 400 → api_error(fatal)', () => {
     const code = (status) => {
       try {
         parseExtraction(fakeResult({ is_error: true, api_error_status: status, result: 'x', structured_output: undefined }));
@@ -250,14 +250,60 @@ describe('parseExtraction — result 객체 → places', () => {
     }
   });
 
-  it('subtype 이 success 가 아니면 unexpected_subtype', () => {
+  it('error_* subtype(실제 CLI 모양: is_error + errors[], result 없음) — 스키마 재시도 소진·턴 초과는 permanent(그 글을 닫는다)', () => {
+    for (const subtype of ['error_max_structured_output_retries', 'error_max_turns']) {
+      const r = { type: 'result', subtype, is_error: true, errors: ['Failed to provide valid structured output after maximum retries'], api_error_status: null, usage: {} };
+      try {
+        parseExtraction(r);
+        expect.unreachable();
+      } catch (e) {
+        expect(e).toBeInstanceOf(ClaudeCliError);
+        expect(e.code).toBe('model_failed');
+        expect(e.permanent).toBe(true);
+        expect(isRetryable(e)).toBe(false);
+        expect(isFatal(e)).toBe(false);
+        expect(e.message).toContain(subtype);
+        expect(e.message).toContain('valid structured output');
+      }
+    }
+  });
+
+  it('error_during_execution · error_max_budget_usd 는 retryable(다음 실행)', () => {
+    for (const subtype of ['error_during_execution', 'error_max_budget_usd']) {
+      try {
+        parseExtraction({ type: 'result', subtype, is_error: true, errors: ['boom'], api_error_status: null });
+        expect.unreachable();
+      } catch (e) {
+        expect(e.code).toBe('api_error');
+        expect(isRetryable(e)).toBe(true);
+        expect(e.permanent).toBe(false);
+      }
+    }
+  });
+
+  it('API 4xx(400 잘못된 모델명 등)는 설정 문제 — fatal', () => {
     try {
-      parseExtraction(fakeResult({ subtype: 'error_max_turns', structured_output: undefined }));
+      parseExtraction(fakeResult({ is_error: true, api_error_status: 400, result: 'model not found', structured_output: undefined }));
       expect.unreachable();
     } catch (e) {
-      expect(e.code).toBe('unexpected_subtype');
-      expect(e.message).toContain('error_max_turns');
+      expect(e.code).toBe('api_error');
+      expect(isFatal(e)).toBe(true);
     }
+  });
+
+  it("LIMIT_RE 는 구 단위 — 'generated'·'separate' 같은 단어는 한도가 아니다", () => {
+    const code = (text) => {
+      try {
+        parseExtraction(fakeResult({ is_error: true, result: text, structured_output: undefined }));
+        return 'none';
+      } catch (e) {
+        return e.code;
+      }
+    };
+    expect(code('output could not be generated; separate issue')).not.toBe('limit');
+    expect(code('Rate limit exceeded')).toBe('limit');
+    expect(code("You've hit your usage limit")).toBe('limit');
+    expect(code('API is overloaded')).toBe('limit');
   });
 
   it('structured_output 이 없으면 no_structured_output — result 문자열이 JSON 이어도 쓰지 않는다', () => {
@@ -345,6 +391,26 @@ describe('runClaudeCli — 자식 프로세스', () => {
       expect(e.retryable).toBe(true);
       expect(e.message.length).toBeLessThan(260);
     }
+  });
+
+  it('JSON 앞에 다른 줄(경고)이 섞여도 첫 { 부터 돌려준다', async () => {
+    const js = 'process.stdout.write("warn: something\\n" + JSON.stringify({type:"result"}))';
+    const out = await runClaudeCli(nodeScript(js), '', { bin: 'node' });
+    expect(JSON.parse(out)).toEqual({ type: 'result' });
+  });
+
+  it('실행 파일이 없으면 not_found(fatal) 이고 타이머가 남지 않는다 — 5분을 기다리지 않는다', async () => {
+    const t0 = Date.now();
+    try {
+      await runClaudeCli([], '', { bin: 'claude-does-not-exist-zgnn', timeoutMs: 60_000 });
+      expect.unreachable();
+    } catch (e) {
+      expect(e.code).toBe('not_found');
+      expect(isFatal(e)).toBe(true);
+      expect(e.message).toContain('@anthropic-ai/claude-code');
+    }
+    // 타이머가 살아 있으면 이벤트 루프가 안 끝나지만 여기서 잴 수는 없다 — 대신 즉시 reject 됐는지만 본다
+    expect(Date.now() - t0).toBeLessThan(2000);
   });
 
   it('실행 파일이 없으면 not_found(fatal) — 설치 안내를 담는다', async () => {

@@ -113,9 +113,13 @@ export function extractPostText(html) {
  */
 export async function fetchPostText({ blogId, logNo }, fetchImpl = fetch) {
   const res = await fetchImpl(postViewUrl(blogId, logNo));
-  // status 를 에러에 싣는다 — 4xx(삭제·비공개)는 다시 받아도 같으니 호출자가 "분석 불가" 로 닫고, 5xx·네트워크는 다음 실행에 재시도한다.
+  // status 를 에러에 싣고, 404·410(삭제된 글)만 permanent 로 표시한다 — 호출자가 "분석 불가" 로 닫는다. 403 은 봇 차단일 수 있고
+  // 5xx·네트워크는 잠깐일 수 있으니 permanent 가 아니다(다음 실행에 재시도). 4xx 전부를 닫으면 차단 한 번에 백로그가 통째로 닫힌다(리뷰 지적).
   if (!res.ok) {
-    throw Object.assign(new Error(`네이버 블로그 본문 요청 실패: status=${res.status} blogId=${blogId} logNo=${logNo}`), { status: res.status });
+    throw Object.assign(new Error(`네이버 블로그 본문 요청 실패: status=${res.status} blogId=${blogId} logNo=${logNo}`), {
+      status: res.status,
+      permanent: res.status === 404 || res.status === 410,
+    });
   }
   const html = await res.text();
   // 파싱 정규식은 닫히지 않은 태그에 최악 O(n²) 라 원본 크기부터 자른다 — 본문 상한(MAX_BODY_CHARS)은 파싱 **뒤**에만 걸리기 때문이다.

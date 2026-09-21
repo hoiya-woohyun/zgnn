@@ -13,6 +13,7 @@ import {
   toMatchCandidate,
 } from './analyzeCandidates.mjs';
 import { matchPlace, THRESHOLD } from './matchPlace.mjs';
+import { toRecheckCandidate } from './applyApproved.mjs';
 
 const post = { url: 'https://blog.naver.com/someone/223000000001', title: '제주 동쪽 강아지 동반 여행', keyword: '제주 강아지 동반 카페' };
 
@@ -73,11 +74,21 @@ describe('resolveRegionRaw', () => {
     // 안덕면은 기존 데이터에서 남쪽 1 · 서쪽 1 로 갈려 inferRegionRaw 가 '' 를 준다.
     expect(resolveRegionRaw('제주 서귀포시 안덕면 어딘가 1', '남쪽 (안덕면)', places)).toBe('남쪽 (안덕면)');
   });
-  it('AI 값은 parseRegion 이 방향을 읽을 수 있는 꼴("동쪽 (구좌읍)")일 때만 — 아니면 null (화면에서 unknown 이 되는 걸 막는다)', () => {
-    expect(resolveRegionRaw(null, '동쪽 구좌읍', places)).toBeNull();
-    expect(resolveRegionRaw(null, '구좌읍', places)).toBeNull();
+  it('AI 값에 읍·면이 있으면 기존 표기("동쪽 (구좌읍)")로 다시 만든다 — 형식이 틀려도 지역 신호를 잃지 않는다', () => {
+    expect(resolveRegionRaw(null, '동쪽 구좌읍', places)).toBe('동쪽 (구좌읍)');
+    expect(resolveRegionRaw(null, '구좌읍', places)).toBe('동쪽 (구좌읍)');
     expect(resolveRegionRaw(null, '동쪽 (구좌읍)', places)).toBe('동쪽 (구좌읍)');
+    // 우도는 방향 없이 '우도면' — "동쪽 (우도면)" 을 통과시키면 앱의 '동쪽' 필터에 우도가 들어간다(리뷰 지적)
+    expect(resolveRegionRaw(null, '동쪽 (우도면)', places)).toBe('우도면');
+    expect(resolveRegionRaw(null, '우도면', places)).toBe('우도면');
+  });
+  it('읍·면이 없는 AI 값은 parseRegion 이 방향을 읽을 수 있을 때만 — 아니면 null (화면에서 unknown 이 되는 걸 막는다)', () => {
+    expect(resolveRegionRaw(null, '동쪽', places)).toBeNull();
+    expect(resolveRegionRaw(null, '제주 어딘가', places)).toBeNull();
     expect(resolveRegionRaw(null, '우도', places)).toBe('우도');
+    // 기존 데이터에 없는 읍·면(추자면)은 형식이 맞을 때만 그대로
+    expect(resolveRegionRaw(null, '북쪽 (추자면)', places)).toBe('북쪽 (추자면)');
+    expect(resolveRegionRaw(null, '추자면', places)).toBeNull();
   });
   it('toMatchCandidate 는 AI regionRaw 를 넘긴다 — 주소·좌표 없는 후보의 지역 신호', () => {
     expect(toMatchCandidate({ name: 'x', type: 'cafe', regionRaw: '동쪽 (성산읍)' }, null).regionRaw).toBe('동쪽 (성산읍)');
@@ -136,6 +147,7 @@ describe('toCandidateRow — candidates.extracted 는 applyApproved.mjs 가 읽�
       geo: { lat: kakao.lat, lng: kakao.lng },
       kakaoPlaceUrl: kakao.kakaoPlaceUrl,
       category: '펜션',
+      regionRawAi: extracted.regionRaw ?? null,
       regionRaw: '동쪽 (구좌읍)',
       match: { confidence: matchedAuto.confidence, reason: matchedAuto.reason, tier: 'auto' },
     });
@@ -198,5 +210,21 @@ describe('로그 형식 — 본문 인용은 싣지 않는다', () => {
       '분석 3건 (후보 4 · 일치 1 · 확인요청 2 · 신규 1 · 건너뜀 1) · Claude 3회 · 입력 100 · 출력 50 · 캐시 읽기 0 · 캐시 쓰기 0 토큰',
     );
     expect(formatSummary(stats, 'x', { dryRun: true })).toMatch(/^\[dry-run\] 분석 3건/);
+  });
+});
+
+
+describe('분석 ↔ 반영 계약 — matchPlace 가 분석 때 본 지역 신호를 apply 의 재대조도 본다', () => {
+  it('AI regionRaw 가 형식이 틀려도("성산읍") 분석·재대조의 confidence 가 같다 — 사람이 신규로 비운 ask 후보가 우도 동명 가게로 합쳐지지 않는다', () => {
+    for (const ai of ['성산읍', '동쪽 성산읍', '동쪽 (성산읍)']) {
+      const ex = { name: '카페살레', type: 'cafe', regionRaw: ai, address: null, petPolicyText: '소형견 가능', features: 'x', isJeju: true, evidence: ['x'], confidence: 0.9 };
+      const regionRaw = resolveRegionRaw(null, ex.regionRaw, places);
+      const analyzeTime = matchPlace(toMatchCandidate(ex, null), places);
+      const row = toCandidateRow({ url: 'u' }, ex, null, regionRaw, analyzeTime);
+      const applyTime = matchPlace(toRecheckCandidate({ id: 'c', post_url: 'u', extracted: row.extracted, match_place_id: null }), places);
+      expect(applyTime.confidence, ai).toBe(analyzeTime.confidence);
+      expect(analyzeTime.confidence, ai).toBeLessThan(THRESHOLD.AUTO_MERGE);
+      expect(row.extracted.regionRaw, ai).toBe('동쪽 (성산읍)');
+    }
   });
 });

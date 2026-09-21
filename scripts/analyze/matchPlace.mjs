@@ -142,7 +142,8 @@ function scorePair(candidate, place) {
     parts.push(`지역 일치(${candTown})`);
   }
 
-  return { score: Math.min(1, Math.max(0, score)), distance, reason: parts.join(' · ') };
+  // 소수 둘째 자리로 반올림 — 0.7 − 0.3 = 0.39999… 가 ASK(0.4) 아래로 떨어지는 부동소수 함정(리뷰 지적).
+  return { score: Math.round(Math.min(1, Math.max(0, score)) * 100) / 100, distance, reason: parts.join(' · ') };
 }
 
 /**

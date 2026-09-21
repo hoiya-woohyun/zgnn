@@ -6,7 +6,7 @@
 // 그래서 모양을 함수 하나에 모으고 테스트로 못 박는다.
 import { parseRegion } from '../lib/placeFields.mjs';
 import { inferRegionRaw } from './kakaoLocal.mjs';
-import { THRESHOLD } from './matchPlace.mjs';
+import { THRESHOLD, townOf } from './matchPlace.mjs';
 
 /**
  * 🙋 auto 구간(confidence ≥ AUTO_MERGE)을 사람 확인 없이 바로 approved 로 넣을 것인가. 기본 false — 후보는 전부 pending 이고
@@ -54,7 +54,12 @@ export function isPlaceCandidate(extracted) {
 export function resolveRegionRaw(address, aiRegionRaw, existing) {
   const fromAddress = address ? inferRegionRaw(address, existing) : '';
   if (fromAddress) return fromAddress;
-  // AI 값은 parseRegion 이 방향을 읽을 수 있을 때만 — "동쪽 구좌읍"(괄호 없음)·"구좌읍" 같은 변형은 화면에서 unknown 이 돼 방향 필터에서 사라진다.
+  // AI 값에 읍·면이 있으면 형식만 기존 86곳 표기("동쪽 (성산읍)", 우도는 "우도면")로 다시 만든다 — AI 는 맞는 읍·면을 형식만 틀리게 주기
+  // 쉽고("동쪽 성산읍"·"성산읍"), 그대로 버리면 분석 때 쓴 지역 신호가 DB 에 안 남아 apply 의 재대조가 다른 값을 본다(리뷰 지적).
+  const town = townOf(aiRegionRaw);
+  const fromTown = town ? inferRegionRaw(town, existing) : '';
+  if (fromTown) return fromTown;
+  // 읍·면이 없거나 기존 데이터에 없는 읍·면이면 parseRegion 이 방향을 읽을 수 있을 때만 — 아니면 화면에서 unknown 이 돼 방향 필터에서 사라진다.
   if (aiRegionRaw && parseRegion(aiRegionRaw).direction !== 'unknown') return aiRegionRaw;
   return null;
 }
@@ -88,8 +93,9 @@ export function toMatchCandidate(extracted, kakao) {
 /**
  * candidates 행. extracted 의 모양은
  *   { ...TExtractedPlace, geo: {lat,lng}|null, kakaoPlaceUrl: string|null, category: string|null, regionRaw: string|null,
- *     match: { confidence, reason, tier: 'auto'|'ask'|'new' } }
+ *     regionRawAi: string|null, match: { confidence, reason, tier: 'auto'|'ask'|'new' } }
  * — applyApproved.mjs 가 읽는 계약이다. address 는 Kakao 값이 있으면 그것으로 덮는다(기존 86곳과 같은 "제주 제주시 …" 꼴).
+ * regionRawAi 는 AI 가 준 원본 — 분석 때 matchPlace 가 본 지역 신호 그대로를 apply 의 재대조가 다시 보게 하기 위해 남긴다(regionRaw 는 정리된 값).
  * category 는 TExtractedPlace 에 없고 Kakao 가 한 단어("커피전문점")로 주는 값 — 빠뜨리면 apply 가 category 를 영영 못 채운다.
  *
  * status: AUTO_APPROVE 가 true 일 때만 auto 가 바로 approved. 기본은 전부 pending — tier 가 Studio 에서 거를 단서다.
@@ -112,6 +118,7 @@ export function toCandidateRow(post, extracted, kakao, regionRaw, matched) {
       kakaoPlaceUrl: kakao?.kakaoPlaceUrl ?? null,
       category: kakao?.category ?? null,
       regionRaw: regionRaw ?? null,
+      regionRawAi: extracted.regionRaw ?? null,
       match: { confidence: matched.confidence, reason: matched.reason, tier },
     },
     match_place_id: tier === 'new' ? null : matched.match.id,

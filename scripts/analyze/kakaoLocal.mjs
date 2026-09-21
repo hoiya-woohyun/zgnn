@@ -9,7 +9,7 @@
 //  - 한글에는 \b 가 안 먹는다. "중산간동로"·"탑동로11길" 에서 '간동'·'탑동' 을 읍·면·동으로 잘못 뽑지 않게 토큰 단위로 본다.
 //
 // I/O 는 searchKakaoPlace 하나뿐이고 fetchImpl 을 주입받아 테스트한다. 키·응답 본문·헤더는 로그에 남기지 않는다(docs/todo/05).
-import { nameSimilarity } from './matchPlace.mjs';
+import { nameSimilarity, townOf } from './matchPlace.mjs';
 
 const KAKAO_KEYWORD_URL = 'https://dapi.kakao.com/v2/local/search/keyword.json';
 
@@ -53,22 +53,26 @@ function parseCoord(value) {
  * 검색 결과 중 제주 주소이면서 place_name 이 후보 이름과 **정규화 후 완전 일치**(nameSimilarity 1)하는 첫 것. 없으면 null — 좌표를 지어내지 않는다.
  * 부분 일치(0.7)는 받지 않는다: "고기부엌" 검색에 "협재고기부엌"·"성산고기부엌" 이 같이 오면 엉뚱한 가게의 좌표·주소·category 가
  * 후보에 실리고, 그대로 places 에 쓰인다(리뷰에서 재현). 이름 비교는 matchPlace.mjs 의 nameSimilarity 를 그대로 쓴다(별칭·"카페" 접미 처리 공유).
- * Kakao 는 정확도순이라 같은 이름이 여럿이면 첫 것.
+ * 같은 이름이 여럿이면(우도 카페살레 vs 본섬 동명) AI 가 본문에서 읽은 읍·면(town)이 주소에 있는 것을 우선하고, 없으면 Kakao 정확도순 첫 것.
+ * town 이 있는데 그 읍·면의 결과가 하나도 없어도 첫 것을 쓴다 — Kakao 주소 표기가 AI 표기와 어긋날 수 있어, 대조 단계(matchPlace)의 지역 신호가 다시 거른다.
  * @param {object[]} documents  searchKakaoPlace 의 반환값
- * @param {{ name: string }} candidate
+ * @param {{ name: string, town?: string | null }} candidate
  * @returns {{ lat: number, lng: number, address: string, kakaoPlaceUrl: string | null, category: string | null } | null}
  */
-export function pickKakaoPlace(documents, { name }) {
+export function pickKakaoPlace(documents, { name, town = null }) {
   let best = null;
   for (const doc of documents ?? []) {
     if (!(doc?.address_name ?? '').startsWith('제주')) continue;
     const lat = parseCoord(doc.y);
     const lng = parseCoord(doc.x);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-    if (nameSimilarity(doc.place_name ?? '', name) === 1) {
+    if (nameSimilarity(doc.place_name ?? '', name) !== 1) continue;
+    const inTown = town != null && townOf(doc.address_name) === town;
+    if (inTown) {
       best = { doc, lat, lng };
       break;
     }
+    if (!best) best = { doc, lat, lng };
   }
   if (!best) return null;
 

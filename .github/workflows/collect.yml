@@ -42,7 +42,9 @@ jobs:
       # 미분석 글을 분석해 candidates 를 만든다. KAKAO_REST_API_KEY 는 선택 — 시크릿이 비어 있으면 좌표 보강만 건너뛴다.
       # 글 단위 실패는 다음 실행에 재시도되므로 step 을 실패시키지 않는다(전부 실패·인증 실패일 때만 exit 1).
       # CLAUDE_CODE_OAUTH_TOKEN 은 로컬에서 `claude setup-token` 으로 만든 장기 토큰 — 구독 계정 그 자체라 GitHub Secrets 에만 둔다.
+      # 수집이 실패해도 이미 모아 둔 글의 분석은 돈다(!cancelled) — 네이버 장애가 분석 백로그까지 멈추게 하지 않는다.
       - run: pnpm data:analyze
+        if: ${{ !cancelled() }}
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

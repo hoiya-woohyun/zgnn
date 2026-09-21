@@ -116,6 +116,7 @@ export function toRecheckCandidate(candidate) {
     type: extracted.type,
     geo: validGeo(extracted.geo) ? extracted.geo : undefined,
     address: text(extracted.address) ?? undefined,
-    regionRaw: text(extracted.regionRaw) ?? undefined,
+    // 분석 때 matchPlace 가 본 값(AI 원본)을 우선 — regionRaw 는 정리된 값이라 분석·반영의 지역 신호가 어긋날 수 있다(리뷰 지적).
+    regionRaw: text(extracted.regionRawAi) ?? text(extracted.regionRaw) ?? undefined,
   };
 }

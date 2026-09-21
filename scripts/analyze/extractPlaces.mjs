@@ -133,16 +133,18 @@ export class ExtractionError extends Error {
 
 /**
  * `claude` 프로세스·인증·API 쪽 실패. retryable 이면 다음 실행에 될 가능성이 크고(429·5xx·한도·타임아웃),
- * fatal 이면 이 실행의 나머지 글도 전부 같은 이유로 실패한다(CLI 없음·로그인 안 됨) — 오케스트레이터가 루프를 끊는다.
- *  not_found · auth · api_error · limit · timeout · exit · invalid_json
+ * fatal 이면 이 실행의 나머지 글도 전부 같은 이유로 실패한다(CLI 없음·로그인 안 됨·API 4xx 설정 오류) — 오케스트레이터가 루프를 끊는다.
+ * permanent 는 이 글에서 다시 불러도 같다(모델이 스키마 재시도를 소진) — 오케스트레이터가 analyzed_at 을 찍어 닫는다.
+ *  not_found · auth · api_error · limit · model_failed · timeout · exit · invalid_json
  */
 export class ClaudeCliError extends Error {
-  constructor(code, message, { retryable = false, fatal = false, status = null } = {}) {
+  constructor(code, message, { retryable = false, fatal = false, permanent = false, status = null } = {}) {
     super(message);
     this.name = 'ClaudeCliError';
     this.code = code;
     this.retryable = retryable;
     this.fatal = fatal;
+    this.permanent = permanent;
     this.status = status;
   }
 }
@@ -174,34 +176,49 @@ function normalizePlace(raw) {
   };
 }
 
-// is_error 일 때 CLI 가 result 에 넣어 주는 문구로 원인을 가른다. 문구는 버전에 따라 바뀔 수 있어 status 를 먼저 본다.
+// is_error 일 때 CLI 가 result(또는 errors[]) 에 넣어 주는 문구로 원인을 가른다. 문구는 버전에 따라 바뀔 수 있어 status 를 먼저 본다.
+// LIMIT_RE 는 단어 경계 없이 'limit'·'rate' 만 보면 'generated'·'separate' 를 담은 영구 오류까지 한도로 읽는다 — 구를 쓴다.
 const AUTH_RE = /not logged in|\/login|invalid api key|authentication|unauthorized/i;
-const LIMIT_RE = /limit|overloaded|rate/i;
+const LIMIT_RE = /rate.?limit|session limit|usage limit|overloaded|too many requests|capacity/i;
+
+// CLI 오류 결과는 두 모양이다(2.1.278 바이너리의 스키마): 로그인 실패처럼 subtype 이 'success' 인데 is_error 인 것(result 에 문구),
+// 그리고 subtype 이 'error_*' 인 것(result 없이 errors[]). 둘 다 여기로 온다.
+function errorText(result) {
+  if (typeof result.result === 'string' && result.result) return result.result.slice(0, 160);
+  if (Array.isArray(result.errors)) return result.errors.filter((e) => typeof e === 'string').join(' · ').slice(0, 160);
+  return '';
+}
 
 function classifyCliError(result) {
   const status = Number.isInteger(result.api_error_status) ? result.api_error_status : null;
-  const text = typeof result.result === 'string' ? result.result.slice(0, 160) : '';
+  const text = errorText(result);
+  const subtype = result.subtype ?? '?';
   if (status === 401 || status === 403 || AUTH_RE.test(text)) {
     return new ClaudeCliError('auth', `claude 인증 실패 — 로컬은 \`claude\` 로그인, Actions 는 CLAUDE_CODE_OAUTH_TOKEN: ${text}`, { fatal: true, status });
   }
   if (status === 429 || (status != null && status >= 500) || LIMIT_RE.test(text)) {
     return new ClaudeCliError('limit', `claude 한도·서버 오류(다음 실행에 재시도): ${text}`, { retryable: true, status });
   }
-  return new ClaudeCliError('api_error', `claude 실패: subtype=${result.subtype ?? '?'} status=${status ?? '-'} ${text}`, { status });
+  // 그 밖의 API 4xx(400 잘못된 모델명 등)는 글이 아니라 설정 문제다 — 글마다 반복하지 않고 실행을 세운다.
+  if (status != null && status >= 400 && status < 500) {
+    return new ClaudeCliError('api_error', `claude API 오류 status=${status}(설정 문제 — ANALYZE_MODEL·CLI 버전 확인): ${text}`, { fatal: true, status });
+  }
+  // subtype 별: 스키마 재시도 소진·턴 초과는 그 글의 내용 탓이라 닫는다(permanent). 실행 중 오류·예산은 다음 실행에 재시도.
+  if (subtype === 'error_max_structured_output_retries' || subtype === 'error_max_turns') {
+    return new ClaudeCliError('model_failed', `모델이 이 글에서 스키마를 못 맞춤(subtype=${subtype}): ${text}`, { permanent: true, status });
+  }
+  return new ClaudeCliError('api_error', `claude 실패: subtype=${subtype} status=- ${text}`, { retryable: true, status });
 }
 
 /**
- * `claude -p --output-format json` 의 결과 객체 → { places }. is_error 부터 본다 — 그때는 structured_output 이 없다.
- * 이름 없는 항목은 버린다(대조도 확인도 못 한다). 에러 메시지에 모델 출력(result 본문)은 싣지 않는다.
+ * `claude -p --output-format json` 의 결과 객체 → { places }. is_error 또는 subtype≠success 면 classifyCliError 가 가른다 —
+ * 그때는 structured_output 이 없다. 이름 없는 항목은 버린다(대조도 확인도 못 한다). 에러 메시지에 모델 출력(result 본문)은 싣지 않는다.
  */
 export function parseExtraction(result) {
   if (!result || result.type !== 'result') {
     throw new ExtractionError('not_result', `claude 출력이 result 객체가 아님 (type=${result?.type ?? typeof result})`);
   }
-  if (result.is_error) throw classifyCliError(result);
-  if (result.subtype !== 'success') {
-    throw new ExtractionError('unexpected_subtype', `예상 밖 subtype: ${result.subtype}`);
-  }
+  if (result.is_error || result.subtype !== 'success') throw classifyCliError(result);
 
   const parsed = result.structured_output;
   if (!parsed || typeof parsed !== 'object') {
@@ -224,11 +241,14 @@ export function runClaudeCli(args, input, { env = process.env, bin = 'claude', t
     const { CLAUDECODE: _omit, ...childEnv } = env;
     let child;
     try {
-      child = spawn(bin, args, { env: childEnv, stdio: ['pipe', 'pipe', 'pipe'], timeout: timeoutMs, killSignal: 'SIGTERM' });
+      child = spawn(bin, args, { env: childEnv, stdio: ['pipe', 'pipe', 'pipe'] });
     } catch (e) {
       reject(new ClaudeCliError('exit', `claude 실행 실패: ${e.message}`, { fatal: true }));
       return;
     }
+    // spawn 의 timeout 옵션 대신 자체 타이머 — ENOENT 로 'error' 가 난 뒤에도 내부 타이머가 살아 프로세스가 5분을 더 기다린다(리뷰 지적).
+    let timedOut = false;
+    const timer = setTimeout(() => { timedOut = true; child.kill('SIGTERM'); }, timeoutMs);
     let stdout = '';
     let stderr = '';
     child.stdout.setEncoding('utf8');
@@ -236,6 +256,7 @@ export function runClaudeCli(args, input, { env = process.env, bin = 'claude', t
     child.stdout.on('data', (chunk) => { stdout += chunk; });
     child.stderr.on('data', (chunk) => { stderr += chunk; });
     child.on('error', (e) => {
+      clearTimeout(timer);
       if (e.code === 'ENOENT') {
         reject(new ClaudeCliError('not_found', `\`${bin}\` 를 찾을 수 없다 — Claude Code CLI 설치가 필요하다(npm i -g @anthropic-ai/claude-code)`, { fatal: true }));
       } else {
@@ -243,13 +264,15 @@ export function runClaudeCli(args, input, { env = process.env, bin = 'claude', t
       }
     });
     child.on('close', (code, signal) => {
-      if (signal) {
-        reject(new ClaudeCliError('timeout', `claude 가 ${signal} 로 종료됨(타임아웃 ${timeoutMs}ms)`, { retryable: true }));
+      clearTimeout(timer);
+      if (timedOut || signal) {
+        reject(new ClaudeCliError('timeout', `claude 가 ${signal ?? 'SIGTERM'} 로 종료됨(타임아웃 ${timeoutMs}ms)`, { retryable: true }));
         return;
       }
-      const trimmed = stdout.trim();
-      if (trimmed.startsWith('{')) {
-        resolve(trimmed);
+      // JSON 앞에 다른 줄이 섞여도(경고 등) 첫 '{' 부터 넘긴다 — parseExtraction 이 JSON 인지 가른다.
+      const start = stdout.indexOf('{');
+      if (start >= 0) {
+        resolve(stdout.slice(start).trim());
         return;
       }
       reject(new ClaudeCliError('exit', `claude 종료 코드 ${code}, 결과 JSON 없음: ${stderr.trim().slice(0, 160)}`, { retryable: code !== 0 }));

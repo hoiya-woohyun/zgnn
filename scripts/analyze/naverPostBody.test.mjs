@@ -134,9 +134,12 @@ describe('extractPostText — 텍스트 정리', () => {
 
 describe('fetchPostText', () => {
 
-  it('비 2xx 에러에 status 가 실린다 — 4xx 는 호출자가 "분석 불가" 로 닫고 5xx 는 재시도한다', async () => {
-    const fetch404 = async () => ({ ok: false, status: 404, text: async () => '' });
-    await expect(fetchPostText({ blogId: 'a', logNo: '1' }, fetch404)).rejects.toMatchObject({ status: 404 });
+  it('비 2xx 에러에 status 가 실리고, 404·410 만 permanent — 403(차단)·5xx 는 다음 실행에 재시도', async () => {
+    const at = (status) => async () => ({ ok: false, status, text: async () => '' });
+    await expect(fetchPostText({ blogId: 'a', logNo: '1' }, at(404))).rejects.toMatchObject({ status: 404, permanent: true });
+    await expect(fetchPostText({ blogId: 'a', logNo: '1' }, at(410))).rejects.toMatchObject({ status: 410, permanent: true });
+    await expect(fetchPostText({ blogId: 'a', logNo: '1' }, at(403))).rejects.toMatchObject({ status: 403, permanent: false });
+    await expect(fetchPostText({ blogId: 'a', logNo: '1' }, at(503))).rejects.toMatchObject({ status: 503, permanent: false });
   });
   it('원본 HTML 이 MAX_HTML_CHARS 를 넘으면 앞부분만 파싱한다(정규식 최악 O(n²) 방어)', async () => {
     const huge = `<div class="se-main-container"><p>앞</p></div>${'x'.repeat(MAX_HTML_CHARS + 10)}`;

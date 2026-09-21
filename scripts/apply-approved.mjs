@@ -8,8 +8,9 @@
 // (insert 와 그 write-back 사이에서 죽는 창은 남는다 — 그때는 장소가 고아로 남고 재실행이 하나 더 만든다. Studio 에서 정리.)
 // 한 건이 실패해도 다음 건은 계속하고, 실패 수가 exit code 가 된다(Actions 로그가 곧 관측).
 //
-// 신규 후보는 insert 전에 현재 places(archived 제외, 이 실행이 방금 만든 draft 포함)와 **다시 대조**한다 — 같은 새 가게가 글 둘에서
-// 따로 승인되면 분석 시점엔 서로 몰라 둘 다 '신규' 인데, 여기서 두 번째를 첫 번째로 합친다(applyApproved.mjs 의 toRecheckCandidate).
+// 분석 때 '신규'(tier new) 였던 후보만 insert 전에 현재 places(archived 제외, 이 실행이 방금 만든 draft 포함)와 **다시 대조**한다 —
+// 같은 새 가게가 글 둘에서 따로 승인되면 분석 시점엔 서로 몰라 둘 다 '신규' 인데, 여기서 두 번째를 첫 번째로 합친다(toRecheckCandidate).
+// tier 가 auto/ask 인데 match_place_id 가 비어 있으면 **사람이 비운 것**이다 — 재대조로 되살리지 않고 신규로 존중한다(리뷰 지적).
 // archived 장소로는 병합하지 않는다 — 폐업한 곳에 후보가 조용히 merged 로 사라진다(리뷰 지적). 실패로 남겨 사람이 본다.
 // ask 후보를 사람이 "신규가 맞다" 고 판단했다면 Studio 에서 match_place_id 를 **비운 뒤** approved 로 — 이 스크립트는 match_place_id 가
 // 있으면 그것을 믿는다(docs/todo/03 의 승인 절차).
@@ -68,9 +69,9 @@ for (const candidate of candidates) {
     let placeId;
     let kind;
 
-    // match_place_id 가 없는 신규 후보라도 현재 places 에 같은 가게가 이미 있으면(다른 글이 먼저 승인돼 draft 가 됐거나, 사람이 손으로 넣었거나) 보강으로 돌린다.
+    // 분석 때 신규였던 후보라도 현재 places 에 같은 가게가 이미 있으면(다른 글이 먼저 승인돼 draft 가 됐거나, 사람이 손으로 넣었거나) 보강으로 돌린다.
     let targetId = candidate.match_place_id;
-    if (!targetId) {
+    if (!targetId && candidate.extracted?.match?.tier === 'new') {
       const rechecked = matchPlace(toRecheckCandidate(candidate), existing);
       if (rechecked.match && rechecked.confidence >= THRESHOLD.AUTO_MERGE) {
         console.log(`  신규 후보지만 이미 있는 장소와 일치 → 보강으로: ${rechecked.match.name} (${rechecked.confidence.toFixed(2)}, ${rechecked.reason})`);
@@ -94,6 +95,9 @@ for (const candidate of candidates) {
           supabase.from('places').update(patch).eq('id', target.id),
         );
         Object.assign(target, patch);
+        // 대조 장부(existing)도 같이 갱신 — 방금 채운 좌표를 다음 후보의 재대조가 봐야 한다(안 그러면 9km 밖 동명 가게와 합쳐진다, 리뷰 지적).
+        const idx = existing.findIndex((place) => place.id === target.id);
+        if (idx >= 0) existing[idx] = fromPlaceRow(target);
       } else {
         console.log(`  보강 ${target.name}(${target.id}) — 채울 빈 칸 없음, update 생략`);
       }
