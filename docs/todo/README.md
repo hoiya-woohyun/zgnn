@@ -78,6 +78,22 @@ flowchart LR
 
 체크박스가 정본이다. 진행 상황을 다음 세션에 넘길 때는 아래 세션 로그에 한 줄 남긴다.
 
+## 다음 할 일 (2026-09-21 기준 — 새 세션은 여기서 시작)
+
+순서대로. ①②는 사람만 할 수 있고, 나머지는 키가 들어오면 Claude 가 이어서 한다.
+
+1. **배포 복구 확인** — 브랜치 push 됨. Vercel Preview 가 Ready 면 BUG-005 수정이 맞는 것 → `main` 에 머지 → 프로덕션 배포 확인.
+2. **키 3종 발급 → GitHub Secrets** (값은 `.env.local` 에 넣고 `gh secret set -f .env.local`; `gh auth switch` 로 `hoiya-woohyun` 계정 먼저)
+   - `claude setup-token` → `CLAUDE_CODE_OAUTH_TOKEN` (구독 인증. 러너에서 도는지는 이걸로 처음 시험)
+   - 네이버 개발자센터 → `NAVER_CLIENT_ID` · `NAVER_CLIENT_SECRET` (없으면 파이프라인 입구가 막혀 있다)
+   - Kakao REST 키(지도 JS 키와 다름) → `KAKAO_REST_API_KEY` (선택. 없으면 좌표 없이 대조)
+3. **첫 실행** — Actions `블로그 수집 · 분석 · 반영` 을 `workflow_dispatch` 로 한 번. 실패해도 그 로그가 다음 할 일이다
+   (러너 OAuth · 네이버 IP 차단 여부).
+4. **후보 첫 확인은 로컬 dry-run** — `pnpm data:analyze --dry-run --limit 5` (DB 안 씀, 로컬 `claude` 로그인 사용). 프롬프트·임계값을
+   손볼지 여기서 판단. 백로그는 `--limit 30` 씩 나눠 돌린다(구독 세션 한도).
+5. **Studio 에서 후보 20건쯤 본 뒤 결정(🙋)** — `AUTO_APPROVE`, `WEIGHT`·`THRESHOLD`(재대조 0.85 경계 포함), `ask` 승인 절차.
+6. **4b** — 승인이 실제로 생긴 뒤 DB 웹훅 → Deploy Hook.
+
 ## 세션 로그
 
 세션이 끝나거나 컨텍스트가 커져 나눌 때 여기에 한 항목. 체크박스가 정본이고 로그는 인수인계 메모.
