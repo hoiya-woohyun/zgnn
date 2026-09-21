@@ -183,7 +183,7 @@ describe('로그 형식 — 본문 인용은 싣지 않는다', () => {
     const matched = { match: places[0], confidence: 0.92, reason: '이름 일치 · 거리 40m' };
     const row = toCandidateRow(post, extracted, kakao, null, matched);
     const line = formatCandidateLine(row, places[0].name);
-    expect(line).toBe(`후보 솔숲펜션 (stay) 자동병합 0.92 → ${places[0].name} · 이름 일치 · 거리 40m`);
+    expect(line).toBe(`후보 솔숲펜션 (stay) 일치 0.92 → ${places[0].name} · 이름 일치 · 거리 40m`);
     expect(line).not.toContain('불멍');
     expect(line).not.toContain('1만원');
   });
@@ -195,7 +195,7 @@ describe('로그 형식 — 본문 인용은 싣지 않는다', () => {
     const stats = { analyzed: 3, skipped: 1, candidates: 4, auto: 1, ask: 2, new: 1 };
     expect(formatSummary({ ...stats, dropped: 2 }, 'x')).toContain('건너뜀 1 · 분석불가 2)');
     expect(formatSummary(stats, 'Claude 3회 · 입력 100 · 출력 50 · 캐시 읽기 0 · 캐시 쓰기 0 토큰')).toBe(
-      '분석 3건 (후보 4 · 자동병합 1 · 확인요청 2 · 신규 1 · 건너뜀 1) · Claude 3회 · 입력 100 · 출력 50 · 캐시 읽기 0 · 캐시 쓰기 0 토큰',
+      '분석 3건 (후보 4 · 일치 1 · 확인요청 2 · 신규 1 · 건너뜀 1) · Claude 3회 · 입력 100 · 출력 50 · 캐시 읽기 0 · 캐시 쓰기 0 토큰',
     );
     expect(formatSummary(stats, 'x', { dryRun: true })).toMatch(/^\[dry-run\] 분석 3건/);
   });

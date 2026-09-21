@@ -120,7 +120,8 @@ export function toCandidateRow(post, extracted, kakao, regionRaw, matched) {
   };
 }
 
-const TIER_LABEL = { auto: '자동병합', ask: '확인요청', new: '신규' };
+// 'auto' 를 '자동병합' 이라 부르지 않는 이유 — AUTO_APPROVE=false 면 아무것도 자동으로 병합되지 않는다. 구간 이름은 "기존과 일치" 다.
+const TIER_LABEL = { auto: '일치', ask: '확인요청', new: '신규' };
 
 /**
  * 로그 한 줄. 이름·종류·구간·confidence·짝지은 기존 장소·이유만 — evidence·petPolicyText 는 본문 인용이라 로그에 싣지 않는다(05).
@@ -137,5 +138,5 @@ export function formatCandidateLine(row, matchedName) {
 export function formatSummary(stats, meterSummary, { dryRun } = {}) {
   const prefix = dryRun ? '[dry-run] ' : '';
   const dropped = stats.dropped ? ` · 분석불가 ${stats.dropped}` : '';
-  return `${prefix}분석 ${stats.analyzed}건 (후보 ${stats.candidates} · 자동병합 ${stats.auto} · 확인요청 ${stats.ask} · 신규 ${stats.new} · 건너뜀 ${stats.skipped}${dropped}) · ${meterSummary}`;
+  return `${prefix}분석 ${stats.analyzed}건 (후보 ${stats.candidates} · 일치 ${stats.auto} · 확인요청 ${stats.ask} · 신규 ${stats.new} · 건너뜀 ${stats.skipped}${dropped}) · ${meterSummary}`;
 }
