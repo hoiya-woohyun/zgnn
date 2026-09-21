@@ -14,7 +14,7 @@ const ROOT = new URL('../../', import.meta.url);
 // 둘 다 공개값이다. ref 는 API 주소의 서브도메인이고, publishable 키는 브라우저 번들에 실으라고 만든 키다(RLS 가 방어선).
 // 코드 상수인 이유: Vercel·Actions 엔 `supabase/.temp/project-ref`(gitignored) 가 없다. link 된 ref 가 이 값과 다르면 아래서 멈춘다.
 export const PROJECT_REF = 'qfzasaszpwcgtbzirujx';
-export const PUBLISHABLE_KEY = '';
+export const PUBLISHABLE_KEY = 'sb_publishable_OqCciy03V9rlf6X2l9mJvA_vimcVhSz';
 
 // "공개 상수" 자리에 secret/service_role 키를 붙여 넣어도 PostgREST 는 그대로 동작한다(오히려 RLS 우회) — 형식으로 막는다.
 export function assertPublishableKey(key) {

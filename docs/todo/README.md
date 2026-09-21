@@ -62,7 +62,8 @@ flowchart LR
   - **시크릿 모델 = Auth 로그인**([ADR-016 v4](../decisions/ADR-016-secrets-by-login.md))
     - [x] 마이그레이션 `operators`+RLS 8정책(`20260921075901`·`20260921080333`, 원격 적용, 어드바이저 No issues)
     - [x] `pnpm data:login`/`logout`(`scripts/login.mjs`·`logout.mjs`·`lib/sessionKeychain.mjs`) · `lib/supabaseClient.mjs` 출처 3단계 + 13 테스트 · `pull-db` readOnly · deny 확장
-    - [ ] `PUBLISHABLE_KEY` 상수 채우기(사용자가 값을 준다 — 공개값) · 대시보드 3개(사용자) · `operators` insert · PostgREST 로 RLS 확인 · Vercel env 삭제
+    - [x] `PUBLISHABLE_KEY` 상수 채움(2026-09-21 (4)) → `pnpm data:pull` 이 **PostgREST 의 anon 경로**로 86·15 행, diff 없음 — anon 정책은 실측됐다
+    - [ ] 대시보드 3개(사용자) · `operators` insert · 운영자/비운영자 세션으로 RLS 확인(`data:apply --dry-run`) · Vercel env 삭제
   - [ ] Vercel Deploy Hook(4b)
 - [x] 1 스키마 + RLS + 시드 + `scripts/pull-db.mjs` (시드→pull 왕복, `git diff src/data` 빈 결과로 확인)
 - **2** 수집
@@ -105,7 +106,7 @@ flowchart LR
    - Project Settings → API Keys → **새 secret key 발급 + legacy `service_role` 폐기**(옛 값은 에이전트 대화 기록에 실렸을 수 있어 노출로 본다)
      → 터미널에서 `gh auth switch`(계정 `hoiya-woohyun`) 뒤 `gh secret set SUPABASE_SERVICE_ROLE_KEY` 에 붙여넣기. GitHub Actions 만 쓴다.
 2. **연결 확인(Claude + 사용자)** — 1 이 끝난 뒤. 순서가 중요하다:
-   - Claude: `PUBLISHABLE_KEY` 채움 → (사용자가 CLI 로그인을 잠깐 열면) `operators` insert → 사용자가 **별도 터미널**에서 `pnpm data:login` →
+   - Claude: ~~`PUBLISHABLE_KEY` 채움~~(완료, anon `data:pull` 통과) → (사용자가 CLI 로그인을 잠깐 열면) `operators` insert → 사용자가 **별도 터미널**에서 `pnpm data:login` →
      Claude 가 `pnpm data:pull`(항상 anon — 로그 `Supabase 인증: publishable(anon …)`, diff 없음, 86·15 행) → **세션 확인은 `pnpm data:apply --dry-run`**(쓰지 않는다.
      운영자 세션이면 `candidates` 0건·`places` 86행을 읽고 `[dry-run] 반영 0건` exit 0 · **비운영자** 세션이면 정책이 닫혀 `places 가 비어 있다` exit 1 · 세션 없으면
      "로그인이 필요하다" — 세 결과가 다 다르므로 이것이 PostgREST 를 통한 RLS 판정이다) → `pnpm data:logout` 뒤 같은 명령이 로그인 안내로 멈추는지.
