@@ -1,6 +1,7 @@
 # 5. 보안 — 키 분리 · RLS · 웹훅 · 프리뷰 보호
 
-> 최종 수정: 2026-09-21 (v6: RLS 를 PostgREST 로 실측 완료 — anon·세션 없음·비운영자·운영자 네 경우. JWT expiry 는 사용자 결정으로 기본 3600 유지)
+> 최종 수정: 2026-09-22 (v7: 마켓플레이스 연동은 끊기로 결정 — 원칙 "우회 키를 에이전트가 트리거할 수 있는 경로에 두지 않는다")
+> 이전 (v6: RLS 를 PostgREST 로 실측 완료 — anon·세션 없음·비운영자·운영자 네 경우. JWT expiry 는 사용자 결정으로 기본 3600 유지)
 > 이전 (v5: Auth 로그인 모델(ADR-016 v4) — 로컬은 운영자 세션(짧은 JWT)+RLS, service_role 은 GitHub Actions 만. RLS 정책 절 갱신, `NAVER_*` 로컬 문구 통일)
 > 이전 (v4: 로컬에 시크릿을 두지 않는다 — 로그인된 `supabase` CLI 에게 실행 시점에(ADR-016). 에이전트가 값을 못 보게 하는 게 목적)
 > 이전 (v3: anon select·env→번들 유출 경로·보안 헤더(vercel.json) 확인 완료. Anthropic API 키 대신 `CLAUDE_CODE_OAUTH_TOKEN`(구독). Vercel 마켓플레이스가 넣은 여분 시크릿 항목)
@@ -56,9 +57,9 @@
 ## Vercel
 
 - [x] env 는 Sensitive 로 — 만든 뒤 대시보드에서도 값을 못 본다. 잃어버리면 재발급이 정답. `vercel pull` 도 `[SENSITIVE]` 자리표시자만 준다(00).
-- [ ] 🙋 Vercel 마켓플레이스의 Supabase 연동이 Production 에 `POSTGRES_URL`·`POSTGRES_PASSWORD`·`SUPABASE_JWT_SECRET`·`SUPABASE_SECRET_KEY` 등을
-      넣어 뒀다. 빌드는 하나도 안 쓰고 `NEXT_PUBLIC_` 이 아니라 번들에도 안 들어가지만, 안 쓰는 시크릿은 노출면이다 — ADR-016 v4 뒤로 Vercel 은
-      **Supabase 시크릿이 하나도 필요 없다**(anon 경로). 연동을 끊고 `SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY` 도 지운다(→ todo/README 다음 할 일 2).
+- [ ] **끊는다(2026-09-22 결정)** — Vercel 마켓플레이스 Supabase 연동은 이 프로젝트에서 쓰는 기능이 없고(정적 내보내기·빌드 시 anon 읽기·회원 없음),
+      넣어 둔 `SUPABASE_JWT_SECRET`·`SUPABASE_SECRET_KEY`·`POSTGRES_PASSWORD` 는 아무 브랜치 push 로 빌드 로그에 찍어 읽을 수 있다(접근 경로 = 읽기 경로).
+      A(Vercel-managed)면 Disconnect project 만, 삭제 금지. 절차는 todo/README 다음 할 일 1.
 - [ ] Deployment Protection: Preview 에 Vercel Authentication(무료). Production 은 공개.
 - [ ] Deploy Hook 은 하나만, 이름에 용도(`supabase-places-webhook`). 정체 모를 빌드가 돌면 이 훅부터 폐기.
 - [x] 헤더는 **`vercel.json` 의 `headers`** 로 걸었다(`vercel.ts` 로 옮기지 않았다 — `@vercel/config` 의존성 없이 기존 파일에 넣는 쪽이 작고,

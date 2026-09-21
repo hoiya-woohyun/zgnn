@@ -113,6 +113,10 @@ v3 은 로그인 한 번이 영구 service_role 접근이었다. 요구 ⑤는 "
 | 4 | 레포 admin `gh` 계정 + 암호구 없는 SSH 키 → 워크플로 수정 push + `workflow_dispatch` 로 GitHub Secrets 회수(Free private 레포는 브랜치·환경 보호 불가) | `gh auth status`·`ssh -T` | `gh auth logout -u hoiya-woohyun`(휴지), SSH 키 암호구 + `ssh-add -t 8h`. 시크릿 등록 때만 로그인 |
 | 5 | `vercel` CLI 토큰(무만료) — 배포·env 변경 | `vercel whoami` | 휴지 상태 `vercel logout`, 배포 확인 때만 로그인 |
 
+**2026-09-22 사용자 재확인**: "Claude 는 민감정보를 알아선 안 된다." 위 표의 공통 원인은 *접근 경로 = 읽기 경로* 다 — 빌드·Actions env 는 push 한 줄로 찍힌다.
+따라서 이 요구는 "값을 숨긴다" 가 아니라 **"만료 없는 우회 키를 에이전트가 트리거할 수 있는 경로에 두지 않는다"** 로만 채워진다. 표 #3 은 마켓플레이스 연동을 끊어 닫고,
+Actions 는 아래 (a) 가 같은 원칙의 마지막 조각이다(→ todo/README 다음 할 일 2).
+
 **보류(다음 결정)**: (a) GitHub Actions 의 service_role 을 **봇 운영자 로그인**(`signInWithPassword`, RLS 안)으로 바꾸면 RLS 우회 키가 어디에도 남지 않는다 —
 구현은 작지만(CI 경로 하나) 봇 계정·시크릿 2개가 필요해 사용자 결정 뒤에. (b) anon·authenticated 의 기본 GRANT(DELETE·TRUNCATE·TRIGGER)를 회수하고 `for all` 을
 select/insert/update 로 좁힌다 — 어떤 스크립트도 delete 하지 않으므로 파괴 반경을 줄인다. (c) Actions 자체가 "관리자 없이" 도는 구조라 `CLAUDE_CODE_OAUTH_TOKEN`
