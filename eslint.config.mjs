@@ -5,7 +5,8 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['.next', 'out', 'node_modules', 'public', 'scripts'] },
+  // .vercel 은 로컬 `vercel build` 산출물(gitignored) — .next·out 과 같은 부류다. 빠지면 번들 4천 건이 lint 를 빨갛게 한다.
+  { ignores: ['.next', '.vercel', 'out', 'node_modules', 'public', 'scripts'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   ...nextCoreWebVitals,

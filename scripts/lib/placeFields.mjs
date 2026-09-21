@@ -57,6 +57,31 @@ export function toPlace(f) {
   return place;
 }
 
+/**
+ * places 테이블 행(snake_case) → TPlace. pull-db.mjs(published 만)와 analyze-candidates.mjs(archived 빼고 전부)가 같이 쓴다.
+ * 컬럼 ↔ 필드 짝을 한 곳에 두는 이유: 한쪽만 고치면 matchPlace 가 보는 `geo`·`region.town` 이 조용히 빠져 대조가 이름만으로 돌아간다.
+ * 빌드·테스트는 그대로 통과한다.
+ */
+export function fromPlaceRow(row) {
+  return toPlace({
+    id: row.id,
+    type: row.type,
+    name: row.name,
+    regionRaw: row.region_raw,
+    features: row.features,
+    petPolicyText: row.pet_policy_text,
+    reviewUrl: row.review_url,
+    naverUrl: row.naver_url,
+    naverPlaceId: row.naver_place_id,
+    lat: row.lat,
+    lng: row.lng,
+    address: row.address,
+    category: row.category,
+    stayPriceText: row.stay_price_text,
+    stayAmenitiesText: row.stay_amenities_text,
+  });
+}
+
 /** TItem. seasons 는 원본 태그 그대로(공백만 정리). */
 export function toItem(f) {
   return {
