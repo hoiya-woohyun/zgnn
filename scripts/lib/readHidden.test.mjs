@@ -1,12 +1,12 @@
 import { EventEmitter } from 'node:events';
 import { describe, expect, it } from 'vitest';
-import { loginReadHidden, loginReadHiddenInit, loginReadHiddenStep } from './loginReadHidden.mjs';
+import { readHidden, readHiddenInit, readHiddenStep } from './readHidden.mjs';
 
 const ESC = '\u001b';
 // chunk 하나가 raw 모드의 키 하나(또는 붙여넣기 한 덩어리)다 — 인자를 나누면 키를 따로따로 친 것.
-const feed = (...chunks) => chunks.reduce(loginReadHiddenStep, loginReadHiddenInit);
+const feed = (...chunks) => chunks.reduce(readHiddenStep, readHiddenInit);
 
-describe('loginReadHiddenStep — 글자·제출·취소', () => {
+describe('readHiddenStep — 글자·제출·취소', () => {
   it('보통 글자는 쌓이고 CR/LF 가 제출이다(buf 그대로)', () => {
     expect(feed('ab', 'c', '\r')).toEqual({ buf: 'abc', mode: 'text', done: 'submit' });
     expect(feed('abc\n').done).toBe('submit');
@@ -21,7 +21,7 @@ describe('loginReadHiddenStep — 글자·제출·취소', () => {
 
   it('done 뒤의 입력은 무시한다', () => {
     const s = feed('a\r');
-    expect(loginReadHiddenStep(s, 'zzz')).toBe(s);
+    expect(readHiddenStep(s, 'zzz')).toBe(s);
   });
 
   it('DEL/BS 는 코드포인트 하나를 지운다 — 한글·이모지가 반쪽으로 남지 않게', () => {
@@ -37,12 +37,12 @@ describe('loginReadHiddenStep — 글자·제출·취소', () => {
 
   it('입력 state 를 바꾸지 않는다(순수)', () => {
     const before = { buf: 'a', mode: 'text' };
-    loginReadHiddenStep(before, 'b\u007f');
+    readHiddenStep(before, 'b\u007f');
     expect(before).toEqual({ buf: 'a', mode: 'text' });
   });
 });
 
-describe('loginReadHiddenStep — 이스케이프 시퀀스는 통째로 버린다', () => {
+describe('readHiddenStep — 이스케이프 시퀀스는 통째로 버린다', () => {
   it('CSI: ESC [ 파라미터·중간 … 최종. 방향키·Ctrl+방향키·Delete', () => {
     expect(feed(`${ESC}[A`)).toEqual({ buf: '', mode: 'text' });
     expect(feed(`${ESC}[1;5C`)).toEqual({ buf: '', mode: 'text' });
@@ -111,10 +111,10 @@ function fakeTty() {
   return { stdin, stdout };
 }
 
-describe('loginReadHidden — 래퍼', () => {
+describe('readHidden — 래퍼', () => {
   it('프롬프트만 찍고 입력은 찍지 않으며, 제출하면 buf 로 resolve 하고 raw 모드를 되돌린다', async () => {
     const tty = fakeTty();
-    const p = loginReadHidden('비밀번호: ', tty);
+    const p = readHidden('비밀번호: ', tty);
     tty.stdin.emit('data', 'se');
     tty.stdin.emit('data', `${ESC}OA`);
     tty.stdin.emit('data', 'cret\r');
@@ -126,10 +126,23 @@ describe('loginReadHidden — 래퍼', () => {
 
   it('Ctrl-C 면 reject 하고 raw 모드를 되돌린다', async () => {
     const tty = fakeTty();
-    const p = loginReadHidden('비밀번호: ', tty);
+    const p = readHidden('비밀번호: ', tty);
     tty.stdin.emit('data', 'ab\u0003');
     await expect(p).rejects.toThrow('취소');
     expect(tty.stdin.raw).toEqual([true, false]);
     expect(tty.stdout.out).not.toContain('ab');
+  });
+
+  it('같은 stdin 으로 두 번 이어 부를 수 있다(collect-blog 의 id·secret) — 앞 호출의 리스너가 남아 뒤 입력을 삼키지 않는다', async () => {
+    const tty = fakeTty();
+    const p1 = readHidden('ID: ', tty);
+    tty.stdin.emit('data', 'id\r');
+    await expect(p1).resolves.toBe('id');
+    const p2 = readHidden('SECRET: ', tty);
+    tty.stdin.emit('data', 'sec\r');
+    await expect(p2).resolves.toBe('sec');
+    expect(tty.stdout.out).toBe('ID: \nSECRET: \n');
+    expect(tty.stdin.raw).toEqual([true, false, true, false]);
+    expect(tty.stdin.listenerCount('data')).toBe(0);
   });
 });

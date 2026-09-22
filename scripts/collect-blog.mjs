@@ -1,18 +1,44 @@
 // 네이버 검색 오픈 API 로 제주 반려동반 관련 블로그 글 목록을 모아 blog_posts 에 upsert 한다(`pnpm data:collect`).
+// **사용자 터미널에서 돌린다** — 스케줄·CI 없이, 운영자가 `pnpm data:login` 한 세션으로만(ADR-016 v5). blog_posts 는 사용자가 돌릴 때만 찬다.
 // HTML 을 통째로 긁지 않는 이유 — 네이버 약관(HTML 크롤링 금지)과 저작권(ADR-002 와 같은 기준). 검색 API 는
 // 공식 · 하루 25,000회 무료이고 title·link·description·postdate 만 준다. **본문은 여기서도, DB 에도 저장하지 않는다** —
 // 03(분석) 이 링크를 열어 그 순간에만 읽고 버린다. docs/todo/02-collect-naver-blog.md 가 정본.
 import { readFile } from 'node:fs/promises';
+import { readHidden } from './lib/readHidden.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
 import { WINDOW_DAYS, dedupeByUrl, isWithinDays, parsePostdate, toBlogPostRow } from './collect/naverBlog.mjs';
 
-const { NAVER_CLIENT_ID, NAVER_CLIENT_SECRET } = process.env;
-if (!NAVER_CLIENT_ID || !NAVER_CLIENT_SECRET) {
-  console.error('NAVER_CLIENT_ID · NAVER_CLIENT_SECRET 이 필요합니다(GitHub Secrets 만). 로컬에서 돌릴 일이 있으면 그 셸에서만 env 로 넘긴다(docs/todo/05).');
-  process.exit(1);
-}
-
+// 세션 검사가 키 입력보다 먼저다 — 키 두 개를 치고 나서 "pnpm data:login" 으로 멈추면 헛수고라서.
 const supabase = createSupabase();
+
+// 네이버 검색 키(client id·secret)는 사용자가 로컬에서 직접 관리한다(ADR-016 v5) — 레포·키체인·파일 어디에도 없다.
+// env 로 받고, 없으면 터미널에서 숨김 입력으로 받는다. 받은 값은 이 프로세스 메모리에만 있고 로그·파일·키체인 어디에도 남기지 않는다 —
+// 저장하면 그 자리가 곧 유출 경로가 되고, 매번 치는 비용은 수집이 사용자가 돌릴 때만 도는 일이라 감수한다.
+// env 가 둘 다 있으면 그대로 쓴다(사용자가 셸에서 넘긴 것) — 에이전트 세션이라도 막지 않는다. 입력을 받는 경우에만 CLAUDECODE 를 거부한다(대화 기록에 실릴 수 있다).
+let { NAVER_CLIENT_ID: naverClientId, NAVER_CLIENT_SECRET: naverClientSecret } = process.env;
+if (!naverClientId || !naverClientSecret) {
+  if (process.env.CLAUDECODE) {
+    console.error('네이버 키는 에이전트 세션에서 입력하지 않는다 — 수집은 사용자 터미널에서 `pnpm data:collect`.');
+    process.exit(1);
+  }
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    console.error('NAVER_CLIENT_ID · NAVER_CLIENT_SECRET 을 env 로 넘기거나 터미널에서 실행(숨김 입력).');
+    process.exit(1);
+  }
+  // 예외로 빠져나가도 터미널이 raw 모드에 남지 않게(login.mjs 와 같다).
+  process.on('exit', () => { try { process.stdin.setRawMode(false); } catch { /* TTY 아님 */ } });
+  // 둘 중 하나만 env 에 있으면 없는 쪽만 묻는다.
+  try {
+    if (!naverClientId) naverClientId = await readHidden('NAVER_CLIENT_ID(숨김 입력): ');
+    if (naverClientId && !naverClientSecret) naverClientSecret = await readHidden('NAVER_CLIENT_SECRET(숨김 입력): '); // id 를 비웠으면 secret 은 묻지 않는다
+  } catch {
+    process.exit(130); // Ctrl-C/Ctrl-D — readHidden 이 reject 한다
+  }
+  if (!naverClientId || !naverClientSecret) {
+    console.error('네이버 키가 비었다.');
+    process.exit(1);
+  }
+}
 
 const ROOT = new URL('./', import.meta.url);
 const keywords = JSON.parse(await readFile(new URL('collect/keywords.json', ROOT), 'utf8'));
@@ -31,7 +57,7 @@ async function searchBlog(query, start) {
   url.searchParams.set('sort', 'date');
 
   const res = await fetch(url, {
-    headers: { 'X-Naver-Client-Id': NAVER_CLIENT_ID, 'X-Naver-Client-Secret': NAVER_CLIENT_SECRET },
+    headers: { 'X-Naver-Client-Id': naverClientId, 'X-Naver-Client-Secret': naverClientSecret },
   });
   if (!res.ok) throw new Error(`네이버 검색 API 실패: status=${res.status} query=${url.searchParams.get('query')}`);
   return res.json();

@@ -12,7 +12,7 @@ const expired = jwt({ sub: 'u1', exp: NOW - 10 });
 const PUB = 'sb_publishable_abcdefghijklmnop';
 const PINNED = projectUrl(PROJECT_REF);
 
-// 기본값: 키체인 없음 · 로컬(CI 아님) · link 일치 · publishable 키 있음.
+// 기본값: 키체인 없음 · env 비어 있음 · link 일치 · publishable 키 있음.
 const resolve = (over = {}) => resolveSupabaseCredentials({
   env: {},
   readSession: () => undefined,
@@ -43,36 +43,39 @@ describe('assertPublishableKey — 공개 상수 자리에 시크릿이 들어�
 });
 
 describe('resolveSupabaseCredentials — 출처', () => {
-  it('CI 의 service key 가 먼저다(세션이 있어도). URL 은 이 경로에서만 env 로 바꿀 수 있다', () => {
-    expect(resolve({ env: { CI: 'true', SUPABASE_SERVICE_ROLE_KEY: 'k' }, readSession: () => valid }))
-      .toEqual({ url: PINNED, key: 'k', source: 'service' });
-    expect(resolve({ env: { CI: '1', SUPABASE_URL: 'https://u', SUPABASE_SERVICE_ROLE_KEY: 'k' } }).url).toBe('https://u'); // Vercel 은 CI=1
+  it('service 키는 CI 든 아니든 거부한다 — v5 는 service 경로 자체가 없어 env 에 "있다" 가 곧 사고다. 세션이 유효해도 먼저 멈춘다', () => {
+    for (const ci of [{}, { CI: 'true' }, { CI: '1' }, { CI: 'false' }, { CI: 'true', GITHUB_ACTIONS: 'true' }]) {
+      const env = { ...ci, SUPABASE_SERVICE_ROLE_KEY: 'k' };
+      expect(() => resolve({ env, readSession: () => valid })).toThrow(/어디서도 쓰지 않는다.*pnpm data:login/s);
+      expect(() => resolve({ env })).toThrow(/SUPABASE_SERVICE_ROLE_KEY 가 있다/);
+    }
+    // 옛 "CI 에서만 쓴다" 예외는 사라졌다 — CI=1 한 줄로 트립와이어를 넘어갈 수 없다
+    expect(() => resolve({ env: { CI: '1', SUPABASE_SERVICE_ROLE_KEY: 'k' }, readSession: () => valid })).not.toThrow(/CI 에서만/);
   });
 
-  it('service key 경로는 publishable 키·link 상태와 무관하다(Actions 러너엔 둘 다 없다)', () => {
-    expect(resolve({ env: { CI: 'true', SUPABASE_SERVICE_ROLE_KEY: 'k' }, publishableKey: '', linkedRef: 'other' }).source).toBe('service');
-  });
-
-  it('readOnly 는 CI 에 service key 가 남아 있어도 anon 이다 — "빌드는 anon" 이 Vercel env 정리 순서에 기대지 않게', () => {
-    expect(resolve({ env: { CI: '1', SUPABASE_URL: 'https://u', SUPABASE_SERVICE_ROLE_KEY: 'k' }, readOnly: true }))
-      .toEqual({ url: PINNED, key: PUB, source: 'anon' });
+  it('readOnly + service 키 → anon(1b4264c 불변식) 이되 이름만 ignoredEnv 로 남긴다 — 조용히 넘기면 사고 감지가 사라진다', () => {
+    const SERVICE = 'sb_secret_should_never_appear';
+    for (const ci of [{}, { CI: '1' }, { CI: 'true', GITHUB_ACTIONS: 'true' }]) {
+      expect(resolve({ env: { ...ci, SUPABASE_SERVICE_ROLE_KEY: SERVICE }, readOnly: true }))
+        .toStrictEqual({ url: PINNED, key: PUB, source: 'anon', ignoredEnv: ['SUPABASE_SERVICE_ROLE_KEY'] });
+    }
+    expect(JSON.stringify(resolve({ env: { SUPABASE_SERVICE_ROLE_KEY: SERVICE }, readOnly: true }))).not.toContain(SERVICE); // 이름만, 값은 없다
+    // service 키가 없으면 필드 자체가 없다 — 평소 반환 객체는 그대로
+    expect(resolve({ readOnly: true })).toStrictEqual({ url: PINNED, key: PUB, source: 'anon' });
     expect(resolve({ env: { CI: 'true', GITHUB_ACTIONS: 'true' }, readOnly: true }).source).toBe('anon'); // 시크릿 없는 러너도 읽기는 된다
   });
 
-  it('로컬(CI 아님)에 service key 가 있으면 조용히 RLS 를 우회하지 않고 멈춘다 — 남은 .env.local 이 그 사고였다', () => {
-    expect(() => resolve({ env: { SUPABASE_SERVICE_ROLE_KEY: 'k' }, readSession: () => valid })).toThrow(/CI 에서만/);
-    expect(() => resolve({ env: { SUPABASE_SERVICE_ROLE_KEY: 'k' }, readOnly: true })).toThrow(/CI 에서만/);
-    expect(() => resolve({ env: { CI: 'false', SUPABASE_SERVICE_ROLE_KEY: 'k' } })).toThrow(/CI 에서만/);
+  it('GITHUB_ACTIONS=true 여도 세션이 없으면 로그인 안내다 — Actions 전용 문구(gh secret set)는 사라졌다', () => {
+    const env = { CI: 'true', GITHUB_ACTIONS: 'true' };
+    expect(() => resolve({ env })).toThrow(/로그인이 필요하다.*pnpm data:login/s);
+    expect(() => resolve({ env })).not.toThrow(/gh secret set|GitHub Secrets/);
+    expect(resolve({ env, readSession: () => valid }).source).toBe('session'); // 러너라는 이유로 세션을 거부하지도 않는다
   });
 
-  it('GitHub Actions 인데 service key 가 없으면 로그인 안내가 아니라 시크릿 이름을 말한다', () => {
-    expect(() => resolve({ env: { CI: 'true', GITHUB_ACTIONS: 'true' }, readSession: () => valid })).toThrow(/SUPABASE_SERVICE_ROLE_KEY/);
-    expect(() => resolve({ env: { CI: 'true', GITHUB_ACTIONS: 'true', SUPABASE_URL: 'https://u' } })).toThrow(/gh secret set/);
-  });
-
-  it('세션·anon 경로는 SUPABASE_URL env 를 무시한다 — 허용된 명령 한 줄로 JWT 를 다른 호스트에 보낼 수 없게', () => {
+  it('SUPABASE_URL env 는 어떤 경로에서도 무시된다 — 허용된 명령 한 줄로 JWT 를 다른 호스트에 보낼 수 없게. env 로 URL 을 받던 service 경로는 없다', () => {
     expect(resolve({ env: { SUPABASE_URL: 'https://attacker' }, readSession: () => valid }).url).toBe(PINNED);
     expect(resolve({ env: { SUPABASE_URL: 'https://attacker' }, readOnly: true }).url).toBe(PINNED);
+    expect(resolve({ env: { CI: '1', SUPABASE_URL: 'https://attacker', SUPABASE_SERVICE_ROLE_KEY: 'k' }, readOnly: true }).url).toBe(PINNED);
   });
 
   it('유효한 세션이 있으면 publishable 키 + accessToken(session)', () => {
@@ -94,7 +97,7 @@ describe('resolveSupabaseCredentials — 출처', () => {
     expect(() => resolve({ readSession: () => expired })).toThrow(/만료됐다.*pnpm data:login/s);
   });
 
-  it('만료 여유(skew) 안쪽은 세션으로 쓰지 않는다 — 20분짜리 분석이 중간에 401 로 죽지 않게', () => {
+  it('만료 여유(skew) 안쪽은 세션으로 쓰지 않는다 — 긴 분석이 중간에 401 로 죽지 않게(한 실행은 세션 창 안에)', () => {
     expect(() => resolve({ readSession: () => jwt({ sub: 'u1', exp: NOW + SESSION_EXP_SKEW_S - 1 }) })).toThrow(/세션으로 쓰지 않는다/);
     expect(() => resolve({ readSession: () => jwt({ sub: 'u1', exp: NOW + SESSION_EXP_SKEW_S }) })).toThrow(/세션으로 쓰지 않는다/);
     expect(resolve({ readSession: () => jwt({ sub: 'u1', exp: NOW + SESSION_EXP_SKEW_S + 1 }) }).source).toBe('session');
@@ -146,11 +149,16 @@ describe('resolveSupabaseCredentials — 출처', () => {
     expect(() => resolve({ publishableKey: 'sb_secret_abcdefghijklmnop', readOnly: true })).toThrow(/sb_publishable_/);
   });
 
-  it('안내 문구에 토큰·키 값이 실리지 않는다', () => {
+  it('안내 문구에 토큰·키 값이 실리지 않는다 — 트립와이어는 env 이름만 말한다', () => {
     let msg = '';
     try { resolve({ readSession: () => expired }); } catch (e) { msg = e.message; }
     expect(msg).not.toContain(expired);
     expect(msg).not.toContain(PUB);
+    const SERVICE = 'sb_secret_should_never_appear';
+    let trip = '';
+    try { resolve({ env: { SUPABASE_SERVICE_ROLE_KEY: SERVICE } }); } catch (e) { trip = e.message; }
+    expect(trip).toContain('SUPABASE_SERVICE_ROLE_KEY');
+    expect(trip).not.toContain(SERVICE);
   });
 });
 

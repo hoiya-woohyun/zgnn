@@ -6,7 +6,7 @@
 // 없어 중간에 죽으면 후보는 approved 로 남고 다음 실행이 다시 시도한다. 신규 insert 직후 후보에 match_place_id 를
 // 먼저 적어 두는 이유가 그것이다 — 그 뒤 단계에서 죽으면 재실행은 "보강" 경로로 가서 같은 가게를 두 번 만들지 않는다.
 // (insert 와 그 write-back 사이에서 죽는 창은 남는다 — 그때는 장소가 고아로 남고 재실행이 하나 더 만든다. Studio 에서 정리.)
-// 한 건이 실패해도 다음 건은 계속하고, 실패 수가 exit code 가 된다(Actions 로그가 곧 관측).
+// 한 건이 실패해도 다음 건은 계속하고, 실패 수가 exit code 가 된다(사용자 터미널의 로그가 곧 관측).
 //
 // 분석 때 '신규'(tier new) 였던 후보만 insert 전에 현재 places(archived 제외, 이 실행이 방금 만든 draft 포함)와 **다시 대조**한다 —
 // 같은 새 가게가 글 둘에서 따로 승인되면 분석 시점엔 서로 몰라 둘 다 '신규' 인데, 여기서 두 번째를 첫 번째로 합친다(toRecheckCandidate).
@@ -166,5 +166,5 @@ for (const candidate of candidates) {
 
 const prefix = dryRun ? '[dry-run] ' : '';
 console.log(`${prefix}반영 ${merged + created}건 (보강 ${merged} · 신규 ${created} · 실패 ${failed}${returned ? ` · pending 되돌림 ${returned}` : ''})`);
-// process.exit() 은 파이프로 나가던 stdout 을 잘라먹을 수 있다 — 요약 한 줄이 Actions 의 유일한 관측이라 자연 종료를 기다린다.
+// process.exit() 은 파이프로 나가던 stdout 을 잘라먹을 수 있다 — 요약 한 줄이 사용자가 보는 유일한 관측이라 자연 종료를 기다린다.
 process.exitCode = Math.min(failed, 255);

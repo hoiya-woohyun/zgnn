@@ -16,7 +16,12 @@ import { THRESHOLD, townOf } from './matchPlace.mjs';
  */
 export const AUTO_APPROVE = false;
 
-/** 한 실행에 읽는 미분석 글 수. 글 하나가 Claude 호출 한 번이라 Actions 의 timeout-minutes(30) 안에 끝나는 크기. */
+/**
+ * 한 실행에 읽는 미분석 글 수. 글 하나가 Claude 호출 한 번(수 초~수십 초)이고, 실행 전체가 운영자 세션 창 안에 끝나야 한다 —
+ * 세션은 `pnpm data:login` 의 JWT 라, 실효 창은 대시보드 JWT expiry 에서 supabaseClient 의 skew(30분)를 뺀 값이다:
+ * 기본 3600 이면 **30분**(50건이 넉넉히 들어간다고 장담 못 한다 — `--limit 30` 씩 나누거나 expiry 를 43200 으로), 43200 이면 11.5시간.
+ * 중간에 세션이 죽으면 그 글부터 DB 쓰기가 실패해 건너뛰고(analyzed_at 안 찍힘) 다음 실행이 이어 간다. 구독의 5시간 창도 같은 이유로 --limit 을 누른다.
+ */
 export const DEFAULT_LIMIT = 50;
 
 /** `--dry-run` · `--limit N`(또는 `--limit=N`). 모르는 인자나 1 미만의 limit 은 throw — 오타로 전체를 돌리는 일이 없게. */
@@ -141,7 +146,7 @@ export function formatCandidateLine(row, matchedName) {
   return `후보 ${name} (${type}) ${TIER_LABEL[match.tier]} ${match.confidence.toFixed(2)}${target} · ${match.reason}`;
 }
 
-/** 마지막 한 줄. Actions 로그에서 이 줄만 보면 된다. */
+/** 마지막 한 줄. 터미널에서 이 줄만 보면 된다. */
 export function formatSummary(stats, meterSummary, { dryRun } = {}) {
   const prefix = dryRun ? '[dry-run] ' : '';
   const dropped = stats.dropped ? ` · 분석불가 ${stats.dropped}` : '';

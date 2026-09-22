@@ -1,4 +1,5 @@
-// `pnpm data:login` 의 비밀번호 입력. raw 모드로 한 글자씩 받아 화면에 아무것도 찍지 않고, readline 의 비공개 API(_writeToOutput)에 기대지 않는다.
+// 터미널 숨김 입력. `pnpm data:login` 의 비밀번호와 `pnpm data:collect` 의 네이버 검색 키(env 가 없을 때) — 두 소유자라 owner-prefix 를 붙이지 않는다.
+// raw 모드로 한 글자씩 받아 화면에 아무것도 찍지 않고, readline 의 비공개 API(_writeToOutput)에 기대지 않는다. 받은 값은 호출자에게 돌려줄 뿐 어디에도 남기지 않는다.
 // 키 하나가 여러 바이트로 오는 것(방향키·F1~F4·Alt+키)을 버리는 규칙이 핵심이다 — 섞이면 "틀린 비밀번호" 가 된다. 그 규칙은 순수 리듀서로 떼어
 // 테스트하고(login.mjs 는 TTY 가드 때문에 import 하면 exit 한다), 터미널을 만지는 부분은 얇은 래퍼로 둔다.
 
@@ -14,11 +15,11 @@
 const isFinal = (c) => c >= 0x40 && c <= 0x7e;
 const isCsiBody = (c) => c >= 0x20 && c <= 0x3f; // 파라미터(0x30–0x3F)·중간(0x20–0x2F)
 
-export const loginReadHiddenInit = Object.freeze({ buf: '', mode: 'text' });
+export const readHiddenInit = Object.freeze({ buf: '', mode: 'text' });
 
 // 순수 리듀서: (state, chunk) → 새 state. state = { buf, mode: 'text'|'esc'|'csi'|'ss3', done?: 'submit'|'cancel' }. done 뒤의 입력은 무시.
 // Ctrl-C/Ctrl-D 는 mode 와 무관하게 취소한다 — 시퀀스 도중이라고 사용자를 가두지 않는다.
-export function loginReadHiddenStep(state, chunk) {
+export function readHiddenStep(state, chunk) {
   if (state.done) return state;
   let { buf, mode } = state;
   for (const ch of chunk) {
@@ -48,15 +49,15 @@ export function loginReadHiddenStep(state, chunk) {
 }
 
 // 터미널 래퍼. stdin/stdout 을 주입할 수 있어 가짜 스트림으로도 돈다. raw 모드는 끝나는 두 경로(제출·취소) 모두에서 되돌린다.
-export function loginReadHidden(prompt, { stdin, stdout } = process) {
+export function readHidden(prompt, { stdin, stdout } = process) {
   return new Promise((resolve, reject) => {
     stdout.write(prompt);
     stdin.setRawMode(true);
     stdin.resume();
     stdin.setEncoding('utf8');
-    let state = loginReadHiddenInit;
+    let state = readHiddenInit;
     const onData = (chunk) => {
-      state = loginReadHiddenStep(state, chunk);
+      state = readHiddenStep(state, chunk);
       if (!state.done) return;
       stdin.setRawMode(false);
       stdin.pause();

@@ -28,7 +28,7 @@ function fail(what, r, scrub = '') {
 // 저장된 토큰 또는 undefined(없음·macOS 가 아님). 다른 실패는 throw — 잠긴 키체인 같은 상태를 "로그인 안 됨" 으로 오진하지 않게.
 export function readSession({ run = runSecurity } = {}) {
   const r = run(['find-generic-password', '-s', SERVICE, '-a', ACCOUNT, '-w']);
-  if (r.error?.code === 'ENOENT') return undefined; // Linux 러너(Actions·Vercel) — 거기선 env 나 publishable 경로를 쓴다
+  if (r.error?.code === 'ENOENT') return undefined; // Linux 러너(Vercel 빌드) — 거기선 anon(publishable) 경로를 쓴다
   if (r.status === 44) return undefined; // errSecItemNotFound
   if (r.status !== 0) fail('키체인을 읽지 못했다', r);
   return r.stdout.trim() || undefined;

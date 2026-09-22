@@ -4,7 +4,7 @@
 // refresh token 은 버린다(무료 플랜엔 세션 타임박스가 없어 저장하면 영구 로그인이 된다). "하루 한 번 로그인" 이 요구사항이다.
 import { createInterface } from 'node:readline/promises';
 import { createClient } from '@supabase/supabase-js';
-import { loginReadHidden } from './lib/loginReadHidden.mjs';
+import { readHidden } from './lib/readHidden.mjs';
 import { writeSession } from './lib/sessionKeychain.mjs';
 import {
   PROJECT_REF, PUBLISHABLE_KEY, SESSION_EXP_SKEW_MIN, formatTime, jwtExpiresAt, projectUrl, sessionTtlProblem, sessionUsableUntil,
@@ -23,7 +23,7 @@ if (!PUBLISHABLE_KEY) {
   process.exit(1);
 }
 
-// 비밀번호 입력(raw 모드·화면에 안 찍음)은 lib/loginReadHidden.mjs — 이 파일은 TTY 가드 때문에 import 할 수 없어 테스트가 거기 붙는다.
+// 비밀번호 입력(raw 모드·화면에 안 찍음)은 lib/readHidden.mjs — 이 파일은 TTY 가드 때문에 import 할 수 없어 테스트가 거기 붙는다.
 // 예외로 빠져나가도 터미널이 raw 모드에 남지 않게.
 process.on('exit', () => { try { process.stdin.setRawMode(false); } catch { /* TTY 아님 */ } });
 
@@ -36,7 +36,7 @@ if (!email) {
 }
 let password;
 try {
-  password = await loginReadHidden('비밀번호: ');
+  password = await readHidden('비밀번호: ');
 } catch {
   process.exit(130);
 }

@@ -210,7 +210,9 @@ describe('parseExtraction — result 객체 → places', () => {
       expect(e.code).toBe('auth');
       expect(isFatal(e)).toBe(true);
       expect(isRetryable(e)).toBe(false);
-      expect(e.message).toContain('CLAUDE_CODE_OAUTH_TOKEN');
+      // 운영자가 할 일(로컬 `claude` 로그인)을 말한다 — 토큰 env 는 없다(ADR-016).
+      expect(e.message).toContain('로그인');
+      expect(e.message).not.toContain('CLAUDE_CODE_OAUTH_TOKEN');
     }
   });
 
@@ -394,12 +396,13 @@ describe('runClaudeCli — 자식 프로세스', () => {
     }
   });
 
-  it('자식 env 는 허용 목록 — 이름을 모르는 시크릿도 넘어가지 않고, CLAUDECODE 도 빠진다', async () => {
-    const env = { PATH: process.env.PATH, HOME: '/h', CLAUDE_CODE_OAUTH_TOKEN: 't', CLAUDECODE: '1', SUPABASE_SERVICE_ROLE_KEY: 's', POSTGRES_URL: 'p', VERCEL_TOKEN: 'v', GH_TOKEN: 'g' };
-    expect(claudeChildEnv(env)).toEqual({ PATH: process.env.PATH, HOME: '/h', CLAUDE_CODE_OAUTH_TOKEN: 't' });
+  it('자식 env 는 허용 목록 — 이름을 모르는 시크릿도, 옛 Actions 토큰(CLAUDE_CODE_OAUTH_TOKEN)·CI 표시도 넘어가지 않고, CLAUDECODE 도 빠진다', async () => {
+    // CLAUDE_CODE_OAUTH_TOKEN 을 일부러 입력에 남겨 둔다 — 허용 목록에서 빠졌음을(넘어가지 않음을) 단언하는 쪽이 더 강하다(ADR-016 · 로컬 `claude` 로그인만).
+    const env = { PATH: process.env.PATH, HOME: '/h', CLAUDE_CODE_OAUTH_TOKEN: 't', CI: 'true', GITHUB_ACTIONS: 'true', CLAUDECODE: '1', SUPABASE_SERVICE_ROLE_KEY: 's', POSTGRES_URL: 'p', VERCEL_TOKEN: 'v', GH_TOKEN: 'g' };
+    expect(claudeChildEnv(env)).toEqual({ PATH: process.env.PATH, HOME: '/h' });
     const out = await runClaudeCli(nodeScript('process.stdout.write(JSON.stringify({keys: Object.keys(process.env).sort()}))'), '', { bin: 'node', env });
     // macOS 가 자식마다 __CF_USER_TEXT_ENCODING 을 끼워 넣는다 — 우리가 넘긴 것만 본다.
-    expect(JSON.parse(out).keys.filter((k) => !k.startsWith('__'))).toEqual(['CLAUDE_CODE_OAUTH_TOKEN', 'HOME', 'PATH']);
+    expect(JSON.parse(out).keys.filter((k) => !k.startsWith('__'))).toEqual(['HOME', 'PATH']);
   });
 
   it('JSON 앞에 다른 줄(경고)이 섞여도 첫 { 부터 돌려준다', async () => {

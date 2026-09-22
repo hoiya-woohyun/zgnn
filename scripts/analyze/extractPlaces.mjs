@@ -1,10 +1,10 @@
 // 블로그 본문 하나 → Claude 가 뽑은 장소·이용 조건 목록. I/O 는 주입받은 run(claude -p 실행기) 뿐이라 테스트는 가짜 run 으로 돈다
 // (extractPlaces.test.mjs). 본문을 받아 오는 것은 naverPostBody.mjs, 기존 장소와 대조는 matchPlace.mjs 의 일이다.
 //
-// 왜 API SDK 가 아니라 `claude -p` 인가 — Claude 구독(setup-token)으로 돌리기로 했다(docs/todo/03). 구독 OAuth 토큰은
+// 왜 API SDK 가 아니라 `claude -p` 인가 — Claude 구독으로 돌리기로 했다(docs/todo/03). 구독 OAuth 토큰은
 // Claude Code 전용이라 Messages API 에는 못 쓴다. 그래서 헤드리스 CLI 를 자식 프로세스로 부르고 결과 JSON 을 읽는다.
-// 인증은 로컬에선 이미 로그인된 `claude`, Actions 에선 `CLAUDE_CODE_OAUTH_TOKEN`(`claude setup-token` 으로 발급) 이다 —
-// 코드에는 키가 없다. 대신 세션 한도(5시간 창)를 대화와 공유하므로 대량 처리는 --limit 로 나눠 돈다.
+// 인증은 이 머신에 로그인된 `claude`(키체인) 뿐이다 — 토큰 env 도, 코드의 키도 없다(ADR-016 · 실행은 사용자 로컬 세션에서만).
+// 대신 세션 한도(5시간 창)를 대화와 공유하므로 대량 처리는 --limit 로 나눠 돈다.
 //
 // 왜 이렇게 생겼나 —
 //  - 시스템 프롬프트는 고정 문자열(--system-prompt 로 Claude Code 기본 프롬프트를 **대체**)이고 본문은 stdin 으로 넘긴다.
@@ -195,7 +195,7 @@ function classifyCliError(result) {
   const text = errorText(result);
   const subtype = result.subtype ?? '?';
   if (status === 401 || status === 403 || AUTH_RE.test(text)) {
-    return new ClaudeCliError('auth', `claude 인증 실패 — 로컬은 \`claude\` 로그인, Actions 는 CLAUDE_CODE_OAUTH_TOKEN: ${text}`, { fatal: true, status });
+    return new ClaudeCliError('auth', `claude 인증 실패 — 이 머신에서 \`claude\` 로그인이 필요하다: ${text}`, { fatal: true, status });
   }
   if (status === 429 || (status != null && status >= 500) || LIMIT_RE.test(text)) {
     return new ClaudeCliError('limit', `claude 한도·서버 오류(다음 실행에 재시도): ${text}`, { retryable: true, status });
@@ -238,11 +238,12 @@ export function parseExtraction(result) {
  * stderr 는 로그에 남기지 않는다(앞 160자만 에러 메시지에). CLAUDECODE 는 빼고 넘긴다 — 대화형 세션 안에서 돌릴 때 중첩 표시.
  */
 // `claude` 자식에 넘기는 env 는 허용 목록이다 — 거부 목록은 아직 이름이 없는 시크릿(POSTGRES_URL·VERCEL_TOKEN·GH_TOKEN…)을 못 거른다(리뷰 지적).
-// 프로세스·로케일·네트워크 경로(프록시·CA)·CLI 자신의 설정 위치·인증·모델 선택만. CLAUDECODE 는 일부러 뺀다 — 대화형 세션 안에서 돌릴 때 중첩 표시.
+// 프로세스·로케일·네트워크 경로(프록시·CA)·CLI 자신의 설정 위치·모델 선택만. 인증 토큰 env 는 넘기지 않는다 — 인증은 HOME 의 키체인 로그인이
+// 전부다(ADR-016 · 로컬 실행만). CLAUDECODE 는 일부러 뺀다 — 대화형 세션 안에서 돌릴 때 중첩 표시.
 const CLAUDE_CHILD_ENV_KEEP = [
   'PATH', 'HOME', 'USER', 'SHELL', 'TERM', 'TMPDIR', 'LANG', 'LC_ALL', 'LC_CTYPE', 'TZ',
   'HTTP_PROXY', 'HTTPS_PROXY', 'NO_PROXY', 'http_proxy', 'https_proxy', 'no_proxy', 'SSL_CERT_FILE', 'NODE_EXTRA_CA_CERTS',
-  'XDG_CONFIG_HOME', 'CLAUDE_CONFIG_DIR', 'CLAUDE_CODE_OAUTH_TOKEN', 'ANALYZE_MODEL', 'CI', 'GITHUB_ACTIONS',
+  'XDG_CONFIG_HOME', 'CLAUDE_CONFIG_DIR', 'ANALYZE_MODEL',
 ];
 export function claudeChildEnv(env) {
   return Object.fromEntries(CLAUDE_CHILD_ENV_KEEP.filter((k) => env[k] !== undefined).map((k) => [k, env[k]]));

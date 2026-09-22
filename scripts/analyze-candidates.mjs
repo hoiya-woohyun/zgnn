@@ -17,7 +17,7 @@
 //    고장 난 것(에디터 구조 변경 · 차단 페이지가 200 으로 옴)이라 아무것도 닫지 않고 exit 1(리뷰 지적). 시도한 글 중 성공이 0 이면 exit 1.
 //  - 같은 글의 후보는 insert 한 번에 넣는다(PostgREST 의 한 요청 = 한 문장이라 원자적). insert 와 analyzed_at 사이에서 죽으면
 //    다음 실행이 그 글의 후보를 한 번 더 만든다 — 창은 작고, Studio 에서 보인다.
-//  - Claude 는 API SDK 가 아니라 `claude -p`(구독, setup-token) 로 부른다 — extractPlaces.mjs 머리 주석. 인증 실패·CLI 없음 같은
+//  - Claude 는 API SDK 가 아니라 `claude -p`(구독, 로컬 `claude` 로그인) 로 부른다 — extractPlaces.mjs 머리 주석. 인증 실패·CLI 없음 같은
 //    fatal 은 나머지 글도 전부 같은 이유로 실패하므로 루프를 끊고 exit 1. 한도(429·session limit)는 글 단위 건너뜀 → 다음 실행.
 //  - 재시도는 CLI 에 맡긴다. 여기서 한 번 더 돌면 실패 한 건에 호출이 배가 된다.
 //  - 같은 실행 안에서 같은 이름의 신규 후보가 두 번 나와도 둘 다 넣는다(두 번째가 첫 번째를 가리키게 하지 않는다). 로그에만
@@ -51,7 +51,7 @@ const { limit, dryRun } = args;
 console.log(dryRun ? '모드: dry-run — DB 에 쓰지 않는다(Claude 는 부른다)' : '모드: 분석 — candidates · blog_posts.analyzed_at 에 쓴다');
 
 const { KAKAO_REST_API_KEY } = process.env;
-// Claude 인증은 env 로 검사하지 않는다 — 로컬은 `claude` 의 키체인 로그인, Actions 는 CLAUDE_CODE_OAUTH_TOKEN 이고 둘 다 CLI 가 읽는다.
+// Claude 인증은 env 로 검사하지 않는다 — 이 머신에 로그인된 `claude`(키체인)를 CLI 가 스스로 읽는다. 토큰 env 는 없다(ADR-016).
 // 안 돼 있으면 첫 글에서 ClaudeCliError(auth, fatal) 가 나와 루프가 끊긴다.
 // 좌표 보강은 선택이다 — 키가 없으면 후보는 좌표·주소 없이 들어가고, matchPlace 는 이름·종류만으로 대조한다(감점 없음).
 if (!KAKAO_REST_API_KEY) console.log('KAKAO_REST_API_KEY 없음 — 좌표·주소 보강을 건너뛴다');
