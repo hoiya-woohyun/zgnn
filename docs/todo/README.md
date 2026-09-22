@@ -10,7 +10,7 @@
 > 이전 (v3: 0·1·2·5 에 실제 코드가 생겨 진행 상태를 항목별로 쪼갬. 세션 로그 절 추가)
 > 이전 (v2: 가정 두 개가 확정돼 ADR-015 로 옮김. 회원은 todo 범위 밖으로)
 > 이전 (v1: 신설 — 5단계 파이프라인의 실행 트래커)
-> 상태: **진행 중**. 0·1·2·3·5 는 코드가 있고 4a(빌드가 DB 를 읽음)도 끝났다. 시크릿 모델은 ADR-016 v4(Auth 로그인)로 **구현 완료**. 남은 것은 **사용자 몫 세 가지(publishable 키·대시보드·회전) → 연결 확인 → 키 등록 → 실제 실행**과 4b(웹훅 재빌드). 각 항목의 `[ ]` 를 채워 가며 진행하고, 결정이 확정되면 ADR 로 옮기고 여기서는 링크만 남긴다.
+> 상태: **진행 중**. 0·1·2·3·5 는 코드가 있고 4a(빌드가 DB 를 읽음)도 끝났다. 시크릿 모델은 ADR-016 v4(Auth 로그인)로 **구현·실측 완료**, `main` 에 머지됨. Vercel 은 연동·env 없이 공개값 둘로만 빌드한다(실측). 남은 것은 **사용자 몫(Supabase 키 회전·대시보드 3개·로그아웃 3개) → Actions 경로 결정(🙋 2) → 키 등록 → 실제 실행**과 4b(웹훅 재빌드). 각 항목의 `[ ]` 를 채워 가며 진행하고, 결정이 확정되면 ADR 로 옮기고 여기서는 링크만 남긴다.
 
 ## 목표
 
@@ -129,7 +129,8 @@ flowchart LR
    - (b) 보류 항목 GRANT 회수·`for all` 축소는 (a)·(c) 어느 쪽이든 같이 한다.
 3. **배포 확인(Claude)** — ~~self-cr → push~~(2026-09-22 완료. self-cr major 1 반영: `readOnly` 는 CI 에 service 키가 남아 있어도 anon — "빌드는 anon" 이 env 정리
    순서가 아니라 코드 불변식이 됐다) → ~~Preview 빌드 로그가 `publishable(anon)` 인지~~(2026-09-22 (2) 실측: 커밋 `1b4264c` Preview 가 `publishable(anon)` 으로 86·15 행,
-   Preview env 에 `SUPABASE_SERVICE_ROLE_KEY` 가 남아 있는 상태에서) → 1 의 Vercel 정리 → `main` 머지 → 프로덕션 확인.
+   Preview env 에 `SUPABASE_SERVICE_ROLE_KEY` 가 남아 있는 상태에서) → ~~1 의 Vercel 정리 → `main` 머지 → 프로덕션 확인~~ **전부 완료**(2026-09-22 (2): `main` `63abb90` 프로덕션 Ready,
+   Vercel env 0개·연동 없음 상태에서 `publishable(anon)` 86·15, 유출 검사 통과). 이 항목은 닫혔다 — 남은 Claude 몫은 2 의 결정 뒤 5~8.
    ~~self-cr 미반영(minor)~~ 4건 전부 반영(2026-09-22 (2)): `readHidden` 을 `scripts/lib/loginReadHidden.mjs` 순수 리듀서로 분리(CSI·SS3·단독 ESC·Alt+키·겹친 Meta `ESC ESC [ A`) ·
    `writeSession` 은 3세그먼트 JWT 문자열만 · `sessionKeychain` 은 `run` 주입으로 테스트 · 만료 문구가 "진짜 만료" 와 "skew 창 안(만료 N분 전)" 을 나눠 말하고 로그인 완료 문구에 실효 시각.
 4. **키 → GitHub Secrets(사용자, 2 가 (a) 일 때)** — `gh auth switch` 뒤 `gh secret set NAME`: 봇 계정 2개 · `claude setup-token` → `CLAUDE_CODE_OAUTH_TOKEN` ·
@@ -148,7 +149,9 @@ flowchart LR
   `pull 완료: places 86 · items 15` — service 키가 env 에 있어도 anon, 코드 불변식 실측. (3) self-cr minor 4건을 워크플로(구현 → 3렌즈 리뷰 → 지적마다 반박 2표 →
   반영 → 최종 검증, 에이전트 20)로 반영: 리뷰 7건 중 6건 확인·반영(그중 실질은 겹친 Meta 접두 `ESC ESC [ A` 회귀 1건 — 옛 코드는 맞았다), 1건(비문자열 토큰의
   `toString` 재호출)은 표가 갈려 메인이 `typeof` 한 줄로 닫음. 테스트 411 → 440. (4) 사용자 질문 "연동이 편의성 아닌가" → 이 프로젝트가 쓰는 연동 기능이 0(env 주입·
-  Redirect URL·청구·Branching 전부 미사용)이고 넣는 값은 전부 만료 없는 우회 키라 제거로 재확인. 다음: 커밋·push → 사용자의 1(Vercel 정리)·2(Actions 결정) → `main` 머지.
+  Redirect URL·청구·Branching 전부 미사용)이고 넣는 값은 전부 만료 없는 우회 키라 제거로 재확인. (5) 사용자가 연동 해제 → 마켓플레이스 변수 12개 소멸, 손으로 넣은 3개는
+  Claude 가 `vercel env rm`(값 노출 없음) → `No Environment`. `main` ff 머지(`541c3ae..63abb90`) → 프로덕션 Ready, anon 86·15. **다음 할 일 3 닫힘.** 남은 사용자 몫: JWT 서명키 회전 ·
+  secret key 재발급+legacy 폐기 · 대시보드 3개 · `vercel`/`gh`/SSH 잠금 · 🙋 2(Actions 경로).
 
 - 2026-09-21 (4) ~ 09-22 — **RLS 실측 완료·원칙 확정**. (1) 사용자가 publishable 키를 줌 → `PUBLISHABLE_KEY` 채움 → `data:pull` 이 anon 으로 86·15 행(PostgREST 첫 통과).
   (2) 계정 2개(`zgnn@gmail.com` 운영자 · `zgnn-test@gmail.com` 비운영자) → `operators` insert(운영자만) → `data:apply --dry-run` 3라운드: 세션 없음 exit 1 · 비운영자
