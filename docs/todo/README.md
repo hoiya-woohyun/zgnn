@@ -69,8 +69,9 @@ flowchart LR
     - [x] `PUBLISHABLE_KEY` 상수 채움(2026-09-21 (4)) → `pnpm data:pull` 이 **PostgREST 의 anon 경로**로 86·15 행, diff 없음 — anon 정책은 실측됐다
     - [x] `operators` insert(`zgnn@gmail.com` 만 — `zgnn-test@gmail.com` 은 비운영자 역할로 밖에 둔다) · **RLS 를 PostgREST 로 실측**(2026-09-21 (4), `data:apply --dry-run`):
       세션 없음 → 로그인 안내 exit 1 · 비운영자 → `places 가 비어 있다` exit 1 · 운영자 → `반영 0건` exit 0. 세 결과가 갈렸으므로 이제 추론이 아니다
-    - [ ] 대시보드: 회원가입 off · Secure password change on 은 확인 필요. **JWT expiry 는 기본 3600 유지로 사용자 결정** — 코드의 30분 skew 때문에
-      로그인 뒤 **30분**만 세션으로 쓸 수 있다(ADR-016 은 ≥ 8시간 전제). 긴 `data:analyze` 를 돌리기 전에 43200 으로 올리거나 skew 를 줄이는 결정이 남았다 · ~~Vercel env 삭제~~(완료)
+    - [x] 대시보드(2026-09-22 (3) 사용자 완료 보고): 회원가입 off · Secure password change on · legacy JWT secret 퇴역(Migrate → Rotate → legacy API keys disable → Revoke).
+      퇴역 뒤 anon `data:pull` 86·15 diff 없음 실측. JWT expiry 값은 다음 `pnpm data:login` 의 만료 문구로 확인. (옛 메모: **JWT expiry 는 기본 3600 유지로 사용자 결정** — 코드의 30분 skew 때문에
+      로그인 뒤 **30분**만 세션으로 쓸 수 있다(ADR-016 은 ≥ 8시간 전제). 긴 `data:analyze` 를 돌리기 전에 43200 으로 올리거나 skew 를 줄이는 결정이 남았다) · ~~Vercel env 삭제~~(완료)
   - [ ] Vercel Deploy Hook(4b)
 - [x] 1 스키마 + RLS + 시드 + `scripts/pull-db.mjs` (시드→pull 왕복, `git diff src/data` 빈 결과로 확인)
 - **2** 수집
@@ -112,7 +113,7 @@ flowchart LR
         A 면 Vercel 프로젝트 Settings 에서 **Disconnect project 만**, 리소스·연동 삭제는 누르지 않는다. B(Supabase 쪽 Integrations → Vercel)면 거기서 연결 해제.
      2. ~~`vercel env ls`~~(완료 — 손으로 넣었던 3개는 Claude 가 `vercel env rm` 으로, 값 노출 없음. 지금 `No Environment`) `vercel env ls`(이름만 나온다)로 남은 `SUPABASE_*`·`POSTGRES_*` 를 보고 `vercel env rm <NAME> production` / `preview` 로 전부 제거. 손으로 넣었던 `SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY` 포함.
      3. 끝나면 `vercel logout`(휴지). 배포 확인 때만 로그인.
-   - **Supabase legacy secret 퇴역**(2026-09-22 (3) 정정 — "JWT secret 회전" 버튼은 없다. 지금 Supabase 는 JWT 서명키 시스템이라 legacy HS256 secret 은
+   - ~~**Supabase legacy secret 퇴역**~~(2026-09-22 (3) 사용자 완료 · 퇴역 뒤 anon pull 실측 OK)(정정 — "JWT secret 회전" 버튼은 없다. 지금 Supabase 는 JWT 서명키 시스템이라 legacy HS256 secret 은
      회전이 아니라 **퇴역**시킨다. 옛 todo 의 "JWT 서명키 회전" 과 "새 secret key + legacy service_role 폐기" 는 이 절차 하나다. 공식 docs `guides/auth/signing-keys`):
      Project Settings → **JWT Keys**(`/settings/jwt`) → ① **Migrate JWT secret** → ② standby 키(ECC P-256) 만들고 **Rotate keys** → ③ Settings → **API Keys** 에서 legacy
      `anon`·`service_role` **disable**(둘은 legacy secret 으로 서명된 JWT 라 먼저 꺼야 한다) → ④ JWT Keys 의 "previously used" legacy 키 **Revoke**.
@@ -122,7 +123,7 @@ flowchart LR
    - **`supabase` CLI**: 휴지 = 로그아웃(2026-09-22 확인됨). 스키마 작업 때만 `pnpm exec supabase login`, 끝나면 logout.
    - **`gh` · SSH**: `gh auth logout -u hoiya-woohyun` · `ssh-keygen -p -f ~/.ssh/id_ed25519_hoiya`(암호구). push·시크릿 등록 때만 연다. Free private 레포는 브랜치 보호가
      안 되므로 **이것이 "에이전트가 빌드·Actions 를 트리거할 수 없다" 를 만드는 유일한 문**이다.
-   - **대시보드 확인**: Sign In / Providers → Allow new users to sign up **off** · Email → Secure password change **on**. JWT expiry 는 기본 3600 유지(사용자 결정) —
+   - ~~**대시보드 확인**~~(2026-09-22 (3) 완료): Sign In / Providers → Allow new users to sign up **off** · Email → Secure password change **on**. JWT expiry 는 기본 3600 유지(사용자 결정) —
      코드의 30분 skew 와 합치면 로그인 뒤 **30분**만 세션으로 쓸 수 있다. 5 의 `data:analyze` 를 돌리기 전에 Sessions 에서 `43200` 으로 올리는 것을 권한다(≤1일이라 원칙 안).
 2. 🙋 **GitHub Actions 경로 결정(사용자)** — 원칙을 적용하면 `SUPABASE_SERVICE_ROLE_KEY` 는 Actions 에도 둘 수 없다(워크플로 수정 push + `workflow_dispatch` 로 읽힌다).
    나머지 시크릿(`CLAUDE_CODE_OAUTH_TOKEN`·`NAVER_*`·`KAKAO_REST_API_KEY`)도 같은 경로로 읽히며, 특히 `CLAUDE_CODE_OAUTH_TOKEN` 은 구독 계정 토큰이다. 선택지:
