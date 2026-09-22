@@ -21,8 +21,8 @@ Tailwind v4 + Untitled UI · zustand persist · leaflet. 데이터는 빌드 시
 | 색·토큰·팔레트 | [docs/decisions/ADR-003-untitled-ui-and-palette.md](docs/decisions/ADR-003-untitled-ui-and-palette.md) · `src/styles/theme.css` |
 | 크기 스케일·반응형·글꼴 | [docs/decisions/ADR-006-responsive-scale-and-font.md](docs/decisions/ADR-006-responsive-scale-and-font.md) · `src/styles/globals.css` |
 | 회원·로그인·개인정보를 붙이려 함 | [docs/decisions/ADR-011-app-gate-and-supabase.md](docs/decisions/ADR-011-app-gate-and-supabase.md) · [ADR-012](docs/decisions/ADR-012-personal-data-and-consent.md) — **둘 다 제안 단계라 코드에 대응물이 없다** |
-| 블로그 수집·AI 분석·승인·Supabase·Vercel 배포 | [docs/todo/README.md](docs/todo/README.md)(진행 트래커) · [docs/architecture/data-pipeline.md](docs/architecture/data-pipeline.md) · 결정은 [ADR-015](docs/decisions/ADR-015-supabase-source-and-rebuild.md)(원본=Supabase, 반영=재빌드, 회원은 범위 밖). 코드는 `scripts/collect*`·`scripts/analyze*`·`scripts/apply-approved.mjs`·`.github/workflows/collect.yml` — **Claude 는 구독(`claude -p`)으로 부른다, API 키 아님** |
-| 시크릿·API 키·`.env.local`·`pnpm data:login` | [ADR-016](docs/decisions/ADR-016-secrets-by-login.md) · `scripts/lib/supabaseClient.mjs` · `scripts/login.mjs` — **값을 저장하지 않는다**. 운영자가 `pnpm data:login` 한 짧은 세션(JWT)으로 RLS 안에서 쓰고, 만료면 멈춘다. 레포에 env 파일은 없다(`.env.local` 은 선택) |
+| 블로그 수집·AI 분석·승인·Supabase·Vercel 배포 | [docs/todo/README.md](docs/todo/README.md)(진행 트래커) · [docs/architecture/data-pipeline.md](docs/architecture/data-pipeline.md) · 결정은 [ADR-015](docs/decisions/ADR-015-supabase-source-and-rebuild.md)(원본=Supabase, 반영=재빌드, 회원은 범위 밖). 코드는 `scripts/collect*`·`scripts/analyze*`·`scripts/apply-approved.mjs` — **`pnpm data:*` 는 사용자 터미널에서 돈다(스케줄·Actions 없음), Claude 는 구독(`claude -p`)으로 부른다, API 키 아님** |
+| 시크릿·API 키·`.env.local`·`pnpm data:login` | [ADR-016](docs/decisions/ADR-016-secrets-by-login.md) · `scripts/lib/supabaseClient.mjs` · `scripts/login.mjs` — **값을 저장하지 않는다**. 운영자가 `pnpm data:login` 한 짧은 세션(JWT)으로 RLS 안에서 쓰고, 만료면 멈춘다. 인증 출처는 세션·anon 둘뿐(service 키는 env 에 있어도 쓰기 스크립트가 멈춘다). 네이버 키는 사용자 로컬 관리(env 또는 TTY 숨김 입력) — `data:collect` 는 사용자 터미널 몫. 레포에 env 파일은 없다(`.env.local` 은 선택) |
 | "왜 이렇게 했나" | [docs/decisions/](docs/decisions/) (ADR 16편) · 전체 지도는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 
 탐색 전에 위 표를 먼저 본다. 전체 구조가 필요하면 `docs/ARCHITECTURE.md` 하나만 읽으면 된다.
@@ -80,10 +80,10 @@ Tailwind v4 + Untitled UI · zustand persist · leaflet. 데이터는 빌드 시
 
 ## 작성 규칙
 
-- **시크릿 값은 읽지도 찍지도 않는다**(ADR-016 v4). 로컬엔 장기 키가 없다 — `pnpm data:*` 는 운영자가 별도 터미널에서 `pnpm data:login` 한 짧은 세션(키체인)으로 붙고,
+- **시크릿 값은 읽지도 찍지도 않는다**(ADR-016 v5). 로컬엔 장기 키가 없다 — `pnpm data:*` 는 운영자가 별도 터미널에서 `pnpm data:login` 한 짧은 세션(키체인)으로 붙고,
   세션이 없거나 만료면 "pnpm data:login" 으로 멈춘다. **그때는 사용자에게 로그인을 요청하고 기다린다** — `pnpm data:login` 은 에이전트가 부를 수 없다(TTY 가드).
-  값이 필요해 보이면 값 없이 되는 검사로 바꾼다(`pnpm data:pull` 의 exit 0, `gh secret list` 의 이름). GitHub 에 넣는 건 사용자가 터미널 프롬프트로
-  (`gh secret set NAME`). `supabase projects api-keys`·`security find-generic-password`·`vercel env pull` 금지 — `.claude/settings.json` 의 deny 는 사고 방지 장치지
+  값이 필요해 보이면 값 없이 되는 검사로 바꾼다(`pnpm data:pull` 의 exit 0, `gh secret list` 의 이름). GitHub Secrets 는 0개가 목표라 넣을 것이 없다 —
+  남은 이름 삭제는 `gh secret list` 로 보고 `gh secret delete`(이름만). `supabase projects api-keys`·`security find-generic-password`·`vercel env pull` 금지 — `.claude/settings.json` 의 deny 는 사고 방지 장치지
   경계가 아니다(경계는 "값이 파일에 없다 · exp ≤ 1일 · RLS 범위"). `supabase` CLI 는 휴지 상태가 로그아웃이라 `db push`·`db query` 가 안 되면 사용자에게 로그인을 요청한다.
 - **뒤로가기는 화면이 아니라 셸이 붙인다.** 새 화면에 `AppBar` 를 직접 달지 않는다 —
   탭바에 넣을 화면이면 `src/lib/appRoutes.ts` 의 `ROOT_ROUTES` 에 한 줄 더하고, 아니면 아무것도 안 한다.

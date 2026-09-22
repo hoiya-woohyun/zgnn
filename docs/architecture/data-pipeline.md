@@ -1,6 +1,8 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-09-21 (v5: 인증 출처 세 가지 — Actions 는 service_role env, 로컬은 `pnpm data:login` 세션(JWT)+RLS, Vercel 빌드는 publishable(anon). ADR-016 v4)
+> 최종 수정: 2026-09-22 (v6: GitHub Actions 폐지 — 수집·분석·반영은 사용자 터미널에서 `pnpm data:collect` → `data:analyze` → `data:apply`(운영자 세션). 인증 출처는 둘 —
+> 세션(JWT)+RLS 와 publishable(anon). service 키는 env 에 있으면 쓰기 스크립트가 멈춘다. 네이버 키는 env 또는 TTY 숨김 입력. ADR-016 v5)
+> 이전 (v5: 인증 출처 세 가지 — Actions 는 service_role env, 로컬은 `pnpm data:login` 세션(JWT)+RLS, Vercel 빌드는 publishable(anon). ADR-016 v4)
 > 이전 (v4: 키는 CI·Vercel 에선 env, 로컬에선 로그인된 `supabase` CLI 에게 실행 시점에(ADR-016). `.env.local` 은 선택 설정만)
 > 이전 (v3: "수집 · 분석 · 승인" 절을 실제 흐름·상태 머신으로. Claude 는 구독 `claude -p`. Vercel 빌드 명령 전환[4a]·`fromPlaceRow`)
 > 이전 (v2: 원본을 Supabase 로 전환[ADR-015]. Notion 경로는 1회 시드 이력으로 내리고, 갱신 경로·`sort`·`data:normalize` 의 바뀐 역할을 적음)
@@ -36,12 +38,12 @@ flowchart LR
   `items.json` 을 다시 쓴다.
 - `src/data/*.json` 은 계속 **커밋**한다 — 키 없이도 `pnpm dev`·`pnpm test` 가 돌아야 하고, Supabase 가
   무료 티어 7일 비활성으로 잠들어도 마지막 스냅샷으로 빌드된다.
-- 키가 없으면 `data:pull` 은 조용히 옛 스냅샷을 쓰는 대신 **명확히 실패한다**(`exit 1`) — CI 가 조용히 옛 데이터로
-  빌드되는 사고를 막기 위해서다. 인증은 `scripts/lib/supabaseClient.mjs` 가 고른다([ADR-016 v4](../decisions/ADR-016-secrets-by-login.md)):
-  env `SUPABASE_SERVICE_ROLE_KEY`(GitHub Actions 만) → 키체인의 운영자 세션(`pnpm data:login`, 로컬 — 만료면 멈춘다) → publishable 키만(anon).
-  `data:pull` 은 `readOnly` 라 세션 없이 anon 으로 돈다 — Vercel 빌드가 이 경로이고 RLS 가 `places(published)`·`items` select 만 연다.
-  쓰기 스크립트(seed·collect·analyze·apply)는 세션이 없으면 그 자리에서 "pnpm data:login" 으로 멈춘다. URL·publishable 키는 코드 상수(공개값).
-  어느 출처로 붙었는지는 첫 로그 줄 `Supabase 인증: …` 이 말한다. `data:pull` 은 세션이 있어도 **항상 anon** 이고, 결과가 비면 파일을 덮어쓰지 않고 exit 1.
+- 접속이 안 되면 `data:pull` 은 조용히 옛 스냅샷을 쓰는 대신 **명확히 실패한다**(`exit 1`) — Vercel 빌드가 조용히 옛 데이터로
+  돌아가는 사고를 막기 위해서다. 인증은 `scripts/lib/supabaseClient.mjs` 가 고른다([ADR-016 v5](../decisions/ADR-016-secrets-by-login.md)) — 출처는 **둘**뿐이고
+  스크립트 종류가 정한다: `data:pull`(readOnly)은 publishable 키만(anon), 쓰기 스크립트(seed·collect·analyze·apply)는 키체인의 운영자 세션(`pnpm data:login`, 만료면 멈춘다).
+  `data:pull` 은 세션이 있어도 **항상 anon** 이라 Vercel 빌드와 로컬이 같은 경로로 돌고, RLS 가 `places(published)`·`items` select 만 연다. 결과가 비면 파일을 덮어쓰지 않고 exit 1.
+  쓰기 스크립트는 세션이 없으면 그 자리에서 "pnpm data:login" 으로 멈춘다. service_role 키는 어디서도 안 쓴다 — env 에 남아 있으면 쓰기 스크립트는 **멈추고**(트립와이어),
+  `data:pull` 은 anon 으로 계속 가되 무시한 env 이름을 경고 한 줄로 찍는다. URL·publishable 키는 코드 상수(공개값). 어느 출처로 붙었는지는 첫 로그 줄 `Supabase 인증: …` 이 말한다.
   레포에 env 파일 없음 — `data:*` 는 env 파일을 읽지 않는다(`ANALYZE_MODEL` 은 셸 env 로).
 
 ## 두 입구가 같은 바이트를 내는 이유 — `scripts/lib/placeFields.mjs`
@@ -91,7 +93,10 @@ Postgres 테이블엔 원래 순서 개념이 없는데, 화면은 "종류별 �
 
 ## 수집 · 분석 · 승인 (코드 완료, 실행 전)
 
-GitHub Actions(`collect.yml`, KST 화·금 06:00)가 한 잡에서 세 step 을 순서대로 돌린다. 진행·결정은
+**사용자 터미널에서** `pnpm data:collect` → `pnpm data:analyze` → (Studio 에서 승인) → `pnpm data:apply` 를 순서대로 돌린다 — 스케줄·CI 없음
+(ADR-016 v5, GitHub Actions 폐지). 셋 다 운영자 세션(`pnpm data:login`)이 필요하고, `data:collect` 는 네이버 검색 키까지 필요하다 — env
+(`NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`)로 넘기거나 없으면 터미널 숨김 입력으로 받는다(어디에도 저장 안 함 · 에이전트 세션에서는 입력을 거부).
+그래서 수집은 사용자 몫이고 에이전트는 `data:analyze`·`data:apply` 만 돌린다. `blog_posts` 는 사용자가 돌릴 때만 찬다. 진행·결정은
 [todo/02](../todo/02-collect-naver-blog.md)·[todo/03](../todo/03-analyze-and-review.md).
 
 ```mermaid
@@ -111,8 +116,9 @@ flowchart LR
 
 - **본문은 저장하지 않는다.** DB 에 남는 건 링크·제목·날짜와 AI 가 뽑은 사실·인용문(`extracted`)뿐이다(저작권·약관, ADR-002 와 같은 기준).
 - **Claude 는 API 가 아니라 구독**이다. `scripts/analyze/extractPlaces.mjs` 가 `claude -p` 를 자식 프로세스로 돌리고 결과 JSON 의
-  `structured_output` 을 읽는다. 로컬은 로그인된 `claude`, Actions 는 `CLAUDE_CODE_OAUTH_TOKEN`. 글당 비용은 0 이지만 **세션 한도를
-  대화와 공유**한다 — 대량 처리는 `--limit` 로 나눈다.
+  `structured_output` 을 읽는다. 인증은 이 머신에 로그인된 `claude`(키체인)뿐 — 토큰 env 는 자식 프로세스에 넘기지 않는다. 글당 비용은 0 이지만 **세션 한도를
+  대화와 공유**한다 — 대량 처리는 `--limit` 로 나눈다. 실행 전체가 운영자 세션 창(JWT expiry − 30분 skew) 안에 끝나야 한다 — 기본 expiry 3600 이면 30분이라
+  `--limit 30` 씩, 또는 대시보드에서 43200 으로.
 - **`analyzed_at` 이 "다시 안 읽는다" 의 표시**다. 후보가 0개여도, 다시 받아도 같을 실패(삭제된 글·본문 없음)여도 찍는다 — 단 그 실행에서
   성공한 글이 1건 이상일 때만(전부 실패면 파이프라인 고장으로 보고 아무것도 닫지 않는다). 잠깐의 실패(403·5xx·한도·타임아웃)는 비워 둬 재시도.
 
@@ -142,7 +148,8 @@ flowchart LR
 
 - `scripts/lib/placeFields.mjs` — 두 입구가 공유하는 변환 함수. `fromPlaceRow`(DB 행 → `TPlace`)는 `pull-db.mjs`·`analyze-candidates.mjs`·`apply-approved.mjs` 가 같이 쓴다
 - 수집·분석·승인: `scripts/collect-blog.mjs`(`data:collect`) · `scripts/analyze-candidates.mjs`(`data:analyze`) · `scripts/apply-approved.mjs`(`data:apply`) —
-  순수 함수는 `scripts/collect/*`·`scripts/analyze/*`(각각 `*.test.mjs`), 스케줄은 `.github/workflows/collect.yml`
+  순수 함수는 `scripts/collect/*`·`scripts/analyze/*`(각각 `*.test.mjs`). 스케줄은 없다 — 사용자 터미널에서 돌린다(ADR-016 v5)
+- 인증·입력: `scripts/lib/supabaseClient.mjs`(출처 선택), `scripts/login.mjs`(`pnpm data:login`), `scripts/lib/readHidden.mjs`(비밀번호·네이버 키 숨김 입력, 두 소유자)
 - `scripts/pull-db.mjs`(`pnpm data:pull`), `scripts/seed-db.mjs`(`pnpm data:seed`, 1회용이지만 재현성 때문에 레포에 둔다)
 - `scripts/normalize.mjs`(`pnpm data:normalize`, 이제는 Notion 재시드 전용), `scripts/fetch-blog-images.mjs`(허용목록 비어 있음), `scripts/optimize-images.mjs`
 - `data/jejudo-notion-export.json`(1회 시드 근거), `src/data/*.json`, `src/types.ts`

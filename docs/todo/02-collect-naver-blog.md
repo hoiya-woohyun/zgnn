@@ -1,8 +1,10 @@
 # 2. 수집 — 네이버 블로그, 키워드, 최근 1년
 
-> 최종 수정: 2026-09-20 (v2: 코드 완료(수집기+워크플로), 실행은 아직 — 네이버 키 미발급)
+> 최종 수정: 2026-09-22 (v3: **(c) Actions 폐지** — 스케줄이 없다. 수집은 사용자 터미널에서 `pnpm data:collect`(운영자 세션 + 네이버 키는 env 또는 숨김 입력, 저장 없음).
+> `collect.yml` 삭제. 비용: 7일 비활성 일시정지를 깨우던 잡이 사라졌다)
+> 이전 (v2: 코드 완료(수집기+워크플로), 실행은 아직 — 네이버 키 미발급)
 > 이전 (v1: 신설)
-> 상태: 코드는 끝났다. 선행: [01](01-schema-and-seed.md) 의 `blog_posts` 테이블. 산출물은 `blog_posts` 행이고 **장소를 만들지 않는다**(그건 03).
+> 상태: 코드는 끝났다(키 입력 경로까지). 실행은 아직 — 네이버 키 발급 전. 선행: [01](01-schema-and-seed.md) 의 `blog_posts` 테이블. 산출물은 `blog_posts` 행이고 **장소를 만들지 않는다**(그건 03).
 
 ## HTML 스크래핑이 아니라 검색 오픈 API
 
@@ -46,24 +48,29 @@
 - [x] `title`·`description` 의 `<b>` 태그를 벗긴다(검색어 강조).
 - [x] **제외 규칙**은 여기서 최소로 — "제주" 가 제목·요약 어디에도 없으면 버리는 정도. 판단은 03 의 AI 몫이다.
 - [x] rate limit: 요청 사이 200ms. 25,000/일이지만 초당 제한도 있다.
-- [x] 실행 결과를 한 줄로 남긴다: `수집 N건 (신규 M · 기존 K · 1년 밖 제외 J)`. Actions 로그가 곧 관측이다.
-- [ ] **실행은 아직 안 했다** — 네이버 개발자센터 Client ID/Secret 이 없다(00 의 외부 계정 절).
+- [x] 실행 결과를 한 줄로 남긴다: `수집 N건 (신규 M · 기존 K · 1년 밖 제외 J)`. 터미널 출력이 곧 관측이다.
+- [x] **네이버 키는 사용자가 로컬에서 직접 관리한다**(2026-09-22 (c)) — 스크립트는 `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET` env 를 그대로 쓰고, 없으면
+      터미널 숨김 입력(`scripts/lib/readHidden.mjs`, `data:login` 의 비밀번호 입력과 같은 것)으로 없는 쪽만 묻는다. 값은 프로세스 메모리에만 있고
+      레포·키체인·파일·로그 어디에도 남기지 않는다 — 저장하면 그 자리가 곧 유출 경로라서, 매번 치는 비용을 감수한다. **비직관적인 것 둘**:
+      (1) 세션 검사(`createSupabase`)가 키 입력보다 **먼저**다 — 키 두 개를 치고 나서 "pnpm data:login" 으로 멈추면 헛수고. (2) 에이전트 세션(`CLAUDECODE`)이면
+      입력을 받지 않고 exit 1 — 값이 대화 기록에 실릴 수 있어서. env 로 넘긴 값은 막지 않는다(사용자가 셸에서 준 것). TTY 도 아니면 exit 1.
+- [ ] **실행은 아직 안 했다** — 네이버 개발자센터 Client ID/Secret 이 없다(00 의 외부 계정 절). 첫 실행은 README 다음 할 일 5.
 
-## 스케줄 — GitHub Actions (Vercel Cron 아님)
+## 실행 — 사용자 터미널, 스케줄 없음 (2026-09-22 (c))
 
-Vercel Cron 은 배포된 **서버 함수**를 호출하는 방식이라 `output: 'export'` 에서는 부를 게 없다. GitHub Actions 로 간다.
-부수 효과로 이 잡이 **Supabase 무료 티어의 7일 비활성 일시정지**를 매번 깨운다 — 주 1회면 정확히 경계선이라 위험하다.
+Vercel Cron 은 배포된 **서버 함수**를 호출하는 방식이라 `output: 'export'` 에서는 부를 게 없다. 그래서 처음엔 GitHub Actions(화·금 cron)였는데,
+Actions 는 "관리자 없이 도는 구조" 라 만료 없는 시크릿(service_role·네이버 키·구독 OAuth 토큰)을 GitHub 에 두어야만 돌고, 그 자리는 에이전트가 push 한 줄로
+읽을 수 있다(README 다음 할 일 2 의 원칙). **폐지했다** — 수집은 운영자가 `pnpm data:login` 한 터미널에서 `pnpm data:collect` 로만 돈다.
 
-- [x] `.github/workflows/collect.yml`: `schedule: cron: '0 21 * * 1,4'` (KST 화·금 06:00, 주 2회) + `workflow_dispatch`.
-- [x] `permissions: contents: read`. 서드파티 액션은 커밋 SHA 고정(`actions/checkout` v7.0.1 · `pnpm/action-setup` v6.1.0 ·
-      `actions/setup-node` v7.0.0, Node 24 · pnpm 10).
-- [x] `pnpm install --frozen-lockfile` → `pnpm data:collect`. 5분 안에 끝나야 한다(무료 2,000분/월).
-- [ ] 실패하면 잡이 빨갛게 되는 것 외에 알림이 없다 → 저장소 Watch 로 이메일. 그 이상은 지금 안 만든다.
-- [ ] **한 번은 Actions 에서 실제로 돌려 본다.** 로컬에서 되는 것이 데이터센터 IP 에서도 된다는 보장이 없다
-      (기존 계획 §3-4). 검색 API 는 문제 없을 것이고, 본문 HTML(03) 이 걸릴 수 있다 — 그러면 03 을 로컬 실행으로 바꾼다.
-      → 네이버 키가 아직 없어 워크플로 자체가 아직 한 번도 안 돌았다.
+- **비용**: 자동 수집이 없다. `blog_posts` 는 사용자가 돌릴 때만 찬다 — 주기는 사용자가 정한다(주 1회쯤이면 키워드당 신규 수 건).
+- **비직관적 비용**: 옛 잡이 **Supabase 무료 티어의 7일 비활성 일시정지**를 매번 깨웠다. 이제 DB 를 건드리는 것은 사용자의 `pnpm data:*` 와 Vercel 빌드의
+  `data:pull`(push 가 있을 때만)뿐이다 — 둘 다 7일 없으면 프로젝트가 잠들고, 그러면 다음 배포의 `data:pull` 이 실패한다(이전 배포는 산다). 복구는 대시보드 Restore. 05 에 적어 뒀다.
+- ~~`.github/workflows/collect.yml`: cron 화·금 + `workflow_dispatch`~~ — 삭제(2026-09-22 (5)). `.github/` 자체가 없다.
+- ~~`permissions: contents: read` · 서드파티 액션 SHA 고정 · `--frozen-lockfile` · 5분 안에(무료 2,000분/월)~~ — 워크플로와 함께 소멸.
+- ~~실패 알림(저장소 Watch)~~ — 터미널에서 바로 본다.
+- ~~한 번은 Actions 에서 실제로 돌려 본다(데이터센터 IP)~~ — 로컬 IP 라 이 걱정 자체가 사라졌다. 본문 HTML(03) 이 데이터센터에서 막힐 수 있다는 우려도 같이.
 
 ## 끝났다고 볼 조건
 
-- [ ] Actions 수동 실행 한 번에 `blog_posts` 에 최근 1년치가 들어오고, 두 번째 실행은 신규 0~수 건. **아직 (키 없음)**.
+- [ ] 사용자 터미널에서 `pnpm data:collect` 한 번에 `blog_posts` 에 최근 1년치가 들어오고, 두 번째 실행은 신규 0~수 건. **아직 (키 없음)**.
 - [x] `docs/architecture/data-pipeline.md` 에 "수집" 절 추가(어디서·얼마나·무엇을 저장하지 않는가) — todo 링크만 걸어 뒀다(코드는 여기, 실행 전이라 결과 수치는 없다).

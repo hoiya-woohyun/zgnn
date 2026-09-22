@@ -1,9 +1,11 @@
 # 3. AI 분석 → 사람이 링크 확인 → 승인
 
-> 최종 수정: 2026-09-21 (v3: 코드 완료 — 본문 파서·Claude 추출(`claude -p`, 구독)·Kakao 보강·`matchPlace` 본체·`data:analyze`·`data:apply`·Actions. 실행은 수집(02) 뒤. 리뷰 지적 반영: 자동 승인 기본 off, Kakao 정확 일치만, 읍·면 목록, 영구 실패 닫기, 재대조)
+> 최종 수정: 2026-09-22 (v4: **(c) Actions 폐지** — `data:analyze`·`data:apply` 는 사용자 터미널의 운영자 세션에서 따로 부른다. Claude 인증은 이 머신의 `claude` 로그인뿐
+> (`CLAUDE_CODE_OAUTH_TOKEN`·`CI`·`GITHUB_ACTIONS` 를 자식 env 허용 목록에서 뺌). `DEFAULT_LIMIT` 의 근거는 Actions timeout 이 아니라 **세션 창**(3600 이면 30분))
+> 이전 (v3: 코드 완료 — 본문 파서·Claude 추출(`claude -p`, 구독)·Kakao 보강·`matchPlace` 본체·`data:analyze`·`data:apply`·Actions. 실행은 수집(02) 뒤. 리뷰 지적 반영: 자동 승인 기본 off, Kakao 정확 일치만, 읍·면 목록, 영구 실패 닫기, 재대조)
 > 이전 (v2: `matchPlace` 골격 상태 갱신 — 신호 헬퍼·임계값 상수·테스트는 있고 본체는 아직 🙋)
 > 이전 (v1: 신설)
-> 상태: **코드는 끝났다.** 실제 글로는 아직 안 돌렸다(`blog_posts` 가 비어 있다 — 02 의 네이버 키가 먼저). 실제 후기 링크 1건으로 본문 → 추출 → 대조까지 엔드투엔드는 확인했다. 선행: [02](02-collect-naver-blog.md). 입력은 `blog_posts`, 출력은 `candidates` → 승인되면 `places`.
+> 상태: **코드는 끝났다.** 실제 글로는 아직 안 돌렸다(`blog_posts` 가 비어 있다 — 02 의 네이버 키가 먼저). 실제 후기 링크 1건으로 본문 → 추출 → 대조까지 엔드투엔드는 확인했다. 선행: [02](02-collect-naver-blog.md). 입력은 `blog_posts`, 출력은 `candidates` → 승인되면 `places`. 실행 주체는 사용자 터미널(스케줄 없음).
 
 ## 역할 분담 — AI 는 뽑고, 사람은 열어 보고, 코드는 병합한다
 
@@ -22,11 +24,16 @@ flowchart LR
 ## AI 추출 — `scripts/analyze-candidates.mjs` (`pnpm data:analyze`)
 
 **Claude 는 API 키가 아니라 구독으로 부른다(2026-09-21 결정).** `scripts/analyze/extractPlaces.mjs` 가 `claude -p --json-schema` 를
-자식 프로세스로 돌린다. 인증은 로컬은 이미 로그인된 `claude`, Actions 는 `claude setup-token` 으로 만든 `CLAUDE_CODE_OAUTH_TOKEN`.
+자식 프로세스로 돌린다. 인증은 **이 머신에 로그인된 `claude`(키체인)뿐**이다 — 토큰 env 도 코드의 키도 없다(2026-09-22 (c): 옛 Actions 용
+`CLAUDE_CODE_OAUTH_TOKEN` 은 발급하지 않고, 자식 env 허용 목록에서도 뺐다. 그 env 로만 인증되는 머신에서는 auth(fatal) 로 멈추는 것이 **의도**다).
 왜 — 구독 OAuth 토큰은 Claude Code 전용이라 Messages API SDK 에 못 쓰고, 글당 과금이 0 이 된다. 대신 **세션 한도(5시간 창)를 대화와
-공유**한다: 대량 처리는 `--limit` 로 나눈다. 러너에는 `npm i -g @anthropic-ai/claude-code@<버전 고정>` 이 필요하다(`collect.yml`).
+공유**한다: 대량 처리는 `--limit` 로 나눈다.
 `--system-prompt` 로 기본 프롬프트를 대체하고 `--tools "" --strict-mcp-config --setting-sources "" --disable-slash-commands` 로 레포
 컨텍스트를 전부 끈다 — 안 끄면 호출마다 CLAUDE.md·MCP 툴 목록이 실려 3~4만 토큰, 끄면 1천(실측). `--bare` 는 못 쓴다(키체인·OAuth 를 안 읽는다).
+
+**한 실행의 크기는 두 창이 정한다** — Claude 의 5시간 한도와 **운영자 세션 창**. 세션은 `pnpm data:login` 의 JWT 라 실효 창은 대시보드 JWT expiry 에서
+코드 skew(30분)를 뺀 값이다: 기본 3600 이면 **30분**이라 `DEFAULT_LIMIT`(50)이 다 들어간다고 장담할 수 없다 — `--limit 30` 씩 나누거나 expiry 를 43200 으로(11.5시간).
+중간에 세션이 죽으면 그 글부터 DB 쓰기가 실패해 건너뛰고(`analyzed_at` 안 찍힘) 다음 실행이 이어 간다. 옛 근거(Actions `timeout-minutes: 30`)는 워크플로와 함께 사라졌다.
 
 - [x] 모델 기본 `claude-opus-5`(`ANALYZE_MODEL` 로 덮음), 구조화 출력은 `--json-schema`(결과 JSON 의 `structured_output`).
       사고(thinking)는 CLI 가 모델에 맞게 알아서 — 코드에 없다.
@@ -111,8 +118,9 @@ Studio 로 먼저 몇 주 돌려 보고 **어떤 정보가 화면에 있어야 �
   - `place_sources` 에 링크 추가(출처 추적용). 화면의 "후기 링크" 는 여전히 `places.review_url` 하나뿐이라 보강된 기존 장소에는 새 글이
     화면에 닿지 않는다 — 여러 출처 표시는 기능 변경이라 범위 밖(04 의 "앱 코드 변경").
 - [x] 처리한 후보는 `status='merged'`. `--dry-run` 이면 아무것도 쓰지 않고 할 일만 찍는다.
-- [x] 이 스크립트는 **DB 웹훅 대신 Actions 에서 `data:analyze` 다음에** 돈다 — 앞 step 이 실패해도 돈다(`if: !cancelled()`):
-      사람이 승인한 것의 반영이 분석 장애에 막히지 않게. 웹훅으로 재빌드를 부르는 건 04 의 일이다.
+- [x] 이 스크립트는 **DB 웹훅이 아니라 사람이 부른다** — 사용자 터미널에서 `pnpm data:analyze` 다음에 `pnpm data:apply` 를 **따로**(2026-09-22 (c). 옛
+      Actions 에선 `if: !cancelled()` step 이었다). 별개 명령이라 분석이 실패해도 승인된 것의 반영은 막히지 않는다 — 그 이유는 그대로다.
+      실패 수가 exit code 고 요약 한 줄이 관측이다. 웹훅으로 재빌드를 부르는 건 04 의 일이다.
 
 ## 끝났다고 볼 조건
 
@@ -120,4 +128,6 @@ Studio 로 먼저 몇 주 돌려 보고 **어떤 정보가 화면에 있어야 �
       **아직** — `blog_posts` 가 비어 있다(02 의 네이버 키). 대신 실제 후기 링크 1건(제이아일랜드)으로 본문 2,171자 → `claude -p` 8.9초 →
       카페·이용 조건 원문·근거 3문장 → `matchPlace` 1.00 까지 확인했다(2026-09-21, DB 쓰기 없이).
 - [x] `matchPlace.test.mjs` 통과(자기충돌 검사 포함). `docs/architecture/data-pipeline.md` 에 "분석·승인" 절과 상태 머신 표.
-- [ ] Actions 에서 한 번 실제로: `CLAUDE_CODE_OAUTH_TOKEN`·`KAKAO_REST_API_KEY` 시크릿 등록 → `workflow_dispatch`.
+- ~~Actions 에서 한 번 실제로: 시크릿 등록 → `workflow_dispatch`~~ → [ ] **사용자 터미널에서 첫 실행**(README 다음 할 일 4·5): `pnpm data:login` →
+      `pnpm data:analyze --dry-run --limit 5`(Claude 가 돌려도 된다 — 세션이 있으면) → 사용자 세션으로 `pnpm data:analyze` → `pnpm data:apply`.
+      Kakao REST 키는 사용자가 안 쓰기로 했다 — 없으면 보강을 건너뛰고 후보는 좌표 없이 들어간다(`matchPlace` 는 이름·종류만으로 대조, 감점 없음).

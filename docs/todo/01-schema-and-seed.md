@@ -1,6 +1,7 @@
 # 1. 스키마 · RLS · 시드 · `data:pull`
 
-> 최종 수정: 2026-09-21 (v4: 인증은 운영자 세션(`pnpm data:login`)+RLS, `data:pull` 은 anon(ADR-016 v4) — 포인터만)
+> 최종 수정: 2026-09-22 (v5: 출처는 세션·anon 둘, service 키 없음 — Actions 폐지(ADR-016 v5). RLS 절·`supabaseClient` 포인터만 갱신)
+> 이전 (v4: 인증은 운영자 세션(`pnpm data:login`)+RLS, `data:pull` 은 anon(ADR-016 v4) — 포인터만)
 > 이전 (v3: 키는 로그인된 `supabase` CLI 에게 실행 시점에(ADR-016) — 포인터만)
 > 이전 (v2: 스키마 적용·RLS·시드·`data:pull` 코드 완료. `sort` 컬럼 반영, [data-pipeline.md v2](../architecture/data-pipeline.md) 작성)
 > 이전 (v1: 신설)
@@ -72,8 +73,8 @@ create table place_sources ( place_id text references places(id), post_url text 
 ## RLS
 
 - [x] **모든 테이블에 RLS 를 켠다. 정책은 하나도 만들지 않는다.** → anon·authenticated 는 아무것도 못 읽는다.
-      빌드와 Actions 는 `service_role` 로 접근하므로 정책이 필요 없다.
-      SQL 로 확인 완료: `relrowsecurity` true × 5 테이블, `pg_policies` 0행.
+      (당시엔 빌드·Actions 가 `service_role` 이라 정책 불필요 — v4 에서 운영자 RLS 8정책, v5 에서 Actions 폐지 + `narrow_grants` 로 정책·GRANT 축소(파일만, 원격 미적용). 정본은 ADR-016.)
+      SQL 로 확인 완료(당시): `relrowsecurity` true × 5 테이블, `pg_policies` 0행.
 - 앱이 런타임에 DB 를 읽지 않는 (A) 에서는 이게 전부다. 관리 화면(03 후반)이나 (B) 로 가면 그때 정책을 더한다.
   **함정**: "RLS 안 켜도 anon 은 어차피 막힌다" 는 틀렸다 — PostgREST 는 RLS 가 꺼져 있으면 anon 키로 다 읽어 준다.
 
@@ -94,8 +95,8 @@ create table place_sources ( place_id text references places(id), post_url text 
 - [x] `normalize.mjs` 는 남긴다. Notion export → 시드 경로로 한 번 더 쓸 수 있다. `data:normalize` 는 이제
       "데이터를 만드는 명령" 이 아니라 "Notion 을 다시 시드하는 명령" 이다 — `data-pipeline.md` v2 에 적었다.
 - [x] 키가 없으면(로컬) **명확히 실패**한다(`exit 1`). 조용히 스냅샷을 쓰지 않는다 — CI 에서 조용히 옛 데이터로 빌드되는 것이
-      CLAUDE.md 가 경고하는 고장 유형이다. 로컬 dev 는 `data:pull` 을 안 부르면 그만이다. env 는
-      Actions 는 env(service_role), 로컬 쓰기는 운영자 세션(`pnpm data:login`, RLS 안), `data:pull` 은 publishable(anon)만 — `scripts/lib/supabaseClient.mjs`(ADR-016 v4. 처음엔 `.env.local` 에 다 뒀었다).
+      CLAUDE.md 가 경고하는 고장 유형이다. 로컬 dev 는 `data:pull` 을 안 부르면 그만이다. 인증은
+      쓰기 스크립트는 운영자 세션(`pnpm data:login`, RLS 안), `data:pull` 은 publishable(anon)만 — 출처는 둘, service 키 없음(`scripts/lib/supabaseClient.mjs`, ADR-016 v5. 처음엔 `.env.local` 에 다 뒀었고 v4 까지는 Actions 가 service_role 이었다).
 - [x] `supabase-js` 를 **devDependency** 로. 앱 번들에 들어가지 않는다(`scripts/` 만 쓴다). 나중에 `out/` 에서
       `supabase` 문자열이 나오면 뭔가 잘못된 것이다(→ 05 의 유출 검사).
 
