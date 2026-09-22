@@ -33,6 +33,12 @@ export function projectUrl(ref) {
   return `https://${ref}.supabase.co`;
 }
 
+// 안내 문구용. 사용자가 보는 "만료" 는 exp 가 아니라 exp − skew 다 — exp 만 보여 주면 "만료 전인데 왜 거부하나" 가 되고, 시각만 보여 주면
+// "미래에 만료됐다" 로 읽힌다. login·createSupabase·거부 문구가 같은 값과 같은 형식으로 말하게 한 곳에 둔다.
+export const formatTime = (sec) => new Date(sec * 1000).toLocaleString('ko-KR');
+export const sessionUsableUntil = (exp) => exp - SESSION_EXP_SKEW_S;
+export const SESSION_EXP_SKEW_MIN = Math.round(SESSION_EXP_SKEW_S / 60);
+
 // JWT 의 `exp`(초) 또는 undefined(JWT 가 아님). 서명은 확인하지 않는다 — 서버가 한다. 여기선 안내 문구를 고르기 위한 것.
 export function jwtExpiresAt(token) {
   const parts = typeof token === 'string' ? token.split('.') : [];
@@ -58,7 +64,7 @@ const LOGIN_HINT = '사용자 터미널에서 `pnpm data:login`(이메일·비�
 // 세션 수명이 하루를 넘으면 세션으로 쓰지 않는다(login.mjs 도 저장 전에 같은 검사). 반환: 문제 없으면 undefined, 있으면 이유.
 export function sessionTtlProblem(exp, now) {
   if (exp - now > SESSION_MAX_TTL_S) {
-    return `세션 수명이 하루를 넘는다(만료 ${new Date(exp * 1000).toLocaleString('ko-KR')}) — 대시보드 Authentication → JWT expiry 를 86400 이하로 내리고 다시 pnpm data:login`;
+    return `세션 수명이 하루를 넘는다(만료 ${formatTime(exp)}) — 대시보드 Authentication → JWT expiry 를 86400 이하로 내리고 다시 pnpm data:login`;
   }
   return undefined;
 }
@@ -100,9 +106,14 @@ export function resolveSupabaseCredentials({
   if (!token) throw new Error(`로그인이 필요하다 — ${LOGIN_HINT}`);
   const exp = jwtExpiresAt(token);
   if (exp === undefined) throw new Error(`저장된 세션이 JWT 가 아니다 — ${LOGIN_HINT}`);
-  const tooLong = sessionTtlProblem(exp, now());
+  const at = now();
+  const tooLong = sessionTtlProblem(exp, at);
   if (tooLong) throw new Error(tooLong);
-  if (exp - SESSION_EXP_SKEW_S <= now()) throw new Error(`로그인 세션이 만료됐다(${new Date(exp * 1000).toLocaleString('ko-KR')}) — ${LOGIN_HINT}`);
+  // 진짜 만료와 skew 창 안을 나눠 말한다 — 후자를 "만료됐다(미래 시각)" 로 쓰면 시계가 틀린 것처럼 읽힌다.
+  if (exp <= at) throw new Error(`로그인 세션이 만료됐다(${formatTime(exp)}) — ${LOGIN_HINT}`);
+  if (sessionUsableUntil(exp) <= at) {
+    throw new Error(`로그인 세션이 만료 ${SESSION_EXP_SKEW_MIN}분 전이라 세션으로 쓰지 않는다(만료 ${formatTime(exp)} — 긴 data:analyze 가 중간에 죽지 않게 ${SESSION_EXP_SKEW_MIN}분 앞당겨 본다) — ${LOGIN_HINT}`);
+  }
   return { url, key: publishableKey, source: 'session', accessToken: token, expiresAt: exp };
 }
 
@@ -122,7 +133,7 @@ export function createSupabase({ readOnly = false } = {}) {
     console.error(e.message);
     process.exit(1);
   }
-  const until = creds.expiresAt ? ` · 만료 ${new Date(creds.expiresAt * 1000).toLocaleString('ko-KR')}` : '';
+  const until = creds.expiresAt ? ` · 만료 ${formatTime(creds.expiresAt)}(실효 ${formatTime(sessionUsableUntil(creds.expiresAt))} 까지)` : '';
   console.log(`Supabase 인증: ${SOURCE_LABEL[creds.source]}${until}`);
   return createClient(creds.url, creds.key, {
     auth: { persistSession: false, autoRefreshToken: false },

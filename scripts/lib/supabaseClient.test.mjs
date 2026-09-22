@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  PROJECT_REF, SESSION_EXP_SKEW_S, SESSION_MAX_TTL_S, assertPublishableKey, jwtExpiresAt, projectUrl, resolveSupabaseCredentials, sessionTtlProblem,
+  PROJECT_REF, SESSION_EXP_SKEW_MIN, SESSION_EXP_SKEW_S, SESSION_MAX_TTL_S, assertPublishableKey, formatTime, jwtExpiresAt, projectUrl,
+  resolveSupabaseCredentials, sessionTtlProblem, sessionUsableUntil,
 } from './supabaseClient.mjs';
 
 // 서명 없는 가짜 JWT — 서명은 서버가 확인하고, 여기선 `exp` 만 읽는다.
@@ -93,9 +94,38 @@ describe('resolveSupabaseCredentials — 출처', () => {
     expect(() => resolve({ readSession: () => expired })).toThrow(/만료됐다.*pnpm data:login/s);
   });
 
-  it('만료 여유(skew) 안쪽은 이미 만료로 본다 — 20분짜리 분석이 중간에 401 로 죽지 않게', () => {
-    expect(() => resolve({ readSession: () => jwt({ sub: 'u1', exp: NOW + SESSION_EXP_SKEW_S - 1 }) })).toThrow(/만료됐다/);
+  it('만료 여유(skew) 안쪽은 세션으로 쓰지 않는다 — 20분짜리 분석이 중간에 401 로 죽지 않게', () => {
+    expect(() => resolve({ readSession: () => jwt({ sub: 'u1', exp: NOW + SESSION_EXP_SKEW_S - 1 }) })).toThrow(/세션으로 쓰지 않는다/);
+    expect(() => resolve({ readSession: () => jwt({ sub: 'u1', exp: NOW + SESSION_EXP_SKEW_S }) })).toThrow(/세션으로 쓰지 않는다/);
     expect(resolve({ readSession: () => jwt({ sub: 'u1', exp: NOW + SESSION_EXP_SKEW_S + 1 }) }).source).toBe('session');
+  });
+
+  it('진짜 만료(exp 가 지남)는 "만료됐다(시각)" — skew 얘기는 하지 않는다', () => {
+    let msg = '';
+    try { resolve({ readSession: () => expired }); } catch (e) { msg = e.message; }
+    expect(msg).toMatch(/^로그인 세션이 만료됐다\(/);
+    expect(msg).toContain(formatTime(NOW - 10));
+    expect(msg).not.toMatch(/분 전/);
+    expect(msg).toContain('pnpm data:login');
+    // 두 문구가 갈리는 경계 — exp 가 정확히 지금이면 "만료됐다", 1초 뒤면 skew 창. `<` 로 바뀌면 "지금 만료되는데 N분 전" 이 된다
+    expect(() => resolve({ readSession: () => jwt({ sub: 'u1', exp: NOW }) })).toThrow(/^로그인 세션이 만료됐다\(/);
+    expect(() => resolve({ readSession: () => jwt({ sub: 'u1', exp: NOW }) })).not.toThrow(/분 전/);
+    expect(() => resolve({ readSession: () => jwt({ sub: 'u1', exp: NOW + 1 }) })).toThrow(/분 전이라 세션으로 쓰지 않는다/);
+  });
+
+  it('skew 창 안(exp 는 아직 미래)은 "만료 N분 전이라 쓰지 않는다" 로 구분한다 — "미래 시각에 만료됐다" 로 읽히지 않게. N 은 상수에서 온다', () => {
+    const exp = NOW + SESSION_EXP_SKEW_S - 60;
+    let msg = '';
+    try { resolve({ readSession: () => jwt({ sub: 'u1', exp }) }); } catch (e) { msg = e.message; }
+    expect(SESSION_EXP_SKEW_MIN).toBe(SESSION_EXP_SKEW_S / 60);
+    expect(msg).toContain(`만료 ${SESSION_EXP_SKEW_MIN}분 전이라 세션으로 쓰지 않는다`);
+    expect(msg).toContain(`만료 ${formatTime(exp)}`);
+    expect(msg).not.toMatch(/만료됐다/);
+    expect(msg).toContain('pnpm data:login');
+  });
+
+  it('sessionUsableUntil 은 exp 에서 skew 를 뺀 실효 시각 — login·createSupabase 가 사용자에게 보여 주는 값', () => {
+    expect(sessionUsableUntil(NOW + 3600)).toBe(NOW + 3600 - SESSION_EXP_SKEW_S);
   });
 
   it('요구 ⑤: 수명이 하루를 넘는 세션은 거부한다 — 대시보드 JWT expiry 를 코드가 단언한다', () => {

@@ -1,6 +1,8 @@
 # TODO — 블로그 수집 → AI 분석 → 승인 → DB → 자동 배포
 
-> 최종 수정: 2026-09-22 (v7: 사용자 결론 "Claude 는 민감정보를 알아선 안 된다" 를 계획으로 — 실행 경로가 곧 읽기 경로이므로 만료 없는 우회 키·접속 정보를
+> 최종 수정: 2026-09-22 (v8: 다음 할 일 3 의 Claude 파트 완료 — Preview 빌드 로그 `publishable(anon)` 실측(Preview env 에 service 키가 남아 있어도), self-cr minor 4건 반영(+29 테스트=440).
+> 사용자 재확인: 마켓플레이스 연동은 끊는다(쓰는 기능 0, 넣는 값은 전부 만료 없는 우회 키). 옛 env 파일 2개는 지워진 것 확인)
+> 이전 (v7: 사용자 결론 "Claude 는 민감정보를 알아선 안 된다" 를 계획으로 — 실행 경로가 곧 읽기 경로이므로 만료 없는 우회 키·접속 정보를
 > 에이전트가 트리거할 수 있는 경로(로컬 파일·Vercel env·Actions)에서 전부 뺀다. RLS 는 PostgREST 로 실측 완료. 마켓플레이스 연동은 끊기로. Actions 경로는 🙋)
 > 이전 (v6: 다음 할 일 0(Auth 로그인 모델) 구현 완료 — 마이그레이션 2개 적용, `pnpm data:login/logout`, 통로 재작성. 남은 건 사용자 몫(publishable 키·대시보드 3개·회전)과 엔드투엔드 확인. 보안 리뷰 반영)
 > 이전 (v5: 배포 복구 확인 완료. 시크릿은 저장하지 않고 로그인된 CLI 로 실행 시점에(ADR-016) — 다음 할 일 1·2 를 그 절차로, 세션 로그)
@@ -103,7 +105,7 @@ flowchart LR
 
 0. ~~Auth 로그인 모델 구현 · publishable 키 · operators · RLS 실측~~ **완료.**
 1. **경로 닫기(사용자 터미널·대시보드)** — 실행 순서대로. 로그아웃은 각 심부름의 **끝**에(먼저 하면 다음 단계가 막힌다):
-   - **로컬 파일**: `rm -f .env.local .vercel/.env.production.local`(옛 service_role 평문. 에이전트 `rm` 은 권한 거부).
+   - ~~**로컬 파일**: `rm -f .env.local .vercel/.env.production.local`~~(2026-09-22 (2) 둘 다 없는 것 확인).
    - **Vercel — 마켓플레이스 연동을 끊는다**(2026-09-22 결정. 이 프로젝트는 정적 내보내기 + 빌드 시 anon 읽기라 연동이 주는 기능 — env 주입·통합 청구·Preview
      Redirect URL·Branching — 중 쓰는 게 없다. 회원(ADR-011)을 붙일 때 publishable 키·Redirect URL 만 쓰는 조건으로 다시 붙인다):
      1. **먼저 A/B 판별** — Supabase 대시보드 Organization 설정의 청구가 "Managed by Vercel" 이면 A(마켓플레이스 네이티브: **Integration 을 uninstall 하면 조직째 삭제**).
@@ -126,9 +128,10 @@ flowchart LR
      어떻게 넘길지(키체인 확장) 설계가 하나 더 필요하고, 화·금 자동 수집이 사라진다.
    - (b) 보류 항목 GRANT 회수·`for all` 축소는 (a)·(c) 어느 쪽이든 같이 한다.
 3. **배포 확인(Claude)** — ~~self-cr → push~~(2026-09-22 완료. self-cr major 1 반영: `readOnly` 는 CI 에 service 키가 남아 있어도 anon — "빌드는 anon" 이 env 정리
-   순서가 아니라 코드 불변식이 됐다) → Preview 빌드 로그가 `publishable(anon)` 인지 → 1 의 Vercel 정리 → `main` 머지 → 프로덕션 확인.
-   self-cr 미반영(minor, 다음에): `login.mjs` readHidden 의 ESC 처리가 CSI 만 맞음(SS3·단독 ESC 는 비밀번호에 글자 섞임 — 보안 아님, 오타) · `writeSession` 이 비-JWT 도
-   저장함(전제를 3세그먼트 JWT 로) · `sessionKeychain.mjs`·`readHidden` 테스트 없음(`run` 주입·reducer 분리) · 만료 메시지에 skew 30분이 안 드러남.
+   순서가 아니라 코드 불변식이 됐다) → ~~Preview 빌드 로그가 `publishable(anon)` 인지~~(2026-09-22 (2) 실측: 커밋 `1b4264c` Preview 가 `publishable(anon)` 으로 86·15 행,
+   Preview env 에 `SUPABASE_SERVICE_ROLE_KEY` 가 남아 있는 상태에서) → 1 의 Vercel 정리 → `main` 머지 → 프로덕션 확인.
+   ~~self-cr 미반영(minor)~~ 4건 전부 반영(2026-09-22 (2)): `readHidden` 을 `scripts/lib/loginReadHidden.mjs` 순수 리듀서로 분리(CSI·SS3·단독 ESC·Alt+키·겹친 Meta `ESC ESC [ A`) ·
+   `writeSession` 은 3세그먼트 JWT 문자열만 · `sessionKeychain` 은 `run` 주입으로 테스트 · 만료 문구가 "진짜 만료" 와 "skew 창 안(만료 N분 전)" 을 나눠 말하고 로그인 완료 문구에 실효 시각.
 4. **키 → GitHub Secrets(사용자, 2 가 (a) 일 때)** — `gh auth switch` 뒤 `gh secret set NAME`: 봇 계정 2개 · `claude setup-token` → `CLAUDE_CODE_OAUTH_TOKEN` ·
    네이버 개발자센터 → `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET` · Kakao REST 키(선택). `SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY` 시크릿은 삭제.
 5. **로컬 dry-run(Claude, 사용자가 `pnpm data:login` 한 상태에서)** — `pnpm data:analyze --dry-run --limit 5`. 백로그는 `--limit 30` 씩(구독 세션 한도). 세션 창 30분 주의(1 의 JWT expiry).
@@ -139,6 +142,13 @@ flowchart LR
 ## 세션 로그
 
 세션이 끝나거나 컨텍스트가 커져 나눌 때 여기에 한 항목. 체크박스가 정본이고 로그는 인수인계 메모.
+
+- 2026-09-22 (2) — **다음 할 일 3 의 Claude 파트**. (1) 상태 점검: 옛 `.env.local`·`.vercel/.env.production.local` 은 이미 없음 · `vercel`·`gh`(두 계정) 로그인 상태 ·
+  `supabase` CLI 로그아웃 · Vercel env 는 마켓플레이스 15개 그대로(정리 전). (2) Preview(`1b4264c`) 빌드 로그 `Supabase 인증: publishable(anon — published 읽기만)` ·
+  `pull 완료: places 86 · items 15` — service 키가 env 에 있어도 anon, 코드 불변식 실측. (3) self-cr minor 4건을 워크플로(구현 → 3렌즈 리뷰 → 지적마다 반박 2표 →
+  반영 → 최종 검증, 에이전트 20)로 반영: 리뷰 7건 중 6건 확인·반영(그중 실질은 겹친 Meta 접두 `ESC ESC [ A` 회귀 1건 — 옛 코드는 맞았다), 1건(비문자열 토큰의
+  `toString` 재호출)은 표가 갈려 메인이 `typeof` 한 줄로 닫음. 테스트 411 → 440. (4) 사용자 질문 "연동이 편의성 아닌가" → 이 프로젝트가 쓰는 연동 기능이 0(env 주입·
+  Redirect URL·청구·Branching 전부 미사용)이고 넣는 값은 전부 만료 없는 우회 키라 제거로 재확인. 다음: 커밋·push → 사용자의 1(Vercel 정리)·2(Actions 결정) → `main` 머지.
 
 - 2026-09-21 (4) ~ 09-22 — **RLS 실측 완료·원칙 확정**. (1) 사용자가 publishable 키를 줌 → `PUBLISHABLE_KEY` 채움 → `data:pull` 이 anon 으로 86·15 행(PostgREST 첫 통과).
   (2) 계정 2개(`zgnn@gmail.com` 운영자 · `zgnn-test@gmail.com` 비운영자) → `operators` insert(운영자만) → `data:apply --dry-run` 3라운드: 세션 없음 exit 1 · 비운영자
