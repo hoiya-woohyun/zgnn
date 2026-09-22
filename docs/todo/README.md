@@ -1,7 +1,8 @@
 # TODO — 블로그 수집 → AI 분석 → 승인 → DB → 자동 배포
 
-> 최종 수정: 2026-09-22 (v10: **(c) 구현** — `collect.yml` 삭제 · `supabaseClient` 세션/anon 둘(service 키는 CI 든 아니든 트립와이어) · `collect-blog` 네이버 키 숨김 입력 ·
-> `loginReadHidden` → `readHidden` 리네임 · 옛 Actions 문구 정리 · (b) `narrow_grants` 마이그레이션 **파일** · 문서(todo 00·02·03·04·05·이 README). GitHub 시크릿 2개 삭제 완료(`gh secret list` 빈 결과 — **0개**). **원격 적용·검증(b)는 메인 세션 이어서.**
+> 최종 수정: 2026-09-22 (v11: **(b) 원격 적용·실측 완료** — `db push` 뒤 anon/세션 경로를 테이블·동작별로 실측(진행 상태 0 의 (b) 줄). JWT expiry 3600 실측. 남은 것은 self-cr → push → 로컬 잠금)
+> 이전 (v10: **(c) 구현** — `collect.yml` 삭제 · `supabaseClient` 세션/anon 둘(service 키는 CI 든 아니든 트립와이어) · `collect-blog` 네이버 키 숨김 입력 ·
+> `loginReadHidden` → `readHidden` 리네임 · 옛 Actions 문구 정리 · (b) `narrow_grants` 마이그레이션 **파일** · 문서(todo 00·02·03·04·05·이 README). GitHub 시크릿 2개 삭제 완료(`gh secret list` 빈 결과 — **0개**). (b) 는 파일만 — 원격 적용은 v11.)
 > 다음 할 일 4 삭제(목표 소멸), 5 이후 번호 하나씩 당김)
 > 이전 (v9: **결정 2 = (c) Actions 폐지** + 네이버·Kakao 키는 사용자가 로컬에서 직접 관리(스크립트는 env 또는 TTY 숨김 입력, 저장 없음).
 > 구현 계획을 다음 할 일 2 에 항목화 — 새 세션은 거기서 시작. 대시보드 몫(legacy secret 퇴역·sign-up off·secure password change on) 완료)
@@ -15,7 +16,7 @@
 > 이전 (v3: 0·1·2·5 에 실제 코드가 생겨 진행 상태를 항목별로 쪼갬. 세션 로그 절 추가)
 > 이전 (v2: 가정 두 개가 확정돼 ADR-015 로 옮김. 회원은 todo 범위 밖으로)
 > 이전 (v1: 신설 — 5단계 파이프라인의 실행 트래커)
-> 상태: **진행 중**. 0·1·2·3·5 는 코드가 있고 4a(빌드가 DB 를 읽음)도 끝났다. 시크릿 모델은 ADR-016(Auth 로그인, v5 = 세션·anon 두 출처)로 **구현 완료** — (c) Actions 폐지가 브랜치 `feature/local-only-pipeline` 에 구현됐고(미커밋), 수집·분석·반영은 사용자 터미널에서만 돈다. Vercel 은 연동·env 없이 공개값 둘로만 빌드한다(실측). 남은 것은 **(b) GRANT 축소 원격 적용·검증 → GitHub 죽은 시크릿 2개 삭제 → 커밋·self-cr·push → 로컬 잠금 3개 → 첫 실행(사용자 터미널)**과 4b(웹훅 재빌드). 각 항목의 `[ ]` 를 채워 가며 진행하고, 결정이 확정되면 ADR 로 옮기고 여기서는 링크만 남긴다.
+> 상태: **진행 중**. 0·1·2·3·5 는 코드가 있고 4a(빌드가 DB 를 읽음)도 끝났다. 시크릿 모델은 ADR-016(Auth 로그인, v5 = 세션·anon 두 출처)로 **구현 완료** — (c) Actions 폐지가 브랜치 `feature/local-only-pipeline` 에 구현·커밋됐고 (b) 는 원격 적용·실측 완료, 수집·분석·반영은 사용자 터미널에서만 돈다. Vercel 은 연동·env 없이 공개값 둘로만 빌드한다(실측). 남은 것은 **(b) GRANT 축소 원격 적용·검증 → GitHub 죽은 시크릿 2개 삭제 → 커밋·self-cr·push → 로컬 잠금 3개 → 첫 실행(사용자 터미널)**과 4b(웹훅 재빌드). 각 항목의 `[ ]` 를 채워 가며 진행하고, 결정이 확정되면 ADR 로 옮기고 여기서는 링크만 남긴다.
 
 ## 목표
 
@@ -71,8 +72,8 @@ flowchart LR
   - [x] Vercel CLI link · Kakao 지도 배포 도메인(`zgnn.vercel.app/map` 정상). Vercel 환경변수는 ADR-016 v4 뒤로 **필요 없어졌다** — [x] 마켓플레이스 연동 해제 + env 전부 삭제(2026-09-22 (2), `vercel env ls` → No Environment)
   - **시크릿 모델 = Auth 로그인**([ADR-016](../decisions/ADR-016-secrets-by-login.md), v5 = 세션·anon 두 출처)
     - [x] 마이그레이션 `operators`+RLS 8정책(`20260921075901`·`20260921080333`, 원격 적용, 어드바이저 No issues)
-    - [ ] **(b) `20260922120000_narrow_grants.sql`** — 파일 작성(2026-09-22 (5)): 여섯 테이블 ALL 회수 · anon 은 places·items select · authenticated 는 5 테이블 select/insert/update + operators select ·
-          default privileges 차단 · `operators_all` → select/insert/update 15 정책 · `is_operator()` execute 는 authenticated 만. **원격 미적용·미검증** — 검증 순서는 다음 할 일 2
+    - [x] **(b) `20260922120000_narrow_grants.sql`** — 파일 작성(2026-09-22 (5)), `db push` 적용(2026-09-22 (6)): 여섯 테이블 ALL 회수 · anon 은 places·items select · authenticated 는 5 테이블 select/insert/update + operators select ·
+          default privileges 차단 · `operators_all` → select/insert/update 15 정책 · `is_operator()` execute 는 authenticated 만. **원격 적용·실측 완료(2026-09-22 (6))**: anon = places 86·items 15 select 만(blog_posts·candidates·operators select, delete·insert, `rpc is_operator` 전부 42501) · 운영자 세션 = 5 테이블 select(operators 는 자기 행 1) · delete → 42501 · insert 는 grant·정책을 지나 not-null(23502)에서 멈춤 · `data:apply --dry-run` 반영 0건 exit 0 · `CLAUDECODE=1 data:collect` 거부 문구 실측. JWT expiry 는 **3600 실측**(만료 −1h, 실효 30분)
     - [x] `pnpm data:login`/`logout`(`scripts/login.mjs`·`logout.mjs`·`lib/sessionKeychain.mjs`) · `lib/supabaseClient.mjs` ~~출처 3단계 + 13 테스트~~ → **출처 둘(세션/anon) + 18 테스트**(2026-09-22 (5):
           service 경로·`SUPABASE_URL` override·`inCi` 삭제, env 에 service 키가 있으면 CI 든 아니든 throw, `readOnly` 는 anon + 이름만 경고) · `pull-db` readOnly · deny 확장
     - [x] `PUBLISHABLE_KEY` 상수 채움(2026-09-21 (4)) → `pnpm data:pull` 이 **PostgREST 의 anon 경로**로 86·15 행, diff 없음 — anon 정책은 실측됐다
@@ -99,7 +100,7 @@ flowchart LR
   - [x] `scripts/check-bundle.mjs` 유출 검사(빌드 뒤 자동 실행) · `.env.example` 커밋
   - [x] anon select 빈 결과(5 테이블 `[]`) · env→번들 유출 경로(참조가 있을 때만 잡힘 — 그게 맞는 자리) · 보안 헤더 3개(`vercel.json`)
   - [x] ~~🙋 마켓플레이스가 넣은 여분 시크릿 정리~~ → 연동 해제 + env 0개(2026-09-22 (2)) · service_role 은 회전 대신 퇴역(2026-09-22 (3))
-  - [ ] 프리뷰 보호 · 키 회전 절차(남은 대상은 네이버 키·Deploy Hook 뿐) · (b) GRANT 축소 원격 적용·검증 · 7일 일시정지를 깨우는 잡이 없어졌다(05 에 비용으로 기록)
+  - [ ] 프리뷰 보호 · 키 회전 절차(남은 대상은 네이버 키·Deploy Hook 뿐) · ~~(b) GRANT 축소 원격 적용·검증~~(완료 (6)) · 7일 일시정지를 깨우는 잡이 없어졌다(05 에 비용으로 기록)
 - [x] `docs/architecture/data-pipeline.md` v2 (이번에 반영)
 
 체크박스가 정본이다. 진행 상황을 다음 세션에 넘길 때는 아래 세션 로그에 한 줄 남긴다.
@@ -136,7 +137,7 @@ ADR-016 v4 는 구현·**실측 완료** — publishable 키 채움, `operators`
      안 되므로 **이것이 "에이전트가 빌드를 트리거할 수 없다" 를 만드는 유일한 문**이다(Actions 는 (c) 로 없어졌으니 남은 트리거는 Vercel 빌드뿐 — 그 빌드는 anon 이라 읽을 시크릿도 없다).
    - ~~**대시보드 확인**~~(2026-09-22 (3) 완료): Sign In / Providers → Allow new users to sign up **off** · Email → Secure password change **on**. JWT expiry 는 기본 3600 유지(사용자 결정) —
      코드의 30분 skew 와 합치면 로그인 뒤 **30분**만 세션으로 쓸 수 있다. 4 의 `data:analyze` 를 돌리기 전에 Sessions 에서 `43200` 으로 올리는 것을 권한다(≤1일이라 원칙 안).
-2. **결정 완료(2026-09-22 (3)): (c) Actions 폐지 — 구현 완료(2026-09-22 (5) 워크플로), 남은 것은 (b) 원격 적용·검증.** 수집·분석·반영은 사용자가
+2. **결정 완료(2026-09-22 (3)): (c) Actions 폐지 — 구현 완료(2026-09-22 (5) 워크플로), (b) 도 원격 적용·실측 완료(2026-09-22 (6)).** 수집·분석·반영은 사용자가
    `pnpm data:login` 한 로컬 세션에서만 돈다. GitHub 시크릿 0개가 목표.
    **키 전달도 결정됨**: 네이버 검색 키(client id·secret)는 **사용자가 로컬에서 직접 관리**한다 — 스크립트는 env 로 받고, 없고 TTY 면 숨김 입력으로 받는다.
    레포·키체인·파일 어디에도 저장하지 않는다(에이전트 세션이면 exit 1 안내 — 수집은 사용자 터미널 몫). Kakao REST 키는 사용자가 안 쓴다(지도 JS 키와 다른 키) —
@@ -161,9 +162,9 @@ ADR-016 v4 는 구현·**실측 완료** — publishable 키 채움, `operators`
      `permission denied for function` 으로 죽는다). 시퀀스 없음(키가 전부 text/uuid). libpg-query 로 27문장 파싱·AST 확인까지. **아래 검증 순서가 남았다**)
    - ~~문서: ADR-016 **v5**(보류 표 (a)(b)(c) 닫힘 — 새 ADR 만들지 않는다) · `data-pipeline.md`·`ARCHITECTURE.md`(Actions → 로컬 실행) · todo 00·02·03·04·05 ·
      CLAUDE.md 표(`collect.yml` 링크 제거, `pnpm data:*` 는 사용자 터미널) · 이 README(4 삭제, 6 을 로컬 첫 실행으로).~~ (2026-09-22 (5) 워크플로 — todo 5편·README 는 이 문서 레인, ADR/architecture/CLAUDE.md 는 별도 레인)
-   - **(b) 검증 순서**(`pnpm test` 는 정책 실수를 못 잡는다): 사용자 `pnpm exec supabase login` → Claude `pnpm exec supabase db push` → 사용자 `pnpm data:login` →
+   - ~~**(b) 검증 순서**~~ **전부 통과(2026-09-22 (6))** — 기록: (`pnpm test` 는 정책 실수를 못 잡는다) 사용자 `pnpm exec supabase login` → Claude `pnpm exec supabase db push` → 사용자 `pnpm data:login` →
      Claude `pnpm data:apply --dry-run` = `반영 0건` exit 0 · 세션으로 delete 시도 → 42501(이제 정책이 아니라 DELETE grant 부재) · anon `data:pull` 86·15 → 사용자 `supabase logout` ·
-     어드바이저 새 경고 없음. 마지막 단계까지 못 가면 (b) 는 **미검증**으로 표기. push 뒤 첫 select 가 `permission denied for function is_operator`/`for table operators` 면 grant 미적용이지 정책 버그가 아니다.
+     어드바이저는 사용자가 대시보드에서 한 번 본다(CLI 로 못 본다). 실측 결과는 진행 상태 0 의 (b) 줄. push 뒤 첫 select 가 `permission denied for function is_operator`/`for table operators` 면 grant 미적용이지 정책 버그가 아니다.
    - ~~**GitHub Secret 삭제** — `gh auth switch -u hoiya-woohyun` 뒤 `gh secret list` 로 보고 `gh secret delete` 2개(`SUPABASE_SERVICE_ROLE_KEY`·`SUPABASE_URL`, 이름만 다룬다).~~ 완료(2026-09-22 (5)) — `gh secret list` 빈 결과, **시크릿 0개**.
 3. **배포 확인(Claude)** — ~~self-cr → push~~(2026-09-22 완료. self-cr major 1 반영: `readOnly` 는 CI 에 service 키가 남아 있어도 anon — "빌드는 anon" 이 env 정리
    순서가 아니라 코드 불변식이 됐다) → ~~Preview 빌드 로그가 `publishable(anon)` 인지~~(2026-09-22 (2) 실측: 커밋 `1b4264c` Preview 가 `publishable(anon)` 으로 86·15 행,
@@ -188,6 +189,8 @@ ADR-016 v4 는 구현·**실측 완료** — publishable 키 채움, `operators`
   self-cr 에 이 목록을 넘겨 커버. 메인이 직접 넣은 것: `collect-blog` 빈 id 면 secret 안 묻기 한 줄(테스트 없음). GitHub 시크릿 2개 삭제(`gh secret list` 빈 결과, 0개). 커밋 3개(코드·마이그레이션·문서).
   **남은 것**: 사용자 `pnpm exec supabase login` → (사용자 확인 뒤) `db push` → 사용자 `pnpm data:login` → `data:apply --dry-run` 검증(delete 42501 · anon pull 86·15) → `supabase logout` → self-cr → push → 로컬 잠금 3개.
   (b) 는 push 전까지 **미검증** — 검증이 push 앞인 이유: `db push` 가 grant 실수를 드러내면 깨진 마이그레이션을 올리는 대신 같은 커밋을 고친다.
+
+- 2026-09-22 (6) — **(b) 원격 적용·실측**. 사용자 `supabase login` → dry-run 에 `narrow_grants` 하나 → 사용자 확인 뒤 `db push` 적용 → **원격 적용·실측 완료(2026-09-22 (6))**: anon = places 86·items 15 select 만(blog_posts·candidates·operators select, delete·insert, `rpc is_operator` 전부 42501) · 운영자 세션 = 5 테이블 select(operators 는 자기 행 1) · delete → 42501 · insert 는 grant·정책을 지나 not-null(23502)에서 멈춤 · `data:apply --dry-run` 반영 0건 exit 0 · `CLAUDECODE=1 data:collect` 거부 문구 실측. JWT expiry 3600 실측(로그인 문구의 만료가 +1h) — 실효 30분이라 `data:analyze` 는 `--limit 30` 씩이거나 43200 으로 올린다(사용자 결정 남음). 검증용 임시 스크립트는 지웠다(값 없이 코드·행 수만 찍는 것).
 
 - 2026-09-22 (4) — **결정 2 = (c)**. 사용자가 (c) 선택 → advisor 지적으로 키 전달 방식을 물어 "네이버·Kakao 키는 내가 로컬로 관리" 로 확정(env 또는 TTY 숨김 입력, 저장 없음;
   Kakao REST 는 안 씀). 대시보드 몫 완료 보고 뒤 anon `data:pull` 86·15 실측(legacy 키 퇴역 뒤에도 OK), 옛 세션은 만료 상태. 구현은 컨텍스트(436k) 때문에 **새 세션**에서 —

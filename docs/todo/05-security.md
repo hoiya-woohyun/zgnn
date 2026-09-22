@@ -1,7 +1,8 @@
 # 5. 보안 — 키 분리 · RLS · 웹훅 · 프리뷰 보호
 
-> 최종 수정: 2026-09-22 (v8: **(c) Actions 폐지** — "어디에 무엇이 있는지" 표를 두 출처(세션·anon) 모델로 다시 씀: service_role 은 어디에도 없다(env 잔존은 트립와이어로 멈춤),
-> `CLAUDE_CODE_OAUTH_TOKEN` 없음, 네이버 키는 사용자 로컬 관리(숨김 입력·저장 없음), GitHub 0개(죽은 값 2개 삭제, 실측)·Vercel 0개. Actions 절 폐지. **(b) GRANT 축소 마이그레이션은 파일만 — 원격 미적용·미검증.**
+> 최종 수정: 2026-09-22 (v9: **(b) GRANT 축소 원격 적용·실측 완료** — anon 은 places·items select 만, 나머지 전부 42501 · 세션은 delete 가 grant 부재로 42501)
+> 이전 (v8: **(c) Actions 폐지** — "어디에 무엇이 있는지" 표를 두 출처(세션·anon) 모델로 다시 씀: service_role 은 어디에도 없다(env 잔존은 트립와이어로 멈춤),
+> `CLAUDE_CODE_OAUTH_TOKEN` 없음, 네이버 키는 사용자 로컬 관리(숨김 입력·저장 없음), GitHub 0개(죽은 값 2개 삭제, 실측)·Vercel 0개. Actions 절 폐지. (b) GRANT 축소 마이그레이션은 파일만 — 원격 적용은 v9)
 > 새 비용: 7일 일시정지를 깨우는 잡이 없다)
 > 이전 (v7: 마켓플레이스 연동은 끊기로 결정 — 원칙 "우회 키를 에이전트가 트리거할 수 있는 경로에 두지 않는다")
 > 이전 (v6: RLS 를 PostgREST 로 실측 완료 — anon·세션 없음·비운영자·운영자 네 경우. JWT expiry 는 사용자 결정으로 기본 3600 유지)
@@ -50,7 +51,7 @@
 - [x] **모든 테이블 RLS ON**(01). 정책은 ADR-016 v4 에서 8개(마이그레이션 `20260921075901`·`20260921080333`): 운영자(`operators` 허용 목록)만 5 테이블 all,
       anon 은 `places(status='published')`·`items` select 만. `authenticated` 이지만 허용 목록 밖이면 아무것도 못 한다(회원가입이 열려 있어도).
       어드바이저 `supabase db advisors --linked` = No issues.
-- [ ] **(b) GRANT 를 스크립트가 하는 일만큼으로 좁힌다** — `supabase/migrations/20260922120000_narrow_grants.sql` **파일만 작성(2026-09-22 (5)), 원격 미적용·미검증.**
+- [x] **(b) GRANT 를 스크립트가 하는 일만큼으로 좁힌다** — `supabase/migrations/20260922120000_narrow_grants.sql` 파일 작성(2026-09-22 (5)) → `db push` 적용 · **원격 적용·실측 완료(2026-09-22 (6))**: anon = places 86·items 15 select 만(blog_posts·candidates·operators select, delete·insert, `rpc is_operator` 전부 42501) · 운영자 세션 = 5 테이블 select(operators 는 자기 행 1) · delete → 42501 · insert 는 grant·정책을 지나 not-null(23502)에서 멈춤 · `data:apply --dry-run` 반영 0건 exit 0 · `CLAUDECODE=1 data:collect` 거부 문구 실측.
       왜 지금인가: service 키가 퇴역해 남은 두 출처가 둘 다 RLS 를 지나므로 이제 **GRANT 가 곧 상한**이다 — RLS 정책은 "어느 행", GRANT 는 "어느 동작". Supabase 기본은 anon·authenticated 에
       모든 테이블 ALL 이라 정책 실수 하나가 delete·truncate 까지 연다. 내용: 여섯 테이블 ALL 회수 → anon 은 `places`·`items` select 만 → authenticated 는 5 테이블 select/insert/update +
       `operators` select → postgres 의 default privileges 에서 앞으로의 테이블도 끊음(postgres 가 만드는 것만 — 마이그레이션 경로) → `operators_all`(for all) 을 `operators_select`/`_insert`/`_update` 로(×5 = 15 정책, anon 2·`operators_read_self` 는 그대로)
@@ -116,4 +117,4 @@ Actions 는 "관리자 없이 도는 구조" 라 만료 없는 시크릿(service
 - [x] anon 키로 `places` 를 `select` 하면 0행(정책 0개 시절 확인). 정책 뒤 기준은 위 Supabase 절. — [ ] Preview URL 을 시크릿 창에서 열면 로그인 화면 — **미확인**(Deployment Protection 은 대시보드).
 - [ ] 시크릿 회전 절차(위 표의 "새면" 열)가 이 문서에 있고, 한 번은 실제로 회전해 본다. — 표는 있다. service_role 은 회전 대신 **퇴역**(2026-09-22 (3))으로 대상 자체가 없어졌다.
       남은 회전 대상은 네이버 키(재발급, 사용자)와 Deploy Hook URL(4b 뒤)뿐 — 아직.
-- [ ] **(b) GRANT 축소가 원격에 적용되고 검증 순서를 끝까지 통과한다**(위 Supabase 절). 파일만 있는 지금은 미검증.
+- [x] **(b) GRANT 축소가 원격에 적용되고 검증 순서를 끝까지 통과한다**(위 Supabase 절) — 2026-09-22 (6) 통과.

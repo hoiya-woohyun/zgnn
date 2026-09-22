@@ -3,7 +3,7 @@
 > 최종 수정: 2026-09-22 (v5: **GitHub Actions 폐지 — 인증 출처는 둘뿐**, 운영자 세션(JWT)과 anon(publishable). service_role 경로를 코드에서 지웠다:
 > `readOnly` 는 항상 anon(env 에 service 키가 남아 있으면 **이름만** 경고 한 줄, 빌드는 계속), 쓰기 경로는 셸 env 에 service 키가 있으면 CI 여부와 무관하게 **무조건 멈춘다**(env 파일은 읽지 않는다).
 > 수집·분석·반영은 사용자가 `pnpm data:login` 한 로컬 터미널에서만 돈다. 네이버 검색 키는 사용자 로컬 관리(env 또는 TTY 숨김 입력, 저장 없음, 에이전트 세션 거부).
-> v4 의 보류 셋을 닫았다 — (a) 봇 운영자 로그인 **기각**, (b) GRANT 축소는 `narrow_grants` 마이그레이션 파일로 구현(**원격 미적용·미검증**), (c) Actions **폐지**)
+> v4 의 보류 셋을 닫았다 — (a) 봇 운영자 로그인 **기각**, (b) GRANT 축소는 `narrow_grants` 마이그레이션으로 구현(**원격 적용·실측 완료 2026-09-22 (6)**), (c) Actions **폐지**)
 > 이전 (v4: **Auth 로그인 모델** — `pnpm data:login` 이 Supabase Auth 사용자(운영자)로 로그인해 access token 하나를 키체인에 넣고,
 > `pnpm data:*` 는 publishable 키 + 그 JWT 로 붙는다. RLS 가 `operators` 허용 목록으로 가른다. v3 의 PAT 경로(`supabase projects api-keys`)는 폐기 —
 > PAT 는 만료가 없어 "토큰 1일 미만" 요구를 못 채웠다. service_role 키는 GitHub Actions 에만 남는다)
@@ -42,7 +42,7 @@ Free private 레포는 브랜치·환경 보호가 안 된다. 러너에 키가 
    RLS 가 권한을 가른다. 마이그레이션 `20260921075901_operators_rls`·`20260921080333_is_operator_invoker`:
    - `operators(user_id → auth.users)` 허용 목록. `is_operator()`(security invoker, `search_path = ''`)가 "호출자가 목록에 있는가" 를 답한다.
    - `authenticated` 이면서 운영자인 사용자: `places`·`items`·`blog_posts`·`candidates`·`place_sources` 전부 select/insert/update/delete(원격에 적용된 상태.
-     v5 의 세 번째 마이그레이션 `20260922120000_narrow_grants` 가 delete 를 GRANT 와 정책 양쪽에서 걷는다 — 파일만 있고 **원격 미적용**, 아래 "보류였던 것" (b)).
+     v5 의 세 번째 마이그레이션 `20260922120000_narrow_grants` 가 delete 를 GRANT 와 정책 양쪽에서 걷는다 — 원격 적용·실측 완료, 아래 "보류였던 것" (b)).
      **`authenticated` 만으로는 아무것도 못 한다** — 원격 프로젝트가 회원가입을 열어 두면 아무나 `authenticated` 가 된다. 허용 목록이 관문이다.
    - `anon`(publishable 키): `places` 의 `status='published'` 와 `items` 를 **select 만**. `scripts/pull-db.mjs` 가 읽는 것과 정확히 같은 집합 —
      이미 사이트에 구워져 공개된 데이터라 새로 노출되는 것이 없다. Vercel 빌드가 이 경로다.
@@ -162,7 +162,7 @@ v4 가 "다음 결정" 으로 남긴 셋. 새 ADR 을 만들지 않고 여기서
 
 - **(a) GitHub Actions 의 service_role 을 봇 운영자 로그인(`signInWithPassword`, RLS 안)으로** — **기각.** RLS 안으로 들어오긴 해도 봇의 이메일·비밀번호가 GitHub Secrets 에
   남는다. "GitHub 에 시크릿이 남는 경로" 라는 점에서 service 키와 구조가 같다("왜 이것인가").
-- **(b) anon·authenticated 의 기본 GRANT 회수 · `for all` → select/insert/update** — `supabase/migrations/20260922120000_narrow_grants.sql` 로 **구현. 파일만 — 원격 미적용·미검증.**
+- **(b) anon·authenticated 의 기본 GRANT 회수 · `for all` → select/insert/update** — `supabase/migrations/20260922120000_narrow_grants.sql` 로 **구현 · 원격 적용 · 실측 완료(2026-09-22 (6))** — **원격 적용·실측 완료(2026-09-22 (6))**: anon = places 86·items 15 select 만(blog_posts·candidates·operators select, delete·insert, `rpc is_operator` 전부 42501) · 운영자 세션 = 5 테이블 select(operators 는 자기 행 1) · delete → 42501 · insert 는 grant·정책을 지나 not-null(23502)에서 멈춤 · `data:apply --dry-run` 반영 0건 exit 0 · `CLAUDECODE=1 data:collect` 거부 문구 실측.
   순서: 여섯 테이블의 anon·authenticated ALL 회수 → anon 은 `places`·`items` select 만 → authenticated 는 5 테이블 select/insert/update + `operators` select(`is_operator()` 가 invoker 라
   호출자 권한으로 읽는다 — 이 grant 가 없으면 운영자의 모든 쿼리가 정책 평가에서 42501) → `alter default privileges for role postgres in schema public revoke all on tables from anon, authenticated`
   (`postgres` 가 만드는 앞으로의 테이블도 — 마이그레이션은 postgres 로 도니 걸리고, 다른 역할이 만든 테이블엔 안 걸린다) → `operators_all` 을 `operators_select`/`_insert`/`_update` 3정책 ×5 테이블로(upsert 는 insert `with check` 와 update `using`+`with check` 둘 다 지난다 —
@@ -173,5 +173,5 @@ v4 가 "다음 결정" 으로 남긴 셋. 새 ADR 을 만들지 않고 여기서
   **검증 순서**(`pnpm test` 는 정책·grant 실수를 못 잡는다 — 끝까지 가야 (b) 가 "적용됨" 이 된다): 사용자 `pnpm exec supabase login` → `pnpm exec supabase db push` → 사용자 `pnpm data:login`
   → `pnpm data:apply --dry-run` = `반영 0건` exit 0 → 세션으로 delete 시도 → 42501(이제 정책이 아니라 DELETE grant 부재로 막힘) → anon `pnpm data:pull` 86·15 → 사용자 `pnpm exec supabase logout`.
   push 뒤 어드바이저에 새 경고가 없는지도 본다. push 직후 운영자 세션의 첫 select 가 "permission denied for function is_operator" 나 "permission denied for table operators" 면
-  정책 버그가 아니라 grant 가 안 붙은 것이다. 마지막 단계까지 못 가면 이 항목은 **미검증**으로 남는다.
+  정책 버그가 아니라 grant 가 안 붙은 것이다. (실측에선 그 증상이 없었다 — 운영자 세션의 첫 select 가 곧바로 86 행.)
 - **(c) Actions 자체가 "관리자 없이" 도는 구조** — **폐지**(이 v5). 수집·분석·반영은 사용자 터미널의 로컬 세션에서만. 결정 5.

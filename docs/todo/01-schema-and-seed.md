@@ -73,7 +73,7 @@ create table place_sources ( place_id text references places(id), post_url text 
 ## RLS
 
 - [x] **모든 테이블에 RLS 를 켠다. 정책은 하나도 만들지 않는다.** → anon·authenticated 는 아무것도 못 읽는다.
-      (당시엔 빌드·Actions 가 `service_role` 이라 정책 불필요 — v4 에서 운영자 RLS 8정책, v5 에서 Actions 폐지 + `narrow_grants` 로 정책·GRANT 축소(파일만, 원격 미적용). 정본은 ADR-016.)
+      (당시엔 빌드·Actions 가 `service_role` 이라 정책 불필요 — v4 에서 운영자 RLS 8정책, v5 에서 Actions 폐지 + `narrow_grants` 로 정책·GRANT 축소(원격 적용·실측 완료 2026-09-22). 정본은 ADR-016.)
       SQL 로 확인 완료(당시): `relrowsecurity` true × 5 테이블, `pg_policies` 0행.
 - 앱이 런타임에 DB 를 읽지 않는 (A) 에서는 이게 전부다. 관리 화면(03 후반)이나 (B) 로 가면 그때 정책을 더한다.
   **함정**: "RLS 안 켜도 anon 은 어차피 막힌다" 는 틀렸다 — PostgREST 는 RLS 가 꺼져 있으면 anon 키로 다 읽어 준다.
