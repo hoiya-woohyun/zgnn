@@ -62,7 +62,7 @@ flowchart LR
   - [x] Supabase 프로젝트(서울 리전, `zgnn_supabase`) 생성 · CLI link
   - [x] Vercel Git 연동(대시보드에서 `main` → Production)
   - [ ] GitHub Secrets 5개 중 1개(`SUPABASE_SERVICE_ROLE_KEY`, 회전 예정)만 등록 — 남은 것: `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`·`CLAUDE_CODE_OAUTH_TOKEN`(`ANTHROPIC_API_KEY` 대신)·`KAKAO_REST_API_KEY`. `SUPABASE_URL` 은 코드 상수가 돼 빠졌다
-  - [x] Vercel CLI link · Kakao 지도 배포 도메인(`zgnn.vercel.app/map` 정상). Vercel 환경변수는 ADR-016 v4 뒤로 **필요 없어졌다** — [ ] 삭제(아래 다음 할 일 2)
+  - [x] Vercel CLI link · Kakao 지도 배포 도메인(`zgnn.vercel.app/map` 정상). Vercel 환경변수는 ADR-016 v4 뒤로 **필요 없어졌다** — [x] 마켓플레이스 연동 해제 + env 전부 삭제(2026-09-22 (2), `vercel env ls` → No Environment)
   - **시크릿 모델 = Auth 로그인**([ADR-016 v4](../decisions/ADR-016-secrets-by-login.md))
     - [x] 마이그레이션 `operators`+RLS 8정책(`20260921075901`·`20260921080333`, 원격 적용, 어드바이저 No issues)
     - [x] `pnpm data:login`/`logout`(`scripts/login.mjs`·`logout.mjs`·`lib/sessionKeychain.mjs`) · `lib/supabaseClient.mjs` 출처 3단계 + 13 테스트 · `pull-db` readOnly · deny 확장
@@ -70,7 +70,7 @@ flowchart LR
     - [x] `operators` insert(`zgnn@gmail.com` 만 — `zgnn-test@gmail.com` 은 비운영자 역할로 밖에 둔다) · **RLS 를 PostgREST 로 실측**(2026-09-21 (4), `data:apply --dry-run`):
       세션 없음 → 로그인 안내 exit 1 · 비운영자 → `places 가 비어 있다` exit 1 · 운영자 → `반영 0건` exit 0. 세 결과가 갈렸으므로 이제 추론이 아니다
     - [ ] 대시보드: 회원가입 off · Secure password change on 은 확인 필요. **JWT expiry 는 기본 3600 유지로 사용자 결정** — 코드의 30분 skew 때문에
-      로그인 뒤 **30분**만 세션으로 쓸 수 있다(ADR-016 은 ≥ 8시간 전제). 긴 `data:analyze` 를 돌리기 전에 43200 으로 올리거나 skew 를 줄이는 결정이 남았다 · Vercel env 삭제
+      로그인 뒤 **30분**만 세션으로 쓸 수 있다(ADR-016 은 ≥ 8시간 전제). 긴 `data:analyze` 를 돌리기 전에 43200 으로 올리거나 skew 를 줄이는 결정이 남았다 · ~~Vercel env 삭제~~(완료)
   - [ ] Vercel Deploy Hook(4b)
 - [x] 1 스키마 + RLS + 시드 + `scripts/pull-db.mjs` (시드→pull 왕복, `git diff src/data` 빈 결과로 확인)
 - **2** 수집
@@ -108,9 +108,9 @@ flowchart LR
    - ~~**로컬 파일**: `rm -f .env.local .vercel/.env.production.local`~~(2026-09-22 (2) 둘 다 없는 것 확인).
    - **Vercel — 마켓플레이스 연동을 끊는다**(2026-09-22 결정. 이 프로젝트는 정적 내보내기 + 빌드 시 anon 읽기라 연동이 주는 기능 — env 주입·통합 청구·Preview
      Redirect URL·Branching — 중 쓰는 게 없다. 회원(ADR-011)을 붙일 때 publishable 키·Redirect URL 만 쓰는 조건으로 다시 붙인다):
-     1. **먼저 A/B 판별** — Supabase 대시보드 Organization 설정의 청구가 "Managed by Vercel" 이면 A(마켓플레이스 네이티브: **Integration 을 uninstall 하면 조직째 삭제**).
+     1. ~~**먼저 A/B 판별**~~(2026-09-22 (2) 사용자가 연동 해제 — 마켓플레이스 변수 12개가 같이 사라짐) — Supabase 대시보드 Organization 설정의 청구가 "Managed by Vercel" 이면 A(마켓플레이스 네이티브: **Integration 을 uninstall 하면 조직째 삭제**).
         A 면 Vercel 프로젝트 Settings 에서 **Disconnect project 만**, 리소스·연동 삭제는 누르지 않는다. B(Supabase 쪽 Integrations → Vercel)면 거기서 연결 해제.
-     2. `vercel env ls`(이름만 나온다)로 남은 `SUPABASE_*`·`POSTGRES_*` 를 보고 `vercel env rm <NAME> production` / `preview` 로 전부 제거. 손으로 넣었던 `SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY` 포함.
+     2. ~~`vercel env ls`~~(완료 — 손으로 넣었던 3개는 Claude 가 `vercel env rm` 으로, 값 노출 없음. 지금 `No Environment`) `vercel env ls`(이름만 나온다)로 남은 `SUPABASE_*`·`POSTGRES_*` 를 보고 `vercel env rm <NAME> production` / `preview` 로 전부 제거. 손으로 넣었던 `SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY` 포함.
      3. `SUPABASE_JWT_SECRET` 이 빌드 env 에 있었으므로 대시보드 → JWT 서명키 **회전**(service_role 토큰을 무기한 위조할 수 있는 값이라 노출로 본다).
      4. 끝나면 `vercel logout`(휴지). 배포 확인 때만 로그인.
    - **Supabase API Keys**: 새 secret key 발급 + legacy `service_role` 폐기(옛 값은 에이전트 대화 기록에 실렸을 수 있다). **새 값을 어디에 둘지는 2 의 결정에 따른다** — (a)·(c) 면 GitHub 에도 넣지 않는다.
