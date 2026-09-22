@@ -1,4 +1,4 @@
-// `pnpm data:login` 이 받은 Supabase 세션(access token 하나)을 macOS 키체인에 넣고 꺼낸다(ADR-016 v4).
+// `pnpm data:login` 이 받은 Supabase 세션(access token 하나)을 macOS 키체인에 넣고 꺼낸다(ADR-016 v5).
 // 파일이 아니라 키체인인 이유: 레포 어디에도 값이 없어야 에이전트가 `cat` 으로 볼 수 없다. 읽는 명령
 // (`security find-generic-password`)은 .claude/settings.json 이 deny 하고, 이 모듈은 값을 프로세스 안에서만 쓰고 찍지 않는다.
 // refresh token 은 저장하지 않는다 — 무료 플랜엔 세션 타임박스가 없어 저장하면 사실상 영구 로그인이 된다. access token 의

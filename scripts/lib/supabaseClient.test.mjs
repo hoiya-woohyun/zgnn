@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  PROJECT_REF, SESSION_EXP_SKEW_MIN, SESSION_EXP_SKEW_S, SESSION_MAX_TTL_S, assertPublishableKey, formatTime, jwtExpiresAt, projectUrl,
-  resolveSupabaseCredentials, sessionTtlProblem, sessionUsableUntil,
+  PROJECT_REF, SESSION_EXP_SKEW_MIN, SESSION_EXP_SKEW_S, SESSION_MAX_TTL_S, assertPublishableKey, formatTime, ignoredEnvWarning, jwtExpiresAt,
+  projectUrl, resolveSupabaseCredentials, sessionTtlProblem, sessionUsableUntil,
 } from './supabaseClient.mjs';
 
 // 서명 없는 가짜 JWT — 서명은 서버가 확인하고, 여기선 `exp` 만 읽는다.
@@ -159,6 +159,19 @@ describe('resolveSupabaseCredentials — 출처', () => {
     try { resolve({ env: { SUPABASE_SERVICE_ROLE_KEY: SERVICE } }); } catch (e) { trip = e.message; }
     expect(trip).toContain('SUPABASE_SERVICE_ROLE_KEY');
     expect(trip).not.toContain(SERVICE);
+  });
+});
+
+// resolve 가 만든 객체를 그대로 넣는다 — 문구 쪽만 손으로 지은 객체로 검사하면 필드명 오타를 테스트가 함께 틀려 못 잡는다(생산자와 소비자가 같은 오타를 공유한다).
+describe('ignoredEnvWarning — 경고가 조용히 사라지는 것을 막는 절반', () => {
+  it('무시한 env 가 있으면 이름만 담은 한 줄, 없으면 undefined(찍지 않는다)', () => {
+    const SERVICE = 'sb_secret_should_never_appear';
+    const msg = ignoredEnvWarning(resolve({ env: { SUPABASE_SERVICE_ROLE_KEY: SERVICE }, readOnly: true }));
+    expect(msg).toContain('SUPABASE_SERVICE_ROLE_KEY');
+    expect(msg).not.toContain(SERVICE); // 이름만, 값은 없다
+    expect(ignoredEnvWarning(resolve({ readOnly: true }))).toBeUndefined();
+    expect(ignoredEnvWarning(resolve({ readSession: () => valid }))).toBeUndefined(); // 세션 경로엔 필드 자체가 없다
+    expect(ignoredEnvWarning(undefined)).toBeUndefined();
   });
 });
 

@@ -1,4 +1,4 @@
-// `pnpm data:login` — Supabase Auth 사용자(운영자)로 로그인해 access token 하나를 키체인에 넣는다(ADR-016 v4).
+// `pnpm data:login` — Supabase Auth 사용자(운영자)로 로그인해 access token 하나를 키체인에 넣는다(ADR-016 v5).
 // 이 뒤로 `pnpm data:*` 가 그 토큰으로 붙고, `exp`(대시보드 JWT expiry)가 지나면 다시 이 명령을 부르라고 멈춘다.
 // 사용자 터미널에서만 돈다 — TTY 가 아니면(에이전트가 부르면) 거부. 비밀번호는 화면에 찍지 않고, 토큰도 찍지 않는다.
 // refresh token 은 버린다(무료 플랜엔 세션 타임박스가 없어 저장하면 영구 로그인이 된다). "하루 한 번 로그인" 이 요구사항이다.

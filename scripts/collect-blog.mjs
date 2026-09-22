@@ -34,8 +34,11 @@ if (!naverClientId || !naverClientSecret) {
   } catch {
     process.exit(130); // Ctrl-C/Ctrl-D — readHidden 이 reject 한다
   }
+  // 비어 있는 **이름**을 말한다(값은 절대 아니다) — 한 문장으로 두면 세 상황(id 를 빈 채 엔터 · secret 만 비움 · env 로 한쪽만 줌)을
+  // 똑같이 가리킨다. 특히 id 를 비운 사용자는 secret 프롬프트를 본 적이 없어 무엇을 다시 쳐야 하는지 알 수 없다. 이 파일엔 테스트가 없어 문구가 유일한 진단이다.
   if (!naverClientId || !naverClientSecret) {
-    console.error('네이버 키가 비었다.');
+    const empty = [!naverClientId && 'NAVER_CLIENT_ID', !naverClientSecret && 'NAVER_CLIENT_SECRET'].filter(Boolean);
+    console.error(`네이버 키가 비었다: ${empty.join(' · ')} — env 로 넘기거나 터미널에서 다시 실행(숨김 입력).`);
     process.exit(1);
   }
 }

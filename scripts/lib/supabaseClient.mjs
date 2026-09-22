@@ -119,6 +119,14 @@ const SOURCE_LABEL = {
   anon: 'publishable(anon — published 읽기만)',
 };
 
+// readOnly 가 env 의 service 키를 무시하고 anon 으로 갔을 때의 한 줄(이름만, 값은 없다). 무시할 게 없으면 undefined — 찍지 않는다.
+// 문구 생성만 떼어 낸 이유: 이 경고는 "조용히 넘기면 사고 감지가 사라진다" 를 막으려고 있는 건데, createSupabase 안의
+// console.error 로 두면 그 경고 자체가 테스트에 안 잡힌다 — 필드명 오타 하나로 경고가 사라져도 초록이다.
+export function ignoredEnvWarning(creds) {
+  if (!creds?.ignoredEnv?.length) return undefined;
+  return `경고: env 의 ${creds.ignoredEnv.join('·')} 를 무시했다(anon 으로 붙음) — ADR-016 v5 는 service 키를 어디서도 쓰지 않는다. 셸·.env.local 에서 지운다.`;
+}
+
 // 스크립트 진입점용: 실패하면 이유를 찍고 exit 1. 조용히 스냅샷으로 넘어가지 않는다(Vercel 빌드가 옛 데이터로 돌아가는 걸 막는다).
 // 어느 출처를 썼는지 한 줄 찍는다 — 두 출처는 `data:pull` 결과가 같아 로그 없이는 무엇으로 붙었는지 알 수 없다. 옛 .env.local 잔존을 처음 잡은 것도 이 로그였다.
 export function createSupabase({ readOnly = false } = {}) {
@@ -130,11 +138,11 @@ export function createSupabase({ readOnly = false } = {}) {
     process.exit(1);
   }
   const until = creds.expiresAt ? ` · 만료 ${formatTime(creds.expiresAt)}(실효 ${formatTime(sessionUsableUntil(creds.expiresAt))} 까지)` : '';
-  console.log(`Supabase 인증: ${SOURCE_LABEL[creds.source]}${until}`);
-  // readOnly 가 env 의 service 키를 무시하고 anon 으로 갔으면 이름만 한 줄(값은 없다). 빌드는 계속된다 — 멈추면 "빌드는 anon" 이 다시 env 정리 순서에 묶인다.
-  if (creds.ignoredEnv?.length) {
-    console.error(`경고: env 의 ${creds.ignoredEnv.join('·')} 를 무시했다(anon 으로 붙음) — ADR-016 v5 는 service 키를 어디서도 쓰지 않는다. 셸·.env.local 에서 지운다.`);
-  }
+  // 라벨이 없는 출처를 새로 넣어도 `Supabase 인증: undefined` 가 되지 않게 — 이름이라도 찍는다.
+  console.log(`Supabase 인증: ${SOURCE_LABEL[creds.source] ?? creds.source}${until}`);
+  // 빌드는 계속된다 — 멈추면 "빌드는 anon" 이 다시 env 정리 순서에 묶인다.
+  const warning = ignoredEnvWarning(creds);
+  if (warning) console.error(warning);
   return createClient(creds.url, creds.key, {
     auth: { persistSession: false, autoRefreshToken: false },
     // 사용자 JWT 는 두 번째 인자(apikey)가 아니라 Authorization 헤더로 간다 — apikey 자리에 넣으면 401 이 나서 RLS 버그처럼 보인다.
