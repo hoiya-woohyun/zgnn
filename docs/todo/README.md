@@ -1,6 +1,8 @@
 # TODO — 블로그 수집 → AI 분석 → 승인 → DB → 자동 배포
 
-> 최종 수정: 2026-09-22 (v8: 다음 할 일 3 의 Claude 파트 완료 — Preview 빌드 로그 `publishable(anon)` 실측(Preview env 에 service 키가 남아 있어도), self-cr minor 4건 반영(+29 테스트=440).
+> 최종 수정: 2026-09-22 (v9: **결정 2 = (c) Actions 폐지** + 네이버·Kakao 키는 사용자가 로컬에서 직접 관리(스크립트는 env 또는 TTY 숨김 입력, 저장 없음).
+> 구현 계획을 다음 할 일 2 에 항목화 — 새 세션은 거기서 시작. 대시보드 몫(legacy secret 퇴역·sign-up off·secure password change on) 완료)
+> 이전 (v8: 다음 할 일 3 의 Claude 파트 완료 — Preview 빌드 로그 `publishable(anon)` 실측(Preview env 에 service 키가 남아 있어도), self-cr minor 4건 반영(+29 테스트=440).
 > 사용자 재확인: 마켓플레이스 연동은 끊는다(쓰는 기능 0, 넣는 값은 전부 만료 없는 우회 키). 옛 env 파일 2개는 지워진 것 확인)
 > 이전 (v7: 사용자 결론 "Claude 는 민감정보를 알아선 안 된다" 를 계획으로 — 실행 경로가 곧 읽기 경로이므로 만료 없는 우회 키·접속 정보를
 > 에이전트가 트리거할 수 있는 경로(로컬 파일·Vercel env·Actions)에서 전부 뺀다. RLS 는 PostgREST 로 실측 완료. 마켓플레이스 연동은 끊기로. Actions 경로는 🙋)
@@ -61,7 +63,7 @@ flowchart LR
 - **0** Supabase · Vercel · GitHub Secrets
   - [x] Supabase 프로젝트(서울 리전, `zgnn_supabase`) 생성 · CLI link
   - [x] Vercel Git 연동(대시보드에서 `main` → Production)
-  - [ ] GitHub Secrets 5개 중 1개(`SUPABASE_SERVICE_ROLE_KEY`, 회전 예정)만 등록 — 남은 것: `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`·`CLAUDE_CODE_OAUTH_TOKEN`(`ANTHROPIC_API_KEY` 대신)·`KAKAO_REST_API_KEY`. `SUPABASE_URL` 은 코드 상수가 돼 빠졌다
+  - [ ] GitHub Secrets — (c) 결정(2026-09-22 (3))으로 **목표가 0개**. 남은 1개(`SUPABASE_SERVICE_ROLE_KEY`, legacy 라 이미 죽은 값)를 지우면 끝. Actions 워크플로도 삭제 예정
   - [x] Vercel CLI link · Kakao 지도 배포 도메인(`zgnn.vercel.app/map` 정상). Vercel 환경변수는 ADR-016 v4 뒤로 **필요 없어졌다** — [x] 마켓플레이스 연동 해제 + env 전부 삭제(2026-09-22 (2), `vercel env ls` → No Environment)
   - **시크릿 모델 = Auth 로그인**([ADR-016 v4](../decisions/ADR-016-secrets-by-login.md))
     - [x] 마이그레이션 `operators`+RLS 8정책(`20260921075901`·`20260921080333`, 원격 적용, 어드바이저 No issues)
@@ -125,30 +127,48 @@ flowchart LR
      안 되므로 **이것이 "에이전트가 빌드·Actions 를 트리거할 수 없다" 를 만드는 유일한 문**이다.
    - ~~**대시보드 확인**~~(2026-09-22 (3) 완료): Sign In / Providers → Allow new users to sign up **off** · Email → Secure password change **on**. JWT expiry 는 기본 3600 유지(사용자 결정) —
      코드의 30분 skew 와 합치면 로그인 뒤 **30분**만 세션으로 쓸 수 있다. 5 의 `data:analyze` 를 돌리기 전에 Sessions 에서 `43200` 으로 올리는 것을 권한다(≤1일이라 원칙 안).
-2. 🙋 **GitHub Actions 경로 결정(사용자)** — 원칙을 적용하면 `SUPABASE_SERVICE_ROLE_KEY` 는 Actions 에도 둘 수 없다(워크플로 수정 push + `workflow_dispatch` 로 읽힌다).
-   나머지 시크릿(`CLAUDE_CODE_OAUTH_TOKEN`·`NAVER_*`·`KAKAO_REST_API_KEY`)도 같은 경로로 읽히며, 특히 `CLAUDE_CODE_OAUTH_TOKEN` 은 구독 계정 토큰이다. 선택지:
-   - **(a) 봇 운영자 로그인(권장)** — Actions 가 `signInWithPassword` 로 봇 계정(`operators` 등록) 세션을 만들어 RLS 안에서 쓴다. GitHub Secrets 엔 봇 이메일·비밀번호 2개.
-     유출돼도 RLS 범위 안이고 계정 비활성화로 즉시 회수된다 — "만료 없는 우회 키" 가 어디에도 남지 않는다. 코드: `supabaseClient.mjs` 의 env 경로를 service→봇 로그인으로 교체(작음).
-     나머지 키 3종은 GitHub Secrets 에 두되 회전 가능·파괴 반경 작음으로 감수.
-   - **(c) Actions 폐지** — 수집·분석·반영을 사용자가 `pnpm data:login` 한 로컬 세션에서만 돌린다. GitHub 에 시크릿이 0개. 대신 네이버·Kakao·Claude 토큰을 로컬에서
-     어떻게 넘길지(키체인 확장) 설계가 하나 더 필요하고, 화·금 자동 수집이 사라진다.
-   - (b) 보류 항목 GRANT 회수·`for all` 축소는 (a)·(c) 어느 쪽이든 같이 한다.
+2. **결정 완료(2026-09-22 (3)): (c) Actions 폐지.** 수집·분석·반영은 사용자가 `pnpm data:login` 한 로컬 세션에서만 돈다. GitHub 시크릿 0개가 목표.
+   **키 전달도 결정됨**: 네이버 검색 키(client id·secret)는 **사용자가 로컬에서 직접 관리**한다 — 스크립트는 env 로 받고, 없고 TTY 면 숨김 입력으로 받는다.
+   레포·키체인·파일 어디에도 저장하지 않는다(에이전트 세션이면 exit 1 안내 — 수집은 사용자 터미널 몫). Kakao REST 키는 사용자가 안 쓴다(지도 JS 키와 다른 키) —
+   선택 사항 그대로 env 만 보고 없으면 보강 건너뜀. Claude 는 로컬 `claude` 로그인(토큰 불필요). **비용**: 화·금 자동 수집이 없다 — `blog_posts` 는 사용자가 돌릴 때만 찬다.
+   (a) 봇 운영자 로그인은 기각(GitHub 에 시크릿이 남는 경로라서). 구현 목록(Claude, 새 세션에서 워크플로로):
+   - `.github/workflows/collect.yml` **삭제**(스케줄·`workflow_dispatch` 소멸).
+   - `scripts/lib/supabaseClient.mjs`: service 경로·`SUPABASE_URL` override·`GITHUB_ACTIONS` 안내·`inCi` 삭제 → 출처는 **세션/anon 둘**. `SUPABASE_SERVICE_ROLE_KEY` 가
+     env 에 있으면 CI 여부와 무관하게 **무조건 throw**(트립와이어 강화 — 조용히 무시되면 사고 감지가 사라진다), 단 `readOnly` 는 그 전에 anon 반환(`1b4264c` 불변식 유지).
+     테스트의 CI/service 케이스 4개는 삭제가 아니라 "service 키는 CI 든 아니든 거부" · "readOnly + service 키 → anon" 으로 재작성.
+   - `scripts/collect-blog.mjs`: env 없고 TTY 면 두 키를 숨김 입력(`CLAUDECODE` 면 거부). `loginReadHidden` 이 두 소유자가 되므로 `scripts/lib/readHidden.mjs` 로 리네임(owner-prefix 예외 2).
+   - 옛 문구 정리: `collect-blog.mjs:11`("GitHub Secrets 만") · `analyze-candidates.mjs:54` · `analyze/extractPlaces.mjs:6,198` · `extractPlaces.mjs:245` allowlist 의
+     `CLAUDE_CODE_OAUTH_TOKEN`·`CI`·`GITHUB_ACTIONS` · `.env.example` 헤더(Actions/service_role 문장).
+   - **(b) 마이그레이션** `supabase/migrations/2026092?_narrow_grants.sql`(파일을 직접 쓴다 — `migration new` 는 TTY 없으면 멈춤): anon·authenticated 의
+     delete·truncate·references·trigger 회수 · anon 은 places·items **select 만** · authenticated 는 5 테이블 select/insert/update + operators select ·
+     `alter default privileges for role postgres in schema public revoke all on tables from anon, authenticated`(앞으로의 테이블도) ·
+     `operators_all`(for all) → `operators_select`/`_insert`/`_update` 3정책 ×5 테이블(**upsert 는 insert `with check` 와 update `using`+`with check` 둘 다** 필요 —
+     `apply-approved.mjs:134`·`seed-db.mjs:46,49`). **`operators_read_self` 는 건드리지 않는다**(invoker 함수라 없으면 조용히 false). 스크립트에 `.delete(` 는 0개(실측).
+   - 문서: ADR-016 **v5**(보류 표 (a)(b)(c) 닫힘 — 새 ADR 만들지 않는다) · `data-pipeline.md`·`ARCHITECTURE.md`(Actions → 로컬 실행) · todo 00·02·03·04·05 ·
+     CLAUDE.md 표(`collect.yml` 링크 제거, `pnpm data:*` 는 사용자 터미널) · 이 README(4 삭제, 6 을 로컬 첫 실행으로).
+   - **(b) 검증 순서**(`pnpm test` 는 정책 실수를 못 잡는다): 사용자 `pnpm exec supabase login` → Claude `pnpm exec supabase db push` → 사용자 `pnpm data:login` →
+     Claude `pnpm data:apply --dry-run` = `반영 0건` exit 0 · 세션으로 delete 시도 → 42501 · anon `data:pull` 86·15 → 사용자 `supabase logout`. 마지막 단계까지 못 가면 (b) 는 **미검증**으로 표기.
+   - GitHub Secret `SUPABASE_SERVICE_ROLE_KEY` 삭제(`gh auth switch -u hoiya-woohyun` 뒤 `gh secret list` 로 보고 `gh secret delete` — 이름만 다룬다). 이게 지워져야 "시크릿 0개".
 3. **배포 확인(Claude)** — ~~self-cr → push~~(2026-09-22 완료. self-cr major 1 반영: `readOnly` 는 CI 에 service 키가 남아 있어도 anon — "빌드는 anon" 이 env 정리
    순서가 아니라 코드 불변식이 됐다) → ~~Preview 빌드 로그가 `publishable(anon)` 인지~~(2026-09-22 (2) 실측: 커밋 `1b4264c` Preview 가 `publishable(anon)` 으로 86·15 행,
    Preview env 에 `SUPABASE_SERVICE_ROLE_KEY` 가 남아 있는 상태에서) → ~~1 의 Vercel 정리 → `main` 머지 → 프로덕션 확인~~ **전부 완료**(2026-09-22 (2): `main` `63abb90` 프로덕션 Ready,
    Vercel env 0개·연동 없음 상태에서 `publishable(anon)` 86·15, 유출 검사 통과). 이 항목은 닫혔다 — 남은 Claude 몫은 2 의 결정 뒤 5~8.
    ~~self-cr 미반영(minor)~~ 4건 전부 반영(2026-09-22 (2)): `readHidden` 을 `scripts/lib/loginReadHidden.mjs` 순수 리듀서로 분리(CSI·SS3·단독 ESC·Alt+키·겹친 Meta `ESC ESC [ A`) ·
    `writeSession` 은 3세그먼트 JWT 문자열만 · `sessionKeychain` 은 `run` 주입으로 테스트 · 만료 문구가 "진짜 만료" 와 "skew 창 안(만료 N분 전)" 을 나눠 말하고 로그인 완료 문구에 실효 시각.
-4. **키 → GitHub Secrets(사용자, 2 가 (a) 일 때)** — `gh auth switch` 뒤 `gh secret set NAME`: 봇 계정 2개 · `claude setup-token` → `CLAUDE_CODE_OAUTH_TOKEN` ·
-   네이버 개발자센터 → `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET` · Kakao REST 키(선택). `SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY` 시크릿은 삭제.
-5. **로컬 dry-run(Claude, 사용자가 `pnpm data:login` 한 상태에서)** — `pnpm data:analyze --dry-run --limit 5`. 백로그는 `--limit 30` 씩(구독 세션 한도). 세션 창 30분 주의(1 의 JWT expiry).
-6. **첫 실행(Claude)** — Actions `블로그 수집 · 분석 · 반영` 을 `workflow_dispatch` 로 한 번. 실패해도 그 로그가 다음 할 일이다.
+4. ~~키 → GitHub Secrets~~ — (c) 라 **없다**. 남은 GitHub 작업은 2 의 시크릿 삭제뿐.
+5. **로컬 dry-run(Claude, 사용자가 `pnpm data:login` 한 상태에서)** — `pnpm data:analyze --dry-run --limit 5`. 백로그는 `--limit 30` 씩(구독 세션 한도). 세션 창은 JWT expiry 에 따라 30분(3600) 또는 11.5시간(43200) — 다음 `data:login` 문구로 확인.
+6. **첫 실행(사용자 터미널)** — `pnpm data:collect`(네이버 키 숨김 입력) → `blog_posts` 가 차면 Claude 가 5 의 dry-run → 사용자 세션으로 `pnpm data:analyze` → `pnpm data:apply`.
+   실패해도 그 로그가 다음 할 일이다.
 7. **Studio 에서 후보 20건쯤 본 뒤 결정(🙋)** — `AUTO_APPROVE`, `WEIGHT`·`THRESHOLD`(재대조 0.85 경계), `ask` 승인 절차.
 8. **4b** — 승인이 실제로 생긴 뒤 DB 웹훅 → Deploy Hook. Deploy Hook URL 은 "빌드 한 번" 밖에 못 하는 값이라 원칙 안.
 
 ## 세션 로그
 
 세션이 끝나거나 컨텍스트가 커져 나눌 때 여기에 한 항목. 체크박스가 정본이고 로그는 인수인계 메모.
+
+- 2026-09-22 (4) — **결정 2 = (c)**. 사용자가 (c) 선택 → advisor 지적으로 키 전달 방식을 물어 "네이버·Kakao 키는 내가 로컬로 관리" 로 확정(env 또는 TTY 숨김 입력, 저장 없음;
+  Kakao REST 는 안 씀). 대시보드 몫 완료 보고 뒤 anon `data:pull` 86·15 실측(legacy 키 퇴역 뒤에도 OK), 옛 세션은 만료 상태. 구현은 컨텍스트(436k) 때문에 **새 세션**에서 —
+  다음 할 일 2 에 구현·검증 목록을 항목화해 둠. 로컬 잠금 3개(`vercel logout`·`gh` hoiya 로그아웃·SSH 암호구)는 구현 push 뒤 세션 마지막에.
 
 - 2026-09-22 (3) — 사용자가 Supabase 에서 "JWT secret" 을 못 찾음 → 공식 docs 확인: 회전 버튼이 없고 JWT 서명키 시스템(Migrate → Rotate → legacy API keys disable → Revoke)으로
   퇴역시킨다. todo 1 의 두 항목을 이 절차 하나로 정정. Vercel 의 `SUPABASE_JWT_SECRET` 은 연동이 넣은 실제 값이었다(4일 전·마켓플레이스 배치, 손으로 넣은 3개는 1일 전).
