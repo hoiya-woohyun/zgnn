@@ -111,9 +111,14 @@ flowchart LR
      1. ~~**먼저 A/B 판별**~~(2026-09-22 (2) 사용자가 연동 해제 — 마켓플레이스 변수 12개가 같이 사라짐) — Supabase 대시보드 Organization 설정의 청구가 "Managed by Vercel" 이면 A(마켓플레이스 네이티브: **Integration 을 uninstall 하면 조직째 삭제**).
         A 면 Vercel 프로젝트 Settings 에서 **Disconnect project 만**, 리소스·연동 삭제는 누르지 않는다. B(Supabase 쪽 Integrations → Vercel)면 거기서 연결 해제.
      2. ~~`vercel env ls`~~(완료 — 손으로 넣었던 3개는 Claude 가 `vercel env rm` 으로, 값 노출 없음. 지금 `No Environment`) `vercel env ls`(이름만 나온다)로 남은 `SUPABASE_*`·`POSTGRES_*` 를 보고 `vercel env rm <NAME> production` / `preview` 로 전부 제거. 손으로 넣었던 `SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY` 포함.
-     3. `SUPABASE_JWT_SECRET` 이 빌드 env 에 있었으므로 대시보드 → JWT 서명키 **회전**(service_role 토큰을 무기한 위조할 수 있는 값이라 노출로 본다).
-     4. 끝나면 `vercel logout`(휴지). 배포 확인 때만 로그인.
-   - **Supabase API Keys**: 새 secret key 발급 + legacy `service_role` 폐기(옛 값은 에이전트 대화 기록에 실렸을 수 있다). **새 값을 어디에 둘지는 2 의 결정에 따른다** — (a)·(c) 면 GitHub 에도 넣지 않는다.
+     3. 끝나면 `vercel logout`(휴지). 배포 확인 때만 로그인.
+   - **Supabase legacy secret 퇴역**(2026-09-22 (3) 정정 — "JWT secret 회전" 버튼은 없다. 지금 Supabase 는 JWT 서명키 시스템이라 legacy HS256 secret 은
+     회전이 아니라 **퇴역**시킨다. 옛 todo 의 "JWT 서명키 회전" 과 "새 secret key + legacy service_role 폐기" 는 이 절차 하나다. 공식 docs `guides/auth/signing-keys`):
+     Project Settings → **JWT Keys**(`/settings/jwt`) → ① **Migrate JWT secret** → ② standby 키(ECC P-256) 만들고 **Rotate keys** → ③ Settings → **API Keys** 에서 legacy
+     `anon`·`service_role` **disable**(둘은 legacy secret 으로 서명된 JWT 라 먼저 꺼야 한다) → ④ JWT Keys 의 "previously used" legacy 키 **Revoke**.
+     우리 코드는 `sb_publishable_` 만 쓰므로 영향 없음. 키체인 세션은 ④ 뒤 무효 → `pnpm data:login` 한 번. GitHub Secret `SUPABASE_SERVICE_ROLE_KEY` 는 죽는다(2 로 대체).
+     **근거 있는 유출은 없다**(값을 찍은 빌드 없음) — 원칙상 예방 조치라 건너뛰면 ADR-016 잔존 위험 표에 한 줄. ③ 은 2 와 무관하게 결국 해야 한다.
+     새 secret key 는 **만들지 않는다** — (a)·(c) 어느 쪽도 service 키를 쓰지 않는다.
    - **`supabase` CLI**: 휴지 = 로그아웃(2026-09-22 확인됨). 스키마 작업 때만 `pnpm exec supabase login`, 끝나면 logout.
    - **`gh` · SSH**: `gh auth logout -u hoiya-woohyun` · `ssh-keygen -p -f ~/.ssh/id_ed25519_hoiya`(암호구). push·시크릿 등록 때만 연다. Free private 레포는 브랜치 보호가
      안 되므로 **이것이 "에이전트가 빌드·Actions 를 트리거할 수 없다" 를 만드는 유일한 문**이다.
@@ -143,6 +148,9 @@ flowchart LR
 ## 세션 로그
 
 세션이 끝나거나 컨텍스트가 커져 나눌 때 여기에 한 항목. 체크박스가 정본이고 로그는 인수인계 메모.
+
+- 2026-09-22 (3) — 사용자가 Supabase 에서 "JWT secret" 을 못 찾음 → 공식 docs 확인: 회전 버튼이 없고 JWT 서명키 시스템(Migrate → Rotate → legacy API keys disable → Revoke)으로
+  퇴역시킨다. todo 1 의 두 항목을 이 절차 하나로 정정. Vercel 의 `SUPABASE_JWT_SECRET` 은 연동이 넣은 실제 값이었다(4일 전·마켓플레이스 배치, 손으로 넣은 3개는 1일 전).
 
 - 2026-09-22 (2) — **다음 할 일 3 의 Claude 파트**. (1) 상태 점검: 옛 `.env.local`·`.vercel/.env.production.local` 은 이미 없음 · `vercel`·`gh`(두 계정) 로그인 상태 ·
   `supabase` CLI 로그아웃 · Vercel env 는 마켓플레이스 15개 그대로(정리 전). (2) Preview(`1b4264c`) 빌드 로그 `Supabase 인증: publishable(anon — published 읽기만)` ·
