@@ -1,13 +1,15 @@
 # 0. Supabase · Vercel · GitHub — 계정과 시크릿 자리 잡기
 
-> 최종 수정: 2026-09-22 (v6: **(c) Actions 폐지** — "시크릿 자리 잡기" 라는 목표 자체가 뒤집혔다. GitHub Secrets 는 **0개**(죽은 값 2개 삭제 완료, 2026-09-22 (5)), Vercel env 0개(완료),
+> 최종 수정: 2026-09-22 (v7: 상태 줄의 "GitHub 죽은 시크릿 2개 삭제" 는 이미 끝난 일이라 뺐다(0개 실측). JWT expiry 는 사용자가 **43200** 으로 올렸다(실효 11.5시간).
+> "끝났다고 볼 조건" 의 "셋 다 됐다" 가 무엇을 가리키는지 명시)
+> 이전 (v6: **(c) Actions 폐지** — "시크릿 자리 잡기" 라는 목표 자체가 뒤집혔다. GitHub Secrets 는 **0개**(죽은 값 2개 삭제 완료, 2026-09-22 (5)), Vercel env 0개(완료),
 > 로컬은 키체인의 세션 하나. 네이버 키는 사용자가 로컬에서 직접 관리(스크립트가 env 또는 TTY 숨김 입력으로 받고 저장하지 않는다). Anthropic API 키 항목 폐기(구독 `claude -p`). 대시보드 3개 완료 반영)
 > 이전 (v5: Auth 로그인 모델(ADR-016 v4) — `SUPABASE_URL` 은 코드 상수라 시크릿에서 빠지고(6→5개), Vercel 은 Supabase env 가 필요 없어진다. 대시보드 할 일 3개 추가)
 > 이전 (v4: 로컬에 시크릿을 두지 않는다 — 로그인된 `supabase` CLI 에게 실행 시점에(ADR-016). `gh secret set -f .env.local` 폐기, `vercel env pull` 금지)
 > 이전 (v3: Vercel CLI link·env·빌드 명령·Node·Kakao 도메인 확인 완료 반영. `vercel.json` 의 `outputDirectory` 함정(BUG-005). 남은 것은 Deploy Hook·GitHub Secrets 4개·외부 키)
 > 이전 (v2: Supabase 생성 완료, Vercel 은 대시보드 Git 연동으로 이미 붙어 있음. 빈 마이그레이션 함정·`gh` 계정 전환 기록)
 > 이전 (v1: 신설)
-> 상태: 거의 끝. Supabase(서울·link·대시보드 3개)·Vercel(link·빌드 명령·env 0개·연동 없음)·Kakao 도메인은 끝났다. 남은 것: GitHub 의 죽은 시크릿 2개 삭제(0개로) · Deploy Hook(4b) · 네이버 키 발급(사용자 손에만).
+> 상태: 거의 끝. Supabase(서울·link·대시보드 3개)·Vercel(link·빌드 명령·env 0개·연동 없음)·Kakao 도메인은 끝났고 **GitHub Secrets 도 0개**(2026-09-22 (5) 실측). 남은 것: Deploy Hook(4b) · 네이버 키 발급(사용자 손에만).
 
 ## 되돌릴 수 없는 것부터
 
@@ -34,7 +36,8 @@
       (v4 이전엔 "Vercel env 를 4a 에서 손으로 넣는다" 였다 — ADR-016 v4 뒤로 Vercel 엔 Supabase env 가 **하나도 필요 없고**, 있던 것은 지웠다. 아래 Vercel 절.)
 - [x] **대시보드 Authentication 세 가지**(사용자, 2026-09-22 (3) 완료 보고): Users → Add user(`zgnn@gmail.com`, Auto Confirm) → Claude 가 `operators` 에 넣음 ·
       Sign In / Providers → **Allow new users to sign up: off** · Secure password change on · legacy JWT secret 퇴역.
-      **JWT expiry 는 기본 3600 유지(사용자 결정)** — 코드의 30분 skew 와 합치면 로그인 뒤 **30분**만 세션으로 쓸 수 있다. 긴 `data:analyze` 전에 `43200` 으로 올리는 것은 열린 선택.
+      **JWT expiry 는 `43200`**(2026-09-22 사용자가 기본 3600 에서 올렸다) — 코드의 30분 skew 를 빼면 실효 창 **11.5시간**이라 긴 `data:analyze` 도 한 세션에 든다.
+      반영 확인은 다음 `pnpm data:login` 의 만료 문구가 **+12시간**인지 보는 것 하나뿐.
 - [ ] Database Webhooks 를 켤 수 있는지 확인(Database → Webhooks). 4b 에서 쓴다.
 
 ## Vercel
@@ -64,7 +67,7 @@
 - [x] 지도 키는 `NEXT_PUBLIC_KAKAO_MAP_KEY`(`src/lib/kakaoMap.ts`, 문서 초안의 `_JS_KEY` 는 오기)이고 코드에 공개 기본값이 있어
       Vercel env 에 넣지 않아도 뜬다. 공개 전제의 키 — 도메인 제한이 방어선.
 
-## GitHub — 시크릿 0개가 목표 (2026-09-22 (c))
+## GitHub — 시크릿 0개 (2026-09-22 (c) 의 목표, (5) 에 달성)
 
 GitHub Actions 는 "관리자 없이 도는 구조" 라 만료 없는 시크릿(service_role·네이버 키·구독 OAuth 토큰)을 GitHub 에 두어야만 돈다 — 그 자리가 곧
 에이전트가 push 한 줄로 읽는 경로다(README 다음 할 일 2 의 원칙). 그래서 워크플로를 없애고 수집·분석·반영을 **사용자 터미널의 운영자 세션**으로 옮겼다.
@@ -88,6 +91,7 @@ GitHub 에 남을 시크릿은 없다.
 
 ## 끝났다고 볼 조건
 
-- Supabase 대시보드에 서울 리전 프로젝트가 있고, Vercel 에 Git 연동된 프로젝트가 있고, `main` 푸시로 지금 상태의 사이트가 **그대로** 배포된다(아직 DB 안 읽음). — **여기까지는 됐다.**
+- Supabase 대시보드에 서울 리전 프로젝트가 있고, Vercel 에 Git 연동된 프로젝트가 있고, `main` 푸시가 사이트를 배포한다 — **됐다.** 게다가 그 빌드는 이제 `pnpm data:pull` 로 **DB 를 읽는다**(4a, `vercel.json` 의 `buildCommand`).
 - 시크릿이 있는 자리가 **셋뿐**이다: 키체인의 운영자 세션(≤1일) · 사용자의 비밀번호 관리자(네이버 키·운영자 비밀번호) · Supabase 웹훅 설정의 Deploy Hook URL(4b, 아직 없음).
-  GitHub Secrets 0개 · Vercel env 0개 · 레포에 env 파일 없음. — 셋 다 됐다(2026-09-22 (5), `gh secret list` 빈 결과).
+  — **"그 밖엔 없다" 쪽이 다 확인됐다**: GitHub Secrets 0개(2026-09-22 (5), `gh secret list` 빈 결과) · Vercel env 0개(실측) · 레포에 env 파일 없음.
+  세 자리 자체는 아직 둘만 차 있다 — Deploy Hook 은 4b 에서 생긴다.

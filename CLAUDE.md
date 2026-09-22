@@ -82,8 +82,8 @@ Tailwind v4 + Untitled UI · zustand persist · leaflet. 데이터는 빌드 시
 
 - **시크릿 값은 읽지도 찍지도 않는다**(ADR-016 v5). 로컬엔 장기 키가 없다 — `pnpm data:*` 는 운영자가 별도 터미널에서 `pnpm data:login` 한 짧은 세션(키체인)으로 붙고,
   세션이 없거나 만료면 "pnpm data:login" 으로 멈춘다. **그때는 사용자에게 로그인을 요청하고 기다린다** — `pnpm data:login` 은 에이전트가 부를 수 없다(TTY 가드).
-  값이 필요해 보이면 값 없이 되는 검사로 바꾼다(`pnpm data:pull` 의 exit 0, `gh secret list` 의 이름). GitHub Secrets 는 0개가 목표라 넣을 것이 없다 —
-  남은 이름 삭제는 `gh secret list` 로 보고 `gh secret delete`(이름만). `supabase projects api-keys`·`security find-generic-password`·`vercel env pull` 금지 — `.claude/settings.json` 의 deny 는 사고 방지 장치지
+  값이 필요해 보이면 값 없이 되는 검사로 바꾼다(`pnpm data:pull` 의 exit 0, `gh secret list` 의 이름). GitHub Secrets 는 **0개**(2026-09-22 실측)라 넣을 것도 지울 것도 없다 —
+  다시 생기면 `gh secret list` 로 보고 `gh secret delete`(이름만 다루므로 Claude 가 해도 된다). `supabase projects api-keys`·`security find-generic-password`·`vercel env pull` 금지 — `.claude/settings.json` 의 deny 는 사고 방지 장치지
   경계가 아니다(경계는 "값이 파일에 없다 · exp ≤ 1일 · RLS 범위"). `supabase` CLI 는 휴지 상태가 로그아웃이라 `db push`·`db query` 가 안 되면 사용자에게 로그인을 요청한다.
 - **뒤로가기는 화면이 아니라 셸이 붙인다.** 새 화면에 `AppBar` 를 직접 달지 않는다 —
   탭바에 넣을 화면이면 `src/lib/appRoutes.ts` 의 `ROOT_ROUTES` 에 한 줄 더하고, 아니면 아무것도 안 한다.

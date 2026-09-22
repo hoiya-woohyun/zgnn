@@ -3,7 +3,8 @@
 > AI 와 개발자 모두를 위한 빠른 참조 문서.
 > 각 섹션은 상세 문서로 연결된다.
 >
-> 최종 수정: 2026-09-22 (v12: ADR-016 v5 — GitHub Actions 폐지. 수집·분석·반영은 사용자 터미널에서 `pnpm data:collect` → `data:analyze` → `data:apply`(운영자 세션). service_role 은 어디에도 없다)
+> 최종 수정: 2026-09-22 (v13: 4a 는 끝났다 — Vercel 빌드 명령이 `pnpm data:pull && pnpm build` 로 커밋돼 배포가 DB 를 읽는다(프로덕션 Ready 실측). "배포 전환은 아직" 을 걷었다)
+> 이전 (v12: ADR-016 v5 — GitHub Actions 폐지. 수집·분석·반영은 사용자 터미널에서 `pnpm data:collect` → `data:analyze` → `data:apply`(운영자 세션). service_role 은 어디에도 없다)
 > 이전 (v11: ADR-016 v4 — 로컬 DB 접근은 운영자 로그인 세션(짧은 JWT)+RLS. service_role 은 Actions 만)
 > 이전 (v10: ADR-015·016 을 결정 표에 등재 — 016 은 시크릿을 저장하지 않고 로그인된 CLI 에게 실행 시점에 받는다)
 > 이전 (v9: 0·1·2·5 에 코드가 생겨 원본이 Supabase 로 넘어가는 중. 진행 상태는 [todo/README.md](./todo/README.md) 참고)
@@ -59,7 +60,7 @@ Notion 공개 페이지 ──(scripts, 무인증 API)──▶ data/jejudo-noti
 ```
 
 - 앱은 런타임에 아무것도 fetch 하지 않는다. 장소 86곳(숙소 26·식당 34·카페 26), 준비물 15가지.
-- 원본을 Supabase 로 옮기고 블로그 수집·AI 분석·승인·자동 재빌드를 붙이는 계획은 [todo/](./todo/README.md), 결정은 [ADR-015](./decisions/ADR-015-supabase-source-and-rebuild.md) — 스키마·시드·`data:pull`·수집 코드는 있고, 위 다이어그램이 실제로 바뀌는 배포 전환(Vercel 빌드 명령)은 아직.
+- 원본을 Supabase 로 옮기고 블로그 수집·AI 분석·승인·자동 재빌드를 붙이는 계획은 [todo/](./todo/README.md), 결정은 [ADR-015](./decisions/ADR-015-supabase-source-and-rebuild.md) — 스키마·시드·`data:pull`·수집 코드가 있고, **배포 전환(4a)도 끝났다**: `vercel.json` 의 `buildCommand` 가 `pnpm data:pull && pnpm build` 라 배포마다 DB 를 읽는다(위 다이어그램의 Notion 경로는 1회 시드 이력이다). 남은 것은 승인이 저절로 재배포를 일으키는 웹훅(4b).
 - 좌표는 81곳, 도로명주소는 76곳에 있다. 없는 곳은 지도에서 빠지고 "좌표 없는 N곳 제외" 로 알린다.
 
 ---

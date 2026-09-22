@@ -1,8 +1,10 @@
 # 5. 보안 — 키 분리 · RLS · 웹훅 · 프리뷰 보호
 
-> 최종 수정: 2026-09-22 (v9: **(b) GRANT 축소 원격 적용·실측 완료** — anon 은 places·items select 만, 나머지 전부 42501 · 세션은 delete 가 grant 부재로 42501)
+> 최종 수정: 2026-09-22 (v10: RLS 정책 줄을 narrow_grants **뒤** 상태로(15+3 정책, delete 없음) · (b) 검증 순서를 기록 시제로 바꾸고 **어드바이저 대시보드 확인만 열린 항목**으로 분리 ·
+> JWT expiry 3600 → **43200**(실효 11.5시간) · 새 테이블 grant 규칙에 `postgres` 한정을 달았다)
+> 이전 (v9: **(b) GRANT 축소 원격 적용·실측 완료** — anon 은 places·items select 만, 나머지 전부 42501 · 세션은 delete 가 grant 부재로 42501)
 > 이전 (v8: **(c) Actions 폐지** — "어디에 무엇이 있는지" 표를 두 출처(세션·anon) 모델로 다시 씀: service_role 은 어디에도 없다(env 잔존은 트립와이어로 멈춤),
-> `CLAUDE_CODE_OAUTH_TOKEN` 없음, 네이버 키는 사용자 로컬 관리(숨김 입력·저장 없음), GitHub 0개(죽은 값 2개 삭제, 실측)·Vercel 0개. Actions 절 폐지. (b) GRANT 축소 마이그레이션은 파일만 — 원격 적용은 v9)
+> `CLAUDE_CODE_OAUTH_TOKEN` 없음, 네이버 키는 사용자 로컬 관리(숨김 입력·저장 없음), GitHub 0개(죽은 값 2개 삭제, 실측)·Vercel 0개. Actions 절 폐지. (b) GRANT 축소 마이그레이션은 파일만 — 원격 적용은 v9.
 > 새 비용: 7일 일시정지를 깨우는 잡이 없다)
 > 이전 (v7: 마켓플레이스 연동은 끊기로 결정 — 원칙 "우회 키를 에이전트가 트리거할 수 있는 경로에 두지 않는다")
 > 이전 (v6: RLS 를 PostgREST 로 실측 완료 — anon·세션 없음·비운영자·운영자 네 경우. JWT expiry 는 사용자 결정으로 기본 3600 유지)
@@ -26,7 +28,7 @@
 | 키 | 접두어 | 어디에 | 새면 |
 |---|---|---|---|
 | ~~`SUPABASE_SERVICE_ROLE_KEY`~~ | **절대 `NEXT_PUBLIC_` 금지** | **어디에도 없다.** legacy 키는 퇴역(2026-09-22 (3) API keys disable), 새 secret key 는 만들지 않는다. 코드에 service 경로가 없다 — 셸 env(export)에 남아 있으면 쓰기 스크립트는 **멈추고**(`resolveSupabaseCredentials` 트립와이어, CI 예외 없음), `data:pull` 은 anon 으로 가되 **이름만** 한 줄 경고(빌드는 계속). `.env.local` 은 `data:*` 가 읽지 않는다(ADR-016 결정 6) — 파일 잔존은 트립와이어가 아니라 사용자가 `ls -la .env*` 로 확인한다 | 키 자체가 disabled 라 RLS 를 못 우회한다. 그래도 대시보드 API Keys 에서 상태 확인 |
-| 운영자 세션(JWT) | — | macOS 키체인(`zgnn`/`SUPABASE_SESSION`), `pnpm data:login` 이 넣는다. 파일·env 없음 | `exp` 뒤 자동 무효(코드 상한 ≤ 1일 `SESSION_MAX_TTL_S` · 대시보드 JWT expiry 는 지금 3600 — skew 30분을 빼 실효 30분). 급하면 대시보드에서 그 사용자 비밀번호 변경 |
+| 운영자 세션(JWT) | — | macOS 키체인(`zgnn`/`SUPABASE_SESSION`), `pnpm data:login` 이 넣는다. 파일·env 없음 | `exp` 뒤 자동 무효(코드 상한 ≤ 1일 `SESSION_MAX_TTL_S` · 대시보드 JWT expiry 는 지금 **43200** — skew 30분을 빼 실효 11.5시간). 급하면 대시보드에서 그 사용자 비밀번호 변경 |
 | `SUPABASE_URL` · publishable 키 | (공개값) | 코드 상수(`scripts/lib/supabaseClient.mjs` 의 `PROJECT_REF`·`PUBLISHABLE_KEY`). URL 은 env 로 못 바꾼다(바꿀 수 있으면 `SUPABASE_URL=https://attacker` 한 줄이 키체인 JWT 를 밖으로 보낸다) | 무방 — 방어선은 RLS |
 | ~~`CLAUDE_CODE_OAUTH_TOKEN`~~ | 금지 | **없다.** Claude 인증은 이 머신에 로그인된 `claude`(키체인)뿐이다. `claude -p` 자식 env 허용 목록에서도 뺐다(`CI`·`GITHUB_ACTIONS` 와 함께) — 토큰이 어디서 흘러와도 자식에 안 넘어간다 | 발급하지 않으니 샐 것이 없다. `claude` 로그인 세션이 의심되면 Anthropic 계정 설정에서 세션을 끊고 다시 로그인 |
 | `NAVER_CLIENT_ID` · `NAVER_CLIENT_SECRET` | 금지 | **사용자가 로컬에서 직접 관리**(비밀번호 관리자). `pnpm data:collect` 가 env 로 받고, 없으면 TTY 숨김 입력(`scripts/lib/readHidden.mjs`)으로 없는 쪽만 묻는다 — 프로세스 메모리에만 있고 레포·키체인·파일·로그 어디에도 안 남는다. 에이전트 세션(`CLAUDECODE`)이면 입력을 거부(exit 1), env 로 넘긴 값은 막지 않는다 | 재발급(네이버 개발자센터) |
@@ -48,27 +50,30 @@
 
 ## Supabase
 
-- [x] **모든 테이블 RLS ON**(01). 정책은 ADR-016 v4 에서 8개(마이그레이션 `20260921075901`·`20260921080333`): 운영자(`operators` 허용 목록)만 5 테이블 all,
-      anon 은 `places(status='published')`·`items` select 만. `authenticated` 이지만 허용 목록 밖이면 아무것도 못 한다(회원가입이 열려 있어도).
-      어드바이저 `supabase db advisors --linked` = No issues.
+- [x] **모든 테이블 RLS ON**(01). 지금 정책은 **18개** — `narrow_grants`(2026-09-22 (6)) 가 운영자 `operators_all`(for all) 을 `_select`/`_insert`/`_update` 3정책 ×5 테이블 = **15** 로 쪼갰고,
+      거기에 anon 2(`places(status='published')`·`items` select)와 `operators_read_self` 1 이 그대로 붙는다. **운영자에게도 delete 는 없다** — 정책에서도 GRANT 에서도 빠졌다.
+      `authenticated` 이지만 허용 목록 밖이면 아무것도 못 한다(회원가입이 열려 있어도). (v4 시절엔 8정책·운영자 5 테이블 all 이었다 — 마이그레이션 `20260921075901`·`20260921080333`,
+      그때 어드바이저 `supabase db advisors --linked` = No issues.)
 - [x] **(b) GRANT 를 스크립트가 하는 일만큼으로 좁힌다** — `supabase/migrations/20260922120000_narrow_grants.sql` 파일 작성(2026-09-22 (5)) → `db push` 적용 · **원격 적용·실측 완료(2026-09-22 (6))**: anon = places 86·items 15 select 만(blog_posts·candidates·operators select, delete·insert, `rpc is_operator` 전부 42501) · 운영자 세션 = 5 테이블 select(operators 는 자기 행 1) · delete → 42501 · insert 는 grant·정책을 지나 not-null(23502)에서 멈춤 · `data:apply --dry-run` 반영 0건 exit 0 · `CLAUDECODE=1 data:collect` 거부 문구 실측.
       왜 지금인가: service 키가 퇴역해 남은 두 출처가 둘 다 RLS 를 지나므로 이제 **GRANT 가 곧 상한**이다 — RLS 정책은 "어느 행", GRANT 는 "어느 동작". Supabase 기본은 anon·authenticated 에
       모든 테이블 ALL 이라 정책 실수 하나가 delete·truncate 까지 연다. 내용: 여섯 테이블 ALL 회수 → anon 은 `places`·`items` select 만 → authenticated 는 5 테이블 select/insert/update +
       `operators` select → postgres 의 default privileges 에서 앞으로의 테이블도 끊음(postgres 가 만드는 것만 — 마이그레이션 경로) → `operators_all`(for all) 을 `operators_select`/`_insert`/`_update` 로(×5 = 15 정책, anon 2·`operators_read_self` 는 그대로)
       → `is_operator()` execute 를 anon·PUBLIC 에서 회수하고 authenticated 에 명시 grant. 어떤 스크립트도 `.delete(` 하지 않는다(실측 0개).
-      **검증 순서**(`pnpm test` 는 grant 실수를 못 잡는다): 사용자 `pnpm exec supabase login` → Claude `pnpm exec supabase db push` → 사용자 `pnpm data:login` → Claude `pnpm data:apply --dry-run` = `반영 0건` exit 0 ·
-      세션으로 delete 시도 → 42501(이제 정책이 아니라 DELETE grant 부재) · anon `data:pull` 86·15 → 사용자 `supabase logout` · 어드바이저 새 경고 없음. 마지막까지 못 가면 **미검증**으로 남긴다.
-      **push 뒤 첫 증상이** `permission denied for function is_operator` 나 `for table operators` 면 grant 미적용이지 정책 버그가 아니다.
-      **이 뒤로 새 테이블 마이그레이션은 grant 한 줄을 반드시 같이 쓴다** — default privileges 를 끊었으므로 정책을 붙여도 grant 전엔 API 로 아무도 못 본다(증상 42501 — 정책 버그처럼 읽힌다). grant 는 했는데 정책이 없으면 조용한 `[]`.
+      **검증 기록**(`pnpm test` 는 grant 실수를 못 잡아 PostgREST 로만 확인된다): 사용자 `pnpm exec supabase login` → Claude `pnpm exec supabase db push` → 사용자 `pnpm data:login` → Claude `pnpm data:apply --dry-run` = `반영 0건` exit 0 ·
+      세션으로 delete 시도 → 42501(이제 정책이 아니라 DELETE grant 부재) · anon `data:pull` 86·15 → 사용자 `supabase logout`. **여기까지 전부 통과했다(2026-09-22 (6)).**
+      `db push` 직후 첫 증상이 `permission denied for function is_operator` 나 `for table operators` 였다면 grant 미적용이지 정책 버그가 아니다 — 실측에선 그 증상이 없었다(첫 select 가 곧바로 86행).
+      [ ] **남은 한 항목 — 어드바이저에 새 경고가 없는지**. `supabase db advisors --linked` 는 이 상태에서 쓸 수 없어(CLI 로 못 본다) **사용자가 대시보드에서 한 번 본다**. 그것까지 보면 (b) 가 완전히 닫힌다.
+      **이 뒤로 새 테이블 마이그레이션은 grant 한 줄을 반드시 같이 쓴다** — `postgres` 의 default privileges 를 끊었으므로 **마이그레이션(= `postgres`)이 만든 테이블은** 정책을 붙여도 grant 전엔 API 로 아무도 못 본다
+      (증상 42501 — 정책 버그처럼 읽힌다. 다른 역할이 만든 테이블엔 이 차단이 안 걸린다). grant 는 했는데 정책이 없으면 조용한 `[]`.
 - [x] anon 으로 `select` 해서 빈 결과가 오는지 확인한다 → 정책 0개 시절 5개 테이블 모두 `[]`(2026-09-21). **정책이 생긴 뒤의 확인은 PostgREST 로만** —
       `db query`(postgres)는 RLS 를 우회해서 증거가 안 된다. anon 은 `candidates` 에서 `[]`, 운영자 JWT 는 같은 테이블에서 행/insert 성공이 기준.
       [x] **실측 완료(2026-09-21 (4))** — anon `data:pull` 86·15 행, `data:apply --dry-run` 이 세션 없음·비운영자·운영자에서 세 결과로 갈림. legacy 키 퇴역 뒤에도 anon 86·15(2026-09-22 (3)).
 - [x] 대시보드 Authentication(2026-09-22 (3) 사용자 완료): **회원가입 off** · **Secure password change on**(access token 만으로 비밀번호를 바꿔 짧은 세션을 영구화하는 경로를 막는다) ·
-      운영자 계정 Users → Add user(Auto Confirm) · legacy JWT secret 퇴역. **JWT expiry 는 기본 3600 유지(사용자 결정)** — 코드가 86400 초과를 거부하고 skew 30분을 빼므로 실효 30분.
+      운영자 계정 Users → Add user(Auto Confirm) · legacy JWT secret 퇴역. **JWT expiry 는 `43200`**(2026-09-22 사용자가 기본 3600 에서 올렸다) — 코드가 86400 초과를 거부하고 skew 30분을 빼므로 실효 **11.5시간**. 반영 확인은 다음 `pnpm data:login` 의 만료 문구(+12시간).
       이메일 확인·매직링크는 안 쓴다(SMTP 없음). [ ] 최소 비밀번호 길이 ≥ 12 는 미확인.
 - [ ] Studio 접근은 Supabase 계정 로그인 = 사실상 관리자 인증. 2FA 켠다.
 - ~~`service_role` 키 회전 → 새 secret 키 발급 → `gh secret set`~~ — (c) 로 쓰는 곳이 **0**. 회전이 아니라 **퇴역**시켰다(2026-09-22 (3): Migrate → Rotate → legacy API keys disable → Revoke).
-      새 secret key 는 만들지 않는다. 옛 값이 에이전트 대화 기록에 실렸을 수 있었던 노출은 키 자체가 죽어 닫혔다. 남은 것은 GitHub 의 죽은 이름 삭제뿐(00).
+      새 secret key 는 만들지 않는다. 옛 값이 에이전트 대화 기록에 실렸을 수 있었던 노출은 키 자체가 죽어 닫혔다. GitHub 에 남아 있던 죽은 이름 2개도 지웠다 — **0개**(2026-09-22 (5), 00).
 - [ ] **무료 티어 7일 일시정지 — 이제 깨우는 잡이 없다**(2026-09-22 (c) 의 비직관적 비용). 옛 Actions 는 화·금마다 DB 를 건드려 이걸 매번 깨웠다. 지금 DB 를 건드리는 것은
       사용자의 `pnpm data:*` 와 Vercel 빌드의 `data:pull`(push 가 있을 때만)뿐이다 — **둘 다 7일 없으면 잠들고, 그러면 다음 배포의 `data:pull` 이 실패해 재배포가 막힌다.**
       이전 배포는 산다. 복구는 대시보드 Restore. 주 1회 `pnpm data:pull`(anon, 세션 불필요 — Claude 도 된다)이나 push 하나면 깨어 있다.
@@ -117,4 +122,5 @@ Actions 는 "관리자 없이 도는 구조" 라 만료 없는 시크릿(service
 - [x] anon 키로 `places` 를 `select` 하면 0행(정책 0개 시절 확인). 정책 뒤 기준은 위 Supabase 절. — [ ] Preview URL 을 시크릿 창에서 열면 로그인 화면 — **미확인**(Deployment Protection 은 대시보드).
 - [ ] 시크릿 회전 절차(위 표의 "새면" 열)가 이 문서에 있고, 한 번은 실제로 회전해 본다. — 표는 있다. service_role 은 회전 대신 **퇴역**(2026-09-22 (3))으로 대상 자체가 없어졌다.
       남은 회전 대상은 네이버 키(재발급, 사용자)와 Deploy Hook URL(4b 뒤)뿐 — 아직.
-- [x] **(b) GRANT 축소가 원격에 적용되고 검증 순서를 끝까지 통과한다**(위 Supabase 절) — 2026-09-22 (6) 통과.
+- [x] **(b) GRANT 축소가 원격에 적용되고 PostgREST 검증을 통과한다**(위 Supabase 절) — 2026-09-22 (6) 통과.
+      [ ] 그 push 뒤 **어드바이저에 새 경고가 없는지** — CLI 로 못 봐서 사용자가 대시보드에서 한 번 본다. (b) 의 마지막 한 항목.

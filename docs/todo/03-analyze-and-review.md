@@ -1,7 +1,8 @@
 # 3. AI 분석 → 사람이 링크 확인 → 승인
 
-> 최종 수정: 2026-09-22 (v4: **(c) Actions 폐지** — `data:analyze`·`data:apply` 는 사용자 터미널의 운영자 세션에서 따로 부른다. Claude 인증은 이 머신의 `claude` 로그인뿐
-> (`CLAUDE_CODE_OAUTH_TOKEN`·`CI`·`GITHUB_ACTIONS` 를 자식 env 허용 목록에서 뺌). `DEFAULT_LIMIT` 의 근거는 Actions timeout 이 아니라 **세션 창**(3600 이면 30분))
+> 최종 수정: 2026-09-22 (v5: JWT expiry 가 **43200** 이 돼 세션 창은 11.5시간 — `--limit` 을 나누는 이유가 세션 창에서 **구독 5시간 한도**로 바뀌었다)
+> 이전 (v4: **(c) Actions 폐지** — `data:analyze`·`data:apply` 는 사용자 터미널의 운영자 세션에서 따로 부른다. Claude 인증은 이 머신의 `claude` 로그인뿐
+> (`CLAUDE_CODE_OAUTH_TOKEN`·`CI`·`GITHUB_ACTIONS` 를 자식 env 허용 목록에서 뺌). `DEFAULT_LIMIT` 의 근거는 Actions timeout 이 아니라 **세션 창**(그때는 3600 이라 30분))
 > 이전 (v3: 코드 완료 — 본문 파서·Claude 추출(`claude -p`, 구독)·Kakao 보강·`matchPlace` 본체·`data:analyze`·`data:apply`·Actions. 실행은 수집(02) 뒤. 리뷰 지적 반영: 자동 승인 기본 off, Kakao 정확 일치만, 읍·면 목록, 영구 실패 닫기, 재대조)
 > 이전 (v2: `matchPlace` 골격 상태 갱신 — 신호 헬퍼·임계값 상수·테스트는 있고 본체는 아직 🙋)
 > 이전 (v1: 신설)
@@ -32,7 +33,8 @@ flowchart LR
 컨텍스트를 전부 끈다 — 안 끄면 호출마다 CLAUDE.md·MCP 툴 목록이 실려 3~4만 토큰, 끄면 1천(실측). `--bare` 는 못 쓴다(키체인·OAuth 를 안 읽는다).
 
 **한 실행의 크기는 두 창이 정한다** — Claude 의 5시간 한도와 **운영자 세션 창**. 세션은 `pnpm data:login` 의 JWT 라 실효 창은 대시보드 JWT expiry 에서
-코드 skew(30분)를 뺀 값이다: 기본 3600 이면 **30분**이라 `DEFAULT_LIMIT`(50)이 다 들어간다고 장담할 수 없다 — `--limit 30` 씩 나누거나 expiry 를 43200 으로(11.5시간).
+코드 skew(30분)를 뺀 값인데, 2026-09-22 사용자가 expiry 를 3600 → **43200** 으로 올려 창이 **11.5시간**이 됐다 — 이제 좁은 쪽은 세션이 아니라 **구독 5시간 한도**이고,
+`--limit 30` 씩 나누는 이유도 그것이다(3600 이던 시절엔 창이 30분이라 `DEFAULT_LIMIT`(50)이 다 들어간다고 장담할 수 없었다).
 중간에 세션이 죽으면 그 글부터 DB 쓰기가 실패해 건너뛰고(`analyzed_at` 안 찍힘) 다음 실행이 이어 간다. 옛 근거(Actions `timeout-minutes: 30`)는 워크플로와 함께 사라졌다.
 
 - [x] 모델 기본 `claude-opus-5`(`ANALYZE_MODEL` 로 덮음), 구조화 출력은 `--json-schema`(결과 JSON 의 `structured_output`).
@@ -128,6 +130,6 @@ Studio 로 먼저 몇 주 돌려 보고 **어떤 정보가 화면에 있어야 �
       **아직** — `blog_posts` 가 비어 있다(02 의 네이버 키). 대신 실제 후기 링크 1건(제이아일랜드)으로 본문 2,171자 → `claude -p` 8.9초 →
       카페·이용 조건 원문·근거 3문장 → `matchPlace` 1.00 까지 확인했다(2026-09-21, DB 쓰기 없이).
 - [x] `matchPlace.test.mjs` 통과(자기충돌 검사 포함). `docs/architecture/data-pipeline.md` 에 "분석·승인" 절과 상태 머신 표.
-- ~~Actions 에서 한 번 실제로: 시크릿 등록 → `workflow_dispatch`~~ → [ ] **사용자 터미널에서 첫 실행**(README 다음 할 일 4·5): `pnpm data:login` →
+- ~~Actions 에서 한 번 실제로: 시크릿 등록 → `workflow_dispatch`~~ → [ ] **사용자 터미널에서 첫 실행**(README 의 **실행 순서** 블록): `pnpm data:login` →
       `pnpm data:analyze --dry-run --limit 5`(Claude 가 돌려도 된다 — 세션이 있으면) → 사용자 세션으로 `pnpm data:analyze` → `pnpm data:apply`.
       Kakao REST 키는 사용자가 안 쓰기로 했다 — 없으면 보강을 건너뛰고 후보는 좌표 없이 들어간다(`matchPlace` 는 이름·종류만으로 대조, 감점 없음).

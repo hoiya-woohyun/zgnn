@@ -1,18 +1,20 @@
 # 1. 스키마 · RLS · 시드 · `data:pull`
 
-> 최종 수정: 2026-09-22 (v5: 출처는 세션·anon 둘, service 키 없음 — Actions 폐지(ADR-016 v5). RLS 절·`supabaseClient` 포인터만 갱신)
+> 최종 수정: 2026-09-22 (v6: 4a 는 끝났다(빌드 명령이 `pnpm data:pull && pnpm build`) — 상태 줄에서 뺐고, "잠들어도 마지막 스냅샷으로 빌드된다" 도 걷었다(배포는 `data:pull` 로 시작해 막힌다))
+> 이전 (v5: 출처는 세션·anon 둘, service 키 없음 — Actions 폐지(ADR-016 v5). RLS 절·`supabaseClient` 포인터만 갱신)
 > 이전 (v4: 인증은 운영자 세션(`pnpm data:login`)+RLS, `data:pull` 은 anon(ADR-016 v4) — 포인터만)
 > 이전 (v3: 키는 로그인된 `supabase` CLI 에게 실행 시점에(ADR-016) — 포인터만)
 > 이전 (v2: 스키마 적용·RLS·시드·`data:pull` 코드 완료. `sort` 컬럼 반영, [data-pipeline.md v2](../architecture/data-pipeline.md) 작성)
 > 이전 (v1: 신설)
-> 상태: 코드는 끝났다. 선행: [00](00-setup-supabase-vercel.md). 남은 건 Studio 수정 → 반영 확인과 Vercel 빌드 전환(4a).
+> 상태: **끝났다.** 선행: [00](00-setup-supabase-vercel.md). Vercel 빌드 전환(4a)도 됐다 — 배포가 `pnpm data:pull` 로 시작한다. Studio 수정 → 반영 왕복도 확인됐다(2026-09-20 (2)).
 
 ## 원칙
 
 - **`src/types.ts` 가 계약이다.** 테이블은 `TPlace`·`TItem` 을 그대로 담는다. 화면·lib 는 아무것도 안 바뀐다 —
   바뀌는 건 `src/data/places.json` 을 **누가 만드느냐**뿐(Notion export → Supabase).
-- **`src/data/*.json` 은 계속 커밋한다.** 키 없이도 `pnpm dev`·`pnpm test` 가 돌아야 하고, Supabase 가 잠들어도
-  마지막 스냅샷으로 빌드가 된다. `data:pull` 은 이 파일을 **갱신**하는 명령이지 대체가 아니다.
+- **`src/data/*.json` 은 계속 커밋한다.** 키 없이도 `pnpm dev`·`pnpm test`·로컬 `pnpm build` 가 돌아야 해서다.
+  `data:pull` 은 이 파일을 **갱신**하는 명령이지 대체가 아니다. 단 4a 뒤로 이 스냅샷이 **배포의 안전망은 아니다** —
+  배포 빌드는 `data:pull` 로 시작하므로 Supabase 가 잠들면 exit 1 로 재배포가 막힌다(이전 배포는 산다).
 - **파싱은 여전히 런타임.** `petPolicyText` 원문을 DB 에 그대로 두고 `parsePetPolicy()` 가 읽는다
   ([data-pipeline.md §3](../architecture/data-pipeline.md)). AI 가 뽑은 조건도 **원문 문장으로** 넣는다 — 구조화된 값을
   DB 에 두면 파서와 두 벌이 된다.

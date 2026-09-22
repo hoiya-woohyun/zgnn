@@ -1,6 +1,7 @@
 # ADR-015 — 원본은 Supabase, 반영은 재빌드
 
-> 최종 수정: 2026-09-18 (v1: 신설 — `docs/todo/` 의 가정 두 개가 사용자 확인으로 확정됨)
+> 최종 수정: 2026-09-22 (v2: 결과 두 줄을 4a 이후로 정정 — 빌드가 DB 를 읽으므로 커밋된 JSON 은 '빌드 입력' 이 아니라 dev·test 용 스냅샷이다. data-pipeline.md 재작성 예고도 이미 일어난 일)
+> 이전 (v1: 신설 — `docs/todo/` 의 가정 두 개가 사용자 확인으로 확정됨)
 > 상태: 결정. 구현은 [docs/todo/](../todo/README.md) 가 추적한다.
 
 ## 맥락
@@ -26,8 +27,8 @@
 ## 결과
 
 - 반영 지연은 빌드 시간(1~2분). 승인 N건 = 빌드 N번이 될 수 있다(→ todo/04).
-- `src/data/*.json` 은 계속 커밋한다 — 키 없이 dev·test 가 돌아야 하고, Supabase 가 잠들어도 마지막 스냅샷으로 빌드된다.
-- `docs/architecture/data-pipeline.md` 는 1·4 단계가 구현되는 시점에 v2 로 다시 쓴다. 그 전까지 현재 문서는 코드 기준으로 맞다.
+- `src/data/*.json` 은 계속 커밋한다 — 키 없이 dev·test 가 돌아야 해서다. **빌드 입력은 아니다**(4a 뒤로 `vercel.json` 의 `pnpm data:pull && pnpm build` 가 매 배포에 DB 를 읽고, 빈 결과면 exit 1 로 멈춘다 — 잠든 DB 를 옛 스냅샷으로 덮지 않는다).
+- `docs/architecture/data-pipeline.md` 는 1·4a 구현과 함께 다시 썼다(지금 v7).
 - 옛 계획 `.omc/plans/2026-09-17-notion-supabase-scraping.md` 의 Phase 5 는 소멸.
 
 ## 관련

@@ -1,6 +1,9 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-09-22 (v6: GitHub Actions 폐지 — 수집·분석·반영은 사용자 터미널에서 `pnpm data:collect` → `data:analyze` → `data:apply`(운영자 세션). 인증 출처는 둘 —
+> 최종 수정: 2026-09-22 (v7: 4a 는 끝났다 — `vercel.json` 의 `buildCommand` 가 `pnpm data:pull && pnpm build` 로 커밋돼 프로덕션이 그 경로로 Ready(실측).
+> "아직 안 바뀌어서 커밋된 스냅샷을 쓴다" 는 문장과 "잠들어도 마지막 스냅샷으로 빌드된다" 를 걷었다 — 배포는 `data:pull` 로 시작하므로 DB 가 잠들면 재배포가 막힌다.
+> JWT expiry 43200 반영 — `--limit` 을 나누는 이유는 이제 세션 창이 아니라 구독 5시간 한도)
+> 이전 (v6: GitHub Actions 폐지 — 수집·분석·반영은 사용자 터미널에서 `pnpm data:collect` → `data:analyze` → `data:apply`(운영자 세션). 인증 출처는 둘 —
 > 세션(JWT)+RLS 와 publishable(anon). service 키는 env 에 있으면 쓰기 스크립트가 멈춘다. 네이버 키는 env 또는 TTY 숨김 입력. ADR-016 v5)
 > 이전 (v5: 인증 출처 세 가지 — Actions 는 service_role env, 로컬은 `pnpm data:login` 세션(JWT)+RLS, Vercel 빌드는 publishable(anon). ADR-016 v4)
 > 이전 (v4: 키는 CI·Vercel 에선 env, 로컬에선 로그인된 `supabase` CLI 에게 실행 시점에(ADR-016). `.env.local` 은 선택 설정만)
@@ -27,17 +30,18 @@ flowchart LR
 ```
 
 - 앱은 런타임에 아무것도 fetch 하지 않는다. 장소 86곳(숙소 26·식당 34·카페 26), 준비물 15가지 — 지금까지와 동일.
-- 갱신은 여전히 사람이 명령을 돌려야 반영된다(`data:pull` → 재빌드). Vercel 빌드 명령이 아직
-  `pnpm data:pull && pnpm build` 로 안 바뀌어서([todo/00](../todo/00-setup-supabase-vercel.md) 4a), 지금 배포되는
-  사이트는 여전히 마지막으로 **커밋된 스냅샷**을 쓴다. 4a 가 끝나야 "Studio 수정 → 재배포 반영" 이 이어진다.
+- 갱신은 여전히 사람이 **재배포를 일으켜야** 반영된다. Vercel 빌드 명령은 `pnpm data:pull && pnpm build` 다(`vercel.json` 의 `buildCommand`, [todo/00](../todo/00-setup-supabase-vercel.md) 4a —
+  끝났고 프로덕션 Ready 로 실측됐다), 그래서 **배포될 때마다 DB 를 새로 읽는다** — 커밋된 `src/data/*.json` 은 키 없이 `pnpm dev`·`pnpm test` 를 돌리기 위한 스냅샷이고, 배포 빌드는 그 위에 `data:pull` 결과를 덮어쓴다.
+  아직 없는 것은 4b 뿐이다: 승인이 **저절로** 재배포를 일으키는 DB 웹훅 → Deploy Hook. 그전까진 push 나 Redeploy 가 그 방아쇠다.
 
 ## 갱신 경로 — `pnpm data:pull`
 
 - 데이터를 고치는 곳은 이제 Supabase Studio(나중엔 관리 화면)지 Notion 이 아니다.
 - `scripts/pull-db.mjs`(`pnpm data:pull`) 가 `status='published'` 인 `places`·`items` 를 읽어 `src/data/places.json`·
   `items.json` 을 다시 쓴다.
-- `src/data/*.json` 은 계속 **커밋**한다 — 키 없이도 `pnpm dev`·`pnpm test` 가 돌아야 하고, Supabase 가
-  무료 티어 7일 비활성으로 잠들어도 마지막 스냅샷으로 빌드된다.
+- `src/data/*.json` 은 계속 **커밋**한다 — 키 없이도 `pnpm dev`·`pnpm test`·로컬 `pnpm build` 가 돌아야 해서다.
+  **다만 4a 뒤로 이 스냅샷은 배포의 안전망이 아니다**: 배포 빌드는 `data:pull` 로 시작하므로, Supabase 가 무료 티어 7일 비활성으로 잠들면
+  `data:pull` 이 exit 1 이고 **재배포가 막힌다**(이전 배포는 그대로 산다 — [todo/05](../todo/05-security.md)). 조용히 옛 데이터로 빌드되지 않게 한 것이 의도다.
 - 접속이 안 되면 `data:pull` 은 조용히 옛 스냅샷을 쓰는 대신 **명확히 실패한다**(`exit 1`) — Vercel 빌드가 조용히 옛 데이터로
   돌아가는 사고를 막기 위해서다. 인증은 `scripts/lib/supabaseClient.mjs` 가 고른다([ADR-016 v5](../decisions/ADR-016-secrets-by-login.md)) — 출처는 **둘**뿐이고
   스크립트 종류가 정한다: `data:pull`(readOnly)은 publishable 키만(anon), 쓰기 스크립트(seed·collect·analyze·apply)는 키체인의 운영자 세션(`pnpm data:login`, 만료면 멈춘다).
@@ -117,8 +121,8 @@ flowchart LR
 - **본문은 저장하지 않는다.** DB 에 남는 건 링크·제목·날짜와 AI 가 뽑은 사실·인용문(`extracted`)뿐이다(저작권·약관, ADR-002 와 같은 기준).
 - **Claude 는 API 가 아니라 구독**이다. `scripts/analyze/extractPlaces.mjs` 가 `claude -p` 를 자식 프로세스로 돌리고 결과 JSON 의
   `structured_output` 을 읽는다. 인증은 이 머신에 로그인된 `claude`(키체인)뿐 — 토큰 env 는 자식 프로세스에 넘기지 않는다. 글당 비용은 0 이지만 **세션 한도를
-  대화와 공유**한다 — 대량 처리는 `--limit` 로 나눈다. 실행 전체가 운영자 세션 창(JWT expiry − 30분 skew) 안에 끝나야 한다 — 기본 expiry 3600 이면 30분이라
-  `--limit 30` 씩, 또는 대시보드에서 43200 으로.
+  대화와 공유**한다 — 대량 처리는 `--limit` 로 나눈다(`--limit 30` 씩). 실행 전체가 운영자 세션 창(JWT expiry − 30분 skew) 안에도 끝나야 하는데,
+  그 창은 2026-09-22 대시보드 JWT expiry 가 43200 이 된 뒤로 **11.5시간**이라 사실상 걸리지 않는다 — 지금 `--limit` 을 나누는 이유는 세션 창이 아니라 **구독 5시간 한도**다.
 - **`analyzed_at` 이 "다시 안 읽는다" 의 표시**다. 후보가 0개여도, 다시 받아도 같을 실패(삭제된 글·본문 없음)여도 찍는다 — 단 그 실행에서
   성공한 글이 1건 이상일 때만(전부 실패면 파이프라인 고장으로 보고 아무것도 닫지 않는다). 잠깐의 실패(403·5xx·한도·타임아웃)는 비워 둬 재시도.
 

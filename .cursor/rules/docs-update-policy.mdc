@@ -28,6 +28,7 @@ alwaysApply: true
 | `src/app/sw.ts`, `src/app/manifest.ts`, `next.config.mjs`, `scripts/make-icons.mjs` | `docs/architecture/pwa-offline.md` |
 | `src/styles/theme.css`, `src/lib/places.ts` 의 색 상수 | `docs/decisions/ADR-003-untitled-ui-and-palette.md` |
 | `src/styles/globals.css` 의 `--spacing`·브레이크포인트, `src/app/fonts/**` | `docs/decisions/ADR-006-responsive-scale-and-font.md` |
+| `supabase/migrations/**` | [ADR-016](../../docs/decisions/ADR-016-secrets-by-login.md) + `docs/todo/05-security.md` (정책·GRANT 가 곧 보안 경계라 둘 다 본다) |
 | 라우트·디렉토리·스택 변경 | `docs/ARCHITECTURE.md` 의 해당 섹션 |
 | `scripts/pull-db.mjs`, `scripts/collect-blog.mjs`, `scripts/analyze-candidates.mjs`, `scripts/apply-approved.mjs`, `vercel.json` | `docs/todo/` 의 해당 단계 문서 `[ ]` 갱신 + `docs/architecture/data-pipeline.md` |
 
