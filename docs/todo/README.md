@@ -154,7 +154,7 @@ ADR-016 v4 는 구현·**실측 완료** — publishable 키 채움, `operators`
      allowlist 테스트는 옛 토큰을 입력에 남겨 두고 "넘어가지 않음" 을 단언)
    - ~~**(b) 마이그레이션** `supabase/migrations/2026092?_narrow_grants.sql`(파일을 직접 쓴다 — `migration new` 는 TTY 없으면 멈춤): anon·authenticated 의
      delete·truncate·references·trigger 회수 · anon 은 places·items **select 만** · authenticated 는 5 테이블 select/insert/update + operators select ·
-     `alter default privileges for role postgres in schema public revoke all on tables from anon, authenticated`(앞으로의 테이블도) ·
+     `alter default privileges for role postgres in schema public revoke all on tables from anon, authenticated`(`postgres` 가 만드는 앞으로의 테이블도 — 마이그레이션은 postgres 로 돈다) ·
      `operators_all`(for all) → `operators_select`/`_insert`/`_update` 3정책 ×5 테이블(**upsert 는 insert `with check` 와 update `using`+`with check` 둘 다** 필요 —
      `apply-approved.mjs:134`·`seed-db.mjs:46,49`). **`operators_read_self` 는 건드리지 않는다**(invoker 함수라 없으면 조용히 false). 스크립트에 `.delete(` 는 0개(실측).~~
      (2026-09-22 (5) 워크플로 — **파일만**, `20260922120000_narrow_grants.sql`. 더한 것: `is_operator()` execute 를 anon·PUBLIC 에서 회수 + authenticated 명시 grant(PUBLIC 만 빼면 운영자 정책이 전부
@@ -182,9 +182,12 @@ ADR-016 v4 는 구현·**실측 완료** — publishable 키 채움, `operators`
 세션이 끝나거나 컨텍스트가 커져 나눌 때 여기에 한 항목. 체크박스가 정본이고 로그는 인수인계 메모.
 
 - 2026-09-22 (5) — **(c) 구현 워크플로**(브랜치 `feature/local-only-pipeline`): 구현 4갈래 병렬(A `supabaseClient` 세션/anon 둘 + 트립와이어 · B `collect-blog` 숨김 입력 + `readHidden` 리네임 ·
-  C `collect.yml` 삭제 + 옛 Actions 문구·allowlist 정리 · D (b) `narrow_grants` 마이그레이션 파일) → 문서 2갈래(todo 5편·README / ADR-016 v5·architecture·CLAUDE.md) → 3렌즈 리뷰 → 지적마다 반박 2표 →
-  반영 → 최종. `pnpm test` 26 파일 439. GitHub 시크릿 2개 삭제(`gh secret list` 빈 결과, 0개). **남은 것(메인 세션 이어서)**: 커밋 → 사용자 `pnpm exec supabase login` → `db push` → 사용자 `pnpm data:login` →
-  `data:apply --dry-run` 검증(delete 42501 · anon pull 86·15) → `supabase logout` → self-cr → push → 로컬 잠금 3개. (b) 는 push 전까지 **미검증**.
+  C `collect.yml` 삭제 + 옛 Actions 문구·allowlist 정리 · D (b) `narrow_grants` 마이그레이션 파일) → 문서 2갈래(todo 5편·README / ADR-016 v5·architecture·CLAUDE.md) → 3렌즈 리뷰 13건 → 지적마다 반박 2표 →
+  확인 7건. **함정**: Fix 에이전트가 8파일 17편집을 적용하고 테스트(439)까지 돌린 뒤 구조화 보고 직전에 구독 세션 한도로 죽었다 → resume 의 재검증이 "이미 반영된 상태" 를 보고 전부 stale 판정 →
+  워크플로 회계는 "확인 0·Fix 건너뜀" 이지만 실제로는 **리뷰 패스 없이 들어간 편집**이 커밋에 섞여 있다(`.cursor/rules` · `supabaseClient{,.test}.mjs` · ADR-016 · todo 00·01·05 · CLAUDE.md) —
+  self-cr 에 이 목록을 넘겨 커버. 메인이 직접 넣은 것: `collect-blog` 빈 id 면 secret 안 묻기 한 줄(테스트 없음). GitHub 시크릿 2개 삭제(`gh secret list` 빈 결과, 0개). 커밋 3개(코드·마이그레이션·문서).
+  **남은 것**: 사용자 `pnpm exec supabase login` → (사용자 확인 뒤) `db push` → 사용자 `pnpm data:login` → `data:apply --dry-run` 검증(delete 42501 · anon pull 86·15) → `supabase logout` → self-cr → push → 로컬 잠금 3개.
+  (b) 는 push 전까지 **미검증** — 검증이 push 앞인 이유: `db push` 가 grant 실수를 드러내면 깨진 마이그레이션을 올리는 대신 같은 커밋을 고친다.
 
 - 2026-09-22 (4) — **결정 2 = (c)**. 사용자가 (c) 선택 → advisor 지적으로 키 전달 방식을 물어 "네이버·Kakao 키는 내가 로컬로 관리" 로 확정(env 또는 TTY 숨김 입력, 저장 없음;
   Kakao REST 는 안 씀). 대시보드 몫 완료 보고 뒤 anon `data:pull` 86·15 실측(legacy 키 퇴역 뒤에도 OK), 옛 세션은 만료 상태. 구현은 컨텍스트(436k) 때문에 **새 세션**에서 —

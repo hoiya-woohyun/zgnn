@@ -53,7 +53,7 @@
 - [ ] **(b) GRANT 를 스크립트가 하는 일만큼으로 좁힌다** — `supabase/migrations/20260922120000_narrow_grants.sql` **파일만 작성(2026-09-22 (5)), 원격 미적용·미검증.**
       왜 지금인가: service 키가 퇴역해 남은 두 출처가 둘 다 RLS 를 지나므로 이제 **GRANT 가 곧 상한**이다 — RLS 정책은 "어느 행", GRANT 는 "어느 동작". Supabase 기본은 anon·authenticated 에
       모든 테이블 ALL 이라 정책 실수 하나가 delete·truncate 까지 연다. 내용: 여섯 테이블 ALL 회수 → anon 은 `places`·`items` select 만 → authenticated 는 5 테이블 select/insert/update +
-      `operators` select → postgres 의 default privileges 에서 앞으로의 테이블도 끊음 → `operators_all`(for all) 을 `operators_select`/`_insert`/`_update` 로(×5 = 15 정책, anon 2·`operators_read_self` 는 그대로)
+      `operators` select → postgres 의 default privileges 에서 앞으로의 테이블도 끊음(postgres 가 만드는 것만 — 마이그레이션 경로) → `operators_all`(for all) 을 `operators_select`/`_insert`/`_update` 로(×5 = 15 정책, anon 2·`operators_read_self` 는 그대로)
       → `is_operator()` execute 를 anon·PUBLIC 에서 회수하고 authenticated 에 명시 grant. 어떤 스크립트도 `.delete(` 하지 않는다(실측 0개).
       **검증 순서**(`pnpm test` 는 grant 실수를 못 잡는다): 사용자 `pnpm exec supabase login` → Claude `pnpm exec supabase db push` → 사용자 `pnpm data:login` → Claude `pnpm data:apply --dry-run` = `반영 0건` exit 0 ·
       세션으로 delete 시도 → 42501(이제 정책이 아니라 DELETE grant 부재) · anon `data:pull` 86·15 → 사용자 `supabase logout` · 어드바이저 새 경고 없음. 마지막까지 못 가면 **미검증**으로 남긴다.

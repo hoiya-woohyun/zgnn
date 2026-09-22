@@ -165,7 +165,7 @@ v4 가 "다음 결정" 으로 남긴 셋. 새 ADR 을 만들지 않고 여기서
 - **(b) anon·authenticated 의 기본 GRANT 회수 · `for all` → select/insert/update** — `supabase/migrations/20260922120000_narrow_grants.sql` 로 **구현. 파일만 — 원격 미적용·미검증.**
   순서: 여섯 테이블의 anon·authenticated ALL 회수 → anon 은 `places`·`items` select 만 → authenticated 는 5 테이블 select/insert/update + `operators` select(`is_operator()` 가 invoker 라
   호출자 권한으로 읽는다 — 이 grant 가 없으면 운영자의 모든 쿼리가 정책 평가에서 42501) → `alter default privileges for role postgres in schema public revoke all on tables from anon, authenticated`
-  (앞으로의 테이블도) → `operators_all` 을 `operators_select`/`_insert`/`_update` 3정책 ×5 테이블로(upsert 는 insert `with check` 와 update `using`+`with check` 둘 다 지난다 —
+  (`postgres` 가 만드는 앞으로의 테이블도 — 마이그레이션은 postgres 로 도니 걸리고, 다른 역할이 만든 테이블엔 안 걸린다) → `operators_all` 을 `operators_select`/`_insert`/`_update` 3정책 ×5 테이블로(upsert 는 insert `with check` 와 update `using`+`with check` 둘 다 지난다 —
   seed 의 `on conflict do update` 와 collect·apply 의 `do nothing` 이 다르다) → `is_operator()` execute 를 anon·PUBLIC 에서 회수하고 authenticated 에 **명시** grant(anon 만 빼면 PUBLIC 경유로
   그대로 실행되고, PUBLIC 을 걷으면 authenticated 의 기본 execute 도 함께 사라질 수 있다 — 그러면 운영자의 모든 쿼리가 "permission denied for function is_operator" 로 죽고 `pnpm test` 로는
   안 보인다). `operators_read_self`·anon 정책 둘은 손대지 않는다. service_role 은 어느 문장에도 없다. 시퀀스 grant 는 없다(키가 전부 text/uuid). `drop policy` 는 `if exists` 없이 —
