@@ -153,7 +153,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     <div>
       {/* 상태바 인셋 위로 번져(bleed-top-4) 자기 블러 배경이 그 자리를 덮으므로 top-safe 가
           아니라 top-0 에 붙는다 — 사이에 다른 색 띠가 끼지 않는다(ADR-010 v2). */}
-      <div ref={headerRef} className="sticky top-0 z-30 border-b border-secondary bg-secondary/95 backdrop-blur">
+      <div ref={headerRef} className="sticky top-0 z-30 border-b border-secondary bg-primary/95 backdrop-blur">
         <div className="bleed-top-4 px-4 pb-3 md:px-6">
           <h1 className="sr-only">{TYPE_META[type].label} 둘러보기</h1>
 
