@@ -3,7 +3,9 @@
 > 최종 수정: 2026-09-23 (v16: **push · `main` 머지 · 프로덕션 배포까지 끝났다.** `main` = `66b15e1`(fast-forward), Vercel 프로덕션 Ready —
 > 빌드 로그 `publishable(anon)` · `places 86 · items 15` · 유출 검사 530파일. **프로덕션 `/map` 을 브라우저로 실측**했다:
 > SDK 200 · `/v3/auth` **200**(= `zgnn.vercel.app` 의 NCP 등록이 살아 있다) · 마커 렌더 · 콘솔 에러 0.
-> 이로써 ⚠️2(오프라인 지도)가 **이제 확인 가능**해졌다 — 사용자 실기기 비행기 모드만 남았다. 로컬 테스트 455(451 아님))
+> 이로써 ⚠️2(오프라인 지도)가 **이제 확인 가능**해졌다 — 사용자 실기기 비행기 모드만 남았다. 로컬 테스트 455(451 아님).
+> 실행 순서도 정정: 4b 는 대시보드 둘이라 **사용자 몫**(Deploy Hook URL 이 시크릿이라서)이고, 로컬 잠금이 막는 것은
+> 사용자의 대시보드가 아니라 **Claude 의 push·배포 확인**이다 — 그래서 [Claude] 줄이 끝난 뒤로 미룬다)
 > 이전 (v15: **self-cr 완료 — 커밋 5개 추가.** blocker 1(폴백 경로 무방비) + major 6 + minor 다수 반영,
 > 수정분도 검증 패스를 거쳤다. 로고 우상단 이동은 **브라우저 실측**으로 닫았고, 좌표 판정의 **datum 한계**와
 > "영구 고장이 오프라인 문제로 보고된다" 를 ⚠️ 절에 더했다. 남은 것은 push → 로컬 잠금 → 키워드)
@@ -145,7 +147,8 @@ flowchart LR
 ```
 [Claude]  ✅ self-cr → ✅ push → ✅ main 머지 → ✅ 프로덕션 배포·실측  (2026-09-23 (3), 이 줄은 끝났다)
 [사용자]  로컬 잠금 3개: vercel logout · gh auth logout -u hoiya-woohyun · ssh-keygen -p -f ~/.ssh/id_ed25519_hoiya
-          ⚠️ 이건 **원격 git·Vercel 일이 다 끝난 뒤**다. 지금은 4b(Deploy Hook)가 남아 `vercel logout` 을 아직 하지 않는 편이 낫다
+          ⚠️ 잠그면 **Claude 가 push·배포 확인을 못 한다**(사용자 대시보드 작업은 영향 없다 — CLI 만 끊긴다).
+          아래에 [Claude] 가 붙은 줄(keywords.json 반영 · analyze/apply dry-run)이 남아 있으므로 **그것들이 끝난 뒤** 잠근다
 [사용자]  검색 키워드 확정(🙋 02) → [Claude] scripts/collect/keywords.json 반영
 [사용자]  pnpm data:login   → 만료 +12시간 확인
 [사용자]  pnpm data:collect → 네이버 키 숨김 입력, blog_posts 채움
@@ -154,13 +157,16 @@ flowchart LR
 [Claude]  pnpm data:apply --dry-run → [사용자] pnpm data:apply
 [사용자]  Studio 에서 후보 20건쯤 → AUTO_APPROVE·THRESHOLD·WEIGHT 결정(🙋 03)
 [사용자]  Supabase 대시보드 어드바이저 한 번 확인((b) 검증의 마지막 항목)
-[사용자]  배포 뒤 실기기 비행기 모드 — 지도가 오프라인에서 뜨는가(아래 ⚠️)
-[Claude]  4b: Vercel Deploy Hook → Supabase DB 웹훅(🙋 04: 승인마다 재빌드 vs 모아서)
+[사용자]  실기기 비행기 모드 — 지도가 오프라인에서 뜨는가(아래 ⚠️). **배포 끝났으니 지금 바로 가능**
+[사용자]  4b: Vercel Deploy Hook 발급 → Supabase Studio 의 Database Webhook 에 그 URL.
+          **대시보드 둘 다 브라우저 작업이라 CLI 로그인이 필요 없다.** Claude 몫이 아닌 이유는 권한이 아니라
+          **Deploy Hook URL 이 시크릿**이어서다(ADR-016: 값은 읽지도 찍지도 않는다). 기본 경로는 이미 정해져 있다 —
+          `places` 에 INSERT·UPDATE·DELETE, 그냥 둔다(🙋 04 는 "첫 달 빌드 횟수를 보고" 로 미뤄진 관찰 항목이지 지금 막는 결정이 아니다)
 ```
 
-굳어 있는 순서는 셋뿐이다. **원격 작업(push·머지·Deploy Hook) → 로컬 잠금**(먼저 잠그면 push 도 Vercel 설정도 막힌다 — 로그아웃은 늘 심부름의 끝에),
+굳어 있는 순서는 셋뿐이다. **[Claude] 줄이 다 끝난 뒤 → 로컬 잠금**(먼저 잠그면 Claude 의 push·배포 확인이 막힌다 — 로그아웃은 늘 심부름의 끝에),
 **네이버 키 → `data:collect`**(키 없이는 `blog_posts` 가 안 찬다), **`collect` → `analyze` → `apply`**.
-어드바이저 확인과 4b 는 그 사이 어디서 해도 된다. `data:collect` 는 에이전트 세션에서 거부되므로(`CLAUDECODE`) **사용자 터미널 몫**이고,
+어드바이저 확인과 4b 와 실기기 오프라인 확인은 그 사이 어디서 해도 된다 — 셋 다 대시보드·폰 작업이라 위 잠금과 무관하다. `data:collect` 는 에이전트 세션에서 거부되므로(`CLAUDECODE`) **사용자 터미널 몫**이고,
 `data:analyze`·`data:apply` 는 사용자가 `pnpm data:login` 해 둔 동안 Claude 도 돌릴 수 있다.
 
 ### ⚠️ 미검증 둘 — 새 세션이 먼저 확인할 것
