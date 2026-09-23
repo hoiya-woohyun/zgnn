@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import places from '../../src/data/places.json' with { type: 'json' };
 import { parseRegion } from '../lib/placeFields.mjs';
-import { extractAddressUnits, inferRegionRaw, parseNaverCoord, pickNaverPlace, searchNaverPlace, stripTags, toNaverQuery } from './naverLocal.mjs';
+import { extractAddressUnits, inferRegionRaw, newPickReasons, parseNaverCoord, pickNaverPlace, searchNaverPlace, stripTags, toNaverQuery } from './naverLocal.mjs';
 
 // 네이버 응답 꼴 그대로 — mapx/mapy 는 WGS84 를 10^7 배한 정수, title 엔 <b> 가 섞인다.
 const item = (over) => ({
@@ -42,11 +42,20 @@ describe('parseNaverCoord — 문서가 스스로 모순되는 자리', () => {
     expect(parseNaverCoord('1268488419')).toBeCloseTo(126.8488419, 7);
     expect(parseNaverCoord('335111848')).toBeCloseTo(33.5111848, 7);
   });
-  it('정수가 아니면 NaN — 빈 문자열이 (0, 0) 좌표로 둔갑하지 않게', () => {
+  it('소수 문자열은 이미 도(degree) 단위로 본다 — 나누면 0 이 되어 보강이 통째로 no-op 이 된다', () => {
+    // 이 브랜치는 실제 응답을 한 번도 못 봤다. 포맷이 소수였을 경우 전 건이 NaN 으로 떨어지는
+    // 대신 그대로 읽고, 제주 범위인지로 판별한다(아래 inJeju 테스트).
+    expect(parseNaverCoord('126.8488419')).toBeCloseTo(126.8488419, 7);
+    expect(parseNaverCoord('33.5111848')).toBeCloseTo(33.5111848, 7);
+    expect(parseNaverCoord('-33.5')).toBeCloseTo(-33.5, 7);
+  });
+  it('숫자가 아니면 NaN — 빈 문자열이 (0, 0) 좌표로 둔갑하지 않게', () => {
     expect(parseNaverCoord('')).toBeNaN();
     expect(parseNaverCoord('  ')).toBeNaN();
     expect(parseNaverCoord(undefined)).toBeNaN();
     expect(parseNaverCoord('abc')).toBeNaN();
+    expect(parseNaverCoord('12.3.4')).toBeNaN();
+    expect(parseNaverCoord('126.')).toBeNaN();
   });
 });
 
@@ -98,6 +107,34 @@ describe('pickNaverPlace', () => {
 
   it('title 의 <b> 를 벗기고 이름을 맞춘다', () => {
     expect(pickNaverPlace([item({ title: '<b>솔숲</b>펜션' })], { name: '솔숲펜션' })).not.toBeNull();
+  });
+
+  it('탈락 사유를 구분해 센다 — "포맷이 틀렸다" 와 "이름이 안 맞았다" 가 똑같이 null 로 보이지 않게', () => {
+    // 좌표 포맷이 우리가 아는 것과 다른 경우(KATECH). 첫 실행이 곧 포맷의 실측이라
+    // 이 계수가 없으면 운영자가 볼 단서는 "후보 N건" 뿐이다.
+    const coordBad = newPickReasons();
+    expect(pickNaverPlace([item({ mapx: '311277', mapy: '552097' })], { name: '솔숲펜션' }, coordBad)).toBeNull();
+    expect(coordBad.coordOutOfJeju).toBe(1);
+    expect(coordBad.nameMismatch).toBe(0);
+    expect(coordBad.itemsButNoPick).toBe(1);
+    expect(coordBad.sample).toEqual({ mapx: '311277', mapy: '552097' });
+
+    // 좌표는 멀쩡한데 이름이 다른 경우 — 같은 null 이지만 사유가 갈린다.
+    const nameBad = newPickReasons();
+    expect(pickNaverPlace([item({ title: '<b>협재고기부엌</b>' })], { name: '고기부엌' }, nameBad)).toBeNull();
+    expect(nameBad.nameMismatch).toBe(1);
+    expect(nameBad.coordOutOfJeju).toBe(0);
+    expect(nameBad.coordUnparsable).toBe(0);
+
+    // 파싱 자체가 안 되는 경우는 또 다른 칸으로.
+    const unparsable = newPickReasons();
+    expect(pickNaverPlace([item({ mapx: 'abc', mapy: 'def' })], { name: '솔숲펜션' }, unparsable)).toBeNull();
+    expect(unparsable.coordUnparsable).toBe(1);
+    expect(unparsable.coordOutOfJeju).toBe(0);
+  });
+
+  it('reasons 를 안 넘겨도 동작한다 — 계수는 선택이다', () => {
+    expect(pickNaverPlace([item()], { name: '솔숲펜션' })).not.toBeNull();
   });
 
   it('옛 KATECH 값이 오면 제주 범위 밖이라 버린다 — 문서 예제가 그 꼴이다', () => {

@@ -83,8 +83,31 @@ const JEJU_BOUNDS = { latMin: 32.9, latMax: 33.7, lngMin: 125.9, lngMax: 127.1 }
  */
 export function parseNaverCoord(value) {
   const s = String(value ?? '').trim();
-  if (s === '' || !/^-?\d+$/.test(s)) return NaN;
-  return Number(s) / 1e7;
+  if (s === '') return NaN;
+  // 정수면 10^7 배한 값. **소수점이 있으면 이미 도(degree) 단위**라 그대로 쓴다 —
+  // 예전엔 정수만 받아 소수 문자열("126.8488419")을 통째로 NaN 으로 떨어뜨렸는데,
+  // 그러면 포맷이 정수가 아닐 경우 좌표 보강이 조용히 100% no-op 이 된다.
+  // 어느 쪽이든 최종 판별은 아래 inJeju 가 한다(KATECH·10^6·10^8·lat/lng 스왑 전부 범위 밖).
+  if (/^-?\d+$/.test(s)) return Number(s) / 1e7;
+  if (/^-?\d+\.\d+$/.test(s)) return Number(s);
+  return NaN;
+}
+
+/**
+ * pickNaverPlace 의 탈락 사유 계수기. **`data:analyze` 의 첫 실행이 좌표 포맷의 실측**이라
+ * "왜 좌표가 안 붙었는가" 를 구별할 신호가 필요하다 — 이게 없으면 "포맷이 틀렸다" 와
+ * "이름이 안 맞았다" 가 똑같이 `null` 로만 보이고, 운영자가 볼 단서는 "후보 N건" 뿐이다.
+ * `sample` 은 처음 걸린 응답의 원시 `mapx`/`mapy` — 자릿수를 눈으로 보려고 남긴다(값은 좌표라 비밀이 아니다).
+ */
+export function newPickReasons() {
+  return {
+    notJejuAddress: 0,
+    coordUnparsable: 0,
+    coordOutOfJeju: 0,
+    nameMismatch: 0,
+    itemsButNoPick: 0,
+    sample: null,
+  };
 }
 
 /** 좌표 쌍이 제주 안인가. 범위 밖이면 포맷이 우리가 아는 것과 다르다는 신호다. */
@@ -105,15 +128,32 @@ function inJeju(lat, lng) {
  * @param {{ name: string, town?: string | null }} candidate
  * @returns {{ lat: number, lng: number, address: string, naverLink: string | null, category: string | null } | null}
  */
-export function pickNaverPlace(items, { name, town = null }) {
+export function pickNaverPlace(items, { name, town = null }, reasons = null) {
   let best = null;
+  let sawItem = false;
   for (const item of items ?? []) {
+    sawItem = true;
     const address = item?.roadAddress || item?.address || '';
-    if (!address.startsWith('제주')) continue;
+    if (!address.startsWith('제주')) {
+      if (reasons) reasons.notJejuAddress++;
+      continue;
+    }
     const lat = parseNaverCoord(item.mapy);
     const lng = parseNaverCoord(item.mapx);
-    if (!inJeju(lat, lng)) continue;
-    if (nameSimilarity(stripTags(item.title), name) !== 1) continue;
+    if (!inJeju(lat, lng)) {
+      // 좌표 포맷이 우리가 아는 것과 다르거나 제주 밖이다. 이 둘을 갈라 세는 이유는
+      // **첫 실행이 곧 포맷의 실측**이기 때문이다 — 전 건이 여기서 떨어지면 포맷이 틀린 것이다.
+      if (reasons) {
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) reasons.coordUnparsable++;
+        else reasons.coordOutOfJeju++;
+        if (reasons.sample === null) reasons.sample = { mapx: item.mapx, mapy: item.mapy };
+      }
+      continue;
+    }
+    if (nameSimilarity(stripTags(item.title), name) !== 1) {
+      if (reasons) reasons.nameMismatch++;
+      continue;
+    }
     const inTown = town != null && townOf(item.address || item.roadAddress) === town;
     if (inTown) {
       best = { item, lat, lng };
@@ -121,7 +161,10 @@ export function pickNaverPlace(items, { name, town = null }) {
     }
     if (!best) best = { item, lat, lng };
   }
-  if (!best) return null;
+  if (!best) {
+    if (reasons && sawItem) reasons.itemsButNoPick++;
+    return null;
+  }
 
   const { item, lat, lng } = best;
   // category 는 "한식>육류,고기요리" 꼴. 화면(placeCard)의 categoryLabel 은 한 단어를 기대하므로 마지막 마디만 둔다.

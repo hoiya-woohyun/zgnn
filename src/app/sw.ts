@@ -95,10 +95,17 @@ const mediaCache: RuntimeCaching[] = [
      * CacheFirst 가 아니라 StaleWhileRevalidate 인 이유: 이건 우리가 버전을 못 정하는
      * 남의 코드라, 오래된 사본에 못 박히면 SDK 가 바뀔 때 조용히 깨진다.
      *
-     * `/v3/auth` 는 여기 걸려도 무해하다 — URL 이 매번 달라 캐시에 적중하지 않고,
-     * maxEntries 가 넘치면 오래된 것부터 밀려난다.
+     * ⚠️ **`/openapi/` 로 좁히는 것이 핵심이다.** 예전엔 이 호스트 전체를 걸고 "`/v3/auth` 는
+     * 여기 걸려도 무해하다 — maxEntries 가 넘치면 오래된 것부터 밀려난다" 고 적어 뒀는데,
+     * 그 문장이 스스로를 반박한다: LRU 에서 **가장 오래된 것이 바로 `maps.js`** 다(제일 먼저
+     * 받으니까). `time` 이 매번 달라 auth 요청은 호출마다 새 엔트리이고, 같은 호스트의
+     * `maps.js`·서브모듈과 상한을 나눠 쓴다(조사 문서 실측: 이 호스트에 지도 1개당 18 요청).
+     * 그래서 `/map` 을 반복해 열면 auth 가 쌓여 **이 앱의 유일한 외부 코드 사본을 축출**하고,
+     * 다음 오프라인 진입에서 타일이 있어도 지도가 통째로 빈다.
+     * 경로가 정확히 갈린다 — SDK 는 `/openapi/v3/maps.js`(+ 서브모듈), auth 는 `/v3/auth`.
      */
-    matcher: ({ url }) => url.hostname === 'oapi.map.naver.com',
+    matcher: ({ url }) =>
+      url.hostname === 'oapi.map.naver.com' && url.pathname.startsWith('/openapi/'),
     handler: new StaleWhileRevalidate({
       cacheName: 'naver-map-sdk',
       plugins: [new ExpirationPlugin({ maxEntries: 10, maxAgeSeconds: 30 * DAY })],

@@ -3,7 +3,8 @@
 > AI 와 개발자 모두를 위한 빠른 참조 문서.
 > 각 섹션은 상세 문서로 연결된다.
 >
-> 최종 수정: 2026-09-22 (v13: 4a 는 끝났다 — Vercel 빌드 명령이 `pnpm data:pull && pnpm build` 로 커밋돼 배포가 DB 를 읽는다(프로덕션 Ready 실측). "배포 전환은 아직" 을 걷었다)
+> 최종 수정: 2026-09-23 (v14: 지도를 Kakao 에서 네이버(NCP Maps v3)로 교체 — [ADR-008](./decisions/ADR-008-map-provider.md) v4. 좌표 보강도 Kakao 로컬 → 네이버 지역 검색)
+> 이전 (v13: 4a 는 끝났다 — Vercel 빌드 명령이 `pnpm data:pull && pnpm build` 로 커밋돼 배포가 DB 를 읽는다(프로덕션 Ready 실측). "배포 전환은 아직" 을 걷었다)
 > 이전 (v12: ADR-016 v5 — GitHub Actions 폐지. 수집·분석·반영은 사용자 터미널에서 `pnpm data:collect` → `data:analyze` → `data:apply`(운영자 세션). service_role 은 어디에도 없다)
 > 이전 (v11: ADR-016 v4 — 로컬 DB 접근은 운영자 로그인 세션(짧은 JWT)+RLS. service_role 은 Actions 만)
 > 이전 (v10: ADR-015·016 을 결정 표에 등재 — 016 은 시크릿을 저장하지 않고 로그인된 CLI 에게 실행 시점에 받는다)
@@ -15,7 +16,6 @@
 >
 > 최종 수정: 2026-09-16 (v4: 저장 탭 → 설정 탭(`/settings` 루트, `/saved`·`/dog` 는 그 안). 프로필이 마리별 이름(`dogs[]`)을 갖고, 요금 문구(`lib/dogFee.ts`)·한국어 호칭(`lib/korean.ts`)이 순수 함수로 분리됐다)
 >
-> 최종 수정: 2026-09-23 (v5: 지도를 Kakao 에서 네이버(NCP Maps v3)로 교체(ADR-008 v4))
 > 최종 수정: 2026-09-17 (v4: 지도를 leaflet 에서 Kakao 지도 SDK 로 교체(ADR-008))
 >
 > 최종 수정: 2026-09-16 (v3: 뒤로가기를 셸이 자동으로 붙인다(ADR-007, `lib/appRoutes.ts`). 둘러보기 조건은 모바일에서 바텀시트로 접힌다)

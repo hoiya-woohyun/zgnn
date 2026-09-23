@@ -85,8 +85,23 @@ type TMarkerEntry = {
 function clearMarkers(markers: Map<string, TMarkerEntry>) {
   const maps = window.naver?.maps;
   for (const entry of markers.values()) {
-    if (maps) maps.Event.removeListener(entry.listener);
-    entry.marker.setMap(null);
+    /*
+     * 엔트리마다 따로 감싼다 — **떼어내는 쪽도 던진다.** 마커를 *올릴* 때 SDK 가 던지는 건
+     * 실측했고(아래 마커 effect 주석), 그 지도는 이미 깨져 있으므로 `setMap(null)` 이라고
+     * 무사할 이유가 없다. 이게 심각한 이유는 재진입이다: 루프가 중간에 끊기면 아래
+     * `markers.clear()` 에 닿지 못해 죽은 엔트리가 그대로 남고, 다음 호출이 같은 자리에서
+     * 또 던진다 — 한 번의 실패가 영구 고장이 된다. 정리는 실패해도 계속 진행해야 한다.
+     */
+    try {
+      if (maps) maps.Event.removeListener(entry.listener);
+    } catch {
+      // 리스너를 못 떼어도 마커는 떼어 본다.
+    }
+    try {
+      entry.marker.setMap(null);
+    } catch {
+      // 지도가 이미 깨졌다는 뜻. 남은 엔트리 정리를 멈추지 않는다.
+    }
   }
   markers.clear();
 }
@@ -115,12 +130,17 @@ export function MapPageCanvas({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<naver.maps.Map | null>(null);
   const markersRef = useRef(new Map<string, TMarkerEntry>());
+  /*
+   * 크기 재측정 타이머. effect 안의 지역 변수가 아니라 ref 인 이유는 **지도 effect 의 deps 가
+   * `[]` 이라 그 cleanup 이 언마운트에서만 돌기** 때문이다. `status` 가 'error' 로 넘어가면
+   * 아래 폴백이 지도 컨테이너를 DOM 에서 빼는데, 그때 타이머를 꺼 줄 곳이 필요하다.
+   */
+  const settleRef = useRef<number | undefined>(undefined);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
   // 지도 만들기. SDK 는 한 번만 받고, 이 화면을 다시 열면 캐시된 결과를 쓴다.
   useEffect(() => {
     let cancelled = false;
-    let settle = 0;
     // cleanup 에서 ref 를 다시 읽지 않도록 지금 붙잡아 둔다(useRef 가 만든 Map 은 재할당되지 않는다).
     const markers = markersRef.current;
 
@@ -137,7 +157,10 @@ export function MapPageCanvas({
       .then((maps) => {
         if (cancelled || !containerRef.current) return;
         /*
-         * try 로 감싸는 이유 — **인증 실패가 `navermap_authFailure` 로 오지 않을 수 있다.**
+         * 여기서 던지면 **이 `.then()` 이 반환한 promise 가 reject 되어 아래 `.catch` 가 받는다**
+         * — try 블록이 아니다(예전 주석이 try 를 설명했는데 이 자리엔 try 가 없었다).
+         *
+         * 받아야 하는 이유 — **인증 실패가 `navermap_authFailure` 로 오지 않을 수 있다.**
          * 2026-09-23 실측: 등록 안 된 출처에서 `/v3/auth` 가 401 을 냈을 때 그 전역 콜백은
          * 불리지 않았고, 대신 SDK 안에서 `Cannot read properties of null (reading 'capitalize')`
          * 이 `Marker.setMap` 까지 타고 올라왔다. 콜백만 믿으면 그 경우 폴백이 안 뜨고
@@ -161,7 +184,16 @@ export function MapPageCanvas({
          * 인자 true 는 페이드 인을 건너뛴다 — 크기만 다시 재는 자리라 효과가 필요 없다.
          */
         map.refresh(true);
-        settle = window.setTimeout(() => map.refresh(true), 250);
+        settleRef.current = window.setTimeout(() => {
+          settleRef.current = undefined;
+          // 타이머 콜백은 effect 바깥이라 어떤 try/catch 도 덮지 못한다 — 여기서 직접 받는다.
+          // 아래 'error' effect 가 먼저 꺼 주지만, 그 사이에 지도가 깨질 수도 있다.
+          try {
+            map.refresh(true);
+          } catch {
+            // 인증이 거부됐거나 컨테이너가 떨어져 나간 뒤다. 폴백은 마커 effect 가 띄운다.
+          }
+        }, 250);
       })
       .catch(() => {
         if (!cancelled) setStatus('error');
@@ -170,7 +202,8 @@ export function MapPageCanvas({
     return () => {
       cancelled = true;
       unsubscribe();
-      window.clearTimeout(settle);
+      if (settleRef.current !== undefined) window.clearTimeout(settleRef.current);
+      settleRef.current = undefined;
       // 지도를 파괴하기 전에 마커부터 비운다 — 이 cleanup 이 마커 effect 의 것보다 먼저 돈다.
       clearMarkers(markers);
       // 이벤트와 DOM 을 함께 걷어낸다 — Kakao 에는 없던 정리다.
@@ -178,6 +211,18 @@ export function MapPageCanvas({
       mapRef.current = null;
     };
   }, []);
+
+  /*
+   * 'error' 로 넘어가면 아래 폴백이 지도 컨테이너를 DOM 에서 뺀다. 떼어낸 컨테이너에
+   * `refresh()` 를 때리면 SDK 가 던지는데, **타이머 콜백이라 effect 의 try/catch 밖**이다.
+   * 지도 effect 의 deps 가 `[]` 이라 그 cleanup 은 언마운트에서만 도는 것이 문제의 핵심 —
+   * 여기서 `status` 를 보고 끈다.
+   */
+  useEffect(() => {
+    if (status !== 'error' || settleRef.current === undefined) return;
+    window.clearTimeout(settleRef.current);
+    settleRef.current = undefined;
+  }, [status]);
 
   // 마커 올리기. 목록이나 판정이 바뀌면 통째로 다시 만든다 — 86곳 규모에서는 차분을 계산하는 것보다 안전하다.
   useEffect(() => {

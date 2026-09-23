@@ -34,7 +34,7 @@ import {
   toMatchCandidate,
 } from './analyze/analyzeCandidates.mjs';
 import { createUsageMeter, extractPlaces, isFatal, isRetryable, MODEL, runClaudeCli } from './analyze/extractPlaces.mjs';
-import { pickNaverPlace, searchNaverPlace } from './analyze/naverLocal.mjs';
+import { newPickReasons, pickNaverPlace, searchNaverPlace } from './analyze/naverLocal.mjs';
 import { matchPlace, normalizeName, townOf } from './analyze/matchPlace.mjs';
 import { fetchPostText } from './analyze/naverPostBody.mjs';
 import { fromPlaceRow } from './lib/placeFields.mjs';
@@ -102,15 +102,29 @@ console.log(`미분석 글 ${posts.length}건 · 기존 장소 ${existing.length
 
 // 네이버가 잠깐 죽었다고 글 전체를 버리지 않는다 — 실패하면 좌표 없이 간다(status 만 로그). 단 401/403 은 키가 틀린 것이라 실행을
 // 세운다: 조용히 이름만으로 대조하면 같은 이름의 다른 가게가 ask 대신 auto 로 올라간다(리뷰 지적). 검색 사이 200ms 는 collect-blog.mjs 와 같은 예의.
+// 좌표 보강이 실제로 무슨 일을 했는지 — 실행 끝에 한 줄 찍는다(아래 요약).
+const naverStats = { searched: 0, picked: 0, failed: 0 };
+const pickReasons = newPickReasons();
+
 async function enrichWithNaver(name, town) {
   if (!naverKeys) return null;
   try {
     const items = await searchNaverPlace(name, naverKeys);
-    return pickNaverPlace(items, { name, town });
+    naverStats.searched++;
+    const picked = pickNaverPlace(items, { name, town }, pickReasons);
+    if (picked) naverStats.picked++;
+    return picked;
   } catch (e) {
     if (e?.status === 401 || e?.status === 403) {
       throw Object.assign(new Error(`네이버 인증 실패(status=${e.status}) — NAVER_CLIENT_ID · NAVER_CLIENT_SECRET 을 확인. 좌표 없이 대조하면 판정이 흐려져 실행을 멈춘다`), { fatal: true });
     }
+    // 429 도 세운다. 검색 API 는 일 25,000 호출 상한이고 `data:collect` 와 **같은 키를 쓴다** —
+    // 한 번 소진되면 그날 남은 전 건이 같은 결과다. 일시 장애처럼 흘려보내면 401/403 을 세우는
+    // 이유(좌표 없이 이름만으로 대조 → 동명 가게가 ask 대신 auto)가 그대로 재현되는데 실행만 안 멈춘다.
+    if (e?.status === 429) {
+      throw Object.assign(new Error('네이버 검색 쿼터 소진(status=429) — 일 상한(25,000)을 썼다. 좌표 없이 대조하면 동명 가게가 auto 로 올라가므로 멈춘다. 내일 다시 돌리거나 남은 건을 --limit 으로 나눠라'), { fatal: true });
+    }
+    naverStats.failed++;
     console.log(`    네이버 보강 실패(좌표 없이 진행): ${e.message}`);
     return null;
   } finally {
@@ -221,6 +235,27 @@ if (pendingCloses.length > 0) {
 }
 
 console.log(formatSummary(stats, meter.summary(), { dryRun }));
+
+/*
+ * 좌표 보강 요약. **이 줄이 `mapx`/`mapy` 포맷의 실측 보고**다 — 공식 문서가 스스로 모순돼
+ * (본문은 WGS84, 예제는 옛 KATECH 6자리) 실제 응답을 봐야만 확정된다.
+ * 읽는 법: `채택 0` 인데 `파싱실패`·`제주밖` 이 크면 포맷이 우리가 아는 것과 다른 것이고,
+ * 그때 sample 의 자릿수를 보고 parseNaverCoord 를 고친 뒤 naverLocal.test.mjs 에 그 값을 못 박는다.
+ * `이름불일치` 만 크면 포맷은 맞고 검색어·동명 문제다.
+ */
+if (naverStats.searched > 0) {
+  const r = pickReasons;
+  console.log(
+    `좌표 보강: 검색 ${naverStats.searched} · 채택 ${naverStats.picked} · 요청실패 ${naverStats.failed}\n` +
+      `  탈락 사유 — 제주밖주소 ${r.notJejuAddress} · 좌표파싱실패 ${r.coordUnparsable} · 좌표제주밖 ${r.coordOutOfJeju} · 이름불일치 ${r.nameMismatch}`,
+  );
+  if (naverStats.picked === 0 && r.sample) {
+    console.log(
+      `  ⚠️ 채택 0건이다. 실제 응답 표본 mapx=${r.sample.mapx} mapy=${r.sample.mapy} ` +
+        '— 자릿수가 10자리(10^7 배)가 아니면 parseNaverCoord 를 고쳐야 한다(docs/todo/README.md 의 ⚠️ 미검증 1).',
+    );
+  }
+}
 // 글 단위 실패는 정상 경로(다음 실행에 재시도)라 exit 0. 시도한 글 중 성공이 0 이면 1 — "분석 불가" 도 성공이 아니다(위에서 닫지도 않았다).
 // process.exit() 은 파이프로 나가던 stdout 을 잘라먹을 수 있어 자연 종료를 기다린다.
 process.exitCode = fatal || (posts.length > 0 && stats.analyzed === 0) ? 1 : 0;

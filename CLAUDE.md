@@ -1,7 +1,7 @@
 # zgnn — 강아지랑 제주
 
 반려견 동반 제주 가이드 PWA. Next 16 App Router **정적 내보내기**(서버 없음) · React 19 ·
-Tailwind v4 + Untitled UI · zustand persist · leaflet. 데이터는 빌드 시점 JSON 3개.
+Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). 데이터는 빌드 시점 JSON 3개.
 
 핵심 도메인은 **내 강아지 조건 × 장소의 이용 조건 → 갈 수 있는가** 판정이다.
 
