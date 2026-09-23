@@ -31,9 +31,13 @@ const mediaCache: RuntimeCaching[] = [
     /*
      * 네이버 지도 타일과 스타일 매니페스트.
      *
-     * 호스트는 **실측**이다(2026-09-23, 지도 1개 띄울 때 이 호스트로 128 요청):
-     *   타일        https://nrbe.pstatic.net/styles/basic/<버전>/<z>/<x>/<y>@2x.png?mt=…
-     *   스타일 정의  https://nrbe.pstatic.net/styles/basic@2x.json?fmt=png&callback=…  (JSONP)
+     * ⚠️ **호스트가 페이지 프로토콜에 따라 갈린다** — 2026-09-23 실측으로 알아낸 함정이다.
+     *   HTTPS 페이지 → `https://nrbe.pstatic.net/styles/basic/<버전>/<z>/<x>/<y>@2x.png?mt=…`
+     *   HTTP  페이지 → `http://nrbe.map.naver.net/styles/basic/<버전>/<z>/<x>/<y>.png?mt=…`
+     * 즉 `localhost:7727`(HTTP)에서 보이는 호스트와 `zgnn.vercel.app`(HTTPS)에서 보이는 호스트가 **다르다.**
+     * 한쪽만 적으면 그쪽에서만 캐시가 차고 다른 쪽은 조용히 비어 있다 — 규칙이 있다는 것과
+     * 동작한다는 것이 다른, 이 파일에서 두 번째로 겪는 자리다(옛 OSM/CARTO 의 statuses 와 같은 꼴).
+     * 스타일 매니페스트(`/styles/basic.json?…&callback=…`, JSONP)도 같은 호스트로 온다.
      * Kakao 의 `*.daumcdn.net` 자리다.
      *
      * `statuses: [0, 200]` 이 **필수**다. 타일은 SDK 가 만든 `<img>` 가 `crossorigin` 없이
@@ -44,7 +48,7 @@ const mediaCache: RuntimeCaching[] = [
      * maxEntries 가 500 이 아니라 200 인 이유: opaque 응답은 브라우저가 용량을 실제보다
      * 크게 잡아(패딩) 할당량을 먹는다. 너무 많이 쌓으면 프리캐시까지 통째로 밀려날 수 있다.
      */
-    matcher: ({ url }) => url.hostname === 'nrbe.pstatic.net',
+    matcher: ({ url }) => url.hostname === 'nrbe.pstatic.net' || url.hostname === 'nrbe.map.naver.net',
     handler: new CacheFirst({
       cacheName: 'naver-map-tiles',
       plugins: [
@@ -57,11 +61,16 @@ const mediaCache: RuntimeCaching[] = [
     /*
      * SDK 가 쓰는 정적 자원 — 로고·스케일바 이미지와 커서(`openhand.cur`).
      *
-     * Kakao 때는 타일과 같은 호스트(`*.daumcdn.net`)라 규칙 하나로 덮였는데, 네이버는
-     * 호스트가 갈린다(`ssl.pstatic.net`). 빠뜨리면 오프라인에서 **로고만 안 뜨고**,
-     * 약관 제7조 ⑩ 이 요구하는 표시가 사라진 화면이 된다.
+     * Kakao 때는 타일과 같은 호스트(`*.daumcdn.net`)라 규칙 하나로 덮였는데, 네이버는 갈린다.
+     * 빠뜨리면 오프라인에서 **로고만 안 뜨고**, 약관 제7조 ⑩ 이 요구하는 표시가 사라진 화면이 된다.
+     *
+     * 타일과 마찬가지로 **프로토콜에 따라 호스트가 갈린다**(실측):
+     *   HTTPS → `ssl.pstatic.net/static/maps/mantle/2x/…` · HTTP → `static.naver.net/maps/mantle/1x/…`
+     * `/maps/` 로 좁히는 이유: `ssl.pstatic.net` 은 지도와 무관한 것(광고 모듈 등)도 나르는 공용 호스트다.
      */
-    matcher: ({ url }) => url.hostname === 'ssl.pstatic.net',
+    matcher: ({ url }) =>
+      (url.hostname === 'ssl.pstatic.net' || url.hostname === 'static.naver.net') &&
+      url.pathname.includes('/maps/'),
     handler: new CacheFirst({
       cacheName: 'naver-map-assets',
       plugins: [

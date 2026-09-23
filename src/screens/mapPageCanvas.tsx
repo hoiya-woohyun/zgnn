@@ -6,7 +6,7 @@ import { Button } from '@/components/base/button';
 import { EmptyState } from '../components/layout/emptyState';
 import type { TEligibility } from '../lib/eligibility';
 import { loadNaverMaps, onNaverMapsAuthFailure } from '../lib/naverMap';
-import { JEJU_CENTER, JEJU_ZOOM, TYPE_COLOR, TYPE_META, type TPlaceEntry } from '../lib/places';
+import { JEJU_CENTER, jejuZoomFor, TYPE_COLOR, TYPE_META, type TPlaceEntry } from '../lib/places';
 import type { TPlaceType } from '../types';
 
 /**
@@ -136,9 +136,17 @@ export function MapPageCanvas({
     loadNaverMaps()
       .then((maps) => {
         if (cancelled || !containerRef.current) return;
+        /*
+         * try 로 감싸는 이유 — **인증 실패가 `navermap_authFailure` 로 오지 않을 수 있다.**
+         * 2026-09-23 실측: 등록 안 된 출처에서 `/v3/auth` 가 401 을 냈을 때 그 전역 콜백은
+         * 불리지 않았고, 대신 SDK 안에서 `Cannot read properties of null (reading 'capitalize')`
+         * 이 `Marker.setMap` 까지 타고 올라왔다. 콜백만 믿으면 그 경우 폴백이 안 뜨고
+         * 깨진 지도가 그대로 남는다 — 이 앱이 가장 피하려던 화면이다(ADR-008).
+         */
         const map = new maps.Map(containerRef.current, {
           center: new maps.LatLng(JEJU_CENTER[0], JEJU_CENTER[1]),
-          zoom: JEJU_ZOOM,
+          // 컨테이너 폭에서 계산한다 — 모바일 390px 는 9, 데스크톱 830px 는 10 이 된다.
+          zoom: jejuZoomFor(containerRef.current.clientWidth),
           // 로고·저작권 표시는 끄지 않는다 — Maps 서비스 이용약관 제7조 ⑩.
           logoControl: true,
           mapDataControl: true,
@@ -180,23 +188,35 @@ export function MapPageCanvas({
     const markers = markersRef.current;
     clearMarkers(markers);
 
-    for (const place of places) {
-      if (!place.geo) continue;
-      const selected = place.id === selectedId;
+    /*
+     * 마커 만들기를 try 로 감싼다 — **인증이 거부된 지도 위에서 `setMap` 이 터진다.**
+     * 2026-09-23 실측: 등록 안 된 출처에서 SDK 안쪽이 `Cannot read properties of null
+     * (reading 'capitalize')` 을 던졌고, 그게 여기서 React 커밋까지 올라가 화면 전체를 깼다.
+     * `navermap_authFailure` 는 그 경우 불리지 않았다 — 즉 **콜백만으로는 폴백이 안 뜬다.**
+     * 지도 생성(위 effect)은 promise 의 catch 가 덮지만 이 effect 는 그 바깥이라 여기서 받는다.
+     */
+    try {
+      for (const place of places) {
+        if (!place.geo) continue;
+        const selected = place.id === selectedId;
 
-      const marker = new maps.Marker({
-        map,
-        position: new maps.LatLng(place.geo.lat, place.geo.lng),
-        icon: pinIcon(maps, place.type, selected),
-        title: `${place.name} · ${TYPE_META[place.type].label}`,
-        clickable: true,
-        zIndex: selected ? 1000 : 0,
-        opacity:
-          eligibilityMap?.get(place.id)?.level === 'hard' ? MARKER_HARD_OPACITY : 1,
-      });
-      const listener = maps.Event.addListener(marker, 'click', () => onSelect(place.id));
+        const marker = new maps.Marker({
+          map,
+          position: new maps.LatLng(place.geo.lat, place.geo.lng),
+          icon: pinIcon(maps, place.type, selected),
+          title: `${place.name} · ${TYPE_META[place.type].label}`,
+          clickable: true,
+          zIndex: selected ? 1000 : 0,
+          opacity:
+            eligibilityMap?.get(place.id)?.level === 'hard' ? MARKER_HARD_OPACITY : 1,
+        });
+        const listener = maps.Event.addListener(marker, 'click', () => onSelect(place.id));
 
-      markers.set(place.id, { marker, type: place.type, listener });
+        markers.set(place.id, { marker, type: place.type, listener });
+      }
+    } catch {
+      clearMarkers(markers);
+      queueMicrotask(() => setStatus('error'));
     }
 
     return () => clearMarkers(markers);
@@ -208,10 +228,16 @@ export function MapPageCanvas({
   useEffect(() => {
     const maps = window.naver?.maps;
     if (!maps) return;
-    for (const [id, entry] of markersRef.current) {
-      const selected = id === selectedId;
-      entry.marker.setIcon(pinIcon(maps, entry.type, selected));
-      entry.marker.setZIndex(selected ? 1000 : 0);
+    try {
+      for (const [id, entry] of markersRef.current) {
+        const selected = id === selectedId;
+        entry.marker.setIcon(pinIcon(maps, entry.type, selected));
+        entry.marker.setZIndex(selected ? 1000 : 0);
+      }
+    } catch {
+      // 위 effect 와 같은 이유 — 깨진 지도 위에서 SDK 가 던진다. 화면을 깨뜨리지 않는다.
+      // effect 본문에서 곧바로 setState 하면 렌더가 연쇄되므로 한 틱 미룬다.
+      queueMicrotask(() => setStatus('error'));
     }
   }, [selectedId, places, eligibilityMap, status]);
 

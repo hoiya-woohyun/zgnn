@@ -59,17 +59,28 @@ leaflet `zoom`(클수록 확대) → Kakao `level`(작을수록) → 네이버 `
 v1 은 "`JEJU_LEVEL = 10` 이 옛 `JEJU_ZOOM = 10` 과 숫자가 같은 것은 **우연**" 이라고 적어 뒀는데, 이번에도 같은 함정이다 —
 `JEJU_LEVEL = 10` 을 `zoom: 10` 으로 옮겨 쓰면 제주도의 절반만 보인다. 부호를 뒤집어도 빌드와 테스트는 통과한다.
 
-`JEJU_ZOOM` 은 타일 폭(`360/2^zoom × W/256`)으로 계산해 **9** 로 잡았다. ⚠️ **아직 화면으로 확인하지 않았다.**
+상수 하나로 박지 않고 지도 폭에서 계산한다(`jejuZoomFor`, 단위 테스트 6개). 모바일 390px → **9**, 데스크톱 830px → **10**.
+2026-09-23 화면으로 확인했다 — 9 를 데스크톱에 그대로 쓰면 섬이 화면 3분의 1만 차지해 바다만 넓고,
+10 을 모바일에 쓰면 섬이 잘린다. 폭에서 계산하면 양쪽 다 여백 30% 안팎으로 들어온다.
 
-### 얻은 것 — 인증 실패를 이제 알 수 있다
+### 인증 실패 — `navermap_authFailure` 만 믿으면 안 된다 (실측)
 
 v1~v3 의 가장 나쁜 자리는 "출처를 등록 안 하면 코드가 맞아도 지도 자리가 **조용히** 빈다" 였다.
-네이버는 `window.navermap_authFailure` 전역 콜백으로 실패를 알려 준다. `naverMap.ts` 가 이걸 잡아 화면의
-"지도는 인터넷이 필요해요" 폴백으로 넘기므로, **빈 지도가 남지 않는다.**
+네이버에는 `window.navermap_authFailure` 전역 콜백이 있어 이걸 고칠 줄 알았는데, **실측은 반쪽이었다.**
 
-한 가지 함정: 인증 실패는 스크립트 load 보다 **늦게** 온다(지도를 만들 때 `/v3/auth` 를 부르고 그 응답으로 판정한다).
-그래서 로더의 promise 가 이미 resolve 된 뒤에 실패가 올 수 있어 구독(`onNaverMapsAuthFailure`)이 따로 있고,
-`authFailed` 는 sticky 다 — 안 그러면 재마운트 때 "스크립트는 이미 있다" 분기가 resolve 해서 폴백을 덮어쓴다.
+2026-09-23, 등록 안 된 출처(`localhost:55961`)에서 `/v3/auth` 가 **401** 을 냈을 때:
+
+- `navermap_authFailure` 는 **불리지 않았다.**
+- 대신 SDK 안쪽이 `Cannot read properties of null (reading 'capitalize')` 을 던졌고,
+  그것이 우리 `Marker.setMap` 호출을 타고 **React 커밋까지 올라가 화면 전체를 깼다.**
+
+그래서 방어는 **두 겹**이다. 콜백 구독(`onNaverMapsAuthFailure`)은 그대로 두되,
+`mapPageCanvas` 의 마커 effect 를 `try/catch` 로 감싸 **SDK 가 던지는 경우에도** 폴백으로 넘긴다.
+지도 생성은 promise 의 `catch` 가 이미 덮는다. 콜백만 믿는 구현은 이 경우 깨진 화면을 그대로 남긴다.
+
+또 하나: 인증 실패는 스크립트 load 보다 **늦게** 온다(지도를 만들 때 `/v3/auth` 를 부르고 그 응답으로 판정한다).
+로더의 promise 가 이미 resolve 된 뒤에 올 수 있어 구독이 따로 있고, `authFailed` 는 sticky 다 —
+안 그러면 재마운트 때 "스크립트는 이미 있다" 분기가 resolve 해서 폴백을 덮어쓴다.
 
 ### 오프라인 — **v1~v3 의 서술을 철회한다 (미검증)**
 
@@ -90,12 +101,20 @@ SDK 가 타일을 그리는지 아닌지에 따라 오프라인 지도의 생사
 
 | 호스트 | 무엇 | 핸들러 |
 |---|---|---|
-| `nrbe.pstatic.net` | 타일(`/styles/basic/<버전>/<z>/<x>/<y>@2x.png`) + 스타일 매니페스트(JSONP) | CacheFirst |
-| `ssl.pstatic.net` | 로고·스케일바·커서 | CacheFirst |
-| `oapi.map.naver.com` | SDK 스크립트 (`/v3/auth` 는 캐시에 안 맞는다) | StaleWhileRevalidate |
+| 타일·스타일 | `nrbe.pstatic.net`(HTTPS) · `nrbe.map.naver.net`(HTTP) | CacheFirst |
+| 로고·스케일바·커서 | `ssl.pstatic.net/…/maps/…`(HTTPS) · `static.naver.net/maps/…`(HTTP) | CacheFirst |
+| SDK 스크립트 | `oapi.map.naver.com` (`/v3/auth` 는 캐시에 안 맞는다) | StaleWhileRevalidate |
 
-Kakao 때는 `*.daumcdn.net` 하나가 타일과 아이콘을 함께 덮었다. 네이버는 갈려서, `ssl.pstatic.net` 을 빠뜨리면
+**⚠️ 호스트가 페이지 프로토콜에 따라 갈린다** — 이번 작업에서 가장 조용한 함정이었다. 공식 문서 사이트(HTTPS)를
+캡처해 `pstatic.net` 만 적었는데, 우리 `localhost`(HTTP)에서는 `naver.net` 으로 왔다. 한쪽만 적으면
+**그쪽에서만 캐시가 차고 다른 쪽은 빈다.** 배포(HTTPS)와 개발(HTTP)이 서로 다른 호스트를 쓰므로 둘 다 적는다.
+
+Kakao 때는 `*.daumcdn.net` 하나가 타일과 아이콘을 함께 덮었다. 네이버는 갈려서, 자원 규칙을 빠뜨리면
 오프라인에서 **로고만 안 뜬다** — 약관이 요구하는 표시가 사라진 화면이 된다.
+
+**캐시가 실제로 차는지는 항목 수로 확인했다**(grep 이 아니라 — v1 이 못 박은 검증 방식이다).
+2026-09-23 `localhost:7727` 정적 빌드에서 `/map` 을 두 번 연 뒤: `naver-map-tiles` **23** · `naver-map-assets` **6** ·
+`naver-map-sdk` **2** · 프리캐시 150.
 
 `statuses: [0, 200]` 은 여전히 **필수**다(타일이 `crossorigin` 없는 `<img>` 로 와 opaque). 이유와 함정은 v1 과 같다.
 
@@ -107,9 +126,13 @@ SDK 가 띄울 때마다 부르는 추적 요청이라 사본을 남길 이유�
 
 클라이언트 아이디는 **출처(origin) 허용 목록**으로 보호되는 공개 값이다. 빌드 결과물의 JS 에 문자열로 남는다.
 
-v1 은 키 기본값을 코드에 뒀다 — "`.env.local` 에만 두면 새로 clone 한 곳에서 지도가 **조용히** 죽는다" 가 이유였다.
-네이버에서는 그 이유가 약해졌다: 키가 없으면 로더가 **문구 있는 거부**로 떨어지고 화면이 안내를 그린다.
-그래서 `NEXT_PUBLIC_NAVER_MAP_KEY_ID` **env 만** 쓰고 코드에 기본값을 두지 않는다.
+v1 처럼 **기본값을 코드에 둔다**(`src/lib/naverMap.ts` 의 `KEY_ID`). `NEXT_PUBLIC_NAVER_MAP_KEY_ID` 로 덮어쓸 수 있다.
+
+> 이 자리는 v4 작업 중에 한 번 뒤집혔다. "네이버는 키가 없으면 문구 있는 거부로 떨어지니 env 만 쓰자" 고 적었다가 되돌렸다 —
+> 조용한 실패는 막아도 **배포가 깨지는 것은 그대로**이기 때문이다. `.env.local` 은 gitignore 대상이라 Vercel 빌드에 없고,
+> 이 레포는 Vercel 환경변수를 **0개**로 두는 것이 보안 모델의 일부다(→ [ADR-016](ADR-016-secrets-by-login.md)).
+> 공개값을 코드 상수로 두는 것은 이 레포의 기존 어법이기도 하다(`PROJECT_REF`·`PUBLISHABLE_KEY`).
+> 로더의 "키가 비었으면 문구 있는 거부" 는 그대로 남겨 뒀다 — 상수를 지운 사람에게 원인을 알려 주는 안전망이다.
 
 **NCP 콘솔 → Application → Maps → Web 서비스 URL 에 주소를 등록해야 한다.**
 그리고 **Dynamic Map 이 체크돼 있어야 한다** — 아니면 429(Quota Exceed)가 난다.
@@ -117,9 +140,9 @@ v1 은 키 기본값을 코드에 뒀다 — "`.env.local` 에만 두면 새로 
 - 개발: `http://localhost:7727`
 - 배포: `https://zgnn.vercel.app`
 
-> ⚠️ **포트를 보는지 아직 모른다.** Kakao 는 포트까지 봐서 막았고(그래서 `dev`·`preview` 를 7727 로 고정했다),
-> 네이버는 "호스트 도메인만 적고 포트·경로를 넣으면 실패한다" 는 2차 출처가 여럿이다. **확인 전까지 7727 고정은 그대로 둔다** —
-> 지금 풀면 두 벤더 모두에서 안 되는 상태가 된다.
+**포트도 본다 — 2026-09-23 실측으로 확정.** 같은 `localhost` 라도 등록 안 된 포트(`55961`)에서는 `/v3/auth` 가 **401** 을 냈고,
+등록된 `7727` 에서는 통과했다. "호스트 도메인만 적으면 된다" 는 2차 출처들이 여럿 있었지만 **사실이 아니다.**
+따라서 v3 의 **7727 고정은 네이버에서도 그대로 필요하다** — 다른 포트로 띄우면 지도가 인증에서 막힌다.
 
 ### 좌표 데이터 — 이 ADR 밖이지만 여기 적어 둔다
 

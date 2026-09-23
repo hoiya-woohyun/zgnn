@@ -14,7 +14,7 @@
 | 지도 생성 | `new maps.Map(el, { center, level })` | `new naver.maps.Map(el \| 'id', { center, zoom })` | 공식문서 |
 | **확대 방향** | `level` 1~14, **작을수록 확대**(기본 3) | `zoom` **클수록 확대**(기본 11) — leaflet 과 같은 방향 | 공식문서 |
 | 컨테이너 리사이즈 | `map.relayout()` | **`map.refresh(noEffect)`** (`relayout` 은 없다). `autoResize()`·`setSize()`·`getSize()`·`destroy()` 도 있다 | 공식문서 |
-| 인증 실패 감지 | 없음 (지도 자리가 조용히 빈다) | **`window.navermap_authFailure = fn`** 전역 콜백 | 공식문서 |
+| 인증 실패 감지 | 없음 (지도 자리가 조용히 빈다) | `window.navermap_authFailure = fn` 전역 콜백 — **다만 401 에서는 안 불린다(§3 실측).** SDK 가 대신 던지므로 try/catch 도 필요 | 공식문서 + 실측 |
 
 ### 마커 — 우려했던 것보다 대응이 깨끗하다
 
@@ -30,14 +30,14 @@
 `icon` 은 문자열 URL · ImageIcon · **HtmlIcon(`content` 에 HTML/Element)** · SymbolIcon 을 받는다.
 → HtmlIcon 이면 ADR-008 이 Kakao 로 옮기며 잃었다고 기록한 **마커 키보드 접근(`role`·`tabindex`)을 되찾을 수 있다.** 이번 범위에 넣을지는 결정 사항.
 
-## 2. 출처 등록 — 포트를 안 본다 (2차, 확인 필요)
+## 2. 출처 등록 — **포트까지 본다** (2026-09-23 실측으로 종결)
 
-여러 2차 출처가 일관되게 말한다: **Web 서비스 URL 은 호스트 도메인만 적는다 — 포트 번호와 URI 경로를 넣으면 인증이 실패한다.**
-또한 콘솔에서 **Dynamic Map 을 체크하지 않으면 429(Quota Exceed)** 가 난다(이쪽은 공식문서).
+2차 출처들은 "Web 서비스 URL 은 호스트 도메인만 적는다 — 포트·경로를 넣으면 실패한다" 고 일관되게 말했는데, **사실이 아니었다.**
 
-→ **아직 2차 출처뿐이다.** 키를 받은 뒤 `localhost:7727` 로 실측해 확정할 것.
-사실로 확인되면 그때 ADR-008 이 `pnpm dev`·`pnpm preview` 를 7727 로 고정한 이유(Kakao 는 포트까지 보고 막았다)가 사라지고, 포트 고정을 풀 수 있다.
-**확인 전에는 7727 을 그대로 둔다** — 지금 풀면 두 벤더 모두에서 안 되는 상태가 된다.
+실측: 등록된 `http://localhost:7727` → 인증 통과, 지도 정상. 등록 안 된 `http://localhost:55961`(같은 호스트, 다른 포트)
+→ `/v3/auth` 가 **401**, 지도 안 뜸. **포트는 출처의 일부다.**
+
+→ ADR-008 v3 의 **7727 고정은 네이버에서도 그대로 필요하다.** (Dynamic Map 체크 필요는 공식문서대로 유지.)
 
 ## 3. 런타임 인증 호출 — Kakao 에 없던 것 (실측)
 
@@ -50,7 +50,21 @@ https://oapi.map.naver.com/v3/auth?ncpKeyId=***&url=<페이지 URL>&time=1790086
 `time` 이 매번 바뀌고 `callback` 도 카운터다 — **URL 이 두 번 같지 않아, URL 을 키로 쓰는 서비스워커 캐시가 절대 맞출 수 없다.**
 오프라인에서 이 호출이 실패할 때 지도가 그려지는지가 **오프라인 지원의 생사**를 가른다. Kakao 는 이런 호출이 없어서 SDK 사본 + 타일 사본만으로 떴다.
 
-→ **키를 받은 뒤 비행기 모드로 실측해야 하는 1순위 항목.**
+→ **여전히 열려 있다.** 2026-09-23 에 Playwright 로 시도했으나 그 오프라인 에뮬레이션이 서비스워커보다 앞단을 막아
+내비게이션 자체가 실패해 **앱의 실제 오프라인 동작 검증으로는 무효**였다. 실기기 비행기 모드나 Chrome DevTools 의
+Network → Offline 로 확인해야 한다.
+
+다만 **강한 정황이 하나 생겼다**: `/v3/auth` 가 401 로 실패했을 때 SDK 는 타일을 그리지 않고 예외를 던졌다(§아래).
+인증 실패 = 지도 없음이라면, 타일을 캐시해 둬도 오프라인에서 그릴 코드가 그리기를 거부한다는 뜻이다.
+
+### 실측으로 확정된 것 (2026-09-23, `localhost:7727` 정적 빌드)
+
+- 지도·마커·종류 색·네이버 로고·저작권 표시 전부 정상. `JEJU_ZOOM` 은 폭에서 계산(모바일 9 · 데스크톱 10).
+- 서비스워커 캐시 **항목 수**: `naver-map-tiles` 23 · `naver-map-assets` 6 · `naver-map-sdk` 2 · 프리캐시 150.
+- **`navermap_authFailure` 는 401 에서 불리지 않는다.** 대신 SDK 가 `Cannot read properties of null (reading 'capitalize')`
+  를 `Marker.setMap` 에서 던져 React 커밋까지 올라간다 → 마커 effect 를 `try/catch` 로 감싸야 폴백이 뜬다.
+- **타일·자원 호스트가 페이지 프로토콜에 따라 갈린다**: HTTPS → `nrbe.pstatic.net`·`ssl.pstatic.net`,
+  HTTP → `nrbe.map.naver.net`·`static.naver.net`. 한쪽만 적으면 다른 쪽에서 캐시가 조용히 빈다.
 
 ### SDK 가 실제로 받는 것 전부 (실측, 지도 1개 띄울 때)
 

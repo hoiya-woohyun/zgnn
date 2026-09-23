@@ -21,19 +21,23 @@
  */
 
 /**
- * 키를 코드가 아니라 env 로 받는 이유.
+ * 키를 코드에 두는 이유.
  *
- * Kakao JS 키는 기본값을 코드에 뒀다(ADR-008) — 키가 없으면 지도가 **조용히** 죽어서였다.
- * 네이버는 그 이유가 약해졌다: 키가 없거나 틀리면 아래에서 **문구가 있는 거부**로 떨어지고,
- * 화면은 "지도는 인터넷이 필요해요" 안내를 그린다. 조용한 실패가 아니다.
+ * 이 값은 **공개 전제**다 — `NEXT_PUBLIC_` 이 붙든 안 붙든 빌드 결과물의 JS 에 문자열로 남고,
+ * 실제 보호는 NCP 콘솔의 **웹 서비스 URL 허용 목록**이 한다. 그래서 이 레포가 다른 공개값
+ * (`PROJECT_REF`·`PUBLISHABLE_KEY`, `scripts/lib/supabaseClient.mjs`)을 다루는 방식과 같이 코드 상수로 둔다.
+ *
+ * **`.env.local` 에만 두면 안 된다.** gitignore 대상이라 Vercel 빌드에는 없고, 이 레포는
+ * Vercel 환경변수를 **0개**로 유지하는 것이 보안 모델의 일부다(ADR-016) — 배포에서 지도만 죽는다.
+ * 새로 clone 한 곳에서 죽는 문제도 같다(ADR-008 v1 이 Kakao 키를 코드에 둔 이유가 이것이다).
+ *
+ * 검색 API 의 `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET` 과는 **다른 값**이다 — 그쪽은 시크릿이라
+ * 레포·키체인·파일 어디에도 저장하지 않는다(ADR-016). 이름이 비슷해 헷갈리는 자리라 여기 적어 둔다.
  *
  * `process.env.NEXT_PUBLIC_*` 는 Next 가 빌드 때 문자열로 바꿔 넣는다. `process.env` 를
  * 통째로 넘기거나 키 이름을 변수로 만들면 값이 사라지므로 이 형태 그대로 둘 것.
- *
- * 이름에 `NEXT_PUBLIC_` 이 붙은 것이 곧 "이 값은 공개 전제" 라는 표시다 — 검색 API 의
- * `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`(시크릿, 저장 금지)과 **다른 값**이다(ADR-016).
  */
-const KEY_ID = process.env.NEXT_PUBLIC_NAVER_MAP_KEY_ID || '';
+const KEY_ID = process.env.NEXT_PUBLIC_NAVER_MAP_KEY_ID || 'lcswvl26ca';
 
 const SDK_SRC = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${KEY_ID}`;
 
