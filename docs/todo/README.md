@@ -1,6 +1,10 @@
 # TODO — 블로그 수집 → AI 분석 → 승인 → DB → 자동 배포
 
-> 최종 수정: 2026-09-23 (v15: **self-cr 완료 — 커밋 5개 추가.** blocker 1(폴백 경로 무방비) + major 6 + minor 다수 반영,
+> 최종 수정: 2026-09-23 (v16: **push · `main` 머지 · 프로덕션 배포까지 끝났다.** `main` = `66b15e1`(fast-forward), Vercel 프로덕션 Ready —
+> 빌드 로그 `publishable(anon)` · `places 86 · items 15` · 유출 검사 530파일. **프로덕션 `/map` 을 브라우저로 실측**했다:
+> SDK 200 · `/v3/auth` **200**(= `zgnn.vercel.app` 의 NCP 등록이 살아 있다) · 마커 렌더 · 콘솔 에러 0.
+> 이로써 ⚠️2(오프라인 지도)가 **이제 확인 가능**해졌다 — 사용자 실기기 비행기 모드만 남았다. 로컬 테스트 455(451 아님))
+> 이전 (v15: **self-cr 완료 — 커밋 5개 추가.** blocker 1(폴백 경로 무방비) + major 6 + minor 다수 반영,
 > 수정분도 검증 패스를 거쳤다. 로고 우상단 이동은 **브라우저 실측**으로 닫았고, 좌표 판정의 **datum 한계**와
 > "영구 고장이 오프라인 문제로 보고된다" 를 ⚠️ 절에 더했다. 남은 것은 push → 로컬 잠금 → 키워드)
 > 이전 (v14: **좌표 보강도 네이버로** — `kakaoLocal.mjs` → `naverLocal.mjs`(02 수집과 같은 키). 검색 API 시한은 사용자가 2026-07-25 전에 발급해 둬 **2027-06-30 까지 산다**(확인 완료).
@@ -104,7 +108,8 @@ flowchart LR
   - [x] `matchPlace` 본체 — 기본안 구현(🙋 였던 자리. `THRESHOLD`·`WEIGHT` 로 조정). 자동 승인은 `AUTO_APPROVE=false` 로 시작
   - [x] 엔드투엔드 1건 — 실제 후기 링크로 본문 → `claude -p` → 대조까지(DB 쓰기 없이)
   - [ ] 실행 — `blog_posts` 가 비어 있어(02) 아직. 사용자 터미널의 운영자 세션에서(아래 **실행 순서** 블록)
-- [x] 4a Vercel 빌드 명령 `pnpm data:pull && pnpm build`(`vercel.json`) — 첫 배포는 `outputDirectory: "out"` 때문에 실패했고(BUG-005) 고쳐 커밋했다. push 뒤 확인
+- [x] 4a Vercel 빌드 명령 `pnpm data:pull && pnpm build`(`vercel.json`) — 첫 배포는 `outputDirectory: "out"` 때문에 실패했고(BUG-005) 고쳐 커밋했다.
+      **`main` `66b15e1` 프로덕션 Ready 로 확인 완료**(2026-09-23 (3)): 빌드 로그 `publishable(anon)` · 86·15 · 유출 검사 530파일, 프로덕션 `/map` 브라우저 실측 정상
 - [ ] 4b DB 웹훅 → Deploy Hook 자동 재빌드
 - **5** 보안
   - [x] `scripts/check-bundle.mjs` 유출 검사(빌드 뒤 자동 실행) · `.env.example` 커밋
@@ -117,8 +122,9 @@ flowchart LR
 
 ## 다음 할 일 (2026-09-23 기준 — 새 세션은 여기서 시작)
 
-브랜치 **`feature/naver-map`** (`main` `dabb092` 에서 시작). 지도 교체 · 좌표 보강 네이버 전환 · 문서. **커밋 5개, 아직 push 안 했다.**
-그 앞의 `feature/local-only-pipeline` 은 `main` 에 머지됐다(= ADR-016 구현·실측, (b) GRANT 축소, Actions 폐지까지 전부 `main` 에 있다).
+브랜치 **`feature/naver-map`** 은 push 되고 **`main` 에 fast-forward 머지됐다**(`main` = `origin/main` = `66b15e1`, 2026-09-23 (3)).
+지도 교체 · 좌표 보강 네이버 전환 · self-cr 반영까지 전부 `main` 에 있고, **프로덕션에도 배포됐다**(아래 「끝난 것」).
+그 앞의 `feature/local-only-pipeline` 도 `main` 에 머지돼 있다(= ADR-016 구현·실측, (b) GRANT 축소, Actions 폐지).
 
 ### 이 브랜치에서 끝난 것 (새 세션이 다시 하지 말 것)
 
@@ -126,13 +132,19 @@ flowchart LR
   **브라우저 실측 완료** — `/map` 렌더·마커·로고·저작권 표시 정상, 서비스워커 캐시 항목 수(타일 23 · 자원 6 · SDK 2)까지 셌다.
 - **좌표 보강 = 네이버 지역 검색.** `scripts/analyze/naverLocal.mjs`(29 테스트). **02 수집과 같은 키**를 쓴다 — 키를 더 발급하지 않아도 된다.
 - 결정은 [ADR-008 v4](../decisions/ADR-008-map-provider.md)(파일명이 `ADR-008-kakao-map.md` → `ADR-008-map-provider.md` 로 바뀌었다). 조사 원문은 [naver-migration-research.md](naver-migration-research.md).
-- 451 테스트 통과 · `pnpm build` 통과 · 번들 유출 검사 통과.
+- **455** 테스트 통과 · `pnpm build` 통과(`sw.js` 생성 확인) · 번들 유출 검사 530파일 통과 (2026-09-23 (3) 재실행).
+- **`main` 머지 · 프로덕션 배포 실측**(2026-09-23 (3)). 빌드 로그: `publishable(anon — published 읽기만)` · `pull 완료: places 86 (published) · items 15` · `번들 유출 검사 통과: 530 파일`.
+  프로덕션 `https://zgnn.vercel.app/map` 을 브라우저로 열어 **네트워크까지 확인**: `maps.js` 200 · **`/v3/auth` 200**(= NCP 콘솔의 Web 서비스 URL 에
+  `zgnn.vercel.app` 이 살아 있다는 뜻 — 이게 401 이면 지도가 통째로 안 뜬다) · `styles/{basic,terrain,satellite}.json` 200 · 네이버 로고 이미지 200 ·
+  마커 렌더(「81곳 표시 중」) · **콘솔 에러 0**. 지도 청크는 동적 import 라 HTML `<script>` 에 안 잡힌다 — `curl` 로는 검증되지 않는 자리다.
+- `pnpm data:pull` 재실행 → 86·15, `git diff src/data` 빈 결과(커밋된 스냅샷이 DB 와 같다).
 
 ### 남은 것 — 실행 순서 (이 블록이 정본)
 
 ```
-[Claude]  ✅ self-cr 완료(blocker 1 + major 6 + minor 다수 반영, 커밋 5개 추가) → push
+[Claude]  ✅ self-cr → ✅ push → ✅ main 머지 → ✅ 프로덕션 배포·실측  (2026-09-23 (3), 이 줄은 끝났다)
 [사용자]  로컬 잠금 3개: vercel logout · gh auth logout -u hoiya-woohyun · ssh-keygen -p -f ~/.ssh/id_ed25519_hoiya
+          ⚠️ 이건 **원격 git·Vercel 일이 다 끝난 뒤**다. 지금은 4b(Deploy Hook)가 남아 `vercel logout` 을 아직 하지 않는 편이 낫다
 [사용자]  검색 키워드 확정(🙋 02) → [Claude] scripts/collect/keywords.json 반영
 [사용자]  pnpm data:login   → 만료 +12시간 확인
 [사용자]  pnpm data:collect → 네이버 키 숨김 입력, blog_posts 채움
@@ -145,7 +157,7 @@ flowchart LR
 [Claude]  4b: Vercel Deploy Hook → Supabase DB 웹훅(🙋 04: 승인마다 재빌드 vs 모아서)
 ```
 
-굳어 있는 순서는 셋뿐이다. **push → 로컬 잠금**(먼저 잠그면 push 가 막힌다 — 로그아웃은 늘 심부름의 끝에),
+굳어 있는 순서는 셋뿐이다. **원격 작업(push·머지·Deploy Hook) → 로컬 잠금**(먼저 잠그면 push 도 Vercel 설정도 막힌다 — 로그아웃은 늘 심부름의 끝에),
 **네이버 키 → `data:collect`**(키 없이는 `blog_posts` 가 안 찬다), **`collect` → `analyze` → `apply`**.
 어드바이저 확인과 4b 는 그 사이 어디서 해도 된다. `data:collect` 는 에이전트 세션에서 거부되므로(`CLAUDECODE`) **사용자 터미널 몫**이고,
 `data:analyze`·`data:apply` 는 사용자가 `pnpm data:login` 해 둔 동안 Claude 도 돌릴 수 있다.
@@ -161,7 +173,9 @@ flowchart LR
    `matchPlace` 의 `GEO_NEAR_M` 이 100m 라 판정이 갈린다. 증상은 **"채택은 0이 아닌데 기존 장소와의 거리가 일관되게 300~400m"** 다 →
    첫 실행 때 Studio 에서 몇 건을 눈으로 대조한다(→ [03](03-analyze-and-review.md)).
 
-2. **오프라인 지도가 뜨는지 모른다.** 네이버 SDK 는 지도를 만들 때 `/v3/auth?…&time=<매번 다름>` 을 런타임에 부르고,
+2. **오프라인 지도가 뜨는지 모른다.** (2026-09-23 (3): **프로덕션 배포가 끝나 이제 확인 가능하다** — `zgnn.vercel.app` 을 폰에 설치하고
+   비행기 모드로 켜면 된다. **온라인은 정상임이 프로덕션에서 실측됐으므로**, 안 뜨면 그건 오프라인만의 문제다 — 아래 「항상 안 뜨는 경우」 와 헷갈릴 일이 없다.)
+   네이버 SDK 는 지도를 만들 때 `/v3/auth?…&time=<매번 다름>` 을 런타임에 부르고,
    `time` 때문에 서비스워커 캐시가 그 요청을 절대 맞출 수 없다. Playwright 의 offline 에뮬레이션은 서비스워커보다 앞단을 막아 검증에 실패했다.
    정황은 나쁘다 — `/v3/auth` 가 401 일 때 SDK 는 타일을 안 그리고 예외를 던졌다. → **실기기 비행기 모드로 확인**하고,
    안 뜨면 `sw.ts` 의 타일·자원 규칙을 지우고 `pwa-offline.md`·ADR-008 의 오프라인 절을 "지도는 온라인 전용" 으로 확정한다.
@@ -169,6 +183,7 @@ flowchart LR
    ⚠️ **같이 볼 것: 지도가 "항상" 안 뜨는 경우.** 폴백 문구가 "지도는 인터넷이 필요해요" 라서, 옵션 이름 오류 같은 **영구 고장이
    오프라인 문제처럼 보고된다**(`maps.Position` 같은 속성 접근이 `TypeError` → `.catch` → 폴백). 비행기 모드가 아닌데 계속 안 뜨면
    네트워크가 아니라 코드를 본다. 2026-09-23 실측 시점엔 정상이었다(→ [ADR-008](../decisions/ADR-008-map-provider.md) 「로고·저작권 표시」).
+   **2026-09-23 (3) 프로덕션에서도 정상**(`/v3/auth` 200 · 마커 렌더 · 콘솔 에러 0) — 그러니 지금 시점의 "영구 고장" 가설은 배제돼 있다.
 
 ### 🚩 결정은 됐지만 해소되지 않은 것 — 검색 결과 저장
 
@@ -205,6 +220,17 @@ flowchart LR
 ## 세션 로그
 
 세션이 끝나거나 컨텍스트가 커져 나눌 때 여기에 한 항목. 체크박스가 정본이고 로그는 인수인계 메모.
+
+- 2026-09-23 (3) — **push · `main` 머지 · 프로덕션 배포·실측.** 순서: `data:pull`(86·15, diff 없음) → `pnpm test` **455** · `pnpm build`(`sw.js` 생성 · 유출 검사 530파일) →
+  `git merge --ff-only` 로 `main` = `66b15e1` → push → Vercel 프로덕션 자동 빌드 Ready(≈40초). 빌드 로그에서 `publishable(anon — published 읽기만)` 재확인 —
+  **"빌드는 anon" 이 코드 불변식**이라는 주장이 프로덕션에서 한 번 더 섰다.
+  **배운 것(검증 방법론)**: 배포 확인을 `curl` 로 하려다 세 번 헛짚었다 — (1) `/map` 은 `/map/` 로 **리다이렉트**해서 `curl` 이 "Redirecting..." 21바이트만 받는다(`-L` 필요),
+  (2) 지도 SDK URL 은 **동적 import 청크**에 있어 HTML `<script>` 목록을 다 뒤져도 안 나온다(24개 청크 전수 확인 → 0건),
+  (3) 로컬 `out/` 의 청크 해시는 배포본과 달라 그 이름으로 받으면 404 다. → **브라우저(Playwright)로 네트워크를 보는 게 유일하게 맞는 검증**이었다:
+  `maps.js` 200 · **`/v3/auth` 200**(도메인 등록 유효) · 스타일 JSON 3개 · 로고 이미지 · 마커 렌더 · 콘솔 에러 0.
+  트래커 정정 둘: v15 의 "커밋 5개, 아직 push 안 했다" 는 이미 낡아 있었고(브랜치는 `origin` 과 동기), 테스트 수는 451 이 아니라 455 다.
+  **실행 순서에 빠져 있던 단계**: `main` 머지가 정본 블록에 없었다 — `main` 이 Vercel 프로덕션이라 머지 없이는 4b 도 ⚠️2 도 구조적으로 막혀 있었다. 이번에 넣었다.
+  다음: 로컬 잠금은 **4b 뒤로 미룬다**(`vercel logout` 하면 Deploy Hook 을 못 만든다). 사용자 몫 둘 — 키워드 확정(🙋 02) · 4b 대시보드 2단계.
 
 - 2026-09-23 (2) — **self-cr → 커밋 5개 추가.** 리뷰(독립 `code-reviewer`, opus)가 🔴 1 · 🟠 6 · 🟡 다수를 냈고 **전부 반영**,
   수정분을 같은 리뷰어에게 **검증 패스**로 되돌려 🟠 1 · 🟡 3 을 더 받아 그것도 닫았다. 455 테스트.

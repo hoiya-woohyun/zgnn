@@ -1,6 +1,7 @@
 # 4. Vercel 배포 · 빌드 시 DB 읽기 · 승인되면 재빌드
 
-> 최종 수정: 2026-09-22 (v4: **(c) Actions 폐지** 반영 — 스냅샷 PR 자동화·`workflow_dispatch` 수동 경로·"수집 잡 끝에 Deploy Hook" 대안이 소멸. 4a 의 env 삭제 확인 완료(프로덕션 anon 86·15). 4b 웹훅은 그대로 목표)
+> 최종 수정: 2026-09-23 (v5: 4a 의 마지막 열린 칸을 닫았다 — `main` `66b15e1` 프로덕션 Ready 로 `outputDirectory` 함정 확인 완료, `data:pull` 스냅샷 diff 없음. 4b 는 그대로 남았다)
+> 이전 (v4: **(c) Actions 폐지** 반영 — 스냅샷 PR 자동화·`workflow_dispatch` 수동 경로·"수집 잡 끝에 Deploy Hook" 대안이 소멸. 4a 의 env 삭제 확인 완료(프로덕션 anon 86·15). 4b 웹훅은 그대로 목표)
 > 이전 (v3: 빌드의 `data:pull` 은 service_role 이 아니라 publishable(anon) 키로 published 만 읽는다(ADR-016 v4) — Vercel env 에서 Supabase 시크릿이 사라진다)
 > 이전 (v2: 4a 완료 — `vercel.json` 빌드 명령·env 확인, `outputDirectory` 함정(BUG-005) 수정. 4b 는 아직)
 > 이전 (v1: 신설)
@@ -19,7 +20,7 @@
 
 - [x] Vercel Build Command: `pnpm data:pull && pnpm build` — `vercel.json` 의 `buildCommand`(대시보드가 아니라 레포에 둔다).
       **`outputDirectory` 는 적지 않는다** — `out` 을 적으면 pull·빌드·유출 검사가 다 통과한 뒤 배포만 죽는다
-      (→ [BUG-005](../bugs/BUG-005-vercel-output-directory.md)). 로컬 `vercel build --prod` 로 검증했고 배포는 push 뒤.
+      (→ [BUG-005](../bugs/BUG-005-vercel-output-directory.md)). 로컬 `vercel build --prod` 로 검증했고, **`main` `66b15e1` 프로덕션 Ready 로 닫혔다**(2026-09-23).
 - [x] ~~`SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY` 를 Vercel env(Production·Preview, Sensitive)~~ → **ADR-016 v4 로 바뀜**: 빌드는 코드 상수의
       publishable 키로 `places(published)`·`items` 만 읽는다(`createSupabase({ readOnly: true })`, RLS 가 그 집합만 연다). Vercel 에 Supabase 시크릿이 없다.
       빌드 로그의 `Supabase 인증: publishable(anon — published 읽기만)` 이 그 증거다. [x] env 삭제 뒤 확인(2026-09-22 (2): `main` `63abb90` 프로덕션 Ready, Vercel env 0개·
@@ -30,7 +31,7 @@
 - [x] 로컬 `pnpm build` 는 `data:pull` 없이 커밋된 스냅샷으로 — 지금과 같다.
 - [ ] 커밋된 `src/data/*.json` 은 **주기적으로 갱신해 커밋**한다 — 사람이 `pnpm data:pull` 후 커밋. 안 하면 로컬과 배포가 점점 벌어진다.
       ~~초안: Actions 수집 잡 끝에 `git diff --quiet src/data || (PR 생성)`, 그러려면 `contents: write` 🙋~~ — (c) 로 워크플로가 없어 이 갈림길 자체가 사라졌다(2026-09-22).
-      `data:pull` 은 anon 이라 세션 없이도 언제든 돌릴 수 있다(Claude 도).
+      `data:pull` 은 anon 이라 세션 없이도 언제든 돌릴 수 있다(Claude 도). 2026-09-23 실행 → 86·15, `git diff src/data` 빈 결과(아직 안 벌어졌다).
 
 ### Preview 배포
 
