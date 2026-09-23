@@ -218,9 +218,20 @@ export function MapPageCanvas({
       settleRef.current = undefined;
       // 지도를 파괴하기 전에 마커부터 비운다 — 이 cleanup 이 마커 effect 의 것보다 먼저 돈다.
       clearMarkers(markers);
-      // 이벤트와 DOM 을 함께 걷어낸다 — Kakao 에는 없던 정리다.
-      mapRef.current?.destroy();
-      mapRef.current = null;
+      /*
+       * 이벤트와 DOM 을 함께 걷어낸다 — Kakao 에는 없던 정리다.
+       * `clearMarkers` 와 **같은 이유로 감싼다**: `setMap(null)` 이 깨진 지도에서 던질 수 있다고
+       * 봤다면 `destroy()` 는 더 그렇다(같은 인스턴스를 더 크게 해체한다). 여기서 던지면
+       * passive cleanup 이라 React 19 가 에러 경계까지 올려 — **폴백은 떴는데 지도 화면을
+       * 떠나는 순간 앱이 깨진다.** finally 로 참조도 반드시 끊는다(안 그러면 파괴된 map 이 남는다).
+       */
+      try {
+        mapRef.current?.destroy();
+      } catch {
+        // 이미 깨진 지도다. 참조만 끊고 넘어간다.
+      } finally {
+        mapRef.current = null;
+      }
     };
   }, []);
 
