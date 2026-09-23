@@ -23,13 +23,15 @@ const validGeo = (geo) =>
  * (빈 update 도 places_set_updated_at 트리거가 updated_at 을 건드린다).
  *
  * 채우는 칸: address · lat+lng(둘 다 비어 있을 때만, 쌍으로) · region_raw · features · pet_policy_text · category.
- *   category 는 TExtractedPlace 에 없고 kakaoLocal(pickKakaoPlace)이 한 단어("커피전문점")로 주는 값이라, 분석 단계가
+ *   category 는 TExtractedPlace 에 없고 naverLocal(pickNaverPlace)이 한 단어("커피전문점")로 주는 값이라, 분석 단계가
  *   extracted 에 실어 줬을 때만 채운다 — 없으면 아무 일도 없다.
  * 건드리지 않는 칸: naver_url · naver_place_id · review_url · stay_* · status · source · sort.
- *   naver_url 은 Kakao 링크(kakaoPlaceUrl)를 넣을 자리가 아니다 — "네이버" 칸에 카카오 주소가 들어가면 조용한 버그다.
+ *   naver_url 에는 naverLink 도 넣지 않는다. 벤더가 네이버로 바뀌어 이름은 맞아 보이지만, 지역 검색의 link 는 공식 문서상
+ *   "업체, 기관의 상세 정보 URL" 이라 **네이버 플레이스가 아니라 업체 홈페이지일 수 있고 비어 있는 경우도 많다**(문서 예제부터 비었다).
+ *   naver_url 은 사람이 확인한 플레이스 주소를 담는 칸이라, 검색이 준 링크를 자동으로 채우면 조용한 오염이 된다. Studio 에서 사람이 넣는다.
  *
  * @param {object} existingRow  places 행(snake_case)
- * @param {object} extracted    candidates.extracted jsonb — { ...TExtractedPlace, geo, kakaoPlaceUrl, regionRaw, match }
+ * @param {object} extracted    candidates.extracted jsonb — { ...TExtractedPlace, geo, naverLink, regionRaw, match }
  * @returns {object | null}
  */
 export function mergeIntoExisting(existingRow, extracted) {

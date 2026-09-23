@@ -30,12 +30,12 @@ const extracted = {
   confidence: 0.9,
 };
 
-/** pickKakaoPlace 가 주는 모양. 솔숲펜션의 실제 좌표(places.json)에서 몇 m 옆. */
-const kakao = {
+/** pickNaverPlace 가 주는 모양. 솔숲펜션의 실제 좌표(places.json)에서 몇 m 옆. */
+const local = {
   lat: 33.51119,
   lng: 126.84885,
   address: '제주 제주시 구좌읍 충렬로 141-15',
-  kakaoPlaceUrl: 'https://place.map.kakao.com/123',
+  naverLink: 'https://map.naver.com/p/entry/place/123',
   category: '펜션',
 };
 
@@ -116,25 +116,25 @@ describe('tierOf', () => {
 });
 
 describe('toMatchCandidate', () => {
-  it('Kakao 좌표·주소를 쓰고, 없는 값은 undefined 로 둔다(matchPlace 가 그 신호를 건너뛰게)', () => {
-    expect(toMatchCandidate(extracted, kakao)).toEqual({ name: '솔숲펜션', type: 'stay', geo: { lat: kakao.lat, lng: kakao.lng }, address: kakao.address });
+  it('네이버 좌표·주소를 쓰고, 없는 값은 undefined 로 둔다(matchPlace 가 그 신호를 건너뛰게)', () => {
+    expect(toMatchCandidate(extracted, local)).toEqual({ name: '솔숲펜션', type: 'stay', geo: { lat: local.lat, lng: local.lng }, address: local.address });
     expect(toMatchCandidate(extracted, null)).toEqual({ name: '솔숲펜션', type: 'stay', geo: undefined, address: undefined });
   });
-  it('Kakao 가 없으면 본문 주소로 물러선다', () => {
+  it('네이버가 없으면 본문 주소로 물러선다', () => {
     expect(toMatchCandidate({ ...extracted, address: '제주 제주시 구좌읍 어딘가' }, null).address).toBe('제주 제주시 구좌읍 어딘가');
   });
 });
 
 describe('toCandidateRow — candidates.extracted 는 applyApproved.mjs 가 읽는 계약', () => {
-  const matchedAuto = matchPlace(toMatchCandidate(extracted, kakao), places);
+  const matchedAuto = matchPlace(toMatchCandidate(extracted, local), places);
 
   it('실제 86곳과 대조하면 솔숲펜션 + 옆 좌표는 auto 다(전제 확인)', () => {
     expect(matchedAuto.match?.name).toBe('솔숲펜션');
     expect(matchedAuto.confidence).toBeGreaterThanOrEqual(THRESHOLD.AUTO_MERGE);
   });
 
-  it('auto 도 기본은 pending(AUTO_APPROVE=false) · tier 가 auto, match_place_id 는 기존 장소 id, extracted 에 geo·kakaoPlaceUrl·category·regionRaw·match 가 모두 있다', () => {
-    const row = toCandidateRow(post, extracted, kakao, '동쪽 (구좌읍)', matchedAuto);
+  it('auto 도 기본은 pending(AUTO_APPROVE=false) · tier 가 auto, match_place_id 는 기존 장소 id, extracted 에 geo·naverLink·category·regionRaw·match 가 모두 있다', () => {
+    const row = toCandidateRow(post, extracted, local, '동쪽 (구좌읍)', matchedAuto);
     expect(row.post_url).toBe(post.url);
     expect(AUTO_APPROVE).toBe(false);
     expect(row.status).toBe('pending');
@@ -143,9 +143,9 @@ describe('toCandidateRow — candidates.extracted 는 applyApproved.mjs 가 읽�
     expect(row.match_confidence).toBe(matchedAuto.confidence);
     expect(row.extracted).toEqual({
       ...extracted,
-      address: kakao.address,
-      geo: { lat: kakao.lat, lng: kakao.lng },
-      kakaoPlaceUrl: kakao.kakaoPlaceUrl,
+      address: local.address,
+      geo: { lat: local.lat, lng: local.lng },
+      naverLink: local.naverLink,
       category: '펜션',
       regionRawAi: extracted.regionRaw ?? null,
       regionRaw: '동쪽 (구좌읍)',
@@ -153,11 +153,11 @@ describe('toCandidateRow — candidates.extracted 는 applyApproved.mjs 가 읽�
     });
   });
 
-  it('Kakao 가 없으면 geo·kakaoPlaceUrl·category 는 null 이고 address 는 본문 값(없으면 null)', () => {
+  it('네이버가 없으면 geo·naverLink·category 는 null 이고 address 는 본문 값(없으면 null)', () => {
     const matched = { match: null, confidence: 0, reason: '이름이 맞는 기존 장소 없음' };
     const row = toCandidateRow(post, { ...extracted, name: '없던가게' }, null, null, matched);
     expect(row.extracted.geo).toBeNull();
-    expect(row.extracted.kakaoPlaceUrl).toBeNull();
+    expect(row.extracted.naverLink).toBeNull();
     expect(row.extracted.category).toBeNull();
     expect(row.extracted.address).toBeNull();
     expect(row.extracted.regionRaw).toBeNull();
@@ -185,7 +185,7 @@ describe('toCandidateRow — candidates.extracted 는 applyApproved.mjs 가 읽�
 
   it('원본 extracted 객체를 바꾸지 않는다', () => {
     const original = { ...extracted };
-    toCandidateRow(post, extracted, kakao, '동쪽 (구좌읍)', matchedAuto);
+    toCandidateRow(post, extracted, local, '동쪽 (구좌읍)', matchedAuto);
     expect(extracted).toEqual(original);
   });
 });
@@ -193,7 +193,7 @@ describe('toCandidateRow — candidates.extracted 는 applyApproved.mjs 가 읽�
 describe('로그 형식 — 본문 인용은 싣지 않는다', () => {
   it('formatCandidateLine 은 이름·종류·구간·confidence·짝·이유만 담고 evidence·petPolicyText 는 없다', () => {
     const matched = { match: places[0], confidence: 0.92, reason: '이름 일치 · 거리 40m' };
-    const row = toCandidateRow(post, extracted, kakao, null, matched);
+    const row = toCandidateRow(post, extracted, local, null, matched);
     const line = formatCandidateLine(row, places[0].name);
     expect(line).toBe(`후보 솔숲펜션 (stay) 일치 0.92 → ${places[0].name} · 이름 일치 · 거리 40m`);
     expect(line).not.toContain('불멍');

@@ -108,7 +108,7 @@ flowchart LR
   K[keywords.json] -->|네이버 검색 API · 최근 1년| P[(blog_posts)]
   P -->|analyzed_at null 인 글| B[본문 HTML<br/>그 자리에서만 읽고 버림]
   B -->|claude -p --json-schema<br/>구독, API 키 없음| E[장소 0~N개<br/>petPolicyText 는 원문 그대로]
-  E -->|Kakao 로컬: 이름 완전 일치만| G[좌표·주소·regionRaw]
+  E -->|네이버 지역 검색: 이름 완전 일치만| G[좌표·주소·regionRaw]
   G -->|matchPlace vs places<br/>archived 빼고 draft 포함| C[(candidates<br/>pending · tier auto/ask/new)]
   C -->|사람: Studio 에서 링크·evidence 확인| A{approved?}
   A -->|approved| PL[(places<br/>빈 칸만 채움 · 신규는 draft)]

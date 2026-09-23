@@ -36,7 +36,8 @@
 
 - [ ] PR 마다 Preview 가 뜬다. 같은 Supabase 를 읽는다(데이터는 하나뿐이고 공개 정보다).
 - [ ] Deployment Protection → **Vercel Authentication** 을 Preview 에 켠다(무료). 미완성 화면이 검색엔진·남에게 노출되지 않게.
-- [ ] Kakao 지도는 Preview URL 이 매번 달라 콘솔 등록이 안 된다 → Preview 에서 지도가 비는 건 **알고 감수**한다(00 에 적음).
+- [ ] 네이버 지도는 Preview URL 이 매번 달라 NCP 콘솔 등록이 안 된다 → Preview 에서 지도가 안 뜨는 건 **알고 감수**한다(00 에 적음).
+      Kakao 때와 달리 빈 화면이 아니라 "지도는 인터넷이 필요해요" 안내가 뜬다(ADR-008 v4).
 
 ## 4b. 승인되면 재빌드
 

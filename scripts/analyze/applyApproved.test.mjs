@@ -20,7 +20,7 @@ const solsup = {
   source: 'notion',
 };
 
-// candidates.extracted jsonb — { ...TExtractedPlace, geo, kakaoPlaceUrl, regionRaw, match }
+// candidates.extracted jsonb — { ...TExtractedPlace, geo, naverLink, regionRaw, match }
 const extracted = {
   name: '솔숲펜션',
   type: 'stay',
@@ -32,7 +32,7 @@ const extracted = {
   evidence: ['마당에서 불멍을 했어요'],
   confidence: 0.9,
   geo: { lat: 33.5111, lng: 126.8488 },
-  kakaoPlaceUrl: 'https://place.map.kakao.com/123',
+  naverLink: 'https://map.naver.com/p/entry/place/123',
   match: { confidence: 1, reason: 'naverPlaceId 일치', tier: 'auto' },
 };
 
@@ -89,7 +89,7 @@ describe('mergeIntoExisting', () => {
     expect(mergeIntoExisting(blankRow, empty)).toBeNull();
   });
 
-  it('naver_url 은 비어 있어도 건드리지 않는다 — kakaoPlaceUrl 을 naver_url 에 넣지 않는다', () => {
+  it('naver_url 은 비어 있어도 건드리지 않는다 — 지역 검색의 link(naverLink)를 naver_url 에 넣지 않는다 — 네이버 플레이스가 아닐 수 있다', () => {
     expect(mergeIntoExisting({ ...solsup, naver_url: null }, extracted)).toBeNull();
   });
 
@@ -178,9 +178,9 @@ describe('toNewPlaceRow', () => {
     expect(() => toNewPlaceRow({ ...candidate, extracted: { ...candidate.extracted, name: '  ' } }, { id: 'x' })).toThrow(/name/);
   });
 
-  it('kakaoPlaceUrl · evidence · match 는 행에 들어가지 않는다', () => {
+  it('naverLink · evidence · match 는 행에 들어가지 않는다', () => {
     const row = toNewPlaceRow(candidate, { id: 'new-id' });
-    expect(row).not.toHaveProperty('kakaoPlaceUrl');
+    expect(row).not.toHaveProperty('naverLink');
     expect(row).not.toHaveProperty('evidence');
     expect(row).not.toHaveProperty('match');
   });

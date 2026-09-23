@@ -3,7 +3,7 @@
 > 최종 수정: 2026-09-23 (v4: **Kakao → 네이버(NCP Maps JavaScript API v3) 로 교체.** v1~v3 의 Kakao 결정을 번복한다 —
 > 파일명도 `ADR-008-kakao-map.md` → `ADR-008-map-provider.md`. 확대 방향이 다시 뒤집혔고(`JEJU_LEVEL` → `JEJU_ZOOM`),
 > 인증 실패를 감지할 수 있게 됐고, 런타임 인증 호출 때문에 **오프라인 서술이 미검증으로 내려갔다.**
-> 좌표 보강(`kakaoLocal.mjs`)은 이 ADR 범위 밖이고 아직 Kakao 다 — 약관 문제는 아래 「좌표 데이터」 절)
+> 좌표 보강도 같은 작업에서 네이버 지역 검색으로 옮겼다(`naverLocal.mjs`) — 약관 문제는 아래 「좌표 데이터」 절)
 >
 > 이전 (v3: 개발·preview 포트를 7727 로 고정 — 등록 출처를 `http://localhost:3000` 에서 `http://localhost:7727` 로 옮김)
 >
@@ -149,10 +149,14 @@ v1 처럼 **기본값을 코드에 둔다**(`src/lib/naverMap.ts` 의 `KEY_ID`).
 「네이버 클라우드 플랫폼 Maps 서비스 이용약관」 **제7조 ⑪** 는 결과 데이터의 별도 저장·DB화를 금지하며,
 그 예시로 **"지도 좌표 데이터를 모아서 재사용하는 것"** 을 콕 집는다. 같은 조 ⑩ 은 로고·지정 표시의 게재를 요구할 수 있다고 한다.
 
-그래서 **NCP Geocoding 결과를 `places.lat/lng` 에 저장하는 설계는 이 조항에 정면으로 걸린다.**
-지금 좌표 보강은 여전히 Kakao 로컬 검색(`scripts/analyze/kakaoLocal.mjs`)이고, Kakao 도 "결과를 별도 저장 불가, 실시간 호출만" 이라
-**벤더를 옮긴다고 해결되지 않는다.** 네이버에는 Kakao 로컬 키워드 검색에 해당하는 상품 자체가 없다(Place/POI 검색 API 없음).
-→ 결정 대기. 조사 원문은 `docs/todo/naver-migration-research.md`.
+그래서 **NCP Geocoding 결과를 `places.lat/lng` 에 저장하는 설계는 이 조항에 정면으로 걸린다.** NCP Maps 에는 애초에
+장소명(POI) 검색 상품이 없기도 하다(Dynamic/Static Map · Geocoding · Reverse Geocoding · Directions 뿐).
+
+**그래서 좌표 보강은 NCP Maps 가 아니라 「네이버 검색 API 의 지역 검색」으로 옮겼다**(`scripts/analyze/naverLocal.mjs`).
+02(수집)이 이미 쓰는 것과 **같은 키**(`NAVER_CLIENT_ID`/`SECRET`)라 키를 하나 더 관리하지 않아도 된다.
+다만 **저장 제약은 여기서도 풀리지 않는다** — 네이버 검색 API 약관도, Kakao 로컬 API FAQ 도 결과의 별도 저장을 금지한다.
+즉 이건 벤더 선택의 문제가 아니라 "검색 결과 좌표를 DB 에 굽는다" 는 설계 자체의 문제이고, 지금은 **사용자 판단으로 네이버 기준으로 진행한다**.
+조사 원문은 `docs/todo/naver-migration-research.md`.
 
 ### 잃은 것
 

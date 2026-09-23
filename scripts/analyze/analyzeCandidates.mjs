@@ -2,10 +2,10 @@
 // analyzeCandidates.test.mjs. 무엇을 왜 후보로 삼는지는 docs/todo/03-analyze-and-review.md 가 정본.
 //
 // 조립 규칙을 스크립트 밖으로 뺀 이유 — candidates.extracted 의 모양은 apply-approved.mjs(applyApproved.mjs)가 그대로 읽는
-// 계약이다. 키 하나가 빠지면(예: Kakao 가 준 category) 빌드도 테스트도 통과한 채 반영 단계에서 조용히 안 채워진다.
+// 계약이다. 키 하나가 빠지면(예: 네이버가 준 category) 빌드도 테스트도 통과한 채 반영 단계에서 조용히 안 채워진다.
 // 그래서 모양을 함수 하나에 모으고 테스트로 못 박는다.
 import { parseRegion } from '../lib/placeFields.mjs';
-import { inferRegionRaw } from './kakaoLocal.mjs';
+import { inferRegionRaw } from './naverLocal.mjs';
 import { THRESHOLD, townOf } from './matchPlace.mjs';
 
 /**
@@ -53,7 +53,7 @@ export function isPlaceCandidate(extracted) {
 }
 
 /**
- * regionRaw 는 주소 기반이 우선. AI 의 regionRaw 는 본문의 "동쪽 어디쯤" 같은 말에서 추측한 것이고, 주소(Kakao 또는 본문)에서
+ * regionRaw 는 주소 기반이 우선. AI 의 regionRaw 는 본문의 "동쪽 어디쯤" 같은 말에서 추측한 것이고, 주소(네이버 또는 본문)에서
  * 읍·면을 뽑아 기존 86곳의 방향 표기에 맞춘 것이 더 믿을 만하다. inferRegionRaw 가 '' 를 주면(읍·면을 못 정함 — 안덕면처럼 방향이
  * 갈리는 경우 포함) AI 값으로 물러선다. 둘 다 없으면 null — 사람이 Studio 에서 채운다.
  * @returns {string | null}
@@ -83,47 +83,47 @@ export function tierOf(matched) {
 }
 
 /**
- * matchPlace 에 넘길 후보. 좌표는 Kakao 것만 쓴다(AI 는 좌표를 주지 않는다). 주소는 Kakao 가 우선 — 본문 주소는 오타·생략이 잦다.
+ * matchPlace 에 넘길 후보. 좌표는 네이버 것만 쓴다(AI 는 좌표를 주지 않는다). 주소는 네이버가 우선 — 본문 주소는 오타·생략이 잦다.
  * AI 의 regionRaw 도 넘긴다 — 주소·좌표가 없는 후보에서 우도 vs 본섬 동명 가게를 가르는 유일한 신호다(빠뜨리면 자동 병합된다, 리뷰 지적).
  * 없는 값은 undefined 로 둔다: matchPlace 는 값이 없는 신호를 감점 없이 건너뛴다.
  */
-export function toMatchCandidate(extracted, kakao) {
+export function toMatchCandidate(extracted, local) {
   return {
     name: extracted.name,
     type: extracted.type,
-    geo: kakao ? { lat: kakao.lat, lng: kakao.lng } : undefined,
-    address: kakao?.address ?? extracted.address ?? undefined,
+    geo: local ? { lat: local.lat, lng: local.lng } : undefined,
+    address: local?.address ?? extracted.address ?? undefined,
     regionRaw: extracted.regionRaw ?? undefined,
   };
 }
 
 /**
  * candidates 행. extracted 의 모양은
- *   { ...TExtractedPlace, geo: {lat,lng}|null, kakaoPlaceUrl: string|null, category: string|null, regionRaw: string|null,
+ *   { ...TExtractedPlace, geo: {lat,lng}|null, naverLink: string|null, category: string|null, regionRaw: string|null,
  *     regionRawAi: string|null, match: { confidence, reason, tier: 'auto'|'ask'|'new' } }
- * — applyApproved.mjs 가 읽는 계약이다. address 는 Kakao 값이 있으면 그것으로 덮는다(기존 86곳과 같은 "제주 제주시 …" 꼴).
+ * — applyApproved.mjs 가 읽는 계약이다. address 는 네이버 값이 있으면 그것으로 덮는다(기존 86곳과 같은 "제주 제주시 …" 꼴).
  * regionRawAi 는 AI 가 준 원본 — 분석 때 matchPlace 가 본 지역 신호 그대로를 apply 의 재대조가 다시 보게 하기 위해 남긴다(regionRaw 는 정리된 값).
- * category 는 TExtractedPlace 에 없고 Kakao 가 한 단어("커피전문점")로 주는 값 — 빠뜨리면 apply 가 category 를 영영 못 채운다.
+ * category 는 TExtractedPlace 에 없고 네이버가 한 단어("커피전문점")로 주는 값 — 빠뜨리면 apply 가 category 를 영영 못 채운다.
  *
  * status: AUTO_APPROVE 가 true 일 때만 auto 가 바로 approved. 기본은 전부 pending — tier 가 Studio 에서 거를 단서다.
  * match_place_id 는 ask 에도 붙인다 — 사람이 "이 기존 장소가 맞나" 를 확인하는 단서다. new 는 null.
  *
  * @param {{ url: string }} post  blog_posts 행
  * @param {object} extracted  TExtractedPlace
- * @param {{ lat, lng, address, kakaoPlaceUrl, category } | null} kakao  pickKakaoPlace 결과
+ * @param {{ lat, lng, address, naverLink, category } | null} local  pickNaverPlace 결과
  * @param {string | null} regionRaw  resolveRegionRaw 결과
  * @param {{ match: object | null, confidence: number, reason: string }} matched  matchPlace 결과
  */
-export function toCandidateRow(post, extracted, kakao, regionRaw, matched) {
+export function toCandidateRow(post, extracted, local, regionRaw, matched) {
   const tier = tierOf(matched);
   return {
     post_url: post.url,
     extracted: {
       ...extracted,
-      address: kakao?.address ?? extracted.address ?? null,
-      geo: kakao ? { lat: kakao.lat, lng: kakao.lng } : null,
-      kakaoPlaceUrl: kakao?.kakaoPlaceUrl ?? null,
-      category: kakao?.category ?? null,
+      address: local?.address ?? extracted.address ?? null,
+      geo: local ? { lat: local.lat, lng: local.lng } : null,
+      naverLink: local?.naverLink ?? null,
+      category: local?.category ?? null,
       regionRaw: regionRaw ?? null,
       regionRawAi: extracted.regionRaw ?? null,
       match: { confidence: matched.confidence, reason: matched.reason, tier },

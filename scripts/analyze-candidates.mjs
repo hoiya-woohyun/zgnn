@@ -1,5 +1,5 @@
 // blog_posts 의 미분석 글을 Claude 로 분석해 candidates 를 만든다(`pnpm data:analyze`). docs/todo/03-analyze-and-review.md 가 정본.
-// 글 하나의 흐름: 본문 받기(naverPostBody) → 장소 추출(extractPlaces) → 좌표·주소 보강(kakaoLocal, 키 있을 때만) →
+// 글 하나의 흐름: 본문 받기(naverPostBody) → 장소 추출(extractPlaces) → 좌표·주소 보강(naverLocal, 키 있을 때만) →
 // 기존 장소와 대조(matchPlace) → candidates insert → blog_posts.analyzed_at. 판별·조립 규칙은 scripts/analyze/analyzeCandidates.mjs
 // 의 순수 함수에 있고 여기는 I/O 와 순서뿐이다.
 //
@@ -34,7 +34,7 @@ import {
   toMatchCandidate,
 } from './analyze/analyzeCandidates.mjs';
 import { createUsageMeter, extractPlaces, isFatal, isRetryable, MODEL, runClaudeCli } from './analyze/extractPlaces.mjs';
-import { pickKakaoPlace, searchKakaoPlace } from './analyze/kakaoLocal.mjs';
+import { pickNaverPlace, searchNaverPlace } from './analyze/naverLocal.mjs';
 import { matchPlace, normalizeName, townOf } from './analyze/matchPlace.mjs';
 import { fetchPostText } from './analyze/naverPostBody.mjs';
 import { fromPlaceRow } from './lib/placeFields.mjs';
@@ -50,18 +50,22 @@ try {
 const { limit, dryRun } = args;
 console.log(dryRun ? '모드: dry-run — DB 에 쓰지 않는다(Claude 는 부른다)' : '모드: 분석 — candidates · blog_posts.analyzed_at 에 쓴다');
 
-const { KAKAO_REST_API_KEY } = process.env;
+// 좌표 보강은 **02(수집)과 같은 네이버 키**를 쓴다 — 키를 하나 더 발급·관리하지 않는다(ADR-008 v4).
+// env 에 둘 다 있을 때만 켠다. 여기서는 숨김 입력을 받지 않는다: 분석은 글마다 몇 분씩 도는 일이라
+// 중간에 프롬프트가 뜨면 안 되고, Claude 가 --dry-run 으로 돌리는 경로이기도 해서다(docs/todo/03).
+const { NAVER_CLIENT_ID: naverClientId, NAVER_CLIENT_SECRET: naverClientSecret } = process.env;
+const naverKeys = naverClientId && naverClientSecret ? { clientId: naverClientId, clientSecret: naverClientSecret } : null;
 // Claude 인증은 env 로 검사하지 않는다 — 이 머신에 로그인된 `claude`(키체인)를 CLI 가 스스로 읽는다. 토큰 env 는 없다(ADR-016).
 // 안 돼 있으면 첫 글에서 ClaudeCliError(auth, fatal) 가 나와 루프가 끊긴다.
 // 좌표 보강은 선택이다 — 키가 없으면 후보는 좌표·주소 없이 들어가고, matchPlace 는 이름·종류만으로 대조한다(감점 없음).
-if (!KAKAO_REST_API_KEY) console.log('KAKAO_REST_API_KEY 없음 — 좌표·주소 보강을 건너뛴다');
+if (!naverKeys) console.log('NAVER_CLIENT_ID · NAVER_CLIENT_SECRET 없음 — 좌표·주소 보강을 건너뛴다(후보는 이름·종류로만 대조된다)');
 // ANALYZE_MODEL 이 조용히 무시되는 일이 없게 실제로 쓰는 모델을 한 번 찍는다.
 console.log(`모델 ${MODEL} · 글 최대 ${limit}건`);
 
 const supabase = createSupabase();
 const meter = createUsageMeter();
 
-const KAKAO_DELAY_MS = 200;
+const LOCAL_DELAY_MS = 200;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // 쓰기는 전부 이 한 곳을 지난다 — dry-run 분기를 호출처마다 두면 하나를 빠뜨리는 순간 dry-run 이 DB 를 건드린다(apply-approved.mjs 와 같은 꼴).
@@ -96,21 +100,21 @@ if (existing.length === 0) {
 
 console.log(`미분석 글 ${posts.length}건 · 기존 장소 ${existing.length}곳(archived 제외)`);
 
-// Kakao 가 잠깐 죽었다고 글 전체를 버리지 않는다 — 실패하면 좌표 없이 간다(status 만 로그). 단 401/403 은 키가 틀린 것이라 실행을
+// 네이버가 잠깐 죽었다고 글 전체를 버리지 않는다 — 실패하면 좌표 없이 간다(status 만 로그). 단 401/403 은 키가 틀린 것이라 실행을
 // 세운다: 조용히 이름만으로 대조하면 같은 이름의 다른 가게가 ask 대신 auto 로 올라간다(리뷰 지적). 검색 사이 200ms 는 collect-blog.mjs 와 같은 예의.
-async function enrichWithKakao(name, town) {
-  if (!KAKAO_REST_API_KEY) return null;
+async function enrichWithNaver(name, town) {
+  if (!naverKeys) return null;
   try {
-    const documents = await searchKakaoPlace(name, KAKAO_REST_API_KEY);
-    return pickKakaoPlace(documents, { name, town });
+    const items = await searchNaverPlace(name, naverKeys);
+    return pickNaverPlace(items, { name, town });
   } catch (e) {
     if (e?.status === 401 || e?.status === 403) {
-      throw Object.assign(new Error(`Kakao 인증 실패(status=${e.status}) — KAKAO_REST_API_KEY 를 확인. 좌표 없이 대조하면 판정이 흐려져 실행을 멈춘다`), { fatal: true });
+      throw Object.assign(new Error(`네이버 인증 실패(status=${e.status}) — NAVER_CLIENT_ID · NAVER_CLIENT_SECRET 을 확인. 좌표 없이 대조하면 판정이 흐려져 실행을 멈춘다`), { fatal: true });
     }
-    console.log(`    Kakao 보강 실패(좌표 없이 진행): ${e.message}`);
+    console.log(`    네이버 보강 실패(좌표 없이 진행): ${e.message}`);
     return null;
   } finally {
-    await sleep(KAKAO_DELAY_MS);
+    await sleep(LOCAL_DELAY_MS);
   }
 }
 
@@ -148,12 +152,13 @@ for (const post of posts) {
         console.log(`  제외 ${extracted.name} (${extracted.type}${extracted.isJeju ? '' : ' · 제주 아님'})`);
         continue;
       }
-      // 같은 이름이 여럿일 때 AI 가 읽은 읍·면(regionRaw 또는 본문 주소)이 Kakao 결과를 고르는 힌트다 — 우도 카페살레 vs 본섬 동명(리뷰 지적).
-      const kakao = await enrichWithKakao(extracted.name, townOf(extracted.regionRaw) ?? townOf(extracted.address));
-      // regionRaw 는 주소 기반이 우선(analyzeCandidates.mjs). 주소는 Kakao → 본문 순.
-      const regionRaw = resolveRegionRaw(kakao?.address ?? extracted.address, extracted.regionRaw, existing);
-      const matched = matchPlace(toMatchCandidate(extracted, kakao), existing);
-      const row = toCandidateRow(post, extracted, kakao, regionRaw, matched);
+      // 같은 이름이 여럿일 때 AI 가 읽은 읍·면(regionRaw 또는 본문 주소)이 검색 결과를 고르는 힌트다 — 우도 카페살레 vs 본섬 동명(리뷰 지적).
+      // 네이버 지역 검색은 display 상한이 5 라(Kakao 는 15) 동명 구분이 더 약하다 — 이 힌트가 그만큼 중요해졌다.
+      const local = await enrichWithNaver(extracted.name, townOf(extracted.regionRaw) ?? townOf(extracted.address));
+      // regionRaw 는 주소 기반이 우선(analyzeCandidates.mjs). 주소는 네이버 → 본문 순.
+      const regionRaw = resolveRegionRaw(local?.address ?? extracted.address, extracted.regionRaw, existing);
+      const matched = matchPlace(toMatchCandidate(extracted, local), existing);
+      const row = toCandidateRow(post, extracted, local, regionRaw, matched);
       const tier = row.extracted.match.tier;
       console.log(`  ${formatCandidateLine(row, matched.match?.name)}`);
 
@@ -177,7 +182,7 @@ for (const post of posts) {
     stats.candidates += rows.length;
     for (const row of rows) stats[row.extracted.match.tier] += 1;
   } catch (e) {
-    // 인증 실패·CLI 없음·Kakao 키 오류는 다음 글도 전부 같다 — 50건을 헛돌지 않고 여기서 끊는다. analyzed_at 은 안 찍혔으니 다음 실행이 이어 간다.
+    // 인증 실패·CLI 없음·네이버 키 오류는 다음 글도 전부 같다 — 50건을 헛돌지 않고 여기서 끊는다. analyzed_at 은 안 찍혔으니 다음 실행이 이어 간다.
     if (isFatal(e)) {
       stats.skipped += 1;
       console.error(`  중단: ${e.message}`);

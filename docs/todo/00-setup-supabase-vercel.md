@@ -58,13 +58,14 @@
       CLI 경로보다 우선돼 `Invalid API key` 로 죽는다. `vercel env pull` 은 쓰지 않는다 — `.env.local` 을 시크릿으로 덮어쓴다(ADR-016).
 - [ ] Deploy Hook 을 하나 만든다(Settings → Git → Deploy Hooks, 브랜치 `main`). URL 자체가 비밀이다 → Supabase 웹훅 설정에만 붙여 넣고 다른 데 적지 않는다.
 
-## Kakao 지도 — 배포 주소 등록
+## 네이버 지도 — 배포 주소 등록
 
-- [x] Kakao Developers → 플랫폼 → Web 에 **Vercel 도메인(`*.vercel.app` 과 커스텀 도메인)을 등록**한다.
+- [x] NCP 콘솔 → Application → Maps → **웹 서비스 URL** 에 `http://localhost:7727` 과 `https://zgnn.vercel.app` 을 등록한다. **Dynamic Map 체크 필수**(아니면 429).
+      **포트까지 본다**(2026-09-23 실측 — 등록 안 된 포트는 `/v3/auth` 401).
       → `https://zgnn.vercel.app/map` 에서 SDK·타일이 200, 콘솔 오류 0 으로 확인(2026-09-21).
       안 하면 JS 키가 맞아도 지도 자리가 빈다(→ [ADR-008](../decisions/ADR-008-map-provider.md), CLAUDE.md "조용히 깨지는 것").
       프리뷰 URL 은 배포마다 바뀌므로 와일드카드가 안 되면 프리뷰에서는 지도가 안 뜨는 걸 감수한다.
-- [x] 지도 키는 `NEXT_PUBLIC_KAKAO_MAP_KEY`(`src/lib/kakaoMap.ts`, 문서 초안의 `_JS_KEY` 는 오기)이고 코드에 공개 기본값이 있어
+- [x] 지도 키는 `NEXT_PUBLIC_NAVER_MAP_KEY_ID`(`src/lib/naverMap.ts`)이고 코드에 공개 기본값이 있어
       Vercel env 에 넣지 않아도 뜬다. 공개 전제의 키 — 도메인 제한이 방어선.
 
 ## GitHub — 시크릿 0개 (2026-09-22 (c) 의 목표, (5) 에 달성)
@@ -85,8 +86,8 @@ GitHub 에 남을 시크릿은 없다.
 - [ ] **네이버 개발자센터**(developers.naver.com) 애플리케이션 등록 → 검색 API 사용 설정 → Client ID/Secret.
       하루 25,000회. 개인 프로젝트에 충분하다. **값은 비밀번호 관리자에만** — `pnpm data:collect` 가 env(`NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`)로 받고,
       없으면 터미널에서 숨김 입력으로 받는다. 레포·키체인·파일 어디에도 저장하지 않으며, 에이전트 세션(`CLAUDECODE`)에서는 입력 자체를 거부한다.
-- [ ] **Kakao REST API 키** — 지도 JS 키와 **다른 키**다(같은 앱 안에 있다). 3 단계의 좌표 보강에 쓰는 **선택** 키 — 사용자가 안 쓰기로 했다.
-      쓰려면 `KAKAO_REST_API_KEY=… pnpm data:analyze` 로 그 셸에서만. 없으면 보강을 건너뛴다.
+- [x] **좌표 보강 키는 따로 없다** — 3 단계의 좌표 보강이 02 수집과 **같은 네이버 검색 키**(`NAVER_CLIENT_ID`/`SECRET`)를 쓴다(ADR-008 v4).
+      `NAVER_CLIENT_ID=… NAVER_CLIENT_SECRET=… pnpm data:analyze` 로 그 셸에서만. 없으면 보강을 건너뛴다.
 - ~~**Anthropic API 키**~~ — 없다. Claude 는 구독의 `claude -p` 로 부르고(2026-09-21 결정, 03), 인증은 이 머신의 `claude` 로그인뿐이다.
 
 ## 끝났다고 볼 조건

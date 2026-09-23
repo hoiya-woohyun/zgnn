@@ -32,8 +32,8 @@
 | `SUPABASE_URL` · publishable 키 | (공개값) | 코드 상수(`scripts/lib/supabaseClient.mjs` 의 `PROJECT_REF`·`PUBLISHABLE_KEY`). URL 은 env 로 못 바꾼다(바꿀 수 있으면 `SUPABASE_URL=https://attacker` 한 줄이 키체인 JWT 를 밖으로 보낸다) | 무방 — 방어선은 RLS |
 | ~~`CLAUDE_CODE_OAUTH_TOKEN`~~ | 금지 | **없다.** Claude 인증은 이 머신에 로그인된 `claude`(키체인)뿐이다. `claude -p` 자식 env 허용 목록에서도 뺐다(`CI`·`GITHUB_ACTIONS` 와 함께) — 토큰이 어디서 흘러와도 자식에 안 넘어간다 | 발급하지 않으니 샐 것이 없다. `claude` 로그인 세션이 의심되면 Anthropic 계정 설정에서 세션을 끊고 다시 로그인 |
 | `NAVER_CLIENT_ID` · `NAVER_CLIENT_SECRET` | 금지 | **사용자가 로컬에서 직접 관리**(비밀번호 관리자). `pnpm data:collect` 가 env 로 받고, 없으면 TTY 숨김 입력(`scripts/lib/readHidden.mjs`)으로 없는 쪽만 묻는다 — 프로세스 메모리에만 있고 레포·키체인·파일·로그 어디에도 안 남는다. 에이전트 세션(`CLAUDECODE`)이면 입력을 거부(exit 1), env 로 넘긴 값은 막지 않는다 | 재발급(네이버 개발자센터) |
-| `KAKAO_REST_API_KEY` | 금지 | **선택**(사용자가 안 쓰기로). 쓰려면 `KAKAO_REST_API_KEY=… pnpm data:analyze` 로 그 셸에서만. 없으면 보강을 건너뛴다 | 재발급 |
-| `NEXT_PUBLIC_KAKAO_MAP_KEY` | 공개 전제 | 코드 기본값(`src/lib/kakaoMap.ts`) — Vercel env 불필요 | 도메인 제한이 방어선. 새 도메인 등록만 조심 |
+| `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET` | 금지 | 수집(`data:collect`)은 env 또는 TTY 숨김 입력. **좌표 보강(`data:analyze`)도 같은 키**를 쓰고, env 에 둘 다 있을 때만 켜진다(숨김 입력 없음) | 개발자센터에서 재발급 |
+| `NEXT_PUBLIC_NAVER_MAP_KEY_ID` | 공개 전제 | 코드 기본값(`src/lib/naverMap.ts`) — Vercel env 불필요 | NCP 콘솔의 **웹 서비스 URL 허용 목록**이 방어선(포트까지 본다). 새 주소 등록만 조심 |
 | Deploy Hook URL | — | Supabase 웹훅 설정 **만**(4b, 아직 없음) | 아무나 빌드를 돌릴 수 있음 → Vercel 에서 폐기·재발급 |
 | anon(publishable) key | 공개 전제 | 위 코드 상수. Vercel 빌드와 로컬의 `data:pull` 이 같은 경로로 published 만 읽는다 | 공개돼도 되는 키 — 방어선은 RLS |
 
@@ -90,7 +90,7 @@
       둘은 공존할 수 없다): `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`,
       `Permissions-Policy: geolocation=(self)`(앱은 위치를 안 쓰지만 문서대로). 로컬 `vercel build` 의 `.vercel/output/config.json` 에
       헤더 라우트가 들어가는 것을 확인. 수정 전 프로덕션엔 HSTS(Vercel 기본)뿐이었다.
-      CSP 는 Kakao SDK(`dapi.kakao.com`·`*.daumcdn.net`) 와 인라인 스크립트 때문에 한 번에 안 된다 — 나중에, 콘솔 보면서.
+      CSP 는 네이버 SDK(`oapi.map.naver.com` · 타일 `nrbe.pstatic.net`/`nrbe.map.naver.net` · 자원 `ssl.pstatic.net`/`static.naver.net` · 추적 `*.nelo.navercorp.com`·`wcs.naver.*`) 와 인라인 스크립트 때문에 한 번에 안 된다 — 나중에, 콘솔 보면서.
 - [ ] Vercel Firewall·BotID 는 지금 필요 없다. 정적 파일이라 막을 요청이 없다.
 
 ## GitHub Actions — 폐지 (2026-09-22 (c))
@@ -100,7 +100,7 @@ Actions 는 "관리자 없이 도는 구조" 라 만료 없는 시크릿(service
 수집·분석·반영은 사용자 터미널의 운영자 세션(≤1일·RLS 안)으로만 돈다. GitHub Secrets 도 **0개**(2026-09-22 (5), 죽은 이름 2개 삭제 — 00).
 
 - ~~`permissions: contents: read` · 서드파티 액션 SHA 고정 · 포크 PR 에 시크릿 안 들어오게(`pull_request` 트리거 없음)~~ — 워크플로와 함께 소멸.
-- [x] **스크립트 로그 위생은 그대로 유효하다**(관측이 Actions 로그에서 사용자 터미널로 바뀌었을 뿐): 시크릿을 `echo` 하지 않는다. `fetch` 에러 메시지에는 status·query 만(수집·Kakao·본문).
+- [x] **스크립트 로그 위생은 그대로 유효하다**(관측이 Actions 로그에서 사용자 터미널로 바뀌었을 뿐): 시크릿을 `echo` 하지 않는다. `fetch` 에러 메시지에는 status·query 만(수집·지역 검색·본문).
       `claude -p` 는 stderr 앞 160자와 CLI 의 오류 문구(로그인·한도)만 싣고 모델 출력·본문은 싣지 않는다. 네이버 키는 숨김 입력이라 터미널에도 안 찍힌다.
       `data:pull` 이 env 의 service 키를 무시할 때도 **이름만** 찍는다.
 - [x] `claude -p` 자식 env 는 **허용 목록**이다 — 거부 목록은 아직 이름이 없는 시크릿을 못 거른다. 인증 토큰 env(`CLAUDE_CODE_OAUTH_TOKEN`)·`CI`·`GITHUB_ACTIONS` 는 목록에 없다 —

@@ -54,7 +54,7 @@ flowchart LR
 - [x] 시스템 프롬프트는 고정 문자열(`--system-prompt`), 메타·본문은 stdin 으로 뒤에 → 호출 간 prefix 가 같다.
 - ~~Batches API~~ — 구독 경로엔 없다. 첫 1년치는 `--limit` 로 나눠 여러 번 돌린다(세션 한도).
 - 🙋 **모델**: 구독이라 글당 비용은 0 이고 차이는 한도 소모뿐. 기본 `claude-opus-5`. `ANALYZE_MODEL=claude-haiku-4-5` 로 바꿔 품질을 비교해 볼 수 있다.
-- [x] 좌표·주소 보강은 **Kakao 로컬 REST API**(`scripts/analyze/kakaoLocal.mjs`, `KAKAO_REST_API_KEY` 선택). `place_name` 이
+- [x] 좌표·주소 보강은 **네이버 지역 검색**(`scripts/analyze/naverLocal.mjs`, `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET` 선택 — 02 수집과 같은 키). `title` 이
       후보 이름과 **정규화 후 완전 일치**할 때만 채택한다 — 부분 일치(0.7)를 받으면 "고기부엌" 에 "협재고기부엌" 좌표가 실려 그대로
       `places` 에 쓰인다(리뷰에서 재현). 없으면 좌표를 비워 둔다(지어내지 않는다). 키가 401/403 이면 실행을 세운다 — 조용히 이름만으로
       대조하면 동명 가게가 `ask` 대신 `auto` 로 올라간다. 주소 → `regionRaw` 는 기존 86곳의 읍·면→방향 표에서 추론(`inferRegionRaw`).
@@ -62,7 +62,7 @@ flowchart LR
       소진하거나 턴 초과)는 `analyzed_at` 을
       찍어 **닫는다** — 안 닫으면 매 실행 `--limit` 창을 잠식하며 영원히 재시도한다. 단 닫기는 **루프 끝에, 그 실행에서 성공한 글이 1건 이상일 때만**
       — 전부 "분석 불가" 면 글이 아니라 파이프라인(에디터 구조 변경·차단 페이지) 문제라 아무것도 닫지 않고 exit 1. 403(차단)·5xx·한도·타임아웃·
-      DB 쓰기 실패는 비워 둬 재시도. 인증 실패·CLI 없음·Claude API 4xx(모델명 오타)·Kakao 키 오류는 나머지 글도 같으므로 루프를 끊고 exit 1.
+      DB 쓰기 실패는 비워 둬 재시도. 인증 실패·CLI 없음·Claude API 4xx(모델명 오타)·네이버 키 오류(401/403)는 나머지 글도 같으므로 루프를 끊고 exit 1.
 
 ## 🙋 `matchPlace` — 기본안이 구현돼 있다. 가중치·임계값은 사용자가 조정한다
 
@@ -132,4 +132,7 @@ Studio 로 먼저 몇 주 돌려 보고 **어떤 정보가 화면에 있어야 �
 - [x] `matchPlace.test.mjs` 통과(자기충돌 검사 포함). `docs/architecture/data-pipeline.md` 에 "분석·승인" 절과 상태 머신 표.
 - ~~Actions 에서 한 번 실제로: 시크릿 등록 → `workflow_dispatch`~~ → [ ] **사용자 터미널에서 첫 실행**(README 의 **실행 순서** 블록): `pnpm data:login` →
       `pnpm data:analyze --dry-run --limit 5`(Claude 가 돌려도 된다 — 세션이 있으면) → 사용자 세션으로 `pnpm data:analyze` → `pnpm data:apply`.
-      Kakao REST 키는 사용자가 안 쓰기로 했다 — 없으면 보강을 건너뛰고 후보는 좌표 없이 들어간다(`matchPlace` 는 이름·종류만으로 대조, 감점 없음).
+      env 에 네이버 키 둘이 다 있을 때만 켜진다(숨김 입력 없음 — 분석은 오래 도는 일이라 중간에 프롬프트가 뜨면 안 된다).
+      없으면 보강을 건너뛰고 후보는 좌표 없이 들어간다(`matchPlace` 는 이름·종류만으로 대조, 감점 없음).
+      **함정 둘**: `mapx`/`mapy` 는 WGS84 를 10^7 배한 정수인데 공식 문서 예제는 아직 옛 KATECH 6자리다 → 나눈 값이 제주 범위 밖이면 버린다.
+      `title` 에 `<b>` 태그가 섞여 와서 안 벗기면 이름 비교가 영영 안 맞는다. `display` 상한은 **5**(Kakao 15보다 좁아 동명 구분이 약하다).

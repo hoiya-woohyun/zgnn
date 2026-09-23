@@ -1,6 +1,8 @@
 # TODO — 블로그 수집 → AI 분석 → 승인 → DB → 자동 배포
 
-> 최종 수정: 2026-09-23 (v13: 🚨 **네이버 검색 API 전제가 흔들린다** — 개발자센터 신규 발급이 2026-07-31 종료됐고, 2026-09-07 개정 약관이 검색 결과를
+> 최종 수정: 2026-09-23 (v14: **좌표 보강도 네이버로** — `kakaoLocal.mjs` → `naverLocal.mjs`(02 수집과 같은 키). 검색 API 시한은 사용자가 2026-07-25 전에 발급해 둬 **2027-06-30 까지 산다**(확인 완료).
+> 「다음 할 일」 을 `feature/naver-map` 기준으로 다시 썼다 — 끝난 것 / 남은 실행 순서 / **미검증 둘**(좌표 포맷 · 오프라인 지도)로 나눴다)
+> 이전 (v13: 🚨 **네이버 검색 API 전제가 흔들린다** — 개발자센터 신규 발급이 2026-07-31 종료됐고, 2026-09-07 개정 약관이 검색 결과를
 > **외부 AI 에 입력하는 것 자체를 금지**한다. 2·3 단계가 여기 걸린다(아래 「막힌 것」 절). 지도는 네이버로 교체 완료(ADR-008 v4). 조사 원문은 [naver-migration-research.md](naver-migration-research.md).
 > 실행 순서의 `[Claude] self-cr → push` 는 이미 끝났다 — `main` = `origin/main` = `dabb092`)
 > 이전 (v12: "다음 할 일" 을 **실행 순서 블록**(누가 무엇을 치는가)으로 다시 쓰고 끝난 항목은 접었다. 상태 줄·단계 표에 남아 있던
@@ -21,7 +23,7 @@
 > 이전 (v3: 0·1·2·5 에 실제 코드가 생겨 진행 상태를 항목별로 쪼갬. 세션 로그 절 추가)
 > 이전 (v2: 가정 두 개가 확정돼 ADR-015 로 옮김. 회원은 todo 범위 밖으로)
 > 이전 (v1: 신설 — 5단계 파이프라인의 실행 트래커)
-> 상태: **진행 중**. 0·1·2·3·5 는 코드가 있고 4a(빌드가 DB 를 읽음)도 끝났다. 시크릿 모델은 ADR-016(Auth 로그인, v5 = 세션·anon 두 출처)로 **구현 완료** — (c) Actions 폐지가 브랜치 `feature/local-only-pipeline` 에 구현·커밋됐고 (b) 는 원격 적용·실측 완료, 수집·분석·반영은 사용자 터미널에서만 돈다. Vercel 은 연동·env 없이 공개값 둘로만 빌드한다(실측). 남은 것은 **self-cr 반영 → push → 로컬 잠금 3개 → 네이버 키 발급 → 첫 실행(사용자 터미널)**과 4b(웹훅 재빌드), 그리고 (b) 검증의 마지막 한 항목인 **Supabase 어드바이저 대시보드 확인**(CLI 로 못 봐서 사용자 몫)이다. 각 항목의 `[ ]` 를 채워 가며 진행하고, 결정이 확정되면 ADR 로 옮기고 여기서는 링크만 남긴다.
+> 상태: **진행 중**. 0·1·2·3·5 는 코드가 있고 4a 도 끝났다. 시크릿 모델(ADR-016)은 구현·실측 완료로 `main` 에 있다. **지도와 좌표 보강은 네이버로 옮겨 `feature/naver-map` 에 있다(미push).** 남은 것은 **self-cr → push → 로컬 잠금 → 키워드 확정 → 첫 수집·분석 실행(사용자 터미널)** 과 4b(웹훅 재빌드), 그리고 미검증 둘(좌표 포맷 · 오프라인 지도)이다. 각 항목의 `[ ]` 를 채워 가며 진행하고, 결정이 확정되면 ADR 로 옮기고 여기서는 링크만 남긴다.
 
 ## 목표
 
@@ -94,7 +96,7 @@ flowchart LR
         `scripts/lib/readHidden.mjs`(← `loginReadHidden`, 두 소유자라 리네임, 17 테스트). ~~`.github/workflows/collect.yml`~~ 삭제
   - [ ] 실행 — 사용자 터미널에서(`pnpm data:login` → `pnpm data:collect`). 네이버 개발자센터 키 발급 전이라 아직 한 번도 안 돌림
 - **3** 분석·승인
-  - [x] 코드 — `scripts/analyze/{naverPostBody,extractPlaces,kakaoLocal,matchPlace,analyzeCandidates,applyApproved}.mjs`(테스트 포함) ·
+  - [x] 코드 — `scripts/analyze/{naverPostBody,extractPlaces,naverLocal,matchPlace,analyzeCandidates,applyApproved}.mjs`(테스트 포함) ·
         `scripts/analyze-candidates.mjs` · `scripts/apply-approved.mjs`. ~~`collect.yml` 에 analyze→apply step~~ → 사용자가 따로 부른다. Claude 인증은 로컬 `claude` 로그인뿐(자식 env 허용 목록에서 토큰·CI 제거, 2026-09-22 (5))
   - [x] `matchPlace` 본체 — 기본안 구현(🙋 였던 자리. `THRESHOLD`·`WEIGHT` 로 조정). 자동 승인은 `AUTO_APPROVE=false` 로 시작
   - [x] 엔드투엔드 1건 — 실제 후기 링크로 본문 → `claude -p` → 대조까지(DB 쓰기 없이)
@@ -110,55 +112,65 @@ flowchart LR
 
 체크박스가 정본이다. 진행 상황을 다음 세션에 넘길 때는 아래 세션 로그에 한 줄 남긴다.
 
-## 다음 할 일 (2026-09-22 기준 — 새 세션은 여기서 시작)
+## 다음 할 일 (2026-09-23 기준 — 새 세션은 여기서 시작)
 
-브랜치 `feature/local-only-pipeline`(`main` `63abb90` 에서 시작 — (c) 구현 · (b) 마이그레이션 · 문서. **커밋 5개, 아직 push 안 했다**).
-그 앞의 `feature/supabase-login-model` 은 `main` 에 머지됐다. ADR-016 은 구현·**실측 완료** — publishable 키 채움, `operators` = `zgnn@gmail.com`,
-`data:apply --dry-run` 이 세션 없음·비운영자(`zgnn-test@gmail.com`)·운영자에서 세 결과로 갈렸다(2026-09-21), (b) GRANT 축소는 원격 적용·실측 완료(2026-09-22 (6)).
+브랜치 **`feature/naver-map`** (`main` `dabb092` 에서 시작). 지도 교체 · 좌표 보강 네이버 전환 · 문서. **커밋 5개, 아직 push 안 했다.**
+그 앞의 `feature/local-only-pipeline` 은 `main` 에 머지됐다(= ADR-016 구현·실측, (b) GRANT 축소, Actions 폐지까지 전부 `main` 에 있다).
 
-**사용자 결론(2026-09-22): Claude 는 민감정보(DB 접속 정보, 키, 토큰)를 알아선 안 된다.** 이 원칙의 함정은 "값을 숨기면 된다" 가 아니라는 것이다 —
-에이전트가 push 할 수 있으면 빌드·Actions 의 env 는 `console.log(process.env.X)` 한 줄로 읽힌다(접근 경로 = 읽기 경로). 그래서 원칙은 이렇게 구현한다:
+### 이 브랜치에서 끝난 것 (새 세션이 다시 하지 말 것)
 
-> **만료 없는 우회 키·접속 정보를 에이전트가 트리거할 수 있는 실행 경로(로컬 파일 · Vercel 빌드 env · GitHub Actions) 어디에도 두지 않는다.**
-> Claude 가 아는 값은 공개값 둘(`PROJECT_REF`·`PUBLISHABLE_KEY`)과, 손에 넣어도 하루면 죽고 RLS 밖은 못 하는 운영자 세션뿐이다.
+- **지도 = 네이버 NCP Maps v3.** `src/lib/naverMap.ts` · `src/naverMaps.d.ts` · `mapPageCanvas` · `sw.ts` · `places.ts`. Kakao 파일 2개 삭제.
+  **브라우저 실측 완료** — `/map` 렌더·마커·로고·저작권 표시 정상, 서비스워커 캐시 항목 수(타일 23 · 자원 6 · SDK 2)까지 셌다.
+- **좌표 보강 = 네이버 지역 검색.** `scripts/analyze/naverLocal.mjs`(29 테스트). **02 수집과 같은 키**를 쓴다 — 키를 더 발급하지 않아도 된다.
+- 결정은 [ADR-008 v4](../decisions/ADR-008-map-provider.md)(파일명이 `ADR-008-kakao-map.md` → `ADR-008-map-provider.md` 로 바뀌었다). 조사 원문은 [naver-migration-research.md](naver-migration-research.md).
+- 451 테스트 통과 · `pnpm build` 통과 · 번들 유출 검사 통과.
 
-### 🚨 막힌 것 — 네이버 검색 API (2026-09-23 발견, 사용자 확인 필요)
-
-`data:collect`(2) 와 `data:analyze`(3) 의 전제가 둘 다 흔들린다. 지도 전환과는 **무관한** 별개 문제다.
-
-| 언제 | 무엇 |
-|---|---|
-| 2026-07-31 | 네이버 **개발자센터의 검색 API(지역·블로그) 신규 발급 종료.** 신규는 NAVER API HUB(NCP)뿐이고 호스트·경로·인증 헤더가 다르며 **유료 종량제** |
-| 2027-06-30 | 개발자센터 전면 종료. 단 **2026-07-25 이전 발급자는 발급일로부터 1년 유예** |
-| 2026-09-07 | 개정 약관이 검색 결과를 **"입력하거나 학습·개선·평가·노출에 활용하는 행위"** 금지 — 학습뿐 아니라 **외부 AI 에 입력하는 것 자체**가 금지. 복제·저장·캐싱도 함께 금지 |
-
-→ **사용자 확인 1건: 2026-07-25 이전에 검색 API 키를 발급받아 둔 적이 있는가?**
-있으면 유예 기간이라 수집 경로는 살아 있고, 없으면 API HUB(유료)로 다시 설계해야 한다.
-AI 입력 금지 조항은 어느 쪽이든 3단계(`claude -p` 로 본문 분석)에 걸린다.
-(출처 3곳 일치하나 1차 출처 미확인 — developers.naver.com 이 차단돼 있다. 공지 페이지를 한 번 열어 확인해 주면 된다.)
-
-### 실행 순서 — 누가 무엇을 치는가 (이 블록이 정본)
+### 남은 것 — 실행 순서 (이 블록이 정본)
 
 ```
-[사용자]  위 「막힌 것」 확인 — 검색 API 키를 2026-07-25 이전에 받아 뒀는가
-[사용자]  NCP 클라이언트 아이디(ncpKeyId) 전달 + Web 서비스 URL 2개 등록 · Dynamic Map 체크
-[Claude]  지도 실측: /map 렌더 · JEJU_ZOOM 확정 · 타일 캐시 항목 수 · 비행기 모드
+[Claude]  self-cr → push (브랜치 최초 push 라 하드 게이트가 걸린다)
 [사용자]  로컬 잠금 3개: vercel logout · gh auth logout -u hoiya-woohyun · ssh-keygen -p -f ~/.ssh/id_ed25519_hoiya
-[사용자]  네이버 개발자센터에서 검색 API Client ID·Secret 발급(값은 비밀번호 관리자에만)
 [사용자]  검색 키워드 확정(🙋 02) → [Claude] scripts/collect/keywords.json 반영
 [사용자]  pnpm data:login   → 만료 +12시간 확인
 [사용자]  pnpm data:collect → 네이버 키 숨김 입력, blog_posts 채움
-[Claude]  pnpm data:analyze --dry-run --limit 5
-[사용자]  pnpm data:analyze --limit 30   (구독 5시간 한도 때문에 30씩)
+[Claude]  pnpm data:analyze --dry-run --limit 5     ← 좌표 보강의 첫 실측이 여기서 난다(아래 ⚠️)
+[사용자]  pnpm data:analyze --limit 30   (구독 5시간 한도 때문에 30씩. 좌표 보강을 켜려면 네이버 키를 env 로)
 [Claude]  pnpm data:apply --dry-run → [사용자] pnpm data:apply
 [사용자]  Studio 에서 후보 20건쯤 → AUTO_APPROVE·THRESHOLD·WEIGHT 결정(🙋 03)
 [사용자]  Supabase 대시보드 어드바이저 한 번 확인((b) 검증의 마지막 항목)
+[사용자]  배포 뒤 실기기 비행기 모드 — 지도가 오프라인에서 뜨는가(아래 ⚠️)
 [Claude]  4b: Vercel Deploy Hook → Supabase DB 웹훅(🙋 04: 승인마다 재빌드 vs 모아서)
 ```
 
-굳어 있는 순서는 셋뿐이다. **push → 로컬 잠금**(먼저 잠그면 push 가 막힌다 — 로그아웃은 늘 심부름의 끝에), **네이버 키 → `data:collect`**(키 없이는 `blog_posts` 가 안 찬다),
-**`collect` → `analyze` → `apply`**. 어드바이저 확인과 4b 는 그 사이 어디서 해도 된다. `data:collect` 는 에이전트 세션에서 거부되므로(`CLAUDECODE`) **사용자 터미널 몫**이고,
+굳어 있는 순서는 셋뿐이다. **push → 로컬 잠금**(먼저 잠그면 push 가 막힌다 — 로그아웃은 늘 심부름의 끝에),
+**네이버 키 → `data:collect`**(키 없이는 `blog_posts` 가 안 찬다), **`collect` → `analyze` → `apply`**.
+어드바이저 확인과 4b 는 그 사이 어디서 해도 된다. `data:collect` 는 에이전트 세션에서 거부되므로(`CLAUDECODE`) **사용자 터미널 몫**이고,
 `data:analyze`·`data:apply` 는 사용자가 `pnpm data:login` 해 둔 동안 Claude 도 돌릴 수 있다.
+
+### ⚠️ 미검증 둘 — 새 세션이 먼저 확인할 것
+
+1. **좌표 보강의 실제 응답을 아직 한 번도 못 봤다.** `blog_posts` 가 비어 있어 `data:analyze` 를 돌린 적이 없다.
+   코드는 `mapx`/`mapy` 를 **WGS84 × 10^7 정수**로 읽는데, **공식 문서가 스스로 모순된다** — 본문은 "WGS84 좌표계 기준" 이라 하고
+   응답 예제는 옛 KATECH 6자리(`<mapx>311277</mapx>`)를 그대로 두고 있다. 그래서 나눈 값이 제주 범위 밖이면 **버리도록** 해 뒀다.
+   → 첫 실행에서 **"좌표 보강이 전부 null"** 이면 포맷이 우리가 아는 것과 다른 것이다. 그때 실제 응답 한 건의 `mapx`/`mapy` 자릿수를 보고
+   `parseNaverCoord` 를 고치고 `naverLocal.test.mjs` 에 그 값을 못 박는다. 지금 통과하는 테스트는 **가정을 못 박은 것이지 실측이 아니다.**
+2. **오프라인 지도가 뜨는지 모른다.** 네이버 SDK 는 지도를 만들 때 `/v3/auth?…&time=<매번 다름>` 을 런타임에 부르고,
+   `time` 때문에 서비스워커 캐시가 그 요청을 절대 맞출 수 없다. Playwright 의 offline 에뮬레이션은 서비스워커보다 앞단을 막아 검증에 실패했다.
+   정황은 나쁘다 — `/v3/auth` 가 401 일 때 SDK 는 타일을 안 그리고 예외를 던졌다. → **실기기 비행기 모드로 확인**하고,
+   안 뜨면 `sw.ts` 의 타일·자원 규칙을 지우고 `pwa-offline.md`·ADR-008 의 오프라인 절을 "지도는 온라인 전용" 으로 확정한다.
+
+### 🚩 결정은 됐지만 해소되지 않은 것 — 검색 결과 저장
+
+네이버 검색 API 약관도, Kakao 로컬 API FAQ 도 **결과 데이터의 별도 저장·DB화를 금지**한다(NCP Maps 약관 제7조 ⑪ 은 "지도 좌표 데이터" 를 예시로 콕 집는다).
+우리는 지역 검색이 준 좌표·주소를 `places` 에 굽는다. **벤더를 옮겨도 이 자리는 그대로**이고, 2026-09-23 사용자 판단으로 **네이버 기준으로 진행**하기로 했다.
+기록만 남긴다 — 나중에 문제가 되면 선택지는 "사람이 Studio 에서 좌표를 넣는다" 뿐이다.
+
+### 네이버 검색 API 의 시한 — 2027-06-30 (기록)
+
+- 2026-07-31 개발자센터 **신규 발급 종료**(신규는 NAVER API HUB / 유료 종량제).
+- **사용자는 그 전에 발급받아 뒀다**(2026-09-23 확인) → 발급일로부터 1년, 늦어도 **2027-06-30** 까지 지금 경로가 산다.
+- 2026-09-07 개정 약관이 검색 결과를 "입력하거나 학습·개선·평가·노출에 활용하는 행위" 를 금지한다. 3단계(`claude -p` 본문 분석)가 여기 걸리는지는
+  **사용자가 알고 진행하는 것으로 정리됐다**(본문은 블로그 HTML 에서 읽고 검색 API 결과가 아니지만, 링크는 검색 API 가 준다).
 
 ### 접힌 것 — 끝난 항목의 근거만
 
@@ -182,6 +194,16 @@ AI 입력 금지 조항은 어느 쪽이든 3단계(`claude -p` 로 본문 분�
 ## 세션 로그
 
 세션이 끝나거나 컨텍스트가 커져 나눌 때 여기에 한 항목. 체크박스가 정본이고 로그는 인수인계 메모.
+
+- 2026-09-23 — **지도·좌표 보강을 네이버로.** 브랜치 `feature/naver-map`, 커밋 5개(미push).
+  한 것: NCP Maps v3 교체(로더·타입·캔버스·sw·zoom) → **브라우저 실측**(렌더·캐시 항목 수) → `naverLocal.mjs`(29 테스트) → 문서 8개.
+  실측이 문서 조사를 **세 번 뒤집었다**: (1) 타일·자원 호스트가 **페이지 프로토콜에 따라 갈린다**(HTTPS `*.pstatic.net` / HTTP `*.naver.net`) — 한쪽만 적으면 캐시가 조용히 빈다,
+  (2) `navermap_authFailure` 는 401 에서 **안 불리고** SDK 가 `Marker.setMap` 에서 던진다 → try/catch 필수,
+  (3) **포트를 본다**(등록 안 된 포트 → 401) — 7727 고정 유지. 2차 출처들의 "호스트만 본다" 는 틀렸다.
+  약관 1차 출처 확보(Maps 제7조 ⑪): 금지 대상은 "지도 **좌표** 데이터" 이지 타일이 아니다 — 2차 요약들이 타일로 잘못 인용하고 있었다.
+  **하지 말 것**: 워크플로로 웹 조사를 팬아웃하지 말 것(이 세션에서 5 에이전트가 전부 stall, 2.2M 토큰·2.8시간 낭비. 다만 트랜스크립트에서 결과를 건질 수는 있었다).
+  사고 하나: 2일 된 `next dev` 가 7727 을 잡고 있어 한참 dev 서버를 정적 빌드로 착각했다 — 포트 점유를 먼저 볼 것.
+  다음: self-cr → push → 로컬 잠금 → 키워드 확정 → 첫 수집·분석. 미검증 둘은 「다음 할 일」 의 ⚠️ 절.
 
 - 2026-09-22 (6) — **(b) 원격 적용·실측**. 사용자 `supabase login` → dry-run 에 `narrow_grants` 하나 → 사용자 확인 뒤 `db push` 적용 → **원격 적용·실측 완료(2026-09-22 (6))**: anon = places 86·items 15 select 만(blog_posts·candidates·operators select, delete·insert, `rpc is_operator` 전부 42501) · 운영자 세션 = 5 테이블 select(operators 는 자기 행 1) · delete → 42501 · insert 는 grant·정책을 지나 not-null(23502)에서 멈춤 · `data:apply --dry-run` 반영 0건 exit 0 · `CLAUDECODE=1 data:collect` 거부 문구 실측. JWT expiry 3600 실측(로그인 문구의 만료가 +1h) — 실효 30분이라 `data:analyze` 는 `--limit 30` 씩이거나 43200 으로 올린다(→ 같은 날 사용자가 **43200** 으로 올려 닫혔다). 검증용 임시 스크립트는 지웠다(값 없이 코드·행 수만 찍는 것).
 
