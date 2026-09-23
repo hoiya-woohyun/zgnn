@@ -170,9 +170,21 @@ export function MapPageCanvas({
           center: new maps.LatLng(JEJU_CENTER[0], JEJU_CENTER[1]),
           // 컨테이너 폭에서 계산한다 — 모바일 390px 는 9, 데스크톱 830px 는 10 이 된다.
           zoom: jejuZoomFor(containerRef.current.clientWidth),
-          // 로고·저작권 표시는 끄지 않는다 — Maps 서비스 이용약관 제7조 ⑩.
+          /*
+           * 로고·저작권 표시는 끄지 않는다 — Maps 서비스 이용약관 제7조 ⑩.
+           *
+           * **끄지 않는 것만으로는 부족해서 위치도 옮긴다**(self-cr 지적). 기본 앵커가
+           * `BOTTOM_RIGHT` 인데 이 화면은 하단을 전폭으로 덮는 것이 셋이다 — 빈 상태
+           * `EmptyState` 둘(`mapPage.tsx` 의 `inset-x-0 bottom-0 z-[1001]`)과 **바텀시트**.
+           * 시트는 마커를 누르면 열리는 기본 상호작용이고 react-aria 가 `document.body` 로
+           * 포털해 그려서 `z-index`·`overflow` 로는 피할 수 없다. 즉 정상 경로에서 표시가
+           * 사라진다 — 주석이 준수를 주장하는데 화면은 아닌 상태였다.
+           * 우상단은 종류 칩(`top-0`)이 있지만 칩이 셋뿐이라 가로로 비어 있다.
+           */
           logoControl: true,
+          logoControlOptions: { position: maps.Position.TOP_RIGHT },
           mapDataControl: true,
+          mapDataControlOptions: { position: maps.Position.TOP_RIGHT },
         });
         mapRef.current = map;
         setStatus('ready');

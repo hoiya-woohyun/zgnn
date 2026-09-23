@@ -118,7 +118,12 @@ Kakao 는 `dapi.kakao.com` + `*.daumcdn.net` 둘이었다. 네이버는 **호스
 
 `LogoControl` 기본 위치는 **BOTTOM_RIGHT**(Kakao 와 다르다). API 레퍼런스에는 숨김 금지 문구가 없지만, 2차 출처는
 "기본적으로 끌 수 없고, 위치 조정은 되며, **다른 UI 로 가리면 안 된다**" 고 말한다.
-→ `mapPage.tsx` 의 하단 `EmptyState`(z-1001)가 우하단 로고를 가리는지 확인해야 한다.
+→ ~~`mapPage.tsx` 의 하단 `EmptyState`(z-1001)가 우하단 로고를 가리는지 확인해야 한다.~~
+**확인됨 · 닫힘**(2026-09-23, self-cr). 가린다 — 그리고 `EmptyState` 둘보다 **바텀시트**가 더 문제였다.
+시트는 마커를 누르면 열리는 **기본 상호작용**이고, react-aria 가 `document.body` 로 포털해 그려서
+지도 컨테이너 바깥이라 `z-index`·`overflow` 로 피할 수 없다. → 컨트롤을 **`TOP_RIGHT`** 로 옮겨 닫았다
+(`logoControlOptions`·`mapDataControlOptions`, [ADR-008 v6](../decisions/ADR-008-map-provider.md) 「로고·저작권 표시」 절).
+남은 한계: 우상단 칩 컨테이너가 `inset-x-0` 전폭이라 **종류가 늘면 다시 겹칠 수 있다.**
 
 ## 5. 좌표 보강 — 네이버에 Kakao 키워드 검색의 대응물이 없다
 

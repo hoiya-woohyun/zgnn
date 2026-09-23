@@ -23,6 +23,27 @@ declare namespace naver.maps {
     constructor(x: number, y: number);
   }
 
+  /**
+   * 지도 위 컨트롤의 앵커. 로고·저작권 표시는 기본이 `BOTTOM_RIGHT` 인데, 이 앱은
+   * 하단을 바텀시트·EmptyState 가 전폭으로 덮어서 우상단으로 옮긴다(ADR-008 v6).
+   * 값은 SDK 가 런타임에 채우는 enum 이라 여기선 이름만 선언한다.
+   */
+  enum Position {
+    TOP_LEFT,
+    TOP_CENTER,
+    TOP_RIGHT,
+    LEFT_CENTER,
+    CENTER,
+    RIGHT_CENTER,
+    BOTTOM_LEFT,
+    BOTTOM_CENTER,
+    BOTTOM_RIGHT,
+  }
+
+  interface ControlOptions {
+    position?: Position;
+  }
+
   interface MapOptions {
     center: LatLng;
     /**
@@ -37,8 +58,12 @@ declare namespace naver.maps {
     pinchZoom?: boolean;
     /** NAVER 로고. 약관 제7조 ⑩ 이 표시 게재를 요구할 수 있어 끄지 않는다. */
     logoControl?: boolean;
+    /** 로고의 위치. 기본 `BOTTOM_RIGHT` 를 이 앱은 우상단으로 옮긴다 — 아래 mapDataControlOptions 와 같은 이유. */
+    logoControlOptions?: ControlOptions;
     /** 지도 데이터 저작권 표시. 로고와 같은 이유로 끄지 않는다. */
     mapDataControl?: boolean;
+    /** 저작권 표시의 위치. 하단은 바텀시트가 덮으므로 우상단으로 옮긴다(ADR-008 v6). */
+    mapDataControlOptions?: ControlOptions;
     scaleControl?: boolean;
     zoomControl?: boolean;
   }
