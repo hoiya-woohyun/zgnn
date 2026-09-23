@@ -29,7 +29,12 @@ const mediaCache: RuntimeCaching[] = [
   },
   {
     /*
-     * Kakao 지도 타일(mts)과 SDK 가 쓰는 스프라이트·아이콘(t1).
+     * 네이버 지도 타일과 스타일 매니페스트.
+     *
+     * 호스트는 **실측**이다(2026-09-23, 지도 1개 띄울 때 이 호스트로 128 요청):
+     *   타일        https://nrbe.pstatic.net/styles/basic/<버전>/<z>/<x>/<y>@2x.png?mt=…
+     *   스타일 정의  https://nrbe.pstatic.net/styles/basic@2x.json?fmt=png&callback=…  (JSONP)
+     * Kakao 의 `*.daumcdn.net` 자리다.
      *
      * `statuses: [0, 200]` 이 **필수**다. 타일은 SDK 가 만든 `<img>` 가 `crossorigin` 없이
      * 받아 오므로 응답이 opaque(status 0)로 온다. CacheFirst 는 기본으로 200 만 저장해서,
@@ -38,11 +43,10 @@ const mediaCache: RuntimeCaching[] = [
      *
      * maxEntries 가 500 이 아니라 200 인 이유: opaque 응답은 브라우저가 용량을 실제보다
      * 크게 잡아(패딩) 할당량을 먹는다. 너무 많이 쌓으면 프리캐시까지 통째로 밀려날 수 있다.
-     * 200 이면 읍면 한두 곳을 몇 단계 확대로 본 만큼은 남는다.
      */
-    matcher: ({ url }) => url.hostname.endsWith('.daumcdn.net'),
+    matcher: ({ url }) => url.hostname === 'nrbe.pstatic.net',
     handler: new CacheFirst({
-      cacheName: 'kakao-map-tiles',
+      cacheName: 'naver-map-tiles',
       plugins: [
         new CacheableResponsePlugin({ statuses: [0, 200] }),
         new ExpirationPlugin({ maxEntries: 200, maxAgeSeconds: 7 * DAY }),
@@ -51,22 +55,52 @@ const mediaCache: RuntimeCaching[] = [
   },
   {
     /*
-     * Kakao 지도 SDK 스크립트.
+     * SDK 가 쓰는 정적 자원 — 로고·스케일바 이미지와 커서(`openhand.cur`).
+     *
+     * Kakao 때는 타일과 같은 호스트(`*.daumcdn.net`)라 규칙 하나로 덮였는데, 네이버는
+     * 호스트가 갈린다(`ssl.pstatic.net`). 빠뜨리면 오프라인에서 **로고만 안 뜨고**,
+     * 약관 제7조 ⑩ 이 요구하는 표시가 사라진 화면이 된다.
+     */
+    matcher: ({ url }) => url.hostname === 'ssl.pstatic.net',
+    handler: new CacheFirst({
+      cacheName: 'naver-map-assets',
+      plugins: [
+        new CacheableResponsePlugin({ statuses: [0, 200] }),
+        new ExpirationPlugin({ maxEntries: 30, maxAgeSeconds: 30 * DAY }),
+      ],
+    }),
+  },
+  {
+    /*
+     * 네이버 지도 SDK 스크립트.
      *
      * 이 앱에서 유일하게 **런타임에 받아야 하는 외부 코드**다(글꼴·아이콘은 전부 self-host).
-     * 캐시가 없으면 비행기 모드에서 지도 화면이 통째로 빈다 — 타일을 받아 뒀어도 그리는
-     * 코드가 없기 때문이다. 그래서 여기만은 반드시 캐시에 남긴다.
+     *
+     * ⚠️ **오프라인 동작은 아직 검증되지 않았다.** Kakao 와 달리 네이버 SDK 는 지도를 만들 때
+     * `https://oapi.map.naver.com/v3/auth?ncpKeyId=…&url=…&time=<매번 다름>&callback=…` 을
+     * 런타임에 부른다(실측). `time` 이 매번 달라 **URL 을 키로 쓰는 이 캐시가 그 요청은 절대
+     * 맞출 수 없다.** 오프라인에서 그 호출이 실패할 때 SDK 가 지도를 그리는지 아닌지에 따라
+     * 이 규칙 전체의 값어치가 갈린다 — 비행기 모드 실측 전까지 "오프라인에서 지도가 뜬다" 고
+     * 문서에 쓰지 말 것(docs/todo/naver-migration-research.md §3).
      *
      * CacheFirst 가 아니라 StaleWhileRevalidate 인 이유: 이건 우리가 버전을 못 정하는
      * 남의 코드라, 오래된 사본에 못 박히면 SDK 가 바뀔 때 조용히 깨진다.
-     * 온라인이면 뒤에서 새로 받아 두고, 오프라인이면 마지막 사본으로 지도를 띄운다.
+     *
+     * `/v3/auth` 는 여기 걸려도 무해하다 — URL 이 매번 달라 캐시에 적중하지 않고,
+     * maxEntries 가 넘치면 오래된 것부터 밀려난다.
      */
-    matcher: ({ url }) => url.hostname === 'dapi.kakao.com',
+    matcher: ({ url }) => url.hostname === 'oapi.map.naver.com',
     handler: new StaleWhileRevalidate({
-      cacheName: 'kakao-map-sdk',
+      cacheName: 'naver-map-sdk',
       plugins: [new ExpirationPlugin({ maxEntries: 10, maxAgeSeconds: 30 * DAY })],
     }),
   },
+  /*
+   * 일부러 캐시하지 않는 것 — `kr-col-ext.nelo.navercorp.com`(네이버 로그 수집)과
+   * `wcs.naver.net`·`wcs.naver.com`(애널리틱스). SDK 가 띄울 때마다 부르는 추적 요청이라
+   * 우리가 사본을 남길 이유가 없다. 이 앱이 글꼴까지 self-host 해 런타임 외부 요청을 0 으로
+   * 두려던 원칙(ADR-001)에서 네이버가 Kakao 보다 더 멀어지는 자리이기도 하다.
+   */
 ];
 
 const serwist = new Serwist({

@@ -177,7 +177,7 @@ export function MapPage() {
         <div className="relative min-w-0 flex-1">
           {mapEl}
 
-          {/* 지도 위 종류 칩. Kakao 타일·컨트롤보다 위, 시트보다 아래에 온다. 노치 기기에서 상태바에 가리지 않도록 safe-area 만큼 더 내린다. */}
+          {/* 지도 위 종류 칩. 네이버 타일·컨트롤보다 위, 시트보다 아래에 온다. 노치 기기에서 상태바에 가리지 않도록 safe-area 만큼 더 내린다. */}
           <div
             className="pointer-events-none absolute inset-x-0 top-0 z-[1000] space-y-2"
             style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
