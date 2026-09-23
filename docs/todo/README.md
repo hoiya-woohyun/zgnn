@@ -136,7 +136,8 @@ flowchart LR
 - **`main` 머지 · 프로덕션 배포 실측**(2026-09-23 (3)). 빌드 로그: `publishable(anon — published 읽기만)` · `pull 완료: places 86 (published) · items 15` · `번들 유출 검사 통과: 530 파일`.
   프로덕션 `https://zgnn.vercel.app/map` 을 브라우저로 열어 **네트워크까지 확인**: `maps.js` 200 · **`/v3/auth` 200**(= NCP 콘솔의 Web 서비스 URL 에
   `zgnn.vercel.app` 이 살아 있다는 뜻 — 이게 401 이면 지도가 통째로 안 뜬다) · `styles/{basic,terrain,satellite}.json` 200 · 네이버 로고 이미지 200 ·
-  마커 렌더(「81곳 표시 중」) · **콘솔 에러 0**. 지도 청크는 동적 import 라 HTML `<script>` 에 안 잡힌다 — `curl` 로는 검증되지 않는 자리다.
+  마커 렌더(「81곳 표시 중」 — 86 이 아닌 건 **정상**이다. `geo` 가 없는 5곳(요호르기 스테이 · 미트타운 · 개떼목장 · 브릭스제주 · 롯지먼트)이 지도에서 빠진다,
+  → [ARCHITECTURE](../ARCHITECTURE.md) 「좌표는 81곳」) · **콘솔 에러 0**. 지도 청크는 동적 import 라 HTML `<script>` 에 안 잡힌다 — `curl` 로는 검증되지 않는 자리다.
 - `pnpm data:pull` 재실행 → 86·15, `git diff src/data` 빈 결과(커밋된 스냅샷이 DB 와 같다).
 
 ### 남은 것 — 실행 순서 (이 블록이 정본)
