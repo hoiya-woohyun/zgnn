@@ -24,17 +24,31 @@ declare namespace naver.maps {
   }
 
   /**
-   * 지도 위 컨트롤의 앵커. 로고·저작권 표시는 기본이 `BOTTOM_RIGHT` 인데, 이 앱은
-   * 하단을 바텀시트·EmptyState 가 전폭으로 덮어서 우상단으로 옮긴다(ADR-008 v6).
-   * 값은 SDK 가 런타임에 채우는 enum 이라 여기선 이름만 선언한다.
+   * 지도 위 컨트롤의 앵커. 이 앱은 로고·저작권 표시를 우상단으로 옮긴다(ADR-008 v6) —
+   * 하단을 바텀시트가 덮기 때문이다.
+   *
+   * 멤버 이름과 순서는 **2026-09-23 브라우저 실측**이다(`localhost:7727` 정적 빌드에서
+   * `Object.keys(naver.maps.Position)`). 13개이고 `CENTER` 가 0 으로 **맨 앞**이다 —
+   * `TOP_RIGHT` 는 3.
+   *
+   * ⚠️ **`const enum` 으로 바꾸지 말 것.** ambient enum 의 **초기화자 없는** 멤버는
+   * computed 로 취급되어 인라인되지 않고, 번들에 `naver.maps.Position.TOP_RIGHT` 라는
+   * **살아 있는 속성 접근**으로 남는다(번들에서 확인). 그래서 여기 적힌 순서가 틀려도
+   * 런타임은 SDK 의 진짜 값을 읽는다. `const enum` 이거나 멤버에 숫자를 직접 박으면
+   * TS 가 그 숫자를 인라인해 버리고, SDK 값과 다르면 **엉뚱한 위치로 조용히 가거나
+   * 무시된다 — 빌드·타입·테스트가 전부 통과한 채로.** 값을 적지 않는 것이 안전장치다.
    */
   enum Position {
+    CENTER,
     TOP_LEFT,
     TOP_CENTER,
     TOP_RIGHT,
     LEFT_CENTER,
-    CENTER,
+    LEFT_TOP,
+    LEFT_BOTTOM,
+    RIGHT_TOP,
     RIGHT_CENTER,
+    RIGHT_BOTTOM,
     BOTTOM_LEFT,
     BOTTOM_CENTER,
     BOTTOM_RIGHT,

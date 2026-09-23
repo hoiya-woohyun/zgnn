@@ -183,7 +183,14 @@ export function MapPage() {
             style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
           >
             <div
-              className="no-scrollbar pointer-events-auto flex gap-2 overflow-x-auto px-3"
+              /*
+               * `w-fit max-w-full` 이 없으면 이 띠는 전폭 절대배치 부모 안의 블록 요소라
+               * **칩 개수와 무관하게 `width: 100%`** 가 된다. `pointer-events-auto` 가 걸려 있으니
+               * 칩 오른쪽의 빈 구간이 투명한 클릭 차단막이 되어, 우상단으로 옮긴 로고(`<a>`)와
+               * 저작권 컨트롤의 탭을 먹는다(self-cr 지적 — 보이는 픽셀만 비어 있었다).
+               * `pointer-events-auto` 를 버튼으로 내리면 터치 드래그 스크롤이 죽으므로 폭을 줄인다.
+               */
+              className="no-scrollbar pointer-events-auto flex w-fit max-w-full gap-2 overflow-x-auto px-3"
               role="group"
               aria-label="장소 종류"
             >

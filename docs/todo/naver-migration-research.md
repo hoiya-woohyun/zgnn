@@ -119,11 +119,22 @@ Kakao 는 `dapi.kakao.com` + `*.daumcdn.net` 둘이었다. 네이버는 **호스
 `LogoControl` 기본 위치는 **BOTTOM_RIGHT**(Kakao 와 다르다). API 레퍼런스에는 숨김 금지 문구가 없지만, 2차 출처는
 "기본적으로 끌 수 없고, 위치 조정은 되며, **다른 UI 로 가리면 안 된다**" 고 말한다.
 → ~~`mapPage.tsx` 의 하단 `EmptyState`(z-1001)가 우하단 로고를 가리는지 확인해야 한다.~~
-**확인됨 · 닫힘**(2026-09-23, self-cr). 가린다 — 그리고 `EmptyState` 둘보다 **바텀시트**가 더 문제였다.
-시트는 마커를 누르면 열리는 **기본 상호작용**이고, react-aria 가 `document.body` 로 포털해 그려서
-지도 컨테이너 바깥이라 `z-index`·`overflow` 로 피할 수 없다. → 컨트롤을 **`TOP_RIGHT`** 로 옮겨 닫았다
-(`logoControlOptions`·`mapDataControlOptions`, [ADR-008 v6](../decisions/ADR-008-map-provider.md) 「로고·저작권 표시」 절).
-남은 한계: 우상단 칩 컨테이너가 `inset-x-0` 전폭이라 **종류가 늘면 다시 겹칠 수 있다.**
+**확인됨 · 닫힘 — 코드 + 화면 실측 둘 다**(2026-09-23, self-cr).
+
+가린다. 그리고 `EmptyState` 둘보다 **바텀시트**가 더 문제였다 — 마커를 누르면 열리는 **기본 상호작용**이고,
+react-aria 가 `document.body` 로 포털해 그려서 지도 컨테이너 바깥이라 `z-index`·`overflow` 로 피할 수 없다.
+→ 컨트롤을 **`TOP_RIGHT`** 로 옮겼다(`logoControlOptions`·`mapDataControlOptions`).
+
+**옮긴 것이 먹혔는지도 쟀다**(이 문서가 세운 기준대로 — 코드만 보고 닫지 않는다).
+`localhost:7727` 정적 빌드: `naver.maps.Position` 실재(13 멤버, `TOP_RIGHT === 3`), 로고·저작권 **둘 다 우상단**,
+데스크톱 겹침 0, 모바일(390px)에서 저작권과 칩 띠가 세로로 **4px** 겹치고 로고는 어느 폭에서도 안 겹친다.
+노치 기기는 safe-area 만큼 칩이 내려가 그 4px 도 사라진다. 상세는 [ADR-008 v6](../decisions/ADR-008-map-provider.md) 「로고·저작권 표시」 절.
+
+덤으로 하나 더 나왔다: 칩 띠가 `pointer-events-auto` 인 채 **전폭**이라(칩 개수와 무관) 우상단 로고의 탭을 먹고 있었다
+— `w-fit max-w-full` 로 좁혔다. **보이는 픽셀이 비어 있다고 클릭 레이어도 비어 있는 게 아니다.**
+
+여전히 안 읽은 것: 제7조 ⑦ 이 가리키는 별도 「Maps 사용 가이드」 원문(겹침을 네이버가 어느 수준으로 문제 삼는지).
+`MapDataControl` 의 **기본** 위치도 출처가 없다 — 옮긴 뒤만 쟀다.
 
 ## 5. 좌표 보강 — 네이버에 Kakao 키워드 검색의 대응물이 없다
 
