@@ -31,10 +31,10 @@ src/app/place/[id]/page.tsx   ─ 서버: generateStaticParams(86개) · generat
 - `src/screens/` 라는 이름은 Next 가 `src/pages/` 를 Pages Router 로 오인하기 때문이다.
 - `/places/[type]` 은 종류 3개, `/place/[id]` 는 장소 86개를 빌드 때 전부 만들고, 그 밖의 주소는 404(`dynamicParams = false`).
   없는 id 에 빈 화면 대신 404 를 내기 위해서다.
-- `/map` 은 Kakao 지도 SDK 를 `document.head` 에 스크립트로 붙여 받는다 — 서버에는 그 DOM 이 없어
+- `/map` 은 네이버 지도 SDK 를 `document.head` 에 스크립트로 붙여 받는다 — 서버에는 그 DOM 이 없어
   `src/app/map/mapRouteClient.tsx` 가 `dynamic(..., { ssr: false })` 로 감싼다.
   화면 본체(`mapPage`)는 무엇을 보여줄지만 정하고, 지도와 마커는 `mapPageCanvas` 가 SDK 를 명령형으로 다룬다
-  (→ [ADR-008](../decisions/ADR-008-kakao-map.md)).
+  (→ [ADR-008](../decisions/ADR-008-map-provider.md)).
 
 ## 화면 셸 (`src/components/layout/`)
 

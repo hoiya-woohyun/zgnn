@@ -62,7 +62,7 @@
 
 - [x] Kakao Developers → 플랫폼 → Web 에 **Vercel 도메인(`*.vercel.app` 과 커스텀 도메인)을 등록**한다.
       → `https://zgnn.vercel.app/map` 에서 SDK·타일이 200, 콘솔 오류 0 으로 확인(2026-09-21).
-      안 하면 JS 키가 맞아도 지도 자리가 빈다(→ [ADR-008](../decisions/ADR-008-kakao-map.md), CLAUDE.md "조용히 깨지는 것").
+      안 하면 JS 키가 맞아도 지도 자리가 빈다(→ [ADR-008](../decisions/ADR-008-map-provider.md), CLAUDE.md "조용히 깨지는 것").
       프리뷰 URL 은 배포마다 바뀌므로 와일드카드가 안 되면 프리뷰에서는 지도가 안 뜨는 걸 감수한다.
 - [x] 지도 키는 `NEXT_PUBLIC_KAKAO_MAP_KEY`(`src/lib/kakaoMap.ts`, 문서 초안의 `_JS_KEY` 는 오기)이고 코드에 공개 기본값이 있어
       Vercel env 에 넣지 않아도 뜬다. 공개 전제의 키 — 도메인 제한이 방어선.

@@ -75,6 +75,22 @@ type TMarkerEntry = {
   listener: naver.maps.MapEventListener;
 };
 
+/**
+ * 마커를 지도에서 떼고 리스너를 푼다. 여러 번 불러도 안전하다.
+ *
+ * 두 effect 가 모두 이걸 부르는 이유는 **정리 순서** 때문이다. React 는 cleanup 을 effect
+ * 선언 순서로 돌리므로 언마운트에서 지도 effect 의 `map.destroy()` 가 마커 effect 의 정리보다
+ * **먼저** 간다. 파괴된 지도의 마커를 그 뒤에 건드리지 않도록, 지도를 파괴하기 전에 여기서 비운다.
+ */
+function clearMarkers(markers: Map<string, TMarkerEntry>) {
+  const maps = window.naver?.maps;
+  for (const entry of markers.values()) {
+    if (maps) maps.Event.removeListener(entry.listener);
+    entry.marker.setMap(null);
+  }
+  markers.clear();
+}
+
 type TMapPageCanvasProps = {
   /** 좌표가 있는 장소들. 필터가 끝난 뒤의 목록이다. */
   places: TPlaceEntry[];
@@ -105,6 +121,8 @@ export function MapPageCanvas({
   useEffect(() => {
     let cancelled = false;
     let settle = 0;
+    // cleanup 에서 ref 를 다시 읽지 않도록 지금 붙잡아 둔다(useRef 가 만든 Map 은 재할당되지 않는다).
+    const markers = markersRef.current;
 
     /*
      * 인증 실패는 스크립트 load 보다 **늦게** 온다 — SDK 가 지도를 만들며 `/v3/auth` 를 부르고
@@ -145,6 +163,8 @@ export function MapPageCanvas({
       cancelled = true;
       unsubscribe();
       window.clearTimeout(settle);
+      // 지도를 파괴하기 전에 마커부터 비운다 — 이 cleanup 이 마커 effect 의 것보다 먼저 돈다.
+      clearMarkers(markers);
       // 이벤트와 DOM 을 함께 걷어낸다 — Kakao 에는 없던 정리다.
       mapRef.current?.destroy();
       mapRef.current = null;
@@ -158,11 +178,7 @@ export function MapPageCanvas({
     if (status !== 'ready' || !map || !maps) return;
 
     const markers = markersRef.current;
-    for (const entry of markers.values()) {
-      maps.Event.removeListener(entry.listener);
-      entry.marker.setMap(null);
-    }
-    markers.clear();
+    clearMarkers(markers);
 
     for (const place of places) {
       if (!place.geo) continue;
@@ -183,13 +199,7 @@ export function MapPageCanvas({
       markers.set(place.id, { marker, type: place.type, listener });
     }
 
-    return () => {
-      for (const entry of markers.values()) {
-        maps.Event.removeListener(entry.listener);
-        entry.marker.setMap(null);
-      }
-      markers.clear();
-    };
+    return () => clearMarkers(markers);
     // selectedId 는 일부러 뺀다 — 선택만 바뀔 때 마커를 다시 만들지 않고 아래 effect 가 핀만 바꾼다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [places, eligibilityMap, onSelect, status]);

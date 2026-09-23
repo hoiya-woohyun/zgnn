@@ -18,6 +18,7 @@ Tailwind v4 + Untitled UI · zustand persist · leaflet. 데이터는 빌드 시
 | 뒤로가기가 안 보임·새 화면 추가 | [docs/decisions/ADR-007-shell-owned-back-navigation.md](docs/decisions/ADR-007-shell-owned-back-navigation.md) · `src/lib/appRoutes.ts` |
 | 노치·상태바 밑으로 내용이 들어감 | [docs/decisions/ADR-010-shell-owned-safe-area.md](docs/decisions/ADR-010-shell-owned-safe-area.md) · `src/components/layout/appShell.tsx` |
 | 데이터 갱신·정규화 | [docs/architecture/data-pipeline.md](docs/architecture/data-pipeline.md) · `scripts/normalize.mjs` |
+| 지도(네이버 NCP Maps v3)·마커·오프라인 | [docs/decisions/ADR-008-map-provider.md](docs/decisions/ADR-008-map-provider.md) · `src/lib/naverMap.ts` · `src/screens/mapPageCanvas.tsx` |
 | 색·토큰·팔레트 | [docs/decisions/ADR-003-untitled-ui-and-palette.md](docs/decisions/ADR-003-untitled-ui-and-palette.md) · `src/styles/theme.css` |
 | 크기 스케일·반응형·글꼴 | [docs/decisions/ADR-006-responsive-scale-and-font.md](docs/decisions/ADR-006-responsive-scale-and-font.md) · `src/styles/globals.css` |
 | 회원·로그인·개인정보를 붙이려 함 | [docs/decisions/ADR-011-app-gate-and-supabase.md](docs/decisions/ADR-011-app-gate-and-supabase.md) · [ADR-012](docs/decisions/ADR-012-personal-data-and-consent.md) — **둘 다 제안 단계라 코드에 대응물이 없다** |
@@ -42,13 +43,15 @@ Tailwind v4 + Untitled UI · zustand persist · leaflet. 데이터는 빌드 시
 - **`pnpm build` 의 `--webpack` 은 필수.** `@serwist/next` 가 webpack 플러그인이라, 빼면
   빌드는 통과하지만 `sw.js` 가 안 만들어져 PWA 가 조용히 사라진다. `dev` 의 `--turbopack`
   명시도 필수(webpack 설정만 있으면 Next 16 이 빌드를 멈춘다).
-- **Kakao 지도는 출처(origin)를 콘솔에 등록해야 뜬다.** JS 키가 맞아도 Kakao Developers →
-  플랫폼 → Web 에 주소가 없으면 인증 오류만 내고 지도 자리가 빈다. 코드를 아무리 봐도
-  원인이 안 보이는 종류의 고장이다(→ [ADR-008](docs/decisions/ADR-008-kakao-map.md)).
-- **Kakao 의 확대 수준(`level`)은 leaflet 의 `zoom` 과 방향이 반대다** — 작을수록 확대(1~14).
-  숫자를 옮겨 쓸 수 없고, 부호를 뒤집어도 빌드·테스트는 통과한다. 지금 쓰는 값은
-  `src/lib/places.ts` 의 `JEJU_LEVEL` 하나뿐이고, 시야를 코드로 옮기는 기능을 다시 넣는다면
-  [ADR-008](docs/decisions/ADR-008-kakao-map.md) 의 `setBounds` 함정을 먼저 읽을 것.
+- **네이버 지도는 출처(origin)를 NCP 콘솔에 등록해야 뜬다.** 클라이언트 아이디가 맞아도
+  Application → Maps → **Web 서비스 URL** 에 주소가 없으면 인증이 거부되고, 콘솔에서
+  **Dynamic Map 이 체크돼 있지 않으면** 429(Quota Exceed)가 난다. Kakao 와 달리 실패를
+  `window.navermap_authFailure` 로 알려 주므로 화면은 빈 지도 대신 안내를 그린다
+  (→ [ADR-008](docs/decisions/ADR-008-map-provider.md)).
+- **확대 수준의 방향은 두 번 뒤집혔다** — leaflet `zoom`(클수록 확대) → Kakao `level`(작을수록)
+  → 네이버 `zoom`(**다시 클수록 확대**, 기본 11). 벤더를 옮길 때 숫자를 물려받을 수 없고,
+  부호를 뒤집어도 빌드·테스트는 통과한다 — 화면에서만 드러난다. 지금 쓰는 값은
+  `src/lib/places.ts` 의 `JEJU_ZOOM` 하나뿐이다(→ [ADR-008](docs/decisions/ADR-008-map-provider.md)).
 - **`additionalPrecacheEntries` 는 `globPublicPatterns` 를 대체한다** — 더해지지 않는다.
   그래서 아이콘을 `next.config.mjs` 에 손으로 나열한다. 지우면 아이콘이 프리캐시에서 빠진다.
 - **이동가방·케이지·유모차는 준비물 표(`ITEM_NEEDS`)에 넣지 않는다.** 판정(`eligibility.ts` H4·H5·C2·C3)이

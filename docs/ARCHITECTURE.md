@@ -15,6 +15,7 @@
 >
 > 최종 수정: 2026-09-16 (v4: 저장 탭 → 설정 탭(`/settings` 루트, `/saved`·`/dog` 는 그 안). 프로필이 마리별 이름(`dogs[]`)을 갖고, 요금 문구(`lib/dogFee.ts`)·한국어 호칭(`lib/korean.ts`)이 순수 함수로 분리됐다)
 >
+> 최종 수정: 2026-09-23 (v5: 지도를 Kakao 에서 네이버(NCP Maps v3)로 교체(ADR-008 v4))
 > 최종 수정: 2026-09-17 (v4: 지도를 leaflet 에서 Kakao 지도 SDK 로 교체(ADR-008))
 >
 > 최종 수정: 2026-09-16 (v3: 뒤로가기를 셸이 자동으로 붙인다(ADR-007, `lib/appRoutes.ts`). 둘러보기 조건은 모바일에서 바텀시트로 접힌다)
@@ -41,7 +42,7 @@
 | 프레임워크 | Next.js 16 App Router, **정적 내보내기**(`output: 'export'`, 서버 없음) |
 | 스타일 | Tailwind CSS v4 + Untitled UI(소스 복사 방식, `src/components/base/`) |
 | 상태 | zustand + persist(localStorage). 서버 상태 없음 |
-| 지도 | Kakao 지도 JavaScript SDK (스크립트 로드, npm 패키지 아님) |
+| 지도 | 네이버 지도 JavaScript API v3 / NCP Maps (스크립트 로드, npm 패키지 아님) |
 | PWA | `@serwist/next` (webpack 플러그인 — 빌드만 webpack, dev 는 Turbopack) |
 | 데이터 | 빌드 시점 JSON (`src/data/*.json`), Notion 에서 스크립트로 추출 |
 | 테스트 | vitest — `src/lib/*.test.ts` 10개 스위트 133케이스(파서·판정·요금·호칭·프로필 변환·정렬·필터·히스토리·라우트·숙소 피커) |
@@ -179,7 +180,7 @@ data/                         # Notion 추출본(커밋) · raw/(무시)
 | [ADR-005](./decisions/ADR-005-dog-profile-eligibility.md) | 강아지 프로필 기반 판정을 v1 의 중심으로 (채택) |
 | [ADR-006](./decisions/ADR-006-responsive-scale-and-font.md) | 화면이 커지면 크기도 커진다 — `--spacing` 한 축 + 나눔스퀘어 네오 self-host (채택) |
 | [ADR-007](./decisions/ADR-007-shell-owned-back-navigation.md) | 뒤로가기는 화면이 아니라 셸이 붙인다 — 메인 탭 5개만 루트 (채택) |
-| [ADR-008](./decisions/ADR-008-kakao-map.md) | 지도를 Kakao 지도 SDK 로, 마커는 표준 핀으로 (채택) |
+| [ADR-008](./decisions/ADR-008-map-provider.md) | 지도 제공자: 네이버(NCP Maps v3), 마커는 표준 핀으로 (채택 · v4 에서 Kakao 결정을 번복) |
 | [ADR-009](./decisions/ADR-009-trip-derived-checklist.md) | 준비물을 목록이 아니라 여행의 파생값으로 (채택) |
 | [ADR-010](./decisions/ADR-010-shell-owned-safe-area.md) | 상태바 인셋도 화면이 아니라 셸이 처리한다 — 여백은 셸이, 맨 위 면은 전 화면 크림 (채택) |
 | [ADR-011](./decisions/ADR-011-app-gate-and-supabase.md) | 앱 전체를 잠그되 정적 내보내기는 버리지 않는다 — 데이터를 번들 밖 Supabase 로 (**제안**) |

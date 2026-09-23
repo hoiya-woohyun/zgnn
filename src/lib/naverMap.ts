@@ -85,6 +85,22 @@ function notifyAuthFailure() {
  * 그 거부를 받아 "지도는 인터넷이 필요해요" 안내를 대신 그린다.
  */
 export function loadNaverMaps(): Promise<typeof naver.maps> {
+  /*
+   * 인증이 한 번 거부됐으면 다시 시도하지 않고 바로 거부한다.
+   *
+   * 이 줄이 없으면 이렇게 깨진다 — 실패 뒤 `/map` 을 다시 열면 구독자가 **동기로** 불려
+   * 화면이 'error' 가 되는데, 스크립트 자체는 이미 로드돼 있어서(거부된 건 인증뿐이다)
+   * 아래 `window.naver?.maps?.Map` 분기가 resolve 해 버린다. 그 then 이 마이크로태스크에서
+   * 'ready' 로 덮어써, 타일이 안 깔린 빈 지도가 폴백 없이 남는다.
+   *
+   * `authFailed` 는 일부러 sticky 다. 이걸 되돌리게 바꾼다면 아래 이른 resolve 분기가
+   * `window.navermap_authFailure` 를 다시 걸지 않는다는 점도 함께 손봐야 한다.
+   */
+  if (authFailed) {
+    return Promise.reject(
+      new Error('네이버 지도 인증에 실패했어요 — 클라이언트 아이디와 등록된 웹 서비스 URL 을 확인해 주세요.'),
+    );
+  }
   if (pending) return pending;
 
   pending = new Promise<typeof naver.maps>((resolve, reject) => {
