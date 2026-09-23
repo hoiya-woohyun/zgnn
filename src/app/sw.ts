@@ -103,6 +103,12 @@ const mediaCache: RuntimeCaching[] = [
      * 그래서 `/map` 을 반복해 열면 auth 가 쌓여 **이 앱의 유일한 외부 코드 사본을 축출**하고,
      * 다음 오프라인 진입에서 타일이 있어도 지도가 통째로 빈다.
      * 경로가 정확히 갈린다 — SDK 는 `/openapi/v3/maps.js`(+ 서브모듈), auth 는 `/v3/auth`.
+     *
+     * 주의: 좁힌다고 `/v3/auth` 가 **캐시에서 사라지는 것은 아니다.** 우리 규칙에서 빠질 뿐이고,
+     * `defaultCache` 맨 끝의 cross-origin catch-all(`NetworkFirst`·32칸·1시간)이 받는다.
+     * 무해한 이유는 따로다 — `time` 과 `callback` 카운터 때문에 URL 이 사실상 반복되지 않아
+     * 적중이 없고, 설령 충돌해도 1시간 이내의 유효한 인증 응답이라 네트워크에서 받았을 것과 같다.
+     * 우리가 얻는 것은 **`maps.js` 가 auth 와 상한을 나눠 쓰지 않게 되는 것** 하나다.
      */
     matcher: ({ url }) =>
       url.hostname === 'oapi.map.naver.com' && url.pathname.startsWith('/openapi/'),
@@ -112,10 +118,17 @@ const mediaCache: RuntimeCaching[] = [
     }),
   },
   /*
-   * 일부러 캐시하지 않는 것 — `kr-col-ext.nelo.navercorp.com`(네이버 로그 수집)과
+   * **우리 규칙을 일부러 안 붙인 것** — `kr-col-ext.nelo.navercorp.com`(네이버 로그 수집)과
    * `wcs.naver.net`·`wcs.naver.com`(애널리틱스). SDK 가 띄울 때마다 부르는 추적 요청이라
-   * 우리가 사본을 남길 이유가 없다. 이 앱이 글꼴까지 self-host 해 런타임 외부 요청을 0 으로
-   * 두려던 원칙(ADR-001)에서 네이버가 Kakao 보다 더 멀어지는 자리이기도 하다.
+   * 우리가 따로 사본 전략을 둘 이유가 없다.
+   *
+   * ⚠️ "캐시하지 않는다" 가 아니다(예전 주석이 그렇게 적었는데 틀렸다). 규칙을 안 붙이면
+   * `defaultCache` 의 cross-origin catch-all(`NetworkFirst`·32칸·1시간)이 받는다. 추적 비컨은
+   * `/v3/auth` 와 달리 **URL 이 반복될 수 있어 적중도 난다** — 기능상 무해하지만 사본은 남는다.
+   * 진짜로 안 남기려면 이 호스트들에 `NetworkOnly` 규칙을 명시해야 한다(지금은 안 한다).
+   *
+   * 이 앱이 글꼴까지 self-host 해 런타임 외부 요청을 0 으로 두려던 원칙(ADR-001)에서
+   * 네이버가 Kakao 보다 더 멀어지는 자리이기도 하다.
    */
 ];
 

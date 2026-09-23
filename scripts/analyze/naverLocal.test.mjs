@@ -131,6 +131,27 @@ describe('pickNaverPlace', () => {
     expect(pickNaverPlace([item({ mapx: 'abc', mapy: 'def' })], { name: '솔숲펜션' }, unparsable)).toBeNull();
     expect(unparsable.coordUnparsable).toBe(1);
     expect(unparsable.coordOutOfJeju).toBe(0);
+
+    // 제주 밖 주소는 좌표를 보기도 전에 떨어진다 — 사유 5개 중 이것만 안 덮여 있었다.
+    const notJeju = newPickReasons();
+    const busan = item({ address: '부산 해운대구 우동 123', roadAddress: '부산 해운대구 해운대로 1' });
+    expect(pickNaverPlace([busan], { name: '솔숲펜션' }, notJeju)).toBeNull();
+    expect(notJeju.notJejuAddress).toBe(1);
+    expect(notJeju.coordUnparsable).toBe(0);
+    expect(notJeju.coordOutOfJeju).toBe(0);
+    expect(notJeju.nameMismatch).toBe(0);
+  });
+
+  it('이름만 안 맞아 0건이면 sample 이 null — ⚠️ 좌표 포맷 경고가 안 뜨는 것이 의도다', () => {
+    /*
+     * `analyze-candidates.mjs` 의 ⚠️ 표본 출력은 `picked === 0 && r.sample` 로 게이트된다.
+     * 좌표는 멀쩡한데 이름만 안 맞아 0건인 경우까지 "포맷이 틀렸다" 는 경고를 띄우면
+     * 첫 실행의 진단이 거꾸로 흐린다. sample 은 **좌표 때문에 떨어졌을 때만** 채워진다.
+     */
+    const nameOnly = newPickReasons();
+    expect(pickNaverPlace([item({ title: '<b>협재고기부엌</b>' })], { name: '고기부엌' }, nameOnly)).toBeNull();
+    expect(nameOnly.nameMismatch).toBe(1);
+    expect(nameOnly.sample).toBeNull();
   });
 
   it('reasons 를 안 넘겨도 동작한다 — 계수는 선택이다', () => {

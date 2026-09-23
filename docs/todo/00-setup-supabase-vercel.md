@@ -87,7 +87,12 @@ GitHub 에 남을 시크릿은 없다.
       하루 25,000회. 개인 프로젝트에 충분하다. **값은 비밀번호 관리자에만** — `pnpm data:collect` 가 env(`NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`)로 받고,
       없으면 터미널에서 숨김 입력으로 받는다. 레포·키체인·파일 어디에도 저장하지 않으며, 에이전트 세션(`CLAUDECODE`)에서는 입력 자체를 거부한다.
 - [x] **좌표 보강 키는 따로 없다** — 3 단계의 좌표 보강이 02 수집과 **같은 네이버 검색 키**(`NAVER_CLIENT_ID`/`SECRET`)를 쓴다(ADR-008 v4).
-      `NAVER_CLIENT_ID=… NAVER_CLIENT_SECRET=… pnpm data:analyze` 로 그 셸에서만. 없으면 보강을 건너뛴다.
+      보강을 켜려면 그 셸에만 값을 두고 `pnpm data:analyze` 를 부른다. 없으면 보강을 건너뛴다(에러 아님).
+
+      ⚠️ **인라인 env(`NAVER_CLIENT_SECRET=… pnpm data:analyze`)로 적지 말 것** — 그 줄이 통째로 `~/.zsh_history` 에 남는다.
+      이 레포의 모델은 "값을 어디에도 저장하지 않는다" 인데(ADR-016) 셸 히스토리가 그 예외가 된다. 둘 중 하나로:
+      `export` 한 뒤 부르고 끝나면 `unset` 하거나, 앞에 **공백 한 칸**을 두어 히스토리에서 빼는 것(zsh 는
+      `setopt histignorespace` 가 켜져 있어야 동작한다 — `setopt | grep histignorespace` 로 확인).
 - ~~**Anthropic API 키**~~ — 없다. Claude 는 구독의 `claude -p` 로 부르고(2026-09-21 결정, 03), 인증은 이 머신의 `claude` 로그인뿐이다.
 
 ## 끝났다고 볼 조건
