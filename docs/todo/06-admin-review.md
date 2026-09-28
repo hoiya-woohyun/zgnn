@@ -1,6 +1,9 @@
 # 6. 운영자 검수 화면 — 앱 안 `/admin` 에서 후보를 보고 바로 올린다
 
-> 최종 수정: 2026-09-29 (v1: 계획을 문서로 옮겼다 — 세션이 한도로 끊겨도 다음 세션이 여기서 이어가게.
+> 최종 수정: 2026-09-29 (v2: 1단계를 `ff62eba` 로 커밋하고, 재개 지점을 못 박았다 — 세션 한도(03:50 리셋)로 두 번 끊겼다.
+> **파일 단위 상세 계획·시그니처는 `.omc/plans/2026-09-29-admin-review/admin-plan.md`**(결정은 `admin-brief.md`, file:line 근거는 `admin-map.md`) —
+> 이 문서는 "무엇을 왜" 이고 저기가 "어떻게" 다. 레포에 담지 않은 이유: 구현이 끝나면 버릴 작업 지시서라서다(`.omc` 는 gitignore))
+> 이전 (v1: 계획을 문서로 옮겼다 — 세션이 한도로 끊겨도 다음 세션이 여기서 이어가게.
 > 조사(에이전트 6개)와 설계는 끝났고, 1단계(스크립트 정리)는 **코드가 이미 들어가 있다**. 남은 것은 2~4단계다)
 
 `pnpm data:review`(CLI 검수 창, 2026-09-28)와 Studio 를 대신할 **화면**을 앱 안에 만든다.
@@ -32,7 +35,7 @@
 ## 단계와 상태
 
 ```
-[Claude]  ✅ 1. 스크립트 정리 + 빌드 게이트     — 코드 완료(2026-09-29 00:1x~00:4x). 검증 통과분은 아래 「검증」
+[Claude]  ✅ 1. 스크립트 정리 + 빌드 게이트     — `ff62eba` 커밋(2026-09-29 01:05). 검증은 아래 「검증」
 [Claude]     2. 브라우저 데이터 계층(src/lib/admin*)
 [Claude]     3. 화면(/admin, src/screens/adminPage*) + 서비스워커 규칙
 [Claude]     4. 문서 — ADR-018 신설 · ADR-015/016 vN · architecture 3편 · ARCHITECTURE · features/admin-review.md · 03 · 05 · README
@@ -87,8 +90,12 @@ DB 에 `published` 장소가 생겨도 **정적 사이트는 다시 빌드돼야
 
 ## 검증
 
-1단계 실측(2026-09-29): `pnpm test` **606 통과** · `node --check` 전부 · `placeFields.mjs`·`supabasePublic.mjs` 가 node 모듈 없이 로드 ·
-`supabaseClient.mjs` 가 네 이름을 그대로 재export.
+1단계 실측(2026-09-29 01:0x): `pnpm test` **609 통과**(32파일) · `node --check` 전부 · 순수 lib 6개가 node 모듈 없이 로드 ·
+`supabaseClient.mjs` 가 네 이름을 그대로 재export · **`pnpm data:pull` = places 86 · items 15, `git diff src/data` 빈 결과**.
+
+마지막 줄이 중요하다. 재export 를 더하면서 옛 상수 선언을 안 지워 `Identifier already declared` 가 된 적이 있는데,
+**vitest 는 초록이었고 `node --check` 도 통과했다** — 모듈을 실제로 로드해야만 드러난다. 그 상태로 커밋하면
+Vercel 빌드의 첫 단계(`pnpm data:pull`)가 죽는다. 그래서 검증에 "Node 가 읽는가" 와 "pull 이 도는가" 를 넣어 뒀다.
 
 3단계 뒤 돌릴 것: `pnpm exec tsc --noEmit` · `pnpm lint` · `pnpm test` · **`pnpm build`**(좁힌 유출 검사가 통과해야 한다 —
 실패하면 어떤 파일의 어떤 문자열인지 보고, `@supabase/supabase-js` 내부 리터럴이면 그 문자열만 허용 목록에 넣고 주석) ·
