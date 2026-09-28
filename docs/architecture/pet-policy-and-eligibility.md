@@ -1,6 +1,9 @@
 # 반려동물 이용 조건 파서와 "우리 강아지 갈 수 있나" 판정
 
-> 최종 수정: 2026-09-16 (v6: 리뷰 P1 — 형제 줄에 마릿수·무게 조건이 남아 있으면 곱하지 않는 가드(캄 사례)와 구간 합산의 `maxDogs` 가드. 입력 표를 `dogs[]` 로)
+> 최종 수정: 2026-09-28 (v7: **블로그 경로 대응**([ADR-017](../decisions/ADR-017-ai-structured-pet-policy.md)·[BUG-008](../bugs/BUG-008-empty-pet-policy-judged-ok.md)) — 빈 원문은 `noInfo`(코드가 이 표를 따르게 됐다) ·
+> "동반 안 됨" 문장은 `notAllowed` → 판정 H0(hard) · AI 구조화 판단(`TPlace.petPolicy`)이 있으면 `withPolicyFacts` 가 파서 결과를 덮는다 · 블로그 구어체 어휘(야외 좌석만 · 테라스만 · 켄넬/이동장 챙기기 · 목줄/하네스) 추가)
+>
+> v6: 리뷰 P1 — 형제 줄에 마릿수·무게 조건이 남아 있으면 곱하지 않는 가드(캄 사례)와 구간 합산의 `maxDogs` 가드. 입력 표를 `dogs[]` 로)
 >
 > v5: 요금 문구가 마릿수 합산 규칙을 갖는 `formatDogFee`(`dogFee.ts`)로 옮겨 갔고, 이름 붙는 문장은 `korean.ts` 의 조사·애칭 헬퍼를 쓴다. 프로필은 마리별 이름(`dogs[]`)을 갖는다 — ADR-005 v3)
 >
@@ -42,7 +45,8 @@ flowchart LR
 | `maxDogs?` | 마릿수 상한. "견수 제한 없음" 처럼 숫자가 없으면 비움 | 비움 — 숫자를 지어내지 않는다 |
 | `leash` · `callFirst` | 리드줄 필수 / 사전 전화 | false |
 | `feeFree` · `feeText?` | 추가 요금 없음 / 요금 원문(= `feeLines[0]`) | |
-| `noInfo` | 원문이 비었거나 "정보 없음" | |
+| `noInfo` | 원문이 비었거나 "정보 없음" — 빈 원문은 2026-09-28 부터 실제로 여기 걸린다(BUG-008 전에는 문자열만 봤다) | |
+| `notAllowed` | "애견동반은 안됩니다" 처럼 주어(애견·반려견·강아지…)+동반/출입/입장 뒤에 불가·안 됨·금지. 견종 뒤의 '불가'(대형견 불가)는 아니다 | 배지 '동반 불가' |
 | `tiers` | 계단식 무게·마릿수 조건. `{ maxWeightKg?, weightInclusive?, maxDogs?, source }[]`. 웨스티하우스 → `[{10,미만,2},{20,미만,1}]`. `weightLimitKg`/`maxDogs` 는 여기서 최댓값을 뽑아 파생(화면·필터 호환) | `[]` |
 | `outdoorFree` | "실외는 자유", "실내외 모두 가능" 이거나 `indoor==='outdoorOnly'` — 야외 이용이 열려 있음 | `false` |
 | `unlimitedDogs` | "견수 제한 없음" 처럼 숫자 없이 마릿수 무제한. `maxDogs` 가 비어 있어도 필터가 "2마리 이상" 으로 잡을 수 있게 한다(백화stay) | `false` |
@@ -87,6 +91,7 @@ flowchart LR
 
 | # | 조건 | 레벨 | 문구 |
 |---|---|---|---|
+| H0 | `notAllowed` | hard | "반려견 동반이 안 된다고 적혀 있어요" — 강아지 조건과 무관 |
 | H1 | `tiers` 중 무게 조건이 있는 칸이 있는데, 최댓값 몸무게가 그 어느 칸에도 못 들어감 | hard | "{N}kg {미만/이하}만 가능해요" |
 | H2 | 무게로 들어가는 칸은 있지만(칸이 여럿이면 마릿수 상한이 가장 큰 칸 기준) 그 칸의 마릿수 상한보다 마릿수가 많음 | hard | "{N}kg {미만/이하}은 {M}마리까지예요" |
 | H3 | `smallDogOnly` · size ≠ small | hard | "소형견만 가능해요" |
@@ -99,7 +104,7 @@ flowchart LR
 | C4 | `indoor==='cage'` · carrier==='none' · outdoorFree | needsIndoor ? hard : cond | "실내는 케이지, 야외는 자유예요" |
 | C5 | size==='large' · !largeDogOk · `tiers` 없음 · H4 미해당 | cond | "대형견 언급이 없어요 — 확인해 주세요" |
 | C6 | `callFirst` | cond | "방문 전 전화 확인이 필요해요" |
-| U1 | `noInfo` | unknown | "이용 조건이 적혀 있지 않아요" |
+| U1 | `noInfo` (빈 원문 포함) | unknown | "이용 조건이 적혀 있지 않아요" |
 | U1 보강 | `noInfo` · `largeDogOk` (맘앤도그처럼 "정보 없음" 이라 적고도 힌트가 붙은 경우) | info | "원문에 대형견도 가능하다는 문구가 있어요" — 레벨은 그대로 unknown, 힌트만 얹는다 |
 | I1 | `formatDogFee(policy, dog)` 결과(아래 §요금) | info | "악동이는 3만원" · "악동이와 두부는 2.5만원 (1~5kg 1만원 · 6~10kg 1.5만원)" — 이름까지 붙은 완성 문장 |
 
@@ -152,6 +157,15 @@ carrier 에 따라 H5/C2/C3/C4 는 배타적이다(정확히 한 갈래만 걸�
 - 홈: 종류별 "갈 수 있는 곳" 개수(`src/screens/homePage.tsx`).
 - 지도: 마커 색과 시트 라벨이 판정 레벨을 따른다(`src/screens/mapPage.tsx`, `mapPageSheet.tsx`).
 - 프로필이 없으면 필터만 있는 화면으로 폴백하고, 홈에 "우리 강아지 등록하기" 진입(`/dog`).
+
+## 4. AI 구조화 판단 — `withPolicyFacts` (블로그 경로, ADR-017)
+
+블로그에서 온 장소는 `TPlace.petPolicy`(`TPetPolicyFacts`, DB `places.pet_policy`)에 AI 가 원문을 읽고 판단한 값이 있다 — 실내 정책 · 리드줄 · 대형견 · 소형견만 ·
+전화 확인 · 추가 요금 · 무게 상한 · 마릿수 · 비고. `src/lib/places.ts` 가 `withPolicyFacts(parsePetPolicy(text), petPolicy, text)` 로 파서 결과 위에 덮는다:
+`unknown`/`null` 은 "언급 없음" 이라 파서 값을 남기고, 값이 있으면 그 필드만 바꾼다. 무게·마릿수는 파서가 `tiers` 를 못 만들었을 때 한 칸짜리 `tiers` 로도 넣어
+H1·H2 가 같은 숫자를 본다. 시드 86곳은 `petPolicy` 가 없어 이 함수를 그대로 통과한다 — 정규식이 시드의 유일한 경로이고, 블로그 경로의 안전망이다.
+왜 정규식만으로 안 됐나 — 첫 `data:analyze`(2026-09-28)의 조건 문장 32건 중 20건을 어떤 규칙도 못 읽었다. 구어체는 끝이 없어 판단을 모델에 맡기고,
+사람 검수(`pnpm data:review`)가 `정규식 [..] · AI [..] · 앱 [..]` 을 나란히 보며 어긋남을 잡는다.
 
 ## 관련 파일
 

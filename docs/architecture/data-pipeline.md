@@ -1,6 +1,11 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-09-28 (v9: **좌표 보강에 두 번째 축(주소 → 좌표, NCP Geocoding)이 생겼다** — 이름 축이 못 붙인 후보에만 붙고
+> 최종 수정: 2026-09-28 (v10: **첫 `data:analyze` 실측(글 50건 → 후보 160건)과 설계 검토를 반영** — 이용 조건의 구조화를 AI 가 뽑을 때 판단한다
+> ([ADR-017](../decisions/ADR-017-ai-structured-pet-policy.md), `petPolicy`·`places.pet_policy`) · 추출 필드에 `visited`(목록 글 표식)·`petAllowed`(동반 불가면 후보 제외)·숙소 요금/용품 ·
+> 글 단위 결과가 `blog_posts.analysis` 에 남는다(후보 0건의 이유·프롬프트 버전) · 같은 가게의 후보는 `nameKey`/`dupOf` 로 묶인다 · 한 실행에 블로그당 2건(`--max-per-blog`) ·
+> `--dump` 로 후보를 로컬 JSON 으로 · **검수 창 `pnpm data:review`**(묶음 · 정규식/AI/앱 판정 미리보기 · 승인/반려) · 반영 게이트(지역 없으면 pending 되돌림 · ask 구간 재대조는 사람에게) ·
+> 마이그레이션 `20260928150000`. 빈 이용 조건이 '갈 수 있어요' 로 판정되던 [BUG-008](../bugs/BUG-008-empty-pet-policy-judged-ok.md) 고침)
+> 이전 (v9: **좌표 보강에 두 번째 축(주소 → 좌표, NCP Geocoding)이 생겼다** — 이름 축이 못 붙인 후보에만 붙고
 > 키가 다르다(Maps Application). 「왜 그 5곳인가」 의 선택지 목록에 이 축을 더했지만 **그 5곳에는 닿지 않는다**(후기가 수집 창 밖이다))
 > 이전 (v8: **좌표 미확보 5곳의 이유를 실측해 적었다** — 데이터가 아니라 네이버 쪽에 그 플레이스 엔트리가 없다.
 > 스크레이퍼를 다시 돌려도, `data:analyze` 의 좌표 보강으로도 채워지지 않는다는 것까지 근거와 함께 남겼다)
@@ -99,7 +104,7 @@ Postgres 테이블엔 원래 순서 개념이 없는데, 화면은 "종류별 �
 `scripts/lib/placeFields.mjs` 의 `parseRegion`·`parsePrice` 이고, 두 입구(Notion 재시드 / Supabase pull) 가
 공유한다.
 
-## 수집 · 분석 · 승인 (코드 완료, 실행 전)
+## 수집 · 분석 · 승인 (첫 실행 2026-09-28 — 글 50건 → 후보 160건, 네이버 키 없이)
 
 **사용자 터미널에서** `pnpm data:collect` → `pnpm data:analyze` → (Studio 에서 승인) → `pnpm data:apply` 를 순서대로 돌린다 — 스케줄·CI 없음
 (ADR-016 v5, GitHub Actions 폐지). 셋 다 운영자 세션(`pnpm data:login`)이 필요하고, `data:collect` 는 네이버 검색 키까지 필요하다 — env
@@ -114,11 +119,24 @@ flowchart LR
   B -->|claude -p --json-schema<br/>구독, API 키 없음| E[장소 0~N개<br/>petPolicyText 는 원문 그대로]
   E -->|네이버 지역 검색: 이름 완전 일치만| G[좌표·주소·regionRaw]
   G -->|matchPlace vs places<br/>archived 빼고 draft 포함| C[(candidates<br/>pending · tier auto/ask/new)]
-  C -->|사람: Studio 에서 링크·evidence 확인| A{approved?}
+  C -->|사람: pnpm data:review 또는 Studio<br/>묶음 · 정규식/AI/앱 판정 미리보기| A{approved?}
   A -->|approved| PL[(places<br/>빈 칸만 채움 · 신규는 draft)]
   A -->|rejected| X[끝]
   PL -.->|published 는 사람이 올림| PULL[data:pull → 재빌드]
 ```
+
+첫 실행에서 배운 것 넷(2026-09-28, 설계 검토 45건 중 검증 31건 반영):
+
+- **이용 조건의 구조화는 AI 가 뽑을 때 판단한다**([ADR-017](../decisions/ADR-017-ai-structured-pet-policy.md)). 원문(`petPolicyText`)은 그대로 두고 `petPolicy`(실내·리드줄·무게·마릿수·요금…)를
+  함께 뽑아 `places.pet_policy` 에 저장한다. 앱은 있으면 정규식 결과를 덮는다(`withPolicyFacts`). 정규식은 시드·안전망. 블로그 구어체 32건 중 20건을 정규식이 못 읽은 것이 계기다.
+- **후보 0건의 "왜" 가 `blog_posts.analysis` 에 남는다** — `{ model, promptVersion, candidates, candidateNames, excluded:[{name,type,reason}], skip }`. 제외 이유는 셋:
+  `notJeju` · `other`(관광지·운동장 — 이름은 남는다) · `notAllowed`(본문이 동반 불가라고 함, [BUG-008](../bugs/BUG-008-empty-pet-policy-judged-ok.md)). 본문 인용은 넣지 않는다.
+  프롬프트를 고치면 `PROMPT_VERSION`(스키마+프롬프트의 sha256 앞 8자)이 바뀌고, `analysis->>'promptVersion'` 이 다른 글만 골라 재분석할 수 있다.
+- **같은 가게가 여러 글에서 나온다** — 첫 실행에서 한 펜션(자사 홍보 블로그, 저수지의 12%)이 13건, 목록 글 하나가 101건. 그래서 한 실행에 블로그당 2건(`--max-per-blog`, 넘친 글은 닫지 않고 뒤로 밀린다),
+  `extracted.nameKey`(`normalizeName`)와 `dupOf`(먼저 난 pending 후보 id)로 묶고, `visited: false`(이름만 나열된 목록 글)를 표식으로 남긴다. 후보는 그래도 넣는다 — evidence 가 다른 글이다.
+- **검수는 `pnpm data:review`** — pending 을 같은 가게로 묶어 검수 순서(`reviewPriority`, 🙋 사용자가 다듬는 자리)대로 보여 주고, 후보마다 `정규식 [..] · AI [..] · 앱 [..]` 과 표식
+  (`조건문 없음` · `정규식 못읽음` · `AI≠정규식` · `지역 없음` · `좌표 없음` · `목록글` · `중복표시`)을 찍는다. `approve <id…>`·`reject <id…> --note` 로 결정을 넣고, `status` 가 published 대기 draft 와 빈 칸을 센다.
+  원문·evidence 는 `--verbose`/`--md` 에서만(05 의 로그 위생). Studio 는 그대로 쓸 수 있다.
 
 세 가지가 비직관적이다.
 
@@ -137,7 +155,10 @@ flowchart LR
 | `pending` | `data:analyze` 가 만든다 | 사람이 볼 차례. `extracted.match.tier` 가 `auto`(≥0.85 — 기존 장소와 사실상 같음) · `ask`(0.4~0.85 — `match_place_id` 는 제안) · `new`(신규) |
 | `approved` | 사람(Studio). `AUTO_APPROVE=true` 면 `auto` 는 자동 | `data:apply` 가 반영한다. `ask` 인데 신규가 맞으면 **`match_place_id` 를 비우고** 승인 |
 | `rejected` | 사람 | 끝. `reviewer_note` 에 이유 |
-| `merged` | `data:apply` | `places` 에 반영됐다(보강 또는 draft 신규 + `place_sources` 링크) |
+| `merged` | `data:apply` | `places` 에 반영됐다(보강 또는 draft 신규 + `place_sources` 링크). `extracted.applied = { placeId, kind, patchKeys, at }` 로 어느 칸을 채웠는지 남는다(되돌릴 때 그 칸을 null 로) |
+
+`data:apply` 가 **반영하지 않고 pending 으로 되돌리는** 경우(사유는 `reviewer_note`): `regionRaw` 가 없거나 형식이 아님 · 신규 후보가 현재 장소와 ask 구간(0.4~0.85)으로 닮음(같은 곳이면
+`match_place_id` 를 채우고, 다른 곳이면 `extracted.match.tier` 를 `ask` 로 바꿔 재승인) · 대상이 archived · type other. 신규 숙소는 `stayPriceText`·`stayAmenitiesText` 가 `stay_*` 로 들어간다.
 
 `places.status` 는 별개다: 신규는 `draft` 로 들어오고 **`published` 로 올리는 건 사람**이다 — `data:pull` 은 `published` 만 가져온다.
 
@@ -155,7 +176,7 @@ flowchart LR
 ## 관련 파일
 
 - `scripts/lib/placeFields.mjs` — 두 입구가 공유하는 변환 함수. `fromPlaceRow`(DB 행 → `TPlace`)는 `pull-db.mjs`·`analyze-candidates.mjs`·`apply-approved.mjs` 가 같이 쓴다
-- 수집·분석·승인: `scripts/collect-blog.mjs`(`data:collect`) · `scripts/analyze-candidates.mjs`(`data:analyze`) · `scripts/apply-approved.mjs`(`data:apply`) —
+- 수집·분석·검수·승인: `scripts/collect-blog.mjs`(`data:collect`) · `scripts/analyze-candidates.mjs`(`data:analyze`) · `scripts/review-candidates.mjs`(`data:review`, 앱 파서를 `--experimental-strip-types` 로 읽는다) · `scripts/apply-approved.mjs`(`data:apply`) —
   순수 함수는 `scripts/collect/*`·`scripts/analyze/*`(각각 `*.test.mjs`). 스케줄은 없다 — 사용자 터미널에서 돌린다(ADR-016 v5)
 - 인증·입력: `scripts/lib/supabaseClient.mjs`(출처 선택), `scripts/login.mjs`(`pnpm data:login`), `scripts/lib/readHidden.mjs`(비밀번호·네이버 키 숨김 입력, 두 소유자)
 - `scripts/pull-db.mjs`(`pnpm data:pull`), `scripts/seed-db.mjs`(`pnpm data:seed`, 1회용이지만 재현성 때문에 레포에 둔다)

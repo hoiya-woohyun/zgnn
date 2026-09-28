@@ -1,6 +1,11 @@
 # 3. AI 분석 → 사람이 링크 확인 → 승인
 
-> 최종 수정: 2026-09-28 (v9: **셀프 리뷰 반영** — 되울림 검사가 **도로명 안의 숫자**에 걸려 도로 중심점을 통과시켰다(`김녕로2길 2` 를 물으면
+> 최종 수정: 2026-09-28 (v10: **첫 실행 실측 + 설계 검토 반영.** 사용자가 키 없이 돌린 첫 `data:analyze`(글 50건 → 후보 160건, 14:16~14:31)를 읽어 보니 — 좌표 보강 0건 ·
+> 목록 글 하나가 101건 · 자사 홍보 블로그의 같은 펜션 13건 · 조건 문장 있는 32건 중 정규식이 20건을 못 읽음 · "애견동반 안됩니다" 카페가 후보 · 빈 조건이 '갈 수 있어요'(BUG-008).
+> 그래서 [ADR-017](../decisions/ADR-017-ai-structured-pet-policy.md): 구조화는 AI(`petPolicy`), 정규식은 시드·안전망. 추출 필드 `visited`·`petAllowed`·`stayPriceText`·`stayAmenitiesText`,
+> `blog_posts.analysis`, `nameKey`/`dupOf`, `--max-per-blog 2`, `--dump`, **`pnpm data:review`**, 반영 게이트(지역 필수 · ask 재대조는 사람에게), 마이그레이션 `20260928150000`.
+> 워크플로 검토 45건 중 검증 31건 반영, 14건은 검증자 한도 실패로 미검증(RP-1·RP-2·RP-3·RP-4·FF-8·FF-10·NQ-1·NQ-2·NQ-10·NQ-12 는 실측과 겹쳐 함께 반영, FF-9·FF-11·FF-12·NQ-11 은 보류))
+> 이전 (v9: **셀프 리뷰 반영** — 되울림 검사가 **도로명 안의 숫자**에 걸려 도로 중심점을 통과시켰다(`김녕로2길 2` 를 물으면
 > `김녕로2길` 이 "2" 를 담고 있다). 제주 도로명은 숫자가 박힌 것이 흔해(실측 표 5행 중 3행) 드문 경우가 아니었고,
 > `addressElements` 가 안 읽히는 분기에서는 그게 유일한 방어라 **두 겹이 0 겹이 됐다.** 이제 **번호 토큰 자체**를 대조한다.
 > 함께: 쉼표 토큰화("관덕로 8, 2층" 의 번호를 못 찾았다 — 본문 주소의 표준 표기다) · 숫자 행정동(오라2동) · 모호성을 **쌍마다**(별 모양이면 지름 180m 통과) ·
@@ -199,7 +204,8 @@ flowchart LR
 
 | 단계 | 도구 | 만들 것 |
 |---|---|---|
-| **지금** | Supabase Studio 표 편집기 | 없음. `candidates` 를 열어 `post_url` 클릭 → `extracted.evidence` 와 대조 → `status` 바꾸고 `reviewer_note`. **`ask` 후보가 신규가 맞다면 `match_place_id` 를 비운 뒤 approved 로** — `data:apply` 는 `match_place_id` 가 있으면 그것을 믿고 병합한다. |
+| **지금** | **`pnpm data:review`**(2026-09-28) | `list`(기본) — pending 을 같은 가게로 묶어 검수 순서대로: `■ 이름 [종류 · 구간 · AI 0.93 · 글 2] 지역 좌표 ⚠표식` / `id …` / `조건: 정규식 [..] · AI [..] · 앱 [..] ⚠ AI≠정규식`. `--verbose` 로 원문·evidence, `--md 경로` 로 파일. `approve <id앞자리…> [--merge-into <placeId>] [--note]` · `approve --tier auto` · `reject <id…> --note "이유"`. `status` — 후보·글·장소 수와 **published 대기 draft 의 빈 칸**. 검수 순서는 `reviewCandidates.mjs` 의 `reviewPriority`(🙋 사용자가 다듬는 자리). |
+| 그대로 | Supabase Studio 표 편집기 | `candidates` 를 열어 `post_url` 클릭 → `extracted.evidence` 와 대조 → `status` 바꾸고 `reviewer_note`. **`ask` 후보가 신규가 맞다면 `match_place_id` 를 비운 뒤 approved 로** — `data:apply` 는 `match_place_id` 가 있으면 그것을 믿고 병합한다. `extracted` 의 `petPolicyText`·`regionRaw`·`petPolicy` 는 승인 전에 손으로 고쳐도 된다. |
 | 다음 | 앱 안 `/admin` (정적 라우트 + 클라이언트 Supabase auth + RLS) | 후보 카드·링크·근거 문장·"승인/거절" 버튼. **이때 처음으로 앱 번들에 Supabase 가 들어간다** → 05 의 anon key 항목이 살아난다 |
 
 Studio 로 먼저 몇 주 돌려 보고 **어떤 정보가 화면에 있어야 결정이 빨라지는지** 안 다음에 화면을 만든다.

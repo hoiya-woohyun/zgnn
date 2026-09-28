@@ -197,7 +197,13 @@ flowchart LR
 [사용자]  ✅ 검색 키워드 확정 — `keywords.json` 의 6개를 그대로 쓴다(2026-09-28). 코드 변경 없음, 🙋 02 닫힘
 [사용자]  pnpm data:login   → 만료 +12시간 확인
 [사용자]  ✅ pnpm data:collect → blog_posts **3,360건**(2026-09-28, 365일 창 · 키워드 6개 · 중복 제거 후)
-[사용자]  NAVER_CLIENT_ID=… NAVER_CLIENT_SECRET=… NAVER_MAP_CLIENT_ID=… NAVER_MAP_CLIENT_SECRET=… pnpm data:analyze --dry-run --limit 5   ← **다음 차례. Claude 몫이 아니다**
+[사용자]  ✅ 첫 pnpm data:analyze — **키 없이** 50건(2026-09-28 14:16~14:31) → pending 160건. 좌표 보강 0건이라 ⚠️1·⚠️3 은 그대로 미검증. 옛 프롬프트라 petPolicy·visited 없음(03 v10)
+[사용자]  **마이그레이션 적용** — supabase/migrations/20260928150000_analysis_and_pet_policy.sql 을 Studio SQL 편집기에 붙여 넣거나 `supabase db push`
+          (blog_posts.analysis · places.pet_policy · candidates.reviewed_at 트리거). **안 하면 data:analyze 가 시작에서 멈춘다**(의도 — Claude 한도를 쓰기 전에).
+[사용자]  pnpm data:review status → pnpm data:review --limit 20 (--verbose) — 옛 160건을 본다. "AI 판단 없음"·"좌표 없음" 이 정상(옛 프롬프트·키 없음).
+          쓸모없는 묶음(목록글 101건 · 홍보 블로그 13건)은 `reject <id…> --note`, 확실한 것만 `approve`. 나머지는 두어도 된다 — 새 실행이 dupOf 로 묶는다.
+[사용자]  NAVER_CLIENT_ID=… NAVER_CLIENT_SECRET=… NAVER_MAP_CLIENT_ID=… NAVER_MAP_CLIENT_SECRET=… pnpm data:analyze --limit 5 --dump   ← **다음 차례. Claude 몫이 아니다**
+          `--dump` 가 data/raw/analyze-<시각>.json 에 후보(petPolicy 판단 포함)·제외 목록을 남긴다 — 정규화 품질은 그 파일과 `data:review` 로 본다. dry-run 대신 실제 실행을 권한다(5건이면 되돌리기 쉽고 analysis 도 실측된다).
           ⚠️ **키가 두 쌍이다**(2026-09-28): 앞의 둘은 **검색**(API HUB · 이름 축), 뒤의 둘은 **Maps**(Geocoding · 주소 축)다. 값이 서로 다르고 헤더 이름은 같아
           섞으면 그냥 401 이다. Maps Application 에 **Geocoding 체크**가 필요하다. 뒤 둘이 없으면 주소 축만 꺼지고 실행은 정상이다(⚠️3 이 미검증으로 남는다).
           왜 Claude 가 아닌가: 좌표 보강은 **env 에 키 둘이 다 있을 때만** 켜지고, 분석은 일부러 숨김 입력을 받지 않는다(글마다 몇 분씩 도는 일이라
@@ -205,13 +211,13 @@ flowchart LR
           **⚠️1 이 또 미검증으로 남은 채 구독 한도만 쓴다**(2026-09-28 정정 — v16 까지 이 줄은 [Claude] 였다).
           읽을 것 셋: (1) 요약의 좌표 보강 줄 → ⚠️1 판정(아래) (2) 전 건이 "분석 불가" 면 글이 아니라 **본문 스크레이퍼**다(그 경우 스크립트가 스스로 exit 1)
           (3) 글당 후보 수 = 아래 `ANALYZE_MODEL` 결정의 입력
-[사용자]  pnpm data:analyze --limit 30 (키를 env 로 — 좌표 보강이 꺼진 실행은 이름·종류로만 대조된다)
+[사용자]  pnpm data:analyze --limit 30 --dump (키를 env 로 — 좌표 보강이 꺼진 실행은 이름·종류로만 대조된다). 블로그당 2건 상한이 기본(--max-per-blog)
           **3,360 은 작업 큐가 아니라 저수지다.** 분석은 `posted_at` 내림차순으로 가져가므로 `--limit 30` 을 반복하면 최신 글부터 시간을 거슬러 걷는다 —
           112번을 계획하지 말고 **30건 배치가 신규 장소를 더 못 만들기 시작하는 곳에서 멈춘다**(86곳 + 제주의 유한한 동반 가능 가게 = 포화가 먼저 온다).
           쪼개는 이유는 세션 창(11.5시간)이 아니라 **구독 5시간 한도**이고, 그 한도는 이 대화와 공유된다.
           🙋 `ANALYZE_MODEL`(기본 `claude-opus-5` vs `claude-haiku-4-5`)은 **첫 5건 출력 품질을 보고** 정한다 — 지금 추측하지 않는다(03 의 🙋 모델)
-[Claude]  pnpm data:apply --dry-run → [사용자] pnpm data:apply
-[사용자]  Studio 에서 후보 20건쯤 → AUTO_APPROVE·THRESHOLD·WEIGHT 결정(🙋 03)
+[사용자]  pnpm data:review → approve/reject → [Claude] pnpm data:apply --dry-run → [사용자] pnpm data:apply → pnpm data:review status (published 대기 draft) → Studio 에서 published
+[사용자]  후보 20건쯤 검수한 뒤 → AUTO_APPROVE·THRESHOLD·WEIGHT · reviewPriority(검수 순서) 결정(🙋 03)
 [사용자]  Supabase 대시보드 어드바이저 한 번 확인((b) 검증의 마지막 항목)
 [사용자]  4b: Vercel Deploy Hook 발급 → Supabase Studio 의 Database Webhook 에 그 URL.
           **대시보드 둘 다 브라우저 작업이라 CLI 로그인이 필요 없다.** Claude 몫이 아닌 이유는 권한이 아니라
