@@ -23,6 +23,23 @@ export type TStayInfo = {
   amenitiesText: string;
 };
 
+/**
+ * AI(data:analyze)가 petPolicyText 를 읽고 판단한 구조화 값. 블로그 경로에만 있고 시드 86곳엔 없다(DB null → JSON 에 키 없음).
+ * 앱은 이것이 있으면 정규식 파서(parsePetPolicy)의 같은 필드를 이 값으로 덮는다(withPolicyFacts). null 은 "언급 없음" 이다.
+ */
+export type TPetPolicyFacts = {
+  indoor: 'free' | 'cage' | 'outdoorOnly' | 'unknown';
+  leash: boolean;
+  largeDogOk: boolean | null;
+  smallDogOnly: boolean;
+  callFirst: boolean;
+  feeFree: boolean | null;
+  feeText: string | null;
+  weightLimitKg: number | null;
+  maxDogs: number | null;
+  notes: string | null;
+};
+
 export type TPlace = {
   id: string;
   type: TPlaceType;
@@ -30,6 +47,8 @@ export type TPlace = {
   region: TRegion;
   features: string;
   petPolicyText: string;
+  /** AI 가 판단한 구조화 조건(블로그 경로만). 원문은 petPolicyText 에 그대로 있다. */
+  petPolicy?: TPetPolicyFacts;
   reviewUrl?: string;
   naverUrl?: string;
   naverPlaceId?: string;

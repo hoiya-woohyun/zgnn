@@ -46,7 +46,8 @@ export function PlaceCard({ place }: TPlaceCardProps) {
           </div>
         </div>
 
-        {place.stay && (
+        {/* 블로그에서 들어온 신규 숙소는 요금 원문이 비어 있을 수 있다 — 빈 굵은 줄을 그리지 않는다. */}
+        {place.stay && place.stay.price.text !== '' && (
           // brand-700 은 CTA 색이라 26개 숙소 가격이 전부 그 색이면 "눌러야 할 것"과
           // "읽을 것"이 섞인다(2026-09-15 디자인 리뷰 ①) — 본문 색 + bold 로 내린다.
           <p className="mt-3 text-sm font-bold text-primary">{formatStayPrice(place.stay.price)}</p>

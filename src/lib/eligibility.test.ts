@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { compareEligibility, dogSize, judgeEligibility } from './eligibility';
+import { parsePetPolicy } from './petPolicy';
 import { PLACES } from './places';
 import type { TDogProfile } from '../types';
 
@@ -159,5 +160,19 @@ describe('집계 — 보리+콩(28kg+17kg·이동 수단 없음) 실사 비교',
     expect(counts.hard).toBeLessThanOrEqual(42 + 5);
     expect(counts.unknown).toBeGreaterThanOrEqual(5 - 5);
     expect(counts.unknown).toBeLessThanOrEqual(5 + 5);
+  });
+});
+
+describe('judgeEligibility — 블로그에서 온 신규 장소(BUG-008)', () => {
+  it("이용 조건이 비어 있으면 'unknown' — '갈 수 있어요' 가 아니다", () => {
+    const result = judgeEligibility(TOFU, parsePetPolicy(''));
+    expect(result.level).toBe('unknown');
+    expect(result.reasons[0].text).toBe('이용 조건이 적혀 있지 않아요');
+  });
+
+  it("'애견동반은 안됩니다' 는 강아지 조건과 무관하게 'hard'", () => {
+    const result = judgeEligibility(TOFU, parsePetPolicy('풍차해안도로와 가깝지만 애견동반은 아쉽게도 안됩니다'));
+    expect(result.level).toBe('hard');
+    expect(result.reasons[0].text).toBe('반려견 동반이 안 된다고 적혀 있어요');
   });
 });

@@ -10,6 +10,8 @@
  * 그대로 함께 보여준다. 파서가 놓친 조건이 있어도 사용자가 원문에서 확인할 수 있어야 한다.
  */
 
+import type { TPetPolicyFacts } from '../types';
+
 export type TIndoorPolicy =
   /** 실내 자유 */
   | 'free'
@@ -47,6 +49,8 @@ export type TPetPolicy = {
   feeFree: boolean;
   feeText?: string;
   noInfo: boolean;
+  /** '애견동반 안됩니다' 처럼 원문이 동반 자체를 막는다고 적혀 있음. 판정은 강아지 조건과 무관하게 어려움(H0) */
+  notAllowed: boolean;
   /** 계단식 무게·마릿수 조건. 웨스티하우스 → [{10,미만,2},{20,미만,1}] */
   tiers: TPolicyTier[];
   /** '실외는 자유', '실내외 모두 가능' 처럼 야외 이용이 열려 있음. indoor==='outdoorOnly' 도 포함 */
@@ -58,7 +62,7 @@ export type TPetPolicy = {
   /** 규칙별 근거 문장(원문 그대로). reasons.quote 의 재료 */
   sources: Partial<
     Record<
-      'indoor' | 'largeDogOk' | 'mediumDogOk' | 'smallDogOnly' | 'callFirst' | 'leash' | 'feeFree' | 'noInfo',
+      'indoor' | 'largeDogOk' | 'mediumDogOk' | 'smallDogOnly' | 'callFirst' | 'leash' | 'feeFree' | 'noInfo' | 'notAllowed',
       string
     >
   >;
@@ -72,11 +76,28 @@ export type TPetPolicy = {
 const INDOOR_RULES: { indoor: Exclude<TIndoorPolicy, 'unknown'>; patterns: RegExp[] }[] = [
   {
     indoor: 'outdoorOnly',
-    patterns: [/실내\s*불가/, /야외\s*테이블만/, /바깥[^.\n]*자리만/, /운동장\s*입장만/, /야외석만/],
+    patterns: [
+      /실내\s*불가/,
+      /야외\s*테이블만/,
+      /바깥[^.\n]*자리만/,
+      /운동장\s*입장만/,
+      /야외석만/,
+      // 블로그 구어체(2026-09-28 첫 data:analyze 실측): "애견동반은 야외좌석만 가능해요" · "테라스만 가능" · "실내는 안 돼요"
+      /야외\s*(좌석|자리|테라스)\s*(에서)?만/,
+      /테라스(석|\s*자리)?\s*(에서)?만/,
+      /실내[^.\n]{0,8}(안\s*돼|안\s*됩|안\s*된|금지)/,
+    ],
   },
   {
     indoor: 'cage',
-    patterns: [/케이지\s*동반/, /케이지\s*필수/, /이동\s*가방\s*(필요|필수)/, /유모차/],
+    patterns: [
+      /케이지\s*동반/,
+      /케이지\s*필수/,
+      /이동\s*가방\s*(필요|필수)/,
+      /유모차/,
+      // "이동가방(켄넬)이나 유모차를 지참" · "케이지나 전용 가방을 챙겨가야" · "켄넬이나 이동가방이 있으면 이용 가능"
+      /(케이지|켄넬|이동장|크레이트|이동\s*가방|캐리어)[^.\n]{0,14}(필수|필요|지참|챙겨|있으면|있어야)/,
+    ],
   },
   {
     indoor: 'free',
@@ -90,13 +111,20 @@ const INDOOR_RULES: { indoor: Exclude<TIndoorPolicy, 'unknown'>; patterns: RegEx
  */
 const NOT_DENIED = String.raw`(?![^.\n]{0,16}불가)`;
 
+/**
+ * 동반 자체가 안 된다는 문장. "애견동반은 아쉽게도 안됩니다" — 블로그에서 뽑은 문장(data:analyze)에 실제로 들어왔다(2026-09-28).
+ * 주어(애견·반려견·강아지…)와 '동반/출입/입장' 이 붙어 있을 때만 잡는다 — '대형견 불가' 같은 크기 조건은 NOT_DENIED 가 따로 다룬다.
+ */
+const NOT_ALLOWED_PATTERNS = [/(애견|반려견|반려\s*동물|강아지|댕댕이|펫)\s*(동반|출입|입장)[^.\n]{0,12}(불가|안\s*됩|안\s*돼|안\s*된|금지|어렵)/];
+
 /** 참/거짓 하나로 떨어지는 조건들. */
 const FLAG_RULES: {
   key: keyof TPetPolicy &
-    ('leash' | 'largeDogOk' | 'mediumDogOk' | 'smallDogOnly' | 'callFirst' | 'feeFree' | 'noInfo');
+    ('leash' | 'largeDogOk' | 'mediumDogOk' | 'smallDogOnly' | 'callFirst' | 'feeFree' | 'noInfo' | 'notAllowed');
   patterns: RegExp[];
 }[] = [
-  { key: 'leash', patterns: [/리드줄/] },
+  // '오프리쉬' 의 '리쉬' 는 넣지 않는다 — 풀어 놓아도 된다는 말을 목줄 조건으로 읽게 된다.
+  { key: 'leash', patterns: [/리드\s*줄/, /목줄/, /하네스/] },
   {
     key: 'largeDogOk',
     patterns: [
@@ -118,6 +146,7 @@ const FLAG_RULES: {
   // '무료 주차' 가 아니라 반려동물 동반 요금이 없다는 뜻일 때만 잡는다.
   { key: 'feeFree', patterns: [/(추가금|추가\s*요금)[^.\n]*없/, /무료\s*동반/, /동반[^.\n]*무료/] },
   { key: 'noInfo', patterns: [/정보\s*없음/] },
+  { key: 'notAllowed', patterns: NOT_ALLOWED_PATTERNS },
 ];
 
 /**
@@ -238,6 +267,7 @@ export const parsePetPolicy = (petPolicyText: string): TPetPolicy => {
     callFirst: false,
     feeFree: false,
     noInfo: false,
+    notAllowed: false,
   };
   const sources: TPetPolicy['sources'] = {};
   for (const rule of FLAG_RULES) {
@@ -247,6 +277,10 @@ export const parsePetPolicy = (petPolicyText: string): TPetPolicy => {
       if (source) sources[rule.key] = source;
     }
   }
+  // 원문이 아예 비어 있으면 '정보 없음' 과 같다(pet-policy-and-eligibility.md 의 표). 시드 86곳은 빈 값이 없어 드러나지 않았지만
+  // 블로그에서 온 신규 장소는 조건 문장이 없을 때 '' 로 들어온다 — 이 줄이 없으면 그 장소가 '갈 수 있어요' 로 판정된다(BUG-008).
+  // 근거 문장이 없으므로 sources.noInfo 는 두지 않는다.
+  if (text.trim() === '') flags.noInfo = true;
   if (indoorRule) {
     const source = findSource(sentences, indoorRule.patterns);
     if (source) sources.indoor = source;
@@ -272,6 +306,53 @@ export const parsePetPolicy = (petPolicyText: string): TPetPolicy => {
     feeLines,
     sources,
   };
+};
+
+/**
+ * AI 가 판단한 구조화 값(TPetPolicyFacts, 블로그 경로)으로 정규식 파서 결과를 덮는다. 원문(petPolicyText)은 그대로 화면에 보이고,
+ * 판정에 쓰는 필드만 AI 판단이 우선한다 — 블로그 구어체("야외좌석만 가능해요")는 정규식이 못 읽는 것이 많아서다(2026-09-28 첫 분석: 32건 중 20건).
+ * null 은 "언급 없음" 이라 파서 값을 남긴다. 무게·마릿수는 tiers 에도 넣어 eligibility 의 계단식 규칙(H1·H2)이 같은 숫자를 보게 한다.
+ * 시드 86곳은 facts 가 없어 이 함수를 그대로 통과한다(ADR-017).
+ */
+export const withPolicyFacts = (parsed: TPetPolicy, facts: TPetPolicyFacts | null | undefined, petPolicyText = ''): TPetPolicy => {
+  if (!facts) return parsed;
+  const next: TPetPolicy = { ...parsed, sources: { ...parsed.sources }, tiers: [...parsed.tiers], feeLines: [...parsed.feeLines] };
+  const firstLine = petPolicyText.split('\n').map((s) => s.trim()).find(Boolean) ?? '';
+  if (facts.indoor !== 'unknown') {
+    next.indoor = facts.indoor;
+    if (!next.sources.indoor && firstLine) next.sources.indoor = firstLine;
+  }
+  if (facts.leash) next.leash = true;
+  if (facts.largeDogOk !== null) {
+    next.largeDogOk = facts.largeDogOk;
+    if (facts.largeDogOk) next.mediumDogOk = true;
+  }
+  if (facts.smallDogOnly) next.smallDogOnly = true;
+  if (facts.callFirst) next.callFirst = true;
+  if (facts.feeFree !== null) next.feeFree = facts.feeFree;
+  if (facts.feeText) {
+    next.feeText = facts.feeText;
+    if (!next.feeLines.includes(facts.feeText)) next.feeLines = [facts.feeText, ...next.feeLines];
+  }
+  if (facts.weightLimitKg !== null) next.weightLimitKg = facts.weightLimitKg;
+  if (facts.maxDogs !== null) next.maxDogs = facts.maxDogs;
+  if ((facts.weightLimitKg !== null || facts.maxDogs !== null) && parsed.tiers.length === 0) {
+    next.tiers = [
+      {
+        maxWeightKg: facts.weightLimitKg ?? undefined,
+        weightInclusive: facts.weightLimitKg !== null ? true : undefined,
+        maxDogs: facts.maxDogs ?? undefined,
+        source: firstLine,
+      },
+    ];
+  }
+  next.outdoorFree = next.indoor === 'outdoorOnly' || parsed.outdoorFree;
+  // AI 가 조건을 하나라도 읽었으면 '정보 없음' 이 아니다.
+  const anyFact =
+    facts.indoor !== 'unknown' || facts.leash || facts.largeDogOk !== null || facts.smallDogOnly || facts.callFirst ||
+    facts.feeFree !== null || facts.feeText !== null || facts.weightLimitKg !== null || facts.maxDogs !== null;
+  if (anyFact) next.noInfo = false;
+  return next;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -302,6 +383,9 @@ const INDOOR_BADGE: Record<TIndoorPolicy, TPetBadge | null> = {
  */
 export const toPetBadges = (policy: TPetPolicy): TPetBadge[] => {
   const badges: TPetBadge[] = [];
+
+  // 동반 자체가 안 되는 곳은 다른 배지가 의미 없다 — 맨 앞에 하나.
+  if (policy.notAllowed) badges.push({ label: '동반 불가', tone: 'warn' });
 
   const indoorBadge = INDOOR_BADGE[policy.indoor];
   if (indoorBadge) badges.push(indoorBadge);

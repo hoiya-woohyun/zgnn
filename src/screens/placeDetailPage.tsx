@@ -102,21 +102,26 @@ export function PlaceDetailPage({ id }: { id: string }) {
         )}
       </section>
 
-      {place.stay && (
+      {/* 블로그에서 들어온 신규 숙소는 요금·용품 원문이 비어 있을 수 있다 — 있는 항목만 그리고, 둘 다 없으면 절을 통째로 뺀다. */}
+      {place.stay && (place.stay.price.text !== '' || place.stay.amenitiesText !== '') && (
         <section className="mt-6 px-4 md:px-6">
           <h2 className="text-lg font-bold text-primary">숙박 요금과 용품</h2>
           <dl className="mt-2 divide-y divide-secondary rounded-2xl border border-secondary bg-primary">
-            <div className="p-4">
-              <dt className="text-xs text-tertiary">1박 요금</dt>
-              <dd className="mt-0.5 text-lg font-bold text-primary">{formatStayPrice(place.stay.price)}</dd>
-              {place.stay.price.text !== formatStayPrice(place.stay.price) && (
-                <dd className="mt-1 whitespace-pre-line text-xs text-tertiary">{place.stay.price.text}</dd>
-              )}
-            </div>
-            <div className="p-4">
-              <dt className="text-xs text-tertiary">반려동물 용품</dt>
-              <dd className="mt-0.5 text-sm text-secondary">{place.stay.amenitiesText}</dd>
-            </div>
+            {place.stay.price.text !== '' && (
+              <div className="p-4">
+                <dt className="text-xs text-tertiary">1박 요금</dt>
+                <dd className="mt-0.5 text-lg font-bold text-primary">{formatStayPrice(place.stay.price)}</dd>
+                {place.stay.price.text !== formatStayPrice(place.stay.price) && (
+                  <dd className="mt-1 whitespace-pre-line text-xs text-tertiary">{place.stay.price.text}</dd>
+                )}
+              </div>
+            )}
+            {place.stay.amenitiesText !== '' && (
+              <div className="p-4">
+                <dt className="text-xs text-tertiary">반려동물 용품</dt>
+                <dd className="mt-0.5 text-sm text-secondary">{place.stay.amenitiesText}</dd>
+              </div>
+            )}
           </dl>
         </section>
       )}

@@ -83,6 +83,12 @@ const weightBoundTopic = (tier: TPolicyTier): string | undefined => {
 
 type TRule = (dog: TDogProfile, policy: TPetPolicy, opts: TJudgeOpts) => TReason | null;
 
+/** H0: 원문이 반려견 동반 자체를 막는다고 적혀 있다("애견동반은 안됩니다"). 강아지 조건과 무관하게 어려움. */
+const ruleNotAllowed: TRule = (_dog, policy) => {
+  if (!policy.notAllowed) return null;
+  return { level: 'hard', text: '반려견 동반이 안 된다고 적혀 있어요', quote: policy.sources.notAllowed };
+};
+
 /** H1: 계단식 무게 조건이 있는데, 우리 강아지 최대 몸무게가 그 어느 칸에도 못 들어간다. */
 const ruleWeightOverLimit: TRule = (dog, policy) => {
   const weightTiers = policy.tiers.filter((t) => t.maxWeightKg !== undefined);
@@ -241,6 +247,7 @@ const ruleNoInfoHint: TRule = (_dog, policy) => {
 };
 
 const RULES: TRule[] = [
+  ruleNotAllowed, // H0
   ruleWeightOverLimit, // H1
   ruleTooManyForWeight, // H2
   ruleSmallOnly, // H3

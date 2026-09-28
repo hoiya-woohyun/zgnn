@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePetPolicy, toPetBadges } from './petPolicy';
+import { parsePetPolicy, toPetBadges, withPolicyFacts } from './petPolicy';
 import { PLACES } from './places';
 
 describe('parsePetPolicy — 식당·카페', () => {
@@ -255,5 +255,87 @@ describe('실제 데이터', () => {
     for (const place of PLACES) {
       expect(typeof place.policy.indoor).toBe('string');
     }
+  });
+});
+
+describe('parsePetPolicy — 블로그에서 온 문장(2026-09-28 첫 data:analyze 실측)', () => {
+  it("빈 원문은 '정보 없음' 과 같다 — 신규 장소가 조건 없이 '갈 수 있어요' 가 되지 않게(BUG-008)", () => {
+    expect(parsePetPolicy('').noInfo).toBe(true);
+    expect(parsePetPolicy('  \n').noInfo).toBe(true);
+    expect(parsePetPolicy('').sources.noInfo).toBeUndefined();
+    expect(parsePetPolicy('리드줄 필수').noInfo).toBe(false);
+  });
+
+  it('동반 자체가 안 된다는 문장은 notAllowed 로 읽고 배지는 맨 앞에 하나', () => {
+    const p = parsePetPolicy('풍차해안도로와 가깝지만 애견동반은 아쉽게도 안됩니다');
+    expect(p.notAllowed).toBe(true);
+    expect(p.sources.notAllowed).toContain('안됩니다');
+    expect(toPetBadges(p)[0]).toEqual({ label: '동반 불가', tone: 'warn' });
+  });
+
+  it("'대형견 불가' 같은 크기 조건이나 '실내 불가' 는 notAllowed 가 아니다", () => {
+    expect(parsePetPolicy('대형견 불가. 소형견만 실내 가능.').notAllowed).toBe(false);
+    expect(parsePetPolicy('강아지 동반 시 케이지 필수, 실내 불가').notAllowed).toBe(false);
+  });
+
+  it('야외 좌석만·테라스만·실내는 안 돼요 는 야외만으로 읽는다', () => {
+    expect(parsePetPolicy('🐶 애견동반 가능 (야외좌석만 가능) 애견동반은 야외좌석만 가능해요.').indoor).toBe('outdoorOnly');
+    expect(parsePetPolicy('강아지는 테라스만 가능합니다').indoor).toBe('outdoorOnly');
+    expect(parsePetPolicy('실내는 안 돼요, 마당 자리에서만').indoor).toBe('outdoorOnly');
+  });
+
+  it('켄넬·이동장·케이지를 챙겨야 한다는 구어체는 케이지로, 케이지 없이도 가능은 그대로 자유로 읽는다', () => {
+    expect(parsePetPolicy('실내 이용 시 케이지나 전용 가방을 챙겨가야 같이 들어갈 수 있다.').indoor).toBe('cage');
+    expect(parsePetPolicy('실내 1층은 켄넬이나 이동가방이 있으면 이용 가능하고, 야외에서는 리드줄을 착용해야 한다.').indoor).toBe('cage');
+    expect(parsePetPolicy('케이지 없이도 가능').indoor).toBe('free');
+  });
+
+  it('목줄·하네스도 리드줄이고, 오프리쉬는 리드줄이 아니다', () => {
+    expect(parsePetPolicy('목줄 착용 필수').leash).toBe(true);
+    expect(parsePetPolicy('하네스 착용해 주세요').leash).toBe(true);
+    expect(parsePetPolicy('야외에 애견동반 공간이 따로 있어서 오프리쉬로 뛰어다닐 수 있어요').leash).toBe(false);
+  });
+
+  it('시드 86곳에는 동반 불가로 읽히는 곳이 없다(회귀 가드)', () => {
+    expect(PLACES.filter((p) => parsePetPolicy(p.petPolicyText).notAllowed).map((p) => p.name)).toEqual([]);
+  });
+});
+
+describe('withPolicyFacts — AI 구조화 판단이 정규식 결과를 덮는다(ADR-017)', () => {
+  const facts = { indoor: 'outdoorOnly' as const, leash: true, largeDogOk: null, smallDogOnly: false, callFirst: false, feeFree: null, feeText: null, weightLimitKg: 10, maxDogs: 2, notes: null };
+
+  it('facts 가 없으면 파서 결과 그대로(시드 경로)', () => {
+    const parsed = parsePetPolicy('1~5kg 1만원.');
+    expect(withPolicyFacts(parsed, undefined)).toBe(parsed);
+  });
+
+  it('정규식이 못 읽는 구어체도 AI 판단으로 야외만·리드줄·무게·마릿수가 채워진다', () => {
+    const text = '애견동반은 야외 자리 쪽에서 편하게 가능해요';
+    const p = withPolicyFacts(parsePetPolicy(text), facts, text);
+    expect(p.indoor).toBe('outdoorOnly');
+    expect(p.outdoorFree).toBe(true);
+    expect(p.leash).toBe(true);
+    expect(p.weightLimitKg).toBe(10);
+    expect(p.maxDogs).toBe(2);
+    expect(p.tiers).toEqual([{ maxWeightKg: 10, weightInclusive: true, maxDogs: 2, source: text }]);
+    expect(p.noInfo).toBe(false);
+    expect(p.sources.indoor).toBe(text);
+  });
+
+  it('null(언급 없음)은 파서 값을 남기고, 파서가 이미 읽은 계단식 조건은 덮지 않는다', () => {
+    const text = '10kg 미만은 2마리, 20kg 미만은 1마리. 대형견도 가능.';
+    const parsed = parsePetPolicy(text);
+    const p = withPolicyFacts(parsed, { ...facts, indoor: 'unknown', leash: false, weightLimitKg: null, maxDogs: null }, text);
+    expect(p.tiers).toEqual(parsed.tiers);
+    expect(p.largeDogOk).toBe(true);
+    expect(p.indoor).toBe('unknown');
+    expect(p.leash).toBe(false);
+  });
+
+  it('largeDogOk false 는 파서의 true 를 덮고, 요금 문장은 feeText·feeLines 앞에 선다', () => {
+    const p = withPolicyFacts(parsePetPolicy('대형견도 가능'), { ...facts, largeDogOk: false, feeText: '1마리당 2만원' }, '대형견도 가능');
+    expect(p.largeDogOk).toBe(false);
+    expect(p.feeText).toBe('1마리당 2만원');
+    expect(p.feeLines[0]).toBe('1마리당 2만원');
   });
 });
