@@ -1,5 +1,15 @@
 // 터미널 숨김 입력. `pnpm data:login` 의 비밀번호와 `pnpm data:collect` 의 네이버 검색 키(env 가 없을 때) — 두 소유자라 owner-prefix 를 붙이지 않는다.
-// raw 모드로 한 글자씩 받아 화면에 아무것도 찍지 않고, readline 의 비공개 API(_writeToOutput)에 기대지 않는다. 받은 값은 호출자에게 돌려줄 뿐 어디에도 남기지 않는다.
+// raw 모드로 한 글자씩 받아 **글자 수만큼 `*` 를 찍고**, readline 의 비공개 API(_writeToOutput)에 기대지 않는다. 받은 값은 호출자에게 돌려줄 뿐 어디에도 남기지 않는다.
+//
+// **왜 완전 무표시가 아니라 마스킹인가**(2026-09-28). 처음엔 아무것도 안 찍었는데, 그러면 **붙여넣기가 들어갔는지조차 알 수 없다** —
+// 네이버 키 401 을 쫓을 때 값이 문제인지 설정이 문제인지 사용자가 가릴 방법이 없었고, 그게 BUG-006 을 어렵게 만든 조건이었다.
+// `*` 는 "들어갔다"와 "몇 글자"를 돌려준다. 그 둘이 붙여넣기 사고(잘림·중복·아예 안 들어감)를 그 자리에서 잡는다.
+// **내주는 것은 길이 하나다** — 어깨너머로 보는 사람에게 자릿수가 노출된다. 값·글자는 여전히 안 찍히고,
+// 이 앱의 위협 모델(에이전트가 값을 읽는 것 · 파일에 남는 것)과도 무관하다. `sudo` 처럼 아무것도 안 보여 주는 쪽을
+// 택하지 않은 이유는, 여기 입력이 **사람이 외워 치는 비밀번호가 아니라 붙여넣는 20자 난수**여서다.
+//
+// 지우기는 `\b \b`(뒤로·공백·뒤로)로 되돌린다. 줄바꿈을 넘어간 `*` 는 대부분의 터미널에서 `\b` 가 못 넘어가므로
+// 아주 긴 값에서는 지운 자국이 남을 수 있다 — 값은 정확하고 화면만 어긋난다. 키 길이(20자 안팎)에선 일어나지 않는다.
 // 키 하나가 여러 바이트로 오는 것(방향키·F1~F4·Alt+키)을 버리는 규칙이 핵심이다 — 섞이면 "틀린 비밀번호" 가 된다. 그 규칙은 순수 리듀서로 떼어
 // 테스트하고(login.mjs 는 TTY 가드 때문에 import 하면 exit 한다), 터미널을 만지는 부분은 얇은 래퍼로 둔다.
 
@@ -56,8 +66,14 @@ export function readHidden(prompt, { stdin, stdout } = process) {
     stdin.resume();
     stdin.setEncoding('utf8');
     let state = readHiddenInit;
+    let shown = 0; // 화면에 찍어 둔 `*` 개수. 리듀서는 순수하게 두고, 화면 맞추기는 이 얇은 래퍼의 몫이다.
     const onData = (chunk) => {
       state = readHiddenStep(state, chunk);
+      // 길이는 **코드포인트 단위**로 센다 — 리듀서의 지우기가 그 단위라, 여기서 어긋나면 한글·이모지에서 `*` 가 남거나 모자란다.
+      const length = [...state.buf].length;
+      if (length > shown) stdout.write('*'.repeat(length - shown));
+      else if (length < shown) stdout.write('\b \b'.repeat(shown - length));
+      shown = length;
       if (!state.done) return;
       stdin.setRawMode(false);
       stdin.pause();

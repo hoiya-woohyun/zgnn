@@ -112,14 +112,14 @@ function fakeTty() {
 }
 
 describe('readHidden — 래퍼', () => {
-  it('프롬프트만 찍고 입력은 찍지 않으며, 제출하면 buf 로 resolve 하고 raw 모드를 되돌린다', async () => {
+  it('입력을 `*` 로 가려 찍고, 제출하면 buf 로 resolve 하고 raw 모드를 되돌린다', async () => {
     const tty = fakeTty();
     const p = readHidden('비밀번호: ', tty);
     tty.stdin.emit('data', 'se');
     tty.stdin.emit('data', `${ESC}OA`);
     tty.stdin.emit('data', 'cret\r');
     await expect(p).resolves.toBe('secret');
-    expect(tty.stdout.out).toBe('비밀번호: \n');
+    expect(tty.stdout.out).toBe('비밀번호: ******\n'); // 'secret' 6자 — 방향키(ESC O A)는 `*` 를 늘리지 않는다
     expect(tty.stdin.raw).toEqual([true, false]);
     expect(tty.stdin.listenerCount('data')).toBe(0);
   });
@@ -141,8 +141,49 @@ describe('readHidden — 래퍼', () => {
     const p2 = readHidden('SECRET: ', tty);
     tty.stdin.emit('data', 'sec\r');
     await expect(p2).resolves.toBe('sec');
-    expect(tty.stdout.out).toBe('ID: \nSECRET: \n');
+    expect(tty.stdout.out).toBe('ID: **\nSECRET: ***\n');
     expect(tty.stdin.raw).toEqual([true, false, true, false]);
     expect(tty.stdin.listenerCount('data')).toBe(0);
+  });
+});
+
+// `*` 는 "붙여넣기가 들어갔는가" 를 돌려주려고 있다(BUG-006). 값이 새면 안 되므로 **개수만** 맞는지 본다.
+describe('readHidden — 마스킹', () => {
+  it('붙여넣기처럼 한 chunk 로 와도 글자 수만큼 `*` 를 찍고 값은 안 찍는다', async () => {
+    const tty = fakeTty();
+    const p = readHidden('키: ', tty);
+    tty.stdin.emit('data', 'AbCdEfGhIjKlMnOpQrSt\r');
+    await expect(p).resolves.toBe('AbCdEfGhIjKlMnOpQrSt');
+    expect(tty.stdout.out).toBe(`키: ${'*'.repeat(20)}\n`);
+    expect(tty.stdout.out).not.toContain('AbCdEf');
+  });
+
+  it('지우면 `*` 도 하나 줄어든다', async () => {
+    const tty = fakeTty();
+    const p = readHidden('키: ', tty);
+    tty.stdin.emit('data', 'abc');
+    tty.stdin.emit('data', '\u007f'); // Backspace
+    tty.stdin.emit('data', '\r');
+    await expect(p).resolves.toBe('ab');
+    expect(tty.stdout.out).toBe('키: ***\b \b\n');
+  });
+
+  // 시퀀스가 `*` 를 늘리면 사용자는 "들어갔다" 고 잘못 읽는다 — 마스킹이 거짓말을 하는 자리라 못 박는다.
+  it('방향키·Alt 시퀀스는 버려지므로 `*` 가 늘지 않는다', async () => {
+    const tty = fakeTty();
+    const p = readHidden('키: ', tty);
+    tty.stdin.emit('data', `${ESC}[A`);
+    tty.stdin.emit('data', `${ESC}${ESC}[D`);
+    tty.stdin.emit('data', 'x\r');
+    await expect(p).resolves.toBe('x');
+    expect(tty.stdout.out).toBe('키: *\n');
+  });
+
+  it('한글·이모지는 코드포인트 하나에 `*` 하나다', async () => {
+    const tty = fakeTty();
+    const p = readHidden('키: ', tty);
+    tty.stdin.emit('data', '가나🐶\r');
+    await expect(p).resolves.toBe('가나🐶');
+    expect(tty.stdout.out).toBe('키: ***\n');
   });
 });
