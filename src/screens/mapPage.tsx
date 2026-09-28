@@ -23,6 +23,7 @@ export function MapPage() {
   const searchParams = useSearchParams();
   const savedOnly = searchParams.get('saved') === '1';
   const savedPlaces = useSavedPlaces();
+  const savedIds = useMemo(() => new Set(savedPlaces.map((place) => place.id)), [savedPlaces]);
   const isWide = useMapPageWideLayout();
 
   // 판정은 마커 흐리기(hard)와 시트 배지에만 쓴다 — 지도에서 거르지는 않는다.
@@ -46,10 +47,12 @@ export function MapPage() {
    * "어려운 곳 숨기기" 도 뺐다 — 판정을 좁혀 보는 일은 둘러보기 목록이 더 잘한다.
    * 지도는 "숙소·식당·카페가 제주 어디에 있나" 한 가지만 답한다(→ ADR-008).
    */
-  const filtered = useMemo(() => {
-    const list = savedOnly ? savedPlaces : PLACES;
-    return list.filter((place) => types.includes(place.type));
-  }, [savedOnly, savedPlaces, types]);
+  // 원본을 먼저 고른다 — 저장 칩이 꺼져 있을 때 하트를 눌러도 목록 참조가 바뀌어 마커가 다시 만들어지지 않게.
+  const source = savedOnly ? savedPlaces : PLACES;
+  const filtered = useMemo(
+    () => source.filter((place) => types.includes(place.type)),
+    [source, types],
+  );
 
   const withGeo = useMemo(() => filtered.filter((place) => place.geo), [filtered]);
   const missingGeoCount = filtered.length - withGeo.length;
@@ -108,12 +111,21 @@ export function MapPage() {
       return prev.length > 1 ? prev.filter((value) => value !== type) : prev;
     });
 
+  /*
+   * 저장 칩은 종류 칩과 달리 **주소(`?saved=1`)가 쥔다** — 저장 화면·홈의 "지도에서 보기" 가 같은
+   * 주소로 들어오고, 뒤로가기·새로고침에도 그 상태로 돌아와야 해서다. replace 라 칩을 몇 번 눌러도
+   * 방문 기록은 쌓이지 않는다. 종류 칩과는 AND 로 겹친다(저장 ∩ 카페).
+   */
+  const toggleSavedOnly = () =>
+    router.replace(savedOnly ? '/map/' : '/map/?saved=1', { scroll: false });
+
   const mapEl = (
     <MapPageCanvas
       places={withGeo}
       selectedId={selectedId}
       onSelect={handleSelect}
       eligibilityMap={eligibilityMap}
+      savedIds={savedIds}
     />
   );
 
@@ -125,7 +137,9 @@ export function MapPage() {
         <aside className="hidden w-[360px] shrink-0 flex-col border-r border-secondary bg-primary lg:flex">
           <div className="border-b border-secondary px-4 py-3">
             <h1 className="text-lg font-bold text-primary">지도</h1>
-            <p className="mt-0.5 text-sm text-tertiary">{withGeo.length}곳 표시 중</p>
+            <p className="mt-0.5 text-sm text-tertiary">
+              {savedOnly ? `저장한 곳 중 ${withGeo.length}곳 표시 중` : `${withGeo.length}곳 표시 중`}
+            </p>
             {missingByType.length > 0 && (
               <p className="mt-1 text-xs text-tertiary">
                 지도에 없는 {missingGeoCount}곳은 목록에서 보기:{' '}
@@ -208,8 +222,34 @@ export function MapPage() {
                */
               className="no-scrollbar pointer-events-auto flex w-fit max-w-full gap-2 overflow-x-auto px-3"
               role="group"
-              aria-label="장소 종류"
+              aria-label="보이는 장소"
             >
+              {/*
+                맨 앞의 저장 칩. "현장에서 내가 저장한 곳 중 근처는?" 을 지도 안에서 한 번에 답하려고
+                둔다 — 예전에는 설정 → 저장한 곳 → 지도에서 보기, 세 번을 거쳐야 켤 수 있었다.
+                camellia 는 브랜드색과 같은 값이라(theme.css) 켜진 모습만으로는 종류 칩과 안 갈린다 —
+                "무엇을 거르나" 가 다른 축이라는 것은 하트와 뒤따르는 세로 구분선이 말한다.
+              */}
+              <button
+                type="button"
+                onClick={toggleSavedOnly}
+                aria-pressed={savedOnly}
+                className={cx(
+                  'flex h-11 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-sm font-semibold shadow-sm backdrop-blur transition-colors',
+                  savedOnly
+                    ? 'border-camellia bg-camellia text-white'
+                    : 'border-secondary bg-primary/92 text-secondary',
+                )}
+              >
+                <Heart
+                  size={16}
+                  aria-hidden="true"
+                  className={savedOnly ? 'fill-white' : 'fill-camellia text-camellia'}
+                />
+                저장 {savedPlaces.length}
+              </button>
+              <span aria-hidden="true" className="my-1.5 w-0.5 shrink-0 rounded-full bg-primary/92 shadow-sm" />
+
               {PLACE_TYPES.map((type) => {
                 const active = types.includes(type);
                 return (
@@ -241,16 +281,6 @@ export function MapPage() {
               <span className="pointer-events-auto rounded-full bg-primary/92 px-3 py-1 text-xs font-semibold text-secondary shadow-sm backdrop-blur">
                 {withGeo.length}곳 표시 중
               </span>
-              {savedOnly && (
-                <button
-                  type="button"
-                  onClick={() => router.replace('/map')}
-                  aria-label="전체 장소 보기"
-                  className="pointer-events-auto inline-flex min-h-11 cursor-pointer items-center rounded-full bg-camellia px-3.5 text-xs font-semibold text-white shadow-sm"
-                >
-                  저장한 곳만 보는 중
-                </button>
-              )}
             </div>
           </div>
 

@@ -135,6 +135,13 @@ export const TYPE_COLOR: Record<TPlaceType, string> = {
 };
 
 /**
+ * 지도 마커의 "저장함" 배지 색. 하트 버튼의 `camellia`(= `theme.css` 의 `--color-brand-600`)와
+ * **같은 값**이다 — 마커는 SVG data URI 라 CSS 변수를 못 읽어 여기 한 번 더 적는다.
+ * 팔레트를 바꾸면 종류 색처럼 이쪽도 함께 맞춘다.
+ */
+export const SAVED_MARKER_COLOR = '#cd2a77';
+
+/**
  * 흰 글씨를 얹는 면에 쓰는 진한 쪽. 두 가지를 **동시에** 만족해야 한다 —
  * 흰색 대비 5:1 이상(6.1 / 6.1 / 6.0), 그리고 자기 22% 워시 위에서 4.5:1 이상(4.50 / 4.53 / 4.57).
  *

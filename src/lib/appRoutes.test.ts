@@ -49,7 +49,7 @@ describe('parentRouteOf — 되감을 화면이 없을 때 올라갈 곳', () =>
   });
 
   it('저장한 곳·강아지 프로필은 설정으로 올라간다 — 설정 탭 안의 화면이라서', () => {
-    expect(parentRouteOf('/saved')).toBe('/settings');
+    expect(parentRouteOf('/saved')).toBe('/');
     expect(parentRouteOf('/dog')).toBe('/settings');
     expect(parentRouteOf('/dog/')).toBe('/settings');
   });

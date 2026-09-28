@@ -13,7 +13,7 @@ type TChecklistPageGroupListProps = {
  * 묶음이 하나뿐이면 머리글을 생략한다 — 가를 것이 없는데 이름표만 붙으면, 읽는 사람은
  * 보이지 않는 다른 묶음을 찾게 된다.
  *
- * 머리글이 h3 인 것은 위 h2(이번 여행 / 그 밖에)의 아래 단계이기 때문이다. 글자를 작고
+ * 머리글이 h3 인 것은 위 h2(저장한 N곳에 필요해요 / 그 밖에)의 아래 단계이기 때문이다. 글자를 작고
  * 흐리게 두는 것도 같은 이유다 — 급한 순서가 먼저 읽히고, 쓰는 자리는 그 안의 가름이다.
  */
 export function ChecklistPageGroupList({ groups, renderRow }: TChecklistPageGroupListProps) {

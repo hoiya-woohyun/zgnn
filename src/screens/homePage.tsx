@@ -165,23 +165,35 @@ export function HomePage() {
       </section>
 
       <section className="mt-8 px-4 md:px-6">
-        <Link
-          href="/saved"
-          className="flex items-center gap-3 rounded-2xl border border-secondary bg-primary px-4 py-4 transition-colors hover:bg-secondary"
-        >
-          <span
-            aria-hidden="true"
-            className="grid size-10 shrink-0 place-items-center rounded-full bg-camellia-wash text-camellia"
+        {/*
+          저장한 곳의 주 진입점. 카드 본문은 목록(`/saved`)으로, 오른쪽 버튼은 저장 칩을 켠 지도로 곧장 간다 —
+          현장에서 "저장한 곳 중 근처는?" 을 물을 때 목록을 한 번 거치지 않게.
+          버튼은 카드 링크 **바깥의 형제**다. 안에 넣으면 a 안에 a 가 된다.
+        */}
+        <div className="flex items-center gap-2 rounded-2xl border border-secondary bg-primary pr-3">
+          <Link
+            href="/saved"
+            className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl px-4 py-4 transition-colors hover:bg-secondary"
           >
-            <Heart size={20} className="fill-camellia" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-primary">저장한 곳 {savedCount}</p>
-            <p className="text-sm text-tertiary">
-              {savedCount > 0 ? '지도에서 한 번에 볼 수 있어요' : '마음에 드는 곳의 하트를 눌러보세요'}
-            </p>
-          </div>
-        </Link>
+            <span
+              aria-hidden="true"
+              className="grid size-10 shrink-0 place-items-center rounded-full bg-camellia-wash text-camellia"
+            >
+              <Heart size={20} className="fill-camellia" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-primary">저장한 곳 {savedCount}</p>
+              <p className="text-sm text-tertiary">
+                {savedCount > 0 ? '준비물도 저장한 곳 기준으로 골라요' : '마음에 드는 곳의 하트를 눌러보세요'}
+              </p>
+            </div>
+          </Link>
+          {savedCount > 0 && (
+            <Button color="secondary" size="md" iconLeading={Map01} href="/map/?saved=1" className="shrink-0">
+              지도
+            </Button>
+          )}
+        </div>
       </section>
 
       <footer className="mt-10 px-4 pb-8 text-sm text-quaternary md:px-6">

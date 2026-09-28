@@ -6,7 +6,7 @@ import { Button } from '@/components/base/button';
 import { EmptyState } from '../components/layout/emptyState';
 import type { TEligibility } from '../lib/eligibility';
 import { loadNaverMaps, onNaverMapsAuthFailure } from '../lib/naverMap';
-import { JEJU_CENTER, jejuZoomFor, TYPE_COLOR, TYPE_META, type TPlaceEntry } from '../lib/places';
+import { JEJU_CENTER, jejuZoomFor, SAVED_MARKER_COLOR, TYPE_COLOR, TYPE_META, type TPlaceEntry } from '../lib/places';
 import type { TPlaceType } from '../types';
 
 /**
@@ -52,11 +52,31 @@ const MARKER_HARD_OPACITY = 0.45;
 const PIN_VIEWBOX = { width: 22, height: 33 } as const;
 
 /**
+ * 저장한 곳의 핀. 핀은 그대로 두고 **머리 오른쪽 위에 하트 배지**를 얹는다 — 흰 원 안의 ▼ 를
+ * 하트로 바꾸지 않는 이유는 위 주석과 같다(▼ 가 네이버 핀을 네이버 핀으로 읽히게 한다).
+ *
+ * 배지(중심 22.5, 6.5 · 반지름 5.5 · 흰 테두리 1.5)가 핀 viewBox 를 오른쪽·위로 넘으므로 캔버스를
+ * 29×35 로 넓히고 핀을 아래로 2 내린다. 오른쪽 끝 22.5+5.5+0.75=28.75, 위 끝 6.5-5.5-0.75=0.25,
+ * 꼬리 끝 32.2+2+0.75=34.95 — 모두 안쪽이다. 핀 좌표계의 비율(24/22)은 그대로라, 저장 여부와
+ * 무관하게 **핀 몸통의 크기와 앵커(꼬리 끝)는 같은 자리**에 온다.
+ */
+const SAVED_PIN_VIEWBOX = { width: 29, height: 35 } as const;
+const SAVED_PIN_SHIFT_Y = 2;
+
+/** 24 칸 기준 하트(가로 3~21, 세로 4.3~20.5, 중심 12, 12.4). 배지 안에 줄여 넣는다. */
+const HEART =
+  'M12 20.5C12 20.5 3 15 3 9.2 3 6.3 5.2 4.3 7.7 4.3c1.8 0 3.4 1 4.3 2.5.9-1.5 2.5-2.5 4.3-2.5 2.5 0 4.7 2 4.7 4.9 0 5.8-9 11.3-9 11.3Z';
+
+/** 저장한 곳은 겹쳤을 때 위로 올린다 — 모아 보려고 저장했는데 남의 핀 밑에 깔리면 안 된다. */
+const Z_SAVED = 500;
+const Z_SELECTED = 1000;
+
+/**
  * 종류 색을 입힌 핀 SVG 를 data URI 로. 외부 이미지를 받지 않아 오프라인에서도 그려진다
  * (이 앱은 글꼴까지 self-host 한다 — 런타임 외부 요청을 늘리지 않는다). 네이버가 내려주는
  * `marker-default.png` 를 그대로 쓰지 않는 이유가 이것이고, 종류별 색도 거기선 못 준다.
  */
-function pinSvg(type: TPlaceType, width: number, height: number): string {
+function pinSvg(type: TPlaceType, saved: boolean, width: number, height: number): string {
   const color = TYPE_COLOR[type];
   // 물방울: 머리는 중심 (11, 11.4)·반지름 10.2 의 원, 꼬리는 좌우 대칭으로 (11, 32.2) 까지.
   const body =
@@ -65,17 +85,25 @@ function pinSvg(type: TPlaceType, width: number, height: number): string {
   // 꼭짓점 15 는 무게중심을 맞추려고 고른 값이다 — (9.6+9.6+15)/3 = 11.4 로 원 중심과 **정확히**
   // 겹친다(에셋의 구성이 그렇다). 14.95 로 두면 11.3833 이라 0.017 어긋난다.
   const arrow = 'M7.1 9.6 h7.8 L11 15 Z';
-  // width·height 를 박아 둔다 — 없으면 SVG 의 고유 크기가 브라우저 기본값(150 높이)으로 잡힌다.
-  const svg =
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${PIN_VIEWBOX.width} ${PIN_VIEWBOX.height}">` +
+  const pin =
     `<path d="${body}" fill="${color}" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/>` +
     `<circle cx="11" cy="11.4" r="7.75" fill="#fff"/>` +
-    `<path d="${arrow}" fill="${color}"/></svg>`;
+    `<path d="${arrow}" fill="${color}"/>`;
+  const box = saved ? SAVED_PIN_VIEWBOX : PIN_VIEWBOX;
+  // width·height 를 박아 둔다 — 없으면 SVG 의 고유 크기가 브라우저 기본값(150 높이)으로 잡힌다.
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${box.width} ${box.height}">` +
+    (saved
+      ? `<g transform="translate(0 ${SAVED_PIN_SHIFT_Y})">${pin}</g>` +
+        `<circle cx="22.5" cy="6.5" r="5.5" fill="${SAVED_MARKER_COLOR}" stroke="#fff" stroke-width="1.5"/>` +
+        `<path d="${HEART}" fill="#fff" transform="translate(22.5 6.6) scale(0.34) translate(-12 -12.4)"/>`
+      : pin) +
+    `</svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
 /**
- * 아이콘은 종류 × 선택여부 6가지뿐이라 한 번 만들어 두고 계속 쓴다.
+ * 아이콘은 종류 × 선택여부 × 저장여부 12가지뿐이라 한 번 만들어 두고 계속 쓴다.
  * 선택을 옮길 때마다 새 객체를 만들면 SDK 가 이미지를 다시 물어본다.
  */
 const PIN_ICONS = new Map<string, naver.maps.ImageIcon>();
@@ -84,18 +112,25 @@ function pinIcon(
   maps: typeof naver.maps,
   type: TPlaceType,
   selected: boolean,
+  saved: boolean,
 ): naver.maps.ImageIcon {
-  const key = `${type}:${selected}`;
+  const key = `${type}:${selected}:${saved}`;
   const cached = PIN_ICONS.get(key);
   if (cached) return cached;
 
-  const { width, height } = selected ? PIN_SELECTED : PIN;
+  const pin = selected ? PIN_SELECTED : PIN;
+  // 핀 좌표계 1칸이 몇 px 인가. 저장 핀은 캔버스만 넓고 이 비율은 같다.
+  const scale = pin.width / PIN_VIEWBOX.width;
+  const box = saved ? SAVED_PIN_VIEWBOX : PIN_VIEWBOX;
+  const width = box.width * scale;
+  const height = box.height * scale;
   const icon: naver.maps.ImageIcon = {
-    url: pinSvg(type, width, height),
+    url: pinSvg(type, saved, width, height),
     size: new maps.Size(width, height),
     // 좌표에 맞출 지점은 핀의 **끝**이다 — 가운데로 두면 핀이 장소보다 아래를 가리킨다.
     // Kakao 의 MarkerImage `offset` 과 같은 뜻이고, 원점은 이미지 좌상단이다.
-    anchor: new maps.Point(width / 2, height),
+    // 가로는 핀 몸통의 가운데(핀 좌표 11)다 — 저장 핀은 배지 때문에 캔버스 가운데가 아니다.
+    anchor: new maps.Point((PIN_VIEWBOX.width / 2) * scale, height),
   };
   PIN_ICONS.set(key, icon);
   return icon;
@@ -152,6 +187,8 @@ type TMapPageCanvasProps = {
   /** 참조가 안정적이어야 한다 — 바뀌면 마커를 전부 다시 만든다. */
   onSelect: (id: string) => void;
   eligibilityMap: Map<string, TEligibility> | null;
+  /** 저장한 장소 id. 핀에 하트 배지를 얹고 위로 올린다. 참조가 바뀌면 마커를 다시 만든다. */
+  savedIds: ReadonlySet<string>;
 };
 
 /**
@@ -165,6 +202,7 @@ export function MapPageCanvas({
   selectedId,
   onSelect,
   eligibilityMap,
+  savedIds,
 }: TMapPageCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<naver.maps.Map | null>(null);
@@ -309,14 +347,15 @@ export function MapPageCanvas({
       for (const place of places) {
         if (!place.geo) continue;
         const selected = place.id === selectedId;
+        const saved = savedIds.has(place.id);
 
         const marker = new maps.Marker({
           map,
           position: new maps.LatLng(place.geo.lat, place.geo.lng),
-          icon: pinIcon(maps, place.type, selected),
+          icon: pinIcon(maps, place.type, selected, saved),
           title: `${place.name} · ${TYPE_META[place.type].label}`,
           clickable: true,
-          zIndex: selected ? 1000 : 0,
+          zIndex: selected ? Z_SELECTED : saved ? Z_SAVED : 0,
           opacity:
             eligibilityMap?.get(place.id)?.level === 'hard' ? MARKER_HARD_OPACITY : 1,
         });
@@ -330,26 +369,28 @@ export function MapPageCanvas({
     }
 
     return () => clearMarkers(markers);
-    // selectedId 는 일부러 뺀다 — 선택만 바뀔 때 마커를 다시 만들지 않고 아래 effect 가 핀만 바꾼다.
+    // selectedId·savedIds 는 일부러 뺀다 — 선택이 옮겨 가거나 하트 하나를 누를 때마다 핀 86개를 다시 만들 이유가
+    // 없다. 처음 그릴 때의 값만 읽고, 바뀐 뒤에는 아래 effect 가 핀 이미지와 쌓임 순서만 바꾼다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [places, eligibilityMap, onSelect, status]);
 
-  // 선택 표시. 마커를 다시 만들지 않고 핀 이미지와 쌓임 순서만 바꾼다.
+  // 선택·저장 표시. 마커를 다시 만들지 않고 핀 이미지와 쌓임 순서만 바꾼다.
   useEffect(() => {
     const maps = window.naver?.maps;
     if (!maps) return;
     try {
       for (const [id, entry] of markersRef.current) {
         const selected = id === selectedId;
-        entry.marker.setIcon(pinIcon(maps, entry.type, selected));
-        entry.marker.setZIndex(selected ? 1000 : 0);
+        const saved = savedIds.has(id);
+        entry.marker.setIcon(pinIcon(maps, entry.type, selected, saved));
+        entry.marker.setZIndex(selected ? Z_SELECTED : saved ? Z_SAVED : 0);
       }
     } catch {
       // 위 effect 와 같은 이유 — 깨진 지도 위에서 SDK 가 던진다. 화면을 깨뜨리지 않는다.
       // effect 본문에서 곧바로 setState 하면 렌더가 연쇄되므로 한 틱 미룬다.
       queueMicrotask(() => setStatus('error'));
     }
-  }, [selectedId, places, eligibilityMap, status]);
+  }, [selectedId, places, eligibilityMap, savedIds, status]);
 
   /*
    * SDK 를 못 받았거나 인증이 거부된 경우. Leaflet 때는 타일만 안 깔리고 마커는 그려졌지만,

@@ -89,8 +89,9 @@ export const canStartSwipeAt = (pathname: string): boolean => {
  *
  * 상세는 장소의 종류에 따라 부모 탭이 갈린다 — 카페 상세에서 올라갔는데 숙소 목록이
  * 나오면 안 되므로 경로만 보지 않고 데이터를 본다. 데이터는 빌드 시점에 묶여 있어
- * 클라이언트에서 그냥 읽을 수 있다. 저장한 곳·강아지 프로필은 설정 탭 안의 화면이라
- * 설정으로, 그 밖의 화면은 홈으로 올려보낸다.
+ * 클라이언트에서 그냥 읽을 수 있다. 강아지 프로필은 설정 탭 안의 화면이라 설정으로,
+ * 그 밖의 화면(저장한 곳 포함)은 홈으로 올려보낸다. 저장한 곳은 홈 카드가 주 진입점이라
+ * 홈 아래로 옮겼다 — 설정 밑에 두면 가장 자주 여는 목록이 가장 깊이 묻힌다.
  */
 export const parentRouteOf = (pathname: string): string => {
   const path = normalizeRoute(pathname);
@@ -100,7 +101,7 @@ export const parentRouteOf = (pathname: string): string => {
     return place ? `/places/${place.type}` : '/places/stay';
   }
 
-  if (path === '/saved' || path === '/dog') return '/settings';
+  if (path === '/dog') return '/settings';
 
   return '/';
 };
