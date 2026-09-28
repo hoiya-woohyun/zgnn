@@ -12,7 +12,7 @@ import { Button } from '@/components/base/button';
 import { EmptyState } from '../components/layout/emptyState';
 import { PlaceThumb } from '../components/placeThumb';
 import { TownChip } from '../components/townChip';
-import { LOCATE_NOTICE, locateMe } from '../lib/myLocation';
+import { LOCATE_MAP_NOT_READY, LOCATE_NOTICE, locateMe } from '../lib/myLocation';
 import { PLACES, PLACE_TYPES, TYPE_COLOR, TYPE_META } from '../lib/places';
 import { useSavedPlaces } from '../store/useAppStore';
 import { useEligibilityMap } from '../store/useDogEligibility';
@@ -53,8 +53,9 @@ export function MapPage() {
     const result = await locateMe();
     setLocating(false);
     if (result.kind === 'ok') {
-      // 지도가 아직 없거나 깨졌으면 조용히 넘어간다 — 그때는 캔버스가 이미 폴백 안내를 그리고 있다.
-      canvasRef.current?.showMyLocation(result.lat, result.lng);
+      // 위치가 SDK 보다 먼저 올 수 있다(느린 연결 + 캐시된 위치). 조용히 넘기면 버튼이 먹통처럼 보인다.
+      const moved = canvasRef.current?.showMyLocation(result.lat, result.lng) ?? false;
+      if (!moved) setLocateNotice(LOCATE_MAP_NOT_READY);
     } else {
       setLocateNotice(LOCATE_NOTICE[result.kind]);
     }

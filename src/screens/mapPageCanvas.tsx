@@ -371,6 +371,21 @@ export function MapPageCanvas({
     settleRef.current = undefined;
   }, [status]);
 
+  /*
+   * 지도가 'error' 로 넘어가면 내 위치 점도 뗀다 — 장소 마커는 마커 effect 의 cleanup 이 같은 순간에 떼지만,
+   * 이 점은 버튼이 만들어 그 effect 밖에 있다. 떼지 않으면 버려진 지도를 붙잡은 채 남는다.
+   */
+  useEffect(() => {
+    if (status !== 'error' || !myLocationRef.current) return;
+    try {
+      myLocationRef.current.setMap(null);
+    } catch {
+      // 이미 깨진 지도다.
+    } finally {
+      myLocationRef.current = null;
+    }
+  }, [status]);
+
   // 마커 올리기. 목록이나 판정이 바뀌면 통째로 다시 만든다 — 86곳 규모에서는 차분을 계산하는 것보다 안전하다.
   useEffect(() => {
     const map = mapRef.current;

@@ -76,6 +76,9 @@ export function locateMe(
   });
 }
 
+/** 위치는 받았는데 지도가 아직 뜨지 않았거나(SDK 로딩 중) 깨져서 옮길 수 없을 때의 한 줄. */
+export const LOCATE_MAP_NOT_READY = '지도가 아직 준비되지 않았어요. 잠시 뒤 다시 눌러 주세요.';
+
 /** 실패했을 때 지도 위에 띄울 한 줄. 'ok' 는 지도가 옮겨 가는 것 자체가 답이라 문구가 없다. */
 export const LOCATE_NOTICE: Record<Exclude<TLocateResult['kind'], 'ok'>, string> = {
   outside: '지금은 제주 밖이에요. 제주에서 누르면 내 위치로 옮겨 드려요.',
