@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describeNaverError } from './naverApiError.mjs';
+import { describeKeyShape, describeNaverError } from './naverApiError.mjs';
 
 // **실측 본문을 못 박는다.** 2026-09-28 가짜 키로 openapi.naver.com 에 실제 호출해 받은 응답이다 —
 // 문서 인용에서 흔히 보이는 "Not Exist Client ID" 가 아니라 괄호 숫자로 온다는 것이 이 파일의 존재 이유다.
@@ -9,7 +9,14 @@ describe('describeNaverError', () => {
   it('실측 401 에서 내부코드 1000 의 뜻을 말한다', () => {
     const tail = describeNaverError(REAL_401);
     expect(tail).toContain('errorCode=024');
-    expect(tail).toContain('이 Client ID 로 인증이 안 된다');
+    expect(tail).toContain('조합을 모른다');
+  });
+
+  // 401 의 세 갈래(2026-09-28 실측). 1000 을 "값이 안 갔다" 로 넓게 읽지 않게 못 박는다 —
+  // 값이 비었거나 헤더가 없으면 애초에 다른 문구로 오므로, 1000 은 "둘 다 갔는데 거부" 로만 읽어야 한다.
+  it('빈 값·헤더 누락은 1000 이 아니라 다른 문구로 온다', () => {
+    expect(describeNaverError({ errorMessage: 'Not Exist Client ID : Authentication failed.', errorCode: '024' })).toContain('Client ID 가 없다');
+    expect(describeNaverError({ errorMessage: 'Not Exist Client Secret : Authentication failed.', errorCode: '024' })).not.toContain('조합을 모른다');
   });
 
   // errorCode 만으로는 인증 실패가 전부 024 라 갈래가 없다 — 갈라 주는 것은 괄호 숫자다.
@@ -47,5 +54,29 @@ describe('describeNaverError', () => {
   it('errorCode 만 있어도, 라벨만 잡혀도 각각 말한다', () => {
     expect(describeNaverError({ errorCode: '024' })).toBe(' errorCode=024');
     expect(describeNaverError({ errorMessage: 'Quota Exceeded' })).toBe(' (호출 한도 초과)');
+  });
+});
+
+describe('describeKeyShape', () => {
+  it('길이와 글자 종류만 적고 값은 내보내지 않는다', () => {
+    const out = describeKeyShape('AbCdEfGhIjKlMnOpQrSt', 'ABCDEFGHIJ');
+    expect(out).toContain('ID: 20자');
+    expect(out).toContain('Secret: 10자');
+    expect(out).not.toContain('AbCdEfGhIjKlMnOpQrSt');
+    expect(out).not.toContain('ABCDEFGHIJ');
+  });
+
+  // 숨김 입력 두 번을 연달아 받는 흐름에서 가장 흔한 실수다 — 눈으로 잡을 방법이 이것뿐이다.
+  it('Secret 이 ID 보다 길면 뒤바꿔 입력했을 가능성을 말한다', () => {
+    expect(describeKeyShape('ABCDEFGHIJ', 'AbCdEfGhIjKlMnOpQrSt')).toContain('뒤바꿔 입력');
+    expect(describeKeyShape('AbCdEfGhIjKlMnOpQrSt', 'ABCDEFGHIJ')).not.toContain('뒤바꿔 입력');
+  });
+
+  it('값 가운데 공백은 붙여넣기가 잘린 신호로 짚는다', () => {
+    expect(describeKeyShape('abc def', 'xyz')).toContain('공백');
+  });
+
+  it('빈 값·undefined 에도 터지지 않는다', () => {
+    expect(describeKeyShape(undefined, null)).toContain('ID: 0자');
   });
 });

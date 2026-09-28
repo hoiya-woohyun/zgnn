@@ -4,7 +4,7 @@
 // 공식 · 하루 25,000회 무료이고 title·link·description·postdate 만 준다. **본문은 여기서도, DB 에도 저장하지 않는다** —
 // 03(분석) 이 링크를 열어 그 순간에만 읽고 버린다. docs/todo/02-collect-naver-blog.md 가 정본.
 import { readFile } from 'node:fs/promises';
-import { naverErrorTail } from './lib/naverApiError.mjs';
+import { describeKeyShape, naverErrorTail } from './lib/naverApiError.mjs';
 import { readHidden } from './lib/readHidden.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
 import { WINDOW_DAYS, dedupeByUrl, isWithinDays, parsePostdate, toBlogPostRow } from './collect/naverBlog.mjs';
@@ -74,6 +74,9 @@ async function searchBlog(query, start) {
   // 본문은 검색 **결과**라 남기지 않는다(05-security) — 실패 응답에서만, 그것도 우리가 쓴 라벨과 errorCode 만 꺼낸다.
   // status 만으로는 401 의 원인이 갈리지 않아서다(`lib/naverApiError.mjs` 의 주석이 정본).
   if (!res.ok) {
+    // 401 일 때만 **보낸 값의 모양**(길이·글자 종류, 값은 아님)을 함께 찍는다 — 숨김 입력이라 사용자가
+    // 무엇을 넣었는지 볼 방법이 이것뿐이고, 흔한 실수(뒤바꿔 입력)가 여기서 한눈에 드러난다.
+    if (res.status === 401) console.error(describeKeyShape(naverClientId, naverClientSecret));
     throw new Error(`네이버 검색 API 실패: status=${res.status}${await naverErrorTail(res)} query=${url.searchParams.get('query')}`);
   }
   return res.json();

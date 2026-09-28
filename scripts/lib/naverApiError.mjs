@@ -16,9 +16,18 @@
 // 내보내는 글자의 안전성 — 숫자는 `\d+` 로만 뽑고(키가 섞일 수 없다), 나머지는 전부 이 파일의 상수 라벨이다.
 // `errorMessage` **원문은 어떤 경우에도 나가지 않는다**: 네이버가 앞으로 무엇을 넣을지 우리가 보장할 수 없어서다.
 
+// **401 은 세 갈래다**(2026-09-28 실측, 가짜 헤더로 직접 호출):
+//
+//     헤더 없음 · 빈 문자열      → "Not Exist Client ID"
+//     ID 만 있고 Secret 없음      → "Not Exist Client Secret"
+//     둘 다 값이 있으나 인증 거부 → "NID AUTH Result Invalid (1000)"
+//
+// 그래서 `1000` 은 **"값은 둘 다 갔는데 네이버가 그 조합을 모른다"** 로 좁게 읽어야 한다 —
+// 빈 값·헤더 누락·공백으로 날아간 경우는 애초에 다른 문구로 온다. 이 구분이 진단의 절반이다.
+
 /** 인증 결과의 내부 코드 — 실측으로 확인된 것만 뜻을 적는다. 모르는 번호는 번호만 보여 준다(뜻을 지어내지 않는다). */
 const AUTH_SUBCODES = {
-  1000: '이 Client ID 로 인증이 안 된다 — 값이 틀렸거나(공백 포함) 다른 네이버 계정의 애플리케이션이다',
+  1000: '값은 둘 다 전달됐으나 네이버가 이 ID·Secret 조합을 모른다 — 값이 틀렸거나 · 둘이 뒤바뀌었거나 · 개발자센터 키가 아니다',
 };
 
 /** 문구 매칭은 보조다. 앞이 우선 — 좁은 쪽이 먼저 와야 한다. */
@@ -56,6 +65,42 @@ export function describeNaverError(body) {
   if (!code && !label) return '';
   if (!label) return ` errorCode=${code}`;
   return code ? ` errorCode=${code} (${label})` : ` (${label})`;
+}
+
+/** 글자 종류만 본다 — 무엇이 들어왔는지가 아니라 **어떤 부류가 들어왔는지**. */
+function charsetOf(value) {
+  const kinds = [
+    [/[a-z]/, '영소'],
+    [/[A-Z]/, '영대'],
+    [/[0-9]/, '숫자'],
+    [/\s/, '공백'],
+    [/[^\sa-zA-Z0-9]/, '기호'],
+  ];
+  const found = kinds.filter(([re]) => re.test(value)).map(([, name]) => name);
+  return found.length ? found.join('+') : '없음';
+}
+
+/**
+ * 보낸 값의 **모양**만 적는다 — 길이와 글자 종류. 값 자체는 어떤 경우에도 나가지 않는다.
+ *
+ * 왜 필요한가 — 키는 **숨김 입력**이라 사용자가 무엇을 넣었는지 볼 수 없다. 401 이 나도 "내가 뭘 보냈더라" 를
+ * 되짚을 방법이 없어서, 흔한 실수(둘을 뒤바꿔 입력 · 다른 시스템의 키)를 눈으로 잡을 수 없다. 이 한 줄이 그 자리를 메운다.
+ * 길이·글자 종류는 시크릿이 아니고, 사용자 본인의 터미널에만, **401 일 때만** 찍힌다(05-security).
+ *
+ * 뒤바뀜 판정은 길이 비교 하나로 한다 — 개발자센터는 Client ID 가 Secret 보다 길다. 정확한 자릿수를 못 박지 않는 이유는
+ * 그 값이 바뀔 수 있어서이고, **둘의 대소 관계**는 그보다 오래 간다.
+ */
+export function describeKeyShape(clientId, clientSecret) {
+  const id = String(clientId ?? '');
+  const secret = String(clientSecret ?? '');
+  const lines = [`보낸 값의 모양 — ID: ${id.length}자(${charsetOf(id)}) · Secret: ${secret.length}자(${charsetOf(secret)}). 값은 찍지 않는다.`];
+  if (secret.length > id.length) {
+    lines.push('  ⚠️ Secret 이 ID 보다 길다 — 개발자센터는 보통 그 반대다. 둘을 **뒤바꿔 입력**한 것 아닌지 본다.');
+  }
+  if (/\s/.test(id) || /\s/.test(secret)) {
+    lines.push('  ⚠️ 값 가운데에 공백이 있다 — 붙여넣기가 잘린 것일 수 있다(앞뒤 공백은 이미 털었다).');
+  }
+  return lines.join('\n');
 }
 
 /**
