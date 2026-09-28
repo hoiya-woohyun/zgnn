@@ -69,12 +69,14 @@ let merged = 0;
 let created = 0;
 let failed = 0;
 let returned = 0; // 영구 실패 → pending 으로 되돌린 수
+let publishedMerged = 0; // published 장소의 빈 칸을 채운 수 — 다음 pull 에서 사람 재확인 없이 화면에 나간다(설계 검토 RP-3). 따로 센다.
 
 for (const candidate of candidates) {
   console.log(`후보 ${candidate.id} (${candidate.extracted?.name ?? '이름 없음'})`);
   try {
     let placeId;
     let kind;
+    let patchKeys = [];
 
     // 분석 때 신규였던 후보라도 현재 places 에 같은 가게가 이미 있으면(다른 글이 먼저 승인돼 draft 가 됐거나, 사람이 손으로 넣었거나) 보강으로 돌린다.
     let targetId = candidate.match_place_id;
@@ -83,6 +85,15 @@ for (const candidate of candidates) {
       if (rechecked.match && rechecked.confidence >= THRESHOLD.AUTO_MERGE) {
         console.log(`  신규 후보지만 이미 있는 장소와 일치 → 보강으로: ${rechecked.match.name} (${rechecked.confidence.toFixed(2)}, ${rechecked.reason})`);
         targetId = rechecked.match.id;
+      } else if (rechecked.match && rechecked.confidence >= THRESHOLD.ASK) {
+        // ask 구간은 코드가 정하지 않는다 — 신규로 넣으면 이웃 가게의 중복 draft 가 되고, 합치면 오병합이다(설계 검토 RP-7). pending 으로 되돌려 사람이 정한다.
+        throw Object.assign(
+          new Error(
+            `기존 ${rechecked.match.name}(${rechecked.match.id}) 과 ${rechecked.confidence.toFixed(2)} 로 닮았다(${rechecked.reason}) — ` +
+              "같은 곳이면 match_place_id 를 채워서, 다른 곳이면 extracted.match.tier 를 'ask' 로 바꿔서 다시 승인",
+          ),
+          { permanent: true },
+        );
       }
     }
 
@@ -98,11 +109,14 @@ for (const candidate of candidates) {
         throw Object.assign(new Error(`${target.name}(${target.id}) 은 archived — 폐업한 곳에는 병합하지 않는다. Studio 에서 확인`), { permanent: true });
       }
 
-      const patch = mergeIntoExisting(target, candidate.extracted);
+      const patch = mergeIntoExisting(target, candidate.extracted, { postUrl: candidate.post_url });
       if (patch) {
-        await write(`보강 ${target.name}(${target.id}) ← ${Object.keys(patch).join(', ')}`, () =>
+        patchKeys = Object.keys(patch);
+        const geoTag = patch.lat !== undefined && candidate.extracted?.geoSource ? ` [geo:${candidate.extracted.geoSource}]` : '';
+        await write(`보강 ${target.name}(${target.id}${target.status === 'published' ? ' · published' : ''}) ← ${patchKeys.join(', ')}${geoTag}`, () =>
           supabase.from('places').update(patch).eq('id', target.id),
         );
+        if (target.status === 'published') publishedMerged += 1;
         Object.assign(target, patch);
         // 대조 장부(existing)도 같이 갱신 — 방금 채운 좌표를 다음 후보의 재대조가 봐야 한다(안 그러면 9km 밖 동명 가게와 합쳐진다, 리뷰 지적).
         const idx = existing.findIndex((place) => place.id === target.id);
@@ -137,8 +151,12 @@ for (const candidate of candidates) {
       console.log(`  출처 없음 — post_url 이 비어 있어 place_sources 를 건너뜀`);
     }
 
-    // status 만 바꾼다. reviewed_at 은 사람이 승인한 시각이라 그대로 둔다.
-    await write(`후보 ${candidate.id} → merged`, () => supabase.from('candidates').update({ status: 'merged' }).eq('id', candidate.id));
+    // status 와, 어느 장소의 어느 칸을 채웠는지(extracted.applied) — 되돌릴 때 그 칸을 null 로 하면 된다(빈 칸만 채웠으므로, 설계 검토 RP-4).
+    // reviewed_at 은 사람이 승인한 시각이라 그대로 둔다(트리거가 approved·rejected 에만 찍는다).
+    const applied = { placeId, kind, patchKeys, at: new Date().toISOString() };
+    await write(`후보 ${candidate.id} → merged (applied: ${kind}${patchKeys.length ? ` ${patchKeys.join(',')}` : ''})`, () =>
+      supabase.from('candidates').update({ status: 'merged', extracted: { ...(candidate.extracted ?? {}), applied } }).eq('id', candidate.id),
+    );
 
     // 끝까지 간 뒤에만 센다 — 중간에 실패한 후보는 "실패" 한 건이지 "보강" 한 건이 아니다.
     if (kind === 'merged') merged += 1;
@@ -164,7 +182,12 @@ for (const candidate of candidates) {
   }
 }
 
+// published 로 올라가길 기다리는 draft — 승인만 하고 잊으면 화면에 영영 안 뜬다(설계 검토 RP-2). 요약에 같이 찍는다.
+const { count: draftCount } = await supabase.from('places').select('*', { count: 'exact', head: true }).eq('status', 'draft');
 const prefix = dryRun ? '[dry-run] ' : '';
-console.log(`${prefix}반영 ${merged + created}건 (보강 ${merged} · 신규 ${created} · 실패 ${failed}${returned ? ` · pending 되돌림 ${returned}` : ''})`);
+console.log(
+  `${prefix}반영 ${merged + created}건 (보강 ${merged}${publishedMerged ? ` — published ${publishedMerged}` : ''} · 신규 ${created} · 실패 ${failed}${returned ? ` · pending 되돌림 ${returned}` : ''})` +
+    ` · published 대기 draft ${draftCount ?? '?'}곳${(draftCount ?? 0) > 0 ? ' — Studio 에서 status 를 올려야 화면에 뜬다(pnpm data:review status)' : ''}`,
+);
 // process.exit() 은 파이프로 나가던 stdout 을 잘라먹을 수 있다 — 요약 한 줄이 사용자가 보는 유일한 관측이라 자연 종료를 기다린다.
 process.exitCode = Math.min(failed, 255);

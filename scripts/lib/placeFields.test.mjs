@@ -50,3 +50,15 @@ describe('fromPlaceRow', () => {
     expect(place.stay).toBeUndefined();
   });
 });
+
+describe('petPolicy(AI 구조화 판단) 통과', () => {
+  it('없으면 키가 빠져(시드 JSON 바이트 불변) 있으면 petPolicyText 다음 자리에 실린다', () => {
+    const base = { id: 'x', type: 'cafe', name: 'n', regionRaw: '동쪽 (구좌읍)', features: '', petPolicyText: '' };
+    // 없는 값은 undefined 라 JSON.stringify 가 떨어뜨린다(toPlace 의 규칙) — 직렬화 뒤의 키를 본다
+    expect(Object.keys(JSON.parse(JSON.stringify(toPlace(base))))).not.toContain('petPolicy');
+    const facts = { indoor: 'free', leash: false, largeDogOk: null, smallDogOnly: false, callFirst: false, feeFree: null, feeText: null, weightLimitKg: null, maxDogs: null, notes: null };
+    const keys = Object.keys(toPlace({ ...base, petPolicy: facts }));
+    expect(keys.indexOf('petPolicy')).toBe(keys.indexOf('petPolicyText') + 1);
+    expect(fromPlaceRow({ id: 'x', type: 'cafe', name: 'n', region_raw: '동쪽 (구좌읍)', features: '', pet_policy_text: 't', pet_policy: facts }).petPolicy).toEqual(facts);
+  });
+});

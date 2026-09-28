@@ -6,7 +6,7 @@
 // 그래서 모양을 함수 하나에 모으고 테스트로 못 박는다.
 import { parseRegion } from '../lib/placeFields.mjs';
 import { inferRegionRaw } from './naverLocal.mjs';
-import { THRESHOLD, townOf } from './matchPlace.mjs';
+import { JEJU_TOWNS, normalizeName, THRESHOLD, townOf } from './matchPlace.mjs';
 
 /**
  * 🙋 auto 구간(confidence ≥ AUTO_MERGE)을 사람 확인 없이 바로 approved 로 넣을 것인가. 기본 false — 후보는 전부 pending 이고
@@ -26,31 +26,80 @@ export const AUTO_APPROVE = false;
  */
 export const DEFAULT_LIMIT = 50;
 
-/** `--dry-run` · `--limit N`(또는 `--limit=N`). 모르는 인자나 1 미만의 limit 은 throw — 오타로 전체를 돌리는 일이 없게. */
+/**
+ * 한 실행에서 같은 블로그(blog_id)의 글을 몇 건까지 읽나. 첫 분석(2026-09-28)에서 자사 홍보 블로그 하나가 저수지 3,360건의 12%(406건)를 차지했고
+ * 30건 배치에 매번 4~5건씩 들어와 같은 펜션 후보를 13번 만들었다. 넘친 글은 닫지 않고 남긴다 — 그 블로거의 최신 글이 계속 앞에 서므로 사실상
+ * 뒤로 밀린다(의도). 0 은 상한 없음.
+ */
+export const DEFAULT_MAX_PER_BLOG = 2;
+
+/**
+ * `--dry-run` · `--limit N` · `--max-per-blog N` · `--dump[=경로]`(후보·제외 목록을 로컬 JSON 으로 — 정규화 품질을 사람이 볼 유일한 창,
+ * 로그에는 여전히 본문 인용을 찍지 않는다). 모르는 인자나 1 미만의 limit 은 throw — 오타로 전체를 돌리는 일이 없게.
+ */
 export function parseArgs(argv) {
-  const args = { limit: DEFAULT_LIMIT, dryRun: false };
+  const args = { limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
-    if (arg === '--dry-run') {
-      args.dryRun = true;
-      continue;
-    }
+    if (arg === '--dry-run') { args.dryRun = true; continue; }
+    if (arg === '--dump') { args.dump = ''; continue; } // '' = 기본 경로(data/raw/analyze-<시각>.json)
+    if (arg.startsWith('--dump=')) { args.dump = arg.slice('--dump='.length); continue; }
+    let key;
     let value;
-    if (arg === '--limit') value = argv[++i];
-    else if (arg.startsWith('--limit=')) value = arg.slice('--limit='.length);
-    else throw new Error(`알 수 없는 인자: ${arg}`);
-    if (!/^\d+$/.test(value ?? '') || Number(value) < 1) throw new Error(`--limit 은 1 이상의 정수여야 합니다: ${value ?? '(없음)'}`);
-    args.limit = Number(value);
+    for (const [flag, k] of [['--limit', 'limit'], ['--max-per-blog', 'maxPerBlog']]) {
+      if (arg === flag) { key = k; value = argv[++i]; }
+      else if (arg.startsWith(`${flag}=`)) { key = k; value = arg.slice(flag.length + 1); }
+    }
+    if (!key) throw new Error(`알 수 없는 인자: ${arg}`);
+    const min = key === 'limit' ? 1 : 0;
+    if (!/^\d+$/.test(value ?? '') || Number(value) < min) {
+      throw new Error(`${key === 'limit' ? '--limit 은 1' : '--max-per-blog 은 0'} 이상의 정수여야 합니다: ${value ?? '(없음)'}`);
+    }
+    args[key] = Number(value);
   }
   return args;
 }
 
+/**
+ * 이번 실행에 넣을 글 고르기 — 최신순을 지키되 한 블로그는 maxPerBlog 건까지만(DEFAULT_MAX_PER_BLOG 참고).
+ * 호출자는 limit 보다 넉넉히 가져와야 한다(넘친 글이 자리를 비운다).
+ */
+export function pickPostsForRun(posts, limit, maxPerBlog = DEFAULT_MAX_PER_BLOG) {
+  const perBlog = new Map();
+  const picked = [];
+  for (const post of posts) {
+    if (picked.length >= limit) break;
+    const key = post.blog_id ?? post.url;
+    const n = perBlog.get(key) ?? 0;
+    if (maxPerBlog > 0 && n >= maxPerBlog) continue;
+    perBlog.set(key, n + 1);
+    picked.push(post);
+  }
+  return picked;
+}
+
 const PLACE_TYPES = new Set(['stay', 'restaurant', 'cafe']);
 
-/** 제주 소재이고 종류가 정해진 것만 후보. type 'other'(관광지·일반론)와 제주 밖은 후보를 만들지 않고 analyzed_at 만 찍는다(03). */
-export function isPlaceCandidate(extracted) {
-  return extracted?.isJeju === true && PLACE_TYPES.has(extracted.type);
+/**
+ * 후보가 안 되는 이유. null 이면 후보다.
+ *  'notJeju' 제주 밖 · 'other' 종류 없음(관광지·운동장·일반론) · 'notAllowed' 본문이 동반 불가라고 함 — 앱은 조건 없는 문장을 '갈 수 있어요' 로 읽으므로
+ *  들어가면 정반대 안내가 된다(BUG-008, 첫 분석에서 실제로 1건). 이유는 blog_posts.analysis.excluded 에 이름·종류와 함께 남는다(본문 인용 없음).
+ */
+export function exclusionReason(extracted) {
+  if (extracted?.isJeju !== true) return 'notJeju';
+  if (!PLACE_TYPES.has(extracted.type)) return 'other';
+  if (extracted.petAllowed === 'no') return 'notAllowed';
+  return null;
 }
+
+/** 제주 소재이고 종류가 정해졌고 동반 불가가 아닌 것만 후보. 나머지는 후보를 만들지 않고 analyzed_at 만 찍는다(03). */
+export function isPlaceCandidate(extracted) {
+  return exclusionReason(extracted) === null;
+}
+
+/** 시 단위 지역 표기. 시내(동 단위) 주소는 읍·면이 없어 여기로 뭉친다 — 시드도 '북쪽 (제주시)'·'남쪽 (서귀포시)' 다. */
+const CITY_REGION = { 제주시: '북쪽 (제주시)', 서귀포시: '남쪽 (서귀포시)' };
+const TOWN_SET = new Set(JEJU_TOWNS);
 
 /**
  * regionRaw 는 주소 기반이 우선. AI 의 regionRaw 는 본문의 "동쪽 어디쯤" 같은 말에서 추측한 것이고, 주소(네이버 또는 본문)에서
@@ -67,8 +116,20 @@ export function resolveRegionRaw(address, aiRegionRaw, existing) {
   const fromTown = town ? inferRegionRaw(town, existing) : '';
   if (fromTown) return fromTown;
   // 읍·면이 없거나 기존 데이터에 없는 읍·면이면 parseRegion 이 방향을 읽을 수 있을 때만 — 아니면 화면에서 unknown 이 돼 방향 필터에서 사라진다.
-  if (aiRegionRaw && parseRegion(aiRegionRaw).direction !== 'unknown') return aiRegionRaw;
-  return null;
+  if (!aiRegionRaw) return null;
+  const parsed = parseRegion(aiRegionRaw);
+  if (parsed.direction === 'unknown') return null;
+  if (parsed.direction === 'udo') return aiRegionRaw;
+  // 시는 방향을 코드가 정한다(AI 가 "서쪽 (제주시)" 라 해도 북쪽). 동 이름("남쪽 (중문동)")은 방향으로 시를 고른다 — 첫 분석(2026-09-28)에서
+  // 22건이 동 단위로 왔고, 그대로 두면 앱의 읍·면 필터 목록에 동 이름이 섞인다(설계 검토 OB-10).
+  if (CITY_REGION[parsed.town]) return CITY_REGION[parsed.town];
+  if (parsed.town.endsWith('동')) {
+    if (parsed.direction === 'south') return CITY_REGION.서귀포시;
+    if (parsed.direction === 'north') return CITY_REGION.제주시;
+    return null;
+  }
+  // 목록에 있는 읍·면은 위 townOf 분기가 이미 처리했다. 여기 오는 것은 목록에도 시에도 없는 이름("동쪽 (성산리)") — 사람이 채운다.
+  return TOWN_SET.has(parsed.town) ? aiRegionRaw : null;
 }
 
 /**
@@ -117,13 +178,21 @@ export function toMatchCandidate(extracted, local) {
  * @param {{ lat, lng, address, naverLink, category } | null} local  pickNaverPlace 결과
  * @param {string | null} regionRaw  resolveRegionRaw 결과
  * @param {{ match: object | null, confidence: number, reason: string }} matched  matchPlace 결과
+ * @param {{ meta?: { model: string, promptVersion: string } | null, dupOf?: string | null }} [extra]
+ *   meta — 어느 모델·프롬프트로 뽑았나(재분석 대상을 고르는 키). dupOf — 같은 nameKey 의 먼저 난 pending 후보 id(검수자가 묶어 보게).
  */
-export function toCandidateRow(post, extracted, local, regionRaw, matched) {
+export function toCandidateRow(post, extracted, local, regionRaw, matched, { meta = null, dupOf = null } = {}) {
   const tier = tierOf(matched);
   return {
     post_url: post.url,
     extracted: {
       ...extracted,
+      // Studio·data:review 에서 같은 가게를 묶는 키(normalizeName). 첫 분석에서 같은 펜션이 13건 따로 쌓였다.
+      nameKey: normalizeName(extracted.name),
+      dupOf,
+      meta,
+      // AI 가 본문에서 읽은 주소 원문 — 네이버 주소로 덮인 뒤에도 남겨 동명 오채택을 사람이 알아채게(regionRawAi 와 같은 이유).
+      addressAi: extracted.address ?? null,
       address: local?.address ?? extracted.address ?? null,
       geo: local ? { lat: local.lat, lng: local.lng } : null,
       // 이름 축(pickNaverPlace)은 geoSource 를 달지 않으므로 여기서 'local' 이 기본이다 — 축을 아는 곳이 한 군데여야 어긋나지 않는다.
@@ -137,6 +206,21 @@ export function toCandidateRow(post, extracted, local, regionRaw, matched) {
     match_place_id: tier === 'new' ? null : matched.match.id,
     match_confidence: matched.confidence,
     status: tier === 'auto' && AUTO_APPROVE ? 'approved' : 'pending',
+  };
+}
+
+/**
+ * blog_posts.analysis(jsonb) — 글 하나의 분석 결과 요약. 후보 0건인 글의 "왜" 가 여기 남는다(제외된 장소의 이름·종류·이유만 —
+ * 본문 인용은 넣지 않는다, docs/todo/02 의 저장 원칙). skip 은 분석 불가로 닫을 때의 사유. 마이그레이션 20260928150000.
+ */
+export function toPostAnalysis({ meta = null, candidates = [], excluded = [], skip = null } = {}) {
+  return {
+    model: meta?.model ?? null,
+    promptVersion: meta?.promptVersion ?? null,
+    candidates: candidates.length,
+    candidateNames: candidates.map((row) => row.extracted.name),
+    excluded: excluded.map(({ extracted, reason }) => ({ name: extracted.name, type: extracted.type, reason })),
+    skip,
   };
 }
 
@@ -158,5 +242,8 @@ export function formatCandidateLine(row, matchedName) {
 export function formatSummary(stats, meterSummary, { dryRun } = {}) {
   const prefix = dryRun ? '[dry-run] ' : '';
   const dropped = stats.dropped ? ` · 분석불가 ${stats.dropped}` : '';
-  return `${prefix}분석 ${stats.analyzed}건 (후보 ${stats.candidates} · 일치 ${stats.auto} · 확인요청 ${stats.ask} · 신규 ${stats.new} · 건너뜀 ${stats.skipped}${dropped}) · ${meterSummary}`;
+  const ex = stats.excluded;
+  const excluded = ex ? ` · 제외 ${ex.other + ex.notJeju + ex.notAllowed}(other ${ex.other} · 제주밖 ${ex.notJeju} · 동반불가 ${ex.notAllowed})` : '';
+  const dup = stats.dup ? ` · 중복표시 ${stats.dup}` : '';
+  return `${prefix}분석 ${stats.analyzed}건 (후보 ${stats.candidates} · 일치 ${stats.auto} · 확인요청 ${stats.ask} · 신규 ${stats.new}${dup} · 건너뜀 ${stats.skipped}${dropped}${excluded}) · ${meterSummary}`;
 }

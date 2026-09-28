@@ -24,7 +24,11 @@ export function parseRegion(raw) {
 // "59,000원 ~ 79,000원", "230,000원 (3인)", "150,000원 ~ 200,000원\n(인스타 DM이 빨라요)"
 export function parsePrice(text) {
   const t = clean(text);
-  const nums = [...t.matchAll(/(\d{1,3}(?:,\d{3})+)\s*원/g)].map((m) => Number(m[1].replace(/,/g, '')));
+  // 시드는 "59,000원" 꼴이지만 블로그 본문은 "59000원"·"5.9만원"·"6만원" 도 흔하다(2026-09-28 첫 분석 실측). 셋 다 원 단위 정수로.
+  // 콤마 없는 숫자는 4자리 이상만 — "2인 기준" 같은 개수·"1원" 이 요금으로 읽히지 않게.
+  const nums = [...t.matchAll(/(\d{1,3}(?:,\d{3})+|\d{4,})\s*원|(\d+(?:\.\d+)?)\s*만\s*원/g)].map((m) =>
+    m[1] !== undefined ? Number(m[1].replace(/,/g, '')) : Math.round(Number(m[2]) * 10000),
+  );
   const note = [...t.matchAll(/\(([^)]+)\)/g)].map((m) => m[1]).join(', ') || undefined;
   return { text: t, min: nums.length ? Math.min(...nums) : undefined, max: nums.length ? Math.max(...nums) : undefined, note };
 }
@@ -42,6 +46,8 @@ export function toPlace(f) {
     region: parseRegion(f.regionRaw),
     features: clean(f.features),
     petPolicyText: clean(f.petPolicyText),
+    // AI 구조화 판단(places.pet_policy jsonb). 시드는 null → undefined → 키가 빠져 JSON 바이트가 그대로다.
+    petPolicy: f.petPolicy ?? undefined,
     reviewUrl: f.reviewUrl || undefined,
     naverUrl: f.naverUrl || undefined,
     naverPlaceId: f.naverPlaceId || undefined,
@@ -70,6 +76,7 @@ export function fromPlaceRow(row) {
     regionRaw: row.region_raw,
     features: row.features,
     petPolicyText: row.pet_policy_text,
+    petPolicy: row.pet_policy,
     reviewUrl: row.review_url,
     naverUrl: row.naver_url,
     naverPlaceId: row.naver_place_id,

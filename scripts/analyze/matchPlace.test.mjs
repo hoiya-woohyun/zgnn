@@ -59,6 +59,10 @@ describe('nameSimilarity', () => {
     expect(nameSimilarity('고기부엌', '협재고기부엌')).toBe(0.7);
     expect(nameSimilarity('무거버거 함덕점', '무거버거')).toBe(0.7);
   });
+  it('지점 접미는 벗기지 않는다 — "A 애월점" 과 "A 함덕점" 은 다른 가게(체인). "제주점" 접사만 벗겨 "올드패션제주" 와 같은 키가 된다', () => {
+    expect(nameSimilarity('카페A 애월점', '카페A 함덕점')).toBe(0);
+    expect(normalizeName('올드패션 제주점')).toBe(normalizeName('올드패션제주'));
+  });
   it(`부분 일치는 짧은 쪽이 ${NAME_PARTIAL_MIN_CHARS}자 이상일 때만`, () => {
     expect(nameSimilarity('가'.repeat(NAME_PARTIAL_MIN_CHARS - 1), '가'.repeat(NAME_PARTIAL_MIN_CHARS + 3))).toBe(0);
     expect(nameSimilarity('가'.repeat(NAME_PARTIAL_MIN_CHARS), '가'.repeat(NAME_PARTIAL_MIN_CHARS + 3))).toBe(0.7);

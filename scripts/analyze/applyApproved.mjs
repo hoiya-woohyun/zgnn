@@ -8,6 +8,8 @@
 // 컬럼명은 places 테이블 그대로 snake_case 다(supabase/migrations/20260920124849_zgnn_schema.sql). camelCase 로
 // 바꾸는 건 pull-db.mjs 의 일이고, 여기서는 DB 에 쓸 모양을 만든다.
 
+import { parseRegion } from '../lib/placeFields.mjs';
+
 /** null · undefined · 공백뿐인 문자열을 "비어 있음" 으로 본다. 숫자(lat/lng)는 이 함수로 보지 않는다 — 0 은 값이다. */
 const isBlank = (v) => v == null || String(v).trim() === '';
 
@@ -22,19 +24,23 @@ const validGeo = (geo) =>
  * 기존 places 행의 빈 칸만 extracted 값으로 채우는 patch. 채울 게 없으면 null — 호출자는 update 자체를 건너뛴다
  * (빈 update 도 places_set_updated_at 트리거가 updated_at 을 건드린다).
  *
- * 채우는 칸: address · lat+lng(둘 다 비어 있을 때만, 쌍으로) · region_raw · features · pet_policy_text · category.
+ * 채우는 칸: address · lat+lng(둘 다 비어 있을 때만, 쌍으로) · region_raw · features · pet_policy_text(+pet_policy 를 같은 후보 것으로) · category ·
+ *   review_url · stay_price_text · stay_amenities_text(숙소만).
  *   category 는 TExtractedPlace 에 없고 naverLocal(pickNaverPlace)이 한 단어("커피전문점")로 주는 값이라, 분석 단계가
  *   extracted 에 실어 줬을 때만 채운다 — 없으면 아무 일도 없다.
- * 건드리지 않는 칸: naver_url · naver_place_id · review_url · stay_* · status · source · sort.
+ *   pet_policy(AI 구조화 판단)는 **pet_policy_text 를 채울 때만 함께** 채운다 — 사람이 쓴 원문이 있는 곳에 다른 글의 판단을 얹지 않는다(ADR-017).
+ *   review_url·stay_* 는 시드 86곳이 전부 차 있어 영향이 없고, 블로그 draft 끼리 보강될 때만 채워진다(2026-09-28 설계 검토 FF-2·FF-8).
+ * 건드리지 않는 칸: naver_url · naver_place_id · status · source · sort.
  *   naver_url 에는 naverLink 도 넣지 않는다. 벤더가 네이버로 바뀌어 이름은 맞아 보이지만, 지역 검색의 link 는 공식 문서상
  *   "업체, 기관의 상세 정보 URL" 이라 **네이버 플레이스가 아니라 업체 홈페이지일 수 있고 비어 있는 경우도 많다**(문서 예제부터 비었다).
  *   naver_url 은 사람이 확인한 플레이스 주소를 담는 칸이라, 검색이 준 링크를 자동으로 채우면 조용한 오염이 된다. Studio 에서 사람이 넣는다.
  *
  * @param {object} existingRow  places 행(snake_case)
  * @param {object} extracted    candidates.extracted jsonb — { ...TExtractedPlace, geo, naverLink, regionRaw, match }
+ * @param {{ postUrl?: string | null }} [opts]  review_url 이 빌 때 채울 글 링크
  * @returns {object | null}
  */
-export function mergeIntoExisting(existingRow, extracted) {
+export function mergeIntoExisting(existingRow, extracted, { postUrl = null } = {}) {
   const patch = {};
 
   const address = text(extracted?.address);
@@ -52,10 +58,23 @@ export function mergeIntoExisting(existingRow, extracted) {
   if (isBlank(existingRow.features) && features) patch.features = features;
 
   const petPolicyText = text(extracted?.petPolicyText);
-  if (isBlank(existingRow.pet_policy_text) && petPolicyText) patch.pet_policy_text = petPolicyText;
+  if (isBlank(existingRow.pet_policy_text) && petPolicyText) {
+    patch.pet_policy_text = petPolicyText;
+    if (extracted?.petPolicy && typeof extracted.petPolicy === 'object') patch.pet_policy = extracted.petPolicy;
+  }
 
   const category = text(extracted?.category);
   if (isBlank(existingRow.category) && category) patch.category = category;
+
+  const reviewUrl = text(postUrl);
+  if (isBlank(existingRow.review_url) && reviewUrl) patch.review_url = reviewUrl;
+
+  if (existingRow.type === 'stay') {
+    const stayPriceText = text(extracted?.stayPriceText);
+    if (isBlank(existingRow.stay_price_text) && stayPriceText) patch.stay_price_text = stayPriceText;
+    const stayAmenitiesText = text(extracted?.stayAmenitiesText);
+    if (isBlank(existingRow.stay_amenities_text) && stayAmenitiesText) patch.stay_amenities_text = stayAmenitiesText;
+  }
 
   return Object.keys(patch).length > 0 ? patch : null;
 }
@@ -83,15 +102,27 @@ export function toNewPlaceRow(candidate, { id }) {
   const name = text(extracted.name);
   if (!name) throw Object.assign(new Error(`후보 ${candidate.id}: name 이 비어 있다`), { permanent: true });
 
+  // 지역이 없으면 카드의 읍·면 칩이 비고 헤더가 '기타' 가 된다(설계 검토 FF-4). 반영을 막고 사람이 Studio 에서 extracted.regionRaw 를 채우게 한다.
+  const regionRaw = text(extracted.regionRaw);
+  if (!regionRaw || parseRegion(regionRaw).direction === 'unknown') {
+    throw Object.assign(
+      new Error(`후보 ${candidate.id}: regionRaw 가 없거나 "동쪽 (구좌읍)" 형식이 아니다 — extracted.regionRaw 를 채운 뒤 다시 승인`),
+      { permanent: true },
+    );
+  }
+
   const geo = validGeo(extracted.geo) ? extracted.geo : null;
+  const petPolicyText = text(extracted.petPolicyText);
 
   return {
     id,
     type,
     name,
-    region_raw: text(extracted.regionRaw) ?? '',
+    region_raw: regionRaw,
     features: text(extracted.features) ?? '',
-    pet_policy_text: text(extracted.petPolicyText) ?? '',
+    pet_policy_text: petPolicyText ?? '',
+    // AI 구조화 판단은 원문이 있을 때만 의미가 있다(ADR-017).
+    pet_policy: petPolicyText && extracted.petPolicy && typeof extracted.petPolicy === 'object' ? extracted.petPolicy : null,
     review_url: candidate.post_url ?? null,
     naver_url: null,
     naver_place_id: null,
@@ -99,8 +130,8 @@ export function toNewPlaceRow(candidate, { id }) {
     lng: geo?.lng ?? null,
     address: text(extracted.address),
     category: text(extracted.category),
-    stay_price_text: null,
-    stay_amenities_text: null,
+    stay_price_text: type === 'stay' ? text(extracted.stayPriceText) : null,
+    stay_amenities_text: type === 'stay' ? text(extracted.stayAmenitiesText) : null,
     sort: null,
     status: 'draft',
     source: 'blog',

@@ -3,14 +3,18 @@ import places from '../../src/data/places.json' with { type: 'json' };
 import {
   AUTO_APPROVE,
   DEFAULT_LIMIT,
+  DEFAULT_MAX_PER_BLOG,
+  exclusionReason,
   formatCandidateLine,
   formatSummary,
   isPlaceCandidate,
   parseArgs,
+  pickPostsForRun,
   resolveRegionRaw,
   tierOf,
   toCandidateRow,
   toMatchCandidate,
+  toPostAnalysis,
 } from './analyzeCandidates.mjs';
 import { matchPlace, THRESHOLD } from './matchPlace.mjs';
 import { toRecheckCandidate } from './applyApproved.mjs';
@@ -41,11 +45,18 @@ const local = {
 
 describe('parseArgs', () => {
   it('인자가 없으면 기본 limit · dry-run 아님', () => {
-    expect(parseArgs([])).toEqual({ limit: DEFAULT_LIMIT, dryRun: false });
+    expect(parseArgs([])).toEqual({ limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG });
   });
   it('--limit N 과 --limit=N 둘 다 받고, --dry-run 은 어디에 있어도 된다', () => {
-    expect(parseArgs(['--limit', '5', '--dry-run'])).toEqual({ limit: 5, dryRun: true });
-    expect(parseArgs(['--dry-run', '--limit=20'])).toEqual({ limit: 20, dryRun: true });
+    expect(parseArgs(['--limit', '5', '--dry-run'])).toEqual({ limit: 5, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG });
+    expect(parseArgs(['--dry-run', '--limit=20'])).toEqual({ limit: 20, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG });
+  });
+  it('--dump 는 기본 경로(빈 문자열), --dump=경로 는 그 경로 · --max-per-blog 는 0 도 된다(상한 없음)', () => {
+    expect(parseArgs(['--dump']).dump).toBe('');
+    expect(parseArgs(['--dump=/tmp/x.json']).dump).toBe('/tmp/x.json');
+    expect(parseArgs(['--max-per-blog', '0']).maxPerBlog).toBe(0);
+    expect(parseArgs(['--max-per-blog=5']).maxPerBlog).toBe(5);
+    expect(() => parseArgs(['--max-per-blog', '-1'])).toThrow();
   });
   it('limit 이 없거나 0·음수·문자면 throw — 오타로 전체를 돌리지 않게', () => {
     expect(() => parseArgs(['--limit'])).toThrow('--limit');
@@ -143,6 +154,10 @@ describe('toCandidateRow — candidates.extracted 는 applyApproved.mjs 가 읽�
     expect(row.match_confidence).toBe(matchedAuto.confidence);
     expect(row.extracted).toEqual({
       ...extracted,
+      nameKey: '솔숲펜션',
+      dupOf: null,
+      meta: null,
+      addressAi: null,
       address: local.address,
       geo: { lat: local.lat, lng: local.lng },
       geoSource: 'local',
@@ -240,5 +255,64 @@ describe('분석 ↔ 반영 계약 — matchPlace 가 분석 때 본 지역 신�
       expect(analyzeTime.confidence, ai).toBeLessThan(THRESHOLD.AUTO_MERGE);
       expect(row.extracted.regionRaw, ai).toBe('동쪽 (성산읍)');
     }
+  });
+});
+
+describe('exclusionReason — 후보가 안 되는 이유(2026-09-28 설계 검토)', () => {
+  it('제주 밖 → notJeju, other → other, 본문이 동반 불가라고 하면 notAllowed, 아니면 null', () => {
+    expect(exclusionReason({ ...extracted, isJeju: false })).toBe('notJeju');
+    expect(exclusionReason({ ...extracted, type: 'other' })).toBe('other');
+    expect(exclusionReason({ ...extracted, petAllowed: 'no' })).toBe('notAllowed');
+    expect(exclusionReason({ ...extracted, petAllowed: 'unknown' })).toBeNull();
+    expect(exclusionReason(extracted)).toBeNull();
+    expect(isPlaceCandidate({ ...extracted, petAllowed: 'no' })).toBe(false);
+  });
+});
+
+describe('resolveRegionRaw — 시내(동 단위)는 시로 뭉친다', () => {
+  it('"남쪽 (중문동)" → 남쪽 (서귀포시), "북쪽 (노형동)" → 북쪽 (제주시), 방향이 어긋난 동은 null', () => {
+    expect(resolveRegionRaw(null, '남쪽 (중문동)', places)).toBe('남쪽 (서귀포시)');
+    expect(resolveRegionRaw(null, '북쪽 (노형동)', places)).toBe('북쪽 (제주시)');
+    expect(resolveRegionRaw(null, '서쪽 (노형동)', places)).toBeNull();
+  });
+  it('시 이름은 AI 가 준 방향과 무관하게 코드가 정한다', () => {
+    expect(resolveRegionRaw(null, '서쪽 (제주시)', places)).toBe('북쪽 (제주시)');
+    expect(resolveRegionRaw(null, '남쪽 (서귀포시)', places)).toBe('남쪽 (서귀포시)');
+  });
+  it('목록에도 시에도 없는 이름("동쪽 (성산리)")은 null — 사람이 채운다', () => {
+    expect(resolveRegionRaw(null, '동쪽 (성산리)', places)).toBeNull();
+  });
+});
+
+describe('pickPostsForRun — 한 블로그는 maxPerBlog 건까지', () => {
+  const mk = (blog, n) => ({ url: `https://blog.naver.com/${blog}/${n}`, blog_id: blog });
+  const posts = [mk('a', 1), mk('a', 2), mk('a', 3), mk('b', 1), mk('a', 4), mk('c', 1), mk('b', 2)];
+  it('최신순을 지키되 넘친 글은 건너뛰고 limit 까지 채운다', () => {
+    expect(pickPostsForRun(posts, 5, 2).map((p) => p.url.split('/').slice(-2).join('/'))).toEqual(['a/1', 'a/2', 'b/1', 'c/1', 'b/2']);
+  });
+  it('maxPerBlog 0 은 상한 없음, blog_id 가 없으면 url 로 센다', () => {
+    expect(pickPostsForRun(posts, 10, 0)).toHaveLength(7);
+    expect(pickPostsForRun([{ url: 'x' }, { url: 'y' }], 10, 1)).toHaveLength(2);
+  });
+});
+
+describe('toPostAnalysis — blog_posts.analysis', () => {
+  it('후보 수·이름, 제외 목록(이름·종류·이유), 모델·프롬프트 버전, skip 만 — 본문 인용은 없다', () => {
+    const meta = { model: 'claude-opus-5', promptVersion: 'abcd1234' };
+    const row = toCandidateRow(post, extracted, null, null, { match: null, confidence: 0, reason: '없음' }, { meta });
+    const a = toPostAnalysis({ meta, candidates: [row], excluded: [{ extracted: { ...extracted, name: '해변', type: 'other' }, reason: 'other' }] });
+    expect(a).toEqual({
+      model: 'claude-opus-5',
+      promptVersion: 'abcd1234',
+      candidates: 1,
+      candidateNames: ['솔숲펜션'],
+      excluded: [{ name: '해변', type: 'other', reason: 'other' }],
+      skip: null,
+    });
+    expect(JSON.stringify(a)).not.toContain('불멍');
+    expect(row.extracted.meta).toEqual(meta);
+  });
+  it('분석 불가로 닫을 때는 skip 만', () => {
+    expect(toPostAnalysis({ skip: '본문 없음' })).toMatchObject({ candidates: 0, excluded: [], skip: '본문 없음', model: null });
   });
 });

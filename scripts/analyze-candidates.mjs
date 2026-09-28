@@ -30,16 +30,21 @@
 //    남기고 사람이 Studio 에서 본다 — 단순하게.
 //  - `--dry-run` 은 DB 에 쓰지 않는다(analyzed_at 도). Claude 는 부른다 — 토큰은 쓰인다. 무엇이 후보가 되는지 보는 용도.
 //  - 로그에 시크릿·응답 본문·헤더·본문 텍스트를 남기지 않는다(docs/todo/05). 글 URL·제목, 후보 요약 한 줄, error.message 만.
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import {
+  exclusionReason,
   formatCandidateLine,
   formatSummary,
-  isPlaceCandidate,
   parseArgs,
+  pickPostsForRun,
   resolveRegionRaw,
+  tierOf,
   toCandidateRow,
   toMatchCandidate,
+  toPostAnalysis,
 } from './analyze/analyzeCandidates.mjs';
-import { createUsageMeter, extractPlaces, isFatal, isRetryable, MODEL, runClaudeCli } from './analyze/extractPlaces.mjs';
+import { createUsageMeter, extractPlaces, isFatal, isRetryable, MODEL, PROMPT_VERSION, runClaudeCli } from './analyze/extractPlaces.mjs';
 import { formatGeocodeSummary, geocodeAddress, newGeocodeReasons, pickGeocoded, shouldGeocode } from './analyze/naverGeocode.mjs';
 import { newPickReasons, pickNaverPlace, searchNaverPlace } from './analyze/naverLocal.mjs';
 import { matchPlace, normalizeName, townOf } from './analyze/matchPlace.mjs';
@@ -51,10 +56,10 @@ let args;
 try {
   args = parseArgs(process.argv.slice(2));
 } catch (e) {
-  console.error(`${e.message} — 사용법: pnpm data:analyze [--limit N] [--dry-run]`);
+  console.error(`${e.message} — 사용법: pnpm data:analyze [--limit N] [--max-per-blog N] [--dry-run] [--dump[=경로]]`);
   process.exit(1);
 }
-const { limit, dryRun } = args;
+const { limit, dryRun, dump, maxPerBlog } = args;
 console.log(dryRun ? '모드: dry-run — DB 에 쓰지 않는다(Claude 는 부른다)' : '모드: 분석 — candidates · blog_posts.analyzed_at 에 쓴다');
 
 // 좌표 보강은 **02(수집)과 같은 네이버 키**를 쓴다 — 키를 하나 더 발급·관리하지 않는다(ADR-008 v4).
@@ -77,10 +82,25 @@ const mapClientSecret = trimKey(process.env.NAVER_MAP_CLIENT_SECRET);
 const mapKeys = mapClientId && mapClientSecret ? { clientId: mapClientId, clientSecret: mapClientSecret } : null;
 if (!mapKeys) console.log('NAVER_MAP_CLIENT_ID · NAVER_MAP_CLIENT_SECRET 없음 — 주소→좌표 보강(두 번째 축)을 건너뛴다(이름 축만 돈다)');
 // ANALYZE_MODEL 이 조용히 무시되는 일이 없게 실제로 쓰는 모델을 한 번 찍는다.
-console.log(`모델 ${MODEL} · 글 최대 ${limit}건`);
+console.log(`모델 ${MODEL} · 프롬프트 ${PROMPT_VERSION} · 글 최대 ${limit}건 · 블로그당 최대 ${maxPerBlog || '무제한'}건`);
+// 후보(extracted.meta)와 글(blog_posts.analysis)에 실린다 — 프롬프트를 고친 뒤 재분석 대상을 고르는 키.
+const meta = { model: MODEL, promptVersion: PROMPT_VERSION };
 
 const supabase = createSupabase();
 const meter = createUsageMeter();
+
+// 마이그레이션 20260928150000(blog_posts.analysis · places.pet_policy)이 적용됐는지 먼저 본다 — 없으면 첫 글의 쓰기에서 42703 으로 죽는데,
+// 그때까지 Claude 를 불러 한도만 쓴다. dry-run 도 같은 검사를 한다(실제 실행 전에 알아야 한다).
+{
+  const { error } = await supabase.from('blog_posts').select('analysis').limit(1);
+  if (error) {
+    console.error(
+      `blog_posts.analysis 컬럼을 읽지 못했다(${error.message}) — supabase/migrations/20260928150000_analysis_and_pet_policy.sql 을 ` +
+        '적용한 뒤 다시 돌린다(Studio SQL 편집기에 붙여 넣거나 supabase db push).',
+    );
+    process.exit(1);
+  }
+}
 
 const LOCAL_DELAY_MS = 200;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -97,13 +117,15 @@ async function write(label, run) {
 }
 
 // 최신 글부터. 오래된 글이 계속 밀리는 건 감수한다 — 최근 글이 지금 운영 중인 가게일 가능성이 높다.
-const { data: posts, error: postsError } = await supabase
+// limit 보다 넉넉히 읽는 이유 — 한 블로그의 글을 maxPerBlog 건으로 자르면(pickPostsForRun) 빈 자리를 다음 글이 채워야 한다.
+const { data: fetchedPosts, error: postsError } = await supabase
   .from('blog_posts')
   .select('url, blog_id, log_no, title, keyword, posted_at')
   .is('analyzed_at', null)
   .order('posted_at', { ascending: false })
-  .limit(limit);
+  .limit(maxPerBlog > 0 ? Math.min(limit * 4, 400) : limit);
 if (postsError) throw new Error(`blog_posts 조회 실패: ${postsError.message}`);
+const posts = pickPostsForRun(fetchedPosts, limit, maxPerBlog);
 
 // 지금 규모(86곳 + 신규 draft 몇)는 supabase-js 기본 1000행 제한에 한참 못 미친다 — 늘어나면 range() 로 페이지네이션.
 const { data: placeRows, error: placesError } = await supabase.from('places').select('*').neq('status', 'archived');
@@ -115,7 +137,19 @@ if (existing.length === 0) {
   process.exit(1);
 }
 
-console.log(`미분석 글 ${posts.length}건 · 기존 장소 ${existing.length}곳(archived 제외)`);
+// 이전 실행의 pending 후보 이름을 미리 읽어 같은 가게가 또 나오면 dupOf 로 묶는다(2026-09-28 설계 검토 NQ-8 — 첫 분석에서 같은 펜션이 13건).
+// 옛 후보(nameKey 없음)는 이름으로 계산한다. 넣지 않는 게 아니라 **표시만** 한다 — evidence 가 다른 글이라 검수에 쓸모가 있다.
+const { data: pendingRows, error: pendingError } = await supabase.from('candidates').select('id, extracted').eq('status', 'pending').limit(1000);
+if (pendingError) throw new Error(`candidates 조회 실패: ${pendingError.message}`);
+const newNamesSeen = new Map(); // nameKey → 먼저 난 pending 후보 id(이전 실행) 또는 글 URL(이번 실행)
+for (const row of pendingRows) {
+  const key = row.extracted?.nameKey ?? normalizeName(row.extracted?.name ?? '');
+  if (key && !newNamesSeen.has(key)) newNamesSeen.set(key, row.id);
+}
+
+console.log(
+  `미분석 글 ${posts.length}건(읽은 ${fetchedPosts.length}건 중 블로그당 ${maxPerBlog || '무제한'}건) · 기존 장소 ${existing.length}곳(archived 제외) · pending 후보 ${pendingRows.length}건`,
+);
 
 // 네이버가 잠깐 죽었다고 글 전체를 버리지 않는다 — 실패하면 좌표 없이 간다(status 만 로그). 단 401/403 은 키가 틀린 것이라 실행을
 // 세운다: 조용히 이름만으로 대조하면 같은 이름의 다른 가게가 ask 대신 auto 로 올라간다(리뷰 지적). 검색 사이 200ms 는 collect-blog.mjs 와 같은 예의.
@@ -198,14 +232,15 @@ function isPermanentFailure(e) {
 // 건너뛴 이유를 한 단어 더 — 일시 오류(다음 실행에 될 가능성 큼)와 모델 응답 문제(다음에도 같을 수 있음)를 사람이 구분하게.
 function skipHint(e) {
   if (isRetryable(e)) return ' [일시 오류 — 다음 실행에 재시도]';
-  if (e?.name === 'ExtractionError') return ` [모델 응답 문제 code=${e.code} — 다음 실행에도 같을 수 있다]`;
+  if (e?.name === 'ExtractionError' || e?.code === 'invalid_json') return ` [모델 응답 문제 code=${e.code} — 다음 실행에도 같을 수 있다]`;
   return '';
 }
 
-const stats = { analyzed: 0, skipped: 0, dropped: 0, candidates: 0, auto: 0, ask: 0, new: 0 };
+const stats = { analyzed: 0, skipped: 0, dropped: 0, candidates: 0, auto: 0, ask: 0, new: 0, dup: 0, excluded: { other: 0, notJeju: 0, notAllowed: 0 } };
 let fatal = false;
 const pendingCloses = []; // { url, reason } — 루프 끝에 성공이 1건이라도 있을 때만 analyzed_at 을 찍는다
-const newNamesSeen = new Map(); // normalizeName(이름) → 먼저 나온 글 URL
+// --dump 용. DB 에 들어갈 후보 행(extracted 그대로, 본문 없음)과 제외 목록 — 정규화 품질을 사람이 볼 유일한 창이다(로그에는 안 찍는다, 05).
+const dumpEntries = [];
 
 for (const post of posts) {
   console.log(`글 ${post.url} (${post.title ?? '제목 없음'})`);
@@ -217,9 +252,14 @@ for (const post of posts) {
 
     const places = await extractPlaces(runClaudeCli, post, body, meter);
     const rows = [];
+    const excluded = [];
     for (const extracted of places) {
-      if (!isPlaceCandidate(extracted)) {
-        console.log(`  제외 ${extracted.name} (${extracted.type}${extracted.isJeju ? '' : ' · 제주 아님'})`);
+      const reason = exclusionReason(extracted);
+      if (reason) {
+        excluded.push({ extracted, reason });
+        stats.excluded[reason] += 1;
+        const why = reason === 'notJeju' ? ' · 제주 아님' : reason === 'notAllowed' ? ' · 동반 불가' : '';
+        console.log(`  제외 ${extracted.name} (${extracted.type}${why})`);
         continue;
       }
       // 같은 이름이 여럿일 때 AI 가 읽은 읍·면(regionRaw 또는 본문 주소)이 검색 결과를 고르는 힌트다 — 우도 카페살레 vs 본섬 동명(리뷰 지적).
@@ -235,23 +275,27 @@ for (const post of posts) {
       // regionRaw 는 주소 기반이 우선(analyzeCandidates.mjs). 주소는 네이버 → 본문 순.
       const regionRaw = resolveRegionRaw(local?.address ?? extracted.address, extracted.regionRaw, existing);
       const matched = matchPlace(toMatchCandidate(extracted, local), existing);
-      const row = toCandidateRow(post, extracted, local, regionRaw, matched);
+      const key = normalizeName(extracted.name);
+      const dupOf = tierOf(matched) === 'new' ? (newNamesSeen.get(key) ?? null) : null;
+      const row = toCandidateRow(post, extracted, local, regionRaw, matched, { meta, dupOf });
       const tier = row.extracted.match.tier;
-      console.log(`  ${formatCandidateLine(row, matched.match?.name)}`);
+      console.log(`  ${formatCandidateLine(row, matched.match?.name)}${row.extracted.visited === false ? ' · 목록글' : ''}`);
 
       if (tier === 'new') {
-        const key = normalizeName(extracted.name);
-        const firstUrl = newNamesSeen.get(key);
-        if (firstUrl) console.log(`    ※ 같은 이름의 신규 후보가 이 실행에서 이미 나옴(${firstUrl}) — 둘 다 넣는다. Studio 에서 확인`);
-        else newNamesSeen.set(key, post.url);
+        if (dupOf) {
+          stats.dup += 1;
+          console.log(`    ※ 같은 이름의 신규 후보가 이미 있음(${dupOf}) — dupOf 로 표시하고 넣는다. pnpm data:review 가 묶어 보여 준다`);
+        } else newNamesSeen.set(key, post.url);
       }
       rows.push(row);
     }
 
+    dumpEntries.push({ post: { url: post.url, title: post.title, posted_at: post.posted_at }, candidates: rows, excluded });
     if (rows.length > 0) await write(`candidates ${rows.length}건 insert`, () => supabase.from('candidates').insert(rows));
-    // 후보가 0개여도(장소 없음 · 제주 아님 · other 뿐) 분석은 끝난 것이다 — 다시 읽지 않게 analyzed_at 을 찍는다.
+    // 후보가 0개여도(장소 없음 · 제주 아님 · other 뿐) 분석은 끝난 것이다 — 다시 읽지 않게 analyzed_at 을 찍고, "왜 0건인가" 를 analysis 에 남긴다.
+    const analysis = toPostAnalysis({ meta, candidates: rows, excluded });
     await write(`analyzed_at 기록${rows.length === 0 ? ' (후보 없음)' : ''}`, () =>
-      supabase.from('blog_posts').update({ analyzed_at: new Date().toISOString() }).eq('url', post.url),
+      supabase.from('blog_posts').update({ analyzed_at: new Date().toISOString(), analysis }).eq('url', post.url),
     );
 
     // 끝까지 간 뒤에만 센다 — 중간에 실패한 글은 "건너뜀" 이지 "분석" 이 아니고, 그 글의 후보도 세지 않는다.
@@ -283,7 +327,10 @@ if (pendingCloses.length > 0) {
     for (const { url, reason } of pendingCloses) {
       try {
         await write(`analyzed_at 기록 ${url} (분석 불가: ${reason.slice(0, 80)})`, () =>
-          supabase.from('blog_posts').update({ analyzed_at: new Date().toISOString() }).eq('url', url),
+          supabase
+            .from('blog_posts')
+            .update({ analyzed_at: new Date().toISOString(), analysis: toPostAnalysis({ meta, skip: reason.slice(0, 200) }) })
+            .eq('url', url),
         );
         stats.dropped += 1;
       } catch (writeError) {
@@ -299,6 +346,14 @@ if (pendingCloses.length > 0) {
 
 console.log(formatSummary(stats, meter.summary(), { dryRun }));
 
+// --dump: 후보·제외 목록을 로컬 JSON 으로. data/raw/ 는 .gitignore 라 레포에 남지 않는다. 본문은 없고 evidence(인용 1~3문장)는 DB 와 같은 것이다.
+if (dump !== null) {
+  const path = resolve(dump || `data/raw/analyze-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, JSON.stringify({ ...meta, dryRun, at: new Date().toISOString(), posts: dumpEntries }, null, 1));
+  console.log(`덤프: ${path} (글 ${dumpEntries.length}건 · 후보 ${dumpEntries.reduce((n, e) => n + e.candidates.length, 0)}건 · 제외 ${dumpEntries.reduce((n, e) => n + e.excluded.length, 0)}건)`);
+}
+
 /*
  * 좌표 보강 요약. **이 줄이 `mapx`/`mapy` 포맷의 실측 보고**다 — 공식 문서가 스스로 모순돼
  * (본문은 WGS84, 예제는 옛 KATECH 6자리) 실제 응답을 봐야만 확정된다.
@@ -310,7 +365,7 @@ if (naverStats.searched > 0) {
   const r = pickReasons;
   console.log(
     `좌표 보강: 검색 ${naverStats.searched} · 채택 ${naverStats.picked} · 요청실패 ${naverStats.failed}\n` +
-      `  탈락 사유 — 제주밖주소 ${r.notJejuAddress} · 좌표파싱실패 ${r.coordUnparsable} · 좌표제주밖 ${r.coordOutOfJeju} · 이름불일치 ${r.nameMismatch}`,
+      `  탈락 사유 — 제주밖주소 ${r.notJejuAddress} · 좌표파싱실패 ${r.coordUnparsable} · 좌표제주밖 ${r.coordOutOfJeju} · 이름불일치 ${r.nameMismatch} · 결과있었으나미채택 ${r.itemsButNoPick ?? 0}(호출 단위)`,
   );
   if (naverStats.picked === 0 && r.sample) {
     console.log(
@@ -324,7 +379,8 @@ if (naverStats.searched > 0) {
  * 그 0 들은 "주소가 다 멀쩡했다" 가 아니라 "아무것도 보지 않았다" 는 뜻이라 읽는 사람을 속인다(⚠️ 판정 불가에 속지 말 것과 같은 자리).
  * 대신 기회의 크기만 한 줄 — 키를 넣을 값이 있는지 판단할 근거가 그것뿐이다.
  */
-if (geocodeStats.chance > 0) {
+// `tried > 0` 도 본다 — 검색 키 없이 Maps 키만 있으면 chance 는 0 인데 축은 실제로 돌았다(설계 검토 OB-6). 그때 요약이 안 찍히면 ⚠️3 을 판정할 수 없다.
+if (geocodeStats.chance > 0 || geocodeStats.tried > 0) {
   if (mapKeys) console.log(formatGeocodeSummary(geocodeStats, geocodeReasons));
   else {
     console.log(

@@ -129,6 +129,7 @@ describe('toNewPlaceRow', () => {
       region_raw: '동쪽 (구좌읍)',
       features: '마당이 넓고 불멍이 됩니다',
       pet_policy_text: '소형견만 실내 가능, 대형견은 테라스',
+      pet_policy: null,
       review_url: 'https://blog.naver.com/dogjeju/223456789',
       naver_url: null,
       naver_place_id: null,
@@ -146,10 +147,9 @@ describe('toNewPlaceRow', () => {
 
   it("null 인 문장 칸은 '' 로(NOT NULL 제약), geo 없으면 lat·lng null", () => {
     const row = toNewPlaceRow(
-      { ...candidate, extracted: { ...candidate.extracted, regionRaw: null, features: null, petPolicyText: null, address: null, geo: null } },
+      { ...candidate, extracted: { ...candidate.extracted, features: null, petPolicyText: null, address: null, geo: null } },
       { id: 'new-id' },
     );
-    expect(row.region_raw).toBe('');
     expect(row.features).toBe('');
     expect(row.pet_policy_text).toBe('');
     expect(row.address).toBeNull();
@@ -193,5 +193,52 @@ describe('toRecheckCandidate — 승인된 후보를 반영 시점에 다시 대
     expect(toRecheckCandidate({ extracted: { name: 'x', type: 'cafe', geo: null, address: '', regionRaw: null } })).toEqual({
       name: 'x', type: 'cafe', geo: undefined, address: undefined, regionRaw: undefined,
     });
+  });
+});
+
+describe('2026-09-28 설계 검토 — 지역 게이트 · 숙소 필드 · AI 구조화 판단 · review_url', () => {
+  const candidate = {
+    id: 'c2',
+    post_url: 'https://blog.naver.com/dogjeju/223456790',
+    extracted: { ...extracted, name: '새펜션', type: 'stay', match: { confidence: 0, reason: '없음', tier: 'new' } },
+    match_place_id: null,
+    status: 'approved',
+  };
+  const facts = { indoor: 'cage', leash: true, largeDogOk: null, smallDogOnly: false, callFirst: false, feeFree: false, feeText: '1마리당 2만원', weightLimitKg: 10, maxDogs: 2, notes: null };
+
+  it('regionRaw 가 없거나 형식이 아니면 신규 행을 만들지 않는다(permanent) — 사람이 채운 뒤 재승인', () => {
+    for (const regionRaw of [null, '', '성산읍 어딘가']) {
+      expect(() => toNewPlaceRow({ ...candidate, extracted: { ...candidate.extracted, regionRaw } }, { id: 'x' })).toThrow(/regionRaw/);
+    }
+    expect(toNewPlaceRow({ ...candidate, extracted: { ...candidate.extracted, regionRaw: '우도면' } }, { id: 'x' }).region_raw).toBe('우도면');
+  });
+
+  it('숙소면 stayPriceText·stayAmenitiesText 를 싣고, 숙소가 아니면 null', () => {
+    const stay = toNewPlaceRow({ ...candidate, extracted: { ...candidate.extracted, stayPriceText: '150,000원', stayAmenitiesText: '배변 패드, 식기' } }, { id: 'x' });
+    expect(stay.stay_price_text).toBe('150,000원');
+    expect(stay.stay_amenities_text).toBe('배변 패드, 식기');
+    const cafe = toNewPlaceRow({ ...candidate, extracted: { ...candidate.extracted, type: 'cafe', stayPriceText: '150,000원' } }, { id: 'x' });
+    expect(cafe.stay_price_text).toBeNull();
+  });
+
+  it('pet_policy(AI 판단)는 원문이 있을 때만 싣는다', () => {
+    expect(toNewPlaceRow({ ...candidate, extracted: { ...candidate.extracted, petPolicy: facts } }, { id: 'x' }).pet_policy).toEqual(facts);
+    expect(toNewPlaceRow({ ...candidate, extracted: { ...candidate.extracted, petPolicy: facts, petPolicyText: null } }, { id: 'x' }).pet_policy).toBeNull();
+  });
+
+  it('보강 — pet_policy 는 pet_policy_text 를 채울 때만 함께, review_url·stay_* 는 빈 칸만', () => {
+    const blank = { ...solsup, pet_policy_text: '', pet_policy: null, review_url: null, stay_price_text: null, stay_amenities_text: null, address: '있음', lat: 1, lng: 1, region_raw: '동쪽 (구좌읍)', features: '있음', category: '펜션' };
+    const patch = mergeIntoExisting(blank, { ...extracted, petPolicy: facts, stayPriceText: '150,000원', stayAmenitiesText: '식기' }, { postUrl: 'https://blog.naver.com/x/1' });
+    expect(patch).toEqual({
+      pet_policy_text: '소형견만 실내 가능, 대형견은 테라스',
+      pet_policy: facts,
+      review_url: 'https://blog.naver.com/x/1',
+      stay_price_text: '150,000원',
+      stay_amenities_text: '식기',
+    });
+    // 사람이 쓴 원문이 있으면 다른 글의 판단(pet_policy)을 얹지 않는다
+    expect(mergeIntoExisting({ ...blank, pet_policy_text: '1~5kg 1만원.' }, { ...extracted, petPolicy: facts }) ?? {}).not.toHaveProperty('pet_policy');
+    // 숙소가 아니면 stay_* 를 건드리지 않는다
+    expect(mergeIntoExisting({ ...blank, type: 'cafe' }, { ...extracted, stayPriceText: '150,000원' }) ?? {}).not.toHaveProperty('stay_price_text');
   });
 });

@@ -5,6 +5,8 @@ import {
   EXTRACT_SCHEMA,
   ExtractionError,
   MODEL,
+  PROMPT_POLICY_EXAMPLES,
+  PROMPT_VERSION,
   SYSTEM_PROMPT,
   buildCliArgs,
   buildPrompt,
@@ -17,6 +19,7 @@ import {
   runClaudeCli,
   claudeChildEnv,
 } from './extractPlaces.mjs';
+import { parsePetPolicy } from '../../src/lib/petPolicy';
 
 // 실제 claude 는 부르지 않는다. `claude -p --output-format json` 이 stdout 에 쓰는 result 객체 모양만 흉내 낸 가짜
 // (2026-09-21 CLI 2.1.278 실측: 성공이면 stop_reason 이 'tool_use', structured_output 에 파싱된 객체).
@@ -50,8 +53,13 @@ const goodPlace = {
   regionRaw: '동쪽 (구좌읍)',
   address: '제주 제주시 구좌읍 세화리 1',
   petPolicyText: '소형견만 실내 가능, 대형견은 테라스',
+  petPolicy: null,
   features: '바다 보이는 카페',
+  stayPriceText: null,
+  stayAmenitiesText: null,
   isJeju: true,
+  visited: true,
+  petAllowed: 'yes',
   evidence: ['소형견만 실내 가능하고 대형견은 테라스에서만 된다고 하네요.'],
   confidence: 0.9,
 };
@@ -93,12 +101,33 @@ describe('EXTRACT_SCHEMA — 구조화 출력이 받아들이는 모양', () => 
     });
   });
 
-  it('optional 은 anyOf string|null 이고 type 은 네 종류 enum', () => {
+  it('optional 은 anyOf string|null 이고 type 은 네 종류 enum, petAllowed 는 세 값', () => {
     const props = EXTRACT_SCHEMA.properties.places.items.properties;
-    for (const key of ['regionRaw', 'address', 'petPolicyText', 'features']) {
+    for (const key of ['regionRaw', 'address', 'petPolicyText', 'features', 'stayPriceText', 'stayAmenitiesText']) {
       expect(props[key]).toEqual({ anyOf: [{ type: 'string' }, { type: 'null' }] });
     }
     expect(props.type.enum).toEqual(['stay', 'restaurant', 'cafe', 'other']);
+    expect(props.petAllowed.enum).toEqual(['yes', 'no', 'unknown']);
+    expect(props.visited).toEqual({ type: 'boolean' });
+  });
+
+  it('PROMPT_VERSION 은 8자 hex 이고 프롬프트·스키마에서 결정된다', () => {
+    expect(PROMPT_VERSION).toMatch(/^[0-9a-f]{8}$/);
+  });
+});
+
+describe('프롬프트 ↔ 앱 파서 계약 — 예시 문장은 parsePetPolicy 가 읽는 어휘여야 한다', () => {
+  it('PROMPT_POLICY_EXAMPLES 가 프롬프트에 그대로 들어 있다', () => {
+    for (const example of PROMPT_POLICY_EXAMPLES) expect(SYSTEM_PROMPT).toContain(`"${example}"`);
+  });
+
+  it('예시마다 실내 판정·조건 플래그·계단식 조건·요금 문장 중 하나 이상이 잡힌다', () => {
+    for (const example of PROMPT_POLICY_EXAMPLES) {
+      const p = parsePetPolicy(example);
+      const flags = [p.leash, p.largeDogOk, p.smallDogOnly, p.callFirst, p.feeFree, p.notAllowed];
+      const parsed = p.indoor !== 'unknown' || flags.some(Boolean) || p.tiers.length > 0 || p.feeLines.length > 0;
+      expect(parsed, `파서가 못 읽는 예시: ${example}`).toBe(true);
+    }
   });
 });
 
