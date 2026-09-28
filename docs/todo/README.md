@@ -1,6 +1,10 @@
 # TODO — 블로그 수집 → AI 분석 → 승인 → DB → 자동 배포
 
-> 최종 수정: 2026-09-28 (v19: 이전 세션이 띄워 둔 셀프 리뷰가 **`data:collect` 진행 로그의 거짓 경고**를 확인해 왔다 — `let stop = 'cap'` 이
+> 최종 수정: 2026-09-28 (v20: **주소 → 좌표(NCP Geocoding) 갈래를 TODO 로 넣었다**(상세는 [03](03-analyze-and-review.md) 의 🆕 항목).
+> 지금 보강은 이름이 축이라 지역검색이 이름을 못 맞히면 좌표가 영영 없는데, 추출 스키마엔 `address` 가 이미 있다 — 이름 실패 시 주소로 폴백하면 그 후보들이 구제된다.
+> 좌표 미확보 5곳도 주소는 후기에 다 있었다(실측, 표로 박아 뒀다). 단 **엔트리가 없고 후기가 1.4~3년 전이라 영업 확인이 먼저**다 — 폐업이면 좌표가 아니라 `archived`.
+> 크리티컬 패스는 아니다: 첫 `data:analyze` 의 이름 축 성적(`pickReasons`)을 보고 붙인다)
+> 이전 (v19: 이전 세션이 띄워 둔 셀프 리뷰가 **`data:collect` 진행 로그의 거짓 경고**를 확인해 왔다 — `let stop = 'cap'` 이
 > 초기값으로 새어 나가 *잘리지 않은 키워드에* `⚠️ 창이 잘렸다` 를 찍었다(리뷰가 재현까지 붙였다). 판정을 순수 함수 `stopReason` 으로 내보내
 > `received < display`(결과 소진) · `tally.old > 0`(경계에 닿았다) 으로 갈랐고, 8 테스트를 더했다(naverBlog 46). **첫 수집 로그의 ⚠️ 는 거짓일 수 있다.**
 > 02 의 "문구는 포맷터에 있고 테스트가 붙어 있다" 도 정정했다 — ⚠️ 줄과 멈춤 줄은 `collect-blog.mjs` 의 인라인 템플릿이라 테스트가 없다)
@@ -125,6 +129,8 @@ flowchart LR
         `scripts/analyze-candidates.mjs` · `scripts/apply-approved.mjs`. ~~`collect.yml` 에 analyze→apply step~~ → 사용자가 따로 부른다. Claude 인증은 로컬 `claude` 로그인뿐(자식 env 허용 목록에서 토큰·CI 제거, 2026-09-22 (5))
   - [x] `matchPlace` 본체 — 기본안 구현(🙋 였던 자리. `THRESHOLD`·`WEIGHT` 로 조정). 자동 승인은 `AUTO_APPROVE=false` 로 시작
   - [x] 엔드투엔드 1건 — 실제 후기 링크로 본문 → `claude -p` → 대조까지(DB 쓰기 없이)
+  - [ ] **🆕 주소 → 좌표 갈래(NCP Geocoding)** — 이름 축이 실패한 후보를 `address` 로 구제한다. API·자격증명·좌표 미확보 5곳의 주소 표·영업 확인 선행 판단까지
+        [03 의 🆕 항목](03-analyze-and-review.md)이 정본. 크리티컬 패스가 아니다 — 첫 실행의 `pickReasons`(이름불일치가 몇 건인가)를 보고 우선순위를 정한다
   - [ ] 실행 — `blog_posts` 3,360건이 대기 중이고 `candidates` 는 **0건**(2026-09-28 실측). 첫 실행은 **네이버 키를 env 로 넘긴 사용자 터미널**에서
         `--dry-run --limit 5`(아래 **실행 순서**). 키 없는 Claude 가 돌리면 좌표 보강이 건너뛰어져 ⚠️1 이 또 미검증으로 남는다
 - [x] 4a Vercel 빌드 명령 `pnpm data:pull && pnpm build`(`vercel.json`) — 첫 배포는 `outputDirectory: "out"` 때문에 실패했고(BUG-005) 고쳐 커밋했다.
@@ -191,6 +197,9 @@ flowchart LR
           **Deploy Hook URL 이 시크릿**이어서다(ADR-016: 값은 읽지도 찍지도 않는다). 기본 경로는 이미 정해져 있다 —
           `places` 에 INSERT·UPDATE·DELETE, 그냥 둔다(🙋 04 는 "첫 달 빌드 횟수를 보고" 로 미뤄진 관찰 항목이지 지금 막는 결정이 아니다)
 ```
+
+위 블록에 **없는** 열린 항목 하나: **주소 → 좌표 갈래**(진행 상태 3 의 🆕). 순서에 끼워 넣지 않은 이유는 첫 `data:analyze` 가 그 우선순위를 정해 주기 때문이다 —
+요약의 `이름불일치` 가 많으면 이름 축만으로는 좌표가 계속 비고, 그때 붙이는 게 근거 있는 순서다.
 
 굳어 있는 순서는 셋뿐이다. **[Claude] 줄이 다 끝난 뒤 → 로컬 잠금**(먼저 잠그면 Claude 의 push·배포 확인이 막힌다 — 로그아웃은 늘 심부름의 끝에),
 **네이버 키 → `data:collect`**(키 없이는 `blog_posts` 가 안 찬다), **`collect` → `analyze` → `apply`**.
