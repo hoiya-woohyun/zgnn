@@ -174,62 +174,82 @@
 }
 
 /*
-  네이버 지도 SDK 는 스킨 CSS 를 스스로 들고 온다. 우리가 얹는 것은 **컨트롤 여백 하나**다.
+  네이버 지도 SDK 는 스킨 CSS 를 스스로 들고 온다. 우리가 얹는 것은 **저작권 줄의 세로 자리 하나**다.
 
-  로고·저작권 표시를 우상단으로 옮겼는데(ADR-008 v6) SDK 가 모서리에 딱 붙여 놓는다 —
-  로고 오른쪽 끝이 화면 경계에 닿고, 노치 기기에서는 top:0 이라 상태바 밑으로 들어간다.
+  로고·저작권 표시는 좌하단에 둔다(ADR-008 v9). 가로는 손대지 않는다 — SDK 가 로고에 왼쪽 12px 를
+  이미 준다(`margin: 0 5px 7px 12px`, 인라인 고정값). `md` 미만에서는 종류 칩 줄의 `px-3` 과 같은
+  선이고, `md`·`lg` 에서는 `px-3` 만 `--spacing` 을 따라 커져 1.5·3px 어긋난다 — 받아들인다.
+  세로만 조금 올린다: 저작권 글자의 줄 상자가 바닥에서 3px 라 탭바 경계에 붙어 보인다.
 
-  **padding·margin 으로는 못 뗀다.** SDK 가 컨트롤 그룹에 `margin:0; padding:0` 을 **인라인으로**
+  **padding·margin 으로는 못 옮긴다.** SDK 가 컨트롤 그룹에 `margin:0; padding:0` 을 **인라인으로**
   박아 두어 클래스 규칙이 특이도에서 진다(`!important` 를 써야 이긴다). `transform` 은 인라인에
   없으므로 싸움 없이 얹히고, 그룹째 옮기므로 탭 영역도 같이 따라온다.
 
   그룹에는 클래스가 없다 — 이름이 붙은 것은 `.map_copyright` 뿐이라 `:has()` 로 "저작권 표시를
-  품은 직계 자식" 하나만 고른다. 로고도 같은 그룹에 들어 있어(둘 다 TOP_RIGHT) 함께 움직인다.
-  타일 판은 이 표시를 품지 않아 걸리지 않는다(실측: 직계 자식 4개 중 1개만 매치).
+  품은 직계 자식" 하나만 고른다. 로고도 같은 그룹에 들어 있어(둘 다 BOTTOM_LEFT) 함께 움직인다.
+  축척 막대는 기본값(우하단)의 **다른 그룹**이라 걸리지 않고, 타일 판도 이 표시를 품지 않는다.
 
   **`:has(> .map_copyright)` 로 "견고하게" 고치지 말 것** — `.map_copyright` 는 자식이 아니라
   **손자**라 자식 결합자를 넣으면 매치가 0 이 되고 여백이 조용히 사라진다.
 
-  세로 값이 두 단인 이유 — 좁은 화면에서는 지도 위 오버레이와 **가로로 겹친다.** 이 그룹은
-  오른쪽에서 234px 인데 320px 화면에서는 x 78 부터라, 왼쪽 정렬된 오버레이 내용과 **반드시**
-  만난다. 덮이면 칩·버튼이 위다(오버레이 `z-[1000]` vs 그룹 인라인 `z-index: 100`) —
-  **약관 제7조 ⑩ 이 요구하는 표시가 가려진다.** 여백을 주려다 준수를 깨는 자리다.
+  **부호가 요점이다.** 이 규칙은 한때 우상단 그룹을 오버레이 아래로 116px 내리는 값이었다. 좌하단
+  그룹에 그 값을 그대로 두면 지도 아래로 빠져 `overflow-hidden` 에 잘린다 — 에러도 경고도 없이
+  로고만 사라진다. 앵커를 다시 옮기면 이 값부터 같이 뒤집는다.
 
-  ⚠️ **오버레이는 한 줄이 아니라 두 줄이다**(mapPage.tsx 의 `space-y-2` 스택). 2026-09-28 에
-  칩 줄만 보고 `* 16`(64px)으로 뒀다가 리뷰에서 잡혔다 — 둘째 줄이 정확히 그 64px 에서 시작하고,
-  `/map/?saved=1` 의 「저장한 곳만 보는 중」 은 **완전 불투명**이라(`bg-camellia`) 320px 에서
-  저작권 표시를 128×19px **통째로** 덮었다. 그래서 스택 **전체** 아래로 내린다.
+  올리는 양은 **서로 모르는 두 축**의 합이다:
 
-  `* 29` = 116px 는 **최악의 경우**다(2026-09-28 실측): 위여백 12 + 칩 44 + 간격 8 + 둘째 줄
-  44(`min-h-11`, 저장 버튼이 있을 때) = 108, 여기에 간격 8. 둘째 줄이 카운트 칩뿐인 `/map/` 에서는
-  108 대신 99 라 17px 이 뜨지만, CSS 는 스택 높이를 잴 수 없으므로 넉넉한 쪽으로 고정한다.
-  **이 숫자를 줄일 때는 `/map/?saved=1` 을 320px 에서 먼저 본다** — 기본 라우트 390px 만 보면 통과한다.
+  - **들어 올림(`--attribution-lift`) — 지도 칸의 폭이 정한다.** 우하단 축척 막대와 한 줄에 서면
+    부딪히기 때문이다. 저작권 글자 끝은 `/OpenStreetMap` 이 붙는 넓은 확대(10km 이상, 첫 화면 20km
+    포함)에서 x 234, 5km 이하에서는 `© NAVER Corp.` 만 남아 x 150 쯤이다. 축척 막대 상자는 확대
+    수준마다 64–112px 이고 가장 긴 것(50km 이상)이 긴 문자열과 같은 확대에서 나온다(2026-09-28 실측,
+    제주 화면). 그래서 가장 나쁠 때 눈금이 `지도 폭 − 110` 이고 **344px 에서 글자 끝과 닿는다.**
+    그 아래에서는 저작권 줄을 막대 **위 줄**로 올리고(눈금 윗끝이 바닥에서 14px), 경계는 여유를 둬
+    360px(가장 나쁠 때 16px 떨어짐)에 둔다.
+    **뷰포트가 아니라 지도 칸을 잰다**(`@container map` — mapPage.tsx 의 지도 칸). `lg` 에서는 사이드바와
+    결과 패널이 옆에 서서 뷰포트 1024~1039px 의 지도가 344~359px 다 — 미디어 쿼리로 재면 넓은 쪽 값을
+    받아 그 띠에서만 글자가 눈금에 닿는다(v9 리뷰에서 실측으로 잡혔다).
+  - **인셋(`--attribution-inset`) — 뷰포트가 정한다.** 탭바가 사라지는 `md` 이상에서만 지도가 화면 맨
+    아래까지 닿으므로 홈 인디케이터 인셋을 더 뺀다. 그 아래에서는 지도가 탭바 **위에서** 끝나(mapPage.tsx 의
+    `100dvh - 60px - 인셋`) 인셋을 탭바가 이미 먹었다 — 여기서 또 빼면 이중 계산이다. 왼쪽 인셋은 보지
+    않는다 — 세로 화면에서는 0 이고, `md` 이상은 지도 왼쪽에 사이드바가 있어 지도 경계가 화면 경계가 아니다.
 
-  숫자는 `--spacing` 배수로 적었지만 이 분기(34rem 미만)에서 `--spacing` 은 항상 4px 이다
-  (첫 단계가 48rem) — 자동으로 커지지 않는다. mapPage.tsx 의 위여백도 `0.75rem` 이라 배수가
-  아니고, 12px 로 같아지는 것은 오늘의 우연이다. 저쪽을 바꾸면 여기도 같이 재야 한다.
-
-  인셋을 더하는 것은 같은 화면의 종류 칩과 같은 어법이다(mapPage.tsx). 셸은 `/map` 에 상단
-  인셋을 **일부러 주지 않으므로**(appShellSurface 의 `mainSurfaceProps(isMap)`) 이중 계산이 아니다.
+  `--spacing` 배수라 `md`·`lg` 에서는 4.5·5px 로 조금씩 커진다(ADR-006) — 여유 쪽으로만 움직인다.
 */
 .naver-map > div:has(.map_copyright) {
-  transform: translate(
-    calc(var(--spacing) * -2),
-    calc(env(safe-area-inset-top, 0px) + var(--spacing) * 29)
-  );
+  --attribution-lift: calc(var(--spacing) * 4);
+  --attribution-inset: 0px;
+  transform: translateY(calc(-1 * (var(--attribution-lift) + var(--attribution-inset))));
+}
+
+@container map (min-width: 22.5rem) {
+  .naver-map > div:has(.map_copyright) {
+    --attribution-lift: var(--spacing);
+  }
+}
+
+@media (min-width: 48rem) {
+  .naver-map > div:has(.map_copyright) {
+    --attribution-inset: env(safe-area-inset-bottom, 0px);
+  }
 }
 
 /*
-  넓은 쪽 — 오버레이 내용이 왼쪽에 몰려 있고 지도가 넓어 가로로 만나지 않으므로 모서리에서만 뗀다.
-  기준은 **지도 폭**(가로 교차점 ~494px)인데 미디어 쿼리는 **뷰포트 폭**을 본다. 오늘은 안전하다 —
-  이 분기의 최소 지도 폭은 544px 이고, `lg` 에서 좌측 패널 360px 을 빼도 664px 이다. 패널 폭이나
-  `lg` 가 바뀌면 조용히 어긋나므로, 그때는 `@container` 로 근거와 구현을 맞추는 편이 낫다.
+  지도 하단에 뜨는 카드(빈 상태 `EmptyState`)가 저작권 줄을 덮지 않도록 그 위로 비켜 앉히는 아래 여백.
+  위 규칙과 **같은 두 축**을 따른다 — 저작권 줄 윗끝(바닥에서 17px + 들어 올림 + 인셋)보다 7~13px 위.
+  카드가 `z-[1001]` 로 SDK 그룹(인라인 `z-index: 100`)보다 위라, 겹치면 가려지는 쪽은 표시다.
+  반대로 너무 올리면 낮은 가로 화면에서 카드가 위쪽 칩 줄에 닿는다 — 그래서 넓은 칸에서는 여백을 줄이고,
+  칩 줄은 카드보다 위 층(mapPage.tsx `z-[1002]`)에 둔다.
 */
-@media (min-width: 34rem) {
-  .naver-map > div:has(.map_copyright) {
-    transform: translate(
-      calc(var(--spacing) * -2),
-      calc(env(safe-area-inset-top, 0px) + var(--spacing) * 2)
-    );
+@utility above-map-attribution {
+  --attribution-clearance: calc(var(--spacing) * 10);
+  --attribution-inset: 0px;
+  padding-bottom: calc(var(--attribution-clearance) + var(--attribution-inset));
+
+  @container map (min-width: 22.5rem) {
+    --attribution-clearance: calc(var(--spacing) * 7);
+  }
+
+  @media (min-width: 48rem) {
+    --attribution-inset: env(safe-area-inset-bottom, 0px);
   }
 }

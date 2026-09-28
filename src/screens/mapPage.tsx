@@ -174,20 +174,29 @@ export function MapPage() {
           )}
         </aside>
 
-        <div className="relative min-w-0 flex-1">
+        {/*
+          지도 칸. `@container/map` 은 스타일이 아니라 **잣대**다 — globals.css 가 저작권 줄과 빈 상태 카드의
+          자리를 뷰포트가 아니라 이 칸의 폭으로 고른다(`lg` 에서는 옆 패널 때문에 둘이 다르다). 지우면
+          좁은 칸의 값이 모든 폭에 걸린다.
+        */}
+        <div className="@container/map relative min-w-0 flex-1">
           {mapEl}
 
-          {/* 지도 위 종류 칩. 네이버 타일·컨트롤보다 위, 시트보다 아래에 온다. 노치 기기에서 상태바에 가리지 않도록 safe-area 만큼 더 내린다. */}
+          {/*
+            지도 위 종류 칩. 네이버 타일·컨트롤보다 위, 시트보다 아래에 온다. 노치 기기에서 상태바에 가리지 않도록 safe-area 만큼 더 내린다.
+            빈 상태 카드(`z-[1001]`)보다도 위다 — 낮은 가로 화면에서 카드가 칩 줄까지 올라오면, 카드가
+            "조건을 줄여 보라" 고 하면서 그 칩을 덮어 버린다. 겹친 자리는 칩이 카드 윗부분을 가린다.
+          */}
           <div
-            className="pointer-events-none absolute inset-x-0 top-0 z-[1000] space-y-2"
+            className="pointer-events-none absolute inset-x-0 top-0 z-[1002] space-y-2"
             style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
           >
             <div
               /*
                * `w-fit max-w-full` 이 없으면 이 띠는 전폭 절대배치 부모 안의 블록 요소라
                * **칩 개수와 무관하게 `width: 100%`** 가 된다. `pointer-events-auto` 가 걸려 있으니
-               * 칩 오른쪽의 빈 구간이 투명한 클릭 차단막이 되어, 우상단으로 옮긴 로고(`<a>`)와
-               * 저작권 컨트롤의 탭을 먹는다(self-cr 지적 — 보이는 픽셀만 비어 있었다).
+               * 칩 오른쪽의 빈 구간이 투명한 클릭 차단막이 되어 그 자리의 지도 끌기를 먹는다
+               * (로고가 우상단에 있던 v6 에는 로고 링크의 탭까지 먹었다 — 보이는 픽셀만 비어 있었다).
                * `pointer-events-auto` 를 버튼으로 내리면 터치 드래그 스크롤이 죽으므로 폭을 줄인다.
                */
               className="no-scrollbar pointer-events-auto flex w-fit max-w-full gap-2 overflow-x-auto px-3"
@@ -239,7 +248,8 @@ export function MapPage() {
           </div>
 
           {savedOnly && savedPlaces.length === 0 && (
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1001] p-3">
+            // 아래 여백은 저작권 줄(좌하단) 위로 비켜 앉는 몫이다 — 값은 globals.css 가 쥔다.
+            <div className="above-map-attribution pointer-events-none absolute inset-x-0 bottom-0 z-[1001] px-3 pt-3">
               <div className="pointer-events-auto">
                 <EmptyState
                   Icon={Heart}
@@ -256,7 +266,7 @@ export function MapPage() {
           )}
 
           {withGeo.length === 0 && !(savedOnly && savedPlaces.length === 0) && (
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1001] p-3 lg:hidden">
+            <div className="above-map-attribution pointer-events-none absolute inset-x-0 bottom-0 z-[1001] px-3 pt-3 lg:hidden">
               <div className="pointer-events-auto">
                 <EmptyState
                   Icon={AlertTriangle}

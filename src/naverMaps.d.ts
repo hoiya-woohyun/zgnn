@@ -24,15 +24,15 @@ declare namespace naver.maps {
   }
 
   /**
-   * 지도 위 컨트롤의 앵커. 이 앱은 로고·저작권 표시를 우상단으로 옮긴다(ADR-008 v6) —
-   * 하단을 바텀시트가 덮기 때문이다.
+   * 지도 위 컨트롤의 앵커. 이 앱은 로고·저작권 표시를 좌하단에 둔다(ADR-008 v9 — v6~v8 은
+   * 바텀시트를 피해 우상단이었다).
    *
    * 멤버 이름과 순서는 **2026-09-23 브라우저 실측**이다(`localhost:7727` 정적 빌드에서
    * `Object.keys(naver.maps.Position)`). 13개이고 `CENTER` 가 0 으로 **맨 앞**이다 —
-   * `TOP_RIGHT` 는 3.
+   * `TOP_RIGHT` 는 3, 이 앱이 쓰는 `BOTTOM_LEFT` 는 10(2026-09-28 재실측).
    *
    * ⚠️ **`const enum` 으로 바꾸지 말 것.** ambient enum 의 **초기화자 없는** 멤버는
-   * computed 로 취급되어 인라인되지 않고, 번들에 `naver.maps.Position.TOP_RIGHT` 라는
+   * computed 로 취급되어 인라인되지 않고, 번들에 `naver.maps.Position.BOTTOM_LEFT` 라는
    * **살아 있는 속성 접근**으로 남는다(번들에서 확인). 그래서 여기 적힌 순서가 틀려도
    * 런타임은 SDK 의 진짜 값을 읽는다. `const enum` 이거나 멤버에 숫자를 직접 박으면
    * TS 가 그 숫자를 인라인해 버리고, SDK 값과 다르면 **엉뚱한 위치로 조용히 가거나
@@ -72,11 +72,11 @@ declare namespace naver.maps {
     pinchZoom?: boolean;
     /** NAVER 로고. 약관 제7조 ⑩ 이 표시 게재를 요구할 수 있어 끄지 않는다. */
     logoControl?: boolean;
-    /** 로고의 위치. 기본 `BOTTOM_RIGHT` 를 이 앱은 우상단으로 옮긴다 — 아래 mapDataControlOptions 와 같은 이유. */
+    /** 로고의 위치. 이 앱은 좌하단(`BOTTOM_LEFT`)에 둔다 — 아래 mapDataControlOptions 와 같은 그룹으로 묶인다. */
     logoControlOptions?: ControlOptions;
     /** 지도 데이터 저작권 표시. 로고와 같은 이유로 끄지 않는다. */
     mapDataControl?: boolean;
-    /** 저작권 표시의 위치. 하단은 바텀시트가 덮으므로 우상단으로 옮긴다(ADR-008 v6). */
+    /** 저작권 표시의 위치. 로고와 같은 앵커여야 한 그룹이 되어 globals.css 의 여백이 둘 다에 걸린다(ADR-008 v9). */
     mapDataControlOptions?: ControlOptions;
     scaleControl?: boolean;
     zoomControl?: boolean;

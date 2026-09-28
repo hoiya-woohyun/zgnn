@@ -212,18 +212,21 @@ export function MapPageCanvas({
           /*
            * 로고·저작권 표시는 끄지 않는다 — Maps 서비스 이용약관 제7조 ⑩.
            *
-           * **끄지 않는 것만으로는 부족해서 위치도 옮긴다**(self-cr 지적). 기본 앵커가
-           * `BOTTOM_RIGHT` 인데 이 화면은 하단을 전폭으로 덮는 것이 셋이다 — 빈 상태
-           * `EmptyState` 둘(`mapPage.tsx` 의 `inset-x-0 bottom-0 z-[1001]`)과 **바텀시트**.
-           * 시트는 마커를 누르면 열리는 기본 상호작용이고 react-aria 가 `document.body` 로
-           * 포털해 그려서 `z-index`·`overflow` 로는 피할 수 없다. 즉 정상 경로에서 표시가
-           * 사라진다 — 주석이 준수를 주장하는데 화면은 아닌 상태였다.
-           * 우상단은 종류 칩(`top-0`)이 있지만 칩이 셋뿐이라 가로로 비어 있다.
+           * 자리는 좌하단이다(ADR-008 v9, 사용자 요청 — 우상단은 종류 칩 옆에서 눈에 걸렸다).
+           * 축척 막대는 기본값(우하단)에 남고, 좁은 폭에서 둘이 부딪히는 것은 globals.css 가 푼다.
+           *
+           * **하단이라 덮는 것이 있다** — 빈 상태 `EmptyState` 둘은 아래 여백
+           * (`above-map-attribution`)으로 비켜 가지만, `sm` 미만의 **바텀시트**와 낮은 화면(가로로 든 폰,
+           * 높이 약 415px 이하)의 **가운데 대화상자**는 열려 있는 동안 이 줄을 가린다 — 대화상자에 최대
+           * 높이가 없어 불투명한 판이 화면 아래 끝까지 닿는다.
+           * react-aria 가 `document.body` 로 포털해 그려 `z-index`·`overflow` 로는 못 피한다.
+           * 시트는 모달이라 그동안 지도 조작도 막혀 있고, 닫으면 돌아온다 — 이 가려짐은
+           * 알고 받아들인 것이다(2026-09-23 에 한 번 거절했던 것을 09-28 에 번복).
            */
           logoControl: true,
-          logoControlOptions: { position: maps.Position.TOP_RIGHT },
+          logoControlOptions: { position: maps.Position.BOTTOM_LEFT },
           mapDataControl: true,
-          mapDataControlOptions: { position: maps.Position.TOP_RIGHT },
+          mapDataControlOptions: { position: maps.Position.BOTTOM_LEFT },
         });
         mapRef.current = map;
         setStatus('ready');
