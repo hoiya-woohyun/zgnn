@@ -106,6 +106,26 @@ export function tallyPage(items, keyword, now) {
   return { rows, old, other, allOld: rows.length === 0 && other === 0 };
 }
 
+/**
+ * 페이지 하나를 처리한 뒤 — 계속 넘길까(`null`), 멈출까, 멈추면 **왜**인가. 라벨은 `collect-blog.mjs` 의 `STOP_LABEL`.
+ *
+ * 이 판정이 순수 함수로 나와 있는 이유는 **틀린 이유를 말하면 사용자가 엉뚱한 조치를 한다**는 것뿐이다(수집 결과는 어느 쪽이든 같다).
+ * 처음엔 `let stop = 'cap'` 을 초기값으로 두고 `break` 가 덮게 했는데, 그러면 **마지막 페이지에서 루프 조건으로 끝나는 경우가
+ * 전부 'cap'(창이 잘렸다)으로 새어 나갔다** — 잘린 게 없는 키워드에 ⚠️ 가 붙고 "키워드를 좁혀라" 를 권했다(멀쩡한 창을 더 줄이는 조치다).
+ * 새어 나간 두 모양:
+ *  - 마지막 페이지가 **덜 찼다**(예: 1년 안이 950건 → p10 이 50건) → 상한이 아니라 **결과가 바닥난 것**이다. `received < display` 로 갈린다.
+ *  - 마지막 페이지가 꽉 찼지만 그 안에 **1년 밖 글이 섞여 있다** → 365일 경계를 **이미 넘어 봤다**는 직접 증거다(`sort=date`).
+ *    `allOld` 는 false 라 예전 코드는 못 봤다. `tally.old > 0` 으로 갈린다.
+ * 남는 참 양성은 "마지막 페이지가 꽉 찼고 전부 1년 안" 하나뿐이고, 그때만 창이 진짜 잘렸다.
+ */
+export function stopReason({ received, display, tally, isLastPage }) {
+  if (received === 0) return 'empty';
+  if (tally.allOld) return 'old'; // 이 페이지가 통째로 1년 밖 — 다음 페이지는 더 오래되기만 한다
+  if (received < display) return 'empty'; // 덜 찬 페이지 = 결과가 여기서 끝났다(상한에 걸린 것이 아니다)
+  if (!isLastPage) return null;
+  return tally.old > 0 ? 'old' : 'cap'; // 마지막 페이지: 1년 밖을 봤으면 경계에 닿은 것, 전부 1년 안이면 거기서 잘렸다
+}
+
 // url 이 같은 행이 여러 키워드에서 나오면 먼저 온(=먼저 실행한 키워드) 것이 이긴다.
 export function dedupeByUrl(rows) {
   const seen = new Map();

@@ -8,6 +8,7 @@ import {
   mentionsJeju,
   normalizeBlogUrl,
   parsePostdate,
+  stopReason,
   stripBold,
   tallyPage,
   toBlogPostRow,
@@ -191,6 +192,46 @@ describe('tallyPage', () => {
 
   it('빈 페이지는 allOld — 호출처가 먼저 끊지만 여기서도 넘기지 않는다', () => {
     expect(tallyPage([], 'k', NOW)).toEqual({ rows: [], old: 0, other: 0, allOld: true });
+  });
+});
+
+describe('stopReason', () => {
+  // tally 는 개수만 쓰이므로 필요한 필드만 만든다.
+  const tally = ({ kept = 0, old = 0, other = 0 }) => ({ rows: Array(kept).fill({}), old, other, allOld: kept === 0 && other === 0 });
+  const call = (over) => stopReason({ display: 100, isLastPage: false, ...over });
+
+  it('꽉 찬 페이지에 1년 안 글이 있으면 계속 넘긴다', () => {
+    expect(call({ received: 100, tally: tally({ kept: 100 }) })).toBe(null);
+  });
+
+  it('빈 페이지는 결과 끝', () => {
+    expect(call({ received: 0, tally: tally({}) })).toBe('empty');
+  });
+
+  it('전부 1년 밖이면 경계', () => {
+    expect(call({ received: 100, tally: tally({ old: 100 }) })).toBe('old');
+  });
+
+  it('덜 찬 페이지는 결과 끝 — 상한이 아니다', () => {
+    expect(call({ received: 50, tally: tally({ kept: 50 }) })).toBe('empty');
+  });
+
+  it('마지막 페이지가 덜 찼으면 상한이 아니라 결과 끝 — 1년 안이 901~1000건인 키워드에 거짓 ⚠️ 가 붙던 자리', () => {
+    expect(call({ received: 50, tally: tally({ kept: 50 }), isLastPage: true })).toBe('empty');
+  });
+
+  it('마지막 페이지가 꽉 찼지만 1년 밖이 섞였으면 경계 — 창이 잘린 게 아니다(allOld 는 false 라 예전 코드가 못 봤다)', () => {
+    expect(call({ received: 100, tally: tally({ kept: 50, old: 50 }), isLastPage: true })).toBe('old');
+  });
+
+  it('마지막 페이지가 꽉 찼고 전부 1년 안일 때만 상한 — 유일한 참 양성', () => {
+    expect(call({ received: 100, tally: tally({ kept: 100 }), isLastPage: true })).toBe('cap');
+  });
+
+  it('마지막 페이지에서는 null 을 주지 않는다 — 새어 나간 초기값이 곧 거짓 ⚠️ 였다', () => {
+    for (const t of [tally({ kept: 100 }), tally({ kept: 50, old: 50 }), tally({ kept: 99, other: 1 })]) {
+      expect(call({ received: 100, tally: t, isLastPage: true })).not.toBe(null);
+    }
   });
 });
 

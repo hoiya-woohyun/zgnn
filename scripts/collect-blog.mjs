@@ -15,6 +15,7 @@ import {
   formatElapsed,
   formatPageLine,
   formatSummary,
+  stopReason,
   tallyPage,
 } from './collect/naverBlog.mjs';
 
@@ -125,23 +126,23 @@ for (const [index, keyword] of keywords.entries()) {
   console.log(`[${index + 1}/${keywords.length}] ${keyword}`);
   const keywordStartedAt = Date.now();
   let kept = 0;
-  let stop = 'cap'; // 루프를 끝까지 돌면 상한에 걸린 것 — 아래 break 가 실제 이유로 덮는다
+  // 'cap' 은 이제 **닿지 않는 초기값**이다 — 마지막 페이지에서 stopReason 이 반드시 값을 준다(아래). 그래도 남겨 둔다:
+  // MAX_START/DISPLAY 가 나중에 안 나눠떨어지게 바뀌면 조용한 undefined 대신 보수적인 라벨로 떨어지게.
+  let stop = 'cap';
   for (let start = 1, page = 1; start <= MAX_START; start += DISPLAY, page += 1) {
     const { items } = await searchBlog(keyword, start);
-    if (!items || items.length === 0) {
-      stop = 'empty';
-      break;
-    }
-
-    const tally = tallyPage(items, keyword, now);
+    const received = items?.length ?? 0;
+    const tally = tallyPage(items ?? [], keyword, now);
     collected.push(...tally.rows);
     kept += tally.rows.length;
     excludedOld += tally.old;
     excludedOther += tally.other;
-    console.log(formatPageLine({ page, start, received: items.length, tally, total: kept }));
+    if (received > 0) console.log(formatPageLine({ page, start, received, tally, total: kept }));
 
-    if (tally.allOld) {
-      stop = 'old';
+    // 멈출 이유는 순수 함수가 정한다 — 왜 그 판정이 코드 안에 있으면 안 되는지는 stopReason 의 주석(거짓 ⚠️).
+    const reason = stopReason({ received, display: DISPLAY, tally, isLastPage: start + DISPLAY > MAX_START });
+    if (reason) {
+      stop = reason;
       break;
     }
     await sleep(REQUEST_DELAY_MS);
