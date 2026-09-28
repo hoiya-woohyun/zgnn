@@ -1,40 +1,15 @@
 /**
- * 지도의 "내 위치" — 한 번 가져와서 서비스 지역 안이면 옮기고, 밖이면 안내만 한다(ADR-008 v13).
+ * 지도의 "내 위치" — 한 번 가져와서 **어디든** 그 자리로 옮긴다(ADR-008 v14).
+ *
+ * 제주 밖이면 안내만 하던 v13 을 사용자 요청으로 뒤집었다 — 서울에서 누르면 서울로 간다.
+ * 판정이 없으니 지역 목록도 두지 않는다. 다른 지역으로 넓히는 일은 ADR-008 「내 위치」 절에 적어 뒀다.
  *
  * 위치는 **저장하지도 보내지도 않는다.** 이 모듈이 돌려준 좌표는 지도 한가운데를 옮기고 점 하나를
  * 찍는 데만 쓰이고 사라진다 — 그래서 ADR-012(개인정보·동의)의 대상이 아니다. 저장하게 되면 그쪽을 먼저 본다.
  */
 
-type TBounds = { south: number; west: number; north: number; east: number };
-
-type TServiceArea = { id: string; label: string; bounds: TBounds };
-
-/**
- * 내 위치로 옮겨 줄 지역들. 지금은 제주 하나다.
- *
- * **목록인 이유는 확장 여지다** — 제주 밖으로 넓히면 여기에 지역을 더하는 것이 첫 단계다. 그러면
- * `outside` 가 줄어들 뿐 버튼·안내 쪽은 바뀌지 않는다. 다만 지역이 늘면 첫 화면 중심(`JEJU_CENTER`)과
- * 줌(`jejuZoomFor`)도 지역을 따라야 한다 — 그건 이 목록만으로는 안 끝난다.
- *
- * 경계는 본섬에 우도(동)·가파도·마라도(남)·차귀도(서)·추자도(북, 33.96°)까지 넉넉히 두른 사각형이다.
- * 바다 위도 안으로 치지만, 바다 위에서 누를 일은 배 위뿐이라 문제 삼지 않는다.
- */
-export const SERVICE_AREAS: readonly TServiceArea[] = [
-  { id: 'jeju', label: '제주', bounds: { south: 33.1, west: 126.1, north: 34.05, east: 127.0 } },
-];
-
-export function serviceAreaOf(lat: number, lng: number): TServiceArea | null {
-  return (
-    SERVICE_AREAS.find(
-      ({ bounds: b }) => lat >= b.south && lat <= b.north && lng >= b.west && lng <= b.east,
-    ) ?? null
-  );
-}
-
 export type TLocateResult =
   | { kind: 'ok'; lat: number; lng: number }
-  /** 위치는 받았지만 서비스 지역 밖. 좌표를 돌려주지 않는다 — 쓸 일이 없는 값은 들고 다니지 않는다. */
-  | { kind: 'outside' }
   /** 사용자가 거절했거나, 브라우저·OS 설정에서 꺼져 있다. 다시 눌러도 묻지 않는다. */
   | { kind: 'denied' }
   /** GPS 를 못 잡았거나 시간이 넘었다. 다시 누르면 될 수 있다. */
@@ -63,13 +38,7 @@ export function locateMe(
   if (!geolocation) return Promise.resolve({ kind: 'unsupported' });
   return new Promise((resolve) => {
     geolocation.getCurrentPosition(
-      ({ coords }) => {
-        resolve(
-          serviceAreaOf(coords.latitude, coords.longitude)
-            ? { kind: 'ok', lat: coords.latitude, lng: coords.longitude }
-            : { kind: 'outside' },
-        );
-      },
+      ({ coords }) => resolve({ kind: 'ok', lat: coords.latitude, lng: coords.longitude }),
       (error) => resolve({ kind: error.code === PERMISSION_DENIED ? 'denied' : 'unavailable' }),
       { enableHighAccuracy: false, maximumAge: 60_000, timeout: 10_000 },
     );
@@ -81,7 +50,6 @@ export const LOCATE_MAP_NOT_READY = '지도가 아직 준비되지 않았어요.
 
 /** 실패했을 때 지도 위에 띄울 한 줄. 'ok' 는 지도가 옮겨 가는 것 자체가 답이라 문구가 없다. */
 export const LOCATE_NOTICE: Record<Exclude<TLocateResult['kind'], 'ok'>, string> = {
-  outside: '지금은 제주 밖이에요. 제주에서 누르면 내 위치로 옮겨 드려요.',
   denied: '위치 권한이 꺼져 있어요. 브라우저 설정에서 이 사이트의 위치를 허용해 주세요.',
   unavailable: '위치를 찾지 못했어요. 잠시 뒤 다시 눌러 주세요.',
   unsupported: '이 브라우저에서는 위치를 쓸 수 없어요.',

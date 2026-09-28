@@ -39,7 +39,7 @@ export function MapPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   /*
-   * 내 위치 — 누를 때 한 번 가져온다(ADR-008 v13). 실패하면 지도 위에 한 줄을 띄우고 잠시 뒤 지운다.
+   * 내 위치 — 누를 때 한 번 가져온다(ADR-008 v13·v14). 실패하면 지도 위에 한 줄을 띄우고 잠시 뒤 지운다.
    * 권한 거절도 버튼을 숨기지 않는다: 숨기면 설정에서 허용한 뒤 다시 누를 곳이 없다.
    */
   const canvasRef = useRef<TMapPageCanvasHandle>(null);

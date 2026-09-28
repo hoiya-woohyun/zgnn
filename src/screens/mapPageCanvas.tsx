@@ -452,7 +452,7 @@ export function MapPageCanvas({
   }, [selectedId, places, eligibilityMap, savedIds, status]);
 
   /*
-   * 내 위치로 옮기고 점을 찍는다. 옮기는 것은 누를 때 한 번뿐이다 — 따라다니지 않으므로(ADR-008 v13)
+   * 내 위치로 옮기고 점을 찍는다. 옮기는 것은 누를 때 한 번뿐이다 — 따라다니지 않으므로(ADR-008 v13·v14)
    * 그 뒤에 사용자가 지도를 끌어도 되돌리지 않는다.
    */
   useImperativeHandle(
