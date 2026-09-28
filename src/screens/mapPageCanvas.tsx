@@ -372,7 +372,9 @@ export function MapPageCanvas({
 
   return (
     <div className="h-full w-full bg-secondary">
-      <div ref={containerRef} className="h-full w-full" />
+      {/* `naver-map` 은 스타일이 아니라 **선택자**다 — SDK 가 클래스 없이 심는 컨트롤 그룹을
+          globals.css 가 이 클래스 밑에서만 고른다(모서리 여백). 지우면 여백이 조용히 사라진다. */}
+      <div ref={containerRef} className="naver-map h-full w-full" />
     </div>
   );
 }
