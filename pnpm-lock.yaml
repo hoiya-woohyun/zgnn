@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@supabase/supabase-js':
+        specifier: ^2.116.0
+        version: 2.116.0
       '@untitledui/icons':
         specifier: ^0.0.22
         version: 0.0.22(react@19.3.0)
@@ -36,9 +39,6 @@ importers:
       '@serwist/next':
         specifier: ^9.5.12
         version: 9.5.12(next@16.3.5(@babel/core@7.29.7)(@types/node@22.20.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)(typescript@5.9.3)
-      '@supabase/supabase-js':
-        specifier: ^2.116.0
-        version: 2.116.0
       '@tailwindcss/postcss':
         specifier: ^4.1.13
         version: 4.3.3

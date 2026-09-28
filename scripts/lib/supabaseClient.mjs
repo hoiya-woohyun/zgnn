@@ -8,30 +8,18 @@
 import { readFileSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 import { readSession as readKeychainSession } from './sessionKeychain.mjs';
+import { PROJECT_REF, PROJECT_URL, PUBLISHABLE_KEY, assertPublishableKey } from './supabasePublic.mjs';
+
+// 공개 상수(PROJECT_REF·PUBLISHABLE_KEY·assertPublishableKey·projectUrl)는 브라우저(src/lib/admin*)와 나눠 쓰려고 supabasePublic.mjs 로 옮겼다(ADR-018).
+// 이 모듈은 node 전용(키체인·fs)이라 브라우저가 못 가져오고, 기존 importer(login.mjs·테스트)는 같은 이름을 계속 쓰게 여기서 다시 내보낸다.
+export { PROJECT_REF, PUBLISHABLE_KEY, assertPublishableKey, projectUrl } from './supabasePublic.mjs';
 
 const ROOT = new URL('../../', import.meta.url);
-
-// 둘 다 공개값이다. ref 는 API 주소의 서브도메인이고, publishable 키는 브라우저 번들에 실으라고 만든 키다(RLS 가 방어선).
-// 코드 상수인 이유: Vercel 빌드엔 `supabase/.temp/project-ref`(gitignored) 가 없다. link 된 ref 가 이 값과 다르면 아래서 멈춘다.
-export const PROJECT_REF = 'qfzasaszpwcgtbzirujx';
-export const PUBLISHABLE_KEY = 'sb_publishable_OqCciy03V9rlf6X2l9mJvA_vimcVhSz';
-
-// "공개 상수" 자리에 secret/service_role 키를 붙여 넣어도 PostgREST 는 그대로 동작한다(오히려 RLS 우회) — 형식으로 막는다.
-export function assertPublishableKey(key) {
-  if (key && !/^sb_publishable_[A-Za-z0-9_-]{16,}$/.test(key)) {
-    throw new Error('PUBLISHABLE_KEY 는 sb_publishable_ 로 시작해야 한다 — secret/service_role/legacy JWT 를 넣으면 레포에 시크릿이 커밋된다.');
-  }
-}
-assertPublishableKey(PUBLISHABLE_KEY);
 
 // 만료 직전 토큰으로 긴 `data:analyze`(한 실행이 세션 창 안에 끝나야 한다 — analyzeCandidates.mjs 의 DEFAULT_LIMIT 주석) 를 시작해 중간에 401 로 죽지 않게, 이만큼 앞당겨 "만료" 로 본다.
 export const SESSION_EXP_SKEW_S = 30 * 60;
 // 요구 ⑤ "토큰 1일 미만" 을 코드가 단언한다 — 대시보드 JWT expiry 는 값 없이 검증할 수 없으니, 더 긴 토큰은 세션으로 쓰지도 저장하지도 않는다.
 export const SESSION_MAX_TTL_S = 24 * 60 * 60;
-
-export function projectUrl(ref) {
-  return `https://${ref}.supabase.co`;
-}
 
 // 안내 문구용. 사용자가 보는 "만료" 는 exp 가 아니라 exp − skew 다 — exp 만 보여 주면 "만료 전인데 왜 거부하나" 가 되고, 시각만 보여 주면
 // "미래에 만료됐다" 로 읽힌다. login·createSupabase·거부 문구가 같은 값과 같은 형식으로 말하게 한 곳에 둔다.
@@ -82,12 +70,12 @@ export function resolveSupabaseCredentials({
   linkedRef = linkedProjectRef(),
   publishableKey = PUBLISHABLE_KEY,
 } = {}) {
-  const url = projectUrl(PROJECT_REF);
+  const url = PROJECT_URL;
   if (linkedRef && linkedRef !== PROJECT_REF) {
     throw new Error(`link 된 프로젝트(${linkedRef})가 코드의 PROJECT_REF(${PROJECT_REF})와 다르다 — 스키마와 데이터가 다른 프로젝트를 가리킨다. 둘 중 하나를 고친다.`);
   }
   assertPublishableKey(publishableKey);
-  if (!publishableKey) throw new Error('publishable 키가 코드에 없다 — scripts/lib/supabaseClient.mjs 의 PUBLISHABLE_KEY(대시보드 Project Settings → API Keys 의 Publishable key 행, 공개값).');
+  if (!publishableKey) throw new Error('publishable 키가 코드에 없다 — scripts/lib/supabasePublic.mjs 의 PUBLISHABLE_KEY(대시보드 Project Settings → API Keys 의 Publishable key 행, 공개값).');
   // readOnly 는 env 에 service 키가 남아 있어도 anon 이다 — "빌드는 anon" 이 env 정리 순서가 아니라 코드 불변식이 되게(1b4264c). 다만 조용히 넘기면
   // 감지가 사라진다: 옛 .env.local 잔존을 처음 잡은 것이 `data:pull` 의 출처 로그였다. 그래서 이름만 `ignoredEnv` 에 얹고 createSupabase 가 한 줄 경고로 찍는다.
   if (readOnly) {

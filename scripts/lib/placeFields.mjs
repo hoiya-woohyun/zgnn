@@ -1,9 +1,10 @@
 // 장소·준비물 레코드의 구조적 파생 — Notion export(normalize.mjs)와 Supabase(pull-db.mjs) 두 입구가 같은 함수를 쓴다.
 // 여기서 하는 건 지역 분리·요금 파싱·문자열 정리뿐이다. 반려동물 이용 조건의 해석은 앱 런타임(src/lib/petPolicy.ts).
 //
-// JSON 을 쓰는 규칙도 여기 있다: 두 입구가 같은 바이트를 내야 `data:pull` 뒤 `git diff src/data` 가 비는 것이
-// "DB 와 스냅샷이 같다" 의 증명이 된다(docs/todo/01). 그래서 키 순서·들여쓰기·줄 끝(개행 없음)을 한 곳에서 정한다.
-import { writeFile } from 'node:fs/promises';
+// 키 순서는 여기서 정한다(toPlace): 두 입구가 같은 바이트를 내야 `data:pull` 뒤 `git diff src/data` 가 비는 것이
+// "DB 와 스냅샷이 같다" 의 증명이 된다(docs/todo/01). 파일로 쓰는 규칙(들여쓰기·줄 끝)은 dataJson.mjs 에 있다.
+//
+// 순수 모듈이다: 브라우저(src/lib/admin*)도 import 한다 — node 모듈을 다시 넣지 말 것(ADR-018). 그래서 writeDataJson 은 dataJson.mjs 로 뺐다.
 
 export const DIRECTION = { 동: 'east', 서: 'west', 남: 'south', 북: 'north' };
 
@@ -99,9 +100,4 @@ export function toItem(f) {
     reason: clean(f.reason),
     linkUrl: f.linkUrl || undefined,
   };
-}
-
-/** src/data/*.json 의 유일한 쓰기 경로. 들여쓰기 1, 끝 개행 없음 — 기존 파일과 바이트가 같아야 한다. */
-export async function writeDataJson(url, value) {
-  await writeFile(url, JSON.stringify(value, null, 1));
 }

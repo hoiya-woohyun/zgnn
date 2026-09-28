@@ -250,8 +250,9 @@ describe('실제 데이터', () => {
     expect(unread.map((p) => `${p.name}: ${p.petPolicyText}`)).toEqual([]);
   });
 
-  it('86곳 전부 파싱에 실패하지 않는다', () => {
-    expect(PLACES).toHaveLength(86);
+  it('시드 86곳 이상 전부 파싱에 실패하지 않는다', () => {
+    // 운영자 화면(/admin)이 승인한 장소가 pull 되면 86 을 넘는다(ADR-018) — 시드는 그대로 남으니 하한만 못 박는다.
+    expect(PLACES.length).toBeGreaterThanOrEqual(86);
     for (const place of PLACES) {
       expect(typeof place.policy.indoor).toBe('string');
     }

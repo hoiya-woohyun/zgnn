@@ -2,7 +2,8 @@
 // 로컬 dev 는 이 명령을 안 불러도 기존 스냅샷으로 그대로 돌아간다. Vercel 빌드 명령은 `pnpm data:pull && pnpm build`.
 // 키가 없으면 조용히 스냅샷을 쓰지 않고 실패한다 — CI 가 옛 데이터로 조용히 빌드되는 걸 막기 위해서다.
 // readOnly: published 만 읽으므로 로그인 없이 publishable(anon) 키로도 된다 — Vercel 빌드가 이 경로다. RLS 가 그 집합만 연다(ADR-016 v5).
-import { fromPlaceRow, toItem, writeDataJson } from './lib/placeFields.mjs';
+import { writeDataJson } from './lib/dataJson.mjs';
+import { fromPlaceRow, toItem } from './lib/placeFields.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
 
 const supabase = createSupabase({ readOnly: true });
