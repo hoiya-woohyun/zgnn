@@ -152,7 +152,9 @@ flowchart LR
 [Claude]  ✅ self-cr → ✅ push → ✅ main 머지 → ✅ 프로덕션 배포·실측  (2026-09-23 (3), 이 줄은 끝났다)
 [사용자]  로컬 잠금 3개: vercel logout · gh auth logout -u hoiya-woohyun · ssh-keygen -p -f ~/.ssh/id_ed25519_hoiya
           ⚠️ 잠그면 **Claude 가 push·배포 확인을 못 한다**(사용자 대시보드 작업은 영향 없다 — CLI 만 끊긴다).
-          아래에 [Claude] 가 붙은 줄(analyze/apply dry-run)과 **미push 커밋의 push·배포 확인**이 남아 있으므로 **그것들이 끝난 뒤** 잠근다
+          ✅ **선행이 없어졌다 — 지금부터 언제든 잠가도 된다**(2026-09-28). 이 셋이 끊는 것은 Vercel CLI · GitHub CLI · git push 이고,
+          아래 [Claude] 줄(analyze/apply dry-run)은 **셋 중 무엇도 쓰지 않는다** — 필요한 건 `data:login` 의 Supabase 세션(키체인)과 로컬 `claude` 인증뿐이라 잠금 뒤에도 그대로 돈다.
+          잠금을 막고 있던 것은 push·배포 확인 하나였고 그건 닫혔다
 [Claude]  ✅ 미push 커밋 4개 push → 프로덕션 배포 확인  (2026-09-28, 지도 폴리시 3 + 헤더 흰색 1)
 [사용자]  ✅ 검색 키워드 확정 — `keywords.json` 의 6개를 그대로 쓴다(2026-09-28). 코드 변경 없음, 🙋 02 닫힘
 [사용자]  pnpm data:login   → 만료 +12시간 확인

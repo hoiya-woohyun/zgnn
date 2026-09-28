@@ -65,7 +65,10 @@ const mediaCache: RuntimeCaching[] = [
      * 빠뜨리면 오프라인에서 **로고만 안 뜨고**, 약관 제7조 ⑩ 이 요구하는 표시가 사라진 화면이 된다.
      *
      * 타일과 마찬가지로 **프로토콜에 따라 호스트가 갈린다**(실측):
-     *   HTTPS → `ssl.pstatic.net/static/maps/mantle/2x/…` · HTTP → `static.naver.net/maps/mantle/1x/…`
+     *   HTTPS → `ssl.pstatic.net/static/maps/mantle/…` · HTTP → `static.naver.net/maps/mantle/…`
+     * 경로 중간의 `1x`/`2x` 는 **프로토콜이 아니라 기기 픽셀 비율이 정한다** — 2026-09-23 실측을 옮겨 적을 때
+     * 둘을 한 줄에 섞어 "HTTPS → 2x" 로 적었는데, 2026-09-28 프로덕션(HTTPS)에서 `…/mantle/1x/…` 로 왔다.
+     * 매처가 `/maps/` 로만 좁히므로 어느 쪽이 와도 걸린다 — 동작이 아니라 서술을 고치는 자리다.
      * `/maps/` 로 좁히는 이유: `ssl.pstatic.net` 은 지도와 무관한 것(광고 모듈 등)도 나르는 공용 호스트다.
      */
     matcher: ({ url }) =>
