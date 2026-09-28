@@ -72,13 +72,16 @@ describe('searchNaverPlace', () => {
 
     expect(items).toHaveLength(1);
     const url = new URL(calls[0].url);
-    expect(url.origin + url.pathname).toBe('https://openapi.naver.com/v1/search/local.json');
+    // API HUB 다(개발자센터 아님 — BUG-006). 호스트·경로·헤더 이름이 전부 다르고, **셋 중 하나만 틀려도 401 이라 구별이 안 된다.**
+    expect(url.origin + url.pathname).toBe('https://naverapihub.apigw.ntruss.com/search/v1/local');
     expect(url.searchParams.get('query')).toBe('제주 솔숲펜션');
     expect(url.searchParams.get('display')).toBe('5');
     expect(calls[0].url).not.toContain(KEYS.clientId);
     expect(calls[0].url).not.toContain(KEYS.clientSecret);
-    expect(calls[0].init.headers['X-Naver-Client-Id']).toBe(KEYS.clientId);
-    expect(calls[0].init.headers['X-Naver-Client-Secret']).toBe(KEYS.clientSecret);
+    expect(calls[0].init.headers['X-NCP-APIGW-API-KEY-ID']).toBe(KEYS.clientId);
+    expect(calls[0].init.headers['X-NCP-APIGW-API-KEY']).toBe(KEYS.clientSecret);
+    // 옛 헤더가 남아 있으면 안 된다 — 둘 다 보내면 어느 쪽으로 통과했는지 모르게 된다.
+    expect(calls[0].init.headers['X-Naver-Client-Id']).toBeUndefined();
   });
 
   it('결과가 없으면 []', async () => {

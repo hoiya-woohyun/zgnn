@@ -83,8 +83,9 @@ GitHub 에 남을 시크릿은 없다.
 
 ## 외부 계정 (2·3 단계용) — 사용자가 갖고 있는다, 어디에도 저장하지 않는다
 
-- [ ] **네이버 개발자센터**(developers.naver.com) 애플리케이션 등록 → 검색 API 사용 설정 → Client ID/Secret.
-      하루 25,000회. 개인 프로젝트에 충분하다. **값은 비밀번호 관리자에만** — `pnpm data:collect` 가 env(`NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`)로 받고,
+- [x] ~~**네이버 개발자센터**(developers.naver.com)~~ → **NAVER API HUB**(NCP 콘솔, `guide.ncloud-docs.com/docs/apihub-application`)
+      애플리케이션 등록 → 「검색」 추가 → Client ID/Secret. 개발자센터 신규 발급은 2026-07-31 에 끝났고, API HUB 는 **한시적 무료**다.
+      ⚠️ **두 시스템이 값을 똑같이 "Client ID / Client Secret" 이라고 부르는데 헤더 이름이 다르다** — 섞으면 401 만 나온다(→ [BUG-006](../bugs/BUG-006-naver-key-401-undiagnosable.md)). **값은 비밀번호 관리자에만** — `pnpm data:collect` 가 env(`NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`)로 받고,
       없으면 터미널에서 숨김 입력으로 받는다. 레포·키체인·파일 어디에도 저장하지 않으며, 에이전트 세션(`CLAUDECODE`)에서는 입력 자체를 거부한다.
 - [x] **좌표 보강 키는 따로 없다** — 3 단계의 좌표 보강이 02 수집과 **같은 네이버 검색 키**(`NAVER_CLIENT_ID`/`SECRET`)를 쓴다(ADR-008 v4).
       보강을 켜려면 그 셸에만 값을 두고 `pnpm data:analyze` 를 부른다. 없으면 보강을 건너뛴다(에러 아님).

@@ -30,6 +30,19 @@ const AUTH_SUBCODES = {
   1000: '값은 둘 다 전달됐으나 네이버가 이 ID·Secret 조합을 모른다 — 값이 틀렸거나 · 둘이 뒤바뀌었거나 · 개발자센터 키가 아니다',
 };
 
+// ⚠️ **응답 모양이 두 가지다**(BUG-006 v5 — 우리는 API HUB 로 옮겼다).
+//   API HUB   : {"error":{"errorCode":"200","message":"Authentication Failed","details":"…"}}   ← 감싸져 있다
+//   개발자센터: {"errorMessage":"…","errorCode":"024"}                                          ← 평평하다
+// **코드 번호 공간이 겹친다** — API HUB 의 `200`·`300` 과 개발자센터의 `024` 는 서로 다른 체계다.
+// 그래서 번호로 먼저 갈라서는 안 되고, **감싸져 있는지(모양)로 갈라야** 한다. 옛 모양을 남겨 두는 이유는
+// 혹시 옛 호스트로 되돌릴 때를 위해서가 아니라, 이 파일이 "무엇이 왔을 때 무슨 뜻인가" 의 정본이기 때문이다.
+
+/** API HUB 게이트웨이 코드 — 실측으로 확인한 것만. */
+const APIHUB_CODES = {
+  200: '인증 실패 — Client ID·Secret 이 틀렸거나, 그 Application 에 「검색」 API 가 추가돼 있지 않다',
+  300: '경로가 없다 — 키 문제가 아니라 우리 코드의 엔드포인트가 틀린 것이다(lib/naverSearchApi.mjs)',
+};
+
 /** 문구 매칭은 보조다. 앞이 우선 — 좁은 쪽이 먼저 와야 한다. */
 const LABELS = [
   [/Not Exist Client ID\s*\/\s*Secret/i, 'Client Secret 이 이 Client ID 의 것과 다르다'],
@@ -52,6 +65,22 @@ function authSubcodeOf(message) {
  */
 export function describeNaverError(body) {
   if (!body || typeof body !== 'object') return '';
+
+  // API HUB 는 error 로 감싼다. 모양으로 먼저 가른다 — 번호 공간이 겹쳐서 번호로는 못 가른다.
+  const nested = /** @type {{ error?: unknown }} */ (body).error;
+  if (nested && typeof nested === 'object') {
+    const { errorCode, details } = /** @type {{ errorCode?: unknown, details?: unknown }} */ (nested);
+    const hubCode = errorCode == null ? null : String(errorCode);
+    // details 가 "정보가 없다" 라고 말하면 값이 아니라 **헤더가 안 간 것**이다 — 원인이 완전히 다르다.
+    const missing = typeof details === 'string' && /missing|not\s*exist/i.test(details);
+    const label = missing
+      ? '인증 정보가 아예 안 갔다 — 값이 비었거나 헤더 이름이 틀렸다'
+      : (APIHUB_CODES[hubCode] ?? (hubCode ? `API HUB 오류(코드 ${hubCode} — 아직 뜻을 모른다)` : null));
+    if (!hubCode && !label) return '';
+    if (!label) return ` apiHubCode=${hubCode}`;
+    return hubCode ? ` apiHubCode=${hubCode} (${label})` : ` (${label})`;
+  }
+
   const { errorCode, errorMessage } = /** @type {{ errorCode?: unknown, errorMessage?: unknown }} */ (body);
   const code = typeof errorCode === 'string' || typeof errorCode === 'number' ? String(errorCode) : null;
   const message = typeof errorMessage === 'string' ? errorMessage : '';
@@ -87,16 +116,18 @@ function charsetOf(value) {
  * 되짚을 방법이 없어서, 흔한 실수(둘을 뒤바꿔 입력 · 다른 시스템의 키)를 눈으로 잡을 수 없다. 이 한 줄이 그 자리를 메운다.
  * 길이·글자 종류는 시크릿이 아니고, 사용자 본인의 터미널에만, **401 일 때만** 찍힌다(05-security).
  *
- * 뒤바뀜 판정은 길이 비교 하나로 한다 — 개발자센터는 Client ID 가 Secret 보다 길다. 정확한 자릿수를 못 박지 않는 이유는
- * 그 값이 바뀔 수 있어서이고, **둘의 대소 관계**는 그보다 오래 간다.
+ * **판정하지 않고 보여만 준다**(v5 에서 물러섰다). 처음엔 "Secret 이 ID 보다 길면 뒤바뀐 것" 이라고 단정했는데,
+ * 그 대소 관계는 **개발자센터** 키를 전제한 것이었고 우리는 API HUB 로 옮겼다(BUG-006). API HUB 키의 자릿수는 아직 실측이 없다 —
+ * 같은 길이면 경고가 영영 안 뜨고, 반대면 **맞게 넣을 때마다** 경고가 떠 사람을 엉뚱한 데로 보낸다.
+ * 모르는 것을 단정하느니 두 길이를 나란히 보여 주고 콘솔 화면과 대조하게 한다. 실측이 생기면 그때 판정을 되살린다.
  */
 export function describeKeyShape(clientId, clientSecret) {
   const id = String(clientId ?? '');
   const secret = String(clientSecret ?? '');
-  const lines = [`보낸 값의 모양 — ID: ${id.length}자(${charsetOf(id)}) · Secret: ${secret.length}자(${charsetOf(secret)}). 값은 찍지 않는다.`];
-  if (secret.length > id.length) {
-    lines.push('  ⚠️ Secret 이 ID 보다 길다 — 개발자센터는 보통 그 반대다. 둘을 **뒤바꿔 입력**한 것 아닌지 본다.');
-  }
+  const lines = [
+    `보낸 값의 모양 — ID: ${id.length}자(${charsetOf(id)}) · Secret: ${secret.length}자(${charsetOf(secret)}). 값은 찍지 않는다.`,
+    '  → NCP 콘솔(API HUB)의 Application 화면에 있는 Client ID·Secret 길이와 대조한다. 안 맞으면 붙여넣기가 잘렸거나 둘을 뒤바꿔 넣은 것이다.',
+  ];
   if (/\s/.test(id) || /\s/.test(secret)) {
     lines.push('  ⚠️ 값 가운데에 공백이 있다 — 붙여넣기가 잘린 것일 수 있다(앞뒤 공백은 이미 털었다).');
   }

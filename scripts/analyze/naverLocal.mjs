@@ -16,9 +16,10 @@
 // I/O 는 searchNaverPlace 하나뿐이고 fetchImpl 을 주입받아 테스트한다. 키·응답 본문·헤더는 로그에 남기지 않는다(docs/todo/05) —
 // 실패 응답의 errorCode 와 우리가 쓴 라벨만 예외다(`lib/naverApiError.mjs`).
 import { naverErrorTail } from '../lib/naverApiError.mjs';
+import { NAVER_LOCAL_SEARCH_URL, naverAuthHeaders } from '../lib/naverSearchApi.mjs';
 import { nameSimilarity, townOf } from './matchPlace.mjs';
 
-const NAVER_LOCAL_URL = 'https://openapi.naver.com/v1/search/local.json';
+const NAVER_LOCAL_URL = NAVER_LOCAL_SEARCH_URL; // 규격은 lib/naverSearchApi.mjs 가 정본(개발자센터 아님 — API HUB)
 
 /** 지역 검색의 display 상한. 공식 문서값이고 늘릴 수 없다 — Kakao(15)보다 좁아 동명 구분이 약한 자리다. */
 const DISPLAY_MAX = 5;
@@ -58,7 +59,7 @@ export async function searchNaverPlace(query, { clientId, clientSecret }, fetchI
   url.searchParams.set('display', String(DISPLAY_MAX));
 
   const res = await fetchImpl(url, {
-    headers: { 'X-Naver-Client-Id': clientId, 'X-Naver-Client-Secret': clientSecret },
+    headers: naverAuthHeaders(clientId, clientSecret),
     signal: AbortSignal.timeout(15_000),
   });
   // status 를 에러에 실어 두는 이유 — 401/403(키 문제)은 잠깐의 장애가 아니라 실행 전체를 세워야 하는 설정 오류다(analyze-candidates.mjs).

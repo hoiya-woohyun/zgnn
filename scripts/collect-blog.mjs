@@ -5,6 +5,7 @@
 // 03(분석) 이 링크를 열어 그 순간에만 읽고 버린다. docs/todo/02-collect-naver-blog.md 가 정본.
 import { readFile } from 'node:fs/promises';
 import { describeKeyShape, naverErrorTail } from './lib/naverApiError.mjs';
+import { NAVER_BLOG_SEARCH_URL, naverAuthHeaders } from './lib/naverSearchApi.mjs';
 import { readHidden } from './lib/readHidden.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
 import { WINDOW_DAYS, dedupeByUrl, isWithinDays, parsePostdate, toBlogPostRow } from './collect/naverBlog.mjs';
@@ -62,14 +63,14 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // 응답 본문·헤더는 절대 로그에 남기지 않는다 — status 와 요청 URL 의 query 만 남긴다(docs/todo/05-security.md).
 async function searchBlog(query, start) {
-  const url = new URL('https://openapi.naver.com/v1/search/blog.json');
+  const url = new URL(NAVER_BLOG_SEARCH_URL);
   url.searchParams.set('query', query);
   url.searchParams.set('display', String(DISPLAY));
   url.searchParams.set('start', String(start));
   url.searchParams.set('sort', 'date');
 
   const res = await fetch(url, {
-    headers: { 'X-Naver-Client-Id': naverClientId, 'X-Naver-Client-Secret': naverClientSecret },
+    headers: naverAuthHeaders(naverClientId, naverClientSecret),
   });
   // 본문은 검색 **결과**라 남기지 않는다(05-security) — 실패 응답에서만, 그것도 우리가 쓴 라벨과 errorCode 만 꺼낸다.
   // status 만으로는 401 의 원인이 갈리지 않아서다(`lib/naverApiError.mjs` 의 주석이 정본).
