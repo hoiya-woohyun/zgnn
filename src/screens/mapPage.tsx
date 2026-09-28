@@ -28,7 +28,12 @@ export function MapPage() {
   // 판정은 마커 흐리기(hard)와 시트 배지에만 쓴다 — 지도에서 거르지는 않는다.
   const eligibilityMap = useEligibilityMap();
 
-  const [types, setTypes] = useState<TPlaceType[]>([]);
+  /*
+   * 칩은 "고른 종류" 가 아니라 **보이는 종류** 다 — 처음엔 셋 다 켜져 있고, 누르면 그 종류를 끈다.
+   * "빈 선택 = 전체" 로 두면 칩이 전부 꺼진 모양인데 마커는 다 보이고, 하나를 켜면 오히려 줄어든다.
+   * 칩에 마커 색 점이 붙어 있어 범례 겸 스위치로 읽히니, 칩 모양과 지도를 일치시킨다.
+   */
+  const [types, setTypes] = useState<TPlaceType[]>(PLACE_TYPES);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // 데스크톱 결과 패널에서 고른 항목으로 스크롤하기 위한 참조.
@@ -43,7 +48,7 @@ export function MapPage() {
    */
   const filtered = useMemo(() => {
     const list = savedOnly ? savedPlaces : PLACES;
-    return types.length > 0 ? list.filter((place) => types.includes(place.type)) : list;
+    return list.filter((place) => types.includes(place.type));
   }, [savedOnly, savedPlaces, types]);
 
   const withGeo = useMemo(() => filtered.filter((place) => place.geo), [filtered]);
@@ -96,10 +101,12 @@ export function MapPage() {
     else itemRefs.current.delete(id);
   }, []);
 
+  // 마지막 하나는 끄지 않는다 — 다 끄면 필터 때문에 빈 지도가 된다.
   const toggleType = (type: TPlaceType) =>
-    setTypes((prev) =>
-      prev.includes(type) ? prev.filter((value) => value !== type) : [...prev, type],
-    );
+    setTypes((prev) => {
+      if (!prev.includes(type)) return [...prev, type];
+      return prev.length > 1 ? prev.filter((value) => value !== type) : prev;
+    });
 
   const mapEl = (
     <MapPageCanvas
@@ -270,8 +277,8 @@ export function MapPage() {
               <div className="pointer-events-auto">
                 <EmptyState
                   Icon={AlertTriangle}
-                  title="필터에 맞는 곳이 없어요"
-                  description="종류나 읍면 조건을 조금 줄여보세요."
+                  title="켜 둔 종류에 표시할 곳이 없어요"
+                  description="위에서 다른 종류를 켜 보세요."
                 />
               </div>
             </div>
