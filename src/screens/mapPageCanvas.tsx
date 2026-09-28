@@ -245,7 +245,7 @@ export function MapPageCanvas({
          */
         const map = new maps.Map(containerRef.current, {
           center: new maps.LatLng(JEJU_CENTER[0], JEJU_CENTER[1]),
-          // 컨테이너 폭에서 계산한다 — 모바일 390px 는 9, 데스크톱 830px 는 10 이 된다.
+          // 컨테이너 폭에서 계산한다 — 모바일 390px 는 10, 데스크톱 830px 는 11 이 된다.
           zoom: jejuZoomFor(containerRef.current.clientWidth),
           /*
            * 로고·저작권 표시는 끄지 않는다 — Maps 서비스 이용약관 제7조 ⑩.
