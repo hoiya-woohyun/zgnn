@@ -87,8 +87,13 @@ GitHub 에 남을 시크릿은 없다.
       애플리케이션 등록 → 「검색」 추가 → Client ID/Secret. 개발자센터 신규 발급은 2026-07-31 에 끝났고, API HUB 는 **한시적 무료**다.
       ⚠️ **두 시스템이 값을 똑같이 "Client ID / Client Secret" 이라고 부르는데 헤더 이름이 다르다** — 섞으면 401 만 나온다(→ [BUG-006](../bugs/BUG-006-naver-key-401-undiagnosable.md)). **값은 비밀번호 관리자에만** — `pnpm data:collect` 가 env(`NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`)로 받고,
       없으면 터미널에서 숨김 입력으로 받는다. 레포·키체인·파일 어디에도 저장하지 않으며, 에이전트 세션(`CLAUDECODE`)에서는 입력 자체를 거부한다.
-- [x] **좌표 보강 키는 따로 없다** — 3 단계의 좌표 보강이 02 수집과 **같은 네이버 검색 키**(`NAVER_CLIENT_ID`/`SECRET`)를 쓴다(ADR-008 v4).
-      보강을 켜려면 그 셸에만 값을 두고 `pnpm data:analyze` 를 부른다. 없으면 보강을 건너뛴다(에러 아님).
+- [x] **좌표 보강 키는 둘이다**(2026-09-28 정정 — 전엔 "따로 없다" 였다). 3 단계의 좌표 보강에 축이 둘 생겼고 **키가 서로 다르다**(ADR-008 v8):
+      - **이름 축** — 02 수집과 **같은 네이버 검색 키**(`NAVER_CLIENT_ID`/`SECRET`, API HUB).
+      - **주소 축** — **Maps** Application 의 `NAVER_MAP_CLIENT_ID`/`NAVER_MAP_CLIENT_SECRET`. 지금 지도가 쓰는 그 Application 이고,
+        콘솔에서 **Geocoding** 을 체크해 둬야 한다. `NEXT_PUBLIC_NAVER_MAP_KEY_ID` 는 그 **Client ID 만**(브라우저 공개값)이라 재사용할 수 없다.
+
+      ⚠️ **두 쌍을 섞으면 그냥 401 이다** — 헤더 이름이 글자까지 같고 콘솔도 둘 다 "Client ID / Client Secret" 이라 부른다(→ [BUG-006](../bugs/BUG-006-naver-key-401-undiagnosable.md)).
+      보강을 켜려면 그 셸에만 값을 두고 `pnpm data:analyze` 를 부른다. 없으면 해당 축만 건너뛴다(에러 아님).
 
       ⚠️ **인라인 env(`NAVER_CLIENT_SECRET=… pnpm data:analyze`)로 적지 말 것** — 그 줄이 통째로 `~/.zsh_history` 에 남는다.
       이 레포의 모델은 "값을 어디에도 저장하지 않는다" 인데(ADR-016) 셸 히스토리가 그 예외가 된다. 둘 중 하나로:

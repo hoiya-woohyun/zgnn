@@ -77,7 +77,41 @@ describe('describeNaverError — API HUB 모양', () => {
     const missing = describeNaverError({ error: { errorCode: '200', details: 'Authentication information are missing.' } });
     const rejected = describeNaverError({ error: { errorCode: '200', details: 'Authentication Failed' } });
     expect(missing).not.toBe(rejected);
-    expect(rejected).toContain('「검색」 API 가 추가돼 있지 않다');
+    expect(rejected).toContain('이 API 가 추가돼 있지 않다');
+  });
+
+  it("'Invalid authentication information.' 은 '값이 갔는데 거부됐다' 로 읽는다(2026-09-28 실측 오라클)", () => {
+    const tail = describeNaverError({ error: { errorCode: '200', details: 'Invalid authentication information.' } });
+    expect(tail).toContain('게이트웨이가 이 쌍을 거부했다');
+    expect(tail).toContain('검색↔지도');
+    // 헤더 누락과 섞이면 안 된다 — 이 둘이 갈리는 것이 진단의 절반이다.
+    expect(tail).not.toContain('아예 안 갔다');
+  });
+
+  it('라벨이 특정 API 를 지목하지 않는다 — 검색과 지도가 같은 게이트웨이를 지난다', () => {
+    const tail = describeNaverError({ error: { errorCode: '200', details: '' } });
+    expect(tail).not.toContain('「검색」');
+  });
+
+  it('콘솔에서 API 를 체크하지 않았을 때의 번호(210·400)에 뜻이 있다', () => {
+    expect(describeNaverError({ error: { errorCode: '210' } })).toContain('권한 없음');
+    expect(describeNaverError({ error: { errorCode: '400' } })).toContain('한도');
+    expect(describeNaverError({ error: { errorCode: '900' } })).toContain('게이트웨이 내부 오류');
+  });
+
+  it('🔴 벤더가 준 errorCode 는 숫자가 아니면 내보내지 않는다 — 프로토타입 키가 함수 소스를 끌고 나왔다', () => {
+    for (const bad of ['constructor', 'toString', '<script>alert(1)</script>', '__proto__']) {
+      const tail = describeNaverError({ error: { errorCode: bad, details: '' } });
+      expect(tail, bad).not.toContain(bad);
+      expect(tail, bad).not.toContain('native code');
+    }
+  });
+
+  it("🔴 'Invalid authentication information. Client ID does not exist.' 는 'not exist' 를 품어도 거부 쪽이다", () => {
+    // 느슨한 missing 을 먼저 보면 오라클이 거꾸로 붙는다 — BUG-006 이 세 판을 들여 세운 구분이다.
+    const tail = describeNaverError({ error: { errorCode: '200', details: 'Invalid authentication information. Client ID does not exist.' } });
+    expect(tail).toContain('게이트웨이가 이 쌍을 거부했다');
+    expect(tail).not.toContain('아예 안 갔다');
   });
 
   it('모르는 API HUB 코드는 뜻을 지어내지 않는다', () => {

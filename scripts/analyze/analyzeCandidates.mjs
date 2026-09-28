@@ -83,7 +83,8 @@ export function tierOf(matched) {
 }
 
 /**
- * matchPlace 에 넘길 후보. 좌표는 네이버 것만 쓴다(AI 는 좌표를 주지 않는다). 주소는 네이버가 우선 — 본문 주소는 오타·생략이 잦다.
+ * matchPlace 에 넘길 후보. 좌표는 네이버 것만 쓴다(AI 는 좌표를 주지 않는다) — 이름 축(naverLocal)이든 주소 축(naverGeocode)이든
+ * 호출부가 같은 모양으로 넘겨 주므로 여기는 축을 구별하지 않는다. 주소는 네이버가 우선 — 본문 주소는 오타·생략이 잦다.
  * AI 의 regionRaw 도 넘긴다 — 주소·좌표가 없는 후보에서 우도 vs 본섬 동명 가게를 가르는 유일한 신호다(빠뜨리면 자동 병합된다, 리뷰 지적).
  * 없는 값은 undefined 로 둔다: matchPlace 는 값이 없는 신호를 감점 없이 건너뛴다.
  */
@@ -99,11 +100,14 @@ export function toMatchCandidate(extracted, local) {
 
 /**
  * candidates 행. extracted 의 모양은
- *   { ...TExtractedPlace, geo: {lat,lng}|null, naverLink: string|null, category: string|null, regionRaw: string|null,
- *     regionRawAi: string|null, match: { confidence, reason, tier: 'auto'|'ask'|'new' } }
+ *   { ...TExtractedPlace, geo: {lat,lng}|null, geoSource: 'local'|'geocode'|null, naverLink: string|null, category: string|null,
+ *     regionRaw: string|null, regionRawAi: string|null, match: { confidence, reason, tier: 'auto'|'ask'|'new' } }
  * — applyApproved.mjs 가 읽는 계약이다. address 는 네이버 값이 있으면 그것으로 덮는다(기존 86곳과 같은 "제주 제주시 …" 꼴).
  * regionRawAi 는 AI 가 준 원본 — 분석 때 matchPlace 가 본 지역 신호 그대로를 apply 의 재대조가 다시 보게 하기 위해 남긴다(regionRaw 는 정리된 값).
  * category 는 TExtractedPlace 에 없고 네이버가 한 단어("커피전문점")로 주는 값 — 빠뜨리면 apply 가 category 를 영영 못 채운다.
+ * geoSource 는 좌표가 **어느 축에서 왔는지**다: 'local' 은 이름으로 찾은 업체 엔트리(naverLocal), 'geocode' 는 주소를 좌표로 바꾼 것(naverGeocode).
+ * 사람이 Studio 에서 볼 단서다 — 'geocode' 는 "그 주소의 점" 이라 건물은 맞지만 **그 가게가 지금 그 건물에 있다는 보증은 아니다**.
+ * 판정(matchPlace)에는 쓰지 않는다: 축에 따라 가중치를 달리 두면 임계값이 두 벌이 되고, 좌표의 정확도 자체는 두 축이 다르지 않다.
  *
  * status: AUTO_APPROVE 가 true 일 때만 auto 가 바로 approved. 기본은 전부 pending — tier 가 Studio 에서 거를 단서다.
  * match_place_id 는 ask 에도 붙인다 — 사람이 "이 기존 장소가 맞나" 를 확인하는 단서다. new 는 null.
@@ -122,6 +126,8 @@ export function toCandidateRow(post, extracted, local, regionRaw, matched) {
       ...extracted,
       address: local?.address ?? extracted.address ?? null,
       geo: local ? { lat: local.lat, lng: local.lng } : null,
+      // 이름 축(pickNaverPlace)은 geoSource 를 달지 않으므로 여기서 'local' 이 기본이다 — 축을 아는 곳이 한 군데여야 어긋나지 않는다.
+      geoSource: local ? (local.geoSource ?? 'local') : null,
       naverLink: local?.naverLink ?? null,
       category: local?.category ?? null,
       regionRaw: regionRaw ?? null,

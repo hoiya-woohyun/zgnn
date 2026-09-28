@@ -71,8 +71,11 @@ export async function searchNaverPlace(query, { clientId, clientSecret }, fetchI
   return Array.isArray(body?.items) ? body.items : [];
 }
 
-/** 네이버는 "제주특별자치도 …" 로 주고, 기존 86곳은 "제주 제주시 …" 다. 새 행이 기존 행과 같은 꼴이 되게 앞머리만 맞춘다. */
-function shortenJejuPrefix(address) {
+/**
+ * 네이버는 "제주특별자치도 …" 로 주고, 기존 86곳은 "제주 제주시 …" 다. 새 행이 기존 행과 같은 꼴이 되게 앞머리만 맞춘다.
+ * Geocoding(naverGeocode.mjs)도 같은 앞머리로 주므로 여기 것을 그대로 쓴다 — 두 축이 만든 주소가 같은 꼴이어야 한다.
+ */
+export function shortenJejuPrefix(address) {
   return (address ?? '').replace(/^제주특별자치도(?=\s)/, '제주').trim();
 }
 
@@ -116,8 +119,11 @@ export function newPickReasons() {
   };
 }
 
-/** 좌표 쌍이 제주 안인가. 범위 밖이면 포맷이 우리가 아는 것과 다르다는 신호다. */
-function inJeju(lat, lng) {
+/**
+ * 좌표 쌍이 제주 안인가. 범위 밖이면 포맷이 우리가 아는 것과 다르다는 신호다.
+ * 두 번째 축(naverGeocode.mjs)도 이 검사를 쓴다 — 범위를 두 곳에 적으면 한쪽만 고쳐져 축마다 다른 좌표를 받는다.
+ */
+export function inJeju(lat, lng) {
   return (
     Number.isFinite(lat) && Number.isFinite(lng) &&
     lat >= JEJU_BOUNDS.latMin && lat <= JEJU_BOUNDS.latMax &&

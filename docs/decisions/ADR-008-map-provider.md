@@ -1,6 +1,10 @@
 # ADR-008 — 지도 제공자: 네이버(NCP Maps v3), 마커는 표준 핀으로
 
-> 최종 수정: 2026-09-28 (v7: **마커를 네이버 표준 핀 형태로 맞추고, 컨트롤을 모서리에서 뗐다.** 핀은 SDK 기본 에셋
+> 최종 수정: 2026-09-28 (v8: **「좌표 데이터」 절을 정정했다.** v4 는 "좌표 보강을 NCP Maps 가 아니라 지역 검색으로 옮겼다" 고 적었는데,
+> 이제 **주소 → 좌표는 NCP Geocoding 을 쓴다**(`scripts/analyze/naverGeocode.mjs`, 이름 축이 못 붙인 후보에만). 번복이 아니라 **v4 의 서술이 부정확했던 것**이다 —
+> 약관 제7조 ⑪ 은 두 API 에 **똑같이** 걸리므로 애초에 갈래를 가른 근거가 아니었고, 진짜 근거는 "NCP Maps 에는 POI 검색 상품이 없다" 였다.
+> 주소→좌표는 POI 검색이 아니라 Geocoding 의 본령이라 그 근거가 닿지 않는다. 키는 **Maps Application 쪽으로 따로**다(검색 키 재사용 불가))
+> 이전 (v7: **마커를 네이버 표준 핀 형태로 맞추고, 컨트롤을 모서리에서 뗐다.** 핀은 SDK 기본 에셋
 > (`marker-default.png`)의 픽셀을 재서 비율 2:3·흰 원·▼ 를 옮겼고 색만 종류별로 남겼다. 컨트롤 여백은 인라인 스타일
 > 때문에 `transform` 으로 준다 — 폰에서는 오버레이 **스택 전체** 아래로 내린다. 그 자리를 한 번 틀렸고(오버레이가
 > 두 줄인 걸 놓쳐 `?saved=1` 에서 불투명 버튼이 저작권 표시를 통째로 덮었다) self-cr 이 잡은 과정을 함께 적었다.
@@ -310,11 +314,22 @@ CSS 가 스택 높이를 잴 수 없어 넉넉한 쪽으로 고정한다(`/map/`
 그래서 **NCP Geocoding 결과를 `places.lat/lng` 에 저장하는 설계는 이 조항에 정면으로 걸린다.** NCP Maps 에는 애초에
 장소명(POI) 검색 상품이 없기도 하다(Dynamic/Static Map · Geocoding · Reverse Geocoding · Directions 뿐).
 
-**그래서 좌표 보강은 NCP Maps 가 아니라 「네이버 검색 API 의 지역 검색」으로 옮겼다**(`scripts/analyze/naverLocal.mjs`).
-02(수집)이 이미 쓰는 것과 **같은 키**(`NAVER_CLIENT_ID`/`SECRET`)라 키를 하나 더 관리하지 않아도 된다.
-다만 **저장 제약은 여기서도 풀리지 않는다** — 네이버 검색 API 약관도, Kakao 로컬 API FAQ 도 결과의 별도 저장을 금지한다.
-즉 이건 벤더 선택의 문제가 아니라 "검색 결과 좌표를 DB 에 굽는다" 는 설계 자체의 문제이고, 지금은 **사용자 판단으로 네이버 기준으로 진행한다**.
+**저장 제약은 어느 쪽으로 가도 풀리지 않는다** — 네이버 검색 API 약관도, Kakao 로컬 API FAQ 도 결과의 별도 저장을 금지한다.
+즉 이건 벤더 선택의 문제가 아니라 "검색·지도 API 가 준 좌표를 DB 에 굽는다" 는 설계 자체의 문제이고, 지금은 **사용자 판단으로 네이버 기준으로 진행한다**.
 조사 원문은 `docs/todo/naver-migration-research.md`.
+
+**그래서 축이 둘이고, 갈래를 가른 것은 약관이 아니다**(v8 정정). v4 는 "약관 때문에 NCP Maps 대신 지역 검색으로 옮겼다" 고 적었지만
+제7조 ⑪ 은 **두 API 에 똑같이** 걸리므로 그것으로는 아무것도 갈리지 않는다. 실제로 갈린 근거는 위 문단의 다른 절반 —
+**NCP Maps 에는 POI(장소명) 검색 상품이 없다**는 것이다.
+
+- **이름으로 찾는다** → 지역 검색(`scripts/analyze/naverLocal.mjs`). NCP Maps 로는 애초에 불가능하다. 02(수집)과 **같은 키**를 쓴다.
+- **주소로 찾는다** → **NCP Geocoding**(`scripts/analyze/naverGeocode.mjs`). 이쪽은 POI 검색이 아니라 Geocoding 의 본령이라
+  "상품이 없다" 는 근거가 닿지 않는다. 이름 축이 좌표를 못 붙인 후보에만 붙는다.
+
+**키는 따로다.** Geocoding 은 **Maps** Application 의 Client ID/Secret(`NAVER_MAP_CLIENT_ID`·`NAVER_MAP_CLIENT_SECRET`)이고
+검색 키(API HUB)와 값이 다르다 — 헤더 이름은 같아서 섞으면 그냥 401 이다(BUG-006 과 같은 함정). 브라우저용
+`NEXT_PUBLIC_NAVER_MAP_KEY_ID` 도 그 Application 의 **Client ID 만**이라 재사용할 수 없다(REST 는 Secret 이 필요하다).
+콘솔 Maps Application 에 **Geocoding 체크**가 필요하다 — Dynamic Map 미체크 때 429 가 났던 그 자리다. 규격 정본은 `scripts/lib/naverMapsApi.mjs`.
 
 ### 잃은 것
 

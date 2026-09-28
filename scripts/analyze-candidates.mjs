@@ -21,6 +21,10 @@
 //    fatal 은 나머지 글도 전부 같은 이유로 실패하므로 루프를 끊고 exit 1. **Claude 의** 한도(429·session limit)는 글 단위 건너뜀 → 다음 실행.
 //  - 단 **네이버 검색의 429 는 fatal 이다**(Claude 의 429 와 다르다). 검색 쿼터를 `data:collect` 와 나눠 쓰므로 한 번 걸리면 남은 건도
 //    같은 결과이고, 그대로 진행하면 전부 좌표 없이 대조돼 동명 가게가 ask 대신 auto 로 올라간다 — 401/403 을 세우는 이유와 같다.
+//  - **두 번째 축(주소 → 좌표, naverGeocode.mjs)의 401/403/429 는 fatal 이 아니다.** 이름 축과 정반대인데 이유가 있다:
+//    이 축은 이름 축이 **이미 좌표를 못 붙인** 후보에만 붙으므로, 죽어도 결과가 "오늘까지의 동작" 으로 돌아갈 뿐 그 아래로 내려가지 않는다
+//    (`matchPlace` 는 값 없는 신호를 감점 없이 건너뛴다). 세우면 **더하기만 하는 기능이 잘 돌던 파이프라인을 죽이는 새 통로**가 된다.
+//    대신 그 실행 동안 축을 **내리고**(geocodeAxisOff) 한 번만 크게 찍는다 — 남은 건마다 같은 실패를 반복해 쿼터를 더 태우지 않으려고.
 //  - 재시도는 CLI 에 맡긴다. 여기서 한 번 더 돌면 실패 한 건에 호출이 배가 된다.
 //  - 같은 실행 안에서 같은 이름의 신규 후보가 두 번 나와도 둘 다 넣는다(두 번째가 첫 번째를 가리키게 하지 않는다). 로그에만
 //    남기고 사람이 Studio 에서 본다 — 단순하게.
@@ -36,6 +40,7 @@ import {
   toMatchCandidate,
 } from './analyze/analyzeCandidates.mjs';
 import { createUsageMeter, extractPlaces, isFatal, isRetryable, MODEL, runClaudeCli } from './analyze/extractPlaces.mjs';
+import { formatGeocodeSummary, geocodeAddress, newGeocodeReasons, pickGeocoded, shouldGeocode } from './analyze/naverGeocode.mjs';
 import { newPickReasons, pickNaverPlace, searchNaverPlace } from './analyze/naverLocal.mjs';
 import { matchPlace, normalizeName, townOf } from './analyze/matchPlace.mjs';
 import { fetchPostText } from './analyze/naverPostBody.mjs';
@@ -65,6 +70,12 @@ const naverKeys = naverClientId && naverClientSecret ? { clientId: naverClientId
 // 안 돼 있으면 첫 글에서 ClaudeCliError(auth, fatal) 가 나와 루프가 끊긴다.
 // 좌표 보강은 선택이다 — 키가 없으면 후보는 좌표·주소 없이 들어가고, matchPlace 는 이름·종류만으로 대조한다(감점 없음).
 if (!naverKeys) console.log('NAVER_CLIENT_ID · NAVER_CLIENT_SECRET 없음 — 좌표·주소 보강을 건너뛴다(후보는 이름·종류로만 대조된다)');
+// 두 번째 축(주소 → 좌표)의 키는 **검색 키가 아니다** — NCP 콘솔의 Maps Application 쪽이고 헤더 이름만 같다(lib/naverMapsApi.mjs 의 표).
+// 검색 키를 여기 넣으면 그냥 401 이라, env 이름을 갈라 두는 것이 그 혼동의 유일한 방어다(BUG-006 이 같은 함정이었다).
+const mapClientId = trimKey(process.env.NAVER_MAP_CLIENT_ID);
+const mapClientSecret = trimKey(process.env.NAVER_MAP_CLIENT_SECRET);
+const mapKeys = mapClientId && mapClientSecret ? { clientId: mapClientId, clientSecret: mapClientSecret } : null;
+if (!mapKeys) console.log('NAVER_MAP_CLIENT_ID · NAVER_MAP_CLIENT_SECRET 없음 — 주소→좌표 보강(두 번째 축)을 건너뛴다(이름 축만 돈다)');
 // ANALYZE_MODEL 이 조용히 무시되는 일이 없게 실제로 쓰는 모델을 한 번 찍는다.
 console.log(`모델 ${MODEL} · 글 최대 ${limit}건`);
 
@@ -111,6 +122,44 @@ console.log(`미분석 글 ${posts.length}건 · 기존 장소 ${existing.length
 // 좌표 보강이 실제로 무슨 일을 했는지 — 실행 끝에 한 줄 찍는다(아래 요약).
 const naverStats = { searched: 0, picked: 0, failed: 0 };
 const pickReasons = newPickReasons();
+
+// 두 번째 축(주소 → 좌표). `chance` 는 이름 축이 좌표를 못 붙인 후보 수 — 이 축이 구제할 대상의 크기다.
+const geocodeStats = { chance: 0, tried: 0, picked: 0, failed: 0 };
+const geocodeReasons = newGeocodeReasons();
+// 401/403/429 를 만나면 이 실행 동안 축을 내린다. **실행을 세우지는 않는다**(머리 주석) — 남은 건마다 같은 실패로 쿼터를 태우지 않으려는 것뿐이다.
+let geocodeAxisOff = false;
+
+async function enrichWithGeocode(address) {
+  if (!mapKeys || geocodeAxisOff) return null;
+  if (!shouldGeocode(address, geocodeReasons)) return null;
+  geocodeStats.tried++;
+  try {
+    const picked = pickGeocoded(await geocodeAddress(address, mapKeys), { address }, geocodeReasons);
+    if (!picked) return null;
+    geocodeStats.picked++;
+    // 이름 축의 반환값과 같은 모양으로 맞춘다(toMatchCandidate·toCandidateRow 가 그 모양을 읽는다). 단 **naverLink·category 는 null 이다** —
+    // Geocoding 은 주소를 좌표로 바꿀 뿐 업체를 모른다. 여기에 값을 지어 넣으면 apply 가 엉뚱한 category 로 빈 칸을 채운다.
+    return { ...picked, naverLink: null, category: null, geoSource: 'geocode' };
+  } catch (e) {
+    geocodeStats.failed++;
+    // 첫 실패를 요약 줄이 들고 갈 수 있게 남긴다 — 전 건이 실패하면 좌표 표본이 없어 이것만이 단서다.
+    // e.message 는 status 와 게이트웨이 꼬리표뿐이고 주소·키는 들어 있지 않다(geocodeAddress).
+    if (geocodeReasons.firstFailure === null) geocodeReasons.firstFailure = e.message;
+    if (e?.status === 401 || e?.status === 403 || e?.status === 429) {
+      geocodeAxisOff = true;
+      console.log(
+        `    주소→좌표 축을 이 실행 동안 내린다(status=${e.status}): ${e.message}\n` +
+          '      → 키(NAVER_MAP_CLIENT_ID · NAVER_MAP_CLIENT_SECRET, 검색 키가 아니다)와 NCP 콘솔 Maps Application 의 Geocoding 체크를 본다.\n' +
+          '      이름 축과 후보 생성은 계속한다 — 이 축은 좌표를 더하기만 하므로 없으면 오늘까지의 동작으로 돌아갈 뿐이다.',
+      );
+    } else {
+      console.log(`    주소→좌표 보강 실패(좌표 없이 진행): ${e.message}`);
+    }
+    return null;
+  } finally {
+    await sleep(LOCAL_DELAY_MS);
+  }
+}
 
 async function enrichWithNaver(name, town) {
   if (!naverKeys) return null;
@@ -175,7 +224,14 @@ for (const post of posts) {
       }
       // 같은 이름이 여럿일 때 AI 가 읽은 읍·면(regionRaw 또는 본문 주소)이 검색 결과를 고르는 힌트다 — 우도 카페살레 vs 본섬 동명(리뷰 지적).
       // 네이버 지역 검색은 display 상한이 5 라(Kakao 는 15) 동명 구분이 더 약하다 — 이 힌트가 그만큼 중요해졌다.
-      const local = await enrichWithNaver(extracted.name, townOf(extracted.regionRaw) ?? townOf(extracted.address));
+      let local = await enrichWithNaver(extracted.name, townOf(extracted.regionRaw) ?? townOf(extracted.address));
+      // 이름 축이 못 붙였을 때만 주소 축으로 물러선다 — 이름으로 찾은 업체 쪽이 좌표 말고 category 까지 주므로 항상 우선이다.
+      if (!local) {
+        // `chance` 는 **이름 축이 실제로 찾아보고 못 붙인** 수다. 검색 키가 없으면 이름 축은 아무것도 보지 않았으므로 세지 않는다 —
+        // 안 세면 요약이 "이름 축이 좌표를 못 붙인 후보 N건" 을 후보 전체 수로 뻥튀기한다(리뷰 지적).
+        if (naverKeys) geocodeStats.chance++;
+        local = await enrichWithGeocode(extracted.address);
+      }
       // regionRaw 는 주소 기반이 우선(analyzeCandidates.mjs). 주소는 네이버 → 본문 순.
       const regionRaw = resolveRegionRaw(local?.address ?? extracted.address, extracted.regionRaw, existing);
       const matched = matchPlace(toMatchCandidate(extracted, local), existing);
@@ -263,6 +319,21 @@ if (naverStats.searched > 0) {
     );
   }
 }
+/*
+ * 두 번째 축 요약. **키가 없을 때 전체 표를 찍지 않는다** — `shouldGeocode` 가 아예 안 돌아 "호출 전 탈락" 이 전부 0 이고,
+ * 그 0 들은 "주소가 다 멀쩡했다" 가 아니라 "아무것도 보지 않았다" 는 뜻이라 읽는 사람을 속인다(⚠️ 판정 불가에 속지 말 것과 같은 자리).
+ * 대신 기회의 크기만 한 줄 — 키를 넣을 값이 있는지 판단할 근거가 그것뿐이다.
+ */
+if (geocodeStats.chance > 0) {
+  if (mapKeys) console.log(formatGeocodeSummary(geocodeStats, geocodeReasons));
+  else {
+    console.log(
+      `주소→좌표(Geocoding): 꺼져 있다. 이름 축이 좌표를 못 붙인 후보 ${geocodeStats.chance}건이 이 축의 대상이었다 — ` +
+        'NAVER_MAP_CLIENT_ID · NAVER_MAP_CLIENT_SECRET 을 주면 그중 주소가 있는 건을 시도한다(docs/todo/03).',
+    );
+  }
+}
+
 // 글 단위 실패는 정상 경로(다음 실행에 재시도)라 exit 0. 시도한 글 중 성공이 0 이면 1 — "분석 불가" 도 성공이 아니다(위에서 닫지도 않았다).
 // process.exit() 은 파이프로 나가던 stdout 을 잘라먹을 수 있어 자연 종료를 기다린다.
 process.exitCode = fatal || (posts.length > 0 && stats.analyzed === 0) ? 1 : 0;

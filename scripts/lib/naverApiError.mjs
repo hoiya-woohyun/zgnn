@@ -37,10 +37,22 @@ const AUTH_SUBCODES = {
 // 그래서 번호로 먼저 갈라서는 안 되고, **감싸져 있는지(모양)로 갈라야** 한다. 옛 모양을 남겨 두는 이유는
 // 혹시 옛 호스트로 되돌릴 때를 위해서가 아니라, 이 파일이 "무엇이 왔을 때 무슨 뜻인가" 의 정본이기 때문이다.
 
-/** API HUB 게이트웨이 코드 — 실측으로 확인한 것만. */
+/*
+ * NCP **API Gateway** 코드. 검색(API HUB)과 지도(Maps)가 **같은 게이트웨이를 지나므로 표는 하나다** —
+ * 그래서 라벨에 「검색」·「지도」 를 박지 않는다(2026-09-28 정정: 200 의 라벨이 「검색」을 지목해,
+ * 지도 Geocoding 이 같은 401 을 받으면 엉뚱한 콘솔 화면으로 사람을 보냈다).
+ * 어느 API 를 부르다 났는지는 **호출부의 에러 메시지**가 이미 말한다("네이버 지역 검색 실패" vs "네이버 Geocoding 실패").
+ *
+ * 200 만 우리 손으로 재현했고(가짜 키), 나머지는 NCP 공용 문서(api.ncloud-docs.com/docs/common-ncpapi)의 표다.
+ * 210·400 을 적어 두는 값 — 이 둘이 **콘솔에서 해당 API 를 체크하지 않았을 때** 나오는 번호라서,
+ * ADR-008 의 "Dynamic Map 미체크 때 429" 와 같은 자리를 숫자로 가리켜 준다.
+ */
 const APIHUB_CODES = {
-  200: '인증 실패 — Client ID·Secret 이 틀렸거나, 그 Application 에 「검색」 API 가 추가돼 있지 않다',
-  300: '경로가 없다 — 키 문제가 아니라 우리 코드의 엔드포인트가 틀린 것이다(lib/naverSearchApi.mjs)',
+  200: '인증 실패 — Client ID·Secret 이 틀렸거나, 그 Application 에 이 API 가 추가돼 있지 않다',
+  210: '권한 없음 — 키는 읽혔으나 그 Application 에 이 API 사용 권한이 없다(콘솔에서 체크한다)',
+  300: '경로가 없다 — 키 문제가 아니라 우리 코드의 엔드포인트가 틀린 것이다(lib/naverSearchApi.mjs · lib/naverMapsApi.mjs)',
+  400: '호출 한도 초과 — 또는 콘솔에서 그 API 를 체크하지 않았다(ADR-008 의 Dynamic Map 미체크 때 429 가 같은 자리다)',
+  900: '게이트웨이 내부 오류 — 우리 쪽 설정 문제가 아니다. 잠시 뒤 다시',
 };
 
 /** 문구 매칭은 보조다. 앞이 우선 — 좁은 쪽이 먼저 와야 한다. */
@@ -70,12 +82,27 @@ export function describeNaverError(body) {
   const nested = /** @type {{ error?: unknown }} */ (body).error;
   if (nested && typeof nested === 'object') {
     const { errorCode, details } = /** @type {{ errorCode?: unknown, details?: unknown }} */ (nested);
-    const hubCode = errorCode == null ? null : String(errorCode);
+    // ⚠️ **벤더가 주는 값은 숫자로 가둔다.** 예전엔 String(errorCode) 를 그대로 메시지에 두 번 끼워 넣어서,
+    // errorCode 가 'constructor' 면 Object 의 소스가, 임의 문자열이면 그 문자열이 통째로 로그에 나갔다(리뷰가 재현).
+    // 이 파일의 머리 주석이 약속한 "숫자는 \d+ 로만, 나머지는 이 파일의 상수 라벨" 이 평평한 경로에만 지켜지고 있었다.
+    const hubCode = /^\d{1,4}$/.test(String(errorCode ?? '')) ? String(errorCode) : null;
     // details 가 "정보가 없다" 라고 말하면 값이 아니라 **헤더가 안 간 것**이다 — 원인이 완전히 다르다.
-    const missing = typeof details === 'string' && /missing|not\s*exist/i.test(details);
-    const label = missing
-      ? '인증 정보가 아예 안 갔다 — 값이 비었거나 헤더 이름이 틀렸다'
-      : (APIHUB_CODES[hubCode] ?? (hubCode ? `API HUB 오류(코드 ${hubCode} — 아직 뜻을 모른다)` : null));
+    // 2026-09-28 실측(지도 게이트웨이, HTTP/1.1 로 헤더 이름을 바꿔 가며): 헤더를 아예 안 보내거나 **쌍 중 하나만** 보내면
+    // "Authentication information are missing.", 둘 다 보냈는데 거부되면 "Invalid authentication information." 다.
+    // 이 두 문구가 "안 갔다 / 갔는데 틀렸다" 를 가르는 유일한 오라클이다 — BUG-006 이 세 판을 헤맨 그 구분이다.
+    // **좁은 쪽을 먼저 본다**(이 파일 LABELS 의 원칙과 같다). 실측 문구는 둘이고 한쪽이 다른 쪽의 말을 품는다:
+    // 'Invalid authentication information. Client ID does not exist.' 는 `not exist` 를 담고 있어서
+    // 느슨한 쪽을 먼저 보면 **"아예 안 갔다"** 로 라벨이 뒤집힌다 — BUG-006 이 세 판을 들여 세운 오라클이 거꾸로 붙는다(리뷰가 재현).
+    const detailText = typeof details === 'string' ? details : '';
+    const invalid = /invalid\s+authentication/i.test(detailText);
+    const missing = /missing|not\s*exist/i.test(detailText);
+    // 표 조회는 hasOwn 으로 — 그냥 인덱싱하면 'toString' 같은 키가 프로토타입의 함수를 집어 온다.
+    const fromTable = hubCode && Object.hasOwn(APIHUB_CODES, hubCode) ? APIHUB_CODES[hubCode] : null;
+    const label = invalid
+      ? '값은 둘 다 갔는데 게이트웨이가 이 쌍을 거부했다 — 다른 계통의 키(검색↔지도)이거나 값이 틀렸다'
+      : missing
+        ? '인증 정보가 아예 안 갔다 — 값이 비었거나 쌍 중 하나만 갔거나 헤더 이름이 틀렸다'
+        : (fromTable ?? (hubCode ? `API HUB 오류(코드 ${hubCode} — 아직 뜻을 모른다)` : null));
     if (!hubCode && !label) return '';
     if (!label) return ` apiHubCode=${hubCode}`;
     return hubCode ? ` apiHubCode=${hubCode} (${label})` : ` (${label})`;

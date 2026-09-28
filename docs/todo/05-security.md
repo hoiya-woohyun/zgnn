@@ -1,6 +1,8 @@
 # 5. 보안 — 키 분리 · RLS · 웹훅 · 프리뷰 보호
 
-> 최종 수정: 2026-09-22 (v10: RLS 정책 줄을 narrow_grants **뒤** 상태로(15+3 정책, delete 없음) · (b) 검증 순서를 기록 시제로 바꾸고 **어드바이저 대시보드 확인만 열린 항목**으로 분리 ·
+> 최종 수정: 2026-09-28 (v11: **`NAVER_MAP_CLIENT_ID`·`NAVER_MAP_CLIENT_SECRET` 한 줄 추가** — `data:analyze` 의 두 번째 좌표 축
+> (주소→좌표, NCP Geocoding)이 쓰는 **별개의 키**다. 검색 키와 헤더 이름이 같아 섞으면 401 만 난다. 없으면 그 축만 꺼진다(에러 아님))
+> 이전 (v10: RLS 정책 줄을 narrow_grants **뒤** 상태로(15+3 정책, delete 없음) · (b) 검증 순서를 기록 시제로 바꾸고 **어드바이저 대시보드 확인만 열린 항목**으로 분리 ·
 > JWT expiry 3600 → **43200**(실효 11.5시간) · 새 테이블 grant 규칙에 `postgres` 한정을 달았다)
 > 이전 (v9: **(b) GRANT 축소 원격 적용·실측 완료** — anon 은 places·items select 만, 나머지 전부 42501 · 세션은 delete 가 grant 부재로 42501)
 > 이전 (v8: **(c) Actions 폐지** — "어디에 무엇이 있는지" 표를 두 출처(세션·anon) 모델로 다시 씀: service_role 은 어디에도 없다(env 잔존은 트립와이어로 멈춤),
@@ -32,6 +34,7 @@
 | `SUPABASE_URL` · publishable 키 | (공개값) | 코드 상수(`scripts/lib/supabaseClient.mjs` 의 `PROJECT_REF`·`PUBLISHABLE_KEY`). URL 은 env 로 못 바꾼다(바꿀 수 있으면 `SUPABASE_URL=https://attacker` 한 줄이 키체인 JWT 를 밖으로 보낸다) | 무방 — 방어선은 RLS |
 | ~~`CLAUDE_CODE_OAUTH_TOKEN`~~ | 금지 | **없다.** Claude 인증은 이 머신에 로그인된 `claude`(키체인)뿐이다. `claude -p` 자식 env 허용 목록에서도 뺐다(`CI`·`GITHUB_ACTIONS` 와 함께) — 토큰이 어디서 흘러와도 자식에 안 넘어간다 | 발급하지 않으니 샐 것이 없다. `claude` 로그인 세션이 의심되면 Anthropic 계정 설정에서 세션을 끊고 다시 로그인 |
 | `NAVER_CLIENT_ID` · `NAVER_CLIENT_SECRET` | 금지 | **사용자가 로컬에서 직접 관리**(비밀번호 관리자). 수집(`pnpm data:collect`)은 env 로 받고, 없으면 TTY 숨김 입력(`scripts/lib/readHidden.mjs`)으로 없는 쪽만 묻는다 — 프로세스 메모리에만 있고 레포·키체인·파일·로그 어디에도 안 남는다. 에이전트 세션(`CLAUDECODE`)이면 입력을 거부(exit 1), env 로 넘긴 값은 막지 않는다. **좌표 보강(`data:analyze`)도 같은 키**를 쓰는데 이쪽은 숨김 입력이 없어 env 에 둘 다 있을 때만 켜진다 — 그래서 쿼터(일 25,000)도 둘이 나눠 쓰고, 소진되면 `data:analyze` 가 429 로 **멈춘다**(좌표 없이 대조하면 동명 가게가 auto 로 올라가므로) | **NCP 콘솔(API HUB)** 의 Application 에서 재발급 — 개발자센터가 아니다(BUG-006) |
+| `NAVER_MAP_CLIENT_ID` · `NAVER_MAP_CLIENT_SECRET` | 금지 | **위 검색 키와 다른 값이다** — NCP 콘솔의 **Maps** Application 쪽이고, `data:analyze` 의 **두 번째 좌표 축**(주소→좌표, `scripts/analyze/naverGeocode.mjs`)만 쓴다. 검색 키와 마찬가지로 사용자가 로컬에서 직접 관리하고 env 에 둘 다 있을 때만 켜진다(숨김 입력 없음). 헤더 이름이 검색 쪽과 **글자까지 같아** 섞으면 그냥 401 이다 — env 이름을 갈라 둔 것이 그 방어다(→ [BUG-006](../bugs/BUG-006-naver-key-401-undiagnosable.md)). 값이 없거나 틀려도 **실행은 멈추지 않는다**(이름 축과 반대): 이 축은 좌표를 더하기만 하므로 꺼지면 어제까지의 동작으로 돌아갈 뿐이다 | **NCP 콘솔 → Maps** Application 에서 재발급(API HUB 가 아니다). 그 Application 에 **Geocoding** 체크가 필요하다 — 게이트웨이 210=권한 없음 · 400=한도/미체크 |
 | `NEXT_PUBLIC_NAVER_MAP_KEY_ID` | 공개 전제 | 코드 기본값(`src/lib/naverMap.ts`) — Vercel env 불필요 | NCP 콘솔의 **웹 서비스 URL 허용 목록**이 방어선(포트까지 본다). 새 주소 등록만 조심 |
 | Deploy Hook URL | — | Supabase 웹훅 설정 **만**(4b, 아직 없음) | 아무나 빌드를 돌릴 수 있음 → Vercel 에서 폐기·재발급 |
 | anon(publishable) key | 공개 전제 | 위 코드 상수. Vercel 빌드와 로컬의 `data:pull` 이 같은 경로로 published 만 읽는다 | 공개돼도 되는 키 — 방어선은 RLS |

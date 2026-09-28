@@ -133,7 +133,7 @@ describe('toCandidateRow — candidates.extracted 는 applyApproved.mjs 가 읽�
     expect(matchedAuto.confidence).toBeGreaterThanOrEqual(THRESHOLD.AUTO_MERGE);
   });
 
-  it('auto 도 기본은 pending(AUTO_APPROVE=false) · tier 가 auto, match_place_id 는 기존 장소 id, extracted 에 geo·naverLink·category·regionRaw·match 가 모두 있다', () => {
+  it('auto 도 기본은 pending(AUTO_APPROVE=false) · tier 가 auto, match_place_id 는 기존 장소 id, extracted 에 geo·geoSource·naverLink·category·regionRaw·match 가 모두 있다', () => {
     const row = toCandidateRow(post, extracted, local, '동쪽 (구좌읍)', matchedAuto);
     expect(row.post_url).toBe(post.url);
     expect(AUTO_APPROVE).toBe(false);
@@ -145,6 +145,7 @@ describe('toCandidateRow — candidates.extracted 는 applyApproved.mjs 가 읽�
       ...extracted,
       address: local.address,
       geo: { lat: local.lat, lng: local.lng },
+      geoSource: 'local',
       naverLink: local.naverLink,
       category: '펜션',
       regionRawAi: extracted.regionRaw ?? null,
@@ -153,16 +154,29 @@ describe('toCandidateRow — candidates.extracted 는 applyApproved.mjs 가 읽�
     });
   });
 
-  it('네이버가 없으면 geo·naverLink·category 는 null 이고 address 는 본문 값(없으면 null)', () => {
+  it('네이버가 없으면 geo·geoSource·naverLink·category 는 null 이고 address 는 본문 값(없으면 null)', () => {
     const matched = { match: null, confidence: 0, reason: '이름이 맞는 기존 장소 없음' };
     const row = toCandidateRow(post, { ...extracted, name: '없던가게' }, null, null, matched);
     expect(row.extracted.geo).toBeNull();
+    expect(row.extracted.geoSource).toBeNull();
     expect(row.extracted.naverLink).toBeNull();
     expect(row.extracted.category).toBeNull();
     expect(row.extracted.address).toBeNull();
     expect(row.extracted.regionRaw).toBeNull();
     const withAddress = toCandidateRow(post, { ...extracted, name: '없던가게', address: '제주 어딘가' }, null, null, matched);
     expect(withAddress.extracted.address).toBe('제주 어딘가');
+  });
+
+  it('두 번째 축(주소→좌표)에서 온 좌표는 geoSource 가 geocode 이고 naverLink·category 가 null 이다', () => {
+    // naverGeocode.mjs 가 돌려주는 모양 — Geocoding 은 업체를 모르므로 category 를 지어내면 apply 가 엉뚱한 값으로 빈 칸을 채운다.
+    const fromGeocode = { lat: 33.46209, lng: 126.37098, address: '제주 제주시 애월읍 상가로1길 11-15', naverLink: null, category: null, geoSource: 'geocode' };
+    const matched = { match: null, confidence: 0, reason: '이름이 맞는 기존 장소 없음' };
+    const row = toCandidateRow(post, { ...extracted, name: '요호르기 스테이' }, fromGeocode, '서쪽 (애월읍)', matched);
+    expect(row.extracted.geoSource).toBe('geocode');
+    expect(row.extracted.geo).toEqual({ lat: 33.46209, lng: 126.37098 });
+    expect(row.extracted.naverLink).toBeNull();
+    expect(row.extracted.category).toBeNull();
+    expect(row.extracted.address).toBe('제주 제주시 애월읍 상가로1길 11-15');
   });
 
   it('ask → pending 이지만 match_place_id 는 붙는다(사람이 확인할 단서)', () => {
