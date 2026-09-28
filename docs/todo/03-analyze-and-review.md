@@ -142,7 +142,7 @@ Studio 로 먼저 몇 주 돌려 보고 **어떤 정보가 화면에 있어야 �
       카페·이용 조건 원문·근거 3문장 → `matchPlace` 1.00 까지 확인했다(2026-09-21, DB 쓰기 없이).
 - [x] `matchPlace.test.mjs` 통과(자기충돌 검사 포함). `docs/architecture/data-pipeline.md` 에 "분석·승인" 절과 상태 머신 표.
 - ~~Actions 에서 한 번 실제로: 시크릿 등록 → `workflow_dispatch`~~ → [ ] **사용자 터미널에서 첫 실행**(README 의 **실행 순서** 블록): `pnpm data:login` →
-      `pnpm data:analyze --dry-run --limit 5`(Claude 가 돌려도 된다 — 세션이 있으면) → 사용자 세션으로 `pnpm data:analyze` → `pnpm data:apply`.
+      `pnpm data:analyze --dry-run --limit 5`(**사용자 터미널에서, 네이버 키를 env 로** — Claude 도 돌기는 하지만 그 env 엔 키가 없어 좌표 보강이 꺼진다 → ⚠️1 이 측정되지 않는다) → 사용자 세션으로 `pnpm data:analyze` → `pnpm data:apply`.
       env 에 네이버 키 둘이 다 있을 때만 켜진다(숨김 입력 없음 — 분석은 오래 도는 일이라 중간에 프롬프트가 뜨면 안 된다).
       없으면 보강을 건너뛰고 후보는 좌표 없이 들어간다(`matchPlace` 는 이름·종류만으로 대조, 감점 없음).
       **함정 둘**: `mapx`/`mapy` 는 WGS84 를 10^7 배한 정수인데 공식 문서 예제는 아직 옛 KATECH 6자리다 → 나눈 값이 제주 범위 밖이면 버린다.
