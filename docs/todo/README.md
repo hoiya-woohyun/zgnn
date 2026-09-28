@@ -142,8 +142,10 @@ flowchart LR
         `scripts/analyze-candidates.mjs` · `scripts/apply-approved.mjs`. ~~`collect.yml` 에 analyze→apply step~~ → 사용자가 따로 부른다. Claude 인증은 로컬 `claude` 로그인뿐(자식 env 허용 목록에서 토큰·CI 제거, 2026-09-22 (5))
   - [x] `matchPlace` 본체 — 기본안 구현(🙋 였던 자리. `THRESHOLD`·`WEIGHT` 로 조정). 자동 승인은 `AUTO_APPROVE=false` 로 시작
   - [x] 엔드투엔드 1건 — 실제 후기 링크로 본문 → `claude -p` → 대조까지(DB 쓰기 없이)
-  - [ ] **🆕 주소 → 좌표 갈래(NCP Geocoding)** — 이름 축이 실패한 후보를 `address` 로 구제한다. API·자격증명·좌표 미확보 5곳의 주소 표·영업 확인 선행 판단까지
-        [03 의 🆕 항목](03-analyze-and-review.md)이 정본. 크리티컬 패스가 아니다 — 첫 실행의 `pickReasons`(이름불일치가 몇 건인가)를 보고 우선순위를 정한다
+  - [x] **주소 → 좌표 갈래(NCP Geocoding) — 구현**(`6cacd89`, 2026-09-28). `scripts/analyze/naverGeocode.mjs`(406줄) · 규격 `lib/naverMapsApi.mjs` · 테스트 55(전체 566).
+        이름 축이 좌표를 못 붙인 후보에만 붙고 **키가 다르다**(`NAVER_MAP_CLIENT_ID`/`_SECRET` — Maps Application, Geocoding 체크 필요). [03 의 항목](03-analyze-and-review.md)이 정본.
+        ~~크리티컬 패스가 아니다 — 첫 실행의 `pickReasons` 를 보고 우선순위를 정한다~~ → **더 기다릴 게 없다. 이미 만들어져 실행 순서에 들어가 있다**(아래 `--dry-run --limit 5` 의 뒤 두 키가 이 축이다).
+        남은 것은 구현이 아니라 **실측**이고, 그건 ⚠️3 이다 — 같은 실행에서 ⚠️1 과 함께 닫힌다
   - [ ] 실행 — `blog_posts` 3,360건이 대기 중이고 `candidates` 는 **0건**(2026-09-28 실측). 첫 실행은 **네이버 키를 env 로 넘긴 사용자 터미널**에서
         `--dry-run --limit 5`(아래 **실행 순서**). 키 없는 Claude 가 돌리면 좌표 보강이 건너뛰어져 ⚠️1 이 또 미검증으로 남는다
 - [x] 4a Vercel 빌드 명령 `pnpm data:pull && pnpm build`(`vercel.json`) — 첫 배포는 `outputDirectory: "out"` 때문에 실패했고(BUG-005) 고쳐 커밋했다.
@@ -217,8 +219,9 @@ flowchart LR
           `places` 에 INSERT·UPDATE·DELETE, 그냥 둔다(🙋 04 는 "첫 달 빌드 횟수를 보고" 로 미뤄진 관찰 항목이지 지금 막는 결정이 아니다)
 ```
 
-위 블록에 **없는** 열린 항목 하나: **주소 → 좌표 갈래**(진행 상태 3 의 🆕). 순서에 끼워 넣지 않은 이유는 첫 `data:analyze` 가 그 우선순위를 정해 주기 때문이다 —
-요약의 `이름불일치` 가 많으면 이름 축만으로는 좌표가 계속 비고, 그때 붙이는 게 근거 있는 순서다.
+~~위 블록에 **없는** 열린 항목 하나: 주소 → 좌표 갈래~~ → **없다. 블록 안에 들어왔다**(2026-09-28 (4) 정정).
+이 문단은 v20 에 그 갈래가 *제안* 이던 때 쓴 것인데 `6cacd89` 로 구현이 끝났고, 위 `--dry-run --limit 5` 줄의 **뒤 두 키(`NAVER_MAP_*`)가 바로 이 축**이다.
+"첫 실행의 `pickReasons` 를 보고 붙인다" 는 순서는 이미 지나갔다 — 남은 것은 붙일지 말지가 아니라 **우리 키로 부른 적이 없다**(⚠️3)는 실측 하나뿐이다.
 
 굳어 있는 순서는 셋뿐이다. **[Claude] 줄이 다 끝난 뒤 → 로컬 잠금**(먼저 잠그면 Claude 의 push·배포 확인이 막힌다 — 로그아웃은 늘 심부름의 끝에),
 **네이버 키 → `data:collect`**(키 없이는 `blog_posts` 가 안 찬다), **`collect` → `analyze` → `apply`**.
