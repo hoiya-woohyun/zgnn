@@ -4,6 +4,7 @@
 // 공식 · 하루 25,000회 무료이고 title·link·description·postdate 만 준다. **본문은 여기서도, DB 에도 저장하지 않는다** —
 // 03(분석) 이 링크를 열어 그 순간에만 읽고 버린다. docs/todo/02-collect-naver-blog.md 가 정본.
 import { readFile } from 'node:fs/promises';
+import { chunkForUrlFilter } from './lib/chunkForUrlFilter.mjs';
 import { describeKeyShape, naverErrorTail } from './lib/naverApiError.mjs';
 import { NAVER_BLOG_SEARCH_URL, naverAuthHeaders } from './lib/naverSearchApi.mjs';
 import { readHidden } from './lib/readHidden.mjs';
@@ -51,6 +52,15 @@ if (!naverClientId || !naverClientSecret) {
     console.error(`네이버 키가 비었다: ${empty.join(' · ')} — env 로 넘기거나 터미널에서 다시 실행(숨김 입력).`);
     process.exit(1);
   }
+}
+
+// supabase-js 의 `error` 는 **Error 가 아니라 맨 객체**다. 그대로 던지면 스택이 없고, 엣지가 거절한 경우엔
+// 내용도 `{ message: 'Bad Request' }` 한 줄뿐이라 어느 질의가 왜 죽었는지 사라진다(→ BUG-007).
+// 무엇을 하다가 몇 건에서 죽었는지를 붙여 Error 로 감싼다 — url 값은 싣지 않는다(개수만).
+function dbError(what, error, count) {
+  const code = error?.code ? ` code=${error.code}` : '';
+  const detail = error?.details ? ` details=${error.details}` : '';
+  return new Error(`${what} 실패(${count}건)${code}${detail}: ${error?.message ?? '알 수 없는 오류'}`);
 }
 
 const ROOT = new URL('./', import.meta.url);
@@ -120,13 +130,15 @@ for (const keyword of keywords) {
 collected = dedupeByUrl(collected);
 
 // 기존 url 을 미리 세어 신규/기존을 구분한다(upsert 자체는 개수를 안 준다).
+//
+// ⚠️ **개수가 아니라 길이로 자른다**(→ BUG-007). `in()` 은 목록 전체를 쿼리 스트링에 싣기 때문에
+// 500개씩 자르면 URL 이 33KB 가 되어 엣지가 PostgREST 에 닿기도 전에 평문 400 으로 거절한다.
+// 그 실패는 `{ message: 'Bad Request' }` 라는 **스택도 없는 맨 객체**로 와서 원인을 알 수 없다.
 const urls = collected.map((row) => row.url);
-let existingUrls = new Set();
-for (let i = 0; i < urls.length; i += 500) {
-  const chunk = urls.slice(i, i + 500);
-  if (chunk.length === 0) continue;
+const existingUrls = new Set();
+for (const chunk of chunkForUrlFilter(urls)) {
   const { data, error } = await supabase.from('blog_posts').select('url').in('url', chunk);
-  if (error) throw error;
+  if (error) throw dbError('blog_posts 기존 url 조회', error, chunk.length);
   for (const row of data) existingUrls.add(row.url);
 }
 const newCount = collected.filter((row) => !existingUrls.has(row.url)).length;
@@ -137,7 +149,7 @@ for (let i = 0; i < collected.length; i += 500) {
   const chunk = collected.slice(i, i + 500);
   if (chunk.length === 0) continue;
   const { error } = await supabase.from('blog_posts').upsert(chunk, { onConflict: 'url', ignoreDuplicates: true });
-  if (error) throw error;
+  if (error) throw dbError('blog_posts upsert', error, chunk.length);
 }
 
 console.log(

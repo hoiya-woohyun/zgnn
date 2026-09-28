@@ -1,6 +1,8 @@
 # 2. 수집 — 네이버 블로그, 키워드, 최근 1년
 
-> 최종 수정: 2026-09-28 (v4: **대상이 개발자센터가 아니라 NAVER API HUB 였다**(→ [BUG-006](../bugs/BUG-006-naver-key-401-undiagnosable.md)).
+> 최종 수정: 2026-09-28 (v5: **첫 수집이 검색을 통과했다** — API HUB 이전이 통했다. 대신 그 뒤 DB 조회가 `in()` URL 33KB 로 죽어
+> 길이 기반 분할로 고쳤다(→ [BUG-007](../bugs/BUG-007-in-filter-url-too-long.md)). `blog_posts` 가 비어 있어 여태 한 번도 안 닿던 경로였다)
+> 이전 (v4: **대상이 개발자센터가 아니라 NAVER API HUB 였다**(→ [BUG-006](../bugs/BUG-006-naver-key-401-undiagnosable.md)).
 > 호스트·경로·헤더를 옮겼다(`scripts/lib/naverSearchApi.mjs`). 파라미터·응답은 같아서 파싱은 그대로. 한도도 다시 봐야 한다 — API HUB 는 한시적 무료)
 > 이전 (v3: **(c) Actions 폐지** — 스케줄이 없다. 수집은 사용자 터미널에서 `pnpm data:collect`(운영자 세션 + 네이버 키는 env 또는 숨김 입력, 저장 없음).
 > `collect.yml` 삭제. 비용: 7일 비활성 일시정지를 깨우던 잡이 사라졌다)
