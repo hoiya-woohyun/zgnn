@@ -96,11 +96,16 @@ export function BottomSheet({ isOpen, onOpenChange, label, children }: TBottomSh
       onOpenChange={onOpenChange}
       isDismissable
       // 지도 오버레이(z-1000)와 Leaflet 컨트롤보다 위에 와야 한다.
+      //
+      // 퇴장 애니메이션에 fill-mode-forwards 가 꼭 있어야 한다. react-aria 는 오버레이와 시트의
+      // 애니메이션이 **둘 다** 끝나야 DOM 에서 내리는데, tailwindcss-animate 의 animate-out 은
+      // fill-mode 가 없어 먼저 끝난 쪽이 원래 모습으로 돌아온다. 배경(150ms)이 시트(200ms)보다
+      // 먼저 끝나 남은 50ms 동안 어두운 배경이 다시 켜졌다 꺼졌다 — 닫을 때 깜빡이던 원인이다.
       className={({ isEntering, isExiting }) =>
         cx(
           'fixed inset-0 z-[1100] flex items-end justify-center bg-overlay/50 backdrop-blur-[2px] sm:items-center sm:p-6',
           isEntering && 'duration-200 ease-out animate-in fade-in',
-          isExiting && 'duration-150 ease-in animate-out fade-out',
+          isExiting && 'duration-150 ease-in animate-out fade-out fill-mode-forwards',
         )
       }
     >
@@ -109,7 +114,7 @@ export function BottomSheet({ isOpen, onOpenChange, label, children }: TBottomSh
           cx(
             'w-full max-w-lg outline-hidden',
             isEntering && 'duration-250 ease-out animate-in slide-in-from-bottom',
-            isExiting && 'duration-200 ease-in animate-out slide-out-to-bottom',
+            isExiting && 'duration-200 ease-in animate-out slide-out-to-bottom fill-mode-forwards',
           )
         }
       >
