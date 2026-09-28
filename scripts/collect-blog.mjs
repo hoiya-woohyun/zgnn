@@ -4,6 +4,7 @@
 // 공식 · 하루 25,000회 무료이고 title·link·description·postdate 만 준다. **본문은 여기서도, DB 에도 저장하지 않는다** —
 // 03(분석) 이 링크를 열어 그 순간에만 읽고 버린다. docs/todo/02-collect-naver-blog.md 가 정본.
 import { readFile } from 'node:fs/promises';
+import { naverErrorTail } from './lib/naverApiError.mjs';
 import { readHidden } from './lib/readHidden.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
 import { WINDOW_DAYS, dedupeByUrl, isWithinDays, parsePostdate, toBlogPostRow } from './collect/naverBlog.mjs';
@@ -15,7 +16,15 @@ const supabase = createSupabase();
 // env 로 받고, 없으면 터미널에서 숨김 입력으로 받는다. 받은 값은 이 프로세스 메모리에만 있고 로그·파일·키체인 어디에도 남기지 않는다 —
 // 저장하면 그 자리가 곧 유출 경로가 되고, 매번 치는 비용은 수집이 사용자가 돌릴 때만 도는 일이라 감수한다.
 // env 가 둘 다 있으면 그대로 쓴다(사용자가 셸에서 넘긴 것) — 에이전트 세션이라도 막지 않는다. 입력을 받는 경우에만 CLAUDECODE 를 거부한다(대화 기록에 실릴 수 있다).
+// 앞뒤 공백을 턴다. **숨김 입력이라 붙여넣기가 끌고 온 공백을 사용자가 볼 방법이 없다** — 화면에 아무것도 안 찍히니
+// 눈으로 잡을 수 없고, 결과는 네이버의 401 하나뿐이라 원인이 값인지 설정인지도 안 갈린다(2026-09-28 실제로 여기서 막혔다).
+// `readHidden` 안에서 털지 않는 이유: `data:login` 의 비밀번호와 공유하는데 비밀번호는 앞뒤 공백이 값일 수 있다.
+// 네이버 키는 그럴 수 없으므로 **소유자 쪽인 여기서** 턴다. env 로 받은 값도 같이 턴다(셸에서 따옴표로 감싸며 붙기 쉽다).
+const trimKey = (v) => (typeof v === 'string' ? v.trim() : v);
+
 let { NAVER_CLIENT_ID: naverClientId, NAVER_CLIENT_SECRET: naverClientSecret } = process.env;
+naverClientId = trimKey(naverClientId);
+naverClientSecret = trimKey(naverClientSecret);
 if (!naverClientId || !naverClientSecret) {
   if (process.env.CLAUDECODE) {
     console.error('네이버 키는 에이전트 세션에서 입력하지 않는다 — 수집은 사용자 터미널에서 `pnpm data:collect`.');
@@ -29,8 +38,8 @@ if (!naverClientId || !naverClientSecret) {
   process.on('exit', () => { try { process.stdin.setRawMode(false); } catch { /* TTY 아님 */ } });
   // 둘 중 하나만 env 에 있으면 없는 쪽만 묻는다.
   try {
-    if (!naverClientId) naverClientId = await readHidden('NAVER_CLIENT_ID(숨김 입력): ');
-    if (naverClientId && !naverClientSecret) naverClientSecret = await readHidden('NAVER_CLIENT_SECRET(숨김 입력): '); // id 를 비웠으면 secret 은 묻지 않는다
+    if (!naverClientId) naverClientId = trimKey(await readHidden('NAVER_CLIENT_ID(숨김 입력): '));
+    if (naverClientId && !naverClientSecret) naverClientSecret = trimKey(await readHidden('NAVER_CLIENT_SECRET(숨김 입력): ')); // id 를 비웠으면 secret 은 묻지 않는다
   } catch {
     process.exit(130); // Ctrl-C/Ctrl-D — readHidden 이 reject 한다
   }
@@ -62,7 +71,11 @@ async function searchBlog(query, start) {
   const res = await fetch(url, {
     headers: { 'X-Naver-Client-Id': naverClientId, 'X-Naver-Client-Secret': naverClientSecret },
   });
-  if (!res.ok) throw new Error(`네이버 검색 API 실패: status=${res.status} query=${url.searchParams.get('query')}`);
+  // 본문은 검색 **결과**라 남기지 않는다(05-security) — 실패 응답에서만, 그것도 우리가 쓴 라벨과 errorCode 만 꺼낸다.
+  // status 만으로는 401 의 원인이 갈리지 않아서다(`lib/naverApiError.mjs` 의 주석이 정본).
+  if (!res.ok) {
+    throw new Error(`네이버 검색 API 실패: status=${res.status}${await naverErrorTail(res)} query=${url.searchParams.get('query')}`);
+  }
   return res.json();
 }
 

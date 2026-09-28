@@ -13,7 +13,9 @@
 //  - **title 에 <b> 태그가 섞여 온다**("제주 <b>솔숲펜션</b>"). 안 벗기면 이름 비교가 영원히 안 맞는다.
 //  - 한글에는 \b 가 안 먹는다. "중산간동로"·"탑동로11길" 에서 '간동'·'탑동' 을 읍·면·동으로 잘못 뽑지 않게 토큰 단위로 본다.
 //
-// I/O 는 searchNaverPlace 하나뿐이고 fetchImpl 을 주입받아 테스트한다. 키·응답 본문·헤더는 로그에 남기지 않는다(docs/todo/05).
+// I/O 는 searchNaverPlace 하나뿐이고 fetchImpl 을 주입받아 테스트한다. 키·응답 본문·헤더는 로그에 남기지 않는다(docs/todo/05) —
+// 실패 응답의 errorCode 와 우리가 쓴 라벨만 예외다(`lib/naverApiError.mjs`).
+import { naverErrorTail } from '../lib/naverApiError.mjs';
 import { nameSimilarity, townOf } from './matchPlace.mjs';
 
 const NAVER_LOCAL_URL = 'https://openapi.naver.com/v1/search/local.json';
@@ -60,7 +62,10 @@ export async function searchNaverPlace(query, { clientId, clientSecret }, fetchI
     signal: AbortSignal.timeout(15_000),
   });
   // status 를 에러에 실어 두는 이유 — 401/403(키 문제)은 잠깐의 장애가 아니라 실행 전체를 세워야 하는 설정 오류다(analyze-candidates.mjs).
-  if (!res.ok) throw Object.assign(new Error(`네이버 지역 검색 실패: status=${res.status} query=${q}`), { status: res.status });
+  // 꼬리표(errorCode·라벨)를 함께 싣는 이유는 수집과 같다: 401 의 원인이 값인지 애플리케이션 설정인지 status 로는 안 갈린다.
+  if (!res.ok) {
+    throw Object.assign(new Error(`네이버 지역 검색 실패: status=${res.status}${await naverErrorTail(res)} query=${q}`), { status: res.status });
+  }
   const body = await res.json();
   return Array.isArray(body?.items) ? body.items : [];
 }

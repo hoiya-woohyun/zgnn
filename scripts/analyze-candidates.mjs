@@ -55,7 +55,11 @@ console.log(dryRun ? '모드: dry-run — DB 에 쓰지 않는다(Claude 는 부
 // 좌표 보강은 **02(수집)과 같은 네이버 키**를 쓴다 — 키를 하나 더 발급·관리하지 않는다(ADR-008 v4).
 // env 에 둘 다 있을 때만 켠다. 여기서는 숨김 입력을 받지 않는다: 분석은 글마다 몇 분씩 도는 일이라
 // 중간에 프롬프트가 뜨면 안 되고, Claude 가 --dry-run 으로 돌리는 경로이기도 해서다(docs/todo/03).
-const { NAVER_CLIENT_ID: naverClientId, NAVER_CLIENT_SECRET: naverClientSecret } = process.env;
+// env 도 앞뒤 공백을 턴다 — 이쪽은 숨김 입력이 없어 `export NAVER_CLIENT_ID=' xxx '` 한 줄이 그대로 401 이 되고,
+// 분석은 글마다 몇 분씩 도는 일이라 **중간에** 터진다(수집처럼 첫 요청에서 바로 알려 주지 않는다).
+const trimKey = (v) => (typeof v === 'string' ? v.trim() : v);
+const naverClientId = trimKey(process.env.NAVER_CLIENT_ID);
+const naverClientSecret = trimKey(process.env.NAVER_CLIENT_SECRET);
 const naverKeys = naverClientId && naverClientSecret ? { clientId: naverClientId, clientSecret: naverClientSecret } : null;
 // Claude 인증은 env 로 검사하지 않는다 — 이 머신에 로그인된 `claude`(키체인)를 CLI 가 스스로 읽는다. 토큰 env 는 없다(ADR-016).
 // 안 돼 있으면 첫 글에서 ClaudeCliError(auth, fatal) 가 나와 루프가 끊긴다.
