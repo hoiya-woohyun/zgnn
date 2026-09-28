@@ -9,7 +9,14 @@ import { describeKeyShape, naverErrorTail } from './lib/naverApiError.mjs';
 import { NAVER_BLOG_SEARCH_URL, naverAuthHeaders } from './lib/naverSearchApi.mjs';
 import { readHidden } from './lib/readHidden.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
-import { WINDOW_DAYS, dedupeByUrl, isWithinDays, parsePostdate, toBlogPostRow } from './collect/naverBlog.mjs';
+import {
+  WINDOW_DAYS,
+  dedupeByUrl,
+  formatElapsed,
+  formatPageLine,
+  formatSummary,
+  tallyPage,
+} from './collect/naverBlog.mjs';
 
 // 세션 검사가 키 입력보다 먼저다 — 키 두 개를 치고 나서 "pnpm data:login" 으로 멈추면 헛수고라서.
 const supabase = createSupabase();
@@ -68,8 +75,17 @@ const keywords = JSON.parse(await readFile(new URL('collect/keywords.json', ROOT
 
 const DISPLAY = 100;
 const MAX_START = 1000;
+const MAX_PAGES = Math.ceil(MAX_START / DISPLAY);
 const REQUEST_DELAY_MS = 200;
+const UPSERT_CHUNK = 500;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// 키워드가 왜 멈췄는가 — 이 셋뿐이고, `cap` 만 문제다(아래 경고).
+const STOP_LABEL = {
+  empty: '검색 결과 끝',
+  old: `${WINDOW_DAYS}일 경계`,
+  cap: `페이지 상한 ${MAX_PAGES}장`,
+};
 
 // 응답 본문·헤더는 절대 로그에 남기지 않는다 — status 와 요청 URL 의 query 만 남긴다(docs/todo/05-security.md).
 async function searchBlog(query, start) {
@@ -94,40 +110,56 @@ async function searchBlog(query, start) {
 }
 
 const now = new Date().toISOString();
+const startedAt = Date.now();
 let collected = [];
 let excludedOld = 0;
 let excludedOther = 0;
+let truncated = 0;
 
-for (const keyword of keywords) {
-  for (let start = 1; start <= MAX_START; start += DISPLAY) {
+// 진행 로그. 첫 실행은 1년치라 키워드 6 × 최대 10페이지를 돌고, 그 뒤 DB 조회·upsert 가 또 여러 번 나간다 —
+// 예전엔 그 몇 분 동안 **한 줄도 안 찍혀** 도는 중인지 멈춘 건지 사용자가 알 수 없었다(마지막 요약 한 줄이 전부였다).
+// 무엇을 찍고 무엇을 안 찍는지는 `collect/naverBlog.mjs` 의 포맷터 주석이 정본 — **응답 내용은 개수로만** 나간다(05-security).
+console.log(`수집 시작: 키워드 ${keywords.length}개 · 최근 ${WINDOW_DAYS}일 · 키워드당 최대 ${MAX_PAGES}페이지(요청 사이 ${REQUEST_DELAY_MS}ms)`);
+
+for (const [index, keyword] of keywords.entries()) {
+  console.log(`[${index + 1}/${keywords.length}] ${keyword}`);
+  const keywordStartedAt = Date.now();
+  let kept = 0;
+  let stop = 'cap'; // 루프를 끝까지 돌면 상한에 걸린 것 — 아래 break 가 실제 이유로 덮는다
+  for (let start = 1, page = 1; start <= MAX_START; start += DISPLAY, page += 1) {
     const { items } = await searchBlog(keyword, start);
-    if (!items || items.length === 0) break;
-
-    let allOld = true;
-    for (const item of items) {
-      const row = toBlogPostRow(item, keyword, now);
-      if (row) {
-        collected.push(row);
-        allOld = false;
-        continue;
-      }
-      // toBlogPostRow 가 null 을 주는 이유는 셋 중 하나 — 1년 밖 / 비네이버·정규화 실패 / 제주 아님.
-      // "1년 밖" 만 페이지 중단 판단에 쓰므로 postdate 만 다시 파싱해서 구분한다(sort=date 라 이후는 더 오래된다).
-      const postedAt = parsePostdate(item.postdate);
-      const isOld = postedAt !== null && !isWithinDays(postedAt, WINDOW_DAYS, now);
-      if (isOld) excludedOld += 1;
-      else {
-        excludedOther += 1;
-        allOld = false;
-      }
+    if (!items || items.length === 0) {
+      stop = 'empty';
+      break;
     }
 
-    if (allOld) break;
+    const tally = tallyPage(items, keyword, now);
+    collected.push(...tally.rows);
+    kept += tally.rows.length;
+    excludedOld += tally.old;
+    excludedOther += tally.other;
+    console.log(formatPageLine({ page, start, received: items.length, tally, total: kept }));
+
+    if (tally.allOld) {
+      stop = 'old';
+      break;
+    }
     await sleep(REQUEST_DELAY_MS);
+  }
+  console.log(`  → ${kept}건 · ${STOP_LABEL[stop]}에서 멈춤 · ${formatElapsed(Date.now() - keywordStartedAt)}`);
+  // 상한에서 멈췄다는 건 **최근 1년을 다 못 봤다**는 뜻이다(`start` 상한이 1000 이라 키워드당 1,000건이 천장).
+  // 실행을 세우지는 않는다 — 수집은 증분이고 주 1회 도는 일이라, 다음 실행이 새 글부터 다시 담는다. 다만
+  // 이 줄이 없으면 "그 키워드의 창이 잘렸다" 는 사실이 **어디에도 안 남는다**(요약의 건수만 보면 많이 담긴 것처럼 보인다).
+  if (stop === 'cap') {
+    truncated += 1;
+    console.log(`  ⚠️ ${MAX_PAGES}페이지를 다 썼는데 ${WINDOW_DAYS}일 경계에 닿지 못했다 — 이 키워드의 창은 거기서 잘렸다(실패는 아니다. 키워드를 좁히면 줄어든다)`);
   }
 }
 
+const beforeDedupe = collected.length;
 collected = dedupeByUrl(collected);
+const overlapped = beforeDedupe - collected.length;
+console.log(`중복 제거: ${beforeDedupe} → ${collected.length}건${overlapped > 0 ? ` (키워드끼리 겹친 ${overlapped}건)` : ''}`);
 
 // 기존 url 을 미리 세어 신규/기존을 구분한다(upsert 자체는 개수를 안 준다).
 //
@@ -135,23 +167,28 @@ collected = dedupeByUrl(collected);
 // 500개씩 자르면 URL 이 33KB 가 되어 엣지가 PostgREST 에 닿기도 전에 평문 400 으로 거절한다.
 // 그 실패는 `{ message: 'Bad Request' }` 라는 **스택도 없는 맨 객체**로 와서 원인을 알 수 없다.
 const urls = collected.map((row) => row.url);
+const chunks = chunkForUrlFilter(urls);
 const existingUrls = new Set();
-for (const chunk of chunkForUrlFilter(urls)) {
+// 덩어리 수를 먼저 찍는다 — 몇 번 더 남았는지 보이고, 길이 기반 분할이 실제로 몇 개를 만들었는지도 같이 드러난다(BUG-007 의 관측).
+if (chunks.length > 0) console.log(`기존 url 조회: ${urls.length}건 → ${chunks.length}덩어리`);
+for (const [i, chunk] of chunks.entries()) {
   const { data, error } = await supabase.from('blog_posts').select('url').in('url', chunk);
   if (error) throw dbError('blog_posts 기존 url 조회', error, chunk.length);
   for (const row of data) existingUrls.add(row.url);
+  console.log(`  ${i + 1}/${chunks.length} 조회 ${chunk.length}건 · 기존 누적 ${existingUrls.size}`);
 }
 const newCount = collected.filter((row) => !existingUrls.has(row.url)).length;
 
 // ignoreDuplicates: true — 이미 있는 글의 fetched_at·analyzed_at 을 덮어쓰지 않기 위해서다.
 // analyzed_at 은 03(분석) 만 채우는데, upsert 로 덮으면 분석 완료 표시가 매 실행마다 지워진다.
-for (let i = 0; i < collected.length; i += 500) {
-  const chunk = collected.slice(i, i + 500);
-  if (chunk.length === 0) continue;
+const upsertChunks = Math.ceil(collected.length / UPSERT_CHUNK);
+if (upsertChunks > 0) console.log(`upsert: ${collected.length}건 → ${upsertChunks}덩어리(${UPSERT_CHUNK}씩)`);
+for (let i = 0; i < collected.length; i += UPSERT_CHUNK) {
+  const chunk = collected.slice(i, i + UPSERT_CHUNK);
   const { error } = await supabase.from('blog_posts').upsert(chunk, { onConflict: 'url', ignoreDuplicates: true });
   if (error) throw dbError('blog_posts upsert', error, chunk.length);
+  console.log(`  ${i / UPSERT_CHUNK + 1}/${upsertChunks} upsert ${chunk.length}건`);
 }
 
-console.log(
-  `수집 ${collected.length}건 (신규 ${newCount} · 기존 ${collected.length - newCount} · 1년 밖 제외 ${excludedOld} · 비네이버/비제주 제외 ${excludedOther})`,
-);
+if (truncated > 0) console.log(`⚠️ 키워드 ${truncated}개가 ${MAX_PAGES}페이지 상한에서 잘렸다 — 위 ⚠️ 줄을 보라`);
+console.log(formatSummary({ collected: collected.length, newCount, excludedOld, excludedOther, elapsedMs: Date.now() - startedAt }));
