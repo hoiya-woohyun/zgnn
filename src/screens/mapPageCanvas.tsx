@@ -10,28 +10,67 @@ import { JEJU_CENTER, jejuZoomFor, TYPE_COLOR, TYPE_META, type TPlaceEntry } fro
 import type { TPlaceType } from '../types';
 
 /**
- * 마커는 SDK 가 그리는 평범한 핀이고, 우리가 정하는 것은 **색 하나**다.
+ * 핀의 **모양은 네이버 표준을 그대로 따르고**, 우리가 정하는 것은 **색 하나**다.
+ *
+ * 모양은 추측이 아니라 SDK 가 쓰는 기본 마커 에셋(`marker-default.png`, 22×33)을 받아
+ * 픽셀을 재서 옮긴 것이다(2026-09-28). 그 핀의 특징은 셋이다 —
+ *  1. 가로:세로가 **2:3**(22×33). 예전 핀은 26×36(1:1.38)이라 더 뭉툭했다.
+ *  2. 머리의 **대부분이 흰 원**이다(바깥 반지름 10.5 중 흰 원이 8 — 색 테두리는 2.5뿐).
+ *  3. 그 흰 원 안에 **종류 색 역삼각형(▼)** 이 있다. 이게 네이버 핀을 네이버 핀으로 읽히게
+ *     하는 부분이라, 흰 ▼ 로 뒤집지 않는다 — 뒤집으면 아무도 네이버 핀으로 보지 않는다.
+ *     삼각형은 **무게중심**이 흰 원의 중심에 오게 놓는다(에셋의 구성이 그렇다).
+ *
+ * 색을 종류별로 남기는 이유는 이 앱에 장소 사진이 없어서다(ADR-002) — 종류를 가르는 신호가
+ * 색뿐이라 표준 핀의 파랑 하나로 통일할 수 없다. 색값 자체는 `TYPE_COLOR` 그대로 쓴다.
+ *
+ * 흰 테두리(`stroke`)는 **표준 에셋에 없는 의도적 이탈**이다. 이 지도는 81곳이 북·동 해안에
+ * 몰려 마커가 서로 겹치는데, 표준 핀은 머리가 이미 흰색이라 후광이 없으면 겹친 핀들의
+ * 색 테두리끼리 붙어 경계가 뭉갠다. 지우려면 겹치는 구간을 먼저 눈으로 확인할 것.
  *
  * 예전에는 종류마다 원·둥근사각·물방울을 직접 그리고 판정에 따라 테두리를 점선으로 바꾸거나
- * 회색을 입혔는데, 지도 위에서 그 차이는 읽히지 않으면서 코드만 무거웠다. 지금은 지도가
+ * 회색을 입혔는데, 지도 위에서 그 차이는 읽히지 않으면서 코드만 무거웠다. 지금도 지도는
  * "어디에 몇 곳이 있나" 만 답하고, 종류·판정의 자세한 구분은 마커를 눌러 열리는 시트와
- * 목록 화면이 맡는다.
- *
- * 색을 남기는 이유는 이 앱에 장소 사진이 없어서다(ADR-002) — 종류를 가르는 신호가 색뿐이다.
+ * 목록 화면이 맡는다(→ ADR-008).
  */
-const PIN = { width: 26, height: 36 } as const;
-const PIN_SELECTED = { width: 34, height: 47 } as const;
+const PIN = { width: 24, height: 36 } as const;
+const PIN_SELECTED = { width: 32, height: 48 } as const;
 
 /** 판정이 'hard' 인 곳. 숨기지 않고 "갈 수는 있지만 눈에 덜 띄게" 흐린다 — Marker 의 기본 옵션이다. */
 const MARKER_HARD_OPACITY = 0.45;
 
 /**
+ * 표준 핀의 치수. 에셋(22×33)에서 잰 값을 그대로 쓰되, 흰 테두리가 잘리지 않게 머리를
+ * 반지름 10.5 → 10.2 로만 줄였다. `stroke` 는 선 중앙에 걸려 절반(0.75)이 밖으로 나가는데,
+ * 10.5 로 두면 좌우가 viewBox 를 0.25 넘어가 **테두리만 납작하게 잘린다**(빌드는 통과한다).
+ * 꼬리 끝을 32.2 에 두는 것도 같은 이유다 — 33 에 붙이면 끝이 잘리며 앵커가 어긋나 보인다.
+ *
+ * 꼬리 끝의 `stroke-linejoin` 을 `round` 로 두는 것도 같은 계산이다. 기본값 miter 면 끝이
+ * 뾰족해 획이 꼭짓점 **너머로** 뻗는데(두 접선이 이루는 각 ~77° → 0.75 × 1.61 = 1.21),
+ * 32.2 + 1.21 = 33.41 로 viewBox 를 넘어 끝만 잘린다. round 는 0.75 로 끝나 32.95 에 멈춘다.
+ * 에셋의 끝도 바늘처럼 뾰족하지 않고 살짝 뭉툭하다.
+ */
+const PIN_VIEWBOX = { width: 22, height: 33 } as const;
+
+/**
  * 종류 색을 입힌 핀 SVG 를 data URI 로. 외부 이미지를 받지 않아 오프라인에서도 그려진다
- * (이 앱은 글꼴까지 self-host 한다 — 런타임 외부 요청을 늘리지 않는다).
+ * (이 앱은 글꼴까지 self-host 한다 — 런타임 외부 요청을 늘리지 않는다). 네이버가 내려주는
+ * `marker-default.png` 를 그대로 쓰지 않는 이유가 이것이고, 종류별 색도 거기선 못 준다.
  */
 function pinSvg(type: TPlaceType, width: number, height: number): string {
+  const color = TYPE_COLOR[type];
+  // 물방울: 머리는 중심 (11, 11.4)·반지름 10.2 의 원, 꼬리는 좌우 대칭으로 (11, 32.2) 까지.
+  const body =
+    'M11 1.2 C5.367 1.2 0.8 5.767 0.8 11.4 c0 7.9 10.2 20.8 10.2 20.8 S21.2 19.3 21.2 11.4 C21.2 5.767 16.633 1.2 11 1.2 Z';
+  // 흰 원(r 7.75) 안의 ▼. 에셋에서 잰 밑변 8·높이 5.5 를 머리를 줄인 비율(10.2/10.5)로 옮겼다.
+  // 꼭짓점 15 는 무게중심을 맞추려고 고른 값이다 — (9.6+9.6+15)/3 = 11.4 로 원 중심과 **정확히**
+  // 겹친다(에셋의 구성이 그렇다). 14.95 로 두면 11.3833 이라 0.017 어긋난다.
+  const arrow = 'M7.1 9.6 h7.8 L11 15 Z';
   // width·height 를 박아 둔다 — 없으면 SVG 의 고유 크기가 브라우저 기본값(150 높이)으로 잡힌다.
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 24 34"><path d="M12 .9C5.9.9.9 5.9.9 12c0 8 11.1 21.1 11.1 21.1S23.1 20 23.1 12C23.1 5.9 18.1.9 12 .9z" fill="${TYPE_COLOR[type]}" stroke="#fff" stroke-width="1.7"/><circle cx="12" cy="12" r="4.1" fill="#fff"/></svg>`;
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${PIN_VIEWBOX.width} ${PIN_VIEWBOX.height}">` +
+    `<path d="${body}" fill="${color}" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/>` +
+    `<circle cx="11" cy="11.4" r="7.75" fill="#fff"/>` +
+    `<path d="${arrow}" fill="${color}"/></svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
