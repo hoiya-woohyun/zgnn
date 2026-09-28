@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { AlertTriangle, Heart } from '@untitledui/icons';
-import { MapPageCanvas } from './mapPageCanvas';
+import { AlertTriangle, Heart, NavigationPointer01 } from '@untitledui/icons';
+import { MapPageCanvas, type TMapPageCanvasHandle } from './mapPageCanvas';
 import { MapPageSheetCard } from './mapPageSheet';
 import { useMapPageWideLayout } from './useMapPageWideLayout';
 import { BottomSheet } from '@/components/base/bottom-sheet';
@@ -12,6 +12,7 @@ import { Button } from '@/components/base/button';
 import { EmptyState } from '../components/layout/emptyState';
 import { PlaceThumb } from '../components/placeThumb';
 import { TownChip } from '../components/townChip';
+import { LOCATE_NOTICE, locateMe } from '../lib/myLocation';
 import { PLACES, PLACE_TYPES, TYPE_COLOR, TYPE_META } from '../lib/places';
 import { useSavedPlaces } from '../store/useAppStore';
 import { useEligibilityMap } from '../store/useDogEligibility';
@@ -36,6 +37,35 @@ export function MapPage() {
    */
   const [types, setTypes] = useState<TPlaceType[]>(PLACE_TYPES);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  /*
+   * 내 위치 — 누를 때 한 번 가져온다(ADR-008 v13). 실패하면 지도 위에 한 줄을 띄우고 잠시 뒤 지운다.
+   * 권한 거절도 버튼을 숨기지 않는다: 숨기면 설정에서 허용한 뒤 다시 누를 곳이 없다.
+   */
+  const canvasRef = useRef<TMapPageCanvasHandle>(null);
+  const [locating, setLocating] = useState(false);
+  const [locateNotice, setLocateNotice] = useState<string | null>(null);
+
+  const handleLocate = async () => {
+    if (locating) return;
+    setLocating(true);
+    setLocateNotice(null);
+    const result = await locateMe();
+    setLocating(false);
+    if (result.kind === 'ok') {
+      // 지도가 아직 없거나 깨졌으면 조용히 넘어간다 — 그때는 캔버스가 이미 폴백 안내를 그리고 있다.
+      canvasRef.current?.showMyLocation(result.lat, result.lng);
+    } else {
+      setLocateNotice(LOCATE_NOTICE[result.kind]);
+    }
+  };
+
+  // 안내는 6초 뒤 지운다. 새 안내가 오면 타이머를 다시 건다.
+  useEffect(() => {
+    if (!locateNotice) return;
+    const timer = window.setTimeout(() => setLocateNotice(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [locateNotice]);
 
   // 데스크톱 결과 패널에서 고른 항목으로 스크롤하기 위한 참조.
   const itemRefs = useRef(new Map<string, HTMLLIElement>());
@@ -121,6 +151,7 @@ export function MapPage() {
 
   const mapEl = (
     <MapPageCanvas
+      ref={canvasRef}
       places={withGeo}
       selectedId={selectedId}
       onSelect={handleSelect}
@@ -277,10 +308,36 @@ export function MapPage() {
 
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 px-3 lg:hidden">
-              <span className="pointer-events-auto rounded-full bg-primary/92 px-3 py-1 text-xs font-semibold text-secondary shadow-sm backdrop-blur">
+            <div className="flex items-start gap-2 px-3">
+              <span className="pointer-events-auto rounded-full bg-primary/92 px-3 py-1 text-xs font-semibold text-secondary shadow-sm backdrop-blur lg:hidden">
                 {withGeo.length}곳 표시 중
               </span>
+              {/*
+                내 위치 버튼. 위쪽 오른편에 두는 이유는 **아래쪽이 이미 차 있어서다** — 좌하단은 로고·저작권,
+                우하단은 축척 막대, 가운데 아래는 빈 상태 카드와 모바일 바텀시트가 쓴다(ADR-008 v9).
+              */}
+              <button
+                type="button"
+                onClick={handleLocate}
+                aria-label="내 위치로 이동"
+                aria-busy={locating}
+                className="pointer-events-auto ml-auto flex size-11 shrink-0 items-center justify-center rounded-full border border-secondary bg-primary/92 text-secondary shadow-sm backdrop-blur transition-colors hover:text-primary"
+              >
+                <NavigationPointer01
+                  size={20}
+                  aria-hidden="true"
+                  className={cx(locating && 'animate-pulse text-brand-secondary')}
+                />
+              </button>
+            </div>
+
+            {/* 스크린 리더가 새 안내를 읽도록 틀은 늘 둔다 — 안내가 생길 때 틀째 끼우면 읽지 않는다. */}
+            <div role="status" aria-live="polite" className="px-3">
+              {locateNotice && (
+                <p className="pointer-events-auto ml-auto w-fit max-w-sm rounded-xl border border-secondary bg-primary/95 px-3.5 py-2.5 text-sm text-secondary shadow-sm backdrop-blur">
+                  {locateNotice}
+                </p>
+              )}
             </div>
           </div>
 

@@ -88,6 +88,11 @@ declare namespace naver.maps {
     getZoom(): number;
     setZoom(zoom: number): void;
     /**
+     * 중심과 줌을 함께 옮기며 부드럽게 날아간다. 내 위치 버튼이 쓴다 — `setCenter` + `setZoom` 을
+     * 따로 부르면 두 번 튄다. `zoom` 을 빼면 지금 줌을 유지한다.
+     */
+    morph(coord: LatLng, zoom?: number): void;
+    /**
      * 컨테이너 크기를 바꾼 뒤 부른다. Kakao 의 `relayout()` 자리 — 네이버엔 `relayout` 이 없다.
      * @param noEffect 페이드 인 효과를 건너뛸지(기본 false)
      */
@@ -129,6 +134,7 @@ declare namespace naver.maps {
     setIcon(icon: ImageIcon | string): void;
     setZIndex(zIndex: number): void;
     setOpacity(opacity: number): void;
+    setPosition(position: LatLng): void;
   }
 
   /** `Event.addListener` 가 돌려주는 핸들. `removeListener` 에 그대로 넘긴다. */

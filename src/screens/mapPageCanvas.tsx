@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { type Ref, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { AlertTriangle } from '@untitledui/icons';
 import { Button } from '@/components/base/button';
 import { EmptyState } from '../components/layout/emptyState';
 import type { TEligibility } from '../lib/eligibility';
 import { loadNaverMaps, onNaverMapsAuthFailure } from '../lib/naverMap';
-import { JEJU_CENTER, jejuZoomFor, SAVED_MARKER_COLOR, TYPE_COLOR, TYPE_META, type TPlaceEntry } from '../lib/places';
+import { JEJU_CENTER, jejuZoomFor, MY_LOCATION_COLOR, SAVED_MARKER_COLOR, TYPE_COLOR, TYPE_META, type TPlaceEntry } from '../lib/places';
 import type { TPlaceType } from '../types';
 
 /**
@@ -136,6 +136,33 @@ function pinIcon(
   return icon;
 }
 
+/** 내 위치 점의 크기(px). 후광까지 포함한 캔버스이고, 가운데가 좌표다. */
+const MY_LOCATION_SIZE = 28;
+
+/** 장소 핀보다 위다 — 내 위치가 핀 밑에 깔리면 "여기서 가까운 곳" 을 가늠할 기준이 사라진다. */
+const Z_MY_LOCATION = 2000;
+
+/**
+ * 내 위치로 옮길 때의 줌. 동네 하나(보이는 경도 약 0.03°, 3km 안팎)가 드는 단계다 — "여기서 가까운 곳"
+ * 을 보려고 누르는 버튼이라서다. 사용자가 이미 더 당겨 보고 있으면 그대로 둔다.
+ */
+const MY_LOCATION_ZOOM = 14;
+
+/** 내 위치 점 — 옅은 후광 + 흰 테두리 파란 점. 핀과 같은 이유로 data URI 로 만든다(오프라인). */
+function myLocationIcon(maps: typeof naver.maps): naver.maps.ImageIcon {
+  const size = MY_LOCATION_SIZE;
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 28 28">` +
+    `<circle cx="14" cy="14" r="13" fill="${MY_LOCATION_COLOR}" fill-opacity="0.18"/>` +
+    `<circle cx="14" cy="14" r="7" fill="${MY_LOCATION_COLOR}" stroke="#fff" stroke-width="2.5"/>` +
+    `</svg>`;
+  return {
+    url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
+    size: new maps.Size(size, size),
+    anchor: new maps.Point(size / 2, size / 2),
+  };
+}
+
 /**
  * 마커와 그 마커에 건 리스너 핸들을 함께 들고 있는다.
  *
@@ -180,7 +207,13 @@ function clearMarkers(markers: Map<string, TMarkerEntry>) {
   markers.clear();
 }
 
+/** `MapPage` 가 내 위치 버튼에서 부른다. 지도가 아직 없거나 깨졌으면 false 를 돌려준다. */
+export type TMapPageCanvasHandle = {
+  showMyLocation: (lat: number, lng: number) => boolean;
+};
+
 type TMapPageCanvasProps = {
+  ref?: Ref<TMapPageCanvasHandle>;
   /** 좌표가 있는 장소들. 필터가 끝난 뒤의 목록이다. */
   places: TPlaceEntry[];
   selectedId: string | null;
@@ -198,6 +231,7 @@ type TMapPageCanvasProps = {
  * `MapPage` 는 무엇을 보여줄지만 정하고 이 파일이 그리는 일을 맡는다.
  */
 export function MapPageCanvas({
+  ref,
   places,
   selectedId,
   onSelect,
@@ -207,6 +241,8 @@ export function MapPageCanvas({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<naver.maps.Map | null>(null);
   const markersRef = useRef(new Map<string, TMarkerEntry>());
+  /** 내 위치 점. 처음 누를 때 만들고, 다시 누르면 자리만 옮긴다. */
+  const myLocationRef = useRef<naver.maps.Marker | null>(null);
   /*
    * 크기 재측정 타이머. effect 안의 지역 변수가 아니라 ref 인 이유는 **지도 effect 의 deps 가
    * `[]` 이라 그 cleanup 이 언마운트에서만 돌기** 때문이다. `status` 가 'error' 로 넘어가면
@@ -298,6 +334,14 @@ export function MapPageCanvas({
       settleRef.current = undefined;
       // 지도를 파괴하기 전에 마커부터 비운다 — 이 cleanup 이 마커 effect 의 것보다 먼저 돈다.
       clearMarkers(markers);
+      // 내 위치 점도 같은 이유로 지도보다 먼저 뗀다.
+      try {
+        myLocationRef.current?.setMap(null);
+      } catch {
+        // 이미 깨진 지도다.
+      } finally {
+        myLocationRef.current = null;
+      }
       /*
        * 이벤트와 DOM 을 함께 걷어낸다 — Kakao 에는 없던 정리다.
        * `clearMarkers` 와 **같은 이유로 감싼다**: `setMap(null)` 이 깨진 지도에서 던질 수 있다고
@@ -391,6 +435,41 @@ export function MapPageCanvas({
       queueMicrotask(() => setStatus('error'));
     }
   }, [selectedId, places, eligibilityMap, savedIds, status]);
+
+  /*
+   * 내 위치로 옮기고 점을 찍는다. 옮기는 것은 누를 때 한 번뿐이다 — 따라다니지 않으므로(ADR-008 v13)
+   * 그 뒤에 사용자가 지도를 끌어도 되돌리지 않는다.
+   */
+  useImperativeHandle(
+    ref,
+    () => ({
+      showMyLocation(lat, lng) {
+        const map = mapRef.current;
+        const maps = window.naver?.maps;
+        if (status !== 'ready' || !map || !maps) return false;
+        try {
+          const position = new maps.LatLng(lat, lng);
+          if (myLocationRef.current) myLocationRef.current.setPosition(position);
+          else
+            myLocationRef.current = new maps.Marker({
+              map,
+              position,
+              icon: myLocationIcon(maps),
+              title: '내 위치',
+              clickable: false,
+              zIndex: Z_MY_LOCATION,
+            });
+          map.morph(position, Math.max(map.getZoom(), MY_LOCATION_ZOOM));
+          return true;
+        } catch {
+          // 마커 effect 와 같은 이유 — 깨진 지도 위에서 SDK 가 던진다. 폴백으로 넘긴다.
+          queueMicrotask(() => setStatus('error'));
+          return false;
+        }
+      },
+    }),
+    [status],
+  );
 
   /*
    * SDK 를 못 받았거나 인증이 거부된 경우. Leaflet 때는 타일만 안 깔리고 마커는 그려졌지만,
