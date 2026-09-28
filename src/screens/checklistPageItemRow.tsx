@@ -68,7 +68,7 @@ export function ChecklistPageItemRow({
               {item.name}
             </span>
             {provided && (
-              <Badge size="sm" color="success" className="mt-1">
+              <Badge type="color" size="sm" color="success" className="mt-1">
                 숙소에 있어요
               </Badge>
             )}

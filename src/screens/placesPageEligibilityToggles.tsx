@@ -14,7 +14,7 @@ import type { TPlaceType } from '../types';
  */
 const chipClass = (active: boolean) =>
   cx(
-    'h-11 cursor-pointer rounded-full px-4 text-sm font-semibold transition-colors',
+    'h-11 cursor-pointer rounded-xl px-4 text-sm font-semibold transition-colors',
     'focus-visible:outline-2 focus-visible:outline-offset-2 outline-focus-ring',
     active ? 'bg-brand-primary text-brand-secondary' : 'bg-tertiary text-secondary hover:bg-quaternary',
   );

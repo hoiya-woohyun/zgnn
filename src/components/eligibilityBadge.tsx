@@ -34,7 +34,7 @@ type TEligibilityBadgeProps = {
 export function EligibilityBadge({ level, size = 'sm', className }: TEligibilityBadgeProps) {
   const meta = ELIGIBILITY_META[level];
   return (
-    <Badge size={size} color={meta.color} className={className}>
+    <Badge type="color" size={size} color={meta.color} className={className}>
       {meta.label}
     </Badge>
   );

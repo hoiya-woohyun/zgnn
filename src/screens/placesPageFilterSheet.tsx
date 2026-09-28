@@ -76,7 +76,7 @@ export function PlacesPageFilterSheet({
         {activeCount > 0 && (
           <span
             className={cx(
-              'ml-0.5 min-w-5 rounded-full px-1 text-center text-xs leading-5 font-bold',
+              'ml-0.5 min-w-5 rounded-md px-1 text-center text-xs leading-5 font-bold',
               'bg-primary text-brand-secondary',
             )}
           >

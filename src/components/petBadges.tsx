@@ -44,7 +44,7 @@ export function PetBadges({ policy, limit, hideNoInfo = false, className = '' }:
     <ul className={`flex flex-wrap items-center gap-1 ${className}`}>
       {shown.map((badge) => (
         <li key={badge.label}>
-          <Badge size="sm" color={TONE_COLOR[badge.tone]}>
+          <Badge type="color" size="sm" color={TONE_COLOR[badge.tone]}>
             {badge.label}
           </Badge>
         </li>

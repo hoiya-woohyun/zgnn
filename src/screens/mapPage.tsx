@@ -267,7 +267,7 @@ export function MapPage() {
                 onClick={toggleSavedOnly}
                 aria-pressed={savedOnly}
                 className={cx(
-                  'flex h-11 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-sm font-semibold shadow-sm backdrop-blur transition-colors',
+                  'flex h-11 shrink-0 items-center gap-1.5 rounded-xl border px-3.5 text-sm font-semibold shadow-sm backdrop-blur transition-colors',
                   savedOnly
                     ? 'border-camellia bg-camellia text-white'
                     : 'border-secondary bg-primary/92 text-secondary',
@@ -291,7 +291,7 @@ export function MapPage() {
                     onClick={() => toggleType(type)}
                     aria-pressed={active}
                     className={cx(
-                      'flex h-11 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-sm font-semibold shadow-sm backdrop-blur transition-colors',
+                      'flex h-11 shrink-0 items-center gap-1.5 rounded-xl border px-3.5 text-sm font-semibold shadow-sm backdrop-blur transition-colors',
                       active
                         ? 'border-brand bg-brand-solid text-white'
                         : 'border-secondary bg-primary/92 text-secondary',
@@ -310,7 +310,7 @@ export function MapPage() {
             </div>
 
             <div className="flex items-start gap-2 px-3">
-              <span className="pointer-events-auto rounded-full bg-primary/92 px-3 py-1 text-xs font-semibold text-secondary shadow-sm backdrop-blur lg:hidden">
+              <span className="pointer-events-auto rounded-md bg-primary/92 px-3 py-1 text-xs font-semibold text-secondary shadow-sm backdrop-blur lg:hidden">
                 {withGeo.length}곳 표시 중
               </span>
               {/*

@@ -62,7 +62,7 @@ export function MissingItemsNote({ place, className }: TMissingItemsNoteProps) {
         {missing.map((item) => (
           <li
             key={item.id}
-            className="flex items-center gap-1 rounded-full bg-primary px-2 py-1 text-xs font-medium text-secondary"
+            className="flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-xs font-medium text-secondary"
           >
             {/* item.emoji 는 데이터 콘텐츠라 장식용 이모지 금지 규칙의 예외다(준비물 화면과 같다). */}
             <span aria-hidden="true">{item.emoji}</span>
