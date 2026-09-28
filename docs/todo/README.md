@@ -1,6 +1,10 @@
 # TODO — 블로그 수집 → AI 분석 → 승인 → DB → 자동 배포
 
-> 최종 수정: 2026-09-28 (v22: v21 + **셀프 리뷰 반영** — 되울림 검사가 **도로명 안의 숫자**에 걸려 도로 중심점을 통과시켰다(HIGH).
+> 최종 수정: 2026-09-28 (v23: **미push 커밋 6개를 검증 후 push·배포 확인**했다 — 트래커가 "선행이 없어졌다" 로 닫아 둔 사이 다시 쌓인 것이다(같은 패턴 두 번째).
+> 그래서 잠금 줄에 **불변식이 아니라는 단서**를 달았다: 잠그기 직전에 `git log --oneline origin/main..HEAD` 가 비었는지 본다.
+> 실측 — 566 테스트 · `pnpm build`(`sw.js` 64KB) · 유출 검사 530파일 · 프로덕션 Ready(`publishable(anon)` · `places 86 · items 15` · `/sw.js` 200).
+> 변경이 `scripts/`+`docs/` 뿐이라 산출물은 동일하다. **다음 차례는 그대로 사용자의 `data:analyze --dry-run --limit 5`** 다.
+> 이전 (v22: v21 + **셀프 리뷰 반영** — 되울림 검사가 **도로명 안의 숫자**에 걸려 도로 중심점을 통과시켰다(HIGH).
 > 제주 도로명은 숫자가 박힌 것이 흔하고(`김녕로2길`·`상가로1길`) `addressElements` 가 안 읽히는 분기에서는 그게 유일한 방어라 **두 겹이 0 겹이 됐다** —
 > 이제 **번호 토큰 자체**를 대조한다. 로그 위생 둘(200 인데 JSON 아닐 때 본문 조각 · 게이트웨이 `errorCode` 원문)과 오라클 순서도 함께 고쳤다. 상세는 [03](03-analyze-and-review.md) v9.
 > 이전 (v21: **주소 → 좌표 축을 구현했다** — `scripts/analyze/naverGeocode.mjs` · 규격 `lib/naverMapsApi.mjs` · 55 테스트(전체 566).
@@ -180,10 +184,14 @@ flowchart LR
 [Claude]  ✅ self-cr → ✅ push → ✅ main 머지 → ✅ 프로덕션 배포·실측  (2026-09-23 (3), 이 줄은 끝났다)
 [사용자]  로컬 잠금 3개: vercel logout · gh auth logout -u hoiya-woohyun · ssh-keygen -p -f ~/.ssh/id_ed25519_hoiya
           ⚠️ 잠그면 **Claude 가 push·배포 확인을 못 한다**(사용자 대시보드 작업은 영향 없다 — CLI 만 끊긴다).
-          ✅ **선행이 없어졌다 — 지금부터 언제든 잠가도 된다**(2026-09-28). 이 셋이 끊는 것은 Vercel CLI · GitHub CLI · git push 이고,
+          ✅ **선행이 없어졌다 — 지금부터 언제든 잠가도 된다**(2026-09-28, (4) 에서 재확인). 이 셋이 끊는 것은 Vercel CLI · GitHub CLI · git push 이고,
           아래 [Claude] 줄(analyze/apply dry-run)은 **셋 중 무엇도 쓰지 않는다** — 필요한 건 `data:login` 의 Supabase 세션(키체인)과 로컬 `claude` 인증뿐이라 잠금 뒤에도 그대로 돈다.
-          잠금을 막고 있던 것은 push·배포 확인 하나였고 그건 닫혔다
+          ⚠️ **다만 "선행이 없다" 는 이 줄을 쓴 시점의 사실이지 불변식이 아니다.** 커밋이 쌓이면 다시 생긴다 —
+          **잠그기 직전에 `git log --oneline origin/main..HEAD` 가 비었는지 한 번 본다**(09-28 (2)·(4) 에서 두 번 재발했다)
 [Claude]  ✅ 미push 커밋 4개 push → 프로덕션 배포 확인  (2026-09-28, 지도 폴리시 3 + 헤더 흰색 1)
+[Claude]  ✅ 미push 커밋 **6개** push → 프로덕션 배포 확인  (2026-09-28 (4) — 수집 진행 로그 · `stopReason` · 좌표 미확보 5곳 · Geocoding 축 `6cacd89` + 문서 3).
+          트래커가 "선행이 없어졌다" 로 닫아 둔 사이 다시 쌓인 것이다(같은 패턴 두 번째). 검증: **566 테스트** · `pnpm build`(`sw.js` 64KB) · 유출 검사 530파일 ·
+          프로덕션 Ready(`publishable(anon)` · `places 86 · items 15` · 530파일, `/sw.js` 200). 변경이 `scripts/`+`docs/` 뿐이라 산출물은 동일하다
 [사용자]  ✅ 검색 키워드 확정 — `keywords.json` 의 6개를 그대로 쓴다(2026-09-28). 코드 변경 없음, 🙋 02 닫힘
 [사용자]  pnpm data:login   → 만료 +12시간 확인
 [사용자]  ✅ pnpm data:collect → blog_posts **3,360건**(2026-09-28, 365일 창 · 키워드 6개 · 중복 제거 후)
@@ -319,6 +327,19 @@ flowchart LR
 ## 세션 로그
 
 세션이 끝나거나 컨텍스트가 커져 나눌 때 여기에 한 항목. 체크박스가 정본이고 로그는 인수인계 메모.
+
+- 2026-09-28 (4) — **"다음 작업이 뭐냐" 에 답하려다 트래커가 stale 한 것을 찾았다.**
+  사용자가 트래커만 물었고, 정본 블록의 답은 명확했다 — 다음은 사용자의 `data:analyze --dry-run --limit 5`(⚠️1·⚠️3 을 한 번에 닫는 실행).
+  그런데 **문서가 말하는 상태와 `git log origin/main..HEAD` 가 말하는 상태가 달랐다**: 트래커는 `[Claude]` 줄을 `✅ … 이 줄은 끝났다` 로 닫아 뒀는데
+  미push 커밋이 **6개** 있었다(수집 진행 로그 · `stopReason` · 좌표 미확보 5곳 실측 · Geocoding 축 `6cacd89` + 문서 3).
+  **09-28 (2) 와 같은 패턴의 두 번째 재발**이다 — "미push 커밋 하나가 잠금 단계를 인질로 잡는다".
+  push 전 검증(09-28 선례와 같은 3종): **566 테스트** · `pnpm build` exit 0(`sw.js` 64,667B) · 번들 유출 검사 530파일.
+  push 후 프로덕션 Ready 실측: 빌드 로그 `publishable(anon — published 읽기만)` · `pull 완료: places 86 (published) · items 15` · `번들 유출 검사 통과: 530 파일`,
+  `https://zgnn.vercel.app/sw.js` 200. 변경이 `scripts/`+`docs/` 뿐이라(`src/`·빌드 설정 0) 산출물은 09-23 배포와 동일하다 —
+  `9f343f5`(지도 렌더 경로) 때보다 검증 부담이 가벼운 게 그래서다.
+  **문서에 남긴 교훈 하나**: 잠금 줄의 `✅ 선행이 없어졌다` 는 *그 줄을 쓴 시점의 사실*이지 불변식이 아니다. 커밋이 쌓이면 다시 생긴다 —
+  그래서 잠그기 직전에 `git log --oneline origin/main..HEAD` 가 비었는지 보는 절차를 그 자리에 박았다. 세 번째 재발을 막는 건 기억이 아니라 이 한 줄이다.
+  **다음 차례는 바뀌지 않았다** — 사용자의 `data:analyze --dry-run --limit 5`(키 두 쌍 · Maps Application 의 Geocoding 체크 · 살아있는 `data:login` 세션).
 
 - 2026-09-28 (3) — **띄워 둔 셀프 리뷰가 진행 로그의 거짓 경고를 물어 왔다**(이전 세션이 `9f59d0e` 를 대상으로 돌린 워크플로, 9 에이전트).
   확인 4건 중 셋이 **같은 뿌리**다: `collect-blog.mjs` 의 `let stop = 'cap'`(초기값) 이 `break` 로만 덮이는 구조라,
