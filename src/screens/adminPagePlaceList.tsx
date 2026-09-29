@@ -175,7 +175,7 @@ export function AdminPagePlaceList({
       Object.fromEntries(Object.entries(prev).map(([id, state]) => [id, { ...state, done: undefined }])),
     );
   const showMore = useCallback(() => setShown((prev) => prev + PAGE_SIZE), []);
-  const sentinelRef = useAdminInfiniteScroll(filtered.length > shown, shown, showMore);
+  const setSentinel = useAdminInfiniteScroll(filtered.length > shown, shown, showMore);
 
   const pickStatus = (next: TStatusFilter) => {
     clearDone();
@@ -271,9 +271,9 @@ export function AdminPagePlaceList({
             * 감시판과 남은 수를 **함께** 둔다. 저절로 이어 그리더라도 "지금 몇 개 중 몇 개를 보고 있나" 가
             * 화면에서 사라지면, 걸러 보기를 켠 목록이 끝난 것인지 아직 그리는 중인지 구분할 자리가 없다.
             */}
-          <div ref={sentinelRef} className="px-4 pt-3 text-xs text-tertiary md:px-6">
+          <div ref={setSentinel} className="px-4 pt-3 text-xs text-tertiary md:px-6">
             {filtered.length > shown
-              ? `${filtered.length}곳 중 ${shown}곳 · 내리면 이어서 보여요`
+              ? `${filtered.length}곳 중 ${shown}곳 · 스크롤하면 더 보여요`
               : `${filtered.length}곳을 모두 봤어요`}
           </div>
         </>
