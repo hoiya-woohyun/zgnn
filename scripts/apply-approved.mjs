@@ -89,10 +89,18 @@ for (const candidate of candidates) {
         targetId = rechecked.match.id;
       } else if (rechecked.match && rechecked.confidence >= THRESHOLD.ASK) {
         // ask 구간은 코드가 정하지 않는다 — 신규로 넣으면 이웃 가게의 중복 draft 가 되고, 합치면 오병합이다(설계 검토 RP-7). pending 으로 되돌려 사람이 정한다.
+        //
+        // 닮은 그 곳이 **내린 곳이면 안내가 달라진다.** 평소 안내의 둘째 갈래("tier 를 'ask' 로 바꿔서 다시 승인")를
+        // 그대로 따르면 `!targetId && tier === 'new'` 가 거짓이 돼 재대조가 건너뛰어지고, 내린 가게의 **복제본**이
+        // draft 로 insert 된다 — 2026-09-29 에 corpus 가 archived 까지 읽게 되면서 생긴 갈래다(초안이라 사이트에는
+        // 안 나가지만, '올린 장소' 에 초안 한 줄로 남아 사람이 그걸 또 게시할 수 있다). 그래서 그 말을 하지 않는다.
+        const archivedMatch = rechecked.match.status === 'archived';
         throw Object.assign(
           new Error(
             `기존 ${rechecked.match.name}(${rechecked.match.id}) 과 ${rechecked.confidence.toFixed(2)} 로 닮았다(${rechecked.reason}) — ` +
-              "같은 곳이면 match_place_id 를 채워서, 다른 곳이면 extracted.match.tier 를 'ask' 로 바꿔서 다시 승인",
+              (archivedMatch
+                ? "그 곳은 **내린 곳**이다. 다시 연 가게면 /admin 에서 '되살려서 합치기', 아니면 /admin 에서 반려한다(여기서 신규로 넣으면 복제본이 된다)"
+                : "같은 곳이면 match_place_id 를 채워서, 다른 곳이면 extracted.match.tier 를 'ask' 로 바꿔서 다시 승인"),
           ),
           { permanent: true },
         );

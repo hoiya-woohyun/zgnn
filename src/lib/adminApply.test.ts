@@ -19,7 +19,11 @@ type TFakeCall = {
   options?: unknown;
 };
 
-function createFakeClient() {
+/**
+ * @param failOn 이 순서(0-based)의 쓰기에서 오류를 준다. 부분 실패 뒤의 **문구**를 검사하려고 둔다 —
+ *   PostgREST 에 트랜잭션이 없어 "앞은 커밋됐고 뒤가 죽었다" 가 실제 상태이고, 그때 화면이 무엇을 말하는지가 계약이다.
+ */
+function createFakeClient(failOn?: number) {
   const calls: TFakeCall[] = [];
 
   const chainFor = (call: TFakeCall) => {
@@ -28,11 +32,23 @@ function createFakeClient() {
         call.filter = { ...(call.filter ?? {}), [column]: value };
         return chain;
       },
+      /*
+       * `.select().single()` — `adminPlaces.setPlaceStatus` 가 쓴 행을 되읽는다(트리거가 찍은 `archived_at` 을
+       * 가져오고, 0행을 성공으로 읽지 않으려고). 가짜 클라이언트는 **보낸 payload 를 그대로 돌려준다**:
+       * 여기서 검사하는 것은 순서이고, 되읽기가 값을 만들어 내지 않는다는 것만 지키면 된다.
+       */
+      select() {
+        return chain;
+      },
+      single() {
+        return Promise.resolve({ data: { id: call.filter?.id, ...call.payload }, error: null });
+      },
       then<TFulfilled, TRejected = never>(
-        onFulfilled?: ((value: { data: null; error: null }) => TFulfilled | PromiseLike<TFulfilled>) | null,
+        onFulfilled?: ((value: { data: null; error: { message: string } | null }) => TFulfilled | PromiseLike<TFulfilled>) | null,
         onRejected?: ((reason: unknown) => TRejected | PromiseLike<TRejected>) | null,
       ) {
-        return Promise.resolve({ data: null, error: null }).then(onFulfilled, onRejected);
+        const error = calls.indexOf(call) === failOn ? { message: '네트워크가 끊겼어요' } : null;
+        return Promise.resolve({ data: null, error }).then(onFulfilled, onRejected);
       },
     };
     return chain;
@@ -320,6 +336,23 @@ describe('approveGroup — 기존 장소에 보강', () => {
 
     expect(outcome).toMatchObject({ kind: 'archivedTarget', placeId: 'place-x' });
     expect(calls).toHaveLength(0);
+  });
+
+  /*
+   * 되살리기가 **커밋된 뒤에** 뒷단계가 죽는 경우. 장소는 이미 게시중이라, 그 사실을 문구에 실어야 한다 —
+   * 안 실으면 사람이 그 자리에서 '아니에요' 를 누르고(그건 candidates 만 건드린다) 내렸던 곳이 사이트로 돌아간다.
+   */
+  it('되살린 뒤 실패하면 장소가 이미 게시중이라고 말한다', async () => {
+    // 0번째 쓰기(되살리기)는 통과시키고 1번째(후보 승인 표시)에서 죽인다.
+    const { calls, client } = createFakeClient(1);
+    const target = placeRow({ id: 'place-x', name: '옛가게', status: 'archived' });
+    const lead = candidate({ match_place_id: 'place-x', extracted: extracted({ name: '옛가게' }) });
+
+    await expect(
+      approveGroup(client, group([lead]), [target], { ...OPTIONS, restoreArchived: true }),
+    ).rejects.toThrow(/옛가게 은 이미 게시중으로 돌아갔어요/);
+
+    expect(calls[0].payload.status).toBe('published');
   });
 
   it("'정말 다른 가게예요' 를 확인하면 새 장소로 올린다", async () => {

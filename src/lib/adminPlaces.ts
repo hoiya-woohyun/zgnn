@@ -143,8 +143,7 @@ export type TPlaceStatusChange = {
  * 상태 한 칸 + 기록 한 줄. `archived_at` 은 **적지 않는다** — 트리거가 찍는다(`20260929120000:35-55`).
  * 여기서 같이 적으면 두 곳이 같은 칸을 쓰게 되고, 어긋나는 날 어느 쪽이 맞는지 알 수 없다.
  *
- * 돌려주는 행은 `status`·`archive_note` 만 갱신한 **호출자의 행 복사본**이다. `archived_at` 은 서버가 찍은 값을
- * 우리가 모르므로 손대지 않는다 — 목록의 정렬이 한 번 어긋나 보일 수 있고, 그게 없는 값을 지어내는 것보다 낫다.
+ * 돌려주는 행은 **서버가 준 그 행**이다(아래 `.select().single()`). 트리거가 찍은 `archived_at` 이 거기 있다.
  */
 async function setPlaceStatus(
   client: SupabaseClient,
@@ -153,9 +152,23 @@ async function setPlaceStatus(
   line: string,
 ): Promise<TPlaceRow> {
   const archive_note = appendReviewerNote(place.archive_note, line);
-  const { error } = await client.from('places').update({ status, archive_note }).eq('id', place.id);
+  /*
+   * `.select().single()` 을 붙이는 이유가 둘이다.
+   *  1. **트리거가 찍은 `archived_at` 을 읽어 온다.** 안 읽으면 방금 내린 행의 그 칸이 null 로 남아
+   *     `sortManagedPlaces` 가 그것을 "시각 없는 내림" 으로 보고 목록 맨 아래로 보낸다 — 지금 확인해야 할
+   *     한 줄이 하필 제일 뒤에 간다(그 정렬을 둔 이유가 그 확인이다).
+   *  2. **0행을 성공으로 읽지 않는다.** RLS 가 아무 행도 고르지 못했거나 id 가 사라졌으면 PostgREST 는
+   *     에러가 아니라 빈 결과를 준다 — `.single()` 이 그것을 에러로 바꿔 준다. 이 레포가 `[]` 를 사고로
+   *     보는 곳이 여기 말고도 여럿이다(`fetchManagedPlaces` · `pull-db` 의 exit 1).
+   */
+  const { data, error } = await client
+    .from('places')
+    .update({ status, archive_note })
+    .eq('id', place.id)
+    .select()
+    .single();
   if (error) throw new Error(`${status === 'archived' ? '내리기' : '되살리기'}: ${error.message}`);
-  return { ...place, status, archive_note };
+  return (data ?? { ...place, status, archive_note }) as TPlaceRow;
 }
 
 /** 내린다 — 사이트에서 사라지는 것은 다음 빌드부터다(트리거가 그 빌드를 부른다). */

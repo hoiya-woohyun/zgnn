@@ -47,6 +47,17 @@ const itemRows = items.map((it, i) => ({
 // 그냥 두면 이 명령 한 번이 운영자가 내린 곳을 전부 **다시 게시한다** — 그것도 조용히(upsert 는 몇 행을 덮었는지 말하지 않는다).
 // 스냅샷(`places.json`)에는 이미 내린 곳이 없으니 보통은 교집합이 비지만, 옛 스냅샷이나 git 이전 버전으로 돌리면 되살아난다.
 // PostgREST 에는 "일부 칸만 덮는 upsert" 가 없어서 대상을 **보내기 전에** 뺀다.
+const { count: placeCount, error: countError } = await supabase
+  .from('places')
+  .select('id', { count: 'exact', head: true });
+if (countError) throw countError;
+// 빈 결과는 데이터가 아니라 사고다(이 레포의 규칙 — RLS·프로젝트가 어긋나면 PostgREST 는 에러가 아니라 0을 준다).
+// 여기서 그것을 "내린 곳이 없다" 로 읽으면 아래 upsert 가 운영자가 내린 곳을 전부 다시 게시한다.
+if (!placeCount) {
+  console.error('places 를 못 읽었다(0행) — 정책·PROJECT_REF 를 확인. 아무것도 쓰지 않고 멈춘다.');
+  process.exit(1);
+}
+
 const { data: archivedRows, error: archivedError } = await supabase
   .from('places')
   .select('id')

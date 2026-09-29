@@ -65,7 +65,8 @@ export function toPlace(f) {
 }
 
 /**
- * places 테이블 행(snake_case) → TPlace. pull-db.mjs(published 만)와 analyze-candidates.mjs(archived 빼고 전부)가 같이 쓴다.
+ * places 테이블 행(snake_case) → TPlace. 쓰는 곳은 둘이다 — `pull-db.mjs`(published 만)와 아래 `toMatchablePlace`.
+ * 대조 corpus 를 만드는 자리에서는 이 함수를 직접 부르지 않는다(status 가 빠진다 — `toMatchablePlace` 주석).
  * 컬럼 ↔ 필드 짝을 한 곳에 두는 이유: 한쪽만 고치면 matchPlace 가 보는 `geo`·`region.town` 이 조용히 빠져 대조가 이름만으로 돌아간다.
  * 빌드·테스트는 그대로 통과한다.
  */
@@ -98,9 +99,9 @@ export function fromPlaceRow(row) {
  * 그런데 대조는 status 를 알아야 한다 — 동점일 때 내린 곳보다 살아 있는 곳을 골라야 하기 때문이다
  * (`matchPlace.mjs` 의 `preferLive`). 그래서 **대조 corpus 를 만들 때만** 얹는다.
  *
- * 쓰는 곳은 넷이다: `analyze-candidates.mjs`(후보 탄생) · `apply-approved.mjs`(재대조, 실행 중 갱신 두 자리 포함) ·
- * `src/lib/adminApply.ts`(화면 재대조). 한 군데라도 `fromPlaceRow` 로 남으면 그 행만 status 가 없어
- * 동점 규칙이 조용히 꺼진다.
+ * 쓰는 곳은 파일 셋 · 호출 다섯이다: `analyze-candidates.mjs`(후보 탄생 1) · `apply-approved.mjs`(재대조 1 + 실행 중
+ * 장부 갱신 2) · `src/lib/adminApply.ts`(화면 재대조 1). 한 군데라도 `fromPlaceRow` 로 남으면 그 행만 status 가
+ * 없어 동점 규칙이 조용히 꺼진다 — 그래서 이 목록이 정본이다.
  */
 export function toMatchablePlace(row) {
   return { ...fromPlaceRow(row), status: row.status };

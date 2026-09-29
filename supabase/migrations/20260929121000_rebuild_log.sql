@@ -11,9 +11,13 @@
 -- 권장되는데, **재발급을 하고 Vault 에 잘못 붙여 넣으면 증상이 "아무 일도 안 일어남" 이다.** 회전을 안전하게
 -- 만드는 것은 새 URL 이 아니라 "회전이 됐는지 확인할 수 있는 자리" 다. 그 자리를 여기서 만든다.
 --
--- ⚠️ 이 표에 **훅 주소는 절대 들어가지 않는다.** 아래 insert 문들이 `hook_url` 을 컬럼에 넣지 않는 것이 그 전부이고,
---   pg_net 이 준 오류 문구에 주소가 섞여 올 수 있어 그것만은 저장 전에 지운다(`replace(…, hook_url, '<hook>')`).
---   이 표는 운영자(authenticated)가 읽지만 Vault 는 못 읽는다 — 그 경계를 이 표가 깨면 안 된다.
+-- ⚠️ 이 표에 **훅 주소는 절대 들어가지 않는다.** 이 표는 운영자(authenticated)가 읽지만 Vault 는 못 읽으므로,
+--   그 경계를 이 표가 깨면 안 된다. 지키는 방법이 둘이다:
+--     (1) insert 문들이 `hook_url` 을 컬럼에 넣지 않는다.
+--     (2) pg_net 이 준 오류 문구에는 주소가 섞여 올 수 있다(libcurl 오류가 URL 을 싣는다) → 저장 전에 **모양으로** 지운다.
+--   (2) 를 "지금 Vault 에 있는 값과 같으면 지운다" 로 두면 **회전 직후에 옛 주소가 그대로 저장된다** —
+--   v1 로 보낸 요청의 오류 문구를 v2 로 바꾼 뒤에 읽어 적으면 v1 과 일치하는 것이 없다. 그게 바로 이 표를 만든 이유인
+--   "회전" 시나리오라, 값 비교가 아니라 `https?://…` 패턴을 지운다. 비밀이 지워진 상태에도 같은 규칙이 돈다.
 
 create table public.rebuild_log (
   id              bigint generated always as identity primary key,
@@ -114,7 +118,8 @@ begin
     values (tg_op, touched.id, touched.name, touched.status, 'sent', req_id);
   exception when others then
     -- 문구에 훅 주소가 섞여 올 수 있다. 이 표는 Vault 를 못 읽는 역할이 읽으므로 주소만은 지운다.
-    fail := replace(coalesce(sqlerrm, ''), hook_url, '<hook>');
+    -- 두 번 지운다: 방금 부른 그 값(정확하다)과, 그것과 다른 주소가 섞여 온 경우를 위한 모양(머리 주석 (2)).
+    fail := regexp_replace(replace(coalesce(sqlerrm, ''), hook_url, '<hook>'), 'https?://[^[:space:]"'']+', '<hook>', 'g');
     insert into public.rebuild_log (op, place_id, place_name, place_status, hook, note)
     values (tg_op, touched.id, touched.name, touched.status, 'error', format('%s: %s', sqlstate, fail));
   end;
@@ -161,32 +166,31 @@ volatile
 security definer
 set search_path = ''
 as $fn$
-declare
-  hook_url text;
 begin
   if not exists (select 1 from public.operators where user_id = (select auth.uid())) then
     raise exception '재빌드 기록은 운영자만 볼 수 있어요.' using errcode = '42501';
   end if;
 
-  select decrypted_secret into hook_url
-  from vault.decrypted_secrets
-  where name = 'vercel_deploy_hook'
-  limit 1;
-
-  -- 아직 결과를 못 적은 요청만 채운다. pg_net 의 error_msg 에 주소가 섞여 올 수 있어 여기서도 지운다
-  -- (Vault 가 비어 있으면 지울 것도 없다 — 빈 문자열로 replace 하면 문구가 통째로 망가지므로 갈라 쓴다).
-  update public.rebuild_log as l
-  set response_status = r.status_code,
-      response_error  = nullif(
-        case
-          when hook_url is null or hook_url = '' then coalesce(r.error_msg, '')
-          else replace(coalesce(r.error_msg, ''), hook_url, '<hook>')
-        end, ''),
-      responded_at    = r.created
-  from net._http_response as r
-  where r.id = l.request_id
-    and l.request_id is not null
-    and l.responded_at is null;
+  /*
+   * 아직 결과를 못 적은 요청만 채운다. Vault 를 **읽지 않는다** — 주소는 모양으로 지우므로 값이 필요 없고,
+   * 안 읽는 만큼 이 함수가 쥐는 권한도 작아진다(머리 주석 (2)).
+   *
+   * 옮겨 적기가 실패해도 **함수는 계속한다.** `net._http_response` 의 select 권한은 Supabase 의 pg_net 버전에
+   * 따라 다를 수 있고, 여기서 예외가 올라가면 기록을 하나도 못 읽어 화면이 "재빌드 기록 없음" 으로 보인다 —
+   * 그러면 "훅이 없다" 와 "진단기가 고장났다" 가 또 같은 얼굴이 된다. 우리 표에 이미 적힌 것은 그대로 보여 준다.
+   */
+  begin
+    update public.rebuild_log as l
+    set response_status = r.status_code,
+        response_error  = nullif(regexp_replace(coalesce(r.error_msg, ''), 'https?://[^[:space:]"'']+', '<hook>', 'g'), ''),
+        responded_at    = r.created
+    from net._http_response as r
+    where r.id = l.request_id
+      and l.request_id is not null
+      and l.responded_at is null;
+  exception when others then
+    null; -- 옮겨 적지 못했다. 아래 select 는 우리 표만 읽으므로 영향이 없다.
+  end;
 
   return query
     select l.requested_at, l.op, l.place_name, l.place_status, l.hook, l.note, l.response_status, l.response_error

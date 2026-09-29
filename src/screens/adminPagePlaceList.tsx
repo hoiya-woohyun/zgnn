@@ -142,20 +142,35 @@ export function AdminPagePlaceList({
 
   const counts = useMemo(() => countPlacesByStatus(places ?? []), [places]);
 
+  /*
+   * 방금 바꾼 줄은 **구간을 벗어나도 한 번은 남긴다**(`states[id]?.done`). '내림' 칩을 켜 둔 채 되살리면
+   * 그 줄은 곧바로 이 필터를 벗어나 사라지는데, 그러면 방금 쓴 "되살렸어요" 를 아무도 못 본다 —
+   * "눌렀는데 아무 일도 안 났다" 가 된다(내림 칩은 되살릴 곳을 찾는 주 경로라 이 조합이 가장 흔하다).
+   * 칩·검색어를 다시 건드리면 그 예외도 함께 치운다.
+   */
   const filtered = useMemo(
     () =>
       (places ?? []).filter(
-        (place) => (status === 'all' || place.status === status) && matchesPlaceQuery(place, query),
+        (place) =>
+          (status === 'all' || place.status === status || Boolean(states[place.id]?.done)) &&
+          matchesPlaceQuery(place, query),
       ),
-    [places, query, status],
+    [places, query, states, status],
   );
 
   // 검색어·구간을 바꾸면 '더 보기' 도 처음으로 — 같은 사건의 두 결과라 여기서 함께 바꾼다(후보 칸과 같은 어법).
+  // 끝난 줄의 초록 한 줄도 같이 치운다(위 `filtered` 의 예외를 여기서 닫는다).
+  const clearDone = () =>
+    setStates((prev) =>
+      Object.fromEntries(Object.entries(prev).map(([id, state]) => [id, { ...state, done: undefined }])),
+    );
   const pickStatus = (next: TStatusFilter) => {
+    clearDone();
     setStatus(next);
     setShown(PAGE_SIZE);
   };
   const typeQuery = (next: string) => {
+    clearDone();
     setQuery(next);
     setShown(PAGE_SIZE);
   };
@@ -227,7 +242,7 @@ export function AdminPagePlaceList({
                 key={place.id}
                 place={place}
                 state={states[place.id] ?? {}}
-                onStartArchive={() => patchState(place.id, { archiving: true, error: undefined })}
+                onStartArchive={() => patchState(place.id, { archiving: true, error: undefined, done: undefined })}
                 onCancelArchive={() => patchState(place.id, { archiving: false })}
                 onArchive={(reason, note) => void change(place, 'archive', reason, note)}
                 onRestore={() => void change(place, 'restore')}

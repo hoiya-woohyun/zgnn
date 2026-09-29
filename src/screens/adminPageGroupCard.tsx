@@ -204,7 +204,12 @@ export function AdminPageGroupCard({
                     className="sm:flex-1"
                     isDisabled={Boolean(busy)}
                     isLoading={busy === 'approving'}
-                    onClick={() => onApprove({ restoreArchived: true })}
+                    /*
+                     * **짝 id 를 실어 보낸다.** 안 실으면 `decideTarget` 이 짝을 다시 계산하는데, tier 가 'new' 면
+                     * 그 계산은 `placesRef` 에 대한 재대조라 그 사이 다른 카드를 승인했으면 **패널이 말한 장소와
+                     * 다른 장소**로 합쳐진다. 사람이 읽은 이름과 실제로 쓰는 곳이 달라지는 건 조용한 오병합이다.
+                     */
+                    onClick={() => onApprove({ mergeInto: state.archived?.placeId, restoreArchived: true })}
                   >
                     되살려서 합치기
                   </Button>

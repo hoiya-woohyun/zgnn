@@ -297,11 +297,26 @@ export async function approveGroup(
    * 다음 빌드에 사이트로 돌아오고, 남은 일(빈 칸 채우기)은 후보가 `approved` 로 남아 `pnpm data:apply` 가 이어받는다.
    * 반대 순서면 "승인은 됐는데 장소는 여전히 내려 있는" 상태로 끊기고, 그건 화면에서 보이지 않는다.
    */
+  let restoredName: string | null = null;
   if (target && target.status === 'archived') {
     Object.assign(target, await restorePlace(client, target, { nowIso: opts.nowIso }));
+    restoredName = target.name;
   }
 
-  await markApproved(client, lead);
+  /*
+   * 되살리기가 커밋된 뒤에 뒷단계가 죽으면 **장소는 이미 게시중**이다. 그 사실을 실패 문구에 실어야 한다 —
+   * 안 실으면 사람이 그 자리에서 '아니에요' 를 누르고(그건 `candidates` 만 건드린다) 내렸던 곳이 다음 빌드에
+   * 사이트로 돌아간다. '올린 장소' 칸에서는 그냥 평범한 '게시중' 한 줄로 보여 흔적이 `archive_note` 한 줄뿐이다.
+   */
+  try {
+    await markApproved(client, lead);
+  } catch (error) {
+    throw restoredName
+      ? new Error(
+          `${error instanceof Error ? error.message : String(error)} — ${restoredName} 은 이미 게시중으로 돌아갔어요. 반려하려면 '올린 장소' 에서 다시 내려 주세요.`,
+        )
+      : error;
+  }
 
   let placeId: string;
   let placeName: string;

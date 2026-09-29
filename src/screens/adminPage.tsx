@@ -146,7 +146,12 @@ export function AdminPage() {
     try {
       setRebuild(rebuildHeadline(await fetchRebuildStatus(client), Date.now()));
     } catch {
-      setRebuild(undefined);
+      /*
+       * 읽지 못한 것을 **말한다.** 아무 말도 안 하면(undefined) 이 줄이 고치려던 침묵이 그대로 돌아온다 —
+       * "재빌드가 안 걸렸다" 와 "진단기가 없다/고장났다" 가 다시 같은 얼굴이 된다.
+       * 지금 가장 흔한 원인이 그것이다: 마이그레이션이 아직 원격에 적용되지 않으면 이 RPC 자체가 없다.
+       */
+      setRebuild({ tone: 'none', text: '재빌드 기록을 읽지 못했어요 — 마이그레이션이 적용됐는지 확인해 주세요.' });
     }
   }, []);
 
@@ -325,13 +330,18 @@ export function AdminPage() {
           patchState(group.key, { busy: undefined, error: outcome.reason });
           return;
         }
+        /*
+         * 두 '골라 주세요' 패널은 **서로를 지운다.** 카드가 `state.archived ? … : state.similar ? …` 로 그리므로,
+         * 한쪽을 세우면서 다른 쪽을 남기면 먼저 오는 쪽이 영원히 이긴다 — 그러면 되살려도·합쳐도 같은 패널이
+         * 다시 뜨고, 나갈 길이 반려(후보를 버린다)나 '새 장소로'(복제본을 만든다)뿐인 막다른 길이 된다.
+         */
         if (outcome.kind === 'needsDecision') {
-          patchState(group.key, { busy: undefined, similar: outcome.similar });
+          patchState(group.key, { busy: undefined, similar: outcome.similar, archived: undefined });
           return;
         }
         if (outcome.kind === 'archivedTarget') {
           // 쓰기 전에 멈춘 자리다 — 사람이 '되살려서 합치기' 나 반려를 고르면 그때 다시 온다.
-          patchState(group.key, { busy: undefined, archived: outcome });
+          patchState(group.key, { busy: undefined, archived: outcome, similar: undefined });
           return;
         }
         const what =
