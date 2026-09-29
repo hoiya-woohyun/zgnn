@@ -3,6 +3,7 @@
 import { CheckVerified02, ChevronDown } from '@untitledui/icons';
 import { Badge, BadgeWithIcon } from '../components/base/badges';
 import { Button } from '../components/base/button';
+import { Checkbox } from '../components/base/checkbox';
 import { Select } from '../components/base/select';
 import {
   regionUsable,
@@ -20,7 +21,7 @@ import { isPlaceType, TYPE_COLOR, typeTint } from '../lib/places';
 import { cx } from '../utils/cx';
 import { AdminPageGroupDetail } from './adminPageGroupDetail';
 import { AdminPageRejectForm } from './adminPageRejectForm';
-import { ADMIN_CANDIDATE_GRID, ADMIN_PANEL_DIVIDER, ADMIN_ROW_OPEN } from './adminTable';
+import { ADMIN_CANDIDATE_GRID, ADMIN_LEAD_CELL, ADMIN_PANEL_DIVIDER, ADMIN_ROW_OPEN } from './adminTable';
 
 /** 묶음 하나의 화면 상태. 소유자는 `adminPage.tsx` 고 여기는 받아서 그린다. */
 export type TAdminPageGroupState = {
@@ -61,6 +62,9 @@ type TAdminPageGroupCardProps = {
   onReject: (reason: TRejectReason, note: string) => void;
   onPickRegion: (regionRaw: string) => void;
   onSaveRegion: (regionRaw: string) => void;
+  /** 일괄 반려용으로 골라 뒀는가. 소유자는 `adminPage.tsx` 다(`adminSelection.ts`). */
+  selected: boolean;
+  onSelect: (selected: boolean) => void;
 };
 
 const TIER_COLOR: Record<string, 'success' | 'warning' | 'blue'> = {
@@ -96,6 +100,8 @@ export function AdminPageGroupCard({
   onReject,
   onPickRegion,
   onSaveRegion,
+  selected,
+  onSelect,
 }: TAdminPageGroupCardProps) {
   const extracted = group.lead.extracted;
   const matchedName = group.lead.places?.name;
@@ -117,8 +123,12 @@ export function AdminPageGroupCard({
 
   // 끝난 묶음은 초록 한 줄로 접힌다. 3초 뒤 목록에서 사라지므로 그 사이의 확인용이다.
   if (state.done) {
+    // 고르기 칸만큼 비워 두고 시작한다 — 안 그러면 끝난 줄만 왼쪽으로 튀어나와 표가 어긋난 것처럼 보인다.
     return (
-      <li className="bg-success-primary px-4 py-2 text-xs text-success-primary">{state.done}</li>
+      <li className="flex bg-success-primary">
+        <span className={ADMIN_LEAD_CELL} />
+        <span className="min-w-0 flex-1 px-4 py-2 text-xs text-success-primary">{state.done}</span>
+      </li>
     );
   }
 
@@ -135,87 +145,102 @@ export function AdminPageGroupCard({
      * 패널인지 눈으로 정하지 못하면 그것이 곧 다른 가게를 올리는 길이다.
      */
     <li className={cx(expanded ? ADMIN_ROW_OPEN : 'hover:bg-primary_hover')}>
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={expanded}
-        className={cx('w-full px-4 py-2 text-left', ADMIN_CANDIDATE_GRID)}
-      >
-        <span className="flex min-w-0 flex-wrap items-center gap-1.5">
-          <span className="text-sm font-bold text-primary">{extracted.name || '(이름 없음)'}</span>
-          <span
-            className={cx('rounded px-1.5 text-xs font-semibold', !typeTone && 'bg-secondary text-tertiary')}
-            style={typeTone}
-          >
-            {TYPE_LABEL[extracted.type] ?? extracted.type}
-          </span>
-          {/*
-            * tier 가 auto/ask 인데 짝이 비어 있으면 **사람이 비운 것**이고(apply-approved.mjs:13·15) 승인은
-            * `targetId: null` 로 **새 장소를 만든다**(adminApply.ts:116-119). 초록 '이미 있는 곳' 을 그대로 두면
-            * 합쳐질 줄 알고 누른 결과가 새 장소 생성이다. `new` 와 라벨을 돌려쓰지 않는다 — 그쪽은 재대조가 돈다.
-            */}
-          {group.tier !== 'new' && !pairId ? (
-            <Badge type="color" size="sm" color="blue">
-              새 장소로
-            </Badge>
-          ) : (
-            <Badge type="color" size="sm" color={TIER_COLOR[group.tier] ?? 'gray'}>
-              {TIER_LABEL[group.tier] ?? group.tier}
-              {group.tier !== 'new' && matchedName ? ` → ${matchedName}` : ''}
-            </Badge>
-          )}
-          {matchedArchived && (
-            <Badge type="color" size="sm" color="warning">
-              짝이 내린 곳
-            </Badge>
-          )}
-          {/*
-            * **막는 것이 먼저다.** `view.badges` 는 빨강(지역 없음·동반불가)부터 정렬돼 오는데, 대부분의 카드에 붙는
-            * 초록 뱃지를 그 앞에 두면 위계가 뒤집힌다 — 초록이 자리를 먹고 빨강이 줄 끝으로 밀린다.
-            */}
-          {view.badges.map((badge) => (
-            <Badge key={badge.key} type="color" size="sm" color={badge.tone}>
-              {badge.label}
-            </Badge>
-          ))}
-          {/*
-            * 부재가 기본값인 표식(`AI 판단 없음`)을 뒤집는다 — 잘 분석된 후보가 눈에 띈다. ✓ 글자는 안 넣는다(아이콘이 그린다).
-            * `facts` 의 truthy 만 보면 **빈 판단 객체에도 초록이 뜬다** — 그때 펼친 상세는 `AI 가 읽은 조건이 없어요` 라고 해서
-            * 한 카드가 자기를 반박한다. `aiAnalyzed` 가 읽어낸 조각이 실제로 있는지까지 본다.
-            */}
-          {aiAnalyzed(preview) && (
-            <BadgeWithIcon type="color" size="sm" color="success" iconLeading={CheckVerified02}>
-              AI 분석 완료
-            </BadgeWithIcon>
-          )}
-        </span>
-
-        {/* 지역이 없으면 뱃지 `지역 없음` 이 이미 같은 말을 한다 — 이 칸은 비워 둔다(`지역?` 은 문장도 아니었다). */}
-        <span className="block truncate text-xs text-tertiary max-md:mt-0.5">{extracted.regionRaw || ''}</span>
-
-        <span className="block min-w-0 text-xs text-tertiary max-md:mt-0.5">
-          {policyLine(preview, extracted.petPolicyText)}
-          {view.notes.map((note) => ` · ${note}`).join('')}
-        </span>
-
-        <span className="block text-xs text-tertiary max-md:mt-0.5">글 {group.rows.length}건</span>
-
-        {/*
-          * 아이콘을 **감싼다.** grid 의 자식마다 세로 여백이 붙는데(`CELL_RULES`), 그 자식이 `<svg>` 면
-          * `box-sizing: border-box` 때문에 16px 상자에서 위아래 8px 씩을 빼 **내용 높이가 0** 이 된다 —
-          * svg 는 넘치는 부분을 잘라 내므로 화살표가 통째로 사라진다(빌드·테스트는 초록이다, 2026-09-29 실측).
-          * 감싼 칸이 여백을 받으면 아이콘은 제 크기를 지킨다.
-          */}
-        <span className="flex items-center justify-end max-md:hidden">
-          <ChevronDown
-            aria-hidden="true"
-            className={cx(
-              'size-4 shrink-0 text-fg-quaternary transition-transform',
-              expanded && 'rotate-180',
-            )}
+      {/*
+        * 고르기 칸은 펼침 버튼 **바깥**에 선다. 버튼 안에 두면 버튼 안의 버튼이라 눌러도 체크가 아니라
+        * 펼침이 토글되고, HTML 로도 틀린 구조다. 폭은 `ADMIN_LEAD_CELL` 이 머리글과 함께 소유한다.
+        */}
+      <div className="flex items-stretch">
+        <span className={ADMIN_LEAD_CELL}>
+          <Checkbox
+            size="sm"
+            isSelected={selected}
+            onChange={onSelect}
+            isDisabled={Boolean(busy)}
+            aria-label={`${extracted.name || '이름 없는 묶음'} 고르기`}
           />
         </span>
-      </button>
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={expanded}
+          className={cx('min-w-0 flex-1 px-4 py-2 text-left', ADMIN_CANDIDATE_GRID)}
+        >
+          <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <span className="text-sm font-bold text-primary">{extracted.name || '(이름 없음)'}</span>
+            <span
+              className={cx('rounded px-1.5 text-xs font-semibold', !typeTone && 'bg-secondary text-tertiary')}
+              style={typeTone}
+            >
+              {TYPE_LABEL[extracted.type] ?? extracted.type}
+            </span>
+            {/*
+              * tier 가 auto/ask 인데 짝이 비어 있으면 **사람이 비운 것**이고(apply-approved.mjs:13·15) 승인은
+              * `targetId: null` 로 **새 장소를 만든다**(adminApply.ts:116-119). 초록 '이미 있는 곳' 을 그대로 두면
+              * 합쳐질 줄 알고 누른 결과가 새 장소 생성이다. `new` 와 라벨을 돌려쓰지 않는다 — 그쪽은 재대조가 돈다.
+              */}
+            {group.tier !== 'new' && !pairId ? (
+              <Badge type="color" size="sm" color="blue">
+                새 장소로
+              </Badge>
+            ) : (
+              <Badge type="color" size="sm" color={TIER_COLOR[group.tier] ?? 'gray'}>
+                {TIER_LABEL[group.tier] ?? group.tier}
+                {group.tier !== 'new' && matchedName ? ` → ${matchedName}` : ''}
+              </Badge>
+            )}
+            {matchedArchived && (
+              <Badge type="color" size="sm" color="warning">
+                짝이 내린 곳
+              </Badge>
+            )}
+            {/*
+              * **막는 것이 먼저다.** `view.badges` 는 빨강(지역 없음·동반불가)부터 정렬돼 오는데, 대부분의 카드에 붙는
+              * 초록 뱃지를 그 앞에 두면 위계가 뒤집힌다 — 초록이 자리를 먹고 빨강이 줄 끝으로 밀린다.
+              */}
+            {view.badges.map((badge) => (
+              <Badge key={badge.key} type="color" size="sm" color={badge.tone}>
+                {badge.label}
+              </Badge>
+            ))}
+            {/*
+              * 부재가 기본값인 표식(`AI 판단 없음`)을 뒤집는다 — 잘 분석된 후보가 눈에 띈다. ✓ 글자는 안 넣는다(아이콘이 그린다).
+              * `facts` 의 truthy 만 보면 **빈 판단 객체에도 초록이 뜬다** — 그때 펼친 상세는 `AI 가 읽은 조건이 없어요` 라고 해서
+              * 한 카드가 자기를 반박한다. `aiAnalyzed` 가 읽어낸 조각이 실제로 있는지까지 본다.
+              */}
+            {aiAnalyzed(preview) && (
+              <BadgeWithIcon type="color" size="sm" color="success" iconLeading={CheckVerified02}>
+                AI 분석 완료
+              </BadgeWithIcon>
+            )}
+          </span>
+
+          {/* 지역이 없으면 뱃지 `지역 없음` 이 이미 같은 말을 한다 — 이 칸은 비워 둔다(`지역?` 은 문장도 아니었다). */}
+          <span className="block truncate text-xs text-tertiary max-md:mt-0.5">{extracted.regionRaw || ''}</span>
+
+          <span className="block min-w-0 text-xs text-tertiary max-md:mt-0.5">
+            {policyLine(preview, extracted.petPolicyText)}
+            {view.notes.map((note) => ` · ${note}`).join('')}
+          </span>
+
+          <span className="block text-xs text-tertiary max-md:mt-0.5">글 {group.rows.length}건</span>
+
+          {/*
+            * 아이콘을 **감싼다.** grid 의 자식마다 세로 여백이 붙는데(`CELL_RULES`), 그 자식이 `<svg>` 면
+            * `box-sizing: border-box` 때문에 16px 상자에서 위아래 8px 씩을 빼 **내용 높이가 0** 이 된다 —
+            * svg 는 넘치는 부분을 잘라 내므로 화살표가 통째로 사라진다(빌드·테스트는 초록이다, 2026-09-29 실측).
+            * 감싼 칸이 여백을 받으면 아이콘은 제 크기를 지킨다.
+            */}
+          <span className="flex items-center justify-end max-md:hidden">
+            <ChevronDown
+              aria-hidden="true"
+              className={cx(
+                'size-4 shrink-0 text-fg-quaternary transition-transform',
+                expanded && 'rotate-180',
+              )}
+            />
+          </span>
+        </button>
+      </div>
 
       {expanded && <AdminPageGroupDetail group={group} preview={preview} />}
 

@@ -9,13 +9,18 @@ type TAdminPageRejectFormProps = {
   busy: boolean;
   onCancel: () => void;
   onSubmit: (reason: TRejectReason, note: string) => void;
+  /**
+   * 한 번에 반려할 묶음 수. 한 줄(카드 안)에서는 주지 않는다 — 그 자리는 무엇을 버리는지 위에 펼쳐져 있다.
+   * 일괄 반려에서는 **숫자가 유일한 단서**라 되돌릴 수 없다는 경고와 버튼 라벨에 함께 싣는다.
+   */
+  count?: number;
 };
 
 /**
  * 반려 사유. 칩을 먼저 고르게 하는 이유 — 자유 입력만 두면 매번 다른 말이 적혀 나중에 "왜 반려했나" 를 셀 수 없다.
  * 메모는 선택이다(브리프 결정 8). 사유 없이 반려하는 길은 두지 않는다 — 사유가 없으면 같은 글이 다음 분석에 또 올라온다.
  */
-export function AdminPageRejectForm({ busy, onCancel, onSubmit }: TAdminPageRejectFormProps) {
+export function AdminPageRejectForm({ busy, onCancel, onSubmit, count }: TAdminPageRejectFormProps) {
   const [reason, setReason] = useState<TRejectReason | null>(null);
   const [note, setNote] = useState('');
 
@@ -23,7 +28,10 @@ export function AdminPageRejectForm({ busy, onCancel, onSubmit }: TAdminPageReje
     <div className="border-t border-dashed border-tertiary px-4 py-3">
       <p className="text-xs font-semibold text-secondary">왜 반려하나요?</p>
       {/* 되돌릴 수 없다는 사실은 라벨이 아니라 이 줄이 전한다. 단위를 '글' 로 쓰면 틀린다(묶음은 여러 글이다). */}
-      <p className="mt-1 text-xs text-tertiary">반려하면 목록에서 사라져요. 화면에서는 되돌릴 수 없어요.</p>
+      <p className="mt-1 text-xs text-tertiary">
+        {count == null ? '반려하면' : `고른 ${count}묶음을 반려해요. 반려하면`} 목록에서 사라져요. 화면에서는 되돌릴 수
+        없어요.
+      </p>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {REJECT_REASONS.map((candidate) => (
           <Button
@@ -58,7 +66,7 @@ export function AdminPageRejectForm({ busy, onCancel, onSubmit }: TAdminPageReje
           isLoading={busy}
           onClick={() => reason && onSubmit(reason, note)}
         >
-          {busy ? '반려하고 있어요…' : '반려하기'}
+          {busy ? '반려하고 있어요…' : count == null ? '반려하기' : `${count}묶음 반려하기`}
         </Button>
         <Button color="secondary" size="sm" isDisabled={busy} onClick={onCancel}>
           취소

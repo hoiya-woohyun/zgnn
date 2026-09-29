@@ -63,6 +63,17 @@ export const ADMIN_PANEL_DIVIDER = 'border-t border-dashed border-tertiary';
 export const ADMIN_ROW_OPEN = 'bg-active shadow-[inset_3px_0_0_0_var(--color-bg-brand-solid)]';
 
 /**
+ * 줄 맨 앞의 **고르기 칸**. 머리글과 줄이 같은 폭을 쓰도록 여기서 한 번만 정한다 — 두 곳에 적으면
+ * 한쪽만 고쳤을 때 이름 열이 1px 씩 어긋나고, 그 어긋남이 이 표가 막으려는 바로 그 오독이다.
+ *
+ * **칸(grid) 이 아니라 flex 로 붙인다.** 줄의 본체는 `<button>` 이고 그것이 곧 grid 상자인데,
+ * 체크박스는 버튼 **안에** 들어갈 수 없다(버튼 안의 버튼이고, 눌러도 펼침만 토글된다).
+ * 그래서 grid 열을 하나 더 만드는 대신 버튼 **바깥 왼쪽**에 세우고, 머리글에도 같은 폭의 빈 자리를 둔다.
+ * 칸 사이 세로선(`CELL_RULES`)이 여기까지 오지 않는 것도 의도다 — 값이 아니라 손잡이다.
+ */
+export const ADMIN_LEAD_CELL = 'flex w-10 shrink-0 items-center justify-center';
+
+/**
  * 표 한 장 — 머리글 + 줄들. 가로 여백(`px-4 md:px-6`)을 여기 한 번만 두고 머리글과 `<ul>` 이 **같은 상자**
  * 안에 서므로 열이 어긋날 길이 없다(예전에는 상자를 두 겹 세워 1px 씩 맞춰야 했다).
  *
@@ -74,23 +85,26 @@ export function AdminTable({
   grid,
   columns,
   children,
+  lead = false,
 }: {
   grid: string;
   columns: string[];
   children: ReactNode;
+  /** 줄 맨 앞에 고르기 칸이 있는가. 머리글에 같은 폭의 빈 자리를 둬 열을 맞춘다(`ADMIN_LEAD_CELL`). */
+  lead?: boolean;
 }) {
   return (
     <div className="px-4 md:px-6">
       {/* 머리글은 `md` 이상에서만 — 그 아래에서는 줄이 grid 가 아니라 세로로 쌓여 이름표가 가리킬 열이 없다. */}
-      <div
-        className={cx('hidden border-t border-secondary px-4 text-xs font-semibold text-quaternary', grid)}
-        aria-hidden="true"
-      >
-        {columns.map((column, index) => (
-          <span key={column || `blank-${index}`} className="truncate">
-            {column}
-          </span>
-        ))}
+      <div className="hidden border-t border-secondary md:flex" aria-hidden="true">
+        {lead ? <span className={ADMIN_LEAD_CELL} /> : null}
+        <div className={cx('min-w-0 flex-1 px-4 text-xs font-semibold text-quaternary', grid)}>
+          {columns.map((column, index) => (
+            <span key={column || `blank-${index}`} className="truncate">
+              {column}
+            </span>
+          ))}
+        </div>
       </div>
       {/* 줄을 가르는 선은 `<ul>` 이 긋는다 — 줄마다 테두리를 두면 선이 두 겹으로 겹쳐 굵기가 들쭉날쭉해진다. */}
       <ul className="divide-y divide-secondary border-y border-secondary bg-primary">{children}</ul>

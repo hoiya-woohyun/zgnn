@@ -22,6 +22,16 @@ import {
 import { adminFlagView } from '../lib/adminPreview';
 import { fetchRebuildStatus, rebuildHeadline, type TRebuildHeadline } from '../lib/adminRebuild';
 import {
+  allSelected as allKeysSelected,
+  clearKeys,
+  EMPTY_SELECTION,
+  selectKeys,
+  summarizeBulkReject,
+  toggleSelected,
+  visibleSelection,
+  type TSelection,
+} from '../lib/adminSelection';
+import {
   ADMIN_SESSION_KEY,
   clearAdminSession,
   readAdminSession,
@@ -31,6 +41,7 @@ import {
 import { createAdminClient, isOperator } from '../lib/adminSupabase';
 import { cx } from '../utils/cx';
 import { useAdminInfiniteScroll } from './adminInfiniteScroll';
+import { AdminPageBulkBar } from './adminPageBulkBar';
 import { AdminPageGroupCard, type TAdminPageGroupState, type TApproveChoice } from './adminPageGroupCard';
 import { AdminPageLogin } from './adminPageLogin';
 import { AdminPagePlaceList } from './adminPagePlaceList';
@@ -115,6 +126,12 @@ export function AdminPage() {
   const [tierFilter, setTierFilter] = useState<TTierFilter>('all');
   const [policyOnly, setPolicyOnly] = useState(false);
   const [shown, setShown] = useState(PAGE_SIZE);
+  /*
+   * 일괄 반려용으로 골라 둔 묶음들. 집합을 다루는 규칙은 전부 `adminSelection.ts` 에 있다 —
+   * 특히 "목록에 없는 키를 버린다"(`pruneSelection`)가 조용히 틀리는 자리라 거기서 테스트한다.
+   */
+  const [selected, setSelected] = useState<TSelection>(EMPTY_SELECTION);
+  const [bulk, setBulk] = useState<{ busy?: boolean; rejecting?: boolean; summary?: string; error?: string }>({});
   const [tab, setTab] = useState<TTab>('candidates');
   /**
    * 재빌드가 실제로 불렸는지. `undefined` 는 "못 읽었다" 이고 그때는 **아무 말도 하지 않는다** —
@@ -185,6 +202,8 @@ export function AdminPage() {
       placesRef.current = places;
       setGroups(groupPending(rows));
       setStates({});
+      setSelected(EMPTY_SELECTION);
+      setBulk({});
       setShown(PAGE_SIZE);
       setExpanded(null);
       setPhase('ready');
@@ -408,6 +427,49 @@ export function AdminPage() {
     [beginWrite, endWrite, patchState, removeLater],
   );
 
+  /**
+   * 고른 묶음을 한꺼번에 반려한다.
+   *
+   * **하나가 실패해도 멈추지 않는다.** 141묶음을 고른 자리에서 3번째가 실패했다고 세우면 나머지 138묶음이
+   * 그대로 남아 사람이 같은 일을 다시 해야 하고, 어디까지 됐는지는 화면 어디에도 없다. 그래서 끝까지 돌고
+   * **성공한 것만** 목록에서 뺀 뒤 결과를 한 줄로 말한다(`summarizeBulkReject`) — 실패한 것은 골라 둔 채로
+   * 목록에 남아 다시 누를 수 있다. 메시지는 첫 실패의 것을 싣는다(전부 같은 이유일 가능성이 크다).
+   *
+   * 한 줄씩 차례로 부르는 이유 — 쓰기 잠금(`beginWrite`)이 하나라 병렬로 보내도 서버에서 줄을 서고,
+   * 중간에 끊겼을 때 "어디까지 갔나" 를 알 수 없게 된다.
+   */
+  const rejectSelected = useCallback(
+    async (keys: readonly string[], reason: TRejectReason, note: string) => {
+      const client = clientRef.current;
+      if (!client) return;
+      if (!beginWrite((message) => setBulk({ rejecting: true, error: message }))) return;
+      const wanted = new Set(keys);
+      const targets = groups.filter((group) => wanted.has(group.key));
+      setBulk({ busy: true, rejecting: true });
+      const done = new Set<string>();
+      let failed = 0;
+      let firstError: string | undefined;
+      try {
+        for (const group of targets) {
+          try {
+            await rejectGroup(client, group, reason, note);
+            done.add(group.key);
+          } catch (error) {
+            failed += 1;
+            firstError ??= messageOf(error, '반려하지 못했어요.');
+          }
+        }
+      } finally {
+        endWrite();
+      }
+      setGroups((prev) => prev.filter((group) => !done.has(group.key)));
+      setStates((prev) => Object.fromEntries(Object.entries(prev).filter(([key]) => !done.has(key))));
+      setSelected((prev) => clearKeys(prev, [...done]));
+      setBulk({ summary: summarizeBulkReject(done.size, failed), error: firstError });
+    },
+    [beginWrite, endWrite, groups],
+  );
+
   const saveRegion = useCallback(
     async (group: TCandidateGroup, regionRaw: string) => {
       const client = clientRef.current;
@@ -468,6 +530,15 @@ export function AdminPage() {
 
   const showMore = useCallback(() => setShown((prev) => prev + PAGE_SIZE), []);
   const setSentinel = useAdminInfiniteScroll(filtered.length > shown, shown, showMore);
+
+  /** 걸러 보기에 걸린 묶음들. 무한 스크롤로 **아직 안 그린 것까지** 포함한다 — '전부 고르기' 가 고르는 범위다. */
+  const filteredKeys = filtered.map((card) => card.group.key);
+  /*
+   * 고른 것 중 **지금 목록에 있는 것**만. 집합(`selected`)은 깎지 않는다 — 걸러 보기를 껐다 켜면 고른 것이
+   * 돌아오는 편이 낫고, 효과로 깎아 맞추면 렌더가 렌더를 부른다(`react-hooks/set-state-in-effect`).
+   * 세는 것도 반려하는 것도 이 배열만 본다.
+   */
+  const selectedKeys = visibleSelection(selected, filteredKeys);
 
   if (phase === 'checking') {
     return <p className="px-5 pt-10 text-sm text-tertiary">불러오는 중이에요</p>;
@@ -647,6 +718,30 @@ export function AdminPage() {
         </div>
       )}
 
+      {/*
+        * 일괄 반려 줄. **결과 한 줄(`bulk.summary`)이 남아 있으면 목록이 비어도 계속 그린다** —
+        * 141묶음을 한 번에 반려하면 그 직후 화면은 '확인할 장소가 없어요' 가 되는데, 그 자리에서 이 줄까지
+        * 사라지면 방금 한 일이 성공했는지 실패했는지 말해 주는 것이 화면에 하나도 없다.
+        */}
+      {groups.length > 0 || bulk.summary ? (
+        <AdminPageBulkBar
+          selectedCount={selectedKeys.length}
+          visibleCount={filteredKeys.length}
+          allSelected={allKeysSelected(selected, filteredKeys)}
+          busy={Boolean(bulk.busy)}
+          rejecting={Boolean(bulk.rejecting)}
+          summary={bulk.summary}
+          error={bulk.error}
+          onToggleAll={(next) =>
+            setSelected((prev) => (next ? selectKeys(prev, filteredKeys) : clearKeys(prev, filteredKeys)))
+          }
+          onClear={() => setSelected(EMPTY_SELECTION)}
+          onStartReject={() => setBulk({ rejecting: true })}
+          onCancelReject={() => setBulk({})}
+          onReject={(reason, note) => void rejectSelected(selectedKeys, reason, note)}
+        />
+      ) : null}
+
       {groups.length === 0 ? (
         <div className="px-4 pt-6 md:px-6">
           <EmptyState
@@ -660,7 +755,7 @@ export function AdminPage() {
       ) : (
         <>
           <div className="mt-3">
-            <AdminTable grid={ADMIN_CANDIDATE_GRID} columns={COLUMNS}>
+            <AdminTable grid={ADMIN_CANDIDATE_GRID} columns={COLUMNS} lead>
             {filtered.slice(0, shown).map(({ group, preview, view }) => {
               const state = states[group.key] ?? {};
               return (
@@ -678,6 +773,8 @@ export function AdminPage() {
                   onReject={(reason, note) => void reject(group, reason, note)}
                   onPickRegion={(regionRaw) => patchState(group.key, { regionDraft: regionRaw })}
                   onSaveRegion={(regionRaw) => void saveRegion(group, regionRaw)}
+                  selected={selected.has(group.key)}
+                  onSelect={() => setSelected((prev) => toggleSelected(prev, group.key))}
                 />
               );
             })}
