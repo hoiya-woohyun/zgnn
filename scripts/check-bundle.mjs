@@ -23,9 +23,15 @@ const PATTERNS = [
   // 우리 프로젝트 호스트(`<ref>.supabase.co`)만 통과시킨다. lookbehind 로 ref 를 앞에 두고 보므로 `https://다른ref.supabase.co` ·
   // `evil.supabase.co` 는 그대로 걸린다. supabasePublic.mjs 가 주소를 **리터럴**로 들고 있는 이유가 이 검사다 —
   // 템플릿(`https://${ref}.supabase.co`)으로 조립하면 번들엔 `.supabase.co` 조각만 남아 자기 호스트도 걸린다.
+  //
+  // 두 번째 lookbehind(`*.`)는 **라이브러리 리터럴 하나**를 위한 허용이다 — `@supabase/supabase-js` 의
+  // `getDefaultPropagationTargets` 가 `targets.push("*.supabase.co", "*.supabase.in")` 로 trace context 를
+  // 흘려도 되는 도메인 목록을 만든다(dist/index.mjs:188). 우리가 부르는 주소가 아니라 그 라이브러리의 상수라
+  // 지울 수 없고, 와일드카드 앞의 `*.` 는 호스트 이름에 들어갈 수 없는 글자라 실제 오타(`다른ref.supabase.co`)와
+  // 섞이지 않는다. /admin 이 supabase-js 를 번들에 넣은 2026-09-29(ADR-018)부터 나온다.
   {
     name: 'supabase.co',
-    re: new RegExp(String.raw`(?<!${PROJECT_REF}\.)supabase\.co`, 'g'),
+    re: new RegExp(String.raw`(?<!${PROJECT_REF}\.)(?<!\*\.)supabase\.co`, 'g'),
     why: `앱 번들이 부르는 Supabase 는 ${PROJECT_REF}.supabase.co 하나뿐이다(ADR-018) — 다른 호스트 문자열은 잘못됐다`,
   },
 ];

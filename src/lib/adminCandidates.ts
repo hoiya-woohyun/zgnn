@@ -1,0 +1,256 @@
+/**
+ * 검수 화면이 보는 데이터 — `candidates` 행의 타입, 조회, 그리고 CLI 의 순수 함수에 얇은 타입 옷을 입힌 래퍼(ADR-018).
+ *
+ * 묶기·미리보기·표식 로직을 여기로 **옮기지 않는다.** `scripts/analyze/reviewCandidates.mjs` 가 정본이고 이 파일은
+ * 그것을 부른다 — 두 벌로 두면 CLI(`pnpm data:review`)와 화면이 같은 후보를 다르게 묶는 날이 온다. 그 모듈들이
+ * JSDoc 타입만 들고 있어서 경계에서 한 번 캐스팅하고, 그 뒤는 여기 정의한 타입으로만 다룬다.
+ *
+ * 상대경로로 `../../scripts/...` 를 import 하는 것은 의도다. `@/` 별칭은 src 안만 가리키고,
+ * tsconfig 의 `allowJs` 가 이 .mjs 들을 읽어 준다.
+ */
+
+import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  groupCandidates,
+  groupFlags,
+  previewPolicy,
+  TIER_LABEL as TIER_LABEL_RAW,
+} from '../../scripts/analyze/reviewCandidates.mjs';
+import { parseRegion } from '../../scripts/lib/placeFields.mjs';
+import { parsePetPolicy, toPetBadges, withPolicyFacts } from './petPolicy';
+import { PLACES } from './places';
+import type { TDirection, TPetPolicyFacts, TRegion } from '../types';
+
+export type TCandidateType = 'stay' | 'restaurant' | 'cafe' | 'other';
+export type TCandidateTier = 'auto' | 'ask' | 'new';
+export type TCandidateStatus = 'pending' | 'approved' | 'rejected' | 'merged';
+export type TPlaceStatus = 'draft' | 'published' | 'archived';
+
+/**
+ * `candidates.extracted` jsonb. AI 출력(extractPlaces.mjs)에 분석기·반영기가 얹은 필드까지 한 덩어리다.
+ * 색인 시그니처를 남겨 두는 이유: 프롬프트가 바뀌면 새 키가 생기는데, 그때 이 타입이 화면을 막아서는 안 된다.
+ * 2026-09-28 의 첫 160건은 `petPolicy`·`visited`·`geo` 가 없다 — 그래서 대부분이 선택 필드다(ADR-017).
+ */
+export type TCandidateExtracted = {
+  name: string;
+  type: TCandidateType;
+  regionRaw: string | null;
+  regionRawAi?: string | null;
+  address: string | null;
+  addressAi?: string | null;
+  petPolicyText: string | null;
+  petPolicy: TPetPolicyFacts | null;
+  features?: string | null;
+  stayPriceText?: string | null;
+  stayAmenitiesText?: string | null;
+  visited?: boolean;
+  petAllowed?: 'yes' | 'no' | 'unknown';
+  evidence?: string[];
+  confidence?: number;
+  nameKey?: string;
+  dupOf?: string | null;
+  geo?: { lat: number; lng: number } | null;
+  geoSource?: string | null;
+  naverLink?: string | null;
+  category?: string | null;
+  match?: { confidence: number; reason: string; tier: TCandidateTier };
+  applied?: unknown;
+  [key: string]: unknown;
+};
+
+export type TCandidateRow = {
+  id: string;
+  post_url: string | null;
+  extracted: TCandidateExtracted;
+  match_place_id: string | null;
+  match_confidence: number | null;
+  status: TCandidateStatus;
+  reviewer_note: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  /** PostgREST 임베딩(`candidates → blog_posts(url)`). 원글 제목·날짜·검색어를 한 번에 가져온다. */
+  blog_posts: { title: string | null; posted_at: string; keyword: string; blog_id: string | null } | null;
+  /** PostgREST 임베딩(`candidates → places(id)`). 짝지은 기존 장소의 이름·상태. */
+  places: { id: string; name: string; status: TPlaceStatus } | null;
+};
+
+/** `places` 테이블 행(snake_case). 화면은 이 모양으로 들고 있다가 `fromPlaceRow` 로 앱 타입으로 바꾼다. */
+export type TPlaceRow = {
+  id: string;
+  type: string;
+  name: string;
+  region_raw: string;
+  features: string;
+  pet_policy_text: string;
+  pet_policy: TPetPolicyFacts | null;
+  review_url: string | null;
+  naver_url: string | null;
+  naver_place_id: string | null;
+  lat: number | null;
+  lng: number | null;
+  address: string | null;
+  category: string | null;
+  stay_price_text: string | null;
+  stay_amenities_text: string | null;
+  sort: number | null;
+  status: TPlaceStatus;
+  source: string;
+};
+
+/** 같은 가게로 묶인 후보들. 만드는 쪽은 `groupCandidates`(reviewCandidates.mjs:46-65). */
+export type TCandidateGroup = {
+  key: string;
+  rows: TCandidateRow[];
+  lead: TCandidateRow;
+  tier: TCandidateTier;
+  visited: boolean;
+  hasPolicyText: boolean;
+  confidence: number;
+  posts: string[];
+};
+
+/** 앱이 이 후보의 조건 문장을 어떻게 읽을지(정규식 / AI / 병합 결과). `previewPolicy` 의 결과에 이름을 붙인 것. */
+export type TPolicyPreview = {
+  regexBadges: string[];
+  mergedBadges: string[];
+  facts: TPetPolicyFacts | null;
+  flags: string[];
+  level: '정보없음' | '동반불가' | '조건' | '자유';
+};
+
+/**
+ * 한 번의 조회로 출처(blog_posts)와 짝지은 장소 이름(places)까지 받는다 — 화면이 목록을 그리려면 셋이 다 필요하고,
+ * 따로 부르면 후보 160건에 조회가 세 번 난다. 임베딩 테이블에도 운영자 정책이 걸려 있어 권한은 같다.
+ */
+export const CANDIDATE_SELECT = '*, blog_posts(title,posted_at,keyword,blog_id), places(id,name,status)';
+
+export async function fetchPendingCandidates(client: SupabaseClient): Promise<TCandidateRow[]> {
+  // 지금 규모(160건)는 supabase-js 기본 1000행 제한에 못 미친다 — 넘으면 range() 로 페이지네이션(apply-approved.mjs:49 와 같은 주석).
+  const { data, error } = await client
+    .from('candidates')
+    .select(CANDIDATE_SELECT)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true })
+    .limit(1000);
+  if (error) throw new Error(`후보 조회: ${error.message}`);
+  return (data ?? []) as unknown as TCandidateRow[];
+}
+
+/**
+ * 반영이 중간에 끊긴 후보(`approved`) 수 — 목록에는 `pending` 만 나오므로 이 수를 따로 세지 않으면 그 후보들이 **성공처럼** 사라진다.
+ *
+ * 쓰기 도중(예: `place_sources` upsert)에 실패하면 후보는 `approved` 로 남는다. 실패는 카드에 빨간 줄로 뜨지만 그 줄은 메모리에만 있어,
+ * 새로고침 한 번에 목록에서도 사라지고 머리글은 여전히 "검수 대기 N건" 이다 — 사람은 승인이 통과한 줄 안다.
+ * 되찾는 길은 터미널의 `pnpm data:apply` 하나뿐이므로(ADR-018 "이어받기") 화면이 그 수를 말해 준다.
+ */
+export async function countStrandedCandidates(client: SupabaseClient): Promise<number> {
+  const { count, error } = await client
+    .from('candidates')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'approved');
+  if (error) throw new Error(`반영 대기 후보 세기: ${error.message}`);
+  return count ?? 0;
+}
+
+/**
+ * 재대조·병합 대상이 되는 현재 장소 전부(archived 제외).
+ *
+ * 0행이면 던진다 — `apply-approved.mjs:61-64` 와 같은 보호다. RLS 나 프로젝트가 어긋나면 PostgREST 는 에러가 아니라
+ * `[]` 를 주고, 그대로 가면 재대조가 무력화돼 이미 있는 가게가 전부 신규로 다시 만들어진다.
+ */
+export async function fetchActivePlaces(client: SupabaseClient): Promise<TPlaceRow[]> {
+  const { data, error } = await client.from('places').select('*').neq('status', 'archived');
+  if (error) throw new Error(`장소 조회: ${error.message}`);
+  const rows = (data ?? []) as unknown as TPlaceRow[];
+  if (rows.length === 0) {
+    throw new Error('장소를 못 읽었어요 — 권한이나 프로젝트 설정이 어긋난 것 같아요. 아무것도 바꾸지 않았어요.');
+  }
+  return rows;
+}
+
+/** `groupCandidates` 래퍼. 정렬(검수 순서)까지 그 함수가 한다. */
+export function groupPending(rows: TCandidateRow[]): TCandidateGroup[] {
+  return groupCandidates(rows) as TCandidateGroup[];
+}
+
+/** `previewPolicy` 래퍼 — 앱 파서 세 함수를 주입한다. CLI 도 같은 셋을 넘긴다(review-candidates.mjs:27). */
+export function previewFor(extracted: TCandidateExtracted): TPolicyPreview {
+  return previewPolicy(extracted, { parsePetPolicy, toPetBadges, withPolicyFacts }) as TPolicyPreview;
+}
+
+/** `groupFlags` 래퍼 — '지역 없음'·'좌표 없음'·'목록글'·'중복표시'·'짝 없음'. */
+export function flagsFor(group: TCandidateGroup): string[] {
+  return groupFlags(group) as string[];
+}
+
+/** 이 지역 문자열로 장소를 만들 수 있는가. `toNewPlaceRow` 가 같은 검사로 반영을 막는다(applyApproved.mjs:107). */
+export function regionUsable(raw: string | null | undefined): boolean {
+  if (!raw || raw.trim() === '') return false;
+  return (parseRegion(raw) as TRegion).direction !== 'unknown';
+}
+
+const DIRECTION_ORDER: TDirection[] = ['east', 'west', 'south', 'north', 'udo', 'unknown'];
+
+/**
+ * '지역 고르기' 선택지 — 기존 86곳이 실제로 쓰는 지역 문자열이다. 새 문자열을 만들지 않는 이유:
+ * `region_raw` 는 읍·면 칩과 방향 필터의 유일한 입력이라, 데이터에 없는 표기를 넣으면 그 장소 혼자 다른 칩을 단다.
+ *
+ * 읍·면 하나당 **한 줄만** 남긴다(가장 짧은 표기). 시드에는 `남쪽 (서귀포시 월평로)` 처럼 거리 이름이 붙은 raw 가
+ * 셋 있는데, 그건 그 장소 한 곳의 상세 주소지 고를 값이 아니다 — 선택지에 두면 새 장소가 그 거리에 산다고 적힌다.
+ */
+const regionByTown = new Map<string, TRegion>();
+for (const place of PLACES) {
+  const key = `${place.region.direction}|${place.region.town}`;
+  const seen = regionByTown.get(key);
+  if (!seen || place.region.raw.length < seen.raw.length) regionByTown.set(key, place.region);
+}
+
+export const REGION_OPTIONS: string[] = [...regionByTown.values()]
+  .sort(
+    (a, b) =>
+      DIRECTION_ORDER.indexOf(a.direction) - DIRECTION_ORDER.indexOf(b.direction) ||
+      a.town.localeCompare(b.town, 'ko'),
+  )
+  .map((region) => region.raw);
+
+export const TYPE_LABEL: Record<TCandidateType, string> = {
+  stay: '숙소',
+  restaurant: '식당',
+  cafe: '카페',
+  other: '기타',
+};
+
+/** '일치'·'확인요청'·'신규'. CLI 와 같은 말을 쓰려고 재export 한다(reviewCandidates.mjs:10). */
+export const TIER_LABEL = TIER_LABEL_RAW as Record<TCandidateTier, string>;
+
+/**
+ * 반려 사유 칩. 자유 입력만 두면 매번 다른 말이 적혀 나중에 "왜 반려했나" 를 셀 수 없다.
+ * 목록은 첫 160건에서 실제로 나온 갈래다(목록글 101 · 홍보 13, docs/todo/README).
+ */
+export const REJECT_REASONS = ['목록글', '홍보·협찬', '폐업', '제주 아님', '중복', '동반 불가', '정보 부족'] as const;
+
+export type TRejectReason = (typeof REJECT_REASONS)[number];
+
+/**
+ * AI 판단(`petPolicy`)을 한국어 한 줄로. CLI 의 `factsLine`(reviewCandidates.mjs:100-115)과 같은 규칙이지만
+ * 그쪽은 export 되지 않아 여기서 다시 쓴다 — 두 줄이 어긋나면 터미널과 화면이 같은 후보를 다르게 설명한다.
+ * 규칙을 고칠 일이 생기면 **양쪽을 같이** 고친다.
+ */
+export function factsLine(facts: TPetPolicyFacts | null): string | null {
+  if (!facts) return null;
+  const parts: string[] = [];
+  if (facts.indoor !== 'unknown') {
+    parts.push({ free: '실내 자유', cage: '실내 케이지', outdoorOnly: '야외만' }[facts.indoor]);
+  }
+  if (facts.leash) parts.push('리드줄');
+  if (facts.largeDogOk === true) parts.push('대형견 OK');
+  if (facts.largeDogOk === false) parts.push('대형견 불가');
+  if (facts.smallDogOnly) parts.push('소형견만');
+  if (facts.weightLimitKg != null) parts.push(`~${facts.weightLimitKg}kg`);
+  if (facts.maxDogs != null) parts.push(`최대 ${facts.maxDogs}마리`);
+  if (facts.feeFree === true) parts.push('추가요금 없음');
+  if (facts.feeText) parts.push(facts.feeText);
+  if (facts.callFirst) parts.push('전화 확인');
+  if (facts.notes) parts.push(facts.notes);
+  return parts.length ? parts.join(' · ') : '(판단 없음)';
+}

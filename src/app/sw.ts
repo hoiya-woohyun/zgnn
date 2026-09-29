@@ -1,6 +1,7 @@
 import { defaultCache } from '@serwist/next/worker';
-import { CacheFirst, CacheableResponsePlugin, ExpirationPlugin, Serwist, StaleWhileRevalidate } from 'serwist';
+import { CacheFirst, CacheableResponsePlugin, ExpirationPlugin, NetworkOnly, Serwist, StaleWhileRevalidate } from 'serwist';
 import type { PrecacheEntry, RuntimeCaching, SerwistGlobalConfig } from 'serwist';
+import { PROJECT_URL } from '../../scripts/lib/supabasePublic.mjs';
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -135,6 +136,27 @@ const mediaCache: RuntimeCaching[] = [
    */
 ];
 
+/**
+ * Supabase(운영자 검수 화면 `/admin` 이 부르는 유일한 외부 API)는 **사본을 만들지 않는다**.
+ *
+ * 규칙을 안 붙이면 `defaultCache` 맨 끝의 cross-origin catch-all(`NetworkFirst`·32칸·1시간)이 받는데,
+ * 그것이 여기서는 두 가지로 해롭다(ADR-018):
+ *   1. 후보 목록 REST **GET** 이 URL 을 키로 1시간 캐시된다 — 방금 승인해 사라진 후보가 다시 보이고,
+ *      두 번 누르면 장소가 두 개 생긴다. 검수 화면에서 "묵은 목록" 은 오답이 아니라 데이터 오염이다.
+ *   2. 캐시 키에 `Authorization` 이 들어가지 않으므로 로그아웃한 뒤에도 후보 본문 사본이 기기에 남는다.
+ * Auth 요청(POST)은 애초에 캐시되지 않지만, **우리 호스트로 가는 요청 전부**를 막아 두면 나중에 GET 이 하나 늘어도 안전하다.
+ *
+ * `endsWith('.supabase.co')` 로 쓰지 않는다 — 그 조각이 번들에 남으면 `scripts/check-bundle.mjs` 가
+ * "우리 호스트가 아닌 supabase.co" 로 잡아 빌드가 멈춘다(실제로 멈췄다). 우리가 부르는 호스트는 하나뿐이라
+ * 정확히 그것만 본다. `PROJECT_URL` 리터럴에서 뽑으므로 번들에 남는 문자열도 그 하나다.
+ */
+const SUPABASE_HOST = new URL(PROJECT_URL).hostname;
+
+const supabaseNetworkOnly: RuntimeCaching = {
+  matcher: ({ url }) => url.hostname === SUPABASE_HOST,
+  handler: new NetworkOnly(),
+};
+
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
   precacheOptions: {
@@ -158,8 +180,9 @@ const serwist = new Serwist({
    */
   navigationPreload: false,
   // 우리 규칙을 먼저 본다. 뒤의 defaultCache 에 이미지 전체를 받는 규칙이 있어서,
-  // 순서가 바뀌면 장소 사진이 place-images 캐시로 가지 않는다.
-  runtimeCaching: [...mediaCache, ...defaultCache],
+  // 순서가 바뀌면 장소 사진이 place-images 캐시로 가지 않는다. Supabase 를 맨 앞에 두는 이유도 같다 —
+  // defaultCache 의 cross-origin catch-all 이 먼저 잡으면 NetworkOnly 가 아무 일도 하지 않는다.
+  runtimeCaching: [supabaseNetworkOnly, ...mediaCache, ...defaultCache],
   fallbacks: {
     entries: [
       {
