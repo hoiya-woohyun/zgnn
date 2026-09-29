@@ -16,7 +16,9 @@ import {
   sortManagedPlaces,
   type TArchiveReason,
 } from '../lib/adminPlaces';
+import { useAdminInfiniteScroll } from './adminInfiniteScroll';
 import { AdminPagePlaceRow, type TAdminPagePlaceState } from './adminPagePlaceRow';
+import { ADMIN_PLACE_GRID, AdminTableHead } from './adminTable';
 
 /**
  * '올린 장소' 칸 — 이미 사이트에 있는 장소를 **내리고 되살린다**(소프트 삭제). 후보를 올리는 칸과 형제다.
@@ -30,7 +32,10 @@ import { AdminPagePlaceRow, type TAdminPagePlaceState } from './adminPagePlaceRo
  * 같은 세션에서 방금 내린 곳에 후보가 합쳐지지 않게.
  */
 
-const PAGE_SIZE = 20;
+/** 한 번에 더 그리는 줄 수. 줄이 얇아져(표) 20 은 PC 한 화면도 못 채운다 — 감시판이 곧바로 또 보인다. */
+const PAGE_SIZE = 40;
+
+const COLUMNS = ['이름', '지역', '상태', '내린 사유', ''];
 
 type TStatusFilter = 'all' | TPlaceStatus;
 
@@ -169,6 +174,9 @@ export function AdminPagePlaceList({
     setStates((prev) =>
       Object.fromEntries(Object.entries(prev).map(([id, state]) => [id, { ...state, done: undefined }])),
     );
+  const showMore = useCallback(() => setShown((prev) => prev + PAGE_SIZE), []);
+  const sentinelRef = useAdminInfiniteScroll(filtered.length > shown, shown, showMore);
+
   const pickStatus = (next: TStatusFilter) => {
     clearDone();
     setStatus(next);
@@ -186,8 +194,8 @@ export function AdminPagePlaceList({
         <p className="text-sm text-error-primary">{fatal}</p>
         <Button
           color="primary"
-          size="lg"
-          className="mt-4"
+          size="sm"
+          className="mt-3"
           onClick={() => {
             setFatal(null);
             void load();
@@ -205,18 +213,19 @@ export function AdminPagePlaceList({
 
   return (
     <div>
-      <div className="mt-4 px-4 md:px-6">
-        <Input
-          aria-label="장소 검색"
-          placeholder="이름·지역·주소로 찾기"
-          value={query}
-          onChange={typeQuery}
-          size="lg"
-          icon={SearchLg}
-        />
-      </div>
-
-      <div className="mt-3 flex flex-wrap gap-2 px-4 md:px-6" role="group" aria-label="상태로 걸러 보기">
+      {/* 검색과 걸러 보기를 한 줄에 — PC 에서는 나란히 서고 좁으면 접힌다. */}
+      <div className="mt-3 flex flex-wrap items-center gap-2 px-4 md:px-6">
+        <div className="w-full sm:w-64">
+          <Input
+            aria-label="장소 검색"
+            placeholder="이름·지역·주소로 찾기"
+            value={query}
+            onChange={typeQuery}
+            size="sm"
+            icon={SearchLg}
+          />
+        </div>
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="상태로 걸러 보기">
         {STATUS_FILTERS.map((entry) => {
           const count = entry.key === 'all' ? visible.length : counts[entry.key];
           const active = entry.key === status;
@@ -226,13 +235,13 @@ export function AdminPagePlaceList({
               size="sm"
               color={active ? 'primary' : 'secondary'}
               aria-pressed={active}
-              className="h-11"
               onClick={() => pickStatus(entry.key)}
             >
               {entry.label} {count}
             </Button>
           );
         })}
+        </div>
       </div>
 
       {filtered.length === 0 ? (
@@ -241,7 +250,10 @@ export function AdminPagePlaceList({
         </p>
       ) : (
         <>
-          <ul className="mt-4 space-y-3 px-4 md:px-6">
+          <div className="mt-3">
+            <AdminTableHead grid={ADMIN_PLACE_GRID} columns={COLUMNS} />
+          </div>
+          <ul className="space-y-1.5 px-4 md:px-6">
             {filtered.slice(0, shown).map((place) => (
               <AdminPagePlaceRow
                 key={place.id}
@@ -255,18 +267,15 @@ export function AdminPagePlaceList({
             ))}
           </ul>
 
-          {filtered.length > shown && (
-            <div className="mt-4 px-4 md:px-6">
-              <Button
-                color="secondary"
-                size="lg"
-                className="w-full"
-                onClick={() => setShown((prev) => prev + PAGE_SIZE)}
-              >
-                더 보기 ({filtered.length - shown}개 남음)
-              </Button>
-            </div>
-          )}
+          {/*
+            * 감시판과 남은 수를 **함께** 둔다. 저절로 이어 그리더라도 "지금 몇 개 중 몇 개를 보고 있나" 가
+            * 화면에서 사라지면, 걸러 보기를 켠 목록이 끝난 것인지 아직 그리는 중인지 구분할 자리가 없다.
+            */}
+          <div ref={sentinelRef} className="px-4 pt-3 text-xs text-tertiary md:px-6">
+            {filtered.length > shown
+              ? `${filtered.length}곳 중 ${shown}곳 · 내리면 이어서 보여요`
+              : `${filtered.length}곳을 모두 봤어요`}
+          </div>
         </>
       )}
     </div>

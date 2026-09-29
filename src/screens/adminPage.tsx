@@ -30,9 +30,11 @@ import {
 } from '../lib/adminSession';
 import { createAdminClient, isOperator } from '../lib/adminSupabase';
 import { cx } from '../utils/cx';
+import { useAdminInfiniteScroll } from './adminInfiniteScroll';
 import { AdminPageGroupCard, type TAdminPageGroupState, type TApproveChoice } from './adminPageGroupCard';
 import { AdminPageLogin } from './adminPageLogin';
 import { AdminPagePlaceList } from './adminPagePlaceList';
+import { ADMIN_CANDIDATE_GRID, AdminTableHead } from './adminTable';
 
 /**
  * 운영자 검수 화면(ADR-018). 후보(candidates)를 묶어 보여 주고, "맞아요" 한 번으로 `places` 까지 반영한다.
@@ -48,7 +50,10 @@ import { AdminPagePlaceList } from './adminPagePlaceList';
  * 뒤로가기·상태바 인셋·스와이프는 셸 몫이라 여기서 아무것도 붙이지 않는다(ADR-007 · ADR-010 · ADR-014).
  */
 
-const PAGE_SIZE = 20;
+/** 한 번에 더 그리는 줄 수. 줄이 얇아져(표) 20 은 PC 한 화면도 못 채운다 — 감시판이 곧바로 또 보인다. */
+const PAGE_SIZE = 40;
+
+const COLUMNS = ['이름', '지역', '이용 조건', '근거', ''];
 /** 끝난 카드가 초록 한 줄로 남아 있는 시간. 바로 지우면 "눌렀는데 아무 일도 안 났다" 로 보인다. */
 const DONE_LINGER_MS = 3000;
 
@@ -461,6 +466,9 @@ export function AdminPage() {
     setShown(PAGE_SIZE);
   };
 
+  const showMore = useCallback(() => setShown((prev) => prev + PAGE_SIZE), []);
+  const sentinelRef = useAdminInfiniteScroll(filtered.length > shown, shown, showMore);
+
   if (phase === 'checking') {
     return <p className="px-5 pt-10 text-sm text-tertiary">불러오는 중이에요</p>;
   }
@@ -491,7 +499,7 @@ export function AdminPage() {
             {session?.email ? `${session.email} 계정은 검수 권한이 없어요. ` : '이 계정은 검수 권한이 없어요. '}
             관리자에게 이 계정을 검수자로 넣어 달라고 요청해 주세요.
           </p>
-          <Button color="secondary" size="lg" className="mt-4" onClick={signOut}>
+          <Button color="secondary" size="sm" className="mt-3" onClick={signOut}>
             다른 계정으로 로그인
           </Button>
         </div>
@@ -505,11 +513,11 @@ export function AdminPage() {
         <PageHeader title="장소 검수" />
         <div className="px-4 pt-6 md:px-6">
           <p className="text-sm text-error-primary">{fatal}</p>
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-            <Button color="primary" size="lg" onClick={() => session && void start(session)}>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button color="primary" size="sm" onClick={() => session && void start(session)}>
               다시 시도
             </Button>
-            <Button color="secondary" size="lg" onClick={signOut}>
+            <Button color="secondary" size="sm" onClick={signOut}>
               로그아웃
             </Button>
           </div>
@@ -530,12 +538,12 @@ export function AdminPage() {
           tab === 'candidates' ? `확인할 장소 ${groups.length}곳` : '이미 올린 장소를 내리거나 되살려요'
         }
         actions={
-          <Button color="secondary" size="sm" className="h-11" onClick={signOut}>
+          <Button color="secondary" size="sm" onClick={signOut}>
             로그아웃
           </Button>
         }
       />
-      <div className="px-4 pt-1.5 text-xs text-tertiary md:px-6">
+      <div className="px-4 pt-1 text-xs text-tertiary md:px-6">
         <p>
           {session.email} · {expiry} 지나면 다시 로그인해요
         </p>
@@ -567,8 +575,12 @@ export function AdminPage() {
         ) : null}
       </div>
 
-      {/* 두 칸 — 올리는 일과 내리는 일을 한 목록에 섞지 않는다(`TTab` 주석). */}
-      <div className="mt-4 flex gap-2 px-4 md:px-6" role="tablist" aria-label="검수 칸">
+      {/*
+        * 두 칸 — 올리는 일과 내리는 일을 한 목록에 섞지 않는다(`TTab` 주석).
+        * 폭을 반씩 나눠 갖지 않는다(옛 `flex-1`) — 넓은 화면에서 버튼 둘이 1000px 를 채우면
+        * 그것이 화면에서 가장 큰 물체가 되는데, 칸 전환은 검수에서 가장 드문 동작이다.
+        */}
+      <div className="mt-3 flex gap-1.5 px-4 md:px-6" role="tablist" aria-label="검수 칸">
         {TABS.map((entry) => {
           const active = entry.key === tab;
           return (
@@ -578,7 +590,6 @@ export function AdminPage() {
               role="tab"
               color={active ? 'primary' : 'secondary'}
               aria-selected={active}
-              className="h-11 flex-1"
               onClick={() => setTab(entry.key)}
             >
               {entry.label}
@@ -599,8 +610,12 @@ export function AdminPage() {
         <>
 
       {groups.length > 0 && (
-        <>
-          <div className="mt-4 flex flex-wrap gap-2 px-4 md:px-6" role="group" aria-label="이미 있는 곳인지">
+        /*
+         * 두 축을 한 줄에 놓되 **가운뎃점으로 가른다.** 줄을 둘로 쌓으면 세로를 먹고, 구분 없이 붙이면
+         * 다섯이 한 축으로 읽혀 조건 토글이 tier 필터를 대체하는 것처럼 보인다(`TIER_FILTERS` 주석).
+         */
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 md:px-6">
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="이미 있는 곳인지">
             {TIER_FILTERS.map((entry) => {
               const count = inPolicy.filter((card) => entry.match(card.group)).length;
               const active = entry.key === tierFilter;
@@ -610,7 +625,6 @@ export function AdminPage() {
                   size="sm"
                   color={active ? 'primary' : 'secondary'}
                   aria-pressed={active}
-                  className="h-11"
                   onClick={() => pickTier(entry.key)}
                 >
                   {entry.label} {count}
@@ -619,19 +633,18 @@ export function AdminPage() {
             })}
           </div>
           {/* 축이 하나 더 있다는 것을 **보이는 이름표**가 말한다 — 없으면 다섯이 한 축으로 읽힌다. */}
-          <div className="mt-2 flex flex-wrap items-center gap-2 px-4 md:px-6" role="group" aria-label="이용 조건">
-            <span className="text-sm font-semibold text-secondary">이용 조건</span>
+          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="이용 조건">
+            <span className="text-xs font-semibold text-secondary">이용 조건</span>
             <Button
               size="sm"
               color={policyOnly ? 'primary' : 'secondary'}
               aria-pressed={policyOnly}
-              className="h-11"
               onClick={togglePolicy}
             >
               조건이 적힌 것만 {policyCount}
             </Button>
           </div>
-        </>
+        </div>
       )}
 
       {groups.length === 0 ? (
@@ -646,7 +659,10 @@ export function AdminPage() {
         <p className="px-4 pt-6 text-sm text-tertiary md:px-6">이 조건에 맞는 장소가 없어요 — 걸러 보기를 꺼 보세요.</p>
       ) : (
         <>
-          <ul className="mt-4 space-y-3 px-4 md:px-6">
+          <div className="mt-3">
+            <AdminTableHead grid={ADMIN_CANDIDATE_GRID} columns={COLUMNS} />
+          </div>
+          <ul className="space-y-1.5 px-4 md:px-6">
             {filtered.slice(0, shown).map(({ group, preview, view }) => {
               const state = states[group.key] ?? {};
               return (
@@ -669,18 +685,15 @@ export function AdminPage() {
             })}
           </ul>
 
-          {filtered.length > shown && (
-            <div className="mt-4 px-4 md:px-6">
-              <Button
-                color="secondary"
-                size="lg"
-                className="w-full"
-                onClick={() => setShown((prev) => prev + PAGE_SIZE)}
-              >
-                더 보기 ({filtered.length - shown}개 남음)
-              </Button>
-            </div>
-          )}
+          {/*
+            * 감시판과 남은 수를 **함께** 둔다. 저절로 이어 그리더라도 "지금 몇 개 중 몇 개를 보고 있나" 가
+            * 화면에서 사라지면, 걸러 보기를 켠 목록이 끝난 것인지 아직 그리는 중인지 구분할 자리가 없다.
+            */}
+          <div ref={sentinelRef} className="px-4 pt-3 text-xs text-tertiary md:px-6">
+            {filtered.length > shown
+              ? `${filtered.length}묶음 중 ${shown}묶음 · 내리면 이어서 보여요`
+              : `${filtered.length}묶음을 모두 봤어요`}
+          </div>
             </>
           )}
         </>

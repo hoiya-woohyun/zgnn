@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import '../../styles/adminDensity.css';
 
 /**
  * 검수 화면은 서버에서 미리 그릴 수 없다 — 첫 화면이 로그인 여부로 갈리는데 그 세션은 localStorage 에만 있다.
@@ -13,6 +14,15 @@ const AdminPage = dynamic(() => import('@/screens/adminPage').then((module) => m
   loading: () => <p className="px-5 pt-10 text-sm text-tertiary">불러오는 중이에요</p>,
 });
 
+/**
+ * `data-admin-dense` 는 **스타일 스위치 하나**다 — `styles/adminDensity.css` 가 이 표식을 보고
+ * 크기 축(`--spacing`)을 기준값에 못 박는다(ADR-006 의 예외). 화면 본체가 아니라 여기 붙이는 이유:
+ * 늦게 불러오는 동안 뜨는 `loading` 줄까지 같은 크기여야 첫 프레임이 한 번 커졌다 줄어들지 않는다.
+ */
 export function AdminRouteClient() {
-  return <AdminPage />;
+  return (
+    <div data-admin-dense>
+      <AdminPage />
+    </div>
+  );
 }

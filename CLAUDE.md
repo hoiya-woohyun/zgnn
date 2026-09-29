@@ -85,6 +85,10 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
   `--spacing` 만 4 → 4.5 → 5px 로 바뀌고 모든 크기 토큰이 파생된다. 자리마다 `md:text-lg` 를
   손으로 붙이지 않는다 — 아무것도 안 해도 따라오는 게 요점이다. 모바일 값은 44px 터치
   기준(`h-11`)이 걸려 있어 **줄이지 않는다**. 지도 마커는 의도적으로 이 축에서 빼 뒀다.
+  **예외는 `/admin` 하나** — 운영자가 PC 로 훑는 표라 `src/styles/adminDensity.css` 가 그 화면에서만 축을
+  기준값(4px)에 **못 박는다**(`:root:has([data-admin-dense])`). 커지는 것을 멈출 뿐 줄이지는 않는다.
+  화면 안쪽 상자에 `--spacing` 을 덮어쓰는 것으로는 **글자가 안 따라온다**(`--text-*` 는 `:root` 선언이다)
+  → [ADR-018 결정 10](docs/decisions/ADR-018-in-app-admin-review.md).
 - **색은 시맨틱 토큰으로만** (`bg-primary` · `text-secondary` · `bg-brand-solid`).
   원시 색값은 `theme.css` 에만 둔다.
 - **장소 사진은 없는 것이 기본 디자인**이다(저작권 문제로 전량 제거, 86곳 모두 `cover` 없음).

@@ -1,7 +1,7 @@
 'use client';
 
 import { useLayoutEffect, useRef, type ReactNode, type RefObject } from 'react';
-import { mainSurfaceProps } from './appShellSurface';
+import { mainSurfaceProps, surfaceKindOf } from './appShellSurface';
 import { normalizeRoute } from '../../lib/appRoutes';
 import { arrivalScrollOf } from '../../lib/appScroll';
 import { PLACE_TYPES } from '../../lib/places';
@@ -71,7 +71,7 @@ export function AppShellSwipePeek({ ref, route, side, width }: TAppShellSwipePee
   const scrollRef = useRef<HTMLDivElement>(null);
   const path = normalizeRoute(route);
   const offset = arrivalScrollOf(path);
-  const surface = mainSurfaceProps(path === '/map');
+  const surface = mainSurfaceProps(surfaceKindOf(path));
 
   useLayoutEffect(() => {
     // 그려지기 전에 넣어야 맨 위가 한 프레임 비치지 않는다.

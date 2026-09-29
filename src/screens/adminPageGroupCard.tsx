@@ -20,6 +20,7 @@ import { isPlaceType, TYPE_COLOR, typeTint } from '../lib/places';
 import { cx } from '../utils/cx';
 import { AdminPageGroupDetail } from './adminPageGroupDetail';
 import { AdminPageRejectForm } from './adminPageRejectForm';
+import { ADMIN_CANDIDATE_GRID } from './adminTable';
 
 /** 묶음 하나의 화면 상태. 소유자는 `adminPage.tsx` 고 여기는 받아서 그린다. */
 export type TAdminPageGroupState = {
@@ -75,8 +76,12 @@ const BUSY_LABEL: Record<NonNullable<TAdminPageGroupState['busy']>, string> = {
 };
 
 /**
- * 후보 묶음 한 장. 접힌 줄만으로 "올릴지 말지" 의 대부분이 판단되게 한다 —
+ * 후보 묶음 한 줄. 접힌 줄만으로 "올릴지 말지" 의 대부분이 판단되게 한다 —
  * 이름·종류·구간·지역·표식·조건 수준이 그 줄에 있고, 근거(원문·인용·원글)는 펼쳐야 나온다.
+ *
+ * `md` 이상에서는 머리글과 열이 맞는 **표의 한 줄**이다(`ADMIN_CANDIDATE_GRID`). 예전에는 같은 것을
+ * 두 줄로(이름줄 + 흐린 메타줄) 쌓았는데, 그러면 지역·조건이 줄마다 다른 가로 위치에서 시작해
+ * 눈으로 세로로 훑을 수가 없다 — 142묶음을 보는 화면에서 그 훑기가 곧 일이다.
  */
 export function AdminPageGroupCard({
   group,
@@ -113,7 +118,7 @@ export function AdminPageGroupCard({
   // 끝난 묶음은 초록 한 줄로 접힌다. 3초 뒤 목록에서 사라지므로 그 사이의 확인용이다.
   if (state.done) {
     return (
-      <li className="rounded-2xl border border-secondary bg-success-primary px-4 py-3 text-sm text-success-primary">
+      <li className="rounded-xl border border-secondary bg-success-primary px-4 py-2 text-xs text-success-primary">
         {state.done}
       </li>
     );
@@ -126,75 +131,78 @@ export function AdminPageGroupCard({
   const regionOk = regionUsable(extracted.regionRaw);
 
   return (
-    <li className="overflow-hidden rounded-2xl border border-secondary bg-primary">
+    <li className="overflow-hidden rounded-xl border border-secondary bg-primary">
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={expanded}
-        className="flex min-h-11 w-full items-start gap-2 px-4 py-3 text-left hover:bg-primary_hover"
+        className={cx('w-full px-4 py-2 text-left hover:bg-primary_hover', ADMIN_CANDIDATE_GRID)}
       >
-        <span className="min-w-0 flex-1">
-          <span className="flex flex-wrap items-center gap-1.5">
-            <span className="text-md font-bold text-primary">{extracted.name || '(이름 없음)'}</span>
-            <span
-              className={cx(
-                'rounded-md px-1.5 py-0.5 text-xs font-medium',
-                !typeTone && 'bg-secondary text-tertiary',
-              )}
-              style={typeTone}
-            >
-              {TYPE_LABEL[extracted.type] ?? extracted.type}
-            </span>
-            {/*
-              * tier 가 auto/ask 인데 짝이 비어 있으면 **사람이 비운 것**이고(apply-approved.mjs:13·15) 승인은
-              * `targetId: null` 로 **새 장소를 만든다**(adminApply.ts:116-119). 초록 '이미 있는 곳' 을 그대로 두면
-              * 합쳐질 줄 알고 누른 결과가 새 장소 생성이다. `new` 와 라벨을 돌려쓰지 않는다 — 그쪽은 재대조가 돈다.
-              */}
-            {group.tier !== 'new' && !pairId ? (
-              <Badge type="color" size="sm" color="blue">
-                새 장소로
-              </Badge>
-            ) : (
-              <Badge type="color" size="sm" color={TIER_COLOR[group.tier] ?? 'gray'}>
-                {TIER_LABEL[group.tier] ?? group.tier}
-                {group.tier !== 'new' && matchedName ? ` → ${matchedName}` : ''}
-              </Badge>
-            )}
-            {matchedArchived && (
-              <Badge type="color" size="sm" color="warning">
-                짝이 내린 곳
-              </Badge>
-            )}
-            {/*
-              * **막는 것이 먼저다.** `view.badges` 는 빨강(지역 없음·동반불가)부터 정렬돼 오는데, 대부분의 카드에 붙는
-              * 초록 뱃지를 그 앞에 두면 위계가 뒤집힌다 — 초록이 자리를 먹고 빨강이 줄 끝으로 밀린다.
-              */}
-            {view.badges.map((badge) => (
-              <Badge key={badge.key} type="color" size="sm" color={badge.tone}>
-                {badge.label}
-              </Badge>
-            ))}
-            {/*
-              * 부재가 기본값인 표식(`AI 판단 없음`)을 뒤집는다 — 잘 분석된 후보가 눈에 띈다. ✓ 글자는 안 넣는다(아이콘이 그린다).
-              * `facts` 의 truthy 만 보면 **빈 판단 객체에도 초록이 뜬다** — 그때 펼친 상세는 `AI 가 읽은 조건이 없어요` 라고 해서
-              * 한 카드가 자기를 반박한다. `aiAnalyzed` 가 읽어낸 조각이 실제로 있는지까지 본다.
-              */}
-            {aiAnalyzed(preview) && (
-              <BadgeWithIcon type="color" size="sm" color="success" iconLeading={CheckVerified02}>
-                AI 분석 완료
-              </BadgeWithIcon>
-            )}
+        <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <span className="text-sm font-bold text-primary">{extracted.name || '(이름 없음)'}</span>
+          <span
+            className={cx('rounded px-1.5 text-xs font-semibold', !typeTone && 'bg-secondary text-tertiary')}
+            style={typeTone}
+          >
+            {TYPE_LABEL[extracted.type] ?? extracted.type}
           </span>
-          <span className="mt-1 block text-xs text-tertiary">
-            {/* 지역이 없으면 칸과 구분자를 함께 지운다 — 뱃지 `지역 없음` 이 같은 말을 이미 한다(`지역?` 은 문장도 아니었다). */}
-            {extracted.regionRaw ? `${extracted.regionRaw} · ` : ''}
-            {policyLine(preview, extracted.petPolicyText)} · 블로그 글 {group.rows.length}건
-            {view.notes.map((note) => ` · ${note}`).join('')}
-          </span>
+          {/*
+            * tier 가 auto/ask 인데 짝이 비어 있으면 **사람이 비운 것**이고(apply-approved.mjs:13·15) 승인은
+            * `targetId: null` 로 **새 장소를 만든다**(adminApply.ts:116-119). 초록 '이미 있는 곳' 을 그대로 두면
+            * 합쳐질 줄 알고 누른 결과가 새 장소 생성이다. `new` 와 라벨을 돌려쓰지 않는다 — 그쪽은 재대조가 돈다.
+            */}
+          {group.tier !== 'new' && !pairId ? (
+            <Badge type="color" size="sm" color="blue">
+              새 장소로
+            </Badge>
+          ) : (
+            <Badge type="color" size="sm" color={TIER_COLOR[group.tier] ?? 'gray'}>
+              {TIER_LABEL[group.tier] ?? group.tier}
+              {group.tier !== 'new' && matchedName ? ` → ${matchedName}` : ''}
+            </Badge>
+          )}
+          {matchedArchived && (
+            <Badge type="color" size="sm" color="warning">
+              짝이 내린 곳
+            </Badge>
+          )}
+          {/*
+            * **막는 것이 먼저다.** `view.badges` 는 빨강(지역 없음·동반불가)부터 정렬돼 오는데, 대부분의 카드에 붙는
+            * 초록 뱃지를 그 앞에 두면 위계가 뒤집힌다 — 초록이 자리를 먹고 빨강이 줄 끝으로 밀린다.
+            */}
+          {view.badges.map((badge) => (
+            <Badge key={badge.key} type="color" size="sm" color={badge.tone}>
+              {badge.label}
+            </Badge>
+          ))}
+          {/*
+            * 부재가 기본값인 표식(`AI 판단 없음`)을 뒤집는다 — 잘 분석된 후보가 눈에 띈다. ✓ 글자는 안 넣는다(아이콘이 그린다).
+            * `facts` 의 truthy 만 보면 **빈 판단 객체에도 초록이 뜬다** — 그때 펼친 상세는 `AI 가 읽은 조건이 없어요` 라고 해서
+            * 한 카드가 자기를 반박한다. `aiAnalyzed` 가 읽어낸 조각이 실제로 있는지까지 본다.
+            */}
+          {aiAnalyzed(preview) && (
+            <BadgeWithIcon type="color" size="sm" color="success" iconLeading={CheckVerified02}>
+              AI 분석 완료
+            </BadgeWithIcon>
+          )}
         </span>
+
+        {/* 지역이 없으면 뱃지 `지역 없음` 이 이미 같은 말을 한다 — 이 칸은 비워 둔다(`지역?` 은 문장도 아니었다). */}
+        <span className="block truncate text-xs text-tertiary max-md:mt-0.5">{extracted.regionRaw || ''}</span>
+
+        <span className="block min-w-0 text-xs text-tertiary max-md:mt-0.5">
+          {policyLine(preview, extracted.petPolicyText)}
+          {view.notes.map((note) => ` · ${note}`).join('')}
+        </span>
+
+        <span className="block text-xs text-tertiary max-md:mt-0.5">글 {group.rows.length}건</span>
+
         <ChevronDown
           aria-hidden="true"
-          className={cx('mt-0.5 size-5 shrink-0 text-fg-quaternary transition-transform', expanded && 'rotate-180')}
+          className={cx(
+            'size-4 shrink-0 text-fg-quaternary transition-transform max-md:hidden md:justify-self-end',
+            expanded && 'rotate-180',
+          )}
         />
       </button>
 
@@ -204,7 +212,7 @@ export function AdminPageGroupCard({
         <AdminPageRejectForm busy={busy === 'rejecting'} onCancel={onCancelReject} onSubmit={onReject} />
       ) : (
         expanded && (
-          <div className="border-t border-secondary px-4 py-4">
+          <div className="border-t border-secondary px-4 py-3">
             {state.archived ? (
               /*
                * 짝지은 장소가 **내린 곳**이다. 이 갈래가 소프트 삭제의 방어선이고, 여기서 '새 장소로' 를
@@ -213,7 +221,7 @@ export function AdminPageGroupCard({
                * 폐업 그대로면 반려한다.
                */
               <div>
-                <p className="text-sm text-secondary">
+                <p className="text-xs text-secondary">
                   내린 곳과 같은 가게로 보여요: <span className="font-semibold">{state.archived.placeName}</span>
                 </p>
                 {noteLineText(lastNoteLine(state.archived.note)) && (
@@ -222,11 +230,10 @@ export function AdminPageGroupCard({
                 <p className="mt-0.5 text-xs text-tertiary">
                   다시 연 가게면 되살려서 합치고, 아니면 반려해 주세요. 새 장소로 올리면 같은 가게가 두 번 생겨요.
                 </p>
-                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <div className="mt-2 flex flex-wrap gap-2">
                   <Button
                     color="primary"
-                    size="lg"
-                    className="sm:flex-1"
+                    size="sm"
                     isDisabled={Boolean(busy)}
                     isLoading={busy === 'approving'}
                     /*
@@ -240,8 +247,7 @@ export function AdminPageGroupCard({
                   </Button>
                   <Button
                     color="secondary"
-                    size="lg"
-                    className="sm:flex-1"
+                    size="sm"
                     isDisabled={Boolean(busy)}
                     onClick={onStartReject}
                   >
@@ -256,7 +262,7 @@ export function AdminPageGroupCard({
                 <Button
                   color="link-color"
                   size="md"
-                  className="mt-2 h-11"
+                  className="mt-2"
                   isDisabled={Boolean(busy)}
                   onClick={() => onApprove({ asNew: true, confirmedDifferent: true })}
                 >
@@ -269,7 +275,7 @@ export function AdminPageGroupCard({
                * 그래서 닮은 이유(reason)를 그대로 보여 주고 사람이 고른다.
                */
               <div>
-                <p className="text-sm text-secondary">
+                <p className="text-xs text-secondary">
                   같은 가게인지 확실하지 않아요: <span className="font-semibold">{state.similar.name}</span> — 같은
                   곳인지 봐 주세요.
                   {similarArchived && (
@@ -300,11 +306,10 @@ export function AdminPageGroupCard({
                     같은 가게면 되살려서 합쳐 주세요. 새 장소로 올리면 같은 가게가 두 번 생겨요.
                   </p>
                 )}
-                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <div className="mt-2 flex flex-wrap gap-2">
                   <Button
                     color="primary"
-                    size="lg"
-                    className="sm:flex-1"
+                    size="sm"
                     isDisabled={Boolean(busy)}
                     isLoading={busy === 'approving'}
                     /* 내린 곳이면 합치기 전에 되살려야 한다 — 안 그러면 `approveGroup` 이 archived 가드에서 되돌려 보낸다. */
@@ -316,8 +321,7 @@ export function AdminPageGroupCard({
                   </Button>
                   <Button
                     color="secondary"
-                    size="lg"
-                    className="sm:flex-1"
+                    size="sm"
                     isDisabled={Boolean(busy)}
                     /*
                      * 0.4~0.85 에서는 이웃이 정말 다른 가게일 수 있어 이 길을 남긴다. 다만 그 이웃이 내린 곳이면
@@ -334,8 +338,8 @@ export function AdminPageGroupCard({
                  */}
                 <Button
                   color="secondary"
-                  size="lg"
-                  className="mt-2 w-full"
+                  size="sm"
+                  className="mt-2"
                   isDisabled={Boolean(busy)}
                   onClick={onStartReject}
                 >
@@ -349,8 +353,7 @@ export function AdminPageGroupCard({
                   <div>
                     <Button
                       color="primary"
-                      size="lg"
-                      className="w-full"
+                      size="sm"
                       isDisabled={Boolean(busy)}
                       isLoading={busy === 'approving'}
                       onClick={() => onApprove()}
@@ -378,18 +381,17 @@ export function AdminPageGroupCard({
                    * 지역이 없으면 반영을 막는다 — 읍·면 칩이 비고 상세 헤더가 '기타' 가 되기 때문이다.
                    * 선택지는 기존 86곳이 쓰는 표기뿐이다(새 표기를 만들면 그 장소 혼자 다른 칩을 단다).
                    */
-                  <div className="rounded-xl bg-secondary px-3 py-3">
-                    <p className="text-sm text-secondary">지역이 정해지지 않아 아직 올릴 수 없어요. 하나 골라 주세요.</p>
-                    <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                  <div className="rounded-lg bg-secondary px-3 py-2">
+                    <p className="text-xs text-secondary">지역이 정해지지 않아 아직 올릴 수 없어요. 하나 골라 주세요.</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
                       <Select
                         aria-label="지역 고르기"
-                        /* `sm` 만 `min-h-11` 을 갖는다(select-shared.tsx) — 옆의 h-11 '저장' 과 높이를 맞추고 터치 타깃을 지킨다. */
                         size="sm"
                         placeholder="지역 고르기"
                         selectedKey={state.regionDraft ?? null}
                         onSelectionChange={(key) => key && onPickRegion(String(key))}
                         isDisabled={Boolean(busy)}
-                        className="sm:flex-1"
+                        className="w-44"
                       >
                         {REGION_OPTIONS.map((option) => (
                           <Select.Item key={option} id={option}>
@@ -399,7 +401,7 @@ export function AdminPageGroupCard({
                       </Select>
                       <Button
                         color="primary"
-                        size="lg"
+                        size="sm"
                         isDisabled={Boolean(busy) || !state.regionDraft}
                         isLoading={busy === 'savingRegion'}
                         onClick={() => state.regionDraft && onSaveRegion(state.regionDraft)}
@@ -412,8 +414,7 @@ export function AdminPageGroupCard({
 
                 <Button
                   color="secondary"
-                  size="lg"
-                  className="w-full"
+                  size="sm"
                   isDisabled={Boolean(busy)}
                   onClick={onStartReject}
                 >
@@ -430,7 +431,6 @@ export function AdminPageGroupCard({
                   <Button
                     color="link-color"
                     size="md"
-                    className="h-11"
                     isDisabled={Boolean(busy)}
                     onClick={() => onApprove({ asNew: true })}
                   >
@@ -440,14 +440,14 @@ export function AdminPageGroupCard({
               </div>
             )}
 
-            {busy && <p className="mt-2 text-sm text-tertiary">{BUSY_LABEL[busy]}</p>}
-            {state.error && <p className="mt-2 text-sm text-error-primary">{state.error}</p>}
+            {busy && <p className="mt-2 text-xs text-tertiary">{BUSY_LABEL[busy]}</p>}
+            {state.error && <p className="mt-2 text-xs text-error-primary">{state.error}</p>}
           </div>
         )
       )}
 
       {/* 접힌 상태에서도 방금 실패한 것은 보여야 한다 — 펼치지 않으면 왜 안 됐는지 알 수 없다. */}
-      {!expanded && state.error && <p className="px-4 pb-3 text-sm text-error-primary">{state.error}</p>}
+      {!expanded && state.error && <p className="px-4 pb-2 text-xs text-error-primary">{state.error}</p>}
     </li>
   );
 }

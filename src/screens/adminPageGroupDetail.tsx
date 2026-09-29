@@ -14,8 +14,8 @@ type TAdminPageGroupDetailProps = {
 /** 이름표 + 내용 한 줄. 값이 없으면 '—' 를 쓴다 — 줄이 사라지면 "AI 가 안 뽑은 것" 과 "내가 못 본 것" 이 구별되지 않는다. */
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex gap-2 text-sm">
-      <span className="w-16 shrink-0 text-tertiary">{label}</span>
+    <div className="flex gap-2 text-xs">
+      <span className="w-14 shrink-0 text-tertiary">{label}</span>
       <span className="min-w-0 flex-1 whitespace-pre-line text-secondary">{children}</span>
     </div>
   );
@@ -40,7 +40,7 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
   const aiLine = !facts || facts === FACTS_EMPTY ? 'AI 가 읽은 조건이 없어요' : facts;
 
   return (
-    <div className="space-y-4 border-t border-secondary px-4 py-4">
+    <div className="space-y-3 border-t border-secondary px-4 py-3">
       <div className="space-y-1.5">
         <Row label="주소">
           {extracted.address ?? '—'}
@@ -53,7 +53,7 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
         <Row label="조건 원문">{extracted.petPolicyText ?? '조건 문장이 없어요'}</Row>
       </div>
 
-      <div className="rounded-xl bg-secondary px-3 py-2.5 text-sm">
+      <div className="rounded-lg bg-secondary px-3 py-2 text-xs">
         <p className="font-semibold text-secondary">사이트에 보일 조건</p>
         <p className="mt-1 text-tertiary">{policyLine(preview, extracted.petPolicyText)}</p>
         {/*
@@ -64,8 +64,8 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
           * `includes('AI≠정규식')` 은 절대 안 맞는다 — 보간 문자열이라 `startsWith` 여야 한다(빌드·테스트는 초록인 채 기능만 죽는다).
           */}
         <details className="mt-2" open={preview.flags.some((flag) => flag.startsWith('AI≠정규식'))}>
-          {/* 44px 터치 기준(CLAUDE.md) — `text-xs` 한 줄은 그대로 두면 22px 남짓이다. */}
-          <summary className="flex min-h-11 cursor-pointer items-center text-xs text-tertiary">
+          {/* 마우스로 누르는 화면이라 터치 바닥(44px)을 두지 않는다 — 검수 화면은 크기 축을 기준값에 못 박았다(styles/adminDensity.css). */}
+          <summary className="flex min-h-6 cursor-pointer items-center text-xs text-tertiary">
             어떻게 읽었는지 보기
           </summary>
           <ul className="mt-1 space-y-0.5 text-xs text-tertiary">
@@ -76,7 +76,7 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
       </div>
 
       {matched && (
-        <div className="text-sm">
+        <div className="text-xs">
           <span className="text-tertiary">합쳐질 기존 장소 </span>
           {matched.status === 'published' ? (
             <a className="font-semibold text-brand-secondary underline" href={`/place/${matched.id}/`}>
@@ -101,10 +101,10 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
       )}
 
       <div>
-        <p className="text-sm font-semibold text-secondary">블로그 글 {group.rows.length}건</p>
+        <p className="text-xs font-semibold text-secondary">블로그 글 {group.rows.length}건</p>
         <ul className="mt-2 space-y-3">
           {group.rows.map((row) => (
-            <li key={row.id} className="text-sm">
+            <li key={row.id} className="text-xs">
               {row.post_url ? (
                 <a
                   className="text-brand-secondary underline"

@@ -16,6 +16,7 @@ import type { TPlaceRow } from '../lib/adminCandidates';
 import { TYPE_LABEL } from '../lib/adminCandidates';
 import { isPlaceType, TYPE_COLOR, typeTint } from '../lib/places';
 import { cx } from '../utils/cx';
+import { ADMIN_PLACE_GRID } from './adminTable';
 
 /** 장소 한 줄의 화면 상태. 소유자는 `adminPagePlaceList` 고 여기는 받아서 그린다(묶음 카드와 같은 모양). */
 export type TAdminPagePlaceState = {
@@ -36,7 +37,11 @@ type TAdminPagePlaceRowProps = {
 };
 
 /**
- * 장소 한 줄. 이름·종류·지역·상태가 한 줄에 있고, 내린 곳은 사유 한 줄이 아래 붙는다.
+ * 장소 한 줄. `md` 이상에서는 머리글과 열이 맞는 **표의 한 줄**이다(`ADMIN_PLACE_GRID`) —
+ * 이름·지역·상태·내린 사유·버튼이 각자의 열에 선다.
+ *
+ * 버튼을 줄 안에 두는 것이 요점이다. 예전에는 줄마다 아래에 버튼 줄이 하나씩 더 붙어 한 장소가
+ * 두 줄을 먹었다 — 90곳을 훑는 화면에서 그 한 줄이 곧 화면 한 장이다.
  *
  * 사유를 **고르게** 하는 이유는 후보 반려와 같다 — 자유 입력만 두면 매번 다른 말이 적혀 한 달 뒤에
  * "이 곳은 폐업인가 중복인가" 를 셀 수 없다(`adminPageRejectForm` 과 같은 어법).
@@ -60,44 +65,45 @@ export function AdminPagePlaceRow({
     : undefined;
 
   return (
-    <li className="overflow-hidden rounded-2xl border border-secondary bg-primary">
-      <div className="px-4 py-3">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-md font-bold text-primary">{place.name}</span>
+    <li className="overflow-hidden rounded-xl border border-secondary bg-primary">
+      <div className={cx('px-4 py-2', ADMIN_PLACE_GRID)}>
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <span className="truncate text-sm font-bold text-primary">{place.name}</span>
           <span
-            className={cx('rounded-full px-2 py-0.5 text-xs font-semibold', !typeTone && 'bg-secondary text-secondary')}
+            className={cx('rounded px-1.5 text-xs font-semibold', !typeTone && 'bg-secondary text-secondary')}
             style={typeTone}
           >
             {isPlaceType(place.type) ? TYPE_LABEL[place.type] : place.type}
           </span>
+        </div>
+
+        <p className="truncate text-xs text-tertiary">{place.region_raw || '(지역 없음)'}</p>
+
+        <div>
           <Badge size="sm" color={PLACE_STATUS_COLOR[place.status]}>
             {PLACE_STATUS_LABEL[place.status]}
           </Badge>
         </div>
-        <p className="mt-1 text-sm text-tertiary">{place.region_raw || '(지역 없음)'}</p>
-        {/* 내린 이유는 이 카드에서 가장 중요한 한 줄이다 — 이름 다음 위계로 올린다(옛 `text-xs text-tertiary` 는 가장 흐렸다). */}
-        {why && <p className="mt-1 text-sm text-secondary">{why}</p>}
-        {place.status === 'draft' && (
-          <p className="mt-1 text-xs text-tertiary">
-            아직 사이트에 안 올라간 곳이에요 — 올리려면 &lsquo;확인할 장소&rsquo; 에서 이 가게의 후보를 승인해 주세요.
-          </p>
-        )}
 
-        {state.done && <p className="mt-2 text-sm text-success-primary">{state.done}</p>}
-        {state.error && <p className="mt-2 text-sm text-error-primary">{state.error}</p>}
+        {/* 내린 이유는 이 줄에서 상태 다음으로 중요하다 — 자기 열을 갖는다. 초안은 사유 대신 안내가 온다. */}
+        <p className="min-w-0 text-xs text-tertiary">
+          {why ??
+            (place.status === 'draft'
+              ? '아직 사이트에 안 올라간 곳이에요 — ‘확인할 장소’ 에서 이 가게의 후보를 승인하면 올라가요.'
+              : '')}
+        </p>
 
         {!state.archiving && (
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <div className="mt-2 md:mt-0 md:justify-self-end">
             {archived ? (
               <Button
                 color="primary"
-                size="lg"
-                className="sm:flex-1"
+                size="sm"
                 isDisabled={Boolean(busy)}
                 isLoading={busy === 'restoring'}
                 onClick={onRestore}
               >
-                {busy === 'restoring' ? '되살리고 있어요…' : '되살리기(게시중으로)'}
+                {busy === 'restoring' ? '되살리는 중…' : '되살리기'}
               </Button>
             ) : (
               /*
@@ -108,8 +114,7 @@ export function AdminPagePlaceRow({
                */
               <Button
                 color="secondary-destructive"
-                size="lg"
-                className="sm:flex-1"
+                size="sm"
                 isDisabled={Boolean(busy)}
                 onClick={onStartArchive}
               >
@@ -120,9 +125,13 @@ export function AdminPagePlaceRow({
         )}
       </div>
 
+      {/* 결과·오류는 열에 끼우지 않는다 — 줄 전체 폭을 쓰는 편이 읽힌다(그리드 밖이라 열도 흔들지 않는다). */}
+      {state.done && <p className="px-4 pb-2 text-xs text-success-primary">{state.done}</p>}
+      {state.error && <p className="px-4 pb-2 text-xs text-error-primary">{state.error}</p>}
+
       {state.archiving && (
-        <div className="border-t border-secondary px-4 py-4">
-          <p className="text-sm font-semibold text-secondary">왜 내리나요?</p>
+        <div className="border-t border-secondary px-4 py-3">
+          <p className="text-xs font-semibold text-secondary">왜 내리나요?</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {ARCHIVE_REASONS.map((candidate) => (
               <Button
@@ -130,7 +139,6 @@ export function AdminPagePlaceRow({
                 size="sm"
                 color={reason === candidate ? 'primary' : 'secondary'}
                 aria-pressed={reason === candidate}
-                className="h-11"
                 isDisabled={Boolean(busy)}
                 onClick={() => setReason(candidate)}
               >
@@ -139,29 +147,28 @@ export function AdminPagePlaceRow({
             ))}
           </div>
 
-          <div className="mt-3">
+          <div className="mt-2 max-w-md">
             <Input
               aria-label="내림 메모(선택)"
               placeholder="메모 (선택)"
               value={note}
               onChange={setNote}
               isDisabled={Boolean(busy)}
-              size="lg"
+              size="sm"
             />
           </div>
 
           {/* 거짓말을 하지 않는 자리다 — DB 에서 내려도 사이트에서 사라지는 것은 다음 빌드부터다(ADR-015). */}
-          <p className="mt-3 text-xs text-tertiary">
+          <p className="mt-2 text-xs text-tertiary">
             {place.status === 'draft'
               ? '내리면 이 목록의 ‘내림’ 으로 옮겨져요. 사이트에는 원래 없던 곳이에요.'
               : '내리면 다음 빌드부터 사이트에서 사라져요. 되살리려면 위쪽 ‘내림’ 버튼으로 걸러서 찾으면 돼요.'}
           </p>
 
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <div className="mt-2 flex flex-wrap gap-2">
             <Button
               color="primary-destructive"
-              size="lg"
-              className="sm:flex-1"
+              size="sm"
               isDisabled={Boolean(busy) || !reason}
               isLoading={busy === 'archiving'}
               onClick={() => reason && onArchive(reason, note)}
@@ -170,8 +177,7 @@ export function AdminPagePlaceRow({
             </Button>
             <Button
               color="secondary"
-              size="lg"
-              className="sm:flex-1"
+              size="sm"
               isDisabled={Boolean(busy)}
               onClick={onCancelArchive}
             >

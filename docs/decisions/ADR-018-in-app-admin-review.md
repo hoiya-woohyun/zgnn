@@ -1,6 +1,8 @@
 # ADR-018 — 검수는 앱 안 숨은 화면(`/admin`)에서 하고, 승인이 곧 반영이다
 
-> 최종 수정: 2026-09-29 (v3: 문구만 바뀌었다 — 결정 본문은 그대로다. 인용된 화면 말이 새 말로 바뀐 자리만 고쳤다
+> 최종 수정: 2026-09-29 (v4: **결정 10 을 더한다** — 이 화면은 ADR-006 의 크기 축을 따르지 않는다(운영자·PC·표).
+> 결정 1~9 는 그대로다)
+> 이전 (v3: 문구만 바뀌었다 — 결정 본문은 그대로다. 인용된 화면 말이 새 말로 바뀐 자리만 고쳤다
 > ('운영자 계정이 아니에요' → '검수 권한이 없어요', '아니에요' → '반려하기'). 왜 바꿨는지는
 > [features/admin-review.md](../features/admin-review.md) v3)
 > 최종 수정: 2026-09-29 (v2: **내리는 길을 더한다**(결정 6~8) — 올리는 길만 있으면 잘못 올린 것·폐업한 것을 Studio 로 가야 했다.
@@ -82,6 +84,22 @@ Supabase Studio 는 표 편집기라 `extracted` JSON 을 눈으로 읽어야 �
    폐기·재발급이 권장되는데 새 주소를 잘못 붙여 넣으면 증상이 "아무 일도 안 일어남" 이라, **회전을 안전하게 만드는 것은
    새 주소가 아니라 됐는지 볼 수 있는 자리**다.
 
+10. **이 화면만 크기 축을 따르지 않는다.** [ADR-006](ADR-006-responsive-scale-and-font.md) 은 화면이 커지면 크기도 커진다고
+    정했고(`--spacing` 4 → 4.5 → 5px), 그 결정이 보는 대상은 **폰을 손으로 만지는 사용자**다. 검수 화면의 대상은 다르다 —
+    사내 운영자가 PC 로 열고, 한 화면에 몇 줄이 들어오는지가 곧 일의 속도다. 1024px 에서 본문이 20px 가 되면 40줄짜리
+    목록이 화면 두 장이 되고, 눈이 훑을 자리 대신 여백을 훑는다.
+
+    그래서 `/admin` 에서만 `--spacing` 을 기준값 4px 에 **못 박고**(`src/styles/adminDensity.css`), 한 장의 폭을
+    `max-w-7xl` 로 넓히고(`appShellSurface.ts` 의 `surfaceKindOf`), 두 목록을 머리글이 붙은 표로 만든다.
+
+    **자리마다 `text-sm` 을 손으로 붙이는 길을 고르지 않았다.** 그러면 ADR-006 이 없애려던 손질이 이 화면에서만
+    되살아나고 새로 만드는 줄이 규칙에서 빠진다 — 축 하나를 고정하면 글자·여백·버튼 높이·모서리가 같은 비율로 함께 멈춘다.
+    그 한 줄이 `:root` 에 있어야 하는 이유는 CSS 쪽 사정이다: `--text-*` 는 `@theme` 이 `:root` 에 선언하고 커스텀
+    프로퍼티의 `var()` 치환은 선언된 그 요소에서 끝나므로, 화면 안쪽 상자에 덮어쓰면 **여백만 줄고 글자는 안 따라온다.**
+    `:root:has([data-admin-dense])` 로 받아 화면이 떠 있을 때만 켠다(특이도 0,2,0 이 브레이크포인트 규칙을 이긴다).
+
+    이 결정이 바꾸는 것은 배치와 크기뿐이다 — 판정·쓰기(결정 3·6~8)는 한 줄도 건드리지 않았다.
+
 ## 왜 이것인가
 
 - **"맞다" 한 번으로 끝나야 한다.** 오늘 사람 손이 세 번 든다(승인 → `data:apply` → Studio 에서 published). 도구를 하나 더 만들면서 그 셋을 그대로 두면 아무것도 나아지지 않는다.
@@ -112,7 +130,9 @@ Supabase Studio 는 표 편집기라 `extracted` JSON 을 눈으로 읽어야 �
 ## 결과
 
 - 파일: `src/lib/adminSession.ts`(세션) · `adminSupabase.ts`(클라이언트·로그인·운영자 판정) · `adminCandidates.ts`(조회·묶음·미리보기) · `adminApply.ts`(승인·반려) ·
-  `src/screens/adminPage.tsx` + `adminPage{Login,GroupCard,GroupDetail,RejectForm}.tsx` · `src/app/admin/{page.tsx,adminRouteClient.tsx}`.
+  `src/screens/adminPage.tsx` + `adminPage{Login,GroupCard,GroupDetail,RejectForm,PlaceList,PlaceRow}.tsx` ·
+  `adminTable.tsx`(열 규격 — 머리글과 줄이 같은 상수를 본다) · `adminInfiniteScroll.ts`(두 목록이 같이 쓰는 감시판) ·
+  `src/styles/adminDensity.css`(결정 10) · `src/app/admin/{page.tsx,adminRouteClient.tsx}`.
   운영자가 보는 것은 [features/admin-review.md](../features/admin-review.md).
 - `src/app/sw.ts` 에 **우리 호스트 하나**(`<PROJECT_REF>.supabase.co`, `PROJECT_URL` 리터럴에서 뽑는다) → `NetworkOnly` 규칙이 `defaultCache` **앞에** 붙는다.
   와일드카드로 쓰지 않는 이유는 위 2 와 같다 — `.supabase.co` 조각이 번들에 남으면 좁힌 유출 검사가 자기 호스트를 잡는다. `@serwist/next` 의 `defaultCache` 끝에 cross-origin catch-all(`NetworkFirst`·1시간)이 있어

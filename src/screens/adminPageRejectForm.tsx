@@ -20,18 +20,17 @@ export function AdminPageRejectForm({ busy, onCancel, onSubmit }: TAdminPageReje
   const [note, setNote] = useState('');
 
   return (
-    <div className="border-t border-secondary px-4 py-4">
-      <p className="text-sm font-semibold text-secondary">왜 반려하나요?</p>
+    <div className="border-t border-secondary px-4 py-3">
+      <p className="text-xs font-semibold text-secondary">왜 반려하나요?</p>
       {/* 되돌릴 수 없다는 사실은 라벨이 아니라 이 줄이 전한다. 단위를 '글' 로 쓰면 틀린다(묶음은 여러 글이다). */}
       <p className="mt-1 text-xs text-tertiary">반려하면 목록에서 사라져요. 화면에서는 되돌릴 수 없어요.</p>
-      <div className="mt-2 flex flex-wrap gap-2">
+      <div className="mt-2 flex flex-wrap gap-1.5">
         {REJECT_REASONS.map((candidate) => (
           <Button
             key={candidate}
             size="sm"
             color={reason === candidate ? 'primary' : 'secondary'}
             aria-pressed={reason === candidate}
-            className="h-11"
             isDisabled={busy}
             onClick={() => setReason(candidate)}
           >
@@ -40,29 +39,28 @@ export function AdminPageRejectForm({ busy, onCancel, onSubmit }: TAdminPageReje
         ))}
       </div>
 
-      <div className="mt-3">
+      <div className="mt-2 max-w-md">
         <Input
           aria-label="반려 메모(선택)"
           placeholder="메모 (선택)"
           value={note}
           onChange={setNote}
           isDisabled={busy}
-          size="lg"
+          size="sm"
         />
       </div>
 
-      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+      <div className="mt-2 flex flex-wrap gap-2">
         <Button
           color="primary-destructive"
-          size="lg"
-          className="sm:flex-1"
+          size="sm"
           isDisabled={busy || !reason}
           isLoading={busy}
           onClick={() => reason && onSubmit(reason, note)}
         >
           {busy ? '반려하고 있어요…' : '반려하기'}
         </Button>
-        <Button color="secondary" size="lg" className="sm:flex-1" isDisabled={busy} onClick={onCancel}>
+        <Button color="secondary" size="sm" isDisabled={busy} onClick={onCancel}>
           취소
         </Button>
       </div>

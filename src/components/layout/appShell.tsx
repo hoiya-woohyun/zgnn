@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { AppBar } from './appBar';
 import { AppSidebar } from './appSidebar';
 import { AppTabBar } from './appTabBar';
-import { mainSurfaceProps } from './appShellSurface';
+import { mainSurfaceProps, surfaceKindOf } from './appShellSurface';
 import { useAppShellSwipe } from './appShellSwipe';
 import { AppShellSwipePeek } from './appShellSwipePeek';
 import { stampHistoryDepth } from '../../lib/appHistory';
@@ -51,9 +51,8 @@ import { cx } from '../../utils/cx';
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isMap = pathname.startsWith('/map');
   const showBack = !isRootRoute(pathname);
-  const surface = mainSurfaceProps(isMap);
+  const surface = mainSurfaceProps(surfaceKindOf(pathname));
 
   const { peek, finish, enabled, surfaceRef, mainRef, leftRef, rightRef, surfaceProps } =
     useAppShellSwipe(pathname);

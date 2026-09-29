@@ -1,6 +1,8 @@
 # 라우팅 · 화면 셸 · 클라이언트 상태
 
-> 최종 수정: 2026-09-29 (v14: **숨은 운영자 화면 `/admin` 이 생겼다** — 탭바·스와이프 수열·루트 목록 어디에도 넣지 않았고, 셸의 "모르는 경로는 하위 화면"
+> 최종 수정: 2026-09-29 (v15: `<main>` 의 폭이 **세 갈래**가 됐다 — `appShellSurface.ts` 의 `surfaceKindOf` 가 주소 하나를 규격 하나로 옮긴다.
+> `/admin` 은 읽는 화면이 아니라 훑는 표라 `max-w-7xl` 이고, 크기 축도 그 화면만 기준값에 못 박혀 있다 → [ADR-018 결정 10](../decisions/ADR-018-in-app-admin-review.md))
+> 이전 (v14: **숨은 운영자 화면 `/admin` 이 생겼다** — 탭바·스와이프 수열·루트 목록 어디에도 넣지 않았고, 셸의 "모르는 경로는 하위 화면"
 > 기본값이 뒤로가기를 붙인다(`parentRouteOf('/admin') → '/'`). 세션이 localStorage 에만 있어 서버가 그릴 수 없으므로 `/map` 과 같은 `dynamic(ssr:false)` 를 쓴다 → [ADR-018](../decisions/ADR-018-in-app-admin-review.md))
 > 이전 (v13: 탭바 화면 사이도 손가락으로 넘긴다 — 일곱 칸 한 줄(`SWIPE_ROUTES`), 셸이 `<main>` 을 통째로 끌고 이웃 화면을 `fixed` 엿보기로 띄운다. 탭바 화면은 떠날 때의 스크롤 자리를 지킨다(`lib/appScroll.ts`) → [ADR-014](../decisions/ADR-014-shell-owned-swipe-pager.md))
 > 이전 (v12: 둘러보기 종류를 손가락으로 좌우로 넘긴다 — 끌리는 동안 이웃 목록이 옆에서 엿보이고, 놓으면 밀어낸 뒤 주소를 바꾼다(`placesPageSwipe`·`placesPageSwipePeek`) → [ADR-013](../decisions/ADR-013-places-swipe-pager.md))
@@ -159,7 +161,9 @@ viewport 에 고정돼 스크롤을 내리면 색이 안 맞는 내용 위에 �
   된다.** 축약 줄이 그래서 `top: var(--swipe-viewport-top, 0px)` 를 쓴다(셸이 잠기는 순간 지금
   스크롤 값을 적어 상쇄). **화면 안에 `fixed` 를 새로 두면 같은 함정을 밟는다.**
 - 화면 규격(`<main>` 의 폭·여백)은 `appShellSurface.ts` 에 있고 **셸과 엿보기가 같은 함수를
-  부른다** — 어긋나면 놓는 순간 내용이 옆으로 튄다.
+  부른다** — 어긋나면 놓는 순간 내용이 옆으로 튄다. 갈래는 셋이고 주소에서 `surfaceKindOf` 가 고른다:
+  `reading`(기본 `max-w-3xl`) · `map`(제한 없음·여백 없음) · `wide`(`/admin`, `max-w-7xl`).
+  **폭을 화면 쪽에서 정하지 않는다** — 엿보기가 같은 값을 봐야 하고, 화면은 자기가 어디에 놓였는지 모른다.
 
 ### 스크롤은 화면마다 제자리를 지킨다 (`lib/appScroll.ts`)
 
