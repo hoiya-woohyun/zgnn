@@ -110,16 +110,25 @@ async function resolveKeys(axis, names) {
     process.on('exit', () => { try { process.stdin.setRawMode(false); } catch { /* TTY 아님 */ } });
   }
   try {
-    // 둘 중 하나만 env 에 있으면 없는 쪽만 묻는다. 빈 입력은 그 축을 끄는 길이다 — 묻는 자리에 '나가기' 가 없으면 갇힌다.
-    if (!clientId) clientId = trimKey(await readHidden(`${idName}(숨김 입력 · 비우면 건너뜀): `));
-    if (clientId && !clientSecret) clientSecret = trimKey(await readHidden(`${secretName}(숨김 입력): `));
+    // 둘 중 하나만 env 에 있으면 없는 쪽만 묻는다.
+    if (!clientId) clientId = trimKey(await readHidden(`${idName}(숨김 입력${axis === 'map' ? ' · 비우면 건너뜀' : ''}): `));
+    if (clientId && !clientSecret) clientSecret = trimKey(await readHidden(`${secretName}(숨김 입력): `)); // id 를 비웠으면 secret 은 묻지 않는다
   } catch {
-    console.log(`  ${axis === 'search' ? '이름' : '주소'} 축 키 입력을 취소했다`);
-    return null;
+    // Ctrl-C/Ctrl-D — readHidden 이 reject 한다. **축 하나를 끄는 게 아니라 실행을 끝낸다**(collect-blog.mjs:53 과 같다).
+    // 여기서 null 을 돌려주고 계속 가면, 멈추려고 Ctrl-C 를 누른 사람이 좌표 없는 분석을 통째로 돌리게 된다 — 이 게이트가 막으려던 바로 그것이다.
+    process.exit(130);
   }
   if (clientId && clientSecret) return { clientId, clientSecret };
-  // 사람이 비워서 넘어온 것이므로 멈추지 않는다 — 스스로 고른 길이다(게이트가 막으려던 '모르고 지나침' 이 아니다).
-  console.log(`  ${idName} 를 비웠다 — ${axis === 'search' ? '이름 축(좌표·주소 보강)' : '주소→좌표 보강(두 번째 축)'}을 건너뛴다`);
+
+  // 비어 있는 **이름**을 말한다(값은 절대 아니다) — id 를 비운 사람은 secret 프롬프트를 본 적이 없어 무엇을 다시 쳐야 하는지 모른다.
+  const empty = [!clientId && idName, !clientSecret && secretName].filter(Boolean).join(' · ');
+  if (axis === 'search') {
+    // 빈 엔터를 '건너뛰기' 로 받으면 `--no-geo` 말고 **두 번째 옵트아웃**이 생긴다 — 붙여넣기가 실패해 `*` 가 0개인 것도 같은 모양이라
+    // 사람이 의도한 건너뛰기와 구별되지 않는다. 좌표 없이 돌리는 길은 하나여야 하고, 그것은 명시하는 쪽(`--no-geo`)이다.
+    console.error(`네이버 키가 비었다: ${empty} — 다시 실행해 입력하거나, 좌표 없이 돌릴 작정이면 --no-geo 를 붙인다.`);
+    process.exit(1);
+  }
+  console.log(`  ${empty} 를 비웠다 — 주소→좌표 보강(두 번째 축)을 건너뛴다`);
   return null;
 }
 
