@@ -1,11 +1,15 @@
 # 4. Vercel 배포 · 빌드 시 DB 읽기 · 승인되면 재빌드
 
-> 최종 수정: 2026-09-23 (v5: 4a 의 마지막 열린 칸을 닫았다 — `main` `66b15e1` 프로덕션 Ready 로 `outputDirectory` 함정 확인 완료, `data:pull` 스냅샷 diff 없음. 4b 는 그대로 남았다)
+> 최종 수정: 2026-09-29 (v6: **4b 의 DB 쪽 배선을 깔았다** — 대시보드가 아니라 마이그레이션(`20260929023000_vercel_rebuild_webhook.sql`)으로.
+> `places` 변경 → `notify_vercel_rebuild()` → Vault 의 `vercel_deploy_hook` 으로 POST. **URL 은 레포에 없다** — 운영자가 Vault 에 한 줄 넣는다.
+> 넣기 전까지 함수는 no-op 이라 지금 상태로도 쓰기가 멀쩡하다(롤백 트랜잭션으로 실측). 사용자 몫은 두 단계로 줄었다: Deploy Hook 발급 · Vault 한 줄.
+> 대시보드에서 "Database → Webhooks" 를 못 찾는 게 정상이다 — **Integrations → Webhooks** 로 옮겨졌고, 이 프로젝트는 그 기능을 켠 적이 없었다(실측: `supabase_functions` 스키마 없음))
+> 이전 (v5: 4a 의 마지막 열린 칸을 닫았다 — `main` `66b15e1` 프로덕션 Ready 로 `outputDirectory` 함정 확인 완료, `data:pull` 스냅샷 diff 없음. 4b 는 그대로 남았다)
 > 이전 (v4: **(c) Actions 폐지** 반영 — 스냅샷 PR 자동화·`workflow_dispatch` 수동 경로·"수집 잡 끝에 Deploy Hook" 대안이 소멸. 4a 의 env 삭제 확인 완료(프로덕션 anon 86·15). 4b 웹훅은 그대로 목표)
 > 이전 (v3: 빌드의 `data:pull` 은 service_role 이 아니라 publishable(anon) 키로 published 만 읽는다(ADR-016 v4) — Vercel env 에서 Supabase 시크릿이 사라진다)
 > 이전 (v2: 4a 완료 — `vercel.json` 빌드 명령·env 확인, `outputDirectory` 함정(BUG-005) 수정. 4b 는 아직)
 > 이전 (v1: 신설)
-> 상태: 4a 는 끝났다(env 0개·연동 없음에서 프로덕션 Ready 실측). 4b 는 계획. 선행: 4a 는 [01](01-schema-and-seed.md), 4b 는 [03](03-analyze-and-review.md). 재빌드 방식은 [ADR-015](../decisions/ADR-015-supabase-source-and-rebuild.md) §2 로 확정.
+> 상태: 4a 는 끝났다(env 0개·연동 없음에서 프로덕션 Ready 실측). **4b 는 DB 쪽이 끝났고 Vercel 쪽(훅 발급)과 Vault 한 줄이 남았다.** 선행: 4a 는 [01](01-schema-and-seed.md), 4b 는 [03](03-analyze-and-review.md). 재빌드 방식은 [ADR-015](../decisions/ADR-015-supabase-source-and-rebuild.md) §2 로 확정.
 
 ## 왜 런타임 fetch 가 아니라 재빌드인가
 
@@ -43,14 +47,29 @@
 ## 4b. 승인되면 재빌드
 
 ```
-Studio 에서 status 변경  ──▶  Supabase Database Webhook (places: INSERT/UPDATE)  ──▶  Vercel Deploy Hook URL  ──▶  빌드
+/admin 에서 "맞아요"  ──▶  places INSERT/UPDATE  ──▶  트리거 places_notify_vercel_rebuild
+                      ──▶  notify_vercel_rebuild()  ──▶  Vault 의 vercel_deploy_hook 으로 POST  ──▶  Vercel 빌드
 ```
 
-- [ ] Supabase → Database → Webhooks: 테이블 `places`, 이벤트 INSERT·UPDATE·DELETE, HTTP POST → Deploy Hook URL.
-      Deploy Hook 은 본문을 안 본다 — URL 만 맞으면 빌드가 돈다.
+**대시보드 경로가 바뀌었다.** Database 아래가 아니라 **Integrations → Webhooks** 다. 그리고 이 프로젝트는 그 기능을 한 번도 켠 적이 없어
+`supabase_functions` 스키마도 `pg_net` 도 없었다(2026-09-29 실측). 그래서 대시보드로 만들지 않고 **마이그레이션으로 깔았다** —
+대시보드에서 만든 트리거는 레포에 안 남아 "왜 승인하면 빌드가 도나" 를 찾을 곳이 없다. 스키마의 정본은 `supabase/migrations/` 다.
+
+- [x] **DB 쪽 배선**(2026-09-29, `20260929023000_vercel_rebuild_webhook.sql`): `pg_net` 설치 · `public.notify_vercel_rebuild()`(security definer) ·
+      `places` 에 행 단위 AFTER INSERT/UPDATE/DELETE 트리거. 마이그레이션 이력은 로컬=원격 6개로 맞춰 뒀다(`migration repair --status applied`).
+      실측: 롤백 트랜잭션 안에서 `places` 를 한 행 UPDATE 해 **트리거가 쓰기를 깨지 않는 것**을 확인했고, 훅이 없어 `net._http_response` 는 0건이다.
+- [ ] **사용자 ①** Vercel → 프로젝트 → Settings → Git → Deploy Hooks → 브랜치 `main` 으로 발급, URL 복사.
+- [ ] **사용자 ②** Supabase Studio → SQL Editor 에 한 줄. 셸이 아니라 Studio 를 쓰는 이유는 URL 이 셸 히스토리에 남지 않게:
+      ```sql
+      select vault.create_secret('<Deploy Hook URL>', 'vercel_deploy_hook', 'Vercel main 배포 훅');
+      ```
+      이게 들어가는 순간부터 자동이다. 바꿀 때는 `vault.update_secret`, 끊을 때는 그 비밀만 지운다(트리거는 둬도 된다).
+- [ ] 확인: `/admin` 에서 한 건 승인 → `select status_code, created from net._http_response order by created desc limit 3;` 가 200/201 을 보이고
+      Vercel 에 빌드가 하나 서 있으면 끝이다. 실패하면 그 표의 `error_msg` 가 이유를 말한다 — 훅이 폐기됐거나 URL 이 틀린 경우다.
+- [ ] Vault 에 넣기 전까지는 **수동**이다: Vercel Redeploy 또는 `pnpm data:apply` 뒤 사용자가 훅을 한 번 `curl`.
 - [ ] `candidates` 가 아니라 **`places`** 에 건다. 승인(candidates) 자체는 화면에 아무 영향이 없고, `data:apply` 가
       `places` 를 만질 때 비로소 반영할 것이 생긴다.
-- [ ] Deploy Hook URL 은 시크릿이다. Supabase 웹훅 설정 화면에만 존재한다. 새 나가면 Vercel 에서 폐기·재발급(05).
+- [ ] Deploy Hook URL 은 시크릿이다. 이제 **Vault(암호화 저장)에만** 있고 마이그레이션·함수 본문·로그에는 없다. 새 나가면 Vercel 에서 폐기·재발급(05).
 - [ ] 🙋 **승인 N건 = 빌드 N번.** 한 번에 20건 승인하면 빌드 20번이 줄줄이 선다(Vercel 이 같은 브랜치의 대기 중 빌드를
       건너뛰긴 한다). Hobby 에서 **먼저 걸리는 한도가 하루 배포 횟수인지 월 빌드 시간인지**를 첫 달에 관찰한다 — 그게
       아래 세 갈래 중 무엇을 고를지 정한다. 대안:

@@ -86,7 +86,7 @@ REST **GET** 이 URL 로 캐시된다. 그러면 후보 목록이 한 시간 묵
 DB 에 `published` 장소가 생겨도 **정적 사이트는 다시 빌드돼야** 보인다(`pnpm data:pull && pnpm build`).
 오늘 방아쇠는 수동뿐이다(Vercel Redeploy / `vercel deploy --prod` / git push).
 
-- **4b 웹훅**(→ [04](04-deploy-and-propagate.md)): Vercel Deploy Hook 발급 → Supabase Database Webhook(`places` INSERT·UPDATE·DELETE)에 그 URL.
+- **4b 웹훅**(→ [04](04-deploy-and-propagate.md)): **DB 쪽 배선은 2026-09-29 에 깔렸다**(마이그레이션 `20260929023000`). 남은 것은 Vercel 에서 Deploy Hook 발급 후 Studio 에서 `vault.create_secret('<URL>','vercel_deploy_hook')` 한 줄이다.
   **Claude 몫이 아닌 이유는 권한이 아니라 그 URL 이 시크릿**이어서다(ADR-016: 값은 읽지도 찍지도 않는다). 대시보드 두 곳, 브라우저 작업이라 CLI 로그인도 필요 없다.
 - 연결 전까지 화면은 **"올렸어요 · 사이트에는 다음 빌드에서 보여요"** 라고만 말한다. 거짓말을 하지 않는 게 요점이다.
 - 승인 N건 = 빌드 N번이 될 수 있다(04 의 관찰 항목). 잦으면 `deploy_requests` 테이블 + "반영" 버튼으로 모아 쏘는 안이 04 에 있다.
