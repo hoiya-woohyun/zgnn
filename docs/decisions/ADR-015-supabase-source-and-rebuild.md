@@ -1,6 +1,9 @@
 # ADR-015 — 원본은 Supabase, 반영은 재빌드
 
-> 최종 수정: 2026-09-22 (v2: 결과 두 줄을 4a 이후로 정정 — 빌드가 DB 를 읽으므로 커밋된 JSON 은 '빌드 입력' 이 아니라 dev·test 용 스냅샷이다. data-pipeline.md 재작성 예고도 이미 일어난 일)
+> 최종 수정: 2026-09-29 (v3: **§2 의 "앱 번들에 Supabase 가 들어가지 않는다" 를 번복했다** — 운영자 검수 화면 `/admin` 하나가 publishable 키와
+> 프로젝트 호스트를 번들에 싣고 브라우저에서 직접 읽고 쓴다([ADR-018](ADR-018-in-app-admin-review.md)). 경계는 번들의 비밀이 아니라 RLS·GRANT 다.
+> **재빌드 모델 자체는 그대로다** — 사이트가 보여 주는 데이터는 여전히 빌드 때 구워진 JSON 세 개뿐이고, 승인은 다음 빌드에서 반영된다)
+> 이전 (v2: 결과 두 줄을 4a 이후로 정정 — 빌드가 DB 를 읽으므로 커밋된 JSON 은 '빌드 입력' 이 아니라 dev·test 용 스냅샷이다. data-pipeline.md 재작성 예고도 이미 일어난 일)
 > 이전 (v1: 신설 — `docs/todo/` 의 가정 두 개가 사용자 확인으로 확정됨)
 > 상태: 결정. 구현은 [docs/todo/](../todo/README.md) 가 추적한다.
 
@@ -17,7 +20,11 @@
 
 2. **"DB 가 바뀌면 사이트에 반영" 은 런타임 fetch 가 아니라 재빌드로 한다.**
    DB 웹훅 → Vercel Deploy Hook → 빌드가 `data:pull` 로 `src/data/*.json` 을 만들고 → 정적 내보내기.
-   앱 번들에 Supabase 가 들어가지 않고, `output: 'export'`·프리캐시·"런타임 fetch 없음" 이 그대로다.
+   `output: 'export'`·프리캐시는 그대로다 — **사용자가 보는 화면은 런타임에 아무것도 fetch 하지 않는다.**
+   **v3 정정**: "앱 번들에 Supabase 가 들어가지 않는다" 는 더 이상 사실이 아니다. 운영자 검수 화면 `/admin` 이 publishable 키와 프로젝트 호스트를
+   번들에 싣고 브라우저에서 `candidates`·`places` 를 직접 읽고 쓴다(→ [ADR-018](ADR-018-in-app-admin-review.md)). 경계는 RLS·GRANT 이고,
+   유출 검사는 `supabase.co` 전면 차단에서 **우리 호스트 하나만 허용**으로 좁혔다. 그래도 이 항의 나머지는 살아 있다 —
+   승인이 사이트에 닿는 길은 여전히 재빌드뿐이다.
    `next.config.mjs` 의 `revisionHash` 가 `src/` 를 해싱하므로 데이터 변경이 프리캐시 revision 을 바꾼다 — 설치된 PWA 도 새 데이터를 받는다.
 
 3. **회원·로그인은 범위 밖이다.** [ADR-011](ADR-011-app-gate-and-supabase.md)·[ADR-012](ADR-012-personal-data-and-consent.md) 는
@@ -33,4 +40,4 @@
 
 ## 관련
 
-[ADR-001](ADR-001-pwa-static-export.md) 정적 내보내기 전제 · [ADR-011](ADR-011-app-gate-and-supabase.md) 보류된 잠금 · [docs/todo/](../todo/README.md)
+[ADR-001](ADR-001-pwa-static-export.md) 정적 내보내기 전제 · [ADR-011](ADR-011-app-gate-and-supabase.md) 보류된 잠금 · [ADR-018](ADR-018-in-app-admin-review.md) §2 를 번복한 결정 · [docs/todo/](../todo/README.md)

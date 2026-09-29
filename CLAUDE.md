@@ -24,7 +24,8 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
 | 회원·로그인·개인정보를 붙이려 함 | [docs/decisions/ADR-011-app-gate-and-supabase.md](docs/decisions/ADR-011-app-gate-and-supabase.md) · [ADR-012](docs/decisions/ADR-012-personal-data-and-consent.md) — **둘 다 제안 단계라 코드에 대응물이 없다** |
 | 블로그 수집·AI 분석·검수·승인·Supabase·Vercel 배포 | [docs/todo/README.md](docs/todo/README.md)(진행 트래커) · [docs/architecture/data-pipeline.md](docs/architecture/data-pipeline.md) · 결정은 [ADR-015](docs/decisions/ADR-015-supabase-source-and-rebuild.md)(원본=Supabase, 반영=재빌드, 회원은 범위 밖) · [ADR-017](docs/decisions/ADR-017-ai-structured-pet-policy.md)(이용 조건 구조화는 AI 가 뽑을 때, 정규식은 시드·안전망). 코드는 `scripts/collect*`·`scripts/analyze*`·`scripts/review-candidates.mjs`(`pnpm data:review` — 검수 창)·`scripts/apply-approved.mjs` — **`pnpm data:*` 는 사용자 터미널에서 돈다(스케줄·Actions 없음), Claude 는 구독(`claude -p`)으로 부른다, API 키 아님** |
 | 시크릿·API 키·`.env.local`·`pnpm data:login` | [ADR-016](docs/decisions/ADR-016-secrets-by-login.md) · `scripts/lib/supabaseClient.mjs` · `scripts/login.mjs` — **값을 저장하지 않는다**. 운영자가 `pnpm data:login` 한 짧은 세션(JWT)으로 RLS 안에서 쓰고, 만료면 멈춘다. 인증 출처는 세션·anon 둘뿐(service 키는 env 에 있어도 쓰기 스크립트가 멈춘다). 네이버 키는 사용자 로컬 관리(env 또는 TTY 숨김 입력) — `data:collect` 는 사용자 터미널 몫. 레포에 env 파일은 없다(`.env.local` 은 선택) |
-| "왜 이렇게 했나" | [docs/decisions/](docs/decisions/) (ADR 16편) · 전체 지도는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| 운영자 검수 화면(`/admin`)·후보 승인 | [docs/features/admin-review.md](docs/features/admin-review.md) · [ADR-018](docs/decisions/ADR-018-in-app-admin-review.md) · 진행은 [docs/todo/06](docs/todo/06-admin-review.md) · `src/screens/adminPage.tsx` · `src/lib/adminApply.ts` — **여기만 브라우저에서 Supabase 를 직접 부른다**(publishable 키가 번들에 있다, 경계는 RLS·GRANT). 승인 한 번이 `places` 에 `published` 로 들어가고, 사이트에는 다음 빌드에서 보인다 |
+| "왜 이렇게 했나" | [docs/decisions/](docs/decisions/) (ADR 18편) · 전체 지도는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 
 탐색 전에 위 표를 먼저 본다. 전체 구조가 필요하면 `docs/ARCHITECTURE.md` 하나만 읽으면 된다.
 
@@ -90,9 +91,10 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
   경계가 아니다(경계는 "값이 파일에 없다 · exp ≤ 1일 · RLS 범위"). `supabase` CLI 는 휴지 상태가 로그아웃이라 `db push`·`db query` 가 안 되면 사용자에게 로그인을 요청한다.
 - **뒤로가기는 화면이 아니라 셸이 붙인다.** 새 화면에 `AppBar` 를 직접 달지 않는다 —
   탭바에 넣을 화면이면 `src/lib/appRoutes.ts` 의 `ROOT_ROUTES` 에 한 줄 더하고, 아니면 아무것도 안 한다.
-- **상태바 인셋도 셸이 처리한다**(ADR-010). 화면에서 `env(safe-area-inset-top)` 이나 `pt-safe` 를
-  쓰지 않는다 — 맨 위 면이 페이지 바탕이 아닌 화면만 `appRoutes.ts` 의 `topSurfaceColorOf` 에 색을
-  한 줄 더한다. 스크롤을 따라오는 줄은 `top-safe`.
+- **상태바 인셋도 셸이 처리한다**(ADR-010 v3). 화면에서 `env(safe-area-inset-top)` 이나 `pt-safe` 를
+  쓰지 않는다 — 셸이 `<main>` 에 인셋만큼 여백을 주고 **아무도 칠하지 않아 페이지 바탕(크림)이 비친다.**
+  맨 위 면은 전 화면 크림이라 **화면 쪽에서 색을 적을 자리가 없다**(경로별 색 표는 ADR-010 v2 에서 없어졌다).
+  남은 것은 둘: sticky 줄의 덮개 `bleed-top-*` 와, 스크롤을 따라오는 줄의 `top-safe`.
 - **화면 본체는 `src/screens/`** (클라이언트), `src/app/**/page.tsx` 는 주소·메타·
   `generateStaticParams` 만. `src/pages/` 는 Next 가 옛 Pages Router 로 인식해서 못 쓴다.
 - **단일 소유자 파일은 소유자 접두어**를 파일명과 대표 export 에 붙인다(camelCase).

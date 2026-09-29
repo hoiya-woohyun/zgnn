@@ -1,6 +1,9 @@
 # 프로젝트 아키텍처 인덱스
 
-> 최종 수정: 2026-09-28 (v15: 저장한 곳(`/saved`)을 설정 아래에서 홈 아래로 — 뒤로가기 부모·탭 하이라이트가 홈이다. 지도에 저장 칩(ADR-008 v11))
+> 최종 수정: 2026-09-29 (v16: **숨은 운영자 검수 화면 `/admin`** 등재([ADR-018](./decisions/ADR-018-in-app-admin-review.md)) — 라우트 표·디렉터리·ADR 표.
+> 이 화면 하나가 publishable 키로 Supabase 를 직접 읽고 쓰므로 "앱은 런타임에 아무것도 fetch 하지 않는다" 는 **사용자 화면에 대한 말**로 좁혔고,
+> 기술 스택의 데이터 줄을 Notion 이 아니라 Supabase 로 고쳤다(원본 전환은 ADR-015, 2026-09-22 부터의 사실))
+> 이전 (v15: 저장한 곳(`/saved`)을 설정 아래에서 홈 아래로 — 뒤로가기 부모·탭 하이라이트가 홈이다. 지도에 저장 칩(ADR-008 v11))
 >
 > AI 와 개발자 모두를 위한 빠른 참조 문서.
 > 각 섹션은 상세 문서로 연결된다.
@@ -46,8 +49,8 @@
 | 상태 | zustand + persist(localStorage). 서버 상태 없음 |
 | 지도 | 네이버 지도 JavaScript API v3 / NCP Maps (스크립트 로드, npm 패키지 아님) |
 | PWA | `@serwist/next` (webpack 플러그인 — 빌드만 webpack, dev 는 Turbopack) |
-| 데이터 | 빌드 시점 JSON (`src/data/*.json`), Notion 에서 스크립트로 추출 |
-| 테스트 | vitest — `src/lib/*.test.ts` 10개 스위트 133케이스(파서·판정·요금·호칭·프로필 변환·정렬·필터·히스토리·라우트·숙소 피커) |
+| 데이터 | 빌드 시점 JSON (`src/data/*.json`). 원본은 Supabase — 배포마다 `pnpm data:pull` 이 다시 만든다(Notion 은 1회 시드 이력). 운영자 검수 화면 `/admin` 만 브라우저에서 DB 를 직접 부른다 |
+| 테스트 | vitest — `src/lib/*.test.ts` + `scripts/**/*.test.mjs` **34파일 636케이스**(2026-09-29 실측). 앱 쪽은 파서·판정·요금·호칭·프로필 변환·정렬·필터·히스토리·라우트·검수 세션/반영, 스크립트 쪽은 수집·분석·대조·병합 |
 
 ---
 
@@ -62,7 +65,8 @@ Notion 공개 페이지 ──(scripts, 무인증 API)──▶ data/jejudo-noti
                                     src/data/{places,items,meta}.json ──▶ 빌드에 포함
 ```
 
-- 앱은 런타임에 아무것도 fetch 하지 않는다. 장소 86곳(숙소 26·식당 34·카페 26), 준비물 15가지.
+- 사용자가 보는 화면은 런타임에 아무것도 fetch 하지 않는다. 장소 86곳(숙소 26·식당 34·카페 26), 준비물 15가지 — 승인한 장소가 들어오면 86 을 넘는다.
+  **예외는 `/admin` 하나**다: 운영자 검수 화면이 publishable 키로 `candidates`·`places` 를 직접 읽고 쓴다(→ [ADR-018](./decisions/ADR-018-in-app-admin-review.md)).
 - 원본을 Supabase 로 옮기고 블로그 수집·AI 분석·승인·자동 재빌드를 붙이는 계획은 [todo/](./todo/README.md), 결정은 [ADR-015](./decisions/ADR-015-supabase-source-and-rebuild.md) — 스키마·시드·`data:pull`·수집 코드가 있고, **배포 전환(4a)도 끝났다**: `vercel.json` 의 `buildCommand` 가 `pnpm data:pull && pnpm build` 라 배포마다 DB 를 읽는다(위 다이어그램의 Notion 경로는 1회 시드 이력이다). 남은 것은 승인이 저절로 재배포를 일으키는 웹훅(4b).
 - 좌표는 81곳, 도로명주소는 76곳에 있다. 없는 곳은 지도에서 빠지고 "좌표 없는 N곳 제외" 로 알린다.
 
@@ -94,6 +98,7 @@ Notion 공개 페이지 ──(scripts, 무인증 API)──▶ data/jejudo-noti
 /settings         설정(탭) — 우리 강아지 카드, 저장한 곳 진입, 자료 출처
 /saved            저장한 곳 (홈 아래 — 뒤로가기는 /, 홈 카드가 주 진입점. 설정 행은 보조 경로)
 /dog              우리 강아지 등록 — 마리별 이름·몸무게·이동 수단 (설정 안). 저장하면 판정(v1)의 입력이 된다
+/admin            **숨김 · 운영자 전용** 후보 검수 — 로그인(운영자 계정) 뒤 후보를 보고 "맞아요/아니에요". 탭바·스와이프·프리캐시에 없고 링크도 없다(경계는 RLS)
 ```
 
 `src/app/**/page.tsx` 는 주소·메타데이터·`generateStaticParams` 만 맡는 서버 컴포넌트,
@@ -143,8 +148,8 @@ src/
 │   ├── layout.tsx            # 셸(AppShell)·providers·themeColor
 │   ├── manifest.ts           # 웹 매니페스트
 │   ├── sw.ts                 # 서비스워커 소스 (→ public/sw.js)
-│   └── (place|places|map|checklist|saved|dog)/
-├── screens/                  # 화면 본체(클라이언트). 파일명 = 소유 화면 접두어
+│   └── (place|places|map|checklist|saved|dog|admin)/   # admin 만 숨김 라우트(프리캐시 제외)
+├── screens/                  # 화면 본체(클라이언트). 파일명 = 소유 화면 접두어. adminPage*.tsx = 운영자 검수 화면
 ├── components/
 │   ├── base/                 # Untitled UI 복사본. 직접 고치지 않음(eslint 제외)
 │   ├── layout/               # AppShell · AppBar · 사이드바 · 탭바 · PageHeader · Section · EmptyState
@@ -153,13 +158,16 @@ src/
 │   └── *.tsx                 # placeCard · placeThumb · petBadges · eligibilityBadge · saveButton · seasonChips · townChip · missingItemsNote
 ├── lib/                      # 순수 로직. petPolicy · eligibility · dogFee · korean · dogProfile · sortByEligibility · placeFilters
 │                             #            checklist · itemNeeds · amenities · places · category · format · appHistory · appRoutes
+│                             #            admin{Session,Supabase,Candidates,Apply} — /admin 전용(순수 로직은 scripts/ 모듈을 import)
 ├── store/useAppStore.ts      # zustand persist
 ├── store/useDogEligibility.ts # useEligibility · useEligibilityMap
 ├── providers/                # storeHydration · routerProvider(react-aria Link → Next router)
 ├── data/                     # 빌드에 박히는 JSON 3개
 ├── styles/                   # theme.css(토큰) · globals.css · typography.css
 └── types.ts                  # 도메인 타입
-scripts/                      # normalize · make-icons · (fetch|optimize)-images
+scripts/                      # normalize · make-icons · (fetch|optimize)-images · collect/analyze/apply(데이터 파이프라인)
+├── lib/supabasePublic.mjs    # 공개 상수(PROJECT_REF · PUBLISHABLE_KEY · PROJECT_URL). import 없음 → 브라우저도 가져간다
+├── lib/dataJson.mjs          # writeDataJson(node:fs). placeFields.mjs 를 순수하게 두려고 떼어 낸 파일
 data/                         # Notion 추출본(커밋) · raw/(무시)
 ```
 
@@ -170,6 +178,7 @@ data/                         # Notion 추출본(커밋) · raw/(무시)
 | 문서 | 상태 | 내용 |
 |---|---|---|
 | [dog-profile.md](./features/dog-profile.md) | 구현 완료(v1) | 내 강아지 등록과 장소별 판정. 등록·판정 로직 + 홈·목록·상세·지도 반영까지 |
+| [admin-review.md](./features/admin-review.md) | 구현 중 | 운영자 검수 화면 `/admin` — 무엇이 보이고 버튼이 무엇을 쓰는지. 진행은 [todo/06](./todo/06-admin-review.md) |
 
 ## 주요 의사결정 (ADR)
 
@@ -190,6 +199,7 @@ data/                         # Notion 추출본(커밋) · raw/(무시)
 | [ADR-013](./decisions/ADR-013-places-swipe-pager.md) | 둘러보기 종류를 손가락으로 넘긴다 — 캐러셀이 아니라 엿보기(peek) + 놓으면 push |
 | [ADR-014](./decisions/ADR-014-shell-owned-swipe-pager.md) | 탭바 화면 사이도 손가락으로 넘긴다 — 둘러보기를 펼친 일곱 칸 한 줄, 셸이 소유 |
 | [ADR-015](./decisions/ADR-015-supabase-source-and-rebuild.md) | 원본은 Supabase, 반영은 재빌드 — 회원은 범위 밖 |
+| [ADR-018](./decisions/ADR-018-in-app-admin-review.md) | 검수는 앱 안 숨은 화면(`/admin`)에서 하고 승인이 곧 반영이다 — 번들에 publishable 키가 들어간다(ADR-015 §2 번복, 경계는 RLS·GRANT), 세션은 access token 만(12시간), 신규 장소는 곧바로 `published`, 사이트 반영은 재빌드 |
 | [ADR-016](./decisions/ADR-016-secrets-by-login.md) | 시크릿은 저장하지 않는다 — 운영자가 `pnpm data:login` 하면 짧은 세션(JWT)으로 RLS 안에서 쓴다. 관리자가 없으면(만료) 아무 스크립트도 DB 에 쓰지 못한다. 인증 출처는 세션·anon 둘뿐 — service_role 은 어디에도 없고 GitHub Actions 도 없다(v5). 수집·분석·반영은 사용자 터미널에서 |
 
 ## 버그 기록

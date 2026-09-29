@@ -1,6 +1,10 @@
 # TODO — 블로그 수집 → AI 분석 → 승인 → DB → 자동 배포
 
-> 최종 수정: 2026-09-28 (v23: **미push 커밋 6개를 검증 후 push·배포 확인**했다 — 트래커가 "선행이 없어졌다" 로 닫아 둔 사이 다시 쌓인 것이다(같은 패턴 두 번째).
+> 최종 수정: 2026-09-29 (v24: **미push 커밋 7개를 push·배포 확인**(2026-09-28 23:40, 프로덕션 Ready — 빌드 로그 `publishable(anon)` · `places 86 · items 15` · 유출 검사 **530파일**)하고,
+> **운영자 검수를 앱 안 `/admin` 으로 옮겼다**([06](06-admin-review.md) 신설 · [ADR-018](../decisions/ADR-018-in-app-admin-review.md)). 실행 순서의 사용자 검수 줄이 `data:review` 에서 `/admin` 으로 바뀌었다 —
+> **그리고 4b 웹훅이 이제 크리티컬 패스다**: 화면이 승인 즉시 `published` 를 만드므로, 남은 유일한 사람 손은 "재빌드를 누가 일으키는가" 하나다.
+> 좁힌 유출 검사·번들의 publishable 키는 [05](05-security.md) v12, 상태 머신 두 갈래는 [data-pipeline](../architecture/data-pipeline.md) v11)
+> 이전 (v23: **미push 커밋 6개를 검증 후 push·배포 확인**했다 — 트래커가 "선행이 없어졌다" 로 닫아 둔 사이 다시 쌓인 것이다(같은 패턴 두 번째).
 > 그래서 잠금 줄에 **불변식이 아니라는 단서**를 달았다: 잠그기 직전에 `git log --oneline origin/main..HEAD` 가 비었는지 본다.
 > 실측 — 566 테스트 · `pnpm build`(`sw.js` 64KB) · 유출 검사 530파일 · 프로덕션 Ready(`publishable(anon)` · `places 86 · items 15` · `/sw.js` 200).
 > 변경이 `scripts/`+`docs/` 뿐이라 산출물은 동일하다. **다음 차례는 그대로 사용자의 `data:analyze --dry-run --limit 5`** 다.
@@ -83,16 +87,17 @@ flowchart LR
 | 0 | [00-setup-supabase-vercel.md](00-setup-supabase-vercel.md) | 끝남 — GitHub 0개·Vercel 0개(실측), 로컬은 세션만. 남은 건 Deploy Hook(4b) | 프로젝트 둘 다 생성, **시크릿은 GitHub 0개·Vercel 0개**(로컬은 세션만) |
 | 1 | [01-schema-and-seed.md](01-schema-and-seed.md) | 데이터는 `src/data/*.json` 뿐 | Supabase 가 원본. 86곳·15개 시드, `data:pull` 로 JSON 생성 |
 | 2 | [02-collect-naver-blog.md](02-collect-naver-blog.md) | 코드 완료(실행 전) | 키워드로 최근 1년 블로그 글을 **사용자 터미널에서 수집**(`pnpm data:collect`, 스케줄 없음) |
-| 3 | [03-analyze-and-review.md](03-analyze-and-review.md) | 코드 완료(실행 전) | Claude(구독, 로컬 `claude -p`)가 장소·조건을 뽑고, 사람이 링크 보고 승인 — 사용자 터미널의 운영자 세션에서 |
+| 3 | [03-analyze-and-review.md](03-analyze-and-review.md) | 코드 완료 · **첫 실행 돌았다**(2026-09-28, 글 50건 → pending 160건) · 검수는 이제 [6](06-admin-review.md) 의 `/admin` | Claude(구독, 로컬 `claude -p`)가 장소·조건을 뽑고, 사람이 링크 보고 승인 — 사용자 터미널의 운영자 세션에서 |
 | 4 | [04-deploy-and-propagate.md](04-deploy-and-propagate.md) | 4a 완료(빌드가 DB 를 anon 으로 읽음) · 4b 없음 | 승인 → 자동 재빌드 → 사이트 반영(수동 경로는 `data:apply` 뒤 Redeploy) |
-| 5 | [05-security.md](05-security.md) | 두 출처(세션·anon) · (b) GRANT 축소 원격 적용·실측 완료(어드바이저 확인만 남음) | 키 분리·RLS·GRANT 상한·웹훅 서명·프리뷰 보호 |
+| 5 | [05-security.md](05-security.md) | 두 출처(세션·anon) · (b) GRANT 축소 원격 적용·실측 완료(어드바이저 확인만 남음) · **번들에 publishable 키가 들어갔다**(유출 검사는 우리 호스트만 허용) | 키 분리·RLS·GRANT 상한·웹훅 서명·프리뷰 보호 |
+| 6 | [06-admin-review.md](06-admin-review.md) | 1단계(스크립트 정리) 커밋 `ff62eba`, 2~5단계 진행 중 | 앱 안 `/admin` 에서 후보를 보고 **맞아요 한 번으로** `places(published)` 까지 — 결정은 [ADR-018](../decisions/ADR-018-in-app-admin-review.md), 화면은 [features/admin-review.md](../features/admin-review.md) |
 
 ## 이 계획이 서 있는 결정 — [ADR-015](../decisions/ADR-015-supabase-source-and-rebuild.md)
 
 2026-09-18 사용자 확인으로 확정됐다. 요지만:
 
 1. **원본은 Supabase.** 와이프가 더 이상 Notion 을 편집하지 않는다 → Notion 은 1회 시드. 손으로 고칠 일은 Studio 에서.
-2. **반영은 재빌드.** DB 웹훅 → Deploy Hook → 빌드 안에서 `data:pull`. 앱 번들에 Supabase 없음, 기존 ADR 전부 유지.
+2. **반영은 재빌드.** DB 웹훅 → Deploy Hook → 빌드 안에서 `data:pull`. **사용자 화면 번들에는 Supabase 없음 — 운영자 화면 `/admin` 은 예외**([ADR-018](../decisions/ADR-018-in-app-admin-review.md), [ADR-015](../decisions/ADR-015-supabase-source-and-rebuild.md) v3 가 §2 를 번복). 기존 ADR 전부 유지.
 3. **회원·로그인은 todo 에 없다.** ADR-011·012 는 "추후 고도화" 로 보류. 필요해지면 4 만 런타임 fetch 로 다시 쓴다.
 
 ## 순서와 의존
@@ -150,7 +155,7 @@ flowchart LR
         `--dry-run --limit 5`(아래 **실행 순서**). 키 없는 Claude 가 돌리면 좌표 보강이 건너뛰어져 ⚠️1 이 또 미검증으로 남는다
 - [x] 4a Vercel 빌드 명령 `pnpm data:pull && pnpm build`(`vercel.json`) — 첫 배포는 `outputDirectory: "out"` 때문에 실패했고(BUG-005) 고쳐 커밋했다.
       **`main` `66b15e1` 프로덕션 Ready 로 확인 완료**(2026-09-23 (3)): 빌드 로그 `publishable(anon)` · 86·15 · 유출 검사 530파일, 프로덕션 `/map` 브라우저 실측 정상
-- [ ] 4b DB 웹훅 → Deploy Hook 자동 재빌드
+- [ ] 4b DB 웹훅 → Deploy Hook 자동 재빌드 — **`/admin` 이 들어오면서 크리티컬 패스가 됐다**(승인 즉시 `published` 라 남은 사람 손은 재빌드 방아쇠뿐)
 - **5** 보안
   - [x] `scripts/check-bundle.mjs` 유출 검사(빌드 뒤 자동 실행) · `.env.example` 커밋
   - [x] anon select 빈 결과(5 테이블 `[]`) · env→번들 유출 경로(참조가 있을 때만 잡힘 — 그게 맞는 자리) · 보안 헤더 3개(`vercel.json`)
@@ -160,7 +165,7 @@ flowchart LR
 
 체크박스가 정본이다. 진행 상황을 다음 세션에 넘길 때는 아래 세션 로그에 한 줄 남긴다.
 
-## 다음 할 일 (2026-09-28 기준 — 새 세션은 여기서 시작)
+## 다음 할 일 (2026-09-29 기준 — 새 세션은 여기서 시작)
 
 브랜치 **`feature/naver-map`** 은 push 되고 **`main` 에 fast-forward 머지됐다**(`main` = `origin/main` = `66b15e1`, 2026-09-23 (3)).
 지도 교체 · 좌표 보강 네이버 전환 · self-cr 반영까지 전부 `main` 에 있고, **프로덕션에도 배포됐다**(아래 「끝난 것」).
@@ -191,6 +196,7 @@ flowchart LR
           ⚠️ **다만 "선행이 없다" 는 이 줄을 쓴 시점의 사실이지 불변식이 아니다.** 커밋이 쌓이면 다시 생긴다 —
           **잠그기 직전에 `git log --oneline origin/main..HEAD` 가 비었는지 한 번 본다**(09-28 (2)·(4) 에서 두 번 재발했다)
 [Claude]  ✅ 미push 커밋 4개 push → 프로덕션 배포 확인  (2026-09-28, 지도 폴리시 3 + 헤더 흰색 1)
+[Claude]  ✅ 미push 커밋 **7개** push → 프로덕션 배포 확인  (2026-09-28 23:40 — 프로덕션 Ready, 빌드 로그 `publishable(anon)` · `places 86 · items 15` · 유출 검사 **530파일**)
 [Claude]  ✅ 미push 커밋 **6개** push → 프로덕션 배포 확인  (2026-09-28 (4) — 수집 진행 로그 · `stopReason` · 좌표 미확보 5곳 · Geocoding 축 `6cacd89` + 문서 3).
           트래커가 "선행이 없어졌다" 로 닫아 둔 사이 다시 쌓인 것이다(같은 패턴 두 번째). 검증: **566 테스트** · `pnpm build`(`sw.js` 64KB) · 유출 검사 530파일 ·
           프로덕션 Ready(`publishable(anon)` · `places 86 · items 15` · 530파일, `/sw.js` 200). 변경이 `scripts/`+`docs/` 뿐이라 산출물은 동일하다
@@ -200,8 +206,14 @@ flowchart LR
 [사용자]  ✅ 첫 pnpm data:analyze — **키 없이** 50건(2026-09-28 14:16~14:31) → pending 160건. 좌표 보강 0건이라 ⚠️1·⚠️3 은 그대로 미검증. 옛 프롬프트라 petPolicy·visited 없음(03 v10)
 [사용자]  **마이그레이션 적용** — supabase/migrations/20260928150000_analysis_and_pet_policy.sql 을 Studio SQL 편집기에 붙여 넣거나 `supabase db push`
           (blog_posts.analysis · places.pet_policy · candidates.reviewed_at 트리거). **안 하면 data:analyze 가 시작에서 멈춘다**(의도 — Claude 한도를 쓰기 전에).
-[사용자]  pnpm data:review status → pnpm data:review --limit 20 (--verbose) — 옛 160건을 본다. "AI 판단 없음"·"좌표 없음" 이 정상(옛 프롬프트·키 없음).
-          쓸모없는 묶음(목록글 101건 · 홍보 블로그 13건)은 `reject <id…> --note`, 확실한 것만 `approve`. 나머지는 두어도 된다 — 새 실행이 dupOf 로 묶는다.
+[사용자]  **`/admin` 로그인 → 후보 검수**  ← 검수의 기본 경로가 터미널에서 화면으로 바뀌었다(2026-09-29, [06](06-admin-review.md) · [ADR-018](../decisions/ADR-018-in-app-admin-review.md))
+          **열리는 시점**: [06](06-admin-review.md) 의 [Claude] 2~5단계(브라우저 데이터 계층 · 화면 · 문서 · 검사·리뷰·push)가 끝나 배포된 뒤다. 그전까지는 아래 (대안) 줄이 검수 경로다.
+          운영자 계정으로 로그인(12시간마다 다시) → 묶음 카드에서 원글·인용문·조건 미리보기를 보고 **맞아요 / 아니에요**.
+          2026-09-28 밤 기준 pending **160건(묶음 142 — 일치 8 · 신규 134 · 조건 문장 없음 112)**. "AI 판단 없음"·"좌표 없음" 은 정상이다(옛 프롬프트·네이버 키 없이 돌린 결과).
+          쓸모없는 묶음(목록글 101건 · 홍보 블로그 13건)은 '아니에요' + 사유 칩, 확실한 것만 '맞아요'. 나머지는 두어도 된다 — 새 실행이 `dupOf` 로 묶는다.
+          **'맞아요' 는 `places` 에 `published` 로 바로 들어간다** — 그래서 아래 4b 가 크리티컬 패스다(연결 전에는 Vercel Redeploy 가 방아쇠).
+[사용자]  (대안) pnpm data:review status → pnpm data:review --limit 20 (--verbose) — 터미널 검수 창은 그대로 남아 있다.
+          `/admin` 이 막히거나(세션·배포) 승인 중간에 실패한 후보(`approved` 로 남는다)를 이어받을 때는 이쪽으로: `reject <id…> --note` · `approve` → `pnpm data:apply`.
 [사용자]  NAVER_CLIENT_ID=… NAVER_CLIENT_SECRET=… NAVER_MAP_CLIENT_ID=… NAVER_MAP_CLIENT_SECRET=… pnpm data:analyze --limit 5 --dump   ← **다음 차례. Claude 몫이 아니다**
           `--dump` 가 data/raw/analyze-<시각>.json 에 후보(petPolicy 판단 포함)·제외 목록을 남긴다 — 정규화 품질은 그 파일과 `data:review` 로 본다. dry-run 대신 실제 실행을 권한다(5건이면 되돌리기 쉽고 analysis 도 실측된다).
           ⚠️ **키가 두 쌍이다**(2026-09-28): 앞의 둘은 **검색**(API HUB · 이름 축), 뒤의 둘은 **Maps**(Geocoding · 주소 축)다. 값이 서로 다르고 헤더 이름은 같아
@@ -219,7 +231,9 @@ flowchart LR
 [사용자]  pnpm data:review → approve/reject → [Claude] pnpm data:apply --dry-run → [사용자] pnpm data:apply → pnpm data:review status (published 대기 draft) → Studio 에서 published
 [사용자]  후보 20건쯤 검수한 뒤 → AUTO_APPROVE·THRESHOLD·WEIGHT · reviewPriority(검수 순서) 결정(🙋 03)
 [사용자]  Supabase 대시보드 어드바이저 한 번 확인((b) 검증의 마지막 항목)
-[사용자]  4b: Vercel Deploy Hook 발급 → Supabase Studio 의 Database Webhook 에 그 URL.
+[사용자]  **4b: Vercel Deploy Hook 발급 → Supabase Studio 의 Database Webhook 에 그 URL. ← 이제 크리티컬 패스다.**
+          `/admin` 의 '맞아요' 가 `places(published)` 를 만드는데, 정적 사이트는 다시 빌드돼야 그 장소를 보여 준다 —
+          웹훅이 없으면 검수를 다 해 놓고도 사이트가 안 바뀌고, 화면은 "사이트에는 다음 빌드에서 보여요" 라고만 말한다(거짓말을 안 하는 대신 사람이 Redeploy 를 눌러야 한다).
           **대시보드 둘 다 브라우저 작업이라 CLI 로그인이 필요 없다.** Claude 몫이 아닌 이유는 권한이 아니라
           **Deploy Hook URL 이 시크릿**이어서다(ADR-016: 값은 읽지도 찍지도 않는다). 기본 경로는 이미 정해져 있다 —
           `places` 에 INSERT·UPDATE·DELETE, 그냥 둔다(🙋 04 는 "첫 달 빌드 횟수를 보고" 로 미뤄진 관찰 항목이지 지금 막는 결정이 아니다)
@@ -517,4 +531,5 @@ flowchart LR
 
 - [.omc/plans/2026-09-17-notion-supabase-scraping.md](../../.omc/plans/2026-09-17-notion-supabase-scraping.md) — 이 폴더가 **대체**한다. 살아남은 것: Phase 1 의 "재추출 스크립트 부재", §4 의 `matchPlace`. Phase 4 의 GitHub Actions 선택 이유는 (c) 로 뒤집혔다(2026-09-22 — 관리자 없이 도는 구조가 곧 만료 없는 시크릿 저장소라서). 거기 적힌 "git 원격이 없다" 는 이제 사실이 아니다(`origin` = `hoiya-woohyun/zgnn`).
 - [ADR-011](../decisions/ADR-011-app-gate-and-supabase.md) · [ADR-012](../decisions/ADR-012-personal-data-and-consent.md) — **추후 고도화로 보류**(ADR-015 §3). 회원을 받지 않으므로 개인정보도 받지 않는다. ADR-012 의 "리전은 서울, 생성 시에만" 만 **지금 0 에서 지킨다.**
-- [docs/architecture/data-pipeline.md](../architecture/data-pipeline.md) — 1·4 가 끝나면 "동기화는 수동", "런타임 fetch 없음"(이건 그대로 참), "재추출 스크립트는 없다" 를 다시 쓴다.
+- [docs/architecture/data-pipeline.md](../architecture/data-pipeline.md) — 1·4 가 끝나면 "동기화는 수동", "재추출 스크립트는 없다" 를 다시 쓴다(v11 에서 다 썼다).
+  "런타임 fetch 없음" 은 **사용자 화면에 대해서만 참**이다 — 2026-09-29 부터 운영자 화면 `/admin` 하나가 Supabase 를 직접 부른다([ADR-018](../decisions/ADR-018-in-app-admin-review.md), [ADR-015](../decisions/ADR-015-supabase-source-and-rebuild.md) v3 가 §2 를 번복).

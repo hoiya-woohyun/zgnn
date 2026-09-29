@@ -1,6 +1,9 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-09-28 (v10: **첫 `data:analyze` 실측(글 50건 → 후보 160건)과 설계 검토를 반영** — 이용 조건의 구조화를 AI 가 뽑을 때 판단한다
+> 최종 수정: 2026-09-29 (v11: **운영자 검수 화면 `/admin` 이 두 번째 쓰기 경로가 됐다**([ADR-018](../decisions/ADR-018-in-app-admin-review.md)) — 브라우저가 `apply-approved.mjs` 와
+> 같은 순서로 `pending → approved → merged` 를 한 번에 밟고, **신규 장소는 곧바로 `published`** 다(CLI 는 그대로 `draft`). 그래서 "런타임 fetch 없음" 은
+> **사용자 화면에 대한 말**로 좁혀 적었다 — 운영자 화면 하나는 publishable 키로 Supabase 를 직접 부른다)
+> 이전 (v10: **첫 `data:analyze` 실측(글 50건 → 후보 160건)과 설계 검토를 반영** — 이용 조건의 구조화를 AI 가 뽑을 때 판단한다
 > ([ADR-017](../decisions/ADR-017-ai-structured-pet-policy.md), `petPolicy`·`places.pet_policy`) · 추출 필드에 `visited`(목록 글 표식)·`petAllowed`(동반 불가면 후보 제외)·숙소 요금/용품 ·
 > 글 단위 결과가 `blog_posts.analysis` 에 남는다(후보 0건의 이유·프롬프트 버전) · 같은 가게의 후보는 `nameKey`/`dupOf` 로 묶인다 · 한 실행에 블로그당 2건(`--max-per-blog`) ·
 > `--dump` 로 후보를 로컬 JSON 으로 · **검수 창 `pnpm data:review`**(묶음 · 정규식/AI/앱 판정 미리보기 · 승인/반려) · 반영 게이트(지역 없으면 pending 되돌림 · ask 구간 재대조는 사람에게) ·
@@ -22,9 +25,12 @@
 
 ## 개요
 
-앱이 읽는 데이터는 여전히 `src/data/` 의 JSON 세 개가 전부이고, **런타임 fetch 는 없다.** 바뀐 건 그 JSON 을
+**사용자가 보는 화면**이 읽는 데이터는 여전히 `src/data/` 의 JSON 세 개가 전부이고, 그 화면들엔 **런타임 fetch 가 없다.** 바뀐 건 그 JSON 을
 누가 만드느냐다 — 원본은 이제 **Supabase**([ADR-015](../decisions/ADR-015-supabase-source-and-rebuild.md))고,
 Notion 은 1회 시드 경로로만 남는다.
+
+예외가 하나 있다: **운영자 검수 화면 `/admin`** 은 publishable 키로 Supabase 를 직접 읽고 쓴다([ADR-018](../decisions/ADR-018-in-app-admin-review.md)).
+숨은 하위 화면이고 로그인·RLS 안에서만 동작하며, 장소·준비물 화면은 그 코드를 거치지 않는다.
 
 ```mermaid
 flowchart LR
@@ -38,7 +44,8 @@ flowchart LR
   I --> B
 ```
 
-- 앱은 런타임에 아무것도 fetch 하지 않는다. 장소 86곳(숙소 26·식당 34·카페 26), 준비물 15가지 — 지금까지와 동일.
+- 장소·준비물 화면은 런타임에 아무것도 fetch 하지 않는다. 장소 86곳(숙소 26·식당 34·카페 26), 준비물 15가지 — 지금까지와 동일
+  (승인한 장소가 `data:pull` 로 들어오면 86 을 넘는다). `/admin` 만 예외다(위 예외 문단).
 - 갱신은 여전히 사람이 **재배포를 일으켜야** 반영된다. Vercel 빌드 명령은 `pnpm data:pull && pnpm build` 다(`vercel.json` 의 `buildCommand`, [todo/00](../todo/00-setup-supabase-vercel.md) 4a —
   끝났고 프로덕션 Ready 로 실측됐다), 그래서 **배포될 때마다 DB 를 새로 읽는다** — 커밋된 `src/data/*.json` 은 키 없이 `pnpm dev`·`pnpm test` 를 돌리기 위한 스냅샷이고, 배포 빌드는 그 위에 `data:pull` 결과를 덮어쓴다.
   아직 없는 것은 4b 뿐이다: 승인이 **저절로** 재배포를 일으키는 DB 웹훅 → Deploy Hook. 그전까진 push 나 Redeploy 가 그 방아쇠다.
@@ -106,7 +113,8 @@ Postgres 테이블엔 원래 순서 개념이 없는데, 화면은 "종류별 �
 
 ## 수집 · 분석 · 승인 (첫 실행 2026-09-28 — 글 50건 → 후보 160건, 네이버 키 없이)
 
-**사용자 터미널에서** `pnpm data:collect` → `pnpm data:analyze` → (Studio 에서 승인) → `pnpm data:apply` 를 순서대로 돌린다 — 스케줄·CI 없음
+**사용자 터미널에서** `pnpm data:collect` → `pnpm data:analyze` → (검수·승인) → `pnpm data:apply` 를 순서대로 돌린다 — 스케줄·CI 없음
+(검수·승인은 2026-09-29 부터 앱 안 `/admin` 이 기본이고, 거기서 승인하면 `data:apply` 단계까지 그 클릭이 대신한다 → [ADR-018](../decisions/ADR-018-in-app-admin-review.md)·[features/admin-review](../features/admin-review.md))
 (ADR-016 v5, GitHub Actions 폐지). 셋 다 운영자 세션(`pnpm data:login`)이 필요하고, `data:collect` 는 네이버 검색 키까지 필요하다 — env
 (`NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`)로 넘기거나 없으면 터미널 숨김 입력으로 받는다(어디에도 저장 안 함 · 에이전트 세션에서는 입력을 거부).
 그래서 수집은 사용자 몫이고 에이전트는 `data:analyze`·`data:apply` 만 돌린다. `blog_posts` 는 사용자가 돌릴 때만 찬다. 진행·결정은
@@ -119,10 +127,12 @@ flowchart LR
   B -->|claude -p --json-schema<br/>구독, API 키 없음| E[장소 0~N개<br/>petPolicyText 는 원문 그대로]
   E -->|네이버 지역 검색: 이름 완전 일치만| G[좌표·주소·regionRaw]
   G -->|matchPlace vs places<br/>archived 빼고 draft 포함| C[(candidates<br/>pending · tier auto/ask/new)]
-  C -->|사람: pnpm data:review 또는 Studio<br/>묶음 · 정규식/AI/앱 판정 미리보기| A{approved?}
-  A -->|approved| PL[(places<br/>빈 칸만 채움 · 신규는 draft)]
+  C -->|사람: /admin · pnpm data:review · Studio<br/>묶음 · 정규식/AI/앱 판정 미리보기| A{approved?}
+  A -->|approved → data:apply| PL[(places<br/>빈 칸만 채움 · 신규는 draft)]
+  A -->|/admin 의 '맞아요' — 승인과 반영이 한 번| PP[(places<br/>빈 칸만 채움 · 신규는 published)]
   A -->|rejected| X[끝]
   PL -.->|published 는 사람이 올림| PULL[data:pull → 재빌드]
+  PP -.->|다음 빌드에서 보인다| PULL
 ```
 
 첫 실행에서 배운 것 넷(2026-09-28, 설계 검토 45건 중 검증 31건 반영):
@@ -153,14 +163,23 @@ flowchart LR
 | `candidates.status` | 누가 바꾸나 | 뜻 |
 |---|---|---|
 | `pending` | `data:analyze` 가 만든다 | 사람이 볼 차례. `extracted.match.tier` 가 `auto`(≥0.85 — 기존 장소와 사실상 같음) · `ask`(0.4~0.85 — `match_place_id` 는 제안) · `new`(신규) |
-| `approved` | 사람(Studio). `AUTO_APPROVE=true` 면 `auto` 는 자동 | `data:apply` 가 반영한다. `ask` 인데 신규가 맞으면 **`match_place_id` 를 비우고** 승인 |
+| `approved` | 사람(`/admin` · `pnpm data:review` · Studio). `AUTO_APPROVE=true` 면 `auto` 는 자동 | `data:apply` 가 반영한다. `ask` 인데 신규가 맞으면 **`match_place_id` 를 비우고** 승인. `/admin` 에서는 이 상태가 **지나가는 자리**다 — 같은 클릭이 이어서 `places` 까지 쓰고 `merged` 로 넘긴다. 중간에 실패하면 여기 남고 `data:apply` 가 이어받는다 |
 | `rejected` | 사람 | 끝. `reviewer_note` 에 이유 |
-| `merged` | `data:apply` | `places` 에 반영됐다(보강 또는 draft 신규 + `place_sources` 링크). `extracted.applied = { placeId, kind, patchKeys, at }` 로 어느 칸을 채웠는지 남는다(되돌릴 때 그 칸을 null 로) |
+| `merged` | `data:apply` 또는 `/admin` | `places` 에 반영됐다(보강, 또는 신규 — `data:apply` 는 `draft`·`/admin` 은 `published` + `place_sources` 링크). `extracted.applied = { placeId, kind, patchKeys, at }` 로 어느 칸을 채웠는지 남는다(되돌릴 때 그 칸을 null 로) |
 
 `data:apply` 가 **반영하지 않고 pending 으로 되돌리는** 경우(사유는 `reviewer_note`): `regionRaw` 가 없거나 형식이 아님 · 신규 후보가 현재 장소와 ask 구간(0.4~0.85)으로 닮음(같은 곳이면
 `match_place_id` 를 채우고, 다른 곳이면 `extracted.match.tier` 를 `ask` 로 바꿔 재승인) · 대상이 archived · type other. 신규 숙소는 `stayPriceText`·`stayAmenitiesText` 가 `stay_*` 로 들어간다.
 
-`places.status` 는 별개다: 신규는 `draft` 로 들어오고 **`published` 로 올리는 건 사람**이다 — `data:pull` 은 `published` 만 가져온다.
+`places.status` 는 별개이고 **경로에 따라 갈린다** — `data:pull` 은 어느 쪽이든 `published` 만 가져온다.
+
+| 승인한 곳 | 신규 장소가 들어오는 상태 | 사이트에 보이려면 |
+|---|---|---|
+| `pnpm data:apply`(터미널) | `draft` | 사람이 Studio 에서 `published` 로 올린다 → 재빌드 |
+| `/admin`(운영자 화면) | **`published`** — 완성도 게이트(종류·이름·지역)를 버튼 앞에서 통과해야 눌린다 | 재빌드만 |
+
+두 경로가 다른 이유는 [ADR-018 §4](../decisions/ADR-018-in-app-admin-review.md) 에 있다 — `draft` 단계는 "사람이 한 번 더 본다" 는 뜻이었고,
+`/admin` 에서는 그 한 번이 버튼 누르기 직전에 이미 일어난다. CLI 는 그 눈이 없으므로 `draft` 를 유지한다.
+기존 장소에 병합하는 경우는 양쪽 다 `status` 를 건드리지 않는다 — 단 `/admin` 은 대상이 `draft` 면 그때 `published` 로 올린다.
 
 ## 스키마 요약
 
@@ -175,7 +194,10 @@ flowchart LR
 
 ## 관련 파일
 
-- `scripts/lib/placeFields.mjs` — 두 입구가 공유하는 변환 함수. `fromPlaceRow`(DB 행 → `TPlace`)는 `pull-db.mjs`·`analyze-candidates.mjs`·`apply-approved.mjs` 가 같이 쓴다
+- `scripts/lib/placeFields.mjs` — 두 입구가 공유하는 변환 함수. `fromPlaceRow`(DB 행 → `TPlace`)는 `pull-db.mjs`·`analyze-candidates.mjs`·`apply-approved.mjs` 가 같이 쓴다.
+  **node 모듈을 import 하지 않는다** — 브라우저(`src/lib/admin*.ts`)가 이 파일을 그대로 가져가므로 `node:fs` 한 줄이 다시 들어오면 `/admin` 번들이 깨진다.
+  파일을 쓰는 쪽은 `scripts/lib/dataJson.mjs`(`writeDataJson`)로 떼어 놨다. 공개 상수(`PROJECT_REF`·`PUBLISHABLE_KEY`·`PROJECT_URL`)도 같은 이유로 `scripts/lib/supabasePublic.mjs`(import 없음)에 있다
+- 운영자 검수 화면: `src/lib/admin{Session,Supabase,Candidates,Apply}.ts` · `src/screens/adminPage*.tsx` · `src/app/admin/` — 순수 로직은 위 `scripts/` 모듈을 그대로 import 한다(두 벌로 만들지 않는다)
 - 수집·분석·검수·승인: `scripts/collect-blog.mjs`(`data:collect`) · `scripts/analyze-candidates.mjs`(`data:analyze`) · `scripts/review-candidates.mjs`(`data:review`, 앱 파서를 `--experimental-strip-types` 로 읽는다) · `scripts/apply-approved.mjs`(`data:apply`) —
   순수 함수는 `scripts/collect/*`·`scripts/analyze/*`(각각 `*.test.mjs`). 스케줄은 없다 — 사용자 터미널에서 돌린다(ADR-016 v5)
 - 인증·입력: `scripts/lib/supabaseClient.mjs`(출처 선택), `scripts/login.mjs`(`pnpm data:login`), `scripts/lib/readHidden.mjs`(비밀번호·네이버 키 숨김 입력, 두 소유자)

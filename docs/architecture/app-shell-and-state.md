@@ -1,6 +1,8 @@
 # 라우팅 · 화면 셸 · 클라이언트 상태
 
-> 최종 수정: 2026-09-18 (v13: 탭바 화면 사이도 손가락으로 넘긴다 — 일곱 칸 한 줄(`SWIPE_ROUTES`), 셸이 `<main>` 을 통째로 끌고 이웃 화면을 `fixed` 엿보기로 띄운다. 탭바 화면은 떠날 때의 스크롤 자리를 지킨다(`lib/appScroll.ts`) → [ADR-014](../decisions/ADR-014-shell-owned-swipe-pager.md))
+> 최종 수정: 2026-09-29 (v14: **숨은 운영자 화면 `/admin` 이 생겼다** — 탭바·스와이프 수열·루트 목록 어디에도 넣지 않았고, 셸의 "모르는 경로는 하위 화면"
+> 기본값이 뒤로가기를 붙인다(`parentRouteOf('/admin') → '/'`). 세션이 localStorage 에만 있어 서버가 그릴 수 없으므로 `/map` 과 같은 `dynamic(ssr:false)` 를 쓴다 → [ADR-018](../decisions/ADR-018-in-app-admin-review.md))
+> 이전 (v13: 탭바 화면 사이도 손가락으로 넘긴다 — 일곱 칸 한 줄(`SWIPE_ROUTES`), 셸이 `<main>` 을 통째로 끌고 이웃 화면을 `fixed` 엿보기로 띄운다. 탭바 화면은 떠날 때의 스크롤 자리를 지킨다(`lib/appScroll.ts`) → [ADR-014](../decisions/ADR-014-shell-owned-swipe-pager.md))
 > 이전 (v12: 둘러보기 종류를 손가락으로 좌우로 넘긴다 — 끌리는 동안 이웃 목록이 옆에서 엿보이고, 놓으면 밀어낸 뒤 주소를 바꾼다(`placesPageSwipe`·`placesPageSwipePeek`) → [ADR-013](../decisions/ADR-013-places-swipe-pager.md))
 > 이전 (v11: 축약 줄이 상태바 뒤에서 미끄러져 내려온다. 둘러보기 종류 전환에 방향을 붙였다 — 알약이 옮겨 가고 목록이 그쪽에서 들어온다(`placesPageTypeTabs`·`placesPageTypeSwitch`). 하이드레이션 신호를 "성공했나" 에서 "끝났나" 로 → [BUG-002](../bugs/BUG-002-hydration-deadlock.md))
 > 이전 (v10: 메인 탭에서 제목이 스크롤로 사라지면 축약 줄이 대신 나타난다 — `CollapsingTitleBar`(홈·준비물))
@@ -31,6 +33,10 @@ src/app/place/[id]/page.tsx   ─ 서버: generateStaticParams(86개) · generat
 - `src/screens/` 라는 이름은 Next 가 `src/pages/` 를 Pages Router 로 오인하기 때문이다.
 - `/places/[type]` 은 종류 3개, `/place/[id]` 는 장소 86개를 빌드 때 전부 만들고, 그 밖의 주소는 404(`dynamicParams = false`).
   없는 id 에 빈 화면 대신 404 를 내기 위해서다.
+- `/admin`(운영자 검수 화면)도 같은 장치를 쓴다 — `src/app/admin/adminRouteClient.tsx` 가 `dynamic(..., { ssr: false })` 로 감싼다.
+  이유는 SDK 가 아니라 **세션**이다: 로그인 상태가 localStorage 에만 있어 서버가 그릴 화면이 로그인 폼과 목록 중 어느 쪽인지 알 수 없다.
+  이 화면은 탭바(`navItems.ts`)·스와이프 수열(`SWIPE_ROUTES`)·루트 목록(`ROOT_ROUTES`) 어디에도 없다 — 즉 **아무것도 등록하지 않는 것이 설정**이고,
+  셸의 기본값(모르는 경로 = 하위 화면)이 뒤로가기를 붙여 준다. 프리캐시 목록에도 없어 오프라인에서는 404 다(→ [ADR-018](../decisions/ADR-018-in-app-admin-review.md)).
 - `/map` 은 네이버 지도 SDK 를 `document.head` 에 스크립트로 붙여 받는다 — 서버에는 그 DOM 이 없어
   `src/app/map/mapRouteClient.tsx` 가 `dynamic(..., { ssr: false })` 로 감싼다.
   화면 본체(`mapPage`)는 무엇을 보여줄지만 정하고, 지도와 마커는 `mapPageCanvas` 가 SDK 를 명령형으로 다룬다
@@ -73,6 +79,7 @@ src/app/place/[id]/page.tsx   ─ 서버: generateStaticParams(86개) · generat
   사용자에게는 한 화면 안의 탭 전환이라 셋 다 루트다.
 - `parentRouteOf`: 상세는 장소 종류의 목록으로, **`/saved`·`/dog` 는 `/settings` 로**(설정 탭 안의
   화면이라서), 그 밖은 홈으로. 설정 탭의 `isActive` 도 `/saved`·`/dog` 를 자기 것으로 본다.
+  `/admin` 은 이 표에 줄을 더하지 않았다 — 기본값(`'/'`)이 맞는 답이고, 적으면 그때부터 기억해야 할 것이 하나 늘어난다.
 - **모르는 경로는 하위 화면으로 친다.** 기본값이 반대였다면 새 화면마다 뒤로가기를 기억해야 한다.
 - `navItems.ts` 의 `isActive` 를 재사용하면 안 된다 — 둘러보기 항목은 탭 하이라이트를 위해
   `/place/:id` 까지 자기 것으로 보므로, 상세가 루트로 분류돼 뒤로가기를 잃는다.

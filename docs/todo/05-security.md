@@ -1,6 +1,10 @@
 # 5. 보안 — 키 분리 · RLS · 웹훅 · 프리뷰 보호
 
-> 최종 수정: 2026-09-28 (v11: **`NAVER_MAP_CLIENT_ID`·`NAVER_MAP_CLIENT_SECRET` 한 줄 추가** — `data:analyze` 의 두 번째 좌표 축
+> 최종 수정: 2026-09-29 (v12: **「관리 화면을 만들게 되면」 이 현재형이 됐다** — 운영자 검수 화면 `/admin`([ADR-018](../decisions/ADR-018-in-app-admin-review.md))이 들어가면서
+> publishable 키와 `<ref>.supabase.co` 리터럴이 **실제로 `out/` 에 박힌다**. 그래서 유출 검사의 `supabase.co` 를 전면 차단에서 **우리 호스트가 아닌 `*.supabase.co`** 로 좁혔다 —
+> `service_role`·`sk-ant-`·`sb_secret_`·JWT 패턴은 한 글자도 안 건드렸다. 브라우저 세션도 CLI 와 같은 모양이다(access token 만·refresh 폐기·12시간, ADR-016 v7).
+> **프리뷰 보호 항목이 더 중요해졌다** — Preview 배포가 같은 DB 를 보고, 그 `/admin` 은 링크만 없을 뿐 공개 HTML 이다)
+> 이전 (v11: **`NAVER_MAP_CLIENT_ID`·`NAVER_MAP_CLIENT_SECRET` 한 줄 추가** — `data:analyze` 의 두 번째 좌표 축
 > (주소→좌표, NCP Geocoding)이 쓰는 **별개의 키**다. 검색 키와 헤더 이름이 같아 섞으면 401 만 난다. 없으면 그 축만 꺼진다(에러 아님))
 > 이전 (v10: RLS 정책 줄을 narrow_grants **뒤** 상태로(15+3 정책, delete 없음) · (b) 검증 순서를 기록 시제로 바꾸고 **어드바이저 대시보드 확인만 열린 항목**으로 분리 ·
 > JWT expiry 3600 → **43200**(실효 11.5시간) · 새 테이블 grant 규칙에 `postgres` 한정을 달았다)
@@ -31,18 +35,23 @@
 |---|---|---|---|
 | ~~`SUPABASE_SERVICE_ROLE_KEY`~~ | **절대 `NEXT_PUBLIC_` 금지** | **어디에도 없다.** legacy 키는 퇴역(2026-09-22 (3) API keys disable), 새 secret key 는 만들지 않는다. 코드에 service 경로가 없다 — 셸 env(export)에 남아 있으면 쓰기 스크립트는 **멈추고**(`resolveSupabaseCredentials` 트립와이어, CI 예외 없음), `data:pull` 은 anon 으로 가되 **이름만** 한 줄 경고(빌드는 계속). `.env.local` 은 `data:*` 가 읽지 않는다(ADR-016 결정 6) — 파일 잔존은 트립와이어가 아니라 사용자가 `ls -la .env*` 로 확인한다 | 키 자체가 disabled 라 RLS 를 못 우회한다. 그래도 대시보드 API Keys 에서 상태 확인 |
 | 운영자 세션(JWT) | — | macOS 키체인(`zgnn`/`SUPABASE_SESSION`), `pnpm data:login` 이 넣는다. 파일·env 없음 | `exp` 뒤 자동 무효(코드 상한 ≤ 1일 `SESSION_MAX_TTL_S` · 대시보드 JWT expiry 는 지금 **43200** — skew 30분을 빼 실효 11.5시간). 급하면 대시보드에서 그 사용자 비밀번호 변경 |
-| `SUPABASE_URL` · publishable 키 | (공개값) | 코드 상수(`scripts/lib/supabaseClient.mjs` 의 `PROJECT_REF`·`PUBLISHABLE_KEY`). URL 은 env 로 못 바꾼다(바꿀 수 있으면 `SUPABASE_URL=https://attacker` 한 줄이 키체인 JWT 를 밖으로 보낸다) | 무방 — 방어선은 RLS |
+| `SUPABASE_URL` · publishable 키 | (공개값) | 코드 상수(`scripts/lib/supabasePublic.mjs` 의 `PROJECT_REF`·`PUBLISHABLE_KEY`·`PROJECT_URL` — `supabaseClient.mjs` 가 그것을 재export 한다). URL 은 env 로 못 바꾼다(바꿀 수 있으면 `SUPABASE_URL=https://attacker` 한 줄이 키체인 JWT 를 밖으로 보낸다). **2026-09-29 부터 `out/` 에도 있다** — `/admin` 이 브라우저에서 부르므로 | 무방 — 방어선은 RLS |
 | ~~`CLAUDE_CODE_OAUTH_TOKEN`~~ | 금지 | **없다.** Claude 인증은 이 머신에 로그인된 `claude`(키체인)뿐이다. `claude -p` 자식 env 허용 목록에서도 뺐다(`CI`·`GITHUB_ACTIONS` 와 함께) — 토큰이 어디서 흘러와도 자식에 안 넘어간다 | 발급하지 않으니 샐 것이 없다. `claude` 로그인 세션이 의심되면 Anthropic 계정 설정에서 세션을 끊고 다시 로그인 |
 | `NAVER_CLIENT_ID` · `NAVER_CLIENT_SECRET` | 금지 | **사용자가 로컬에서 직접 관리**(비밀번호 관리자). 수집(`pnpm data:collect`)은 env 로 받고, 없으면 TTY 숨김 입력(`scripts/lib/readHidden.mjs`)으로 없는 쪽만 묻는다 — 프로세스 메모리에만 있고 레포·키체인·파일·로그 어디에도 안 남는다. 에이전트 세션(`CLAUDECODE`)이면 입력을 거부(exit 1), env 로 넘긴 값은 막지 않는다. **좌표 보강(`data:analyze`)도 같은 키**를 쓰는데 이쪽은 숨김 입력이 없어 env 에 둘 다 있을 때만 켜진다 — 그래서 쿼터(일 25,000)도 둘이 나눠 쓰고, 소진되면 `data:analyze` 가 429 로 **멈춘다**(좌표 없이 대조하면 동명 가게가 auto 로 올라가므로) | **NCP 콘솔(API HUB)** 의 Application 에서 재발급 — 개발자센터가 아니다(BUG-006) |
 | `NAVER_MAP_CLIENT_ID` · `NAVER_MAP_CLIENT_SECRET` | 금지 | **위 검색 키와 다른 값이다** — NCP 콘솔의 **Maps** Application 쪽이고, `data:analyze` 의 **두 번째 좌표 축**(주소→좌표, `scripts/analyze/naverGeocode.mjs`)만 쓴다. 검색 키와 마찬가지로 사용자가 로컬에서 직접 관리하고 env 에 둘 다 있을 때만 켜진다(숨김 입력 없음). 헤더 이름이 검색 쪽과 **글자까지 같아** 섞으면 그냥 401 이다 — env 이름을 갈라 둔 것이 그 방어다(→ [BUG-006](../bugs/BUG-006-naver-key-401-undiagnosable.md)). 값이 없거나 틀려도 **실행은 멈추지 않는다**(이름 축과 반대): 이 축은 좌표를 더하기만 하므로 꺼지면 어제까지의 동작으로 돌아갈 뿐이다 | **NCP 콘솔 → Maps** Application 에서 재발급(API HUB 가 아니다). 그 Application 에 **Geocoding** 체크가 필요하다 — 게이트웨이 210=권한 없음 · 400=한도/미체크 |
 | `NEXT_PUBLIC_NAVER_MAP_KEY_ID` | 공개 전제 | 코드 기본값(`src/lib/naverMap.ts`) — Vercel env 불필요 | NCP 콘솔의 **웹 서비스 URL 허용 목록**이 방어선(포트까지 본다). 새 주소 등록만 조심 |
 | Deploy Hook URL | — | Supabase 웹훅 설정 **만**(4b, 아직 없음) | 아무나 빌드를 돌릴 수 있음 → Vercel 에서 폐기·재발급 |
-| anon(publishable) key | 공개 전제 | 위 코드 상수. Vercel 빌드와 로컬의 `data:pull` 이 같은 경로로 published 만 읽는다 | 공개돼도 되는 키 — 방어선은 RLS |
+| anon(publishable) key | 공개 전제 | 위 코드 상수. Vercel 빌드와 로컬의 `data:pull` 이 같은 경로로 published 만 읽고, **`/admin` 이 같은 키로 브라우저에서 붙는다**(로그인 전에는 그 키만, 로그인 뒤에는 `Authorization: Bearer <운영자 JWT>` 가 얹힌다 — 키만으로는 `candidates` 가 42501) | 공개돼도 되는 키 — 방어선은 RLS·GRANT |
 
 - [x] **`out/` 유출 검사를 빌드에 넣는다.** `package.json` 의 `build`(`next build --webpack && node scripts/check-bundle.mjs`):
       `out/` 전체에서 `service_role`·`sk-ant-`·`sb_secret_`·JWT(헤더·페이로드 둘 다 base64url — `eyJ` 만 보면 오탐)·
-      `supabase.co` 를 찾으면 **빌드 실패**. 로컬·Vercel 모두 돈다. 실수로 `NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY` 라고
+      **우리 프로젝트가 아닌 `*.supabase.co`** 를 찾으면 **빌드 실패**. 로컬·Vercel 모두 돈다. 실수로 `NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY` 라고
       적는 날을 위한 자물쇠다.
+      **2026-09-29 변경**: `supabase.co` 는 원래 전면 차단이었다(전제가 "앱 번들은 Supabase 를 부르지 않는다"). `/admin` 이 그 전제를 깼으므로
+      **우리 프로젝트 호스트 앞자리만 예외로 두고** 나머지 `*.supabase.co` 는 계속 막는다 — 다른 프로젝트 호스트가 박히는 오타(= 데이터가 남의 프로젝트로 새는 사고)는 그대로 잡힌다.
+      예외가 하나 더 붙었다: `@supabase/supabase-js` 자체가 들고 있는 와일드카드 상수(`*.supabase.co` 꼴)는 우리가 부르는 주소가 아니라 라이브러리 상수라 지울 수 없어 통과시킨다.
+      **패턴의 정확한 형태는 `scripts/check-bundle.mjs` 에 주석과 함께 있다**(여기 옮겨 적으면 둘이 어긋난다). 좁힌 것은 이 한 항목뿐이고 나머지 넷은 그대로다.
+      `sb_publishable_` 은 처음부터 패턴에 없었다(공개 전제) → [ADR-018](../decisions/ADR-018-in-app-admin-review.md).
 - [x] `.env*` 는 `.gitignore` 에 이미 있는지 확인. `.env.example` 에 **이름만** 적어 커밋한다. → 완료.
 - [x] **로컬에 시크릿을 저장하지 않는다** — 운영자가 `pnpm data:login` 으로 만든 **짧은 세션(JWT)** 만 키체인에 있고, `pnpm data:*` 는 그걸로 RLS 안에서 논다
       ([ADR-016 v4](../decisions/ADR-016-secrets-by-login.md)). 세션이 만료되면 관리자가 다시 로그인하기 전까지 아무 스크립트도 DB 에 쓰지 못한다.
@@ -114,10 +123,16 @@ Actions 는 "관리자 없이 도는 구조" 라 만료 없는 시크릿(service
 - [x] `claude -p` 자식 env 는 **허용 목록**이다 — 거부 목록은 아직 이름이 없는 시크릿을 못 거른다. 인증 토큰 env(`CLAUDE_CODE_OAUTH_TOKEN`)·`CI`·`GITHUB_ACTIONS` 는 목록에 없다 —
       테스트가 그 셋을 입력에 일부러 남겨 두고 자식 env 가 `{PATH, HOME}` 만 되는지 단언한다(삭제된 키가 조용히 되살아나는 것을 잡는다).
 
-## 관리 화면을 만들게 되면 (03 후반, 지금 아님)
+## 관리 화면 — 들어갔다 (2026-09-29, `/admin`)
 
-- 앱 번들에 `@supabase/supabase-js` + publishable key 가 들어간다. 그 순간부터 방어선은 **RLS 정책**이다 — 이미 있다:
-  `operators` 허용 목록과 `is_operator()`(ADR-016 v4). 관리 화면은 `pnpm data:login` 과 같은 `signInWithPassword` 로 같은 운영자 계정에 로그인하면 된다.
+- [x] 앱 번들에 `@supabase/supabase-js` + publishable key 가 들어갔다(`@supabase/supabase-js` 는 devDependencies → dependencies).
+  **그 순간부터 방어선은 RLS 정책과 GRANT 다** — 이미 있다: `operators` 허용 목록과 `is_operator()`(ADR-016 v4),
+  `authenticated` 에 DELETE 없음(`narrow_grants`). 화면은 `pnpm data:login` 과 같은 `signInWithPassword` 로 같은 운영자 계정에 로그인한다
+  (access token 만 localStorage · refresh token 폐기 · 12시간, ADR-016 v7). 결정은 [ADR-018](../decisions/ADR-018-in-app-admin-review.md), 운영은 [features/admin-review.md](../features/admin-review.md).
+- [ ] **`out/admin/index.html` 은 공개 파일이다.** 링크가 없을 뿐 주소를 치면 열린다 — 숨김은 보안이 아니고 경계는 RLS·GRANT 뿐이다.
+  그래서 위 「Vercel」 절의 Deployment Protection(Preview 에 Vercel Authentication) 항목이 더 중요해졌다 — Preview 배포는 **프로덕션 DB 를 그대로 본다**(데이터가 하나뿐이다).
+  로그인 없이 보이는 것은 로그인 폼 하나지만, 비운영자가 남의 프리뷰에서 운영자 계정으로 로그인을 시도하는 표면은 생겼다.
+- [ ] 삭제 UI 는 만들지 않았다 — DELETE grant 가 없어 눌러도 42501 이다. 되돌리기는 상태 변경뿐이고 진짜 삭제는 Studio(postgres)가 한다.
 - 이건 회원 가입이 아니다(관리자 1~2명). [ADR-012](../decisions/ADR-012-personal-data-and-consent.md) 의 약관·처리방침 의무는
   **일반 사용자의 개인정보를 받을 때** 생긴다. 관리자 본인 이메일은 그 범위가 아니다 — 하지만 선을 넘는 순간 ADR-012 전체가 살아난다.
 

@@ -1,6 +1,10 @@
 # ADR-016 — 시크릿은 저장하지 않는다: 운영자가 로그인하고, 스크립트는 그 짧은 세션으로 붙는다
 
-> 최종 수정: 2026-09-22 (v6: (b) 의 현재 상태를 상태 줄에 맞춤 — **원격 적용·실측 완료**, 열린 것은 어드바이저 대시보드 확인 하나(사용자 몫).
+> 최종 수정: 2026-09-29 (v7: **브라우저 세션 정책을 한 항으로 명시**했다 — 운영자 검수 화면 `/admin`([ADR-018](ADR-018-in-app-admin-review.md))도 CLI 와 같은 모양으로 붙는다:
+> access token 만 localStorage(`zgnn.admin.session`)에, refresh token 은 버린다, `persistSession:false`·`autoRefreshToken:false`, 수명 1일 초과면 거부.
+> supabase-js 의 브라우저 기본값(refresh token 을 localStorage 에 저장 + 자동 갱신)은 이 결정과 정반대라 **끄는 것이 설정이 아니라 경계**다.
+> 함께: publishable 키와 프로젝트 호스트가 **실제로 번들에 들어갔고**(결정 4), 유출 검사의 `supabase.co` 는 전면 차단에서 **우리 호스트 하나만 허용**으로 좁혔다)
+> 이전 (v6: (b) 의 현재 상태를 상태 줄에 맞춤 — **원격 적용·실측 완료**, 열린 것은 어드바이저 대시보드 확인 하나(사용자 몫).
 > GitHub Secrets 는 0개라 "이름 삭제" 가 남은 일이 아니다. JWT expiry 는 사용자가 3600 → **43200** 으로 올렸다(실효 창 11.5시간). (b) 검증 순서를 기록 시제로)
 > 이전 (v5: **GitHub Actions 폐지 — 인증 출처는 둘뿐**, 운영자 세션(JWT)과 anon(publishable). service_role 경로를 코드에서 지웠다:
 > `readOnly` 는 항상 anon(env 에 service 키가 남아 있으면 **이름만** 경고 한 줄, 빌드는 계속), 쓰기 경로는 셸 env 에 service 키가 있으면 CI 여부와 무관하게 **무조건 멈춘다**(env 파일은 읽지 않는다).
@@ -53,6 +57,11 @@ Free private 레포는 브랜치·환경 보호가 안 된다. 러너에 키가 
    대화 기록에 실릴 길을 막는다. 이메일·숨김 비밀번호 → `signInWithPassword` → **access token 만** macOS 키체인(`zgnn` / `SUPABASE_SESSION`)에.
    **refresh token 은 버린다** — 무료 플랜엔 세션 타임박스가 없어 저장하면 사실상 영구 로그인이 된다. 토큰의 `exp` = 대시보드
    Authentication → JWT expiry(8~12시간 권장 — 2026-09-22 사용자가 **43200**(12시간)으로 설정)가 곧 "하루 한 번 로그인". `pnpm data:logout` 은 키체인 항목만 지운다.
+   **브라우저도 같은 모양이다**(v7, [ADR-018](ADR-018-in-app-admin-review.md)): 운영자 검수 화면 `/admin` 은 `signInWithPassword` 뒤 access token 만 localStorage
+   (`zgnn.admin.session`)에 넣고 refresh token 을 버린다. 클라이언트는 `persistSession: false`·`autoRefreshToken: false` + `Authorization: Bearer <jwt>` 로 만들고,
+   수명이 하루를 넘는 토큰은 CLI 처럼 거부한다. **supabase-js 의 브라우저 기본값이 정확히 반대**(refresh token 을 localStorage 에 두고 자동 갱신)이므로,
+   그 둘을 끄는 것은 취향이 아니라 이 ADR 의 경계를 지키는 유일한 방법이다 — 키는 파일에 없고 `exp` 는 12시간이며 할 수 있는 일은 RLS 범위뿐이라는 세 줄이 그대로 유지된다.
+   저장소가 키체인이 아니라 localStorage 인 것은 브라우저에 키체인이 없어서고, 그래서 **경계는 저장소가 아니라 수명**이라는 점이 v7 에서 분명해졌다.
 3. **통로는 `scripts/lib/supabaseClient.mjs` 하나.** `createSupabase({ readOnly })` 가 출처를 고른다 — 출처는 **둘**뿐이고 스크립트 종류가 정한다:
    link 된 ref 검사 → publishable 키 형식 단언 → `readOnly`(`data:pull`) 면 **항상 anon**(세션이 있어도 싣지 않는다 — published 만 읽는 스크립트에 운영자 토큰을
    실을 이유가 없고, Vercel 과 로컬이 같은 경로로 돈다) → 쓰기 스크립트(seed·collect·analyze·apply)는 키체인 세션.
@@ -64,8 +73,12 @@ Free private 레포는 브랜치·환경 보호가 안 된다. 러너에 키가 
    실효 창은 **11.5시간**(43200 − skew 30분)이라 긴 `data:analyze` 도 한 세션에 든다. 3600 인 채면 로그인 뒤 30분뿐이라 대시보드 값이 먼저였다) 하고, **수명이 하루를 넘으면 거부한다**(요구 ⑤를 코드가 단언 — 대시보드 JWT expiry 는 값 없이 검증할 수 없다). **쓰기 스크립트는 세션이 없거나 만료면 그 자리에서 멈추고 `pnpm data:login` 을 안내한다** — anon 으로 보내면
    첫 insert 에서 RLS 42501 로 죽는데 그 메시지는 "로그인하라" 로 읽히지 않는다. `data:pull` 은 결과가 비면 파일을 덮어쓰지 않고 exit 1(빈 사이트 배포 방지).
    어느 출처를 썼는지 **이름만** 한 줄 찍는다(`Supabase 인증: 로그인 세션(JWT …)`) — `data:pull` 은 두 출처가 같은 결과를 내서 로그 없이는 구분이 안 된다.
-4. **URL 과 publishable 키는 코드 상수다**(`PROJECT_REF`·`PUBLISHABLE_KEY`). 둘 다 공개값 — ref 는 API 주소의 서브도메인, publishable 키는
-   브라우저 번들에 실으라고 만든 키다(방어선은 RLS). 상수인 이유: Vercel 빌드엔 `supabase/.temp/project-ref`(gitignored)가 없다.
+4. **URL 과 publishable 키는 코드 상수다**(`PROJECT_REF`·`PUBLISHABLE_KEY`, 2026-09-29 부터 import 없는 `scripts/lib/supabasePublic.mjs` 에 — 브라우저도 가져간다).
+   둘 다 공개값 — ref 는 API 주소의 서브도메인, publishable 키는
+   브라우저 번들에 실으라고 만든 키다(방어선은 RLS). **v7: "실으라고 만든" 이 가정에서 사실이 됐다** — `/admin` 이 들어가면서 publishable 키와
+   `<ref>.supabase.co` 리터럴이 실제로 `out/` 에 박힌다([ADR-018 §2](ADR-018-in-app-admin-review.md), [ADR-015 §2](ADR-015-supabase-source-and-rebuild.md) 번복).
+   그래서 `scripts/check-bundle.mjs` 의 `supabase.co` 패턴을 **우리 호스트가 아닌 `*.supabase.co`** 로 좁혔다 — 다른 프로젝트로 데이터가 새는 오타는 계속 잡고,
+   `service_role`·`sk-ant-`·`sb_secret_`·JWT 패턴은 한 글자도 손대지 않았다. `sb_publishable_` 은 처음부터 패턴에 없었다(공개 전제). 상수인 이유: Vercel 빌드엔 `supabase/.temp/project-ref`(gitignored)가 없다.
    link 된 ref 가 상수와 다르면 멈춘다 — 스키마(CLI)와 데이터(스크립트)가 다른 프로젝트를 가리키는 사고를 막는다. **URL 은 env 로 바꿀 수 없다**(코드 상수뿐) —
    바꿀 수 있으면 `SUPABASE_URL=https://attacker pnpm data:apply` 한 줄(허용된 명령)이 키체인 JWT 를 밖으로 보낸다(리뷰 지적). `PUBLISHABLE_KEY` 는 `sb_publishable_` 형식을 단언한다 —
    공개 상수 자리에 secret 키를 붙여 넣어도 PostgREST 는 그대로 돌아서(RLS 우회) 아무 테스트도 못 잡는다.

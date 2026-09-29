@@ -1,6 +1,9 @@
 # 3. AI 분석 → 사람이 링크 확인 → 승인
 
-> 최종 수정: 2026-09-28 (v10: **첫 실행 실측 + 설계 검토 반영.** 사용자가 키 없이 돌린 첫 `data:analyze`(글 50건 → 후보 160건, 14:16~14:31)를 읽어 보니 — 좌표 보강 0건 ·
+> 최종 수정: 2026-09-29 (v11: **검수 창이 앱 안 `/admin` 으로 옮겨졌다**([ADR-018](../decisions/ADR-018-in-app-admin-review.md)) — 「사람의 승인」 표의 '지금' 이 `/admin` 이고
+> '다음' 으로 예고했던 줄은 그것으로 실현됐다. **🙋 "draft 를 생략하고 바로 published 로" 가 닫혔다** — `/admin` 의 승인은 곧바로 `published`(완성도 게이트가 draft 단계를 대신한다)이고,
+> `pnpm data:apply` 는 그대로 `draft` 다. "Studio 로 먼저 몇 주 돌려 보고 화면을 만든다" 는 문단은 지웠다 — 첫 160건이 그 몇 주를 앞당겼다)
+> 이전 (v10: **첫 실행 실측 + 설계 검토 반영.** 사용자가 키 없이 돌린 첫 `data:analyze`(글 50건 → 후보 160건, 14:16~14:31)를 읽어 보니 — 좌표 보강 0건 ·
 > 목록 글 하나가 101건 · 자사 홍보 블로그의 같은 펜션 13건 · 조건 문장 있는 32건 중 정규식이 20건을 못 읽음 · "애견동반 안됩니다" 카페가 후보 · 빈 조건이 '갈 수 있어요'(BUG-008).
 > 그래서 [ADR-017](../decisions/ADR-017-ai-structured-pet-policy.md): 구조화는 AI(`petPolicy`), 정규식은 시드·안전망. 추출 필드 `visited`·`petAllowed`·`stayPriceText`·`stayAmenitiesText`,
 > `blog_posts.analysis`, `nameKey`/`dupOf`, `--max-per-blog 2`, `--dump`, **`pnpm data:review`**, 반영 게이트(지역 필수 · ask 재대조는 사람에게), 마이그레이션 `20260928150000`.
@@ -204,12 +207,16 @@ flowchart LR
 
 | 단계 | 도구 | 만들 것 |
 |---|---|---|
-| **지금** | **`pnpm data:review`**(2026-09-28) | `list`(기본) — pending 을 같은 가게로 묶어 검수 순서대로: `■ 이름 [종류 · 구간 · AI 0.93 · 글 2] 지역 좌표 ⚠표식` / `id …` / `조건: 정규식 [..] · AI [..] · 앱 [..] ⚠ AI≠정규식`. `--verbose` 로 원문·evidence, `--md 경로` 로 파일. `approve <id앞자리…> [--merge-into <placeId>] [--note]` · `approve --tier auto` · `reject <id…> --note "이유"`. `status` — 후보·글·장소 수와 **published 대기 draft 의 빈 칸**. 검수 순서는 `reviewCandidates.mjs` 의 `reviewPriority`(🙋 사용자가 다듬는 자리). |
+| **지금** | **앱 안 `/admin`**(2026-09-29) | 후보 묶음 카드 · 원글 링크와 인용문 · 조건 미리보기 · **맞아요 / 아니에요**. 맞아요 한 번이 `approved` → `places` 반영 → `merged` 까지 밟고 **신규 장소는 곧바로 `published`** 다(아래 🙋 닫힘). 로그인은 운영자 계정, 12시간마다 다시. 무엇이 보이고 버튼이 무엇을 쓰는지는 [features/admin-review.md](../features/admin-review.md), 결정은 [ADR-018](../decisions/ADR-018-in-app-admin-review.md), 진행은 [06](06-admin-review.md) |
+| 그대로 | **`pnpm data:review`**(2026-09-28) | `list`(기본) — pending 을 같은 가게로 묶어 검수 순서대로: `■ 이름 [종류 · 구간 · AI 0.93 · 글 2] 지역 좌표 ⚠표식` / `id …` / `조건: 정규식 [..] · AI [..] · 앱 [..] ⚠ AI≠정규식`. `--verbose` 로 원문·evidence, `--md 경로` 로 파일. `approve <id앞자리…> [--merge-into <placeId>] [--note]` · `approve --tier auto` · `reject <id…> --note "이유"`. `status` — 후보·글·장소 수와 **published 대기 draft 의 빈 칸**. 검수 순서는 `reviewCandidates.mjs` 의 `reviewPriority`(🙋 사용자가 다듬는 자리). |
 | 그대로 | Supabase Studio 표 편집기 | `candidates` 를 열어 `post_url` 클릭 → `extracted.evidence` 와 대조 → `status` 바꾸고 `reviewer_note`. **`ask` 후보가 신규가 맞다면 `match_place_id` 를 비운 뒤 approved 로** — `data:apply` 는 `match_place_id` 가 있으면 그것을 믿고 병합한다. `extracted` 의 `petPolicyText`·`regionRaw`·`petPolicy` 는 승인 전에 손으로 고쳐도 된다. |
-| 다음 | 앱 안 `/admin` (정적 라우트 + 클라이언트 Supabase auth + RLS) | 후보 카드·링크·근거 문장·"승인/거절" 버튼. **이때 처음으로 앱 번들에 Supabase 가 들어간다** → 05 의 anon key 항목이 살아난다 |
 
-Studio 로 먼저 몇 주 돌려 보고 **어떤 정보가 화면에 있어야 결정이 빨라지는지** 안 다음에 화면을 만든다.
-후보가 주에 수십 건이면 Studio 로 충분할 수도 있다.
+v10 의 표에는 `| 다음 | 앱 안 /admin | … **이때 처음으로 앱 번들에 Supabase 가 들어간다** → 05 의 anon key 항목이 살아난다 |` 행이 있었다.
+**그대로 일어났다**(2026-09-29). publishable 키와 프로젝트 호스트가 번들에 들어갔고, [05](05-security.md) 의 「관리 화면을 만들게 되면」 절이 살아났다.
+유출 검사의 `supabase.co` 전면 차단은 **우리 호스트만 허용**으로 좁혔다(다른 프로젝트로 새는 오타는 계속 잡는다).
+
+세 도구가 같은 후보를 본다. 셋이 다른 규칙으로 `places` 를 쓰면 데이터가 조용히 오염되므로,
+`/admin` 은 `apply-approved.mjs` 의 순수 모듈(`matchPlace`·`mergeIntoExisting`·`toNewPlaceRow`)을 **그대로 import** 한다 — 옮겨 적지 않는다.
 
 ## 승인 → `places` 반영 — `scripts/apply-approved.mjs` (`pnpm data:apply`)
 
@@ -220,7 +227,11 @@ Studio 로 먼저 몇 주 돌려 보고 **어떤 정보가 화면에 있어야 �
     같은 새 가게를 말하는 글 둘이 따로 승인되면 분석 시점엔 서로 몰라 둘 다 '신규' 이기 때문이다. `auto`/`ask` 였는데 `match_place_id` 가
     비어 있으면 **사람이 비운 것**이라 재대조 없이 신규로 존중한다. 재대조는 분석 때와 같은 지역 신호(`extracted.regionRawAi`)를 본다.
     아니면 `source='blog'`, `status='draft'` 로 insert.
-    **`published` 는 사람이 Studio 에서 올린다** — 승인 두 번이 번거로우면 🙋 여기서 바로 `published` 로 갈지 정한다.
+    **`published` 는 사람이 Studio 에서 올린다** — 이 스크립트는 그대로다.
+    ~~🙋 여기서 바로 `published` 로 갈지~~ → **닫혔다**(2026-09-29, [ADR-018 §4](../decisions/ADR-018-in-app-admin-review.md)): **화면에서 승인한 것만** 곧바로 `published` 다.
+    갈라 둔 이유는 `draft` 단계의 뜻이 "사람이 한 번 더 본다" 였고, `/admin` 에서는 그 한 번이 버튼을 누르기 직전에 이미 일어나기 때문이다 —
+    종류·이름·지역(`parseRegion` 통과)이라는 완성도 게이트가 버튼 앞을 막고, 못 넘으면 이유와 최소 편집(지역 고르기)만 보여 준다.
+    CLI 에는 그 눈이 없으므로 `draft` 를 유지한다. 두 경로의 차이는 [data-pipeline 의 상태 머신](../architecture/data-pipeline.md#후보의-상태-머신) 표에 있다.
   - `place_sources` 에 링크 추가(출처 추적용). 화면의 "후기 링크" 는 여전히 `places.review_url` 하나뿐이라 보강된 기존 장소에는 새 글이
     화면에 닿지 않는다 — 여러 출처 표시는 기능 변경이라 범위 밖(04 의 "앱 코드 변경").
 - [x] 처리한 후보는 `status='merged'`. `--dry-run` 이면 아무것도 쓰지 않고 할 일만 찍는다.

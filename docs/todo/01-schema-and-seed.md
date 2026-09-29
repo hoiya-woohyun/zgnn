@@ -1,6 +1,8 @@
 # 1. 스키마 · RLS · 시드 · `data:pull`
 
-> 최종 수정: 2026-09-22 (v6: 4a 는 끝났다(빌드 명령이 `pnpm data:pull && pnpm build`) — 상태 줄에서 뺐고, "잠들어도 마지막 스냅샷으로 빌드된다" 도 걷었다(배포는 `data:pull` 로 시작해 막힌다))
+> 최종 수정: 2026-09-29 (v7: `supabase-js` 를 devDependency 로 두고 "`out/` 에 supabase 문자열이 있으면 잘못된 것" 이라던 항목에 **정정**을 달았다 —
+> 운영자 화면 `/admin` 이 생겨 그 셋이 전부 뒤집혔다([ADR-018](../decisions/ADR-018-in-app-admin-review.md)). 체크된 항목을 지우지 않고 정정을 덧붙이는 이유: 그때의 판단은 그때 맞았다)
+> 이전 (v6: 4a 는 끝났다(빌드 명령이 `pnpm data:pull && pnpm build`) — 상태 줄에서 뺐고, "잠들어도 마지막 스냅샷으로 빌드된다" 도 걷었다(배포는 `data:pull` 로 시작해 막힌다))
 > 이전 (v5: 출처는 세션·anon 둘, service 키 없음 — Actions 폐지(ADR-016 v5). RLS 절·`supabaseClient` 포인터만 갱신)
 > 이전 (v4: 인증은 운영자 세션(`pnpm data:login`)+RLS, `data:pull` 은 anon(ADR-016 v4) — 포인터만)
 > 이전 (v3: 키는 로그인된 `supabase` CLI 에게 실행 시점에(ADR-016) — 포인터만)
@@ -101,6 +103,10 @@ create table place_sources ( place_id text references places(id), post_url text 
       쓰기 스크립트는 운영자 세션(`pnpm data:login`, RLS 안), `data:pull` 은 publishable(anon)만 — 출처는 둘, service 키 없음(`scripts/lib/supabaseClient.mjs`, ADR-016 v5. 처음엔 `.env.local` 에 다 뒀었고 v4 까지는 Actions 가 service_role 이었다).
 - [x] `supabase-js` 를 **devDependency** 로. 앱 번들에 들어가지 않는다(`scripts/` 만 쓴다). 나중에 `out/` 에서
       `supabase` 문자열이 나오면 뭔가 잘못된 것이다(→ 05 의 유출 검사).
+      **2026-09-29 정정**: 셋 다 뒤집혔다. 운영자 검수 화면(`/admin`)이 브라우저에서 Supabase 를 부르므로 `supabase-js` 는 **dependency** 고,
+      `out/` 에 우리 호스트(`<PROJECT_REF>.supabase.co`)와 publishable 키가 **들어가는 것이 정상**이다. 유출 검사는 "supabase.co 금지" 에서
+      **"우리 호스트만 허용"** 으로 좁혔다(다른 프로젝트 호스트·`service_role`·`sb_secret_`·JWT 는 그대로 차단) →
+      [ADR-018](../decisions/ADR-018-in-app-admin-review.md) · [ADR-015](../decisions/ADR-015-supabase-source-and-rebuild.md) v3 · [05](05-security.md).
 
 ## 끝났다고 볼 조건
 
