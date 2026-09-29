@@ -44,7 +44,7 @@
 [Claude]  ✅ 4. 문서                            — ADR-018 신설 · ADR-015 v3 · ADR-016 v7 · architecture 3편 · ARCHITECTURE v16 · features/admin-review.md · 01 · 03 v11 · 05 v12 · README v24 · CLAUDE.md
 [Claude]  ✅ 5. 검사 + 독립 리뷰 2명 → 반영      — major 2 + minor 12 중 14건 반영, 1건 기각(근거: 브리프 결정)
 [사용자]     6. /admin 로그인 → 후보 160건 검수(맞다/아니다)   ← **다음 차례**
-[사용자]     7. 4b 웹훅 연결 — 크리티컬 패스다(아래 「사이트에 보이기까지」)
+[Claude]  ✅ 7. 4b 웹훅 연결 — 끝났다(2026-09-29, 실측 201 → 빌드). 승인이 곧 배포다
 ```
 
 ### 1단계에서 들어간 것 (다시 하지 말 것)
@@ -86,7 +86,7 @@ REST **GET** 이 URL 로 캐시된다. 그러면 후보 목록이 한 시간 묵
 DB 에 `published` 장소가 생겨도 **정적 사이트는 다시 빌드돼야** 보인다(`pnpm data:pull && pnpm build`).
 오늘 방아쇠는 수동뿐이다(Vercel Redeploy / `vercel deploy --prod` / git push).
 
-- **4b 웹훅**(→ [04](04-deploy-and-propagate.md)): **DB 쪽 배선은 2026-09-29 에 깔렸다**(마이그레이션 `20260929023000`). 남은 것은 Vercel 에서 Deploy Hook 발급 후 Studio 에서 `vault.create_secret('<URL>','vercel_deploy_hook')` 한 줄이다.
+- ✅ **4b 웹훅은 끝났다**(2026-09-29 → [04](04-deploy-and-propagate.md) v7). `places` 가 바뀌면 트리거가 Vercel 을 부르고 빌드가 선다(실측 201). Deploy Hook 은 09-17 부터 이미 있었고 URL 은 Vault 에 있다. **이제 「맞아요」가 곧 배포다.**
   **Claude 몫이 아닌 이유는 권한이 아니라 그 URL 이 시크릿**이어서다(ADR-016: 값은 읽지도 찍지도 않는다). 대시보드 두 곳, 브라우저 작업이라 CLI 로그인도 필요 없다.
 - 연결 전까지 화면은 **"올렸어요 · 사이트에는 다음 빌드에서 보여요"** 라고만 말한다. 거짓말을 하지 않는 게 요점이다.
 - 승인 N건 = 빌드 N번이 될 수 있다(04 의 관찰 항목). 잦으면 `deploy_requests` 테이블 + "반영" 버튼으로 모아 쏘는 안이 04 에 있다.

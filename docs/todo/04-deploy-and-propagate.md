@@ -1,6 +1,10 @@
 # 4. Vercel 배포 · 빌드 시 DB 읽기 · 승인되면 재빌드
 
-> 최종 수정: 2026-09-29 (v6: **4b 의 DB 쪽 배선을 깔았다** — 대시보드가 아니라 마이그레이션(`20260929023000_vercel_rebuild_webhook.sql`)으로.
+> 최종 수정: 2026-09-29 (v7: **4b 가 끝났다 — 전 구간 실측.** `places` 한 행을 건드리니 `net._http_response` 에 **201**(`{"job":{"state":"PENDING"}}`)이 찍히고
+> Vercel 에 프로덕션 빌드가 섰다. 두 가지가 드러났다 — (1) **Deploy Hook 은 2026-09-17 에 이미 만들어져 있었다**(이름 `auto deploy`, 브랜치 `main`).
+> 트래커가 그걸 "발급해야 할 것" 으로 열어 둔 채였다. (2) pg_net 기본 타임아웃 5초 안에 Vercel 이 응답하지 못해(실측 4.7초) 첫 시도는 `status_code` 가
+> **null** 이었다 — 빌드는 정상으로 걸렸지만 성공과 실패를 구분할 수 없었다. 15초로 올렸다(`20260929030000`))
+> 이전 (v6: **4b 의 DB 쪽 배선을 깔았다** — 대시보드가 아니라 마이그레이션(`20260929023000_vercel_rebuild_webhook.sql`)으로.
 > `places` 변경 → `notify_vercel_rebuild()` → Vault 의 `vercel_deploy_hook` 으로 POST. **URL 은 레포에 없다** — 운영자가 Vault 에 한 줄 넣는다.
 > 넣기 전까지 함수는 no-op 이라 지금 상태로도 쓰기가 멀쩡하다(롤백 트랜잭션으로 실측). 사용자 몫은 두 단계로 줄었다: Deploy Hook 발급 · Vault 한 줄.
 > 대시보드에서 "Database → Webhooks" 를 못 찾는 게 정상이다 — **Integrations → Webhooks** 로 옮겨졌고, 이 프로젝트는 그 기능을 켠 적이 없었다(실측: `supabase_functions` 스키마 없음))
@@ -9,7 +13,7 @@
 > 이전 (v3: 빌드의 `data:pull` 은 service_role 이 아니라 publishable(anon) 키로 published 만 읽는다(ADR-016 v4) — Vercel env 에서 Supabase 시크릿이 사라진다)
 > 이전 (v2: 4a 완료 — `vercel.json` 빌드 명령·env 확인, `outputDirectory` 함정(BUG-005) 수정. 4b 는 아직)
 > 이전 (v1: 신설)
-> 상태: 4a 는 끝났다(env 0개·연동 없음에서 프로덕션 Ready 실측). **4b 는 DB 쪽이 끝났고 Vercel 쪽(훅 발급)과 Vault 한 줄이 남았다.** 선행: 4a 는 [01](01-schema-and-seed.md), 4b 는 [03](03-analyze-and-review.md). 재빌드 방식은 [ADR-015](../decisions/ADR-015-supabase-source-and-rebuild.md) §2 로 확정.
+> 상태: 4a·**4b 모두 끝났다**(2026-09-29 전 구간 실측: `places` 변경 → 트리거 → 201 → 프로덕션 빌드). 열린 관찰 항목은 "승인 N건 = 빌드 N번" 하나뿐이다. 선행: 4a 는 [01](01-schema-and-seed.md), 4b 는 [03](03-analyze-and-review.md). 재빌드 방식은 [ADR-015](../decisions/ADR-015-supabase-source-and-rebuild.md) §2 로 확정.
 
 ## 왜 런타임 fetch 가 아니라 재빌드인가
 
@@ -58,15 +62,19 @@
 - [x] **DB 쪽 배선**(2026-09-29, `20260929023000_vercel_rebuild_webhook.sql`): `pg_net` 설치 · `public.notify_vercel_rebuild()`(security definer) ·
       `places` 에 행 단위 AFTER INSERT/UPDATE/DELETE 트리거. 마이그레이션 이력은 로컬=원격 6개로 맞춰 뒀다(`migration repair --status applied`).
       실측: 롤백 트랜잭션 안에서 `places` 를 한 행 UPDATE 해 **트리거가 쓰기를 깨지 않는 것**을 확인했고, 훅이 없어 `net._http_response` 는 0건이다.
-- [ ] **사용자 ①** Vercel → 프로젝트 → Settings → Git → Deploy Hooks → 브랜치 `main` 으로 발급, URL 복사.
-- [ ] **사용자 ②** Supabase Studio → SQL Editor 에 한 줄. 셸이 아니라 Studio 를 쓰는 이유는 URL 이 셸 히스토리에 남지 않게:
+- [x] **Deploy Hook** — 새로 만들 필요가 없었다. **2026-09-17 에 이미 있었다**(이름 `auto deploy` · 브랜치 `main` · id `gD3ioVFKtV`).
+      `vercel deploy-hooks list` 로 확인한다. 새로 만들려면 `vercel deploy-hooks create <이름> --ref main`, 또는 대시보드
+      Settings → Git → Deploy Hooks. ⚠️ **`list` 는 URL 을 통째로 찍는다** — 에이전트 세션에서 부르면 그 값이 대화 기록에 남는다(05).
+- [x] **Vault 에 훅 저장**(2026-09-29): `select vault.create_secret('<URL>', 'vercel_deploy_hook', …)`. Studio → SQL Editor 에서 한 줄이면 되고,
+      값은 암호화돼 `vault.decrypted_secrets` 로만 읽힌다(트리거 함수가 security definer 로 읽는다). 바꿀 때 `vault.update_secret`, 끊을 때 그 비밀만 지운다.
+- [x] **전 구간 실측**(2026-09-29 11:52): `places` 한 행 UPDATE → `net._http_response` 에 `status_code 201` ·
+      `{"job":{"state":"PENDING"}}` → Vercel 프로덕션 빌드 시작. 확인 쿼리는 이것이다:
       ```sql
-      select vault.create_secret('<Deploy Hook URL>', 'vercel_deploy_hook', 'Vercel main 배포 훅');
+      select status_code, timed_out, error_msg, created from net._http_response order by created desc limit 3;
       ```
-      이게 들어가는 순간부터 자동이다. 바꿀 때는 `vault.update_secret`, 끊을 때는 그 비밀만 지운다(트리거는 둬도 된다).
-- [ ] 확인: `/admin` 에서 한 건 승인 → `select status_code, created from net._http_response order by created desc limit 3;` 가 200/201 을 보이고
-      Vercel 에 빌드가 하나 서 있으면 끝이다. 실패하면 그 표의 `error_msg` 가 이유를 말한다 — 훅이 폐기됐거나 URL 이 틀린 경우다.
-- [ ] Vault 에 넣기 전까지는 **수동**이다: Vercel Redeploy 또는 `pnpm data:apply` 뒤 사용자가 훅을 한 번 `curl`.
+- [ ] 🚩 **진단할 때 볼 것 — `status_code` 가 null 이면 두 가지가 똑같이 보인다.** 타임아웃(빌드는 걸렸을 수 있다)과 URL 이 틀린 경우가
+      구분되지 않는다. pg_net 은 **재시도하지 않으므로** null 을 "실패" 로 단정하지도 말 것. `error_msg` 가 `Timeout of …` 면 전자다.
+      첫 실측에서 이걸 겪었다(기본 5초 < Vercel 응답 4.7초) → 15초로 올려 지금은 201 이 찍힌다.
 - [ ] `candidates` 가 아니라 **`places`** 에 건다. 승인(candidates) 자체는 화면에 아무 영향이 없고, `data:apply` 가
       `places` 를 만질 때 비로소 반영할 것이 생긴다.
 - [ ] Deploy Hook URL 은 시크릿이다. 이제 **Vault(암호화 저장)에만** 있고 마이그레이션·함수 본문·로그에는 없다. 새 나가면 Vercel 에서 폐기·재발급(05).
