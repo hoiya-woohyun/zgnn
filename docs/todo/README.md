@@ -1,6 +1,8 @@
 # TODO — 블로그 수집 → AI 분석 → 승인 → DB → 자동 배포
 
-> 최종 수정: 2026-09-29 (v24: **미push 커밋 7개를 push·배포 확인**(2026-09-28 23:40, 프로덕션 Ready — 빌드 로그 `publishable(anon)` · `places 86 · items 15` · 유출 검사 **530파일**)하고,
+> 최종 수정: 2026-09-29 (v25: **제품·UX 트랙 [07](07-product-and-ux.md) 신설** — 기획·디자인·UX 점검([reviews/2026-09-29](../reviews/2026-09-29-product-ux-review.md)) 결과,
+> 판정의 최다 답 "확인이 필요해요" 에 출구(전화·제보)가 없다. 0~6 과 독립이고, 권장 순서는 07 의 P0 가 다음 `data:analyze` 보다 먼저다)
+> 이전 (v24: **미push 커밋 7개를 push·배포 확인**(2026-09-28 23:40, 프로덕션 Ready — 빌드 로그 `publishable(anon)` · `places 86 · items 15` · 유출 검사 **530파일**)하고,
 > **운영자 검수를 앱 안 `/admin` 으로 옮겼다**([06](06-admin-review.md) 신설 · [ADR-018](../decisions/ADR-018-in-app-admin-review.md)). 실행 순서의 사용자 검수 줄이 `data:review` 에서 `/admin` 으로 바뀌었다 —
 > **그리고 4b 웹훅이 이제 크리티컬 패스다**: 화면이 승인 즉시 `published` 를 만드므로, 남은 유일한 사람 손은 "재빌드를 누가 일으키는가" 하나다.
 > 좁힌 유출 검사·번들의 publishable 키는 [05](05-security.md) v12, 상태 머신 두 갈래는 [data-pipeline](../architecture/data-pipeline.md) v11)
@@ -91,6 +93,7 @@ flowchart LR
 | 4 | [04-deploy-and-propagate.md](04-deploy-and-propagate.md) | 4a 완료(빌드가 DB 를 anon 으로 읽음) · 4b 없음 | 승인 → 자동 재빌드 → 사이트 반영(수동 경로는 `data:apply` 뒤 Redeploy) |
 | 5 | [05-security.md](05-security.md) | 두 출처(세션·anon) · (b) GRANT 축소 원격 적용·실측 완료(어드바이저 확인만 남음) · **번들에 publishable 키가 들어갔다**(유출 검사는 우리 호스트만 허용) | 키 분리·RLS·GRANT 상한·웹훅 서명·프리뷰 보호 |
 | 6 | [06-admin-review.md](06-admin-review.md) | 1단계(스크립트 정리) 커밋 `ff62eba`, 2~5단계 진행 중 | 앱 안 `/admin` 에서 후보를 보고 **맞아요 한 번으로** `places(published)` 까지 — 결정은 [ADR-018](../decisions/ADR-018-in-app-admin-review.md), 화면은 [features/admin-review.md](../features/admin-review.md) |
+| 7 | [07-product-and-ux.md](07-product-and-ux.md) | 점검만 끝남(2026-09-29) — 사용자 테스트 0 · 전화번호 0 · 제보 경로 없음 | "확인이 필요해요" 에 출구를 내고(전화·제보), 공유·홈·필터 유지로 **모은 장소에서 갈 곳을 정하게** 한다. 파이프라인과 독립 |
 
 ## 이 계획이 서 있는 결정 — [ADR-015](../decisions/ADR-015-supabase-source-and-rebuild.md)
 
