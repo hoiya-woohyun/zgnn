@@ -25,6 +25,8 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
 | 블로그 수집·AI 분석·검수·승인·Supabase·Vercel 배포 | [docs/todo/README.md](docs/todo/README.md)(진행 트래커) · [docs/architecture/data-pipeline.md](docs/architecture/data-pipeline.md) · 결정은 [ADR-015](docs/decisions/ADR-015-supabase-source-and-rebuild.md)(원본=Supabase, 반영=재빌드, 회원은 범위 밖) · [ADR-017](docs/decisions/ADR-017-ai-structured-pet-policy.md)(이용 조건 구조화는 AI 가 뽑을 때, 정규식은 시드·안전망). 코드는 `scripts/collect*`·`scripts/analyze*`·`scripts/review-candidates.mjs`(`pnpm data:review` — 검수 창)·`scripts/apply-approved.mjs` — **`pnpm data:*` 는 사용자 터미널에서 돈다(스케줄·Actions 없음), Claude 는 구독(`claude -p`)으로 부른다, API 키 아님** |
 | 시크릿·API 키·`.env.local`·`pnpm data:login` | [ADR-016](docs/decisions/ADR-016-secrets-by-login.md) · `scripts/lib/supabaseClient.mjs` · `scripts/login.mjs` — **값을 저장하지 않는다**. 운영자가 `pnpm data:login` 한 짧은 세션(JWT)으로 RLS 안에서 쓰고, 만료면 멈춘다. 인증 출처는 세션·anon 둘뿐(service 키는 env 에 있어도 쓰기 스크립트가 멈춘다). 네이버 키는 사용자 로컬 관리(env 또는 TTY 숨김 입력) — `data:collect` 는 사용자 터미널 몫. 레포에 env 파일은 없다(`.env.local` 은 선택) |
 | 운영자 검수 화면(`/admin`)·후보 승인 | [docs/features/admin-review.md](docs/features/admin-review.md) · [ADR-018](docs/decisions/ADR-018-in-app-admin-review.md) · 진행은 [docs/todo/06](docs/todo/06-admin-review.md) · `src/screens/adminPage.tsx` · `src/lib/adminApply.ts` — **여기만 브라우저에서 Supabase 를 직접 부른다**(publishable 키가 번들에 있다, 경계는 RLS·GRANT). 승인 한 번이 `places` 에 `published` 로 들어가고, 사이트에는 다음 빌드에서 보인다 |
+| 올린 장소 **내리기**(소프트 삭제)·되살리기 | [docs/features/admin-review.md](docs/features/admin-review.md) 의 「올린 장소를 내린다」 · [ADR-018](docs/decisions/ADR-018-in-app-admin-review.md) 결정 6~8 · `src/lib/adminPlaces.ts` · `src/screens/adminPagePlaceList.tsx` — 하드 삭제는 **불가능하다**(GRANT 에 delete 가 없다). `status='archived'` 한 칸이 전부이고 그것이 `pull-db` 집합에서 빠지는 것으로 사라진다. ⚠️ **대조 corpus 세 곳이 archived 를 읽어야 한다** — 안 그러면 내린 곳이 새 id 로 되살아난다 |
+| 재빌드가 정말 걸렸나·Deploy Hook | [docs/todo/04](docs/todo/04-deploy-and-propagate.md) 4b · [ADR-018](docs/decisions/ADR-018-in-app-admin-review.md) 결정 9 · `src/lib/adminRebuild.ts` · `supabase/migrations/20260929121000_rebuild_log.sql` — `places` 변경 → 트리거 → Vault 의 훅. **`published` 가 끼는 변경만** 부르고, 결과가 `rebuild_log` 에 남아 `/admin` 머리글에 한 줄로 뜬다(4xx 면 훅 폐기). 훅 회전 절차는 [docs/todo/05](docs/todo/05-security.md) |
 | "왜 이렇게 했나" | [docs/decisions/](docs/decisions/) (ADR 18편) · 전체 지도는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 
 탐색 전에 위 표를 먼저 본다. 전체 구조가 필요하면 `docs/ARCHITECTURE.md` 하나만 읽으면 된다.
@@ -69,6 +71,12 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
   `src/app/manifest.ts` 의 `theme_color` 도 함께 맞춘다.
 - **`pnpm data:pull` 이 빈 결과를 받으면 파일을 덮어쓰지 않고 exit 1** 한다. RLS 정책이 바뀌거나 다른 프로젝트를 가리키면 PostgREST 는 에러가 아니라 `[]` 를
   주고, 그대로 쓰면 빌드는 초록인데 사이트가 빈다. "places 0" 로 멈추면 정책·`PROJECT_REF` 를 본다(→ [ADR-016](docs/decisions/ADR-016-secrets-by-login.md)).
+- **내린 장소(`archived`)를 대조 corpus 에서 빼면 그 가게가 새 id 로 되살아난다.** 내린 곳을 쓴 새 글이
+  수집되면 `matchPlace` 가 짝을 못 찾아 '신규' 로 판정하고, 승인 한 번에 **복제본**이 게시된다 — 내린 행이
+  돌아오는 게 아니라 쌍둥이가 생기는 것이라 눈에 안 띈다. 그래서 세 곳(`analyze-candidates.mjs` ·
+  `apply-approved.mjs` · `fetchMatchablePlaces`)이 상태를 가리지 않고 읽고, 대조용 행은 `fromPlaceRow` 가
+  아니라 **`toMatchablePlace`** 로 만든다(`status` 한 칸을 얹는다 — 한 군데만 빠져도 동점 규칙이 조용히 꺼진다).
+  빌드·테스트는 전부 통과한다(→ [ADR-018](docs/decisions/ADR-018-in-app-admin-review.md) 결정 7).
 - **첫 프레임에 "저장 0" 으로 보이는 것은 의도**다(`skipHydration`). 정적 HTML 이라
   localStorage 를 마운트 뒤에 읽는다 — 버그로 보고 고치지 않는다.
 - **`src/components/base/` 는 Untitled UI 복사본**이라 직접 고치지 않는다(eslint 도 이
