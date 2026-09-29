@@ -8,6 +8,7 @@ import {
   formatCandidateLine,
   formatSummary,
   isPlaceCandidate,
+  keyGate,
   parseArgs,
   pickPostsForRun,
   resolveRegionRaw,
@@ -45,11 +46,12 @@ const local = {
 
 describe('parseArgs', () => {
   it('인자가 없으면 기본 limit · dry-run 아님', () => {
-    expect(parseArgs([])).toEqual({ limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG });
+    expect(parseArgs([])).toEqual({ limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false });
   });
   it('--limit N 과 --limit=N 둘 다 받고, --dry-run 은 어디에 있어도 된다', () => {
-    expect(parseArgs(['--limit', '5', '--dry-run'])).toEqual({ limit: 5, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG });
-    expect(parseArgs(['--dry-run', '--limit=20'])).toEqual({ limit: 20, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG });
+    expect(parseArgs(['--limit', '5', '--dry-run'])).toEqual({ limit: 5, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false });
+    expect(parseArgs(['--dry-run', '--limit=20'])).toEqual({ limit: 20, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false });
+    expect(parseArgs(['--no-geo']).noGeo).toBe(true);
   });
   it('--dump 는 기본 경로(빈 문자열), --dump=경로 는 그 경로 · --max-per-blog 는 0 도 된다(상한 없음)', () => {
     expect(parseArgs(['--dump']).dump).toBe('');
@@ -65,6 +67,30 @@ describe('parseArgs', () => {
   });
   it('모르는 인자는 throw', () => {
     expect(() => parseArgs(['--dryrun'])).toThrow('알 수 없는 인자');
+  });
+});
+
+describe('keyGate', () => {
+  it('env 에 있으면 그대로 · 사람 터미널이면 묻는다', () => {
+    expect(keyGate('search', { hasKeys: true, noGeo: false, canPrompt: false })).toBe('use');
+    expect(keyGate('search', { hasKeys: false, noGeo: false, canPrompt: true })).toBe('ask');
+    expect(keyGate('map', { hasKeys: false, noGeo: false, canPrompt: true })).toBe('ask');
+  });
+
+  /*
+   * 두 축의 세기가 갈리는 한 줄. 이름 축이 없으면 좌표 없이 대조하게 되고 동명 가게가 ask 대신 auto 로 올라간다 —
+   * 2026-09-28 에 키 없이 돌린 첫 실행이 좌표 0건으로 141묶음을 만들고 통째로 버려졌다.
+   */
+  it('물을 수 없을 때 — 이름 축은 멈추고 주소 축은 진행한다', () => {
+    expect(keyGate('search', { hasKeys: false, noGeo: false, canPrompt: false })).toBe('stop');
+    expect(keyGate('map', { hasKeys: false, noGeo: false, canPrompt: false })).toBe('skip');
+  });
+
+  it('--no-geo 는 묻지도 세우지도 않는다 — 사람이 좌표 없이 돌리겠다고 말한 것', () => {
+    for (const axis of ['search', 'map']) {
+      expect(keyGate(axis, { hasKeys: false, noGeo: true, canPrompt: true })).toBe('skip');
+      expect(keyGate(axis, { hasKeys: true, noGeo: true, canPrompt: false })).toBe('skip');
+    }
   });
 });
 

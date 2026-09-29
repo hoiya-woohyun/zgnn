@@ -36,6 +36,7 @@ import { dirname, resolve } from 'node:path';
 import {
   exclusionReason,
   formatCandidateLine,
+  keyGate,
   formatSummary,
   parseArgs,
   pickPostsForRun,
@@ -51,37 +52,79 @@ import { newPickReasons, pickNaverPlace, searchNaverPlace } from './analyze/nave
 import { matchPlace, normalizeName, townOf } from './analyze/matchPlace.mjs';
 import { fetchPostText } from './analyze/naverPostBody.mjs';
 import { toMatchablePlace } from './lib/placeFields.mjs';
+import { readHidden } from './lib/readHidden.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
 
 let args;
 try {
   args = parseArgs(process.argv.slice(2));
 } catch (e) {
-  console.error(`${e.message} — 사용법: pnpm data:analyze [--limit N] [--max-per-blog N] [--dry-run] [--dump[=경로]]`);
+  console.error(`${e.message} — 사용법: pnpm data:analyze [--limit N] [--max-per-blog N] [--no-geo] [--dry-run] [--dump[=경로]]`);
   process.exit(1);
 }
-const { limit, dryRun, dump, maxPerBlog } = args;
+const { limit, dryRun, dump, maxPerBlog, noGeo } = args;
 console.log(dryRun ? '모드: dry-run — DB 에 쓰지 않는다(Claude 는 부른다)' : '모드: 분석 — candidates · blog_posts.analyzed_at 에 쓴다');
 
 // 좌표 보강은 **02(수집)과 같은 네이버 키**를 쓴다 — 키를 하나 더 발급·관리하지 않는다(ADR-008 v4).
-// env 에 둘 다 있을 때만 켠다. 여기서는 숨김 입력을 받지 않는다: 분석은 글마다 몇 분씩 도는 일이라
-// 중간에 프롬프트가 뜨면 안 되고, Claude 가 --dry-run 으로 돌리는 경로이기도 해서다(docs/todo/03).
-// env 도 앞뒤 공백을 턴다 — 이쪽은 숨김 입력이 없어 `export NAVER_CLIENT_ID=' xxx '` 한 줄이 그대로 401 이 되고,
-// 분석은 글마다 몇 분씩 도는 일이라 **중간에** 터진다(수집처럼 첫 요청에서 바로 알려 주지 않는다).
+// env 가 먼저고, 없으면 **사람 터미널에서만** 숨김 입력으로 받는다(`collect-blog.mjs` 와 같은 모양).
+// 값은 이 프로세스 안에만 있고 어디에도 남기지 않는다(ADR-016).
+//
+// 예전에는 키가 없으면 로그 한 줄만 찍고 그냥 돌았다. 그 결과가 2026-09-28 의 첫 실행이다 —
+// 글 50건을 다 읽고 Claude 한도를 쓴 뒤에야 좌표 0건인 걸 알았고, 후보 160건을 통째로 버렸다.
+// 그래서 **기본을 뒤집는다**: 이름 축의 키가 없고 물을 수도 없으면 Claude 를 부르기 전에 멈춘다
+// (마이그레이션 검사와 같은 어법 — 비싼 자원을 쓰기 전에 값싼 검사를 몰아 둔다). 좌표 없이 돌리려면 `--no-geo`.
+// 두 축의 세기가 왜 다른지는 `keyGate` 의 주석에 있다.
+//
+// 앞뒤 공백을 턴다 — `export NAVER_CLIENT_ID=' xxx '` 한 줄이 그대로 401 이 되는데, 숨김 입력이라
+// 붙여넣기가 끌고 온 공백을 사람이 볼 방법이 없다(2026-09-28 에 실제로 여기서 막혔다 → BUG-006).
 const trimKey = (v) => (typeof v === 'string' ? v.trim() : v);
-const naverClientId = trimKey(process.env.NAVER_CLIENT_ID);
-const naverClientSecret = trimKey(process.env.NAVER_CLIENT_SECRET);
-const naverKeys = naverClientId && naverClientSecret ? { clientId: naverClientId, clientSecret: naverClientSecret } : null;
+// 에이전트 세션에서는 묻지 않는다 — 입력한 값이 대화 기록에 실린다. env 로 넘어온 값은 그대로 쓴다(경계는 "누가 돌리나" 가 아니라 "값이 기록에 실리나").
+const canPrompt = Boolean(process.stdin.isTTY && process.stdout.isTTY && !process.env.CLAUDECODE);
+let rawModeGuarded = false;
+
+/**
+ * 한 축의 키 두 개를 정한다. env → (사람 터미널이면) 숨김 입력 → 판정.
+ * @param {'search'|'map'} axis
+ * @param {[string, string]} names  env 이름 두 개(id, secret)
+ * @returns {Promise<{ clientId: string, clientSecret: string } | null>}
+ */
+async function resolveKeys(axis, names) {
+  const [idName, secretName] = names;
+  let clientId = trimKey(process.env[idName]);
+  let clientSecret = trimKey(process.env[secretName]);
+  const gate = keyGate(axis, { hasKeys: Boolean(clientId && clientSecret), noGeo, canPrompt });
+
+  if (gate === 'use') return { clientId, clientSecret };
+  if (gate === 'stop') {
+    console.error(
+      `${idName} · ${secretName} 없음 — 좌표 없이 대조하면 동명 가게가 '확인요청' 이 아니라 '일치' 로 올라간다.\n` +
+        'env 로 넘기거나 사람 터미널에서 돌려라(숨김 입력). 좌표 없이 돌릴 작정이면 --no-geo 를 붙인다.',
+    );
+    process.exit(1);
+  }
+  if (gate === 'skip') return null;
+
+  // 예외로 빠져나가도 터미널이 raw 모드에 남지 않게(collect-blog.mjs · login.mjs 와 같다).
+  if (!rawModeGuarded) {
+    rawModeGuarded = true;
+    process.on('exit', () => { try { process.stdin.setRawMode(false); } catch { /* TTY 아님 */ } });
+  }
+  try {
+    // 둘 중 하나만 env 에 있으면 없는 쪽만 묻는다. 빈 입력은 그 축을 끄는 길이다 — 묻는 자리에 '나가기' 가 없으면 갇힌다.
+    if (!clientId) clientId = trimKey(await readHidden(`${idName}(숨김 입력 · 비우면 건너뜀): `));
+    if (clientId && !clientSecret) clientSecret = trimKey(await readHidden(`${secretName}(숨김 입력): `));
+  } catch {
+    console.log(`  ${axis === 'search' ? '이름' : '주소'} 축 키 입력을 취소했다`);
+    return null;
+  }
+  if (clientId && clientSecret) return { clientId, clientSecret };
+  // 사람이 비워서 넘어온 것이므로 멈추지 않는다 — 스스로 고른 길이다(게이트가 막으려던 '모르고 지나침' 이 아니다).
+  console.log(`  ${idName} 를 비웠다 — ${axis === 'search' ? '이름 축(좌표·주소 보강)' : '주소→좌표 보강(두 번째 축)'}을 건너뛴다`);
+  return null;
+}
+
 // Claude 인증은 env 로 검사하지 않는다 — 이 머신에 로그인된 `claude`(키체인)를 CLI 가 스스로 읽는다. 토큰 env 는 없다(ADR-016).
 // 안 돼 있으면 첫 글에서 ClaudeCliError(auth, fatal) 가 나와 루프가 끊긴다.
-// 좌표 보강은 선택이다 — 키가 없으면 후보는 좌표·주소 없이 들어가고, matchPlace 는 이름·종류만으로 대조한다(감점 없음).
-if (!naverKeys) console.log('NAVER_CLIENT_ID · NAVER_CLIENT_SECRET 없음 — 좌표·주소 보강을 건너뛴다(후보는 이름·종류로만 대조된다)');
-// 두 번째 축(주소 → 좌표)의 키는 **검색 키가 아니다** — NCP 콘솔의 Maps Application 쪽이고 헤더 이름만 같다(lib/naverMapsApi.mjs 의 표).
-// 검색 키를 여기 넣으면 그냥 401 이라, env 이름을 갈라 두는 것이 그 혼동의 유일한 방어다(BUG-006 이 같은 함정이었다).
-const mapClientId = trimKey(process.env.NAVER_MAP_CLIENT_ID);
-const mapClientSecret = trimKey(process.env.NAVER_MAP_CLIENT_SECRET);
-const mapKeys = mapClientId && mapClientSecret ? { clientId: mapClientId, clientSecret: mapClientSecret } : null;
-if (!mapKeys) console.log('NAVER_MAP_CLIENT_ID · NAVER_MAP_CLIENT_SECRET 없음 — 주소→좌표 보강(두 번째 축)을 건너뛴다(이름 축만 돈다)');
 // ANALYZE_MODEL 이 조용히 무시되는 일이 없게 실제로 쓰는 모델을 한 번 찍는다.
 console.log(`모델 ${MODEL} · 프롬프트 ${PROMPT_VERSION} · 글 최대 ${limit}건 · 블로그당 최대 ${maxPerBlog || '무제한'}건`);
 // 후보(extracted.meta)와 글(blog_posts.analysis)에 실린다 — 프롬프트를 고친 뒤 재분석 대상을 고르는 키.
@@ -102,6 +145,17 @@ const meter = createUsageMeter();
     process.exit(1);
   }
 }
+
+/*
+ * 키는 **세션·마이그레이션 검사 뒤에** 묻는다(`collect-blog.mjs:22` 가 같은 이유로 같은 순서다).
+ * 먼저 물으면 키 넷을 치고 나서 "pnpm data:login" 이나 "마이그레이션을 적용해라" 로 멈춰 그 입력이 통째로 헛수고가 된다.
+ */
+if (noGeo) console.log('--no-geo — 좌표·주소 보강을 하지 않는다(후보는 이름·종류로만 대조된다)');
+const naverKeys = await resolveKeys('search', ['NAVER_CLIENT_ID', 'NAVER_CLIENT_SECRET']);
+// 두 번째 축(주소 → 좌표)의 키는 **검색 키가 아니다** — NCP 콘솔의 Maps Application 쪽이고 헤더 이름만 같다(lib/naverMapsApi.mjs 의 표).
+// 검색 키를 여기 넣으면 그냥 401 이라, env 이름을 갈라 두는 것이 그 혼동의 유일한 방어다(BUG-006 이 같은 함정이었다).
+const mapKeys = await resolveKeys('map', ['NAVER_MAP_CLIENT_ID', 'NAVER_MAP_CLIENT_SECRET']);
+if (!mapKeys && !noGeo) console.log('주소→좌표 보강(두 번째 축)은 꺼져 있다 — 이름 축만 돈다');
 
 const LOCAL_DELAY_MS = 200;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

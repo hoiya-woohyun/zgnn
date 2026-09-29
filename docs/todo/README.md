@@ -225,7 +225,10 @@ flowchart LR
           **'맞아요' 는 `places` 에 `published` 로 바로 들어간다** — 그래서 아래 4b 가 크리티컬 패스다(연결 전에는 Vercel Redeploy 가 방아쇠).
 [사용자]  (대안) pnpm data:review status → pnpm data:review --limit 20 (--verbose) — 터미널 검수 창은 그대로 남아 있다.
           `/admin` 이 막히거나(세션·배포) 승인 중간에 실패한 후보(`approved` 로 남는다)를 이어받을 때는 이쪽으로: `reject <id…> --note` · `approve` → `pnpm data:apply`.
-[사용자]  NAVER_CLIENT_ID=… NAVER_CLIENT_SECRET=… NAVER_MAP_CLIENT_ID=… NAVER_MAP_CLIENT_SECRET=… pnpm data:analyze --limit 5 --dump   ← **다음 차례. Claude 몫이 아니다**
+[사용자]  pnpm data:analyze --limit 5 --dump   ← **다음 차례. Claude 몫이 아니다**
+          2026-09-30 부터 **키를 env 로 안 넘겨도 된다** — 없으면 세션·마이그레이션 검사 뒤에 숨김 입력으로 넷을 묻는다.
+          env 로 미리 주는 길도 그대로다(`NAVER_CLIENT_ID=… NAVER_MAP_CLIENT_ID=… pnpm data:analyze …`).
+          **키가 없고 물을 수도 없으면(에이전트 세션) 이름 축이 시작에서 exit 1** — 좌표 없이 돌릴 작정이면 `--no-geo`.
           `--dump` 가 data/raw/analyze-<시각>.json 에 후보(petPolicy 판단 포함)·제외 목록을 남긴다 — 정규화 품질은 그 파일과 `data:review` 로 본다. dry-run 대신 실제 실행을 권한다(5건이면 되돌리기 쉽고 analysis 도 실측된다).
           ⚠️ **키가 두 쌍이다**(2026-09-28): 앞의 둘은 **검색**(API HUB · 이름 축), 뒤의 둘은 **Maps**(Geocoding · 주소 축)다. 값이 서로 다르고 헤더 이름은 같아
           섞으면 그냥 401 이다. Maps Application 에 **Geocoding 체크**가 필요하다. 뒤 둘이 없으면 주소 축만 꺼지고 실행은 정상이다(⚠️3 이 미검증으로 남는다).
@@ -409,6 +412,9 @@ flowchart LR
   `analyze-candidates.mjs` 는 보강을 **env 에 `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET` 둘이 다 있을 때만** 켜고, 분석은 일부러 숨김 입력을
   받지 않는다(글마다 몇 분씩 도니 중간에 프롬프트가 뜨면 안 된다). Claude 세션 env 에는 그 키가 없다(`node -e` 로 확인: 둘 다 false).
   그대로 Claude 가 돌리면 **"좌표·주소 보강을 건너뛴다" 가 찍히고 ⚠️1 은 또 미검증으로 남은 채 구독 한도만 탄다** — 그래서 그 줄을 `[사용자]` 로 옮겼다.
+  → **2026-09-30 에 고쳤다.** 분석도 숨김 입력을 받는다(사람 터미널일 때만 · 세션·마이그레이션 검사 뒤에 · `collect-blog.mjs` 와 같은 모양).
+  "중간에 프롬프트가 뜨면 안 된다" 는 **시작 시점** 프롬프트에는 걸리지 않는 걱정이었다. 그리고 키 없이 도는 것 자체를 막았다 —
+  이름 축의 키가 없고 물을 수도 없으면 Claude 를 부르기 전에 exit 1 이다(`keyGate`). 이 줄이 `[사용자]` 몫인 것은 그대로다(값이 대화 기록에 실린다).
   ⚠️1 에는 **판정표**(닫힘 / 포맷 틀림 / **판정 불가**)를 더했다 — 전 건이 `notJejuAddress`·`nameMismatch` 로 떨어지면 `sample` 이 null 이라
   "포맷이 맞다" 로 오독되기 쉽다. 그건 측정이 안 된 것이고, 그때는 `--limit 20` 으로 다시 돌린다.
   **3,360 의 읽기도 바꿨다**: 작업 큐가 아니라 **저수지**다. `analyze` 가 `posted_at` 내림차순으로 가져가므로 `--limit 30` 반복은 최신부터

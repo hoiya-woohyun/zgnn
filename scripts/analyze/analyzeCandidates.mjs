@@ -34,14 +34,15 @@ export const DEFAULT_LIMIT = 50;
 export const DEFAULT_MAX_PER_BLOG = 2;
 
 /**
- * `--dry-run` · `--limit N` · `--max-per-blog N` · `--dump[=경로]`(후보·제외 목록을 로컬 JSON 으로 — 정규화 품질을 사람이 볼 유일한 창,
- * 로그에는 여전히 본문 인용을 찍지 않는다). 모르는 인자나 1 미만의 limit 은 throw — 오타로 전체를 돌리는 일이 없게.
+ * `--dry-run` · `--limit N` · `--max-per-blog N` · `--no-geo` · `--dump[=경로]`(후보·제외 목록을 로컬 JSON 으로 — 정규화 품질을
+ * 사람이 볼 유일한 창, 로그에는 여전히 본문 인용을 찍지 않는다). 모르는 인자나 1 미만의 limit 은 throw — 오타로 전체를 돌리는 일이 없게.
  */
 export function parseArgs(argv) {
-  const args = { limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG };
+  const args = { limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--dry-run') { args.dryRun = true; continue; }
+    if (arg === '--no-geo') { args.noGeo = true; continue; }
     if (arg === '--dump') { args.dump = ''; continue; } // '' = 기본 경로(data/raw/analyze-<시각>.json)
     if (arg.startsWith('--dump=')) { args.dump = arg.slice('--dump='.length); continue; }
     let key;
@@ -58,6 +59,30 @@ export function parseArgs(argv) {
     args[key] = Number(value);
   }
   return args;
+}
+
+/**
+ * 네이버 키가 없을 때 무엇을 하나 — **두 축의 세기를 가르는 자리**다.
+ *
+ * `search`(이름 축)가 없으면 **멈춘다.** 좌표 없이 대조하면 동명 가게가 `ask` 가 아니라 `auto` 로 올라가
+ * 사람이 보지도 못한 채 합쳐진다 — 401/403/429 를 fatal 로 세우는 이유(`analyze-candidates.mjs` 머리 주석)와 같은 값이다.
+ * 2026-09-28 에 키 없이 돌린 첫 실행이 좌표 0건으로 141묶음을 만들고 통째로 버려진 것이 이 게이트가 생긴 계기다.
+ *
+ * `map`(주소 축)이 없으면 **진행한다.** 이 축은 이름 축이 못 붙인 것에만 붙는 '더하기만 하는' 축이라, 없어도
+ * 결과가 어제까지의 동작으로 돌아갈 뿐 그 아래로 내려가지 않는다. 여기서 멈추면 잘 돌던 파이프라인을 죽이는 새 통로가 된다.
+ *
+ * 묻는 것은 **사람 터미널일 때뿐**이다(`canPrompt`). 비TTY 면 프롬프트가 아무도 안 보는 화면에서 영원히 기다리고,
+ * 에이전트 세션이면 입력한 값이 대화 기록에 실린다(`collect-blog.mjs` 가 같은 이유로 `CLAUDECODE` 를 거부한다).
+ *
+ * @param {'search'|'map'} axis
+ * @param {{ hasKeys: boolean, noGeo: boolean, canPrompt: boolean }} state
+ * @returns {'use'|'ask'|'skip'|'stop'}  use=env 것 그대로 · ask=숨김 입력 · skip=그 축 없이 진행 · stop=exit 1
+ */
+export function keyGate(axis, { hasKeys, noGeo, canPrompt }) {
+  if (noGeo) return 'skip'; // 사람이 좌표 없이 돌리겠다고 말한 것 — 묻지도 세우지도 않는다
+  if (hasKeys) return 'use';
+  if (canPrompt) return 'ask';
+  return axis === 'search' ? 'stop' : 'skip';
 }
 
 /**
