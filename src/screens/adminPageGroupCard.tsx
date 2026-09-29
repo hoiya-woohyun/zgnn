@@ -200,13 +200,21 @@ export function AdminPageGroupCard({
 
         <span className="block text-xs text-tertiary max-md:mt-0.5">글 {group.rows.length}건</span>
 
-        <ChevronDown
-          aria-hidden="true"
-          className={cx(
-            'size-4 shrink-0 self-center text-fg-quaternary transition-transform max-md:hidden md:justify-self-end',
-            expanded && 'rotate-180',
-          )}
-        />
+        {/*
+          * 아이콘을 **감싼다.** grid 의 자식마다 세로 여백이 붙는데(`CELL_RULES`), 그 자식이 `<svg>` 면
+          * `box-sizing: border-box` 때문에 16px 상자에서 위아래 8px 씩을 빼 **내용 높이가 0** 이 된다 —
+          * svg 는 넘치는 부분을 잘라 내므로 화살표가 통째로 사라진다(빌드·테스트는 초록이다, 2026-09-29 실측).
+          * 감싼 칸이 여백을 받으면 아이콘은 제 크기를 지킨다.
+          */}
+        <span className="flex items-center justify-end max-md:hidden">
+          <ChevronDown
+            aria-hidden="true"
+            className={cx(
+              'size-4 shrink-0 text-fg-quaternary transition-transform',
+              expanded && 'rotate-180',
+            )}
+          />
+        </span>
       </button>
 
       {expanded && <AdminPageGroupDetail group={group} preview={preview} />}
