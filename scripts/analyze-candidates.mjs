@@ -273,7 +273,17 @@ async function enrichWithNaver(name, town) {
     return picked;
   } catch (e) {
     if (e?.status === 401 || e?.status === 403) {
-      throw Object.assign(new Error(`네이버 인증 실패(status=${e.status}) — NAVER_CLIENT_ID · NAVER_CLIENT_SECRET 을 확인. 좌표 없이 대조하면 판정이 흐려져 실행을 멈춘다`), { fatal: true });
+      // **값보다 상품을 먼저 말한다**(2026-09-30 실측). 같은 키로 `collect`(블로그 검색)는 200 인데 여기(지역 검색)만 401 인 일이 실제로 있었다 —
+      // API HUB 는 Application 에 검색 API 를 **하나씩** 추가하는 구조라, 값이 멀쩡해도 「지역」 이 없으면 이 축만 401 이다.
+      // 값부터 의심하게 두면 멀쩡한 키를 다시 발급받게 된다(BUG-006 이 막으려던 종류의 헛수고).
+      throw Object.assign(
+        new Error(
+          `네이버 인증 실패(status=${e.status}) — ① NCP 콘솔(API HUB)의 그 Application 에 **「지역」 검색이 추가돼 있는지** ` +
+            '(블로그만 추가돼 있으면 collect 는 되고 여기만 401 이다) ② 그 다음 NAVER_CLIENT_ID · NAVER_CLIENT_SECRET 값. ' +
+            '좌표 없이 대조하면 판정이 흐려져 실행을 멈춘다 — 좌표 없이 돌릴 작정이면 --no-geo',
+        ),
+        { fatal: true },
+      );
     }
     // 429 도 세운다. 검색 API 는 일 25,000 호출 상한이고 `data:collect` 와 **같은 키를 쓴다** —
     // 한 번 소진되면 그날 남은 전 건이 같은 결과다. 일시 장애처럼 흘려보내면 401/403 을 세우는

@@ -247,6 +247,8 @@ v10 의 표에는 `| 다음 | 앱 안 /admin | … **이때 처음으로 앱 번
 - [x] `matchPlace.test.mjs` 통과(자기충돌 검사 포함). `docs/architecture/data-pipeline.md` 에 "분석·승인" 절과 상태 머신 표.
 - ~~Actions 에서 한 번 실제로: 시크릿 등록 → `workflow_dispatch`~~ → [ ] **사용자 터미널에서 첫 실행**(README 의 **실행 순서** 블록): `pnpm data:login` →
       `pnpm data:analyze --dry-run --limit 5`(**사용자 터미널에서, 네이버 키를 env 로** — Claude 도 돌기는 하지만 그 env 엔 키가 없어 좌표 보강이 꺼진다 → ⚠️1 이 측정되지 않는다) → 사용자 세션으로 `pnpm data:analyze` → `pnpm data:apply`.
+      ⚠️ **API HUB Application 에 「지역」 검색이 추가돼 있어야 한다**(2026-09-30 실측 → [BUG-006](../bugs/BUG-006-naver-key-401-undiagnosable.md) v8).
+      블로그만 있으면 `data:collect` 는 되고 **이 축만 401** 이며 응답이 값 오류와 글자까지 같다.
       **키는 env 가 먼저고, 없으면 사람 터미널에서 숨김 입력으로 받는다**(2026-09-30, `collect-blog.mjs` 와 같은 모양 · 값은 어디에도 안 남는다).
       물을 수 없으면(비TTY·에이전트 세션) **이름 축은 시작에서 exit 1**, 주소 축은 경고 후 진행 — 세기가 갈리는 이유는 `keyGate` 의 주석.
       좌표 없이 돌릴 작정이면 `--no-geo`. 그때만 보강을 건너뛰고 후보가 좌표 없이 들어간다(`matchPlace` 는 이름·종류만으로 대조, 감점 없음).

@@ -14,6 +14,11 @@
 // 그래서 값을 손에 쥐고도 어느 쪽 것인지 알 수 없고, 틀린 쪽에 보내면 그냥 401 이다. 이 표가 그 혼동을 막는 유일한 방어다.
 // env 이름을 `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET` 로 두는 이유도 같다 — 콘솔 화면의 이름과 맞춘다.
 //
+// ⚠️ **API HUB 는 검색 API 를 하나씩 추가한다 — 「검색」이라는 한 덩어리가 아니다**(2026-09-30 실측).
+// 블로그만 추가된 Application 의 키로 부르면 `/search/v1/blog` 는 200, `/search/v1/local` 은 **401** 이다.
+// 두 응답이 글자까지 같아서(`errorCode 200 · Authentication Failed`) 값이 틀린 것과 구별되지 않는다 —
+// 가르는 방법은 **두 경로를 같은 키로 찔러 보는 것** 하나다(없는 경로는 404·`errorCode 300` 이라 이것과도 갈린다).
+//
 // 파라미터와 응답 필드는 **두 시스템이 같다**(query·display·start·sort / title·link·description·bloggername·postdate / mapx·mapy).
 // 그래서 옮기면서 `collect/naverBlog.mjs` 의 파싱과 `naverLocal.mjs` 의 좌표·주소 해석은 한 줄도 건드리지 않았다.
 

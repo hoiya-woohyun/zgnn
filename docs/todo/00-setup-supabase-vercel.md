@@ -84,7 +84,9 @@ GitHub 에 남을 시크릿은 없다.
 ## 외부 계정 (2·3 단계용) — 사용자가 갖고 있는다, 어디에도 저장하지 않는다
 
 - [x] ~~**네이버 개발자센터**(developers.naver.com)~~ → **NAVER API HUB**(NCP 콘솔, `guide.ncloud-docs.com/docs/apihub-application`)
-      애플리케이션 등록 → 「검색」 추가 → Client ID/Secret. 개발자센터 신규 발급은 2026-07-31 에 끝났고, API HUB 는 **한시적 무료**다.
+      애플리케이션 등록 → 검색 API 추가 → Client ID/Secret. 개발자센터 신규 발급은 2026-07-31 에 끝났고, API HUB 는 **한시적 무료**다.
+      ⚠️ **「블로그」와 「지역」을 따로 추가해야 한다**(2026-09-30 실측 — 전엔 "「검색」 추가" 한 줄이라 한 덩어리로 읽혔다).
+      블로그만 있으면 `data:collect` 는 200 인데 `data:analyze` 의 이름 축(지역 검색)만 401 이고, 응답이 값 오류와 **글자까지 같다**.
       ⚠️ **두 시스템이 값을 똑같이 "Client ID / Client Secret" 이라고 부르는데 헤더 이름이 다르다** — 섞으면 401 만 나온다(→ [BUG-006](../bugs/BUG-006-naver-key-401-undiagnosable.md)). **값은 비밀번호 관리자에만** — `pnpm data:collect` 가 env(`NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`)로 받고,
       없으면 터미널에서 숨김 입력으로 받는다. 레포·키체인·파일 어디에도 저장하지 않으며, 에이전트 세션(`CLAUDECODE`)에서는 입력 자체를 거부한다.
 - [x] **좌표 보강 키는 둘이다**(2026-09-28 정정 — 전엔 "따로 없다" 였다). 3 단계의 좌표 보강에 축이 둘 생겼고 **키가 서로 다르다**(ADR-008 v8):

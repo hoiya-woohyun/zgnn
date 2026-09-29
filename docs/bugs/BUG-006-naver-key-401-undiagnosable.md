@@ -1,6 +1,11 @@
 # BUG-006 — 네이버 검색 키가 401 인데, 왜 401 인지 알 방법이 없다
 
-> 최종 수정: 2026-09-28 (v7: **v6 이 넓힌 자리에서 셀프 리뷰가 구멍 둘을 찾았다.** (1) 감싸인 경로의 `errorCode` 를
+> 최종 수정: 2026-09-30 (v8: **네 번째 갈래가 실측으로 드러났다 — 「상품이 없다」.** API HUB 는 검색 API 를
+> **하나씩** Application 에 추가하는 구조인데, 이 레포의 설정 문서는 "「검색」 추가" 한 줄이라 한 덩어리로 읽혔다.
+> 블로그만 추가된 키로 `data:collect` 는 200, `data:analyze` 의 이름 축(지역 검색)만 401 이다 — 응답이
+> **값이 틀렸을 때와 글자까지 같아서**(`errorCode 200 · Authentication Failed`) 이 버그의 명제가 한 겹 더 늘었다.
+> 가르는 방법은 **같은 키로 두 경로를 찔러 보는 것** 하나다. 「상품이 없다」 절 신설, 설정 문서와 401 메시지 정정)
+> 이전 (v7: **v6 이 넓힌 자리에서 셀프 리뷰가 구멍 둘을 찾았다.** (1) 감싸인 경로의 `errorCode` 를
 > 문자열 그대로 메시지에 끼워 넣어서, 벤더가 `constructor` 를 주면 `Object` 의 소스가, 임의 문자열이면 그 문자열이 통째로 로그에 나갔다 —
 > 이 파일 머리 주석의 약속("숫자는 `\d+` 로만")이 **평평한 경로에만** 지켜지고 있었다. 이제 `^\d{1,4}$` 로 가두고 표 조회도 `Object.hasOwn` 으로 한다.
 > (2) `Invalid authentication information. Client ID does not exist.` 가 `not exist` 를 품어서, 느슨한 `missing` 을 먼저 보던 순서 때문에
@@ -20,6 +25,59 @@
 > 이전 (v2: **실측이 라벨 설계를 뒤집었다** — 실제 401 본문은 "Not Exist Client ID" 가 아니라 `NID AUTH Result Invalid (1000)` 이고, 갈래를 정하는 것은 **괄호 숫자**다)
 > 이전 (v1: 신설 — 첫 `pnpm data:collect` 가 401 로 멈췄고, 원인을 좁힐 근거가 로그에 없었다)
 > 상태: 진단 도구 완료. **공백은 원인이 아니었다**(trim 뒤에도 `1000`). 남은 갈래는 값 자체 · 뒤바꿔 입력 · 개발자센터 키가 아님 — 3차 실행의 「모양」 줄이 가른다.
+
+## 네 번째 갈래 (v8) — **키는 맞는데 그 Application 에 「지역」이 없다**
+
+2026-09-30, 첫 `data:analyze`(키를 넣고 도는 첫 실행)가 이름 축에서 401 로 멈췄다. 사용자의 말은
+"**전에는 되었던 건데**" 였고, 그것이 결정적인 단서였다 — `data:collect`(블로그 검색)는 전부터 되고 있었다.
+
+```
+blog:  200   ← /search/v1/blog
+local: 401   ← /search/v1/local   (같은 키 · 같은 헤더 · 같은 호스트)
+```
+
+**API HUB 는 「검색」이라는 한 덩어리가 아니라 검색 API 를 하나씩 추가한다.** 블로그만 추가된 Application 의
+키로 지역 검색을 부르면 401 이고, 그 본문은 값이 틀렸을 때와 **완전히 같다**:
+
+```json
+{"error":{"errorCode":"200","message":"Authentication Failed","details":"Authentication information are missing."}}
+```
+
+`errorCode 200` 의 라벨이 이 경우를 이미 품고 있었다 — *"Client ID·Secret 이 틀렸거나, **그 Application 에 이 API 가
+추가돼 있지 않다**"*(`naverApiError.mjs:51`). 라벨은 맞았는데 **앞쪽(값)을 먼저 읽게 돼 있어서** 멀쩡한 키를 의심했다.
+
+### 가르는 방법 — 같은 키로 두 경로를 찌른다
+
+값이 틀린 것 · 상품이 없는 것 · 경로가 틀린 것, 셋이 이 한 번으로 갈린다.
+
+| 나온 값 | 뜻 |
+|---|---|
+| `blog: 200` · `local: 401` | **상품이 없다** — NCP 콘솔 → API HUB → 그 Application 에 「지역」 추가 |
+| 둘 다 `401` | 값이 틀렸다(개발자센터 키이거나 오타·공백) |
+| `404` · `errorCode 300` | **경로가 틀렸다** — 우리 코드 문제(`lib/naverSearchApi.mjs`) |
+
+```zsh
+read -rs 'id?NAVER_CLIENT_ID: '; echo
+read -rs 'secret?NAVER_CLIENT_SECRET: '; echo
+for P in blog local; do
+  printf '%s: ' $P
+  curl -s -o /dev/null -w '%{http_code}\n' \
+    -H "X-NCP-APIGW-API-KEY-ID: $id" -H "X-NCP-APIGW-API-KEY: $secret" \
+    "https://naverapihub.apigw.ntruss.com/search/v1/$P?query=%EC%A0%9C%EC%A3%BC&display=1"
+done
+unset id secret
+```
+
+없는 경로를 대조군으로 함께 찌르면(`/search/v1/definitely-not-a-real-path`) 404·`errorCode 300` 이 와서,
+**우리 엔드포인트가 맞다는 것**까지 같은 자리에서 확인된다. 이 대조군이 없으면 "401" 하나로는
+"상품이 없다" 와 "경로가 틀렸다" 가 안 갈린다 — 2026-09-28 에 세 판을 헤맨 것이 정확히 그 모양이었다.
+
+### 고친 것
+
+- `docs/todo/00-setup-supabase-vercel.md` — "「검색」 추가" → **「블로그」와 「지역」을 따로 추가**.
+- `scripts/lib/naverSearchApi.mjs` 머리 주석 — 상품 단위로 나뉜다는 사실과 두 응답이 같다는 사실.
+- `scripts/analyze-candidates.mjs` 의 401 메시지 — **값보다 상품을 먼저 묻는다.** 값부터 의심하게 두면
+  멀쩡한 키를 다시 발급받게 된다(이 버그가 막으려는 종류의 헛수고).
 
 ## 진짜 원인 (v5) — **네이버 검색 API 는 두 개다**
 
