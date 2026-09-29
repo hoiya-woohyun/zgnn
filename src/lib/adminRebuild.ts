@@ -70,6 +70,14 @@ export function agoLabel(fromIso: string, nowMs: number): string {
  *
  * 4xx·5xx 를 따로 말하는 것이 이 함수의 요점이다 — **훅이 폐기되면 그 코드로만 드러난다.**
  */
+/**
+ * 이 기록이 가리키는 쓰기를 운영자 말로. **승인만 이 트리거를 쓰는 게 아니다** — 내리기·되살리기도 같은 것을 쓴다
+ * (`adminPlaces.ts` 머리 주석: 재빌드 장치를 새로 만들지 않았다). 그리고 이 머리글은 두 칸 위에 공용으로 뜬다.
+ * 주어를 "승인한 것" 으로 못 박으면 폐업 가게를 내린 직후 머리글이 하지 않은 일을 말한다.
+ * `place_status` 는 마이그레이션이 `touched.status` 로 채운다(`20260929121000_rebuild_log.sql:117`).
+ */
+const subjectOf = (entry: TRebuildEntry): string => (entry.place_status === 'archived' ? '내린 것' : '올린 것');
+
 export function rebuildHeadline(entries: TRebuildEntry[], nowMs: number): TRebuildHeadline {
   const latest = entries.find((entry) => entry.hook !== 'skipped');
   if (!latest) {
@@ -79,11 +87,12 @@ export function rebuildHeadline(entries: TRebuildEntry[], nowMs: number): TRebui
   }
 
   const ago = agoLabel(latest.requested_at, nowMs);
+  const subject = subjectOf(latest);
 
   if (latest.hook === 'missing') {
     return {
       tone: 'warn',
-      text: `재빌드 훅이 없어요(${ago}) — 승인해도 사이트가 바뀌지 않아요. Vault 의 vercel_deploy_hook 을 확인해 주세요.`,
+      text: `${subject}이 사이트에 반영되지 않아요(${ago}) — 재빌드를 부를 주소가 없어요(Vault 의 vercel_deploy_hook). 바꾼 것은 DB 에 남아 있어요.`,
     };
   }
 
@@ -98,7 +107,7 @@ export function rebuildHeadline(entries: TRebuildEntry[], nowMs: number): TRebui
     return stale
       ? {
           tone: 'warn',
-          text: `재빌드를 보냈지만(${ago}) 응답을 못 받았어요 — 훅 주소가 폐기됐을 수 있어요. Vercel 배포 목록을 확인해 주세요.`,
+          text: `${subject}이 사이트에 반영됐는지 알 수 없어요(${ago}) — 재빌드를 보냈는데 응답을 못 받았어요. Vercel 배포 목록을 확인해 주세요.`,
         }
       : { tone: 'waiting', text: `재빌드를 보냈어요(${ago}) · 응답을 기다리고 있어요` };
   }
@@ -109,6 +118,6 @@ export function rebuildHeadline(entries: TRebuildEntry[], nowMs: number): TRebui
 
   return {
     tone: 'warn',
-    text: `Vercel 이 재빌드를 거절했어요(${ago} · ${status}) — Deploy Hook 이 폐기된 것 같아요. 새 주소를 Vault 의 vercel_deploy_hook 에 넣어 주세요.`,
+    text: `${subject}이 아직 사이트에 반영되지 않았어요(${ago} · ${status}) — Vercel 이 재빌드를 거절했어요. Deploy Hook 이 폐기된 것 같아요. 새 주소를 Vault 의 vercel_deploy_hook 에 넣어 주세요.`,
   };
 }

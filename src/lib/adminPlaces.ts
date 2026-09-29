@@ -28,7 +28,7 @@ export type TArchiveReason = (typeof ARCHIVE_REASONS)[number];
 
 export const PLACE_STATUS_LABEL: Record<TPlaceStatus, string> = {
   published: '게시중',
-  draft: '초안',
+  draft: '게시 대기',
   archived: '내림',
 };
 
@@ -50,10 +50,11 @@ export const PLACE_STATUS_COLOR: Record<TPlaceStatus, 'success' | 'warning' | 'g
  */
 export async function fetchManagedPlaces(client: SupabaseClient): Promise<TPlaceRow[]> {
   const { data, error } = await client.from('places').select('*');
-  if (error) throw new Error(`장소 목록: ${error.message}`);
+  if (error)
+    throw new Error(`장소 목록을 불러오지 못했어요 — 로그아웃하고 다시 로그인해 주세요. (${error.message})`);
   const rows = (data ?? []) as unknown as TPlaceRow[];
   if (rows.length === 0) {
-    throw new Error('장소를 못 읽었어요 — 권한이나 프로젝트 설정이 어긋난 것 같아요. 아무것도 바꾸지 않았어요.');
+    throw new Error('장소 목록이 비어서 멈췄어요 — 로그아웃하고 다시 로그인해 주세요. 아무것도 바꾸지 않았어요.');
   }
   return sortManagedPlaces(rows);
 }
@@ -133,6 +134,23 @@ export function lastNoteLine(note: string | null | undefined): string | undefine
   return lines.length ? lines[lines.length - 1] : undefined;
 }
 
+/**
+ * 기록 한 줄을 화면 말로 — `[admin YYYY-MM-DD]` 의 대괄호와 태그를 벗긴다. 태그는 누가 썼는지 가리는 내부 표식이고
+ * (CLI 가 쓰면 `[data:apply]`) 운영자가 읽을 것이 아니다. **저장 문자열은 그대로다** — `archiveNoteLine` 이 정본이고
+ * `adminPlaces.test.ts` 가 그 문자열을 단정한다. 태그 꼴이 아닌 줄(Studio 에서 손으로 적은 줄)은 그대로 통과시킨다.
+ */
+export function noteLineText(line: string | undefined): string | undefined {
+  if (!line) return line;
+  /*
+   * **우리가 쓰는 태그만** 벗긴다. 맨 앞의 아무 `[토큰]` 이나 벗기면 Studio 손글씨를 망친다 —
+   * `[폐업] 9월 문 닫음` 이 `9월 문 닫음` 이 되고 `[2026-09-01] 폐업` 은 날짜를 잃는다.
+   * 쓰는 쪽은 둘뿐이다: 화면이 `[admin <날짜>]`(`archiveNoteLine`), CLI 가 `[data:apply]`.
+   */
+  const matched = /^\[(?:admin(?:\s+(\d{4}-\d{2}-\d{2}))?|data:apply)\]\s*(.*)$/.exec(line);
+  if (!matched) return line;
+  return matched[1] ? `${matched[1]} ${matched[2]}` : matched[2];
+}
+
 export type TPlaceStatusChange = {
   nowIso: string;
   reason?: TArchiveReason;
@@ -167,7 +185,10 @@ async function setPlaceStatus(
     .eq('id', place.id)
     .select()
     .single();
-  if (error) throw new Error(`${status === 'archived' ? '내리기' : '되살리기'}: ${error.message}`);
+  if (error)
+    throw new Error(
+      `${status === 'archived' ? '내리지' : '되살리지'} 못했어요 — 다시 눌러 보고, 안 되면 로그아웃하고 다시 로그인해 주세요. (${error.message})`,
+    );
   return (data ?? { ...place, status, archive_note }) as TPlaceRow;
 }
 

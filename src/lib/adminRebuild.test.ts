@@ -41,11 +41,33 @@ describe('rebuildHeadline', () => {
    * "사이트에는 다음 빌드에서 보여요" 라고 똑같이 말했다 — 승인은 성공하고 사이트는 영원히 안 바뀌는데
    * 운영자가 그것을 알 방법이 없었다.
    */
-  it('훅이 없으면 경고하고, 승인해도 사이트가 안 바뀐다고 말한다', () => {
+  it('훅이 없으면 경고하고, 바꾼 것이 사이트에 안 간다고 말한다', () => {
     const headline = rebuildHeadline([entry({ hook: 'missing', response_status: null, note: 'Vault 에 …' })], NOW);
     expect(headline.tone).toBe('warn');
-    expect(headline.text).toContain('재빌드 훅이 없어요');
-    expect(headline.text).toContain('사이트가 바뀌지 않아요');
+    // 결과가 앞, 원인이 뒤다 — 운영자가 읽는 것은 "내가 한 일이 어떻게 됐나" 지 훅의 상태가 아니다.
+    expect(headline.text).toContain('사이트에 반영되지 않아요');
+    expect(headline.text).toContain('vercel_deploy_hook');
+  });
+
+  /**
+   * **주어가 승인으로 굳으면 거짓말이 된다.** 내리기·되살리기도 같은 트리거를 쓰고 이 머리글은 두 칸 위에 공용으로 뜬다 —
+   * 폐업 가게를 내린 직후 훅이 404 면 머리글이 하지 않은 승인을 말하게 된다.
+   */
+  it('내린 것이면 주어가 내림이다 — 승인이라고 하지 않는다', () => {
+    const archived = { place_status: 'archived' as const };
+    for (const over of [
+      { hook: 'missing' as const, response_status: null },
+      { hook: 'sent' as const, response_status: 404 },
+    ]) {
+      const headline = rebuildHeadline([entry({ ...over, ...archived })], NOW);
+      expect(headline.text).toContain('내린 것');
+      expect(headline.text).not.toContain('승인');
+    }
+  });
+
+  it('게시 쪽 변경이면 주어가 올림이다', () => {
+    const headline = rebuildHeadline([entry({ hook: 'sent', response_status: 404, place_status: 'published' })], NOW);
+    expect(headline.text).toContain('올린 것');
   });
 
   it('보내다 터진 것은 사유를 그대로 보여 준다', () => {

@@ -125,9 +125,12 @@ export function AdminPagePlaceList({
         patchState(place.id, {
           busy: undefined,
           archiving: false,
+          /* `place.status` 는 바꾸기 **전** 상태다 — 초안은 애초에 사이트에 없었으므로 "사라져요" 가 거짓이 된다. */
           done:
             kind === 'archive'
-              ? '내렸어요 · 다음 빌드부터 사이트에서 사라져요'
+              ? place.status === 'draft'
+                ? '내렸어요 · 사이트에는 원래 없던 곳이에요'
+                : '내렸어요 · 다음 빌드부터 사이트에서 사라져요'
               : '되살렸어요 · 다음 빌드부터 사이트에 보여요',
         });
         onWritten();
@@ -140,7 +143,9 @@ export function AdminPagePlaceList({
     [beginWrite, endWrite, getClient, onPlaceChanged, onWritten, patchState],
   );
 
-  const counts = useMemo(() => countPlacesByStatus(places ?? []), [places]);
+  /* 칩 숫자는 **검색 결과 기준**이다 — `전체 89 · 게시중 3` 처럼 숫자끼리 모순되지 않게 `all` 도 같은 집합을 센다. */
+  const visible = useMemo(() => (places ?? []).filter((place) => matchesPlaceQuery(place, query)), [places, query]);
+  const counts = useMemo(() => countPlacesByStatus(visible), [visible]);
 
   /*
    * 방금 바꾼 줄은 **구간을 벗어나도 한 번은 남긴다**(`states[id]?.done`). '내림' 칩을 켜 둔 채 되살리면
@@ -213,7 +218,7 @@ export function AdminPagePlaceList({
 
       <div className="mt-3 flex flex-wrap gap-2 px-4 md:px-6" role="group" aria-label="상태로 걸러 보기">
         {STATUS_FILTERS.map((entry) => {
-          const count = entry.key === 'all' ? places.length : counts[entry.key];
+          const count = entry.key === 'all' ? visible.length : counts[entry.key];
           const active = entry.key === status;
           return (
             <Button

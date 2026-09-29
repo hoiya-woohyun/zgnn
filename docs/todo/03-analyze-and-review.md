@@ -207,7 +207,7 @@ flowchart LR
 
 | 단계 | 도구 | 만들 것 |
 |---|---|---|
-| **지금** | **앱 안 `/admin`**(2026-09-29) | 후보 묶음 카드 · 원글 링크와 인용문 · 조건 미리보기 · **맞아요 / 아니에요**. 맞아요 한 번이 `approved` → `places` 반영 → `merged` 까지 밟고 **신규 장소는 곧바로 `published`** 다(아래 🙋 닫힘). 로그인은 운영자 계정, 12시간마다 다시. 무엇이 보이고 버튼이 무엇을 쓰는지는 [features/admin-review.md](../features/admin-review.md), 결정은 [ADR-018](../decisions/ADR-018-in-app-admin-review.md), 진행은 [06](06-admin-review.md) |
+| **지금** | **앱 안 `/admin`**(2026-09-29) | 후보 묶음 카드 · 원글 링크와 인용문 · 조건 미리보기 · **맞아요 / 반려하기**. 맞아요 한 번이 `approved` → `places` 반영 → `merged` 까지 밟고 **신규 장소는 곧바로 `published`** 다(아래 🙋 닫힘). 로그인은 운영자 계정, 12시간마다 다시. 무엇이 보이고 버튼이 무엇을 쓰는지는 [features/admin-review.md](../features/admin-review.md), 결정은 [ADR-018](../decisions/ADR-018-in-app-admin-review.md), 진행은 [06](06-admin-review.md) |
 | 그대로 | **`pnpm data:review`**(2026-09-28) | `list`(기본) — pending 을 같은 가게로 묶어 검수 순서대로: `■ 이름 [종류 · 구간 · AI 0.93 · 글 2] 지역 좌표 ⚠표식` / `id …` / `조건: 정규식 [..] · AI [..] · 앱 [..] ⚠ AI≠정규식`. `--verbose` 로 원문·evidence, `--md 경로` 로 파일. `approve <id앞자리…> [--merge-into <placeId>] [--note]` · `approve --tier auto` · `reject <id…> --note "이유"`. `status` — 후보·글·장소 수와 **published 대기 draft 의 빈 칸**. 검수 순서는 `reviewCandidates.mjs` 의 `reviewPriority`(🙋 사용자가 다듬는 자리). |
 | 그대로 | Supabase Studio 표 편집기 | `candidates` 를 열어 `post_url` 클릭 → `extracted.evidence` 와 대조 → `status` 바꾸고 `reviewer_note`. **`ask` 후보가 신규가 맞다면 `match_place_id` 를 비운 뒤 approved 로** — `data:apply` 는 `match_place_id` 가 있으면 그것을 믿고 병합한다. `extracted` 의 `petPolicyText`·`regionRaw`·`petPolicy` 는 승인 전에 손으로 고쳐도 된다. |
 

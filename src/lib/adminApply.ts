@@ -190,7 +190,7 @@ async function markMerged(
     .from('candidates')
     .update({ status: 'merged', extracted: { ...row.extracted, applied } })
     .eq('id', row.id);
-  failIf('후보 반영 완료 표시', error);
+  failIf('반영 완료 표시', error);
 }
 
 /** 내린 곳 하나를 "사람이 골라야 한다" 결과로. 두 자리에서 같은 모양을 만들므로 한 곳에 둔다. */
@@ -344,7 +344,7 @@ export async function approveGroup(
     places.push(created);
     // insert 직후 후보에 새 id 를 묶는다 — 다음 단계에서 죽어도 재시도가 두 번째 insert 를 하지 않게(파일 머리 주석 (2)).
     const writeBack = await client.from('candidates').update({ match_place_id: created.id }).eq('id', lead.id);
-    failIf('후보에 장소 짝 적기', writeBack.error);
+    failIf('새 장소와 짝 맺기', writeBack.error);
     target = created;
     placeId = created.id;
     placeName = created.name;

@@ -7,6 +7,7 @@ import { Input } from '../components/base/input';
 import {
   ARCHIVE_REASONS,
   lastNoteLine,
+  noteLineText,
   PLACE_STATUS_COLOR,
   PLACE_STATUS_LABEL,
   type TArchiveReason,
@@ -52,7 +53,7 @@ export function AdminPagePlaceRow({
   const [note, setNote] = useState('');
   const busy = state.busy;
   const archived = place.status === 'archived';
-  const why = archived ? lastNoteLine(place.archive_note) : undefined;
+  const why = archived ? noteLineText(lastNoteLine(place.archive_note)) : undefined;
 
   const typeTone = isPlaceType(place.type)
     ? { background: typeTint(place.type, 14), color: TYPE_COLOR[place.type] }
@@ -74,7 +75,13 @@ export function AdminPagePlaceRow({
           </Badge>
         </div>
         <p className="mt-1 text-sm text-tertiary">{place.region_raw || '(지역 없음)'}</p>
-        {why && <p className="mt-1 text-xs text-tertiary">{why}</p>}
+        {/* 내린 이유는 이 카드에서 가장 중요한 한 줄이다 — 이름 다음 위계로 올린다(옛 `text-xs text-tertiary` 는 가장 흐렸다). */}
+        {why && <p className="mt-1 text-sm text-secondary">{why}</p>}
+        {place.status === 'draft' && (
+          <p className="mt-1 text-xs text-tertiary">
+            아직 사이트에 안 올라간 곳이에요 — 올리려면 &lsquo;확인할 장소&rsquo; 에서 이 가게의 후보를 승인해 주세요.
+          </p>
+        )}
 
         {state.done && <p className="mt-2 text-sm text-success-primary">{state.done}</p>}
         {state.error && <p className="mt-2 text-sm text-error-primary">{state.error}</p>}
@@ -93,6 +100,12 @@ export function AdminPagePlaceRow({
                 {busy === 'restoring' ? '되살리고 있어요…' : '되살리기(게시중으로)'}
               </Button>
             ) : (
+              /*
+               * 초안에 '올리기' 버튼을 두지 않는다. `restorePlace` 를 그대로 쓰면 두 가지가 조용히 틀린다 —
+               * 지역 형식 검사(`leadProblem` 의 `regionUsable`)를 건너뛰어 Studio 에서 만든 행이 '기타' 로 게시되고,
+               * `archive_note` 에 내린 적 없는 행의 `되살림` 이 적힌다. 제대로 막으면 이 칸에는 지역을 고칠 자리가
+               * 없어 막다른 패널이 된다 — 초안을 올리는 길은 '확인할 장소' 의 승인이다(→ docs/todo/06 「열린 것」 F).
+               */
               <Button
                 color="secondary-destructive"
                 size="lg"
@@ -139,7 +152,9 @@ export function AdminPagePlaceRow({
 
           {/* 거짓말을 하지 않는 자리다 — DB 에서 내려도 사이트에서 사라지는 것은 다음 빌드부터다(ADR-015). */}
           <p className="mt-3 text-xs text-tertiary">
-            내리면 다음 빌드부터 사이트에서 사라져요. 되살리는 길은 이 목록의 &lsquo;내림&rsquo; 칸에 있어요.
+            {place.status === 'draft'
+              ? '내리면 이 목록의 ‘내림’ 으로 옮겨져요. 사이트에는 원래 없던 곳이에요.'
+              : '내리면 다음 빌드부터 사이트에서 사라져요. 되살리려면 위쪽 ‘내림’ 버튼으로 걸러서 찾으면 돼요.'}
           </p>
 
           <div className="mt-3 flex flex-col gap-2 sm:flex-row">

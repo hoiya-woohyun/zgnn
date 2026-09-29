@@ -10,12 +10,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import {
-  groupCandidates,
-  groupFlags,
-  previewPolicy,
-  TIER_LABEL as TIER_LABEL_RAW,
-} from '../../scripts/analyze/reviewCandidates.mjs';
+import { groupCandidates, groupFlags, previewPolicy } from '../../scripts/analyze/reviewCandidates.mjs';
 import { parseRegion } from '../../scripts/lib/placeFields.mjs';
 import { parsePetPolicy, toPetBadges, withPolicyFacts } from './petPolicy';
 import { PLACES } from './places';
@@ -144,7 +139,7 @@ export async function fetchPendingCandidates(client: SupabaseClient): Promise<TC
  * 반영이 중간에 끊긴 후보(`approved`) 수 — 목록에는 `pending` 만 나오므로 이 수를 따로 세지 않으면 그 후보들이 **성공처럼** 사라진다.
  *
  * 쓰기 도중(예: `place_sources` upsert)에 실패하면 후보는 `approved` 로 남는다. 실패는 카드에 빨간 줄로 뜨지만 그 줄은 메모리에만 있어,
- * 새로고침 한 번에 목록에서도 사라지고 머리글은 여전히 "검수 대기 N건" 이다 — 사람은 승인이 통과한 줄 안다.
+ * 새로고침 한 번에 목록에서도 사라지고 머리글은 여전히 "확인할 장소 N곳" 이다 — 사람은 승인이 통과한 줄 안다.
  * 되찾는 길은 터미널의 `pnpm data:apply` 하나뿐이므로(ADR-018 "이어받기") 화면이 그 수를 말해 준다.
  */
 export async function countStrandedCandidates(client: SupabaseClient): Promise<number> {
@@ -179,7 +174,7 @@ export async function fetchMatchablePlaces(client: SupabaseClient): Promise<TPla
   if (error) throw new Error(`장소 조회: ${error.message}`);
   const rows = (data ?? []) as unknown as TPlaceRow[];
   if (rows.length === 0) {
-    throw new Error('장소를 못 읽었어요 — 권한이나 프로젝트 설정이 어긋난 것 같아요. 아무것도 바꾸지 않았어요.');
+    throw new Error('장소 목록이 비어서 멈췄어요 — 로그아웃하고 다시 로그인해 주세요. 아무것도 바꾸지 않았어요.');
   }
   return rows;
 }
@@ -194,7 +189,7 @@ export function previewFor(extracted: TCandidateExtracted): TPolicyPreview {
   return previewPolicy(extracted, { parsePetPolicy, toPetBadges, withPolicyFacts }) as TPolicyPreview;
 }
 
-/** `groupFlags` 래퍼 — '지역 없음'·'좌표 없음'·'목록글'·'중복표시'·'짝 없음'. */
+/** `groupFlags` 래퍼 — 표식 다섯 개를 그대로 돌려준다. 화면 표기(라벨·색·자리)는 `adminPreview.ts` 가 정한다. */
 export function flagsFor(group: TCandidateGroup): string[] {
   return groupFlags(group) as string[];
 }
@@ -236,8 +231,16 @@ export const TYPE_LABEL: Record<TCandidateType, string> = {
   other: '기타',
 };
 
-/** '일치'·'확인요청'·'신규'. CLI 와 같은 말을 쓰려고 재export 한다(reviewCandidates.mjs:10). */
-export const TIER_LABEL = TIER_LABEL_RAW as Record<TCandidateTier, string>;
+/**
+ * 화면 표기. CLI(`TIER_LABEL`, reviewCandidates.mjs:10)는 터미널 몫이라 그대로 둔다 —
+ * '일치'·'확인요청' 은 무엇과 일치인지·누가 요청하는지를 말하지 않아 운영자가 못 읽었다.
+ * 걸러 보기 칩(adminPage.tsx)과 카드 뱃지(adminPageGroupCard.tsx)가 **둘 다** 이것을 읽는다 — 값이 갈리지 않게.
+ */
+export const TIER_LABEL: Record<TCandidateTier, string> = {
+  auto: '이미 있는 곳',
+  ask: '같은 곳일까요?',
+  new: '처음 보는 곳',
+};
 
 /**
  * 반려 사유 칩. 자유 입력만 두면 매번 다른 말이 적혀 나중에 "왜 반려했나" 를 셀 수 없다.
@@ -246,6 +249,20 @@ export const TIER_LABEL = TIER_LABEL_RAW as Record<TCandidateTier, string>;
 export const REJECT_REASONS = ['목록글', '홍보·협찬', '폐업', '제주 아님', '중복', '동반 불가', '정보 부족'] as const;
 
 export type TRejectReason = (typeof REJECT_REASONS)[number];
+
+/** 칩의 뜻 한 줄(화면 전용). 값(`REJECT_REASONS`)은 `reviewer_note` 에 적히므로 못 바꾼다 — 뜻만 화면에서 말한다. */
+export const REJECT_REASON_HINT: Record<TRejectReason, string> = {
+  목록글: '가보지 않고 이름만 나열한 글이에요',
+  '홍보·협찬': '광고·협찬 글이라 조건을 믿을 수 없어요',
+  폐업: '지금은 문을 닫은 가게예요',
+  '제주 아님': '제주 밖 가게예요',
+  중복: '이미 올린 장소와 같은 가게예요',
+  '동반 불가': '강아지를 데려갈 수 없는 가게예요',
+  '정보 부족': '이용 조건을 알 만한 내용이 없어요',
+};
+
+/** `factsLine` 이 "판단은 있는데 조각이 0개" 를 말하는 센티넬. 화면이 이 리터럴을 인라인하지 않게 이름을 준다. */
+export const FACTS_EMPTY = '(판단 없음)';
 
 /**
  * AI 판단(`petPolicy`)을 한국어 한 줄로. CLI 의 `factsLine`(reviewCandidates.mjs:100-115)과 같은 규칙이지만
@@ -268,5 +285,5 @@ export function factsLine(facts: TPetPolicyFacts | null): string | null {
   if (facts.feeText) parts.push(facts.feeText);
   if (facts.callFirst) parts.push('전화 확인');
   if (facts.notes) parts.push(facts.notes);
-  return parts.length ? parts.join(' · ') : '(판단 없음)';
+  return parts.length ? parts.join(' · ') : FACTS_EMPTY;
 }

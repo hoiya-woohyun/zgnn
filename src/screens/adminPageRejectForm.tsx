@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Button } from '../components/base/button';
 import { Input } from '../components/base/input';
-import { REJECT_REASONS, type TRejectReason } from '../lib/adminCandidates';
+import { REJECT_REASON_HINT, REJECT_REASONS, type TRejectReason } from '../lib/adminCandidates';
 
 type TAdminPageRejectFormProps = {
   busy: boolean;
@@ -21,7 +21,9 @@ export function AdminPageRejectForm({ busy, onCancel, onSubmit }: TAdminPageReje
 
   return (
     <div className="border-t border-secondary px-4 py-4">
-      <p className="text-sm font-semibold text-secondary">왜 아닌가요?</p>
+      <p className="text-sm font-semibold text-secondary">왜 반려하나요?</p>
+      {/* 되돌릴 수 없다는 사실은 라벨이 아니라 이 줄이 전한다. 단위를 '글' 로 쓰면 틀린다(묶음은 여러 글이다). */}
+      <p className="mt-1 text-xs text-tertiary">반려하면 목록에서 사라져요. 화면에서는 되돌릴 수 없어요.</p>
       <div className="mt-2 flex flex-wrap gap-2">
         {REJECT_REASONS.map((candidate) => (
           <Button
@@ -64,7 +66,8 @@ export function AdminPageRejectForm({ busy, onCancel, onSubmit }: TAdminPageReje
           취소
         </Button>
       </div>
-      {!reason && <p className="mt-2 text-xs text-tertiary">사유를 하나 골라 주세요.</p>}
+      {/* 고르기 전엔 재촉, 고른 뒤엔 그 칩의 뜻 — 같은 자리라 레이아웃이 흔들리지 않는다. */}
+      <p className="mt-2 text-xs text-tertiary">{reason ? REJECT_REASON_HINT[reason] : '사유를 하나 골라 주세요.'}</p>
     </div>
   );
 }

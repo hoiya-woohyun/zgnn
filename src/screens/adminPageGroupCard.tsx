@@ -1,7 +1,7 @@
 'use client';
 
-import { ChevronDown } from '@untitledui/icons';
-import { Badge } from '../components/base/badges';
+import { CheckVerified02, ChevronDown } from '@untitledui/icons';
+import { Badge, BadgeWithIcon } from '../components/base/badges';
 import { Button } from '../components/base/button';
 import { Select } from '../components/base/select';
 import {
@@ -14,7 +14,8 @@ import {
   type TRejectReason,
 } from '../lib/adminCandidates';
 import type { TApplyOutcome, TSimilarPlace } from '../lib/adminApply';
-import { lastNoteLine } from '../lib/adminPlaces';
+import { lastNoteLine, noteLineText } from '../lib/adminPlaces';
+import { aiAnalyzed, policyLine, type TAdminFlagView } from '../lib/adminPreview';
 import { isPlaceType, TYPE_COLOR, typeTint } from '../lib/places';
 import { cx } from '../utils/cx';
 import { AdminPageGroupDetail } from './adminPageGroupDetail';
@@ -49,7 +50,7 @@ export type TApproveChoice = {
 type TAdminPageGroupCardProps = {
   group: TCandidateGroup;
   preview: TPolicyPreview;
-  flags: string[];
+  view: TAdminFlagView;
   state: TAdminPageGroupState;
   expanded: boolean;
   onToggle: () => void;
@@ -61,13 +62,6 @@ type TAdminPageGroupCardProps = {
   onSaveRegion: (regionRaw: string) => void;
 };
 
-/** 표식마다 색을 다르게. 회색이 기본이고, **반영을 막거나 뜻을 뒤집는** 것만 눈에 띄게 한다. */
-const FLAG_COLOR: Record<string, 'gray' | 'warning' | 'error'> = {
-  '지역 없음': 'warning',
-  '짝 없음': 'warning',
-  '동반불가 문장': 'error',
-};
-
 const TIER_COLOR: Record<string, 'success' | 'warning' | 'blue'> = {
   auto: 'success',
   ask: 'warning',
@@ -75,7 +69,7 @@ const TIER_COLOR: Record<string, 'success' | 'warning' | 'blue'> = {
 };
 
 const BUSY_LABEL: Record<NonNullable<TAdminPageGroupState['busy']>, string> = {
-  approving: '올리고 있어요…',
+  approving: '반영하고 있어요…',
   rejecting: '반려하고 있어요…',
   savingRegion: '저장하고 있어요…',
 };
@@ -87,7 +81,7 @@ const BUSY_LABEL: Record<NonNullable<TAdminPageGroupState['busy']>, string> = {
 export function AdminPageGroupCard({
   group,
   preview,
-  flags,
+  view,
   state,
   expanded,
   onToggle,
@@ -109,6 +103,10 @@ export function AdminPageGroupCard({
    * `places` 행(`placesRef`)으로 한다.
    */
   const matchedArchived = group.lead.places?.status === 'archived';
+  /** 짝 id. `matchedName` 은 임베드라 비어 있을 수 있어 **판정에 쓰지 않는다**. */
+  const pairId = group.lead.match_place_id;
+  /** 짝이 아직 게시 전인가 — 병합 승인이 그 행을 `published` 로 올린다(`adminApply.ts:157`). */
+  const matchedDraft = group.lead.places?.status === 'draft';
   /** 0.4~0.85 패널이 가리키는 이웃이 내린 곳인가. `approveGroup` 이 경계에서 채워 준 값이다(`TSimilarPlace`). */
   const similarArchived = state.similar?.status === 'archived';
 
@@ -147,24 +145,51 @@ export function AdminPageGroupCard({
             >
               {TYPE_LABEL[extracted.type] ?? extracted.type}
             </span>
-            <Badge type="color" size="sm" color={TIER_COLOR[group.tier] ?? 'gray'}>
-              {TIER_LABEL[group.tier] ?? group.tier}
-              {group.tier !== 'new' && matchedName ? ` → ${matchedName}` : ''}
-            </Badge>
+            {/*
+              * tier 가 auto/ask 인데 짝이 비어 있으면 **사람이 비운 것**이고(apply-approved.mjs:13·15) 승인은
+              * `targetId: null` 로 **새 장소를 만든다**(adminApply.ts:116-119). 초록 '이미 있는 곳' 을 그대로 두면
+              * 합쳐질 줄 알고 누른 결과가 새 장소 생성이다. `new` 와 라벨을 돌려쓰지 않는다 — 그쪽은 재대조가 돈다.
+              */}
+            {group.tier !== 'new' && !pairId ? (
+              <Badge type="color" size="sm" color="blue">
+                새 장소로
+              </Badge>
+            ) : (
+              <Badge type="color" size="sm" color={TIER_COLOR[group.tier] ?? 'gray'}>
+                {TIER_LABEL[group.tier] ?? group.tier}
+                {group.tier !== 'new' && matchedName ? ` → ${matchedName}` : ''}
+              </Badge>
+            )}
             {matchedArchived && (
               <Badge type="color" size="sm" color="warning">
                 짝이 내린 곳
               </Badge>
             )}
-            {flags.map((flag) => (
-              <Badge key={flag} type="color" size="sm" color={FLAG_COLOR[flag] ?? 'gray'}>
-                {flag}
+            {/*
+              * **막는 것이 먼저다.** `view.badges` 는 빨강(지역 없음·동반불가)부터 정렬돼 오는데, 대부분의 카드에 붙는
+              * 초록 뱃지를 그 앞에 두면 위계가 뒤집힌다 — 초록이 자리를 먹고 빨강이 줄 끝으로 밀린다.
+              */}
+            {view.badges.map((badge) => (
+              <Badge key={badge.key} type="color" size="sm" color={badge.tone}>
+                {badge.label}
               </Badge>
             ))}
+            {/*
+              * 부재가 기본값인 표식(`AI 판단 없음`)을 뒤집는다 — 잘 분석된 후보가 눈에 띈다. ✓ 글자는 안 넣는다(아이콘이 그린다).
+              * `facts` 의 truthy 만 보면 **빈 판단 객체에도 초록이 뜬다** — 그때 펼친 상세는 `AI 가 읽은 조건이 없어요` 라고 해서
+              * 한 카드가 자기를 반박한다. `aiAnalyzed` 가 읽어낸 조각이 실제로 있는지까지 본다.
+              */}
+            {aiAnalyzed(preview) && (
+              <BadgeWithIcon type="color" size="sm" color="success" iconLeading={CheckVerified02}>
+                AI 분석 완료
+              </BadgeWithIcon>
+            )}
           </span>
           <span className="mt-1 block text-xs text-tertiary">
-            {extracted.regionRaw ?? '지역?'} · 조건: {preview.level} · 앱 [{preview.mergedBadges.join(', ') || '—'}] · 글{' '}
-            {group.rows.length}
+            {/* 지역이 없으면 칸과 구분자를 함께 지운다 — 뱃지 `지역 없음` 이 같은 말을 이미 한다(`지역?` 은 문장도 아니었다). */}
+            {extracted.regionRaw ? `${extracted.regionRaw} · ` : ''}
+            {policyLine(preview, extracted.petPolicyText)} · 블로그 글 {group.rows.length}건
+            {view.notes.map((note) => ` · ${note}`).join('')}
           </span>
         </span>
         <ChevronDown
@@ -189,10 +214,10 @@ export function AdminPageGroupCard({
                */
               <div>
                 <p className="text-sm text-secondary">
-                  짝지은 <span className="font-semibold">{state.archived.placeName}</span> 은 내린 곳이에요.
+                  내린 곳과 같은 가게로 보여요: <span className="font-semibold">{state.archived.placeName}</span>
                 </p>
-                {lastNoteLine(state.archived.note) && (
-                  <p className="mt-0.5 text-xs text-tertiary">{lastNoteLine(state.archived.note)}</p>
+                {noteLineText(lastNoteLine(state.archived.note)) && (
+                  <p className="mt-0.5 text-xs text-tertiary">{noteLineText(lastNoteLine(state.archived.note))}</p>
                 )}
                 <p className="mt-0.5 text-xs text-tertiary">
                   다시 연 가게면 되살려서 합치고, 아니면 반려해 주세요. 새 장소로 올리면 같은 가게가 두 번 생겨요.
@@ -220,7 +245,7 @@ export function AdminPageGroupCard({
                     isDisabled={Boolean(busy)}
                     onClick={onStartReject}
                   >
-                    아니에요
+                    반려하기
                   </Button>
                 </div>
                 {/*
@@ -245,8 +270,8 @@ export function AdminPageGroupCard({
                */
               <div>
                 <p className="text-sm text-secondary">
-                  비슷한 기존 장소가 있어요: <span className="font-semibold">{state.similar.name}</span> (
-                  {state.similar.confidence.toFixed(2)})
+                  같은 가게인지 확실하지 않아요: <span className="font-semibold">{state.similar.name}</span> — 같은
+                  곳인지 봐 주세요.
                   {similarArchived && (
                     <>
                       {' '}
@@ -256,13 +281,24 @@ export function AdminPageGroupCard({
                     </>
                   )}
                 </p>
-                <p className="mt-0.5 text-xs text-tertiary">{state.similar.reason}</p>
+                {/* 이름 없는 괄호 소수(0.62)를 "62% 확실" 로 읽는 오독을 없앤다. 값은 살린다 — 같은 모양의 사유가 0.45 일 수도 0.82 일 수도 있다. */}
+                <p className="mt-0.5 text-xs text-tertiary">
+                  닮은 정도 {Math.round(state.similar.confidence * 100)}% · {state.similar.reason}
+                </p>
                 {/*
                   * 내린 곳이면 **왜 내렸는지**를 같이 보여 준다. 이 한 줄이 없으면 '되살려서 합치기' 가
                   * 폐업한 가게를 되살리는 버튼인지 다시 연 가게를 잇는 버튼인지 구분할 근거가 화면에 없다.
                   */}
-                {similarArchived && lastNoteLine(state.similar.archiveNote) && (
-                  <p className="mt-0.5 text-xs text-tertiary">{lastNoteLine(state.similar.archiveNote)}</p>
+                {similarArchived && noteLineText(lastNoteLine(state.similar.archiveNote)) && (
+                  <p className="mt-0.5 text-xs text-tertiary">
+                    {noteLineText(lastNoteLine(state.similar.archiveNote))}
+                  </p>
+                )}
+                {/* 이 버튼이 곧 `confirmedDifferent` 로 기록돼 복제본 가드를 통째로 건너뛴다(adminApply.ts:241-246) — 화면이 그것을 묻는다. */}
+                {similarArchived && (
+                  <p className="mt-0.5 text-xs text-tertiary">
+                    같은 가게면 되살려서 합쳐 주세요. 새 장소로 올리면 같은 가게가 두 번 생겨요.
+                  </p>
                 )}
                 <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                   <Button
@@ -289,7 +325,7 @@ export function AdminPageGroupCard({
                      */
                     onClick={() => onApprove({ asNew: true, confirmedDifferent: similarArchived || undefined })}
                   >
-                    새 장소로
+                    {similarArchived ? '정말 다른 가게예요 — 새 장소로' : '새 장소로'}
                   </Button>
                 </div>
                 {/*
@@ -303,29 +339,47 @@ export function AdminPageGroupCard({
                   isDisabled={Boolean(busy)}
                   onClick={onStartReject}
                 >
-                  아니에요
+                  반려하기
                 </Button>
               </div>
             ) : (
               <div className="space-y-2">
                 {regionOk ? (
-                  <Button
-                    color="primary"
-                    size="lg"
-                    className="w-full"
-                    isDisabled={Boolean(busy)}
-                    isLoading={busy === 'approving'}
-                    onClick={() => onApprove()}
-                  >
-                    맞아요, 장소로 올리기
-                  </Button>
+                  /* 버튼과 결과 한 줄을 한 덩어리로 감싼다 — 부모의 `space-y-2` 가 둘을 갈라 놓지 않게. */
+                  <div>
+                    <Button
+                      color="primary"
+                      size="lg"
+                      className="w-full"
+                      isDisabled={Boolean(busy)}
+                      isLoading={busy === 'approving'}
+                      onClick={() => onApprove()}
+                    >
+                      맞아요, 장소로 올리기
+                    </Button>
+                    {/*
+                      * 누르기 전에 무엇이 되돌릴 수 없어지는지 말한다. **갈래가 셋인 이유**는 `decideTarget` 이 셋이어서다
+                      * (adminApply.ts:115-127): 짝이 있으면 그리로 합치고, 짝이 없어도 `tier === 'new'` 면 **재대조**가 돌아
+                      * 점수가 높으면 기존 장소로 합쳐진다. 그 갈래를 "새로 생겨요" 로 뭉개면 운영자가 되돌리려고
+                      * '올린 장소' 에서 내릴 때 **합쳐 넣은 원래 장소**를 내린다 — 캡션이 틀리는 방향이 최악이 된다.
+                      */}
+                    <p className="mt-1 text-xs text-tertiary">
+                      {pairId
+                        ? matchedDraft
+                          ? '기존 장소에 합쳐지고, 그 곳이 사이트에 게시돼요 · 되돌릴 수 없어요'
+                          : '기존 장소에 합쳐져요 · 합친 내용은 되돌릴 수 없어요'
+                        : group.tier === 'new'
+                          ? '같은 가게가 이미 있으면 거기 합쳐지고, 없으면 새로 올라가요 · 결과는 누른 뒤에 알려 줘요'
+                          : "새 장소로 올라가요 · 되돌릴 땐 '올린 장소' 에서 내려요"}
+                    </p>
+                  </div>
                 ) : (
                   /*
                    * 지역이 없으면 반영을 막는다 — 읍·면 칩이 비고 상세 헤더가 '기타' 가 되기 때문이다.
                    * 선택지는 기존 86곳이 쓰는 표기뿐이다(새 표기를 만들면 그 장소 혼자 다른 칩을 단다).
                    */
                   <div className="rounded-xl bg-secondary px-3 py-3">
-                    <p className="text-sm text-secondary">지역이 없어 아직 올릴 수 없어요. 하나 골라 주세요.</p>
+                    <p className="text-sm text-secondary">지역이 정해지지 않아 아직 올릴 수 없어요. 하나 골라 주세요.</p>
                     <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                       <Select
                         aria-label="지역 고르기"
@@ -363,10 +417,10 @@ export function AdminPageGroupCard({
                   isDisabled={Boolean(busy)}
                   onClick={onStartReject}
                 >
-                  아니에요
+                  반려하기
                 </Button>
 
-                {group.tier !== 'new' && regionOk && !matchedArchived && (
+                {group.tier !== 'new' && pairId && regionOk && !matchedArchived && (
                   /*
                    * 짝이 잘못 붙은 경우 — 사람이 짝을 비우는 대신 여기서 신규로 보낸다(CLI 의 match_place_id 비우기와 같은 뜻).
                    * **짝이 내린 곳이면 이 버튼을 감춘다**(`!matchedArchived`). 그 경우 이 버튼은 내린 가게의 복제본을

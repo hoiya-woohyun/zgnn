@@ -14,10 +14,12 @@ import {
   flagsFor,
   groupPending,
   previewFor,
+  TIER_LABEL,
   type TCandidateGroup,
   type TPlaceRow,
   type TRejectReason,
 } from '../lib/adminCandidates';
+import { adminFlagView } from '../lib/adminPreview';
 import { fetchRebuildStatus, rebuildHeadline, type TRebuildHeadline } from '../lib/adminRebuild';
 import {
   ADMIN_SESSION_KEY,
@@ -37,8 +39,8 @@ import { AdminPagePlaceList } from './adminPagePlaceList';
  *
  * 상태 머신: `checking`(저장된 세션 확인) → `signedOut` → `verifying`(운영자인가) → `notOperator`
  *            → `loading`(후보·장소 조회) → `ready` | `error`.
- * 갈래를 문구 하나로 뭉개지 않는 이유 — 비운영자에게 RLS 는 빈 결과를 주므로 "후보가 없어요" 와
- * "운영자 계정이 아니에요" 가 같은 화면이 되기 쉽다. 그러면 사람이 진짜로 다 끝난 줄 안다.
+ * 갈래를 문구 하나로 뭉개지 않는 이유 — 비운영자에게 RLS 는 빈 결과를 주므로 "확인할 장소가 없어요" 와
+ * "검수 권한이 없어요" 가 같은 화면이 되기 쉽다. 그러면 사람이 진짜로 다 끝난 줄 안다.
  *
  * 쓰기는 전부 `src/lib/adminApply.ts` 가 한다 — 이 파일은 상태와 문구만 소유한다.
  * 실패를 **삼키지 않는다**: 카드 안에 빨간 한 줄로 남긴다. 삼키면 사람이 두 번 누르고 장소가 두 개 생긴다.
@@ -59,18 +61,23 @@ type TPhase = 'checking' | 'signedOut' | 'verifying' | 'notOperator' | 'loading'
 type TTab = 'candidates' | 'places';
 
 const TABS: { key: TTab; label: string }[] = [
-  { key: 'candidates', label: '후보 검수' },
+  { key: 'candidates', label: '확인할 장소' },
   { key: 'places', label: '올린 장소' },
 ];
 
-type TFilter = 'all' | 'auto' | 'ask' | 'new' | 'policy';
+type TTierFilter = 'all' | 'auto' | 'ask' | 'new';
 
-const FILTERS: { key: TFilter; label: string; match: (group: TCandidateGroup) => boolean }[] = [
+/**
+ * 걸러 보기는 **두 축**이다. 앞의 넷은 서로 배타적인 한 축(기존 장소와의 관계)이고,
+ * '조건이 적힌 것만' 은 그 축을 가로지르는 따로 켜는 토글이다. 한 줄에 다섯을 같은 모양으로 두었을 때는
+ * 조건 토글이 tier 필터를 **대체해서**, 조건 없는 후보(142묶음 중 112)가 통째로 사라진 목록을
+ * 운영자가 "다 봤다" 로 읽었다.
+ */
+const TIER_FILTERS: { key: TTierFilter; label: string; match: (group: TCandidateGroup) => boolean }[] = [
   { key: 'all', label: '전체', match: () => true },
-  { key: 'auto', label: '일치', match: (group) => group.tier === 'auto' },
-  { key: 'ask', label: '확인요청', match: (group) => group.tier === 'ask' },
-  { key: 'new', label: '신규', match: (group) => group.tier === 'new' },
-  { key: 'policy', label: '조건문 있음', match: (group) => group.hasPolicyText },
+  { key: 'auto', label: TIER_LABEL.auto, match: (group) => group.tier === 'auto' },
+  { key: 'ask', label: TIER_LABEL.ask, match: (group) => group.tier === 'ask' },
+  { key: 'new', label: TIER_LABEL.new, match: (group) => group.tier === 'new' },
 ];
 
 /**
@@ -100,7 +107,8 @@ export function AdminPage() {
   const [stranded, setStranded] = useState<number | undefined>(undefined);
   const [states, setStates] = useState<Record<string, TAdminPageGroupState>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [filter, setFilter] = useState<TFilter>('all');
+  const [tierFilter, setTierFilter] = useState<TTierFilter>('all');
+  const [policyOnly, setPolicyOnly] = useState(false);
   const [shown, setShown] = useState(PAGE_SIZE);
   const [tab, setTab] = useState<TTab>('candidates');
   /**
@@ -151,7 +159,7 @@ export function AdminPage() {
        * "재빌드가 안 걸렸다" 와 "진단기가 없다/고장났다" 가 다시 같은 얼굴이 된다.
        * 지금 가장 흔한 원인이 그것이다: 마이그레이션이 아직 원격에 적용되지 않으면 이 RPC 자체가 없다.
        */
-      setRebuild({ tone: 'none', text: '재빌드 기록을 읽지 못했어요 — 마이그레이션이 적용됐는지 확인해 주세요.' });
+      setRebuild({ tone: 'none', text: '사이트에 올라갔는지 지금은 확인할 수 없어요 — 검수는 계속해도 돼요.' });
     }
   }, []);
 
@@ -428,18 +436,28 @@ export function AdminPage() {
     () =>
       groups.map((group) => {
         const preview = previewFor(group.lead.extracted);
-        return { group, preview, flags: [...flagsFor(group), ...preview.flags] };
+        return { group, preview, view: adminFlagView([...flagsFor(group), ...preview.flags]) };
       }),
     [groups],
   );
 
-  const activeFilter = FILTERS.find((entry) => entry.key === filter) ?? FILTERS[0];
-  const filtered = cards.filter((card) => activeFilter.match(card.group));
-  const pendingRows = groups.reduce((total, group) => total + group.rows.length, 0);
+  const activeTier = TIER_FILTERS.find((entry) => entry.key === tierFilter) ?? TIER_FILTERS[0];
+  /*
+   * 조건 토글을 **먼저** 좁힌다. tier 칩의 개수가 조건 토글 안에서 세어지지 않으면 토글을 켠 상태에서
+   * 칩 숫자와 목록 길이가 어긋나고, 이 축 분리가 고치려던 "다 본 줄 안다" 가 개수 쪽으로 옮겨 앉는다.
+   */
+  const inPolicy = policyOnly ? cards.filter((card) => card.group.hasPolicyText) : cards;
+  const filtered = inPolicy.filter((card) => activeTier.match(card.group));
+  /** 조건 칩의 개수도 같은 규칙 — 지금 고른 tier 안에서 센다(누르면 보일 수와 같다). */
+  const policyCount = cards.filter((card) => activeTier.match(card.group) && card.group.hasPolicyText).length;
 
-  // 구간을 바꾸면 '더 보기' 도 처음으로 — 효과가 아니라 여기서 함께 바꾼다(같은 사건의 두 결과다).
-  const pickFilter = (next: TFilter) => {
-    setFilter(next);
+  // 걸러 보기를 바꾸면 '더 보기' 도 처음으로 — 효과가 아니라 여기서 함께 바꾼다(같은 사건의 두 결과다).
+  const pickTier = (next: TTierFilter) => {
+    setTierFilter(next);
+    setShown(PAGE_SIZE);
+  };
+  const togglePolicy = () => {
+    setPolicyOnly((prev) => !prev);
     setShown(PAGE_SIZE);
   };
 
@@ -450,7 +468,7 @@ export function AdminPage() {
   if (phase === 'signedOut') {
     return (
       <div>
-        <PageHeader title="후보 검수" description="블로그에서 찾은 장소를 확인하고 올려요" />
+        <PageHeader title="장소 검수" description="블로그에서 찾은 장소를 확인하고 올려요" />
         <AdminPageLogin onSignedIn={signedIn} notice={notice} />
       </div>
     );
@@ -459,7 +477,7 @@ export function AdminPage() {
   if (phase === 'verifying' || phase === 'loading') {
     return (
       <div>
-        <PageHeader title="후보 검수" description={phase === 'verifying' ? '운영자인지 확인하고 있어요' : '후보를 불러오고 있어요'} />
+        <PageHeader title="장소 검수" description={phase === 'verifying' ? '운영자인지 확인하고 있어요' : '장소를 불러오고 있어요'} />
       </div>
     );
   }
@@ -467,10 +485,11 @@ export function AdminPage() {
   if (phase === 'notOperator') {
     return (
       <div>
-        <PageHeader title="후보 검수" />
+        <PageHeader title="장소 검수" />
         <div className="px-4 pt-6 md:px-6">
           <p className="text-sm text-secondary">
-            운영자 계정이 아니에요. 이 화면은 `operators` 에 등록된 계정만 쓸 수 있어요.
+            {session?.email ? `${session.email} 계정은 검수 권한이 없어요. ` : '이 계정은 검수 권한이 없어요. '}
+            관리자에게 이 계정을 검수자로 넣어 달라고 요청해 주세요.
           </p>
           <Button color="secondary" size="lg" className="mt-4" onClick={signOut}>
             다른 계정으로 로그인
@@ -483,7 +502,7 @@ export function AdminPage() {
   if (phase === 'error') {
     return (
       <div>
-        <PageHeader title="후보 검수" />
+        <PageHeader title="장소 검수" />
         <div className="px-4 pt-6 md:px-6">
           <p className="text-sm text-error-primary">{fatal}</p>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
@@ -501,14 +520,14 @@ export function AdminPage() {
 
   if (!session) return null;
 
-  const expiry = new Date(session.expiresAt * 1000).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+  const expiry = new Date(session.expiresAt * 1000).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' });
 
   return (
     <div className="pb-8">
       <PageHeader
-        title="운영자 검수"
+        title="장소 검수"
         description={
-          tab === 'candidates' ? `검수 대기 ${pendingRows}건 · 묶음 ${groups.length}` : '이미 올린 장소를 내리거나 되살려요'
+          tab === 'candidates' ? `확인할 장소 ${groups.length}곳` : '이미 올린 장소를 내리거나 되살려요'
         }
         actions={
           <Button color="secondary" size="sm" className="h-11" onClick={signOut}>
@@ -518,7 +537,7 @@ export function AdminPage() {
       />
       <div className="px-4 pt-1.5 text-xs text-tertiary md:px-6">
         <p>
-          로그인 {session.email} · 만료 {expiry}
+          {session.email} · {expiry} 지나면 다시 로그인해요
         </p>
         <p className="mt-0.5">여기서 바꾼 것은 사이트가 다시 빌드된 뒤에 보여요.</p>
         {/*
@@ -579,46 +598,63 @@ export function AdminPage() {
       ) : (
         <>
 
-      <div className="mt-4 flex flex-wrap gap-2 px-4 md:px-6" role="group" aria-label="구간 걸러 보기">
-        {FILTERS.map((entry) => {
-          const count = cards.filter((card) => entry.match(card.group)).length;
-          const active = entry.key === filter;
-          return (
+      {groups.length > 0 && (
+        <>
+          <div className="mt-4 flex flex-wrap gap-2 px-4 md:px-6" role="group" aria-label="이미 있는 곳인지">
+            {TIER_FILTERS.map((entry) => {
+              const count = inPolicy.filter((card) => entry.match(card.group)).length;
+              const active = entry.key === tierFilter;
+              return (
+                <Button
+                  key={entry.key}
+                  size="sm"
+                  color={active ? 'primary' : 'secondary'}
+                  aria-pressed={active}
+                  className="h-11"
+                  onClick={() => pickTier(entry.key)}
+                >
+                  {entry.label} {count}
+                </Button>
+              );
+            })}
+          </div>
+          {/* 축이 하나 더 있다는 것을 **보이는 이름표**가 말한다 — 없으면 다섯이 한 축으로 읽힌다. */}
+          <div className="mt-2 flex flex-wrap items-center gap-2 px-4 md:px-6" role="group" aria-label="이용 조건">
+            <span className="text-sm font-semibold text-secondary">이용 조건</span>
             <Button
-              key={entry.key}
               size="sm"
-              color={active ? 'primary' : 'secondary'}
-              aria-pressed={active}
+              color={policyOnly ? 'primary' : 'secondary'}
+              aria-pressed={policyOnly}
               className="h-11"
-              onClick={() => pickFilter(entry.key)}
+              onClick={togglePolicy}
             >
-              {entry.label} {count}
+              조건이 적힌 것만 {policyCount}
             </Button>
-          );
-        })}
-      </div>
+          </div>
+        </>
+      )}
 
       {groups.length === 0 ? (
         <div className="px-4 pt-6 md:px-6">
           <EmptyState
             Icon={CheckDone01}
-            title="검수할 후보가 없어요"
-            description="터미널에서 pnpm data:analyze 로 새 글을 분석하면 여기 쌓여요."
+            title="확인할 장소가 없어요"
+            description="새 블로그 글을 분석하면 여기 쌓여요 — 지금은 기다리면 돼요."
           />
         </div>
       ) : filtered.length === 0 ? (
-        <p className="px-4 pt-6 text-sm text-tertiary md:px-6">이 조건에 맞는 묶음이 없어요.</p>
+        <p className="px-4 pt-6 text-sm text-tertiary md:px-6">이 조건에 맞는 장소가 없어요 — 걸러 보기를 꺼 보세요.</p>
       ) : (
         <>
           <ul className="mt-4 space-y-3 px-4 md:px-6">
-            {filtered.slice(0, shown).map(({ group, preview, flags }) => {
+            {filtered.slice(0, shown).map(({ group, preview, view }) => {
               const state = states[group.key] ?? {};
               return (
                 <AdminPageGroupCard
                   key={group.key}
                   group={group}
                   preview={preview}
-                  flags={flags}
+                  view={view}
                   state={state}
                   expanded={expanded === group.key}
                   onToggle={() => setExpanded((prev) => (prev === group.key ? null : group.key))}

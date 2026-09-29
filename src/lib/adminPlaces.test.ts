@@ -5,6 +5,7 @@ import {
   dayOf,
   lastNoteLine,
   matchesPlaceQuery,
+  noteLineText,
   sortManagedPlaces,
 } from './adminPlaces';
 import type { TPlaceRow } from './adminCandidates';
@@ -143,6 +144,30 @@ describe('lastNoteLine', () => {
     expect(lastNoteLine(null)).toBeUndefined();
     expect(lastNoteLine('')).toBeUndefined();
     expect(lastNoteLine('\n  \n')).toBeUndefined();
+  });
+});
+
+describe('noteLineText', () => {
+  /**
+   * **저장 문자열은 안 바뀐다** — 위 `archiveNoteLine` 단정이 그대로 통과하는 것이 그 증거다.
+   * 여기서 벗기는 것은 화면에 보일 때의 대괄호·태그뿐이다(태그는 누가 썼는지 가리는 내부 표식이다).
+   */
+  it.each([
+    ['[admin 2026-09-29] 내림 · 폐업 — 메모', '2026-09-29 내림 · 폐업 — 메모'],
+    ['[admin 2026-09-30] 되살림', '2026-09-30 되살림'],
+    ['[data:apply] 내림 · 중복', '내림 · 중복'],
+    ['Studio 에서 손으로 적은 줄', 'Studio 에서 손으로 적은 줄'],
+    // 우리 태그가 아닌 대괄호는 건드리지 않는다 — 손글씨를 망치지 않는 것이 이 함수의 경계다.
+    ['[폐업] 9월 문 닫음', '[폐업] 9월 문 닫음'],
+    ['[2026-09-01] 폐업', '[2026-09-01] 폐업'],
+    ['[] 빈 태그', '[] 빈 태그'],
+    ['[admin] 날짜 없는 우리 태그', '날짜 없는 우리 태그'],
+  ])('%s → %s', (line, expected) => {
+    expect(noteLineText(line)).toBe(expected);
+  });
+
+  it('없으면 없는 대로 — 호출자가 && 로 거르는 값이다', () => {
+    expect(noteLineText(undefined)).toBeUndefined();
   });
 });
 
