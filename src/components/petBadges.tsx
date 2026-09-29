@@ -49,7 +49,7 @@ export function PetBadges({ policy, limit, hideNoInfo = false, className = '' }:
           </Badge>
         </li>
       ))}
-      {hidden > 0 && <li className="text-xs font-semibold text-quaternary">+{hidden}</li>}
+      {hidden > 0 && <li className="text-xs font-semibold text-tertiary">+{hidden}</li>}
     </ul>
   );
 }

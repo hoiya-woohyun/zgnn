@@ -10,7 +10,7 @@ type TTownChipProps = {
 export function TownChip({ town, type }: TTownChipProps) {
   return (
     <span
-      className="rounded-md px-2 py-0.5 text-xs font-semibold"
+      className="rounded-md px-1.5 py-0.5 text-xs font-semibold"
       style={{ background: typeTint(type, 12), color: TYPE_COLOR_DEEP[type] }}
     >
       {town}

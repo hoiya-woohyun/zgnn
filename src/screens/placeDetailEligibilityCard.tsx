@@ -84,7 +84,7 @@ export function PlaceDetailEligibilityCard({ place }: { place: TPlaceEntry }) {
       )}
 
       {infoReasons.length > 0 && (
-        <p className="mt-2 text-xs text-tertiary">{infoReasons.map((reason) => reason.text).join(' · ')}</p>
+        <p className="mt-2 text-sm text-tertiary">{infoReasons.map((reason) => reason.text).join(' · ')}</p>
       )}
     </div>
   );

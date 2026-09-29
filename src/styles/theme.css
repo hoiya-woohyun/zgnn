@@ -19,7 +19,8 @@
     --text-xs--line-height: calc(var(--spacing) * 4.5);
 
     --text-sm: calc(var(--spacing) * 3.5);
-    --text-sm--line-height: calc(var(--spacing) * 5);
+    /* Untitled 원래 값은 * 5(14/20 = 1.43). 여러 줄 문단이 대부분 이 크기라, 한국어에 맞게 1.5 로 연다(ADR-006 v4). */
+    --text-sm--line-height: calc(var(--spacing) * 5.25);
 
     --text-md: calc(var(--spacing) * 4);
     --text-md--line-height: calc(var(--spacing) * 6);
@@ -60,16 +61,21 @@
     /* This must match the breakpoint in Sonner: https://github.com/emilkowalski/sonner/blob/main/src/styles.css */
     --breakpoint-xs: 600px;
 
-    /* RADIUS */
+    /*
+     * RADIUS
+     *
+     * 크기 토큰처럼 --spacing 에서 파생한다(ADR-006 v2). 모바일(4px)에선 Untitled 원래 값과 같고,
+     * 화면이 커지면 높이와 같은 비율로 커진다 — rem 고정이면 큰 화면에서 태그·칩만 각져 보인다.
+     */
     --radius-none: 0px;
-    --radius-xs: 0.125rem;
-    --radius-sm: 0.25rem;
-    --radius-DEFAULT: 0.25rem;
-    --radius-md: 0.375rem;
-    --radius-lg: 0.5rem;
-    --radius-xl: 0.75rem;
-    --radius-2xl: 1rem;
-    --radius-3xl: 1.5rem;
+    --radius-xs: calc(var(--spacing) * 0.5);
+    --radius-sm: calc(var(--spacing) * 1);
+    --radius-DEFAULT: calc(var(--spacing) * 1);
+    --radius-md: calc(var(--spacing) * 1.5);
+    --radius-lg: calc(var(--spacing) * 2);
+    --radius-xl: calc(var(--spacing) * 3);
+    --radius-2xl: calc(var(--spacing) * 4);
+    --radius-3xl: calc(var(--spacing) * 6);
     --radius-full: 9999px;
 
     /* SHADOW */

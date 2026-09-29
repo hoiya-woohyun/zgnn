@@ -29,7 +29,7 @@ export function ChecklistPageGroupList({ groups, renderRow }: TChecklistPageGrou
         <div key={group.id}>
           <h3 className="flex items-baseline gap-2 text-sm font-semibold text-tertiary">
             {group.label}
-            <span className="text-xs font-normal text-quaternary">{group.items.length}가지</span>
+            <span className="text-xs font-normal text-tertiary">{group.items.length}가지</span>
           </h3>
           <ul className="mt-2 space-y-2">{group.items.map(renderRow)}</ul>
         </div>

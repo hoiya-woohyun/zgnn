@@ -66,7 +66,7 @@ export function DogProfileSizeOverride({ computedSize, value, onChange }: TDogPr
             <button
               type="button"
               onClick={() => onChange(undefined)}
-              className="mt-2 inline-flex min-h-11 cursor-pointer items-center text-xs font-semibold text-brand-secondary"
+              className="mt-2 inline-flex min-h-11 cursor-pointer items-center text-sm font-semibold text-brand-secondary"
             >
               자동 계산으로 되돌리기
             </button>

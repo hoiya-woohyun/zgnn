@@ -310,7 +310,7 @@ export function MapPage() {
             </div>
 
             <div className="flex items-start gap-2 px-3">
-              <span className="pointer-events-auto rounded-md bg-primary/92 px-3 py-1 text-xs font-semibold text-secondary shadow-sm backdrop-blur lg:hidden">
+              <span className="pointer-events-auto rounded-md bg-primary/92 px-2 py-1 text-xs font-semibold text-secondary shadow-sm backdrop-blur lg:hidden">
                 {withGeo.length}곳 표시 중
               </span>
               {/*

@@ -37,7 +37,7 @@ export function PlaceDetailGallery({ place }: { place: TPlaceEntry }) {
       </div>
 
       {photos.length > 1 && (
-        <p className="absolute right-3 bottom-3 rounded-md bg-overlay/70 px-2.5 py-1 text-xs font-semibold text-white">
+        <p className="absolute right-3 bottom-3 rounded-md bg-overlay/70 px-2 py-1 text-xs font-semibold text-white">
           {Math.min(index + 1, photos.length)} / {photos.length}
         </p>
       )}

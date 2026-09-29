@@ -92,7 +92,7 @@ export function HomeTypeCard({ type, reachable }: THomeTypeCardProps) {
             type="button"
             onClick={() => goToTown(entry.town)}
             aria-label={`${entry.town} ${meta.label} 보기`}
-            className="flex h-11 items-center rounded-xl bg-primary/80 px-2.5 text-xs font-medium text-secondary ring-1 ring-inset ring-primary transition-colors hover:bg-primary active:opacity-80"
+            className="flex h-11 items-center rounded-xl bg-primary/80 px-2.5 text-sm font-medium text-secondary ring-1 ring-inset ring-primary transition-colors hover:bg-primary active:opacity-80"
           >
             {entry.town}
           </button>
