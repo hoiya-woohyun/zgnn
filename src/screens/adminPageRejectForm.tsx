@@ -20,7 +20,7 @@ export function AdminPageRejectForm({ busy, onCancel, onSubmit }: TAdminPageReje
   const [note, setNote] = useState('');
 
   return (
-    <div className="border-t border-secondary px-4 py-3">
+    <div className="border-t border-dashed border-tertiary px-4 py-3">
       <p className="text-xs font-semibold text-secondary">왜 반려하나요?</p>
       {/* 되돌릴 수 없다는 사실은 라벨이 아니라 이 줄이 전한다. 단위를 '글' 로 쓰면 틀린다(묶음은 여러 글이다). */}
       <p className="mt-1 text-xs text-tertiary">반려하면 목록에서 사라져요. 화면에서는 되돌릴 수 없어요.</p>

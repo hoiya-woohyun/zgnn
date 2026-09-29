@@ -40,7 +40,7 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
   const aiLine = !facts || facts === FACTS_EMPTY ? 'AI 가 읽은 조건이 없어요' : facts;
 
   return (
-    <div className="space-y-3 border-t border-secondary px-4 py-3">
+    <div className="space-y-3 border-t border-dashed border-tertiary px-4 py-3">
       <div className="space-y-1.5">
         <Row label="주소">
           {extracted.address ?? '—'}

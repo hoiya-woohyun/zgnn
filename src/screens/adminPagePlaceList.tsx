@@ -18,7 +18,7 @@ import {
 } from '../lib/adminPlaces';
 import { useAdminInfiniteScroll } from './adminInfiniteScroll';
 import { AdminPagePlaceRow, type TAdminPagePlaceState } from './adminPagePlaceRow';
-import { ADMIN_PLACE_GRID, AdminTableHead } from './adminTable';
+import { ADMIN_PLACE_GRID, AdminTable } from './adminTable';
 
 /**
  * '올린 장소' 칸 — 이미 사이트에 있는 장소를 **내리고 되살린다**(소프트 삭제). 후보를 올리는 칸과 형제다.
@@ -251,9 +251,7 @@ export function AdminPagePlaceList({
       ) : (
         <>
           <div className="mt-3">
-            <AdminTableHead grid={ADMIN_PLACE_GRID} columns={COLUMNS} />
-          </div>
-          <ul className="space-y-1.5 px-4 md:px-6">
+            <AdminTable grid={ADMIN_PLACE_GRID} columns={COLUMNS}>
             {filtered.slice(0, shown).map((place) => (
               <AdminPagePlaceRow
                 key={place.id}
@@ -265,7 +263,8 @@ export function AdminPagePlaceList({
                 onRestore={() => void change(place, 'restore')}
               />
             ))}
-          </ul>
+            </AdminTable>
+          </div>
 
           {/*
             * 감시판과 남은 수를 **함께** 둔다. 저절로 이어 그리더라도 "지금 몇 개 중 몇 개를 보고 있나" 가

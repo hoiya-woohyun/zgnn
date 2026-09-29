@@ -16,7 +16,7 @@ import type { TPlaceRow } from '../lib/adminCandidates';
 import { TYPE_LABEL } from '../lib/adminCandidates';
 import { isPlaceType, TYPE_COLOR, typeTint } from '../lib/places';
 import { cx } from '../utils/cx';
-import { ADMIN_PLACE_GRID } from './adminTable';
+import { ADMIN_PANEL_DIVIDER, ADMIN_PLACE_GRID, ADMIN_ROW_OPEN } from './adminTable';
 
 /** 장소 한 줄의 화면 상태. 소유자는 `adminPagePlaceList` 고 여기는 받아서 그린다(묶음 카드와 같은 모양). */
 export type TAdminPagePlaceState = {
@@ -65,7 +65,12 @@ export function AdminPagePlaceRow({
     : undefined;
 
   return (
-    <li className="overflow-hidden rounded-xl border border-secondary bg-primary">
+    /*
+     * 줄은 테두리를 갖지 않는다 — 가르는 선은 `<ul>` 의 `divide-y` 한 줄이 긋는다.
+     * 사유를 고르는 중이면 머리와 패널을 **한 색으로** 덮는다: 내리기 버튼이 그 패널에 있어서,
+     * 어느 줄의 패널인지 눈으로 정하지 못하면 그것이 곧 다른 가게를 내리는 길이다.
+     */
+    <li className={cx('hover:bg-primary_hover', state.archiving && ADMIN_ROW_OPEN)}>
       <div className={cx('px-4 py-2', ADMIN_PLACE_GRID)}>
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           <span className="truncate text-sm font-bold text-primary">{place.name}</span>
@@ -93,9 +98,12 @@ export function AdminPagePlaceRow({
               : '')}
         </p>
 
-        {!state.archiving && (
-          <div className="mt-2 md:mt-0 md:justify-self-end">
-            {archived ? (
+        {/*
+          * 사유를 고르는 중이어도 **칸은 남긴다.** 자식 하나가 사라지면 grid 가 열을 하나 덜 세어
+          * 그 줄만 다른 자리에서 시작한다 — 머리글과 어긋난 줄은 읽는 사람을 조용히 틀리게 만든다.
+          */}
+        <div className="flex items-center max-md:mt-2 md:justify-end">
+          {state.archiving ? null : archived ? (
               <Button
                 color="primary"
                 size="sm"
@@ -117,12 +125,11 @@ export function AdminPagePlaceRow({
                 size="sm"
                 isDisabled={Boolean(busy)}
                 onClick={onStartArchive}
-              >
-                내리기
-              </Button>
-            )}
-          </div>
-        )}
+            >
+              내리기
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* 결과·오류는 열에 끼우지 않는다 — 줄 전체 폭을 쓰는 편이 읽힌다(그리드 밖이라 열도 흔들지 않는다). */}
@@ -130,7 +137,7 @@ export function AdminPagePlaceRow({
       {state.error && <p className="px-4 pb-2 text-xs text-error-primary">{state.error}</p>}
 
       {state.archiving && (
-        <div className="border-t border-secondary px-4 py-3">
+        <div className={cx(ADMIN_PANEL_DIVIDER, 'px-4 py-3')}>
           <p className="text-xs font-semibold text-secondary">왜 내리나요?</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {ARCHIVE_REASONS.map((candidate) => (

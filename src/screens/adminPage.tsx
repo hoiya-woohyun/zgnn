@@ -34,7 +34,7 @@ import { useAdminInfiniteScroll } from './adminInfiniteScroll';
 import { AdminPageGroupCard, type TAdminPageGroupState, type TApproveChoice } from './adminPageGroupCard';
 import { AdminPageLogin } from './adminPageLogin';
 import { AdminPagePlaceList } from './adminPagePlaceList';
-import { ADMIN_CANDIDATE_GRID, AdminTableHead } from './adminTable';
+import { ADMIN_CANDIDATE_GRID, AdminTable } from './adminTable';
 
 /**
  * 운영자 검수 화면(ADR-018). 후보(candidates)를 묶어 보여 주고, "맞아요" 한 번으로 `places` 까지 반영한다.
@@ -660,9 +660,7 @@ export function AdminPage() {
       ) : (
         <>
           <div className="mt-3">
-            <AdminTableHead grid={ADMIN_CANDIDATE_GRID} columns={COLUMNS} />
-          </div>
-          <ul className="space-y-1.5 px-4 md:px-6">
+            <AdminTable grid={ADMIN_CANDIDATE_GRID} columns={COLUMNS}>
             {filtered.slice(0, shown).map(({ group, preview, view }) => {
               const state = states[group.key] ?? {};
               return (
@@ -683,7 +681,8 @@ export function AdminPage() {
                 />
               );
             })}
-          </ul>
+            </AdminTable>
+          </div>
 
           {/*
             * 감시판과 남은 수를 **함께** 둔다. 저절로 이어 그리더라도 "지금 몇 개 중 몇 개를 보고 있나" 가

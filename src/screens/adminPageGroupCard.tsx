@@ -20,7 +20,7 @@ import { isPlaceType, TYPE_COLOR, typeTint } from '../lib/places';
 import { cx } from '../utils/cx';
 import { AdminPageGroupDetail } from './adminPageGroupDetail';
 import { AdminPageRejectForm } from './adminPageRejectForm';
-import { ADMIN_CANDIDATE_GRID } from './adminTable';
+import { ADMIN_CANDIDATE_GRID, ADMIN_PANEL_DIVIDER, ADMIN_ROW_OPEN } from './adminTable';
 
 /** 묶음 하나의 화면 상태. 소유자는 `adminPage.tsx` 고 여기는 받아서 그린다. */
 export type TAdminPageGroupState = {
@@ -118,9 +118,7 @@ export function AdminPageGroupCard({
   // 끝난 묶음은 초록 한 줄로 접힌다. 3초 뒤 목록에서 사라지므로 그 사이의 확인용이다.
   if (state.done) {
     return (
-      <li className="rounded-xl border border-secondary bg-success-primary px-4 py-2 text-xs text-success-primary">
-        {state.done}
-      </li>
+      <li className="bg-success-primary px-4 py-2 text-xs text-success-primary">{state.done}</li>
     );
   }
 
@@ -131,12 +129,17 @@ export function AdminPageGroupCard({
   const regionOk = regionUsable(extracted.regionRaw);
 
   return (
-    <li className="overflow-hidden rounded-xl border border-secondary bg-primary">
+    /*
+     * 줄은 테두리를 갖지 않는다 — 가르는 선은 `<ul>` 의 `divide-y` 한 줄이 긋는다.
+     * 펼쳤으면 머리와 패널을 **한 색으로** 덮는다: 승인·반려 버튼이 그 패널에 있어서, 어느 줄의
+     * 패널인지 눈으로 정하지 못하면 그것이 곧 다른 가게를 올리는 길이다.
+     */
+    <li className={cx(expanded ? ADMIN_ROW_OPEN : 'hover:bg-primary_hover')}>
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={expanded}
-        className={cx('w-full px-4 py-2 text-left hover:bg-primary_hover', ADMIN_CANDIDATE_GRID)}
+        className={cx('w-full px-4 py-2 text-left', ADMIN_CANDIDATE_GRID)}
       >
         <span className="flex min-w-0 flex-wrap items-center gap-1.5">
           <span className="text-sm font-bold text-primary">{extracted.name || '(이름 없음)'}</span>
@@ -200,7 +203,7 @@ export function AdminPageGroupCard({
         <ChevronDown
           aria-hidden="true"
           className={cx(
-            'size-4 shrink-0 text-fg-quaternary transition-transform max-md:hidden md:justify-self-end',
+            'size-4 shrink-0 self-center text-fg-quaternary transition-transform max-md:hidden md:justify-self-end',
             expanded && 'rotate-180',
           )}
         />
@@ -212,7 +215,7 @@ export function AdminPageGroupCard({
         <AdminPageRejectForm busy={busy === 'rejecting'} onCancel={onCancelReject} onSubmit={onReject} />
       ) : (
         expanded && (
-          <div className="border-t border-secondary px-4 py-3">
+          <div className={cx(ADMIN_PANEL_DIVIDER, 'px-4 py-3')}>
             {state.archived ? (
               /*
                * 짝지은 장소가 **내린 곳**이다. 이 갈래가 소프트 삭제의 방어선이고, 여기서 '새 장소로' 를
