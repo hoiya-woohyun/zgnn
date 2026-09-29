@@ -531,8 +531,14 @@ export function AdminPage() {
   const showMore = useCallback(() => setShown((prev) => prev + PAGE_SIZE), []);
   const setSentinel = useAdminInfiniteScroll(filtered.length > shown, shown, showMore);
 
-  /** 걸러 보기에 걸린 묶음들. 무한 스크롤로 **아직 안 그린 것까지** 포함한다 — '전부 고르기' 가 고르는 범위다. */
-  const filteredKeys = filtered.map((card) => card.group.key);
+  /**
+   * 걸러 보기에 걸린 묶음들. 무한 스크롤로 **아직 안 그린 것까지** 포함한다 — '전부 고르기' 가 고르는 범위다.
+   *
+   * **끝난 줄(`done`)은 뺀다.** 승인·반려가 끝난 묶음은 초록 한 줄로 3초를 더 머무는데(`DONE_LINGER_MS`),
+   * 그 3초 동안 목록에는 남아 있다. 빼지 않으면 전부 고른 뒤 한 줄을 승인한 운영자가 이어서 일괄 반려를 눌렀을 때
+   * **방금 `merged` 가 된 후보에 반려를 덮어쓴다** — 뒤에 이미 게시된 `places` 행이 있는데 후보만 버려진 꼴이 된다.
+   */
+  const filteredKeys = filtered.filter((card) => !states[card.group.key]?.done).map((card) => card.group.key);
   /*
    * 고른 것 중 **지금 목록에 있는 것**만. 집합(`selected`)은 깎지 않는다 — 걸러 보기를 껐다 켜면 고른 것이
    * 돌아오는 편이 낫고, 효과로 깎아 맞추면 렌더가 렌더를 부른다(`react-hooks/set-state-in-effect`).
