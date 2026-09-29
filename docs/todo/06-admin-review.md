@@ -1,6 +1,11 @@
 # 6. 운영자 검수 화면 — 앱 안 `/admin` 에서 후보를 보고 바로 올린다
 
-> 최종 수정: 2026-09-29 (v3: **2~4단계 구현이 끝났다** — 코드 13파일·문서 12편, 리뷰 2명이 major 2 + minor 12 를 잡아 14건 반영·1건 근거와 함께 기각.
+> 최종 수정: 2026-09-29 (v4: **5단계 — 내리는 길을 더했다**(사용자 요구: "이미 게시된 글에 소프트딜리트가 없다").
+> `/admin` 이 두 칸이 됐고(후보 검수 / 올린 장소), 그것만 만들면 **내린 것이 복제본으로 되돌아오는** 구멍이 있어 대조 corpus·승인 갈래·
+> 동점 규칙을 함께 바꿨다([ADR-018](../decisions/ADR-018-in-app-admin-review.md) 결정 6~8). 같은 요청의 둘째 갈래로 **재빌드 관측**을 깔았다(결정 9) —
+> Deploy Hook URL 이 대화 기록에 남아 회전이 권장되는데, 잘못 붙여 넣으면 증상이 "아무 일도 안 일어남" 이라 회전 자체가 위험했다.
+> 실측: 669 테스트(36파일) · tsc·lint 통과 · 빌드 유출 검사 539파일. **사용자 몫 둘** — 마이그레이션 2개 원격 적용, Deploy Hook 회전([05](05-security.md)))
+> 이전 (v3: **2~4단계 구현이 끝났다** — 코드 13파일·문서 12편, 리뷰 2명이 major 2 + minor 12 를 잡아 14건 반영·1건 근거와 함께 기각.
 > 실측 636 테스트(34파일) · tsc·lint 통과 · 빌드 유출 검사 539파일. 계획과 **실제가 다른 자리 여섯 곳**을 「계획과 다르게 간 것」 절에 적었다.
 > 남은 것은 사용자 몫 둘(로그인해서 검수 · 4b 웹훅)이다)
 > 이전 (v2: 1단계를 `ff62eba` 로 커밋하고, 재개 지점을 못 박았다 — 세션 한도(03:50 리셋)로 두 번 끊겼다.
@@ -17,6 +22,42 @@
 관련 결정: [ADR-018](../decisions/ADR-018-in-app-admin-review.md)(이 화면의 결정 — 2026-09-29 신설) · [ADR-015](../decisions/ADR-015-supabase-source-and-rebuild.md)(원본=Supabase, 반영=재빌드) ·
 [ADR-016](../decisions/ADR-016-secrets-by-login.md)(시크릿은 로그인으로) · [ADR-017](../decisions/ADR-017-ai-structured-pet-policy.md)(이용 조건은 AI 가 뽑는다).
 승인·병합 규칙의 정본은 [03](03-analyze-and-review.md) 이고 이 문서가 그것을 바꾸지 않는다 — **화면은 CLI 와 같은 규칙으로 쓴다.**
+
+## 5단계 — 내리기(소프트 삭제) · 재빌드 관측 (2026-09-29)
+
+요구 두 줄에서 나왔다 — **"수집된 글은 조정할 수 있지만 이미 게시된 글은 소프트딜리트가 없다"** 와
+**"Deploy Hook 을 그냥 둬도 문제없다고 한 말에 문제가 있을 수 있다"**.
+
+| 무엇 | 어디 |
+|---|---|
+| `places.archived_at`·`archive_note` + 찍는 트리거 | `supabase/migrations/20260929120000_places_archive.sql` |
+| `rebuild_log` · 게시 게이트 · `rebuild_status()` | `supabase/migrations/20260929121000_rebuild_log.sql` |
+| '올린 장소' 칸(검색·상태 칩·내리기/되살리기) | `src/screens/adminPagePlaceList.tsx` · `adminPagePlaceRow.tsx` · `src/lib/adminPlaces.ts` |
+| 머리글의 재빌드 한 줄 | `src/lib/adminRebuild.ts` |
+| 내린 곳 짝 처리(`archivedTarget` · `restoreArchived` · `confirmedDifferent`) | `src/lib/adminApply.ts` · `src/screens/adminPageGroupCard.tsx` |
+| 대조 corpus 3곳 + 동점 규칙 + `toMatchablePlace` | `analyze-candidates.mjs` · `apply-approved.mjs` · `adminCandidates.ts` · `matchPlace.mjs` · `placeFields.mjs` |
+| `data:seed` 가 내린 곳을 되살리지 않게 | `scripts/seed-db.mjs` |
+
+**계획에 없었는데 해야 했던 것** — 다중 에이전트 감사가 잡은 것들이다:
+
+1. **`matchPlace` 가 status 를 모른다.** corpus 에 archived 가 들어오자, 이름을 바꿔 다시 낸 가게(내린 `숨도` ·
+   살아 있는 `숨도카페`)에서 점수가 같아지고 **승자가 PostgREST 의 heap 순서**로 정해졌다 — UPDATE 한 번에 바뀐다.
+   → 동점(점수+거리)일 때만 살아 있는 쪽을 고르고(`preferLive`), 세 질의에 `.order('id')` 를 붙였다.
+   점수가 **다르면** 개입하지 않는다: 내린 쪽이 이기면 사람에게 묻지만(눈에 보이는 실패), 살아 있는 쪽을 억지로
+   택하면 조용히 틀린 병합이 된다.
+2. **`asNew` 가 archived 검사를 통째로 건너뛴다.** `새 장소로 올리기` 는 짝을 버리므로 archived 가지에 닿지 않고
+   바로 `published` 를 만든다 — 그 버튼이 보이는 카드가 **정확히** archived 짝을 가진 카드들이었다.
+   → 버려지는 짝이 내린 곳이면 멈추고, `정말 다른 가게예요`(`confirmedDifferent`) 를 지나야만 만든다. 배지도 접힌 줄에 띄운다.
+3. **0.4~0.85 패널이 상태를 모른다.** 이웃이 내린 곳이면 두 버튼이 **둘 다** 틀렸다. → `TSimilarPlace` 에 상태 셋을
+   경계에서 얹고(`decideTarget` 은 순수하게 둔다), 라벨과 플래그를 바꿨다.
+4. **두 칸이 같은 배열을 나눠 쓰면** 내리기가 `placesRef` 에 안 보여 승인이 내린 곳에 조용히 합친다.
+   → 목록은 따로 읽고, 쓰기 뒤에 `onPlaceChanged` 로 장부를 맞춘다. 쓰기 잠금은 **하나**를 나눠 쓴다.
+
+**남은 사용자 몫**
+
+- [ ] 마이그레이션 2개 원격 적용(`supabase db push` — 휴지 상태면 로그인부터).
+- [ ] Deploy Hook 회전 — 절차·확인까지 [05](05-security.md) 의 「Deploy Hook 회전」 에 있다. `create`/`list` 는 URL 을 찍으므로 **사람이 자기 터미널에서**.
+- [ ] 적용 뒤 `/admin` 에서 한 곳 내렸다 되살려 보고, 머리글이 `재빌드가 걸렸어요(… · 201)` 인지 확인.
 
 ## 결정 (설계 단계에서 닫은 것 — 구현이 다시 열지 않는다)
 

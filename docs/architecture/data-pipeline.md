@@ -1,6 +1,9 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-09-29 (v11: **운영자 검수 화면 `/admin` 이 두 번째 쓰기 경로가 됐다**([ADR-018](../decisions/ADR-018-in-app-admin-review.md)) — 브라우저가 `apply-approved.mjs` 와
+> 최종 수정: 2026-09-29 (v12: **`archived` 에 사람이 누르는 길이 생겼다** — `/admin` 의 '올린 장소' 칸에서 내리고 되살린다([ADR-018](../decisions/ADR-018-in-app-admin-review.md)).
+> 그리고 **대조 corpus 가 `archived` 까지 읽는다**(세 곳 모두): 빼 두면 내린 곳을 쓴 새 글이 '신규' 가 돼 같은 가게가 새 id 로 되살아났다.
+> 재빌드도 둘 바뀌었다 — `published` 가 끼는 변경만 훅을 부르고, 부른 결과가 `rebuild_log` 에 남아 `/admin` 머리글에 한 줄로 뜬다)
+> 이전 (v11: **운영자 검수 화면 `/admin` 이 두 번째 쓰기 경로가 됐다**([ADR-018](../decisions/ADR-018-in-app-admin-review.md)) — 브라우저가 `apply-approved.mjs` 와
 > 같은 순서로 `pending → approved → merged` 를 한 번에 밟고, **신규 장소는 곧바로 `published`** 다(CLI 는 그대로 `draft`). 그래서 "런타임 fetch 없음" 은
 > **사용자 화면에 대한 말**로 좁혀 적었다 — 운영자 화면 하나는 publishable 키로 Supabase 를 직접 부른다)
 > 이전 (v10: **첫 `data:analyze` 실측(글 50건 → 후보 160건)과 설계 검토를 반영** — 이용 조건의 구조화를 AI 가 뽑을 때 판단한다
@@ -86,11 +89,24 @@ Postgres 테이블엔 원래 순서 개념이 없는데, 화면은 "종류별 �
 나열, 장소 목록 정렬 등). 시드할 때 배열 인덱스를 그대로 `places.sort`·`items.sort` 에 넣어 이 순서를 보존했다.
 새로 추가되는 행은 `sort=null`, `data:pull` 은 nulls last 로 정렬해 새 행이 끝에 붙는다.
 
-## `archived` 는 pull 에서 빠진다
+## `archived` 는 pull 에서 빠진다 — 그것이 곧 소프트 삭제다
 
 `places.status` 는 `draft`/`published`/`archived` 세 가지고, `data:pull` 은 `published` 만 가져온다. 그래서
-폐업(`archived`) 처리된 장소는 `places.json`·라우트·프리캐시에서 **조용히 사라지고**, 저장 목록에서도 함께
-빠진다 — `selectSavedPlaces` 가 `PLACES.filter` 라 모르는 id 는 오류 없이 버려진다(`src/lib/places.ts`).
+`archived` 로 내린 장소는 `places.json`·라우트·프리캐시에서 사라지고, 저장 목록에서도 함께 빠진다 —
+`selectSavedPlaces` 가 `PLACES.filter` 라 모르는 id 는 오류 없이 버려진다(`src/lib/places.ts`).
+
+**2026-09-29 부터 그 한 칸을 사람이 화면에서 바꾼다** — `/admin` 의 '올린 장소' 칸([features/admin-review](../features/admin-review.md)).
+하드 삭제는 없다: GRANT 가 authenticated 에 `delete` 를 주지 않으므로(`20260922120000_narrow_grants.sql`)
+브라우저에서 행을 지우는 길은 처음부터 42501 이고, `status` 한 칸이 유일한 수단이다. `places` 가 바뀌었으니
+재빌드 트리거가 그 빌드를 알아서 부른다 — 내림에 새 장치를 붙이지 않았다.
+
+⚠️ **대조 corpus 는 `archived` 를 빼지 않는다.** 빼면 내린 곳을 쓴 새 글이 `matchPlace` 에서 '신규' 로
+판정돼, 승인 한 번에 **같은 가게가 새 id 로 되살아난다**(빌드·테스트는 전부 통과한다). 그래서 세 곳
+(`analyze-candidates.mjs` · `apply-approved.mjs` · `src/lib/adminCandidates.ts`)이 상태를 가리지 않고 읽고,
+짝이 내린 곳이면 CLI 는 영구 실패로 멈추고 화면은 '되살려서 합치기 / 아니에요' 를 묻는다.
+점수가 **같을 때만** 살아 있는 쪽을 고른다(`matchPlace.mjs` 의 `preferLive`) — 점수가 다른데 내린 쪽을
+밀어내면 조용히 틀린 병합이 되고, 내린 쪽이 이기면 사람에게 물으므로 **눈에 보이게** 실패한다.
+
 "폐업" 을 사용자에게 보여주고 싶으면 archived 도 pull 해서 화면에 상태를 그려야 하는데, 이건 기능 변경이라
 지금 범위 밖이다([todo/01](../todo/01-schema-and-seed.md)).
 
@@ -126,7 +142,7 @@ flowchart LR
   P -->|analyzed_at null 인 글| B[본문 HTML<br/>그 자리에서만 읽고 버림]
   B -->|claude -p --json-schema<br/>구독, API 키 없음| E[장소 0~N개<br/>petPolicyText 는 원문 그대로]
   E -->|네이버 지역 검색: 이름 완전 일치만| G[좌표·주소·regionRaw]
-  G -->|matchPlace vs places<br/>archived 빼고 draft 포함| C[(candidates<br/>pending · tier auto/ask/new)]
+  G -->|matchPlace vs places<br/>상태 무관 — archived·draft 포함| C[(candidates<br/>pending · tier auto/ask/new)]
   C -->|사람: /admin · pnpm data:review · Studio<br/>묶음 · 정규식/AI/앱 판정 미리보기| A{approved?}
   A -->|approved → data:apply| PL[(places<br/>빈 칸만 채움 · 신규는 draft)]
   A -->|/admin 의 '맞아요' — 승인과 반영이 한 번| PP[(places<br/>빈 칸만 채움 · 신규는 published)]
@@ -168,7 +184,7 @@ flowchart LR
 | `merged` | `data:apply` 또는 `/admin` | `places` 에 반영됐다(보강, 또는 신규 — `data:apply` 는 `draft`·`/admin` 은 `published` + `place_sources` 링크). `extracted.applied = { placeId, kind, patchKeys, at }` 로 어느 칸을 채웠는지 남는다(되돌릴 때 그 칸을 null 로) |
 
 `data:apply` 가 **반영하지 않고 pending 으로 되돌리는** 경우(사유는 `reviewer_note`): `regionRaw` 가 없거나 형식이 아님 · 신규 후보가 현재 장소와 ask 구간(0.4~0.85)으로 닮음(같은 곳이면
-`match_place_id` 를 채우고, 다른 곳이면 `extracted.match.tier` 를 `ask` 로 바꿔 재승인) · 대상이 archived · type other. 신규 숙소는 `stayPriceText`·`stayAmenitiesText` 가 `stay_*` 로 들어간다.
+`match_place_id` 를 채우고, 다른 곳이면 `extracted.match.tier` 를 `ask` 로 바꿔 재승인) · 대상이 archived(다시 연 가게면 `/admin` 의 '되살려서 합치기') · type other. 신규 숙소는 `stayPriceText`·`stayAmenitiesText` 가 `stay_*` 로 들어간다.
 
 `places.status` 는 별개이고 **경로에 따라 갈린다** — `data:pull` 은 어느 쪽이든 `published` 만 가져온다.
 

@@ -1,6 +1,11 @@
 # 4. Vercel 배포 · 빌드 시 DB 읽기 · 승인되면 재빌드
 
-> 최종 수정: 2026-09-29 (v7: **4b 가 끝났다 — 전 구간 실측.** `places` 한 행을 건드리니 `net._http_response` 에 **201**(`{"job":{"state":"PENDING"}}`)이 찍히고
+> 최종 수정: 2026-09-29 (v8: **열려 있던 두 항목을 닫는 장치를 깔았다**(`20260929121000_rebuild_log.sql`).
+> ① `status_code` 가 null 이면 타임아웃과 죽은 URL 이 구분되지 않던 문제 → 호출을 `public.rebuild_log` 에 남기고 `public.rebuild_status()`(운영자 전용)가
+> 결과를 그 표로 **옮겨 적는다**(pg_net 의 응답은 오래 남지 않는다). `/admin` 머리글이 그것을 한 줄로 말한다 — 4xx 면 "훅이 폐기된 것 같다" 고 짚는다.
+> ② 🙋 "승인 N건 = 빌드 N번" → **게시 집합이 바뀌는 변경만** 훅을 부른다(초안·내린 곳만 고치는 UPDATE 는 만들어지는 사이트가 한 바이트도 다르지 않다).
+> 소프트 삭제([ADR-018](../decisions/ADR-018-in-app-admin-review.md) 결정 6)가 그 갈래를 실제로 만들었다. 스케줄러(pg_cron)는 넣지 않았다 — 관측을 먼저 쌓는다)
+> 이전 (v7: **4b 가 끝났다 — 전 구간 실측.** `places` 한 행을 건드리니 `net._http_response` 에 **201**(`{"job":{"state":"PENDING"}}`)이 찍히고
 > Vercel 에 프로덕션 빌드가 섰다. 두 가지가 드러났다 — (1) **Deploy Hook 은 2026-09-17 에 이미 만들어져 있었다**(이름 `auto deploy`, 브랜치 `main`).
 > 트래커가 그걸 "발급해야 할 것" 으로 열어 둔 채였다. (2) pg_net 기본 타임아웃 5초 안에 Vercel 이 응답하지 못해(실측 4.7초) 첫 시도는 `status_code` 가
 > **null** 이었다 — 빌드는 정상으로 걸렸지만 성공과 실패를 구분할 수 없었다. 15초로 올렸다(`20260929030000`))
@@ -72,15 +77,34 @@
       ```sql
       select status_code, timed_out, error_msg, created from net._http_response order by created desc limit 3;
       ```
-- [ ] 🚩 **진단할 때 볼 것 — `status_code` 가 null 이면 두 가지가 똑같이 보인다.** 타임아웃(빌드는 걸렸을 수 있다)과 URL 이 틀린 경우가
-      구분되지 않는다. pg_net 은 **재시도하지 않으므로** null 을 "실패" 로 단정하지도 말 것. `error_msg` 가 `Timeout of …` 면 전자다.
-      첫 실측에서 이걸 겪었다(기본 5초 < Vercel 응답 4.7초) → 15초로 올려 지금은 201 이 찍힌다.
+- [x] 🚩 **`status_code` 가 null 일 때의 모호함을 화면이 가른다**(2026-09-29, `20260929121000_rebuild_log.sql`).
+      타임아웃(빌드는 걸렸을 수 있다)과 죽은 URL 이 둘 다 null 로 보이던 문제인데, 이제 셋을 갈라 말한다 —
+      **3분 안**이면 `응답을 기다리고 있어요`(실측 4.7초라 정상), **3분 넘게 null** 이면 `응답을 못 받았어요`,
+      **4xx/5xx** 면 `Vercel 이 재빌드를 거절했어요(… · 404) — Deploy Hook 이 폐기된 것 같아요`.
+      판정은 `src/lib/adminRebuild.ts` 의 순수 함수고 테스트가 다섯 갈래를 다 잡는다. pg_net 이 재시도하지 않는다는 사실은 그대로다.
+- [x] **호출 기록을 남긴다** — `public.rebuild_log`(운영자 select 만, insert 는 definer 트리거만). 남기는 것: 언제·어느 op·어느 장소·
+      그때 상태 · `hook` ∈ `sent|missing|skipped|error` · `request_id` · 옮겨 적은 응답. **훅 주소는 담지 않는다** —
+      pg_net 오류 문구에 섞여 오면 저장 전에 `<hook>` 으로 지운다(이 표는 Vault 를 못 읽는 역할이 읽는다).
+      `missing` 이 특히 중요하다: 예전의 "조용한 no-op" 이 그 한 줄로 **보이게** 됐다.
+      읽는 길은 `public.rebuild_status(n)` 하나다 — `net._http_response` 가 스키마 `net` 에 있어 PostgREST 로는 못 보고
+      authenticated 에 그 usage 가 없어서, definer 함수가 결과를 우리 표로 옮겨 적고 **우리 컬럼만** 돌려준다(어드바이저 0028/0029 는
+      감수하는 예외 하나다 — invoker 로는 만들 수가 없다. 대신 첫 줄에서 `auth.uid()` 로 운영자를 직접 확인하고 anon·PUBLIC 의 execute 를 회수한다).
 - [ ] `candidates` 가 아니라 **`places`** 에 건다. 승인(candidates) 자체는 화면에 아무 영향이 없고, `data:apply` 가
       `places` 를 만질 때 비로소 반영할 것이 생긴다.
 - [ ] Deploy Hook URL 은 시크릿이다. 이제 **Vault(암호화 저장)에만** 있고 마이그레이션·함수 본문·로그에는 없다. 새 나가면 Vercel 에서 폐기·재발급(05).
-- [ ] 🙋 **승인 N건 = 빌드 N번.** 한 번에 20건 승인하면 빌드 20번이 줄줄이 선다(Vercel 이 같은 브랜치의 대기 중 빌드를
-      건너뛰긴 한다). Hobby 에서 **먼저 걸리는 한도가 하루 배포 횟수인지 월 빌드 시간인지**를 첫 달에 관찰한다 — 그게
-      아래 세 갈래 중 무엇을 고를지 정한다. 대안:
+- [x] **게시 집합이 안 바뀌는 변경은 훅을 부르지 않는다**(2026-09-29). 빌드가 읽는 것은 `status='published'` 뿐이므로
+      (`pull-db.mjs` · anon 정책), 초안을 고치거나 내린 곳을 또 고치는 UPDATE 는 만들어지는 사이트가 **한 바이트도 다르지 않다.**
+      판단 기준은 "published 가 끼어 있나" 다 — UPDATE 는 **이전이나 이후 중 하나라도** published 면 부른다
+      (게시 → 내림 = 사라져야 하고, 내림 → 게시 = 나타나야 한다. 어느 쪽도 빼면 사이트가 DB 와 어긋난다).
+      건너뛴 것도 `hook='skipped'` 로 남긴다 — "왜 빌드가 안 돌았나" 의 답이 그 줄에 있다.
+      소프트 삭제가 이 갈래를 실제로 만들었다: 초안을 내리는 것은 사이트와 무관한 정리 작업이다.
+- [ ] 🙋 **승인 N건 = 빌드 N번**(게시 집합이 바뀌는 경우). 한 묶음 승인이 `places` 를 M번 건드리면 훅도 M번이다.
+      Hobby 에서 **먼저 걸리는 한도가 하루 배포 횟수인지 월 빌드 시간인지**를 첫 달에 관찰한다 — 이제 셀 수 있다:
+      ```sql
+      select hook, count(*) from public.rebuild_log where requested_at > now() - interval '7 days' group by hook;
+      ```
+      스케줄러로 묶는 것(pg_net 호출을 pg_cron 으로 내려 1분에 한 번만 부르기)은 **지금 하지 않았다** —
+      "스케줄·CI 는 없다"([05](05-security.md))가 이 프로젝트의 성질이고, 위 기록이 그 결정을 언제 뒤집을지 알려 줄 계기다. 대안:
       - (기본) 그냥 둔다. 수집이 사용자 손이라 `data:apply` 한 번에 수 건이면 문제없다.
       - 웹훅을 `places` 가 아니라 별도 `deploy_requests` 테이블에 걸고, 관리 화면의 "반영" 버튼이 거기에 한 줄 넣는다.
       - 웹훅을 걸지 않고, 사용자가 `pnpm data:apply` 뒤 Deploy Hook URL 을 한 번 `curl` 한다(승인은 모였다가 반영 때 빌드 한 번. URL 은 사용자만 안다).

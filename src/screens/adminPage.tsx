@@ -9,7 +9,7 @@ import { PageHeader } from '../components/layout/pageHeader';
 import { approveGroup, rejectGroup, setRegion } from '../lib/adminApply';
 import {
   countStrandedCandidates,
-  fetchActivePlaces,
+  fetchMatchablePlaces,
   fetchPendingCandidates,
   flagsFor,
   groupPending,
@@ -18,6 +18,7 @@ import {
   type TPlaceRow,
   type TRejectReason,
 } from '../lib/adminCandidates';
+import { fetchRebuildStatus, rebuildHeadline, type TRebuildHeadline } from '../lib/adminRebuild';
 import {
   ADMIN_SESSION_KEY,
   clearAdminSession,
@@ -26,8 +27,10 @@ import {
   type TAdminSession,
 } from '../lib/adminSession';
 import { createAdminClient, isOperator } from '../lib/adminSupabase';
+import { cx } from '../utils/cx';
 import { AdminPageGroupCard, type TAdminPageGroupState, type TApproveChoice } from './adminPageGroupCard';
 import { AdminPageLogin } from './adminPageLogin';
+import { AdminPagePlaceList } from './adminPagePlaceList';
 
 /**
  * 운영자 검수 화면(ADR-018). 후보(candidates)를 묶어 보여 주고, "맞아요" 한 번으로 `places` 까지 반영한다.
@@ -48,6 +51,17 @@ const PAGE_SIZE = 20;
 const DONE_LINGER_MS = 3000;
 
 type TPhase = 'checking' | 'signedOut' | 'verifying' | 'notOperator' | 'loading' | 'ready' | 'error';
+
+/**
+ * 두 칸. 후보를 **올리는** 일과 이미 올린 것을 **내리는** 일은 다른 일이라 한 목록에 섞지 않는다 —
+ * 섞으면 "맞아요" 옆에 "내리기" 가 붙어 실수 한 번의 값이 달라진다.
+ */
+type TTab = 'candidates' | 'places';
+
+const TABS: { key: TTab; label: string }[] = [
+  { key: 'candidates', label: '후보 검수' },
+  { key: 'places', label: '올린 장소' },
+];
 
 type TFilter = 'all' | 'auto' | 'ask' | 'new' | 'policy';
 
@@ -88,6 +102,12 @@ export function AdminPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [filter, setFilter] = useState<TFilter>('all');
   const [shown, setShown] = useState(PAGE_SIZE);
+  const [tab, setTab] = useState<TTab>('candidates');
+  /**
+   * 재빌드가 실제로 불렸는지. `undefined` 는 "못 읽었다" 이고 그때는 **아무 말도 하지 않는다** —
+   * 못 읽은 것을 "안 불렸다" 로 말하면 멀쩡한 시스템을 고장으로 신고하게 만든다(stranded 와 같은 어법).
+   */
+  const [rebuild, setRebuild] = useState<TRebuildHeadline | undefined>(undefined);
 
   const clientRef = useRef<SupabaseClient | null>(null);
   /*
@@ -117,9 +137,23 @@ export function AdminPage() {
     setStates((prev) => ({ ...prev, [key]: { ...prev[key], ...patch } }));
   }, []);
 
+  /**
+   * 재빌드 기록을 다시 읽어 머리글 한 줄을 갱신한다. 실패하면 **조용히 지운다** — 이 줄이 없어서 검수를 못 하게
+   * 만들면 안 되고(카드의 결과는 이미 보인다), 대신 "모르는데 아는 척" 을 하지 않는다.
+   * `rebuildHeadline` 이 상대 시각을 쓰므로 `Date.now()` 를 읽는 시점이 곧 그 줄이 말하는 "지금" 이다.
+   */
+  const refreshRebuild = useCallback(async (client: SupabaseClient) => {
+    try {
+      setRebuild(rebuildHeadline(await fetchRebuildStatus(client), Date.now()));
+    } catch {
+      setRebuild(undefined);
+    }
+  }, []);
+
   const start = useCallback(async (next: TAdminSession) => {
     setFatal(null);
     setStranded(undefined);
+    setRebuild(undefined);
     setPhase('verifying');
     const client = createAdminClient(next.accessToken);
     clientRef.current = client;
@@ -129,7 +163,7 @@ export function AdminPage() {
         return;
       }
       setPhase('loading');
-      const [rows, places] = await Promise.all([fetchPendingCandidates(client), fetchActivePlaces(client)]);
+      const [rows, places] = await Promise.all([fetchPendingCandidates(client), fetchMatchablePlaces(client)]);
       placesRef.current = places;
       setGroups(groupPending(rows));
       setStates({});
@@ -151,7 +185,9 @@ export function AdminPage() {
     } catch {
       setStranded(undefined);
     }
-  }, []);
+
+    await refreshRebuild(client);
+  }, [refreshRebuild]);
 
   /*
    * 마운트 뒤에야 localStorage 를 읽는다 — 서버에는 그 저장소가 없다(그래서 이 화면은 `ssr: false` 다).
@@ -212,21 +248,51 @@ export function AdminPage() {
    * 사생활 보호 모드에서는 저장이 막혀도(`writeAdminSession` 이 삼킨다) 이번 세션의 검수는 되어야 한다.
    */
   const beginWrite = useCallback(
-    (key: string): boolean => {
+    (report: (message: string) => void): boolean => {
       if (sessionProblem(session, Math.floor(Date.now() / 1000)) !== 'none') {
         resetToSignedOut('로그인이 만료됐어요. 다시 로그인해 주세요.');
         return false;
       }
       if (writingRef.current) {
         // 조용히 넘기지 않는다 — 아무 말도 없으면 "눌렀는데 아무 일도 안 났다" 가 되고 사람이 계속 누른다.
-        patchState(key, { error: '다른 묶음을 처리하고 있어요 — 끝나면 다시 눌러 주세요.' });
+        report('다른 작업을 처리하고 있어요 — 끝나면 다시 눌러 주세요.');
         return false;
       }
       writingRef.current = true;
       return true;
     },
-    [patchState, resetToSignedOut, session],
+    [resetToSignedOut, session],
   );
+
+  /**
+   * `writingRef` 를 내리는 유일한 자리. 함수로 빼 두는 이유는 '올린 장소' 칸이 같은 잠금을 써야 해서다 —
+   * 두 칸이 각자 ref 를 들면 후보 승인과 장소 내리기가 **동시에** 돌고, 둘 다 `placesRef` 를 보는데
+   * 하나는 그것을 고친다. 잠금이 하나여야 그 경쟁이 없다.
+   */
+  const endWrite = useCallback(() => {
+    writingRef.current = false;
+  }, []);
+
+  /** '올린 장소' 칸에 클라이언트를 넘기는 법. ref 를 렌더 중에 읽지 않으려고 값 대신 이 함수를 준다. */
+  const getClient = useCallback(() => clientRef.current, []);
+
+  /** 쓰기가 성공했다 — 재빌드 기록을 다시 읽어 머리글을 갱신한다(두 칸이 같이 쓴다). */
+  const afterWrite = useCallback(() => {
+    const client = clientRef.current;
+    if (client) void refreshRebuild(client);
+  }, [refreshRebuild]);
+
+  /**
+   * '올린 장소' 칸의 쓰기를 대조 장부(`placesRef`)에도 반영한다.
+   *
+   * 없으면 이런 일이 난다 — 방금 내린 장소가 장부에는 `published` 로 남아, 같은 세션에서 그 가게의 후보를
+   * 승인하면 `approveGroup` 이 내린 곳을 멀쩡한 짝으로 보고 **조용히 합친다**(archived 가지를 지나쳐 버린다).
+   * 새로고침하면 사라지는 종류의 버그라 더 찾기 어렵다.
+   */
+  const applyPlaceChange = useCallback((updated: TPlaceRow) => {
+    const index = placesRef.current.findIndex((place) => place.id === updated.id);
+    if (index >= 0) placesRef.current[index] = { ...placesRef.current[index], ...updated };
+  }, []);
 
   const removeLater = useCallback((key: string) => {
     const timer = setTimeout(() => {
@@ -244,7 +310,7 @@ export function AdminPage() {
     async (group: TCandidateGroup, choice?: TApproveChoice) => {
       const client = clientRef.current;
       if (!client) return;
-      if (!beginWrite(group.key)) return;
+      if (!beginWrite((message) => patchState(group.key, { error: message }))) return;
       patchState(group.key, { busy: 'approving', error: undefined });
       try {
         const outcome = await approveGroup(client, group, placesRef.current, {
@@ -252,6 +318,8 @@ export function AdminPage() {
           newId: newPlaceId,
           asNew: choice?.asNew,
           mergeInto: choice?.mergeInto,
+          restoreArchived: choice?.restoreArchived,
+          confirmedDifferent: choice?.confirmedDifferent,
         });
         if (outcome.kind === 'blocked') {
           patchState(group.key, { busy: undefined, error: outcome.reason });
@@ -261,13 +329,25 @@ export function AdminPage() {
           patchState(group.key, { busy: undefined, similar: outcome.similar });
           return;
         }
+        if (outcome.kind === 'archivedTarget') {
+          // 쓰기 전에 멈춘 자리다 — 사람이 '되살려서 합치기' 나 반려를 고르면 그때 다시 온다.
+          patchState(group.key, { busy: undefined, archived: outcome });
+          return;
+        }
         const what =
           outcome.kind === 'created'
             ? `올렸어요 · ${outcome.placeName}`
             : `${outcome.placeName} 에 채웠어요${outcome.patchKeys.length ? ` (${outcome.patchKeys.join(', ')})` : ' — 채울 빈 칸은 없었어요'}`;
         // 거짓말을 하지 않는 자리다. DB 에는 들어갔지만 정적 사이트는 다시 빌드돼야 보인다(ADR-015).
-        patchState(group.key, { busy: undefined, similar: undefined, done: `${what} · 사이트에는 다음 빌드에서 보여요` });
+        // 그 빌드가 정말 걸렸는지는 머리글의 재빌드 줄이 말한다(`adminRebuild.ts`) — 이 문장만으로는 알 수 없었다.
+        patchState(group.key, {
+          busy: undefined,
+          similar: undefined,
+          archived: undefined,
+          done: `${what} · 사이트에는 다음 빌드에서 보여요`,
+        });
         removeLater(group.key);
+        afterWrite();
       } catch (error) {
         patchState(group.key, { busy: undefined, error: messageOf(error, '반영하지 못했어요.') });
         /*
@@ -280,17 +360,17 @@ export function AdminPage() {
           // 세지 못하면 그냥 둔다. 카드의 빨간 줄이 이미 이 실패를 말하고 있다.
         }
       } finally {
-        writingRef.current = false;
+        endWrite();
       }
     },
-    [beginWrite, patchState, removeLater],
+    [afterWrite, beginWrite, endWrite, patchState, removeLater],
   );
 
   const reject = useCallback(
     async (group: TCandidateGroup, reason: TRejectReason, note: string) => {
       const client = clientRef.current;
       if (!client) return;
-      if (!beginWrite(group.key)) return;
+      if (!beginWrite((message) => patchState(group.key, { error: message }))) return;
       patchState(group.key, { busy: 'rejecting', error: undefined });
       try {
         await rejectGroup(client, group, reason, note);
@@ -299,17 +379,17 @@ export function AdminPage() {
       } catch (error) {
         patchState(group.key, { busy: undefined, error: messageOf(error, '반려하지 못했어요.') });
       } finally {
-        writingRef.current = false;
+        endWrite();
       }
     },
-    [beginWrite, patchState, removeLater],
+    [beginWrite, endWrite, patchState, removeLater],
   );
 
   const saveRegion = useCallback(
     async (group: TCandidateGroup, regionRaw: string) => {
       const client = clientRef.current;
       if (!client) return;
-      if (!beginWrite(group.key)) return;
+      if (!beginWrite((message) => patchState(group.key, { error: message }))) return;
       patchState(group.key, { busy: 'savingRegion', error: undefined });
       try {
         const updated = await setRegion(client, group.lead, regionRaw);
@@ -328,10 +408,10 @@ export function AdminPage() {
       } catch (error) {
         patchState(group.key, { busy: undefined, error: messageOf(error, '지역을 저장하지 못했어요.') });
       } finally {
-        writingRef.current = false;
+        endWrite();
       }
     },
-    [beginWrite, patchState],
+    [beginWrite, endWrite, patchState],
   );
 
   const cards = useMemo(
@@ -416,8 +496,10 @@ export function AdminPage() {
   return (
     <div className="pb-8">
       <PageHeader
-        title="후보 검수"
-        description={`검수 대기 ${pendingRows}건 · 묶음 ${groups.length}`}
+        title="운영자 검수"
+        description={
+          tab === 'candidates' ? `검수 대기 ${pendingRows}건 · 묶음 ${groups.length}` : '이미 올린 장소를 내리거나 되살려요'
+        }
         actions={
           <Button color="secondary" size="sm" className="h-11" onClick={signOut}>
             로그아웃
@@ -428,7 +510,23 @@ export function AdminPage() {
         <p>
           로그인 {session.email} · 만료 {expiry}
         </p>
-        <p className="mt-0.5">올린 장소는 사이트가 다시 빌드된 뒤에 보여요(자동 빌드를 연결하기 전에는 Vercel 에서 Redeploy).</p>
+        <p className="mt-0.5">여기서 바꾼 것은 사이트가 다시 빌드된 뒤에 보여요.</p>
+        {/*
+          * 그 빌드가 **정말 걸렸는지** 를 말하는 줄. 이 줄이 없던 동안에는 훅이 없어도·폐기됐어도 화면이 똑같이
+          * "다음 빌드에서 보여요" 라고 말했고, 운영자가 그것을 앱 안에서 확인할 방법이 없었다(→ `adminRebuild.ts`).
+          * 못 읽었으면(undefined) 아무 말도 하지 않는다 — 모르는 것을 "안 됐다" 로 말하지 않는다.
+          */}
+        {rebuild ? (
+          <p
+            className={cx(
+              'mt-0.5',
+              rebuild.tone === 'warn' && 'text-warning-primary',
+              rebuild.tone === 'ok' && 'text-success-primary',
+            )}
+          >
+            {rebuild.text}
+          </p>
+        ) : null}
         {/*
           * 쓰기 도중에 끊긴 후보는 `approved` 로 남아 **이 목록에 안 나온다**(목록은 pending 만 읽는다).
           * 그 줄을 안 띄우면 새로고침 뒤에 그냥 사라진 것처럼 보여 승인이 통과한 줄 안다 — 이어받는 길을 여기서 말해 준다.
@@ -439,6 +537,37 @@ export function AdminPage() {
           </p>
         ) : null}
       </div>
+
+      {/* 두 칸 — 올리는 일과 내리는 일을 한 목록에 섞지 않는다(`TTab` 주석). */}
+      <div className="mt-4 flex gap-2 px-4 md:px-6" role="tablist" aria-label="검수 칸">
+        {TABS.map((entry) => {
+          const active = entry.key === tab;
+          return (
+            <Button
+              key={entry.key}
+              size="sm"
+              role="tab"
+              color={active ? 'primary' : 'secondary'}
+              aria-selected={active}
+              className="h-11 flex-1"
+              onClick={() => setTab(entry.key)}
+            >
+              {entry.label}
+            </Button>
+          );
+        })}
+      </div>
+
+      {tab === 'places' ? (
+        <AdminPagePlaceList
+          getClient={getClient}
+          beginWrite={beginWrite}
+          endWrite={endWrite}
+          onWritten={afterWrite}
+          onPlaceChanged={applyPlaceChange}
+        />
+      ) : (
+        <>
 
       <div className="mt-4 flex flex-wrap gap-2 px-4 md:px-6" role="group" aria-label="구간 걸러 보기">
         {FILTERS.map((entry) => {
@@ -505,6 +634,8 @@ export function AdminPage() {
                 더 보기 ({filtered.length - shown}개 남음)
               </Button>
             </div>
+          )}
+            </>
           )}
         </>
       )}

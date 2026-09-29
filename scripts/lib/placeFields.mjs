@@ -90,6 +90,22 @@ export function fromPlaceRow(row) {
   });
 }
 
+/**
+ * 대조(matchPlace)용 장소 — `fromPlaceRow` 에 **`status` 한 칸만** 얹는다.
+ *
+ * `status` 를 `toPlace` 에 넣지 않는 이유: `TPlace` 는 앱과 `places.json` 이 공유하는 타입이고 그 파일에는
+ * published 행만 담긴다(`pull-db.mjs`). 넣으면 `src/data/places.json` 의 모양이 바뀌어 스냅샷 diff 가 통째로 뜬다.
+ * 그런데 대조는 status 를 알아야 한다 — 동점일 때 내린 곳보다 살아 있는 곳을 골라야 하기 때문이다
+ * (`matchPlace.mjs` 의 `preferLive`). 그래서 **대조 corpus 를 만들 때만** 얹는다.
+ *
+ * 쓰는 곳은 넷이다: `analyze-candidates.mjs`(후보 탄생) · `apply-approved.mjs`(재대조, 실행 중 갱신 두 자리 포함) ·
+ * `src/lib/adminApply.ts`(화면 재대조). 한 군데라도 `fromPlaceRow` 로 남으면 그 행만 status 가 없어
+ * 동점 규칙이 조용히 꺼진다.
+ */
+export function toMatchablePlace(row) {
+  return { ...fromPlaceRow(row), status: row.status };
+}
+
 /** TItem. seasons 는 원본 태그 그대로(공백만 정리). */
 export function toItem(f) {
   return {

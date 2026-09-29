@@ -156,12 +156,40 @@ function scorePair(candidate, place) {
  *   reason 은 사람이 Studio 에서 읽을 한 줄("이름 일치 · 거리 40m"). 못 잡았을 때도 100m 안 이웃이 있으면 적어 준다 —
  *   다른 이름으로 등록된 같은 가게일 수 있어서.
  */
+/**
+ * 동점을 가르는 순서: 점수 → 거리 → **내리지 않은 쪽**. 셋째 기준이 2026-09-29 에 붙었다.
+ *
+ * 소프트 삭제가 들어오면서 대조 corpus 에 `archived` 행이 들어왔다(`fetchMatchablePlaces` 주석). 점수까지
+ * **완전히 같은** 두 행 중 하나가 내린 곳이면, 살아 있는 쪽을 골라야 한다 — 이름을 바꿔 다시 낸 가게가
+ * 그런 모양이다(내린 `숨도`, 살아 있는 `숨도카페` 는 접사가 벗겨져 이름 점수가 같다).
+ * 셋째 기준이 없으면 승자가 **PostgREST 가 돌려준 순서**로 정해지고, UPDATE 한 번이 그 순서를 바꾼다 —
+ * 같은 후보가 어제는 살아 있는 쪽, 오늘은 내린 쪽에 붙는다.
+ *
+ * 점수가 **다르면** 여기서 개입하지 않는다. 내린 쪽이 더 높은데 낮은 살아 있는 쪽을 택하면 조용히 틀린
+ * 병합이 되고(파일 머리의 집 규칙: 오병합보다 미탐), 내린 쪽이 이기면 `approveGroup` 의 archived 가드가
+ * 사람에게 묻는다 — **눈에 보이게** 실패하는 쪽을 고른다.
+ *
+ * `status` 는 `TPlace` 에 없는 칸이다(`places.json` 은 published 만 담는다). 대조용으로만 얹어 주는
+ * `toMatchablePlace`(placeFields.mjs)가 채우고, 없으면 살아 있는 것으로 본다 — 시드·테스트가 그 경로다.
+ */
+const preferLive = (scored, best) => {
+  if (scored.score !== best.score) return false;
+  if ((scored.distance ?? Infinity) !== (best.distance ?? Infinity)) return false;
+  return best.place.status === 'archived' && scored.place.status !== 'archived';
+};
+
 export function matchPlace(candidate, existing) {
   let best = null;
   let nearest = null;
   for (const place of existing) {
     const scored = scorePair(candidate, place);
-    if (scored.score > 0 && (!best || scored.score > best.score || (scored.score === best.score && (scored.distance ?? Infinity) < (best.distance ?? Infinity)))) {
+    if (
+      scored.score > 0 &&
+      (!best ||
+        scored.score > best.score ||
+        (scored.score === best.score && (scored.distance ?? Infinity) < (best.distance ?? Infinity)) ||
+        preferLive({ ...scored, place }, best))
+    ) {
       best = { ...scored, place };
     }
     if (scored.distance != null && scored.distance <= WEIGHT.GEO_NEAR_M && (!nearest || scored.distance < nearest.distance)) {

@@ -123,6 +123,8 @@ const placeRow = (patch: Partial<TPlaceRow> = {}): TPlaceRow => ({
   sort: null,
   status: 'published',
   source: 'notion',
+  archived_at: null,
+  archive_note: null,
   ...patch,
 });
 
@@ -242,9 +244,9 @@ describe('approveGroup — 기존 장소에 보강', () => {
   });
 
   /*
-   * 실제로 이 화면에서 나는 갈래다 — `fetchActivePlaces` 가 archived 를 빼고 읽으므로, 문 닫은 곳에 짝이 붙은 후보는
-   * "목록에 없는 짝" 으로 온다(아래 archived 테스트는 호출자가 archived 행을 넘긴 계약 검사다).
-   * 그래서 문구가 "새로고침" 을 권하면 안 된다 — 다시 읽어도 같은 질의라 그 행은 또 없다.
+   * `fetchMatchablePlaces` 가 2026-09-29 부터 archived 까지 읽으므로, 여기 오는 것은 **id 가 아예 없는** 경우다
+   * (Studio 에서 지웠거나 다른 프로젝트의 id). 내린 곳은 아래 archivedTarget 테스트가 받는다.
+   * 그래서 문구가 "새로고침" 을 권하면 안 된다 — 다시 읽어도 그 행은 또 없다.
    */
   it('짝이 목록에 없으면 새로고침을 권하지 않고 나갈 길을 말한다', async () => {
     const { calls, client } = createFakeClient();
@@ -258,15 +260,81 @@ describe('approveGroup — 기존 장소에 보강', () => {
     expect(calls).toHaveLength(0);
   });
 
-  it('문 닫은 곳(archived)에는 합치지 않고, 아무것도 쓰지 않는다', async () => {
+  /*
+   * 내린 곳(archived)에 짝이 붙은 후보. **쓰기 전에** 멈추고 사람에게 묻는 것이 계약이다 —
+   * `blocked` 로 끝내지 않는 이유는 나갈 길이 "고치기" 가 아니라 "고르기" 이기 때문이다(`TApplyOutcome` 주석).
+   */
+  it('내린 곳(archived)에는 합치지 않고, 사유를 실어 사람에게 묻는다', async () => {
     const { calls, client } = createFakeClient();
-    const target = placeRow({ id: 'place-x', name: '옛가게', status: 'archived' });
+    const target = placeRow({
+      id: 'place-x',
+      name: '옛가게',
+      status: 'archived',
+      archived_at: '2026-09-20T00:00:00.000Z',
+      archive_note: '[admin 2026-09-20] 내림 · 폐업',
+    });
     const lead = candidate({ match_place_id: 'place-x', extracted: extracted({ name: '옛가게' }) });
 
     const outcome = await approveGroup(client, group([lead]), [target], OPTIONS);
 
-    expect(outcome).toEqual({ kind: 'blocked', reason: '옛가게 은 문 닫은 곳으로 표시돼 있어요 — 여기에는 합치지 않아요.' });
+    expect(outcome).toEqual({
+      kind: 'archivedTarget',
+      placeId: 'place-x',
+      placeName: '옛가게',
+      archivedAt: '2026-09-20T00:00:00.000Z',
+      note: '[admin 2026-09-20] 내림 · 폐업',
+    });
     expect(calls).toHaveLength(0);
+  });
+
+  /*
+   * '되살려서 합치기'. **되살리기가 첫 쓰기여야 한다** — 뒤가 죽어도 장소는 published 로 남아 다음 빌드에 사이트로
+   * 돌아오고, 남은 일은 후보가 approved 로 남아 `pnpm data:apply` 가 이어받는다. 반대 순서면 "승인은 됐는데
+   * 장소는 여전히 내려 있는" 상태로 끊기고 그것은 어느 화면에도 안 보인다.
+   */
+  it("'되살려서 합치기' 는 장소를 먼저 published 로 돌린 뒤 후보를 승인한다", async () => {
+    const { calls, client } = createFakeClient();
+    const target = placeRow({ id: 'place-x', name: '옛가게', status: 'archived', archive_note: '[admin] 내림 · 폐업' });
+    const lead = candidate({ match_place_id: 'place-x', extracted: extracted({ name: '옛가게' }) });
+
+    const outcome = await approveGroup(client, group([lead]), [target], { ...OPTIONS, restoreArchived: true });
+
+    expect(calls[0]).toMatchObject({ table: 'places' });
+    expect(calls[0].payload.status).toBe('published');
+    expect(calls[0].payload.archive_note).toContain('되살림');
+    expect(calls[1]).toMatchObject({ table: 'candidates' });
+    expect(calls[1].payload.status).toBe('approved');
+    expect(outcome).toMatchObject({ kind: 'merged', placeId: 'place-x' });
+  });
+
+  /*
+   * `asNew` 가 내린 곳을 **조용히 지나가면** 같은 가게가 새 id 로 게시된다 — 소프트 삭제가 무효가 되는 경로다.
+   * 확인 표식(`confirmedDifferent`) 없이는 멈춰야 한다.
+   */
+  it("'새 장소로' 가 내린 곳을 버리려 하면 확인 없이는 멈춘다", async () => {
+    const { calls, client } = createFakeClient();
+    const target = placeRow({ id: 'place-x', name: '옛가게', status: 'archived' });
+    const lead = candidate({ match_place_id: 'place-x', extracted: extracted({ name: '옛가게' }) });
+
+    const outcome = await approveGroup(client, group([lead]), [target], { ...OPTIONS, asNew: true });
+
+    expect(outcome).toMatchObject({ kind: 'archivedTarget', placeId: 'place-x' });
+    expect(calls).toHaveLength(0);
+  });
+
+  it("'정말 다른 가게예요' 를 확인하면 새 장소로 올린다", async () => {
+    const { calls, client } = createFakeClient();
+    const target = placeRow({ id: 'place-x', name: '옛가게', status: 'archived' });
+    const lead = candidate({ match_place_id: 'place-x', extracted: extracted({ name: '옛가게' }) });
+
+    const outcome = await approveGroup(client, group([lead]), [target], {
+      ...OPTIONS,
+      asNew: true,
+      confirmedDifferent: true,
+    });
+
+    expect(outcome).toMatchObject({ kind: 'created', placeId: 'new-place-id' });
+    expect(calls.some((call) => call.table === 'places' && call.op === 'insert')).toBe(true);
   });
 });
 

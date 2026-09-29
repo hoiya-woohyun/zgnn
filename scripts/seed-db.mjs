@@ -43,10 +43,27 @@ const itemRows = items.map((it, i) => ({
   sort: i,
 }));
 
-const { error: placesError } = await supabase.from('places').upsert(placeRows, { onConflict: 'id' });
+// 내린 곳(archived)은 건너뛴다. 위 행들은 `status: 'published'` 를 못 박고 upsert 는 `on conflict do update` 라,
+// 그냥 두면 이 명령 한 번이 운영자가 내린 곳을 전부 **다시 게시한다** — 그것도 조용히(upsert 는 몇 행을 덮었는지 말하지 않는다).
+// 스냅샷(`places.json`)에는 이미 내린 곳이 없으니 보통은 교집합이 비지만, 옛 스냅샷이나 git 이전 버전으로 돌리면 되살아난다.
+// PostgREST 에는 "일부 칸만 덮는 upsert" 가 없어서 대상을 **보내기 전에** 뺀다.
+const { data: archivedRows, error: archivedError } = await supabase
+  .from('places')
+  .select('id')
+  .eq('status', 'archived');
+if (archivedError) throw archivedError;
+
+const archivedIds = new Set((archivedRows ?? []).map((row) => row.id));
+const seedRows = placeRows.filter((row) => !archivedIds.has(row.id));
+const skipped = placeRows.length - seedRows.length;
+
+const { error: placesError } = await supabase.from('places').upsert(seedRows, { onConflict: 'id' });
 if (placesError) throw placesError;
 
 const { error: itemsError } = await supabase.from('items').upsert(itemRows, { onConflict: 'id' });
 if (itemsError) throw itemsError;
 
-console.log(`시드 완료: places ${placeRows.length} · items ${itemRows.length}`);
+console.log(
+  `시드 완료: places ${seedRows.length} · items ${itemRows.length}` +
+    (skipped ? ` (내린 곳 ${skipped}곳은 건너뜀 — 되살리려면 /admin 에서)` : ''),
+);

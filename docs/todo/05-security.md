@@ -1,6 +1,11 @@
 # 5. 보안 — 키 분리 · RLS · 웹훅 · 프리뷰 보호
 
-> 최종 수정: 2026-09-29 (v12: **「관리 화면을 만들게 되면」 이 현재형이 됐다** — 운영자 검수 화면 `/admin`([ADR-018](../decisions/ADR-018-in-app-admin-review.md))이 들어가면서
+> 최종 수정: 2026-09-29 (v13: **Deploy Hook 줄들을 현실로 맞췄다** — 4b 가 끝나 URL 은 **Vault** 에 있고(웹훅 설정이 아니다),
+> 훅 이름은 실제로 `auto deploy`(2026-09-17 발급)다. 그 URL 이 **에이전트 대화 기록에 남았으므로** 회전 절차를 아래 「Deploy Hook 회전」 에
+> 실행 가능한 순서로 박았다 — 새 값을 만드는 명령이 URL 을 통째로 찍으므로 **그 두 줄은 사람이 자기 터미널에서** 한다.
+> 회전이 됐는지 확인하는 자리도 이제 있다(`/admin` 머리글 · `rebuild_status()`, [ADR-018](../decisions/ADR-018-in-app-admin-review.md) 결정 9) —
+> 그게 없던 동안에는 잘못 붙여 넣어도 증상이 "아무 일도 안 일어남" 이라 회전 자체가 위험했다)
+> 이전 (v12: **「관리 화면을 만들게 되면」 이 현재형이 됐다** — 운영자 검수 화면 `/admin`([ADR-018](../decisions/ADR-018-in-app-admin-review.md))이 들어가면서
 > publishable 키와 `<ref>.supabase.co` 리터럴이 **실제로 `out/` 에 박힌다**. 그래서 유출 검사의 `supabase.co` 를 전면 차단에서 **우리 호스트가 아닌 `*.supabase.co`** 로 좁혔다 —
 > `service_role`·`sk-ant-`·`sb_secret_`·JWT 패턴은 한 글자도 안 건드렸다. 브라우저 세션도 CLI 와 같은 모양이다(access token 만·refresh 폐기·12시간, ADR-016 v7).
 > **프리뷰 보호 항목이 더 중요해졌다** — Preview 배포가 같은 DB 를 보고, 그 `/admin` 은 링크만 없을 뿐 공개 HTML 이다)
@@ -27,7 +32,7 @@
 "서버에서만 쓰는 키" 라는 개념 자체가 빌드 단계에만 존재한다. 그래서:
 
 **어디에 무엇이 있는지 — 이 표가 정본이다**(2026-09-22 (c) 뒤). Supabase 인증 출처는 **둘뿐**: 운영자 세션(쓰기 스크립트) · anon(`data:pull`). 실행 주체는 사용자 터미널뿐이고
-스케줄·CI 는 없다. **프로젝트** 시크릿이 사는 자리는 셋 — 키체인의 세션(≤1일) · 사용자의 비밀번호 관리자 · (4b 뒤) Supabase 웹훅 설정의 Deploy Hook URL. 머신의 CLI 로그인
+스케줄·CI 는 없다. **프로젝트** 시크릿이 사는 자리는 셋 — 키체인의 세션(≤1일) · 사용자의 비밀번호 관리자 · Supabase **Vault** 의 Deploy Hook URL(4b, 2026-09-29 부터). 머신의 CLI 로그인
 (`claude`·`supabase`·`gh`·SSH)은 별개다 — `claude` 만 상시, 나머지는 심부름 때만 열고 닫는다(README 다음 할 일 1). **GitHub Secrets 0개(실측 2026-09-22 (5) — 죽은 값
 `SUPABASE_SERVICE_ROLE_KEY`·`SUPABASE_URL` 삭제, `gh secret list` 빈 결과) · Vercel env 0개(실측) · 레포에 env 파일 없음.**
 
@@ -40,7 +45,7 @@
 | `NAVER_CLIENT_ID` · `NAVER_CLIENT_SECRET` | 금지 | **사용자가 로컬에서 직접 관리**(비밀번호 관리자). 수집(`pnpm data:collect`)은 env 로 받고, 없으면 TTY 숨김 입력(`scripts/lib/readHidden.mjs`)으로 없는 쪽만 묻는다 — 프로세스 메모리에만 있고 레포·키체인·파일·로그 어디에도 안 남는다. 에이전트 세션(`CLAUDECODE`)이면 입력을 거부(exit 1), env 로 넘긴 값은 막지 않는다. **좌표 보강(`data:analyze`)도 같은 키**를 쓰는데 이쪽은 숨김 입력이 없어 env 에 둘 다 있을 때만 켜진다 — 그래서 쿼터(일 25,000)도 둘이 나눠 쓰고, 소진되면 `data:analyze` 가 429 로 **멈춘다**(좌표 없이 대조하면 동명 가게가 auto 로 올라가므로) | **NCP 콘솔(API HUB)** 의 Application 에서 재발급 — 개발자센터가 아니다(BUG-006) |
 | `NAVER_MAP_CLIENT_ID` · `NAVER_MAP_CLIENT_SECRET` | 금지 | **위 검색 키와 다른 값이다** — NCP 콘솔의 **Maps** Application 쪽이고, `data:analyze` 의 **두 번째 좌표 축**(주소→좌표, `scripts/analyze/naverGeocode.mjs`)만 쓴다. 검색 키와 마찬가지로 사용자가 로컬에서 직접 관리하고 env 에 둘 다 있을 때만 켜진다(숨김 입력 없음). 헤더 이름이 검색 쪽과 **글자까지 같아** 섞으면 그냥 401 이다 — env 이름을 갈라 둔 것이 그 방어다(→ [BUG-006](../bugs/BUG-006-naver-key-401-undiagnosable.md)). 값이 없거나 틀려도 **실행은 멈추지 않는다**(이름 축과 반대): 이 축은 좌표를 더하기만 하므로 꺼지면 어제까지의 동작으로 돌아갈 뿐이다 | **NCP 콘솔 → Maps** Application 에서 재발급(API HUB 가 아니다). 그 Application 에 **Geocoding** 체크가 필요하다 — 게이트웨이 210=권한 없음 · 400=한도/미체크 |
 | `NEXT_PUBLIC_NAVER_MAP_KEY_ID` | 공개 전제 | 코드 기본값(`src/lib/naverMap.ts`) — Vercel env 불필요 | NCP 콘솔의 **웹 서비스 URL 허용 목록**이 방어선(포트까지 본다). 새 주소 등록만 조심 |
-| Deploy Hook URL | — | Supabase 웹훅 설정 **만**(4b, 아직 없음) | 아무나 빌드를 돌릴 수 있음 → Vercel 에서 폐기·재발급 |
+| Deploy Hook URL | — | **Supabase Vault 의 `vercel_deploy_hook`** 하나뿐(2026-09-29). 마이그레이션·함수 본문·`rebuild_log`·로그에는 없다 — `notify_vercel_rebuild()` 가 security definer 로 그때만 읽고, pg_net 오류 문구에 섞여 오면 저장 전에 `<hook>` 으로 지운다. **단 이 URL 은 2026-09-29 에이전트 대화 기록에 평문으로 남았다**(사용자가 붙여 넣었다) | **아무나 `main` 프로덕션 빌드를 돌릴 수 있다.** 인증 없는 URL 이고 POST 한 번이 배포 하나다. 데이터를 읽거나 쓰지는 못한다(빌드는 anon 으로 published 만 읽는다) → 실해는 **가용성·비용**: Hobby 의 하루 배포 횟수를 태워 **정상 승인이 반영되지 않게** 만들 수 있고, 배포 이력이 노이즈로 찬다. 처방은 아래 「Deploy Hook 회전」 |
 | anon(publishable) key | 공개 전제 | 위 코드 상수. Vercel 빌드와 로컬의 `data:pull` 이 같은 경로로 published 만 읽고, **`/admin` 이 같은 키로 브라우저에서 붙는다**(로그인 전에는 그 키만, 로그인 뒤에는 `Authorization: Bearer <운영자 JWT>` 가 얹힌다 — 키만으로는 `candidates` 가 42501) | 공개돼도 되는 키 — 방어선은 RLS·GRANT |
 
 - [x] **`out/` 유출 검사를 빌드에 넣는다.** `package.json` 의 `build`(`next build --webpack && node scripts/check-bundle.mjs`):
@@ -96,7 +101,17 @@
       넣어 둔 `SUPABASE_JWT_SECRET`·`SUPABASE_SECRET_KEY`·`POSTGRES_PASSWORD` 는 아무 브랜치 push 로 빌드 로그에 찍어 읽을 수 있었다(접근 경로 = 읽기 경로).
       사용자가 연동 해제 → 변수 12개 소멸, 손으로 넣은 3개는 Claude 가 `vercel env rm`(값 노출 없음). 그 상태에서 프로덕션 `publishable(anon)` 86·15 Ready.
 - [ ] Deployment Protection: Preview 에 Vercel Authentication(무료). Production 은 공개.
-- [ ] Deploy Hook 은 하나만, 이름에 용도(`supabase-places-webhook`). 정체 모를 빌드가 돌면 이 훅부터 폐기.
+- [x] Deploy Hook 은 하나뿐이다 — 이름 `auto deploy` · 브랜치 `main` · id `gD3ioVFKtV`, **2026-09-17 에 이미 발급돼 있었다**(04 v7 실측).
+      (예전 줄은 `supabase-places-webhook` 라는 이름을 요구했는데 그런 훅은 없다 — 실제 이름으로 고쳤다.) 정체 모를 빌드가 돌면 이 훅부터 폐기.
+- [ ] **Deploy Hook 회전** — 지금 해야 하는 항목이다(위 표: URL 이 대화 기록에 남았다). 순서가 중요하다 —
+      ① **사람이 자기 터미널에서** `vercel deploy-hooks create auto-deploy-2 --ref main` (또는 대시보드 Settings → Git → Deploy Hooks).
+         ⚠️ `create` 도 `list` 도 **URL 을 통째로 찍는다** — 에이전트 세션에서 부르면 그 값이 또 대화 기록에 남는다. 그래서 Claude 는 이 두 줄을 부르지 않는다.
+      ② Studio → SQL Editor 에서 `select vault.update_secret((select id from vault.secrets where name = 'vercel_deploy_hook'), '<새 URL>');`
+      ③ 옛 훅 폐기: `vercel deploy-hooks remove gD3ioVFKtV` (또는 대시보드).
+      ④ **확인** — `places` 를 한 줄 건드리고(예: `/admin` 에서 아무 장소를 내렸다 되살리기) `/admin` 머리글이
+         `재빌드가 걸렸어요(… · 201)` 인지 본다. `Vercel 이 재빌드를 거절했어요(… · 404)` 면 ②를 다시 한다.
+         이 확인 자리가 **회전을 안전하게 만드는 것**이다 — 없으면 잘못 붙여 넣은 증상이 "아무 일도 안 일어남" 이다.
+      회전하지 않아도 동작은 멀쩡하다. 감수하는 위험은 위 표의 "새면" 칸 하나(남이 빌드를 돌릴 수 있다)이고, 데이터는 걸리지 않는다.
 - [x] 헤더는 **`vercel.json` 의 `headers`** 로 걸었다(`vercel.ts` 로 옮기지 않았다 — `@vercel/config` 의존성 없이 기존 파일에 넣는 쪽이 작고,
       둘은 공존할 수 없다): `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`,
       `Permissions-Policy: geolocation=(self)`(앱은 위치를 안 쓰지만 문서대로). 로컬 `vercel build` 의 `.vercel/output/config.json` 에
@@ -144,6 +159,7 @@ Actions 는 "관리자 없이 도는 구조" 라 만료 없는 시크릿(service
       `[service_role] out/_next/static/chunks/….js` 로 exit 1. 즉 이 자물쇠는 "누가 코드에 참조를 쓴 날" 에 걸린다 — 그게 맞는 자리다.
 - [x] anon 키로 `places` 를 `select` 하면 0행(정책 0개 시절 확인). 정책 뒤 기준은 위 Supabase 절. — [ ] Preview URL 을 시크릿 창에서 열면 로그인 화면 — **미확인**(Deployment Protection 은 대시보드).
 - [ ] 시크릿 회전 절차(위 표의 "새면" 열)가 이 문서에 있고, 한 번은 실제로 회전해 본다. — 표는 있다. service_role 은 회전 대신 **퇴역**(2026-09-22 (3))으로 대상 자체가 없어졌다.
-      남은 회전 대상은 네이버 키(재발급, 사용자)와 Deploy Hook URL(4b 뒤)뿐 — 아직.
+      남은 회전 대상은 둘이다 — 네이버 키(재발급, 사용자)와 **Deploy Hook URL(절차는 위 Vercel 절, 확인까지 포함해 박아 뒀다)**.
+      Deploy Hook 이 "실제로 한 번 회전해 본다" 의 첫 대상이 될 것이다: 절차 ④ 가 성공·실패를 눈으로 가르므로 리허설이 아니라 실측이 된다.
 - [x] **(b) GRANT 축소가 원격에 적용되고 PostgREST 검증을 통과한다**(위 Supabase 절) — 2026-09-22 (6) 통과.
       [ ] 그 push 뒤 **어드바이저에 새 경고가 없는지** — CLI 로 못 봐서 사용자가 대시보드에서 한 번 본다. (b) 의 마지막 한 항목.

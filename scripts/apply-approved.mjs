@@ -8,10 +8,10 @@
 // (insert 와 그 write-back 사이에서 죽는 창은 남는다 — 그때는 장소가 고아로 남고 재실행이 하나 더 만든다. Studio 에서 정리.)
 // 한 건이 실패해도 다음 건은 계속하고, 실패 수가 exit code 가 된다(사용자 터미널의 로그가 곧 관측).
 //
-// 분석 때 '신규'(tier new) 였던 후보만 insert 전에 현재 places(archived 제외, 이 실행이 방금 만든 draft 포함)와 **다시 대조**한다 —
+// 분석 때 '신규'(tier new) 였던 후보만 insert 전에 현재 places(상태 무관 — archived 도, 이 실행이 방금 만든 draft 도 포함)와 **다시 대조**한다 —
 // 같은 새 가게가 글 둘에서 따로 승인되면 분석 시점엔 서로 몰라 둘 다 '신규' 인데, 여기서 두 번째를 첫 번째로 합친다(toRecheckCandidate).
 // tier 가 auto/ask 인데 match_place_id 가 비어 있으면 **사람이 비운 것**이다 — 재대조로 되살리지 않고 신규로 존중한다(리뷰 지적).
-// archived 장소로는 병합하지 않는다 — 폐업한 곳에 후보가 조용히 merged 로 사라진다(리뷰 지적). 실패로 남겨 사람이 본다.
+// archived 장소로는 병합하지 않는다 — 내린 곳에 후보가 조용히 merged 로 사라진다(리뷰 지적). 영구 실패로 남겨 사람이 /admin 에서 정한다.
 // ask 후보를 사람이 "신규가 맞다" 고 판단했다면 Studio 에서 match_place_id 를 **비운 뒤** approved 로 — 이 스크립트는 match_place_id 가
 // 있으면 그것을 믿는다(docs/todo/03 의 승인 절차).
 //
@@ -20,7 +20,7 @@
 import { randomUUID } from 'node:crypto';
 import { mergeIntoExisting, toNewPlaceRow, toRecheckCandidate } from './analyze/applyApproved.mjs';
 import { matchPlace, THRESHOLD } from './analyze/matchPlace.mjs';
-import { fromPlaceRow } from './lib/placeFields.mjs';
+import { toMatchablePlace } from './lib/placeFields.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
 
 // 인자는 --dry-run 하나뿐. 모르는 인자(--dryrun 오타)로 실제 쓰기가 도는 일이 없게 거부한다(analyze 의 parseArgs 와 같은 원칙).
@@ -54,15 +54,17 @@ const { data: candidates, error: candidatesError } = await supabase
   .order('created_at', { ascending: true });
 if (candidatesError) throw new Error(`candidates 조회 실패: ${candidatesError.message}`);
 
-// 신규 후보 재대조용 현재 장소 목록(archived 제외). 이 실행이 draft 를 만들면 여기에도 넣어 다음 후보가 그것과 대조되게 한다.
-const { data: placeRows, error: placesError } = await supabase.from('places').select('*').neq('status', 'archived');
+// 신규 후보 재대조용 현재 장소 목록. 이 실행이 draft 를 만들면 여기에도 넣어 다음 후보가 그것과 대조되게 한다.
+// **archived 도 읽는다**(2026-09-29, analyze-candidates.mjs:130 과 같은 이유): 빼면 내린 곳을 쓴 후보가 재대조에서
+// '신규' 가 돼 같은 가게가 새 id 로 되살아난다. 짝이 잡히면 아래 archived 가드(:108)가 permanent 로 멈춰 사람에게 넘긴다.
+const { data: placeRows, error: placesError } = await supabase.from('places').select('*').order('id');
 if (placesError) throw new Error(`places 조회 실패: ${placesError.message}`);
 // 86곳이 있어야 정상이다. 비어 있으면 다른 프로젝트·잘못된 키다 — 그대로 가면 재대조가 무력화돼 신규가 전부 draft 로 들어간다(analyze 와 같은 가드).
 if (placeRows.length === 0) {
   console.error('places 가 비어 있다 — link 된 프로젝트(supabase/.temp/project-ref)가 맞는지 확인. 아무것도 반영하지 않고 멈춘다.');
   process.exit(1);
 }
-const existing = placeRows.map(fromPlaceRow);
+const existing = placeRows.map(toMatchablePlace);
 const rowById = new Map(placeRows.map((row) => [row.id, row]));
 
 let merged = 0;
@@ -106,7 +108,7 @@ for (const candidate of candidates) {
       }
       if (!target) throw new Error(`match_place_id ${targetId} 가 places 에 없다`);
       if (target.status === 'archived') {
-        throw Object.assign(new Error(`${target.name}(${target.id}) 은 archived — 폐업한 곳에는 병합하지 않는다. Studio 에서 확인`), { permanent: true });
+        throw Object.assign(new Error(`${target.name}(${target.id}) 은 archived — 내린 곳에는 병합하지 않는다. 다시 연 가게면 /admin 에서 '되살려서 합치기'`), { permanent: true });
       }
 
       const patch = mergeIntoExisting(target, candidate.extracted, { postUrl: candidate.post_url });
@@ -120,7 +122,7 @@ for (const candidate of candidates) {
         Object.assign(target, patch);
         // 대조 장부(existing)도 같이 갱신 — 방금 채운 좌표를 다음 후보의 재대조가 봐야 한다(안 그러면 9km 밖 동명 가게와 합쳐진다, 리뷰 지적).
         const idx = existing.findIndex((place) => place.id === target.id);
-        if (idx >= 0) existing[idx] = fromPlaceRow(target);
+        if (idx >= 0) existing[idx] = toMatchablePlace(target);
       } else {
         console.log(`  보강 ${target.name}(${target.id}) — 채울 빈 칸 없음, update 생략`);
       }
@@ -130,7 +132,7 @@ for (const candidate of candidates) {
       const row = toNewPlaceRow(candidate, { id: randomUUID() });
       await write(`신규 ${row.name}(${row.id}) draft 로 insert`, () => supabase.from('places').insert(row));
       // 같은 실행의 다음 후보가 이 draft 와 대조되게 목록에도 넣는다(dry-run 도 같은 경로 — 무엇이 합쳐질지 미리 보인다).
-      existing.push(fromPlaceRow(row));
+      existing.push(toMatchablePlace(row));
       rowById.set(row.id, row);
       // insert 직후 후보에 새 id 를 묶어 둔다 — 아래 단계에서 죽어도 재실행이 두 번째 insert 를 하지 않게(파일 머리 주석).
       await write(`후보 ${candidate.id} ← match_place_id ${row.id}`, () =>

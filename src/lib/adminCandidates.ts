@@ -95,6 +95,10 @@ export type TPlaceRow = {
   sort: number | null;
   status: TPlaceStatus;
   source: string;
+  /** 내린 시각. 트리거가 찍고 되살리면 null 로 돌아간다(`20260929120000_places_archive.sql`). */
+  archived_at: string | null;
+  /** 게시 상태를 사람이 바꾼 기록(한 줄씩 덧붙임). 쓰는 쪽은 `adminPlaces.ts`. */
+  archive_note: string | null;
 };
 
 /** 같은 가게로 묶인 후보들. 만드는 쪽은 `groupCandidates`(reviewCandidates.mjs:46-65). */
@@ -153,13 +157,25 @@ export async function countStrandedCandidates(client: SupabaseClient): Promise<n
 }
 
 /**
- * 재대조·병합 대상이 되는 현재 장소 전부(archived 제외).
+ * 재대조·병합 대상이 되는 장소 — **상태를 가리지 않는다. 내린 곳(archived)도 포함한다.**
+ *
+ * 2026-09-29 까지는 `.neq('status','archived')` 였다. 소프트 삭제(`/admin` 의 '내리기')가 생기면서 그 한 줄이
+ * **내린 곳을 되살아나게 하는 구멍**이 됐다. 경로가 이렇다 — 폐업한 카페를 내린다 → 다음 달 그 카페를 쓴 블로그 글이
+ * 수집된다 → 대조 corpus 에 그 장소가 없으니 `matchPlace` 가 '신규' 로 판정한다 → 운영자 화면에 '신규 · 그 카페' 가
+ * 뜬다 → 승인하면 **같은 가게가 새 id 로 다시 게시된다.** 내린 것이 되돌아온 게 아니라 복제본이 생기는 것이고,
+ * 빌드·테스트는 전부 통과한다. 이 목록에 archived 를 넣어 두면 `matchPlace` 가 그 장소를 찾아내고,
+ * `approveGroup` 의 `target.status === 'archived'` 가지가 사람에게 묻는다(그 가지는 이미 있었다 — 이 줄이 쓸 일을 만든다).
+ *
+ * `analyze-candidates.mjs:131` · `apply-approved.mjs:58` 도 같은 날 같은 이유로 함께 바꿨다. 세 곳이 같은 corpus 를
+ * 봐야 CLI 와 화면이 같은 후보를 같게 판정한다(`adminApply.ts` 머리 주석의 규칙).
  *
  * 0행이면 던진다 — `apply-approved.mjs:61-64` 와 같은 보호다. RLS 나 프로젝트가 어긋나면 PostgREST 는 에러가 아니라
  * `[]` 를 주고, 그대로 가면 재대조가 무력화돼 이미 있는 가게가 전부 신규로 다시 만들어진다.
  */
-export async function fetchActivePlaces(client: SupabaseClient): Promise<TPlaceRow[]> {
-  const { data, error } = await client.from('places').select('*').neq('status', 'archived');
+export async function fetchMatchablePlaces(client: SupabaseClient): Promise<TPlaceRow[]> {
+  // `.order('id')` 로 순서를 고정한다 — 없으면 점수가 같은 두 장소 중 승자가 PostgREST 가 돌려준 heap 순서로 정해지고,
+  // UPDATE 한 번(내리기·보강)이 그 순서를 바꿔 같은 후보가 어제와 다른 짝을 얻는다(`pull-db.mjs` 와 같은 어법).
+  const { data, error } = await client.from('places').select('*').order('id');
   if (error) throw new Error(`장소 조회: ${error.message}`);
   const rows = (data ?? []) as unknown as TPlaceRow[];
   if (rows.length === 0) {

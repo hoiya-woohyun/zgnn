@@ -6,8 +6,9 @@
 // 왜 이렇게 생겼나 —
 //  - 본문은 그 자리에서만 읽고 버린다. DB 에도 로그에도 남기지 않는다(docs/todo/02 의 저작권·약관 기준). evidence(인용문)도 본문이라
 //    로그에 찍지 않는다 — 후보 이름·종류·구간·confidence·이유만.
-//  - 기존 장소는 archived 만 빼고 **draft 도 포함**해 읽는다. 지난 실행이 draft 로 넣은 가게를 이번 실행이 또 신규로 만들면
-//    같은 가게가 두 번 뜬다. published 만 보는 pull-db.mjs 와 다른 점이다.
+//  - 기존 장소는 **상태를 가리지 않고 전부** 읽는다(2026-09-29). draft 를 포함하는 이유는 지난 실행이 draft 로 넣은 가게를
+//    또 신규로 만들면 같은 가게가 두 번 뜨기 때문이고, **archived 까지** 포함하는 이유는 내린 곳(소프트 삭제)을 쓴 새 글이
+//    '신규' 가 되면 승인 한 번에 같은 가게가 새 id 로 되살아나기 때문이다. published 만 보는 pull-db.mjs 와 다른 점이다.
 //  - 자동 병합(auto)은 바로 approved 로 넣는다 — 병합은 빈 칸만 채우므로(applyApproved.mjs) 틀려도 사람이 쓴 값이 덮이지 않는다.
 //    03 의 THRESHOLD 주석이 말하는 "위험이 작다" 가 이것이다.
 //  - 글 하나가 실패하면 그 글만 건너뛴다. 다시 받아도 같을 실패(본문 404/410 · 본문 컨테이너 없음 · blog_id 없음 · 모델이 스키마 재시도를
@@ -49,7 +50,7 @@ import { formatGeocodeSummary, geocodeAddress, newGeocodeReasons, pickGeocoded, 
 import { newPickReasons, pickNaverPlace, searchNaverPlace } from './analyze/naverLocal.mjs';
 import { matchPlace, normalizeName, townOf } from './analyze/matchPlace.mjs';
 import { fetchPostText } from './analyze/naverPostBody.mjs';
-import { fromPlaceRow } from './lib/placeFields.mjs';
+import { toMatchablePlace } from './lib/placeFields.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
 
 let args;
@@ -128,9 +129,13 @@ if (postsError) throw new Error(`blog_posts 조회 실패: ${postsError.message}
 const posts = pickPostsForRun(fetchedPosts, limit, maxPerBlog);
 
 // 지금 규모(86곳 + 신규 draft 몇)는 supabase-js 기본 1000행 제한에 한참 못 미친다 — 늘어나면 range() 로 페이지네이션.
-const { data: placeRows, error: placesError } = await supabase.from('places').select('*').neq('status', 'archived');
+// **archived 를 빼지 않는다**(2026-09-29). 빼면 내린 곳(소프트 삭제)을 쓴 새 글이 '신규' 로 판정돼, 승인 한 번에
+// 같은 가게가 새 id 로 되살아난다. 짝이 잡혀야 `apply-approved` 의 archived 가드와 /admin 의 '되살려서 합치기' 가
+// 일할 자리가 생긴다 — 대조 corpus 는 세 곳(여기 · apply-approved.mjs:58 · src/lib/adminCandidates.ts)이 같아야 한다.
+// `.order('id')` 는 동점 승자를 고정한다 — 순서가 없으면 UPDATE 한 번이 heap 순서를 바꿔 같은 후보가 다른 짝을 얻는다.
+const { data: placeRows, error: placesError } = await supabase.from('places').select('*').order('id');
 if (placesError) throw new Error(`places 조회 실패: ${placesError.message}`);
-const existing = placeRows.map(fromPlaceRow);
+const existing = placeRows.map(toMatchablePlace);
 // 86곳이 있어야 정상이다. 비어 있으면 다른 프로젝트·잘못된 키다 — 그대로 가면 후보 전부가 '신규' 로 기록된다(리뷰 지적).
 if (existing.length === 0) {
   console.error('places 가 비어 있다 — link 된 프로젝트(supabase/.temp/project-ref)가 맞는지 확인. 후보를 만들지 않고 멈춘다.');

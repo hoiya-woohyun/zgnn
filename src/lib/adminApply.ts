@@ -11,25 +11,53 @@
  *  (3) 어느 단계든 실패하면 **어느 단계인지 붙여서** 던진다. 화면이 그것을 그대로 보여 준다 —
  *      삼키면 사람이 두 번 누르고 장소가 두 개 생긴다.
  *
- * CLI 와 다른 점은 둘이다. 신규 장소가 곧바로 `published`(draft 단계 생략, 요구 "맞다 → 다른 사용자에게 보인다"),
- * 그리고 `reviewer_note` 태그가 `[data:apply]` 대신 `[admin]`.
+ * CLI 와 다른 점은 셋이다. 신규 장소가 곧바로 `published`(draft 단계 생략, 요구 "맞다 → 다른 사용자에게 보인다"),
+ * `reviewer_note` 태그가 `[data:apply]` 대신 `[admin]`, 그리고 **짝이 내린 곳일 때 사람에게 묻는다**
+ * (CLI 는 그 후보를 pending 으로 되돌리고 사유만 적는다 — 터미널에는 물어볼 자리가 없다).
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { mergeIntoExisting, toNewPlaceRow, toRecheckCandidate } from '../../scripts/analyze/applyApproved.mjs';
 import { matchPlace, THRESHOLD } from '../../scripts/analyze/matchPlace.mjs';
-import { fromPlaceRow } from '../../scripts/lib/placeFields.mjs';
-import { regionUsable, type TCandidateGroup, type TCandidateRow, type TPlaceRow } from './adminCandidates';
+import { toMatchablePlace } from '../../scripts/lib/placeFields.mjs';
+import {
+  regionUsable,
+  type TCandidateGroup,
+  type TCandidateRow,
+  type TPlaceRow,
+  type TPlaceStatus,
+} from './adminCandidates';
+import { restorePlace } from './adminPlaces';
 import { appendReviewerNote } from './adminSession';
 import type { TPlace } from '../types';
 
-/** 0.4~0.85 구간에서 "이 곳 아닌가요?" 로 보여 줄 기존 장소. */
-export type TSimilarPlace = { id: string; name: string; confidence: number; reason: string };
+/**
+ * 0.4~0.85 구간에서 "이 곳 아닌가요?" 로 보여 줄 기존 장소.
+ *
+ * 상태 셋은 **선택**이고 `approveGroup` 이 경계에서 채운다(`decideTarget` 은 status 없는 `TPlace[]` 만 본다).
+ * 없으면 화면이 "내림" 을 못 보여 주고, 그러면 그 패널의 두 버튼이 둘 다 틀린다 — '여기에 합치기' 는 내린 곳에
+ * 합치려 하고 '새 장소로' 는 복제본을 만든다. 보여 주려고만 있는 칸이 아니라 **선택을 가르는** 칸이다.
+ */
+export type TSimilarPlace = {
+  id: string;
+  name: string;
+  confidence: number;
+  reason: string;
+  status?: TPlaceStatus;
+  archivedAt?: string | null;
+  archiveNote?: string | null;
+};
 
 export type TApplyOutcome =
   | { kind: 'created' | 'merged'; placeId: string; placeName: string; patchKeys: string[]; rows: number }
   /** 사람이 골라야 한다 — 이 결과가 나오면 **DB 에 아무것도 쓰지 않았다.** */
   | { kind: 'needsDecision'; similar: TSimilarPlace }
+  /**
+   * 짝지은 장소가 **내린 곳**이다. 역시 쓰기 전이고, 사람이 둘 중 하나를 골라야 한다 —
+   * 되살려서 합치거나(다시 열었다) 반려하거나(폐업 그대로). 이 갈래를 `blocked` 문구로 뭉개지 않는 이유는
+   * 나갈 길이 다르기 때문이다: `blocked` 는 "고칠 것이 있다" 지만 이것은 "고를 것이 있다" 다.
+   */
+  | { kind: 'archivedTarget'; placeId: string; placeName: string; archivedAt: string | null; note: string | null }
   /** 반영 자체가 불가능하다(종류·이름·지역·대상). 역시 쓰기 전이다. */
   | { kind: 'blocked'; reason: string };
 
@@ -38,6 +66,13 @@ export type TApplyOptions = {
   asNew?: boolean;
   /** 사람이 '여기에 합치기' 를 골랐다. `null`·`undefined` 는 "고르지 않았다" 로 같다. */
   mergeInto?: string | null;
+  /** 사람이 '되살려서 합치기' 를 골랐다 — 내린 곳을 `published` 로 돌리고 그 위에 합친다. */
+  restoreArchived?: boolean;
+  /**
+   * 사람이 "내린 그 곳과는 **다른 가게**다" 를 명시적으로 확인했다 — `asNew` 의 복제본 경고를 넘긴다.
+   * 기본값이 `false` 인 것이 요점이다: 확인 없이 `asNew` 로 내린 곳을 지나가면 그 가게가 새 id 로 되살아난다.
+   */
+  confirmedDifferent?: boolean;
   nowIso: string;
   /** 새 장소 id. `places.id` 는 default 가 없어 우리가 정한다(보통 `crypto.randomUUID`). */
   newId: () => string;
@@ -158,6 +193,15 @@ async function markMerged(
   failIf('후보 반영 완료 표시', error);
 }
 
+/** 내린 곳 하나를 "사람이 골라야 한다" 결과로. 두 자리에서 같은 모양을 만들므로 한 곳에 둔다. */
+const archivedOutcome = (row: TPlaceRow): TApplyOutcome => ({
+  kind: 'archivedTarget',
+  placeId: row.id,
+  placeName: row.name,
+  archivedAt: row.archived_at,
+  note: row.archive_note,
+});
+
 /**
  * 묶음 하나를 승인해 `places` 까지 반영한다. 대표(lead)를 먼저 처리해 장소를 정하고, 나머지 행은 그 장소로 보강한다.
  *
@@ -176,34 +220,87 @@ export async function approveGroup(
   const problem = leadProblem(lead);
   if (problem) return { kind: 'blocked', reason: problem };
 
-  const decision = decideTarget(lead, places.map(fromPlaceRow) as TPlace[], opts);
-  if (decision.kind === 'needsDecision') return decision;
+  /*
+   * 대조 corpus. `toMatchablePlace` 로 만드는 이유는 `status` 한 칸을 얹어야 하기 때문이다 —
+   * 점수가 같을 때 내린 곳보다 살아 있는 곳을 고르는 규칙이 그 칸을 본다(`matchPlace.mjs` 의 `preferLive`).
+   * `fromPlaceRow` 로 만들면 그 규칙이 조용히 꺼지고, 이름을 바꿔 다시 낸 가게가 옛 이름 쪽에 붙는다.
+   */
+  const existing = places.map(toMatchablePlace) as TPlace[];
+
+  /*
+   * `asNew` 는 짝을 **버리는** 선택이다. 버리는 그 짝이 내린 곳이면 여기서 멈춘다 — 그대로 통과시키면
+   * `decideTarget` 이 `targetId: null` 을 주고 아래의 archived 가지를 아예 지나쳐 **새 장소가 published 로 생긴다.**
+   * 즉 내린 가게가 새 id 로 사이트에 돌아온다(소프트 삭제가 무효가 되는 유일한 남은 경로였다).
+   *
+   * 그래도 `asNew` 자체를 막지는 않는다 — 같은 이름의 **다른** 가게는 실제로 있다. 대신 사람이 그 사실을
+   * 확인했다는 표식(`confirmedDifferent`)을 요구한다. 확인은 화면의 '정말 다른 가게예요' 가 준다.
+   *
+   * 버려지는 짝을 `match_place_id` 로만 찾지 않는다 — 0.4~0.85 패널에서 온 `asNew` 는 짝이 비어 있고
+   * 재대조가 찾아낸 이웃을 버리는 것이라, `asNew` 를 끈 판정을 한 번 더 돌려 그 id 를 얻는다(순수 함수라 I/O 가 없다).
+   */
+  if (opts.asNew && !opts.confirmedDifferent) {
+    const would = decideTarget(lead, existing, { ...opts, asNew: false, mergeInto: null });
+    const droppedId = would.kind === 'target' ? would.targetId : would.similar.id;
+    const dropped = droppedId ? places.find((place) => place.id === droppedId) : undefined;
+    if (dropped?.status === 'archived') return archivedOutcome(dropped);
+  }
+
+  const decision = decideTarget(lead, existing, opts);
+  if (decision.kind === 'needsDecision') {
+    /*
+     * 상태를 경계에서 얹는다. `decideTarget` 은 status 없는 `TPlace[]` 만 보므로 거기서는 알 수 없고,
+     * 이 함수는 행(`places`)을 들고 있다. 이 셋이 없으면 화면의 "비슷한 장소" 패널이 내린 곳을 멀쩡한 곳처럼
+     * 보여 주고, 그 패널의 두 버튼이 둘 다 틀린 일을 한다(`TSimilarPlace` 주석).
+     */
+    const row = places.find((place) => place.id === decision.similar.id);
+    return {
+      kind: 'needsDecision',
+      similar: {
+        ...decision.similar,
+        status: row?.status,
+        archivedAt: row?.archived_at,
+        archiveNote: row?.archive_note,
+      },
+    };
+  }
 
   let target: TPlaceRow | undefined;
   if (decision.targetId) {
     target = places.find((place) => place.id === decision.targetId);
     if (!target) {
       /*
-       * 목록(`fetchActivePlaces`)이 archived 를 빼고 읽으므로 **문 닫은 곳에 짝이 붙은 후보가 여기로 온다** — 지워진 장소와 한 갈래다.
-       * 그래서 "새로고침" 을 권하지 않는다: 다시 읽어도 같은 질의라 그 행은 또 없고, 사람은 될 리 없는 일을 반복한다.
+       * `fetchMatchablePlaces` 가 2026-09-29 부터 archived 까지 읽으므로, 여기 오는 것은 **id 가 아예 없는** 경우다
+       * (Studio 에서 행을 지웠거나 짝이 다른 프로젝트의 id 다). 내린 곳은 아래 archived 가지가 받는다.
+       * "새로고침" 을 권하지 않는다: 다시 읽어도 그 행은 또 없고, 사람은 될 리 없는 일을 반복한다.
        * 나갈 길은 화면에 이미 있다 — 짝이 붙은 후보는 `새 장소로 올리기` 가 보이고, 그것은 짝을 무시하고 신규로 올린다.
        */
       return {
         kind: 'blocked',
-        reason: `짝지은 장소(${decision.targetId})를 쓸 수 없어요 — 문 닫은 곳으로 표시됐거나 지워졌어요. '새 장소로 올리기' 로 올리거나 Studio 에서 확인해 주세요.`,
+        reason: `짝지은 장소(${decision.targetId})가 DB 에 없어요 — 지워졌거나 다른 프로젝트의 id 예요. '새 장소로 올리기' 로 올리거나 Studio 에서 확인해 주세요.`,
       };
     }
     /*
-     * 폐업으로 표시한 곳에 후보가 조용히 사라지지 않게(apply-approved.mjs:108-110). 여기서 막으면 후보는 pending 그대로다.
-     * 오늘 이 화면에서는 위의 `!target` 이 먼저 잡는다 — `places` 에 archived 가 들어 있을 때만 이 줄이 말한다.
-     * 그래도 지우지 않는다: `places` 는 호출자가 주는 인자(이 함수의 계약)이고, CLI 는 짝을 id 로 다시 읽어 와 실제로 이 검사를 쓴다.
+     * 내린 곳에 후보가 조용히 합쳐지지 않게(apply-approved.mjs:108-110). 여기서 멈추면 후보는 pending 그대로다.
+     *
+     * **이 가지가 소프트 삭제의 방어선이다.** 대조 corpus 에 archived 가 없던 시절에는 같은 가게의 새 글이 '신규' 로
+     * 판정돼 복제본이 생겼다(`fetchMatchablePlaces` 주석). 지금은 짝이 잡히고 여기서 멈춘다.
+     * 다만 `blocked` 로 끝내지 않는다 — 폐업했던 가게가 다시 여는 일은 실제로 있고, 그때 사람이 '되살려서 합치기' 를
+     * 고를 수 있어야 한다. 고르지 않았으면 무엇을 고를지 화면이 묻는다.
      */
-    if (target.status === 'archived') {
-      return { kind: 'blocked', reason: `${target.name} 은 문 닫은 곳으로 표시돼 있어요 — 여기에는 합치지 않아요.` };
-    }
+    if (target.status === 'archived' && !opts.restoreArchived) return archivedOutcome(target);
   }
 
   // ── 여기서부터 DB 에 쓴다. 실패는 어느 단계인지 붙여 던진다 ──────────────
+
+  /*
+   * 되살리기를 골랐으면 그것이 **첫 쓰기**다. 순서를 이렇게 두는 이유 — 뒤가 죽어도 장소는 `published` 로 남아
+   * 다음 빌드에 사이트로 돌아오고, 남은 일(빈 칸 채우기)은 후보가 `approved` 로 남아 `pnpm data:apply` 가 이어받는다.
+   * 반대 순서면 "승인은 됐는데 장소는 여전히 내려 있는" 상태로 끊기고, 그건 화면에서 보이지 않는다.
+   */
+  if (target && target.status === 'archived') {
+    Object.assign(target, await restorePlace(client, target, { nowIso: opts.nowIso }));
+  }
+
   await markApproved(client, lead);
 
   let placeId: string;

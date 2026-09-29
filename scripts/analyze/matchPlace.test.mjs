@@ -275,3 +275,35 @@ describe('matchPlace — 종류·부분 일치 보정', () => {
     expect(0.7 + WEIGHT.TYPE_MISMATCH_PENALTY).toBeLessThan(THRESHOLD.AUTO_MERGE);
   });
 });
+
+describe('matchPlace — 내린 곳(archived)이 섞인 corpus', () => {
+  /*
+   * 소프트 삭제가 들어오면서 대조 corpus 에 `archived` 행이 들어왔다(`fetchMatchablePlaces` 주석).
+   * `status` 는 `toMatchablePlace` 가 얹어 주는 칸이고, 여기서는 그 모양을 손으로 만든다.
+   */
+  const live = (patch) => ({ id: 'live', name: '숨도', type: 'cafe', status: 'published', ...patch });
+  const gone = (patch) => ({ id: 'gone', name: '숨도', type: 'cafe', status: 'archived', ...patch });
+
+  it('점수·거리가 같으면 살아 있는 쪽을 고른다 — 순서가 승자를 정하지 않는다', () => {
+    const candidate = { name: '숨도', type: 'cafe' };
+    // 두 순서 모두 같은 답이어야 한다. corpus 순서는 PostgREST 의 heap 순서라 UPDATE 한 번에 바뀐다.
+    expect(matchPlace(candidate, [gone(), live()]).match.id).toBe('live');
+    expect(matchPlace(candidate, [live(), gone()]).match.id).toBe('live');
+  });
+
+  /*
+   * 점수가 다르면 개입하지 않는다. 내린 쪽이 더 높은데 낮은 살아 있는 쪽을 택하면 **조용히** 틀린 병합이 되고,
+   * 내린 쪽이 이기면 `approveGroup` 의 archived 가지가 사람에게 묻는다 — 눈에 보이게 실패하는 쪽을 고른다.
+   */
+  it('점수가 다르면 내린 쪽이 이겨도 그대로 둔다 — 사람이 보고 정한다', () => {
+    const candidate = { name: '숨도', type: 'cafe' };
+    const weakerLive = live({ name: '숨도로스터리하우스' }); // 부분 일치(0.7)
+    const result = matchPlace(candidate, [weakerLive, gone()]); // 내린 쪽은 완전 일치(1.0)
+    expect(result.match.id).toBe('gone');
+  });
+
+  it('status 가 없는 corpus(시드·테스트)도 그대로 돈다', () => {
+    const result = matchPlace({ name: '숨도', type: 'cafe' }, [{ id: 'x', name: '숨도', type: 'cafe' }]);
+    expect(result.match.id).toBe('x');
+  });
+});
