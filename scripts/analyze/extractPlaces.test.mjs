@@ -207,6 +207,28 @@ describe('parseExtraction — result 객체 → places', () => {
     expect(p.isJeju).toBe(false);
   });
 
+  it('요금 구조(fees): label 은 모양만 맞추고(나누지 않는다) 어긋난 칸은 "계산 못 함" 쪽으로 눕힌다', () => {
+    const petPolicyText = '19kg 이하 1마리당 20,000원\n20kg 이상 1마리당 30,000원';
+    const raw = {
+      ...goodPlace,
+      petPolicyText,
+      petPolicy: {
+        indoor: 'unknown', leash: false, largeDogOk: null, smallDogOnly: false, callFirst: false, feeFree: false,
+        weightLimitKg: null, maxDogs: null, notes: null,
+        fees: [
+          { label: '19kg 이하 1마리당 20,000원', amountWon: 20000, basis: 'perDog', minKg: null, maxKg: 19, fromDog: null, perNight: false },
+          { label: '20kg 이상 1마리당 30,000원', amountWon: 'x', basis: 'weird', minKg: 20, maxKg: -1, fromDog: null, perNight: 'yes' },
+          { label: '  ', amountWon: 1, basis: 'perDog', minKg: null, maxKg: null, fromDog: null, perNight: false },
+        ],
+      },
+    };
+    const [p] = parseExtraction(withPlaces([raw])).places;
+    expect(p.petPolicy.fees).toEqual([
+      { label: '19kg 이하 1마리당 2만원', amountWon: 20000, basis: 'perDog', minKg: null, maxKg: 19, fromDog: null, perNight: false },
+      { label: '20kg 이상 1마리당 3만원', amountWon: null, basis: 'perDog', minKg: 20, maxKg: null, fromDog: null, perNight: false },
+    ]);
+  });
+
   it('confidence 가 숫자가 아니면 0, 음수면 0', () => {
     const mk = (confidence) => parseExtraction(withPlaces([{ ...goodPlace, confidence }])).places[0].confidence;
     expect(mk('high')).toBe(0);

@@ -12,7 +12,7 @@
  * 않기 위해서다.
  */
 
-import type { TDogProfile } from '../types';
+import type { TDogProfile, TFeeRule } from '../types';
 import { maxWeightKg } from './dogProfile';
 import { dogCallNames, withJosa } from './korean';
 import type { TPetPolicy } from './petPolicy';
@@ -86,10 +86,75 @@ const multiplyPerDog = (line: string, policy: TPetPolicy, dog: TDogProfile, name
   return `${withJosa(names, '은/는')} ${formatWon(each * n)} (1마리당 ${formatWon(each)})`;
 };
 
+/**
+ * 요금 구조(`feeRules`, AI 가 뽑은 칸)로 계산한다 — 줄 모양을 정규식으로 읽지 않는다(ADR-017 v5).
+ * 원칙은 위와 같다: **확정할 수 없으면 undefined** 를 돌려주고 호출부가 "원문 요금 · …" 으로 물러난다.
+ *
+ * - 칸으로 표현 못 한 줄(`amountWon: null`)이 하나라도 있으면 물러난다 — 그 줄이 우리에게 붙는지 모른다(`hasUnusedCondition` 과 같은 이유).
+ * - 마리마다 몸무게에 맞는 `perDog` 줄을 고른다. 몸무게가 어느 줄에도 안 들어가면(19kg 이하 / 20kg 이상 사이의 19.5kg) 물러난다.
+ *   `fromDog` 보다 앞 순번의 마리는 0원이다("두 마리부터 1마리당 2만원" 의 첫 마리) — 몸무게가 안 맞는 것과 다르다.
+ *   한 마리에게 줄이 둘 이상 맞으면 가장 늦게 시작하는 줄(`fromDog` 가 큰 쪽)을 쓰고, 시작 순번까지 같으면 물러난다.
+ *   `fromDog` 와 몸무게 조건이 섞이면 물러난다 — "몇째" 가 행 순서라 합계가 순서에 따라 달라진다.
+ * - `flat`(청소비)은 조건이 맞으면 한 번 더한다.
+ * - 1박마다 붙는 줄과 한 번 붙는 줄이 섞이면 박 수를 몰라 합칠 수 없다 — 물러난다.
+ */
+const sumByRules = (rules: TFeeRule[], policy: TPetPolicy, dog: TDogProfile, names: string): string | undefined => {
+  if (policy.maxDogs !== undefined && dog.dogs.length > policy.maxDogs) return undefined;
+  if (rules.some((r) => r.amountWon === null)) return undefined;
+  const fits = (r: TFeeRule, kg: number) => (r.minKg === null || kg >= r.minKg) && (r.maxKg === null || kg <= r.maxKg);
+  const perDog = rules.filter((r) => r.basis === 'perDog');
+  // "몇째 마리" 는 프로필 행 순서일 뿐이다 — 몸무게 조건과 섞이면 같은 두 마리라도 행 순서에 따라 합계가 달라진다([25kg, 5kg] 와 [5kg, 25kg]).
+  const nth = perDog.some((r) => (r.fromDog ?? 1) > 1);
+  if (nth && perDog.some((r) => r.minKg !== null || r.maxKg !== null)) return undefined;
+
+  const used = new Set<TFeeRule>();
+  let total = 0;
+  for (const [i, d] of dog.dogs.entries()) {
+    if (perDog.length === 0) break;
+    const byWeight = perDog.filter((r) => fits(r, d.weightKg));
+    if (byWeight.length === 0) return undefined;
+    // 여러 줄이 맞으면 **가장 늦게 시작하는 줄**이 그 마리의 요금이다("첫 마리 3만원 + 2마리부터 2만원" 의 둘째 마리는 2만원).
+    // 시작 순번까지 같으면 어느 쪽인지 모른다.
+    const applies = byWeight.filter((r) => (r.fromDog ?? 1) <= i + 1).sort((a, b) => (b.fromDog ?? 1) - (a.fromDog ?? 1));
+    if (applies.length > 1 && (applies[0].fromDog ?? 1) === (applies[1].fromDog ?? 1)) return undefined;
+    if (applies.length > 0) {
+      used.add(applies[0]);
+      total += applies[0].amountWon as number;
+    }
+  }
+  for (const r of rules) {
+    if (r.basis !== 'flat') continue;
+    if (dog.dogs.length < (r.fromDog ?? 1)) continue;
+    if ((r.minKg !== null || r.maxKg !== null) && !dog.dogs.some((d) => fits(r, d.weightKg))) continue;
+    used.add(r);
+    total += r.amountWon as number;
+  }
+
+  // 표기는 요금 표 순서로 — 강아지 행 순서를 바꿔도 문구가 같아야 한다.
+  const shown = rules.filter((r) => used.has(r));
+  if (new Set(shown.map((r) => r.perNight)).size > 1) return undefined;
+  const who = withJosa(names, '은/는');
+  const all = rules.map((r) => r.label).join(' · ');
+  if (shown.length === 0) return `${who} 추가 요금 없음 (${all})`;
+  const amount = `${shown[0].perNight ? '1박 ' : ''}${formatWon(total)}`;
+  // 조건 없는 마리당 한 줄 × 한 마리는 괄호가 같은 말을 되풀이할 뿐이다("두부는 3만원 (1마리당 3만원)").
+  const only = shown[0];
+  const plain =
+    dog.dogs.length === 1 && rules.length === 1 && only.minKg === null && only.maxKg === null && only.fromDog === null;
+  return plain ? `${who} ${amount}` : `${who} ${amount} (${shown.map((r) => r.label).join(' · ')})`;
+};
+
 export const formatDogFee = (policy: TPetPolicy, dog: TDogProfile): string | undefined => {
   const names = dogCallNames(dog.dogs.map((d) => d.name));
   if (policy.feeFree) return `${withJosa(names, '은/는')} 추가 요금 없음`;
   if (policy.feeLines.length === 0) return undefined;
+
+  if (policy.feeRules?.length) {
+    const byRules = sumByRules(policy.feeRules, policy, dog, names);
+    if (byRules) return byRules;
+    // 이름을 붙이지 않는다 — 곱하지 못한 줄은 "우리 강아지 기준" 이 아니라 원문을 옮긴 것이다.
+    return `원문 요금 · ${policy.feeLines.map(stripLine).join(' · ')}`;
+  }
 
   const summed = sumByWeightTiers(policy, dog, names);
   if (summed) return summed;

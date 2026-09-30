@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parsePetPolicy, toPetBadges, withPolicyFacts } from './petPolicy';
 import { formatDogFee } from './dogFee';
+import { judgeEligibility } from './eligibility';
 import { PLACES } from './places';
 
 describe('parsePetPolicy — 식당·카페', () => {
@@ -354,12 +355,29 @@ describe('withPolicyFacts — AI 구조화 판단이 정규식 결과를 덮는�
     expect(p.sources.indoor).toBe(text);
   });
 
-  it('null(언급 없음)은 파서 값을 남기고, 파서가 이미 읽은 계단식 조건은 덮지 않는다', () => {
-    const text = '10kg 미만은 2마리, 20kg 미만은 1마리. 대형견도 가능.';
+  /*
+   * **AI 의 null 은 정규식으로 메우지 않는다**(ADR-017 v5). 스키마가 모든 칸을 요구하므로 facts 가 있는 한 null 은
+   * "읽어 봤는데 그런 조건이 없다" 이다. 정규식은 무게 상한과 요금 구간을 가르지 못한다 — 다와풀빌라가 그 실측이다.
+   */
+  it('다와풀빌라 — 요금 구간의 19kg 이 무게 상한이 되지 않는다', () => {
+    const text = '한 객실당 최대 3마리까지 가능해요.\n19kg 이하 1마리당 20,000원\n20kg 이상 1마리당 30,000원';
     const parsed = parsePetPolicy(text);
-    const p = withPolicyFacts(parsed, { ...facts, indoor: 'unknown', leash: false, weightLimitKg: null, maxDogs: null }, text);
-    expect(p.tiers).toEqual(parsed.tiers);
-    expect(p.largeDogOk).toBe(true);
+    expect(parsed.weightLimitKg).toBe(19); // 정규식 혼자서는 이렇게 읽는다 — 이 테스트가 막는 것
+    const p = withPolicyFacts(parsed, { ...facts, indoor: 'unknown', leash: false, weightLimitKg: null, maxDogs: 3 }, text);
+    expect(p.weightLimitKg).toBeUndefined();
+    expect(p.tiers).toEqual([{ maxWeightKg: undefined, weightInclusive: undefined, maxDogs: 3, source: expect.any(String) }]);
+    expect(toPetBadges(p).map((b) => b.label)).not.toContain('~19kg');
+    const big = { dogs: [{ name: '보리', weightKg: 25 }], carrier: 'none' as const };
+    expect(judgeEligibility(big, p).level).not.toBe('hard');
+  });
+
+  it('AI 가 null 이면 정규식이 읽은 계단식 조건도 판정에 안 닿는다', () => {
+    const text = '10kg 미만은 2마리, 20kg 미만은 1마리. 대형견도 가능.';
+    const p = withPolicyFacts(parsePetPolicy(text), { ...facts, indoor: 'unknown', leash: false, weightLimitKg: null, maxDogs: null }, text);
+    expect(p.tiers).toEqual([]);
+    expect(p.weightLimitKg).toBeUndefined();
+    // 대형견 가능도 AI 가 null 이면 서지 않는다 — '확인 필요' 로 물러나는 쪽이 틀린 허용보다 싸다.
+    expect(p.largeDogOk).toBe(false);
     expect(p.indoor).toBe('unknown');
     expect(p.leash).toBe(false);
   });
@@ -384,17 +402,23 @@ describe('withPolicyFacts — AI 구조화 판단이 정규식 결과를 덮는�
     expect(p.leash).toBe(false);
   });
 
-  it("제한은 정규식이 이긴다 — 원문 규칙이 케이지를 읽었으면 AI 의 '실내 자유' 로 풀지 않는다", () => {
+  /*
+   * v2 의 "제한은 정규식이 이긴다"(결정 7)는 v5 에서 거뒀다 — 정규식이 읽은 '제한' 이 요금 문장·부분 조건에서 온다.
+   * AI 가 원문과 어긋나면 `correctPetPolicyFacts` 가 근거 없는 판단을 빼고, 남은 어긋남은 검수 화면의 `AI≠정규식` 이 보여 준다.
+   */
+  it('실내 판단도 AI 를 따른다 — 정규식의 케이지로 되돌리지 않는다', () => {
     const text = '실내는 케이지 동반, 실내 분위기가 좋아요';
     const p = withPolicyFacts(parsePetPolicy(text), { ...facts, indoor: 'free', leash: false, weightLimitKg: null, maxDogs: null }, text);
-    expect(p.indoor).toBe('cage');
+    expect(p.indoor).toBe('free');
+    // 정규식이 짚은 케이지 문장은 '실내 자유' 의 근거가 아니다 — 근거 줄을 새로 고른다.
+    expect(p.sources.indoor).toBe(text);
   });
 
-  it("정규식이 '대형견 불가' 를 읽었으면 AI 의 '대형견 가능' 으로 풀지 않는다", () => {
-    const text = '대형견은 입장 불가, 중형견까지 대형견처럼 넓게 놀 수 있어요';
-    const p = withPolicyFacts(parsePetPolicy(text), { ...facts, indoor: 'unknown', leash: false, weightLimitKg: null, maxDogs: null, largeDogOk: true }, text);
-    expect(p.largeDogNo).toBe(true);
-    expect(p.largeDogOk).toBe(false);
+  it("정규식의 '동반 불가' 는 AI 판단이 있으면 H0 로 보내지 않는다 — 후보가 있다는 것이 AI 가 동반 가능으로 읽었다는 뜻이다", () => {
+    const text = '애견 동반 입장은 루프탑만 불가, 1층은 가능해요';
+    expect(parsePetPolicy(text).notAllowed).toBe(true);
+    const p = withPolicyFacts(parsePetPolicy(text), { ...facts, indoor: 'unknown', leash: false, weightLimitKg: null, maxDogs: null }, text);
+    expect(p.notAllowed).toBe(false);
   });
 
   /*
@@ -448,6 +472,25 @@ describe('withPolicyFacts — AI 구조화 판단이 정규식 결과를 덮는�
     expect(p.feeLines).toEqual(['1마리당 2만원', '청소비 5만원']);
   });
 
+  /** 새 판단은 요금을 구조(`fees`)로 들고 온다 — 줄은 label 이고, 정규식 줄은 섞이지 않는다(잔여 병합은 옛 판단만). */
+  it('요금 구조가 있으면 label 이 요금 줄이 되고 feeRules 로 실린다', () => {
+    const text = '19kg 이하 1마리당 20,000원\n20kg 이상 1마리당 30,000원';
+    const fees = [
+      { label: '19kg 이하 1마리당 2만원', amountWon: 20000, basis: 'perDog' as const, minKg: null, maxKg: 19, fromDog: null, perNight: false },
+      { label: '20kg 이상 1마리당 3만원', amountWon: 30000, basis: 'perDog' as const, minKg: 20, maxKg: null, fromDog: null, perNight: false },
+    ];
+    const p = withPolicyFacts(parsePetPolicy(text), { ...facts, indoor: 'unknown', leash: false, weightLimitKg: null, maxDogs: null, fees }, text);
+    expect(p.feeLines).toEqual(['19kg 이하 1마리당 2만원', '20kg 이상 1마리당 3만원']);
+    expect(p.feeRules).toEqual(fees);
+  });
+
+  it('요금 구조가 빈 배열이면 "요금 없음" 이다 — 정규식 요금 줄을 되살리지 않는다', () => {
+    const text = '1박 15만원부터, 애견동반 가능';
+    const p = withPolicyFacts(parsePetPolicy(text), { ...facts, indoor: 'unknown', leash: false, weightLimitKg: null, maxDogs: null, fees: [] }, text);
+    expect(p.feeLines).toEqual([]);
+    expect(p.feeRules).toBeUndefined();
+  });
+
   /** 요금 줄만 읽은 원문이 `unread` 로 떨어지면 판정이 C7("원문을 확인해 주세요")이 된다 — `anyFact` 가 요금 목록을 세야 한다. */
   it('요금 줄만 읽어도 못 읽은 것이 아니다', () => {
     const text = '강아지는 1마리당 2만원이에요';
@@ -458,6 +501,16 @@ describe('withPolicyFacts — AI 구조화 판단이 정규식 결과를 덮는�
     );
     expect(p.unread).toBe(false);
     expect(p.noInfo).toBe(false);
+  });
+
+  it('AI 가 notes 만 남겼으면 원문 확인으로 보낸다 — 일반 허용 문장처럼 보여도', () => {
+    const text = '반려동물 출입가능\n예방접종을 완료한 강아지와 고양이만 출입 가능해서 방문 전 예방접종 여부를 꼭 확인해주세요';
+    const p = withPolicyFacts(
+      parsePetPolicy(text),
+      { ...facts, indoor: 'unknown', leash: false, weightLimitKg: null, maxDogs: null, notes: '예방접종 완료 여부를 방문 전 확인 필요' },
+      text,
+    );
+    expect(p.unread).toBe(true);
   });
 
   it("AI 가 '요금 있음' 만 읽으면 '추가요금 있음' 배지가 된다 — 판단이 화면에서 사라지지 않게", () => {

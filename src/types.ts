@@ -24,8 +24,33 @@ export type TStayInfo = {
 };
 
 /**
+ * 요금 기준 한 줄의 **구조**(AI 가 뽑는다, ADR-017 v5). 앱은 `label` 을 정규식으로 다시 읽지 않고 이 칸들로 계산한다 —
+ * 줄 모양을 정규식으로 읽던 동안 `19kg 이하 1마리당 2만원` 처럼 예시 밖의 모양은 전부 "원문 요금" 으로 물러났다.
+ *
+ * 칸으로 표현이 안 되는 기준(`2마리 또는 10kg 이상 4만원` 의 '또는', `주말 5만원` 의 요일)은 `amountWon: null` 이다 —
+ * 그러면 앱은 계산하지 않고 원문 줄을 보여 준다(지어내지 않는다).
+ */
+export type TFeeRule = {
+  /** 표시용 한 줄 — 기준 + 금액, 20자 이내(옛 `feeLines` 한 줄과 같은 모양). 배지·검수 화면이 이것을 쓴다 */
+  label: string;
+  /** 금액(원). 범위("1~2만원")·칸으로 표현 못 하는 조건이면 null */
+  amountWon: number | null;
+  /** 'perDog' 마리마다 붙는다 · 'flat' 한 번 붙는다(청소비) */
+  basis: 'perDog' | 'flat';
+  /** 이 금액이 붙는 몸무게 하한(포함, "20kg 이상" → 20). 없으면 null */
+  minKg: number | null;
+  /** 이 금액이 붙는 몸무게 상한(포함, "19kg 이하" → 19). 없으면 null */
+  maxKg: number | null;
+  /** N번째 마리부터 붙는다("두 마리부터 1마리당 2만원" → 2). 첫 마리부터면 null */
+  fromDog: number | null;
+  /** 1박마다 붙으면 true(`1박당 2만원`). 한 번이거나 원문이 말하지 않으면 false */
+  perNight: boolean;
+};
+
+/**
  * AI(data:analyze)가 petPolicyText 를 읽고 판단한 구조화 값. 블로그 경로에만 있고 시드 86곳엔 없다(DB null → JSON 에 키 없음).
- * 앱은 이것이 있으면 정규식 파서(parsePetPolicy)의 같은 필드를 이 값으로 덮는다(withPolicyFacts). null 은 "언급 없음" 이다.
+ * 앱은 이것이 있으면 **판정 필드를 이 값만으로** 정한다(withPolicyFacts, ADR-017 v5). 스키마가 모든 칸을 요구하므로
+ * null 은 "모름" 이 아니라 "읽어 봤는데 그런 조건이 없다" 이다 — 정규식 값으로 메우지 않는다.
  */
 export type TPetPolicyFacts = {
   indoor: 'free' | 'cage' | 'outdoorOnly' | 'unknown';
@@ -40,6 +65,11 @@ export type TPetPolicyFacts = {
    * 조건부("2마리 또는 10kg 이상 4만원"). `feeText` 한 칸이던 동안 구간 요금표의 **둘째 줄이 조용히 사라졌다**.
    */
   feeLines?: string[];
+  /**
+   * 요금 기준마다 구조 하나(v5, 새로 뽑는 값은 이것만 채운다). 있으면 앱이 이 칸들로 우리 강아지 기준 금액을 계산한다(`dogFee.ts`).
+   * 옛 값(`feeLines`·`feeText`)만 있거나 운영자가 `/admin` 에서 요금 줄을 고치면 없다 — 그때는 줄을 정규식으로 읽던 길로 물러난다.
+   */
+  fees?: TFeeRule[];
   /**
    * 옛 모양(요금 문장 하나). 2026-09-30 이전에 분석된 후보·장소에만 있다 — 읽는 쪽은 `feeLinesOf`
    * (`scripts/lib/petPolicyFacts.mjs`)로 `feeLines` 와 합쳐 본다. 새로 뽑는 값에는 이 칸을 만들지 않고

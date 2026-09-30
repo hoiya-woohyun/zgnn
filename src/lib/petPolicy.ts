@@ -10,9 +10,9 @@
  * 그대로 함께 보여준다. 파서가 놓친 조건이 있어도 사용자가 원문에서 확인할 수 있어야 한다.
  */
 
-import { normalizeFeeLines } from '../../scripts/lib/feeLine.mjs';
+import { amountsInWon, normalizeFeeLines } from '../../scripts/lib/feeLine.mjs';
 import { correctPetPolicyFacts, feeLinesOf } from '../../scripts/lib/petPolicyFacts.mjs';
-import type { TPetPolicyFacts } from '../types';
+import type { TFeeRule, TPetPolicyFacts } from '../types';
 
 export type TIndoorPolicy =
   /** 실내 자유 */
@@ -79,6 +79,11 @@ export type TPetPolicy = {
    * 파싱 결과를 못 박고 있어서다(`petPolicy.test.ts`) — 값이 바뀌면 그쪽이 먼저 빨개진다.
    */
   feeLines: string[];
+  /**
+   * 요금 구조(AI `fees`, ADR-017 v5). 있으면 우리 강아지 기준 금액을 이 칸들로 계산하고(`dogFee.ts`), 없으면 `feeLines` 를
+   * 정규식으로 읽던 길로 물러난다(시드 86곳 · 옛 후보 · 운영자가 요금 줄을 손으로 고친 곳). 있을 때는 늘 `feeLines` 와 줄 수가 같다.
+   */
+  feeRules?: TFeeRule[];
   /** 규칙별 근거 문장(원문 그대로). reasons.quote 의 재료 */
   sources: Partial<
     Record<
@@ -219,12 +224,6 @@ const NUMBER_RULES = {
  * 숫자가 앞에 붙은 '원' 만 요금으로 본다 — 그러지 않으면 '공원'·'병원'·'정원' 이 요금이 된다.
  */
 const FEE_TEXT_RULE = /[^.\n]*\d[\d,.]*\s*만?\s*원[^.\n]*/g;
-
-/**
- * 요금 줄에 든 숫자들(쉼표 제거). 두 줄이 **같은 요금을 다르게 쓴 것인지** 판별하는 데 쓴다(`withPolicyFacts`) —
- * 말투·띄어쓰기는 모델이 바꾸지만 금액은 원문 숫자여야 하므로(`petPolicyFacts.mjs`) 숫자가 그 줄의 지문이다.
- */
-const feeDigits = (line: string): string[] => line.replace(/,/g, '').match(/\d+(?:\.\d+)?/g) ?? [];
 
 const matchesAny = (text: string, patterns: RegExp[]) => patterns.some((re) => re.test(text));
 
@@ -385,100 +384,128 @@ const readNothing = (p: TPetPolicy): boolean =>
   !p.notAllowed &&
   p.tiers.length === 0 &&
   p.feeLines.length === 0 &&
+  !p.feeRules?.length &&
   !p.outdoorFree &&
   !p.unlimitedDogs;
 
 /**
- * AI 가 판단한 구조화 값(TPetPolicyFacts, 블로그 경로)으로 정규식 파서 결과를 덮는다. 원문(petPolicyText)은 그대로 화면에 보이고,
- * 판정에 쓰는 필드만 AI 판단이 우선한다 — 블로그 구어체("야외좌석만 가능해요")는 정규식이 못 읽는 것이 많아서다(2026-09-28 첫 분석: 32건 중 20건).
- * null 은 "언급 없음" 이라 파서 값을 남긴다. 무게·마릿수는 tiers 에도 넣어 eligibility 의 계단식 규칙(H1·H2)이 같은 숫자를 보게 한다.
- * 시드 86곳은 facts 가 없어 이 함수를 그대로 통과한다(ADR-017).
+ * AI 가 판단한 구조화 값(TPetPolicyFacts, 블로그 경로)이 있으면 **판정 필드를 그 값만으로** 정한다(ADR-017 v5).
+ * 원문(petPolicyText)은 그대로 화면에 보이고, 정규식 파서 결과는 근거 문장(`sources`)과 AI 에 대응 칸이 없는 필드에만 남는다.
+ * 시드 86곳은 facts 가 없어 이 함수를 그대로 통과한다 — 거기서는 정규식이 유일한 판단이다.
  *
- * **덮기 전에 두 번 보정한다**(ADR-017 v2):
- * 1. `correctPetPolicyFacts` — 원문에 근거 단어·숫자가 없는 AI 판단을 뺀다. 분석 시점에도 같은 함수가 돌지만, 그 전에 저장된 값이
- *    DB 에 남아 있어 읽는 쪽에서도 한 번 더 부른다(두 번 불러도 결과가 같다).
- * 2. **제한은 정규식이 이긴다** — AI 가 '실내 자유'·'대형견 가능' 이라 했는데 원문 규칙이 케이지·야외만·대형견 불가를 읽었으면
- *    규칙 쪽을 남긴다. 규칙은 원문의 그 문장을 짚어 걸리는 것이고, 모델이 그 문장을 놓친 쪽이 더 흔하다.
+ * **AI 의 null 을 정규식으로 메우지 않는다.** 스키마가 모든 칸을 요구하므로(`extractPlaces.mjs` 의 `required`) facts 가 있는 한
+ * null 은 "모름" 이 아니라 "읽어 봤는데 그런 조건이 없다" 이다. v4 까지는 null 을 "언급 없음" 으로 보고 정규식 값을 남겼는데,
+ * 정규식은 **무게 상한과 요금 구간을 가르지 못한다**:
+ *
+ *   다와풀빌라 `19kg 이하 1마리당 20,000원` · AI `weightLimitKg: null`(맞게 읽음)
+ *     v4 → 정규식이 `19kg 이하` 를 상한으로 읽어 `~19kg` 배지 + 25kg 강아지에게 H1 '어려움'
+ *     v5 → 상한 없음, 요금 줄만 남는다
+ *
+ * 같은 이유로 v2 의 "제한은 정규식이 이긴다"(결정 7)도 거둔다 — 정규식이 읽은 '제한' 이 이렇게 요금 문장에서 온다.
+ * 정규식과 AI 가 어긋나면 `/admin`·`data:review` 의 `AI≠정규식` 표식이 말한다(결정 4). 조용히 섞지 않는다.
+ *
+ * 덮기 전에 `correctPetPolicyFacts` 로 원문에 대 본다 — 원문에 근거 단어·숫자가 없는 AI 판단은 뺀다(ADR-017 v2 결정 6).
+ * 분석 시점에도 같은 함수가 돌지만 그 전에 저장된 값이 DB 에 남아 있어 읽는 쪽에서도 한 번 더 부른다(두 번 불러도 결과가 같다).
  */
+/**
+ * **요금 구조(`fees`)가 없는 옛 판단**의 요금 줄 — v4 의 잔여 병합을 그대로 둔다. AI 줄을 앞에 세우고, 정규식 줄은 **금액이 전부
+ * AI 줄에 있는 것만** 버린다. 이것만은 정규식을 남기는 이유: 옛 후보는 요금이 한 칸(`feeText`)이라 기준이 여럿인 곳에서
+ * AI 가 한 줄만 들고 있고, 통째로 믿으면 `dogFee` 가 확정된 틀린 금액을 낸다(2026-09-30 실측):
+ *
+ *   원문 `1마리당 3만원. (2마리 또는 10kg 이상 4만원)` · 옛 후보 `feeText: '1마리당 3만원'` · 2마리
+ *     AI 만 → "악동이와 두부는 6만원"(원문은 **4만원**) · 남기면 → `hasUnusedCondition` 이 켜져 "원문 요금 · …"
+ *
+ * 금액은 **원 단위로** 대 본다(`amountsInWon`) — 숫자 조각으로 대 보던 때는 AI 줄(`2만원`, 저장 전에 정규화된다)과
+ * 원문 줄(`20,000원`)이 다른 요금으로 보여 같은 요금이 두 번 섰다(다와풀빌라).
+ * 새로 뽑는 값은 구조를 들고 오므로 이 길을 안 탄다 — 거기서는 AI 가 정본이다.
+ */
+const legacyFeeLines = (factFees: string[], parsedFees: string[]): string[] => {
+  if (factFees.length === 0) return parsedFees;
+  const factWon = new Set(factFees.flatMap(amountsInWon));
+  const missed = parsedFees.filter((line) => {
+    const won = amountsInWon(line);
+    return won.length > 0 && !won.every((n) => factWon.has(n));
+  });
+  return [...new Set([...factFees, ...missed])];
+};
+
 export const withPolicyFacts = (parsed: TPetPolicy, facts: TPetPolicyFacts | null | undefined, petPolicyText = ''): TPetPolicy => {
   const corrected = correctPetPolicyFacts(facts, petPolicyText).facts;
   if (!corrected) return parsed;
-  const next: TPetPolicy = { ...parsed, sources: { ...parsed.sources }, tiers: [...parsed.tiers], feeLines: [...parsed.feeLines] };
   const lines = petPolicyText.split('\n').map((s) => s.trim()).filter(Boolean);
   const firstLine = lines[0] ?? '';
   const lineWith = (re: RegExp) => lines.find((line) => re.test(line)) ?? firstLine;
 
-  const regexRestricts = parsed.indoor === 'cage' || parsed.indoor === 'outdoorOnly';
-  if (corrected.indoor !== 'unknown' && !(corrected.indoor === 'free' && regexRestricts)) {
-    next.indoor = corrected.indoor;
-    if (!next.sources.indoor && firstLine) next.sources.indoor = firstLine;
-  }
-  if (corrected.leash) next.leash = true;
-  if (corrected.largeDogOk === false) {
-    next.largeDogNo = true;
-    next.largeDogOk = false;
-    delete next.sources.largeDogOk;
-    if (!next.sources.largeDogNo) next.sources.largeDogNo = lineWith(/대형/);
-  } else if (corrected.largeDogOk === true && !parsed.largeDogNo) {
-    next.largeDogOk = true;
-    next.mediumDogOk = true;
-  }
-  if (corrected.smallDogOnly) next.smallDogOnly = true;
-  if (corrected.callFirst) next.callFirst = true;
-  if (corrected.feeFree !== null) {
-    next.feeFree = corrected.feeFree;
-    next.feeCharged = corrected.feeFree === false;
-  }
-  /*
-   * 요금은 AI 목록을 앞에 세우고 **숫자가 덮이지 않은 정규식 줄만 남긴다**(잔여 병합). 다른 필드처럼 통째로
-   * 덮을 수 없다 — 그것이 `dogFee` 를 **확정된 틀린 금액**으로 몰기 때문이다(2026-09-30 실측):
-   *
-   *   원문 `1마리당 3만원. (2마리 또는 10kg 이상 4만원)` · 옛 모양 후보(`feeText` 한 칸 = `1마리당 3만원`) · 2마리
-   *     덮으면 → feeLines `['1마리당 3만원']` → "악동이와 두부는 6만원" (원문은 **4만원**이다)
-   *     남기면 → feeLines 두 줄 → `hasUnusedCondition` 이 켜져 "원문 요금 · …" 로 물러난다
-   *
-   * 곱셈을 막는 유일한 근거가 "안 쓰인 줄에 마리·kg 이 있다" 인데(`dogFee.ts` 의 `hasUnusedCondition`), 덮기는
-   * 그 **가드의 입력을 지운다.** 옛 후보는 필연적으로 요금이 한 줄이라(스키마가 문자열 한 칸이었다) 기준이 여럿인
-   * 곳 전부가 이 함정에 걸린다 — 218건이 그 모양이다.
-   *
-   * 그래도 통째로 남기지는 않는다. 정규식은 '원' 이 든 문장을 통째로 집으므로("1마리당 2만원 추가, 청소비 5만원")
-   * AI 가 기준별로 가른 줄과 나란히 서면 같은 요금이 두세 번 보인다. 그래서 **숫자로 판별한다**: 정규식 줄의 숫자가
-   * 전부 AI 줄들에 있으면 같은 말을 다르게 쓴 것이라 버리고, 하나라도 없으면 AI 가 놓친 기준이라 남긴다.
-   */
+  const largeDogOk = corrected.largeDogOk === true;
+  const largeDogNo = corrected.largeDogOk === false;
   const factFees = feeLinesOf(corrected);
-  if (factFees.length) {
-    const factDigits = new Set(factFees.flatMap(feeDigits));
-    const missed = parsed.feeLines.filter((line) => {
-      const digits = feeDigits(line);
-      return digits.length > 0 && !digits.every((n) => factDigits.has(n));
-    });
-    next.feeLines = [...new Set([...factFees, ...missed])];
-    next.feeText = next.feeLines[0];
-  }
-  if (corrected.weightLimitKg !== null) next.weightLimitKg = corrected.weightLimitKg;
-  if (corrected.maxDogs !== null) next.maxDogs = corrected.maxDogs;
-  if ((corrected.weightLimitKg !== null || corrected.maxDogs !== null) && parsed.tiers.length === 0) {
-    next.tiers = [
-      {
-        maxWeightKg: corrected.weightLimitKg ?? undefined,
-        weightInclusive: corrected.weightLimitKg !== null ? true : undefined,
-        maxDogs: corrected.maxDogs ?? undefined,
-        source: firstLine,
-      },
-    ];
-  }
-  next.outdoorFree = next.indoor === 'outdoorOnly' || parsed.outdoorFree;
-  // AI 가 조건을 하나라도 읽었으면 '정보 없음' 도 '못 읽음' 도 아니다. notes 는 세지 않는다 — 판정에 안 쓰이는 조건이라,
-  // notes 만 있는 원문은 사용자가 원문을 읽어야 한다(unread 가 그 말을 한다).
+  // `fees` 칸이 **있으면**(빈 배열이어도) 새 판단이다 — 빈 배열은 "요금 없음" 이지 "모름" 이 아니다.
+  const feeLines = Array.isArray(corrected.fees) ? factFees : legacyFeeLines(factFees, parsed.feeLines);
+  // 구조(`fees`)는 줄 목록과 **정확히 같을 때만** 쓴다 — 옛 줄(`feeLines`)이 섞여 있으면 구조가 모르는 줄이 있다는 뜻이라
+  // 계산이 그 줄을 빼먹는다. 그때는 줄을 읽던 길로 물러난다(`dogFee.ts`).
+  const feeRules = corrected.fees?.length && corrected.fees.length === feeLines.length ? corrected.fees : undefined;
+  const indoor = corrected.indoor;
+  const maxDogs = corrected.maxDogs ?? undefined;
+  const weightLimitKg = corrected.weightLimitKg ?? undefined;
+
+  /*
+   * 근거 문장: 정규식이 **같은 판단**을 짚은 문장이 있으면 그것을, 없으면 그 말이 든 줄을 쓴다.
+   * 정규식이 다른 판단을 짚었으면 그 문장은 AI 판단의 근거가 아니므로 버린다(케이지 문장이 '실내 자유' 의 근거로 뜨면 안 된다).
+   */
+  const sources: TPetPolicy['sources'] = {};
+  const keep = (key: keyof TPetPolicy['sources'], on: boolean, agrees: boolean, re?: RegExp) => {
+    if (!on) return;
+    sources[key] = (agrees ? parsed.sources[key] : undefined) ?? (re ? lineWith(re) : firstLine);
+  };
+  keep('indoor', indoor !== 'unknown', parsed.indoor === indoor);
+  keep('leash', corrected.leash, parsed.leash, /리드|목줄|하네스/);
+  keep('largeDogOk', largeDogOk, parsed.largeDogOk, /대형|제한|견종/);
+  keep('largeDogNo', largeDogNo, parsed.largeDogNo, /대형/);
+  keep('mediumDogOk', parsed.mediumDogOk, true);
+  keep('smallDogOnly', corrected.smallDogOnly, parsed.smallDogOnly, /소형/);
+  keep('callFirst', corrected.callFirst, parsed.callFirst, /전화|문의|연락|예약/);
+  keep('feeFree', corrected.feeFree === true, parsed.feeFree, /무료|없/);
+
+  // AI 가 조건을 하나라도 읽었으면 '못 읽음' 이 아니다. notes 는 세지 않는다 — 판정에 안 쓰이는 조건이라,
+  // notes 만 있는 원문은 사용자가 원문을 읽어야 한다(unread 가 그 말을 한다). 그래서 notes 가 있으면 '일반 허용 문장뿐' 으로도
+  // 풀지 않는다 — 솔옆수 "예방접종을 완료한 강아지만 출입 가능" 이 일반 허용으로 읽혀 배지 없는 '갈 수 있어요' 가 됐다.
   const anyFact =
-    corrected.indoor !== 'unknown' || corrected.leash || corrected.largeDogOk !== null || corrected.smallDogOnly ||
-    corrected.callFirst || corrected.feeFree !== null || factFees.length > 0 || corrected.weightLimitKg !== null ||
-    corrected.maxDogs !== null;
-  if (anyFact) {
-    next.noInfo = false;
-    next.unread = false;
-  }
-  return next;
+    indoor !== 'unknown' || corrected.leash || corrected.largeDogOk !== null || corrected.smallDogOnly ||
+    corrected.callFirst || corrected.feeFree !== null || feeLines.length > 0 || weightLimitKg !== undefined ||
+    maxDogs !== undefined;
+
+  return {
+    ...parsed,
+    indoor,
+    leash: corrected.leash,
+    largeDogOk,
+    largeDogNo,
+    // AI 에 중형견 칸은 없다 — 정규식의 '중형견 가능' 은 허용이라 남기되, 대형견이 되면 중형견도 된다.
+    mediumDogOk: largeDogOk || parsed.mediumDogOk,
+    smallDogOnly: corrected.smallDogOnly,
+    callFirst: corrected.callFirst,
+    feeFree: corrected.feeFree === true,
+    feeCharged: corrected.feeFree === false,
+    feeLines,
+    feeText: feeLines[0],
+    feeRules,
+    weightLimitKg,
+    maxDogs,
+    // AI 는 상한 하나씩만 준다 — 계단식 칸이 필요해지면 스키마에 목록을 더한다(요금이 `feeLines` → `fees` 로 간 것과 같은 길).
+    tiers:
+      weightLimitKg !== undefined || maxDogs !== undefined
+        ? [{ maxWeightKg: weightLimitKg, weightInclusive: weightLimitKg !== undefined ? true : undefined, maxDogs, source: firstLine }]
+        : [],
+    // 후보가 있다는 것 자체가 AI 가 '동반 불가' 가 아니라고 읽었다는 뜻이다(`petAllowed: 'no'` 는 추출 단계에서 빠진다).
+    // 정규식의 '불가' 는 크기·자리 조건의 부정("루프탑은 … 불가") 에서도 걸릴 수 있어 H0 로 보낼 근거가 못 된다.
+    notAllowed: false,
+    noInfo: false,
+    // AI 에 대응 칸이 없는 허용 단서 둘은 정규식에 남긴다('실외는 자유' · '견수 제한 없음'). 마릿수 상한을 AI 가 읽었으면 무제한은 아니다.
+    outdoorFree: indoor === 'outdoorOnly' || parsed.outdoorFree,
+    unlimitedDogs: parsed.unlimitedDogs && maxDogs === undefined,
+    unread: !anyFact && (corrected.notes !== null || !splitSentences(petPolicyText).every(isGenericAllowance)),
+    sources,
+  };
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

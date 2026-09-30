@@ -1,6 +1,8 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-09-30 (v18: 재분석 1·2단계(후보 눕히기 · `analyzed_at` 비우기)가 `/admin` 의 버튼이 됐다 — 손으로 할 일은 3단계 `data:analyze` 뿐)
+> 최종 수정: 2026-09-30 (v19: **AI 판단의 요금이 구조가 됐다** — `feeLines: string[]` → `fees: TFeeRule[]`(금액·마리당/정액·몸무게 경계·몇째 마리부터·1박당),
+> 앱이 칸으로 계산한다. 그리고 AI 판단이 있으면 앱은 정규식으로 메우지 않는다([ADR-017](../decisions/ADR-017-ai-structured-pet-policy.md) v5). `PROMPT_VERSION` 이 바뀌었다 — 요금 계산을 받으려면 재분석)
+> 이전 (v18: 재분석 1·2단계(후보 눕히기 · `analyzed_at` 비우기)가 `/admin` 의 버튼이 됐다 — 손으로 할 일은 3단계 `data:analyze` 뿐)
 > 이전 (v17: 재분석 값을 기존 장소에 반영하는 길 — `/admin` 의 **최신본으로 저장하기**(합치기는 빈 칸만 채워 새 판단이 안 들어간다))
 > 이전 (v16: **공식 홈페이지 카드** — `places.homepage_url·homepage_name·homepage_image`(마이그레이션 `20260930120000`) →
 > `TPlace.homepage`. 채우는 길은 `data:analyze`(새 후보)·`data:homepage`(쌓인 pending 후보) → 승인. 사진은 URL 만([ADR-002](../decisions/ADR-002-no-place-photos.md) v3))
@@ -177,9 +179,9 @@ flowchart LR
 첫 실행에서 배운 것 넷(2026-09-28, 설계 검토 45건 중 검증 31건 반영):
 
 - **이용 조건의 구조화는 AI 가 뽑을 때 판단한다**([ADR-017](../decisions/ADR-017-ai-structured-pet-policy.md)). 원문(`petPolicyText`)은 그대로 두고 `petPolicy`(실내·리드줄·무게·마릿수·요금…)를
-  함께 뽑아 `places.pet_policy` 에 저장한다. 앱은 있으면 정규식 결과를 덮는다(`withPolicyFacts`). 정규식은 시드·안전망. 블로그 구어체 32건 중 20건을 정규식이 못 읽은 것이 계기다.
-  **요금만 배열이다**(`feeLines`, 2026-09-30) — 기준이 마리당·무게 구간·부대비·조건부로 갈려 한 문장에 안 들어간다(ADR-017 결정 8).
-  옛 후보·장소는 `feeText` 하나만 들고 있고 읽는 쪽이 `feeLinesOf` 로 합쳐 본다 — 소급 마이그레이션은 하지 않는다.
+  함께 뽑아 `places.pet_policy` 에 저장한다. 앱은 있으면 **판정을 그 값만으로** 정한다(`withPolicyFacts`, ADR-017 v5 — null 을 정규식으로 메우지 않는다). 정규식은 시드의 경로이자 검수의 대조군. 블로그 구어체 32건 중 20건을 정규식이 못 읽은 것이 계기다.
+  **요금은 구조의 배열이다**(`fees`, ADR-017 결정 9) — 줄마다 표시용 `label` 과 계산용 칸(`amountWon`·`basis`·`minKg`/`maxKg`·`fromDog`·`perNight`).
+  옛 후보·장소는 `feeText`(한 칸)나 `feeLines`(줄 목록)만 들고 있고 읽는 쪽이 `feeLinesOf` 로 합쳐 본다 — 소급 마이그레이션은 하지 않는다(요금 계산은 줄을 읽던 길로 물러난다).
 - **후보 0건의 "왜" 가 `blog_posts.analysis` 에 남는다** — `{ model, promptVersion, candidates, candidateNames, excluded:[{name,type,reason}], skip }`. 제외 이유는 넷:
   `notJeju` · `other`(관광지·운동장 — 이름은 남는다) · `notAllowed`(본문이 동반 불가라고 함, [BUG-008](../bugs/BUG-008-empty-pet-policy-judged-ok.md)) ·
   **`alreadyHave`**(이미 게시된 곳 — 아래). 본문 인용은 넣지 않는다.
@@ -217,7 +219,7 @@ flowchart LR
   ⚠️ 재분석은 **네이버 쿼터와 Claude 한도를 다시 쓴다.** 교차점검이 켜져 있으면 `--limit` 이 사실상 절반이다(`--no-verify` 로 끈다).
   ⚠️ **`--no-geo` 로 싸게 돌리지 않는다.** 좌표가 없으면 동명 가게가 `ask` 대신 `auto` 로 판정되고, `auto` 는 곧바로
   `approved` 로 들어가 사람이 보지도 못한 채 합쳐진다(`analyze-candidates.mjs` 머리 주석의 그 이유 그대로).
-  싸게 보려면 키를 그대로 두고 **`--dry-run --dump --limit 3`** 으로 돌려 JSON 의 `petPolicy.feeLines` 를 먼저 읽는다 — DB 에 아무것도 쓰지 않는다.
+  싸게 보려면 키를 그대로 두고 **`--dry-run --dump --limit 3`** 으로 돌려 JSON 의 `petPolicy.fees` 를 먼저 읽는다 — DB 에 아무것도 쓰지 않는다.
 - **같은 가게가 여러 글에서 나온다** — 첫 실행에서 한 펜션(자사 홍보 블로그, 저수지의 12%)이 13건, 목록 글 하나가 101건. 그래서 한 실행에 블로그당 2건(`--max-per-blog`, 넘친 글은 닫지 않고 뒤로 밀린다),
   `extracted.nameKey`(`normalizeName`)와 `dupOf`(먼저 난 pending 후보 id)로 묶고, `visited: false`(이름만 나열된 목록 글)를 표식으로 남긴다. 후보는 그래도 넣는다 — evidence 가 다른 글이다.
 - **이미 게시된 곳(`auto` + 짝이 `published`)은 후보를 만들지 않는다**(`skipAsExisting`, `scripts/analyze/analyzeCandidates.mjs`).

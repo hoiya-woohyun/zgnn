@@ -171,3 +171,54 @@ describe('correctPetPolicyFacts — 모순은 허용 쪽을 뺀다', () => {
     expect(r.facts?.feeFree).toBeNull();
   });
 });
+
+describe('correctPetPolicyFacts — 요금 구조(fees)는 줄과 계산 칸을 따로 본다(ADR-017 v5)', () => {
+  const rule = (over) => ({ label: '', amountWon: null, basis: 'perDog', minKg: null, maxKg: null, fromDog: null, perNight: false, ...over });
+  const text = '19kg 이하 1마리당 20,000원 / 20kg 이상 1마리당 30,000원 / 두 마리부터 청소비 1만원';
+
+  it('원문과 맞는 구조는 그대로 둔다 — 본문 표기(20,000원)와 정규화한 label(2만원)도 금액으로 대 본다', () => {
+    const fees = [
+      rule({ label: '19kg 이하 1마리당 2만원', amountWon: 20000, maxKg: 19 }),
+      rule({ label: '20kg 이상 1마리당 30,000원', amountWon: 30000, minKg: 20 }),
+      rule({ label: '2마리부터 청소비 1만원', amountWon: 10000, basis: 'flat', fromDog: 2 }),
+    ];
+    const r = correctPetPolicyFacts(facts({ fees }), text);
+    expect(r.facts.fees).toEqual(fees);
+    expect(r.corrections).toEqual([]);
+  });
+
+  it('원문에 없는 줄은 통째로 뺀다', () => {
+    const r = correctPetPolicyFacts(facts({ fees: [rule({ label: '청소비 5만원', amountWon: 50000, basis: 'flat' })] }), text);
+    expect(r.facts.fees).toEqual([]);
+  });
+
+  it('줄은 원문에 있어도 계산 칸이 어긋나면 계산에서만 뺀다 — label 은 배지로 남는다', () => {
+    const wrongAmount = rule({ label: '19kg 이하 1마리당 2만원', amountWon: 30000, maxKg: 19 });
+    const wrongKg = rule({ label: '20kg 이상 1마리당 3만원', amountWon: 30000, minKg: 25 });
+    const r = correctPetPolicyFacts(facts({ fees: [wrongAmount, wrongKg] }), text);
+    expect(r.facts.fees.map((f) => [f.label, f.amountWon, f.minKg, f.maxKg])).toEqual([
+      ['19kg 이하 1마리당 2만원', null, null, null],
+      ['20kg 이상 1마리당 3만원', null, null, null],
+    ]);
+    expect(r.corrections).toHaveLength(2);
+  });
+
+  it.each([
+    ['청소비인데 마리당', { label: '청소비 5만원', amountWon: 50000, basis: 'perDog' }, '청소비 5만원'],
+    ['1박당인데 perNight 없음', { label: '1박당 2만원', amountWon: 20000 }, '1박당 2만원'],
+    ['2마리부터인데 fromDog 없음', { label: '2마리부터 1마리당 2만원', amountWon: 20000 }, '두 마리부터 1마리당 2만원'],
+  ])('칸이 label 과 다른 말을 하면 계산에서 뺀다 — %s', (_, over, source) => {
+    const r = correctPetPolicyFacts(facts({ fees: [rule(over)] }), source);
+    expect(r.facts.fees[0].amountWon).toBeNull();
+  });
+
+  it('두 번 불러도 결과가 같다', () => {
+    const once = correctPetPolicyFacts(facts({ fees: [rule({ label: '1마리당 9만원', amountWon: 90000 })] }), text).facts;
+    expect(correctPetPolicyFacts(once, text).facts).toEqual(once);
+  });
+
+  it("'방문 전 … 확인' 도 전화 확인의 근거다 — 파서가 읽는 말을 AI 판단에서만 빼지 않는다", () => {
+    const r = correctPetPolicyFacts(facts({ callFirst: true }), '운영 방식은 바뀔 수 있으니 방문 전 한 번 확인하고 가세요');
+    expect(r.facts.callFirst).toBe(true);
+  });
+});

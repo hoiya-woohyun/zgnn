@@ -14,8 +14,7 @@
 //  - `--bare` 는 쓰지 않는다 — 키체인·OAuth 를 읽지 않아 구독 인증이 안 된다(ANTHROPIC_API_KEY 전용).
 //  - 구조화 출력은 --json-schema. 결과 JSON 의 structured_output 에 파싱된 객체가 온다(result 는 같은 내용의 문자열).
 //    stop_reason 은 'tool_use' 로 온다(CLI 가 내부적으로 도구 호출로 구현) — 그래서 subtype·is_error 로 성패를 본다.
-//  - petPolicyText 는 **원문 문장 그대로** 받는다. 무게·마릿수를 숫자로 구조화하는 건 앱의 parsePetPolicy 가 하고,
-//    두 벌이 되면 어긋난다(docs/architecture/pet-policy-and-eligibility.md). 스키마에도 그 필드가 없는 이유다.
+//  - petPolicyText 는 **원문 문장 그대로** 받고(표시용), 판정에 쓰는 구조화는 petPolicy 가 맡는다(ADR-017 — 앱은 그 값을 정본으로 쓴다).
 //  - 스키마는 모든 object 에 additionalProperties:false, optional 은 null 허용 anyOf + required 전부 명시.
 //    minimum/maximum·minLength 같은 제약은 API 가 거부하므로 confidence 0..1 은 코드에서 clamp 한다.
 //  - 응답 본문(모델 출력)·시크릿은 로그·에러 메시지에 싣지 않는다(docs/todo/05). CLI 의 **오류 문구**(is_error 일 때의 result:
@@ -48,7 +47,7 @@ const PET_POLICY_SCHEMA = {
     {
       type: 'object',
       additionalProperties: false,
-      required: ['indoor', 'leash', 'largeDogOk', 'smallDogOnly', 'callFirst', 'feeFree', 'feeLines', 'weightLimitKg', 'maxDogs', 'notes'],
+      required: ['indoor', 'leash', 'largeDogOk', 'smallDogOnly', 'callFirst', 'feeFree', 'fees', 'weightLimitKg', 'maxDogs', 'notes'],
       properties: {
         indoor: { type: 'string', enum: ['free', 'cage', 'outdoorOnly', 'unknown'] },
         leash: { type: 'boolean' },
@@ -57,11 +56,27 @@ const PET_POLICY_SCHEMA = {
         callFirst: { type: 'boolean' },
         feeFree: NULLABLE_BOOLEAN,
         /*
-         * 요금은 **배열**이다(2026-09-30). `feeText` 한 칸이던 동안 구간 요금표의 둘째 줄이 통째로 사라졌다 —
-         * 기준이 마리당·무게 구간·부대비·조건부로 갈리고 그 갈래가 한 문장에 안 들어간다. 옛 후보는 `feeText` 를
-         * 그대로 들고 있고 읽는 쪽이 `feeLinesOf` 로 합친다.
+         * 요금은 **구조의 배열**이다(ADR-017 v5). 한 칸 문자열(`feeText`) → 줄 목록(`feeLines`) → 줄마다 구조(`fees`).
+         * 줄 목록일 때는 앱이 줄 모양을 정규식으로 다시 읽었고, 예시 밖의 모양(`19kg 이하 1마리당 2만원`)은 전부 계산을 못 했다.
+         * 옛 후보는 `feeText`·`feeLines` 를 그대로 들고 있고 읽는 쪽이 `feeLinesOf` 로 합친다.
          */
-        feeLines: { type: 'array', items: { type: 'string' } },
+        fees: {
+          type: 'array',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['label', 'amountWon', 'basis', 'minKg', 'maxKg', 'fromDog', 'perNight'],
+            properties: {
+              label: { type: 'string' },
+              amountWon: NULLABLE_NUMBER,
+              basis: { type: 'string', enum: ['perDog', 'flat'] },
+              minKg: NULLABLE_NUMBER,
+              maxKg: NULLABLE_NUMBER,
+              fromDog: NULLABLE_NUMBER,
+              perNight: { type: 'boolean' },
+            },
+          },
+        },
         weightLimitKg: NULLABLE_NUMBER,
         maxDogs: NULLABLE_NUMBER,
         notes: NULLABLE_STRING,
@@ -122,23 +137,35 @@ export const PROMPT_POLICY_EXAMPLES = [
   '1~5kg 1만원',
 ];
 
+/** @typedef {import('../../src/types').TFeeRule} TFeeRule */
+
 /**
- * 프롬프트가 `feeLines` 의 예로 드는 줄들. **앱이 실제로 읽는 모양이어야 한다** — 이 문자열이 요금 줄의 모양을
- * 사실상 지배하고, 앱의 요금 문구(`src/lib/dogFee.ts`)와 판정(`src/lib/eligibility.ts`)은 **앵커된 정규식**으로
- * 그 모양을 읽는다. `마리당 3만원`(앞의 1 이 없다)이나 `1마리당 20,000원`(만원이 아니다)으로 예를 바꾸면
- * 곱셈이 조용히 사라진다 — 틀리진 않지만(원문 줄로 물러난다) 이유를 아무 데서도 알 수 없다.
- * `dogFee.test.ts` 의 「프롬프트 예시 계약」이 이 표를 앱에 넣어 확인한다.
+ * 요금 구조 한 칸의 기본값 — 예시가 바꾸는 칸만 적게 한다.
+ * @type {Omit<TFeeRule, 'label'>}
+ */
+const FEE_BASE = { amountWon: null, basis: 'perDog', minKg: null, maxKg: null, fromDog: null, perNight: false };
+
+/**
+ * 프롬프트가 `fees` 의 예로 드는 구조들. **이 예시가 요금 구조의 해석을 사실상 지배한다** — 특히 "칸으로 표현 못 하면
+ * `amountWon: null`" 이 지켜져야 앱이 틀린 금액을 확정 문장으로 내지 않는다(캄 "2마리 또는 10kg 이상 4만원").
+ * `dogFee.test.ts` 의 「프롬프트 예시 계약」이 이 표를 앱의 계산(`sumByRules`)에 넣어 확인한다.
+ * @satisfies {Record<string, TFeeRule>}
  */
 export const FEE_EX = {
-  perDog: '1마리당 3만원',
-  range1: '1~5kg 1만원',
-  range2: '6~10kg 1.5만원',
-  cleaning: '청소비 5만원',
-  perNight: '1박당 2만원',
-  weekend: '주말 5만원',
-  /** 무게·마릿수 조건이 줄에 남아야 판정이 대형견 보호자에게 이 요금을 알린다(`FEE_MIN_KG_RE`). */
-  conditional: '2마리 또는 10kg 이상 4만원',
+  perDog: { ...FEE_BASE, label: '1마리당 3만원', amountWon: 30000 },
+  upToKg: { ...FEE_BASE, label: '19kg 이하 1마리당 2만원', amountWon: 20000, maxKg: 19 },
+  fromKg: { ...FEE_BASE, label: '20kg 이상 1마리당 3만원', amountWon: 30000, minKg: 20 },
+  range: { ...FEE_BASE, label: '1~5kg 1만원', amountWon: 10000, minKg: 1, maxKg: 5 },
+  fromSecond: { ...FEE_BASE, label: '2마리부터 1마리당 2만원', amountWon: 20000, fromDog: 2 },
+  cleaning: { ...FEE_BASE, label: '청소비 5만원', amountWon: 50000, basis: 'flat' },
+  perNight: { ...FEE_BASE, label: '1박당 2만원', amountWon: 20000, perNight: true },
+  /** '또는' 은 칸으로 표현이 안 된다 — 금액을 비워야 앱이 곱하지 않는다. 줄에 무게는 남긴다(판정 C5 가 `10kg 이상` 을 읽는다). */
+  conditional: { ...FEE_BASE, label: '2마리 또는 10kg 이상 4만원', basis: 'flat' },
+  /** 범위 금액은 하나로 못 정한다. */
+  amountRange: { ...FEE_BASE, label: '1마리당 1~2만원' },
 };
+
+const feeExample = (rule) => JSON.stringify(rule);
 
 // 고정 문자열 — 날짜·ID 같은 가변 값을 절대 넣지 않는다(캐시 prefix). 바꾸면 PROMPT_VERSION 이 바뀐다.
 export const SYSTEM_PROMPT = `당신은 제주도 반려견 동반 여행 블로그 글에서 "강아지와 함께 갈 수 있는 장소" 와 그 이용 조건을 추출합니다.
@@ -174,17 +201,23 @@ export const SYSTEM_PROMPT = `당신은 제주도 반려견 동반 여행 블로
       몸무게 상한("10kg 이하")에서 대형견 불가를 추론하지 마세요 — 그건 weightLimitKg 가 말합니다.
     smallDogOnly: 소형견만이면 true. callFirst: 방문·예약 전 전화나 문의가 필요하다고 하면 true.
     feeFree: 반려견 추가 요금이 없다고 하면 true, 있으면 false, 언급 없으면 null.
-    feeLines: 반려견 요금을 **기준마다 한 줄씩** 나열한 배열. 기준이 셋이면 세 줄입니다 — 한 문장으로 합치지 마세요.
-      기준은 다양합니다: 마리당("${FEE_EX.perDog}") · 무게 구간("${FEE_EX.range1}" 과 "${FEE_EX.range2}" 은 **두 줄**) ·
-      부대비("${FEE_EX.cleaning}") · 단위("${FEE_EX.perNight}", "${FEE_EX.weekend}") · 조건부("${FEE_EX.conditional}").
-      **조건의 무게·마릿수는 줄에 그대로 남깁니다** — "10kg 이상" 을 빼면 앱이 대형견 보호자에게 그 요금을 알려 주지 못합니다.
-      한 줄은 **기준 + 금액**만 20자 이내로 짧게 씁니다(본문 "숙박일 관계없이 청소비 5만원 추가" → "청소비 5만원").
-      **금액은 본문에 적힌 표기 그대로** 씁니다 — "15,000원" 을 "1.5만원" 으로 바꾸지 마세요. 단위 변환은 앱이 규칙으로 합니다
-      (scripts/lib/feeLine.mjs). 짧게 쓰라는 것은 **기준 설명**을 줄이라는 뜻이고 금액은 그대로입니다.
+    fees: 반려견 요금을 **기준마다 하나씩** 나열한 배열. 기준이 셋이면 셋입니다 — 한 문장으로 합치지 마세요.
+      label: 그 기준을 **기준 + 금액**만 20자 이내로 짧게(본문 "숙박일 관계없이 청소비 5만원 추가" → "청소비 5만원").
+        **조건의 무게·마릿수는 label 에 그대로 남깁니다.** **금액은 본문에 적힌 표기 그대로** 씁니다 — "15,000원" 을 "1.5만원" 으로
+        바꾸지 마세요(단위 변환은 앱이 합니다). 짧게 쓰라는 것은 기준 설명을 줄이라는 뜻입니다.
+      amountWon: 그 금액을 원 단위 숫자로("20,000원" → 20000, "1.5만원" → 15000). 범위("1~2만원")라 하나로 못 정하면 null.
+      basis: 마리마다 붙으면 "perDog", 한 번 붙으면(청소비·총액) "flat".
+      minKg / maxKg: 이 금액이 붙는 몸무게 범위(경계 포함, "20kg 이상" → minKg 20, "19kg 이하" → maxKg 19, "1~5kg" → 1 과 5). 없으면 null.
+      fromDog: N번째 마리부터 붙으면 N("두 마리부터 1마리당 2만원" → 2). 첫 마리부터면 null.
+      perNight: 1박마다 붙으면 true, 한 번이거나 본문이 말하지 않으면 false.
+      **위 칸으로 조건을 온전히 표현할 수 없으면 amountWon 을 null** 로 둡니다 — '또는'·요일(주말)·객실 종류처럼 칸에 없는 조건입니다.
+      null 이면 앱은 계산하지 않고 label 을 그대로 보여 줍니다. 틀린 금액을 계산하게 하는 것보다 낫습니다.
+      예: ${Object.values(FEE_EX).map(feeExample).join('\n        ')}
       금액 없이 "추가 요금 있어요" 만 적혀 있으면 빈 배열 + feeFree: false 입니다. 사람 숙박 요금은 여기가 아니라 stayPriceText 입니다.
       요금 언급이 없으면 빈 배열([]).
     weightLimitKg: 몸무게 상한(숫자, "10kg 이하" → 10). maxDogs: 마릿수 상한(숫자). 없으면 null.
-      **숫자는 petPolicyText 에 적힌 숫자만** 씁니다. 요금 구간표("1~5kg 1만원")의 숫자는 상한이 아닙니다.
+      **숫자는 petPolicyText 에 적힌 숫자만** 씁니다. 요금 기준의 몸무게("19kg 이하 1마리당 2만원")는 **상한이 아닙니다** —
+      그 무게를 넘는 강아지도 다른 요금으로 받는다는 뜻입니다. 그 숫자는 fees 의 minKg·maxKg 에만 씁니다.
       원문에 근거가 없는 판단은 앱이 빼고 봅니다(scripts/lib/petPolicyFacts.mjs) — 모르면 null 이 맞습니다.
     notes: 그 밖의 조건(예방접종 확인서 · 큐알 방명록 등) 한 줄. 없으면 null.
 - features: 그 장소가 무엇인지 해요체 서술문 1~2문장, 120자 이내, 줄바꿈 없이. 첫 문장은 무엇을 파는/어떤 곳인지, 둘째 문장은 강아지 편의
@@ -286,6 +319,13 @@ function normalizePetPolicy(raw, petPolicyText) {
   // 원문 대조를 **먼저** 거친 줄만 모양을 맞춘다 — 순서가 거꾸로면 정규화가 지어낸 줄을 가려 준다. 금액 단위 변환은 모델이
   // 아니라 여기서 한다(프롬프트는 "본문 표기 그대로" 를 요구한다). 앱이 다시 대조해도 금액을 숫자로 보므로 살아남는다.
   if (facts?.feeLines?.length) facts.feeLines = normalizeFeeLines(facts.feeLines);
+  // 구조의 label 은 **나누지 않는다** — 한 구조가 한 기준이라 둘로 쪼개지면 칸과 줄이 어긋난다. 모양(단위·군말)만 맞춘다.
+  if (facts?.fees?.length) {
+    facts.fees = facts.fees.map((rule) => {
+      const [only, ...rest] = normalizeFeeLines([rule.label]);
+      return rest.length === 0 && only ? { ...rule, label: only } : rule;
+    });
+  }
   return facts;
 }
 
@@ -297,13 +337,29 @@ function shapePetPolicy(raw) {
     smallDogOnly: raw.smallDogOnly === true,
     callFirst: raw.callFirst === true,
     feeFree: boolOrNull(raw.feeFree),
-    // 옛 모양(`feeText`)도 받아 준다 — 스키마가 안 보장하는 가짜 응답·모델 변경에 대비. 합치는 것은 `feeLinesOf` 하나가 한다.
+    fees: (Array.isArray(raw.fees) ? raw.fees : []).map(shapeFeeRule).filter(Boolean),
+    // 옛 모양(`feeLines`·`feeText`)도 받아 준다 — 스키마가 안 보장하는 가짜 응답·모델 변경에 대비. 합치는 것은 `feeLinesOf` 하나가 한다.
     feeLines: [...(Array.isArray(raw.feeLines) ? raw.feeLines : []), raw.feeText]
       .map((line) => (typeof line === 'string' ? line.trim() : ''))
       .filter(Boolean),
     weightLimitKg: numOrNull(raw.weightLimitKg),
     maxDogs: numOrNull(raw.maxDogs),
     notes: emptyToNull(raw.notes),
+  };
+}
+
+/** 요금 구조 한 칸 — label 이 없으면 버리고, 어긋난 칸은 "계산 못 함" 쪽으로 눕힌다. */
+function shapeFeeRule(raw) {
+  const label = typeof raw?.label === 'string' ? raw.label.trim() : '';
+  if (!label) return null;
+  return {
+    label,
+    amountWon: numOrNull(raw.amountWon),
+    basis: raw.basis === 'flat' ? 'flat' : 'perDog',
+    minKg: numOrNull(raw.minKg),
+    maxKg: numOrNull(raw.maxKg),
+    fromDog: numOrNull(raw.fromDog),
+    perNight: raw.perNight === true,
   };
 }
 

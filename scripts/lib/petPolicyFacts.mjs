@@ -23,7 +23,8 @@ const GROUNDS = {
   largeDogYes: /대형|무게\s*제한[^.\n]{0,6}없|견종\s*제한[^.\n]*없|모든\s*견종|크기\s*제한[^.\n]{0,6}없|사이즈\s*제한[^.\n]{0,6}없/,
   largeDogNo: /대형/,
   smallDogOnly: /소형/,
-  callFirst: /전화|문의|연락|예약|사전\s*확인|확인\s*후/,
+  // '방문 전 한 번 확인하고' — 파서의 callFirst(`(전화|방문 전)…(확인|문의)`)가 읽는 말을 여기서 못 읽으면 AI 판단만 빠진다.
+  callFirst: /전화|문의|연락|예약|사전\s*확인|확인\s*후|방문\s*전[^.\n]*확인/,
   feeFree: /무료|없|0\s*원/,
 };
 
@@ -68,18 +69,71 @@ const feeTextGrounded = (text, feeText) => {
 };
 
 /**
- * 요금 줄 목록 — **새 모양(`feeLines`)과 옛 모양(`feeText`)을 한 배열로** 합친다. 읽는 쪽은 전부 이 함수를 거친다.
+ * 요금 줄 목록 — **구조(`fees` 의 `label`)·줄(`feeLines`)·옛 한 칸(`feeText`)을 한 배열로** 합친다. 읽는 쪽은 전부 이 함수를 거친다.
  *
  * 둘을 다 봐야 하는 이유: 2026-09-30 전에 분석된 후보·장소는 `feeText` 하나만 들고 있고, 그것들이 DB 에 그대로 있다
  * (`correctPetPolicyFacts` 를 앱에서도 다시 부르는 것과 같은 이유). 한쪽만 보면 그날을 기준으로 요금이 갈려 보인다.
  * 중복은 턴다 — 배지의 key 가 라벨이고, 같은 문장이 두 줄이면 React 가 키 충돌을 낸다.
  *
- * @param {{ feeLines?: string[] | null, feeText?: string | null } | null | undefined} facts
+ * @param {{ fees?: { label: string }[] | null, feeLines?: string[] | null, feeText?: string | null } | null | undefined} facts
  * @returns {string[]}
  */
 export function feeLinesOf(facts) {
-  const raw = [...(Array.isArray(facts?.feeLines) ? facts.feeLines : []), facts?.feeText ?? ''];
+  const labels = Array.isArray(facts?.fees) ? facts.fees.map((rule) => rule?.label ?? '') : [];
+  const raw = [...labels, ...(Array.isArray(facts?.feeLines) ? facts.feeLines : []), facts?.feeText ?? ''];
   return [...new Set(raw.map((line) => String(line ?? '').trim()).filter(Boolean))];
+}
+
+/**
+ * 요금 구조(`fees`)를 원문에 대 본다 — 줄(label)은 `feeTextGrounded` 와 같은 규칙으로, **계산에 쓰는 칸은 따로** 본다.
+ *
+ * 칸 하나라도 원문에 근거가 없으면 그 줄은 **계산에서만 빠진다**(`amountWon: null`, 경계 칸도 비운다). 줄 자체는 원문에서 왔으므로
+ * 배지로는 남는다 — 틀린 것은 "우리 강아지 기준 N만원" 이라는 확정 문장이지 원문 줄이 아니다.
+ * - 금액은 원문에도, **자기 label 에도** 있어야 한다. label 과 다른 금액이면 모델이 줄을 섞은 것이다.
+ * - 몸무게 경계는 원문에 `N kg` 으로, 몇째 마리는 `N마리` 로 있어야 한다(`weightLimitKg`·`maxDogs` 와 같은 규칙).
+ *
+ * @param {import('../../src/types').TFeeRule[]} fees
+ * @param {string} text
+ * @param {(note: string) => void} drop
+ */
+/**
+ * 계산 칸이 **자기 label 과 같은 말을 하는가**. 금액·경계는 숫자라 원문에 대 볼 수 있지만 `basis`·`perNight`·`fromDog` 는 말이라
+ * label 의 단어로만 확인된다. 어긋난 채 두면 틀린 금액이 확정 문장이 된다 — `청소비 5만원` 이 `perDog` 면 2마리 "10만원",
+ * `1박당 2만원` 이 `perNight: false` 면 "두부는 2만원"(1박이 빠진다).
+ */
+function shapeMatchesLabel(rule, label) {
+  const once = /청소|1회|총/.test(label);
+  if (once && rule.basis === 'perDog') return false;
+  if (/마리\s*당/.test(label) && rule.basis === 'flat') return false;
+  if (/박/.test(label) !== Boolean(rule.perNight)) return false;
+  if (/\d\s*마리\s*(부터|째)/.test(label) !== (rule.fromDog != null && rule.fromDog > 1)) return false;
+  return true;
+}
+
+function correctFeeRules(fees, text, drop) {
+  const out = [];
+  const inText = new Set(amountsInWon(text));
+  for (const rule of fees) {
+    const label = String(rule?.label ?? '').trim();
+    if (!label) continue;
+    if (!feeTextGrounded(text, label)) {
+      drop(`요금 문장 "${label}" 이 원문에 없어 뺐어요`);
+      continue;
+    }
+    const next = { ...rule, label };
+    const bounds = [next.minKg, next.maxKg].filter((n) => n != null);
+    const ungrounded =
+      (next.amountWon != null && (!inText.has(next.amountWon) || !amountsInWon(label).includes(next.amountWon))) ||
+      !shapeMatchesLabel(next, label) ||
+      bounds.some((n) => !mentionsKg(text, n)) ||
+      (next.fromDog != null && next.fromDog > 1 && !mentionsDogs(text, next.fromDog));
+    if (ungrounded && next.amountWon != null) {
+      drop(`요금 "${label}" 의 금액·조건이 원문과 맞지 않아 계산에서 뺐어요`);
+      Object.assign(next, { amountWon: null, minKg: null, maxKg: null, fromDog: null });
+    }
+    out.push(next);
+  }
+  return out;
 }
 
 /** 요금 문장이 실제 금액을 말하는가("1마리당 2만원"). '추가 요금 없음' 과 한 판단에 같이 있으면 모순이다. */
@@ -141,7 +195,8 @@ export function correctPetPolicyFacts(facts, petPolicyText) {
    * 반대로 지어낸 줄 하나가 옳은 구간표를 통째로 지운다. 새 모양(`feeLines`)으로 되돌려 쓰고 옛 칸(`feeText`)은
    * 비운다 — 남겨 두면 `feeLinesOf` 가 뺀 줄을 다시 주워 와 이 보정이 무력해진다(두 번 불러도 결과가 같아야 한다).
    */
-  const feeLines = feeLinesOf(next);
+  if (Array.isArray(next.fees)) next.fees = correctFeeRules(next.fees, text, drop);
+  const feeLines = feeLinesOf({ feeLines: next.feeLines, feeText: next.feeText });
   if (feeLines.length) {
     const grounded = feeLines.filter((line) => feeTextGrounded(text, line));
     for (const line of feeLines) if (!grounded.includes(line)) drop(`요금 문장 "${line}" 이 원문에 없어 뺐어요`);

@@ -16,6 +16,7 @@ import {
   editChanges,
   EMPTY_VALUE,
   identityChanged,
+  policyDraftFrom,
   policyFactsFrom,
   type TCandidateEditDraft,
 } from './adminEdit';
@@ -417,5 +418,30 @@ describe('홈페이지 칸 (ADR-002 v2)', () => {
     expect(editProblem(draft({ homepageUrl: 'https://a.kr/', homepageImage: 'http://a.kr/a.jpg' }))).toMatch('https');
     expect(editProblem(draft({ homepageImage: 'https://a.kr/a.jpg' }))).toMatch('사진만');
     expect(editProblem(draft({ homepageUrl: 'https://a.kr/', homepageImage: 'https://a.kr/a.jpg' }))).toBeNull();
+  });
+});
+
+describe('policyFactsFrom — 요금 구조(fees)는 줄을 안 고쳤을 때만 되돌려 싣는다(ADR-017 v5)', () => {
+  const fees = [
+    { label: '19kg 이하 1마리당 2만원', amountWon: 20000, basis: 'perDog' as const, minKg: null, maxKg: 19, fromDog: null, perNight: false },
+    { label: '20kg 이상 1마리당 3만원', amountWon: 30000, basis: 'perDog' as const, minKg: 20, maxKg: null, fromDog: null, perNight: false },
+  ];
+  const facts = { indoor: 'unknown' as const, leash: false, largeDogOk: null, smallDogOnly: false, callFirst: false, feeFree: false, weightLimitKg: null, maxDogs: null, notes: null, fees };
+
+  it('요금 줄을 그대로 두면 구조가 남는다', () => {
+    const draft = policyDraftFrom(facts);
+    expect(draft.feeLines).toBe('19kg 이하 1마리당 2만원\n20kg 이상 1마리당 3만원');
+    expect(policyFactsFrom(draft)).toMatchObject({ fees, feeLines: [] });
+  });
+
+  /** 저장은 필드 하나만 고쳐도 이 함수를 거친다 — 옛 판단에 빈 `fees` 가 붙으면 앱이 잔여 병합을 끄고 캄이 "6만원" 이 된다. */
+  it('옛 판단(구조 없음)에는 fees 칸을 만들지 않는다', () => {
+    const legacy = { ...facts, fees: undefined, feeText: '1마리당 3만원' };
+    expect(policyFactsFrom(policyDraftFrom(legacy))).not.toHaveProperty('fees');
+  });
+
+  it('요금 줄을 고치면 구조는 버리고 줄이 정본이 된다 — 구조가 새 줄을 모른다', () => {
+    const draft = { ...policyDraftFrom(facts), feeLines: '19kg 이하 1마리당 2만원\n20kg 이상 1마리당 4만원' };
+    expect(policyFactsFrom(draft)).toMatchObject({ fees: [], feeLines: ['19kg 이하 1마리당 2만원', '20kg 이상 1마리당 4만원'] });
   });
 });

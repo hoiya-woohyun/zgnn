@@ -21,7 +21,7 @@ import { previewFor, TYPE_LABEL, type TCandidateExtracted, type TCandidateRow, t
 import { feeLinesOf } from '../../scripts/lib/petPolicyFacts.mjs';
 import { policyCell, type TPolicyCell } from './adminPreview';
 import { parseNaverPlaceId } from './naverPlaceLink';
-import type { TPetPolicyFacts, TPlace } from '../types';
+import type { TFeeRule, TPetPolicyFacts, TPlace } from '../types';
 
 /** 사람이 고를 수 있는 종류. `other` 가 빠진 것은 의도다 — `toNewPlaceRow` 가 영구 오류로 막는다(applyApproved.mjs:99). */
 export const EDITABLE_TYPES: TCandidateType[] = ['stay', 'restaurant', 'cafe'];
@@ -74,6 +74,12 @@ export type TPolicyDraft = {
   weightLimitKg: string;
   maxDogs: string;
   notes: string;
+  /**
+   * AI 가 뽑은 요금 **구조**(`fees`) — 폼에 칸이 없고, 저장할 때 되돌려 싣기 위해 들고만 있다(이 타입에서 유일하게 문자열이 아니다).
+   * 운영자가 `feeLines` 를 고치지 않았으면 그대로 싣고, 고쳤으면 버린다 — 구조가 새 줄을 모르므로 싣으면 계산이 옛 줄로 돈다.
+   * 버리면 앱은 요금 줄을 정규식으로 읽던 길로 물러난다(ADR-017 v5).
+   */
+  fees?: TFeeRule[];
 };
 
 export type TTriState = 'yes' | 'no' | 'unknown';
@@ -123,6 +129,8 @@ export function policyDraftFrom(facts: TPetPolicyFacts | null | undefined): TPol
     weightLimitKg: facts.weightLimitKg == null ? '' : String(facts.weightLimitKg),
     maxDogs: facts.maxDogs == null ? '' : String(facts.maxDogs),
     notes: facts.notes ?? '',
+    // 빈 배열도 싣는다 — "요금 없음" 인 새 판단이고, 칸이 사라지면 저장 뒤 옛 판단으로 읽힌다.
+    fees: Array.isArray(facts.fees) ? facts.fees : undefined,
   };
 }
 
@@ -140,6 +148,19 @@ export function policyFactsFrom(draft: TPolicyDraft): TPetPolicyFacts | null {
     maxDogs: toNumber(draft.maxDogs),
     notes: draft.notes.trim() || null,
   };
+  /*
+   * 요금 구조는 **원래 구조가 있던 판단에만** 싣는다. 줄이 label 과 그대로면 구조로 되돌려 싣고(줄은 `feeLinesOf` 가 label 에서
+   * 다시 만든다), 고쳤으면 `fees: []` — 운영자가 적은 줄이 정본이라는 표시다.
+   * **옛 판단(구조 없음)에는 `fees` 칸을 만들지 않는다.** 저장은 필드 하나만 고쳐도 이 함수를 거치는데, 빈 배열이 붙으면 앱이 새 판단으로
+   * 보고 옛 판단의 잔여 병합을 끈다 — 캄 `1마리당 3만원. (2마리 또는 10kg 이상 4만원)` 이 이름만 고친 뒤 2마리 "6만원" 이 된다(원문은 4만원).
+   */
+  if (draft.fees) {
+    const labels = draft.fees.map((rule) => rule.label);
+    const lines = facts.feeLines ?? [];
+    const unchanged = labels.length === lines.length && labels.every((label, i) => label === lines[i]);
+    facts.fees = unchanged ? draft.fees : [];
+    if (unchanged) facts.feeLines = [];
+  }
   const empty =
     facts.indoor === 'unknown' &&
     !facts.leash &&
@@ -150,6 +171,7 @@ export function policyFactsFrom(draft: TPolicyDraft): TPetPolicyFacts | null {
     // `feeLines` 는 타입상 optional(옛 후보엔 없다) 이지만 위에서 늘 배열로 채운다 — 그래도 `?.` 를 붙여
     // 타입이 말하는 대로 읽는다. `undefined.length` 한 번이 이 함수를 던지게 만들고, 그러면 저장이 통째로 막힌다.
     (facts.feeLines?.length ?? 0) === 0 &&
+    (facts.fees?.length ?? 0) === 0 &&
     facts.weightLimitKg === null &&
     facts.maxDogs === null &&
     facts.notes === null;
