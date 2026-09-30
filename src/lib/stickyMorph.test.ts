@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { collapseProgress, stickyMorphProgress } from './stickyMorph';
+import { collapseProgress, collapseRange, stickyMorphProgress, stickyMorphRange } from './stickyMorph';
 
 describe('stickyMorphProgress — 붙는 순간부터 스크롤한 거리만큼 0 → 1', () => {
   // 노치 기기(인셋 47px), 접히는 거리 57px(줄 56 + 선 1).
@@ -49,5 +49,33 @@ describe('collapseProgress — 홈 히어로: 제자리에서 붙는 자리까�
 
   it('제자리보다 아래(당겨 내림·엿보기)는 0 이다', () => {
     expect(collapseProgress(REST + 40, REST, PINNED)).toBe(0);
+  });
+});
+
+describe('스크롤 구동 구간 — JS 진행도와 같은 스크롤 위치에서 같은 값', () => {
+  // 구간 [from, to] 에서 스크롤 S 의 진행도. 브라우저가 animation-range 로 하는 계산이다.
+  const progressAt = ({ from, to }: { from: number; to: number }, scroll: number) =>
+    Math.min(1, Math.max(0, (scroll - from) / (to - from)));
+
+  it('stickyMorphRange 는 stickyMorphProgress 와 모든 스크롤 위치에서 일치한다', () => {
+    const OFFSET = 88; // 스크롤 0 에서 센티넬의 위치
+    const range = stickyMorphRange(OFFSET, 47, 57);
+    for (const scroll of [0, 30, 41, 60, 69.5, 98, 200]) {
+      expect(progressAt(range, scroll)).toBeCloseTo(stickyMorphProgress(OFFSET - scroll, 47, 57));
+    }
+  });
+
+  it('collapseRange 는 collapseProgress 와 모든 스크롤 위치에서 일치한다', () => {
+    const OFFSET = 71;
+    const PINNED = -150;
+    const range = collapseRange(OFFSET, PINNED);
+    for (const scroll of [0, 50, 110.5, 221, 400]) {
+      expect(progressAt(range, scroll)).toBeCloseTo(collapseProgress(OFFSET - scroll, OFFSET, PINNED));
+    }
+  });
+
+  it('길이가 0 인 구간은 만들지 않는다 — 0 으로 나누는 계산을 브라우저에 넘기지 않는다', () => {
+    expect(stickyMorphRange(10, 0, 0).to).toBeGreaterThan(stickyMorphRange(10, 0, 0).from);
+    expect(collapseRange(0, 0).to).toBeGreaterThan(0);
   });
 });

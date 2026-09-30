@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
-import { stickyMorphProgress } from '../../lib/stickyMorph';
+import { stickyMorphProgress, stickyMorphRange } from '../../lib/stickyMorph';
+import { offsetInScroller, supportsScrollTimeline, writeMorphRange } from './scrollDrivenMorph';
 
 /**
  * 스크롤을 따라 올라가다 상단에 붙고, **스크롤한 만큼** 큰 제목에서 헤더로 바뀌는 제목 줄.
@@ -36,8 +37,9 @@ import { stickyMorphProgress } from '../../lib/stickyMorph';
  * **상태바 자리는 자기 배경으로 덮는다**(`bleed-top-0`, ADR-010). 붙은 동안 밑을 지나는 본문이 상태바 뒤로
  * 비치지 않게. 배경은 바탕과 같은 크림이라 접히기 전(0)에는 보이지 않고, 가르는 선만 접히는 만큼 짙어진다.
  *
- * 접힘 값은 React 상태가 아니라 **CSS 변수**로 흘린다. 스크롤 프레임마다 다시 그리면 목록 전체가 다시
- * 렌더된다 — 이 줄의 style 한 칸만 바꾸면 브라우저가 합성으로 끝낸다.
+ * **접힘은 브라우저의 스크롤 구동 애니메이션이 돌린다**(`styles/scrollMorph.css`). JS 는 크기가 바뀔 때 구간(스크롤 오프셋)만
+ * 적는다 — 스크롤 이벤트로 `--morph` 를 적던 때는 모바일에서 제목이 스크롤보다 한 박자 늦고 크기가 떨렸다(`scrollDrivenMorph.ts`).
+ * 지원하지 않는 브라우저에서만 예전처럼 `--morph` 를 스크롤마다 적는다 — React 상태가 아니라 CSS 변수라 목록은 다시 렌더되지 않는다.
  */
 
 /** 접힌 헤더의 높이. 하위 화면의 뒤로가기 줄(appBar)·옛 축약 줄과 같은 14단이라 화면을 오갈 때 위쪽이 튀지 않는다. */
@@ -77,12 +79,14 @@ export function StickyMorphTitle({ title, trailing, percent }: TStickyMorphTitle
      * 바뀔 수 있으므로 크기가 바뀔 때마다 다시 잰다(ResizeObserver). 스크롤 프레임마다 재지는 않는다 —
      * 스크롤 중에 바뀌는 값이 아니고, 재면 레이아웃을 강제한다.
      */
+    const scrollDriven = supportsScrollTimeline();
     let inset = 0;
     let distance = 0;
     const measure = () => {
       inset = probe.offsetHeight;
       // 접히는 거리 = 헤더 줄 높이(인셋 제외). 줄 하나만큼 스크롤하면 다 접힌다 — 짧으면 튀고, 길면 반쯤 접힌 채 오래 머문다.
       distance = bar.offsetHeight - inset;
+      if (scrollDriven) writeMorphRange(bar, stickyMorphRange(offsetInScroller(sentinel), inset, distance));
     };
 
     let frame = 0;
@@ -100,20 +104,26 @@ export function StickyMorphTitle({ title, trailing, percent }: TStickyMorphTitle
     };
 
     measure();
-    apply(); // 그리기 전에 한 번 — 스크롤이 복원된 채로 들어온 경우 첫 프레임부터 맞는 모습이다.
+    // 그리기 전에 한 번 — 스크롤이 복원된 채로 들어온 경우 첫 프레임부터 맞는 모습이다.
+    if (!scrollDriven) apply();
 
     const resize = new ResizeObserver(() => {
       measure();
       last = -1;
-      schedule();
+      if (!scrollDriven) schedule();
     });
     resize.observe(bar);
-    window.addEventListener('scroll', schedule, { passive: true });
-    window.addEventListener('resize', schedule);
+    // 스크롤 구동이면 스크롤은 브라우저 몫이다. 창 크기는 구간(센티넬 위치)을 바꿀 수 있어 양쪽 다 다시 잰다.
+    const onResize = () => {
+      measure();
+      if (!scrollDriven) schedule();
+    };
+    if (!scrollDriven) window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', onResize);
     return () => {
       resize.disconnect();
       window.removeEventListener('scroll', schedule);
-      window.removeEventListener('resize', schedule);
+      window.removeEventListener('resize', onResize);
       cancelAnimationFrame(frame);
     };
   }, []);
@@ -127,10 +137,11 @@ export function StickyMorphTitle({ title, trailing, percent }: TStickyMorphTitle
       <div
         ref={barRef}
         className="bleed-top-0 sticky top-0 z-30 bg-secondary"
-        style={{ ['--morph' as string]: 0 }}
+        style={{ ['--morph' as string]: 0, ['--title-scale' as string]: TITLE_SCALE_END }}
       >
         <div className="relative mx-auto flex items-end gap-3 px-4 pb-1 md:px-6" style={{ height: BAR_HEIGHT }}>
           <h1
+            data-scroll-morph="title"
             className="min-w-0 flex-1 origin-left truncate text-display-xs font-bold text-primary will-change-transform"
             // 바닥(1단 띄움)의 제목 중심 → 줄의 가운데까지 2단. translate 를 scale 앞에 적어야 이동 거리가 줄어든 크기에 안 곱해진다.
             style={{
@@ -142,6 +153,7 @@ export function StickyMorphTitle({ title, trailing, percent }: TStickyMorphTitle
           {trailing && (
             <span
               aria-hidden="true"
+              data-scroll-morph="title-trailing"
               className="shrink-0 self-center text-sm text-tertiary"
               // 제목이 반쯤 줄어든 뒤부터 나타난다 — 큰 제목 옆에 작은 요약이 같이 뜨면 두 크기가 한 줄에서 다툰다.
               style={{ opacity: 'clamp(0, calc(var(--morph) * 2 - 1), 1)' }}
@@ -153,9 +165,14 @@ export function StickyMorphTitle({ title, trailing, percent }: TStickyMorphTitle
 
         {/* 가르는 선과 진행 막대. 선은 접히는 만큼 짙어지고, 막대는 선 위에 겹쳐 같은 비율로 나타난다. */}
         <div aria-hidden="true" className="relative h-px">
-          <div className="absolute inset-x-0 bottom-0 border-b border-secondary" style={{ opacity: 'var(--morph)' }} />
+          <div
+            data-scroll-morph="fade-in"
+            className="absolute inset-x-0 bottom-0 border-b border-secondary"
+            style={{ opacity: 'var(--morph)' }}
+          />
           {percent !== undefined && (
             <div
+              data-scroll-morph="fade-in"
               className="absolute bottom-0 left-0 h-0.5 bg-brand-solid transition-[width] duration-300 ease-out"
               style={{ width: `${percent}%`, opacity: 'var(--morph)' }}
             />
