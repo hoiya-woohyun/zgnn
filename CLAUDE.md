@@ -104,6 +104,8 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
   → [ADR-018 결정 10](docs/decisions/ADR-018-in-app-admin-review.md).
 - **색은 시맨틱 토큰으로만** (`bg-primary` · `text-secondary` · `bg-brand-solid`).
   원시 색값은 `theme.css` 에만 둔다.
+  **네이버(지도·플레이스)로 나가는 버튼은 `src/components/naverLinkButton.tsx` 하나로** 만든다 — 네이버 공식 초록(`bg-naver`)·작은 알약·44px 히트 영역이
+  거기 들어 있다. `Button color="primary"` 로 새로 만들면 핑크 주 버튼과 구분이 안 된다(→ ADR-003 v13).
 - **장소 사진은 없는 것이 기본 디자인**이다(저작권 문제로 전량 제거, 86곳 모두 `cover` 없음).
   사진 자리는 종류별 색 + 아이콘이 대신한다 → [ADR-002](docs/decisions/ADR-002-no-place-photos.md).
 

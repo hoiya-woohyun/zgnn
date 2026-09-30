@@ -1,6 +1,6 @@
 'use client';
 
-import { LinkExternal01, Share01 } from '@untitledui/icons';
+import { Share01 } from '@untitledui/icons';
 import { notFound } from 'next/navigation';
 import { PlaceDetailHeader } from './placeDetailHeader';
 import { PlaceDetailGallery } from './placeDetailGallery';
@@ -8,6 +8,7 @@ import { HighlightedPolicyText, PlaceDetailEligibilityCard } from './placeDetail
 import { PlaceDetailMiniMap } from './placeDetailMiniMap';
 import { PlaceDetailNearby } from './placeDetailNearby';
 import { Button } from '../components/base/button';
+import { NaverLinkButton } from '../components/naverLinkButton';
 import { PlaceItemsNote } from '../components/placeItemsNote';
 import { PetBadges } from '../components/petBadges';
 import { SaveButton } from '../components/saveButton';
@@ -98,17 +99,9 @@ export function PlaceDetailPage({ id }: { id: string }) {
           네이버로 가서 직접 확인할 수 있어야 하므로 판정과 무관하게 항상 보여준다.
         */}
         {place.naverUrl && (
-          <Button
-            color="primary"
-            size="lg"
-            iconTrailing={LinkExternal01}
-            href={place.naverUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-3 w-full"
-          >
+          <NaverLinkButton href={place.naverUrl} className="mt-3">
             네이버 지도에서 열기
-          </Button>
+          </NaverLinkButton>
         )}
       </section>
 
