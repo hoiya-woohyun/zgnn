@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addressUnresolved, addressView } from './adminAddress';
+import { addressConflictOf, addressUnresolved, addressView } from './adminAddress';
 
 /** 상호 검색이 준 주소 — 이름이 완전 일치한 업체의 등록 주소. */
 const local = {
@@ -147,5 +147,21 @@ describe('addressUnresolved — 주소 다름은 고르기 전까지 열려 있�
 
   it('표기 차이·같은 주소는 처음부터 닫혀 있다', () => {
     expect(addressUnresolved(local)).toBe(false);
+  });
+});
+
+describe('addressConflictOf — 승인을 멈출 주소 충돌', () => {
+  it('정말 다를 때만 두 주소를 돌려준다 — `주소 다름` 뱃지와 같은 판정', () => {
+    expect(addressConflictOf({ ...local, addressAi: '제주 서귀포시 대포로 93' })).toEqual({
+      address: local.address,
+      sourceAddress: '제주 서귀포시 대포로 93',
+      edited: false,
+    });
+  });
+
+  it('표기 차이·원글 주소 없음·원글에서 나온 주소(순환)는 충돌이 아니다', () => {
+    expect(addressConflictOf(local)).toBeNull();
+    expect(addressConflictOf({ ...local, addressAi: null })).toBeNull();
+    expect(addressConflictOf({ ...local, geoSource: 'geocode', addressAi: '제주 서귀포시 대포로 93' })).toBeNull();
   });
 });

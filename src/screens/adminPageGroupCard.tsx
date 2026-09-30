@@ -14,7 +14,7 @@ import {
 import type { TApplyOutcome, TSimilarPlace } from '../lib/adminApply';
 import { draftFromExtracted, type TCandidateEditDraft } from '../lib/adminEdit';
 import type { TBadgeTone, TPetBadge } from '../lib/petPolicy';
-import { addressView, type TAddressChoice } from '../lib/adminAddress';
+import { addressConflictOf, addressView, type TAddressChoice } from '../lib/adminAddress';
 import { policyCell, POLICY_STATE_WORD, type TAdminFlagView } from '../lib/adminPreview';
 import { verifyNeedsLook, verifyView } from '../lib/adminVerify';
 import { latestPlan } from '../lib/adminLatest';
@@ -122,7 +122,7 @@ function PolicyCell({ items, state, message }: { items: TPetBadge[]; state: keyo
         : (
             <span
               title={message ?? undefined}
-              className={cx(state === 'noText' ? 'text-quaternary' : 'rounded bg-warning-primary px-1.5 py-px font-medium text-warning-primary')}
+              className={cx(state === 'noText' || state === 'noLimit' ? 'text-quaternary' : 'rounded bg-warning-primary px-1.5 py-px font-medium text-warning-primary')}
             >
               {POLICY_STATE_WORD[state]}
             </span>
@@ -215,8 +215,9 @@ export function AdminPageGroupCard({
    * 기본 갈래는 짝이 있고 지역이 되고 짝이 내린 곳이 아닐 때만 — 내린 곳이면 누르는 순간 되살릴지 묻는 패널로 간다.
    */
   const latestAvailable = Boolean(state.archived || state.similar || (pairId && regionOk && !matchedArchived && !addressConflict));
-  /** 고를 두 주소. 원글 쪽이 비면 `addressView` 가 경고를 안 내므로 여기서도 둘 다 있다. */
-  const addressPick = addressConflict ? { blog: extracted.addressAi ?? '', search: address.address ?? '' } : null;
+  /** 고를 두 주소 — `approveGroup` 의 가드와 같은 판정(`addressConflictOf`)이라 여기서 안 뜨는 줄은 거기서도 안 멈춘다. */
+  const conflict = addressConflictOf(extracted);
+  const addressPick = conflict ? { blog: conflict.sourceAddress, search: conflict.address } : null;
 
   return (
     /*

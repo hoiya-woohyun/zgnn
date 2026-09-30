@@ -190,13 +190,34 @@ export function addressView(
   };
 }
 
+/** 나갈 주소와 원글 주소가 정말 다르다 — 두 값. */
+export type TAddressConflict = {
+  address: string;
+  sourceAddress: string;
+  /** 나갈 주소를 운영자가 고쳤다 — 레일이 '네이버 주소' 라고 부르지 않게. */
+  edited: boolean;
+};
+
 /**
- * `주소 다름` 이 **아직 안 골라졌는가** — 참이면 올리기를 막는다(`leadProblem`).
+ * 승인을 **멈춰야 하는** 주소 충돌인가 — 접힌 줄의 `주소 다름` 뱃지와 같은 판정(`cross.tone === 'warn'`)이다.
  *
- * 경고만 띄우고 올리기를 평소대로 두던 동안, 동명의 다른 가게(서귀포 `대포로 93` ↔ 원글 애월 `신엄안3길 95`)가
- * 핑크 주 버튼 한 번에 게시될 수 있었다. 지역도 검색 주소를 따라가 있어서(`resolveRegionRaw` 가 주소를 먼저 본다)
- * 사이트에는 틀린 좌표·틀린 방향으로 나간다. 판정은 `addressView` 의 경고 한 가지로만 한다 — 같은 경고를 두 규칙이 세면 어긋난다.
+ * 멈추는 이유: 이 경보가 뜨는 뜻은 보통 상호 검색이 동명의 다른 가게를 집었다는 것이고(실측: 엔젤하우스 `대포로 93` ↔
+ * `신엄안3길 95`), 그대로 올리면 엉뚱한 주소·좌표·지역이 `places` 로 들어간다. 뱃지만 띄우고 승인 버튼을 그대로 두면
+ * 한 번의 클릭(또는 일괄 올리기)이 그것을 지나간다. 판정을 따로 만들지 않고 `addressView` 를 부르는 이유 —
+ * 뱃지와 가드가 서로 다른 규칙으로 갈리면 "뱃지는 떴는데 막히지 않는" 칸이 다시 생긴다.
+ */
+export function addressConflictOf(extracted: Parameters<typeof addressView>[0]): TAddressConflict | null {
+  const view = addressView(extracted);
+  if (view.cross?.tone !== 'warn' || !view.address) return null;
+  const sourceAddress = (extracted.addressAi ?? '').trim();
+  return sourceAddress ? { address: view.address, sourceAddress, edited: view.axis === 'operator' } : null;
+}
+
+/**
+ * `주소 다름` 이 **아직 안 골라졌는가** — 참이면 결정 줄이 올리기 대신 `[원글 주소로] [검색 주소로]` 를 세우고,
+ * 걸러 보기의 `주소 다름` 이 센다. 판정은 `addressConflictOf` 와 같은 한 규칙이다 — 둘이 갈리면 "뱃지는 떴는데 막히지 않는" 칸이 생긴다.
+ * 사람이 고르면(`addressChosen`) `addressView` 가 경고를 내리므로 여기도 닫힌다.
  */
 export function addressUnresolved(extracted: Parameters<typeof addressView>[0]): boolean {
-  return addressView(extracted).cross?.tone === 'warn';
+  return addressConflictOf(extracted) !== null;
 }

@@ -452,20 +452,71 @@ describe('approveGroup — 막히는 후보', () => {
 
     expect(calls).toHaveLength(0);
   });
+});
 
-  /** 한 줄 버튼은 화면이 막지만 일괄 올리기는 이 함수를 바로 부른다 — 여기서 막아야 동명의 다른 가게가 안 올라간다. */
-  it('주소 다름을 안 골랐으면 반영하지 않고, 고른 뒤에는 막지 않는다', async () => {
+/**
+ * `주소 다름` — 상호 검색이 동명의 다른 가게를 집었을 수 있다(실측: 엔젤하우스 `대포로 93` ↔ `신엄안3길 95`).
+ * 뱃지만 띄우고 버튼을 그대로 두던 동안 한 번의 클릭·일괄 올리기가 틀린 주소를 게시할 수 있었다.
+ */
+describe('approveGroup — 원글과 주소가 다른 후보', () => {
+  const conflicted = () =>
+    candidate({
+      extracted: extracted({
+        name: '엔젤하우스',
+        type: 'stay',
+        regionRaw: '남쪽 (서귀포시)',
+        address: '제주 서귀포시 대포로 93',
+        addressAi: '제주특별자치도 제주시 애월읍 신엄안3길 95',
+        geoSource: 'local',
+      }),
+    });
+
+  it('확인 없이 오면 쓰기 전에 멈추고 두 주소를 돌려준다', async () => {
     const { calls, client } = createFakeClient();
-    const conflict = { address: '제주 서귀포시 대포로 93', addressAi: '제주 제주시 애월읍 신엄안3길 95', geoSource: 'local' };
 
-    const open = await approveGroup(client, group([candidate({ extracted: extracted(conflict) })]), [], OPTIONS);
-    expect(open.kind).toBe('blocked');
-    if (open.kind !== 'blocked') throw new Error('blocked 이 아니다');
-    expect(open.reason).toContain('주소가 두 곳이에요');
+    const outcome = await approveGroup(client, group([conflicted()]), [], OPTIONS);
+
+    expect(outcome).toEqual({
+      kind: 'addressConflict',
+      address: '제주 서귀포시 대포로 93',
+      sourceAddress: '제주특별자치도 제주시 애월읍 신엄안3길 95',
+      edited: false,
+    });
     expect(calls).toHaveLength(0);
+  });
 
-    const chosen = await approveGroup(client, group([candidate({ extracted: extracted({ ...conflict, addressChosen: 'search' }) })]), [], OPTIONS);
-    expect(chosen.kind).not.toBe('blocked');
+  /** 결정 줄의 [검색 주소로] 는 저장되는 선택이다 — 한 번 고르면 일괄 올리기도 다시 묻지 않는다. */
+  it('검색 주소를 골라 저장한 후보(addressChosen)는 멈추지 않는다', async () => {
+    const { client } = createFakeClient();
+    const lead = conflicted();
+    lead.extracted = { ...lead.extracted, addressChosen: 'search' };
+
+    const outcome = await approveGroup(client, group([lead]), [], OPTIONS);
+
+    expect(outcome.kind).toBe('created');
+  });
+
+  it('사람이 네이버 주소가 맞다고 확인하면 올린다', async () => {
+    const { client } = createFakeClient();
+
+    const outcome = await approveGroup(client, group([conflicted()]), [], { ...OPTIONS, addressConfirmed: true });
+
+    expect(outcome.kind).toBe('created');
+  });
+
+  it('표기만 다른 주소(제주특별자치도 ↔ 제주)는 멈추지 않는다', async () => {
+    const { client } = createFakeClient();
+    const lead = candidate({
+      extracted: extracted({
+        address: '제주 제주시 구좌읍 충렬로 141-15',
+        addressAi: '제주특별자치도 제주시 구좌읍 충렬로 141-15',
+        geoSource: 'local',
+      }),
+    });
+
+    const outcome = await approveGroup(client, group([lead]), [], OPTIONS);
+
+    expect(outcome.kind).toBe('created');
   });
 });
 

@@ -16,7 +16,6 @@
  * (CLI 는 그 후보를 pending 으로 되돌리고 사유만 적는다 — 터미널에는 물어볼 자리가 없다).
  */
 
-import { addressUnresolved } from './adminAddress';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { mergeIntoExisting, overwriteWithLatest, toNewPlaceRow, toRecheckCandidate } from '../../scripts/analyze/applyApproved.mjs';
 import { matchPlace, THRESHOLD } from '../../scripts/analyze/matchPlace.mjs';
@@ -28,6 +27,7 @@ import {
   type TPlaceRow,
   type TPlaceStatus,
 } from './adminCandidates';
+import { addressConflictOf, type TAddressConflict } from './adminAddress';
 import type { TCandidateEdit } from './adminEdit';
 import { restorePlace } from './adminPlaces';
 import { appendReviewerNote } from './adminSession';
@@ -68,6 +68,11 @@ export type TApplyOutcome =
    * 나갈 길이 다르기 때문이다: `blocked` 는 "고칠 것이 있다" 지만 이것은 "고를 것이 있다" 다.
    */
   | { kind: 'archivedTarget'; placeId: string; placeName: string; archivedAt: string | null; note: string | null }
+  /**
+   * 나갈 주소가 원글 주소와 **정말** 다르다(`주소 다름`) — 상호 검색이 동명의 다른 가게를 집었을 수 있다. 역시 쓰기 전이다.
+   * `blocked` 와 가르는 이유는 `archivedTarget` 과 같다: 고칠 수도(주소를 원글대로) 고를 수도(네이버 주소가 맞다) 있어서다.
+   */
+  | ({ kind: 'addressConflict' } & TAddressConflict)
   /** 반영 자체가 불가능하다(종류·이름·지역·대상). 역시 쓰기 전이다. */
   | { kind: 'blocked'; reason: string };
 
@@ -89,6 +94,11 @@ export type TApplyOptions = {
    * 대상이 있을 때만 뜻이 있다(신규 insert 는 어차피 전부 새 값이다).
    */
   overwrite?: boolean;
+  /**
+   * 사람이 `주소 다름` 을 보고 "나갈 주소(네이버)가 맞다" 를 확인했다. 기본값 `false` 가 요점이다 — 한 줄 버튼이든 일괄이든
+   * 확인 없이 오면 `addressConflict` 로 멈춘다(`confirmedDifferent` 와 같은 모양의 가드).
+   */
+  addressConfirmed?: boolean;
   nowIso: string;
   /** 새 장소 id. `places.id` 는 default 가 없어 우리가 정한다(보통 `crypto.randomUUID`). */
   newId: () => string;
@@ -118,8 +128,6 @@ export function leadProblem(lead: TCandidateRow): string | null {
   if (!regionUsable(extracted.regionRaw)) {
     return '지역을 골라 주세요 — "동쪽 (구좌읍)" 형식이 있어야 읍·면 칩과 방향 필터에 들어가요.';
   }
-  // 한 줄 버튼과 일괄 올리기가 둘 다 여기를 지난다 — 화면에서만 막으면 일괄 쪽으로 동명의 다른 가게가 게시된다.
-  if (addressUnresolved(extracted)) return '주소가 두 곳이에요 — 원글 주소와 검색 주소 중 맞는 쪽을 먼저 골라 주세요.';
   return null;
 }
 
@@ -250,6 +258,13 @@ export async function approveGroup(
   // ── 쓰기 전: 순수 검사 ────────────────────────────────────────────────────
   const problem = leadProblem(lead);
   if (problem) return { kind: 'blocked', reason: problem };
+
+  /*
+   * 주소 충돌은 **짝을 정하기 전에** 본다. 틀린 가게를 집었다면 그 주소로 계산한 짝·재대조도 믿을 수 없고,
+   * 합치기·최신본 덮기도 엉뚱한 주소를 기존 장소에 싣는다 — 갈래를 가리지 않고 같은 확인을 요구한다.
+   */
+  const conflict = addressConflictOf(lead.extracted);
+  if (conflict && !opts.addressConfirmed) return { kind: 'addressConflict', ...conflict };
 
   /*
    * 대조 corpus. `toMatchablePlace` 로 만드는 이유는 `status` 한 칸을 얹어야 하기 때문이다 —

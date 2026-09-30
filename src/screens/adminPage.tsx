@@ -482,6 +482,14 @@ export function AdminPage() {
           patchState(group.key, { busy: undefined, archived: outcome, similar: undefined });
           return;
         }
+        if (outcome.kind === 'addressConflict') {
+          /*
+           * 결정 줄은 주소를 고르기 전에 올리기를 그리지 않으므로 보통은 닿지 않는다 — 고른 뒤 다른 줄의 쓰기로 값이 바뀐 경우 등.
+           * 고르는 것은 저장되는 선택이다(`chooseAddress` → `addressChosen`) — 한 번 고르면 일괄 올리기도 다시 묻지 않는다.
+           */
+          patchState(group.key, { busy: undefined, error: '주소가 원글과 달라요 — 펼친 줄 아래에서 어느 주소가 맞는지 먼저 골라 주세요.' });
+          return;
+        }
         const what =
           outcome.kind === 'created'
             ? `올렸어요 · ${outcome.placeName}`
@@ -632,7 +640,7 @@ export function AdminPage() {
   /**
    * **고른 것 올리기 · 고른 것 덮어쓰기** — 한 줄 버튼과 같은 `approveGroup` 을 고른 묶음마다 차례로 부른다.
    *
-   * 사람이 골라야 하는 줄은 넘기지 않는다: `needsDecision`(닮은 곳)·`archivedTarget`(내린 곳)이 오면 **쓰기 전에** 멈춘 것이므로
+   * 사람이 골라야 하는 줄은 넘기지 않는다: `needsDecision`(닮은 곳)·`archivedTarget`(내린 곳)·`addressConflict`(주소 다름)가 오면 **쓰기 전에** 멈춘 것이므로
    * 그 줄에 패널을 세워 두고 다음으로 간다. `blocked`(지역 없음 등)와 예외는 그 줄에 이유를 적는다. 끝나면 된 것만 목록에서 빼고
    * `summarizeBulk` 한 줄로 말한다 — 기다리는 것과 실패를 따로 센다(할 일이 다르다).
    *
@@ -663,10 +671,17 @@ export function AdminPage() {
             } else if (outcome.kind === 'archivedTarget') {
               tally.waiting += 1;
               patchState(group.key, { archived: outcome, similar: undefined });
+            } else if (outcome.kind === 'addressConflict') {
+              // 일괄은 주소를 대신 고르지 않는다 — 줄을 펼치면 결정 줄이 두 주소를 나란히 보여 준다.
+              tally.waiting += 1;
+              patchState(group.key, { error: '일괄로는 올리지 않았어요 — 주소가 원글과 달라 이 줄에서 직접 골라 주세요.' });
             } else if (outcome.kind === 'blocked') {
               tally.failed += 1;
               patchState(group.key, { error: outcome.reason });
             } else {
+              // 결과 갈래가 늘면 이 줄에서 컴파일이 멈춘다 — 모르는 갈래를 '됐다' 로 세면 그 줄이 목록에서 조용히 사라진다.
+              const written: 'created' | 'merged' = outcome.kind;
+              void written;
               tally.done += 1;
               done.add(group.key);
             }
@@ -796,7 +811,11 @@ export function AdminPage() {
               : current,
           ),
         );
-        patchState(group.key, { busy: undefined, editDraft: undefined });
+        /*
+         * 고친 뒤에는 '골라 주세요' 패널을 **지운다.** 남은 패널(비슷한 곳·내린 곳)은 결정 줄에서 주소 고르기보다 먼저 그려져
+         * 새로 생긴 `주소 다름` 을 가린다 — 다시 누르면 새 값으로 다시 판단한다.
+         */
+        patchState(group.key, { busy: undefined, editDraft: undefined, similar: undefined, archived: undefined });
       } catch (error) {
         patchState(group.key, { busy: undefined, error: messageOf(error, '고친 내용을 저장하지 못했어요.') });
       } finally {

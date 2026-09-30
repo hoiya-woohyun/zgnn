@@ -5,7 +5,7 @@ import { Badge } from '../components/base/badges';
 import { Button } from '../components/base/button';
 import { Select } from '../components/base/select';
 import type { TAddressChoice } from '../lib/adminAddress';
-import { REGION_OPTIONS, type TCandidateGroup, type TRejectReason } from '../lib/adminCandidates';
+import { regionOptionsFor, type TCandidateGroup, type TRejectReason } from '../lib/adminCandidates';
 import type { TLatestPlan } from '../lib/adminLatest';
 import { lastNoteLine, noteLineText, PLACE_STATUS_COLOR, PLACE_STATUS_LABEL } from '../lib/adminPlaces';
 import type { TAdminPageGroupState, TApproveChoice } from './adminPageGroupCard';
@@ -101,6 +101,7 @@ export function AdminPageGroupActions({
   const matchedArchived = matched?.status === 'archived';
   const matchedDraft = matched?.status === 'draft';
   const similarArchived = state.similar?.status === 'archived';
+  const regionChoices = regionOptionsFor(group.lead.extracted.address);
 
   // 반려 폼은 이 줄 **자리에서** 열린다 — 누른 자리에서 이어서 고르고, 근거는 위에 그대로 남는다.
   if (state.rejecting) {
@@ -286,7 +287,13 @@ export function AdminPageGroupActions({
      */
     body = (
       <>
-        <Situation title="지역을 골라야 올릴 수 있어요" />
+        {/*
+          * 주소에 읍·면이 있으면 그 선택지를 맨 위로(`regionOptionsFor`) — 안덕면처럼 방향이 갈리는 곳이 대표라, 20여 개 목록에서
+          * `남쪽 (안덕면)`·`서쪽 (안덕면)` 을 찾게 두지 않는다. 어느 쪽인지는 여전히 사람이 정한다.
+          */}
+        <Situation title="지역을 골라야 올릴 수 있어요">
+          {regionChoices.town && <p>주소가 {regionChoices.town}이에요 — 맨 위의 {regionChoices.suggested.join(' · ')} 중에서 골라 주세요.</p>}
+        </Situation>
         <Row>
           <Select
             aria-label="지역 고르기"
@@ -297,7 +304,7 @@ export function AdminPageGroupActions({
             onSelectionChange={(key) => key && onPickRegion(String(key))}
             isDisabled={off}
           >
-            {REGION_OPTIONS.map((option) => (
+            {[...regionChoices.suggested, ...regionChoices.rest].map((option) => (
               <Select.Item key={option} id={option}>
                 {option}
               </Select.Item>

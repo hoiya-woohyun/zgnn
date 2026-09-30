@@ -11,6 +11,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { groupCandidates, groupFlags, previewPolicy } from '../../scripts/analyze/reviewCandidates.mjs';
+import { townOf } from '../../scripts/analyze/matchPlace.mjs';
 import { parseRegion } from '../../scripts/lib/placeFields.mjs';
 import { feeLinesOf } from '../../scripts/lib/petPolicyFacts.mjs';
 import { parsePetPolicy, toPetBadges, withPolicyFacts, type TPetBadge } from './petPolicy';
@@ -261,6 +262,22 @@ export const REGION_OPTIONS: string[] = [...regionByTown.values()]
       a.town.localeCompare(b.town, 'ko'),
   )
   .map((region) => region.raw);
+
+/**
+ * '지역 고르기' 의 선택지를 **주소의 읍·면으로 가른다** — 순수. 고르는 것은 여전히 사람이다.
+ *
+ * 자동으로 채우지 않는 이유: 이 셀렉트가 뜨는 후보는 분석이 지역을 못 정한 것이고, 그 대표가 안덕면처럼 기존 데이터에서
+ * **방향이 갈리는** 읍·면이다(`naverLocal.mjs` 의 `inferRegionRaw` 가 일부러 '' 를 준다 — 시로 뭉개지 않는다).
+ * 그런데 주소가 안덕면이라는 것까지 버리면 운영자는 20여 개 목록에서 `남쪽 (안덕면)` · `서쪽 (안덕면)` 을 찾아야 한다.
+ * 그래서 그 둘만 위로 올리고, 어느 쪽인지는 사람이 정한다. 주소에 읍·면이 없으면(시내·주소 없음) 목록 그대로다.
+ */
+export function regionOptionsFor(address: string | null | undefined): { town: string | null; suggested: string[]; rest: string[] } {
+  const town = townOf(address ?? '') as string | null;
+  if (!town) return { town: null, suggested: [], rest: REGION_OPTIONS };
+  const suggested = REGION_OPTIONS.filter((option) => option.includes(town));
+  if (!suggested.length) return { town: null, suggested: [], rest: REGION_OPTIONS };
+  return { town, suggested, rest: REGION_OPTIONS.filter((option) => !option.includes(town)) };
+}
 
 export const TYPE_LABEL: Record<TCandidateType, string> = {
   stay: '숙소',
