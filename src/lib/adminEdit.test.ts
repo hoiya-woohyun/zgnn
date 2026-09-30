@@ -7,7 +7,16 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { buildEdit, draftFromExtracted, editProblem, editSummary, identityChanged, type TCandidateEditDraft } from './adminEdit';
+import {
+  buildEdit,
+  draftFromExtracted,
+  editPreview,
+  editProblem,
+  editSummary,
+  identityChanged,
+  policyFactsFrom,
+  type TCandidateEditDraft,
+} from './adminEdit';
 import type { TCandidateExtracted, TCandidateRow, TPlaceRow } from './adminCandidates';
 
 const extracted = (over: Partial<TCandidateExtracted> = {}): TCandidateExtracted => ({
@@ -72,13 +81,26 @@ const draft = (over: Partial<TCandidateEditDraft> = {}): TCandidateEditDraft => 
 
 describe('draftFromExtracted — 폼은 전부 문자열이다', () => {
   it('null 은 빈 문자열로, 좌표는 두 칸으로 편다', () => {
-    expect(draftFromExtracted(extracted({ address: null, features: null, geo: null }))).toEqual({
+    expect(draftFromExtracted(extracted({ address: null, features: null, geo: null, petPolicyText: null, petPolicy: null }))).toEqual({
       name: '솔숲펜션',
       type: 'stay',
       address: '',
       lat: '',
       lng: '',
       features: '',
+      petPolicyText: '',
+      policy: {
+        indoor: 'unknown',
+        leash: false,
+        largeDogOk: 'unknown',
+        smallDogOnly: false,
+        callFirst: false,
+        feeFree: 'unknown',
+        feeText: '',
+        weightLimitKg: '',
+        maxDogs: '',
+        notes: '',
+      },
     });
   });
 
@@ -202,5 +224,94 @@ describe('editSummary', () => {
       'AI 요약',
     ]);
     expect(editSummary(before, before)).toEqual([]);
+  });
+});
+
+describe('policyFactsFrom — 빈 판단은 객체가 아니라 null 이다', () => {
+  const empty = draftFromExtracted(extracted({ petPolicy: null })).policy;
+
+  /**
+   * 빈 객체를 돌려주면 `aiAnalyzed` 가 '판단 있음' 으로 세어 초록 `분석 완료` 가 붙는데, 같은 카드의
+   * 펼친 상세는 `AI 가 읽은 동반 조건이 없어요` 라고 한다 — 한 카드가 자기를 반박한다.
+   */
+  it('아무것도 안 적으면 null', () => {
+    expect(policyFactsFrom(empty)).toBeNull();
+  });
+
+  it('하나라도 적으면 객체 — 삼항은 세 갈래를 지킨다', () => {
+    expect(policyFactsFrom({ ...empty, largeDogOk: 'no' })?.largeDogOk).toBe(false);
+    expect(policyFactsFrom({ ...empty, largeDogOk: 'yes' })?.largeDogOk).toBe(true);
+    // '언급 없음' 하나만으로는 판단이 생기지 않는다 — false 와 null 을 가르는 것이 이 폼의 요점이다.
+    expect(policyFactsFrom({ ...empty, largeDogOk: 'unknown' })).toBeNull();
+  });
+
+  it('숫자 칸은 빈 문자열이면 null', () => {
+    expect(policyFactsFrom({ ...empty, weightLimitKg: '' })).toBeNull();
+    expect(policyFactsFrom({ ...empty, weightLimitKg: '10' })?.weightLimitKg).toBe(10);
+  });
+});
+
+describe('editProblem — 숫자 칸', () => {
+  it.each([['0'], ['-3'], ['열']])('무게 상한이 %s 면 막는다 — 못 읽으면 조용히 제한 없음이 된다', (raw) => {
+    const d = draft();
+    expect(editProblem({ ...d, policy: { ...d.policy, weightLimitKg: raw } })).toMatch(/무게 상한/);
+  });
+
+  it('비워 두는 것은 괜찮다', () => {
+    const d = draft();
+    expect(editProblem({ ...d, policy: { ...d.policy, weightLimitKg: '', maxDogs: '' } })).toBeNull();
+  });
+});
+
+/**
+ * 이 폼의 요점 — **보정을 미리 돌려 보여 준다.** 사람이 넣은 값도 원문에 근거가 없으면 지워지는데
+ * (ADR-017 v2, 사이트가 그릴 때마다 다시 돈다), 미리 안 보여 주면 "고쳤는데 안 나간다" 가 조용히 일어난다.
+ */
+describe('editPreview — 고친 값이 실제로 사이트에 어떻게 나가나', () => {
+  const withPolicy = (over: Partial<TCandidateEditDraft['policy']>, petPolicyText: string): TCandidateEditDraft => {
+    const d = draft();
+    return { ...d, petPolicyText, policy: { ...d.policy, ...over } };
+  };
+
+  it('원문에 근거가 있으면 칩이 된다', () => {
+    const { cell, corrections } = editPreview(withPolicy({ weightLimitKg: '10' }, '10kg 이하만 가능해요'));
+    expect(cell.items.map((i) => i.label)).toContain('~10kg');
+    expect(corrections).toEqual([]);
+  });
+
+  /** 같은 값인데 원문만 다르다 — 그 차이가 그대로 화면에 보여야 한다. */
+  it('원문에 없으면 빠지고, 뺀 이유가 함께 온다', () => {
+    const { cell, corrections } = editPreview(withPolicy({ weightLimitKg: '10' }, '리드줄 착용 부탁드려요'));
+    expect(cell.items.map((i) => i.label)).not.toContain('~10kg');
+    expect(corrections.length).toBeGreaterThan(0);
+  });
+
+  it('원문이 비면 조건이 아니라 문장으로 말한다 — 반영기가 pet_policy 를 안 쓰는 상태다', () => {
+    const { cell } = editPreview(withPolicy({ leash: true }, '   '));
+    expect(cell.items).toEqual([]);
+    expect(cell.message).toBe('동반 조건 문장이 없어요');
+  });
+});
+
+describe('buildEdit — 동반 정보', () => {
+  it('원문이 비면 구조값도 비운다 — 화면만 "판단 있음" 으로 읽는 상태를 만들지 않는다', () => {
+    const d = draft();
+    const out = buildEdit(row(), { ...d, petPolicyText: '  ', policy: { ...d.policy, leash: true } }, [place()]);
+    expect(out.extracted.petPolicyText).toBeNull();
+    expect(out.extracted.petPolicy).toBeNull();
+  });
+
+  it('원문이 있으면 구조값이 함께 저장된다', () => {
+    const d = draft();
+    const out = buildEdit(row(), { ...d, petPolicyText: '대형견은 어려워요', policy: { ...d.policy, largeDogOk: 'no' } }, [place()]);
+    expect(out.extracted.petPolicyText).toBe('대형견은 어려워요');
+    expect(out.extracted.petPolicy?.largeDogOk).toBe(false);
+  });
+
+  it('동반 정보만 고치면 짝은 그대로 — 대조에 쓰이지 않는다', () => {
+    const d = draft();
+    const before = row({ match_place_id: 'p9', match_confidence: 0.9 });
+    const out = buildEdit(before, { ...d, petPolicyText: '리드줄 필수예요' }, [place()]);
+    expect(out.match_place_id).toBe('p9');
   });
 });

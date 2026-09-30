@@ -5,17 +5,21 @@
  * 고치는 것은 **승인 전 후보(`candidates.extracted`)뿐**이다. 이미 게시된 `places` 행은 건드리지 않는다 —
  * 그쪽은 되돌릴 길이 없고(트리거가 곧 재빌드를 부른다), 여기는 승인하기 전이라 실수의 값이 작다.
  *
- * ⚠️ **`petPolicy`(동반 정보 구조값)는 여기서 다루지 않는다.** 고칠 수 있게 하려면 `correctPetPolicyFacts`
- * (`scripts/lib/petPolicyFacts.mjs`)를 지나야 하는데, 그 함수는 **원문에 근거 단어가 없는 판단을 지운다** —
- * 사람이 넣은 값도 예외가 아니라, 고쳐도 사이트에는 안 나가는 일이 조용히 벌어진다(ADR-017 v2 "지어내지 않는다").
- * 게다가 조건 원문이 빈 후보는 `toNewPlaceRow`·`mergeIntoExisting` 이 `pet_policy` 를 아예 안 쓴다.
- * 그 둘을 어떻게 할지는 설계 결정이라 사용자에게 물어야 한다(→ docs/todo/06).
+ * **동반 정보는 구조값(`petPolicy`)과 조건 원문(`petPolicyText`)을 같이 고친다.** 둘을 갈라 놓을 수 없어서다 —
+ * `correctPetPolicyFacts`(ADR-017 v2 "지어내지 않는다")가 **원문에 근거 단어가 없는 판단을 지우고**, 그 보정은
+ * 분석 시점뿐 아니라 **사이트가 그릴 때마다**(`places.ts` 의 `withPolicyFacts`) 다시 돈다. 사람이 넣은 값도 예외가
+ * 아니다. 게다가 원문이 비면 `toNewPlaceRow`·`mergeIntoExisting` 이 `pet_policy` 를 아예 쓰지 않는다.
+ * 그래서 구조값만 고치게 두면 "고쳤는데 사이트에 안 나간다" 가 조용히 일어난다 — 원문을 같이 고칠 수 있어야
+ * 근거가 생긴다. 규칙 자체는 그대로 둔다(사람이 넣었다고 보정을 면제하지 않는다).
+ *
+ * 폼은 그래서 **보정을 미리 돌려 보여 준다**(`editPreview`) — 무엇이 칩이 되고 무엇이 원문에 없어 빠지는지.
  */
 
 import { matchPlace, normalizeName, THRESHOLD } from '../../scripts/analyze/matchPlace.mjs';
 import { toMatchablePlace } from '../../scripts/lib/placeFields.mjs';
-import { TYPE_LABEL, type TCandidateExtracted, type TCandidateRow, type TCandidateTier, type TCandidateType, type TPlaceRow } from './adminCandidates';
-import type { TPlace } from '../types';
+import { previewFor, TYPE_LABEL, type TCandidateExtracted, type TCandidateRow, type TCandidateTier, type TCandidateType, type TPlaceRow } from './adminCandidates';
+import { policyCell, type TPolicyCell } from './adminPreview';
+import type { TPetPolicyFacts, TPlace } from '../types';
 
 /** 사람이 고를 수 있는 종류. `other` 가 빠진 것은 의도다 — `toNewPlaceRow` 가 영구 오류로 막는다(applyApproved.mjs:99). */
 export const EDITABLE_TYPES: TCandidateType[] = ['stay', 'restaurant', 'cafe'];
@@ -31,6 +35,45 @@ export type TCandidateEditDraft = {
   lat: string;
   lng: string;
   features: string;
+  /** 블로그 본문에서 뽑은 조건 문장. 여기가 비면 구조값은 반영 단계에서 통째로 버려진다(ADR-017). */
+  petPolicyText: string;
+  policy: TPolicyDraft;
+};
+
+/**
+ * 구조값의 폼 모양. 삼항(`largeDogOk`·`feeFree`)은 `'yes' | 'no' | 'unknown'` 으로 든다 —
+ * 체크박스 하나로 두면 `false`("불가" 라고 읽었다)와 `null`("언급 없음")이 같은 칸이 되고,
+ * 그 둘은 판정이 정반대다(BUG-009 가 정확히 그 혼동이었다).
+ */
+export type TPolicyDraft = {
+  indoor: TPetPolicyFacts['indoor'];
+  leash: boolean;
+  largeDogOk: TTriState;
+  smallDogOnly: boolean;
+  callFirst: boolean;
+  feeFree: TTriState;
+  feeText: string;
+  weightLimitKg: string;
+  maxDogs: string;
+  notes: string;
+};
+
+export type TTriState = 'yes' | 'no' | 'unknown';
+
+const triFrom = (value: boolean | null | undefined): TTriState => (value === true ? 'yes' : value === false ? 'no' : 'unknown');
+const triTo = (value: TTriState): boolean | null => (value === 'yes' ? true : value === 'no' ? false : null);
+
+const EMPTY_POLICY: TPolicyDraft = {
+  indoor: 'unknown',
+  leash: false,
+  largeDogOk: 'unknown',
+  smallDogOnly: false,
+  callFirst: false,
+  feeFree: 'unknown',
+  feeText: '',
+  weightLimitKg: '',
+  maxDogs: '',
+  notes: '',
 };
 
 export function draftFromExtracted(extracted: TCandidateExtracted): TCandidateEditDraft {
@@ -41,8 +84,61 @@ export function draftFromExtracted(extracted: TCandidateExtracted): TCandidateEd
     lat: extracted.geo ? String(extracted.geo.lat) : '',
     lng: extracted.geo ? String(extracted.geo.lng) : '',
     features: extracted.features ?? '',
+    petPolicyText: extracted.petPolicyText ?? '',
+    policy: policyDraftFrom(extracted.petPolicy),
   };
 }
+
+export function policyDraftFrom(facts: TPetPolicyFacts | null | undefined): TPolicyDraft {
+  if (!facts) return { ...EMPTY_POLICY };
+  return {
+    indoor: facts.indoor ?? 'unknown',
+    leash: Boolean(facts.leash),
+    largeDogOk: triFrom(facts.largeDogOk),
+    smallDogOnly: Boolean(facts.smallDogOnly),
+    callFirst: Boolean(facts.callFirst),
+    feeFree: triFrom(facts.feeFree),
+    feeText: facts.feeText ?? '',
+    weightLimitKg: facts.weightLimitKg == null ? '' : String(facts.weightLimitKg),
+    maxDogs: facts.maxDogs == null ? '' : String(facts.maxDogs),
+    notes: facts.notes ?? '',
+  };
+}
+
+/** 폼 → `TPetPolicyFacts`. **아무것도 안 적혔으면 `null`** — 빈 판단 객체는 '판단 있음' 으로 세어져 뱃지를 거짓말하게 한다. */
+export function policyFactsFrom(draft: TPolicyDraft): TPetPolicyFacts | null {
+  const facts: TPetPolicyFacts = {
+    indoor: draft.indoor,
+    leash: draft.leash,
+    largeDogOk: triTo(draft.largeDogOk),
+    smallDogOnly: draft.smallDogOnly,
+    callFirst: draft.callFirst,
+    feeFree: triTo(draft.feeFree),
+    feeText: draft.feeText.trim() || null,
+    weightLimitKg: toNumber(draft.weightLimitKg),
+    maxDogs: toNumber(draft.maxDogs),
+    notes: draft.notes.trim() || null,
+  };
+  const empty =
+    facts.indoor === 'unknown' &&
+    !facts.leash &&
+    facts.largeDogOk === null &&
+    !facts.smallDogOnly &&
+    !facts.callFirst &&
+    facts.feeFree === null &&
+    facts.feeText === null &&
+    facts.weightLimitKg === null &&
+    facts.maxDogs === null &&
+    facts.notes === null;
+  return empty ? null : facts;
+}
+
+const toNumber = (raw: string): number | null => {
+  const text = raw.trim();
+  if (!text) return null;
+  const n = Number(text);
+  return Number.isFinite(n) ? n : null;
+};
 
 /**
  * 제주를 넉넉히 감싸는 사각형. **정확한 경계가 목적이 아니라 자리를 바꿔 넣은 실수를 잡는 것이 목적**이다 —
@@ -79,7 +175,32 @@ export function editProblem(draft: TCandidateEditDraft): string | null {
       return '제주 밖 좌표예요 — 위도와 경도가 바뀌지 않았는지 봐 주세요.';
     }
   }
+
+  /*
+   * 숫자 칸은 **비었거나 양수**다. `toNumber` 가 못 읽으면 `null` 을 돌려주므로 여기서 막지 않으면
+   * "10kg" 이라고 적은 것이 조용히 '제한 없음' 이 된다 — 없는 제한만큼이나 사라진 제한도 해롭다.
+   */
+  for (const [label, raw] of [['무게 상한', draft.policy.weightLimitKg], ['마릿수 상한', draft.policy.maxDogs]] as const) {
+    if (!raw.trim()) continue;
+    const n = Number(raw.trim());
+    if (!Number.isFinite(n) || n <= 0) return `${label}은 숫자로 적어 주세요(단위 없이).`;
+  }
   return null;
+}
+
+/**
+ * 고친 값이 **실제로 사이트에 어떻게 나가는지.** 폼이 이것을 옆에 띄우는 것이 이 기능의 핵심이다.
+ *
+ * `correctPetPolicyFacts`(ADR-017 v2)가 원문에 근거 없는 판단을 지우고 그 보정은 사이트가 그릴 때마다 다시 돈다 —
+ * 그래서 구조값만 고치면 "고쳤는데 안 나간다" 가 조용히 일어난다. 미리 돌려 보여 주면 그 침묵이 사라지고,
+ * 운영자는 조건 원문을 같이 고쳐 근거를 만들 수 있다(그러라고 원문 칸이 있다).
+ *
+ * `previewFor` 를 쓰는 이유: 표의 동반 정보 칸과 **같은 함수**여야 미리보기와 저장 뒤 화면이 어긋나지 않는다.
+ */
+export function editPreview(draft: TCandidateEditDraft): { cell: TPolicyCell; corrections: string[] } {
+  const petPolicyText = draft.petPolicyText.trim() || null;
+  const preview = previewFor({ petPolicyText, petPolicy: policyFactsFrom(draft.policy) } as TCandidateExtracted);
+  return { cell: policyCell(preview, petPolicyText), corrections: preview.corrections };
 }
 
 /** 짝짓기에 쓰이는 값이 바뀌었는가. 바뀌었으면 저장할 때 **짝을 다시 계산해야 한다**(아래 주석). */
@@ -137,6 +258,9 @@ export function buildEdit(row: TCandidateRow, draft: TCandidateEditDraft, places
     address,
     geo,
     features: draft.features.trim() || null,
+    petPolicyText: draft.petPolicyText.trim() || null,
+    /* 원문이 비면 구조값도 비운다 — 반영기가 어차피 안 쓰고(ADR-017), 남겨 두면 화면만 '판단 있음' 으로 읽는다. */
+    petPolicy: draft.petPolicyText.trim() ? policyFactsFrom(draft.policy) : null,
     nameKey: normalizeName(name),
     /*
      * 사람이 고쳤다는 표식. `meta`(어느 프롬프트로 뽑았나)를 지우지 않고 **옆에** 둔다 — 지우면 재분석 대상을
@@ -176,5 +300,8 @@ export function editSummary(draft: TCandidateEditDraft, before: TCandidateEditDr
   if (before.address.trim() !== draft.address.trim()) changed.push('주소');
   if (before.lat.trim() !== draft.lat.trim() || before.lng.trim() !== draft.lng.trim()) changed.push('좌표');
   if (before.features.trim() !== draft.features.trim()) changed.push('AI 요약');
+  if (before.petPolicyText.trim() !== draft.petPolicyText.trim()) changed.push('조건 원문');
+  // 구조값은 칸이 열이라 무엇이 바뀌었는지 일일이 세지 않는다 — 결과는 옆의 미리보기가 보여 준다.
+  if (JSON.stringify(policyFactsFrom(before.policy)) !== JSON.stringify(policyFactsFrom(draft.policy))) changed.push('동반 정보');
   return changed;
 }
