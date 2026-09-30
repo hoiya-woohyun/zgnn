@@ -7,8 +7,9 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { adminFlagView, policyCell, policyLine } from './adminPreview';
+import { adminFlagView, policyCell, policyLine, policySplit } from './adminPreview';
 import type { TPolicyPreview } from './adminCandidates';
+import type { TPetBadge } from './petPolicy';
 
 /**
  * `mergedBadges`(라벨)와 `mergedBadgeList`(라벨+톤)는 실제로는 `toPetBadges` 한 번에서 함께 나온다
@@ -25,7 +26,7 @@ const preview = (over: Partial<TPolicyPreview> = {}): TPolicyPreview => {
     level: '조건',
     ...over,
     mergedBadges,
-    mergedBadgeList: over.mergedBadgeList ?? mergedBadges.map((label) => ({ label, tone: 'cond' as const })),
+    mergedBadgeList: over.mergedBadgeList ?? mergedBadges.map((label) => ({ label, tone: 'cond' as const, axis: 'indoor' as const })),
   };
 };
 
@@ -139,8 +140,8 @@ describe('policyCell — 네 갈래', () => {
    */
   it('낱개는 톤까지 들고 온다 — 화면이 라벨로 톤을 되찾지 않게', () => {
     const list = [
-      { label: '동반 불가', tone: 'warn' as const },
-      { label: '리드줄', tone: 'cond' as const },
+      { label: '동반 불가', tone: 'warn' as const, axis: 'notAllowed' as const },
+      { label: '리드줄', tone: 'cond' as const, axis: 'gear' as const },
     ];
     expect(policyCell(preview({ mergedBadges: list.map((b) => b.label), mergedBadgeList: list }), '안 돼요').items).toEqual(
       list,
@@ -162,5 +163,52 @@ describe('policyLine — 한 줄이 필요한 자리(펼친 상세)', () => {
 
   it('읽어낸 것이 없으면 문장을 그대로 — 빈 문자열로 새지 않는다', () => {
     expect(policyLine(preview(), null)).toBe('동반 조건 문장이 없어요');
+  });
+});
+
+/**
+ * 표가 한 칸에서 세 칸으로 갈렸다(2026-09-30). 여기서 지키는 것은 **전수성**이다 — 축이 하나 더 생기면
+ * 그 배지는 어느 칸에도 안 서고 화면에서 조용히 사라질 수 있다. `condition` 이 "요금·장비가 아닌 전부" 로
+ * 정의돼 있어 그런 일은 없어야 하고, 이 테스트가 그 정의를 붙잡는다.
+ */
+describe('policySplit — 세 칸으로 가르기', () => {
+  const list = [
+    { label: '동반 불가', tone: 'warn' as const, axis: 'notAllowed' as const },
+    { label: '야외만', tone: 'cond' as const, axis: 'indoor' as const },
+    { label: '1마리당 3만원', tone: 'cond' as const, axis: 'fee' as const },
+    { label: '청소비 5만원', tone: 'cond' as const, axis: 'fee' as const },
+    { label: '~10kg', tone: 'cond' as const, axis: 'limit' as const },
+    { label: '케이지 필요', tone: 'cond' as const, axis: 'gear' as const },
+    { label: '리드줄', tone: 'cond' as const, axis: 'gear' as const },
+  ];
+  const split = () => policySplit(preview({ mergedBadges: list.map((b) => b.label), mergedBadgeList: list }), '조건 원문');
+
+  it('요금은 요금 칸에, 장비는 장비 칸에, 나머지는 동반 조건 칸에', () => {
+    const cell = split();
+    expect(cell.condition.map((b) => b.label)).toEqual(['동반 불가', '야외만', '~10kg']);
+    expect(cell.fee.map((b) => b.label)).toEqual(['1마리당 3만원', '청소비 5만원']);
+    expect(cell.gear.map((b) => b.label)).toEqual(['케이지 필요', '리드줄']);
+  });
+
+  it('배지를 하나도 잃지 않는다 — 세 칸의 합이 곧 사이트가 보여 줄 전부다', () => {
+    const cell = split();
+    // 칸으로 모이니 순서는 달라진다(칸 **안**의 순서만 사이트와 같다) — 여기서 보는 것은 "빠진 것이 없나" 다.
+    const labels = (badges: TPetBadge[]) => badges.map((b) => b.label).sort();
+    expect(labels([...cell.condition, ...cell.fee, ...cell.gear])).toEqual(labels(list));
+  });
+
+  /** 요금만 읽은 후보는 **동반 조건 칸이 빈 칸**이다. 여기에 '못 읽었어요' 가 뜨면 옆 칸의 요금과 서로를 반박한다. */
+  it('요금만 있으면 동반 조건 칸은 비고, 못 읽었다는 말은 안 한다', () => {
+    const only = [{ label: '1마리당 3만원', tone: 'cond' as const, axis: 'fee' as const }];
+    const cell = policySplit(preview({ mergedBadges: ['1마리당 3만원'], mergedBadgeList: only }), '1마리당 3만원');
+    expect(cell.condition).toEqual([]);
+    expect(cell.message).toBeNull();
+  });
+
+  /** 반대로 정말 아무것도 못 읽었으면 그 문장은 **동반 조건 칸에만** 뜬다 — 세 칸이 같은 말을 세 번 하지 않게. */
+  it('못 읽은 후보의 문장은 한 칸에만 실린다', () => {
+    const cell = policySplit(preview({ mergedBadges: [], mergedBadgeList: [], facts: null }), '애견동반 가능해요!');
+    expect(cell.message).toBe('동반 조건을 못 읽었어요');
+    expect([cell.condition, cell.fee, cell.gear]).toEqual([[], [], []]);
   });
 });

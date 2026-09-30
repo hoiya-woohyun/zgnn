@@ -12,6 +12,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { groupCandidates, groupFlags, previewPolicy } from '../../scripts/analyze/reviewCandidates.mjs';
 import { parseRegion } from '../../scripts/lib/placeFields.mjs';
+import { feeLinesOf } from '../../scripts/lib/petPolicyFacts.mjs';
 import { parsePetPolicy, toPetBadges, withPolicyFacts, type TPetBadge } from './petPolicy';
 import { PLACES } from './places';
 import type { TDirection, TPetPolicyFacts, TRegion } from '../types';
@@ -306,7 +307,8 @@ export function factsLine(facts: TPetPolicyFacts | null): string | null {
   if (facts.weightLimitKg != null) parts.push(`~${facts.weightLimitKg}kg`);
   if (facts.maxDogs != null) parts.push(`최대 ${facts.maxDogs}마리`);
   if (facts.feeFree === true) parts.push('추가요금 없음');
-  if (facts.feeText) parts.push(facts.feeText);
+  // 요금은 줄마다 하나 — 첫 줄만 넣으면 구간 요금표의 나머지가 이 줄에서도 사라진다(`feeLinesOf`).
+  parts.push(...feeLinesOf(facts));
   if (facts.callFirst) parts.push('전화 확인');
   if (facts.notes) parts.push(facts.notes);
   return parts.length ? parts.join(' · ') : FACTS_EMPTY;

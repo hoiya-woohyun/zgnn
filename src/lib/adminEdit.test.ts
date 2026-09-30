@@ -96,7 +96,7 @@ describe('draftFromExtracted — 폼은 전부 문자열이다', () => {
         smallDogOnly: false,
         callFirst: false,
         feeFree: 'unknown',
-        feeText: '',
+        feeLines: '',
         weightLimitKg: '',
         maxDogs: '',
         notes: '',

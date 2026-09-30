@@ -34,7 +34,17 @@ export type TPetPolicyFacts = {
   smallDogOnly: boolean;
   callFirst: boolean;
   feeFree: boolean | null;
-  feeText: string | null;
+  /**
+   * 요금 기준마다 한 줄(원문 표기). **한 문장으로 접을 수 없다** — 시드 18줄의 실측만으로도 기준이 넷이다:
+   * 마리당("1마리당 3만원") · 무게 구간("1~5kg 1만원" + "6~10kg 1.5만원") · 정액 부대비("청소비 5만원") ·
+   * 조건부("2마리 또는 10kg 이상 4만원"). `feeText` 한 칸이던 동안 구간 요금표의 **둘째 줄이 조용히 사라졌다**.
+   */
+  feeLines?: string[];
+  /**
+   * 옛 모양(요금 문장 하나). 2026-09-30 이전에 분석된 후보·장소에만 있다 — 읽는 쪽은 `feeLinesOf`
+   * (`scripts/lib/petPolicyFacts.mjs`)로 `feeLines` 와 합쳐 본다. 새로 쓰는 값에는 넣지 않는다.
+   */
+  feeText?: string | null;
   weightLimitKg: number | null;
   maxDogs: number | null;
   notes: string | null;

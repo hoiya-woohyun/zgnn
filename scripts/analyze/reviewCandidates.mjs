@@ -4,7 +4,7 @@
 //  (1) 같은 가게를 묶어야 하고(첫 분석에서 같은 펜션이 13건), (2) 앱이 그 문장을 어떻게 읽을지 — 정규식(parsePetPolicy)과 AI 판단(petPolicy),
 //  그리고 앱이 실제로 쓰는 병합 결과(withPolicyFacts) — 를 미리 봐야 하고, (3) 무엇이 비었는지(지역·좌표·조건문) 표식으로 보여야 한다.
 // 본문 인용(evidence)·원문은 --verbose 뒤에서만 찍는다(docs/todo/05 의 로그 위생 — 기본 출력은 이름·종류·구간·표식·구조화 결과만).
-import { correctPetPolicyFacts } from '../lib/petPolicyFacts.mjs';
+import { correctPetPolicyFacts, feeLinesOf } from '../lib/petPolicyFacts.mjs';
 import { normalizeName } from './matchPlace.mjs';
 
 const TIER_ORDER = { auto: 0, ask: 1, new: 2 };
@@ -120,7 +120,8 @@ const factsLine = (facts) => {
   if (facts.weightLimitKg != null) parts.push(`~${facts.weightLimitKg}kg`);
   if (facts.maxDogs != null) parts.push(`최대 ${facts.maxDogs}마리`);
   if (facts.feeFree === true) parts.push('추가요금 없음');
-  if (facts.feeText) parts.push(facts.feeText);
+  // 요금은 줄마다 하나 — 첫 줄만 찍으면 구간 요금표("1~5kg 1만원" + "6~10kg 1.5만원")의 둘째 줄이 터미널에서도 사라진다.
+  parts.push(...feeLinesOf(facts));
   if (facts.callFirst) parts.push('전화 확인');
   if (facts.notes) parts.push(facts.notes);
   return parts.length ? parts.join(' · ') : '(판단 없음)';

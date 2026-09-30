@@ -136,3 +136,35 @@ export function policyLine(preview: TPolicyPreview, petPolicyText: string | null
   const cell = policyCell(preview, petPolicyText);
   return cell.items.length ? cell.items.map((item) => item.label).join(' · ') : (cell.message ?? '');
 }
+
+/**
+ * 같은 배지 목록을 표의 **세 칸**으로 가른다(2026-09-30). 한 칸이던 동안 `야외만 · 1마리당 3만원 · ~10kg · 리드줄` 이
+ * 한 줄에 서서, 운영자가 찾는 두 가지(얼마 드나 · 무엇을 챙기나)를 나머지 조건에서 눈으로 골라내야 했다.
+ *
+ * **가르는 것은 라벨이 아니라 축(`badge.axis`)이다** — 요금 배지의 라벨은 원문 문장 그 자체라 문자열로는 못 가른다.
+ * 새 배지가 `toPetBadges` 에 생기면 축을 달아야 하고(타입이 강제한다), 축이 요금·장비가 아니면 자동으로 `condition` 에 선다.
+ *
+ * `message`(못 읽었다는 한 문장)는 **동반 조건 칸에만** 둔다. 세 칸에 같이 두면 한 줄이 같은 말을 세 번 한다.
+ * 그 문장의 조건은 여기서 다시 정하지 않는다 — `policyCell` 의 판단(전체 배지 수 기준)을 그대로 받는다.
+ * 그래서 요금 배지만 있는 후보는 동반 조건 칸이 **빈 칸**이 된다(못 읽은 것이 아니므로 문장도 안 뜬다).
+ */
+export type TPolicySplit = {
+  /** 요금·장비를 뺀 나머지 — 동반 불가 · 실내 · 크기 · 무게 · 마릿수 · 확인 필요. */
+  condition: TPetBadge[];
+  fee: TPetBadge[];
+  /** 챙겨 갈 것 — 케이지(이동가방·유모차) · 리드줄. */
+  gear: TPetBadge[];
+  /** 동반 조건 칸에만 뜨는 한 문장. 읽어낸 것이 하나라도 있으면 null. */
+  message: string | null;
+};
+
+export function policySplit(preview: TPolicyPreview, petPolicyText: string | null | undefined): TPolicySplit {
+  const cell = policyCell(preview, petPolicyText);
+  const axis = (want: TPetBadge['axis']) => cell.items.filter((item) => item.axis === want);
+  return {
+    condition: cell.items.filter((item) => item.axis !== 'fee' && item.axis !== 'gear'),
+    fee: axis('fee'),
+    gear: axis('gear'),
+    message: cell.message,
+  };
+}

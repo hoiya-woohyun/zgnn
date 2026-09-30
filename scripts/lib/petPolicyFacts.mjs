@@ -44,6 +44,21 @@ const feeTextGrounded = (text, feeText) => {
   return nums.some((n) => bare.includes(n.replace(/,/g, '')));
 };
 
+/**
+ * 요금 줄 목록 — **새 모양(`feeLines`)과 옛 모양(`feeText`)을 한 배열로** 합친다. 읽는 쪽은 전부 이 함수를 거친다.
+ *
+ * 둘을 다 봐야 하는 이유: 2026-09-30 전에 분석된 후보·장소는 `feeText` 하나만 들고 있고, 그것들이 DB 에 그대로 있다
+ * (`correctPetPolicyFacts` 를 앱에서도 다시 부르는 것과 같은 이유). 한쪽만 보면 그날을 기준으로 요금이 갈려 보인다.
+ * 중복은 턴다 — 배지의 key 가 라벨이고, 같은 문장이 두 줄이면 React 가 키 충돌을 낸다.
+ *
+ * @param {{ feeLines?: string[] | null, feeText?: string | null } | null | undefined} facts
+ * @returns {string[]}
+ */
+export function feeLinesOf(facts) {
+  const raw = [...(Array.isArray(facts?.feeLines) ? facts.feeLines : []), facts?.feeText ?? ''];
+  return [...new Set(raw.map((line) => String(line ?? '').trim()).filter(Boolean))];
+}
+
 /** 요금 문장이 실제 금액을 말하는가("1마리당 2만원"). '추가 요금 없음' 과 한 판단에 같이 있으면 모순이다. */
 const FEE_AMOUNT = /\d[\d,.]*\s*만?\s*원/;
 
@@ -98,8 +113,16 @@ export function correctPetPolicyFacts(facts, petPolicyText) {
     drop('전화 확인의 근거가 원문에 없어 뺐어요');
     next.callFirst = false;
   }
-  if (next.feeText && !feeTextGrounded(text, next.feeText)) {
-    drop(`요금 문장 "${next.feeText}" 이 원문에 없어 뺐어요`);
+  /*
+   * 요금은 **줄마다 따로** 대 본다. 한 덩어리로 보면 근거 있는 줄 하나가 지어낸 줄들을 통째로 통과시키고,
+   * 반대로 지어낸 줄 하나가 옳은 구간표를 통째로 지운다. 새 모양(`feeLines`)으로 되돌려 쓰고 옛 칸(`feeText`)은
+   * 비운다 — 남겨 두면 `feeLinesOf` 가 뺀 줄을 다시 주워 와 이 보정이 무력해진다(두 번 불러도 결과가 같아야 한다).
+   */
+  const feeLines = feeLinesOf(next);
+  if (feeLines.length) {
+    const grounded = feeLines.filter((line) => feeTextGrounded(text, line));
+    for (const line of feeLines) if (!grounded.includes(line)) drop(`요금 문장 "${line}" 이 원문에 없어 뺐어요`);
+    next.feeLines = grounded;
     next.feeText = null;
   }
   if (next.feeFree === true && !GROUNDS.feeFree.test(text)) {
@@ -112,7 +135,8 @@ export function correctPetPolicyFacts(facts, petPolicyText) {
     drop('소형견만인데 대형견 가능이라 해서 대형견 가능을 뺐어요');
     next.largeDogOk = null;
   }
-  if (next.feeFree === true && next.feeText && FEE_AMOUNT.test(next.feeText)) {
+  // 줄이 여러 개면 **하나라도** 금액을 말하면 모순이다 — 첫 줄만 보면 "첫째 줄은 무료, 둘째 줄부터 2만원" 을 놓친다.
+  if (next.feeFree === true && feeLinesOf(next).some((line) => FEE_AMOUNT.test(line))) {
     drop('요금 문장이 있는데 추가 요금 없음이라 해서 추가 요금 없음을 뺐어요');
     next.feeFree = null;
   }

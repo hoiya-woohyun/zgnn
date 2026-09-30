@@ -234,8 +234,26 @@ export function AdminPageEditForm({
           <div className="grid gap-2 pt-1 md:grid-cols-2">
             <Input label="무게 상한(kg)" size="sm" value={draft.policy.weightLimitKg} isDisabled={busy} onChange={(weightLimitKg) => setPolicy({ weightLimitKg })} />
             <Input label="마릿수 상한" size="sm" value={draft.policy.maxDogs} isDisabled={busy} onChange={(maxDogs) => setPolicy({ maxDogs })} />
-            <Input label="요금 문장" size="sm" value={draft.policy.feeText} isDisabled={busy} onChange={(feeText) => setPolicy({ feeText })} />
             <Input label="그 밖의 조건" size="sm" value={draft.policy.notes} isDisabled={busy} onChange={(notes) => setPolicy({ notes })} />
+          </div>
+          {/*
+            * 요금은 **여러 줄**이다(2026-09-30). 한 줄 `Input` 이던 동안 기준이 둘 이상인 곳
+            * ("1~5kg 1만원" + "6~10kg 1.5만원")을 한 칸에 적을 수밖에 없었고, 그러면 사이트에도 한 칸으로 나갔다.
+            * `AI 요약` 과 같은 이유로 여기서 `<textarea>` 를 직접 쓴다 — `components/base` 는 Untitled UI 복사본이라
+            * TextArea 를 새로 넣지 않는다(CLAUDE.md).
+            */}
+          <div className="pt-1">
+            <label className="block text-xs text-tertiary" htmlFor="admin-edit-fee-lines">
+              강아지 요금 — 기준마다 한 줄 (예: 1마리당 3만원 / 청소비 5만원)
+            </label>
+            <textarea
+              id="admin-edit-fee-lines"
+              rows={2}
+              value={draft.policy.feeLines}
+              disabled={busy}
+              onChange={(event) => setPolicy({ feeLines: event.target.value })}
+              className="mt-1 block w-full rounded-lg border border-primary bg-primary px-3 py-2 text-sm text-primary shadow-xs outline-focus-ring disabled:cursor-not-allowed disabled:bg-disabled_subtle"
+            />
           </div>
         </div>
 

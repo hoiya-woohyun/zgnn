@@ -10,7 +10,7 @@
  * 그대로 함께 보여준다. 파서가 놓친 조건이 있어도 사용자가 원문에서 확인할 수 있어야 한다.
  */
 
-import { correctPetPolicyFacts } from '../../scripts/lib/petPolicyFacts.mjs';
+import { correctPetPolicyFacts, feeLinesOf } from '../../scripts/lib/petPolicyFacts.mjs';
 import type { TPetPolicyFacts } from '../types';
 
 export type TIndoorPolicy =
@@ -336,7 +336,8 @@ export const parsePetPolicy = (petPolicyText: string): TPetPolicy => {
   if (flags.largeDogOk) flags.mediumDogOk = true;
 
   const tiers = extractTiers(text);
-  const feeLines = [...text.matchAll(FEE_TEXT_RULE)].map((m) => m[0].trim());
+  // 중복을 턴다 — 같은 요금 문장이 두 번 적힌 원문이 있고, 배지의 key 가 라벨이라 React 키 충돌이 난다.
+  const feeLines = [...new Set([...text.matchAll(FEE_TEXT_RULE)].map((m) => m[0].trim()))];
   const outdoorFree = indoor === 'outdoorOnly' || matchesAny(text, OUTDOOR_FREE_PATTERNS);
   const unlimitedDogs = matchesAny(text, UNLIMITED_DOGS_PATTERNS);
 
@@ -417,9 +418,16 @@ export const withPolicyFacts = (parsed: TPetPolicy, facts: TPetPolicyFacts | nul
     next.feeFree = corrected.feeFree;
     next.feeCharged = corrected.feeFree === false;
   }
-  if (corrected.feeText) {
-    next.feeText = corrected.feeText;
-    if (!next.feeLines.includes(corrected.feeText)) next.feeLines = [corrected.feeText, ...next.feeLines];
+  /*
+   * AI 가 요금을 하나라도 읽었으면 그 목록이 **정규식 줄을 덮는다**(다른 필드와 같은 원칙). 뒤에 남기지 않는다 —
+   * 정규식은 '원' 이 든 문장을 통째로 집으므로("1마리당 2만원 추가, 청소비 5만원") AI 가 기준별로 가른 두 줄과
+   * 나란히 서면 같은 요금이 세 번 보이고, 그 뭉친 줄이 `dogFee.ts` 의 구간 맞추기를 **포기하게** 만든다
+   * (`hasUnusedCondition` — 마리·kg 이 든 안 쓰인 줄이 있으면 요금 문구를 아예 안 낸다). 원문은 상세에 그대로 있다.
+   */
+  const factFees = feeLinesOf(corrected);
+  if (factFees.length) {
+    next.feeLines = factFees;
+    next.feeText = factFees[0];
   }
   if (corrected.weightLimitKg !== null) next.weightLimitKg = corrected.weightLimitKg;
   if (corrected.maxDogs !== null) next.maxDogs = corrected.maxDogs;
@@ -438,7 +446,7 @@ export const withPolicyFacts = (parsed: TPetPolicy, facts: TPetPolicyFacts | nul
   // notes 만 있는 원문은 사용자가 원문을 읽어야 한다(unread 가 그 말을 한다).
   const anyFact =
     corrected.indoor !== 'unknown' || corrected.leash || corrected.largeDogOk !== null || corrected.smallDogOnly ||
-    corrected.callFirst || corrected.feeFree !== null || corrected.feeText !== null || corrected.weightLimitKg !== null ||
+    corrected.callFirst || corrected.feeFree !== null || factFees.length > 0 || corrected.weightLimitKg !== null ||
     corrected.maxDogs !== null;
   if (anyFact) {
     next.noInfo = false;
@@ -453,9 +461,21 @@ export const withPolicyFacts = (parsed: TPetPolicy, facts: TPetPolicyFacts | nul
 
 export type TBadgeTone = 'ok' | 'cond' | 'warn';
 
+/**
+ * 배지가 말하는 **축**. 사이트는 안 쓴다(한 줄에 전부 세운다) — `/admin` 검수 표가 배지를 열로 가르는 데 쓴다.
+ *
+ * **라벨로 가를 수 없어서 값에 싣는다.** 요금 배지의 라벨은 원문 문장 그 자체이고(`1마리당 2만원`), 그것을
+ * 문자열로 알아내려는 시도는 반드시 실패한다 — 옛 `FLAG_COLOR` 가 같은 이유로 영구히 회색이었다(`adminPreview.ts` 머리 주석).
+ *
+ * `'gear'`(챙겨 갈 것)는 **값으로 갈린다** — `indoor: 'cage'`("케이지 필요")는 실내 판단에서 나오지만 운영자가 그 칸에서
+ * 찾는 것은 "무엇을 들고 가야 하나" 다. `free`·`outdoorOnly` 는 챙길 것이 없으므로 `'indoor'` 로 남는다.
+ */
+export type TBadgeAxis = 'notAllowed' | 'indoor' | 'fee' | 'gear' | 'size' | 'limit' | 'status';
+
 export type TPetBadge = {
   label: string;
   tone: TBadgeTone;
+  axis: TBadgeAxis;
 };
 
 /** 원문이 "정보 없음" 인 곳의 배지. 판정 배지("정보가 없어요")와 같은 줄에 서면 같은 말이라 `PetBadges` 가 이 라벨로 걸러낸다. */
@@ -465,9 +485,10 @@ export const NO_INFO_BADGE_LABEL = '확인된 정보 없음';
 export const UNREAD_BADGE_LABEL = '원문 확인 필요';
 
 const INDOOR_BADGE: Record<TIndoorPolicy, TPetBadge | null> = {
-  free: { label: '실내 OK', tone: 'ok' },
-  cage: { label: '케이지 필요', tone: 'cond' },
-  outdoorOnly: { label: '야외만', tone: 'cond' },
+  free: { label: '실내 OK', tone: 'ok', axis: 'indoor' },
+  // 이 하나만 축이 'gear' 다 — 실내 판단에서 나오지만 사람이 할 일은 "케이지·이동가방·유모차를 챙긴다" 다(`TBadgeAxis`).
+  cage: { label: '케이지 필요', tone: 'cond', axis: 'gear' },
+  outdoorOnly: { label: '야외만', tone: 'cond', axis: 'indoor' },
   // 숙소 원문에는 실내 언급이 거의 없다. 없는 정보를 배지로 만들지 않는다.
   unknown: null,
 };
@@ -480,38 +501,44 @@ export const toPetBadges = (policy: TPetPolicy): TPetBadge[] => {
   const badges: TPetBadge[] = [];
 
   // 동반 자체가 안 되는 곳은 다른 배지가 의미 없다 — 맨 앞에 하나.
-  if (policy.notAllowed) badges.push({ label: '동반 불가', tone: 'warn' });
+  if (policy.notAllowed) badges.push({ label: '동반 불가', tone: 'warn', axis: 'notAllowed' });
 
   const indoorBadge = INDOOR_BADGE[policy.indoor];
   if (indoorBadge) badges.push(indoorBadge);
 
-  if (policy.feeFree) badges.push({ label: '추가요금 없음', tone: 'ok' });
-  // 요금이 무료가 아니면 원문에서 뽑은 요금 문장을 그대로 배지로 쓴다.
-  // 숙소 중에는 이것 말고 배지로 만들 조건이 아예 없는 곳이 있어서, 없으면 카드가 텅 빈다.
-  else if (policy.feeText) badges.push({ label: policy.feeText, tone: 'cond' });
+  if (policy.feeFree) badges.push({ label: '추가요금 없음', tone: 'ok', axis: 'fee' });
+  /*
+   * 요금이 무료가 아니면 원문에서 뽑은 요금 문장을 그대로 배지로 쓴다 — **한 줄이 아니라 전부**(2026-09-30).
+   * `feeText`(= `feeLines[0]`) 하나만 쓰던 동안 구간 요금표의 둘째 줄이 화면 어디에도 안 나왔다:
+   * "1~5kg 1만원 / 6~10kg 1.5만원" 인 곳이 `1~5kg 1만원` 만 말해, 6kg 강아지 보호자가 요금을 못 본다.
+   * 숙소 중에는 이것 말고 배지로 만들 조건이 아예 없는 곳이 있어서, 없으면 카드가 텅 빈다.
+   */
+  else if (policy.feeLines.length) {
+    for (const line of policy.feeLines) badges.push({ label: line, tone: 'cond', axis: 'fee' });
+  }
   // AI 가 '요금이 있다' 고만 읽고 금액 문장은 못 뽑은 경우 — 없으면 그 판단이 화면 어디에도 안 보인다(todo/06 A-2).
-  else if (policy.feeCharged) badges.push({ label: '추가요금 있음', tone: 'cond' });
+  else if (policy.feeCharged) badges.push({ label: '추가요금 있음', tone: 'cond', axis: 'fee' });
   // 크기 조건은 하나만 보여준다. 큰 쪽이 되면 작은 쪽은 말할 필요가 없고,
   // '소형견만' 은 숫자 상한이 없는 숙소의 유일한 크기 단서라 맨 뒤에 둔다.
   // '대형견 불가' 가 크기 줄의 맨 앞이다 — 판정 H7 이 이것으로 어려움을 내므로, 배지가 없으면 목록에서 이유가 안 보인다.
-  if (policy.largeDogNo) badges.push({ label: '대형견 불가', tone: 'warn' });
-  else if (policy.largeDogOk) badges.push({ label: '대형견 OK', tone: 'ok' });
-  else if (policy.mediumDogOk) badges.push({ label: '중형견 OK', tone: 'ok' });
-  else if (policy.smallDogOnly) badges.push({ label: '소형견만', tone: 'cond' });
+  if (policy.largeDogNo) badges.push({ label: '대형견 불가', tone: 'warn', axis: 'size' });
+  else if (policy.largeDogOk) badges.push({ label: '대형견 OK', tone: 'ok', axis: 'size' });
+  else if (policy.mediumDogOk) badges.push({ label: '중형견 OK', tone: 'ok', axis: 'size' });
+  else if (policy.smallDogOnly) badges.push({ label: '소형견만', tone: 'cond', axis: 'size' });
 
   if (policy.weightLimitKg !== undefined) {
-    badges.push({ label: `~${policy.weightLimitKg}kg`, tone: 'cond' });
+    badges.push({ label: `~${policy.weightLimitKg}kg`, tone: 'cond', axis: 'limit' });
   }
   if (policy.maxDogs !== undefined) {
-    badges.push({ label: `최대 ${policy.maxDogs}마리`, tone: 'cond' });
+    badges.push({ label: `최대 ${policy.maxDogs}마리`, tone: 'cond', axis: 'limit' });
   }
-  if (policy.leash) badges.push({ label: '리드줄', tone: 'cond' });
+  if (policy.leash) badges.push({ label: '리드줄', tone: 'cond', axis: 'gear' });
 
   // '정보 없음. (문의해보시면 가장 정확할 것 같아요)' 는 두 규칙에 다 걸린다.
   // 같은 말을 두 번 하지 않도록 '정보 없음' 이 있으면 '전화 확인' 은 생략한다.
-  if (policy.noInfo) badges.push({ label: NO_INFO_BADGE_LABEL, tone: 'warn' });
-  else if (policy.unread) badges.push({ label: UNREAD_BADGE_LABEL, tone: 'warn' });
-  else if (policy.callFirst) badges.push({ label: '전화 확인', tone: 'warn' });
+  if (policy.noInfo) badges.push({ label: NO_INFO_BADGE_LABEL, tone: 'warn', axis: 'status' });
+  else if (policy.unread) badges.push({ label: UNREAD_BADGE_LABEL, tone: 'warn', axis: 'status' });
+  else if (policy.callFirst) badges.push({ label: '전화 확인', tone: 'warn', axis: 'status' });
 
   return badges;
 };
