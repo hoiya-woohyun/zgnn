@@ -2,8 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { ChecklistPageItemRow } from './checklistPageItemRow';
-import { CollapsingTitleBar } from '../components/layout/collapsingTitleBar';
-import { PageHeader } from '../components/layout/pageHeader';
+import { StickyMorphTitle } from '../components/layout/stickyMorphTitle';
 import { SeasonChips } from '../components/seasonChips';
 import { META } from '../lib/places';
 import { checklistView } from '../lib/checklist';
@@ -55,19 +54,15 @@ export function ChecklistPage() {
 
   return (
     <div>
-      {/* 제목·계절·진행률이 한 덩어리라 통째로 감싼다 — 이 덩어리가 화면 밖으로 나가는
-          순간이 축약 줄이 대신 나서는 지점이다. 준비물은 목록이 길어 아래에서 "몇 개
-          남았더라" 를 확인하려면 맨 위까지 되올라가야 했다. */}
-      <CollapsingTitleBar
-        title="여행 준비물"
-        trailing={`${view.ready}/${view.total} 준비됨`}
-        percent={percent}
-      >
-        <PageHeader
-          title="여행 준비물"
-          description={<span className="whitespace-pre-line">{META.itemsIntro}</span>}
-        />
+      {/* 제목이 곧 헤더다 — 스크롤하면 같이 올라가다 상단에 붙고, 스크롤한 만큼 헤더로 접힌다.
+          준비물은 목록이 길어 아래에서 "몇 개 남았더라" 를 확인하려면 맨 위까지 되올라가야 했다 —
+          접힌 헤더 오른쪽의 요약과 진행 막대가 그 자리를 대신한다. */}
+      <StickyMorphTitle title="여행 준비물" trailing={`${view.ready}/${view.total} 준비됨`} percent={percent} />
 
+      {/* 제목 줄 바로 밑에서 시작한다 — 제목이 줄 바닥에 앉아 있어 PageHeader 때의 간격(mt-1)이 그대로 난다. */}
+      <p className="px-4 text-sm whitespace-pre-line text-tertiary md:px-6">{META.itemsIntro}</p>
+
+      <div>
         <div className="px-4 pt-4 md:px-6">
           <SeasonChips value={season} onSelect={setSeason} label="계절" />
 
@@ -102,7 +97,7 @@ export function ChecklistPage() {
               ' 저장한 숙소는 구비 용품이 뭉뚱그려 적혀 있어 반영할 항목이 없어요.'}
           </p>
         </div>
-      </CollapsingTitleBar>
+      </div>
 
       {/*
         묶음이 곧 섹션이다 — 오가는 길에 → 어디를 가든 → 식당·카페에서 → 숙소에서, 여행의 시간 순서.
