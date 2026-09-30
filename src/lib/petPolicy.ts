@@ -10,6 +10,7 @@
  * 그대로 함께 보여준다. 파서가 놓친 조건이 있어도 사용자가 원문에서 확인할 수 있어야 한다.
  */
 
+import { normalizeFeeLines } from '../../scripts/lib/feeLine.mjs';
 import { correctPetPolicyFacts, feeLinesOf } from '../../scripts/lib/petPolicyFacts.mjs';
 import type { TPetPolicyFacts } from '../types';
 
@@ -537,9 +538,14 @@ export const toPetBadges = (policy: TPetPolicy): TPetBadge[] => {
    * `feeText`(= `feeLines[0]`) 하나만 쓰던 동안 구간 요금표의 둘째 줄이 화면 어디에도 안 나왔다:
    * "1~5kg 1만원 / 6~10kg 1.5만원" 인 곳이 `1~5kg 1만원` 만 말해, 6kg 강아지 보호자가 요금을 못 본다.
    * 숙소 중에는 이것 말고 배지로 만들 조건이 아예 없는 곳이 있어서, 없으면 카드가 텅 빈다.
+   *
+   * 라벨은 원문 줄이 아니라 **정규화한 줄**이다(`normalizeFeeLines`) — `(2만원 추가)`·`20,000원`·`숙박일 관계없이 …` 처럼
+   * 원문 표기가 제각각이라 배지가 26가지로 흩어졌다. `feeLines` 자체는 건드리지 않는다: 판정·요금 문구가 같은 배열을
+   * 앵커된 정규식으로 읽고, 시드 86곳의 파싱 결과가 테스트에 못 박혀 있다. 원문은 상세 화면에 그대로 있다.
+   * 정규화가 두 줄을 한 라벨로 합칠 수 있어 중복은 그 함수가 턴다 — 배지 key 가 라벨이다.
    */
   else if (policy.feeLines.length) {
-    for (const line of policy.feeLines) badges.push({ label: line, tone: 'cond', axis: 'fee' });
+    for (const label of normalizeFeeLines(policy.feeLines)) badges.push({ label, tone: 'cond', axis: 'fee' });
   }
   // AI 가 '요금이 있다' 고만 읽고 금액 문장은 못 뽑은 경우 — 없으면 그 판단이 화면 어디에도 안 보인다(todo/06 A-2).
   else if (policy.feeCharged) badges.push({ label: '추가요금 있음', tone: 'cond', axis: 'fee' });

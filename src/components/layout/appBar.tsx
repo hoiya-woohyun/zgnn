@@ -161,7 +161,7 @@ export function AppBar({ backTo, title, actions }: TAppBarProps) {
             }
           >
             {/* 화면이 채우는 자리(`AppBarSlot`). 채워지면 아래 h1 복사본은 물러난다(`peer`). 장식 복사본이라 읽지 않는다. */}
-            <div ref={registerAppBarSlot} aria-hidden="true" className="peer flex min-w-0 flex-1 items-center gap-2 empty:hidden" />
+            <div ref={registerAppBarSlot} data-app-bar-slot aria-hidden="true" className="peer flex min-w-0 flex-1 items-center gap-2 empty:hidden" />
             <p
               aria-hidden={title ? undefined : true}
               className="clamp-1 min-w-0 flex-1 text-md font-bold text-primary peer-[:not(:empty)]:hidden"

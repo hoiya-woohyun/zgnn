@@ -1,5 +1,6 @@
 /*
-  스크롤을 따라 접히는 헤더의 애니메이션 — 준비물·설정의 제목 줄(StickyMorphTitle)과 홈 히어로(HomePageHero).
+  스크롤을 따라 접히는 헤더의 애니메이션 — 준비물·설정의 제목 줄(StickyMorphTitle), 홈 히어로(HomePageHero),
+  하위 화면 헤더(AppBar)의 제목, 상세 제목 줄(placeDetailHeader).
 
   **시간이 아니라 스크롤 위치의 함수다**(`animation-timeline: scroll(nearest)`). 구간은 컴포넌트가 재서 `--morph-from`·`--morph-to`
   (스크롤 오프셋, px)로 적고, 기하(`--tx`·`--ty`·`--side`·`--clip-top`…)도 같은 식으로 받는다. 키프레임은 "다 접혔을 때" 만 말한다.
@@ -29,6 +30,15 @@
 [data-morph='snap'][data-collapsed] [data-scroll-morph='tone-out'],
 [data-morph='snap'][data-collapsed] [data-scroll-morph='fade-early'] {
   visibility: hidden;
+}
+/*
+  AppBar 의 제목 칸을 화면이 채우면(AppBarSlot) 셸의 "밑에서 올라오기" 를 끈다. 채운 쪽이 자기 등장(상세: 본문 제목 줄이 날아와
+  겹쳐 바뀜)을 갖고 있고, 그 도착점은 움직이지 않아야 한다. 인라인 transform·opacity 를 이겨야 해서 !important 다.
+*/
+[data-scroll-morph='bar-reveal']:has(> [data-app-bar-slot]:not(:empty)) {
+  animation: none !important;
+  transform: none !important;
+  opacity: 1 !important;
 }
 @media (prefers-reduced-motion: reduce) {
   [data-morph='snap'] [data-scroll-morph] {
@@ -60,6 +70,17 @@
   /* ── AppBar(하위 화면 헤더): h1 이 줄 밑으로 들어가는 만큼 제목이 줄 아랫변에서 올라온다. ── */
   [data-morph='scroll'] [data-scroll-morph='bar-reveal'] {
     animation-name: morph-bar-reveal;
+  }
+
+  /* ── 상세 제목 줄(placeDetailHeader): 본문의 타일·상호명이 헤더 제자리로 옮겨 가며 줄고, 마지막 15% 에 헤더 복사본과 겹쳐 바뀐다. ── */
+  [data-morph='scroll'] [data-scroll-morph='flight-thumb'] {
+    animation-name: morph-flight-thumb, morph-hand-off-out;
+  }
+  [data-morph='scroll'] [data-scroll-morph='flight-title'] {
+    animation-name: morph-flight-title, morph-hand-off-out;
+  }
+  [data-morph='scroll'] [data-scroll-morph='hand-off-in'] {
+    animation-name: morph-hand-off-in;
   }
 
   /* ── HomePageHero ── */
@@ -113,6 +134,38 @@
   }
   to {
     transform: none;
+    opacity: 1;
+  }
+}
+
+@keyframes morph-flight-thumb {
+  to {
+    transform: translateX(var(--thumb-tx, 0px)) scale(var(--thumb-scale, 1));
+  }
+}
+
+@keyframes morph-flight-title {
+  to {
+    transform: translateX(var(--title-tx, 0px)) scale(var(--title-scale, 1));
+  }
+}
+
+@keyframes morph-hand-off-out {
+  0%,
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes morph-hand-off-in {
+  0%,
+  85% {
+    opacity: 0;
+  }
+  100% {
     opacity: 1;
   }
 }

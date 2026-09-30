@@ -1,6 +1,7 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-09-30 (v16: **공식 홈페이지 카드** — `places.homepage_url·homepage_name·homepage_image`(마이그레이션 `20260930120000`) →
+> 최종 수정: 2026-09-30 (v17: 재분석 값을 기존 장소에 반영하는 길 — `/admin` 의 **최신본으로 저장하기**(합치기는 빈 칸만 채워 새 판단이 안 들어간다))
+> 이전 (v16: **공식 홈페이지 카드** — `places.homepage_url·homepage_name·homepage_image`(마이그레이션 `20260930120000`) →
 > `TPlace.homepage`. 채우는 길은 `data:analyze`(새 후보)·`data:homepage`(쌓인 pending 후보) → 승인. 사진은 URL 만([ADR-002](../decisions/ADR-002-no-place-photos.md) v3))
 > 이전 (v15: **AI 판단의 요금이 목록이 됐다** — `TPetPolicyFacts.feeText`(문장 하나) → `feeLines: string[]`(기준마다 한 줄).
 > `PROMPT_VERSION` 이 바뀌었다 — 옛 프롬프트로 분석된 글을 다시 읽히려면 `analyzed_at` 을 비우고 그 글의 `pending` 후보를 눕힌다(아래 「재분석」))
@@ -207,6 +208,8 @@ flowchart LR
      `claude -p`(구독)를 쓰므로 5시간 한도를 한 번에 태우면 그 실행이 중간에 멈춘다.
 
   ⚠️ 승인·반려로 **사람이 이미 결정한 글을 되돌리면 그 결정이 되살아나지 않는다** — 후보만 다시 생긴다.
+  재분석한 값을 **이미 있는 장소에 반영**하려면 `/admin` 의 **최신본으로 저장하기**를 쓴다 — 합치기는 빈 칸만 채워 새 판단이 안 들어간다
+  ([admin-review 「최신본으로 저장하기」](../features/admin-review.md)).
   ⚠️ 재분석은 **네이버 쿼터와 Claude 한도를 다시 쓴다.** 교차점검이 켜져 있으면 `--limit` 이 사실상 절반이다(`--no-verify` 로 끈다).
   ⚠️ **`--no-geo` 로 싸게 돌리지 않는다.** 좌표가 없으면 동명 가게가 `ask` 대신 `auto` 로 판정되고, `auto` 는 곧바로
   `approved` 로 들어가 사람이 보지도 못한 채 합쳐진다(`analyze-candidates.mjs` 머리 주석의 그 이유 그대로).

@@ -562,3 +562,49 @@ describe('saveEdit — 사람이 고쳤다는 표시', () => {
     expect(calls[0].payload.reviewer_note).toBe(EDITED_NOTE);
   });
 });
+
+describe("approveGroup — '최신본으로 저장하기'(overwrite)", () => {
+  /*
+   * 덮기는 **승인 표시보다 먼저** 간다. 뒤에서 끊기면 후보가 approved 로 남고 CLI(`data:apply`)가 이어받는데,
+   * CLI 는 빈 칸 채우기뿐이라 새 값을 조용히 버린다. 먼저 덮으면 끊겨도 후보는 pending 이다.
+   */
+  it('되살린 뒤 칸을 덮고, 그다음 승인·출처·merged — 덮기 전 값을 applied.overwritten 에 남긴다', async () => {
+    const { calls, client } = createFakeClient();
+    const target = placeRow({
+      id: 'place-x',
+      name: '옛가게',
+      status: 'archived',
+      features: '옛 소개',
+      pet_policy_text: '옛 조건',
+      review_url: 'https://old.example/1',
+    });
+    const lead = candidate({
+      match_place_id: 'place-x',
+      extracted: extracted({ name: '옛가게', features: '새 소개', petPolicyText: '새 조건', match: { confidence: 0.9, reason: '이름 일치', tier: 'auto' } }),
+    });
+
+    const outcome = await approveGroup(client, group([lead]), [target], { ...OPTIONS, restoreArchived: true, overwrite: true });
+
+    expect(trace(calls)).toEqual([
+      'places.update:published',
+      'places.update:features+pet_policy_text+pet_policy',
+      'candidates.update:approved',
+      'place_sources.upsert:place_id+post_url',
+      'candidates.update:merged',
+    ]);
+    expect(outcome).toMatchObject({ kind: 'merged', overwrittenKeys: ['features', 'pet_policy_text', 'pet_policy'] });
+    const applied = (calls[4].payload.extracted as TCandidateExtracted).applied as { overwritten: Record<string, unknown> };
+    expect(applied.overwritten).toEqual({ features: '옛 소개', pet_policy_text: '옛 조건', pet_policy: null });
+    // review_url 은 덮지 않는다 — 합치기의 빈 칸 채우기에도 차 있어 안 들어간다.
+    expect(target.review_url).toBe('https://old.example/1');
+  });
+
+  it('덮기가 실패하면 후보는 승인 표시 전이다(pending 그대로)', async () => {
+    const { calls, client } = createFakeClient(0);
+    const target = placeRow({ id: 'place-9', name: '살레', features: '옛 소개' });
+    const lead = candidate({ match_place_id: 'place-9', extracted: extracted({ name: '살레', features: '새 소개', match: { confidence: 0.9, reason: '', tier: 'auto' } }) });
+
+    await expect(approveGroup(client, group([lead]), [target], { ...OPTIONS, overwrite: true })).rejects.toThrow(/최신본으로 덮기/);
+    expect(calls.map((call) => call.table)).toEqual(['places']);
+  });
+});

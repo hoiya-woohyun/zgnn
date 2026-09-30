@@ -10,6 +10,7 @@ import {
   REGION_OPTIONS,
   TIER_LABEL,
   type TCandidateGroup,
+  type TPlaceRow,
   type TPolicyPreview,
   type TRejectReason,
 } from '../lib/adminCandidates';
@@ -20,11 +21,13 @@ import type { TBadgeTone, TPetBadge } from '../lib/petPolicy';
 import { addressView } from '../lib/adminAddress';
 import { aiAnalyzed, policySplit, type TAdminFlagView } from '../lib/adminPreview';
 import { verifyView } from '../lib/adminVerify';
+import { latestPlan } from '../lib/adminLatest';
 import { cx } from '../utils/cx';
 import { AdminPageGroupDetail } from './adminPageGroupDetail';
 import { AdminTypeChip } from './adminTypeChip';
 import { AdminPageEditForm } from './adminPageEditForm';
 import { AdminPageRejectForm } from './adminPageRejectForm';
+import { AdminPageLatestSave } from './adminPageLatestSave';
 import { ADMIN_CANDIDATE_GRID, ADMIN_LEAD_CELL, ADMIN_PANEL_DIVIDER, ADMIN_ROW_OPEN } from './adminTable';
 
 /** 묶음 하나의 화면 상태. 소유자는 `adminPage.tsx` 고 여기는 받아서 그린다. */
@@ -56,6 +59,8 @@ export type TApproveChoice = {
   restoreArchived?: boolean;
   /** '정말 다른 가게예요' 를 눌렀다 — 내린 곳을 버리고 새로 만드는 것을 사람이 확인했다(`TApplyOptions` 참고). */
   confirmedDifferent?: boolean;
+  /** '최신본으로 저장하기' — 합치기 대신 짝지은 장소의 칸을 이 후보의 값으로 덮는다(`TApplyOptions.overwrite`). */
+  overwrite?: boolean;
 };
 
 type TAdminPageGroupCardProps = {
@@ -76,6 +81,11 @@ type TAdminPageGroupCardProps = {
   /** 일괄 반려용으로 골라 뒀는가. 소유자는 `adminPage.tsx` 다(`adminSelection.ts`). */
   selected: boolean;
   onSelect: (selected: boolean) => void;
+  /**
+   * 지금 패널이 가리키는 기존 장소 행(내린 곳 · 닮은 곳 · 짝). '최신본으로 저장하기' 의 전·후를 그리려면 그 행의 **지금 값**이 있어야 한다.
+   * 펼친 줄에만 넘어온다. 없으면(짝이 DB 에 없다) 그 버튼을 안 그린다.
+   */
+  pairPlace?: TPlaceRow;
 };
 
 const TIER_COLOR: Record<string, 'success' | 'warning' | 'blue'> = {
@@ -168,6 +178,7 @@ export function AdminPageGroupCard({
   onSaveEdit,
   selected,
   onSelect,
+  pairPlace,
 }: TAdminPageGroupCardProps) {
   const extracted = group.lead.extracted;
   const policy = policySplit(preview, extracted.petPolicyText);
@@ -217,6 +228,8 @@ export function AdminPageGroupCard({
 
   const regionOk = regionUsable(extracted.regionRaw);
   const openEdit = () => onEditDraft(draftFromExtracted(extracted));
+  /** 최신본으로 덮으면 무엇이 바뀌나 — 펼쳤고 가리키는 장소 행이 있을 때만 계산한다. */
+  const latest = expanded && pairPlace ? latestPlan(pairPlace, extracted) : null;
 
   return (
     /*
@@ -471,6 +484,17 @@ export function AdminPageGroupCard({
                 >
                   정말 다른 가게예요 — 새 장소로
                 </Button>
+                {latest && (
+                  <div className="mt-2">
+                    <AdminPageLatestSave
+                      plan={latest}
+                      label="최신본으로 저장하기"
+                      caption="되살리면서 위 칸들을 새 분석 값으로 바꿔요 · 되살려서 합치기는 빈 칸만 채워요"
+                      busy={Boolean(busy)}
+                      onSave={() => onApprove({ mergeInto: state.archived?.placeId, restoreArchived: true, overwrite: true })}
+                    />
+                  </div>
+                )}
               </div>
             ) : state.similar ? (
               /*
@@ -545,6 +569,19 @@ export function AdminPageGroupCard({
                   </Button>
                   <EditButton busy={busy} onClick={openEdit} />
                 </div>
+                {latest && (
+                  <div className="mt-2">
+                    <AdminPageLatestSave
+                      plan={latest}
+                      label="같은 곳이에요 — 최신본으로 저장하기"
+                      caption={`${state.similar.name} 의 위 칸들을 새 분석 값으로 바꿔요 · 합치기는 빈 칸만 채워요`}
+                      busy={Boolean(busy)}
+                      onSave={() =>
+                        onApprove({ mergeInto: state.similar?.id, restoreArchived: similarArchived || undefined, overwrite: true })
+                      }
+                    />
+                  </div>
+                )}
               </div>
             ) : (
               <div className="space-y-2">
@@ -623,6 +660,20 @@ export function AdminPageGroupCard({
                   </Button>
                   <EditButton busy={busy} onClick={openEdit} />
                 </div>
+
+                {/*
+                  * 짝이 있는 줄에만 — 짝이 없으면 덮을 대상이 없다. 짝이 내린 곳이면 이 패널이 아니라 위의 '내린 곳' 패널이
+                  * 같은 버튼을 되살리기와 함께 준다(여기서 누르면 `approveGroup` 이 archived 가드에서 그 패널로 돌려보낸다).
+                  */}
+                {latest && pairId && regionOk && !matchedArchived && (
+                  <AdminPageLatestSave
+                    plan={latest}
+                    label="최신본으로 저장하기"
+                    caption={`${pairPlace?.name ?? '기존 장소'} 의 위 칸들을 새 분석 값으로 바꿔요 · '맞아요' 는 빈 칸만 채워요`}
+                    busy={Boolean(busy)}
+                    onSave={() => onApprove({ mergeInto: pairId, overwrite: true })}
+                  />
+                )}
 
                 {group.tier !== 'new' && pairId && regionOk && !matchedArchived && (
                   /*

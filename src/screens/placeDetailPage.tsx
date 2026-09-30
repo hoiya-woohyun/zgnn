@@ -2,7 +2,6 @@
 
 import { notFound } from 'next/navigation';
 import { PlaceDetailActions } from './placeDetailActions';
-import { PlaceDetailAppBar } from './placeDetailAppBar';
 import { PlaceDetailHeader } from './placeDetailHeader';
 import { PlaceDetailGallery } from './placeDetailGallery';
 import { PlaceDetailHomepage } from './placeDetailHomepage';
@@ -24,7 +23,6 @@ export function PlaceDetailPage({ id }: { id: string }) {
 
   return (
     <article>
-      <PlaceDetailAppBar place={place} />
       <PlaceDetailHeader place={place} />
       <PlaceDetailActions place={place} />
 
