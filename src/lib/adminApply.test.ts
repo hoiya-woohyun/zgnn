@@ -452,6 +452,21 @@ describe('approveGroup — 막히는 후보', () => {
 
     expect(calls).toHaveLength(0);
   });
+
+  /** 한 줄 버튼은 화면이 막지만 일괄 올리기는 이 함수를 바로 부른다 — 여기서 막아야 동명의 다른 가게가 안 올라간다. */
+  it('주소 다름을 안 골랐으면 반영하지 않고, 고른 뒤에는 막지 않는다', async () => {
+    const { calls, client } = createFakeClient();
+    const conflict = { address: '제주 서귀포시 대포로 93', addressAi: '제주 제주시 애월읍 신엄안3길 95', geoSource: 'local' };
+
+    const open = await approveGroup(client, group([candidate({ extracted: extracted(conflict) })]), [], OPTIONS);
+    expect(open.kind).toBe('blocked');
+    if (open.kind !== 'blocked') throw new Error('blocked 이 아니다');
+    expect(open.reason).toContain('주소가 두 곳이에요');
+    expect(calls).toHaveLength(0);
+
+    const chosen = await approveGroup(client, group([candidate({ extracted: extracted({ ...conflict, addressChosen: 'search' }) })]), [], OPTIONS);
+    expect(chosen.kind).not.toBe('blocked');
+  });
 });
 
 describe('approveGroup — 묶음의 나머지 글', () => {

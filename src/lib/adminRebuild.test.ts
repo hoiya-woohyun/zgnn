@@ -78,7 +78,16 @@ describe('rebuildHeadline', () => {
 
   it('2xx 면 걸렸다고 말한다', () => {
     const headline = rebuildHeadline([entry({ response_status: 201 })], NOW);
-    expect(headline).toEqual({ tone: 'ok', text: '재빌드가 걸렸어요(2분 전 · 201) — 1~2분 뒤 사이트에 보여요' });
+    expect(headline).toEqual({ tone: 'ok', text: '재빌드가 걸렸어요(2분 전) — 1~2분 뒤 사이트에 보여요' });
+  });
+
+  /** 하루 지난 기록에 "1~2분 뒤" 를 붙이면 지금도 기다려야 하는 것처럼 읽힌다. */
+  it('2xx 뒤 충분히 지났으면 반영됐다고 과거로 말한다', () => {
+    const headline = rebuildHeadline(
+      [entry({ response_status: 201, requested_at: new Date(NOW - 24 * 60 * 60 * 1000).toISOString() })],
+      NOW,
+    );
+    expect(headline).toEqual({ tone: 'ok', text: '사이트에 반영됐어요 · 마지막 재빌드 1일 전' });
   });
 
   /*
@@ -119,7 +128,7 @@ describe('rebuildHeadline', () => {
       NOW,
     );
     expect(headline.tone).toBe('ok');
-    expect(headline.text).toContain('200');
+    expect(headline.text).toContain('재빌드가 걸렸어요');
   });
 
   it('건너뛴 기록만 있으면 왜 안 불렀는지 말한다', () => {

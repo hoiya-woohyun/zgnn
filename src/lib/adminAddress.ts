@@ -61,13 +61,25 @@ function mapSearchUrl(name: string | null | undefined): string | null {
   return `https://map.naver.com/p/search/${encodeURIComponent(query)}`;
 }
 
+/**
+ * 운영자가 `주소 다름` 을 보고 고른 쪽(`chooseAddress` — adminEdit.ts). 고르기 전에는 올리기가 막힌다(`leadProblem`).
+ *  `search` 검색 주소가 맞다 — 주소·좌표는 그대로, 경고만 내린다.
+ *  `blog`   원글 주소가 맞다 — 주소를 원글 것으로 바꾸고 검색이 준 좌표를 버린다(`addressEdited` 도 선다).
+ */
+export type TAddressChoice = 'search' | 'blog';
+
 /** 원글 주소와 견준다. 대조에 뜻이 있는 축에서만 부른다. */
-function crossCheck(address: string, addressAi: string | null): TAddressCross {
+function crossCheck(address: string, addressAi: string | null, chosen?: unknown): TAddressCross {
   if (!addressAi) return { tone: 'quiet', text: '원글에는 주소가 적혀 있지 않아 대조하지 못했어요' };
   switch (sameAddress(address, addressAi)) {
     case 'same':
       return { tone: 'quiet', text: '원글에 적힌 주소와 같은 곳이에요' };
     case 'different':
+      /*
+       * 사람이 이미 "검색 주소가 맞다" 고 골랐으면 경고를 내린다 — 대조 결과는 그대로 적는다(무엇과 달랐는지는 남긴다).
+       * 안 내리면 고른 뒤에도 `주소 다름` 이 떠서 올리기가 영영 막힌다.
+       */
+      if (chosen === 'search') return { tone: 'quiet', text: `원글 주소(${addressAi})와 다르지만 검색 주소가 맞다고 골랐어요` };
       return {
         tone: 'warn',
         text: `원글에는 다른 주소가 적혀 있어요 — ${addressAi} · 검색이 동명의 다른 가게를 집었을 수 있어요`,
@@ -96,6 +108,8 @@ export function addressView(
     geoSource?: string | null;
     /** 운영자가 주소를 고쳤다는 표식(`buildEdit`). `geoSource` 는 좌표의 출처라 주소를 고쳐도 남는다. */
     addressEdited?: boolean;
+    /** `주소 다름` 에서 운영자가 고른 쪽(`TAddressChoice`). */
+    addressChosen?: unknown;
   },
   addressOverride?: string,
 ): TAddressView {
@@ -130,7 +144,7 @@ export function addressView(
       verified: false,
       sourceText: '운영자가 고친 주소예요 — 상호 검색이 준 값은 덮였어요',
       shortLabel: '직접 고침',
-      cross: crossCheck(address, addressAi),
+      cross: crossCheck(address, addressAi, extracted.addressChosen),
       mapUrl,
     };
   }
@@ -142,7 +156,7 @@ export function addressView(
       verified: true,
       sourceText: '상호 검색으로 확인된 주소예요 — 이름이 완전히 일치한 업체의 등록 주소',
       shortLabel: null,
-      cross: crossCheck(address, addressAi),
+      cross: crossCheck(address, addressAi, extracted.addressChosen),
       mapUrl,
     };
   }
@@ -174,4 +188,15 @@ export function addressView(
     cross: null,
     mapUrl,
   };
+}
+
+/**
+ * `주소 다름` 이 **아직 안 골라졌는가** — 참이면 올리기를 막는다(`leadProblem`).
+ *
+ * 경고만 띄우고 올리기를 평소대로 두던 동안, 동명의 다른 가게(서귀포 `대포로 93` ↔ 원글 애월 `신엄안3길 95`)가
+ * 핑크 주 버튼 한 번에 게시될 수 있었다. 지역도 검색 주소를 따라가 있어서(`resolveRegionRaw` 가 주소를 먼저 본다)
+ * 사이트에는 틀린 좌표·틀린 방향으로 나간다. 판정은 `addressView` 의 경고 한 가지로만 한다 — 같은 경고를 두 규칙이 세면 어긋난다.
+ */
+export function addressUnresolved(extracted: Parameters<typeof addressView>[0]): boolean {
+  return addressView(extracted).cross?.tone === 'warn';
 }

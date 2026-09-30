@@ -1,9 +1,10 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { Badge } from '../components/base/badges';
 import { Button } from '../components/base/button';
 import { Select } from '../components/base/select';
+import type { TAddressChoice } from '../lib/adminAddress';
 import { REGION_OPTIONS, type TCandidateGroup, type TRejectReason } from '../lib/adminCandidates';
 import type { TLatestPlan } from '../lib/adminLatest';
 import { lastNoteLine, noteLineText, PLACE_STATUS_COLOR, PLACE_STATUS_LABEL } from '../lib/adminPlaces';
@@ -18,46 +19,42 @@ const BUSY_LABEL: Record<NonNullable<TAdminPageGroupState['busy']>, string> = {
   reanalyzing: '분석을 지우고 있어요…',
 };
 
-/** 레일의 맨 위 — **누르면 무슨 일이 일어나는 상황인가.** 버튼보다 먼저 읽힌다. */
+/**
+ * 버튼 줄 위의 한두 줄 — **예외일 때만** 선다(주소 고르기 · 내린 곳 · 닮은 곳 · 지역 없음 · 근거 없음 · 합칠 곳).
+ * 평범한 신규 후보에는 아무 문장도 없다: 운영자는 한 명이고 매일 보므로 버튼 이름이 곧 설명이다.
+ */
 function Situation({ title, children }: { title: ReactNode; children?: ReactNode }) {
   return (
-    <div>
-      <p className="text-sm font-semibold text-primary">{title}</p>
-      {children && <div className="mt-1 space-y-0.5 text-xs text-tertiary">{children}</div>}
+    <div className="text-xs">
+      <p className="font-semibold text-primary">{title}</p>
+      {children && <div className="mt-0.5 space-y-0.5 text-tertiary">{children}</div>}
     </div>
   );
 }
 
-/**
- * 버튼 한 무리 — **세로로 쌓되 폭은 글자만큼**(2026-09-30). 레일 폭으로 늘려 두던 동안 PC 에서 버튼이 필요 이상으로
- * 옆으로 길었다(사용자 지적). 줄마다 버튼 끝이 들쭉날쭉해도 왼쪽 끝이 맞으면 세로로 읽힌다.
- */
-function Stack({ children }: { children: ReactNode }) {
-  return <div className="flex flex-col items-start gap-1.5">{children}</div>;
-}
-
-/** 버튼 밑 한 줄 — 무엇이 되돌릴 수 없어지는지. 버튼 **바로 밑**이라야 누르기 전에 읽힌다. */
-const Caption = ({ children }: { children: ReactNode }) => <p className="text-xs text-tertiary">{children}</p>;
+/** 한 줄 버튼 무리. 주 버튼 하나 + 나머지는 회색 — 색은 누를 것 하나에만 쓴다. */
+const Row = ({ children }: { children: ReactNode }) => <div className="flex flex-wrap items-center gap-1.5">{children}</div>;
 
 /**
- * 펼친 줄의 **결정 레일** — 한 줄에서 누를 수 있는 것이 전부 여기 모인다(2026-09-30).
+ * 펼친 줄의 **결정 줄** — 근거 **아래** 한 줄에 `[올리기] 반려 · 고치기 · 재분석`(2026-09-30 v2).
  *
- * 그 전에는 버튼이 근거(비교표·블로그 글) **밑**에 있어서, 줄을 펼칠 때마다 수백 px 을 내려가야 눌렀다. 게다가 갈래마다
- * 주 버튼 · 반려/고치기 줄 · 분홍 링크(`새 장소로`) · 최신본 상자가 세 줄 두 덩어리로 흩어졌고, 위험한 쪽(복제본을 만들 수 있는
- * `새 장소로`)이 주 버튼과 같은 분홍이었다(사용자 요청: 버튼이 잘 모여 있는지).
+ * 오른쪽 카드(결정 레일)였던 자리다. 레일은 버튼마다 밑에 설명문을 달고, 같은 동작이 표 위 일괄 줄에도 있어서 두 겹으로 무거웠다
+ * (UI 스냅샷 피드백). 근거를 다 읽은 자리에서 바로 누르도록 근거 끝(`여기까지 · 접기` 줄)으로 내렸고, 설명문은 뺐다 —
+ * 되돌릴 수 없는 결과는 버튼 `title` 과 누른 뒤의 결과 한 줄이 말한다.
  *
- * 순서가 곧 위계다 — **상황 → 주 결정 → 최신본으로 저장 → 고치기·반려 → 빠져나가는 길.**
- * 빠져나가는 길(`새 장소로`)은 회색 링크로 맨 밑에 둔다. 짝을 버리는 선택이라 한 번 더 읽고 누르는 자리여야 한다.
+ * **색이 곧 기본값이다.** 주 버튼(핑크)은 한 줄에 하나이고 상황이 그것을 옮긴다:
+ * - `주소 다름` → 올리기가 **없다.** 어느 주소가 맞는지 고르기 전에는 못 올린다(`leadProblem` 도 막는다 — 일괄 올리기 경로).
+ * - 교차점검 `동반 근거 없음`·`동반 불가 정황` → 주 버튼이 **반려**, 올리기는 회색으로 내려간다.
+ * - 짝이 내린 곳 · 닮은 곳 → 그 갈래의 결정(되살려서 합치기 · 같은 곳이에요)이 주 버튼이다.
  *
- * 넓은 화면(`lg`)에서는 근거 오른쪽에 붙어 **스크롤을 따라온다**(sticky) — 긴 근거를 읽는 동안 버튼이 화면 밖으로 나가지 않게.
- * 좁은 화면에서는 근거 **위**에 선다(카드가 `order` 로 정한다).
- *
- * 갈래 셋과 그 안의 가드는 옮기기 전과 한 글자도 다르지 않다 — 각 버튼이 싣는 `TApproveChoice` 가 곧 안전장치다.
+ * 갈래와 각 버튼이 싣는 `TApproveChoice`(= 안전장치)는 레일 시절과 같다 — 모양만 바뀌었다.
  */
 export function AdminPageGroupActions({
   group,
   state,
   regionOk,
+  addressPick,
+  needsLook,
   latest,
   latestAvailable,
   onApprove,
@@ -66,6 +63,7 @@ export function AdminPageGroupActions({
   onReject,
   onPickRegion,
   onSaveRegion,
+  onChooseAddress,
   onEdit,
   reanalyzeText,
   onStartReanalyze,
@@ -75,9 +73,13 @@ export function AdminPageGroupActions({
   group: TCandidateGroup;
   state: TAdminPageGroupState;
   regionOk: boolean;
-  /** 최신본으로 덮으면 바뀌는 칸. 없으면(짝 행을 못 찾음) 그 버튼을 안 그린다. */
+  /** `주소 다름` 이 아직 안 골라졌으면 두 주소. 있으면 올리기 대신 주소 고르기가 선다. */
+  addressPick: { blog: string; search: string } | null;
+  /** 교차점검이 근거를 못 찾았다(`verifyNeedsLook`) — 반려가 기본 동작이 된다. */
+  needsLook: boolean;
+  /** 덮어쓰면 바뀌는 칸. 없으면(짝 행을 못 찾음) 그 버튼을 안 그린다. */
   latest: TLatestPlan | null;
-  /** 이 갈래에서 최신본으로 저장이 뜻이 있나 — 카드가 정해 근거 쪽 전·후 목록과 같은 조건을 쓴다. */
+  /** 이 갈래에서 덮어쓰기가 뜻이 있나 — 카드가 정해 근거 쪽 전·후 목록과 같은 조건을 쓴다. */
   latestAvailable: boolean;
   onApprove: (choice?: TApproveChoice) => void;
   onStartReject: () => void;
@@ -85,6 +87,7 @@ export function AdminPageGroupActions({
   onReject: (reason: TRejectReason, note: string) => void;
   onPickRegion: (regionRaw: string) => void;
   onSaveRegion: (regionRaw: string) => void;
+  onChooseAddress: (choice: TAddressChoice) => void;
   onEdit: () => void;
   reanalyzeText?: string;
   onStartReanalyze: () => void;
@@ -92,121 +95,112 @@ export function AdminPageGroupActions({
   onReanalyze: () => void;
 }) {
   const busy = state.busy;
+  const off = Boolean(busy);
   const matched = group.lead.places;
   const pairId = group.lead.match_place_id;
   const matchedArchived = matched?.status === 'archived';
   const matchedDraft = matched?.status === 'draft';
   const similarArchived = state.similar?.status === 'archived';
 
-  // 반려 폼은 레일 **안에서** 열린다 — 누른 자리에서 이어서 고르고, 근거는 옆에 그대로 남는다.
+  // 반려 폼은 이 줄 **자리에서** 열린다 — 누른 자리에서 이어서 고르고, 근거는 위에 그대로 남는다.
   if (state.rejecting) {
     return <AdminPageRejectForm inline busy={busy === 'rejecting'} onCancel={onCancelReject} onSubmit={onReject} />;
   }
 
-  // 재분석 확인도 반려처럼 레일 **안에서** 연다. 무엇이 사라지는지(형제 후보 수까지) 읽고 누르는 자리다.
+  // 재분석 확인도 같은 자리. 무엇이 사라지는지(형제 후보 수까지) 읽고 누르는 자리다.
   if (state.reanalyzing) {
     return (
-      <div className="max-w-md space-y-2">
-        <p className="text-sm font-semibold text-primary">분석을 지우고 다시 읽을까요?</p>
-        <p className="text-xs text-secondary">{reanalyzeText}</p>
-        <p className="text-xs text-tertiary">
-          눕힌 후보는 지워지지 않고 반려 목록에 남아요. 그다음 터미널에서 <code>pnpm data:analyze</code> 를 돌리면 이 글을 새 프롬프트로 다시 읽어요.
-        </p>
-        <div className="flex gap-2">
-          <Button color="primary-destructive" size="sm" isDisabled={Boolean(busy)} isLoading={busy === 'reanalyzing'} onClick={onReanalyze}>
-            분석 지우기
-          </Button>
-          <Button color="secondary" size="sm" isDisabled={Boolean(busy)} onClick={onCancelReanalyze}>
+      <div className="space-y-2">
+        <Situation title="재분석할까요?">
+          <p>{reanalyzeText}</p>
+          <p>
+            눕힌 후보는 반려 목록에 남아요. 그다음 터미널에서 <code>pnpm data:analyze</code> 를 돌려 주세요.
+          </p>
+        </Situation>
+        <Row>
+          <TipButton color="primary-destructive" size="sm" isDisabled={off} isLoading={busy === 'reanalyzing'} onClick={onReanalyze}>
+            재분석
+          </TipButton>
+          <TipButton color="secondary" size="sm" isDisabled={off} onClick={onCancelReanalyze}>
             취소
-          </Button>
-        </div>
-        {state.error && <p className="text-xs text-error-primary">{state.error}</p>}
+          </TipButton>
+        </Row>
+        <Status state={state} />
       </div>
     );
   }
 
-  const latestButton = (choice: TApproveChoice, caption: string) =>
-    latestAvailable && latest ? (
-      latest.changes.length ? (
-        <>
-          <Button color="secondary" size="sm" isDisabled={Boolean(busy)} isLoading={busy === 'approving'} onClick={() => onApprove(choice)}>
-            최신본으로 저장하기 · {latest.changes.length}칸
-          </Button>
-          <Caption>{caption}</Caption>
-        </>
-      ) : (
-        <Caption>새 분석이 지금 장소 값과 같아요 — 최신본으로 덮을 칸이 없어요.</Caption>
-      )
+  const tertiary = (label: string, onClick: () => void, extra?: { title?: string; isDisabled?: boolean }) => (
+    <TipButton color="tertiary" size="sm" isDisabled={off || extra?.isDisabled} onClick={onClick} title={extra?.title}>
+      {label}
+    </TipButton>
+  );
+
+  /** 덮어쓰기 — 바뀔 칸 수를 이름에 싣는다(무엇이 바뀌는지는 근거 맨 위 목록이 말한다). 바뀔 칸이 없으면 안 그린다. */
+  const overwrite = (choice: TApproveChoice) =>
+    latestAvailable && latest && latest.changes.length ? (
+      <TipButton
+        color="secondary"
+        size="sm"
+        isDisabled={off}
+        isLoading={busy === 'approving'}
+        title="기존 장소의 칸을 새 분석 값으로 바꿔요 — 바뀌는 칸은 위 목록에 있어요"
+        onClick={() => onApprove({ ...choice, overwrite: true })}
+      >
+        덮어쓰기 · {latest.changes.length}칸
+      </TipButton>
     ) : null;
 
-  const tools = (
-    <div className="flex flex-wrap gap-1.5">
-      {/*
-        * '고치기' 는 **세 갈래 전부에** 선다. 닮은 정도 0.4~0.85 구간이 곧 "상호 검색이 동명의 다른 가게를 집었나" 를
-        * 가리는 자리라, 거기서 고칠 길이 없으면 틀린 주소를 그대로 올리거나 쓸 만한 후보를 버린다.
-        * 지역이 비어 승인이 막힌 줄에서도 연다 — 이름·주소가 틀려서 지역을 못 정한 경우가 있다.
-        */}
-      <Button color="secondary" size="sm" isDisabled={Boolean(busy)} onClick={onEdit}>
-        고치기
-      </Button>
-      <Button color="secondary" size="sm" isDisabled={Boolean(busy)} onClick={onStartReject}>
-        반려하기
-      </Button>
-    </div>
+  /*
+   * 반려 · 고치기 · 재분석 — 모든 갈래 끝에 같은 순서로 선다.
+   * 고치기가 전부에 서는 이유: 닮은 곳(0.4~0.85)·지역 없음 줄이 곧 "이름·주소가 틀렸나" 를 가리는 자리다.
+   * `rejectPrimary` 면 반려는 앞쪽 주 버튼으로 나갔으니 여기서 빠진다.
+   */
+  const tail = (rejectPrimary = false) => (
+    <>
+      {!rejectPrimary && tertiary('반려', onStartReject)}
+      {tertiary('고치기', onEdit)}
+      {tertiary('재분석', onStartReanalyze, {
+        isDisabled: !group.lead.post_url,
+        title: group.lead.post_url ? '이 글의 분석을 지우고 재분석 대기로 되돌려요' : '글 링크가 없어 다시 읽을 수 없어요',
+      })}
+    </>
   );
 
   let body: ReactNode;
   if (state.archived) {
     /*
-     * 짝지은 장소가 **내린 곳**이다. 이 갈래가 소프트 삭제의 방어선이고, 여기서 '새 장소로' 를
-     * 권하지 않는 것이 요점이다 — 그러면 내린 가게의 복제본이 새 id 로 사이트에 다시 올라가
-     * 내린 일 자체가 무효가 된다. 다시 열었으면 되살려 합치고, 폐업 그대로면 반려한다.
+     * 짝지은 장소가 **내린 곳**이다. 이 갈래가 소프트 삭제의 방어선이고, 여기서 '새 장소로' 를 권하지 않는 것이 요점이다 —
+     * 그러면 내린 가게의 복제본이 새 id 로 다시 올라가 내린 일 자체가 무효가 된다. 다시 열었으면 되살려 합치고, 폐업 그대로면 반려한다.
      */
     const note = noteLineText(lastNoteLine(state.archived.note));
+    const placeId = state.archived.placeId;
     body = (
       <>
-        <Situation title={<>내린 곳과 같은 가게예요 · {state.archived.placeName}</>}>
-          {note && <p>{note}</p>}
-          <p>다시 연 가게면 되살려 주세요. 아니면 반려해요.</p>
-        </Situation>
-        <Stack>
-          <Button
+        <Situation title={<>내린 곳과 같은 가게예요 · {state.archived.placeName}</>}>{note && <p>{note}</p>}</Situation>
+        <Row>
+          <TipButton
             color="primary"
             size="sm"
-            isDisabled={Boolean(busy)}
+            isDisabled={off}
             isLoading={busy === 'approving'}
-            /*
-             * **짝 id 를 실어 보낸다.** 안 실으면 `decideTarget` 이 짝을 다시 계산하는데, 그 사이 다른 카드를
-             * 승인했으면 패널이 말한 장소와 **다른 장소**로 합쳐진다 — 조용한 오병합이다.
-             */
-            onClick={() => onApprove({ mergeInto: state.archived?.placeId, restoreArchived: true })}
+            title="게시로 되돌리고 빈 칸만 채워요"
+            /* **짝 id 를 실어 보낸다.** 안 실으면 그 사이 다른 줄의 승인이 캐시를 바꿔 다른 장소로 합쳐진다 — 조용한 오병합이다. */
+            onClick={() => onApprove({ mergeInto: placeId, restoreArchived: true })}
           >
             되살려서 합치기
-          </Button>
-          <Caption>게시로 되돌리고 빈 칸만 채워요.</Caption>
-          {latestButton(
-            { mergeInto: state.archived.placeId, restoreArchived: true, overwrite: true },
-            '되살리면서 왼쪽 목록의 칸을 새 분석 값으로 바꿔요.',
-          )}
-        </Stack>
-        {tools}
-        {/*
-          * 같은 이름의 **다른** 가게는 실제로 있다. 그 길을 막지 않고 맨 밑에 둔다 — 무엇을 버리는지(위의 이름·사유) 읽은 뒤에만
-          * 닿는 자리다. `confirmedDifferent` 가 `approveGroup` 의 복제본 가드를 지나가게 하는 유일한 표식이다.
-          */}
-        <Escape
-          busy={busy}
-          label="정말 다른 가게예요 — 새 장소로"
-          caption="같은 가게면 두 번 생겨요."
-          onClick={() => onApprove({ asNew: true, confirmedDifferent: true })}
-        />
+          </TipButton>
+          {overwrite({ mergeInto: placeId, restoreArchived: true })}
+          {tail()}
+          {/* 같은 이름의 **다른** 가게는 실제로 있다. 막지 않고 맨 끝 회색 링크로 — `confirmedDifferent` 가 복제본 가드를 지나는 유일한 표식이다. */}
+          <Escape busy={busy} label="정말 다른 가게예요 — 새 장소로" title="같은 가게면 두 번 생겨요" onClick={() => onApprove({ asNew: true, confirmedDifferent: true })} />
+        </Row>
       </>
     );
   } else if (state.similar) {
     /*
      * 0.4~0.85 구간. 코드가 정하면 어느 쪽이든 조용히 틀린다 — 합치면 오병합, 새로 만들면 이웃 가게의 중복이다.
-     * 그래서 닮은 이유(reason)를 그대로 보여 주고 사람이 고른다. 여기서는 '새 장소로' 가 빠져나가는 길이 아니라
-     * **동등한 두 선택 중 하나**라 주 무리에 선다.
+     * 닮은 이유를 그대로 보여 주고 사람이 고른다. 여기서 '새 장소로' 는 빠져나가는 길이 아니라 동등한 두 선택 중 하나다.
      */
     const similar = state.similar;
     const archiveNote = similarArchived ? noteLineText(lastNoteLine(similar.archiveNote)) : null;
@@ -229,173 +223,214 @@ export function AdminPageGroupActions({
             닮은 정도 {Math.round(similar.confidence * 100)}% · {similar.reason}
           </p>
           {archiveNote && <p>{archiveNote}</p>}
-          {similarArchived && <p>같은 가게면 되살려서 합쳐 주세요. 새 장소로 올리면 같은 가게가 두 번 생겨요.</p>}
         </Situation>
-        <Stack>
-          <Button
+        <Row>
+          <TipButton
             color="primary"
             size="sm"
-            isDisabled={Boolean(busy)}
+            isDisabled={off}
             isLoading={busy === 'approving'}
             /* 내린 곳이면 합치기 전에 되살려야 한다 — 안 그러면 `approveGroup` 이 archived 가드에서 되돌려 보낸다. */
             onClick={() => onApprove({ mergeInto: similar.id, restoreArchived: similarArchived || undefined })}
           >
-            {similarArchived ? '같은 곳이에요 — 되살려서 합치기' : '같은 곳이에요 — 여기에 합치기'}
-          </Button>
-          {latestButton(
-            { mergeInto: similar.id, restoreArchived: similarArchived || undefined, overwrite: true },
-            `${similar.name} 의 칸을 새 분석 값으로 바꿔요.`,
-          )}
-          <Button
+            {similarArchived ? '같은 곳이에요 — 되살려서 합치기' : '같은 곳이에요 — 합치기'}
+          </TipButton>
+          <TipButton
             color="secondary"
             size="sm"
-            isDisabled={Boolean(busy)}
+            isDisabled={off}
+            title={similarArchived ? '같은 가게면 두 번 생겨요' : undefined}
             /* 이웃이 내린 곳이면 여기서 만드는 새 장소가 곧 복제본이라, '내림' 배지를 보고 누른 것을 확인으로 넘긴다. */
             onClick={() => onApprove({ asNew: true, confirmedDifferent: similarArchived || undefined })}
           >
-            {similarArchived ? '정말 다른 가게예요 — 새 장소로' : '다른 곳이에요 — 새 장소로'}
-          </Button>
-        </Stack>
-        {/* 애매한 것이 모이는 구간이라 목록글·홍보글이 그대로 여기 온다 — 반려 길이 없으면 새로고침해야 한다. */}
-        {tools}
+            다른 곳이에요 — 새 장소로
+          </TipButton>
+          {overwrite({ mergeInto: similar.id, restoreArchived: similarArchived || undefined })}
+          {tail()}
+        </Row>
+      </>
+    );
+  } else if (addressPick) {
+    /*
+     * **주소가 두 곳이다** — 검색이 동명의 다른 가게를 집었을 수 있다(실측: 애월 `신엄안3길 95` ↔ 서귀포 `대포로 93`).
+     * 고르기 전에는 올리기가 없다. 지역도 고른 주소를 따라간다(`chooseAddress`) — 난드르 포구의 '지역 없음' 과 같은 틀이다.
+     */
+    body = (
+      <>
+        <Situation title="어느 주소가 맞나요?">
+          <p>원글 · {addressPick.blog}</p>
+          <p>검색 · {addressPick.search}</p>
+        </Situation>
+        <Row>
+          <TipButton
+            color="secondary"
+            size="sm"
+            isDisabled={off}
+            isLoading={busy === 'savingEdit'}
+            title="주소를 원글 것으로 바꾸고, 검색이 준 좌표는 버려요 — 지역도 원글 주소로 다시 정해요"
+            onClick={() => onChooseAddress('blog')}
+          >
+            원글 주소로
+          </TipButton>
+          <TipButton color="secondary" size="sm" isDisabled={off} title="검색 주소·좌표를 그대로 써요" onClick={() => onChooseAddress('search')}>
+            검색 주소로
+          </TipButton>
+          {tail()}
+        </Row>
+      </>
+    );
+  } else if (!regionOk) {
+    /*
+     * 지역이 없으면 반영을 막는다 — 읍·면 칩이 비고 상세 헤더가 '기타' 가 되기 때문이다.
+     * 선택지는 기존 86곳이 쓰는 표기뿐이다(새 표기를 만들면 그 장소 혼자 다른 칩을 단다).
+     */
+    body = (
+      <>
+        <Situation title="지역을 골라야 올릴 수 있어요" />
+        <Row>
+          <Select
+            aria-label="지역 고르기"
+            size="sm"
+            className="w-48"
+            placeholder="지역 고르기"
+            selectedKey={state.regionDraft ?? null}
+            onSelectionChange={(key) => key && onPickRegion(String(key))}
+            isDisabled={off}
+          >
+            {REGION_OPTIONS.map((option) => (
+              <Select.Item key={option} id={option}>
+                {option}
+              </Select.Item>
+            ))}
+          </Select>
+          <TipButton
+            color="primary"
+            size="sm"
+            isDisabled={off || !state.regionDraft}
+            isLoading={busy === 'savingRegion'}
+            onClick={() => state.regionDraft && onSaveRegion(state.regionDraft)}
+          >
+            지역 저장
+          </TipButton>
+          {tail()}
+        </Row>
       </>
     );
   } else {
+    /*
+     * 기본 갈래 — 누르면 무슨 일이 되는지는 `title` 이 말한다. **갈래가 셋인 이유**는 `decideTarget` 이 셋이어서다:
+     * 짝이 있으면 그리로 합치고, 짝이 없어도 `tier === 'new'` 면 재대조가 돌아 점수가 높으면 기존 장소로 합쳐진다.
+     */
+    const approveTitle = pairId
+      ? matchedDraft
+        ? '빈 칸만 채우고 그 곳을 게시해요 · 되돌릴 수 없어요'
+        : '빈 칸만 채워요 · 합친 내용은 되돌릴 수 없어요'
+      : group.tier === 'new'
+        ? '같은 가게가 이미 있으면 거기 합쳐져요'
+        : "새 장소로 올라가요 · 되돌릴 땐 '올린 장소' 에서 내려요";
+    const approve = (
+      <TipButton
+        color={needsLook ? 'secondary' : 'primary'}
+        size="sm"
+        isDisabled={off}
+        isLoading={busy === 'approving'}
+        title={approveTitle}
+        onClick={() => onApprove()}
+      >
+        {pairId ? '합치기' : '올리기'}
+      </TipButton>
+    );
     body = (
       <>
-        <Situation
-          title={
-            pairId ? (
-              <>
-                기존 장소에 합쳐요 ·{' '}
-                {matched?.status === 'published' ? (
-                  <a className="text-brand-secondary underline" href={`/place/${matched.id}/`}>
-                    {matched.name}
-                  </a>
-                ) : (
-                  (matched?.name ?? '짝지은 장소')
-                )}{' '}
-                {matched && matched.status !== 'published' && (
-                  <Badge type="color" size="sm" color={PLACE_STATUS_COLOR[matched.status]}>
-                    {PLACE_STATUS_LABEL[matched.status]}
-                  </Badge>
-                )}
-              </>
-            ) : group.tier === 'new' ? (
-              '새 장소로 올라가요'
-            ) : (
-              '새 장소로 올라가요 · 짝을 비웠어요'
-            )
-          }
-        >
-          {/*
-            * 병합 승인은 초안 대상을 **게시로 올린다**(`adminApply.ts`). '안 보여요' 만 적으면 그 줄과 승인 버튼이
-            * 둘 다 "사이트는 안 바뀐다" 로 읽혀, 게시를 일으키는 버튼 앞에서 정반대를 말하게 된다.
-            */}
-          {matchedDraft && <p>아직 사이트에 없는 곳이에요 — 합치면 함께 게시돼요.</p>}
-          {matchedArchived && <p>짝이 내린 곳이에요 — 누르면 되살릴지 물어봐요.</p>}
-        </Situation>
-        <Stack>
-          {regionOk ? (
-            <>
-              <Button color="primary" size="sm" isDisabled={Boolean(busy)} isLoading={busy === 'approving'} onClick={() => onApprove()}>
-                맞아요, 장소로 올리기
-              </Button>
-              {/*
-                * 누르기 전에 무엇이 되돌릴 수 없어지는지 말한다. **갈래가 셋인 이유**는 `decideTarget` 이 셋이어서다:
-                * 짝이 있으면 그리로 합치고, 짝이 없어도 `tier === 'new'` 면 **재대조**가 돌아 점수가 높으면 기존 장소로
-                * 합쳐진다. 그 갈래를 "새로 생겨요" 로 뭉개면 운영자가 되돌리려고 합쳐 넣은 원래 장소를 내린다.
-                */}
-              <Caption>
-                {pairId
-                  ? matchedDraft
-                    ? '빈 칸만 채우고 그 곳을 게시해요 · 되돌릴 수 없어요'
-                    : '빈 칸만 채워요 · 합친 내용은 되돌릴 수 없어요'
-                  : group.tier === 'new'
-                    ? '같은 가게가 이미 있으면 거기 합쳐져요 · 결과는 누른 뒤에 알려 줘요'
-                    : "되돌릴 땐 '올린 장소' 에서 내려요"}
-              </Caption>
-              {latestButton({ mergeInto: pairId, overwrite: true }, `${matched?.name ?? '기존 장소'} 의 칸을 새 분석 값으로 바꿔요.`)}
-            </>
-          ) : (
-            /*
-             * 지역이 없으면 반영을 막는다 — 읍·면 칩이 비고 상세 헤더가 '기타' 가 되기 때문이다.
-             * 선택지는 기존 86곳이 쓰는 표기뿐이다(새 표기를 만들면 그 장소 혼자 다른 칩을 단다).
-             */
-            <div className="rounded-lg bg-secondary px-3 py-2">
-              <p className="text-xs text-secondary">지역이 없어 아직 올릴 수 없어요. 하나 골라 주세요.</p>
-              <div className="mt-2 flex flex-col gap-1.5">
-                <Select
-                  aria-label="지역 고르기"
-                  size="sm"
-                  placeholder="지역 고르기"
-                  selectedKey={state.regionDraft ?? null}
-                  onSelectionChange={(key) => key && onPickRegion(String(key))}
-                  isDisabled={Boolean(busy)}
-                >
-                  {REGION_OPTIONS.map((option) => (
-                    <Select.Item key={option} id={option}>
-                      {option}
-                    </Select.Item>
-                  ))}
-                </Select>
-                <Button
-                  color="primary"
-                  size="sm"
-                  isDisabled={Boolean(busy) || !state.regionDraft}
-                  isLoading={busy === 'savingRegion'}
-                  onClick={() => state.regionDraft && onSaveRegion(state.regionDraft)}
-                >
-                  지역 저장
-                </Button>
-              </div>
-            </div>
+        {pairId || needsLook ? (
+          <Situation
+            title={
+              pairId ? (
+                <>
+                  합칠 곳 ·{' '}
+                  {matched?.status === 'published' ? (
+                    <a className="text-brand-secondary underline" href={`/place/${matched.id}/`} target="_blank" rel="noopener noreferrer">
+                      {matched.name}
+                    </a>
+                  ) : (
+                    (matched?.name ?? '짝지은 장소')
+                  )}{' '}
+                  {matched && matched.status !== 'published' && (
+                    <Badge type="color" size="sm" color={PLACE_STATUS_COLOR[matched.status]}>
+                      {PLACE_STATUS_LABEL[matched.status]}
+                    </Badge>
+                  )}
+                </>
+              ) : (
+                '교차점검이 강아지를 데려간 근거를 못 찾았어요'
+              )
+            }
+          >
+            {/* 병합 승인은 초안 대상을 **게시로 올린다**(`adminApply.ts`) — 버튼 앞에서 "사이트는 안 바뀐다" 로 읽히면 안 된다. */}
+            {matchedDraft && <p>아직 사이트에 없는 곳이에요 — 합치면 함께 게시돼요.</p>}
+            {matchedArchived && <p>짝이 내린 곳이에요 — 누르면 되살릴지 물어봐요.</p>}
+            {pairId && needsLook && <p>교차점검이 강아지를 데려간 근거를 못 찾았어요.</p>}
+          </Situation>
+        ) : null}
+        <Row>
+          {/* 근거가 없으면 반려가 주 버튼이다 — 5곳이 핑크 한 번씩에 게시되던 자리(UI 스냅샷 피드백). */}
+          {needsLook && (
+            <TipButton color="primary" size="sm" isDisabled={off} onClick={onStartReject}>
+              반려
+            </TipButton>
           )}
-        </Stack>
-        {tools}
-        {/*
-          * 짝이 잘못 붙은 경우 — 사람이 짝을 비우는 대신 여기서 신규로 보낸다.
-          * **짝이 내린 곳이면 감춘다**: 그 경우 이 버튼은 내린 가게의 복제본을 새 id 로 게시하는 길이 되고,
-          * 같은 일은 '내린 곳' 갈래의 '정말 다른 가게예요' 를 지나야 한다(무엇을 버리는지 보고 누른다).
-          */}
-        {group.tier !== 'new' && pairId && regionOk && !matchedArchived && (
-          <Escape busy={busy} label="짝이 틀렸어요 — 새 장소로 올리기" caption="짝을 무시하고 새로 만들어요." onClick={() => onApprove({ asNew: true })} />
-        )}
+          {approve}
+          {overwrite({ mergeInto: pairId })}
+          {tail(needsLook)}
+          {/*
+           * 짝이 잘못 붙은 경우 — 신규로 보낸다. **짝이 내린 곳이면 감춘다**: 그 경우 이 버튼은 내린 가게의 복제본을
+           * 새 id 로 게시하는 길이 되고, 같은 일은 '내린 곳' 갈래의 '정말 다른 가게예요' 를 지나야 한다.
+           */}
+          {group.tier !== 'new' && pairId && !matchedArchived && (
+            <Escape busy={busy} label="짝이 틀렸어요 — 새 장소로" title="짝을 무시하고 새로 만들어요" onClick={() => onApprove({ asNew: true })} />
+          )}
+        </Row>
       </>
     );
   }
 
   return (
-    // 좁은 화면에서 레일이 근거 위로 오면 한 줄을 다 먹는다 — 버튼이 화면 폭으로 늘어나 주 버튼과 나머지가 구별되지 않아 폭을 묶는다.
-    <div className="max-w-md space-y-3">
+    <div className="space-y-2">
       {body}
-      {/*
-        * 재분석 준비 — 결정이 아니라 **분석을 다시 하자**는 선택이라 결정 무리 밖, 맨 밑에 둔다.
-        * 프롬프트를 고친 뒤 이 글을 새로 읽혀야 할 때 쓴다(DB 를 손으로 되돌리던 절차, data-pipeline.md 「재분석」).
-        */}
-      <div className="border-t border-secondary pt-2">
-        <Button color="link-gray" size="sm" isDisabled={Boolean(busy) || !group.lead.post_url} onClick={onStartReanalyze}>
-          분석 지우고 다시 읽기
-        </Button>
-        <Caption>{group.lead.post_url ? '이 글을 재분석 대기로 되돌려요.' : '글 링크가 없어 다시 읽을 수 없어요.'}</Caption>
-      </div>
-      {busy && <p className="text-xs text-tertiary">{BUSY_LABEL[busy]}</p>}
-      {state.error && <p className="text-xs text-error-primary">{state.error}</p>}
+      <Status state={state} />
     </div>
   );
 }
 
-/**
- * 빠져나가는 길 — 짝을 **버리는** 선택. 회색 링크로 선 아래 맨 밑에 둔다. 분홍 링크이던 동안 주 버튼과 같은 색이라
- * 한 레일에서 가장 위험한 버튼이 가장 눈에 띄었다.
- */
-function Escape({ busy, label, caption, onClick }: { busy: TAdminPageGroupState['busy']; label: string; caption: string; onClick: () => void }) {
+function Status({ state }: { state: TAdminPageGroupState }) {
   return (
-    <div className="border-t border-secondary pt-2">
-      <Button color="link-gray" size="sm" isDisabled={Boolean(busy)} onClick={onClick}>
-        {label}
-      </Button>
-      <Caption>{caption}</Caption>
-    </div>
+    <>
+      {state.busy && <p className="text-xs text-tertiary">{BUSY_LABEL[state.busy]}</p>}
+      {state.error && <p className="text-xs text-error-primary">{state.error}</p>}
+    </>
+  );
+}
+
+/** 빠져나가는 길 — 짝을 **버리는** 선택. 회색 링크로 줄 맨 끝에 둔다(주 버튼과 같은 색이면 가장 위험한 버튼이 가장 눈에 띈다). */
+function Escape({ busy, label, title, onClick }: { busy: TAdminPageGroupState['busy']; label: string; title: string; onClick: () => void }) {
+  return (
+    <TipButton color="link-gray" size="sm" className="ml-1" isDisabled={Boolean(busy)} title={title} onClick={onClick}>
+      {label}
+    </TipButton>
+  );
+}
+
+/**
+ * `title` 을 쓰는 버튼. react-aria 버튼은 DOM 으로 넘길 속성을 거르면서 `title` 을 버린다(`filterDOMProps`) —
+ * 그래서 감싼 칸에 단다. 버튼 밑 설명문이던 문장들이 여기로 왔다: 매일 보는 운영자에게는 누르기 전 한 번 확인하면 되는 말이다.
+ */
+function TipButton({ title, ...props }: ComponentProps<typeof Button> & { title?: string }) {
+  const button = <Button {...props} />;
+  return title ? (
+    <span title={title} className="inline-flex">
+      {button}
+    </span>
+  ) : (
+    button
   );
 }

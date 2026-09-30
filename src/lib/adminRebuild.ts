@@ -43,6 +43,13 @@ export type TRebuildHeadline = {
  */
 export const RESPONSE_WAIT_LIMIT_MS = 3 * 60 * 1000;
 
+/**
+ * 2xx 를 받은 뒤 이만큼 지나면 "1~2분 뒤 보여요" 가 아니라 "반영됐어요" 로 말한다.
+ * 하루 지난 기록에 "1~2분 뒤" 를 붙이던 자리다 — 미래형 문장이 과거 사건에 붙어 지금도 기다려야 하는 것처럼 읽혔다.
+ * 10분은 Vercel 빌드(실측 1~2분)에 넉넉한 여유를 둔 값이다. 빌드 결과 자체는 여기서 알 수 없다(훅의 응답은 "접수" 까지다).
+ */
+export const BUILD_SETTLE_MS = 10 * 60 * 1000;
+
 export async function fetchRebuildStatus(client: SupabaseClient, n = 5): Promise<TRebuildEntry[]> {
   const { data, error } = await client.rpc('rebuild_status', { n });
   if (error) throw new Error(`재빌드 기록: ${error.message}`);
@@ -113,7 +120,10 @@ export function rebuildHeadline(entries: TRebuildEntry[], nowMs: number): TRebui
   }
 
   if (status >= 200 && status < 300) {
-    return { tone: 'ok', text: `재빌드가 걸렸어요(${ago} · ${status}) — 1~2분 뒤 사이트에 보여요` };
+    /* HTTP 코드는 적지 않는다 — 2xx 는 운영자에게 뜻이 없다. 코드는 실패(4xx·5xx) 문장에만 싣는다(훅 폐기의 유일한 신호다). */
+    return nowMs - Date.parse(latest.requested_at) > BUILD_SETTLE_MS
+      ? { tone: 'ok', text: `사이트에 반영됐어요 · 마지막 재빌드 ${ago}` }
+      : { tone: 'ok', text: `재빌드가 걸렸어요(${ago}) — 1~2분 뒤 사이트에 보여요` };
   }
 
   return {

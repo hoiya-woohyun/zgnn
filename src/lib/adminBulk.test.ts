@@ -16,16 +16,16 @@ describe('bulkLatestTargets', () => {
     expect(plan.eligible.map((entry) => entry.group.key)).toEqual(['a']);
     expect(plan).toMatchObject({ noPair: 1, archived: 1, same: 1 });
     expect(bulkLatestSummary(plan)).toBe(
-      '1묶음의 기존 장소를 새 분석 값으로 덮어요 — 모두 1칸. 짝 없는 1묶음 · 짝이 내린 곳인 1묶음 · 바뀔 칸이 없는 1묶음은 건너뛰어요.',
+      '1곳의 기존 장소를 새 분석 값으로 덮어요 — 모두 1칸. 짝 없는 1곳 · 짝이 내린 곳인 1곳 · 바뀔 칸이 없는 1곳은 건너뛰어요.',
     );
   });
 });
 
 describe('summarizeBulk', () => {
   it('기다리는 것과 실패를 따로 말한다', () => {
-    expect(summarizeBulk('올렸어요', { done: 3, waiting: 0, failed: 0 })).toBe('3묶음 올렸어요');
+    expect(summarizeBulk('올렸어요', { done: 3, waiting: 0, failed: 0 })).toBe('3곳 올렸어요');
     expect(summarizeBulk('올렸어요', { done: 3, waiting: 2, failed: 1 })).toBe(
-      '3묶음 올렸어요 · 2묶음은 직접 골라야 해요(줄을 펼쳐 보세요) · 1묶음 실패 — 줄에 이유를 적어 뒀어요',
+      '3곳 올렸어요 · 2곳은 직접 골라야 해요(줄을 펼쳐 보세요) · 1곳 실패 — 줄에 이유를 적어 뒀어요',
     );
   });
 });

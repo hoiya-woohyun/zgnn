@@ -16,6 +16,7 @@
  * (CLI 는 그 후보를 pending 으로 되돌리고 사유만 적는다 — 터미널에는 물어볼 자리가 없다).
  */
 
+import { addressUnresolved } from './adminAddress';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { mergeIntoExisting, overwriteWithLatest, toNewPlaceRow, toRecheckCandidate } from '../../scripts/analyze/applyApproved.mjs';
 import { matchPlace, THRESHOLD } from '../../scripts/analyze/matchPlace.mjs';
@@ -117,6 +118,8 @@ export function leadProblem(lead: TCandidateRow): string | null {
   if (!regionUsable(extracted.regionRaw)) {
     return '지역을 골라 주세요 — "동쪽 (구좌읍)" 형식이 있어야 읍·면 칩과 방향 필터에 들어가요.';
   }
+  // 한 줄 버튼과 일괄 올리기가 둘 다 여기를 지난다 — 화면에서만 막으면 일괄 쪽으로 동명의 다른 가게가 게시된다.
+  if (addressUnresolved(extracted)) return '주소가 두 곳이에요 — 원글 주소와 검색 주소 중 맞는 쪽을 먼저 골라 주세요.';
   return null;
 }
 

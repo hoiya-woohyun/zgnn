@@ -31,7 +31,7 @@ export function AdminPageRejectForm({ busy, onCancel, onSubmit, count, inline = 
       <p className="text-xs font-semibold text-secondary">왜 반려하나요?</p>
       {/* 되돌릴 수 없다는 사실은 라벨이 아니라 이 줄이 전한다. 단위를 '글' 로 쓰면 틀린다(묶음은 여러 글이다). */}
       <p className="mt-1 text-xs text-tertiary">
-        {count == null ? '반려하면' : `고른 ${count}묶음을 반려해요. 반려하면`} 목록에서 사라져요. 화면에서는 되돌릴 수
+        {count == null ? '반려하면' : `고른 ${count}곳을 반려해요. 반려하면`} 목록에서 사라져요. 화면에서는 되돌릴 수
         없어요.
       </p>
       <div className="mt-2 flex flex-wrap gap-1.5">
@@ -68,7 +68,7 @@ export function AdminPageRejectForm({ busy, onCancel, onSubmit, count, inline = 
           isLoading={busy}
           onClick={() => reason && onSubmit(reason, note)}
         >
-          {busy ? '반려하고 있어요…' : count == null ? '반려하기' : `${count}묶음 반려하기`}
+          {busy ? '반려하고 있어요…' : count == null ? '반려하기' : `${count}곳 반려하기`}
         </Button>
         <Button color="secondary" size="sm" isDisabled={busy} onClick={onCancel}>
           취소
