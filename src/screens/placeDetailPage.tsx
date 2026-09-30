@@ -1,6 +1,6 @@
 'use client';
 
-import { LinkExternal01, Share01 } from '@untitledui/icons';
+import { Image01, LinkExternal01, Share01 } from '@untitledui/icons';
 import { notFound } from 'next/navigation';
 import { PlaceDetailHeader } from './placeDetailHeader';
 import { PlaceDetailGallery } from './placeDetailGallery';
@@ -13,6 +13,7 @@ import { PetBadges } from '../components/petBadges';
 import { SaveButton } from '../components/saveButton';
 import { showAppStatus } from '../lib/appStatus';
 import { formatStayPrice } from '../lib/format';
+import { naverPlacePhotoUrl } from '../lib/naverPlaceLink';
 import { shareMethodOf, shareTextFor } from '../lib/placeShare';
 import { TYPE_META, getPlace } from '../lib/places';
 import { useDog } from '../store/useAppStore';
@@ -28,6 +29,7 @@ export function PlaceDetailPage({ id }: { id: string }) {
 
   const dog = useDog();
   const eligibility = useEligibility(place);
+  const photoUrl = naverPlacePhotoUrl(place.naverPlaceId);
 
   /*
    * 공유 버튼은 **늘 그린다**(지수 ⑤ — 카톡 인앱·데스크톱엔 Web Share 가 없어 버튼이 아예 없었다).
@@ -108,6 +110,21 @@ export function PlaceDetailPage({ id }: { id: string }) {
             className="mt-3 w-full"
           >
             네이버 지도에서 열기
+          </Button>
+        )}
+        {/* 사진은 가져오지 않고 네이버 플레이스 사진 탭으로 보낸다(ADR-002 v2) — 권리가 업주·방문자에게 있다. */}
+        {photoUrl && (
+          <Button
+            color="secondary"
+            size="lg"
+            iconLeading={Image01}
+            iconTrailing={LinkExternal01}
+            href={photoUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 w-full"
+          >
+            네이버에서 사진 보기
           </Button>
         )}
       </section>
