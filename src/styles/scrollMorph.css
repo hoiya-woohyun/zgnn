@@ -16,9 +16,19 @@
 
 /* snap: 경계를 넘을 때 한 번 바뀌는 값을 transform·opacity 전환으로 잇는다(합성된다). 진행 막대는 폭 전환을 이미 갖고 있어 함께 적는다. */
 [data-morph='snap'] [data-scroll-morph] {
-  transition-property: transform, opacity, width;
+  transition-property: transform, opacity, width, visibility;
   transition-duration: 250ms;
   transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+/*
+  다 빠진 잉크 판·흰 글자는 투명도 0 에 더해 숨긴다. iOS 26 은 상단에 붙은 sticky 요소의 background-color 로 상태바를 칠하고
+  투명도를 보지 않아, 투명한 잉크 판이 상태바를 잉크로 바꿨다(HomePageHero). 먼저 사라진 숫자판(`fade-early`, 흰 6% 배경)도 다 접힌 뒤
+  상태바 자리에 걸려 있어 같이 숨긴다. `visibility` 전환은 끝날 때 한 번에 숨고, 되돌 때는 바로 보인다.
+  scroll 쪽은 `morph-tone-out`·`morph-fade-early` 의 100% 키프레임이 같은 일을 한다.
+*/
+[data-morph='snap'][data-collapsed] [data-scroll-morph='tone-out'],
+[data-morph='snap'][data-collapsed] [data-scroll-morph='fade-early'] {
+  visibility: hidden;
 }
 @media (prefers-reduced-motion: reduce) {
   [data-morph='snap'] [data-scroll-morph] {
@@ -165,9 +175,13 @@
   0% {
     opacity: 1;
   }
-  25%,
+  25% {
+    opacity: 0;
+  }
+  /* 다 접히면 숨긴다 — 상태바 색(위 snap 의 `[data-collapsed]` 규칙과 같은 이유). */
   100% {
     opacity: 0;
+    visibility: hidden;
   }
 }
 
@@ -176,9 +190,13 @@
   55% {
     opacity: 1;
   }
-  95%,
+  95% {
+    opacity: 0;
+  }
+  /* 다 접히면 숨긴다 — 위 snap 의 `[data-collapsed]` 규칙과 같은 이유(상태바 색). 이산값이라 100% 에 닿아야만 hidden 이다. */
   100% {
     opacity: 0;
+    visibility: hidden;
   }
 }
 
