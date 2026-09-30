@@ -52,6 +52,12 @@ export type TPetPolicyFacts = {
   notes: string | null;
 };
 
+export type TPlaceHomepage = {
+  url: string;
+  name?: string;
+  image?: string;
+};
+
 export type TPlace = {
   id: string;
   type: TPlaceType;
@@ -67,6 +73,11 @@ export type TPlace = {
   geo?: TGeo;
   address?: string;
   category?: string;
+  /**
+   * 업체 공식 홈페이지 링크 카드(ADR-002 v2). `image` 는 업체가 공유용으로 내놓은 `og:image` 의 **URL** 이다 —
+   * 파일을 갖고 있지 않으므로 카드(사진 + 출처 + 링크)로만 그리고, 못 받으면 사진 없이 그린다.
+   */
+  homepage?: TPlaceHomepage;
   cover?: string;
   images: string[];
   stay?: TStayInfo;

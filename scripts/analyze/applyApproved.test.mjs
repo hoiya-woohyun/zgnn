@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mergeIntoExisting, toNewPlaceRow, toRecheckCandidate } from './applyApproved.mjs';
+import { homepageColumns, mergeIntoExisting, toNewPlaceRow, toRecheckCandidate } from './applyApproved.mjs';
 
 // places 행(snake_case) — 시드된 86곳 중 하나의 모양. 사람이 쓴 features·pet_policy_text 가 들어 있다.
 const solsup = {
@@ -240,5 +240,85 @@ describe('2026-09-28 설계 검토 — 지역 게이트 · 숙소 필드 · AI �
     expect(mergeIntoExisting({ ...blank, pet_policy_text: '1~5kg 1만원.' }, { ...extracted, petPolicy: facts }) ?? {}).not.toHaveProperty('pet_policy');
     // 숙소가 아니면 stay_* 를 건드리지 않는다
     expect(mergeIntoExisting({ ...blank, type: 'cafe' }, { ...extracted, stayPriceText: '150,000원' }) ?? {}).not.toHaveProperty('stay_price_text');
+  });
+});
+
+describe('naverPlaceId — 사람이 검수 화면에서 넣은 플레이스 id (ADR-002 v2)', () => {
+  const withId = { ...extracted, naverPlaceId: '1234567890' };
+  const candidate = {
+    id: 'c1',
+    post_url: 'https://blog.naver.com/dogjeju/223456789',
+    extracted: { ...withId, name: '새로운카페', type: 'cafe', match: { confidence: 0.1, reason: '없음', tier: 'new' } },
+    match_place_id: null,
+    status: 'approved',
+  };
+
+  it('신규 장소는 id 와 플레이스 홈 주소를 함께 얻는다', () => {
+    const row = toNewPlaceRow(candidate, { id: 'new-id' });
+    expect(row.naver_place_id).toBe('1234567890');
+    expect(row.naver_url).toBe('https://m.place.naver.com/place/1234567890/home');
+  });
+
+  it('검색이 준 naverLink 만으로는 채우지 않는다 — 사람이 확인한 값이 아니다', () => {
+    const row = toNewPlaceRow({ ...candidate, extracted: { ...candidate.extracted, naverPlaceId: null } }, { id: 'new-id' });
+    expect(row.naver_place_id).toBeNull();
+    expect(row.naver_url).toBeNull();
+  });
+
+  it('숫자가 아닌 id 는 버린다(Studio 로 고친 값도 여기를 지난다)', () => {
+    const row = toNewPlaceRow({ ...candidate, extracted: { ...candidate.extracted, naverPlaceId: 'https://naver.me/x' } }, { id: 'new-id' });
+    expect(row.naver_place_id).toBeNull();
+  });
+
+  it('병합은 빈 칸만 — 비어 있으면 id·주소를 채우고, 사람이 넣은 단축 링크는 덮지 않는다', () => {
+    const empty = { ...solsup, naver_place_id: null, naver_url: null };
+    expect(mergeIntoExisting(empty, withId)).toMatchObject({
+      naver_place_id: '1234567890',
+      naver_url: 'https://m.place.naver.com/place/1234567890/home',
+    });
+    const keepsUrl = mergeIntoExisting({ ...solsup, naver_place_id: null }, withId);
+    expect(keepsUrl.naver_place_id).toBe('1234567890');
+    expect(keepsUrl).not.toHaveProperty('naver_url');
+    expect(mergeIntoExisting(solsup, withId)?.naver_place_id).toBeUndefined();
+  });
+
+  it('재대조 입력에 id 를 싣는다 — matchPlace 가 그것으로 1.0 짝을 낸다', () => {
+    expect(toRecheckCandidate(candidate).naverPlaceId).toBe('1234567890');
+  });
+});
+
+describe('homepage — 공식 홈페이지 링크 카드 (ADR-002 v2)', () => {
+  const card = { url: 'https://www.solsup.com/', siteName: '솔숲펜션', image: 'https://www.solsup.com/a.jpg' };
+  const cols = { homepage_url: 'https://www.solsup.com/', homepage_name: '솔숲펜션', homepage_image: 'https://www.solsup.com/a.jpg' };
+  const candidate = {
+    id: 'c1',
+    post_url: 'https://blog.naver.com/dogjeju/1',
+    extracted: { ...extracted, name: '새로운카페', type: 'cafe', homepage: card, match: { confidence: 0.1, reason: '없음', tier: 'new' } },
+    match_place_id: null,
+  };
+
+  it('카드를 세 칸으로 — 주소가 http(s) 가 아니면 통째로 버리고, 사진은 https 만', () => {
+    expect(homepageColumns({ homepage: card })).toEqual(cols);
+    expect(homepageColumns({ homepage: { ...card, url: 'javascript:x' } })).toBeNull();
+    expect(homepageColumns({ homepage: { ...card, image: 'http://x/a.jpg' } }).homepage_image).toBeNull();
+    expect(homepageColumns({ homepage: null })).toBeNull();
+    expect(homepageColumns({})).toBeNull();
+  });
+
+  it('신규 장소는 카드가 있을 때만 칸을 싣는다 — 없으면 키도 없다(마이그레이션 전후 같은 모양)', () => {
+    expect(toNewPlaceRow(candidate, { id: 'n' })).toMatchObject(cols);
+    const without = toNewPlaceRow({ ...candidate, extracted: { ...candidate.extracted, homepage: null } }, { id: 'n' });
+    expect(without).not.toHaveProperty('homepage_url');
+  });
+
+  it('병합은 주소가 빈 곳에만 세 칸을 한 벌로 — 사람이 비운 사진이 되살아나지 않는다', () => {
+    const empty = { ...solsup, homepage_url: null, homepage_name: null, homepage_image: null };
+    expect(mergeIntoExisting(empty, { ...extracted, homepage: card })).toMatchObject(cols);
+    const imageCleared = { ...solsup, homepage_url: 'https://www.solsup.com/', homepage_name: '솔숲펜션', homepage_image: null };
+    expect(mergeIntoExisting(imageCleared, { ...extracted, homepage: card })?.homepage_image).toBeUndefined();
+  });
+
+  it('행에 칸이 없으면(마이그레이션 전) 건드리지 않는다', () => {
+    expect(mergeIntoExisting(solsup, { ...extracted, homepage: card })?.homepage_url).toBeUndefined();
   });
 });

@@ -16,6 +16,34 @@ const isBlank = (v) => v == null || String(v).trim() === '';
 /** extracted 의 문자열 값을 patch 에 넣을 모양으로 — 양끝 공백 제거. 비어 있으면 null(= 채울 게 없다). */
 const text = (v) => (isBlank(v) ? null : String(v).trim());
 
+/**
+ * 사람이 검수 화면에서 넣은 플레이스 id(`src/lib/adminEdit.ts`). 숫자 마디만 받는다 — 폼이 이미 거르지만 Studio 로 고친 값도 여기를 지난다.
+ * 검색이 준 `naverLink` 는 여기 오지 않는다(아래 "건드리지 않는 칸" 주석) — 그쪽은 사람이 확인한 값이 아니다.
+ */
+const placeIdOf = (extracted) => {
+  const id = text(extracted?.naverPlaceId);
+  return id && /^\d+$/.test(id) ? id : null;
+};
+
+/** 플레이스 id → `naver_url`. 시드의 `naver.me` 단축 링크와 모양은 달라도 같은 곳(플레이스 홈)으로 간다. */
+export const naverPlaceHomeUrl = (id) => `https://m.place.naver.com/place/${id}/home`;
+
+/**
+ * 후보의 홈페이지 카드(`extracted.homepage`, homepageCard.mjs) → places 세 칸. 주소가 http(s) 가 아니면 카드 전체를 버리고,
+ * 사진은 https 일 때만 남긴다 — Studio 로 고친 값도 여기를 지난다. 카드가 없으면 null.
+ */
+export function homepageColumns(extracted) {
+  const card = extracted?.homepage;
+  const url = text(card?.url);
+  if (!url || !/^https?:\/\//i.test(url)) return null;
+  const image = text(card?.image);
+  return {
+    homepage_url: url,
+    homepage_name: text(card?.siteName),
+    homepage_image: image && /^https:\/\//i.test(image) ? image : null,
+  };
+}
+
 /** { lat, lng } 둘 다 숫자일 때만 좌표로 인정한다. 한쪽만 있으면 toPlace 가 geo 를 통째로 버리므로 반쪽 채움은 의미가 없다. */
 const validGeo = (geo) =>
   geo != null && typeof geo.lat === 'number' && typeof geo.lng === 'number' && Number.isFinite(geo.lat) && Number.isFinite(geo.lng);
@@ -30,8 +58,11 @@ const validGeo = (geo) =>
  *   extracted 에 실어 줬을 때만 채운다 — 없으면 아무 일도 없다.
  *   pet_policy(AI 구조화 판단)는 **pet_policy_text 를 채울 때만 함께** 채운다 — 사람이 쓴 원문이 있는 곳에 다른 글의 판단을 얹지 않는다(ADR-017).
  *   review_url·stay_* 는 시드 86곳이 전부 차 있어 영향이 없고, 블로그 draft 끼리 보강될 때만 채워진다(2026-09-28 설계 검토 FF-2·FF-8).
- * 건드리지 않는 칸: naver_url · naver_place_id · status · source · sort.
- *   naver_url 에는 naverLink 도 넣지 않는다. 벤더가 네이버로 바뀌어 이름은 맞아 보이지만, 지역 검색의 link 는 공식 문서상
+ *   naver_place_id(+ 비어 있으면 naver_url) — **사람이 검수 화면에서 넣은 `naverPlaceId` 가 있을 때만**(2026-09-30, ADR-002 v2).
+ *   이 id 가 있어야 상세에 '네이버에서 사진 보기' 가 생긴다.
+ *   homepage_url·homepage_name·homepage_image — 분석이 공식 홈페이지에서 읽은 카드. 세 칸을 한 벌로, homepage_url 이 빈 곳에만.
+ * 건드리지 않는 칸: status · source · sort.
+ *   naver_url 에는 naverLink 를 넣지 않는다. 벤더가 네이버로 바뀌어 이름은 맞아 보이지만, 지역 검색의 link 는 공식 문서상
  *   "업체, 기관의 상세 정보 URL" 이라 **네이버 플레이스가 아니라 업체 홈페이지일 수 있고 비어 있는 경우도 많다**(문서 예제부터 비었다).
  *   naver_url 은 사람이 확인한 플레이스 주소를 담는 칸이라, 검색이 준 링크를 자동으로 채우면 조용한 오염이 된다. Studio 에서 사람이 넣는다.
  *
@@ -68,6 +99,19 @@ export function mergeIntoExisting(existingRow, extracted, { postUrl = null } = {
 
   const reviewUrl = text(postUrl);
   if (isBlank(existingRow.review_url) && reviewUrl) patch.review_url = reviewUrl;
+
+  // id 와 주소는 **짝으로** 채운다 — id 만 있고 주소가 다른 가게를 가리키면 '지도에서 열기' 와 '사진 보기' 가 다른 가게로 간다.
+  // 그래서 주소는 id 를 채울 때만, 비어 있을 때만 만든다(사람이 넣은 단축 링크를 덮지 않는다).
+  const placeId = placeIdOf(extracted);
+  if (isBlank(existingRow.naver_place_id) && placeId) {
+    patch.naver_place_id = placeId;
+    if (isBlank(existingRow.naver_url)) patch.naver_url = naverPlaceHomeUrl(placeId);
+  }
+
+  // 홈페이지 카드는 **세 칸을 한 벌로** — 주소가 빈 곳에만 채운다. 사진만 따로 채우면 사람이 비운 사진(업체 요청)이 되살아난다.
+  // 행에 칸 자체가 없으면(마이그레이션 20260930120000 전) 건드리지 않는다 — 없는 칸에 쓰면 PostgREST 가 update 를 통째로 거절한다.
+  const homepage = homepageColumns(extracted);
+  if (homepage && 'homepage_url' in existingRow && isBlank(existingRow.homepage_url)) Object.assign(patch, homepage);
 
   if (existingRow.type === 'stay') {
     const stayPriceText = text(extracted?.stayPriceText);
@@ -113,6 +157,7 @@ export function toNewPlaceRow(candidate, { id }) {
 
   const geo = validGeo(extracted.geo) ? extracted.geo : null;
   const petPolicyText = text(extracted.petPolicyText);
+  const placeId = placeIdOf(extracted);
 
   return {
     id,
@@ -124,8 +169,8 @@ export function toNewPlaceRow(candidate, { id }) {
     // AI 구조화 판단은 원문이 있을 때만 의미가 있다(ADR-017).
     pet_policy: petPolicyText && extracted.petPolicy && typeof extracted.petPolicy === 'object' ? extracted.petPolicy : null,
     review_url: candidate.post_url ?? null,
-    naver_url: null,
-    naver_place_id: null,
+    naver_url: placeId ? naverPlaceHomeUrl(placeId) : null,
+    naver_place_id: placeId,
     lat: geo?.lat ?? null,
     lng: geo?.lng ?? null,
     address: text(extracted.address),
@@ -135,6 +180,9 @@ export function toNewPlaceRow(candidate, { id }) {
     sort: null,
     status: 'draft',
     source: 'blog',
+    // 카드가 있을 때만 칸을 싣는다. 분석이 마이그레이션 20260930120000 을 확인한 뒤에만 카드를 만들므로(analyze-candidates.mjs)
+    // 카드 없는 후보의 insert 는 그 마이그레이션 전후 어느 쪽에서도 같은 모양이다.
+    ...homepageColumns(extracted),
   };
 }
 
@@ -148,6 +196,8 @@ export function toRecheckCandidate(candidate) {
   return {
     name: extracted.name,
     type: extracted.type,
+    // 사람이 넣은 id 가 있으면 재대조도 그것으로 1.0 짝을 낸다 — 같은 가게가 두 후보로 따로 승인될 때 둘째가 첫째로 합쳐진다.
+    naverPlaceId: placeIdOf(extracted) ?? undefined,
     geo: validGeo(extracted.geo) ? extracted.geo : undefined,
     address: text(extracted.address) ?? undefined,
     // 분석 때 matchPlace 가 본 값(AI 원본)을 우선 — regionRaw 는 정리된 값이라 분석·반영의 지역 신호가 어긋날 수 있다(리뷰 지적).

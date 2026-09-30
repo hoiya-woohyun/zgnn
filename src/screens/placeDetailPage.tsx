@@ -4,6 +4,7 @@ import { Image01, LinkExternal01, Share01 } from '@untitledui/icons';
 import { notFound } from 'next/navigation';
 import { PlaceDetailHeader } from './placeDetailHeader';
 import { PlaceDetailGallery } from './placeDetailGallery';
+import { PlaceDetailHomepage } from './placeDetailHomepage';
 import { HighlightedPolicyText, PlaceDetailEligibilityCard } from './placeDetailEligibilityCard';
 import { PlaceDetailMiniMap } from './placeDetailMiniMap';
 import { PlaceDetailNearby } from './placeDetailNearby';
@@ -150,6 +151,16 @@ export function PlaceDetailPage({ id }: { id: string }) {
               </div>
             )}
           </dl>
+        </section>
+      )}
+
+      {/* 공식 홈페이지가 있을 때만(분석이 네이버 지역 검색의 link 에서 찾은 업체 사이트). 사진은 그 사이트의 것이다 — ADR-002 v2. */}
+      {place.homepage && (
+        <section className="mt-6 px-4 md:px-6">
+          <h2 className="text-lg font-bold text-primary">공식 홈페이지</h2>
+          <div className="mt-2">
+            <PlaceDetailHomepage homepage={place.homepage} />
+          </div>
         </section>
       )}
 

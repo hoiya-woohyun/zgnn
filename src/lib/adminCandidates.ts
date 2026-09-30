@@ -59,6 +59,10 @@ export type TCandidateExtracted = {
   geo?: { lat: number; lng: number } | null;
   geoSource?: string | null;
   naverLink?: string | null;
+  /** 사람이 검수 화면에서 넣은 네이버 플레이스 id(`adminEdit`). AI·검색은 채우지 않는다 — 반영기가 `naver_place_id` 로 옮긴다. */
+  naverPlaceId?: string | null;
+  /** 공식 홈페이지 카드(`scripts/analyze/homepageCard.mjs`). null 은 "없음 또는 안 읽음". 사진은 URL 뿐이다(ADR-002 v2). */
+  homepage?: { url: string; siteName: string | null; image: string | null } | null;
   category?: string | null;
   match?: { confidence: number; reason: string; tier: TCandidateTier };
   /**
@@ -103,6 +107,10 @@ export type TPlaceRow = {
   lng: number | null;
   address: string | null;
   category: string | null;
+  /** 마이그레이션 20260930120000 전의 행에는 칸이 없다 — 그래서 선택. */
+  homepage_url?: string | null;
+  homepage_name?: string | null;
+  homepage_image?: string | null;
   stay_price_text: string | null;
   stay_amenities_text: string | null;
   sort: number | null;

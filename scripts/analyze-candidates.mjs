@@ -1,6 +1,6 @@
 // blog_posts 의 미분석 글을 Claude 로 분석해 candidates 를 만든다(`pnpm data:analyze`). docs/todo/03-analyze-and-review.md 가 정본.
 // 글 하나의 흐름: 본문 받기(naverPostBody) → 장소 추출(extractPlaces) → **교차점검(verifyPlaces, 조건 문장 없는 후보만)** →
-// 좌표·주소 보강(naverLocal, 키 있을 때만) → 기존 장소와 대조(matchPlace) → candidates insert → blog_posts.analyzed_at.
+// 좌표·주소 보강(naverLocal, 키 있을 때만) → 기존 장소와 대조(matchPlace) → 공식 홈페이지 카드(homepageCard, link 가 업체 사이트일 때만) → candidates insert → blog_posts.analyzed_at.
 // 판별·조립 규칙은 scripts/analyze/analyzeCandidates.mjs 의 순수 함수에 있고 여기는 I/O 와 순서뿐이다.
 //
 //  - **Claude 를 두 번 부른다.** 두 번째(교차점검)는 "동반 조건 문장이 없는" 후보에만, 글 하나당 한 번이다. 추출 패스는
@@ -55,6 +55,7 @@ import { createUsageMeter, extractPlaces, isFatal, isRetryable, MODEL, PROMPT_VE
 import { formatGeocodeSummary, geocodeAddress, newGeocodeReasons, pickGeocoded, shouldGeocode } from './analyze/naverGeocode.mjs';
 import { newPickReasons, pickNaverPlace, searchNaverPlace } from './analyze/naverLocal.mjs';
 import { matchPlace, normalizeName, townOf } from './analyze/matchPlace.mjs';
+import { fetchHomepageCard } from './analyze/homepageCard.mjs';
 import { fetchPostText } from './analyze/naverPostBody.mjs';
 import { needsDogCheck, resolveVerifyModel, verifyLabel, VERIFY_PROMPT_VERSION, verifyPlaces } from './analyze/verifyPlaces.mjs';
 import { toMatchablePlace } from './lib/placeFields.mjs';
@@ -65,10 +66,10 @@ let args;
 try {
   args = parseArgs(process.argv.slice(2));
 } catch (e) {
-  console.error(`${e.message} — 사용법: pnpm data:analyze [--limit N] [--max-per-blog N] [--no-geo] [--no-verify] [--dry-run] [--dump[=경로]]`);
+  console.error(`${e.message} — 사용법: pnpm data:analyze [--limit N] [--max-per-blog N] [--no-geo] [--no-verify] [--no-homepage] [--dry-run] [--dump[=경로]]`);
   process.exit(1);
 }
-const { limit, dryRun, dump, maxPerBlog, noGeo, noVerify } = args;
+const { limit, dryRun, dump, maxPerBlog, noGeo, noVerify, noHomepage } = args;
 console.log(dryRun ? '모드: dry-run — DB 에 쓰지 않는다(Claude 는 부른다)' : '모드: 분석 — candidates · blog_posts.analyzed_at 에 쓴다');
 
 // 좌표 보강은 **02(수집)과 같은 네이버 키**를 쓴다 — 키를 하나 더 발급·관리하지 않는다(ADR-008 v4).
@@ -175,6 +176,19 @@ let verifyAxisOff = false;
 }
 
 /*
+ * 홈페이지 카드는 places 에 세 칸(마이그레이션 20260930120000)이 있어야 반영된다. 칸이 없는데 카드 든 후보를 만들면 그 후보의
+ * **승인(insert)이 통째로 실패한다** — 그래서 멈추지 않고 카드만 끈다(이 값은 더하기만 하는 값이다).
+ */
+let homepageOff = noHomepage;
+if (!homepageOff) {
+  const { error } = await supabase.from('places').select('homepage_url').limit(1);
+  if (error) {
+    homepageOff = true;
+    console.log('places.homepage_url 이 없다 — 공식 홈페이지 카드를 끈다(supabase/migrations/20260930120000_places_homepage.sql 을 적용하면 켜진다)');
+  }
+} else console.log('--no-homepage — 공식 홈페이지 카드를 읽지 않는다');
+
+/*
  * 키는 **세션·마이그레이션 검사 뒤에** 묻는다(`collect-blog.mjs:22` 가 같은 이유로 같은 순서다).
  * 먼저 물으면 키 넷을 치고 나서 "pnpm data:login" 이나 "마이그레이션을 적용해라" 로 멈춰 그 입력이 통째로 헛수고가 된다.
  */
@@ -242,6 +256,34 @@ console.log(
 // 세운다: 조용히 이름만으로 대조하면 같은 이름의 다른 가게가 ask 대신 auto 로 올라간다(리뷰 지적). 검색 사이 200ms 는 collect-blog.mjs 와 같은 예의.
 // 좌표 보강이 실제로 무슨 일을 했는지 — 실행 끝에 한 줄 찍는다(아래 요약).
 const naverStats = { searched: 0, picked: 0, failed: 0 };
+
+/*
+ * 공식 홈페이지 카드(ADR-002 v2). 이름 축이 준 link 가 있을 때만 업체 사이트를 **한 번** 읽는다 — 네이버·SNS·예약 플랫폼 링크는
+ * 부르지도 않는다(`homepageUrlOf`). 실패는 카드 없이 넘어간다: 판정·대조에 쓰이지 않는 '더하기만 하는' 값이라 실행을 세울 이유가 없다.
+ * 같은 link 는 한 실행에 한 번만 읽는다 — 같은 가게가 여러 글에 나오는 것이 보통이다(첫 분석에서 한 펜션이 13번).
+ */
+const homepageStats = { tried: 0, card: 0, image: 0, failed: 0 };
+const homepageCache = new Map();
+async function readHomepage(link) {
+  if (homepageOff || !link) return null;
+  if (homepageCache.has(link)) return homepageCache.get(link);
+  let card = null;
+  try {
+    card = await fetchHomepageCard(link);
+    if (card) {
+      homepageStats.tried++;
+      homepageStats.card++;
+      if (card.image) homepageStats.image++;
+    }
+  } catch (e) {
+    homepageStats.tried++;
+    homepageStats.failed++;
+    // 응답 본문은 찍지 않는다 — status 나 타임아웃 이름뿐이다.
+    console.log(`    홈페이지 읽기 실패(${e.name === 'TimeoutError' ? '시간 초과' : e.message}) — 카드 없이 간다`);
+  }
+  homepageCache.set(link, card);
+  return card;
+}
 const pickReasons = newPickReasons();
 
 // 두 번째 축(주소 → 좌표). `chance` 는 이름 축이 좌표를 못 붙인 후보 수 — 이 축이 구제할 대상의 크기다.
@@ -418,6 +460,7 @@ for (const post of posts) {
         dupOf,
         // 물어보지 않은 후보는 `null`(미점검)이다 — `?? null` 이 그 뜻을 지킨다.
         verify: verdicts.get(normalizeName(extracted.name)) ?? null,
+        homepage: await readHomepage(local?.naverLink),
       });
       const tier = row.extracted.match.tier;
       console.log(`  ${formatCandidateLine(row, matched.match?.name)}${row.extracted.visited === false ? ' · 목록글' : ''}`);
@@ -530,6 +573,13 @@ if (geocodeStats.chance > 0 || geocodeStats.tried > 0) {
         'NAVER_MAP_CLIENT_ID · NAVER_MAP_CLIENT_SECRET 을 주면 그중 주소가 있는 건을 시도한다(docs/todo/03).',
     );
   }
+}
+
+if (homepageStats.tried > 0) {
+  console.log(
+    `공식 홈페이지: 읽은 ${homepageStats.tried}곳 · 카드 ${homepageStats.card} (사진 있음 ${homepageStats.image})` +
+      `${homepageStats.failed ? ` · 실패 ${homepageStats.failed}` : ''}`,
+  );
 }
 
 // 글 단위 실패는 정상 경로(다음 실행에 재시도)라 exit 0. 시도한 글 중 성공이 0 이면 1 — "분석 불가" 도 성공이 아니다(위에서 닫지도 않았다).

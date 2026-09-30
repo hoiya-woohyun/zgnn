@@ -47,13 +47,14 @@ const local = {
 
 describe('parseArgs', () => {
   it('인자가 없으면 기본 limit · dry-run 아님', () => {
-    expect(parseArgs([])).toEqual({ limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false });
+    expect(parseArgs([])).toEqual({ limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noHomepage: false });
   });
   it('--limit N 과 --limit=N 둘 다 받고, --dry-run 은 어디에 있어도 된다', () => {
-    expect(parseArgs(['--limit', '5', '--dry-run'])).toEqual({ limit: 5, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false });
-    expect(parseArgs(['--dry-run', '--limit=20'])).toEqual({ limit: 20, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false });
+    expect(parseArgs(['--limit', '5', '--dry-run'])).toEqual({ limit: 5, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noHomepage: false });
+    expect(parseArgs(['--dry-run', '--limit=20'])).toEqual({ limit: 20, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noHomepage: false });
     expect(parseArgs(['--no-geo']).noGeo).toBe(true);
     expect(parseArgs(['--no-verify']).noVerify).toBe(true);
+    expect(parseArgs(['--no-homepage']).noHomepage).toBe(true);
   });
   it('--dump 는 기본 경로(빈 문자열), --dump=경로 는 그 경로 · --max-per-blog 는 0 도 된다(상한 없음)', () => {
     expect(parseArgs(['--dump']).dump).toBe('');
@@ -216,6 +217,7 @@ describe('toCandidateRow — candidates.extracted 는 applyApproved.mjs 가 읽�
       geo: { lat: local.lat, lng: local.lng },
       geoSource: 'local',
       naverLink: local.naverLink,
+      homepage: null,
       category: '펜션',
       regionRawAi: extracted.regionRaw ?? null,
       regionRaw: '동쪽 (구좌읍)',
@@ -223,6 +225,12 @@ describe('toCandidateRow — candidates.extracted 는 applyApproved.mjs 가 읽�
       // 물어보지 않았으면 null 이다 — "점검했고 근거가 없었다" 와 섞이지 않게(verifyPlaces.mjs).
       verify: null,
     });
+  });
+
+  it('홈페이지 카드는 넘긴 그대로 싣고, 안 넘기면 null(없음 또는 안 읽음)', () => {
+    const homepage = { url: 'https://www.solsup.com/', siteName: '솔숲펜션', image: 'https://www.solsup.com/a.jpg' };
+    expect(toCandidateRow(post, extracted, local, null, matchedAuto, { homepage }).extracted.homepage).toEqual(homepage);
+    expect(toCandidateRow(post, extracted, local, null, matchedAuto).extracted.homepage).toBeNull();
   });
 
   it('네이버가 없으면 geo·geoSource·naverLink·category 는 null 이고 address 는 본문 값(없으면 null)', () => {

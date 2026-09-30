@@ -17,6 +17,7 @@ import {
   type TTriState,
 } from '../lib/adminEdit';
 import type { TCandidateExtracted } from '../lib/adminCandidates';
+import { naverMapSearchUrl, parseNaverPlaceId } from '../lib/naverPlaceLink';
 import { cx } from '../utils/cx';
 
 const INDOOR_OPTIONS: { key: TPolicyDraft['indoor']; label: string }[] = [
@@ -145,6 +146,47 @@ export function AdminPageEditForm({
           */}
         <Input label="위도" size="sm" value={draft.lat} onChange={(value) => set({ lat: value })} isDisabled={busy} />
         <Input label="경도" size="sm" value={draft.lng} onChange={(value) => set({ lng: value })} isDisabled={busy} />
+        {/*
+          * 플레이스 id 는 AI·검색이 채우지 못하는 칸이라 사람이 넣는다(ADR-002 v2) — 이 칸이 차야 상세에 '사진 보기' 가 생긴다.
+          * 찾으러 갈 길을 옆에 둔다: 가게 화면을 연 뒤 주소창을 그대로 붙여 넣으면 된다.
+          */}
+        <div className="md:col-span-2">
+          <Input
+            label="네이버 플레이스"
+            size="sm"
+            placeholder="가게 화면 주소나 숫자 id"
+            value={draft.naverPlace}
+            onChange={(value) => set({ naverPlace: value })}
+            isInvalid={'error' in parseNaverPlaceId(draft.naverPlace)}
+            hint="채우면 사이트 상세에 '네이버에서 사진 보기' 가 생겨요"
+            isDisabled={busy}
+          />
+          <a
+            className="mt-1 inline-block text-xs text-brand-secondary underline"
+            href={naverMapSearchUrl(draft.name)}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            네이버 지도에서 찾기
+          </a>
+        </div>
+        {/* 홈페이지 카드 — 주소를 비우면 카드째, 사진만 비우면 사진만 빠진다. 업체의 내려 달라는 요청이 승인 전이면 여기서 끝난다(ADR-002 v2). */}
+        <Input
+          label="공식 홈페이지"
+          size="sm"
+          placeholder="https://…"
+          value={draft.homepageUrl}
+          onChange={(value) => set({ homepageUrl: value })}
+          isDisabled={busy}
+        />
+        <Input
+          label="홈페이지 사진"
+          size="sm"
+          placeholder="비우면 사진 없이 카드만"
+          value={draft.homepageImage}
+          onChange={(value) => set({ homepageImage: value })}
+          isDisabled={busy}
+        />
         {/*
           * AI 요약만 `<textarea>` 다. `components/base` 에 TextArea 가 없고 그 폴더는 Untitled UI 복사본이라
           * 건드리지 않는다(CLAUDE.md) — 한 자리에서만 쓰는 것이라 감싸는 컴포넌트를 새로 만들지 않고 여기 둔다.

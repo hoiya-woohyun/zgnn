@@ -63,6 +63,34 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
             <span className="mt-0.5 block text-xs text-tertiary">원글 표기 — {addressAi}</span>
           )}
         </Row>
+        {/*
+          * 홈페이지 카드 — 승인하면 사이트 상세에 그대로 나간다. 사진을 **작게라도 보여 주는** 이유: 업체 사이트의 og:image 는
+          * 로고·배너일 때가 많아 사람이 보고 빼야 한다('고치기' 의 홈페이지 사진 칸을 비운다). 못 받으면 접는다.
+          */}
+        <Row label="홈페이지">
+          {extracted.homepage ? (
+            <span className="flex items-start gap-2">
+              {extracted.homepage.image && (
+                <img
+                  src={extracted.homepage.image}
+                  alt=""
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  onError={(event) => event.currentTarget.remove()}
+                  className="h-12 w-[5.75rem] shrink-0 rounded bg-secondary object-cover"
+                />
+              )}
+              <span className="min-w-0">
+                <a className="break-all text-brand-secondary underline" href={extracted.homepage.url} target="_blank" rel="noopener noreferrer">
+                  {extracted.homepage.siteName ?? extracted.homepage.url}
+                </a>
+                {!extracted.homepage.image && <span className="block text-tertiary">사진 없음 — 사진 없는 카드로 나가요</span>}
+              </span>
+            </span>
+          ) : (
+            '—'
+          )}
+        </Row>
         {/* 값이 없어도 줄을 지우지 않는다 — Row 의 규칙이고 이 줄만 어기고 있었다. `??` 가 아니라 `||` 다(AI 는 '' 로도 준다). */}
         <Row label="소개">{extracted.features || '소개 문장이 없어요'}</Row>
         <Row label="조건 원문">{extracted.petPolicyText ?? '동반 조건 문장이 없어요'}</Row>

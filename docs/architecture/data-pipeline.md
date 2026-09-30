@@ -1,6 +1,8 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-09-30 (v15: **AI 판단의 요금이 목록이 됐다** — `TPetPolicyFacts.feeText`(문장 하나) → `feeLines: string[]`(기준마다 한 줄).
+> 최종 수정: 2026-09-30 (v16: **공식 홈페이지 카드** — `places.homepage_url·homepage_name·homepage_image`(마이그레이션 `20260930120000`) →
+> `TPlace.homepage`. 채우는 길은 `data:analyze`(새 후보)·`data:homepage`(쌓인 pending 후보) → 승인. 사진은 URL 만([ADR-002](../decisions/ADR-002-no-place-photos.md) v3))
+> 이전 (v15: **AI 판단의 요금이 목록이 됐다** — `TPetPolicyFacts.feeText`(문장 하나) → `feeLines: string[]`(기준마다 한 줄).
 > `PROMPT_VERSION` 이 바뀌었다 — 옛 프롬프트로 분석된 글을 다시 읽히려면 `analyzed_at` 을 비우고 그 글의 `pending` 후보를 눕힌다(아래 「재분석」))
 > 이전 (v14: **이미 게시된 곳은 후보를 만들지 않는다** — 짝짓기 결과가 `auto`(≥0.85)이고 그 짝이
 > `published` 면 `candidates` 행을 넣지 않고 `analysis.excluded` 에 `alreadyHave` 로만 남긴다(`skipAsExisting`).
@@ -126,6 +128,13 @@ Postgres 테이블엔 원래 순서 개념이 없는데, 화면은 "종류별 �
 `places` 테이블에 `images` 컬럼은 없다. `data:pull` 은 항상 `images: []` 를 쓴다. `TPlace` 계약(코드가 읽는
 타입)은 그대로 남겨 뒀지만(→ [ADR-002](../decisions/ADR-002-no-place-photos.md), 사진 없음이 기본 디자인),
 실제 값을 채우는 경로는 지금 없다.
+
+사진이 화면에 나오는 길은 둘이고 **둘 다 파일을 갖지 않는다**(ADR-002 v2·v3):
+
+- **네이버 플레이스 사진 탭으로 보내는 버튼** — `naverPlaceId` 에서 주소를 만든다. `naverUrl` 은 `naver.me` 단축 링크라 쓸 수 없다.
+- **공식 홈페이지 링크 카드** — `places.homepage_*` 세 칸 → `TPlace.homepage`. 주소가 없으면 키째 빠져 시드 86곳의 `places.json` 바이트는 그대로다.
+  분석이 카드를 만드는 것은 그 세 칸이 DB 에 있을 때뿐이다(`data:analyze` 가 먼저 확인하고 없으면 카드만 끈다) — 없는 칸을 실은
+  후보를 승인하면 insert 가 통째로 거절되기 때문이다. 같은 이유로 `toNewPlaceRow` 는 카드가 있을 때만 그 칸을 싣는다.
 
 ## 파싱은 여전히 런타임
 

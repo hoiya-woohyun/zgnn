@@ -1,6 +1,8 @@
 # 5. 보안 — 키 분리 · RLS · 웹훅 · 프리뷰 보호
 
-> 최종 수정: 2026-09-29 (v13: **Deploy Hook 줄들을 현실로 맞췄다** — 4b 가 끝나 URL 은 **Vault** 에 있고(웹훅 설정이 아니다),
+> 최종 수정: 2026-09-30 (v14: 마이그레이션 `20260930120000_places_homepage` 는 `places` 에 text 칸 셋을 얹을 뿐이라 **GRANT·정책 변화가 없다**
+> (테이블 단위 grant 그대로 — anon 은 여전히 published 행 select). 새로 생긴 바깥 요청은 `data:analyze`·`data:homepage` 가 업체 사이트를 읽는 GET 하나 — 키·쿠키를 싣지 않고 본문은 로그에 남기지 않는다)
+> 이전 (v13: **Deploy Hook 줄들을 현실로 맞췄다** — 4b 가 끝나 URL 은 **Vault** 에 있고(웹훅 설정이 아니다),
 > 훅 이름은 실제로 `auto deploy`(2026-09-17 발급)다. 그 URL 이 **에이전트 대화 기록에 남았으므로** 회전 절차를 아래 「Deploy Hook 회전」 에
 > 실행 가능한 순서로 박았다 — 새 값을 만드는 명령이 URL 을 통째로 찍으므로 **그 두 줄은 사람이 자기 터미널에서** 한다.
 > 회전이 됐는지 확인하는 자리도 이제 있다(`/admin` 머리글 · `rebuild_status()`, [ADR-018](../decisions/ADR-018-in-app-admin-review.md) 결정 9) —
