@@ -13,8 +13,12 @@
 
 const KOREAN_COUNT = { 한: 1, 두: 2, 세: 3, 네: 4, 다섯: 5 };
 
-/** 금액 토큰 — `2만원`·`1.5 만원`·`20,000원`·`5천원`. 앞에 숫자·소수점이 붙은 자리(15만원의 5만원)는 잡지 않는다. */
-const AMOUNT_RE = /(?<![\d.,])(\d[\d,]*(?:\.\d+)?)\s*(만\s*원|천\s*원|원)/g;
+/**
+ * 금액 토큰 — `2만원`·`1.5 만원`·`20,000원`·`5천원`. 앞에 숫자·소수점이 붙은 자리(15만원의 5만원)는 잡지 않는다.
+ * lookbehind(`(?<!…)`) 대신 앞 글자를 캡처한다 — 이 모듈은 브라우저 번들에 들어가고, iOS 16.4 전 Safari 는 lookbehind
+ * 정규식 리터럴에서 청크 전체가 파싱 에러로 죽는다(petPolicyFacts.mjs 의 `mentionsKg` 와 같은 어법).
+ */
+const AMOUNT_RE = /(^|[^\d.,])(\d[\d,]*(?:\.\d+)?)\s*(만\s*원|천\s*원|원)/g;
 
 const toWon = (num, unit) => {
   const n = Number(num.replace(/,/g, ''));
@@ -25,7 +29,7 @@ const toWon = (num, unit) => {
 
 /** 문장 안 금액들을 원 단위 숫자로. `1-2만원` 의 앞 숫자는 단위가 없어 잡히지 않는다 — 뒤 금액 하나로 대조된다. */
 export function amountsInWon(text) {
-  return [...String(text ?? '').matchAll(AMOUNT_RE)].map((m) => toWon(m[1], m[2]));
+  return [...String(text ?? '').matchAll(AMOUNT_RE)].map((m) => toWon(m[2], m[3]));
 }
 
 /** 20000 → "2만원", 15000 → "1.5만원", 5000 → "5,000원". 천 원 아래가 남으면 만원으로 못 쓰니 원 그대로. */
@@ -45,7 +49,7 @@ const FILLER = [
 function canonical(segment) {
   let s = segment
     .replace(/(\d+(?:\.\d+)?)\s*[-–]\s*(\d+(?:\.\d+)?)\s*만\s*원/g, '$1~$2만원')
-    .replace(AMOUNT_RE, (_, num, unit) => formatWon(toWon(num, unit)))
+    .replace(AMOUNT_RE, (_, head, num, unit) => `${head}${formatWon(toWon(num, unit))}`)
     .replace(/(한|두|세|네|다섯)\s*마리/g, (_, w) => `${KOREAN_COUNT[w]}마리`)
     .replace(/마리\s*당/g, '마리당')
     .replace(/(^|[^\d])마리당/g, (_, head) => `${head}1마리당`);
@@ -67,8 +71,35 @@ function canonical(segment) {
 }
 
 /**
- * 요금 줄 목록을 정규화한다. 한 줄에 금액이 둘 이상이면 기준마다 나누고(`19kg 이하 …, 20kg 이상 …`),
- * 나눈 조각 중 금액이 없는 설명문(`몸무게에 따라 달라져요`)은 버린다. 결과는 중복 없이 원문 순서.
+ * 기준 경계 — 쉼표·마침표 뒤 공백, **공백으로 둘러싸인** `/`·`·`. 붙어 있는 `·`·`/` 는 한 기준 안의 말이다
+ * (`중·대형견`, `2만원/박`) — 거기서 자르면 `중` 이 떨어져 나가 중형견 요금이 사라진다.
+ */
+const CRITERION_BOUNDARY = /\s+[/·]\s+|\s*;\s*|,\s+|\.\s+/;
+
+/**
+ * 한 줄을 기준마다 나눈다. 금액 없는 조각이 무게·마릿수 조건(`10kg 이상`)이면 **버리지 않고 다음 조각 앞에 붙인다** —
+ * 그 조각을 판정 C5(`FEE_MIN_KG_RE`)가 읽는다(dogFee.ts 의 `hasUnusedCondition` 이 `/마리|kg/` 를 조건으로 보는 것과 같은 기준).
+ * 조건 없는 설명문(`몸무게에 따라 달라져요`)만 버린다.
+ */
+function splitCriteria(text) {
+  if (amountsInWon(text).length < 2) return [text];
+  const out = [];
+  let carry = '';
+  for (const part of text.split(CRITERION_BOUNDARY)) {
+    if (amountsInWon(part).length > 0) {
+      out.push(carry ? `${carry} ${part}` : part);
+      carry = '';
+    } else if (/kg|㎏|마리/i.test(part)) {
+      carry = carry ? `${carry} ${part}` : part;
+    }
+  }
+  // 조건이 맨 끝에 남았으면 앞 조각에 되돌려 붙인다 — 어디에도 안 붙으면 그 조건이 사라진다.
+  if (carry && out.length) out[out.length - 1] = `${out[out.length - 1]} ${carry}`;
+  return out.length ? out : [text];
+}
+
+/**
+ * 요금 줄 목록을 정규화한다. 한 줄에 금액이 둘 이상이면 기준마다 나누고(`splitCriteria`), 결과는 중복 없이 원문 순서.
  *
  * @param {string[]} lines
  * @returns {string[]}
@@ -78,11 +109,7 @@ export function normalizeFeeLines(lines) {
   for (const line of lines ?? []) {
     const text = String(line ?? '').trim();
     if (!text) continue;
-    const segments =
-      amountsInWon(text).length >= 2
-        ? text.split(/\s*[/·;]\s*|,\s+|\.\s+/).filter((part) => amountsInWon(part).length > 0)
-        : [text];
-    for (const segment of segments) {
+    for (const segment of splitCriteria(text)) {
       const label = canonical(segment);
       if (label && !out.includes(label)) out.push(label);
     }

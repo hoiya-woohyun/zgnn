@@ -34,6 +34,16 @@ describe('normalizeFeeLines', () => {
     expect(normalizeFeeLines(lines)).toEqual(['19kg 이하 1마리당 2만원', '20kg 이상 1마리당 3만원']);
   });
 
+  // 붙어 있는 `·`·`/` 는 한 기준 안의 말 — 거기서 자르면 중형견 요금·박 단위가 사라진다. 한 번 저장되면 되돌릴 수 없다.
+  it.each([
+    ['소형견 1마리당 2만원, 중·대형견 1마리당 3만원', ['소형견 1마리당 2만원', '중·대형견 1마리당 3만원']],
+    ['2만원/박, 청소비 1만원', ['2만원/박', '청소비 1만원']],
+    // 금액 없는 조건 조각은 버리지 않고 다음 기준에 붙는다 — 판정 C5 가 `10kg 이상` 을 읽는다.
+    ['10kg 이상, 1마리당 3만원, 청소비 1만원', ['10kg 이상 1마리당 3만원', '청소비 1만원']],
+  ])('기준 경계만 자른다: %s', (line, expected) => {
+    expect(normalizeFeeLines([line])).toEqual(expected);
+  });
+
   it('두 번 불러도 같다 — 분석 시점과 앱이 각각 부른다', () => {
     const once = normalizeFeeLines(['(2만원 추가)', '두 마리부터 한 마리당 2만원의 추가 요금', '마리당 15,000원']);
     expect(normalizeFeeLines(once)).toEqual(once);
