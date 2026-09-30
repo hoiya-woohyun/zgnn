@@ -1,7 +1,6 @@
 import { Fragment, type ReactNode } from 'react';
 import Link from 'next/link';
-import { headlineFor, type TEligibilityLevel } from '../lib/eligibility';
-import { dogCallNames, withJosa } from '../lib/korean';
+import { verdictFor, type TEligibilityLevel } from '../lib/eligibility';
 import type { TPlaceEntry } from '../lib/places';
 import { useDog } from '../store/useAppStore';
 import { useEligibility } from '../store/useDogEligibility';
@@ -23,8 +22,9 @@ const DOT_CLASS: Record<TEligibilityLevel, string> = {
 /**
  * 상세 화면의 판정 카드. 원문 카드("반려동물 이용") 바로 위에 얹는다.
  *
- * 머리글은 "악동이는 갈 수 있어요" 처럼 애칭(`dogCallNames`) + 은/는 + `headlineFor` 로 읽힌다 —
- * 근거가 하나뿐이면 근거를 따르는 규칙이 lib 에 있어 테스트로 묶인다.
+ * 머리글은 "악동이는 갈 수 있어요" 처럼 애칭 + 은/는 + 판정으로 읽힌다(`verdictFor`) — 근거가 하나뿐이면
+ * 근거를 따르는 규칙, 정보 없음(unknown)이면 이름을 빼고 장소를 주어로 삼는 규칙이 lib 에 있어 테스트로 묶인다.
+ * unknown 의 U1 근거("동반 조건이 적혀 있지 않아요")는 머리글과 같은 말이라 목록에서 뺀다.
  *
  * 강아지가 없으면 강제 등록 없이 조용한 배너 한 줄만(2026-09-15 리뷰 §1② — 첫 진입 강제
  * 등록은 이탈). 있으면 색 점 + 머리글 + 근거(심각도순, `useEligibility` 가 이미 정렬해 준다).
@@ -48,7 +48,7 @@ export function PlaceDetailEligibilityCard({ place }: { place: TPlaceEntry }) {
     );
   }
 
-  const mainReasons = eligibility.reasons.filter((r) => r.level !== 'info');
+  const mainReasons = eligibility.reasons.filter((r) => r.level !== 'info' && r.rule !== 'U1');
   const infoReasons = eligibility.reasons.filter((r) => r.level === 'info');
 
   return (
@@ -57,7 +57,7 @@ export function PlaceDetailEligibilityCard({ place }: { place: TPlaceEntry }) {
       <div className="flex items-start gap-2">
         <span aria-hidden="true" className={`mt-2 size-2.5 shrink-0 rounded-full ${DOT_CLASS[eligibility.level]}`} />
         <p className="text-md font-bold text-primary">
-          {withJosa(dogCallNames(dog.dogs.map((d) => d.name)), '은/는')} {headlineFor(eligibility)}
+          {verdictFor(dog.dogs.map((d) => d.name), eligibility)}
         </p>
       </div>
 

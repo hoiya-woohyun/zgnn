@@ -26,6 +26,11 @@ describe('shareTextFor — 공유 글에 판정 한 줄', () => {
     expect(shareTextFor('오션뷰 독채', ['보리'], null)).toBe('오션뷰 독채');
   });
 
+  it('정보 없음이면 이름 없이 장소를 주어로', () => {
+    const noInfo: TEligibility = { level: 'unknown', reasons: [{ level: 'unknown', text: '동반 조건이 적혀 있지 않아요', rule: 'U1' }] };
+    expect(shareTextFor('독채', ['보리'], noInfo)).toBe('이곳은 반려견 동반 조건이 공개돼 있지 않아요 · 독채');
+  });
+
   it('특징이 비면 판정만', () => {
     expect(shareTextFor('', ['보리'], ok)).toBe('보리는 갈 수 있어요');
   });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compareEligibility, dogSize, headlineFor, judgeEligibility, primaryReason } from './eligibility';
+import { compareEligibility, dogSize, headlineFor, judgeEligibility, primaryReason, verdictFor } from './eligibility';
 import { parsePetPolicy } from './petPolicy';
 import { PLACES } from './places';
 import type { TDogProfile } from '../types';
@@ -345,5 +345,19 @@ describe('judgeEligibility — 원문은 있는데 아무도 못 읽음(C7, todo
 
   it('시드 86곳에는 못 읽은 원문이 없다 — 이 규칙이 지금 사이트의 판정을 바꾸지 않는다', () => {
     expect(PLACES.filter((p) => p.policy.unread || p.policy.largeDogNo).map((p) => p.name)).toEqual([]);
+  });
+});
+
+describe('verdictFor — 정보 없음은 강아지가 아니라 장소가 주어다', () => {
+  it('판정이 있으면 "이름은 머리글"', () => {
+    expect(verdictFor(['보리'], { level: 'ok', reasons: [] })).toBe('보리는 갈 수 있어요');
+  });
+
+  it('unknown 이면 이름을 빼고 장소를 주어로 — 없는 판정을 한 것처럼 읽히지 않게', () => {
+    const result = judgeEligibility(BORI_AND_KONG, parsePetPolicy('정보 없음. (문의해보시면 가장 정확할 것 같아요)'));
+    expect(result.level).toBe('unknown');
+    const verdict = verdictFor(['보리', '콩'], result);
+    expect(verdict).toBe('이곳은 반려견 동반 조건이 공개돼 있지 않아요');
+    expect(verdict).not.toContain('보리');
   });
 });

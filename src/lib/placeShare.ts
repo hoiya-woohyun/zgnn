@@ -1,10 +1,9 @@
-import { headlineFor, type TEligibility } from './eligibility';
-import { dogCallNames, withJosa } from './korean';
+import { verdictFor, type TEligibility } from './eligibility';
 
 /**
  * 장소를 친구에게 보낼 때 붙는 글. 받는 사람이 링크를 열기 전에 "갈 수 있는지" 부터 읽게
  * 판정 한 줄을 앞에 둔다("보리는 갈 수 있어요 · 오션뷰 독채…"). 머리글은 상세 카드와 같은
- * 함수(`headlineFor`)로 만든다 — 보낸 글과 받은 사람이 연 화면이 다른 말을 하면 안 된다.
+ * 함수(`verdictFor`)로 만든다 — 보낸 글과 받은 사람이 연 화면이 다른 말을 하면 안 된다.
  * 강아지가 없으면 판정이 없으니 특징만.
  */
 export const shareTextFor = (
@@ -13,7 +12,7 @@ export const shareTextFor = (
   eligibility: TEligibility | null,
 ): string => {
   if (!dogNames || dogNames.length === 0 || !eligibility) return features;
-  const verdict = `${withJosa(dogCallNames(dogNames), '은/는')} ${headlineFor(eligibility)}`;
+  const verdict = verdictFor(dogNames, eligibility);
   return features ? `${verdict} · ${features}` : verdict;
 };
 

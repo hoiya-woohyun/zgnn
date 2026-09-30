@@ -14,7 +14,7 @@
 import type { TCarrier, TDogProfile, TDogSize } from '../types';
 import { formatDogFee } from './dogFee';
 import { maxWeightKg } from './dogProfile';
-import { dogCallName, josa } from './korean';
+import { dogCallName, dogCallNames, josa, withJosa } from './korean';
 import type { TPetPolicy, TPolicyTier } from './petPolicy';
 
 export type TEligibilityLevel = 'ok' | 'cond' | 'unknown' | 'hard';
@@ -382,6 +382,17 @@ export const headlineFor = (e: TEligibility): string => {
   }
   return HEADLINE[e.level];
 };
+
+/** unknown 머리글. 강아지가 아니라 장소가 주어다 — 판정한 것이 없는데 "보리는 …" 으로 시작하면 판정한 것처럼 읽힌다. */
+export const NO_INFO_VERDICT = '이곳은 반려견 동반 조건이 공개돼 있지 않아요';
+
+/**
+ * 상세 카드·공유 글의 머리글 한 문장. 보통은 "보리는 갈 수 있어요"(애칭 + 은/는 + `headlineFor`)지만,
+ * **unknown 은 강아지 이름을 빼고 장소를 주어로** 말한다. unknown 은 원문에 조건이 없어서(`noInfo`) 생기고
+ * 강아지 조건과 무관하게 같은 결과라, 이름을 앞세우면 없는 판정을 한 것처럼 보인다.
+ */
+export const verdictFor = (dogNames: string[], e: TEligibility): string =>
+  e.level === 'unknown' ? NO_INFO_VERDICT : `${withJosa(dogCallNames(dogNames), '은/는')} ${headlineFor(e)}`;
 
 /**
  * 목록 카드에 한 줄로 보일 대표 근거 — 눌러 보지 않아도 왜 "확인"·"어려움" 인지 읽히게(민준 N1).
