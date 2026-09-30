@@ -17,7 +17,7 @@ import type { TApplyOutcome, TSimilarPlace } from '../lib/adminApply';
 import { lastNoteLine, noteLineText } from '../lib/adminPlaces';
 import { draftFromExtracted, type TCandidateEditDraft } from '../lib/adminEdit';
 import type { TBadgeTone, TPetBadge } from '../lib/petPolicy';
-import { sameAddress } from '../lib/addressMatch';
+import { addressView } from '../lib/adminAddress';
 import { aiAnalyzed, policySplit, type TAdminFlagView } from '../lib/adminPreview';
 import { verifyView } from '../lib/adminVerify';
 import { cx } from '../utils/cx';
@@ -118,6 +118,24 @@ function PolicyCell({ items, message = null }: { items: TPetBadge[]; message?: s
   );
 }
 
+/**
+ * '고치기' 버튼. **펼친 세 갈래 전부에** 선다(기본 · 닮은 곳 고르기 · 짝이 내린 곳) — 예전에는 기본 갈래에만 있었고,
+ * 그래서 정작 이름·주소가 틀렸을 가능성이 가장 높은 곳에서 고칠 길이 없었다: 닮은 정도 0.4~0.85 구간이 곧
+ * "상호 검색이 동명의 다른 가게를 집었나" 를 사람이 가리는 자리다. 거기서 선택지가 합치기/새 장소/반려뿐이면
+ * 틀린 주소를 그대로 올리거나 쓸 만한 후보를 버린다.
+ *
+ * 고치는 것은 **승인 전 후보**뿐이다 — 사이트에 올라간 장소는 이 버튼이 닿지 않는다(`adminPageEditForm` 주석).
+ * 지역이 비어 승인이 막힌 줄에서도 열어 둔다: 이름·주소가 틀려서 지역을 못 정한 경우가 있고, 그때 고칠 길이
+ * 없으면 반려밖에 남지 않는다.
+ */
+function EditButton({ busy, onClick }: { busy: TAdminPageGroupState['busy']; onClick: () => void }) {
+  return (
+    <Button color="secondary" size="sm" isDisabled={Boolean(busy)} onClick={onClick}>
+      고치기
+    </Button>
+  );
+}
+
 const BUSY_LABEL: Record<NonNullable<TAdminPageGroupState['busy']>, string> = {
   approving: '반영하고 있어요…',
   rejecting: '반려하고 있어요…',
@@ -164,12 +182,16 @@ export function AdminPageGroupCard({
    */
   const matchedArchived = group.lead.places?.status === 'archived';
   /*
-   * 네이버가 준 주소와 원글의 주소가 **정말** 다른가. 접힌 줄에 띄우는 것이 요점이다 — 이것이 뜨는 뜻은
-   * 보통 `naverLocal` 이 동명의 다른 가게를 집었다는 것이고(실측: `대포로 93` ↔ `신엄안3길 95`), 그 후보를
-   * 그대로 승인하면 엉뚱한 좌표·카테고리가 `places` 로 들어간다. 표기 차이(전체의 91%)와 비교 불가는
-   * 여기서 조용하다 — 가려 내는 규칙은 `addressMatch.ts` 가 소유한다.
+   * 접힌 줄의 주소 — 값과 축과 대조를 한 곳에서 받는다. `sameAddress` 를 여기서 직접 부르던 자리다.
+   * 옮긴 이유는 그 대조가 **축에 따라 순환**이어서다: 주소→좌표 축의 주소는 원글 주소에서 나온 것이라
+   * 둘이 같아도 확인한 것이 없는데, 바로 부르면 그 '같다' 가 확인된 주소와 구별되지 않는다(`adminAddress.ts`).
+   *
+   * `addressConflict`(= `주소 다름` 뱃지)를 접힌 줄에 띄우는 것이 요점이다 — 이것이 뜨는 뜻은 보통
+   * `naverLocal` 이 동명의 다른 가게를 집었다는 것이고(실측: `대포로 93` ↔ `신엄안3길 95`), 그 후보를 그대로
+   * 승인하면 엉뚱한 좌표·카테고리가 `places` 로 들어간다. 표기 차이(전체의 91%)와 비교 불가는 여기서 조용하다.
    */
-  const addressConflict = sameAddress(extracted.address, extracted.addressAi) === 'different';
+  const address = addressView(extracted);
+  const addressConflict = address.cross?.tone === 'warn';
   /*
    * 교차점검 표식. **미점검이면 `null` 이라 아무것도 안 그린다** — 초록도 회색도 거짓말이다(`adminVerify.ts`).
    * 이 패스가 생기기 전의 후보와 `--no-verify` 로 돌린 실행이 그 상태다.
@@ -194,6 +216,7 @@ export function AdminPageGroupCard({
   }
 
   const regionOk = regionUsable(extracted.regionRaw);
+  const openEdit = () => onEditDraft(draftFromExtracted(extracted));
 
   return (
     /*
@@ -292,6 +315,21 @@ export function AdminPageGroupCard({
             */}
           <span className="block min-w-0 text-xs text-tertiary max-md:mt-0.5">
             <span className="block truncate">{extracted.regionRaw || ''}</span>
+            {/*
+              * **주소를 접힌 줄에도 적는다**(2026-09-30). 펼치지 않으면 무엇이 올라가는지 알 수 없던 칸이고,
+              * 90곳을 훑는 화면에서 그 한 번의 펼침이 곧 검수 속도다. 뒤에 붙는 한 단어(`원글 주소`·`직접 고침`)는
+              * **검증 못 한 것에만** 붙는다 — 확인된 주소가 대다수이므로 그쪽에 뱃지를 달면 아무것도 눈에 안 띈다.
+              */}
+            {(address.address || address.shortLabel) && (
+              <span className="block truncate text-quaternary">
+                {address.address ?? address.shortLabel}
+                {/*
+                  * **경보 색을 쓰지 않는다.** 검증 못 한 것이 여섯에 하나(실측 58건 중 16건)라 그것마다 주황을 칠하면
+                  * 정말 다른 주소 2건(`주소 다름`)이 같은 색에 묻힌다 — ADR-019 결정 4 가 막으려던 것과 같은 희석이다.
+                  */}
+                {address.address && address.shortLabel && <span className="ml-1">· {address.shortLabel}</span>}
+              </span>
+            )}
             {view.notes.map((note) => (
               <span key={note} className="block truncate text-quaternary">
                 {note}
@@ -417,6 +455,7 @@ export function AdminPageGroupCard({
                   >
                     반려하기
                   </Button>
+                  <EditButton busy={busy} onClick={openEdit} />
                 </div>
                 {/*
                   * 같은 이름의 **다른** 가게는 실제로 있다. 그 길을 아예 막지 않고 여기 둔다 —
@@ -500,15 +539,12 @@ export function AdminPageGroupCard({
                  * 이 갈래에도 '아니에요' 가 있어야 한다. 0.4~0.85 는 애매한 것이 모이는 구간이라 목록글·홍보글이 그대로 여기 오는데,
                  * 둘 중 하나를 고르는 길만 두면 **반려하려면 새로고침**해야 한다 — `similar` 를 지우는 길이 성공한 승인뿐이어서다.
                  */}
-                <Button
-                  color="secondary"
-                  size="sm"
-                  className="mt-2"
-                  isDisabled={Boolean(busy)}
-                  onClick={onStartReject}
-                >
-                  반려하기
-                </Button>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Button color="secondary" size="sm" isDisabled={Boolean(busy)} onClick={onStartReject}>
+                    반려하기
+                  </Button>
+                  <EditButton busy={busy} onClick={openEdit} />
+                </div>
               </div>
             ) : (
               <div className="space-y-2">
@@ -585,19 +621,7 @@ export function AdminPageGroupCard({
                   >
                     반려하기
                   </Button>
-                  {/*
-                    * 고치는 것은 **승인 전 후보**뿐이다 — 사이트에 올라간 장소는 이 버튼이 닿지 않는다.
-                    * 지역이 비어 승인이 막힌 줄에서도 열어 둔다: 이름·주소가 틀려서 지역을 못 정한 경우가 있고,
-                    * 그때 고칠 길이 없으면 반려밖에 남지 않는다.
-                    */}
-                  <Button
-                    color="secondary"
-                    size="sm"
-                    isDisabled={Boolean(busy)}
-                    onClick={() => onEditDraft(draftFromExtracted(extracted))}
-                  >
-                    고치기
-                  </Button>
+                  <EditButton busy={busy} onClick={openEdit} />
                 </div>
 
                 {group.tier !== 'new' && pairId && regionOk && !matchedArchived && (

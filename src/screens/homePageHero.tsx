@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, type CSSProperties } from 'react';
-import { collapseProgress } from '../lib/stickyMorph';
+import { collapseProgress, collapseRange } from '../lib/stickyMorph';
+import { offsetInScroller, supportsScrollTimeline, writeMorphRange } from '../components/layout/scrollDrivenMorph';
 import { PLACE_TYPES, TYPE_META, countByType } from '../lib/places';
 
 export function PawMark({ className = 'h-9 w-9 text-brand-300' }: { className?: string }) {
@@ -23,6 +24,12 @@ const BAR_HEIGHT = 'calc(var(--spacing) * 14)';
 
 /** 히어로 제목 → 헤더 제목의 크기 비. `display-sm`(7.5단) → `md`(4단). 둘 다 --spacing 배수라 브레이크포인트와 무관하다. */
 const TITLE_SCALE_END = 4 / 7.5;
+
+/** 발바닥 → 헤더 아이콘의 크기 비. `h-9`(9단) → 6단 — 헤더 제목(`md`) 글자 높이에 맞춘 크기다. */
+const PAW_SCALE_END = 6 / 9;
+
+/** 헤더에서 발바닥과 제목 사이 간격 = 줄어든 발바닥 폭의 1/3(6단 → 2단). --spacing 을 따로 재지 않으려고 폭에서 파생한다. */
+const PAW_GAP_RATIO = 1 / 3;
 
 const useBeforePaint = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
@@ -54,15 +61,27 @@ type THomePageHeroProps = {
  * 어떻게:
  * - **블록 전체가 `sticky` 이고 `top` 이 음수다**(`인셋 + 헤더 − 블록 높이`). 그래서 블록은 아래쪽 헤더 한 줄(+ 상태바
  *   자리)만 화면에 남을 때까지 올라가다 거기서 붙는다. 그 거리 전체에 걸쳐 0 → 1 로 접힌다 — 붙는 순간이 곧 다 접힌 순간이다.
- * - **면은 레이아웃이 아니라 `clip-path: inset()` 으로 줄인다.** 여백·높이·모서리를 실제로 바꾸면 흐름이 다시 계산돼 아래
- *   카드들이 스크롤과 다른 속도로 움직인다. 배경 두 장(잉크·크림)이 블록 전체를 덮고, 같은 클립 안에서 투명도만 서로 바뀐다.
- *   클립의 윗변은 블록이 붙을 때의 헤더 윗변까지 내려온다 — 카드의 윗모서리가 화면 위로 먼저 사라지지 않고, 헤더 쪽으로 내려앉는다.
+ * - **면은 줄이지 않고 가린다.** 잉크·크림 두 장이 블록 전체에 가만히 깔려 있고(투명도만 서로 바뀐다), 그 가장자리를 크림 커튼 셋
+ *   (왼·오른·위)이 덮는다. 커튼이 걷히는 만큼 카드가 넓어지고, 위 커튼이 내려오는 만큼 카드 윗변이 헤더 윗변까지 내려앉는다 —
+ *   카드의 윗모서리가 화면 위로 먼저 사라지지 않고 헤더 쪽으로 내려앉는다. 모서리는 네 귀의 크림 조각이 만들고, 접히는 만큼 작아진다.
+ *   여백·높이·모서리를 실제로 바꾸면 흐름이 다시 계산돼 아래 카드들이 스크롤과 다른 속도로 움직이고, 판 자체를 `scale` 로 누르면
+ *   모서리가 납작한 타원이 되고 현무암 점이 가로줄로 늘어난다(실측) — 커튼·귀는 단색이라 늘여도 티가 안 난다.
  * - **제목은 제자리에서 헤더 자리로 옮겨 간다**(translate + scale, 색 흰색 → 본문색). 블록이 올라가는 동안 제목은 블록 안에서
  *   내려가므로, 화면에서는 제목이 제 위치에서 헤더 위치까지 곧게 올라간다.
- * - 발바닥·부제·숫자판은 먼저 사라진다(처음 40%). 헤더에 들어갈 자리가 없다.
+ * - **발바닥도 제목과 같은 식으로 헤더 맨 앞에 들어간다**(6단 크기로 줄며, 제목은 그 뒤에 붙는다). 헤더에 남는 유일한 브랜드 표식이다.
+ * - 부제·숫자판은 먼저 사라진다(처음 25%). 헤더에 들어갈 자리가 없다.
  *
- * 값은 CSS 변수로 흘린다 — `--morph` 는 스크롤 프레임마다, 기하(`--clip-top`·`--side`·`--tx`·`--ty`)는 크기가 바뀔 때만.
+ * **접힘은 브라우저의 스크롤 구동 애니메이션이 돌린다**(`styles/scrollMorph.css`, 왜인지는 `scrollDrivenMorph.ts`). JS 는 크기가
+ * 바뀔 때만 구간(`--morph-from`·`--morph-to`)과 기하(`--clip-top`·`--side`·`--tx`·`--ty`)를 적는다. 지원하지 않는 브라우저에서만
+ * 예전처럼 `--morph` 를 스크롤 프레임마다 적고, 인라인 `calc(var(--morph))` 가 같은 모습을 낸다.
  * 인셋·헤더 높이·여백은 CSS(env·--spacing)가 정하는 값이라 JS 에 베껴 적지 않고 탐침으로 잰다.
+ *
+ * **모바일에서 버벅이던 원인이 둘이라 모양도 둘을 피해 짰다.** 움직이는 것은 `transform`·`opacity` 뿐이다.
+ * - **글자·발바닥 색은 섞지 않고 두 벌을 겹쳐 투명도로 바꾼다.** `color-mix` 로 색을 매 프레임 바꾸면 크게 확대된 글자를
+ *   프레임마다 새 크기로 다시 래스터해 폭이 떨렸다. 두 벌이면 각 층을 한 번 그린 뒤 GPU 가 줄이고 섞기만 한다.
+ * - **면도 `clip-path` 가 아니라 커튼이다.** 예전의 `clip-path: inset(… round …)` 는 합성되지 않아, 층을 따로 올려도 매 프레임
+ *   면 전체를 다시 그렸다(크롬 실측: 한 번 오르내리는 동안 다시 그린 층이 준비물 화면의 7배). 그중 현무암 무늬(radial-gradient
+ *   네 겹)를 폰의 3배 화소로 그리는 것이 가장 비쌌다. 지금은 무늬 판은 가만히 있고, 단색 커튼·귀가 GPU 에서 늘고 줄기만 한다.
  *
  * 셸이 `<main>` 에 transform 을 거는 스와이프 중에도 `sticky` 는 스크롤 영역 기준이라 보정이 필요 없다(ADR-014 의
  * `--swipe-viewport-top` 은 `fixed` 용이다).
@@ -72,6 +91,7 @@ export function HomePageHero({ subtitle }: THomePageHeroProps) {
   const blockRef = useRef<HTMLDivElement>(null);
   const padRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
+  const pawRef = useRef<HTMLDivElement>(null);
   const insetProbeRef = useRef<HTMLSpanElement>(null);
   const barProbeRef = useRef<HTMLSpanElement>(null);
 
@@ -80,10 +100,12 @@ export function HomePageHero({ subtitle }: THomePageHeroProps) {
     const block = blockRef.current;
     const pad = padRef.current;
     const title = titleRef.current;
+    const paw = pawRef.current;
     const insetProbe = insetProbeRef.current;
     const barProbe = barProbeRef.current;
-    if (!sentinel || !block || !pad || !title || !insetProbe || !barProbe) return;
+    if (!sentinel || !block || !pad || !title || !paw || !insetProbe || !barProbe) return;
 
+    const scrollDriven = supportsScrollTimeline();
     let restTop = 0;
     let pinnedTop = 0;
     const measure = () => {
@@ -92,6 +114,10 @@ export function HomePageHero({ subtitle }: THomePageHeroProps) {
       const height = block.offsetHeight;
       const side = parseFloat(getComputedStyle(pad).paddingLeft) || 0;
       const at = offsetWithin(title, block);
+      const pawAt = offsetWithin(paw, block);
+      const pawEnd = paw.offsetWidth * PAW_SCALE_END;
+      // 헤더 한 줄의 세로 중심(블록 기준). 발바닥과 제목이 같은 선에 선다.
+      const barMid = height - bar / 2;
 
       // 붙는 자리: 블록의 아래쪽 (인셋 + 헤더) 만 화면 맨 위에 남는다.
       const stickTop = inset + bar - height;
@@ -99,11 +125,16 @@ export function HomePageHero({ subtitle }: THomePageHeroProps) {
       restTop = sentinel.getBoundingClientRect().top + window.scrollY;
       pinnedTop = stickTop;
 
+      // 면: 위 커튼이 다 내려왔을 때의 높이(= 붙었을 때 화면 위로 나간 부분)와, 좌우 커튼의 폭(= 카드의 좌우 여백).
       block.style.setProperty('--clip-top', `${height - inset - bar}px`);
       block.style.setProperty('--side', `${side}px`);
-      // 제목: 왼쪽은 헤더의 글자 줄(좌우 여백)로, 세로 중심은 상태바 아래 헤더 한 줄의 가운데로.
-      block.style.setProperty('--tx', `${side - at.x}px`);
-      block.style.setProperty('--ty', `${height - bar / 2 - (at.y + title.offsetHeight / 2)}px`);
+      // 발바닥: 헤더의 글자 줄 맨 앞(좌우 여백)으로. `origin-left` 라 왼쪽 변·세로 중심이 축소의 고정점이다.
+      block.style.setProperty('--ptx', `${side - pawAt.x}px`);
+      block.style.setProperty('--pty', `${barMid - (pawAt.y + paw.offsetHeight / 2)}px`);
+      // 제목: 발바닥 바로 뒤로, 세로 중심은 상태바 아래 헤더 한 줄의 가운데로.
+      block.style.setProperty('--tx', `${side + pawEnd * (1 + PAW_GAP_RATIO) - at.x}px`);
+      block.style.setProperty('--ty', `${barMid - (at.y + title.offsetHeight / 2)}px`);
+      if (scrollDriven) writeMorphRange(block, collapseRange(offsetInScroller(sentinel), pinnedTop));
     };
 
     let frame = 0;
@@ -120,31 +151,45 @@ export function HomePageHero({ subtitle }: THomePageHeroProps) {
     };
 
     measure();
-    apply();
+    if (!scrollDriven) apply();
 
     const resize = new ResizeObserver(() => {
       measure();
       last = -1;
-      schedule();
+      if (!scrollDriven) schedule();
     });
     resize.observe(block);
-    window.addEventListener('scroll', schedule, { passive: true });
-    window.addEventListener('resize', schedule);
+    const onResize = () => {
+      measure();
+      if (!scrollDriven) schedule();
+    };
+    if (!scrollDriven) window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', onResize);
     return () => {
       resize.disconnect();
       window.removeEventListener('scroll', schedule);
-      window.removeEventListener('resize', schedule);
+      window.removeEventListener('resize', onResize);
       cancelAnimationFrame(frame);
     };
   }, []);
 
-  /** 배경 두 장이 같은 클립을 쓴다 — 윗변은 헤더 윗변까지, 좌우는 여백 → 0, 모서리 16px → 0. 아랫변은 그대로다. */
-  const clip = {
-    clipPath:
-      'inset(calc(var(--clip-top, 0px) * var(--morph)) calc(var(--side, 0px) * (1 - var(--morph))) 0 round calc(var(--radius-2xl, 16px) * (1 - var(--morph))))',
-  } satisfies CSSProperties;
+  // 좌우 커튼: 카드 여백 폭에서 0 으로 걷힌다. 위 커튼: 0 에서 `--clip-top` 까지 내려온다(높이가 곧 그 값이라 배율만 바뀐다).
+  const sideCurtain = { transform: 'scaleX(calc(1 - var(--morph)))' } satisfies CSSProperties;
+  const topCurtain = { height: 'var(--clip-top, 0px)', transform: 'scaleY(var(--morph))' } satisfies CSSProperties;
+  // 네 귀: 카드 모서리를 따라 옮겨 가며(좌우는 여백만큼 바깥으로, 위의 둘은 커튼과 같이 아래로) 16px → 0 으로 준다.
+  const corner = (x: -1 | 1, top: boolean) =>
+    ({
+      width: 'var(--radius-2xl)',
+      height: 'var(--radius-2xl)',
+      transform: `translate(calc(${x} * var(--side, 0px) * var(--morph)), calc(${top ? 'var(--clip-top, 0px)' : '0px'} * var(--morph))) scale(calc(1 - var(--morph)))`,
+      // 귀는 모서리 바깥만 크림이다 — 원의 중심이 카드 안쪽 귀퉁이에 있다.
+      background: `radial-gradient(circle at ${x < 0 ? 100 : 0}% ${top ? 100 : 0}%, transparent calc(var(--radius-2xl) - 0.5px), var(--color-bg-secondary) var(--radius-2xl))`,
+    }) satisfies CSSProperties;
   // 제목이 지나가기 전에 비켜야 한다 — 늦게 사라지면 올라오는 제목이 부제 위에 겹쳐 읽힌다(실측, 40% 에서 겹쳤다).
   const fadeEarly = { opacity: 'clamp(0, calc(1 - var(--morph) * 4), 1)' } satisfies CSSProperties;
+  // 색 구간(`--tone`)의 두 벌 — 앞 벌이 빠지고 뒷 벌이 들어온다. 겹친 두 층의 투명도만 바뀐다.
+  const toneOut = { opacity: 'calc(1 - var(--tone))' } satisfies CSSProperties;
+  const toneIn = { opacity: 'var(--tone)' } satisfies CSSProperties;
 
   return (
     <>
@@ -159,31 +204,60 @@ export function HomePageHero({ subtitle }: THomePageHeroProps) {
         style={{
           ['--morph' as string]: 0,
           ['--tone' as string]: 'clamp(0, calc((var(--morph) - 0.55) * 2.5), 1)',
+          ['--title-scale' as string]: TITLE_SCALE_END,
+          ['--mark-scale' as string]: PAW_SCALE_END,
         }}
       >
-        <div aria-hidden="true" className="basalt pointer-events-none absolute inset-0" style={{ ...clip, opacity: 'calc(1 - var(--tone))' }} />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 border-b border-secondary bg-secondary"
-          style={{ ...clip, opacity: 'var(--tone)' }}
-        />
+        {/* 판 두 장은 블록 전체에 가만히 깔려 투명도만 바뀐다. 카드 모양은 그 위의 크림 커튼·귀가 만든다 — 페이지 바탕과 같은 크림이라
+            카드 바깥이 비어 보인다. 좌우 커튼의 폭 = 아래 padRef 의 좌우 여백(`px-4 md:px-6`). */}
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+          <div data-scroll-morph="tone-out" className="basalt absolute inset-0" style={toneOut} />
+          <div data-scroll-morph="tone-in" className="absolute inset-0 border-b border-secondary bg-secondary" style={toneIn} />
+          <div data-scroll-morph="curtain-side" className="absolute inset-y-0 left-0 w-4 origin-left bg-secondary md:w-6" style={sideCurtain} />
+          <div data-scroll-morph="curtain-side" className="absolute inset-y-0 right-0 w-4 origin-right bg-secondary md:w-6" style={sideCurtain} />
+          <div data-scroll-morph="curtain-top" className="absolute inset-x-0 top-0 origin-top bg-secondary" style={topCurtain} />
+          <div data-scroll-morph="corner-tl" className="absolute left-4 top-0 origin-top-left md:left-6" style={corner(-1, true)} />
+          <div data-scroll-morph="corner-tr" className="absolute right-4 top-0 origin-top-right md:right-6" style={corner(1, true)} />
+          <div data-scroll-morph="corner-bl" className="absolute bottom-0 left-4 origin-bottom-left md:left-6" style={corner(-1, false)} />
+          <div data-scroll-morph="corner-br" className="absolute bottom-0 right-4 origin-bottom-right md:right-6" style={corner(1, false)} />
+        </div>
 
         <div ref={padRef} className="relative px-4 md:px-6">
           <header className="p-6">
-            <div style={fadeEarly}>
-              <PawMark />
+            {/* 발바닥은 사라지지 않고 제목과 함께 헤더로 들어간다 — 제목 앞의 작은 표식이 된다. 색은 제목과 같은 구간(`--tone`)에서
+                잉크 위의 연한 brand-300 → 크림 위의 brand-secondary 로 바뀐다(연한 분홍은 크림 위에서 흐려진다). 두 벌을 겹쳐 바꾼다. */}
+            <div
+              ref={pawRef}
+              data-scroll-morph="hero-mark"
+              className="relative w-max origin-left will-change-transform"
+              style={{
+                transform: `translate(calc(var(--ptx, 0px) * var(--morph)), calc(var(--pty, 0px) * var(--morph))) scale(calc(1 - ${1 - PAW_SCALE_END} * var(--morph)))`,
+              }}
+            >
+              <div data-scroll-morph="tone-out" style={toneOut}>
+                <PawMark className="block h-9 w-9 text-brand-300" />
+              </div>
+              <div data-scroll-morph="tone-in" className="absolute inset-0" style={toneIn}>
+                <PawMark className="block h-9 w-9 text-brand-secondary" />
+              </div>
             </div>
             <h1
               ref={titleRef}
-              className="mt-3 w-max origin-left text-display-sm font-bold will-change-transform"
+              data-scroll-morph="hero-title"
+              className="relative mt-3 w-max origin-left text-display-sm font-bold will-change-transform"
               style={{
                 transform: `translate(calc(var(--tx, 0px) * var(--morph)), calc(var(--ty, 0px) * var(--morph))) scale(calc(1 - ${1 - TITLE_SCALE_END} * var(--morph)))`,
-                color: 'color-mix(in oklab, white calc(100% - var(--tone) * 100%), var(--color-text-primary))',
               }}
             >
-              강아지랑 제주
+              {/* 흰 글자 → 본문색 글자. 읽히는 것은 앞 벌 하나다 — 뒷 벌은 같은 글자의 색 복사본이라 aria-hidden. */}
+              <span data-scroll-morph="tone-out" className="block text-white" style={toneOut}>
+                강아지랑 제주
+              </span>
+              <span aria-hidden="true" data-scroll-morph="tone-in" className="absolute inset-0 text-primary" style={toneIn}>
+                강아지랑 제주
+              </span>
             </h1>
-            <div style={fadeEarly}>
+            <div data-scroll-morph="fade-early" style={fadeEarly}>
               <p className="mt-1.5 text-sm text-white/65">{subtitle}</p>
 
               <dl className="mt-6 flex overflow-hidden rounded-xl border border-white/12 bg-white/6">

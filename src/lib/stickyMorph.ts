@@ -28,3 +28,22 @@ export function collapseProgress(sentinelTop: number, restTop: number, pinnedTop
   if (range <= 0) return sentinelTop <= pinnedTop ? 1 : 0;
   return clamp01((restTop - sentinelTop) / range);
 }
+
+/** 스크롤 구동 애니메이션(`animation-timeline: scroll()`)의 구간 — 스크롤 오프셋 [from, to] 에서 0 → 1. */
+export type TScrollMorphRange = { from: number; to: number };
+
+/**
+ * `stickyMorphProgress` 와 같은 접힘을 **스크롤 오프셋의 구간**으로 — 순수. `sentinelOffset` 은 스크롤이 0 일 때 센티넬이
+ * 스크롤 상자 맨 위에서 떨어진 거리다(스크롤 S 에서 센티넬의 화면상 위치 = sentinelOffset − S).
+ * 붙은 뒤로 센티넬이 1:1 로 올라가므로 두 식이 같은 답을 낸다 — 구간 밖은 애니메이션의 `fill: both` 가 0·1 로 묶는다.
+ */
+export function stickyMorphRange(sentinelOffset: number, insetTop: number, distance: number): TScrollMorphRange {
+  const from = sentinelOffset - insetTop;
+  // 거리를 못 쟀으면(0) 붙는 순간 바로 1 이 되게 — 길이 0 구간은 브라우저마다 다르게 다뤄서 1px 을 준다.
+  return { from, to: from + Math.max(distance, 1) };
+}
+
+/** `collapseProgress` 와 같은 접힘을 스크롤 오프셋의 구간으로 — 순수. 스크롤 0(제자리)에서 시작해 `pinnedTop` 에 닿으면 끝난다. */
+export function collapseRange(sentinelOffset: number, pinnedTop: number): TScrollMorphRange {
+  return { from: 0, to: Math.max(sentinelOffset - pinnedTop, 1) };
+}

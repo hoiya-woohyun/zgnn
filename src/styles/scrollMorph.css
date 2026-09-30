@@ -1,0 +1,181 @@
+/*
+  스크롤을 따라 접히는 헤더의 애니메이션 — 준비물·설정의 제목 줄(StickyMorphTitle)과 홈 히어로(HomePageHero).
+
+  **시간이 아니라 스크롤 위치의 함수다**(`animation-timeline: scroll(nearest)`). 구간은 컴포넌트가 재서 `--morph-from`·`--morph-to`
+  (스크롤 오프셋, px)로 적고, 기하(`--tx`·`--ty`·`--side`·`--clip-top`…)도 같은 식으로 받는다. 키프레임은 "다 접혔을 때" 만 말한다.
+
+  `transform`·`opacity` 만 움직이는 것이 요점이다 — 그 둘은 합성 스레드가 스크롤과 같은 프레임에 값을 뽑는다(왜 JS 가 아닌지는
+  `components/layout/scrollDrivenMorph.ts`). 글자색처럼 다시 그려야 하는 값은 **두 벌을 겹쳐 투명도로 바꾼다.**
+  히어로의 면도 `clip-path` 가 아니라 크림 커튼·귀의 `scale`·`translate` 로 가린다 — `clip-path` 는 층을 따로 올려도 매 프레임
+  면 전체를 다시 그렸다(크롬 실측). 판 자체를 누르지 않는 이유는 `homePageHero.tsx` 머리 주석.
+
+  지원하지 않는 브라우저는 이 블록을 통째로 건너뛰고, 컴포넌트의 인라인 `calc(var(--morph))` 가 같은 모습을 JS 로 낸다.
+  구간 비율(0.25·0.55·0.95…)은 그 인라인 식과 **같은 값**이어야 한다 — 한쪽만 고치면 브라우저마다 다르게 접힌다.
+*/
+
+@supports (animation-timeline: scroll()) {
+  [data-scroll-morph] {
+    animation-duration: auto;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: scroll(nearest block);
+    animation-range: var(--morph-from, 0px) var(--morph-to, 1px);
+  }
+
+  /* ── StickyMorphTitle ── */
+  [data-scroll-morph='title'] {
+    animation-name: morph-title;
+  }
+  /* 오른쪽 요약: 제목이 반쯤 줄어든 뒤부터(0.5 → 1). */
+  [data-scroll-morph='title-trailing'] {
+    animation-name: morph-fade-in-late;
+  }
+  [data-scroll-morph='fade-in'] {
+    animation-name: morph-fade-in;
+  }
+
+  /* ── HomePageHero ── */
+  [data-scroll-morph='hero-mark'] {
+    animation-name: morph-hero-mark;
+  }
+  [data-scroll-morph='hero-title'] {
+    animation-name: morph-hero-title;
+  }
+  [data-scroll-morph='curtain-side'] {
+    animation-name: morph-curtain-side;
+  }
+  [data-scroll-morph='curtain-top'] {
+    animation-name: morph-curtain-top;
+  }
+  [data-scroll-morph='corner-tl'] {
+    animation-name: morph-corner-tl;
+  }
+  [data-scroll-morph='corner-tr'] {
+    animation-name: morph-corner-tr;
+  }
+  [data-scroll-morph='corner-bl'] {
+    animation-name: morph-corner-bl;
+  }
+  [data-scroll-morph='corner-br'] {
+    animation-name: morph-corner-br;
+  }
+  /* 색이 바뀌는 구간(--tone, 0.55 → 0.95) — 잉크 판·흰 글자가 빠지고 크림 판·본문색 글자가 들어온다. */
+  [data-scroll-morph='tone-out'] {
+    animation-name: morph-tone-out;
+  }
+  [data-scroll-morph='tone-in'] {
+    animation-name: morph-tone-in;
+  }
+  /* 부제·숫자판: 처음 25% 안에 비킨다. */
+  [data-scroll-morph='fade-early'] {
+    animation-name: morph-fade-early;
+  }
+}
+
+@keyframes morph-title {
+  to {
+    transform: translateY(calc(var(--spacing) * -2)) scale(var(--title-scale, 1));
+  }
+}
+
+@keyframes morph-hero-mark {
+  to {
+    transform: translate(var(--ptx, 0px), var(--pty, 0px)) scale(var(--mark-scale, 1));
+  }
+}
+
+@keyframes morph-hero-title {
+  to {
+    transform: translate(var(--tx, 0px), var(--ty, 0px)) scale(var(--title-scale, 1));
+  }
+}
+
+@keyframes morph-curtain-side {
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes morph-curtain-top {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes morph-corner-tl {
+  to {
+    transform: translate(calc(-1 * var(--side, 0px)), var(--clip-top, 0px)) scale(0);
+  }
+}
+
+@keyframes morph-corner-tr {
+  to {
+    transform: translate(var(--side, 0px), var(--clip-top, 0px)) scale(0);
+  }
+}
+
+@keyframes morph-corner-bl {
+  to {
+    transform: translateX(calc(-1 * var(--side, 0px))) scale(0);
+  }
+}
+
+@keyframes morph-corner-br {
+  to {
+    transform: translateX(var(--side, 0px)) scale(0);
+  }
+}
+
+@keyframes morph-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes morph-fade-in-late {
+  0%,
+  50% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes morph-fade-early {
+  0% {
+    opacity: 1;
+  }
+  25%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes morph-tone-out {
+  0%,
+  55% {
+    opacity: 1;
+  }
+  95%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes morph-tone-in {
+  0%,
+  55% {
+    opacity: 0;
+  }
+  95%,
+  100% {
+    opacity: 1;
+  }
+}

@@ -45,6 +45,11 @@ export type TCandidateExtracted = {
   regionRawAi?: string | null;
   address: string | null;
   addressAi?: string | null;
+  /**
+   * 운영자가 주소를 손으로 고쳤다(`buildEdit`). `geoSource` 로는 갈릴 수 없다 — 그 칸은 **좌표**가 어느 축에서
+   * 왔는지이고 주소를 고쳐도 남는다. 검수 화면의 '상호 검색으로 확인된 주소' 가 이 칸을 먼저 본다(`adminAddress.ts`).
+   */
+  addressEdited?: boolean;
   petPolicyText: string | null;
   petPolicy: TPetPolicyFacts | null;
   features?: string | null;

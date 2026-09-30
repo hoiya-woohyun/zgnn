@@ -3,6 +3,7 @@
 import { Button } from '../components/base/button';
 import { Input } from '../components/base/input';
 import { Select } from '../components/base/select';
+import { addressView } from '../lib/adminAddress';
 import { TYPE_LABEL } from '../lib/adminCandidates';
 import { Checkbox } from '../components/base/checkbox';
 import type { ReactNode } from 'react';
@@ -22,6 +23,7 @@ import type { TCandidateExtracted } from '../lib/adminCandidates';
 import type { TPolicyCell } from '../lib/adminPreview';
 import { naverMapSearchUrl, parseNaverPlaceId } from '../lib/naverPlaceLink';
 import { cx } from '../utils/cx';
+import { AdminAddressLine } from './adminAddressLine';
 import { AdminChangeList } from './adminChangeList';
 
 const INDOOR_OPTIONS: { key: TPolicyDraft['indoor']; label: string }[] = [
@@ -174,6 +176,11 @@ export function AdminPageEditForm({
   const setPolicy = (patch: Partial<TPolicyDraft>) => set({ policy: { ...draft.policy, ...patch } });
   const { cell, corrections } = editPreview(draft);
   const { cell: cellBefore } = editPreview(before);
+  /*
+   * 주소 입력 아래의 대조는 **초안**으로 다시 그린다 — 상세의 「주소」 줄과 같은 컴포넌트다(`AdminAddressLine`).
+   * 고치는 가장 흔한 이유가 "상호 검색이 동명의 다른 가게를 집었다" 이고, 그때 확인하려는 것이 "지금 적은 주소가 원글과 맞나" 다.
+   */
+  const address = addressView(original, draft.address);
   const row = (key: string, label: string, children: ReactNode) => (
     <EditRow label={label} current={editFieldText(before, key)} changed={changedKeys.has(key)}>
       {children}
@@ -212,7 +219,16 @@ export function AdminPageEditForm({
             ))}
           </Select>,
         )}
-        {row('address', '주소', <Input aria-label="주소" size="sm" value={draft.address} onChange={(value) => set({ address: value })} isDisabled={busy} />)}
+        {row(
+          'address',
+          '주소',
+          <>
+            <Input aria-label="주소" size="sm" value={draft.address} onChange={(value) => set({ address: value })} isDisabled={busy} />
+            <p className="mt-1.5 text-xs">
+              <AdminAddressLine view={address} />
+            </p>
+          </>,
+        )}
         {/*
           * 좌표는 두 칸이다. 한 칸만 채운 상태는 `validGeo` 가 통째로 버려 좌표가 조용히 사라지므로
           * `editProblem` 이 저장을 막는다 — 여기서 말해 주지 않으면 버튼만 꺼져 이유를 알 수 없다.

@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { Badge } from '../components/base/badges';
-import { sameAddress } from '../lib/addressMatch';
+import { addressView } from '../lib/adminAddress';
 import { factsLine, FACTS_EMPTY, type TCandidateGroup, type TPolicyPreview } from '../lib/adminCandidates';
 import { aiEdits } from '../lib/adminEdit';
 import { PLACE_STATUS_COLOR, PLACE_STATUS_LABEL } from '../lib/adminPlaces';
@@ -10,6 +10,7 @@ import { policySplit } from '../lib/adminPreview';
 import { verifyView } from '../lib/adminVerify';
 import type { TBadgeTone, TPetBadge } from '../lib/petPolicy';
 import { cx } from '../utils/cx';
+import { AdminAddressLine } from './adminAddressLine';
 import { AdminChangeList } from './adminChangeList';
 
 type TAdminPageGroupDetailProps = {
@@ -99,12 +100,12 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
   const extracted = group.lead.extracted;
   const matched = group.lead.places;
   /*
-   * 두 주소를 **문자열로** 비교하던 자리다. 실측 43쌍 중 40쌍이 표기 차이뿐이어서(`addressMatch.ts`) 경보가
-   * 늘 켜져 있었고, 그래서 정말 다른 1쌍을 아무도 보지 않았다. 이제 갈래가 셋이다 —
-   * 같으면 조용히 두고, 비교 불가(지번↔도로명)는 참고로 적고, **다를 때만** 경보로 적는다.
+   * 나갈 주소는 **어디서 온 주소인지**부터 말한다(`adminAddress.ts`). 예전에는 전부 '네이버 검색 결과' 로 적고 원글과
+   * 견주기만 했는데, 그 대조는 축에 따라 순환이다 — 주소→좌표 축의 주소는 원글 주소에서 나온 것이라
+   * '같다' 가 나와도 확인한 것이 없다. 검증은 상호 검색 축 하나뿐이고, 화면이 그것을 구별해 적는다.
    */
   const addressAi = extracted.addressAi?.trim() ? extracted.addressAi : null;
-  const addressVerdict = addressAi ? sameAddress(extracted.address, addressAi) : 'same';
+  const address = addressView(extracted);
   const verify = verifyView(extracted.verify);
   const facts = factsLine(preview.facts);
   // `AI [(판단 없음)]` 과 `AI [—]` 는 글자만 다르고 운영자가 읽는 뜻이 같다 — 한 문구로 합친다.
@@ -171,15 +172,8 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
             source={<Quote text={addressAi} empty="원글에 주소가 없어요" />}
             result={
               <>
-                <p className="text-secondary">{extracted.address ?? '주소가 없어요'}</p>
-                <p className="mt-0.5 text-quaternary">네이버 검색 결과{extracted.geo ? '' : ' · 좌표 없음(지도에 안 보여요)'}</p>
-                {addressVerdict === 'different' && (
-                  <p className="mt-0.5 font-semibold text-warning-primary">
-                    원글과 다른 주소예요 — 검색이 동명의 다른 가게를 집었을 수 있어요
-                  </p>
-                )}
-                {/* 지번↔도로명이라 코드가 답할 수 없다. 색도 굵기도 주지 않는다 — 여기서 경보를 울리면 옛 상태로 돌아간다. */}
-                {addressVerdict === 'unknown' && <p className="mt-0.5 text-tertiary">표기 방식이 달라 같은 곳인지 비교할 수 없어요</p>}
+                <AdminAddressLine view={address} />
+                {!extracted.geo && <p className="mt-0.5 text-quaternary">좌표 없음(지도에 안 보여요)</p>}
               </>
             }
           />
