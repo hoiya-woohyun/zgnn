@@ -60,12 +60,13 @@ webpack 훅에서 바로 돌아 나오고 서비스워커도 만들지 않으므
 |---|---|
 | `/` | 홈. 인사말, 숙소·식당·카페 요약, 준비물과 저장한 곳 진입 |
 | `/places/[type]` | 둘러보기. 이름·특징·읍면 검색, 방향·반려동물 조건 필터, 숙소는 가격 정렬 |
-| `/place/[id]` | 상세. 반려동물 이용 조건(원문 포함), 판정 카드, 요금, 근처 장소 |
+| `/place/[id]` | 상세. 반려동물 이용 조건(원문 포함), 판정 카드, 네이버 지도·사진 보기, 요금, 공식 홈페이지 카드, 미니 지도, 근처 장소 |
 | `/map` | 지도. 타입·방향 필터, 마커를 누르면 미니 카드(모바일은 하단 시트, ≥1024px 은 좌측 목록 패널). `?saved=1` 은 저장한 곳만 |
 | `/checklist` | 준비물. 계절별 목록, 체크 상태 저장, 숙소 구비 용품 반영 |
 | `/settings` | 설정(탭). 우리 강아지 카드, 저장한 곳 진입, 자료 출처 |
 | `/saved` | 저장한 곳. 타입별 묶음(설정 안) |
 | `/dog` | 우리 강아지 등록. 마리별 이름·몸무게·이동 수단 → 장소별 판정의 입력(설정 안) |
+| `/admin` | 운영자 검수. 블로그에서 찾은 후보를 보고 승인·반려·고치기, 올린 곳 내리기(운영자 로그인 필요, 탭바에는 없음) |
 
 `src/app/**/page.tsx` 는 주소와 메타데이터만 맡는 서버 컴포넌트이고, 화면을 그리는 본체는
 `src/screens/` 의 클라이언트 컴포넌트입니다. 정적 내보내기라 서버 렌더에서 얻는 것은
@@ -88,19 +89,61 @@ HTML 이 빌드 때 만들어지므로 첫 렌더에서 localStorage 를 읽으�
 
 ## 데이터
 
-`src/data/` 의 세 JSON 이 앱이 읽는 전부입니다. 원본은 짱구누나의 Notion 자료
-(`src/data/meta.json` 의 `sourceUrl`) 이고, 아래 순서로 만들어집니다.
+앱이 읽는 것은 `src/data/` 의 JSON 셋이 전부이고, 그 원본은 **Supabase** 입니다([ADR-015](docs/decisions/ADR-015-supabase-source-and-rebuild.md)).
+사이트는 Vercel 빌드가 `pnpm data:pull` 로 그때그때 받아 가므로, 평소에 이 파일들을 손으로 고칠 일은 없습니다.
+자세한 구조는 [docs/architecture/data-pipeline.md](docs/architecture/data-pipeline.md), 진행 상황은 [docs/todo/](docs/todo/README.md).
+
+`pnpm data:*` 는 Vercel 빌드가 부르는 `data:pull` 말고는 **전부 운영자 터미널에서 손으로** 돌립니다(스케줄·CI 없음).
+명령이 많아 보이지만 **평소에는 명령 셋과 `/admin` 화면이면 됩니다.** 나머지는 가끔 쓰거나 옛 경로입니다.
+
+### 평소 흐름 — 이 순서대로
 
 ```bash
-pnpm data:fetch-images     # 블로그 후기에서 장소 사진 수집 → data/raw/places/
-pnpm data:optimize-images  # webp 변환 → public/images/places/ + data/place-images.json
-pnpm data:normalize        # Notion export + 이미지 매니페스트 → src/data/*.json
+pnpm data:login      # ① 하루 한 번. 운영자 계정으로 로그인(세션은 키체인, 만료되면 다른 명령이 멈추고 이걸 부르라고 한다)
+pnpm data:collect    # ② 네이버 블로그에서 반려동반 글 목록을 모은다
+pnpm data:analyze    # ③ 모은 글을 Claude 로 읽어 장소 후보를 만든다
+# ④ 브라우저에서 /admin 을 열어 후보를 보고 승인·반려한다 → 승인하면 사이트에 올라가고 재빌드가 자동으로 걸린다
 ```
 
-원본을 Supabase 로 옮기는 작업이 진행 중이다(`pnpm data:pull` 로 갱신) — 자세한 건
-[docs/architecture/data-pipeline.md](docs/architecture/data-pipeline.md), 계획은 [docs/todo/](docs/todo/README.md).
+| 단계 | 명령 | 하는 일 | 필요한 것 | 자주 쓰는 옵션 |
+|---|---|---|---|---|
+| ① | `pnpm data:login` | 운영자 로그인. 세션을 키체인에 넣는다 | Supabase 운영자 계정 | — |
+| ② | `pnpm data:collect` | 네이버 검색 API 로 글 **목록**(제목·링크·날짜)을 `blog_posts` 에 모은다. 본문은 저장하지 않는다 | 네이버 검색 키(env 또는 숨김 입력) | 없음 |
+| ③ | `pnpm data:analyze` | 아직 안 읽은 글을 열어 Claude 가 장소를 뽑고, 네이버로 좌표·주소를 붙이고, 기존 장소와 대조해 `candidates` 를 만든다. 업체 홈페이지가 있으면 링크 카드도 붙인다 | Claude 구독(로컬 `claude` 로그인) · 네이버 검색 키 · (선택) 네이버 Maps 키 | `--limit N`(기본 50) · `--dry-run` · `--no-geo` · `--no-verify` · `--no-homepage` · `--dump` |
+| ④ | `/admin` | 후보를 같은 가게끼리 묶어 보여 준다. 고치기·승인·반려·올린 곳 내리기 | 운영자 계정(브라우저 로그인) | — |
 
-### 장소 사진은 없습니다
+승인한 곳은 **다음 빌드부터** 사이트에 보입니다. 재빌드가 정말 걸렸는지는 `/admin` 머리글 한 줄이 알려 줍니다.
+
+### 터미널로 검수할 때 (선택)
+
+`/admin` 대신 터미널에서 검수하려면 이 둘을 씁니다. 결과는 같지만, 터미널 경로의 신규 장소는 `draft`(초안)로 들어가
+사람이 한 번 더 게시해야 한다는 점이 다릅니다.
+
+| 명령 | 하는 일 | 자주 쓰는 옵션 |
+|---|---|---|
+| `pnpm data:review` | 대기 후보를 묶어 검수 순서대로 보여 준다. `approve`·`reject` 로 바로 처리도 한다 | `status` · `--tier new` · `--verbose` · `--md 경로` · `approve <id…> [--merge-into id]` |
+| `pnpm data:apply` | 승인된 후보를 `places` 에 반영한다(기존 장소는 빈 칸만 채움) | `--dry-run` |
+
+### 가끔
+
+| 명령 | 언제 |
+|---|---|
+| `pnpm data:pull` | 로컬 `src/data/*.json` 을 DB 최신으로 맞출 때. 결과가 비면 파일을 덮지 않고 멈춘다 |
+| `pnpm data:homepage` | 홈페이지 카드 기능이 생기기 전(2026-09-30)에 쌓인 후보에 카드를 채울 때. 한 번 돌리면 된다(`--dry-run` · `--limit N`) |
+| `pnpm data:logout` | 세션을 만료 전에 지울 때 |
+
+### 거의 안 씀 — 옛 경로·재구축용
+
+평소 흐름에는 들어가지 않습니다. 스키마를 새로 만들거나 다른 프로젝트로 옮길 때만 봅니다.
+
+| 명령 | 무엇 |
+|---|---|
+| `pnpm data:seed` | `src/data/*.json`(Notion 시절 마지막 스냅샷)을 Supabase 에 한 번 올린다. 여러 번 돌려도 안전(upsert) |
+| `pnpm data:normalize` | Notion export → `src/data/*.json`. Supabase 로 옮기기 전의 생성 경로 |
+| `pnpm data:fetch-images` | 본인 블로그 사진만 받는다. 허용목록이 비어 있어 **지금은 아무것도 받지 않는다**(아래 「장소 사진」) |
+| `pnpm data:optimize-images` | 받은 사진을 webp 로 바꾼다. 위 명령과 짝 |
+
+### 장소 사진
 
 후기 포스트 대부분이 작성자 본인이 아닌 타인의 블로그라, 저작권 문제로 사진을 모두 뺐습니다.
 `public/images/` 디렉터리는 없고 86곳 전부 `cover` 가 없으며 `images` 는 빈 배열입니다.
@@ -110,6 +153,10 @@ pnpm data:normalize        # Notion export + 이미지 매니페스트 → src/d
 종류 아이콘(숙소·식당·카페)이 대신하고, 장소 이름·읍면·특징 문장이 타이포그래피로 화면을 이끕니다.
 `cover` 와 `images` 를 읽는 코드 경로는 그대로 남겨뒀으니, 나중에 직접 찍은 사진을
 `src/data/places.json` 에 채우면 코드 수정 없이 사진이 나옵니다(불러오기에 실패하면 아이콘으로 되돌아갑니다).
+
+대신 사진은 **가져오지 않고 보여 줍니다**([ADR-002](docs/decisions/ADR-002-no-place-photos.md) v2·v3).
+상세 화면의 **사진 보기**(네이버 초록 알약)는 네이버 플레이스의 사진 탭을 열고, 업체 공식 홈페이지가 있는 곳은
+**공식 홈페이지 카드**가 그 사이트의 대표 사진(`og:image`) 한 장을 출처와 함께 링크로 띄웁니다. 어느 쪽도 파일을 저장하지 않습니다.
 
 사진이 다시 생기더라도 용량이 커서 PWA precache 에는 넣지 않습니다. `/images/places/` 는
 런타임 CacheFirst 규칙으로만 다루도록 `src/app/sw.ts` 에 남겨 뒀습니다.
@@ -141,22 +188,31 @@ pnpm data:normalize        # Notion export + 이미지 매니페스트 → src/d
   화면에는 항상 원문을 함께 보여주므로, 파서가 놓친 조건도 사용자가 읽을 수 있습니다.
 - **`src/lib/eligibility.ts`** — 강아지 프로필 × 이용 조건 → 판정(`ok`/`cond`/`unknown`/`hard`).
   판정 등급이 목록 정렬(`src/lib/sortByEligibility.ts`)과 배지(`src/components/eligibilityBadge.tsx`)를
-  함께 움직이므로, 등급을 늘리면 세 곳을 같이 봅니다. `pnpm test` 에 24개 케이스가 있습니다.
+  함께 움직이므로, 등급을 늘리면 세 곳을 같이 봅니다. 케이스는 `src/lib/eligibility.test.ts` 에 모여 있습니다.
 - **`src/lib/category.ts`** — 네이버 카테고리 문자열을 화면 라벨로 다듬습니다.
   아이콘은 여기가 아니라 `src/components/icons/placeTypeIcon.ts` 의 종류별 3종을 씁니다.
 - **`src/lib/amenities.ts`** — 숙소 구비 용품과 준비물을 잇는 매핑 테이블.
 - **`src/lib/placeFilters.ts`** — 둘러보기 화면의 조건 필터.
-- **`src/lib/mapTiles.ts`** — 지도 타일 출처.
+- **`src/lib/naverMap.ts`** — 네이버 지도 SDK 로더와 클라이언트 아이디. 확대 수준은 `src/lib/places.ts` 의 `JEJU_ZOOM` 하나.
 
-## 지도 타일
+## 지도
 
-CARTO Voyager 가 원래 선택이지만 CARTO 는 API 키 없이 받은 타일에 워터마크를 찍습니다.
-그래서 키가 없으면 OpenStreetMap 기본 타일을 씁니다. CARTO 키가 있다면 `.env.local` 에
-아래 한 줄을 넣으면 CARTO 로 바뀝니다.
+지도는 **네이버 지도(NCP Maps JavaScript API v3)** 입니다([ADR-008](docs/decisions/ADR-008-map-provider.md)). SDK 는 npm 패키지가 아니라
+지도 화면이 뜰 때 `oapi.map.naver.com` 에서 스크립트 한 장을 붙입니다(`src/lib/naverMap.ts`).
+
+클라이언트 아이디는 **코드에 상수로** 들어 있고 따로 설정할 것이 없습니다. 공개 전제의 값이라 빌드 결과물에 어차피 남고,
+실제 보호는 NCP 콘솔의 **Web 서비스 URL 허용 목록**이 합니다. `.env.local` 에만 두면 Vercel 빌드에서 지도만 죽습니다
+(이 레포는 Vercel 환경변수를 0개로 유지합니다 — ADR-016). 다른 아이디로 바꿔 보고 싶을 때만 아래 한 줄을 씁니다.
 
 ```
-NEXT_PUBLIC_CARTO_API_KEY=발급받은_키
+NEXT_PUBLIC_NAVER_MAP_KEY_ID=다른_클라이언트_아이디
 ```
+
+지도가 안 뜨면 코드보다 콘솔을 먼저 봅니다.
+
+- **주소(출처)가 등록돼 있는가** — 포트까지 봅니다. 없으면 인증이 거부되고, 화면은 빈 지도 대신 안내를 그립니다.
+- **Dynamic Map 이 체크돼 있는가** — 아니면 429(Quota Exceed)가 납니다.
+- **비용은 "지도를 띄운 방문 수"** 입니다(인증이 페이지 로드당 1회). 상세의 미니 지도도 한 번으로 셉니다.
 
 ## UI — Untitled UI
 
@@ -189,4 +245,4 @@ react-aria 의 `Link` · `Button href` 가 전체 새로고침 대신 Next 라�
 ## 스택
 
 Next.js 16 (App Router, 정적 내보내기) · React 19 · TypeScript · Tailwind CSS v4 · zustand ·
-react-aria-components + Untitled UI · leaflet + react-leaflet · @serwist/next · vitest
+react-aria-components + Untitled UI · 네이버 지도(NCP Maps v3) · Supabase(데이터 원본·`/admin`) · @serwist/next · vitest
