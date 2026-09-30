@@ -8,7 +8,8 @@ import { Select } from '../components/base/select';
 import { EmptyState } from '../components/layout/emptyState';
 import { PageHeader } from '../components/layout/pageHeader';
 import { approveGroup, rejectGroup, saveEdit, setRegion } from '../lib/adminApply';
-import { aiOriginalOf, buildEdit, type TCandidateEditDraft } from '../lib/adminEdit';
+import { aiOriginalOf, buildEdit, chooseAddress, type TCandidateEditDraft } from '../lib/adminEdit';
+import { addressUnresolved, type TAddressChoice } from '../lib/adminAddress';
 import { prepareReanalyze, reanalyzePlan, reanalyzeSummary } from '../lib/adminReanalyze';
 import { bulkLatestSummary, bulkLatestTargets, summarizeBulk, type TBulkTally } from '../lib/adminBulk';
 import {
@@ -75,16 +76,10 @@ const PAGE_SIZE = 40;
 /**
  * 열 이름. '이름' 이 아니라 '장소' 인 것은 이 칸이 이름 하나가 아니라 **승인을 막거나 미루는 표식까지** 담아서다.
  *
- * `AI 요약` 은 `extracted.features` 다 — 승인되면 그대로 사이트의 소개 문구가 되므로, 검수 중에 읽어야 할 것이
- * 동반 정보만은 아니다.
- *
- * **`동반 정보` 한 칸이 셋으로 갈렸다**(2026-09-30): `동반 조건` · `강아지 요금` · `필요 장비`. 운영자가 그 칸에서
- * 찾는 것은 "얼마 드나" 와 "무엇을 챙기나" 인데, 한 칸이던 동안 그 둘이 실내·크기·무게·확인 필요와 섞여 있었다.
- * 나머지를 `동반 조건` 으로 되돌린 이유: 갈라 낸 뒤 그 칸에 남는 것은 실제로 **조건**이다(상태를 말하는
- * `확인된 정보 없음` 도 여기 서지만, 그것 하나 때문에 이름을 넓히면 세 칸 중 어디에 무엇이 서는지가 흐려진다).
- * 무엇이 어느 칸에 서는지는 `adminPreview.ts` 의 `policySplit` 이 정본이고, 기준은 라벨이 아니라 배지의 축이다.
+ * `AI 요약` 은 `extracted.features` 다 — 승인되면 그대로 사이트의 소개 문구가 된다.
+ * `강아지 요금`·`필요 장비` 는 `동반 조건` 으로 되돌렸다(2026-09-30 v2) — 21줄 중 2~3줄만 차는 열이었다(`adminTable.tsx`).
  */
-const COLUMNS = ['장소', '지역', '동반 조건', '강아지 요금', '필요 장비', 'AI 요약', '종류', ''];
+const COLUMNS = ['장소', '지역', '동반 조건', 'AI 요약', '종류'];
 /** 끝난 카드가 초록 한 줄로 남아 있는 시간. 바로 지우면 "눌렀는데 아무 일도 안 났다" 로 보인다. */
 const DONE_LINGER_MS = 3000;
 
@@ -101,6 +96,18 @@ const TABS: { key: TTab; label: string }[] = [
   { key: 'places', label: '올린 장소' },
 ];
 
+/**
+ * 머리글의 `?` 가 말하는 것 — 화면 곳곳의 설명문을 여기 모았다(2026-09-30 v2). 운영자는 한 명이고 매일 보므로,
+ * 칸·버튼마다 붙은 한 줄은 첫날 이후 소음이다. 화면에 남는 문장은 **예외일 때만**이다(주소 고르기 · 내린 곳 · 근거 없음 …).
+ */
+const HELP = [
+  '여기서 바꾼 것은 사이트가 다시 빌드된 뒤에 보여요.',
+  '줄을 누르면 근거(원문 · 나갈 값 · 블로그 인용)가 펼쳐지고, 그 끝에서 이 줄을 올리거나 반려해요.',
+  '줄 앞 체크박스로 여러 곳을 고르면 표 위에 한꺼번에 처리하는 줄이 떠요.',
+  '올리기: 짝이 있으면 그 장소의 빈 칸만 채우고, 없으면 새 장소로 올라가요. 덮어쓰기: 짝의 칸을 새 분석 값으로 바꿔요.',
+  '재분석: 그 글의 분석을 지우고 재분석 대기로 되돌려요. 터미널에서 pnpm data:analyze 를 돌리면 다시 읽어요.',
+].join('\n');
+
 type TTierFilter = 'all' | 'auto' | 'ask' | 'new';
 type TBulkMode = 'reject' | 'reanalyze' | 'approve' | 'latest';
 type TTypeFilter = 'all' | TCandidateType;
@@ -110,6 +117,30 @@ type TTypeFilter = 'all' | TCandidateType;
  * 교집합이 없다(교차점검은 조건 문장이 없는 후보에만 돈다). 토글 둘이면 둘을 같이 켤 수 있고 그 목록은 늘 빈다.
  */
 type TPolicyFilter = 'all' | 'has' | 'needsLook';
+
+/**
+ * 경고 축(2026-09-30 v2). 21줄을 다 훑어야 경고를 찾던 자리다 — 올리기 전에 사람이 봐야 하는 세 가지만 센다.
+ * `any` 는 셋의 합집합이고, 각 선택지는 서로 겹칠 수 있다(한 줄이 지역도 없고 주소도 다를 수 있다).
+ */
+type TWarnFilter = 'all' | 'any' | 'region' | 'address' | 'noBasis';
+
+const WARN_MATCH: Record<Exclude<TWarnFilter, 'all' | 'any'>, (card: { group: TCandidateGroup; view: { badges: { key: string }[] } }) => boolean> = {
+  region: (card) => card.view.badges.some((badge) => badge.key === '지역 없음'),
+  address: (card) => addressUnresolved(card.group.lead.extracted),
+  noBasis: (card) => verifyNeedsLook(card.group.lead.extracted.verify),
+};
+
+const WARN_FILTERS: { key: TWarnFilter; label: string; hint?: string }[] = [
+  { key: 'all', label: '전체' },
+  { key: 'any', label: '경고 있는 것', hint: '아래 셋 중 하나라도 걸린 곳' },
+  { key: 'region', label: '지역 없음', hint: '지역을 골라야 올릴 수 있어요' },
+  { key: 'address', label: '주소 다름', hint: '원글 주소와 검색 주소 중 하나를 골라야 올릴 수 있어요' },
+  { key: 'noBasis', label: '동반 근거 없음', hint: '교차점검이 강아지를 데려간 근거를 못 찾은 곳' },
+];
+
+const warnMatches = (filter: TWarnFilter, card: { group: TCandidateGroup; view: { badges: { key: string }[] } }): boolean =>
+  filter === 'all' ||
+  (filter === 'any' ? Object.values(WARN_MATCH).some((match) => match(card)) : WARN_MATCH[filter](card));
 
 const POLICY_FILTERS: { key: TPolicyFilter; label: string; hint?: string }[] = [
   { key: 'all', label: '전체' },
@@ -131,9 +162,9 @@ const POLICY_FILTER_MATCH: Record<Exclude<TPolicyFilter, 'all'>, (card: { group:
 const TIER_FILTERS: { key: TTierFilter; label: string; hint?: string; match: (group: TCandidateGroup) => boolean }[] = [
   { key: 'all', label: '전체', match: () => true },
   // 라벨은 표의 뱃지(`기존`·`확인`·`신규`)와 같은 두 자로 시작하고, 뜻은 선택지 밑 한 줄이 말한다 — 뱃지만 봐서는 뜻을 몰랐다.
-  { key: 'auto', label: TIER_LABEL.auto, hint: '이미 올린 장소와 같은 곳 — 승인하면 거기 합쳐져요', match: (group) => group.tier === 'auto' },
+  { key: 'auto', label: TIER_LABEL.auto, hint: '이미 올린 장소와 같은 곳 — 올리면 거기 합쳐져요', match: (group) => group.tier === 'auto' },
   { key: 'ask', label: TIER_LABEL.ask, hint: '비슷한 장소가 있어 같은 곳인지 봐야 해요', match: (group) => group.tier === 'ask' },
-  { key: 'new', label: TIER_LABEL.new, hint: '처음 보는 곳 — 승인하면 새 장소로 올라가요', match: (group) => group.tier === 'new' },
+  { key: 'new', label: TIER_LABEL.new, hint: '처음 보는 곳 — 올리면 새 장소로 올라가요', match: (group) => group.tier === 'new' },
 ];
 
 /**
@@ -186,6 +217,7 @@ export function AdminPage() {
   const [tierFilter, setTierFilter] = useState<TTierFilter>('all');
   const [policyFilter, setPolicyFilter] = useState<TPolicyFilter>('all');
   const [typeFilter, setTypeFilter] = useState<TTypeFilter>('all');
+  const [warnFilter, setWarnFilter] = useState<TWarnFilter>('all');
   const [shown, setShown] = useState(PAGE_SIZE);
   /*
    * 일괄 반려용으로 골라 둔 묶음들. 집합을 다루는 규칙은 전부 `adminSelection.ts` 에 있다 —
@@ -421,8 +453,7 @@ export function AdminPage() {
       const client = clientRef.current;
       if (!client) return;
       if (!beginWrite((message) => patchState(group.key, { error: message }))) return;
-      // '네이버 주소가 맞아요' 를 한 번 누르면 그 묶음의 다음 선택(비슷한 곳·내린 곳 패널)에도 이어진다 — 같은 확인을 두 번 묻지 않는다.
-      patchState(group.key, { busy: 'approving', error: undefined, ...(choice?.addressConfirmed ? { addressConfirmed: true } : {}) });
+      patchState(group.key, { busy: 'approving', error: undefined });
       try {
         const outcome = await approveGroup(client, group, placesRef.current, {
           nowIso: new Date().toISOString(),
@@ -432,7 +463,6 @@ export function AdminPage() {
           restoreArchived: choice?.restoreArchived,
           confirmedDifferent: choice?.confirmedDifferent,
           overwrite: choice?.overwrite,
-          addressConfirmed: choice?.addressConfirmed,
         });
         if (outcome.kind === 'blocked') {
           patchState(group.key, { busy: undefined, error: outcome.reason });
@@ -453,15 +483,18 @@ export function AdminPage() {
           return;
         }
         if (outcome.kind === 'addressConflict') {
-          // 레일이 이미 확인 단계를 그리므로 보통은 닿지 않는다 — 확인 없이 온 선택(최신본 등)이 여기서 멈춘 것을 말만 한다.
-          patchState(group.key, { busy: undefined, error: '주소가 원글과 달라요 — 레일에서 어느 주소가 맞는지 먼저 골라 주세요.' });
+          /*
+           * 결정 줄은 주소를 고르기 전에 올리기를 그리지 않으므로 보통은 닿지 않는다 — 고른 뒤 다른 줄의 쓰기로 값이 바뀐 경우 등.
+           * 고르는 것은 저장되는 선택이다(`chooseAddress` → `addressChosen`) — 한 번 고르면 일괄 올리기도 다시 묻지 않는다.
+           */
+          patchState(group.key, { busy: undefined, error: '주소가 원글과 달라요 — 펼친 줄 아래에서 어느 주소가 맞는지 먼저 골라 주세요.' });
           return;
         }
         const what =
           outcome.kind === 'created'
             ? `올렸어요 · ${outcome.placeName}`
             : outcome.overwrittenKeys?.length
-              ? `${outcome.placeName} 을 최신본으로 저장했어요 (${outcome.overwrittenKeys.length}칸)`
+              ? `${outcome.placeName} 을 덮어썼어요 (${outcome.overwrittenKeys.length}칸)`
               : `${outcome.placeName} 에 채웠어요${outcome.patchKeys.length ? ` (${outcome.patchKeys.join(', ')})` : ' — 채울 빈 칸은 없었어요'}`;
         // 거짓말을 하지 않는 자리다. DB 에는 들어갔지만 정적 사이트는 다시 빌드돼야 보인다(ADR-015).
         // 그 빌드가 정말 걸렸는지는 머리글의 재빌드 줄이 말한다(`adminRebuild.ts`) — 이 문장만으로는 알 수 없었다.
@@ -567,7 +600,7 @@ export function AdminPage() {
   );
 
   /**
-   * **재분석 준비** — 고른 묶음의 글을 되돌린다(`adminReanalyze.ts`). 한 줄(레일)과 일괄(표 위 줄)이 같은 함수를 쓴다.
+   * **재분석** — 고른 묶음의 글을 되돌린다(`adminReanalyze.ts`). 한 줄(레일)과 일괄(표 위 줄)이 같은 함수를 쓴다.
    *
    * 끝나면 눕힌 후보를 빼고 **다시 묶는다**(`groupPending`). 형제 후보가 다른 줄에 섞여 있을 수 있어 줄 단위로 지우면
    * 그 줄의 대표만 남거나 빈 줄이 남는다. 결과 한 줄은 표 위 줄에 남긴다 — 한 줄에서 눌렀어도 그 줄은 사라지므로
@@ -586,7 +619,7 @@ export function AdminPage() {
       try {
         await prepareReanalyze(client, plan);
       } catch (error) {
-        fail(messageOf(error, '재분석 준비를 하지 못했어요.'));
+        fail(messageOf(error, '재분석하지 못했어요.'));
         return;
       } finally {
         endWrite();
@@ -605,7 +638,7 @@ export function AdminPage() {
   );
 
   /**
-   * **고른 것 올리기 · 고른 것 최신본으로 저장** — 한 줄 버튼과 같은 `approveGroup` 을 고른 묶음마다 차례로 부른다.
+   * **고른 것 올리기 · 고른 것 덮어쓰기** — 한 줄 버튼과 같은 `approveGroup` 을 고른 묶음마다 차례로 부른다.
    *
    * 사람이 골라야 하는 줄은 넘기지 않는다: `needsDecision`(닮은 곳)·`archivedTarget`(내린 곳)·`addressConflict`(주소 다름)가 오면 **쓰기 전에** 멈춘 것이므로
    * 그 줄에 패널을 세워 두고 다음으로 간다. `blocked`(지역 없음 등)와 예외는 그 줄에 이유를 적는다. 끝나면 된 것만 목록에서 빼고
@@ -639,7 +672,7 @@ export function AdminPage() {
               tally.waiting += 1;
               patchState(group.key, { archived: outcome, similar: undefined });
             } else if (outcome.kind === 'addressConflict') {
-              // 일괄은 주소를 대신 믿지 않는다(한 줄에서 이미 확인했어도) — 줄을 펼치면 레일이 두 주소를 나란히 보여 준다.
+              // 일괄은 주소를 대신 고르지 않는다 — 줄을 펼치면 결정 줄이 두 주소를 나란히 보여 준다.
               tally.waiting += 1;
               patchState(group.key, { error: '일괄로는 올리지 않았어요 — 주소가 원글과 달라 이 줄에서 직접 골라 주세요.' });
             } else if (outcome.kind === 'blocked') {
@@ -664,7 +697,7 @@ export function AdminPage() {
       setStates((prev) => Object.fromEntries(Object.entries(prev).filter(([key]) => !done.has(key))));
       setSelected((prev) => clearKeys(prev, [...done]));
       setPlacesView([...placesRef.current]);
-      setBulk({ summary: `${summarizeBulk(kind === 'latest' ? '최신본으로 저장했어요' : '올렸어요', tally)} · 사이트에는 다음 빌드에서 보여요` });
+      setBulk({ summary: `${summarizeBulk(kind === 'latest' ? '덮어썼어요' : '올렸어요', tally)} · 사이트에는 다음 빌드에서 보여요` });
       if (tally.done) afterWrite();
       // 실패가 후보를 `approved` 로 남겼을 수 있다 — 한 줄 승인과 같은 이유로 다시 센다.
       if (tally.failed) {
@@ -700,6 +733,39 @@ export function AdminPage() {
         patchState(group.key, { busy: undefined, regionDraft: undefined });
       } catch (error) {
         patchState(group.key, { busy: undefined, error: messageOf(error, '지역을 저장하지 못했어요.') });
+      } finally {
+        endWrite();
+      }
+    },
+    [beginWrite, endWrite, patchState],
+  );
+
+  /**
+   * `주소 다름` 에서 맞는 주소를 고른다(`chooseAddress`). 고치기 저장과 같은 규칙으로 쓴다 — **정체(주소·좌표·짝·지역)는 묶음의
+   * 모든 행에** 쓴다. 대표에만 쓰면 다음 새로고침에서 나머지 행이 옛 주소로 다시 `주소 다름` 을 띄운다.
+   */
+  const chooseAddressFor = useCallback(
+    async (group: TCandidateGroup, choice: TAddressChoice) => {
+      const client = clientRef.current;
+      if (!client) return;
+      if (!beginWrite((message) => patchState(group.key, { error: message }))) return;
+      patchState(group.key, { busy: 'savingEdit', error: undefined });
+      try {
+        const updated: TCandidateRow[] = [];
+        for (const row of group.rows) {
+          updated.push(await saveEdit(client, row, chooseAddress(row, choice, placesRef.current)));
+        }
+        const byId = new Map(updated.map((row) => [row.id, row]));
+        setGroups((prev) =>
+          prev.map((current) =>
+            current.key === group.key
+              ? { ...current, lead: byId.get(current.lead.id) ?? current.lead, rows: current.rows.map((row) => byId.get(row.id) ?? row) }
+              : current,
+          ),
+        );
+        patchState(group.key, { busy: undefined });
+      } catch (error) {
+        patchState(group.key, { busy: undefined, error: messageOf(error, '주소를 저장하지 못했어요.') });
       } finally {
         endWrite();
       }
@@ -746,10 +812,10 @@ export function AdminPage() {
           ),
         );
         /*
-         * 고친 뒤에는 '골라 주세요' 패널과 주소 확인을 **지운다.** 확인은 그때의 주소 쌍에 대한 것이라 새 주소를 덮으면 안 되고,
-         * 남은 패널(비슷한 곳·내린 곳)은 레일에서 주소 확인 단계보다 먼저 그려져 새로 생긴 `주소 다름` 을 가린다 — 다시 누르면 새 값으로 다시 판단한다.
+         * 고친 뒤에는 '골라 주세요' 패널을 **지운다.** 남은 패널(비슷한 곳·내린 곳)은 결정 줄에서 주소 고르기보다 먼저 그려져
+         * 새로 생긴 `주소 다름` 을 가린다 — 다시 누르면 새 값으로 다시 판단한다.
          */
-        patchState(group.key, { busy: undefined, editDraft: undefined, similar: undefined, archived: undefined, addressConfirmed: undefined });
+        patchState(group.key, { busy: undefined, editDraft: undefined, similar: undefined, archived: undefined });
       } catch (error) {
         patchState(group.key, { busy: undefined, error: messageOf(error, '고친 내용을 저장하지 못했어요.') });
       } finally {
@@ -779,26 +845,27 @@ export function AdminPage() {
 
   const activeTier = TIER_FILTERS.find((entry) => entry.key === tierFilter) ?? TIER_FILTERS[0];
   /*
-   * **축이 셋이고, 어떤 칩의 개수든 "나를 뺀 나머지 축을 적용한 뒤" 센다.** 누르면 보일 수와 칩의 숫자가
+   * **축이 넷이고, 어떤 선택지의 개수든 "나를 뺀 나머지 축을 적용한 뒤" 센다.** 누르면 보일 수와 선택지의 숫자가
    * 같아야 한다는 규칙이고, 이 화면에서 그것이 틀리면 운영자가 "다 봤다" 를 개수로 잘못 읽는다 —
-   * 조건 토글을 켠 채 tier 칩을 보던 시절에 실제로 난 일이다.
+   * 조건 토글을 켠 채 tier 칩을 보던 시절에 실제로 난 일이다. 축을 하나 더할 때 이 표에 한 줄만 더하면 되게 묶었다.
    */
-  const matchesType = (card: { group: TCandidateGroup }) => typeMatches(typeFilter, card.group);
-  const matchesPolicy = (card: { group: TCandidateGroup }) =>
-    policyFilter === 'all' || POLICY_FILTER_MATCH[policyFilter](card);
-  const inPolicy = cards.filter((card) => matchesPolicy(card) && matchesType(card));
-  const filtered = inPolicy.filter((card) => activeTier.match(card.group));
-  const policyCounts = {
-    has: cards.filter((card) => activeTier.match(card.group) && matchesType(card) && POLICY_FILTER_MATCH.has(card))
-      .length,
-    needsLook: cards.filter(
-      (card) => activeTier.match(card.group) && matchesType(card) && POLICY_FILTER_MATCH.needsLook(card),
-    ).length,
+  type TCard = (typeof cards)[number];
+  type TAxis = 'tier' | 'type' | 'policy' | 'warn';
+  const AXES: Record<TAxis, (card: TCard) => boolean> = {
+    tier: (card) => activeTier.match(card.group),
+    type: (card) => typeMatches(typeFilter, card.group),
+    policy: (card) => policyFilter === 'all' || POLICY_FILTER_MATCH[policyFilter](card),
+    warn: (card) => warnMatches(warnFilter, card),
   };
-  /** 동반 조건 '전체' 의 개수 — tier·종류를 적용한 뒤 동반 조건만 열어 두고 센다(다른 두 선택지와 같은 규칙). */
-  const inOtherPolicy = cards.filter((card) => activeTier.match(card.group) && matchesType(card));
-  /** 종류 칩의 개수 — tier·동반 정보를 적용한 뒤, 종류만 열어 두고 센다. */
-  const inOtherAxes = cards.filter((card) => activeTier.match(card.group) && matchesPolicy(card));
+  /** `except` 축을 열어 둔 채 나머지를 적용한 목록 — 그 축의 선택지 개수를 세는 바탕이다. */
+  const without = (except: TAxis) =>
+    cards.filter((card) => (Object.keys(AXES) as TAxis[]).every((axis) => axis === except || AXES[axis](card)));
+  const filtered = without('warn').filter(AXES.warn);
+  const baseTier = without('tier');
+  const baseType = without('type');
+  const basePolicy = without('policy');
+  const baseWarn = without('warn');
+  const filtersOn = tierFilter !== 'all' || typeFilter !== 'all' || policyFilter !== 'all' || warnFilter !== 'all';
 
   // 걸러 보기를 바꾸면 '더 보기' 도 처음으로 — 효과가 아니라 여기서 함께 바꾼다(같은 사건의 두 결과다).
   const pickTier = (next: TTierFilter) => {
@@ -814,6 +881,11 @@ export function AdminPage() {
     setTierFilter('all');
     setTypeFilter('all');
     setPolicyFilter('all');
+    setWarnFilter('all');
+    setShown(PAGE_SIZE);
+  };
+  const pickWarn = (next: TWarnFilter) => {
+    setWarnFilter(next);
     setShown(PAGE_SIZE);
   };
   const pickType = (next: TTypeFilter) => {
@@ -903,37 +975,38 @@ export function AdminPage() {
 
   return (
     <div className="pb-8">
+      {/*
+        * 제목은 **탭마다** 다르다(2026-09-30 v2) — '올린 장소' 칸에서도 '장소 검수' 라 적혀 지금 어느 칸인지를 제목이 말하지 못했다.
+        * 설명문(여기서 바꾼 것은 빌드 뒤에 보인다 등)은 `?` 하나로 모았다(`HELP`).
+        */}
       <PageHeader
-        title="장소 검수"
-        description={
-          tab === 'candidates' ? `확인할 장소 ${groups.length}곳` : '이미 올린 장소를 내리거나 되살려요'
-        }
+        title={tab === 'candidates' ? '확인할 장소' : '올린 장소'}
+        description={tab === 'candidates' ? `${groups.length}곳` : '이미 올린 장소를 내리거나 되살려요'}
         actions={
-          <Button color="secondary" size="sm" onClick={signOut}>
-            로그아웃
-          </Button>
+          <div className="flex items-center gap-2">
+            <span
+              title={HELP}
+              aria-label={HELP}
+              className="flex size-6 cursor-help items-center justify-center rounded-full border border-secondary text-xs text-tertiary"
+            >
+              ?
+            </span>
+            <Button color="secondary" size="sm" onClick={signOut}>
+              로그아웃
+            </Button>
+          </div>
         }
       />
       <div className="px-4 pt-1 text-xs text-tertiary md:px-6">
         <p>
           {session.email} · {expiry} 지나면 다시 로그인해요
         </p>
-        <p className="mt-0.5">여기서 바꾼 것은 사이트가 다시 빌드된 뒤에 보여요.</p>
         {/*
-          * 그 빌드가 **정말 걸렸는지** 를 말하는 줄. 이 줄이 없던 동안에는 훅이 없어도·폐기됐어도 화면이 똑같이
-          * "다음 빌드에서 보여요" 라고 말했고, 운영자가 그것을 앱 안에서 확인할 방법이 없었다(→ `adminRebuild.ts`).
-          * 못 읽었으면(undefined) 아무 말도 하지 않는다 — 모르는 것을 "안 됐다" 로 말하지 않는다.
+          * 재빌드가 **정말 걸렸는지** 를 말하는 줄(→ `adminRebuild.ts`). 못 읽었으면(undefined) 아무 말도 하지 않는다.
+          * 정상(`ok`)은 회색 글씨다 — 초록은 매번 뜨는 줄에 쓰기에는 센 색이다(경고만 색).
           */}
         {rebuild ? (
-          <p
-            className={cx(
-              'mt-0.5',
-              rebuild.tone === 'warn' && 'text-warning-primary',
-              rebuild.tone === 'ok' && 'text-success-primary',
-            )}
-          >
-            {rebuild.text}
-          </p>
+          <p className={cx('mt-0.5', rebuild.tone === 'warn' && 'text-warning-primary')}>{rebuild.text}</p>
         ) : null}
         {/*
           * 쓰기 도중에 끊긴 후보는 `approved` 로 남아 **이 목록에 안 나온다**(목록은 pending 만 읽는다).
@@ -948,23 +1021,26 @@ export function AdminPage() {
 
       {/*
         * 두 칸 — 올리는 일과 내리는 일을 한 목록에 섞지 않는다(`TTab` 주석).
-        * 폭을 반씩 나눠 갖지 않는다(옛 `flex-1`) — 넓은 화면에서 버튼 둘이 1000px 를 채우면
-        * 그것이 화면에서 가장 큰 물체가 되는데, 칸 전환은 검수에서 가장 드문 동작이다.
+        * **밑줄 탭이다**(2026-09-30 v2). 채운 핑크 버튼이던 동안 주 버튼(올리기)과 같은 모양이라 화면에서 가장 센 물체가
+        * 가장 드문 동작(칸 전환)이었다.
         */}
-      <div className="mt-3 flex gap-1.5 px-4 md:px-6" role="tablist" aria-label="검수 칸">
+      <div className="mt-3 flex gap-5 border-b border-secondary px-4 md:px-6" role="tablist" aria-label="검수 칸">
         {TABS.map((entry) => {
           const active = entry.key === tab;
           return (
-            <Button
+            <button
               key={entry.key}
-              size="sm"
+              type="button"
               role="tab"
-              color={active ? 'primary' : 'secondary'}
               aria-selected={active}
               onClick={() => setTab(entry.key)}
+              className={cx(
+                '-mb-px border-b-2 px-0.5 pb-2 text-sm font-semibold',
+                active ? 'border-brand text-brand-secondary' : 'border-transparent text-quaternary hover:text-secondary',
+              )}
             >
               {entry.label}
-            </Button>
+            </button>
           );
         })}
       </div>
@@ -982,21 +1058,33 @@ export function AdminPage() {
 
       {groups.length > 0 && (
         /*
-         * **걸러 보기 = 이름표가 붙은 드롭다운 셋**(2026-09-30). 그 전에는 칩 11개(4+5+2)가 같은 모양으로 한 줄에 서서
-         * 무엇이 한 축인지, `기존·확인·신규` 가 무슨 뜻인지가 안 읽혔다(사용자 지적: 너무 많고 뜻이 불분명). 드롭다운은
-         * 고른 값 하나만 보이고, 펼치면 **선택지마다 뜻과 개수**가 나온다. 개수 규칙은 그대로다 — 나를 뺀 나머지 축을 적용한 뒤 센다.
+         * **걸러 보기 = 이름표가 붙은 드롭다운 넷.** 드롭다운은 고른 값 하나만 보이고, 펼치면 **선택지마다 뜻과 개수**가 나온다.
+         * 개수 규칙은 그대로다 — 나를 뺀 나머지 축을 적용한 뒤 센다(`without`). 폭은 선택지 설명이 잘리지 않을 만큼이다.
          */
         <div className="mt-3 flex flex-wrap items-end gap-x-3 gap-y-2 px-4 md:px-6">
           <Select
-            label="기존 장소와 비교"
+            label="경고"
             size="sm"
-            className="w-60"
+            className="w-56"
+            selectedKey={warnFilter}
+            onSelectionChange={(key) => key && pickWarn(key as TWarnFilter)}
+          >
+            {WARN_FILTERS.map((entry) => (
+              <Select.Item key={entry.key} id={entry.key} supportingText={entry.hint}>
+                {`${entry.label} ${baseWarn.filter((card) => warnMatches(entry.key, card)).length}`}
+              </Select.Item>
+            ))}
+          </Select>
+          <Select
+            label="짝"
+            size="sm"
+            className="w-56"
             selectedKey={tierFilter}
             onSelectionChange={(key) => key && pickTier(key as TTierFilter)}
           >
             {TIER_FILTERS.map((entry) => (
               <Select.Item key={entry.key} id={entry.key} supportingText={entry.hint}>
-                {`${entry.label} ${inPolicy.filter((card) => entry.match(card.group)).length}`}
+                {`${entry.label} ${baseTier.filter((card) => entry.match(card.group)).length}`}
               </Select.Item>
             ))}
           </Select>
@@ -1009,26 +1097,26 @@ export function AdminPage() {
           >
             {TYPE_FILTERS.map((entry) => (
               <Select.Item key={entry.key} id={entry.key}>
-                {`${entry.label} ${inOtherAxes.filter((card) => typeMatches(entry.key, card.group)).length}`}
+                {`${entry.label} ${baseType.filter((card) => typeMatches(entry.key, card.group)).length}`}
               </Select.Item>
             ))}
           </Select>
           <Select
             label="동반 조건"
             size="sm"
-            className="w-60"
+            className="w-56"
             selectedKey={policyFilter}
             onSelectionChange={(key) => key && pickPolicyExact(key as TPolicyFilter)}
           >
             {POLICY_FILTERS.map((entry) => (
               <Select.Item key={entry.key} id={entry.key} supportingText={entry.hint}>
-                {`${entry.label} ${entry.key === 'all' ? inOtherPolicy.length : policyCounts[entry.key]}`}
+                {`${entry.label} ${entry.key === 'all' ? basePolicy.length : basePolicy.filter(POLICY_FILTER_MATCH[entry.key]).length}`}
               </Select.Item>
             ))}
           </Select>
           <p className="pb-2 text-xs text-tertiary">
-            {filtered.length}묶음 보는 중
-            {(tierFilter !== 'all' || typeFilter !== 'all' || policyFilter !== 'all') && (
+            {filtered.length}곳 보는 중
+            {filtersOn && (
               <>
                 {' · '}
                 <button type="button" className="text-brand-secondary underline" onClick={resetFilters}>
@@ -1061,7 +1149,7 @@ export function AdminPage() {
               : bulk.mode === 'latest'
                 ? bulkLatestSummary(bulkLatestTargets(groups.filter((group) => selectedSet.has(group.key)), placesView))
                 : bulk.mode === 'approve'
-                  ? `${selectedKeys.length}묶음을 올려요. 짝이 있으면 그 장소의 빈 칸만 채우고, 없으면 새 장소로 올라가요. 같은 곳인지 애매한 줄·짝이 내린 곳인 줄은 건너뛰고 그 줄에 고를 것을 띄워 둬요.`
+                  ? `${selectedKeys.length}곳을 올려요. 짝이 있으면 그 장소의 빈 칸만 채우고, 없으면 새 장소로 올라가요. 같은 곳인지 애매한 줄·짝이 내린 곳인 줄은 건너뛰고 그 줄에 고를 것을 띄워 둬요. 지역이 없거나 주소가 두 곳인 줄은 올라가지 않아요.`
                   : undefined
           }
           onToggleAll={(next) =>
@@ -1103,7 +1191,7 @@ export function AdminPage() {
                 isSelected: allKeysSelected(selected, filteredKeys),
                 isIndeterminate: selectedKeys.length > 0 && !allKeysSelected(selected, filteredKeys),
                 isDisabled: Boolean(bulk.busy) || filteredKeys.length === 0,
-                label: `걸러 보기에 걸린 ${filteredKeys.length}묶음 전부 고르기`,
+                label: `걸러 보기에 걸린 ${filteredKeys.length}곳 전부 고르기`,
                 onChange: (next) =>
                   setSelected((prev) => (next ? selectKeys(prev, filteredKeys) : clearKeys(prev, filteredKeys))),
               }}
@@ -1127,6 +1215,7 @@ export function AdminPage() {
                   onSaveRegion={(regionRaw) => void saveRegion(group, regionRaw)}
                   onEditDraft={(editDraft) => patchState(group.key, { editDraft })}
                   onSaveEdit={(editDraft) => void saveEditFor(group, editDraft)}
+                  onChooseAddress={(choice) => void chooseAddressFor(group, choice)}
                   selected={selected.has(group.key)}
                   onSelect={() => setSelected((prev) => toggleSelected(prev, group.key))}
                   pairPlace={expanded === group.key ? pairPlaceOf(group, state) : undefined}
@@ -1146,8 +1235,8 @@ export function AdminPage() {
             */}
           <div ref={setSentinel} className="px-4 pt-3 text-xs text-tertiary md:px-6">
             {filtered.length > shown
-              ? `${filtered.length}묶음 중 ${shown}묶음 · 스크롤하면 더 보여요`
-              : `${filtered.length}묶음을 모두 봤어요`}
+              ? `${filtered.length}곳 중 ${shown}곳 · 스크롤하면 더 보여요`
+              : `${filtered.length}곳을 모두 봤어요`}
           </div>
             </>
           )}

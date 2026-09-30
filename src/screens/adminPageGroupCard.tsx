@@ -1,7 +1,7 @@
 'use client';
 
-import { CheckVerified02, ChevronDown } from '@untitledui/icons';
-import { Badge, BadgeWithIcon } from '../components/base/badges';
+import { ChevronDown } from '@untitledui/icons';
+import { Badge } from '../components/base/badges';
 import { Checkbox } from '../components/base/checkbox';
 import {
   regionUsable,
@@ -14,9 +14,9 @@ import {
 import type { TApplyOutcome, TSimilarPlace } from '../lib/adminApply';
 import { draftFromExtracted, type TCandidateEditDraft } from '../lib/adminEdit';
 import type { TBadgeTone, TPetBadge } from '../lib/petPolicy';
-import { addressConflictOf, addressView } from '../lib/adminAddress';
-import { aiAnalyzed, policySplit, type TAdminFlagView } from '../lib/adminPreview';
-import { verifyView } from '../lib/adminVerify';
+import { addressConflictOf, addressView, type TAddressChoice } from '../lib/adminAddress';
+import { policyCell, POLICY_STATE_WORD, type TAdminFlagView } from '../lib/adminPreview';
+import { verifyNeedsLook, verifyView } from '../lib/adminVerify';
 import { latestPlan } from '../lib/adminLatest';
 import { cx } from '../utils/cx';
 import { AdminPageGroupDetail } from './adminPageGroupDetail';
@@ -40,7 +40,7 @@ export type TAdminPageGroupState = {
    */
   archived?: Extract<TApplyOutcome, { kind: 'archivedTarget' }>;
   rejecting?: boolean;
-  /** '분석 지우고 다시 읽기' 확인이 열려 있다(`adminReanalyze.ts`). 반려와 같은 자리(레일)를 쓴다. */
+  /** '재분석' 확인이 열려 있다(`adminReanalyze.ts`). 반려와 같은 자리(결정 줄)를 쓴다. */
   reanalyzing?: boolean;
   /** '지역 고르기' 셀렉트의 현재 선택. */
   regionDraft?: string;
@@ -49,8 +49,6 @@ export type TAdminPageGroupState = {
    * 닫을 때 둘을 같이 지워야 하고, 한쪽만 지우면 다음에 열 때 남의 초안이 들어 있다.
    */
   editDraft?: TCandidateEditDraft;
-  /** `주소 다름` 을 보고 "나갈 주소가 맞다" 를 골랐다. 이 묶음의 이후 선택에 `addressConfirmed` 로 실린다. */
-  addressConfirmed?: boolean;
 };
 
 export type TApproveChoice = {
@@ -59,10 +57,8 @@ export type TApproveChoice = {
   restoreArchived?: boolean;
   /** '정말 다른 가게예요' 를 눌렀다 — 내린 곳을 버리고 새로 만드는 것을 사람이 확인했다(`TApplyOptions` 참고). */
   confirmedDifferent?: boolean;
-  /** '최신본으로 저장하기' — 합치기 대신 짝지은 장소의 칸을 이 후보의 값으로 덮는다(`TApplyOptions.overwrite`). */
+  /** '덮어쓰기' — 합치기 대신 짝지은 장소의 칸을 이 후보의 값으로 덮는다(`TApplyOptions.overwrite`). */
   overwrite?: boolean;
-  /** `주소 다름` 에서 '네이버 주소가 맞아요' 를 눌렀다(`TApplyOptions.addressConfirmed`). */
-  addressConfirmed?: boolean;
 };
 
 type TAdminPageGroupCardProps = {
@@ -80,11 +76,13 @@ type TAdminPageGroupCardProps = {
   onSaveRegion: (regionRaw: string) => void;
   onEditDraft: (draft: TCandidateEditDraft | undefined) => void;
   onSaveEdit: (draft: TCandidateEditDraft) => void;
+  /** `주소 다름` 에서 맞는 주소를 골랐다(`chooseAddress`). */
+  onChooseAddress: (choice: TAddressChoice) => void;
   /** 일괄 반려용으로 골라 뒀는가. 소유자는 `adminPage.tsx` 다(`adminSelection.ts`). */
   selected: boolean;
   onSelect: (selected: boolean) => void;
   /**
-   * 지금 패널이 가리키는 기존 장소 행(내린 곳 · 닮은 곳 · 짝). '최신본으로 저장하기' 의 전·후를 그리려면 그 행의 **지금 값**이 있어야 한다.
+   * 지금 패널이 가리키는 기존 장소 행(내린 곳 · 닮은 곳 · 짝). '덮어쓰기' 의 전·후를 그리려면 그 행의 **지금 값**이 있어야 한다.
    * 펼친 줄에만 넘어온다. 없으면(짝이 DB 에 없다) 그 버튼을 안 그린다.
    */
   pairPlace?: TPlaceRow;
@@ -95,18 +93,9 @@ type TAdminPageGroupCardProps = {
   onReanalyze: () => void;
 };
 
-const TIER_COLOR: Record<string, 'success' | 'warning' | 'blue'> = {
-  auto: 'success',
-  ask: 'warning',
-  new: 'blue',
-};
-
 /**
  * 동반 정보 낱개의 톤 → 칩 모양. 사이트와 **같은 위계**다(`petBadges.tsx` 의 `TONE_COLOR`):
  * ok 와 cond 는 둘 다 회색이고, 주의(`warn` — 동반 불가 · 확인된 정보 없음 · 전화 확인)만 노란 바탕으로 나온다.
- *
- * 전부 같은 회색이던 자리다. 한 줄에 칩이 예닐곱 개까지 서는 표에서 '동반 불가' 가 '리드줄' 과 같은
- * 모양이면, 운영자는 그 줄을 **읽어야만** 알 수 있다 — 세로로 훑는 것이 이 화면의 일인데 그 훑기가 여기서 멈춘다.
  */
 const POLICY_TONE: Record<TBadgeTone, string> = {
   ok: 'bg-secondary text-secondary',
@@ -115,22 +104,29 @@ const POLICY_TONE: Record<TBadgeTone, string> = {
 };
 
 /**
- * 동반 조건 · 강아지 요금 · 필요 장비 세 칸이 **같은 컴포넌트**다. 모양을 세 번 적으면 한 칸만 고쳐져
- * 같은 값이 칸마다 다른 칩으로 보인다(이 표가 막으려는 오독).
+ * 동반 조건 **한 칸** — 요금·장비 열을 다시 여기로 합쳤다(2026-09-30 v2). 세 칸으로 갈랐더니 21줄 중 2~3줄만 요금·장비가 차서
+ * 빈 열 둘이 AI 요약의 폭을 먹고 있었다. 순서는 `toPetBadges` 가 정한 사이트 순서 그대로다(요금·장비가 제자리에 선다).
  *
- * `message` 는 동반 조건 칸만 넘긴다 — 없는 칸은 아무것도 그리지 않고 **빈 칸으로 남는다.** 빈 칸이 옳다:
- * "요금 얘기가 없다" 는 말을 세 칸이 각각 하면 한 줄이 같은 말을 세 번 하고, 그러면 진짜 비어 있는 칸이 안 보인다.
+ * 비었을 때는 **상태마다 다른 짧은 단어**다(`POLICY_STATE_WORD`). `문장 없음` 은 정상이라 흐리게, `못 읽음` 은 볼 일이라
+ * 노란 칩으로 — 같은 회색 글씨였던 동안 두 상태가 한 상태로 읽혔다. 긴 문장은 `title` 과 펼친 상세에 있다.
  */
-function PolicyCell({ items, message = null }: { items: TPetBadge[]; message?: string | null }) {
+function PolicyCell({ items, state, message }: { items: TPetBadge[]; state: keyof typeof POLICY_STATE_WORD | 'items'; message: string | null }) {
   return (
     <span className="flex min-w-0 flex-wrap content-start items-start gap-1 text-xs text-tertiary max-md:mt-0.5">
-      {items.length
+      {state === 'items'
         ? items.map((item) => (
             <span key={item.label} className={cx('rounded px-1.5 py-px font-medium break-keep', POLICY_TONE[item.tone])}>
               {item.label}
             </span>
           ))
-        : message && <span>{message}</span>}
+        : (
+            <span
+              title={message ?? undefined}
+              className={cx(state === 'noText' || state === 'noLimit' ? 'text-quaternary' : 'rounded bg-warning-primary px-1.5 py-px font-medium text-warning-primary')}
+            >
+              {POLICY_STATE_WORD[state]}
+            </span>
+          )}
     </span>
   );
 }
@@ -158,6 +154,7 @@ export function AdminPageGroupCard({
   onSaveRegion,
   onEditDraft,
   onSaveEdit,
+  onChooseAddress,
   selected,
   onSelect,
   pairPlace,
@@ -167,7 +164,7 @@ export function AdminPageGroupCard({
   onReanalyze,
 }: TAdminPageGroupCardProps) {
   const extracted = group.lead.extracted;
-  const policy = policySplit(preview, extracted.petPolicyText);
+  const policy = policyCell(preview, extracted.petPolicyText);
   const matchedName = group.lead.places?.name;
   const busy = state.busy;
   /*
@@ -209,20 +206,24 @@ export function AdminPageGroupCard({
   }
 
   const regionOk = regionUsable(extracted.regionRaw);
+  const needsLook = verifyNeedsLook(extracted.verify);
   const openEdit = () => onEditDraft(draftFromExtracted(extracted));
-  /** 최신본으로 덮으면 무엇이 바뀌나 — 펼쳤고 가리키는 장소 행이 있을 때만 계산한다. */
+  /** 덮어쓰면 무엇이 바뀌나 — 펼쳤고 가리키는 장소 행이 있을 때만 계산한다. */
   const latest = expanded && pairPlace ? latestPlan(pairPlace, extracted) : null;
   /**
-   * 이 갈래에서 '최신본으로 저장하기' 가 뜻이 있나. 내린 곳·닮은 곳 패널은 언제나(가리키는 장소가 있다),
+   * 이 갈래에서 '덮어쓰기' 가 뜻이 있나. 내린 곳·닮은 곳 패널은 언제나(가리키는 장소가 있다),
    * 기본 갈래는 짝이 있고 지역이 되고 짝이 내린 곳이 아닐 때만 — 내린 곳이면 누르는 순간 되살릴지 묻는 패널로 간다.
    */
-  const latestAvailable = Boolean(state.archived || state.similar || (pairId && regionOk && !matchedArchived));
+  const latestAvailable = Boolean(state.archived || state.similar || (pairId && regionOk && !matchedArchived && !addressConflict));
+  /** 고를 두 주소 — `approveGroup` 의 가드와 같은 판정(`addressConflictOf`)이라 여기서 안 뜨는 줄은 거기서도 안 멈춘다. */
+  const conflict = addressConflictOf(extracted);
+  const addressPick = conflict ? { blog: conflict.sourceAddress, search: conflict.address } : null;
 
   return (
     /*
      * 줄은 테두리를 갖지 않는다 — 가르는 선은 `<ul>` 의 `divide-y` 한 줄이 긋는다.
-     * 펼쳤으면 머리와 패널을 **한 색으로** 덮는다: 승인·반려 버튼이 그 패널에 있어서, 어느 줄의
-     * 패널인지 눈으로 정하지 못하면 그것이 곧 다른 가게를 올리는 길이다.
+     * 펼쳤으면 머리와 패널을 **왼쪽 한 줄기 색**으로 묶는다(`ADMIN_ROW_OPEN`): 결정 버튼이 그 패널에 있어서,
+     * 어느 줄의 패널인지 눈으로 정하지 못하면 그것이 곧 다른 가게를 올리는 길이다.
      */
     <li className={cx(expanded ? ADMIN_ROW_OPEN : 'hover:bg-primary_hover')}>
       {/*
@@ -237,38 +238,45 @@ export function AdminPageGroupCard({
             isSelected={selected}
             onChange={onSelect}
             isDisabled={Boolean(busy)}
-            aria-label={`${extracted.name || '이름 없는 묶음'} 고르기`}
+            aria-label={`${extracted.name || '이름 없는 곳'} 고르기`}
           />
         </span>
+        {/* 체크박스 밖의 줄 전체가 펼침 버튼이다 — 어디를 눌러도 펼친다. 화살표는 그 사실을 이름 옆에서 말한다. */}
         <button
           type="button"
           onClick={onToggle}
           aria-expanded={expanded}
           className={cx('min-w-0 flex-1 px-4 py-2 text-left', ADMIN_CANDIDATE_GRID)}
         >
-          <span className="flex min-w-0 flex-wrap items-center gap-1.5">
-            {/* 종류 칩은 맨 뒤 자기 열로 갔다(2026-09-30) — 여기 남은 것은 이름과, 승인을 막거나 미루는 표식들이다. */}
+          {/*
+            * **정상은 안 보이고 이상만**(2026-09-30 v2). `신규`(21/21)·`글 1건`·`분석 완료` 가 모든 줄에 붙어 있던 동안
+            * 문제 없는 줄도 경고 줄만큼 화려했다. 이제 이름 옆에 서는 것은 승인을 막거나 미루는 표식뿐이고,
+            * 상태(기존 짝 · 글 여러 건 · 동반 확인)는 회색 글씨다.
+            */}
+          <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
             <span className="text-sm font-bold text-primary">{extracted.name || '(이름 없음)'}</span>
+            <ChevronDown
+              aria-hidden="true"
+              className={cx('size-3.5 shrink-0 text-fg-quaternary transition-transform', expanded && 'rotate-180')}
+            />
+            {group.rows.length > 1 && <span className="text-xs text-quaternary">글 {group.rows.length}건</span>}
             {/*
-              * 근거 글 수 — 자기 열(`근거`, 5rem)이던 것을 이름 뒤로 옮겼다(2026-09-30). 값이 거의 늘 `글 1건` 이라
-              * 열 하나가 선 두 벌과 함께 동반 조건 칸의 폭을 먹고 있었다(1280px 에서 `소형견만` 이 글자 단위로 접혔다).
-              */}
-            <span className="text-xs text-quaternary">글 {group.rows.length}건</span>
-            {/*
-              * tier 가 auto/ask 인데 짝이 비어 있으면 **사람이 비운 것**이고(apply-approved.mjs:13·15) 승인은
-              * `targetId: null` 로 **새 장소를 만든다**(adminApply.ts:116-119). 초록 '기존' 을 그대로 두면
-              * 합쳐질 줄 알고 누른 결과가 새 장소 생성이다. `new` 와 라벨을 돌려쓰지 않는다 — 그쪽은 재대조가 돈다.
+              * tier 가 auto/ask 인데 짝이 비어 있으면 **사람이 비운 것**이고 승인은 **새 장소를 만든다**(adminApply.ts 의 decideTarget).
+              * `확인`(닮은 곳 — 사람이 고를 일)만 색을 갖는다. `기존 → 이름` 은 상태라 회색 글씨, `신규` 는 기본값이라 안 쓴다.
               */}
             {group.tier !== 'new' && !pairId ? (
-              <Badge type="color" size="sm" color="blue">
-                새 장소로
+              <span className="text-xs text-quaternary">짝 비움 · 새 장소로</span>
+            ) : group.tier === 'ask' ? (
+              <Badge type="color" size="sm" color="warning">
+                {TIER_LABEL.ask}
+                {matchedName ? ` → ${matchedName}` : ''}
               </Badge>
-            ) : (
-              <Badge type="color" size="sm" color={TIER_COLOR[group.tier] ?? 'gray'}>
-                {TIER_LABEL[group.tier] ?? group.tier}
-                {group.tier !== 'new' && matchedName ? ` → ${matchedName}` : ''}
-              </Badge>
-            )}
+            ) : group.tier === 'auto' ? (
+              <span className="text-xs text-quaternary">
+                {TIER_LABEL.auto}
+                {matchedName ? ` → ${matchedName}` : ''}
+              </span>
+            ) : null}
             {matchedArchived && (
               <Badge type="color" size="sm" color="warning">
                 짝이 내린 곳
@@ -279,63 +287,33 @@ export function AdminPageGroupCard({
                 주소 다름
               </Badge>
             )}
-            {/*
-              * **막는 것이 먼저다.** `view.badges` 는 빨강(지역 없음·동반불가)부터 정렬돼 오는데, 대부분의 카드에 붙는
-              * 초록 뱃지를 그 앞에 두면 위계가 뒤집힌다 — 초록이 자리를 먹고 빨강이 줄 끝으로 밀린다.
-              */}
+            {/* **막는 것이 먼저다.** `view.badges` 는 빨강(지역 없음·동반불가)부터 정렬돼 온다. */}
             {view.badges.map((badge) => (
               <Badge key={badge.key} type="color" size="sm" color={badge.tone}>
                 {badge.label}
               </Badge>
             ))}
             {/*
-              * 부재가 기본값인 표식(`AI 판단 없음`)을 뒤집는다 — 잘 분석된 후보가 눈에 띈다. ✓ 글자는 안 넣는다(아이콘이 그린다).
-              * 'AI' 를 뗀 것은 자리 때문이다 — 이 줄은 막는 표식(빨강)이 서는 곳이고, 대부분의 카드에 붙는 이 초록이
-              * 길면 그만큼 빨강이 줄 끝으로 밀린다. 무엇이 분석했는지는 옆 열 이름(`AI 요약`)이 이미 말한다.
-              * `facts` 의 truthy 만 보면 **빈 판단 객체에도 초록이 뜬다** — 그때 펼친 상세는 `AI 가 읽은 동반 조건이 없어요` 라고 해서
-              * 한 카드가 자기를 반박한다. `aiAnalyzed` 가 읽어낸 조각이 실제로 있는지까지 본다.
+              * 교차점검 — 근거를 못 찾은 것·불가 정황만 뱃지다. `동반 확인` 은 회색 글씨로 한 단 낮춘다:
+              * 근거가 운영자 소개글뿐인 경우에도 초록이 서서(엔젤하우스) 가장 센 표시가 가장 약한 근거에 붙었다.
+              * 미점검(`null`)은 아무것도 안 그린다(`adminVerify.ts`).
               */}
-            {aiAnalyzed(preview) && (
-              <BadgeWithIcon type="color" size="sm" color="success" iconLeading={CheckVerified02}>
-                분석 완료
-              </BadgeWithIcon>
-            )}
-            {/*
-              * 교차점검 뱃지는 `view.badges` **뒤**에 선다 — 초록(`동반 확인`)이 될 수 있어서, 앞에 두면
-              * 위의 "막는 것이 먼저다" 가 깨져 초록이 빨강(`지역 없음`)을 줄 끝으로 밀어낸다.
-              * 빨강일 때(`동반 불가 정황`)도 여기 둔다: 자리가 갈리면 같은 표식이 카드마다 다른 곳에 뜬다.
-              */}
-            {verify && (
-              <Badge type="color" size="sm" color={verify.tone}>
-                {verify.label}
-              </Badge>
-            )}
+            {verify &&
+              (verify.ok ? (
+                <span className="text-xs text-quaternary">{verify.label}</span>
+              ) : (
+                <Badge type="color" size="sm" color={verify.tone}>
+                  {verify.label}
+                </Badge>
+              ))}
           </span>
 
           {/*
-            * 지역 칸. 지역이 없으면 뱃지 `지역 없음` 이 이미 같은 말을 한다 — 비워 둔다(`지역?` 은 문장도 아니었다).
-            *
-            * **`view.notes` 가 여기로 왔다.** 동반 정보 칸 끝에 붙어 있었는데, 지금 그 칸에 뜨는 한마디는
-            * `지도에 안 보여요`(= 좌표 없음) 하나뿐이라 애초에 동반 얘기가 아니었다. 칩과 흐린 글자로 모양을
-            * 갈라 두긴 했지만 같은 칸에 있는 한 "동반 조건의 하나" 로 읽힐 여지가 남는다 — 위치 얘기는 위치 칸에 둔다.
+            * 지역 칸 — **지역만** 둔다(2026-09-30 v2). 주소를 여기 적던 동안 `제주 서귀포시 안덕면 …` 이 잘려 읽히지도 않았다.
+            * 주소는 펼친 상세의 비교표가 말하고, 문제가 있으면(`주소 다름`) 이름 옆 뱃지가 말한다. 위치 얘기(`지도에 안 보여요`)만 남긴다.
             */}
           <span className="block min-w-0 text-xs text-tertiary max-md:mt-0.5">
             <span className="block truncate">{extracted.regionRaw || ''}</span>
-            {/*
-              * **주소를 접힌 줄에도 적는다**(2026-09-30). 펼치지 않으면 무엇이 올라가는지 알 수 없던 칸이고,
-              * 90곳을 훑는 화면에서 그 한 번의 펼침이 곧 검수 속도다. 뒤에 붙는 한 단어(`원글 주소`·`직접 고침`)는
-              * **검증 못 한 것에만** 붙는다 — 확인된 주소가 대다수이므로 그쪽에 뱃지를 달면 아무것도 눈에 안 띈다.
-              */}
-            {(address.address || address.shortLabel) && (
-              <span className="block truncate text-quaternary">
-                {address.address ?? address.shortLabel}
-                {/*
-                  * **경보 색을 쓰지 않는다.** 검증 못 한 것이 여섯에 하나(실측 58건 중 16건)라 그것마다 주황을 칠하면
-                  * 정말 다른 주소 2건(`주소 다름`)이 같은 색에 묻힌다 — ADR-019 결정 4 가 막으려던 것과 같은 희석이다.
-                  */}
-                {address.address && address.shortLabel && <span className="ml-1">· {address.shortLabel}</span>}
-              </span>
-            )}
             {view.notes.map((note) => (
               <span key={note} className="block truncate text-quaternary">
                 {note}
@@ -343,70 +321,26 @@ export function AdminPageGroupCard({
             ))}
           </span>
 
-          {/*
-            * 동반 정보는 **낱개로 나열하고, 세 칸으로 갈라 놓는다**(2026-09-30) — 동반 조건 · 강아지 요금 · 필요 장비.
-            * 예전의 `조건 [야외만 · 리드줄]` 에서 대괄호를 뺀 자리이고, 이제 그 낱개가 열로 흩어진다.
-            *
-            * 순서는 여기서 정하지 않는다: `toPetBadges` 가 사이트와 같은 순서로 세워서 보내고 `policySplit` 이
-            * 그 순서를 지키며 축으로만 가른다. 톤도 그 함수가 매긴 것을 그대로 쓴다 — 라벨 문자열로 되찾으려 하면
-            * 요금 문장에서 반드시 틀린다. 못 읽었다는 한 문장(`message`)은 **동반 조건 칸에만** 뜬다.
-            */}
-          <PolicyCell items={policy.condition} message={policy.message} />
-          <PolicyCell items={policy.fee} />
-          <PolicyCell items={policy.gear} />
+          <PolicyCell items={policy.items} state={policy.state} message={policy.message} />
 
           {/*
-            * AI 요약 = `extracted.features`. **이 표에서 새로 뽑는 값이 아니다** — AI 추출 프롬프트가 이미
-            * "해요체 1~2문장, 첫 문장은 어떤 곳인지, 둘째 문장은 강아지 편의" 로 받아 둔 필드이고
-            * (`extractPlaces.mjs` 의 features), 승인되면 **그대로 사이트의 소개 문구가 된다**(`placeCard`·상세·지도 시트).
-            * 그래서 여기서 읽는 것이 곧 사이트에 나갈 글을 미리 읽는 일이다.
-            *
-            * **자르지 않는다**(2026-09-30). 한동안 두 줄에서 잘랐는데, 그러면 검수 중에 읽어야 할 문장을 정작
-            * 펼치기 전에는 못 읽는다 — 이 열을 만든 이유가 그것이었다.
-            *
-            * 자르기를 없애면 **폭 배분의 최적점이 뒤집힌다.** 자를 때는 넘쳐도 잘릴 뿐이라 폭을 줄이는 것이
-            * 옳았지만(그 몫을 장소·동반 정보가 받았다), 안 자르면 이 열이 곧 줄 높이라 여기에 폭을 주는 것이
-            * 전체를 낮춘다. 실측(40줄·격자 1136px): 243px 이면 평균 90px·목록 3656px, 357px 이면 평균 74px·목록 2981px.
-            * 더 넓히면 다시 나빠진다 — 장소·동반 정보가 접히기 시작해서다(455px 에서 평균 79px).
+            * AI 요약 = `extracted.features`. 승인되면 **그대로 사이트의 소개 문구가 된다** — 여기서 읽는 것이 곧 사이트에 나갈 글이다.
+            * 자르지 않는다: 자르면 검수 중에 읽어야 할 문장을 펼치기 전에는 못 읽는다.
             */}
-          <span className="block min-w-0 text-xs text-tertiary max-md:mt-0.5">
-            {extracted.features || '요약이 없어요'}
-          </span>
+          <span className="block min-w-0 text-xs text-tertiary max-md:mt-0.5">{extracted.features || '요약이 없어요'}</span>
 
-
-          {/*
-            * 종류 칸. 이름 앞의 칩이던 것을 맨 뒤 자기 열로 옮겼다(2026-09-30). 세로로 훑히게 하려던 목적은
-            * 그대로이고 — 오히려 이름 길이와 무관해져 더 곧게 선다 — 대신 이름 옆에는 승인을 막는 표식만 남는다.
-            */}
           <span className="flex items-start max-md:mt-1">
             <AdminTypeChip type={extracted.type} />
-          </span>
-
-          {/*
-            * 아이콘을 **감싼다.** grid 의 자식마다 세로 여백이 붙는데(`CELL_RULES`), 그 자식이 `<svg>` 면
-            * `box-sizing: border-box` 때문에 16px 상자에서 위아래 8px 씩을 빼 **내용 높이가 0** 이 된다 —
-            * svg 는 넘치는 부분을 잘라 내므로 화살표가 통째로 사라진다(빌드·테스트는 초록이다, 2026-09-29 실측).
-            * 감싼 칸이 여백을 받으면 아이콘은 제 크기를 지킨다.
-            */}
-          <span className="flex items-start justify-end pt-0.5 max-md:hidden">
-            <ChevronDown
-              aria-hidden="true"
-              className={cx(
-                'size-4 shrink-0 text-fg-quaternary transition-transform',
-                expanded && 'rotate-180',
-              )}
-            />
           </span>
         </button>
       </div>
 
       {/*
-        * 펼친 줄 = **왼쪽 근거 · 오른쪽 결정 레일**(2026-09-30). 버튼이 근거 밑에 있던 동안 줄을 펼칠 때마다 수백 px 을
-        * 내려가야 눌렀고, 갈래마다 버튼이 세 줄 두 덩어리로 흩어졌다. 레일은 `lg` 에서 스크롤을 따라오고(sticky),
-        * 그보다 좁으면 근거 **위**에 선다(`order`) — 어느 폭에서든 펼치자마자 누를 것이 보인다.
+        * 펼친 줄 = **근거 → 결정 줄**(2026-09-30 v2). 오른쪽 결정 레일(카드)을 없애고, 근거를 다 읽은 자리(`여기까지 · 접기`)에
+        * 버튼을 한 줄로 둔다. 판도 한 겹이다 — 색 바탕 위에 카드를 또 얹던 것을 걷고 선으로만 가른다.
         *
-        * **고치기는 근거 자리를 대신 쓴다.** 폼의 왼쪽 열이 이미 "지금 값" 이라 근거 표와 같은 값을 두 번 보여 줄 까닭이 없고,
-        * 고치는 동안 승인 버튼이 옆에 서 있으면 "저장했나, 올렸나" 가 흐려진다 — 그래서 레일도 접는다(폼이 저장·취소를 갖는다).
+        * **고치기는 근거 자리를 대신 쓴다.** 폼의 왼쪽 열이 이미 "지금 값" 이라 근거 표를 두 번 보여 줄 까닭이 없고,
+        * 고치는 동안 승인 버튼이 옆에 서 있으면 "저장했나, 올렸나" 가 흐려진다 — 그래서 결정 줄도 접는다(폼이 저장·취소를 갖는다).
         */}
       {expanded &&
         (state.editDraft ? (
@@ -419,58 +353,47 @@ export function AdminPageGroupCard({
             onSave={() => state.editDraft && onSaveEdit(state.editDraft)}
           />
         ) : (
-          /*
-           * **펼친 영역은 한 장의 판이다**(2026-09-30). 한 톤 어두운 바탕(`bg-tertiary`) 위에 근거 카드와 결정 카드가 올라가
-           * "여기부터 여기까지가 이 줄의 내용" 이 바탕색으로 고정된다 — 페이지 바탕과 같은 색이던 동안 어디까지 읽어야 하는지가
-           * 안 보였다(사용자 지적). 끝에는 `여기까지 · 접기` 줄을 둬 끝을 한 번 더 긋고, 위로 올라가지 않고 접게 한다.
-           */
-          <div className={cx(ADMIN_PANEL_DIVIDER, 'bg-tertiary px-3 pt-3 pb-1')}>
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
-              <div className="min-w-0 flex-1 space-y-3">
-                {/*
-                  * 최신본으로 저장하면 바뀌는 칸 — **근거 쪽 맨 위**에 둔다. 레일은 좁아 전·후 문장을 담으면 줄마다 접히고,
-                  * 이 목록은 버튼의 설명이 아니라 "새 분석이 무엇을 다르게 읽었나" 라는 근거 그 자체다.
-                  * 목록과 버튼은 같은 계산(`latestPlan`)·같은 조건(`latestAvailable`)에서 나온다.
-                  */}
-                {latestAvailable && latest && latest.changes.length > 0 && (
-                  <AdminChangeList source="ai" title="새 분석이 다르게 읽은 것 — 지금 장소 값 → 새 분석 값" changes={latest.changes} />
-                )}
-                <AdminPageGroupDetail group={group} preview={preview} />
-              </div>
-              <aside
-                aria-label="이 장소 결정"
-                className="order-first rounded-lg border border-secondary bg-primary px-4 py-3 shadow-xs lg:sticky lg:top-18 lg:order-none lg:w-64 lg:shrink-0"
-              >
+          <div className={cx(ADMIN_PANEL_DIVIDER, 'px-4 pt-3 pb-2 md:pl-14')}>
+            <div className="space-y-3">
+              {/* 덮어쓰면 바뀌는 칸 — 근거 맨 위. 이 목록과 버튼은 같은 계산(`latestPlan`)·같은 조건(`latestAvailable`)에서 나온다. */}
+              {latestAvailable && latest && latest.changes.length > 0 && (
+                <AdminChangeList source="ai" title="덮어쓰면 바뀌는 칸 — 지금 장소 값 → 새 분석 값" changes={latest.changes} />
+              )}
+              <AdminPageGroupDetail group={group} preview={preview} />
+            </div>
+            <div className="mt-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-t border-secondary pt-3">
+              <section aria-label="이 장소 결정" className="min-w-0 flex-1">
                 <AdminPageGroupActions
                   group={group}
                   state={state}
                   regionOk={regionOk}
-                  addressConflict={addressConflictOf(extracted)}
+                  addressPick={addressPick}
+                  needsLook={needsLook}
                   latest={latest}
                   latestAvailable={latestAvailable}
-                  // 한 번 확인한 주소는 이 묶음의 이후 선택(비슷한 곳·내린 곳 패널의 버튼)에도 실어 보낸다 — 안 실으면 같은 확인이 되돌아온다.
-                  onApprove={(choice) => onApprove(state.addressConfirmed ? { ...choice, addressConfirmed: true } : choice)}
+                  onApprove={onApprove}
                   onStartReject={onStartReject}
                   onCancelReject={onCancelReject}
                   onReject={onReject}
                   onPickRegion={onPickRegion}
                   onSaveRegion={onSaveRegion}
+                  onChooseAddress={onChooseAddress}
                   onEdit={openEdit}
                   reanalyzeText={reanalyzeText}
                   onStartReanalyze={onStartReanalyze}
                   onCancelReanalyze={onCancelReanalyze}
                   onReanalyze={onReanalyze}
                 />
-              </aside>
+              </section>
+              <button
+                type="button"
+                onClick={onToggle}
+                className="flex shrink-0 items-center gap-1 py-1.5 text-xs text-tertiary hover:text-secondary"
+              >
+                <ChevronDown aria-hidden="true" className="size-3.5 rotate-180" />
+                여기까지 · 접기
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={onToggle}
-              className="mt-2 flex w-full items-center justify-center gap-1 py-1.5 text-xs text-tertiary hover:text-secondary"
-            >
-              <ChevronDown aria-hidden="true" className="size-3.5 rotate-180" />
-              여기까지 · {extracted.name || '이 묶음'} 접기
-            </button>
           </div>
         ))}
 

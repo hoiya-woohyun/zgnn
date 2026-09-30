@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addressConflictOf, addressView } from './adminAddress';
+import { addressConflictOf, addressUnresolved, addressView } from './adminAddress';
 
 /** 상호 검색이 준 주소 — 이름이 완전 일치한 업체의 등록 주소. */
 const local = {
@@ -124,6 +124,29 @@ describe('addressView — 네이버 지도 링크', () => {
 
   it('이름이 없으면 링크도 없다', () => {
     expect(addressView({ ...local, name: '' }).mapUrl).toBeNull();
+  });
+});
+
+/**
+ * `주소 다름` 을 골라야 올릴 수 있다 — 경고만 띄우고 올리기를 평소대로 두던 동안 동명의 다른 가게가
+ * 핑크 버튼 한 번에 게시될 수 있었다. 고른 뒤에는 경고가 내려가야 한다(안 내려가면 올리기가 영영 막힌다).
+ */
+describe('addressUnresolved — 주소 다름은 고르기 전까지 열려 있다', () => {
+  const conflict = { ...local, addressAi: '제주 서귀포시 대포로 93' };
+
+  it('상호 검색 주소와 원글 주소가 다르면 열려 있다', () => {
+    expect(addressUnresolved(conflict)).toBe(true);
+  });
+
+  it('검색 주소를 고르면 닫히고, 무엇과 달랐는지는 남긴다', () => {
+    const view = addressView({ ...conflict, addressChosen: 'search' });
+    expect(addressUnresolved({ ...conflict, addressChosen: 'search' })).toBe(false);
+    expect(view.cross?.tone).toBe('quiet');
+    expect(view.cross?.text).toContain('대포로 93');
+  });
+
+  it('표기 차이·같은 주소는 처음부터 닫혀 있다', () => {
+    expect(addressUnresolved(local)).toBe(false);
   });
 });
 

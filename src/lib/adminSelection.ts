@@ -59,7 +59,7 @@ export function allSelected(selection: TSelection, keys: readonly string[]): boo
  * "반려했어요" 라고만 하면 운영자는 목록에 남은 3줄을 새 후보로 읽는다.
  */
 export function summarizeBulkReject(done: number, failed: number): string {
-  if (failed === 0) return `${done}묶음을 반려했어요`;
-  if (done === 0) return `${failed}묶음을 반려하지 못했어요 — 그대로 남겨 뒀어요`;
-  return `${done}묶음 반려 · ${failed}묶음 실패 — 실패한 것만 목록에 남겨 뒀어요`;
+  if (failed === 0) return `${done}곳을 반려했어요`;
+  if (done === 0) return `${failed}곳을 반려하지 못했어요 — 그대로 남겨 뒀어요`;
+  return `${done}곳 반려 · ${failed}곳 실패 — 실패한 것만 목록에 남겨 뒀어요`;
 }

@@ -69,7 +69,19 @@ export function AdminPagePlaceRow({
       <div className={cx('px-4 py-2', ADMIN_PLACE_GRID)}>
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           {/* 종류 칩은 맨 뒤 자기 열로 갔다(2026-09-30) — 두 표가 같은 자리에 둔다. */}
-          <span className="truncate text-sm font-bold text-primary">{place.name}</span>
+          {/* 게시된 곳은 이름이 사이트 상세로 가는 링크다 — 내리기 전에 사이트에 무엇이 나가 있는지 한 번에 본다. */}
+          {place.status === 'published' ? (
+            <a
+              href={`/place/${place.id}/`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="truncate text-sm font-bold text-primary hover:underline"
+            >
+              {place.name}
+            </a>
+          ) : (
+            <span className="truncate text-sm font-bold text-primary">{place.name}</span>
+          )}
         </div>
 
         <p className="truncate text-xs text-tertiary">{place.region_raw || '(지역 없음)'}</p>
@@ -115,8 +127,12 @@ export function AdminPagePlaceRow({
                * `archive_note` 에 내린 적 없는 행의 `되살림` 이 적힌다. 제대로 막으면 이 칸에는 지역을 고칠 자리가
                * 없어 막다른 패널이 된다 — 초안을 올리는 길은 '확인할 장소' 의 승인이다(→ docs/todo/06 「열린 것」 F).
                */
+              /*
+               * **회색 보조 버튼이다**(2026-09-30 v2). 86줄 전부에 빨간 테두리 `내리기` 가 서 있던 동안 표 전체가 경고처럼 보였다.
+               * 되돌릴 수 없는 순간(사유를 고른 뒤의 확인 버튼)만 빨강이다.
+               */
               <Button
-                color="secondary-destructive"
+                color="secondary"
                 size="sm"
                 isDisabled={Boolean(busy)}
                 onClick={onStartArchive}

@@ -46,11 +46,11 @@ export function bulkLatestTargets(groups: TCandidateGroup[], places: TPlaceRow[]
 export function bulkLatestSummary(plan: TBulkLatest): string {
   const cells = plan.eligible.reduce((sum, entry) => sum + entry.changes, 0);
   const skipped = [
-    plan.noPair && `짝 없는 ${plan.noPair}묶음`,
-    plan.archived && `짝이 내린 곳인 ${plan.archived}묶음`,
-    plan.same && `바뀔 칸이 없는 ${plan.same}묶음`,
+    plan.noPair && `짝 없는 ${plan.noPair}곳`,
+    plan.archived && `짝이 내린 곳인 ${plan.archived}곳`,
+    plan.same && `바뀔 칸이 없는 ${plan.same}곳`,
   ].filter(Boolean);
-  const head = `${plan.eligible.length}묶음의 기존 장소를 새 분석 값으로 덮어요 — 모두 ${cells}칸.`;
+  const head = `${plan.eligible.length}곳의 기존 장소를 새 분석 값으로 덮어요 — 모두 ${cells}칸.`;
   return skipped.length ? `${head} ${skipped.join(' · ')}은 건너뛰어요.` : head;
 }
 
@@ -61,8 +61,8 @@ export type TBulkTally = { done: number; waiting: number; failed: number };
  * 기다리는 것은 펼쳐서 골라야 한다. 둘을 한 수로 말하면 운영자가 할 일을 모른다.
  */
 export function summarizeBulk(verb: string, tally: TBulkTally): string {
-  const parts = [`${tally.done}묶음 ${verb}`];
-  if (tally.waiting) parts.push(`${tally.waiting}묶음은 직접 골라야 해요(줄을 펼쳐 보세요)`);
-  if (tally.failed) parts.push(`${tally.failed}묶음 실패 — 줄에 이유를 적어 뒀어요`);
+  const parts = [`${tally.done}곳 ${verb}`];
+  if (tally.waiting) parts.push(`${tally.waiting}곳은 직접 골라야 해요(줄을 펼쳐 보세요)`);
+  if (tally.failed) parts.push(`${tally.failed}곳 실패 — 줄에 이유를 적어 뒀어요`);
   return parts.join(' · ');
 }

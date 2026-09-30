@@ -9,6 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildEdit,
+  chooseAddress,
   draftFromExtracted,
   editPreview,
   editProblem,
@@ -418,6 +419,41 @@ describe('홈페이지 칸 (ADR-002 v2)', () => {
     expect(editProblem(draft({ homepageUrl: 'https://a.kr/', homepageImage: 'http://a.kr/a.jpg' }))).toMatch('https');
     expect(editProblem(draft({ homepageImage: 'https://a.kr/a.jpg' }))).toMatch('사진만');
     expect(editProblem(draft({ homepageUrl: 'https://a.kr/', homepageImage: 'https://a.kr/a.jpg' }))).toBeNull();
+  });
+});
+
+/**
+ * `주소 다름` 의 [원글 주소로] [검색 주소로]. 원글 쪽을 고르면 **검색이 준 좌표를 버리고 지역도 다시 뽑는다** —
+ * 남기면 주소는 애월인데 마커는 서귀포에 서고, 지역은 '남쪽 (서귀포시)' 로 남는다(엔젤하우스 실측).
+ */
+describe('chooseAddress', () => {
+  const conflict = row({
+    extracted: extracted({
+      name: '엔젤하우스',
+      address: '제주특별자치도 서귀포시 대포로 93',
+      addressAi: '제주특별자치도 제주시 애월읍 신엄안3길 95',
+      regionRaw: '남쪽 (서귀포시)',
+      regionRawAi: '서쪽 (애월읍)',
+      geoSource: 'local',
+      geo: { lat: 33.24, lng: 126.43 },
+    }),
+  });
+
+  it('검색 주소로 — 값은 그대로, 고른 표식만 남는다', () => {
+    const edit = chooseAddress(conflict, 'search', []);
+    expect(edit.extracted.address).toBe('제주특별자치도 서귀포시 대포로 93');
+    expect(edit.extracted.geo).toEqual({ lat: 33.24, lng: 126.43 });
+    expect(edit.extracted.addressChosen).toBe('search');
+    expect(edit.match_place_id).toBe(conflict.match_place_id);
+  });
+
+  it('원글 주소로 — 주소를 바꾸고 좌표를 버리고 지역을 원글 주소에서 다시 뽑는다', () => {
+    const edit = chooseAddress(conflict, 'blog', []);
+    expect(edit.extracted.address).toBe('제주특별자치도 제주시 애월읍 신엄안3길 95');
+    expect(edit.extracted.geo).toBeNull();
+    expect(edit.extracted.addressEdited).toBe(true);
+    expect(edit.extracted.addressChosen).toBe('blog');
+    expect(edit.extracted.regionRaw).toContain('애월읍');
   });
 });
 

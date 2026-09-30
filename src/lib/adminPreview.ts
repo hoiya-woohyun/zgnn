@@ -111,11 +111,24 @@ export type TPolicyCell = {
   items: TPetBadge[];
   /** 읽어낸 것이 없을 때의 한 문장. `items` 가 있으면 null — 둘이 동시에 차는 일은 없다. */
   message: string | null;
+  /**
+   * 어느 갈래인가. 표의 좁은 칸은 긴 문장 대신 **상태마다 다른 짧은 단어**를 그린다 — `문장이 없어요` 와 `못 읽었어요` 가
+   * 같은 회색 글씨로 서 있던 동안 둘이 한 상태처럼 읽혔는데, 앞의 것은 정상이고 뒤의 것은 볼 일이다(`POLICY_STATE_WORD`).
+   */
+  state: 'items' | 'noText' | 'noLimit' | 'aiHidden' | 'unread';
+};
+
+/** 표의 동반 조건 칸에 서는 짧은 단어. 긴 문장(`message`)은 펼친 상세가 쓴다. */
+export const POLICY_STATE_WORD: Record<Exclude<TPolicyCell['state'], 'items'>, string> = {
+  noText: '문장 없음',
+  noLimit: '제한 없음',
+  aiHidden: '읽었지만 안 나감',
+  unread: '못 읽음',
 };
 
 export function policyCell(preview: TPolicyPreview, petPolicyText: string | null | undefined): TPolicyCell {
-  if (!petPolicyText?.trim()) return { items: [], message: '동반 조건 문장이 없어요' };
-  if (preview.mergedBadgeList.length) return { items: preview.mergedBadgeList, message: null };
+  if (!petPolicyText?.trim()) return { items: [], message: '동반 조건 문장이 없어요', state: 'noText' };
+  if (preview.mergedBadgeList.length) return { items: preview.mergedBadgeList, message: null, state: 'items' };
   /*
    * **뱃지 0개가 곧 "못 읽었다" 는 아니다.** `toPetBadges` 는 `largeDogOk === false` · `feeFree === false` 에
    * 아무 뱃지도 만들지 않는다(`toPetBadges` 의 크기·요금 갈래를 전부 통과한다). 그래서 AI 가
@@ -124,7 +137,7 @@ export function policyCell(preview: TPolicyPreview, petPolicyText: string | null
    * 2026-09-30 부터 그 두 값은 배지('대형견 불가'·'추가요금 있음')가 되고, 아무것도 못 읽은 원문은 '원문 확인 필요' 배지가 붙어(BUG-009)
    * 이 갈래는 거의 닿지 않는다. 지우지 않는 이유: 새 판단 필드가 배지 없이 더해지면 여기가 다시 그 사실을 말해 준다.
    */
-  if (aiAnalyzed(preview)) return { items: [], message: 'AI 는 읽었는데 사이트에 안 나와요' };
+  if (aiAnalyzed(preview)) return { items: [], message: 'AI 는 읽었는데 사이트에 안 나와요', state: 'aiHidden' };
   /*
    * 원문이 "강아지 동반이 가능합니다" 한 줄인 경우(2026-09-30 실측 4건). 파서는 이것을 **못 읽은 게 아니라** 조건 없는
    * 동반 가능으로 읽고(`unread: false` · level `자유`), 사이트는 칩 없이 내보낸다. 여기서 '못 읽었어요' 라고 하면
@@ -133,8 +146,8 @@ export function policyCell(preview: TPolicyPreview, petPolicyText: string | null
    * '조건' 이 아니라 '제한' 인 이유: 정규식이 `실외 자유`·`마릿수 제한 없음` 처럼 **풀어 주는** 말을 읽은 경우도 이 갈래로 온다
    * (배지가 없을 뿐 읽었다). 그것도 제한은 아니므로 두 경우에 다 맞는 말이다.
    */
-  if (preview.level === '자유') return { items: [], message: '적힌 제한이 없어요 — 사이트엔 조건 없이 나가요' };
-  return { items: [], message: '동반 조건을 못 읽었어요' };
+  if (preview.level === '자유') return { items: [], message: '적힌 제한이 없어요 — 사이트엔 조건 없이 나가요', state: 'noLimit' };
+  return { items: [], message: '동반 조건을 못 읽었어요', state: 'unread' };
 }
 
 /**

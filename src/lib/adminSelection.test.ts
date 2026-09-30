@@ -68,8 +68,8 @@ describe('allSelected', () => {
 
 describe('summarizeBulkReject', () => {
   it('전부 성공 · 전부 실패 · 반반을 각각 다르게 말한다', () => {
-    expect(summarizeBulkReject(141, 0)).toBe('141묶음을 반려했어요');
-    expect(summarizeBulkReject(0, 3)).toBe('3묶음을 반려하지 못했어요 — 그대로 남겨 뒀어요');
-    expect(summarizeBulkReject(138, 3)).toBe('138묶음 반려 · 3묶음 실패 — 실패한 것만 목록에 남겨 뒀어요');
+    expect(summarizeBulkReject(141, 0)).toBe('141곳을 반려했어요');
+    expect(summarizeBulkReject(0, 3)).toBe('3곳을 반려하지 못했어요 — 그대로 남겨 뒀어요');
+    expect(summarizeBulkReject(138, 3)).toBe('138곳 반려 · 3곳 실패 — 실패한 것만 목록에 남겨 뒀어요');
   });
 });

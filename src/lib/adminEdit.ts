@@ -15,12 +15,15 @@
  * 폼은 그래서 **보정을 미리 돌려 보여 준다**(`editPreview`) — 무엇이 칩이 되고 무엇이 원문에 없어 빠지는지.
  */
 
+import { resolveRegionRaw } from '../../scripts/analyze/analyzeCandidates.mjs';
 import { matchPlace, normalizeName, THRESHOLD } from '../../scripts/analyze/matchPlace.mjs';
 import { toMatchablePlace } from '../../scripts/lib/placeFields.mjs';
 import { previewFor, TYPE_LABEL, type TCandidateExtracted, type TCandidateRow, type TCandidateTier, type TCandidateType, type TPlaceRow } from './adminCandidates';
 import { feeLinesOf } from '../../scripts/lib/petPolicyFacts.mjs';
 import { policyCell, type TPolicyCell } from './adminPreview';
+import type { TAddressChoice } from './adminAddress';
 import { parseNaverPlaceId } from './naverPlaceLink';
+import { PLACES } from './places';
 import type { TFeeRule, TPetPolicyFacts, TPlace } from '../types';
 
 /** 사람이 고를 수 있는 종류. `other` 가 빠진 것은 의도다 — `toNewPlaceRow` 가 영구 오류로 막는다(applyApproved.mjs:99). */
@@ -379,6 +382,35 @@ export function buildEdit(row: TCandidateRow, draft: TCandidateEditDraft, places
     // `new` 는 짝을 비운다 — `toCandidateRow` 와 같은 규칙이다(analyzeCandidates.mjs).
     match_place_id: tier === 'new' ? null : (rechecked.match?.id ?? null),
     match_confidence: rechecked.confidence,
+  };
+}
+
+/**
+ * `주소 다름` 에서 **어느 주소가 맞는지 고른다** — 레일의 [원글 주소로] [검색 주소로].
+ *
+ * - `search` — 값은 그대로 두고 고른 표식만 남긴다(`addressChosen`). 경고가 내려가 올리기가 열린다(`addressView`).
+ * - `blog` — 주소를 원글 것으로 바꾼다. **좌표를 버리는 것이 요점이다**: 그 좌표는 검색이 집은 동명의 다른 가게의 것이라
+ *   남겨 두면 주소는 애월인데 마커는 서귀포에 선다. 좌표가 필요하면 고치기에서 넣는다(브라우저에는 네이버 키가 없다, ADR-016).
+ *   고치기와 같은 `buildEdit` 을 지나므로 짝 재계산·`addressEdited`·AI 원본 스냅샷이 그대로 따라온다.
+ *
+ * **지역도 고른 주소를 따라간다.** 분석기(`resolveRegionRaw`)가 지역을 검색 주소에서 뽑았으므로, 원글 주소를 고르면
+ * 같은 함수로 다시 뽑는다 — 못 뽑으면(안덕면처럼 방향이 갈리는 곳) 비워서 '지역 고르기' 로 보낸다. 옛 지역을 남기면
+ * "주소는 애월인데 지역은 남쪽 (서귀포시)" 가 된다.
+ */
+export function chooseAddress(row: TCandidateRow, choice: TAddressChoice, places: TPlaceRow[], now = new Date()): TCandidateEdit {
+  const prev = row.extracted;
+  if (choice === 'search') {
+    return { extracted: { ...prev, addressChosen: 'search' }, match_place_id: row.match_place_id, match_confidence: row.match_confidence };
+  }
+  const blog = (prev.addressAi ?? '').trim();
+  const edit = buildEdit(row, { ...draftFromExtracted(prev), address: blog, lat: '', lng: '' }, places, now);
+  return {
+    ...edit,
+    extracted: {
+      ...edit.extracted,
+      addressChosen: 'blog',
+      regionRaw: resolveRegionRaw(blog || null, prev.regionRawAi ?? null, PLACES) ?? null,
+    },
   };
 }
 

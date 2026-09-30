@@ -485,6 +485,17 @@ describe('approveGroup — 원글과 주소가 다른 후보', () => {
     expect(calls).toHaveLength(0);
   });
 
+  /** 결정 줄의 [검색 주소로] 는 저장되는 선택이다 — 한 번 고르면 일괄 올리기도 다시 묻지 않는다. */
+  it('검색 주소를 골라 저장한 후보(addressChosen)는 멈추지 않는다', async () => {
+    const { client } = createFakeClient();
+    const lead = conflicted();
+    lead.extracted = { ...lead.extracted, addressChosen: 'search' };
+
+    const outcome = await approveGroup(client, group([lead]), [], OPTIONS);
+
+    expect(outcome.kind).toBe('created');
+  });
+
   it('사람이 네이버 주소가 맞다고 확인하면 올린다', async () => {
     const { client } = createFakeClient();
 

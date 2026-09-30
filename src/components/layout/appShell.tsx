@@ -52,8 +52,14 @@ import { cx } from '../../utils/cx';
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const showBack = !isRootRoute(pathname);
-  const surface = mainSurfaceProps(surfaceKindOf(pathname));
+  const kind = surfaceKindOf(pathname);
+  /*
+   * 검수 화면(`wide`)은 **앱의 길 밖에 있다** — 사이드바(홈·지도·…)도 뒤로가기도 거기서는 갈 곳을 말하지 못한다.
+   * 사이드바는 PC 표에서 260px 을 먹고, 뒤로가기(`/`)는 어디로 가는지 모를 화살표였다. 둘 다 빼고 표에 폭을 준다.
+   */
+  const bare = kind === 'wide';
+  const showBack = !bare && !isRootRoute(pathname);
+  const surface = mainSurfaceProps(kind);
 
   const { peek, finish, enabled, surfaceRef, mainRef, leftRef, rightRef, surfaceProps } =
     useAppShellSwipe(pathname);
@@ -93,9 +99,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-dvh bg-secondary">
-      <AppSidebar />
+      {!bare && <AppSidebar />}
 
-      <div className="md:pl-64">
+      <div className={cx(!bare && 'md:pl-64')}>
         {/*
           스와이프의 표면. `touch-pan-y` 라 세로는 브라우저가 스크롤로 가져가고 가로만 여기로
           온다(`pinch-zoom` 은 pan-y 만 적으면 같이 꺼지므로 되살린다). `overflow-x-clip` 은

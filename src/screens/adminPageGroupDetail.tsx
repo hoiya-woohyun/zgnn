@@ -58,28 +58,39 @@ function CompareRow({
   edited = false,
 }: {
   label: string;
-  source: ReactNode;
+  /** 원문 칸. **없으면 한 칸으로 합친다** — 소개·홈페이지는 블로그 원문이 따로 없어서 왼쪽이 늘 같은 안내문이었다. */
+  source?: ReactNode;
   result: ReactNode;
   edited?: boolean;
 }) {
   /*
    * 칸이 **바탕색을 갖는다** — 원문 칸은 흰 종이, 나갈 값 칸은 AI 남색(`SOURCE_TONE`). 세로선 하나로만 가르던 동안
    * 두 칸의 글자가 같은 회색이라 어느 쪽을 읽는지 줄마다 머리글을 다시 봐야 했다.
-   * 바탕이 칸을 채우도록 여백은 칸 쪽에 둔다(줄 상자에 주면 색 사이로 흰 틈이 생긴다).
    */
   return (
     <div className="grid md:grid-cols-[6rem_minmax(0,1fr)_minmax(0,1fr)]">
       <div className="px-3 py-2 font-semibold text-secondary">{label}</div>
-      <div className={cx('min-w-0 px-3 py-2 md:border-l', SOURCE_TONE.blog.surface, SOURCE_TONE.blog.border)}>
-        <span className="mb-1 block md:hidden">
-          <AdminSourceChip source="blog" />
-        </span>
-        {source}
-      </div>
-      <div className={cx('min-w-0 px-3 py-2 md:border-l', SOURCE_TONE.ai.surface, SOURCE_TONE.ai.border)}>
-        <span className="mb-1 block md:hidden">
-          <AdminSourceChip source="ai" suffix="사이트에 나갈 값" />
-        </span>
+      {source !== undefined && (
+        <div className={cx('min-w-0 px-3 py-2 md:border-l', SOURCE_TONE.blog.surface, SOURCE_TONE.blog.border)}>
+          <span className="mb-1 block md:hidden">
+            <AdminSourceChip source="blog" />
+          </span>
+          {source}
+        </div>
+      )}
+      <div
+        className={cx(
+          'min-w-0 px-3 py-2 md:border-l',
+          source === undefined && 'md:col-span-2',
+          SOURCE_TONE.ai.surface,
+          SOURCE_TONE.ai.border,
+        )}
+      >
+        {source !== undefined && (
+          <span className="mb-1 block md:hidden">
+            <AdminSourceChip source="ai" suffix="나갈 값" />
+          </span>
+        )}
         {edited && (
           <Badge type="color" size="sm" color="brand" className="mb-1">
             고침
@@ -90,6 +101,9 @@ function CompareRow({
     </div>
   );
 }
+
+/** 공백을 한 칸으로 — 인용과 조건 원문을 견줄 때만 쓴다. */
+const squash = (text: string) => text.replace(/\s+/g, ' ').trim();
 
 /**
  * 펼친 카드의 내용 — 사람이 "맞다/아니다" 를 정하는 데 필요한 것 전부.
@@ -124,19 +138,27 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
   const editedKeys = new Set(edits.map((change) => change.key));
   const policyEdited = edits.some((change) => change.policy || change.key === 'petPolicyText');
   const regionAi = extracted.regionRawAi?.trim() ? extracted.regionRawAi : null;
+  const policyQuote = extracted.petPolicyText ? squash(extracted.petPolicyText) : '';
 
   return (
     <div className="space-y-3 text-xs">
       <AdminChangeList title="고친 내용 — AI 가 뽑은 값 → 지금 값" changes={edits} />
 
+      {/* 머리글은 짧은 이름표 — 뜻은 `title` 이 말한다(매일 보는 운영자에게 칸마다 문장은 소음이다). */}
       <div className="overflow-hidden rounded-lg border border-secondary bg-secondary">
         <div className="hidden text-[0.6875rem] font-semibold text-tertiary md:grid md:grid-cols-[6rem_minmax(0,1fr)_minmax(0,1fr)]">
           <span className="px-3 py-1.5">항목</span>
-          <span className={cx('flex items-center gap-1.5 border-l px-3 py-1.5', SOURCE_TONE.blog.surface, SOURCE_TONE.blog.border)}>
-            <AdminSourceChip source="blog" /> 블로그에 적힌 그대로
+          <span
+            title="블로그 본문에 적힌 그대로"
+            className={cx('flex items-center gap-1.5 border-l px-3 py-1.5', SOURCE_TONE.blog.surface, SOURCE_TONE.blog.border)}
+          >
+            <AdminSourceChip source="blog" /> 원문
           </span>
-          <span className={cx('flex items-center gap-1.5 border-l px-3 py-1.5', SOURCE_TONE.ai.surface, SOURCE_TONE.ai.border)}>
-            <AdminSourceChip source="ai" /> 승인하면 사이트에 나갈 값
+          <span
+            title="승인하면 사이트에 나갈 값"
+            className={cx('flex items-center gap-1.5 border-l px-3 py-1.5', SOURCE_TONE.ai.surface, SOURCE_TONE.ai.border)}
+          >
+            <AdminSourceChip source="ai" /> 나갈 값
           </span>
         </div>
         <div className="divide-y divide-secondary md:border-t md:border-secondary">
@@ -194,10 +216,10 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
             source={<Quote text={regionAi} empty="원글에서 지역을 못 읽었어요" />}
             result={<p className="text-secondary">{extracted.regionRaw ?? '지역 없음 — 아래에서 골라 주세요'}</p>}
           />
+          {/* 소개·홈페이지는 블로그 원문이 없다 — 왼쪽이 늘 같은 안내문이던 줄이라 한 칸으로 합쳤다(다와풀빌라가 두 화면을 먹던 주된 이유). */}
           <CompareRow
             label="소개"
             edited={editedKeys.has('features')}
-            source={<span className="text-quaternary">AI 가 본문을 요약한 문장이에요 — 본문은 아래 블로그 글에서 봐 주세요</span>}
             // `??` 가 아니라 `||` 다(AI 는 '' 로도 준다).
             result={<p className="whitespace-pre-line text-secondary">{extracted.features || '소개 문장이 없어요'}</p>}
           />
@@ -208,7 +230,6 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
           <CompareRow
             label="홈페이지"
             edited={editedKeys.has('homepageUrl') || editedKeys.has('homepageImage')}
-            source={<span className="text-quaternary">분석이 찾은 업체 사이트예요 — 블로그 본문이 아니에요</span>}
             result={
               extracted.homepage ? (
                 <span className="flex items-start gap-2">
@@ -230,7 +251,7 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
                   </span>
                 </span>
               ) : (
-                <span className="text-tertiary">홈페이지 카드가 없어요</span>
+                <span className="text-quaternary">없음</span>
               )
             }
           />
@@ -258,10 +279,16 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
         * 블로그 글 — **흰 종이 한 장**으로 묶는다. 인용은 본문 문장 그대로라 원문 목소리지만, 어느 문장을 짚을지는 AI 가 골랐다 —
         * 그 사실은 머리의 한 줄이 말하고 문장 자체는 원문 색으로 둔다(말을 지어낸 것이 아니므로).
         */}
-      <section className={cx('rounded-lg border px-3 py-2', SOURCE_TONE.blog.surface, SOURCE_TONE.blog.border)}>
-        <p className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-secondary">
+      {/*
+        * 상자를 두르지 않는다 — 판 안에 카드를 또 얹던 것을 걷었다(테두리는 비교표 한 겹). 인용에 대한 설명은 `title` 로 갔다.
+        * 동반 조건 원문 칸에 이미 나온 문장은 인용에서 뺀다 — 같은 문장이 한 화면에 두 번 서 있었다(다와풀빌라).
+        */}
+      <section>
+        <p
+          className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-secondary"
+          title="인용은 본문 문장 그대로예요 · 어느 문장을 짚을지는 AI 가 골랐어요"
+        >
           <AdminSourceChip source="blog" suffix={`수집한 글 ${group.rows.length}건`} />
-          <span className="font-normal text-tertiary">인용은 본문 문장 그대로 · 어느 문장을 짚을지는 AI 가 골랐어요</span>
         </p>
         <ul className="mt-2 divide-y divide-secondary">
           {group.rows.map((row) => (
@@ -283,7 +310,7 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
                   {row.blog_posts.posted_at} · 검색어 {row.blog_posts.keyword}
                 </p>
               )}
-              {(row.extracted.evidence ?? []).map((quote, index) => (
+              {(row.extracted.evidence ?? []).filter((quote) => !policyQuote || !policyQuote.includes(squash(quote))).map((quote, index) => (
                 <blockquote
                   key={index}
                   className="mt-1.5 border-l-2 border-quaternary pl-2.5 text-xs whitespace-pre-line text-primary"
