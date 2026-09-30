@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { Checkbox } from '../components/base/checkbox';
+import type { TBadgeTone } from '../lib/petPolicy';
 import { cx } from '../utils/cx';
 
 /**
@@ -51,11 +52,26 @@ export const ADMIN_CANDIDATE_GRID = cx(
   CELL_RULES,
 );
 
-/** 장소 · 지역 · 상태 · 내린 사유 · 종류 · (버튼). 종류의 자리를 후보 표와 맞춘다 — 칸을 오갈 때 눈이 다시 적응하지 않게. */
+/**
+ * 장소 · 지역 · 동반 조건 · 소개 · 종류 · (버튼). **앞의 다섯 열이 후보 표와 같은 폭·같은 순서**다 — 두 칸을 오갈 때
+ * 같은 값이 같은 자리에 있게. 상태와 내린 사유는 자기 열을 잃고 이름 칸으로 갔다: 86줄 중 84줄이 `게시중` 한 단어와
+ * 빈 사유 칸이라, 두 열이 표 폭의 1/5 을 먹으면서 말하는 것은 두 줄뿐이었다.
+ */
 export const ADMIN_PLACE_GRID = cx(
-  'md:grid md:grid-cols-[minmax(0,2.4fr)_8.5rem_7rem_minmax(0,1.4fr)_4rem_7.5rem]',
+  'md:grid md:grid-cols-[minmax(0,2.4fr)_8.5rem_minmax(0,2.4fr)_minmax(0,4.6fr)_4rem_7.5rem]',
   CELL_RULES,
 );
+
+/**
+ * 동반 배지 낱개의 톤 → 칩 모양. 사이트와 **같은 위계**다(`petBadges.tsx` 의 `TONE_COLOR`):
+ * ok 와 cond 는 둘 다 회색이고, 주의(`warn` — 동반 불가 · 확인된 정보 없음 · 전화 확인)만 노란 바탕으로 나온다.
+ * 두 표('확인할 장소'·'올린 장소')가 같은 칩을 쓰므로 여기 둔다.
+ */
+export const ADMIN_POLICY_TONE: Record<TBadgeTone, string> = {
+  ok: 'bg-secondary text-secondary',
+  cond: 'bg-secondary text-secondary',
+  warn: 'bg-warning-primary text-warning-primary',
+};
 
 /**
  * 펼친 패널이 **자기 줄에 속해 보이게** 하는 윗선. 줄과 줄을 가르는 선(`divide-y`)과 같은 굵기·같은 색으로

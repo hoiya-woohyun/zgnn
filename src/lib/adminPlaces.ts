@@ -16,6 +16,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { appendReviewerNote } from './adminSession';
 import type { TPlaceRow, TPlaceStatus } from './adminCandidates';
+import { parsePetPolicy, toPetBadges, withPolicyFacts, type TPetBadge } from './petPolicy';
 
 /**
  * 내림 사유 칩. 자유 입력만 두면 매번 다른 말이 적혀 나중에 "왜 내렸나" 를 셀 수 없다
@@ -102,6 +103,56 @@ export function countPlacesByStatus(rows: TPlaceRow[]): Record<TPlaceStatus, num
   const counts: Record<TPlaceStatus, number> = { published: 0, draft: 0, archived: 0 };
   for (const row of rows) counts[row.status] += 1;
   return counts;
+}
+
+/**
+ * 이 장소가 사이트에서 받는 동반 배지 — 순수. **사이트와 같은 길**로 만든다(`places.ts` 의 `withPolicyFacts(parsePetPolicy(…))`
+ * → `toPetBadges`). 후보 칸의 `previewFor` 를 쓰지 않는 이유: 그쪽은 "승인하면 어떻게 읽힐까" 를 미리 보는 것이고
+ * 정규식·AI 비교까지 들고 있다. 여기서 보고 싶은 것은 **지금 나가 있는 것** 하나다 — 두 길이 어긋나면 이 칸이 거짓말을 한다.
+ */
+export function placeBadges(place: TPlaceRow): TPetBadge[] {
+  const text = place.pet_policy_text ?? '';
+  return toPetBadges(withPolicyFacts(parsePetPolicy(text), place.pet_policy, text));
+}
+
+/**
+ * 사이트에서 **빠져 보이는** 정보 — 순수. 올린 장소 칸의 "정리할 곳 찾기" 가 이것으로 좁힌다.
+ *
+ * 고른 기준은 "비어 있으면 사이트의 무엇이 사라지나" 다: 좌표가 없으면 지도에 핀이 안 서고, 네이버 링크가 없으면
+ * 상세의 네이버 버튼이 이름 검색으로 떨어지고, 동반 조건 원문이 없으면 판정이 '정보가 없어요' 가 된다.
+ * 숙소 가격·편의·홈페이지처럼 **원래 없는 곳이 많은** 칸은 넣지 않는다 — 넣으면 거의 모든 줄에 뜨고, 그러면 아무것도 말하지 않는다.
+ */
+export type TPlaceGap = 'noGeo' | 'noAddress' | 'noNaver' | 'noPolicy' | 'noFeatures';
+
+export const PLACE_GAP_LABEL: Record<TPlaceGap, string> = {
+  noGeo: '지도에 안 보여요',
+  noAddress: '주소 없음',
+  noNaver: '네이버 링크 없음',
+  noPolicy: '동반 조건 없음',
+  noFeatures: '소개 없음',
+};
+
+const blank = (value: string | null | undefined): boolean => !value || value.trim() === '';
+
+export function placeGaps(place: TPlaceRow): TPlaceGap[] {
+  const gaps: TPlaceGap[] = [];
+  if (place.lat == null || place.lng == null) gaps.push('noGeo');
+  if (blank(place.address)) gaps.push('noAddress');
+  if (blank(place.naver_url) && blank(place.naver_place_id)) gaps.push('noNaver');
+  if (blank(place.pet_policy_text)) gaps.push('noPolicy');
+  if (blank(place.features)) gaps.push('noFeatures');
+  return gaps;
+}
+
+/**
+ * `archive_note` 의 **모든** 줄을 화면 말로 — 순수. 접힌 줄은 마지막 한 줄(`lastNoteLine`)만 보이고, 펼친 상세가
+ * 이력 전체를 보여 준다(내렸다 되살렸다 다시 내린 곳은 그 순서가 곧 설명이다).
+ */
+export function noteHistory(note: string | null | undefined): string[] {
+  return (note ?? '')
+    .split('\n')
+    .filter((line) => line.trim() !== '')
+    .map((line) => noteLineText(line) ?? line);
 }
 
 /**

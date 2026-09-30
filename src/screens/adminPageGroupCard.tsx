@@ -13,7 +13,7 @@ import {
 } from '../lib/adminCandidates';
 import type { TApplyOutcome, TSimilarPlace } from '../lib/adminApply';
 import { draftFromExtracted, type TCandidateEditDraft } from '../lib/adminEdit';
-import type { TBadgeTone, TPetBadge } from '../lib/petPolicy';
+import type { TPetBadge } from '../lib/petPolicy';
 import { addressConflictOf, addressView, type TAddressChoice } from '../lib/adminAddress';
 import { policyCell, POLICY_STATE_WORD, type TAdminFlagView } from '../lib/adminPreview';
 import { verifyNeedsLook, verifyView } from '../lib/adminVerify';
@@ -24,7 +24,7 @@ import { AdminTypeChip } from './adminTypeChip';
 import { AdminPageEditForm } from './adminPageEditForm';
 import { AdminChangeList } from './adminChangeList';
 import { AdminPageGroupActions } from './adminPageGroupActions';
-import { ADMIN_CANDIDATE_GRID, ADMIN_LEAD_CELL, ADMIN_PANEL_DIVIDER, ADMIN_ROW_OPEN } from './adminTable';
+import { ADMIN_CANDIDATE_GRID, ADMIN_LEAD_CELL, ADMIN_PANEL_DIVIDER, ADMIN_POLICY_TONE, ADMIN_ROW_OPEN } from './adminTable';
 
 /** 묶음 하나의 화면 상태. 소유자는 `adminPage.tsx` 고 여기는 받아서 그린다. */
 export type TAdminPageGroupState = {
@@ -94,16 +94,6 @@ type TAdminPageGroupCardProps = {
 };
 
 /**
- * 동반 정보 낱개의 톤 → 칩 모양. 사이트와 **같은 위계**다(`petBadges.tsx` 의 `TONE_COLOR`):
- * ok 와 cond 는 둘 다 회색이고, 주의(`warn` — 동반 불가 · 확인된 정보 없음 · 전화 확인)만 노란 바탕으로 나온다.
- */
-const POLICY_TONE: Record<TBadgeTone, string> = {
-  ok: 'bg-secondary text-secondary',
-  cond: 'bg-secondary text-secondary',
-  warn: 'bg-warning-primary text-warning-primary',
-};
-
-/**
  * 동반 조건 **한 칸** — 요금·장비 열을 다시 여기로 합쳤다(2026-09-30 v2). 세 칸으로 갈랐더니 21줄 중 2~3줄만 요금·장비가 차서
  * 빈 열 둘이 AI 요약의 폭을 먹고 있었다. 순서는 `toPetBadges` 가 정한 사이트 순서 그대로다(요금·장비가 제자리에 선다).
  *
@@ -115,7 +105,7 @@ function PolicyCell({ items, state, message }: { items: TPetBadge[]; state: keyo
     <span className="flex min-w-0 flex-wrap content-start items-start gap-1 text-xs text-tertiary max-md:mt-0.5">
       {state === 'items'
         ? items.map((item) => (
-            <span key={item.label} className={cx('rounded px-1.5 py-px font-medium break-keep', POLICY_TONE[item.tone])}>
+            <span key={item.label} className={cx('rounded px-1.5 py-px font-medium break-keep', ADMIN_POLICY_TONE[item.tone])}>
               {item.label}
             </span>
           ))

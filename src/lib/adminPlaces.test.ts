@@ -5,7 +5,10 @@ import {
   dayOf,
   lastNoteLine,
   matchesPlaceQuery,
+  noteHistory,
   noteLineText,
+  placeBadges,
+  placeGaps,
   sortManagedPlaces,
 } from './adminPlaces';
 import type { TPlaceRow } from './adminCandidates';
@@ -174,5 +177,55 @@ describe('noteLineText', () => {
 describe('dayOf', () => {
   it('ISO 문자열에서 날짜만 뗀다', () => {
     expect(dayOf('2026-09-29T13:24:00.000Z')).toBe('2026-09-29');
+  });
+});
+
+describe('placeBadges', () => {
+  // 사이트와 같은 길이어야 한다 — 요금 줄이 원문 그대로 배지가 되는 것까지 같다.
+  it('원문의 요금·크기 조건을 사이트 배지로 읽는다', () => {
+    const labels = placeBadges(place({ pet_policy_text: '1~5kg 1만원.\n6~10kg 1.5만원.' })).map((badge) => badge.label);
+    expect(labels.length).toBeGreaterThan(0);
+    expect(labels.join(' ')).toContain('1만원');
+  });
+
+  it('원문이 비면 확인된 정보 없음 한 장뿐이다', () => {
+    expect(placeBadges(place()).map((badge) => badge.label)).toEqual(['확인된 정보 없음']);
+  });
+});
+
+describe('placeGaps', () => {
+  it('비어 있는 칸을 사이트에서 사라지는 것의 이름으로 돌려준다', () => {
+    expect(placeGaps(place())).toEqual(['noGeo', 'noAddress', 'noNaver', 'noPolicy', 'noFeatures']);
+  });
+
+  it('다 찬 곳은 빈 배열이다 — 네이버는 링크나 플레이스 id 중 하나면 된다', () => {
+    const full = place({
+      lat: 33.5,
+      lng: 126.8,
+      address: '제주 제주시 구좌읍 충렬로 141-15',
+      naver_place_id: '1118214877',
+      pet_policy_text: '소형견만',
+      features: '마당이 넓어요',
+    });
+    expect(placeGaps(full)).toEqual([]);
+  });
+
+  it('공백뿐인 칸은 빈 것으로 본다', () => {
+    expect(placeGaps(place({ features: '  ' }))).toContain('noFeatures');
+  });
+
+  it('좌표는 한쪽만 있어도 지도에 안 선다', () => {
+    expect(placeGaps(place({ lat: 33.5 }))).toContain('noGeo');
+  });
+});
+
+describe('noteHistory', () => {
+  it('모든 줄을 순서대로, 우리 태그만 벗겨 돌려준다', () => {
+    const note = '[admin 2026-09-01] 내림 · 폐업\n[admin 2026-09-10] 되살림\n\n[폐업] 손글씨';
+    expect(noteHistory(note)).toEqual(['2026-09-01 내림 · 폐업', '2026-09-10 되살림', '[폐업] 손글씨']);
+  });
+
+  it('비어 있으면 빈 배열', () => {
+    expect(noteHistory(null)).toEqual([]);
   });
 });

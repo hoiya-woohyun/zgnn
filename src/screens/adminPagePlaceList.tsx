@@ -5,16 +5,20 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { Button } from '../components/base/button';
 import { Input } from '../components/base/input';
-import type { TPlaceRow, TPlaceStatus } from '../lib/adminCandidates';
+import { Select } from '../components/base/select';
+import { TYPE_LABEL, type TCandidateType, type TPlaceRow, type TPlaceStatus } from '../lib/adminCandidates';
 import {
   archivePlace,
   countPlacesByStatus,
   fetchManagedPlaces,
   matchesPlaceQuery,
+  PLACE_GAP_LABEL,
   PLACE_STATUS_LABEL,
+  placeGaps,
   restorePlace,
   sortManagedPlaces,
   type TArchiveReason,
+  type TPlaceGap,
 } from '../lib/adminPlaces';
 import { useAdminInfiniteScroll } from './adminInfiniteScroll';
 import { AdminPagePlaceRow, type TAdminPagePlaceState } from './adminPagePlaceRow';
@@ -35,8 +39,34 @@ import { ADMIN_PLACE_GRID, AdminTable } from './adminTable';
 /** 한 번에 더 그리는 줄 수. 줄이 얇아져(표) 20 은 PC 한 화면도 못 채운다 — 감시판이 곧바로 또 보인다. */
 const PAGE_SIZE = 40;
 
-/** 종류의 자리를 후보 표와 맞춘다(`adminPage.tsx` 의 `COLUMNS`) — 두 칸을 오갈 때 같은 값이 같은 자리에 있게. */
-const COLUMNS = ['장소', '지역', '상태', '내린 사유', '종류', ''];
+/** 앞의 다섯 열을 후보 표와 맞춘다(`adminPage.tsx` 의 `COLUMNS`) — 두 칸을 오갈 때 같은 값이 같은 자리에 있게. */
+const COLUMNS = ['장소', '지역', '동반 조건', '소개', '종류', ''];
+
+type TTypeFilter = 'all' | TCandidateType;
+
+const TYPE_FILTERS: { key: TTypeFilter; label: string }[] = [
+  { key: 'all', label: '전체' },
+  ...(['stay', 'restaurant', 'cafe', 'other'] as const).map((key) => ({ key, label: TYPE_LABEL[key] })),
+];
+
+/**
+ * 빠진 정보로 좁히기 — **정리할 곳을 찾는 손잡이**다. '빠진 게 있는 곳' 은 갈래 전부의 합집합이고,
+ * 갈래 하나를 고르면 그것만 본다(좌표만 한꺼번에 채우러 갈 때처럼). 내린 곳은 세지 않는다(`placeGaps` 를 줄에서 끄는 것과 같은 이유).
+ */
+type TGapFilter = 'all' | 'any' | TPlaceGap;
+
+const GAP_FILTERS: { key: TGapFilter; label: string }[] = [
+  { key: 'all', label: '전체' },
+  { key: 'any', label: '빠진 게 있는 곳' },
+  ...(Object.keys(PLACE_GAP_LABEL) as TPlaceGap[]).map((key) => ({ key, label: PLACE_GAP_LABEL[key] })),
+];
+
+const gapMatches = (key: TGapFilter, place: TPlaceRow): boolean => {
+  if (key === 'all') return true;
+  if (place.status === 'archived') return false;
+  const gaps = placeGaps(place);
+  return key === 'any' ? gaps.length > 0 : gaps.includes(key);
+};
 
 type TStatusFilter = 'all' | TPlaceStatus;
 
@@ -76,6 +106,9 @@ export function AdminPagePlaceList({
   const [states, setStates] = useState<Record<string, TAdminPagePlaceState>>({});
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<TStatusFilter>('all');
+  const [typeFilter, setTypeFilter] = useState<TTypeFilter>('all');
+  const [gapFilter, setGapFilter] = useState<TGapFilter>('all');
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [shown, setShown] = useState(PAGE_SIZE);
 
   /**
@@ -149,9 +182,22 @@ export function AdminPagePlaceList({
     [beginWrite, endWrite, getClient, onPlaceChanged, onWritten, patchState],
   );
 
-  /* 칩 숫자는 **검색 결과 기준**이다 — `전체 89 · 게시중 3` 처럼 숫자끼리 모순되지 않게 `all` 도 같은 집합을 센다. */
-  const visible = useMemo(() => (places ?? []).filter((place) => matchesPlaceQuery(place, query)), [places, query]);
+  /*
+   * 칩 숫자는 **검색·종류·빠진 정보를 건 결과 기준**이다 — `전체 89 · 게시중 3` 처럼 숫자끼리 모순되지 않게 `all` 도 같은 집합을 센다.
+   * 드롭다운 둘의 숫자는 **자기 축만 뺀** 집합에서 센다(후보 칸의 걸러 보기와 같은 어법) — 고른 값의 숫자가 곧 보이는 줄 수가 되게.
+   */
+  const searched = useMemo(() => (places ?? []).filter((place) => matchesPlaceQuery(place, query)), [places, query]);
+  const visible = useMemo(
+    () =>
+      searched.filter(
+        (place) => (typeFilter === 'all' || place.type === typeFilter) && gapMatches(gapFilter, place),
+      ),
+    [gapFilter, searched, typeFilter],
+  );
   const counts = useMemo(() => countPlacesByStatus(visible), [visible]);
+  const inStatus = (place: TPlaceRow) => status === 'all' || place.status === status;
+  const baseType = searched.filter((place) => inStatus(place) && gapMatches(gapFilter, place));
+  const baseGap = searched.filter((place) => inStatus(place) && (typeFilter === 'all' || place.type === typeFilter));
 
   /*
    * 방금 바꾼 줄은 **구간을 벗어나도 한 번은 남긴다**(`states[id]?.done`). '내림' 칩을 켜 둔 채 되살리면
@@ -161,12 +207,8 @@ export function AdminPagePlaceList({
    */
   const filtered = useMemo(
     () =>
-      (places ?? []).filter(
-        (place) =>
-          (status === 'all' || place.status === status || Boolean(states[place.id]?.done)) &&
-          matchesPlaceQuery(place, query),
-      ),
-    [places, query, states, status],
+      visible.filter((place) => status === 'all' || place.status === status || Boolean(states[place.id]?.done)),
+    [states, status, visible],
   );
 
   // 검색어·구간을 바꾸면 '더 보기' 도 처음으로 — 같은 사건의 두 결과라 여기서 함께 바꾼다(후보 칸과 같은 어법).
@@ -186,6 +228,16 @@ export function AdminPagePlaceList({
   const typeQuery = (next: string) => {
     clearDone();
     setQuery(next);
+    setShown(PAGE_SIZE);
+  };
+  const pickType = (next: TTypeFilter) => {
+    clearDone();
+    setTypeFilter(next);
+    setShown(PAGE_SIZE);
+  };
+  const pickGap = (next: TGapFilter) => {
+    clearDone();
+    setGapFilter(next);
     setShown(PAGE_SIZE);
   };
 
@@ -245,9 +297,39 @@ export function AdminPagePlaceList({
         </div>
       </div>
 
+      {/* 후보 칸과 같은 드롭다운 — 종류와 빠진 정보. 상태 칩은 자주 오가는 축이라 칩으로 남긴다. */}
+      <div className="mt-2 flex flex-wrap items-end gap-2 px-4 md:px-6">
+        <Select
+          label="종류"
+          size="sm"
+          className="w-36"
+          selectedKey={typeFilter}
+          onSelectionChange={(key) => key && pickType(key as TTypeFilter)}
+        >
+          {TYPE_FILTERS.map((entry) => (
+            <Select.Item key={entry.key} id={entry.key}>
+              {`${entry.label} ${entry.key === 'all' ? baseType.length : baseType.filter((place) => place.type === entry.key).length}`}
+            </Select.Item>
+          ))}
+        </Select>
+        <Select
+          label="빠진 정보"
+          size="sm"
+          className="w-56"
+          selectedKey={gapFilter}
+          onSelectionChange={(key) => key && pickGap(key as TGapFilter)}
+        >
+          {GAP_FILTERS.map((entry) => (
+            <Select.Item key={entry.key} id={entry.key}>
+              {`${entry.label} ${baseGap.filter((place) => gapMatches(entry.key, place)).length}`}
+            </Select.Item>
+          ))}
+        </Select>
+      </div>
+
       {filtered.length === 0 ? (
         <p className="px-4 pt-6 text-sm text-tertiary md:px-6">
-          {query ? '찾는 장소가 없어요.' : '이 상태인 장소가 없어요.'}
+          {query ? '찾는 장소가 없어요.' : '걸러 보기에 맞는 장소가 없어요.'}
         </p>
       ) : (
         <>
@@ -258,6 +340,8 @@ export function AdminPagePlaceList({
                 key={place.id}
                 place={place}
                 state={states[place.id] ?? {}}
+                expanded={expanded === place.id}
+                onToggle={() => setExpanded((prev) => (prev === place.id ? null : place.id))}
                 onStartArchive={() => patchState(place.id, { archiving: true, error: undefined, done: undefined })}
                 onCancelArchive={() => patchState(place.id, { archiving: false })}
                 onArchive={(reason, note) => void change(place, 'archive', reason, note)}

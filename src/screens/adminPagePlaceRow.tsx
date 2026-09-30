@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { ChevronDown } from '@untitledui/icons';
+import { useState, type MouseEvent } from 'react';
 import { Badge } from '../components/base/badges';
 import { Button } from '../components/base/button';
 import { Input } from '../components/base/input';
@@ -8,13 +9,17 @@ import {
   ARCHIVE_REASONS,
   lastNoteLine,
   noteLineText,
+  PLACE_GAP_LABEL,
   PLACE_STATUS_COLOR,
   PLACE_STATUS_LABEL,
+  placeBadges,
+  placeGaps,
   type TArchiveReason,
 } from '../lib/adminPlaces';
 import type { TPlaceRow } from '../lib/adminCandidates';
 import { cx } from '../utils/cx';
-import { ADMIN_PANEL_DIVIDER, ADMIN_PLACE_GRID, ADMIN_ROW_OPEN } from './adminTable';
+import { AdminPagePlaceDetail } from './adminPagePlaceDetail';
+import { ADMIN_PANEL_DIVIDER, ADMIN_PLACE_GRID, ADMIN_POLICY_TONE, ADMIN_ROW_OPEN } from './adminTable';
 import { AdminTypeChip } from './adminTypeChip';
 
 /** 장소 한 줄의 화면 상태. 소유자는 `adminPagePlaceList` 고 여기는 받아서 그린다(묶음 카드와 같은 모양). */
@@ -29,6 +34,9 @@ export type TAdminPagePlaceState = {
 type TAdminPagePlaceRowProps = {
   place: TPlaceRow;
   state: TAdminPagePlaceState;
+  /** 상세가 펼쳐져 있는가. 소유자는 `adminPagePlaceList` 다(검색·걸러 보기가 바뀌어도 펼친 줄이 남게). */
+  expanded: boolean;
+  onToggle: () => void;
   onStartArchive: () => void;
   onCancelArchive: () => void;
   onArchive: (reason: TArchiveReason, note: string) => void;
@@ -37,7 +45,12 @@ type TAdminPagePlaceRowProps = {
 
 /**
  * 장소 한 줄. `md` 이상에서는 머리글과 열이 맞는 **표의 한 줄**이다(`ADMIN_PLACE_GRID`) —
- * 이름·지역·상태·내린 사유·버튼이 각자의 열에 선다.
+ * 이름·지역·동반 조건·소개·종류·버튼이 각자의 열에 선다. 앞의 다섯 열은 후보 표와 같은 자리다.
+ *
+ * **사이트에 지금 무엇이 나가 있는지가 접힌 줄에서 보여야 한다**(2026-09-30). 이름·지역·상태만 있던 동안 이 칸은
+ * "내리기 버튼 목록" 이었고, 동반 조건이 틀렸거나 좌표가 빠져 지도에 없는 곳을 찾으려면 한 곳씩 사이트를 열어 봐야 했다.
+ * 동반 조건 칸은 사이트와 같은 배지(`placeBadges`)이고, 빠진 정보(`placeGaps`)는 이름 옆 노란 뱃지다.
+ * 나머지(원문·주소·링크·상태 이력)는 펼친 상세(`AdminPagePlaceDetail`)가 말한다.
  *
  * 버튼을 줄 안에 두는 것이 요점이다. 예전에는 줄마다 아래에 버튼 줄이 하나씩 더 붙어 한 장소가
  * 두 줄을 먹었다 — 90곳을 훑는 화면에서 그 한 줄이 곧 화면 한 장이다.
@@ -48,6 +61,8 @@ type TAdminPagePlaceRowProps = {
 export function AdminPagePlaceRow({
   place,
   state,
+  expanded,
+  onToggle,
   onStartArchive,
   onCancelArchive,
   onArchive,
@@ -58,6 +73,19 @@ export function AdminPagePlaceRow({
   const busy = state.busy;
   const archived = place.status === 'archived';
   const why = archived ? noteLineText(lastNoteLine(place.archive_note)) : undefined;
+  const badges = placeBadges(place);
+  /* 내린 곳의 빠진 정보는 조용히 둔다 — 사이트에 없는 곳이라 고칠 까닭이 없고, 뜨면 되살리기를 찾는 눈을 가린다. */
+  const gaps = archived ? [] : placeGaps(place);
+
+  /*
+   * 줄의 빈 곳을 눌러도 펼친다(후보 표와 같은 손버릇). 다만 **줄 전체를 `<button>` 으로 만들 수 없다** —
+   * 이름이 사이트 링크고 끝에 내리기 버튼이 있어서, 버튼 안의 링크·버튼이 된다. 그래서 상자는 div 로 두고
+   * 클릭만 받으며, 안쪽의 링크·버튼에서 올라온 클릭은 흘려보낸다. 키보드·스크린리더는 이름 옆 화살표 버튼으로 연다.
+   */
+  const toggleFromRow = (event: MouseEvent<HTMLDivElement>) => {
+    if ((event.target as HTMLElement).closest('a, button, input')) return;
+    onToggle();
+  };
 
   return (
     /*
@@ -65,9 +93,9 @@ export function AdminPagePlaceRow({
      * 사유를 고르는 중이면 머리와 패널을 **한 색으로** 덮는다: 내리기 버튼이 그 패널에 있어서,
      * 어느 줄의 패널인지 눈으로 정하지 못하면 그것이 곧 다른 가게를 내리는 길이다.
      */
-    <li className={cx('hover:bg-primary_hover', state.archiving && ADMIN_ROW_OPEN)}>
-      <div className={cx('px-4 py-2', ADMIN_PLACE_GRID)}>
-        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+    <li className={cx(expanded || state.archiving ? ADMIN_ROW_OPEN : 'hover:bg-primary_hover')}>
+      <div className={cx('cursor-pointer px-4 py-2', ADMIN_PLACE_GRID)} onClick={toggleFromRow}>
+        <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
           {/* 종류 칩은 맨 뒤 자기 열로 갔다(2026-09-30) — 두 표가 같은 자리에 둔다. */}
           {/* 게시된 곳은 이름이 사이트 상세로 가는 링크다 — 내리기 전에 사이트에 무엇이 나가 있는지 한 번에 본다. */}
           {place.status === 'published' ? (
@@ -82,23 +110,56 @@ export function AdminPagePlaceRow({
           ) : (
             <span className="truncate text-sm font-bold text-primary">{place.name}</span>
           )}
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={expanded}
+            aria-label={`${place.name} 자세히 ${expanded ? '접기' : '보기'}`}
+            className="-m-1 rounded p-1 hover:bg-tertiary"
+          >
+            <ChevronDown
+              aria-hidden="true"
+              className={cx('size-3.5 text-fg-quaternary transition-transform', expanded && 'rotate-180')}
+            />
+          </button>
+          {/*
+            * **정상은 안 보이고 이상만** — 후보 표와 같은 원칙이다. `게시중` 은 86줄 중 84줄의 값이라 쓰지 않고,
+            * 내림·게시 대기만 뱃지다. 빠진 정보도 노란 뱃지(사이트에서 무엇이 사라지는지의 이름).
+            */}
+          {place.status !== 'published' && (
+            <Badge size="sm" color={PLACE_STATUS_COLOR[place.status]}>
+              {PLACE_STATUS_LABEL[place.status]}
+            </Badge>
+          )}
+          {gaps.map((gap) => (
+            <Badge key={gap} type="color" size="sm" color="warning">
+              {PLACE_GAP_LABEL[gap]}
+            </Badge>
+          ))}
+          {/* 내린 이유는 상태 바로 뒤에 — 자기 열이던 동안 84줄에서 빈 칸이었다. 초안은 사유 대신 안내가 온다. */}
+          {(why || place.status === 'draft') && (
+            <span className="basis-full text-xs text-tertiary">
+              {why ?? '아직 사이트에 안 올라간 곳이에요 — ‘확인할 장소’ 에서 이 가게의 후보를 승인하면 올라가요.'}
+            </span>
+          )}
         </div>
 
-        <p className="truncate text-xs text-tertiary">{place.region_raw || '(지역 없음)'}</p>
+        <p className="truncate text-xs text-tertiary max-md:mt-0.5">{place.region_raw || '(지역 없음)'}</p>
 
-        <div>
-          <Badge size="sm" color={PLACE_STATUS_COLOR[place.status]}>
-            {PLACE_STATUS_LABEL[place.status]}
-          </Badge>
-        </div>
+        {/* 사이트와 같은 배지·같은 순서(`placeBadges`). 후보 표의 동반 조건 칸과 같은 칩이다. */}
+        <span className="flex min-w-0 flex-wrap content-start items-start gap-1 text-xs max-md:mt-0.5">
+          {badges.map((badge) => (
+            <span
+              key={badge.label}
+              className={cx('rounded px-1.5 py-px font-medium break-keep', ADMIN_POLICY_TONE[badge.tone])}
+            >
+              {badge.label}
+            </span>
+          ))}
+        </span>
 
-        {/* 내린 이유는 이 줄에서 상태 다음으로 중요하다 — 자기 열을 갖는다. 초안은 사유 대신 안내가 온다. */}
-        <p className="min-w-0 text-xs text-tertiary">
-          {why ??
-            (place.status === 'draft'
-              ? '아직 사이트에 안 올라간 곳이에요 — ‘확인할 장소’ 에서 이 가게의 후보를 승인하면 올라가요.'
-              : '')}
-        </p>
+        {/* 사이트의 소개 문구 그대로. 자르지 않는다 — 후보 표의 AI 요약 칸과 같은 이유(읽는 것이 곧 나가 있는 글이다). */}
+        <span className="block min-w-0 text-xs text-tertiary max-md:mt-0.5">{place.features || ''}</span>
 
         {/* 후보 표와 같은 자리, 같은 칩(`AdminTypeChip`). */}
         <div className="flex items-center max-md:mt-1">
@@ -145,6 +206,7 @@ export function AdminPagePlaceRow({
 
       {/* 결과·오류는 열에 끼우지 않는다 — 줄 전체 폭을 쓰는 편이 읽힌다(그리드 밖이라 열도 흔들지 않는다). */}
       {state.done && <p className="px-4 pb-2 text-xs text-success-primary">{state.done}</p>}
+      {expanded && <AdminPagePlaceDetail place={place} badges={badges} />}
       {state.error && <p className="px-4 pb-2 text-xs text-error-primary">{state.error}</p>}
 
       {state.archiving && (
