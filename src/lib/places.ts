@@ -151,8 +151,8 @@ export const MY_LOCATION_COLOR = '#1a73e8';
  * 흰 글씨를 얹는 면에 쓰는 진한 쪽. 두 가지를 **동시에** 만족해야 한다 —
  * 흰색 대비 5:1 이상(6.1 / 6.1 / 6.0), 그리고 자기 22% 워시 위에서 4.5:1 이상(4.50 / 4.53 / 4.57).
  *
- * 뒤엣것을 빼먹으면 상세 헤더에서 글씨가 바탕에 묻는다 — 헤더 바탕이 같은 색의 옅은
- * 그라데이션이라(typeHeaderBackground) 흰 바탕 기준만 맞춰서는 부족하다.
+ * 뒤엣것을 빼먹으면 워시 위(홈 종류 카드 등)에서 글씨가 바탕에 묻는다 — 바탕이 같은 색의
+ * 옅은 면이라 흰 바탕 기준만 맞춰서는 부족하다. (상세 제목 판은 ADR-010 v4 에서 워시를 버렸다.)
  * 실제로 이 값을 다시 고르며 흰 바탕만 보고 잡았다가 3.8:1 까지 떨어뜨린 적이 있다.
  */
 export const TYPE_COLOR_DEEP: Record<TPlaceType, string> = {
@@ -164,14 +164,6 @@ export const TYPE_COLOR_DEEP: Record<TPlaceType, string> = {
 /** 타입 색을 흰색에 섞어 만든 옅은 바탕. 글씨는 ink 계열이나 TYPE_COLOR_DEEP 만 올린다. */
 export const typeTint = (type: TPlaceType, percent: number) =>
   `color-mix(in oklab, ${TYPE_COLOR[type]} ${percent}%, #fff)`;
-
-/**
- * 상세 제목 판의 바탕. 진한 단색 판이었는데 화면에서 가장 무거운 면이라 파스텔 워시로 바꿨다 —
- * 홈 종류 카드·썸네일과 같은 tint 어법이고, 글씨는 흰색 대신 TYPE_COLOR_DEEP 을 올린다.
- * 위가 조금 더 진해 평평한 한 장보다 깊이가 생긴다.
- */
-export const typeHeaderBackground = (type: TPlaceType) =>
-  `linear-gradient(168deg, ${typeTint(type, 22)}, ${typeTint(type, 12)})`;
 
 /** 해당 타입에서 장소가 가장 많은 읍면 몇 곳. 홈 섹션 카드의 칩으로 쓴다. */
 export const topTowns = (type: TPlaceType, limit = 3): { town: string; count: number }[] => {

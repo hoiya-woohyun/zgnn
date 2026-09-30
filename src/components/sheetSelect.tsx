@@ -186,8 +186,9 @@ function SheetRow({ id, label, supportingText }: TSheetSelectOption) {
       className={({ isSelected, isFocusVisible, isPressed }) =>
         cx(
           'flex min-h-12 cursor-pointer items-center gap-3 rounded-lg px-3 outline-hidden select-none',
-          isSelected ? 'bg-brand-primary text-brand-secondary' : 'text-primary hover:bg-primary_hover',
-          isPressed && 'bg-primary_hover',
+          // 시트 면이 크림(`bg-secondary`)이라 primary_hover(같은 크림)는 눌러도 안 보인다 — 한 단 진한 tertiary.
+          isSelected ? 'bg-brand-primary text-brand-secondary' : 'text-primary hover:bg-tertiary',
+          isPressed && 'bg-tertiary',
           isFocusVisible && 'ring-2 ring-focus-ring ring-inset',
         )
       }

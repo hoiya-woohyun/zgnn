@@ -55,7 +55,8 @@ export function PlaceItemsNote({ place, className }: TPlaceItemsNoteProps) {
       <Link
         href="/checklist"
         className={cx(
-          'flex min-h-11 items-center gap-2 rounded-xl bg-secondary px-3 text-sm text-secondary transition-colors hover:bg-tertiary',
+          // 놓이는 곳(상세 본문·지도 시트)이 크림이라 흰 판으로 띄운다 — 크림이면 바탕에 녹아 줄이 안 보인다.
+          'flex min-h-11 items-center gap-2 rounded-xl border border-secondary bg-primary px-3 text-sm text-secondary transition-colors hover:bg-primary_hover',
           className,
         )}
       >
