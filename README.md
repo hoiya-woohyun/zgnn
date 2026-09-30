@@ -60,12 +60,13 @@ webpack 훅에서 바로 돌아 나오고 서비스워커도 만들지 않으므
 |---|---|
 | `/` | 홈. 인사말, 숙소·식당·카페 요약, 준비물과 저장한 곳 진입 |
 | `/places/[type]` | 둘러보기. 이름·특징·읍면 검색, 방향·반려동물 조건 필터, 숙소는 가격 정렬 |
-| `/place/[id]` | 상세. 반려동물 이용 조건(원문 포함), 판정 카드, 요금, 근처 장소 |
+| `/place/[id]` | 상세. 반려동물 이용 조건(원문 포함), 판정 카드, 네이버 지도·사진 보기, 요금, 공식 홈페이지 카드, 미니 지도, 근처 장소 |
 | `/map` | 지도. 타입·방향 필터, 마커를 누르면 미니 카드(모바일은 하단 시트, ≥1024px 은 좌측 목록 패널). `?saved=1` 은 저장한 곳만 |
 | `/checklist` | 준비물. 계절별 목록, 체크 상태 저장, 숙소 구비 용품 반영 |
 | `/settings` | 설정(탭). 우리 강아지 카드, 저장한 곳 진입, 자료 출처 |
 | `/saved` | 저장한 곳. 타입별 묶음(설정 안) |
 | `/dog` | 우리 강아지 등록. 마리별 이름·몸무게·이동 수단 → 장소별 판정의 입력(설정 안) |
+| `/admin` | 운영자 검수. 블로그에서 찾은 후보를 보고 승인·반려·고치기, 올린 곳 내리기(운영자 로그인 필요, 탭바에는 없음) |
 
 `src/app/**/page.tsx` 는 주소와 메타데이터만 맡는 서버 컴포넌트이고, 화면을 그리는 본체는
 `src/screens/` 의 클라이언트 컴포넌트입니다. 정적 내보내기라 서버 렌더에서 얻는 것은
@@ -187,22 +188,31 @@ pnpm data:analyze    # ③ 모은 글을 Claude 로 읽어 장소 후보를 만�
   화면에는 항상 원문을 함께 보여주므로, 파서가 놓친 조건도 사용자가 읽을 수 있습니다.
 - **`src/lib/eligibility.ts`** — 강아지 프로필 × 이용 조건 → 판정(`ok`/`cond`/`unknown`/`hard`).
   판정 등급이 목록 정렬(`src/lib/sortByEligibility.ts`)과 배지(`src/components/eligibilityBadge.tsx`)를
-  함께 움직이므로, 등급을 늘리면 세 곳을 같이 봅니다. `pnpm test` 에 24개 케이스가 있습니다.
+  함께 움직이므로, 등급을 늘리면 세 곳을 같이 봅니다. 케이스는 `src/lib/eligibility.test.ts` 에 모여 있습니다.
 - **`src/lib/category.ts`** — 네이버 카테고리 문자열을 화면 라벨로 다듬습니다.
   아이콘은 여기가 아니라 `src/components/icons/placeTypeIcon.ts` 의 종류별 3종을 씁니다.
 - **`src/lib/amenities.ts`** — 숙소 구비 용품과 준비물을 잇는 매핑 테이블.
 - **`src/lib/placeFilters.ts`** — 둘러보기 화면의 조건 필터.
-- **`src/lib/mapTiles.ts`** — 지도 타일 출처.
+- **`src/lib/naverMap.ts`** — 네이버 지도 SDK 로더와 클라이언트 아이디. 확대 수준은 `src/lib/places.ts` 의 `JEJU_ZOOM` 하나.
 
-## 지도 타일
+## 지도
 
-CARTO Voyager 가 원래 선택이지만 CARTO 는 API 키 없이 받은 타일에 워터마크를 찍습니다.
-그래서 키가 없으면 OpenStreetMap 기본 타일을 씁니다. CARTO 키가 있다면 `.env.local` 에
-아래 한 줄을 넣으면 CARTO 로 바뀝니다.
+지도는 **네이버 지도(NCP Maps JavaScript API v3)** 입니다([ADR-008](docs/decisions/ADR-008-map-provider.md)). SDK 는 npm 패키지가 아니라
+지도 화면이 뜰 때 `oapi.map.naver.com` 에서 스크립트 한 장을 붙입니다(`src/lib/naverMap.ts`).
+
+클라이언트 아이디는 **코드에 상수로** 들어 있고 따로 설정할 것이 없습니다. 공개 전제의 값이라 빌드 결과물에 어차피 남고,
+실제 보호는 NCP 콘솔의 **Web 서비스 URL 허용 목록**이 합니다. `.env.local` 에만 두면 Vercel 빌드에서 지도만 죽습니다
+(이 레포는 Vercel 환경변수를 0개로 유지합니다 — ADR-016). 다른 아이디로 바꿔 보고 싶을 때만 아래 한 줄을 씁니다.
 
 ```
-NEXT_PUBLIC_CARTO_API_KEY=발급받은_키
+NEXT_PUBLIC_NAVER_MAP_KEY_ID=다른_클라이언트_아이디
 ```
+
+지도가 안 뜨면 코드보다 콘솔을 먼저 봅니다.
+
+- **주소(출처)가 등록돼 있는가** — 포트까지 봅니다. 없으면 인증이 거부되고, 화면은 빈 지도 대신 안내를 그립니다.
+- **Dynamic Map 이 체크돼 있는가** — 아니면 429(Quota Exceed)가 납니다.
+- **비용은 "지도를 띄운 방문 수"** 입니다(인증이 페이지 로드당 1회). 상세의 미니 지도도 한 번으로 셉니다.
 
 ## UI — Untitled UI
 
@@ -235,4 +245,4 @@ react-aria 의 `Link` · `Button href` 가 전체 새로고침 대신 Next 라�
 ## 스택
 
 Next.js 16 (App Router, 정적 내보내기) · React 19 · TypeScript · Tailwind CSS v4 · zustand ·
-react-aria-components + Untitled UI · leaflet + react-leaflet · @serwist/next · vitest
+react-aria-components + Untitled UI · 네이버 지도(NCP Maps v3) · Supabase(데이터 원본·`/admin`) · @serwist/next · vitest
