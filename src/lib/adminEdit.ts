@@ -325,6 +325,13 @@ export function buildEdit(row: TCandidateRow, draft: TCandidateEditDraft, places
      * 이 칸은 `places` 로 새지 않는다(`toNewPlaceRow`).
      */
     editedAt: now.toISOString(),
+    /*
+     * **주소를 고쳤다는 표식은 따로 둔다.** `geoSource` 는 좌표가 어느 축에서 왔는지라 주소를 고쳐도 남고,
+     * 그러면 검수 화면이 손으로 적은 주소를 '상호 검색으로 확인된 주소' 로 그린다(`adminAddress.ts`).
+     * `editedAt` 으로는 갈릴 수 없다 — 소개 문장만 고쳐도 그 칸이 찍힌다.
+     * 한 번 참이면 되돌리지 않는다: 네이버가 줬던 값은 이미 덮여서 다시 확인할 길이 없다.
+     */
+    addressEdited: Boolean(prev.addressEdited) || (prev.address?.trim() || null) !== address,
   };
 
   if (!identityChanged(draft, prev)) {

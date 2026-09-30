@@ -207,6 +207,22 @@ describe('buildEdit', () => {
     expect(out.extracted.verify).toEqual(verify);
   });
 
+  /**
+   * 주소 표식은 `editedAt` 과 **따로** 서야 한다 — `geoSource` 는 좌표의 출처라 주소를 고쳐도 남고,
+   * 검수 화면은 그 칸으로 '상호 검색으로 확인된 주소' 를 그린다(`adminAddress.ts`).
+   */
+  it('주소를 고치면 addressEdited 가 서고, 소개만 고치면 안 선다', () => {
+    expect(buildEdit(row(), draft({ features: 'x' }), [place()]).extracted.addressEdited).toBe(false);
+    const moved = buildEdit(row(), draft({ address: '제주 서귀포시 대포로 93' }), [place()]);
+    expect(moved.extracted.addressEdited).toBe(true);
+  });
+
+  /** 한 번 참이면 되돌리지 않는다 — 네이버가 줬던 값은 이미 덮여서 다시 확인할 길이 없다. */
+  it('이미 고친 후보는 다음 저장에서도 표식을 지키지 않고 유지한다', () => {
+    const before = row({ extracted: extracted({ addressEdited: true }) });
+    expect(buildEdit(before, draft({ features: 'x' }), [place()]).extracted.addressEdited).toBe(true);
+  });
+
   /** 대조 corpus 는 `approveGroup` 과 같아야 한다 — status 가 실려야 동점에서 살아 있는 곳이 이긴다. */
   it('점수가 같으면 내린 곳보다 살아 있는 곳을 고른다', () => {
     const archived = place({ id: 'p-old', status: 'archived' });

@@ -3,6 +3,7 @@
 import { Button } from '../components/base/button';
 import { Input } from '../components/base/input';
 import { Select } from '../components/base/select';
+import { addressView } from '../lib/adminAddress';
 import { TYPE_LABEL } from '../lib/adminCandidates';
 import { Checkbox } from '../components/base/checkbox';
 import {
@@ -19,6 +20,7 @@ import {
 import type { TCandidateExtracted } from '../lib/adminCandidates';
 import { naverMapSearchUrl, parseNaverPlaceId } from '../lib/naverPlaceLink';
 import { cx } from '../utils/cx';
+import { AdminAddressLine } from './adminAddressLine';
 
 const INDOOR_OPTIONS: { key: TPolicyDraft['indoor']; label: string }[] = [
   { key: 'unknown', label: '언급 없음' },
@@ -108,6 +110,12 @@ export function AdminPageEditForm({
   const set = (patch: Partial<TCandidateEditDraft>) => onChange({ ...draft, ...patch });
   const setPolicy = (patch: Partial<TPolicyDraft>) => set({ policy: { ...draft.policy, ...patch } });
   const { cell, corrections } = editPreview(draft);
+  /*
+   * 주소 한 줄은 **초안**으로 다시 그린다 — 상세에 있던 것과 같은 컴포넌트다(`AdminAddressLine`).
+   * 여기 두는 이유: 고치는 가장 흔한 이유가 "상호 검색이 동명의 다른 가게를 집었다" 이고, 그때 사람이
+   * 확인하려는 것이 "지금 적은 주소가 원글과 맞나" 다. 상세 맨 위에 두면 입력 칸에서 그 대조가 안 보인다.
+   */
+  const address = addressView(original, draft.address);
 
   return (
     <div className="border-t border-dashed border-tertiary px-4 py-3">
@@ -132,14 +140,18 @@ export function AdminPageEditForm({
             </Select.Item>
           ))}
         </Select>
-        <Input
-          label="주소"
-          size="sm"
-          value={draft.address}
-          onChange={(value) => set({ address: value })}
-          isDisabled={busy}
-          className="md:col-span-2"
-        />
+        <div className="md:col-span-2">
+          <Input
+            label="주소"
+            size="sm"
+            value={draft.address}
+            onChange={(value) => set({ address: value })}
+            isDisabled={busy}
+          />
+          <p className="mt-1.5 text-xs">
+            <AdminAddressLine view={address} />
+          </p>
+        </div>
         {/*
           * 좌표는 두 칸이다. 한 칸만 채운 상태는 `validGeo` 가 통째로 버려 좌표가 조용히 사라지므로
           * `editProblem` 이 저장을 막는다 — 여기서 말해 주지 않으면 버튼만 꺼져 이유를 알 수 없다.
