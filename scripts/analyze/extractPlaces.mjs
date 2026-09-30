@@ -22,6 +22,7 @@
 //    "Not logged in", "session limit …")는 모델 출력이 아니라 운영자가 봐야 할 것이라 짧게 싣는다.
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { normalizeFeeLines } from '../lib/feeLine.mjs';
 import { correctPetPolicyFacts } from '../lib/petPolicyFacts.mjs';
 
 /** ANALYZE_MODEL 로 덮어쓸 수 있다 — 첫 1년치 대량 처리 때 haiku 로 비교해 보려는 용도(docs/todo/03 의 모델 표). */
@@ -178,8 +179,8 @@ export const SYSTEM_PROMPT = `당신은 제주도 반려견 동반 여행 블로
       부대비("${FEE_EX.cleaning}") · 단위("${FEE_EX.perNight}", "${FEE_EX.weekend}") · 조건부("${FEE_EX.conditional}").
       **조건의 무게·마릿수는 줄에 그대로 남깁니다** — "10kg 이상" 을 빼면 앱이 대형견 보호자에게 그 요금을 알려 주지 못합니다.
       한 줄은 **기준 + 금액**만 20자 이내로 짧게 씁니다(본문 "숙박일 관계없이 청소비 5만원 추가" → "청소비 5만원").
-      **금액은 본문에 적힌 표기 그대로** 씁니다 — "15,000원" 을 "1.5만원" 으로 바꾸지 마세요. 바꾼 줄은 본문에 그 숫자가 없어
-      앱이 통째로 뺍니다(scripts/lib/petPolicyFacts.mjs). 짧게 쓰라는 것은 **기준 설명**을 줄이라는 뜻이고 금액은 그대로입니다.
+      **금액은 본문에 적힌 표기 그대로** 씁니다 — "15,000원" 을 "1.5만원" 으로 바꾸지 마세요. 단위 변환은 앱이 규칙으로 합니다
+      (scripts/lib/feeLine.mjs). 짧게 쓰라는 것은 **기준 설명**을 줄이라는 뜻이고 금액은 그대로입니다.
       금액 없이 "추가 요금 있어요" 만 적혀 있으면 빈 배열 + feeFree: false 입니다. 사람 숙박 요금은 여기가 아니라 stayPriceText 입니다.
       요금 언급이 없으면 빈 배열([]).
     weightLimitKg: 몸무게 상한(숫자, "10kg 이하" → 10). maxDogs: 마릿수 상한(숫자). 없으면 null.
@@ -281,7 +282,11 @@ const numOrNull = (v) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ?
  */
 function normalizePetPolicy(raw, petPolicyText) {
   if (!petPolicyText || !raw || typeof raw !== 'object') return null;
-  return correctPetPolicyFacts(shapePetPolicy(raw), petPolicyText).facts;
+  const facts = correctPetPolicyFacts(shapePetPolicy(raw), petPolicyText).facts;
+  // 원문 대조를 **먼저** 거친 줄만 모양을 맞춘다 — 순서가 거꾸로면 정규화가 지어낸 줄을 가려 준다. 금액 단위 변환은 모델이
+  // 아니라 여기서 한다(프롬프트는 "본문 표기 그대로" 를 요구한다). 앱이 다시 대조해도 금액을 숫자로 보므로 살아남는다.
+  if (facts?.feeLines?.length) facts.feeLines = normalizeFeeLines(facts.feeLines);
+  return facts;
 }
 
 function shapePetPolicy(raw) {

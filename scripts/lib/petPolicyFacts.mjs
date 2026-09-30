@@ -8,6 +8,8 @@
 //
 // 순수 모듈이다: 브라우저도 import 한다 — node 모듈을 넣지 말 것(placeFields.mjs 와 같은 규칙, ADR-018).
 
+import { amountsInWon } from './feeLine.mjs';
+
 /** @typedef {import('../../src/types').TPetPolicyFacts} TPetPolicyFacts */
 
 const KOREAN_COUNT = { 한: 1, 두: 2, 세: 3, 네: 4, 다섯: 5, 여섯: 6 };
@@ -48,12 +50,19 @@ const flatten = (s) => s.replace(/,/g, '').replace(/\s+/g, '');
  *
  * 금액 토큰이 아예 없는 줄(`2마리 이상` 처럼 숫자만 있는 조각)은 예전 규칙으로 물러선다 — 그쪽은 금액이 아니라
  * 조건이라 `원` 을 요구할 수 없다.
+ *
+ * 금액은 **원 단위 숫자로** 대 본다(`amountsInWon`) — 요금 줄은 저장 전에 `normalizeFeeLines` 가 `20,000원` 을 `2만원` 으로
+ * 바꾸고, 앱이 읽을 때 이 대조를 다시 돌린다. 글자로 대 보면 방금 바꾼 줄을 지어낸 것으로 보고 뺀다. 숫자로 봐도
+ * `15만원` 은 150000 이라 `5만원`(50000)과 여전히 다르다 — 위의 청소비 방어는 그대로다.
  */
 const feeTextGrounded = (text, feeText) => {
   const bare = flatten(text);
   const line = flatten(feeText);
-  const amounts = line.match(/\d+(?:\.\d+)?만?원/g);
-  if (amounts) return amounts.some((a) => new RegExp(`(^|[^\\d.])${escapeRe(a)}`).test(bare));
+  const amounts = amountsInWon(feeText);
+  if (amounts.length) {
+    const inText = new Set(amountsInWon(text));
+    return amounts.some((won) => inText.has(won));
+  }
   const nums = line.match(/\d+(?:\.\d+)?/g);
   return nums !== null && nums.some((n) => bare.includes(n));
 };
