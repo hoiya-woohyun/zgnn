@@ -431,7 +431,7 @@ export function AdminPageGroupCard({
             </div>
             <aside
               aria-label="이 장소 결정"
-              className="order-first border-b border-secondary px-4 py-3 lg:sticky lg:top-18 lg:order-none lg:w-72 lg:shrink-0 lg:border-b-0 lg:border-l"
+              className="order-first border-b border-secondary px-4 py-3 lg:sticky lg:top-18 lg:order-none lg:w-64 lg:shrink-0 lg:border-b-0 lg:border-l"
             >
               <AdminPageGroupActions
                 group={group}

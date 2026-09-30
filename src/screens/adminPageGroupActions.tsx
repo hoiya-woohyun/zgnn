@@ -28,9 +28,12 @@ function Situation({ title, children }: { title: ReactNode; children?: ReactNode
   );
 }
 
-/** 버튼 한 무리. 폭을 레일에 채워 세로로 쌓는다 — 좁은 레일에서 가로로 늘어놓으면 줄마다 접히는 자리가 달라진다. */
+/**
+ * 버튼 한 무리 — **세로로 쌓되 폭은 글자만큼**(2026-09-30). 레일 폭으로 늘려 두던 동안 PC 에서 버튼이 필요 이상으로
+ * 옆으로 길었다(사용자 지적). 줄마다 버튼 끝이 들쭉날쭉해도 왼쪽 끝이 맞으면 세로로 읽힌다.
+ */
 function Stack({ children }: { children: ReactNode }) {
-  return <div className="flex flex-col gap-1.5">{children}</div>;
+  return <div className="flex flex-col items-start gap-1.5">{children}</div>;
 }
 
 /** 버튼 밑 한 줄 — 무엇이 되돌릴 수 없어지는지. 버튼 **바로 밑**이라야 누르기 전에 읽힌다. */
@@ -137,7 +140,7 @@ export function AdminPageGroupActions({
     ) : null;
 
   const tools = (
-    <div className="grid grid-cols-2 gap-1.5">
+    <div className="flex flex-wrap gap-1.5">
       {/*
         * '고치기' 는 **세 갈래 전부에** 선다. 닮은 정도 0.4~0.85 구간이 곧 "상호 검색이 동명의 다른 가게를 집었나" 를
         * 가리는 자리라, 거기서 고칠 길이 없으면 틀린 주소를 그대로 올리거나 쓸 만한 후보를 버린다.
