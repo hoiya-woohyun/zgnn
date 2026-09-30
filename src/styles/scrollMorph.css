@@ -9,12 +9,25 @@
   히어로의 면도 `clip-path` 가 아니라 크림 커튼·귀의 `scale`·`translate` 로 가린다 — `clip-path` 는 층을 따로 올려도 매 프레임
   면 전체를 다시 그렸다(크롬 실측). 판 자체를 누르지 않는 이유는 `homePageHero.tsx` 머리 주석.
 
-  지원하지 않는 브라우저는 이 블록을 통째로 건너뛰고, 컴포넌트의 인라인 `calc(var(--morph))` 가 같은 모습을 JS 로 낸다.
-  구간 비율(0.25·0.55·0.95…)은 그 인라인 식과 **같은 값**이어야 한다 — 한쪽만 고치면 브라우저마다 다르게 접힌다.
+  방식은 루트의 `data-morph` 가 정한다(`scrollDrivenMorph.ts` 의 `morphModeOf`). `scroll` 이면 아래 애니메이션이, `snap`(지원하지
+  않는 브라우저)이면 컴포넌트의 인라인 `calc(var(--morph))` 가 0 ↔ 1 두 값만 받고 그 사이를 짧은 전환이 채운다 — 스크롤을 따라가지 않는다.
+  `scroll` 에서는 애니메이션 값이 인라인 스타일을 이긴다. 구간 비율(0.25·0.55·0.95…)은 `scroll` 에서만 보인다.
 */
 
+/* snap: 경계를 넘을 때 한 번 바뀌는 값을 transform·opacity 전환으로 잇는다(합성된다). 진행 막대는 폭 전환을 이미 갖고 있어 함께 적는다. */
+[data-morph='snap'] [data-scroll-morph] {
+  transition-property: transform, opacity, width;
+  transition-duration: 250ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-morph='snap'] [data-scroll-morph] {
+    transition-duration: 0ms;
+  }
+}
+
 @supports (animation-timeline: scroll()) {
-  [data-scroll-morph] {
+  [data-morph='scroll'] [data-scroll-morph] {
     animation-duration: auto;
     animation-timing-function: linear;
     animation-fill-mode: both;
@@ -23,51 +36,51 @@
   }
 
   /* ── StickyMorphTitle ── */
-  [data-scroll-morph='title'] {
+  [data-morph='scroll'] [data-scroll-morph='title'] {
     animation-name: morph-title;
   }
   /* 오른쪽 요약: 제목이 반쯤 줄어든 뒤부터(0.5 → 1). */
-  [data-scroll-morph='title-trailing'] {
+  [data-morph='scroll'] [data-scroll-morph='title-trailing'] {
     animation-name: morph-fade-in-late;
   }
-  [data-scroll-morph='fade-in'] {
+  [data-morph='scroll'] [data-scroll-morph='fade-in'] {
     animation-name: morph-fade-in;
   }
 
   /* ── HomePageHero ── */
-  [data-scroll-morph='hero-mark'] {
+  [data-morph='scroll'] [data-scroll-morph='hero-mark'] {
     animation-name: morph-hero-mark;
   }
-  [data-scroll-morph='hero-title'] {
+  [data-morph='scroll'] [data-scroll-morph='hero-title'] {
     animation-name: morph-hero-title;
   }
-  [data-scroll-morph='curtain-side'] {
+  [data-morph='scroll'] [data-scroll-morph='curtain-side'] {
     animation-name: morph-curtain-side;
   }
-  [data-scroll-morph='curtain-top'] {
+  [data-morph='scroll'] [data-scroll-morph='curtain-top'] {
     animation-name: morph-curtain-top;
   }
-  [data-scroll-morph='corner-tl'] {
+  [data-morph='scroll'] [data-scroll-morph='corner-tl'] {
     animation-name: morph-corner-tl;
   }
-  [data-scroll-morph='corner-tr'] {
+  [data-morph='scroll'] [data-scroll-morph='corner-tr'] {
     animation-name: morph-corner-tr;
   }
-  [data-scroll-morph='corner-bl'] {
+  [data-morph='scroll'] [data-scroll-morph='corner-bl'] {
     animation-name: morph-corner-bl;
   }
-  [data-scroll-morph='corner-br'] {
+  [data-morph='scroll'] [data-scroll-morph='corner-br'] {
     animation-name: morph-corner-br;
   }
   /* 색이 바뀌는 구간(--tone, 0.55 → 0.95) — 잉크 판·흰 글자가 빠지고 크림 판·본문색 글자가 들어온다. */
-  [data-scroll-morph='tone-out'] {
+  [data-morph='scroll'] [data-scroll-morph='tone-out'] {
     animation-name: morph-tone-out;
   }
-  [data-scroll-morph='tone-in'] {
+  [data-morph='scroll'] [data-scroll-morph='tone-in'] {
     animation-name: morph-tone-in;
   }
   /* 부제·숫자판: 처음 25% 안에 비킨다. */
-  [data-scroll-morph='fade-early'] {
+  [data-morph='scroll'] [data-scroll-morph='fade-early'] {
     animation-name: morph-fade-early;
   }
 }

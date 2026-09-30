@@ -14,11 +14,47 @@ import type { TScrollMorphRange } from '../../lib/stickyMorph';
  * 스크롤 구동 애니메이션의 `transform`·`opacity` 는 합성 스레드가 스크롤 위치에서 곧바로 값을 뽑는다 — 스크롤과 같은 프레임에,
  * 한 번 래스터한 층을 GPU 가 늘이고 줄이기만 한다. JS 가 하는 일은 **크기가 바뀔 때 구간(스크롤 오프셋)을 재 적는 것**뿐이다.
  *
- * 지원하지 않는 브라우저(지금은 Firefox)는 예전처럼 JS 가 `--morph` 를 적고, 같은 값을 인라인 `calc(var(--morph))` 가 받는다.
- * 지원하면 애니메이션 값이 인라인 스타일을 이긴다(캐스케이드에서 애니메이션이 작성자 선언보다 위다) — 그래서 두 길을 한 마크업에 둔다.
+ * 지원하지 않는 브라우저(Safari 26 미만·Firefox)는 스크롤을 따라가지 않고 경계에서 한 번 접힌다(아래 `snap`). JS 가 `--morph` 를
+ * 0 ↔ 1 로 적고 인라인 `calc(var(--morph))` 가 받는다. 지원하면 애니메이션 값이 인라인 스타일을 이긴다(캐스케이드에서 애니메이션이
+ * 작성자 선언보다 위다) — 그래서 두 길을 한 마크업에 둔다.
  */
 export function supportsScrollTimeline(): boolean {
   return typeof CSS !== 'undefined' && CSS.supports('animation-timeline: scroll()');
+}
+
+/**
+ * ⚠️ 임시 — 지원하는 기기(iOS 26 등)에서도 **지원하지 않는 기기의 모습**을 보려고 모두 `snap` 으로 보낸다.
+ * 실기기 확인이 끝나면 `false` 로 되돌린다(또는 이 상수를 지운다).
+ */
+const FORCE_SNAP_PREVIEW = true;
+
+/**
+ * 접히는 방식. 루트 요소의 `data-morph` 로 적고 `styles/scrollMorph.css` 가 읽는다.
+ *
+ * - `scroll` — 스크롤 구동 애니메이션. 스크롤한 만큼 접힌다.
+ * - `snap` — 지원하지 않는 브라우저. **스크롤을 따라가지 않는다.** 경계를 넘는 순간 `--morph` 를 0 ↔ 1 로 한 번 바꾸고,
+ *   사이는 짧은 CSS 전환(합성되는 transform·opacity)이 채운다. JS 가 스크롤마다 중간값을 적으면 한 박자 늦고 떨리는데
+ *   (위 설명), 그 문제를 가진 채 "같은 모습" 을 흉내 내는 것보다 다르게 보이더라도 매끄러운 쪽을 골랐다.
+ */
+export type TMorphMode = 'scroll' | 'snap';
+
+export function morphModeOf(): TMorphMode {
+  return !FORCE_SNAP_PREVIEW && supportsScrollTimeline() ? 'scroll' : 'snap';
+}
+
+/**
+ * 모드를 루트에 적는다. `snap` 은 **다음 프레임에** 적는다 — 스크롤이 복원된 채 들어와 첫 값이 1 일 때, 전환 규칙과 값이
+ * 같은 프레임에 들어가면 진입하자마자 접히는 전환이 한 번 재생된다.
+ */
+export function writeMorphMode(el: HTMLElement, mode: TMorphMode): () => void {
+  if (mode === 'scroll') {
+    el.dataset.morph = mode;
+    return () => {};
+  }
+  const frame = requestAnimationFrame(() => {
+    el.dataset.morph = mode;
+  });
+  return () => cancelAnimationFrame(frame);
 }
 
 /**

@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, type CSSProperties } from 'react';
 import { collapseProgress, collapseRange } from '../lib/stickyMorph';
-import { offsetInScroller, supportsScrollTimeline, writeMorphRange } from '../components/layout/scrollDrivenMorph';
+import { morphModeOf, offsetInScroller, writeMorphMode, writeMorphRange } from '../components/layout/scrollDrivenMorph';
 import { PLACE_TYPES, TYPE_META, countByType } from '../lib/places';
 
 export function PawMark({ className = 'h-9 w-9 text-brand-300' }: { className?: string }) {
@@ -105,7 +105,8 @@ export function HomePageHero({ subtitle }: THomePageHeroProps) {
     const barProbe = barProbeRef.current;
     if (!sentinel || !block || !pad || !title || !paw || !insetProbe || !barProbe) return;
 
-    const scrollDriven = supportsScrollTimeline();
+    const mode = morphModeOf();
+    const scrollDriven = mode === 'scroll';
     let restTop = 0;
     let pinnedTop = 0;
     const measure = () => {
@@ -141,7 +142,8 @@ export function HomePageHero({ subtitle }: THomePageHeroProps) {
     let last = -1;
     const apply = () => {
       frame = 0;
-      const progress = collapseProgress(sentinel.getBoundingClientRect().top, restTop, pinnedTop);
+      // snap: 블록이 붙는 순간 헤더로 접힌다. 그 전에는 카드 그대로 올라간다 — 붙기 전에 접으면 헤더 한 줄이 화면 가운데에 떠서 올라온다.
+      const progress = collapseProgress(sentinel.getBoundingClientRect().top, restTop, pinnedTop) >= 1 ? 1 : 0;
       if (progress === last) return;
       last = progress;
       block.style.setProperty('--morph', String(progress));
@@ -152,6 +154,7 @@ export function HomePageHero({ subtitle }: THomePageHeroProps) {
 
     measure();
     if (!scrollDriven) apply();
+    const clearMode = writeMorphMode(block, mode);
 
     const resize = new ResizeObserver(() => {
       measure();
@@ -170,6 +173,7 @@ export function HomePageHero({ subtitle }: THomePageHeroProps) {
       window.removeEventListener('scroll', schedule);
       window.removeEventListener('resize', onResize);
       cancelAnimationFrame(frame);
+      clearMode();
     };
   }, []);
 
