@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { stickyMorphProgress, stickyMorphRange } from '../../lib/stickyMorph';
-import { offsetInScroller, supportsScrollTimeline, writeMorphRange } from './scrollDrivenMorph';
+import { morphModeOf, offsetInScroller, writeMorphMode, writeMorphRange } from './scrollDrivenMorph';
 
 /**
  * 스크롤을 따라 올라가다 상단에 붙고, **스크롤한 만큼** 큰 제목에서 헤더로 바뀌는 제목 줄.
@@ -79,7 +79,8 @@ export function StickyMorphTitle({ title, trailing, percent }: TStickyMorphTitle
      * 바뀔 수 있으므로 크기가 바뀔 때마다 다시 잰다(ResizeObserver). 스크롤 프레임마다 재지는 않는다 —
      * 스크롤 중에 바뀌는 값이 아니고, 재면 레이아웃을 강제한다.
      */
-    const scrollDriven = supportsScrollTimeline();
+    const mode = morphModeOf();
+    const scrollDriven = mode === 'scroll';
     let inset = 0;
     let distance = 0;
     const measure = () => {
@@ -93,8 +94,9 @@ export function StickyMorphTitle({ title, trailing, percent }: TStickyMorphTitle
     let last = -1;
     const apply = () => {
       frame = 0;
-      const progress = stickyMorphProgress(sentinel.getBoundingClientRect().top, inset, distance);
-      // 같은 값이면 쓰지 않는다 — 접히기 전·다 접힌 뒤의 긴 스크롤 동안 style 쓰기가 0 이 된다.
+      // snap: 줄이 붙어 반쯤 올라가면 접힌다 — 붙는 경계에서 1px 오르내림으로 깜빡이지 않게 가운데를 문턱으로 둔다.
+      const progress = stickyMorphProgress(sentinel.getBoundingClientRect().top, inset, distance) >= 0.5 ? 1 : 0;
+      // 같은 값이면 쓰지 않는다 — 경계를 넘을 때만 style 을 쓴다.
       if (progress === last) return;
       last = progress;
       bar.style.setProperty('--morph', String(progress));
@@ -106,6 +108,7 @@ export function StickyMorphTitle({ title, trailing, percent }: TStickyMorphTitle
     measure();
     // 그리기 전에 한 번 — 스크롤이 복원된 채로 들어온 경우 첫 프레임부터 맞는 모습이다.
     if (!scrollDriven) apply();
+    const clearMode = writeMorphMode(bar, mode);
 
     const resize = new ResizeObserver(() => {
       measure();
@@ -125,6 +128,7 @@ export function StickyMorphTitle({ title, trailing, percent }: TStickyMorphTitle
       window.removeEventListener('scroll', schedule);
       window.removeEventListener('resize', onResize);
       cancelAnimationFrame(frame);
+      clearMode();
     };
   }, []);
 
