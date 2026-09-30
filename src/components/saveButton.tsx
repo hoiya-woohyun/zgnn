@@ -23,6 +23,17 @@ const announceSaved = () => {
   showAppStatus('저장했어요', { link: { href: '/saved', label: '저장한 곳 보기' }, durationMs: 2500 });
 };
 
+/** 저장 상태와 토글. 알림 규칙(처음 두 번)을 다른 모양의 저장 버튼(상세 액션 줄)도 같이 쓰게 밖으로 뺐다. */
+export function useSaveToggle(id: string) {
+  const saved = useIsSaved(id);
+  const toggleSaved = useAppStore((state) => state.toggleSaved);
+  const toggle = () => {
+    if (!saved) announceSaved();
+    toggleSaved(id);
+  };
+  return { saved, toggle };
+}
+
 /**
  * 저장 토글.
  *
@@ -33,13 +44,8 @@ const announceSaved = () => {
  * "저장 해제" 로 바꾸면 스크린리더가 "저장 해제, 눌림" 처럼 두 번, 서로 반대로 읽는다.
  */
 export function SaveButton({ id, name, variant = 'icon', className = '' }: TSaveButtonProps) {
-  const saved = useIsSaved(id);
-  const toggleSaved = useAppStore((state) => state.toggleSaved);
+  const { saved, toggle } = useSaveToggle(id);
   const label = `${name} 저장`;
-  const toggle = () => {
-    if (!saved) announceSaved();
-    toggleSaved(id);
-  };
 
   if (variant === 'full') {
     return (
