@@ -35,6 +35,22 @@ describe('correctPetPolicyFacts — 원문에 근거가 있는 판단은 그대�
     expect(r.corrections).toEqual(['요금 문장 "청소비 7만원" 이 원문에 없어 뺐어요']);
   });
 
+  /*
+   * **금액 표기를 모델이 바꾸면 그 줄을 잃는다.** 근거 확인이 숫자 문자열을 대 보므로 "15,000원" → "1.5만원" 은
+   * 원문에 `1.5` 가 없어 통째로 빠진다. 프롬프트가 "금액은 본문 표기 그대로" 라고 못 박는 이유가 이것이고,
+   * 이 테스트는 그 규칙이 프롬프트에서 빠졌을 때 무슨 일이 나는지를 고정해 둔다(고칠 곳은 보정이 아니라 프롬프트다).
+   */
+  it('금액 표기를 바꾼 줄은 원문에 그 숫자가 없어 빠진다', () => {
+    const r = correctPetPolicyFacts(facts({ feeLines: ['1.5만원'] }), '반려견 추가 요금은 15,000원이에요');
+    expect(r.facts?.feeLines).toEqual([]);
+    expect(r.corrections).toEqual(['요금 문장 "1.5만원" 이 원문에 없어 뺐어요']);
+  });
+
+  it('본문 표기 그대로면 쉼표가 있어도 남는다', () => {
+    const r = correctPetPolicyFacts(facts({ feeLines: ['1마리당 15,000원'] }), '반려견 추가 요금은 15,000원이에요');
+    expect(r.facts?.feeLines).toEqual(['1마리당 15,000원']);
+  });
+
   /** 옛 후보(2026-09-30 이전)는 `feeText` 하나만 들고 있다 — 그 값도 같은 보정을 통과해 새 칸으로 옮겨진다. */
   it('옛 모양(feeText)도 읽어 feeLines 로 옮긴다', () => {
     const r = correctPetPolicyFacts(facts({ feeText: '1마리당 2만원' }), '1마리당 2만원 추가예요');

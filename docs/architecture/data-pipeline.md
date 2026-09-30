@@ -1,7 +1,7 @@
 # 데이터 파이프라인 — Supabase → src/data
 
 > 최종 수정: 2026-09-30 (v15: **AI 판단의 요금이 목록이 됐다** — `TPetPolicyFacts.feeText`(문장 하나) → `feeLines: string[]`(기준마다 한 줄).
-> `PROMPT_VERSION` 이 바뀌었다(`5176fd23`) — 옛 프롬프트로 분석된 글을 다시 읽히려면 `analyzed_at` 을 비우고 그 글의 `pending` 후보를 지운다(아래 「재분석」))
+> `PROMPT_VERSION` 이 바뀌었다 — 옛 프롬프트로 분석된 글을 다시 읽히려면 `analyzed_at` 을 비우고 그 글의 `pending` 후보를 눕힌다(아래 「재분석」))
 > 이전 (v14: **이미 게시된 곳은 후보를 만들지 않는다** — 짝짓기 결과가 `auto`(≥0.85)이고 그 짝이
 > `published` 면 `candidates` 행을 넣지 않고 `analysis.excluded` 에 `alreadyHave` 로만 남긴다(`skipAsExisting`).
 > 승인해도 하는 일이 기존 행의 **빈 칸 채우기**뿐인데 검수 목록에서는 신규와 같은 무게로 한 줄을 먹었다.
@@ -181,18 +181,27 @@ flowchart LR
   **`data:analyze` 에 그 스위치는 없다.** 글을 고르는 조건은 `analyzed_at is null` 하나뿐이라(`analyze-candidates.mjs:207`),
   재분석은 **DB 를 손으로 되돌려** 그 조건에 다시 걸리게 하는 일이다. 순서가 중요하다:
 
+  0. **지금 버전을 코드에서 읽는다** — 문서에 적어 두면 프롬프트를 한 번 더 고친 순간 거짓이 된다:
+     `node -e "import('./scripts/analyze/extractPlaces.mjs').then(m=>console.log(m.PROMPT_VERSION))"`.
+     그 값과 다른 `analysis->>'promptVersion'` 을 가진 글이 재분석 대상이다.
   1. 되돌릴 글의 `pending` 후보를 **먼저 치운다.** 안 치우면 같은 가게의 후보가 옛 판단·새 판단 두 벌로 쌓이고,
      `groupCandidates` 가 그것을 한 묶음으로 묶어 대표(`lead`)를 confidence 로 고른다 — 운영자가 보는 한 줄이 어느 판단인지 알 수 없다.
      **지우는 것이 아니라 `status = 'rejected'` 로 눕힌다** — `candidates` 의 GRANT 에 delete 가 없다(`20260922120000_narrow_grants.sql`,
      `places` 의 소프트 삭제와 같은 경계). 행이 남으니 옛 판단과 새 판단을 나중에 대 볼 수도 있다.
      `approved`·`merged`·`rejected` 는 건드리지 않는다(사람이 이미 결정한 것이다).
+     **사람이 고친 후보(`reviewer_note` 에 `[admin] 고침`)도 뺀다** — 눕히면 그 손질이 새 후보에 묻힌다(`EDITED_NOTE`, `src/lib/adminApply.ts`).
+     눕힐 때 `reviewer_note` 에 `[admin] 재분석` 한 줄을 덧붙여 사람이 반려한 것과 구별해 둔다(반려 사유 칩·집계가 이 칸을 읽는다).
+  1-1. **글 단위로 되돌린다.** 글 하나를 다시 읽으면 그 글의 장소가 **전부** 다시 후보가 된다 — 요금 문장이 있는 후보만
+     골라 눕히면 형제 후보가 새 행으로 또 생겨 같은 가게가 두 줄이 된다(`dupOf`·`중복표시`).
   2. 그 글의 `analyzed_at` 을 `null` 로 되돌린다. `analysis` 는 두어도 된다 — 다음 실행이 덮는다.
   3. `pnpm data:analyze --limit 2` 로 **먼저 두 건만** 돌려 결과를 `/admin` 에서 확인한 뒤 나머지를 돌린다.
      `claude -p`(구독)를 쓰므로 5시간 한도를 한 번에 태우면 그 실행이 중간에 멈춘다.
 
   ⚠️ 승인·반려로 **사람이 이미 결정한 글을 되돌리면 그 결정이 되살아나지 않는다** — 후보만 다시 생긴다.
-  ⚠️ 재분석은 **네이버 쿼터와 Claude 한도를 다시 쓴다.** 좌표 보강 키가 없으면 `keyGate` 가 Claude 를 부르기 전에 멈추고(`--no-geo` 로 끈다),
-  교차점검이 켜져 있으면 `--limit` 이 사실상 절반이다(`--no-verify`). 요금 판단만 확인하려면 조건 문장에 금액이 있는 글로 좁히는 것이 가장 싸다.
+  ⚠️ 재분석은 **네이버 쿼터와 Claude 한도를 다시 쓴다.** 교차점검이 켜져 있으면 `--limit` 이 사실상 절반이다(`--no-verify` 로 끈다).
+  ⚠️ **`--no-geo` 로 싸게 돌리지 않는다.** 좌표가 없으면 동명 가게가 `ask` 대신 `auto` 로 판정되고, `auto` 는 곧바로
+  `approved` 로 들어가 사람이 보지도 못한 채 합쳐진다(`analyze-candidates.mjs` 머리 주석의 그 이유 그대로).
+  싸게 보려면 키를 그대로 두고 **`--dry-run --dump --limit 3`** 으로 돌려 JSON 의 `petPolicy.feeLines` 를 먼저 읽는다 — DB 에 아무것도 쓰지 않는다.
 - **같은 가게가 여러 글에서 나온다** — 첫 실행에서 한 펜션(자사 홍보 블로그, 저수지의 12%)이 13건, 목록 글 하나가 101건. 그래서 한 실행에 블로그당 2건(`--max-per-blog`, 넘친 글은 닫지 않고 뒤로 밀린다),
   `extracted.nameKey`(`normalizeName`)와 `dupOf`(먼저 난 pending 후보 id)로 묶고, `visited: false`(이름만 나열된 목록 글)를 표식으로 남긴다. 후보는 그래도 넣는다 — evidence 가 다른 글이다.
 - **이미 게시된 곳(`auto` + 짝이 `published`)은 후보를 만들지 않는다**(`skipAsExisting`, `scripts/analyze/analyzeCandidates.mjs`).

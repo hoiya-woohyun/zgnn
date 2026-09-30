@@ -139,6 +139,12 @@ const failIf = (step: string, error: { message: string } | null) => {
   if (error) throw new Error(`${step}: ${error.message}`);
 };
 
+/**
+ * 사람이 고친 후보의 표시. `reviewer_note` 에 한 줄로 남기고, **재분석 때 그 행을 빼는 기준**이 된다
+ * (`saveEdit` 머리 주석). 문자열을 바꾸면 이미 적힌 행이 안 걸리므로 못 바꾼다 — 반려 사유(`REJECT_REASONS`)와 같은 성질이다.
+ */
+export const EDITED_NOTE = '[admin] 고침';
+
 /** 후보를 approved 로. `reviewed_at` 은 적지 않는다 — 트리거가 찍는다(20260928150000:14-31). */
 async function markApproved(client: SupabaseClient, row: TCandidateRow): Promise<void> {
   const { error } = await client
@@ -403,12 +409,22 @@ export async function rejectGroup(
  * 대표만 고친다 — 그 갈림은 호출부(`adminPage.tsx`)가 정한다.
  */
 export async function saveEdit(client: SupabaseClient, row: TCandidateRow, edit: TCandidateEdit): Promise<TCandidateRow> {
+  /*
+   * **고친 것이 `reviewer_note` 에 표시로 남는다.** 그 전에는 사람이 고친 후보와 AI 가 뽑은 그대로인 후보가
+   * DB 에서 구별되지 않았다(`reviewed_at` 은 트리거가 승인·반려에만 찍는다). 그것이 드러나는 자리는 하나다 —
+   * 프롬프트를 고쳐 **재분석**할 때(docs/architecture/data-pipeline.md 의 「재분석」). 되돌릴 글의 pending 후보를
+   * 눕히고 다시 읽히는데, 그중 사람이 손으로 고친 것이 있으면 그 손질이 같이 묻힌다. 표시가 있으면 그 행만 빼고 눕힐 수 있다.
+   *
+   * 한 번만 적는다 — `saveEdit` 은 묶음의 행마다 불리고 저장도 여러 번 할 수 있어, 조건 없이 덧붙이면 같은 줄이 쌓인다.
+   */
+  const note = row.reviewer_note?.includes(EDITED_NOTE) ? row.reviewer_note : appendReviewerNote(row.reviewer_note, EDITED_NOTE);
   const { error } = await client
     .from('candidates')
     .update({
       extracted: edit.extracted,
       match_place_id: edit.match_place_id,
       match_confidence: edit.match_confidence,
+      reviewer_note: note,
     })
     .eq('id', row.id);
   failIf('고친 내용 저장', error);
@@ -417,6 +433,7 @@ export async function saveEdit(client: SupabaseClient, row: TCandidateRow, edit:
     extracted: edit.extracted,
     match_place_id: edit.match_place_id,
     match_confidence: edit.match_confidence,
+    reviewer_note: note,
     /*
      * 짝이 바뀌면 임베딩(`places(id,name,status)`)도 낡는다. 지우지 않으면 '이미 있는 곳 → 옛 이름' 이
      * 그대로 붙어 있어, 사람이 고친 뒤에도 화면이 옛 짝을 말한다. 새 이름은 다음 조회에서 온다.
