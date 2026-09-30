@@ -8,6 +8,7 @@ import { EmptyState } from '../components/layout/emptyState';
 import { PageHeader } from '../components/layout/pageHeader';
 import { approveGroup, rejectGroup, saveEdit, setRegion } from '../lib/adminApply';
 import { aiOriginalOf, buildEdit, type TCandidateEditDraft } from '../lib/adminEdit';
+import { prepareReanalyze, reanalyzePlan, reanalyzeSummary } from '../lib/adminReanalyze';
 import {
   countStrandedCandidates,
   fetchMatchablePlaces,
@@ -181,7 +182,7 @@ export function AdminPage() {
    * 특히 "목록에 없는 키를 버린다"(`pruneSelection`)가 조용히 틀리는 자리라 거기서 테스트한다.
    */
   const [selected, setSelected] = useState<TSelection>(EMPTY_SELECTION);
-  const [bulk, setBulk] = useState<{ busy?: boolean; rejecting?: boolean; summary?: string; error?: string }>({});
+  const [bulk, setBulk] = useState<{ busy?: boolean; rejecting?: boolean; reanalyzing?: boolean; summary?: string; error?: string }>({});
   const [tab, setTab] = useState<TTab>('candidates');
   /**
    * 재빌드가 실제로 불렸는지. `undefined` 는 "못 읽었다" 이고 그때는 **아무 말도 하지 않는다** —
@@ -530,6 +531,56 @@ export function AdminPage() {
       setBulk({ summary: summarizeBulkReject(done.size, failed), error: firstError });
     },
     [beginWrite, endWrite, groups],
+  );
+
+  /** 고른 묶음들의 재분석 계획. 형제 후보(같은 글의 다른 줄)를 찾으려고 **목록 전체**의 행을 함께 넘긴다(`reanalyzePlan`). */
+  const planFor = useCallback(
+    (keys: readonly string[]) => {
+      const wanted = new Set(keys);
+      return reanalyzePlan(
+        groups.filter((group) => wanted.has(group.key)).flatMap((group) => group.rows),
+        groups.flatMap((group) => group.rows),
+      );
+    },
+    [groups],
+  );
+
+  /**
+   * **재분석 준비** — 고른 묶음의 글을 되돌린다(`adminReanalyze.ts`). 한 줄(레일)과 일괄(표 위 줄)이 같은 함수를 쓴다.
+   *
+   * 끝나면 눕힌 후보를 빼고 **다시 묶는다**(`groupPending`). 형제 후보가 다른 줄에 섞여 있을 수 있어 줄 단위로 지우면
+   * 그 줄의 대표만 남거나 빈 줄이 남는다. 결과 한 줄은 표 위 줄에 남긴다 — 한 줄에서 눌렀어도 그 줄은 사라지므로
+   * 말할 자리가 거기뿐이고, 다음에 할 일(터미널에서 `pnpm data:analyze`)을 거기서 말한다.
+   */
+  const reanalyze = useCallback(
+    async (keys: readonly string[], from: 'bulk' | { key: string }) => {
+      const client = clientRef.current;
+      if (!client) return;
+      const fail = (message: string) =>
+        from === 'bulk' ? setBulk({ reanalyzing: true, error: message }) : patchState(from.key, { busy: undefined, error: message });
+      if (!beginWrite(fail)) return;
+      const plan = planFor(keys);
+      if (from === 'bulk') setBulk({ busy: true, reanalyzing: true });
+      else patchState(from.key, { busy: 'reanalyzing', error: undefined });
+      try {
+        await prepareReanalyze(client, plan);
+      } catch (error) {
+        fail(messageOf(error, '재분석 준비를 하지 못했어요.'));
+        return;
+      } finally {
+        endWrite();
+      }
+      const laid = new Set(plan.lay.map((row) => row.id));
+      const next = groupPending(groups.flatMap((group) => group.rows).filter((row) => !laid.has(row.id)));
+      const alive = new Set(next.map((group) => group.key));
+      setGroups(next);
+      setStates((prev) => Object.fromEntries(Object.entries(prev).filter(([key]) => alive.has(key))));
+      setSelected((prev) => clearKeys(prev, [...keys]));
+      setBulk({
+        summary: `글 ${plan.posts.length}건을 재분석 대기로 돌렸어요 · 후보 ${plan.lay.length}건을 눕혔어요 — 터미널에서 pnpm data:analyze 를 돌리면 다시 읽어요.`,
+      });
+    },
+    [beginWrite, endWrite, groups, patchState, planFor],
   );
 
   const saveRegion = useCallback(
@@ -916,6 +967,10 @@ export function AdminPage() {
           onStartReject={() => setBulk({ rejecting: true })}
           onCancelReject={() => setBulk({})}
           onReject={(reason, note) => void rejectSelected(selectedKeys, reason, note)}
+          reanalyzing={Boolean(bulk.reanalyzing)}
+          reanalyzeText={bulk.reanalyzing && selectedKeys.length ? reanalyzeSummary(planFor(selectedKeys)) : undefined}
+          onStartReanalyze={() => setBulk({ reanalyzing: true })}
+          onReanalyze={() => void reanalyze(selectedKeys, 'bulk')}
         />
       ) : null}
 
@@ -971,6 +1026,10 @@ export function AdminPage() {
                   selected={selected.has(group.key)}
                   onSelect={() => setSelected((prev) => toggleSelected(prev, group.key))}
                   pairPlace={expanded === group.key ? pairPlaceOf(group, state) : undefined}
+                  reanalyzeText={expanded === group.key && state.reanalyzing ? reanalyzeSummary(planFor([group.key])) : undefined}
+                  onStartReanalyze={() => patchState(group.key, { reanalyzing: true, rejecting: false, error: undefined })}
+                  onCancelReanalyze={() => patchState(group.key, { reanalyzing: false })}
+                  onReanalyze={() => void reanalyze([group.key], { key: group.key })}
                 />
               );
             })}

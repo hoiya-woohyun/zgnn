@@ -15,6 +15,7 @@ const BUSY_LABEL: Record<NonNullable<TAdminPageGroupState['busy']>, string> = {
   rejecting: '반려하고 있어요…',
   savingRegion: '저장하고 있어요…',
   savingEdit: '저장하고 있어요…',
+  reanalyzing: '분석을 지우고 있어요…',
 };
 
 /** 레일의 맨 위 — **누르면 무슨 일이 일어나는 상황인가.** 버튼보다 먼저 읽힌다. */
@@ -63,6 +64,10 @@ export function AdminPageGroupActions({
   onPickRegion,
   onSaveRegion,
   onEdit,
+  reanalyzeText,
+  onStartReanalyze,
+  onCancelReanalyze,
+  onReanalyze,
 }: {
   group: TCandidateGroup;
   state: TAdminPageGroupState;
@@ -78,6 +83,10 @@ export function AdminPageGroupActions({
   onPickRegion: (regionRaw: string) => void;
   onSaveRegion: (regionRaw: string) => void;
   onEdit: () => void;
+  reanalyzeText?: string;
+  onStartReanalyze: () => void;
+  onCancelReanalyze: () => void;
+  onReanalyze: () => void;
 }) {
   const busy = state.busy;
   const matched = group.lead.places;
@@ -89,6 +98,28 @@ export function AdminPageGroupActions({
   // 반려 폼은 레일 **안에서** 열린다 — 누른 자리에서 이어서 고르고, 근거는 옆에 그대로 남는다.
   if (state.rejecting) {
     return <AdminPageRejectForm inline busy={busy === 'rejecting'} onCancel={onCancelReject} onSubmit={onReject} />;
+  }
+
+  // 재분석 확인도 반려처럼 레일 **안에서** 연다. 무엇이 사라지는지(형제 후보 수까지) 읽고 누르는 자리다.
+  if (state.reanalyzing) {
+    return (
+      <div className="max-w-md space-y-2">
+        <p className="text-sm font-semibold text-primary">분석을 지우고 다시 읽을까요?</p>
+        <p className="text-xs text-secondary">{reanalyzeText}</p>
+        <p className="text-xs text-tertiary">
+          눕힌 후보는 지워지지 않고 반려 목록에 남아요. 그다음 터미널에서 <code>pnpm data:analyze</code> 를 돌리면 이 글을 새 프롬프트로 다시 읽어요.
+        </p>
+        <div className="flex gap-2">
+          <Button color="primary-destructive" size="sm" isDisabled={Boolean(busy)} isLoading={busy === 'reanalyzing'} onClick={onReanalyze}>
+            분석 지우기
+          </Button>
+          <Button color="secondary" size="sm" isDisabled={Boolean(busy)} onClick={onCancelReanalyze}>
+            취소
+          </Button>
+        </div>
+        {state.error && <p className="text-xs text-error-primary">{state.error}</p>}
+      </div>
+    );
   }
 
   const latestButton = (choice: TApproveChoice, caption: string) =>
@@ -335,6 +366,16 @@ export function AdminPageGroupActions({
     // 좁은 화면에서 레일이 근거 위로 오면 한 줄을 다 먹는다 — 버튼이 화면 폭으로 늘어나 주 버튼과 나머지가 구별되지 않아 폭을 묶는다.
     <div className="max-w-md space-y-3">
       {body}
+      {/*
+        * 재분석 준비 — 결정이 아니라 **분석을 다시 하자**는 선택이라 결정 무리 밖, 맨 밑에 둔다.
+        * 프롬프트를 고친 뒤 이 글을 새로 읽혀야 할 때 쓴다(DB 를 손으로 되돌리던 절차, data-pipeline.md 「재분석」).
+        */}
+      <div className="border-t border-secondary pt-2">
+        <Button color="link-gray" size="sm" isDisabled={Boolean(busy) || !group.lead.post_url} onClick={onStartReanalyze}>
+          분석 지우고 다시 읽기
+        </Button>
+        <Caption>{group.lead.post_url ? '이 글을 재분석 대기로 되돌려요.' : '글 링크가 없어 다시 읽을 수 없어요.'}</Caption>
+      </div>
       {busy && <p className="text-xs text-tertiary">{BUSY_LABEL[busy]}</p>}
       {state.error && <p className="text-xs text-error-primary">{state.error}</p>}
     </div>

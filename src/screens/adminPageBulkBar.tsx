@@ -22,6 +22,11 @@ type TAdminPageBulkBarProps = {
   onStartReject: () => void;
   onCancelReject: () => void;
   onReject: (reason: TRejectReason, note: string) => void;
+  /** 재분석 확인이 열려 있다. 확인 문장은 형제 후보까지 센 것이라 페이지가 만든다. */
+  reanalyzing: boolean;
+  reanalyzeText?: string;
+  onStartReanalyze: () => void;
+  onReanalyze: () => void;
 };
 
 /**
@@ -51,6 +56,10 @@ export function AdminPageBulkBar({
   onStartReject,
   onCancelReject,
   onReject,
+  reanalyzing,
+  reanalyzeText,
+  onStartReanalyze,
+  onReanalyze,
 }: TAdminPageBulkBarProps) {
   const picked = selectedCount > 0;
   return (
@@ -86,6 +95,10 @@ export function AdminPageBulkBar({
             <Button color="primary-destructive" size="sm" isDisabled={busy || rejecting} onClick={onStartReject}>
               고른 것 반려하기
             </Button>
+            {/* 프롬프트를 고친 날 쌓인 후보를 통째로 다시 읽히는 길 — 반려와 달리 글이 재분석 대기로 돌아간다. */}
+            <Button color="secondary" size="sm" isDisabled={busy || rejecting || reanalyzing} onClick={onStartReanalyze}>
+              고른 것 재분석 준비
+            </Button>
             <Button color="link-gray" size="sm" isDisabled={busy} onClick={onClear}>
               선택 해제
             </Button>
@@ -99,6 +112,24 @@ export function AdminPageBulkBar({
         */}
       {summary ? <p className="mt-1.5 text-xs text-success-primary">{summary}</p> : null}
       {error ? <p className="mt-1.5 text-xs text-error-primary">{error}</p> : null}
+
+      {reanalyzing && reanalyzeText ? (
+        <div className="mt-2 max-w-2xl space-y-1.5 rounded-lg bg-primary px-3 py-2">
+          <p className="text-xs font-semibold text-primary">고른 {selectedCount}묶음의 분석을 지우고 다시 읽을까요?</p>
+          <p className="text-xs text-secondary">{reanalyzeText}</p>
+          <p className="text-xs text-tertiary">
+            눕힌 후보는 반려 목록에 남아요. 그다음 터미널에서 <code>pnpm data:analyze</code> 를 돌려 주세요.
+          </p>
+          <div className="flex gap-2">
+            <Button color="primary-destructive" size="sm" isDisabled={busy} isLoading={busy} onClick={onReanalyze}>
+              분석 지우기
+            </Button>
+            <Button color="secondary" size="sm" isDisabled={busy} onClick={onCancelReject}>
+              취소
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       {rejecting ? (
         <div className="-mx-4 mt-2 md:-mx-6">

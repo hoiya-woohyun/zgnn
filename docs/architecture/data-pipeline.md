@@ -1,6 +1,7 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-09-30 (v17: 재분석 값을 기존 장소에 반영하는 길 — `/admin` 의 **최신본으로 저장하기**(합치기는 빈 칸만 채워 새 판단이 안 들어간다))
+> 최종 수정: 2026-09-30 (v18: 재분석 1·2단계(후보 눕히기 · `analyzed_at` 비우기)가 `/admin` 의 버튼이 됐다 — 손으로 할 일은 3단계 `data:analyze` 뿐)
+> 이전 (v17: 재분석 값을 기존 장소에 반영하는 길 — `/admin` 의 **최신본으로 저장하기**(합치기는 빈 칸만 채워 새 판단이 안 들어간다))
 > 이전 (v16: **공식 홈페이지 카드** — `places.homepage_url·homepage_name·homepage_image`(마이그레이션 `20260930120000`) →
 > `TPlace.homepage`. 채우는 길은 `data:analyze`(새 후보)·`data:homepage`(쌓인 pending 후보) → 승인. 사진은 URL 만([ADR-002](../decisions/ADR-002-no-place-photos.md) v3))
 > 이전 (v15: **AI 판단의 요금이 목록이 됐다** — `TPetPolicyFacts.feeText`(문장 하나) → `feeLines: string[]`(기준마다 한 줄).
@@ -190,6 +191,9 @@ flowchart LR
 
   **`data:analyze` 에 그 스위치는 없다.** 글을 고르는 조건은 `analyzed_at is null` 하나뿐이라(`analyze-candidates.mjs:207`),
   재분석은 **DB 를 손으로 되돌려** 그 조건에 다시 걸리게 하는 일이다. 순서가 중요하다:
+
+  **1·2단계는 `/admin` 의 `분석 지우고 다시 읽기`(한 줄) · `고른 것 재분석 준비`(여러 줄)가 한다**(`src/lib/adminReanalyze.ts`,
+  [admin-review 「분석 지우고 다시 읽기」](../features/admin-review.md)). 아래는 그 버튼이 지키는 규칙이자, 버튼 없이 손으로 할 때의 절차다.
 
   0. **지금 버전을 코드에서 읽는다** — 문서에 적어 두면 프롬프트를 한 번 더 고친 순간 거짓이 된다:
      `node -e "import('./scripts/analyze/extractPlaces.mjs').then(m=>console.log(m.PROMPT_VERSION))"`.

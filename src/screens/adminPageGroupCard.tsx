@@ -28,7 +28,7 @@ import { ADMIN_CANDIDATE_GRID, ADMIN_LEAD_CELL, ADMIN_PANEL_DIVIDER, ADMIN_ROW_O
 
 /** 묶음 하나의 화면 상태. 소유자는 `adminPage.tsx` 고 여기는 받아서 그린다. */
 export type TAdminPageGroupState = {
-  busy?: 'approving' | 'rejecting' | 'savingRegion' | 'savingEdit';
+  busy?: 'approving' | 'rejecting' | 'savingRegion' | 'savingEdit' | 'reanalyzing';
   /** 끝난 묶음의 초록 한 줄. 이 값이 있으면 카드는 접힌 한 줄만 남는다. */
   done?: string;
   error?: string;
@@ -40,6 +40,8 @@ export type TAdminPageGroupState = {
    */
   archived?: Extract<TApplyOutcome, { kind: 'archivedTarget' }>;
   rejecting?: boolean;
+  /** '분석 지우고 다시 읽기' 확인이 열려 있다(`adminReanalyze.ts`). 반려와 같은 자리(레일)를 쓴다. */
+  reanalyzing?: boolean;
   /** '지역 고르기' 셀렉트의 현재 선택. */
   regionDraft?: string;
   /**
@@ -82,6 +84,11 @@ type TAdminPageGroupCardProps = {
    * 펼친 줄에만 넘어온다. 없으면(짝이 DB 에 없다) 그 버튼을 안 그린다.
    */
   pairPlace?: TPlaceRow;
+  /** 재분석 확인 문장 — 형제 후보까지 세려면 목록 전체가 필요해 페이지가 만들어 넘긴다. 확인이 열렸을 때만 온다. */
+  reanalyzeText?: string;
+  onStartReanalyze: () => void;
+  onCancelReanalyze: () => void;
+  onReanalyze: () => void;
 };
 
 const TIER_COLOR: Record<string, 'success' | 'warning' | 'blue'> = {
@@ -150,6 +157,10 @@ export function AdminPageGroupCard({
   selected,
   onSelect,
   pairPlace,
+  reanalyzeText,
+  onStartReanalyze,
+  onCancelReanalyze,
+  onReanalyze,
 }: TAdminPageGroupCardProps) {
   const extracted = group.lead.extracted;
   const policy = policySplit(preview, extracted.petPolicyText);
@@ -435,6 +446,10 @@ export function AdminPageGroupCard({
                 onPickRegion={onPickRegion}
                 onSaveRegion={onSaveRegion}
                 onEdit={openEdit}
+                reanalyzeText={reanalyzeText}
+                onStartReanalyze={onStartReanalyze}
+                onCancelReanalyze={onCancelReanalyze}
+                onReanalyze={onReanalyze}
               />
             </aside>
           </div>
