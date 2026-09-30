@@ -12,7 +12,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { groupCandidates, groupFlags, previewPolicy } from '../../scripts/analyze/reviewCandidates.mjs';
 import { parseRegion } from '../../scripts/lib/placeFields.mjs';
-import { parsePetPolicy, toPetBadges, withPolicyFacts } from './petPolicy';
+import { parsePetPolicy, toPetBadges, withPolicyFacts, type TPetBadge } from './petPolicy';
 import { PLACES } from './places';
 import type { TDirection, TPetPolicyFacts, TRegion } from '../types';
 
@@ -129,6 +129,11 @@ export type TCandidateGroup = {
 export type TPolicyPreview = {
   regexBadges: string[];
   mergedBadges: string[];
+  /**
+   * `mergedBadges` 와 **같은 것을 톤까지** 들고 있는 형태. 라벨만으로는 톤을 되찾을 수 없다 —
+   * 요금 문장(`1마리당 2만원`)처럼 값 자체가 라벨인 것이 있어서다. 순서의 정본은 `toPetBadges` 하나다.
+   */
+  mergedBadgeList: TPetBadge[];
   facts: TPetPolicyFacts | null;
   /** AI 판단 중 원문에 근거가 없어 앱이 빼고 보는 것(한국어 한 줄씩). `facts` 는 모델이 낸 그대로다. */
   corrections: string[];

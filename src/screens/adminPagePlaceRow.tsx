@@ -68,8 +68,7 @@ export function AdminPagePlaceRow({
     <li className={cx('hover:bg-primary_hover', state.archiving && ADMIN_ROW_OPEN)}>
       <div className={cx('px-4 py-2', ADMIN_PLACE_GRID)}>
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          {/* 두 표가 같은 순서·같은 칩을 쓴다 — 칸을 오갈 때 눈이 다시 적응하지 않게. */}
-          <AdminTypeChip type={place.type} />
+          {/* 종류 칩은 맨 뒤 자기 열로 갔다(2026-09-30) — 두 표가 같은 자리에 둔다. */}
           <span className="truncate text-sm font-bold text-primary">{place.name}</span>
         </div>
 
@@ -88,6 +87,11 @@ export function AdminPagePlaceRow({
               ? '아직 사이트에 안 올라간 곳이에요 — ‘확인할 장소’ 에서 이 가게의 후보를 승인하면 올라가요.'
               : '')}
         </p>
+
+        {/* 후보 표와 같은 자리, 같은 칩(`AdminTypeChip`). */}
+        <div className="flex items-center max-md:mt-1">
+          <AdminTypeChip type={place.type} />
+        </div>
 
         {/*
           * 사유를 고르는 중이어도 **칸은 남긴다.** 자식 하나가 사라지면 grid 가 열을 하나 덜 세어

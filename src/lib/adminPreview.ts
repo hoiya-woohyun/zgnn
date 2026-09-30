@@ -15,6 +15,7 @@
  */
 
 import { factsLine, FACTS_EMPTY, type TPolicyPreview } from './adminCandidates';
+import type { TPetBadge } from './petPolicy';
 
 export type TFlagTone = 'gray' | 'warning' | 'error';
 export type TFlagBadge = { key: string; label: string; tone: TFlagTone };
@@ -99,15 +100,22 @@ export function aiAnalyzed(preview: TPolicyPreview): boolean {
  * (`petPolicy.ts:148` 의 `/정보\s*없음/`) "문장이 없어요" 라고 적으면 새 거짓말이 된다. **원문 유무**로만 가른다.
  */
 export type TPolicyCell = {
-  /** 사이트에 그대로 보일 동반 조건 낱개. 비어 있으면 `message` 가 왜 비었는지 말한다. */
-  items: string[];
+  /**
+   * 사이트에 그대로 보일 동반 정보 낱개. 비어 있으면 `message` 가 왜 비었는지 말한다.
+   *
+   * **순서는 여기서 정하지 않는다** — `toPetBadges`(petPolicy.ts:384) 하나가 정하고 그것이 곧 사이트의 순서다.
+   * 여기서 다시 정렬하면 검수 화면과 사이트가 같은 장소를 다른 순서로 말하고, 펼친 상세의
+   * '사이트에 보일 동반 조건' 줄이 사이트에 없는 순서를 보여 준다. 그 함수의 순서는 이미 고정이다:
+   * 동반 불가 → 실내 → 요금 → 크기 → 무게 → 마릿수 → 리드줄 → 확인 필요.
+   */
+  items: TPetBadge[];
   /** 읽어낸 것이 없을 때의 한 문장. `items` 가 있으면 null — 둘이 동시에 차는 일은 없다. */
   message: string | null;
 };
 
 export function policyCell(preview: TPolicyPreview, petPolicyText: string | null | undefined): TPolicyCell {
   if (!petPolicyText?.trim()) return { items: [], message: '동반 조건 문장이 없어요' };
-  if (preview.mergedBadges.length) return { items: preview.mergedBadges, message: null };
+  if (preview.mergedBadgeList.length) return { items: preview.mergedBadgeList, message: null };
   /*
    * **뱃지 0개가 곧 "못 읽었다" 는 아니다.** `toPetBadges` 는 `largeDogOk === false` · `feeFree === false` 에
    * 아무 뱃지도 만들지 않는다(`petPolicy.ts:399-401·392-396` 의 갈래를 전부 통과한다). 그래서 AI 가
@@ -126,5 +134,5 @@ export function policyCell(preview: TPolicyPreview, petPolicyText: string | null
  */
 export function policyLine(preview: TPolicyPreview, petPolicyText: string | null | undefined): string {
   const cell = policyCell(preview, petPolicyText);
-  return cell.items.length ? cell.items.join(' · ') : (cell.message ?? '');
+  return cell.items.length ? cell.items.map((item) => item.label).join(' · ') : (cell.message ?? '');
 }

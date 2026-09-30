@@ -10,14 +10,29 @@ import { describe, expect, it } from 'vitest';
 import { adminFlagView, policyCell, policyLine } from './adminPreview';
 import type { TPolicyPreview } from './adminCandidates';
 
-const preview = (over: Partial<TPolicyPreview> = {}): TPolicyPreview => ({
-  regexBadges: [],
-  mergedBadges: ['야외만'],
-  facts: null,
-  corrections: [],
-  flags: [],
-  level: '조건',
-  ...over,
+/**
+ * `mergedBadges`(라벨)와 `mergedBadgeList`(라벨+톤)는 실제로는 `toPetBadges` 한 번에서 함께 나온다
+ * (`reviewCandidates.mjs` 의 `previewPolicy`). 테스트에서도 **한 벌로** 둔다 — 따로 적으면 둘이 어긋난
+ * preview 로 단정하게 되고, 그 어긋남은 제품에서 일어날 수 없는 상태다.
+ */
+const preview = (over: Partial<TPolicyPreview> = {}): TPolicyPreview => {
+  const mergedBadges = over.mergedBadges ?? ['야외만'];
+  return {
+    regexBadges: [],
+    facts: null,
+    corrections: [],
+    flags: [],
+    level: '조건',
+    ...over,
+    mergedBadges,
+    mergedBadgeList: over.mergedBadgeList ?? mergedBadges.map((label) => ({ label, tone: 'cond' as const })),
+  };
+};
+
+/** 낱개는 이제 톤까지 들고 있다. 문장 갈래를 단정하는 자리에서는 라벨만 보면 된다. */
+const labelsOf = (cell: ReturnType<typeof policyCell>) => ({
+  items: cell.items.map((item) => item.label),
+  message: cell.message,
 });
 
 describe('adminFlagView — 표식 전수', () => {
@@ -77,7 +92,7 @@ describe('adminFlagView — 표식 전수', () => {
 
 describe('policyCell — 네 갈래', () => {
   it.each([null, undefined, '', '   '])('조건 원문이 %o 면 문장으로 말한다', (text) => {
-    expect(policyCell(preview(), text)).toEqual({ items: [], message: '동반 조건 문장이 없어요' });
+    expect(labelsOf(policyCell(preview(), text))).toEqual({ items: [], message: '동반 조건 문장이 없어요' });
   });
 
   /**
@@ -85,14 +100,14 @@ describe('policyCell — 네 갈래', () => {
    * 경계를 그을 수 없다. 옛 `조건 [...]` 의 대괄호가 하던 두 번째 일이 이것이었다.
    */
   it('읽어낸 조건은 낱개로 — 대괄호도, 미리 이어 붙인 문자열도 아니다', () => {
-    expect(policyCell(preview({ mergedBadges: ['야외만', '리드줄'] }), '야외석만 가능해요')).toEqual({
+    expect(labelsOf(policyCell(preview({ mergedBadges: ['야외만', '리드줄'] }), '야외석만 가능해요'))).toEqual({
       items: ['야외만', '리드줄'],
       message: null,
     });
   });
 
   it('문장은 있는데 아무도 못 읽었으면 그렇게 말한다 — 옛 화면은 이것을 "자유" 라고 불렀다', () => {
-    expect(policyCell(preview({ mergedBadges: [], facts: null }), '애견동반 가능해요!')).toEqual({
+    expect(labelsOf(policyCell(preview({ mergedBadges: [], facts: null }), '애견동반 가능해요!'))).toEqual({
       items: [],
       message: '동반 조건을 못 읽었어요',
     });
@@ -104,7 +119,7 @@ describe('policyCell — 네 갈래', () => {
    */
   it('AI 는 읽었는데 뱃지가 안 되는 값이면 못 읽었다고 하지 않는다', () => {
     const facts = { largeDogOk: false } as TPolicyPreview['facts'];
-    expect(policyCell(preview({ mergedBadges: [], facts }), '대형견은 어려워요')).toEqual({
+    expect(labelsOf(policyCell(preview({ mergedBadges: [], facts }), '대형견은 어려워요'))).toEqual({
       items: [],
       message: 'AI 는 읽었는데 사이트에 안 나와요',
     });
@@ -112,14 +127,28 @@ describe('policyCell — 네 갈래', () => {
 
   it('판단 객체는 있는데 조각이 0개면 그건 정말 못 읽은 것이다', () => {
     const facts = {} as TPolicyPreview['facts'];
-    expect(policyCell(preview({ mergedBadges: [], facts }), '애견동반 가능해요!')).toEqual({
+    expect(labelsOf(policyCell(preview({ mergedBadges: [], facts }), '애견동반 가능해요!'))).toEqual({
       items: [],
       message: '동반 조건을 못 읽었어요',
     });
   });
 
+  /**
+   * 톤이 낱개에 실려 오는 것이 요점이다. 라벨 문자열로 톤을 되찾는 표를 만들면 요금 문장
+   * (`1마리당 2만원`)처럼 값 자체가 라벨인 것에서 반드시 틀리고, 그때 조용히 회색이 된다.
+   */
+  it('낱개는 톤까지 들고 온다 — 화면이 라벨로 톤을 되찾지 않게', () => {
+    const list = [
+      { label: '동반 불가', tone: 'warn' as const },
+      { label: '리드줄', tone: 'cond' as const },
+    ];
+    expect(policyCell(preview({ mergedBadges: list.map((b) => b.label), mergedBadgeList: list }), '안 돼요').items).toEqual(
+      list,
+    );
+  });
+
   it("원문이 '정보 없음' 이어도 문장은 있는 것이다 — level 이 아니라 원문 유무로 가르는 이유", () => {
-    expect(policyCell(preview({ mergedBadges: ['확인된 정보 없음'], level: '정보없음' }), '정보 없음.')).toEqual({
+    expect(labelsOf(policyCell(preview({ mergedBadges: ['확인된 정보 없음'], level: '정보없음' }), '정보 없음.'))).toEqual({
       items: ['확인된 정보 없음'],
       message: null,
     });

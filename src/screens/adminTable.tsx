@@ -31,15 +31,26 @@ const CELL_RULES =
  * 폭은 **선이 차지하는 24px(`pl-3`+`pr-3`)를 뺀 나머지**가 글자 자리다. 좁은 칸은 그만큼 넓혀 두었다 —
  * `게시 대기`·`글 12건` 이 두 줄로 접히면 그 줄만 키가 커져 격자가 어긋난 것처럼 보인다.
  */
+/**
+ * 장소 · 지역 · 동반 정보 · AI 요약 · 근거 · 종류 · (펼침).
+ *
+ * **종류가 맨 뒤에 고정폭으로 선다.** 이름 앞에 칩으로 두던 자리에서 옮긴 것이고(2026-09-30), 세로로 훑히는
+ * 성질은 그대로다 — 자기 열이 되면 이름 길이와 아예 무관해져 오히려 더 곧게 선다. `4rem` 은 선이 먹는
+ * 24px 을 빼고 두 글자('숙소')가 안 접히는 최소값이다.
+ *
+ * AI 요약은 이 표에서 **유일하게 긴 글**이라 가장 넓은 몫(`3fr`)을 받는다. 그래도 넘치면 두 줄에서 자른다
+ * (`line-clamp-2`, 그리는 쪽) — 안 자르면 요약 한 건이 그 줄만 네 줄 키로 만들어 격자가 어긋난 것처럼 보인다.
+ */
 export const ADMIN_CANDIDATE_GRID = cx(
-  'md:grid md:grid-cols-[minmax(0,2fr)_8.5rem_minmax(0,3fr)_5rem_2.5rem]',
+  'md:grid md:grid-cols-[minmax(0,2fr)_7rem_minmax(0,1.6fr)_minmax(0,3fr)_4.5rem_4rem_2.5rem]',
   CELL_RULES,
   /* 끝의 펼침 표시(∨)는 값이 아니라 손잡이다 — 선을 그으면 빈 열 하나가 더 있는 것처럼 읽힌다. */
   'md:[&>*:last-child]:border-l-0 md:[&>*:last-child]:pl-0',
 );
 
+/** 장소 · 지역 · 상태 · 내린 사유 · 종류 · (버튼). 종류의 자리를 후보 표와 맞춘다 — 칸을 오갈 때 눈이 다시 적응하지 않게. */
 export const ADMIN_PLACE_GRID = cx(
-  'md:grid md:grid-cols-[minmax(0,2fr)_8.5rem_7rem_minmax(0,2fr)_7.5rem]',
+  'md:grid md:grid-cols-[minmax(0,2fr)_7rem_7rem_minmax(0,2fr)_4rem_7.5rem]',
   CELL_RULES,
 );
 

@@ -15,6 +15,7 @@ import {
 } from '../lib/adminCandidates';
 import type { TApplyOutcome, TSimilarPlace } from '../lib/adminApply';
 import { lastNoteLine, noteLineText } from '../lib/adminPlaces';
+import type { TBadgeTone } from '../lib/petPolicy';
 import { sameAddress } from '../lib/addressMatch';
 import { aiAnalyzed, policyCell, type TAdminFlagView } from '../lib/adminPreview';
 import { verifyView } from '../lib/adminVerify';
@@ -72,6 +73,19 @@ const TIER_COLOR: Record<string, 'success' | 'warning' | 'blue'> = {
   auto: 'success',
   ask: 'warning',
   new: 'blue',
+};
+
+/**
+ * 동반 정보 낱개의 톤 → 칩 모양. 사이트와 **같은 위계**다(`petBadges.tsx` 의 `TONE_COLOR`):
+ * ok 와 cond 는 둘 다 회색이고, 주의(`warn` — 동반 불가 · 확인된 정보 없음 · 전화 확인)만 노란 바탕으로 나온다.
+ *
+ * 전부 같은 회색이던 자리다. 한 줄에 칩이 예닐곱 개까지 서는 표에서 '동반 불가' 가 '리드줄' 과 같은
+ * 모양이면, 운영자는 그 줄을 **읽어야만** 알 수 있다 — 세로로 훑는 것이 이 화면의 일인데 그 훑기가 여기서 멈춘다.
+ */
+const POLICY_TONE: Record<TBadgeTone, string> = {
+  ok: 'bg-secondary text-secondary',
+  cond: 'bg-secondary text-secondary',
+  warn: 'bg-warning-primary text-warning-primary',
 };
 
 const BUSY_LABEL: Record<NonNullable<TAdminPageGroupState['busy']>, string> = {
@@ -176,8 +190,7 @@ export function AdminPageGroupCard({
           className={cx('min-w-0 flex-1 px-4 py-2 text-left', ADMIN_CANDIDATE_GRID)}
         >
           <span className="flex min-w-0 flex-wrap items-center gap-1.5">
-            {/* 종류가 먼저다 — 열 이름이 '장소' 인 이유이고, 세로로 훑을 수 있게 폭을 못 박았다(`AdminTypeChip`). */}
-            <AdminTypeChip type={extracted.type} />
+            {/* 종류 칩은 맨 뒤 자기 열로 갔다(2026-09-30) — 여기 남은 것은 이름과, 승인을 막거나 미루는 표식들이다. */}
             <span className="text-sm font-bold text-primary">{extracted.name || '(이름 없음)'}</span>
             {/*
               * tier 가 auto/ask 인데 짝이 비어 있으면 **사람이 비운 것**이고(apply-approved.mjs:13·15) 승인은
@@ -215,12 +228,14 @@ export function AdminPageGroupCard({
             ))}
             {/*
               * 부재가 기본값인 표식(`AI 판단 없음`)을 뒤집는다 — 잘 분석된 후보가 눈에 띈다. ✓ 글자는 안 넣는다(아이콘이 그린다).
+              * 'AI' 를 뗀 것은 자리 때문이다 — 이 줄은 막는 표식(빨강)이 서는 곳이고, 대부분의 카드에 붙는 이 초록이
+              * 길면 그만큼 빨강이 줄 끝으로 밀린다. 무엇이 분석했는지는 옆 열 이름(`AI 요약`)이 이미 말한다.
               * `facts` 의 truthy 만 보면 **빈 판단 객체에도 초록이 뜬다** — 그때 펼친 상세는 `AI 가 읽은 동반 조건이 없어요` 라고 해서
               * 한 카드가 자기를 반박한다. `aiAnalyzed` 가 읽어낸 조각이 실제로 있는지까지 본다.
               */}
             {aiAnalyzed(preview) && (
               <BadgeWithIcon type="color" size="sm" color="success" iconLeading={CheckVerified02}>
-                AI 분석 완료
+                분석 완료
               </BadgeWithIcon>
             )}
             {/*
@@ -235,32 +250,68 @@ export function AdminPageGroupCard({
             )}
           </span>
 
-          {/* 지역이 없으면 뱃지 `지역 없음` 이 이미 같은 말을 한다 — 이 칸은 비워 둔다(`지역?` 은 문장도 아니었다). */}
-          <span className="block truncate text-xs text-tertiary max-md:mt-0.5">{extracted.regionRaw || ''}</span>
+          {/*
+            * 지역 칸. 지역이 없으면 뱃지 `지역 없음` 이 이미 같은 말을 한다 — 비워 둔다(`지역?` 은 문장도 아니었다).
+            *
+            * **`view.notes` 가 여기로 왔다.** 동반 정보 칸 끝에 붙어 있었는데, 지금 그 칸에 뜨는 한마디는
+            * `지도에 안 보여요`(= 좌표 없음) 하나뿐이라 애초에 동반 얘기가 아니었다. 칩과 흐린 글자로 모양을
+            * 갈라 두긴 했지만 같은 칸에 있는 한 "동반 조건의 하나" 로 읽힐 여지가 남는다 — 위치 얘기는 위치 칸에 둔다.
+            */}
+          <span className="block min-w-0 text-xs text-tertiary max-md:mt-0.5">
+            <span className="block truncate">{extracted.regionRaw || ''}</span>
+            {view.notes.map((note) => (
+              <span key={note} className="block truncate text-quaternary">
+                {note}
+              </span>
+            ))}
+          </span>
 
           {/*
-            * 동반 조건은 **낱개로 나열한다** — 예전의 `조건 [야외만 · 리드줄]` 에서 대괄호를 뺀 자리다.
-            * 다만 대괄호는 뒤에 붙는 한마디(`view.notes`)와 경계를 긋는 일도 하고 있었으므로(`policyCell` 주석),
-            * 조건은 칩, 한마디는 흐린 글자로 **모양으로** 가른다. 안 가르면 `지도에 안 보여요` 가 동반 조건의 하나로 읽힌다.
+            * 동반 정보는 **낱개로 나열한다** — 예전의 `조건 [야외만 · 리드줄]` 에서 대괄호를 뺀 자리다.
+            * 순서는 여기서 정하지 않는다: `toPetBadges` 가 사이트와 같은 순서로 이미 세워서 보낸다(`policyCell` 주석).
+            * 톤도 그 함수가 매긴 것을 그대로 쓴다 — 라벨 문자열로 되찾으려 하면 요금 문장에서 반드시 틀린다.
             */}
           <span className="flex min-w-0 flex-wrap items-center gap-1 text-xs text-tertiary max-md:mt-0.5">
             {cell.items.length ? (
               cell.items.map((item) => (
-                <span key={item} className="rounded bg-secondary px-1.5 py-px font-medium text-secondary">
-                  {item}
+                <span
+                  key={item.label}
+                  className={cx('rounded px-1.5 py-px font-medium', POLICY_TONE[item.tone])}
+                >
+                  {item.label}
                 </span>
               ))
             ) : (
               <span>{cell.message}</span>
             )}
-            {view.notes.map((note) => (
-              <span key={note} className="text-quaternary">
-                ({note})
-              </span>
-            ))}
+          </span>
+
+          {/*
+            * AI 요약 = `extracted.features`. **이 표에서 새로 뽑는 값이 아니다** — AI 추출 프롬프트가 이미
+            * "해요체 1~2문장, 첫 문장은 어떤 곳인지, 둘째 문장은 강아지 편의" 로 받아 둔 필드이고
+            * (`extractPlaces.mjs` 의 features), 승인되면 **그대로 사이트의 소개 문구가 된다**(`placeCard`·상세·지도 시트).
+            * 그래서 여기서 읽는 것이 곧 사이트에 나갈 글을 미리 읽는 일이다.
+            *
+            * 두 줄에서 자른다. 120자면 이 폭에서 세 줄을 넘고, 그 줄만 키가 커지면 격자가 어긋난 것처럼 보인다.
+            * 잘린 뒤를 보려면 펼치면 된다(상세의 `소개` 줄이 전문이다) — `title` 로도 뜬다.
+            */}
+          <span
+            className="block min-w-0 text-xs text-tertiary max-md:mt-0.5"
+            title={extracted.features || undefined}
+          >
+            {/* `block` 을 같이 걸지 않는다 — `clamp-2` 가 `display: -webkit-box` 라, 둘이 display 를 다투면 잘림이 조용히 꺼진다. */}
+            <span className="clamp-2">{extracted.features || '요약이 없어요'}</span>
           </span>
 
           <span className="block text-xs text-tertiary max-md:mt-0.5">글 {group.rows.length}건</span>
+
+          {/*
+            * 종류 칸. 이름 앞의 칩이던 것을 맨 뒤 자기 열로 옮겼다(2026-09-30). 세로로 훑히게 하려던 목적은
+            * 그대로이고 — 오히려 이름 길이와 무관해져 더 곧게 선다 — 대신 이름 옆에는 승인을 막는 표식만 남는다.
+            */}
+          <span className="flex items-center max-md:mt-1">
+            <AdminTypeChip type={extracted.type} />
+          </span>
 
           {/*
             * 아이콘을 **감싼다.** grid 의 자식마다 세로 여백이 붙는데(`CELL_RULES`), 그 자식이 `<svg>` 면

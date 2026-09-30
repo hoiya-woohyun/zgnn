@@ -35,7 +35,8 @@ import { ADMIN_PLACE_GRID, AdminTable } from './adminTable';
 /** 한 번에 더 그리는 줄 수. 줄이 얇아져(표) 20 은 PC 한 화면도 못 채운다 — 감시판이 곧바로 또 보인다. */
 const PAGE_SIZE = 40;
 
-const COLUMNS = ['장소', '지역', '상태', '내린 사유', ''];
+/** 종류의 자리를 후보 표와 맞춘다(`adminPage.tsx` 의 `COLUMNS`) — 두 칸을 오갈 때 같은 값이 같은 자리에 있게. */
+const COLUMNS = ['장소', '지역', '상태', '내린 사유', '종류', ''];
 
 type TStatusFilter = 'all' | TPlaceStatus;
 

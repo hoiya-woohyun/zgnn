@@ -15,7 +15,9 @@ import {
   groupPending,
   previewFor,
   TIER_LABEL,
+  TYPE_LABEL,
   type TCandidateGroup,
+  type TCandidateType,
   type TPlaceRow,
   type TRejectReason,
 } from '../lib/adminCandidates';
@@ -65,8 +67,14 @@ import { ADMIN_CANDIDATE_GRID, AdminTable } from './adminTable';
 /** 한 번에 더 그리는 줄 수. 줄이 얇아져(표) 20 은 PC 한 화면도 못 채운다 — 감시판이 곧바로 또 보인다. */
 const PAGE_SIZE = 40;
 
-/** 첫 열은 **종류 + 이름**이라 '이름' 이 아니라 '장소' 다(`AdminTypeChip` 이 앞에 선다). */
-const COLUMNS = ['장소', '지역', '동반 조건', '근거', ''];
+/**
+ * 열 이름. '이름' 이 아니라 '장소' 인 것은 이 칸이 이름 하나가 아니라 **승인을 막거나 미루는 표식까지** 담아서다.
+ *
+ * `AI 요약` 은 `extracted.features` 다 — 승인되면 그대로 사이트의 소개 문구가 되므로, 검수 중에 읽어야 할 것이
+ * 동반 정보만은 아니다. `동반 조건` 을 `동반 정보` 로 바꾼 것은 그 칸에 조건이 아닌 것도 서기 때문이다
+ * (`확인된 정보 없음`·`추가요금 없음` 은 조건이 아니라 상태다).
+ */
+const COLUMNS = ['장소', '지역', '동반 정보', 'AI 요약', '근거', '종류', ''];
 /** 끝난 카드가 초록 한 줄로 남아 있는 시간. 바로 지우면 "눌렀는데 아무 일도 안 났다" 로 보인다. */
 const DONE_LINGER_MS = 3000;
 
@@ -84,6 +92,7 @@ const TABS: { key: TTab; label: string }[] = [
 ];
 
 type TTierFilter = 'all' | 'auto' | 'ask' | 'new';
+type TTypeFilter = 'all' | TCandidateType;
 
 /**
  * 동반 조건 축의 세 상태. **불리언 토글 둘로 두지 않는다** — '조건이 적힌 것' 과 '교차점검이 근거를 못 찾은 것' 은
@@ -108,6 +117,26 @@ const TIER_FILTERS: { key: TTierFilter; label: string; match: (group: TCandidate
   { key: 'ask', label: TIER_LABEL.ask, match: (group) => group.tier === 'ask' },
   { key: 'new', label: TIER_LABEL.new, match: (group) => group.tier === 'new' },
 ];
+
+/**
+ * 종류 축. tier·동반 정보와 **겹치지 않는 세 번째 축**이다 — 종류로 좁힌 뒤 tier 로 다시 좁히는 것이
+ * 실제 검수 순서다("카페부터 훑고, 그중 처음 보는 곳만").
+ *
+ * `other` 도 칩을 갖는다. 분석기가 `other` 를 후보에서 제외하므로(`exclusionReason`) 평소엔 0이지만,
+ * 0인 칩이 서 있는 것과 칩이 없는 것은 다른 말이다 — 없으면 '기타' 후보가 생긴 날 그것이 어느 칩에도
+ * 안 걸려 **어떤 걸러 보기로도 볼 수 없는** 줄이 된다(전체 개수와 칩 합이 어긋나는 것으로만 드러난다).
+ */
+const TYPE_FILTERS: { key: TTypeFilter; label: string }[] = [
+  { key: 'all', label: '전체' },
+  { key: 'stay', label: TYPE_LABEL.stay },
+  { key: 'restaurant', label: TYPE_LABEL.restaurant },
+  { key: 'cafe', label: TYPE_LABEL.cafe },
+  { key: 'other', label: TYPE_LABEL.other },
+];
+
+/** 묶음의 종류. 대표 행(`lead`)이 정본이다 — 표의 종류 칩이 읽는 값과 같아야 칩과 목록이 어긋나지 않는다. */
+const typeMatches = (filter: TTypeFilter, group: TCandidateGroup): boolean =>
+  filter === 'all' || group.lead.extracted.type === filter;
 
 /**
  * 새 장소 id. `places.id` 는 default 가 없어 우리가 정한다.
@@ -138,6 +167,7 @@ export function AdminPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [tierFilter, setTierFilter] = useState<TTierFilter>('all');
   const [policyFilter, setPolicyFilter] = useState<TPolicyFilter>('all');
+  const [typeFilter, setTypeFilter] = useState<TTypeFilter>('all');
   const [shown, setShown] = useState(PAGE_SIZE);
   /*
    * 일괄 반려용으로 골라 둔 묶음들. 집합을 다루는 규칙은 전부 `adminSelection.ts` 에 있다 —
@@ -523,16 +553,24 @@ export function AdminPage() {
 
   const activeTier = TIER_FILTERS.find((entry) => entry.key === tierFilter) ?? TIER_FILTERS[0];
   /*
-   * 조건 토글을 **먼저** 좁힌다. tier 칩의 개수가 조건 토글 안에서 세어지지 않으면 토글을 켠 상태에서
-   * 칩 숫자와 목록 길이가 어긋나고, 이 축 분리가 고치려던 "다 본 줄 안다" 가 개수 쪽으로 옮겨 앉는다.
+   * **축이 셋이고, 어떤 칩의 개수든 "나를 뺀 나머지 축을 적용한 뒤" 센다.** 누르면 보일 수와 칩의 숫자가
+   * 같아야 한다는 규칙이고, 이 화면에서 그것이 틀리면 운영자가 "다 봤다" 를 개수로 잘못 읽는다 —
+   * 조건 토글을 켠 채 tier 칩을 보던 시절에 실제로 난 일이다.
    */
-  const inPolicy = policyFilter === 'all' ? cards : cards.filter(POLICY_FILTER_MATCH[policyFilter]);
+  const matchesType = (card: { group: TCandidateGroup }) => typeMatches(typeFilter, card.group);
+  const matchesPolicy = (card: { group: TCandidateGroup }) =>
+    policyFilter === 'all' || POLICY_FILTER_MATCH[policyFilter](card);
+  const inPolicy = cards.filter((card) => matchesPolicy(card) && matchesType(card));
   const filtered = inPolicy.filter((card) => activeTier.match(card.group));
-  /** 두 칩의 개수도 같은 규칙 — 지금 고른 tier 안에서 센다(누르면 보일 수와 같다). */
   const policyCounts = {
-    has: cards.filter((card) => activeTier.match(card.group) && POLICY_FILTER_MATCH.has(card)).length,
-    needsLook: cards.filter((card) => activeTier.match(card.group) && POLICY_FILTER_MATCH.needsLook(card)).length,
+    has: cards.filter((card) => activeTier.match(card.group) && matchesType(card) && POLICY_FILTER_MATCH.has(card))
+      .length,
+    needsLook: cards.filter(
+      (card) => activeTier.match(card.group) && matchesType(card) && POLICY_FILTER_MATCH.needsLook(card),
+    ).length,
   };
+  /** 종류 칩의 개수 — tier·동반 정보를 적용한 뒤, 종류만 열어 두고 센다. */
+  const inOtherAxes = cards.filter((card) => activeTier.match(card.group) && matchesPolicy(card));
 
   // 걸러 보기를 바꾸면 '더 보기' 도 처음으로 — 효과가 아니라 여기서 함께 바꾼다(같은 사건의 두 결과다).
   const pickTier = (next: TTierFilter) => {
@@ -542,6 +580,10 @@ export function AdminPage() {
   /** 같은 축의 세 상태를 오간다 — 누른 것을 다시 누르면 '전체' 다. */
   const pickPolicy = (next: Exclude<TPolicyFilter, 'all'>) => {
     setPolicyFilter((prev) => (prev === next ? 'all' : next));
+    setShown(PAGE_SIZE);
+  };
+  const pickType = (next: TTypeFilter) => {
+    setTypeFilter(next);
     setShown(PAGE_SIZE);
   };
 
@@ -720,6 +762,29 @@ export function AdminPage() {
                   color={active ? 'primary' : 'secondary'}
                   aria-pressed={active}
                   onClick={() => pickTier(entry.key)}
+                >
+                  {entry.label} {count}
+                </Button>
+              );
+            })}
+          </div>
+          {/*
+            * 종류 축. 표의 맨 오른쪽 열과 같은 것을 좁힌다 — 열이 "무엇인지" 를 말하고 이 칩이 "그것만 보기" 를 준다.
+            * 이름표를 다는 이유는 아래 '동반 조건' 과 같다: 없으면 앞의 tier 칩과 한 축으로 읽혀, 종류를 고른 것이
+            * tier 를 '전체' 로 되돌린 것처럼 보인다.
+            */}
+          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="종류">
+            <span className="text-xs font-semibold text-secondary">종류</span>
+            {TYPE_FILTERS.map((entry) => {
+              const count = inOtherAxes.filter((card) => typeMatches(entry.key, card.group)).length;
+              const active = entry.key === typeFilter;
+              return (
+                <Button
+                  key={entry.key}
+                  size="sm"
+                  color={active ? 'primary' : 'secondary'}
+                  aria-pressed={active}
+                  onClick={() => pickType(entry.key)}
                 >
                   {entry.label} {count}
                 </Button>
