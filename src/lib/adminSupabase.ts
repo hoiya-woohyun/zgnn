@@ -33,7 +33,9 @@ export function createAdminClient(accessToken: string): SupabaseClient {
  * **refresh token 은 받자마자 버린다** — 아래 반환값에 담지 않는 것이 그 전부다(저장 경로가 없으므로).
  */
 export async function signInAdmin(email: string, password: string): Promise<TAdminSession> {
-  const client = createClient(PROJECT_URL, PUBLISHABLE_KEY, { auth: AUTH_OPTIONS });
+  // storageKey 를 가르는 이유: 곧이어 만드는 운영자 클라이언트와 기본 키가 같으면 supabase-js 가
+  // "Multiple GoTrueClient instances" 경고를 콘솔에 남긴다. persistSession 이 꺼져 있어 실제로 쓰는 저장소는 없다.
+  const client = createClient(PROJECT_URL, PUBLISHABLE_KEY, { auth: { ...AUTH_OPTIONS, storageKey: 'zgnn.admin.signin' } });
   const { data, error } = await client.auth.signInWithPassword({ email, password });
 
   if (error) {
