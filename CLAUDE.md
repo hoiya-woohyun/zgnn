@@ -94,7 +94,7 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
 - **`src/components/base/` 는 Untitled UI 복사본**이라 직접 고치지 않는다(eslint 도 이
   폴더만 꺼 뒀다). 고쳐야 하면 감싸는 컴포넌트를 만든다.
 - **크기는 `--spacing` 한 축으로만 커진다**(ADR-006). 브레이크포인트마다 `globals.css` 의
-  `--spacing` 만 4 → 4.5 → 5px 로 바뀌고 모든 크기 토큰이 파생된다. 자리마다 `md:text-lg` 를
+  `--spacing` 만 4 → 4.25px(768px 부터 한 단) 로 바뀌고 모든 크기 토큰이 파생된다. 자리마다 `md:text-lg` 를
   손으로 붙이지 않는다 — 아무것도 안 해도 따라오는 게 요점이다. 모바일 값은 44px 터치
   기준(`h-11`)이 걸려 있어 **줄이지 않는다**. 지도 마커는 의도적으로 이 축에서 빼 뒀다.
   **예외는 `/admin` 하나** — 운영자가 PC 로 훑는 표라 `src/styles/adminDensity.css` 가 그 화면에서만 축을

@@ -137,7 +137,7 @@ Notion 공개 페이지 ──(scripts, 무인증 API)──▶ data/jejudo-noti
 - 색은 시맨틱 토큰(`bg-primary`, `text-brand-secondary`, `bg-brand-solid` …)으로만. 원시 색은 `src/styles/theme.css` 에만 있다.
 - 브랜드 핑크(oklch 358°) + 크림 바탕 + 잉크 히어로. 종류 색(바다/앰버/라떼)은 `theme.css` 와 `src/lib/places.ts` 두 곳에 같은 값.
 - 면은 파스텔 워시(`typeTint`), 글씨·아이콘·주요 버튼만 진하게.
-- 크기 토큰은 전부 `--spacing` 파생이고, 브레이크포인트는 그 값만 4 → 4.5 → 5px 로 바꾼다
+- 크기 토큰은 전부 `--spacing` 파생이고, 브레이크포인트는 그 값만 4 → 4.25px(768px 부터) 로 바꾼다
   (→ [ADR-006](./decisions/ADR-006-responsive-scale-and-font.md)). 본문 글꼴은 나눔스퀘어 네오 self-host(400·700).
 
 ---
