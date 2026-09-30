@@ -154,9 +154,10 @@
 
   셸은 `<main>` 에 인셋만큼 위 여백을 주기만 한다 — 그 여백은 아무도 칠하지 않으므로 페이지
   바탕(크림)이 비친다. **맨 위 면은 전 화면 크림이라(ADR-010 v3) 그 비침이 곧 정답이고**,
-  이 유틸이 남은 자리는 하나뿐이다 — 둘러보기의 sticky 검색 줄(`bleed-top-4`). 위에 붙었을 때
-  자기 블러 배경으로 인셋 자리를 덮으려는 것이지 색을 바꾸려는 게 아니다. 숫자는 인셋이 없을
-  때의 원래 위 여백이다.
+  이 유틸을 쓰는 것은 화면 위에 **붙는 sticky 줄** 둘이다 — 둘러보기 검색 줄(`bleed-top-4`)과
+  하위 화면 헤더(appBar, `bleed-top-0`). 위에 붙었을 때 자기 배경으로 인셋 자리를 덮어, 그 밑을
+  지나는 본문이 상태바 뒤로 비치지 않게 하려는 것이다. 배경도 바탕과 같은 크림이라(ADR-010 v4)
+  색을 바꾸려는 게 아니다. 숫자는 인셋이 없을 때의 원래 위 여백이다.
 
   **색을 다른 곳에 베껴 적지 않는 것이 요점이다.** 예전에는 셸이 인셋 높이의 띠를 fixed 로
   깔고 경로표(topSurfaceColorOf)가 화면 첫 블록의 색을 문자열로 복제해 칠했다. 색이 어긋나면
@@ -166,11 +167,6 @@
 @utility bleed-top-* {
   margin-top: calc(-1 * env(safe-area-inset-top, 0px));
   padding-top: calc(var(--spacing) * --value(integer) + env(safe-area-inset-top, 0px));
-}
-
-/* 스크롤을 따라오는 줄(appBar)이 상태바 밑에 깔리지 않고 그 아래에 붙도록. */
-@utility top-safe {
-  top: env(safe-area-inset-top, 0px);
 }
 
 /*

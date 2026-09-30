@@ -118,7 +118,10 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
 - **상태바 인셋도 셸이 처리한다**(ADR-010 v3). 화면에서 `env(safe-area-inset-top)` 이나 `pt-safe` 를
   쓰지 않는다 — 셸이 `<main>` 에 인셋만큼 여백을 주고 **아무도 칠하지 않아 페이지 바탕(크림)이 비친다.**
   맨 위 면은 전 화면 크림이라 **화면 쪽에서 색을 적을 자리가 없다**(경로별 색 표는 ADR-010 v2 에서 없어졌다).
-  남은 것은 둘: sticky 줄의 덮개 `bleed-top-*` 와, 스크롤을 따라오는 줄의 `top-safe`.
+  남은 것은 sticky 줄의 덮개 `bleed-top-*` 하나(둘러보기 검색 줄·하위 화면 헤더).
+- **상태바·홈 인디케이터 자리에 닿는 크롬은 바탕색(크림 `bg-secondary`)이다**(ADR-010 v4). 탭바·축약 줄·검색 줄·
+  하위 화면 헤더가 전부 그렇다. **흰색(`bg-primary`)은 떠 있는 카드에만** 쓴다 — 크롬을 흰색으로 칠하면 SAT·SAB 가
+  스크롤 위치마다 크림/흰색으로 갈린다. 상단 크롬은 불투명(반투명이면 밑의 카드가 상태바 뒤로 비친다), 본문과는 선으로 가른다.
 - **화면 본체는 `src/screens/`** (클라이언트), `src/app/**/page.tsx` 는 주소·메타·
   `generateStaticParams` 만. `src/pages/` 는 Next 가 옛 Pages Router 로 인식해서 못 쓴다.
 - **단일 소유자 파일은 소유자 접두어**를 파일명과 대표 export 에 붙인다(camelCase).
