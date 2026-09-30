@@ -65,7 +65,7 @@ export function PlacesPageTypeTabs({ type, fromIndex, toIndex, pillRef }: TPlace
         탭이 늘어도 식은 그대로다.
 
         패딩을 `0.5rem` 으로 적으면 안 된다 — `p-1` 은 `--spacing` 파생이고 그 값이
-        브레이크포인트마다 4 → 4.5 → 5px 로 바뀐다(ADR-006). 고정 숫자로 적으면 넓은
+        브레이크포인트에서 4 → 4.25px 로 바뀐다(ADR-006). 고정 숫자로 적으면 넓은
         화면에서만 알약이 탭과 어긋난다.
       */}
       <span
