@@ -34,7 +34,7 @@
 
 ## 결정 (Decision)
 
-- **글꼴은 이 ADR 밖이다.** `--font-body`/`--font-sans`/`--font-display` 는 나눔스퀘어 네오를 가리키며, 그 판단은 [ADR-006](./ADR-006-responsive-scale-and-font.md) 에 있다. 크기 토큰(`--text-*`)이 `--spacing` 파생이라는 것도 같은 문서.
+- **글꼴은 이 ADR 밖이다.** `--font-body`/`--font-sans`/`--font-display` 는 Pretendard 서브셋(`Zgnn Sans`)을 가리키며, 그 판단은 [ADR-006](./ADR-006-responsive-scale-and-font.md) 에 있다. 크기 토큰(`--text-*`)이 `--spacing` 파생이라는 것도 같은 문서.
 - **원시 색은 `src/styles/theme.css` 에만.** 화면은 시맨틱 토큰만 쓴다. Tailwind 기본 `neutral` 스케일을 프로젝트 `@theme` 에서 크림·오트밀로 덮어써서 바탕색이 곧 크림이 되게 한다.
 - **브랜드 = 핑크, oklch 색상 358°.** 600(`#cd2a77`, 흰 글씨 5.0:1)만 솔리드 버튼에 쓰고, 300~500 의 밝은 단계를 하트·발자국·워시에 써서 전체 인상을 분홍으로 만든다. `bg-brand-solid` 는 600 — 700 으로 내리면 다시 버건디다.
 - **로고·히어로 바탕은 잉크 `#2e2327`(`--color-ink`).** 브랜드가 바뀌어도 유지.
