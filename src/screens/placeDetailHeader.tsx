@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { PlaceThumb } from '../components/placeThumb';
+import { PLACE_TYPE_ICON } from '../components/icons/placeTypeIcon';
+import { PLACE_THUMB, PlaceThumb } from '../components/placeThumb';
+import { TYPE_COLOR } from '../lib/places';
 import {
   morphModeOf,
   offsetInScroller,
@@ -29,6 +31,8 @@ const useBeforePaint = typeof window === 'undefined' ? useEffect : useLayoutEffe
  * 홈 헤더(잉크 카드 → 헤더)와 같은 약속이다: 진입하면 지금 모습, 스크롤한 만큼 옮겨 가고, 되돌리면 같은 길로 풀린다.
  * - 줄은 본문과 같이 스크롤되므로 세로는 저절로 맞는다. 줄의 세로 중심이 헤더 가운데에 닿는 스크롤까지, 타일·상호명이 각각
  *   헤더의 아이콘·상호명 자리로 **가로로 옮겨 가며 준다**(`lib/titleFlight.ts`).
+ * - **타일은 절반까지 색 판이 빠지고 크기도 다 준다** — 그 뒤로는 종류 글리프만 날아간다. 판이 끝까지 남으면 40px 판이 뒤로가기
+ *   화살표 옆을 스치며 지나갔다. 판 위에 같은 글리프를 한 벌 겹쳐 두고 판(`PlaceThumb`)만 투명하게 한다 — 글리프는 끊기지 않는다.
  * - 도착하는 순간(마지막 15%) 헤더 속 같은 자리의 복사본(`placeDetailAppBar`)과 겹쳐 바뀐다. 오른쪽 `구좌읍 · 펜션` 은 절반부터 나타난다.
  * - 줄은 헤더(`z-30`)보다 **위에** 그린다 — 밑이면 헤더에 닿는 순간 가려져 날아 들어가는 것이 안 보인다. 손은 받지 않는다
  *   (`pointer-events-none`) — 옮겨 가는 동안 뒤로가기 버튼 위를 지난다.
@@ -37,6 +41,7 @@ const useBeforePaint = typeof window === 'undefined' ? useEffect : useLayoutEffe
  * 이 이름이 폭과 무관하게 이 화면의 유일한 h1 이다. 헤더의 복사본은 `aria-hidden` 이다.
  */
 export function PlaceDetailHeader({ place }: { place: TPlaceEntry }) {
+  const Glyph = PLACE_TYPE_ICON[place.type];
   const headerRef = useRef<HTMLElement>(null);
   const rowRef = useRef<HTMLDivElement>(null);
   const thumbRef = useRef<HTMLDivElement>(null);
@@ -130,14 +135,20 @@ export function PlaceDetailHeader({ place }: { place: TPlaceEntry }) {
         <div
           ref={thumbRef}
           data-scroll-morph="flight-thumb"
-          className="shrink-0 origin-left will-change-transform"
+          className="relative shrink-0 origin-left will-change-transform"
           style={{
             transform:
               'translateX(calc(var(--thumb-tx, 0px) * var(--morph))) scale(calc(1 - (1 - var(--thumb-scale, 1)) * var(--morph)))',
             opacity: 'calc(1 - var(--morph))',
           }}
         >
-          <PlaceThumb type={place.type} />
+          {/* 판은 절반까지 빠진다. 위에 겹친 글리프는 판 안의 글리프와 같은 크기·색·자리라, 판이 빠져도 아이콘은 그대로 날아간다. */}
+          <div data-scroll-morph="tile-out" style={{ opacity: 'calc(1 - var(--morph))' }}>
+            <PlaceThumb type={place.type} />
+          </div>
+          <span aria-hidden="true" className="absolute inset-0 grid place-items-center" style={{ color: TYPE_COLOR[place.type] }}>
+            <Glyph className={PLACE_THUMB.primary.icon} />
+          </span>
         </div>
         <h1
           ref={titleRef}

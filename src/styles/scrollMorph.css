@@ -82,6 +82,10 @@
   [data-morph='scroll'] [data-scroll-morph='hand-off-in'] {
     animation-name: morph-hand-off-in;
   }
+  /* 타일의 색 판: 절반까지 빠진다 — 그 뒤로는 글리프만 날아간다. */
+  [data-morph='scroll'] [data-scroll-morph='tile-out'] {
+    animation-name: morph-tile-out;
+  }
 
   /* ── HomePageHero ── */
   [data-morph='scroll'] [data-scroll-morph='hero-mark'] {
@@ -138,9 +142,23 @@
   }
 }
 
+/* 크기는 절반까지 다 줄고(판이 빠지는 것과 같이), 가로 이동은 끝까지 고르게 간다. 도착 자세(100%)는 그대로다. */
 @keyframes morph-flight-thumb {
-  to {
+  50% {
+    transform: translateX(calc(var(--thumb-tx, 0px) * 0.5)) scale(var(--thumb-scale, 1));
+  }
+  100% {
     transform: translateX(var(--thumb-tx, 0px)) scale(var(--thumb-scale, 1));
+  }
+}
+
+@keyframes morph-tile-out {
+  0% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
   }
 }
 
