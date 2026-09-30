@@ -147,6 +147,8 @@ export function HomePageHero({ subtitle }: THomePageHeroProps) {
       if (progress === last) return;
       last = progress;
       block.style.setProperty('--morph', String(progress));
+      // snap 에서 다 접혔을 때 잉크 판을 `visibility` 로도 숨긴다(`scrollMorph.css`) — 아래 블록 배경 주석과 같은 이유.
+      block.toggleAttribute('data-collapsed', progress === 1);
     };
     const schedule = () => {
       if (!frame) frame = requestAnimationFrame(apply);
@@ -204,7 +206,10 @@ export function HomePageHero({ subtitle }: THomePageHeroProps) {
       <span ref={sentinelRef} aria-hidden="true" className="block h-0" />
       <div
         ref={blockRef}
-        className="sticky z-30"
+        // 블록 자체를 크림으로 칠한다(카드 바깥은 원래 크림이라 보이는 것은 같다). iOS 26 은 화면 맨 위에 붙은 sticky 요소의
+        // `background-color` 로 상태바 자리를 칠하는데(ADR-010) 투명도는 보지 않는다 — 블록에 색이 없으면 다 접힌 뒤에도 깔려 있는
+        // 투명한 잉크 판(`basalt`)이 잡혀 상태바가 잉크로 바뀌었다(실기기). 그래서 잉크 판도 다 빠지면 `visibility` 로 숨긴다.
+        className="sticky z-30 bg-secondary"
         style={{
           ['--morph' as string]: 0,
           ['--tone' as string]: 'clamp(0, calc((var(--morph) - 0.55) * 2.5), 1)',
