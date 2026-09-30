@@ -16,9 +16,9 @@ import {
 import type { TApplyOutcome, TSimilarPlace } from '../lib/adminApply';
 import { lastNoteLine, noteLineText } from '../lib/adminPlaces';
 import { draftFromExtracted, type TCandidateEditDraft } from '../lib/adminEdit';
-import type { TBadgeTone } from '../lib/petPolicy';
+import type { TBadgeTone, TPetBadge } from '../lib/petPolicy';
 import { sameAddress } from '../lib/addressMatch';
-import { aiAnalyzed, policyCell, type TAdminFlagView } from '../lib/adminPreview';
+import { aiAnalyzed, policySplit, type TAdminFlagView } from '../lib/adminPreview';
 import { verifyView } from '../lib/adminVerify';
 import { cx } from '../utils/cx';
 import { AdminPageGroupDetail } from './adminPageGroupDetail';
@@ -97,6 +97,27 @@ const POLICY_TONE: Record<TBadgeTone, string> = {
   warn: 'bg-warning-primary text-warning-primary',
 };
 
+/**
+ * 동반 조건 · 강아지 요금 · 필요 장비 세 칸이 **같은 컴포넌트**다. 모양을 세 번 적으면 한 칸만 고쳐져
+ * 같은 값이 칸마다 다른 칩으로 보인다(이 표가 막으려는 오독).
+ *
+ * `message` 는 동반 조건 칸만 넘긴다 — 없는 칸은 아무것도 그리지 않고 **빈 칸으로 남는다.** 빈 칸이 옳다:
+ * "요금 얘기가 없다" 는 말을 세 칸이 각각 하면 한 줄이 같은 말을 세 번 하고, 그러면 진짜 비어 있는 칸이 안 보인다.
+ */
+function PolicyCell({ items, message = null }: { items: TPetBadge[]; message?: string | null }) {
+  return (
+    <span className="flex min-w-0 flex-wrap items-center gap-1 text-xs text-tertiary max-md:mt-0.5">
+      {items.length
+        ? items.map((item) => (
+            <span key={item.label} className={cx('rounded px-1.5 py-px font-medium', POLICY_TONE[item.tone])}>
+              {item.label}
+            </span>
+          ))
+        : message && <span>{message}</span>}
+    </span>
+  );
+}
+
 const BUSY_LABEL: Record<NonNullable<TAdminPageGroupState['busy']>, string> = {
   approving: '반영하고 있어요…',
   rejecting: '반려하고 있어요…',
@@ -131,7 +152,7 @@ export function AdminPageGroupCard({
   onSelect,
 }: TAdminPageGroupCardProps) {
   const extracted = group.lead.extracted;
-  const cell = policyCell(preview, extracted.petPolicyText);
+  const policy = policySplit(preview, extracted.petPolicyText);
   const matchedName = group.lead.places?.name;
   const busy = state.busy;
   /*
@@ -206,7 +227,7 @@ export function AdminPageGroupCard({
             <span className="text-sm font-bold text-primary">{extracted.name || '(이름 없음)'}</span>
             {/*
               * tier 가 auto/ask 인데 짝이 비어 있으면 **사람이 비운 것**이고(apply-approved.mjs:13·15) 승인은
-              * `targetId: null` 로 **새 장소를 만든다**(adminApply.ts:116-119). 초록 '이미 있는 곳' 을 그대로 두면
+              * `targetId: null` 로 **새 장소를 만든다**(adminApply.ts:116-119). 초록 '기존' 을 그대로 두면
               * 합쳐질 줄 알고 누른 결과가 새 장소 생성이다. `new` 와 라벨을 돌려쓰지 않는다 — 그쪽은 재대조가 돈다.
               */}
             {group.tier !== 'new' && !pairId ? (
@@ -279,24 +300,16 @@ export function AdminPageGroupCard({
           </span>
 
           {/*
-            * 동반 정보는 **낱개로 나열한다** — 예전의 `조건 [야외만 · 리드줄]` 에서 대괄호를 뺀 자리다.
-            * 순서는 여기서 정하지 않는다: `toPetBadges` 가 사이트와 같은 순서로 이미 세워서 보낸다(`policyCell` 주석).
-            * 톤도 그 함수가 매긴 것을 그대로 쓴다 — 라벨 문자열로 되찾으려 하면 요금 문장에서 반드시 틀린다.
+            * 동반 정보는 **낱개로 나열하고, 세 칸으로 갈라 놓는다**(2026-09-30) — 동반 조건 · 강아지 요금 · 필요 장비.
+            * 예전의 `조건 [야외만 · 리드줄]` 에서 대괄호를 뺀 자리이고, 이제 그 낱개가 열로 흩어진다.
+            *
+            * 순서는 여기서 정하지 않는다: `toPetBadges` 가 사이트와 같은 순서로 세워서 보내고 `policySplit` 이
+            * 그 순서를 지키며 축으로만 가른다. 톤도 그 함수가 매긴 것을 그대로 쓴다 — 라벨 문자열로 되찾으려 하면
+            * 요금 문장에서 반드시 틀린다. 못 읽었다는 한 문장(`message`)은 **동반 조건 칸에만** 뜬다.
             */}
-          <span className="flex min-w-0 flex-wrap items-center gap-1 text-xs text-tertiary max-md:mt-0.5">
-            {cell.items.length ? (
-              cell.items.map((item) => (
-                <span
-                  key={item.label}
-                  className={cx('rounded px-1.5 py-px font-medium', POLICY_TONE[item.tone])}
-                >
-                  {item.label}
-                </span>
-              ))
-            ) : (
-              <span>{cell.message}</span>
-            )}
-          </span>
+          <PolicyCell items={policy.condition} message={policy.message} />
+          <PolicyCell items={policy.fee} />
+          <PolicyCell items={policy.gear} />
 
           {/*
             * AI 요약 = `extracted.features`. **이 표에서 새로 뽑는 값이 아니다** — AI 추출 프롬프트가 이미

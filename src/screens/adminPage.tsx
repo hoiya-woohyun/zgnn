@@ -73,10 +73,15 @@ const PAGE_SIZE = 40;
  * 열 이름. '이름' 이 아니라 '장소' 인 것은 이 칸이 이름 하나가 아니라 **승인을 막거나 미루는 표식까지** 담아서다.
  *
  * `AI 요약` 은 `extracted.features` 다 — 승인되면 그대로 사이트의 소개 문구가 되므로, 검수 중에 읽어야 할 것이
- * 동반 정보만은 아니다. `동반 조건` 을 `동반 정보` 로 바꾼 것은 그 칸에 조건이 아닌 것도 서기 때문이다
- * (`확인된 정보 없음`·`추가요금 없음` 은 조건이 아니라 상태다).
+ * 동반 정보만은 아니다.
+ *
+ * **`동반 정보` 한 칸이 셋으로 갈렸다**(2026-09-30): `동반 조건` · `강아지 요금` · `필요 장비`. 운영자가 그 칸에서
+ * 찾는 것은 "얼마 드나" 와 "무엇을 챙기나" 인데, 한 칸이던 동안 그 둘이 실내·크기·무게·확인 필요와 섞여 있었다.
+ * 나머지를 `동반 조건` 으로 되돌린 이유: 갈라 낸 뒤 그 칸에 남는 것은 실제로 **조건**이다(상태를 말하는
+ * `확인된 정보 없음` 도 여기 서지만, 그것 하나 때문에 이름을 넓히면 세 칸 중 어디에 무엇이 서는지가 흐려진다).
+ * 무엇이 어느 칸에 서는지는 `adminPreview.ts` 의 `policySplit` 이 정본이고, 기준은 라벨이 아니라 배지의 축이다.
  */
-const COLUMNS = ['장소', '지역', '동반 정보', 'AI 요약', '근거', '종류', ''];
+const COLUMNS = ['장소', '지역', '동반 조건', '강아지 요금', '필요 장비', 'AI 요약', '근거', '종류', ''];
 /** 끝난 카드가 초록 한 줄로 남아 있는 시간. 바로 지우면 "눌렀는데 아무 일도 안 났다" 로 보인다. */
 const DONE_LINGER_MS = 3000;
 
@@ -798,7 +803,7 @@ export function AdminPage() {
          * 다섯이 한 축으로 읽혀 조건 토글이 tier 필터를 대체하는 것처럼 보인다(`TIER_FILTERS` 주석).
          */
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 md:px-6">
-          <div className="flex flex-wrap gap-1.5" role="group" aria-label="이미 있는 곳인지">
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="기존 장소와의 관계">
             {TIER_FILTERS.map((entry) => {
               const count = inPolicy.filter((card) => entry.match(card.group)).length;
               const active = entry.key === tierFilter;

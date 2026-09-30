@@ -47,7 +47,7 @@ const PET_POLICY_SCHEMA = {
     {
       type: 'object',
       additionalProperties: false,
-      required: ['indoor', 'leash', 'largeDogOk', 'smallDogOnly', 'callFirst', 'feeFree', 'feeText', 'weightLimitKg', 'maxDogs', 'notes'],
+      required: ['indoor', 'leash', 'largeDogOk', 'smallDogOnly', 'callFirst', 'feeFree', 'feeLines', 'weightLimitKg', 'maxDogs', 'notes'],
       properties: {
         indoor: { type: 'string', enum: ['free', 'cage', 'outdoorOnly', 'unknown'] },
         leash: { type: 'boolean' },
@@ -55,7 +55,12 @@ const PET_POLICY_SCHEMA = {
         smallDogOnly: { type: 'boolean' },
         callFirst: { type: 'boolean' },
         feeFree: NULLABLE_BOOLEAN,
-        feeText: NULLABLE_STRING,
+        /*
+         * 요금은 **배열**이다(2026-09-30). `feeText` 한 칸이던 동안 구간 요금표의 둘째 줄이 통째로 사라졌다 —
+         * 기준이 마리당·무게 구간·부대비·조건부로 갈리고 그 갈래가 한 문장에 안 들어간다. 옛 후보는 `feeText` 를
+         * 그대로 들고 있고 읽는 쪽이 `feeLinesOf` 로 합친다.
+         */
+        feeLines: { type: 'array', items: { type: 'string' } },
         weightLimitKg: NULLABLE_NUMBER,
         maxDogs: NULLABLE_NUMBER,
         notes: NULLABLE_STRING,
@@ -107,7 +112,32 @@ export const EXTRACT_SCHEMA = {
  * 프롬프트가 petPolicyText 의 예로 드는 문장들. 앱의 parsePetPolicy 가 실제로 읽는 어휘(시드 관습)여야 한다 — 예시가 파서 밖의 문체면
  * 모델이 그 문체를 따라 쓰고 화면에는 배지 없이 '조건 없음' 으로 뜬다. extractPlaces.test.mjs 가 이 배열을 파서에 넣어 계약을 확인한다.
  */
-export const PROMPT_POLICY_EXAMPLES = ['실내외 모두 가능. (리드줄 착용 필수)', '10kg 이하 2마리까지', '이동가방 필수', '1마리당 2만원 추가'];
+export const PROMPT_POLICY_EXAMPLES = [
+  '실내외 모두 가능. (리드줄 착용 필수)',
+  '10kg 이하 2마리까지',
+  '이동가방 필수',
+  '1마리당 2만원 추가',
+  // 구간 요금표 — 원문에서도 **줄마다** 온다(petPolicy.test.ts '솔숲펜션'). 한 줄로 합치면 feeLines 가 한 줄이 되어 둘째 구간이 사라진다.
+  '1~5kg 1만원',
+];
+
+/**
+ * 프롬프트가 `feeLines` 의 예로 드는 줄들. **앱이 실제로 읽는 모양이어야 한다** — 이 문자열이 요금 줄의 모양을
+ * 사실상 지배하고, 앱의 요금 문구(`src/lib/dogFee.ts`)와 판정(`src/lib/eligibility.ts`)은 **앵커된 정규식**으로
+ * 그 모양을 읽는다. `마리당 3만원`(앞의 1 이 없다)이나 `1마리당 20,000원`(만원이 아니다)으로 예를 바꾸면
+ * 곱셈이 조용히 사라진다 — 틀리진 않지만(원문 줄로 물러난다) 이유를 아무 데서도 알 수 없다.
+ * `dogFee.test.ts` 의 「프롬프트 예시 계약」이 이 표를 앱에 넣어 확인한다.
+ */
+export const FEE_EX = {
+  perDog: '1마리당 3만원',
+  range1: '1~5kg 1만원',
+  range2: '6~10kg 1.5만원',
+  cleaning: '청소비 5만원',
+  perNight: '1박당 2만원',
+  weekend: '주말 5만원',
+  /** 무게·마릿수 조건이 줄에 남아야 판정이 대형견 보호자에게 이 요금을 알린다(`FEE_MIN_KG_RE`). */
+  conditional: '2마리 또는 10kg 이상 4만원',
+};
 
 // 고정 문자열 — 날짜·ID 같은 가변 값을 절대 넣지 않는다(캐시 prefix). 바꾸면 PROMPT_VERSION 이 바뀐다.
 export const SYSTEM_PROMPT = `당신은 제주도 반려견 동반 여행 블로그 글에서 "강아지와 함께 갈 수 있는 장소" 와 그 이용 조건을 추출합니다.
@@ -142,7 +172,16 @@ export const SYSTEM_PROMPT = `당신은 제주도 반려견 동반 여행 블로
     leash: 리드줄·목줄 착용 조건이 있으면 true. largeDogOk: 대형견 가능이 명시되면 true, **"대형견" 이 안 된다고 적혀 있으면** false, 언급 없으면 null.
       몸무게 상한("10kg 이하")에서 대형견 불가를 추론하지 마세요 — 그건 weightLimitKg 가 말합니다.
     smallDogOnly: 소형견만이면 true. callFirst: 방문·예약 전 전화나 문의가 필요하다고 하면 true.
-    feeFree: 반려견 추가 요금이 없다고 하면 true, 있으면 false, 언급 없으면 null. feeText: 추가 요금 문장 원문(예: "1마리당 2만원"). 없으면 null.
+    feeFree: 반려견 추가 요금이 없다고 하면 true, 있으면 false, 언급 없으면 null.
+    feeLines: 반려견 요금을 **기준마다 한 줄씩** 나열한 배열. 기준이 셋이면 세 줄입니다 — 한 문장으로 합치지 마세요.
+      기준은 다양합니다: 마리당("${FEE_EX.perDog}") · 무게 구간("${FEE_EX.range1}" 과 "${FEE_EX.range2}" 은 **두 줄**) ·
+      부대비("${FEE_EX.cleaning}") · 단위("${FEE_EX.perNight}", "${FEE_EX.weekend}") · 조건부("${FEE_EX.conditional}").
+      **조건의 무게·마릿수는 줄에 그대로 남깁니다** — "10kg 이상" 을 빼면 앱이 대형견 보호자에게 그 요금을 알려 주지 못합니다.
+      한 줄은 **기준 + 금액**만 20자 이내로 짧게 씁니다(본문 "숙박일 관계없이 청소비 5만원 추가" → "청소비 5만원").
+      **금액은 본문에 적힌 표기 그대로** 씁니다 — "15,000원" 을 "1.5만원" 으로 바꾸지 마세요. 바꾼 줄은 본문에 그 숫자가 없어
+      앱이 통째로 뺍니다(scripts/lib/petPolicyFacts.mjs). 짧게 쓰라는 것은 **기준 설명**을 줄이라는 뜻이고 금액은 그대로입니다.
+      금액 없이 "추가 요금 있어요" 만 적혀 있으면 빈 배열 + feeFree: false 입니다. 사람 숙박 요금은 여기가 아니라 stayPriceText 입니다.
+      요금 언급이 없으면 빈 배열([]).
     weightLimitKg: 몸무게 상한(숫자, "10kg 이하" → 10). maxDogs: 마릿수 상한(숫자). 없으면 null.
       **숫자는 petPolicyText 에 적힌 숫자만** 씁니다. 요금 구간표("1~5kg 1만원")의 숫자는 상한이 아닙니다.
       원문에 근거가 없는 판단은 앱이 빼고 봅니다(scripts/lib/petPolicyFacts.mjs) — 모르면 null 이 맞습니다.
@@ -253,7 +292,10 @@ function shapePetPolicy(raw) {
     smallDogOnly: raw.smallDogOnly === true,
     callFirst: raw.callFirst === true,
     feeFree: boolOrNull(raw.feeFree),
-    feeText: emptyToNull(raw.feeText),
+    // 옛 모양(`feeText`)도 받아 준다 — 스키마가 안 보장하는 가짜 응답·모델 변경에 대비. 합치는 것은 `feeLinesOf` 하나가 한다.
+    feeLines: [...(Array.isArray(raw.feeLines) ? raw.feeLines : []), raw.feeText]
+      .map((line) => (typeof line === 'string' ? line.trim() : ''))
+      .filter(Boolean),
     weightLimitKg: numOrNull(raw.weightLimitKg),
     maxDogs: numOrNull(raw.maxDogs),
     notes: emptyToNull(raw.notes),

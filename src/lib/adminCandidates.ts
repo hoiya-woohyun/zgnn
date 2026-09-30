@@ -12,6 +12,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { groupCandidates, groupFlags, previewPolicy } from '../../scripts/analyze/reviewCandidates.mjs';
 import { parseRegion } from '../../scripts/lib/placeFields.mjs';
+import { feeLinesOf } from '../../scripts/lib/petPolicyFacts.mjs';
 import { parsePetPolicy, toPetBadges, withPolicyFacts, type TPetBadge } from './petPolicy';
 import { PLACES } from './places';
 import type { TDirection, TPetPolicyFacts, TRegion } from '../types';
@@ -256,14 +257,24 @@ export const TYPE_LABEL: Record<TCandidateType, string> = {
 };
 
 /**
- * 화면 표기. CLI(`TIER_LABEL`, reviewCandidates.mjs:10)는 터미널 몫이라 그대로 둔다 —
- * '일치'·'확인요청' 은 무엇과 일치인지·누가 요청하는지를 말하지 않아 운영자가 못 읽었다.
+ * 화면 표기. CLI(`TIER_LABEL`, reviewCandidates.mjs:10)는 터미널 몫이라 그대로 둔다.
  * 걸러 보기 칩(adminPage.tsx)과 카드 뱃지(adminPageGroupCard.tsx)가 **둘 다** 이것을 읽는다 — 값이 갈리지 않게.
+ *
+ * **두 자로 통일했다**(2026-09-30). 앞선 두 판이 다 안 읽혔다:
+ *   `일치`·`확인요청`(CLI 말) — 무엇과 일치인지·누가 요청하는지를 말하지 않는다.
+ *   `이미 있는 곳`·`같은 곳일까요?`·`처음 보는 곳` — 길이가 제각각이라 **세로로 훑을 수가 없고**,
+ *   문장처럼 읽혀 운영자가 "그래서 뭐가 다른데" 를 물었다(사용자 지적, 2026-09-30).
+ * 지금 말은 **기존 장소와의 관계** 한 축을 두 자로 세운다. `기존`·`확인` 뒤에는 짝지은 이름이 화살표로 붙으므로
+ * (`adminPageGroupCard`) "어느 곳과" 는 라벨이 아니라 그 이름이 말한다 — 라벨은 자리만 지키면 된다.
+ * 141묶음을 훑는 화면에서 칩 폭이 같다는 것이 곧 속도다(`adminTable.tsx` 머리 주석의 같은 값).
  */
 export const TIER_LABEL: Record<TCandidateTier, string> = {
-  auto: '이미 있는 곳',
-  ask: '같은 곳일까요?',
-  new: '처음 보는 곳',
+  /** 승인하면 그 장소의 빈 칸을 채운다(`mergeIntoExisting`). */
+  auto: '기존',
+  /** 같은 곳인지 사람이 정한다 — 합치거나 새로 만든다. */
+  ask: '확인',
+  /** 짝이 없다. 승인하면 새 장소가 생긴다. */
+  new: '신규',
 };
 
 /**
@@ -306,7 +317,8 @@ export function factsLine(facts: TPetPolicyFacts | null): string | null {
   if (facts.weightLimitKg != null) parts.push(`~${facts.weightLimitKg}kg`);
   if (facts.maxDogs != null) parts.push(`최대 ${facts.maxDogs}마리`);
   if (facts.feeFree === true) parts.push('추가요금 없음');
-  if (facts.feeText) parts.push(facts.feeText);
+  // 요금은 줄마다 하나 — 첫 줄만 넣으면 구간 요금표의 나머지가 이 줄에서도 사라진다(`feeLinesOf`).
+  parts.push(...feeLinesOf(facts));
   if (facts.callFirst) parts.push('전화 확인');
   if (facts.notes) parts.push(facts.notes);
   return parts.length ? parts.join(' · ') : FACTS_EMPTY;

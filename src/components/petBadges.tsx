@@ -39,11 +39,24 @@ type TPetBadgesProps = {
 };
 
 export function PetBadges({ policy, limit, hideNoInfo = false, className = '' }: TPetBadgesProps) {
-  const badges = toPetBadges(policy).filter((badge) => !(hideNoInfo && badge.label === NO_INFO_BADGE_LABEL));
+  const all = toPetBadges(policy).filter((badge) => !(hideNoInfo && badge.label === NO_INFO_BADGE_LABEL));
+  /*
+   * **자리가 정해진 곳에서는 요금 줄을 첫 줄만 세운다.** 요금은 기준마다 한 줄이라 개수 상한이 없고
+   * (`1마리당 3만원`·`청소비 5만원`·`주말 5만원`…), `toPetBadges` 의 순서에서 크기·무게·확인 필요보다 **앞**에 있다.
+   * 그대로 자르면 요금 두세 줄이 예산을 다 먹어 `대형견 불가`·`원문 확인 필요` 같은 **경고가 `+N` 뒤로 숨는다** —
+   * 카드에서 먼저 보여야 하는 것은 정반대다. 상세(`limit` 없음)는 전부 보여 준다: 그 화면엔 자리가 있고,
+   * 우리 강아지 기준 금액도 따로 한 줄로 나온다(`dogFee.ts`).
+   *
+   * 숨긴 요금 줄은 `+N` 에 들어간다 — 접힌 수가 실제와 달라지면 "더 있다" 는 신호가 거짓이 된다.
+   */
+  const badges = limit
+    ? all.filter((badge, index) => badge.axis !== 'fee' || index === all.findIndex((b) => b.axis === 'fee'))
+    : all;
   if (badges.length === 0) return null;
 
   const shown = limit ? badges.slice(0, limit) : badges;
-  const hidden = badges.length - shown.length;
+  // 접힌 수는 **거른 뒤가 아니라 전부**에서 센다 — 빼 둔 요금 줄이 `+N` 에 안 들어가면 "더 있다" 가 거짓이 된다.
+  const hidden = all.length - shown.length;
 
   return (
     <ul className={`flex flex-wrap items-center gap-1 ${className}`}>

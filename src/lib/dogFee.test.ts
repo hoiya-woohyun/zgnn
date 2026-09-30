@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { formatDogFee, formatWon } from './dogFee';
 import { parsePetPolicy } from './petPolicy';
+import { FEE_EX, SYSTEM_PROMPT } from '../../scripts/analyze/extractPlaces.mjs';
+import { judgeEligibility } from './eligibility';
 import { PLACES } from './places';
 import type { TPetPolicy } from './petPolicy';
 import type { TDogProfile } from '../types';
@@ -170,5 +172,45 @@ describe('formatDogFee — 곱하지 못한 줄에는 강아지 이름을 붙이
     const fee = formatDogFee(policy, dog);
     expect(fee?.startsWith('대장이')).toBe(false);
     expect(fee?.startsWith('원문 요금')).toBe(true);
+  });
+});
+
+/**
+ * **프롬프트 예시 계약.** 추출 프롬프트가 `feeLines` 의 예로 드는 줄(`FEE_EX`)이 앱의 요금 문구·판정에서
+ * 실제로 읽히는지 확인한다. 이 계약이 없으면 프롬프트를 손보는 것만으로 곱셈이 조용히 사라진다 —
+ * `마리당 3만원`(앞의 1 이 없다)·`1마리당 20,000원`(만원이 아니다)은 앵커된 정규식에 안 걸리고,
+ * 앱은 틀린 값을 내는 게 아니라 `원문 요금 · …` 로 **물러나기만** 해서 아무 데서도 이유를 알 수 없다.
+ */
+describe('프롬프트 예시 계약 — FEE_EX 가 앱에서 읽히는가', () => {
+  it('예시가 프롬프트 본문에 그대로 실려 있다', () => {
+    for (const example of Object.values(FEE_EX)) expect(SYSTEM_PROMPT).toContain(example);
+  });
+
+  it('마리당 줄은 마릿수만큼 곱해진다', () => {
+    expect(formatDogFee(policyWith([FEE_EX.perDog]), AKDONG)).toBe('악동이는 3만원');
+    expect(formatDogFee(policyWith([FEE_EX.perDog]), AKDONG_TOFU)).toBe('악동이와 두부는 6만원 (1마리당 3만원)');
+  });
+
+  it('무게 구간 두 줄은 마리별 구간을 찾아 합산된다', () => {
+    const policy = policyWith([FEE_EX.range1, FEE_EX.range2]);
+    expect(formatDogFee(policy, AKDONG)).toBe('악동이는 1만원 (1~5kg)');
+    expect(formatDogFee(policy, AKDONG_TOFU)).toBe('악동이와 두부는 2.5만원 (1~5kg 1만원 · 6~10kg 1.5만원)');
+  });
+
+  /** 부대비·단위 요금은 **곱하지 않는다** — 1박당·청소비를 마릿수로 곱하면 원문에 없는 숫자가 된다. */
+  it.each([FEE_EX.cleaning, FEE_EX.perNight, FEE_EX.weekend])('%s 는 곱하지 않고 원문 줄로 보여 준다', (line) => {
+    expect(formatDogFee(policyWith([line]), AKDONG_TOFU)).toBe(`원문 요금 · ${line}`);
+  });
+
+  /** 조건부 줄이 남아 있으면 곱셈을 멈춘다 — 캄(Kalm) 이 그 모양이고, 2마리를 6만원으로 곱하면 원문(4만원)과 반대다. */
+  it('조건부 줄은 곱셈을 멈춘다', () => {
+    const policy = policyWith([FEE_EX.perDog, FEE_EX.conditional]);
+    expect(formatDogFee(policy, AKDONG_TOFU)).toBe(`원문 요금 · ${FEE_EX.perDog} · ${FEE_EX.conditional}`);
+  });
+
+  /** 조건부 줄의 `10kg 이상` 은 판정이 대형견 보호자에게 알리는 근거다(`eligibility.ts` 의 `FEE_MIN_KG_RE`). */
+  it('조건부 줄에 kg 절이 남아 있어 판정이 그것을 읽는다', () => {
+    const reasons = judgeEligibility(BORI_AND_KONG, policyWith([FEE_EX.conditional])).reasons;
+    expect(reasons.some((reason) => reason.text.includes('10kg 이상 요금'))).toBe(true);
   });
 });

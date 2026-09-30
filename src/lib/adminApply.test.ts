@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
-import { approveGroup, rejectGroup, setRegion } from './adminApply';
+import { approveGroup, EDITED_NOTE, rejectGroup, saveEdit, setRegion } from './adminApply';
 import type { TCandidateExtracted, TCandidateGroup, TCandidateRow, TPlaceRow } from './adminCandidates';
 
 /*
@@ -528,5 +528,37 @@ describe('setRegion', () => {
     expect(next.extracted.regionRaw).toBe('서쪽 (애월읍)');
     // 원본은 그대로 — 화면이 목록의 행을 갈아 끼울 때 예전 값을 잃지 않게.
     expect(row.extracted.regionRaw).toBeNull();
+  });
+});
+
+/**
+ * 고친 후보에 표시가 남는가. 이 표시가 없으면 사람이 손으로 고친 후보와 AI 그대로인 후보가 DB 에서 구별되지 않고,
+ * 프롬프트를 고쳐 재분석할 때(data-pipeline.md 「재분석」) 그 손질이 같이 묻힌다.
+ */
+describe('saveEdit — 사람이 고쳤다는 표시', () => {
+  const edit = {
+    extracted: extracted({ name: '고친이름' }),
+    match_place_id: null,
+    match_confidence: null,
+  };
+
+  it('reviewer_note 에 한 줄을 남긴다', async () => {
+    const { calls, client } = createFakeClient();
+    const saved = await saveEdit(client, candidate(), edit);
+    expect(calls[0].payload.reviewer_note).toBe(EDITED_NOTE);
+    expect(saved.reviewer_note).toBe(EDITED_NOTE);
+  });
+
+  it('앞선 메모는 지우지 않고 뒤에 붙인다 — 두 도구가 같은 칸에 쓴다', async () => {
+    const { calls, client } = createFakeClient();
+    await saveEdit(client, candidate({ reviewer_note: '[data:review] 확인 필요' }), edit);
+    expect(calls[0].payload.reviewer_note).toBe(`[data:review] 확인 필요\n${EDITED_NOTE}`);
+  });
+
+  /** `saveEdit` 은 묶음의 행마다 불리고 저장도 여러 번 할 수 있다 — 조건 없이 붙이면 같은 줄이 쌓인다. */
+  it('두 번 고쳐도 표시는 한 줄이다', async () => {
+    const { calls, client } = createFakeClient();
+    await saveEdit(client, candidate({ reviewer_note: EDITED_NOTE }), edit);
+    expect(calls[0].payload.reviewer_note).toBe(EDITED_NOTE);
   });
 });

@@ -18,6 +18,7 @@
 import { matchPlace, normalizeName, THRESHOLD } from '../../scripts/analyze/matchPlace.mjs';
 import { toMatchablePlace } from '../../scripts/lib/placeFields.mjs';
 import { previewFor, TYPE_LABEL, type TCandidateExtracted, type TCandidateRow, type TCandidateTier, type TCandidateType, type TPlaceRow } from './adminCandidates';
+import { feeLinesOf } from '../../scripts/lib/petPolicyFacts.mjs';
 import { policyCell, type TPolicyCell } from './adminPreview';
 import type { TPetPolicyFacts, TPlace } from '../types';
 
@@ -52,7 +53,12 @@ export type TPolicyDraft = {
   smallDogOnly: boolean;
   callFirst: boolean;
   feeFree: TTriState;
-  feeText: string;
+  /**
+   * 요금 줄 — **줄바꿈으로 나눈 한 문자열**이다. 배열로 들고 있으면 "줄을 지우는 중"(빈 줄)이 저장 대상에서
+   * 사라져 커서가 튀고, 폼의 다른 값과 달리 문자열이 아니게 된다(이 타입의 규칙: 전부 문자열).
+   * 배열로 바꾸는 것은 저장 직전 한 곳(`policyFactsFrom`)에서만 한다.
+   */
+  feeLines: string;
   weightLimitKg: string;
   maxDogs: string;
   notes: string;
@@ -70,7 +76,7 @@ const EMPTY_POLICY: TPolicyDraft = {
   smallDogOnly: false,
   callFirst: false,
   feeFree: 'unknown',
-  feeText: '',
+  feeLines: '',
   weightLimitKg: '',
   maxDogs: '',
   notes: '',
@@ -98,7 +104,7 @@ export function policyDraftFrom(facts: TPetPolicyFacts | null | undefined): TPol
     smallDogOnly: Boolean(facts.smallDogOnly),
     callFirst: Boolean(facts.callFirst),
     feeFree: triFrom(facts.feeFree),
-    feeText: facts.feeText ?? '',
+    feeLines: feeLinesOf(facts).join('\n'),
     weightLimitKg: facts.weightLimitKg == null ? '' : String(facts.weightLimitKg),
     maxDogs: facts.maxDogs == null ? '' : String(facts.maxDogs),
     notes: facts.notes ?? '',
@@ -114,7 +120,7 @@ export function policyFactsFrom(draft: TPolicyDraft): TPetPolicyFacts | null {
     smallDogOnly: draft.smallDogOnly,
     callFirst: draft.callFirst,
     feeFree: triTo(draft.feeFree),
-    feeText: draft.feeText.trim() || null,
+    feeLines: toLines(draft.feeLines),
     weightLimitKg: toNumber(draft.weightLimitKg),
     maxDogs: toNumber(draft.maxDogs),
     notes: draft.notes.trim() || null,
@@ -126,12 +132,17 @@ export function policyFactsFrom(draft: TPolicyDraft): TPetPolicyFacts | null {
     !facts.smallDogOnly &&
     !facts.callFirst &&
     facts.feeFree === null &&
-    facts.feeText === null &&
+    // `feeLines` 는 타입상 optional(옛 후보엔 없다) 이지만 위에서 늘 배열로 채운다 — 그래도 `?.` 를 붙여
+    // 타입이 말하는 대로 읽는다. `undefined.length` 한 번이 이 함수를 던지게 만들고, 그러면 저장이 통째로 막힌다.
+    (facts.feeLines?.length ?? 0) === 0 &&
     facts.weightLimitKg === null &&
     facts.maxDogs === null &&
     facts.notes === null;
   return empty ? null : facts;
 }
+
+/** 여러 줄 입력 → 요금 줄 배열. 빈 줄·앞뒤 공백·중복을 턴다(`feeLinesOf` 와 같은 규칙). */
+const toLines = (raw: string): string[] => [...new Set(raw.split('\n').map((line) => line.trim()).filter(Boolean))];
 
 const toNumber = (raw: string): number | null => {
   const text = raw.trim();

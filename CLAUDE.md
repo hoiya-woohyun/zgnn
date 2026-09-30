@@ -63,7 +63,8 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
 - **`<main>` 안에 `position: fixed` 를 새로 두면 스와이프 중에 자리가 어긋난다.** 셸이 화면을
   끌 때 `<main>` 에 transform 이 걸리는데, transform 이 걸린 조상이 있으면 `fixed` 는 화면이 아니라
   그 조상 기준이 된다 — `top: 0` 이 문서 맨 위를 가리켜, 내려 본 상태에서 끌면 그 요소가 화면
-  위로 사라진다. 축약 줄(`collapsingTitleBar`)이 `--swipe-viewport-top` 으로 상쇄하는 이유다
+  위로 사라진다. 그런 요소는 `top: var(--swipe-viewport-top, 0px)` 로 상쇄한다(셸이 끄는 순간 스크롤 값을 적는다).
+  화면 위에 붙는 제목은 `fixed` 가 아니라 **`sticky`** 로 만든다 — 준비물·설정의 `StickyMorphTitle`, 홈의 `HomePageHero` 가 그렇다
   (→ [ADR-014](docs/decisions/ADR-014-shell-owned-swipe-pager.md)).
 - **종류 색(숙소·식당·카페)은 두 곳에 같은 값이 있다** — `src/styles/theme.css` 와
   `src/lib/places.ts`(지도 마커). 한쪽만 고치면 지도와 화면 색이 어긋난다.
@@ -122,6 +123,7 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
 - **상태바·홈 인디케이터 자리에 닿는 크롬은 바탕색(크림 `bg-secondary`)이다**(ADR-010 v4). 탭바·축약 줄·검색 줄·
   하위 화면 헤더가 전부 그렇다. **흰색(`bg-primary`)은 떠 있는 카드에만** 쓴다 — 크롬을 흰색으로 칠하면 SAT·SAB 가
   스크롤 위치마다 크림/흰색으로 갈린다. 상단 크롬은 불투명(반투명이면 밑의 카드가 상태바 뒤로 비친다), 본문과는 선으로 가른다.
+  하단 시트(`base/bottom-sheet`)도 크림이다 — 그 위에서 눌림 표시는 `primary_hover`(크림과 같은 값)가 아니라 `bg-tertiary`.
 - **화면 본체는 `src/screens/`** (클라이언트), `src/app/**/page.tsx` 는 주소·메타·
   `generateStaticParams` 만. `src/pages/` 는 Next 가 옛 Pages Router 로 인식해서 못 쓴다.
 - **단일 소유자 파일은 소유자 접두어**를 파일명과 대표 export 에 붙인다(camelCase).
