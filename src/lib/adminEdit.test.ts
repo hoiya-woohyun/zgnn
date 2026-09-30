@@ -12,7 +12,9 @@ import {
   draftFromExtracted,
   editPreview,
   editProblem,
-  editSummary,
+  aiEdits,
+  editChanges,
+  EMPTY_VALUE,
   identityChanged,
   policyFactsFrom,
   type TCandidateEditDraft,
@@ -215,15 +217,44 @@ describe('buildEdit', () => {
   });
 });
 
-describe('editSummary', () => {
-  it('바뀐 것만 한국어로 — 종류는 무엇에서 무엇으로인지까지', () => {
+describe('editChanges — 무엇이었는데 무엇으로', () => {
+  it('바뀐 칸만, 사람이 읽는 값으로 전·후를 준다', () => {
     const before = draft();
-    expect(editSummary(draft({ name: '새이름', type: 'cafe', features: 'x' }), before)).toEqual([
-      '이름',
-      '종류(숙소→카페)',
-      'AI 요약',
+    expect(editChanges(draft({ name: '새이름', type: 'cafe', features: '' }), before)).toEqual([
+      { key: 'name', label: '이름', before: '솔숲펜션', after: '새이름' },
+      { key: 'type', label: '종류', before: '숙소', after: '카페' },
+      { key: 'features', label: 'AI 요약', before: '넓은 마당이 있어요.', after: EMPTY_VALUE },
     ]);
-    expect(editSummary(before, before)).toEqual([]);
+    expect(editChanges(before, before)).toEqual([]);
+  });
+
+  /** '동반 정보' 한 단어로 뭉개던 자리 — 실내를 바꿨는지 무게를 바꿨는지가 화면에 없었다. */
+  it('동반 정보는 칸마다 가르고 policy 표시를 단다', () => {
+    const before = draft();
+    const after = { ...before, policy: { ...before.policy, indoor: 'outdoorOnly' as const, weightLimitKg: '10' } };
+    expect(editChanges(after, before)).toEqual([
+      { key: 'indoor', label: '실내', before: '언급 없음', after: '야외만', policy: true },
+      { key: 'weightLimitKg', label: '무게 상한', before: EMPTY_VALUE, after: '10kg', policy: true },
+    ]);
+  });
+
+  it('공백만 바뀐 것은 바뀐 것이 아니다 — 저장해도 같은 값이 된다', () => {
+    expect(editChanges(draft({ name: ' 솔숲펜션 ' }), draft())).toEqual([]);
+  });
+});
+
+describe('aiOriginal — AI 가 처음 뽑은 값', () => {
+  it('처음 고칠 때 떠 두고, 두 번째 저장은 옛 스냅샷을 지킨다', () => {
+    const first = buildEdit(row(), draft({ name: '솔숲펜션2' }), [place()]).extracted;
+    expect(first.aiOriginal).toMatchObject({ name: '솔숲펜션', features: '넓은 마당이 있어요.' });
+    const second = buildEdit(row({ extracted: first }), draft({ name: '솔숲펜션3' }), [place()]).extracted;
+    expect((second.aiOriginal as { name: string }).name).toBe('솔숲펜션');
+  });
+
+  it('aiEdits 는 AI 값 → 지금 값, 고친 적 없으면 빈 배열', () => {
+    expect(aiEdits(extracted())).toEqual([]);
+    const edited = buildEdit(row(), draft({ features: '고친 소개예요.' }), [place()]).extracted;
+    expect(aiEdits(edited)).toEqual([{ key: 'features', label: 'AI 요약', before: '넓은 마당이 있어요.', after: '고친 소개예요.' }]);
   });
 });
 
