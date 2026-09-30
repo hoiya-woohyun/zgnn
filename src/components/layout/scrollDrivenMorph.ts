@@ -23,12 +23,6 @@ export function supportsScrollTimeline(): boolean {
 }
 
 /**
- * ⚠️ 임시 — 지원하는 기기(iOS 26 등)에서도 **지원하지 않는 기기의 모습**을 보려고 모두 `snap` 으로 보낸다.
- * 실기기 확인이 끝나면 `false` 로 되돌린다(또는 이 상수를 지운다).
- */
-const FORCE_SNAP_PREVIEW = true;
-
-/**
  * 접히는 방식. 루트 요소의 `data-morph` 로 적고 `styles/scrollMorph.css` 가 읽는다.
  *
  * - `scroll` — 스크롤 구동 애니메이션. 스크롤한 만큼 접힌다.
@@ -39,7 +33,7 @@ const FORCE_SNAP_PREVIEW = true;
 export type TMorphMode = 'scroll' | 'snap';
 
 export function morphModeOf(): TMorphMode {
-  return !FORCE_SNAP_PREVIEW && supportsScrollTimeline() ? 'scroll' : 'snap';
+  return supportsScrollTimeline() ? 'scroll' : 'snap';
 }
 
 /**
