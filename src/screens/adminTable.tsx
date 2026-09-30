@@ -32,7 +32,10 @@ const CELL_RULES =
  * `게시 대기`·`글 12건` 이 두 줄로 접히면 그 줄만 키가 커져 격자가 어긋난 것처럼 보인다.
  */
 /**
- * 장소 · 지역 · 동반 조건 · 강아지 요금 · 필요 장비 · AI 요약 · 근거 · 종류 · (펼침).
+ * 장소 · 지역 · 동반 조건 · 강아지 요금 · 필요 장비 · AI 요약 · 종류 · (펼침).
+ *
+ * **`근거`(5rem) 열이 빠졌다**(2026-09-30). 값이 거의 늘 `글 1건` 이라 이름 뒤로 옮기고, 그 몫(5rem + 선 24px)을
+ * 동반 조건에 줬다(1.5 → 1.8fr) — 1280px 창에서 `소형견만` 이 글자 단위로 세로로 접히던 칸이다.
  *
  * **동반 정보 한 칸이 세 칸으로 갈렸다**(2026-09-30). 운영자가 그 칸에서 실제로 찾는 것은 둘("얼마 드나" ·
  * "무엇을 챙기나")인데, 한 칸이던 동안 그 둘이 실내·크기·무게·확인 필요와 같은 줄에 섞여 서 있었다.
@@ -72,7 +75,7 @@ const CELL_RULES =
  * 이 화면은 `--spacing` 이 4px 에 못 박혀 있어(`adminDensity.css`) `text-xs` 가 12px 로 고정이다.
  */
 export const ADMIN_CANDIDATE_GRID = cx(
-  'md:grid md:grid-cols-[minmax(0,2.4fr)_8.5rem_minmax(0,1.5fr)_minmax(0,2.0fr)_7rem_minmax(0,4.2fr)_5rem_4rem_2.5rem]',
+  'md:grid md:grid-cols-[minmax(0,2.4fr)_8.5rem_minmax(0,1.8fr)_minmax(0,2.0fr)_7rem_minmax(0,4.2fr)_4rem_2.5rem]',
   CELL_RULES,
   /* 끝의 펼침 표시(∨)는 값이 아니라 손잡이다 — 선을 그으면 빈 열 하나가 더 있는 것처럼 읽힌다. */
   'md:[&>*:last-child]:border-l-0 md:[&>*:last-child]:pl-0',

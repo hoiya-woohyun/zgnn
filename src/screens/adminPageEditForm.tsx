@@ -385,9 +385,13 @@ export function AdminPageEditForm({
           이름·종류·주소·좌표가 바뀌어서, 저장할 때 <span className="font-semibold">어느 장소와 같은 곳인지 다시 찾아요.</span> 짝이 바뀌거나 풀릴 수 있어요.
         </p>
       )}
-      {problem && <p className="text-xs text-error-primary">{problem}</p>}
-
-      <div className="flex flex-wrap items-center gap-2">
+      {/*
+        * 저장 줄은 **화면 아래에 붙는다**(`md` 이상). 폼이 근거 자리를 통째로 쓰게 되면서(2026-09-30) 한 화면이 넘게 길어졌고,
+        * 맨 위 칸 하나를 고치고 저장하려면 끝까지 내려가야 했다. 막는 이유(`problem`)도 같이 붙어 다닌다 — 버튼만 꺼져 있으면 왜인지 모른다.
+        * 좁은 화면은 붙이지 않는다 — 탭바가 그 자리를 쓴다.
+        */}
+      <div className="flex flex-wrap items-center gap-2 border-t border-secondary bg-active py-2 md:sticky md:bottom-0">
+        {problem && <p className="w-full text-xs text-error-primary">{problem}</p>}
         <Button color="primary" size="sm" isDisabled={busy || changes.length === 0 || Boolean(problem)} isLoading={busy} onClick={onSave}>
           {changes.length ? `${changes.length}칸 바꿔서 저장` : '저장'}
         </Button>

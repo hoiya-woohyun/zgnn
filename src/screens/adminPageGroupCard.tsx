@@ -2,12 +2,9 @@
 
 import { CheckVerified02, ChevronDown } from '@untitledui/icons';
 import { Badge, BadgeWithIcon } from '../components/base/badges';
-import { Button } from '../components/base/button';
 import { Checkbox } from '../components/base/checkbox';
-import { Select } from '../components/base/select';
 import {
   regionUsable,
-  REGION_OPTIONS,
   TIER_LABEL,
   type TCandidateGroup,
   type TPlaceRow,
@@ -15,7 +12,6 @@ import {
   type TRejectReason,
 } from '../lib/adminCandidates';
 import type { TApplyOutcome, TSimilarPlace } from '../lib/adminApply';
-import { lastNoteLine, noteLineText } from '../lib/adminPlaces';
 import { draftFromExtracted, type TCandidateEditDraft } from '../lib/adminEdit';
 import type { TBadgeTone, TPetBadge } from '../lib/petPolicy';
 import { addressView } from '../lib/adminAddress';
@@ -26,8 +22,8 @@ import { cx } from '../utils/cx';
 import { AdminPageGroupDetail } from './adminPageGroupDetail';
 import { AdminTypeChip } from './adminTypeChip';
 import { AdminPageEditForm } from './adminPageEditForm';
-import { AdminPageRejectForm } from './adminPageRejectForm';
-import { AdminPageLatestSave } from './adminPageLatestSave';
+import { AdminChangeList } from './adminChangeList';
+import { AdminPageGroupActions } from './adminPageGroupActions';
 import { ADMIN_CANDIDATE_GRID, ADMIN_LEAD_CELL, ADMIN_PANEL_DIVIDER, ADMIN_ROW_OPEN } from './adminTable';
 
 /** 묶음 하나의 화면 상태. 소유자는 `adminPage.tsx` 고 여기는 받아서 그린다. */
@@ -116,10 +112,10 @@ const POLICY_TONE: Record<TBadgeTone, string> = {
  */
 function PolicyCell({ items, message = null }: { items: TPetBadge[]; message?: string | null }) {
   return (
-    <span className="flex min-w-0 flex-wrap items-center gap-1 text-xs text-tertiary max-md:mt-0.5">
+    <span className="flex min-w-0 flex-wrap content-start items-start gap-1 text-xs text-tertiary max-md:mt-0.5">
       {items.length
         ? items.map((item) => (
-            <span key={item.label} className={cx('rounded px-1.5 py-px font-medium', POLICY_TONE[item.tone])}>
+            <span key={item.label} className={cx('rounded px-1.5 py-px font-medium break-keep', POLICY_TONE[item.tone])}>
               {item.label}
             </span>
           ))
@@ -127,31 +123,6 @@ function PolicyCell({ items, message = null }: { items: TPetBadge[]; message?: s
     </span>
   );
 }
-
-/**
- * '고치기' 버튼. **펼친 세 갈래 전부에** 선다(기본 · 닮은 곳 고르기 · 짝이 내린 곳) — 예전에는 기본 갈래에만 있었고,
- * 그래서 정작 이름·주소가 틀렸을 가능성이 가장 높은 곳에서 고칠 길이 없었다: 닮은 정도 0.4~0.85 구간이 곧
- * "상호 검색이 동명의 다른 가게를 집었나" 를 사람이 가리는 자리다. 거기서 선택지가 합치기/새 장소/반려뿐이면
- * 틀린 주소를 그대로 올리거나 쓸 만한 후보를 버린다.
- *
- * 고치는 것은 **승인 전 후보**뿐이다 — 사이트에 올라간 장소는 이 버튼이 닿지 않는다(`adminPageEditForm` 주석).
- * 지역이 비어 승인이 막힌 줄에서도 열어 둔다: 이름·주소가 틀려서 지역을 못 정한 경우가 있고, 그때 고칠 길이
- * 없으면 반려밖에 남지 않는다.
- */
-function EditButton({ busy, onClick }: { busy: TAdminPageGroupState['busy']; onClick: () => void }) {
-  return (
-    <Button color="secondary" size="sm" isDisabled={Boolean(busy)} onClick={onClick}>
-      고치기
-    </Button>
-  );
-}
-
-const BUSY_LABEL: Record<NonNullable<TAdminPageGroupState['busy']>, string> = {
-  approving: '반영하고 있어요…',
-  rejecting: '반려하고 있어요…',
-  savingRegion: '저장하고 있어요…',
-  savingEdit: '저장하고 있어요…',
-};
 
 /**
  * 후보 묶음 한 줄. 접힌 줄만으로 "올릴지 말지" 의 대부분이 판단되게 한다 —
@@ -210,10 +181,6 @@ export function AdminPageGroupCard({
   const verify = verifyView(extracted.verify);
   /** 짝 id. `matchedName` 은 임베드라 비어 있을 수 있어 **판정에 쓰지 않는다**. */
   const pairId = group.lead.match_place_id;
-  /** 짝이 아직 게시 전인가 — 병합 승인이 그 행을 `published` 로 올린다(`adminApply.ts:157`). */
-  const matchedDraft = group.lead.places?.status === 'draft';
-  /** 0.4~0.85 패널이 가리키는 이웃이 내린 곳인가. `approveGroup` 이 경계에서 채워 준 값이다(`TSimilarPlace`). */
-  const similarArchived = state.similar?.status === 'archived';
 
   // 끝난 묶음은 초록 한 줄로 접힌다. 3초 뒤 목록에서 사라지므로 그 사이의 확인용이다.
   if (state.done) {
@@ -230,6 +197,11 @@ export function AdminPageGroupCard({
   const openEdit = () => onEditDraft(draftFromExtracted(extracted));
   /** 최신본으로 덮으면 무엇이 바뀌나 — 펼쳤고 가리키는 장소 행이 있을 때만 계산한다. */
   const latest = expanded && pairPlace ? latestPlan(pairPlace, extracted) : null;
+  /**
+   * 이 갈래에서 '최신본으로 저장하기' 가 뜻이 있나. 내린 곳·닮은 곳 패널은 언제나(가리키는 장소가 있다),
+   * 기본 갈래는 짝이 있고 지역이 되고 짝이 내린 곳이 아닐 때만 — 내린 곳이면 누르는 순간 되살릴지 묻는 패널로 간다.
+   */
+  const latestAvailable = Boolean(state.archived || state.similar || (pairId && regionOk && !matchedArchived));
 
   return (
     /*
@@ -243,7 +215,8 @@ export function AdminPageGroupCard({
         * 펼침이 토글되고, HTML 로도 틀린 구조다. 폭은 `ADMIN_LEAD_CELL` 이 머리글과 함께 소유한다.
         */}
       <div className="flex items-stretch">
-        <span className={ADMIN_LEAD_CELL}>
+        {/* 칸들이 위쪽 정렬이라 체크박스도 첫 줄(이름)에 맞춘다 — 가운데면 키 큰 줄에서 어느 줄의 것인지 흐려진다. */}
+        <span className={cx(ADMIN_LEAD_CELL, 'md:items-start md:pt-2.5')}>
           <Checkbox
             size="sm"
             isSelected={selected}
@@ -261,6 +234,11 @@ export function AdminPageGroupCard({
           <span className="flex min-w-0 flex-wrap items-center gap-1.5">
             {/* 종류 칩은 맨 뒤 자기 열로 갔다(2026-09-30) — 여기 남은 것은 이름과, 승인을 막거나 미루는 표식들이다. */}
             <span className="text-sm font-bold text-primary">{extracted.name || '(이름 없음)'}</span>
+            {/*
+              * 근거 글 수 — 자기 열(`근거`, 5rem)이던 것을 이름 뒤로 옮겼다(2026-09-30). 값이 거의 늘 `글 1건` 이라
+              * 열 하나가 선 두 벌과 함께 동반 조건 칸의 폭을 먹고 있었다(1280px 에서 `소형견만` 이 글자 단위로 접혔다).
+              */}
+            <span className="text-xs text-quaternary">글 {group.rows.length}건</span>
             {/*
               * tier 가 auto/ask 인데 짝이 비어 있으면 **사람이 비운 것**이고(apply-approved.mjs:13·15) 승인은
               * `targetId: null` 로 **새 장소를 만든다**(adminApply.ts:116-119). 초록 '기존' 을 그대로 두면
@@ -380,13 +358,12 @@ export function AdminPageGroupCard({
             {extracted.features || '요약이 없어요'}
           </span>
 
-          <span className="block text-xs text-tertiary max-md:mt-0.5">글 {group.rows.length}건</span>
 
           {/*
             * 종류 칸. 이름 앞의 칩이던 것을 맨 뒤 자기 열로 옮겼다(2026-09-30). 세로로 훑히게 하려던 목적은
             * 그대로이고 — 오히려 이름 길이와 무관해져 더 곧게 선다 — 대신 이름 옆에는 승인을 막는 표식만 남는다.
             */}
-          <span className="flex items-center max-md:mt-1">
+          <span className="flex items-start max-md:mt-1">
             <AdminTypeChip type={extracted.type} />
           </span>
 
@@ -396,7 +373,7 @@ export function AdminPageGroupCard({
             * svg 는 넘치는 부분을 잘라 내므로 화살표가 통째로 사라진다(빌드·테스트는 초록이다, 2026-09-29 실측).
             * 감싼 칸이 여백을 받으면 아이콘은 제 크기를 지킨다.
             */}
-          <span className="flex items-center justify-end max-md:hidden">
+          <span className="flex items-start justify-end pt-0.5 max-md:hidden">
             <ChevronDown
               aria-hidden="true"
               className={cx(
@@ -408,297 +385,60 @@ export function AdminPageGroupCard({
         </button>
       </div>
 
-      {expanded && <AdminPageGroupDetail group={group} preview={preview} />}
-
       {/*
-        * 고치기 폼은 반려 폼과 **같은 자리**를 쓴다(둘 중 하나만 열린다). 결정 패널 위에 겹쳐 두면
-        * 한 줄에 저장 버튼과 승인 버튼이 같이 서서, 무엇을 누르는 중이었는지가 흐려진다.
+        * 펼친 줄 = **왼쪽 근거 · 오른쪽 결정 레일**(2026-09-30). 버튼이 근거 밑에 있던 동안 줄을 펼칠 때마다 수백 px 을
+        * 내려가야 눌렀고, 갈래마다 버튼이 세 줄 두 덩어리로 흩어졌다. 레일은 `lg` 에서 스크롤을 따라오고(sticky),
+        * 그보다 좁으면 근거 **위**에 선다(`order`) — 어느 폭에서든 펼치자마자 누를 것이 보인다.
+        *
+        * **고치기는 근거 자리를 대신 쓴다.** 폼의 왼쪽 열이 이미 "지금 값" 이라 근거 표와 같은 값을 두 번 보여 줄 까닭이 없고,
+        * 고치는 동안 승인 버튼이 옆에 서 있으면 "저장했나, 올렸나" 가 흐려진다 — 그래서 레일도 접는다(폼이 저장·취소를 갖는다).
         */}
-      {expanded && state.editDraft ? (
-        <AdminPageEditForm
-          draft={state.editDraft}
-          original={extracted}
-          busy={busy === 'savingEdit'}
-          onChange={onEditDraft}
-          onCancel={() => onEditDraft(undefined)}
-          onSave={() => state.editDraft && onSaveEdit(state.editDraft)}
-        />
-      ) : expanded && state.rejecting ? (
-        <AdminPageRejectForm busy={busy === 'rejecting'} onCancel={onCancelReject} onSubmit={onReject} />
-      ) : (
-        expanded && (
-          <div className={cx(ADMIN_PANEL_DIVIDER, 'px-4 py-3')}>
-            {state.archived ? (
-              /*
-               * 짝지은 장소가 **내린 곳**이다. 이 갈래가 소프트 삭제의 방어선이고, 여기서 '새 장소로' 를
-               * 권하지 않는 것이 요점이다 — 그러면 내린 가게의 복제본이 새 id 로 사이트에 다시 올라가
-               * 내린 일 자체가 무효가 된다. 고를 수 있는 것은 둘뿐이다: 다시 열었으면 되살려 합치고,
-               * 폐업 그대로면 반려한다.
-               */
-              <div>
-                <p className="text-xs text-secondary">
-                  내린 곳과 같은 가게로 보여요: <span className="font-semibold">{state.archived.placeName}</span>
-                </p>
-                {noteLineText(lastNoteLine(state.archived.note)) && (
-                  <p className="mt-0.5 text-xs text-tertiary">{noteLineText(lastNoteLine(state.archived.note))}</p>
-                )}
-                <p className="mt-0.5 text-xs text-tertiary">
-                  다시 연 가게면 되살려서 합치고, 아니면 반려해 주세요. 새 장소로 올리면 같은 가게가 두 번 생겨요.
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <Button
-                    color="primary"
-                    size="sm"
-                    isDisabled={Boolean(busy)}
-                    isLoading={busy === 'approving'}
-                    /*
-                     * **짝 id 를 실어 보낸다.** 안 실으면 `decideTarget` 이 짝을 다시 계산하는데, tier 가 'new' 면
-                     * 그 계산은 `placesRef` 에 대한 재대조라 그 사이 다른 카드를 승인했으면 **패널이 말한 장소와
-                     * 다른 장소**로 합쳐진다. 사람이 읽은 이름과 실제로 쓰는 곳이 달라지는 건 조용한 오병합이다.
-                     */
-                    onClick={() => onApprove({ mergeInto: state.archived?.placeId, restoreArchived: true })}
-                  >
-                    되살려서 합치기
-                  </Button>
-                  <Button
-                    color="secondary"
-                    size="sm"
-                    isDisabled={Boolean(busy)}
-                    onClick={onStartReject}
-                  >
-                    반려하기
-                  </Button>
-                  <EditButton busy={busy} onClick={openEdit} />
+      {expanded &&
+        (state.editDraft ? (
+          <AdminPageEditForm
+            draft={state.editDraft}
+            original={extracted}
+            busy={busy === 'savingEdit'}
+            onChange={onEditDraft}
+            onCancel={() => onEditDraft(undefined)}
+            onSave={() => state.editDraft && onSaveEdit(state.editDraft)}
+          />
+        ) : (
+          <div className={cx(ADMIN_PANEL_DIVIDER, 'flex flex-col lg:flex-row lg:items-start')}>
+            <div className="min-w-0 flex-1">
+              {/*
+                * 최신본으로 저장하면 바뀌는 칸 — **근거 쪽 맨 위**에 둔다. 레일은 좁아 전·후 문장을 담으면 줄마다 접히고,
+                * 이 목록은 버튼의 설명이 아니라 "새 분석이 무엇을 다르게 읽었나" 라는 근거 그 자체다.
+                * 목록과 버튼은 같은 계산(`latestPlan`)·같은 조건(`latestAvailable`)에서 나온다.
+                */}
+              {latestAvailable && latest && latest.changes.length > 0 && (
+                <div className="px-4 pt-3">
+                  <AdminChangeList title="새 분석이 다르게 읽은 것 — 지금 장소 값 → 새 분석 값" changes={latest.changes} />
                 </div>
-                {/*
-                  * 같은 이름의 **다른** 가게는 실제로 있다. 그 길을 아예 막지 않고 여기 둔다 —
-                  * 무엇을 버리는지(위의 이름·사유) 읽은 뒤에만 누를 수 있는 자리다.
-                  * `confirmedDifferent` 가 `approveGroup` 의 복제본 가드를 지나가게 하는 유일한 표식이다.
-                  */}
-                <Button
-                  color="link-color"
-                  size="md"
-                  className="mt-2"
-                  isDisabled={Boolean(busy)}
-                  onClick={() => onApprove({ asNew: true, confirmedDifferent: true })}
-                >
-                  정말 다른 가게예요 — 새 장소로
-                </Button>
-                {latest && (
-                  <div className="mt-2">
-                    <AdminPageLatestSave
-                      plan={latest}
-                      label="최신본으로 저장하기"
-                      caption="되살리면서 위 칸들을 새 분석 값으로 바꿔요 · 되살려서 합치기는 빈 칸만 채워요"
-                      busy={Boolean(busy)}
-                      onSave={() => onApprove({ mergeInto: state.archived?.placeId, restoreArchived: true, overwrite: true })}
-                    />
-                  </div>
-                )}
-              </div>
-            ) : state.similar ? (
-              /*
-               * 0.4~0.85 구간. 코드가 정하면 어느 쪽이든 조용히 틀린다 — 합치면 오병합, 새로 만들면 이웃 가게의 중복이다.
-               * 그래서 닮은 이유(reason)를 그대로 보여 주고 사람이 고른다.
-               */
-              <div>
-                <p className="text-xs text-secondary">
-                  같은 가게인지 확실하지 않아요: <span className="font-semibold">{state.similar.name}</span> — 같은
-                  곳인지 봐 주세요.
-                  {similarArchived && (
-                    <>
-                      {' '}
-                      <Badge type="color" size="sm" color="warning">
-                        내림
-                      </Badge>
-                    </>
-                  )}
-                </p>
-                {/* 이름 없는 괄호 소수(0.62)를 "62% 확실" 로 읽는 오독을 없앤다. 값은 살린다 — 같은 모양의 사유가 0.45 일 수도 0.82 일 수도 있다. */}
-                <p className="mt-0.5 text-xs text-tertiary">
-                  닮은 정도 {Math.round(state.similar.confidence * 100)}% · {state.similar.reason}
-                </p>
-                {/*
-                  * 내린 곳이면 **왜 내렸는지**를 같이 보여 준다. 이 한 줄이 없으면 '되살려서 합치기' 가
-                  * 폐업한 가게를 되살리는 버튼인지 다시 연 가게를 잇는 버튼인지 구분할 근거가 화면에 없다.
-                  */}
-                {similarArchived && noteLineText(lastNoteLine(state.similar.archiveNote)) && (
-                  <p className="mt-0.5 text-xs text-tertiary">
-                    {noteLineText(lastNoteLine(state.similar.archiveNote))}
-                  </p>
-                )}
-                {/* 이 버튼이 곧 `confirmedDifferent` 로 기록돼 복제본 가드를 통째로 건너뛴다(adminApply.ts:241-246) — 화면이 그것을 묻는다. */}
-                {similarArchived && (
-                  <p className="mt-0.5 text-xs text-tertiary">
-                    같은 가게면 되살려서 합쳐 주세요. 새 장소로 올리면 같은 가게가 두 번 생겨요.
-                  </p>
-                )}
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <Button
-                    color="primary"
-                    size="sm"
-                    isDisabled={Boolean(busy)}
-                    isLoading={busy === 'approving'}
-                    /* 내린 곳이면 합치기 전에 되살려야 한다 — 안 그러면 `approveGroup` 이 archived 가드에서 되돌려 보낸다. */
-                    onClick={() =>
-                      onApprove({ mergeInto: state.similar?.id, restoreArchived: similarArchived || undefined })
-                    }
-                  >
-                    {similarArchived ? '되살려서 합치기' : '여기에 합치기'}
-                  </Button>
-                  <Button
-                    color="secondary"
-                    size="sm"
-                    isDisabled={Boolean(busy)}
-                    /*
-                     * 0.4~0.85 에서는 이웃이 정말 다른 가게일 수 있어 이 길을 남긴다. 다만 그 이웃이 내린 곳이면
-                     * 여기서 만드는 새 장소가 곧 복제본이라, 사람이 '내림' 배지를 보고 누른 것을 확인으로 넘긴다.
-                     */
-                    onClick={() => onApprove({ asNew: true, confirmedDifferent: similarArchived || undefined })}
-                  >
-                    {similarArchived ? '정말 다른 가게예요 — 새 장소로' : '새 장소로'}
-                  </Button>
-                </div>
-                {/*
-                 * 이 갈래에도 '아니에요' 가 있어야 한다. 0.4~0.85 는 애매한 것이 모이는 구간이라 목록글·홍보글이 그대로 여기 오는데,
-                 * 둘 중 하나를 고르는 길만 두면 **반려하려면 새로고침**해야 한다 — `similar` 를 지우는 길이 성공한 승인뿐이어서다.
-                 */}
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <Button color="secondary" size="sm" isDisabled={Boolean(busy)} onClick={onStartReject}>
-                    반려하기
-                  </Button>
-                  <EditButton busy={busy} onClick={openEdit} />
-                </div>
-                {latest && (
-                  <div className="mt-2">
-                    <AdminPageLatestSave
-                      plan={latest}
-                      label="같은 곳이에요 — 최신본으로 저장하기"
-                      caption={`${state.similar.name} 의 위 칸들을 새 분석 값으로 바꿔요 · 합치기는 빈 칸만 채워요`}
-                      busy={Boolean(busy)}
-                      onSave={() =>
-                        onApprove({ mergeInto: state.similar?.id, restoreArchived: similarArchived || undefined, overwrite: true })
-                      }
-                    />
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {regionOk ? (
-                  /* 버튼과 결과 한 줄을 한 덩어리로 감싼다 — 부모의 `space-y-2` 가 둘을 갈라 놓지 않게. */
-                  <div>
-                    <Button
-                      color="primary"
-                      size="sm"
-                      isDisabled={Boolean(busy)}
-                      isLoading={busy === 'approving'}
-                      onClick={() => onApprove()}
-                    >
-                      맞아요, 장소로 올리기
-                    </Button>
-                    {/*
-                      * 누르기 전에 무엇이 되돌릴 수 없어지는지 말한다. **갈래가 셋인 이유**는 `decideTarget` 이 셋이어서다
-                      * (adminApply.ts:115-127): 짝이 있으면 그리로 합치고, 짝이 없어도 `tier === 'new'` 면 **재대조**가 돌아
-                      * 점수가 높으면 기존 장소로 합쳐진다. 그 갈래를 "새로 생겨요" 로 뭉개면 운영자가 되돌리려고
-                      * '올린 장소' 에서 내릴 때 **합쳐 넣은 원래 장소**를 내린다 — 캡션이 틀리는 방향이 최악이 된다.
-                      */}
-                    <p className="mt-1 text-xs text-tertiary">
-                      {pairId
-                        ? matchedDraft
-                          ? '기존 장소에 합쳐지고, 그 곳이 사이트에 게시돼요 · 되돌릴 수 없어요'
-                          : '기존 장소에 합쳐져요 · 합친 내용은 되돌릴 수 없어요'
-                        : group.tier === 'new'
-                          ? '같은 가게가 이미 있으면 거기 합쳐지고, 없으면 새로 올라가요 · 결과는 누른 뒤에 알려 줘요'
-                          : "새 장소로 올라가요 · 되돌릴 땐 '올린 장소' 에서 내려요"}
-                    </p>
-                  </div>
-                ) : (
-                  /*
-                   * 지역이 없으면 반영을 막는다 — 읍·면 칩이 비고 상세 헤더가 '기타' 가 되기 때문이다.
-                   * 선택지는 기존 86곳이 쓰는 표기뿐이다(새 표기를 만들면 그 장소 혼자 다른 칩을 단다).
-                   */
-                  <div className="rounded-lg bg-secondary px-3 py-2">
-                    <p className="text-xs text-secondary">지역이 정해지지 않아 아직 올릴 수 없어요. 하나 골라 주세요.</p>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <Select
-                        aria-label="지역 고르기"
-                        size="sm"
-                        placeholder="지역 고르기"
-                        selectedKey={state.regionDraft ?? null}
-                        onSelectionChange={(key) => key && onPickRegion(String(key))}
-                        isDisabled={Boolean(busy)}
-                        className="w-44"
-                      >
-                        {REGION_OPTIONS.map((option) => (
-                          <Select.Item key={option} id={option}>
-                            {option}
-                          </Select.Item>
-                        ))}
-                      </Select>
-                      <Button
-                        color="primary"
-                        size="sm"
-                        isDisabled={Boolean(busy) || !state.regionDraft}
-                        isLoading={busy === 'savingRegion'}
-                        onClick={() => state.regionDraft && onSaveRegion(state.regionDraft)}
-                      >
-                        저장
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    color="secondary"
-                    size="sm"
-                    isDisabled={Boolean(busy)}
-                    onClick={onStartReject}
-                  >
-                    반려하기
-                  </Button>
-                  <EditButton busy={busy} onClick={openEdit} />
-                </div>
-
-                {/*
-                  * 짝이 있는 줄에만 — 짝이 없으면 덮을 대상이 없다. 짝이 내린 곳이면 이 패널이 아니라 위의 '내린 곳' 패널이
-                  * 같은 버튼을 되살리기와 함께 준다(여기서 누르면 `approveGroup` 이 archived 가드에서 그 패널로 돌려보낸다).
-                  */}
-                {latest && pairId && regionOk && !matchedArchived && (
-                  <AdminPageLatestSave
-                    plan={latest}
-                    label="최신본으로 저장하기"
-                    caption={`${pairPlace?.name ?? '기존 장소'} 의 위 칸들을 새 분석 값으로 바꿔요 · '맞아요' 는 빈 칸만 채워요`}
-                    busy={Boolean(busy)}
-                    onSave={() => onApprove({ mergeInto: pairId, overwrite: true })}
-                  />
-                )}
-
-                {group.tier !== 'new' && pairId && regionOk && !matchedArchived && (
-                  /*
-                   * 짝이 잘못 붙은 경우 — 사람이 짝을 비우는 대신 여기서 신규로 보낸다(CLI 의 match_place_id 비우기와 같은 뜻).
-                   * **짝이 내린 곳이면 이 버튼을 감춘다**(`!matchedArchived`). 그 경우 이 버튼은 내린 가게의 복제본을
-                   * 새 id 로 게시하는 길이 되고, 그것이 소프트 삭제를 무효로 만드는 가장 빠른 경로다. 같은 일을 하려면
-                   * 아래 '내린 곳' 패널의 '정말 다른 가게예요' 를 지나야 한다 — 거기서는 무엇을 버리는지 보고 누른다.
-                   */
-                  <Button
-                    color="link-color"
-                    size="md"
-                    isDisabled={Boolean(busy)}
-                    onClick={() => onApprove({ asNew: true })}
-                  >
-                    새 장소로 올리기
-                  </Button>
-                )}
-              </div>
-            )}
-
-            {busy && <p className="mt-2 text-xs text-tertiary">{BUSY_LABEL[busy]}</p>}
-            {state.error && <p className="mt-2 text-xs text-error-primary">{state.error}</p>}
+              )}
+              <AdminPageGroupDetail group={group} preview={preview} />
+            </div>
+            <aside
+              aria-label="이 장소 결정"
+              className="order-first border-b border-secondary px-4 py-3 lg:sticky lg:top-18 lg:order-none lg:w-72 lg:shrink-0 lg:border-b-0 lg:border-l"
+            >
+              <AdminPageGroupActions
+                group={group}
+                state={state}
+                regionOk={regionOk}
+                latest={latest}
+                latestAvailable={latestAvailable}
+                onApprove={onApprove}
+                onStartReject={onStartReject}
+                onCancelReject={onCancelReject}
+                onReject={onReject}
+                onPickRegion={onPickRegion}
+                onSaveRegion={onSaveRegion}
+                onEdit={openEdit}
+              />
+            </aside>
           </div>
-        )
-      )}
+        ))}
 
       {/* 접힌 상태에서도 방금 실패한 것은 보여야 한다 — 펼치지 않으면 왜 안 됐는지 알 수 없다. */}
       {!expanded && state.error && <p className="px-4 pb-2 text-xs text-error-primary">{state.error}</p>}

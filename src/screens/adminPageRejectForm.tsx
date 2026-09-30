@@ -14,18 +14,20 @@ type TAdminPageRejectFormProps = {
    * 일괄 반려에서는 **숫자가 유일한 단서**라 되돌릴 수 없다는 경고와 버튼 라벨에 함께 싣는다.
    */
   count?: number;
+  /** 결정 레일 안에서 열린다 — 자기 윗선·여백 없이 레일의 흐름을 따른다(`AdminPageGroupActions`). */
+  inline?: boolean;
 };
 
 /**
  * 반려 사유. 칩을 먼저 고르게 하는 이유 — 자유 입력만 두면 매번 다른 말이 적혀 나중에 "왜 반려했나" 를 셀 수 없다.
  * 메모는 선택이다(브리프 결정 8). 사유 없이 반려하는 길은 두지 않는다 — 사유가 없으면 같은 글이 다음 분석에 또 올라온다.
  */
-export function AdminPageRejectForm({ busy, onCancel, onSubmit, count }: TAdminPageRejectFormProps) {
+export function AdminPageRejectForm({ busy, onCancel, onSubmit, count, inline = false }: TAdminPageRejectFormProps) {
   const [reason, setReason] = useState<TRejectReason | null>(null);
   const [note, setNote] = useState('');
 
   return (
-    <div className="border-t border-dashed border-tertiary px-4 py-3">
+    <div className={inline ? undefined : 'border-t border-dashed border-tertiary px-4 py-3'}>
       <p className="text-xs font-semibold text-secondary">왜 반려하나요?</p>
       {/* 되돌릴 수 없다는 사실은 라벨이 아니라 이 줄이 전한다. 단위를 '글' 로 쓰면 틀린다(묶음은 여러 글이다). */}
       <p className="mt-1 text-xs text-tertiary">

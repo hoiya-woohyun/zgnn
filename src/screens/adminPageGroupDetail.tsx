@@ -5,7 +5,6 @@ import { Badge } from '../components/base/badges';
 import { addressView } from '../lib/adminAddress';
 import { factsLine, FACTS_EMPTY, type TCandidateGroup, type TPolicyPreview } from '../lib/adminCandidates';
 import { aiEdits } from '../lib/adminEdit';
-import { PLACE_STATUS_COLOR, PLACE_STATUS_LABEL } from '../lib/adminPlaces';
 import { policySplit } from '../lib/adminPreview';
 import { verifyView } from '../lib/adminVerify';
 import type { TBadgeTone, TPetBadge } from '../lib/petPolicy';
@@ -98,7 +97,6 @@ function CompareRow({
  */
 export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailProps) {
   const extracted = group.lead.extracted;
-  const matched = group.lead.places;
   /*
    * 나갈 주소는 **어디서 온 주소인지**부터 말한다(`adminAddress.ts`). 예전에는 전부 '네이버 검색 결과' 로 적고 원글과
    * 견주기만 했는데, 그 대조는 축에 따라 순환이다 — 주소→좌표 축의 주소는 원글 주소에서 나온 것이라
@@ -118,7 +116,7 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
   const regionAi = extracted.regionRawAi?.trim() ? extracted.regionRawAi : null;
 
   return (
-    <div className="space-y-3 border-t border-dashed border-tertiary px-4 py-3 text-xs">
+    <div className="space-y-3 px-4 py-3 text-xs">
       <AdminChangeList title="고친 내용 — AI 가 뽑은 값 → 지금 값" changes={edits} />
 
       <div className="rounded-lg border border-secondary bg-primary px-3">
@@ -241,31 +239,7 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
         </div>
       </div>
 
-      {matched && (
-        <div className="text-xs">
-          <span className="text-tertiary">합쳐질 기존 장소 </span>
-          {matched.status === 'published' ? (
-            <a className="font-semibold text-brand-secondary underline" href={`/place/${matched.id}/`}>
-              {matched.name}
-            </a>
-          ) : (
-            <>
-              <span className="font-semibold text-secondary">{matched.name}</span>{' '}
-              <Badge type="color" size="sm" color={PLACE_STATUS_COLOR[matched.status]}>
-                {PLACE_STATUS_LABEL[matched.status]}
-              </Badge>
-              {/*
-                * 병합 승인은 초안 대상을 **게시로 올린다**(`adminApply.ts:157`). '안 보여요' 만 적으면 그 줄과 승인 버튼이
-                * 둘 다 "사이트는 안 바뀐다" 로 읽혀, 게시를 일으키는 버튼 앞에서 정반대를 말하게 된다.
-                */}
-              {matched.status === 'draft' && (
-                <p className="mt-0.5 text-xs text-tertiary">아직 사이트에 없는 곳이에요 — 여기에 합치면 함께 게시돼요</p>
-              )}
-            </>
-          )}
-        </div>
-      )}
-
+      {/* 합쳐질 기존 장소는 결정 레일의 맨 위 줄이 말한다(`AdminPageGroupActions`) — 누를 버튼 바로 위라야 읽힌다. */}
       <div>
         <p className="text-xs font-semibold text-secondary">
           원문 — 블로그 글 {group.rows.length}건 <span className="font-normal text-tertiary">· 인용은 AI 가 근거로 짚은 문장</span>
