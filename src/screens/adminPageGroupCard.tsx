@@ -15,6 +15,7 @@ import {
 } from '../lib/adminCandidates';
 import type { TApplyOutcome, TSimilarPlace } from '../lib/adminApply';
 import { lastNoteLine, noteLineText } from '../lib/adminPlaces';
+import { draftFromExtracted, type TCandidateEditDraft } from '../lib/adminEdit';
 import type { TBadgeTone } from '../lib/petPolicy';
 import { sameAddress } from '../lib/addressMatch';
 import { aiAnalyzed, policyCell, type TAdminFlagView } from '../lib/adminPreview';
@@ -22,12 +23,13 @@ import { verifyView } from '../lib/adminVerify';
 import { cx } from '../utils/cx';
 import { AdminPageGroupDetail } from './adminPageGroupDetail';
 import { AdminTypeChip } from './adminTypeChip';
+import { AdminPageEditForm } from './adminPageEditForm';
 import { AdminPageRejectForm } from './adminPageRejectForm';
 import { ADMIN_CANDIDATE_GRID, ADMIN_LEAD_CELL, ADMIN_PANEL_DIVIDER, ADMIN_ROW_OPEN } from './adminTable';
 
 /** 묶음 하나의 화면 상태. 소유자는 `adminPage.tsx` 고 여기는 받아서 그린다. */
 export type TAdminPageGroupState = {
-  busy?: 'approving' | 'rejecting' | 'savingRegion';
+  busy?: 'approving' | 'rejecting' | 'savingRegion' | 'savingEdit';
   /** 끝난 묶음의 초록 한 줄. 이 값이 있으면 카드는 접힌 한 줄만 남는다. */
   done?: string;
   error?: string;
@@ -41,6 +43,11 @@ export type TAdminPageGroupState = {
   rejecting?: boolean;
   /** '지역 고르기' 셀렉트의 현재 선택. */
   regionDraft?: string;
+  /**
+   * 고치기 폼이 열려 있으면 그 초안. `undefined` 가 '안 열림' 이다 — 불리언과 값을 따로 두면
+   * 닫을 때 둘을 같이 지워야 하고, 한쪽만 지우면 다음에 열 때 남의 초안이 들어 있다.
+   */
+  editDraft?: TCandidateEditDraft;
 };
 
 export type TApproveChoice = {
@@ -64,6 +71,8 @@ type TAdminPageGroupCardProps = {
   onReject: (reason: TRejectReason, note: string) => void;
   onPickRegion: (regionRaw: string) => void;
   onSaveRegion: (regionRaw: string) => void;
+  onEditDraft: (draft: TCandidateEditDraft | undefined) => void;
+  onSaveEdit: (draft: TCandidateEditDraft) => void;
   /** 일괄 반려용으로 골라 뒀는가. 소유자는 `adminPage.tsx` 다(`adminSelection.ts`). */
   selected: boolean;
   onSelect: (selected: boolean) => void;
@@ -92,6 +101,7 @@ const BUSY_LABEL: Record<NonNullable<TAdminPageGroupState['busy']>, string> = {
   approving: '반영하고 있어요…',
   rejecting: '반려하고 있어요…',
   savingRegion: '저장하고 있어요…',
+  savingEdit: '저장하고 있어요…',
 };
 
 /**
@@ -115,6 +125,8 @@ export function AdminPageGroupCard({
   onReject,
   onPickRegion,
   onSaveRegion,
+  onEditDraft,
+  onSaveEdit,
   selected,
   onSelect,
 }: TAdminPageGroupCardProps) {
@@ -334,7 +346,20 @@ export function AdminPageGroupCard({
 
       {expanded && <AdminPageGroupDetail group={group} preview={preview} />}
 
-      {expanded && state.rejecting ? (
+      {/*
+        * 고치기 폼은 반려 폼과 **같은 자리**를 쓴다(둘 중 하나만 열린다). 결정 패널 위에 겹쳐 두면
+        * 한 줄에 저장 버튼과 승인 버튼이 같이 서서, 무엇을 누르는 중이었는지가 흐려진다.
+        */}
+      {expanded && state.editDraft ? (
+        <AdminPageEditForm
+          draft={state.editDraft}
+          original={extracted}
+          busy={busy === 'savingEdit'}
+          onChange={onEditDraft}
+          onCancel={() => onEditDraft(undefined)}
+          onSave={() => state.editDraft && onSaveEdit(state.editDraft)}
+        />
+      ) : expanded && state.rejecting ? (
         <AdminPageRejectForm busy={busy === 'rejecting'} onCancel={onCancelReject} onSubmit={onReject} />
       ) : (
         expanded && (
@@ -538,14 +563,29 @@ export function AdminPageGroupCard({
                   </div>
                 )}
 
-                <Button
-                  color="secondary"
-                  size="sm"
-                  isDisabled={Boolean(busy)}
-                  onClick={onStartReject}
-                >
-                  반려하기
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    color="secondary"
+                    size="sm"
+                    isDisabled={Boolean(busy)}
+                    onClick={onStartReject}
+                  >
+                    반려하기
+                  </Button>
+                  {/*
+                    * 고치는 것은 **승인 전 후보**뿐이다 — 사이트에 올라간 장소는 이 버튼이 닿지 않는다.
+                    * 지역이 비어 승인이 막힌 줄에서도 열어 둔다: 이름·주소가 틀려서 지역을 못 정한 경우가 있고,
+                    * 그때 고칠 길이 없으면 반려밖에 남지 않는다.
+                    */}
+                  <Button
+                    color="secondary"
+                    size="sm"
+                    isDisabled={Boolean(busy)}
+                    onClick={() => onEditDraft(draftFromExtracted(extracted))}
+                  >
+                    고치기
+                  </Button>
+                </div>
 
                 {group.tier !== 'new' && pairId && regionOk && !matchedArchived && (
                   /*

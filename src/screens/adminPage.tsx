@@ -6,7 +6,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { Button } from '../components/base/button';
 import { EmptyState } from '../components/layout/emptyState';
 import { PageHeader } from '../components/layout/pageHeader';
-import { approveGroup, rejectGroup, setRegion } from '../lib/adminApply';
+import { approveGroup, rejectGroup, saveEdit, setRegion } from '../lib/adminApply';
+import { buildEdit, type TCandidateEditDraft } from '../lib/adminEdit';
 import {
   countStrandedCandidates,
   fetchMatchablePlaces,
@@ -17,6 +18,7 @@ import {
   TIER_LABEL,
   TYPE_LABEL,
   type TCandidateGroup,
+  type TCandidateRow,
   type TCandidateType,
   type TPlaceRow,
   type TRejectReason,
@@ -542,6 +544,51 @@ export function AdminPage() {
     [beginWrite, endWrite, patchState],
   );
 
+  /**
+   * 고친 내용을 저장한다.
+   *
+   * **정체(이름·종류·주소·좌표·짝)는 묶음의 모든 행에, 소개(`features`)는 대표 행에만** 쓴다.
+   * 정체를 대표에만 쓰면 다음 새로고침에서 `groupCandidates` 가 `nameKey`·`match_place_id` 로 다시 묶을 때
+   * 그 행만 딴 묶음으로 떨어져, 방금 고친 가게가 두 줄로 보인다. 반대로 소개까지 전부에 쓰면 글마다 다른
+   * 문장을 한 글의 것으로 덮어쓴다 — 승인이 읽는 것은 대표 하나뿐이라 그럴 이유가 없다.
+   *
+   * 실패하면 **아무것도 화면에 반영하지 않는다.** 일부만 쓰인 상태로 목록을 고쳐 두면 무엇이 저장됐는지
+   * 화면과 DB 가 갈리고, 그 갈림은 다음 승인에서야 드러난다.
+   */
+  const saveEditFor = useCallback(
+    async (group: TCandidateGroup, draft: TCandidateEditDraft) => {
+      const client = clientRef.current;
+      if (!client) return;
+      if (!beginWrite((message) => patchState(group.key, { error: message }))) return;
+      patchState(group.key, { busy: 'savingEdit', error: undefined });
+      try {
+        const edit = buildEdit(group.lead, draft, placesRef.current);
+        const updatedLead = await saveEdit(client, group.lead, edit);
+        const others: TCandidateRow[] = [];
+        for (const row of group.rows) {
+          if (row.id === group.lead.id) continue;
+          // 소개는 그 행의 것을 지킨다 — 정체만 맞춘다.
+          const sibling = { ...edit, extracted: { ...edit.extracted, features: row.extracted.features ?? null } };
+          others.push(await saveEdit(client, row, sibling));
+        }
+        const byId = new Map([updatedLead, ...others].map((row) => [row.id, row]));
+        setGroups((prev) =>
+          prev.map((current) =>
+            current.key === group.key
+              ? { ...current, lead: updatedLead, rows: current.rows.map((row) => byId.get(row.id) ?? row) }
+              : current,
+          ),
+        );
+        patchState(group.key, { busy: undefined, editDraft: undefined });
+      } catch (error) {
+        patchState(group.key, { busy: undefined, error: messageOf(error, '고친 내용을 저장하지 못했어요.') });
+      } finally {
+        endWrite();
+      }
+    },
+    [beginWrite, endWrite, patchState],
+  );
+
   const cards = useMemo(
     () =>
       groups.map((group) => {
@@ -890,6 +937,8 @@ export function AdminPage() {
                   onReject={(reason, note) => void reject(group, reason, note)}
                   onPickRegion={(regionRaw) => patchState(group.key, { regionDraft: regionRaw })}
                   onSaveRegion={(regionRaw) => void saveRegion(group, regionRaw)}
+                  onEditDraft={(editDraft) => patchState(group.key, { editDraft })}
+                  onSaveEdit={(editDraft) => void saveEditFor(group, editDraft)}
                   selected={selected.has(group.key)}
                   onSelect={() => setSelected((prev) => toggleSelected(prev, group.key))}
                 />

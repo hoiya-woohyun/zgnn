@@ -27,6 +27,7 @@ import {
   type TPlaceRow,
   type TPlaceStatus,
 } from './adminCandidates';
+import type { TCandidateEdit } from './adminEdit';
 import { restorePlace } from './adminPlaces';
 import { appendReviewerNote } from './adminSession';
 import type { TPlace } from '../types';
@@ -391,6 +392,39 @@ export async function rejectGroup(
  * 지역만 고쳐 넣는다(브리프 결정 9 의 최소 편집). `extracted` 통째로 다시 쓰는 이유 —
  * jsonb 안의 한 키만 바꾸는 문법이 PostgREST 에 없다. 그래서 읽어 온 행을 그대로 펼쳐 한 키만 덮는다.
  */
+/**
+ * 고친 후보를 저장한다. `setRegion` 과 같은 어법(jsonb 통째 update)이되 **두 칸이 더 간다** —
+ * 짝(`match_place_id`·`match_confidence`)은 `extracted.match` 와 **함께** 움직여야 하기 때문이다.
+ * 한쪽만 쓰면 화면은 새 이름을 보여 주면서 승인은 옛 짝으로 합쳐진다(`decideTarget` 이 그 칸을 믿는다).
+ *
+ * **묶음의 모든 행에 같은 정체(이름·종류·주소·좌표·짝)를 쓴다**(호출부가 행마다 한 번씩 부른다).
+ * 대표(lead) 하나만 고치면 다음 새로고침에서 `groupCandidates` 가 `nameKey` 로 다시 묶을 때 그 행만
+ * 딴 묶음으로 떨어져 나가, 운영자가 방금 고친 것이 두 줄로 보인다. 소개 문장(`features`)은 글마다 달라
+ * 대표만 고친다 — 그 갈림은 호출부(`adminPage.tsx`)가 정한다.
+ */
+export async function saveEdit(client: SupabaseClient, row: TCandidateRow, edit: TCandidateEdit): Promise<TCandidateRow> {
+  const { error } = await client
+    .from('candidates')
+    .update({
+      extracted: edit.extracted,
+      match_place_id: edit.match_place_id,
+      match_confidence: edit.match_confidence,
+    })
+    .eq('id', row.id);
+  failIf('고친 내용 저장', error);
+  return {
+    ...row,
+    extracted: edit.extracted,
+    match_place_id: edit.match_place_id,
+    match_confidence: edit.match_confidence,
+    /*
+     * 짝이 바뀌면 임베딩(`places(id,name,status)`)도 낡는다. 지우지 않으면 '이미 있는 곳 → 옛 이름' 이
+     * 그대로 붙어 있어, 사람이 고친 뒤에도 화면이 옛 짝을 말한다. 새 이름은 다음 조회에서 온다.
+     */
+    places: edit.match_place_id === row.match_place_id ? row.places : null,
+  };
+}
+
 export async function setRegion(client: SupabaseClient, row: TCandidateRow, regionRaw: string): Promise<TCandidateRow> {
   const extracted = { ...row.extracted, regionRaw };
   const { error } = await client.from('candidates').update({ extracted }).eq('id', row.id);
