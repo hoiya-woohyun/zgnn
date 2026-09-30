@@ -47,3 +47,13 @@ export function stickyMorphRange(sentinelOffset: number, insetTop: number, dista
 export function collapseRange(sentinelOffset: number, pinnedTop: number): TScrollMorphRange {
   return { from: 0, to: Math.max(sentinelOffset - pinnedTop, 1) };
 }
+
+/**
+ * 하위 화면 헤더(`AppBar`)에 제목이 올라오는 구간 — 순수. 화면의 `<h1>` 이 헤더 밑으로 들어가는 동안이다:
+ * h1 의 윗변이 헤더 아랫변에 닿을 때 시작해, h1 의 아랫변이 닿을 때 끝난다(= h1 이 다 가려진 순간 제목이 다 올라와 있다).
+ * `headingOffset` 은 스크롤 0 에서 h1 윗변의 위치, `barBottom` 은 붙은 헤더의 아랫변(인셋 포함)이다.
+ */
+export function barRevealRange(headingOffset: number, headingHeight: number, barBottom: number): TScrollMorphRange {
+  const from = headingOffset - barBottom;
+  return { from, to: from + Math.max(headingHeight, 1) };
+}
