@@ -65,7 +65,8 @@ import { ADMIN_CANDIDATE_GRID, AdminTable } from './adminTable';
 /** 한 번에 더 그리는 줄 수. 줄이 얇아져(표) 20 은 PC 한 화면도 못 채운다 — 감시판이 곧바로 또 보인다. */
 const PAGE_SIZE = 40;
 
-const COLUMNS = ['이름', '지역', '동반 조건', '근거', ''];
+/** 첫 열은 **종류 + 이름**이라 '이름' 이 아니라 '장소' 다(`AdminTypeChip` 이 앞에 선다). */
+const COLUMNS = ['장소', '지역', '동반 조건', '근거', ''];
 /** 끝난 카드가 초록 한 줄로 남아 있는 시간. 바로 지우면 "눌렀는데 아무 일도 안 났다" 로 보인다. */
 const DONE_LINGER_MS = 3000;
 
@@ -790,7 +791,23 @@ export function AdminPage() {
       ) : (
         <>
           <div className="mt-3">
-            <AdminTable grid={ADMIN_CANDIDATE_GRID} columns={COLUMNS} lead>
+            <AdminTable
+              grid={ADMIN_CANDIDATE_GRID}
+              columns={COLUMNS}
+              lead
+              /*
+               * 머리글의 체크박스가 전부 고르기다. **고르는 범위는 화면에 그린 줄이 아니라 걸러 보기에 걸린 전부**라
+               * 그 수를 이름표에 싣는다(`filteredKeys` 가 그 집합이고, 표 위 줄의 버튼과 같은 것을 고른다).
+               */
+              selectAll={{
+                isSelected: allKeysSelected(selected, filteredKeys),
+                isIndeterminate: selectedKeys.length > 0 && !allKeysSelected(selected, filteredKeys),
+                isDisabled: Boolean(bulk.busy) || filteredKeys.length === 0,
+                label: `걸러 보기에 걸린 ${filteredKeys.length}묶음 전부 고르기`,
+                onChange: (next) =>
+                  setSelected((prev) => (next ? selectKeys(prev, filteredKeys) : clearKeys(prev, filteredKeys))),
+              }}
+            >
             {filtered.slice(0, shown).map(({ group, preview, view }) => {
               const state = states[group.key] ?? {};
               return (

@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { Checkbox } from '../components/base/checkbox';
 import { cx } from '../utils/cx';
 
 /**
@@ -77,28 +78,69 @@ export const ADMIN_LEAD_CELL = 'flex w-10 shrink-0 items-center justify-center';
  * 표 한 장 — 머리글 + 줄들. 가로 여백(`px-4 md:px-6`)을 여기 한 번만 두고 머리글과 `<ul>` 이 **같은 상자**
  * 안에 서므로 열이 어긋날 길이 없다(예전에는 상자를 두 겹 세워 1px 씩 맞춰야 했다).
  *
+ * 머리글에 **전부 고르기 체크박스**가 설 수 있다(`selectAll`). 그 체크박스가 고르는 범위는 보이는 줄이 아니라
+ * 걸러 보기에 걸린 전부라, 개수를 `aria-label` 에 실어 말한다 — 좁은 화면에서는 머리글이 없으므로
+ * 같은 일을 하는 컨트롤이 표 위 줄(`AdminPageBulkBar`)에 남아 있다.
+ *
  * 머리글을 sticky 로 만들지 않았다. 셸의 뒤로가기 줄이 투명한 자리라(ADR-010), 붙여 둔 머리글 위의 그
  * 띠로 지나가는 줄이 비쳐 **열 이름 위에 남의 줄 글자가 겹친다.** 덮개를 깔면 안 붙어 있을 때 걸러 보기
  * 줄을 덮는다. 열의 정체는 세로선이 이미 말하고 있다.
  */
+/**
+ * 머리글의 **전부 고르기** 체크박스. 없으면 머리글의 고르기 칸은 빈 자리다.
+ *
+ * ⚠️ 이것이 고르는 것은 **화면에 그린 줄이 아니라 걸러 보기에 걸린 전부**다(무한 스크롤로 아직 안 그린 것까지).
+ * 머리글의 체크박스는 "내가 보는 줄들" 을 가리키는 것처럼 보이므로, 개수를 `label` 에 실어 그 차이를 말한다 —
+ * 141묶음 중 40묶음만 그려진 상태에서 눌러도 141묶음이 골라진다.
+ */
+export type TAdminTableSelectAll = {
+  isSelected: boolean;
+  /** 일부만 골랐을 때. '전부 골랐다' 로 보이면 한 번 더 눌러 풀릴 줄 알고 눌렀다가 나머지가 켜진다. */
+  isIndeterminate: boolean;
+  isDisabled?: boolean;
+  /** 스크린리더가 읽는 말 — 개수를 여기 싣는다(보이는 글자를 둘 자리가 없다). */
+  label: string;
+  onChange: (selected: boolean) => void;
+};
+
 export function AdminTable({
   grid,
   columns,
   children,
   lead = false,
+  selectAll,
 }: {
   grid: string;
   columns: string[];
   children: ReactNode;
   /** 줄 맨 앞에 고르기 칸이 있는가. 머리글에 같은 폭의 빈 자리를 둬 열을 맞춘다(`ADMIN_LEAD_CELL`). */
   lead?: boolean;
+  /** 주면 머리글의 고르기 칸에 전부 고르기 체크박스가 선다. `lead` 가 false 면 무시된다(칸이 없다). */
+  selectAll?: TAdminTableSelectAll;
 }) {
   return (
     <div className="px-4 md:px-6">
       {/* 머리글은 `md` 이상에서만 — 그 아래에서는 줄이 grid 가 아니라 세로로 쌓여 이름표가 가리킬 열이 없다. */}
-      <div className="hidden border-t border-secondary md:flex" aria-hidden="true">
-        {lead ? <span className={ADMIN_LEAD_CELL} /> : null}
-        <div className={cx('min-w-0 flex-1 px-4 text-xs font-semibold text-quaternary', grid)}>
+      {/*
+        * `aria-hidden` 은 **열 이름 쪽에만** 둔다. 예전에는 머리글 상자 전체에 걸려 있었는데, 그 안에
+        * 체크박스가 들어오면 보조기기에서 통째로 사라진다 — 보이는데 없는 컨트롤이 된다.
+        */}
+      <div className="hidden border-t border-secondary md:flex">
+        {lead ? (
+          <span className={ADMIN_LEAD_CELL}>
+            {selectAll ? (
+              <Checkbox
+                size="sm"
+                aria-label={selectAll.label}
+                isSelected={selectAll.isSelected}
+                isIndeterminate={selectAll.isIndeterminate}
+                isDisabled={selectAll.isDisabled}
+                onChange={selectAll.onChange}
+              />
+            ) : null}
+          </span>
+        ) : null}
+        <div className={cx('min-w-0 flex-1 px-4 text-xs font-semibold text-quaternary', grid)} aria-hidden="true">
           {columns.map((column, index) => (
             <span key={column || `blank-${index}`} className="truncate">
               {column}

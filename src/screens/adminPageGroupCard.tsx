@@ -9,7 +9,6 @@ import {
   regionUsable,
   REGION_OPTIONS,
   TIER_LABEL,
-  TYPE_LABEL,
   type TCandidateGroup,
   type TPolicyPreview,
   type TRejectReason,
@@ -19,9 +18,9 @@ import { lastNoteLine, noteLineText } from '../lib/adminPlaces';
 import { sameAddress } from '../lib/addressMatch';
 import { aiAnalyzed, policyCell, type TAdminFlagView } from '../lib/adminPreview';
 import { verifyView } from '../lib/adminVerify';
-import { isPlaceType, TYPE_COLOR, typeTint } from '../lib/places';
 import { cx } from '../utils/cx';
 import { AdminPageGroupDetail } from './adminPageGroupDetail';
+import { AdminTypeChip } from './adminTypeChip';
 import { AdminPageRejectForm } from './adminPageRejectForm';
 import { ADMIN_CANDIDATE_GRID, ADMIN_LEAD_CELL, ADMIN_PANEL_DIVIDER, ADMIN_ROW_OPEN } from './adminTable';
 
@@ -147,10 +146,6 @@ export function AdminPageGroupCard({
     );
   }
 
-  const typeTone = isPlaceType(extracted.type)
-    ? { background: typeTint(extracted.type, 14), color: TYPE_COLOR[extracted.type] }
-    : undefined;
-
   const regionOk = regionUsable(extracted.regionRaw);
 
   return (
@@ -181,13 +176,9 @@ export function AdminPageGroupCard({
           className={cx('min-w-0 flex-1 px-4 py-2 text-left', ADMIN_CANDIDATE_GRID)}
         >
           <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+            {/* 종류가 먼저다 — 열 이름이 '장소' 인 이유이고, 세로로 훑을 수 있게 폭을 못 박았다(`AdminTypeChip`). */}
+            <AdminTypeChip type={extracted.type} />
             <span className="text-sm font-bold text-primary">{extracted.name || '(이름 없음)'}</span>
-            <span
-              className={cx('rounded px-1.5 text-xs font-semibold', !typeTone && 'bg-secondary text-tertiary')}
-              style={typeTone}
-            >
-              {TYPE_LABEL[extracted.type] ?? extracted.type}
-            </span>
             {/*
               * tier 가 auto/ask 인데 짝이 비어 있으면 **사람이 비운 것**이고(apply-approved.mjs:13·15) 승인은
               * `targetId: null` 로 **새 장소를 만든다**(adminApply.ts:116-119). 초록 '이미 있는 곳' 을 그대로 두면

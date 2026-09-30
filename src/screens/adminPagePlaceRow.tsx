@@ -13,10 +13,9 @@ import {
   type TArchiveReason,
 } from '../lib/adminPlaces';
 import type { TPlaceRow } from '../lib/adminCandidates';
-import { TYPE_LABEL } from '../lib/adminCandidates';
-import { isPlaceType, TYPE_COLOR, typeTint } from '../lib/places';
 import { cx } from '../utils/cx';
 import { ADMIN_PANEL_DIVIDER, ADMIN_PLACE_GRID, ADMIN_ROW_OPEN } from './adminTable';
+import { AdminTypeChip } from './adminTypeChip';
 
 /** 장소 한 줄의 화면 상태. 소유자는 `adminPagePlaceList` 고 여기는 받아서 그린다(묶음 카드와 같은 모양). */
 export type TAdminPagePlaceState = {
@@ -60,10 +59,6 @@ export function AdminPagePlaceRow({
   const archived = place.status === 'archived';
   const why = archived ? noteLineText(lastNoteLine(place.archive_note)) : undefined;
 
-  const typeTone = isPlaceType(place.type)
-    ? { background: typeTint(place.type, 14), color: TYPE_COLOR[place.type] }
-    : undefined;
-
   return (
     /*
      * 줄은 테두리를 갖지 않는다 — 가르는 선은 `<ul>` 의 `divide-y` 한 줄이 긋는다.
@@ -73,13 +68,9 @@ export function AdminPagePlaceRow({
     <li className={cx('hover:bg-primary_hover', state.archiving && ADMIN_ROW_OPEN)}>
       <div className={cx('px-4 py-2', ADMIN_PLACE_GRID)}>
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          {/* 두 표가 같은 순서·같은 칩을 쓴다 — 칸을 오갈 때 눈이 다시 적응하지 않게. */}
+          <AdminTypeChip type={place.type} />
           <span className="truncate text-sm font-bold text-primary">{place.name}</span>
-          <span
-            className={cx('rounded px-1.5 text-xs font-semibold', !typeTone && 'bg-secondary text-secondary')}
-            style={typeTone}
-          >
-            {isPlaceType(place.type) ? TYPE_LABEL[place.type] : place.type}
-          </span>
         </div>
 
         <p className="truncate text-xs text-tertiary">{place.region_raw || '(지역 없음)'}</p>
