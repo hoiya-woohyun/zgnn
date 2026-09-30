@@ -1,6 +1,6 @@
 'use client';
 
-import { Image01, LinkExternal01, Share01 } from '@untitledui/icons';
+import { Share01 } from '@untitledui/icons';
 import { notFound } from 'next/navigation';
 import { PlaceDetailHeader } from './placeDetailHeader';
 import { PlaceDetailGallery } from './placeDetailGallery';
@@ -9,6 +9,7 @@ import { HighlightedPolicyText, PlaceDetailEligibilityCard } from './placeDetail
 import { PlaceDetailMiniMap } from './placeDetailMiniMap';
 import { PlaceDetailNearby } from './placeDetailNearby';
 import { Button } from '../components/base/button';
+import { NaverLinkButton } from '../components/naverLinkButton';
 import { PlaceItemsNote } from '../components/placeItemsNote';
 import { PetBadges } from '../components/petBadges';
 import { SaveButton } from '../components/saveButton';
@@ -100,33 +101,15 @@ export function PlaceDetailPage({ id }: { id: string }) {
           숙소는 아래 요금 섹션에 밀려 네이버 버튼이 한 화면 아래로 내려갔다). 어려움 판정이어도
           네이버로 가서 직접 확인할 수 있어야 하므로 판정과 무관하게 항상 보여준다.
         */}
-        {place.naverUrl && (
-          <Button
-            color="primary"
-            size="lg"
-            iconTrailing={LinkExternal01}
-            href={place.naverUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-3 w-full"
-          >
-            네이버 지도에서 열기
-          </Button>
-        )}
-        {/* 사진은 가져오지 않고 네이버 플레이스 사진 탭으로 보낸다(ADR-002 v2) — 권리가 업주·방문자에게 있다. */}
-        {photoUrl && (
-          <Button
-            color="secondary"
-            size="lg"
-            iconLeading={Image01}
-            iconTrailing={LinkExternal01}
-            href={photoUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-2 w-full"
-          >
-            네이버에서 사진 보기
-          </Button>
+        {/*
+          * 사진은 가져오지 않고 네이버 플레이스 사진 탭으로 보낸다(ADR-002 v2) — 권리가 업주·방문자에게 있다.
+          * 네이버로 나가는 버튼이라 같은 초록 알약이고, 둘은 한 줄에 나란히 둔다(좁으면 줄바꿈).
+          */}
+        {(place.naverUrl || photoUrl) && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {place.naverUrl && <NaverLinkButton href={place.naverUrl}>네이버 지도에서 열기</NaverLinkButton>}
+            {photoUrl && <NaverLinkButton href={photoUrl}>사진 보기</NaverLinkButton>}
+          </div>
         )}
       </section>
 

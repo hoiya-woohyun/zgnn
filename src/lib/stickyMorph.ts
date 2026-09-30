@@ -15,3 +15,16 @@ export function stickyMorphProgress(sentinelTop: number, insetTop: number, dista
   if (distance <= 0) return sentinelTop <= insetTop ? 1 : 0;
   return clamp01((insetTop - sentinelTop) / distance);
 }
+
+/**
+ * 홈 히어로(`homePageHero.tsx`)의 접힘 진행도 — 순수. 센티넬이 `restTop`(스크롤 0 일 때의 화면상 위치)에서
+ * `pinnedTop`(히어로가 헤더 높이만 남기고 붙는 위치)까지 올라가는 동안 0 → 1.
+ *
+ * 준비물의 `stickyMorphProgress` 와 달리 **붙기 전부터** 접힌다 — 히어로는 카드 전체가 헤더로 줄어드는 것이라,
+ * 붙는 순간 이미 헤더 모양이어야 한다(붙은 뒤에 접히면 250px 카드가 한동안 화면 위를 덮는다).
+ */
+export function collapseProgress(sentinelTop: number, restTop: number, pinnedTop: number): number {
+  const range = restTop - pinnedTop;
+  if (range <= 0) return sentinelTop <= pinnedTop ? 1 : 0;
+  return clamp01((restTop - sentinelTop) / range);
+}

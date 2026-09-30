@@ -158,7 +158,7 @@ export function AdminPageEditForm({
             value={draft.naverPlace}
             onChange={(value) => set({ naverPlace: value })}
             isInvalid={'error' in parseNaverPlaceId(draft.naverPlace)}
-            hint="채우면 사이트 상세에 '네이버에서 사진 보기' 가 생겨요"
+            hint="채우면 사이트 상세에 '사진 보기' 가 생겨요"
             isDisabled={busy}
           />
           <a

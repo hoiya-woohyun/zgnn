@@ -26,7 +26,7 @@
   공식 API 로도 받을 수 없어(지역 검색 응답에 이미지가 없다) `m.place.naver.com` 을 긁어야 하는데, 그건 약관의 자동 수집 금지에 걸린다.
 - **업체 홈페이지의 `og:image`** 는 공유 미리보기용으로 내놓은 것이라 위험이 가장 작지만, 대개 1장이고 권리자가 업체가 고용한 사진가일 수 있다. 필요해지면 "링크 카드"(사진 + 출처 도메인 + 홈페이지 링크) 모양으로만 다시 검토한다.
 
-그래서 상세에 **"네이버에서 사진 보기"** 버튼을 둔다(`src/lib/naverPlaceLink.ts`). 사진 탭(`/place/{naverPlaceId}/photo`)으로 보낼 뿐이라
+그래서 상세에 **"사진 보기"** 버튼을 둔다(`src/lib/naverPlaceLink.ts`). 사진 탭(`/place/{naverPlaceId}/photo`)으로 보낼 뿐이라
 권리·약관 문제가 없고, 사용자는 원본·최신·여러 장을 본다. `naverUrl` 이 `naver.me` 단축 링크라 **`naverPlaceId` 가 있어야** 버튼이 생긴다 —
 블로그에서 들어온 신규 장소는 `naver_place_id` 가 비어 있어 사람이 채우기 전까지 버튼이 없다 — 그래서 `/admin` 의 '고치기' 에
 **네이버 플레이스** 칸을 두었다(v3). 플레이스 주소를 붙여 넣으면 id 로 읽고(`parseNaverPlaceId`), 승인이 `naver_place_id` 와

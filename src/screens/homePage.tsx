@@ -3,32 +3,18 @@
 import { useMemo } from 'react';
 import Link from 'next/link';
 import { Heart, Map01 } from '@untitledui/icons';
+import { HomePageHero, PawMark } from './homePageHero';
 import { HomeTypeCard } from './homeTypeCard';
 import { AuthorAvatar } from '../components/authorAvatar';
-import { CollapsingTitleBar } from '../components/layout/collapsingTitleBar';
 import { Button } from '../components/base/button';
 import { SeasonChips } from '../components/seasonChips';
 import { dogCallNames, withJosa } from '../lib/korean';
-import { META, PLACE_TYPES, TYPE_META, countByType, placesOfType } from '../lib/places';
+import { META, PLACE_TYPES, placesOfType } from '../lib/places';
 import { checklistView } from '../lib/checklist';
 import type { TEligibilityLevel } from '../lib/eligibility';
 import { countByLevel } from '../lib/eligibilityCounts';
 import { useAppStore, useDog, useSavedPlaces } from '../store/useAppStore';
 import type { TPlaceType } from '../types';
-
-function PawMark({ className = 'h-9 w-9 text-brand-300' }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 48 48" className={className} aria-hidden="true">
-      <ellipse cx="14.5" cy="15.5" rx="5" ry="6.4" fill="currentColor" />
-      <ellipse cx="25.5" cy="11.5" rx="5" ry="6.8" fill="currentColor" />
-      <ellipse cx="36" cy="16.5" rx="4.8" ry="6.2" fill="currentColor" />
-      <path
-        d="M25 24.5c6.4 0 11.4 4.4 11.4 9.4 0 4.2-3.4 6.6-7.6 6.6-2.2 0-3 -.9-5.1-.9-2.1 0-2.9.9-5.1.9-4.2 0-7.6-2.4-7.6-6.6 0-5 5.6-9.4 14-9.4Z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-}
 
 export function HomePage() {
   const savedPlaces = useSavedPlaces();
@@ -56,38 +42,15 @@ export function HomePage() {
 
   return (
     <div>
-      {/* 잉크 히어로가 화면 밖으로 나가면 크림 바탕만 남아 위쪽이 허전해진다 —
-          그때 축약 줄이 대신 자리를 잡는다. 히어로가 곧 제목 블록이라 이것만 감싼다. */}
-      <CollapsingTitleBar title="강아지랑 제주">
-        {/* 히어로는 이제 크림 위에 뜬 라운드 판이다. 좌우 여백·시작 높이를 PageHeader 와 같은
-            `px-4 pt-6 md:px-6 md:pt-10` 으로 맞춰, 다른 루트 화면과 첫 블록이 같은 자리에서
-            시작한다. 예전에는 이 구역만 끝까지 깔린 데다 상태바 뒤까지 번졌는데(bleed-top-10),
-            맨 위 면을 전 화면 크림으로 통일하면서 그 예외를 버렸다(ADR-010 v3) — 위에 남는
-            크림이 곧 상태바 띠 색이라 셸이 브라우저에 색을 건네줄 일이 없어졌다. */}
-        <div className="px-4 pt-6 md:px-6 md:pt-10">
-          <header className="basalt rounded-2xl p-6 text-white">
-            <PawMark />
-            <h1 className="mt-3 text-display-sm font-bold">강아지랑 제주</h1>
-            <p className="mt-1.5 text-sm text-white/65">
-              {dog
-                ? `${withJosa(dogCallNames(dog.dogs.map((d) => d.name)), '이랑/랑')} 제주 어디 갈까요?`
-                : '짱구누나의 반려견 동반 제주 가이드'}
-            </p>
-
-            <dl className="mt-6 flex overflow-hidden rounded-xl border border-white/12 bg-white/6">
-              {PLACE_TYPES.map((type, index) => (
-                <div key={type} className={`flex-1 px-3 py-2.5 ${index > 0 ? 'border-l border-white/12' : ''}`}>
-                  <dt className="text-xs text-white/55">{TYPE_META[type].label}</dt>
-                  <dd className="text-lg font-bold text-white">
-                    {countByType[type]}
-                    <span className="text-sm font-normal text-white/55">곳</span>
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </header>
-        </div>
-      </CollapsingTitleBar>
+      {/* 잉크 히어로가 스크롤을 따라 그대로 헤더가 된다 — 카드가 줄어들며 크림 헤더 한 줄로 붙는다(HomePageHero).
+          좌우 여백·시작 높이는 PageHeader 와 같은 `px-4 pt-6 md:px-6 md:pt-10` 이라 다른 루트 화면과 첫 블록이 같은 자리다. */}
+      <HomePageHero
+        subtitle={
+          dog
+            ? `${withJosa(dogCallNames(dog.dogs.map((d) => d.name)), '이랑/랑')} 제주 어디 갈까요?`
+            : '짱구누나의 반려견 동반 제주 가이드'
+        }
+      />
 
       {/* 예전에는 `-mt-10` 으로 히어로 위에 겹쳐 올렸다. 히어로가 라운드 판이 되면서 그 겹침이
           판의 아래 모서리를 덮어 버려(같은 폭이다) 판으로 보이지 않게 된다 — 겹치지 않고 아래에 둔다. */}

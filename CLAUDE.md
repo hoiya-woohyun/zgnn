@@ -64,7 +64,8 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
 - **`<main>` 안에 `position: fixed` 를 새로 두면 스와이프 중에 자리가 어긋난다.** 셸이 화면을
   끌 때 `<main>` 에 transform 이 걸리는데, transform 이 걸린 조상이 있으면 `fixed` 는 화면이 아니라
   그 조상 기준이 된다 — `top: 0` 이 문서 맨 위를 가리켜, 내려 본 상태에서 끌면 그 요소가 화면
-  위로 사라진다. 축약 줄(`collapsingTitleBar`)이 `--swipe-viewport-top` 으로 상쇄하는 이유다
+  위로 사라진다. 그런 요소는 `top: var(--swipe-viewport-top, 0px)` 로 상쇄한다(셸이 끄는 순간 스크롤 값을 적는다).
+  화면 위에 붙는 제목은 `fixed` 가 아니라 **`sticky`** 로 만든다 — 준비물·설정의 `StickyMorphTitle`, 홈의 `HomePageHero` 가 그렇다
   (→ [ADR-014](docs/decisions/ADR-014-shell-owned-swipe-pager.md)).
 - **종류 색(숙소·식당·카페)은 두 곳에 같은 값이 있다** — `src/styles/theme.css` 와
   `src/lib/places.ts`(지도 마커). 한쪽만 고치면 지도와 화면 색이 어긋난다.
@@ -104,6 +105,8 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
   → [ADR-018 결정 10](docs/decisions/ADR-018-in-app-admin-review.md).
 - **색은 시맨틱 토큰으로만** (`bg-primary` · `text-secondary` · `bg-brand-solid`).
   원시 색값은 `theme.css` 에만 둔다.
+  **네이버(지도·플레이스)로 나가는 버튼은 `src/components/naverLinkButton.tsx` 하나로** 만든다 — 네이버 공식 초록(`bg-naver`)·작은 알약·44px 히트 영역이
+  거기 들어 있다. `Button color="primary"` 로 새로 만들면 핑크 주 버튼과 구분이 안 된다(→ ADR-003 v13).
 - **장소 사진은 없는 것이 기본 디자인**이다(저작권 문제로 전량 제거, 86곳 모두 `cover` 없음).
   사진 자리는 종류별 색 + 아이콘이 대신한다 → [ADR-002](docs/decisions/ADR-002-no-place-photos.md).
 

@@ -980,4 +980,10 @@
      브랜드와 구분이 안 된다. 이름은 사용처(saveButton)와의 계약이라 남긴다. */
   --color-camellia: var(--color-brand-600);
   --color-camellia-wash: var(--color-brand-50);
+
+  /* 네이버 공식 초록(브랜드 가이드 #03C75A). 네이버로 나가는 링크(지도·플레이스)에만 쓴다 —
+     "여기서 네이버로 넘어간다" 는 신호라 앱 팔레트에 맞추지 않는다. 다른 초록(카페)과 섞어 쓰지 않는다.
+     deep 은 눌림 표시용. 쓰는 곳은 components/naverLinkButton.tsx 하나다. */
+  --color-naver: #03c75a;
+  --color-naver-deep: #02b350;
 }

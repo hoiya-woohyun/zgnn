@@ -59,7 +59,7 @@ const validGeo = (geo) =>
  *   pet_policy(AI 구조화 판단)는 **pet_policy_text 를 채울 때만 함께** 채운다 — 사람이 쓴 원문이 있는 곳에 다른 글의 판단을 얹지 않는다(ADR-017).
  *   review_url·stay_* 는 시드 86곳이 전부 차 있어 영향이 없고, 블로그 draft 끼리 보강될 때만 채워진다(2026-09-28 설계 검토 FF-2·FF-8).
  *   naver_place_id(+ 비어 있으면 naver_url) — **사람이 검수 화면에서 넣은 `naverPlaceId` 가 있을 때만**(2026-09-30, ADR-002 v2).
- *   이 id 가 있어야 상세에 '네이버에서 사진 보기' 가 생긴다.
+ *   이 id 가 있어야 상세에 '사진 보기' 가 생긴다.
  *   homepage_url·homepage_name·homepage_image — 분석이 공식 홈페이지에서 읽은 카드. 세 칸을 한 벌로, homepage_url 이 빈 곳에만.
  * 건드리지 않는 칸: status · source · sort.
  *   naver_url 에는 naverLink 를 넣지 않는다. 벤더가 네이버로 바뀌어 이름은 맞아 보이지만, 지역 검색의 link 는 공식 문서상
