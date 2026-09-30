@@ -213,11 +213,6 @@ export function AdminPageGroupCard({
                 주소 다름
               </Badge>
             )}
-            {verify && (
-              <Badge type="color" size="sm" color={verify.tone}>
-                {verify.label}
-              </Badge>
-            )}
             {/*
               * **막는 것이 먼저다.** `view.badges` 는 빨강(지역 없음·동반불가)부터 정렬돼 오는데, 대부분의 카드에 붙는
               * 초록 뱃지를 그 앞에 두면 위계가 뒤집힌다 — 초록이 자리를 먹고 빨강이 줄 끝으로 밀린다.
@@ -236,6 +231,16 @@ export function AdminPageGroupCard({
               <BadgeWithIcon type="color" size="sm" color="success" iconLeading={CheckVerified02}>
                 AI 분석 완료
               </BadgeWithIcon>
+            )}
+            {/*
+              * 교차점검 뱃지는 `view.badges` **뒤**에 선다 — 초록(`동반 확인`)이 될 수 있어서, 앞에 두면
+              * 위의 "막는 것이 먼저다" 가 깨져 초록이 빨강(`지역 없음`)을 줄 끝으로 밀어낸다.
+              * 빨강일 때(`동반 불가 정황`)도 여기 둔다: 자리가 갈리면 같은 표식이 카드마다 다른 곳에 뜬다.
+              */}
+            {verify && (
+              <Badge type="color" size="sm" color={verify.tone}>
+                {verify.label}
+              </Badge>
             )}
           </span>
 

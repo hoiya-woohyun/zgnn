@@ -22,8 +22,14 @@
 /** 시·도 접두어. 제주만 다룬다 — 제주 밖 후보는 `isJeju` 에서 이미 걸러진다. */
 const PROVINCE_RE = /^(제주특별자치도|제주자치도|제주도|제주)\s+/;
 
-/** 행정구역 토큰(시·군·구·읍·면). 비교의 앞자리 — 여기가 갈리면 표기 문제가 아니다. */
-const DISTRICT_RE = /(시|군|구|읍|면)$/;
+/**
+ * 행정구역을 **급(級)별로** 잡는다. 사슬을 순서대로 맞춰 보던 것을 2026-09-30 에 고쳤다 —
+ * 본문 주소는 시를 생략하는 일이 흔한데(`제주 애월읍 애월해안로 179`), 사슬을 앞에서부터 짝지으면
+ * `애월읍` 이 상대의 `제주시` 자리에 서서 **표기 생략이 '다른 곳' 으로** 읽힌다. 급이 같은 것끼리만 본다.
+ * `서귀포` 처럼 '시' 가 떨어진 표기는 시 자리가 비는 것으로 보고 넘긴다(그 급을 비교하지 않는다).
+ */
+const CITY_RE = /(시|군)$/;
+const TOWN_RE = /(읍|면)$/;
 
 /** 도로명 토큰. `1100로` · `칠십리로214번길` · `태위로723번길` 처럼 숫자가 박힌 것이 제주에 흔하다. */
 const ROAD_RE = /(로|길)$/;
@@ -38,8 +44,10 @@ export type TAddressMatch = 'same' | 'different' | 'unknown';
 
 /** 주소 한 줄을 비교용 조각으로. 못 읽으면 null — 그때 판정은 `'unknown'` 이다. */
 export type TAddressKey = {
-  /** 행정구역 사슬(제주시 · 애월읍). 시·도 접두어는 이미 떼어 냈다. */
-  districts: string[];
+  /** 시·군 하나(`제주시`). 본문 주소가 생략하는 일이 흔해 `null` 이 정상값이다. */
+  city: string | null;
+  /** 읍·면 하나(`애월읍`). 시내(동 단위) 주소는 `null`. */
+  town: string | null;
   /** 도로명 또는 지번 이름. */
   base: string;
   /** 그 뒤의 번호. */
@@ -58,6 +66,12 @@ function tokenize(address: string): string[] {
   return address
     .replace(/\([^)]*\)/g, ' ')
     .replace(/,/g, ' ')
+    /*
+     * 도로명이 공백으로 갈린 표기를 먼저 붙인다 — `칠십리로 214번길 9` 는 네이버의 `칠십리로214번길 9` 와
+     * 같은 주소인데, 붙이지 않으면 축이 `214번길` 이 돼 이름이 다르다고 읽힌다(본문 주소에 흔한 표기다).
+     * `번영로 2610` 처럼 뒤가 그냥 번호면 걸리지 않는다 — `길` 로 끝나는 토큰만 붙인다.
+     */
+    .replace(/(\S*로)\s+(\d+번?길)/g, '$1$2')
     .trim()
     .split(/\s+/)
     .filter(Boolean);
@@ -77,8 +91,10 @@ export function addressKey(address: string | null | undefined): TAddressKey | nu
     if (!NUMBER_RE.test(tokens[i + 1])) continue;
     const kind = ROAD_RE.test(token) ? 'road' : LOT_RE.test(token) ? 'lot' : null;
     if (!kind) continue;
+    const head = tokens.slice(0, i);
     return {
-      districts: tokens.slice(0, i).filter((t) => DISTRICT_RE.test(t)),
+      city: head.find((t) => CITY_RE.test(t)) ?? null,
+      town: head.find((t) => TOWN_RE.test(t)) ?? null,
       base: token,
       number: tokens[i + 1],
       kind,
@@ -94,18 +110,16 @@ export function addressKey(address: string | null | undefined): TAddressKey | nu
  *  `'unknown'`   한쪽을 못 읽었거나, 지번↔도로명이라 **비교 자체가 불가능**하다.
  *
  * 행정구역을 먼저 보는 이유: 종류가 갈려도 `제주시` ↔ `서귀포시` 는 표기 문제가 아니다.
- * 한쪽 사슬이 다른 쪽의 접두어면(`[제주시]` vs `[제주시, 애월읍]`) 생략으로 보고 갈렸다고 하지 않는다 —
- * 실측에 `제주시 신설로2길 18-1` 처럼 읍·면이 빠진 본문 주소가 있다.
+ * 다만 **한쪽에 그 급이 없으면 그 급은 비교하지 않는다** — 본문 주소는 시를 빼거나(`제주 애월읍 …`)
+ * 읍·면을 빼는(`제주시 신설로2길 18-1`) 일이 흔하고, 생략을 불일치로 읽으면 이 함수를 만든 이유가 되돌아온다.
  */
 export function sameAddress(a: string | null | undefined, b: string | null | undefined): TAddressMatch {
   const ka = addressKey(a);
   const kb = addressKey(b);
   if (!ka || !kb) return 'unknown';
 
-  const shared = Math.min(ka.districts.length, kb.districts.length);
-  for (let i = 0; i < shared; i += 1) {
-    if (ka.districts[i] !== kb.districts[i]) return 'different';
-  }
+  if (ka.city && kb.city && ka.city !== kb.city) return 'different';
+  if (ka.town && kb.town && ka.town !== kb.town) return 'different';
 
   if (ka.kind !== kb.kind) return 'unknown';
   return ka.base === kb.base && ka.number === kb.number ? 'same' : 'different';

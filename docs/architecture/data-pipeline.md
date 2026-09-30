@@ -1,6 +1,10 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-09-29 (v12: **`archived` 에 사람이 누르는 길이 생겼다** — `/admin` 의 '올린 장소' 칸에서 내리고 되살린다([ADR-018](../decisions/ADR-018-in-app-admin-review.md)).
+> 최종 수정: 2026-09-30 (v13: **분석이 Claude 를 두 번 부른다** — 추출 뒤 「교차점검」 패스([ADR-019](../decisions/ADR-019-ai-cross-check-and-address-rules.md)).
+> 동반 조건 문장이 **없는** 후보만 묶어 글당 한 번, "강아지를 데리고 들어간 근거가 본문에 있나" 를 다시 묻는다 — 추출 패스는
+> "반려견 동반 여행기" 를 전제로 읽어 강아지를 두고 들른 일반 카페도 장소로 뽑았다. ⚠️ **`--limit` 을 절반으로 본다**(`--no-verify` 로 끈다).
+> 함께: 후보의 두 주소 대조가 문자열 비교에서 규칙(`src/lib/addressMatch.ts`)으로 — 실측 43쌍 중 39쌍이 `제주특별자치도`↔`제주` 뿐이었다)
+> 이전 (v12: **`archived` 에 사람이 누르는 길이 생겼다** — `/admin` 의 '올린 장소' 칸에서 내리고 되살린다([ADR-018](../decisions/ADR-018-in-app-admin-review.md)).
 > 그리고 **대조 corpus 가 `archived` 까지 읽는다**(세 곳 모두): 빼 두면 내린 곳을 쓴 새 글이 '신규' 가 돼 같은 가게가 새 id 로 되살아났다.
 > 재빌드도 둘 바뀌었다 — `published` 가 끼는 변경만 훅을 부르고, 부른 결과가 `rebuild_log` 에 남아 `/admin` 머리글에 한 줄로 뜬다)
 > 이전 (v11: **운영자 검수 화면 `/admin` 이 두 번째 쓰기 경로가 됐다**([ADR-018](../decisions/ADR-018-in-app-admin-review.md)) — 브라우저가 `apply-approved.mjs` 와
@@ -141,7 +145,8 @@ flowchart LR
   K[keywords.json] -->|네이버 검색 API · 최근 1년| P[(blog_posts)]
   P -->|analyzed_at null 인 글| B[본문 HTML<br/>그 자리에서만 읽고 버림]
   B -->|claude -p --json-schema<br/>구독, API 키 없음| E[장소 0~N개<br/>petPolicyText 는 원문 그대로]
-  E -->|네이버 지역 검색: 이름 완전 일치만| G[좌표·주소·regionRaw]
+  E -->|조건 문장 없는 후보만 · 글당 1회<br/>claude -p 두 번째 패스| V[교차점검<br/>동반 확인 / 근거 없음 / 불가 정황]
+  V -->|네이버 지역 검색: 이름 완전 일치만| G[좌표·주소·regionRaw]
   G -->|matchPlace vs places<br/>상태 무관 — archived·draft 포함| C[(candidates<br/>pending · tier auto/ask/new)]
   C -->|사람: /admin · pnpm data:review · Studio<br/>묶음 · 정규식/AI/앱 판정 미리보기| A{approved?}
   A -->|approved → data:apply| PL[(places<br/>빈 칸만 채움 · 신규는 draft)]
@@ -163,6 +168,16 @@ flowchart LR
 - **검수는 `pnpm data:review`** — pending 을 같은 가게로 묶어 검수 순서(`reviewPriority`, 🙋 사용자가 다듬는 자리)대로 보여 주고, 후보마다 `정규식 [..] · AI [..] · 앱 [..]` 과 표식
   (`조건문 없음` · `정규식 못읽음` · `AI≠정규식` · `지역 없음` · `좌표 없음` · `목록글` · `중복표시`)을 찍는다. `approve <id…>`·`reject <id…> --note` 로 결정을 넣고, `status` 가 published 대기 draft 와 빈 칸을 센다.
   원문·evidence 는 `--verbose`/`--md` 에서만(05 의 로그 위생). Studio 는 그대로 쓸 수 있다.
+
+2026-09-30 에 하나 더 배웠다(사용자 지적).
+
+- **`동반 조건 문장이 없어요` 후보에 애견 카페가 아닌 곳이 섞인다.** 추출 프롬프트가 "반려견 동반 여행 블로그" 를 전제로 읽어,
+  강아지를 차·숙소에 두고 들른 평범한 카페·식당도 여행기의 장소로 뽑힌다(pending 58건 중 조건 문장 없는 것 28건). 그래서
+  **두 번째 Claude 패스**가 전제를 뒤집어 다시 읽는다(`scripts/analyze/verifyPlaces.mjs`) — 판단은 후보의 `extracted.verify`
+  (`{ petAllowedHere, dogWasThere, quote, why }`)에 남고, 근거가 없으면 **버리지 않고 표식만** 단다(`/admin` 의 걸러 보기로 모아 일괄 반려).
+  `verify: null` 은 "근거 없음" 이 아니라 **"안 봤다"** 다 → [ADR-019](../decisions/ADR-019-ai-cross-check-and-address-rules.md).
+- **후보의 두 주소(네이버 ↔ 원글) 대조는 AI 가 아니라 규칙이다**(`src/lib/addressMatch.ts`). 문자열로 비교하던 경보가 실측 43쌍 중
+  40번 울려(39쌍이 `제주특별자치도`↔`제주` 뿐) 정말 다른 2쌍을 아무도 보지 않았다. 지번↔도로명은 조회해야 아는 것이라 판단 보류(`'unknown'`).
 
 세 가지가 비직관적이다.
 
