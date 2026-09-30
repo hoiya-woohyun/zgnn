@@ -175,3 +175,26 @@ export function addressView(
     mapUrl,
   };
 }
+
+/** 나갈 주소와 원글 주소가 정말 다르다 — 두 값. */
+export type TAddressConflict = {
+  address: string;
+  sourceAddress: string;
+  /** 나갈 주소를 운영자가 고쳤다 — 레일이 '네이버 주소' 라고 부르지 않게. */
+  edited: boolean;
+};
+
+/**
+ * 승인을 **멈춰야 하는** 주소 충돌인가 — 접힌 줄의 `주소 다름` 뱃지와 같은 판정(`cross.tone === 'warn'`)이다.
+ *
+ * 멈추는 이유: 이 경보가 뜨는 뜻은 보통 상호 검색이 동명의 다른 가게를 집었다는 것이고(실측: 엔젤하우스 `대포로 93` ↔
+ * `신엄안3길 95`), 그대로 올리면 엉뚱한 주소·좌표·지역이 `places` 로 들어간다. 뱃지만 띄우고 승인 버튼을 그대로 두면
+ * 한 번의 클릭(또는 일괄 올리기)이 그것을 지나간다. 판정을 따로 만들지 않고 `addressView` 를 부르는 이유 —
+ * 뱃지와 가드가 서로 다른 규칙으로 갈리면 "뱃지는 떴는데 막히지 않는" 칸이 다시 생긴다.
+ */
+export function addressConflictOf(extracted: Parameters<typeof addressView>[0]): TAddressConflict | null {
+  const view = addressView(extracted);
+  if (view.cross?.tone !== 'warn' || !view.address) return null;
+  const sourceAddress = (extracted.addressAi ?? '').trim();
+  return sourceAddress ? { address: view.address, sourceAddress, edited: view.axis === 'operator' } : null;
+}

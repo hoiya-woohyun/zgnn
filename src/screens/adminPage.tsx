@@ -421,7 +421,8 @@ export function AdminPage() {
       const client = clientRef.current;
       if (!client) return;
       if (!beginWrite((message) => patchState(group.key, { error: message }))) return;
-      patchState(group.key, { busy: 'approving', error: undefined });
+      // '네이버 주소가 맞아요' 를 한 번 누르면 그 묶음의 다음 선택(비슷한 곳·내린 곳 패널)에도 이어진다 — 같은 확인을 두 번 묻지 않는다.
+      patchState(group.key, { busy: 'approving', error: undefined, ...(choice?.addressConfirmed ? { addressConfirmed: true } : {}) });
       try {
         const outcome = await approveGroup(client, group, placesRef.current, {
           nowIso: new Date().toISOString(),
@@ -431,6 +432,7 @@ export function AdminPage() {
           restoreArchived: choice?.restoreArchived,
           confirmedDifferent: choice?.confirmedDifferent,
           overwrite: choice?.overwrite,
+          addressConfirmed: choice?.addressConfirmed,
         });
         if (outcome.kind === 'blocked') {
           patchState(group.key, { busy: undefined, error: outcome.reason });
@@ -448,6 +450,11 @@ export function AdminPage() {
         if (outcome.kind === 'archivedTarget') {
           // 쓰기 전에 멈춘 자리다 — 사람이 '되살려서 합치기' 나 반려를 고르면 그때 다시 온다.
           patchState(group.key, { busy: undefined, archived: outcome, similar: undefined });
+          return;
+        }
+        if (outcome.kind === 'addressConflict') {
+          // 레일이 이미 확인 단계를 그리므로 보통은 닿지 않는다 — 확인 없이 온 선택(최신본 등)이 여기서 멈춘 것을 말만 한다.
+          patchState(group.key, { busy: undefined, error: '주소가 원글과 달라요 — 레일에서 어느 주소가 맞는지 먼저 골라 주세요.' });
           return;
         }
         const what =
@@ -600,7 +607,7 @@ export function AdminPage() {
   /**
    * **고른 것 올리기 · 고른 것 최신본으로 저장** — 한 줄 버튼과 같은 `approveGroup` 을 고른 묶음마다 차례로 부른다.
    *
-   * 사람이 골라야 하는 줄은 넘기지 않는다: `needsDecision`(닮은 곳)·`archivedTarget`(내린 곳)이 오면 **쓰기 전에** 멈춘 것이므로
+   * 사람이 골라야 하는 줄은 넘기지 않는다: `needsDecision`(닮은 곳)·`archivedTarget`(내린 곳)·`addressConflict`(주소 다름)가 오면 **쓰기 전에** 멈춘 것이므로
    * 그 줄에 패널을 세워 두고 다음으로 간다. `blocked`(지역 없음 등)와 예외는 그 줄에 이유를 적는다. 끝나면 된 것만 목록에서 빼고
    * `summarizeBulk` 한 줄로 말한다 — 기다리는 것과 실패를 따로 센다(할 일이 다르다).
    *
@@ -631,10 +638,17 @@ export function AdminPage() {
             } else if (outcome.kind === 'archivedTarget') {
               tally.waiting += 1;
               patchState(group.key, { archived: outcome, similar: undefined });
+            } else if (outcome.kind === 'addressConflict') {
+              // 일괄은 주소를 대신 믿지 않는다(한 줄에서 이미 확인했어도) — 줄을 펼치면 레일이 두 주소를 나란히 보여 준다.
+              tally.waiting += 1;
+              patchState(group.key, { error: '일괄로는 올리지 않았어요 — 주소가 원글과 달라 이 줄에서 직접 골라 주세요.' });
             } else if (outcome.kind === 'blocked') {
               tally.failed += 1;
               patchState(group.key, { error: outcome.reason });
             } else {
+              // 결과 갈래가 늘면 이 줄에서 컴파일이 멈춘다 — 모르는 갈래를 '됐다' 로 세면 그 줄이 목록에서 조용히 사라진다.
+              const written: 'created' | 'merged' = outcome.kind;
+              void written;
               tally.done += 1;
               done.add(group.key);
             }
@@ -731,7 +745,11 @@ export function AdminPage() {
               : current,
           ),
         );
-        patchState(group.key, { busy: undefined, editDraft: undefined });
+        /*
+         * 고친 뒤에는 '골라 주세요' 패널과 주소 확인을 **지운다.** 확인은 그때의 주소 쌍에 대한 것이라 새 주소를 덮으면 안 되고,
+         * 남은 패널(비슷한 곳·내린 곳)은 레일에서 주소 확인 단계보다 먼저 그려져 새로 생긴 `주소 다름` 을 가린다 — 다시 누르면 새 값으로 다시 판단한다.
+         */
+        patchState(group.key, { busy: undefined, editDraft: undefined, similar: undefined, archived: undefined, addressConfirmed: undefined });
       } catch (error) {
         patchState(group.key, { busy: undefined, error: messageOf(error, '고친 내용을 저장하지 못했어요.') });
       } finally {

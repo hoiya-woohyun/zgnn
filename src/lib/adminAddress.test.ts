@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addressView } from './adminAddress';
+import { addressConflictOf, addressView } from './adminAddress';
 
 /** 상호 검색이 준 주소 — 이름이 완전 일치한 업체의 등록 주소. */
 const local = {
@@ -124,5 +124,21 @@ describe('addressView — 네이버 지도 링크', () => {
 
   it('이름이 없으면 링크도 없다', () => {
     expect(addressView({ ...local, name: '' }).mapUrl).toBeNull();
+  });
+});
+
+describe('addressConflictOf — 승인을 멈출 주소 충돌', () => {
+  it('정말 다를 때만 두 주소를 돌려준다 — `주소 다름` 뱃지와 같은 판정', () => {
+    expect(addressConflictOf({ ...local, addressAi: '제주 서귀포시 대포로 93' })).toEqual({
+      address: local.address,
+      sourceAddress: '제주 서귀포시 대포로 93',
+      edited: false,
+    });
+  });
+
+  it('표기 차이·원글 주소 없음·원글에서 나온 주소(순환)는 충돌이 아니다', () => {
+    expect(addressConflictOf(local)).toBeNull();
+    expect(addressConflictOf({ ...local, addressAi: null })).toBeNull();
+    expect(addressConflictOf({ ...local, geoSource: 'geocode', addressAi: '제주 서귀포시 대포로 93' })).toBeNull();
   });
 });

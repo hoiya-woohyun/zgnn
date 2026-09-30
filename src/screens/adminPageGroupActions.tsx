@@ -4,7 +4,8 @@ import type { ReactNode } from 'react';
 import { Badge } from '../components/base/badges';
 import { Button } from '../components/base/button';
 import { Select } from '../components/base/select';
-import { REGION_OPTIONS, type TCandidateGroup, type TRejectReason } from '../lib/adminCandidates';
+import type { TAddressConflict } from '../lib/adminAddress';
+import { regionOptionsFor, type TCandidateGroup, type TRejectReason } from '../lib/adminCandidates';
 import type { TLatestPlan } from '../lib/adminLatest';
 import { lastNoteLine, noteLineText, PLACE_STATUS_COLOR, PLACE_STATUS_LABEL } from '../lib/adminPlaces';
 import type { TAdminPageGroupState, TApproveChoice } from './adminPageGroupCard';
@@ -58,6 +59,7 @@ export function AdminPageGroupActions({
   group,
   state,
   regionOk,
+  addressConflict,
   latest,
   latestAvailable,
   onApprove,
@@ -75,6 +77,8 @@ export function AdminPageGroupActions({
   group: TCandidateGroup;
   state: TAdminPageGroupState;
   regionOk: boolean;
+  /** 나갈 주소와 원글 주소가 정말 다르다(`주소 다름`). 있으면 주 버튼 대신 어느 주소가 맞는지 먼저 묻는다. */
+  addressConflict: TAddressConflict | null;
   /** 최신본으로 덮으면 바뀌는 칸. 없으면(짝 행을 못 찾음) 그 버튼을 안 그린다. */
   latest: TLatestPlan | null;
   /** 이 갈래에서 최신본으로 저장이 뜻이 있나 — 카드가 정해 근거 쪽 전·후 목록과 같은 조건을 쓴다. */
@@ -97,6 +101,9 @@ export function AdminPageGroupActions({
   const matchedArchived = matched?.status === 'archived';
   const matchedDraft = matched?.status === 'draft';
   const similarArchived = state.similar?.status === 'archived';
+  /** 확인이 끝나기 전까지는 올리기·최신본 버튼을 그리지 않는다 — 누를 수 있는 것이 '고르기' 뿐이어야 한 번의 클릭이 틀린 주소를 싣지 않는다. */
+  const conflictOpen = Boolean(addressConflict) && !state.addressConfirmed;
+  const regionChoices = regionOptionsFor(group.lead.extracted.address);
 
   // 반려 폼은 레일 **안에서** 열린다 — 누른 자리에서 이어서 고르고, 근거는 옆에 그대로 남는다.
   if (state.rejecting) {
@@ -296,7 +303,33 @@ export function AdminPageGroupActions({
           {matchedArchived && <p>짝이 내린 곳이에요 — 누르면 되살릴지 물어봐요.</p>}
         </Situation>
         <Stack>
-          {regionOk ? (
+          {/* 지역이 없으면 그것부터 — 확인을 눌러도 `leadProblem` 이 지역 없음으로 먼저 막는다. */}
+          {conflictOpen && addressConflict && regionOk ? (
+            /*
+             * `주소 다름` — 상호 검색이 동명의 다른 가게를 집었을 수 있다. 두 주소를 나란히 두고 사람이 고른다.
+             * 원글이 맞으면 '고치기' 로 주소를 바꾼다(짝도 다시 계산된다, `buildEdit`). 네이버가 맞으면(원글이 옛 주소 등)
+             * 확인 표식을 싣고 올린다 — 가드는 `approveGroup` 에 있어 이 버튼을 거치지 않은 일괄 올리기도 여기서 멈춘다.
+             */
+            <div className="rounded-lg bg-warning-primary px-3 py-2">
+              <p className="text-xs font-semibold text-warning-primary">주소가 원글과 달라요 — 어느 쪽이 맞나요?</p>
+              <dl className="mt-1.5 space-y-1 text-xs text-secondary">
+                <div>
+                  <dt className="text-tertiary">{addressConflict.edited ? '나갈 주소(직접 고침)' : '나갈 주소(네이버 검색)'}</dt>
+                  <dd>{addressConflict.address}</dd>
+                </div>
+                <div>
+                  <dt className="text-tertiary">원글에 적힌 주소</dt>
+                  <dd>{addressConflict.sourceAddress}</dd>
+                </div>
+              </dl>
+              <p className="mt-1.5 text-xs text-tertiary">원글이 맞으면 아래 ‘고치기’ 로 주소를 바꿔 주세요.</p>
+              <div className="mt-2">
+                <Button color="secondary" size="sm" isDisabled={Boolean(busy)} isLoading={busy === 'approving'} onClick={() => onApprove({ addressConfirmed: true })}>
+                  {addressConflict.edited ? '고친 주소가 맞아요 — 올리기' : '네이버 주소가 맞아요 — 올리기'}
+                </Button>
+              </div>
+            </div>
+          ) : regionOk ? (
             <>
               <Button color="primary" size="sm" isDisabled={Boolean(busy)} isLoading={busy === 'approving'} onClick={() => onApprove()}>
                 맞아요, 장소로 올리기
@@ -324,6 +357,11 @@ export function AdminPageGroupActions({
              */
             <div className="rounded-lg bg-secondary px-3 py-2">
               <p className="text-xs text-secondary">지역이 없어 아직 올릴 수 없어요. 하나 골라 주세요.</p>
+              {regionChoices.town && (
+                <p className="mt-1 text-xs text-tertiary">
+                  주소가 {regionChoices.town}이에요 — 맨 위의 {regionChoices.suggested.join(' · ')} 중에서 골라 주세요.
+                </p>
+              )}
               <div className="mt-2 flex flex-col gap-1.5">
                 <Select
                   aria-label="지역 고르기"
@@ -333,7 +371,7 @@ export function AdminPageGroupActions({
                   onSelectionChange={(key) => key && onPickRegion(String(key))}
                   isDisabled={Boolean(busy)}
                 >
-                  {REGION_OPTIONS.map((option) => (
+                  {[...regionChoices.suggested, ...regionChoices.rest].map((option) => (
                     <Select.Item key={option} id={option}>
                       {option}
                     </Select.Item>
@@ -358,7 +396,7 @@ export function AdminPageGroupActions({
           * **짝이 내린 곳이면 감춘다**: 그 경우 이 버튼은 내린 가게의 복제본을 새 id 로 게시하는 길이 되고,
           * 같은 일은 '내린 곳' 갈래의 '정말 다른 가게예요' 를 지나야 한다(무엇을 버리는지 보고 누른다).
           */}
-        {group.tier !== 'new' && pairId && regionOk && !matchedArchived && (
+        {group.tier !== 'new' && pairId && regionOk && !matchedArchived && !conflictOpen && (
           <Escape busy={busy} label="짝이 틀렸어요 — 새 장소로 올리기" caption="짝을 무시하고 새로 만들어요." onClick={() => onApprove({ asNew: true })} />
         )}
       </>

@@ -454,6 +454,61 @@ describe('approveGroup — 막히는 후보', () => {
   });
 });
 
+/**
+ * `주소 다름` — 상호 검색이 동명의 다른 가게를 집었을 수 있다(실측: 엔젤하우스 `대포로 93` ↔ `신엄안3길 95`).
+ * 뱃지만 띄우고 버튼을 그대로 두던 동안 한 번의 클릭·일괄 올리기가 틀린 주소를 게시할 수 있었다.
+ */
+describe('approveGroup — 원글과 주소가 다른 후보', () => {
+  const conflicted = () =>
+    candidate({
+      extracted: extracted({
+        name: '엔젤하우스',
+        type: 'stay',
+        regionRaw: '남쪽 (서귀포시)',
+        address: '제주 서귀포시 대포로 93',
+        addressAi: '제주특별자치도 제주시 애월읍 신엄안3길 95',
+        geoSource: 'local',
+      }),
+    });
+
+  it('확인 없이 오면 쓰기 전에 멈추고 두 주소를 돌려준다', async () => {
+    const { calls, client } = createFakeClient();
+
+    const outcome = await approveGroup(client, group([conflicted()]), [], OPTIONS);
+
+    expect(outcome).toEqual({
+      kind: 'addressConflict',
+      address: '제주 서귀포시 대포로 93',
+      sourceAddress: '제주특별자치도 제주시 애월읍 신엄안3길 95',
+      edited: false,
+    });
+    expect(calls).toHaveLength(0);
+  });
+
+  it('사람이 네이버 주소가 맞다고 확인하면 올린다', async () => {
+    const { client } = createFakeClient();
+
+    const outcome = await approveGroup(client, group([conflicted()]), [], { ...OPTIONS, addressConfirmed: true });
+
+    expect(outcome.kind).toBe('created');
+  });
+
+  it('표기만 다른 주소(제주특별자치도 ↔ 제주)는 멈추지 않는다', async () => {
+    const { client } = createFakeClient();
+    const lead = candidate({
+      extracted: extracted({
+        address: '제주 제주시 구좌읍 충렬로 141-15',
+        addressAi: '제주특별자치도 제주시 구좌읍 충렬로 141-15',
+        geoSource: 'local',
+      }),
+    });
+
+    const outcome = await approveGroup(client, group([lead]), [], OPTIONS);
+
+    expect(outcome.kind).toBe('created');
+  });
+});
+
 describe('approveGroup — 묶음의 나머지 글', () => {
   it('두 번째 후보는 새 장소를 만들지 않고 첫 장소로 merged 된다', async () => {
     const { calls, client } = createFakeClient();
