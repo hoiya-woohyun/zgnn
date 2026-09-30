@@ -97,13 +97,13 @@ export function aiAnalyzed(preview: TPolicyPreview): boolean {
  * 그리는 쪽이 조건은 칩, 한마디는 흐린 글자로 **모양으로** 가른다(`adminPageGroupCard`).
  *
  * `level` 을 쓰지 않는 이유: `level === '정보없음'` 은 원문이 "정보 없음" 이라 적힌 경우에도 켜지므로
- * (`petPolicy.ts:148` 의 `/정보\s*없음/`) "문장이 없어요" 라고 적으면 새 거짓말이 된다. **원문 유무**로만 가른다.
+ * (`petPolicy.ts` 의 `FLAG_RULES` 중 `/정보\s*없음/`) "문장이 없어요" 라고 적으면 새 거짓말이 된다. **원문 유무**로만 가른다.
  */
 export type TPolicyCell = {
   /**
    * 사이트에 그대로 보일 동반 정보 낱개. 비어 있으면 `message` 가 왜 비었는지 말한다.
    *
-   * **순서는 여기서 정하지 않는다** — `toPetBadges`(petPolicy.ts:384) 하나가 정하고 그것이 곧 사이트의 순서다.
+   * **순서는 여기서 정하지 않는다** — `toPetBadges`(`petPolicy.ts`) 하나가 정하고 그것이 곧 사이트의 순서다.
    * 여기서 다시 정렬하면 검수 화면과 사이트가 같은 장소를 다른 순서로 말하고, 펼친 상세의
    * '사이트에 보일 동반 조건' 줄이 사이트에 없는 순서를 보여 준다. 그 함수의 순서는 이미 고정이다:
    * 동반 불가 → 실내 → 요금 → 크기 → 무게 → 마릿수 → 리드줄 → 확인 필요.
@@ -118,7 +118,7 @@ export function policyCell(preview: TPolicyPreview, petPolicyText: string | null
   if (preview.mergedBadgeList.length) return { items: preview.mergedBadgeList, message: null };
   /*
    * **뱃지 0개가 곧 "못 읽었다" 는 아니다.** `toPetBadges` 는 `largeDogOk === false` · `feeFree === false` 에
-   * 아무 뱃지도 만들지 않는다(`petPolicy.ts:399-401·392-396` 의 갈래를 전부 통과한다). 그래서 AI 가
+   * 아무 뱃지도 만들지 않는다(`toPetBadges` 의 크기·요금 갈래를 전부 통과한다). 그래서 AI 가
    * '대형견 불가' 를 제대로 읽어낸 후보도 여기로 떨어지는데, 그때 '못 읽었어요' 라고 적으면 같은 카드의
    * `분석 완료` 뱃지·펼친 `AI 가 읽은 것: 대형견 불가` 와 **서로를 반박한다.**
    * 2026-09-30 부터 그 두 값은 배지('대형견 불가'·'추가요금 있음')가 되고, 아무것도 못 읽은 원문은 '원문 확인 필요' 배지가 붙어(BUG-009)
@@ -130,7 +130,7 @@ export function policyCell(preview: TPolicyPreview, petPolicyText: string | null
 
 /**
  * 같은 값을 한 줄로 — 펼친 상세의 '사이트에 보일 동반 조건' 처럼 **뒤에 아무것도 붙지 않는** 자리에서만 쓴다.
- * 구분자가 ` · ` 인 이유: 조건 하나가 요금 원문일 수 있어(`feeText`) 쉼표가 그 문장의 쉼표와 섞인다.
+ * 구분자가 ` · ` 인 이유: 조건 하나가 요금 원문일 수 있어(`feeLines`) 쉼표가 그 문장의 쉼표와 섞인다.
  */
 export function policyLine(preview: TPolicyPreview, petPolicyText: string | null | undefined): string {
   const cell = policyCell(preview, petPolicyText);

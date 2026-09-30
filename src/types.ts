@@ -42,7 +42,9 @@ export type TPetPolicyFacts = {
   feeLines?: string[];
   /**
    * 옛 모양(요금 문장 하나). 2026-09-30 이전에 분석된 후보·장소에만 있다 — 읽는 쪽은 `feeLinesOf`
-   * (`scripts/lib/petPolicyFacts.mjs`)로 `feeLines` 와 합쳐 본다. 새로 쓰는 값에는 넣지 않는다.
+   * (`scripts/lib/petPolicyFacts.mjs`)로 `feeLines` 와 합쳐 본다. 새로 뽑는 값에는 이 칸을 만들지 않고
+   * (`shapePetPolicy`), 보정을 거친 값에는 `null` 로 남는다 — 그것이 보정의 멱등성을 지키는 장치다
+   * (남겨 두면 `feeLinesOf` 가 뺀 줄을 다시 주워 온다).
    */
   feeText?: string | null;
   weightLimitKg: number | null;

@@ -435,7 +435,7 @@ export async function saveEdit(client: SupabaseClient, row: TCandidateRow, edit:
     match_confidence: edit.match_confidence,
     reviewer_note: note,
     /*
-     * 짝이 바뀌면 임베딩(`places(id,name,status)`)도 낡는다. 지우지 않으면 '이미 있는 곳 → 옛 이름' 이
+     * 짝이 바뀌면 임베딩(`places(id,name,status)`)도 낡는다. 지우지 않으면 '기존 → 옛 이름' 이
      * 그대로 붙어 있어, 사람이 고친 뒤에도 화면이 옛 짝을 말한다. 새 이름은 다음 조회에서 온다.
      */
     places: edit.match_place_id === row.match_place_id ? row.places : null,

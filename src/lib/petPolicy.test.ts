@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parsePetPolicy, toPetBadges, withPolicyFacts } from './petPolicy';
+import { formatDogFee } from './dogFee';
 import { PLACES } from './places';
 
 describe('parsePetPolicy — 식당·카페', () => {
@@ -362,7 +363,7 @@ describe('withPolicyFacts — AI 구조화 판단이 정규식 결과를 덮는�
     expect(p.leash).toBe(false);
   });
 
-  it('largeDogOk false 는 파서의 true 를 덮어 대형견 불가가 되고, 요금 문장은 feeText·feeLines 앞에 선다', () => {
+  it('largeDogOk false 는 파서의 true 를 덮어 대형견 불가가 되고, AI 요금 문장이 feeText·feeLines 앞에 선다', () => {
     const text = '대형견도 가능. 1마리당 2만원 추가';
     const p = withPolicyFacts(parsePetPolicy(text), { ...facts, indoor: 'unknown', leash: false, weightLimitKg: null, maxDogs: null, largeDogOk: false, feeText: '1마리당 2만원' }, text);
     expect(p.largeDogOk).toBe(false);
@@ -409,6 +410,41 @@ describe('withPolicyFacts — AI 구조화 판단이 정규식 결과를 덮는�
     expect(p.feeLines).toEqual(['1마리당 2만원', '청소비 5만원']);
     expect(p.feeText).toBe('1마리당 2만원');
     expect(toPetBadges(p).filter((b) => b.axis === 'fee').map((b) => b.label)).toEqual(['1마리당 2만원', '청소비 5만원']);
+  });
+
+  /*
+   * **덮기가 아니라 잔여 병합이다.** 통째로 덮던 판(2026-09-30 당일)에서 이 원문이 "6만원" 을 확정했다 —
+   * 원문은 2마리면 4만원이다. 곱셈을 막는 근거가 "안 쓰인 줄에 마리·kg 이 있다" 하나뿐인데(`dogFee` 의
+   * `hasUnusedCondition`) 덮기가 그 줄을 먼저 지워 가드의 입력을 없앴다. 옛 후보는 요금이 필연적으로 한 줄이라
+   * (스키마가 문자열 한 칸이었다) 기준이 여럿인 곳 전부가 이 함정이었다.
+   */
+  it('AI 가 못 읽은 정규식 요금 줄은 남는다 — 그 줄이 곱셈을 막는 유일한 근거다', () => {
+    const text = '1마리당 3만원. (2마리 또는 10kg 이상 4만원)';
+    const legacy = { ...facts, indoor: 'unknown' as const, leash: false, weightLimitKg: null, maxDogs: null, feeText: '1마리당 3만원' };
+    const p = withPolicyFacts(parsePetPolicy(text), legacy, text);
+    expect(p.feeLines).toEqual(['1마리당 3만원', '(2마리 또는 10kg 이상 4만원)']);
+    // 2마리 5·6kg — 남은 줄이 없으면 "6만원" 이라고 확정한다(원문은 4만원).
+    const fee = formatDogFee(p, { dogs: [{ name: '악동이', weightKg: 5 }, { name: '두부', weightKg: 6 }], carrier: 'none' });
+    expect(fee).toBe('원문 요금 · 1마리당 3만원 · 2마리 또는 10kg 이상 4만원');
+  });
+
+  /** 옛 후보의 구간 요금표: `feeText` 는 첫 구간뿐이라, 둘째 구간을 정규식에서 되찾아야 합산이 산다. */
+  it('옛 모양의 구간 요금표는 정규식의 둘째 구간을 되찾는다', () => {
+    const text = '1~5kg 1만원.\n6~10kg 1.5만원.';
+    const legacy = { ...facts, indoor: 'unknown' as const, leash: false, weightLimitKg: null, maxDogs: null, feeText: '1~5kg 1만원' };
+    const p = withPolicyFacts(parsePetPolicy(text), legacy, text);
+    expect(p.feeLines).toEqual(['1~5kg 1만원', '6~10kg 1.5만원']);
+  });
+
+  /** 반대쪽: AI 가 다 읽었으면 정규식의 뭉친 문장은 숫자가 전부 덮여 빠진다 — 같은 요금이 두 번 보이지 않게. */
+  it('숫자가 전부 덮인 정규식 줄은 버린다', () => {
+    const text = '1마리당 2만원 추가, 청소비 5만원';
+    const p = withPolicyFacts(
+      parsePetPolicy(text),
+      { ...facts, indoor: 'unknown' as const, leash: false, weightLimitKg: null, maxDogs: null, feeLines: ['1마리당 2만원', '청소비 5만원'] },
+      text,
+    );
+    expect(p.feeLines).toEqual(['1마리당 2만원', '청소비 5만원']);
   });
 
   /** 요금 줄만 읽은 원문이 `unread` 로 떨어지면 판정이 C7("원문을 확인해 주세요")이 된다 — `anyFact` 가 요금 목록을 세야 한다. */

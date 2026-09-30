@@ -227,7 +227,7 @@ export function AdminPageGroupCard({
             <span className="text-sm font-bold text-primary">{extracted.name || '(이름 없음)'}</span>
             {/*
               * tier 가 auto/ask 인데 짝이 비어 있으면 **사람이 비운 것**이고(apply-approved.mjs:13·15) 승인은
-              * `targetId: null` 로 **새 장소를 만든다**(adminApply.ts:116-119). 초록 '이미 있는 곳' 을 그대로 두면
+              * `targetId: null` 로 **새 장소를 만든다**(adminApply.ts:116-119). 초록 '기존' 을 그대로 두면
               * 합쳐질 줄 알고 누른 결과가 새 장소 생성이다. `new` 와 라벨을 돌려쓰지 않는다 — 그쪽은 재대조가 돈다.
               */}
             {group.tier !== 'new' && !pairId ? (

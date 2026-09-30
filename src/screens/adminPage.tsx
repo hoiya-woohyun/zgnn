@@ -803,7 +803,7 @@ export function AdminPage() {
          * 다섯이 한 축으로 읽혀 조건 토글이 tier 필터를 대체하는 것처럼 보인다(`TIER_FILTERS` 주석).
          */
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 md:px-6">
-          <div className="flex flex-wrap gap-1.5" role="group" aria-label="이미 있는 곳인지">
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="기존 장소와의 관계">
             {TIER_FILTERS.map((entry) => {
               const count = inPolicy.filter((card) => entry.match(card.group)).length;
               const active = entry.key === tierFilter;

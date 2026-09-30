@@ -36,6 +36,21 @@ describe('correctPetPolicyFacts — 원문에 근거가 있는 판단은 그대�
   });
 
   /*
+   * 줄이 짧아지면 숫자 조각 대 보기가 **통과 도장**이 된다 — `청소비 5만원` 의 `5` 는 `15만원` 안에도 있다.
+   * 그래서 금액 토큰(`5만원`)을 찾고 앞에 숫자가 붙지 않은 자리만 인정한다(`mentionsKg` 가 `100kg` 을 막는 어법).
+   */
+  it('금액이 원문의 더 큰 금액 안에만 있으면 근거로 보지 않는다', () => {
+    const r = correctPetPolicyFacts(facts({ feeLines: ['청소비 5만원'] }), '1박 15만원부터예요');
+    expect(r.facts?.feeLines).toEqual([]);
+    expect(r.corrections).toEqual(['요금 문장 "청소비 5만원" 이 원문에 없어 뺐어요']);
+  });
+
+  it('같은 금액이 그대로 있으면 남는다', () => {
+    const r = correctPetPolicyFacts(facts({ feeLines: ['청소비 5만원'] }), '숙박일 관계없이 청소비 5만원 추가');
+    expect(r.facts?.feeLines).toEqual(['청소비 5만원']);
+  });
+
+  /*
    * **금액 표기를 모델이 바꾸면 그 줄을 잃는다.** 근거 확인이 숫자 문자열을 대 보므로 "15,000원" → "1.5만원" 은
    * 원문에 `1.5` 가 없어 통째로 빠진다. 프롬프트가 "금액은 본문 표기 그대로" 라고 못 박는 이유가 이것이고,
    * 이 테스트는 그 규칙이 프롬프트에서 빠졌을 때 무슨 일이 나는지를 고정해 둔다(고칠 곳은 보정이 아니라 프롬프트다).
@@ -49,6 +64,12 @@ describe('correctPetPolicyFacts — 원문에 근거가 있는 판단은 그대�
   it('본문 표기 그대로면 쉼표가 있어도 남는다', () => {
     const r = correctPetPolicyFacts(facts({ feeLines: ['1마리당 15,000원'] }), '반려견 추가 요금은 15,000원이에요');
     expect(r.facts?.feeLines).toEqual(['1마리당 15,000원']);
+  });
+
+  /** 반대 방향도 같다 — 본문 `30,000원` 을 `3만원` 으로 옮긴 줄은 근거가 안 된다(고칠 곳은 프롬프트다). */
+  it('만원 표기로 접은 줄도 빠진다', () => {
+    const r = correctPetPolicyFacts(facts({ feeLines: ['1마리당 3만원'] }), '강아지 1마리당 30,000원 추가입니다');
+    expect(r.facts?.feeLines).toEqual([]);
   });
 
   /** 옛 후보(2026-09-30 이전)는 `feeText` 하나만 들고 있다 — 그 값도 같은 보정을 통과해 새 칸으로 옮겨진다. */

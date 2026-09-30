@@ -72,7 +72,11 @@ export type TPetPolicy = {
   outdoorFree: boolean;
   /** '견수 제한 없음' — 숫자 없는 무제한 마릿수 */
   unlimitedDogs: boolean;
-  /** 요금 문장 전부(원문 순서). feeText 는 이 배열의 첫 줄(기존 화면과 호환) */
+  /**
+   * 요금 문장 전부(원문 순서, 중복 제거). **배지·판정·요금 문구가 전부 이 배열을 본다** — `feeText` 가 아니다.
+   * `feeText`(첫 줄)는 이제 읽는 코드가 없고 테스트만 단정한다. 지우지 않는 이유는 그 테스트들이 시드 86곳의
+   * 파싱 결과를 못 박고 있어서다(`petPolicy.test.ts`) — 값이 바뀌면 그쪽이 먼저 빨개진다.
+   */
   feeLines: string[];
   /** 규칙별 근거 문장(원문 그대로). reasons.quote 의 재료 */
   sources: Partial<
@@ -214,6 +218,12 @@ const NUMBER_RULES = {
  * 숫자가 앞에 붙은 '원' 만 요금으로 본다 — 그러지 않으면 '공원'·'병원'·'정원' 이 요금이 된다.
  */
 const FEE_TEXT_RULE = /[^.\n]*\d[\d,.]*\s*만?\s*원[^.\n]*/g;
+
+/**
+ * 요금 줄에 든 숫자들(쉼표 제거). 두 줄이 **같은 요금을 다르게 쓴 것인지** 판별하는 데 쓴다(`withPolicyFacts`) —
+ * 말투·띄어쓰기는 모델이 바꾸지만 금액은 원문 숫자여야 하므로(`petPolicyFacts.mjs`) 숫자가 그 줄의 지문이다.
+ */
+const feeDigits = (line: string): string[] => line.replace(/,/g, '').match(/\d+(?:\.\d+)?/g) ?? [];
 
 const matchesAny = (text: string, patterns: RegExp[]) => patterns.some((re) => re.test(text));
 
@@ -419,15 +429,30 @@ export const withPolicyFacts = (parsed: TPetPolicy, facts: TPetPolicyFacts | nul
     next.feeCharged = corrected.feeFree === false;
   }
   /*
-   * AI 가 요금을 하나라도 읽었으면 그 목록이 **정규식 줄을 덮는다**(다른 필드와 같은 원칙). 뒤에 남기지 않는다 —
-   * 정규식은 '원' 이 든 문장을 통째로 집으므로("1마리당 2만원 추가, 청소비 5만원") AI 가 기준별로 가른 두 줄과
-   * 나란히 서면 같은 요금이 세 번 보이고, 그 뭉친 줄이 `dogFee.ts` 의 구간 맞추기를 **포기하게** 만든다
-   * (`hasUnusedCondition` — 마리·kg 이 든 안 쓰인 줄이 있으면 요금 문구를 아예 안 낸다). 원문은 상세에 그대로 있다.
+   * 요금은 AI 목록을 앞에 세우고 **숫자가 덮이지 않은 정규식 줄만 남긴다**(잔여 병합). 다른 필드처럼 통째로
+   * 덮을 수 없다 — 그것이 `dogFee` 를 **확정된 틀린 금액**으로 몰기 때문이다(2026-09-30 실측):
+   *
+   *   원문 `1마리당 3만원. (2마리 또는 10kg 이상 4만원)` · 옛 모양 후보(`feeText` 한 칸 = `1마리당 3만원`) · 2마리
+   *     덮으면 → feeLines `['1마리당 3만원']` → "악동이와 두부는 6만원" (원문은 **4만원**이다)
+   *     남기면 → feeLines 두 줄 → `hasUnusedCondition` 이 켜져 "원문 요금 · …" 로 물러난다
+   *
+   * 곱셈을 막는 유일한 근거가 "안 쓰인 줄에 마리·kg 이 있다" 인데(`dogFee.ts` 의 `hasUnusedCondition`), 덮기는
+   * 그 **가드의 입력을 지운다.** 옛 후보는 필연적으로 요금이 한 줄이라(스키마가 문자열 한 칸이었다) 기준이 여럿인
+   * 곳 전부가 이 함정에 걸린다 — 218건이 그 모양이다.
+   *
+   * 그래도 통째로 남기지는 않는다. 정규식은 '원' 이 든 문장을 통째로 집으므로("1마리당 2만원 추가, 청소비 5만원")
+   * AI 가 기준별로 가른 줄과 나란히 서면 같은 요금이 두세 번 보인다. 그래서 **숫자로 판별한다**: 정규식 줄의 숫자가
+   * 전부 AI 줄들에 있으면 같은 말을 다르게 쓴 것이라 버리고, 하나라도 없으면 AI 가 놓친 기준이라 남긴다.
    */
   const factFees = feeLinesOf(corrected);
   if (factFees.length) {
-    next.feeLines = factFees;
-    next.feeText = factFees[0];
+    const factDigits = new Set(factFees.flatMap(feeDigits));
+    const missed = parsed.feeLines.filter((line) => {
+      const digits = feeDigits(line);
+      return digits.length > 0 && !digits.every((n) => factDigits.has(n));
+    });
+    next.feeLines = [...new Set([...factFees, ...missed])];
+    next.feeText = next.feeLines[0];
   }
   if (corrected.weightLimitKg !== null) next.weightLimitKg = corrected.weightLimitKg;
   if (corrected.maxDogs !== null) next.maxDogs = corrected.maxDogs;
