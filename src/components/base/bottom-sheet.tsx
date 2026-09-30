@@ -84,6 +84,7 @@ const useBottomSheetDrag = (onDismiss: () => void) => {
 
 /**
  * 하단 시트. 지도에서 마커를 눌렀을 때 장소 미니 카드를 띄우고, 둘러보기 조건·긴 목록 select 도 쓴다.
+ * (Untitled UI 복사본이 아니라 이 앱이 만든 컴포넌트다 — 아래 설명 참고.)
  *
  * Untitled UI 의 Modal 은 가운데 정렬 대화상자라, 아래에서 올라오는 시트로 쓰려고
  * 같은 react-aria-components 프리미티브 위에 따로 만들었다.
@@ -139,7 +140,9 @@ function BottomSheetPanel({ label, onDismiss, children }: { label: string; onDis
       style={drag.style}
       // 모바일은 위쪽 핸들 띠(h-7) 밑으로 내용이 들어가지 않게 pt-6. 데스크톱은 핸들이 없다.
       // 바닥은 pb-sheet — p-4 의 바닥분과 홈 인디케이터(safe-area)를 합친 값이다(globals.css 주석).
-      className="pb-sheet relative rounded-t-2xl border border-secondary bg-primary p-4 pt-6 shadow-xl outline-hidden sm:rounded-2xl sm:pt-4"
+      // 면은 바탕과 같은 크림이다(ADR-010 v4). 이 시트는 화면 아래 끝(SAB)에 닿는 면이라, 흰색이면
+      // 탭바·바탕의 크림 사이에 흰 판이 끼어 가장자리 색이 갈린다. 안의 칩·입력칸이 흰색으로 떠 있다.
+      className="pb-sheet relative rounded-t-2xl border border-secondary bg-secondary p-4 pt-6 shadow-xl outline-hidden sm:rounded-2xl sm:pt-4"
     >
       {/*
         끌어내리는 핸들. 띠(h-1)만 보이지만 잡는 영역은 위쪽 28px 전체라 손가락이 빗나가도 잡힌다.
@@ -156,7 +159,7 @@ function BottomSheetPanel({ label, onDismiss, children }: { label: string; onDis
         type="button"
         onClick={onDismiss}
         aria-label="닫기"
-        className="absolute top-2 right-2 z-10 grid size-11 place-items-center rounded-full text-quaternary hover:bg-secondary"
+        className="absolute top-2 right-2 z-10 grid size-11 place-items-center rounded-full text-quaternary hover:bg-tertiary"
       >
         <XClose size={20} />
       </button>

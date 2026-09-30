@@ -1,40 +1,47 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ArrowLeft } from '@untitledui/icons';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { canGoBackInApp, markReplacedNavigation } from '../../lib/appHistory';
+import { cx } from '../../utils/cx';
 
 type TAppBarProps = {
   /** 앱 밖으로 나가지 않도록 되돌아갈 앱 안 경로. 되감을 화면이 없을 때만 쓰인다. */
   backTo: string;
   /**
-   * 제목. 셸이 자동으로 붙이는 뒤로가기 줄은 제목을 모른다(경로만 안다) —
-   * 그래서 비워 두면 뒤로가기 버튼만 있는 투명한 줄이 되고, 제목은 화면 본문이 담당한다.
+   * 늘 보일 제목. 셸이 자동으로 붙이는 헤더는 제목을 모른다(경로만 안다) — 비워 두면
+   * 화면의 h1 이 이 줄 밑으로 들어갈 때 그 글을 대신 띄운다.
    */
   title?: string;
   actions?: ReactNode;
 };
 
 /**
- * 하위 화면의 상단 뒤로가기 줄. 폭과 무관하게 항상 있다 —
+ * 하위 화면의 상단 헤더 — 뒤로가기 한 개와, 내려 읽을 때만 나타나는 제목. 폭과 무관하게 항상 있다 —
  * 사이드바는 어느 탭에 있는지만 알려줄 뿐, 탭 안으로 한 단계 들어간 화면에서
  * 되돌아 나올 길은 되지 못한다(태블릿에서 이 줄이 없어 갇히던 문제).
  *
  * **아래로 내려도 따라온다**(sticky). 상세 화면은 길어서, 다 읽고 나면 되돌아 나오려고
  * 맨 위까지 다시 올려야 했다. `fixed` 가 아니라 `sticky` 인 것은 이 줄이 **자기 자리를
  * 차지해야** 하기 때문이다 — `fixed` 면 흐름에서 빠져 높이가 0 이 되고, 아래 내용이 그만큼
- * 위로 올라와 뒤로가기 버튼 밑에 깔린다. (ADR-010 v2 까지는 이유가 하나 더 있었다. 상세
- * 제목 판이 이 줄 높이만큼 자기를 끌어올려 색을 맨 위까지 이었기 때문에, 높이가 0 이 되면
- * 그 판이 통째로 화면 밖으로 밀렸다. v3 에서 그 음수 마진이 없어져 이 결합은 풀렸다.)
+ * 위로 올라와 뒤로가기 버튼 밑에 깔린다.
  *
- * 줄 자체는 배경을 칠하지 않는다. 맨 위는 크림(셸의 인셋 여백)이지만 이 줄은 스크롤을 따라
- * 내려가며 상세의 종류 색 판 위에도, 그 아래 본문 위에도 얹히기 때문이다 — 칠하면 따라다니는
- * 색 띠가 된다(ADR-010 v1 이 그렇게 깨졌다). 대신 따라다니는
- * 동안 무엇 위에 얹힐지 모르는 **버튼에만** 반투명 알약 배경을 준다. 줄 전체는
- * `pointer-events-none` 이라, 비어 있는 부분 밑으로 지나가는 내용의 터치를 가로채지 않는다.
+ * ## 떠 있는 버튼이 아니라 헤더다 (ADR-010 v4)
  *
- * 노치(safe-area-inset-top)는 셸이 처리한다(ADR-010) — 셸이 `<main>` 을 인셋만큼 내려
- * 시작하므로, 이 줄은 `top-safe` 로 상태바 바로 밑에 붙어 따라오기만 하면 된다. 스크롤을
- * 내려도 뒤로가기 버튼이 상태바 밑으로 들어가지 않는다.
+ * 예전에는 줄이 투명하고 버튼만 반투명 알약으로 떠 있었다. 상세에서 그 알약이 크림 줄 위에
+ * 홀로 떠 있다가 스크롤하면 종류 색 판·본문 카드 위를 지나다녀, 화면에 속하지 않은 물건처럼
+ * 보였다. 지금은 **바탕과 같은 크림으로 칠한 불투명 줄**이다. 칠해도 "따라다니는 색 띠"
+ * (ADR-010 v1)가 되지 않는 이유는 그 색이 바탕 자체이기 때문이다 — 맨 위에 있을 때는
+ * 바탕과 구별되지 않고, 내려 읽을 때만 아래 선과 제목이 나타나 헤더로 읽힌다(iOS 큰 제목
+ * 접힘과 같은 문법이고, 탭 화면의 `collapsingTitleBar` 와 같은 모습이다).
+ *
+ * **상태바 자리까지 자기가 덮는다**(`bleed-top-0` + `top-0`). 셸은 `<main>` 에 인셋만큼 여백만
+ * 주고 칠하지 않으므로, `top-safe` 로 그 밑에 붙어 있으면 내려 읽을 때 본문이 상태바 뒤로
+ * 비쳐 지나간다. 둘러보기 검색 줄과 같은 방식이다.
+ *
+ * **제목은 화면의 `<h1>` 을 읽는다.** 셸은 경로만 알고 장소 이름은 모른다 — 그렇다고 화면마다
+ * 제목을 건네게 하면 "새 화면은 아무것도 안 해도 된다"(ADR-007)가 깨진다. 모든 하위 화면은
+ * 이미 h1 이 하나씩 있으므로, 그 h1 이 이 줄 밑으로 들어가는 순간 같은 글을 이 줄에 띄운다.
+ * 복사본이라 `aria-hidden` 이다(진짜 h1 을 스크린리더가 이미 읽는다).
  *
  * 뒤로가기는 history 를 되감되, 링크를 받아 이 화면으로 바로 들어온 경우에는
  * 되감을 앱 안 화면이 없어 앱 밖으로 나가 버린다. 그래서 지금 history 항목이 앱 안에서
@@ -42,6 +49,35 @@ type TAppBarProps = {
  */
 export function AppBar({ backTo, title, actions }: TAppBarProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const headerRef = useRef<HTMLElement>(null);
+  /** 내려 읽는 중인가 — 아래 선을 긋는다. */
+  const [scrolled, setScrolled] = useState(false);
+  /** 화면의 h1 이 이 줄 밑으로 들어갔으면 그 글. 아니면 null. */
+  const [passedHeading, setPassedHeading] = useState<string | null>(null);
+
+  /*
+   * 스크롤할 때마다 두 사각형을 한 번씩 잰다 — 관찰자를 쓰지 않는 것은 기준선(이 줄의 아래 끝)이
+   * 노치 높이·반응형 스케일에 따라 달라서, rootMargin 에 숫자로 못 박으면 그 환경에서만 어긋나기
+   * 때문이다. 경로가 바뀌면 h1 도 바뀌므로 다시 건다(상세 → 근처 상세로 옮겨도 이 줄은 그대로 남는다).
+   */
+  useEffect(() => {
+    const measure = () => {
+      const header = headerRef.current;
+      if (!header) return;
+      const heading = header.closest('main')?.querySelector('h1');
+      const passed = heading ? heading.getBoundingClientRect().bottom <= header.getBoundingClientRect().bottom : false;
+      setScrolled(window.scrollY > 0);
+      setPassedHeading(passed ? (heading?.textContent?.trim() ?? null) : null);
+    };
+    measure();
+    window.addEventListener('scroll', measure, { passive: true });
+    window.addEventListener('resize', measure);
+    return () => {
+      window.removeEventListener('scroll', measure);
+      window.removeEventListener('resize', measure);
+    };
+  }, [pathname]);
 
   const goBack = () => {
     if (!canGoBackInApp()) {
@@ -53,23 +89,35 @@ export function AppBar({ backTo, title, actions }: TAppBarProps) {
     }
   };
 
+  const shownTitle = title ?? passedHeading;
+
   return (
-    <header className="pointer-events-none sticky top-safe z-30 px-2 md:px-4">
+    <header
+      ref={headerRef}
+      className={cx(
+        'bleed-top-0 sticky top-0 z-30 border-b bg-secondary px-1 transition-colors duration-200 md:px-3',
+        scrolled ? 'border-secondary' : 'border-transparent',
+      )}
+    >
       <div className="flex h-14 items-center gap-1">
         <button
           type="button"
           onClick={goBack}
           aria-label="뒤로 가기"
-          className="pointer-events-auto grid size-11 shrink-0 place-items-center rounded-full bg-primary/85 text-secondary shadow-xs ring-1 ring-secondary backdrop-blur-sm ring-inset"
+          className="grid size-11 shrink-0 place-items-center rounded-full text-secondary transition-colors hover:bg-tertiary active:bg-tertiary"
         >
-          <ArrowLeft size={22} />
+          <ArrowLeft size={24} />
         </button>
-        {title && (
-          <h1 className="clamp-1 pointer-events-auto flex-1 px-2 text-md font-bold text-primary">{title}</h1>
-        )}
-        {actions && (
-          <div className="pointer-events-auto ml-auto flex shrink-0 items-center gap-1 pr-1">{actions}</div>
-        )}
+        <p
+          aria-hidden={title ? undefined : true}
+          className={cx(
+            'clamp-1 min-w-0 flex-1 text-md font-bold text-primary transition-opacity duration-200',
+            shownTitle ? 'opacity-100' : 'opacity-0',
+          )}
+        >
+          {shownTitle}
+        </p>
+        {actions && <div className="ml-auto flex shrink-0 items-center gap-1 pr-1">{actions}</div>}
       </div>
     </header>
   );

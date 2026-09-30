@@ -14,7 +14,7 @@ export function AppSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-secondary bg-primary md:flex">
+    <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-secondary bg-secondary md:flex">
       <Link href="/" className="flex items-center gap-3 px-5 py-6">
         <img src="/icons/icon-192.png" alt="" aria-hidden="true" className="size-10 rounded-xl" />
         <span className="flex flex-col">
@@ -36,7 +36,7 @@ export function AppSidebar() {
                     'flex h-11 items-center gap-3 rounded-lg px-3 text-md font-semibold transition-colors',
                     active
                       ? 'bg-brand-primary text-brand-secondary'
-                      : 'text-secondary hover:bg-secondary',
+                      : 'text-secondary hover:bg-tertiary',
                   )}
                 >
                   <item.Icon
