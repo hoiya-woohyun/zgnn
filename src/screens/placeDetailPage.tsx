@@ -8,7 +8,7 @@ import { HighlightedPolicyText, PlaceDetailEligibilityCard } from './placeDetail
 import { PlaceDetailMiniMap } from './placeDetailMiniMap';
 import { PlaceDetailNearby } from './placeDetailNearby';
 import { Button } from '../components/base/button';
-import { MissingItemsNote } from '../components/missingItemsNote';
+import { PlaceItemsNote } from '../components/placeItemsNote';
 import { PetBadges } from '../components/petBadges';
 import { SaveButton } from '../components/saveButton';
 import { showAppStatus } from '../lib/appStatus';
@@ -90,7 +90,7 @@ export function PlaceDetailPage({ id }: { id: string }) {
           </div>
         </div>
 
-        <MissingItemsNote place={place} className="mt-3" />
+        <PlaceItemsNote place={place} className="mt-3" />
 
         {/*
           네이버 지도 버튼을 '반려동물 이용' 카드 바로 아래로 옮겼다(2026-09-15 리뷰 §2③ —

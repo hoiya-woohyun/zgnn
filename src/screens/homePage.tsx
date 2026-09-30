@@ -36,8 +36,8 @@ export function HomePage() {
   const season = useAppStore((state) => state.season);
   const setSeason = useAppStore((state) => state.setSeason);
   const checkedItemIds = useAppStore((state) => state.checkedItemIds);
-  // 준비물 화면과 같은 함수로 센다 — 저장한 곳이 있으면 거기 필요한 것만, 없으면 계절 전체.
-  // 두 화면이 다른 숫자를 보여주면 안 된다.
+  // 준비물 화면과 같은 함수로 센다 — 두 화면이 다른 숫자를 보여주면 안 된다.
+  // 분모는 계절 전체이고, 저장한 숙소가 갖고 있는 물건은 준비된 것으로 들어간다(ADR-009 v3).
   const progress = useMemo(
     () => checklistView(season, checkedItemIds, savedPlaces),
     [season, checkedItemIds, savedPlaces],
@@ -140,11 +140,7 @@ export function HomePage() {
       <section className="mt-8 px-4 md:px-6">
         <h2 className="text-lg font-bold text-primary">여행 준비물</h2>
         <div className="mt-3 rounded-2xl border border-secondary bg-primary p-4">
-          <p className="text-sm text-tertiary">
-            {progress.scopedToTrip
-              ? `저장한 ${savedCount}곳에 가려면 이만큼이 필요해요.`
-              : META.itemsIntro.split('\n')[0]}
-          </p>
+          <p className="text-sm text-tertiary">{META.itemsIntro.split('\n')[0]}</p>
 
           {/* 계절칩은 고르기만 한다 — 누르자마자 화면이 넘어가면 다른 계절을 비교해 볼 수 없다.
               준비물로 가는 건 아래 링크이고, 그 숫자가 계절에 따라 바뀌어 고른 결과가 바로 보인다. */}
@@ -180,7 +176,7 @@ export function HomePage() {
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold text-primary">저장한 곳 {savedCount}</p>
               <p className="text-sm text-tertiary">
-                {savedCount > 0 ? '준비물도 저장한 곳 기준으로 골라요' : '마음에 드는 곳의 하트를 눌러보세요'}
+                {savedCount > 0 ? '모아 둔 곳을 목록과 지도로 봐요' : '마음에 드는 곳의 하트를 눌러보세요'}
               </p>
             </div>
           </Link>

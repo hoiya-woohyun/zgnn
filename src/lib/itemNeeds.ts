@@ -1,5 +1,8 @@
 /**
- * "이 장소에 가려면 무엇을 챙겨야 하는가" — 준비물을 여행에서 파생되는 값으로 만든다.
+ * "이 장소에 가려면 무엇을 챙겨야 하는가" — 장소가 준비물 목록을 읽는 규칙.
+ *
+ * 준비물 목록은 저장한 곳과 무관하게 늘 같은 원본이고, 장소 화면이 여기 규칙으로 그 중 자기에게
+ * 필요한 것을 골라 보여준다(ADR-009 v3). 준비물 화면의 묶음(`itemGroups.ts`)도 이 표에서 파생된다.
  *
  * ✅ 규칙은 여기서 조정한다. 아래 `ITEM_NEEDS` 한 줄이 규칙 하나다.
  *    itemName 은 src/data/items.json 의 name 과 정확히 일치해야 한다(`amenities.ts` 와 같은 어법).
@@ -93,33 +96,40 @@ const isNeededAt = (item: TItem, place: TPlaceEntry): boolean => {
 export const itemsNeededAt = (place: TPlaceEntry, season: TSeasonFilter): TItem[] =>
   visibleItems(season).filter((item) => isNeededAt(item, place));
 
-/** 여러 곳(= 저장한 곳)에 가려면 필요한 준비물의 합집합. 순서는 언제나 ITEMS 순서다. */
-export const itemsNeededForTrip = (places: TPlaceEntry[], season: TSeasonFilter): TItem[] =>
-  visibleItems(season).filter((item) => places.some((place) => isNeededAt(item, place)));
+export type TPlaceItemStatus = 'checked' | 'provided' | 'missing';
+export type TPlaceItemNeed = { item: TItem; status: TPlaceItemStatus };
 
 /**
- * 이 장소에 필요한데 아직 없는 준비물.
+ * 이 장소에 필요한 준비물과 각각의 상태 — 챙김 · 이 숙소에 있음 · 아직.
  *
- * 숙소는 **자기 자신의** 구비 용품을 본다. 준비물 화면의 전역 선택을 보면, 지금 보고 있는
- * 숙소와 상관없는 다른 숙소의 용품 때문에 경고가 사라지거나 생긴다.
+ * 준비물 목록이 원본이고 장소는 그것을 **읽는 쪽**이다(ADR-009 v3). 그래서 안 챙긴 것만이 아니라
+ * 필요한 것 전부를 상태와 함께 돌려준다 — 장소 화면이 "여기엔 이것들이 필요하고, 이만큼 챙겼다" 를
+ * 한 줄로 말하고 그 자리에서 체크까지 하게 하려면 챙긴 것도 보여야 한다.
+ *
+ * 숙소는 **자기 자신의** 구비 용품을 본다. 전역 선택이나 다른 저장한 숙소를 보면, 지금 보고 있는
+ * 숙소와 상관없는 숙소의 용품 때문에 '숙소에 있어요' 가 생기거나 사라진다.
+ * 체크도 했고 숙소에도 있으면 '숙소에 있어요' 가 이긴다 — 여기서는 짐에서 빼도 된다는 말이 더 쓸모 있다.
  */
-export const missingItemsAt = (
+export const itemNeedsAt = (
   place: TPlaceEntry,
   season: TSeasonFilter,
   checkedItemIds: string[],
-): TItem[] => {
+): TPlaceItemNeed[] => {
   const needed = itemsNeededAt(place, season);
   const provided = resolveProvidedItemIds(place.stay?.amenitiesText, needed);
-  return needed.filter((item) => !checkedItemIds.includes(item.id) && !provided.has(item.id));
+  return needed.map((item) => ({
+    item,
+    status: provided.has(item.id) ? 'provided' : checkedItemIds.includes(item.id) ? 'checked' : 'missing',
+  }));
 };
 
 /**
- * 장소 하나에 "챙기면 좋은 것" 넛지를 띄울지. **어려움(`hard`)이면 띄우지 않는다** —
+ * 장소 하나에 "여기 필요한 준비물" 을 띄울지. **어려움(`hard`)이면 띄우지 않는다** —
  * 판정은 "못 가요" 라고 하는데 그 아래에서 "여기 갈 때 챙기라" 고 하면 한 화면이 서로 반대를
- * 말한다(ADR-009 가 막으려던 모양이 넛지로 새로 생겼다). 프로필이 없으면(`undefined`) 판정이
- * 없으니 넛지는 그대로 띄운다.
+ * 말한다(ADR-009 가 막으려던 모양이 장소 쪽 줄로 새로 생겼다). 프로필이 없으면(`undefined`) 판정이
+ * 없으니 그대로 띄운다.
  */
-export const shouldShowMissingItems = (level: TEligibilityLevel | undefined): boolean =>
+export const shouldShowPlaceItems = (level: TEligibilityLevel | undefined): boolean =>
   level !== 'hard';
 
 /** 저장한 숙소들이 대신 갖고 있는 준비물. 한 곳이라도 갖고 있으면 챙긴 것으로 본다. */

@@ -1,6 +1,7 @@
 # 라우팅 · 화면 셸 · 클라이언트 상태
 
-> 최종 수정: 2026-09-30 (v19: `/map/?place=<id>` — 상세의 "위치" 미니 지도가 누르면 이 주소로 간다. 지도는 그 장소를 고른 채 그 자리에서 열린다. 비용 근거는 [ADR-008 「과금」](../decisions/ADR-008-map-provider.md))
+> 최종 수정: 2026-09-30 (v20: 준비물이 저장한 곳으로 좁혀지지 않는다 — `savedIds` 는 이제 저장한 숙소의 구비 용품만 준비물에 반영한다. 장소의 준비물 줄에서 바로 체크한다 → [ADR-009 v3](../decisions/ADR-009-trip-derived-checklist.md))
+> 이전 (v19: `/map/?place=<id>` — 상세의 "위치" 미니 지도가 누르면 이 주소로 간다. 지도는 그 장소를 고른 채 그 자리에서 열린다. 비용 근거는 [ADR-008 「과금」](../decisions/ADR-008-map-provider.md))
 > 이전 (v18: 종류가 빠진 `/places` 가 404 대신 숙소로 간다 — 서버 리다이렉트가 없어 페이지 하나가 브라우저에서 `replace`. 둘러보기 탭은 `/places/` 부터 켜져 404 에서 불이 들어오지 않고, 404 는 "홈으로"·"둘러보기로" 두 출구)
 > 이전 (v17: 저장하면 같은 상태 줄에 "저장했어요 · 저장한 곳 보기 ›" — `/saved` 가 탭바에 없어 처음 두 번만 길을 알려 준다. 하트 이름표는 고정, 상태는 `aria-pressed` 만)
 > 이전 (v16: **잠깐 뜨는 상태 한 줄은 셸이 `<main>` 밖에 그린다**(`AppStatusToast` · `lib/appStatus.ts`) — 첫 사용처는 상세 공유 버튼의
@@ -341,8 +342,8 @@ Untitled UI 의 `Button href` / `Link` 는 react-aria 라 기본은 전체 새�
 
 | 필드 | 무엇 | 소비처 |
 |---|---|---|
-| `savedIds` | 저장한 장소 id | 저장 화면(`/saved`, 설정 안), 하트, 홈 카드·설정의 "저장한 곳 N곳" 개수, 지도 `?saved=1`, **준비물 좁히기**(`checklistView` — 저장한 곳에 필요한 것만 센다, ADR-009) |
-| `checkedItemIds` | 챙긴 준비물 id | 준비물, 홈 진행률, 장소의 `MissingItemsNote` |
+| `savedIds` | 저장한 장소 id | 저장 화면(`/saved`, 설정 안), 하트, 홈 카드·설정의 "저장한 곳 N곳" 개수, 지도 `?saved=1`, **준비물의 숙소 구비 용품**(`checklistView` — 저장한 숙소에 있는 물건을 준비된 것으로 센다. 목록을 좁히지는 않는다, ADR-009 v3) |
+| `checkedItemIds` | 챙긴 준비물 id | 준비물, 홈 진행률, 장소의 `PlaceItemsNote`(거기서 바로 체크도 한다) |
 | `season` | `null`(사계절) / 여름 / 겨울 | 준비물 필터, 홈 계절 칩(`SeasonChips` 공용 — 홈에서는 고르기만 하고 이동하지 않는다. "준비물 N가지" 링크의 숫자가 바뀌는 것이 피드백) |
 | `dog` | 우리 강아지 프로필(`TDogProfile \| null`, 마리별 `dogs[]`) | `/dog` 프로필 폼, 설정의 "우리 강아지" 카드, 판정(`useEligibility`/`useEligibilityMap`, `src/store/useDogEligibility.ts`). 목록·홈·지도·근처 장소(`placeCard.tsx`, `placesPage.tsx`, `homePage.tsx`, `mapPage.tsx`, `mapPageSheet.tsx`, `placeDetailNearby.tsx`)는 이 값이 `null` 이면 판정 관련 UI 를 아예 그리지 않는다(v0 화면 유지) |
 | `needsIndoor` | 이번 여행에 실내 자리가 꼭 필요한지 | 판정의 `opts.needsIndoor` — 강아지 정보가 아니라 여행 정보라 `dog` 와 분리(→ [features/dog-profile.md](../features/dog-profile.md)). 둘러보기 식당·카페 탭의 "실내 자리 필요" 토글(`placesPageEligibilityToggles.tsx`)이 값을 바꾼다 |

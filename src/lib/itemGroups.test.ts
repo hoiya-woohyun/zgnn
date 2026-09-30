@@ -58,12 +58,11 @@ describe('groupItems', () => {
 });
 
 /**
- * 준비물 화면은 한 목록을 세 자리로 나눠 그린다 — 맨 위 '오가는 길에' 섹션,
- * '이번 여행에 필요해요', 접히는 '그 밖에'. 세 자리의 합이 계절 전체와 어긋나면
+ * 준비물 화면은 목록을 묶음 섹션으로만 나눠 그린다. 묶음의 합이 계절 전체와 어긋나면
  * 화면에는 **없는 준비물**이 생기거나 **두 번 나오는** 준비물이 생긴다. 빌드도 테스트도
  * 통과하고 숫자만 틀리는 종류라, 화면이 하는 계산을 그대로 따라 해 본다.
  */
-describe('화면이 나누는 세 자리', () => {
+describe('화면이 나누는 묶음 섹션', () => {
   const placeOf = (type: TPlaceType): TPlaceEntry => ({
     id: `${type}-test`,
     type,
@@ -75,23 +74,12 @@ describe('화면이 나누는 세 자리', () => {
     policy: parsePetPolicy(''),
   });
 
-  const split = (season: Parameters<typeof checklistView>[0], saved: TPlaceEntry[]) => {
-    const view = checklistView(season, [], saved);
-    const isTravel = (item: { id: string }) =>
-      groupOfItem(ITEMS.find((candidate) => candidate.id === item.id)!) === 'travel';
-    return [
-      ...[...view.tripItems, ...view.restItems].filter(isTravel),
-      ...groupItems(view.tripItems.filter((item) => !isTravel(item))).flatMap((g) => g.items),
-      ...groupItems(view.restItems.filter((item) => !isTravel(item))).flatMap((g) => g.items),
-    ];
-  };
-
   it.each([
     ['저장한 곳 없음', null, []],
     ['카페 한 곳', null, [placeOf('cafe')]],
     ['여름 · 숙소와 식당', '여름', [placeOf('stay'), placeOf('restaurant')]],
-  ] as const)('%s — 세 자리를 합치면 계절 전체와 정확히 같다', (_label, season, saved) => {
-    const shown = split(season, [...saved]);
+  ] as const)('%s — 묶음을 합치면 계절 전체와 정확히 같다', (_label, season, saved) => {
+    const shown = groupItems(checklistView(season, [], [...saved]).items).flatMap((group) => group.items);
     expect(shown.map((item) => item.id).sort()).toEqual(
       visibleItems(season).map((item) => item.id).sort(),
     );

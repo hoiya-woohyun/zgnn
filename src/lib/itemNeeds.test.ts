@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   ITEM_NEEDS,
+  itemNeedsAt,
   itemsNeededAt,
-  itemsNeededForTrip,
-  missingItemsAt,
-  shouldShowMissingItems,
+  shouldShowPlaceItems,
 } from './itemNeeds';
 import { parsePetPolicy } from './petPolicy';
 import { ITEMS } from './places';
@@ -81,51 +80,49 @@ describe('itemsNeededAt', () => {
   });
 });
 
-describe('itemsNeededForTrip', () => {
-  it('저장한 곳들의 합집합이고, 순서는 items.json 순서를 따른다', () => {
-    const names = itemsNeededForTrip([placeOf('stay'), placeOf('cafe')], null).map((i) => i.name);
-    expect(names).toContain('얇은 이불/담요');
-    expect(names).toContain('휴대용 물병/밥그릇');
-    expect(new Set(names).size).toBe(names.length);
+describe('itemNeedsAt', () => {
+  const statusOf = (place: TPlaceEntry, checked: string[], name: string) =>
+    itemNeedsAt(place, null, checked).find((need) => need.item.name === name)?.status;
 
-    const order = ITEMS.map((item) => item.name).filter((name) => names.includes(name));
-    expect(names).toEqual(order);
-  });
-
-  it('저장한 곳이 없으면 아무것도 필요하지 않다', () => {
-    expect(itemsNeededForTrip([], null)).toEqual([]);
-  });
-});
-
-describe('missingItemsAt', () => {
-  it('이미 체크한 준비물은 빠진다', () => {
+  it('필요한 것 전부를 돌려준다 — 챙긴 것도 빠지지 않는다', () => {
     const cafe = placeOf('cafe');
     const first = itemsNeededAt(cafe, null)[0]!;
-    const missing = missingItemsAt(cafe, null, [first.id]);
-    expect(missing.map((item) => item.id)).not.toContain(first.id);
+    const needs = itemNeedsAt(cafe, null, [first.id]);
+    expect(needs.map((need) => need.item.id)).toEqual(itemsNeededAt(cafe, null).map((item) => item.id));
+    expect(needs.find((need) => need.item.id === first.id)?.status).toBe('checked');
     expect(nameOf(first.id)).toBeDefined();
   });
 
-  it('이 숙소가 갖고 있는 물건은 빠진다 — 다른 숙소의 구비 용품에 휘둘리지 않는다', () => {
+  it('안 챙긴 것은 missing 이다', () => {
+    expect(statusOf(placeOf('cafe'), [], '배변봉투')).toBe('missing');
+  });
+
+  it('이 숙소가 갖고 있는 물건은 provided — 다른 숙소의 구비 용품에 휘둘리지 않는다', () => {
     const withBedding = placeOf('stay', '', '강아지 침대와 식기 구비.');
     const without = placeOf('stay', '', '없음');
-    expect(missingItemsAt(withBedding, null, []).map((i) => i.name)).not.toContain('얇은 이불/담요');
-    expect(missingItemsAt(without, null, []).map((i) => i.name)).toContain('얇은 이불/담요');
+    expect(statusOf(withBedding, [], '얇은 이불/담요')).toBe('provided');
+    expect(statusOf(without, [], '얇은 이불/담요')).toBe('missing');
+  });
+
+  it('체크했어도 이 숙소에 있으면 provided 가 이긴다', () => {
+    const withBedding = placeOf('stay', '', '강아지 침대 구비.');
+    const bedding = ITEMS.find((item) => item.name === '얇은 이불/담요')!;
+    expect(statusOf(withBedding, [bedding.id], '얇은 이불/담요')).toBe('provided');
   });
 });
 
-describe('shouldShowMissingItems', () => {
+describe('shouldShowPlaceItems', () => {
   it('어려움이면 넛지를 띄우지 않는다 — 못 간다면서 챙기라고 하지 않게', () => {
-    expect(shouldShowMissingItems('hard')).toBe(false);
+    expect(shouldShowPlaceItems('hard')).toBe(false);
   });
 
   it('갈 수 있음·확인·정보 없음이면 띄운다', () => {
-    expect(shouldShowMissingItems('ok')).toBe(true);
-    expect(shouldShowMissingItems('cond')).toBe(true);
-    expect(shouldShowMissingItems('unknown')).toBe(true);
+    expect(shouldShowPlaceItems('ok')).toBe(true);
+    expect(shouldShowPlaceItems('cond')).toBe(true);
+    expect(shouldShowPlaceItems('unknown')).toBe(true);
   });
 
   it('프로필이 없어 판정이 없으면 띄운다', () => {
-    expect(shouldShowMissingItems(undefined)).toBe(true);
+    expect(shouldShowPlaceItems(undefined)).toBe(true);
   });
 });

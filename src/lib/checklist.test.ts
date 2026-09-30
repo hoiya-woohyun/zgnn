@@ -30,31 +30,20 @@ describe('visibleItems', () => {
 });
 
 describe('checklistView', () => {
-  it('저장한 곳이 없으면 계절 전체가 분모다(예전 checklistProgress 와 같은 동작)', () => {
-    const view = checklistView(null, [], []);
-    expect(view.scopedToTrip).toBe(false);
-    expect(view.total).toBe(visibleItems(null).length);
-    expect(view.tripItems).toEqual([]);
-    expect(view.restItems).toEqual(visibleItems(null));
+  it('분모는 계절 전체다 — 저장한 곳이 없어도 있어도 같다', () => {
+    expect(checklistView(null, [], []).total).toBe(visibleItems(null).length);
+    expect(checklistView(null, [], [placeOf('cafe')]).total).toBe(visibleItems(null).length);
+    expect(checklistView('여름', [], []).items).toEqual(visibleItems('여름'));
   });
 
-  it('저장한 곳이 있으면 거기 필요한 것만 분모가 된다', () => {
-    const view = checklistView(null, [], [placeOf('cafe')]);
-    expect(view.scopedToTrip).toBe(true);
-    expect(view.total).toBe(view.tripItems.length);
-    expect(view.total).toBeLessThan(visibleItems(null).length);
+  it('저장한 곳이 목록을 줄이지 않는다 — 카페만 저장해도 숙소 준비물이 남는다(ADR-009 v3)', () => {
+    const names = checklistView(null, [], [placeOf('cafe')]).items.map((item) => item.name);
+    expect(names).toContain('얇은 이불/담요');
   });
 
-  it('이번 여행 항목과 나머지는 겹치지 않고 합치면 계절 전체다', () => {
-    const view = checklistView('여름', [], [placeOf('stay'), placeOf('restaurant')]);
-    const all = [...view.tripItems, ...view.restItems].map((item) => item.id).sort();
-    expect(all).toEqual(visibleItems('여름').map((item) => item.id).sort());
-  });
-
-  it('진행률은 이번 여행 항목 안에서만 센다 — 관계없는 것을 체크해도 오르지 않는다', () => {
+  it('체크한 것은 저장한 곳과 무관하게 센다', () => {
     const cafeOnly = [placeOf('cafe')];
-    expect(checklistView(null, [idOf('얇은 이불/담요')], cafeOnly).ready).toBe(0);
-    expect(checklistView(null, [idOf('배변봉투')], cafeOnly).ready).toBe(1);
+    expect(checklistView(null, [idOf('얇은 이불/담요')], cafeOnly).ready).toBe(1);
   });
 
   it('숙소가 갖고 있는 물건도 준비된 것으로 센다 — 목록의 흐린 줄과 숫자가 어긋나면 안 된다', () => {
@@ -62,6 +51,11 @@ describe('checklistView', () => {
     const view = checklistView(null, [], stay);
     expect(view.providedItemIds.has(idOf('얇은 이불/담요'))).toBe(true);
     expect(view.ready).toBe(1);
+  });
+
+  it('체크했고 숙소에도 있으면 한 번만 센다', () => {
+    const stay = [placeOf('stay', '강아지 침대 구비.')];
+    expect(checklistView(null, [idOf('얇은 이불/담요')], stay).ready).toBe(1);
   });
 
   it('저장한 숙소들의 구비 용품을 전부 합쳐 반영한다', () => {

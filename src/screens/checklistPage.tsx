@@ -1,23 +1,27 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import Link from 'next/link';
-import { ChevronDown } from '@untitledui/icons';
-import { ChecklistPageGroupList } from './checklistPageGroupList';
 import { ChecklistPageItemRow } from './checklistPageItemRow';
 import { CollapsingTitleBar } from '../components/layout/collapsingTitleBar';
 import { PageHeader } from '../components/layout/pageHeader';
 import { SeasonChips } from '../components/seasonChips';
 import { META } from '../lib/places';
 import { checklistView } from '../lib/checklist';
-import { ITEM_GROUP_LABEL, groupItems, groupOfItem } from '../lib/itemGroups';
-import { cx } from '../utils/cx';
+import { ITEM_GROUP_HINT, groupItems } from '../lib/itemGroups';
 import { useAppStore, useSavedPlaces } from '../store/useAppStore';
 import type { TItem } from '../types';
 
-/** 저장한 곳과 무관하게 필요한 묶음. 섹션으로 따로 빼 맨 위에 둔다 — 아래 주석 참고. */
-const isTravelItem = (item: TItem) => groupOfItem(item) === 'travel';
-
+/**
+ * 여행 준비물 — 짐 싸는 목록.
+ *
+ * **목록은 저장한 곳에 따라 좁혀지지 않는다**(ADR-009 v3). 예전에는 하트로 저장한 곳에 필요한 것만
+ * 위로 올리고 나머지를 '그 밖에' 로 접었고, 저장한 곳이 없으면 "갈 곳을 저장해 보세요" 로
+ * 둘러보기에 보냈다. 짐을 싸러 온 사람을 장소 찾기로 되돌려 보내는 흐름이었고, 숙소를 아직
+ * 안 골랐을 뿐인 사람에게 이불을 '필요 없는 것' 처럼 접어 보였다.
+ *
+ * 이제 순서가 반대다 — 여기서 짐 목록을 한 번 채우고, 장소를 열면 그 장소가 이 목록을 읽어
+ * "여기 필요한 것" 을 보여준다(`PlaceItemsNote`). 이 화면에서 장소로 가는 길은 없다.
+ */
 export function ChecklistPage() {
   const season = useAppStore((state) => state.season);
   const setSeason = useAppStore((state) => state.setSeason);
@@ -29,32 +33,11 @@ export function ChecklistPage() {
     () => checklistView(season, checkedItemIds, savedPlaces),
     [season, checkedItemIds, savedPlaces],
   );
+  const groups = useMemo(() => groupItems(view.items), [view.items]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [restOpen, setRestOpen] = useState(false);
 
-  const savedStays = savedPlaces.filter((place) => place.type === 'stay');
-
-  /*
-    '오가는 길에'(기내용 가방·유모차)만 따로 떼어 맨 위 섹션으로 올린다.
-
-    이 묶음은 장소 규칙이 없어서 — 비행기와 차의 물건이지 숙소·식당의 물건이 아니다 —
-    저장한 곳이 아무리 많아도 '저장한 N곳에 필요해요' 에 들어가지 못하고, 늘 접혀 있는
-    '그 밖에' 아래로 떨어진다. 제주로 가는 사람에게 기내용 가방이 접힌 채 묻히는 것은
-    순서가 거꾸로다. 그래서 여기서만 묶음 하나를 섹션으로 승격시킨다.
-  */
-  const travelItems = useMemo(
-    () => [...view.tripItems, ...view.restItems].filter(isTravelItem),
-    [view.tripItems, view.restItems],
-  );
-  const tripGroups = useMemo(
-    () => groupItems(view.tripItems.filter((item) => !isTravelItem(item))),
-    [view.tripItems],
-  );
-  const restGroups = useMemo(
-    () => groupItems(view.restItems.filter((item) => !isTravelItem(item))),
-    [view.restItems],
-  );
-  const restCount = restGroups.reduce((sum, group) => sum + group.items.length, 0);
+  const savedStayCount = savedPlaces.filter((place) => place.type === 'stay').length;
+  const isReady = (item: TItem) => checkedItemIds.includes(item.id) || view.providedItemIds.has(item.id);
 
   const percent = view.total > 0 ? Math.round((view.ready / view.total) * 100) : 0;
 
@@ -89,7 +72,6 @@ export function ChecklistPage() {
           <SeasonChips value={season} onSelect={setSeason} label="계절" />
 
           <p className="mt-3 text-sm text-tertiary">
-            {view.scopedToTrip && '저장한 곳 기준 '}
             {view.total}가지 중 {view.ready}가지 준비됐어요
           </p>
           {/*
@@ -102,101 +84,47 @@ export function ChecklistPage() {
               style={{ width: `${percent}%` }}
             />
           </div>
+
+          {/*
+            이 화면과 장소 화면의 관계를 한 번 말해 둔다 — 여기가 원본이고 장소는 읽는 쪽이다.
+            예전의 "갈 곳을 저장해 보세요" 카드 자리다. 장소로 보내지 않고, 장소에서 무엇이 보일지만 알린다.
+          */}
+          <p className="mt-3 text-sm text-tertiary">
+            장소를 열면 그곳에 필요한 준비물을 이 목록에서 골라 보여드려요.
+            {/*
+              저장한 숙소 전부의 구비 용품을 자동으로 반영한다 — 숙소 선택 셀렉트는 ADR-009 v1 에서 없앴다.
+              26곳 중 23곳이 '기본적인 용품 구비.' 처럼 뭉뚱그려 적혀 있어 반영할 것이 없는 경우가 많은데,
+              아무 일도 일어나지 않은 것처럼 두지 않고 왜 반영이 안 되는지 그대로 말한다.
+            */}
+            {view.providedItemIds.size > 0 && ' 저장한 숙소에 있는 물건은 흐리게 표시했어요.'}
+            {savedStayCount > 0 &&
+              view.providedItemIds.size === 0 &&
+              ' 저장한 숙소는 구비 용품이 뭉뚱그려 적혀 있어 반영할 항목이 없어요.'}
+          </p>
         </div>
       </CollapsingTitleBar>
 
-      {travelItems.length > 0 && (
-        <section className="mt-6 px-4 md:px-6">
-          <h2 className="text-lg font-bold text-primary">{ITEM_GROUP_LABEL.travel}</h2>
-          <p className="mt-0.5 text-sm text-tertiary">
-            비행기와 차에서 쓰는 것이라, 어디를 저장했든 똑같이 필요해요.
-          </p>
-          <ul className="mt-3 space-y-2">{travelItems.map(renderRow)}</ul>
-        </section>
-      )}
-
-      {view.scopedToTrip ? (
-        <section className="mt-6 px-4 md:px-6">
-          {/*
-            '이번 여행' 이라고 부르지 않는다 — 다른 화면은 모두 같은 하트를 '저장' 이라 부르는데 여기서만
-            이름이 달라, 이 목록이 내가 누른 하트에서 나온다는 인과가 끊겼다. 제목에 개수를 걸어
-            하트를 누르면 여기가 바뀐다는 것을 보이게 한다.
-          */}
-          <h2 className="text-lg font-bold text-primary">저장한 {savedPlaces.length}곳에 필요해요</h2>
-          <p className="mt-0.5 text-sm text-tertiary">
-            하트로 저장한 곳을 기준으로 골랐어요. 저장을 바꾸면 이 목록도 바뀌어요.
-            {/*
-              숙소 선택 셀렉트를 없앴다 — 이미 하트로 저장해 둔 숙소를 준비물 화면에서 또
-              고르게 하는 것이 이 화면에서 가장 번거로운 단계였다. 대신 저장한 숙소 전부의
-              구비 용품을 자동으로 반영한다.
-            */}
-            {view.providedItemIds.size > 0 && ' 저장한 숙소에 있는 물건은 흐리게 표시했어요.'}
-          </p>
-          {savedStays.length > 0 && view.providedItemIds.size === 0 && (
-            // 26곳 중 23곳이 '기본적인 용품 구비.' 처럼 뭉뚱그려 적혀 있다.
-            // 아무 일도 일어나지 않은 것처럼 두지 않고, 왜 반영이 안 되는지 그대로 말한다.
-            <p className="mt-1 text-sm text-tertiary">
-              저장한 숙소는 구비 용품이 뭉뚱그려 적혀 있어 반영할 항목이 없어요.
-            </p>
-          )}
-          <div className="mt-3">
-            <ChecklistPageGroupList groups={tripGroups} renderRow={renderRow} />
-          </div>
-        </section>
-      ) : (
-        <section className="mt-6 px-4 md:px-6">
-          {/* 저장한 곳이 없으면 좁힐 근거가 없어 전체를 보여준다. 대신 좁히는 법을 알려준다. */}
-          <Link
-            href="/places/stay"
-            className="block rounded-2xl border border-secondary bg-primary p-4 transition-colors hover:bg-secondary"
-          >
-            <p className="text-sm font-bold text-primary">갈 곳을 저장해 보세요</p>
-            <p className="mt-0.5 text-sm text-tertiary">
-              저장한 곳이 있으면 거기에 필요한 준비물만 모아 드려요.
-            </p>
-          </Link>
-        </section>
-      )}
-
-      {restCount > 0 && (
-        <section className="mt-6 px-4 md:px-6">
-          {view.scopedToTrip ? (
-            <>
-              <button
-                type="button"
-                onClick={() => setRestOpen(!restOpen)}
-                aria-expanded={restOpen}
-                className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg text-left"
-              >
-                <span className="text-lg font-bold text-primary">
-                  그 밖에 챙기면 좋아요 {restCount}가지
-                </span>
-                <ChevronDown
-                  aria-hidden="true"
-                  className={cx(
-                    'size-5 shrink-0 text-tertiary transition-transform duration-200',
-                    restOpen && 'rotate-180',
-                  )}
-                />
-              </button>
-              <div
-                className={cx(
-                  'grid transition-[grid-template-rows] duration-200 ease-out',
-                  restOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
-                )}
-              >
-                <div className="overflow-hidden">
-                  <div className="pt-3">
-                    <ChecklistPageGroupList groups={restGroups} renderRow={renderRow} />
-                  </div>
-                </div>
-              </div>
-            </>
-          ) : (
-            <ChecklistPageGroupList groups={restGroups} renderRow={renderRow} />
-          )}
-        </section>
-      )}
+      {/*
+        묶음이 곧 섹션이다 — 오가는 길에 → 어디를 가든 → 식당·카페에서 → 숙소에서, 여행의 시간 순서.
+        머리글 오른쪽의 "2/3" 은 "숙소 것은 다 챙겼나" 를 목록을 훑지 않고 답하려고 둔다.
+      */}
+      {groups.map((group) => {
+        const groupReady = group.items.filter(isReady).length;
+        return (
+          <section key={group.id} className="mt-6 px-4 md:px-6" aria-labelledby={`items-${group.id}`}>
+            <div className="flex items-baseline justify-between gap-2">
+              <h2 id={`items-${group.id}`} className="text-lg font-bold text-primary">
+                {group.label}
+              </h2>
+              <span className="shrink-0 text-sm font-semibold text-tertiary">
+                {groupReady}/{group.items.length}
+              </span>
+            </div>
+            <p className="mt-0.5 text-sm text-tertiary">{ITEM_GROUP_HINT[group.id]}</p>
+            <ul className="mt-3 space-y-2">{group.items.map(renderRow)}</ul>
+          </section>
+        );
+      })}
 
       <footer className="mt-8 space-y-3 px-4 pb-8 md:px-6">
         <p className="rounded-2xl border border-secondary bg-primary p-4 text-sm text-secondary">

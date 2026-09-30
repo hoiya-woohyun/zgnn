@@ -1,6 +1,7 @@
 # 프로젝트 아키텍처 인덱스
 
-> 최종 수정: 2026-09-30 (v17: **교차점검 패스와 주소 대조 규칙** 등재([ADR-019](./decisions/ADR-019-ai-cross-check-and-address-rules.md)) — ADR 표에 한 줄)
+> 최종 수정: 2026-09-30 (v18: 준비물 라우트 설명 — 저장한 곳으로 좁히지 않는 고정 목록, 장소가 읽는 쪽 → [ADR-009 v3](./decisions/ADR-009-trip-derived-checklist.md))
+> 이전 (v17: **교차점검 패스와 주소 대조 규칙** 등재([ADR-019](./decisions/ADR-019-ai-cross-check-and-address-rules.md)) — ADR 표에 한 줄)
 > 이전 (v16: **숨은 운영자 검수 화면 `/admin`** 등재([ADR-018](./decisions/ADR-018-in-app-admin-review.md)) — 라우트 표·디렉터리·ADR 표.
 > 이 화면 하나가 publishable 키로 Supabase 를 직접 읽고 쓰므로 "앱은 런타임에 아무것도 fetch 하지 않는다" 는 **사용자 화면에 대한 말**로 좁혔고,
 > 기술 스택의 데이터 줄을 Notion 이 아니라 Supabase 로 고쳤다(원본 전환은 ADR-015, 2026-09-22 부터의 사실))
@@ -95,7 +96,7 @@ Notion 공개 페이지 ──(scripts, 무인증 API)──▶ data/jejudo-noti
 /places/[type]    둘러보기 — 검색·방향·이용 조건 필터, 숙소는 가격 정렬
 /place/[id]       상세 — 이용 조건(원문 포함), 판정 카드, 요금, 근처 장소
 /map              지도 — 저장·종류 칩, 마커 → 미니 카드. 저장 칩 = ?saved=1, 저장한 핀엔 하트 배지
-/checklist        준비물 — 저장한 곳 × 계절로 좁힘, 저장한 숙소 구비 용품 자동 반영
+/checklist        준비물 — 계절로만 거른 고정 목록(어디서 쓰는가 넷), 저장한 숙소 구비 용품 자동 반영. 장소 화면이 이 목록을 읽는다
 /settings         설정(탭) — 우리 강아지 카드, 저장한 곳 진입, 자료 출처
 /saved            저장한 곳 (홈 아래 — 뒤로가기는 /, 홈 카드가 주 진입점. 설정 행은 보조 경로)
 /dog              우리 강아지 등록 — 마리별 이름·몸무게·이동 수단 (설정 안). 저장하면 판정(v1)의 입력이 된다
@@ -193,7 +194,7 @@ data/                         # Notion 추출본(커밋) · raw/(무시)
 | [ADR-006](./decisions/ADR-006-responsive-scale-and-font.md) | 화면이 커지면 크기도 커진다 — `--spacing` 한 축 + 나눔스퀘어 네오 self-host (채택) |
 | [ADR-007](./decisions/ADR-007-shell-owned-back-navigation.md) | 뒤로가기는 화면이 아니라 셸이 붙인다 — 메인 탭 5개만 루트 (채택) |
 | [ADR-008](./decisions/ADR-008-map-provider.md) | 지도 제공자: 네이버(NCP Maps v3), 마커는 표준 핀으로 (채택 · v4 에서 Kakao 결정을 번복) |
-| [ADR-009](./decisions/ADR-009-trip-derived-checklist.md) | 준비물을 목록이 아니라 여행의 파생값으로 (채택) |
+| [ADR-009](./decisions/ADR-009-trip-derived-checklist.md) | 준비물을 목록이 아니라 여행의 파생값으로 (채택, v3 에서 방향 반전 — 목록이 원본, 장소가 읽는 쪽) |
 | [ADR-010](./decisions/ADR-010-shell-owned-safe-area.md) | 상태바 인셋도 화면이 아니라 셸이 처리한다 — 여백은 셸이, 맨 위 면은 전 화면 크림 (채택) |
 | [ADR-011](./decisions/ADR-011-app-gate-and-supabase.md) | 앱 전체를 잠그되 정적 내보내기는 버리지 않는다 — 데이터를 번들 밖 Supabase 로 (**제안**) |
 | [ADR-012](./decisions/ADR-012-personal-data-and-consent.md) | 휴대폰 번호를 받는 순간 필요한 것들 — 약관·동의 기록·파기 (**제안**) |
