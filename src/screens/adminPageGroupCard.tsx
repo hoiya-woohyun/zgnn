@@ -14,7 +14,7 @@ import {
 import type { TApplyOutcome, TSimilarPlace } from '../lib/adminApply';
 import { draftFromExtracted, type TCandidateEditDraft } from '../lib/adminEdit';
 import type { TBadgeTone, TPetBadge } from '../lib/petPolicy';
-import { addressView } from '../lib/adminAddress';
+import { addressConflictOf, addressView } from '../lib/adminAddress';
 import { aiAnalyzed, policySplit, type TAdminFlagView } from '../lib/adminPreview';
 import { verifyView } from '../lib/adminVerify';
 import { latestPlan } from '../lib/adminLatest';
@@ -49,6 +49,8 @@ export type TAdminPageGroupState = {
    * 닫을 때 둘을 같이 지워야 하고, 한쪽만 지우면 다음에 열 때 남의 초안이 들어 있다.
    */
   editDraft?: TCandidateEditDraft;
+  /** `주소 다름` 을 보고 "나갈 주소가 맞다" 를 골랐다. 이 묶음의 이후 선택에 `addressConfirmed` 로 실린다. */
+  addressConfirmed?: boolean;
 };
 
 export type TApproveChoice = {
@@ -59,6 +61,8 @@ export type TApproveChoice = {
   confirmedDifferent?: boolean;
   /** '최신본으로 저장하기' — 합치기 대신 짝지은 장소의 칸을 이 후보의 값으로 덮는다(`TApplyOptions.overwrite`). */
   overwrite?: boolean;
+  /** `주소 다름` 에서 '네이버 주소가 맞아요' 를 눌렀다(`TApplyOptions.addressConfirmed`). */
+  addressConfirmed?: boolean;
 };
 
 type TAdminPageGroupCardProps = {
@@ -441,9 +445,11 @@ export function AdminPageGroupCard({
                   group={group}
                   state={state}
                   regionOk={regionOk}
+                  addressConflict={addressConflictOf(extracted)}
                   latest={latest}
                   latestAvailable={latestAvailable}
-                  onApprove={onApprove}
+                  // 한 번 확인한 주소는 이 묶음의 이후 선택(비슷한 곳·내린 곳 패널의 버튼)에도 실어 보낸다 — 안 실으면 같은 확인이 되돌아온다.
+                  onApprove={(choice) => onApprove(state.addressConfirmed ? { ...choice, addressConfirmed: true } : choice)}
                   onStartReject={onStartReject}
                   onCancelReject={onCancelReject}
                   onReject={onReject}
