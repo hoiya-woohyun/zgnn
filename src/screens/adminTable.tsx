@@ -36,13 +36,20 @@ const CELL_RULES =
  *
  * **종류가 맨 뒤에 고정폭으로 선다.** 이름 앞에 칩으로 두던 자리에서 옮긴 것이고(2026-09-30), 세로로 훑히는
  * 성질은 그대로다 — 자기 열이 되면 이름 길이와 아예 무관해져 오히려 더 곧게 선다. `4rem` 은 선이 먹는
- * 24px 을 빼고 두 글자('숙소')가 안 접히는 최소값이다.
+ * 24px 을 빼고 칩의 최소폭(`min-w-9` = 36px)이 들어가는 값이다.
  *
- * AI 요약은 이 표에서 **유일하게 긴 글**이라 가장 넓은 몫(`3fr`)을 받는다. 그래도 넘치면 두 줄에서 자른다
- * (`line-clamp-2`, 그리는 쪽) — 안 자르면 요약 한 건이 그 줄만 네 줄 키로 만들어 격자가 어긋난 것처럼 보인다.
+ * **넓은 몫은 잘리지 않는 열이 받는다.** 한 장의 폭은 `max-w-7xl`(1280px)로 고정이고 격자에 남는 것은
+ * 1160px 남짓이라, 열 둘이 늘어난 만큼 어디선가는 줄어야 한다. 기준은 "그 열이 넘치면 무슨 일이 나는가" 다 —
+ * 장소(이름+뱃지)와 동반 정보(칩)는 **줄바꿈으로 키가 자라** 격자가 흔들리고, AI 요약은 두 줄에서 잘릴 뿐이다
+ * (`clamp-2`, 그리는 쪽 · 전문은 펼친 상세의 `소개` 줄과 `title` 에 있다). 그래서 앞의 둘이 먼저 가져간다.
+ * 처음엔 거꾸로 짰었다 — "요약이 제일 긴 글이니 제일 넓게" 는 **이미 자르기로 한 열**에 폭을 주는 말이었고,
+ * 그 대가로 동반 정보가 542px 에서 211px 로 줄어 칩 대여섯 개가 서너 줄로 접혔다.
+ *
+ * 지역이 `8.5rem` 인 것은 `동쪽 (구좌읍)`(9자 × 12px)이 선 24px 을 빼고 들어가는 최소값이라서다.
+ * 이 화면은 `--spacing` 이 4px 에 못 박혀 있어(`adminDensity.css`) `text-xs` 가 12px 로 고정이다.
  */
 export const ADMIN_CANDIDATE_GRID = cx(
-  'md:grid md:grid-cols-[minmax(0,2fr)_7rem_minmax(0,1.6fr)_minmax(0,3fr)_4.5rem_4rem_2.5rem]',
+  'md:grid md:grid-cols-[minmax(0,2.8fr)_8.5rem_minmax(0,3.1fr)_minmax(0,2.5fr)_5rem_4rem_2.5rem]',
   CELL_RULES,
   /* 끝의 펼침 표시(∨)는 값이 아니라 손잡이다 — 선을 그으면 빈 열 하나가 더 있는 것처럼 읽힌다. */
   'md:[&>*:last-child]:border-l-0 md:[&>*:last-child]:pl-0',
@@ -50,7 +57,7 @@ export const ADMIN_CANDIDATE_GRID = cx(
 
 /** 장소 · 지역 · 상태 · 내린 사유 · 종류 · (버튼). 종류의 자리를 후보 표와 맞춘다 — 칸을 오갈 때 눈이 다시 적응하지 않게. */
 export const ADMIN_PLACE_GRID = cx(
-  'md:grid md:grid-cols-[minmax(0,2fr)_7rem_7rem_minmax(0,2fr)_4rem_7.5rem]',
+  'md:grid md:grid-cols-[minmax(0,2fr)_8.5rem_7rem_minmax(0,2fr)_4rem_7.5rem]',
   CELL_RULES,
 );
 

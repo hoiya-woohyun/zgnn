@@ -43,7 +43,7 @@ const RULES: Record<string, TRule> = {
   목록글: { kind: 'badge', label: '목록글', tone: 'gray', rank: 5 }, // 반려 사유 칩과 같은 이름이라 유지
   '좌표 없음': { kind: 'note', note: '지도에 안 보여요' }, // 막지 않는다 — 지도 마커만 빠진다
   '조건문 없음': { kind: 'hidden' }, // 둘째 줄의 `동반 조건 문장이 없어요` 가 같은 말을 한다
-  'AI 판단 없음': { kind: 'hidden' }, // 뒤집어서 `AI 분석 완료` 로 말한다(카드 쪽)
+  'AI 판단 없음': { kind: 'hidden' }, // 뒤집어서 `분석 완료` 로 말한다(카드 쪽)
   중복표시: { kind: 'hidden' }, // 같은 묶음 안에 이미 들어와 `블로그 글 N건` 이 센다
   '짝 없음': { kind: 'hidden' }, // 구간 뱃지가 `새 장소로` 로 말한다
 };
@@ -81,7 +81,7 @@ export function adminFlagView(flags: string[]): TAdminFlagView {
 /**
  * AI 가 이 후보의 동반 조건을 **실제로 읽어냈는가.** `facts` 객체의 유무로는 부족하다 — 빈 객체거나 뱃지가 안 되는
  * 값만 든 경우(`factsLine` 이 `FACTS_EMPTY` 를 내는 경우)에도 truthy 라, 그것만 보면 펼친 상세가
- * `AI 가 읽은 조건이 없어요` 라고 하는 카드에 초록 `AI 분석 완료` 가 붙어 서로를 반박한다.
+ * `AI 가 읽은 조건이 없어요` 라고 하는 카드에 초록 `분석 완료` 가 붙어 서로를 반박한다.
  */
 export function aiAnalyzed(preview: TPolicyPreview): boolean {
   const read = factsLine(preview.facts);
@@ -120,7 +120,7 @@ export function policyCell(preview: TPolicyPreview, petPolicyText: string | null
    * **뱃지 0개가 곧 "못 읽었다" 는 아니다.** `toPetBadges` 는 `largeDogOk === false` · `feeFree === false` 에
    * 아무 뱃지도 만들지 않는다(`petPolicy.ts:399-401·392-396` 의 갈래를 전부 통과한다). 그래서 AI 가
    * '대형견 불가' 를 제대로 읽어낸 후보도 여기로 떨어지는데, 그때 '못 읽었어요' 라고 적으면 같은 카드의
-   * `AI 분석 완료` 뱃지·펼친 `AI 가 읽은 것: 대형견 불가` 와 **서로를 반박한다.**
+   * `분석 완료` 뱃지·펼친 `AI 가 읽은 것: 대형견 불가` 와 **서로를 반박한다.**
    * 2026-09-30 부터 그 두 값은 배지('대형견 불가'·'추가요금 있음')가 되고, 아무것도 못 읽은 원문은 '원문 확인 필요' 배지가 붙어(BUG-009)
    * 이 갈래는 거의 닿지 않는다. 지우지 않는 이유: 새 판단 필드가 배지 없이 더해지면 여기가 다시 그 사실을 말해 준다.
    */

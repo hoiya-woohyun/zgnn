@@ -115,7 +115,7 @@ describe('policyCell — 네 갈래', () => {
 
   /**
    * 뱃지 0개가 곧 "못 읽었다" 는 아니다 — `toPetBadges` 가 `largeDogOk === false` 에 뱃지를 안 만든다.
-   * 이 갈래가 없으면 한 카드가 `AI 분석 완료` · `동반 조건을 못 읽었어요` · `AI 가 읽은 것: 대형견 불가` 를 동시에 말한다.
+   * 이 갈래가 없으면 한 카드가 `분석 완료` · `동반 조건을 못 읽었어요` · `AI 가 읽은 것: 대형견 불가` 를 동시에 말한다.
    */
   it('AI 는 읽었는데 뱃지가 안 되는 값이면 못 읽었다고 하지 않는다', () => {
     const facts = { largeDogOk: false } as TPolicyPreview['facts'];
