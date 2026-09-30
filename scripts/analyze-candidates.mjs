@@ -1,7 +1,11 @@
 // blog_posts 의 미분석 글을 Claude 로 분석해 candidates 를 만든다(`pnpm data:analyze`). docs/todo/03-analyze-and-review.md 가 정본.
-// 글 하나의 흐름: 본문 받기(naverPostBody) → 장소 추출(extractPlaces) → 좌표·주소 보강(naverLocal, 키 있을 때만) →
-// 기존 장소와 대조(matchPlace) → candidates insert → blog_posts.analyzed_at. 판별·조립 규칙은 scripts/analyze/analyzeCandidates.mjs
-// 의 순수 함수에 있고 여기는 I/O 와 순서뿐이다.
+// 글 하나의 흐름: 본문 받기(naverPostBody) → 장소 추출(extractPlaces) → **교차점검(verifyPlaces, 조건 문장 없는 후보만)** →
+// 좌표·주소 보강(naverLocal, 키 있을 때만) → 기존 장소와 대조(matchPlace) → candidates insert → blog_posts.analyzed_at.
+// 판별·조립 규칙은 scripts/analyze/analyzeCandidates.mjs 의 순수 함수에 있고 여기는 I/O 와 순서뿐이다.
+//
+//  - **Claude 를 두 번 부른다.** 두 번째(교차점검)는 "동반 조건 문장이 없는" 후보에만, 글 하나당 한 번이다. 추출 패스는
+//    "반려견 동반 여행 블로그" 를 전제로 읽으므로 강아지를 두고 들른 일반 카페도 장소로 뽑는다 — 그 전제를 뒤집어
+//    다시 읽는 것이 두 번째 패스의 일이다(verifyPlaces.mjs 머리 주석). 끄려면 `--no-verify`.
 //
 // 왜 이렇게 생겼나 —
 //  - 본문은 그 자리에서만 읽고 버린다. DB 에도 로그에도 남기지 않는다(docs/todo/02 의 저작권·약관 기준). evidence(인용문)도 본문이라
@@ -51,6 +55,7 @@ import { formatGeocodeSummary, geocodeAddress, newGeocodeReasons, pickGeocoded, 
 import { newPickReasons, pickNaverPlace, searchNaverPlace } from './analyze/naverLocal.mjs';
 import { matchPlace, normalizeName, townOf } from './analyze/matchPlace.mjs';
 import { fetchPostText } from './analyze/naverPostBody.mjs';
+import { needsDogCheck, resolveVerifyModel, verifyLabel, VERIFY_PROMPT_VERSION, verifyPlaces } from './analyze/verifyPlaces.mjs';
 import { toMatchablePlace } from './lib/placeFields.mjs';
 import { readHidden } from './lib/readHidden.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
@@ -59,10 +64,10 @@ let args;
 try {
   args = parseArgs(process.argv.slice(2));
 } catch (e) {
-  console.error(`${e.message} — 사용법: pnpm data:analyze [--limit N] [--max-per-blog N] [--no-geo] [--dry-run] [--dump[=경로]]`);
+  console.error(`${e.message} — 사용법: pnpm data:analyze [--limit N] [--max-per-blog N] [--no-geo] [--no-verify] [--dry-run] [--dump[=경로]]`);
   process.exit(1);
 }
-const { limit, dryRun, dump, maxPerBlog, noGeo } = args;
+const { limit, dryRun, dump, maxPerBlog, noGeo, noVerify } = args;
 console.log(dryRun ? '모드: dry-run — DB 에 쓰지 않는다(Claude 는 부른다)' : '모드: 분석 — candidates · blog_posts.analyzed_at 에 쓴다');
 
 // 좌표 보강은 **02(수집)과 같은 네이버 키**를 쓴다 — 키를 하나 더 발급·관리하지 않는다(ADR-008 v4).
@@ -140,7 +145,20 @@ console.log(`모델 ${MODEL} · 프롬프트 ${PROMPT_VERSION} · 글 최대 ${l
 const meta = { model: MODEL, promptVersion: PROMPT_VERSION };
 
 const supabase = createSupabase();
-const meter = createUsageMeter();
+const meter = createUsageMeter('추출');
+/*
+ * 교차점검(`verifyPlaces.mjs`)의 계량기를 **따로** 든다. 합쳐 세면 구독 5시간 한도를 무엇이 태웠는지 가릴 수 없고,
+ * 이 패스는 글마다 최대 한 번 더 부르므로 그 값이 곧 "`--limit` 을 얼마로 나눌까" 의 근거다.
+ */
+const verifyMeter = createUsageMeter('교차점검');
+if (noVerify) console.log('--no-verify — 교차점검을 하지 않는다(조건 문장 없는 후보에 동반 근거 표식이 붙지 않는다)');
+else console.log(`교차점검 모델 ${resolveVerifyModel()} · 프롬프트 ${VERIFY_PROMPT_VERSION} (조건 문장 없는 후보가 있는 글에서만 돈다)`);
+/*
+ * 한 번 실패하면 **이 실행 동안 패스를 내린다** — 주소→좌표 축(`geocodeAxisOff`)과 같은 정책이고 이유도 같다:
+ * 이 패스는 표식을 더하기만 하므로 죽어도 결과가 어제까지의 동작으로 돌아갈 뿐이고, 남은 글마다 같은 실패로
+ * 한도를 더 태울 이유가 없다. 인증·CLI 없음(fatal)은 여기 오지 않고 루프를 끊는다.
+ */
+let verifyAxisOff = false;
 
 // 마이그레이션 20260928150000(blog_posts.analysis · places.pet_policy)이 적용됐는지 먼저 본다 — 없으면 첫 글의 쓰기에서 42703 으로 죽는데,
 // 그때까지 Claude 를 불러 한도만 쓴다. dry-run 도 같은 검사를 한다(실제 실행 전에 알아야 한다).
@@ -314,7 +332,7 @@ function skipHint(e) {
   return '';
 }
 
-const stats = { analyzed: 0, skipped: 0, dropped: 0, candidates: 0, auto: 0, ask: 0, new: 0, dup: 0, excluded: { other: 0, notJeju: 0, notAllowed: 0 } };
+const stats = { analyzed: 0, skipped: 0, dropped: 0, candidates: 0, auto: 0, ask: 0, new: 0, dup: 0, excluded: { other: 0, notJeju: 0, notAllowed: 0 }, verify: { checked: 0, noEvidence: 0, notAllowed: 0, failed: 0 } };
 let fatal = false;
 const pendingCloses = []; // { url, reason } — 루프 끝에 성공이 1건이라도 있을 때만 analyzed_at 을 찍는다
 // --dump 용. DB 에 들어갈 후보 행(extracted 그대로, 본문 없음)과 제외 목록 — 정규화 품질을 사람이 볼 유일한 창이다(로그에는 안 찍는다, 05).
@@ -329,6 +347,34 @@ for (const post of posts) {
     if (!body) throw Object.assign(new Error('본문 컨테이너를 찾지 못함(비공개·삭제 글이거나 에디터 구조가 바뀜)'), { permanent: true });
 
     const places = await extractPlaces(runClaudeCli, post, body, meter);
+
+    /*
+     * 교차점검 — **후보가 될 것 중 동반 조건 문장이 없는 것**만 묶어 한 번 부른다. 제외될 장소(제주 아님·other·
+     * 동반 불가)를 넣지 않는 이유는 쿼터가 아니라 의미다: 버릴 것에 근거를 물어 봐야 아무 결정도 안 바뀐다.
+     * 실패는 이 글을 버리지 않는다(`verifyAxisOff`) — 판단이 없는 후보는 `verify: null`(미점검)로 남는다.
+     */
+    const verifyTargets = noVerify || verifyAxisOff ? [] : places.filter((p) => !exclusionReason(p) && needsDogCheck(p));
+    let verdicts = new Map();
+    if (verifyTargets.length > 0) {
+      const names = verifyTargets.map((p) => p.name);
+      try {
+        verdicts = await verifyPlaces(runClaudeCli, post, body, names, verifyMeter);
+        stats.verify.checked += verdicts.size;
+        // 판단의 `why`·`quote` 는 본문에서 파생된 것이라 찍지 않는다(evidence 와 같은 규칙, 05). 이름과 표식만.
+        for (const [key, verdict] of verdicts) {
+          const label = verifyLabel(verdict);
+          if (label === '동반 근거 없음') stats.verify.noEvidence += 1;
+          if (label === '동반 불가 정황') stats.verify.notAllowed += 1;
+          if (label !== '동반 확인') console.log(`  교차점검 ${names.find((n) => normalizeName(n) === key) ?? key} — ${label}`);
+        }
+      } catch (e) {
+        if (isFatal(e)) throw e;
+        stats.verify.failed += verifyTargets.length;
+        verifyAxisOff = true;
+        console.error(`  교차점검 실패 — 이 실행 동안 패스를 내린다(후보는 미점검으로 남는다): ${e.message}`);
+      }
+    }
+
     const rows = [];
     const excluded = [];
     for (const extracted of places) {
@@ -355,7 +401,12 @@ for (const post of posts) {
       const matched = matchPlace(toMatchCandidate(extracted, local), existing);
       const key = normalizeName(extracted.name);
       const dupOf = tierOf(matched) === 'new' ? (newNamesSeen.get(key) ?? null) : null;
-      const row = toCandidateRow(post, extracted, local, regionRaw, matched, { meta, dupOf });
+      const row = toCandidateRow(post, extracted, local, regionRaw, matched, {
+        meta,
+        dupOf,
+        // 물어보지 않은 후보는 `null`(미점검)이다 — `?? null` 이 그 뜻을 지킨다.
+        verify: verdicts.get(normalizeName(extracted.name)) ?? null,
+      });
       const tier = row.extracted.match.tier;
       console.log(`  ${formatCandidateLine(row, matched.match?.name)}${row.extracted.visited === false ? ' · 목록글' : ''}`);
 
@@ -423,6 +474,7 @@ if (pendingCloses.length > 0) {
 }
 
 console.log(formatSummary(stats, meter.summary(), { dryRun }));
+if (verifyMeter.totals().calls > 0) console.log(`  ${verifyMeter.summary()}`);
 
 // --dump: 후보·제외 목록을 로컬 JSON 으로. data/raw/ 는 .gitignore 라 레포에 남지 않는다. 본문은 없고 evidence(인용 1~3문장)는 DB 와 같은 것이다.
 if (dump !== null) {

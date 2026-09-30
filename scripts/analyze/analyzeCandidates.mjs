@@ -34,15 +34,17 @@ export const DEFAULT_LIMIT = 50;
 export const DEFAULT_MAX_PER_BLOG = 2;
 
 /**
- * `--dry-run` · `--limit N` · `--max-per-blog N` · `--no-geo` · `--dump[=경로]`(후보·제외 목록을 로컬 JSON 으로 — 정규화 품질을
+ * `--dry-run` · `--limit N` · `--max-per-blog N` · `--no-geo` · `--no-verify`(교차점검 패스를 끈다 — Claude 호출이 글마다
+ * 최대 한 번 더 늘어나므로 한도가 아까울 때) · `--dump[=경로]`(후보·제외 목록을 로컬 JSON 으로 — 정규화 품질을
  * 사람이 볼 유일한 창, 로그에는 여전히 본문 인용을 찍지 않는다). 모르는 인자나 1 미만의 limit 은 throw — 오타로 전체를 돌리는 일이 없게.
  */
 export function parseArgs(argv) {
-  const args = { limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false };
+  const args = { limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--dry-run') { args.dryRun = true; continue; }
     if (arg === '--no-geo') { args.noGeo = true; continue; }
+    if (arg === '--no-verify') { args.noVerify = true; continue; }
     if (arg === '--dump') { args.dump = ''; continue; } // '' = 기본 경로(data/raw/analyze-<시각>.json)
     if (arg.startsWith('--dump=')) { args.dump = arg.slice('--dump='.length); continue; }
     let key;
@@ -187,7 +189,8 @@ export function toMatchCandidate(extracted, local) {
 /**
  * candidates 행. extracted 의 모양은
  *   { ...TExtractedPlace, geo: {lat,lng}|null, geoSource: 'local'|'geocode'|null, naverLink: string|null, category: string|null,
- *     regionRaw: string|null, regionRawAi: string|null, match: { confidence, reason, tier: 'auto'|'ask'|'new' } }
+ *     regionRaw: string|null, regionRawAi: string|null, match: { confidence, reason, tier: 'auto'|'ask'|'new' },
+ *     verify: { petAllowedHere, dogWasThere, quote, why, promptVersion, model } | null }
  * — applyApproved.mjs 가 읽는 계약이다. address 는 네이버 값이 있으면 그것으로 덮는다(기존 86곳과 같은 "제주 제주시 …" 꼴).
  * regionRawAi 는 AI 가 준 원본 — 분석 때 matchPlace 가 본 지역 신호 그대로를 apply 의 재대조가 다시 보게 하기 위해 남긴다(regionRaw 는 정리된 값).
  * category 는 TExtractedPlace 에 없고 네이버가 한 단어("커피전문점")로 주는 값 — 빠뜨리면 apply 가 category 를 영영 못 채운다.
@@ -203,10 +206,12 @@ export function toMatchCandidate(extracted, local) {
  * @param {{ lat, lng, address, naverLink, category } | null} local  pickNaverPlace 결과
  * @param {string | null} regionRaw  resolveRegionRaw 결과
  * @param {{ match: object | null, confidence: number, reason: string }} matched  matchPlace 결과
- * @param {{ meta?: { model: string, promptVersion: string } | null, dupOf?: string | null }} [extra]
+ * @param {{ meta?: { model: string, promptVersion: string } | null, dupOf?: string | null, verify?: object | null }} [extra]
  *   meta — 어느 모델·프롬프트로 뽑았나(재분석 대상을 고르는 키). dupOf — 같은 nameKey 의 먼저 난 pending 후보 id(검수자가 묶어 보게).
+ *   verify — 교차점검 판단(`verifyPlaces.mjs`). **`null` 은 "점검하지 않았다" 다**(조건 문장이 있었거나 그 패스가 꺼졌거나 실패했다).
+ *   "점검했고 근거가 없었다" 는 값이 든 객체이고, 둘을 섞으면 화면이 미점검 후보에 초록 표식을 단다.
  */
-export function toCandidateRow(post, extracted, local, regionRaw, matched, { meta = null, dupOf = null } = {}) {
+export function toCandidateRow(post, extracted, local, regionRaw, matched, { meta = null, dupOf = null, verify = null } = {}) {
   const tier = tierOf(matched);
   return {
     post_url: post.url,
@@ -227,6 +232,8 @@ export function toCandidateRow(post, extracted, local, regionRaw, matched, { met
       regionRaw: regionRaw ?? null,
       regionRawAi: extracted.regionRaw ?? null,
       match: { confidence: matched.confidence, reason: matched.reason, tier },
+      // 교차점검 결과. applyApproved 는 칸을 명시해 읽으므로 이 값이 `places` 로 새지 않는다 — 검수 화면 전용 단서다.
+      verify,
     },
     match_place_id: tier === 'new' ? null : matched.match.id,
     match_confidence: matched.confidence,
@@ -270,5 +277,11 @@ export function formatSummary(stats, meterSummary, { dryRun } = {}) {
   const ex = stats.excluded;
   const excluded = ex ? ` · 제외 ${ex.other + ex.notJeju + ex.notAllowed}(other ${ex.other} · 제주밖 ${ex.notJeju} · 동반불가 ${ex.notAllowed})` : '';
   const dup = stats.dup ? ` · 중복표시 ${stats.dup}` : '';
-  return `${prefix}분석 ${stats.analyzed}건 (후보 ${stats.candidates} · 일치 ${stats.auto} · 확인요청 ${stats.ask} · 신규 ${stats.new}${dup} · 건너뜀 ${stats.skipped}${dropped}${excluded}) · ${meterSummary}`;
+  /*
+   * 교차점검은 **점검한 수와 근거를 못 찾은 수를 같이** 적는다. 하나만 적으면 0 을 두 가지로 읽을 수 있다 —
+   * "전부 근거가 있었다" 와 "패스가 안 돌았다" 는 운영자가 해야 할 일이 정반대다(⚠️ 판정 불가에 속지 말 것과 같은 자리).
+   */
+  const v = stats.verify;
+  const verify = v ? ` · 교차점검 ${v.checked}건(근거 없음 ${v.noEvidence} · 동반 불가 정황 ${v.notAllowed}${v.failed ? ` · 실패 ${v.failed}` : ''})` : '';
+  return `${prefix}분석 ${stats.analyzed}건 (후보 ${stats.candidates} · 일치 ${stats.auto} · 확인요청 ${stats.ask} · 신규 ${stats.new}${dup} · 건너뜀 ${stats.skipped}${dropped}${excluded}${verify}) · ${meterSummary}`;
 }

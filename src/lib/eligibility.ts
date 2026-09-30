@@ -272,10 +272,10 @@ const ruleCallFirst: TRule = (_dog, policy) => {
   return { level: 'cond', text: '방문 전 전화 확인이 필요해요', quote: policy.sources.callFirst };
 };
 
-/** U1: 원문에 이용 조건 자체가 없다. */
+/** U1: 원문에 동반 조건 자체가 없다. */
 const ruleNoInfo: TRule = (_dog, policy) => {
   if (!policy.noInfo) return null;
-  return { level: 'unknown', text: '이용 조건이 적혀 있지 않아요', quote: policy.sources.noInfo };
+  return { level: 'unknown', text: '동반 조건이 적혀 있지 않아요', quote: policy.sources.noInfo };
 };
 
 /**

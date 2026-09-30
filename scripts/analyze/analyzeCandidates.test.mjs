@@ -46,12 +46,13 @@ const local = {
 
 describe('parseArgs', () => {
   it('인자가 없으면 기본 limit · dry-run 아님', () => {
-    expect(parseArgs([])).toEqual({ limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false });
+    expect(parseArgs([])).toEqual({ limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false });
   });
   it('--limit N 과 --limit=N 둘 다 받고, --dry-run 은 어디에 있어도 된다', () => {
-    expect(parseArgs(['--limit', '5', '--dry-run'])).toEqual({ limit: 5, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false });
-    expect(parseArgs(['--dry-run', '--limit=20'])).toEqual({ limit: 20, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false });
+    expect(parseArgs(['--limit', '5', '--dry-run'])).toEqual({ limit: 5, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false });
+    expect(parseArgs(['--dry-run', '--limit=20'])).toEqual({ limit: 20, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false });
     expect(parseArgs(['--no-geo']).noGeo).toBe(true);
+    expect(parseArgs(['--no-verify']).noVerify).toBe(true);
   });
   it('--dump 는 기본 경로(빈 문자열), --dump=경로 는 그 경로 · --max-per-blog 는 0 도 된다(상한 없음)', () => {
     expect(parseArgs(['--dump']).dump).toBe('');
@@ -192,6 +193,8 @@ describe('toCandidateRow — candidates.extracted 는 applyApproved.mjs 가 읽�
       regionRawAi: extracted.regionRaw ?? null,
       regionRaw: '동쪽 (구좌읍)',
       match: { confidence: matchedAuto.confidence, reason: matchedAuto.reason, tier: 'auto' },
+      // 물어보지 않았으면 null 이다 — "점검했고 근거가 없었다" 와 섞이지 않게(verifyPlaces.mjs).
+      verify: null,
     });
   });
 
@@ -265,6 +268,19 @@ describe('로그 형식 — 본문 인용은 싣지 않는다', () => {
       '분석 3건 (후보 4 · 일치 1 · 확인요청 2 · 신규 1 · 건너뜀 1) · Claude 3회 · 입력 100 · 출력 50 · 캐시 읽기 0 · 캐시 쓰기 0 토큰',
     );
     expect(formatSummary(stats, 'x', { dryRun: true })).toMatch(/^\[dry-run\] 분석 3건/);
+  });
+
+  /**
+   * 교차점검 집계는 **점검한 수와 못 찾은 수를 같이** 적는다. `근거 없음 0` 만 적으면 "전부 근거가 있었다" 와
+   * "패스가 안 돌았다" 를 구별할 수 없는데, 운영자가 해야 할 일은 정반대다.
+   */
+  it('교차점검을 돌렸으면 점검 수와 갈래를 같이 적고, 안 돌렸으면 그 조각이 아예 없다', () => {
+    const stats = { analyzed: 3, skipped: 0, candidates: 4, auto: 1, ask: 2, new: 1 };
+    expect(formatSummary({ ...stats, verify: { checked: 7, noEvidence: 2, notAllowed: 1, failed: 0 } }, 'x')).toContain(
+      '교차점검 7건(근거 없음 2 · 동반 불가 정황 1)',
+    );
+    expect(formatSummary({ ...stats, verify: { checked: 0, noEvidence: 0, notAllowed: 0, failed: 3 } }, 'x')).toContain('실패 3');
+    expect(formatSummary(stats, 'x')).not.toContain('교차점검');
   });
 });
 

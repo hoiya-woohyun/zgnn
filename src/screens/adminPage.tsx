@@ -20,6 +20,7 @@ import {
   type TRejectReason,
 } from '../lib/adminCandidates';
 import { adminFlagView } from '../lib/adminPreview';
+import { verifyNeedsLook } from '../lib/adminVerify';
 import { fetchRebuildStatus, rebuildHeadline, type TRebuildHeadline } from '../lib/adminRebuild';
 import {
   allSelected as allKeysSelected,
@@ -64,7 +65,7 @@ import { ADMIN_CANDIDATE_GRID, AdminTable } from './adminTable';
 /** 한 번에 더 그리는 줄 수. 줄이 얇아져(표) 20 은 PC 한 화면도 못 채운다 — 감시판이 곧바로 또 보인다. */
 const PAGE_SIZE = 40;
 
-const COLUMNS = ['이름', '지역', '이용 조건', '근거', ''];
+const COLUMNS = ['이름', '지역', '동반 조건', '근거', ''];
 /** 끝난 카드가 초록 한 줄로 남아 있는 시간. 바로 지우면 "눌렀는데 아무 일도 안 났다" 로 보인다. */
 const DONE_LINGER_MS = 3000;
 
@@ -82,6 +83,17 @@ const TABS: { key: TTab; label: string }[] = [
 ];
 
 type TTierFilter = 'all' | 'auto' | 'ask' | 'new';
+
+/**
+ * 동반 조건 축의 세 상태. **불리언 토글 둘로 두지 않는다** — '조건이 적힌 것' 과 '교차점검이 근거를 못 찾은 것' 은
+ * 교집합이 없다(교차점검은 조건 문장이 없는 후보에만 돈다). 토글 둘이면 둘을 같이 켤 수 있고 그 목록은 늘 빈다.
+ */
+type TPolicyFilter = 'all' | 'has' | 'needsLook';
+
+const POLICY_FILTER_MATCH: Record<Exclude<TPolicyFilter, 'all'>, (card: { group: TCandidateGroup }) => boolean> = {
+  has: (card) => card.group.hasPolicyText,
+  needsLook: (card) => verifyNeedsLook(card.group.lead.extracted.verify),
+};
 
 /**
  * 걸러 보기는 **두 축**이다. 앞의 넷은 서로 배타적인 한 축(기존 장소와의 관계)이고,
@@ -124,7 +136,7 @@ export function AdminPage() {
   const [states, setStates] = useState<Record<string, TAdminPageGroupState>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
   const [tierFilter, setTierFilter] = useState<TTierFilter>('all');
-  const [policyOnly, setPolicyOnly] = useState(false);
+  const [policyFilter, setPolicyFilter] = useState<TPolicyFilter>('all');
   const [shown, setShown] = useState(PAGE_SIZE);
   /*
    * 일괄 반려용으로 골라 둔 묶음들. 집합을 다루는 규칙은 전부 `adminSelection.ts` 에 있다 —
@@ -513,18 +525,22 @@ export function AdminPage() {
    * 조건 토글을 **먼저** 좁힌다. tier 칩의 개수가 조건 토글 안에서 세어지지 않으면 토글을 켠 상태에서
    * 칩 숫자와 목록 길이가 어긋나고, 이 축 분리가 고치려던 "다 본 줄 안다" 가 개수 쪽으로 옮겨 앉는다.
    */
-  const inPolicy = policyOnly ? cards.filter((card) => card.group.hasPolicyText) : cards;
+  const inPolicy = policyFilter === 'all' ? cards : cards.filter(POLICY_FILTER_MATCH[policyFilter]);
   const filtered = inPolicy.filter((card) => activeTier.match(card.group));
-  /** 조건 칩의 개수도 같은 규칙 — 지금 고른 tier 안에서 센다(누르면 보일 수와 같다). */
-  const policyCount = cards.filter((card) => activeTier.match(card.group) && card.group.hasPolicyText).length;
+  /** 두 칩의 개수도 같은 규칙 — 지금 고른 tier 안에서 센다(누르면 보일 수와 같다). */
+  const policyCounts = {
+    has: cards.filter((card) => activeTier.match(card.group) && POLICY_FILTER_MATCH.has(card)).length,
+    needsLook: cards.filter((card) => activeTier.match(card.group) && POLICY_FILTER_MATCH.needsLook(card)).length,
+  };
 
   // 걸러 보기를 바꾸면 '더 보기' 도 처음으로 — 효과가 아니라 여기서 함께 바꾼다(같은 사건의 두 결과다).
   const pickTier = (next: TTierFilter) => {
     setTierFilter(next);
     setShown(PAGE_SIZE);
   };
-  const togglePolicy = () => {
-    setPolicyOnly((prev) => !prev);
+  /** 같은 축의 세 상태를 오간다 — 누른 것을 다시 누르면 '전체' 다. */
+  const pickPolicy = (next: Exclude<TPolicyFilter, 'all'>) => {
+    setPolicyFilter((prev) => (prev === next ? 'all' : next));
     setShown(PAGE_SIZE);
   };
 
@@ -710,15 +726,28 @@ export function AdminPage() {
             })}
           </div>
           {/* 축이 하나 더 있다는 것을 **보이는 이름표**가 말한다 — 없으면 다섯이 한 축으로 읽힌다. */}
-          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="이용 조건">
-            <span className="text-xs font-semibold text-secondary">이용 조건</span>
+          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="동반 조건">
+            <span className="text-xs font-semibold text-secondary">동반 조건</span>
             <Button
               size="sm"
-              color={policyOnly ? 'primary' : 'secondary'}
-              aria-pressed={policyOnly}
-              onClick={togglePolicy}
+              color={policyFilter === 'has' ? 'primary' : 'secondary'}
+              aria-pressed={policyFilter === 'has'}
+              onClick={() => pickPolicy('has')}
             >
-              조건이 적힌 것만 {policyCount}
+              조건이 적힌 것만 {policyCounts.has}
+            </Button>
+            {/*
+              * 반대쪽 — 교차점검이 **보고도** 근거를 못 찾은 것. 조건이 적힌 후보와 교집합이 없으므로
+              * 따로 켜는 토글 둘이 아니라 **한 축의 세 상태**다(안 그러면 둘을 같이 켤 수 있고 그 목록은 늘 빈다).
+              * 미점검은 세지 않는다(`verifyNeedsLook`) — 안 본 것과 보고 못 찾은 것은 할 일이 다르다.
+              */}
+            <Button
+              size="sm"
+              color={policyFilter === 'needsLook' ? 'primary' : 'secondary'}
+              aria-pressed={policyFilter === 'needsLook'}
+              onClick={() => pickPolicy('needsLook')}
+            >
+              동반 근거 없는 것만 {policyCounts.needsLook}
             </Button>
           </div>
         </div>

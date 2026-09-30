@@ -290,7 +290,7 @@ function errorText(result) {
   return '';
 }
 
-function classifyCliError(result) {
+export function classifyCliError(result) {
   const status = Number.isInteger(result.api_error_status) ? result.api_error_status : null;
   const text = errorText(result);
   const subtype = result.subtype ?? '?';
@@ -432,8 +432,11 @@ export function isFatal(err) {
 /**
  * 호출별 usage 를 합산한다. 로그에는 토큰 수만 남긴다(비용은 모델별 단가를 곱해 사람이 계산 — docs/todo/03 의 표).
  * cache_read 가 첫 호출 이후 0 이면 시스템 프롬프트가 흔들리고 있다는 뜻이다.
+ *
+ * `label` 은 **패스 이름**이다. 추출과 교차점검(`verifyPlaces.mjs`)이 계량기를 따로 들고, 요약에 두 줄로 나온다 —
+ * 합쳐 세면 "글 50건에 Claude 를 몇 번 불렀나" 가 안 보이고, 구독 5시간 한도를 무엇이 태웠는지 가릴 수 없다.
  */
-export function createUsageMeter() {
+export function createUsageMeter(label = '추출') {
   const totals = { calls: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
   return {
     add(usage) {
@@ -447,7 +450,7 @@ export function createUsageMeter() {
       return { ...totals };
     },
     summary() {
-      return `Claude ${totals.calls}회 · 입력 ${totals.input} · 출력 ${totals.output} · 캐시 읽기 ${totals.cacheRead} · 캐시 쓰기 ${totals.cacheWrite} 토큰`;
+      return `Claude ${label} ${totals.calls}회 · 입력 ${totals.input} · 출력 ${totals.output} · 캐시 읽기 ${totals.cacheRead} · 캐시 쓰기 ${totals.cacheWrite} 토큰`;
     },
   };
 }

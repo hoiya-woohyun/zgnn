@@ -1,6 +1,7 @@
 # 프로젝트 아키텍처 인덱스
 
-> 최종 수정: 2026-09-29 (v16: **숨은 운영자 검수 화면 `/admin`** 등재([ADR-018](./decisions/ADR-018-in-app-admin-review.md)) — 라우트 표·디렉터리·ADR 표.
+> 최종 수정: 2026-09-30 (v17: **교차점검 패스와 주소 대조 규칙** 등재([ADR-019](./decisions/ADR-019-ai-cross-check-and-address-rules.md)) — ADR 표에 한 줄)
+> 이전 (v16: **숨은 운영자 검수 화면 `/admin`** 등재([ADR-018](./decisions/ADR-018-in-app-admin-review.md)) — 라우트 표·디렉터리·ADR 표.
 > 이 화면 하나가 publishable 키로 Supabase 를 직접 읽고 쓰므로 "앱은 런타임에 아무것도 fetch 하지 않는다" 는 **사용자 화면에 대한 말**로 좁혔고,
 > 기술 스택의 데이터 줄을 Notion 이 아니라 Supabase 로 고쳤다(원본 전환은 ADR-015, 2026-09-22 부터의 사실))
 > 이전 (v15: 저장한 곳(`/saved`)을 설정 아래에서 홈 아래로 — 뒤로가기 부모·탭 하이라이트가 홈이다. 지도에 저장 칩(ADR-008 v11))
@@ -201,6 +202,7 @@ data/                         # Notion 추출본(커밋) · raw/(무시)
 | [ADR-015](./decisions/ADR-015-supabase-source-and-rebuild.md) | 원본은 Supabase, 반영은 재빌드 — 회원은 범위 밖 |
 | [ADR-018](./decisions/ADR-018-in-app-admin-review.md) | 검수는 앱 안 숨은 화면(`/admin`)에서 하고 승인이 곧 반영이다 — 번들에 publishable 키가 들어간다(ADR-015 §2 번복, 경계는 RLS·GRANT), 세션은 access token 만(12시간), 신규 장소는 곧바로 `published`, 사이트 반영은 재빌드 |
 | [ADR-016](./decisions/ADR-016-secrets-by-login.md) | 시크릿은 저장하지 않는다 — 운영자가 `pnpm data:login` 하면 짧은 세션(JWT)으로 RLS 안에서 쓴다. 관리자가 없으면(만료) 아무 스크립트도 DB 에 쓰지 못한다. 인증 출처는 세션·anon 둘뿐 — service_role 은 어디에도 없고 GitHub Actions 도 없다(v5). 수집·분석·반영은 사용자 터미널에서 |
+| [ADR-019](./decisions/ADR-019-ai-cross-check-and-address-rules.md) | 추출 뒤 **두 번째 Claude 패스**로 교차점검한다(조건 문장 없는 후보만, 글당 한 번) — 근거 없는 후보는 버리지 않고 표식만 달고, `verify: null`(미점검)은 '근거 없음' 과 다른 상태다. 주소 표기 대조는 **AI 가 아니라 규칙**(`src/lib/addressMatch.ts`) — 지번↔도로명은 판단 보류 |
 
 ## 버그 기록
 

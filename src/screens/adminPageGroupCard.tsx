@@ -16,7 +16,9 @@ import {
 } from '../lib/adminCandidates';
 import type { TApplyOutcome, TSimilarPlace } from '../lib/adminApply';
 import { lastNoteLine, noteLineText } from '../lib/adminPlaces';
-import { aiAnalyzed, policyLine, type TAdminFlagView } from '../lib/adminPreview';
+import { sameAddress } from '../lib/addressMatch';
+import { aiAnalyzed, policyCell, type TAdminFlagView } from '../lib/adminPreview';
+import { verifyView } from '../lib/adminVerify';
 import { isPlaceType, TYPE_COLOR, typeTint } from '../lib/places';
 import { cx } from '../utils/cx';
 import { AdminPageGroupDetail } from './adminPageGroupDetail';
@@ -81,10 +83,10 @@ const BUSY_LABEL: Record<NonNullable<TAdminPageGroupState['busy']>, string> = {
 
 /**
  * 후보 묶음 한 줄. 접힌 줄만으로 "올릴지 말지" 의 대부분이 판단되게 한다 —
- * 이름·종류·구간·지역·표식·조건 수준이 그 줄에 있고, 근거(원문·인용·원글)는 펼쳐야 나온다.
+ * 이름·종류·구간·지역·표식·동반 조건이 그 줄에 있고, 근거(원문·인용·원글)는 펼쳐야 나온다.
  *
  * `md` 이상에서는 머리글과 열이 맞는 **표의 한 줄**이다(`ADMIN_CANDIDATE_GRID`). 예전에는 같은 것을
- * 두 줄로(이름줄 + 흐린 메타줄) 쌓았는데, 그러면 지역·조건이 줄마다 다른 가로 위치에서 시작해
+ * 두 줄로(이름줄 + 흐린 메타줄) 쌓았는데, 그러면 지역·동반 조건이 줄마다 다른 가로 위치에서 시작해
  * 눈으로 세로로 훑을 수가 없다 — 142묶음을 보는 화면에서 그 훑기가 곧 일이다.
  */
 export function AdminPageGroupCard({
@@ -104,6 +106,7 @@ export function AdminPageGroupCard({
   onSelect,
 }: TAdminPageGroupCardProps) {
   const extracted = group.lead.extracted;
+  const cell = policyCell(preview, extracted.petPolicyText);
   const matchedName = group.lead.places?.name;
   const busy = state.busy;
   /*
@@ -114,6 +117,18 @@ export function AdminPageGroupCard({
    * `places` 행(`placesRef`)으로 한다.
    */
   const matchedArchived = group.lead.places?.status === 'archived';
+  /*
+   * 네이버가 준 주소와 원글의 주소가 **정말** 다른가. 접힌 줄에 띄우는 것이 요점이다 — 이것이 뜨는 뜻은
+   * 보통 `naverLocal` 이 동명의 다른 가게를 집었다는 것이고(실측: `대포로 93` ↔ `신엄안3길 95`), 그 후보를
+   * 그대로 승인하면 엉뚱한 좌표·카테고리가 `places` 로 들어간다. 표기 차이(전체의 91%)와 비교 불가는
+   * 여기서 조용하다 — 가려 내는 규칙은 `addressMatch.ts` 가 소유한다.
+   */
+  const addressConflict = sameAddress(extracted.address, extracted.addressAi) === 'different';
+  /*
+   * 교차점검 표식. **미점검이면 `null` 이라 아무것도 안 그린다** — 초록도 회색도 거짓말이다(`adminVerify.ts`).
+   * 이 패스가 생기기 전의 후보와 `--no-verify` 로 돌린 실행이 그 상태다.
+   */
+  const verify = verifyView(extracted.verify);
   /** 짝 id. `matchedName` 은 임베드라 비어 있을 수 있어 **판정에 쓰지 않는다**. */
   const pairId = group.lead.match_place_id;
   /** 짝이 아직 게시 전인가 — 병합 승인이 그 행을 `published` 로 올린다(`adminApply.ts:157`). */
@@ -193,6 +208,16 @@ export function AdminPageGroupCard({
                 짝이 내린 곳
               </Badge>
             )}
+            {addressConflict && (
+              <Badge type="color" size="sm" color="warning">
+                주소 다름
+              </Badge>
+            )}
+            {verify && (
+              <Badge type="color" size="sm" color={verify.tone}>
+                {verify.label}
+              </Badge>
+            )}
             {/*
               * **막는 것이 먼저다.** `view.badges` 는 빨강(지역 없음·동반불가)부터 정렬돼 오는데, 대부분의 카드에 붙는
               * 초록 뱃지를 그 앞에 두면 위계가 뒤집힌다 — 초록이 자리를 먹고 빨강이 줄 끝으로 밀린다.
@@ -204,7 +229,7 @@ export function AdminPageGroupCard({
             ))}
             {/*
               * 부재가 기본값인 표식(`AI 판단 없음`)을 뒤집는다 — 잘 분석된 후보가 눈에 띈다. ✓ 글자는 안 넣는다(아이콘이 그린다).
-              * `facts` 의 truthy 만 보면 **빈 판단 객체에도 초록이 뜬다** — 그때 펼친 상세는 `AI 가 읽은 조건이 없어요` 라고 해서
+              * `facts` 의 truthy 만 보면 **빈 판단 객체에도 초록이 뜬다** — 그때 펼친 상세는 `AI 가 읽은 동반 조건이 없어요` 라고 해서
               * 한 카드가 자기를 반박한다. `aiAnalyzed` 가 읽어낸 조각이 실제로 있는지까지 본다.
               */}
             {aiAnalyzed(preview) && (
@@ -217,9 +242,26 @@ export function AdminPageGroupCard({
           {/* 지역이 없으면 뱃지 `지역 없음` 이 이미 같은 말을 한다 — 이 칸은 비워 둔다(`지역?` 은 문장도 아니었다). */}
           <span className="block truncate text-xs text-tertiary max-md:mt-0.5">{extracted.regionRaw || ''}</span>
 
-          <span className="block min-w-0 text-xs text-tertiary max-md:mt-0.5">
-            {policyLine(preview, extracted.petPolicyText)}
-            {view.notes.map((note) => ` · ${note}`).join('')}
+          {/*
+            * 동반 조건은 **낱개로 나열한다** — 예전의 `조건 [야외만 · 리드줄]` 에서 대괄호를 뺀 자리다.
+            * 다만 대괄호는 뒤에 붙는 한마디(`view.notes`)와 경계를 긋는 일도 하고 있었으므로(`policyCell` 주석),
+            * 조건은 칩, 한마디는 흐린 글자로 **모양으로** 가른다. 안 가르면 `지도에 안 보여요` 가 동반 조건의 하나로 읽힌다.
+            */}
+          <span className="flex min-w-0 flex-wrap items-center gap-1 text-xs text-tertiary max-md:mt-0.5">
+            {cell.items.length ? (
+              cell.items.map((item) => (
+                <span key={item} className="rounded bg-secondary px-1.5 py-px font-medium text-secondary">
+                  {item}
+                </span>
+              ))
+            ) : (
+              <span>{cell.message}</span>
+            )}
+            {view.notes.map((note) => (
+              <span key={note} className="text-quaternary">
+                ({note})
+              </span>
+            ))}
           </span>
 
           <span className="block text-xs text-tertiary max-md:mt-0.5">글 {group.rows.length}건</span>

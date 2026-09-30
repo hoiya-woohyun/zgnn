@@ -26,6 +26,17 @@ export type TPlaceStatus = 'draft' | 'published' | 'archived';
  * 색인 시그니처를 남겨 두는 이유: 프롬프트가 바뀌면 새 키가 생기는데, 그때 이 타입이 화면을 막아서는 안 된다.
  * 2026-09-28 의 첫 160건은 `petPolicy`·`visited`·`geo` 가 없다 — 그래서 대부분이 선택 필드다(ADR-017).
  */
+/** 두 번째 AI 패스의 판단 한 건. 모양의 정본은 `scripts/analyze/verifyPlaces.mjs` 의 `VERIFY_SCHEMA` 다. */
+export type TCandidateVerify = {
+  petAllowedHere: 'yes' | 'no' | 'unclear';
+  dogWasThere: boolean;
+  /** 판단의 근거가 된 본문 문장. 없으면 null — 그때 `petAllowedHere` 는 'yes' 일 수 없다(파서가 내린다). */
+  quote: string | null;
+  why: string | null;
+  promptVersion?: string;
+  model?: string;
+};
+
 export type TCandidateExtracted = {
   name: string;
   type: TCandidateType;
@@ -49,6 +60,12 @@ export type TCandidateExtracted = {
   naverLink?: string | null;
   category?: string | null;
   match?: { confidence: number; reason: string; tier: TCandidateTier };
+  /**
+   * 교차점검 판단(`scripts/analyze/verifyPlaces.mjs`). **`null`·`undefined` 는 "점검하지 않았다" 다** —
+   * 조건 문장이 있었거나, 그 패스가 꺼졌거나(`--no-verify`) 실패했거나, 이 패스가 생기기 전의 후보다.
+   * "점검했는데 근거가 없었다" 는 값이 든 객체다. 둘을 섞으면 미점검 후보에 초록 표식이 붙는다.
+   */
+  verify?: TCandidateVerify | null;
   applied?: unknown;
   [key: string]: unknown;
 };
@@ -258,7 +275,7 @@ export const REJECT_REASON_HINT: Record<TRejectReason, string> = {
   '제주 아님': '제주 밖 가게예요',
   중복: '이미 올린 장소와 같은 가게예요',
   '동반 불가': '강아지를 데려갈 수 없는 가게예요',
-  '정보 부족': '이용 조건을 알 만한 내용이 없어요',
+  '정보 부족': '동반 조건을 알 만한 내용이 없어요',
 };
 
 /** `factsLine` 이 "판단은 있는데 조각이 0개" 를 말하는 센티넬. 화면이 이 리터럴을 인라인하지 않게 이름을 준다. */

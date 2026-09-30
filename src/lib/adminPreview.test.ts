@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { adminFlagView, policyLine } from './adminPreview';
+import { adminFlagView, policyCell, policyLine } from './adminPreview';
 import type { TPolicyPreview } from './adminCandidates';
 
 const preview = (over: Partial<TPolicyPreview> = {}): TPolicyPreview => ({
@@ -74,40 +74,63 @@ describe('adminFlagView — 표식 전수', () => {
   });
 });
 
-describe('policyLine — 세 갈래', () => {
-  it.each([null, undefined, '', '   '])('조건 원문이 %o 면 "조건 문장이 없어요"', (text) => {
-    expect(policyLine(preview(), text)).toBe('조건 문장이 없어요');
+describe('policyCell — 네 갈래', () => {
+  it.each([null, undefined, '', '   '])('조건 원문이 %o 면 문장으로 말한다', (text) => {
+    expect(policyCell(preview(), text)).toEqual({ items: [], message: '동반 조건 문장이 없어요' });
   });
 
-  it('읽어낸 조건이 있으면 그것을 그대로 — 구분자는 쉼표가 아니라 가운뎃점이다(요금 원문에 쉼표가 있다)', () => {
-    expect(policyLine(preview({ mergedBadges: ['야외만', '리드줄'] }), '야외석만 가능해요')).toBe(
-      '조건 [야외만 · 리드줄]',
-    );
+  /**
+   * 낱개로 돌려주는 것이 요점이다 — 한 문자열로 합치면 그리는 쪽이 뒤에 붙는 한마디(`view.notes`)와
+   * 경계를 그을 수 없다. 옛 `조건 [...]` 의 대괄호가 하던 두 번째 일이 이것이었다.
+   */
+  it('읽어낸 조건은 낱개로 — 대괄호도, 미리 이어 붙인 문자열도 아니다', () => {
+    expect(policyCell(preview({ mergedBadges: ['야외만', '리드줄'] }), '야외석만 가능해요')).toEqual({
+      items: ['야외만', '리드줄'],
+      message: null,
+    });
   });
 
-  it('문장은 있는데 아무도 못 읽었으면 "조건을 못 읽었어요" — 옛 화면은 이것을 "자유" 라고 불렀다', () => {
-    expect(policyLine(preview({ mergedBadges: [], facts: null }), '애견동반 가능해요!')).toBe('조건을 못 읽었어요');
+  it('문장은 있는데 아무도 못 읽었으면 그렇게 말한다 — 옛 화면은 이것을 "자유" 라고 불렀다', () => {
+    expect(policyCell(preview({ mergedBadges: [], facts: null }), '애견동반 가능해요!')).toEqual({
+      items: [],
+      message: '동반 조건을 못 읽었어요',
+    });
   });
 
   /**
    * 뱃지 0개가 곧 "못 읽었다" 는 아니다 — `toPetBadges` 가 `largeDogOk === false` 에 뱃지를 안 만든다.
-   * 이 갈래가 없으면 한 카드가 `AI 분석 완료` · `조건을 못 읽었어요` · `AI 가 읽은 것: 대형견 불가` 를 동시에 말한다.
+   * 이 갈래가 없으면 한 카드가 `AI 분석 완료` · `동반 조건을 못 읽었어요` · `AI 가 읽은 것: 대형견 불가` 를 동시에 말한다.
    */
   it('AI 는 읽었는데 뱃지가 안 되는 값이면 못 읽었다고 하지 않는다', () => {
     const facts = { largeDogOk: false } as TPolicyPreview['facts'];
-    expect(policyLine(preview({ mergedBadges: [], facts }), '대형견은 어려워요')).toBe(
-      'AI 는 읽었는데 사이트에 안 나와요',
-    );
+    expect(policyCell(preview({ mergedBadges: [], facts }), '대형견은 어려워요')).toEqual({
+      items: [],
+      message: 'AI 는 읽었는데 사이트에 안 나와요',
+    });
   });
 
   it('판단 객체는 있는데 조각이 0개면 그건 정말 못 읽은 것이다', () => {
     const facts = {} as TPolicyPreview['facts'];
-    expect(policyLine(preview({ mergedBadges: [], facts }), '애견동반 가능해요!')).toBe('조건을 못 읽었어요');
+    expect(policyCell(preview({ mergedBadges: [], facts }), '애견동반 가능해요!')).toEqual({
+      items: [],
+      message: '동반 조건을 못 읽었어요',
+    });
   });
 
   it("원문이 '정보 없음' 이어도 문장은 있는 것이다 — level 이 아니라 원문 유무로 가르는 이유", () => {
-    expect(policyLine(preview({ mergedBadges: ['확인된 정보 없음'], level: '정보없음' }), '정보 없음.')).toBe(
-      '조건 [확인된 정보 없음]',
-    );
+    expect(policyCell(preview({ mergedBadges: ['확인된 정보 없음'], level: '정보없음' }), '정보 없음.')).toEqual({
+      items: ['확인된 정보 없음'],
+      message: null,
+    });
+  });
+});
+
+describe('policyLine — 한 줄이 필요한 자리(펼친 상세)', () => {
+  it('낱개를 가운뎃점으로 잇는다 — 쉼표가 아닌 이유는 요금 원문에 쉼표가 있어서다', () => {
+    expect(policyLine(preview({ mergedBadges: ['야외만', '리드줄'] }), '야외석만 가능해요')).toBe('야외만 · 리드줄');
+  });
+
+  it('읽어낸 것이 없으면 문장을 그대로 — 빈 문자열로 새지 않는다', () => {
+    expect(policyLine(preview(), null)).toBe('동반 조건 문장이 없어요');
   });
 });

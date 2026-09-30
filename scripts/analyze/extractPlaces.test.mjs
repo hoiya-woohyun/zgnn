@@ -510,7 +510,9 @@ describe('createUsageMeter', () => {
     meter.add({ input_tokens: 100, output_tokens: 10, cache_read_input_tokens: null, cache_creation_input_tokens: 90 });
     meter.add({ input_tokens: 50, output_tokens: 5, cache_read_input_tokens: 90, cache_creation_input_tokens: null });
     expect(meter.totals()).toEqual({ calls: 2, input: 150, output: 15, cacheRead: 90, cacheWrite: 90 });
-    expect(meter.summary()).toBe('Claude 2회 · 입력 150 · 출력 15 · 캐시 읽기 90 · 캐시 쓰기 90 토큰');
+    // 이름표가 붙는다 — 추출과 교차점검(verifyPlaces.mjs)이 계량기를 따로 들고 요약에 두 줄로 나온다.
+    expect(meter.summary()).toBe('Claude 추출 2회 · 입력 150 · 출력 15 · 캐시 읽기 90 · 캐시 쓰기 90 토큰');
+    expect(createUsageMeter('교차점검').summary()).toContain('Claude 교차점검 0회');
   });
 
   it('usage 가 없어도(undefined) 호출 수만 센다', () => {

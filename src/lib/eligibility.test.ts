@@ -165,10 +165,10 @@ describe('집계 — 보리+콩(28kg+17kg·이동 수단 없음) 실사 비교',
 });
 
 describe('judgeEligibility — 블로그에서 온 신규 장소(BUG-008)', () => {
-  it("이용 조건이 비어 있으면 'unknown' — '갈 수 있어요' 가 아니다", () => {
+  it("동반 조건이 비어 있으면 'unknown' — '갈 수 있어요' 가 아니다", () => {
     const result = judgeEligibility(TOFU, parsePetPolicy(''));
     expect(result.level).toBe('unknown');
-    expect(result.reasons[0].text).toBe('이용 조건이 적혀 있지 않아요');
+    expect(result.reasons[0].text).toBe('동반 조건이 적혀 있지 않아요');
   });
 
   it("'애견동반은 안됩니다' 는 강아지 조건과 무관하게 'hard'", () => {

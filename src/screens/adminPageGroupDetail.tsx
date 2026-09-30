@@ -2,9 +2,11 @@
 
 import type { ReactNode } from 'react';
 import { Badge } from '../components/base/badges';
+import { sameAddress } from '../lib/addressMatch';
 import { factsLine, FACTS_EMPTY, type TCandidateGroup, type TPolicyPreview } from '../lib/adminCandidates';
 import { PLACE_STATUS_COLOR, PLACE_STATUS_LABEL } from '../lib/adminPlaces';
 import { policyLine } from '../lib/adminPreview';
+import { verifyView } from '../lib/adminVerify';
 
 type TAdminPageGroupDetailProps = {
   group: TCandidateGroup;
@@ -27,34 +29,63 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
  * 원문(`petPolicyText`)과 본문 인용(`evidence`)을 **보여 준다**(브리프 결정 7). 운영자 화면의 런타임 표시일 뿐이고
  * 정적 HTML·번들·로그에는 들어가지 않는다 — 판단의 근거를 가린 채 버튼만 주면 검수가 아니라 추측이 된다.
  *
- * 조건 박스는 **결론이 먼저**다 — 사이트에 실제로 보일 조건 한 줄. 그것을 만든 재료(기본 규칙 / AI)는 접어 두고,
+ * 동반 조건 박스는 **결론이 먼저**다 — 사이트에 실제로 보일 동반 조건 한 줄. 그것을 만든 재료(기본 규칙 / AI)는 접어 두고,
  * 둘이 어긋날 때만 펼친 채로 연다. 어긋나는 자리가 곧 "정규화가 잘 됐는가" 의 실측이라서다(reviewCandidates.mjs:68-69).
  */
 export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailProps) {
   const extracted = group.lead.extracted;
   const matched = group.lead.places;
-  const addressAi = extracted.addressAi && extracted.addressAi !== extracted.address ? extracted.addressAi : null;
+  /*
+   * 두 주소를 **문자열로** 비교하던 자리다. 실측 43쌍 중 40쌍이 표기 차이뿐이어서(`addressMatch.ts`) 경보가
+   * 늘 켜져 있었고, 그래서 정말 다른 1쌍을 아무도 보지 않았다. 이제 갈래가 셋이다 —
+   * 같으면 줄을 지우고, 비교 불가(지번↔도로명)는 참고로 적고, **다를 때만** 경보로 적는다.
+   */
+  const addressAi = extracted.addressAi?.trim() ? extracted.addressAi : null;
+  const addressVerdict = addressAi ? sameAddress(extracted.address, addressAi) : 'same';
+  const verify = verifyView(extracted.verify);
   const facts = factsLine(preview.facts);
   // `AI [(판단 없음)]` 과 `AI [—]` 는 글자만 다르고 운영자가 읽는 뜻이 같다 — 한 문구로 합친다.
   // 센티넬을 리터럴로 적지 않는다(`adminCandidates.ts` 의 패리티 주석이 지배하는 값이다).
-  const aiLine = !facts || facts === FACTS_EMPTY ? 'AI 가 읽은 조건이 없어요' : facts;
+  const aiLine = !facts || facts === FACTS_EMPTY ? 'AI 가 읽은 동반 조건이 없어요' : facts;
 
   return (
     <div className="space-y-3 border-t border-dashed border-tertiary px-4 py-3">
       <div className="space-y-1.5">
         <Row label="주소">
           {extracted.address ?? '—'}
-          {addressAi && (
-            <span className="mt-0.5 block text-xs text-tertiary">원글에는 다른 주소가 적혀 있어요 — {addressAi}</span>
+          {addressAi && addressVerdict === 'different' && (
+            <span className="mt-0.5 block text-xs font-semibold text-warning-primary">
+              원글에는 다른 주소가 적혀 있어요 — {addressAi} · 검색이 동명의 다른 가게를 집었을 수 있어요
+            </span>
+          )}
+          {addressAi && addressVerdict === 'unknown' && (
+            /* 지번↔도로명이라 코드가 답할 수 없다. 색도 굵기도 주지 않는다 — 여기서 경보를 울리면 옛 상태로 돌아간다. */
+            <span className="mt-0.5 block text-xs text-tertiary">원글 표기 — {addressAi}</span>
           )}
         </Row>
         {/* 값이 없어도 줄을 지우지 않는다 — Row 의 규칙이고 이 줄만 어기고 있었다. `??` 가 아니라 `||` 다(AI 는 '' 로도 준다). */}
         <Row label="소개">{extracted.features || '소개 문장이 없어요'}</Row>
-        <Row label="조건 원문">{extracted.petPolicyText ?? '조건 문장이 없어요'}</Row>
+        <Row label="조건 원문">{extracted.petPolicyText ?? '동반 조건 문장이 없어요'}</Row>
+        {/*
+          * 교차점검 줄은 **점검했을 때만** 그린다 — 미점검에 '—' 를 적으면 `Row` 의 규칙(값이 없어도 줄을 지우지 않는다)과
+          * 어긋나 보이지만, 여기서 지켜야 할 것은 그 규칙이 아니라 "안 본 것을 봤다고 하지 않는다" 다.
+          * 조건 문장이 있는 후보는 애초에 점검 대상이 아니므로(`needsDogCheck`) 줄이 없는 것이 정상이다.
+          */}
+        {verify && (
+          <Row label="교차점검">
+            {verify.label}
+            {extracted.verify?.why && <span className="mt-0.5 block text-tertiary">{extracted.verify.why}</span>}
+            {extracted.verify?.quote && (
+              <span className="mt-1 block border-l-2 border-secondary pl-2.5 text-tertiary">
+                {extracted.verify.quote}
+              </span>
+            )}
+          </Row>
+        )}
       </div>
 
       <div className="rounded-lg bg-secondary px-3 py-2 text-xs">
-        <p className="font-semibold text-secondary">사이트에 보일 조건</p>
+        <p className="font-semibold text-secondary">사이트에 보일 동반 조건</p>
         <p className="mt-1 text-tertiary">{policyLine(preview, extracted.petPolicyText)}</p>
         {/*
           * 세 줄 중 결론은 `mergedBadges` 하나뿐이다 — `places.ts` 가 사용자 화면용 정책을 **같은 병합**으로 만든다.
