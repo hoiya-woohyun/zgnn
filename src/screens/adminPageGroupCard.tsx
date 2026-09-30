@@ -292,15 +292,16 @@ export function AdminPageGroupCard({
             * (`extractPlaces.mjs` 의 features), 승인되면 **그대로 사이트의 소개 문구가 된다**(`placeCard`·상세·지도 시트).
             * 그래서 여기서 읽는 것이 곧 사이트에 나갈 글을 미리 읽는 일이다.
             *
-            * 두 줄에서 자른다. 120자면 이 폭에서 세 줄을 넘고, 그 줄만 키가 커지면 격자가 어긋난 것처럼 보인다.
-            * 잘린 뒤를 보려면 펼치면 된다(상세의 `소개` 줄이 전문이다) — `title` 로도 뜬다.
+            * **자르지 않는다**(2026-09-30). 한동안 두 줄에서 잘랐는데, 그러면 검수 중에 읽어야 할 문장을 정작
+            * 펼치기 전에는 못 읽는다 — 이 열을 만든 이유가 그것이었다.
+            *
+            * 자르기를 없애면 **폭 배분의 최적점이 뒤집힌다.** 자를 때는 넘쳐도 잘릴 뿐이라 폭을 줄이는 것이
+            * 옳았지만(그 몫을 장소·동반 정보가 받았다), 안 자르면 이 열이 곧 줄 높이라 여기에 폭을 주는 것이
+            * 전체를 낮춘다. 실측(40줄·격자 1136px): 243px 이면 평균 90px·목록 3656px, 357px 이면 평균 74px·목록 2981px.
+            * 더 넓히면 다시 나빠진다 — 장소·동반 정보가 접히기 시작해서다(455px 에서 평균 79px).
             */}
-          <span
-            className="block min-w-0 text-xs text-tertiary max-md:mt-0.5"
-            title={extracted.features || undefined}
-          >
-            {/* `block` 을 같이 걸지 않는다 — `clamp-2` 가 `display: -webkit-box` 라, 둘이 display 를 다투면 잘림이 조용히 꺼진다. */}
-            <span className="clamp-2">{extracted.features || '요약이 없어요'}</span>
+          <span className="block min-w-0 text-xs text-tertiary max-md:mt-0.5">
+            {extracted.features || '요약이 없어요'}
           </span>
 
           <span className="block text-xs text-tertiary max-md:mt-0.5">글 {group.rows.length}건</span>
