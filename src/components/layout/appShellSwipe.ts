@@ -268,9 +268,11 @@ export function useAppShellSwipe(pathname: string) {
       swiped.current = true;
       /*
        * `<main>` 에 transform 이 걸리는 순간, 그 안의 `position: fixed` 는 화면이 아니라
-       * `<main>` 을 기준으로 잡힌다 — 접힌 제목 줄(`collapsingTitleBar`)의 `top` 이 문서 맨
-       * 위를 가리키게 되어 내려 본 상태에서는 화면 밖으로 사라진다. 지금 스크롤 값을 넘겨
-       * 그만큼 상쇄시킨다. 잠긴 뒤로는 세로 스크롤을 막으므로 이 값은 제스처 내내 유효하다.
+       * `<main>` 을 기준으로 잡힌다 — `top: 0` 이 문서 맨 위를 가리키게 되어 내려 본 상태에서는
+       * 화면 밖으로 사라진다. 지금 스크롤 값을 넘겨 그만큼 상쇄시킨다(`top: var(--swipe-viewport-top, 0px)`).
+       * 잠긴 뒤로는 세로 스크롤을 막으므로 이 값은 제스처 내내 유효하다.
+       * 첫 사용처였던 축약 줄(`collapsingTitleBar`)은 v22 에 sticky 제목 줄로 바뀌어 지금 이 변수를 읽는 곳은 없다 —
+       * `<main>` 안에 `fixed` 를 새로 두면 이 변수를 쓴다(CLAUDE.md 「조용히 깨지는 것들」).
        */
       mainRef.current?.style.setProperty('--swipe-viewport-top', `${window.scrollY}px`);
       // 같은 프레임에 transform 도 건다. 변수만 걸린 한 프레임은 상쇄할 대상이 없어 그만큼 아래로 튄다.
