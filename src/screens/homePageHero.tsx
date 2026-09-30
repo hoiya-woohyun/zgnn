@@ -24,6 +24,12 @@ const BAR_HEIGHT = 'calc(var(--spacing) * 14)';
 /** 히어로 제목 → 헤더 제목의 크기 비. `display-sm`(7.5단) → `md`(4단). 둘 다 --spacing 배수라 브레이크포인트와 무관하다. */
 const TITLE_SCALE_END = 4 / 7.5;
 
+/** 발바닥 → 헤더 아이콘의 크기 비. `h-9`(9단) → 6단 — 헤더 제목(`md`) 글자 높이에 맞춘 크기다. */
+const PAW_SCALE_END = 6 / 9;
+
+/** 헤더에서 발바닥과 제목 사이 간격 = 줄어든 발바닥 폭의 1/3(6단 → 2단). --spacing 을 따로 재지 않으려고 폭에서 파생한다. */
+const PAW_GAP_RATIO = 1 / 3;
+
 const useBeforePaint = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 /** 부모 사슬을 따라 `ancestor` 기준 위치를 더한다. offset* 은 transform 을 무시하므로 접힌 중에 재도 **제자리**가 나온다. */
@@ -59,7 +65,8 @@ type THomePageHeroProps = {
  *   클립의 윗변은 블록이 붙을 때의 헤더 윗변까지 내려온다 — 카드의 윗모서리가 화면 위로 먼저 사라지지 않고, 헤더 쪽으로 내려앉는다.
  * - **제목은 제자리에서 헤더 자리로 옮겨 간다**(translate + scale, 색 흰색 → 본문색). 블록이 올라가는 동안 제목은 블록 안에서
  *   내려가므로, 화면에서는 제목이 제 위치에서 헤더 위치까지 곧게 올라간다.
- * - 발바닥·부제·숫자판은 먼저 사라진다(처음 40%). 헤더에 들어갈 자리가 없다.
+ * - **발바닥도 제목과 같은 식으로 헤더 맨 앞에 들어간다**(6단 크기로 줄며, 제목은 그 뒤에 붙는다). 헤더에 남는 유일한 브랜드 표식이다.
+ * - 부제·숫자판은 먼저 사라진다(처음 25%). 헤더에 들어갈 자리가 없다.
  *
  * 값은 CSS 변수로 흘린다 — `--morph` 는 스크롤 프레임마다, 기하(`--clip-top`·`--side`·`--tx`·`--ty`)는 크기가 바뀔 때만.
  * 인셋·헤더 높이·여백은 CSS(env·--spacing)가 정하는 값이라 JS 에 베껴 적지 않고 탐침으로 잰다.
@@ -72,6 +79,7 @@ export function HomePageHero({ subtitle }: THomePageHeroProps) {
   const blockRef = useRef<HTMLDivElement>(null);
   const padRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
+  const pawRef = useRef<HTMLDivElement>(null);
   const insetProbeRef = useRef<HTMLSpanElement>(null);
   const barProbeRef = useRef<HTMLSpanElement>(null);
 
@@ -80,9 +88,10 @@ export function HomePageHero({ subtitle }: THomePageHeroProps) {
     const block = blockRef.current;
     const pad = padRef.current;
     const title = titleRef.current;
+    const paw = pawRef.current;
     const insetProbe = insetProbeRef.current;
     const barProbe = barProbeRef.current;
-    if (!sentinel || !block || !pad || !title || !insetProbe || !barProbe) return;
+    if (!sentinel || !block || !pad || !title || !paw || !insetProbe || !barProbe) return;
 
     let restTop = 0;
     let pinnedTop = 0;
@@ -92,6 +101,10 @@ export function HomePageHero({ subtitle }: THomePageHeroProps) {
       const height = block.offsetHeight;
       const side = parseFloat(getComputedStyle(pad).paddingLeft) || 0;
       const at = offsetWithin(title, block);
+      const pawAt = offsetWithin(paw, block);
+      const pawEnd = paw.offsetWidth * PAW_SCALE_END;
+      // 헤더 한 줄의 세로 중심(블록 기준). 발바닥과 제목이 같은 선에 선다.
+      const barMid = height - bar / 2;
 
       // 붙는 자리: 블록의 아래쪽 (인셋 + 헤더) 만 화면 맨 위에 남는다.
       const stickTop = inset + bar - height;
@@ -101,9 +114,12 @@ export function HomePageHero({ subtitle }: THomePageHeroProps) {
 
       block.style.setProperty('--clip-top', `${height - inset - bar}px`);
       block.style.setProperty('--side', `${side}px`);
-      // 제목: 왼쪽은 헤더의 글자 줄(좌우 여백)로, 세로 중심은 상태바 아래 헤더 한 줄의 가운데로.
-      block.style.setProperty('--tx', `${side - at.x}px`);
-      block.style.setProperty('--ty', `${height - bar / 2 - (at.y + title.offsetHeight / 2)}px`);
+      // 발바닥: 헤더의 글자 줄 맨 앞(좌우 여백)으로. `origin-left` 라 왼쪽 변·세로 중심이 축소의 고정점이다.
+      block.style.setProperty('--ptx', `${side - pawAt.x}px`);
+      block.style.setProperty('--pty', `${barMid - (pawAt.y + paw.offsetHeight / 2)}px`);
+      // 제목: 발바닥 바로 뒤로, 세로 중심은 상태바 아래 헤더 한 줄의 가운데로.
+      block.style.setProperty('--tx', `${side + pawEnd * (1 + PAW_GAP_RATIO) - at.x}px`);
+      block.style.setProperty('--ty', `${barMid - (at.y + title.offsetHeight / 2)}px`);
     };
 
     let frame = 0;
@@ -170,8 +186,18 @@ export function HomePageHero({ subtitle }: THomePageHeroProps) {
 
         <div ref={padRef} className="relative px-4 md:px-6">
           <header className="p-6">
-            <div style={fadeEarly}>
-              <PawMark />
+            {/* 발바닥은 사라지지 않고 제목과 함께 헤더로 들어간다 — 제목 앞의 작은 표식이 된다. 색은 제목과 같은 구간(`--tone`)에서
+                잉크 위의 연한 brand-300 → 크림 위의 brand-secondary 로 바뀐다(연한 분홍은 크림 위에서 흐려진다). */}
+            <div
+              ref={pawRef}
+              className="w-max origin-left will-change-transform"
+              style={{
+                transform: `translate(calc(var(--ptx, 0px) * var(--morph)), calc(var(--pty, 0px) * var(--morph))) scale(calc(1 - ${1 - PAW_SCALE_END} * var(--morph)))`,
+                color:
+                  'color-mix(in oklab, var(--color-brand-300) calc(100% - var(--tone) * 100%), var(--color-text-brand-secondary))',
+              }}
+            >
+              <PawMark className="block h-9 w-9" />
             </div>
             <h1
               ref={titleRef}
