@@ -2,7 +2,7 @@
   스크롤을 따라 접히는 헤더의 애니메이션 — 준비물·설정의 제목 줄(StickyMorphTitle)과 홈 히어로(HomePageHero).
 
   **시간이 아니라 스크롤 위치의 함수다**(`animation-timeline: scroll(nearest)`). 구간은 컴포넌트가 재서 `--morph-from`·`--morph-to`
-  (스크롤 오프셋, px)로 적고, 기하(`--tx`·`--ty`·`--grow-x`…)도 같은 식으로 받는다. 키프레임은 "다 접혔을 때" 만 말한다.
+  (스크롤 오프셋, px)로 적고, 기하(`--tx`·`--ty`·`--side`·`--clip-top`…)도 같은 식으로 받는다. 키프레임은 "다 접혔을 때" 만 말한다.
 
   `transform`·`opacity` 만 움직이는 것이 요점이다 — 그 둘은 합성 스레드가 스크롤과 같은 프레임에 값을 뽑는다(왜 JS 가 아닌지는
   `components/layout/scrollDrivenMorph.ts`). 글자색처럼 다시 그려야 하는 값은 **두 벌을 겹쳐 투명도로 바꾼다.**
