@@ -1,6 +1,19 @@
+'use client';
+
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { PlaceThumb } from '../components/placeThumb';
+import {
+  morphModeOf,
+  offsetInScroller,
+  writeMorphMode,
+  writeMorphRange,
+} from '../components/layout/scrollDrivenMorph';
 import { categoryLabel } from '../lib/category';
 import { DIRECTION_LABEL, TYPE_COLOR_DEEP, TYPE_META, type TPlaceEntry } from '../lib/places';
+import { titleFlight } from '../lib/titleFlight';
+import { PlaceDetailAppBar } from './placeDetailAppBar';
+
+const useBeforePaint = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 /**
  * 상세 화면의 제목 블록.
@@ -11,19 +24,136 @@ import { DIRECTION_LABEL, TYPE_COLOR_DEEP, TYPE_META, type TPlaceEntry } from '.
  * 지금은 `/saved`·`/dog` 의 PageHeader 처럼 크림 위에 글자만 두고, 종류는 **목록 카드와 같은
  * 썸네일 타일**(PlaceThumb)로 말한다 — 목록에서 누른 카드의 그 아이콘이 상세 맨 위에 그대로
  * 있어 이어져 보인다. 종류 색은 타일과 읍면 글씨에만 남는다.
+ *
+ * **타일은 상호명 왼쪽에 한 줄로 선다**(목록 카드와 같은 배치). 그리고 이 줄이 **스크롤을 따라 헤더 안의 제자리로 날아 들어간다** —
+ * 홈 헤더(잉크 카드 → 헤더)와 같은 약속이다: 진입하면 지금 모습, 스크롤한 만큼 옮겨 가고, 되돌리면 같은 길로 풀린다.
+ * - 줄은 본문과 같이 스크롤되므로 세로는 저절로 맞는다. 줄의 세로 중심이 헤더 가운데에 닿는 스크롤까지, 타일·상호명이 각각
+ *   헤더의 아이콘·상호명 자리로 **가로로 옮겨 가며 준다**(`lib/titleFlight.ts`).
+ * - 도착하는 순간(마지막 15%) 헤더 속 같은 자리의 복사본(`placeDetailAppBar`)과 겹쳐 바뀐다. 오른쪽 `구좌읍 · 펜션` 은 절반부터 나타난다.
+ * - 줄은 헤더(`z-30`)보다 **위에** 그린다 — 밑이면 헤더에 닿는 순간 가려져 날아 들어가는 것이 안 보인다. 손은 받지 않는다
+ *   (`pointer-events-none`) — 옮겨 가는 동안 뒤로가기 버튼 위를 지난다.
+ * - 지원하지 않는 브라우저는 줄이 헤더에 닿는 순간 한 번에 옮겨 간다(`snap`, `scrollDrivenMorph.ts`).
+ *
+ * 이 이름이 폭과 무관하게 이 화면의 유일한 h1 이다. 헤더의 복사본은 `aria-hidden` 이다.
  */
 export function PlaceDetailHeader({ place }: { place: TPlaceEntry }) {
+  const headerRef = useRef<HTMLElement>(null);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const thumbRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  /** 헤더 쪽 도착점. 포털이라 헤더가 자리를 적은 뒤에야 생긴다 — ref 콜백으로 받아 그때 잰다. */
+  const [bar, setBar] = useState<HTMLDivElement | null>(null);
+
+  useBeforePaint(() => {
+    const header = headerRef.current;
+    const row = rowRef.current;
+    const thumb = thumbRef.current;
+    const title = titleRef.current;
+    const icon = bar?.querySelector<HTMLElement>('[data-flight-target="icon"]');
+    const barTitle = bar?.querySelector<HTMLElement>('[data-flight-target="title"]');
+    if (!header || !row || !thumb || !title || !bar || !icon || !barTitle) return;
+
+    const mode = morphModeOf();
+    let rowTop = 0;
+    let rowCenter = 0;
+    let barBottom = 0;
+    const measure = () => {
+      // 본문 쪽은 transform 이 걸려 있을 수 있어 offset*(transform 무시)으로, 헤더 쪽은 움직이지 않으므로 사각형으로 잰다.
+      const headerTop = offsetInScroller(header);
+      const headerLeft = header.getBoundingClientRect().left;
+      rowTop = headerTop + row.offsetTop;
+      rowCenter = rowTop + row.offsetHeight / 2;
+      const barRow = bar.parentElement?.getBoundingClientRect();
+      const iconRect = icon.getBoundingClientRect();
+      const barTitleRect = barTitle.getBoundingClientRect();
+      barBottom = barRow?.bottom ?? 0;
+      const glyph = thumb.querySelector('svg')?.getBoundingClientRect().width ?? 0;
+      const tile = thumb.getBoundingClientRect().width;
+
+      const flight = titleFlight({
+        rowCenter,
+        barCenter: iconRect.top + iconRect.height / 2,
+        thumbLeft: headerLeft + row.offsetLeft + thumb.offsetLeft,
+        thumbWidth: thumb.offsetWidth,
+        glyphRatio: tile > 0 ? glyph / tile : 0.5,
+        barIconCenterX: iconRect.left + iconRect.width / 2,
+        barIconWidth: iconRect.width,
+        titleLeft: headerLeft + row.offsetLeft + title.offsetLeft,
+        titleFontSize: parseFloat(getComputedStyle(title).fontSize),
+        barTitleLeft: barTitleRect.left,
+        barTitleFontSize: parseFloat(getComputedStyle(barTitle).fontSize),
+      });
+      for (const el of [header, bar]) {
+        if (mode === 'scroll') writeMorphRange(el, flight.range);
+      }
+      header.style.setProperty('--thumb-tx', `${flight.thumb.tx}px`);
+      header.style.setProperty('--thumb-scale', String(flight.thumb.scale));
+      header.style.setProperty('--title-tx', `${flight.title.tx}px`);
+      header.style.setProperty('--title-scale', String(flight.title.scale));
+    };
+
+    // snap: 줄의 윗변이 헤더 아랫변에 닿는 순간 한 번에 옮겨 간다.
+    let last = -1;
+    const onScroll = () => {
+      if (mode !== 'snap') return;
+      const morph = rowTop - window.scrollY <= barBottom ? 1 : 0;
+      if (morph === last) return;
+      last = morph;
+      header.style.setProperty('--morph', String(morph));
+      bar.style.setProperty('--morph', String(morph));
+    };
+
+    measure();
+    onScroll();
+    const clearModes = [writeMorphMode(header, mode), writeMorphMode(bar, mode)];
+    const resize = new ResizeObserver(() => {
+      measure();
+      last = -1;
+      onScroll();
+    });
+    resize.observe(header);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', measure);
+    return () => {
+      resize.disconnect();
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', measure);
+      clearModes.forEach((clear) => clear());
+    };
+  }, [bar, place.id]);
+
   return (
-    <header className="px-4 pt-2 md:px-6 md:pt-4">
-      <PlaceThumb type={place.type} />
+    <header ref={headerRef} className="relative px-4 pt-2 md:px-6 md:pt-4" style={{ ['--morph' as string]: 0 }}>
+      <PlaceDetailAppBar place={place} ref={setBar} />
 
-      {/*
-        이 이름이 폭과 무관하게 이 화면의 유일한 h1 이고, 내려 읽으면 셸의 헤더(appBar)가
-        이 h1 을 읽어 같은 이름을 띄운다.
-      */}
-      <h1 className="mt-3 text-display-xs font-bold text-primary">{place.name}</h1>
+      <div ref={rowRef} className="pointer-events-none relative z-[31] flex items-center gap-3">
+        <div
+          ref={thumbRef}
+          data-scroll-morph="flight-thumb"
+          className="shrink-0 origin-left will-change-transform"
+          style={{
+            transform:
+              'translateX(calc(var(--thumb-tx, 0px) * var(--morph))) scale(calc(1 - (1 - var(--thumb-scale, 1)) * var(--morph)))',
+            opacity: 'calc(1 - var(--morph))',
+          }}
+        >
+          <PlaceThumb type={place.type} />
+        </div>
+        <h1
+          ref={titleRef}
+          data-scroll-morph="flight-title"
+          className="min-w-0 origin-left text-display-xs font-bold text-primary will-change-transform"
+          style={{
+            transform:
+              'translateX(calc(var(--title-tx, 0px) * var(--morph))) scale(calc(1 - (1 - var(--title-scale, 1)) * var(--morph)))',
+            opacity: 'calc(1 - var(--morph))',
+          }}
+        >
+          {place.name}
+        </h1>
+      </div>
 
-      <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-sm text-secondary">
+      <p className="mt-2 flex flex-wrap items-center gap-1.5 text-sm text-secondary">
         <span className="font-semibold" style={{ color: TYPE_COLOR_DEEP[place.type] }}>
           {DIRECTION_LABEL[place.region.direction]} {place.region.town}
         </span>

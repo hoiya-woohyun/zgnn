@@ -2,7 +2,6 @@
 
 import { Share01 } from '@untitledui/icons';
 import { notFound } from 'next/navigation';
-import { PlaceDetailAppBar } from './placeDetailAppBar';
 import { PlaceDetailHeader } from './placeDetailHeader';
 import { PlaceDetailGallery } from './placeDetailGallery';
 import { PlaceDetailHomepage } from './placeDetailHomepage';
@@ -60,7 +59,6 @@ export function PlaceDetailPage({ id }: { id: string }) {
 
   return (
     <article>
-      <PlaceDetailAppBar place={place} />
       <PlaceDetailHeader place={place} />
 
       {/* 사진이 있을 때만 갤러리를 낀다. 지금 데이터에는 사진이 없다. */}
