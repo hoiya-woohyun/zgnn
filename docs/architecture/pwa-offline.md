@@ -56,25 +56,36 @@ next.config.mjs: additionalPrecacheEntries (라우트 HTML 93개 + 매니페스�
 
 ## 글꼴 self-host
 
-본문 글꼴(나눔스퀘어 네오)은 CDN 이 아니라 번들에 넣는다 — 오프라인에서도 같은 글꼴로 떠야 하기
+본문 글꼴(Pretendard 서브셋 `Zgnn Sans`)은 CDN 이 아니라 번들에 넣는다 — 오프라인에서도 같은 글꼴로 떠야 하기
 때문이다(근거: [ADR-006](../decisions/ADR-006-responsive-scale-and-font.md)). `next/font/local` 이
 `src/app/layout.tsx` 에서 읽어 `_next/static/media/*.woff2` 로 굽고, serwist 가 그 파일을 빌드 산출물로
 인식해 **프리캐시 목록에 자동으로 넣는다**(`additionalPrecacheEntries` 에 손으로 적을 필요 없다.
 아이콘·이미지와 다른 점 — 그쪽은 `public/` 이라 직접 넣어야 한다).
 
-원본은 굵기당 2.1MB TTF 라 서브셋해서 쓴다. 다시 만들 일이 생기면:
+원본은 굵기당 766KB 라 서브셋해서 쓴다. 다시 만들 일이 생기면:
 
 ```bash
-# 1) 원본 (네이버 배포본)
-curl -O https://hangeul.pstatic.net/hangeul_static/webfont/NanumSquareNeo/NanumSquareNeoTTF-bRg.ttf
-curl -O https://hangeul.pstatic.net/hangeul_static/webfont/NanumSquareNeo/NanumSquareNeoTTF-cBd.ttf
+# 1) 원본 (npm 배포본 — jsdelivr 가 막힌 환경에서도 npm 레지스트리는 된다)
+npm pack pretendard@1.3.9 && tar xzf pretendard-1.3.9.tgz   # → package/dist/web/static/woff2/
 
-# 2) 서브셋 + woff2 (fonttools 필요: pip install fonttools brotli)
-pyftsubset NanumSquareNeoTTF-bRg.ttf   --output-file=src/app/fonts/NanumSquareNeo-Regular.woff2 --flavor=woff2 --layout-features='*'   --unicodes="U+0020-007E,U+00A0-00FF,U+2010-2027,U+2030-205E,U+20A9,U+2192,U+AC00-D7A3,U+1100-11FF,U+3130-318F,U+3000-303F,U+FF00-FFEF"
+# 2) 서브셋 + woff2 (fonttools 필요: pip install fonttools brotli). SemiBold 도 같은 식으로.
+pyftsubset package/dist/web/static/woff2/Pretendard-Regular.woff2 --output-file=ZgnnSans-Regular.woff2 --flavor=woff2 --layout-features='*' \
+  --unicodes="U+0020-007E,U+00A0-00FF,U+2010-2027,U+2030-205E,U+20A9,U+2192,U+AC00-D7A3,U+1100-11FF,U+3130-318F,U+3000-303F,U+FF00-FFEF"
+
+# 3) 이름 바꾸기 — Pretendard 는 OFL 예약 글꼴 이름이라 파생본이 그 이름을 쓰면 안 된다
+python3 -c "
+from fontTools.ttLib import TTFont; import sys
+w=sys.argv[1]; f=TTFont(f'ZgnnSans-{w}.woff2')
+for r in f['name'].names:
+    if r.nameID in (1,16): r.string='Zgnn Sans'
+    elif r.nameID==4: r.string=f'Zgnn Sans {w}'
+    elif r.nameID in (3,6): r.string=f'ZgnnSans-{w}'
+f['name'].setName('Subset of Pretendard 1.3.9 (Hangul syllables + Latin), renamed per the SIL OFL Reserved Font Name clause.',10,3,1,0x409)
+f.flavor='woff2'; f.save(f'src/app/fonts/ZgnnSans-{w}.woff2')" Regular
 ```
 
-굵기당 353KB 가 나온다. 한글 완성형(U+AC00-D7A3) 11,172자를 통째로 넣는 이유와 굵기를 400·700 둘로
-제한한 이유는 ADR-006 에 있다.
+굵기당 약 620KB 가 나온다(힌팅을 빼도 거의 안 준다 — 용량은 윤곽 자체다). 한글 완성형(U+AC00-D7A3) 11,172자를
+통째로 넣는 이유와 굵기를 400·600 둘로 제한한 이유는 ADR-006 에 있다.
 
 ## 확인 방법
 

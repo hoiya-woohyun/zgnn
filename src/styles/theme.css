@@ -2,15 +2,15 @@
     /*
      * FONT FAMILY
      *
-     * 1순위는 나눔스퀘어 네오(`--font-nanum`, app/layout.tsx 의 next/font/local 이 정의).
+     * 1순위는 Pretendard 서브셋(`--font-app`, app/layout.tsx 의 next/font/local 이 정의).
      * 뒤의 시스템 스택은 폰트가 아직 안 왔거나(display: swap) 서브셋 밖 글자(한자 등)일 때
      * 받아 주는 자리다 — 지우면 그 순간 글자가 깨지므로 남겨 둔다.
      */
-    --font-body: var(--font-nanum), -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard Variable", Pretendard,
+    --font-body: var(--font-app), -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard Variable", Pretendard,
         "Noto Sans KR", "Malgun Gothic", sans-serif;
-    --font-sans: var(--font-nanum), -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard Variable", Pretendard,
+    --font-sans: var(--font-app), -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard Variable", Pretendard,
         "Noto Sans KR", "Malgun Gothic", sans-serif;
-    --font-display: var(--font-nanum), -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard Variable", Pretendard,
+    --font-display: var(--font-app), -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard Variable", Pretendard,
         "Noto Sans KR", "Malgun Gothic", sans-serif;
     --font-mono: ui-monospace, "Roboto Mono", SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 

@@ -138,7 +138,7 @@ Notion 공개 페이지 ──(scripts, 무인증 API)──▶ data/jejudo-noti
 - 브랜드 핑크(oklch 358°) + 크림 바탕 + 잉크 히어로. 종류 색(바다/앰버/라떼)은 `theme.css` 와 `src/lib/places.ts` 두 곳에 같은 값.
 - 면은 파스텔 워시(`typeTint`), 글씨·아이콘·주요 버튼만 진하게.
 - 크기 토큰은 전부 `--spacing` 파생이고, 브레이크포인트는 그 값만 4 → 4.25px(768px 부터) 로 바꾼다
-  (→ [ADR-006](./decisions/ADR-006-responsive-scale-and-font.md)). 본문 글꼴은 나눔스퀘어 네오 self-host(400·700).
+  (→ [ADR-006](./decisions/ADR-006-responsive-scale-and-font.md)). 본문 글꼴은 Pretendard 서브셋(`Zgnn Sans`) self-host(400·600).
 
 ---
 
@@ -191,7 +191,7 @@ data/                         # Notion 추출본(커밋) · raw/(무시)
 | [ADR-003](./decisions/ADR-003-untitled-ui-and-palette.md) | Untitled UI 토큰 위에 핑크·크림·잉크 팔레트 |
 | [ADR-004](./decisions/ADR-004-pet-policy-parser.md) | 이용 조건은 수동 태깅 대신 규칙 파서 + 원문 병기 |
 | [ADR-005](./decisions/ADR-005-dog-profile-eligibility.md) | 강아지 프로필 기반 판정을 v1 의 중심으로 (채택) |
-| [ADR-006](./decisions/ADR-006-responsive-scale-and-font.md) | 화면이 커지면 크기도 커진다 — `--spacing` 한 축 + 나눔스퀘어 네오 self-host (채택) |
+| [ADR-006](./decisions/ADR-006-responsive-scale-and-font.md) | 화면이 커지면 크기도 커진다 — `--spacing` 한 축 + 본문 글꼴(Pretendard 서브셋) self-host (채택) |
 | [ADR-007](./decisions/ADR-007-shell-owned-back-navigation.md) | 뒤로가기는 화면이 아니라 셸이 붙인다 — 메인 탭 5개만 루트 (채택) |
 | [ADR-008](./decisions/ADR-008-map-provider.md) | 지도 제공자: 네이버(NCP Maps v3), 마커는 표준 핀으로 (채택 · v4 에서 Kakao 결정을 번복) |
 | [ADR-009](./decisions/ADR-009-trip-derived-checklist.md) | 준비물을 목록이 아니라 여행의 파생값으로 (채택, v3 에서 방향 반전 — 목록이 원본, 장소가 읽는 쪽) |
