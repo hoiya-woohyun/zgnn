@@ -17,7 +17,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { mergeIntoExisting, toNewPlaceRow, toRecheckCandidate } from '../../scripts/analyze/applyApproved.mjs';
+import { mergeIntoExisting, overwriteWithLatest, toNewPlaceRow, toRecheckCandidate } from '../../scripts/analyze/applyApproved.mjs';
 import { matchPlace, THRESHOLD } from '../../scripts/analyze/matchPlace.mjs';
 import { toMatchablePlace } from '../../scripts/lib/placeFields.mjs';
 import {
@@ -50,7 +50,15 @@ export type TSimilarPlace = {
 };
 
 export type TApplyOutcome =
-  | { kind: 'created' | 'merged'; placeId: string; placeName: string; patchKeys: string[]; rows: number }
+  | {
+      kind: 'created' | 'merged';
+      placeId: string;
+      placeName: string;
+      patchKeys: string[];
+      rows: number;
+      /** '최신본으로 저장하기' 로 **덮어쓴** 칸(빈 칸 채우기와 따로 센다 — 화면이 "N칸을 새 분석으로 바꿨어요" 를 말한다). */
+      overwrittenKeys?: string[];
+    }
   /** 사람이 골라야 한다 — 이 결과가 나오면 **DB 에 아무것도 쓰지 않았다.** */
   | { kind: 'needsDecision'; similar: TSimilarPlace }
   /**
@@ -74,6 +82,12 @@ export type TApplyOptions = {
    * 기본값이 `false` 인 것이 요점이다: 확인 없이 `asNew` 로 내린 곳을 지나가면 그 가게가 새 id 로 되살아난다.
    */
   confirmedDifferent?: boolean;
+  /**
+   * 사람이 '최신본으로 저장하기' 를 골랐다 — 대상 장소의 칸을 대표 후보의 값으로 **덮는다**(`overwriteWithLatest`).
+   * 기본 합치기는 빈 칸만 채워서, 재분석으로 나온 새 판단이 이미 차 있는 장소에 한 칸도 들어가지 않는다.
+   * 대상이 있을 때만 뜻이 있다(신규 insert 는 어차피 전부 새 값이다).
+   */
+  overwrite?: boolean;
   nowIso: string;
   /** 새 장소 id. `places.id` 는 default 가 없어 우리가 정한다(보통 `crypto.randomUUID`). */
   newId: () => string;
@@ -191,7 +205,14 @@ async function linkSource(client: SupabaseClient, placeId: string, postUrl: stri
 async function markMerged(
   client: SupabaseClient,
   row: TCandidateRow,
-  applied: { placeId: string; kind: 'created' | 'merged'; patchKeys: string[]; at: string },
+  applied: {
+    placeId: string;
+    kind: 'created' | 'merged';
+    patchKeys: string[];
+    at: string;
+    /** 덮어쓴 칸의 **덮기 전 값**. 빈 칸 채우기는 비우면 되돌아가지만 덮어쓴 칸은 이 값이 없으면 못 되돌린다. */
+    overwritten?: Record<string, unknown>;
+  },
 ): Promise<void> {
   const { error } = await client
     .from('candidates')
@@ -315,7 +336,24 @@ export async function approveGroup(
    * 안 실으면 사람이 그 자리에서 '아니에요' 를 누르고(그건 `candidates` 만 건드린다) 내렸던 곳이 다음 빌드에
    * 사이트로 돌아간다. '올린 장소' 칸에서는 그냥 평범한 '게시중' 한 줄로 보여 흔적이 `archive_note` 한 줄뿐이다.
    */
+  /*
+   * **최신본으로 덮기는 승인 표시보다 먼저** 쓴다. 뒤에서 끊기면 후보가 `approved` 로 남아 `pnpm data:apply` 가 이어받는데,
+   * CLI 는 빈 칸 채우기뿐이라 이어받은 쪽이 새 값을 조용히 버린다. 먼저 덮으면 실패해도 후보는 pending 그대로이고,
+   * 다시 누르면 같은 patch 가 또 나온다(이미 덮인 칸은 "같다" 로 빠진다 — 두 번 눌러도 안전하다).
+   */
+  let overwritten: Record<string, unknown> | undefined;
+  let overwrittenKeys: string[] = [];
   try {
+    if (target && opts.overwrite) {
+      const plan = overwriteWithLatest(target, lead.extracted) as { patch: Partial<TPlaceRow>; previous: Record<string, unknown> } | null;
+      if (plan) {
+        const { error } = await client.from('places').update(plan.patch).eq('id', target.id);
+        failIf('최신본으로 덮기', error);
+        Object.assign(target, plan.patch);
+        overwritten = plan.previous;
+        overwrittenKeys = Object.keys(plan.patch);
+      }
+    }
     await markApproved(client, lead);
   } catch (error) {
     throw restoredName
@@ -331,7 +369,7 @@ export async function approveGroup(
   let patchKeys: string[];
 
   if (target) {
-    patchKeys = await fillBlanks(client, target, lead);
+    patchKeys = [...overwrittenKeys, ...(await fillBlanks(client, target, lead))];
     placeId = target.id;
     placeName = target.name;
     kind = 'merged';
@@ -360,7 +398,7 @@ export async function approveGroup(
   }
 
   await linkSource(client, placeId, lead.post_url);
-  await markMerged(client, lead, { placeId, kind, patchKeys, at: opts.nowIso });
+  await markMerged(client, lead, { placeId, kind, patchKeys, at: opts.nowIso, ...(overwritten ? { overwritten } : {}) });
 
   // 같은 가게를 말하는 나머지 글들 — 대표가 정한 장소로 보강만 한다(새로 만들지 않는다).
   for (const row of group.rows) {
@@ -371,7 +409,7 @@ export async function approveGroup(
     await markMerged(client, row, { placeId, kind: 'merged', patchKeys: keys, at: opts.nowIso });
   }
 
-  return { kind, placeId, placeName, patchKeys, rows: group.rows.length };
+  return { kind, placeId, placeName, patchKeys, rows: group.rows.length, ...(overwrittenKeys.length ? { overwrittenKeys } : {}) };
 }
 
 /**

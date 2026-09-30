@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { homepageColumns, mergeIntoExisting, toNewPlaceRow, toRecheckCandidate } from './applyApproved.mjs';
+import { homepageColumns, mergeIntoExisting, overwriteWithLatest, toNewPlaceRow, toRecheckCandidate } from './applyApproved.mjs';
 
 // places 행(snake_case) — 시드된 86곳 중 하나의 모양. 사람이 쓴 features·pet_policy_text 가 들어 있다.
 const solsup = {
@@ -320,5 +320,44 @@ describe('homepage — 공식 홈페이지 링크 카드 (ADR-002 v2)', () => {
 
   it('행에 칸이 없으면(마이그레이션 전) 건드리지 않는다', () => {
     expect(mergeIntoExisting(solsup, { ...extracted, homepage: card })?.homepage_url).toBeUndefined();
+  });
+});
+
+describe('overwriteWithLatest — 최신본으로 저장하기 (사람이 전·후를 보고 고른다)', () => {
+  it('후보 값이 있고 다른 칸만 덮고, 덮기 전 값을 previous 로 준다', () => {
+    const out = overwriteWithLatest(solsup, extracted);
+    expect(out.patch).toEqual({
+      address: '제주 제주시 구좌읍 충렬로 141-15',
+      lat: 33.5111,
+      lng: 126.8488,
+      features: '마당이 넓고 불멍이 됩니다',
+      pet_policy_text: '소형견만 실내 가능, 대형견은 테라스',
+      pet_policy: null,
+    });
+    expect(out.previous.features).toBe(solsup.features);
+    expect(out.previous.pet_policy_text).toBe(solsup.pet_policy_text);
+  });
+
+  /** 후보가 비어 있는 것은 "새 판단" 이 아니라 "못 읽음" 이다 — 덮으면 사이트의 멀쩡한 칸이 지워진다. */
+  it('후보가 비어 있는 칸은 지우지 않는다 · review_url·status 는 건드리지 않는다', () => {
+    const out = overwriteWithLatest(solsup, { ...extracted, features: '', petPolicyText: null, address: null, geo: null });
+    expect(out).toBeNull();
+    const again = overwriteWithLatest({ ...solsup, status: 'archived' }, { ...extracted, features: '새 소개' });
+    expect(Object.keys(again.patch)).not.toContain('status');
+    expect(Object.keys(again.patch)).not.toContain('review_url');
+  });
+
+  it('원문이 같아도 판단이 바뀌면 둘을 짝으로 덮는다', () => {
+    const facts = { indoor: 'outdoorOnly', leash: true };
+    const row = { ...solsup, pet_policy_text: extracted.petPolicyText, pet_policy: null };
+    const out = overwriteWithLatest(row, { ...extracted, features: solsup.features, address: solsup.address, geo: { lat: solsup.lat, lng: solsup.lng }, petPolicy: facts });
+    expect(out.patch).toEqual({ pet_policy_text: extracted.petPolicyText, pet_policy: facts });
+  });
+
+  it('플레이스 id 는 naver_url 과 짝으로 · 형식이 틀린 지역은 덮지 않는다', () => {
+    const out = overwriteWithLatest(solsup, { ...extracted, naverPlaceId: '999', regionRaw: '어딘가' });
+    expect(out.patch.naver_place_id).toBe('999');
+    expect(out.patch.naver_url).toBe('https://m.place.naver.com/place/999/home');
+    expect(out.patch.region_raw).toBeUndefined();
   });
 });
