@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { adminFlagView, policyCell, policyLine, policySplit } from './adminPreview';
-import type { TPolicyPreview } from './adminCandidates';
+import { previewFor, type TCandidateExtracted, type TPolicyPreview } from './adminCandidates';
 import type { TPetBadge } from './petPolicy';
 
 /**
@@ -108,9 +108,29 @@ describe('policyCell — 네 갈래', () => {
   });
 
   it('문장은 있는데 아무도 못 읽었으면 그렇게 말한다 — 옛 화면은 이것을 "자유" 라고 불렀다', () => {
-    expect(labelsOf(policyCell(preview({ mergedBadges: [], facts: null }), '애견동반 가능해요!'))).toEqual({
+    expect(labelsOf(policyCell(preview({ mergedBadges: [], facts: null, level: '못읽음' }), '대충 알아서 오세요'))).toEqual({
       items: [],
       message: '동반 조건을 못 읽었어요',
+    });
+  });
+
+  /**
+   * "강아지 동반이 가능합니다" 한 줄 — 파서는 이것을 **읽은 것**으로 본다(`petPolicy.ts` 의 `isGenericAllowance`, level `자유`).
+   * '못 읽었어요' 라고 하면 원문에 뭔가 더 있는 줄 알고 찾으러 가게 되고, 정말 못 읽은 원문과 구별되지 않는다(2026-09-30 실측 4건).
+   */
+  it('실제 파서를 거쳐도 — "강아지 동반이 가능합니다" 는 제한 없음, 제한을 암시하면 원문 확인 필요', () => {
+    const cellOf = (text: string) => {
+      const extracted = { name: '제주삼춘', type: 'restaurant', petPolicyText: text, petPolicy: null } as unknown as TCandidateExtracted;
+      return labelsOf(policyCell(previewFor(extracted), text));
+    };
+    expect(cellOf('강아지 동반이 가능합니다')).toEqual({ items: [], message: '적힌 제한이 없어요 — 사이트엔 조건 없이 나가요' });
+    expect(cellOf('테라스에서만 동반 가능해요').message).not.toBe('적힌 제한이 없어요 — 사이트엔 조건 없이 나가요');
+  });
+
+  it('일반 허용 문장뿐이면 못 읽었다가 아니라 조건 없이 나간다고 말한다', () => {
+    expect(labelsOf(policyCell(preview({ mergedBadges: [], facts: null, level: '자유' }), '강아지 동반이 가능합니다'))).toEqual({
+      items: [],
+      message: '적힌 제한이 없어요 — 사이트엔 조건 없이 나가요',
     });
   });
 
