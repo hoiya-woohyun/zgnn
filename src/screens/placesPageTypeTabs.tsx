@@ -58,22 +58,27 @@ export function PlacesPageTypeTabs({ type, fromIndex, toIndex, pillRef }: TPlace
   }, [fromIndex, toIndex, pillRef]);
 
   return (
-    <nav aria-label="장소 종류" className="relative rounded-lg border border-secondary bg-primary p-1">
+    /*
+      **보이는 크기는 검색창과 같은 한 줄(≈46px), 누르는 크기는 44px 그대로다.** 예전엔 44px 탭에 안쪽 여백(4px)·테두리가 더해져
+      54px 로 바로 밑 검색창(44px)보다 두꺼웠고, 상단 줄 전체가 139px 로 "크다" 는 인상을 줬다. 여백을 2px 로 줄이고 알약을 40px 로
+      보이게 하되, 링크는 음수 여백으로 그 여백까지 덮어 44px 로 눌린다(CLAUDE.md 의 44px 터치 기준).
+    */
+    <nav aria-label="장소 종류" className="relative rounded-lg border border-secondary bg-primary p-0.5">
       {/*
-        절대 위치의 기준은 nav 의 padding box 라, `left-1`·`inset-y-1` 이 곧 내용 영역의
+        절대 위치의 기준은 nav 의 padding box 라, `left-0.5`·`inset-y-0.5` 이 곧 내용 영역의
         가장자리이고 `100% - (좌우 패딩)` 을 종류 수로 나눈 값이 탭 하나의 폭과 정확히 같다.
         탭이 늘어도 식은 그대로다.
 
-        패딩을 `0.5rem` 으로 적으면 안 된다 — `p-1` 은 `--spacing` 파생이고 그 값이
+        패딩을 `2px` 로 적으면 안 된다 — `p-0.5` 는 `--spacing` 파생이고 그 값이
         브레이크포인트에서 4 → 4.25px 로 바뀐다(ADR-006). 고정 숫자로 적으면 넓은
         화면에서만 알약이 탭과 어긋난다.
       */}
       <span
         ref={pillRef}
         aria-hidden="true"
-        className="absolute inset-y-1 left-1 rounded-md bg-brand-primary"
+        className="absolute inset-y-0.5 left-0.5 rounded-md bg-brand-primary"
         style={{
-          width: `calc((100% - var(--spacing) * 2) / ${PLACE_TYPES.length})`,
+          width: `calc((100% - var(--spacing) * 1) / ${PLACE_TYPES.length})`,
           transform: `translateX(${toIndex * 100}%)`,
         }}
       />
@@ -88,7 +93,8 @@ export function PlacesPageTypeTabs({ type, fromIndex, toIndex, pillRef }: TPlace
                 href={`/places/${candidate}`}
                 aria-current={active ? 'page' : undefined}
                 className={cx(
-                  'flex h-11 items-center justify-center rounded-md text-sm font-semibold transition-colors',
+                  // 44px 로 눌리되 자리는 40px 만 차지한다 — 위아래 2px 는 nav 의 안쪽 여백 위로 겹친다.
+                  'flex h-11 -my-0.5 items-center justify-center rounded-md text-sm font-semibold transition-colors',
                   active ? 'text-brand-secondary' : 'text-tertiary hover:bg-secondary',
                 )}
               >
