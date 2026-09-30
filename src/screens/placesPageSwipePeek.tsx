@@ -3,6 +3,7 @@
 import { useMemo, type RefObject } from 'react';
 import { PlacesPageResults } from './placesPageResults';
 import { placesOfType } from '../lib/places';
+import { resetFiltersLabel } from '../lib/placeFilters';
 import { sortByEligibility } from '../lib/sortByEligibility';
 import { useAppStore } from '../store/useAppStore';
 import { useEligibilityMap } from '../store/useDogEligibility';
@@ -58,6 +59,9 @@ export function PlacesPageSwipePeek({ ref, type, side, top, height }: TPlacesPag
         results={results}
         townHasNoPlaces={town !== null && byTown.length === 0}
         hasFilters={town !== null}
+        resetLabel={resetFiltersLabel(false, town !== null ? 1 : 0)}
+        // 새 화면에도 읍면 칩은 따라온다 — 엿보기에서 빠지면 손을 놓는 순간 줄이 튀어나온다.
+        activeChips={town ? [{ key: 'town', label: town, onRemove: noop }] : []}
         onResetFilters={noop}
         onOpenFilters={noop}
       />

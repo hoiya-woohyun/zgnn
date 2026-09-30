@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compareEligibility, dogSize, judgeEligibility } from './eligibility';
+import { compareEligibility, dogSize, headlineFor, judgeEligibility, primaryReason } from './eligibility';
 import { parsePetPolicy } from './petPolicy';
 import { PLACES } from './places';
 import type { TDogProfile } from '../types';
@@ -175,5 +175,129 @@ describe('judgeEligibility — 블로그에서 온 신규 장소(BUG-008)', () =
     const result = judgeEligibility(TOFU, parsePetPolicy('풍차해안도로와 가깝지만 애견동반은 아쉽게도 안됩니다'));
     expect(result.level).toBe('hard');
     expect(result.reasons[0].text).toBe('반려견 동반이 안 된다고 적혀 있어요');
+  });
+});
+
+describe('judgeEligibility — 어려움 판정에는 요금을 싣지 않는다(그리너리빌리지)', () => {
+  it('28·17kg 두 마리 → hard · fee 없음 · 요금 info 근거 없음', () => {
+    const place = findPlace('그리너리빌리지 펜션');
+    const dog: TDogProfile = { dogs: [{ name: '대장', weightKg: 28 }, { name: '초코', weightKg: 17 }], carrier: 'none' };
+    const result = judgeEligibility(dog, parsePetPolicy(place.petPolicyText));
+    expect(result.level).toBe('hard');
+    expect(result.fee).toBeUndefined();
+    expect(result.reasons.some((r) => r.level === 'info' && r.text.includes('만원'))).toBe(false);
+  });
+});
+
+describe('judgeEligibility — C5 가 정보 없음·kg 요금 구간을 무시하지 않는다', () => {
+  const BIG: TDogProfile = { dogs: [{ name: '대장', weightKg: 28 }], carrier: 'none' };
+
+  it('"10kg 이상 4만원" 이 있으면 "언급이 없어요" 대신 그 요금을 짚는다(등급 cond)', () => {
+    const result = judgeEligibility(BIG, parsePetPolicy('1마리당 3만원. (2마리 또는 10kg 이상 4만원)'));
+    expect(result.level).toBe('cond');
+    expect(result.reasons.some((r) => r.text.includes('10kg 이상'))).toBe(true);
+    expect(result.reasons.some((r) => r.text.includes('언급이 없어요'))).toBe(false);
+  });
+
+  it('정보 없음이면 대형견 문구를 내지 않는다(등급 unknown)', () => {
+    const result = judgeEligibility(BIG, parsePetPolicy('정보 없음. (문의해보시면 가장 정확할 것 같아요)'));
+    expect(result.level).toBe('unknown');
+    expect(result.reasons.some((r) => r.text.includes('대형견 언급'))).toBe(false);
+  });
+
+  it('솔숲펜션 — 구간 요금표 상한을 넘으면 "10kg 까지만" (등급 cond)', () => {
+    const result = judgeEligibility(BIG, findPlace('솔숲펜션').policy);
+    expect(result.level).toBe('cond');
+    expect(result.reasons.some((r) => r.text.includes('10kg 까지만'))).toBe(true);
+  });
+});
+
+describe('judgeEligibility — H1 근거에 한도를 넘는 강아지 이름을 적는다', () => {
+  const policy = parsePetPolicy('최대 3마리까지 가능. (15kg까지)');
+  const hardText = (dog: TDogProfile) => {
+    const result = judgeEligibility(dog, policy);
+    expect(result.level).toBe('hard');
+    return result.reasons[0].text;
+  };
+
+  it('두 마리 다 넘으면 둘 다 적고 "모두"', () => {
+    const dog: TDogProfile = { dogs: [{ name: '대장', weightKg: 28 }, { name: '초코', weightKg: 17 }], carrier: 'none' };
+    expect(hardText(dog)).toBe('대장이(28kg)·초코(17kg) 모두 15kg 이하 조건을 넘어요');
+  });
+
+  it('한 마리만 넘으면 그 아이 이름만', () => {
+    const dog: TDogProfile = { dogs: [{ name: '대장', weightKg: 28 }, { name: '초코', weightKg: 7 }], carrier: 'none' };
+    const text = hardText(dog);
+    expect(text).toBe('대장이(28kg)는 15kg 이하 조건을 넘어요');
+    expect(text).not.toContain('초코');
+  });
+
+  it('한 마리 프로필', () => {
+    const dog: TDogProfile = { dogs: [{ name: '초코', weightKg: 17 }], carrier: 'none' };
+    expect(hardText(dog)).toBe('초코(17kg)는 15kg 이하 조건을 넘어요');
+  });
+});
+
+describe('headlineFor — 머리글은 근거가 하나뿐일 때 근거를 따른다', () => {
+  it('C1 단독이면 "야외 자리에서 갈 수 있어요" — 요금 info 는 세지 않는다', () => {
+    const result = judgeEligibility(TOFU, parsePetPolicy('야외좌석만 가능.\n1마리당 1만원.'));
+    expect(result.level).toBe('cond');
+    expect(result.reasons.filter((r) => r.level === 'cond').map((r) => r.rule)).toEqual(['C1']);
+    expect(result.reasons.some((r) => r.level === 'info')).toBe(true);
+    expect(headlineFor(result)).toBe('야외 자리에서 갈 수 있어요');
+  });
+
+  it('C1 + C5 면 확인할 것이 남아 "확인이 필요해요"', () => {
+    const big: TDogProfile = { dogs: [{ name: '대장', weightKg: 28 }], carrier: 'none' };
+    const result = judgeEligibility(big, parsePetPolicy('야외좌석만 가능.'));
+    expect(result.reasons.filter((r) => r.level === 'cond').map((r) => r.rule)).toEqual(['C1', 'C5']);
+    expect(headlineFor(result)).toBe('확인이 필요해요');
+  });
+
+  it('C6 단독이면 "확인이 필요해요"(목록 배지와 같은 말)', () => {
+    expect(
+      headlineFor({ level: 'cond', reasons: [{ level: 'cond', text: '방문 전 전화 확인이 필요해요', rule: 'C6' }] }),
+    ).toBe('확인이 필요해요');
+  });
+
+  it('ok · hard 는 레벨 머리글 그대로', () => {
+    expect(headlineFor({ level: 'ok', reasons: [] })).toBe('갈 수 있어요');
+    expect(headlineFor({ level: 'hard', reasons: [{ level: 'hard', text: '소형견만 가능해요', rule: 'H3' }] })).toBe(
+      '이용하기 어려워요',
+    );
+  });
+});
+
+describe('primaryReason — 목록 카드의 근거 한 줄', () => {
+  const BIG: TDogProfile = { dogs: [{ name: '대장', weightKg: 28 }], carrier: 'none' };
+
+  it('ok 면 근거가 없다', () => {
+    expect(primaryReason(judgeEligibility(TOFU, parsePetPolicy('1마리당 1만원.')))).toBeUndefined();
+  });
+
+  it('cond(C5) — 최종 레벨과 같은 레벨의 첫 근거', () => {
+    const reason = primaryReason(judgeEligibility(BIG, parsePetPolicy('1마리당 3만원.')));
+    expect(reason?.rule).toBe('C5');
+    expect(reason?.text).toContain('대형견 언급이 없어요');
+  });
+
+  it('hard(H1) — 누가 넘는지 이름이 적힌 근거', () => {
+    const dog: TDogProfile = { dogs: [{ name: '대장', weightKg: 28 }, { name: '초코', weightKg: 7 }], carrier: 'none' };
+    const reason = primaryReason(judgeEligibility(dog, parsePetPolicy('최대 3마리까지 가능. (15kg까지)')));
+    expect(reason?.rule).toBe('H1');
+    expect(reason?.text).toBe('대장이(28kg)는 15kg 이하 조건을 넘어요');
+  });
+
+  it('unknown + 원문 힌트 — "적혀 있지 않아요" 대신 힌트(맘앤도그)', () => {
+    const result = judgeEligibility(KONG, findPlace('맘앤도그').policy);
+    expect(result.level).toBe('unknown');
+    const reason = primaryReason(result);
+    expect(reason?.level).toBe('info');
+    expect(reason?.text).toContain('대형견');
+  });
+
+  it('unknown 인데 힌트가 없으면 unknown 근거', () => {
+    const reason = primaryReason(judgeEligibility(BIG, parsePetPolicy('정보 없음.')));
+    expect(reason?.level).toBe('unknown');
   });
 });

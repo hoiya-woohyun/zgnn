@@ -36,8 +36,11 @@ export function DogProfileDogRows({ values, errors, onChange, onAdd, onRemove }:
             <div key={index} className="flex items-start gap-2">
               <div className="grid flex-1 grid-cols-[3fr_2fr] gap-2">
                 <div>
+                  {/* 보이는 라벨 "이름" + aria-label 의 몇 번째 — 읽히는 이름은 "1번째 강아지 이름" 이다
+                      (react-aria 가 둘을 잇는다). 자리표시 글자만으로는 입력을 시작하면 무슨 칸인지 사라졌다(D11). */}
                   <Input
-                    aria-label={`${nth} 이름`}
+                    label="이름"
+                    aria-label={nth}
                     placeholder="예: 두부"
                     value={value.name}
                     onChange={(next) => onChange(index, { name: next })}
@@ -50,28 +53,59 @@ export function DogProfileDogRows({ values, errors, onChange, onAdd, onRemove }:
                   {error.name && <HintText isInvalid>{error.name}</HintText>}
                 </div>
                 <div>
-                  <Input
-                    aria-label={`${nth} 몸무게(kg)`}
-                    type="number"
-                    inputMode="decimal"
-                    placeholder="kg"
-                    value={value.weightKg}
-                    onChange={(next) => onChange(index, { weightKg: next })}
-                    isInvalid={Boolean(error.weightKg)}
-                    size="lg"
-                  />
+                  {/*
+                    단위 "kg" 를 칸 오른쪽에 늘 둔다 — 예전엔 자리표시 글자가 "kg" 라 숫자를 치는 순간
+                    단위가 사라졌다(D11). base Input 에 접미 prop 이 없어(고치지 않는다) 감싸는 칸에서
+                    absolute 로 얹는다. 라벨이 위에 있으므로 아래(`bottom-0`)에서 입력 줄 높이(h-11)만큼 잡고,
+                    에러 문구는 이 감싸개 **밖**이라 위치가 흔들리지 않는다. 에러일 때는 base 가 같은 자리에
+                    느낌표 아이콘을 띄우므로 그 왼쪽으로 비킨다.
+                  */}
+                  <div className="relative">
+                    <Input
+                      label="몸무게"
+                      aria-label={nth}
+                      type="number"
+                      inputMode="decimal"
+                      placeholder="예: 7"
+                      value={value.weightKg}
+                      onChange={(next) => onChange(index, { weightKg: next })}
+                      isInvalid={Boolean(error.weightKg)}
+                      size="lg"
+                      inputClassName={cx(
+                        error.weightKg ? 'pr-16' : 'pr-10',
+                        // 데스크톱 크롬의 숫자 위아래 화살표가 "kg" 와 겹친다 — 모바일엔 원래 없다.
+                        '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none',
+                      )}
+                    />
+                    <span
+                      aria-hidden="true"
+                      className={cx(
+                        'pointer-events-none absolute bottom-0 flex h-11 items-center text-md text-tertiary',
+                        error.weightKg ? 'right-9.5' : 'right-3.5',
+                      )}
+                    >
+                      kg
+                    </span>
+                  </div>
                   {error.weightKg && <HintText isInvalid>{error.weightKg}</HintText>}
                 </div>
               </div>
               {values.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => onRemove(index)}
-                  aria-label={`${nth} 삭제`}
-                  className="grid size-11 shrink-0 place-items-center rounded-lg text-fg-quaternary hover:bg-primary_hover hover:text-fg-quaternary_hover"
-                >
-                  <XClose className="size-5" />
-                </button>
+                /* 칸마다 라벨이 위에 붙어, 그냥 두면 ✕ 가 입력 칸이 아니라 라벨 줄에 맞춰 선다.
+                   라벨과 같은 글자 크기의 빈 줄 + 같은 간격(gap-1.5)을 받쳐 입력 칸 높이에 맞춘다. */
+                <div className="flex shrink-0 flex-col gap-1.5">
+                  <span aria-hidden="true" className="invisible text-sm">
+                    ✕
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onRemove(index)}
+                    aria-label={`${nth} 삭제`}
+                    className="grid size-11 shrink-0 place-items-center rounded-lg text-fg-quaternary hover:bg-primary_hover hover:text-fg-quaternary_hover"
+                  >
+                    <XClose className="size-5" />
+                  </button>
+                </div>
               )}
             </div>
           );

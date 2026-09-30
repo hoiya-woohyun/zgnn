@@ -48,3 +48,13 @@ export const comparePrice =
     if (bv === undefined) return -1;
     return sort === 'asc' ? av - bv : bv - av;
   };
+
+/**
+ * 목록 머리의 지우기 링크 문구. 지우는 것을 그대로 말한다(D12) — 검색어만 있는데 "필터 지우기" 라고
+ * 쓰면 필터가 걸린 줄 알고 시트를 연다. 둘 다 있으면 둘 다 지운다는 뜻으로 "모두".
+ */
+export const resetFiltersLabel = (hasQuery: boolean, conditionCount: number): string => {
+  if (hasQuery && conditionCount > 0) return '모두 지우기';
+  if (hasQuery) return '검색 지우기';
+  return '필터 지우기';
+};

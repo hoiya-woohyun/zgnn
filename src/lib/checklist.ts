@@ -2,7 +2,7 @@ import { itemsNeededForTrip, tripProvidedItemIds } from './itemNeeds';
 import { visibleItems } from './seasonItems';
 import type { TPlaceEntry } from './places';
 import type { TSeasonFilter } from '../store/useAppStore';
-import type { TItem } from '../types';
+import type { TDogProfile, TItem } from '../types';
 
 export { visibleItems };
 
@@ -50,3 +50,25 @@ export const checklistView = (
     scopedToTrip: tripItems.length > 0,
   };
 };
+
+/**
+ * 준비물의 기내용 가방 — 갈래 둘(5kg 이하/이상)을 합친 이름(`places.ts` 의 ITEM_VARIANTS).
+ * id 가 아니라 이름으로 찾는다: 합친 항목의 id 는 첫 갈래의 것을 물려받아 데이터가 바뀌면 따라 바뀐다.
+ */
+export const CARRY_BAG_ITEM_NAME = '강아지 기내용 가방';
+
+/**
+ * 준비물에서 기내용 가방을 **막 체크했는데** 프로필 이동 수단이 '없어요' 인가 — 그러면 프로필도
+ * 바꿀지 한 번 묻는다(08 T4.8, 지수 N5). 가방을 챙겼다고 해 놓고 식당 판정은 "가방 없음" 그대로라
+ * 두 화면이 다른 사람을 말하고 있었다.
+ *
+ * **묻기만 한다.** 체크가 프로필을 조용히 바꾸면 판정이 사용자 모르게 뒤집힌다 — 그 방향이
+ * ADR-009 가 막는 것(준비물 ↔ 판정이 서로 반대로 말하기)의 뒷면이다. 반대 방향(프로필 → 준비물
+ * 자동 체크, `ITEM_NEEDS` 에 가방 넣기)은 여전히 금지다. 체크를 풀 때·프로필이 없을 때·이미 가방·
+ * 케이지·유모차일 때는 묻지 않는다.
+ */
+export const shouldAskCarrierBag = (
+  itemName: string,
+  becameChecked: boolean,
+  dog: TDogProfile | null,
+): boolean => becameChecked && itemName === CARRY_BAG_ITEM_NAME && dog?.carrier === 'none';

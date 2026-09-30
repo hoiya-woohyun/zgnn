@@ -8,6 +8,7 @@ import { AppTabBar } from './appTabBar';
 import { mainSurfaceProps, surfaceKindOf } from './appShellSurface';
 import { useAppShellSwipe } from './appShellSwipe';
 import { AppShellSwipePeek } from './appShellSwipePeek';
+import { AppStatusToast } from './appStatusToast';
 import { stampHistoryDepth } from '../../lib/appHistory';
 import { isRootRoute, parentRouteOf } from '../../lib/appRoutes';
 import { arrivalScrollOf, rememberScroll } from '../../lib/appScroll';
@@ -104,9 +105,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           폭을 재는 자리이기도 하다. 이 상자는 엿보기(`fixed inset-0 md:pl-64`)와 같은 폭이라,
           폭 하나로 나가는 화면과 들어오는 화면을 같이 움직일 수 있다.
 
-          **`touch-action` 은 스와이프를 받는 화면에만 건다.** 지도는 화면 전체가 카카오
+          **`touch-action` 은 스와이프를 받는 화면에만 건다.** 지도는 화면 전체가 네이버
           캔버스라 가로로 끄는 동작이 지도의 것인데, 여기서 `pan-y` 를 걸어 두면 그 가로
-          제스처를 브라우저가 우리 몫으로 넘겨주고 지도는 영영 움직이지 않는다.
+          제스처를 브라우저가 우리 몫으로 넘겨주고 지도는 영영 움직이지 않는다. 지도에도 핸들러는
+          달리지만 가장자리 띠에서만 시작한다(`canStartSwipeAt`, ADR-014 v3).
         */}
         <div
           ref={surfaceRef}
@@ -124,6 +126,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {peek?.right && <AppShellSwipePeek ref={rightRef} side="right" route={peek.right} width={peek.width} />}
 
       <AppTabBar />
+
+      {/* 잠깐 뜨는 상태 한 줄("링크를 복사했어요"). `<main>` 밖이어야 스와이프에 끌려가지 않는다 — appStatusToast 참고. */}
+      <AppStatusToast />
     </div>
   );
 }

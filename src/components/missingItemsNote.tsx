@@ -3,10 +3,11 @@
 import { useMemo } from 'react';
 import Link from 'next/link';
 import { ArrowRight } from '@untitledui/icons';
-import { missingItemsAt } from '../lib/itemNeeds';
+import { missingItemsAt, shouldShowMissingItems } from '../lib/itemNeeds';
 import { useStoreHydrated } from '../providers/storeHydration';
 import type { TPlaceEntry } from '../lib/places';
 import { useAppStore } from '../store/useAppStore';
+import { useEligibility } from '../store/useDogEligibility';
 import { cx } from '../utils/cx';
 
 type TMissingItemsNoteProps = {
@@ -15,7 +16,13 @@ type TMissingItemsNoteProps = {
 };
 
 /**
- * "여기 가려면 이게 아직이에요" — 장소 하나에 필요한데 준비물 화면에서 아직 체크하지 않은 것.
+ * "여기 갈 때 챙기면 좋은 것" — 장소 하나에 필요한데 준비물 화면에서 아직 체크하지 않은 것.
+ *
+ * **어려움 판정이면 띄우지 않는다**(`shouldShowMissingItems`). "못 가요" 바로 아래에서
+ * "챙기라" 고 하면 두 줄이 서로 반대를 말한다. 판정은 prop 으로 받지 않고 여기서 직접
+ * 읽는다 — 호출부(상세·지도 시트)마다 판정을 흘려 보내면 한 곳을 빠뜨리기 쉽다.
+ *
+ * 문구를 "더 챙겨야 해요" 에서 "챙기면 좋은 것" 으로 낮췄다 — 준비물은 입장 조건이 아니다.
  *
  * 이동가방·케이지·유모차는 여기서 다루지 않는다(`itemNeeds.ts` 참고). 그건 판정 배지의
  * 몫이고, 같은 화면에서 두 줄이 서로 다른 말을 하게 된다.
@@ -36,13 +43,14 @@ export function MissingItemsNote({ place, className }: TMissingItemsNoteProps) {
   const season = useAppStore((state) => state.season);
   const checkedItemIds = useAppStore((state) => state.checkedItemIds);
   const hydrated = useStoreHydrated();
+  const level = useEligibility(place)?.level;
 
   const missing = useMemo(
     () => missingItemsAt(place, season, checkedItemIds),
     [place, season, checkedItemIds],
   );
 
-  if (!hydrated || missing.length === 0) return null;
+  if (!hydrated || missing.length === 0 || !shouldShowMissingItems(level)) return null;
 
   return (
     <Link
@@ -54,7 +62,7 @@ export function MissingItemsNote({ place, className }: TMissingItemsNoteProps) {
     >
       <div className="flex items-center gap-2">
         <p className="min-w-0 flex-1 text-sm font-semibold text-warning-primary">
-          여기 가려면 {missing.length}가지를 더 챙겨야 해요
+          여기 갈 때 챙기면 좋은 것 {missing.length}가지
         </p>
         <ArrowRight aria-hidden="true" className="size-4 shrink-0 text-warning-primary" />
       </div>

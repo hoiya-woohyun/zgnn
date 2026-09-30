@@ -1,6 +1,5 @@
 'use client';
 
-import { useSyncExternalStore } from 'react';
 import { LinkExternal01, Share01 } from '@untitledui/icons';
 import { notFound } from 'next/navigation';
 import { PlaceDetailHeader } from './placeDetailHeader';
@@ -11,11 +10,12 @@ import { Button } from '../components/base/button';
 import { MissingItemsNote } from '../components/missingItemsNote';
 import { PetBadges } from '../components/petBadges';
 import { SaveButton } from '../components/saveButton';
+import { showAppStatus } from '../lib/appStatus';
 import { formatStayPrice } from '../lib/format';
+import { shareMethodOf, shareTextFor } from '../lib/placeShare';
 import { TYPE_META, getPlace } from '../lib/places';
-
-/** 바뀔 일이 없는 값을 useSyncExternalStore 로 읽을 때 쓰는 빈 구독. */
-const subscribeNever = () => () => {};
+import { useDog } from '../store/useAppStore';
+import { useEligibility } from '../store/useDogEligibility';
 
 /**
  * id 는 라우트가 정해 준다(`app/place/[id]/page.tsx`). 거기서 이미 존재를 확인하므로
@@ -25,22 +25,31 @@ export function PlaceDetailPage({ id }: { id: string }) {
   const place = getPlace(id);
   if (!place) notFound();
 
-  /*
-   * 공유 버튼은 Web Share API 가 있는 기기에만 둔다.
-   * 그 값은 브라우저에서만 알 수 있는데, 화면은 빌드 때 미리 그려진다 —
-   * 렌더 중에 navigator 를 보면 미리 그린 HTML(버튼 없음)과 첫 클라이언트 렌더(버튼 있음)가
-   * 어긋나 하이드레이션이 깨진다. 그래서 서버 스냅샷을 false 로 고정하고 마운트 뒤에 맞춘다.
-   */
-  const canShare = useSyncExternalStore(
-    subscribeNever,
-    () => 'share' in navigator,
-    () => false,
-  );
+  const dog = useDog();
+  const eligibility = useEligibility(place);
 
+  /*
+   * 공유 버튼은 **늘 그린다**(지수 ⑤ — 카톡 인앱·데스크톱엔 Web Share 가 없어 버튼이 아예 없었다).
+   * 화면은 빌드 때 미리 그려지므로 렌더 중에 navigator 를 보면 하이드레이션이 어긋난다. 그래서
+   * 버튼의 존재는 서버·클라가 같고(항상 있음), 공유냐 복사냐는 누른 순간에만 가른다.
+   */
   const share = () => {
-    void navigator
-      .share({ title: `${place.name} | 강아지랑 제주`, text: place.features, url: window.location.href })
-      .catch(() => undefined);
+    const url = window.location.href;
+    const method = shareMethodOf(navigator);
+    if (method === 'share') {
+      const text = shareTextFor(place.features, dog?.dogs.map((d) => d.name) ?? null, eligibility);
+      // 사용자가 공유 시트를 닫아도 reject 된다 — 실패가 아니라 취소라 조용히 넘긴다.
+      void navigator.share({ title: `${place.name} | 강아지랑 제주`, text, url }).catch(() => undefined);
+      return;
+    }
+    if (method === 'copy') {
+      navigator.clipboard.writeText(url).then(
+        () => showAppStatus('링크를 복사했어요'),
+        () => showAppStatus('링크를 복사하지 못했어요. 주소창의 주소를 보내 주세요'),
+      );
+      return;
+    }
+    showAppStatus('이 브라우저에서는 공유할 수 없어요. 주소창의 주소를 보내 주세요');
   };
 
   return (
@@ -129,36 +138,32 @@ export function PlaceDetailPage({ id }: { id: string }) {
       {/*
         저장은 위 특징 옆 하트 하나로 충분하다(2026-09-15 리뷰 §2② — 하단 풀버튼 저장까지
         있으면 같은 기능이 두 곳에 있어 헷갈린다). 네이버 버튼도 위 '반려동물 이용' 아래로
-        옮겼으니, 여기 남는 건 후기·공유뿐이다.
+        옮겼으니, 여기 남는 건 후기·공유뿐이다. 공유는 늘 있으므로 절도 늘 있다.
       */}
-      {(place.reviewUrl || canShare) && (
-        <section className="mt-6 flex gap-2 px-4 md:px-6">
-          {place.reviewUrl && (
-            <Button
-              color="secondary"
-              size="lg"
-              href={place.reviewUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="flex-1"
-            >
-              후기 보기
-            </Button>
-          )}
-          {canShare && (
-            <Button
-              color="secondary"
-              size="lg"
-              iconLeading={Share01}
-              onClick={share}
-              aria-label={`${place.name} 공유하기`}
-              className="flex-1"
-            >
-              공유
-            </Button>
-          )}
-        </section>
-      )}
+      <section className="mt-6 flex gap-2 px-4 md:px-6">
+        {place.reviewUrl && (
+          <Button
+            color="secondary"
+            size="lg"
+            href={place.reviewUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="flex-1"
+          >
+            후기 보기
+          </Button>
+        )}
+        <Button
+          color="secondary"
+          size="lg"
+          iconLeading={Share01}
+          onClick={share}
+          aria-label={`${place.name} 공유하기`}
+          className="flex-1"
+        >
+          공유
+        </Button>
+      </section>
 
       <PlaceDetailNearby place={place} />
 

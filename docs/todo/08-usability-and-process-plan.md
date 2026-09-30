@@ -63,7 +63,7 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
 
 ## P0 — 화면이 서로 반대로 말하는 것
 
-### [ ] T1.1 어려움 판정에서 "여기 가려면 N가지를 챙겨야 해요" 를 숨긴다
+### [x] T1.1 어려움 판정에서 "여기 가려면 N가지를 챙겨야 해요" 를 숨긴다
 
 - 근거: 페르소나 두 명 모두 "못 간다면서 챙기래요" (리뷰 §1, D 크리틱 #3). ADR-009 가 막으려던 "서로 반대로 말하는 화면" 이 넛지로 새로 생겼다.
 - 읽을 것: `src/components/missingItemsNote.tsx` · `src/store/useDogEligibility.ts`(`useEligibility`) · 호출부 `src/screens/placeDetailPage.tsx`(83행 부근) · `src/screens/mapPageSheet.tsx`(60행 부근) — 상세 페이지는 판정을 직접 계산하지 않는다(판정 카드 안에서 `useEligibility` 로 얻는다)
@@ -77,7 +77,7 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
 - 문서: `docs/features/checklist.md` 에 한 줄 — "어려움 판정에서는 넛지를 띄우지 않는다(판정과 반대로 말하므로)".
 - 커밋: `fix - 어려움 판정에서 준비물 넛지를 숨긴다 (못 간다면서 챙기라고 하지 않게)`
 
-### [ ] T1.2 이동 수단을 미리 고르지 않는다 — 저장 전에 한 번 묻는다
+### [x] T1.2 이동 수단을 미리 고르지 않는다 — 저장 전에 한 번 묻는다
 
 - 근거: 지수가 가방이 있는데 기본값 "없어요" 로 저장 → 식당 28곳이 "어려움". 식당 결과는 이 값 하나로 결판난다(제품·UX 점검 §2).
 - 읽을 것: `src/screens/dogProfilePage.tsx`(75행 `useState<TCarrier>('none')`, 91행 기존 프로필 시드, 120행 `setDog`) · `src/screens/dogProfileCarrierPicker.tsx` · `src/types.ts` 의 `TCarrier`
@@ -93,7 +93,7 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
 - 문서: `docs/features/dog-profile.md` — "이동 수단은 기본값 없이 묻는다(기본값 '없어요' 가 식당 판정을 조용히 뒤집었다)".
 - 커밋: `fix - 이동 수단을 미리 고르지 않고 저장 전에 묻는다`
 
-### [ ] T1.3 못 가는 곳·개 요금이 아닌 줄에 강아지 이름을 붙이지 않는다
+### [x] T1.3 못 가는 곳·개 요금이 아닌 줄에 강아지 이름을 붙이지 않는다
 
 - 근거: 민준 — 어려움 판정인 그리너리빌리지 상세에 "**대장이와 초코** · 청소비 5만원" → 우리가 낼 돈으로 읽었다.
 - 읽을 것: `src/lib/dogFee.ts`(100~115행 "곱하지 않을 때" 대체 경로) · `src/lib/eligibility.ts`(275행 부근 `fee` 를 붙이는 곳) · `src/lib/dogFee.test.ts` · `src/data/places.json` 에서 `"그리너리빌리지 펜션"` 의 `petPolicyText`
@@ -108,7 +108,7 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
 - 문서: `docs/architecture/pet-policy-and-eligibility.md` 요금 절에 한 줄.
 - 커밋: `fix - 곱하지 못한 요금 줄과 어려움 판정에는 강아지 이름을 붙이지 않는다`
 
-### [ ] T1.4 C5("대형견 언급이 없어요")를 정보 없음·kg 요금 구간에서 고친다
+### [x] T1.4 C5("대형견 언급이 없어요")를 정보 없음·kg 요금 구간에서 고친다
 
 - 근거: 민준 — ① 원문에 "10kg 이상 4만원" 이 있는데 "대형견 언급이 없어요" ② "정보 없음" 5곳 중 4곳(귤이네·제주블루스·수선화민박·제주애빛 — 맘앤도그는 `largeDogOk`)에서 C5 문구가 unknown 근거보다 먼저 보인다(최종 등급은 이미 `unknown` 이고 **문구만** 틀리다). 07 의 U4(솔숲펜션 문구)와 같은 뿌리라 **여기서 함께 닫는다** — 07 의 U4 줄에 "→ 08 T1.4" 를 적는다.
 - 읽을 것: `src/lib/eligibility.ts` 212~225행(`ruleLargeDogUnmentioned`) · 49행 `REASON_ORDER` · `src/lib/petPolicy.ts` 의 `feeLines`·`noInfo` · `eligibility.test.ts`
@@ -124,8 +124,9 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
 - 수용 기준: `pnpm test` 전체 통과(기존 등급 테스트 무변경).
 - 문서: `docs/architecture/pet-policy-and-eligibility.md` 규칙표 C5 행.
 - 커밋: `fix - 대형견 문구가 정보 없음·kg 요금 구간을 무시하지 않게 한다`
+> 메모: 근거 줄대로 07 의 U4 줄에 "→ 08 T1.4 에서 처리" 를 적고 `[x]` 로 닫았다(단계 목록엔 없던 파일 — T0.3 단계 4 와 겹친다, T0.3 은 확인만 하면 된다).
 
-### [ ] T1.5 어려움 근거에 누가 넘는지 이름을 적는다 (H1)
+### [x] T1.5 어려움 근거에 누가 넘는지 이름을 적는다 (H1)
 
 - 근거: 민준 — "15kg 이하 조건" 이 누구 얘기인지 모른다(다두 보호자).
 - 읽을 것: `src/lib/eligibility.ts` 92~103행(`ruleWeightOverLimit`) · `dogCallNames`(이름 + 조사 유틸) 위치 · `src/lib/korean.ts`
@@ -133,8 +134,9 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
 - 테스트: 두 마리 다 넘는 경우 · 한 마리만 넘는 경우(텍스트에 넘는 개 이름만) · 한 마리 프로필.
 - 문서: 없음(문구만).
 - 커밋: `fix - 무게 한도 근거에 한도를 넘는 강아지 이름을 적는다`
+> 메모: 「문서: 없음」 이지만 `pet-policy-and-eligibility.md` 규칙표 H1 칸이 옛 문구("{N}kg 이하만 가능해요")를 그대로 인용해, 그 칸만 새 문구로 고쳤다.
 
-### [ ] T1.6 "확인" 머리글이 근거와 싸우지 않게 — 야외만(C1)은 "야외 자리에서 갈 수 있어요"
+### [x] T1.6 "확인" 머리글이 근거와 싸우지 않게 — 야외만(C1)은 "야외 자리에서 갈 수 있어요"
 
 - 근거: 지수 — 머리글 "확인해야 알 수 있어요" 바로 아래 근거 "야외 자리만 가능해요". 같은 cond 가 목록에선 "확인이 필요해요", 상세에선 "확인해야 알 수 있어요"(D12).
 - 읽을 것: `src/screens/placeDetailEligibilityCard.tsx`(`HEADLINE` 상수) · `src/lib/eligibility.ts` 의 `TEligibility` 반환형과 C1(168행)
@@ -145,6 +147,7 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
 - 테스트: `headlineFor` — C1 단독 / C1+C5 / C6 단독 / ok / hard.
 - 문서: `pet-policy-and-eligibility.md` 에 "머리글은 근거가 하나뿐일 때 근거를 따른다" 한 줄.
 - 커밋: `fix - 야외만 되는 곳의 머리글이 근거와 반대로 말하지 않게 한다`
+> 메모: 규칙 ID 는 규칙 함수마다 적지 않고 `RULES` 를 `[ID, 규칙]` 표로 바꿔 `judgeEligibility` 가 근거에 싣는다(ID 가 표 한 곳에만 있어 어긋날 수 없다). 요금 근거는 `'I1'`. `HEADLINE` 은 `headlineFor` 와 함께 `eligibility.ts` 로 옮겼다. `docs/features/dog-profile.md` 의 옛 머리글 인용("확인해야 알 수 있어요")도 고쳤다.
 
 ---
 
@@ -203,7 +206,7 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
 
 ## P1 — 목록·홈이 답을 말하게
 
-### [ ] T2.1 목록 카드에 근거 한 줄 — 눌러 보지 않아도 왜 "확인" 인지
+### [x] T2.1 목록 카드에 근거 한 줄 — 눌러 보지 않아도 왜 "확인" 인지
 
 - 근거: 민준 N1 — 카드엔 요금·배지만, 왜 cond/hard 인지 7곳을 다 눌러야 안다. "이것만으로 제외 목록 구실을 한다."
 - 읽을 것: `src/components/placeCard.tsx`(60행 부근) · 카드가 판정을 받는 prop · `TReason`
@@ -214,7 +217,7 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
 - 확인: 대형견 2마리 프로필로 `/places/stay` — "어려움" 카드에 "대장이(28kg)… 넘어요"(T1.5 후) 류 한 줄이 보인다. 360px 에서 한 줄로 잘린다.
 - 커밋: `feat - 목록 카드에 판정 근거 한 줄을 보인다`
 
-### [ ] T2.2 홈·목록 숫자를 한 기준으로 — "가능 N · 확인 M"
+### [x] T2.2 홈·목록 숫자를 한 기준으로 — "가능 N · 확인 M"
 
 - 근거: 지수 "6/34 의 6 이 뭐예요?" · 민준 "홈은 7곳, 목록은 26곳?" · D 크리틱 #4 — 홈 카드의 수는 ok+cond 합인데 이름표가 없고, 스크린리더만 "갈 수 있는 곳" 이라 읽는다(과대표기).
 - 읽을 것: `src/screens/homePage.tsx`(55행 부근 집계) · `src/screens/homeTypeCard.tsx`(62·69행) · `src/screens/placesPageResults.tsx`(41~53행)
@@ -226,7 +229,7 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
 - 문서: `docs/features/home-header.md` 에 숫자 기준 한 줄.
 - 커밋: `feat - 홈과 목록이 같은 기준으로 가능·확인 수를 보인다`
 
-### [ ] T2.3 판정 배지를 속성 배지와 다르게 생기게
+### [x] T2.3 판정 배지를 속성 배지와 다르게 생기게
 
 - 근거: D1 — "갈 수 있어요" 와 "실내 OK" 가 같은 핑크 알약. 어려움(slate)과 "케이지 필요"(gray)도 구분이 안 된다.
 - 읽을 것: `src/components/eligibilityBadge.tsx` · `src/components/petBadges.tsx` · `src/screens/placeDetailEligibilityCard.tsx` 의 레벨 점(dot) 문법 · `src/styles/theme.css` 의 badge 관련 시맨틱 토큰
@@ -238,7 +241,7 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
 - 문서: ADR-003 에 "brand 는 판정 ok 전용" 한 줄.
 - 커밋: `style - 판정 배지를 속성 배지와 구분되게 점과 굵기로 그린다`
 
-### [ ] T2.4 켜진 조건을 결과 머리에 보인다 — 조용히 걸린 읍면 필터
+### [x] T2.4 켜진 조건을 결과 머리에 보인다 — 조용히 걸린 읍면 필터
 
 - 근거: D4 — 읍면은 퍼시스트인데 모바일에서 안 보인다. 홈에서 읍면 칩을 누르면 조용히 걸리고 다음 방문에도 남는다. 카페 탭 "1곳" 의 이유가 "필터1" 뿐.
 - 읽을 것: `src/screens/placesPageResults.tsx` · `src/screens/placesPage.tsx`(필터 상태들) · `src/store/useAppStore.ts`(`town`)
@@ -250,7 +253,9 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
 - 확인: 홈에서 애월읍 칩 → `/places/cafe` 에 `애월읍 ✕` 가 보이고, 누르면 26곳으로 돌아온다.
 - 커밋: `feat - 켜진 조건을 결과 머리에 칩으로 보이고 하나씩 끌 수 있게 한다`
 
-### [ ] T2.5 식당이 전부 "어려움" 일 때 이유와 출구를 말한다
+> 메모: 칩 줄은 `src/screens/placesPageActiveChips.tsx` 로 뗐다(엿보기도 읍면 칩을 같이 그려야 손을 놓을 때 줄이 튀지 않는다). 칩은 `activeFilterCount` 가 세는 것 전부(읍면·방향·반려동물 조건·가격 정렬·어려운 곳 숨김·실내 자리 필요) + 검색어 — 버튼 숫자와 칩 수가 어긋나지 않게. 지우기 문구는 `resetFiltersLabel`(placeFilters.ts). 「확인」 은 홈 카페 카드에 애월읍 칩이 없어(상위 3곳: 구좌·성산·대정) 구좌읍으로 했다 — 9곳 → ✕ → 26곳.
+
+### [x] T2.5 식당이 전부 "어려움" 일 때 이유와 출구를 말한다
 
 - 근거: 지수 — "애월" 식당 3곳이 전부 "어려움 · 케이지 필요" → 네이버로 이탈. 07 P2 의 "이동 수단 what-if" 를 **P1 로 당겨** 여기서 한다(07 해당 줄에 "→ 08 T2.5" 표기).
 - 읽을 것: `src/screens/placesPageResults.tsx` · `src/lib/eligibility.ts`(H5·C2) · `src/lib/sortByEligibility.ts`
@@ -263,11 +268,13 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
 - 문서: `pet-policy-and-eligibility.md` 에 "what-if 는 판정을 바꾸지 않고 안내만 한다".
 - 커밋: `feat - 이동 수단 때문에 막힌 식당 수를 알려 주고 프로필로 잇는다`
 
+> 메모: `carrierWhatIf` 는 `countByLevel` 옆(`src/lib/eligibilityCounts.ts`)에 두고 `needsIndoor` 도 판정 옵션으로 넘긴다. 안내 줄은 `PlacesPageResults` 안에서 계산해 스와이프 엿보기도 같은 모양이다. 대형견(H4)은 가방이어도 열리는 곳이 없어 줄이 안 뜬다 — 두부(4kg·없음)로 식당 34곳 중 28곳.
+
 ---
 
 ## P1 — 흐름과 피드백
 
-### [ ] T3.1 공유 버튼을 늘 보인다 — Web Share 가 없으면 링크 복사
+### [x] T3.1 공유 버튼을 늘 보인다 — Web Share 가 없으면 링크 복사
 
 - 근거: 지수 ⑤ — 카톡 인앱·데스크톱에서 공유 버튼이 **없다**(`placeDetailPage.tsx:28-42` 가 `'share' in navigator` 일 때만 그림). 과제 "친구에게 보내기" 실패.
 - 읽을 것: `src/screens/placeDetailPage.tsx` 28~45행과 버튼 렌더부
@@ -279,7 +286,9 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
 - 확인: Playwright(모바일 에뮬레이션, `navigator.share` 없음)로 상세에서 버튼이 보이고 누르면 "복사했어요" 가 뜬다.
 - 커밋: `feat - 공유를 못 하는 브라우저에서도 링크 복사로 보낼 수 있게 한다`
 
-### [ ] T3.2 저장했다는 피드백 — 첫 저장에 토스트
+> 메모: 상태 메시지는 포털이 아니라 **셸 슬롯**으로 했다 — `AppShell` 이 탭바 옆(`<main>` 밖)에 `AppStatusToast` 를 그리고, 띄우는 쪽은 `lib/appStatus.ts` 의 `showAppStatus` 만 부른다(T3.2·T3.3 이 그대로 쓴다). 단계에 없던 `appShell.tsx` 를 한 줄 고쳤다. 공유 글·갈래는 `lib/placeShare.ts`(`shareTextFor`·`shareMethodOf`) 순수 함수. 문서는 `app-shell-and-state.md` v15.
+
+### [x] T3.2 저장했다는 피드백 — 첫 저장에 토스트
 
 - 근거: 지수·D7 — 하트가 채워지는 것 외 피드백 없음, `/saved` 는 탭에 없다.
 - 읽을 것: `src/components/saveButton.tsx` · T3.1 에서 만든 상태 메시지 포털(있으면 재사용)
@@ -288,7 +297,9 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
   2. 접근성 동시 수정(D9): `aria-label` 은 `${name} 저장` 으로 **고정**, 상태는 `aria-pressed` 만.
 - 커밋: `feat - 저장하면 알려 주고 저장한 곳으로 잇는다`
 
-### [ ] T3.3 프로필 저장 뒤 보던 곳으로 돌아간다
+> 메모: T3.1 의 셸 상태 줄(`showAppStatus`)을 그대로 쓴다. 세션 카운터는 `lib/appStatus.ts` 의 `createFirstTimesGate(2)`(테스트 있음) — 해제는 세지 않는다. 문구는 "저장했어요" + 링크 "저장한 곳 보기 ›".
+
+### [x] T3.3 프로필 저장 뒤 보던 곳으로 돌아간다
 
 - 근거: D3 — 상세의 "등록하면…" → 저장 → 무조건 홈. 보던 장소를 잃고, 뒤로가기는 폼으로.
 - 읽을 것: `src/screens/dogProfilePage.tsx`(121행 저장 후 이동) · `src/lib/appHistory.ts` · `src/lib/appRoutes.ts`(`parentRouteOf`)
@@ -298,7 +309,9 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
 - 확인: `/place/<id>` → 등록 링크 → 저장 → 같은 상세로 돌아오고 판정 카드가 채워져 있다. 뒤로가기가 폼으로 가지 않는다.
 - 커밋: `fix - 강아지 정보를 저장하면 보던 화면으로 돌아간다`
 
-### [ ] T3.4 `/places` 를 살린다
+> 메모: 딥링크 쪽은 `AppBar` 와 같이 `markReplacedNavigation()` 뒤 `replace` — 깊이가 늘지 않게. 알림 문구는 `dogProfileSavedMessage`(lib/dogProfile.ts, 애칭 규칙). 「확인」: 숙소 목록 → 솔숲펜션 → 등록 → 저장 → 같은 상세, "보리는 갈 수 있어요" 카드 · 브라우저 뒤로 → `/places/stay/`(폼 아님) · `/dog` 딥링크 저장 → `/settings/`. 문서는 `dog-profile.md` v6.
+
+### [x] T3.4 `/places` 를 살린다
 
 - 근거: D5 · 지수 N11 — `/places` 는 404 인데 404 화면에서 둘러보기 탭에 불이 들어온다.
 - 읽을 것: `src/app/places/[type]/page.tsx` · `src/components/layout/navItems.ts`(28행 `isActive`) · `src/screens/notFoundPage.tsx` · `next.config.mjs`(정적 내보내기)
@@ -309,11 +322,13 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
 - 확인: `pnpm build` 후 `out/places/index.html`(또는 `out/places.html`) 이 생겼는지 · dev 에서 `/places` 가 `/places/stay/` 로 간다.
 - 커밋: `fix - /places 주소를 둘러보기로 보내고 404 에 출구를 둔다`
 
+> 메모: CLAUDE.md 규칙(화면 본체는 `src/screens/`)대로 `app/places/page.tsx` 는 메타만, 리다이렉트·폴백 링크는 `src/screens/placesIndexPage.tsx` 로 뗐다. 404 설명은 "주소가 바뀌었거나 없어진 곳일 수 있어요." 로 남겼다. `navItems.test.ts` 추가(`/placesX` 에서 불 꺼짐). 「확인」: 빌드 후 `out/places/index.html` 있음(폴백 링크 포함) · dev `/places` → `/places/stay/` · `/placesX` 에서 켜진 탭 0개. 문서는 `app-shell-and-state.md` v17.
+
 ---
 
 ## P2 — 정밀화
 
-### [ ] T4.1 경고 글자 대비 — "챙길 것" 박스를 4.5:1 로
+### [x] T4.1 경고 글자 대비 — "챙길 것" 박스를 4.5:1 로
 
 - 근거: D2 — yellow-600 on yellow-50 ≈ 2.9:1, 팔레트 밖 Tailwind 기본 yellow.
 - 읽을 것: `src/styles/theme.css` 의 `--color-text-warning-primary`·`--color-fg-warning-primary` 매핑 · `src/components/missingItemsNote.tsx`
@@ -322,35 +337,43 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
 - 문서: ADR-003 팔레트 표에 한 줄.
 - 커밋: `style - 경고 글자 대비를 4.5:1 로 올린다`
 
-### [ ] T4.2 "켜짐" 스타일을 하나로 — `FilterChip`
+### [x] T4.2 "켜짐" 스타일을 하나로 — `FilterChip`
 
 - 근거: D6 — 칩은 brand-solid, "어려운 곳 숨기기" 는 워시. 토글 파일 주석의 규칙과도 어긋난다.
 - 읽을 것: `src/screens/placesPageFilters.tsx`(101·119·153행) · `src/screens/placesPageEligibilityToggles.tsx` 주석 · `src/screens/placeDetailNearby.tsx`(57행)
 - 단계: `src/components/filterChip.tsx` 신설(`pressed` prop, 켜짐 = `bg-brand-primary text-brand-secondary border-brand`, 44px). 위 세 곳을 이걸로. 지도 칩은 제외(T4.3).
 - 커밋: `refactor - 필터 칩의 켜짐 모양을 FilterChip 하나로 모은다`
 
-### [ ] T4.3 지도 종류 칩이 켜져도 종류 색을 잃지 않게
+> 메모: T2.4 의 `placesPageActiveChips.tsx`(켜진 조건 ✕ 줄)도 옮겼다 — 켜진 모양만 빌리고 `aria-pressed` 는 달지 않는 `toggle={false}`. 꺼짐도 같은 두께 테두리(`border-primary`)라 켜질 때 폭이 안 흔들린다. `filterChip.test.tsx`(renderToStaticMarkup) 추가. 문서 줄이 없어 문서는 그대로 — ADR-003 v5 "켜짐은 워시" 에 코드가 맞춰진 것.
+
+### [x] T4.3 지도 종류 칩이 켜져도 종류 색을 잃지 않게
 
 - 근거: D8
 - 읽을 것: `src/screens/mapPage.tsx` 294~303행 · `src/lib/places.ts` 의 `TYPE_COLOR` · `theme.css` 종류 색
 - 단계: 켜진 칩에서도 흰 원 안에 종류 색 점을 유지. **색 값은 새로 만들지 않는다**(두 곳 동기화 규칙).
 - 커밋: `style - 지도 종류 칩이 켜져도 종류 색 점을 남긴다`
 
-### [ ] T4.4 필터 시트에 결과 수 버튼
+> 메모: 켜짐은 흰 원(`bg-primary`, size-3.5) 안에 `TYPE_COLOR` 점, 꺼짐도 같은 자리를 차지한다. 「확인」: dev 390×844 에서 칩 셋의 켜짐/꺼짐 모양을 봤다 — 샌드박스에선 네이버 지도 인증이 안 돼 지도 캔버스·핀은 못 봤다.
+
+### [x] T4.4 필터 시트에 결과 수 버튼
 
 - 근거: D7 — 시트가 목록을 덮어 즉시 반영이 안 느껴진다.
 - 읽을 것: `src/screens/placesPageFilterSheet.tsx`
 - 단계: 시트 하단 고정 줄에 주 버튼 "N곳 보기"(누르면 닫기만) + 보조 "모두 지우기". 즉시 반영 설계는 그대로. 시트 하단 고정은 시트 내부 sticky 로(`fixed` 금지).
 - 커밋: `feat - 필터 시트에 지금 결과 수를 보이는 닫기 버튼을 둔다`
 
-### [ ] T4.5 몸무게 칸에 보이는 라벨과 kg 접미
+> 메모: 하단 줄은 `sticky` 대신 이미 있던 세로 flex 의 마지막 칸(스크롤 줄 밖, BUG-003 구조)에 뒀다 — 효과가 같고 `fixed` 도 아니다. 숫자는 `results.length`(검색어 포함, 목록 머리 숫자와 같다). 보조 "모두 지우기" 는 켜진 조건이 있을 때만 보인다(예전 "필터 모두 지우기" 를 옮김). 「확인」: 식당 시트 "34곳 보기" → 동쪽 켜면 "15곳 보기" + "모두 지우기".
+
+### [x] T4.5 몸무게 칸에 보이는 라벨과 kg 접미
 
 - 근거: D11
 - 읽을 것: `src/screens/dogProfileDogRows.tsx`(41·57행) · `src/components/base/input.tsx` 의 prop(수정 금지, 읽기만)
 - 단계: 칸 위에 보이는 라벨 "이름"·"몸무게". 몸무게 칸 오른쪽에 고정 "kg" (base Input 이 접미를 지원하면 prop, 아니면 감싸는 래퍼에서 absolute 텍스트).
 - 커밋: `style - 몸무게 칸에 라벨과 kg 단위를 늘 보인다`
 
-### [ ] T4.6 문구 정리 — 내부어·띄어쓰기
+> 메모: base Input 에 접미 prop 이 없어 감싸개에서 absolute "kg"(에러 아이콘이 뜨면 그 왼쪽으로 비킨다). 라벨은 Input 의 `label` prop + aria-label 은 "N번째 강아지" 만 — 읽히는 이름이 "1번째 강아지 이름/몸무게" 가 된다. 자리표시 글자는 "kg" → "예: 7". 칸 위 라벨 때문에 ✕ 가 라벨 줄에 서서 빈 라벨 줄을 받쳐 입력 칸 높이에 맞췄다. 데스크톱 숫자 스피너는 kg 와 겹쳐 숨겼다. 「확인」: `/dog` 두 마리·몸무게 0 에러 상태를 390×844 로 봤다.
+
+### [x] T4.6 문구 정리 — 내부어·띄어쓰기
 
 - 근거: D12
 - 읽을 것: `src/screens/placeDetailEligibilityCard.tsx`(52행) · `src/screens/dogProfileSizeOverride.tsx`(39~41행) · `grep -rn "판정" src/screens src/components --include=*.tsx` 의 **사용자에게 보이는 문자열만**
@@ -360,7 +383,9 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
   - 화면 문자열의 "판정" → "갈 수 있는지"/"우리 강아지 기준" 등 문맥에 맞게. 주석·변수명은 그대로.
 - 커밋: `style - 화면 문구에서 내부 용어를 걷어 낸다`
 
-### [ ] T4.7 스와이프 일방통행을 푼다
+> 메모: 화면 문자열의 "판정" 은 상세 배너 하나뿐이었다(나머지는 주석). 크기 접힘은 직접 고른 값이 있으면 "크기: 중형견(직접 골랐어요)" — 몸무게 값을 계속 보이면 고친 게 안 먹은 것처럼 읽혀서. 같은 접힘 안의 "자동 계산값 사용"·"자동 계산으로 되돌리기" 도 "몸무게로 정한 크기 쓰기/로 되돌리기" 로 맞췄다. 문서 줄은 없지만 `dog-profile.md` 가 옛 배너 문구를 인용하고 있어 v7 로 고쳤다.
+
+### [x] T4.7 스와이프 일방통행을 푼다
 
 - 근거: D10 — 홈 → 지도는 밀리는데 지도에서는 스와이프가 시작 안 된다.
 - 읽을 것: [ADR-014](../decisions/ADR-014-shell-owned-swipe-pager.md) · `src/lib/appRoutes.ts:82`(`canStartSwipeAt(pathname)` — 지금은 경로만 받는다) · `src/components/layout/appShellSwipe.ts`(218행 부근 `if (event.clientX < BACK_SWIPE_EDGE_PX) return;`) · `src/lib/swipePager.ts:65`(`BACK_SWIPE_EDGE_PX = 24` — **iOS 뒤로가기 제스처와 겹치지 않게 왼쪽 24px 는 일부러 막혀 있다**) · `appRoutes.test.ts`(110행 부근 `/map` false 케이스)
@@ -372,13 +397,17 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
 - 문서: ADR-014 에 한 줄(지도 가장자리 예외).
 - 커밋: `feat - 지도 화면 가장자리에서도 좌우로 넘길 수 있게 한다`
 
-### [ ] T4.8 준비물의 기내용 가방 ↔ 프로필 이동 수단을 한 번 잇는다
+> 메모: 옛 `canStartSwipeAt(path)` 가 하던 두 일(핸들러를 달지·`touch-action: pan-y` 를 걸지)을 `hasSwipeSurface`·`takesHorizontalPan` 으로 떼었다 — 지도엔 핸들러는 달되 pan-y 는 여전히 안 건다. 「확인」: 390×844 모바일 에뮬레이션(CDP 터치)에서 지도 가운데 ← 는 그대로 · 오른쪽 끝 ← → `/places/stay/` · 왼쪽 30px → → `/` · 왼쪽 10px 는 셸이 안 받음(브라우저 뒤로가기 몫). 샌드박스에선 네이버 지도 캔버스가 안 떠 **실제 지도 끌기와 가장자리 띠가 겹칠 때**는 못 봤다 — 실기기 확인 필요.
+
+### [x] T4.8 준비물의 기내용 가방 ↔ 프로필 이동 수단을 한 번 잇는다
 
 - 근거: 지수 N5 — 준비물에서 "기내용 가방" 을 체크했는데 프로필은 `none` 이라 식당 판정이 그대로다.
 - 읽을 것: `src/screens/checklistPageItemRow.tsx`(props: `item, checked, provided, expanded, onToggleChecked, onToggleExpanded` — 강아지 정보가 없다) · 부모 `src/screens/checklistPageGroupList.tsx` · `src/lib/places.ts` 의 `ITEMS`(items.json 의 "(5kg 이하)"·"(5kg 이상)" 두 줄을 이름 `강아지 기내용 가방` 하나로 합친다) · `src/store/useAppStore.ts`(`dog`, `setDog`) · ADR-009
 - 단계: 항목은 `item.name === '강아지 기내용 가방'` 으로 찾는다(id 로 찾지 않는다). 행 안에서 스토어의 `dog`·`setDog` 를 읽는다. 그 항목을 **체크하는 순간** `dog?.carrier === 'none'` 이면 행 아래에 한 번 "우리 강아지 이동 수단도 '이동가방' 으로 바꿀까요? [바꾸기] [괜찮아요]". [바꾸기] → `setDog({...dog, carrier: 'bag'})`. 판정 로직·`ITEM_NEEDS` 무변경.
 - 문서: `docs/features/checklist.md` — "준비물이 프로필을 바꾸자고 **묻기만** 한다(ADR-009 의 반대 방향은 여전히 금지)".
 - 커밋: `feat - 준비물에서 가방을 챙기면 프로필 이동 수단도 바꿀지 묻는다`
+
+> 메모: `items.json` 두 줄은 이미 `ITEM_VARIANTS` 로 `강아지 기내용 가방` 하나로 합쳐져 있어 데이터는 안 건드렸다. 조건은 `lib/checklist.ts` 의 `shouldAskCarrierBag`(테스트 6개). [바꾸기] 뒤 셸 상태 줄 "이동 수단을 이동가방으로 바꿨어요"(T3.1 포털). `ITEM_NEEDS`·판정 로직 무변경. 「확인」: `/checklist` 에서 carrier none 프로필로 체크 → 물음 → [바꾸기] 후 localStorage carrier = bag.
 
 ---
 

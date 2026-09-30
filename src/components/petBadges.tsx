@@ -1,4 +1,5 @@
-import { Badge } from './base/badges';
+import { Check } from '@untitledui/icons';
+import { Badge, BadgeWithIcon } from './base/badges';
 import type { BadgeColors } from './base/badge-types';
 import { NO_INFO_BADGE_LABEL, toPetBadges, type TBadgeTone, type TPetPolicy } from '../lib/petPolicy';
 
@@ -14,9 +15,13 @@ import { NO_INFO_BADGE_LABEL, toPetBadges, type TBadgeTone, type TPetPolicy } fr
  * 이제 앰버로 돌아오되 theme.css 에서 채도를 0.110 까지 눌러 뒀다 — 원래 충돌은 채도 높은
  * 앰버끼리의 일이었고, 작은 칩과 큰 파스텔 워시는 형태가 달라 같은 색상대라도 부딪히지 않는다.
  * 판정 배지의 cond("확인이 필요해요")와 같은 앰버를 쓰는 것도 의도다: 이 앱에서 앰버는 언제나 "주의" 를 뜻한다.
+ *
+ * ok 는 brand 핑크였다가 **gray + 체크 아이콘**으로 내렸다 — "실내 OK" 가 판정 "갈 수 있어요" 와 같은
+ * 핑크 알약이라 원문 속성이 판정처럼 읽혔다(D1). brand 핑크는 판정 ok 전용으로 남긴다(ADR-003).
+ * 같은 gray 인 cond 와는 체크 아이콘이 가른다.
  */
 const TONE_COLOR: Record<TBadgeTone, BadgeColors> = {
-  ok: 'brand',
+  ok: 'gray',
   cond: 'gray',
   warn: 'orange',
 };
@@ -44,9 +49,15 @@ export function PetBadges({ policy, limit, hideNoInfo = false, className = '' }:
     <ul className={`flex flex-wrap items-center gap-1 ${className}`}>
       {shown.map((badge) => (
         <li key={badge.label}>
-          <Badge type="color" size="sm" color={TONE_COLOR[badge.tone]}>
-            {badge.label}
-          </Badge>
+          {badge.tone === 'ok' ? (
+            <BadgeWithIcon type="color" size="sm" color={TONE_COLOR.ok} iconLeading={Check}>
+              {badge.label}
+            </BadgeWithIcon>
+          ) : (
+            <Badge type="color" size="sm" color={TONE_COLOR[badge.tone]}>
+              {badge.label}
+            </Badge>
+          )}
         </li>
       ))}
       {hidden > 0 && <li className="text-xs font-semibold text-tertiary">+{hidden}</li>}

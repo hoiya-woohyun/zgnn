@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { ITEM_NEEDS, itemsNeededAt, itemsNeededForTrip, missingItemsAt } from './itemNeeds';
+import {
+  ITEM_NEEDS,
+  itemsNeededAt,
+  itemsNeededForTrip,
+  missingItemsAt,
+  shouldShowMissingItems,
+} from './itemNeeds';
 import { parsePetPolicy } from './petPolicy';
 import { ITEMS } from './places';
 import type { TPlaceEntry } from './places';
@@ -105,5 +111,21 @@ describe('missingItemsAt', () => {
     const without = placeOf('stay', '', '없음');
     expect(missingItemsAt(withBedding, null, []).map((i) => i.name)).not.toContain('얇은 이불/담요');
     expect(missingItemsAt(without, null, []).map((i) => i.name)).toContain('얇은 이불/담요');
+  });
+});
+
+describe('shouldShowMissingItems', () => {
+  it('어려움이면 넛지를 띄우지 않는다 — 못 간다면서 챙기라고 하지 않게', () => {
+    expect(shouldShowMissingItems('hard')).toBe(false);
+  });
+
+  it('갈 수 있음·확인·정보 없음이면 띄운다', () => {
+    expect(shouldShowMissingItems('ok')).toBe(true);
+    expect(shouldShowMissingItems('cond')).toBe(true);
+    expect(shouldShowMissingItems('unknown')).toBe(true);
+  });
+
+  it('프로필이 없어 판정이 없으면 띄운다', () => {
+    expect(shouldShowMissingItems(undefined)).toBe(true);
   });
 });

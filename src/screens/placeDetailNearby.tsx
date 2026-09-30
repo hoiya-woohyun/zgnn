@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Button } from '../components/base/button';
 import { EligibilityBadge } from '../components/eligibilityBadge';
+import { FilterChip } from '../components/filterChip';
 import { PetBadges } from '../components/petBadges';
 import { PlaceThumb } from '../components/placeThumb';
 import { TownChip } from '../components/townChip';
@@ -52,16 +52,9 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
         aria-label="근처 장소 종류"
       >
         {NEARBY_FILTERS.map((option) => (
-          <Button
-            key={option.id}
-            size="sm"
-            color={filter === option.id ? 'primary' : 'secondary'}
-            aria-pressed={filter === option.id}
-            className="h-11 shrink-0"
-            onClick={() => setFilter(option.id)}
-          >
+          <FilterChip key={option.id} pressed={filter === option.id} onClick={() => setFilter(option.id)}>
             {option.label}
-          </Button>
+          </FilterChip>
         ))}
       </div>
 

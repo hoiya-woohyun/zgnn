@@ -25,7 +25,8 @@ export const NAV_ITEMS: TNavItem[] = [
     to: '/places/stay',
     label: '둘러보기',
     Icon: Compass01,
-    isActive: (path) => path.startsWith('/places') || path.startsWith('/place/'),
+    // `/places/` 까지 본다 — `/places` 로만 보면 `/placesX` 같은 404 에서도 불이 들어왔다(D5).
+    isActive: (path) => path.startsWith('/places/') || path.startsWith('/place/'),
   },
   {
     to: '/checklist',

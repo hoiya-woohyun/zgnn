@@ -12,9 +12,11 @@ import {
 import {
   SWIPE_ROUTES,
   canStartSwipeAt,
+  hasSwipeSurface,
   isWithinPlacesSwipe,
   normalizeRoute,
   swipeIndexOf,
+  takesHorizontalPan,
 } from '../../lib/appRoutes';
 import { rememberScroll } from '../../lib/appScroll';
 import { PLACE_TYPES } from '../../lib/places';
@@ -98,7 +100,8 @@ const markPlacesArrival = (route: string) => {
 export function useAppShellSwipe(pathname: string) {
   const router = useRouter();
   const index = swipeIndexOf(pathname);
-  const enabled = canStartSwipeAt(pathname);
+  const hasSurface = hasSwipeSurface(pathname);
+  const enabled = takesHorizontalPan(pathname);
 
   const leftRoute = index > 0 && !isWithinPlacesSwipe(index, index - 1) ? SWIPE_ROUTES[index - 1] : null;
   const rightRoute =
@@ -214,8 +217,10 @@ export function useAppShellSwipe(pathname: string) {
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     swiped.current = false;
-    if (!enabled || event.pointerType !== 'touch' || settling.current || gesture.current) return;
+    if (!hasSurface || event.pointerType !== 'touch' || settling.current || gesture.current) return;
     if (event.clientX < BACK_SWIPE_EDGE_PX) return;
+    // 지도는 가장자리 띠에서만 시작한다(canStartSwipeAt). 위의 왼쪽 24px 가드는 그것과 별개로 늘 선다.
+    if (!canStartSwipeAt(pathname, event.clientX, window.innerWidth)) return;
     /*
      * 시트·대화상자 안에서 시작한 제스처는 그쪽 것이다. 바텀시트는 react-aria 가 포털로
      * 띄우지만 **React 이벤트는 포털을 넘어 컴포넌트 트리로 거슬러 올라오므로** 여기까지
@@ -319,8 +324,8 @@ export function useAppShellSwipe(pathname: string) {
     mainRef,
     leftRef,
     rightRef,
-    /** 스와이프를 시작할 수 없는 화면(지도·하위 화면)에서는 아예 달지 않는다. */
-    surfaceProps: enabled
+    /** 탭바 밖 화면(하위 화면)에서는 아예 달지 않는다. 지도는 달되 가장자리에서만 시작한다. */
+    surfaceProps: hasSurface
       ? { onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onClickCapture }
       : {},
   };

@@ -6,6 +6,7 @@
  */
 
 import type { TCarrier, TDogEntry, TDogProfile, TDogSize } from '../types';
+import { dogCallNames } from './korean';
 
 export const MAX_DOGS = 3;
 export const DOG_NAME_MAX_LENGTH = 12;
@@ -72,3 +73,11 @@ export const sanitizeDog = (value: unknown): TDogProfile | null => {
     : undefined;
   return { dogs, carrier: candidate.carrier as TCarrier, sizeOverride };
 };
+
+/**
+ * 프로필을 저장하고 보던 화면으로 돌아왔을 때 뜨는 한 줄("보리 기준으로 바꿨어요").
+ * 돌아온 화면의 판정이 방금 적은 강아지 기준이라는 것을 말한다 — 말없이 돌아오면 저장이 됐는지,
+ * 판정이 바뀐 건지 알 수 없다. 이름은 상세 카드와 같은 애칭 규칙(`dogCallNames`).
+ */
+export const dogProfileSavedMessage = (dogs: TDogEntry[]): string =>
+  `${dogCallNames(dogs.map((d) => d.name))} 기준으로 바꿨어요`;

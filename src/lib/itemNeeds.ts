@@ -15,6 +15,7 @@
 import { resolveProvidedItemIds } from './amenities';
 import { ITEMS } from './places';
 import { visibleItems } from './seasonItems';
+import type { TEligibilityLevel } from './eligibility';
 import type { TPlaceEntry } from './places';
 import type { TSeasonFilter } from '../store/useAppStore';
 import type { TItem, TPlaceType } from '../types';
@@ -111,6 +112,15 @@ export const missingItemsAt = (
   const provided = resolveProvidedItemIds(place.stay?.amenitiesText, needed);
   return needed.filter((item) => !checkedItemIds.includes(item.id) && !provided.has(item.id));
 };
+
+/**
+ * 장소 하나에 "챙기면 좋은 것" 넛지를 띄울지. **어려움(`hard`)이면 띄우지 않는다** —
+ * 판정은 "못 가요" 라고 하는데 그 아래에서 "여기 갈 때 챙기라" 고 하면 한 화면이 서로 반대를
+ * 말한다(ADR-009 가 막으려던 모양이 넛지로 새로 생겼다). 프로필이 없으면(`undefined`) 판정이
+ * 없으니 넛지는 그대로 띄운다.
+ */
+export const shouldShowMissingItems = (level: TEligibilityLevel | undefined): boolean =>
+  level !== 'hard';
 
 /** 저장한 숙소들이 대신 갖고 있는 준비물. 한 곳이라도 갖고 있으면 챙긴 것으로 본다. */
 export const tripProvidedItemIds = (places: TPlaceEntry[], items: TItem[]): Set<string> => {

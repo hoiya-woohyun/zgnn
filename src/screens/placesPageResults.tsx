@@ -1,11 +1,26 @@
 'use client';
 
+import { useMemo } from 'react';
+import Link from 'next/link';
 import { SearchMd } from '@untitledui/icons';
+import { PlacesPageActiveChips, type TActiveChip } from './placesPageActiveChips';
 import { PlaceCard } from '../components/placeCard';
 import { EmptyState } from '../components/layout/emptyState';
 import { Button } from '../components/base/button';
+import type { TEligibilityLevel } from '../lib/eligibility';
+import { carrierWhatIf, countByLevel } from '../lib/eligibilityCounts';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
+import { useAppStore } from '../store/useAppStore';
 import type { TPlaceType } from '../types';
+
+// 목록 머리의 레벨 이름. 홈 종류 카드("가능 3 · 확인 3")와 같은 말을 쓴다 — 배지 문구
+// ("갈 수 있어요"…)를 그대로 늘어놓으면 한 줄에 안 들어간다.
+const LEVEL_SHORT: [TEligibilityLevel, string][] = [
+  ['ok', '가능'],
+  ['cond', '확인'],
+  ['unknown', '정보 없음'],
+  ['hard', '어려움'],
+];
 
 type TPlacesPageResultsProps = {
   type: TPlaceType;
@@ -14,6 +29,10 @@ type TPlacesPageResultsProps = {
   /** 이 종류에 그 읍면 자체가 없다(조건과 무관하게 0곳). 전용 빈 상태를 보여준다. */
   townHasNoPlaces: boolean;
   hasFilters: boolean;
+  /** 지우기 링크 문구(`resetFiltersLabel`) — 검색어만이면 "검색 지우기", 둘 다면 "모두 지우기". */
+  resetLabel: string;
+  /** 켜진 조건 칩 줄. 비어 있으면 줄을 그리지 않는다. */
+  activeChips: TActiveChip[];
   onResetFilters: () => void;
   /** 모바일 필터 시트를 연다. 빈 상태의 버튼이 쓴다 — md 부터는 조건 판이 펼쳐져 있어 버튼 자체를 숨긴다. */
   onOpenFilters: () => void;
@@ -32,14 +51,38 @@ export function PlacesPageResults({
   results,
   townHasNoPlaces,
   hasFilters,
+  resetLabel,
+  activeChips,
   onResetFilters,
   onOpenFilters,
 }: TPlacesPageResultsProps) {
+  const dog = useAppStore((state) => state.dog);
+  const needsIndoor = useAppStore((state) => state.needsIndoor);
+  // 홈 카드와 같은 함수로 센다(T2.2). 엿보기도 이 컴포넌트를 쓰므로 두 화면의 수가 저절로 같다.
+  // 0 인 레벨은 빼서 줄을 짧게 둔다 — "어려움 0" 은 읽을 거리가 아니다.
+  const levelSummary = useMemo(() => {
+    if (!dog) return '';
+    const counts = countByLevel(results, dog, { needsIndoor });
+    return LEVEL_SHORT.filter(([level]) => counts[level] > 0)
+      .map(([level, label]) => ` · ${label} ${counts[level]}`)
+      .join('');
+  }, [results, dog, needsIndoor]);
+
+  // 식당이 "어려움 · 케이지 필요" 로 줄지어 막혔을 때, 이동가방이면 몇 곳이 열리는지(T2.5).
+  // 판정은 그대로 두고 안내만 한다 — 가방이 있는데 "없어요" 로 저장한 사람에게 고칠 길을 준다.
+  // 식당만: 케이지 필수는 식당 원문의 말이고, 숙소·카페엔 해당 곳이 거의 없어 늘 빈 줄이 된다.
+  const whatIf = useMemo(
+    () => (dog && type === 'restaurant' ? carrierWhatIf(results, dog, { needsIndoor }) : null),
+    [results, dog, needsIndoor, type],
+  );
+
   return (
     <>
       <div className="flex items-center justify-between px-4 pt-4 md:px-6">
         <div>
-          <p className="text-sm text-tertiary">{results.length}곳</p>
+          <p className="text-sm text-tertiary">
+            {results.length}곳{levelSummary}
+          </p>
           {/* 조건을 여러 개 겹쳐 0~1곳만 남았을 때 "왜 이렇게 적지" 하고 이탈하지 않도록
               조건을 하나 풀어보라고 먼저 알려준다(2026-09-15 리뷰 §1 — 세 필터 켜면 0~1곳 안내 없음). */}
           {hasFilters && results.length === 1 && (
@@ -48,10 +91,24 @@ export function PlacesPageResults({
         </div>
         {hasFilters && (
           <Button color="link-color" size="sm" className="min-h-11" onClick={onResetFilters}>
-            필터 지우기
+            {resetLabel}
           </Button>
         )}
       </div>
+
+      <PlacesPageActiveChips chips={activeChips} />
+
+      {whatIf && (
+        <p className="mx-4 mt-3 rounded-xl border border-secondary bg-primary px-3 pt-2 text-sm text-secondary md:mx-6">
+          이동가방이 있으면 {whatIf.opened}곳이 &lsquo;확인 필요&rsquo; 로 바뀌어요
+          <Link
+            href="/dog"
+            className="flex min-h-11 items-center font-semibold text-brand-secondary hover:text-brand-secondary_hover"
+          >
+            우리 강아지 정보 고치기 ›
+          </Link>
+        </p>
+      )}
 
       {results.length > 0 ? (
         <ul className="mt-3 space-y-3 px-4 md:px-6">
@@ -63,7 +120,7 @@ export function PlacesPageResults({
         /*
           빈 상태의 버튼은 필터를 *지우지* 않고 *열어* 준다. "다른 읍면을 골라 보세요" 라고
           써 놓고 버튼이 읍면을 지우기만 하면 글과 동작이 반대를 말한다. 전부 지우는 길은
-          위의 "필터 지우기" 링크가 그대로 맡는다.
+          위의 지우기 링크가 그대로 맡는다.
         */
         <div className="px-4 pt-6 md:px-6">
           <EmptyState

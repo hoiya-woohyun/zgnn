@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   SWIPE_ROUTES,
   canStartSwipeAt,
+  hasSwipeSurface,
   isRootRoute,
   isWithinPlacesSwipe,
   parentRouteOf,
   swipeIndexOf,
+  takesHorizontalPan,
 } from './appRoutes';
 import { PLACES } from './places';
 
@@ -106,18 +108,54 @@ describe('isWithinPlacesSwipe — 제스처의 주인을 가른다', () => {
 });
 
 describe('canStartSwipeAt — 어디서 밀기 시작할 수 있나', () => {
-  it('지도는 제외다 — 가로로 끄는 동작이 이미 지도의 것이다', () => {
-    expect(canStartSwipeAt('/map')).toBe(false);
+  const W = 390;
+
+  describe('지도는 가장자리 띠에서만 — 가운데 가로 끌기는 네이버 지도의 것이다', () => {
+    it('가운데는 안 된다', () => {
+      expect(canStartSwipeAt('/map', W / 2, W)).toBe(false);
+    });
+
+    it('왼쪽 두 번째 띠(24 < x < 48)는 된다 — 맨 왼쪽 24px 는 iOS 뒤로가기 몫이라 그다음 띠', () => {
+      expect(canStartSwipeAt('/map', 30, W)).toBe(true);
+    });
+
+    it('맨 왼쪽 24px 는 안 된다 — iOS 뒤로가기 제스처와 겹친다', () => {
+      expect(canStartSwipeAt('/map', 10, W)).toBe(false);
+      expect(canStartSwipeAt('/map', 24, W)).toBe(false);
+    });
+
+    it('두 번째 띠를 넘으면(48px~) 다시 지도의 것이다', () => {
+      expect(canStartSwipeAt('/map', 48, W)).toBe(false);
+    });
+
+    it('오른쪽 끝 24px 는 된다', () => {
+      expect(canStartSwipeAt('/map', W - 10, W)).toBe(true);
+      expect(canStartSwipeAt('/map', W - 30, W)).toBe(false);
+    });
   });
 
-  it('지도를 뺀 탭바 화면에서는 시작할 수 있다', () => {
+  it('지도를 뺀 탭바 화면에서는 자리와 무관하게 시작할 수 있다', () => {
     for (const route of SWIPE_ROUTES.filter((value) => value !== '/map')) {
-      expect(canStartSwipeAt(route)).toBe(true);
+      expect(canStartSwipeAt(route, W / 2, W)).toBe(true);
     }
   });
 
   it('하위 화면에서는 시작할 수 없다 — 거기엔 뒤로가기가 있다', () => {
-    expect(canStartSwipeAt(`/place/${cafeId}`)).toBe(false);
-    expect(canStartSwipeAt('/saved')).toBe(false);
+    expect(canStartSwipeAt(`/place/${cafeId}`, W / 2, W)).toBe(false);
+    expect(canStartSwipeAt('/saved', W - 10, W)).toBe(false);
+  });
+});
+
+describe('hasSwipeSurface · takesHorizontalPan', () => {
+  it('지도에도 표면은 달지만 가로 pan 은 받지 않는다 — 지도를 끄는 동작을 브라우저가 가로채지 않게', () => {
+    expect(hasSwipeSurface('/map')).toBe(true);
+    expect(takesHorizontalPan('/map')).toBe(false);
+  });
+
+  it('다른 탭바 화면은 둘 다, 하위 화면은 둘 다 아니다', () => {
+    expect(hasSwipeSurface('/checklist')).toBe(true);
+    expect(takesHorizontalPan('/checklist')).toBe(true);
+    expect(hasSwipeSurface(`/place/${cafeId}`)).toBe(false);
+    expect(takesHorizontalPan(`/place/${cafeId}`)).toBe(false);
   });
 });

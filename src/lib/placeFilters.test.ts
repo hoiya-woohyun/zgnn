@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parsePetPolicy } from './petPolicy';
-import { PET_FILTERS } from './placeFilters';
+import { PET_FILTERS, resetFiltersLabel } from './placeFilters';
 
 const filter = (key: string, text: string) =>
   PET_FILTERS.stay.find((f) => f.key === key)!.test(parsePetPolicy(text));
@@ -12,5 +12,13 @@ describe('PET_FILTERS — 숙소', () => {
     expect(filter('multiDog', '견종 제한, 견수 제한 없음.\n반려동물 추가금 없음.')).toBe(true);
     expect(filter('multiDog', '5kg 이하의 1마리만 가능.')).toBe(false);
     expect(filter('multiDog', '1마리당 5만원.')).toBe(false);
+  });
+});
+
+describe('resetFiltersLabel — 지우는 것을 그대로 말한다', () => {
+  it('검색어만 → 검색 지우기 · 조건만 → 필터 지우기 · 둘 다 → 모두 지우기', () => {
+    expect(resetFiltersLabel(true, 0)).toBe('검색 지우기');
+    expect(resetFiltersLabel(false, 2)).toBe('필터 지우기');
+    expect(resetFiltersLabel(true, 1)).toBe('모두 지우기');
   });
 });

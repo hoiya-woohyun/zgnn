@@ -1,6 +1,10 @@
 # 라우팅 · 화면 셸 · 클라이언트 상태
 
-> 최종 수정: 2026-09-29 (v15: `<main>` 의 폭이 **세 갈래**가 됐다 — `appShellSurface.ts` 의 `surfaceKindOf` 가 주소 하나를 규격 하나로 옮긴다.
+> 최종 수정: 2026-09-29 (v18: 종류가 빠진 `/places` 가 404 대신 숙소로 간다 — 서버 리다이렉트가 없어 페이지 하나가 브라우저에서 `replace`. 둘러보기 탭은 `/places/` 부터 켜져 404 에서 불이 들어오지 않고, 404 는 "홈으로"·"둘러보기로" 두 출구)
+> 이전 (v17: 저장하면 같은 상태 줄에 "저장했어요 · 저장한 곳 보기 ›" — `/saved` 가 탭바에 없어 처음 두 번만 길을 알려 준다. 하트 이름표는 고정, 상태는 `aria-pressed` 만)
+> 이전 (v16: **잠깐 뜨는 상태 한 줄은 셸이 `<main>` 밖에 그린다**(`AppStatusToast` · `lib/appStatus.ts`) — 첫 사용처는 상세 공유 버튼의
+> 링크 복사 알림. 공유 버튼은 이제 늘 보이고, Web Share 가 없으면 누른 순간 링크 복사로 간다)
+> 이전 (v15: `<main>` 의 폭이 **세 갈래**가 됐다 — `appShellSurface.ts` 의 `surfaceKindOf` 가 주소 하나를 규격 하나로 옮긴다.
 > `/admin` 은 읽는 화면이 아니라 훑는 표라 `max-w-7xl` 이고, 크기 축도 그 화면만 기준값에 못 박혀 있다 → [ADR-018 결정 10](../decisions/ADR-018-in-app-admin-review.md))
 > 이전 (v14: **숨은 운영자 화면 `/admin` 이 생겼다** — 탭바·스와이프 수열·루트 목록 어디에도 넣지 않았고, 셸의 "모르는 경로는 하위 화면"
 > 기본값이 뒤로가기를 붙인다(`parentRouteOf('/admin') → '/'`). 세션이 localStorage 에만 있어 서버가 그릴 수 없으므로 `/map` 과 같은 `dynamic(ssr:false)` 를 쓴다 → [ADR-018](../decisions/ADR-018-in-app-admin-review.md))
@@ -35,6 +39,10 @@ src/app/place/[id]/page.tsx   ─ 서버: generateStaticParams(86개) · generat
 - `src/screens/` 라는 이름은 Next 가 `src/pages/` 를 Pages Router 로 오인하기 때문이다.
 - `/places/[type]` 은 종류 3개, `/place/[id]` 는 장소 86개를 빌드 때 전부 만들고, 그 밖의 주소는 404(`dynamicParams = false`).
   없는 id 에 빈 화면 대신 404 를 내기 위해서다.
+- 종류가 빠진 `/places` 는 `src/app/places/page.tsx`(→ `placesIndexPage`)가 받아 브라우저에서 `/places/stay` 로 `replace` 한다.
+  정적 내보내기라 서버 리다이렉트가 없고, `vercel.json` 에 리다이렉트를 넣는 길은 택하지 않았다(배포 설정을 건드리면 BUG-005 처럼
+  빌드는 초록인데 배포만 깨진다). 스크립트가 늦어도 갈 곳이 보이게 "둘러보기로 가기" 링크를 정적 HTML 에 먼저 그린다.
+  둘러보기 탭의 불은 `/places/` 부터 켠다 — `/places` 접두어로만 보면 `/placesX` 같은 404 에서도 켜졌다.
 - `/admin`(운영자 검수 화면)도 같은 장치를 쓴다 — `src/app/admin/adminRouteClient.tsx` 가 `dynamic(..., { ssr: false })` 로 감싼다.
   이유는 SDK 가 아니라 **세션**이다: 로그인 상태가 localStorage 에만 있어 서버가 그릴 화면이 로그인 폼과 목록 중 어느 쪽인지 알 수 없다.
   이 화면은 탭바(`navItems.ts`)·스와이프 수열(`SWIPE_ROUTES`)·루트 목록(`ROOT_ROUTES`) 어디에도 없다 — 즉 **아무것도 등록하지 않는 것이 설정**이고,
@@ -296,6 +304,26 @@ Untitled UI 의 `Select` 는 트리거 폭에 맞춘 앵커 팝오버(최대 224
   인셋만 필요한 탭바는 `pb-safe` 를 그대로 쓴다.
 - `base/select-item.tsx` 의 `sm` 행에 `min-h-11` 을 넣었다(Untitled 복사본이지만 `select-shared.tsx` 의
   트리거 44px 조정과 같은 선례). 트리거만 44px 이고 드롭다운 행은 38px 이던 불일치를 맞춘 것.
+
+### 잠깐 뜨는 상태 한 줄 — 셸이 `<main>` 밖에 그린다 (`AppStatusToast`)
+
+"링크를 복사했어요" 같은 알림은 화면이 아니라 셸이 그린다. 두 가지 이유가 있다.
+
+- **자리**: 스와이프 중 `<main>` 에 transform 이 걸리면 그 안의 `fixed` 는 화면이 아니라 `<main>` 을
+  기준으로 삼는다(ADR-014). 알림이 끌리는 화면과 함께 밀려나지 않게 탭바와 같은 층(셸 루트)에 둔다.
+- **수명**: 띄우자마자 화면이 바뀌는 경우(저장 뒤 돌아가기)에도 살아남아야 한다. 그래서 값은 React 밖
+  모듈 변수(`lib/appStatus.ts` 의 `showAppStatus`)에 있고 셸이 `useSyncExternalStore` 로 읽는다.
+
+한 번에 하나만 보이고 새 것이 이전 것을 갈아 끼운다(줄 세우면 지나간 동작의 알림이 늦게 뜬다).
+
+쓰는 곳: 상세 공유의 링크 복사 · 저장(`SaveButton`). 저장 알림은 **세션에서 처음 두 번만** 뜬다
+(`createFirstTimesGate` — 퍼시스트하지 않는다). `/saved` 는 탭바에 없어 처음엔 길을 알려 줘야 하지만,
+하트를 연달아 누르는 사람에게 매번 뜨면 소음이다. 해제는 알리지 않는다 — 하트가 비는 것으로 충분하다.
+`role="status"` 상자는 비어 있어도 늘 DOM 에 둔다 — 라이브 영역은 먼저 있어야 바뀐 글을 읽어 준다.
+
+**하이드레이션**: 상세의 공유 버튼은 예전에 `'share' in navigator` 일 때만 그려서 카톡 인앱·데스크톱에선
+아예 없었다. 지금은 **늘 그리고**, 공유(Web Share)냐 링크 복사냐는 누른 순간에만 가른다
+(`lib/placeShare.ts` 의 `shareMethodOf`) — 버튼의 존재가 서버·클라에서 같아 미리 그린 HTML 과 어긋날 일이 없다.
 
 ### react-aria 링크와 Next 라우터
 

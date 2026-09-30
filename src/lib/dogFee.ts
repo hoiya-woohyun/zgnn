@@ -4,7 +4,8 @@
  * 원칙은 파서와 같다 — **숫자를 지어내지 않는다.** 마릿수만큼 곱해도 되는 것이 원문에서 확실할
  * 때만 곱한다: "1마리당 3만원" 같은 마리당 단일 금액, 또는 모든 마리가 각자 들어가는 무게 구간의
  * 단일 금액. 범위 금액("1-2만원")·단위가 불명한 금액("5만원")·청소비 같은 줄은 곱하지 않고
- * "{이름들} · {원문 줄}" 로 그대로 보여준다.
+ * "원문 요금 · {원문 줄}" 로 그대로 보여준다. **이름은 곱셈이 성립했을 때만 붙인다** —
+ * "대장이와 초코 · 청소비 5만원" 은 우리가 낼 돈이 확정된 것처럼 읽혔다(원문 줄일 뿐인데).
  *
  * 줄을 고르는 순서는 예전 `feeForDog` 그대로다: 최대 몸무게가 들어가는 구간 줄 → 구간이 아닌 첫
  * 줄 → 없으면 비운다. 28kg 강아지에게 "1~5kg 1만원" 을 이름까지 붙여 확정된 숫자처럼 보여주지
@@ -108,5 +109,6 @@ export const formatDogFee = (policy: TPetPolicy, dog: TDogProfile): string | und
   const shown = policy.feeLines.filter(
     (candidate) => candidate === line || (/마리|kg/i.test(candidate) && !RANGE_RE.test(candidate)),
   );
-  return `${names} · ${shown.map(stripLine).join(' · ')}`;
+  // 이름을 붙이지 않는다 — 곱하지 못한 줄은 "우리 강아지 기준" 이 아니라 원문을 옮긴 것이다.
+  return `원문 요금 · ${shown.map(stripLine).join(' · ')}`;
 };

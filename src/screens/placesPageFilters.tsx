@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import { Button } from '../components/base/button';
 import { Select } from '../components/base/select';
+import { FilterChip } from '../components/filterChip';
 import { DIRECTIONS, DIRECTION_LABEL, topTowns } from '../lib/places';
 import { PET_FILTERS, type TPetFilterKey, type TPriceSort } from '../lib/placeFilters';
 import type { TDirection, TPlaceType } from '../types';
@@ -26,7 +26,7 @@ type TPlacesPageFiltersProps = {
   onChangeSort: (sort: TPriceSort) => void;
 };
 
-const SORT_OPTIONS: { id: TPriceSort; label: string }[] = [
+export const SORT_OPTIONS: { id: TPriceSort; label: string }[] = [
   { id: 'none', label: '기본순' },
   { id: 'asc', label: '가격 낮은순' },
   { id: 'desc', label: '가격 높은순' },
@@ -83,8 +83,6 @@ export function PlacesPageFilters({
   // 이 종류에 실제로 장소가 있는 읍면만 보여준다 — 0곳인 읍면 칩을 눌러 빈 목록을 만들 이유가 없다.
   const towns = topTowns(type, Number.MAX_SAFE_INTEGER);
 
-  const chipClass = variant === 'bar' ? 'h-11 shrink-0' : 'h-11';
-
   return (
     <div className={variant === 'bar' ? 'space-y-2 pb-3' : 'space-y-5'}>
       {/*
@@ -96,16 +94,13 @@ export function PlacesPageFilters({
         {towns.map(({ town: candidate, count }) => {
           const active = town === candidate;
           return (
-            <Button
+            <FilterChip
               key={candidate}
-              size="sm"
-              color={active ? 'primary' : 'secondary'}
-              aria-pressed={active}
-              className={chipClass}
+              pressed={active}
               onClick={() => onSelectTown(active ? null : candidate)}
             >
               {candidate} {count}
-            </Button>
+            </FilterChip>
           );
         })}
       </FilterGroup>
@@ -114,16 +109,13 @@ export function PlacesPageFilters({
         {DIRECTIONS.map((direction) => {
           const active = directions.includes(direction);
           return (
-            <Button
+            <FilterChip
               key={direction}
-              size="sm"
-              color={active ? 'primary' : 'secondary'}
-              aria-pressed={active}
-              className={chipClass}
+              pressed={active}
               onClick={() => onToggleDirection(direction)}
             >
               {DIRECTION_LABEL[direction]}
-            </Button>
+            </FilterChip>
           );
         })}
       </FilterGroup>
@@ -148,16 +140,13 @@ export function PlacesPageFilters({
         {PET_FILTERS[type].map((filter) => {
           const active = petKeys.includes(filter.key);
           return (
-            <Button
+            <FilterChip
               key={filter.key}
-              size="sm"
-              color={active ? 'primary' : 'secondary'}
-              aria-pressed={active}
-              className={chipClass}
+              pressed={active}
               onClick={() => onTogglePetKey(filter.key)}
             >
               {filter.label}
-            </Button>
+            </FilterChip>
           );
         })}
       </FilterGroup>

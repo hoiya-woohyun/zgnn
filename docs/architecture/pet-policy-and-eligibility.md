@@ -1,6 +1,16 @@
 # 반려동물 이용 조건 파서와 "우리 강아지 갈 수 있나" 판정
 
-> 최종 수정: 2026-09-28 (v7: **블로그 경로 대응**([ADR-017](../decisions/ADR-017-ai-structured-pet-policy.md)·[BUG-008](../bugs/BUG-008-empty-pet-policy-judged-ok.md)) — 빈 원문은 `noInfo`(코드가 이 표를 따르게 됐다) ·
+> 최종 수정: 2026-09-29 (v12: 이동 수단 what-if(`carrierWhatIf`) — **판정을 바꾸지 않고 안내만 한다**. 목록 카드 근거 한 줄(`primaryReason`)·홈과 목록 머리의 레벨별 수(`countByLevel`)를 화면 반영에 적었다)
+>
+> v11: 상세 머리글이 근거 하나뿐이면 근거를 따르고(C1 → "야외 자리에서 갈 수 있어요"), cond 는 목록 배지와 같은 말로. 근거에 규칙 ID 를 싣는다)
+>
+> v10: H1 문구가 한도를 넘는 강아지 이름을 적는다)
+>
+> v9: C5 가 정보 없음이면 물러나고, 요금 줄의 kg 조건·구간표 상한을 짚는다 — "대형견 언급이 없어요" 가 원문과 반대로 말하던 곳)
+>
+> v8: 곱하지 못한 요금 줄은 이름 대신 "원문 요금 · …" 으로, 어려움 판정에는 요금을 싣지 않는다 — 못 가는 곳의 청소비가 우리가 낼 돈으로 읽혔다)
+>
+> v7: **블로그 경로 대응**([ADR-017](../decisions/ADR-017-ai-structured-pet-policy.md)·[BUG-008](../bugs/BUG-008-empty-pet-policy-judged-ok.md)) — 빈 원문은 `noInfo`(코드가 이 표를 따르게 됐다) ·
 > "동반 안 됨" 문장은 `notAllowed` → 판정 H0(hard) · AI 구조화 판단(`TPlace.petPolicy`)이 있으면 `withPolicyFacts` 가 파서 결과를 덮는다 · 블로그 구어체 어휘(야외 좌석만 · 테라스만 · 켄넬/이동장 챙기기 · 목줄/하네스) 추가)
 >
 > v6: 리뷰 P1 — 형제 줄에 마릿수·무게 조건이 남아 있으면 곱하지 않는 가드(캄 사례)와 구간 합산의 `maxDogs` 가드. 입력 표를 `dogs[]` 로)
@@ -92,7 +102,7 @@ flowchart LR
 | # | 조건 | 레벨 | 문구 |
 |---|---|---|---|
 | H0 | `notAllowed` | hard | "반려견 동반이 안 된다고 적혀 있어요" — 강아지 조건과 무관 |
-| H1 | `tiers` 중 무게 조건이 있는 칸이 있는데, 최댓값 몸무게가 그 어느 칸에도 못 들어감 | hard | "{N}kg {미만/이하}만 가능해요" |
+| H1 | `tiers` 중 무게 조건이 있는 칸이 있는데, 최댓값 몸무게가 그 어느 칸에도 못 들어감 | hard | "{이름}({몸무게}kg)는 {N}kg {미만/이하} 조건을 넘어요" · 여럿이면 "{이름(kg)}·{이름(kg)} 모두 …" — 한도를 넘는 아이만 적는다 |
 | H2 | 무게로 들어가는 칸은 있지만(칸이 여럿이면 마릿수 상한이 가장 큰 칸 기준) 그 칸의 마릿수 상한보다 마릿수가 많음 | hard | "{N}kg {미만/이하}은 {M}마리까지예요" |
 | H3 | `smallDogOnly` · size ≠ small | hard | "소형견만 가능해요" |
 | H4 | `indoor==='cage'` · size==='large' · carrier≠'cage' | !outdoorFree ? hard : (needsIndoor ? hard : cond) | "실내는 케이지 필수라 대형견은 어려워요" / "…야외 자리만 가능해요" |
@@ -102,7 +112,7 @@ flowchart LR
 | C2 | `indoor==='cage'` · carrier==='bag' | cond | "케이지라고 적혀 있어요 — 이동가방도 되는지 확인해 주세요" |
 | C3 | `indoor==='cage'` · carrier==='stroller' · 원문에 "유모차" 언급 없음 | cond | "케이지라고 적혀 있어요 — 유모차도 되는지 확인해 주세요" |
 | C4 | `indoor==='cage'` · carrier==='none' · outdoorFree | needsIndoor ? hard : cond | "실내는 케이지, 야외는 자유예요" |
-| C5 | size==='large' · !largeDogOk · `tiers` 없음 · H4 미해당 | cond | "대형견 언급이 없어요 — 확인해 주세요" |
+| C5 | size==='large' · !largeDogOk · `tiers` 없음 · H4 미해당 · **`noInfo` 아님**(정보 없음이면 U1 이 말한다 — 대형견 문구가 unknown 근거보다 먼저 읽혀 엉뚱한 이유처럼 보였다) | cond | 요금 줄에 `N kg 이상` 이 있으면 "{N}kg 이상 요금이 적혀 있어요 — {최대 몸무게}kg 도 되는지 확인해 주세요"(원문이 무게를 말했는데 "언급이 없다" 고 하면 반대다) · 아니면 요금 구간표(`a~N kg`)의 상한을 넘을 때 "요금표가 {N}kg 까지만 있어요 — 확인해 주세요"(솔숲펜션) · 그 외 "대형견 언급이 없어요 — 확인해 주세요" |
 | C6 | `callFirst` | cond | "방문 전 전화 확인이 필요해요" |
 | U1 | `noInfo` (빈 원문 포함) | unknown | "이용 조건이 적혀 있지 않아요" |
 | U1 보강 | `noInfo` · `largeDogOk` (맘앤도그처럼 "정보 없음" 이라 적고도 힌트가 붙은 경우) | info | "원문에 대형견도 가능하다는 문구가 있어요" — 레벨은 그대로 unknown, 힌트만 얹는다 |
@@ -119,10 +129,12 @@ carrier 에 따라 H5/C2/C3/C4 는 배타적이다(정확히 한 갈래만 걸�
 | `feeFree` | — | "악동이와 두부는 추가 요금 없음" |
 | 마리당 단일 금액 `1마리당 3만원` (괄호·뒤의 "추가" 허용) | 곱한다 — 단 `maxDogs` 를 넘는 마릿수면 그 요금이 우리에게 적용된다고 볼 수 없어 안 곱한다 | 1마리 "악동이는 3만원" / 2마리 "악동이와 두부는 6만원 (1마리당 3만원)" |
 | 무게 구간 `1~5kg 1만원` · `6~10kg 1.5만원` | **마리별 몸무게**로 각자 구간을 찾아, 모든 마리가 들어가고 금액이 단일값이면 합산. 쓰인 구간만 `feeLines` 순서로 나열(중복 제거) | 1마리 "악동이는 1만원 (1~5kg)" / 2마리 "악동이와 두부는 2.5만원 (1~5kg 1만원 · 6~10kg 1.5만원)" |
-| 그 외 — 범위 금액 `1마리당 1-2만원`, 단위 불명 `5만원`, `(2만원 추가)`, 청소비 등 | 안 곱한다 | "악동이와 두부 · 2만원 추가" (앞뒤 괄호는 벗긴다) |
-| 곱할 줄 **말고 다른 줄**이 마릿수·무게 조건을 말함 — 캄(Kalm) `1마리당 3만원. (2마리 또는 10kg 이상 4만원)` | 안 곱한다. 첫 줄만 곱하면 2마리가 6만원(원문은 4만원)이라 원문과 반대되는 숫자가 된다. 조건 줄까지 함께 보여준다 | "악동이와 두부 · 1마리당 3만원 · 2마리 또는 10kg 이상 4만원" |
+| 그 외 — 범위 금액 `1마리당 1-2만원`, 단위 불명 `5만원`, `(2만원 추가)`, 청소비 등 | 안 곱한다 | "원문 요금 · 2만원 추가" (앞뒤 괄호는 벗긴다) |
+| 곱할 줄 **말고 다른 줄**이 마릿수·무게 조건을 말함 — 캄(Kalm) `1마리당 3만원. (2마리 또는 10kg 이상 4만원)` | 안 곱한다. 첫 줄만 곱하면 2마리가 6만원(원문은 4만원)이라 원문과 반대되는 숫자가 된다. 조건 줄까지 함께 보여준다 | "원문 요금 · 1마리당 3만원 · 2마리 또는 10kg 이상 4만원" |
 
 `maxDogs` 가드는 마리당 곱셈과 구간 합산 양쪽에 걸린다. 구간 합산에서 "안 쓴 구간 줄" 은 조건이 아니라 같은 요금표의 다른 칸이라 가드 대상이 아니다. 줄을 고르는 순서는 예전 `feeForDog` 그대로다: 최대 몸무게가 들어가는 구간 줄 → 구간이 아닌 첫 줄 → 없으면 비운다. 한 마리라도 구간 밖이면 합산하지 않고 이 순서로 물러난다 — 28kg 강아지에게 "1~5kg 1만원" 을 이름까지 붙여 확정된 숫자처럼 보여주지 않기 위해서다. 금액은 만원 단위 소수 1자리(15000 → "1.5만원"), 1만 미만은 "5,000원".
+
+**이름은 곱셈이 성립했을 때만 붙인다.** 곱하지 못한 줄은 "우리 강아지 기준" 이 아니라 원문을 옮긴 것이라 "원문 요금 · …" 으로 연다 — "대장이와 초코 · 청소비 5만원" 은 우리가 낼 돈이 확정된 것처럼 읽혔다. 그리고 **판정이 어려움(hard)이면 요금 자체를 싣지 않는다**(`fee` 도, I1 근거도) — 못 간다는 곳에 붙은 요금은 답이 아니라 소음이다.
 
 ### 한국어 호칭 — `src/lib/korean.ts`
 
@@ -153,8 +165,11 @@ carrier 에 따라 H5/C2/C3/C4 는 배타적이다(정확히 한 갈래만 걸�
   (`src/lib/sortByEligibility.ts`, `src/components/eligibilityBadge.tsx`).
 - 상세: 판정 + 근거 문구(`reasons[].quote`)를 판정 카드로, 그 아래 원문 카드에서 강조
   (`src/screens/placeDetailEligibilityCard.tsx`).
+  **머리글은 근거가 하나뿐일 때 근거를 따른다**(`headlineFor`) — cond 근거가 C1(야외 자리만) 하나뿐이면 "야외 자리에서 갈 수 있어요", 그 밖의 cond 는 목록 배지와 같은 "확인이 필요해요". "확인해야 알 수 있어요" 바로 아래 "야외 자리만 가능해요" 가 오면 머리글과 근거가 싸웠다. 규칙 판별은 문구가 아니라 근거에 실린 규칙 ID(`TReason.rule`)로 하고, 요금(I1)은 세지 않는다.
 - 둘러보기: "어려운 곳 숨기기" · "실내 자리 필요" 토글(`src/screens/placesPageEligibilityToggles.tsx`).
-- 홈: 종류별 "갈 수 있는 곳" 개수(`src/screens/homePage.tsx`).
+- 목록 카드: 요금 줄 아래 근거 한 줄(`primaryReason` — 최종 레벨과 같은 레벨의 첫 근거, unknown 이면 원문 힌트 우선). 7곳을 다 눌러야 왜 "확인" 인지 알던 것을 목록에서 읽게.
+- 홈·목록 머리: 레벨별 곳 수를 **같은 함수**(`src/lib/eligibilityCounts.ts` 의 `countByLevel`)로 — 홈 "가능 3 · 확인 3", 목록 "26곳 · 가능 4 · 확인 3 · 정보 없음 5 · 어려움 14"(→ [features/home-header.md](../features/home-header.md)).
+- **이동 수단 what-if**(식당 탭, 프로필이 `none` 일 때): 지금 결과 중 어려움인 곳을 `carrier: 'bag'` 으로 다시 판정해 어려움에서 벗어나는 수를 "이동가방이 있으면 N곳이 '확인 필요' 로 바뀌어요 · 우리 강아지 정보 고치기 ›" 로 알린다(`carrierWhatIf`, `src/screens/placesPageResults.tsx`). **what-if 는 판정을 바꾸지 않고 안내만 한다** — 등급·배지("케이지 필요")·준비물 표(`ITEM_NEEDS`, ADR-009)는 그대로고, 바꾸는 길은 프로필(`/dog`) 하나다. 대형견은 가방이어도 H4 가 그대로라 0 → 줄을 그리지 않는다.
 - 지도: 마커 색과 시트 라벨이 판정 레벨을 따른다(`src/screens/mapPage.tsx`, `mapPageSheet.tsx`).
 - 프로필이 없으면 필터만 있는 화면으로 폴백하고, 홈에 "우리 강아지 등록하기" 진입(`/dog`).
 
@@ -170,7 +185,7 @@ H1·H2 가 같은 숫자를 본다. 시드 86곳은 `petPolicy` 가 없어 이 �
 ## 관련 파일
 
 - 파서: `src/lib/petPolicy.ts`, `src/lib/petPolicy.test.ts`, `src/lib/placeFilters.ts`, `src/components/petBadges.tsx`
-- 판정: `src/lib/eligibility.ts`, `src/lib/eligibility.test.ts`
+- 판정: `src/lib/eligibility.ts`, `src/lib/eligibility.test.ts`, `src/lib/eligibilityCounts.ts`(+test — 레벨별 수·이동 수단 what-if)
 - 요금·호칭: `src/lib/dogFee.ts`(+test), `src/lib/korean.ts`(+test)
 - 프로필: `src/types.ts`(`TDogProfile`·`TDogEntry`), `src/lib/dogProfile.ts`(`sanitizeDog` 옛 모양 변환, `maxWeightKg`), `src/store/useAppStore.ts`, `src/store/useDogEligibility.ts`, `src/screens/dogProfilePage.tsx`, [features/dog-profile.md](../features/dog-profile.md)
 - 화면 반영: `src/components/eligibilityBadge.tsx`, `src/lib/sortByEligibility.ts`,

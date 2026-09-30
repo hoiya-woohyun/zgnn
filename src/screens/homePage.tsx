@@ -11,8 +11,9 @@ import { SeasonChips } from '../components/seasonChips';
 import { dogCallNames, withJosa } from '../lib/korean';
 import { META, PLACE_TYPES, TYPE_META, countByType, placesOfType } from '../lib/places';
 import { checklistView } from '../lib/checklist';
+import type { TEligibilityLevel } from '../lib/eligibility';
+import { countByLevel } from '../lib/eligibilityCounts';
 import { useAppStore, useDog, useSavedPlaces } from '../store/useAppStore';
-import { useEligibilityMap } from '../store/useDogEligibility';
 import type { TPlaceType } from '../types';
 
 function PawMark({ className = 'h-9 w-9 text-brand-300' }: { className?: string }) {
@@ -43,20 +44,15 @@ export function HomePage() {
   );
 
   const dog = useDog();
-  const eligibilityMap = useEligibilityMap();
-  // 종류별 "갈 수 있는 곳" 개수(ok+cond). useEligibilityMap 이 이미 dog·needsIndoor 가
-  // 바뀔 때만 재계산하므로, 여기서는 그 결과를 종류별로 집계만 한다.
-  const reachableByType = useMemo(() => {
-    if (!eligibilityMap) return null;
-    const counts = {} as Record<TPlaceType, number>;
-    for (const type of PLACE_TYPES) {
-      counts[type] = placesOfType(type).filter((place) => {
-        const level = eligibilityMap.get(place.id)?.level;
-        return level === 'ok' || level === 'cond';
-      }).length;
-    }
+  const needsIndoor = useAppStore((state) => state.needsIndoor);
+  // 종류별 판정 레벨 수. 목록 머리와 같은 함수(countByLevel)로 센다 — 홈이 "7/26", 목록이
+  // "26곳" 이라 서로 다른 숫자처럼 읽혔다(T2.2). 프로필이 없으면 null(카드는 총수만).
+  const levelCountsByType = useMemo(() => {
+    if (!dog) return null;
+    const counts = {} as Record<TPlaceType, Record<TEligibilityLevel, number>>;
+    for (const type of PLACE_TYPES) counts[type] = countByLevel(placesOfType(type), dog, { needsIndoor });
     return counts;
-  }, [eligibilityMap]);
+  }, [dog, needsIndoor]);
 
   return (
     <div>
@@ -132,7 +128,7 @@ export function HomePage() {
         <h2 className="text-lg font-bold text-primary">어디로 갈까요</h2>
         <div className="mt-3 space-y-3">
           {PLACE_TYPES.map((type) => (
-            <HomeTypeCard key={type} type={type} reachable={reachableByType?.[type]} />
+            <HomeTypeCard key={type} type={type} levelCounts={levelCountsByType?.[type]} />
           ))}
         </div>
 

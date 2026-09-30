@@ -3,7 +3,8 @@
 import { useMemo, useRef, useState } from 'react';
 import { SearchMd } from '@untitledui/icons';
 import { PlacesPageEligibilityToggles } from './placesPageEligibilityToggles';
-import { PlacesPageFilters } from './placesPageFilters';
+import type { TActiveChip } from './placesPageActiveChips';
+import { PlacesPageFilters, SORT_OPTIONS } from './placesPageFilters';
 import { PlacesPageFilterSheet } from './placesPageFilterSheet';
 import { PlacesPageResults } from './placesPageResults';
 import { usePlacesPageSwipe } from './placesPageSwipe';
@@ -11,8 +12,8 @@ import { PlacesPageSwipePeek } from './placesPageSwipePeek';
 import { PlacesPageTypeTabs } from './placesPageTypeTabs';
 import { usePlaceTypeSwitch } from './placesPageTypeSwitch';
 import { Input } from '../components/base/input';
-import { TYPE_META, placesOfType } from '../lib/places';
-import { PET_FILTERS, comparePrice, type TPetFilterKey, type TPriceSort } from '../lib/placeFilters';
+import { DIRECTION_LABEL, TYPE_META, placesOfType } from '../lib/places';
+import { PET_FILTERS, comparePrice, resetFiltersLabel, type TPetFilterKey, type TPriceSort } from '../lib/placeFilters';
 import { sortByEligibility } from '../lib/sortByEligibility';
 import { useAppStore, useDog } from '../store/useAppStore';
 import { useEligibilityMap } from '../store/useDogEligibility';
@@ -112,12 +113,13 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     (dog && hideHard ? 1 : 0) +
     (dog && type !== 'stay' && needsIndoor ? 1 : 0);
 
-  const hasFilters = query.trim().length > 0 || activeFilterCount > 0;
+  const trimmedQuery = query.trim();
+  const hasFilters = trimmedQuery.length > 0 || activeFilterCount > 0;
 
   /*
-   * 시트 안의 "필터 모두 지우기" 는 검색어를 건드리지 않는다 — 검색창은 시트 밖에 그대로
+   * 시트 안의 "모두 지우기" 는 검색어를 건드리지 않는다 — 검색창은 시트 밖에 그대로
    * 보이는데 여기서 같이 지우면 시트를 닫고 나서야 글자가 사라진 걸 알게 된다.
-   * 목록 위의 "필터 지우기" 는 검색창 옆에 있어 무엇이 지워졌는지 바로 보이므로 검색어까지 지운다.
+   * 목록 위의 지우기 링크("필터·검색·모두 지우기")는 검색창 옆에 있어 무엇이 지워졌는지 바로 보이므로 검색어까지 지운다.
    */
   const resetConditions = () => {
     setTown(null);
@@ -148,6 +150,34 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
 
   const togglePetKey = (key: TPetFilterKey) =>
     setPetKeys((prev) => (prev.includes(key) ? prev.filter((value) => value !== key) : [...prev, key]));
+
+  // 켜진 조건을 이름으로(T2.4). activeFilterCount 가 세는 것과 같은 목록이어야 한다 — 버튼엔
+  // "필터 3" 인데 칩이 둘이면 셋째를 찾아 시트를 뒤진다. 검색어는 시트 밖이라 숫자엔 없지만 칩엔 둔다.
+  const activeChips: TActiveChip[] = [
+    ...(town !== null ? [{ key: 'town', label: town, onRemove: () => setTown(null) }] : []),
+    ...directions.map((direction) => ({
+      key: `dir-${direction}`,
+      label: DIRECTION_LABEL[direction],
+      onRemove: () => toggleDirection(direction),
+    })),
+    ...PET_FILTERS[type]
+      .filter((filter) => petKeys.includes(filter.key))
+      .map((filter) => ({ key: `pet-${filter.key}`, label: filter.label, onRemove: () => togglePetKey(filter.key) })),
+    ...(sort !== 'none'
+      ? [
+          {
+            key: 'sort',
+            label: SORT_OPTIONS.find((option) => option.id === sort)?.label ?? '',
+            onRemove: () => setSort('none'),
+          },
+        ]
+      : []),
+    ...(dog && hideHard ? [{ key: 'hideHard', label: '어려운 곳 숨김', onRemove: () => setHideHard(false) }] : []),
+    ...(dog && type !== 'stay' && needsIndoor
+      ? [{ key: 'indoor', label: '실내 자리 필요', onRemove: () => setNeedsIndoor(false) }]
+      : []),
+    ...(trimmedQuery ? [{ key: 'query', label: `"${trimmedQuery}"`, onRemove: () => setQuery('') }] : []),
+  ];
 
   return (
     <div>
@@ -203,6 +233,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
                     : null
                 }
                 activeCount={activeFilterCount}
+                resultCount={results.length}
                 onReset={resetConditions}
               />
             </div>
@@ -270,6 +301,8 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
               results={results}
               townHasNoPlaces={townHasNoPlaces}
               hasFilters={hasFilters}
+              resetLabel={resetFiltersLabel(trimmedQuery.length > 0, activeFilterCount)}
+              activeChips={activeChips}
               onResetFilters={resetFilters}
               onOpenFilters={() => setIsFilterSheetOpen(true)}
             />

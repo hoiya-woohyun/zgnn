@@ -14,6 +14,7 @@
 import type { TCarrier, TDogProfile, TDogSize } from '../types';
 import { formatDogFee } from './dogFee';
 import { maxWeightKg } from './dogProfile';
+import { dogCallName, josa } from './korean';
 import type { TPetPolicy, TPolicyTier } from './petPolicy';
 
 export type TEligibilityLevel = 'ok' | 'cond' | 'unknown' | 'hard';
@@ -25,6 +26,8 @@ export type TReason = {
   text: string;
   /** 근거가 된 원문 문장(있으면). 상세 화면이 원문 카드에서 이 문장을 강조한다. */
   quote?: string;
+  /** 이 근거를 낸 규칙 ID(`RULES` 주석의 'H1'·'C1' … , 요금은 'I1'). 머리글이 근거를 따를지 가를 때 쓴다(`headlineFor`). */
+  rule?: string;
 };
 
 export type TEligibility = {
@@ -89,7 +92,13 @@ const ruleNotAllowed: TRule = (_dog, policy) => {
   return { level: 'hard', text: '반려견 동반이 안 된다고 적혀 있어요', quote: policy.sources.notAllowed };
 };
 
-/** H1: 계단식 무게 조건이 있는데, 우리 강아지 최대 몸무게가 그 어느 칸에도 못 들어간다. */
+/**
+ * H1: 계단식 무게 조건이 있는데, 우리 강아지 최대 몸무게가 그 어느 칸에도 못 들어간다.
+ *
+ * 문구에 **한도를 넘는 강아지만** 이름(몸무게)으로 적는다. "15kg 이하만 가능해요" 만으로는
+ * 다두 보호자가 누구 얘기인지 몰랐다(민준 — 28kg·17kg). 넘지 않는 아이의 이름은 빼야
+ * "그 아이만 두고 가면 되나" 를 스스로 판단할 수 있다.
+ */
 const ruleWeightOverLimit: TRule = (dog, policy) => {
   const weightTiers = policy.tiers.filter((t) => t.maxWeightKg !== undefined);
   if (weightTiers.length === 0) return null;
@@ -98,7 +107,12 @@ const ruleWeightOverLimit: TRule = (dog, policy) => {
 
   // 문구엔 원문이 제시한 것 중 가장 큰 상한을 보여준다.
   const widest = weightTiers.reduce((a, b) => ((b.maxWeightKg ?? 0) > (a.maxWeightKg ?? 0) ? b : a));
-  return { level: 'hard', text: `${weightBoundLabel(widest)}만 가능해요`, quote: widest.source };
+  const over = dog.dogs.filter((d) => !weightTiers.some((t) => fitsTierWeight(t, d.weightKg)));
+  const labels = over.map((d) => `${dogCallName(d.name)}(${d.weightKg}kg)`);
+  // 조사는 괄호가 아니라 이름 끝 받침을 따른다 — "대장이(28kg)는".
+  const subject =
+    over.length === 1 ? `${labels[0]}${josa(dogCallName(over[0].name), '은/는')}` : `${labels.join('·')} 모두`;
+  return { level: 'hard', text: `${subject} ${weightBoundLabel(widest)} 조건을 넘어요`, quote: widest.source };
 };
 
 /**
@@ -210,17 +224,45 @@ const ruleNoCarrierOutdoorFree: TRule = (dog, policy, opts) => {
     : { level: 'cond', text, quote: policy.sources.indoor };
 };
 
+/** 요금 줄의 "10kg 이상 4만원" — 무게 하한이 붙은 요금. 대형견을 따로 말하지 않아도 무게를 말한 것이다. */
+const FEE_MIN_KG_RE = /(\d+)\s*kg\s*이상/;
+/** 요금 줄의 "6~10kg 1.5만원" — 구간 상한(두 번째 숫자)만 쓴다. */
+const FEE_RANGE_KG_RE = /\d+\s*~\s*(\d+)\s*kg/;
+
 /**
  * C5: 대형견인데 원문에 대형견 가능 문구가 없다. 무게·마릿수 계단식 조건이 이미 있으면(tiers)
  * 그 조건이 실제 판정을 맡으므로 이 규칙은 물러난다. 케이지 필수 + 대형견 조합은 H4 가 이미
  * 담당하므로 같은 말을 두 번 하지 않는다.
+ *
+ * "대형견 언급이 없어요" 가 **틀린 말이 되는 두 경우**를 먼저 거른다(등급은 그대로):
+ * - 정보 없음 — 원문에 조건 자체가 없는데 "대형견 언급" 을 꼬집으면 unknown 근거보다 먼저
+ *   읽혀 엉뚱한 이유처럼 보였다. U1 이 말하게 물러난다.
+ * - 요금 줄이 무게를 말함 — "10kg 이상 4만원" 이 있는데 "언급이 없다" 고 하면 원문과 반대다.
+ *   구간 요금표("~10kg")만 있고 우리가 넘으면 "표가 N kg 까지만" 이라고 짚는다(07 U4, 솔숲펜션).
  */
 const ruleLargeDogUnmentioned: TRule = (dog, policy) => {
+  if (policy.noInfo) return null;
   if (dogSize(dog) !== 'large') return null;
   if (policy.largeDogOk) return null;
   if (policy.tiers.length > 0) return null;
   const handledByH4 = policy.indoor === 'cage' && dog.carrier !== 'cage';
   if (handledByH4) return null;
+
+  const weight = maxWeightKg(dog);
+  const minKgLine = policy.feeLines.find((line) => FEE_MIN_KG_RE.test(line));
+  if (minKgLine) {
+    const n = Number((FEE_MIN_KG_RE.exec(minKgLine) as RegExpExecArray)[1]);
+    return { level: 'cond', text: `${n}kg 이상 요금이 적혀 있어요 — ${weight}kg 도 되는지 확인해 주세요` };
+  }
+  const rangeTops = policy.feeLines.flatMap((line) => {
+    const m = FEE_RANGE_KG_RE.exec(line);
+    return m ? [Number(m[1])] : [];
+  });
+  if (rangeTops.length > 0) {
+    const top = Math.max(...rangeTops);
+    if (weight > top) return { level: 'cond', text: `요금표가 ${top}kg 까지만 있어요 — 확인해 주세요` };
+  }
+
   return { level: 'cond', text: '대형견 언급이 없어요 — 확인해 주세요', quote: policy.sources.largeDogOk };
 };
 
@@ -246,22 +288,23 @@ const ruleNoInfoHint: TRule = (_dog, policy) => {
   return { level: 'info', text: '원문에 대형견도 가능하다는 문구가 있어요', quote: policy.sources.largeDogOk };
 };
 
-const RULES: TRule[] = [
-  ruleNotAllowed, // H0
-  ruleWeightOverLimit, // H1
-  ruleTooManyForWeight, // H2
-  ruleSmallOnly, // H3
-  ruleLargeNeedsCage, // H4
-  ruleNoCarrierNoOutdoor, // H5
-  ruleOutdoorOnlyButNeedsIndoor, // H6
-  ruleOutdoorOnly, // C1
-  ruleBagAtCagePlace, // C2
-  ruleStrollerAtCagePlace, // C3
-  ruleNoCarrierOutdoorFree, // C4
-  ruleLargeDogUnmentioned, // C5
-  ruleCallFirst, // C6
-  ruleNoInfo, // U1
-  ruleNoInfoHint, // U1 보강
+/** 규칙과 그 ID. ID 는 근거에 실려(`TReason.rule`) 화면이 "어느 규칙이 말했나" 를 문구 대신 ID 로 가른다. */
+const RULES: [string, TRule][] = [
+  ['H0', ruleNotAllowed],
+  ['H1', ruleWeightOverLimit],
+  ['H2', ruleTooManyForWeight],
+  ['H3', ruleSmallOnly],
+  ['H4', ruleLargeNeedsCage],
+  ['H5', ruleNoCarrierNoOutdoor],
+  ['H6', ruleOutdoorOnlyButNeedsIndoor],
+  ['C1', ruleOutdoorOnly],
+  ['C2', ruleBagAtCagePlace],
+  ['C3', ruleStrollerAtCagePlace],
+  ['C4', ruleNoCarrierOutdoorFree],
+  ['C5', ruleLargeDogUnmentioned],
+  ['C6', ruleCallFirst],
+  ['U1', ruleNoInfo],
+  ['U1 보강', ruleNoInfoHint],
 ];
 
 export const judgeEligibility = (
@@ -269,14 +312,10 @@ export const judgeEligibility = (
   policy: TPetPolicy,
   opts: TJudgeOpts = {},
 ): TEligibility => {
-  const reasons = RULES.map((rule) => rule(dog, policy, opts)).filter((r): r is TReason => r !== null);
-
-  // 요금은 이름까지 붙은 완성 문장(`dogFee.ts`)이라 카드·상세가 같은 줄을 그대로 보여준다.
-  const fee = formatDogFee(policy, dog);
-  if (fee) reasons.push({ level: 'info', text: fee });
-
-  // Array#sort 는 안정 정렬이라 같은 레벨 안에서는 RULES 순서(표시 순서)가 그대로 유지된다.
-  reasons.sort((a, b) => REASON_ORDER[a.level] - REASON_ORDER[b.level]);
+  const reasons = RULES.flatMap(([id, rule]): TReason[] => {
+    const reason = rule(dog, policy, opts);
+    return reason ? [{ ...reason, rule: id }] : [];
+  });
 
   let level: TEligibilityLevel;
   if (reasons.some((r) => r.level === 'hard')) level = 'hard';
@@ -284,7 +323,56 @@ export const judgeEligibility = (
   else if (reasons.some((r) => r.level === 'cond')) level = 'cond';
   else level = 'ok';
 
+  // 요금은 이름까지 붙은 완성 문장(`dogFee.ts`)이라 카드·상세가 같은 줄을 그대로 보여준다.
+  // **어려움이면 요금을 싣지 않는다**(`fee` 도, 요금 info 근거도) — 못 간다는 곳 밑에 "대장이와
+  // 초코 · 청소비 5만원" 이 붙으면 우리가 낼 돈으로 읽힌다(민준, 그리너리빌리지).
+  const fee = level === 'hard' ? undefined : formatDogFee(policy, dog);
+  if (fee) reasons.push({ level: 'info', text: fee, rule: 'I1' });
+
+  // Array#sort 는 안정 정렬이라 같은 레벨 안에서는 RULES 순서(표시 순서)가 그대로 유지된다.
+  reasons.sort((a, b) => REASON_ORDER[a.level] - REASON_ORDER[b.level]);
+
   return { level, reasons, fee };
+};
+
+/**
+ * 상세 카드 머리글(주어 뒤에 붙는 말). "보리는 확인이 필요해요" 처럼 레벨을 문장으로 읽는다.
+ * cond 는 목록 배지와 같은 말("확인이 필요해요")로 맞췄다 — 목록에서 "확인이 필요해요" 였던 곳이
+ * 상세에서 "확인해야 알 수 있어요" 로 바뀌면 다른 판정처럼 읽혔다(D12).
+ */
+const HEADLINE: Record<TEligibilityLevel, string> = {
+  ok: '갈 수 있어요',
+  cond: '확인이 필요해요',
+  unknown: '확인된 정보가 없어요',
+  hard: '이용하기 어려워요',
+};
+
+/**
+ * 머리글은 **근거가 하나뿐일 때 근거를 따른다.** cond 근거가 C1(야외 자리만) 하나뿐이면 확인할
+ * 것이 없다 — 야외 자리에서는 갈 수 있다. 그런데 머리글이 "확인이 필요해요" 라고 하면 바로 아래
+ * "야외 자리만 가능해요" 와 싸운다(지수). 요금(info)은 판정 근거가 아니라 세지 않는다.
+ */
+export const headlineFor = (e: TEligibility): string => {
+  if (e.level === 'cond') {
+    const condReasons = e.reasons.filter((r) => r.level === 'cond');
+    if (condReasons.length === 1 && condReasons[0].rule === 'C1') return '야외 자리에서 갈 수 있어요';
+  }
+  return HEADLINE[e.level];
+};
+
+/**
+ * 목록 카드에 한 줄로 보일 대표 근거 — 눌러 보지 않아도 왜 "확인"·"어려움" 인지 읽히게(민준 N1).
+ * 최종 레벨과 같은 레벨의 첫 근거(근거는 이미 표시 순서로 정렬돼 있다). `ok` 면 말할 이유가 없다.
+ * `unknown` 은 "적혀 있지 않아요" 보다 원문 힌트("대형견도 가능")가 더 쓸모 있어 그쪽을 고른다(N9).
+ * 요금(I1)은 카드가 이미 따로 한 줄 그리므로 고르지 않는다.
+ */
+export const primaryReason = (e: TEligibility): TReason | undefined => {
+  if (e.level === 'ok') return undefined;
+  if (e.level === 'unknown') {
+    const hint = e.reasons.find((r) => r.level === 'info' && r.rule !== 'I1');
+    if (hint) return hint;
+  }
+  return e.reasons.find((r) => r.level === e.level);
 };
 
 // 화면(폼)에서 이동 수단 4택을 그릴 때 쓰는 라벨·설명. 여기 두는 이유는 판정 규칙 문구와

@@ -14,6 +14,7 @@
  * 저기는 "어느 탭에 불이 들어오나", 여기는 "되돌아 나올 곳이 있나" 로 질문이 다르다.
  */
 import { PLACE_TYPES, getPlace } from './places';
+import { BACK_SWIPE_EDGE_PX } from './swipePager';
 
 /** 주소 끝의 `/` 를 떼어 비교를 한 가지 모양으로 맞춘다(정적 내보내기라 `/dog/` 로도 들어온다). */
 export const normalizeRoute = (pathname: string) => {
@@ -73,15 +74,36 @@ export const isWithinPlacesSwipe = (from: number, to: number): boolean =>
   isPlacesSwipeIndex(from) && isPlacesSwipeIndex(to);
 
 /**
- * 이 화면에서 스와이프를 **시작**할 수 있는가.
- *
- * 지도는 예외다 — 화면 전체가 카카오 지도 캔버스라 가로로 끄는 동작이 이미 지도의 것이다.
- * 지도로 스와이프해 들어올 수는 있고(그쪽은 도착점일 뿐이다), 나갈 때만 탭바를 쓴다.
- * 하위 화면(`/place/:id` 등)도 수열 밖이라 여기서 걸린다 — 거기엔 뒤로가기가 있다.
+ * 이 화면에 스와이프 표면(포인터 핸들러)을 다는가 — 탭바 화면이면 전부.
+ * 하위 화면(`/place/:id` 등)은 수열 밖이라 여기서 걸린다 — 거기엔 뒤로가기가 있다.
+ * 달았다고 어디서나 시작되는 것은 아니다 — 시작 자리는 `canStartSwipeAt` 이 가른다.
  */
-export const canStartSwipeAt = (pathname: string): boolean => {
-  const path = normalizeRoute(pathname);
-  return ROOT_ROUTES.has(path) && path !== '/map';
+export const hasSwipeSurface = (pathname: string): boolean => ROOT_ROUTES.has(normalizeRoute(pathname));
+
+/**
+ * 세로는 브라우저에 맡기고 가로만 받는가(`touch-action: pan-y`) — 지도만 아니다.
+ * 지도에 걸어 두면 가로 끌기를 브라우저가 우리 몫으로 넘겨줘 지도가 영영 움직이지 않는다.
+ */
+export const takesHorizontalPan = (pathname: string): boolean =>
+  hasSwipeSurface(pathname) && normalizeRoute(pathname) !== '/map';
+
+/**
+ * 이 화면의 이 자리(`clientX`)에서 스와이프를 **시작**할 수 있는가.
+ *
+ * 지도는 화면 전체가 네이버 지도 캔버스라 가로로 끄는 동작이 이미 지도의 것이다. 예전엔 그래서
+ * 지도에서는 아예 시작할 수 없었는데, 홈 → 지도는 밀리고 지도 → 다음 탭은 안 밀리는 **일방통행**이
+ * 됐다(D10). 그래서 가장자리 두 띠만 스와이프에 내준다 — 지도를 그 띠에서 끌 일은 드물다.
+ *   - 왼쪽: `24 < x < 48`. 맨 왼쪽 24px 는 iOS 뒤로가기 제스처 몫이라(`BACK_SWIPE_EDGE_PX`,
+ *     셸의 pointerdown 이 따로 막는다) **그다음 띠**를 쓴다.
+ *   - 오른쪽: `x > 폭 - 24`. 오른쪽엔 시스템 제스처가 없어 맨 끝 띠를 그대로 쓴다.
+ * 다른 탭바 화면은 자리와 무관하다(왼쪽 24px 가드는 셸 몫이라 여기선 보지 않는다).
+ */
+export const canStartSwipeAt = (pathname: string, clientX: number, viewportWidth: number): boolean => {
+  if (!hasSwipeSurface(pathname)) return false;
+  if (normalizeRoute(pathname) !== '/map') return true;
+  const inLeftBand = clientX > BACK_SWIPE_EDGE_PX && clientX < BACK_SWIPE_EDGE_PX * 2;
+  const inRightBand = clientX > viewportWidth - BACK_SWIPE_EDGE_PX;
+  return inLeftBand || inRightBand;
 };
 
 /**

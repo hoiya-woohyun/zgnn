@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sanitizeDog } from './dogProfile';
+import { dogProfileSavedMessage, sanitizeDog } from './dogProfile';
 
 describe('sanitizeDog — 새 모양', () => {
   it('스펙에 맞는 값은 그대로(이름은 trim)', () => {
@@ -64,5 +64,21 @@ describe('sanitizeDog — 옛 모양 { name, weightsKg } 올려 변환', () => {
     expect(sanitizeDog({ name: '두부', weightsKg: [0], carrier: 'none' })).toBeNull();
     expect(sanitizeDog({ name: '두부', weightsKg: [1, 1, 1, 1], carrier: 'none' })).toBeNull();
     expect(sanitizeDog({ name: '두부', weightsKg: [], carrier: 'none' })).toBeNull();
+  });
+});
+
+describe('dogProfileSavedMessage — 저장 뒤 돌아온 화면의 한 줄', () => {
+  it('한 마리는 애칭으로', () => {
+    expect(dogProfileSavedMessage([{ name: '보리', weightKg: 5 }])).toBe('보리 기준으로 바꿨어요');
+    expect(dogProfileSavedMessage([{ name: '우현', weightKg: 5 }])).toBe('우현이 기준으로 바꿨어요');
+  });
+
+  it('여러 마리는 함께 부른다', () => {
+    expect(
+      dogProfileSavedMessage([
+        { name: '보리', weightKg: 5 },
+        { name: '두부', weightKg: 4 },
+      ]),
+    ).toBe('보리와 두부 기준으로 바꿨어요');
   });
 });

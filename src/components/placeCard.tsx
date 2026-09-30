@@ -5,6 +5,7 @@ import { PlaceThumb } from './placeThumb';
 import { SaveButton } from './saveButton';
 import { TownChip } from './townChip';
 import { categoryLabel } from '../lib/category';
+import { primaryReason } from '../lib/eligibility';
 import { formatStayPrice } from '../lib/format';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
 import { useEligibility } from '../store/useDogEligibility';
@@ -26,6 +27,7 @@ type TPlaceCardProps = {
  */
 export function PlaceCard({ place }: TPlaceCardProps) {
   const eligibility = useEligibility(place);
+  const reason = eligibility ? primaryReason(eligibility) : undefined;
 
   return (
     <li className="relative">
@@ -58,6 +60,10 @@ export function PlaceCard({ place }: TPlaceCardProps) {
         {/* "두부는 1만원 (1~5kg)" — 이름까지 붙은 완성 문장(lib/dogFee.ts)이라 그대로 출력한다.
             상세의 info 근거와 같은 문자열이어야 한다(2026-09-15 디자인 리뷰 §1 "이름 넣은 요금 한 줄"). */}
         {eligibility?.fee && <p className="mt-1 text-sm text-secondary">{eligibility.fee}</p>}
+
+        {/* 왜 "확인"·"어려움" 인지 한 줄 — 7곳을 다 눌러 봐야 알던 것을 목록에서 읽게(민준 N1).
+            카드 높이가 들쭉날쭉하지 않게 한 줄로 자른다. 상세의 첫 근거와 같은 문장이다. */}
+        {reason && <p className="clamp-1 mt-1 text-xs text-tertiary">{reason.text}</p>}
 
         <div className="mt-3 flex flex-wrap items-center gap-1">
           {eligibility && <EligibilityBadge level={eligibility.level} />}

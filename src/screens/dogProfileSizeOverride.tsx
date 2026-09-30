@@ -26,6 +26,7 @@ type TDogProfileSizeOverrideProps = {
  */
 export function DogProfileSizeOverride({ computedSize, value, onChange }: TDogProfileSizeOverrideProps) {
   const [open, setOpen] = useState(value !== undefined);
+  const shownSize = value ?? computedSize;
 
   return (
     <div className="rounded-2xl border border-secondary bg-primary">
@@ -35,11 +36,18 @@ export function DogProfileSizeOverride({ computedSize, value, onChange }: TDogPr
         aria-expanded={open}
         className="flex min-h-11 w-full items-center justify-between gap-2 px-4 py-2.5 text-left"
       >
+        {/* "크기 수정 — 자동 계산: 소형견" 은 만드는 사람의 말이었다(D12). 지금 값이 먼저, 어떻게
+            정했는지는 괄호로, 할 수 있는 일은 끝에 "바꾸기" 로. 직접 고른 값이 있으면 그것이 지금
+            값이다 — 몸무게로 정한 값을 계속 보이면 고친 게 안 먹은 것처럼 읽힌다. */}
         <span className="text-sm">
-          <span className="font-semibold text-primary">크기 수정</span>{' '}
-          <span className="text-tertiary">
-            — 자동 계산: {computedSize ? SIZE_LABEL[computedSize] : '몸무게를 입력하면 계산돼요'}
+          <span className="font-semibold text-primary">
+            크기: {shownSize ? SIZE_LABEL[shownSize] : '몸무게를 입력하면 정해져요'}
           </span>
+          {shownSize && (
+            <span className="text-tertiary">{value ? '(직접 골랐어요)' : '(몸무게로 정했어요)'}</span>
+          )}
+          <span className="text-tertiary"> · </span>
+          <span className="font-semibold text-brand-secondary">바꾸기</span>
         </span>
         <ChevronDown
           aria-hidden="true"
@@ -52,7 +60,7 @@ export function DogProfileSizeOverride({ computedSize, value, onChange }: TDogPr
           <Select
             aria-label="강아지 크기"
             size="sm"
-            placeholder="자동 계산값 사용"
+            placeholder="몸무게로 정한 크기 쓰기"
             selectedKey={value ?? null}
             onSelectionChange={(key) => onChange(key ? (key as TDogSize) : undefined)}
           >
@@ -68,7 +76,7 @@ export function DogProfileSizeOverride({ computedSize, value, onChange }: TDogPr
               onClick={() => onChange(undefined)}
               className="mt-2 inline-flex min-h-11 cursor-pointer items-center text-sm font-semibold text-brand-secondary"
             >
-              자동 계산으로 되돌리기
+              몸무게로 정한 크기로 되돌리기
             </button>
           )}
         </div>

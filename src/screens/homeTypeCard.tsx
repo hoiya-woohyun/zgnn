@@ -2,21 +2,22 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { PLACE_TYPE_ICON } from '../components/icons/placeTypeIcon';
 import { TYPE_COLOR, TYPE_COLOR_DEEP, TYPE_META, countByType, topTowns, typeTint } from '../lib/places';
+import type { TEligibilityLevel } from '../lib/eligibility';
 import { useAppStore } from '../store/useAppStore';
 import type { TPlaceType } from '../types';
 
 type THomeTypeCardProps = {
   type: TPlaceType;
-  /** 우리 강아지 기준 "갈 수 있는 곳"(ok+cond) 개수. 없으면(undefined) 프로필이 없다는 뜻 —
+  /** 우리 강아지 기준 레벨별 곳 수(`countByLevel`). 없으면(undefined) 프로필이 없다는 뜻 —
    *  기존처럼 전체 건수만 보여준다. */
-  reachable?: number;
+  levelCounts?: Record<TEligibilityLevel, number>;
 };
 
 /**
  * 홈의 종류별 진입 카드.
  * 사진 대신 타입 색과 아이콘, 건수, 장소가 많은 읍면 세 곳으로 구성한다.
  */
-export function HomeTypeCard({ type, reachable }: THomeTypeCardProps) {
+export function HomeTypeCard({ type, levelCounts }: THomeTypeCardProps) {
   const router = useRouter();
   const setTown = useAppStore((state) => state.setTown);
   const meta = TYPE_META[type];
@@ -54,27 +55,30 @@ export function HomeTypeCard({ type, reachable }: THomeTypeCardProps) {
             <p className="text-sm text-secondary">{meta.blurb}</p>
           </div>
 
-          <p
-            className="text-xl font-bold"
-            style={{ color: TYPE_COLOR_DEEP[type] }}
-            aria-label={
-              reachable !== undefined
-                ? `갈 수 있는 곳 ${reachable} / 전체 ${countByType[type]}곳`
-                : undefined
-            }
-          >
-            {reachable !== undefined ? (
-              <>
-                {reachable}
-                <span className="text-sm font-semibold text-secondary"> / {countByType[type]}</span>
-              </>
-            ) : (
-              <>
-                {countByType[type]}
-                <span className="text-sm font-semibold">곳</span>
-              </>
-            )}
-          </p>
+          {/* 프로필이 있으면 "가능 3 · 확인 3" 을 글자로. 예전엔 ok+cond 합을 "7 / 26" 으로만 적어
+              "7 이 뭐예요?" 가 나왔고, 스크린리더만 "갈 수 있는 곳" 이라 읽어 확인 필요까지 가능으로
+              부풀렸다(D 크리틱 #4). 보이는 말과 읽히는 말을 같게 둔다 — 목록 머리와도 같은 기준. */}
+          {levelCounts ? (
+            <p
+              className="shrink-0 text-right text-sm font-semibold text-secondary"
+              aria-label={`가능 ${levelCounts.ok} · 확인 ${levelCounts.cond}`}
+            >
+              가능{' '}
+              <span className="text-lg font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>
+                {levelCounts.ok}
+              </span>
+              <span aria-hidden="true"> · </span>
+              확인{' '}
+              <span className="text-lg font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>
+                {levelCounts.cond}
+              </span>
+            </p>
+          ) : (
+            <p className="text-xl font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>
+              {countByType[type]}
+              <span className="text-sm font-semibold">곳</span>
+            </p>
+          )}
         </div>
       </Link>
 

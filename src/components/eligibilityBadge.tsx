@@ -1,4 +1,4 @@
-import { Badge } from './base/badges';
+import { BadgeWithDot } from './base/badges';
 import type { BadgeColors } from './base/badge-types';
 import type { TEligibilityLevel } from '../lib/eligibility';
 
@@ -16,6 +16,10 @@ import type { TEligibilityLevel } from '../lib/eligibility';
  *
  * 라벨은 문장형이다 — "조건부"·"정보 없음" 같은 축약 명사형은 처음 보는 사람이 뜻을 되물어야 했다.
  * 상세 머리글(placeDetailEligibilityCard 의 HEADLINE)은 앞에 이름이 붙어 어미가 조금 다르다.
+ *
+ * **모양으로도 속성 배지와 갈린다** — 앞에 점(●) + semibold. 상세 판정 카드의 레벨 점과 같은 문법이다.
+ * 예전엔 "갈 수 있어요" 와 "실내 OK" 가 같은 핑크 알약, "이용하기 어려워요" 와 "케이지 필요" 가 거의 같은
+ * 회색 알약이라 "판정" 과 "원문 속성" 이 구분되지 않았다(D1). brand 핑크도 이제 판정 ok 전용이다(ADR-003).
  */
 export const ELIGIBILITY_META: Record<TEligibilityLevel, { label: string; color: BadgeColors }> = {
   ok: { label: '갈 수 있어요', color: 'brand' },
@@ -34,8 +38,8 @@ type TEligibilityBadgeProps = {
 export function EligibilityBadge({ level, size = 'sm', className }: TEligibilityBadgeProps) {
   const meta = ELIGIBILITY_META[level];
   return (
-    <Badge type="color" size={size} color={meta.color} className={className}>
+    <BadgeWithDot type="color" size={size} color={meta.color} className={`font-semibold ${className ?? ''}`}>
       {meta.label}
-    </Badge>
+    </BadgeWithDot>
   );
 }

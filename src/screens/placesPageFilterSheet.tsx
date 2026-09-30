@@ -29,6 +29,8 @@ type TPlacesPageFilterSheetProps = {
   } | null;
   /** 켜져 있는 필터 개수. 시트를 닫아 둔 채로도 필터가 걸려 있음을 알려야 한다. */
   activeCount: number;
+  /** 지금 조건(검색어 포함)으로 목록에 남는 곳 수 — 하단 "N곳 보기" 버튼에 싣는다. */
+  resultCount: number;
   /** 시트 안 필터만 푼다(검색어는 그대로). 누르면 시트도 함께 닫힌다. */
   onReset: () => void;
 };
@@ -59,6 +61,7 @@ export function PlacesPageFilterSheet({
   onChangeSort,
   eligibility,
   activeCount,
+  resultCount,
   onReset,
 }: TPlacesPageFilterSheetProps) {
   return (
@@ -73,10 +76,12 @@ export function PlacesPageFilterSheet({
         onClick={() => onOpenChange(true)}
       >
         필터
+        {/* "필터1" 로 붙어 읽혔다 — 띄어 쓰고(스크린리더도 "필터 1") 숫자를 칩처럼 떼어 둔다. */}
+        {activeCount > 0 && ' '}
         {activeCount > 0 && (
           <span
             className={cx(
-              'ml-0.5 min-w-5 rounded-full px-1 text-center text-xs leading-5 font-bold',
+              'ml-1 inline-block min-w-5 rounded-full px-1 text-center text-xs leading-5 font-bold',
               'bg-primary text-brand-secondary',
             )}
           >
@@ -139,26 +144,36 @@ export function PlacesPageFilterSheet({
           </div>
 
           {/*
-            누르면 시트를 함께 닫는다. 닫지 않으면 조건이 0이 되면서 이 버튼이 손가락 밑에서
-            사라지고, 시트만 그대로 남아 아무 일도 안 일어난 것처럼 보인다.
+            하단 줄: 주 버튼 "N곳 보기" + 보조 "모두 지우기".
 
-            스크롤 줄 **밖**이라 조건을 아무리 내려도 늘 같은 자리에 있다.
+            조건은 여전히 누르는 즉시 반영된다(위 설명) — 주 버튼은 **닫기만** 한다. 다만 시트가
+            목록을 덮고 있어 뒤에서 목록이 바뀌는 게 안 보였고, 즉시 반영이 "아무 일도 안 일어남"
+            으로 읽혔다(D7). 지금 몇 곳이 남는지를 버튼에 실어 칩을 누를 때마다 숫자가 움직이게 한다.
+
+            스크롤 줄 **밖**(세로 flex 의 마지막 칸)이라 조건을 아무리 내려도 늘 같은 자리에 있다 —
+            `fixed` 가 아니라 시트 안의 자리다(스와이프 중 어긋남, ADR-014).
+
+            "모두 지우기" 는 누르면 시트를 함께 닫는다. 닫지 않으면 조건이 0이 되면서 이 버튼이
+            손가락 밑에서 사라지고, 시트만 그대로 남아 아무 일도 안 일어난 것처럼 보인다.
           */}
-          {activeCount > 0 && (
-            <div className="shrink-0 border-t border-secondary pt-3">
+          <div className="flex shrink-0 items-center gap-3 border-t border-secondary pt-3">
+            {activeCount > 0 && (
               <Button
                 color="link-color"
                 size="md"
-                className="min-h-11"
+                className="min-h-11 shrink-0"
                 onClick={() => {
                   onReset();
                   onOpenChange(false);
                 }}
               >
-                필터 모두 지우기
+                모두 지우기
               </Button>
-            </div>
-          )}
+            )}
+            <Button size="lg" color="primary" className="h-11 flex-1" onClick={() => onOpenChange(false)}>
+              {resultCount}곳 보기
+            </Button>
+          </div>
         </div>
       </BottomSheet>
     </>

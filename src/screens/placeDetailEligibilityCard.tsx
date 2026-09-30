@@ -1,22 +1,10 @@
 import { Fragment, type ReactNode } from 'react';
 import Link from 'next/link';
-import type { TEligibilityLevel } from '../lib/eligibility';
+import { headlineFor, type TEligibilityLevel } from '../lib/eligibility';
 import { dogCallNames, withJosa } from '../lib/korean';
 import type { TPlaceEntry } from '../lib/places';
 import { useDog } from '../store/useAppStore';
 import { useEligibility } from '../store/useDogEligibility';
-
-/**
- * 판정 레벨별 머리글. "악동이는 갈 수 있어요" · "우현이와 민수는 확인해야 알 수 있어요" 처럼
- * 애칭(`dogCallNames`) + 은/는 + 상태로 읽힌다. 배지 라벨(eligibilityBadge)과 뜻은 같지만
- * 앞에 주어가 붙어 어미를 문장에 맞게 다듬었다.
- */
-const HEADLINE: Record<TEligibilityLevel, string> = {
-  ok: '갈 수 있어요',
-  cond: '확인해야 알 수 있어요',
-  unknown: '확인된 정보가 없어요',
-  hard: '이용하기 어려워요',
-};
 
 /**
  * 머리글 앞의 레벨 색 점. 배지(`EligibilityBadge`)를 쓰지 않는 이유: 배지 라벨이 문장이 되면서
@@ -35,6 +23,9 @@ const DOT_CLASS: Record<TEligibilityLevel, string> = {
 /**
  * 상세 화면의 판정 카드. 원문 카드("반려동물 이용") 바로 위에 얹는다.
  *
+ * 머리글은 "악동이는 갈 수 있어요" 처럼 애칭(`dogCallNames`) + 은/는 + `headlineFor` 로 읽힌다 —
+ * 근거가 하나뿐이면 근거를 따르는 규칙이 lib 에 있어 테스트로 묶인다.
+ *
  * 강아지가 없으면 강제 등록 없이 조용한 배너 한 줄만(2026-09-15 리뷰 §1② — 첫 진입 강제
  * 등록은 이탈). 있으면 색 점 + 머리글 + 근거(심각도순, `useEligibility` 가 이미 정렬해 준다).
  * 요금 정보(`info` 레벨)는 판정 근거가 아니라 참고 정보라 아래에 작게 따로 둔다.
@@ -49,7 +40,7 @@ export function PlaceDetailEligibilityCard({ place }: { place: TPlaceEntry }) {
         href="/dog"
         className="mb-3 flex min-h-11 items-center justify-between gap-2 rounded-2xl border border-secondary bg-secondary px-4 py-3 text-sm font-semibold text-secondary transition-colors hover:bg-tertiary"
       >
-        우리 강아지를 등록하면 여기서 바로 판정을 볼 수 있어요
+        우리 강아지를 등록하면 여기서 갈 수 있는지 바로 알려 드려요
         <span aria-hidden="true" className="text-tertiary">
           ›
         </span>
@@ -66,7 +57,7 @@ export function PlaceDetailEligibilityCard({ place }: { place: TPlaceEntry }) {
       <div className="flex items-start gap-2">
         <span aria-hidden="true" className={`mt-2 size-2.5 shrink-0 rounded-full ${DOT_CLASS[eligibility.level]}`} />
         <p className="text-md font-bold text-primary">
-          {withJosa(dogCallNames(dog.dogs.map((d) => d.name)), '은/는')} {HEADLINE[eligibility.level]}
+          {withJosa(dogCallNames(dog.dogs.map((d) => d.name)), '은/는')} {headlineFor(eligibility)}
         </p>
       </div>
 

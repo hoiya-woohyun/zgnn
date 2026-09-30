@@ -1,11 +1,14 @@
 'use client';
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '../components/base/button';
 import { HintText } from '../components/base/hint-text';
 import { PageHeader } from '../components/layout/pageHeader';
-import { DOG_NAME_MAX_LENGTH, MAX_DOGS } from '../lib/dogProfile';
+import { canGoBackInApp, markReplacedNavigation } from '../lib/appHistory';
+import { parentRouteOf } from '../lib/appRoutes';
+import { showAppStatus } from '../lib/appStatus';
+import { DOG_NAME_MAX_LENGTH, MAX_DOGS, dogProfileSavedMessage } from '../lib/dogProfile';
 import { dogSize } from '../lib/eligibility';
 import { useStoreHydrated } from '../providers/storeHydration';
 import { useAppStore, useDog } from '../store/useAppStore';
@@ -72,7 +75,14 @@ export function DogProfilePage() {
   const clearDog = useAppStore((state) => state.clearDog);
 
   const [rows, setRows] = useState<TDogRowDraft[]>([EMPTY_ROW]);
-  const [carrier, setCarrier] = useState<TCarrier>('none');
+  /**
+   * 이동 수단은 **미리 고르지 않는다**(`null` = 아직 안 고름). 기본값 '없어요' 로 두었더니
+   * 가방이 있는 사람도 그대로 저장해 식당 대부분이 "어려움" 으로 뒤집혔다 — 식당 판정은 이 값
+   * 하나로 결판난다. `null` 은 폼 안에만 산다(저장 타입 `TDogProfile.carrier` 는 그대로).
+   */
+  const [carrier, setCarrier] = useState<TCarrier | null>(null);
+  const [carrierError, setCarrierError] = useState(false);
+  const carrierFirstOptionRef = useRef<HTMLButtonElement>(null);
   const [sizeOverride, setSizeOverride] = useState<TDogSize | undefined>(undefined);
   /** 저장을 눌렀을 때 잡힌 행 에러. 입력을 고치면 `liveRowError` 가 대신한다. */
   const [submitErrors, setSubmitErrors] = useState<TDogRowError[] | null>(null);
@@ -101,7 +111,8 @@ export function DogProfilePage() {
 
   const validDogs = parseValidDogs(rows);
   const rowErrors = submitErrors ?? rows.map(liveRowError);
-  const computedSize = validDogs.length > 0 ? dogSize({ dogs: validDogs, carrier }) : undefined;
+  // 크기는 몸무게만 본다 — 이동 수단을 아직 안 골랐어도 크기 표시는 미룰 이유가 없다.
+  const computedSize = validDogs.length > 0 ? dogSize({ dogs: validDogs, carrier: carrier ?? 'none' }) : undefined;
 
   const updateRows = (next: (prev: TDogRowDraft[]) => TDogRowDraft[]) => {
     setRows(next);
@@ -112,19 +123,39 @@ export function DogProfilePage() {
     event.preventDefault();
 
     const errors = rows.map(submitRowError);
-    if (errors.some(hasRowError)) {
-      setSubmitErrors(errors);
+    const rowsInvalid = errors.some(hasRowError);
+    if (rowsInvalid) setSubmitErrors(errors);
+    if (carrier === null) {
+      setCarrierError(true);
+      // 행 에러가 함께 있으면 위쪽(행)이 먼저 눈에 들어오므로 포커스는 이동 수단만 없을 때 옮긴다.
+      if (!rowsInvalid) carrierFirstOptionRef.current?.focus();
       return;
     }
+    if (rowsInvalid) return;
 
-    setDog({ dogs: parseValidDogs(rows), carrier, sizeOverride });
-    router.push('/');
+    const dogs = parseValidDogs(rows);
+    setDog({ dogs, carrier, sizeOverride });
+
+    /*
+     * 보던 화면으로 돌아간다(D3). 예전엔 무조건 홈으로 push 해서, 상세의 "등록하면…" 으로 온 사람이
+     * 보던 장소를 잃고, 뒤로가기를 누르면 방금 저장한 폼이 다시 나왔다. 되감으면 폼 항목을 지나
+     * 온 곳으로 가고, 딥링크로 폼에 바로 들어왔으면 되감을 곳이 없어 부모(설정)로 갈아 끼운다 —
+     * 셸의 뒤로가기(`AppBar`)와 같은 규칙이다. 알림은 셸이 그리므로 화면이 바뀌어도 남는다.
+     */
+    showAppStatus(dogProfileSavedMessage(dogs));
+    if (canGoBackInApp()) {
+      router.back();
+    } else {
+      markReplacedNavigation();
+      router.replace(parentRouteOf('/dog'));
+    }
   };
 
   const handleDelete = () => {
     clearDog();
     setRows([EMPTY_ROW]);
-    setCarrier('none');
+    setCarrier(null);
+    setCarrierError(false);
     setSizeOverride(undefined);
     setSubmitErrors(null);
     setBanner('프로필을 삭제했어요');
@@ -161,7 +192,15 @@ export function DogProfilePage() {
               {submitErrors?.some(hasRowError) && <HintText isInvalid>이름과 몸무게를 모두 채워 주세요</HintText>}
             </div>
 
-            <DogProfileCarrierPicker value={carrier} onChange={setCarrier} />
+            <DogProfileCarrierPicker
+              value={carrier}
+              onChange={(next) => {
+                setCarrier(next);
+                setCarrierError(false);
+              }}
+              error={carrierError ? '외출할 때 어떻게 데리고 다니는지 골라 주세요' : undefined}
+              firstOptionRef={carrierFirstOptionRef}
+            />
 
             <DogProfileSizeOverride computedSize={computedSize} value={sizeOverride} onChange={setSizeOverride} />
 

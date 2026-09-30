@@ -297,11 +297,18 @@ export function MapPage() {
                         : 'border-secondary bg-primary/92 text-secondary',
                     )}
                   >
+                    {/*
+                      켜져도 종류 색 점을 남긴다(D8) — 흰 점으로 바꾸면 켜진 칩 셋이 똑같은 분홍이 되어
+                      "어느 핀이 이 종류인가" 의 열쇠가 켤 때 사라졌다. 진한 면 위에서도 점이 보이게
+                      흰 원(bg-primary)을 받친다. 꺼짐도 같은 크기의 자리를 차지해 칩 폭이 안 흔들린다.
+                      색은 TYPE_COLOR 그대로 — 새 값을 만들지 않는다(theme.css 와 두 곳 동기화).
+                    */}
                     <span
-                      className="size-2 rounded-full"
-                      style={{ background: active ? 'currentColor' : TYPE_COLOR[type] }}
+                      className={cx('flex size-3.5 items-center justify-center rounded-full', active && 'bg-primary')}
                       aria-hidden="true"
-                    />
+                    >
+                      <span className="size-2 rounded-full" style={{ background: TYPE_COLOR[type] }} />
+                    </span>
                     {TYPE_META[type].label}
                   </button>
                 );

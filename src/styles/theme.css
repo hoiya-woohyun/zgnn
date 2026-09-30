@@ -385,7 +385,9 @@
     --color-text-primary: var(--color-neutral-900);
     --color-text-tertiary: var(--color-neutral-600);
     --color-text-error-primary: var(--color-red-600);
-    --color-text-warning-primary: var(--color-yellow-600);
+    /* 경고 글자는 판정 cond 배지와 같은 앰버(orange-700) — Tailwind 기본 yellow-600 은
+       yellow-50 바탕에서 2.8:1 이라 "챙길 것" 박스 글씨가 읽히지 않았다(5.7:1 로). */
+    --color-text-warning-primary: var(--color-orange-700);
     --color-text-success-primary: var(--color-green-600);
     --color-text-white: var(--color-white);
     --color-text-secondary: var(--color-neutral-700);
@@ -418,7 +420,7 @@
 
     /* FOREGROUND COLORS */
     --color-fg-secondary: var(--color-neutral-700);
-    --color-fg-warning-primary: var(--color-yellow-600);
+    --color-fg-warning-primary: var(--color-orange-700);
     --color-fg-success-primary: var(--color-green-600);
     --color-fg-white: var(--color-white);
     --color-fg-success-secondary: var(--color-green-500);
