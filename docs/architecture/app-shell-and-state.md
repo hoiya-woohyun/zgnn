@@ -78,10 +78,10 @@ src/app/place/[id]/page.tsx   ─ 서버: generateStaticParams(86개) · generat
 경로가 바뀌면 그 화면의 자리로 스크롤을 되돌린다 — 아래 참고). 전역 `scroll-behavior: smooth`
 도 쓰지 않는다 — 그 복원까지 애니메이션돼 화면 전환마다 스크롤이 흐른다.
 
-**브레이크포인트는 배치만이 아니라 크기도 바꾼다.** `globals.css` 가 `--spacing` 을 768px·1024px 에서
-4 → 4.5 → 5px 로 올리고, 이 레포의 타이포·간격·컨트롤 높이가 전부 그 파생이라 화면 전체가 같은 비율로
+**브레이크포인트는 배치만이 아니라 크기도 바꾼다.** `globals.css` 가 `--spacing` 을 768px 에서
+4 → 4.25px 로 올리고, 이 레포의 타이포·간격·컨트롤 높이가 전부 그 파생이라 화면 전체가 같은 비율로
 커진다. 모바일 4px 은 44px 터치 기준이 걸려 있어 고정이다([ADR-006](../decisions/ADR-006-responsive-scale-and-font.md)).
-본문 글꼴(나눔스퀘어 네오)도 `src/app/layout.tsx` 의 `next/font/local` 이 `<html>` 에 변수로 얹어,
+본문 글꼴(Pretendard 서브셋 `Zgnn Sans`)도 `src/app/layout.tsx` 의 `next/font/local` 이 `<html>` 에 변수로 얹어,
 `theme.css` 의 `--font-body` 가 그것을 1순위로 읽는다.
 
 - 좌우 패딩 계약(`px-4 md:px-6`)은 **예외가 없다**(v10). 홈 히어로가 유일한 예외로 화면 끝까지 깔렸었는데, 라운드 판이 되면서 같은 계약으로 들어왔다.

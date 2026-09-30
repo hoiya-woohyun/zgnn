@@ -1,6 +1,8 @@
 # 3. AI 분석 → 사람이 링크 확인 → 승인
 
-> 최종 수정: 2026-09-30 (v12: **Claude 를 두 번 부른다** — 추출 뒤에 「교차점검」 패스가 붙었다([ADR-019](../decisions/ADR-019-ai-cross-check-and-address-rules.md)).
+> 최종 수정: 2026-09-30 (v13: **공식 홈페이지 카드** — 대조 뒤에 이름 축이 준 `link` 가 업체 사이트면 한 번 읽어 `extracted.homepage`
+> `{ url, siteName, image }` 로 남긴다(`homepageCard.mjs`, 끄려면 `--no-homepage`). 쌓인 pending 후보는 `pnpm data:homepage` 로 채운다)
+> 이전 (v12: **Claude 를 두 번 부른다** — 추출 뒤에 「교차점검」 패스가 붙었다([ADR-019](../decisions/ADR-019-ai-cross-check-and-address-rules.md)).
 > 동반 조건 문장이 **없는** 후보를 묶어 글 하나당 한 번, "강아지를 데리고 들어간 근거가 본문에 있나" 를 다시 묻는다 —
 > 추출 패스는 "반려견 동반 여행기" 를 전제로 읽어 강아지를 두고 들른 일반 카페도 장소로 뽑았다(실측: pending 58건 중 조건 문장 없는 것 28건).
 > ⚠ **`--limit` 을 절반으로 본다** — 글마다 호출이 최대 한 번 더 늘었다. 끄려면 `--no-verify`, 모델은 `VERIFY_MODEL`.
@@ -202,6 +204,17 @@ flowchart LR
 실측 43쌍이 `same 39 / different 2 / unknown 2` 로 갈린다 — 경보가 40번 울려 남은 2번(검색이 동명의 다른
 가게를 집은 것)을 아무도 보지 않던 상태였다. 분석 때 저장하지 않고 **화면이 그때그때 부른다** — 저장하면
 이미 쌓인 218건은 영원히 옛 경보를 쓴다. 지번↔도로명은 `'unknown'` 으로 두고 참고로만 적는다(모델에게 묻지 않는 이유는 ADR-019).
+
+### 공식 홈페이지 카드 — `scripts/analyze/homepageCard.mjs` (AI 아님)
+
+사진을 **가져오지 않고** 업체가 공유용으로 내놓은 `og:image` 의 URL 만 링크 카드로 싣는다([ADR-002](../decisions/ADR-002-no-place-photos.md) v3).
+collect 가 아니라 analyze 에 둔 이유 — 재료인 `link` 가 네이버 지역 검색(이름 축)에서 나오고, 그 검색은 분석만 한다.
+
+- 판정·대조에 쓰이지 않는 '더하기만 하는' 값이라 실패해도 실행을 세우지 않는다(카드 없이 간다). 같은 link 는 한 실행에 한 번.
+- `places.homepage_url` 이 없으면(마이그레이션 `20260930120000` 전) 카드를 끈다 — 카드 든 후보의 승인이 insert 에서 실패한다.
+- [x] 분석 단계에서 읽기 · [x] 반영(`homepageColumns` — 세 칸을 한 벌로, 빈 곳에만) · [x] 상세 카드 · [x] `/admin` 에서 보고 고치기
+- [x] 쌓인 pending 후보 채우기 — `pnpm data:homepage [--limit N] [--dry-run]`(세션 필요). 못 찾으면 `homepage: null` 로 닫아 다시 두드리지 않는다.
+- [ ] 🙋 **실측 전** — 카드가 붙는 비율(지역 검색 `link` 가 업체 사이트인 비율)과 og:image 가 로고·배너인 비율. 첫 `data:homepage` 의 요약 줄이 그 값이다.
 
 ## 🙋 `matchPlace` — 기본안이 구현돼 있다. 가중치·임계값은 사용자가 조정한다
 

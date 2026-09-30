@@ -55,6 +55,10 @@ export function toPlace(f) {
     geo: f.lat != null && f.lng != null ? { lat: f.lat, lng: f.lng } : undefined,
     address: f.address || undefined,
     category: f.category || undefined,
+    // 공식 홈페이지 링크 카드(ADR-002 v2). 주소가 없으면 카드도 없다 — 시드는 undefined 라 키가 빠져 JSON 바이트가 그대로다.
+    homepage: f.homepageUrl
+      ? { url: f.homepageUrl, name: f.homepageName || undefined, image: f.homepageImage || undefined }
+      : undefined,
     cover: f.cover || undefined,
     images: f.images ?? [],
   };
@@ -86,6 +90,9 @@ export function fromPlaceRow(row) {
     lng: row.lng,
     address: row.address,
     category: row.category,
+    homepageUrl: row.homepage_url,
+    homepageName: row.homepage_name,
+    homepageImage: row.homepage_image,
     stayPriceText: row.stay_price_text,
     stayAmenitiesText: row.stay_amenities_text,
   });

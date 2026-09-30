@@ -89,6 +89,9 @@ describe('draftFromExtracted — 폼은 전부 문자열이다', () => {
       address: '',
       lat: '',
       lng: '',
+      naverPlace: '',
+      homepageUrl: '',
+      homepageImage: '',
       features: '',
       petPolicyText: '',
       policy: {
@@ -344,5 +347,59 @@ describe('buildEdit — 동반 정보', () => {
     const before = row({ match_place_id: 'p9', match_confidence: 0.9 });
     const out = buildEdit(before, { ...d, petPolicyText: '리드줄 필수예요' }, [place()]);
     expect(out.match_place_id).toBe('p9');
+  });
+});
+
+describe('네이버 플레이스 칸 (ADR-002 v2)', () => {
+  it('주소를 붙여 넣으면 id 로 저장하고, 그 id 의 기존 장소로 짝이 붙는다', () => {
+    const before = row({ extracted: extracted({ name: '다른이름', nameKey: '다른이름' }) });
+    const out = buildEdit(
+      before,
+      draft({ name: '다른이름', naverPlace: 'https://m.place.naver.com/accommodation/1118214877/home' }),
+      [place({ naver_place_id: '1118214877' })],
+    );
+    expect(out.extracted.naverPlaceId).toBe('1118214877');
+    expect(out.match_place_id).toBe('p1');
+    expect(out.extracted.match?.reason).toBe('naverPlaceId 일치');
+  });
+
+  it('단축 링크는 저장을 막고 이유를 말한다', () => {
+    expect(editProblem(draft({ naverPlace: 'https://naver.me/xIgKjUqT' }))).toMatch('naver.me');
+    expect(editProblem(draft({ naverPlace: '1118214877' }))).toBeNull();
+  });
+
+  it('꼴만 바뀐 것(주소 ↔ 숫자)은 바뀐 게 아니다', () => {
+    const ex = extracted({ naverPlaceId: '1118214877' });
+    expect(identityChanged({ ...draftFromExtracted(ex), naverPlace: 'https://map.naver.com/p/entry/place/1118214877' }, ex)).toBe(false);
+    expect(identityChanged({ ...draftFromExtracted(ex), naverPlace: '' }, ex)).toBe(true);
+    expect(editChanges(draft({ naverPlace: '1118214877' }), draft()).map((c) => c.label)).toContain('네이버 플레이스');
+    // 꼴만 다른 두 값은 '바뀐 것' 목록에도 안 뜬다
+    expect(editChanges({ ...draftFromExtracted(ex), naverPlace: 'https://map.naver.com/p/entry/place/1118214877' }, draftFromExtracted(ex))).toEqual([]);
+  });
+});
+
+describe('홈페이지 칸 (ADR-002 v2)', () => {
+  const card = { url: 'https://www.solsup.com/', siteName: '솔숲펜션', image: 'https://www.solsup.com/a.jpg' };
+  const withCard = () => row({ extracted: extracted({ homepage: card }) });
+
+  it('사진만 비우면 사진만 빠지고 이름은 남는다', () => {
+    const d = { ...draftFromExtracted(extracted({ homepage: card })), homepageImage: '' };
+    expect(buildEdit(withCard(), d, [place()]).extracted.homepage).toEqual({ ...card, image: null });
+    expect(editChanges(d, draftFromExtracted(extracted({ homepage: card })))).toEqual([
+      { key: 'homepageImage', label: '홈페이지 사진', before: card.image, after: EMPTY_VALUE },
+    ]);
+  });
+
+  it('주소를 비우면 카드째 빠진다 · 주소를 바꾸면 옛 이름을 버린다', () => {
+    const base = draftFromExtracted(extracted({ homepage: card }));
+    expect(buildEdit(withCard(), { ...base, homepageUrl: '', homepageImage: '' }, [place()]).extracted.homepage).toBeNull();
+    expect(buildEdit(withCard(), { ...base, homepageUrl: 'https://other.kr/' }, [place()]).extracted.homepage?.siteName).toBeNull();
+  });
+
+  it('반영기가 버릴 값은 저장 전에 막는다', () => {
+    expect(editProblem(draft({ homepageUrl: 'www.solsup.com' }))).toMatch('http');
+    expect(editProblem(draft({ homepageUrl: 'https://a.kr/', homepageImage: 'http://a.kr/a.jpg' }))).toMatch('https');
+    expect(editProblem(draft({ homepageImage: 'https://a.kr/a.jpg' }))).toMatch('사진만');
+    expect(editProblem(draft({ homepageUrl: 'https://a.kr/', homepageImage: 'https://a.kr/a.jpg' }))).toBeNull();
   });
 });

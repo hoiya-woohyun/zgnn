@@ -35,16 +35,17 @@ export const DEFAULT_MAX_PER_BLOG = 2;
 
 /**
  * `--dry-run` · `--limit N` · `--max-per-blog N` · `--no-geo` · `--no-verify`(교차점검 패스를 끈다 — Claude 호출이 글마다
- * 최대 한 번 더 늘어나므로 한도가 아까울 때) · `--dump[=경로]`(후보·제외 목록을 로컬 JSON 으로 — 정규화 품질을
+ * 최대 한 번 더 늘어나므로 한도가 아까울 때) · `--no-homepage`(공식 홈페이지 카드를 읽지 않는다 — 업체 사이트에 요청이 나가지 않게) · `--dump[=경로]`(후보·제외 목록을 로컬 JSON 으로 — 정규화 품질을
  * 사람이 볼 유일한 창, 로그에는 여전히 본문 인용을 찍지 않는다). 모르는 인자나 1 미만의 limit 은 throw — 오타로 전체를 돌리는 일이 없게.
  */
 export function parseArgs(argv) {
-  const args = { limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false };
+  const args = { limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noHomepage: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--dry-run') { args.dryRun = true; continue; }
     if (arg === '--no-geo') { args.noGeo = true; continue; }
     if (arg === '--no-verify') { args.noVerify = true; continue; }
+    if (arg === '--no-homepage') { args.noHomepage = true; continue; }
     if (arg === '--dump') { args.dump = ''; continue; } // '' = 기본 경로(data/raw/analyze-<시각>.json)
     if (arg.startsWith('--dump=')) { args.dump = arg.slice('--dump='.length); continue; }
     let key;
@@ -210,7 +211,8 @@ export function toMatchCandidate(extracted, local) {
 
 /**
  * candidates 행. extracted 의 모양은
- *   { ...TExtractedPlace, geo: {lat,lng}|null, geoSource: 'local'|'geocode'|null, naverLink: string|null, category: string|null,
+ *   { ...TExtractedPlace, geo: {lat,lng}|null, geoSource: 'local'|'geocode'|null, naverLink: string|null,
+ *     homepage: { url, siteName, image }|null, category: string|null,
  *     regionRaw: string|null, regionRawAi: string|null, match: { confidence, reason, tier: 'auto'|'ask'|'new' },
  *     verify: { petAllowedHere, dogWasThere, quote, why, promptVersion, model } | null }
  * — applyApproved.mjs 가 읽는 계약이다. address 는 네이버 값이 있으면 그것으로 덮는다(기존 86곳과 같은 "제주 제주시 …" 꼴).
@@ -230,10 +232,12 @@ export function toMatchCandidate(extracted, local) {
  * @param {{ match: object | null, confidence: number, reason: string }} matched  matchPlace 결과
  * @param {{ meta?: { model: string, promptVersion: string } | null, dupOf?: string | null, verify?: object | null }} [extra]
  *   meta — 어느 모델·프롬프트로 뽑았나(재분석 대상을 고르는 키). dupOf — 같은 nameKey 의 먼저 난 pending 후보 id(검수자가 묶어 보게).
+ *   homepage — 공식 홈페이지 카드 `{ url, siteName, image }`(`homepageCard.mjs`). **`null` 은 "홈페이지 없음 또는 안 읽음"** 이다 —
+ *   이름 축이 준 link 가 없거나 네이버·SNS·예약 플랫폼이었거나 읽기에 실패했다. 사진은 URL 뿐이다(ADR-002 v2).
  *   verify — 교차점검 판단(`verifyPlaces.mjs`). **`null` 은 "점검하지 않았다" 다**(조건 문장이 있었거나 그 패스가 꺼졌거나 실패했다).
  *   "점검했고 근거가 없었다" 는 값이 든 객체이고, 둘을 섞으면 화면이 미점검 후보에 초록 표식을 단다.
  */
-export function toCandidateRow(post, extracted, local, regionRaw, matched, { meta = null, dupOf = null, verify = null } = {}) {
+export function toCandidateRow(post, extracted, local, regionRaw, matched, { meta = null, dupOf = null, verify = null, homepage = null } = {}) {
   const tier = tierOf(matched);
   return {
     post_url: post.url,
@@ -250,6 +254,7 @@ export function toCandidateRow(post, extracted, local, regionRaw, matched, { met
       // 이름 축(pickNaverPlace)은 geoSource 를 달지 않으므로 여기서 'local' 이 기본이다 — 축을 아는 곳이 한 군데여야 어긋나지 않는다.
       geoSource: local ? (local.geoSource ?? 'local') : null,
       naverLink: local?.naverLink ?? null,
+      homepage,
       category: local?.category ?? null,
       regionRaw: regionRaw ?? null,
       regionRawAi: extracted.regionRaw ?? null,

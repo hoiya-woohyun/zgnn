@@ -20,6 +20,7 @@ import {
 } from '../lib/adminEdit';
 import type { TCandidateExtracted } from '../lib/adminCandidates';
 import type { TPolicyCell } from '../lib/adminPreview';
+import { naverMapSearchUrl, parseNaverPlaceId } from '../lib/naverPlaceLink';
 import { cx } from '../utils/cx';
 import { AdminChangeList } from './adminChangeList';
 
@@ -224,6 +225,32 @@ export function AdminPageEditForm({
             <Input aria-label="경도" placeholder="경도" size="sm" value={draft.lng} onChange={(value) => set({ lng: value })} isDisabled={busy} />
           </div>,
         )}
+        {/*
+          * 플레이스 id 는 AI·검색이 채우지 못하는 칸이라 사람이 넣는다(ADR-002 v2) — 이 칸이 차야 상세에 '사진 보기' 가 생긴다.
+          * 찾으러 갈 길을 옆에 둔다: 가게 화면을 연 뒤 주소창을 그대로 붙여 넣으면 된다.
+          */}
+        {row(
+          'naverPlace',
+          '네이버 플레이스',
+          <>
+            <Input
+              aria-label="네이버 플레이스"
+              size="sm"
+              placeholder="가게 화면 주소나 숫자 id"
+              value={draft.naverPlace}
+              onChange={(value) => set({ naverPlace: value })}
+              isInvalid={'error' in parseNaverPlaceId(draft.naverPlace)}
+              hint="채우면 사이트 상세에 '사진 보기' 가 생겨요"
+              isDisabled={busy}
+            />
+            <a className="mt-1 inline-block text-xs text-brand-secondary underline" href={naverMapSearchUrl(draft.name)} target="_blank" rel="noopener noreferrer">
+              네이버 지도에서 찾기
+            </a>
+          </>,
+        )}
+        {/* 홈페이지 카드 — 주소를 비우면 카드째, 사진만 비우면 사진만 빠진다. 업체의 내려 달라는 요청이 승인 전이면 여기서 끝난다(ADR-002 v2). */}
+        {row('homepageUrl', '홈페이지', <Input aria-label="공식 홈페이지" size="sm" placeholder="https://…" value={draft.homepageUrl} onChange={(value) => set({ homepageUrl: value })} isDisabled={busy} />)}
+        {row('homepageImage', '홈페이지 사진', <Input aria-label="홈페이지 사진" size="sm" placeholder="비우면 사진 없이 카드만" value={draft.homepageImage} onChange={(value) => set({ homepageImage: value })} isDisabled={busy} />)}
         {/* 한 줄 `Input` 으로 두지 않는 이유: 이 값은 두 문장이고 승인되면 그대로 사이트의 소개가 된다. */}
         {row(
           'features',

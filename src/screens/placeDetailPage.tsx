@@ -4,6 +4,7 @@ import { Share01 } from '@untitledui/icons';
 import { notFound } from 'next/navigation';
 import { PlaceDetailHeader } from './placeDetailHeader';
 import { PlaceDetailGallery } from './placeDetailGallery';
+import { PlaceDetailHomepage } from './placeDetailHomepage';
 import { HighlightedPolicyText, PlaceDetailEligibilityCard } from './placeDetailEligibilityCard';
 import { PlaceDetailMiniMap } from './placeDetailMiniMap';
 import { PlaceDetailNearby } from './placeDetailNearby';
@@ -14,6 +15,7 @@ import { PetBadges } from '../components/petBadges';
 import { SaveButton } from '../components/saveButton';
 import { showAppStatus } from '../lib/appStatus';
 import { formatStayPrice } from '../lib/format';
+import { naverPlacePhotoUrl } from '../lib/naverPlaceLink';
 import { shareMethodOf, shareTextFor } from '../lib/placeShare';
 import { TYPE_META, getPlace } from '../lib/places';
 import { useDog } from '../store/useAppStore';
@@ -29,6 +31,7 @@ export function PlaceDetailPage({ id }: { id: string }) {
 
   const dog = useDog();
   const eligibility = useEligibility(place);
+  const photoUrl = naverPlacePhotoUrl(place.naverPlaceId);
 
   /*
    * 공유 버튼은 **늘 그린다**(지수 ⑤ — 카톡 인앱·데스크톱엔 Web Share 가 없어 버튼이 아예 없었다).
@@ -98,10 +101,15 @@ export function PlaceDetailPage({ id }: { id: string }) {
           숙소는 아래 요금 섹션에 밀려 네이버 버튼이 한 화면 아래로 내려갔다). 어려움 판정이어도
           네이버로 가서 직접 확인할 수 있어야 하므로 판정과 무관하게 항상 보여준다.
         */}
-        {place.naverUrl && (
-          <NaverLinkButton href={place.naverUrl} className="mt-3">
-            네이버 지도에서 열기
-          </NaverLinkButton>
+        {/*
+          * 사진은 가져오지 않고 네이버 플레이스 사진 탭으로 보낸다(ADR-002 v2) — 권리가 업주·방문자에게 있다.
+          * 네이버로 나가는 버튼이라 같은 초록 알약이고, 둘은 한 줄에 나란히 둔다(좁으면 줄바꿈).
+          */}
+        {(place.naverUrl || photoUrl) && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {place.naverUrl && <NaverLinkButton href={place.naverUrl}>네이버 지도에서 열기</NaverLinkButton>}
+            {photoUrl && <NaverLinkButton href={photoUrl}>사진 보기</NaverLinkButton>}
+          </div>
         )}
       </section>
 
@@ -126,6 +134,16 @@ export function PlaceDetailPage({ id }: { id: string }) {
               </div>
             )}
           </dl>
+        </section>
+      )}
+
+      {/* 공식 홈페이지가 있을 때만(분석이 네이버 지역 검색의 link 에서 찾은 업체 사이트). 사진은 그 사이트의 것이다 — ADR-002 v2. */}
+      {place.homepage && (
+        <section className="mt-6 px-4 md:px-6">
+          <h2 className="text-lg font-bold text-primary">공식 홈페이지</h2>
+          <div className="mt-2">
+            <PlaceDetailHomepage homepage={place.homepage} />
+          </div>
         </section>
       )}
 

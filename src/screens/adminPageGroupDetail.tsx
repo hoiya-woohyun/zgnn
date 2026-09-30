@@ -196,6 +196,39 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
             result={<p className="whitespace-pre-line text-secondary">{extracted.features || '소개 문장이 없어요'}</p>}
           />
           {/*
+            * 홈페이지 카드 — 승인하면 사이트 상세에 그대로 나간다. 사진을 **작게라도 보여 주는** 이유: 업체 사이트의 og:image 는
+            * 로고·배너일 때가 많아 사람이 보고 빼야 한다('고치기' 의 홈페이지 사진 칸을 비운다). 못 받으면 접는다.
+            */}
+          <CompareRow
+            label="홈페이지"
+            edited={editedKeys.has('homepageUrl') || editedKeys.has('homepageImage')}
+            source={<span className="text-quaternary">분석이 찾은 업체 사이트예요 — 블로그 본문이 아니에요</span>}
+            result={
+              extracted.homepage ? (
+                <span className="flex items-start gap-2">
+                  {extracted.homepage.image && (
+                    <img
+                      src={extracted.homepage.image}
+                      alt=""
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                      onError={(event) => event.currentTarget.remove()}
+                      className="h-12 w-[5.75rem] shrink-0 rounded bg-secondary object-cover"
+                    />
+                  )}
+                  <span className="min-w-0">
+                    <a className="break-all text-brand-secondary underline" href={extracted.homepage.url} target="_blank" rel="noopener noreferrer">
+                      {extracted.homepage.siteName ?? extracted.homepage.url}
+                    </a>
+                    {!extracted.homepage.image && <span className="block text-tertiary">사진 없음 — 사진 없는 카드로 나가요</span>}
+                  </span>
+                </span>
+              ) : (
+                <span className="text-tertiary">홈페이지 카드가 없어요</span>
+              )
+            }
+          />
+          {/*
             * 교차점검 줄은 **점검했을 때만** 그린다 — 여기서 지켜야 할 것은 "안 본 것을 봤다고 하지 않는다" 다.
             * 조건 문장이 있는 후보는 애초에 점검 대상이 아니므로(`needsDogCheck`) 줄이 없는 것이 정상이다.
             */}

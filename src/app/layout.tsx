@@ -6,26 +6,32 @@ import { StoreHydration } from '@/providers/storeHydration';
 import '@/styles/globals.css';
 
 /**
- * 나눔스퀘어 네오 — 네이버가 나눔글꼴 라이선스로 배포하는 무료 글꼴.
+ * 본문 글꼴 — Pretendard(SIL OFL 1.1)를 서브셋한 파생본. 파일·글꼴 이름이 `Zgnn Sans` 인 것은
+ * Pretendard 가 OFL 의 **예약 글꼴 이름(RFN)** 이라, 고친 파생본(서브셋)은 그 이름을 쓸 수 없어서다.
+ * 원본·라이선스 전문은 app/fonts/ 에 있다.
  *
- * CDN(hangeul.pstatic.net) 대신 self-host 한다. 이 앱은 오프라인 프리캐시가 기능의 일부라
+ * 나눔스퀘어 네오에서 옮겼다(ADR-006 v6). 네모난 글꼴이라 한글이 글자 칸의 91% 를 채워, 토큰이 표준
+ * 크기(16·14·12px)인데도 "다른 앱보다 크다" 로 읽혔다. Pretendard 는 85% 라 같은 px 에서 한 치수
+ * 작게 보이고, 글자 폭도 9% 좁아 한 줄에 더 들어간다. 크기 토큰은 그대로 두고 글꼴만 바꾼 것이다.
+ *
+ * CDN 대신 self-host 한다. 이 앱은 오프라인 프리캐시가 기능의 일부라
  * (비행기 모드·제주 산간에서 열어보는 앱이다) 외부 도메인에 기대면 그때 글꼴이 시스템 폰트로
  * 떨어진다. 외부 요청이 0건이면 CSP·추적 문제도 같이 사라진다.
  *
- * 원본 TTF 는 굵기당 2.1MB 라 그대로 못 싣는다. 한글 완성형 11,172자 + 라틴 + 문장부호로
- * 서브셋해 woff2 로 구우면 굵기당 353KB 다(재생성 절차는 docs/architecture/pwa-offline.md).
- * 완성형 전체를 넣은 것은 강아지 이름처럼 **사용자가 직접 치는 글자**가 있기 때문이다 —
- * 상용 2350자로 줄이면 "똠", "쀼" 같은 이름에서 그 글자만 시스템 폰트로 튄다.
+ * 한글 완성형 11,172자 + 라틴 + 문장부호로 서브셋해 굵기당 약 620KB 다(재생성 절차는
+ * docs/architecture/pwa-offline.md). 완성형 전체를 넣은 것은 강아지 이름처럼 **사용자가 직접 치는
+ * 글자**가 있기 때문이다 — 상용 2350자로 줄이면 "똠", "쀼" 같은 이름에서 그 글자만 시스템 폰트로 튄다.
  *
- * 굵기는 400·700 둘뿐이다. 앱이 많이 쓰는 font-semibold(600)는 CSS 폰트 매칭 규칙상
- * 700 으로 붙는다(합성 볼드가 아니라 진짜 Bold 자족). 굵기를 하나 더 늘리면 +353KB 다.
+ * 굵기는 400·600 둘이다. font-medium(500)은 400 에, font-bold(700)는 CSS 폰트 매칭 규칙상 600 에
+ * 붙는다 — 700 을 따로 싣지 않은 것은 용량(+620KB)과, 굵은 글씨가 과하게 무거워 크게 읽히던 것을 함께
+ * 줄이기 위해서다.
  */
-const nanumSquareNeo = localFont({
+const appSans = localFont({
   src: [
-    { path: './fonts/NanumSquareNeo-Regular.woff2', weight: '400', style: 'normal' },
-    { path: './fonts/NanumSquareNeo-Bold.woff2', weight: '700', style: 'normal' },
+    { path: './fonts/ZgnnSans-Regular.woff2', weight: '400', style: 'normal' },
+    { path: './fonts/ZgnnSans-SemiBold.woff2', weight: '600', style: 'normal' },
   ],
-  variable: '--font-nanum',
+  variable: '--font-app',
   display: 'swap',
 });
 
@@ -77,7 +83,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ko" className={nanumSquareNeo.variable}>
+    <html lang="ko" className={appSans.variable}>
       <body>
         <RouteProvider>
           <StoreHydration />

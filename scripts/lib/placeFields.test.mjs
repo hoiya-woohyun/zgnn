@@ -62,3 +62,20 @@ describe('petPolicy(AI 구조화 판단) 통과', () => {
     expect(fromPlaceRow({ id: 'x', type: 'cafe', name: 'n', region_raw: '동쪽 (구좌읍)', features: '', pet_policy_text: 't', pet_policy: facts }).petPolicy).toEqual(facts);
   });
 });
+
+describe('fromPlaceRow — 홈페이지 카드 (ADR-002 v2)', () => {
+  const base = { id: 'x', type: 'cafe', name: 'n', region_raw: '동쪽 (구좌읍)', features: '', pet_policy_text: '' };
+
+  it('주소가 있으면 카드, 빈 칸은 키를 떨군다', () => {
+    expect(fromPlaceRow({ ...base, homepage_url: 'https://a.kr/', homepage_name: null, homepage_image: 'https://a.kr/a.jpg' }).homepage).toEqual({
+      url: 'https://a.kr/',
+      name: undefined,
+      image: 'https://a.kr/a.jpg',
+    });
+  });
+
+  it('주소가 없으면(시드 · 마이그레이션 전) 카드도 없다 — places.json 바이트가 그대로다', () => {
+    expect(fromPlaceRow(base)).not.toHaveProperty('homepage', expect.anything());
+    expect(JSON.stringify(fromPlaceRow({ ...base, homepage_url: null, homepage_image: 'https://a.kr/a.jpg' }))).not.toContain('homepage');
+  });
+});

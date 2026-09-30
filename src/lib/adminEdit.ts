@@ -20,6 +20,7 @@ import { toMatchablePlace } from '../../scripts/lib/placeFields.mjs';
 import { previewFor, TYPE_LABEL, type TCandidateExtracted, type TCandidateRow, type TCandidateTier, type TCandidateType, type TPlaceRow } from './adminCandidates';
 import { feeLinesOf } from '../../scripts/lib/petPolicyFacts.mjs';
 import { policyCell, type TPolicyCell } from './adminPreview';
+import { parseNaverPlaceId } from './naverPlaceLink';
 import type { TPetPolicyFacts, TPlace } from '../types';
 
 /** 사람이 고를 수 있는 종류. `other` 가 빠진 것은 의도다 — `toNewPlaceRow` 가 영구 오류로 막는다(applyApproved.mjs:99). */
@@ -35,6 +36,17 @@ export type TCandidateEditDraft = {
   address: string;
   lat: string;
   lng: string;
+  /**
+   * 네이버 플레이스 주소나 숫자 id — 붙여 넣은 **그대로**다. id 로 바꾸는 것은 `parseNaverPlaceId` 한 곳이다.
+   * 이 칸이 차야 상세에 '사진 보기'·'네이버 지도에서 열기' 가 생긴다(ADR-002 v2) — 블로그 후보는 AI 가 채우지 못한다.
+   */
+  naverPlace: string;
+  /**
+   * 공식 홈페이지 카드(분석이 찾은 것). 주소를 비우면 카드째, 사진만 비우면 사진만 빠진다 —
+   * 업체가 사진을 내려 달라고 할 때 승인 전이면 여기서 끝난다(ADR-002 v2).
+   */
+  homepageUrl: string;
+  homepageImage: string;
   features: string;
   /** 블로그 본문에서 뽑은 조건 문장. 여기가 비면 구조값은 반영 단계에서 통째로 버려진다(ADR-017). */
   petPolicyText: string;
@@ -89,6 +101,9 @@ export function draftFromExtracted(extracted: TCandidateExtracted): TCandidateEd
     address: extracted.address ?? '',
     lat: extracted.geo ? String(extracted.geo.lat) : '',
     lng: extracted.geo ? String(extracted.geo.lng) : '',
+    naverPlace: typeof extracted.naverPlaceId === 'string' ? extracted.naverPlaceId : '',
+    homepageUrl: extracted.homepage?.url ?? '',
+    homepageImage: extracted.homepage?.image ?? '',
     features: extracted.features ?? '',
     petPolicyText: extracted.petPolicyText ?? '',
     policy: policyDraftFrom(extracted.petPolicy),
@@ -187,6 +202,14 @@ export function editProblem(draft: TCandidateEditDraft): string | null {
     }
   }
 
+  const naverPlace = parseNaverPlaceId(draft.naverPlace);
+  if ('error' in naverPlace) return naverPlace.error;
+
+  // 반영기(`homepageColumns`)와 같은 줄 — 거기서 조용히 버려질 값을 여기서 먼저 말한다.
+  if (draft.homepageUrl.trim() && !/^https?:\/\//i.test(draft.homepageUrl.trim())) return '홈페이지 주소는 http(s):// 로 시작해야 해요.';
+  if (draft.homepageImage.trim() && !/^https:\/\//i.test(draft.homepageImage.trim())) return '홈페이지 사진은 https:// 주소만 쓸 수 있어요.';
+  if (draft.homepageImage.trim() && !draft.homepageUrl.trim()) return '홈페이지 주소 없이 사진만 둘 수 없어요 — 사진은 그 홈페이지 카드의 일부예요.';
+
   /*
    * 숫자 칸은 **비었거나 양수**다. `toNumber` 가 못 읽으면 `null` 을 돌려주므로 여기서 막지 않으면
    * "10kg" 이라고 적은 것이 조용히 '제한 없음' 이 된다 — 없는 제한만큼이나 사라진 제한도 해롭다.
@@ -214,7 +237,17 @@ export function editPreview(draft: TCandidateEditDraft): { cell: TPolicyCell; co
   return { cell: policyCell(preview, petPolicyText), corrections: preview.corrections };
 }
 
-/** 짝짓기에 쓰이는 값이 바뀌었는가. 바뀌었으면 저장할 때 **짝을 다시 계산해야 한다**(아래 주석). */
+/** 폼의 플레이스 칸 → id. 못 읽으면 null — 저장은 `editProblem` 이 이미 막았다. */
+const placeIdOf = (draft: TCandidateEditDraft): string | null => {
+  const parsed = parseNaverPlaceId(draft.naverPlace);
+  return 'id' in parsed ? parsed.id : null;
+};
+
+/**
+ * 짝짓기에 쓰이는 값이 바뀌었는가. 바뀌었으면 저장할 때 **짝을 다시 계산해야 한다**(아래 주석).
+ * 플레이스 id 도 여기 든다 — `matchPlace` 는 id 가 같으면 그것만으로 1.0 짝을 낸다. 붙여 넣은 꼴(주소 ↔ 숫자)만
+ * 바뀐 것은 바뀐 게 아니므로 id 로 비교한다.
+ */
 export function identityChanged(draft: TCandidateEditDraft, extracted: TCandidateExtracted): boolean {
   const before = draftFromExtracted(extracted);
   return (
@@ -222,7 +255,8 @@ export function identityChanged(draft: TCandidateEditDraft, extracted: TCandidat
     before.type !== draft.type ||
     before.address.trim() !== draft.address.trim() ||
     before.lat.trim() !== draft.lat.trim() ||
-    before.lng.trim() !== draft.lng.trim()
+    before.lng.trim() !== draft.lng.trim() ||
+    placeIdOf(before) !== placeIdOf(draft)
   );
 }
 
@@ -261,6 +295,8 @@ export function buildEdit(row: TCandidateRow, draft: TCandidateEditDraft, places
   const lat = toCoord(draft.lat);
   const lng = toCoord(draft.lng);
   const geo = lat !== null && lng !== null ? { lat, lng } : null;
+  const naverPlaceId = placeIdOf(draft);
+  const homepageUrl = draft.homepageUrl.trim();
 
   const extracted: TCandidateExtracted = {
     ...prev,
@@ -268,6 +304,16 @@ export function buildEdit(row: TCandidateRow, draft: TCandidateEditDraft, places
     type: draft.type,
     address,
     geo,
+    // 사람이 확인한 id 다 — 검색이 준 `naverLink` 와 달리 반영기가 `naver_place_id`·`naver_url` 로 옮긴다(applyApproved.mjs).
+    naverPlaceId,
+    // 주소가 그대로면 사이트 이름을 물려받는다. 사람이 주소를 바꿨으면 옛 이름은 다른 사이트의 것이라 버린다.
+    homepage: homepageUrl
+      ? {
+          url: homepageUrl,
+          siteName: prev.homepage?.url === homepageUrl ? (prev.homepage?.siteName ?? null) : null,
+          image: draft.homepageImage.trim() || null,
+        }
+      : null,
     features: draft.features.trim() || null,
     petPolicyText: draft.petPolicyText.trim() || null,
     /* 원문이 비면 구조값도 비운다 — 반영기가 어차피 안 쓰고(ADR-017), 남겨 두면 화면만 '판단 있음' 으로 읽는다. */
@@ -287,7 +333,10 @@ export function buildEdit(row: TCandidateRow, draft: TCandidateEditDraft, places
   }
 
   const existing = places.map(toMatchablePlace) as TPlace[];
-  const rechecked = matchPlace({ name, type: draft.type, geo: geo ?? undefined, address: address ?? undefined, regionRaw: prev.regionRaw ?? undefined }, existing) as {
+  const rechecked = matchPlace(
+    { name, type: draft.type, naverPlaceId: naverPlaceId ?? undefined, geo: geo ?? undefined, address: address ?? undefined, regionRaw: prev.regionRaw ?? undefined },
+    existing,
+  ) as {
     match: { id: string } | null;
     confidence: number;
     reason: string;
@@ -346,6 +395,10 @@ const FIELDS: { key: string; label: string; policy?: boolean; read: (draft: TCan
   { key: 'type', label: '종류', read: (d) => TYPE_LABEL[d.type] ?? d.type },
   { key: 'address', label: '주소', read: (d) => textOf(d.address) },
   { key: 'geo', label: '좌표', read: coordOf },
+  // 붙여 넣은 꼴(주소 ↔ 숫자)만 바뀐 것은 바뀐 게 아니다 — id 로 읽는다(`identityChanged` 와 같은 규칙).
+  { key: 'naverPlace', label: '네이버 플레이스', read: (d) => placeIdOf(d) ?? textOf(d.naverPlace) },
+  { key: 'homepageUrl', label: '홈페이지', read: (d) => textOf(d.homepageUrl) },
+  { key: 'homepageImage', label: '홈페이지 사진', read: (d) => textOf(d.homepageImage) },
   { key: 'features', label: 'AI 요약', read: (d) => textOf(d.features) },
   { key: 'petPolicyText', label: '조건 원문', read: (d) => textOf(d.petPolicyText) },
   { key: 'indoor', label: '실내', policy: true, read: (d) => INDOOR_TEXT[d.policy.indoor] },
@@ -380,7 +433,10 @@ export function editChanges(draft: TCandidateEditDraft, before: TCandidateEditDr
  *
  * 반영기는 칸을 이름으로 골라 읽으므로(`toNewPlaceRow`·`mergeIntoExisting`) 이 칸은 `places` 로 새지 않는다.
  */
-export type TAiOriginal = Pick<TCandidateExtracted, 'name' | 'type' | 'address' | 'geo' | 'features' | 'petPolicyText' | 'petPolicy'>;
+export type TAiOriginal = Pick<
+  TCandidateExtracted,
+  'name' | 'type' | 'address' | 'geo' | 'naverPlaceId' | 'homepage' | 'features' | 'petPolicyText' | 'petPolicy'
+>;
 
 export function aiOriginalOf(extracted: TCandidateExtracted): TAiOriginal {
   const kept = extracted.aiOriginal as TAiOriginal | undefined;
@@ -390,6 +446,8 @@ export function aiOriginalOf(extracted: TCandidateExtracted): TAiOriginal {
     type: extracted.type,
     address: extracted.address ?? null,
     geo: extracted.geo ?? null,
+    naverPlaceId: extracted.naverPlaceId ?? null,
+    homepage: extracted.homepage ?? null,
     features: extracted.features ?? null,
     petPolicyText: extracted.petPolicyText ?? null,
     petPolicy: extracted.petPolicy ?? null,
