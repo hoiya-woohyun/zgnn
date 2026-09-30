@@ -11,6 +11,7 @@ import type { TBadgeTone, TPetBadge } from '../lib/petPolicy';
 import { cx } from '../utils/cx';
 import { AdminAddressLine } from './adminAddressLine';
 import { AdminChangeList } from './adminChangeList';
+import { AdminSourceChip, SOURCE_TONE } from './adminSource';
 
 type TAdminPageGroupDetailProps = {
   group: TCandidateGroup;
@@ -40,7 +41,7 @@ function Chips({ label, items }: { label: string; items: TPetBadge[] }) {
 /** 원문 칸의 인용 모양. 비었으면 **왜 비었는지** 말한다 — 줄이 사라지면 "AI 가 안 뽑은 것" 과 "내가 못 본 것" 이 구별되지 않는다. */
 function Quote({ text, empty }: { text: string | null | undefined; empty: string }) {
   return text?.trim() ? (
-    <blockquote className="border-l-2 border-brand pl-2.5 whitespace-pre-line text-secondary">{text}</blockquote>
+    <blockquote className="border-l-2 border-quaternary pl-2.5 whitespace-pre-line text-primary">{text}</blockquote>
   ) : (
     <span className="text-quaternary">{empty}</span>
   );
@@ -61,15 +62,24 @@ function CompareRow({
   result: ReactNode;
   edited?: boolean;
 }) {
+  /*
+   * 칸이 **바탕색을 갖는다** — 원문 칸은 흰 종이, 나갈 값 칸은 AI 남색(`SOURCE_TONE`). 세로선 하나로만 가르던 동안
+   * 두 칸의 글자가 같은 회색이라 어느 쪽을 읽는지 줄마다 머리글을 다시 봐야 했다.
+   * 바탕이 칸을 채우도록 여백은 칸 쪽에 둔다(줄 상자에 주면 색 사이로 흰 틈이 생긴다).
+   */
   return (
-    <div className="grid gap-1 py-2 md:grid-cols-[6rem_minmax(0,1fr)_minmax(0,1fr)] md:gap-0 md:py-0 md:[&>*]:py-2 md:[&>*+*]:border-l md:[&>*+*]:border-secondary md:[&>*+*]:px-3">
-      <div className="font-semibold text-secondary">{label}</div>
-      <div className="min-w-0">
-        <span className="mb-0.5 block text-[0.6875rem] text-quaternary md:hidden">원문</span>
+    <div className="grid md:grid-cols-[6rem_minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="px-3 py-2 font-semibold text-secondary">{label}</div>
+      <div className={cx('min-w-0 px-3 py-2 md:border-l', SOURCE_TONE.blog.surface, SOURCE_TONE.blog.border)}>
+        <span className="mb-1 block md:hidden">
+          <AdminSourceChip source="blog" />
+        </span>
         {source}
       </div>
-      <div className="min-w-0">
-        <span className="mb-0.5 block text-[0.6875rem] text-quaternary md:hidden">사이트에 나갈 값</span>
+      <div className={cx('min-w-0 px-3 py-2 md:border-l', SOURCE_TONE.ai.surface, SOURCE_TONE.ai.border)}>
+        <span className="mb-1 block md:hidden">
+          <AdminSourceChip source="ai" suffix="사이트에 나갈 값" />
+        </span>
         {edited && (
           <Badge type="color" size="sm" color="brand" className="mb-1">
             고침
@@ -116,14 +126,18 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
   const regionAi = extracted.regionRawAi?.trim() ? extracted.regionRawAi : null;
 
   return (
-    <div className="space-y-3 px-4 py-3 text-xs">
+    <div className="space-y-3 text-xs">
       <AdminChangeList title="고친 내용 — AI 가 뽑은 값 → 지금 값" changes={edits} />
 
-      <div className="rounded-lg border border-secondary bg-primary px-3">
-        <div className="hidden text-[0.6875rem] font-semibold text-tertiary md:grid md:grid-cols-[6rem_minmax(0,1fr)_minmax(0,1fr)] md:[&>*]:py-1.5 md:[&>*+*]:border-l md:[&>*+*]:border-secondary md:[&>*+*]:px-3">
-          <span>항목</span>
-          <span>원문 — 블로그에 적힌 것</span>
-          <span>사이트에 나갈 값</span>
+      <div className="overflow-hidden rounded-lg border border-secondary bg-secondary">
+        <div className="hidden text-[0.6875rem] font-semibold text-tertiary md:grid md:grid-cols-[6rem_minmax(0,1fr)_minmax(0,1fr)]">
+          <span className="px-3 py-1.5">항목</span>
+          <span className={cx('flex items-center gap-1.5 border-l px-3 py-1.5', SOURCE_TONE.blog.surface, SOURCE_TONE.blog.border)}>
+            <AdminSourceChip source="blog" /> 블로그에 적힌 그대로
+          </span>
+          <span className={cx('flex items-center gap-1.5 border-l px-3 py-1.5', SOURCE_TONE.ai.surface, SOURCE_TONE.ai.border)}>
+            <AdminSourceChip source="ai" /> 승인하면 사이트에 나갈 값
+          </span>
         </div>
         <div className="divide-y divide-secondary md:border-t md:border-secondary">
           <CompareRow
@@ -240,16 +254,21 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
       </div>
 
       {/* 합쳐질 기존 장소는 결정 레일의 맨 위 줄이 말한다(`AdminPageGroupActions`) — 누를 버튼 바로 위라야 읽힌다. */}
-      <div>
-        <p className="text-xs font-semibold text-secondary">
-          원문 — 블로그 글 {group.rows.length}건 <span className="font-normal text-tertiary">· 인용은 AI 가 근거로 짚은 문장</span>
+      {/*
+        * 블로그 글 — **흰 종이 한 장**으로 묶는다. 인용은 본문 문장 그대로라 원문 목소리지만, 어느 문장을 짚을지는 AI 가 골랐다 —
+        * 그 사실은 머리의 한 줄이 말하고 문장 자체는 원문 색으로 둔다(말을 지어낸 것이 아니므로).
+        */}
+      <section className={cx('rounded-lg border px-3 py-2', SOURCE_TONE.blog.surface, SOURCE_TONE.blog.border)}>
+        <p className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-secondary">
+          <AdminSourceChip source="blog" suffix={`수집한 글 ${group.rows.length}건`} />
+          <span className="font-normal text-tertiary">인용은 본문 문장 그대로 · 어느 문장을 짚을지는 AI 가 골랐어요</span>
         </p>
-        <ul className="mt-2 space-y-3">
+        <ul className="mt-2 divide-y divide-secondary">
           {group.rows.map((row) => (
-            <li key={row.id} className="text-xs">
+            <li key={row.id} className="py-2 text-xs first:pt-0 last:pb-0">
               {row.post_url ? (
                 <a
-                  className="text-brand-secondary underline"
+                  className="font-semibold text-brand-secondary underline"
                   href={row.post_url}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -267,7 +286,7 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
               {(row.extracted.evidence ?? []).map((quote, index) => (
                 <blockquote
                   key={index}
-                  className="mt-1.5 border-l-2 border-secondary pl-2.5 text-xs whitespace-pre-line text-tertiary"
+                  className="mt-1.5 border-l-2 border-quaternary pl-2.5 text-xs whitespace-pre-line text-primary"
                 >
                   {quote}
                 </blockquote>
@@ -275,7 +294,7 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
             </li>
           ))}
         </ul>
-      </div>
+      </section>
     </div>
   );
 }

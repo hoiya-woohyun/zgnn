@@ -4,11 +4,13 @@ import { CheckDone01 } from '@untitledui/icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { Button } from '../components/base/button';
+import { Select } from '../components/base/select';
 import { EmptyState } from '../components/layout/emptyState';
 import { PageHeader } from '../components/layout/pageHeader';
 import { approveGroup, rejectGroup, saveEdit, setRegion } from '../lib/adminApply';
 import { aiOriginalOf, buildEdit, type TCandidateEditDraft } from '../lib/adminEdit';
 import { prepareReanalyze, reanalyzePlan, reanalyzeSummary } from '../lib/adminReanalyze';
+import { bulkLatestSummary, bulkLatestTargets, summarizeBulk, type TBulkTally } from '../lib/adminBulk';
 import {
   countStrandedCandidates,
   fetchMatchablePlaces,
@@ -100,6 +102,7 @@ const TABS: { key: TTab; label: string }[] = [
 ];
 
 type TTierFilter = 'all' | 'auto' | 'ask' | 'new';
+type TBulkMode = 'reject' | 'reanalyze' | 'approve' | 'latest';
 type TTypeFilter = 'all' | TCandidateType;
 
 /**
@@ -107,6 +110,12 @@ type TTypeFilter = 'all' | TCandidateType;
  * 교집합이 없다(교차점검은 조건 문장이 없는 후보에만 돈다). 토글 둘이면 둘을 같이 켤 수 있고 그 목록은 늘 빈다.
  */
 type TPolicyFilter = 'all' | 'has' | 'needsLook';
+
+const POLICY_FILTERS: { key: TPolicyFilter; label: string; hint?: string }[] = [
+  { key: 'all', label: '전체' },
+  { key: 'has', label: '조건이 적힌 것', hint: '블로그 본문에 동반 조건 문장이 있는 후보' },
+  { key: 'needsLook', label: '동반 근거 없는 것', hint: '교차점검이 본문에서 강아지를 데려간 근거를 못 찾은 후보' },
+];
 
 const POLICY_FILTER_MATCH: Record<Exclude<TPolicyFilter, 'all'>, (card: { group: TCandidateGroup }) => boolean> = {
   has: (card) => card.group.hasPolicyText,
@@ -119,11 +128,12 @@ const POLICY_FILTER_MATCH: Record<Exclude<TPolicyFilter, 'all'>, (card: { group:
  * 조건 토글이 tier 필터를 **대체해서**, 조건 없는 후보(142묶음 중 112)가 통째로 사라진 목록을
  * 운영자가 "다 봤다" 로 읽었다.
  */
-const TIER_FILTERS: { key: TTierFilter; label: string; match: (group: TCandidateGroup) => boolean }[] = [
+const TIER_FILTERS: { key: TTierFilter; label: string; hint?: string; match: (group: TCandidateGroup) => boolean }[] = [
   { key: 'all', label: '전체', match: () => true },
-  { key: 'auto', label: TIER_LABEL.auto, match: (group) => group.tier === 'auto' },
-  { key: 'ask', label: TIER_LABEL.ask, match: (group) => group.tier === 'ask' },
-  { key: 'new', label: TIER_LABEL.new, match: (group) => group.tier === 'new' },
+  // 라벨은 표의 뱃지(`기존`·`확인`·`신규`)와 같은 두 자로 시작하고, 뜻은 선택지 밑 한 줄이 말한다 — 뱃지만 봐서는 뜻을 몰랐다.
+  { key: 'auto', label: TIER_LABEL.auto, hint: '이미 올린 장소와 같은 곳 — 승인하면 거기 합쳐져요', match: (group) => group.tier === 'auto' },
+  { key: 'ask', label: TIER_LABEL.ask, hint: '비슷한 장소가 있어 같은 곳인지 봐야 해요', match: (group) => group.tier === 'ask' },
+  { key: 'new', label: TIER_LABEL.new, hint: '처음 보는 곳 — 승인하면 새 장소로 올라가요', match: (group) => group.tier === 'new' },
 ];
 
 /**
@@ -182,7 +192,11 @@ export function AdminPage() {
    * 특히 "목록에 없는 키를 버린다"(`pruneSelection`)가 조용히 틀리는 자리라 거기서 테스트한다.
    */
   const [selected, setSelected] = useState<TSelection>(EMPTY_SELECTION);
-  const [bulk, setBulk] = useState<{ busy?: boolean; rejecting?: boolean; reanalyzing?: boolean; summary?: string; error?: string }>({});
+  /**
+   * 표 위 줄의 상태. `mode` 는 **지금 열린 확인 하나**다 — 반려 폼·재분석 확인·올리기 확인·최신본 확인이 동시에 열리면
+   * 어느 확인 버튼이 무엇을 하는지 흐려진다(불리언 여럿이던 때 둘이 같이 열릴 수 있었다).
+   */
+  const [bulk, setBulk] = useState<{ busy?: boolean; mode?: TBulkMode; summary?: string; error?: string }>({});
   const [tab, setTab] = useState<TTab>('candidates');
   /**
    * 재빌드가 실제로 불렸는지. `undefined` 는 "못 읽었다" 이고 그때는 **아무 말도 하지 않는다** —
@@ -505,10 +519,10 @@ export function AdminPage() {
     async (keys: readonly string[], reason: TRejectReason, note: string) => {
       const client = clientRef.current;
       if (!client) return;
-      if (!beginWrite((message) => setBulk({ rejecting: true, error: message }))) return;
+      if (!beginWrite((message) => setBulk({ mode: 'reject', error: message }))) return;
       const wanted = new Set(keys);
       const targets = groups.filter((group) => wanted.has(group.key));
-      setBulk({ busy: true, rejecting: true });
+      setBulk({ busy: true, mode: 'reject' });
       const done = new Set<string>();
       let failed = 0;
       let firstError: string | undefined;
@@ -557,10 +571,10 @@ export function AdminPage() {
       const client = clientRef.current;
       if (!client) return;
       const fail = (message: string) =>
-        from === 'bulk' ? setBulk({ reanalyzing: true, error: message }) : patchState(from.key, { busy: undefined, error: message });
+        from === 'bulk' ? setBulk({ mode: 'reanalyze', error: message }) : patchState(from.key, { busy: undefined, error: message });
       if (!beginWrite(fail)) return;
       const plan = planFor(keys);
-      if (from === 'bulk') setBulk({ busy: true, reanalyzing: true });
+      if (from === 'bulk') setBulk({ busy: true, mode: 'reanalyze' });
       else patchState(from.key, { busy: 'reanalyzing', error: undefined });
       try {
         await prepareReanalyze(client, plan);
@@ -581,6 +595,73 @@ export function AdminPage() {
       });
     },
     [beginWrite, endWrite, groups, patchState, planFor],
+  );
+
+  /**
+   * **고른 것 올리기 · 고른 것 최신본으로 저장** — 한 줄 버튼과 같은 `approveGroup` 을 고른 묶음마다 차례로 부른다.
+   *
+   * 사람이 골라야 하는 줄은 넘기지 않는다: `needsDecision`(닮은 곳)·`archivedTarget`(내린 곳)이 오면 **쓰기 전에** 멈춘 것이므로
+   * 그 줄에 패널을 세워 두고 다음으로 간다. `blocked`(지역 없음 등)와 예외는 그 줄에 이유를 적는다. 끝나면 된 것만 목록에서 빼고
+   * `summarizeBulk` 한 줄로 말한다 — 기다리는 것과 실패를 따로 센다(할 일이 다르다).
+   *
+   * 최신본은 **덮을 수 있는 묶음만** 돈다(`bulkLatestTargets` — 짝이 있고 살아 있고 바뀌는 칸이 있는 것). 짝 id 를 실어 보낸다 —
+   * 안 실으면 그 사이 다른 줄의 승인이 캐시를 바꿔 확인 문장이 말한 장소와 다른 곳에 덮일 수 있다.
+   */
+  const applySelected = useCallback(
+    async (keys: readonly string[], kind: 'approve' | 'latest') => {
+      const client = clientRef.current;
+      if (!client) return;
+      if (!beginWrite((message) => setBulk({ mode: kind, error: message }))) return;
+      const wanted = new Set(keys);
+      const chosen = groups.filter((group) => wanted.has(group.key));
+      const jobs =
+        kind === 'latest'
+          ? bulkLatestTargets(chosen, placesRef.current).eligible.map((entry) => ({ group: entry.group, choice: { mergeInto: entry.pairId, overwrite: true } }))
+          : chosen.map((group) => ({ group, choice: {} }));
+      setBulk({ busy: true, mode: kind });
+      const done = new Set<string>();
+      const tally: TBulkTally = { done: 0, waiting: 0, failed: 0 };
+      try {
+        for (const { group, choice } of jobs) {
+          try {
+            const outcome = await approveGroup(client, group, placesRef.current, { nowIso: new Date().toISOString(), newId: newPlaceId, ...choice });
+            if (outcome.kind === 'needsDecision') {
+              tally.waiting += 1;
+              patchState(group.key, { similar: outcome.similar, archived: undefined });
+            } else if (outcome.kind === 'archivedTarget') {
+              tally.waiting += 1;
+              patchState(group.key, { archived: outcome, similar: undefined });
+            } else if (outcome.kind === 'blocked') {
+              tally.failed += 1;
+              patchState(group.key, { error: outcome.reason });
+            } else {
+              tally.done += 1;
+              done.add(group.key);
+            }
+          } catch (error) {
+            tally.failed += 1;
+            patchState(group.key, { error: messageOf(error, '반영하지 못했어요.') });
+          }
+        }
+      } finally {
+        endWrite();
+      }
+      setGroups((prev) => prev.filter((group) => !done.has(group.key)));
+      setStates((prev) => Object.fromEntries(Object.entries(prev).filter(([key]) => !done.has(key))));
+      setSelected((prev) => clearKeys(prev, [...done]));
+      setPlacesView([...placesRef.current]);
+      setBulk({ summary: `${summarizeBulk(kind === 'latest' ? '최신본으로 저장했어요' : '올렸어요', tally)} · 사이트에는 다음 빌드에서 보여요` });
+      if (tally.done) afterWrite();
+      // 실패가 후보를 `approved` 로 남겼을 수 있다 — 한 줄 승인과 같은 이유로 다시 센다.
+      if (tally.failed) {
+        try {
+          setStranded(await countStrandedCandidates(client));
+        } catch {
+          // 세지 못하면 둔다 — 줄의 빨간 글이 이미 말한다.
+        }
+      }
+    },
+    [afterWrite, beginWrite, endWrite, groups, patchState],
   );
 
   const saveRegion = useCallback(
@@ -696,6 +777,8 @@ export function AdminPage() {
       (card) => activeTier.match(card.group) && matchesType(card) && POLICY_FILTER_MATCH.needsLook(card),
     ).length,
   };
+  /** 동반 조건 '전체' 의 개수 — tier·종류를 적용한 뒤 동반 조건만 열어 두고 센다(다른 두 선택지와 같은 규칙). */
+  const inOtherPolicy = cards.filter((card) => activeTier.match(card.group) && matchesType(card));
   /** 종류 칩의 개수 — tier·동반 정보를 적용한 뒤, 종류만 열어 두고 센다. */
   const inOtherAxes = cards.filter((card) => activeTier.match(card.group) && matchesPolicy(card));
 
@@ -704,9 +787,15 @@ export function AdminPage() {
     setTierFilter(next);
     setShown(PAGE_SIZE);
   };
-  /** 같은 축의 세 상태를 오간다 — 누른 것을 다시 누르면 '전체' 다. */
-  const pickPolicy = (next: Exclude<TPolicyFilter, 'all'>) => {
-    setPolicyFilter((prev) => (prev === next ? 'all' : next));
+  /** 드롭다운은 값을 바로 고른다 — 토글(`pickPolicy`)과 달리 같은 것을 다시 골라도 풀리지 않는다. */
+  const pickPolicyExact = (next: TPolicyFilter) => {
+    setPolicyFilter(next);
+    setShown(PAGE_SIZE);
+  };
+  const resetFilters = () => {
+    setTierFilter('all');
+    setTypeFilter('all');
+    setPolicyFilter('all');
     setShown(PAGE_SIZE);
   };
   const pickType = (next: TTypeFilter) => {
@@ -731,6 +820,7 @@ export function AdminPage() {
    * 세는 것도 반려하는 것도 이 배열만 본다.
    */
   const selectedKeys = visibleSelection(selected, filteredKeys);
+  const selectedSet = new Set(selectedKeys);
 
   if (phase === 'checking') {
     return <p className="px-5 pt-10 text-sm text-tertiary">불러오는 중이에요</p>;
@@ -874,75 +964,61 @@ export function AdminPage() {
 
       {groups.length > 0 && (
         /*
-         * 두 축을 한 줄에 놓되 **가운뎃점으로 가른다.** 줄을 둘로 쌓으면 세로를 먹고, 구분 없이 붙이면
-         * 다섯이 한 축으로 읽혀 조건 토글이 tier 필터를 대체하는 것처럼 보인다(`TIER_FILTERS` 주석).
+         * **걸러 보기 = 이름표가 붙은 드롭다운 셋**(2026-09-30). 그 전에는 칩 11개(4+5+2)가 같은 모양으로 한 줄에 서서
+         * 무엇이 한 축인지, `기존·확인·신규` 가 무슨 뜻인지가 안 읽혔다(사용자 지적: 너무 많고 뜻이 불분명). 드롭다운은
+         * 고른 값 하나만 보이고, 펼치면 **선택지마다 뜻과 개수**가 나온다. 개수 규칙은 그대로다 — 나를 뺀 나머지 축을 적용한 뒤 센다.
          */
-        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 md:px-6">
-          <div className="flex flex-wrap gap-1.5" role="group" aria-label="기존 장소와의 관계">
-            {TIER_FILTERS.map((entry) => {
-              const count = inPolicy.filter((card) => entry.match(card.group)).length;
-              const active = entry.key === tierFilter;
-              return (
-                <Button
-                  key={entry.key}
-                  size="sm"
-                  color={active ? 'primary' : 'secondary'}
-                  aria-pressed={active}
-                  onClick={() => pickTier(entry.key)}
-                >
-                  {entry.label} {count}
-                </Button>
-              );
-            })}
-          </div>
-          {/*
-            * 종류 축. 표의 맨 오른쪽 열과 같은 것을 좁힌다 — 열이 "무엇인지" 를 말하고 이 칩이 "그것만 보기" 를 준다.
-            * 이름표를 다는 이유는 아래 '동반 조건' 과 같다: 없으면 앞의 tier 칩과 한 축으로 읽혀, 종류를 고른 것이
-            * tier 를 '전체' 로 되돌린 것처럼 보인다.
-            */}
-          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="종류">
-            <span className="text-xs font-semibold text-secondary">종류</span>
-            {TYPE_FILTERS.map((entry) => {
-              const count = inOtherAxes.filter((card) => typeMatches(entry.key, card.group)).length;
-              const active = entry.key === typeFilter;
-              return (
-                <Button
-                  key={entry.key}
-                  size="sm"
-                  color={active ? 'primary' : 'secondary'}
-                  aria-pressed={active}
-                  onClick={() => pickType(entry.key)}
-                >
-                  {entry.label} {count}
-                </Button>
-              );
-            })}
-          </div>
-          {/* 축이 하나 더 있다는 것을 **보이는 이름표**가 말한다 — 없으면 다섯이 한 축으로 읽힌다. */}
-          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="동반 조건">
-            <span className="text-xs font-semibold text-secondary">동반 조건</span>
-            <Button
-              size="sm"
-              color={policyFilter === 'has' ? 'primary' : 'secondary'}
-              aria-pressed={policyFilter === 'has'}
-              onClick={() => pickPolicy('has')}
-            >
-              조건이 적힌 것만 {policyCounts.has}
-            </Button>
-            {/*
-              * 반대쪽 — 교차점검이 **보고도** 근거를 못 찾은 것. 조건이 적힌 후보와 교집합이 없으므로
-              * 따로 켜는 토글 둘이 아니라 **한 축의 세 상태**다(안 그러면 둘을 같이 켤 수 있고 그 목록은 늘 빈다).
-              * 미점검은 세지 않는다(`verifyNeedsLook`) — 안 본 것과 보고 못 찾은 것은 할 일이 다르다.
-              */}
-            <Button
-              size="sm"
-              color={policyFilter === 'needsLook' ? 'primary' : 'secondary'}
-              aria-pressed={policyFilter === 'needsLook'}
-              onClick={() => pickPolicy('needsLook')}
-            >
-              동반 근거 없는 것만 {policyCounts.needsLook}
-            </Button>
-          </div>
+        <div className="mt-3 flex flex-wrap items-end gap-x-3 gap-y-2 px-4 md:px-6">
+          <Select
+            label="기존 장소와 비교"
+            size="sm"
+            className="w-60"
+            selectedKey={tierFilter}
+            onSelectionChange={(key) => key && pickTier(key as TTierFilter)}
+          >
+            {TIER_FILTERS.map((entry) => (
+              <Select.Item key={entry.key} id={entry.key} supportingText={entry.hint}>
+                {`${entry.label} ${inPolicy.filter((card) => entry.match(card.group)).length}`}
+              </Select.Item>
+            ))}
+          </Select>
+          <Select
+            label="종류"
+            size="sm"
+            className="w-36"
+            selectedKey={typeFilter}
+            onSelectionChange={(key) => key && pickType(key as TTypeFilter)}
+          >
+            {TYPE_FILTERS.map((entry) => (
+              <Select.Item key={entry.key} id={entry.key}>
+                {`${entry.label} ${inOtherAxes.filter((card) => typeMatches(entry.key, card.group)).length}`}
+              </Select.Item>
+            ))}
+          </Select>
+          <Select
+            label="동반 조건"
+            size="sm"
+            className="w-60"
+            selectedKey={policyFilter}
+            onSelectionChange={(key) => key && pickPolicyExact(key as TPolicyFilter)}
+          >
+            {POLICY_FILTERS.map((entry) => (
+              <Select.Item key={entry.key} id={entry.key} supportingText={entry.hint}>
+                {`${entry.label} ${entry.key === 'all' ? inOtherPolicy.length : policyCounts[entry.key]}`}
+              </Select.Item>
+            ))}
+          </Select>
+          <p className="pb-2 text-xs text-tertiary">
+            {filtered.length}묶음 보는 중
+            {(tierFilter !== 'all' || typeFilter !== 'all' || policyFilter !== 'all') && (
+              <>
+                {' · '}
+                <button type="button" className="text-brand-secondary underline" onClick={resetFilters}>
+                  걸러 보기 풀기
+                </button>
+              </>
+            )}
+          </p>
         </div>
       )}
 
@@ -957,20 +1033,30 @@ export function AdminPage() {
           visibleCount={filteredKeys.length}
           allSelected={allKeysSelected(selected, filteredKeys)}
           busy={Boolean(bulk.busy)}
-          rejecting={Boolean(bulk.rejecting)}
+          mode={bulk.mode}
           summary={bulk.summary}
           error={bulk.error}
+          latestCount={selectedKeys.length ? bulkLatestTargets(groups.filter((group) => selectedSet.has(group.key)), placesView).eligible.length : 0}
+          confirmText={
+            bulk.mode === 'reanalyze' && selectedKeys.length
+              ? reanalyzeSummary(planFor(selectedKeys))
+              : bulk.mode === 'latest'
+                ? bulkLatestSummary(bulkLatestTargets(groups.filter((group) => selectedSet.has(group.key)), placesView))
+                : bulk.mode === 'approve'
+                  ? `${selectedKeys.length}묶음을 올려요. 짝이 있으면 그 장소의 빈 칸만 채우고, 없으면 새 장소로 올라가요. 같은 곳인지 애매한 줄·짝이 내린 곳인 줄은 건너뛰고 그 줄에 고를 것을 띄워 둬요.`
+                  : undefined
+          }
           onToggleAll={(next) =>
             setSelected((prev) => (next ? selectKeys(prev, filteredKeys) : clearKeys(prev, filteredKeys)))
           }
           onClear={() => setSelected(EMPTY_SELECTION)}
-          onStartReject={() => setBulk({ rejecting: true })}
-          onCancelReject={() => setBulk({})}
+          onStart={(mode) => setBulk({ mode })}
+          onCancel={() => setBulk({})}
           onReject={(reason, note) => void rejectSelected(selectedKeys, reason, note)}
-          reanalyzing={Boolean(bulk.reanalyzing)}
-          reanalyzeText={bulk.reanalyzing && selectedKeys.length ? reanalyzeSummary(planFor(selectedKeys)) : undefined}
-          onStartReanalyze={() => setBulk({ reanalyzing: true })}
-          onReanalyze={() => void reanalyze(selectedKeys, 'bulk')}
+          onConfirm={() => {
+            if (bulk.mode === 'reanalyze') void reanalyze(selectedKeys, 'bulk');
+            else if (bulk.mode === 'approve' || bulk.mode === 'latest') void applySelected(selectedKeys, bulk.mode);
+          }}
         />
       ) : null}
 

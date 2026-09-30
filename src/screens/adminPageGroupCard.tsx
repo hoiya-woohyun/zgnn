@@ -415,43 +415,56 @@ export function AdminPageGroupCard({
             onSave={() => state.editDraft && onSaveEdit(state.editDraft)}
           />
         ) : (
-          <div className={cx(ADMIN_PANEL_DIVIDER, 'flex flex-col lg:flex-row lg:items-start')}>
-            <div className="min-w-0 flex-1">
-              {/*
-                * 최신본으로 저장하면 바뀌는 칸 — **근거 쪽 맨 위**에 둔다. 레일은 좁아 전·후 문장을 담으면 줄마다 접히고,
-                * 이 목록은 버튼의 설명이 아니라 "새 분석이 무엇을 다르게 읽었나" 라는 근거 그 자체다.
-                * 목록과 버튼은 같은 계산(`latestPlan`)·같은 조건(`latestAvailable`)에서 나온다.
-                */}
-              {latestAvailable && latest && latest.changes.length > 0 && (
-                <div className="px-4 pt-3">
-                  <AdminChangeList title="새 분석이 다르게 읽은 것 — 지금 장소 값 → 새 분석 값" changes={latest.changes} />
-                </div>
-              )}
-              <AdminPageGroupDetail group={group} preview={preview} />
+          /*
+           * **펼친 영역은 한 장의 판이다**(2026-09-30). 한 톤 어두운 바탕(`bg-tertiary`) 위에 근거 카드와 결정 카드가 올라가
+           * "여기부터 여기까지가 이 줄의 내용" 이 바탕색으로 고정된다 — 페이지 바탕과 같은 색이던 동안 어디까지 읽어야 하는지가
+           * 안 보였다(사용자 지적). 끝에는 `여기까지 · 접기` 줄을 둬 끝을 한 번 더 긋고, 위로 올라가지 않고 접게 한다.
+           */
+          <div className={cx(ADMIN_PANEL_DIVIDER, 'bg-tertiary px-3 pt-3 pb-1')}>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
+              <div className="min-w-0 flex-1 space-y-3">
+                {/*
+                  * 최신본으로 저장하면 바뀌는 칸 — **근거 쪽 맨 위**에 둔다. 레일은 좁아 전·후 문장을 담으면 줄마다 접히고,
+                  * 이 목록은 버튼의 설명이 아니라 "새 분석이 무엇을 다르게 읽었나" 라는 근거 그 자체다.
+                  * 목록과 버튼은 같은 계산(`latestPlan`)·같은 조건(`latestAvailable`)에서 나온다.
+                  */}
+                {latestAvailable && latest && latest.changes.length > 0 && (
+                  <AdminChangeList source="ai" title="새 분석이 다르게 읽은 것 — 지금 장소 값 → 새 분석 값" changes={latest.changes} />
+                )}
+                <AdminPageGroupDetail group={group} preview={preview} />
+              </div>
+              <aside
+                aria-label="이 장소 결정"
+                className="order-first rounded-lg border border-secondary bg-primary px-4 py-3 shadow-xs lg:sticky lg:top-18 lg:order-none lg:w-64 lg:shrink-0"
+              >
+                <AdminPageGroupActions
+                  group={group}
+                  state={state}
+                  regionOk={regionOk}
+                  latest={latest}
+                  latestAvailable={latestAvailable}
+                  onApprove={onApprove}
+                  onStartReject={onStartReject}
+                  onCancelReject={onCancelReject}
+                  onReject={onReject}
+                  onPickRegion={onPickRegion}
+                  onSaveRegion={onSaveRegion}
+                  onEdit={openEdit}
+                  reanalyzeText={reanalyzeText}
+                  onStartReanalyze={onStartReanalyze}
+                  onCancelReanalyze={onCancelReanalyze}
+                  onReanalyze={onReanalyze}
+                />
+              </aside>
             </div>
-            <aside
-              aria-label="이 장소 결정"
-              className="order-first border-b border-secondary px-4 py-3 lg:sticky lg:top-18 lg:order-none lg:w-64 lg:shrink-0 lg:border-b-0 lg:border-l"
+            <button
+              type="button"
+              onClick={onToggle}
+              className="mt-2 flex w-full items-center justify-center gap-1 py-1.5 text-xs text-tertiary hover:text-secondary"
             >
-              <AdminPageGroupActions
-                group={group}
-                state={state}
-                regionOk={regionOk}
-                latest={latest}
-                latestAvailable={latestAvailable}
-                onApprove={onApprove}
-                onStartReject={onStartReject}
-                onCancelReject={onCancelReject}
-                onReject={onReject}
-                onPickRegion={onPickRegion}
-                onSaveRegion={onSaveRegion}
-                onEdit={openEdit}
-                reanalyzeText={reanalyzeText}
-                onStartReanalyze={onStartReanalyze}
-                onCancelReanalyze={onCancelReanalyze}
-                onReanalyze={onReanalyze}
-              />
-            </aside>
+              <ChevronDown aria-hidden="true" className="size-3.5 rotate-180" />
+              여기까지 · {extracted.name || '이 묶음'} 접기
+            </button>
           </div>
         ))}
 
