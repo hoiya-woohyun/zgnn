@@ -242,7 +242,7 @@ export function AdminPageEditForm({
           </div>,
         )}
         {/*
-          * 플레이스 id 는 AI·검색이 채우지 못하는 칸이라 사람이 넣는다(ADR-002 v2) — 이 칸이 차야 상세에 '사진 보기' 가 생긴다.
+          * 플레이스 id 는 AI·검색이 채우지 못하는 칸이라 사람이 넣는다(ADR-002 v2) — 이 칸이 차야 상세 액션 줄에 '네이버 사진' 이 생긴다.
           * 찾으러 갈 길을 옆에 둔다: 가게 화면을 연 뒤 주소창을 그대로 붙여 넣으면 된다.
           */}
         {row(
@@ -256,7 +256,7 @@ export function AdminPageEditForm({
               value={draft.naverPlace}
               onChange={(value) => set({ naverPlace: value })}
               isInvalid={'error' in parseNaverPlaceId(draft.naverPlace)}
-              hint="채우면 사이트 상세에 '사진 보기' 가 생겨요"
+              hint="채우면 사이트 상세에 '네이버 사진' 버튼이 생겨요"
               isDisabled={busy}
             />
             <a className="mt-1 inline-block text-xs text-brand-secondary underline" href={naverMapSearchUrl(draft.name)} target="_blank" rel="noopener noreferrer">

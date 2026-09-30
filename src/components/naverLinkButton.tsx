@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { ActionTile, type TActionTileIcon } from './actionTile';
 import { cx } from '../utils/cx';
 
 type TNaverLinkButtonProps = {
@@ -8,7 +9,7 @@ type TNaverLinkButtonProps = {
 };
 
 /**
- * 네이버(지도·플레이스)로 나가는 링크 버튼. 네이버로 가는 버튼은 전부 이것을 쓴다.
+ * 네이버(지도·플레이스)로 나가는 링크 버튼. 네이버로 가는 버튼은 전부 이 파일의 것을 쓴다(액션 줄 칸은 아래 `NaverActionTile`).
  *
  * 색은 앱 팔레트가 아니라 **네이버 공식 초록**(`bg-naver`)이다 — 앱의 핑크 주 버튼과 모양이 같으면
  * "앱 안에서 뭔가 한다" 로 읽히는데, 누르면 앱을 떠난다. 초록 + N 표시가 그 신호다.
@@ -41,4 +42,12 @@ export function NaverLinkButton({ href, children, className }: TNaverLinkButtonP
       {children}
     </a>
   );
+}
+
+/**
+ * 액션 줄(상세 맨 위)에 서는 네이버 링크. 알약 대신 초록 원 + 아이콘 + 이름으로, 옆 칸(저장·공유)과 모양을 맞춘다.
+ * 초록이 "앱을 떠난다" 는 신호인 것은 알약과 같다 — 이름에 '네이버' 를 넣어 글자로도 말한다(ADR-003 v14).
+ */
+export function NaverActionTile({ href, icon, label }: { href: string; icon: TActionTileIcon; label: string }) {
+  return <ActionTile href={href} icon={icon} label={label} tone="naver" />;
 }
