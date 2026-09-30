@@ -171,6 +171,28 @@ export function tierOf(matched) {
 }
 
 /**
+ * **이미 사이트에 있는 곳인가** — 그렇다면 후보를 만들지 않는다.
+ *
+ * 'auto'(≥0.85)는 "기존 장소와 같은 가게" 라는 뜻이고, 그 후보를 승인해도 하는 일은 기존 행의 **빈 칸을 채우는**
+ * 것뿐이다(applyApproved). 게시된 86곳은 이름·소개·조건이 이미 사람 손으로 차 있어 채울 칸이 거의 없는데,
+ * 검수 목록에서는 그 후보가 신규와 같은 무게로 한 줄을 먹는다. 운영자가 훑어야 할 줄만 늘린다.
+ *
+ * **`published` 짝일 때만 막는다.** 나머지 둘은 막으면 조용히 길이 끊긴다:
+ *  - `draft` 짝 — 그 후보를 승인하는 것이 **초안을 게시로 올리는 유일한 길**이다(adminApply.ts:157). 막으면 영영 초안이다.
+ *  - `archived` 짝 — 내린 가게를 쓴 새 글이 났다는 뜻이고, 그것이 **재개업을 아는 유일한 신호**다
+ *    ('되살려서 합치기' 경로). 막으면 그 가게는 다음에 다른 이름으로 잡혀 복제본이 된다.
+ *
+ * `status` 가 없으면(시드·테스트 경로) 막지 않는다 — 모르는 것을 "이미 있다" 로 읽으면 후보가 조용히 사라진다.
+ * 그 반대(모르는 것을 후보로 남김)는 운영자가 화면에서 보고 판단할 수 있다.
+ *
+ * 비용은 줄지 않는다: 추출도 네이버 조회도 이미 끝난 뒤의 판정이라 **DB 에 안 넣을 뿐**이다.
+ * 그 사실이 로그에서 보이도록 부르는 쪽이 `제외 … 이미 있음` 한 줄과 요약 개수를 남긴다.
+ */
+export function skipAsExisting(matched) {
+  return tierOf(matched) === 'auto' && matched?.match?.status === 'published';
+}
+
+/**
  * matchPlace 에 넘길 후보. 좌표는 네이버 것만 쓴다(AI 는 좌표를 주지 않는다) — 이름 축(naverLocal)이든 주소 축(naverGeocode)이든
  * 호출부가 같은 모양으로 넘겨 주므로 여기는 축을 구별하지 않는다. 주소는 네이버가 우선 — 본문 주소는 오타·생략이 잦다.
  * AI 의 regionRaw 도 넘긴다 — 주소·좌표가 없는 후보에서 우도 vs 본섬 동명 가게를 가르는 유일한 신호다(빠뜨리면 자동 병합된다, 리뷰 지적).
@@ -275,7 +297,15 @@ export function formatSummary(stats, meterSummary, { dryRun } = {}) {
   const prefix = dryRun ? '[dry-run] ' : '';
   const dropped = stats.dropped ? ` · 분석불가 ${stats.dropped}` : '';
   const ex = stats.excluded;
-  const excluded = ex ? ` · 제외 ${ex.other + ex.notJeju + ex.notAllowed}(other ${ex.other} · 제주밖 ${ex.notJeju} · 동반불가 ${ex.notAllowed})` : '';
+  /*
+   * `alreadyHave` 는 다른 셋과 **단계가 다르다** — 셋은 추출 직후(exclusionReason)에 걸리고 이것은 짝짓기 뒤에 걸린다.
+   * 그래도 한 괄호에 넣는다: 운영자가 읽는 뜻은 "후보로 안 들어간 수" 하나이고, 자리를 나누면 그 합을 사람이 더해야 한다.
+   * 옛 실행의 stats 에는 이 칸이 없으므로 `?? 0` — 없다고 NaN 이 되면 요약 한 줄이 통째로 못 읽히게 된다.
+   */
+  const already = ex?.alreadyHave ?? 0;
+  const excluded = ex
+    ? ` · 제외 ${ex.other + ex.notJeju + ex.notAllowed + already}(other ${ex.other} · 제주밖 ${ex.notJeju} · 동반불가 ${ex.notAllowed}${already ? ` · 이미 있음 ${already}` : ''})`
+    : '';
   const dup = stats.dup ? ` · 중복표시 ${stats.dup}` : '';
   /*
    * 교차점검은 **점검한 수와 근거를 못 찾은 수를 같이** 적는다. 하나만 적으면 0 을 두 가지로 읽을 수 있다 —

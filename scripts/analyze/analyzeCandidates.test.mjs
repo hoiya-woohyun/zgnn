@@ -12,6 +12,7 @@ import {
   parseArgs,
   pickPostsForRun,
   resolveRegionRaw,
+  skipAsExisting,
   tierOf,
   toCandidateRow,
   toMatchCandidate,
@@ -153,6 +154,32 @@ describe('tierOf', () => {
   });
 });
 
+/**
+ * 이 네 갈래가 전부 필요한 이유는 하나씩 다르다 — 셋은 **막으면 길이 끊기는** 경우다.
+ * 게시된 곳만 막고, draft(초안을 올리는 유일한 길) · archived(재개업을 아는 유일한 신호) · 미상(모르는 것)은 남긴다.
+ */
+describe('skipAsExisting — 이미 게시된 곳이면 후보를 만들지 않는다', () => {
+  const at = (status) => ({ match: { ...places[0], status }, confidence: THRESHOLD.AUTO_MERGE });
+
+  it('auto + published 면 막는다', () => {
+    expect(skipAsExisting(at('published'))).toBe(true);
+  });
+  it('auto 라도 draft 면 남긴다 — 그 승인이 초안을 게시로 올리는 유일한 길이다', () => {
+    expect(skipAsExisting(at('draft'))).toBe(false);
+  });
+  it('auto 라도 archived 면 남긴다 — 내린 가게가 다시 열렸다는 유일한 신호다', () => {
+    expect(skipAsExisting(at('archived'))).toBe(false);
+  });
+  it('status 를 모르면 남긴다 — 모르는 것을 "이미 있다" 로 읽으면 후보가 조용히 사라진다', () => {
+    expect(skipAsExisting({ match: places[0], confidence: THRESHOLD.AUTO_MERGE })).toBe(false);
+  });
+  it('auto 가 아니면 상태와 무관하게 남긴다 — ask·new 는 사람이 볼 것이다', () => {
+    expect(skipAsExisting({ match: { ...places[0], status: 'published' }, confidence: THRESHOLD.ASK })).toBe(false);
+    expect(skipAsExisting({ match: null, confidence: 1 })).toBe(false);
+    expect(skipAsExisting(null)).toBe(false);
+  });
+});
+
 describe('toMatchCandidate', () => {
   it('네이버 좌표·주소를 쓰고, 없는 값은 undefined 로 둔다(matchPlace 가 그 신호를 건너뛰게)', () => {
     expect(toMatchCandidate(extracted, local)).toEqual({ name: '솔숲펜션', type: 'stay', geo: { lat: local.lat, lng: local.lng }, address: local.address });
@@ -268,6 +295,22 @@ describe('로그 형식 — 본문 인용은 싣지 않는다', () => {
       '분석 3건 (후보 4 · 일치 1 · 확인요청 2 · 신규 1 · 건너뜀 1) · Claude 3회 · 입력 100 · 출력 50 · 캐시 읽기 0 · 캐시 쓰기 0 토큰',
     );
     expect(formatSummary(stats, 'x', { dryRun: true })).toMatch(/^\[dry-run\] 분석 3건/);
+  });
+
+  /**
+   * '이미 있음' 은 제외 합계에 **들어가야** 한다. 안 들어가면 `후보 4 · 제외 2` 인데 실제로 뺀 것이 5건인
+   * 요약이 나오고, 운영자는 그 차이를 "글 분석이 빠졌나" 로 읽는다. 0이면 괄호 안에서 사라진다 —
+   * 이 경로가 안 도는 실행(전부 신규)에서 `이미 있음 0` 이 서 있으면 새 갈래가 생긴 줄 안다.
+   */
+  it('제외 합계에 이미 있음이 들어가고, 0이면 조각이 사라진다', () => {
+    const stats = { analyzed: 3, skipped: 0, candidates: 4, auto: 1, ask: 2, new: 1 };
+    const ex = { other: 1, notJeju: 0, notAllowed: 0, alreadyHave: 3 };
+    expect(formatSummary({ ...stats, excluded: ex }, 'x')).toContain('제외 4(other 1 · 제주밖 0 · 동반불가 0 · 이미 있음 3)');
+    expect(formatSummary({ ...stats, excluded: { ...ex, alreadyHave: 0 } }, 'x')).toContain(
+      '제외 1(other 1 · 제주밖 0 · 동반불가 0)',
+    );
+    // 옛 실행의 stats 에는 칸이 없다 — NaN 이 되면 요약 한 줄이 통째로 못 읽힌다.
+    expect(formatSummary({ ...stats, excluded: { other: 1, notJeju: 0, notAllowed: 0 } }, 'x')).toContain('제외 1(');
   });
 
   /**

@@ -46,6 +46,7 @@ import {
   pickPostsForRun,
   resolveRegionRaw,
   tierOf,
+  skipAsExisting,
   toCandidateRow,
   toMatchCandidate,
   toPostAnalysis,
@@ -332,7 +333,7 @@ function skipHint(e) {
   return '';
 }
 
-const stats = { analyzed: 0, skipped: 0, dropped: 0, candidates: 0, auto: 0, ask: 0, new: 0, dup: 0, excluded: { other: 0, notJeju: 0, notAllowed: 0 }, verify: { checked: 0, noEvidence: 0, notAllowed: 0, failed: 0 } };
+const stats = { analyzed: 0, skipped: 0, dropped: 0, candidates: 0, auto: 0, ask: 0, new: 0, dup: 0, excluded: { other: 0, notJeju: 0, notAllowed: 0, alreadyHave: 0 }, verify: { checked: 0, noEvidence: 0, notAllowed: 0, failed: 0 } };
 let fatal = false;
 const pendingCloses = []; // { url, reason } — 루프 끝에 성공이 1건이라도 있을 때만 analyzed_at 을 찍는다
 // --dump 용. DB 에 들어갈 후보 행(extracted 그대로, 본문 없음)과 제외 목록 — 정규화 품질을 사람이 볼 유일한 창이다(로그에는 안 찍는다, 05).
@@ -399,6 +400,17 @@ for (const post of posts) {
       // regionRaw 는 주소 기반이 우선(analyzeCandidates.mjs). 주소는 네이버 → 본문 순.
       const regionRaw = resolveRegionRaw(local?.address ?? extracted.address, extracted.regionRaw, existing);
       const matched = matchPlace(toMatchCandidate(extracted, local), existing);
+      /*
+       * 이미 게시된 곳이면 후보를 만들지 않는다(`skipAsExisting`). 추출·네이버 조회는 이미 끝난 뒤라
+       * **아끼는 것은 비용이 아니라 운영자가 훑을 줄 수**다 — 그래서 여기서 조용히 넘기지 않고
+       * 이름·짝을 한 줄 찍고 `analysis.excluded` 에도 남긴다. 안 남기면 "왜 이 글에서 후보가 0건이지" 의 답이 사라진다.
+       */
+      if (skipAsExisting(matched)) {
+        excluded.push({ extracted, reason: 'alreadyHave' });
+        stats.excluded.alreadyHave += 1;
+        console.log(`  제외 ${extracted.name} (${extracted.type}) · 이미 있음 → ${matched.match.name}`);
+        continue;
+      }
       const key = normalizeName(extracted.name);
       const dupOf = tierOf(matched) === 'new' ? (newNamesSeen.get(key) ?? null) : null;
       const row = toCandidateRow(post, extracted, local, regionRaw, matched, {

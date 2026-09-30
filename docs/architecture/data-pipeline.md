@@ -1,6 +1,11 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-09-30 (v13: **분석이 Claude 를 두 번 부른다** — 추출 뒤 「교차점검」 패스([ADR-019](../decisions/ADR-019-ai-cross-check-and-address-rules.md)).
+> 최종 수정: 2026-09-30 (v14: **이미 게시된 곳은 후보를 만들지 않는다** — 짝짓기 결과가 `auto`(≥0.85)이고 그 짝이
+> `published` 면 `candidates` 행을 넣지 않고 `analysis.excluded` 에 `alreadyHave` 로만 남긴다(`skipAsExisting`).
+> 승인해도 하는 일이 기존 행의 **빈 칸 채우기**뿐인데 검수 목록에서는 신규와 같은 무게로 한 줄을 먹었다.
+> ⚠️ **`draft`·`archived` 짝은 막지 않는다** — 전자는 초안을 게시로 올리는 유일한 길이고, 후자는 내린 가게가 다시
+> 열렸다는 유일한 신호다. **비용은 줄지 않는다**(추출·네이버 조회가 끝난 뒤의 판정이라 DB 쓰기만 아낀다))
+> 이전 (v13: **분석이 Claude 를 두 번 부른다** — 추출 뒤 「교차점검」 패스([ADR-019](../decisions/ADR-019-ai-cross-check-and-address-rules.md)).
 > 동반 조건 문장이 **없는** 후보만 묶어 글당 한 번, "강아지를 데리고 들어간 근거가 본문에 있나" 를 다시 묻는다 — 추출 패스는
 > "반려견 동반 여행기" 를 전제로 읽어 강아지를 두고 들른 일반 카페도 장소로 뽑았다. ⚠️ **`--limit` 을 절반으로 본다**(`--no-verify` 로 끈다).
 > 함께: 후보의 두 주소 대조가 문자열 비교에서 규칙(`src/lib/addressMatch.ts`)으로 — 실측 43쌍 중 39쌍이 `제주특별자치도`↔`제주` 뿐이었다)
@@ -160,11 +165,22 @@ flowchart LR
 
 - **이용 조건의 구조화는 AI 가 뽑을 때 판단한다**([ADR-017](../decisions/ADR-017-ai-structured-pet-policy.md)). 원문(`petPolicyText`)은 그대로 두고 `petPolicy`(실내·리드줄·무게·마릿수·요금…)를
   함께 뽑아 `places.pet_policy` 에 저장한다. 앱은 있으면 정규식 결과를 덮는다(`withPolicyFacts`). 정규식은 시드·안전망. 블로그 구어체 32건 중 20건을 정규식이 못 읽은 것이 계기다.
-- **후보 0건의 "왜" 가 `blog_posts.analysis` 에 남는다** — `{ model, promptVersion, candidates, candidateNames, excluded:[{name,type,reason}], skip }`. 제외 이유는 셋:
-  `notJeju` · `other`(관광지·운동장 — 이름은 남는다) · `notAllowed`(본문이 동반 불가라고 함, [BUG-008](../bugs/BUG-008-empty-pet-policy-judged-ok.md)). 본문 인용은 넣지 않는다.
+- **후보 0건의 "왜" 가 `blog_posts.analysis` 에 남는다** — `{ model, promptVersion, candidates, candidateNames, excluded:[{name,type,reason}], skip }`. 제외 이유는 넷:
+  `notJeju` · `other`(관광지·운동장 — 이름은 남는다) · `notAllowed`(본문이 동반 불가라고 함, [BUG-008](../bugs/BUG-008-empty-pet-policy-judged-ok.md)) ·
+  **`alreadyHave`**(이미 게시된 곳 — 아래). 본문 인용은 넣지 않는다.
+  앞의 셋은 추출 **직후**(`exclusionReason`)에 걸리고 `alreadyHave` 만 **짝짓기 뒤**에 걸린다 — 단계가 다르지만 요약 한 줄에서는
+  한 괄호에 넣는다(운영자가 읽는 뜻은 "후보로 안 들어간 수" 하나이고, 자리를 나누면 그 합을 사람이 더해야 한다).
   프롬프트를 고치면 `PROMPT_VERSION`(스키마+프롬프트의 sha256 앞 8자)이 바뀌고, `analysis->>'promptVersion'` 이 다른 글만 골라 재분석할 수 있다.
 - **같은 가게가 여러 글에서 나온다** — 첫 실행에서 한 펜션(자사 홍보 블로그, 저수지의 12%)이 13건, 목록 글 하나가 101건. 그래서 한 실행에 블로그당 2건(`--max-per-blog`, 넘친 글은 닫지 않고 뒤로 밀린다),
   `extracted.nameKey`(`normalizeName`)와 `dupOf`(먼저 난 pending 후보 id)로 묶고, `visited: false`(이름만 나열된 목록 글)를 표식으로 남긴다. 후보는 그래도 넣는다 — evidence 가 다른 글이다.
+- **이미 게시된 곳(`auto` + 짝이 `published`)은 후보를 만들지 않는다**(`skipAsExisting`, `scripts/analyze/analyzeCandidates.mjs`).
+  그 후보를 승인해도 하는 일은 기존 행의 **빈 칸을 채우는** 것뿐인데(`applyApproved`), 게시된 86곳은 이름·소개·조건이 사람 손으로
+  이미 차 있어 채울 칸이 거의 없다. 그런데 검수 목록에서는 신규와 같은 무게로 한 줄을 먹는다 — 아끼는 것은 비용이 아니라
+  **운영자가 훑을 줄 수**다(추출·네이버 조회는 이미 끝난 뒤의 판정이다).
+  **막는 것은 `published` 짝뿐이다.** 나머지를 막으면 조용히 길이 끊긴다 — `draft` 짝의 승인은 초안을 게시로 올리는 유일한 길이고
+  (`adminApply.ts`), `archived` 짝은 내린 가게를 쓴 새 글이 났다는 뜻이라 **재개업을 아는 유일한 신호**다('되살려서 합치기').
+  `status` 를 모르면(시드·테스트 경로) 막지 않는다 — 모르는 것을 "이미 있다" 로 읽으면 후보가 조용히 사라지고, 그 반대는 사람이 화면에서 본다.
+  ⚠️ **이미 쌓인 pending `auto` 후보는 그대로 있다** — `/admin` 에서 `이미 있는 곳` 칩으로 걸러 일괄 반려하는 것이 사람의 몫이다.
 - **검수는 `pnpm data:review`** — pending 을 같은 가게로 묶어 검수 순서(`reviewPriority`, 🙋 사용자가 다듬는 자리)대로 보여 주고, 후보마다 `정규식 [..] · AI [..] · 앱 [..]` 과 표식
   (`조건문 없음` · `정규식 못읽음` · `AI≠정규식` · `지역 없음` · `좌표 없음` · `목록글` · `중복표시`)을 찍는다. `approve <id…>`·`reject <id…> --note` 로 결정을 넣고, `status` 가 published 대기 draft 와 빈 칸을 센다.
   원문·evidence 는 `--verbose`/`--md` 에서만(05 의 로그 위생). Studio 는 그대로 쓸 수 있다.

@@ -75,7 +75,13 @@ export function previewPolicy(extracted, { parsePetPolicy, toPetBadges, withPoli
   const facts = extracted?.petPolicy ?? null;
   const merged = withPolicyFacts(regex, facts, text);
   const regexBadges = toPetBadges(regex).map((b) => b.label);
-  const mergedBadges = toPetBadges(merged).map((b) => b.label);
+  /*
+   * 라벨과 톤을 **한 번에** 낸다. 예전에는 라벨 배열만 돌려줘서, 화면이 '동반 불가' 를 눈에 띄게 하려면
+   * 라벨 문자열로 톤을 되찾아야 했다 — 요금 문장('1마리당 2만원')처럼 값이 그대로 라벨이 되는 것이 있어
+   * 그 되찾기는 반드시 실패한다. 순서는 `toPetBadges` 하나가 정한다(사이트와 같은 순서다).
+   */
+  const mergedBadgeList = toPetBadges(merged);
+  const mergedBadges = mergedBadgeList.map((b) => b.label);
   const flags = [];
   if (!text) flags.push('조건문 없음');
   else if (regexBadges.length === 0) flags.push('정규식 못읽음');
@@ -87,7 +93,7 @@ export function previewPolicy(extracted, { parsePetPolicy, toPetBadges, withPoli
   const { corrections } = correctPetPolicyFacts(facts, text);
   if (corrections.length) flags.push('AI 판단 보정');
   const level = merged.noInfo ? '정보없음' : merged.notAllowed ? '동반불가' : merged.unread ? '못읽음' : mergedBadges.length ? '조건' : '자유';
-  return { regexBadges, mergedBadges, facts, corrections, flags, level };
+  return { regexBadges, mergedBadges, mergedBadgeList, facts, corrections, flags, level };
 }
 
 /** 묶음 단위 표식 — 승인하기 전에 채워야 할 것. */
