@@ -196,6 +196,12 @@ export function AdminPage() {
    * 화면에는 그리지 않으므로 리렌더가 필요 없다.
    */
   const placesRef = useRef<TPlaceRow[]>([]);
+  /**
+   * 같은 목록의 **그리기용 사본.** 쓰기(`approveGroup`)는 ref 를 고치고 읽어야 하지만(같은 틱의 다음 승인이 방금 만든 장소를 봐야 한다),
+   * 화면은 렌더 중에 ref 를 읽을 수 없다. '최신본으로 저장하기' 의 전·후가 이 사본에서 나온다 — 승인 뒤마다 다시 떠서
+   * 같은 장소를 가리키는 다른 줄이 방금 덮인 값을 "지금 값" 으로 본다.
+   */
+  const [placesView, setPlacesView] = useState<TPlaceRow[]>([]);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   /*
    * 쓰기는 한 번에 하나만 — CLI 가 후보를 한 줄씩 도는 것과 같은 직렬성이다.
@@ -250,6 +256,7 @@ export function AdminPage() {
       setPhase('loading');
       const [rows, places] = await Promise.all([fetchPendingCandidates(client), fetchMatchablePlaces(client)]);
       placesRef.current = places;
+      setPlacesView(places);
       setGroups(groupPending(rows));
       setStates({});
       setSelected(EMPTY_SELECTION);
@@ -315,6 +322,7 @@ export function AdminPage() {
     clearAdminSession();
     clientRef.current = null;
     placesRef.current = [];
+    setPlacesView([]);
     setSession(null);
     setGroups([]);
     setStates({});
@@ -407,6 +415,7 @@ export function AdminPage() {
           mergeInto: choice?.mergeInto,
           restoreArchived: choice?.restoreArchived,
           confirmedDifferent: choice?.confirmedDifferent,
+          overwrite: choice?.overwrite,
         });
         if (outcome.kind === 'blocked') {
           patchState(group.key, { busy: undefined, error: outcome.reason });
@@ -429,7 +438,9 @@ export function AdminPage() {
         const what =
           outcome.kind === 'created'
             ? `올렸어요 · ${outcome.placeName}`
-            : `${outcome.placeName} 에 채웠어요${outcome.patchKeys.length ? ` (${outcome.patchKeys.join(', ')})` : ' — 채울 빈 칸은 없었어요'}`;
+            : outcome.overwrittenKeys?.length
+              ? `${outcome.placeName} 을 최신본으로 저장했어요 (${outcome.overwrittenKeys.length}칸)`
+              : `${outcome.placeName} 에 채웠어요${outcome.patchKeys.length ? ` (${outcome.patchKeys.join(', ')})` : ' — 채울 빈 칸은 없었어요'}`;
         // 거짓말을 하지 않는 자리다. DB 에는 들어갔지만 정적 사이트는 다시 빌드돼야 보인다(ADR-015).
         // 그 빌드가 정말 걸렸는지는 머리글의 재빌드 줄이 말한다(`adminRebuild.ts`) — 이 문장만으로는 알 수 없었다.
         patchState(group.key, {
@@ -439,6 +450,7 @@ export function AdminPage() {
           done: `${what} · 사이트에는 다음 빌드에서 보여요`,
         });
         removeLater(group.key);
+        setPlacesView([...placesRef.current]);
         afterWrite();
       } catch (error) {
         patchState(group.key, { busy: undefined, error: messageOf(error, '반영하지 못했어요.') });
@@ -596,6 +608,15 @@ export function AdminPage() {
     },
     [beginWrite, endWrite, patchState],
   );
+
+  /**
+   * 펼친 줄의 패널이 가리키는 기존 장소 행 — 내린 곳 → 닮은 곳 → 짝 순서(카드가 패널을 고르는 순서와 같다).
+   * '최신본으로 저장하기' 가 그 행의 **지금 값**과 후보를 대 본다. 캐시(`placesRef`)는 승인이 덮은 칸까지 반영돼 있다.
+   */
+  const pairPlaceOf = (group: TCandidateGroup, state: TAdminPageGroupState): TPlaceRow | undefined => {
+    const id = state.archived?.placeId ?? state.similar?.id ?? group.lead.match_place_id;
+    return id ? placesView.find((place) => place.id === id) : undefined;
+  };
 
   const cards = useMemo(
     () =>
@@ -949,6 +970,7 @@ export function AdminPage() {
                   onSaveEdit={(editDraft) => void saveEditFor(group, editDraft)}
                   selected={selected.has(group.key)}
                   onSelect={() => setSelected((prev) => toggleSelected(prev, group.key))}
+                  pairPlace={expanded === group.key ? pairPlaceOf(group, state) : undefined}
                 />
               );
             })}

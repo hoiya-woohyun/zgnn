@@ -126,6 +126,80 @@ export function mergeIntoExisting(existingRow, extracted, { postUrl = null } = {
 const PLACE_TYPES = new Set(['stay', 'restaurant', 'cafe']);
 
 /**
+ * **최신본으로 저장하기**(검수 화면, 2026-09-30) — 기존 행을 후보의 값으로 **덮어쓰는** patch 와, 덮이기 전 값.
+ *
+ * 위 `mergeIntoExisting` 의 원칙("사람이 쓴 칸은 AI 가 덮지 않는다")의 예외가 아니라 그 원칙의 다른 절반이다 —
+ * 덮는 것을 **코드가 정하지 않고 사람이 정한다.** 재분석(프롬프트를 고쳐 같은 글을 다시 읽힘) 뒤에 나온 후보는 기존 장소에
+ * 짝이 붙는데, 빈 칸만 채우는 합치기로는 새 판단이 한 칸도 들어가지 않는다(기존 칸이 다 차 있어서). 그래서 운영자가
+ * 칸별 전·후를 본 뒤(`src/lib/adminLatest.ts`) 이 버튼을 눌렀을 때만 이 함수가 돈다. CLI 에는 이 길이 없다.
+ *
+ * 규칙: **후보에 값이 있고 기존과 다른 칸만** 덮는다 — 후보가 비어 있는 칸은 지우지 않는다(비어 있음은 "새 판단" 이 아니라 "못 읽음" 이다).
+ * 짝으로 움직이는 칸은 짝으로 덮는다: lat+lng · pet_policy_text+pet_policy(원문이 바뀌면 옛 판단은 옛 원문의 것이라 함께 바꾼다,
+ * 후보에 판단이 없으면 null) · naver_place_id+naver_url · 홈페이지 세 칸. review_url·status·source·sort 는 건드리지 않는다.
+ *
+ * `previous` 는 덮기 전 값이다 — 빈 칸만 채운 합치기는 "그 칸을 비우면" 되돌려지지만 덮어쓴 칸은 그렇게 안 된다.
+ * 호출자가 `extracted.applied.overwritten` 에 남긴다.
+ *
+ * @returns {{ patch: object, previous: object } | null}  바꿀 칸이 없으면 null
+ */
+export function overwriteWithLatest(existingRow, extracted) {
+  const patch = {};
+  const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+  const put = (col, value) => {
+    if (!same(existingRow[col], value)) patch[col] = value;
+  };
+
+  const name = text(extracted?.name);
+  if (name) put('name', name);
+  if (PLACE_TYPES.has(extracted?.type)) put('type', extracted.type);
+  const regionRaw = text(extracted?.regionRaw);
+  // 형식이 안 맞는 지역(`unknown`)으로 덮으면 읍·면 칩과 방향 필터에서 그 장소가 빠진다 — 그때는 기존 값을 둔다.
+  if (regionRaw && parseRegion(regionRaw).direction !== 'unknown') put('region_raw', regionRaw);
+  const address = text(extracted?.address);
+  if (address) put('address', address);
+  if (validGeo(extracted?.geo) && (existingRow.lat !== extracted.geo.lat || existingRow.lng !== extracted.geo.lng)) {
+    patch.lat = extracted.geo.lat;
+    patch.lng = extracted.geo.lng;
+  }
+  const features = text(extracted?.features);
+  if (features) put('features', features);
+
+  const petPolicyText = text(extracted?.petPolicyText);
+  const petPolicy = extracted?.petPolicy && typeof extracted.petPolicy === 'object' ? extracted.petPolicy : null;
+  if (petPolicyText && (!same(existingRow.pet_policy_text, petPolicyText) || !same(existingRow.pet_policy, petPolicy))) {
+    patch.pet_policy_text = petPolicyText;
+    patch.pet_policy = petPolicy;
+  }
+
+  const category = text(extracted?.category);
+  if (category) put('category', category);
+
+  const placeId = placeIdOf(extracted);
+  if (placeId && existingRow.naver_place_id !== placeId) {
+    patch.naver_place_id = placeId;
+    patch.naver_url = naverPlaceHomeUrl(placeId);
+  }
+
+  const homepage = homepageColumns(extracted);
+  if (homepage && 'homepage_url' in existingRow && Object.entries(homepage).some(([col, value]) => !same(existingRow[col], value))) {
+    Object.assign(patch, homepage);
+  }
+
+  if ((patch.type ?? existingRow.type) === 'stay') {
+    const stayPriceText = text(extracted?.stayPriceText);
+    if (stayPriceText) put('stay_price_text', stayPriceText);
+    const stayAmenitiesText = text(extracted?.stayAmenitiesText);
+    if (stayAmenitiesText) put('stay_amenities_text', stayAmenitiesText);
+  }
+
+  const cols = Object.keys(patch);
+  if (!cols.length) return null;
+  return { patch, previous: Object.fromEntries(cols.map((col) => [col, existingRow[col] ?? null])) };
+}
+
+
+
+/**
  * 신규 장소 후보 → places 행. status 는 'draft' — published 로 올리는 건 사람이 Studio 에서 한다(03 의 🙋).
  * data:pull 은 published 만 가져오므로, 이 행은 사람이 올리기 전까지 화면에 뜨지 않는다.
  *
