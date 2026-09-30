@@ -395,7 +395,7 @@ export function AdminPageGroupCard({
         </button>
       </div>
 
-      {expanded && <AdminPageGroupDetail group={group} preview={preview} editing={Boolean(state.editDraft)} />}
+      {expanded && <AdminPageGroupDetail group={group} preview={preview} />}
 
       {/*
         * 고치기 폼은 반려 폼과 **같은 자리**를 쓴다(둘 중 하나만 열린다). 결정 패널 위에 겹쳐 두면

@@ -7,7 +7,7 @@ import { Button } from '../components/base/button';
 import { EmptyState } from '../components/layout/emptyState';
 import { PageHeader } from '../components/layout/pageHeader';
 import { approveGroup, rejectGroup, saveEdit, setRegion } from '../lib/adminApply';
-import { buildEdit, type TCandidateEditDraft } from '../lib/adminEdit';
+import { aiOriginalOf, buildEdit, type TCandidateEditDraft } from '../lib/adminEdit';
 import {
   countStrandedCandidates,
   fetchMatchablePlaces,
@@ -572,8 +572,11 @@ export function AdminPage() {
         const others: TCandidateRow[] = [];
         for (const row of group.rows) {
           if (row.id === group.lead.id) continue;
-          // 소개는 그 행의 것을 지킨다 — 정체만 맞춘다.
-          const sibling = { ...edit, extracted: { ...edit.extracted, features: row.extracted.features ?? null } };
+          // 소개는 그 행의 것을 지킨다 — 정체만 맞춘다. AI 원본도 그 행의 것이다(대표의 스냅샷을 얹으면 남의 글이 원본이 된다).
+          const sibling = {
+            ...edit,
+            extracted: { ...edit.extracted, features: row.extracted.features ?? null, aiOriginal: aiOriginalOf(row.extracted) },
+          };
           others.push(await saveEdit(client, row, sibling));
         }
         const byId = new Map([updatedLead, ...others].map((row) => [row.id, row]));

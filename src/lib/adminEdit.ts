@@ -325,6 +325,7 @@ export function buildEdit(row: TCandidateRow, draft: TCandidateEditDraft, places
      * 이 칸은 `places` 로 새지 않는다(`toNewPlaceRow`).
      */
     editedAt: now.toISOString(),
+    aiOriginal: aiOriginalOf(prev),
     /*
      * **주소를 고쳤다는 표식은 따로 둔다.** `geoSource` 는 좌표가 어느 축에서 왔는지라 주소를 고쳐도 남고,
      * 그러면 검수 화면이 손으로 적은 주소를 '상호 검색으로 확인된 주소' 로 그린다(`adminAddress.ts`).
@@ -359,18 +360,113 @@ export function buildEdit(row: TCandidateRow, draft: TCandidateEditDraft, places
   };
 }
 
-/** 고친 내용을 한 줄로 — 저장 뒤 화면이 "무엇이 바뀌었는지" 를 말한다. */
-export function editSummary(draft: TCandidateEditDraft, before: TCandidateEditDraft): string[] {
-  const changed: string[] = [];
-  if (before.name.trim() !== draft.name.trim()) changed.push('이름');
-  if (before.type !== draft.type) changed.push(`종류(${TYPE_LABEL[before.type]}→${TYPE_LABEL[draft.type]})`);
-  if (before.address.trim() !== draft.address.trim()) changed.push('주소');
-  if (before.lat.trim() !== draft.lat.trim() || before.lng.trim() !== draft.lng.trim()) changed.push('좌표');
-  if (placeIdOf(before) !== placeIdOf(draft)) changed.push('네이버 플레이스');
-  if (before.homepageUrl.trim() !== draft.homepageUrl.trim() || before.homepageImage.trim() !== draft.homepageImage.trim()) changed.push('홈페이지');
-  if (before.features.trim() !== draft.features.trim()) changed.push('AI 요약');
-  if (before.petPolicyText.trim() !== draft.petPolicyText.trim()) changed.push('조건 원문');
-  // 구조값은 칸이 열이라 무엇이 바뀌었는지 일일이 세지 않는다 — 결과는 옆의 미리보기가 보여 준다.
-  if (JSON.stringify(policyFactsFrom(before.policy)) !== JSON.stringify(policyFactsFrom(draft.policy))) changed.push('동반 정보');
-  return changed;
+/**
+ * 고치기 전·후의 한 칸. 화면은 이것을 **"무엇이었는데 → 무엇으로"** 한 줄로 그린다.
+ *
+ * `editSummary`(칸 이름만 나열 — `이름 · 동반 정보`)이던 자리다. 이름만으로는 운영자가 저장 버튼 앞에서
+ * "원문이 무엇이었고 내가 무엇으로 바꾸려는가" 를 볼 수 없었고, 특히 동반 정보는 한 단어(`동반 정보`)로 뭉개져
+ * 실내·무게·요금 중 무엇을 건드렸는지가 화면 어디에도 없었다. 그래서 구조값도 **칸마다** 가른다.
+ *
+ * 값은 전부 사람이 읽는 문자열이다(빈 값은 `EMPTY_VALUE`). 비교는 `trim` 뒤에 한다 — 공백만 바뀐 것은
+ * 저장해도 같은 값이 되므로(`buildEdit` 가 턴다) 바뀐 것으로 세면 저장 버튼이 빈 저장을 허락한다.
+ */
+export type TEditChange = {
+  key: string;
+  label: string;
+  before: string;
+  after: string;
+  /** 동반 정보(구조값)의 한 칸인가 — 화면이 조건 원문 아래에 한 무리로 모은다. */
+  policy?: boolean;
+};
+
+/** 빈 값의 표기. `—` 한 글자는 "→" 옆에서 거의 안 보여 "지웠다" 가 읽히지 않는다. */
+export const EMPTY_VALUE = '(비어 있음)';
+
+const INDOOR_TEXT: Record<TPolicyDraft['indoor'], string> = {
+  unknown: '언급 없음',
+  free: '실내 자유',
+  cage: '실내는 케이지',
+  outdoorOnly: '야외만',
+};
+
+const triText = (value: TTriState, yes: string, no: string) => (value === 'yes' ? yes : value === 'no' ? no : '언급 없음');
+const flagText = (on: boolean) => (on ? '예' : '아니요');
+const textOf = (raw: string) => raw.trim() || EMPTY_VALUE;
+const linesOf = (raw: string) => toLines(raw).join(' / ') || EMPTY_VALUE;
+const coordOf = (draft: TCandidateEditDraft) =>
+  draft.lat.trim() || draft.lng.trim() ? `${draft.lat.trim() || '?'}, ${draft.lng.trim() || '?'}` : EMPTY_VALUE;
+
+/** 칸 순서 = 폼의 칸 순서. 여기서 순서를 바꾸면 폼을 훑는 눈과 "바뀌는 것" 목록을 훑는 눈이 엇갈린다. */
+const FIELDS: { key: string; label: string; policy?: boolean; read: (draft: TCandidateEditDraft) => string }[] = [
+  { key: 'name', label: '이름', read: (d) => textOf(d.name) },
+  { key: 'type', label: '종류', read: (d) => TYPE_LABEL[d.type] ?? d.type },
+  { key: 'address', label: '주소', read: (d) => textOf(d.address) },
+  { key: 'geo', label: '좌표', read: coordOf },
+  // 붙여 넣은 꼴(주소 ↔ 숫자)만 바뀐 것은 바뀐 게 아니다 — id 로 읽는다(`identityChanged` 와 같은 규칙).
+  { key: 'naverPlace', label: '네이버 플레이스', read: (d) => placeIdOf(d) ?? textOf(d.naverPlace) },
+  { key: 'homepageUrl', label: '홈페이지', read: (d) => textOf(d.homepageUrl) },
+  { key: 'homepageImage', label: '홈페이지 사진', read: (d) => textOf(d.homepageImage) },
+  { key: 'features', label: 'AI 요약', read: (d) => textOf(d.features) },
+  { key: 'petPolicyText', label: '조건 원문', read: (d) => textOf(d.petPolicyText) },
+  { key: 'indoor', label: '실내', policy: true, read: (d) => INDOOR_TEXT[d.policy.indoor] },
+  { key: 'largeDogOk', label: '대형견', policy: true, read: (d) => triText(d.policy.largeDogOk, '가능', '불가') },
+  { key: 'feeFree', label: '추가 요금', policy: true, read: (d) => triText(d.policy.feeFree, '없음', '있음') },
+  { key: 'feeLines', label: '강아지 요금', policy: true, read: (d) => linesOf(d.policy.feeLines) },
+  { key: 'weightLimitKg', label: '무게 상한', policy: true, read: (d) => (d.policy.weightLimitKg.trim() ? `${d.policy.weightLimitKg.trim()}kg` : EMPTY_VALUE) },
+  { key: 'maxDogs', label: '마릿수 상한', policy: true, read: (d) => (d.policy.maxDogs.trim() ? `${d.policy.maxDogs.trim()}마리` : EMPTY_VALUE) },
+  { key: 'leash', label: '리드줄', policy: true, read: (d) => flagText(d.policy.leash) },
+  { key: 'smallDogOnly', label: '소형견만', policy: true, read: (d) => flagText(d.policy.smallDogOnly) },
+  { key: 'callFirst', label: '전화 확인', policy: true, read: (d) => flagText(d.policy.callFirst) },
+  { key: 'notes', label: '그 밖의 조건', policy: true, read: (d) => textOf(d.policy.notes) },
+];
+
+/** 한 칸의 사람이 읽는 값 — 폼이 입력 옆에 "원래 값" 을 적을 때도 같은 표기를 쓴다(두 자리의 말이 갈리지 않게). */
+export function editFieldText(draft: TCandidateEditDraft, key: string): string {
+  return FIELDS.find((field) => field.key === key)?.read(draft) ?? '';
+}
+
+export function editChanges(draft: TCandidateEditDraft, before: TCandidateEditDraft): TEditChange[] {
+  return FIELDS.flatMap((field) => {
+    const was = field.read(before);
+    const now = field.read(draft);
+    return was === now ? [] : [{ key: field.key, label: field.label, before: was, after: now, ...(field.policy ? { policy: true } : {}) }];
+  });
+}
+
+/**
+ * AI 가 처음 뽑은 값 — **처음 고칠 때 한 번만** 떠 둔다(`buildEdit`). 저장이 `extracted` 를 덮어쓰므로 이것이 없으면
+ * 한 번 고친 후보는 "원래 무엇이었는데 무엇으로 바꿨나" 를 영영 말할 수 없다. 두 번째 저장부터는 옛 스냅샷을
+ * 그대로 들고 간다 — 매번 새로 뜨면 그것은 AI 의 값이 아니라 **직전 손질**이 된다.
+ *
+ * 반영기는 칸을 이름으로 골라 읽으므로(`toNewPlaceRow`·`mergeIntoExisting`) 이 칸은 `places` 로 새지 않는다.
+ */
+export type TAiOriginal = Pick<
+  TCandidateExtracted,
+  'name' | 'type' | 'address' | 'geo' | 'naverPlaceId' | 'homepage' | 'features' | 'petPolicyText' | 'petPolicy'
+>;
+
+export function aiOriginalOf(extracted: TCandidateExtracted): TAiOriginal {
+  const kept = extracted.aiOriginal as TAiOriginal | undefined;
+  if (kept && typeof kept === 'object') return kept;
+  return {
+    name: extracted.name,
+    type: extracted.type,
+    address: extracted.address ?? null,
+    geo: extracted.geo ?? null,
+    naverPlaceId: extracted.naverPlaceId ?? null,
+    homepage: extracted.homepage ?? null,
+    features: extracted.features ?? null,
+    petPolicyText: extracted.petPolicyText ?? null,
+    petPolicy: extracted.petPolicy ?? null,
+  };
+}
+
+/**
+ * 사람이 고친 후보면 **AI 가 뽑은 값 → 지금 값** 목록, 아니면 빈 배열. 펼친 상세가 "무엇을 고쳤나" 를 말한다.
+ * 고친 적이 없거나(스냅샷 없음) 고쳤다가 되돌려 같아졌으면 빈 배열이다.
+ */
+export function aiEdits(extracted: TCandidateExtracted): TEditChange[] {
+  if (!extracted.aiOriginal) return [];
+  const ai = { ...extracted, ...(extracted.aiOriginal as TAiOriginal) } as TCandidateExtracted;
+  return editChanges(draftFromExtracted(extracted), draftFromExtracted(ai));
 }
