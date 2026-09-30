@@ -55,10 +55,14 @@ describe('correctPetPolicyFacts — 원문에 근거가 있는 판단은 그대�
    * 원문에 `1.5` 가 없어 통째로 빠진다. 프롬프트가 "금액은 본문 표기 그대로" 라고 못 박는 이유가 이것이고,
    * 이 테스트는 그 규칙이 프롬프트에서 빠졌을 때 무슨 일이 나는지를 고정해 둔다(고칠 곳은 보정이 아니라 프롬프트다).
    */
-  it('금액 표기를 바꾼 줄은 원문에 그 숫자가 없어 빠진다', () => {
+  /*
+   * 2026-09-30 에 뒤집혔다 — 예전엔 표기가 다르면 뺐다. 이제 요금 줄은 저장 전에 `normalizeFeeLines` 가 `15,000원` 을
+   * `1.5만원` 으로 바꾸고 앱이 이 대조를 다시 돌리므로, 글자로 대 보면 방금 바꾼 줄이 사라진다. 금액을 원 단위 숫자로 본다.
+   */
+  it('금액 표기만 바꾼 줄은 같은 금액이라 남는다', () => {
     const r = correctPetPolicyFacts(facts({ feeLines: ['1.5만원'] }), '반려견 추가 요금은 15,000원이에요');
-    expect(r.facts?.feeLines).toEqual([]);
-    expect(r.corrections).toEqual(['요금 문장 "1.5만원" 이 원문에 없어 뺐어요']);
+    expect(r.facts?.feeLines).toEqual(['1.5만원']);
+    expect(r.corrections).toEqual([]);
   });
 
   it('본문 표기 그대로면 쉼표가 있어도 남는다', () => {
@@ -66,9 +70,13 @@ describe('correctPetPolicyFacts — 원문에 근거가 있는 판단은 그대�
     expect(r.facts?.feeLines).toEqual(['1마리당 15,000원']);
   });
 
-  /** 반대 방향도 같다 — 본문 `30,000원` 을 `3만원` 으로 옮긴 줄은 근거가 안 된다(고칠 곳은 프롬프트다). */
-  it('만원 표기로 접은 줄도 빠진다', () => {
+  it('만원 표기로 접은 줄도 같은 금액이라 남는다', () => {
     const r = correctPetPolicyFacts(facts({ feeLines: ['1마리당 3만원'] }), '강아지 1마리당 30,000원 추가입니다');
+    expect(r.facts?.feeLines).toEqual(['1마리당 3만원']);
+  });
+
+  it('금액이 다르면 여전히 빠진다', () => {
+    const r = correctPetPolicyFacts(facts({ feeLines: ['1마리당 3만원'] }), '강아지 1마리당 20,000원 추가입니다');
     expect(r.facts?.feeLines).toEqual([]);
   });
 

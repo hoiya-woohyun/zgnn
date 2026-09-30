@@ -239,7 +239,8 @@ describe('실제 데이터', () => {
     ['부띠크풀빌라 나미브', ['1마리당 3만원', '소형견만']],
     ['솔숲펜션', ['1~5kg 1만원', '6~10kg 1.5만원']],
     ['돌담연가', ['1마리당 5만원']],
-    ['캄 : Kalm', ['1마리당 3만원', '(2마리 또는 10kg 이상 4만원)']],
+    // 배지 라벨은 정규화한 줄이다(`normalizeFeeLines`) — 원문의 괄호가 벗겨진다. `feeLines` 원본은 그대로다.
+    ['캄 : Kalm', ['1마리당 3만원', '2마리 또는 10kg 이상 4만원']],
   ])('%s 의 배지를 고정한다', (name, expected) => {
     const place = PLACES.find((candidate) => candidate.name === name);
     expect(place, `${name} 을(를) places.json 에서 찾지 못했다`).toBeDefined();
@@ -326,7 +327,7 @@ describe('toPetBadges — 축', () => {
 
   it('요금 줄은 모두 요금 축, 무게·마릿수는 제한 축이다', () => {
     const badges = toPetBadges(parsePetPolicy('10kg 이하 2마리까지. 1마리당 2만원 추가'));
-    expect(badges.filter((b) => b.axis === 'fee').map((b) => b.label)).toEqual(['1마리당 2만원 추가']);
+    expect(badges.filter((b) => b.axis === 'fee').map((b) => b.label)).toEqual(['1마리당 2만원']);
     expect(badges.filter((b) => b.axis === 'limit').map((b) => b.label)).toEqual(['~10kg', '최대 2마리']);
   });
 });
