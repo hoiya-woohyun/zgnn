@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { collapseProgress, collapseRange, stickyMorphProgress, stickyMorphRange } from './stickyMorph';
+import { barRevealRange, collapseProgress, collapseRange, stickyMorphProgress, stickyMorphRange } from './stickyMorph';
 
 describe('stickyMorphProgress — 붙는 순간부터 스크롤한 거리만큼 0 → 1', () => {
   // 노치 기기(인셋 47px), 접히는 거리 57px(줄 56 + 선 1).
@@ -77,5 +77,23 @@ describe('스크롤 구동 구간 — JS 진행도와 같은 스크롤 위치에
   it('길이가 0 인 구간은 만들지 않는다 — 0 으로 나누는 계산을 브라우저에 넘기지 않는다', () => {
     expect(stickyMorphRange(10, 0, 0).to).toBeGreaterThan(stickyMorphRange(10, 0, 0).from);
     expect(collapseRange(0, 0).to).toBeGreaterThan(0);
+  });
+});
+
+describe('barRevealRange — h1 이 헤더 밑으로 들어가는 동안 제목이 올라온다', () => {
+  // 헤더 아랫변 104(인셋 47 + 줄 56 + 선 1), h1 은 스크롤 0 에서 160 에 있고 높이 32.
+  const range = barRevealRange(160, 32, 104);
+
+  it('h1 윗변이 헤더 아랫변에 닿는 스크롤에서 시작한다', () => {
+    expect(range.from).toBe(56);
+  });
+
+  it('h1 이 다 가려지는 스크롤(높이만큼 더)에서 끝난다 — 옛 "h1 아랫변이 헤더 아랫변을 지나면" 과 같은 순간이다', () => {
+    expect(range.to).toBe(88);
+  });
+
+  it('h1 높이를 못 쟀으면(0) 1px 구간 — 길이 0 구간을 만들지 않는다', () => {
+    const empty = barRevealRange(160, 0, 104);
+    expect(empty.to).toBeGreaterThan(empty.from);
   });
 });

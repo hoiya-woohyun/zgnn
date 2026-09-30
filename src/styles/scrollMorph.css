@@ -57,6 +57,11 @@
     animation-name: morph-fade-in;
   }
 
+  /* ── AppBar(하위 화면 헤더): h1 이 줄 밑으로 들어가는 만큼 제목이 줄 아랫변에서 올라온다. ── */
+  [data-morph='scroll'] [data-scroll-morph='bar-reveal'] {
+    animation-name: morph-bar-reveal;
+  }
+
   /* ── HomePageHero ── */
   [data-morph='scroll'] [data-scroll-morph='hero-mark'] {
     animation-name: morph-hero-mark;
@@ -98,6 +103,17 @@
 @keyframes morph-title {
   to {
     transform: translateY(calc(var(--spacing) * -2)) scale(var(--title-scale, 1));
+  }
+}
+
+@keyframes morph-bar-reveal {
+  from {
+    transform: translateY(calc(var(--spacing) * 10));
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
   }
 }
 

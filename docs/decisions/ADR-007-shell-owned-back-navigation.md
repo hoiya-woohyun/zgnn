@@ -1,6 +1,8 @@
 # ADR-007 — 뒤로가기는 화면이 아니라 셸이 붙인다
 
-> 최종 수정: 2026-09-30 (v4: 떠 있는 알약 → **크림 헤더**. 줄을 바탕색으로 칠하고 `bleed-top-0 sticky top-0` 으로 상태바 자리까지 덮는다. 제목은 화면의 `h1` 이 줄 밑으로 들어갈 때 그 글을 띄운다 → [ADR-010 v4](ADR-010-shell-owned-safe-area.md))
+> 최종 수정: 2026-09-30 (v5: 화면이 원하면 헤더의 **제목 자리만** 채운다(`AppBarSlot`) — 상세가 아이콘·이름·동네·종류를 올린다. 헤더를 다는 것은 여전히 셸이고,
+> 안 채우면 h1 복사본이라 새 화면이 할 일은 그대로 없다 → [app-shell-and-state v27](../architecture/app-shell-and-state.md))
+> 이전 (v4: 떠 있는 알약 → **크림 헤더**. 줄을 바탕색으로 칠하고 `bleed-top-0 sticky top-0` 으로 상태바 자리까지 덮는다. 제목은 화면의 `h1` 이 줄 밑으로 들어갈 때 그 글을 띄운다 → [ADR-010 v4](ADR-010-shell-owned-safe-area.md))
 > 이전 (v3: 인셋(`pt-safe`)은 셸의 상태바 띠로 옮겨짐 → [ADR-010](ADR-010-shell-owned-safe-area.md). 줄은 `top-safe` 로 띠 아래에 붙는다)
 > 이전 (v2: 뒤로가기 줄이 스크롤을 따라온다 — `sticky`, 버튼에만 알약 배경)
 > 이전 (v1: 신설)
