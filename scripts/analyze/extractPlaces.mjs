@@ -22,6 +22,7 @@
 //    "Not logged in", "session limit …")는 모델 출력이 아니라 운영자가 봐야 할 것이라 짧게 싣는다.
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { correctPetPolicyFacts } from '../lib/petPolicyFacts.mjs';
 
 /** ANALYZE_MODEL 로 덮어쓸 수 있다 — 첫 1년치 대량 처리 때 haiku 로 비교해 보려는 용도(docs/todo/03 의 모델 표). */
 export function resolveModel(env = process.env) {
@@ -138,10 +139,13 @@ export const SYSTEM_PROMPT = `당신은 제주도 반려견 동반 여행 블로
 - petPolicy: petPolicyText 를 읽고 **당신이 판단한** 구조화 값. 본문에 근거가 있는 것만 채우고, 언급이 없으면 null 또는 "unknown" 입니다.
   petPolicyText 가 null 이면 petPolicy 도 null.
     indoor: 실내 자유 "free" · 실내는 케이지/이동가방/유모차가 있어야 함 "cage" · 야외(테라스·마당)만 "outdoorOnly" · 언급 없음 "unknown".
-    leash: 리드줄·목줄 착용 조건이 있으면 true. largeDogOk: 대형견 가능이 명시되면 true, 불가면 false, 언급 없으면 null.
+    leash: 리드줄·목줄 착용 조건이 있으면 true. largeDogOk: 대형견 가능이 명시되면 true, **"대형견" 이 안 된다고 적혀 있으면** false, 언급 없으면 null.
+      몸무게 상한("10kg 이하")에서 대형견 불가를 추론하지 마세요 — 그건 weightLimitKg 가 말합니다.
     smallDogOnly: 소형견만이면 true. callFirst: 방문·예약 전 전화나 문의가 필요하다고 하면 true.
     feeFree: 반려견 추가 요금이 없다고 하면 true, 있으면 false, 언급 없으면 null. feeText: 추가 요금 문장 원문(예: "1마리당 2만원"). 없으면 null.
     weightLimitKg: 몸무게 상한(숫자, "10kg 이하" → 10). maxDogs: 마릿수 상한(숫자). 없으면 null.
+      **숫자는 petPolicyText 에 적힌 숫자만** 씁니다. 요금 구간표("1~5kg 1만원")의 숫자는 상한이 아닙니다.
+      원문에 근거가 없는 판단은 앱이 빼고 봅니다(scripts/lib/petPolicyFacts.mjs) — 모르면 null 이 맞습니다.
     notes: 그 밖의 조건(예방접종 확인서 · 큐알 방명록 등) 한 줄. 없으면 null.
 - features: 그 장소가 무엇인지 해요체 서술문 1~2문장, 120자 이내, 줄바꿈 없이. 첫 문장은 무엇을 파는/어떤 곳인지, 둘째 문장은 강아지 편의
   (마당·물그릇·펜스 등). 블로거 1인칭 · 내돈내산 · 광고·협찬 표시는 쓰지 않습니다.
@@ -231,9 +235,17 @@ const INDOOR = new Set(['free', 'cage', 'outdoorOnly', 'unknown']);
 const boolOrNull = (v) => (typeof v === 'boolean' ? v : null);
 const numOrNull = (v) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null);
 
-/** petPolicy(TPetPolicyFacts) 를 스키마 모양으로 — 원문이 없으면 판단도 없다(null). 값이 어긋나면 "언급 없음" 쪽으로 눕힌다. */
+/**
+ * petPolicy(TPetPolicyFacts) 를 스키마 모양으로 — 원문이 없으면 판단도 없다(null). 값이 어긋나면 "언급 없음" 쪽으로 눕힌다.
+ * 그다음 **원문에 대 본다**(correctPetPolicyFacts): 원문에 근거 단어·숫자가 없는 판단은 빼고, 한 판단 안의 모순은 허용 쪽을 뺀다.
+ * 앱도 읽을 때 같은 함수를 한 번 더 부르므로(withPolicyFacts) 이 보정 전에 저장된 값도 결국 같은 결과가 된다.
+ */
 function normalizePetPolicy(raw, petPolicyText) {
   if (!petPolicyText || !raw || typeof raw !== 'object') return null;
+  return correctPetPolicyFacts(shapePetPolicy(raw), petPolicyText).facts;
+}
+
+function shapePetPolicy(raw) {
   return {
     indoor: INDOOR.has(raw.indoor) ? raw.indoor : 'unknown',
     leash: raw.leash === true,

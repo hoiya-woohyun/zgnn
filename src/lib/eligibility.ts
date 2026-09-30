@@ -143,6 +143,17 @@ const ruleSmallOnly: TRule = (dog, policy) => {
 };
 
 /**
+ * H7: 원문이 대형견은 안 된다고 적었고(정규식 또는 AI `largeDogOk: false`) 우리 강아지가 대형이다.
+ * 전에는 `largeDogOk` 가 참/거짓 한 칸이라 "불가" 가 "언급 없음" 과 같아져 C5(확인 필요)로 떨어졌다 — 원문과 반대 말이었다(todo/06 A-2).
+ * 번호가 H7 인 것은 나중에 생겨서이고, 표시 순서는 크기 조건(H3) 옆이다.
+ */
+const ruleLargeDogNo: TRule = (dog, policy) => {
+  if (!policy.largeDogNo) return null;
+  if (dogSize(dog) !== 'large') return null;
+  return { level: 'hard', text: '대형견은 어렵다고 적혀 있어요', quote: policy.sources.largeDogNo };
+};
+
+/**
  * H4: 실내가 케이지 필수인데 대형견이고 케이지가 없다. 야외 자리가 열려 있으면(outdoorFree)
  * 아예 어려움은 아니고 "야외는 가능" 으로 낮춘다 — 단, 이번 여행에 실내가 꼭 필요하면(C4 와 같은
  * 기준) 야외 자리는 답이 아니므로 어려움이다.
@@ -244,6 +255,7 @@ const ruleLargeDogUnmentioned: TRule = (dog, policy) => {
   if (policy.noInfo) return null;
   if (dogSize(dog) !== 'large') return null;
   if (policy.largeDogOk) return null;
+  if (policy.largeDogNo) return null; // H7 이 어려움으로 말한다
   if (policy.tiers.length > 0) return null;
   const handledByH4 = policy.indoor === 'cage' && dog.carrier !== 'cage';
   if (handledByH4) return null;
@@ -272,6 +284,15 @@ const ruleCallFirst: TRule = (_dog, policy) => {
   return { level: 'cond', text: '방문 전 전화 확인이 필요해요', quote: policy.sources.callFirst };
 };
 
+/**
+ * C7: 원문은 있는데 정규식도 AI 도 조건을 하나도 못 읽었다(`unread`). 전에는 규칙이 하나도 안 걸려 '갈 수 있어요' 였다 —
+ * 읽지 못한 제한이 있을 수 있는 곳을 가장 좋은 답으로 보냈다(todo/06 A-1). 어려움은 아니다: 원문이 무엇을 막는지 모르니까.
+ */
+const ruleUnread: TRule = (_dog, policy) => {
+  if (!policy.unread) return null;
+  return { level: 'cond', text: '조건 문장을 자동으로 읽지 못했어요 — 원문을 확인해 주세요' };
+};
+
 /** U1: 원문에 동반 조건 자체가 없다. */
 const ruleNoInfo: TRule = (_dog, policy) => {
   if (!policy.noInfo) return null;
@@ -294,6 +315,7 @@ const RULES: [string, TRule][] = [
   ['H1', ruleWeightOverLimit],
   ['H2', ruleTooManyForWeight],
   ['H3', ruleSmallOnly],
+  ['H7', ruleLargeDogNo],
   ['H4', ruleLargeNeedsCage],
   ['H5', ruleNoCarrierNoOutdoor],
   ['H6', ruleOutdoorOnlyButNeedsIndoor],
@@ -303,6 +325,7 @@ const RULES: [string, TRule][] = [
   ['C4', ruleNoCarrierOutdoorFree],
   ['C5', ruleLargeDogUnmentioned],
   ['C6', ruleCallFirst],
+  ['C7', ruleUnread],
   ['U1', ruleNoInfo],
   ['U1 보강', ruleNoInfoHint],
 ];

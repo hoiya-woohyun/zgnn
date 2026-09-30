@@ -4,6 +4,7 @@
 //  (1) 같은 가게를 묶어야 하고(첫 분석에서 같은 펜션이 13건), (2) 앱이 그 문장을 어떻게 읽을지 — 정규식(parsePetPolicy)과 AI 판단(petPolicy),
 //  그리고 앱이 실제로 쓰는 병합 결과(withPolicyFacts) — 를 미리 봐야 하고, (3) 무엇이 비었는지(지역·좌표·조건문) 표식으로 보여야 한다.
 // 본문 인용(evidence)·원문은 --verbose 뒤에서만 찍는다(docs/todo/05 의 로그 위생 — 기본 출력은 이름·종류·구간·표식·구조화 결과만).
+import { correctPetPolicyFacts } from '../lib/petPolicyFacts.mjs';
 import { normalizeName } from './matchPlace.mjs';
 
 const TIER_ORDER = { auto: 0, ask: 1, new: 2 };
@@ -81,7 +82,12 @@ export function previewPolicy(extracted, { parsePetPolicy, toPetBadges, withPoli
   if (text && !facts) flags.push('AI 판단 없음');
   if (facts && facts.indoor !== 'unknown' && regex.indoor !== 'unknown' && facts.indoor !== regex.indoor) flags.push(`AI≠정규식(실내 ${facts.indoor}/${regex.indoor})`);
   if (merged.notAllowed) flags.push('동반불가 문장');
-  return { regexBadges, mergedBadges, facts, flags, level: merged.noInfo ? '정보없음' : merged.notAllowed ? '동반불가' : mergedBadges.length ? '조건' : '자유' };
+  // AI 판단 중 원문에 근거가 없어 앱이 빼고 보는 것(withPolicyFacts 가 같은 함수를 부른다). facts 는 **모델이 낸 그대로** 두고
+  // 뺀 것을 따로 싣는다 — 운영자가 "AI 는 이렇게 읽었고 이건 원문에 없어서 안 썼다" 를 나란히 봐야 프롬프트를 고칠 수 있다.
+  const { corrections } = correctPetPolicyFacts(facts, text);
+  if (corrections.length) flags.push('AI 판단 보정');
+  const level = merged.noInfo ? '정보없음' : merged.notAllowed ? '동반불가' : merged.unread ? '못읽음' : mergedBadges.length ? '조건' : '자유';
+  return { regexBadges, mergedBadges, facts, corrections, flags, level };
 }
 
 /** 묶음 단위 표식 — 승인하기 전에 채워야 할 것. */
@@ -162,6 +168,7 @@ export function formatMarkdown(groups, previews, { matchedNames = new Map() } = 
     out.push(`- 지역: ${e.regionRaw ?? '—'} · 좌표: ${e.geo ? `${e.geo.lat}, ${e.geo.lng} (${e.geoSource ?? 'local'})` : '—'} · 주소: ${e.address ?? '—'}`);
     out.push(`- 표식: ${[...groupFlags(g), ...p.flags].map((f) => `⚠ ${f}`).join(' ') || '없음'}`);
     out.push(`- 조건(${p.level}): 정규식 [${p.regexBadges.join(', ') || '—'}] · AI [${factsLine(p.facts) ?? '—'}] · 앱 [${p.mergedBadges.join(', ') || '—'}]`);
+    for (const note of p.corrections ?? []) out.push(`  · AI 보정: ${note}`);
     if (e.petPolicyText) out.push(`- 원문: ${String(e.petPolicyText).replace(/\n/g, ' / ')}`);
     if (e.features) out.push(`- 소개: ${e.features}`);
     for (const row of g.rows) {

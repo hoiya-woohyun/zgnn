@@ -94,7 +94,10 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
           * (`reviewCandidates.mjs:82`). 무게·리드줄·요금이 갈려도 접힌 채이므로, 그것까지 열려면 그 파일을 고쳐야 한다.
           * `includes('AI≠정규식')` 은 절대 안 맞는다 — 보간 문자열이라 `startsWith` 여야 한다(빌드·테스트는 초록인 채 기능만 죽는다).
           */}
-        <details className="mt-2" open={preview.flags.some((flag) => flag.startsWith('AI≠정규식'))}>
+        <details
+          className="mt-2"
+          open={preview.flags.some((flag) => flag.startsWith('AI≠정규식')) || preview.corrections.length > 0}
+        >
           {/* 마우스로 누르는 화면이라 터치 바닥(44px)을 두지 않는다 — 검수 화면은 크기 축을 기준값에 못 박았다(styles/adminDensity.css). */}
           <summary className="flex min-h-6 cursor-pointer items-center text-xs text-tertiary">
             어떻게 읽었는지 보기
@@ -102,6 +105,9 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
           <ul className="mt-1 space-y-0.5 text-xs text-tertiary">
             <li>기본 규칙이 읽은 것: {preview.regexBadges.join(' · ') || '—'}</li>
             <li>AI 가 읽은 것: {aiLine}</li>
+            {preview.corrections.map((note) => (
+              <li key={note}>원문에 없어 뺀 것: {note}</li>
+            ))}
           </ul>
         </details>
       </div>

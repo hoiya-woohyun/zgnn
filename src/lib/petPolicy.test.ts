@@ -311,7 +311,8 @@ describe('withPolicyFacts — AI 구조화 판단이 정규식 결과를 덮는�
   });
 
   it('정규식이 못 읽는 구어체도 AI 판단으로 야외만·리드줄·무게·마릿수가 채워진다', () => {
-    const text = '애견동반은 야외 자리 쪽에서 편하게 가능해요';
+    // 숫자는 원문에 있어야 남는다(correctPetPolicyFacts) — '10키로'·'두 마리' 는 정규식이 못 읽는 꼴이라 AI 만 채운다.
+    const text = '애견동반은 야외 자리 쪽에서 편하게 가능해요, 목줄은 해 주시고 10키로 넘는 친구는 안 되고 두 마리 정도예요';
     const p = withPolicyFacts(parsePetPolicy(text), facts, text);
     expect(p.indoor).toBe('outdoorOnly');
     expect(p.outdoorFree).toBe(true);
@@ -333,10 +334,44 @@ describe('withPolicyFacts — AI 구조화 판단이 정규식 결과를 덮는�
     expect(p.leash).toBe(false);
   });
 
-  it('largeDogOk false 는 파서의 true 를 덮고, 요금 문장은 feeText·feeLines 앞에 선다', () => {
-    const p = withPolicyFacts(parsePetPolicy('대형견도 가능'), { ...facts, largeDogOk: false, feeText: '1마리당 2만원' }, '대형견도 가능');
+  it('largeDogOk false 는 파서의 true 를 덮어 대형견 불가가 되고, 요금 문장은 feeText·feeLines 앞에 선다', () => {
+    const text = '대형견도 가능. 1마리당 2만원 추가';
+    const p = withPolicyFacts(parsePetPolicy(text), { ...facts, indoor: 'unknown', leash: false, weightLimitKg: null, maxDogs: null, largeDogOk: false, feeText: '1마리당 2만원' }, text);
     expect(p.largeDogOk).toBe(false);
+    expect(p.largeDogNo).toBe(true);
+    expect(p.sources.largeDogNo).toBe(text);
     expect(p.feeText).toBe('1마리당 2만원');
     expect(p.feeLines[0]).toBe('1마리당 2만원');
+  });
+
+  it('원문에 근거가 없는 AI 판단은 덮지 않는다 — 없는 10kg 이 대형견을 막지 않게', () => {
+    const text = '애견동반 가능해요!';
+    const p = withPolicyFacts(parsePetPolicy(text), facts, text);
+    expect(p.indoor).toBe('unknown');
+    expect(p.weightLimitKg).toBeUndefined();
+    expect(p.maxDogs).toBeUndefined();
+    expect(p.tiers).toEqual([]);
+    expect(p.leash).toBe(false);
+  });
+
+  it("제한은 정규식이 이긴다 — 원문 규칙이 케이지를 읽었으면 AI 의 '실내 자유' 로 풀지 않는다", () => {
+    const text = '실내는 케이지 동반, 실내 분위기가 좋아요';
+    const p = withPolicyFacts(parsePetPolicy(text), { ...facts, indoor: 'free', leash: false, weightLimitKg: null, maxDogs: null }, text);
+    expect(p.indoor).toBe('cage');
+  });
+
+  it("정규식이 '대형견 불가' 를 읽었으면 AI 의 '대형견 가능' 으로 풀지 않는다", () => {
+    const text = '대형견은 입장 불가, 중형견까지 대형견처럼 넓게 놀 수 있어요';
+    const p = withPolicyFacts(parsePetPolicy(text), { ...facts, indoor: 'unknown', leash: false, weightLimitKg: null, maxDogs: null, largeDogOk: true }, text);
+    expect(p.largeDogNo).toBe(true);
+    expect(p.largeDogOk).toBe(false);
+  });
+
+  it("AI 가 '요금 있음' 만 읽으면 '추가요금 있음' 배지가 된다 — 판단이 화면에서 사라지지 않게", () => {
+    const text = '강아지 동반 시 추가 요금이 있어요';
+    const p = withPolicyFacts(parsePetPolicy(text), { ...facts, indoor: 'unknown', leash: false, weightLimitKg: null, maxDogs: null, feeFree: false }, text);
+    expect(p.feeCharged).toBe(true);
+    expect(toPetBadges(p).map((b) => b.label)).toContain('추가요금 있음');
+    expect(p.unread).toBe(false);
   });
 });

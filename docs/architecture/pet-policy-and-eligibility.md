@@ -1,6 +1,10 @@
 # 반려동물 이용 조건 파서와 "우리 강아지 갈 수 있나" 판정
 
-> 최종 수정: 2026-09-29 (v12: 이동 수단 what-if(`carrierWhatIf`) — **판정을 바꾸지 않고 안내만 한다**. 목록 카드 근거 한 줄(`primaryReason`)·홈과 목록 머리의 레벨별 수(`countByLevel`)를 화면 반영에 적었다)
+> 최종 수정: 2026-09-30 (v13: **"안 된다" 와 "못 읽었다" 가 판정에 닿는다**(todo/06 A-1·A-2). `largeDogNo` → H7(대형견은 어려움),
+> `unread` → C7(원문은 있는데 아무도 못 읽음 → 확인 필요 — 전엔 '갈 수 있어요'), `feeCharged` → '추가요금 있음' 배지.
+> AI 판단은 덮기 전에 **원문에 대 보고** 근거 없는 값을 뺀다(`correctPetPolicyFacts`, §4) · 제한은 정규식이 이긴다. 시드 86곳의 판정은 그대로다)
+>
+> 이전 (v12: 이동 수단 what-if(`carrierWhatIf`) — **판정을 바꾸지 않고 안내만 한다**. 목록 카드 근거 한 줄(`primaryReason`)·홈과 목록 머리의 레벨별 수(`countByLevel`)를 화면 반영에 적었다)
 >
 > v11: 상세 머리글이 근거 하나뿐이면 근거를 따르고(C1 → "야외 자리에서 갈 수 있어요"), cond 는 목록 배지와 같은 말로. 근거에 규칙 ID 를 싣는다)
 >
@@ -52,16 +56,19 @@ flowchart LR
 | `indoor` | `free`(실내 자유) / `cage`(실내는 케이지·이동가방·유모차) / `outdoorOnly` / `unknown` | `unknown` — 숙소는 대부분 여기 |
 | `weightLimitKg?` | "10kg 이하" 같은 상한 | 없으면 제한 언급 없음 |
 | `smallDogOnly` · `mediumDogOk` · `largeDogOk` | 크기 언급 | 전부 false 면 크기 언급 없음 |
+| `largeDogNo` | **"대형견은 어려워요"·"대형견 입장 불가"** — 크기의 부정. `largeDogOk` 한 칸으로는 "불가" 와 "언급 없음" 이 둘 다 false 라 따로 둔다. 둘이 같이 걸리면 `largeDogOk` 를 끈다(제한을 믿는다). '대형견 제한 없음' 은 허용이라 걸리지 않는다. '어려워요' 에는 '어렵' 이 없어(ㅂ 불규칙) 정규식이 둘 다 적는다 | `false` |
 | `maxDogs?` | 마릿수 상한. "견수 제한 없음" 처럼 숫자가 없으면 비움 | 비움 — 숫자를 지어내지 않는다 |
 | `leash` · `callFirst` | 리드줄 필수 / 사전 전화 | false |
 | `feeFree` · `feeText?` | 추가 요금 없음 / 요금 원문(= `feeLines[0]`) | |
+| `feeCharged` | 추가 요금이 **있다고만** 읽었다(AI `feeFree: false`, 금액 문장 없음). 정규식은 세우지 않는다 | `false` |
 | `noInfo` | 원문이 비었거나 "정보 없음" — 빈 원문은 2026-09-28 부터 실제로 여기 걸린다(BUG-008 전에는 문자열만 봤다) | |
+| `unread` | 원문이 **있는데** 이 표의 조건이 하나도 안 섰다(정규식도 AI 도 못 읽음). "애견동반 가능해요!" 처럼 **일반 허용 문장만** 있으면 읽은 것으로 본다 — 단 그 문장에 야외·kg·케이지·요금 같은 제한 암시어가 섞이면 일반 허용이 아니다. 필드를 새로 더하면 `readNothing` 에도 더한다(빠지면 읽은 원문이 '못 읽음' 이 된다) | `false` |
 | `notAllowed` | "애견동반은 안됩니다" 처럼 주어(애견·반려견·강아지…)+동반/출입/입장 뒤에 불가·안 됨·금지. 견종 뒤의 '불가'(대형견 불가)는 아니다 | 배지 '동반 불가' |
 | `tiers` | 계단식 무게·마릿수 조건. `{ maxWeightKg?, weightInclusive?, maxDogs?, source }[]`. 웨스티하우스 → `[{10,미만,2},{20,미만,1}]`. `weightLimitKg`/`maxDogs` 는 여기서 최댓값을 뽑아 파생(화면·필터 호환) | `[]` |
 | `outdoorFree` | "실외는 자유", "실내외 모두 가능" 이거나 `indoor==='outdoorOnly'` — 야외 이용이 열려 있음 | `false` |
 | `unlimitedDogs` | "견수 제한 없음" 처럼 숫자 없이 마릿수 무제한. `maxDogs` 가 비어 있어도 필터가 "2마리 이상" 으로 잡을 수 있게 한다(백화stay) | `false` |
 | `feeLines` | 요금 문장 전부(원문 순서). 구간 요금표("1~5kg 1만원.\n6~10kg 1.5만원.")도 여기엔 두 줄로 남는다 | `[]` |
-| `sources` | 규칙별 근거 문장(원문 그대로). `indoor`\|`largeDogOk`\|`mediumDogOk`\|`smallDogOnly`\|`callFirst`\|`leash`\|`feeFree`\|`noInfo` 키만 있고, 실제로 해당 규칙이 걸린 곳만 채워진다. 판정 층이 `reasons[].quote` 로 쓴다 | `{}` |
+| `sources` | 규칙별 근거 문장(원문 그대로). `indoor`\|`largeDogOk`\|`largeDogNo`\|`mediumDogOk`\|`smallDogOnly`\|`callFirst`\|`leash`\|`feeFree`\|`noInfo` 키만 있고, 실제로 해당 규칙이 걸린 곳만 채워진다. 판정 층이 `reasons[].quote` 로 쓴다 | `{}` |
 
 ### 규칙 테이블
 
@@ -105,6 +112,7 @@ flowchart LR
 | H1 | `tiers` 중 무게 조건이 있는 칸이 있는데, 최댓값 몸무게가 그 어느 칸에도 못 들어감 | hard | "{이름}({몸무게}kg)는 {N}kg {미만/이하} 조건을 넘어요" · 여럿이면 "{이름(kg)}·{이름(kg)} 모두 …" — 한도를 넘는 아이만 적는다 |
 | H2 | 무게로 들어가는 칸은 있지만(칸이 여럿이면 마릿수 상한이 가장 큰 칸 기준) 그 칸의 마릿수 상한보다 마릿수가 많음 | hard | "{N}kg {미만/이하}은 {M}마리까지예요" |
 | H3 | `smallDogOnly` · size ≠ small | hard | "소형견만 가능해요" |
+| H7 | `largeDogNo` · size==='large' | hard | "대형견은 어렵다고 적혀 있어요" — 번호는 나중에 생겨서 H7, 표시 순서는 H3 옆. 전엔 "불가" 가 "언급 없음" 과 같아져 C5(확인 필요)로 떨어졌다 |
 | H4 | `indoor==='cage'` · size==='large' · carrier≠'cage' | !outdoorFree ? hard : (needsIndoor ? hard : cond) | "실내는 케이지 필수라 대형견은 어려워요" / "…야외 자리만 가능해요" |
 | H5 | `indoor==='cage'` · carrier==='none' · !outdoorFree · size≠'large' | hard | "케이지 동반시에만 가능해요" (대형견은 H4 가 대신) |
 | H6 | `indoor==='outdoorOnly'` · needsIndoor | hard | "야외 자리만 가능해요" |
@@ -112,8 +120,9 @@ flowchart LR
 | C2 | `indoor==='cage'` · carrier==='bag' | cond | "케이지라고 적혀 있어요 — 이동가방도 되는지 확인해 주세요" |
 | C3 | `indoor==='cage'` · carrier==='stroller' · 원문에 "유모차" 언급 없음 | cond | "케이지라고 적혀 있어요 — 유모차도 되는지 확인해 주세요" |
 | C4 | `indoor==='cage'` · carrier==='none' · outdoorFree | needsIndoor ? hard : cond | "실내는 케이지, 야외는 자유예요" |
-| C5 | size==='large' · !largeDogOk · `tiers` 없음 · H4 미해당 · **`noInfo` 아님**(정보 없음이면 U1 이 말한다 — 대형견 문구가 unknown 근거보다 먼저 읽혀 엉뚱한 이유처럼 보였다) | cond | 요금 줄에 `N kg 이상` 이 있으면 "{N}kg 이상 요금이 적혀 있어요 — {최대 몸무게}kg 도 되는지 확인해 주세요"(원문이 무게를 말했는데 "언급이 없다" 고 하면 반대다) · 아니면 요금 구간표(`a~N kg`)의 상한을 넘을 때 "요금표가 {N}kg 까지만 있어요 — 확인해 주세요"(솔숲펜션) · 그 외 "대형견 언급이 없어요 — 확인해 주세요" |
+| C5 | size==='large' · !largeDogOk · **!largeDogNo**(H7 이 말한다) · `tiers` 없음 · H4 미해당 · **`noInfo` 아님**(정보 없음이면 U1 이 말한다 — 대형견 문구가 unknown 근거보다 먼저 읽혀 엉뚱한 이유처럼 보였다) | cond | 요금 줄에 `N kg 이상` 이 있으면 "{N}kg 이상 요금이 적혀 있어요 — {최대 몸무게}kg 도 되는지 확인해 주세요"(원문이 무게를 말했는데 "언급이 없다" 고 하면 반대다) · 아니면 요금 구간표(`a~N kg`)의 상한을 넘을 때 "요금표가 {N}kg 까지만 있어요 — 확인해 주세요"(솔숲펜션) · 그 외 "대형견 언급이 없어요 — 확인해 주세요" |
 | C6 | `callFirst` | cond | "방문 전 전화 확인이 필요해요" |
+| C7 | `unread` | cond | "조건 문장을 자동으로 읽지 못했어요 — 원문을 확인해 주세요". 어려움이 아닌 이유: 원문이 무엇을 막는지 모른다. 전엔 아무 규칙도 안 걸려 **'갈 수 있어요'** 였다(todo/06 A-1 — 첫 분석에서 조건 문장 32건 중 20건이 정규식 0) |
 | U1 | `noInfo` (빈 원문 포함) | unknown | "이용 조건이 적혀 있지 않아요" |
 | U1 보강 | `noInfo` · `largeDogOk` (맘앤도그처럼 "정보 없음" 이라 적고도 힌트가 붙은 경우) | info | "원문에 대형견도 가능하다는 문구가 있어요" — 레벨은 그대로 unknown, 힌트만 얹는다 |
 | I1 | `formatDogFee(policy, dog)` 결과(아래 §요금) | info | "악동이는 3만원" · "악동이와 두부는 2.5만원 (1~5kg 1만원 · 6~10kg 1.5만원)" — 이름까지 붙은 완성 문장 |
@@ -182,9 +191,26 @@ H1·H2 가 같은 숫자를 본다. 시드 86곳은 `petPolicy` 가 없어 이 �
 왜 정규식만으로 안 됐나 — 첫 `data:analyze`(2026-09-28)의 조건 문장 32건 중 20건을 어떤 규칙도 못 읽었다. 구어체는 끝이 없어 판단을 모델에 맡기고,
 사람 검수(`pnpm data:review`)가 `정규식 [..] · AI [..] · 앱 [..]` 을 나란히 보며 어긋남을 잡는다.
 
+### 덮기 전의 보정 — AI 판단도 원문에 대 본다 (v13)
+
+모델은 원문에 없는 것을 낸다 — "애견동반 가능해요!" 에 `weightLimitKg: 10` 을 붙이면 그 숫자가 대형견을 H1 로 **어려움**에 보낸다.
+틀린 제한은 틀린 허용만큼 해롭다(갈 수 있는 곳을 지운다). 그래서 `withPolicyFacts` 는 덮기 전에 두 번 고친다.
+
+1. **`correctPetPolicyFacts(facts, text)`**(`scripts/lib/petPolicyFacts.mjs`) — 판단마다 원문에 근거가 있어야 남는다.
+   숫자는 그 숫자가 원문에 `N kg`·`N마리`(한글 수사 포함)로 있어야 하고, 참/거짓은 근거 단어(대형·소형·리드·전화·야외…)가 있어야 한다.
+   "대형" 이란 말 없이 무게 상한에서 추론한 `largeDogOk: false` 도 뺀다 — 그 제한은 무게 상한이 이미 H1 로 말한다.
+   한 판단 안의 모순(소형견만 + 대형견 가능 · 금액 있는 요금 문장 + 추가 요금 없음)은 **허용 쪽**을 뺀다.
+   **같은 함수가 두 곳에서 돈다** — 분석 시점(`extractPlaces.normalizePetPolicy`, 저장 전)과 앱(`withPolicyFacts`, 읽을 때). 앱에서도 부르는 이유는
+   보정 전에 분석된 후보(2026-09-28 첫 실행 160건)가 DB 에 그대로 있어서다. 두 번 불러도 결과가 같다(테스트가 잡는다).
+2. **제한은 정규식이 이긴다** — AI 가 `indoor: 'free'` 인데 정규식이 케이지·야외만을 읽었거나, AI 가 대형견 가능인데 정규식이 대형견 불가를 읽었으면
+   정규식을 남긴다. 규칙은 원문의 그 문장을 짚어 걸린다. AI 쪽이 더 엄격하면 AI 를 따른다 — ADR-017 의 원래 방향 그대로다.
+
+검수 화면은 뺀 것을 숨기지 않는다 — `previewPolicy` 가 `corrections` 를 싣고 표식 `AI 판단 보정`(`/admin` 에선 `AI 판단 일부 뺌`)을 붙이며,
+펼친 상세에 "원문에 없어 뺀 것: …" 줄이 뜬다. `facts` 자체는 모델이 낸 그대로 둔다 — 무엇을 잘못 읽었는지가 프롬프트를 고칠 재료라서다.
+
 ## 관련 파일
 
-- 파서: `src/lib/petPolicy.ts`, `src/lib/petPolicy.test.ts`, `src/lib/placeFilters.ts`, `src/components/petBadges.tsx`
+- 파서: `src/lib/petPolicy.ts`, `src/lib/petPolicy.test.ts`, `scripts/lib/petPolicyFacts.mjs`(+test — AI 판단 보정, §4), `src/lib/placeFilters.ts`, `src/components/petBadges.tsx`
 - 판정: `src/lib/eligibility.ts`, `src/lib/eligibility.test.ts`, `src/lib/eligibilityCounts.ts`(+test — 레벨별 수·이동 수단 what-if)
 - 요금·호칭: `src/lib/dogFee.ts`(+test), `src/lib/korean.ts`(+test)
 - 프로필: `src/types.ts`(`TDogProfile`·`TDogEntry`), `src/lib/dogProfile.ts`(`sanitizeDog` 옛 모양 변환, `maxWeightKg`), `src/store/useAppStore.ts`, `src/store/useDogEligibility.ts`, `src/screens/dogProfilePage.tsx`, [features/dog-profile.md](../features/dog-profile.md)

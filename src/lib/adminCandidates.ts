@@ -130,8 +130,10 @@ export type TPolicyPreview = {
   regexBadges: string[];
   mergedBadges: string[];
   facts: TPetPolicyFacts | null;
+  /** AI 판단 중 원문에 근거가 없어 앱이 빼고 보는 것(한국어 한 줄씩). `facts` 는 모델이 낸 그대로다. */
+  corrections: string[];
   flags: string[];
-  level: '정보없음' | '동반불가' | '조건' | '자유';
+  level: '정보없음' | '동반불가' | '못읽음' | '조건' | '자유';
 };
 
 /**

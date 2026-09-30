@@ -45,10 +45,23 @@ describe('previewPolicy — 앱이 문장을 어떻게 읽을지', () => {
   });
   it('AI 판단이 있으면 앱 배지가 그것을 따르고, 정규식과 어긋나면 표식이 붙는다', () => {
     const facts = { indoor: 'outdoorOnly', leash: true, largeDogOk: null, smallDogOnly: false, callFirst: false, feeFree: null, feeText: null, weightLimitKg: null, maxDogs: null, notes: null };
-    const p = previewPolicy({ petPolicyText: '케이지 필수', petPolicy: facts }, parsers);
-    expect(p.regexBadges).toEqual(['케이지 필요']);
+    const p = previewPolicy({ petPolicyText: '케이지 필수, 테라스에서는 목줄', petPolicy: facts }, parsers);
+    expect(p.regexBadges).toEqual(['케이지 필요', '리드줄']);
     expect(p.mergedBadges).toEqual(['야외만', '리드줄']);
     expect(p.flags).toEqual(['AI≠정규식(실내 outdoorOnly/cage)']);
+    expect(p.corrections).toEqual([]);
+  });
+  it('원문에 없는 AI 판단은 앱이 빼고, 뺀 것을 표식과 한 줄로 남긴다', () => {
+    const facts = { indoor: 'unknown', leash: false, largeDogOk: null, smallDogOnly: false, callFirst: false, feeFree: null, feeText: null, weightLimitKg: 10, maxDogs: null, notes: null };
+    const p = previewPolicy({ petPolicyText: '애견동반 가능해요!', petPolicy: facts }, parsers);
+    expect(p.mergedBadges).toEqual([]);
+    expect(p.flags).toContain('AI 판단 보정');
+    expect(p.corrections).toEqual(['무게 상한 10kg 이 원문에 없어 뺐어요']);
+  });
+  it('원문은 있는데 아무도 못 읽으면 level 이 못읽음이고 앱 배지가 원문 확인을 말한다', () => {
+    const p = previewPolicy({ petPolicyText: '사장님 강아지랑 같이 놀아요' }, parsers);
+    expect(p.level).toBe('못읽음');
+    expect(p.mergedBadges).toEqual(['원문 확인 필요']);
   });
   it('동반 불가 문장은 level 이 동반불가', () => {
     expect(previewPolicy({ petPolicyText: '애견동반은 아쉽게도 안됩니다' }, parsers).level).toBe('동반불가');

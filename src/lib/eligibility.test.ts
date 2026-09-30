@@ -301,3 +301,49 @@ describe('primaryReason — 목록 카드의 근거 한 줄', () => {
     expect(reason?.level).toBe('unknown');
   });
 });
+
+describe('judgeEligibility — 대형견 불가(H7, todo/06 A-2)', () => {
+  const LARGE: TDogProfile = { dogs: [{ name: '대장', weightKg: 28 }], carrier: 'none' };
+  const MEDIUM: TDogProfile = { dogs: [{ name: '초코', weightKg: 17 }], carrier: 'none' };
+
+  it("원문 '대형견은 어려워요' 는 대형견에게 어려움이다 — 전엔 '대형견 언급이 없어요'(확인 필요) 로 원문과 반대였다", () => {
+    const policy = parsePetPolicy('대형견은 어려워요');
+    const result = judgeEligibility(LARGE, policy);
+    expect(result.level).toBe('hard');
+    expect(result.reasons[0]).toMatchObject({ rule: 'H7', text: '대형견은 어렵다고 적혀 있어요', quote: '대형견은 어려워요' });
+    expect(result.reasons.some((r) => r.rule === 'C5')).toBe(false);
+  });
+
+  it('중형견은 대형견 불가에 걸리지 않는다', () => {
+    expect(judgeEligibility(MEDIUM, parsePetPolicy('대형견 입장 불가')).level).toBe('ok');
+  });
+
+  it("'대형견 제한 없음' 은 불가가 아니라 허용이다", () => {
+    const policy = parsePetPolicy('대형견 제한 없음');
+    expect(policy.largeDogNo).toBe(false);
+  });
+});
+
+describe('judgeEligibility — 원문은 있는데 아무도 못 읽음(C7, todo/06 A-1)', () => {
+  it("못 읽은 원문은 '갈 수 있어요' 가 아니라 확인이 필요하다", () => {
+    const policy = parsePetPolicy('사장님 강아지들이랑 같이 뛰어놀 수 있어요');
+    expect(policy.unread).toBe(true);
+    const result = judgeEligibility(TOFU, policy);
+    expect(result.level).toBe('cond');
+    expect(primaryReason(result)).toMatchObject({ rule: 'C7' });
+  });
+
+  it("'애견동반 가능해요!' 처럼 일반 허용 문장만 있으면 읽은 것이다", () => {
+    const policy = parsePetPolicy('애견동반 가능해요!');
+    expect(policy.unread).toBe(false);
+    expect(judgeEligibility(TOFU, policy).level).toBe('ok');
+  });
+
+  it('허용 문장에 제한을 암시하는 말(야외)이 섞이면 일반 허용으로 보지 않는다', () => {
+    expect(parsePetPolicy('야외 좌석에서 동반 가능해요').unread).toBe(true);
+  });
+
+  it('시드 86곳에는 못 읽은 원문이 없다 — 이 규칙이 지금 사이트의 판정을 바꾸지 않는다', () => {
+    expect(PLACES.filter((p) => p.policy.unread || p.policy.largeDogNo).map((p) => p.name)).toEqual([]);
+  });
+});

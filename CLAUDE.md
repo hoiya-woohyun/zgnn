@@ -85,6 +85,10 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
 - **주소 표기 대조에 AI 를 붙이면 하나 있는 진짜 신호를 잃는다.** 두 주소(네이버 ↔ 원글)의 불일치 43쌍 중 39쌍이 `제주특별자치도`↔`제주`
   뿐이었고, 정말 다른 2쌍이 "검색이 동명의 다른 가게를 집었다" 는 유일한 신호다. 남은 갈래(지번↔도로명)는 조회해야 아는 것이라 모델이
   지어내고, 지어낸 '같다' 가 그 2쌍을 덮는다 — `src/lib/addressMatch.ts` 의 `sameAddress` 가 `'unknown'` 을 돌려주는 것은 포기가 아니라 결정이다.
+- **`TPetPolicy` 에 조건 필드를 더하면 `readNothing`(`petPolicy.ts`)에도 더한다.** 빠지면 그 조건만 읽힌 원문이
+  `unread` 가 되어 판정 C7("원문을 확인해 주세요")로 떨어진다 — 시드 86곳엔 그런 원문이 없어 테스트는 통과한다.
+  같은 이유로 AI 판단은 `correctPetPolicyFacts`(`scripts/lib/petPolicyFacts.mjs`)를 거쳐야 판정에 닿는다: 원문에 근거 없는
+  숫자 하나(`weightLimitKg: 10`)가 대형견을 '어려움' 으로 보낸다(→ [BUG-009](docs/bugs/BUG-009-unread-and-denied-policy-judged-ok.md)).
 - **첫 프레임에 "저장 0" 으로 보이는 것은 의도**다(`skipHydration`). 정적 HTML 이라
   localStorage 를 마운트 뒤에 읽는다 — 버그로 보고 고치지 않는다.
 - **`src/components/base/` 는 Untitled UI 복사본**이라 직접 고치지 않는다(eslint 도 이

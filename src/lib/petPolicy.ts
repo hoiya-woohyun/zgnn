@@ -10,6 +10,7 @@
  * 그대로 함께 보여준다. 파서가 놓친 조건이 있어도 사용자가 원문에서 확인할 수 있어야 한다.
  */
 
+import { correctPetPolicyFacts } from '../../scripts/lib/petPolicyFacts.mjs';
 import type { TPetPolicyFacts } from '../types';
 
 export type TIndoorPolicy =
@@ -47,8 +48,22 @@ export type TPetPolicy = {
   weightLimitKg?: number;
   maxDogs?: number;
   feeFree: boolean;
+  /** 추가 요금이 **있다고만** 읽었다(AI `feeFree: false`, 금액 문장은 없음). 요금 문장이 있으면 그 문장이 배지가 된다 */
+  feeCharged: boolean;
   feeText?: string;
   noInfo: boolean;
+  /**
+   * 원문이 '대형견은 안 된다' 고 적혀 있다(정규식 또는 AI `largeDogOk: false`). `largeDogOk` 가 boolean 한 칸이라
+   * "불가" 와 "언급 없음" 이 둘 다 false 였다 — 그래서 대형견 보호자에게 '확인 필요 · 대형견 언급이 없어요' 로 보였다(todo/06 A-2).
+   * 이 값이 서면 `largeDogOk` 는 false 다(둘이 같이 서면 제한 쪽을 믿는다).
+   */
+  largeDogNo: boolean;
+  /**
+   * 원문이 **있는데** 정규식도 AI 도 판정에 쓸 조건을 하나도 못 읽었다. 빈 원문(`noInfo`)과 다르다 — 무언가 적혀 있다.
+   * 이 값이 없으면 제한 없음으로 읽혀 '갈 수 있어요' 가 됐다(todo/06 A-1, BUG-008 의 옆길). 판정은 C7(확인 필요).
+   * "애견동반 가능해요!" 처럼 **일반 허용 문장만** 있는 원문은 읽은 것으로 본다(`GENERIC_ALLOWED`).
+   */
+  unread: boolean;
   /** '애견동반 안됩니다' 처럼 원문이 동반 자체를 막는다고 적혀 있음. 판정은 강아지 조건과 무관하게 어려움(H0) */
   notAllowed: boolean;
   /** 계단식 무게·마릿수 조건. 웨스티하우스 → [{10,미만,2},{20,미만,1}] */
@@ -62,7 +77,16 @@ export type TPetPolicy = {
   /** 규칙별 근거 문장(원문 그대로). reasons.quote 의 재료 */
   sources: Partial<
     Record<
-      'indoor' | 'largeDogOk' | 'mediumDogOk' | 'smallDogOnly' | 'callFirst' | 'leash' | 'feeFree' | 'noInfo' | 'notAllowed',
+      | 'indoor'
+      | 'largeDogOk'
+      | 'largeDogNo'
+      | 'mediumDogOk'
+      | 'smallDogOnly'
+      | 'callFirst'
+      | 'leash'
+      | 'feeFree'
+      | 'noInfo'
+      | 'notAllowed',
       string
     >
   >;
@@ -115,12 +139,26 @@ const NOT_DENIED = String.raw`(?![^.\n]{0,16}불가)`;
  * 동반 자체가 안 된다는 문장. "애견동반은 아쉽게도 안됩니다" — 블로그에서 뽑은 문장(data:analyze)에 실제로 들어왔다(2026-09-28).
  * 주어(애견·반려견·강아지…)와 '동반/출입/입장' 이 붙어 있을 때만 잡는다 — '대형견 불가' 같은 크기 조건은 NOT_DENIED 가 따로 다룬다.
  */
-const NOT_ALLOWED_PATTERNS = [/(애견|반려견|반려\s*동물|강아지|댕댕이|펫)\s*(동반|출입|입장)[^.\n]{0,12}(불가|안\s*됩|안\s*돼|안\s*된|금지|어렵)/];
+const NOT_ALLOWED_PATTERNS = [/(애견|반려견|반려\s*동물|강아지|댕댕이|펫)\s*(동반|출입|입장)[^.\n]{0,12}(불가|안\s*됩|안\s*돼|안\s*된|금지|어렵|어려워)/];
+
+/**
+ * 대형견이 안 된다는 문장. '대형견 제한 없음'(허용) 은 걸리지 않게 '제한' 바로 뒤의 '없' 을 막는다.
+ * '어렵' 과 '어려워' 를 따로 적는 이유: '어려워요' 에는 '어렵' 이 없다(ㅂ 불규칙) — 한쪽만 적으면 가장 흔한 말투를 놓친다.
+ */
+const LARGE_DOG_NO = /대형견[^.\n]{0,12}(불가|안\s*돼|안\s*됩|안\s*된|어렵|어려워|금지|제한(?!\s*(이\s*)?없))/;
+
+/**
+ * 조건 없이 "된다" 고만 하는 문장("애견동반 가능해요!"). 이것뿐인 원문은 **읽은 것**이다 — 제한이 적혀 있지 않다는 것까지가 원문이다.
+ * 제한을 암시하는 말(야외·kg·케이지·요금…)이 섞인 문장은 여기서 빼서, 파서가 못 읽은 제한이 '일반 허용' 으로 묻히지 않게 한다.
+ */
+const GENERIC_ALLOWED = /(동반|입장|출입|이용|방문|함께)[^.\n]{0,10}(가능|환영|OK|돼요|됩니다|할 수 있)/i;
+const RESTRICTION_HINT = /야외|테라스|실내|실외|마당|케이지|켄넬|가방|유모차|kg|마리|소형|중형|대형|목줄|리드|요금|\d\s*만?\s*원|문의|전화|예약|만\s*(가능|입장|이용)|제한|불가|안\s*(돼|됩|된)/i;
+const isGenericAllowance = (sentence: string) => GENERIC_ALLOWED.test(sentence) && !RESTRICTION_HINT.test(sentence);
 
 /** 참/거짓 하나로 떨어지는 조건들. */
 const FLAG_RULES: {
   key: keyof TPetPolicy &
-    ('leash' | 'largeDogOk' | 'mediumDogOk' | 'smallDogOnly' | 'callFirst' | 'feeFree' | 'noInfo' | 'notAllowed');
+    ('leash' | 'largeDogOk' | 'largeDogNo' | 'mediumDogOk' | 'smallDogOnly' | 'callFirst' | 'feeFree' | 'noInfo' | 'notAllowed');
   patterns: RegExp[];
 }[] = [
   // '오프리쉬' 의 '리쉬' 는 넣지 않는다 — 풀어 놓아도 된다는 말을 목줄 조건으로 읽게 된다.
@@ -134,6 +172,8 @@ const FLAG_RULES: {
       /모든\s*견종/,
     ],
   },
+  // '대형견은 어려워요' · '대형견 입장 불가' — 크기 조건의 부정. '대형견 제한 없음' 은 허용이라 '제한' 뒤에 '없' 이 오면 뺀다.
+  { key: 'largeDogNo', patterns: [LARGE_DOG_NO] },
   {
     key: 'mediumDogOk',
     patterns: [new RegExp(String.raw`중형견${NOT_DENIED}[^.\n]{0,16}(가능|환영|입장)`)],
@@ -268,6 +308,7 @@ export const parsePetPolicy = (petPolicyText: string): TPetPolicy => {
     feeFree: false,
     noInfo: false,
     notAllowed: false,
+    largeDogNo: false,
   };
   const sources: TPetPolicy['sources'] = {};
   for (const rule of FLAG_RULES) {
@@ -286,6 +327,11 @@ export const parsePetPolicy = (petPolicyText: string): TPetPolicy => {
     if (source) sources.indoor = source;
   }
 
+  // 대형견이 된다와 안 된다가 같이 걸리면(한 원문에 두 문장) 제한 쪽을 믿는다 — 지어낸 허용이 가장 비싸다.
+  if (flags.largeDogNo) {
+    flags.largeDogOk = false;
+    delete sources.largeDogOk;
+  }
   // 대형견이 되면 중형견도 당연히 된다. sources 는 실제로 매치된 문장만 담으므로 이 뒤에 둔다.
   if (flags.largeDogOk) flags.mediumDogOk = true;
 
@@ -294,9 +340,11 @@ export const parsePetPolicy = (petPolicyText: string): TPetPolicy => {
   const outdoorFree = indoor === 'outdoorOnly' || matchesAny(text, OUTDOOR_FREE_PATTERNS);
   const unlimitedDogs = matchesAny(text, UNLIMITED_DOGS_PATTERNS);
 
-  return {
+  const policy: TPetPolicy = {
     indoor,
     ...flags,
+    feeCharged: false,
+    unread: false,
     weightLimitKg: weightLimitKgFromTiers(tiers),
     maxDogs: maxDogsFromTiers(tiers),
     feeText: feeLines[0],
@@ -306,52 +354,96 @@ export const parsePetPolicy = (petPolicyText: string): TPetPolicy => {
     feeLines,
     sources,
   };
+  policy.unread = text.trim() !== '' && readNothing(policy) && !sentences.every(isGenericAllowance);
+  return policy;
 };
+
+/** 판정·배지에 쓰일 조건이 하나도 없다. 새 필드를 TPetPolicy 에 더하면 **여기에도** 더한다 — 빠지면 읽은 원문이 '못 읽음' 이 된다. */
+const readNothing = (p: TPetPolicy): boolean =>
+  p.indoor === 'unknown' &&
+  !p.leash &&
+  !p.largeDogOk &&
+  !p.largeDogNo &&
+  !p.mediumDogOk &&
+  !p.smallDogOnly &&
+  !p.callFirst &&
+  !p.feeFree &&
+  !p.feeCharged &&
+  !p.noInfo &&
+  !p.notAllowed &&
+  p.tiers.length === 0 &&
+  p.feeLines.length === 0 &&
+  !p.outdoorFree &&
+  !p.unlimitedDogs;
 
 /**
  * AI 가 판단한 구조화 값(TPetPolicyFacts, 블로그 경로)으로 정규식 파서 결과를 덮는다. 원문(petPolicyText)은 그대로 화면에 보이고,
  * 판정에 쓰는 필드만 AI 판단이 우선한다 — 블로그 구어체("야외좌석만 가능해요")는 정규식이 못 읽는 것이 많아서다(2026-09-28 첫 분석: 32건 중 20건).
  * null 은 "언급 없음" 이라 파서 값을 남긴다. 무게·마릿수는 tiers 에도 넣어 eligibility 의 계단식 규칙(H1·H2)이 같은 숫자를 보게 한다.
  * 시드 86곳은 facts 가 없어 이 함수를 그대로 통과한다(ADR-017).
+ *
+ * **덮기 전에 두 번 보정한다**(ADR-017 v2):
+ * 1. `correctPetPolicyFacts` — 원문에 근거 단어·숫자가 없는 AI 판단을 뺀다. 분석 시점에도 같은 함수가 돌지만, 그 전에 저장된 값이
+ *    DB 에 남아 있어 읽는 쪽에서도 한 번 더 부른다(두 번 불러도 결과가 같다).
+ * 2. **제한은 정규식이 이긴다** — AI 가 '실내 자유'·'대형견 가능' 이라 했는데 원문 규칙이 케이지·야외만·대형견 불가를 읽었으면
+ *    규칙 쪽을 남긴다. 규칙은 원문의 그 문장을 짚어 걸리는 것이고, 모델이 그 문장을 놓친 쪽이 더 흔하다.
  */
 export const withPolicyFacts = (parsed: TPetPolicy, facts: TPetPolicyFacts | null | undefined, petPolicyText = ''): TPetPolicy => {
-  if (!facts) return parsed;
+  const corrected = correctPetPolicyFacts(facts, petPolicyText).facts;
+  if (!corrected) return parsed;
   const next: TPetPolicy = { ...parsed, sources: { ...parsed.sources }, tiers: [...parsed.tiers], feeLines: [...parsed.feeLines] };
-  const firstLine = petPolicyText.split('\n').map((s) => s.trim()).find(Boolean) ?? '';
-  if (facts.indoor !== 'unknown') {
-    next.indoor = facts.indoor;
+  const lines = petPolicyText.split('\n').map((s) => s.trim()).filter(Boolean);
+  const firstLine = lines[0] ?? '';
+  const lineWith = (re: RegExp) => lines.find((line) => re.test(line)) ?? firstLine;
+
+  const regexRestricts = parsed.indoor === 'cage' || parsed.indoor === 'outdoorOnly';
+  if (corrected.indoor !== 'unknown' && !(corrected.indoor === 'free' && regexRestricts)) {
+    next.indoor = corrected.indoor;
     if (!next.sources.indoor && firstLine) next.sources.indoor = firstLine;
   }
-  if (facts.leash) next.leash = true;
-  if (facts.largeDogOk !== null) {
-    next.largeDogOk = facts.largeDogOk;
-    if (facts.largeDogOk) next.mediumDogOk = true;
+  if (corrected.leash) next.leash = true;
+  if (corrected.largeDogOk === false) {
+    next.largeDogNo = true;
+    next.largeDogOk = false;
+    delete next.sources.largeDogOk;
+    if (!next.sources.largeDogNo) next.sources.largeDogNo = lineWith(/대형/);
+  } else if (corrected.largeDogOk === true && !parsed.largeDogNo) {
+    next.largeDogOk = true;
+    next.mediumDogOk = true;
   }
-  if (facts.smallDogOnly) next.smallDogOnly = true;
-  if (facts.callFirst) next.callFirst = true;
-  if (facts.feeFree !== null) next.feeFree = facts.feeFree;
-  if (facts.feeText) {
-    next.feeText = facts.feeText;
-    if (!next.feeLines.includes(facts.feeText)) next.feeLines = [facts.feeText, ...next.feeLines];
+  if (corrected.smallDogOnly) next.smallDogOnly = true;
+  if (corrected.callFirst) next.callFirst = true;
+  if (corrected.feeFree !== null) {
+    next.feeFree = corrected.feeFree;
+    next.feeCharged = corrected.feeFree === false;
   }
-  if (facts.weightLimitKg !== null) next.weightLimitKg = facts.weightLimitKg;
-  if (facts.maxDogs !== null) next.maxDogs = facts.maxDogs;
-  if ((facts.weightLimitKg !== null || facts.maxDogs !== null) && parsed.tiers.length === 0) {
+  if (corrected.feeText) {
+    next.feeText = corrected.feeText;
+    if (!next.feeLines.includes(corrected.feeText)) next.feeLines = [corrected.feeText, ...next.feeLines];
+  }
+  if (corrected.weightLimitKg !== null) next.weightLimitKg = corrected.weightLimitKg;
+  if (corrected.maxDogs !== null) next.maxDogs = corrected.maxDogs;
+  if ((corrected.weightLimitKg !== null || corrected.maxDogs !== null) && parsed.tiers.length === 0) {
     next.tiers = [
       {
-        maxWeightKg: facts.weightLimitKg ?? undefined,
-        weightInclusive: facts.weightLimitKg !== null ? true : undefined,
-        maxDogs: facts.maxDogs ?? undefined,
+        maxWeightKg: corrected.weightLimitKg ?? undefined,
+        weightInclusive: corrected.weightLimitKg !== null ? true : undefined,
+        maxDogs: corrected.maxDogs ?? undefined,
         source: firstLine,
       },
     ];
   }
   next.outdoorFree = next.indoor === 'outdoorOnly' || parsed.outdoorFree;
-  // AI 가 조건을 하나라도 읽었으면 '정보 없음' 이 아니다.
+  // AI 가 조건을 하나라도 읽었으면 '정보 없음' 도 '못 읽음' 도 아니다. notes 는 세지 않는다 — 판정에 안 쓰이는 조건이라,
+  // notes 만 있는 원문은 사용자가 원문을 읽어야 한다(unread 가 그 말을 한다).
   const anyFact =
-    facts.indoor !== 'unknown' || facts.leash || facts.largeDogOk !== null || facts.smallDogOnly || facts.callFirst ||
-    facts.feeFree !== null || facts.feeText !== null || facts.weightLimitKg !== null || facts.maxDogs !== null;
-  if (anyFact) next.noInfo = false;
+    corrected.indoor !== 'unknown' || corrected.leash || corrected.largeDogOk !== null || corrected.smallDogOnly ||
+    corrected.callFirst || corrected.feeFree !== null || corrected.feeText !== null || corrected.weightLimitKg !== null ||
+    corrected.maxDogs !== null;
+  if (anyFact) {
+    next.noInfo = false;
+    next.unread = false;
+  }
   return next;
 };
 
@@ -368,6 +460,9 @@ export type TPetBadge = {
 
 /** 원문이 "정보 없음" 인 곳의 배지. 판정 배지("정보가 없어요")와 같은 줄에 서면 같은 말이라 `PetBadges` 가 이 라벨로 걸러낸다. */
 export const NO_INFO_BADGE_LABEL = '확인된 정보 없음';
+
+/** 원문은 있는데 아무 조건도 못 읽은 곳의 배지(`unread`). 판정이 없는 화면(프로필 미등록)에서도 "그대로 믿지 말 것" 을 말한다. */
+export const UNREAD_BADGE_LABEL = '원문 확인 필요';
 
 const INDOOR_BADGE: Record<TIndoorPolicy, TPetBadge | null> = {
   free: { label: '실내 OK', tone: 'ok' },
@@ -394,9 +489,13 @@ export const toPetBadges = (policy: TPetPolicy): TPetBadge[] => {
   // 요금이 무료가 아니면 원문에서 뽑은 요금 문장을 그대로 배지로 쓴다.
   // 숙소 중에는 이것 말고 배지로 만들 조건이 아예 없는 곳이 있어서, 없으면 카드가 텅 빈다.
   else if (policy.feeText) badges.push({ label: policy.feeText, tone: 'cond' });
+  // AI 가 '요금이 있다' 고만 읽고 금액 문장은 못 뽑은 경우 — 없으면 그 판단이 화면 어디에도 안 보인다(todo/06 A-2).
+  else if (policy.feeCharged) badges.push({ label: '추가요금 있음', tone: 'cond' });
   // 크기 조건은 하나만 보여준다. 큰 쪽이 되면 작은 쪽은 말할 필요가 없고,
   // '소형견만' 은 숫자 상한이 없는 숙소의 유일한 크기 단서라 맨 뒤에 둔다.
-  if (policy.largeDogOk) badges.push({ label: '대형견 OK', tone: 'ok' });
+  // '대형견 불가' 가 크기 줄의 맨 앞이다 — 판정 H7 이 이것으로 어려움을 내므로, 배지가 없으면 목록에서 이유가 안 보인다.
+  if (policy.largeDogNo) badges.push({ label: '대형견 불가', tone: 'warn' });
+  else if (policy.largeDogOk) badges.push({ label: '대형견 OK', tone: 'ok' });
   else if (policy.mediumDogOk) badges.push({ label: '중형견 OK', tone: 'ok' });
   else if (policy.smallDogOnly) badges.push({ label: '소형견만', tone: 'cond' });
 
@@ -411,6 +510,7 @@ export const toPetBadges = (policy: TPetPolicy): TPetBadge[] => {
   // '정보 없음. (문의해보시면 가장 정확할 것 같아요)' 는 두 규칙에 다 걸린다.
   // 같은 말을 두 번 하지 않도록 '정보 없음' 이 있으면 '전화 확인' 은 생략한다.
   if (policy.noInfo) badges.push({ label: NO_INFO_BADGE_LABEL, tone: 'warn' });
+  else if (policy.unread) badges.push({ label: UNREAD_BADGE_LABEL, tone: 'warn' });
   else if (policy.callFirst) badges.push({ label: '전화 확인', tone: 'warn' });
 
   return badges;

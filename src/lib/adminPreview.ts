@@ -26,10 +26,12 @@ type TRule =
   | { kind: 'note'; note: string }
   | { kind: 'hidden' };
 
-/** 키 = reviewCandidates.mjs 가 내는 문자열 그대로. `groupFlags`(:91-95) 5개 + `previewPolicy`(:79-83) 5개. */
+/** 키 = reviewCandidates.mjs 가 내는 문자열 그대로. `groupFlags` 5개 + `previewPolicy` 6개. */
 const RULES: Record<string, TRule> = {
   '지역 없음': { kind: 'badge', label: '지역 없음', tone: 'error', rank: 0 }, // 승인을 막는다
   '동반불가 문장': { kind: 'badge', label: '동반불가 문장', tone: 'error', rank: 1 },
+  // AI 가 원문에 없는 숫자·판단을 냈다 — 사이트는 그것을 빼고 본다. 승인 전에 원문을 한 번 보라는 뜻이라 막지는 않는다.
+  'AI 판단 보정': { kind: 'badge', label: 'AI 판단 일부 뺌', tone: 'warning', rank: 3 },
   /*
    * 감춘다. 이 표식이 뜨는 유일한 경우는 "정규식은 실패했지만 AI 가 읽어냈다" 인데 그 상태는 앱 입장에서
    * **정상**이다(ADR-017: 정규식은 시드의 파서이고 블로그 경로에서는 안전망). 운영자가 달리 할 일이 없다.
@@ -111,7 +113,8 @@ export function policyCell(preview: TPolicyPreview, petPolicyText: string | null
    * 아무 뱃지도 만들지 않는다(`petPolicy.ts:399-401·392-396` 의 갈래를 전부 통과한다). 그래서 AI 가
    * '대형견 불가' 를 제대로 읽어낸 후보도 여기로 떨어지는데, 그때 '못 읽었어요' 라고 적으면 같은 카드의
    * `AI 분석 완료` 뱃지·펼친 `AI 가 읽은 것: 대형견 불가` 와 **서로를 반박한다.**
-   * 뱃지가 안 나오는 것 자체는 판정 쪽 문제라 여기서 고치지 않는다(→ docs/todo/06 「열린 것」 A-2).
+   * 2026-09-30 부터 그 두 값은 배지('대형견 불가'·'추가요금 있음')가 되고, 아무것도 못 읽은 원문은 '원문 확인 필요' 배지가 붙어(BUG-009)
+   * 이 갈래는 거의 닿지 않는다. 지우지 않는 이유: 새 판단 필드가 배지 없이 더해지면 여기가 다시 그 사실을 말해 준다.
    */
   if (aiAnalyzed(preview)) return { items: [], message: 'AI 는 읽었는데 사이트에 안 나와요' };
   return { items: [], message: '동반 조건을 못 읽었어요' };
