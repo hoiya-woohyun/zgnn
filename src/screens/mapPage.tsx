@@ -36,7 +36,25 @@ export function MapPage() {
    * 칩에 마커 색 점이 붙어 있어 범례 겸 스위치로 읽히니, 칩 모양과 지도를 일치시킨다.
    */
   const [types, setTypes] = useState<TPlaceType[]>(PLACE_TYPES);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  /*
+   * `?place=<id>` — 상세 화면의 미니 지도에서 넘어온다. 그 장소를 고른 채(시트가 열린 채) 그 자리에서 연다.
+   * 좌표가 없는 id·모르는 id 는 무시하고 평소처럼 섬 전체로 연다.
+   *
+   * 지도를 한 번 더 만드는 것이 비용이 아닌 이유: 네이버 인증(`/v3/auth`)은 페이지를 한 번 불러오는 동안
+   * **처음 지도를 만들 때 한 번만** 나간다(2026-09-30 실측 — ADR-008 「과금」). 상세 → 지도로 넘어와도 건수가 늘지 않는다.
+   */
+  const focusParam = searchParams.get('place');
+  const focusPlace = useMemo(
+    () => (focusParam ? (PLACES.find((place) => place.id === focusParam && place.geo) ?? null) : null),
+    [focusParam],
+  );
+  const [selectedId, setSelectedId] = useState<string | null>(focusPlace?.id ?? null);
+  // 지도 화면에 머문 채 `?place=` 만 바뀌면 그 장소로 선택을 옮긴다. 렌더 중에 맞추는 이유는 아래 `lastWithGeo` 와 같다.
+  const [lastFocusParam, setLastFocusParam] = useState(focusParam);
+  if (lastFocusParam !== focusParam) {
+    setLastFocusParam(focusParam);
+    if (focusPlace) setSelectedId(focusPlace.id);
+  }
 
   /*
    * 내 위치 — 누를 때 한 번 가져온다(ADR-008 v13·v14). 실패하면 지도 위에 한 줄을 띄우고 잠시 뒤 지운다.
@@ -158,6 +176,7 @@ export function MapPage() {
       onSelect={handleSelect}
       eligibilityMap={eligibilityMap}
       savedIds={savedIds}
+      focus={focusPlace?.geo ?? null}
     />
   );
 

@@ -70,6 +70,10 @@ declare namespace naver.maps {
     draggable?: boolean;
     scrollWheel?: boolean;
     pinchZoom?: boolean;
+    keyboardShortcuts?: boolean;
+    disableDoubleClickZoom?: boolean;
+    disableDoubleTapZoom?: boolean;
+    disableTwoFingerTapZoom?: boolean;
     /** NAVER 로고. 약관 제7조 ⑩ 이 표시 게재를 요구할 수 있어 끄지 않는다. */
     logoControl?: boolean;
     /** 로고의 위치. 이 앱은 좌하단(`BOTTOM_LEFT`)에 둔다 — 아래 mapDataControlOptions 와 같은 그룹으로 묶인다. */
@@ -82,6 +86,7 @@ declare namespace naver.maps {
     zoomControl?: boolean;
   }
 
+  /** 상세 화면의 미니 지도는 이 옵션들로 **움직이지 않는 그림**이 된다(스크롤하던 손가락이 지도에 붙잡히지 않게). */
   class Map {
     constructor(container: HTMLElement | string, options: MapOptions);
     setCenter(latlng: LatLng): void;

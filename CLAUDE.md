@@ -18,7 +18,7 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
 | 뒤로가기가 안 보임·새 화면 추가 | [docs/decisions/ADR-007-shell-owned-back-navigation.md](docs/decisions/ADR-007-shell-owned-back-navigation.md) · `src/lib/appRoutes.ts` |
 | 노치·상태바 밑으로 내용이 들어감 | [docs/decisions/ADR-010-shell-owned-safe-area.md](docs/decisions/ADR-010-shell-owned-safe-area.md) · `src/components/layout/appShell.tsx` |
 | 데이터 갱신·정규화 | [docs/architecture/data-pipeline.md](docs/architecture/data-pipeline.md) · `scripts/normalize.mjs` |
-| 지도(네이버 NCP Maps v3)·마커·오프라인 | [docs/decisions/ADR-008-map-provider.md](docs/decisions/ADR-008-map-provider.md) · `src/lib/naverMap.ts` · `src/screens/mapPageCanvas.tsx` |
+| 지도(네이버 NCP Maps v3)·마커·오프라인 | [docs/decisions/ADR-008-map-provider.md](docs/decisions/ADR-008-map-provider.md) · `src/lib/naverMap.ts` · `src/screens/mapPageCanvas.tsx` · 상세 미니 지도 `src/screens/placeDetailMiniMap.tsx` — **지도 비용은 "지도를 띄운 방문 수"**(인증이 페이지 로드당 1회, ADR-008 「과금」) |
 | 색·토큰·팔레트 | [docs/decisions/ADR-003-untitled-ui-and-palette.md](docs/decisions/ADR-003-untitled-ui-and-palette.md) · `src/styles/theme.css` |
 | 크기 스케일·반응형·글꼴 | [docs/decisions/ADR-006-responsive-scale-and-font.md](docs/decisions/ADR-006-responsive-scale-and-font.md) · `src/styles/globals.css` |
 | 회원·로그인·개인정보를 붙이려 함 | [docs/decisions/ADR-011-app-gate-and-supabase.md](docs/decisions/ADR-011-app-gate-and-supabase.md) · [ADR-012](docs/decisions/ADR-012-personal-data-and-consent.md) — **둘 다 제안 단계라 코드에 대응물이 없다** |

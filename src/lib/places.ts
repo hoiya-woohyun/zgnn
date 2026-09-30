@@ -255,6 +255,13 @@ export const JEJU_CENTER: [number, number] = [33.38, 126.55];
  */
 export const JEJU_ZOOM = 10;
 
+/**
+ * 장소 한 곳을 가리킬 때의 확대 수준 — 상세 화면의 미니 지도와 `/map/?place=<id>` 로 들어온 첫 화면.
+ * 동네 하나(390px 폭에서 경도 약 0.03°)가 드는 단계라 그 장소와 바로 옆 핀 몇 개가 함께 보인다.
+ * 방향은 네이버 `zoom` 그대로 **클수록 확대**다(위 `JEJU_ZOOM` 주석).
+ */
+export const PLACE_FOCUS_ZOOM = 14;
+
 /** 제주 본섬의 경도 폭(126.15~126.98). 추자도·우도까지는 아니고 "섬이 화면에 든다" 의 기준. */
 const JEJU_LON_SPAN = 0.83;
 

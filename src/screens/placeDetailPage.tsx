@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import { PlaceDetailHeader } from './placeDetailHeader';
 import { PlaceDetailGallery } from './placeDetailGallery';
 import { HighlightedPolicyText, PlaceDetailEligibilityCard } from './placeDetailEligibilityCard';
+import { PlaceDetailMiniMap } from './placeDetailMiniMap';
 import { PlaceDetailNearby } from './placeDetailNearby';
 import { Button } from '../components/base/button';
 import { MissingItemsNote } from '../components/missingItemsNote';
@@ -164,6 +165,19 @@ export function PlaceDetailPage({ id }: { id: string }) {
           공유
         </Button>
       </section>
+
+      {/*
+        위치는 근처 장소 바로 위 — "어디에 있나" 다음에 "그 옆에 뭐가 있나" 가 이어진다. 앱 밖 길찾기는
+        위의 "네이버 지도에서 열기" 가 맡고, 이 판은 누르면 앱 안 지도 탭으로 간다. 좌표가 없으면 절째 뺀다.
+      */}
+      {place.geo && (
+        <section className="mt-8 px-4 md:px-6">
+          <h2 className="text-lg font-bold text-primary">위치</h2>
+          <div className="mt-2">
+            <PlaceDetailMiniMap place={place} geo={place.geo} />
+          </div>
+        </section>
+      )}
 
       <PlaceDetailNearby place={place} />
 
