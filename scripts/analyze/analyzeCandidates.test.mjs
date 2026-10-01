@@ -4,6 +4,9 @@ import {
   AUTO_APPROVE,
   DEFAULT_LIMIT,
   DEFAULT_MAX_PER_BLOG,
+  EDITED_NOTE,
+  editedKey,
+  editedKeysFor,
   exclusionReason,
   formatCandidateLine,
   formatSummary,
@@ -18,6 +21,7 @@ import {
   toMatchCandidate,
   toPostAnalysis,
 } from './analyzeCandidates.mjs';
+import { EDITED_NOTE as EDITED_NOTE_TS } from '../../src/lib/adminApply';
 import { matchPlace, THRESHOLD } from './matchPlace.mjs';
 import { toRecheckCandidate } from './applyApproved.mjs';
 
@@ -407,5 +411,36 @@ describe('toPostAnalysis — blog_posts.analysis', () => {
   });
   it('분석 불가로 닫을 때는 skip 만', () => {
     expect(toPostAnalysis({ skip: '본문 없음' })).toMatchObject({ candidates: 0, excluded: [], skip: '본문 없음', model: null });
+  });
+});
+
+describe('editedKeysFor — 사람이 고친 후보는 다시 읽어도 새로 만들지 않는다(T2.2)', () => {
+  const url = 'https://blog.naver.com/a/1';
+  const pending = (over = {}) => ({ post_url: url, reviewer_note: EDITED_NOTE, extracted: { name: '솔숲펜션', nameKey: '솔숲펜션' }, ...over });
+
+  it('머리표 문자열이 TS 의 EDITED_NOTE 와 같다', () => {
+    expect(EDITED_NOTE).toBe(EDITED_NOTE_TS);
+  });
+  it('같은 글·같은 가게는 걸린다', () => {
+    expect(editedKeysFor([pending()]).has(editedKey(url, '솔숲펜션'))).toBe(true);
+  });
+  it('같은 가게라도 다른 글이면 걸리지 않는다', () => {
+    expect(editedKeysFor([pending()]).has(editedKey('https://blog.naver.com/a/2', '솔숲펜션'))).toBe(false);
+  });
+  it('고침 표시가 없는 pending 은 넣지 않는다', () => {
+    expect(editedKeysFor([pending({ reviewer_note: null }), pending({ reviewer_note: '[data:review] 확인 필요' })]).size).toBe(0);
+  });
+  it('이름을 고친 행은 원래 이름의 추출도 걸린다(editedFrom.nameKey)', () => {
+    const keys = editedKeysFor([pending({ extracted: { name: '새이름', nameKey: '새이름', editedFrom: { nameKey: '원래이름' } } })]);
+    expect(keys.has(editedKey(url, '원래이름'))).toBe(true);
+    expect(keys.has(editedKey(url, '새이름'))).toBe(true);
+  });
+  it('nameKey 없는 옛 후보는 이름으로 계산한다', () => {
+    expect(editedKeysFor([pending({ extracted: { name: '솔숲 펜션' } })]).size).toBe(1);
+  });
+  it('요약 줄에 고침 유지 건수가 붙는다', () => {
+    const stats = { analyzed: 1, skipped: 0, candidates: 0, auto: 0, ask: 0, new: 0, edited: 2 };
+    expect(formatSummary(stats, 'x')).toContain(' · 고침 유지 2');
+    expect(formatSummary({ ...stats, edited: 0 }, 'x')).not.toContain('고침 유지');
   });
 });

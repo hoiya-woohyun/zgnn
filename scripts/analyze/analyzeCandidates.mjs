@@ -120,6 +120,35 @@ export function exclusionReason(extracted) {
   return null;
 }
 
+/**
+ * `saveEdit`(src/lib/adminApply.ts 의 `EDITED_NOTE`)이 `reviewer_note` 에 적는 머리표. TS ↔ mjs 를 import 로 못 이어 값을 두 번 적고,
+ * 둘이 같은지는 `analyzeCandidates.test.mjs` 가 묶는다.
+ */
+export const EDITED_NOTE = '[admin] 고침';
+
+const EDITED_SEP = '\u0000';
+
+/** 글 + 가게 키 한 쌍의 집합 열쇠. */
+export const editedKey = (postUrl, nameKey) => `${postUrl}${EDITED_SEP}${nameKey}`;
+
+/**
+ * 사람이 고친 pending 후보의 (글, 가게) 집합 — 같은 글을 다시 읽어도 그 가게의 AI 후보를 또 만들지 않으려고(D3, T2.2).
+ * 이름을 고치면 `nameKey` 가 고친 이름으로 다시 계산되고 다시 읽은 AI 는 원래 이름을 내므로, 지금 키와 `extracted.editedFrom.nameKey`(원래 키) 둘 다 넣는다.
+ * 옛 후보(nameKey 없음)는 이름으로 계산한다.
+ */
+export function editedKeysFor(pendingRows) {
+  const keys = new Set();
+  for (const row of pendingRows ?? []) {
+    if (!row.reviewer_note?.includes(EDITED_NOTE)) continue;
+    const x = row.extracted;
+    const now = x?.nameKey ?? normalizeName(x?.name ?? '');
+    if (now) keys.add(editedKey(row.post_url, now));
+    const was = x?.editedFrom?.nameKey;
+    if (was) keys.add(editedKey(row.post_url, was));
+  }
+  return keys;
+}
+
 /** 제주 소재이고 종류가 정해졌고 동반 불가가 아닌 것만 후보. 나머지는 후보를 만들지 않고 analyzed_at 만 찍는다(03). */
 export function isPlaceCandidate(extracted) {
   return exclusionReason(extracted) === null;
@@ -312,11 +341,13 @@ export function formatSummary(stats, meterSummary, { dryRun } = {}) {
     ? ` · 제외 ${ex.other + ex.notJeju + ex.notAllowed + already}(other ${ex.other} · 제주밖 ${ex.notJeju} · 동반불가 ${ex.notAllowed}${already ? ` · 이미 있음 ${already}` : ''})`
     : '';
   const dup = stats.dup ? ` · 중복표시 ${stats.dup}` : '';
+  // 사람이 고친 후보가 있는 (글, 가게) 는 새로 만들지 않았다 — 제외 합계와 단계가 달라(추출 뒤·짝짓기 전) 따로 적는다. 옛 stats 엔 칸이 없다.
+  const edited = stats.edited ? ` · 고침 유지 ${stats.edited}` : '';
   /*
    * 교차점검은 **점검한 수와 근거를 못 찾은 수를 같이** 적는다. 하나만 적으면 0 을 두 가지로 읽을 수 있다 —
    * "전부 근거가 있었다" 와 "패스가 안 돌았다" 는 운영자가 해야 할 일이 정반대다(⚠️ 판정 불가에 속지 말 것과 같은 자리).
    */
   const v = stats.verify;
   const verify = v ? ` · 교차점검 ${v.checked}건(근거 없음 ${v.noEvidence} · 동반 불가 정황 ${v.notAllowed}${v.failed ? ` · 실패 ${v.failed}` : ''})` : '';
-  return `${prefix}분석 ${stats.analyzed}건 (후보 ${stats.candidates} · 일치 ${stats.auto} · 확인요청 ${stats.ask} · 신규 ${stats.new}${dup} · 건너뜀 ${stats.skipped}${dropped}${excluded}${verify}) · ${meterSummary}`;
+  return `${prefix}분석 ${stats.analyzed}건 (후보 ${stats.candidates} · 일치 ${stats.auto} · 확인요청 ${stats.ask} · 신규 ${stats.new}${dup} · 건너뜀 ${stats.skipped}${dropped}${excluded}${edited}${verify}) · ${meterSummary}`;
 }

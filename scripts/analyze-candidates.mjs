@@ -38,6 +38,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import {
+  editedKey,
+  editedKeysFor,
   exclusionReason,
   formatCandidateLine,
   keyGate,
@@ -240,8 +242,10 @@ if (existing.length === 0) {
 
 // 이전 실행의 pending 후보 이름을 미리 읽어 같은 가게가 또 나오면 dupOf 로 묶는다(2026-09-28 설계 검토 NQ-8 — 첫 분석에서 같은 펜션이 13건).
 // 옛 후보(nameKey 없음)는 이름으로 계산한다. 넣지 않는 게 아니라 **표시만** 한다 — evidence 가 다른 글이라 검수에 쓸모가 있다.
-const { data: pendingRows, error: pendingError } = await supabase.from('candidates').select('id, extracted').eq('status', 'pending').limit(1000);
+const { data: pendingRows, error: pendingError } = await supabase.from('candidates').select('id, post_url, reviewer_note, extracted').eq('status', 'pending').limit(1000);
 if (pendingError) throw new Error(`candidates 조회 실패: ${pendingError.message}`);
+// 사람이 고친 pending 후보의 (글, 가게) — 같은 글을 다시 읽어도 그 가게는 새로 만들지 않는다(D3·T2.2). 옆에 AI 판단이 또 한 벌 붙지 않게.
+const editedKeys = editedKeysFor(pendingRows);
 const newNamesSeen = new Map(); // nameKey → 먼저 난 pending 후보 id(이전 실행) 또는 글 URL(이번 실행)
 for (const row of pendingRows) {
   const key = row.extracted?.nameKey ?? normalizeName(row.extracted?.name ?? '');
@@ -375,7 +379,7 @@ function skipHint(e) {
   return '';
 }
 
-const stats = { analyzed: 0, skipped: 0, dropped: 0, candidates: 0, auto: 0, ask: 0, new: 0, dup: 0, excluded: { other: 0, notJeju: 0, notAllowed: 0, alreadyHave: 0 }, verify: { checked: 0, noEvidence: 0, notAllowed: 0, failed: 0 } };
+const stats = { analyzed: 0, skipped: 0, dropped: 0, candidates: 0, auto: 0, ask: 0, new: 0, dup: 0, edited: 0, excluded: { other: 0, notJeju: 0, notAllowed: 0, alreadyHave: 0 }, verify: { checked: 0, noEvidence: 0, notAllowed: 0, failed: 0 } };
 let fatal = false;
 const pendingCloses = []; // { url, reason } — 루프 끝에 성공이 1건이라도 있을 때만 analyzed_at 을 찍는다
 // --dump 용. DB 에 들어갈 후보 행(extracted 그대로, 본문 없음)과 제외 목록 — 정규화 품질을 사람이 볼 유일한 창이다(로그에는 안 찍는다, 05).
@@ -427,6 +431,12 @@ for (const post of posts) {
         stats.excluded[reason] += 1;
         const why = reason === 'notJeju' ? ' · 제주 아님' : reason === 'notAllowed' ? ' · 동반 불가' : '';
         console.log(`  제외 ${extracted.name} (${extracted.type}${why})`);
+        continue;
+      }
+      if (editedKeys.has(editedKey(post.url, extracted.nameKey ?? normalizeName(extracted.name)))) {
+        excluded.push({ extracted, reason: 'edited' });
+        stats.edited += 1;
+        console.log(`  제외 ${extracted.name} · 사람이 고친 후보가 있음`);
         continue;
       }
       // 같은 이름이 여럿일 때 AI 가 읽은 읍·면(regionRaw 또는 본문 주소)이 검색 결과를 고르는 힌트다 — 우도 카페살레 vs 본섬 동명(리뷰 지적).

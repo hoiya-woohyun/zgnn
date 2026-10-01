@@ -1,6 +1,7 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-10-01 (v20: 「재분석」 머리에 "지우지 않는다 — 수집 완료로 되돌린다" 한 줄)
+> 최종 수정: 2026-10-01 (v21: 제외 이유 `edited` — 사람이 고친 pending 후보가 있는 같은 글·같은 가게는 다시 읽어도 새로 만들지 않는다. 고친 이름의 원래 키는 `extracted.editedFrom.nameKey`)
+> 이전 (v20: 「재분석」 머리에 "지우지 않는다 — 수집 완료로 되돌린다" 한 줄)
 > 이전 2026-09-30 (v19: **AI 판단의 요금이 구조가 됐다** — `feeLines: string[]` → `fees: TFeeRule[]`(금액·마리당/정액·몸무게 경계·몇째 마리부터·1박당),
 > 앱이 칸으로 계산한다. 그리고 AI 판단이 있으면 앱은 정규식으로 메우지 않는다([ADR-017](../decisions/ADR-017-ai-structured-pet-policy.md) v5). `PROMPT_VERSION` 이 바뀌었다 — 요금 계산을 받으려면 재분석)
 > 이전 (v18: 재분석 1·2단계(후보 눕히기 · `analyzed_at` 비우기)가 `/admin` 의 버튼이 됐다 — 손으로 할 일은 3단계 `data:analyze` 뿐)
@@ -186,6 +187,7 @@ flowchart LR
 - **후보 0건의 "왜" 가 `blog_posts.analysis` 에 남는다** — `{ model, promptVersion, candidates, candidateNames, excluded:[{name,type,reason}], skip }`. 제외 이유는 넷:
   `notJeju` · `other`(관광지·운동장 — 이름은 남는다) · `notAllowed`(본문이 동반 불가라고 함, [BUG-008](../bugs/BUG-008-empty-pet-policy-judged-ok.md)) ·
   **`alreadyHave`**(이미 게시된 곳 — 아래). 본문 인용은 넣지 않는다.
+  **`edited`**(사람이 고친 후보가 이미 있는 같은 글·같은 가게 — 아래 「재분석」)도 추출 직후에 걸리지만 `excluded[]` 에만 남고 요약 줄에는 제외 합계 밖 `· 고침 유지 N` 로 따로 적는다.
   앞의 셋은 추출 **직후**(`exclusionReason`)에 걸리고 `alreadyHave` 만 **짝짓기 뒤**에 걸린다 — 단계가 다르지만 요약 한 줄에서는
   한 괄호에 넣는다(운영자가 읽는 뜻은 "후보로 안 들어간 수" 하나이고, 자리를 나누면 그 합을 사람이 더해야 한다).
   프롬프트를 고치면 `PROMPT_VERSION`(스키마+프롬프트의 sha256 앞 8자)이 바뀌고, `analysis->>'promptVersion'` 이 다른 글만 골라 재분석할 수 있다.
@@ -193,6 +195,11 @@ flowchart LR
   ### 재분석 — 프롬프트를 고친 뒤 같은 글을 다시 읽힌다
 
   **지우지 않는다 — 글을 수집 완료(`analyzed_at` 비움)로 되돌리고, 그 글의 검수 대기 후보만 목록에서 뺀다. 등록한 장소는 그대로.**
+
+  **사람이 고친 후보는 다시 읽어도 되살아나지 않는다**(D3). 분석이 실행 시작에 읽은 pending 중 `reviewer_note` 에 `[admin] 고침` 이 있는 행의
+  (`post_url`, `nameKey`) 집합(`editedKeysFor`)에 걸리는 추출은 후보를 만들지 않는다(제외 이유 `edited`). 이름을 고친 행은 `nameKey` 가 새 이름으로
+  다시 계산되므로 `extracted.editedFrom.nameKey`(처음 고치기 전 키, 처음 한 번만)도 집합에 넣는다 — 이미 고친 뒤의 행은 그 키가 없어 지금 키만 걸린다.
+  같은 가게라도 **다른 글**이면 만든다(새 근거). 머리표 `[admin] 고침` 은 `EDITED_NOTE`(TS)와 `analyzeCandidates.mjs` 의 상수 둘이고 테스트가 같은 값인지 묶는다.
 
   **`data:analyze` 에 그 스위치는 없다.** 글을 고르는 조건은 `analyzed_at is null` 하나뿐이라(`analyze-candidates.mjs:207`),
   재분석은 **DB 를 손으로 되돌려** 그 조건에 다시 걸리게 하는 일이다. 순서가 중요하다:

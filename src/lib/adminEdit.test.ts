@@ -212,6 +212,17 @@ describe('buildEdit', () => {
     expect(out.extracted.verify).toEqual(verify);
   });
 
+  /** 이름을 고치면 `nameKey` 는 새 이름으로 바뀐다 — 원래 키는 `editedFrom` 에 처음 한 번만 남는다(재분석이 복제본을 안 만들게). */
+  it('처음 고칠 때만 고치기 전 nameKey 를 editedFrom 에 남긴다', () => {
+    const first = buildEdit(row({ extracted: extracted({ name: '엉뚱한이름', nameKey: '엉뚱한이름' }) }), draft({ name: '솔숲펜션' }), [place()]);
+    expect(first.extracted.nameKey).toBe('솔숲펜션');
+    expect(first.extracted.editedFrom).toEqual({ nameKey: '엉뚱한이름' });
+    const second = buildEdit(row({ extracted: first.extracted }), draft({ name: '다른이름' }), [place()]);
+    expect(second.extracted.editedFrom).toEqual({ nameKey: '엉뚱한이름' });
+    const legacy = buildEdit(row({ extracted: extracted({ editedAt: '2026-09-30T00:00:00.000Z' }) }), draft({ name: '다른이름' }), [place()]);
+    expect(legacy.extracted.editedFrom).toBeUndefined();
+  });
+
   /**
    * 주소 표식은 `editedAt` 과 **따로** 서야 한다 — `geoSource` 는 좌표의 출처라 주소를 고쳐도 남고,
    * 검수 화면은 그 칸으로 '상호 검색으로 확인된 주소' 를 그린다(`adminAddress.ts`).

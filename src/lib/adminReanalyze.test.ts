@@ -26,6 +26,7 @@ describe('reanalyzePlan', () => {
     expect(reanalyzeSummary(plan)).toContain('검수 대기 후보 2건');
     expect(reanalyzeSummary(plan)).toContain('고친 후보 1건');
     expect(reanalyzeSummary(plan)).toContain('수집 완료로 되돌려요');
+    expect(reanalyzeSummary(plan)).toContain('그대로예요. 다시 읽어도 그 가게는 새로 만들지 않아요.');
     expect(reanalyzeSummary(plan)).not.toMatch(/지워요|없애요|초기화|눕/);
   });
 });
