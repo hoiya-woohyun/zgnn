@@ -343,6 +343,13 @@ describe('judgeEligibility — 원문은 있는데 아무도 못 읽음(C7, todo
     expect(parsePetPolicy('야외 좌석에서 동반 가능해요').unread).toBe(true);
   });
 
+  it('예방접종 필수는 어려움이 아니라 확인이 필요하다(C8) — 프로필에 접종 칸이 없다', () => {
+    const policy = { ...parsePetPolicy('예방접종 완료견만 입장 가능'), vaccineRequired: true, unread: false };
+    const result = judgeEligibility(TOFU, policy);
+    expect(result.level).toBe('cond');
+    expect(primaryReason(result)).toMatchObject({ rule: 'C8' });
+  });
+
   it('시드 86곳에는 못 읽은 원문이 없다 — 이 규칙이 지금 사이트의 판정을 바꾸지 않는다', () => {
     expect(PLACES.filter((p) => p.policy.unread || p.policy.largeDogNo).map((p) => p.name)).toEqual([]);
   });

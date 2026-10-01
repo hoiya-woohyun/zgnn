@@ -350,6 +350,7 @@ export function factsLine(facts: TPetPolicyFacts | null): string | null {
   // 요금은 줄마다 하나 — 첫 줄만 넣으면 구간 요금표의 나머지가 이 줄에서도 사라진다(`feeLinesOf`).
   parts.push(...feeLinesOf(facts));
   if (facts.callFirst) parts.push('전화 확인');
+  if (facts.vaccineRequired) parts.push('예방접종 필수');
   if (facts.notes) parts.push(facts.notes);
   return parts.length ? parts.join(' · ') : FACTS_EMPTY;
 }

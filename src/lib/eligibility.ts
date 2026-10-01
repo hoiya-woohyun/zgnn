@@ -285,6 +285,15 @@ const ruleCallFirst: TRule = (_dog, policy) => {
 };
 
 /**
+ * C8: 예방접종을 마친 강아지만 받는다(AI `vaccineRequired`, ADR-017 v6). 프로필에 접종 칸이 없어 우리가 판단할 수 없으니 어려움이 아니라
+ * 조건이다 — C6(전화 확인)과 같은 무게. 증명서를 요구하는 곳이 많아 문구가 "챙겨 가세요" 까지 말한다.
+ */
+const ruleVaccineRequired: TRule = (_dog, policy) => {
+  if (!policy.vaccineRequired) return null;
+  return { level: 'cond', text: '예방접종을 마친 강아지만 들어갈 수 있어요 — 접종 증명을 챙겨 주세요', quote: policy.sources.vaccineRequired };
+};
+
+/**
  * C7: 원문은 있는데 정규식도 AI 도 조건을 하나도 못 읽었다(`unread`). 전에는 규칙이 하나도 안 걸려 '갈 수 있어요' 였다 —
  * 읽지 못한 제한이 있을 수 있는 곳을 가장 좋은 답으로 보냈다(todo/06 A-1). 어려움은 아니다: 원문이 무엇을 막는지 모르니까.
  */
@@ -325,6 +334,7 @@ const RULES: [string, TRule][] = [
   ['C4', ruleNoCarrierOutdoorFree],
   ['C5', ruleLargeDogUnmentioned],
   ['C6', ruleCallFirst],
+  ['C8', ruleVaccineRequired],
   ['C7', ruleUnread],
   ['U1', ruleNoInfo],
   ['U1 보강', ruleNoInfoHint],

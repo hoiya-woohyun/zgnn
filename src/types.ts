@@ -58,6 +58,11 @@ export type TPetPolicyFacts = {
   largeDogOk: boolean | null;
   smallDogOnly: boolean;
   callFirst: boolean;
+  /**
+   * 예방접종을 마쳐야(또는 접종 증명서를 내야) 들어갈 수 있다. **AI 만 읽는다** — 정규식 파서에는 대응 규칙이 없다(ADR-017 v6).
+   * 2026-10-01 이전에 분석된 판단에는 칸이 없다(없으면 false 로 읽는다 — 그때 그 조건은 `notes` 에 들어가 있다).
+   */
+  vaccineRequired?: boolean;
   feeFree: boolean | null;
   /**
    * 요금 기준마다 한 줄(원문 표기). **한 문장으로 접을 수 없다** — 시드 18줄의 실측만으로도 기준이 넷이다:

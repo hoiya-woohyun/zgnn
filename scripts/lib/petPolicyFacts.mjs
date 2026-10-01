@@ -26,6 +26,8 @@ const GROUNDS = {
   // '방문 전 한 번 확인하고' — 파서의 callFirst(`(전화|방문 전)…(확인|문의)`)가 읽는 말을 여기서 못 읽으면 AI 판단만 빠진다.
   callFirst: /전화|문의|연락|예약|사전\s*확인|확인\s*후|방문\s*전[^.\n]*확인/,
   feeFree: /무료|없|0\s*원/,
+  // 판단은 모델이 한다(ADR-017 v6) — 여기서는 "접종" 이라는 말이 원문에 있는지만 본다. 권장인지 필수인지는 모델 몫이다.
+  vaccineRequired: /접종|백신|광견병|켄넬\s*코프|항체/,
 };
 
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -189,6 +191,10 @@ export function correctPetPolicyFacts(facts, petPolicyText) {
   if (next.callFirst && !GROUNDS.callFirst.test(text)) {
     drop('전화 확인의 근거가 원문에 없어 뺐어요');
     next.callFirst = false;
+  }
+  if (next.vaccineRequired && !GROUNDS.vaccineRequired.test(text)) {
+    drop('예방접종 필수의 근거가 원문에 없어 뺐어요');
+    next.vaccineRequired = false;
   }
   /*
    * 요금은 **줄마다 따로** 대 본다. 한 덩어리로 보면 근거 있는 줄 하나가 지어낸 줄들을 통째로 통과시키고,

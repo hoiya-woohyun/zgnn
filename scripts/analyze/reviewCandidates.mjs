@@ -123,6 +123,7 @@ const factsLine = (facts) => {
   // 요금은 줄마다 하나 — 첫 줄만 찍으면 구간 요금표("1~5kg 1만원" + "6~10kg 1.5만원")의 둘째 줄이 터미널에서도 사라진다.
   parts.push(...feeLinesOf(facts));
   if (facts.callFirst) parts.push('전화 확인');
+  if (facts.vaccineRequired) parts.push('예방접종 필수');
   if (facts.notes) parts.push(facts.notes);
   return parts.length ? parts.join(' · ') : '(판단 없음)';
 };

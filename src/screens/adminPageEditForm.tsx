@@ -355,6 +355,7 @@ export function AdminPageEditForm({
         {row('leash', '리드줄', <Checkbox size="sm" label="리드줄 필수" isSelected={draft.policy.leash} isDisabled={busy} onChange={(leash) => setPolicy({ leash })} />)}
         {row('smallDogOnly', '소형견만', <Checkbox size="sm" label="소형견만 가능" isSelected={draft.policy.smallDogOnly} isDisabled={busy} onChange={(smallDogOnly) => setPolicy({ smallDogOnly })} />)}
         {row('callFirst', '전화 확인', <Checkbox size="sm" label="가기 전 전화 확인" isSelected={draft.policy.callFirst} isDisabled={busy} onChange={(callFirst) => setPolicy({ callFirst })} />)}
+        {row('vaccineRequired', '예방접종', <Checkbox size="sm" label="예방접종 필수" isSelected={draft.policy.vaccineRequired} isDisabled={busy} onChange={(vaccineRequired) => setPolicy({ vaccineRequired })} />)}
         {row('notes', '그 밖의 조건', <Input aria-label="그 밖의 조건" size="sm" value={draft.policy.notes} isDisabled={busy} onChange={(notes) => setPolicy({ notes })} />)}
       </section>
 

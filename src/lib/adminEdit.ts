@@ -67,6 +67,7 @@ export type TPolicyDraft = {
   largeDogOk: TTriState;
   smallDogOnly: boolean;
   callFirst: boolean;
+  vaccineRequired: boolean;
   feeFree: TTriState;
   /**
    * 요금 줄 — **줄바꿈으로 나눈 한 문자열**이다. 배열로 들고 있으면 "줄을 지우는 중"(빈 줄)이 저장 대상에서
@@ -96,6 +97,7 @@ const EMPTY_POLICY: TPolicyDraft = {
   largeDogOk: 'unknown',
   smallDogOnly: false,
   callFirst: false,
+  vaccineRequired: false,
   feeFree: 'unknown',
   feeLines: '',
   weightLimitKg: '',
@@ -127,6 +129,7 @@ export function policyDraftFrom(facts: TPetPolicyFacts | null | undefined): TPol
     largeDogOk: triFrom(facts.largeDogOk),
     smallDogOnly: Boolean(facts.smallDogOnly),
     callFirst: Boolean(facts.callFirst),
+    vaccineRequired: Boolean(facts.vaccineRequired),
     feeFree: triFrom(facts.feeFree),
     feeLines: feeLinesOf(facts).join('\n'),
     weightLimitKg: facts.weightLimitKg == null ? '' : String(facts.weightLimitKg),
@@ -145,6 +148,7 @@ export function policyFactsFrom(draft: TPolicyDraft): TPetPolicyFacts | null {
     largeDogOk: triTo(draft.largeDogOk),
     smallDogOnly: draft.smallDogOnly,
     callFirst: draft.callFirst,
+    vaccineRequired: draft.vaccineRequired,
     feeFree: triTo(draft.feeFree),
     feeLines: toLines(draft.feeLines),
     weightLimitKg: toNumber(draft.weightLimitKg),
@@ -170,6 +174,7 @@ export function policyFactsFrom(draft: TPolicyDraft): TPetPolicyFacts | null {
     facts.largeDogOk === null &&
     !facts.smallDogOnly &&
     !facts.callFirst &&
+    !facts.vaccineRequired &&
     facts.feeFree === null &&
     // `feeLines` 는 타입상 optional(옛 후보엔 없다) 이지만 위에서 늘 배열로 채운다 — 그래도 `?.` 를 붙여
     // 타입이 말하는 대로 읽는다. `undefined.length` 한 번이 이 함수를 던지게 만들고, 그러면 저장이 통째로 막힌다.
@@ -471,6 +476,7 @@ const FIELDS: { key: string; label: string; policy?: boolean; read: (draft: TCan
   { key: 'leash', label: '리드줄', policy: true, read: (d) => flagText(d.policy.leash) },
   { key: 'smallDogOnly', label: '소형견만', policy: true, read: (d) => flagText(d.policy.smallDogOnly) },
   { key: 'callFirst', label: '전화 확인', policy: true, read: (d) => flagText(d.policy.callFirst) },
+  { key: 'vaccineRequired', label: '예방접종', policy: true, read: (d) => flagText(d.policy.vaccineRequired) },
   { key: 'notes', label: '그 밖의 조건', policy: true, read: (d) => textOf(d.policy.notes) },
 ];
 

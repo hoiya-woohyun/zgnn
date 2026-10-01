@@ -46,6 +46,11 @@ export type TPetPolicy = {
   mediumDogOk: boolean;
   smallDogOnly: boolean;
   callFirst: boolean;
+  /**
+   * 예방접종을 마친 강아지만 받는다(AI `vaccineRequired`, ADR-017 v6). **정규식은 이 값을 세우지 않는다** — 시드 86곳은 늘 false 다.
+   * "접종 권장" 과 "접종 완료견만" 은 글자로 가를 수 없어 모델이 판단하고, 근거 단어 확인만 `correctPetPolicyFacts` 가 한다.
+   */
+  vaccineRequired: boolean;
   weightLimitKg?: number;
   maxDogs?: number;
   feeFree: boolean;
@@ -93,6 +98,7 @@ export type TPetPolicy = {
       | 'mediumDogOk'
       | 'smallDogOnly'
       | 'callFirst'
+      | 'vaccineRequired'
       | 'leash'
       | 'feeFree'
       | 'noInfo'
@@ -355,6 +361,7 @@ export const parsePetPolicy = (petPolicyText: string): TPetPolicy => {
     indoor,
     ...flags,
     feeCharged: false,
+    vaccineRequired: false,
     unread: false,
     weightLimitKg: weightLimitKgFromTiers(tiers),
     maxDogs: maxDogsFromTiers(tiers),
@@ -378,6 +385,7 @@ const readNothing = (p: TPetPolicy): boolean =>
   !p.mediumDogOk &&
   !p.smallDogOnly &&
   !p.callFirst &&
+  !p.vaccineRequired &&
   !p.feeFree &&
   !p.feeCharged &&
   !p.noInfo &&
@@ -445,6 +453,7 @@ export const withPolicyFacts = (parsed: TPetPolicy, facts: TPetPolicyFacts | nul
   // 계산이 그 줄을 빼먹는다. 그때는 줄을 읽던 길로 물러난다(`dogFee.ts`).
   const feeRules = corrected.fees?.length && corrected.fees.length === feeLines.length ? corrected.fees : undefined;
   const indoor = corrected.indoor;
+  const vaccineRequired = corrected.vaccineRequired === true;
   const maxDogs = corrected.maxDogs ?? undefined;
   const weightLimitKg = corrected.weightLimitKg ?? undefined;
 
@@ -464,14 +473,17 @@ export const withPolicyFacts = (parsed: TPetPolicy, facts: TPetPolicyFacts | nul
   keep('mediumDogOk', parsed.mediumDogOk, true);
   keep('smallDogOnly', corrected.smallDogOnly, parsed.smallDogOnly, /소형/);
   keep('callFirst', corrected.callFirst, parsed.callFirst, /전화|문의|연락|예약/);
+  // 정규식에 예방접종 규칙이 없으니 늘 그 말이 든 줄을 쓴다.
+  keep('vaccineRequired', vaccineRequired, false, /접종|백신|광견병/);
   keep('feeFree', corrected.feeFree === true, parsed.feeFree, /무료|없/);
 
   // AI 가 조건을 하나라도 읽었으면 '못 읽음' 이 아니다. notes 는 세지 않는다 — 판정에 안 쓰이는 조건이라,
   // notes 만 있는 원문은 사용자가 원문을 읽어야 한다(unread 가 그 말을 한다). 그래서 notes 가 있으면 '일반 허용 문장뿐' 으로도
   // 풀지 않는다 — 솔옆수 "예방접종을 완료한 강아지만 출입 가능" 이 일반 허용으로 읽혀 배지 없는 '갈 수 있어요' 가 됐다.
+  // (v6 부터 그 조건은 `vaccineRequired` 칸으로 읽혀 C8 이 말한다. 칸이 없는 옛 판단은 여전히 notes → C7 이다.)
   const anyFact =
     indoor !== 'unknown' || corrected.leash || corrected.largeDogOk !== null || corrected.smallDogOnly ||
-    corrected.callFirst || corrected.feeFree !== null || feeLines.length > 0 || weightLimitKg !== undefined ||
+    corrected.callFirst || vaccineRequired || corrected.feeFree !== null || feeLines.length > 0 || weightLimitKg !== undefined ||
     maxDogs !== undefined;
 
   return {
@@ -484,6 +496,7 @@ export const withPolicyFacts = (parsed: TPetPolicy, facts: TPetPolicyFacts | nul
     mediumDogOk: largeDogOk || parsed.mediumDogOk,
     smallDogOnly: corrected.smallDogOnly,
     callFirst: corrected.callFirst,
+    vaccineRequired,
     feeFree: corrected.feeFree === true,
     feeCharged: corrected.feeFree === false,
     feeLines,
@@ -591,6 +604,8 @@ export const toPetBadges = (policy: TPetPolicy): TPetBadge[] => {
     badges.push({ label: `최대 ${policy.maxDogs}마리`, tone: 'cond', axis: 'limit' });
   }
   if (policy.leash) badges.push({ label: '리드줄', tone: 'cond', axis: 'gear' });
+  // 챙길 물건이 아니라 강아지가 갖춰야 하는 조건이라 `limit` 축(→ `/admin` 의 동반 조건 열)이다.
+  if (policy.vaccineRequired) badges.push({ label: '예방접종 필수', tone: 'cond', axis: 'limit' });
 
   // '정보 없음. (문의해보시면 가장 정확할 것 같아요)' 는 두 규칙에 다 걸린다.
   // 같은 말을 두 번 하지 않도록 '정보 없음' 이 있으면 '전화 확인' 은 생략한다.

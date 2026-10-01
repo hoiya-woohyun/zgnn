@@ -221,4 +221,14 @@ describe('correctPetPolicyFacts — 요금 구조(fees)는 줄과 계산 칸을 
     const r = correctPetPolicyFacts(facts({ callFirst: true }), '운영 방식은 바뀔 수 있으니 방문 전 한 번 확인하고 가세요');
     expect(r.facts.callFirst).toBe(true);
   });
+
+  it('예방접종 필수는 원문에 접종 이야기가 있을 때만 남는다 — 권장인지 필수인지는 모델 몫', () => {
+    const kept = correctPetPolicyFacts(facts({ vaccineRequired: true }), '예방접종을 완료한 강아지만 출입 가능해요');
+    expect(kept.facts.vaccineRequired).toBe(true);
+    expect(kept.corrections).toEqual([]);
+
+    const dropped = correctPetPolicyFacts(facts({ vaccineRequired: true }), '리드줄 착용하면 실내 가능해요');
+    expect(dropped.facts.vaccineRequired).toBe(false);
+    expect(dropped.corrections).toEqual(['예방접종 필수의 근거가 원문에 없어 뺐어요']);
+  });
 });

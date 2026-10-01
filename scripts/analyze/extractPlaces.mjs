@@ -47,13 +47,15 @@ const PET_POLICY_SCHEMA = {
     {
       type: 'object',
       additionalProperties: false,
-      required: ['indoor', 'leash', 'largeDogOk', 'smallDogOnly', 'callFirst', 'feeFree', 'fees', 'weightLimitKg', 'maxDogs', 'notes'],
+      required: ['indoor', 'leash', 'largeDogOk', 'smallDogOnly', 'callFirst', 'vaccineRequired', 'feeFree', 'fees', 'weightLimitKg', 'maxDogs', 'notes'],
       properties: {
         indoor: { type: 'string', enum: ['free', 'cage', 'outdoorOnly', 'unknown'] },
         leash: { type: 'boolean' },
         largeDogOk: NULLABLE_BOOLEAN,
         smallDogOnly: { type: 'boolean' },
         callFirst: { type: 'boolean' },
+        // 예방접종 필수(ADR-017 v6). 정규식 파서에는 대응 규칙이 없다 — "접종 완료한 아이만" · "접종 증명서 지참" 처럼 말이 제각각이라 모델이 판단한다.
+        vaccineRequired: { type: 'boolean' },
         feeFree: NULLABLE_BOOLEAN,
         /*
          * 요금은 **구조의 배열**이다(ADR-017 v5). 한 칸 문자열(`feeText`) → 줄 목록(`feeLines`) → 줄마다 구조(`fees`).
@@ -200,6 +202,8 @@ export const SYSTEM_PROMPT = `당신은 제주도 반려견 동반 여행 블로
     leash: 리드줄·목줄 착용 조건이 있으면 true. largeDogOk: 대형견 가능이 명시되면 true, **"대형견" 이 안 된다고 적혀 있으면** false, 언급 없으면 null.
       몸무게 상한("10kg 이하")에서 대형견 불가를 추론하지 마세요 — 그건 weightLimitKg 가 말합니다.
     smallDogOnly: 소형견만이면 true. callFirst: 방문·예약 전 전화나 문의가 필요하다고 하면 true.
+    vaccineRequired: 예방접종(종합백신·광견병 등)을 마친 강아지만 받거나 접종 증명서·수첩을 보여 달라고 하면 true.
+      "접종 권장"·"접종하고 오시면 좋아요" 처럼 권하기만 하거나 접종 언급이 없으면 false. 이 조건은 notes 에 다시 적지 않습니다.
     feeFree: 반려견 추가 요금이 없다고 하면 true, 있으면 false, 언급 없으면 null.
     fees: 반려견 요금을 **기준마다 하나씩** 나열한 배열. 기준이 셋이면 셋입니다 — 한 문장으로 합치지 마세요.
       label: 그 기준을 **기준 + 금액**만 20자 이내로 짧게(본문 "숙박일 관계없이 청소비 5만원 추가" → "청소비 5만원").
@@ -219,7 +223,7 @@ export const SYSTEM_PROMPT = `당신은 제주도 반려견 동반 여행 블로
       **숫자는 petPolicyText 에 적힌 숫자만** 씁니다. 요금 기준의 몸무게("19kg 이하 1마리당 2만원")는 **상한이 아닙니다** —
       그 무게를 넘는 강아지도 다른 요금으로 받는다는 뜻입니다. 그 숫자는 fees 의 minKg·maxKg 에만 씁니다.
       원문에 근거가 없는 판단은 앱이 빼고 봅니다(scripts/lib/petPolicyFacts.mjs) — 모르면 null 이 맞습니다.
-    notes: 그 밖의 조건(예방접종 확인서 · 큐알 방명록 등) 한 줄. 없으면 null.
+    notes: 위 칸에 없는 그 밖의 조건(큐알 방명록 · 매너벨트 등) 한 줄. 없으면 null.
 - features: 그 장소가 무엇인지 해요체 서술문 1~2문장, 120자 이내, 줄바꿈 없이. 첫 문장은 무엇을 파는/어떤 곳인지, 둘째 문장은 강아지 편의
   (마당·물그릇·펜스 등). 블로거 1인칭 · 내돈내산 · 광고·협찬 표시는 쓰지 않습니다.
 - stayPriceText: type 이 "stay" 일 때만. 1박 요금을 본문 표기 그대로(예: "150,000원 ~ 200,000원"). 반려견 추가 요금은 여기가 아니라
@@ -336,6 +340,7 @@ function shapePetPolicy(raw) {
     largeDogOk: boolOrNull(raw.largeDogOk),
     smallDogOnly: raw.smallDogOnly === true,
     callFirst: raw.callFirst === true,
+    vaccineRequired: raw.vaccineRequired === true,
     feeFree: boolOrNull(raw.feeFree),
     fees: (Array.isArray(raw.fees) ? raw.fees : []).map(shapeFeeRule).filter(Boolean),
     // 옛 모양(`feeLines`·`feeText`)도 받아 준다 — 스키마가 안 보장하는 가짜 응답·모델 변경에 대비. 합치는 것은 `feeLinesOf` 하나가 한다.

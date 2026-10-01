@@ -513,6 +513,23 @@ describe('withPolicyFacts — AI 구조화 판단이 정규식 결과를 덮는�
     expect(p.unread).toBe(true);
   });
 
+  it("AI 가 '예방접종 필수' 를 읽으면 배지가 서고 못 읽은 원문이 아니다 — 같은 솔옆수 원문", () => {
+    const text = '반려동물 출입가능\n예방접종을 완료한 강아지와 고양이만 출입 가능해서 방문 전 예방접종 여부를 꼭 확인해주세요';
+    const p = withPolicyFacts(
+      parsePetPolicy(text),
+      { ...facts, indoor: 'unknown', leash: false, weightLimitKg: null, maxDogs: null, vaccineRequired: true },
+      text,
+    );
+    expect(p.vaccineRequired).toBe(true);
+    expect(p.unread).toBe(false);
+    expect(p.sources.vaccineRequired).toBe('예방접종을 완료한 강아지와 고양이만 출입 가능해서 방문 전 예방접종 여부를 꼭 확인해주세요');
+    expect(toPetBadges(p)).toContainEqual({ label: '예방접종 필수', tone: 'cond', axis: 'limit' });
+  });
+
+  it('정규식은 예방접종 필수를 세우지 않는다 — AI 판단만 이 칸을 채운다(ADR-017 v6)', () => {
+    expect(parsePetPolicy('예방접종 완료견만 입장 가능').vaccineRequired).toBe(false);
+  });
+
   it("AI 가 '요금 있음' 만 읽으면 '추가요금 있음' 배지가 된다 — 판단이 화면에서 사라지지 않게", () => {
     const text = '강아지 동반 시 추가 요금이 있어요';
     const p = withPolicyFacts(parsePetPolicy(text), { ...facts, indoor: 'unknown', leash: false, weightLimitKg: null, maxDogs: null, feeFree: false }, text);
