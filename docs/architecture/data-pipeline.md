@@ -1,6 +1,7 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-10-01 (v22: 스키마 요약에 `place_blocks`(가게 차단 목록, 마이그레이션 `20261001120000`, 원격 미적용) 한 줄 — [ADR-020](../decisions/ADR-020-pipeline-stages-and-blocklist.md))
+> 최종 수정: 2026-10-01 (v23: 제외 넷째 이유 `blocked` — 분석이 `place_blocks` 를 읽어 걸린 가게는 후보를 만들지 않는다. 표가 없으면 차단 0건 + 경고 한 줄)
+> 이전 (v22: 스키마 요약에 `place_blocks`(가게 차단 목록, 마이그레이션 `20261001120000`, 원격 미적용) 한 줄 — [ADR-020](../decisions/ADR-020-pipeline-stages-and-blocklist.md))
 > 이전 (v21: 제외 이유 `edited` — 사람이 고친 pending 후보가 있는 같은 글·같은 가게는 다시 읽어도 새로 만들지 않는다. 고친 이름의 원래 키는 `extracted.editedFrom.nameKey`)
 > 이전 (v20: 「재분석」 머리에 "지우지 않는다 — 수집 완료로 되돌린다" 한 줄)
 > 이전 2026-09-30 (v19: **AI 판단의 요금이 구조가 됐다** — `feeLines: string[]` → `fees: TFeeRule[]`(금액·마리당/정액·몸무게 경계·몇째 마리부터·1박당),
@@ -188,6 +189,9 @@ flowchart LR
 - **후보 0건의 "왜" 가 `blog_posts.analysis` 에 남는다** — `{ model, promptVersion, candidates, candidateNames, excluded:[{name,type,reason}], skip }`. 제외 이유는 넷:
   `notJeju` · `other`(관광지·운동장 — 이름은 남는다) · `notAllowed`(본문이 동반 불가라고 함, [BUG-008](../bugs/BUG-008-empty-pet-policy-judged-ok.md)) ·
   **`alreadyHave`**(이미 게시된 곳 — 아래). 본문 인용은 넣지 않는다.
+  **`blocked`**(넷째 이유) — 실행 시작에 `place_blocks` 를 읽어(`dry-run` 도 읽는다) 추출 직후 `blockFor` 로 건다: `name_key` 가 후보 이름 키와 같고, `town` 이 null 이거나 후보의 읍·면과 같거나 후보의 읍·면을 모르고,
+  `lifted_at` 이 null 이고 `until` 이 null(영구)이거나 실행 시작 시각보다 뒤인 행. 만료는 비교이고 스케줄러는 없다([ADR-020](../decisions/ADR-020-pipeline-stages-and-blocklist.md) D1·D2).
+  요약 줄에는 제외 합계 안 `· 차단 N`. **표가 원격에 없으면(마이그레이션 미적용) 조회 실패를 차단 0건으로 보고 경고 한 줄만 찍고 계속 간다.**
   **`edited`**(사람이 고친 후보가 이미 있는 같은 글·같은 가게 — 아래 「재분석」)도 추출 직후에 걸리지만 `excluded[]` 에만 남고 요약 줄에는 제외 합계 밖 `· 고침 유지 N` 로 따로 적는다.
   앞의 셋은 추출 **직후**(`exclusionReason`)에 걸리고 `alreadyHave` 만 **짝짓기 뒤**에 걸린다 — 단계가 다르지만 요약 한 줄에서는
   한 괄호에 넣는다(운영자가 읽는 뜻은 "후보로 안 들어간 수" 하나이고, 자리를 나누면 그 합을 사람이 더해야 한다).

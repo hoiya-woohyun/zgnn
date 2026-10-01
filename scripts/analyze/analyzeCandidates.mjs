@@ -5,7 +5,7 @@
 // 계약이다. 키 하나가 빠지면(예: 네이버가 준 category) 빌드도 테스트도 통과한 채 반영 단계에서 조용히 안 채워진다.
 // 그래서 모양을 함수 하나에 모으고 테스트로 못 박는다.
 import { parseRegion } from '../lib/placeFields.mjs';
-import { inferRegionRaw } from './naverLocal.mjs';
+import { extractAddressUnits, inferRegionRaw } from './naverLocal.mjs';
 import { JEJU_TOWNS, normalizeName, THRESHOLD, townOf } from './matchPlace.mjs';
 
 /**
@@ -119,6 +119,33 @@ export function exclusionReason(extracted) {
   if (extracted.petAllowed === 'no') return 'notAllowed';
   return null;
 }
+
+/**
+ * 이 후보를 막는 차단 행(`place_blocks`) — 없으면 null. D1·D2(ADR-020):
+ *  - `name_key` 가 후보의 이름 키(`normalizeName`, `toCandidateRow` 의 `nameKey` 와 같은 함수)와 같고
+ *  - `town` 이 null 이거나 후보의 읍·면과 같거나 **후보의 읍·면을 모를 때**(모르는 것은 막는 쪽으로) 이고
+ *  - `lifted_at` 이 null(일찍 풀지 않았다) 이고 `until` 이 null(영구)이거나 `now` 보다 뒤(만료 안 됨).
+ * 후보의 읍·면은 `inferRegionRaw` 가 쓰는 주소 토큰(`extractAddressUnits`)에서 먼저, 없으면 AI 가 준 `regionRaw` 에서 뽑는다.
+ */
+export function blockFor(extracted, blocks, now = new Date()) {
+  const key = extracted?.nameKey ?? normalizeName(extracted?.name ?? '');
+  if (!key) return null;
+  const town = extractAddressUnits(extracted?.address).eupMyeon ?? townOf(extracted?.regionRaw);
+  return (
+    (blocks ?? []).find(
+      (b) =>
+        b.name_key === key &&
+        (!b.town || !town || b.town === town) &&
+        !b.lifted_at &&
+        (!b.until || new Date(b.until).getTime() > now.getTime()),
+    ) ?? null
+  );
+}
+
+export const isBlocked = (extracted, blocks, now = new Date()) => blockFor(extracted, blocks, now) !== null;
+
+/** 로그용 — 차단이 언제까지인가. */
+export const blockUntilLabel = (block) => (block.until ? `~${new Date(block.until).toISOString().slice(0, 10)}` : '영구');
 
 /**
  * `saveEdit`(src/lib/adminApply.ts 의 `EDITED_NOTE`)이 `reviewer_note` 에 적는 머리표. TS ↔ mjs 를 import 로 못 이어 값을 두 번 적고,
@@ -337,8 +364,9 @@ export function formatSummary(stats, meterSummary, { dryRun } = {}) {
    * 옛 실행의 stats 에는 이 칸이 없으므로 `?? 0` — 없다고 NaN 이 되면 요약 한 줄이 통째로 못 읽히게 된다.
    */
   const already = ex?.alreadyHave ?? 0;
+  const blocked = ex?.blocked ?? 0;
   const excluded = ex
-    ? ` · 제외 ${ex.other + ex.notJeju + ex.notAllowed + already}(other ${ex.other} · 제주밖 ${ex.notJeju} · 동반불가 ${ex.notAllowed}${already ? ` · 이미 있음 ${already}` : ''})`
+    ? ` · 제외 ${ex.other + ex.notJeju + ex.notAllowed + already + blocked}(other ${ex.other} · 제주밖 ${ex.notJeju} · 동반불가 ${ex.notAllowed}${already ? ` · 이미 있음 ${already}` : ''}${blocked ? ` · 차단 ${blocked}` : ''})`
     : '';
   const dup = stats.dup ? ` · 중복표시 ${stats.dup}` : '';
   // 사람이 고친 후보가 있는 (글, 가게) 는 새로 만들지 않았다 — 제외 합계와 단계가 달라(추출 뒤·짝짓기 전) 따로 적는다. 옛 stats 엔 칸이 없다.

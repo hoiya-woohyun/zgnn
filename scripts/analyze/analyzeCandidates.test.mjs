@@ -5,11 +5,14 @@ import {
   DEFAULT_LIMIT,
   DEFAULT_MAX_PER_BLOG,
   EDITED_NOTE,
+  blockFor,
+  blockUntilLabel,
   editedKey,
   editedKeysFor,
   exclusionReason,
   formatCandidateLine,
   formatSummary,
+  isBlocked,
   isPlaceCandidate,
   keyGate,
   parseArgs,
@@ -22,7 +25,7 @@ import {
   toPostAnalysis,
 } from './analyzeCandidates.mjs';
 import { EDITED_NOTE as EDITED_NOTE_TS } from '../../src/lib/adminApply';
-import { matchPlace, THRESHOLD } from './matchPlace.mjs';
+import { matchPlace, normalizeName, THRESHOLD } from './matchPlace.mjs';
 import { toRecheckCandidate } from './applyApproved.mjs';
 
 const post = { url: 'https://blog.naver.com/someone/223000000001', title: '제주 동쪽 강아지 동반 여행', keyword: '제주 강아지 동반 카페' };
@@ -442,5 +445,45 @@ describe('editedKeysFor — 사람이 고친 후보는 다시 읽어도 새로 �
     const stats = { analyzed: 1, skipped: 0, candidates: 0, auto: 0, ask: 0, new: 0, edited: 2 };
     expect(formatSummary(stats, 'x')).toContain(' · 고침 유지 2');
     expect(formatSummary({ ...stats, edited: 0 }, 'x')).not.toContain('고침 유지');
+  });
+});
+
+describe('isBlocked — 차단 목록에 걸린 가게는 후보를 만들지 않는다(T1.2)', () => {
+  const now = new Date('2026-10-01T00:00:00Z');
+  const cand = (over = {}) => ({ name: '카페 살레', address: null, regionRaw: null, ...over });
+  const block = (over = {}) => ({ name_key: normalizeName('카페 살레'), town: null, until: null, lifted_at: null, ...over });
+
+  it('이름만 같으면(town null) 걸린다 — 다른 이름은 안 걸린다', () => {
+    expect(isBlocked(cand(), [block()], now)).toBe(true);
+    expect(isBlocked(cand({ name: '다른카페' }), [block()], now)).toBe(false);
+  });
+  it('town 이 있으면 읍·면까지 맞아야 걸린다 — 다른 읍·면이면 동명 가게라 안 걸린다', () => {
+    const b = block({ town: '우도면' });
+    expect(isBlocked(cand({ address: '제주특별자치도 제주시 우도면 연평리 1' }), [b], now)).toBe(true);
+    expect(isBlocked(cand({ address: '제주특별자치도 제주시 애월읍 1' }), [b], now)).toBe(false);
+    expect(isBlocked(cand({ regionRaw: '동쪽 (우도면)' }), [b], now)).toBe(true);
+  });
+  it('후보의 읍·면을 모르면 이름만으로 건다(모르는 것은 막는다)', () => {
+    expect(isBlocked(cand(), [block({ town: '우도면' })], now)).toBe(true);
+  });
+  it('until 이 지났으면 안 걸리고, 남았으면 걸린다', () => {
+    expect(isBlocked(cand(), [block({ until: '2026-09-30T23:59:59Z' })], now)).toBe(false);
+    expect(isBlocked(cand(), [block({ until: '2026-10-02T00:00:00Z' })], now)).toBe(true);
+  });
+  it('lifted_at 이 찍힌 행은 안 걸린다', () => {
+    expect(isBlocked(cand(), [block({ lifted_at: '2026-09-30T00:00:00Z' })], now)).toBe(false);
+  });
+  it('영구(until null)는 걸리고, 라벨은 영구 / ~날짜', () => {
+    const b = block();
+    expect(blockFor(cand(), [b], now)).toBe(b);
+    expect(blockUntilLabel(b)).toBe('영구');
+    expect(blockUntilLabel(block({ until: '2027-01-02T00:00:00Z' }))).toBe('~2027-01-02');
+    expect(isBlocked(cand(), [], now)).toBe(false);
+  });
+  it('요약 줄에 차단이 제외 합계와 괄호에 들어가고, 0 이면 조각이 사라진다', () => {
+    const stats = { analyzed: 1, skipped: 0, candidates: 0, auto: 0, ask: 0, new: 0 };
+    const ex = { other: 0, notJeju: 0, notAllowed: 0, alreadyHave: 0, blocked: 2 };
+    expect(formatSummary({ ...stats, excluded: ex }, 'x')).toContain('제외 2(other 0 · 제주밖 0 · 동반불가 0 · 차단 2)');
+    expect(formatSummary({ ...stats, excluded: { ...ex, blocked: 0 } }, 'x')).not.toContain('차단');
   });
 });

@@ -38,6 +38,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import {
+  blockFor,
+  blockUntilLabel,
   editedKey,
   editedKeysFor,
   exclusionReason,
@@ -244,6 +246,13 @@ if (existing.length === 0) {
 // 옛 후보(nameKey 없음)는 이름으로 계산한다. 넣지 않는 게 아니라 **표시만** 한다 — evidence 가 다른 글이라 검수에 쓸모가 있다.
 const { data: pendingRows, error: pendingError } = await supabase.from('candidates').select('id, post_url, reviewer_note, extracted').eq('status', 'pending').limit(1000);
 if (pendingError) throw new Error(`candidates 조회 실패: ${pendingError.message}`);
+// 차단 목록(`place_blocks`, ADR-020 D1·D2) — 걸린 가게는 후보를 만들지 않는다. 만료는 스케줄러가 아니라 **읽는 순간의 비교**다(`blockFor`).
+// 표는 마이그레이션이 원격에 적용돼야 생긴다(🧑 `supabase db push`). 조회가 실패하면(표 없음 등) **실행을 멈추지 않고** 차단 0건으로 가되 경고 한 줄 —
+// 아니면 적용 전에 분석이 통째로 못 돈다. dry-run 도 이 조회는 한다(읽기다).
+let blocks = [];
+const { data: blockRows, error: blocksError } = await supabase.from('place_blocks').select('name_key, town, until, lifted_at');
+if (blocksError) console.warn(`⚠ place_blocks 조회 실패 — 차단 0건으로 진행한다(마이그레이션 미적용이면 정상): ${blocksError.message}`);
+else blocks = blockRows ?? [];
 // 사람이 고친 pending 후보의 (글, 가게) — 같은 글을 다시 읽어도 그 가게는 새로 만들지 않는다(D3·T2.2). 옆에 AI 판단이 또 한 벌 붙지 않게.
 const editedKeys = editedKeysFor(pendingRows);
 const newNamesSeen = new Map(); // nameKey → 먼저 난 pending 후보 id(이전 실행) 또는 글 URL(이번 실행)
@@ -379,7 +388,8 @@ function skipHint(e) {
   return '';
 }
 
-const stats = { analyzed: 0, skipped: 0, dropped: 0, candidates: 0, auto: 0, ask: 0, new: 0, dup: 0, edited: 0, excluded: { other: 0, notJeju: 0, notAllowed: 0, alreadyHave: 0 }, verify: { checked: 0, noEvidence: 0, notAllowed: 0, failed: 0 } };
+const runStartedAt = new Date();
+const stats = { analyzed: 0, skipped: 0, dropped: 0, candidates: 0, auto: 0, ask: 0, new: 0, dup: 0, edited: 0, excluded: { other: 0, notJeju: 0, notAllowed: 0, alreadyHave: 0, blocked: 0 }, verify: { checked: 0, noEvidence: 0, notAllowed: 0, failed: 0 } };
 let fatal = false;
 const pendingCloses = []; // { url, reason } — 루프 끝에 성공이 1건이라도 있을 때만 analyzed_at 을 찍는다
 // --dump 용. DB 에 들어갈 후보 행(extracted 그대로, 본문 없음)과 제외 목록 — 정규화 품질을 사람이 볼 유일한 창이다(로그에는 안 찍는다, 05).
@@ -431,6 +441,13 @@ for (const post of posts) {
         stats.excluded[reason] += 1;
         const why = reason === 'notJeju' ? ' · 제주 아님' : reason === 'notAllowed' ? ' · 동반 불가' : '';
         console.log(`  제외 ${extracted.name} (${extracted.type}${why})`);
+        continue;
+      }
+      const block = blockFor(extracted, blocks, runStartedAt);
+      if (block) {
+        excluded.push({ extracted, reason: 'blocked' });
+        stats.excluded.blocked += 1;
+        console.log(`  제외 ${extracted.name} · 차단(${blockUntilLabel(block)})`);
         continue;
       }
       if (editedKeys.has(editedKey(post.url, extracted.nameKey ?? normalizeName(extracted.name)))) {
