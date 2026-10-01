@@ -2,6 +2,9 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "pnpm data:pull && pnpm build",
   "framework": "nextjs",
+  "git": {
+    "deploymentEnabled": { "main": true, "**": false }
+  },
   "headers": [
     {
       "source": "/(.*)",

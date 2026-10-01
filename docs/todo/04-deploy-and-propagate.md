@@ -1,6 +1,8 @@
 # 4. Vercel 배포 · 빌드 시 DB 읽기 · 승인되면 재빌드
 
-> 최종 수정: 2026-09-29 (v8: **열려 있던 두 항목을 닫는 장치를 깔았다**(`20260929121000_rebuild_log.sql`).
+> 최종 수정: 2026-10-01 (v9: **Preview 자동 배포를 껐다** — `vercel.json` 의 `git.deploymentEnabled` 를 `main` 만 `true`. 배포 기록 대부분이
+> 에이전트가 올린 `claude/*` 브랜치의 Preview 였다. `main` push·Deploy Hook·`vercel` CLI 는 그대로 돈다)
+> 이전 (v8: **열려 있던 두 항목을 닫는 장치를 깔았다**(`20260929121000_rebuild_log.sql`).
 > ① `status_code` 가 null 이면 타임아웃과 죽은 URL 이 구분되지 않던 문제 → 호출을 `public.rebuild_log` 에 남기고 `public.rebuild_status()`(운영자 전용)가
 > 결과를 그 표로 **옮겨 적는다**(pg_net 의 응답은 오래 남지 않는다). `/admin` 머리글이 그것을 한 줄로 말한다 — 4xx 면 "훅이 폐기된 것 같다" 고 짚는다.
 > ② 🙋 "승인 N건 = 빌드 N번" → **게시 집합이 바뀌는 변경만** 훅을 부른다(초안·내린 곳만 고치는 UPDATE 는 만들어지는 사이트가 한 바이트도 다르지 않다).
@@ -48,7 +50,9 @@
 
 ### Preview 배포
 
-- [ ] PR 마다 Preview 가 뜬다. 같은 Supabase 를 읽는다(데이터는 하나뿐이고 공개 정보다).
+- [x] ~~PR 마다 Preview 가 뜬다~~ → **2026-10-01 껐다.** `vercel.json` `git.deploymentEnabled: { "main": true, "**": false }` — `main` 밖의
+      브랜치 push 는 빌드하지 않는다(`main` 은 두 규칙에 다 걸리지만 하나라도 `true` 면 배포된다). 필요하면 그 브랜치에서 `vercel`(Preview) 을 손으로 부른다.
+      `**` 인 이유: minimatch 의 `*` 는 `/` 를 못 넘어 `claude/foo` 를 놓친다.
 - [ ] Deployment Protection → **Vercel Authentication** 을 Preview 에 켠다(무료). 미완성 화면이 검색엔진·남에게 노출되지 않게.
 - [ ] 네이버 지도는 Preview URL 이 매번 달라 NCP 콘솔 등록이 안 된다 → Preview 에서 지도가 안 뜨는 건 **알고 감수**한다(00 에 적음).
       Kakao 때와 달리 빈 화면이 아니라 "지도는 인터넷이 필요해요" 안내가 뜬다(ADR-008 v4).
