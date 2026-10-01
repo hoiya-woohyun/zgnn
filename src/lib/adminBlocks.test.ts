@@ -5,6 +5,7 @@ import {
   blockNoteLine,
   blockRowFor,
   blockUntil,
+  countBlockRows,
   defaultBlockFor,
   isBlocksUnavailable,
   rejectAndBlock,
@@ -153,5 +154,14 @@ describe('rejectAndBlock', () => {
     expect(outcome).toEqual({ blocked: 'none', blockError: BLOCKS_UNAVAILABLE_TEXT });
     expect(calls.map((call) => `${call.table}:${call.op}`)).toEqual(['candidates:update', 'place_blocks:insert']);
     expect(rejectOutcomeText('폐업', outcome)).toContain('블랙리스트에는 안 들어갔어요');
+  });
+});
+
+describe('countBlockRows', () => {
+  it('영구와 기간이 남은 행은 막힘, 지난 행은 지남으로 센다', () => {
+    const now = new Date('2026-10-01T00:00:00.000Z');
+    const rows = [{ until: null }, { until: '2026-12-01T00:00:00.000Z' }, { until: '2026-09-30T00:00:00.000Z' }];
+    expect(countBlockRows(rows, now)).toEqual({ active: 2, expired: 1 });
+    expect(countBlockRows([], now)).toEqual({ active: 0, expired: 0 });
   });
 });
