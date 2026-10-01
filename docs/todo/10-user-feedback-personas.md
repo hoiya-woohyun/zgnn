@@ -238,7 +238,8 @@ P3  F11 다두 what-if
 
 ### P3
 
-- [ ] **T4.1 F11 다두 what-if** — 설계 먼저(08 P3 T5.7 과 묶어서). Sonnet 단독 실행 금지.
+- [x] **T4.1 F11 다두 what-if** — 설계 먼저(08 P3 T5.7 과 묶어서). Sonnet 단독 실행 금지.
+      > 메모: 설계는 `src/lib/dogSubsetWhatIf.ts` 머리 주석과 [pet-policy-and-eligibility](../architecture/pet-policy-and-eligibility.md) 「다두 what-if」 — 어려움일 때만, 부분집합마다 `judgeEligibility` 를 그대로 다시 돌린다(규칙 복제 없음), 가장 많이 데려가는 조합 → 판정 → 무게 순, `sizeOverride` 는 부분집합에 안 가져간다. 화면은 상세 판정 카드의 한 줄뿐(목록 카드에는 아직 없다 — §7). 08 T5.7 의 마리별 이동 수단·크기 모델은 그대로 열려 있다.
 
 ## 10. 07·08·09 와의 관계
 
