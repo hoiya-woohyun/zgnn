@@ -30,6 +30,12 @@ const GROUNDS = {
   vaccineRequired: /접종|백신|광견병|켄넬\s*코프|항체/,
 };
 
+/**
+ * 예방접종의 근거 단어 — 앱(`withPolicyFacts`)이 근거 **문장**을 고를 때도 같은 규칙을 쓴다. 따로 적어 두면 한쪽에만 있는 말
+ * (`항체`·`켄넬코프`)이 "판단은 남는데 근거 문장은 첫 줄" 로 어긋난다.
+ */
+export const VACCINE_GROUNDS = GROUNDS.vaccineRequired;
+
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** 원문에 "N kg"(또는 킬로) 가 그대로 있는가. 10 이 "100kg" 이나 "1.5만원" 에 걸리지 않게 앞뒤 숫자를 막는다. */

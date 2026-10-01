@@ -129,15 +129,37 @@ const emptyToNull = (v) => {
   return s ? s : null;
 };
 
+/** 글자·숫자만 남긴다 — 띄어쓰기·문장부호·이모지는 모델이 바꿔도 "같은 문장" 이다(`normalizeName` 과 같은 어법). */
+const lettersOnly = (s) => (s ?? '').replace(/[^\p{L}\p{N}]/gu, '');
+
+/**
+ * 인용이 **정말 본문에 있나.** 본문이 없으면(`bodyText` 가 `undefined` — 옛 호출·테스트) 대 보지 않고 통과시킨다 —
+ * "안 봤다" 를 "없었다" 로 읽으면 안 된다(결정 3 과 같은 함정).
+ */
+export function quoteInBody(quote, bodyText) {
+  if (bodyText === undefined) return true;
+  const needle = lettersOnly(quote);
+  return needle.length > 0 && lettersOnly(bodyText).includes(needle);
+}
+
 /**
  * 판단 하나를 안전한 모양으로. 스키마가 형식을 보장하지만 가짜 응답·모델 변경에도 눕는 쪽이 안전하다 —
  * **모르는 값은 'unclear'** 이고, 근거 없는 'yes' 는 'unclear' 로 내린다(프롬프트가 그 조합을 금지했으므로,
  * 그래도 오면 모델이 규칙을 못 지킨 것이다 — 그때 통과시키면 지어낸 확인이 그대로 검수자에게 간다).
+ *
+ * **인용이 본문에 없어도 같은 처분이다**(ADR-019 결정 8-2 를 이 패스에도). `quote` 가 `null` 이 아닌 것만 보면 모델이
+ * 지어낸 한 문장이 확인 도장이 된다 — `correctPetPolicyFacts` 가 원문에 없는 숫자를 빼는 것과 같은 원칙이다.
+ * 내린 판단은 `why` 끝에 그 사실을 남긴다(본문에서 파생된 값이라 터미널엔 안 찍히지만 `/admin` 이 보여 준다).
  */
-function normalizeVerdict(raw) {
-  const quote = emptyToNull(raw?.quote);
+function normalizeVerdict(raw, bodyText) {
+  let quote = emptyToNull(raw?.quote);
   let petAllowedHere = VERDICTS.has(raw?.petAllowedHere) ? raw.petAllowedHere : 'unclear';
   let dogWasThere = raw?.dogWasThere === true;
+  let why = emptyToNull(raw?.why);
+  if (quote && !quoteInBody(quote, bodyText)) {
+    why = `${why ?? ''}${why ? ' · ' : ''}인용 문장이 본문에 없어 근거로 치지 않았다`;
+    quote = null;
+  }
   if (!quote && (petAllowedHere === 'yes' || dogWasThere)) {
     petAllowedHere = petAllowedHere === 'yes' ? 'unclear' : petAllowedHere;
     dogWasThere = false;
@@ -146,7 +168,7 @@ function normalizeVerdict(raw) {
     petAllowedHere,
     dogWasThere,
     quote,
-    why: emptyToNull(raw?.why),
+    why,
     promptVersion: VERIFY_PROMPT_VERSION,
     model: VERIFY_MODEL,
   };
@@ -169,8 +191,9 @@ export function missingVerdict() {
  * 모델이 빠뜨린 것은 `missingVerdict()` 로 채운다.
  * @param {object} result  CLI 결과 객체
  * @param {string[]} names  물어본 이름들
+ * @param {string} [bodyText]  모델에 넘긴 본문 — 있으면 `quote` 를 여기에 대 본다(`quoteInBody`)
  */
-export function parseVerification(result, names) {
+export function parseVerification(result, names, bodyText) {
   if (!result || result.type !== 'result') {
     throw new ExtractionError('not_result', `claude 출력이 result 객체가 아님 (type=${result?.type ?? typeof result})`);
   }
@@ -187,7 +210,7 @@ export function parseVerification(result, names) {
     const key = normalizeName(raw?.name ?? '');
     // 물어보지 않은 장소는 버린다(프롬프트가 금지했지만 지어내면 검수자 화면에 유령 판단이 생긴다).
     if (!key || !names.some((name) => normalizeName(name) === key) || byKey.has(key)) continue;
-    byKey.set(key, normalizeVerdict(raw));
+    byKey.set(key, normalizeVerdict(raw, bodyText));
   }
   for (const name of names) {
     const key = normalizeName(name);
@@ -210,7 +233,7 @@ export async function verifyPlaces(run, post, bodyText, names, meter) {
     throw new ClaudeCliError('invalid_json', `교차점검 출력이 JSON 이 아님 (length=${stdout?.length ?? 0})`);
   }
   meter?.add(result?.usage);
-  return parseVerification(result, names);
+  return parseVerification(result, names, bodyText);
 }
 
 /**

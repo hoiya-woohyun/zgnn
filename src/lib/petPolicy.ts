@@ -11,7 +11,7 @@
  */
 
 import { amountsInWon, normalizeFeeLines } from '../../scripts/lib/feeLine.mjs';
-import { correctPetPolicyFacts, feeLinesOf } from '../../scripts/lib/petPolicyFacts.mjs';
+import { correctPetPolicyFacts, feeLinesOf, VACCINE_GROUNDS } from '../../scripts/lib/petPolicyFacts.mjs';
 import type { TFeeRule, TPetPolicyFacts } from '../types';
 
 export type TIndoorPolicy =
@@ -473,8 +473,8 @@ export const withPolicyFacts = (parsed: TPetPolicy, facts: TPetPolicyFacts | nul
   keep('mediumDogOk', parsed.mediumDogOk, true);
   keep('smallDogOnly', corrected.smallDogOnly, parsed.smallDogOnly, /소형/);
   keep('callFirst', corrected.callFirst, parsed.callFirst, /전화|문의|연락|예약/);
-  // 정규식에 예방접종 규칙이 없으니 늘 그 말이 든 줄을 쓴다.
-  keep('vaccineRequired', vaccineRequired, false, /접종|백신|광견병/);
+  // 정규식에 예방접종 규칙이 없으니 늘 그 말이 든 줄을 쓴다 — 근거 단어는 `correctPetPolicyFacts` 와 같은 것이어야 한다.
+  keep('vaccineRequired', vaccineRequired, false, VACCINE_GROUNDS);
   keep('feeFree', corrected.feeFree === true, parsed.feeFree, /무료|없/);
 
   // AI 가 조건을 하나라도 읽었으면 '못 읽음' 이 아니다. notes 는 세지 않는다 — 판정에 안 쓰이는 조건이라,

@@ -526,6 +526,13 @@ describe('withPolicyFacts — AI 구조화 판단이 정규식 결과를 덮는�
     expect(toPetBadges(p)).toContainEqual({ label: '예방접종 필수', tone: 'cond', axis: 'limit' });
   });
 
+  it('근거 문장은 보정과 같은 단어로 고른다 — "항체" 만 있는 원문에서도 첫 줄이 아니라 그 줄', () => {
+    const text = '마당에서 자유롭게 뛰어놀 수 있어요\n항체 검사 완료견만 입장 가능합니다';
+    const p = withPolicyFacts(parsePetPolicy(text), { ...facts, indoor: 'unknown', leash: false, weightLimitKg: null, maxDogs: null, vaccineRequired: true }, text);
+    expect(p.vaccineRequired).toBe(true);
+    expect(p.sources.vaccineRequired).toBe('항체 검사 완료견만 입장 가능합니다');
+  });
+
   it('정규식은 예방접종 필수를 세우지 않는다 — AI 판단만 이 칸을 채운다(ADR-017 v6)', () => {
     expect(parsePetPolicy('예방접종 완료견만 입장 가능').vaccineRequired).toBe(false);
   });

@@ -5,6 +5,7 @@ import {
   missingVerdict,
   needsDogCheck,
   parseVerification,
+  quoteInBody,
   resolveVerifyModel,
   VERIFY_MODEL,
   VERIFY_PROMPT_VERSION,
@@ -107,6 +108,33 @@ describe('parseVerification — 판단을 안전한 모양으로', () => {
   it('근거 문장 없는 "yes" 는 unclear 로 내린다', () => {
     const map = parseVerification(fakeResult([verdict({ name: '덕봉이네', petAllowedHere: 'yes', dogWasThere: true, quote: null })]), ['덕봉이네']);
     expect(map.get('덕봉이네')).toMatchObject({ petAllowedHere: 'unclear', dogWasThere: false });
+  });
+
+  /**
+   * 인용이 있어도 **본문에 없으면** 근거가 아니다(ADR-019 결정 8-2 를 이 패스에도) — `quote` 의 null 여부만 보던 때는
+   * 모델이 지어낸 한 문장이 확인 도장이 됐다. 띄어쓰기·문장부호·이모지 차이는 같은 문장으로 본다.
+   */
+  it('본문에 없는 인용으로 세운 "yes" 는 unclear 로 내리고 why 에 남긴다', () => {
+    const body = '덕봉이네는 마당이 넓어요. 강아지는 차에 두고 다녀왔어요.';
+    const map = parseVerification(
+      fakeResult([verdict({ name: '덕봉이네', petAllowedHere: 'yes', dogWasThere: true, quote: '강아지와 함께 들어갈 수 있어요', why: '동반 문장' })]),
+      ['덕봉이네'],
+      body,
+    );
+    expect(map.get('덕봉이네')).toMatchObject({ petAllowedHere: 'unclear', dogWasThere: false, quote: null });
+    expect(map.get('덕봉이네').why).toBe('동반 문장 · 인용 문장이 본문에 없어 근거로 치지 않았다');
+  });
+
+  it('띄어쓰기·문장부호·이모지가 달라도 본문에 있는 인용은 산다', () => {
+    const body = '여기는 강아지 동반 가능해요!! 🐶 마당도 있어요';
+    const map = parseVerification(fakeResult([verdict({ name: '덕봉이네', petAllowedHere: 'yes', quote: '강아지동반 가능해요' })]), ['덕봉이네'], body);
+    expect(map.get('덕봉이네')).toMatchObject({ petAllowedHere: 'yes', quote: '강아지동반 가능해요' });
+  });
+
+  it('본문을 안 넘기면 인용을 대 보지 않는다 — "안 봤다" 는 "없었다" 가 아니다', () => {
+    expect(quoteInBody('아무 문장', undefined)).toBe(true);
+    expect(quoteInBody('아무 문장', '')).toBe(false);
+    expect(quoteInBody('', '본문')).toBe(false);
   });
 
   /** '동반 불가' 는 근거 없이도 살린다 — 보수적인 쪽(승인을 망설이게 하는 쪽)이라 내릴 이유가 없다. */
