@@ -224,7 +224,8 @@ P3  F11 다두 what-if
       > 메모: 상세 카드의 첫 버튼 `그대로였어요`(한 번 누르면 바로 — 시트 안의 종류로 묻지 않는다). 집계는 `visitedTallyByPlace` — **마지막 확인 뒤**의 것만 세고, 열린 폐업 제보가 있으면 `ready` 가 서지 않는다(R5 의 "확인됐다고 말하는 순간 제보가 거짓" 과 같은 이유). 반영은 날짜를 찍은 **뒤** 센 것을 `handled` 로 닫는다 — 칸이 없으면 닫지 않는다.
 - [x] **T2.3 F3 확인일 표시** — `src/lib/placeFreshness.ts`(날짜 → 문구 · 1년 기준 · 열린 폐업 제보면 null — 제보 유무는 **빌드 때** `data:pull` 이 `openReportKinds` 로 옮긴다, 런타임 읽기 없음) + 테스트 + 상세 반영(§7 답 뒤).
       > 메모: 빌드는 비로그인 역할이라 표를 읽을 수 없다 — `place_report_flags()`(security definer, 마이그레이션 `20261001150000`)가 **게시 장소 id·폐업 종류만** 돌려준다. 함수가 없으면 `data:pull` 은 경고 한 줄 뒤 계속. 자리는 "정보는 바뀔 수 있어요" 줄을 대신한다(임시안 — §7). 1년 판정은 브라우저에서만(`useSyncExternalStore` 서버 값 null — 빌드 시각으로 판정하면 하이드레이션이 어긋난다).
-- [ ] **T2.4 F5 저장 메모** — `useAppStore` 에 `savedNotes` + `merge`(없는 id 제거 · 80자 자르기) + `setSavedNote` · 테스트. 화면은 §7 답 뒤. 문서: [app-shell-and-state](../architecture/app-shell-and-state.md) 퍼시스트 필드 표.
+- [x] **T2.4 F5 저장 메모** — `useAppStore` 에 `savedNotes` + `merge`(없는 id 제거 · 80자 자르기) + `setSavedNote` · 테스트. 화면은 §7 답 뒤. 문서: [app-shell-and-state](../architecture/app-shell-and-state.md) 퍼시스트 필드 표.
+      > 메모: 하트를 지우면 메모도 지운다(다시 저장했을 때 옛 메모가 되살아나지 않게). 순수 함수는 `src/lib/savedNotes.ts`. 화면은 저장 화면 카드 밑 한 줄(임시안 — 누를 때만 입력 칸이 열린다, 카드 링크 **밖**). 지도 시트에는 아직 안 보인다(§7 질문 그대로).
 
 ### P2
 

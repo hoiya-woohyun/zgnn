@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { EligibilityBadge } from './eligibilityBadge';
 import { PetBadges } from './petBadges';
 import { PlaceThumb } from './placeThumb';
@@ -12,6 +13,8 @@ import { useEligibility } from '../store/useDogEligibility';
 
 type TPlaceCardProps = {
   place: TPlaceEntry;
+  /** 카드 아래, 링크 **밖**에 붙는 것(저장 화면의 메모 줄). 링크 안에 두면 입력 칸을 누르는 것이 상세로 가는 것이 된다. */
+  footer?: ReactNode;
 };
 
 /**
@@ -25,7 +28,7 @@ type TPlaceCardProps = {
  * 그만큼 줄여 카드 높이(총 배지 개수)를 그대로 유지한다. 프로필이 없으면 이 훅은 null 을
  * 돌려주므로 카드는 지금과 완전히 같은 모습이다.
  */
-export function PlaceCard({ place }: TPlaceCardProps) {
+export function PlaceCard({ place, footer }: TPlaceCardProps) {
   const eligibility = useEligibility(place);
   const reason = eligibility ? primaryReason(eligibility) : undefined;
 
@@ -72,6 +75,7 @@ export function PlaceCard({ place }: TPlaceCardProps) {
       </Link>
 
       <SaveButton id={place.id} name={place.name} className="absolute top-2 right-2" />
+      {footer}
     </li>
   );
 }
