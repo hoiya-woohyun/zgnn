@@ -5,6 +5,7 @@ import { Badge } from '../components/base/badges';
 import { Button } from '../components/base/button';
 import { Select } from '../components/base/select';
 import type { TAddressChoice } from '../lib/adminAddress';
+import type { TBlockChoice } from '../lib/adminBlocks';
 import { regionOptionsFor, type TCandidateGroup, type TRejectReason } from '../lib/adminCandidates';
 import type { TLatestPlan } from '../lib/adminLatest';
 import { lastNoteLine, noteLineText, PLACE_STATUS_COLOR, PLACE_STATUS_LABEL } from '../lib/adminPlaces';
@@ -13,7 +14,7 @@ import { AdminPageRejectForm } from './adminPageRejectForm';
 
 const BUSY_LABEL: Record<NonNullable<TAdminPageGroupState['busy']>, string> = {
   approving: '반영하고 있어요…',
-  rejecting: '반려하고 있어요…',
+  rejecting: '제외하고 있어요…',
   savingRegion: '저장하고 있어요…',
   savingEdit: '저장하고 있어요…',
   reanalyzing: '분석을 지우고 있어요…',
@@ -84,7 +85,7 @@ export function AdminPageGroupActions({
   onApprove: (choice?: TApproveChoice) => void;
   onStartReject: () => void;
   onCancelReject: () => void;
-  onReject: (reason: TRejectReason, note: string) => void;
+  onReject: (reason: TRejectReason, note: string, block: TBlockChoice) => void;
   onPickRegion: (regionRaw: string) => void;
   onSaveRegion: (regionRaw: string) => void;
   onChooseAddress: (choice: TAddressChoice) => void;
@@ -159,7 +160,7 @@ export function AdminPageGroupActions({
    */
   const tail = (rejectPrimary = false) => (
     <>
-      {!rejectPrimary && tertiary('반려', onStartReject)}
+      {!rejectPrimary && tertiary('제외', onStartReject)}
       {tertiary('고치기', onEdit)}
       {tertiary('재분석', onStartReanalyze, {
         isDisabled: !group.lead.post_url,
@@ -383,7 +384,7 @@ export function AdminPageGroupActions({
           {/* 근거가 없으면 반려가 주 버튼이다 — 5곳이 핑크 한 번씩에 게시되던 자리(UI 스냅샷 피드백). */}
           {needsLook && (
             <TipButton color="primary" size="sm" isDisabled={off} onClick={onStartReject}>
-              반려
+              제외
             </TipButton>
           )}
           {approve}

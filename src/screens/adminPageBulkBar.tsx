@@ -2,6 +2,7 @@
 
 import { Button } from '../components/base/button';
 import { Checkbox } from '../components/base/checkbox';
+import type { TBlockChoice } from '../lib/adminBlocks';
 import type { TRejectReason } from '../lib/adminCandidates';
 import { cx } from '../utils/cx';
 import { AdminPageRejectForm } from './adminPageRejectForm';
@@ -27,7 +28,7 @@ type TAdminPageBulkBarProps = {
   onClear: () => void;
   onStart: (mode: TBulkMode) => void;
   onCancel: () => void;
-  onReject: (reason: TRejectReason, note: string) => void;
+  onReject: (reason: TRejectReason, note: string, block: TBlockChoice) => void;
   onConfirm: () => void;
 };
 
@@ -109,7 +110,7 @@ export function AdminPageBulkBar({
                 </Button>
               )}
               <Button color="tertiary" size="sm" isDisabled={!picked || locked} onClick={() => onStart('reject')}>
-                반려
+                제외
               </Button>
               <Button color="tertiary" size="sm" isDisabled={!picked || locked} onClick={() => onStart('reanalyze')}>
                 재분석

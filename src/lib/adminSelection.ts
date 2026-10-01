@@ -55,11 +55,13 @@ export function allSelected(selection: TSelection, keys: readonly string[]): boo
 }
 
 /**
- * 일괄 반려가 끝난 뒤의 한 줄. **부분 실패를 숨기지 않는 것**이 요점이다 — 141묶음 중 3묶음이 실패했는데
- * "반려했어요" 라고만 하면 운영자는 목록에 남은 3줄을 새 후보로 읽는다.
+ * 일괄 제외가 끝난 뒤의 한 줄. **부분 실패를 숨기지 않는 것**이 요점이다 — 141묶음 중 3묶음이 실패했는데
+ * "제외했어요" 라고만 하면 운영자는 목록에 남은 3줄을 새 후보로 읽는다. `blockFailed` 는 제외는 됐는데
+ * 블랙리스트 쓰기가 실패한 곳 수다 — 반려는 이미 됐다는 것과 블랙리스트는 안 들어갔다는 것을 함께 말한다.
  */
-export function summarizeBulkReject(done: number, failed: number): string {
-  if (failed === 0) return `${done}곳을 반려했어요`;
-  if (done === 0) return `${failed}곳을 반려하지 못했어요 — 그대로 남겨 뒀어요`;
-  return `${done}곳 반려 · ${failed}곳 실패 — 실패한 것만 목록에 남겨 뒀어요`;
+export function summarizeBulkReject(done: number, failed: number, blockFailed = 0): string {
+  const blockNote = blockFailed ? ` · 블랙리스트에는 ${blockFailed}곳이 안 들어갔어요` : '';
+  if (failed === 0) return `${done}곳을 제외했어요${blockNote}`;
+  if (done === 0) return `${failed}곳을 제외하지 못했어요 — 그대로 남겨 뒀어요`;
+  return `${done}곳 제외 · ${failed}곳 실패 — 실패한 것만 목록에 남겨 뒀어요${blockNote}`;
 }

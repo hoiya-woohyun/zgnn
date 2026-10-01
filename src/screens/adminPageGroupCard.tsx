@@ -3,6 +3,7 @@
 import { ChevronDown } from '@untitledui/icons';
 import { Badge } from '../components/base/badges';
 import { Checkbox } from '../components/base/checkbox';
+import type { TBlockChoice } from '../lib/adminBlocks';
 import {
   regionUsable,
   TIER_LABEL,
@@ -71,7 +72,7 @@ type TAdminPageGroupCardProps = {
   onApprove: (choice?: TApproveChoice) => void;
   onStartReject: () => void;
   onCancelReject: () => void;
-  onReject: (reason: TRejectReason, note: string) => void;
+  onReject: (reason: TRejectReason, note: string, block: TBlockChoice) => void;
   onPickRegion: (regionRaw: string) => void;
   onSaveRegion: (regionRaw: string) => void;
   onEditDraft: (draft: TCandidateEditDraft | undefined) => void;

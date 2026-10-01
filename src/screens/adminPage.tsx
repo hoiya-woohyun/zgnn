@@ -7,7 +7,8 @@ import { Button } from '../components/base/button';
 import { Select } from '../components/base/select';
 import { EmptyState } from '../components/layout/emptyState';
 import { PageHeader } from '../components/layout/pageHeader';
-import { approveGroup, rejectGroup, saveEdit, setRegion } from '../lib/adminApply';
+import { approveGroup, saveEdit, setRegion } from '../lib/adminApply';
+import { rejectAndBlock, rejectOutcomeText, type TBlockChoice } from '../lib/adminBlocks';
 import { aiOriginalOf, buildEdit, chooseAddress, type TCandidateEditDraft } from '../lib/adminEdit';
 import { addressUnresolved, type TAddressChoice } from '../lib/adminAddress';
 import { prepareReanalyze, reanalyzePlan, reanalyzeSummary } from '../lib/adminReanalyze';
@@ -102,7 +103,8 @@ const TABS: { key: TTab; label: string }[] = [
  */
 const HELP = [
   '여기서 바꾼 것은 사이트가 다시 빌드된 뒤에 보여요.',
-  '줄을 누르면 근거(원문 · 나갈 값 · 블로그 인용)가 펼쳐지고, 그 끝에서 이 줄을 올리거나 반려해요.',
+  '줄을 누르면 근거(원문 · 나갈 값 · 블로그 인용)가 펼쳐지고, 그 끝에서 이 줄을 올리거나 제외해요.',
+  '제외: 사유를 고르면 후보는 목록에서 빠져요. 「블랙리스트에」 를 3개월·영구로 고르면 그 가게 이름의 새 글도 한동안 후보로 올라오지 않아요.',
   '줄 앞 체크박스로 여러 곳을 고르면 표 위에 한꺼번에 처리하는 줄이 떠요.',
   '올리기: 짝이 있으면 그 장소의 빈 칸만 채우고, 없으면 새 장소로 올라가요. 덮어쓰기: 짝의 칸을 새 분석 값으로 바꿔요.',
   '재분석: 그 글을 수집 완료로 되돌려요(지우지 않아요). 터미널에서 pnpm data:analyze 를 돌리면 다시 읽어요.',
@@ -526,17 +528,17 @@ export function AdminPage() {
   );
 
   const reject = useCallback(
-    async (group: TCandidateGroup, reason: TRejectReason, note: string) => {
+    async (group: TCandidateGroup, reason: TRejectReason, note: string, block: TBlockChoice) => {
       const client = clientRef.current;
       if (!client) return;
       if (!beginWrite((message) => patchState(group.key, { error: message }))) return;
       patchState(group.key, { busy: 'rejecting', error: undefined });
       try {
-        await rejectGroup(client, group, reason, note);
-        patchState(group.key, { busy: undefined, rejecting: false, done: `반려했어요 · ${reason}` });
+        const outcome = await rejectAndBlock(client, group, reason, note, block);
+        patchState(group.key, { busy: undefined, rejecting: false, done: rejectOutcomeText(reason, outcome) });
         removeLater(group.key);
       } catch (error) {
-        patchState(group.key, { busy: undefined, error: messageOf(error, '반려하지 못했어요.') });
+        patchState(group.key, { busy: undefined, error: messageOf(error, '제외하지 못했어요.') });
       } finally {
         endWrite();
       }
@@ -556,7 +558,7 @@ export function AdminPage() {
    * 중간에 끊겼을 때 "어디까지 갔나" 를 알 수 없게 된다.
    */
   const rejectSelected = useCallback(
-    async (keys: readonly string[], reason: TRejectReason, note: string) => {
+    async (keys: readonly string[], reason: TRejectReason, note: string, block: TBlockChoice) => {
       const client = clientRef.current;
       if (!client) return;
       if (!beginWrite((message) => setBulk({ mode: 'reject', error: message }))) return;
@@ -565,15 +567,20 @@ export function AdminPage() {
       setBulk({ busy: true, mode: 'reject' });
       const done = new Set<string>();
       let failed = 0;
+      let blockFailed = 0;
       let firstError: string | undefined;
       try {
         for (const group of targets) {
           try {
-            await rejectGroup(client, group, reason, note);
+            const outcome = await rejectAndBlock(client, group, reason, note, block);
             done.add(group.key);
+            if (outcome.blockError) {
+              blockFailed += 1;
+              firstError ??= `블랙리스트에는 안 들어갔어요(${outcome.blockError})`;
+            }
           } catch (error) {
             failed += 1;
-            firstError ??= messageOf(error, '반려하지 못했어요.');
+            firstError ??= messageOf(error, '제외하지 못했어요.');
           }
         }
       } finally {
@@ -582,7 +589,7 @@ export function AdminPage() {
       setGroups((prev) => prev.filter((group) => !done.has(group.key)));
       setStates((prev) => Object.fromEntries(Object.entries(prev).filter(([key]) => !done.has(key))));
       setSelected((prev) => clearKeys(prev, [...done]));
-      setBulk({ summary: summarizeBulkReject(done.size, failed), error: firstError });
+      setBulk({ summary: summarizeBulkReject(done.size, failed, blockFailed), error: firstError });
     },
     [beginWrite, endWrite, groups],
   );
@@ -1159,7 +1166,7 @@ export function AdminPage() {
           onClear={() => setSelected(EMPTY_SELECTION)}
           onStart={(mode) => setBulk({ mode })}
           onCancel={() => setBulk({})}
-          onReject={(reason, note) => void rejectSelected(selectedKeys, reason, note)}
+          onReject={(reason, note, block) => void rejectSelected(selectedKeys, reason, note, block)}
           onConfirm={() => {
             if (bulk.mode === 'reanalyze') void reanalyze(selectedKeys, 'bulk');
             else if (bulk.mode === 'approve' || bulk.mode === 'latest') void applySelected(selectedKeys, bulk.mode);
@@ -1211,7 +1218,7 @@ export function AdminPage() {
                   onApprove={(choice) => void approve(group, choice)}
                   onStartReject={() => patchState(group.key, { rejecting: true, error: undefined })}
                   onCancelReject={() => patchState(group.key, { rejecting: false })}
-                  onReject={(reason, note) => void reject(group, reason, note)}
+                  onReject={(reason, note, block) => void reject(group, reason, note, block)}
                   onPickRegion={(regionRaw) => patchState(group.key, { regionDraft: regionRaw })}
                   onSaveRegion={(regionRaw) => void saveRegion(group, regionRaw)}
                   onEditDraft={(editDraft) => patchState(group.key, { editDraft })}

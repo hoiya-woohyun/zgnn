@@ -199,7 +199,7 @@ P0 세 줄은 독립이다. 권장: T2.1(문구·색, 가장 싸고 지금 혼�
 - 커밋: `feat(analyze) - 차단 목록에 걸린 가게는 후보를 만들지 않는다(기간·영구, 읍·면까지 맞춰)`
 - > 메모: `isBlocked` 는 `blockFor`(걸린 행을 돌려준다) 위의 얇은 래퍼 — 로그의 `차단(~날짜|영구)` 에 그 행의 `until` 이 필요해서. 후보 읍·면은 `extractAddressUnits(address).eupMyeon`(→ 없으면 `townOf(regionRaw)`)이고 비교 시점은 정확한 `now` 가 아니라 실행 시작 시각(`runStartedAt`). `· 차단 N` 은 제외 합계 괄호 안(0 이면 사라짐, `alreadyHave` 와 같은 어법). 조회 실패는 `console.warn` 한 줄 뒤 계속. 이 환경에서 `data:analyze` 는 안 돌렸다 — 순수 함수 테스트 7개(여섯 + 요약)만.
 
-### [ ] T1.3 반려 폼에 「블랙리스트에」 — 없음 / 3개월 / 영구
+### [x] T1.3 반려 폼에 「블랙리스트에」 — 없음 / 3개월 / 영구
 
 - 근거: 요구 1·2. 반려는 이미 사유 칩이 있다(`src/lib/adminCandidates.ts:314-327`) — 제외는 그 폼의 **둘째 줄**이다. 버튼 이름은 `제외` 로 바꾸되 사유 칩 값(`REJECT_REASONS`)은 `reviewer_note` 에 적히므로 바꾸지 않는다.
 - 선행: T1.1.
@@ -214,6 +214,7 @@ P0 세 줄은 독립이다. 권장: T2.1(문구·색, 가장 싸고 지금 혼�
 - 수용 기준: 테스트 통과 · 반려만 고르면(`none`) `place_blocks` 에 아무것도 안 들어간다 · 사유 `제주 아님` 을 고르면 기본이 `영구` 로 바뀐다(테스트).
 - 문서: `features/admin-review.md` 「반려」 절을 「제외」 로(머리말 vN) · `06` 의 D 절에 낱말 메모.
 - 커밋: `feat(admin) - 반려가 '제외' 가 된다 — 블랙리스트에 없음·3개월·영구를 같은 자리에서 고른다`
+- > 메모: `rejectGroup` 은 그대로 두고 쓴 줄(`reviewer_note` 에 덧붙인 문자열)만 돌려주게 했다 — 새 `rejectAndBlock`(`adminBlocks.ts`)이 반려 → 차단 → 기록 한 줄 순으로 부른다. 기록 한 줄(`[admin] 블랙리스트 …`)은 차단이 **들어간 뒤에만** 붙인다(실패했는데 DB 메모만 남는 것을 막으려고, 이 쓰기가 실패해도 결과는 안 뒤집는다). 차단 행의 읍·면은 본문의 `regionOptionsFor(address).town` 이 아니라 **분석 `blockFor` 와 같은 규칙**(`extractAddressUnits(address).eupMyeon ?? townOf(regionRaw)`)으로 뽑는다 — 다르게 뽑으면 걸어 둔 차단이 다음 후보에 안 걸린다. 표가 없으면(`PGRST205`) 던지지 않고 `제외했어요 · 사유 — 블랙리스트에는 안 들어갔어요(블랙리스트 표가 아직 적용되지 않았어요)` 로 말한다. 선택 칩의 테두리 꼴은 T6.9 의 `AdminFilterChip` 이 생기기 전이라 `ring-brand` 임시 클래스. `HELP` 에 제외 한 줄, `summarizeBulkReject` 에 `blockFailed` 인자. 반려 사유 칩 값·`reviewer_note` 머리표는 그대로.
 
 ### [ ] T1.4 등록 해제 폼에도 「블랙리스트에」 — 되살리면 풀린다
 
