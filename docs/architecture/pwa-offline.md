@@ -1,6 +1,7 @@
 # PWA · 서비스워커 · 오프라인
 
-> 최종 수정: 2026-09-29 (v7: **Supabase 호스트에 `NetworkOnly` 를 `defaultCache` 앞에 둔다** — `defaultCache` 끝의 cross-origin catch-all 이 REST **GET** 을 1시간 캐시해
+> 최종 수정: 2026-10-01 (v8: 라우트 `revision` 에 **배포 식별자**(`NEXT_PUBLIC_APP_BUILD`, 커밋 앞 7자)도 넣는다 — 제보가 싣는 그 값이 번들에 박혀 문서만 바뀐 커밋에서도 청크 이름이 바뀌기 때문. 사용자 제보의 insert 는 Supabase 호스트라 `NetworkOnly` 그대로 — 오프라인이면 실패를 말한다)
+> 이전 2026-09-29 (v7: **Supabase 호스트에 `NetworkOnly` 를 `defaultCache` 앞에 둔다** — `defaultCache` 끝의 cross-origin catch-all 이 REST **GET** 을 1시간 캐시해
 > 운영자 검수 화면의 후보 목록이 묵고 로그아웃 뒤에도 사본이 남는다. 그리고 **`/admin` 은 프리캐시에 넣지 않았다**(의도 — 오프라인에서는 `/404.html`) → [ADR-018](../decisions/ADR-018-in-app-admin-review.md))
 > 이전 (v6: 로고·자원 호스트 줄의 `1x`/`2x` 서술을 고친다 — 프로토콜이 아니라 **기기 픽셀 비율**이 정하는 값이다(프로덕션 HTTPS 에서 `1x` 실측). 호스트가 프로토콜을 따른다는 쪽은 그대로 맞다)
 > 이전 (v5: SDK 캐시 규칙을 `oapi.map.naver.com` **호스트 전체 → `/openapi/` 경로만** 으로 좁혔다. 호스트 전체면 매번 URL 이 다른 `/v3/auth` 가 상한을 채워 LRU 가 `maps.js` 를 축출한다 — self-cr 지적)
@@ -33,7 +34,7 @@ next.config.mjs: additionalPrecacheEntries (라우트 HTML 93개 + 매니페스�
 - **주의**: `additionalPrecacheEntries` 를 주면 플러그인은 `public/` 을 훑는 자기 동작을 **건너뛴다**. 둘은 더해지지 않는다. 그래서 `public/icons/`·`public/images/`(작성자 초상)·404·매니페스트도 직접 넣는다. `public/` 에 디렉터리를 새로 만들면 `next.config.mjs` 의 `publicEntries` 목록에도 더해야 한다 — 빼먹으면 온라인에선 보이고 오프라인에서만 조용히 빠진다.
 - **`/admin/` 은 이 목록에 일부러 없다.** 운영자 검수 화면은 DB 를 읽어야 성립하므로 오프라인에 의미가 없고, 넣으면 비행기에서 빈 화면이 뜬다.
   프리캐시에 없는 주소라 오프라인에서 열면 아래 「문서 요청 실패」 규칙이 `/404.html` 을 준다 — **그게 의도한 결과다**(→ [ADR-018](../decisions/ADR-018-in-app-admin-review.md)).
-- 라우트 HTML 은 파일명에 해시가 없어 `revision` 이 필요하다. `src/` 전체와 `package.json`, `pnpm-lock.yaml` 을 해싱한 값을 쓴다. 코드가 바뀌면 전부 갱신되는 보수적 전략이다.
+- 라우트 HTML 은 파일명에 해시가 없어 `revision` 이 필요하다. `src/` 전체와 `package.json`, `pnpm-lock.yaml`, `next.config.mjs`, 배포 식별자(`NEXT_PUBLIC_APP_BUILD`)를 해싱한 값을 쓴다. 배포 식별자는 번들에 박히는 값이라 빼면 문서만 바뀐 커밋에서 청크 이름만 바뀌고 revision 은 그대로 남는다. 코드가 바뀌면 전부 갱신되는 보수적 전략이다.
 
 ## 런타임 캐시 (`src/app/sw.ts`)
 

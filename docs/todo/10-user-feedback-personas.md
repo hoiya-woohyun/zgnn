@@ -211,7 +211,8 @@ P3  F11 다두 what-if
 - [ ] **T1.4 `/admin` 제보 처리** — 등록 완료 탭 장소 줄 뱃지(열린 제보 수) · 걸러 보기 "제보 있는 곳" · 펼친 줄의 제보 목록 · `handled`/`dismissed` + 메모 · `closed`·`replaced` 는 **기존 등록 해제 폼을 연다**(사유 `폐업` 미리 고름) 그리고 해제가 끝나면 그 장소의 열린 폐업 제보를 함께 `handled` 로.
       문서: [features/admin-review.md](../features/admin-review.md) 에 「제보」 절 · [06](06-admin-review.md).
       선행: 09 T1.4(등록 해제 폼의 「블랙리스트에」 — `place_blocks` 표 자체는 있다).
-- [ ] **T1.5 `app_build` 식별자** — 빌드 때 `NEXT_PUBLIC_APP_BUILD`(커밋 짧은 해시 또는 `VERCEL_GIT_COMMIT_SHA` 앞 7자)를 박아 제보에 싣는다. 값이 없으면 `'dev'`. 유출 검사의 허용 목록을 건드리지 않는지 확인.
+- [x] **T1.5 `app_build` 식별자** — 빌드 때 `NEXT_PUBLIC_APP_BUILD`(커밋 짧은 해시 또는 `VERCEL_GIT_COMMIT_SHA` 앞 7자)를 박아 제보에 싣는다. 값이 없으면 `'dev'`. 유출 검사의 허용 목록을 건드리지 않는지 확인.
+      > 메모: `next.config.mjs` 의 `env` 로 박는다(`VERCEL_GIT_COMMIT_SHA` → `git rev-parse --short=7` → `dev`). 같은 값을 프리캐시 `revision` 해시에도 넣었다 — 번들에 박히는 값이라 빼면 청크만 바뀌고 HTML revision 은 그대로 남는다(pwa-offline v8). 7자 hex 는 유출 검사 패턴 어디에도 안 걸린다.
 
 ### P1 — 루프 닫기
 
