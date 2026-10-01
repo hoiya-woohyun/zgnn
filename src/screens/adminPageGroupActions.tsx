@@ -1,6 +1,6 @@
 'use client';
 
-import type { ComponentProps, ReactNode } from 'react';
+import { useState, type ComponentProps, type ReactNode } from 'react';
 import { Badge } from '../components/base/badges';
 import { Button } from '../components/base/button';
 import { Select } from '../components/base/select';
@@ -418,12 +418,36 @@ function Status({ state }: { state: TAdminPageGroupState }) {
   );
 }
 
-/** 빠져나가는 길 — 짝을 **버리는** 선택. 회색 링크로 줄 맨 끝에 둔다(주 버튼과 같은 색이면 가장 위험한 버튼이 가장 눈에 띈다). */
+/**
+ * 빠져나가는 길 — 짝을 **버리는** 선택. 앞에 구분선을 두고 밑줄 회색 링크로 줄 맨 끝에 둔다(주 버튼과 같은 색이면 가장 위험한 버튼이 가장 눈에 띈다).
+ * 한 번 누르면 확인 한 줄이 서고, 거기서 다시 눌러야 실행된다 — 복제본이 게시되는 길이라 `접기` 와 헷갈린 손이 닿지 않게.
+ */
 function Escape({ busy, label, title, onClick }: { busy: TAdminPageGroupState['busy']; label: string; title: string; onClick: () => void }) {
+  const [asking, setAsking] = useState(false);
+  if (asking) {
+    return (
+      <div className="basis-full space-y-1.5 border-t border-secondary pt-2">
+        <Situation title="정말 다른 가게예요?">같은 가게면 장소가 두 개 생겨요.</Situation>
+        <Row>
+          <TipButton color="secondary" size="sm" isDisabled={Boolean(busy)} isLoading={busy === 'approving'} onClick={onClick}>
+            네, 새 장소로
+          </TipButton>
+          <TipButton color="secondary" size="sm" isDisabled={Boolean(busy)} onClick={() => setAsking(false)}>
+            취소
+          </TipButton>
+        </Row>
+      </div>
+    );
+  }
   return (
-    <TipButton color="link-gray" size="sm" className="ml-1" isDisabled={Boolean(busy)} title={title} onClick={onClick}>
-      {label}
-    </TipButton>
+    <>
+      <span aria-hidden="true" className="ml-1 text-quaternary">
+        |
+      </span>
+      <TipButton color="link-gray" size="sm" className="underline" isDisabled={Boolean(busy)} title={title} onClick={() => setAsking(true)}>
+        {label}
+      </TipButton>
+    </>
   );
 }
 
