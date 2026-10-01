@@ -1,6 +1,7 @@
 # 프로젝트 아키텍처 인덱스
 
-> 최종 수정: 2026-09-30 (v18: 준비물 라우트 설명 — 저장한 곳으로 좁히지 않는 고정 목록, 장소가 읽는 쪽 → [ADR-009 v3](./decisions/ADR-009-trip-derived-checklist.md))
+> 최종 수정: 2026-10-01 (v19: ADR 표에 [ADR-020](./decisions/ADR-020-pipeline-stages-and-blocklist.md) 한 줄)
+> 이전 (v18: 준비물 라우트 설명 — 저장한 곳으로 좁히지 않는 고정 목록, 장소가 읽는 쪽 → [ADR-009 v3](./decisions/ADR-009-trip-derived-checklist.md))
 > 이전 (v17: **교차점검 패스와 주소 대조 규칙** 등재([ADR-019](./decisions/ADR-019-ai-cross-check-and-address-rules.md)) — ADR 표에 한 줄)
 > 이전 (v16: **숨은 운영자 검수 화면 `/admin`** 등재([ADR-018](./decisions/ADR-018-in-app-admin-review.md)) — 라우트 표·디렉터리·ADR 표.
 > 이 화면 하나가 publishable 키로 Supabase 를 직접 읽고 쓰므로 "앱은 런타임에 아무것도 fetch 하지 않는다" 는 **사용자 화면에 대한 말**로 좁혔고,
@@ -204,6 +205,7 @@ data/                         # Notion 추출본(커밋) · raw/(무시)
 | [ADR-018](./decisions/ADR-018-in-app-admin-review.md) | 검수는 앱 안 숨은 화면(`/admin`)에서 하고 승인이 곧 반영이다 — 번들에 publishable 키가 들어간다(ADR-015 §2 번복, 경계는 RLS·GRANT), 세션은 access token 만(12시간), 신규 장소는 곧바로 `published`, 사이트 반영은 재빌드 |
 | [ADR-016](./decisions/ADR-016-secrets-by-login.md) | 시크릿은 저장하지 않는다 — 운영자가 `pnpm data:login` 하면 짧은 세션(JWT)으로 RLS 안에서 쓴다. 관리자가 없으면(만료) 아무 스크립트도 DB 에 쓰지 못한다. 인증 출처는 세션·anon 둘뿐 — service_role 은 어디에도 없고 GitHub Actions 도 없다(v5). 수집·분석·반영은 사용자 터미널에서 |
 | [ADR-019](./decisions/ADR-019-ai-cross-check-and-address-rules.md) | 추출 뒤 **두 번째 Claude 패스**로 교차점검한다(조건 문장 없는 후보만, 글당 한 번) — 근거 없는 후보는 버리지 않고 표식만 달고, `verify: null`(미점검)은 '근거 없음' 과 다른 상태다. 주소 표기 대조는 **AI 가 아니라 규칙**(`src/lib/addressMatch.ts`) — 지번↔도로명은 판단 보류 |
+| [ADR-020](./decisions/ADR-020-pipeline-stages-and-blocklist.md) | 파이프라인을 다섯 칸(수집 완료·검수 대기·등록 완료·등록 해제·블랙리스트)으로 나누고, 반려한 가게는 **분석 단계의 차단 목록**(`place_blocks`, 기간·영구)이 막는다 — 재분석은 지우지 않고 수집 완료로 되돌리며 사람이 고친 후보는 남긴다 (**초안**, 마이그레이션 원격 미적용) |
 
 ## 버그 기록
 

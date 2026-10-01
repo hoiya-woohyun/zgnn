@@ -1,6 +1,7 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-10-01 (v21: 제외 이유 `edited` — 사람이 고친 pending 후보가 있는 같은 글·같은 가게는 다시 읽어도 새로 만들지 않는다. 고친 이름의 원래 키는 `extracted.editedFrom.nameKey`)
+> 최종 수정: 2026-10-01 (v22: 스키마 요약에 `place_blocks`(가게 차단 목록, 마이그레이션 `20261001120000`, 원격 미적용) 한 줄 — [ADR-020](../decisions/ADR-020-pipeline-stages-and-blocklist.md))
+> 이전 (v21: 제외 이유 `edited` — 사람이 고친 pending 후보가 있는 같은 글·같은 가게는 다시 읽어도 새로 만들지 않는다. 고친 이름의 원래 키는 `extracted.editedFrom.nameKey`)
 > 이전 (v20: 「재분석」 머리에 "지우지 않는다 — 수집 완료로 되돌린다" 한 줄)
 > 이전 2026-09-30 (v19: **AI 판단의 요금이 구조가 됐다** — `feeLines: string[]` → `fees: TFeeRule[]`(금액·마리당/정액·몸무게 경계·몇째 마리부터·1박당),
 > 앱이 칸으로 계산한다. 그리고 AI 판단이 있으면 앱은 정규식으로 메우지 않는다([ADR-017](../decisions/ADR-017-ai-structured-pet-policy.md) v5). `PROMPT_VERSION` 이 바뀌었다 — 요금 계산을 받으려면 재분석)
@@ -296,6 +297,7 @@ flowchart LR
 | `TPlace` | `id`, `type`, `name`, `region`, `features`, `petPolicyText`, `geo?`, `address?`, `naverUrl?`, `reviewUrl?`, `stay?` | `id` 는 Notion 블록 id 를 시드 때 그대로 옮겼다. 라우트 `/place/[id]` 와 저장 목록의 키 |
 | `TStayInfo` | `price: TStayPrice`, `amenitiesText` | 숙소만. `amenitiesText` 는 준비물 화면의 구비 용품 매핑에 쓰인다(`src/lib/amenities.ts`) |
 | `TItem` | `id`, `name`, `emoji`, `seasons`, `reason`, `linkUrl?`, `variants?` | 준비물. `linkUrl` 은 쿠팡 파트너스 링크라 `meta.disclosure` 를 함께 표시. `variants` 는 원본의 여러 줄을 `lib/places.ts` 의 `ITEM_VARIANTS` 가 한 항목으로 합치면서 생긴다(기내용 가방의 5kg 이하/이상) — DB·JSON 어디에도 없는 파생 필드다 |
+| `place_blocks`(DB 표, `TPlace` 아님) | `name_key`, `town?`, `display_name`, `reason`, `until?`(null=영구), `lifted_at?`, `candidate_id?`, `place_id?` | 분석이 실행마다 읽는 **가게 차단 목록**(마이그레이션 `20261001120000`, 원격 미적용 — 🧑 `db push`). `until is null or until > now()` 이고 `lifted_at` 이 null 인 행이 "걸린 것" — 스케줄러 없이 비교로 만료. DELETE grant 없음, 공개 역할 grant 없음 → [ADR-020](../decisions/ADR-020-pipeline-stages-and-blocklist.md) D1·D2 |
 | `TMeta` | `author`, `sourceUrl`, `intro`, … | 화면 문구. 손으로 관리 |
 
 ## 관련 파일

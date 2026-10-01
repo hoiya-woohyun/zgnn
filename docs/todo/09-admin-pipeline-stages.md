@@ -150,7 +150,7 @@ P0 세 줄은 독립이다. 권장: T2.1(문구·색, 가장 싸고 지금 혼�
 
 ## P0 — 반려한 가게가 다시 올라오는 구멍 (차단 목록)
 
-### [ ] T1.1 마이그레이션 `place_blocks` — 파일만
+### [x] T1.1 마이그레이션 `place_blocks` — 파일만
 
 - 근거: 위 표 1행. 분석은 `rejected` 를 읽지 않는다(`scripts/analyze-candidates.mjs:243` 은 `pending` 만).
 - 읽을 것: `supabase/migrations/20260922120000_narrow_grants.sql`(GRANT·정책 패턴) · `20260929120000_places_archive.sql`(트리거로 시각 찍는 패턴) · D1·D2.
@@ -182,6 +182,7 @@ P0 세 줄은 독립이다. 권장: T2.1(문구·색, 가장 싸고 지금 혼�
 - 수용 기준: 파일이 `supabase/migrations/` 규칙(타임스탬프 접두)대로 있고, `anon` 에 어떤 grant 도 없다(`grep anon` 결과 0).
 - 문서: data-pipeline 「스키마 요약」 · 이 태스크.
 - 커밋: `feat(db) - 가게 차단 목록 place_blocks 마이그레이션 — 분석이 반려한 가게를 다시 올리지 않게`
+- > 메모: 마이그레이션은 파일만(원격 미적용 — H.1). 09 의 「문서」 표대로 `decisions/ADR-020-pipeline-stages-and-blocklist.md` 초안(D1~D7)을 같은 커밋에 넣었다. 단계 밖이지만 ADR 을 새로 만들면 목록이 따라가야 해 `docs/ARCHITECTURE.md` ADR 표 한 줄 · `CLAUDE.md` 의 "ADR 19편" → "20편" 을 함께 고쳤다. 마이그레이션 머리 주석에 `anon` 낱말이 걸리지 않게(수용 기준 `grep anon` 0) "비로그인(공개) 역할" 로 적었다.
 
 ### [ ] T1.2 분석이 차단 목록을 읽는다
 
