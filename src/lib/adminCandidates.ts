@@ -16,7 +16,7 @@ import { parseRegion } from '../../scripts/lib/placeFields.mjs';
 import { feeLinesOf } from '../../scripts/lib/petPolicyFacts.mjs';
 import { parsePetPolicy, toPetBadges, withPolicyFacts, type TPetBadge } from './petPolicy';
 import { PLACES } from './places';
-import type { TDirection, TPetPolicyFacts, TRegion } from '../types';
+import type { TDirection, TPetPolicyFacts, TRegion, TStayEnvironment } from '../types';
 
 export type TCandidateType = 'stay' | 'restaurant' | 'cafe' | 'other';
 export type TCandidateTier = 'auto' | 'ask' | 'new';
@@ -56,6 +56,8 @@ export type TCandidateExtracted = {
   features?: string | null;
   stayPriceText?: string | null;
   stayAmenitiesText?: string | null;
+  /** 숙소 환경(10 F6). 원문 근거가 없는 true 는 추출 단계에서 이미 빠졌다(`correctStayEnvironment`). */
+  stayEnvironment?: TStayEnvironment | null;
   visited?: boolean;
   petAllowed?: 'yes' | 'no' | 'unknown';
   evidence?: string[];
@@ -119,6 +121,8 @@ export type TPlaceRow = {
   homepage_image?: string | null;
   stay_price_text: string | null;
   stay_amenities_text: string | null;
+  /** 숙소 환경(마이그레이션 20261001160000 전에는 칸이 없다 — 선택). */
+  stay_environment?: TStayEnvironment | null;
   sort: number | null;
   status: TPlaceStatus;
   source: string;

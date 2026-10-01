@@ -13,7 +13,7 @@ import { PlacesPageTypeTabs } from './placesPageTypeTabs';
 import { usePlaceTypeSwitch } from './placesPageTypeSwitch';
 import { Input } from '../components/base/input';
 import { DIRECTION_LABEL, TYPE_META, placesOfType } from '../lib/places';
-import { PET_FILTERS, comparePrice, resetFiltersLabel, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
+import { PET_FILTERS, comparePrice, envFiltersWithData, resetFiltersLabel, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
 import { sortByEligibility } from '../lib/sortByEligibility';
 import { distancesFrom, sortByDistance } from '../lib/distanceSort';
 import { LOCATE_NOTICE, locateMe } from '../lib/myLocation';
@@ -72,6 +72,12 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
   }, [type, town]);
   const townHasNoPlaces = town !== null && byTown.length === 0;
 
+  /** 이 종류에서 고를 수 있는 조건 전부 — 반려동물 조건 + (숙소) 데이터가 있는 환경 조건(10 F6). 칩·걸러 내기가 같은 목록을 본다. */
+  const filtersOfType = useMemo(
+    () => (type === 'stay' ? [...PET_FILTERS.stay, ...envFiltersWithData(placesOfType('stay'))] : PET_FILTERS[type]),
+    [type],
+  );
+
   const results = useMemo(() => {
     let list = byTown;
 
@@ -87,9 +93,9 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     if (directions.length > 0) {
       list = list.filter((place) => directions.includes(place.region.direction));
     }
-    const activeTests = PET_FILTERS[type].filter((filter) => petKeys.includes(filter.key));
+    const activeTests = filtersOfType.filter((filter) => petKeys.includes(filter.key));
     if (activeTests.length > 0) {
-      list = list.filter((place) => activeTests.every((filter) => filter.test(place.policy)));
+      list = list.filter((place) => activeTests.every((filter) => filter.test(place.policy, place)));
     }
     // "실내 자리 필요"(needsIndoor)는 이미 judgeEligibility(opts) 를 통해 야외 전용 장소를
     // 어려움으로 밀어 올린다 — 그 결과를 hideHard 가 걸러낸다. 여기서 policy.indoor 를
@@ -108,7 +114,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
       list = sortByEligibility(list, eligibilityMap, (place) => place.id);
     }
     return list;
-  }, [byTown, type, query, directions, petKeys, sort, origin, hideHard, eligibilityMap]);
+  }, [byTown, filtersOfType, query, directions, petKeys, sort, origin, type, hideHard, eligibilityMap]);
 
   const distances = useMemo(() => (sort === 'near' && origin ? distancesFrom(results, origin) : undefined), [origin, results, sort]);
 
@@ -189,7 +195,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
       label: DIRECTION_LABEL[direction],
       onRemove: () => toggleDirection(direction),
     })),
-    ...PET_FILTERS[type]
+    ...filtersOfType
       .filter((filter) => petKeys.includes(filter.key))
       .map((filter) => ({ key: `pet-${filter.key}`, label: filter.label, onRemove: () => togglePetKey(filter.key) })),
     ...(sort !== 'none'

@@ -73,7 +73,8 @@ export function toPlace(f) {
     images: f.images ?? [],
   };
   if (f.type === 'stay') {
-    place.stay = { price: parsePrice(f.stayPriceText), amenitiesText: clean(f.stayAmenitiesText) };
+    // 환경(10 F6)은 AI 가 읽은 값이 있을 때만 — 시드는 undefined 라 키가 빠져 JSON 바이트가 그대로다(앱이 정규식으로 읽는다).
+    place.stay = { price: parsePrice(f.stayPriceText), amenitiesText: clean(f.stayAmenitiesText), environment: f.stayEnvironment ?? undefined };
   }
   return place;
 }
@@ -106,6 +107,7 @@ export function fromPlaceRow(row) {
     verifiedAt: row.verified_at,
     stayPriceText: row.stay_price_text,
     stayAmenitiesText: row.stay_amenities_text,
+    stayEnvironment: row.stay_environment,
   });
 }
 

@@ -57,6 +57,7 @@ const goodPlace = {
   features: '바다 보이는 카페',
   stayPriceText: null,
   stayAmenitiesText: null,
+  stayEnvironment: null,
   isJeju: true,
   visited: true,
   petAllowed: 'yes',
@@ -547,5 +548,20 @@ describe('createUsageMeter', () => {
     const meter = createUsageMeter();
     meter.totals().calls = 99;
     expect(meter.totals().calls).toBe(0);
+  });
+});
+
+describe('stayEnvironment — 숙소 환경(10 F6)', () => {
+  it('숙소만, 근거 단어가 있는 true 만 남긴다', () => {
+    const stay = {
+      ...goodPlace,
+      type: 'stay',
+      features: '잔디 마당이 있는 독채예요.',
+      stayEnvironment: { standalone: true, yard: true, fencedYard: true, stairs: true },
+    };
+    const [parsed] = parseExtraction(withPlaces([stay])).places;
+    expect(parsed.stayEnvironment).toEqual({ standalone: true, yard: true, fencedYard: null, stairs: null });
+    const [cafe] = parseExtraction(withPlaces([{ ...stay, type: 'cafe' }])).places;
+    expect(cafe.stayEnvironment).toBeNull();
   });
 });

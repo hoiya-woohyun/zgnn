@@ -229,7 +229,8 @@ P3  F11 다두 what-if
 
 ### P2
 
-- [ ] **T3.1 F6 환경 칸** — AI 추출 스키마에 `environment: { standalone, fencedYard, stairs }`(null = 원문에 없음) + `correctPetPolicyFacts` 와 같은 자리의 근거 단어 확인 + 시드 86곳은 `features` 정규식 시드(검수 대조군) + `/admin` 칸 + `data:pull`. 숙소 필터 셋은 §7 뒤. 문서: [ADR-017](../decisions/ADR-017-ai-structured-pet-policy.md) 에 칸 추가 이력 · [pet-policy-and-eligibility](../architecture/pet-policy-and-eligibility.md)(판정에 **안 들어간다** 고 명시).
+- [x] **T3.1 F6 환경 칸** — AI 추출 스키마에 `environment: { standalone, fencedYard, stairs }`(null = 원문에 없음) + `correctPetPolicyFacts` 와 같은 자리의 근거 단어 확인 + 시드 86곳은 `features` 정규식 시드(검수 대조군) + `/admin` 칸 + `data:pull`. 숙소 필터 셋은 §7 뒤. 문서: [ADR-017](../decisions/ADR-017-ai-structured-pet-policy.md) 에 칸 추가 이력 · [pet-policy-and-eligibility](../architecture/pet-policy-and-eligibility.md)(판정에 **안 들어간다** 고 명시).
+      > 메모: 칸을 **넷**으로 — `yard`(마당)를 더했다. 시드 26곳 실측에 울타리·단층 문장이 **0건**이고 마당·잔디는 13곳, 독채 8곳이라 `fencedYard` 만으로는 필터가 늘 빈다. 데이터에 걸리는 곳이 없는 칩은 그리지 않는다(`envFiltersWithData`) — 지금은 `독채`·`마당 있음` 만 선다. 모듈은 브라우저·스크립트가 같이 쓰는 `scripts/lib/stayEnvironment.mjs`, DB 칸은 `places.stay_environment`(마이그레이션 `20261001160000`, 원격 미적용). `/admin` 은 **읽기만**(후보 판·장소 상세의 `숙소 환경` 줄) — 고치기 폼의 칸은 아직 없다(틀리면 원문을 고치거나 Studio). "강아지 계단"(용품)은 건물 계단이 아니다.
 - [x] **T3.2 F7 가까운 순** — `src/lib/distanceSort.ts`(하버사인 · 좌표 없는 곳 뒤로) + 테스트 · 둘러보기 정렬에 한 줄(§7 뒤) · `myLocation` 재사용.
       > 메모: 하버사인은 이미 `places.ts` 의 `distanceKm` 이 있어 그것을 쓴다. 정렬 선택지에 `가까운 순`(모든 종류 — 그래서 정렬 칸이 식당·카페에도 선다, 가격 둘은 숙소만). 고르는 순간 `locateMe` 한 번, 거절·실패면 정렬을 안 바꾸고 `LOCATE_NOTICE` 한 줄. 좌표는 화면 state 에만. 카드 종류 옆에 거리(`distanceLabel`). 정렬 옵션 vs 토글은 §7 질문 그대로 — 기존 정렬 `Select` 에 넣은 것은 임시안.
 - [x] **T3.3 F8 장소 제안** — `kind='suggest'` 보내기 + `/admin` 「수집 완료」 탭 옆 또는 재검색 큐에 노출. 선행: ADR-019 결정 7 의 재검색 구현(03).

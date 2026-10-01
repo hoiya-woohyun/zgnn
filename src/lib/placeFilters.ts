@@ -3,14 +3,26 @@
  * 각 항목은 petPolicy.ts 가 뽑아낸 값만 본다 — 원문을 다시 읽지 않는다.
  */
 import type { TPetPolicy } from './petPolicy';
-import type { TPlaceType } from '../types';
+import type { TPlaceType, TStayEnvironment } from '../types';
 
-export type TPetFilterKey = 'indoor' | 'noCage' | 'largeDog' | 'leash' | 'feeFree' | 'multiDog';
+export type TPetFilterKey =
+  | 'indoor'
+  | 'noCage'
+  | 'largeDog'
+  | 'leash'
+  | 'feeFree'
+  | 'multiDog'
+  // 숙소 환경(10 F6) — 판정과 섞이지 않게 화면에서는 따로 묶는다(`ENV_FILTERS`).
+  | 'standalone'
+  | 'yard'
+  | 'fencedYard'
+  | 'noStairs';
 
 export type TPetFilter = {
   key: TPetFilterKey;
   label: string;
-  test: (policy: TPetPolicy) => boolean;
+  /** 둘째 인자는 숙소 환경 필터만 쓴다. */
+  test: (policy: TPetPolicy, place?: { environment?: TStayEnvironment }) => boolean;
 };
 
 /** 식당·카페와 숙소는 원문에 적힌 정보가 달라서 필터도 다르다. */
@@ -28,6 +40,22 @@ const STAY_FILTERS: TPetFilter[] = [
   // 못박은 곳만 걸린다. 숫자도 무제한 단서도 없으면 지어내지 않고 빠뜨린다.
   { key: 'multiDog', label: '2마리 이상', test: (p) => (p.maxDogs ?? 0) >= 2 || p.unlimitedDogs },
 ];
+
+/**
+ * 숙소 환경 필터(10 F6 — 은서 "조용하고 계단 없는 숙소", 태호 "둘이 뛰어놀 마당"). **true 로 확인된 곳만** 걸린다 —
+ * 모르는 곳(null)을 넣으면 "계단 없음" 에 계단 있는 곳이 섞인다. 그래서 `계단 없음` 은 단층·계단 없음이 적힌 곳뿐이라 적다.
+ * 판정(갈 수 있나)이 아니라 선호라 반려동물 조건과 다른 묶음으로 그린다.
+ */
+export const ENV_FILTERS: TPetFilter[] = [
+  { key: 'standalone', label: '독채', test: (_p, place) => place?.environment?.standalone === true },
+  { key: 'yard', label: '마당 있음', test: (_p, place) => place?.environment?.yard === true },
+  { key: 'fencedYard', label: '울타리 마당', test: (_p, place) => place?.environment?.fencedYard === true },
+  { key: 'noStairs', label: '계단 없음', test: (_p, place) => place?.environment?.stairs === false },
+];
+
+/** 데이터에 걸리는 곳이 하나라도 있는 환경 필터만 — 0곳짜리 칩은 고장으로 보인다. 순수. */
+export const envFiltersWithData = (places: readonly { environment?: TStayEnvironment; policy: TPetPolicy }[]): TPetFilter[] =>
+  ENV_FILTERS.filter((filter) => places.some((place) => filter.test(place.policy, place)));
 
 export const PET_FILTERS: Record<TPlaceType, TPetFilter[]> = {
   stay: STAY_FILTERS,

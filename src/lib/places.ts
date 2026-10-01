@@ -1,11 +1,24 @@
 import placesJson from '../data/places.json';
 import itemsJson from '../data/items.json';
 import metaJson from '../data/meta.json';
-import type { TDirection, TItem, TMeta, TPlace, TPlaceType } from '../types';
+import type { TDirection, TItem, TMeta, TPlace, TPlaceType, TStayEnvironment } from '../types';
+import { mergeStayEnvironment, parseStayEnvironment } from '../../scripts/lib/stayEnvironment.mjs';
 import { parsePetPolicy, withPolicyFacts, type TPetPolicy } from './petPolicy';
 
-/** 장소 한 건 + 미리 파싱해 둔 반려동물 이용 조건. */
-export type TPlaceEntry = TPlace & { policy: TPetPolicy };
+/** 장소 한 건 + 미리 파싱해 둔 반려동물 이용 조건 + (숙소만) 환경. */
+export type TPlaceEntry = TPlace & { policy: TPetPolicy; environment?: TStayEnvironment };
+
+/**
+ * 숙소 환경(10 F6) — AI 가 읽은 값(`stay.environment`)이 칸마다 정본이고, 없는 칸은 소개·용품·조건 원문을 정규식으로 읽는다(시드의 대조군).
+ * 판정에는 넣지 않는다(선호다) — 숙소 필터와 상세의 한 줄만 쓴다.
+ */
+const environmentOf = (place: TPlace): TStayEnvironment | undefined =>
+  place.stay
+    ? (mergeStayEnvironment(
+        parseStayEnvironment([place.features, place.stay.amenitiesText, place.petPolicyText].join('\n')),
+        place.stay.environment ?? null,
+      ) as TStayEnvironment)
+    : undefined;
 
 // JSON 은 구조만 맞고 타입 리터럴(예: direction)까지는 좁혀지지 않아 한 번만 단언한다.
 const rawPlaces = placesJson as unknown as TPlace[];
@@ -14,6 +27,7 @@ export const PLACES: TPlaceEntry[] = rawPlaces.map((place) => ({
   ...place,
   // 블로그 경로의 장소는 AI 판단(petPolicy)이 정규식 결과를 덮는다. 시드는 petPolicy 가 없어 정규식 그대로(ADR-017).
   policy: withPolicyFacts(parsePetPolicy(place.petPolicyText), place.petPolicy, place.petPolicyText),
+  environment: environmentOf(place),
 }));
 
 export const PLACES_BY_ID = new Map(PLACES.map((place) => [place.id, place]));

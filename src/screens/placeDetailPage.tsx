@@ -14,6 +14,7 @@ import { PlaceItemsNote } from '../components/placeItemsNote';
 import { PetBadges } from '../components/petBadges';
 import { formatStayPrice } from '../lib/format';
 import { getPlace } from '../lib/places';
+import { environmentPhrases } from '../lib/stayEnvironmentView';
 
 /**
  * id 는 라우트가 정해 준다(`app/place/[id]/page.tsx`). 거기서 이미 존재를 확인하므로
@@ -22,6 +23,7 @@ import { getPlace } from '../lib/places';
 export function PlaceDetailPage({ id }: { id: string }) {
   const place = getPlace(id);
   if (!place) notFound();
+  const environment = environmentPhrases(place.environment);
 
   return (
     <article>
@@ -61,7 +63,7 @@ export function PlaceDetailPage({ id }: { id: string }) {
       </section>
 
       {/* 블로그에서 들어온 신규 숙소는 요금·용품 원문이 비어 있을 수 있다 — 있는 항목만 그리고, 둘 다 없으면 절을 통째로 뺀다. */}
-      {place.stay && (place.stay.price.text !== '' || place.stay.amenitiesText !== '') && (
+      {place.stay && (place.stay.price.text !== '' || place.stay.amenitiesText !== '' || environment.length > 0) && (
         <section className="mt-6 px-4 md:px-6">
           <h2 className="text-lg font-bold text-primary">숙박 요금과 용품</h2>
           <dl className="mt-2 divide-y divide-secondary rounded-2xl border border-secondary bg-primary">
@@ -78,6 +80,13 @@ export function PlaceDetailPage({ id }: { id: string }) {
               <div className="p-4">
                 <dt className="text-xs text-tertiary">반려동물 용품</dt>
                 <dd className="mt-0.5 text-sm text-secondary">{place.stay.amenitiesText}</dd>
+              </div>
+            )}
+            {/* 숙소 환경(10 F6) — 판정이 아니라 선호라 이용 카드가 아닌 이 절에 둔다. 아는 것만 말한다. */}
+            {environment.length > 0 && (
+              <div className="p-4">
+                <dt className="text-xs text-tertiary">숙소 환경</dt>
+                <dd className="mt-0.5 text-sm text-secondary">{environment.join(' · ')}</dd>
               </div>
             )}
           </dl>

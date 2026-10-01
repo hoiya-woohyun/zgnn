@@ -2,7 +2,8 @@ import type { ReactNode } from 'react';
 import { Select } from '../components/base/select';
 import { FilterChip } from '../components/filterChip';
 import { DIRECTIONS, DIRECTION_LABEL, topTowns } from '../lib/places';
-import { PET_FILTERS, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
+import { envFiltersWithData, PET_FILTERS, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
+import { placesOfType } from '../lib/places';
 import type { TDirection, TPlaceType } from '../types';
 
 /**
@@ -36,6 +37,9 @@ export const SORT_OPTIONS: { id: TPlaceSort; label: string }[] = [
 /** 가격 정렬은 숙소만 — 식당·카페에는 요금 칸이 없다. 가까운 순은 모든 종류(10 F7). */
 const sortOptionsFor = (type: TPlaceType) =>
   type === 'stay' ? SORT_OPTIONS : SORT_OPTIONS.filter((option) => option.id === 'none' || option.id === 'near');
+
+/** 숙소에서 고를 수 있는 환경 조건 — 데이터는 빌드 때 고정이라 한 번만 센다. */
+const STAY_ENV_FILTERS = envFiltersWithData(placesOfType('stay'));
 
 /*
  * 가로 스크롤 줄 오른쪽 끝을 살짝 흐려서 "더 있다" 는 신호를 준다.
@@ -155,6 +159,20 @@ export function PlacesPageFilters({
           );
         })}
       </FilterGroup>
+
+      {/*
+        숙소 환경(10 F6) — 반려동물 조건과 **다른 묶음**이다. 판정(갈 수 있나)이 아니라 선호라, 한 줄에 섞으면
+        "대형견 OK" 와 "마당 있음" 이 같은 무게로 읽힌다. 데이터에 걸리는 곳이 있는 칩만 선다.
+      */}
+      {type === 'stay' && STAY_ENV_FILTERS.length > 0 && (
+        <FilterGroup variant={variant} label="숙소 환경">
+          {STAY_ENV_FILTERS.map((filter) => (
+            <FilterChip key={filter.key} pressed={petKeys.includes(filter.key)} onClick={() => onTogglePetKey(filter.key)}>
+              {filter.label}
+            </FilterChip>
+          ))}
+        </FilterGroup>
+      )}
     </div>
   );
 }

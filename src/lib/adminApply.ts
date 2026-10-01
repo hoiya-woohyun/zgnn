@@ -396,7 +396,10 @@ export async function approveGroup(
     let created: TPlaceRow;
     try {
       // 승인 즉시 published — draft 로 넣으면 Studio 를 또 열어야 해 이 화면을 만든 이유가 사라진다(ADR-018).
-      created = { ...(toNewPlaceRow(lead, { id: opts.newId() }) as unknown as TPlaceRow), status: 'published' };
+      created = {
+        ...(toNewPlaceRow(lead, { id: opts.newId(), environmentColumn: places.some((place) => 'stay_environment' in place) }) as unknown as TPlaceRow),
+        status: 'published',
+      };
     } catch (e) {
       // leadProblem 이 같은 규칙을 먼저 보므로 여기 오지 않는 게 정상이다 — 오면 그 함수의 메시지를 그대로 보여 준다.
       // 이 자리는 approved 를 이미 적은 뒤다(두 규칙이 어긋났다는 뜻). 후보는 approved 로 남아 `pnpm data:apply` 가

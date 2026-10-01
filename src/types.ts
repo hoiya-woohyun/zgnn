@@ -21,6 +21,16 @@ export type TStayPrice = {
 export type TStayInfo = {
   price: TStayPrice;
   amenitiesText: string;
+  /** AI 가 원문에서 읽은 숙소 환경(`places.stay_environment`, 10 F6). 시드는 없다 — 앱이 정규식으로 읽은 값과 합친다(`TPlaceEntry.environment`). */
+  environment?: TStayEnvironment;
+};
+
+/** 숙소 환경 — 칸마다 true · false · null(원문에 없음). 판정에는 쓰지 않는다(선호). `scripts/lib/stayEnvironment.mjs`. */
+export type TStayEnvironment = {
+  standalone: boolean | null;
+  yard: boolean | null;
+  fencedYard: boolean | null;
+  stairs: boolean | null;
 };
 
 /**
