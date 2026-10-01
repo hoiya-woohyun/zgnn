@@ -70,6 +70,8 @@ export function AdminPagePlaceRow({
 }: TAdminPagePlaceRowProps) {
   const [reason, setReason] = useState<TArchiveReason | null>(null);
   const [note, setNote] = useState('');
+  /** '되살리기(게시중으로)' 를 눌러 한 번 더 묻는 중 — 되살리면 초안이었던 행도 게시가 된다. */
+  const [askingRestore, setAskingRestore] = useState(false);
   const busy = state.busy;
   const archived = place.status === 'archived';
   const why = archived ? noteLineText(lastNoteLine(place.archive_note)) : undefined;
@@ -172,15 +174,30 @@ export function AdminPagePlaceRow({
           */}
         <div className="flex items-center max-md:mt-2 md:justify-end">
           {state.archiving ? null : archived ? (
-              <Button
-                color="primary"
-                size="sm"
-                isDisabled={Boolean(busy)}
-                isLoading={busy === 'restoring'}
-                onClick={onRestore}
-              >
-                {busy === 'restoring' ? '되살리는 중…' : '되살리기'}
-              </Button>
+              askingRestore || busy === 'restoring' ? (
+                <div className="flex flex-wrap items-center gap-1.5 md:justify-end">
+                  <span className="text-xs text-tertiary">사이트에 다시 보여요. 되살릴까요?</span>
+                  <Button
+                    color="secondary"
+                    size="sm"
+                    isDisabled={Boolean(busy)}
+                    isLoading={busy === 'restoring'}
+                    onClick={() => {
+                      setAskingRestore(false);
+                      onRestore();
+                    }}
+                  >
+                    {busy === 'restoring' ? '되살리는 중…' : '되살리기'}
+                  </Button>
+                  <Button color="tertiary" size="sm" isDisabled={Boolean(busy)} onClick={() => setAskingRestore(false)}>
+                    취소
+                  </Button>
+                </div>
+              ) : (
+                <Button color="secondary" size="sm" isDisabled={Boolean(busy)} onClick={() => setAskingRestore(true)}>
+                  되살리기(게시중으로)
+                </Button>
+              )
             ) : (
               /*
                * 초안에 '올리기' 버튼을 두지 않는다. `restorePlace` 를 그대로 쓰면 두 가지가 조용히 틀린다 —
