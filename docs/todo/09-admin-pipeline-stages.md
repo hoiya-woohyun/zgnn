@@ -377,12 +377,13 @@ P0 세 줄은 독립이다. 권장: T2.1(문구·색, 가장 싸고 지금 혼�
 - 커밋: `fix(admin) - 되살리기는 게시라고 말하고 한 번 묻는다`
 - > 메모: 확인 상태는 행(`adminPagePlaceRow`)의 로컬 `useState`. 되살리는 중에도 확인 줄이 남아 스피너가 거기서 돈다.
 
-### [ ] T6.3 일괄 줄의 주 버튼이 늘 핑크 `올리기` 다 — 한 줄은 `동반 근거 없음` 이면 주 버튼을 `반려` 로 뒤집는데
+### [x] T6.3 일괄 줄의 주 버튼이 늘 핑크 `올리기` 다 — 한 줄은 `동반 근거 없음` 이면 주 버튼을 `반려` 로 뒤집는데
 
 - 근거: 한 줄 결정 줄은 교차점검 `동반 근거 없음`·`동반 불가 정황` 이면 올리기를 회색으로 내린다(`adminPageGroupActions.tsx:47`). 일괄 줄은 그 구성을 모르고 늘 `color="primary"` `올리기`(`adminPageBulkBar.tsx:100-102`). 경고 드롭다운으로 `근거 없음` 만 걸러 머리글 체크로 전부 고르면, 한 줄에서 막은 것("5곳이 핑크 한 번씩에 게시")이 일괄로 되돌아온다.
 - 단계: `adminBulk.ts` 에 순수 `bulkApproveSummary(groups, selected)` → `{ ok, noEvidence, addressUnresolved, noRegion, archivedTarget, ask }`. 하나라도 0 이 아니면 `올리기` 를 `secondary` 로, 확인 문장은 "N곳 올려요 · 근거 없음 M곳·주소 다름 K곳은 건너뛰어요"(지금은 고정 문장, `adminPage.tsx:1152`). 덮어쓰기의 `bulkLatestSummary` 와 같은 꼴.
 - 수용 기준: 테스트 — 고른 것에 `noEvidence` 하나 → 요약에 그 수, 주 버튼 톤 `secondary`.
 - 커밋: `fix(admin) - 일괄 올리기가 고른 것의 구성을 세고, 근거 없는 줄이 있으면 주 버튼을 내린다`
+- > 메모: `bulkApproveSummary(groups, selected, places?)` — 내린 곳 짝을 보려고 셋째 인자(장소 캐시)를 더했다. 근거 없음 줄은 `approveGroup` 이 **건너뛰지 않으므로** 문장은 "건너뛰어요" 가 아니라 "그중 근거 없음 M곳도 그대로 올라가요" 로 적는다(지역 없음·주소 다름·내린 곳만 건너뛴다). `ask` 는 분석 때 `tier==='ask'` 이고 짝이 없는 줄 — 올릴 때 멈출 수 있다는 어림이다(확정은 `approveGroup` 의 재대조). 주 버튼은 `bulkApproveNeedsLook` 이 참이면 `secondary`. 화면 스크린샷(T6.1 수용 기준)은 /admin 이 로그인 세션을 요구해 찍지 못했다.
 
 ## P1 — 운영자를 느리게 하는 자리 (UX 감사)
 

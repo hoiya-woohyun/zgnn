@@ -11,7 +11,7 @@ import { approveGroup, rejectGroup, saveEdit, setRegion } from '../lib/adminAppl
 import { aiOriginalOf, buildEdit, chooseAddress, type TCandidateEditDraft } from '../lib/adminEdit';
 import { addressUnresolved, type TAddressChoice } from '../lib/adminAddress';
 import { prepareReanalyze, reanalyzePlan, reanalyzeSummary } from '../lib/adminReanalyze';
-import { bulkLatestSummary, bulkLatestTargets, summarizeBulk, type TBulkTally } from '../lib/adminBulk';
+import { bulkApproveNeedsLook, bulkApproveSummary, bulkApproveText, bulkLatestSummary, bulkLatestTargets, summarizeBulk, type TBulkTally } from '../lib/adminBulk';
 import {
   countStrandedCandidates,
   fetchMatchablePlaces,
@@ -1143,13 +1143,14 @@ export function AdminPage() {
           summary={bulk.summary}
           error={bulk.error}
           latestCount={selectedKeys.length ? bulkLatestTargets(groups.filter((group) => selectedSet.has(group.key)), placesView).eligible.length : 0}
+          approveNeedsLook={bulkApproveNeedsLook(bulkApproveSummary(groups, selectedKeys, placesView))}
           confirmText={
             bulk.mode === 'reanalyze' && selectedKeys.length
               ? reanalyzeSummary(planFor(selectedKeys))
               : bulk.mode === 'latest'
                 ? bulkLatestSummary(bulkLatestTargets(groups.filter((group) => selectedSet.has(group.key)), placesView))
                 : bulk.mode === 'approve'
-                  ? `${selectedKeys.length}곳을 올려요. 짝이 있으면 그 장소의 빈 칸만 채우고, 없으면 새 장소로 올라가요. 같은 곳인지 애매한 줄·짝이 내린 곳인 줄은 건너뛰고 그 줄에 고를 것을 띄워 둬요. 지역이 없거나 주소가 두 곳인 줄은 올라가지 않아요.`
+                  ? bulkApproveText(bulkApproveSummary(groups, selectedKeys, placesView))
                   : undefined
           }
           onToggleAll={(next) =>
