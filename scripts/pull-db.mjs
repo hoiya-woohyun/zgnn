@@ -3,7 +3,7 @@
 // 키가 없으면 조용히 스냅샷을 쓰지 않고 실패한다 — CI 가 옛 데이터로 조용히 빌드되는 걸 막기 위해서다.
 // readOnly: published 만 읽으므로 로그인 없이 publishable(anon) 키로도 된다 — Vercel 빌드가 이 경로다. RLS 가 그 집합만 연다(ADR-016 v5).
 import { writeDataJson } from './lib/dataJson.mjs';
-import { fromPlaceRow, toItem } from './lib/placeFields.mjs';
+import { fromPlaceRow, toItem, withReportFlags } from './lib/placeFields.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
 
 const supabase = createSupabase({ readOnly: true });
@@ -30,7 +30,12 @@ if (placeRows.length === 0 || itemRows.length === 0) {
   process.exit(1);
 }
 
-const places = placeRows.map(fromPlaceRow);
+// 열린 폐업 제보가 있는 곳(ADR-021 R5) — 상세가 "○년 ○월 확인" 을 그리지 않게. 함수가 원격에 없으면(마이그레이션 `20261001150000` 전)
+// 경고 한 줄 뒤 표식 없이 간다: 이 표식은 날짜 하나를 숨길 뿐이라, 이것 때문에 배포를 멈추면 잃는 것이 더 크다.
+const { data: reportFlags, error: flagsError } = await supabase.rpc('place_report_flags');
+if (flagsError) console.warn(`제보 표식을 읽지 못했다(${flagsError.code ?? ''} ${flagsError.message}) — 표식 없이 계속한다.`);
+
+const places = withReportFlags(placeRows.map(fromPlaceRow), flagsError ? [] : reportFlags);
 
 const items = itemRows.map((row) => toItem({
   id: row.id,
@@ -45,4 +50,4 @@ const ROOT = new URL('../', import.meta.url);
 await writeDataJson(new URL('src/data/places.json', ROOT), places);
 await writeDataJson(new URL('src/data/items.json', ROOT), items);
 
-console.log(`pull 완료: places ${places.length} (published) · items ${items.length}`);
+console.log(`pull 완료: places ${places.length} (published) · items ${items.length} · 폐업 제보 표식 ${places.filter((place) => place.openReportKinds).length}`);

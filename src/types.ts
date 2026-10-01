@@ -118,6 +118,11 @@ export type TPlace = {
   cover?: string;
   images: string[];
   stay?: TStayInfo;
+  /**
+   * 열린 폐업 제보(`closed`·`replaced`)가 있다 — 빌드 때 `data:pull` 이 `place_report_flags()` 로 얹는다(ADR-021 R5).
+   * 있으면 상세가 "최근 확인" 날짜를 그리지 않는다. 내용·건수는 싣지 않는다.
+   */
+  openReportKinds?: string[];
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

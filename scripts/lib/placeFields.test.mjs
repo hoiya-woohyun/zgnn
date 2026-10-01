@@ -89,3 +89,15 @@ describe('verifiedAt', () => {
     expect('verifiedAt' in JSON.parse(JSON.stringify(fromPlaceRow({ ...row, verified_at: null })))).toBe(false);
   });
 });
+
+describe('withReportFlags', () => {
+  it('표식이 있는 장소에만 맨 뒤 키로 얹는다', async () => {
+    const { withReportFlags } = await import('./placeFields.mjs');
+    const places = [{ id: 'a', images: [] }, { id: 'b', images: [] }];
+    const out = withReportFlags(places, [{ place_id: 'b', kinds: ['replaced', 'closed'] }, { place_id: 'x', kinds: [] }]);
+    expect(out[0]).toBe(places[0]);
+    expect(Object.keys(out[1]).at(-1)).toBe('openReportKinds');
+    expect(out[1].openReportKinds).toEqual(['closed', 'replaced']);
+    expect(withReportFlags(places, null)).toEqual(places);
+  });
+});

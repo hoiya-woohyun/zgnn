@@ -2,6 +2,7 @@
 
 import { notFound } from 'next/navigation';
 import { PlaceDetailActions } from './placeDetailActions';
+import { PlaceDetailFreshness } from './placeDetailFreshness';
 import { PlaceDetailHeader } from './placeDetailHeader';
 import { PlaceDetailGallery } from './placeDetailGallery';
 import { PlaceDetailHomepage } from './placeDetailHomepage';
@@ -12,7 +13,7 @@ import { PlaceDetailReport } from './placeDetailReport';
 import { PlaceItemsNote } from '../components/placeItemsNote';
 import { PetBadges } from '../components/petBadges';
 import { formatStayPrice } from '../lib/format';
-import { TYPE_META, getPlace } from '../lib/places';
+import { getPlace } from '../lib/places';
 
 /**
  * id 는 라우트가 정해 준다(`app/place/[id]/page.tsx`). 거기서 이미 존재를 확인하므로
@@ -51,9 +52,8 @@ export function PlaceDetailPage({ id }: { id: string }) {
             <p className="whitespace-pre-line text-sm text-secondary">
               <HighlightedPolicyText text={place.petPolicyText} place={place} />
             </p>
-            <p className="mt-3 text-xs text-tertiary">
-              {TYPE_META[place.type].label} 정보는 바뀔 수 있어요. 방문 전 한 번 더 확인해 주세요.
-            </p>
+            {/* 확인 날짜가 있으면 그 달을, 없으면 예전 문장(10 F3). */}
+            <PlaceDetailFreshness place={place} />
           </div>
         </div>
 
