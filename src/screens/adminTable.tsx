@@ -58,7 +58,7 @@ export const ADMIN_CANDIDATE_GRID = cx(
  * 빈 사유 칸이라, 두 열이 표 폭의 1/5 을 먹으면서 말하는 것은 두 줄뿐이었다.
  */
 export const ADMIN_PLACE_GRID = cx(
-  'md:grid md:grid-cols-[minmax(0,2.4fr)_8.5rem_minmax(0,2.4fr)_minmax(0,4.6fr)_4rem_7.5rem]',
+  'md:grid md:grid-cols-[minmax(0,2.4fr)_8.5rem_minmax(0,2.4fr)_minmax(0,4.6fr)_4rem_10.5rem]',
   CELL_RULES,
 );
 
