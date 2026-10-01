@@ -1,4 +1,5 @@
 import { SAVED_MARKER_COLOR, TYPE_COLOR } from './places';
+import { PLACE_TYPE_GLYPH } from './placeTypeGlyph';
 import type { TPlaceType } from '../types';
 
 /*
@@ -7,18 +8,18 @@ import type { TPlaceType } from '../types';
  */
 
 /**
- * 핀의 **모양은 네이버 표준을 그대로 따르고**, 우리가 정하는 것은 **색 하나**다.
+ * 핀의 **몸통은 네이버 표준을 그대로 따르고**, 우리가 정하는 것은 **색과 흰 원 안의 그림**이다.
  *
  * 모양은 추측이 아니라 SDK 가 쓰는 기본 마커 에셋(`marker-default.png`, 22×33)을 받아
  * 픽셀을 재서 옮긴 것이다(2026-09-28). 그 핀의 특징은 셋이다 —
  *  1. 가로:세로가 **2:3**(22×33). 예전 핀은 26×36(1:1.38)이라 더 뭉툭했다.
  *  2. 머리의 **대부분이 흰 원**이다(바깥 반지름 10.5 중 흰 원이 8 — 색 테두리는 2.5뿐).
- *  3. 그 흰 원 안에 **종류 색 역삼각형(▼)** 이 있다. 이게 네이버 핀을 네이버 핀으로 읽히게
- *     하는 부분이라, 흰 ▼ 로 뒤집지 않는다 — 뒤집으면 아무도 네이버 핀으로 보지 않는다.
- *     삼각형은 **무게중심**이 흰 원의 중심에 오게 놓는다(에셋의 구성이 그렇다).
+ *  3. 표준은 그 흰 원 안에 색 ▼ 를 둔다. 우리는 그 자리에 **종류 아이콘**(침대·숟가락과 포크·컵)을
+ *     종류 색 선으로 넣는다(2026-10-01 사용자 결정) — 색만으로 가르던 종류를 그림으로도 가른다.
+ *     색맹이거나 색이 비슷한 핀이 겹쳐도 종류가 읽힌다. 그림은 화면 아이콘과 같은 `PLACE_TYPE_GLYPH` 다.
  *
  * 색을 종류별로 남기는 이유는 이 앱에 장소 사진이 없어서다(ADR-002) — 종류를 가르는 신호가
- * 색뿐이라 표준 핀의 파랑 하나로 통일할 수 없다. 색값 자체는 `TYPE_COLOR` 그대로 쓴다.
+ * 색과 아이콘뿐이라 표준 핀의 파랑 하나로 통일하지 않는다. 색값 자체는 `TYPE_COLOR` 그대로 쓴다.
  *
  * 흰 테두리(`stroke`)는 **표준 에셋에 없는 의도적 이탈**이다. 이 지도는 81곳이 북·동 해안에
  * 몰려 마커가 서로 겹치는데, 표준 핀은 머리가 이미 흰색이라 후광이 없으면 겹친 핀들의
@@ -46,8 +47,8 @@ const PIN_SELECTED = { width: 32, height: 48 } as const;
 const PIN_VIEWBOX = { width: 22, height: 33 } as const;
 
 /**
- * 저장한 곳의 핀. 핀은 그대로 두고 **머리 오른쪽 위에 하트 배지**를 얹는다 — 흰 원 안의 ▼ 를
- * 하트로 바꾸지 않는 이유는 위 주석과 같다(▼ 가 네이버 핀을 네이버 핀으로 읽히게 한다).
+ * 저장한 곳의 핀. 핀은 그대로 두고 **머리 오른쪽 위에 하트 배지**를 얹는다 — 흰 원 안의 아이콘을
+ * 하트로 바꾸지 않는다. 바꾸면 저장한 곳만 종류를 잃는다.
  *
  * 배지(중심 22.5, 6.5 · 반지름 5.5 · 흰 테두리 1.5)가 핀 viewBox 를 오른쪽·위로 넘으므로 캔버스를
  * 29×35 로 넓히고 핀을 아래로 2 내린다. 오른쪽 끝 22.5+5.5+0.75=28.75, 위 끝 6.5-5.5-0.75=0.25,
@@ -62,6 +63,27 @@ const HEART =
   'M12 20.5C12 20.5 3 15 3 9.2 3 6.3 5.2 4.3 7.7 4.3c1.8 0 3.4 1 4.3 2.5.9-1.5 2.5-2.5 4.3-2.5 2.5 0 4.7 2 4.7 4.9 0 5.8-9 11.3-9 11.3Z';
 
 /**
+ * 흰 원 안의 종류 아이콘. 화면 아이콘과 같은 선 데이터(`PLACE_TYPE_GLYPH`)를 줄여 넣는다.
+ *
+ * 24 칸 그림을 `GLYPH_SCALE` 로 줄여 흰 원(중심 11, 11.4 · 반지름 7.75)의 가운데에 놓는다.
+ * 그림의 실제 폭(3~21, 18칸)이 9 가 되어 원 안에 여백 3.25 씩이 남는다 — 더 키우면 원에 닿아
+ * 아이콘이 아니라 얼룩으로 보인다. 획은 화면 아이콘의 2 보다 굵은 `GLYPH_STROKE` 다: 줄이면
+ * 획도 같이 가늘어져 기본 핀(26px)에서 1px 아래로 떨어지고, 지도 위에서 흐릿하게 사라진다.
+ */
+const GLYPH_SCALE = 0.5;
+const GLYPH_STROKE = 2.5;
+
+function glyphSvg(type: TPlaceType, color: string): string {
+  const offsetX = +(11 - 12 * GLYPH_SCALE).toFixed(2);
+  const offsetY = +(11.4 - 12 * GLYPH_SCALE).toFixed(2);
+  const paths = PLACE_TYPE_GLYPH[type].map((d) => `<path d="${d}"/>`).join('');
+  return (
+    `<g transform="translate(${offsetX} ${offsetY}) scale(${GLYPH_SCALE})" fill="none" stroke="${color}" ` +
+    `stroke-width="${GLYPH_STROKE}" stroke-linecap="round" stroke-linejoin="round">${paths}</g>`
+  );
+}
+
+/**
  * 종류 색을 입힌 핀 SVG 를 data URI 로. 외부 이미지를 받지 않아 오프라인에서도 그려진다
  * (이 앱은 글꼴까지 self-host 한다 — 런타임 외부 요청을 늘리지 않는다). 네이버가 내려주는
  * `marker-default.png` 를 그대로 쓰지 않는 이유가 이것이고, 종류별 색도 거기선 못 준다.
@@ -71,14 +93,10 @@ function pinSvg(type: TPlaceType, saved: boolean, width: number, height: number)
   // 물방울: 머리는 중심 (11, 11.4)·반지름 10.2 의 원, 꼬리는 좌우 대칭으로 (11, 32.2) 까지.
   const body =
     'M11 1.2 C5.367 1.2 0.8 5.767 0.8 11.4 c0 7.9 10.2 20.8 10.2 20.8 S21.2 19.3 21.2 11.4 C21.2 5.767 16.633 1.2 11 1.2 Z';
-  // 흰 원(r 7.75) 안의 ▼. 에셋에서 잰 밑변 8·높이 5.5 를 머리를 줄인 비율(10.2/10.5)로 옮겼다.
-  // 꼭짓점 15 는 무게중심을 맞추려고 고른 값이다 — (9.6+9.6+15)/3 = 11.4 로 원 중심과 **정확히**
-  // 겹친다(에셋의 구성이 그렇다). 14.95 로 두면 11.3833 이라 0.017 어긋난다.
-  const arrow = 'M7.1 9.6 h7.8 L11 15 Z';
   const pin =
     `<path d="${body}" fill="${color}" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/>` +
     `<circle cx="11" cy="11.4" r="7.75" fill="#fff"/>` +
-    `<path d="${arrow}" fill="${color}"/>`;
+    glyphSvg(type, color);
   const box = saved ? SAVED_PIN_VIEWBOX : PIN_VIEWBOX;
   // width·height 를 박아 둔다 — 없으면 SVG 의 고유 크기가 브라우저 기본값(150 높이)으로 잡힌다.
   const svg =
