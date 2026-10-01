@@ -1,6 +1,7 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-10-01 (v24: `archived` 짝은 블랙리스트에 없을 때만 생긴다 — 등록 해제 폼이 `place_blocks` 를 같이 쓰므로(09 T1.4) 이름 축에서 먼저 걸리고, 되살리면 풀린다)
+> 최종 수정: 2026-10-01 (v25: 스키마 요약에 `place_reports`(사용자 제보, 마이그레이션 `20261001130000`, 원격 미적용) 한 줄 — [ADR-021](../decisions/ADR-021-place-reports.md))
+> 이전 (v24: `archived` 짝은 블랙리스트에 없을 때만 생긴다 — 등록 해제 폼이 `place_blocks` 를 같이 쓰므로(09 T1.4) 이름 축에서 먼저 걸리고, 되살리면 풀린다)
 > 이전 (v23: 제외 넷째 이유 `blocked` — 분석이 `place_blocks` 를 읽어 걸린 가게는 후보를 만들지 않는다. 표가 없으면 차단 0건 + 경고 한 줄)
 > 이전 (v22: 스키마 요약에 `place_blocks`(가게 차단 목록, 마이그레이션 `20261001120000`, 원격 미적용) 한 줄 — [ADR-020](../decisions/ADR-020-pipeline-stages-and-blocklist.md))
 > 이전 (v21: 제외 이유 `edited` — 사람이 고친 pending 후보가 있는 같은 글·같은 가게는 다시 읽어도 새로 만들지 않는다. 고친 이름의 원래 키는 `extracted.editedFrom.nameKey`)
@@ -303,6 +304,7 @@ flowchart LR
 | `TStayInfo` | `price: TStayPrice`, `amenitiesText` | 숙소만. `amenitiesText` 는 준비물 화면의 구비 용품 매핑에 쓰인다(`src/lib/amenities.ts`) |
 | `TItem` | `id`, `name`, `emoji`, `seasons`, `reason`, `linkUrl?`, `variants?` | 준비물. `linkUrl` 은 쿠팡 파트너스 링크라 `meta.disclosure` 를 함께 표시. `variants` 는 원본의 여러 줄을 `lib/places.ts` 의 `ITEM_VARIANTS` 가 한 항목으로 합치면서 생긴다(기내용 가방의 5kg 이하/이상) — DB·JSON 어디에도 없는 파생 필드다 |
 | `place_blocks`(DB 표, `TPlace` 아님) | `name_key`, `town?`, `display_name`, `reason`, `until?`(null=영구), `lifted_at?`, `candidate_id?`, `place_id?` | 분석이 실행마다 읽는 **가게 차단 목록**(마이그레이션 `20261001120000`, 원격 미적용 — 🧑 `db push`). `until is null or until > now()` 이고 `lifted_at` 이 null 인 행이 "걸린 것" — 스케줄러 없이 비교로 만료. DELETE grant 없음, 공개 역할 grant 없음 → [ADR-020](../decisions/ADR-020-pipeline-stages-and-blocklist.md) D1·D2 |
+| `place_reports`(DB 표, `TPlace` 아님) | `place_id?`(제안만 null), `kind`, `note?`(≤200), `app_build?`, `status`(open·handled·dismissed), `handled_note?`, `handled_at?` | 사이트 상세의 **사용자 제보**(마이그레이션 `20261001130000`, 원격 미적용 — 🧑 `db push`). 비로그인은 열 단위 insert 만(select 없음), 운영자는 select·update, DELETE 없음. **재빌드 트리거에 안 걸려 있다**(의도) → [ADR-021](../decisions/ADR-021-place-reports.md) |
 | `TMeta` | `author`, `sourceUrl`, `intro`, … | 화면 문구. 손으로 관리 |
 
 ## 관련 파일

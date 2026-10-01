@@ -200,9 +200,10 @@ P3  F11 다두 what-if
 
 ### P0 — F1 장소 제보
 
-- [ ] **T1.1 마이그레이션 `place_reports`** — 표 · CHECK(kind 목록 · note 길이 · published 또는 suggest) · anon insert grant · authenticated select/update grant · 정책 셋(anon insert with check · operators select · operators update) · delete 없음. 재빌드 트리거에 **걸지 않는다**(의도 — 주석으로 박는다).
+- [x] **T1.1 마이그레이션 `place_reports`** — 표 · CHECK(kind 목록 · note 길이 · published 또는 suggest) · anon insert grant · authenticated select/update grant · 정책 셋(anon insert with check · operators select · operators update) · delete 없음. 재빌드 트리거에 **걸지 않는다**(의도 — 주석으로 박는다).
       문서: [05](05-security.md) 「어디에 무엇이 있는지」 표에 한 줄(anon 이 처음 **쓴다**) · 새 ADR(R1~R5) · `.mdc` 의 `supabase/migrations/**` 트리거대로 [ADR-016](../decisions/ADR-016-secrets-by-login.md) 에도 한 줄.
       선행: 🙋 1·2.
+      > 메모: `20261001130000_place_reports.sql`(원격 미적용). 비로그인 insert 는 **열 단위**(`place_id, kind, note, app_build`) — `status`·`handled_*` 는 보낼 수 없다. 모양 CHECK 하나로 "제안은 장소 없음 + 이름 필수, 그 밖은 장소 필수". ADR 은 [ADR-021](../decisions/ADR-021-place-reports.md).
 - [ ] **T1.2 `src/lib/placeReport.ts`** — 순수 함수: `buildReport(place, kind, note, build)`(검증 · 길이 · suggest 의 place_id null) · `canReportNow(localRecord, now)`(24시간 한도) · 테스트. **fetch 는 여기 없다**(테스트가 Next·네트워크를 안 거친다는 규칙).
 - [ ] **T1.3 상세 화면 제보 진입** — §7 답 뒤. 보내는 쪽은 `adminSupabase.ts` 의 클라이언트를 **재사용하지 않고** 사용자 화면용 얇은 모듈(`placeReportSend.ts`)을 따로 둔다 — `/admin` 클라이언트는 세션·storageKey 를 들고 있어 사용자 화면에 끌려오면 안 된다. `.insert()` 뒤 `.select()` 없음(R2). 오프라인·실패는 `showAppStatus`.
       문서: `features/place-report.md` 신설(07 이 예고한 파일).
