@@ -18,6 +18,7 @@ import { sortByEligibility } from '../lib/sortByEligibility';
 import { distancesFrom, sortByDistance } from '../lib/distanceSort';
 import { LOCATE_NOTICE, locateMe } from '../lib/myLocation';
 import { showAppStatus } from '../lib/appStatus';
+import { PlacesPageSuggest } from './placesPageSuggest';
 import { useAppStore, useDog } from '../store/useAppStore';
 import { useEligibilityMap } from '../store/useDogEligibility';
 import { cx } from '../utils/cx';
@@ -337,6 +338,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
               onOpenFilters={() => setIsFilterSheetOpen(true)}
               distances={distances}
             />
+            <PlacesPageSuggest type={type} />
           </div>
         </div>
 

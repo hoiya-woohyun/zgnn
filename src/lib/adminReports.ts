@@ -163,3 +163,10 @@ export function visitedTallyByPlace(
   }
   return tally;
 }
+
+/** 제안 한 줄에서 검색할 이름 — 첫 구분자(쉼표·대시·가운뎃점) 앞. "카페 바당, 애월읍 — 테라스…" → "카페 바당". 순수. */
+export function suggestionSearchName(note: string | null): string {
+  const text = (note ?? '').trim();
+  const head = text.split(/[,—·]|\s-\s/)[0].trim();
+  return head || text;
+}

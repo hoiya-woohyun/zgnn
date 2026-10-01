@@ -232,7 +232,8 @@ P3  F11 다두 what-if
 - [ ] **T3.1 F6 환경 칸** — AI 추출 스키마에 `environment: { standalone, fencedYard, stairs }`(null = 원문에 없음) + `correctPetPolicyFacts` 와 같은 자리의 근거 단어 확인 + 시드 86곳은 `features` 정규식 시드(검수 대조군) + `/admin` 칸 + `data:pull`. 숙소 필터 셋은 §7 뒤. 문서: [ADR-017](../decisions/ADR-017-ai-structured-pet-policy.md) 에 칸 추가 이력 · [pet-policy-and-eligibility](../architecture/pet-policy-and-eligibility.md)(판정에 **안 들어간다** 고 명시).
 - [x] **T3.2 F7 가까운 순** — `src/lib/distanceSort.ts`(하버사인 · 좌표 없는 곳 뒤로) + 테스트 · 둘러보기 정렬에 한 줄(§7 뒤) · `myLocation` 재사용.
       > 메모: 하버사인은 이미 `places.ts` 의 `distanceKm` 이 있어 그것을 쓴다. 정렬 선택지에 `가까운 순`(모든 종류 — 그래서 정렬 칸이 식당·카페에도 선다, 가격 둘은 숙소만). 고르는 순간 `locateMe` 한 번, 거절·실패면 정렬을 안 바꾸고 `LOCATE_NOTICE` 한 줄. 좌표는 화면 state 에만. 카드 종류 옆에 거리(`distanceLabel`). 정렬 옵션 vs 토글은 §7 질문 그대로 — 기존 정렬 `Select` 에 넣은 것은 임시안.
-- [ ] **T3.3 F8 장소 제안** — `kind='suggest'` 보내기 + `/admin` 「수집 완료」 탭 옆 또는 재검색 큐에 노출. 선행: ADR-019 결정 7 의 재검색 구현(03).
+- [x] **T3.3 F8 장소 제안** — `kind='suggest'` 보내기 + `/admin` 「수집 완료」 탭 옆 또는 재검색 큐에 노출. 선행: ADR-019 결정 7 의 재검색 구현(03).
+      > 메모: 재검색 큐가 아직 없어 **수집 완료 칸 아래 목록**으로 냈다(이름 · 날짜 · 네이버에서 찾기 · `찾아봤어요`/`아니에요`) — 운영자가 손으로 수집 키워드를 돌린다. 큐가 생기면 `찾아봤어요` 를 "재검색 큐에 넣기" 로 바꾼다. 보내는 쪽은 둘러보기 목록 맨 아래 한 줄 + 같은 `ReportSheet`(이름 필수). 시트 문구·자리는 임시안(§7).
 
 ### P3
 

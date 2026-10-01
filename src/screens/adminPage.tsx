@@ -53,6 +53,7 @@ import {
   fetchReports,
   mergeReportRows,
   openReportsByPlace,
+  openSuggestions,
   reportHeadline,
   setReportStatus,
   type TReportRow,
@@ -99,6 +100,7 @@ import { AdminPageLogin } from './adminPageLogin';
 import { AdminPagePlaceList } from './adminPagePlaceList';
 import type { TAdminPagePlaceState } from './adminPagePlaceRow';
 import { AdminPagePostsPanel } from './adminPagePostsPanel';
+import { AdminPageSuggestions } from './adminPageSuggestions';
 import { ADMIN_CANDIDATE_GRID, AdminTable } from './adminTable';
 
 /**
@@ -139,6 +141,7 @@ type TTab = TAdminTab;
 
 const NO_REPORTS_BY_PLACE: Record<string, TReportRow[]> = {};
 const NO_VISITED: Record<string, TVisitedTally> = {};
+const NO_SUGGESTIONS: TReportRow[] = [];
 
 /** 탭 줄의 라벨(건수는 붙이는 쪽이 정한다) — 왼쪽에서 오른쪽이 파이프라인 순서다. */
 const TAB_LABELS: { key: TTab; label: string }[] = [
@@ -315,6 +318,9 @@ export function AdminPage() {
         : NO_VISITED,
     [managed, reports],
   );
+  const suggestions = useMemo(() => (reports?.kind === 'ok' ? openSuggestions(reports.rows) : NO_SUGGESTIONS), [reports]);
+  const [suggestionBusy, setSuggestionBusy] = useState<string | undefined>(undefined);
+  const [suggestionError, setSuggestionError] = useState<string | undefined>(undefined);
   const patchReportRows = useCallback((updated: TReportRow[]) => {
     if (updated.length === 0) return;
     const rows = mergeReportRows(reportRowsRef.current, updated);
@@ -680,6 +686,24 @@ export function AdminPage() {
       }
     },
     [afterWrite, patchPlaceState, patchReportRows],
+  );
+
+  /** 장소 제안(F8)을 닫는다 — `찾아봤어요` · `아니에요`. `places` 를 바꾸지 않는다. */
+  const closeSuggestion = useCallback(
+    async (row: TReportRow, status: 'handled' | 'dismissed') => {
+      const client = clientRef.current;
+      if (!client) return;
+      setSuggestionBusy(row.id);
+      setSuggestionError(undefined);
+      try {
+        patchReportRows(await setReportStatus(client, [row.id], status, undefined, new Date().toISOString()));
+      } catch (error) {
+        setSuggestionError(messageOf(error, '제안을 닫지 못했어요.'));
+      } finally {
+        setSuggestionBusy(undefined);
+      }
+    },
+    [patchReportRows],
   );
 
   /** 등록 해제 칸에서 블랙리스트를 넣고·바꾸고·푼다(09 T1.4 단계 4). `places` 는 안 바뀌므로 재빌드와 무관하다. */
@@ -1435,6 +1459,8 @@ export function AdminPage() {
         */}
       <div hidden={tab !== 'posts'}>
         <AdminPagePostsPanel counts={postCounts} error={postError} />
+        <AdminPageSuggestions suggestions={suggestions} busyId={suggestionBusy} onClose={(row, status) => void closeSuggestion(row, status)} />
+        {suggestionError ? <p className="mt-2 px-4 text-xs text-error-primary md:px-6">{suggestionError}</p> : null}
       </div>
       <div hidden={tab !== 'blocks'}>
         <AdminPageBlocksPanel summary={blockSummary} />

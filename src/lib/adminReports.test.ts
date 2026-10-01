@@ -9,6 +9,7 @@ import {
   reportHeadline,
   setReportStatus,
   type TReportRow,
+  suggestionSearchName,
   visitedTallyByPlace,
 } from './adminReports';
 
@@ -126,5 +127,14 @@ describe('visitedTallyByPlace', () => {
   it('열린 폐업 제보가 있으면 ready 가 서지 않는다', () => {
     const rows = [visit('a', '2026-09-20T00:00:00.000Z'), visit('b', '2026-09-28T00:00:00.000Z'), report({ id: 'c', kind: 'closed' })];
     expect(visitedTallyByPlace(rows, {}, now).p1.ready).toBe(false);
+  });
+});
+
+describe('suggestionSearchName', () => {
+  it('첫 구분자 앞을 이름으로', () => {
+    expect(suggestionSearchName('카페 바당, 애월읍 — 테라스')).toBe('카페 바당');
+    expect(suggestionSearchName('돌하르방 식당 - 한림')).toBe('돌하르방 식당');
+    expect(suggestionSearchName('  숨도  ')).toBe('숨도');
+    expect(suggestionSearchName(null)).toBe('');
   });
 });
