@@ -216,7 +216,7 @@ P0 세 줄은 독립이다. 권장: T2.1(문구·색, 가장 싸고 지금 혼�
 - 커밋: `feat(admin) - 반려가 '제외' 가 된다 — 블랙리스트에 없음·3개월·영구를 같은 자리에서 고른다`
 - > 메모: `rejectGroup` 은 그대로 두고 쓴 줄(`reviewer_note` 에 덧붙인 문자열)만 돌려주게 했다 — 새 `rejectAndBlock`(`adminBlocks.ts`)이 반려 → 차단 → 기록 한 줄 순으로 부른다. 기록 한 줄(`[admin] 블랙리스트 …`)은 차단이 **들어간 뒤에만** 붙인다(실패했는데 DB 메모만 남는 것을 막으려고, 이 쓰기가 실패해도 결과는 안 뒤집는다). 차단 행의 읍·면은 본문의 `regionOptionsFor(address).town` 이 아니라 **분석 `blockFor` 와 같은 규칙**(`extractAddressUnits(address).eupMyeon ?? townOf(regionRaw)`)으로 뽑는다 — 다르게 뽑으면 걸어 둔 차단이 다음 후보에 안 걸린다. 표가 없으면(`PGRST205`) 던지지 않고 `제외했어요 · 사유 — 블랙리스트에는 안 들어갔어요(블랙리스트 표가 아직 적용되지 않았어요)` 로 말한다. 선택 칩의 테두리 꼴은 T6.9 의 `AdminFilterChip` 이 생기기 전이라 `ring-brand` 임시 클래스. `HELP` 에 제외 한 줄, `summarizeBulkReject` 에 `blockFailed` 인자. 반려 사유 칩 값·`reviewer_note` 머리표는 그대로.
 
-### [ ] T1.4 등록 해제 폼에도 「블랙리스트에」 — 되살리면 풀린다
+### [x] T1.4 등록 해제 폼에도 「블랙리스트에」 — 되살리면 풀린다
 
 - 근거: D6(v3). 등록 해제한 가게를 쓴 새 글은 지금 `archived` 짝 후보로 올라온다(재개업 신호 — [data-pipeline v14](../architecture/data-pipeline.md)). 그것을 막을지는 **블랙리스트가** 정하고, 해제 폼이 그 결정을 같은 자리에서 받는다.
 - 선행: T1.2 · T1.3 · T3.1(등록 해제 탭이 있어야 블랙리스트 칩이 설 자리가 있다).
@@ -229,6 +229,7 @@ P0 세 줄은 독립이다. 권장: T2.1(문구·색, 가장 싸고 지금 혼�
 - 수용 기준: 해제 + 영구 → 다음 분석에서 그 이름이 `차단` 으로 제외(T1.2 테스트의 fixture 로) · 되살리기 뒤 그 가게의 열린 블랙리스트가 0건(테스트) · 대조 corpus 에서 `archived` 를 빼지 않았다(`analyze-candidates.mjs:228` 주석 그대로).
 - 문서: `features/admin-review.md` 「올린 장소를 내린다」 → 「등록 해제」 에 블랙리스트 한 줄 · data-pipeline 의 `archived` 짝 설명(v14)에 "블랙리스트에 있으면 이름 축에서 먼저 걸린다".
 - 커밋: `feat(admin) - 등록 해제할 때 블랙리스트 기간을 같은 자리에서 고른다 — 되살리면 풀린다`
+- > 메모: 폼은 `adminPagePlaceArchiveForm.tsx`(T6.8 이 같이 닫혔다). 쓰기는 `adminBlocks.ts` 의 `archiveAndBlock`·`restoreAndLift`·`setPlaceBlock` — 읍·면은 `placeBlockRowFor` 가 후보와 같은 규칙(`extractAddressUnits(address).eupMyeon ?? townOf(region_raw)`). 칩은 장소마다 가장 늦게 풀리는 열린 행 하나(`latestBlockByPlace`, 영구가 이긴다). 등록 해제 칸의 `블랙리스트` 는 고르는 즉시 쓴다(열린 것을 풀고 새로 건다, `none` 은 풀기만). 해제 폼은 사유를 미리 고른 채 열 수 있다(`archiveReason`) — 10 T1.4 의 폐업 제보가 그 길로 연다.
 
 ### [ ] T1.5 블랙리스트 탭 — 보기 · 풀기 · 기간 바꾸기
 
@@ -416,7 +417,7 @@ P0 세 줄은 독립이다. 권장: T2.1(문구·색, 가장 싸고 지금 혼�
 - 단계: 목록을 결정 줄 바로 위(`합칠 곳` 줄 자리)로 내리거나 `<details>` 로 접어 버튼 옆에서 열리게.
 - 커밋: `fix(admin) - 덮어쓰기 버튼 옆에서 바뀌는 칸을 본다`
 
-### [ ] T6.8 등록 해제 폼의 사유·메모가 취소 뒤에도 남는다
+### [x] T6.8 등록 해제 폼의 사유·메모가 취소 뒤에도 남는다
 
 - 근거: 줄의 `useState`(`adminPagePlaceRow.tsx:438-439`)라 `폐업 고름 → 취소 → 다른 날 다시` 에 `폐업` 이 미리 눌려 있다. 후보 반려 폼은 모드가 꺼지면 언마운트돼 비워진다 — 둘이 다르다. T1.4 가 두 폼에 같은 세그먼트를 재사용하므로 **그때 함께**(T1.4 단계 1 에 넣었다 — 여기서는 확인만).
 - 커밋: T1.4 에 포함.

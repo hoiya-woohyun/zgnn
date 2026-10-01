@@ -4,9 +4,8 @@ import { ChevronDown } from '@untitledui/icons';
 import { useState, type MouseEvent } from 'react';
 import { Badge } from '../components/base/badges';
 import { Button } from '../components/base/button';
-import { Input } from '../components/base/input';
+import { BLOCK_CHOICE_LABEL, blockChipText, type TBlockChoice, type TPlaceBlock } from '../lib/adminBlocks';
 import {
-  ARCHIVE_REASONS,
   lastNoteLine,
   noteLineText,
   PLACE_GAP_LABEL,
@@ -20,17 +19,22 @@ import type { TPlaceRow } from '../lib/adminCandidates';
 import type { TPlaceAddressPatch } from '../lib/adminPlaces';
 import { cx } from '../utils/cx';
 import { AdminPagePlaceAddressForm } from './adminPagePlaceAddressForm';
+import { AdminPagePlaceArchiveForm } from './adminPagePlaceArchiveForm';
 import { AdminPagePlaceDetail } from './adminPagePlaceDetail';
 import { ADMIN_PANEL_DIVIDER, ADMIN_PLACE_GRID, ADMIN_POLICY_TONE, ADMIN_ROW_OPEN } from './adminTable';
 import { AdminTypeChip } from './adminTypeChip';
 
 /** 장소 한 줄의 화면 상태. 소유자는 `adminPagePlaceList` 고 여기는 받아서 그린다(묶음 카드와 같은 모양). */
 export type TAdminPagePlaceState = {
-  busy?: 'archiving' | 'restoring' | 'savingAddress';
+  busy?: 'archiving' | 'restoring' | 'savingAddress' | 'blocking';
   done?: string;
   error?: string;
   /** '내리기' 를 눌러 사유를 고르는 중. */
   archiving?: boolean;
+  /** 해제 폼을 열 때 미리 고를 사유(폐업 제보에서 열면 `폐업`). */
+  archiveReason?: TArchiveReason;
+  /** 등록 해제 칸에서 '블랙리스트' 를 눌러 기간을 고르는 중. */
+  pickingBlock?: boolean;
   /** 펼친 상세에서 '주소·좌표 고치기' 를 눌러 패널이 열려 있다. */
   editingAddress?: boolean;
 };
@@ -50,7 +54,13 @@ type TAdminPagePlaceRowProps = {
   onToggle: () => void;
   onStartArchive: () => void;
   onCancelArchive: () => void;
-  onArchive: (reason: TArchiveReason, note: string) => void;
+  onArchive: (reason: TArchiveReason, note: string, block: TBlockChoice) => void;
+  /** 이 장소에서 건 열린 블랙리스트(등록 해제 칸의 칩). 표가 없으면 `blocksUnavailable`. */
+  block?: TPlaceBlock;
+  blocksUnavailable?: boolean;
+  onStartBlock: () => void;
+  onCancelBlock: () => void;
+  onSetBlock: (choice: TBlockChoice) => void;
   onRestore: () => void;
   onStartEditAddress: () => void;
   onCancelEditAddress: () => void;
@@ -84,9 +94,12 @@ export function AdminPagePlaceRow({
   onStartEditAddress,
   onCancelEditAddress,
   onSaveAddress,
+  block,
+  blocksUnavailable,
+  onStartBlock,
+  onCancelBlock,
+  onSetBlock,
 }: TAdminPagePlaceRowProps) {
-  const [reason, setReason] = useState<TArchiveReason | null>(null);
-  const [note, setNote] = useState('');
   /** '되살리기(게시중으로)' 를 눌러 한 번 더 묻는 중 — 되살리면 초안이었던 행도 게시가 된다. */
   const [askingRestore, setAskingRestore] = useState(false);
   const busy = state.busy;
@@ -156,6 +169,11 @@ export function AdminPagePlaceRow({
             </Badge>
           ))}
           {/* 내린 이유는 상태 바로 뒤에 — 자기 열이던 동안 84줄에서 빈 칸이었다. 초안은 사유 대신 안내가 온다. */}
+          {archived && !blocksUnavailable && (
+            <Badge size="sm" color={block ? 'gray' : 'blue'}>
+              {block ? `블랙리스트 ${blockChipText(block, new Date())}` : '블랙리스트 없음'}
+            </Badge>
+          )}
           {(why || place.status === 'draft') && (
             <span className="basis-full text-xs text-tertiary">
               {why ?? '아직 사이트에 안 올라간 곳이에요 — ‘검수 대기’ 에서 이 가게의 후보를 승인하면 올라가요.'}
@@ -214,9 +232,16 @@ export function AdminPagePlaceRow({
                   </div>
                 </div>
               ) : (
-                <Button color="link-color" size="sm" className={ROW_LINK} isDisabled={Boolean(busy)} onClick={() => setAskingRestore(true)}>
-                  되살리기(게시중으로)
-                </Button>
+                <div className="flex items-center gap-3">
+                  {!blocksUnavailable && (
+                    <Button color="link-gray" size="sm" className={ROW_LINK} isDisabled={Boolean(busy)} onClick={onStartBlock}>
+                      블랙리스트
+                    </Button>
+                  )}
+                  <Button color="link-color" size="sm" className={ROW_LINK} isDisabled={Boolean(busy)} onClick={() => setAskingRestore(true)}>
+                    되살리기(게시중으로)
+                  </Button>
+                </div>
               )
             ) : (
               /*
@@ -262,61 +287,40 @@ export function AdminPagePlaceRow({
       {state.error && <p className="px-4 pb-2 text-xs text-error-primary">{state.error}</p>}
 
       {state.archiving && (
-        <div className={cx(ADMIN_PANEL_DIVIDER, 'px-4 py-3')}>
-          <p className="text-xs font-semibold text-secondary">왜 내리나요?</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {ARCHIVE_REASONS.map((candidate) => (
-              <Button
-                key={candidate}
-                size="sm"
-                color={reason === candidate ? 'primary' : 'secondary'}
-                aria-pressed={reason === candidate}
-                isDisabled={Boolean(busy)}
-                onClick={() => setReason(candidate)}
-              >
-                {candidate}
-              </Button>
-            ))}
-          </div>
+        <AdminPagePlaceArchiveForm
+          wasDraft={place.status === 'draft'}
+          busy={busy === 'archiving'}
+          initialReason={state.archiveReason}
+          onCancel={onCancelArchive}
+          onSubmit={onArchive}
+        />
+      )}
 
-          <div className="mt-2 max-w-md">
-            <Input
-              aria-label="내림 메모(선택)"
-              placeholder="메모 (선택)"
-              value={note}
-              onChange={setNote}
-              isDisabled={Boolean(busy)}
-              size="sm"
-            />
-          </div>
-
-          {/* 거짓말을 하지 않는 자리다 — DB 에서 내려도 사이트에서 사라지는 것은 다음 빌드부터다(ADR-015). */}
-          <p className="mt-2 text-xs text-tertiary">
-            {place.status === 'draft'
-              ? '내리면 ‘등록 해제’ 칸으로 옮겨져요. 사이트에는 원래 없던 곳이에요.'
-              : '내리면 다음 빌드부터 사이트에서 사라져요. 되살리려면 ‘등록 해제’ 칸에서 찾으면 돼요.'}
-          </p>
-
-          <div className="mt-2 flex flex-wrap gap-2">
+      {/*
+        * 등록 해제 칸의 블랙리스트 넣기·바꾸기(09 T1.4 단계 4). 고르는 즉시 쓴다 — 기간 하나 고르는 일에 확인 버튼을 또 두지 않는다.
+        * 바꾸면 열린 행을 풀고 새로 건다(`setPlaceBlock`).
+        */}
+      {archived && state.pickingBlock && (
+        <div className={cx(ADMIN_PANEL_DIVIDER, 'flex flex-wrap items-center gap-1.5 px-4 py-3')}>
+          <span className="text-xs font-semibold text-secondary">블랙리스트를</span>
+          {(['none', 'months3', 'forever'] as const).map((choice) => (
             <Button
-              color="primary-destructive"
+              key={choice}
               size="sm"
-              isDisabled={Boolean(busy) || !reason}
-              isLoading={busy === 'archiving'}
-              onClick={() => reason && onArchive(reason, note)}
-            >
-              {busy === 'archiving' ? '내리고 있어요…' : '내리기'}
-            </Button>
-            <Button
               color="secondary"
-              size="sm"
               isDisabled={Boolean(busy)}
-              onClick={onCancelArchive}
+              isLoading={busy === 'blocking'}
+              onClick={() => onSetBlock(choice)}
             >
-              취소
+              {choice === 'none' ? (block ? '풀기' : '없음') : BLOCK_CHOICE_LABEL[choice]}
             </Button>
-          </div>
-          {!reason && <p className="mt-2 text-xs text-tertiary">사유를 하나 골라 주세요.</p>}
+          ))}
+          <Button color="link-gray" size="sm" isDisabled={Boolean(busy)} onClick={onCancelBlock}>
+            취소
+          </Button>
+          <span className="basis-full text-xs text-tertiary">
+            블랙리스트에 있는 동안 이 가게를 쓴 새 글은 후보가 되지 않아요. 없으면 새 글이 ‘등록 해제된 가게의 새 글’ 로 검수 대기에 올라와요.
+          </span>
         </div>
       )}
     </li>

@@ -8,7 +8,19 @@ import { Select } from '../components/base/select';
 import { EmptyState } from '../components/layout/emptyState';
 import { PageHeader } from '../components/layout/pageHeader';
 import { approveGroup, saveEdit, setRegion } from '../lib/adminApply';
-import { fetchBlockCounts, rejectAndBlock, rejectOutcomeText, type TBlockChoice, type TBlocksSummary } from '../lib/adminBlocks';
+import {
+  archiveAndBlock,
+  archiveOutcomeText,
+  fetchBlockCounts,
+  fetchPlaceBlocks,
+  rejectAndBlock,
+  rejectOutcomeText,
+  restoreAndLift,
+  setPlaceBlock,
+  type TBlockChoice,
+  type TBlocksSummary,
+  type TPlaceBlock,
+} from '../lib/adminBlocks';
 import { aiOriginalOf, buildEdit, chooseAddress, type TCandidateEditDraft } from '../lib/adminEdit';
 import { addressUnresolved, type TAddressChoice } from '../lib/adminAddress';
 import { prepareReanalyze, reanalyzePlan, reanalyzeSummary } from '../lib/adminReanalyze';
@@ -28,9 +40,7 @@ import {
   type TRejectReason,
 } from '../lib/adminCandidates';
 import {
-  archivePlace,
   fetchManagedPlaces,
-  restorePlace,
   sortManagedPlaces,
   type TArchiveReason,
   type TPlaceAddressPatch,
@@ -269,6 +279,8 @@ export function AdminPage() {
   const [postCounts, setPostCounts] = useState<TPostCounts | undefined>(undefined);
   const [postError, setPostError] = useState<string | undefined>(undefined);
   const [blockSummary, setBlockSummary] = useState<TBlocksSummary | undefined>(undefined);
+  /** 장소 id → 열린 블랙리스트(등록 해제 칸의 칩). undefined = 표가 없거나 못 읽었다. */
+  const [placeBlocks, setPlaceBlocks] = useState<Record<string, TPlaceBlock> | undefined>(undefined);
   /**
    * 재빌드가 실제로 불렸는지. `undefined` 는 "못 읽었다" 이고 그때는 **아무 말도 하지 않는다** —
    * 못 읽은 것을 "안 불렸다" 로 말하면 멀쩡한 시스템을 고장으로 신고하게 만든다(stranded 와 같은 어법).
@@ -352,6 +364,8 @@ export function AdminPage() {
       setPostError(messageOf(error, '수집한 글을 세지 못했어요.'));
     }
     setBlockSummary(await fetchBlockCounts(client));
+    const byPlace = await fetchPlaceBlocks(client);
+    setPlaceBlocks(byPlace.kind === 'ok' ? byPlace.byPlace : undefined);
   }, []);
 
   const start = useCallback(async (next: TAdminSession) => {
@@ -363,6 +377,7 @@ export function AdminPage() {
     setPostCounts(undefined);
     setPostError(undefined);
     setBlockSummary(undefined);
+    setPlaceBlocks(undefined);
     setStranded(undefined);
     setRebuild(undefined);
     setPhase('verifying');
@@ -534,29 +549,32 @@ export function AdminPage() {
    * 잠금(`writingRef`)은 후보 쓰기와 같은 것 하나다 — 둘 다 `placesRef` 를 보는데 하나는 그것을 고친다.
    */
   const changePlace = useCallback(
-    async (place: TPlaceRow, kind: 'archive' | 'restore', reason?: TArchiveReason, note?: string) => {
+    async (place: TPlaceRow, kind: 'archive' | 'restore', reason?: TArchiveReason, note?: string, block: TBlockChoice = 'none') => {
       const client = clientRef.current;
       if (!client) return;
       if (!beginWrite((message) => patchPlaceState(place.id, { error: message }))) return;
       patchPlaceState(place.id, { busy: kind === 'archive' ? 'archiving' : 'restoring', error: undefined });
       try {
-        const nowIso = new Date().toISOString();
-        const updated =
-          kind === 'archive'
-            ? await archivePlace(client, place, { nowIso, reason, note })
-            : await restorePlace(client, place, { nowIso, note });
+        let updated: TPlaceRow;
+        let done: string;
+        if (kind === 'archive') {
+          const outcome = await archiveAndBlock(client, place, reason ?? '기타', note, block);
+          updated = outcome.place;
+          /* `place.status` 는 바꾸기 **전** 상태다 — 초안은 애초에 사이트에 없었으므로 "사라져요" 가 거짓이 된다. */
+          done = archiveOutcomeText(place.status === 'draft', outcome);
+        } else {
+          const outcome = await restoreAndLift(client, place);
+          updated = outcome.place;
+          done = outcome.liftError
+            ? `되살렸어요 · 다음 빌드부터 사이트에 보여요 — 블랙리스트는 못 풀었어요(${outcome.liftError})`
+            : '되살렸어요 · 다음 빌드부터 사이트에 보여요';
+        }
         // 한 state 에서 `status` 만 바뀐다 — 줄은 지워지지 않고 다른 칸(등록 완료 ⇄ 등록 해제)으로 옮겨 간다.
         setManaged((prev) => (prev ? sortManagedPlaces(prev.map((row) => (row.id === updated.id ? updated : row))) : prev));
         applyPlaceChange(updated);
-        /* `place.status` 는 바꾸기 **전** 상태다 — 초안은 애초에 사이트에 없었으므로 "사라져요" 가 거짓이 된다. */
-        const done =
-          kind === 'archive'
-            ? place.status === 'draft'
-              ? '내렸어요 · 사이트에는 원래 없던 곳이에요'
-              : '내렸어요 · 다음 빌드부터 사이트에서 사라져요'
-            : '되살렸어요 · 다음 빌드부터 사이트에 보여요';
-        patchPlaceState(place.id, { busy: undefined, archiving: false, done });
+        patchPlaceState(place.id, { busy: undefined, archiving: false, archiveReason: undefined, done });
         setPlaceNotice(`${place.name} — ${done} · ${kind === 'archive' ? '등록 해제' : '등록 완료'} 칸으로 옮겼어요`);
+        await loadCounts(client);
         afterWrite();
       } catch (error) {
         patchPlaceState(place.id, { busy: undefined, error: messageOf(error, '바꾸지 못했어요.') });
@@ -564,7 +582,31 @@ export function AdminPage() {
         endWrite();
       }
     },
-    [afterWrite, applyPlaceChange, beginWrite, endWrite, patchPlaceState],
+    [afterWrite, applyPlaceChange, beginWrite, endWrite, loadCounts, patchPlaceState],
+  );
+
+  /** 등록 해제 칸에서 블랙리스트를 넣고·바꾸고·푼다(09 T1.4 단계 4). `places` 는 안 바뀌므로 재빌드와 무관하다. */
+  const changePlaceBlock = useCallback(
+    async (place: TPlaceRow, choice: TBlockChoice) => {
+      const client = clientRef.current;
+      if (!client) return;
+      if (!beginWrite((message) => patchPlaceState(place.id, { error: message }))) return;
+      patchPlaceState(place.id, { busy: 'blocking', error: undefined });
+      try {
+        await setPlaceBlock(client, place, choice, '등록 해제');
+        await loadCounts(client);
+        patchPlaceState(place.id, {
+          busy: undefined,
+          pickingBlock: false,
+          done: choice === 'none' ? '블랙리스트에서 풀었어요' : `블랙리스트 ${choice === 'forever' ? '영구' : '3개월'}로 걸었어요`,
+        });
+      } catch (error) {
+        patchPlaceState(place.id, { busy: undefined, error: messageOf(error, '블랙리스트를 바꾸지 못했어요.') });
+      } finally {
+        endWrite();
+      }
+    },
+    [beginWrite, endWrite, loadCounts, patchPlaceState],
   );
 
   /**
@@ -1298,7 +1340,9 @@ export function AdminPage() {
             states={placeStates}
             notice={placeNotice}
             patchState={patchPlaceState}
-            onChange={(place, kind, reason, note) => void changePlace(place, kind, reason, note)}
+            onChange={(place, kind, reason, note, block) => void changePlace(place, kind, reason, note, block)}
+            blocks={placeBlocks}
+            onSetBlock={(place, choice) => void changePlaceBlock(place, choice)}
             onSaveAddress={(place, patch) => void savePlaceAddress(place, patch)}
             onClearDone={clearPlaceDone}
           />
@@ -1312,7 +1356,9 @@ export function AdminPage() {
             states={placeStates}
             notice={placeNotice}
             patchState={patchPlaceState}
-            onChange={(place, kind, reason, note) => void changePlace(place, kind, reason, note)}
+            onChange={(place, kind, reason, note, block) => void changePlace(place, kind, reason, note, block)}
+            blocks={placeBlocks}
+            onSetBlock={(place, choice) => void changePlaceBlock(place, choice)}
             onSaveAddress={(place, patch) => void savePlaceAddress(place, patch)}
             onClearDone={clearPlaceDone}
           />

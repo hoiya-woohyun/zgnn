@@ -16,6 +16,7 @@ import {
   type TPlaceAddressPatch,
   type TPlaceGap,
 } from '../lib/adminPlaces';
+import type { TBlockChoice, TPlaceBlock } from '../lib/adminBlocks';
 import { useAdminInfiniteScroll } from './adminInfiniteScroll';
 import { AdminPagePlaceRow, type TAdminPagePlaceState } from './adminPagePlaceRow';
 import { ADMIN_PLACE_GRID, AdminTable } from './adminTable';
@@ -82,14 +83,28 @@ type TAdminPagePlaceListProps = {
   /** 방금 한 일의 한 줄(두 칸에 같이 선다 — 줄이 다른 칸으로 옮겨 가므로 "아무 일도 안 났다" 로 보이지 않게). */
   notice?: string;
   patchState: (id: string, patch: Partial<TAdminPagePlaceState>) => void;
-  onChange: (place: TPlaceRow, kind: 'archive' | 'restore', reason?: TArchiveReason, note?: string) => void;
+  onChange: (place: TPlaceRow, kind: 'archive' | 'restore', reason?: TArchiveReason, note?: string, block?: TBlockChoice) => void;
+  /** 장소 id → 열린 블랙리스트. `undefined` 면 표가 없거나 못 읽었다(칩을 안 그린다). */
+  blocks?: Record<string, TPlaceBlock>;
+  onSetBlock: (place: TPlaceRow, choice: TBlockChoice) => void;
   /** 주소·좌표 고치기(쓰기는 `adminPage` 의 `savePlaceAddress`). 등록 해제 칸의 줄에는 버튼이 서지 않는다. */
   onSaveAddress: (place: TPlaceRow, patch: TPlaceAddressPatch) => void;
   /** 끝난 줄의 초록 한 줄을 치운다 — 검색어·구간을 바꾸면 같이. */
   onClearDone: () => void;
 };
 
-export function AdminPagePlaceList({ mode, places, states, notice, patchState, onChange, onSaveAddress, onClearDone }: TAdminPagePlaceListProps) {
+export function AdminPagePlaceList({
+  mode,
+  places,
+  states,
+  notice,
+  patchState,
+  onChange,
+  blocks,
+  onSetBlock,
+  onSaveAddress,
+  onClearDone,
+}: TAdminPagePlaceListProps) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<TStatusFilter>('all');
   const [typeFilter, setTypeFilter] = useState<TTypeFilter>('all');
@@ -243,8 +258,13 @@ export function AdminPagePlaceList({ mode, places, states, notice, patchState, o
                 expanded={expanded === place.id}
                 onToggle={() => setExpanded((prev) => (prev === place.id ? null : place.id))}
                 onStartArchive={() => patchState(place.id, { archiving: true, error: undefined, done: undefined })}
-                onCancelArchive={() => patchState(place.id, { archiving: false })}
-                onArchive={(reason, note) => onChange(place, 'archive', reason, note)}
+                onCancelArchive={() => patchState(place.id, { archiving: false, archiveReason: undefined })}
+                onArchive={(reason, note, block) => onChange(place, 'archive', reason, note, block)}
+                block={blocks?.[place.id]}
+                blocksUnavailable={blocks === undefined}
+                onStartBlock={() => patchState(place.id, { pickingBlock: true, error: undefined, done: undefined })}
+                onCancelBlock={() => patchState(place.id, { pickingBlock: false })}
+                onSetBlock={(choice) => onSetBlock(place, choice)}
                 onRestore={() => onChange(place, 'restore')}
                 onStartEditAddress={() => patchState(place.id, { editingAddress: true, error: undefined, done: undefined })}
                 onCancelEditAddress={() => patchState(place.id, { editingAddress: false })}
