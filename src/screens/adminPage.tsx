@@ -41,6 +41,7 @@ import {
 } from '../lib/adminCandidates';
 import {
   fetchManagedPlaces,
+  markPlaceVerified,
   sortManagedPlaces,
   type TArchiveReason,
   type TPlaceAddressPatch,
@@ -628,7 +629,14 @@ export function AdminPage() {
       if (!client) return;
       patchPlaceState(place.id, { busy: 'reports', error: undefined, done: undefined });
       try {
-        patchReportRows(await setReportStatus(client, ids, status, note, new Date().toISOString()));
+        const nowIso = new Date().toISOString();
+        patchReportRows(await setReportStatus(client, ids, status, note, nowIso));
+        // `고쳤어요` 는 운영자가 이 가게를 다시 본 것이다 — 확인 날짜를 올린다(ADR-021 R5). `무시` 는 고친 것이 없어 올리지 않는다.
+        const verifiedAt = status === 'handled' ? await markPlaceVerified(client, place, nowIso) : null;
+        if (verifiedAt) {
+          setManaged((prev) => (prev ? prev.map((row) => (row.id === place.id ? { ...row, verified_at: verifiedAt } : row)) : prev));
+          afterWrite();
+        }
         patchPlaceState(place.id, {
           busy: undefined,
           done: status === 'handled' ? `제보 ${ids.length}건을 닫았어요` : `제보 ${ids.length}건을 무시했어요`,
@@ -637,7 +645,7 @@ export function AdminPage() {
         patchPlaceState(place.id, { busy: undefined, error: messageOf(error, '제보를 처리하지 못했어요.') });
       }
     },
-    [patchPlaceState, patchReportRows],
+    [afterWrite, patchPlaceState, patchReportRows],
   );
 
   /** 등록 해제 칸에서 블랙리스트를 넣고·바꾸고·푼다(09 T1.4 단계 4). `places` 는 안 바뀌므로 재빌드와 무관하다. */

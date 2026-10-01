@@ -14,6 +14,7 @@ import {
   placeGaps,
   sortManagedPlaces,
 } from './adminPlaces';
+import { hasVerifiedColumn, markPlaceVerified } from './adminPlaces';
 import type { TPlaceRow } from './adminCandidates';
 
 const place = (patch: Partial<TPlaceRow> = {}): TPlaceRow => ({
@@ -268,5 +269,30 @@ describe('placeAddressProblem', () => {
 
   it('주소만 고치는 것은 된다', () => {
     expect(placeAddressProblem({ address: '제주시 1', lat: '', lng: '' })).toBeNull();
+  });
+});
+
+describe('markPlaceVerified · 확인 날짜', () => {
+  const fake = () => {
+    const writes: Record<string, unknown>[] = [];
+    const client = {
+      from: () => ({
+        update: (payload: Record<string, unknown>) => {
+          writes.push(payload);
+          const done = { data: { ...payload }, error: null };
+          return { eq: () => Object.assign(Promise.resolve({ error: null }), { select: () => ({ single: () => Promise.resolve(done) }) }) };
+        },
+      }),
+    } as unknown as import('@supabase/supabase-js').SupabaseClient;
+    return { writes, client };
+  };
+
+  it('칸이 없는 원격에는 쓰지 않는다 — 없는 칸을 쓰면 승인 전체가 실패한다', async () => {
+    const { writes, client } = fake();
+    expect(await markPlaceVerified(client, { id: 'p1' }, '2026-10-01T00:00:00.000Z')).toBeNull();
+    expect(writes).toEqual([]);
+    expect(await markPlaceVerified(client, { id: 'p1', verified_at: null }, '2026-10-01T00:00:00.000Z')).toBe('2026-10-01T00:00:00.000Z');
+    expect(writes).toEqual([{ verified_at: '2026-10-01T00:00:00.000Z' }]);
+    expect(hasVerifiedColumn([{ id: 'a' }, { id: 'b', verified_at: null }])).toBe(true);
   });
 });

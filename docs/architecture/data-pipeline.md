@@ -1,6 +1,7 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-10-01 (v25: 스키마 요약에 `place_reports`(사용자 제보, 마이그레이션 `20261001130000`, 원격 미적용) 한 줄 — [ADR-021](../decisions/ADR-021-place-reports.md))
+> 최종 수정: 2026-10-01 (v26: `places.verified_at`(사람이 마지막으로 확인한 시각, 마이그레이션 `20261001140000`) → JSON `verifiedAt`(한국 날짜). **트리거가 아니라 쓰는 코드가** 찍는다 — 승인·덮어쓰기·주소 고치기·제보 `고쳤어요`·다녀왔어요 반영. 칸이 없는 원격에서는 쓰지 않는다)
+> 이전 (v25: 스키마 요약에 `place_reports`(사용자 제보, 마이그레이션 `20261001130000`, 원격 미적용) 한 줄 — [ADR-021](../decisions/ADR-021-place-reports.md))
 > 이전 (v24: `archived` 짝은 블랙리스트에 없을 때만 생긴다 — 등록 해제 폼이 `place_blocks` 를 같이 쓰므로(09 T1.4) 이름 축에서 먼저 걸리고, 되살리면 풀린다)
 > 이전 (v23: 제외 넷째 이유 `blocked` — 분석이 `place_blocks` 를 읽어 걸린 가게는 후보를 만들지 않는다. 표가 없으면 차단 0건 + 경고 한 줄)
 > 이전 (v22: 스키마 요약에 `place_blocks`(가게 차단 목록, 마이그레이션 `20261001120000`, 원격 미적용) 한 줄 — [ADR-020](../decisions/ADR-020-pipeline-stages-and-blocklist.md))
@@ -300,7 +301,7 @@ flowchart LR
 
 | 타입 | 핵심 필드 | 비고 |
 |---|---|---|
-| `TPlace` | `id`, `type`, `name`, `region`, `features`, `petPolicyText`, `geo?`, `address?`, `naverUrl?`, `reviewUrl?`, `stay?` | `id` 는 Notion 블록 id 를 시드 때 그대로 옮겼다. 라우트 `/place/[id]` 와 저장 목록의 키 |
+| `TPlace` | `id`, `type`, `name`, `region`, `features`, `petPolicyText`, `geo?`, `address?`, `naverUrl?`, `reviewUrl?`, `verifiedAt?`, `stay?` | `id` 는 Notion 블록 id 를 시드 때 그대로 옮겼다. 라우트 `/place/[id]` 와 저장 목록의 키. `verifiedAt` 은 `places.verified_at` 의 **한국 날짜**(UTC 앞 10자를 자르면 밤 9시 뒤 확인이 전날이 된다) — 사람이 "지금도 맞다" 고 본 날이라 트리거가 아니라 쓰는 코드가 찍는다(ADR-021 R5). 시드는 null → 키 없음 |
 | `TStayInfo` | `price: TStayPrice`, `amenitiesText` | 숙소만. `amenitiesText` 는 준비물 화면의 구비 용품 매핑에 쓰인다(`src/lib/amenities.ts`) |
 | `TItem` | `id`, `name`, `emoji`, `seasons`, `reason`, `linkUrl?`, `variants?` | 준비물. `linkUrl` 은 쿠팡 파트너스 링크라 `meta.disclosure` 를 함께 표시. `variants` 는 원본의 여러 줄을 `lib/places.ts` 의 `ITEM_VARIANTS` 가 한 항목으로 합치면서 생긴다(기내용 가방의 5kg 이하/이상) — DB·JSON 어디에도 없는 파생 필드다 |
 | `place_blocks`(DB 표, `TPlace` 아님) | `name_key`, `town?`, `display_name`, `reason`, `until?`(null=영구), `lifted_at?`, `candidate_id?`, `place_id?` | 분석이 실행마다 읽는 **가게 차단 목록**(마이그레이션 `20261001120000`, 원격 미적용 — 🧑 `db push`). `until is null or until > now()` 이고 `lifted_at` 이 null 인 행이 "걸린 것" — 스케줄러 없이 비교로 만료. DELETE grant 없음, 공개 역할 grant 없음 → [ADR-020](../decisions/ADR-020-pipeline-stages-and-blocklist.md) D1·D2 |

@@ -262,6 +262,25 @@ export function restorePlace(
   return setPlaceStatus(client, place, 'published', archiveNoteLine('restore', dayOf(nowIso), undefined, note));
 }
 
+/** 원격 `places` 에 `verified_at` 칸이 있나 — `select('*')` 로 읽은 행에 키가 있으면 있다(마이그레이션 `20261001140000`). */
+export const hasVerifiedColumn = (rows: readonly Partial<TPlaceRow>[]): boolean => rows.some((row) => 'verified_at' in row);
+
+/**
+ * "사람이 지금도 맞다고 봤다" 를 찍는다(ADR-021 R5) — 칸이 없으면 아무것도 안 하고 null.
+ * 실패해도 던지지 않는다: 확인 날짜는 부가이고, 이것 때문에 이미 끝난 승인·처리를 실패로 말하면 사람이 다시 눌러 두 번 쓴다.
+ * `places` 가 바뀌므로 게시중이면 재빌드 트리거가 다음 빌드를 부른다 — 날짜가 사이트에 보이려면 그 빌드가 필요하다.
+ */
+export async function markPlaceVerified(
+  client: SupabaseClient,
+  place: Pick<TPlaceRow, 'id'> & Partial<TPlaceRow>,
+  nowIso: string,
+  columnExists: boolean = 'verified_at' in place,
+): Promise<string | null> {
+  if (!columnExists) return null;
+  const { error } = await client.from('places').update({ verified_at: nowIso }).eq('id', place.id);
+  return error ? null : nowIso;
+}
+
 /**
  * 올린 장소의 **주소·좌표 고치기** 초안. 칸은 문자열 그대로 들고 있다(빈 칸 = 지운다) — 후보 고치기 폼과 같은 어법.
  *
@@ -312,9 +331,12 @@ export async function updatePlaceAddress(
   client: SupabaseClient,
   place: TPlaceRow,
   patch: TPlaceAddressPatch,
+  nowIso: string = new Date().toISOString(),
 ): Promise<TPlaceRow> {
-  const { data, error } = await client.from('places').update(patch).eq('id', place.id).select().single();
+  // 사람이 주소를 보고 고쳤다 — 같은 쓰기에 확인 날짜도 싣는다(칸이 있을 때만, ADR-021 R5). 따로 쓰면 재빌드 훅이 두 번 돈다.
+  const write = 'verified_at' in place ? { ...patch, verified_at: nowIso } : patch;
+  const { data, error } = await client.from('places').update(write).eq('id', place.id).select().single();
   if (error)
     throw new Error(`주소를 고치지 못했어요 — 다시 눌러 보고, 안 되면 로그아웃하고 다시 로그인해 주세요. (${error.message})`);
-  return (data ?? { ...place, ...patch }) as TPlaceRow;
+  return (data ?? { ...place, ...write }) as TPlaceRow;
 }

@@ -1,6 +1,7 @@
 # 1. 스키마 · RLS · 시드 · `data:pull`
 
-> 최종 수정: 2026-09-29 (v7: `supabase-js` 를 devDependency 로 두고 "`out/` 에 supabase 문자열이 있으면 잘못된 것" 이라던 항목에 **정정**을 달았다 —
+> 최종 수정: 2026-10-01 (v8: `places.verified_at` 칸(마이그레이션 `20261001140000`, 원격 미적용) — `fromPlaceRow` 가 `verifiedAt` 으로 옮기고 시드는 null 이라 JSON 바이트는 그대로다. 10 T2.1)
+> 이전 2026-09-29 (v7: `supabase-js` 를 devDependency 로 두고 "`out/` 에 supabase 문자열이 있으면 잘못된 것" 이라던 항목에 **정정**을 달았다 —
 > 운영자 화면 `/admin` 이 생겨 그 셋이 전부 뒤집혔다([ADR-018](../decisions/ADR-018-in-app-admin-review.md)). 체크된 항목을 지우지 않고 정정을 덧붙이는 이유: 그때의 판단은 그때 맞았다)
 > 이전 (v6: 4a 는 끝났다(빌드 명령이 `pnpm data:pull && pnpm build`) — 상태 줄에서 뺐고, "잠들어도 마지막 스냅샷으로 빌드된다" 도 걷었다(배포는 `data:pull` 로 시작해 막힌다))
 > 이전 (v5: 출처는 세션·anon 둘, service 키 없음 — Actions 폐지(ADR-016 v5). RLS 절·`supabaseClient` 포인터만 갱신)

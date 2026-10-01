@@ -126,6 +126,11 @@ export type TPlaceRow = {
   archived_at: string | null;
   /** 게시 상태를 사람이 바꾼 기록(한 줄씩 덧붙임). 쓰는 쪽은 `adminPlaces.ts`. */
   archive_note: string | null;
+  /**
+   * 사람이 마지막으로 확인한 시각(ADR-021 R5). 마이그레이션 `20261001140000` 전의 원격에는 **칸 자체가 없다** —
+   * 그래서 선택이고, 쓰는 쪽은 `'verified_at' in row` 로 칸이 있는지 보고 나서만 쓴다(없는 칸을 쓰면 승인 전체가 실패한다).
+   */
+  verified_at?: string | null;
 };
 
 /** 같은 가게로 묶인 후보들. 만드는 쪽은 `groupCandidates`(reviewCandidates.mjs:46-65). */

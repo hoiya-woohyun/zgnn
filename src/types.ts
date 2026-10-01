@@ -113,6 +113,8 @@ export type TPlace = {
    * 파일을 갖고 있지 않으므로 카드(사진 + 출처 + 링크)로만 그리고, 못 받으면 사진 없이 그린다.
    */
   homepage?: TPlaceHomepage;
+  /** 사람이 마지막으로 확인한 날(`YYYY-MM-DD`). 없으면 확인 기록이 없다 — 상세는 날짜를 그리지 않는다(ADR-021 R5). */
+  verifiedAt?: string;
   cover?: string;
   images: string[];
   stay?: TStayInfo;

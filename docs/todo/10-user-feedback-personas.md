@@ -218,7 +218,8 @@ P3  F11 다두 what-if
 
 ### P1 — 루프 닫기
 
-- [ ] **T2.1 `places.verified_at` + `data:pull`** — 07 P1 「데이터 신선도」 의 데이터 쪽. 시드는 Notion 작성 시점(없으면 null) · `/admin` 승인·수정·덮어쓰기가 `now()` 를 쓴다(트리거가 아니라 **쓰는 코드가** — 트리거면 `visited_ok` 집계와 섞인다). JSON 에 `verifiedAt` 으로. 문서: [data-pipeline](../architecture/data-pipeline.md) · [01](01-schema-and-seed.md).
+- [x] **T2.1 `places.verified_at` + `data:pull`** — 07 P1 「데이터 신선도」 의 데이터 쪽. 시드는 Notion 작성 시점(없으면 null) · `/admin` 승인·수정·덮어쓰기가 `now()` 를 쓴다(트리거가 아니라 **쓰는 코드가** — 트리거면 `visited_ok` 집계와 섞인다). JSON 에 `verifiedAt` 으로. 문서: [data-pipeline](../architecture/data-pipeline.md) · [01](01-schema-and-seed.md).
+      > 메모: `20261001140000_places_verified_at.sql`(원격 미적용). JSON 은 **한국 날짜**(`kstDay`). 칸이 원격에 없을 수 있어 쓰는 쪽은 `'verified_at' in row` 를 먼저 본다(`hasVerifiedColumn` — 없는 칸을 쓰면 승인 전체가 실패한다). 주소 고치기는 같은 쓰기에 싣고(훅 한 번), 승인은 끝에 한 번 더 쓴다(새 장소 insert 에 실으면 칸이 없을 때 insert 가 죽는다). 제보 `고쳤어요` 도 찍는다 · `무시` 는 안 찍는다.
 - [ ] **T2.2 F2 다녀왔어요** — `kind='visited_ok'` 보내기(T1.2·T1.3 재사용) + `/admin` 에서 **30일 2건 규칙**으로 `verified_at` 를 올리는 버튼("최근 확인으로 반영", 자동 아님 — 운영자가 한 번 본다). 문서: `features/place-report.md`.
 - [ ] **T2.3 F3 확인일 표시** — `src/lib/placeFreshness.ts`(날짜 → 문구 · 1년 기준 · 열린 폐업 제보면 null — 제보 유무는 **빌드 때** `data:pull` 이 `openReportKinds` 로 옮긴다, 런타임 읽기 없음) + 테스트 + 상세 반영(§7 답 뒤).
 - [ ] **T2.4 F5 저장 메모** — `useAppStore` 에 `savedNotes` + `merge`(없는 id 제거 · 80자 자르기) + `setSavedNote` · 테스트. 화면은 §7 답 뒤. 문서: [app-shell-and-state](../architecture/app-shell-and-state.md) 퍼시스트 필드 표.

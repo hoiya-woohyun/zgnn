@@ -29,7 +29,7 @@ import {
 } from './adminCandidates';
 import { addressConflictOf, type TAddressConflict } from './adminAddress';
 import type { TCandidateEdit } from './adminEdit';
-import { restorePlace } from './adminPlaces';
+import { hasVerifiedColumn, markPlaceVerified, restorePlace } from './adminPlaces';
 import { appendReviewerNote } from './adminSession';
 import type { TPlace } from '../types';
 
@@ -361,6 +361,7 @@ export async function approveGroup(
    */
   let overwritten: Record<string, unknown> | undefined;
   let overwrittenKeys: string[] = [];
+  const verifiedColumn = hasVerifiedColumn(places);
   try {
     if (target && opts.overwrite) {
       const plan = overwriteWithLatest(target, lead.extracted) as { patch: Partial<TPlaceRow>; previous: Record<string, unknown> } | null;
@@ -426,6 +427,10 @@ export async function approveGroup(
     await linkSource(client, placeId, row.post_url);
     await markMerged(client, row, { placeId, kind: 'merged', patchKeys: keys, at: opts.nowIso });
   }
+
+  // 운영자가 이 가게를 보고 통과시켰다 — "최근 확인" 날짜(ADR-021 R5). 칸이 원격에 없으면 건너뛴다(새 행은 칸 키가 없어 장부 전체로 본다).
+  const verifiedAt = await markPlaceVerified(client, target, opts.nowIso, verifiedColumn);
+  if (verifiedAt) target.verified_at = verifiedAt;
 
   return { kind, placeId, placeName, patchKeys, rows: group.rows.length, ...(overwrittenKeys.length ? { overwrittenKeys } : {}) };
 }

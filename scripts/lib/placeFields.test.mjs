@@ -79,3 +79,13 @@ describe('fromPlaceRow — 홈페이지 카드 (ADR-002 v2)', () => {
     expect(JSON.stringify(fromPlaceRow({ ...base, homepage_url: null, homepage_image: 'https://a.kr/a.jpg' }))).not.toContain('homepage');
   });
 });
+
+describe('verifiedAt', () => {
+  it('확인 시각을 한국 날짜로 싣고, 없으면 키가 빠진다', async () => {
+    const { kstDay } = await import('./placeFields.mjs');
+    expect(kstDay('2026-10-01T16:00:00Z')).toBe('2026-10-02');
+    expect(kstDay('nope')).toBeUndefined();
+    expect(fromPlaceRow({ ...row, verified_at: '2026-10-01T01:00:00+00:00' }).verifiedAt).toBe('2026-10-01');
+    expect('verifiedAt' in JSON.parse(JSON.stringify(fromPlaceRow({ ...row, verified_at: null })))).toBe(false);
+  });
+});
