@@ -17,18 +17,22 @@ import {
   type TArchiveReason,
 } from '../lib/adminPlaces';
 import type { TPlaceRow } from '../lib/adminCandidates';
+import type { TPlaceAddressPatch } from '../lib/adminPlaces';
 import { cx } from '../utils/cx';
+import { AdminPagePlaceAddressForm } from './adminPagePlaceAddressForm';
 import { AdminPagePlaceDetail } from './adminPagePlaceDetail';
 import { ADMIN_PANEL_DIVIDER, ADMIN_PLACE_GRID, ADMIN_POLICY_TONE, ADMIN_ROW_OPEN } from './adminTable';
 import { AdminTypeChip } from './adminTypeChip';
 
 /** 장소 한 줄의 화면 상태. 소유자는 `adminPagePlaceList` 고 여기는 받아서 그린다(묶음 카드와 같은 모양). */
 export type TAdminPagePlaceState = {
-  busy?: 'archiving' | 'restoring';
+  busy?: 'archiving' | 'restoring' | 'savingAddress';
   done?: string;
   error?: string;
   /** '내리기' 를 눌러 사유를 고르는 중. */
   archiving?: boolean;
+  /** 펼친 상세에서 '주소·좌표 고치기' 를 눌러 패널이 열려 있다. */
+  editingAddress?: boolean;
 };
 
 /**
@@ -48,6 +52,9 @@ type TAdminPagePlaceRowProps = {
   onCancelArchive: () => void;
   onArchive: (reason: TArchiveReason, note: string) => void;
   onRestore: () => void;
+  onStartEditAddress: () => void;
+  onCancelEditAddress: () => void;
+  onSaveAddress: (patch: TPlaceAddressPatch) => void;
 };
 
 /**
@@ -74,6 +81,9 @@ export function AdminPagePlaceRow({
   onCancelArchive,
   onArchive,
   onRestore,
+  onStartEditAddress,
+  onCancelEditAddress,
+  onSaveAddress,
 }: TAdminPagePlaceRowProps) {
   const [reason, setReason] = useState<TArchiveReason | null>(null);
   const [note, setNote] = useState('');
@@ -234,7 +244,21 @@ export function AdminPagePlaceRow({
 
       {/* 결과·오류는 열에 끼우지 않는다 — 줄 전체 폭을 쓰는 편이 읽힌다(그리드 밖이라 열도 흔들지 않는다). */}
       {state.done && <p className="px-4 pb-2 text-xs text-success-primary">{state.done}</p>}
-      {expanded && <AdminPagePlaceDetail place={place} badges={badges} />}
+      {expanded && (
+        <AdminPagePlaceDetail
+          place={place}
+          badges={badges}
+          onEditAddress={archived || state.editingAddress || busy ? undefined : onStartEditAddress}
+        />
+      )}
+      {expanded && state.editingAddress && (
+        <AdminPagePlaceAddressForm
+          place={place}
+          busy={busy === 'savingAddress'}
+          onSave={onSaveAddress}
+          onCancel={onCancelEditAddress}
+        />
+      )}
       {state.error && <p className="px-4 pb-2 text-xs text-error-primary">{state.error}</p>}
 
       {state.archiving && (

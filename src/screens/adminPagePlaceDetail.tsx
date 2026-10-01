@@ -10,7 +10,8 @@ import { cx } from '../utils/cx';
 import { ADMIN_PANEL_DIVIDER, ADMIN_POLICY_TONE } from './adminTable';
 
 /**
- * '올린 장소' 한 줄의 펼친 상세 — **지금 사이트에 나가 있는 값을 전부** 한 판에 보여 준다. 읽기만 한다.
+ * '올린 장소' 한 줄의 펼친 상세 — **지금 사이트에 나가 있는 값을 전부** 한 판에 보여 준다. 읽기만 한다 —
+ * 고치는 길은 주소 줄의 '고치기' 하나이고, 폼은 줄(`adminPagePlaceRow`)이 따로 연다.
  *
  * 후보 상세(`adminPageGroupDetail`)처럼 원문 ↔ AI 비교표로 짜지 않는다. 이미 올라간 곳에는 견줄 두 값이 없고,
  * 여기서 하는 일은 "이 가게 정보가 아직 맞나 · 내려야 하나" 를 정하는 것이라 필요한 것은 **값 하나씩과 그 출처로 가는 링크**다.
@@ -18,7 +19,16 @@ import { ADMIN_PANEL_DIVIDER, ADMIN_POLICY_TONE } from './adminTable';
  * 빈 칸을 숨기지 않고 `없음` 으로 적는다 — 빠진 것을 찾는 것이 이 판을 여는 이유 중 하나라서다.
  * 숙소 칸(가격·편의)만 숙소일 때 나온다(다른 종류에는 원래 없는 칸이다).
  */
-export function AdminPagePlaceDetail({ place, badges }: { place: TPlaceRow; badges: TPetBadge[] }) {
+export function AdminPagePlaceDetail({
+  place,
+  badges,
+  onEditAddress,
+}: {
+  place: TPlaceRow;
+  badges: TPetBadge[];
+  /** 주어지면 주소 줄에 '고치기' 가 선다. 내린 곳·쓰는 중·이미 폼이 열린 동안은 주지 않는다. */
+  onEditAddress?: () => void;
+}) {
   const history = noteHistory(place.archive_note);
   const hasGeo = place.lat != null && place.lng != null;
   /* 사이트 상세와 같은 우선순위 — 링크가 있으면 그것, 없으면 플레이스 id 로 만든 주소(`naverPlaceLink.ts`). */
@@ -51,7 +61,16 @@ export function AdminPagePlaceDetail({ place, badges }: { place: TPlaceRow; badg
           </>
         )}
         <Field label="지역">{place.region_raw || <Empty />}</Field>
-        <Field label="주소">{place.address || <Empty />}</Field>
+        <Field label="주소">
+          <span className="flex flex-wrap items-center gap-2">
+            {place.address || <Empty />}
+            {onEditAddress && (
+              <button type="button" onClick={onEditAddress} className="text-brand-secondary underline">
+                주소·좌표 고치기
+              </button>
+            )}
+          </span>
+        </Field>
         <Field label="좌표">
           {hasGeo ? (
             `${place.lat}, ${place.lng}`

@@ -13,6 +13,7 @@ import {
   PLACE_STATUS_LABEL,
   placeGaps,
   type TArchiveReason,
+  type TPlaceAddressPatch,
   type TPlaceGap,
 } from '../lib/adminPlaces';
 import { useAdminInfiniteScroll } from './adminInfiniteScroll';
@@ -82,11 +83,13 @@ type TAdminPagePlaceListProps = {
   notice?: string;
   patchState: (id: string, patch: Partial<TAdminPagePlaceState>) => void;
   onChange: (place: TPlaceRow, kind: 'archive' | 'restore', reason?: TArchiveReason, note?: string) => void;
+  /** 주소·좌표 고치기(쓰기는 `adminPage` 의 `savePlaceAddress`). 등록 해제 칸의 줄에는 버튼이 서지 않는다. */
+  onSaveAddress: (place: TPlaceRow, patch: TPlaceAddressPatch) => void;
   /** 끝난 줄의 초록 한 줄을 치운다 — 검색어·구간을 바꾸면 같이. */
   onClearDone: () => void;
 };
 
-export function AdminPagePlaceList({ mode, places, states, notice, patchState, onChange, onClearDone }: TAdminPagePlaceListProps) {
+export function AdminPagePlaceList({ mode, places, states, notice, patchState, onChange, onSaveAddress, onClearDone }: TAdminPagePlaceListProps) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<TStatusFilter>('all');
   const [typeFilter, setTypeFilter] = useState<TTypeFilter>('all');
@@ -243,6 +246,9 @@ export function AdminPagePlaceList({ mode, places, states, notice, patchState, o
                 onCancelArchive={() => patchState(place.id, { archiving: false })}
                 onArchive={(reason, note) => onChange(place, 'archive', reason, note)}
                 onRestore={() => onChange(place, 'restore')}
+                onStartEditAddress={() => patchState(place.id, { editingAddress: true, error: undefined, done: undefined })}
+                onCancelEditAddress={() => patchState(place.id, { editingAddress: false })}
+                onSaveAddress={(patch) => onSaveAddress(place, patch)}
               />
             ))}
             </AdminTable>

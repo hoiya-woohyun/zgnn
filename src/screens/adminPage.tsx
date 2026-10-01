@@ -27,7 +27,15 @@ import {
   type TPlaceRow,
   type TRejectReason,
 } from '../lib/adminCandidates';
-import { archivePlace, fetchManagedPlaces, restorePlace, sortManagedPlaces, type TArchiveReason } from '../lib/adminPlaces';
+import {
+  archivePlace,
+  fetchManagedPlaces,
+  restorePlace,
+  sortManagedPlaces,
+  type TArchiveReason,
+  type TPlaceAddressPatch,
+  updatePlaceAddress,
+} from '../lib/adminPlaces';
 import { countPosts, type TPostCounts } from '../lib/adminPosts';
 import { adminFlagView } from '../lib/adminPreview';
 import { verifyNeedsLook } from '../lib/adminVerify';
@@ -552,6 +560,33 @@ export function AdminPage() {
         afterWrite();
       } catch (error) {
         patchPlaceState(place.id, { busy: undefined, error: messageOf(error, '바꾸지 못했어요.') });
+      } finally {
+        endWrite();
+      }
+    },
+    [afterWrite, applyPlaceChange, beginWrite, endWrite, patchPlaceState],
+  );
+
+  /**
+   * 올린 장소의 주소·좌표 고치기. 순서·실패 처리는 `changePlace` 와 같다(잠금 → 쓰기 → 목록·대조 장부 → 풀기) —
+   * 대조 장부에도 알리는 이유는 같은 세션의 다음 승인이 고친 주소로 짝을 찾게 하려는 것이다.
+   */
+  const savePlaceAddress = useCallback(
+    async (place: TPlaceRow, patch: TPlaceAddressPatch) => {
+      const client = clientRef.current;
+      if (!client) return;
+      if (!beginWrite((message) => patchPlaceState(place.id, { error: message }))) return;
+      patchPlaceState(place.id, { busy: 'savingAddress', error: undefined, done: undefined });
+      try {
+        const updated = await updatePlaceAddress(client, place, patch);
+        setManaged((prev) => (prev ? prev.map((row) => (row.id === updated.id ? updated : row)) : prev));
+        applyPlaceChange(updated);
+        const done =
+          place.status === 'published' ? '주소를 고쳤어요 · 다음 빌드부터 사이트에 반영돼요' : '주소를 고쳤어요';
+        patchPlaceState(place.id, { busy: undefined, editingAddress: false, done });
+        afterWrite();
+      } catch (error) {
+        patchPlaceState(place.id, { busy: undefined, error: messageOf(error, '주소를 고치지 못했어요.') });
       } finally {
         endWrite();
       }
@@ -1264,6 +1299,7 @@ export function AdminPage() {
             notice={placeNotice}
             patchState={patchPlaceState}
             onChange={(place, kind, reason, note) => void changePlace(place, kind, reason, note)}
+            onSaveAddress={(place, patch) => void savePlaceAddress(place, patch)}
             onClearDone={clearPlaceDone}
           />
         )}
@@ -1277,6 +1313,7 @@ export function AdminPage() {
             notice={placeNotice}
             patchState={patchPlaceState}
             onChange={(place, kind, reason, note) => void changePlace(place, kind, reason, note)}
+            onSaveAddress={(place, patch) => void savePlaceAddress(place, patch)}
             onClearDone={clearPlaceDone}
           />
         )}
