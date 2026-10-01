@@ -47,6 +47,16 @@ import {
   updatePlaceAddress,
 } from '../lib/adminPlaces';
 import { countPosts, type TPostCounts } from '../lib/adminPosts';
+import {
+  closeReportsForArchived,
+  fetchReports,
+  mergeReportRows,
+  openReportsByPlace,
+  reportHeadline,
+  setReportStatus,
+  type TReportRow,
+  type TReportsLoad,
+} from '../lib/adminReports';
 import { adminFlagView } from '../lib/adminPreview';
 import { verifyNeedsLook } from '../lib/adminVerify';
 import { fetchRebuildStatus, rebuildHeadline, type TRebuildHeadline } from '../lib/adminRebuild';
@@ -123,6 +133,8 @@ type TPhase = 'checking' | 'signedOut' | 'verifying' | 'notOperator' | 'loading'
  * 칸의 정체는 `?tab=` 쿼리에 실린다(`adminUrlState.ts`).
  */
 type TTab = TAdminTab;
+
+const NO_REPORTS_BY_PLACE: Record<string, TReportRow[]> = {};
 
 /** 탭 줄의 라벨(건수는 붙이는 쪽이 정한다) — 왼쪽에서 오른쪽이 파이프라인 순서다. */
 const TAB_LABELS: { key: TTab; label: string }[] = [
@@ -281,6 +293,23 @@ export function AdminPage() {
   const [blockSummary, setBlockSummary] = useState<TBlocksSummary | undefined>(undefined);
   /** 장소 id → 열린 블랙리스트(등록 해제 칸의 칩). undefined = 표가 없거나 못 읽었다. */
   const [placeBlocks, setPlaceBlocks] = useState<Record<string, TPlaceBlock> | undefined>(undefined);
+  /** 사용자 제보(ADR-021). undefined = 아직 못 읽었다. 쓰기 콜백이 최신 행을 보도록 ref 로도 든다. */
+  const [reports, setReports] = useState<TReportsLoad | undefined>(undefined);
+  const reportRowsRef = useRef<TReportRow[]>([]);
+  const applyReports = useCallback((next: TReportsLoad | undefined) => {
+    reportRowsRef.current = next?.kind === 'ok' ? next.rows : [];
+    setReports(next);
+  }, []);
+  const reportsByPlace = useMemo(
+    () => (reports?.kind === 'ok' ? openReportsByPlace(reports.rows) : NO_REPORTS_BY_PLACE),
+    [reports],
+  );
+  const patchReportRows = useCallback((updated: TReportRow[]) => {
+    if (updated.length === 0) return;
+    const rows = mergeReportRows(reportRowsRef.current, updated);
+    reportRowsRef.current = rows;
+    setReports({ kind: 'ok', rows });
+  }, []);
   /**
    * 재빌드가 실제로 불렸는지. `undefined` 는 "못 읽었다" 이고 그때는 **아무 말도 하지 않는다** —
    * 못 읽은 것을 "안 불렸다" 로 말하면 멀쩡한 시스템을 고장으로 신고하게 만든다(stranded 와 같은 어법).
@@ -366,7 +395,8 @@ export function AdminPage() {
     setBlockSummary(await fetchBlockCounts(client));
     const byPlace = await fetchPlaceBlocks(client);
     setPlaceBlocks(byPlace.kind === 'ok' ? byPlace.byPlace : undefined);
-  }, []);
+    applyReports(await fetchReports(client));
+  }, [applyReports]);
 
   const start = useCallback(async (next: TAdminSession) => {
     setFatal(null);
@@ -378,6 +408,7 @@ export function AdminPage() {
     setPostError(undefined);
     setBlockSummary(undefined);
     setPlaceBlocks(undefined);
+    applyReports(undefined);
     setStranded(undefined);
     setRebuild(undefined);
     setPhase('verifying');
@@ -419,7 +450,7 @@ export function AdminPage() {
     }
 
     await refreshRebuild(client);
-  }, [loadCounts, loadManaged, refreshRebuild]);
+  }, [applyReports, loadCounts, loadManaged, refreshRebuild]);
 
   /*
    * 마운트 뒤에야 localStorage 를 읽는다 — 서버에는 그 저장소가 없다(그래서 이 화면은 `ssr: false` 다).
@@ -560,6 +591,8 @@ export function AdminPage() {
         if (kind === 'archive') {
           const outcome = await archiveAndBlock(client, place, reason ?? '기타', note, block);
           updated = outcome.place;
+          // 사이트에 없는 곳에 대한 제보는 더 할 일이 없다 — 함께 닫는다(ADR-021 R4). 실패해도 해제는 됐다.
+          patchReportRows(await closeReportsForArchived(client, reportRowsRef.current, place.id, new Date().toISOString()));
           /* `place.status` 는 바꾸기 **전** 상태다 — 초안은 애초에 사이트에 없었으므로 "사라져요" 가 거짓이 된다. */
           done = archiveOutcomeText(place.status === 'draft', outcome);
         } else {
@@ -582,7 +615,29 @@ export function AdminPage() {
         endWrite();
       }
     },
-    [afterWrite, applyPlaceChange, beginWrite, endWrite, loadCounts, patchPlaceState],
+    [afterWrite, applyPlaceChange, beginWrite, endWrite, loadCounts, patchPlaceState, patchReportRows],
+  );
+
+  /**
+   * 사용자 제보를 닫는다(`고쳤어요`·`무시`). `places` 를 바꾸지 않으므로 재빌드와 무관하다 — 고친 것 자체(주소 등)가 재빌드를 부른다.
+   * 대조 장부를 건드리지 않아 잠금이 필요 없지만, 같은 줄의 다른 쓰기와 겹치지 않게 줄의 `busy` 로 막는다.
+   */
+  const handleReports = useCallback(
+    async (place: TPlaceRow, ids: string[], status: 'handled' | 'dismissed', note: string) => {
+      const client = clientRef.current;
+      if (!client) return;
+      patchPlaceState(place.id, { busy: 'reports', error: undefined, done: undefined });
+      try {
+        patchReportRows(await setReportStatus(client, ids, status, note, new Date().toISOString()));
+        patchPlaceState(place.id, {
+          busy: undefined,
+          done: status === 'handled' ? `제보 ${ids.length}건을 닫았어요` : `제보 ${ids.length}건을 무시했어요`,
+        });
+      } catch (error) {
+        patchPlaceState(place.id, { busy: undefined, error: messageOf(error, '제보를 처리하지 못했어요.') });
+      }
+    },
+    [patchPlaceState, patchReportRows],
   );
 
   /** 등록 해제 칸에서 블랙리스트를 넣고·바꾸고·푼다(09 T1.4 단계 4). `places` 는 안 바뀌므로 재빌드와 무관하다. */
@@ -1245,6 +1300,8 @@ export function AdminPage() {
       <p className="px-4 pt-6 text-sm text-tertiary md:px-6">장소를 불러오고 있어요</p>
     ) : null;
 
+  const reportLine = reports?.kind === 'ok' ? reportHeadline(reports.rows, new Date()) : undefined;
+
   const expiry = new Date(session.expiresAt * 1000).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' });
 
   return (
@@ -1286,6 +1343,14 @@ export function AdminPage() {
           * 쓰기 도중에 끊긴 후보는 `approved` 로 남아 **이 목록에 안 나온다**(목록은 pending 만 읽는다).
           * 그 줄을 안 띄우면 새로고침 뒤에 그냥 사라진 것처럼 보여 승인이 통과한 줄 안다 — 이어받는 길을 여기서 말해 준다.
           */}
+        {/* 사용자 제보(ADR-021 R2 — "쌓이면 머리글에 보인다"). 표가 없으면 미적용, 0건이면 말하지 않는다. */}
+        {reports?.kind === 'unavailable' ? (
+          <p className="mt-0.5">사용자 제보 표가 아직 적용되지 않았어요 — DB 마이그레이션이 적용되면 여기 보여요.</p>
+        ) : reportLine && (reportLine.open > 0 || reportLine.today > 0) ? (
+          <p className={cx('mt-0.5', reportLine.open > 0 && 'text-warning-primary')}>
+            열린 제보 {reportLine.open}건 · 오늘 들어온 것 {reportLine.today}건 — 등록 완료 칸의 ‘제보 있는 곳’ 에서 봐요
+          </p>
+        ) : null}
         {stranded ? (
           <p className="mt-0.5 text-warning-primary">
             반영이 끊긴 후보 {stranded}건이 있어요 — 터미널에서 pnpm data:apply 를 한 번 돌려 주세요.
@@ -1343,6 +1408,8 @@ export function AdminPage() {
             onChange={(place, kind, reason, note, block) => void changePlace(place, kind, reason, note, block)}
             blocks={placeBlocks}
             onSetBlock={(place, choice) => void changePlaceBlock(place, choice)}
+            reports={reportsByPlace}
+            onHandleReports={(place, ids, status, note) => void handleReports(place, ids, status, note)}
             onSaveAddress={(place, patch) => void savePlaceAddress(place, patch)}
             onClearDone={clearPlaceDone}
           />
@@ -1359,6 +1426,8 @@ export function AdminPage() {
             onChange={(place, kind, reason, note, block) => void changePlace(place, kind, reason, note, block)}
             blocks={placeBlocks}
             onSetBlock={(place, choice) => void changePlaceBlock(place, choice)}
+            reports={reportsByPlace}
+            onHandleReports={(place, ids, status, note) => void handleReports(place, ids, status, note)}
             onSaveAddress={(place, patch) => void savePlaceAddress(place, patch)}
             onClearDone={clearPlaceDone}
           />

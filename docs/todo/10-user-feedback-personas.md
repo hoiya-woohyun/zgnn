@@ -209,9 +209,10 @@ P3  F11 다두 what-if
 - [x] **T1.3 상세 화면 제보 진입** — §7 답 뒤. 보내는 쪽은 `adminSupabase.ts` 의 클라이언트를 **재사용하지 않고** 사용자 화면용 얇은 모듈(`placeReportSend.ts`)을 따로 둔다 — `/admin` 클라이언트는 세션·storageKey 를 들고 있어 사용자 화면에 끌려오면 안 된다. `.insert()` 뒤 `.select()` 없음(R2). 오프라인·실패는 `showAppStatus`.
       문서: `features/place-report.md` 신설(07 이 예고한 파일).
       > 메모: §7 이 닫히기 전이라 자리·문구는 **임시안**(07 의 "맨 아래" 판단대로 — 근처 장소 다음 카드 `placeDetailReport.tsx`). 보내기는 supabase-js 없이 `fetch` 하나(`apikey` 헤더만 — publishable 키는 JWT 가 아니라 Bearer 에 넣으면 안 된다). 시트는 `components/reportSheet.tsx` 로 떼어 F8 이 재사용한다. 실패하면 시트를 닫지 않는다(적은 말을 잃지 않게).
-- [ ] **T1.4 `/admin` 제보 처리** — 등록 완료 탭 장소 줄 뱃지(열린 제보 수) · 걸러 보기 "제보 있는 곳" · 펼친 줄의 제보 목록 · `handled`/`dismissed` + 메모 · `closed`·`replaced` 는 **기존 등록 해제 폼을 연다**(사유 `폐업` 미리 고름) 그리고 해제가 끝나면 그 장소의 열린 폐업 제보를 함께 `handled` 로.
+- [x] **T1.4 `/admin` 제보 처리** — 등록 완료 탭 장소 줄 뱃지(열린 제보 수) · 걸러 보기 "제보 있는 곳" · 펼친 줄의 제보 목록 · `handled`/`dismissed` + 메모 · `closed`·`replaced` 는 **기존 등록 해제 폼을 연다**(사유 `폐업` 미리 고름) 그리고 해제가 끝나면 그 장소의 열린 폐업 제보를 함께 `handled` 로.
       문서: [features/admin-review.md](../features/admin-review.md) 에 「제보」 절 · [06](06-admin-review.md).
       선행: 09 T1.4(등록 해제 폼의 「블랙리스트에」 — `place_blocks` 표 자체는 있다).
+      > 메모: 09 T1.4 를 먼저 닫았다(같은 세션). 해제가 끝나면 **폐업 제보만이 아니라 그 장소의 처리할 제보 전부**를 닫는다 — R4 "내린 장소에 남은 제보는 handled" 를 그대로. 처리 쓰기는 `adminReports.ts` 의 `setReportStatus`(0행 = 실패). 제보 처리는 `places`·대조 장부를 안 건드려 쓰기 잠금을 쓰지 않고 줄의 `busy` 로만 막는다. 머리글 한 줄은 "열린 제보 · 오늘 들어온 것"(R2).
 - [x] **T1.5 `app_build` 식별자** — 빌드 때 `NEXT_PUBLIC_APP_BUILD`(커밋 짧은 해시 또는 `VERCEL_GIT_COMMIT_SHA` 앞 7자)를 박아 제보에 싣는다. 값이 없으면 `'dev'`. 유출 검사의 허용 목록을 건드리지 않는지 확인.
       > 메모: `next.config.mjs` 의 `env` 로 박는다(`VERCEL_GIT_COMMIT_SHA` → `git rev-parse --short=7` → `dev`). 같은 값을 프리캐시 `revision` 해시에도 넣었다 — 번들에 박히는 값이라 빼면 청크만 바뀌고 HTML revision 은 그대로 남는다(pwa-offline v8). 7자 hex 는 유출 검사 패턴 어디에도 안 걸린다.
 

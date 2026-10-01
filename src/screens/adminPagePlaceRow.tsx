@@ -21,12 +21,14 @@ import { cx } from '../utils/cx';
 import { AdminPagePlaceAddressForm } from './adminPagePlaceAddressForm';
 import { AdminPagePlaceArchiveForm } from './adminPagePlaceArchiveForm';
 import { AdminPagePlaceDetail } from './adminPagePlaceDetail';
+import { AdminPagePlaceReports } from './adminPagePlaceReports';
+import type { TReportRow } from '../lib/adminReports';
 import { ADMIN_PANEL_DIVIDER, ADMIN_PLACE_GRID, ADMIN_POLICY_TONE, ADMIN_ROW_OPEN } from './adminTable';
 import { AdminTypeChip } from './adminTypeChip';
 
 /** 장소 한 줄의 화면 상태. 소유자는 `adminPagePlaceList` 고 여기는 받아서 그린다(묶음 카드와 같은 모양). */
 export type TAdminPagePlaceState = {
-  busy?: 'archiving' | 'restoring' | 'savingAddress' | 'blocking';
+  busy?: 'archiving' | 'restoring' | 'savingAddress' | 'blocking' | 'reports';
   done?: string;
   error?: string;
   /** '내리기' 를 눌러 사유를 고르는 중. */
@@ -61,6 +63,11 @@ type TAdminPagePlaceRowProps = {
   onStartBlock: () => void;
   onCancelBlock: () => void;
   onSetBlock: (choice: TBlockChoice) => void;
+  /** 이 장소에 열린 사용자 제보(처리할 것만). 없거나 표가 없으면 빈 배열. */
+  reports: TReportRow[];
+  onHandleReports: (ids: string[], status: 'handled' | 'dismissed', note: string) => void;
+  /** 폐업 제보에서 등록 해제 폼을 `폐업` 으로 연다. */
+  onArchiveFromReport: () => void;
   onRestore: () => void;
   onStartEditAddress: () => void;
   onCancelEditAddress: () => void;
@@ -99,6 +106,9 @@ export function AdminPagePlaceRow({
   onStartBlock,
   onCancelBlock,
   onSetBlock,
+  reports,
+  onHandleReports,
+  onArchiveFromReport,
 }: TAdminPagePlaceRowProps) {
   /** '되살리기(게시중으로)' 를 눌러 한 번 더 묻는 중 — 되살리면 초안이었던 행도 게시가 된다. */
   const [askingRestore, setAskingRestore] = useState(false);
@@ -161,6 +171,12 @@ export function AdminPagePlaceRow({
           {place.status === 'draft' && (
             <Badge size="sm" color={PLACE_STATUS_COLOR[place.status]}>
               {PLACE_STATUS_LABEL[place.status]}
+            </Badge>
+          )}
+          {/* 사용자 제보는 빠진 정보보다 앞 — 사람이 직접 "틀렸다" 고 한 것이 가장 센 신호다(10 T1.4). */}
+          {reports.length > 0 && (
+            <Badge type="color" size="sm" color="error">
+              제보 {reports.length}
             </Badge>
           )}
           {gaps.map((gap) => (
@@ -274,6 +290,15 @@ export function AdminPagePlaceRow({
           place={place}
           badges={badges}
           onEditAddress={archived || state.editingAddress || busy ? undefined : onStartEditAddress}
+        />
+      )}
+      {expanded && reports.length > 0 && (
+        <AdminPagePlaceReports
+          reports={reports}
+          busy={busy === 'reports'}
+          canArchive={!archived && !state.archiving && !busy}
+          onHandle={onHandleReports}
+          onArchive={onArchiveFromReport}
         />
       )}
       {expanded && state.editingAddress && (

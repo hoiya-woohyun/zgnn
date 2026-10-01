@@ -17,6 +17,7 @@ import {
   type TPlaceGap,
 } from '../lib/adminPlaces';
 import type { TBlockChoice, TPlaceBlock } from '../lib/adminBlocks';
+import type { TReportRow } from '../lib/adminReports';
 import { useAdminInfiniteScroll } from './adminInfiniteScroll';
 import { AdminPagePlaceRow, type TAdminPagePlaceState } from './adminPagePlaceRow';
 import { ADMIN_PLACE_GRID, AdminTable } from './adminTable';
@@ -35,6 +36,9 @@ import { ADMIN_PLACE_GRID, AdminTable } from './adminTable';
 
 /** 한 번에 더 그리는 줄 수. 줄이 얇아져(표) 20 은 PC 한 화면도 못 채운다 — 감시판이 곧바로 또 보인다. */
 const PAGE_SIZE = 40;
+
+/** 제보 없는 줄에 넘기는 빈 배열 — 줄마다 새 배열을 만들지 않게. */
+const NO_REPORTS: TReportRow[] = [];
 
 /** 앞의 다섯 열을 후보 표와 맞춘다(`adminPage.tsx` 의 `COLUMNS`) — 두 칸을 오갈 때 같은 값이 같은 자리에 있게. */
 const COLUMNS = ['장소', '지역', '동반 조건', '소개', '종류', ''];
@@ -87,6 +91,9 @@ type TAdminPagePlaceListProps = {
   /** 장소 id → 열린 블랙리스트. `undefined` 면 표가 없거나 못 읽었다(칩을 안 그린다). */
   blocks?: Record<string, TPlaceBlock>;
   onSetBlock: (place: TPlaceRow, choice: TBlockChoice) => void;
+  /** 장소 id → 처리할 사용자 제보. 표가 없으면 빈 객체. */
+  reports: Record<string, TReportRow[]>;
+  onHandleReports: (place: TPlaceRow, ids: string[], status: 'handled' | 'dismissed', note: string) => void;
   /** 주소·좌표 고치기(쓰기는 `adminPage` 의 `savePlaceAddress`). 등록 해제 칸의 줄에는 버튼이 서지 않는다. */
   onSaveAddress: (place: TPlaceRow, patch: TPlaceAddressPatch) => void;
   /** 끝난 줄의 초록 한 줄을 치운다 — 검색어·구간을 바꾸면 같이. */
@@ -102,9 +109,13 @@ export function AdminPagePlaceList({
   onChange,
   blocks,
   onSetBlock,
+  reports,
+  onHandleReports,
   onSaveAddress,
   onClearDone,
 }: TAdminPagePlaceListProps) {
+  /** "제보 있는 곳" 만 보기 — 10 T1.4 의 걸러 보기. */
+  const [reportedOnly, setReportedOnly] = useState(false);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<TStatusFilter>('all');
   const [typeFilter, setTypeFilter] = useState<TTypeFilter>('all');
@@ -127,11 +138,15 @@ export function AdminPagePlaceList({
   const visible = useMemo(
     () =>
       searched.filter(
-        (place) => (typeFilter === 'all' || place.type === typeFilter) && gapMatches(gapFilter, place),
+        (place) =>
+          (typeFilter === 'all' || place.type === typeFilter) &&
+          gapMatches(gapFilter, place) &&
+          (!reportedOnly || (reports[place.id]?.length ?? 0) > 0),
       ),
-    [gapFilter, searched, typeFilter],
+    [gapFilter, reportedOnly, reports, searched, typeFilter],
   );
   const counts = useMemo(() => countPlacesByStatus(visible), [visible]);
+  const reportedCount = inMode.filter((place) => (reports[place.id]?.length ?? 0) > 0).length;
   const inStatus = (place: TPlaceRow) => status === 'all' || place.status === status;
   const baseType = searched.filter((place) => inStatus(place) && gapMatches(gapFilter, place));
   const baseGap = searched.filter((place) => inStatus(place) && (typeFilter === 'all' || place.type === typeFilter));
@@ -201,6 +216,20 @@ export function AdminPagePlaceList({
         })}
         </div>
         )}
+        {reportedCount > 0 || reportedOnly ? (
+          <Button
+            size="sm"
+            color={reportedOnly ? 'primary' : 'secondary'}
+            aria-pressed={reportedOnly}
+            onClick={() => {
+              clearDone();
+              setReportedOnly((prev) => !prev);
+              setShown(PAGE_SIZE);
+            }}
+          >
+            제보 있는 곳 {reportedCount}
+          </Button>
+        ) : null}
       </div>
 
       {notice ? <p className="mt-2 px-4 text-xs text-success-primary md:px-6">{notice}</p> : null}
@@ -265,6 +294,11 @@ export function AdminPagePlaceList({
                 onStartBlock={() => patchState(place.id, { pickingBlock: true, error: undefined, done: undefined })}
                 onCancelBlock={() => patchState(place.id, { pickingBlock: false })}
                 onSetBlock={(choice) => onSetBlock(place, choice)}
+                reports={reports[place.id] ?? NO_REPORTS}
+                onHandleReports={(ids, nextStatus, note) => onHandleReports(place, ids, nextStatus, note)}
+                onArchiveFromReport={() =>
+                  patchState(place.id, { archiving: true, archiveReason: '폐업', error: undefined, done: undefined })
+                }
                 onRestore={() => onChange(place, 'restore')}
                 onStartEditAddress={() => patchState(place.id, { editingAddress: true, error: undefined, done: undefined })}
                 onCancelEditAddress={() => patchState(place.id, { editingAddress: false })}
