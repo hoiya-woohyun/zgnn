@@ -3,7 +3,7 @@
   "buildCommand": "pnpm data:pull && pnpm build",
   "framework": "nextjs",
   "git": {
-    "deploymentEnabled": { "main": true, "**": false }
+    "deploymentEnabled": { "main": true, "develop": true, "**": false }
   },
   "headers": [
     {

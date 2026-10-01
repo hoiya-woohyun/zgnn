@@ -1,6 +1,7 @@
 # 4. Vercel 배포 · 빌드 시 DB 읽기 · 승인되면 재빌드
 
-> 최종 수정: 2026-10-01 (v9: **Preview 자동 배포를 껐다** — `vercel.json` 의 `git.deploymentEnabled` 를 `main` 만 `true`. 배포 기록 대부분이
+> 최종 수정: 2026-10-01 (v10: `develop` 만 Preview 를 다시 켰다 — 머지 전에 배포 환경(PWA·서비스워커·HTTPS)을 폰으로 보는 자리. 고정 주소는 Git branch URL)
+> 이전 (v9: **Preview 자동 배포를 껐다** — `vercel.json` 의 `git.deploymentEnabled` 를 `main` 만 `true`. 배포 기록 대부분이
 > 에이전트가 올린 `claude/*` 브랜치의 Preview 였다. `main` push·Deploy Hook·`vercel` CLI 는 그대로 돈다)
 > 이전 (v8: **열려 있던 두 항목을 닫는 장치를 깔았다**(`20260929121000_rebuild_log.sql`).
 > ① `status_code` 가 null 이면 타임아웃과 죽은 URL 이 구분되지 않던 문제 → 호출을 `public.rebuild_log` 에 남기고 `public.rebuild_status()`(운영자 전용)가
@@ -50,8 +51,8 @@
 
 ### Preview 배포
 
-- [x] ~~PR 마다 Preview 가 뜬다~~ → **2026-10-01 껐다.** `vercel.json` `git.deploymentEnabled: { "main": true, "**": false }` — `main` 밖의
-      브랜치 push 는 빌드하지 않는다(`main` 은 두 규칙에 다 걸리지만 하나라도 `true` 면 배포된다). 필요하면 그 브랜치에서 `vercel`(Preview) 을 손으로 부른다.
+- [x] ~~PR 마다 Preview 가 뜬다~~ → **2026-10-01 껐다.** `vercel.json` `git.deploymentEnabled: { "main": true, "**": false }` — `main`·`develop` 밖의
+      브랜치 push 는 빌드하지 않는다. `develop` 은 Preview 로 뜨고 주소는 `zgnn-git-develop-…vercel.app` 로 고정(`main` 은 두 규칙에 다 걸리지만 하나라도 `true` 면 배포된다). 필요하면 그 브랜치에서 `vercel`(Preview) 을 손으로 부른다.
       `**` 인 이유: minimatch 의 `*` 는 `/` 를 못 넘어 `claude/foo` 를 놓친다.
 - [ ] Deployment Protection → **Vercel Authentication** 을 Preview 에 켠다(무료). 미완성 화면이 검색엔진·남에게 노출되지 않게.
 - [ ] 네이버 지도는 Preview URL 이 매번 달라 NCP 콘솔 등록이 안 된다 → Preview 에서 지도가 안 뜨는 건 **알고 감수**한다(00 에 적음).
