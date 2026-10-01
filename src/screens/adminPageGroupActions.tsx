@@ -112,14 +112,14 @@ export function AdminPageGroupActions({
   if (state.reanalyzing) {
     return (
       <div className="space-y-2">
-        <Situation title="재분석할까요?">
+        <Situation title="수집 완료로 되돌릴까요?">
           <p>{reanalyzeText}</p>
           <p>
-            눕힌 후보는 반려 목록에 남아요. 그다음 터미널에서 <code>pnpm data:analyze</code> 를 돌려 주세요.
+            목록에서 빠진 후보는 반려 목록에 남아요. 그다음 터미널에서 <code>pnpm data:analyze</code> 를 돌려 주세요.
           </p>
         </Situation>
         <Row>
-          <TipButton color="primary-destructive" size="sm" isDisabled={off} isLoading={busy === 'reanalyzing'} onClick={onReanalyze}>
+          <TipButton color="secondary" size="sm" isDisabled={off} isLoading={busy === 'reanalyzing'} onClick={onReanalyze}>
             재분석
           </TipButton>
           <TipButton color="secondary" size="sm" isDisabled={off} onClick={onCancelReanalyze}>
@@ -163,7 +163,7 @@ export function AdminPageGroupActions({
       {tertiary('고치기', onEdit)}
       {tertiary('재분석', onStartReanalyze, {
         isDisabled: !group.lead.post_url,
-        title: group.lead.post_url ? '이 글의 분석을 지우고 재분석 대기로 되돌려요' : '글 링크가 없어 다시 읽을 수 없어요',
+        title: group.lead.post_url ? '이 글을 수집 완료로 되돌려요(지우지 않아요)' : '글 링크가 없어 다시 읽을 수 없어요',
       })}
     </>
   );

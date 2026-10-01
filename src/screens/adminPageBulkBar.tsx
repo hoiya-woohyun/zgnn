@@ -32,7 +32,7 @@ type TAdminPageBulkBarProps = {
 const CONFIRM: Record<Exclude<TBulkMode, 'reject'>, { title: (n: number) => string; button: string; destructive: boolean }> = {
   approve: { title: (n) => `고른 ${n}곳을 올릴까요?`, button: '올리기', destructive: false },
   latest: { title: () => '고른 것을 덮어쓸까요?', button: '덮어쓰기', destructive: false },
-  reanalyze: { title: (n) => `고른 ${n}곳을 재분석할까요?`, button: '재분석', destructive: true },
+  reanalyze: { title: (n) => `고른 ${n}곳을 수집 완료로 되돌릴까요?`, button: '재분석', destructive: false },
 };
 
 /**
@@ -128,12 +128,12 @@ export function AdminPageBulkBar({
           <p className="text-xs text-secondary">{confirmText}</p>
           {mode === 'reanalyze' && (
             <p className="text-xs text-tertiary">
-              눕힌 후보는 반려 목록에 남아요. 그다음 터미널에서 <code>pnpm data:analyze</code> 를 돌려 주세요.
+              목록에서 빠진 후보는 반려 목록에 남아요. 그다음 터미널에서 <code>pnpm data:analyze</code> 를 돌려 주세요.
             </p>
           )}
           <div className="flex gap-2">
             <Button
-              color={confirm.destructive ? 'primary-destructive' : 'primary'}
+              color={confirm.destructive ? 'primary-destructive' : mode === 'reanalyze' ? 'secondary' : 'primary'}
               size="sm"
               isDisabled={busy}
               isLoading={busy}

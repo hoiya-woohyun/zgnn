@@ -105,7 +105,7 @@ const HELP = [
   '줄을 누르면 근거(원문 · 나갈 값 · 블로그 인용)가 펼쳐지고, 그 끝에서 이 줄을 올리거나 반려해요.',
   '줄 앞 체크박스로 여러 곳을 고르면 표 위에 한꺼번에 처리하는 줄이 떠요.',
   '올리기: 짝이 있으면 그 장소의 빈 칸만 채우고, 없으면 새 장소로 올라가요. 덮어쓰기: 짝의 칸을 새 분석 값으로 바꿔요.',
-  '재분석: 그 글의 분석을 지우고 재분석 대기로 되돌려요. 터미널에서 pnpm data:analyze 를 돌리면 다시 읽어요.',
+  '재분석: 그 글을 수집 완료로 되돌려요(지우지 않아요). 터미널에서 pnpm data:analyze 를 돌리면 다시 읽어요.',
 ].join('\n');
 
 type TTierFilter = 'all' | 'auto' | 'ask' | 'new';
@@ -631,7 +631,7 @@ export function AdminPage() {
       setStates((prev) => Object.fromEntries(Object.entries(prev).filter(([key]) => alive.has(key))));
       setSelected((prev) => clearKeys(prev, [...keys]));
       setBulk({
-        summary: `글 ${plan.posts.length}건을 재분석 대기로 돌렸어요 · 후보 ${plan.lay.length}건을 눕혔어요 — 터미널에서 pnpm data:analyze 를 돌리면 다시 읽어요.`,
+        summary: `글 ${plan.posts.length}건을 수집 완료로 되돌렸어요 · 검수 대기 후보 ${plan.lay.length}건이 목록에서 빠졌어요 — 터미널에서 pnpm data:analyze 를 돌리면 다시 읽어요.`,
       });
     },
     [beginWrite, endWrite, groups, patchState, planFor],

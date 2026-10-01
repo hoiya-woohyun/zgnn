@@ -43,10 +43,10 @@ export function reanalyzePlan(chosen: TCandidateRow[], pending: TCandidateRow[])
   return { posts, lay: hit.filter((row) => !edited(row)), keep: hit.filter(edited) };
 }
 
-/** 확인 문장 — 누르기 전에 무엇이 사라지는지. 숫자가 유일한 단서라(형제 후보는 화면의 다른 줄이다) 셋 다 적는다. */
+/** 확인 문장 — 누르기 전에 무엇이 바뀌는지(지우지 않는다, 수집 완료로 되돌린다). 숫자가 유일한 단서라(형제 후보는 화면의 다른 줄이다) 셋 다 적는다. */
 export function reanalyzeSummary(plan: TReanalyzePlan): string {
-  const keep = plan.keep.length ? ` 사람이 고친 후보 ${plan.keep.length}건은 남겨 둬요.` : '';
-  return `글 ${plan.posts.length}건을 다시 읽도록 되돌리고, 그 글에서 나온 후보 ${plan.lay.length}건(다른 줄 포함)을 눕혀요.${keep}`;
+  const kept = plan.keep.length ? `이미 등록한 장소와 사람이 고친 후보 ${plan.keep.length}건은` : '이미 등록한 장소는';
+  return `글 ${plan.posts.length}건을 수집 완료로 되돌려요. 그 글에서 나온 검수 대기 후보 ${plan.lay.length}건(다른 줄 포함)은 목록에서 빠져요 — DB 에는 '재분석' 표시로 남아요. ${kept} 그대로예요. 다음 pnpm data:analyze 가 다시 읽어요.`;
 }
 
 const failIf = (step: string, error: { message: string } | null) => {
