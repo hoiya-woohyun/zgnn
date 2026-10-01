@@ -4,7 +4,7 @@ import { PlacesPageFilters } from './placesPageFilters';
 import { BottomSheet } from '../components/base/bottom-sheet';
 import { Button } from '../components/base/button';
 import { cx } from '../utils/cx';
-import type { TPetFilterKey, TPriceSort } from '../lib/placeFilters';
+import type { TPetFilterKey, TPlaceSort } from '../lib/placeFilters';
 import type { TDirection, TPlaceType } from '../types';
 
 type TPlacesPageFilterSheetProps = {
@@ -15,11 +15,11 @@ type TPlacesPageFilterSheetProps = {
   town: string | null;
   directions: TDirection[];
   petKeys: TPetFilterKey[];
-  sort: TPriceSort;
+  sort: TPlaceSort;
   onSelectTown: (town: string | null) => void;
   onToggleDirection: (direction: TDirection) => void;
   onTogglePetKey: (key: TPetFilterKey) => void;
-  onChangeSort: (sort: TPriceSort) => void;
+  onChangeSort: (sort: TPlaceSort) => void;
   /** 우리 강아지 기준 토글은 프로필이 있을 때만 있다. 없으면 이 값이 null 이다. */
   eligibility: {
     hideHard: boolean;

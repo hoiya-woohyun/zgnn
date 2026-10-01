@@ -6,6 +6,7 @@ import { PlaceThumb } from './placeThumb';
 import { SaveButton } from './saveButton';
 import { TownChip } from './townChip';
 import { categoryLabel } from '../lib/category';
+import { distanceLabel } from '../lib/distanceSort';
 import { primaryReason } from '../lib/eligibility';
 import { formatStayPrice } from '../lib/format';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
@@ -15,6 +16,8 @@ type TPlaceCardProps = {
   place: TPlaceEntry;
   /** 카드 아래, 링크 **밖**에 붙는 것(저장 화면의 메모 줄). 링크 안에 두면 입력 칸을 누르는 것이 상세로 가는 것이 된다. */
   footer?: ReactNode;
+  /** 가까운 순일 때 내 위치에서의 거리(km). 있으면 종류 옆에 붙는다(10 F7). */
+  distanceKm?: number;
 };
 
 /**
@@ -28,7 +31,7 @@ type TPlaceCardProps = {
  * 그만큼 줄여 카드 높이(총 배지 개수)를 그대로 유지한다. 프로필이 없으면 이 훅은 null 을
  * 돌려주므로 카드는 지금과 완전히 같은 모습이다.
  */
-export function PlaceCard({ place, footer }: TPlaceCardProps) {
+export function PlaceCard({ place, footer, distanceKm }: TPlaceCardProps) {
   const eligibility = useEligibility(place);
   const reason = eligibility ? primaryReason(eligibility) : undefined;
 
@@ -46,6 +49,7 @@ export function PlaceCard({ place, footer }: TPlaceCardProps) {
               <TownChip town={place.region.town} type={place.type} />
               <span className="text-sm text-tertiary">
                 {categoryLabel(place.category, TYPE_META[place.type].label)}
+                {distanceKm !== undefined && ` · ${distanceLabel(distanceKm)}`}
               </span>
             </div>
           </div>

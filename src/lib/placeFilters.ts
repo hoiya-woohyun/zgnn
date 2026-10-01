@@ -35,11 +35,12 @@ export const PET_FILTERS: Record<TPlaceType, TPetFilter[]> = {
   cafe: DINING_FILTERS,
 };
 
-export type TPriceSort = 'none' | 'asc' | 'desc';
+/** 목록 정렬. 가격 둘은 숙소만, `near`(가까운 순)는 모든 종류(10 F7 — 위치는 고를 때 한 번 받고 저장하지 않는다). */
+export type TPlaceSort = 'none' | 'asc' | 'desc' | 'near';
 
 /** 가격 정렬. 요금을 알 수 없는 숙소는 방향과 관계없이 항상 뒤로 보낸다. */
 export const comparePrice =
-  (sort: Exclude<TPriceSort, 'none'>) =>
+  (sort: 'asc' | 'desc') =>
   (a: { stay?: { price: { min?: number } } }, b: { stay?: { price: { min?: number } } }) => {
     const av = a.stay?.price.min;
     const bv = b.stay?.price.min;
