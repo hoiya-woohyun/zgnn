@@ -150,3 +150,32 @@ export function rejectOutcomeText(reason: string, outcome: TRejectBlockOutcome):
   if (outcome.blocked !== 'none') return `제외했어요 · ${reason} · 블랙리스트 ${BLOCK_CHOICE_LABEL[outcome.blocked]}`;
   return `제외했어요 · ${reason}`;
 }
+
+export type TBlockCounts = {
+  /** 아직 막고 있는 행(풀지 않았고 기간이 안 지났다). */
+  active: number;
+  /** 풀지는 않았는데 기간이 지난 행 — 더는 걸리지 않는다(화면의 `지남`). */
+  expired: number;
+};
+
+/** 풀지 않은 행들에서 막고 있는 것과 지난 것을 센다 — 순수. 비교는 분석의 `blockFor` 와 같다(`until` 이 null 이면 영구). */
+export function countBlockRows(rows: readonly { until: string | null }[], now: Date): TBlockCounts {
+  const counts: TBlockCounts = { active: 0, expired: 0 };
+  for (const row of rows) {
+    if (!row.until || new Date(row.until).getTime() > now.getTime()) counts.active += 1;
+    else counts.expired += 1;
+  }
+  return counts;
+}
+
+/** 블랙리스트 탭 라벨의 바탕. `unavailable` 은 표가 원격에 없는 것이라 "0건" 과 다르게 말한다. */
+export type TBlocksSummary =
+  | ({ kind: 'ok' } & TBlockCounts)
+  | { kind: 'unavailable' }
+  | { kind: 'error'; message: string };
+
+export async function fetchBlockCounts(client: SupabaseClient, now: Date = new Date()): Promise<TBlocksSummary> {
+  const { data, error } = await client.from('place_blocks').select('until').is('lifted_at', null);
+  if (error) return isBlocksUnavailable(error) ? { kind: 'unavailable' } : { kind: 'error', message: error.message };
+  return { kind: 'ok', ...countBlockRows((data ?? []) as { until: string | null }[], now) };
+}

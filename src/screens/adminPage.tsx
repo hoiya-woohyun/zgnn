@@ -8,7 +8,7 @@ import { Select } from '../components/base/select';
 import { EmptyState } from '../components/layout/emptyState';
 import { PageHeader } from '../components/layout/pageHeader';
 import { approveGroup, saveEdit, setRegion } from '../lib/adminApply';
-import { rejectAndBlock, rejectOutcomeText, type TBlockChoice } from '../lib/adminBlocks';
+import { fetchBlockCounts, rejectAndBlock, rejectOutcomeText, type TBlockChoice, type TBlocksSummary } from '../lib/adminBlocks';
 import { aiOriginalOf, buildEdit, chooseAddress, type TCandidateEditDraft } from '../lib/adminEdit';
 import { addressUnresolved, type TAddressChoice } from '../lib/adminAddress';
 import { prepareReanalyze, reanalyzePlan, reanalyzeSummary } from '../lib/adminReanalyze';
@@ -24,10 +24,11 @@ import {
   TYPE_LABEL,
   type TCandidateGroup,
   type TCandidateRow,
-  type TCandidateType,
   type TPlaceRow,
   type TRejectReason,
 } from '../lib/adminCandidates';
+import { archivePlace, fetchManagedPlaces, restorePlace, sortManagedPlaces, type TArchiveReason } from '../lib/adminPlaces';
+import { countPosts, type TPostCounts } from '../lib/adminPosts';
 import { adminFlagView } from '../lib/adminPreview';
 import { verifyNeedsLook } from '../lib/adminVerify';
 import { fetchRebuildStatus, rebuildHeadline, type TRebuildHeadline } from '../lib/adminRebuild';
@@ -49,12 +50,24 @@ import {
   type TAdminSession,
 } from '../lib/adminSession';
 import { createAdminClient, isOperator } from '../lib/adminSupabase';
+import {
+  parseAdminUrl,
+  writeAdminUrl,
+  type TAdminTab,
+  type TPolicyFilter,
+  type TTierFilter,
+  type TTypeFilter,
+  type TWarnFilter,
+} from '../lib/adminUrlState';
 import { cx } from '../utils/cx';
 import { useAdminInfiniteScroll } from './adminInfiniteScroll';
+import { AdminPageBlocksPanel } from './adminPageBlocksPanel';
 import { AdminPageBulkBar } from './adminPageBulkBar';
 import { AdminPageGroupCard, type TAdminPageGroupState, type TApproveChoice } from './adminPageGroupCard';
 import { AdminPageLogin } from './adminPageLogin';
 import { AdminPagePlaceList } from './adminPagePlaceList';
+import type { TAdminPagePlaceState } from './adminPagePlaceRow';
+import { AdminPagePostsPanel } from './adminPagePostsPanel';
 import { ADMIN_CANDIDATE_GRID, AdminTable } from './adminTable';
 
 /**
@@ -87,14 +100,19 @@ const DONE_LINGER_MS = 3000;
 type TPhase = 'checking' | 'signedOut' | 'verifying' | 'notOperator' | 'loading' | 'ready' | 'error';
 
 /**
- * 두 칸. 후보를 **올리는** 일과 이미 올린 것을 **내리는** 일은 다른 일이라 한 목록에 섞지 않는다 —
- * 섞으면 "맞아요" 옆에 "내리기" 가 붙어 실수 한 번의 값이 달라진다.
+ * 다섯 칸 = 네 개체(09 D4): 수집 완료(글) · 검수 대기(후보) · 등록 완료·등록 해제(장소, `status` 로 가른다) · 블랙리스트(`place_blocks`).
+ * 올리는 일과 내리는 일을 한 목록에 섞지 않는다 — 섞으면 "맞아요" 옆에 "내리기" 가 붙어 실수 한 번의 값이 달라진다.
+ * 칸의 정체는 `?tab=` 쿼리에 실린다(`adminUrlState.ts`).
  */
-type TTab = 'candidates' | 'places';
+type TTab = TAdminTab;
 
-const TABS: { key: TTab; label: string }[] = [
-  { key: 'candidates', label: '확인할 장소' },
-  { key: 'places', label: '올린 장소' },
+/** 탭 줄의 라벨(건수는 붙이는 쪽이 정한다) — 왼쪽에서 오른쪽이 파이프라인 순서다. */
+const TAB_LABELS: { key: TTab; label: string }[] = [
+  { key: 'posts', label: '수집 완료' },
+  { key: 'candidates', label: '검수 대기' },
+  { key: 'places', label: '등록 완료' },
+  { key: 'archived', label: '등록 해제' },
+  { key: 'blocks', label: '블랙리스트' },
 ];
 
 /**
@@ -110,21 +128,18 @@ const HELP = [
   '재분석: 그 글을 수집 완료로 되돌려요(지우지 않아요). 터미널에서 pnpm data:analyze 를 돌리면 다시 읽어요.',
 ].join('\n');
 
-type TTierFilter = 'all' | 'auto' | 'ask' | 'new';
 type TBulkMode = 'reject' | 'reanalyze' | 'approve' | 'latest';
-type TTypeFilter = 'all' | TCandidateType;
 
-/**
- * 동반 조건 축의 세 상태. **불리언 토글 둘로 두지 않는다** — '조건이 적힌 것' 과 '교차점검이 근거를 못 찾은 것' 은
+/*
+ * 동반 조건 축(`TPolicyFilter`)은 세 상태다. **불리언 토글 둘로 두지 않는다** — '조건이 적힌 것' 과 '교차점검이 근거를 못 찾은 것' 은
  * 교집합이 없다(교차점검은 조건 문장이 없는 후보에만 돈다). 토글 둘이면 둘을 같이 켤 수 있고 그 목록은 늘 빈다.
+ * 걸러 보기 네 축의 타입은 주소 쿼리가 같이 읽고 써야 해서 `adminUrlState.ts` 가 소유한다.
  */
-type TPolicyFilter = 'all' | 'has' | 'needsLook';
 
 /**
  * 경고 축(2026-09-30 v2). 21줄을 다 훑어야 경고를 찾던 자리다 — 올리기 전에 사람이 봐야 하는 세 가지만 센다.
  * `any` 는 셋의 합집합이고, 각 선택지는 서로 겹칠 수 있다(한 줄이 지역도 없고 주소도 다를 수 있다).
  */
-type TWarnFilter = 'all' | 'any' | 'region' | 'address' | 'noBasis';
 
 const WARN_MATCH: Record<Exclude<TWarnFilter, 'all' | 'any'>, (card: { group: TCandidateGroup; view: { badges: { key: string }[] } }) => boolean> = {
   region: (card) => card.view.badges.some((badge) => badge.key === '지역 없음'),
@@ -207,6 +222,8 @@ const newPlaceId = (): string => {
 const messageOf = (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback);
 
 export function AdminPage() {
+  // 탭·걸러 보기를 주소에서 읽는다(마운트 한 번). 이 화면은 `ssr: false` 라 렌더 중에 `window` 가 있다.
+  const [initialUrl] = useState(() => parseAdminUrl(typeof window === 'undefined' ? '' : window.location.search));
   const [phase, setPhase] = useState<TPhase>('checking');
   const [session, setSession] = useState<TAdminSession | null>(null);
   const [notice, setNotice] = useState<string | undefined>(undefined);
@@ -216,10 +233,10 @@ export function AdminPage() {
   const [stranded, setStranded] = useState<number | undefined>(undefined);
   const [states, setStates] = useState<Record<string, TAdminPageGroupState>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [tierFilter, setTierFilter] = useState<TTierFilter>('all');
-  const [policyFilter, setPolicyFilter] = useState<TPolicyFilter>('all');
-  const [typeFilter, setTypeFilter] = useState<TTypeFilter>('all');
-  const [warnFilter, setWarnFilter] = useState<TWarnFilter>('all');
+  const [tierFilter, setTierFilter] = useState<TTierFilter>(initialUrl.tier);
+  const [policyFilter, setPolicyFilter] = useState<TPolicyFilter>(initialUrl.policy);
+  const [typeFilter, setTypeFilter] = useState<TTypeFilter>(initialUrl.type);
+  const [warnFilter, setWarnFilter] = useState<TWarnFilter>(initialUrl.warn);
   const [shown, setShown] = useState(PAGE_SIZE);
   /*
    * 일괄 반려용으로 골라 둔 묶음들. 집합을 다루는 규칙은 전부 `adminSelection.ts` 에 있다 —
@@ -231,7 +248,19 @@ export function AdminPage() {
    * 어느 확인 버튼이 무엇을 하는지 흐려진다(불리언 여럿이던 때 둘이 같이 열릴 수 있었다).
    */
   const [bulk, setBulk] = useState<{ busy?: boolean; mode?: TBulkMode; summary?: string; error?: string }>({});
-  const [tab, setTab] = useState<TTab>('candidates');
+  const [tab, setTab] = useState<TTab>(initialUrl.tab);
+  /*
+   * 등록 완료·등록 해제가 **한 목록을 나눠 쓴다**(`status` 로 가른다) — 되살리기 한 번에 두 탭 건수가 같은 틱에 움직인다.
+   * `placesRef`(대조 장부)와 따로 읽는 이유는 그쪽 주석(`approveGroup` 이 제자리에서 고친다). null = 아직 못 읽었다.
+   */
+  const [managed, setManaged] = useState<TPlaceRow[] | null>(null);
+  const [managedError, setManagedError] = useState<string | null>(null);
+  const [placeStates, setPlaceStates] = useState<Record<string, TAdminPagePlaceState>>({});
+  /** 방금 장소를 내리거나 되살렸다는 한 줄 — 줄이 다른 탭으로 옮겨 가므로 두 장소 탭에 같이 선다. */
+  const [placeNotice, setPlaceNotice] = useState<string | undefined>(undefined);
+  const [postCounts, setPostCounts] = useState<TPostCounts | undefined>(undefined);
+  const [postError, setPostError] = useState<string | undefined>(undefined);
+  const [blockSummary, setBlockSummary] = useState<TBlocksSummary | undefined>(undefined);
   /**
    * 재빌드가 실제로 불렸는지. `undefined` 는 "못 읽었다" 이고 그때는 **아무 말도 하지 않는다** —
    * 못 읽은 것을 "안 불렸다" 로 말하면 멀쩡한 시스템을 고장으로 신고하게 만든다(stranded 와 같은 어법).
@@ -290,8 +319,42 @@ export function AdminPage() {
     }
   }, []);
 
+  /**
+   * 등록 완료·등록 해제 칸의 장소 목록. 실패해도 검수(후보 칸)를 막지 않는다 — 그 두 칸만 오류를 말한다.
+   * 0행이면 `fetchManagedPlaces` 가 던진다(RLS 가 어긋나면 빈 결과가 오는데 그것을 "장소가 없어요" 로 그리면 거짓말이다).
+   */
+  const loadManaged = useCallback(async (client: SupabaseClient) => {
+    try {
+      const rows = await fetchManagedPlaces(client);
+      setManagedError(null);
+      setManaged(rows);
+    } catch (error) {
+      setManagedError(messageOf(error, '장소 목록을 불러오지 못했어요.'));
+      setManaged(null);
+    }
+  }, []);
+
+  /** 수집 완료·블랙리스트 탭의 건수. 둘 다 실패를 탭 쪽에서만 말하고 검수는 막지 않는다. */
+  const loadCounts = useCallback(async (client: SupabaseClient) => {
+    try {
+      setPostError(undefined);
+      setPostCounts(await countPosts(client));
+    } catch (error) {
+      setPostCounts(undefined);
+      setPostError(messageOf(error, '수집한 글을 세지 못했어요.'));
+    }
+    setBlockSummary(await fetchBlockCounts(client));
+  }, []);
+
   const start = useCallback(async (next: TAdminSession) => {
     setFatal(null);
+    setManaged(null);
+    setManagedError(null);
+    setPlaceStates({});
+    setPlaceNotice(undefined);
+    setPostCounts(undefined);
+    setPostError(undefined);
+    setBlockSummary(undefined);
     setStranded(undefined);
     setRebuild(undefined);
     setPhase('verifying');
@@ -319,6 +382,9 @@ export function AdminPage() {
       return;
     }
 
+    void loadManaged(client);
+    void loadCounts(client);
+
     /*
      * 끊긴 반영(`approved`)은 목록에 안 나오므로 수만 따로 센다.
      * 위의 Promise.all 에 넣지 않는 이유: 이 조회가 실패한다고 검수를 못 하게 만들면 안 된다 — 세지 못하면 그냥 말하지 않는다.
@@ -330,7 +396,7 @@ export function AdminPage() {
     }
 
     await refreshRebuild(client);
-  }, [refreshRebuild]);
+  }, [loadCounts, loadManaged, refreshRebuild]);
 
   /*
    * 마운트 뒤에야 localStorage 를 읽는다 — 서버에는 그 저장소가 없다(그래서 이 화면은 `ssr: false` 다).
@@ -372,6 +438,7 @@ export function AdminPage() {
     clientRef.current = null;
     placesRef.current = [];
     setPlacesView([]);
+    setManaged(null);
     setSession(null);
     setGroups([]);
     setStates({});
@@ -417,17 +484,20 @@ export function AdminPage() {
     writingRef.current = false;
   }, []);
 
-  /** '올린 장소' 칸에 클라이언트를 넘기는 법. ref 를 렌더 중에 읽지 않으려고 값 대신 이 함수를 준다. */
-  const getClient = useCallback(() => clientRef.current, []);
-
-  /** 쓰기가 성공했다 — 재빌드 기록을 다시 읽어 머리글을 갱신한다(두 칸이 같이 쓴다). */
+  /**
+   * 쓰기가 성공했다 — 재빌드 기록을 다시 읽어 머리글을 갱신하고, 등록 완료·등록 해제의 목록도 **조용히** 다시 읽는다.
+   * 후보 승인은 새 장소를 만들거나 짝의 칸을 채우는데, 그 장소 목록(`managed`)은 `placesRef` 와 따로라 다시 읽지 않으면 새로고침 전까지
+   * 등록 완료 칸에 안 보인다. 못 읽으면 지금 목록을 그대로 둔다(성공한 쓰기 뒤에 목록을 지우면 안 된다).
+   */
   const afterWrite = useCallback(() => {
     const client = clientRef.current;
-    if (client) void refreshRebuild(client);
+    if (!client) return;
+    void refreshRebuild(client);
+    void fetchManagedPlaces(client).then(setManaged, () => undefined);
   }, [refreshRebuild]);
 
   /**
-   * '올린 장소' 칸의 쓰기를 대조 장부(`placesRef`)에도 반영한다.
+   * 장소 쓰기를 대조 장부(`placesRef`)에도 반영한다.
    *
    * 없으면 이런 일이 난다 — 방금 내린 장소가 장부에는 `published` 로 남아, 같은 세션에서 그 가게의 후보를
    * 승인하면 `approveGroup` 이 내린 곳을 멀쩡한 짝으로 보고 **조용히 합친다**(archived 가지를 지나쳐 버린다).
@@ -437,6 +507,57 @@ export function AdminPage() {
     const index = placesRef.current.findIndex((place) => place.id === updated.id);
     if (index >= 0) placesRef.current[index] = { ...placesRef.current[index], ...updated };
   }, []);
+
+  const patchPlaceState = useCallback((id: string, patch: Partial<TAdminPagePlaceState>) => {
+    setPlaceStates((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+  }, []);
+
+  /** 끝난 줄의 초록 한 줄과 위의 한 줄 안내를 치운다 — 검색어·구간을 바꿀 때. */
+  const clearPlaceDone = useCallback(() => {
+    setPlaceNotice(undefined);
+    setPlaceStates((prev) =>
+      Object.fromEntries(Object.entries(prev).map(([id, state]) => [id, { ...state, done: undefined }])),
+    );
+  }, []);
+
+  /**
+   * 내리기·되살리기는 한 함수로 둔다 — 순서와 실패 처리가 글자까지 같고, 다른 것은 부르는 쓰기 하나와 문구뿐이다.
+   * 갈라 두면 한쪽에만 `endWrite` 를 빼먹는 날이 온다(그러면 그 뒤 모든 버튼이 "다른 묶음을 처리하고 있어요" 가 된다).
+   * 잠금(`writingRef`)은 후보 쓰기와 같은 것 하나다 — 둘 다 `placesRef` 를 보는데 하나는 그것을 고친다.
+   */
+  const changePlace = useCallback(
+    async (place: TPlaceRow, kind: 'archive' | 'restore', reason?: TArchiveReason, note?: string) => {
+      const client = clientRef.current;
+      if (!client) return;
+      if (!beginWrite((message) => patchPlaceState(place.id, { error: message }))) return;
+      patchPlaceState(place.id, { busy: kind === 'archive' ? 'archiving' : 'restoring', error: undefined });
+      try {
+        const nowIso = new Date().toISOString();
+        const updated =
+          kind === 'archive'
+            ? await archivePlace(client, place, { nowIso, reason, note })
+            : await restorePlace(client, place, { nowIso, note });
+        // 한 state 에서 `status` 만 바뀐다 — 줄은 지워지지 않고 다른 칸(등록 완료 ⇄ 등록 해제)으로 옮겨 간다.
+        setManaged((prev) => (prev ? sortManagedPlaces(prev.map((row) => (row.id === updated.id ? updated : row))) : prev));
+        applyPlaceChange(updated);
+        /* `place.status` 는 바꾸기 **전** 상태다 — 초안은 애초에 사이트에 없었으므로 "사라져요" 가 거짓이 된다. */
+        const done =
+          kind === 'archive'
+            ? place.status === 'draft'
+              ? '내렸어요 · 사이트에는 원래 없던 곳이에요'
+              : '내렸어요 · 다음 빌드부터 사이트에서 사라져요'
+            : '되살렸어요 · 다음 빌드부터 사이트에 보여요';
+        patchPlaceState(place.id, { busy: undefined, archiving: false, done });
+        setPlaceNotice(`${place.name} — ${done} · ${kind === 'archive' ? '등록 해제' : '등록 완료'} 칸으로 옮겼어요`);
+        afterWrite();
+      } catch (error) {
+        patchPlaceState(place.id, { busy: undefined, error: messageOf(error, '바꾸지 못했어요.') });
+      } finally {
+        endWrite();
+      }
+    },
+    [afterWrite, applyPlaceChange, beginWrite, endWrite, patchPlaceState],
+  );
 
   const removeLater = useCallback((key: string) => {
     const timer = setTimeout(() => {
@@ -903,6 +1024,16 @@ export function AdminPage() {
   const showMore = useCallback(() => setShown((prev) => prev + PAGE_SIZE), []);
   const setSentinel = useAdminInfiniteScroll(filtered.length > shown, shown, showMore);
 
+  /*
+   * 탭·걸러 보기를 주소에 적는다(`history.replaceState` — 항목을 쌓지 않는다). 새로고침·재로그인·되돌아오기에서 같은 자리로 돌아온다.
+   * 첫 렌더의 값은 방금 주소에서 읽은 것이라 같은 문자열을 다시 쓸 뿐이다(바뀐 것이 없으면 아무것도 안 한다).
+   */
+  useEffect(() => {
+    const search = writeAdminUrl(window.location.search, { tab, tier: tierFilter, policy: policyFilter, type: typeFilter, warn: warnFilter });
+    const next = `${window.location.pathname}${search ? `?${search}` : ''}${window.location.hash}`;
+    if (next !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.replaceState(window.history.state, '', next);
+  }, [policyFilter, tab, tierFilter, typeFilter, warnFilter]);
+
   /**
    * 걸러 보기에 걸린 묶음들. 무한 스크롤로 **아직 안 그린 것까지** 포함한다 — '전부 고르기' 가 고르는 범위다.
    *
@@ -978,6 +1109,65 @@ export function AdminPage() {
 
   if (!session) return null;
 
+  /*
+   * 칸마다 제목·설명·탭 건수. 건수는 **이미 든 것에서 센다** — 탭을 바꿔도 다시 읽지 않는다.
+   * 못 센 것(아직 읽는 중·실패)은 숫자를 안 단다(0 으로 말하지 않는다). `미적용` 은 원격에 표·칸이 아직 없다는 뜻이다(09 「실행 규약」).
+   */
+  const publishedCount = managed?.filter((place) => place.status === 'published').length;
+  const draftCount = managed?.filter((place) => place.status === 'draft').length;
+  const archivedCount = managed?.filter((place) => place.status === 'archived').length;
+  const n = (value: number) => value.toLocaleString('ko-KR');
+  const tabCount: Record<TTab, string | undefined> = {
+    posts: postCounts ? n(postCounts.total) : undefined,
+    candidates: n(groups.length),
+    places: publishedCount === undefined || draftCount === undefined ? undefined : n(publishedCount + draftCount),
+    archived: archivedCount === undefined ? undefined : n(archivedCount),
+    blocks: blockSummary?.kind === 'ok' ? n(blockSummary.active) : undefined,
+  };
+  const tabUnapplied: Partial<Record<TTab, boolean>> = {
+    posts: postCounts?.excluded === null,
+    blocks: blockSummary?.kind === 'unavailable',
+  };
+  const TAB_HEADER: Record<TTab, { title: string; description: string }> = {
+    posts: {
+      title: '수집 완료',
+      description: postCounts
+        ? `전체 ${n(postCounts.total)} · 미분석 ${n(postCounts.unanalyzed)}${postCounts.excluded === null ? '' : ` · 제외 ${n(postCounts.excluded)}`}`
+        : '수집한 글을 세고 있어요',
+    },
+    candidates: { title: '검수 대기', description: `${groups.length}곳` },
+    places: {
+      title: '등록 완료',
+      description:
+        publishedCount === undefined ? '장소를 불러오고 있어요' : `게시 ${n(publishedCount)} · 게시 대기 ${n(draftCount ?? 0)} — 내리거나 다시 볼 수 있어요`,
+    },
+    archived: {
+      title: '등록 해제',
+      description: archivedCount === undefined ? '장소를 불러오고 있어요' : `${n(archivedCount)}곳 — 사이트에 안 보여요`,
+    },
+    blocks: {
+      title: '블랙리스트',
+      description:
+        blockSummary?.kind === 'ok'
+          ? `${n(blockSummary.active)}곳 막힘 · ${n(blockSummary.expired)}곳 지남`
+          : blockSummary?.kind === 'unavailable'
+            ? '미적용 — 표가 아직 없어요'
+            : '분석이 다시 후보로 만들지 않는 가게',
+    },
+  };
+  /** 등록 완료·등록 해제 칸 공통 — 목록을 못 읽었으면 두 칸 모두 같은 오류 + 다시 시도, 읽는 중이면 안내. */
+  const placeTabFallback =
+    managedError !== null ? (
+      <div className="px-4 pt-6 md:px-6">
+        <p className="text-sm text-error-primary">{managedError}</p>
+        <Button color="primary" size="sm" className="mt-3" onClick={() => clientRef.current && void loadManaged(clientRef.current)}>
+          다시 시도
+        </Button>
+      </div>
+    ) : managed === null ? (
+      <p className="px-4 pt-6 text-sm text-tertiary md:px-6">장소를 불러오고 있어요</p>
+    ) : null;
+
   const expiry = new Date(session.expiresAt * 1000).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' });
 
   return (
@@ -987,8 +1177,8 @@ export function AdminPage() {
         * 설명문(여기서 바꾼 것은 빌드 뒤에 보인다 등)은 `?` 하나로 모았다(`HELP`).
         */}
       <PageHeader
-        title={tab === 'candidates' ? '확인할 장소' : '올린 장소'}
-        description={tab === 'candidates' ? `${groups.length}곳` : '이미 올린 장소를 내리거나 되살려요'}
+        title={TAB_HEADER[tab].title}
+        description={TAB_HEADER[tab].description}
         actions={
           <div className="flex items-center gap-2">
             <span
@@ -1027,12 +1217,12 @@ export function AdminPage() {
       </div>
 
       {/*
-        * 두 칸 — 올리는 일과 내리는 일을 한 목록에 섞지 않는다(`TTab` 주석).
+        * 다섯 칸 — 올리는 일과 내리는 일을 한 목록에 섞지 않는다(`TTab` 주석). 라벨 옆 숫자가 "어디에 일이 있나" 를 탭 줄에서 읽히게 한다.
         * **밑줄 탭이다**(2026-09-30 v2). 채운 핑크 버튼이던 동안 주 버튼(올리기)과 같은 모양이라 화면에서 가장 센 물체가
-        * 가장 드문 동작(칸 전환)이었다.
+        * 가장 드문 동작(칸 전환)이었다. 좁은 화면에서는 줄이 가로로 밀린다 — 다섯 라벨이 한 줄에 안 들어가도 줄바꿈하지 않는다.
         */}
-      <div className="mt-3 flex gap-5 border-b border-secondary px-4 md:px-6" role="tablist" aria-label="검수 칸">
-        {TABS.map((entry) => {
+      <div className="mt-3 flex gap-5 overflow-x-auto border-b border-secondary px-4 md:px-6" role="tablist" aria-label="검수 칸">
+        {TAB_LABELS.map((entry) => {
           const active = entry.key === tab;
           return (
             <button
@@ -1042,27 +1232,57 @@ export function AdminPage() {
               aria-selected={active}
               onClick={() => setTab(entry.key)}
               className={cx(
-                '-mb-px border-b-2 px-0.5 pb-2 text-sm font-semibold',
+                '-mb-px shrink-0 border-b-2 px-0.5 pb-2 text-sm font-semibold whitespace-nowrap',
                 active ? 'border-brand text-brand-secondary' : 'border-transparent text-quaternary hover:text-secondary',
               )}
             >
               {entry.label}
+              {tabCount[entry.key] !== undefined ? <span className="ml-1 font-normal tabular-nums">{tabCount[entry.key]}</span> : null}
+              {tabUnapplied[entry.key] ? <span className="ml-1 text-xs font-normal text-warning-primary">미적용</span> : null}
             </button>
           );
         })}
       </div>
 
-      {tab === 'places' ? (
-        <AdminPagePlaceList
-          getClient={getClient}
-          beginWrite={beginWrite}
-          endWrite={endWrite}
-          onWritten={afterWrite}
-          onPlaceChanged={applyPlaceChange}
-        />
-      ) : (
-        <>
+      {/*
+        * **칸을 바꿔도 언마운트하지 않는다** — 다섯 칸을 모두 그려 두고 `hidden` 으로 가린다. 검수 대기 40번째 줄을 펼친 채
+        * 등록 완료에서 짝을 보고 돌아오는 흐름이 잦아서(D7), 펼침·스크롤·고른 것이 칸을 오가며 사라지면 안 된다.
+        * 고른 것(`selected`)은 지금 검수 대기만 쓴다 — 다른 칸이 일괄을 갖게 되면(T3.2·T5.2) 칸마다 따로 둔다(키 공간이 다르다).
+        */}
+      <div hidden={tab !== 'posts'}>
+        <AdminPagePostsPanel counts={postCounts} error={postError} />
+      </div>
+      <div hidden={tab !== 'blocks'}>
+        <AdminPageBlocksPanel summary={blockSummary} />
+      </div>
+      <div hidden={tab !== 'places'}>
+        {placeTabFallback ?? (
+          <AdminPagePlaceList
+            mode="active"
+            places={managed ?? []}
+            states={placeStates}
+            notice={placeNotice}
+            patchState={patchPlaceState}
+            onChange={(place, kind, reason, note) => void changePlace(place, kind, reason, note)}
+            onClearDone={clearPlaceDone}
+          />
+        )}
+      </div>
+      <div hidden={tab !== 'archived'}>
+        {placeTabFallback ?? (
+          <AdminPagePlaceList
+            mode="archived"
+            places={managed ?? []}
+            states={placeStates}
+            notice={placeNotice}
+            patchState={patchPlaceState}
+            onChange={(place, kind, reason, note) => void changePlace(place, kind, reason, note)}
+            onClearDone={clearPlaceDone}
+          />
+        )}
+      </div>
 
+      <div hidden={tab !== 'candidates'}>
       {groups.length > 0 && (
         /*
          * **걸러 보기 = 이름표가 붙은 드롭다운 넷.** 드롭다운은 고른 값 하나만 보이고, 펼치면 **선택지마다 뜻과 개수**가 나온다.
@@ -1248,8 +1468,7 @@ export function AdminPage() {
           </div>
             </>
           )}
-        </>
-      )}
+      </div>
     </div>
   );
 }

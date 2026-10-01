@@ -1,22 +1,17 @@
 'use client';
 
 import { SearchLg } from '@untitledui/icons';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { useCallback, useMemo, useState } from 'react';
 import { Button } from '../components/base/button';
 import { Input } from '../components/base/input';
 import { Select } from '../components/base/select';
 import { TYPE_LABEL, type TCandidateType, type TPlaceRow, type TPlaceStatus } from '../lib/adminCandidates';
 import {
-  archivePlace,
   countPlacesByStatus,
-  fetchManagedPlaces,
   matchesPlaceQuery,
   PLACE_GAP_LABEL,
   PLACE_STATUS_LABEL,
   placeGaps,
-  restorePlace,
-  sortManagedPlaces,
   type TArchiveReason,
   type TPlaceGap,
 } from '../lib/adminPlaces';
@@ -25,14 +20,14 @@ import { AdminPagePlaceRow, type TAdminPagePlaceState } from './adminPagePlaceRo
 import { ADMIN_PLACE_GRID, AdminTable } from './adminTable';
 
 /**
- * '올린 장소' 칸 — 이미 사이트에 있는 장소를 **내리고 되살린다**(소프트 삭제). 후보를 올리는 칸과 형제다.
+ * '등록 완료' · '등록 해제' 칸 — 이미 올린 장소를 **내리고 되살린다**(소프트 삭제). 두 칸은 같은 개체(`places`)를 `status` 로 가른 것이라
+ * 이 컴포넌트 하나가 `mode` 로 둘 다 그린다(09 D4).
  *
  * 왜 하드 삭제가 없나: GRANT 가 애초에 `delete` 를 주지 않는다(`20260922120000_narrow_grants.sql`) —
  * 고민의 결과가 아니라 경계가 그렇게 그어져 있다. 자세한 것은 `src/lib/adminPlaces.ts` 머리 주석.
  *
- * 목록을 **여기서 따로 읽는다.** `adminPage` 가 들고 있는 `placesRef` 를 그대로 쓰지 않는 이유가 있다 —
- * 그 배열은 `approveGroup` 이 제자리에서 고치는 대조 장부(ref)라, 같은 객체를 state 로 그리면 승인 한 번이
- * 리렌더 없이 이 목록의 내용을 바꿔 놓는다. 쓰기 뒤에는 `onPlaceChanged` 로 그 장부에도 상태를 알려 준다 —
+ * 목록·줄 상태·쓰기는 **`adminPage` 가 소유한다**(두 칸이 한 state 를 나눠 써야 되살리기 한 번에 두 탭 건수가 같은 틱에 움직인다).
+ * 여기는 검색·걸러 보기·펼침처럼 이 칸만의 화면 상태만 든다. 대조 장부(`placesRef`)에 상태를 알리는 일도 쓰기 쪽(`adminPage`)이 한다 —
  * 같은 세션에서 방금 내린 곳에 후보가 합쳐지지 않게.
  */
 
@@ -68,125 +63,49 @@ const gapMatches = (key: TGapFilter, place: TPlaceRow): boolean => {
   return key === 'any' ? gaps.length > 0 : gaps.includes(key);
 };
 
-type TStatusFilter = 'all' | TPlaceStatus;
+/** 등록 완료 칸 안의 구간 — 내림은 자기 칸이 생겨 여기서 빠졌다. */
+type TStatusFilter = 'all' | Exclude<TPlaceStatus, 'archived'>;
 
 const STATUS_FILTERS: { key: TStatusFilter; label: string }[] = [
   { key: 'all', label: '전체' },
   { key: 'published', label: PLACE_STATUS_LABEL.published },
-  { key: 'archived', label: PLACE_STATUS_LABEL.archived },
   { key: 'draft', label: PLACE_STATUS_LABEL.draft },
 ];
 
 type TAdminPagePlaceListProps = {
-  /**
-   * 클라이언트를 **함수로** 받는다. `adminPage` 가 그것을 ref 에 들고 있어서인데(세션이 바뀌면 새로 만든다),
-   * ref 는 렌더 중에 읽을 수 없다(react-hooks/refs). 값 대신 읽는 법을 넘기면 읽는 시점이 효과·콜백 안으로 미뤄진다.
-   */
-  getClient: () => SupabaseClient | null;
-  /** 쓰기를 시작해도 되는가(세션 살아 있음 + 다른 쓰기 없음). 실패 사유는 `report` 로 온다 — 소유자는 `adminPage`. */
-  beginWrite: (report: (message: string) => void) => boolean;
-  endWrite: () => void;
-  /** 쓰기가 성공했다 — `adminPage` 가 재빌드 기록을 다시 읽는다. */
-  onWritten: () => void;
-  /** 대조 장부(`placesRef`)의 같은 행에도 바뀐 상태를 반영한다. */
-  onPlaceChanged: (place: TPlaceRow) => void;
+  /** `active` = 등록 완료(게시중·게시 대기), `archived` = 등록 해제. */
+  mode: 'active' | 'archived';
+  /** 관리 목록 전체(상태 불문) — 이 칸이 자기 몫을 가른다. */
+  places: TPlaceRow[];
+  states: Record<string, TAdminPagePlaceState>;
+  /** 방금 한 일의 한 줄(두 칸에 같이 선다 — 줄이 다른 칸으로 옮겨 가므로 "아무 일도 안 났다" 로 보이지 않게). */
+  notice?: string;
+  patchState: (id: string, patch: Partial<TAdminPagePlaceState>) => void;
+  onChange: (place: TPlaceRow, kind: 'archive' | 'restore', reason?: TArchiveReason, note?: string) => void;
+  /** 끝난 줄의 초록 한 줄을 치운다 — 검색어·구간을 바꾸면 같이. */
+  onClearDone: () => void;
 };
 
-const messageOf = (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback);
-
-export function AdminPagePlaceList({
-  getClient,
-  beginWrite,
-  endWrite,
-  onWritten,
-  onPlaceChanged,
-}: TAdminPagePlaceListProps) {
-  const [places, setPlaces] = useState<TPlaceRow[] | null>(null);
-  const [fatal, setFatal] = useState<string | null>(null);
-  const [states, setStates] = useState<Record<string, TAdminPagePlaceState>>({});
+export function AdminPagePlaceList({ mode, places, states, notice, patchState, onChange, onClearDone }: TAdminPagePlaceListProps) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<TStatusFilter>('all');
   const [typeFilter, setTypeFilter] = useState<TTypeFilter>('all');
   const [gapFilter, setGapFilter] = useState<TGapFilter>('all');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [shown, setShown] = useState(PAGE_SIZE);
+  const archivedMode = mode === 'archived';
 
-  /**
-   * 목록을 읽는다. **먼저 await 하고 그 뒤에 state 를 만진다** — 효과 안에서 동기적으로 setState 하면
-   * 리렌더가 연쇄한다(react-hooks/set-state-in-effect). `adminPage` 의 마운트 효과와 같은 모양이다.
-   */
-  const load = useCallback(async () => {
-    const client = getClient();
-    if (!client) return;
-    try {
-      const rows = await fetchManagedPlaces(client);
-      setFatal(null);
-      setPlaces(rows);
-    } catch (error) {
-      setFatal(messageOf(error, '장소 목록을 불러오지 못했어요.'));
-      setPlaces(null);
-    }
-  }, [getClient]);
-
-  /*
-   * 효과 본문이 아니라 async 안에서 부른다 — `adminPage` 의 마운트 효과와 같은 장치다(react-hooks/set-state-in-effect).
-   * 칸을 처음 열 때 한 번 읽고, 다시 읽는 길은 오류 화면의 '다시 시도' 뿐이다(목록이 스스로 폴링하지 않는다).
-   */
-  useEffect(() => {
-    void (async () => {
-      await load();
-    })();
-  }, [load]);
-
-  const patchState = useCallback((id: string, patch: Partial<TAdminPagePlaceState>) => {
-    setStates((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
-  }, []);
-
-  /**
-   * 내리기·되살리기는 한 함수로 둔다 — 순서와 실패 처리가 글자까지 같고, 다른 것은 부르는 쓰기 하나와 문구뿐이다.
-   * 갈라 두면 한쪽에만 `endWrite` 를 빼먹는 날이 온다(그러면 그 뒤 모든 버튼이 "다른 묶음을 처리하고 있어요" 가 된다).
-   */
-  const change = useCallback(
-    async (place: TPlaceRow, kind: 'archive' | 'restore', reason?: TArchiveReason, note?: string) => {
-      const client = getClient();
-      if (!client) return;
-      if (!beginWrite((message) => patchState(place.id, { error: message }))) return;
-      patchState(place.id, { busy: kind === 'archive' ? 'archiving' : 'restoring', error: undefined });
-      try {
-        const nowIso = new Date().toISOString();
-        const updated =
-          kind === 'archive'
-            ? await archivePlace(client, place, { nowIso, reason, note })
-            : await restorePlace(client, place, { nowIso, note });
-        // 목록에서 지우지 않는다 — 내린 곳도 이 목록의 일부고(되살리려면 보여야 한다) 정렬만 바뀐다.
-        setPlaces((prev) => (prev ? sortManagedPlaces(prev.map((row) => (row.id === updated.id ? updated : row))) : prev));
-        onPlaceChanged(updated);
-        patchState(place.id, {
-          busy: undefined,
-          archiving: false,
-          /* `place.status` 는 바꾸기 **전** 상태다 — 초안은 애초에 사이트에 없었으므로 "사라져요" 가 거짓이 된다. */
-          done:
-            kind === 'archive'
-              ? place.status === 'draft'
-                ? '내렸어요 · 사이트에는 원래 없던 곳이에요'
-                : '내렸어요 · 다음 빌드부터 사이트에서 사라져요'
-              : '되살렸어요 · 다음 빌드부터 사이트에 보여요',
-        });
-        onWritten();
-      } catch (error) {
-        patchState(place.id, { busy: undefined, error: messageOf(error, '바꾸지 못했어요.') });
-      } finally {
-        endWrite();
-      }
-    },
-    [beginWrite, endWrite, getClient, onPlaceChanged, onWritten, patchState],
+  // 이 칸의 몫 — 정렬은 부모가 이미 한 번 했다(`sortManagedPlaces`, 내림은 `archived_at` 최신순).
+  const inMode = useMemo(
+    () => places.filter((place) => (place.status === 'archived') === archivedMode),
+    [archivedMode, places],
   );
 
   /*
    * 칩 숫자는 **검색·종류·빠진 정보를 건 결과 기준**이다 — `전체 89 · 게시중 3` 처럼 숫자끼리 모순되지 않게 `all` 도 같은 집합을 센다.
    * 드롭다운 둘의 숫자는 **자기 축만 뺀** 집합에서 센다(후보 칸의 걸러 보기와 같은 어법) — 고른 값의 숫자가 곧 보이는 줄 수가 되게.
    */
-  const searched = useMemo(() => (places ?? []).filter((place) => matchesPlaceQuery(place, query)), [places, query]);
+  const searched = useMemo(() => inMode.filter((place) => matchesPlaceQuery(place, query)), [inMode, query]);
   const visible = useMemo(
     () =>
       searched.filter(
@@ -199,24 +118,14 @@ export function AdminPagePlaceList({
   const baseType = searched.filter((place) => inStatus(place) && gapMatches(gapFilter, place));
   const baseGap = searched.filter((place) => inStatus(place) && (typeFilter === 'all' || place.type === typeFilter));
 
-  /*
-   * 방금 바꾼 줄은 **구간을 벗어나도 한 번은 남긴다**(`states[id]?.done`). '내림' 칩을 켜 둔 채 되살리면
-   * 그 줄은 곧바로 이 필터를 벗어나 사라지는데, 그러면 방금 쓴 "되살렸어요" 를 아무도 못 본다 —
-   * "눌렀는데 아무 일도 안 났다" 가 된다(내림 칩은 되살릴 곳을 찾는 주 경로라 이 조합이 가장 흔하다).
-   * 칩·검색어를 다시 건드리면 그 예외도 함께 치운다.
-   */
   const filtered = useMemo(
-    () =>
-      visible.filter((place) => status === 'all' || place.status === status || Boolean(states[place.id]?.done)),
-    [states, status, visible],
+    () => visible.filter((place) => status === 'all' || place.status === status),
+    [status, visible],
   );
 
   // 검색어·구간을 바꾸면 '더 보기' 도 처음으로 — 같은 사건의 두 결과라 여기서 함께 바꾼다(후보 칸과 같은 어법).
-  // 끝난 줄의 초록 한 줄도 같이 치운다(위 `filtered` 의 예외를 여기서 닫는다).
-  const clearDone = () =>
-    setStates((prev) =>
-      Object.fromEntries(Object.entries(prev).map(([id, state]) => [id, { ...state, done: undefined }])),
-    );
+  // 끝난 줄의 초록 한 줄도 같이 치운다.
+  const clearDone = onClearDone;
   const showMore = useCallback(() => setShown((prev) => prev + PAGE_SIZE), []);
   const setSentinel = useAdminInfiniteScroll(filtered.length > shown, shown, showMore);
 
@@ -241,29 +150,6 @@ export function AdminPagePlaceList({
     setShown(PAGE_SIZE);
   };
 
-  if (fatal) {
-    return (
-      <div className="px-4 pt-6 md:px-6">
-        <p className="text-sm text-error-primary">{fatal}</p>
-        <Button
-          color="primary"
-          size="sm"
-          className="mt-3"
-          onClick={() => {
-            setFatal(null);
-            void load();
-          }}
-        >
-          다시 시도
-        </Button>
-      </div>
-    );
-  }
-
-  if (places === null) {
-    return <p className="px-4 pt-6 text-sm text-tertiary md:px-6">장소를 불러오고 있어요</p>;
-  }
-
   return (
     <div>
       {/* 검색과 걸러 보기를 한 줄에 — PC 에서는 나란히 서고 좁으면 접힌다. */}
@@ -278,6 +164,7 @@ export function AdminPagePlaceList({
             icon={SearchLg}
           />
         </div>
+        {!archivedMode && (
         <div className="flex flex-wrap gap-1.5" role="group" aria-label="상태로 걸러 보기">
         {STATUS_FILTERS.map((entry) => {
           const count = entry.key === 'all' ? visible.length : counts[entry.key];
@@ -295,7 +182,10 @@ export function AdminPagePlaceList({
           );
         })}
         </div>
+        )}
       </div>
+
+      {notice ? <p className="mt-2 px-4 text-xs text-success-primary md:px-6">{notice}</p> : null}
 
       {/* 후보 칸과 같은 드롭다운 — 종류와 빠진 정보. 상태 칩은 자주 오가는 축이라 칩으로 남긴다. */}
       <div className="mt-2 flex flex-wrap items-end gap-2 px-4 md:px-6">
@@ -312,24 +202,31 @@ export function AdminPagePlaceList({
             </Select.Item>
           ))}
         </Select>
-        <Select
-          label="빠진 정보"
-          size="sm"
-          className="w-56"
-          selectedKey={gapFilter}
-          onSelectionChange={(key) => key && pickGap(key as TGapFilter)}
-        >
-          {GAP_FILTERS.map((entry) => (
-            <Select.Item key={entry.key} id={entry.key}>
-              {`${entry.label} ${baseGap.filter((place) => gapMatches(entry.key, place)).length}`}
-            </Select.Item>
-          ))}
-        </Select>
+        {/* 내린 곳은 빠진 정보를 세지 않는다(`placeGaps`) — 등록 해제 칸에서는 이 축이 늘 0 이라 그리지 않는다. */}
+        {!archivedMode && (
+          <Select
+            label="빠진 정보"
+            size="sm"
+            className="w-56"
+            selectedKey={gapFilter}
+            onSelectionChange={(key) => key && pickGap(key as TGapFilter)}
+          >
+            {GAP_FILTERS.map((entry) => (
+              <Select.Item key={entry.key} id={entry.key}>
+                {`${entry.label} ${baseGap.filter((place) => gapMatches(entry.key, place)).length}`}
+              </Select.Item>
+            ))}
+          </Select>
+        )}
       </div>
 
       {filtered.length === 0 ? (
         <p className="px-4 pt-6 text-sm text-tertiary md:px-6">
-          {query ? '찾는 장소가 없어요.' : '걸러 보기에 맞는 장소가 없어요.'}
+          {query
+            ? '찾는 장소가 없어요.'
+            : archivedMode && inMode.length === 0
+              ? '등록 해제한 장소가 없어요.'
+              : '걸러 보기에 맞는 장소가 없어요.'}
         </p>
       ) : (
         <>
@@ -344,8 +241,8 @@ export function AdminPagePlaceList({
                 onToggle={() => setExpanded((prev) => (prev === place.id ? null : place.id))}
                 onStartArchive={() => patchState(place.id, { archiving: true, error: undefined, done: undefined })}
                 onCancelArchive={() => patchState(place.id, { archiving: false })}
-                onArchive={(reason, note) => void change(place, 'archive', reason, note)}
-                onRestore={() => void change(place, 'restore')}
+                onArchive={(reason, note) => onChange(place, 'archive', reason, note)}
+                onRestore={() => onChange(place, 'restore')}
               />
             ))}
             </AdminTable>

@@ -126,9 +126,9 @@ export function AdminPagePlaceRow({
           </button>
           {/*
             * **정상은 안 보이고 이상만** — 후보 표와 같은 원칙이다. `게시중` 은 86줄 중 84줄의 값이라 쓰지 않고,
-            * 내림·게시 대기만 뱃지다. 빠진 정보도 노란 뱃지(사이트에서 무엇이 사라지는지의 이름).
+            * 게시 대기만 뱃지다(내림은 자기 칸 '등록 해제' 가 말한다). 빠진 정보도 노란 뱃지(사이트에서 무엇이 사라지는지의 이름).
             */}
-          {place.status !== 'published' && (
+          {place.status === 'draft' && (
             <Badge size="sm" color={PLACE_STATUS_COLOR[place.status]}>
               {PLACE_STATUS_LABEL[place.status]}
             </Badge>
@@ -141,7 +141,7 @@ export function AdminPagePlaceRow({
           {/* 내린 이유는 상태 바로 뒤에 — 자기 열이던 동안 84줄에서 빈 칸이었다. 초안은 사유 대신 안내가 온다. */}
           {(why || place.status === 'draft') && (
             <span className="basis-full text-xs text-tertiary">
-              {why ?? '아직 사이트에 안 올라간 곳이에요 — ‘확인할 장소’ 에서 이 가게의 후보를 승인하면 올라가요.'}
+              {why ?? '아직 사이트에 안 올라간 곳이에요 — ‘검수 대기’ 에서 이 가게의 후보를 승인하면 올라가요.'}
             </span>
           )}
         </div>
@@ -258,8 +258,8 @@ export function AdminPagePlaceRow({
           {/* 거짓말을 하지 않는 자리다 — DB 에서 내려도 사이트에서 사라지는 것은 다음 빌드부터다(ADR-015). */}
           <p className="mt-2 text-xs text-tertiary">
             {place.status === 'draft'
-              ? '내리면 이 목록의 ‘내림’ 으로 옮겨져요. 사이트에는 원래 없던 곳이에요.'
-              : '내리면 다음 빌드부터 사이트에서 사라져요. 되살리려면 위쪽 ‘내림’ 버튼으로 걸러서 찾으면 돼요.'}
+              ? '내리면 ‘등록 해제’ 칸으로 옮겨져요. 사이트에는 원래 없던 곳이에요.'
+              : '내리면 다음 빌드부터 사이트에서 사라져요. 되살리려면 ‘등록 해제’ 칸에서 찾으면 돼요.'}
           </p>
 
           <div className="mt-2 flex flex-wrap gap-2">
