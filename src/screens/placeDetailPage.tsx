@@ -8,6 +8,7 @@ import { PlaceDetailHomepage } from './placeDetailHomepage';
 import { HighlightedPolicyText, PlaceDetailEligibilityCard } from './placeDetailEligibilityCard';
 import { PlaceDetailMiniMap } from './placeDetailMiniMap';
 import { PlaceDetailNearby } from './placeDetailNearby';
+import { PlaceDetailReport } from './placeDetailReport';
 import { PlaceItemsNote } from '../components/placeItemsNote';
 import { PetBadges } from '../components/petBadges';
 import { formatStayPrice } from '../lib/format';
@@ -107,6 +108,9 @@ export function PlaceDetailPage({ id }: { id: string }) {
       )}
 
       <PlaceDetailNearby place={place} />
+
+      {/* 제보는 다녀온 뒤의 동작이라 맨 아래(10 F1). 가기 전의 동작은 위 액션 줄이 맡는다. */}
+      <PlaceDetailReport place={place} />
 
       <div className="h-8" />
     </article>

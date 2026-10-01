@@ -206,8 +206,9 @@ P3  F11 다두 what-if
       > 메모: `20261001130000_place_reports.sql`(원격 미적용). 비로그인 insert 는 **열 단위**(`place_id, kind, note, app_build`) — `status`·`handled_*` 는 보낼 수 없다. 모양 CHECK 하나로 "제안은 장소 없음 + 이름 필수, 그 밖은 장소 필수". ADR 은 [ADR-021](../decisions/ADR-021-place-reports.md).
 - [x] **T1.2 `src/lib/placeReport.ts`** — 순수 함수: `buildReport(place, kind, note, build)`(검증 · 길이 · suggest 의 place_id null) · `canReportNow(localRecord, now)`(24시간 한도) · 테스트. **fetch 는 여기 없다**(테스트가 Next·네트워크를 안 거친다는 규칙).
       > 메모: 이름은 `buildReport({ placeId, kind, note, build })`(장소 객체 대신 id — 제안은 장소가 없다) · `canReportNow(record, placeId, kind, now)` + `recordReport`·`parseReportRecord`. 제안은 한도를 걸지 않는다(키가 하나로 모여 하루 두 곳을 못 알린다). `phone` 은 표에는 있되 고를 수 있는 목록(`PICKABLE_REPORT_KINDS`)에서 빠진다 — 번호 데이터(07 P0)가 생기면 넣는다. 종류 목록이 마이그레이션 CHECK 와 같은지 테스트가 SQL 파일을 읽어 대 본다.
-- [ ] **T1.3 상세 화면 제보 진입** — §7 답 뒤. 보내는 쪽은 `adminSupabase.ts` 의 클라이언트를 **재사용하지 않고** 사용자 화면용 얇은 모듈(`placeReportSend.ts`)을 따로 둔다 — `/admin` 클라이언트는 세션·storageKey 를 들고 있어 사용자 화면에 끌려오면 안 된다. `.insert()` 뒤 `.select()` 없음(R2). 오프라인·실패는 `showAppStatus`.
+- [x] **T1.3 상세 화면 제보 진입** — §7 답 뒤. 보내는 쪽은 `adminSupabase.ts` 의 클라이언트를 **재사용하지 않고** 사용자 화면용 얇은 모듈(`placeReportSend.ts`)을 따로 둔다 — `/admin` 클라이언트는 세션·storageKey 를 들고 있어 사용자 화면에 끌려오면 안 된다. `.insert()` 뒤 `.select()` 없음(R2). 오프라인·실패는 `showAppStatus`.
       문서: `features/place-report.md` 신설(07 이 예고한 파일).
+      > 메모: §7 이 닫히기 전이라 자리·문구는 **임시안**(07 의 "맨 아래" 판단대로 — 근처 장소 다음 카드 `placeDetailReport.tsx`). 보내기는 supabase-js 없이 `fetch` 하나(`apikey` 헤더만 — publishable 키는 JWT 가 아니라 Bearer 에 넣으면 안 된다). 시트는 `components/reportSheet.tsx` 로 떼어 F8 이 재사용한다. 실패하면 시트를 닫지 않는다(적은 말을 잃지 않게).
 - [ ] **T1.4 `/admin` 제보 처리** — 등록 완료 탭 장소 줄 뱃지(열린 제보 수) · 걸러 보기 "제보 있는 곳" · 펼친 줄의 제보 목록 · `handled`/`dismissed` + 메모 · `closed`·`replaced` 는 **기존 등록 해제 폼을 연다**(사유 `폐업` 미리 고름) 그리고 해제가 끝나면 그 장소의 열린 폐업 제보를 함께 `handled` 로.
       문서: [features/admin-review.md](../features/admin-review.md) 에 「제보」 절 · [06](06-admin-review.md).
       선행: 09 T1.4(등록 해제 폼의 「블랙리스트에」 — `place_blocks` 표 자체는 있다).
