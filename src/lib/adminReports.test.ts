@@ -9,6 +9,7 @@ import {
   reportHeadline,
   setReportStatus,
   type TReportRow,
+  visitedTallyByPlace,
 } from './adminReports';
 
 const report = (patch: Partial<TReportRow> = {}): TReportRow => ({
@@ -99,5 +100,31 @@ describe('mergeReportRows', () => {
       'open',
       'dismissed',
     ]);
+  });
+});
+
+describe('visitedTallyByPlace', () => {
+  const now = new Date('2026-10-01T00:00:00.000Z');
+  const visit = (id: string, created_at: string, patch: Partial<TReportRow> = {}) => report({ id, kind: 'visited_ok', created_at, ...patch });
+
+  it('30일 안 2건이면 ready, 1건이면 아니다', () => {
+    const tally = visitedTallyByPlace([visit('a', '2026-09-20T00:00:00.000Z'), visit('b', '2026-09-28T00:00:00.000Z')], {}, now);
+    expect(tally.p1).toEqual({ ids: ['a', 'b'], ready: true });
+    expect(visitedTallyByPlace([visit('a', '2026-09-20T00:00:00.000Z')], {}, now).p1.ready).toBe(false);
+  });
+
+  it('창 밖·마지막 확인 이전·닫힌 것은 세지 않는다', () => {
+    const rows = [
+      visit('old', '2026-08-01T00:00:00.000Z'),
+      visit('before', '2026-09-10T00:00:00.000Z'),
+      visit('closed', '2026-09-25T00:00:00.000Z', { status: 'handled' }),
+      visit('after', '2026-09-25T00:00:00.000Z'),
+    ];
+    expect(visitedTallyByPlace(rows, { p1: '2026-09-15T00:00:00.000Z' }, now).p1).toEqual({ ids: ['after'], ready: false });
+  });
+
+  it('열린 폐업 제보가 있으면 ready 가 서지 않는다', () => {
+    const rows = [visit('a', '2026-09-20T00:00:00.000Z'), visit('b', '2026-09-28T00:00:00.000Z'), report({ id: 'c', kind: 'closed' })];
+    expect(visitedTallyByPlace(rows, {}, now).p1.ready).toBe(false);
   });
 });

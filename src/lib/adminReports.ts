@@ -124,3 +124,42 @@ export function mergeReportRows(rows: readonly TReportRow[], updated: readonly T
 
 /** 제보 한 줄의 날짜 — `2026-10-01`. */
 export const reportDay = (iso: string): string => new Date(iso).toLocaleDateString('sv-SE');
+
+/** "다녀왔어요" 를 확인 날짜로 올리는 규칙(ADR-021 R5) — 30일 안에 2건 이상. 한 건은 실수일 수 있다. */
+export const VISITED_WINDOW_DAYS = 30;
+export const VISITED_MIN_COUNT = 2;
+
+export type TVisitedTally = {
+  /** 아직 반영하지 않은(열린) 다녀왔어요 중 창 안이고 마지막 확인보다 뒤인 것. */
+  ids: string[];
+  /** 규칙을 채웠나 — `/admin` 의 「최근 확인으로 반영」 이 선다. 자동으로 올리지는 않는다(운영자가 한 번 본다). */
+  ready: boolean;
+};
+
+/**
+ * 장소 id → 다녀왔어요 집계 — 순수. 마지막 확인(`verified_at`) **이전**의 것은 세지 않는다 — 이미 그 확인에 포함된 말이다.
+ * 열린 폐업 제보가 있는 곳은 `ready` 가 서지 않는다 — "그대로였어요" 와 "문 닫았어요" 가 같이 있으면 사람이 먼저 봐야 한다.
+ */
+export function visitedTallyByPlace(
+  rows: readonly TReportRow[],
+  verifiedAtById: Readonly<Record<string, string | null | undefined>>,
+  now: Date,
+): Record<string, TVisitedTally> {
+  const since = now.getTime() - VISITED_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  const closure = new Set(
+    rows.filter((row) => row.place_id && row.status === 'open' && CLOSURE_KINDS.includes(row.kind)).map((row) => row.place_id),
+  );
+  const tally: Record<string, TVisitedTally> = {};
+  for (const row of rows) {
+    if (!row.place_id || row.kind !== 'visited_ok' || row.status !== 'open') continue;
+    const at = new Date(row.created_at).getTime();
+    if (at < since) continue;
+    const verified = verifiedAtById[row.place_id];
+    if (verified && at <= new Date(verified).getTime()) continue;
+    (tally[row.place_id] ??= { ids: [], ready: false }).ids.push(row.id);
+  }
+  for (const [placeId, entry] of Object.entries(tally)) {
+    entry.ready = entry.ids.length >= VISITED_MIN_COUNT && !closure.has(placeId);
+  }
+  return tally;
+}

@@ -17,7 +17,7 @@ import {
   type TPlaceGap,
 } from '../lib/adminPlaces';
 import type { TBlockChoice, TPlaceBlock } from '../lib/adminBlocks';
-import type { TReportRow } from '../lib/adminReports';
+import type { TReportRow, TVisitedTally } from '../lib/adminReports';
 import { useAdminInfiniteScroll } from './adminInfiniteScroll';
 import { AdminPagePlaceRow, type TAdminPagePlaceState } from './adminPagePlaceRow';
 import { ADMIN_PLACE_GRID, AdminTable } from './adminTable';
@@ -94,6 +94,9 @@ type TAdminPagePlaceListProps = {
   /** 장소 id → 처리할 사용자 제보. 표가 없으면 빈 객체. */
   reports: Record<string, TReportRow[]>;
   onHandleReports: (place: TPlaceRow, ids: string[], status: 'handled' | 'dismissed', note: string) => void;
+  /** 장소 id → 다녀왔어요 집계. */
+  visited: Record<string, TVisitedTally>;
+  onApplyVisited: (place: TPlaceRow, ids: string[]) => void;
   /** 주소·좌표 고치기(쓰기는 `adminPage` 의 `savePlaceAddress`). 등록 해제 칸의 줄에는 버튼이 서지 않는다. */
   onSaveAddress: (place: TPlaceRow, patch: TPlaceAddressPatch) => void;
   /** 끝난 줄의 초록 한 줄을 치운다 — 검색어·구간을 바꾸면 같이. */
@@ -111,6 +114,8 @@ export function AdminPagePlaceList({
   onSetBlock,
   reports,
   onHandleReports,
+  visited,
+  onApplyVisited,
   onSaveAddress,
   onClearDone,
 }: TAdminPagePlaceListProps) {
@@ -296,6 +301,8 @@ export function AdminPagePlaceList({
                 onSetBlock={(choice) => onSetBlock(place, choice)}
                 reports={reports[place.id] ?? NO_REPORTS}
                 onHandleReports={(ids, nextStatus, note) => onHandleReports(place, ids, nextStatus, note)}
+                visited={visited[place.id]}
+                onApplyVisited={() => onApplyVisited(place, visited[place.id]?.ids ?? [])}
                 onArchiveFromReport={() =>
                   patchState(place.id, { archiving: true, archiveReason: '폐업', error: undefined, done: undefined })
                 }

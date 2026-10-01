@@ -22,7 +22,7 @@ import { AdminPagePlaceAddressForm } from './adminPagePlaceAddressForm';
 import { AdminPagePlaceArchiveForm } from './adminPagePlaceArchiveForm';
 import { AdminPagePlaceDetail } from './adminPagePlaceDetail';
 import { AdminPagePlaceReports } from './adminPagePlaceReports';
-import type { TReportRow } from '../lib/adminReports';
+import { VISITED_MIN_COUNT, VISITED_WINDOW_DAYS, type TReportRow, type TVisitedTally } from '../lib/adminReports';
 import { ADMIN_PANEL_DIVIDER, ADMIN_PLACE_GRID, ADMIN_POLICY_TONE, ADMIN_ROW_OPEN } from './adminTable';
 import { AdminTypeChip } from './adminTypeChip';
 
@@ -68,6 +68,9 @@ type TAdminPagePlaceRowProps = {
   onHandleReports: (ids: string[], status: 'handled' | 'dismissed', note: string) => void;
   /** 폐업 제보에서 등록 해제 폼을 `폐업` 으로 연다. */
   onArchiveFromReport: () => void;
+  /** 다녀왔어요 집계(마지막 확인 뒤·30일 안). 없으면 undefined. */
+  visited?: TVisitedTally;
+  onApplyVisited: () => void;
   onRestore: () => void;
   onStartEditAddress: () => void;
   onCancelEditAddress: () => void;
@@ -109,6 +112,8 @@ export function AdminPagePlaceRow({
   reports,
   onHandleReports,
   onArchiveFromReport,
+  visited,
+  onApplyVisited,
 }: TAdminPagePlaceRowProps) {
   /** '되살리기(게시중으로)' 를 눌러 한 번 더 묻는 중 — 되살리면 초안이었던 행도 게시가 된다. */
   const [askingRestore, setAskingRestore] = useState(false);
@@ -177,6 +182,11 @@ export function AdminPagePlaceRow({
           {reports.length > 0 && (
             <Badge type="color" size="sm" color="error">
               제보 {reports.length}
+            </Badge>
+          )}
+          {visited && visited.ids.length > 0 && (
+            <Badge type="color" size="sm" color="success">
+              다녀왔어요 {visited.ids.length}
             </Badge>
           )}
           {gaps.map((gap) => (
@@ -300,6 +310,26 @@ export function AdminPagePlaceRow({
           onHandle={onHandleReports}
           onArchive={onArchiveFromReport}
         />
+      )}
+      {/*
+        * 다녀왔어요 → 확인 날짜(ADR-021 R5). **자동으로 올리지 않는다** — 규칙(30일 2건)을 채우면 버튼이 설 뿐, 운영자가 한 번 본다.
+        * 열린 폐업 제보가 같이 있으면 서지 않는다(`visitedTallyByPlace`).
+        */}
+      {expanded && !archived && visited && visited.ids.length > 0 && (
+        <div className={cx(ADMIN_PANEL_DIVIDER, 'flex flex-wrap items-center gap-2 px-4 py-3 text-xs')}>
+          <span className="text-secondary">
+            다녀왔는데 그대로였다는 말 {visited.ids.length}건(마지막 확인 뒤 · {VISITED_WINDOW_DAYS}일 안)
+          </span>
+          {visited.ready ? (
+            <Button color="secondary" size="sm" isDisabled={Boolean(busy)} isLoading={busy === 'reports'} onClick={onApplyVisited}>
+              최근 확인으로 반영
+            </Button>
+          ) : (
+            <span className="text-tertiary">
+              {reports.length > 0 ? '열린 제보를 먼저 닫아 주세요' : `${VISITED_MIN_COUNT}건이 되면 확인 날짜로 반영할 수 있어요`}
+            </span>
+          )}
+        </div>
       )}
       {expanded && state.editingAddress && (
         <AdminPagePlaceAddressForm

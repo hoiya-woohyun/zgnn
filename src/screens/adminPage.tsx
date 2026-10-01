@@ -57,6 +57,8 @@ import {
   setReportStatus,
   type TReportRow,
   type TReportsLoad,
+  type TVisitedTally,
+  visitedTallyByPlace,
 } from '../lib/adminReports';
 import { adminFlagView } from '../lib/adminPreview';
 import { verifyNeedsLook } from '../lib/adminVerify';
@@ -136,6 +138,7 @@ type TPhase = 'checking' | 'signedOut' | 'verifying' | 'notOperator' | 'loading'
 type TTab = TAdminTab;
 
 const NO_REPORTS_BY_PLACE: Record<string, TReportRow[]> = {};
+const NO_VISITED: Record<string, TVisitedTally> = {};
 
 /** 탭 줄의 라벨(건수는 붙이는 쪽이 정한다) — 왼쪽에서 오른쪽이 파이프라인 순서다. */
 const TAB_LABELS: { key: TTab; label: string }[] = [
@@ -304,6 +307,13 @@ export function AdminPage() {
   const reportsByPlace = useMemo(
     () => (reports?.kind === 'ok' ? openReportsByPlace(reports.rows) : NO_REPORTS_BY_PLACE),
     [reports],
+  );
+  const visitedByPlace = useMemo(
+    () =>
+      reports?.kind === 'ok'
+        ? visitedTallyByPlace(reports.rows, Object.fromEntries((managed ?? []).map((row) => [row.id, row.verified_at])), new Date())
+        : NO_VISITED,
+    [managed, reports],
   );
   const patchReportRows = useCallback((updated: TReportRow[]) => {
     if (updated.length === 0) return;
@@ -643,6 +653,30 @@ export function AdminPage() {
         });
       } catch (error) {
         patchPlaceState(place.id, { busy: undefined, error: messageOf(error, '제보를 처리하지 못했어요.') });
+      }
+    },
+    [afterWrite, patchPlaceState, patchReportRows],
+  );
+
+  /**
+   * 다녀왔어요 → 확인 날짜(ADR-021 R5). 확인 날짜를 찍고, 센 다녀왔어요를 `handled` 로 닫는다(다음 집계가 같은 말을 다시 세지 않게).
+   * 칸이 원격에 없으면 날짜를 못 찍으므로 닫지도 않는다.
+   */
+  const applyVisited = useCallback(
+    async (place: TPlaceRow, ids: string[]) => {
+      const client = clientRef.current;
+      if (!client || ids.length === 0) return;
+      patchPlaceState(place.id, { busy: 'reports', error: undefined, done: undefined });
+      try {
+        const nowIso = new Date().toISOString();
+        const verifiedAt = await markPlaceVerified(client, place, nowIso);
+        if (!verifiedAt) throw new Error('확인 날짜 칸이 아직 없어요 — DB 마이그레이션(20261001140000)이 적용되면 반영할 수 있어요.');
+        setManaged((prev) => (prev ? prev.map((row) => (row.id === place.id ? { ...row, verified_at: verifiedAt } : row)) : prev));
+        patchReportRows(await setReportStatus(client, ids, 'handled', '최근 확인으로 반영', nowIso));
+        patchPlaceState(place.id, { busy: undefined, done: '최근 확인으로 반영했어요 · 다음 빌드부터 사이트에 날짜가 보여요' });
+        afterWrite();
+      } catch (error) {
+        patchPlaceState(place.id, { busy: undefined, error: messageOf(error, '반영하지 못했어요.') });
       }
     },
     [afterWrite, patchPlaceState, patchReportRows],
@@ -1418,6 +1452,8 @@ export function AdminPage() {
             onSetBlock={(place, choice) => void changePlaceBlock(place, choice)}
             reports={reportsByPlace}
             onHandleReports={(place, ids, status, note) => void handleReports(place, ids, status, note)}
+            visited={visitedByPlace}
+            onApplyVisited={(place, ids) => void applyVisited(place, ids)}
             onSaveAddress={(place, patch) => void savePlaceAddress(place, patch)}
             onClearDone={clearPlaceDone}
           />
@@ -1436,6 +1472,8 @@ export function AdminPage() {
             onSetBlock={(place, choice) => void changePlaceBlock(place, choice)}
             reports={reportsByPlace}
             onHandleReports={(place, ids, status, note) => void handleReports(place, ids, status, note)}
+            visited={visitedByPlace}
+            onApplyVisited={(place, ids) => void applyVisited(place, ids)}
             onSaveAddress={(place, patch) => void savePlaceAddress(place, patch)}
             onClearDone={clearPlaceDone}
           />

@@ -1,10 +1,12 @@
 'use client';
 
-import { MessageAlertSquare } from '@untitledui/icons';
+import { CheckCircle, MessageAlertSquare } from '@untitledui/icons';
 import { useState } from 'react';
 import { Button } from '../components/base/button';
 import { ReportSheet } from '../components/reportSheet';
-import { PICKABLE_REPORT_KINDS } from '../lib/placeReport';
+import { showAppStatus } from '../lib/appStatus';
+import { buildReport, canReportNow, PICKABLE_REPORT_KINDS, REPORT_COOLDOWN_TEXT, reportFailureText, reportSentText } from '../lib/placeReport';
+import { APP_BUILD, readReportRecord, rememberReport, sendPlaceReport } from '../lib/placeReportSend';
 import type { TPlaceEntry } from '../lib/places';
 
 /**
@@ -15,15 +17,52 @@ import type { TPlaceEntry } from '../lib/places';
  */
 export function PlaceDetailReport({ place }: { place: TPlaceEntry }) {
   const [open, setOpen] = useState(false);
+  const [sendingVisit, setSendingVisit] = useState(false);
+
+  /*
+   * 다녀왔어요(F2) — **한 번 누르면 바로 간다.** 고를 것도 적을 것도 없는 긍정 신호라 시트를 열면 아무도 안 누른다.
+   * 되돌리기는 없다(보낸 것을 읽을 수 없다) — 그래서 버튼 이름이 무엇을 보내는지 끝까지 말한다. 제보 시트 안의 한 종류로
+   * 묻지 않은 것도 같은 이유다: "정보가 달라요" 를 연 사람에게 "그대로였어요" 는 반대말이다.
+   */
+  const sendVisited = async () => {
+    if (!canReportNow(readReportRecord(), place.id, 'visited_ok', Date.now())) {
+      showAppStatus(REPORT_COOLDOWN_TEXT);
+      return;
+    }
+    const built = buildReport({ placeId: place.id, kind: 'visited_ok', build: APP_BUILD });
+    if (!built.ok) return;
+    setSendingVisit(true);
+    const result = await sendPlaceReport(built.row);
+    setSendingVisit(false);
+    if (!result.ok) {
+      showAppStatus(reportFailureText(result.reason));
+      return;
+    }
+    rememberReport(place.id, 'visited_ok');
+    showAppStatus(reportSentText('visited_ok'));
+  };
 
   return (
     <section className="mt-8 px-4 md:px-6" aria-labelledby="place-report-title">
       <div className="rounded-2xl border border-secondary bg-primary p-4">
         <h2 id="place-report-title" className="text-md font-bold text-primary">
-          다녀와 보니 달랐나요?
+          다녀오셨나요?
         </h2>
-        <p className="mt-1 text-sm text-tertiary">문을 닫았거나 주소·조건이 다르면 알려 주세요. 다음 사람이 헛걸음하지 않게 고칠게요.</p>
+        <p className="mt-1 text-sm text-tertiary">
+          그대로였는지, 달랐는지 알려 주세요. 다음 사람이 헛걸음하지 않게 확인 날짜를 고치고 정보를 바로잡을게요.
+        </p>
         <div className="mt-3 flex flex-wrap gap-2">
+          <Button
+            size="md"
+            color="secondary"
+            iconLeading={CheckCircle}
+            className="min-h-11"
+            isLoading={sendingVisit}
+            isDisabled={sendingVisit}
+            onClick={() => void sendVisited()}
+          >
+            그대로였어요
+          </Button>
           <Button size="md" color="secondary" iconLeading={MessageAlertSquare} className="min-h-11" onClick={() => setOpen(true)}>
             정보가 달라요
           </Button>
