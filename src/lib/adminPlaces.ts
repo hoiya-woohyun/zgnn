@@ -274,9 +274,10 @@ export async function markPlaceVerified(
   client: SupabaseClient,
   place: Pick<TPlaceRow, 'id'> & Partial<TPlaceRow>,
   nowIso: string,
-  columnExists: boolean = 'verified_at' in place,
+  columnExists?: boolean,
 ): Promise<string | null> {
-  if (!columnExists) return null;
+  // 기본값 자리에 `'verified_at' in place` 를 쓰면 SWC(빌드)가 파싱하지 못한다 — tsc 는 통과한다. 그래서 본문에서 가른다.
+  if (!(columnExists ?? 'verified_at' in place)) return null;
   const { error } = await client.from('places').update({ verified_at: nowIso }).eq('id', place.id);
   return error ? null : nowIso;
 }
