@@ -193,7 +193,7 @@ data/                         # Notion 추출본(커밋) · raw/(무시)
 | [ADR-005](./decisions/ADR-005-dog-profile-eligibility.md) | 강아지 프로필 기반 판정을 v1 의 중심으로 (채택) |
 | [ADR-006](./decisions/ADR-006-responsive-scale-and-font.md) | 화면이 커지면 크기도 커진다 — `--spacing` 한 축 + 본문 글꼴(Pretendard 서브셋) self-host (채택) |
 | [ADR-007](./decisions/ADR-007-shell-owned-back-navigation.md) | 뒤로가기는 화면이 아니라 셸이 붙인다 — 메인 탭 5개만 루트 (채택) |
-| [ADR-008](./decisions/ADR-008-map-provider.md) | 지도 제공자: 네이버(NCP Maps v3), 마커는 표준 핀으로 (채택 · v4 에서 Kakao 결정을 번복) |
+| [ADR-008](./decisions/ADR-008-map-provider.md) | 지도 제공자: 네이버(NCP Maps v3), 마커는 종류 아이콘 원, 고른 곳만 핀 (채택 · v4 에서 Kakao 결정을 번복) |
 | [ADR-009](./decisions/ADR-009-trip-derived-checklist.md) | 준비물을 목록이 아니라 여행의 파생값으로 (채택, v3 에서 방향 반전 — 목록이 원본, 장소가 읽는 쪽) |
 | [ADR-010](./decisions/ADR-010-shell-owned-safe-area.md) | 상태바 인셋도 화면이 아니라 셸이 처리한다 — 여백은 셸이, 맨 위 면은 전 화면 크림 (채택) |
 | [ADR-011](./decisions/ADR-011-app-gate-and-supabase.md) | 앱 전체를 잠그되 정적 내보내기는 버리지 않는다 — 데이터를 번들 밖 Supabase 로 (**제안**) |
