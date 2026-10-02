@@ -44,12 +44,15 @@ import {
 import {
   fetchManagedPlaces,
   markPlaceVerified,
+  SEED_VERIFIED_AT,
+  seedVerifyTargets,
   sortManagedPlaces,
+  stampSeedVerified,
   type TArchiveReason,
   type TPlaceAddressPatch,
   updatePlaceAddress,
 } from '../lib/adminPlaces';
-import { countPosts, type TPostCounts } from '../lib/adminPosts';
+import { countPosts, fetchSiblings, reopenPlan, type TPostCounts, type TReopenPlan } from '../lib/adminPosts';
 import {
   closeReportsForArchived,
   fetchReports,
@@ -588,6 +591,59 @@ export function AdminPage() {
     void refreshRebuild(client);
     void fetchManagedPlaces(client).then(setManaged, () => undefined);
   }, [refreshRebuild]);
+
+  /**
+   * 쓰기 잠금을 잡고 `run` 을 돈다 — 잠금을 못 잡으면 그 이유로 던진다(수집 칸의 준비 버튼은 결과를 자기 줄에 그린다).
+   */
+  const withWrite = useCallback(
+    async <T,>(run: (client: SupabaseClient) => Promise<T>): Promise<T> => {
+      const client = clientRef.current;
+      if (!client) throw new Error('로그인이 필요해요.');
+      let refused = '';
+      if (!beginWrite((message) => (refused = message))) throw new Error(refused || '로그인이 만료됐어요.');
+      try {
+        return await run(client);
+      } finally {
+        endWrite();
+      }
+    },
+    [beginWrite, endWrite],
+  );
+
+  /** ① 시드 확인 날짜(11 H.6) — 찍은 행을 등록 완료 목록과 대조 장부에 같이 적는다. */
+  const seedVerify = useCallback(
+    () =>
+      withWrite(async (client) => {
+        const stamped = new Set(await stampSeedVerified(client, seedVerifyTargets(managed ?? []).map((place) => place.id)));
+        const stamp = (row: TPlaceRow) => (stamped.has(row.id) ? { ...row, verified_at: SEED_VERIFIED_AT } : row);
+        placesRef.current = placesRef.current.map(stamp);
+        setManaged((prev) => (prev ? prev.map(stamp) : prev));
+        afterWrite();
+        return `시드 ${stamped.size}곳에 확인 날짜를 찍었어요 · 사이트에는 다음 빌드에서 보여요`;
+      }),
+    [afterWrite, managed, withWrite],
+  );
+
+  /** ② 다시 열 계획 — 읽기만 한다(잠금 없이). */
+  const planReopen = useCallback(async (): Promise<TReopenPlan> => {
+    const client = clientRef.current;
+    if (!client) throw new Error('로그인이 필요해요.');
+    const posts = postCounts?.existing?.alreadyHavePosts ?? [];
+    return reopenPlan(posts, await fetchSiblings(client, posts));
+  }, [postCounts]);
+
+  /** ② 되돌리기 — 후보 먼저, 글 나중(`prepareReanalyze`). 눕힌 후보는 검수 대기에서 빠지므로 목록과 건수를 다시 읽는다. */
+  const runReopen = useCallback(
+    (plan: TReopenPlan) =>
+      withWrite(async (client) => {
+        await prepareReanalyze(client, plan);
+        const laid = new Set(plan.lay.map((row) => row.id));
+        setGroups((prev) => groupPending(prev.flatMap((group) => group.rows).filter((row) => !laid.has(row.id))));
+        void loadCounts(client);
+        return `글 ${plan.posts.length}건을 수집 완료로 되돌렸어요 · 터미널에서 pnpm data:analyze --limit 30 을 돌리면 다시 읽어요`;
+      }),
+    [loadCounts, withWrite],
+  );
 
   /**
    * 장소 쓰기를 대조 장부(`placesRef`)에도 반영한다.
@@ -1520,7 +1576,14 @@ export function AdminPage() {
         * 고른 것(`selected`)은 지금 검수 대기만 쓴다 — 다른 칸이 일괄을 갖게 되면(T3.2·T5.2) 칸마다 따로 둔다(키 공간이 다르다).
         */}
       <div hidden={tab !== 'posts'}>
-        <AdminPagePostsPanel counts={postCounts} error={postError} />
+        <AdminPagePostsPanel
+          counts={postCounts}
+          error={postError}
+          seedTargets={managed ? seedVerifyTargets(managed).length : null}
+          onSeedVerify={seedVerify}
+          onPlanReopen={planReopen}
+          onReopen={runReopen}
+        />
         <AdminPageSuggestions suggestions={suggestions} busyId={suggestionBusy} onClose={(row, status) => void closeSuggestion(row, status)} />
         {suggestionError ? <p className="mt-2 px-4 text-xs text-error-primary md:px-6">{suggestionError}</p> : null}
       </div>

@@ -283,6 +283,35 @@ export async function markPlaceVerified(
 }
 
 /**
+ * 시드(Notion 에서 옮긴 86곳)에 **한 번** 찍는 확인 날짜(11 H.6) — 시드를 옮긴 날이다.
+ * 찍으면 분석은 이 날짜보다 옛 글이 시드를 바꾸자고 하는 것을 `stale` 로 거른다(차이 게이트). 그 대가로 사이트 상세에
+ * "2026년 9월 확인" 이 보인다 — 그래서 버튼이 그 말을 확인 문장에 싣는다.
+ */
+export const SEED_VERIFIED_AT = '2026-09-20T00:00:00+09:00';
+
+/** 날짜를 찍을 시드 — `source='notion'` 이고 확인 날짜가 비었고 **칸이 있는** 행(칸이 없으면 마이그레이션 전이라 쓰면 실패한다). 순수. */
+export function seedVerifyTargets(places: readonly TPlaceRow[]): TPlaceRow[] {
+  return places.filter((place) => place.source === 'notion' && 'verified_at' in place && place.verified_at == null);
+}
+
+/**
+ * 시드 확인 날짜를 찍는다. **비어 있는 행만**(`is null`) — 그 사이에 사람이 확인한 장소의 날짜를 덮지 않는다.
+ * 게시 장소의 update 라 재빌드 트리거가 돈다(행 단위 — Vercel 이 같은 브랜치의 대기 빌드를 합친다).
+ * @returns 찍은 행 id
+ */
+export async function stampSeedVerified(client: SupabaseClient, ids: readonly string[]): Promise<string[]> {
+  if (!ids.length) return [];
+  const { data, error } = await client
+    .from('places')
+    .update({ verified_at: SEED_VERIFIED_AT })
+    .in('id', [...ids])
+    .is('verified_at', null)
+    .select('id');
+  if (error) throw new Error(`확인 날짜를 찍지 못했어요 (${error.message})`);
+  return ((data ?? []) as { id: string }[]).map((row) => row.id);
+}
+
+/**
  * 올린 장소의 **주소·좌표 고치기** 초안. 칸은 문자열 그대로 들고 있다(빈 칸 = 지운다) — 후보 고치기 폼과 같은 어법.
  *
  * 왜 이 세 칸만인가: 올린 뒤에 "실제로 보니 틀렸다·비었다" 가 가장 흔하고, 바꿔도 **정체가 흔들리지 않는** 칸이라서다.
