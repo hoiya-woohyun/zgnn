@@ -575,6 +575,9 @@ describe('isFocusedTitle · mergeFocusedFirst — 분석 순서(2026-10-02)', ()
     expect(isFocusedTitle('제주 애견동반 여행 3박4일 일정')).toBe(false);
     expect(isFocusedTitle('Day 4 제주도 서쪽 애견동반 맛집')).toBe(false);
     expect(isFocusedTitle('제주 서귀포 흑돼지 맛집')).toBe(false);
+    expect(isFocusedTitle('대구 강아지 동반 카페 추천, 마고플레인 강정보점')).toBe(false);
+    expect(isFocusedTitle('[태안] 애견 풀빌라 펜션 도그데이')).toBe(false);
+    expect(isFocusedTitle('함덕 언더라운지 루프탑 카페 애견동반 솔직 후기')).toBe(true);
     expect(isFocusedTitle(null)).toBe(false);
   });
 

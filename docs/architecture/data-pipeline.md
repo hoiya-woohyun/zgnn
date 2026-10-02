@@ -257,7 +257,7 @@ flowchart LR
   ⚠️ **`--no-geo` 로 싸게 돌리지 않는다.** 좌표가 없으면 동명 가게가 `ask` 대신 `auto` 로 판정되고, `auto` 는 곧바로
   `approved` 로 들어가 사람이 보지도 못한 채 합쳐진다(`analyze-candidates.mjs` 머리 주석의 그 이유 그대로).
   싸게 보려면 키를 그대로 두고 **`--dry-run --dump --limit 3`** 으로 돌려 JSON 의 `petPolicy.fees` 를 먼저 읽는다 — DB 에 아무것도 쓰지 않는다.
-- **같은 가게가 여러 글에서 나온다** — 첫 실행에서 한 펜션(자사 홍보 블로그, 저수지의 12%)이 13건, 목록 글 하나가 101건. 그래서 한 실행에 블로그당 2건(`--max-per-blog`, 넘친 글은 닫지 않고 뒤로 밀린다), 그리고 **제목이 한 가게 후기로 보이는 글이 먼저**다(`isFocusedTitle` — 반려동물 말 있음 · 목록·일정형 아님, 나머지는 뒤로),
+- **같은 가게가 여러 글에서 나온다** — 첫 실행에서 한 펜션(자사 홍보 블로그, 저수지의 12%)이 13건, 목록 글 하나가 101건. 그래서 한 실행에 블로그당 2건(`--max-per-blog`, 넘친 글은 닫지 않고 뒤로 밀린다), 그리고 **제목이 한 가게 후기로 보이는 글이 먼저**다(`isFocusedTitle` — 반려동물 말 · 제주 지명 있음 · 목록·일정형 아님, 나머지는 뒤로),
   `extracted.nameKey`(`normalizeName`)와 `dupOf`(먼저 난 pending 후보 id)로 묶고, `visited: false`(이름만 나열된 목록 글)를 표식으로 남긴다. 후보는 그래도 넣는다 — evidence 가 다른 글이다.
 - **차이 게이트 — 게시된 곳을 쓴 글은 사이트와 다른 사실을 말할 때만 후보가 된다**(`kindOf`, `scripts/analyze/analyzeCandidates.mjs` · 사실 비교 `scripts/analyze/siteChanges.mjs`).
   v14 는 `auto` + `published` 짝을 **전부** 버렸다(같은 말을 하는 글이 신규와 같은 무게로 한 줄을 먹어서). 그런데 그 길로 "대형견 불가로 바뀜" 같은

@@ -95,20 +95,26 @@ export function keyGate(axis, { hasKeys, noGeo, canPrompt }) {
  *
  * 첫 실측(30건)에서 후보 59건 중 50건이 교차점검 `동반 근거 없음` 이었고, 대부분 "제주 맛집 20곳" 같은 목록·일정 글에서 이름만 나온 가게였다.
  * 분석 전 4,839건 중 제목에 반려동물 말이 없는 글이 약 1,500건, 목록·일정형 제목이 약 890건이다 — 네이버 검색은 본문 어딘가에 검색어가 있으면 걸어 준다.
- * 그래서 **제목에 반려동물 말이 있고 목록·일정형이 아닌 글**(`focused`)을 먼저 읽는다. 나머지는 지우지 않는다 — 앞 줄이 비면 그대로 이어서 읽는다.
+ * 그래서 **제목에 반려동물 말과 제주 지명이 있고 목록·일정형이 아닌 글**(`focused`)을 먼저 읽는다. 나머지는 지우지 않는다 — 앞 줄이 비면 그대로 이어서 읽는다.
  *
  * 두 정규식은 서버 쿼리(PostgREST `imatch` = Postgres `~*`)와 이 함수가 **같은 문자열**을 쓴다 — 갈라 두면 로그의 집중·나머지 수가 실제 고른 것과 어긋난다.
  * 그래서 Postgres 와 JS 가 같게 읽는 문법만 쓴다(`[0-9]` · `?` · `|` — `\d` 를 안 쓰는 이유).
  * "추천" 은 넣지 않는다 — "애월 애견동반 카페 추천" 처럼 한 가게 후기 제목에도 흔하다.
  */
 export const PET_TITLE_SOURCE = '(애견|반려견|반려동물|강아지|댕댕|멍멍|펫)';
+// 제주 지명(2026-10-02 추가) — 키워드에 "제주 애월" 을 넣어도 네이버는 느슨하게 맞춰 대구·광안리·남해의 애견동반 글을 돌려주고,
+// 수집은 요약 어딘가에 "제주" 가 한 번만 있어도 받는다. 새 키워드 첫 30건 중 17건이 '제주 아님' 으로 빠졌다(추출 한 번씩을 쓰고 나서).
+// 제목에 지명이 없는 제주 글(가게 이름만 쓴 제목)도 있어 수집에서 버리지 않고 **순서**에만 쓴다.
+export const JEJU_TITLE_SOURCE = '(제주|애월|한림|한경|대정|안덕|중문|서귀포|남원|표선|성산|구좌|조천|우도|함덕|협재|세화|김녕|모슬포|곽지|월정|이호테우|사계|산방산|추자)';
 export const LISTY_TITLE_SOURCE = '(best|top ?[0-9]|[0-9]+ ?(곳|군데|선)|총정리|모음|리스트|코스|일정|여행기|[0-9]+일차|day ?[0-9]|[0-9]+박 ?[0-9]+일)';
 
 const PET_TITLE = new RegExp(PET_TITLE_SOURCE, 'i');
+const JEJU_TITLE = new RegExp(JEJU_TITLE_SOURCE);
 const LISTY_TITLE = new RegExp(LISTY_TITLE_SOURCE, 'i');
 
-/** 먼저 읽을 글인가 — 제목에 반려동물 말이 있고 목록·일정형이 아니다. */
-export const isFocusedTitle = (title) => PET_TITLE.test(title ?? '') && !LISTY_TITLE.test(title ?? '');
+/** 먼저 읽을 글인가 — 제목에 반려동물 말과 제주 지명이 있고 목록·일정형이 아니다. */
+export const isFocusedTitle = (title) =>
+  PET_TITLE.test(title ?? '') && JEJU_TITLE.test(title ?? '') && !LISTY_TITLE.test(title ?? '');
 
 /** 집중 글을 앞에, 나머지를 뒤에 — url 로 겹침을 지운다. 각 무리 안의 순서(최신순)는 그대로. 순수. */
 export function mergeFocusedFirst(focused, rest) {

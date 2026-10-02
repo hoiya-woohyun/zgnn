@@ -53,6 +53,7 @@ import {
   isNoPetEvidenceNew,
   mergeFocusedFirst,
   PET_TITLE_SOURCE,
+  JEJU_TITLE_SOURCE,
   LISTY_TITLE_SOURCE,
   resolveRegionRaw,
   kindOf,
@@ -262,6 +263,7 @@ const unanalyzed = () =>
     .order('posted_at', { ascending: false });
 const { data: focusedPosts, error: focusedError } = await unanalyzed()
   .filter('title', 'imatch', PET_TITLE_SOURCE)
+  .filter('title', 'match', JEJU_TITLE_SOURCE)
   .not('title', 'imatch', LISTY_TITLE_SOURCE)
   .limit(postWindow);
 if (focusedError) throw new Error(`blog_posts 조회 실패(집중 글): ${focusedError.message}`);
