@@ -304,12 +304,14 @@ P0 만 끝나도 사용자 요구 ③과 ④의 "어떤 글들이 참고됐고 �
 > "완화는 글 둘이면 켠다" 의 **글 둘** 쪽은 아직 아니다 — 지금은 완화면 늘 꺼진 채(사람이 켠다). 같은 완화를 말하는 글 수는 제안의 `basedOn` 이 생긴 뒤(T2.2)에 센다.
 > 주소: 후보 ↔ 사이트 주소 차이는 AI 가 아니라 전·후 목록의 `주소` 줄(사람이 체크)이 말한다 — 제안이 생기면 제안 밖 칸이라 기본 꺼짐이 된다(T2.2).
 
-#### [ ] T2.4 수집 완료 칸이 "기존 가게를 쓴 글" 의 수를 말한다
+#### [x] T2.4 수집 완료 칸이 "기존 가게를 쓴 글" 의 수를 말한다
 
 - 근거: G10.
 - 읽을 것: `src/lib/adminPosts.ts` · `src/screens/adminPagePostsPanel.tsx` · `blog_posts.analysis.excluded[].reason`.
 - 단계: `countExcludedReasons(client)` — 분석된 글의 `analysis->excluded` 를 `range` 로 나눠 받아 클라이언트에서 센다(09 T3.3 의 `fetchPromptVersions` 와 같은 길 — 두 칸만). 명령 줄 옆에 `기존 가게를 쓴 글 N · 같은 말 M · 옛 글 K`. 옛 `alreadyHave` 는 `같은 말` 에 합산.
 - 커밋: `feat(admin) - 수집 완료 칸에 기존 가게를 쓴 글의 수 — 게이트가 일하는 것이 보인다`
+
+> 메모: 이유가 셋이라(T1.1 메모의 `weak`) 수도 넷이다 — `기존 가게를 쓴 글 N · 같은 말 · 옛 글 · 근거 약함`. 단위는 글이 아니라 **장소 언급**이다(글 하나가 기존 가게 둘을 쓰면 2). 세는 함수는 `tallyExistingReasons`(순수, 테스트), 받는 쪽은 `countExistingReasons`(실패하면 null — 줄을 안 그린다).
 
 ### P2 — 이어 붙이기
 

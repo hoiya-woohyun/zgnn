@@ -26,6 +26,16 @@ export function AdminPagePostsPanel({ counts, error }: TAdminPagePostsPanelProps
       ) : (
         <p>미분석 글이 없어요 — 새 글은 터미널에서 <code>pnpm data:collect</code> 로 모아요.</p>
       )}
+      {/*
+        * 차이 게이트(11 U1)가 일하는 것이 보이는 자리 — 이미 있는 가게를 쓴 글 중 사이트와 같은 말·확인 날짜보다 옛 글·근거 약함으로 후보가 안 된 것.
+        * 다른 말을 한 글은 검수 대기의 `갱신`·`보강` 으로 갔다. 못 셌으면 아무 말도 안 한다(0 으로 그리면 "게이트가 다 버렸다" 로 읽힌다).
+        */}
+      {counts.existing && counts.existing.total > 0 && (
+        <p className="text-xs text-tertiary">
+          이미 있는 가게를 쓴 글 {counts.existing.total.toLocaleString('ko-KR')} · 같은 말 {counts.existing.same.toLocaleString('ko-KR')} · 옛 글{' '}
+          {counts.existing.stale.toLocaleString('ko-KR')} · 근거 약함 {counts.existing.weak.toLocaleString('ko-KR')} — 후보로 안 올렸어요(다른 말을 한 글은 검수 대기의 갱신·보강)
+        </p>
+      )}
       {counts.excluded === null ? (
         <p className="text-xs text-tertiary">글 단위 분석 제외는 DB 마이그레이션이 적용된 뒤에 쓸 수 있어요(미적용).</p>
       ) : null}
