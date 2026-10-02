@@ -334,8 +334,11 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
               townHasNoPlaces={townHasNoPlaces}
               hasFilters={hasFilters}
               resetLabel={resetFiltersLabel(trimmedQuery.length > 0, activeFilterCount)}
+              query={trimmedQuery}
+              activeFilterCount={activeFilterCount}
               activeChips={activeChips}
               onResetFilters={resetFilters}
+              onClearQuery={() => setQuery('')}
               onOpenFilters={() => setIsFilterSheetOpen(true)}
               distances={distances}
             />

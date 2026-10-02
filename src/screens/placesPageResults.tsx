@@ -9,6 +9,7 @@ import { EmptyState } from '../components/layout/emptyState';
 import { Button } from '../components/base/button';
 import type { TEligibilityLevel } from '../lib/eligibility';
 import { carrierWhatIf, countByLevel } from '../lib/eligibilityCounts';
+import { josa } from '../lib/korean';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
 import { useAppStore } from '../store/useAppStore';
 import type { TPlaceType } from '../types';
@@ -31,6 +32,12 @@ type TPlacesPageResultsProps = {
   hasFilters: boolean;
   /** 지우기 링크 문구(`resetFiltersLabel`) — 검색어만이면 "검색 지우기", 둘 다면 "모두 지우기". */
   resetLabel: string;
+  /** 다듬은 검색어. 빈 상태가 "검색 탓인가 필터 탓인가" 를 가르는 데 쓴다. */
+  query: string;
+  /** 켜진 조건 수(검색어 제외). 0 이면 시트에는 꺼 볼 것이 없다. */
+  activeFilterCount: number;
+  /** 검색어만 지운다 — 검색만으로 0곳일 때 빈 상태의 버튼. */
+  onClearQuery: () => void;
   /** 켜진 조건 칩 줄. 비어 있으면 줄을 그리지 않는다. */
   activeChips: TActiveChip[];
   onResetFilters: () => void;
@@ -54,6 +61,9 @@ export function PlacesPageResults({
   townHasNoPlaces,
   hasFilters,
   resetLabel,
+  query,
+  activeFilterCount,
+  onClearQuery,
   activeChips,
   onResetFilters,
   onOpenFilters,
@@ -88,7 +98,7 @@ export function PlacesPageResults({
           </p>
           {/* 조건을 여러 개 겹쳐 0~1곳만 남았을 때 "왜 이렇게 적지" 하고 이탈하지 않도록
               조건을 하나 풀어보라고 먼저 알려준다(2026-09-15 리뷰 §1 — 세 필터 켜면 0~1곳 안내 없음). */}
-          {hasFilters && results.length === 1 && (
+          {activeFilterCount > 0 && results.length === 1 && (
             <p className="mt-0.5 text-xs text-tertiary">필터를 하나 풀어 보면 더 볼 수 있어요.</p>
           )}
         </div>
@@ -126,20 +136,37 @@ export function PlacesPageResults({
           위의 지우기 링크가 그대로 맡는다.
         */
         <div className="px-4 pt-6 md:px-6">
-          <EmptyState
-            Icon={SearchMd}
-            title={
-              townHasNoPlaces ? `${town}엔 ${TYPE_META[type].label}가 없어요` : '필터에 맞는 곳이 없어요'
-            }
-            description={
-              townHasNoPlaces ? '필터에서 다른 읍면을 골라 보세요.' : '검색어나 필터를 바꿔 보세요.'
-            }
-            action={
-              <Button color="primary" size="md" className="md:hidden" onClick={onOpenFilters}>
-                필터 바꾸기
-              </Button>
-            }
-          />
+          {/*
+            검색어만 걸려 0곳이면 필터를 탓하지 않는다(12 U1.2) — 시트에는 꺼 볼 것이 없고, 지울 것은 검색어다.
+            이 버튼은 md 에서도 보인다: 펼쳐진 조건 판이 검색어를 지워 주지 않는다.
+          */}
+          {query && activeFilterCount === 0 && !townHasNoPlaces ? (
+            <EmptyState
+              Icon={SearchMd}
+              title={`'${query}'${josa(query, '과/와')} 맞는 곳이 없어요`}
+              description="띄어쓰기를 바꾸거나 더 짧게 찾아보세요."
+              action={
+                <Button color="primary" size="md" onClick={onClearQuery}>
+                  검색 지우기
+                </Button>
+              }
+            />
+          ) : (
+            <EmptyState
+              Icon={SearchMd}
+              title={
+                townHasNoPlaces ? `${town}엔 ${TYPE_META[type].label}가 없어요` : '필터에 맞는 곳이 없어요'
+              }
+              description={
+                townHasNoPlaces ? '필터에서 다른 읍면을 골라 보세요.' : '검색어나 필터를 바꿔 보세요.'
+              }
+              action={
+                <Button color="primary" size="md" className="md:hidden" onClick={onOpenFilters}>
+                  필터 바꾸기
+                </Button>
+              }
+            />
+          )}
         </div>
       )}
     </>
