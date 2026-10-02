@@ -225,13 +225,17 @@ P0 만 끝나도 사용자 요구 ③과 ④의 "어떤 글들이 참고됐고 �
 
 > 메모: 화면에는 이미 `종류`(숙소·식당·카페) 드롭다운이 있어 이 축의 이름표는 **`할 일`** 로 했다(값은 `KIND_LABEL` 두 자 그대로). 칩은 짝이 `기존` 인 묶음에만 선다 — 신규·확인은 `TIER_LABEL` 이 같은 말을 이미 하므로 두 번 쓰지 않았다(§8 의 "두 축을 한 칩으로" 는 디자인 몫으로 남김). `data:review` 머리 줄도 `일치(갱신)` 꼴로 같은 값을 찍는다.
 
-#### [ ] T1.3 갱신 묶음의 세 칸 비교 — 지금 사이트 값이 선다
+#### [x] T1.3 갱신 묶음의 세 칸 비교 — 지금 사이트 값이 선다
 
 - 근거: G3(날짜) · 요구 ④ 앞부분 · 4-4 ①②.
 - 읽을 것: `src/screens/adminPageGroupDetail.tsx`(`CompareRow` — 칸이 셋이 되는 자리) · `adminPageGroupCard.tsx`(`pairPlace` 가 이미 온다) · `src/lib/adminLatest.ts`(`COLUMNS` 의 칸·표기 재사용).
 - 단계: `kind === 'update' || 'fill'` 이고 `pairPlace` 가 있으면 `CompareRow` 에 `site` 칸(`adminLatest` 의 `COLUMNS.show` 로 표기). 글들이 말한 것은 **행마다**(날짜 내림차순 · 블로그 제목 · 그 칸의 값 · 인용). 같은 칸에 값이 둘 이상 다르면 줄 머리에 `글마다 달라요`. 순수 함수 `fieldVoices(rows, column)` → `[{ postedAt, title, value, quote }]`, 테스트.
 - 수용 기준: 신규 묶음의 비교표는 **한 글자도 안 바뀐다**(스냅샷) · 갱신 묶음에서 세 칸.
 - 커밋: `feat(admin) - 갱신 묶음은 지금 사이트 값 · 글들이 말한 것 · 나갈 값 세 칸으로 본다`
+
+> 메모: `CompareRow` 에 칸을 꽂지 않고 **따로 선 표**(`adminPageGroupSiteCompare.tsx` · 순수 `src/lib/adminSiteCompare.ts` 의 `fieldVoices`·`siteCompareRows`)로 했다 —
+> 기존 표는 `원문 ↔ 나갈 값` 이라 신규 묶음에선 사이트 칸이 늘 비고, 따로 두니 "신규 묶음의 비교표는 한 글자도 안 바뀐다" 가 스냅샷 없이 구조로 지켜진다.
+> 칸 표기는 `adminLatest` 의 `COLUMNS` 가 export 되지 않아 같은 `factsLine`·`environmentPhrases` 를 직접 쓴다. 나갈 값은 지금은 대표 후보의 값이다(T2.2 가 제안으로 바꾼다).
 
 #### [ ] T1.4 덮어쓰기를 칸 단위로
 

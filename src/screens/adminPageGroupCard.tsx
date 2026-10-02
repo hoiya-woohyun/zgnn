@@ -22,6 +22,7 @@ import { verifyNeedsLook, verifyView } from '../lib/adminVerify';
 import { latestPlan } from '../lib/adminLatest';
 import { cx } from '../utils/cx';
 import { AdminPageGroupDetail } from './adminPageGroupDetail';
+import { AdminPageGroupSiteCompare } from './adminPageGroupSiteCompare';
 import { AdminTypeChip } from './adminTypeChip';
 import { AdminPageEditForm } from './adminPageEditForm';
 import { AdminChangeList } from './adminChangeList';
@@ -364,6 +365,8 @@ export function AdminPageGroupCard({
               {latestAvailable && latest && latest.changes.length > 0 && (
                 <AdminChangeList source="ai" title="덮어쓰면 바뀌는 칸 — 지금 장소 값 → 새 분석 값" changes={latest.changes} />
               )}
+              {/* 기존 장소를 고치거나 채우는 묶음은 **사이트에 지금 무엇이 있나** 부터 본다(11 T1.3). 신규 묶음에는 서지 않는다. */}
+              {pairPlace && (group.kind === 'update' || group.kind === 'fill') && <AdminPageGroupSiteCompare group={group} place={pairPlace} />}
               <AdminPageGroupDetail group={group} preview={preview} />
             </div>
             <div className="mt-3 border-t border-secondary pt-3">
