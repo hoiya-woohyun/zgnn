@@ -3,7 +3,8 @@
 // 좌표·주소 보강(naverLocal, 키 있을 때만) → 기존 장소와 대조(matchPlace) → 공식 홈페이지 카드(homepageCard, link 가 업체 사이트일 때만) → candidates insert → blog_posts.analyzed_at.
 // 판별·조립 규칙은 scripts/analyze/analyzeCandidates.mjs 의 순수 함수에 있고 여기는 I/O 와 순서뿐이다.
 //
-//  - **Claude 를 두 번 부른다.** 두 번째(교차점검)는 "동반 조건 문장이 없는" 후보에만, 글 하나당 한 번이다. 추출 패스는
+//  - **Claude 를 세 번 부른다.** 셋째(제안, `proposePlaces.mjs`)는 루프가 끝난 뒤 갱신 후보가 생긴 장소마다 한 번이다(`--no-propose`).
+//    두 번째(교차점검)는 "동반 조건 문장이 없는" 후보에만, 글 하나당 한 번이다. 추출 패스는
 //    "반려견 동반 여행 블로그" 를 전제로 읽으므로 강아지를 두고 들른 일반 카페도 장소로 뽑는다 — 그 전제를 뒤집어
 //    다시 읽는 것이 두 번째 패스의 일이다(verifyPlaces.mjs 머리 주석). 끄려면 `--no-verify`.
 //
@@ -62,6 +63,7 @@ import { matchPlace, normalizeName, townOf } from './analyze/matchPlace.mjs';
 import { fetchHomepageCard } from './analyze/homepageCard.mjs';
 import { fetchPostText } from './analyze/naverPostBody.mjs';
 import { needsDogCheck, resolveVerifyModel, verifyLabel, VERIFY_PROMPT_VERSION, verifyPlaces } from './analyze/verifyPlaces.mjs';
+import { PROPOSE_PROMPT_VERSION, proposalTargets, proposeForPlace, resolveProposeModel } from './analyze/proposePlaces.mjs';
 import { toMatchablePlace } from './lib/placeFields.mjs';
 import { readHidden } from './lib/readHidden.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
@@ -70,10 +72,10 @@ let args;
 try {
   args = parseArgs(process.argv.slice(2));
 } catch (e) {
-  console.error(`${e.message} — 사용법: pnpm data:analyze [--limit N] [--max-per-blog N] [--no-geo] [--no-verify] [--no-homepage] [--dry-run] [--dump[=경로]]`);
+  console.error(`${e.message} — 사용법: pnpm data:analyze [--limit N] [--max-per-blog N] [--no-geo] [--no-verify] [--no-propose] [--no-homepage] [--dry-run] [--dump[=경로]]`);
   process.exit(1);
 }
-const { limit, dryRun, dump, maxPerBlog, noGeo, noVerify, noHomepage } = args;
+const { limit, dryRun, dump, maxPerBlog, noGeo, noVerify, noPropose, noHomepage } = args;
 console.log(dryRun ? '모드: dry-run — DB 에 쓰지 않는다(Claude 는 부른다)' : '모드: 분석 — candidates · blog_posts.analyzed_at 에 쓴다');
 
 // 좌표 보강은 **02(수집)과 같은 네이버 키**를 쓴다 — 키를 하나 더 발급·관리하지 않는다(ADR-008 v4).
@@ -165,6 +167,16 @@ else console.log(`교차점검 모델 ${resolveVerifyModel()} · 프롬프트 ${
  * 한도를 더 태울 이유가 없다. 인증·CLI 없음(fatal)은 여기 오지 않고 루프를 끊는다.
  */
 let verifyAxisOff = false;
+/*
+ * 셋째 패스 「제안」(`proposePlaces.mjs`, docs/todo/11 U3) — 이번 실행에서 **갱신 후보가 생긴 장소마다 한 번**, 루프가 끝난 뒤에 돈다.
+ * 계량기를 따로 든다(교차점검과 같은 이유). 실패하면 이 실행 동안 내린다 — 제안은 더하기만 하는 값이라 후보는 그대로 남고,
+ * 화면은 그 묶음을 `제안 없음` 으로 그린다.
+ */
+const proposeMeter = createUsageMeter('제안');
+if (noPropose) console.log('--no-propose — 제안 패스를 끈다(갱신 묶음이 `제안 없음` 으로 남는다)');
+else console.log(`제안 모델 ${resolveProposeModel()} · 프롬프트 ${PROPOSE_PROMPT_VERSION} (갱신 후보가 생긴 장소에서만 돈다)`);
+/** 장소 id → 이번 실행에서 만든 갱신 후보 행들(글 날짜를 얹어). dry-run 은 DB 대신 이것으로 제안을 만든다. */
+const updatedPlaces = new Map();
 
 // 마이그레이션 20260928150000(blog_posts.analysis · places.pet_policy)이 적용됐는지 먼저 본다 — 없으면 첫 글의 쓰기에서 42703 으로 죽는데,
 // 그때까지 Claude 를 불러 한도만 쓴다. dry-run 도 같은 검사를 한다(실제 실행 전에 알아야 한다).
@@ -512,6 +524,11 @@ for (const post of posts) {
 
     dumpEntries.push({ post: { url: post.url, title: post.title, posted_at: post.posted_at }, candidates: rows, excluded });
     if (rows.length > 0) await write(`candidates ${rows.length}건 insert`, () => supabase.from('candidates').insert(rows));
+    for (const row of rows) {
+      if (row.extracted.match.kind !== 'update' || !row.match_place_id) continue;
+      if (!updatedPlaces.has(row.match_place_id)) updatedPlaces.set(row.match_place_id, []);
+      updatedPlaces.get(row.match_place_id).push({ ...row, posted_at: post.posted_at });
+    }
     // 후보가 0개여도(장소 없음 · 제주 아님 · other 뿐) 분석은 끝난 것이다 — 다시 읽지 않게 analyzed_at 을 찍고, "왜 0건인가" 를 analysis 에 남긴다.
     const analysis = toPostAnalysis({ meta, candidates: rows, excluded });
     await write(`analyzed_at 기록${rows.length === 0 ? ' (후보 없음)' : ''}`, () =>
@@ -567,8 +584,50 @@ if (pendingCloses.length > 0) {
   }
 }
 
+/*
+ * 제안 — 갱신 후보가 생긴 장소마다 한 번. 입력은 그 장소의 **pending 후보 전부**(이번 실행 것 + 이전 실행 것)라 DB 에서 다시 읽는다
+ * (dry-run 은 이번 실행 것만). 결과는 가장 새 글의 행 `extracted.proposal` 에, 같은 장소의 살아 있는 옛 제안은 `superseded` 로.
+ * 로그에는 칸 수·충돌 수만 — 제안 값·인용은 본문에서 파생된 것이라 찍지 않는다(05).
+ */
+stats.propose = { places: noPropose ? 0 : updatedPlaces.size, done: 0, failed: 0 };
+let proposeOff = noPropose;
+for (const [placeId, runRows] of updatedPlaces) {
+  const placeRow = placeById.get(placeId);
+  if (proposeOff || !placeRow) continue;
+  try {
+    let rowsForPlace = runRows;
+    if (!dryRun) {
+      const { data, error } = await supabase
+        .from('candidates')
+        .select('id, post_url, extracted, blog_posts(posted_at)')
+        .eq('status', 'pending')
+        .eq('match_place_id', placeId);
+      if (error) throw new Error(`후보 다시 읽기 실패: ${error.message}`);
+      rowsForPlace = data ?? [];
+    }
+    const proposal = await proposeForPlace(runClaudeCli, placeRow, rowsForPlace, proposeMeter);
+    if (!proposal) continue;
+    const { target, supersede } = proposalTargets(rowsForPlace);
+    const changed = Object.values(proposal.fields).filter((field) => field.action !== 'keep').length;
+    await write(`제안 ${placeRow.name} — 바꿀 칸 ${changed} · 글마다 다른 칸 ${proposal.conflicts.length} (글 ${rowsForPlace.length}건)`, () =>
+      supabase.from('candidates').update({ extracted: { ...target.extracted, proposal } }).eq('id', target.id),
+    );
+    for (const old of supersede) {
+      await write(`  옛 제안 superseded ${old.id}`, () =>
+        supabase.from('candidates').update({ extracted: { ...old.extracted, proposal: { ...old.extracted.proposal, superseded: true } } }).eq('id', old.id),
+      );
+    }
+    stats.propose.done += 1;
+  } catch (e) {
+    stats.propose.failed += 1;
+    proposeOff = true;
+    console.error(`  제안 실패 — 이 실행 동안 패스를 내린다(후보는 '제안 없음' 으로 남는다): ${e.message}`);
+  }
+}
+
 console.log(formatSummary(stats, meter.summary(), { dryRun }));
 if (verifyMeter.totals().calls > 0) console.log(`  ${verifyMeter.summary()}`);
+if (proposeMeter.totals().calls > 0) console.log(`  ${proposeMeter.summary()}`);
 
 // --dump: 후보·제외 목록을 로컬 JSON 으로. data/raw/ 는 .gitignore 라 레포에 남지 않는다. 본문은 없고 evidence(인용 1~3문장)는 DB 와 같은 것이다.
 if (dump !== null) {

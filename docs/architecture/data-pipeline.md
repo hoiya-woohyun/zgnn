@@ -1,6 +1,10 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-10-02 (v29: **차이 게이트** — 게시된 곳을 쓴 글은 사이트와 **다른 사실**을 말할 때만 후보가 된다(`kindOf`, [todo/11](../todo/11-continuous-review-and-update-proposals.md) U1).
+> 최종 수정: 2026-10-02 (v30: **분석이 Claude 를 세 번 부른다** — 셋째 패스 「제안」(`scripts/analyze/proposePlaces.mjs`, [todo/11](../todo/11-continuous-review-and-update-proposals.md) U3).
+> 루프가 끝난 뒤 이번 실행에서 `update` 후보가 생긴 장소마다 한 번, 사이트 값과 그 장소의 pending 후보 전부를 **구조값으로**(본문 없음) 넘기고 칸별 `keep/change` 를 받는다.
+> 코드가 다시 거른다(근거 글 없음·인용 불일치 → keep, 소개는 덧붙임만, 판단은 `correctPetPolicyFacts`, 충돌은 코드가 센다). 결과는 가장 새 글의 행 `extracted.proposal`, 옛 제안은 `superseded: true`.
+> `--no-propose` 로 끄고 `PROPOSE_MODEL` 로 모델을 덮는다. 계량기 셋째 줄 · 요약 `· 제안 N/M곳`)
+> 이전 2026-10-02 (v29: **차이 게이트** — 게시된 곳을 쓴 글은 사이트와 **다른 사실**을 말할 때만 후보가 된다(`kindOf`, [todo/11](../todo/11-continuous-review-and-update-proposals.md) U1).
 > 제외 이유 `alreadyHave` 가 셋으로 갈렸다 — `sameAsSite`(같은 말) · `stale`(확인 날짜보다 옛 글) · `weak`(목록글·동반 근거 없음). 후보는 `extracted.match.kind`(`new`·`ask`·`fill`·`update`)를 싣는다)
 > 이전 2026-10-01 (v28: `places.stay_environment`(숙소 환경 jsonb, 마이그레이션 `20261001160000`) → JSON `stay.environment`. 추출 스키마의 `stayEnvironment` 가 원천이고, 쓰는 쪽(`toNewPlaceRow`·`mergeIntoExisting`·`overwriteWithLatest`)은 행에 칸이 있을 때만 싣는다)
 > 이전 (v27: `data:pull` 이 `place_report_flags()`(마이그레이션 `20261001150000`)로 **열린 폐업 제보 표식**을 장소 끝 키 `openReportKinds` 로 얹는다 — 상세가 그때 확인 날짜를 안 그린다. 함수가 없으면 경고 한 줄 뒤 표식 없이 계속)
@@ -178,7 +182,8 @@ flowchart LR
   B -->|claude -p --json-schema<br/>구독, API 키 없음| E[장소 0~N개<br/>petPolicyText 는 원문 그대로]
   E -->|조건 문장 없는 후보만 · 글당 1회<br/>claude -p 두 번째 패스| V[교차점검<br/>동반 확인 / 근거 없음 / 불가 정황]
   V -->|네이버 지역 검색: 이름 완전 일치만| G[좌표·주소·regionRaw]
-  G -->|matchPlace vs places<br/>상태 무관 — archived·draft 포함| C[(candidates<br/>pending · tier auto/ask/new)]
+  G -->|matchPlace vs places<br/>상태 무관 — archived·draft 포함<br/>게시된 짝은 차이 게이트 kindOf| C[(candidates<br/>pending · tier auto/ask/new<br/>kind new/fill/update/ask)]
+  C -->|갱신이 생긴 장소마다 1회 · 루프 끝<br/>claude -p 셋째 패스 · 구조값만| PR[제안<br/>extracted.proposal]
   C -->|사람: /admin · pnpm data:review · Studio<br/>묶음 · 정규식/AI/앱 판정 미리보기| A{approved?}
   A -->|approved → data:apply| PL[(places<br/>빈 칸만 채움 · 신규는 draft)]
   A -->|/admin 의 '맞아요' — 승인과 반영이 한 번| PP[(places<br/>빈 칸만 채움 · 신규는 published)]

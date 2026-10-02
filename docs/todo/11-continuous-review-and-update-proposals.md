@@ -262,7 +262,7 @@ P0 만 끝나도 사용자 요구 ③과 ④의 "어떤 글들이 참고됐고 �
 
 ### P1 — 제안과 시간
 
-#### [ ] T2.1 제안 패스 — `scripts/analyze/proposePlaces.mjs`
+#### [x] T2.1 제안 패스 — `scripts/analyze/proposePlaces.mjs`
 
 - 근거: G3·G4 · U3·U4.
 - 선행: T1.1.
@@ -275,6 +275,10 @@ P0 만 끝나도 사용자 요구 ③과 ④의 "어떤 글들이 참고됐고 �
 - 수용 기준: `pnpm test` 통과 · `--dry-run` 요약에 `· 제안 N`. **실측은 H.2**.
 - 문서: data-pipeline 「수집 · 분석 · 승인」 흐름도에 셋째 패스 · ADR-019 머리말에 "셋째 호출" 한 줄(결정 본문은 ADR-020 개정 때).
 - 커밋: `feat(analyze) - 셋째 패스 '제안' — 갱신이 생긴 장소마다 지금 값과 글들을 같이 읽고 칸별 제안을 후보에 싣는다`
+
+> 메모: 출력 스키마에서 `conflicts` 는 뺐다(어차피 코드가 다시 센다 — `countConflicts`). 칸은 `pet_policy_text · stay_price_text · stay_amenities_text · stay_environment · category · features` —
+> 조건 판단(`fees` 포함)은 원문과 짝이라 따로 묻지 않고, 근거 글 중 가장 새 글의 판단을 제안 원문에 `correctPetPolicyFacts` 로 대 본 값을 붙인다. 환경은 모델이 값을 쓰지 않고 근거 글의 값을 쓴다.
+> 인용은 본문이 아니라 **근거 글들이 가진 값**(원문·인용·소개)에 대 본다 — 이 패스는 본문을 받지 않았다. 패스는 루프 **끝**에 돈다(그 장소의 pending 후보 전부를 DB 에서 다시 읽는다). 실측은 H.2(🧑).
 
 #### [ ] T2.2 제안을 보여 주고 기본 체크로 쓴다
 

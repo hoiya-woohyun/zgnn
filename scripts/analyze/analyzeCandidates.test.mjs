@@ -55,13 +55,14 @@ const local = {
 
 describe('parseArgs', () => {
   it('인자가 없으면 기본 limit · dry-run 아님', () => {
-    expect(parseArgs([])).toEqual({ limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noHomepage: false });
+    expect(parseArgs([])).toEqual({ limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false });
   });
   it('--limit N 과 --limit=N 둘 다 받고, --dry-run 은 어디에 있어도 된다', () => {
-    expect(parseArgs(['--limit', '5', '--dry-run'])).toEqual({ limit: 5, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noHomepage: false });
-    expect(parseArgs(['--dry-run', '--limit=20'])).toEqual({ limit: 20, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noHomepage: false });
+    expect(parseArgs(['--limit', '5', '--dry-run'])).toEqual({ limit: 5, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false });
+    expect(parseArgs(['--dry-run', '--limit=20'])).toEqual({ limit: 20, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false });
     expect(parseArgs(['--no-geo']).noGeo).toBe(true);
     expect(parseArgs(['--no-verify']).noVerify).toBe(true);
+    expect(parseArgs(['--no-propose']).noPropose).toBe(true);
     expect(parseArgs(['--no-homepage']).noHomepage).toBe(true);
   });
   it('--dump 는 기본 경로(빈 문자열), --dump=경로 는 그 경로 · --max-per-blog 는 0 도 된다(상한 없음)', () => {
@@ -391,6 +392,12 @@ describe('로그 형식 — 본문 인용은 싣지 않는다', () => {
     const line = formatSummary({ ...stats, excluded: ex }, 'x');
     expect(line).toContain('신규 1 · 갱신 1 · 보강 1');
     expect(line).toContain('제외 8(other 0 · 제주밖 0 · 동반불가 0 · 같은 말 5 · 옛 글 2 · 근거 약함 1)');
+  });
+
+  it('제안 패스 — 갱신이 생긴 장소 수와 실은 수를 같이, 안 돌았으면 조각이 없다', () => {
+    const stats = { analyzed: 1, skipped: 0, candidates: 1, auto: 1, ask: 0, new: 0 };
+    expect(formatSummary({ ...stats, propose: { places: 2, done: 1, failed: 1 } }, 'x')).toContain(' · 제안 1/2곳(실패 1)');
+    expect(formatSummary({ ...stats, propose: { places: 0, done: 0, failed: 0 } }, 'x')).not.toContain('제안');
   });
 
   /**

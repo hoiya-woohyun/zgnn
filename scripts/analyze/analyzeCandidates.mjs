@@ -36,16 +36,17 @@ export const DEFAULT_MAX_PER_BLOG = 2;
 
 /**
  * `--dry-run` · `--limit N` · `--max-per-blog N` · `--no-geo` · `--no-verify`(교차점검 패스를 끈다 — Claude 호출이 글마다
- * 최대 한 번 더 늘어나므로 한도가 아까울 때) · `--no-homepage`(공식 홈페이지 카드를 읽지 않는다 — 업체 사이트에 요청이 나가지 않게) · `--dump[=경로]`(후보·제외 목록을 로컬 JSON 으로 — 정규화 품질을
+ * 최대 한 번 더 늘어나므로 한도가 아까울 때) · `--no-propose`(셋째 패스 「제안」을 끈다 — 갱신 후보가 생긴 장소마다 한 번 더 부른다, docs/todo/11 U3) · `--no-homepage`(공식 홈페이지 카드를 읽지 않는다 — 업체 사이트에 요청이 나가지 않게) · `--dump[=경로]`(후보·제외 목록을 로컬 JSON 으로 — 정규화 품질을
  * 사람이 볼 유일한 창, 로그에는 여전히 본문 인용을 찍지 않는다). 모르는 인자나 1 미만의 limit 은 throw — 오타로 전체를 돌리는 일이 없게.
  */
 export function parseArgs(argv) {
-  const args = { limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noHomepage: false };
+  const args = { limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--dry-run') { args.dryRun = true; continue; }
     if (arg === '--no-geo') { args.noGeo = true; continue; }
     if (arg === '--no-verify') { args.noVerify = true; continue; }
+    if (arg === '--no-propose') { args.noPropose = true; continue; }
     if (arg === '--no-homepage') { args.noHomepage = true; continue; }
     if (arg === '--dump') { args.dump = ''; continue; } // '' = 기본 경로(data/raw/analyze-<시각>.json)
     if (arg.startsWith('--dump=')) { args.dump = arg.slice('--dump='.length); continue; }
@@ -445,5 +446,8 @@ export function formatSummary(stats, meterSummary, { dryRun } = {}) {
    */
   const v = stats.verify;
   const verify = v ? ` · 교차점검 ${v.checked}건(근거 없음 ${v.noEvidence} · 동반 불가 정황 ${v.notAllowed}${v.failed ? ` · 실패 ${v.failed}` : ''})` : '';
-  return `${prefix}분석 ${stats.analyzed}건 (후보 ${stats.candidates} · 일치 ${stats.auto} · 확인요청 ${stats.ask} · 신규 ${stats.new}${kinds}${dup} · 건너뜀 ${stats.skipped}${dropped}${excluded}${edited}${verify}) · ${meterSummary}`;
+  // 제안(셋째 패스) — 갱신이 생긴 장소 수와 제안을 실은 수를 같이(교차점검과 같은 이유: 0 이 "안 돌았다" 인지 "실패했다" 인지 갈라야 한다).
+  const p = stats.propose;
+  const propose = p && p.places ? ` · 제안 ${p.done}/${p.places}곳${p.failed ? `(실패 ${p.failed})` : ''}` : '';
+  return `${prefix}분석 ${stats.analyzed}건 (후보 ${stats.candidates} · 일치 ${stats.auto} · 확인요청 ${stats.ask} · 신규 ${stats.new}${kinds}${dup} · 건너뜀 ${stats.skipped}${dropped}${excluded}${edited}${verify}${propose}) · ${meterSummary}`;
 }
