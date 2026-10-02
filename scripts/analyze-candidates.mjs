@@ -50,6 +50,7 @@ import {
   parseArgs,
   pickPostsForRun,
   isFocusedTitle,
+  isNoPetEvidenceNew,
   mergeFocusedFirst,
   PET_TITLE_SOURCE,
   LISTY_TITLE_SOURCE,
@@ -437,7 +438,7 @@ function skipHint(e) {
 }
 
 const runStartedAt = new Date();
-const stats = { analyzed: 0, skipped: 0, dropped: 0, candidates: 0, auto: 0, ask: 0, new: 0, dup: 0, edited: 0, update: 0, fill: 0, excluded: { other: 0, notJeju: 0, notAllowed: 0, sameAsSite: 0, stale: 0, weak: 0, blocked: 0 }, verify: { checked: 0, noEvidence: 0, notAllowed: 0, failed: 0 } };
+const stats = { analyzed: 0, skipped: 0, dropped: 0, candidates: 0, auto: 0, ask: 0, new: 0, dup: 0, edited: 0, update: 0, fill: 0, excluded: { other: 0, notJeju: 0, notAllowed: 0, sameAsSite: 0, stale: 0, weak: 0, blocked: 0, noPetEvidence: 0 }, verify: { checked: 0, noEvidence: 0, notAllowed: 0, failed: 0 } };
 let fatal = false;
 const pendingCloses = []; // { url, reason } — 루프 끝에 성공이 1건이라도 있을 때만 analyzed_at 을 찍는다
 // --dump 용. DB 에 들어갈 후보 행(extracted 그대로, 본문 없음)과 제외 목록 — 정규화 품질을 사람이 볼 유일한 창이다(로그에는 안 찍는다, 05).
@@ -552,6 +553,17 @@ for (const post of posts) {
         excluded.push({ extracted, reason: kind.exclude });
         stats.excluded[kind.exclude] += 1;
         console.log(`  제외 ${extracted.name} (${extracted.type}) · ${EXCLUDE_LABEL[kind.exclude]} → ${matched.match.name}`);
+        continue;
+      }
+      // 신규인데 교차점검이 동반 근거를 못 찾았다 — 후보로 만들지 않고 재검색 재료와 함께 남긴다(`isNoPetEvidenceNew`, ADR-019 v6 임시 단계).
+      if (isNoPetEvidenceNew(row.extracted.match.tier, row.extracted.verify)) {
+        excluded.push({
+          extracted,
+          reason: 'noPetEvidence',
+          extra: { town: townOf(regionRaw) ?? null, address: local?.address ?? extracted.address ?? null, recheck: null },
+        });
+        stats.excluded.noPetEvidence += 1;
+        console.log(`  제외 ${extracted.name} (${extracted.type}) · 신규·동반 근거 없음${row.extracted.visited === false ? ' · 목록글' : ''}`);
         continue;
       }
       row.extracted.match.kind = kind.kind;

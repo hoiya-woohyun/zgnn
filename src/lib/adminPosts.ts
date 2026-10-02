@@ -31,6 +31,11 @@ export type TExistingTally = {
   stale: number;
   weak: number;
   /**
+   * **신규** 가게인데 교차점검이 동반 근거를 못 찾아 후보로 안 만든 수(`noPetEvidence`, ADR-019 v6 임시 단계). `total` 에는 안 넣는다 — 이미 있는
+   * 가게 이야기가 아니다. 업체명 재검색(결정 7)이 생기면 다시 볼 줄들이라 "버린 것" 이 아니라 "미룬 것" 으로 보이게 센다.
+   */
+  noPetEvidence: number;
+  /**
    * **옛 규칙**(`alreadyHave`, 차이 게이트 전)으로 버려진 장소가 있는 글 url — 차이 게이트를 한 번도 못 지났다.
    * 수집 완료 칸의 `다시 열기` 가 이 글들을 수집 완료로 되돌린다(11 런북 3단계를 화면으로).
    */
@@ -39,13 +44,17 @@ export type TExistingTally = {
 
 /** 순수 — 글마다의 `excluded` 배열을 받아 센다. 모르는 이유는 세지 않는다. */
 export function tallyExistingReasons(excludedLists: unknown[], urls: (string | null)[] = []): TExistingTally {
-  const out: TExistingTally = { total: 0, same: 0, stale: 0, weak: 0, alreadyHavePosts: [] };
+  const out: TExistingTally = { total: 0, same: 0, stale: 0, weak: 0, noPetEvidence: 0, alreadyHavePosts: [] };
   for (const [index, list] of excludedLists.entries()) {
     if (!Array.isArray(list)) continue;
     let old = false;
     for (const entry of list) {
       const reason = (entry as { reason?: unknown } | null)?.reason;
       if (reason === 'alreadyHave') old = true;
+      if (reason === 'noPetEvidence') {
+        out.noPetEvidence += 1;
+        continue;
+      }
       if (reason === 'sameAsSite' || reason === 'alreadyHave') out.same += 1;
       else if (reason === 'stale') out.stale += 1;
       else if (reason === 'weak') out.weak += 1;

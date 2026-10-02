@@ -584,3 +584,43 @@ describe('isFocusedTitle · mergeFocusedFirst — 분석 순서(2026-10-02)', ()
     expect(merged.map((post) => post.url)).toEqual(['b', 'd', 'a', 'c']);
   });
 });
+
+describe('isNoPetEvidenceNew — 신규·동반 근거 없음(ADR-019 v6 임시 단계)', () => {
+  it('verify 가 null(안 봤다)이면 빼지 않는다 — 교차점검이 꺼졌거나 실패한 후보도 그대로 후보다', async () => {
+    const { isNoPetEvidenceNew } = await import('./analyzeCandidates.mjs');
+    expect(isNoPetEvidenceNew('new', null)).toBe(false);
+    expect(isNoPetEvidenceNew('new', undefined)).toBe(false);
+  });
+
+  it('신규만, verifyLabel 의 동반 근거 없음과 같은 판정', async () => {
+    const { isNoPetEvidenceNew } = await import('./analyzeCandidates.mjs');
+    const { verifyLabel } = await import('./verifyPlaces.mjs');
+    const cases = [
+      { petAllowedHere: 'unknown', dogWasThere: false },
+      { petAllowedHere: 'yes', dogWasThere: false },
+      { petAllowedHere: 'no', dogWasThere: false },
+      { petAllowedHere: 'unknown', dogWasThere: true },
+    ];
+    for (const verify of cases) {
+      expect(isNoPetEvidenceNew('new', verify)).toBe(verifyLabel(verify) === '동반 근거 없음');
+      expect(isNoPetEvidenceNew('auto', verify)).toBe(false);
+      expect(isNoPetEvidenceNew('ask', verify)).toBe(false);
+    }
+  });
+
+  it('제외 기록에 재검색 재료가 실리고, 요약 줄이 센다', async () => {
+    const { toPostAnalysis, formatSummary } = await import('./analyzeCandidates.mjs');
+    const analysis = toPostAnalysis({
+      excluded: [{ extracted: { name: '해녀의집', type: 'restaurant' }, reason: 'noPetEvidence', extra: { town: '구좌읍', address: null, recheck: null } }],
+    });
+    expect(analysis.excluded[0]).toEqual({ name: '해녀의집', type: 'restaurant', reason: 'noPetEvidence', town: '구좌읍', address: null, recheck: null });
+    const stats = {
+      analyzed: 1, skipped: 0, dropped: 0, candidates: 0, auto: 0, ask: 0, new: 0, dup: 0, edited: 0, update: 0, fill: 0,
+      excluded: { other: 0, notJeju: 0, notAllowed: 0, sameAsSite: 0, stale: 0, weak: 0, blocked: 0, noPetEvidence: 3 },
+      verify: { checked: 3, noEvidence: 3, notAllowed: 0, failed: 0 },
+    };
+    const line = formatSummary(stats, '');
+    expect(line).toContain('제외 3(');
+    expect(line).toContain('신규·동반 근거 없음 3');
+  });
+});

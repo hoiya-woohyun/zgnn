@@ -406,6 +406,22 @@ export function toCandidateRow(post, extracted, local, regionRaw, matched, { met
 }
 
 /**
+ * **신규** 후보인데 교차점검이 `동반 근거 없음` 이라 했나 — 그러면 후보로 만들지 않고 `noPetEvidence` 로 뺀다(2026-10-02, ADR-019 v6 의 **임시 단계**).
+ *
+ * 첫 실측 30건에서 신규 후보 58건 중 50건이 이 판정이었다 — 목록 글에서 이름만 나온 가게다. 그대로 두면 검수 대기가 9,000건대로 불어난다.
+ * ADR-019 결정 7·8 은 이 후보에 **업체명 블로그 재검색**을 돌린 뒤에야 빼는 설계지만 재검색은 아직 없다. 그래서 지금은 바로 빼되
+ * `recheck: null`(재검색 안 함)을 남겨, 결정 7 이 생기면 이 줄들만 골라 다시 볼 수 있게 한다.
+ *
+ * **`verify` 가 null 이면 빼지 않는다** — null 은 "근거 없음" 이 아니라 "안 봤다" 다(조건 문장이 있었거나, 교차점검이 꺼졌거나 실패했다. CLAUDE.md).
+ * 판정은 `verifyLabel`(verifyPlaces.mjs)과 같다 — 불가 정황(`no`)·동반 확인(`yes` 또는 개가 있었다)이 아니면 근거 없음.
+ * 짝이 있는 후보(`auto`·`ask`)는 여기 오지 않는다 — 그쪽은 `kindOf` 의 `weak` 가 같은 신호를 본다.
+ */
+export function isNoPetEvidenceNew(tier, verify) {
+  if (tier !== 'new' || verify == null) return false;
+  return verify.petAllowedHere !== 'no' && verify.petAllowedHere !== 'yes' && !verify.dogWasThere;
+}
+
+/**
  * blog_posts.analysis(jsonb) — 글 하나의 분석 결과 요약. 후보 0건인 글의 "왜" 가 여기 남는다(제외된 장소의 이름·종류·이유만 —
  * 본문 인용은 넣지 않는다, docs/todo/02 의 저장 원칙). skip 은 분석 불가로 닫을 때의 사유. 마이그레이션 20260928150000.
  */
@@ -415,7 +431,8 @@ export function toPostAnalysis({ meta = null, candidates = [], excluded = [], sk
     promptVersion: meta?.promptVersion ?? null,
     candidates: candidates.length,
     candidateNames: candidates.map((row) => row.extracted.name),
-    excluded: excluded.map(({ extracted, reason }) => ({ name: extracted.name, type: extracted.type, reason })),
+    // `extra` 는 이유가 데려가는 칸(지금은 `noPetEvidence` 의 재검색 재료 — 읍·면·주소·recheck). 본문 인용은 없다(02).
+    excluded: excluded.map(({ extracted, reason, extra }) => ({ name: extracted.name, type: extracted.type, reason, ...(extra ?? {}) })),
     skip,
   };
 }
@@ -453,15 +470,17 @@ export function formatSummary(stats, meterSummary, { dryRun } = {}) {
   const stale = ex?.stale ?? 0;
   const weak = ex?.weak ?? 0;
   const blocked = ex?.blocked ?? 0;
+  const noEvidence = ex?.noPetEvidence ?? 0;
   const tail = [
     already && `이미 있음 ${already}`,
     same && `같은 말 ${same}`,
     stale && `옛 글 ${stale}`,
     weak && `근거 약함 ${weak}`,
     blocked && `차단 ${blocked}`,
+    noEvidence && `신규·동반 근거 없음 ${noEvidence}`,
   ].filter(Boolean).map((part) => ` · ${part}`).join('');
   const excluded = ex
-    ? ` · 제외 ${ex.other + ex.notJeju + ex.notAllowed + already + same + stale + weak + blocked}(other ${ex.other} · 제주밖 ${ex.notJeju} · 동반불가 ${ex.notAllowed}${tail})`
+    ? ` · 제외 ${ex.other + ex.notJeju + ex.notAllowed + already + same + stale + weak + blocked + noEvidence}(other ${ex.other} · 제주밖 ${ex.notJeju} · 동반불가 ${ex.notAllowed}${tail})`
     : '';
   // 짝이 게시된 장소인 후보의 종류 — 이 두 수가 차이 게이트를 지나 올라온 것이다. 옛 stats 엔 칸이 없다.
   const kinds = stats.update || stats.fill ? ` · 갱신 ${stats.update ?? 0} · 보강 ${stats.fill ?? 0}` : '';

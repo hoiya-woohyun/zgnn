@@ -84,6 +84,12 @@ export function AdminPagePostsPanel({ counts, error, seedTargets, onSeedVerify, 
           {counts.existing.stale.toLocaleString('ko-KR')} · 근거 약함 {counts.existing.weak.toLocaleString('ko-KR')} — 후보로 안 올렸어요(다른 말을 한 글은 검수 대기의 갱신·보강)
         </p>
       )}
+      {/* 신규인데 동반 근거를 못 찾은 가게(ADR-019 v6) — 버린 게 아니라 업체명 재검색(결정 7)을 기다리는 줄이다. */}
+      {counts.existing && counts.existing.noPetEvidence > 0 && (
+        <p className="text-xs text-tertiary">
+          신규지만 글에 동반 근거가 없던 가게 {counts.existing.noPetEvidence.toLocaleString('ko-KR')} — 후보로 안 올렸어요(목록 글의 이름 나열이 대부분 · 업체명 재검색이 생기면 다시 봐요)
+        </p>
+      )}
       {counts.excluded === null ? (
         <p className="text-xs text-tertiary">글 단위 분석 제외는 DB 마이그레이션이 적용된 뒤에 쓸 수 있어요(미적용).</p>
       ) : null}

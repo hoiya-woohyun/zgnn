@@ -10,7 +10,7 @@ describe('tallyExistingReasons — 이미 있는 가게를 쓴 글(11 T2.4)', ()
       'x',
       [null],
     ];
-    expect(tallyExistingReasons(lists)).toEqual({ total: 4, same: 2, stale: 1, weak: 1, alreadyHavePosts: [] });
+    expect(tallyExistingReasons(lists)).toEqual({ total: 4, same: 2, stale: 1, weak: 1, noPetEvidence: 0, alreadyHavePosts: [] });
   });
 });
 
@@ -39,5 +39,11 @@ describe('옛 규칙으로 버려진 글 다시 열기(11 런북 3단계를 화�
     expect(plan.skipped).toBe(1);
     expect(reopenSummary(plan)).toContain('글 2건');
     expect(reopenSummary(plan)).toContain('1건은 빼요');
+  });
+});
+
+describe('tallyExistingReasons — 신규·동반 근거 없음(ADR-019 v6)', () => {
+  it('따로 세고 total 에는 안 넣는다', () => {
+    expect(tallyExistingReasons([[{ reason: 'noPetEvidence' }, { reason: 'noPetEvidence' }, { reason: 'stale' }]])).toMatchObject({ total: 1, stale: 1, noPetEvidence: 2 });
   });
 });
