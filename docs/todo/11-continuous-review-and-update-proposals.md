@@ -346,6 +346,43 @@ P0 만 끝나도 사용자 요구 ③과 ④의 "어떤 글들이 참고됐고 �
 | H.4 | G12 확인 — 등록 완료 장소 하나를 `덮어쓰기` 한 뒤 `place_sources` 에 그 글이 있는지(한 줄·일괄 둘 다). 없으면 09 T5.3 그대로, 있으면 09 v3 의 그 줄을 정정 | T1.4 전 |
 | H.5 | 완화 제안 하나를 실제 전화로 확인해 보고 U6 의 "전화로 확인" 문구가 운영에서 성립하는지 | T2.3 뒤 |
 
+## 10-1. 런북 — 사람 손을 터미널에서 한 번에(2026-10-02)
+
+전체 리셋(게시 장소만 남기고 지우기) **대신** 옛 규칙(`alreadyHave`)으로 버려진 글만 다시 연다. 내린 장소·블랙리스트·출처 글·반려 이력·사람이 고친 후보는 그대로 남는다.
+SQL 은 `supabase/ops/11-reopen/` 의 파일 셋(01 읽기만 · 02 H.6 · 03 다시 열기). 순서가 중요하다 — 02 를 03 보다 **먼저** 해야 옛 글이 시드를 바꾸자고 하지 않는다.
+
+```bash
+git pull origin develop && pnpm install
+
+# 0) supabase CLI 로그인(휴지 상태는 로그아웃이다 — ADR-016). 처음이면 link 도.
+pnpm exec supabase login
+pnpm exec supabase link --project-ref qfzasaszpwcgtbzirujx   # 이미 link 돼 있으면 건너뜀
+pnpm exec supabase migration list --linked                    # Remote 칸이 빈 줄이 있으면 ↓
+pnpm exec supabase db push                                    # 20261001120000 ~ 20261001160000 이 대상일 수 있다
+
+# 1) 읽기만 — 칸 확인 · H.1(버려진 글 수) · 반려 형제가 있는 글 수 · 시드 확인 날짜
+pnpm exec supabase db query --linked -f supabase/ops/11-reopen/01-check.sql
+
+# 2) H.6 — 시드 확인 날짜(2026-09-20). 사이트에 "2026년 9월 확인" 이 보이는 것을 받아들일 때만
+pnpm exec supabase db query --linked -f supabase/ops/11-reopen/02-seed-verified-at.sql
+
+# 3) 버려진 글만 다시 열기 — pending 형제를 '[admin] 재분석' 으로 눕히고 analyzed_at 을 비운다(한 문장)
+pnpm exec supabase db query --linked -f supabase/ops/11-reopen/03-reopen-already-have.sql
+
+pnpm exec supabase logout                                     # 스키마·SQL 작업이 끝나면 다시 휴지 상태로
+
+# 4) 분석 — 운영자 세션 + claude 로그인 + 네이버 키(env 또는 숨김 입력)
+pnpm data:login                                               # 별도 터미널에서(TTY)
+pnpm data:analyze --dry-run --limit 5                         # H.2 — 요약 줄의 '갱신 N · 같은 말 · 옛 글 · 근거 약함 · 제안 N/M곳' 과 계량기 세 줄
+pnpm data:analyze --limit 30                                  # 괜찮으면 반복. 한도가 아까우면 --no-propose 로 제안만 뒤로 미룬다
+```
+
+읽는 법:
+- 1) 의 `has_verified_at` 이 false 면 `db push` 가 안 된 것이다 — 그 상태로 3·4 를 하면 날짜 규칙이 안 걸려 첫 물결이 커진다.
+- 1) 의 `posts_already_have` 가 다시 읽을 글 수다(= H.1). 3) 의 `reopened_posts` 는 거기서 반려 형제가 있는 글을 뺀 수다.
+- 4) 의 첫 실행에서 `갱신` 이 시드 위주로 많이 나오면 2) 를 안 한 것이거나 날짜 뒤의 글이 정말 많은 것이다. `/admin` 의 `할 일: 갱신` 으로 걸러 본다.
+- 제안 패스가 실패하면 그 실행 동안 내려가고 후보는 `제안 없음` 으로 남는다 — 다음 실행에 다시 만든다.
+
 ## 11. 09 · 10 · ADR 과의 관계
 
 - **09(파이프라인 다섯 칸)** 와 같은 화면·같은 개체다. 이 문서는 09 의 **검수 대기 칸 안**을 넓힌다 — 탭을 더하지 않고(🙋 1), D6·D7 두 결정을 **좁히고 흡수**한다(T3.1). 09 의 T5.1·T5.3 은 이 문서의 T1.1·T1.2 가 대신한다. 나머지 09 태스크(T1.5 블랙리스트 탭 · T3.2 수집 목록 · T6.x UX)와는 독립이다.
