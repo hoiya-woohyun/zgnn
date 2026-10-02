@@ -95,6 +95,11 @@ export type TApplyOptions = {
    */
   overwrite?: boolean;
   /**
+   * 덮어쓰기에서 사람이 고른 칸(11 U7, 화면 키 — 좌표는 `geo`). 짝 칸은 쓰기가 함께 넣는다(`expandOverwriteColumns`).
+   * 없으면 바뀌는 칸 전부(지금까지의 동작).
+   */
+  overwriteColumns?: string[];
+  /**
    * 사람이 `주소 다름` 을 보고 "나갈 주소(네이버)가 맞다" 를 확인했다. 기본값 `false` 가 요점이다 — 한 줄 버튼이든 일괄이든
    * 확인 없이 오면 `addressConflict` 로 멈춘다(`confirmedDifferent` 와 같은 모양의 가드).
    */
@@ -364,7 +369,7 @@ export async function approveGroup(
   const verifiedColumn = hasVerifiedColumn(places);
   try {
     if (target && opts.overwrite) {
-      const plan = overwriteWithLatest(target, lead.extracted) as { patch: Partial<TPlaceRow>; previous: Record<string, unknown> } | null;
+      const plan = overwriteWithLatest(target, lead.extracted, opts.overwriteColumns ? { only: opts.overwriteColumns } : {}) as { patch: Partial<TPlaceRow>; previous: Record<string, unknown> } | null;
       if (plan) {
         const { error } = await client.from('places').update(plan.patch).eq('id', target.id);
         failIf('최신본으로 덮기', error);

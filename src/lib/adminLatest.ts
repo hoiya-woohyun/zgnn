@@ -6,10 +6,11 @@
  * 이 버튼은 되돌리기 어려운 덮어쓰기라 그게 제일 나쁜 실패다.
  */
 
-import { overwriteWithLatest } from '../../scripts/analyze/applyApproved.mjs';
+import { expandOverwriteColumns, overwriteWithLatest } from '../../scripts/analyze/applyApproved.mjs';
 import { factsLine, TYPE_LABEL, type TCandidateExtracted, type TCandidateType, type TPlaceRow } from './adminCandidates';
 import { EMPTY_VALUE, type TEditChange } from './adminEdit';
-import type { TPetPolicyFacts } from '../types';
+import { environmentPhrases } from './stayEnvironmentView';
+import type { TPetPolicyFacts, TStayEnvironment } from '../types';
 
 /** 칸 → 표기. 순서가 곧 화면 순서다(고치기 폼과 같은 순서 — 이름 · 종류 · 주소 · … · 동반). */
 const COLUMNS: { key: string; label: string; show: (value: unknown) => string }[] = [
@@ -28,6 +29,8 @@ const COLUMNS: { key: string; label: string; show: (value: unknown) => string }[
   { key: 'pet_policy', label: '동반 판단', show: (v) => factsLine(v as TPetPolicyFacts | null) ?? '(판단 없음)' },
   { key: 'stay_price_text', label: '숙박 요금', show: (v) => str(v) },
   { key: 'stay_amenities_text', label: '숙소 시설', show: (v) => str(v) },
+  // 숙소 환경 — patch 에 서는 칸은 전부 여기 있어야 한다. 없으면 목록에 안 보인 채 덮이고, 칸을 고르면(11 U7) 조용히 빠진다.
+  { key: 'stay_environment', label: '숙소 환경', show: (v) => environmentPhrases((v as TStayEnvironment | null) ?? undefined).join(' · ') || EMPTY_VALUE },
 ];
 
 const str = (v: unknown) => (v == null || String(v).trim() === '' ? EMPTY_VALUE : String(v));
@@ -41,8 +44,11 @@ export type TLatestPlan = {
   changes: TEditChange[];
 };
 
-export function latestPlan(place: TPlaceRow, extracted: TCandidateExtracted): TLatestPlan {
-  const out = overwriteWithLatest(place, extracted) as { patch: Record<string, unknown>; previous: Record<string, unknown> } | null;
+/**
+ * @param only 고른 칸(화면 키 — `changes[].key`, 좌표는 `geo`). 주면 그 칸(과 짝)만 patch 에 남는다(11 U7). 없으면 바뀌는 칸 전부.
+ */
+export function latestPlan(place: TPlaceRow, extracted: TCandidateExtracted, only?: string[]): TLatestPlan {
+  const out = overwriteWithLatest(place, extracted, only ? { only } : {}) as { patch: Record<string, unknown>; previous: Record<string, unknown> } | null;
   if (!out) return { patch: null, previous: {}, changes: [] };
   const { patch, previous } = out;
   const geo = (row: Record<string, unknown>) => (row.lat == null || row.lng == null ? null : `${row.lat}, ${row.lng}`);
@@ -56,4 +62,21 @@ export function latestPlan(place: TPlaceRow, extracted: TCandidateExtracted): TL
     return was === now ? [] : [{ key: column.key, label: column.label, before: was, after: now }];
   });
   return { patch, previous, changes };
+}
+
+/**
+ * 칸 고르기의 체크 한 번 — 순수(11 T1.4). 짝 칸(조건 원문+판단 · 홈페이지 주소+사진)은 **한 체크**로 함께 켜지고 꺼진다 —
+ * 쓰기(`overwriteWithLatest` 의 `only`)가 어차피 짝으로 덮으므로, 화면이 반쪽만 켜진 모양을 보여 주면 본 것과 쓰는 것이 어긋난다.
+ * @param all 이 묶음에서 바뀌는 칸(`latestPlan(...).changes` 의 key)
+ * @param picked 지금 고른 칸. `undefined` 는 "아직 안 건드림" = 전부
+ */
+export function toggleOverwritePick(all: string[], picked: string[] | undefined, key: string): string[] {
+  const now = new Set(picked ?? all);
+  const tied = [...(expandOverwriteColumns([key]) as Set<string>)].filter((col) => all.includes(col));
+  const on = !now.has(key);
+  for (const col of tied) {
+    if (on) now.add(col);
+    else now.delete(col);
+  }
+  return all.filter((col) => now.has(col));
 }

@@ -237,7 +237,7 @@ P0 만 끝나도 사용자 요구 ③과 ④의 "어떤 글들이 참고됐고 �
 > 기존 표는 `원문 ↔ 나갈 값` 이라 신규 묶음에선 사이트 칸이 늘 비고, 따로 두니 "신규 묶음의 비교표는 한 글자도 안 바뀐다" 가 스냅샷 없이 구조로 지켜진다.
 > 칸 표기는 `adminLatest` 의 `COLUMNS` 가 export 되지 않아 같은 `factsLine`·`environmentPhrases` 를 직접 쓴다. 나갈 값은 지금은 대표 후보의 값이다(T2.2 가 제안으로 바꾼다).
 
-#### [ ] T1.4 덮어쓰기를 칸 단위로
+#### [x] T1.4 덮어쓰기를 칸 단위로
 
 - 근거: G5 · U7.
 - 읽을 것: `scripts/analyze/applyApproved.mjs`(`overwriteWithLatest`) · `src/lib/adminLatest.ts` · `src/lib/adminApply.ts`(`approveGroup` 의 `opts.overwrite`) · `src/screens/adminChangeList.tsx` · `src/lib/adminBulk.ts`(`bulkLatestTargets`).
@@ -245,6 +245,9 @@ P0 만 끝나도 사용자 요구 ③과 ④의 "어떤 글들이 참고됐고 �
 - 수용 기준: `only` 에 `pet_policy_text` 만 줘도 `pet_policy` 가 같이 들어간다(테스트) · `only: []` 는 null · 체크를 다 끄면 버튼이 꺼진다.
 - 문서: features/admin-review 「덮어쓰기」 에 "칸을 고른다" 한 줄.
 - 커밋: `feat(admin) - 덮어쓰기에서 덮을 칸을 고른다 — 짝 칸은 함께`
+
+> 메모: 짝 묶음은 `OVERWRITE_PAIRS` + `expandOverwriteColumns`(applyApproved.mjs)로 export 했고 화면의 체크 토글(`toggleOverwritePick`, adminLatest.ts)도 같은 함수로 짝을 펼친다 — 쓰기와 체크가 짝을 따로 알지 않게.
+> `adminLatest` 의 `COLUMNS` 에 `stay_environment` 가 빠져 있었다(전·후 목록엔 안 보인 채 덮였다) — 칸을 고르면 그 칸이 조용히 빠지므로 한 줄 더했다(단계 밖, 같은 함정이라). 전부 골랐으면 칸 목록을 넘기지 않아 지금까지와 같은 쓰기다. H.4(🧑)는 아직이다.
 
 #### [ ] T1.5 `사이트가 맞아요` — 확인은 반려가 아니다
 

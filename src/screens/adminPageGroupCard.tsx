@@ -19,7 +19,7 @@ import type { TPetBadge } from '../lib/petPolicy';
 import { addressConflictOf, addressView, type TAddressChoice } from '../lib/adminAddress';
 import { policyCell, POLICY_STATE_WORD, type TAdminFlagView } from '../lib/adminPreview';
 import { verifyNeedsLook, verifyView } from '../lib/adminVerify';
-import { latestPlan } from '../lib/adminLatest';
+import { latestPlan, toggleOverwritePick } from '../lib/adminLatest';
 import { cx } from '../utils/cx';
 import { AdminPageGroupDetail } from './adminPageGroupDetail';
 import { AdminPageGroupSiteCompare } from './adminPageGroupSiteCompare';
@@ -47,6 +47,8 @@ export type TAdminPageGroupState = {
   reanalyzing?: boolean;
   /** '지역 고르기' 셀렉트의 현재 선택. */
   regionDraft?: string;
+  /** 덮어쓰기에서 고른 칸(11 T1.4, `latestPlan` 의 change key). `undefined` 는 "안 건드림" = 바뀌는 칸 전부. */
+  overwritePick?: string[];
   /**
    * 고치기 폼이 열려 있으면 그 초안. `undefined` 가 '안 열림' 이다 — 불리언과 값을 따로 두면
    * 닫을 때 둘을 같이 지워야 하고, 한쪽만 지우면 다음에 열 때 남의 초안이 들어 있다.
@@ -62,6 +64,8 @@ export type TApproveChoice = {
   confirmedDifferent?: boolean;
   /** '덮어쓰기' — 합치기 대신 짝지은 장소의 칸을 이 후보의 값으로 덮는다(`TApplyOptions.overwrite`). */
   overwrite?: boolean;
+  /** 덮을 칸(`TApplyOptions.overwriteColumns`). 없으면 전부. */
+  overwriteColumns?: string[];
 };
 
 type TAdminPageGroupCardProps = {
@@ -76,6 +80,8 @@ type TAdminPageGroupCardProps = {
   onCancelReject: () => void;
   onReject: (reason: TRejectReason, note: string, block: TBlockChoice) => void;
   onPickRegion: (regionRaw: string) => void;
+  /** 덮어쓰기 칸 고르기의 체크 한 번 — 고른 칸 전체를 돌려준다. */
+  onPickOverwrite: (picked: string[]) => void;
   onSaveRegion: (regionRaw: string) => void;
   onEditDraft: (draft: TCandidateEditDraft | undefined) => void;
   onSaveEdit: (draft: TCandidateEditDraft) => void;
@@ -144,6 +150,7 @@ export function AdminPageGroupCard({
   onCancelReject,
   onReject,
   onPickRegion,
+  onPickOverwrite,
   onSaveRegion,
   onEditDraft,
   onSaveEdit,
@@ -203,6 +210,9 @@ export function AdminPageGroupCard({
   const openEdit = () => onEditDraft(draftFromExtracted(extracted));
   /** 덮어쓰면 무엇이 바뀌나 — 펼쳤고 가리키는 장소 행이 있을 때만 계산한다. */
   const latest = expanded && pairPlace ? latestPlan(pairPlace, extracted) : null;
+  /** 덮을 칸 — 안 건드렸으면 바뀌는 칸 전부(11 T1.4). 목록의 체크와 버튼의 칸 수가 이 값 하나를 읽는다. */
+  const latestKeys = latest ? latest.changes.map((change) => change.key) : [];
+  const overwritePick = state.overwritePick ? state.overwritePick.filter((key) => latestKeys.includes(key)) : latestKeys;
   /**
    * 이 갈래에서 '덮어쓰기' 가 뜻이 있나. 내린 곳·닮은 곳 패널은 언제나(가리키는 장소가 있다),
    * 기본 갈래는 짝이 있고 지역이 되고 짝이 내린 곳이 아닐 때만 — 내린 곳이면 누르는 순간 되살릴지 묻는 패널로 간다.
@@ -363,7 +373,16 @@ export function AdminPageGroupCard({
             <div className="space-y-3">
               {/* 덮어쓰면 바뀌는 칸 — 근거 맨 위. 이 목록과 버튼은 같은 계산(`latestPlan`)·같은 조건(`latestAvailable`)에서 나온다. */}
               {latestAvailable && latest && latest.changes.length > 0 && (
-                <AdminChangeList source="ai" title="덮어쓰면 바뀌는 칸 — 지금 장소 값 → 새 분석 값" changes={latest.changes} />
+                <AdminChangeList
+                  source="ai"
+                  title="덮어쓰면 바뀌는 칸 — 지금 장소 값 → 새 분석 값 · 덮을 칸을 고르세요"
+                  changes={latest.changes}
+                  selectable={{
+                    picked: overwritePick,
+                    disabled: Boolean(busy),
+                    onToggle: (key) => onPickOverwrite(toggleOverwritePick(latestKeys, overwritePick, key)),
+                  }}
+                />
               )}
               {/* 기존 장소를 고치거나 채우는 묶음은 **사이트에 지금 무엇이 있나** 부터 본다(11 T1.3). 신규 묶음에는 서지 않는다. */}
               {pairPlace && (group.kind === 'update' || group.kind === 'fill') && <AdminPageGroupSiteCompare group={group} place={pairPlace} />}
@@ -379,6 +398,7 @@ export function AdminPageGroupCard({
                   needsLook={needsLook}
                   latest={latest}
                   latestAvailable={latestAvailable}
+                  overwritePick={overwritePick}
                   onApprove={onApprove}
                   onStartReject={onStartReject}
                   onCancelReject={onCancelReject}

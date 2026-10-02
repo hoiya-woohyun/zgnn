@@ -58,6 +58,7 @@ export function AdminPageGroupActions({
   needsLook,
   latest,
   latestAvailable,
+  overwritePick,
   onApprove,
   onStartReject,
   onCancelReject,
@@ -82,6 +83,8 @@ export function AdminPageGroupActions({
   latest: TLatestPlan | null;
   /** 이 갈래에서 덮어쓰기가 뜻이 있나 — 카드가 정해 근거 쪽 전·후 목록과 같은 조건을 쓴다. */
   latestAvailable: boolean;
+  /** 덮을 칸(11 T1.4) — 근거 맨 위 목록의 체크. 바뀌는 칸 전부면 `latest.changes` 와 같다. */
+  overwritePick: string[];
   onApprove: (choice?: TApproveChoice) => void;
   onStartReject: () => void;
   onCancelReject: () => void;
@@ -138,18 +141,23 @@ export function AdminPageGroupActions({
     </TipButton>
   );
 
-  /** 덮어쓰기 — 바뀔 칸 수를 이름에 싣는다(무엇이 바뀌는지는 근거 맨 위 목록이 말한다). 바뀔 칸이 없으면 안 그린다. */
+  /**
+   * 덮어쓰기 — **고른** 칸 수를 이름에 싣는다(무엇이 바뀌는지는 근거 맨 위 목록이 말한다). 바뀔 칸이 없으면 안 그린다.
+   * 다 끄면 꺼진다. 전부 골랐으면 칸 목록을 넘기지 않는다 — 지금까지의 "바뀌는 칸 전부" 와 같은 쓰기다.
+   */
   const overwrite = (choice: TApproveChoice) =>
     latestAvailable && latest && latest.changes.length ? (
       <TipButton
         color="secondary"
         size="sm"
-        isDisabled={off}
+        isDisabled={off || overwritePick.length === 0}
         isLoading={busy === 'approving'}
-        title="기존 장소의 칸을 새 분석 값으로 바꿔요 — 바뀌는 칸은 위 목록에 있어요"
-        onClick={() => onApprove({ ...choice, overwrite: true })}
+        title="기존 장소의 칸을 새 분석 값으로 바꿔요 — 덮을 칸은 위 목록에서 골라요"
+        onClick={() =>
+          onApprove({ ...choice, overwrite: true, overwriteColumns: overwritePick.length === latest.changes.length ? undefined : overwritePick })
+        }
       >
-        덮어쓰기 · {latest.changes.length}칸
+        덮어쓰기 · {overwritePick.length}칸
       </TipButton>
     ) : null;
 

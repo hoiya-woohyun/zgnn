@@ -1,5 +1,6 @@
 'use client';
 
+import { Checkbox } from '../components/base/checkbox';
 import type { TEditChange } from '../lib/adminEdit';
 import { cx } from '../utils/cx';
 import { AdminSourceChip, SOURCE_TONE, type TSource } from './adminSource';
@@ -16,11 +17,17 @@ export function AdminChangeList({
   title,
   changes,
   source,
+  selectable,
 }: {
   title: string;
   changes: TEditChange[];
   /** 이 목록의 '후' 값이 누구의 말인가. 주면 그 목소리의 바탕과 칩을 쓴다(`adminSource.tsx`) — 새 분석 값이면 AI. */
   source?: TSource;
+  /**
+   * 줄마다 체크(11 T1.4 — 덮어쓰기의 칸 고르기). 주면 줄 앞에 체크가 서고, 꺼진 줄은 흐리게 그린다.
+   * 짝 칸을 함께 켜고 끄는 것은 부르는 쪽(`toggleOverwritePick`)의 일이다.
+   */
+  selectable?: { picked: string[]; onToggle: (key: string) => void; disabled?: boolean };
 }) {
   if (!changes.length) return null;
   return (
@@ -31,8 +38,23 @@ export function AdminChangeList({
       </p>
       <dl className="mt-1.5 space-y-1">
         {changes.map((change) => (
-          <div key={change.key} className="grid gap-x-2 gap-y-0.5 md:grid-cols-[7rem_minmax(0,1fr)]">
-            <dt className="text-tertiary">{change.label}</dt>
+          <div
+            key={change.key}
+            className={cx('grid gap-x-2 gap-y-0.5 md:grid-cols-[7rem_minmax(0,1fr)]', selectable && !selectable.picked.includes(change.key) && 'opacity-50')}
+          >
+            <dt className="text-tertiary">
+              {selectable ? (
+                <Checkbox
+                  size="sm"
+                  label={change.label}
+                  isSelected={selectable.picked.includes(change.key)}
+                  isDisabled={selectable.disabled}
+                  onChange={() => selectable.onToggle(change.key)}
+                />
+              ) : (
+                change.label
+              )}
+            </dt>
             <dd className="flex min-w-0 flex-wrap items-baseline gap-1.5">
               <del className="rounded bg-error-primary px-1.5 py-px whitespace-pre-line text-error-primary">{change.before}</del>
               <span aria-hidden="true" className="text-quaternary">

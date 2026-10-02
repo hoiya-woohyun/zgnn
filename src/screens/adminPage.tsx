@@ -801,6 +801,7 @@ export function AdminPage() {
           restoreArchived: choice?.restoreArchived,
           confirmedDifferent: choice?.confirmedDifferent,
           overwrite: choice?.overwrite,
+          overwriteColumns: choice?.overwriteColumns,
         });
         if (outcome.kind === 'blocked') {
           patchState(group.key, { busy: undefined, error: outcome.reason });
@@ -1701,6 +1702,7 @@ export function AdminPage() {
                   onCancelReject={() => patchState(group.key, { rejecting: false })}
                   onReject={(reason, note, block) => void reject(group, reason, note, block)}
                   onPickRegion={(regionRaw) => patchState(group.key, { regionDraft: regionRaw })}
+                  onPickOverwrite={(picked) => patchState(group.key, { overwritePick: picked })}
                   onSaveRegion={(regionRaw) => void saveRegion(group, regionRaw)}
                   onEditDraft={(editDraft) => patchState(group.key, { editDraft })}
                   onSaveEdit={(editDraft) => void saveEditFor(group, editDraft)}
