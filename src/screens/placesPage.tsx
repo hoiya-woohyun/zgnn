@@ -13,8 +13,12 @@ import { PlacesPageTypeTabs } from './placesPageTypeTabs';
 import { usePlaceTypeSwitch } from './placesPageTypeSwitch';
 import { Input } from '../components/base/input';
 import { DIRECTION_LABEL, TYPE_META, placesOfType } from '../lib/places';
-import { PET_FILTERS, comparePrice, resetFiltersLabel, type TPetFilterKey, type TPriceSort } from '../lib/placeFilters';
+import { PET_FILTERS, comparePrice, envFiltersWithData, resetFiltersLabel, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
 import { sortByEligibility } from '../lib/sortByEligibility';
+import { distancesFrom, sortByDistance } from '../lib/distanceSort';
+import { LOCATE_NOTICE, locateMe } from '../lib/myLocation';
+import { showAppStatus } from '../lib/appStatus';
+import { PlacesPageSuggest } from './placesPageSuggest';
 import { useAppStore, useDog } from '../store/useAppStore';
 import { useEligibilityMap } from '../store/useDogEligibility';
 import { cx } from '../utils/cx';
@@ -49,7 +53,9 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
   const [query, setQuery] = useState('');
   const [directions, setDirections] = useState<TDirection[]>([]);
   const [petKeys, setPetKeys] = useState<TPetFilterKey[]>([]);
-  const [sort, setSort] = useState<TPriceSort>('none');
+  const [sort, setSort] = useState<TPlaceSort>('none');
+  /** 가까운 순의 기준점 — 고를 때 한 번 받는다. 저장하지 않는다(ADR-012 대상 아님). */
+  const [origin, setOrigin] = useState<{ lat: number; lng: number } | null>(null);
   // 화면 로컬 상태 — 강아지 프로필이 없으면 hard 판정 개념이 없어 애초에 토글이 보이지 않는다.
   const [hideHard, setHideHard] = useState(false);
   /*
@@ -66,6 +72,12 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
   }, [type, town]);
   const townHasNoPlaces = town !== null && byTown.length === 0;
 
+  /** 이 종류에서 고를 수 있는 조건 전부 — 반려동물 조건 + (숙소) 데이터가 있는 환경 조건(10 F6). 칩·걸러 내기가 같은 목록을 본다. */
+  const filtersOfType = useMemo(
+    () => (type === 'stay' ? [...PET_FILTERS.stay, ...envFiltersWithData(placesOfType('stay'))] : PET_FILTERS[type]),
+    [type],
+  );
+
   const results = useMemo(() => {
     let list = byTown;
 
@@ -81,9 +93,9 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     if (directions.length > 0) {
       list = list.filter((place) => directions.includes(place.region.direction));
     }
-    const activeTests = PET_FILTERS[type].filter((filter) => petKeys.includes(filter.key));
+    const activeTests = filtersOfType.filter((filter) => petKeys.includes(filter.key));
     if (activeTests.length > 0) {
-      list = list.filter((place) => activeTests.every((filter) => filter.test(place.policy)));
+      list = list.filter((place) => activeTests.every((filter) => filter.test(place.policy, place)));
     }
     // "실내 자리 필요"(needsIndoor)는 이미 judgeEligibility(opts) 를 통해 야외 전용 장소를
     // 어려움으로 밀어 올린다 — 그 결과를 hideHard 가 걸러낸다. 여기서 policy.indoor 를
@@ -91,7 +103,10 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     if (hideHard && eligibilityMap) {
       list = list.filter((place) => eligibilityMap.get(place.id)?.level !== 'hard');
     }
-    if (type === 'stay' && sort !== 'none') {
+    if (sort === 'near' && origin) {
+      // 가까운 순을 고르면 거리가 우선이다 — 가격 정렬과 같은 결정(B3). 좌표 없는 곳은 뒤로.
+      list = sortByDistance(list, origin);
+    } else if (type === 'stay' && (sort === 'asc' || sort === 'desc')) {
       // 가격 정렬을 고르면 가격이 우선이다(2026-09-15 리뷰 후속 B3 결정).
       list = [...list].sort(comparePrice(sort));
     } else if (eligibilityMap) {
@@ -99,7 +114,27 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
       list = sortByEligibility(list, eligibilityMap, (place) => place.id);
     }
     return list;
-  }, [byTown, type, query, directions, petKeys, sort, hideHard, eligibilityMap]);
+  }, [byTown, filtersOfType, query, directions, petKeys, sort, origin, type, hideHard, eligibilityMap]);
+
+  const distances = useMemo(() => (sort === 'near' && origin ? distancesFrom(results, origin) : undefined), [origin, results, sort]);
+
+  /*
+   * 가까운 순은 고르는 순간 위치를 **한 번** 묻는다(10 F7). 거절·실패면 정렬을 바꾸지 않고 이유를 한 줄로 말한다 —
+   * 거절한 사람에게 다시 묻지 않는다(브라우저가 이미 기억한다). 받은 좌표는 이 화면 state 에만 있고 저장하지 않는다.
+   */
+  const changeSort = async (next: TPlaceSort) => {
+    if (next !== 'near' || origin) {
+      setSort(next);
+      return;
+    }
+    const located = await locateMe();
+    if (located.kind !== 'ok') {
+      showAppStatus(LOCATE_NOTICE[located.kind]);
+      return;
+    }
+    setOrigin({ lat: located.lat, lng: located.lng });
+    setSort('near');
+  };
 
   /*
    * 접힌 시트 버튼에 붙는 숫자. 검색어는 빼고 센다 — 검색창은 시트 밖에 그대로 보이므로
@@ -160,7 +195,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
       label: DIRECTION_LABEL[direction],
       onRemove: () => toggleDirection(direction),
     })),
-    ...PET_FILTERS[type]
+    ...filtersOfType
       .filter((filter) => petKeys.includes(filter.key))
       .map((filter) => ({ key: `pet-${filter.key}`, label: filter.label, onRemove: () => togglePetKey(filter.key) })),
     ...(sort !== 'none'
@@ -223,7 +258,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
                 onSelectTown={setTown}
                 onToggleDirection={toggleDirection}
                 onTogglePetKey={togglePetKey}
-                onChangeSort={setSort}
+                onChangeSort={(next) => void changeSort(next)}
                 eligibility={
                   dog
                     ? {
@@ -257,7 +292,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
             onSelectTown={setTown}
             onToggleDirection={toggleDirection}
             onTogglePetKey={togglePetKey}
-            onChangeSort={setSort}
+            onChangeSort={(next) => void changeSort(next)}
           />
 
           {dog && (
@@ -307,7 +342,9 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
               activeChips={activeChips}
               onResetFilters={resetFilters}
               onOpenFilters={() => setIsFilterSheetOpen(true)}
+              distances={distances}
             />
+            <PlacesPageSuggest type={type} />
           </div>
         </div>
 

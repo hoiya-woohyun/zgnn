@@ -65,6 +65,8 @@ if (placeRows.length === 0) {
   process.exit(1);
 }
 const existing = placeRows.map(toMatchablePlace);
+// 숙소 환경 칸(마이그레이션 20261001160000)이 원격에 있나 — 없는 칸을 insert 에 실으면 쓰기가 통째로 거절된다.
+const environmentColumn = placeRows.some((row) => 'stay_environment' in row);
 const rowById = new Map(placeRows.map((row) => [row.id, row]));
 
 let merged = 0;
@@ -137,7 +139,7 @@ for (const candidate of candidates) {
       placeId = target.id;
       kind = 'merged';
     } else {
-      const row = toNewPlaceRow(candidate, { id: randomUUID() });
+      const row = toNewPlaceRow(candidate, { id: randomUUID(), environmentColumn });
       await write(`신규 ${row.name}(${row.id}) draft 로 insert`, () => supabase.from('places').insert(row));
       // 같은 실행의 다음 후보가 이 draft 와 대조되게 목록에도 넣는다(dry-run 도 같은 경로 — 무엇이 합쳐질지 미리 보인다).
       existing.push(toMatchablePlace(row));

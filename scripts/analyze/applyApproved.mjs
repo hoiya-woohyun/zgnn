@@ -118,12 +118,23 @@ export function mergeIntoExisting(existingRow, extracted, { postUrl = null } = {
     if (isBlank(existingRow.stay_price_text) && stayPriceText) patch.stay_price_text = stayPriceText;
     const stayAmenitiesText = text(extracted?.stayAmenitiesText);
     if (isBlank(existingRow.stay_amenities_text) && stayAmenitiesText) patch.stay_amenities_text = stayAmenitiesText;
+    // 환경은 칸이 있는 행에만, 비어 있을 때만(사람이 Studio 에서 넣은 값을 덮지 않는다).
+    const environment = stayEnvironmentOf(extracted);
+    if (environment && 'stay_environment' in existingRow && existingRow.stay_environment == null) patch.stay_environment = environment;
   }
 
   return Object.keys(patch).length > 0 ? patch : null;
 }
 
 const PLACE_TYPES = new Set(['stay', 'restaurant', 'cafe']);
+
+/** 후보의 숙소 환경 — 칸 넷이 다 null 이면 없는 것으로(빈 판단을 칸에 쓰지 않는다). */
+function stayEnvironmentOf(extracted) {
+  const env = extracted?.stayEnvironment;
+  if (!env || typeof env !== 'object') return null;
+  const picked = { standalone: env.standalone ?? null, yard: env.yard ?? null, fencedYard: env.fencedYard ?? null, stairs: env.stairs ?? null };
+  return Object.values(picked).some((value) => value !== null) ? picked : null;
+}
 
 /**
  * **최신본으로 저장하기**(검수 화면, 2026-09-30) — 기존 행을 후보의 값으로 **덮어쓰는** patch 와, 덮이기 전 값.
@@ -190,6 +201,10 @@ export function overwriteWithLatest(existingRow, extracted) {
     if (stayPriceText) put('stay_price_text', stayPriceText);
     const stayAmenitiesText = text(extracted?.stayAmenitiesText);
     if (stayAmenitiesText) put('stay_amenities_text', stayAmenitiesText);
+    const environment = stayEnvironmentOf(extracted);
+    if (environment && 'stay_environment' in existingRow && JSON.stringify(existingRow.stay_environment) !== JSON.stringify(environment)) {
+      patch.stay_environment = environment;
+    }
   }
 
   const cols = Object.keys(patch);
@@ -208,9 +223,10 @@ export function overwriteWithLatest(existingRow, extracted) {
  * 읽을 수 있는 메시지로.
  *
  * @param {object} candidate  candidates 행 — { id, post_url, extracted, match_place_id, ... }
- * @param {{ id: string }} opts  새 행의 id. 호출자가 crypto.randomUUID() 로 만든다(dry-run 에서도 같은 코드가 돌게).
+ * @param {{ id: string, environmentColumn?: boolean }} opts  새 행의 id. 호출자가 crypto.randomUUID() 로 만든다(dry-run 에서도 같은 코드가 돌게).
+ *   `environmentColumn` — 원격 `places` 에 `stay_environment` 칸이 있나(마이그레이션 20261001160000). 없으면 그 칸을 싣지 않는다.
  */
-export function toNewPlaceRow(candidate, { id }) {
+export function toNewPlaceRow(candidate, { id, environmentColumn = false }) {
   const extracted = candidate.extracted ?? {};
   const type = extracted.type;
   // permanent: 다음 실행에도 같다 — apply-approved.mjs 가 후보를 pending 으로 되돌리고 reviewer_note 에 사유를 남긴다(매 실행 빨갛게 되지 않게).
@@ -257,6 +273,8 @@ export function toNewPlaceRow(candidate, { id }) {
     // 카드가 있을 때만 칸을 싣는다. 분석이 마이그레이션 20260930120000 을 확인한 뒤에만 카드를 만들므로(analyze-candidates.mjs)
     // 카드 없는 후보의 insert 는 그 마이그레이션 전후 어느 쪽에서도 같은 모양이다.
     ...homepageColumns(extracted),
+    // 숙소 환경(10 F6) — 칸이 있는 원격에만, 숙소이고 값이 있을 때만.
+    ...(environmentColumn && type === 'stay' && stayEnvironmentOf(extracted) ? { stay_environment: stayEnvironmentOf(extracted) } : {}),
   };
 }
 

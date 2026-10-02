@@ -36,6 +36,8 @@ type TPlacesPageResultsProps = {
   onResetFilters: () => void;
   /** 모바일 필터 시트를 연다. 빈 상태의 버튼이 쓴다 — md 부터는 조건 판이 펼쳐져 있어 버튼 자체를 숨긴다. */
   onOpenFilters: () => void;
+  /** 가까운 순일 때 장소 id → 거리(km). 카드가 "1.2km" 를 붙인다(10 F7). */
+  distances?: Map<string, number>;
 };
 
 /**
@@ -55,6 +57,7 @@ export function PlacesPageResults({
   activeChips,
   onResetFilters,
   onOpenFilters,
+  distances,
 }: TPlacesPageResultsProps) {
   const dog = useAppStore((state) => state.dog);
   const needsIndoor = useAppStore((state) => state.needsIndoor);
@@ -113,7 +116,7 @@ export function PlacesPageResults({
       {results.length > 0 ? (
         <ul className="mt-3 space-y-3 px-4 md:px-6">
           {results.map((place) => (
-            <PlaceCard key={place.id} place={place} />
+            <PlaceCard key={place.id} place={place} distanceKm={distances?.get(place.id)} />
           ))}
         </ul>
       ) : (

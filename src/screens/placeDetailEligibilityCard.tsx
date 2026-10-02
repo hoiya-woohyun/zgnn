@@ -1,8 +1,10 @@
 import { Fragment, type ReactNode } from 'react';
 import Link from 'next/link';
-import { verdictFor, type TEligibilityLevel } from '../lib/eligibility';
+import { dogSubsetWhatIf } from '../lib/dogSubsetWhatIf';
+import { headlineFor, verdictFor, type TEligibilityLevel } from '../lib/eligibility';
+import { dogCallNames } from '../lib/korean';
 import type { TPlaceEntry } from '../lib/places';
-import { useDog } from '../store/useAppStore';
+import { useAppStore, useDog } from '../store/useAppStore';
 import { useEligibility } from '../store/useDogEligibility';
 
 /**
@@ -33,6 +35,7 @@ const DOT_CLASS: Record<TEligibilityLevel, string> = {
 export function PlaceDetailEligibilityCard({ place }: { place: TPlaceEntry }) {
   const dog = useDog();
   const eligibility = useEligibility(place);
+  const needsIndoor = useAppStore((state) => state.needsIndoor);
 
   if (!dog || !eligibility) {
     return (
@@ -49,6 +52,8 @@ export function PlaceDetailEligibilityCard({ place }: { place: TPlaceEntry }) {
   }
 
   const mainReasons = eligibility.reasons.filter((r) => r.level !== 'info' && r.rule !== 'U1');
+  // 다두 what-if(10 F11) — 어려움일 때만, 가장 많이 데려갈 수 있는 조합 하나. 판정을 다시 돌릴 뿐 규칙을 새로 쓰지 않는다.
+  const subset = dogSubsetWhatIf(dog, place.policy, eligibility, { needsIndoor });
   const infoReasons = eligibility.reasons.filter((r) => r.level === 'info');
 
   return (
@@ -72,6 +77,12 @@ export function PlaceDetailEligibilityCard({ place }: { place: TPlaceEntry }) {
             </li>
           ))}
         </ul>
+      )}
+
+      {subset && (
+        <p className="mt-3 rounded-xl bg-secondary px-3 py-2 text-sm text-secondary">
+          {dogCallNames(subset.names)}만 데려가면 {headlineFor(subset.eligibility)}
+        </p>
       )}
 
       {infoReasons.length > 0 && (

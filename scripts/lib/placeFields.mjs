@@ -34,6 +34,13 @@ export function parsePrice(text) {
   return { text: t, min: nums.length ? Math.min(...nums) : undefined, max: nums.length ? Math.max(...nums) : undefined, note };
 }
 
+/** 시각(ISO) → 한국 날짜 `YYYY-MM-DD`. 읽을 수 없으면 undefined. */
+export function kstDay(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return date.toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' });
+}
+
 /**
  * 평평한 필드 묶음 → TPlace. 키 순서가 곧 JSON 의 키 순서다(src/types.ts 의 TPlace 순서).
  * `undefined` 는 JSON.stringify 가 떨어뜨리므로 "없는 값은 undefined" 로 통일한다 — null 을 쓰면 키가 남는다.
@@ -59,11 +66,15 @@ export function toPlace(f) {
     homepage: f.homepageUrl
       ? { url: f.homepageUrl, name: f.homepageName || undefined, image: f.homepageImage || undefined }
       : undefined,
+    // 사람이 마지막으로 확인한 날(places.verified_at, ADR-021 R5). **한국 날짜**만 싣는다 — UTC 앞 10자를 자르면 밤 9시 뒤의 확인이
+    // 전날로 적히고, 시각까지 실으면 빌드마다 바이트가 흔들린다. 시드는 null → undefined → 키가 빠져 JSON 바이트가 그대로다.
+    verifiedAt: f.verifiedAt ? kstDay(f.verifiedAt) : undefined,
     cover: f.cover || undefined,
     images: f.images ?? [],
   };
   if (f.type === 'stay') {
-    place.stay = { price: parsePrice(f.stayPriceText), amenitiesText: clean(f.stayAmenitiesText) };
+    // 환경(10 F6)은 AI 가 읽은 값이 있을 때만 — 시드는 undefined 라 키가 빠져 JSON 바이트가 그대로다(앱이 정규식으로 읽는다).
+    place.stay = { price: parsePrice(f.stayPriceText), amenitiesText: clean(f.stayAmenitiesText), environment: f.stayEnvironment ?? undefined };
   }
   return place;
 }
@@ -93,8 +104,10 @@ export function fromPlaceRow(row) {
     homepageUrl: row.homepage_url,
     homepageName: row.homepage_name,
     homepageImage: row.homepage_image,
+    verifiedAt: row.verified_at,
     stayPriceText: row.stay_price_text,
     stayAmenitiesText: row.stay_amenities_text,
+    stayEnvironment: row.stay_environment,
   });
 }
 
@@ -112,6 +125,16 @@ export function fromPlaceRow(row) {
  */
 export function toMatchablePlace(row) {
   return { ...fromPlaceRow(row), status: row.status };
+}
+
+/**
+ * 열린 폐업 제보 표식을 장소에 얹는다 — 순수(`pull-db.mjs` 가 `place_report_flags()` 결과로 부른다, ADR-021 R5).
+ * 키는 **맨 뒤**에 붙는다(`toPlace` 의 키 순서를 흔들지 않게) — 표식이 없는 장소는 키가 없어 JSON 바이트가 그대로다.
+ * 사이트가 이것으로 하는 일은 하나 — 상세의 "○년 ○월 확인" 을 그리지 않는다(확인됐다고 말하는 순간 제보가 거짓이 된다).
+ */
+export function withReportFlags(places, flags) {
+  const byId = new Map((flags ?? []).filter((flag) => flag?.kinds?.length).map((flag) => [flag.place_id, [...flag.kinds].sort()]));
+  return places.map((place) => (byId.has(place.id) ? { ...place, openReportKinds: byId.get(place.id) } : place));
 }
 
 /** TItem. seasons 는 원본 태그 그대로(공백만 정리). */

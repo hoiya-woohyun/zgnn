@@ -16,7 +16,7 @@ import { parseRegion } from '../../scripts/lib/placeFields.mjs';
 import { feeLinesOf } from '../../scripts/lib/petPolicyFacts.mjs';
 import { parsePetPolicy, toPetBadges, withPolicyFacts, type TPetBadge } from './petPolicy';
 import { PLACES } from './places';
-import type { TDirection, TPetPolicyFacts, TRegion } from '../types';
+import type { TDirection, TPetPolicyFacts, TRegion, TStayEnvironment } from '../types';
 
 export type TCandidateType = 'stay' | 'restaurant' | 'cafe' | 'other';
 export type TCandidateTier = 'auto' | 'ask' | 'new';
@@ -56,6 +56,8 @@ export type TCandidateExtracted = {
   features?: string | null;
   stayPriceText?: string | null;
   stayAmenitiesText?: string | null;
+  /** 숙소 환경(10 F6). 원문 근거가 없는 true 는 추출 단계에서 이미 빠졌다(`correctStayEnvironment`). */
+  stayEnvironment?: TStayEnvironment | null;
   visited?: boolean;
   petAllowed?: 'yes' | 'no' | 'unknown';
   evidence?: string[];
@@ -119,6 +121,8 @@ export type TPlaceRow = {
   homepage_image?: string | null;
   stay_price_text: string | null;
   stay_amenities_text: string | null;
+  /** 숙소 환경(마이그레이션 20261001160000 전에는 칸이 없다 — 선택). */
+  stay_environment?: TStayEnvironment | null;
   sort: number | null;
   status: TPlaceStatus;
   source: string;
@@ -126,6 +130,11 @@ export type TPlaceRow = {
   archived_at: string | null;
   /** 게시 상태를 사람이 바꾼 기록(한 줄씩 덧붙임). 쓰는 쪽은 `adminPlaces.ts`. */
   archive_note: string | null;
+  /**
+   * 사람이 마지막으로 확인한 시각(ADR-021 R5). 마이그레이션 `20261001140000` 전의 원격에는 **칸 자체가 없다** —
+   * 그래서 선택이고, 쓰는 쪽은 `'verified_at' in row` 로 칸이 있는지 보고 나서만 쓴다(없는 칸을 쓰면 승인 전체가 실패한다).
+   */
+  verified_at?: string | null;
 };
 
 /** 같은 가게로 묶인 후보들. 만드는 쪽은 `groupCandidates`(reviewCandidates.mjs:46-65). */

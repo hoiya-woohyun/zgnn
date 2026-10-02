@@ -21,6 +21,16 @@ export type TStayPrice = {
 export type TStayInfo = {
   price: TStayPrice;
   amenitiesText: string;
+  /** AI 가 원문에서 읽은 숙소 환경(`places.stay_environment`, 10 F6). 시드는 없다 — 앱이 정규식으로 읽은 값과 합친다(`TPlaceEntry.environment`). */
+  environment?: TStayEnvironment;
+};
+
+/** 숙소 환경 — 칸마다 true · false · null(원문에 없음). 판정에는 쓰지 않는다(선호). `scripts/lib/stayEnvironment.mjs`. */
+export type TStayEnvironment = {
+  standalone: boolean | null;
+  yard: boolean | null;
+  fencedYard: boolean | null;
+  stairs: boolean | null;
 };
 
 /**
@@ -113,9 +123,16 @@ export type TPlace = {
    * 파일을 갖고 있지 않으므로 카드(사진 + 출처 + 링크)로만 그리고, 못 받으면 사진 없이 그린다.
    */
   homepage?: TPlaceHomepage;
+  /** 사람이 마지막으로 확인한 날(`YYYY-MM-DD`). 없으면 확인 기록이 없다 — 상세는 날짜를 그리지 않는다(ADR-021 R5). */
+  verifiedAt?: string;
   cover?: string;
   images: string[];
   stay?: TStayInfo;
+  /**
+   * 열린 폐업 제보(`closed`·`replaced`)가 있다 — 빌드 때 `data:pull` 이 `place_report_flags()` 로 얹는다(ADR-021 R5).
+   * 있으면 상세가 "최근 확인" 날짜를 그리지 않는다. 내용·건수는 싣지 않는다.
+   */
+  openReportKinds?: string[];
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -211,6 +211,24 @@ const toCoord = (raw: string): number | null => {
 };
 
 /**
+ * 좌표 두 칸의 문제 한 줄 — 순수. 후보 고치기(`editProblem`)와 올린 장소의 주소 고치기(`placeAddressProblem`)가 같이 쓴다.
+ * 두 벌로 두면 한쪽만 제주 범위를 고치는 날이 온다.
+ */
+export function coordProblem(latRaw: string, lngRaw: string): string | null {
+  const lat = toCoord(latRaw);
+  const lng = toCoord(lngRaw);
+  // 한 칸만 채우면 `validGeo` 가 통째로 버려 좌표가 조용히 사라진다 — 반쯤 지운 상태를 저장하지 않게 여기서 막는다.
+  if ((lat === null) !== (lng === null)) return '위도와 경도는 둘 다 적거나 둘 다 비워 주세요.';
+  if (lat !== null && lng !== null) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return '좌표는 숫자로 적어 주세요.';
+    if (lat < JEJU_BOUNDS.lat[0] || lat > JEJU_BOUNDS.lat[1] || lng < JEJU_BOUNDS.lng[0] || lng > JEJU_BOUNDS.lng[1]) {
+      return '제주 밖 좌표예요 — 위도와 경도가 바뀌지 않았는지 봐 주세요.';
+    }
+  }
+  return null;
+}
+
+/**
  * 저장할 수 없는 이유 한 줄. `null` 이면 저장해도 된다.
  *
  * 여기서 막는 것은 **반영 단계에서 영구 오류가 되거나 조용히 틀리는 것**뿐이다(`toNewPlaceRow` 의 검사와 같은 줄).
@@ -221,16 +239,8 @@ export function editProblem(draft: TCandidateEditDraft): string | null {
   if (!draft.name.trim()) return '이름을 적어 주세요.';
   if (!(EDITABLE_TYPES as string[]).includes(draft.type)) return '종류를 골라 주세요.';
 
-  const lat = toCoord(draft.lat);
-  const lng = toCoord(draft.lng);
-  // 한 칸만 채우면 `validGeo` 가 통째로 버려 좌표가 조용히 사라진다 — 반쯤 지운 상태를 저장하지 않게 여기서 막는다.
-  if ((lat === null) !== (lng === null)) return '위도와 경도는 둘 다 적거나 둘 다 비워 주세요.';
-  if (lat !== null && lng !== null) {
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return '좌표는 숫자로 적어 주세요.';
-    if (lat < JEJU_BOUNDS.lat[0] || lat > JEJU_BOUNDS.lat[1] || lng < JEJU_BOUNDS.lng[0] || lng > JEJU_BOUNDS.lng[1]) {
-      return '제주 밖 좌표예요 — 위도와 경도가 바뀌지 않았는지 봐 주세요.';
-    }
-  }
+  const geo = coordProblem(draft.lat, draft.lng);
+  if (geo) return geo;
 
   const naverPlace = parseNaverPlaceId(draft.naverPlace);
   if ('error' in naverPlace) return naverPlace.error;

@@ -1,6 +1,7 @@
 # ADR-016 — 시크릿은 저장하지 않는다: 운영자가 로그인하고, 스크립트는 그 짧은 세션으로 붙는다
 
-> 최종 수정: 2026-09-29 (v7: **브라우저 세션 정책을 한 항으로 명시**했다 — 운영자 검수 화면 `/admin`([ADR-018](ADR-018-in-app-admin-review.md))도 CLI 와 같은 모양으로 붙는다:
+> 최종 수정: 2026-10-01 (v8: 인증 출처는 여전히 둘(세션·anon)이지만 **anon 이 처음 쓴다** — 사이트 상세의 장소 제보가 `place_reports` 에 열 단위 insert 만([ADR-021](ADR-021-place-reports.md), 마이그레이션 `20261001130000`). 키·세션 모델은 그대로다 — 새 키가 없다)
+> 이전 2026-09-29 (v7: **브라우저 세션 정책을 한 항으로 명시**했다 — 운영자 검수 화면 `/admin`([ADR-018](ADR-018-in-app-admin-review.md))도 CLI 와 같은 모양으로 붙는다:
 > access token 만 localStorage(`zgnn.admin.session`)에, refresh token 은 버린다, `persistSession:false`·`autoRefreshToken:false`, 수명 1일 초과면 거부.
 > supabase-js 의 브라우저 기본값(refresh token 을 localStorage 에 저장 + 자동 갱신)은 이 결정과 정반대라 **끄는 것이 설정이 아니라 경계**다.
 > 함께: publishable 키와 프로젝트 호스트가 **실제로 번들에 들어갔고**(결정 4), 유출 검사의 `supabase.co` 는 전면 차단에서 **우리 호스트 하나만 허용**으로 좁혔다)

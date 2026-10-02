@@ -1,6 +1,8 @@
 # 5. 보안 — 키 분리 · RLS · 웹훅 · 프리뷰 보호
 
-> 최종 수정: 2026-09-30 (v14: 마이그레이션 `20260930120000_places_homepage` 는 `places` 에 text 칸 셋을 얹을 뿐이라 **GRANT·정책 변화가 없다**
+> 최종 수정: 2026-10-01 (v16: 비로그인 역할에 함수 하나 — `place_report_flags()`(security definer, 열린 폐업 제보가 있는 **게시 장소 id·종류만**, 내용·건수 없음). 표는 여전히 닫혀 있다)
+> 이전 2026-10-01 (v15: **비로그인 역할이 처음 쓴다** — 마이그레이션 `20261001130000_place_reports`(원격 미적용)가 사이트 상세의 제보를 받는다. 열 단위 insert 만, select 없음, 재빌드 트리거 없음([ADR-021](../decisions/ADR-021-place-reports.md)). 표 맨 아래 한 줄)
+> 이전 2026-09-30 (v14: 마이그레이션 `20260930120000_places_homepage` 는 `places` 에 text 칸 셋을 얹을 뿐이라 **GRANT·정책 변화가 없다**
 > (테이블 단위 grant 그대로 — anon 은 여전히 published 행 select). 새로 생긴 바깥 요청은 `data:analyze`·`data:homepage` 가 업체 사이트를 읽는 GET 하나 — 키·쿠키를 싣지 않고 본문은 로그에 남기지 않는다)
 > 이전 (v13: **Deploy Hook 줄들을 현실로 맞췄다** — 4b 가 끝나 URL 은 **Vault** 에 있고(웹훅 설정이 아니다),
 > 훅 이름은 실제로 `auto deploy`(2026-09-17 발급)다. 그 URL 이 **에이전트 대화 기록에 남았으므로** 회전 절차를 아래 「Deploy Hook 회전」 에
@@ -49,6 +51,7 @@
 | `NEXT_PUBLIC_NAVER_MAP_KEY_ID` | 공개 전제 | 코드 기본값(`src/lib/naverMap.ts`) — Vercel env 불필요 | NCP 콘솔의 **웹 서비스 URL 허용 목록**이 방어선(포트까지 본다). 새 주소 등록만 조심 |
 | Deploy Hook URL | — | **Supabase Vault 의 `vercel_deploy_hook`** 하나뿐(2026-09-29). 마이그레이션·함수 본문·`rebuild_log`·로그에는 없다 — `notify_vercel_rebuild()` 가 security definer 로 그때만 읽고, pg_net 오류 문구에 섞여 오면 저장 전에 `<hook>` 으로 지운다. **단 이 URL 은 2026-09-29 에이전트 대화 기록에 평문으로 남았다**(사용자가 붙여 넣었다) | **아무나 `main` 프로덕션 빌드를 돌릴 수 있다.** 인증 없는 URL 이고 POST 한 번이 배포 하나다. 데이터를 읽거나 쓰지는 못한다(빌드는 anon 으로 published 만 읽는다) → 실해는 **가용성·비용**: Hobby 의 하루 배포 횟수를 태워 **정상 승인이 반영되지 않게** 만들 수 있고, 배포 이력이 노이즈로 찬다. 처방은 아래 「Deploy Hook 회전」 |
 | anon(publishable) key | 공개 전제 | 위 코드 상수. Vercel 빌드와 로컬의 `data:pull` 이 같은 경로로 published 만 읽고, **`/admin` 이 같은 키로 브라우저에서 붙는다**(로그인 전에는 그 키만, 로그인 뒤에는 `Authorization: Bearer <운영자 JWT>` 가 얹힌다 — 키만으로는 `candidates` 가 42501) | 공개돼도 되는 키 — 방어선은 RLS·GRANT |
+| (제보) `place_reports` 에 쓰는 anon | 공개 전제 | **비로그인 역할이 처음 쓰는 표**(2026-10-01, [ADR-021](../decisions/ADR-021-place-reports.md)). 사이트 상세가 같은 publishable 키로 `insert (place_id, kind, note, app_build)` 만 한다 — select 없음(보낸 것도 못 읽는다), 정책은 published 장소에만·열린 상태로만, CHECK 가 종류·길이를 막는다. 재빌드 트리거에 **안 걸려 있다**. 빌드가 읽는 것은 표가 아니라 `place_report_flags()`(security definer — 게시 장소 id·폐업 종류만) | 남이 할 수 있는 일은 표를 키우는 것뿐이다(읽기·재빌드·다른 표 없음). 폭주하면 정책 `anon_insert` 를 끈다 |
 
 - [x] **`out/` 유출 검사를 빌드에 넣는다.** `package.json` 의 `build`(`next build --webpack && node scripts/check-bundle.mjs`):
       `out/` 전체에서 `service_role`·`sk-ant-`·`sb_secret_`·JWT(헤더·페이로드 둘 다 base64url — `eyJ` 만 보면 오탐)·

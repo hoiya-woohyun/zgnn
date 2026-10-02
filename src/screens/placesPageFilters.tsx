@@ -2,7 +2,8 @@ import type { ReactNode } from 'react';
 import { Select } from '../components/base/select';
 import { FilterChip } from '../components/filterChip';
 import { DIRECTIONS, DIRECTION_LABEL, topTowns } from '../lib/places';
-import { PET_FILTERS, type TPetFilterKey, type TPriceSort } from '../lib/placeFilters';
+import { envFiltersWithData, PET_FILTERS, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
+import { placesOfType } from '../lib/places';
 import type { TDirection, TPlaceType } from '../types';
 
 /**
@@ -19,18 +20,26 @@ type TPlacesPageFiltersProps = {
   town: string | null;
   directions: TDirection[];
   petKeys: TPetFilterKey[];
-  sort: TPriceSort;
+  sort: TPlaceSort;
   onSelectTown: (town: string | null) => void;
   onToggleDirection: (direction: TDirection) => void;
   onTogglePetKey: (key: TPetFilterKey) => void;
-  onChangeSort: (sort: TPriceSort) => void;
+  onChangeSort: (sort: TPlaceSort) => void;
 };
 
-export const SORT_OPTIONS: { id: TPriceSort; label: string }[] = [
+export const SORT_OPTIONS: { id: TPlaceSort; label: string }[] = [
   { id: 'none', label: '기본순' },
+  { id: 'near', label: '가까운 순' },
   { id: 'asc', label: '가격 낮은순' },
   { id: 'desc', label: '가격 높은순' },
 ];
+
+/** 가격 정렬은 숙소만 — 식당·카페에는 요금 칸이 없다. 가까운 순은 모든 종류(10 F7). */
+const sortOptionsFor = (type: TPlaceType) =>
+  type === 'stay' ? SORT_OPTIONS : SORT_OPTIONS.filter((option) => option.id === 'none' || option.id === 'near');
+
+/** 숙소에서 고를 수 있는 환경 조건 — 데이터는 빌드 때 고정이라 한 번만 센다. */
+const STAY_ENV_FILTERS = envFiltersWithData(placesOfType('stay'));
 
 /*
  * 가로 스크롤 줄 오른쪽 끝을 살짝 흐려서 "더 있다" 는 신호를 준다.
@@ -125,16 +134,16 @@ export function PlacesPageFilters({
         스크롤해야만 보였다(P1). 조건 칩 줄과 분리한 자기 줄로 올려
         스크롤 없이 바로 보이게 한다.
       */}
-      {type === 'stay' &&
-        (variant === 'bar' ? (
-          <div className="flex justify-end px-4 md:px-6">
-            <SortSelect sort={sort} onChangeSort={onChangeSort} />
-          </div>
-        ) : (
-          <FilterGroup variant={variant} label="가격 정렬">
-            <SortSelect sort={sort} onChangeSort={onChangeSort} />
-          </FilterGroup>
-        ))}
+      {/* 가까운 순(10 F7)이 생겨 정렬은 모든 종류에 선다 — 가격 둘만 숙소에 남는다. */}
+      {variant === 'bar' ? (
+        <div className="flex justify-end px-4 md:px-6">
+          <SortSelect type={type} sort={sort} onChangeSort={onChangeSort} />
+        </div>
+      ) : (
+        <FilterGroup variant={variant} label="정렬">
+          <SortSelect type={type} sort={sort} onChangeSort={onChangeSort} />
+        </FilterGroup>
+      )}
 
       <FilterGroup variant={variant} label="반려동물">
         {PET_FILTERS[type].map((filter) => {
@@ -150,28 +159,44 @@ export function PlacesPageFilters({
           );
         })}
       </FilterGroup>
+
+      {/*
+        숙소 환경(10 F6) — 반려동물 조건과 **다른 묶음**이다. 판정(갈 수 있나)이 아니라 선호라, 한 줄에 섞으면
+        "대형견 OK" 와 "마당 있음" 이 같은 무게로 읽힌다. 데이터에 걸리는 곳이 있는 칩만 선다.
+      */}
+      {type === 'stay' && STAY_ENV_FILTERS.length > 0 && (
+        <FilterGroup variant={variant} label="숙소 환경">
+          {STAY_ENV_FILTERS.map((filter) => (
+            <FilterChip key={filter.key} pressed={petKeys.includes(filter.key)} onClick={() => onTogglePetKey(filter.key)}>
+              {filter.label}
+            </FilterChip>
+          ))}
+        </FilterGroup>
+      )}
     </div>
   );
 }
 
 function SortSelect({
+  type,
   sort,
   onChangeSort,
 }: {
-  sort: TPriceSort;
-  onChangeSort: (sort: TPriceSort) => void;
+  type: TPlaceType;
+  sort: TPlaceSort;
+  onChangeSort: (sort: TPlaceSort) => void;
 }) {
   return (
     <Select
-      aria-label="숙소 가격 정렬"
+      aria-label="정렬"
       size="sm"
       selectedKey={sort}
       onSelectionChange={(key) => {
-        if (key) onChangeSort(key as TPriceSort);
+        if (key) onChangeSort(key as TPlaceSort);
       }}
       className="w-36"
     >
-      {SORT_OPTIONS.map((option) => (
+      {sortOptionsFor(type).map((option) => (
         <Select.Item key={option.id} id={option.id}>
           {option.label}
         </Select.Item>

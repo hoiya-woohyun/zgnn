@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { sanitizeDog } from '../lib/dogProfile';
 import { ALL_TOWNS, PLACES_BY_ID, selectSavedPlaces } from '../lib/places';
+import { sanitizeSavedNotes, withSavedNote } from '../lib/savedNotes';
 import type { TDogProfile } from '../types';
 
 /** 사계절 항목은 항상 보이므로, 계절 선택은 여름/겨울 둘 중 하나이거나 선택 안 함(null)이다. */
@@ -10,6 +11,8 @@ export type TSeasonFilter = '여름' | '겨울' | null;
 
 type TAppState = {
   savedIds: string[];
+  /** 저장한 곳의 한 줄 메모(id → 메모, ≤80자). 하트를 지우면 같이 지워진다. 공유에는 싣지 않는다(10 F5). */
+  savedNotes: Record<string, string>;
   checkedItemIds: string[];
   season: TSeasonFilter;
   /** 우리 강아지 프로필. 없으면(null) 판정 없이 v0 화면 그대로. */
@@ -22,6 +25,7 @@ type TAppState = {
    */
   town: string | null;
   toggleSaved: (id: string) => void;
+  setSavedNote: (id: string, note: string) => void;
   toggleChecked: (id: string) => void;
   setSeason: (season: TSeasonFilter) => void;
   setDog: (dog: TDogProfile) => void;
@@ -70,12 +74,24 @@ export const useAppStore = create<TAppState>()(
   persist(
     (set) => ({
       savedIds: [],
+      savedNotes: {},
       checkedItemIds: [],
       season: null,
       dog: null,
       needsIndoor: false,
       town: null,
-      toggleSaved: (id) => set((state) => ({ savedIds: toggle(state.savedIds, id) })),
+      // 하트를 지우면 메모도 지운다 — "저장한 곳의 메모" 라 저장이 없으면 붙을 데가 없다.
+      toggleSaved: (id) =>
+        set((state) => {
+          const savedIds = toggle(state.savedIds, id);
+          if (savedIds.includes(id) || !(id in state.savedNotes)) return { savedIds };
+          const savedNotes = { ...state.savedNotes };
+          delete savedNotes[id];
+          return { savedIds, savedNotes };
+        }),
+      // 저장하지 않은 곳에는 메모를 달지 않는다(화면도 저장한 곳에서만 입력 칸을 연다).
+      setSavedNote: (id, note) =>
+        set((state) => (state.savedIds.includes(id) ? { savedNotes: withSavedNote(state.savedNotes, id, note) } : {})),
       toggleChecked: (id) => set((state) => ({ checkedItemIds: toggle(state.checkedItemIds, id) })),
       setSeason: (season) => set({ season }),
       setDog: (dog) => set({ dog }),
@@ -116,10 +132,13 @@ export const useAppStore = create<TAppState>()(
       merge: (persistedState, currentState) => {
         const persisted = (persistedState ?? {}) as Partial<TAppState>;
         const exists = (id: string) => PLACES_BY_ID.has(id);
+        const savedIds = (persisted.savedIds ?? []).filter(exists);
         return {
           ...currentState,
           ...persisted,
-          savedIds: (persisted.savedIds ?? []).filter(exists),
+          savedIds,
+          // 저장 목록에서 빠진 id 의 메모는 버린다(그 장소가 데이터에서 빠졌다) — 남겨 두면 다시 저장했을 때 옛 메모가 되살아난다.
+          savedNotes: sanitizeSavedNotes(persisted.savedNotes, savedIds),
           // 옛 모양(`{ name, weightsKg }`)은 여기서 올려 변환된다 — lib/dogProfile.ts 참고.
           dog: sanitizeDog(persisted.dog),
           needsIndoor: typeof persisted.needsIndoor === 'boolean' ? persisted.needsIndoor : false,
@@ -134,6 +153,9 @@ export const useAppStore = create<TAppState>()(
 export const useDog = () => useAppStore((state) => state.dog);
 
 export const useIsSaved = (id: string) => useAppStore((state) => state.savedIds.includes(id));
+
+/** 저장한 곳의 한 줄 메모. 없으면 undefined. */
+export const useSavedNote = (id: string) => useAppStore((state) => state.savedNotes[id]);
 
 /** 저장한 장소. 존재하지 않는 id 는 빠진다. */
 export const useSavedPlaces = () => {

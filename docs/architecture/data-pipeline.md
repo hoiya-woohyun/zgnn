@@ -1,6 +1,11 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-10-01 (v23: 제외 넷째 이유 `blocked` — 분석이 `place_blocks` 를 읽어 걸린 가게는 후보를 만들지 않는다. 표가 없으면 차단 0건 + 경고 한 줄)
+> 최종 수정: 2026-10-01 (v28: `places.stay_environment`(숙소 환경 jsonb, 마이그레이션 `20261001160000`) → JSON `stay.environment`. 추출 스키마의 `stayEnvironment` 가 원천이고, 쓰는 쪽(`toNewPlaceRow`·`mergeIntoExisting`·`overwriteWithLatest`)은 행에 칸이 있을 때만 싣는다)
+> 이전 (v27: `data:pull` 이 `place_report_flags()`(마이그레이션 `20261001150000`)로 **열린 폐업 제보 표식**을 장소 끝 키 `openReportKinds` 로 얹는다 — 상세가 그때 확인 날짜를 안 그린다. 함수가 없으면 경고 한 줄 뒤 표식 없이 계속)
+> 이전 (v26: `places.verified_at`(사람이 마지막으로 확인한 시각, 마이그레이션 `20261001140000`) → JSON `verifiedAt`(한국 날짜). **트리거가 아니라 쓰는 코드가** 찍는다 — 승인·덮어쓰기·주소 고치기·제보 `고쳤어요`·다녀왔어요 반영. 칸이 없는 원격에서는 쓰지 않는다)
+> 이전 (v25: 스키마 요약에 `place_reports`(사용자 제보, 마이그레이션 `20261001130000`, 원격 미적용) 한 줄 — [ADR-021](../decisions/ADR-021-place-reports.md))
+> 이전 (v24: `archived` 짝은 블랙리스트에 없을 때만 생긴다 — 등록 해제 폼이 `place_blocks` 를 같이 쓰므로(09 T1.4) 이름 축에서 먼저 걸리고, 되살리면 풀린다)
+> 이전 (v23: 제외 넷째 이유 `blocked` — 분석이 `place_blocks` 를 읽어 걸린 가게는 후보를 만들지 않는다. 표가 없으면 차단 0건 + 경고 한 줄)
 > 이전 (v22: 스키마 요약에 `place_blocks`(가게 차단 목록, 마이그레이션 `20261001120000`, 원격 미적용) 한 줄 — [ADR-020](../decisions/ADR-020-pipeline-stages-and-blocklist.md))
 > 이전 (v21: 제외 이유 `edited` — 사람이 고친 pending 후보가 있는 같은 글·같은 가게는 다시 읽어도 새로 만들지 않는다. 고친 이름의 원래 키는 `extracted.editedFrom.nameKey`)
 > 이전 (v20: 「재분석」 머리에 "지우지 않는다 — 수집 완료로 되돌린다" 한 줄)
@@ -242,7 +247,7 @@ flowchart LR
   이미 차 있어 채울 칸이 거의 없다. 그런데 검수 목록에서는 신규와 같은 무게로 한 줄을 먹는다 — 아끼는 것은 비용이 아니라
   **운영자가 훑을 줄 수**다(추출·네이버 조회는 이미 끝난 뒤의 판정이다).
   **막는 것은 `published` 짝뿐이다.** 나머지를 막으면 조용히 길이 끊긴다 — `draft` 짝의 승인은 초안을 게시로 올리는 유일한 길이고
-  (`adminApply.ts`), `archived` 짝은 내린 가게를 쓴 새 글이 났다는 뜻이라 **재개업을 아는 유일한 신호**다('되살려서 합치기').
+  (`adminApply.ts`), `archived` 짝은 내린 가게를 쓴 새 글이 났다는 뜻이라 **재개업을 아는 유일한 신호**다('되살려서 합치기'). 단 그 가게가 블랙리스트에 있으면 이름 축에서 먼저 걸려 후보가 되지 않는다(해제 폼이 함께 거는 `place_blocks`, 09 T1.4 — 되살리면 풀린다).
   `status` 를 모르면(시드·테스트 경로) 막지 않는다 — 모르는 것을 "이미 있다" 로 읽으면 후보가 조용히 사라지고, 그 반대는 사람이 화면에서 본다.
   ⚠️ **이미 쌓인 pending `auto` 후보는 그대로 있다** — `/admin` 에서 `기존` 칩으로 걸러 일괄 반려하는 것이 사람의 몫이다.
 - **검수는 `pnpm data:review`** — pending 을 같은 가게로 묶어 검수 순서(`reviewPriority`, 🙋 사용자가 다듬는 자리)대로 보여 주고, 후보마다 `정규식 [..] · AI [..] · 앱 [..]` 과 표식
@@ -298,10 +303,13 @@ flowchart LR
 
 | 타입 | 핵심 필드 | 비고 |
 |---|---|---|
-| `TPlace` | `id`, `type`, `name`, `region`, `features`, `petPolicyText`, `geo?`, `address?`, `naverUrl?`, `reviewUrl?`, `stay?` | `id` 는 Notion 블록 id 를 시드 때 그대로 옮겼다. 라우트 `/place/[id]` 와 저장 목록의 키 |
+| `TPlace` | `id`, `type`, `name`, `region`, `features`, `petPolicyText`, `geo?`, `address?`, `naverUrl?`, `reviewUrl?`, `verifiedAt?`, `stay?` | `id` 는 Notion 블록 id 를 시드 때 그대로 옮겼다. 라우트 `/place/[id]` 와 저장 목록의 키. `verifiedAt` 은 `places.verified_at` 의 **한국 날짜**(UTC 앞 10자를 자르면 밤 9시 뒤 확인이 전날이 된다) — 사람이 "지금도 맞다" 고 본 날이라 트리거가 아니라 쓰는 코드가 찍는다(ADR-021 R5). 시드는 null → 키 없음 |
 | `TStayInfo` | `price: TStayPrice`, `amenitiesText` | 숙소만. `amenitiesText` 는 준비물 화면의 구비 용품 매핑에 쓰인다(`src/lib/amenities.ts`) |
 | `TItem` | `id`, `name`, `emoji`, `seasons`, `reason`, `linkUrl?`, `variants?` | 준비물. `linkUrl` 은 쿠팡 파트너스 링크라 `meta.disclosure` 를 함께 표시. `variants` 는 원본의 여러 줄을 `lib/places.ts` 의 `ITEM_VARIANTS` 가 한 항목으로 합치면서 생긴다(기내용 가방의 5kg 이하/이상) — DB·JSON 어디에도 없는 파생 필드다 |
 | `place_blocks`(DB 표, `TPlace` 아님) | `name_key`, `town?`, `display_name`, `reason`, `until?`(null=영구), `lifted_at?`, `candidate_id?`, `place_id?` | 분석이 실행마다 읽는 **가게 차단 목록**(마이그레이션 `20261001120000`, 원격 미적용 — 🧑 `db push`). `until is null or until > now()` 이고 `lifted_at` 이 null 인 행이 "걸린 것" — 스케줄러 없이 비교로 만료. DELETE grant 없음, 공개 역할 grant 없음 → [ADR-020](../decisions/ADR-020-pipeline-stages-and-blocklist.md) D1·D2 |
+| `place_reports`(DB 표, `TPlace` 아님) | `place_id?`(제안만 null), `kind`, `note?`(≤200), `app_build?`, `status`(open·handled·dismissed), `handled_note?`, `handled_at?` | 사이트 상세의 **사용자 제보**(마이그레이션 `20261001130000`, 원격 미적용 — 🧑 `db push`). 비로그인은 열 단위 insert 만(select 없음), 운영자는 select·update, DELETE 없음. **재빌드 트리거에 안 걸려 있다**(의도) → [ADR-021](../decisions/ADR-021-place-reports.md) |
+| `openReportKinds?`(`TPlace` 끝 키) | `['closed'\|'replaced']` | 빌드 때 `data:pull` 이 `place_report_flags()`(security definer — 비로그인 역할에게 표를 열지 않고 **장소 id·종류만**)로 얹는다. 있으면 상세가 "최근 확인" 을 그리지 않는다(ADR-021 R5). 맨 뒤 키라 없는 장소의 JSON 바이트는 그대로. 함수가 원격에 없으면 경고 한 줄 뒤 표식 없이 — 날짜 하나 숨기자고 배포를 멈추지 않는다 |
+| `stay.environment?`(`TStayInfo`) | `{ standalone, yard, fencedYard, stairs }` 칸마다 true·false·null | `places.stay_environment`(마이그레이션 `20261001160000`). AI 가 원문에서 읽고 근거 단어로 거른 값(`correctStayEnvironment`). 시드는 없다 — 앱이 소개·용품을 정규식으로 읽어 합친다(`TPlaceEntry.environment`). **판정에 안 들어간다**(선호, ADR-017 결정 12). 쓰는 쪽은 행에 칸이 있을 때만 싣는다 — 없는 칸을 쓰면 insert·update 가 통째로 거절된다 |
 | `TMeta` | `author`, `sourceUrl`, `intro`, … | 화면 문구. 손으로 관리 |
 
 ## 관련 파일

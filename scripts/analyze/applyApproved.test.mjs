@@ -361,3 +361,27 @@ describe('overwriteWithLatest — 최신본으로 저장하기 (사람이 전·�
     expect(out.patch.region_raw).toBeUndefined();
   });
 });
+
+describe('stay_environment — 숙소 환경(10 F6)', () => {
+  const env = { standalone: true, yard: true, fencedYard: null, stairs: null };
+  const withEnv = { ...extracted, stayEnvironment: env };
+
+  it('칸이 있는 행에만, 비어 있을 때만 채운다', () => {
+    expect(mergeIntoExisting(solsup, withEnv)).toBeNull();
+    expect(mergeIntoExisting({ ...solsup, stay_environment: null }, withEnv)).toEqual({ stay_environment: env });
+    expect(mergeIntoExisting({ ...solsup, stay_environment: { ...env, stairs: true } }, withEnv)).toBeNull();
+  });
+
+  it('새 행은 칸이 원격에 있을 때만 싣는다', () => {
+    const candidate = { id: 'c1', post_url: 'https://blog.naver.com/x/1', extracted: withEnv };
+    expect('stay_environment' in toNewPlaceRow(candidate, { id: 'n' })).toBe(false);
+    expect(toNewPlaceRow(candidate, { id: 'n', environmentColumn: true }).stay_environment).toEqual(env);
+    const empty = { ...candidate, extracted: { ...extracted, stayEnvironment: { standalone: null, yard: null, fencedYard: null, stairs: null } } };
+    expect('stay_environment' in toNewPlaceRow(empty, { id: 'n', environmentColumn: true })).toBe(false);
+  });
+
+  it('덮어쓰기는 다를 때만', () => {
+    expect(overwriteWithLatest({ ...solsup, stay_environment: env }, withEnv)?.patch.stay_environment).toBeUndefined();
+    expect(overwriteWithLatest({ ...solsup, stay_environment: null }, withEnv)?.patch.stay_environment).toEqual(env);
+  });
+});

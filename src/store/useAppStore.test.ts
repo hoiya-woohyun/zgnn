@@ -141,3 +141,30 @@ describe('저장된 값 읽기가 끝났다는 신호', () => {
     unsubscribe();
   });
 });
+
+describe('저장 메모(savedNotes)', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('저장 목록에 없는 id 의 메모는 읽을 때 버린다 · 하트를 지우면 메모도 지운다', async () => {
+    const { PLACES } = await import('../lib/places');
+    const [a, b] = PLACES;
+    const map = installLocalStorage();
+    map.set(
+      STORAGE_NAME,
+      JSON.stringify({
+        state: { savedIds: [a.id, 'gone'], savedNotes: { [a.id]: '전화함', [b.id]: '저장 안 한 곳', gone: '없는 곳' } },
+        version: 0,
+      }),
+    );
+    const { useAppStore } = await rehydrateFresh();
+    expect(useAppStore.getState().savedNotes).toEqual({ [a.id]: '전화함' });
+
+    useAppStore.getState().setSavedNote(b.id, '저장 안 했으면 안 붙는다');
+    expect(useAppStore.getState().savedNotes[b.id]).toBeUndefined();
+
+    useAppStore.getState().toggleSaved(a.id);
+    expect(useAppStore.getState().savedNotes).toEqual({});
+  });
+});

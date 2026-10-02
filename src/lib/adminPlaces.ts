@@ -14,6 +14,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { coordProblem } from './adminEdit';
 import { appendReviewerNote } from './adminSession';
 import type { TPlaceRow, TPlaceStatus } from './adminCandidates';
 import { parsePetPolicy, toPetBadges, withPolicyFacts, type TPetBadge } from './petPolicy';
@@ -259,4 +260,84 @@ export function restorePlace(
   { nowIso, note }: TPlaceStatusChange,
 ): Promise<TPlaceRow> {
   return setPlaceStatus(client, place, 'published', archiveNoteLine('restore', dayOf(nowIso), undefined, note));
+}
+
+/** 원격 `places` 에 `verified_at` 칸이 있나 — `select('*')` 로 읽은 행에 키가 있으면 있다(마이그레이션 `20261001140000`). */
+export const hasVerifiedColumn = (rows: readonly Partial<TPlaceRow>[]): boolean => rows.some((row) => 'verified_at' in row);
+
+/**
+ * "사람이 지금도 맞다고 봤다" 를 찍는다(ADR-021 R5) — 칸이 없으면 아무것도 안 하고 null.
+ * 실패해도 던지지 않는다: 확인 날짜는 부가이고, 이것 때문에 이미 끝난 승인·처리를 실패로 말하면 사람이 다시 눌러 두 번 쓴다.
+ * `places` 가 바뀌므로 게시중이면 재빌드 트리거가 다음 빌드를 부른다 — 날짜가 사이트에 보이려면 그 빌드가 필요하다.
+ */
+export async function markPlaceVerified(
+  client: SupabaseClient,
+  place: Pick<TPlaceRow, 'id'> & Partial<TPlaceRow>,
+  nowIso: string,
+  columnExists?: boolean,
+): Promise<string | null> {
+  // 기본값 자리에 `'verified_at' in place` 를 쓰면 SWC(빌드)가 파싱하지 못한다 — tsc 는 통과한다. 그래서 본문에서 가른다.
+  if (!(columnExists ?? 'verified_at' in place)) return null;
+  const { error } = await client.from('places').update({ verified_at: nowIso }).eq('id', place.id);
+  return error ? null : nowIso;
+}
+
+/**
+ * 올린 장소의 **주소·좌표 고치기** 초안. 칸은 문자열 그대로 들고 있다(빈 칸 = 지운다) — 후보 고치기 폼과 같은 어법.
+ *
+ * 왜 이 세 칸만인가: 올린 뒤에 "실제로 보니 틀렸다·비었다" 가 가장 흔하고, 바꿔도 **정체가 흔들리지 않는** 칸이라서다.
+ * 이름·종류·네이버 id 는 대조(`matchPlace`)의 열쇠라 고치면 이미 쌓인 후보의 짝이 조용히 바뀐다 — 그건 이번 범위 밖이다.
+ * 주소·좌표도 대조에 쓰이지만 **더 맞는 값**으로 바뀌는 것이라 다음 대조가 나아질 뿐이다.
+ */
+export type TPlaceAddressDraft = { address: string; lat: string; lng: string };
+
+export const placeAddressDraft = (place: TPlaceRow): TPlaceAddressDraft => ({
+  address: place.address ?? '',
+  lat: place.lat == null ? '' : String(place.lat),
+  lng: place.lng == null ? '' : String(place.lng),
+});
+
+/** 저장할 수 없는 이유 한 줄 — 순수. 좌표 검사는 후보 고치기와 같은 함수(`coordProblem`)다. */
+export function placeAddressProblem(draft: TPlaceAddressDraft): string | null {
+  return coordProblem(draft.lat, draft.lng);
+}
+
+export type TPlaceAddressPatch = Partial<Pick<TPlaceRow, 'address' | 'lat' | 'lng'>>;
+
+/**
+ * 바뀐 칸만 담은 쓰기 — 순수. 아무것도 안 바뀌었으면 `null` 이다(빈 update 를 보내면 재빌드만 한 번 헛돈다 —
+ * 트리거는 값이 같아도 UPDATE 면 부른다). 좌표는 **두 칸을 함께** 쓴다(한 칸만 바뀐 쓰기를 만들지 않는다).
+ */
+export function placeAddressPatch(place: TPlaceRow, draft: TPlaceAddressDraft): TPlaceAddressPatch | null {
+  const patch: TPlaceAddressPatch = {};
+  const address = draft.address.trim() || null;
+  if (address !== (place.address ?? null)) patch.address = address;
+  const lat = draft.lat.trim() ? Number(draft.lat.trim()) : null;
+  const lng = draft.lng.trim() ? Number(draft.lng.trim()) : null;
+  if (lat !== place.lat || lng !== place.lng) {
+    patch.lat = lat;
+    patch.lng = lng;
+  }
+  return Object.keys(patch).length ? patch : null;
+}
+
+/**
+ * 주소·좌표를 고친다. `archive_note` 에는 적지 않는다 — 그 칸은 **게시 상태**의 이력이고, 내린 곳의 접힌 줄이
+ * 그 마지막 줄을 "왜 내렸나" 로 읽는다(`lastNoteLine`). 고친 기록이 끼면 그 자리에 엉뚱한 말이 뜬다.
+ *
+ * 게시중인 곳이면 `places` 가 바뀌었으니 재빌드 트리거가 다음 빌드를 부른다 — 내리기와 같은 길이다.
+ * `.select().single()` 은 `setPlaceStatus` 와 같은 이유(0행을 성공으로 읽지 않는다).
+ */
+export async function updatePlaceAddress(
+  client: SupabaseClient,
+  place: TPlaceRow,
+  patch: TPlaceAddressPatch,
+  nowIso: string = new Date().toISOString(),
+): Promise<TPlaceRow> {
+  // 사람이 주소를 보고 고쳤다 — 같은 쓰기에 확인 날짜도 싣는다(칸이 있을 때만, ADR-021 R5). 따로 쓰면 재빌드 훅이 두 번 돈다.
+  const write = 'verified_at' in place ? { ...patch, verified_at: nowIso } : patch;
+  const { data, error } = await client.from('places').update(write).eq('id', place.id).select().single();
+  if (error)
+    throw new Error(`주소를 고치지 못했어요 — 다시 눌러 보고, 안 되면 로그아웃하고 다시 로그인해 주세요. (${error.message})`);
+  return (data ?? { ...place, ...write }) as TPlaceRow;
 }

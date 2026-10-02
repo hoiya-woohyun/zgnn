@@ -8,6 +8,7 @@ import { aiEdits } from '../lib/adminEdit';
 import { policySplit } from '../lib/adminPreview';
 import { verifyView } from '../lib/adminVerify';
 import type { TBadgeTone, TPetBadge } from '../lib/petPolicy';
+import { environmentPhrases } from '../lib/stayEnvironmentView';
 import { cx } from '../utils/cx';
 import { AdminAddressLine } from './adminAddressLine';
 import { AdminChangeList } from './adminChangeList';
@@ -223,6 +224,17 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
             // `??` 가 아니라 `||` 다(AI 는 '' 로도 준다).
             result={<p className="whitespace-pre-line text-secondary">{extracted.features || '소개 문장이 없어요'}</p>}
           />
+          {/* 숙소 환경(10 F6) — 숙소일 때만. 판정에는 안 쓰고 숙소 필터·상세의 한 줄로만 나간다. */}
+          {extracted.type === 'stay' && (
+            <CompareRow
+              label="숙소 환경"
+              result={
+                <p className="text-secondary">
+                  {environmentPhrases(extracted.stayEnvironment ?? undefined).join(' · ') || '원글에 환경 문장이 없어요(사이트는 소개 문장에서 읽어요)'}
+                </p>
+              }
+            />
+          )}
           {/*
             * 홈페이지 카드 — 승인하면 사이트 상세에 그대로 나간다. 사진을 **작게라도 보여 주는** 이유: 업체 사이트의 og:image 는
             * 로고·배너일 때가 많아 사람이 보고 빼야 한다('고치기' 의 홈페이지 사진 칸을 비운다). 못 받으면 접는다.

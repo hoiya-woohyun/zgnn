@@ -8,6 +8,7 @@ import { PlaceCard } from '../components/placeCard';
 import { PLACE_TYPE_ICON } from '../components/icons/placeTypeIcon';
 import { PLACE_TYPES, TYPE_COLOR, TYPE_META, typeTint } from '../lib/places';
 import { useSavedPlaces } from '../store/useAppStore';
+import { SavedPageNote } from './savedPageNote';
 
 export function SavedPage() {
   const saved = useSavedPlaces();
@@ -60,7 +61,7 @@ export function SavedPage() {
                 </h2>
                 <ul className="mt-3 space-y-3">
                   {group.map((place) => (
-                    <PlaceCard key={place.id} place={place} />
+                    <PlaceCard key={place.id} place={place} footer={<SavedPageNote id={place.id} name={place.name} />} />
                   ))}
                 </ul>
               </section>

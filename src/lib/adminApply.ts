@@ -29,7 +29,7 @@ import {
 } from './adminCandidates';
 import { addressConflictOf, type TAddressConflict } from './adminAddress';
 import type { TCandidateEdit } from './adminEdit';
-import { restorePlace } from './adminPlaces';
+import { hasVerifiedColumn, markPlaceVerified, restorePlace } from './adminPlaces';
 import { appendReviewerNote } from './adminSession';
 import type { TPlace } from '../types';
 
@@ -361,6 +361,7 @@ export async function approveGroup(
    */
   let overwritten: Record<string, unknown> | undefined;
   let overwrittenKeys: string[] = [];
+  const verifiedColumn = hasVerifiedColumn(places);
   try {
     if (target && opts.overwrite) {
       const plan = overwriteWithLatest(target, lead.extracted) as { patch: Partial<TPlaceRow>; previous: Record<string, unknown> } | null;
@@ -395,7 +396,10 @@ export async function approveGroup(
     let created: TPlaceRow;
     try {
       // 승인 즉시 published — draft 로 넣으면 Studio 를 또 열어야 해 이 화면을 만든 이유가 사라진다(ADR-018).
-      created = { ...(toNewPlaceRow(lead, { id: opts.newId() }) as unknown as TPlaceRow), status: 'published' };
+      created = {
+        ...(toNewPlaceRow(lead, { id: opts.newId(), environmentColumn: places.some((place) => 'stay_environment' in place) }) as unknown as TPlaceRow),
+        status: 'published',
+      };
     } catch (e) {
       // leadProblem 이 같은 규칙을 먼저 보므로 여기 오지 않는 게 정상이다 — 오면 그 함수의 메시지를 그대로 보여 준다.
       // 이 자리는 approved 를 이미 적은 뒤다(두 규칙이 어긋났다는 뜻). 후보는 approved 로 남아 `pnpm data:apply` 가
@@ -426,6 +430,10 @@ export async function approveGroup(
     await linkSource(client, placeId, row.post_url);
     await markMerged(client, row, { placeId, kind: 'merged', patchKeys: keys, at: opts.nowIso });
   }
+
+  // 운영자가 이 가게를 보고 통과시켰다 — "최근 확인" 날짜(ADR-021 R5). 칸이 원격에 없으면 건너뛴다(새 행은 칸 키가 없어 장부 전체로 본다).
+  const verifiedAt = await markPlaceVerified(client, target, opts.nowIso, verifiedColumn);
+  if (verifiedAt) target.verified_at = verifiedAt;
 
   return { kind, placeId, placeName, patchKeys, rows: group.rows.length, ...(overwrittenKeys.length ? { overwrittenKeys } : {}) };
 }

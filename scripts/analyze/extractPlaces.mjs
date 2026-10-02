@@ -23,6 +23,7 @@ import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { normalizeFeeLines } from '../lib/feeLine.mjs';
 import { correctPetPolicyFacts } from '../lib/petPolicyFacts.mjs';
+import { correctStayEnvironment } from '../lib/stayEnvironment.mjs';
 
 /** ANALYZE_MODEL 로 덮어쓸 수 있다 — 첫 1년치 대량 처리 때 haiku 로 비교해 보려는 용도(docs/todo/03 의 모델 표). */
 export function resolveModel(env = process.env) {
@@ -88,6 +89,24 @@ const PET_POLICY_SCHEMA = {
   ],
 };
 
+/** 숙소 환경(docs/todo/10 F6) — 판정에는 안 쓰는 선호. 칸마다 null = 본문에 없음. 원문 근거가 없는 true 는 코드가 뺀다(`correctStayEnvironment`). */
+const STAY_ENVIRONMENT_SCHEMA = {
+  anyOf: [
+    {
+      type: 'object',
+      additionalProperties: false,
+      required: ['standalone', 'yard', 'fencedYard', 'stairs'],
+      properties: {
+        standalone: NULLABLE_BOOLEAN,
+        yard: NULLABLE_BOOLEAN,
+        fencedYard: NULLABLE_BOOLEAN,
+        stairs: NULLABLE_BOOLEAN,
+      },
+    },
+    { type: 'null' },
+  ],
+};
+
 export const EXTRACT_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -100,7 +119,7 @@ export const EXTRACT_SCHEMA = {
         additionalProperties: false,
         required: [
           'name', 'type', 'regionRaw', 'address', 'petPolicyText', 'petPolicy', 'features', 'stayPriceText', 'stayAmenitiesText',
-          'isJeju', 'visited', 'petAllowed', 'evidence', 'confidence',
+          'stayEnvironment', 'isJeju', 'visited', 'petAllowed', 'evidence', 'confidence',
         ],
         properties: {
           name: { type: 'string' },
@@ -113,6 +132,7 @@ export const EXTRACT_SCHEMA = {
           // 숙소만. 시드 26곳은 전부 있는데 블로그 신규 숙소는 이 두 칸이 비어 카드에 빈 굵은 줄·상세에 빈 '1박 요금' 이 그려졌다(2026-09-28 설계 검토).
           stayPriceText: NULLABLE_STRING,
           stayAmenitiesText: NULLABLE_STRING,
+          stayEnvironment: STAY_ENVIRONMENT_SCHEMA,
           isJeju: { type: 'boolean' },
           // 목록·추천 글에서 이름만 나열된 장소(첫 분석에서 한 글이 후보 101건)를 검수자가 거를 표식. 대조·판정에는 쓰지 않는다.
           visited: { type: 'boolean' },
@@ -229,6 +249,10 @@ export const SYSTEM_PROMPT = `당신은 제주도 반려견 동반 여행 블로
 - stayPriceText: type 이 "stay" 일 때만. 1박 요금을 본문 표기 그대로(예: "150,000원 ~ 200,000원"). 반려견 추가 요금은 여기가 아니라
   petPolicyText 에 넣습니다. 없으면 null.
 - stayAmenitiesText: type 이 "stay" 일 때만. 숙소가 갖춘 반려견 용품을 쉼표로 나열(예: "배변 패드, 식기, 강아지 계단"). 없으면 null.
+- stayEnvironment: type 이 "stay" 일 때만. 숙소 건물·마당의 모양 — 본문에 적힌 것만 true/false, 언급이 없으면 null. 숙소가 아니면 null.
+    standalone: 독채(한 팀만 쓰는 단독 건물)면 true. yard: 강아지가 쓸 수 있는 마당·잔디·정원이 있으면 true.
+    fencedYard: 그 마당에 울타리·펜스가 있다고 적혀 있으면 true. stairs: 객실에 복층·다락·계단이 있으면 true, 단층·계단 없음이 적혀 있으면 false.
+    "강아지 계단"(용품)은 건물 계단이 아닙니다. 사진만 보고 추측하지 마세요 — 글에 문장이 있어야 합니다.
 - evidence: 본문에서 그대로 인용한 1~3문장. 사람이 링크를 열었을 때 어디를 보면 되는지 알려 주는 용도입니다.
   이용 조건 문장을 우선 인용하고, 글에 광고·협찬·원고료·체험단 표시가 있으면 그 문장도 evidence 에 넣으세요.
 - confidence: 0 에서 1 사이. 0.9 = 상호와 이용 조건이 본문에 명시 · 0.6 = 상호는 명시됐지만 조건은 추측이거나 없음 · 0.3 = 상호 자체가 불확실.
@@ -387,6 +411,14 @@ function normalizePlace(raw) {
     // 숙소가 아닌데 모델이 채웠으면 버린다 — apply 도 stay 에만 싣지만, 후보 JSON 에 엉뚱한 값이 남아 사람을 헷갈리게 하지 않게.
     stayPriceText: type === 'stay' ? emptyToNull(raw.stayPriceText) : null,
     stayAmenitiesText: type === 'stay' ? emptyToNull(raw.stayAmenitiesText) : null,
+    // 원문(근거 인용 · 소개 · 용품 · 조건)에 근거 단어가 없는 true 는 뺀다 — 필터에 엉뚱한 숙소가 뜨지 않게(10 F6).
+    stayEnvironment:
+      type === 'stay'
+        ? correctStayEnvironment(
+            raw.stayEnvironment,
+            [raw.evidence, raw.features, raw.stayAmenitiesText, raw.petPolicyText].flat().filter((v) => typeof v === 'string').join('\n'),
+          )
+        : null,
     isJeju: raw.isJeju === true,
     // 스키마 밖 응답(가짜·옛 결과)이면 방문으로 본다 — "목록 글" 표식은 모델이 확실히 false 라고 했을 때만.
     visited: raw.visited !== false,

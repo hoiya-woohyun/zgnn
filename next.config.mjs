@@ -1,9 +1,25 @@
+import { execSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import withSerwistInit from '@serwist/next';
 
 const ROOT = import.meta.dirname;
+
+/*
+ * 배포 식별자(커밋 앞 7자). 사용자 제보가 "어느 데이터를 보고 한 말인가" 를 이것으로 싣는다(ADR-021 · docs/todo/10 T1.5).
+ * Vercel 은 `VERCEL_GIT_COMMIT_SHA` 를 주고, 로컬은 git 에게 묻고, 둘 다 없으면 'dev'. 공개값이다 — 커밋 해시는 시크릿이 아니고
+ * `check-bundle` 의 패턴(키 접두·JWT·남의 supabase 호스트) 어디에도 걸리지 않는다.
+ */
+const appBuild = (() => {
+  const fromVercel = process.env.VERCEL_GIT_COMMIT_SHA;
+  if (fromVercel) return fromVercel.slice(0, 7);
+  try {
+    return execSync('git rev-parse --short=7 HEAD', { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() || 'dev';
+  } catch {
+    return 'dev';
+  }
+})();
 
 /*
  * 프리캐시 항목의 revision.
@@ -30,6 +46,9 @@ revisionHash.update(readFileSync(path.join(ROOT, 'pnpm-lock.yaml')));
 // 이 파일도 넣는다. 프리캐시 목록과 빌드 설정이 여기 있어서, 라우트를 더하거나 설정만
 // 바꿔도 HTML 내용이 달라진다. src/ 만 보면 그때 revision 이 그대로다.
 revisionHash.update(readFileSync(path.join(ROOT, 'next.config.mjs')));
+// 배포 식별자도 넣는다 — 번들에 박히는 값이라, 문서만 바뀐 커밋에서도 JS 청크 이름이 바뀐다. 안 넣으면 revision 이
+// 그대로라 이미 방문한 사람의 프리캐시 HTML 이 사라진 청크를 가리킨다(위 잠금 파일과 같은 이유).
+revisionHash.update(appBuild);
 const revision = revisionHash.digest('hex').slice(0, 16);
 
 /*
@@ -113,6 +132,7 @@ const nextConfig = {
    */
   allowedDevOrigins: ['192.168.*.*', '10.*.*.*'],
   images: { unoptimized: true },
+  env: { NEXT_PUBLIC_APP_BUILD: appBuild },
   /*
    * `next dev` 가 프로젝트 루트에 AGENTS.md / CLAUDE.md 를 자동 생성하는 기능을 끈다.
    * 이 레포는 `.claude/` 와 사용자 전역 규칙을 이미 쓰고 있어서, Next 가 만든 파일이
