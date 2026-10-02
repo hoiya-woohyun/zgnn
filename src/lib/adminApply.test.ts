@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
-import { approveGroup, EDITED_NOTE, rejectGroup, saveEdit, setRegion } from './adminApply';
+import { approveGroup, confirmSite, EDITED_NOTE, rejectGroup, saveEdit, setRegion, SITE_CONFIRMED_NOTE } from './adminApply';
 import type { TCandidateExtracted, TCandidateGroup, TCandidateRow, TPlaceRow } from './adminCandidates';
 
 /*
@@ -113,6 +113,7 @@ const group = (rows: TCandidateRow[]): TCandidateGroup => ({
   rows,
   lead: rows[0],
   tier: rows[0].extracted.match?.tier ?? 'new',
+  kind: rows[0].extracted.match?.tier === 'auto' ? 'fill' : (rows[0].extracted.match?.tier ?? 'new'),
   visited: true,
   hasPolicyText: rows.some((row) => Boolean(row.extracted.petPolicyText)),
   confidence: 0.8,
@@ -552,6 +553,31 @@ describe('approveGroup — 묶음의 나머지 글', () => {
       kind: 'merged',
       patchKeys: ['address'],
     });
+  });
+});
+
+describe('confirmSite — 사이트가 맞아요(11 U8)', () => {
+  it('확인 날짜를 먼저 찍고, 후보를 사이트 확인으로 눕히고, 블랙리스트(place_blocks)는 건드리지 않는다', async () => {
+    const { calls, client } = createFakeClient();
+    const rows = [candidate({ id: 'cand-1' }), candidate({ id: 'cand-2', reviewer_note: '앞선 메모' })];
+    const out = await confirmSite(client, group(rows), { id: 'p1', verified_at: null }, '2026-10-02T00:00:00.000Z');
+    expect(out.verifiedAt).toBe('2026-10-02T00:00:00.000Z');
+    expect(trace(calls)).toEqual(['places.update:verified_at', 'candidates.update:rejected', 'candidates.update:rejected']);
+    expect(calls[0].filter).toEqual({ id: 'p1' });
+    expect(calls[1].payload.reviewer_note).toBe(SITE_CONFIRMED_NOTE);
+    expect(calls[2].payload.reviewer_note).toBe(`앞선 메모\n${SITE_CONFIRMED_NOTE}`);
+    expect(calls.some((call) => call.table === 'place_blocks')).toBe(false);
+  });
+
+  it('칸이 없는 원격이면 날짜 없이 후보만 눕힌다', async () => {
+    const { calls, client } = createFakeClient();
+    const out = await confirmSite(client, group([candidate()]), { id: 'p1' }, '2026-10-02T00:00:00.000Z');
+    expect(out.verifiedAt).toBeNull();
+    expect(trace(calls)).toEqual(['candidates.update:rejected']);
+  });
+
+  it('머리표는 반려 사유가 아니다 — 반려 집계(`[admin] 사유`)와 섞이지 않게', () => {
+    expect(SITE_CONFIRMED_NOTE).toBe('[admin] 사이트 확인');
   });
 });
 

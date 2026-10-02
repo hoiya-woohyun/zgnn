@@ -20,6 +20,11 @@ import type { TDirection, TPetPolicyFacts, TRegion, TStayEnvironment } from '../
 
 export type TCandidateType = 'stay' | 'restaurant' | 'cafe' | 'other';
 export type TCandidateTier = 'auto' | 'ask' | 'new';
+/**
+ * 종류(docs/todo/11 U2) — 승인하면 무슨 일이 일어나나. `tier`(짝이 맞나)와 다른 축이다.
+ * 분석이 `extracted.match.kind` 로 싣고(`kindOf`, analyzeCandidates.mjs), 묶음은 `groupCandidates` 가 정한다(갱신이 하나라도 있으면 갱신).
+ */
+export type TCandidateKind = 'new' | 'fill' | 'update' | 'ask';
 export type TCandidateStatus = 'pending' | 'approved' | 'rejected' | 'merged';
 export type TPlaceStatus = 'draft' | 'published' | 'archived';
 
@@ -72,7 +77,11 @@ export type TCandidateExtracted = {
   /** 공식 홈페이지 카드(`scripts/analyze/homepageCard.mjs`). null 은 "없음 또는 안 읽음". 사진은 URL 뿐이다(ADR-002 v2). */
   homepage?: { url: string; siteName: string | null; image: string | null } | null;
   category?: string | null;
-  match?: { confidence: number; reason: string; tier: TCandidateTier };
+  /**
+   * `kind`·`changes` 는 차이 게이트(11 T1.1) 뒤의 후보에만 있다. `changes` 는 갱신이 된 칸(덮어쓰기 칸 이름 —
+   * `pet_policy_text`·`stay_price_text`·`stay_environment`).
+   */
+  match?: { confidence: number; reason: string; tier: TCandidateTier; kind?: TCandidateKind; changes?: string[] };
   /**
    * 교차점검 판단(`scripts/analyze/verifyPlaces.mjs`). **`null`·`undefined` 는 "점검하지 않았다" 다** —
    * 조건 문장이 있었거나, 그 패스가 꺼졌거나(`--no-verify`) 실패했거나, 이 패스가 생기기 전의 후보다.
@@ -143,6 +152,7 @@ export type TCandidateGroup = {
   rows: TCandidateRow[];
   lead: TCandidateRow;
   tier: TCandidateTier;
+  kind: TCandidateKind;
   visited: boolean;
   hasPolicyText: boolean;
   confidence: number;
@@ -317,12 +327,33 @@ export const TIER_LABEL: Record<TCandidateTier, string> = {
 };
 
 /**
+ * 종류 표기(11 U2) — `TIER_LABEL` 과 같은 두 자. 칩은 짝이 `기존` 인 묶음에만 선다(신규·확인은 `TIER_LABEL` 이 이미 그 말이다).
+ * 걸러 보기(adminPage.tsx)도 이것을 읽는다.
+ */
+export const KIND_LABEL: Record<TCandidateKind, string> = {
+  /** 이미 찬 칸과 다른 사실을 말한다 — 덮어쓰기(칸 고르기). */
+  update: '갱신',
+  /** 빈 칸만 채운다 — 합치기. */
+  fill: '보강',
+  new: '신규',
+  ask: '확인',
+};
+
+/**
  * 반려 사유 칩. 자유 입력만 두면 매번 다른 말이 적혀 나중에 "왜 반려했나" 를 셀 수 없다.
  * 목록은 첫 160건에서 실제로 나온 갈래다(목록글 101 · 홍보 13, docs/todo/README).
  */
 export const REJECT_REASONS = ['목록글', '홍보·협찬', '폐업', '제주 아님', '중복', '동반 불가', '정보 부족'] as const;
 
-export type TRejectReason = (typeof REJECT_REASONS)[number];
+/**
+ * 갱신 묶음의 반려 사유(11 U8 · §4-4 ⑤). 신규용 칩과 뜻이 달라 따로 둔다 — 갱신에서 `중복` 을 고르면 "이미 있는 곳" 이라는 당연한 말이 되고,
+ * `폐업`·`동반 불가` 는 반려가 아니라 **사이트를 바꿀 입구**다(그 글이 맞다면 덮어쓰기·등록 해제로 간다). "사이트가 맞아요" 는 칩이 아니라
+ * 결정 줄의 버튼이다(`confirmSite` — 확인 날짜를 찍는다). "다른 가게예요" 도 칩이 아니다 — 짝이 틀린 것이라 글은 새 장소 후보이고,
+ * 결정 줄의 `짝이 틀렸어요 — 새 장소로` 가 그 길이다(반려하면 그 글이 사라진다).
+ */
+export const UPDATE_REJECT_REASONS = ['글이 더 오래됨', '홍보·협찬', '정보 부족'] as const;
+
+export type TRejectReason = (typeof REJECT_REASONS)[number] | (typeof UPDATE_REJECT_REASONS)[number];
 
 /** 칩의 뜻 한 줄(화면 전용). 값(`REJECT_REASONS`)은 `reviewer_note` 에 적히므로 못 바꾼다 — 뜻만 화면에서 말한다. */
 export const REJECT_REASON_HINT: Record<TRejectReason, string> = {
@@ -333,6 +364,7 @@ export const REJECT_REASON_HINT: Record<TRejectReason, string> = {
   중복: '이미 올린 장소와 같은 가게예요',
   '동반 불가': '강아지를 데려갈 수 없는 가게예요',
   '정보 부족': '동반 조건을 알 만한 내용이 없어요',
+  '글이 더 오래됨': '사이트 값이 더 최근 정보예요 — 이 글은 옛 사실을 말해요',
 };
 
 /** `factsLine` 이 "판단은 있는데 조각이 0개" 를 말하는 센티넬. 화면이 이 리터럴을 인라인하지 않게 이름을 준다. */
@@ -362,4 +394,15 @@ export function factsLine(facts: TPetPolicyFacts | null): string | null {
   if (facts.vaccineRequired) parts.push('예방접종 필수');
   if (facts.notes) parts.push(facts.notes);
   return parts.length ? parts.join(' · ') : FACTS_EMPTY;
+}
+
+/** 장소 id → 검수 대기의 갱신 묶음 수(11 T3.2) — 등록 완료 줄이 `검수 대기에 갱신 N` 을 단다. 순수. */
+export function updateGroupsByPlace(groups: readonly Pick<TCandidateGroup, 'kind' | 'lead'>[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const group of groups) {
+    const placeId = group.lead.match_place_id;
+    if (group.kind !== 'update' || !placeId) continue;
+    out[placeId] = (out[placeId] ?? 0) + 1;
+  }
+  return out;
 }

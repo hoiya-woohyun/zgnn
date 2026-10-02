@@ -12,6 +12,7 @@ import {
   suggestionSearchName,
   visitedTallyByPlace,
 } from './adminReports';
+import { policyReportCounts } from './adminReports';
 
 const report = (patch: Partial<TReportRow> = {}): TReportRow => ({
   id: 'r1',
@@ -136,5 +137,12 @@ describe('suggestionSearchName', () => {
     expect(suggestionSearchName('돌하르방 식당 - 한림')).toBe('돌하르방 식당');
     expect(suggestionSearchName('  숨도  ')).toBe('숨도');
     expect(suggestionSearchName(null)).toBe('');
+  });
+});
+
+describe('policyReportCounts — 조건이 달라요 제보만 센다(11 T3.2)', () => {
+  it('policy 만, 0 인 장소는 빠진다', () => {
+    const r = (kind: string) => ({ kind }) as never;
+    expect(policyReportCounts({ p1: [r('policy'), r('closed'), r('policy')], p2: [r('address')] })).toEqual({ p1: 2 });
   });
 });

@@ -14,7 +14,7 @@ import {
   placeGaps,
   sortManagedPlaces,
 } from './adminPlaces';
-import { hasVerifiedColumn, markPlaceVerified } from './adminPlaces';
+import { hasVerifiedColumn, markPlaceVerified, seedVerifyTargets } from './adminPlaces';
 import type { TPlaceRow } from './adminCandidates';
 
 const place = (patch: Partial<TPlaceRow> = {}): TPlaceRow => ({
@@ -294,5 +294,14 @@ describe('markPlaceVerified · 확인 날짜', () => {
     expect(await markPlaceVerified(client, { id: 'p1', verified_at: null }, '2026-10-01T00:00:00.000Z')).toBe('2026-10-01T00:00:00.000Z');
     expect(writes).toEqual([{ verified_at: '2026-10-01T00:00:00.000Z' }]);
     expect(hasVerifiedColumn([{ id: 'a' }, { id: 'b', verified_at: null }])).toBe(true);
+  });
+});
+
+describe('seedVerifyTargets — 시드 확인 날짜(11 H.6)', () => {
+  it('notion 이고 칸이 있고 비어 있는 행만', () => {
+    const row = (id: string, over: Record<string, unknown>) => ({ id, source: 'notion', verified_at: null, ...over }) as unknown as TPlaceRow;
+    const noColumn = { id: 'x', source: 'notion' } as unknown as TPlaceRow;
+    const out = seedVerifyTargets([row('a', {}), row('b', { source: 'blog' }), row('c', { verified_at: '2026-10-01' }), noColumn]);
+    expect(out.map((place) => place.id)).toEqual(['a']);
   });
 });

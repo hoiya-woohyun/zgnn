@@ -65,6 +65,8 @@ type TAdminPagePlaceRowProps = {
   onSetBlock: (choice: TBlockChoice) => void;
   /** 이 장소에 열린 사용자 제보(처리할 것만). 없거나 표가 없으면 빈 배열. */
   reports: TReportRow[];
+  /** 검수 대기에 이 장소의 갱신 묶음이 몇 개 있나(11 T3.2) — 제보와 같은 가게의 또 하나의 신호. */
+  pendingUpdates?: number;
   onHandleReports: (ids: string[], status: 'handled' | 'dismissed', note: string) => void;
   /** 폐업 제보에서 등록 해제 폼을 `폐업` 으로 연다. */
   onArchiveFromReport: () => void;
@@ -110,6 +112,7 @@ export function AdminPagePlaceRow({
   onCancelBlock,
   onSetBlock,
   reports,
+  pendingUpdates = 0,
   onHandleReports,
   onArchiveFromReport,
   visited,
@@ -184,6 +187,8 @@ export function AdminPagePlaceRow({
               제보 {reports.length}
             </Badge>
           )}
+          {/* 같은 가게를 바꾸자는 블로그 글이 검수 대기에 있다 — 제보(사용자)와 갱신(글)이 서로 보이게(11 T3.2). */}
+          {pendingUpdates > 0 && <span className="text-xs text-tertiary">검수 대기에 갱신 {pendingUpdates}</span>}
           {visited && visited.ids.length > 0 && (
             <Badge type="color" size="sm" color="success">
               다녀왔어요 {visited.ids.length}

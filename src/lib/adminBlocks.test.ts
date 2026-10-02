@@ -50,6 +50,7 @@ const group = (rows: TCandidateRow[]): TCandidateGroup => ({
   rows,
   lead: rows[0],
   tier: 'new',
+  kind: 'new',
   visited: true,
   hasPolicyText: false,
   confidence: 0.8,

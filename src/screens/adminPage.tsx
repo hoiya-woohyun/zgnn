@@ -7,7 +7,7 @@ import { Button } from '../components/base/button';
 import { Select } from '../components/base/select';
 import { EmptyState } from '../components/layout/emptyState';
 import { PageHeader } from '../components/layout/pageHeader';
-import { approveGroup, saveEdit, setRegion } from '../lib/adminApply';
+import { approveGroup, confirmSite, saveEdit, setRegion } from '../lib/adminApply';
 import {
   archiveAndBlock,
   archiveOutcomeText,
@@ -31,7 +31,9 @@ import {
   fetchPendingCandidates,
   flagsFor,
   groupPending,
+  updateGroupsByPlace,
   previewFor,
+  KIND_LABEL,
   TIER_LABEL,
   TYPE_LABEL,
   type TCandidateGroup,
@@ -42,17 +44,21 @@ import {
 import {
   fetchManagedPlaces,
   markPlaceVerified,
+  SEED_VERIFIED_AT,
+  seedVerifyTargets,
   sortManagedPlaces,
+  stampSeedVerified,
   type TArchiveReason,
   type TPlaceAddressPatch,
   updatePlaceAddress,
 } from '../lib/adminPlaces';
-import { countPosts, type TPostCounts } from '../lib/adminPosts';
+import { countPosts, fetchSiblings, reopenPlan, type TPostCounts, type TReopenPlan } from '../lib/adminPosts';
 import {
   closeReportsForArchived,
   fetchReports,
   mergeReportRows,
   openReportsByPlace,
+  policyReportCounts,
   openSuggestions,
   reportHeadline,
   setReportStatus,
@@ -87,6 +93,7 @@ import {
   writeAdminUrl,
   type TAdminTab,
   type TPolicyFilter,
+  type TKindFilter,
   type TTierFilter,
   type TTypeFilter,
   type TWarnFilter,
@@ -222,6 +229,20 @@ const TIER_FILTERS: { key: TTierFilter; label: string; hint?: string; match: (gr
 ];
 
 /**
+ * 할 일 축(11 U2) — 승인하면 무슨 일이 일어나나. 짝(tier)과 다른 축이라 따로 고른다: `기존` 묶음 안에서 `갱신`(사이트와 다른 사실)과
+ * `보강`(빈 칸만)이 갈린다. 묶음의 값은 `groupCandidates` 가 정한다(갱신 한 줄이면 갱신).
+ */
+const KIND_FILTERS: { key: TKindFilter; label: string; hint?: string }[] = [
+  { key: 'all', label: '전체' },
+  { key: 'update', label: KIND_LABEL.update, hint: '올린 장소와 다른 사실을 말하는 글 — 덮어쓸 칸을 고른다' },
+  { key: 'fill', label: KIND_LABEL.fill, hint: '올린 장소의 빈 칸만 채우는 글 — 합치기' },
+  { key: 'new', label: KIND_LABEL.new, hint: '처음 보는 곳' },
+  { key: 'ask', label: KIND_LABEL.ask, hint: '같은 곳인지 봐야 하는 곳' },
+];
+
+const kindMatches = (filter: TKindFilter, group: TCandidateGroup): boolean => filter === 'all' || group.kind === filter;
+
+/**
  * 종류 축. tier·동반 정보와 **겹치지 않는 세 번째 축**이다 — 종류로 좁힌 뒤 tier 로 다시 좁히는 것이
  * 실제 검수 순서다("카페부터 훑고, 그중 처음 보는 곳만").
  *
@@ -271,6 +292,7 @@ export function AdminPage() {
   const [states, setStates] = useState<Record<string, TAdminPageGroupState>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
   const [tierFilter, setTierFilter] = useState<TTierFilter>(initialUrl.tier);
+  const [kindFilter, setKindFilter] = useState<TKindFilter>(initialUrl.kind);
   const [policyFilter, setPolicyFilter] = useState<TPolicyFilter>(initialUrl.policy);
   const [typeFilter, setTypeFilter] = useState<TTypeFilter>(initialUrl.type);
   const [warnFilter, setWarnFilter] = useState<TWarnFilter>(initialUrl.warn);
@@ -311,6 +333,9 @@ export function AdminPage() {
     () => (reports?.kind === 'ok' ? openReportsByPlace(reports.rows) : NO_REPORTS_BY_PLACE),
     [reports],
   );
+  /** 같은 가게의 두 신호(사용자 제보 · 블로그 갱신)가 서로 보이게(11 T3.2). */
+  const policyReportsByPlace = useMemo(() => policyReportCounts(reportsByPlace), [reportsByPlace]);
+  const updatesByPlace = useMemo(() => updateGroupsByPlace(groups), [groups]);
   const visitedByPlace = useMemo(
     () =>
       reports?.kind === 'ok'
@@ -568,6 +593,59 @@ export function AdminPage() {
   }, [refreshRebuild]);
 
   /**
+   * 쓰기 잠금을 잡고 `run` 을 돈다 — 잠금을 못 잡으면 그 이유로 던진다(수집 칸의 준비 버튼은 결과를 자기 줄에 그린다).
+   */
+  const withWrite = useCallback(
+    async <T,>(run: (client: SupabaseClient) => Promise<T>): Promise<T> => {
+      const client = clientRef.current;
+      if (!client) throw new Error('로그인이 필요해요.');
+      let refused = '';
+      if (!beginWrite((message) => (refused = message))) throw new Error(refused || '로그인이 만료됐어요.');
+      try {
+        return await run(client);
+      } finally {
+        endWrite();
+      }
+    },
+    [beginWrite, endWrite],
+  );
+
+  /** ① 시드 확인 날짜(11 H.6) — 찍은 행을 등록 완료 목록과 대조 장부에 같이 적는다. */
+  const seedVerify = useCallback(
+    () =>
+      withWrite(async (client) => {
+        const stamped = new Set(await stampSeedVerified(client, seedVerifyTargets(managed ?? []).map((place) => place.id)));
+        const stamp = (row: TPlaceRow) => (stamped.has(row.id) ? { ...row, verified_at: SEED_VERIFIED_AT } : row);
+        placesRef.current = placesRef.current.map(stamp);
+        setManaged((prev) => (prev ? prev.map(stamp) : prev));
+        afterWrite();
+        return `시드 ${stamped.size}곳에 확인 날짜를 찍었어요 · 사이트에는 다음 빌드에서 보여요`;
+      }),
+    [afterWrite, managed, withWrite],
+  );
+
+  /** ② 다시 열 계획 — 읽기만 한다(잠금 없이). */
+  const planReopen = useCallback(async (): Promise<TReopenPlan> => {
+    const client = clientRef.current;
+    if (!client) throw new Error('로그인이 필요해요.');
+    const posts = postCounts?.existing?.alreadyHavePosts ?? [];
+    return reopenPlan(posts, await fetchSiblings(client, posts));
+  }, [postCounts]);
+
+  /** ② 되돌리기 — 후보 먼저, 글 나중(`prepareReanalyze`). 눕힌 후보는 검수 대기에서 빠지므로 목록과 건수를 다시 읽는다. */
+  const runReopen = useCallback(
+    (plan: TReopenPlan) =>
+      withWrite(async (client) => {
+        await prepareReanalyze(client, plan);
+        const laid = new Set(plan.lay.map((row) => row.id));
+        setGroups((prev) => groupPending(prev.flatMap((group) => group.rows).filter((row) => !laid.has(row.id))));
+        void loadCounts(client);
+        return `글 ${plan.posts.length}건을 수집 완료로 되돌렸어요 · 터미널에서 pnpm data:analyze --limit 30 을 돌리면 다시 읽어요`;
+      }),
+    [loadCounts, withWrite],
+  );
+
+  /**
    * 장소 쓰기를 대조 장부(`placesRef`)에도 반영한다.
    *
    * 없으면 이런 일이 난다 — 방금 내린 장소가 장부에는 `published` 로 남아, 같은 세션에서 그 가게의 후보를
@@ -784,6 +862,7 @@ export function AdminPage() {
           restoreArchived: choice?.restoreArchived,
           confirmedDifferent: choice?.confirmedDifferent,
           overwrite: choice?.overwrite,
+          overwriteColumns: choice?.overwriteColumns,
         });
         if (outcome.kind === 'blocked') {
           patchState(group.key, { busy: undefined, error: outcome.reason });
@@ -839,6 +918,38 @@ export function AdminPage() {
         } catch {
           // 세지 못하면 그냥 둔다. 카드의 빨간 줄이 이미 이 실패를 말하고 있다.
         }
+      } finally {
+        endWrite();
+      }
+    },
+    [afterWrite, beginWrite, endWrite, patchState, removeLater],
+  );
+
+  /**
+   * 갱신 묶음의 **사이트가 맞아요**(11 U8) — 확인 날짜를 찍고 후보를 눕힌다(`confirmSite`). 블랙리스트는 건드리지 않는다.
+   * 짝 행은 대조 장부(`placesRef`)에서 찾는다 — 찍은 날짜를 그 행에도 적어 두어야 다음 확인 표시가 새로고침 없이 맞는다.
+   */
+  const confirmSiteFor = useCallback(
+    async (group: TCandidateGroup) => {
+      const client = clientRef.current;
+      const place = placesRef.current.find((row) => row.id === group.lead.match_place_id);
+      if (!client || !place) return;
+      if (!beginWrite((message) => patchState(group.key, { error: message }))) return;
+      patchState(group.key, { busy: 'confirming', error: undefined });
+      try {
+        const { verifiedAt } = await confirmSite(client, group, place, new Date().toISOString());
+        if (verifiedAt) place.verified_at = verifiedAt;
+        patchState(group.key, {
+          busy: undefined,
+          done: verifiedAt
+            ? `${place.name} 은 사이트가 맞다고 확인했어요 · 확인 날짜를 찍었어요(블랙리스트는 그대로)`
+            : `${place.name} 은 사이트가 맞다고 표시했어요 · 확인 날짜 칸이 없어 날짜는 못 찍었어요`,
+        });
+        removeLater(group.key);
+        setPlacesView([...placesRef.current]);
+        afterWrite();
+      } catch (error) {
+        patchState(group.key, { busy: undefined, error: messageOf(error, '확인을 남기지 못했어요.') });
       } finally {
         endWrite();
       }
@@ -982,7 +1093,7 @@ export function AdminPage() {
       const chosen = groups.filter((group) => wanted.has(group.key));
       const jobs =
         kind === 'latest'
-          ? bulkLatestTargets(chosen, placesRef.current).eligible.map((entry) => ({ group: entry.group, choice: { mergeInto: entry.pairId, overwrite: true } }))
+          ? bulkLatestTargets(chosen, placesRef.current).eligible.map((entry) => ({ group: entry.group, choice: { mergeInto: entry.pairId, overwrite: true, overwriteColumns: entry.columns } }))
           : chosen.map((group) => ({ group, choice: {} }));
       setBulk({ busy: true, mode: kind });
       const done = new Set<string>();
@@ -1176,9 +1287,10 @@ export function AdminPage() {
    * 조건 토글을 켠 채 tier 칩을 보던 시절에 실제로 난 일이다. 축을 하나 더할 때 이 표에 한 줄만 더하면 되게 묶었다.
    */
   type TCard = (typeof cards)[number];
-  type TAxis = 'tier' | 'type' | 'policy' | 'warn';
+  type TAxis = 'tier' | 'kind' | 'type' | 'policy' | 'warn';
   const AXES: Record<TAxis, (card: TCard) => boolean> = {
     tier: (card) => activeTier.match(card.group),
+    kind: (card) => kindMatches(kindFilter, card.group),
     type: (card) => typeMatches(typeFilter, card.group),
     policy: (card) => policyFilter === 'all' || POLICY_FILTER_MATCH[policyFilter](card),
     warn: (card) => warnMatches(warnFilter, card),
@@ -1188,10 +1300,11 @@ export function AdminPage() {
     cards.filter((card) => (Object.keys(AXES) as TAxis[]).every((axis) => axis === except || AXES[axis](card)));
   const filtered = without('warn').filter(AXES.warn);
   const baseTier = without('tier');
+  const baseKind = without('kind');
   const baseType = without('type');
   const basePolicy = without('policy');
   const baseWarn = without('warn');
-  const filtersOn = tierFilter !== 'all' || typeFilter !== 'all' || policyFilter !== 'all' || warnFilter !== 'all';
+  const filtersOn = tierFilter !== 'all' || kindFilter !== 'all' || typeFilter !== 'all' || policyFilter !== 'all' || warnFilter !== 'all';
 
   // 걸러 보기를 바꾸면 '더 보기' 도 처음으로 — 효과가 아니라 여기서 함께 바꾼다(같은 사건의 두 결과다).
   const pickTier = (next: TTierFilter) => {
@@ -1203,8 +1316,13 @@ export function AdminPage() {
     setPolicyFilter(next);
     setShown(PAGE_SIZE);
   };
+  const pickKind = (next: TKindFilter) => {
+    setKindFilter(next);
+    setShown(PAGE_SIZE);
+  };
   const resetFilters = () => {
     setTierFilter('all');
+    setKindFilter('all');
     setTypeFilter('all');
     setPolicyFilter('all');
     setWarnFilter('all');
@@ -1227,10 +1345,10 @@ export function AdminPage() {
    * 첫 렌더의 값은 방금 주소에서 읽은 것이라 같은 문자열을 다시 쓸 뿐이다(바뀐 것이 없으면 아무것도 안 한다).
    */
   useEffect(() => {
-    const search = writeAdminUrl(window.location.search, { tab, tier: tierFilter, policy: policyFilter, type: typeFilter, warn: warnFilter });
+    const search = writeAdminUrl(window.location.search, { tab, tier: tierFilter, kind: kindFilter, policy: policyFilter, type: typeFilter, warn: warnFilter });
     const next = `${window.location.pathname}${search ? `?${search}` : ''}${window.location.hash}`;
     if (next !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.replaceState(window.history.state, '', next);
-  }, [policyFilter, tab, tierFilter, typeFilter, warnFilter]);
+  }, [kindFilter, policyFilter, tab, tierFilter, typeFilter, warnFilter]);
 
   /**
    * 걸러 보기에 걸린 묶음들. 무한 스크롤로 **아직 안 그린 것까지** 포함한다 — '전부 고르기' 가 고르는 범위다.
@@ -1458,7 +1576,14 @@ export function AdminPage() {
         * 고른 것(`selected`)은 지금 검수 대기만 쓴다 — 다른 칸이 일괄을 갖게 되면(T3.2·T5.2) 칸마다 따로 둔다(키 공간이 다르다).
         */}
       <div hidden={tab !== 'posts'}>
-        <AdminPagePostsPanel counts={postCounts} error={postError} />
+        <AdminPagePostsPanel
+          counts={postCounts}
+          error={postError}
+          seedTargets={managed ? seedVerifyTargets(managed).length : null}
+          onSeedVerify={seedVerify}
+          onPlanReopen={planReopen}
+          onReopen={runReopen}
+        />
         <AdminPageSuggestions suggestions={suggestions} busyId={suggestionBusy} onClose={(row, status) => void closeSuggestion(row, status)} />
         {suggestionError ? <p className="mt-2 px-4 text-xs text-error-primary md:px-6">{suggestionError}</p> : null}
       </div>
@@ -1477,6 +1602,7 @@ export function AdminPage() {
             blocks={placeBlocks}
             onSetBlock={(place, choice) => void changePlaceBlock(place, choice)}
             reports={reportsByPlace}
+            updates={updatesByPlace}
             onHandleReports={(place, ids, status, note) => void handleReports(place, ids, status, note)}
             visited={visitedByPlace}
             onApplyVisited={(place, ids) => void applyVisited(place, ids)}
@@ -1497,6 +1623,7 @@ export function AdminPage() {
             blocks={placeBlocks}
             onSetBlock={(place, choice) => void changePlaceBlock(place, choice)}
             reports={reportsByPlace}
+            updates={updatesByPlace}
             onHandleReports={(place, ids, status, note) => void handleReports(place, ids, status, note)}
             visited={visitedByPlace}
             onApplyVisited={(place, ids) => void applyVisited(place, ids)}
@@ -1536,6 +1663,19 @@ export function AdminPage() {
             {TIER_FILTERS.map((entry) => (
               <Select.Item key={entry.key} id={entry.key} supportingText={entry.hint}>
                 {`${entry.label} ${baseTier.filter((card) => entry.match(card.group)).length}`}
+              </Select.Item>
+            ))}
+          </Select>
+          <Select
+            label="할 일"
+            size="sm"
+            className="w-56"
+            selectedKey={kindFilter}
+            onSelectionChange={(key) => key && pickKind(key as TKindFilter)}
+          >
+            {KIND_FILTERS.map((entry) => (
+              <Select.Item key={entry.key} id={entry.key} supportingText={entry.hint}>
+                {`${entry.label} ${baseKind.filter((card) => kindMatches(entry.key, card.group)).length}`}
               </Select.Item>
             ))}
           </Select>
@@ -1663,7 +1803,10 @@ export function AdminPage() {
                   onStartReject={() => patchState(group.key, { rejecting: true, error: undefined })}
                   onCancelReject={() => patchState(group.key, { rejecting: false })}
                   onReject={(reason, note, block) => void reject(group, reason, note, block)}
+                  onConfirmSite={() => void confirmSiteFor(group)}
+                  policyReports={group.lead.match_place_id ? (policyReportsByPlace[group.lead.match_place_id] ?? 0) : 0}
                   onPickRegion={(regionRaw) => patchState(group.key, { regionDraft: regionRaw })}
+                  onPickOverwrite={(picked) => patchState(group.key, { overwritePick: picked })}
                   onSaveRegion={(regionRaw) => void saveRegion(group, regionRaw)}
                   onEditDraft={(editDraft) => patchState(group.key, { editDraft })}
                   onSaveEdit={(editDraft) => void saveEditFor(group, editDraft)}

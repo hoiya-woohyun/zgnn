@@ -9,6 +9,19 @@ import { normalizeName } from './matchPlace.mjs';
 
 const TIER_ORDER = { auto: 0, ask: 1, new: 2 };
 export const TIER_LABEL = { auto: '일치', ask: '확인요청', new: '신규' };
+/** 종류(docs/todo/11 U2) — 승인하면 무슨 일이 일어나나. 터미널 말. 화면 말은 `KIND_LABEL`(src/lib/adminCandidates.ts). */
+export const KIND_LABEL = { update: '갱신', fill: '보강', new: '신규', ask: '확인' };
+
+/**
+ * 후보 한 줄의 종류. 분석이 `extracted.match.kind` 를 싣기 전(11 T1.1)의 후보는 칸이 없다 — 그때는 짝의 확신으로 정한다
+ * (auto 는 '보강' — 옛 '기존' 의 뜻이 빈 칸 채우기였다). 칸이 있어도 tier 와 어긋나면(사람이 짝을 바꾼 뒤 등) tier 를 믿는다.
+ */
+export function kindOfRow(row) {
+  const match = row?.extracted?.match;
+  const tier = match?.tier ?? 'new';
+  if (tier !== 'auto') return tier;
+  return match?.kind === 'update' ? 'update' : 'fill';
+}
 const TYPE_LABEL = { stay: '숙소', restaurant: '식당', cafe: '카페', other: '기타' };
 
 /** 묶는 키. 옛 후보(nameKey 없음)는 이름으로 계산한다. */
@@ -16,6 +29,7 @@ export const nameKeyOf = (extracted) => extracted?.nameKey ?? normalizeName(extr
 
 /**
  * 🙋 검수 순서 — 여기는 사용자가 다듬을 자리다. 무엇을 먼저 볼지는 도메인 판단이고 코드가 정할 수 없다. 지금 기본(작을수록 먼저):
+ *   0) 종류가 갱신(사이트와 다른 사실을 말하는 글)인 묶음 — 사이트가 틀려 있을 수 있다
  *   1) 구간: 일치(auto) → 확인요청(ask) → 신규(new)   — 기존 장소에 붙는 것이 빠르고 안전하다
  *   2) 직접 방문한 글(visited)이 목록·추천 글보다 먼저   — 목록 글은 이름·주소뿐이라 조건 확인이 안 된다(첫 분석: 한 글이 101건)
  *   3) 이용 조건 문장이 있는 것이 먼저                    — 없는 후보는 승인해도 앱이 '정보 없음' 으로만 보여 준다
@@ -25,6 +39,8 @@ export const nameKeyOf = (extracted) => extracted?.nameKey ?? normalizeName(extr
  */
 export function reviewPriority(group) {
   return [
+    // 0) 갱신이 맨 앞 — 사이트가 틀려 있을 수 있는 시간이 곧 비용이다(11 T1.2). 옛 묶음(kind 없음)은 갱신이 아니다.
+    group.kind === 'update' ? 0 : 1,
     TIER_ORDER[group.tier] ?? 9,
     group.visited ? 0 : 1,
     group.hasPolicyText ? 0 : 1,
@@ -43,6 +59,8 @@ export function compareGroups(a, b) {
 /**
  * pending 후보를 같은 가게로 묶는다 — 기존 장소에 붙은 것은 match_place_id 로, 신규는 nameKey 로.
  * 묶음마다 대표(lead)는 AI confidence 가 가장 높은 후보. 묶음의 구간은 가장 강한 것(auto > ask > new).
+ * 묶음의 종류(`kind`)는 **갱신이 하나라도 있으면 갱신**이다 — 다른 말을 하는 글이 하나라도 있으면 그 묶음은 "볼 일" 이다(11 U2).
+ * 아니면 묶음의 구간을 따른다(auto → 보강).
  */
 export function groupCandidates(rows) {
   const groups = new Map();
@@ -56,6 +74,7 @@ export function groupCandidates(rows) {
     g.rows.sort((a, b) => (b.extracted?.confidence ?? 0) - (a.extracted?.confidence ?? 0));
     g.lead = g.rows[0];
     g.tier = g.rows.map((r) => r.extracted?.match?.tier ?? 'new').sort((a, b) => (TIER_ORDER[a] ?? 9) - (TIER_ORDER[b] ?? 9))[0];
+    g.kind = g.rows.some((r) => kindOfRow(r) === 'update') ? 'update' : g.tier === 'auto' ? 'fill' : g.tier;
     g.visited = g.rows.some((r) => r.extracted?.visited !== false);
     g.hasPolicyText = g.rows.some((r) => Boolean(r.extracted?.petPolicyText));
     g.confidence = Math.max(...g.rows.map((r) => r.extracted?.confidence ?? 0));
@@ -138,7 +157,7 @@ export function formatGroup(group, preview, { verbose = false, matchedName = nul
   const e = group.lead.extracted ?? {};
   const head = [
     `■ ${e.name}`,
-    `[${TYPE_LABEL[e.type] ?? e.type} · ${TIER_LABEL[group.tier] ?? group.tier}${group.lead.match_confidence != null && group.tier !== 'new' ? ` ${Number(group.lead.match_confidence).toFixed(2)}` : ''}${matchedName ? ` → ${matchedName}` : ''} · AI ${group.confidence.toFixed(2)} · 글 ${group.posts.length}]`,
+    `[${TYPE_LABEL[e.type] ?? e.type} · ${TIER_LABEL[group.tier] ?? group.tier}${group.tier === 'auto' && group.kind ? `(${KIND_LABEL[group.kind]})` : ''}${group.lead.match_confidence != null && group.tier !== 'new' ? ` ${Number(group.lead.match_confidence).toFixed(2)}` : ''}${matchedName ? ` → ${matchedName}` : ''} · AI ${group.confidence.toFixed(2)} · 글 ${group.posts.length}]`,
     e.regionRaw ?? '지역?',
     e.geo ? `좌표 ${e.geoSource ?? 'local'}` : '',
     ...groupFlags(group).map((f) => `⚠ ${f}`),

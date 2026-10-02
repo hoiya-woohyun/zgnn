@@ -21,6 +21,16 @@ describe('bulkLatestTargets', () => {
   });
 });
 
+describe('bulkLatestTargets — 제안이 있으면 제안이 켠 칸만(11 U7)', () => {
+  it('제안 칸만 columns 로 싣고 칸 수도 그것으로 센다', () => {
+    const proposal = { summary: null, conflicts: [], at: '2026-10-02', fields: { category: { action: 'change', value: '애견카페', basedOn: ['u'], quote: 'q', why: null } } };
+    const g = { ...group('a', 'p1'), kind: 'update', rows: [{ extracted: { proposal } }] } as unknown as TCandidateGroup;
+    const plan = bulkLatestTargets([g], [place('p1', { category: '카페' })]);
+    expect(plan.eligible).toHaveLength(1);
+    expect(plan.eligible[0]).toMatchObject({ changes: 1, columns: ['category'] });
+  });
+});
+
 describe('summarizeBulk', () => {
   it('기다리는 것과 실패를 따로 말한다', () => {
     expect(summarizeBulk('올렸어요', { done: 3, waiting: 0, failed: 0 })).toBe('3곳 올렸어요');

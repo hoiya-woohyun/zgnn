@@ -30,6 +30,7 @@ import {
 import { addressConflictOf, type TAddressConflict } from './adminAddress';
 import type { TCandidateEdit } from './adminEdit';
 import { hasVerifiedColumn, markPlaceVerified, restorePlace } from './adminPlaces';
+import { liveProposal, withProposal } from './adminProposal';
 import { appendReviewerNote } from './adminSession';
 import type { TPlace } from '../types';
 
@@ -94,6 +95,11 @@ export type TApplyOptions = {
    * 대상이 있을 때만 뜻이 있다(신규 insert 는 어차피 전부 새 값이다).
    */
   overwrite?: boolean;
+  /**
+   * 덮어쓰기에서 사람이 고른 칸(11 U7, 화면 키 — 좌표는 `geo`). 짝 칸은 쓰기가 함께 넣는다(`expandOverwriteColumns`).
+   * 없으면 바뀌는 칸 전부(지금까지의 동작).
+   */
+  overwriteColumns?: string[];
   /**
    * 사람이 `주소 다름` 을 보고 "나갈 주소(네이버)가 맞다" 를 확인했다. 기본값 `false` 가 요점이다 — 한 줄 버튼이든 일괄이든
    * 확인 없이 오면 `addressConflict` 로 멈춘다(`confirmedDifferent` 와 같은 모양의 가드).
@@ -364,7 +370,9 @@ export async function approveGroup(
   const verifiedColumn = hasVerifiedColumn(places);
   try {
     if (target && opts.overwrite) {
-      const plan = overwriteWithLatest(target, lead.extracted) as { patch: Partial<TPlaceRow>; previous: Record<string, unknown> } | null;
+      // 제안이 있으면 '새 값' 은 제안 값이다(11 T2.2) — 화면의 전·후 목록과 같은 `withProposal` 을 지나야 본 것과 덮이는 것이 같다.
+      const latest = withProposal(lead.extracted, liveProposal(group.rows), target);
+      const plan = overwriteWithLatest(target, latest, opts.overwriteColumns ? { only: opts.overwriteColumns } : {}) as { patch: Partial<TPlaceRow>; previous: Record<string, unknown> } | null;
       if (plan) {
         const { error } = await client.from('places').update(plan.patch).eq('id', target.id);
         failIf('최신본으로 덮기', error);
@@ -458,6 +466,38 @@ export async function rejectGroup(
     failIf('후보 반려', error);
   }
   return line;
+}
+
+/**
+ * 갱신 묶음의 "사이트가 맞아요" 가 `reviewer_note` 에 적는 머리표(11 U8). 반려 사유가 아니다 — 반려 집계(`[admin] 사유`)와
+ * 섞이지 않게 사유 칩에 없는 문자열이다. 이미 적힌 행이 안 걸리므로 못 바꾼다(`EDITED_NOTE` 와 같은 성질).
+ */
+export const SITE_CONFIRMED_NOTE = '[admin] 사이트 확인';
+
+/**
+ * **사이트가 맞아요**(11 U8) — 운영자가 글들과 사이트를 대 보고 "지금 값이 맞다" 고 확인했다. 반려가 아니라 **확인**이다:
+ *  1. 장소에 확인 날짜를 찍는다(`markPlaceVerified`, ADR-021 R5) — 그 뒤 분석은 이 날짜보다 옛 글을 `stale` 로 걸러(`kindOf`)
+ *     같은 옛 사실을 쓴 글이 다시 올라오지 않는다. 이 날짜 **뒤의** 글이 또 다른 말을 하면 다시 올라온다 — 그것이 맞다.
+ *  2. 묶음의 후보를 전부 `rejected` + `SITE_CONFIRMED_NOTE` 로 눕힌다.
+ *  3. 블랙리스트는 **건드리지 않는다** — 틀린 것은 가게가 아니라 글이다.
+ * 날짜를 먼저 찍는다: 후보를 먼저 눕히고 날짜가 실패하면 확인한 사실이 어디에도 안 남는다(다음 실행이 같은 글을 또 올린다).
+ * 칸이 없는 원격(마이그레이션 `20261001140000` 전)에서는 날짜 없이 후보만 눕힌다 — `verifiedAt` 이 null 로 돌아온다.
+ */
+export async function confirmSite(
+  client: SupabaseClient,
+  group: TCandidateGroup,
+  place: Pick<TPlaceRow, 'id'> & Partial<TPlaceRow>,
+  nowIso: string,
+): Promise<{ verifiedAt: string | null }> {
+  const verifiedAt = await markPlaceVerified(client, place, nowIso);
+  for (const row of group.rows) {
+    const { error } = await client
+      .from('candidates')
+      .update({ status: 'rejected', reviewer_note: appendReviewerNote(row.reviewer_note, SITE_CONFIRMED_NOTE) })
+      .eq('id', row.id);
+    failIf('후보 눕히기', error);
+  }
+  return { verifiedAt };
 }
 
 /**

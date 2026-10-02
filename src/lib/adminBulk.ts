@@ -10,11 +10,14 @@
 import { addressUnresolved } from './adminAddress';
 import { regionUsable, type TCandidateGroup, type TPlaceRow } from './adminCandidates';
 import { latestPlan } from './adminLatest';
+import { liveProposal, proposalPick, withProposal } from './adminProposal';
 import { verifyNeedsLook } from './adminVerify';
 
 export type TBulkLatest = {
-  /** 덮을 수 있는 묶음과 짝 id · 바뀌는 칸 수. */
-  eligible: { group: TCandidateGroup; pairId: string; changes: number }[];
+  /**
+   * 덮을 수 있는 묶음과 짝 id · 바뀌는 칸 수. `columns` 는 덮을 칸 — 제안이 있으면 **제안이 켠 칸만**(11 U7), 없으면 undefined(전부).
+   */
+  eligible: { group: TCandidateGroup; pairId: string; changes: number; columns?: string[] }[];
   /** 짝이 없다 — 덮을 대상이 없다(새 장소 후보). */
   noPair: number;
   /** 짝이 내린 곳 — 되살릴지는 한 줄에서 사람이 정한다. */
@@ -36,8 +39,11 @@ export function bulkLatestTargets(groups: TCandidateGroup[], places: TPlaceRow[]
     if (!pairId || !place) out.noPair += 1;
     else if (place.status === 'archived') out.archived += 1;
     else {
-      const changes = latestPlan(place, group.lead.extracted).changes.length;
-      if (changes) out.eligible.push({ group, pairId, changes });
+      const proposal = liveProposal(group.rows ?? []);
+      const keys = latestPlan(place, withProposal(group.lead.extracted, proposal, place)).changes.map((change) => change.key);
+      const columns = proposalPick(keys, proposal, place) ?? undefined;
+      const changes = columns ? columns.length : keys.length;
+      if (changes) out.eligible.push({ group, pairId, changes, ...(columns ? { columns } : {}) });
       else out.same += 1;
     }
   }

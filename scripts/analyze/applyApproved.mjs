@@ -151,9 +151,14 @@ function stayEnvironmentOf(extracted) {
  * `previous` 는 덮기 전 값이다 — 빈 칸만 채운 합치기는 "그 칸을 비우면" 되돌려지지만 덮어쓴 칸은 그렇게 안 된다.
  * 호출자가 `extracted.applied.overwritten` 에 남긴다.
  *
+ * **칸 고르기**(docs/todo/11 U7) — `only` 를 주면 그 칸만 덮는다. 짝 칸은 하나만 골라도 **함께** 들어간다(`OVERWRITE_PAIRS` —
+ * 원문만 바꾸고 옛 판단을 두면 판단이 다른 원문의 것이 된다). `only` 의 이름은 patch 칸 이름이고 좌표는 `geo`(또는 lat·lng)로 부른다.
+ * `only: []` 는 "아무 칸도 안 골랐다" 라 null 이다. 규칙(무엇이 다른 칸인가)은 그대로이고 거르기만 더한다.
+ *
+ * @param {{ only?: string[] }} [opts]
  * @returns {{ patch: object, previous: object } | null}  바꿀 칸이 없으면 null
  */
-export function overwriteWithLatest(existingRow, extracted) {
+export function overwriteWithLatest(existingRow, extracted, { only } = {}) {
   const patch = {};
   const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
   const put = (col, value) => {
@@ -207,9 +212,31 @@ export function overwriteWithLatest(existingRow, extracted) {
     }
   }
 
+  if (only) {
+    const keep = expandOverwriteColumns(only);
+    for (const col of Object.keys(patch)) if (!keep.has(col)) delete patch[col];
+  }
   const cols = Object.keys(patch);
   if (!cols.length) return null;
   return { patch, previous: Object.fromEntries(cols.map((col) => [col, existingRow[col] ?? null])) };
+}
+
+/**
+ * 함께 움직이는 칸들(`overwriteWithLatest` 가 짝으로 덮는 것과 같은 묶음). 하나를 고르면 묶음 전부가 들어간다.
+ * `geo` 는 화면이 좌표 한 줄(lat·lng)을 부르는 이름이다(`src/lib/adminLatest.ts`).
+ */
+export const OVERWRITE_PAIRS = [
+  ['pet_policy_text', 'pet_policy'],
+  ['geo', 'lat', 'lng'],
+  ['naver_place_id', 'naver_url'],
+  ['homepage_url', 'homepage_name', 'homepage_image'],
+];
+
+/** 고른 칸 → 짝까지 펼친 칸 집합. */
+export function expandOverwriteColumns(only) {
+  const keep = new Set(only);
+  for (const pair of OVERWRITE_PAIRS) if (pair.some((col) => keep.has(col))) for (const col of pair) keep.add(col);
+  return keep;
 }
 
 

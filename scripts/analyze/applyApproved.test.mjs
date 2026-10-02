@@ -360,6 +360,18 @@ describe('overwriteWithLatest — 최신본으로 저장하기 (사람이 전·�
     expect(out.patch.naver_url).toBe('https://m.place.naver.com/place/999/home');
     expect(out.patch.region_raw).toBeUndefined();
   });
+
+  /** 칸 고르기(11 U7) — 조건은 받고 소개는 두고 싶을 때. */
+  it('only 를 주면 그 칸만 — 원문만 골라도 판단이 함께 들어간다', () => {
+    const out = overwriteWithLatest(solsup, extracted, { only: ['pet_policy_text'] });
+    expect(out.patch).toEqual({ pet_policy_text: '소형견만 실내 가능, 대형견은 테라스', pet_policy: null });
+    expect(Object.keys(out.previous)).toEqual(['pet_policy_text', 'pet_policy']);
+  });
+  it('좌표는 geo 로 부르면 lat·lng 가 짝으로 · only: [] 는 null', () => {
+    expect(overwriteWithLatest(solsup, extracted, { only: ['geo'] }).patch).toEqual({ lat: 33.5111, lng: 126.8488 });
+    expect(overwriteWithLatest(solsup, extracted, { only: [] })).toBeNull();
+    expect(overwriteWithLatest(solsup, extracted, { only: ['category'] })).toBeNull();
+  });
 });
 
 describe('stay_environment — 숙소 환경(10 F6)', () => {

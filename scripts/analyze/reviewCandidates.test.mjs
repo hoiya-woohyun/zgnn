@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parsePetPolicy, toPetBadges, withPolicyFacts } from '../../src/lib/petPolicy';
-import { formatGroup, formatMarkdown, groupCandidates, groupFlags, parseReviewArgs, previewPolicy, resolveIds } from './reviewCandidates.mjs';
+import { formatGroup, formatMarkdown, groupCandidates, groupFlags, kindOfRow, parseReviewArgs, previewPolicy, resolveIds } from './reviewCandidates.mjs';
 
 const parsers = { parsePetPolicy, toPetBadges, withPolicyFacts };
 const row = (id, name, over = {}, top = {}) => ({
@@ -12,6 +12,30 @@ const row = (id, name, over = {}, top = {}) => ({
   reviewer_note: null,
   extracted: { name, type: 'cafe', regionRaw: '동쪽 (구좌읍)', geo: null, petPolicyText: null, petPolicy: null, evidence: ['인용문'], confidence: 0.6, visited: true, match: { tier: 'new', confidence: 0, reason: '없음' }, ...over },
   ...top,
+});
+
+describe('kindOfRow · 묶음의 종류 — 갱신이 하나라도 있으면 갱신(11 U2)', () => {
+  const auto = (kind) => ({ tier: 'auto', confidence: 0.9, reason: '', ...(kind ? { kind } : {}) });
+  it('옛 후보(match.kind 없음)는 tier 로 — auto 는 보강', () => {
+    expect(kindOfRow(row('o', 'x', { match: auto() }))).toBe('fill');
+    expect(kindOfRow(row('o', 'x'))).toBe('new');
+    expect(kindOfRow(row('o', 'x', { match: { tier: 'ask', confidence: 0.6, reason: '' } }))).toBe('ask');
+    expect(kindOfRow({ extracted: {} })).toBe('new');
+  });
+  it('묶음에 갱신 한 줄이 있으면 묶음이 갱신 · 갱신이 맨 앞에 선다', () => {
+    const rows = [
+      row('f1', '보강카페', { match: auto('fill') }, { match_place_id: 'p1' }),
+      row('u1', '갱신카페', { match: auto('fill') }, { match_place_id: 'p2' }),
+      row('u2', '갱신카페', { match: auto('update'), confidence: 0.1 }, { match_place_id: 'p2' }),
+      row('n1', '신규카페'),
+    ];
+    const groups = groupCandidates(rows);
+    expect(groups.map((g) => [g.lead.extracted.name, g.kind])).toEqual([
+      ['갱신카페', 'update'],
+      ['보강카페', 'fill'],
+      ['신규카페', 'new'],
+    ]);
+  });
 });
 
 describe('groupCandidates — 같은 가게 묶기와 검수 순서', () => {

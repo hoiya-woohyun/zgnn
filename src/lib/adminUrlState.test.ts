@@ -8,13 +8,13 @@ describe('parseAdminUrl', () => {
   });
 
   it('탭과 걸러 보기를 읽는다(앞의 ? 는 있어도 없어도)', () => {
-    const expected = { tab: 'archived', tier: 'ask', policy: 'needsLook', type: 'cafe', warn: 'noBasis' };
+    const expected = { tab: 'archived', tier: 'ask', kind: 'all', policy: 'needsLook', type: 'cafe', warn: 'noBasis' };
     expect(parseAdminUrl('?tab=archived&tier=ask&policy=needsLook&type=cafe&warn=noBasis')).toEqual(expected);
     expect(parseAdminUrl('tab=archived&tier=ask&policy=needsLook&type=cafe&warn=noBasis')).toEqual(expected);
   });
 
   it('모르는 값은 기본값으로 읽는다', () => {
-    expect(parseAdminUrl('?tab=nope&tier=zzz&type=hotel')).toEqual(DEFAULT_ADMIN_URL_STATE);
+    expect(parseAdminUrl('?tab=nope&tier=zzz&type=hotel&kind=renew')).toEqual(DEFAULT_ADMIN_URL_STATE);
   });
 });
 
@@ -29,7 +29,13 @@ describe('writeAdminUrl', () => {
   });
 
   it('쓴 것을 다시 읽으면 같은 상태다', () => {
-    const state = { tab: 'places', tier: 'new', policy: 'has', type: 'stay', warn: 'region' } as const;
+    const state = { tab: 'places', tier: 'new', kind: 'update', policy: 'has', type: 'stay', warn: 'region' } as const;
     expect(parseAdminUrl(writeAdminUrl('', state))).toEqual(state);
+  });
+
+  it('?kind=update 가 새로고침 뒤에도 산다(11 T1.2)', () => {
+    const search = writeAdminUrl('', { ...DEFAULT_ADMIN_URL_STATE, kind: 'update' });
+    expect(search).toBe('kind=update');
+    expect(parseAdminUrl(`?${search}`).kind).toBe('update');
   });
 });

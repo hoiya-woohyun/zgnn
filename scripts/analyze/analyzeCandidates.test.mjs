@@ -15,6 +15,7 @@ import {
   isBlocked,
   isPlaceCandidate,
   keyGate,
+  kindOf,
   parseArgs,
   pickPostsForRun,
   resolveRegionRaw,
@@ -54,13 +55,14 @@ const local = {
 
 describe('parseArgs', () => {
   it('인자가 없으면 기본 limit · dry-run 아님', () => {
-    expect(parseArgs([])).toEqual({ limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noHomepage: false });
+    expect(parseArgs([])).toEqual({ limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false });
   });
   it('--limit N 과 --limit=N 둘 다 받고, --dry-run 은 어디에 있어도 된다', () => {
-    expect(parseArgs(['--limit', '5', '--dry-run'])).toEqual({ limit: 5, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noHomepage: false });
-    expect(parseArgs(['--dry-run', '--limit=20'])).toEqual({ limit: 20, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noHomepage: false });
+    expect(parseArgs(['--limit', '5', '--dry-run'])).toEqual({ limit: 5, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false });
+    expect(parseArgs(['--dry-run', '--limit=20'])).toEqual({ limit: 20, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false });
     expect(parseArgs(['--no-geo']).noGeo).toBe(true);
     expect(parseArgs(['--no-verify']).noVerify).toBe(true);
+    expect(parseArgs(['--no-propose']).noPropose).toBe(true);
     expect(parseArgs(['--no-homepage']).noHomepage).toBe(true);
   });
   it('--dump 는 기본 경로(빈 문자열), --dump=경로 는 그 경로 · --max-per-blog 는 0 도 된다(상한 없음)', () => {
@@ -188,6 +190,67 @@ describe('skipAsExisting — 이미 게시된 곳이면 후보를 만들지 않�
   });
 });
 
+/**
+ * 차이 게이트(docs/todo/11 U1) — 게시된 곳을 쓴 글은 사이트와 다른 말을 할 때만 후보가 된다.
+ * 사실 비교의 세부는 siteChanges.test.mjs, 여기는 종류·제외 갈래.
+ */
+describe('kindOf — 신규 · 보강 · 갱신 · 확인', () => {
+  const policy = { indoor: 'free', leash: false, largeDogOk: true, smallDogOnly: false, callFirst: false, feeFree: true, weightLimitKg: null, maxDogs: null, notes: null };
+  const row = {
+    id: 'p1', type: 'cafe', name: '솔숲카페', region_raw: '동쪽 (구좌읍)', address: '제주 제주시 구좌읍 1', lat: 33.5, lng: 126.8,
+    features: '사람이 쓴 소개', pet_policy_text: '대형견 가능, 실내 동반', pet_policy: policy, category: '카페', review_url: 'x',
+    naver_place_id: null, naver_url: null, homepage_url: 'https://a.com/', homepage_name: 'a', homepage_image: null, verified_at: null,
+  };
+  const sameX = { name: '솔숲카페', type: 'cafe', petPolicyText: '대형견도 실내 가능', petPolicy: policy, visited: true, verify: null };
+  const auto = (status) => ({ match: { id: 'p1', name: '솔숲카페', status }, confidence: THRESHOLD.AUTO_MERGE });
+
+  it('같은 말 → 후보 없음(sameAsSite)', () => {
+    expect(kindOf(auto('published'), sameX, row)).toMatchObject({ kind: 'fill', exclude: 'sameAsSite' });
+    expect(skipAsExisting(auto('published'), sameX, row)).toBe(true);
+  });
+  it('빈 칸만 채운다 → fill', () => {
+    expect(kindOf(auto('published'), { ...sameX, category: '카페' }, { ...row, category: null })).toMatchObject({ kind: 'fill', exclude: null, fills: ['category'] });
+  });
+  it('찬 칸과 다른 사실 → update', () => {
+    const r = kindOf(auto('published'), { ...sameX, petPolicy: { ...policy, largeDogOk: false } }, row);
+    expect(r).toMatchObject({ kind: 'update', exclude: null, changes: ['pet_policy_text'] });
+    expect(skipAsExisting(auto('published'), { ...sameX, petPolicy: { ...policy, largeDogOk: false } }, row)).toBe(false);
+  });
+  const differ = { ...sameX, petPolicy: { ...policy, largeDogOk: false } };
+  it('목록글이 다른 말을 하면 → 제외(weak)', () => {
+    expect(kindOf(auto('published'), { ...differ, visited: false }, row).exclude).toBe('weak');
+  });
+  it('교차점검 "동반 근거 없음" 은 weak · "동반 불가 정황" 은 다른 칸이 없어도 update', () => {
+    expect(kindOf(auto('published'), { ...differ, verify: { petAllowedHere: 'unknown', dogWasThere: false } }, row).exclude).toBe('weak');
+    expect(kindOf(auto('published'), { ...sameX, verify: { petAllowedHere: 'no', dogWasThere: false } }, row)).toMatchObject({ kind: 'update', exclude: null });
+  });
+  it('추출이 동반 불가(petAllowed no)를 읽으면 다른 칸이 없어도 update · 옛 글·목록글이면 여전히 제외', () => {
+    const denied = { ...sameX, petAllowed: 'no' };
+    expect(kindOf(auto('published'), denied, row)).toMatchObject({ kind: 'update', exclude: null });
+    expect(kindOf(auto('published'), { ...denied, visited: false }, row).exclude).toBe('weak');
+    expect(kindOf(auto('published'), denied, { ...row, verified_at: '2026-09-20' }, { postedAt: '2026-01-01' }).exclude).toBe('stale');
+  });
+  it('글 날짜 < verified_at → stale · verified_at 이 없으면 update', () => {
+    const verified = { ...row, verified_at: '2026-09-20T00:00:00Z' };
+    expect(kindOf(auto('published'), differ, verified, { postedAt: '2026-08-01T00:00:00Z' }).exclude).toBe('stale');
+    expect(kindOf(auto('published'), differ, verified, { postedAt: '2026-09-25T00:00:00Z' }).exclude).toBeNull();
+    expect(kindOf(auto('published'), differ, row, { postedAt: '2024-01-01T00:00:00Z' })).toMatchObject({ kind: 'update', exclude: null });
+  });
+  it('같은 말이면 날짜와 무관하게 sameAsSite(가장 많이 알려 주는 이유)', () => {
+    expect(kindOf(auto('published'), sameX, { ...row, verified_at: '2026-09-20T00:00:00Z' }, { postedAt: '2026-01-01' }).exclude).toBe('sameAsSite');
+  });
+  it('archived · draft · 상태 미상 짝은 늘 후보 — 종류만 붙는다', () => {
+    expect(kindOf(auto('archived'), sameX, row)).toMatchObject({ kind: 'fill', exclude: null });
+    expect(kindOf(auto('draft'), differ, row)).toMatchObject({ kind: 'update', exclude: null });
+    expect(kindOf(auto(undefined), sameX, row).exclude).toBeNull();
+  });
+  it('짝 행이 없으면 거르지 않는다 · ask·new 는 그대로', () => {
+    expect(kindOf(auto('published'), sameX, null)).toMatchObject({ kind: 'fill', exclude: null });
+    expect(kindOf({ match: { id: 'p1', status: 'published' }, confidence: THRESHOLD.ASK }, sameX, row)).toMatchObject({ kind: 'ask', exclude: null });
+    expect(kindOf({ match: null, confidence: 0 }, sameX, row)).toMatchObject({ kind: 'new', exclude: null });
+  });
+});
+
 describe('toMatchCandidate', () => {
   it('네이버 좌표·주소를 쓰고, 없는 값은 undefined 로 둔다(matchPlace 가 그 신호를 건너뛰게)', () => {
     expect(toMatchCandidate(extracted, local)).toEqual({ name: '솔숲펜션', type: 'stay', geo: { lat: local.lat, lng: local.lng }, address: local.address });
@@ -228,7 +291,8 @@ describe('toCandidateRow — candidates.extracted 는 applyApproved.mjs 가 읽�
       category: '펜션',
       regionRawAi: extracted.regionRaw ?? null,
       regionRaw: '동쪽 (구좌읍)',
-      match: { confidence: matchedAuto.confidence, reason: matchedAuto.reason, tier: 'auto' },
+      // 짝 행과 대 보지 않았으면(kind 를 안 넘김) auto 는 '보강' 이다 — 옛 '기존' 의 뜻.
+      match: { confidence: matchedAuto.confidence, reason: matchedAuto.reason, tier: 'auto', kind: 'fill', changes: [] },
       // 물어보지 않았으면 null 이다 — "점검했고 근거가 없었다" 와 섞이지 않게(verifyPlaces.mjs).
       verify: null,
     });
@@ -295,7 +359,7 @@ describe('로그 형식 — 본문 인용은 싣지 않는다', () => {
     const matched = { match: places[0], confidence: 0.92, reason: '이름 일치 · 거리 40m' };
     const row = toCandidateRow(post, extracted, local, null, matched);
     const line = formatCandidateLine(row, places[0].name);
-    expect(line).toBe(`후보 솔숲펜션 (stay) 일치 0.92 → ${places[0].name} · 이름 일치 · 거리 40m`);
+    expect(line).toBe(`후보 솔숲펜션 (stay) 일치 0.92 → ${places[0].name} · 보강 · 이름 일치 · 거리 40m`);
     expect(line).not.toContain('불멍');
     expect(line).not.toContain('1만원');
   });
@@ -326,6 +390,20 @@ describe('로그 형식 — 본문 인용은 싣지 않는다', () => {
     );
     // 옛 실행의 stats 에는 칸이 없다 — NaN 이 되면 요약 한 줄이 통째로 못 읽힌다.
     expect(formatSummary({ ...stats, excluded: { other: 1, notJeju: 0, notAllowed: 0 } }, 'x')).toContain('제외 1(');
+  });
+
+  it('차이 게이트 — 같은 말 · 옛 글 · 근거 약함이 제외 합계에 들어가고, 갱신·보강 수가 후보 괄호에 선다', () => {
+    const stats = { analyzed: 3, skipped: 0, candidates: 4, auto: 2, ask: 1, new: 1, update: 1, fill: 1 };
+    const ex = { other: 0, notJeju: 0, notAllowed: 0, sameAsSite: 5, stale: 2, weak: 1, blocked: 0 };
+    const line = formatSummary({ ...stats, excluded: ex }, 'x');
+    expect(line).toContain('신규 1 · 갱신 1 · 보강 1');
+    expect(line).toContain('제외 8(other 0 · 제주밖 0 · 동반불가 0 · 같은 말 5 · 옛 글 2 · 근거 약함 1)');
+  });
+
+  it('제안 패스 — 갱신이 생긴 장소 수와 실은 수를 같이, 안 돌았으면 조각이 없다', () => {
+    const stats = { analyzed: 1, skipped: 0, candidates: 1, auto: 1, ask: 0, new: 0 };
+    expect(formatSummary({ ...stats, propose: { places: 2, done: 1, failed: 1 } }, 'x')).toContain(' · 제안 1/2곳(실패 1)');
+    expect(formatSummary({ ...stats, propose: { places: 0, done: 0, failed: 0 } }, 'x')).not.toContain('제안');
   });
 
   /**

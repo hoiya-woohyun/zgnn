@@ -3,7 +3,7 @@
  * 어긋나면 운영자가 본 것과 다른 칸이 덮인다.
  */
 import { describe, expect, it } from 'vitest';
-import { latestPlan } from './adminLatest';
+import { defaultOverwritePick, latestPlan, toggleOverwritePick } from './adminLatest';
 import { EMPTY_VALUE } from './adminEdit';
 import type { TCandidateExtracted, TPlaceRow } from './adminCandidates';
 
@@ -60,5 +60,32 @@ describe('latestPlan', () => {
     const plan = latestPlan({ ...place, category: '펜션' } as TPlaceRow, extracted({ name: '솔숲펜션2' }));
     expect(plan.changes).toEqual([{ key: 'name', label: '이름', before: '솔숲펜션', after: '솔숲펜션2' }]);
     expect(plan.changes.some((c) => c.after === EMPTY_VALUE)).toBe(false);
+  });
+});
+
+describe('칸 고르기(11 T1.4)', () => {
+  const changed = extracted({ features: '새 소개예요.', petPolicyText: '대형견도 돼요', geo: { lat: 33.6, lng: 126.9 } });
+
+  it('고른 칸만 patch 에 — 원문만 골라도 판단이 함께', () => {
+    const plan = latestPlan(place, changed, ['pet_policy_text']);
+    expect(Object.keys(plan.patch ?? {})).toEqual(['pet_policy_text', 'pet_policy']);
+    expect(plan.changes.map((c) => c.key)).toEqual(['pet_policy_text']);
+  });
+
+  it('체크는 짝으로 움직인다 · 처음(undefined)은 전부 켜진 상태에서 시작한다 · 다 끄면 빈 배열', () => {
+    const all = ['geo', 'features', 'pet_policy_text', 'pet_policy'];
+    expect(toggleOverwritePick(all, undefined, 'features')).toEqual(['geo', 'pet_policy_text', 'pet_policy']);
+    expect(toggleOverwritePick(all, undefined, 'pet_policy')).toEqual(['geo', 'features']);
+    expect(toggleOverwritePick(all, ['geo'], 'pet_policy_text')).toEqual(['geo', 'pet_policy_text', 'pet_policy']);
+    expect(toggleOverwritePick(all, ['geo'], 'geo')).toEqual([]);
+    expect(latestPlan(place, changed, []).patch).toBeNull();
+  });
+});
+
+describe('defaultOverwritePick — 완화는 꺼진 채(11 U6)', () => {
+  const all = ['geo', 'features', 'pet_policy_text', 'pet_policy'];
+  it('완화가 아니면 전부 · 완화면 조건 짝만 끈다', () => {
+    expect(defaultOverwritePick(all)).toEqual(all);
+    expect(defaultOverwritePick(all, { loosen: true })).toEqual(['geo', 'features']);
   });
 });
