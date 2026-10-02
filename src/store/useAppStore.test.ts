@@ -232,3 +232,22 @@ describe('저장 해제 되돌리기(12 U2.2)', () => {
     expect(useAppStore.getState().savedIds).toEqual([a.id, b.id, c.id]);
   });
 });
+
+describe('설정의 비우기 두 줄(12 U2.6)', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('준비물 체크만 · 저장과 메모만 비운다', async () => {
+    const { PLACES } = await import('../lib/places');
+    const map = installLocalStorage();
+    map.set(STORAGE_NAME, JSON.stringify({ state: { savedIds: [PLACES[0].id], savedNotes: { [PLACES[0].id]: '메모' }, checkedItemIds: ['a', 'b'] }, version: 0 }));
+    const { useAppStore } = await rehydrateFresh();
+    useAppStore.getState().clearChecked();
+    expect(useAppStore.getState().checkedItemIds).toEqual([]);
+    expect(useAppStore.getState().savedIds).toEqual([PLACES[0].id]);
+    useAppStore.getState().clearSaved();
+    expect(useAppStore.getState().savedIds).toEqual([]);
+    expect(useAppStore.getState().savedNotes).toEqual({});
+  });
+});

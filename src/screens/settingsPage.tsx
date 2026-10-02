@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { ChevronRight, Heart, LinkExternal01 } from '@untitledui/icons';
+import { showAppStatus } from '../lib/appStatus';
 import { AuthorAvatar } from '../components/authorAvatar';
 import { StickyMorphTitle } from '../components/layout/stickyMorphTitle';
 import { Section } from '../components/layout/section';
@@ -9,10 +10,56 @@ import { maxWeightKg } from '../lib/dogProfile';
 import { CARRIER_LABELS } from '../lib/eligibility';
 import { dogCallNames } from '../lib/korean';
 import { META } from '../lib/places';
-import { useDog, useSavedCount } from '../store/useAppStore';
+import { useAppStore, useDog, useSavedCount } from '../store/useAppStore';
 
 const CARD_CLASS =
   'flex items-center gap-3 rounded-2xl border border-secondary bg-primary px-4 py-4 transition-colors hover:bg-secondary';
+
+const RESET_ROW_CLASS =
+  'flex min-h-11 w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold text-primary transition-colors hover:bg-secondary disabled:cursor-default disabled:text-quaternary disabled:hover:bg-transparent';
+
+/**
+ * 비우기 두 줄(12 U2.6) — 다음 여행 때 준비물 15개를 하나씩 풀거나 하트를 하나씩 끄지 않게.
+ * 확인 창 대신 **되돌리기**다(셸 토스트, 프로필 삭제와 같은 어법) — 확인 창은 매번 한 번 더 누르게 하고, 실수는 되돌리기가 더 잘 막는다.
+ * 지운 값은 이 클로저만 붙잡는다. 비울 것이 없으면 줄을 끈다.
+ */
+function SettingsPageResetRows() {
+  const checkedCount = useAppStore((state) => state.checkedItemIds.length);
+  const savedCount = useSavedCount();
+  const clearChecked = useAppStore((state) => state.clearChecked);
+  const clearSaved = useAppStore((state) => state.clearSaved);
+
+  const handleClearChecked = () => {
+    const { checkedItemIds } = useAppStore.getState();
+    clearChecked();
+    showAppStatus('준비물 체크를 모두 풀었어요', {
+      action: { label: '되돌리기', onPress: () => useAppStore.setState({ checkedItemIds }) },
+      durationMs: 6000,
+    });
+  };
+
+  const handleClearSaved = () => {
+    const { savedIds, savedNotes } = useAppStore.getState();
+    clearSaved();
+    showAppStatus('저장한 곳을 비웠어요', {
+      action: { label: '되돌리기', onPress: () => useAppStore.setState({ savedIds, savedNotes }) },
+      durationMs: 6000,
+    });
+  };
+
+  return (
+    <div className="divide-y divide-secondary overflow-hidden rounded-2xl border border-secondary bg-primary">
+      <button type="button" className={RESET_ROW_CLASS} onClick={handleClearChecked} disabled={checkedCount === 0}>
+        준비물 체크 모두 풀기
+        <span className="font-normal text-tertiary">{checkedCount}개</span>
+      </button>
+      <button type="button" className={RESET_ROW_CLASS} onClick={handleClearSaved} disabled={savedCount === 0}>
+        저장 비우기
+        <span className="font-normal text-tertiary">{savedCount}곳</span>
+      </button>
+    </div>
+  );
+}
 
 /**
  * 설정 탭. 강아지 프로필·저장한 곳·자료 출처처럼 "장소를 고르는 일" 이 아닌 것들을 한곳에 모은다.
@@ -70,6 +117,10 @@ export function SettingsPage() {
             <ChevronRight size={20} aria-hidden="true" className="text-quaternary" />
           </span>
         </Link>
+      </Section>
+
+      <Section title="다음 여행 준비" className="mt-8">
+        <SettingsPageResetRows />
       </Section>
 
       <Section title="정보" className="mt-8">

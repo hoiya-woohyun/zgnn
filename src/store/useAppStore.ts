@@ -29,6 +29,10 @@ type TAppState = {
   restoreSaved: (id: string, index: number, note?: string) => void;
   setSavedNote: (id: string, note: string) => void;
   toggleChecked: (id: string) => void;
+  /** 준비물 체크를 모두 푼다 — 다음 여행 준비(12 U2.6). */
+  clearChecked: () => void;
+  /** 저장을 모두 비운다 — 메모도 함께(메모는 저장한 곳의 것이다, 12 U2.6). */
+  clearSaved: () => void;
   setSeason: (season: TSeasonFilter) => void;
   setDog: (dog: TDogProfile) => void;
   clearDog: () => void;
@@ -110,6 +114,8 @@ export const useAppStore = create<TAppState>()(
       setSavedNote: (id, note) =>
         set((state) => (state.savedIds.includes(id) ? { savedNotes: withSavedNote(state.savedNotes, id, note) } : {})),
       toggleChecked: (id) => set((state) => ({ checkedItemIds: toggle(state.checkedItemIds, id) })),
+      clearChecked: () => set({ checkedItemIds: [] }),
+      clearSaved: () => set({ savedIds: [], savedNotes: {} }),
       setSeason: (season) => set({ season }),
       setDog: (dog) => set({ dog }),
       clearDog: () => set({ dog: null }),
