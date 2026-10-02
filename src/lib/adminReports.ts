@@ -170,3 +170,16 @@ export function suggestionSearchName(note: string | null): string {
   const head = text.split(/[,—·]|\s-\s/)[0].trim();
   return head || text;
 }
+
+/**
+ * 장소 id → 열린 `policy`(조건이 달라요) 제보 수(11 T3.2). 검수 대기의 갱신 묶음이 "사용자도 같은 가게가 달라졌다고 했다" 를 보여 주는 자리.
+ * 제보를 제안의 입력에 넣지는 않는다 — 한 줄 메모라 인용 검증(`quoteInBody`)을 못 지난다. 서로 **보이게만** 한다. 순수.
+ */
+export function policyReportCounts(byPlace: Readonly<Record<string, readonly TReportRow[]>>): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [placeId, rows] of Object.entries(byPlace)) {
+    const n = rows.filter((row) => row.kind === 'policy').length;
+    if (n) out[placeId] = n;
+  }
+  return out;
+}

@@ -82,6 +82,8 @@ type TAdminPageGroupCardProps = {
   onCancelReject: () => void;
   onReject: (reason: TRejectReason, note: string, block: TBlockChoice) => void;
   onPickRegion: (regionRaw: string) => void;
+  /** 짝 장소에 열린 `조건이 달라요` 사용자 제보 수(11 T3.2). */
+  policyReports?: number;
   /** 갱신 묶음의 '사이트가 맞아요'(11 U8) — 확인 날짜를 찍고 후보를 눕힌다. */
   onConfirmSite: () => void;
   /** 덮어쓰기 칸 고르기의 체크 한 번 — 고른 칸 전체를 돌려준다. */
@@ -155,6 +157,7 @@ export function AdminPageGroupCard({
   onReject,
   onPickRegion,
   onConfirmSite,
+  policyReports = 0,
   onPickOverwrite,
   onSaveRegion,
   onEditDraft,
@@ -319,6 +322,12 @@ export function AdminPageGroupCard({
             {matchedArchived && (
               <Badge type="color" size="sm" color="warning">
                 짝이 내린 곳
+              </Badge>
+            )}
+            {/* 같은 가게에 사용자도 "조건이 달라요" 를 보냈다 — 처리는 등록 완료 칸에서(11 T3.2). */}
+            {pairId && policyReports > 0 && (
+              <Badge type="color" size="sm" color="error">
+                사용자 제보 {policyReports}
               </Badge>
             )}
             {addressConflict && (

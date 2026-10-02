@@ -395,3 +395,14 @@ export function factsLine(facts: TPetPolicyFacts | null): string | null {
   if (facts.notes) parts.push(facts.notes);
   return parts.length ? parts.join(' · ') : FACTS_EMPTY;
 }
+
+/** 장소 id → 검수 대기의 갱신 묶음 수(11 T3.2) — 등록 완료 줄이 `검수 대기에 갱신 N` 을 단다. 순수. */
+export function updateGroupsByPlace(groups: readonly Pick<TCandidateGroup, 'kind' | 'lead'>[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const group of groups) {
+    const placeId = group.lead.match_place_id;
+    if (group.kind !== 'update' || !placeId) continue;
+    out[placeId] = (out[placeId] ?? 0) + 1;
+  }
+  return out;
+}

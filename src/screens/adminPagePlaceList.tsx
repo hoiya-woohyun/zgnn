@@ -94,6 +94,8 @@ type TAdminPagePlaceListProps = {
   /** 장소 id → 처리할 사용자 제보. 표가 없으면 빈 객체. */
   reports: Record<string, TReportRow[]>;
   onHandleReports: (place: TPlaceRow, ids: string[], status: 'handled' | 'dismissed', note: string) => void;
+  /** 장소 id → 검수 대기의 갱신 묶음 수(11 T3.2). */
+  updates?: Record<string, number>;
   /** 장소 id → 다녀왔어요 집계. */
   visited: Record<string, TVisitedTally>;
   onApplyVisited: (place: TPlaceRow, ids: string[]) => void;
@@ -114,6 +116,7 @@ export function AdminPagePlaceList({
   onSetBlock,
   reports,
   onHandleReports,
+  updates,
   visited,
   onApplyVisited,
   onSaveAddress,
@@ -300,6 +303,7 @@ export function AdminPagePlaceList({
                 onCancelBlock={() => patchState(place.id, { pickingBlock: false })}
                 onSetBlock={(choice) => onSetBlock(place, choice)}
                 reports={reports[place.id] ?? NO_REPORTS}
+                pendingUpdates={updates?.[place.id] ?? 0}
                 onHandleReports={(ids, nextStatus, note) => onHandleReports(place, ids, nextStatus, note)}
                 visited={visited[place.id]}
                 onApplyVisited={() => onApplyVisited(place, visited[place.id]?.ids ?? [])}

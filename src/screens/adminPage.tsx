@@ -31,6 +31,7 @@ import {
   fetchPendingCandidates,
   flagsFor,
   groupPending,
+  updateGroupsByPlace,
   previewFor,
   KIND_LABEL,
   TIER_LABEL,
@@ -54,6 +55,7 @@ import {
   fetchReports,
   mergeReportRows,
   openReportsByPlace,
+  policyReportCounts,
   openSuggestions,
   reportHeadline,
   setReportStatus,
@@ -328,6 +330,9 @@ export function AdminPage() {
     () => (reports?.kind === 'ok' ? openReportsByPlace(reports.rows) : NO_REPORTS_BY_PLACE),
     [reports],
   );
+  /** 같은 가게의 두 신호(사용자 제보 · 블로그 갱신)가 서로 보이게(11 T3.2). */
+  const policyReportsByPlace = useMemo(() => policyReportCounts(reportsByPlace), [reportsByPlace]);
+  const updatesByPlace = useMemo(() => updateGroupsByPlace(groups), [groups]);
   const visitedByPlace = useMemo(
     () =>
       reports?.kind === 'ok'
@@ -1534,6 +1539,7 @@ export function AdminPage() {
             blocks={placeBlocks}
             onSetBlock={(place, choice) => void changePlaceBlock(place, choice)}
             reports={reportsByPlace}
+            updates={updatesByPlace}
             onHandleReports={(place, ids, status, note) => void handleReports(place, ids, status, note)}
             visited={visitedByPlace}
             onApplyVisited={(place, ids) => void applyVisited(place, ids)}
@@ -1554,6 +1560,7 @@ export function AdminPage() {
             blocks={placeBlocks}
             onSetBlock={(place, choice) => void changePlaceBlock(place, choice)}
             reports={reportsByPlace}
+            updates={updatesByPlace}
             onHandleReports={(place, ids, status, note) => void handleReports(place, ids, status, note)}
             visited={visitedByPlace}
             onApplyVisited={(place, ids) => void applyVisited(place, ids)}
@@ -1734,6 +1741,7 @@ export function AdminPage() {
                   onCancelReject={() => patchState(group.key, { rejecting: false })}
                   onReject={(reason, note, block) => void reject(group, reason, note, block)}
                   onConfirmSite={() => void confirmSiteFor(group)}
+                  policyReports={group.lead.match_place_id ? (policyReportsByPlace[group.lead.match_place_id] ?? 0) : 0}
                   onPickRegion={(regionRaw) => patchState(group.key, { regionDraft: regionRaw })}
                   onPickOverwrite={(picked) => patchState(group.key, { overwritePick: picked })}
                   onSaveRegion={(regionRaw) => void saveRegion(group, regionRaw)}
