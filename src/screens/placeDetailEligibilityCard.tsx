@@ -1,8 +1,10 @@
 import { Fragment, type ReactNode } from 'react';
 import Link from 'next/link';
+import { Button } from '../components/base/button';
 import { dogSubsetWhatIf } from '../lib/dogSubsetWhatIf';
 import { headlineFor, verdictFor, type TEligibilityLevel } from '../lib/eligibility';
 import { dogCallNames } from '../lib/korean';
+import { needsIndoorChangedLevel } from '../lib/needsIndoorWhatIf';
 import type { TPlaceEntry } from '../lib/places';
 import { useAppStore, useDog } from '../store/useAppStore';
 import { useEligibility } from '../store/useDogEligibility';
@@ -36,6 +38,7 @@ export function PlaceDetailEligibilityCard({ place }: { place: TPlaceEntry }) {
   const dog = useDog();
   const eligibility = useEligibility(place);
   const needsIndoor = useAppStore((state) => state.needsIndoor);
+  const setNeedsIndoor = useAppStore((state) => state.setNeedsIndoor);
 
   if (!dog || !eligibility) {
     return (
@@ -55,6 +58,11 @@ export function PlaceDetailEligibilityCard({ place }: { place: TPlaceEntry }) {
   // 다두 what-if(10 F11) — 어려움일 때만, 가장 많이 데려갈 수 있는 조합 하나. 판정을 다시 돌릴 뿐 규칙을 새로 쓰지 않는다.
   const subset = dogSubsetWhatIf(dog, place.policy, eligibility, { needsIndoor });
   const infoReasons = eligibility.reasons.filter((r) => r.level === 'info');
+  /*
+   * '실내 자리 필요' 는 식당·카페 목록에서만 보이는 전역 값이라, 켜 둔 걸 잊으면 판정이 이유 없이 달라진다(12 U0.3).
+   * 그 값이 **등급을 바꾼 곳**에서만 말한다 — 등급이 같으면 소음이다. 끄면 이 화면과 목록·지도·홈이 함께 바뀐다.
+   */
+  const indoorChanged = needsIndoorChangedLevel(dog, place.policy, eligibility, needsIndoor);
 
   return (
     <div className="mb-3 rounded-2xl border border-secondary bg-primary p-4">
@@ -77,6 +85,15 @@ export function PlaceDetailEligibilityCard({ place }: { place: TPlaceEntry }) {
             </li>
           ))}
         </ul>
+      )}
+
+      {indoorChanged && (
+        <p className="mt-3 flex flex-wrap items-center gap-x-2 text-sm text-tertiary">
+          실내 자리 필요로 설정돼 있어요
+          <Button color="link-color" size="sm" className="min-h-11" onClick={() => setNeedsIndoor(false)}>
+            끄기
+          </Button>
+        </p>
       )}
 
       {subset && (

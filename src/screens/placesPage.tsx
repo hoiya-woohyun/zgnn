@@ -163,7 +163,8 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     setSort('none');
     setHideHard(false);
     // activeFilterCount 가 세는 것은 여기서 전부 풀어야 한다 — 숫자는 1 인데 눌러도 안 바뀌면 고장으로 보인다.
-    setNeedsIndoor(false);
+    // 숙소 탭은 세지도 보이지도 않으므로 건드리지 않는다 — 보이지 않는 전역 값을 몰래 끄면 식당·카페 판정이 말없이 바뀐다(12 U0.3).
+    if (type !== 'stay') setNeedsIndoor(false);
   };
 
   const resetFilters = () => {
