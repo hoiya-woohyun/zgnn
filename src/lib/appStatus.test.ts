@@ -78,3 +78,15 @@ describe('createFirstTimesGate — 처음 몇 번만', () => {
     expect(a()).toBe(false);
   });
 });
+
+describe('showAppStatus — 되돌리기 버튼(12 U2.1)', () => {
+  afterEach(() => clearAppStatus());
+
+  it('action 을 실어 보낸다', () => {
+    const onPress = vi.fn();
+    showAppStatus('프로필을 지웠어요', { action: { label: '되돌리기', onPress } });
+    expect(getAppStatus()?.action?.label).toBe('되돌리기');
+    getAppStatus()?.action?.onPress();
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+});

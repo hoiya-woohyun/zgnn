@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '../components/base/button';
 import { HintText } from '../components/base/hint-text';
@@ -86,7 +86,6 @@ export function DogProfilePage() {
   const [sizeOverride, setSizeOverride] = useState<TDogSize | undefined>(undefined);
   /** 저장을 눌렀을 때 잡힌 행 에러. 입력을 고치면 `liveRowError` 가 대신한다. */
   const [submitErrors, setSubmitErrors] = useState<TDogRowError[] | null>(null);
-  const [banner, setBanner] = useState<string | null>(null);
 
   /**
    * 하이드레이션이 끝난 시점의 dog 로 폼을 한 번만 채운다. 이펙트 대신 "렌더 중 상태 조정"
@@ -102,12 +101,6 @@ export function DogProfilePage() {
       setSizeOverride(dog.sizeOverride);
     }
   }
-
-  useEffect(() => {
-    if (!banner) return;
-    const timer = setTimeout(() => setBanner(null), 3000);
-    return () => clearTimeout(timer);
-  }, [banner]);
 
   const validDogs = parseValidDogs(rows);
   const rowErrors = submitErrors ?? rows.map(liveRowError);
@@ -151,14 +144,35 @@ export function DogProfilePage() {
     }
   };
 
-  const handleDelete = () => {
-    clearDog();
-    setRows([EMPTY_ROW]);
-    setCarrier(null);
+  /** 폼을 프로필 하나(또는 빈 폼)로 다시 채운다 — 삭제와 그 되돌리기가 같은 모양을 쓴다. */
+  const seedForm = (profile: TDogProfile | null) => {
+    setRows(profile ? profile.dogs.map((d) => ({ name: d.name, weightKg: String(d.weightKg) })) : [EMPTY_ROW]);
+    setCarrier(profile?.carrier ?? null);
     setCarrierError(false);
-    setSizeOverride(undefined);
+    setSizeOverride(profile?.sizeOverride);
     setSubmitErrors(null);
-    setBanner('프로필을 삭제했어요');
+  };
+
+  /*
+   * 삭제는 버튼 한 번이라 **되돌리기**를 준다(12 U2.1). 알림은 셸 토스트다 — 화면 안 배너는 폼 맨 위라
+   * 맨 아래 버튼을 누른 사람에게 안 보였고, 조건부로 끼워지는 `role="status"` 라 낭독도 불확실했다.
+   * 지운 프로필은 이 클로저가 붙잡는다(저장하지 않는다) — 화면을 떠났다가 눌러도 스토어는 되돌아온다.
+   */
+  const handleDelete = () => {
+    if (!dog) return;
+    const removed = dog;
+    clearDog();
+    seedForm(null);
+    showAppStatus('프로필을 지웠어요', {
+      action: {
+        label: '되돌리기',
+        onPress: () => {
+          setDog(removed);
+          seedForm(removed);
+        },
+      },
+      durationMs: 6000,
+    });
   };
 
   return (
@@ -169,12 +183,6 @@ export function DogProfilePage() {
       />
 
       <div className="px-4 pt-4 pb-10 md:px-6">
-        {banner && (
-          <p role="status" className="mb-4 rounded-2xl bg-brand-primary px-4 py-3 text-sm font-semibold text-brand-secondary">
-            {banner}
-          </p>
-        )}
-
         {!hydrated ? (
           <p className="py-10 text-center text-sm text-tertiary">불러오는 중이에요…</p>
         ) : (

@@ -14,15 +14,23 @@
 
 export type TAppStatusLink = { href: string; label: string };
 
+/**
+ * 누르면 **그 자리에서** 무언가를 하는 버튼(되돌리기 — 12 U2.1·U2.2·U2.6). 링크와 달리 화면을 옮기지 않는다.
+ * 누르면 알림은 닫힌다 — 같은 되돌리기를 두 번 누를 수 없게.
+ */
+export type TAppStatusAction = { label: string; onPress: () => void };
+
 export type TAppStatus = {
   /** 같은 문구가 연달아 와도 다른 메시지로 알아보게(타이머·다시 읽어 주기). */
   id: number;
   text: string;
   link?: TAppStatusLink;
+  action?: TAppStatusAction;
 };
 
 type TShowOpts = {
   link?: TAppStatusLink;
+  action?: TAppStatusAction;
   /** 떠 있는 시간(ms). 링크가 있으면 누를 틈이 필요해 조금 더 길게 준다. */
   durationMs?: number;
 };
@@ -62,7 +70,7 @@ export const clearAppStatus = () => {
 
 export const showAppStatus = (text: string, opts: TShowOpts = {}): TAppStatus => {
   if (timer) clearTimeout(timer);
-  const status: TAppStatus = { id: nextId++, text, ...(opts.link ? { link: opts.link } : {}) };
+  const status: TAppStatus = { id: nextId++, text, ...(opts.link ? { link: opts.link } : {}), ...(opts.action ? { action: opts.action } : {}) };
   current = status;
   emit();
   timer = setTimeout(() => {

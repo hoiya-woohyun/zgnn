@@ -41,6 +41,20 @@ export function AppStatusToast() {
               {status.link.label} ›
             </Link>
           )}
+          {status.action && (
+            <button
+              type="button"
+              onClick={() => {
+                // 먼저 닫는다 — onPress 가 새 알림을 띄우면 그 알림이 남아야 한다.
+                const { onPress } = status.action!;
+                clearAppStatus();
+                onPress();
+              }}
+              className="-my-3 -mr-2 flex min-h-11 items-center px-2 whitespace-nowrap text-white underline underline-offset-4"
+            >
+              {status.action.label}
+            </button>
+          )}
         </p>
       )}
     </div>
