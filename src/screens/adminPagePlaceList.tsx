@@ -20,7 +20,7 @@ import type { TBlockChoice, TPlaceBlock } from '../lib/adminBlocks';
 import type { TReportRow, TVisitedTally } from '../lib/adminReports';
 import { useAdminInfiniteScroll } from './adminInfiniteScroll';
 import { AdminPagePlaceRow, type TAdminPagePlaceState } from './adminPagePlaceRow';
-import { ADMIN_PLACE_GRID, AdminTable } from './adminTable';
+import { ADMIN_PLACE_TRACKS, AdminTable } from './adminTable';
 
 /**
  * '등록 완료' · '등록 해제' 칸 — 이미 올린 장소를 **내리고 되살린다**(소프트 삭제). 두 칸은 같은 개체(`places`)를 `status` 로 가른 것이라
@@ -286,7 +286,7 @@ export function AdminPagePlaceList({
       ) : (
         <>
           <div className="mt-3">
-            <AdminTable grid={ADMIN_PLACE_GRID} columns={COLUMNS}>
+            <AdminTable grid={ADMIN_PLACE_TRACKS} columns={COLUMNS}>
             {filtered.slice(0, shown).map((place) => (
               <AdminPagePlaceRow
                 key={place.id}

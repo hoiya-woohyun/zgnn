@@ -23,7 +23,7 @@ import { AdminPagePlaceArchiveForm } from './adminPagePlaceArchiveForm';
 import { AdminPagePlaceDetail } from './adminPagePlaceDetail';
 import { AdminPagePlaceReports } from './adminPagePlaceReports';
 import { VISITED_MIN_COUNT, VISITED_WINDOW_DAYS, type TReportRow, type TVisitedTally } from '../lib/adminReports';
-import { ADMIN_PANEL_DIVIDER, ADMIN_PLACE_GRID, ADMIN_POLICY_TONE, ADMIN_ROW_OPEN } from './adminTable';
+import { ADMIN_PANEL_DIVIDER, ADMIN_POLICY_TONE, ADMIN_ROW, ADMIN_ROW_CELLS, ADMIN_ROW_OPEN } from './adminTable';
 import { AdminTypeChip } from './adminTypeChip';
 
 /** 장소 한 줄의 화면 상태. 소유자는 `adminPagePlaceList` 고 여기는 받아서 그린다(묶음 카드와 같은 모양). */
@@ -44,7 +44,7 @@ export type TAdminPagePlaceState = {
 /**
  * 줄 안의 동작 버튼은 **텍스트(링크형) 버튼**이다 — 테두리 있는 버튼은 마지막 칸 폭을 넘어 옆 '종류' 칸 위로 겹쳤다(1512px).
  * 링크형은 패딩이 없어 히트 영역이 글자 크기라, `min-h-11`(44px)로 바닥을 주고 `-my-1` 로 줄 높이는 그대로 둔다.
- * `whitespace-nowrap` — 칸 안에서 줄바꿈하지 않는다(칸 폭은 `ADMIN_PLACE_GRID` 의 마지막 열이 `되살리기(게시중으로)` 가 들어가게 잡혀 있다).
+ * `whitespace-nowrap` — 칸 안에서 줄바꿈하지 않는다(칸 폭은 `ADMIN_PLACE_TRACKS` 의 `auto` 열이 가장 넓은 줄의 버튼에 맞춰 스스로 잡는다).
  */
 const ROW_LINK = 'min-h-11 -my-1 shrink-0 whitespace-nowrap';
 
@@ -80,7 +80,7 @@ type TAdminPagePlaceRowProps = {
 };
 
 /**
- * 장소 한 줄. `md` 이상에서는 머리글과 열이 맞는 **표의 한 줄**이다(`ADMIN_PLACE_GRID`) —
+ * 장소 한 줄. `md` 이상에서는 머리글과 열이 맞는 **표의 한 줄**이다(`ADMIN_ROW` · `ADMIN_ROW_CELLS`) —
  * 이름·지역·동반 조건·소개·종류·버튼이 각자의 열에 선다. 앞의 다섯 열은 후보 표와 같은 자리다.
  *
  * **사이트에 지금 무엇이 나가 있는지가 접힌 줄에서 보여야 한다**(2026-09-30). 이름·지역·상태만 있던 동안 이 칸은
@@ -143,8 +143,8 @@ export function AdminPagePlaceRow({
      * 사유를 고르는 중이면 머리와 패널을 **한 색으로** 덮는다: 내리기 버튼이 그 패널에 있어서,
      * 어느 줄의 패널인지 눈으로 정하지 못하면 그것이 곧 다른 가게를 내리는 길이다.
      */
-    <li className={cx(expanded || state.archiving ? ADMIN_ROW_OPEN : 'hover:bg-primary_hover')}>
-      <div className={cx('cursor-pointer px-4 py-2', ADMIN_PLACE_GRID)} onClick={toggleFromRow}>
+    <li className={cx(ADMIN_ROW, expanded || state.archiving ? ADMIN_ROW_OPEN : 'hover:bg-primary_hover')}>
+      <div className={cx('cursor-pointer px-4 py-2', ADMIN_ROW_CELLS)} onClick={toggleFromRow}>
         <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
           {/* 종류 칩은 맨 뒤 자기 열로 갔다(2026-09-30) — 두 표가 같은 자리에 둔다. */}
           {/* 게시된 곳은 이름이 사이트 상세로 가는 링크다 — 내리기 전에 사이트에 무엇이 나가 있는지 한 번에 본다. */}
@@ -241,8 +241,12 @@ export function AdminPagePlaceRow({
         <div className="flex items-center max-md:mt-2 md:justify-end">
           {state.archiving ? null : archived ? (
               askingRestore || busy === 'restoring' ? (
-                <div className="flex flex-col gap-0.5 md:items-end">
-                  <span className="text-xs text-tertiary md:text-right">사이트에 다시 보여요. 되살릴까요?</span>
+                <div className="flex flex-col gap-0.5 md:w-full md:items-end">
+                  {/*
+                    * 묻는 글은 열 폭을 **정하지 않고 따른다**(`w-0 min-w-full`) — 버튼 열이 `auto` 라, 이 한 줄이 글 길이만큼
+                    * 열을 넓히면 묻는 순간 표 전체의 열이 출렁인다. 폭은 버튼들이 정하고 글은 그 안에서 접힌다.
+                    */}
+                  <span className="text-xs break-keep text-tertiary md:w-0 md:min-w-full md:text-right">사이트에 다시 보여요. 되살릴까요?</span>
                   <div className="flex items-center gap-3">
                   <Button
                     color="link-color"
