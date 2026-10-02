@@ -9,7 +9,7 @@ import { EmptyState } from '../components/layout/emptyState';
 import { Button } from '../components/base/button';
 import type { TEligibilityLevel } from '../lib/eligibility';
 import { carrierWhatIf, countByLevel } from '../lib/eligibilityCounts';
-import { josa } from '../lib/korean';
+import { josa, withJosa } from '../lib/korean';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
 import { useAppStore } from '../store/useAppStore';
 import type { TPlaceType } from '../types';
@@ -155,7 +155,7 @@ export function PlacesPageResults({
             <EmptyState
               Icon={SearchMd}
               title={
-                townHasNoPlaces ? `${town}엔 ${TYPE_META[type].label}가 없어요` : '필터에 맞는 곳이 없어요'
+                townHasNoPlaces ? `${town}엔 ${withJosa(TYPE_META[type].label, '이/가')} 없어요` : '필터에 맞는 곳이 없어요'
               }
               description={
                 townHasNoPlaces ? '필터에서 다른 읍면을 골라 보세요.' : '검색어나 필터를 바꿔 보세요.'

@@ -6,6 +6,7 @@ import { PetBadges } from '../components/petBadges';
 import { PlaceThumb } from '../components/placeThumb';
 import { TownChip } from '../components/townChip';
 import { formatKm } from '../lib/format';
+import { withJosa } from '../lib/korean';
 import { nearbyPlaces, TYPE_META, type TPlaceEntry } from '../lib/places';
 import { useEligibilityMap } from '../store/useDogEligibility';
 import type { TPlaceType } from '../types';
@@ -60,7 +61,7 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
 
       {nearby.length === 0 ? (
         <p className="mt-3 px-4 text-sm text-tertiary md:px-6">
-          근처에 {NEARBY_FILTERS.find((option) => option.id === filter)?.label}가 없어요.
+          근처에 {withJosa(NEARBY_FILTERS.find((option) => option.id === filter)?.label ?? '', '이/가')} 없어요.
         </p>
       ) : (
         <ul className="no-scrollbar mt-3 flex gap-2.5 overflow-x-auto px-4 pb-1 md:px-6">
