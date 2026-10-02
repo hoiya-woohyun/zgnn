@@ -4,6 +4,7 @@
 // readOnly: published 만 읽으므로 로그인 없이 publishable(anon) 키로도 된다 — Vercel 빌드가 이 경로다. RLS 가 그 집합만 연다(ADR-016 v5).
 import { writeDataJson } from './lib/dataJson.mjs';
 import { fromPlaceRow, toItem, withReportFlags } from './lib/placeFields.mjs';
+import { regionWarnings } from './lib/regionCheck.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
 
 const supabase = createSupabase({ readOnly: true });
@@ -49,5 +50,8 @@ const items = itemRows.map((row) => toItem({
 const ROOT = new URL('../', import.meta.url);
 await writeDataJson(new URL('src/data/places.json', ROOT), places);
 await writeDataJson(new URL('src/data/items.json', ROOT), items);
+
+// 읍면·방향이 주소와 어긋난 곳 — **경고만**(빌드는 막지 않는다. 고치는 것은 /admin 의 사람 손, regionCheck.mjs 머리 주석).
+for (const warning of regionWarnings(places)) console.warn(`⚠ ${warning}`);
 
 console.log(`pull 완료: places ${places.length} (published) · items ${items.length} · 폐업 제보 표식 ${places.filter((place) => place.openReportKinds).length}`);

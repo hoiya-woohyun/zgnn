@@ -1,6 +1,7 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-10-02 (v34: **블로그 경로 데이터 초기화** — `blog_posts` 4,896 · `candidates` 327 · `place_sources` 1 · blog 출처 `places` 1(테스트로 내린 곳)을 지웠다. Notion 시드 86곳(내린 2곳·확인 날짜 포함)과 `rebuild_log` 는 남겼다. 운영자 GRANT 에 delete 가 없어 `supabase db query --linked`(postgres)로 한 트랜잭션. 백업은 사용자 로컬. 수집 키워드는 52개로([todo/02](../todo/02-collect-naver-blog.md) v7))
+> 최종 수정: 2026-10-02 (v35: **읍면 대조는 경고만** — `pull`·`normalize` 끝에 `region.town` 이 주소의 읍면과 다른 곳, 같은 읍면이 두 방향인 곳을 `⚠` 로 찍는다(`scripts/lib/regionCheck.mjs`, [todo/12](../todo/12-ux-audit-2026-10-02.md) U0.2))
+> 이전 2026-10-02 (v34: **블로그 경로 데이터 초기화** — `blog_posts` 4,896 · `candidates` 327 · `place_sources` 1 · blog 출처 `places` 1(테스트로 내린 곳)을 지웠다. Notion 시드 86곳(내린 2곳·확인 날짜 포함)과 `rebuild_log` 는 남겼다. 운영자 GRANT 에 delete 가 없어 `supabase db query --linked`(postgres)로 한 트랜잭션. 백업은 사용자 로컬. 수집 키워드는 52개로([todo/02](../todo/02-collect-naver-blog.md) v7))
 > 이전 2026-10-02 (v33: 제외 이유 `noPetEvidence` — **신규**이고 교차점검이 `동반 근거 없음` 이면 후보로 만들지 않는다(ADR-019 v8 임시 단계, 재검색 없이). 제외 줄에 `town`·`address`·`recheck: null` 이 실린다)
 > 이전 2026-10-02 (v32: **분석 순서 — 제목이 한 가게 후기로 보이는 글을 먼저.** 첫 실측 30건에서 후보 59건 중 50건이 `동반 근거 없음`(목록·일정 글의 이름 나열)이었다. 제목에 반려동물 말이 있고 목록·일정형이 아닌 글(`isFocusedTitle`)을 서버 쿼리로 먼저 고르고, 나머지는 지우지 않고 뒤로 민다(분석 전 4,839건 중 3,053건이 앞줄). 정규식은 쿼리와 JS 가 같은 문자열)
 > 이전 2026-10-02 (v31: **동반 불가 글도 게시된 가게의 갱신이 된다** — 추출이 `petAllowed: 'no'` 로 낸 장소를 바로 버리지 않고 짝을 찾아, 게시된 곳과 확실히 같으면(`auto` + `published`, 옛 글·목록글 아님) `update` 후보로 올린다.
@@ -105,6 +106,9 @@ flowchart LR
   쓰기 스크립트는 세션이 없으면 그 자리에서 "pnpm data:login" 으로 멈춘다. service_role 키는 어디서도 안 쓴다 — env 에 남아 있으면 쓰기 스크립트는 **멈추고**(트립와이어),
   `data:pull` 은 anon 으로 계속 가되 무시한 env 이름을 경고 한 줄로 찍는다. URL·publishable 키는 코드 상수(공개값). 어느 출처로 붙었는지는 첫 로그 줄 `Supabase 인증: …` 이 말한다.
   레포에 env 파일 없음 — `data:*` 는 env 파일을 읽지 않는다(`ANALYZE_MODEL` 은 셸 env 로).
+- **읍면 대조는 경고만 한다**(`scripts/lib/regionCheck.mjs`). `region` 은 사람이 고른 값이고 주소·좌표는 네이버에서 온 값이라 따로 움직인다 —
+  어긋나면 '남원읍' 목록에 구좌읍 핀이 섞여도 빌드·테스트는 초록이다. 빌드를 막지 않는 이유는 고칠 곳이 여기가 아니라 `/admin`(원본 Supabase)이고,
+  막으면 다른 승인까지 사이트에 못 나간다. 어느 쪽이 맞는지도 정하지 않는다 — 이름의 지명이 **주소가 틀렸다**는 단서일 때가 있다(ADR-019 의 동명 가게).
 
 ## 두 입구가 같은 바이트를 내는 이유 — `scripts/lib/placeFields.mjs`
 

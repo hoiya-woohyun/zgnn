@@ -5,6 +5,7 @@
 import { mkdir, readFile } from 'node:fs/promises';
 import { writeDataJson } from './lib/dataJson.mjs';
 import { toItem, toPlace } from './lib/placeFields.mjs';
+import { regionWarnings } from './lib/regionCheck.mjs';
 
 const ROOT = new URL('../', import.meta.url);
 const read = async (p) => JSON.parse(await readFile(new URL(p, ROOT), 'utf8'));
@@ -56,3 +57,5 @@ await writeDataJson(new URL('src/data/places.json', ROOT), places);
 await writeDataJson(new URL('src/data/items.json', ROOT), items);
 const withGeo = places.filter((p) => p.geo).length, withImg = places.filter((p) => p.images.length).length;
 console.log(`places ${places.length} (geo ${withGeo}, images ${withImg}), items ${items.length}`);
+// 읍면·방향이 주소와 어긋난 곳 — 경고만(pull-db.mjs 와 같다).
+for (const warning of regionWarnings(places)) console.warn(`⚠ ${warning}`);
