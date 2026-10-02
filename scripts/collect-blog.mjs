@@ -7,6 +7,7 @@ import { readFile } from 'node:fs/promises';
 import { chunkForUrlFilter } from './lib/chunkForUrlFilter.mjs';
 import { describeKeyShape, naverErrorTail } from './lib/naverApiError.mjs';
 import { NAVER_BLOG_SEARCH_URL, naverAuthHeaders } from './lib/naverSearchApi.mjs';
+import { naverKeyPairProblem } from './lib/naverKeyFormat.mjs';
 import { readHidden } from './lib/readHidden.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
 import {
@@ -58,6 +59,15 @@ if (!naverClientId || !naverClientSecret) {
   if (!naverClientId || !naverClientSecret) {
     const empty = [!naverClientId && 'NAVER_CLIENT_ID', !naverClientSecret && 'NAVER_CLIENT_SECRET'].filter(Boolean);
     console.error(`네이버 키가 비었다: ${empty.join(' · ')} — env 로 넘기거나 터미널에서 다시 실행(숨김 입력).`);
+    process.exit(1);
+  }
+}
+
+// 모양 검사(`naverKeyFormat.mjs`) — 헤더에 실을 수 없는 키(예시 문구의 한글)는 401 이 아니라 ByteString 오류로 죽어 원인이 흐려진다.
+{
+  const problem = naverKeyPairProblem(['NAVER_CLIENT_ID', 'NAVER_CLIENT_SECRET'], { clientId: naverClientId, clientSecret: naverClientSecret });
+  if (problem) {
+    console.error(`네이버 키 모양이 틀렸다: ${problem} — 고친 뒤 다시 실행.`);
     process.exit(1);
   }
 }

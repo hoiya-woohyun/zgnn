@@ -65,6 +65,7 @@ import { fetchPostText } from './analyze/naverPostBody.mjs';
 import { needsDogCheck, resolveVerifyModel, verifyLabel, VERIFY_PROMPT_VERSION, verifyPlaces } from './analyze/verifyPlaces.mjs';
 import { PROPOSE_PROMPT_VERSION, proposalTargets, proposeForPlace, resolveProposeModel } from './analyze/proposePlaces.mjs';
 import { toMatchablePlace } from './lib/placeFields.mjs';
+import { naverKeyPairProblem } from './lib/naverKeyFormat.mjs';
 import { readHidden } from './lib/readHidden.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
 
@@ -96,6 +97,21 @@ const canPrompt = Boolean(process.stdin.isTTY && process.stdout.isTTY && !proces
 let rawModeGuarded = false;
 
 /**
+ * 키 **모양** 게이트(`naverKeyFormat.mjs`). 상태 코드가 없는 실패(헤더에 한글 → ByteString 오류)는 401 게이트를 지나쳐
+ * "좌표 없이 진행" 으로 흐르므로, 부르기 전에 막는다. 이름 축은 멈추고(키가 없을 때와 같은 세기), 주소 축은 끈다.
+ */
+function checkedKeys(axis, names, keys) {
+  const problem = naverKeyPairProblem(names, keys);
+  if (!problem) return keys;
+  if (axis === 'search') {
+    console.error(`네이버 키 모양이 틀렸다: ${problem} — 고친 뒤 다시 실행하거나, 좌표 없이 돌릴 작정이면 --no-geo 를 붙인다.`);
+    process.exit(1);
+  }
+  console.log(`  ${problem} — 주소→좌표 보강(두 번째 축)을 건너뛴다`);
+  return null;
+}
+
+/**
  * 한 축의 키 두 개를 정한다. env → (사람 터미널이면) 숨김 입력 → 판정.
  * @param {'search'|'map'} axis
  * @param {[string, string]} names  env 이름 두 개(id, secret)
@@ -107,7 +123,7 @@ async function resolveKeys(axis, names) {
   let clientSecret = trimKey(process.env[secretName]);
   const gate = keyGate(axis, { hasKeys: Boolean(clientId && clientSecret), noGeo, canPrompt });
 
-  if (gate === 'use') return { clientId, clientSecret };
+  if (gate === 'use') return checkedKeys(axis, names, { clientId, clientSecret });
   if (gate === 'stop') {
     console.error(
       `${idName} · ${secretName} 없음 — 좌표 없이 대조하면 동명 가게가 '확인요청' 이 아니라 '일치' 로 올라간다.\n` +
@@ -131,7 +147,7 @@ async function resolveKeys(axis, names) {
     // 여기서 null 을 돌려주고 계속 가면, 멈추려고 Ctrl-C 를 누른 사람이 좌표 없는 분석을 통째로 돌리게 된다 — 이 게이트가 막으려던 바로 그것이다.
     process.exit(130);
   }
-  if (clientId && clientSecret) return { clientId, clientSecret };
+  if (clientId && clientSecret) return checkedKeys(axis, names, { clientId, clientSecret });
 
   // 비어 있는 **이름**을 말한다(값은 절대 아니다) — id 를 비운 사람은 secret 프롬프트를 본 적이 없어 무엇을 다시 쳐야 하는지 모른다.
   const empty = [!clientId && idName, !clientSecret && secretName].filter(Boolean).join(' · ');
