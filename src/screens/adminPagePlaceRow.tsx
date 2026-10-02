@@ -42,11 +42,18 @@ export type TAdminPagePlaceState = {
 };
 
 /**
- * 줄 안의 동작 버튼은 **텍스트(링크형) 버튼**이다 — 테두리 있는 버튼은 마지막 칸 폭을 넘어 옆 '종류' 칸 위로 겹쳤다(1512px).
- * 링크형은 패딩이 없어 히트 영역이 글자 크기라, `min-h-11`(44px)로 바닥을 주고 `-my-1` 로 줄 높이는 그대로 둔다.
- * `whitespace-nowrap` — 칸 안에서 줄바꿈하지 않는다(칸 폭은 `ADMIN_PLACE_TRACKS` 의 `auto` 열이 가장 넓은 줄의 버튼에 맞춰 스스로 잡는다).
+ * 액션 칸(맨 끝 열)의 버튼 기준(2026-10-02).
+ *
+ * 1. **액션 칸의 동작은 전부 테두리 버튼**(`secondary`)이다. 텍스트 버튼은 줄 안의 이름 링크·회색 정보 글과 같은 모양이라
+ *    누를 곳으로 읽히지 않는다. 텍스트 버튼은 문장·정보 칸 안에 끼는 보조 동작(상세의 `주소·좌표 고치기`)에만 쓴다.
+ * 2. **색은 결정하는 순간에만.** 줄마다 서는 첫 단계(`내리기`·`블랙리스트`·`되살리기…`)는 회색 테두리 — 86줄 전부에 빨간
+ *    `내리기` 가 서 있던 동안 표 전체가 경고처럼 보였다. 확인 단계의 실행만 채운 색(`primary`)이고 `취소` 는 `secondary` 다
+ *    (후보 결정 패널 `adminPageGroupActions` 와 같은 짝).
+ *
+ * 예전에 텍스트 버튼이었던 이유는 "테두리 버튼이 고정폭 끝 열을 넘어 종류 칸을 덮는다" 였다. 끝 열이 `auto` 가 된 뒤로
+ * (`ADMIN_PLACE_TRACKS`) 열이 버튼에 맞춰 잡히므로 그 제약은 없다. `whitespace-nowrap` 은 그 열이 버튼 폭을 재는 기준이다.
  */
-const ROW_LINK = 'min-h-11 -my-1 shrink-0 whitespace-nowrap';
+const ROW_ACTION = 'shrink-0 whitespace-nowrap';
 
 type TAdminPagePlaceRowProps = {
   place: TPlaceRow;
@@ -247,11 +254,11 @@ export function AdminPagePlaceRow({
                     * 열을 넓히면 묻는 순간 표 전체의 열이 출렁인다. 폭은 버튼들이 정하고 글은 그 안에서 접힌다.
                     */}
                   <span className="text-xs break-keep text-tertiary md:w-0 md:min-w-full md:text-right">사이트에 다시 보여요. 되살릴까요?</span>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                   <Button
-                    color="link-color"
+                    color="primary"
                     size="sm"
-                    className={ROW_LINK}
+                    className={ROW_ACTION}
                     isDisabled={Boolean(busy)}
                     isLoading={busy === 'restoring'}
                     onClick={() => {
@@ -261,19 +268,19 @@ export function AdminPagePlaceRow({
                   >
                     {busy === 'restoring' ? '되살리는 중…' : '되살리기'}
                   </Button>
-                  <Button color="link-gray" size="sm" className={ROW_LINK} isDisabled={Boolean(busy)} onClick={() => setAskingRestore(false)}>
+                  <Button color="secondary" size="sm" className={ROW_ACTION} isDisabled={Boolean(busy)} onClick={() => setAskingRestore(false)}>
                     취소
                   </Button>
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   {!blocksUnavailable && (
-                    <Button color="link-gray" size="sm" className={ROW_LINK} isDisabled={Boolean(busy)} onClick={onStartBlock}>
+                    <Button color="secondary" size="sm" className={ROW_ACTION} isDisabled={Boolean(busy)} onClick={onStartBlock}>
                       블랙리스트
                     </Button>
                   )}
-                  <Button color="link-color" size="sm" className={ROW_LINK} isDisabled={Boolean(busy)} onClick={() => setAskingRestore(true)}>
+                  <Button color="secondary" size="sm" className={ROW_ACTION} isDisabled={Boolean(busy)} onClick={() => setAskingRestore(true)}>
                     되살리기(게시중으로)
                   </Button>
                 </div>
@@ -285,14 +292,11 @@ export function AdminPagePlaceRow({
                * `archive_note` 에 내린 적 없는 행의 `되살림` 이 적힌다. 제대로 막으면 이 칸에는 지역을 고칠 자리가
                * 없어 막다른 패널이 된다 — 초안을 올리는 길은 '확인할 장소' 의 승인이다(→ docs/todo/06 「열린 것」 F).
                */
-              /*
-               * **회색 텍스트 버튼이다**(2026-09-30 v2 회색 보조 → 줄 안은 텍스트로). 86줄 전부에 빨간 테두리 `내리기` 가 서 있던 동안 표 전체가 경고처럼 보였다.
-               * 되돌릴 수 없는 순간(사유를 고른 뒤의 확인 버튼)만 빨강이다.
-               */
+              /* 회색 테두리(`ROW_ACTION` 의 기준 2) — 되돌릴 수 없는 순간(사유를 고른 뒤의 확인 버튼)만 빨강이다. */
               <Button
-                color="link-gray"
+                color="secondary"
                 size="sm"
-                className={ROW_LINK}
+                className={ROW_ACTION}
                 isDisabled={Boolean(busy)}
                 onClick={onStartArchive}
             >
