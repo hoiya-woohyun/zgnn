@@ -2,6 +2,7 @@
 
 import { Button } from '../components/base/button';
 import { Checkbox } from '../components/base/checkbox';
+import type { TBlockChoice } from '../lib/adminBlocks';
 import type { TRejectReason } from '../lib/adminCandidates';
 import { cx } from '../utils/cx';
 import { AdminPageRejectForm } from './adminPageRejectForm';
@@ -19,20 +20,22 @@ type TAdminPageBulkBarProps = {
   error?: string;
   /** 고른 것 중 덮어쓸 수 있는 곳 수 — 버튼 라벨에 싣고 0 이면 버튼을 안 그린다. */
   latestCount: number;
+  /** 고른 것에 근거 없음·멈추는 줄이 섞였나 — 그러면 주 버튼(핑크)을 내린다(한 줄 결정 줄과 같은 규칙). */
+  approveNeedsLook: boolean;
   /** 확인 문장 — 형제 후보·건너뛰는 줄까지 세려면 목록 전체가 필요해 페이지가 만든다. */
   confirmText?: string;
   onToggleAll: (selected: boolean) => void;
   onClear: () => void;
   onStart: (mode: TBulkMode) => void;
   onCancel: () => void;
-  onReject: (reason: TRejectReason, note: string) => void;
+  onReject: (reason: TRejectReason, note: string, block: TBlockChoice) => void;
   onConfirm: () => void;
 };
 
 const CONFIRM: Record<Exclude<TBulkMode, 'reject'>, { title: (n: number) => string; button: string; destructive: boolean }> = {
   approve: { title: (n) => `고른 ${n}곳을 올릴까요?`, button: '올리기', destructive: false },
   latest: { title: () => '고른 것을 덮어쓸까요?', button: '덮어쓰기', destructive: false },
-  reanalyze: { title: (n) => `고른 ${n}곳을 재분석할까요?`, button: '재분석', destructive: true },
+  reanalyze: { title: (n) => `고른 ${n}곳을 수집 완료로 되돌릴까요?`, button: '재분석', destructive: false },
 };
 
 /**
@@ -59,6 +62,7 @@ export function AdminPageBulkBar({
   summary,
   error,
   latestCount,
+  approveNeedsLook,
   confirmText,
   onToggleAll,
   onClear,
@@ -97,7 +101,7 @@ export function AdminPageBulkBar({
           <>
             <span className="text-xs font-semibold text-primary">{selectedCount}곳 고름</span>
             <div className="flex flex-wrap items-center gap-1.5">
-              <Button color="primary" size="sm" isDisabled={!picked || locked} onClick={() => onStart('approve')}>
+              <Button color={approveNeedsLook ? 'secondary' : 'primary'} size="sm" isDisabled={!picked || locked} onClick={() => onStart('approve')}>
                 올리기
               </Button>
               {latestCount > 0 && (
@@ -106,7 +110,7 @@ export function AdminPageBulkBar({
                 </Button>
               )}
               <Button color="tertiary" size="sm" isDisabled={!picked || locked} onClick={() => onStart('reject')}>
-                반려
+                제외
               </Button>
               <Button color="tertiary" size="sm" isDisabled={!picked || locked} onClick={() => onStart('reanalyze')}>
                 재분석
@@ -128,12 +132,12 @@ export function AdminPageBulkBar({
           <p className="text-xs text-secondary">{confirmText}</p>
           {mode === 'reanalyze' && (
             <p className="text-xs text-tertiary">
-              눕힌 후보는 반려 목록에 남아요. 그다음 터미널에서 <code>pnpm data:analyze</code> 를 돌려 주세요.
+              목록에서 빠진 후보는 반려 목록에 남아요. 그다음 터미널에서 <code>pnpm data:analyze</code> 를 돌려 주세요.
             </p>
           )}
           <div className="flex gap-2">
             <Button
-              color={confirm.destructive ? 'primary-destructive' : 'primary'}
+              color={confirm.destructive ? 'primary-destructive' : mode === 'reanalyze' || (mode === 'approve' && approveNeedsLook) ? 'secondary' : 'primary'}
               size="sm"
               isDisabled={busy}
               isLoading={busy}

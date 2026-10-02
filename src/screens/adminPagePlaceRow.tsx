@@ -31,6 +31,13 @@ export type TAdminPagePlaceState = {
   archiving?: boolean;
 };
 
+/**
+ * 줄 안의 동작 버튼은 **텍스트(링크형) 버튼**이다 — 테두리 있는 버튼은 마지막 칸 폭을 넘어 옆 '종류' 칸 위로 겹쳤다(1512px).
+ * 링크형은 패딩이 없어 히트 영역이 글자 크기라, `min-h-11`(44px)로 바닥을 주고 `-my-1` 로 줄 높이는 그대로 둔다.
+ * `whitespace-nowrap` — 칸 안에서 줄바꿈하지 않는다(칸 폭은 `ADMIN_PLACE_GRID` 의 마지막 열이 `되살리기(게시중으로)` 가 들어가게 잡혀 있다).
+ */
+const ROW_LINK = 'min-h-11 -my-1 shrink-0 whitespace-nowrap';
+
 type TAdminPagePlaceRowProps = {
   place: TPlaceRow;
   state: TAdminPagePlaceState;
@@ -70,6 +77,8 @@ export function AdminPagePlaceRow({
 }: TAdminPagePlaceRowProps) {
   const [reason, setReason] = useState<TArchiveReason | null>(null);
   const [note, setNote] = useState('');
+  /** '되살리기(게시중으로)' 를 눌러 한 번 더 묻는 중 — 되살리면 초안이었던 행도 게시가 된다. */
+  const [askingRestore, setAskingRestore] = useState(false);
   const busy = state.busy;
   const archived = place.status === 'archived';
   const why = archived ? noteLineText(lastNoteLine(place.archive_note)) : undefined;
@@ -124,9 +133,9 @@ export function AdminPagePlaceRow({
           </button>
           {/*
             * **정상은 안 보이고 이상만** — 후보 표와 같은 원칙이다. `게시중` 은 86줄 중 84줄의 값이라 쓰지 않고,
-            * 내림·게시 대기만 뱃지다. 빠진 정보도 노란 뱃지(사이트에서 무엇이 사라지는지의 이름).
+            * 게시 대기만 뱃지다(내림은 자기 칸 '등록 해제' 가 말한다). 빠진 정보도 노란 뱃지(사이트에서 무엇이 사라지는지의 이름).
             */}
-          {place.status !== 'published' && (
+          {place.status === 'draft' && (
             <Badge size="sm" color={PLACE_STATUS_COLOR[place.status]}>
               {PLACE_STATUS_LABEL[place.status]}
             </Badge>
@@ -139,7 +148,7 @@ export function AdminPagePlaceRow({
           {/* 내린 이유는 상태 바로 뒤에 — 자기 열이던 동안 84줄에서 빈 칸이었다. 초안은 사유 대신 안내가 온다. */}
           {(why || place.status === 'draft') && (
             <span className="basis-full text-xs text-tertiary">
-              {why ?? '아직 사이트에 안 올라간 곳이에요 — ‘확인할 장소’ 에서 이 가게의 후보를 승인하면 올라가요.'}
+              {why ?? '아직 사이트에 안 올라간 곳이에요 — ‘검수 대기’ 에서 이 가게의 후보를 승인하면 올라가요.'}
             </span>
           )}
         </div>
@@ -172,15 +181,33 @@ export function AdminPagePlaceRow({
           */}
         <div className="flex items-center max-md:mt-2 md:justify-end">
           {state.archiving ? null : archived ? (
-              <Button
-                color="primary"
-                size="sm"
-                isDisabled={Boolean(busy)}
-                isLoading={busy === 'restoring'}
-                onClick={onRestore}
-              >
-                {busy === 'restoring' ? '되살리는 중…' : '되살리기'}
-              </Button>
+              askingRestore || busy === 'restoring' ? (
+                <div className="flex flex-col gap-0.5 md:items-end">
+                  <span className="text-xs text-tertiary md:text-right">사이트에 다시 보여요. 되살릴까요?</span>
+                  <div className="flex items-center gap-3">
+                  <Button
+                    color="link-color"
+                    size="sm"
+                    className={ROW_LINK}
+                    isDisabled={Boolean(busy)}
+                    isLoading={busy === 'restoring'}
+                    onClick={() => {
+                      setAskingRestore(false);
+                      onRestore();
+                    }}
+                  >
+                    {busy === 'restoring' ? '되살리는 중…' : '되살리기'}
+                  </Button>
+                  <Button color="link-gray" size="sm" className={ROW_LINK} isDisabled={Boolean(busy)} onClick={() => setAskingRestore(false)}>
+                    취소
+                  </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button color="link-color" size="sm" className={ROW_LINK} isDisabled={Boolean(busy)} onClick={() => setAskingRestore(true)}>
+                  되살리기(게시중으로)
+                </Button>
+              )
             ) : (
               /*
                * 초안에 '올리기' 버튼을 두지 않는다. `restorePlace` 를 그대로 쓰면 두 가지가 조용히 틀린다 —
@@ -189,12 +216,13 @@ export function AdminPagePlaceRow({
                * 없어 막다른 패널이 된다 — 초안을 올리는 길은 '확인할 장소' 의 승인이다(→ docs/todo/06 「열린 것」 F).
                */
               /*
-               * **회색 보조 버튼이다**(2026-09-30 v2). 86줄 전부에 빨간 테두리 `내리기` 가 서 있던 동안 표 전체가 경고처럼 보였다.
+               * **회색 텍스트 버튼이다**(2026-09-30 v2 회색 보조 → 줄 안은 텍스트로). 86줄 전부에 빨간 테두리 `내리기` 가 서 있던 동안 표 전체가 경고처럼 보였다.
                * 되돌릴 수 없는 순간(사유를 고른 뒤의 확인 버튼)만 빨강이다.
                */
               <Button
-                color="secondary"
+                color="link-gray"
                 size="sm"
+                className={ROW_LINK}
                 isDisabled={Boolean(busy)}
                 onClick={onStartArchive}
             >
@@ -241,8 +269,8 @@ export function AdminPagePlaceRow({
           {/* 거짓말을 하지 않는 자리다 — DB 에서 내려도 사이트에서 사라지는 것은 다음 빌드부터다(ADR-015). */}
           <p className="mt-2 text-xs text-tertiary">
             {place.status === 'draft'
-              ? '내리면 이 목록의 ‘내림’ 으로 옮겨져요. 사이트에는 원래 없던 곳이에요.'
-              : '내리면 다음 빌드부터 사이트에서 사라져요. 되살리려면 위쪽 ‘내림’ 버튼으로 걸러서 찾으면 돼요.'}
+              ? '내리면 ‘등록 해제’ 칸으로 옮겨져요. 사이트에는 원래 없던 곳이에요.'
+              : '내리면 다음 빌드부터 사이트에서 사라져요. 되살리려면 ‘등록 해제’ 칸에서 찾으면 돼요.'}
           </p>
 
           <div className="mt-2 flex flex-wrap gap-2">

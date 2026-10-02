@@ -23,8 +23,11 @@ describe('reanalyzePlan', () => {
     expect(plan.posts).toEqual(['post-a']);
     expect(plan.lay.map((r) => r.id)).toEqual(['a1', 'a2']);
     expect(plan.keep.map((r) => r.id)).toEqual(['a3']);
-    expect(reanalyzeSummary(plan)).toContain('후보 2건');
+    expect(reanalyzeSummary(plan)).toContain('검수 대기 후보 2건');
     expect(reanalyzeSummary(plan)).toContain('고친 후보 1건');
+    expect(reanalyzeSummary(plan)).toContain('수집 완료로 되돌려요');
+    expect(reanalyzeSummary(plan)).toContain('그대로예요. 다시 읽어도 그 가게는 새로 만들지 않아요.');
+    expect(reanalyzeSummary(plan)).not.toMatch(/지워요|없애요|초기화|눕/);
   });
 });
 

@@ -5,7 +5,7 @@
 // 계약이다. 키 하나가 빠지면(예: 네이버가 준 category) 빌드도 테스트도 통과한 채 반영 단계에서 조용히 안 채워진다.
 // 그래서 모양을 함수 하나에 모으고 테스트로 못 박는다.
 import { parseRegion } from '../lib/placeFields.mjs';
-import { inferRegionRaw } from './naverLocal.mjs';
+import { extractAddressUnits, inferRegionRaw } from './naverLocal.mjs';
 import { JEJU_TOWNS, normalizeName, THRESHOLD, townOf } from './matchPlace.mjs';
 
 /**
@@ -118,6 +118,62 @@ export function exclusionReason(extracted) {
   if (!PLACE_TYPES.has(extracted.type)) return 'other';
   if (extracted.petAllowed === 'no') return 'notAllowed';
   return null;
+}
+
+/**
+ * 이 후보를 막는 차단 행(`place_blocks`) — 없으면 null. D1·D2(ADR-020):
+ *  - `name_key` 가 후보의 이름 키(`normalizeName`, `toCandidateRow` 의 `nameKey` 와 같은 함수)와 같고
+ *  - `town` 이 null 이거나 후보의 읍·면과 같거나 **후보의 읍·면을 모를 때**(모르는 것은 막는 쪽으로) 이고
+ *  - `lifted_at` 이 null(일찍 풀지 않았다) 이고 `until` 이 null(영구)이거나 `now` 보다 뒤(만료 안 됨).
+ * 후보의 읍·면은 `inferRegionRaw` 가 쓰는 주소 토큰(`extractAddressUnits`)에서 먼저, 없으면 AI 가 준 `regionRaw` 에서 뽑는다.
+ */
+export function blockFor(extracted, blocks, now = new Date()) {
+  const key = extracted?.nameKey ?? normalizeName(extracted?.name ?? '');
+  if (!key) return null;
+  const town = extractAddressUnits(extracted?.address).eupMyeon ?? townOf(extracted?.regionRaw);
+  return (
+    (blocks ?? []).find(
+      (b) =>
+        b.name_key === key &&
+        (!b.town || !town || b.town === town) &&
+        !b.lifted_at &&
+        (!b.until || new Date(b.until).getTime() > now.getTime()),
+    ) ?? null
+  );
+}
+
+export const isBlocked = (extracted, blocks, now = new Date()) => blockFor(extracted, blocks, now) !== null;
+
+/** 로그용 — 차단이 언제까지인가. */
+export const blockUntilLabel = (block) => (block.until ? `~${new Date(block.until).toISOString().slice(0, 10)}` : '영구');
+
+/**
+ * `saveEdit`(src/lib/adminApply.ts 의 `EDITED_NOTE`)이 `reviewer_note` 에 적는 머리표. TS ↔ mjs 를 import 로 못 이어 값을 두 번 적고,
+ * 둘이 같은지는 `analyzeCandidates.test.mjs` 가 묶는다.
+ */
+export const EDITED_NOTE = '[admin] 고침';
+
+const EDITED_SEP = '\u0000';
+
+/** 글 + 가게 키 한 쌍의 집합 열쇠. */
+export const editedKey = (postUrl, nameKey) => `${postUrl}${EDITED_SEP}${nameKey}`;
+
+/**
+ * 사람이 고친 pending 후보의 (글, 가게) 집합 — 같은 글을 다시 읽어도 그 가게의 AI 후보를 또 만들지 않으려고(D3, T2.2).
+ * 이름을 고치면 `nameKey` 가 고친 이름으로 다시 계산되고 다시 읽은 AI 는 원래 이름을 내므로, 지금 키와 `extracted.editedFrom.nameKey`(원래 키) 둘 다 넣는다.
+ * 옛 후보(nameKey 없음)는 이름으로 계산한다.
+ */
+export function editedKeysFor(pendingRows) {
+  const keys = new Set();
+  for (const row of pendingRows ?? []) {
+    if (!row.reviewer_note?.includes(EDITED_NOTE)) continue;
+    const x = row.extracted;
+    const now = x?.nameKey ?? normalizeName(x?.name ?? '');
+    if (now) keys.add(editedKey(row.post_url, now));
+    const was = x?.editedFrom?.nameKey;
+    if (was) keys.add(editedKey(row.post_url, was));
+  }
+  return keys;
 }
 
 /** 제주 소재이고 종류가 정해졌고 동반 불가가 아닌 것만 후보. 나머지는 후보를 만들지 않고 analyzed_at 만 찍는다(03). */
@@ -308,15 +364,18 @@ export function formatSummary(stats, meterSummary, { dryRun } = {}) {
    * 옛 실행의 stats 에는 이 칸이 없으므로 `?? 0` — 없다고 NaN 이 되면 요약 한 줄이 통째로 못 읽히게 된다.
    */
   const already = ex?.alreadyHave ?? 0;
+  const blocked = ex?.blocked ?? 0;
   const excluded = ex
-    ? ` · 제외 ${ex.other + ex.notJeju + ex.notAllowed + already}(other ${ex.other} · 제주밖 ${ex.notJeju} · 동반불가 ${ex.notAllowed}${already ? ` · 이미 있음 ${already}` : ''})`
+    ? ` · 제외 ${ex.other + ex.notJeju + ex.notAllowed + already + blocked}(other ${ex.other} · 제주밖 ${ex.notJeju} · 동반불가 ${ex.notAllowed}${already ? ` · 이미 있음 ${already}` : ''}${blocked ? ` · 차단 ${blocked}` : ''})`
     : '';
   const dup = stats.dup ? ` · 중복표시 ${stats.dup}` : '';
+  // 사람이 고친 후보가 있는 (글, 가게) 는 새로 만들지 않았다 — 제외 합계와 단계가 달라(추출 뒤·짝짓기 전) 따로 적는다. 옛 stats 엔 칸이 없다.
+  const edited = stats.edited ? ` · 고침 유지 ${stats.edited}` : '';
   /*
    * 교차점검은 **점검한 수와 근거를 못 찾은 수를 같이** 적는다. 하나만 적으면 0 을 두 가지로 읽을 수 있다 —
    * "전부 근거가 있었다" 와 "패스가 안 돌았다" 는 운영자가 해야 할 일이 정반대다(⚠️ 판정 불가에 속지 말 것과 같은 자리).
    */
   const v = stats.verify;
   const verify = v ? ` · 교차점검 ${v.checked}건(근거 없음 ${v.noEvidence} · 동반 불가 정황 ${v.notAllowed}${v.failed ? ` · 실패 ${v.failed}` : ''})` : '';
-  return `${prefix}분석 ${stats.analyzed}건 (후보 ${stats.candidates} · 일치 ${stats.auto} · 확인요청 ${stats.ask} · 신규 ${stats.new}${dup} · 건너뜀 ${stats.skipped}${dropped}${excluded}${verify}) · ${meterSummary}`;
+  return `${prefix}분석 ${stats.analyzed}건 (후보 ${stats.candidates} · 일치 ${stats.auto} · 확인요청 ${stats.ask} · 신규 ${stats.new}${dup} · 건너뜀 ${stats.skipped}${dropped}${excluded}${edited}${verify}) · ${meterSummary}`;
 }

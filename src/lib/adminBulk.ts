@@ -7,8 +7,10 @@
  * 여기는 그 분류와 결과 문장만 맡는 순수 함수다.
  */
 
-import type { TCandidateGroup, TPlaceRow } from './adminCandidates';
+import { addressUnresolved } from './adminAddress';
+import { regionUsable, type TCandidateGroup, type TPlaceRow } from './adminCandidates';
 import { latestPlan } from './adminLatest';
+import { verifyNeedsLook } from './adminVerify';
 
 export type TBulkLatest = {
   /** 덮을 수 있는 묶음과 짝 id · 바뀌는 칸 수. */
@@ -52,6 +54,62 @@ export function bulkLatestSummary(plan: TBulkLatest): string {
   ].filter(Boolean);
   const head = `${plan.eligible.length}곳의 기존 장소를 새 분석 값으로 덮어요 — 모두 ${cells}칸.`;
   return skipped.length ? `${head} ${skipped.join(' · ')}은 건너뛰어요.` : head;
+}
+
+export type TBulkApprove = {
+  /** 근거 걱정 없이 올라가는 줄. */
+  ok: number;
+  /** 교차점검이 `동반 근거 없음`·`동반 불가 정황` 인데 올라가는 줄 — 한 줄 결정 줄은 이 경우 주 버튼을 반려로 뒤집는다. */
+  noEvidence: number;
+  /** 주소가 원글과 달라 올라가지 않는 줄(줄에서 직접 고른다). */
+  addressUnresolved: number;
+  /** 지역이 없어 올라가지 않는 줄. */
+  noRegion: number;
+  /** 짝이 내린 곳이라 멈추는 줄. */
+  archivedTarget: number;
+  /** 분석이 '닮은 곳, 확인 필요' 로 표시한 줄 — 올릴 때 고를 것을 띄울 수 있다. */
+  ask: number;
+};
+
+/**
+ * 일괄 올리기 확인의 구성 — 고른 줄을 세어 무엇이 올라가고 무엇이 멈추나. `approveGroup` 의 가드(지역·주소·내린 곳)와 같은 판정을 쓴다.
+ * 한 줄은 한 칸에만 센다(우선순위: 지역 → 주소 → 내린 곳 → 닮은 곳 → 근거 → 나머지). `places` 는 짝이 내린 곳인지 보는 캐시다.
+ */
+export function bulkApproveSummary(groups: TCandidateGroup[], selected: readonly string[], places: TPlaceRow[] = []): TBulkApprove {
+  const wanted = new Set(selected);
+  const byId = new Map(places.map((place) => [place.id, place]));
+  const out: TBulkApprove = { ok: 0, noEvidence: 0, addressUnresolved: 0, noRegion: 0, archivedTarget: 0, ask: 0 };
+  for (const group of groups) {
+    if (!wanted.has(group.key)) continue;
+    const extracted = group.lead.extracted;
+    const pairId = group.lead.match_place_id;
+    if (!regionUsable(extracted?.regionRaw)) out.noRegion += 1;
+    else if (addressUnresolved(extracted)) out.addressUnresolved += 1;
+    else if (pairId && byId.get(pairId)?.status === 'archived') out.archivedTarget += 1;
+    else if (!pairId && extracted?.match?.tier === 'ask') out.ask += 1;
+    else if (verifyNeedsLook(extracted?.verify)) out.noEvidence += 1;
+    else out.ok += 1;
+  }
+  return out;
+}
+
+/** 일괄 올리기를 확인하는 자리의 문장. 올라가지 않는 줄은 '건너뛰어요', 올라가는데 근거가 없는 줄은 그렇다고 적는다. */
+export function bulkApproveText(plan: TBulkApprove): string {
+  const up = plan.ok + plan.noEvidence;
+  const head = plan.noEvidence ? `${up}곳 올려요 — 그중 근거 없음 ${plan.noEvidence}곳도 그대로 올라가요.` : `${up}곳 올려요.`;
+  const skipped = [
+    plan.noRegion && `지역이 없는 ${plan.noRegion}곳`,
+    plan.addressUnresolved && `주소가 원글과 다른 ${plan.addressUnresolved}곳`,
+    plan.archivedTarget && `짝이 내린 곳인 ${plan.archivedTarget}곳`,
+  ].filter(Boolean);
+  const ask = plan.ask ? ` 닮은 곳 확인이 필요한 ${plan.ask}곳은 멈추고 그 줄에 고를 것을 띄울 수 있어요.` : '';
+  const rest = skipped.length ? ` ${skipped.join(' · ')}은 건너뛰어요.` : '';
+  return `${head}${rest}${ask} 짝이 있으면 그 장소의 빈 칸만 채우고, 없으면 새 장소로 올라가요.`;
+}
+
+/** 일괄 올리기 주 버튼을 내려야 하나 — 근거 없음이든 멈추는 줄이든 하나라도 있으면 핑크 한 번으로 보내지 않는다. */
+export function bulkApproveNeedsLook(plan: TBulkApprove): boolean {
+  return plan.noEvidence + plan.addressUnresolved + plan.noRegion + plan.archivedTarget + plan.ask > 0;
 }
 
 export type TBulkTally = { done: number; waiting: number; failed: number };

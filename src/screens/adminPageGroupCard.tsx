@@ -3,6 +3,7 @@
 import { ChevronDown } from '@untitledui/icons';
 import { Badge } from '../components/base/badges';
 import { Checkbox } from '../components/base/checkbox';
+import type { TBlockChoice } from '../lib/adminBlocks';
 import {
   regionUsable,
   TIER_LABEL,
@@ -71,7 +72,7 @@ type TAdminPageGroupCardProps = {
   onApprove: (choice?: TApproveChoice) => void;
   onStartReject: () => void;
   onCancelReject: () => void;
-  onReject: (reason: TRejectReason, note: string) => void;
+  onReject: (reason: TRejectReason, note: string, block: TBlockChoice) => void;
   onPickRegion: (regionRaw: string) => void;
   onSaveRegion: (regionRaw: string) => void;
   onEditDraft: (draft: TCandidateEditDraft | undefined) => void;
@@ -351,8 +352,8 @@ export function AdminPageGroupCard({
               )}
               <AdminPageGroupDetail group={group} preview={preview} />
             </div>
-            <div className="mt-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-t border-secondary pt-3">
-              <section aria-label="이 장소 결정" className="min-w-0 flex-1">
+            <div className="mt-3 border-t border-secondary pt-3">
+              <section aria-label="이 장소 결정">
                 <AdminPageGroupActions
                   group={group}
                   state={state}
@@ -378,7 +379,7 @@ export function AdminPageGroupCard({
               <button
                 type="button"
                 onClick={onToggle}
-                className="flex shrink-0 items-center gap-1 py-1.5 text-xs text-tertiary hover:text-secondary"
+                className="mx-auto mt-3 flex items-center gap-1 py-1.5 text-xs text-tertiary hover:text-secondary"
               >
                 <ChevronDown aria-hidden="true" className="size-3.5 rotate-180" />
                 여기까지 · 접기

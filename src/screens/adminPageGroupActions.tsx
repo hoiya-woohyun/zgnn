@@ -1,10 +1,11 @@
 'use client';
 
-import type { ComponentProps, ReactNode } from 'react';
+import { useState, type ComponentProps, type ReactNode } from 'react';
 import { Badge } from '../components/base/badges';
 import { Button } from '../components/base/button';
 import { Select } from '../components/base/select';
 import type { TAddressChoice } from '../lib/adminAddress';
+import type { TBlockChoice } from '../lib/adminBlocks';
 import { regionOptionsFor, type TCandidateGroup, type TRejectReason } from '../lib/adminCandidates';
 import type { TLatestPlan } from '../lib/adminLatest';
 import { lastNoteLine, noteLineText, PLACE_STATUS_COLOR, PLACE_STATUS_LABEL } from '../lib/adminPlaces';
@@ -13,7 +14,7 @@ import { AdminPageRejectForm } from './adminPageRejectForm';
 
 const BUSY_LABEL: Record<NonNullable<TAdminPageGroupState['busy']>, string> = {
   approving: '반영하고 있어요…',
-  rejecting: '반려하고 있어요…',
+  rejecting: '제외하고 있어요…',
   savingRegion: '저장하고 있어요…',
   savingEdit: '저장하고 있어요…',
   reanalyzing: '분석을 지우고 있어요…',
@@ -84,7 +85,7 @@ export function AdminPageGroupActions({
   onApprove: (choice?: TApproveChoice) => void;
   onStartReject: () => void;
   onCancelReject: () => void;
-  onReject: (reason: TRejectReason, note: string) => void;
+  onReject: (reason: TRejectReason, note: string, block: TBlockChoice) => void;
   onPickRegion: (regionRaw: string) => void;
   onSaveRegion: (regionRaw: string) => void;
   onChooseAddress: (choice: TAddressChoice) => void;
@@ -112,14 +113,14 @@ export function AdminPageGroupActions({
   if (state.reanalyzing) {
     return (
       <div className="space-y-2">
-        <Situation title="재분석할까요?">
+        <Situation title="수집 완료로 되돌릴까요?">
           <p>{reanalyzeText}</p>
           <p>
-            눕힌 후보는 반려 목록에 남아요. 그다음 터미널에서 <code>pnpm data:analyze</code> 를 돌려 주세요.
+            목록에서 빠진 후보는 반려 목록에 남아요. 그다음 터미널에서 <code>pnpm data:analyze</code> 를 돌려 주세요.
           </p>
         </Situation>
         <Row>
-          <TipButton color="primary-destructive" size="sm" isDisabled={off} isLoading={busy === 'reanalyzing'} onClick={onReanalyze}>
+          <TipButton color="secondary" size="sm" isDisabled={off} isLoading={busy === 'reanalyzing'} onClick={onReanalyze}>
             재분석
           </TipButton>
           <TipButton color="secondary" size="sm" isDisabled={off} onClick={onCancelReanalyze}>
@@ -159,11 +160,11 @@ export function AdminPageGroupActions({
    */
   const tail = (rejectPrimary = false) => (
     <>
-      {!rejectPrimary && tertiary('반려', onStartReject)}
+      {!rejectPrimary && tertiary('제외', onStartReject)}
       {tertiary('고치기', onEdit)}
       {tertiary('재분석', onStartReanalyze, {
         isDisabled: !group.lead.post_url,
-        title: group.lead.post_url ? '이 글의 분석을 지우고 재분석 대기로 되돌려요' : '글 링크가 없어 다시 읽을 수 없어요',
+        title: group.lead.post_url ? '이 글을 수집 완료로 되돌려요(지우지 않아요)' : '글 링크가 없어 다시 읽을 수 없어요',
       })}
     </>
   );
@@ -383,7 +384,7 @@ export function AdminPageGroupActions({
           {/* 근거가 없으면 반려가 주 버튼이다 — 5곳이 핑크 한 번씩에 게시되던 자리(UI 스냅샷 피드백). */}
           {needsLook && (
             <TipButton color="primary" size="sm" isDisabled={off} onClick={onStartReject}>
-              반려
+              제외
             </TipButton>
           )}
           {approve}
@@ -418,12 +419,36 @@ function Status({ state }: { state: TAdminPageGroupState }) {
   );
 }
 
-/** 빠져나가는 길 — 짝을 **버리는** 선택. 회색 링크로 줄 맨 끝에 둔다(주 버튼과 같은 색이면 가장 위험한 버튼이 가장 눈에 띈다). */
+/**
+ * 빠져나가는 길 — 짝을 **버리는** 선택. 앞에 구분선을 두고 밑줄 회색 링크로 줄 맨 끝에 둔다(주 버튼과 같은 색이면 가장 위험한 버튼이 가장 눈에 띈다).
+ * 한 번 누르면 확인 한 줄이 서고, 거기서 다시 눌러야 실행된다 — 복제본이 게시되는 길이라 `접기` 와 헷갈린 손이 닿지 않게.
+ */
 function Escape({ busy, label, title, onClick }: { busy: TAdminPageGroupState['busy']; label: string; title: string; onClick: () => void }) {
+  const [asking, setAsking] = useState(false);
+  if (asking) {
+    return (
+      <div className="basis-full space-y-1.5 border-t border-secondary pt-2">
+        <Situation title="정말 다른 가게예요?">같은 가게면 장소가 두 개 생겨요.</Situation>
+        <Row>
+          <TipButton color="secondary" size="sm" isDisabled={Boolean(busy)} isLoading={busy === 'approving'} onClick={onClick}>
+            네, 새 장소로
+          </TipButton>
+          <TipButton color="secondary" size="sm" isDisabled={Boolean(busy)} onClick={() => setAsking(false)}>
+            취소
+          </TipButton>
+        </Row>
+      </div>
+    );
+  }
   return (
-    <TipButton color="link-gray" size="sm" className="ml-1" isDisabled={Boolean(busy)} title={title} onClick={onClick}>
-      {label}
-    </TipButton>
+    <>
+      <span aria-hidden="true" className="ml-1 text-quaternary">
+        |
+      </span>
+      <TipButton color="link-gray" size="sm" className="underline" isDisabled={Boolean(busy)} title={title} onClick={() => setAsking(true)}>
+        {label}
+      </TipButton>
+    </>
   );
 }
 

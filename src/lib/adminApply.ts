@@ -433,13 +433,14 @@ export async function approveGroup(
 /**
  * 묶음 하나를 반려한다. `places` 는 건드리지 않는다.
  * 사유는 `reviewer_note` 에 덧붙인다 — 왜 반려했는지가 남지 않으면 같은 글이 다음 분석에 또 올라온다.
+ * 덧붙인 줄을 돌려준다(블랙리스트 기록이 그 뒤에 이어 붙는다 — `adminBlocks.rejectAndBlock`).
  */
 export async function rejectGroup(
   client: SupabaseClient,
   group: TCandidateGroup,
   reason: string,
   note?: string,
-): Promise<void> {
+): Promise<string> {
   const line = `[admin] ${reason}${note && note.trim() ? ` — ${note.trim()}` : ''}`;
   for (const row of group.rows) {
     const { error } = await client
@@ -448,6 +449,7 @@ export async function rejectGroup(
       .eq('id', row.id);
     failIf('후보 반려', error);
   }
+  return line;
 }
 
 /**

@@ -350,6 +350,12 @@ export function buildEdit(row: TCandidateRow, draft: TCandidateEditDraft, places
     petPolicy: draft.petPolicyText.trim() ? policyFactsFrom(draft.policy) : null,
     nameKey: normalizeName(name),
     /*
+     * 고치기 **전** 의 `nameKey` — 처음 고칠 때 한 번만 적는다. 위 `nameKey` 는 고친 이름으로 다시 계산되는데, 재분석이 글을 다시 읽으면
+     * AI 는 **원래 이름**을 내므로 지금 키만으론 "사람이 고친 가게" 를 못 알아본다(analyze-candidates.mjs 의 `editedKeysFor`).
+     * 이미 고친 행(`editedAt` 있음, `editedFrom` 없음)은 원래 키가 이미 사라졌으니 만들지 않는다.
+     */
+    ...(prev.editedFrom || prev.editedAt ? {} : { editedFrom: { nameKey: prev.nameKey ?? normalizeName(prev.name) } }),
+    /*
      * 사람이 고쳤다는 표식. `meta`(어느 프롬프트로 뽑았나)를 지우지 않고 **옆에** 둔다 — 지우면 재분석 대상을
      * 고르는 키가 사라지고, 덮어쓰면 "AI 가 이렇게 뽑았다" 가 거짓이 된다. 반영기는 칸을 명시해 읽으므로
      * 이 칸은 `places` 로 새지 않는다(`toNewPlaceRow`).

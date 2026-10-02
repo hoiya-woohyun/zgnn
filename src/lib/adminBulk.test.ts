@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bulkLatestSummary, bulkLatestTargets, summarizeBulk } from './adminBulk';
+import { bulkApproveNeedsLook, bulkApproveSummary, bulkApproveText, bulkLatestSummary, bulkLatestTargets, summarizeBulk } from './adminBulk';
 import type { TCandidateGroup, TPlaceRow } from './adminCandidates';
 
 const place = (id: string, over: Partial<TPlaceRow> = {}) =>
@@ -27,5 +27,38 @@ describe('summarizeBulk', () => {
     expect(summarizeBulk('올렸어요', { done: 3, waiting: 2, failed: 1 })).toBe(
       '3곳 올렸어요 · 2곳은 직접 골라야 해요(줄을 펼쳐 보세요) · 1곳 실패 — 줄에 이유를 적어 뒀어요',
     );
+  });
+});
+
+describe('bulkApproveSummary', () => {
+  const withVerify = (key: string, petAllowedHere: 'yes' | 'no' | null | undefined, over: Record<string, unknown> = {}) => {
+    const base = group(key, null);
+    return {
+      ...base,
+      lead: { ...base.lead, extracted: { ...base.lead.extracted, verify: petAllowedHere === undefined ? null : { petAllowedHere, dogWasThere: false }, ...over } },
+    } as unknown as TCandidateGroup;
+  };
+
+  it('근거 없음이 하나 섞이면 그 수를 세고 주 버튼을 내린다', () => {
+    const groups = [withVerify('a', 'yes'), withVerify('b', null), withVerify('c', undefined)];
+    const plan = bulkApproveSummary(groups, ['a', 'b', 'c']);
+    expect(plan).toMatchObject({ ok: 2, noEvidence: 1, noRegion: 0 });
+    expect(bulkApproveNeedsLook(plan)).toBe(true);
+    expect(bulkApproveText(plan)).toContain('근거 없음 1곳');
+  });
+
+  it('고르지 않은 줄은 세지 않고, 전부 멀쩡하면 주 버튼을 그대로 둔다', () => {
+    const groups = [withVerify('a', 'yes'), withVerify('b', null)];
+    const plan = bulkApproveSummary(groups, ['a']);
+    expect(plan).toMatchObject({ ok: 1, noEvidence: 0 });
+    expect(bulkApproveNeedsLook(plan)).toBe(false);
+  });
+
+  it('지역이 없는 줄·내린 곳에 짝이 붙은 줄은 건너뛴다고 말한다', () => {
+    const noRegion = withVerify('a', 'yes', { regionRaw: null });
+    const toArchived = { ...group('b', 'p2') } as TCandidateGroup;
+    const plan = bulkApproveSummary([noRegion, toArchived], ['a', 'b'], [place('p2', { status: 'archived' })]);
+    expect(plan).toMatchObject({ noRegion: 1, archivedTarget: 1, ok: 0 });
+    expect(bulkApproveText(plan)).toContain('건너뛰어요');
   });
 });
