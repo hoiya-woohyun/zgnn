@@ -14,6 +14,7 @@ import { usePlaceTypeSwitch } from './placesPageTypeSwitch';
 import { Input } from '../components/base/input';
 import { DIRECTION_LABEL, TYPE_META, placesOfType } from '../lib/places';
 import { PET_FILTERS, comparePrice, envFiltersWithData, resetFiltersLabel, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
+import { matchesQuery } from '../lib/placeSearch';
 import { sortByEligibility } from '../lib/sortByEligibility';
 import { distancesFrom, sortByDistance } from '../lib/distanceSort';
 import { LOCATE_NOTICE, locateMe } from '../lib/myLocation';
@@ -81,14 +82,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
   const results = useMemo(() => {
     let list = byTown;
 
-    const normalizedQuery = query.trim().toLowerCase();
-    if (normalizedQuery) {
-      list = list.filter((place) =>
-        [place.name, place.features, place.region.town].some((field) =>
-          field.toLowerCase().includes(normalizedQuery),
-        ),
-      );
-    }
+    if (query.trim()) list = list.filter((place) => matchesQuery(place, query));
 
     if (directions.length > 0) {
       list = list.filter((place) => directions.includes(place.region.direction));
