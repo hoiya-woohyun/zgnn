@@ -38,6 +38,8 @@ type TPlacesPageResultsProps = {
   activeFilterCount: number;
   /** 검색어만 지운다 — 검색만으로 0곳일 때 빈 상태의 버튼. */
   onClearQuery: () => void;
+  /** 읍면만 푼다 — 이 종류에 그 읍면이 아예 없을 때 빈 상태의 버튼(12 U1.6). */
+  onClearTown: () => void;
   /** 켜진 조건 칩 줄. 비어 있으면 줄을 그리지 않는다. */
   activeChips: TActiveChip[];
   onResetFilters: () => void;
@@ -64,6 +66,7 @@ export function PlacesPageResults({
   query,
   activeFilterCount,
   onClearQuery,
+  onClearTown,
   activeChips,
   onResetFilters,
   onOpenFilters,
@@ -158,12 +161,19 @@ export function PlacesPageResults({
                 townHasNoPlaces ? `${town}엔 ${withJosa(TYPE_META[type].label, '이/가')} 없어요` : '필터에 맞는 곳이 없어요'
               }
               description={
-                townHasNoPlaces ? '필터에서 다른 읍면을 골라 보세요.' : '검색어나 필터를 바꿔 보세요.'
+                townHasNoPlaces ? '읍면을 풀거나 필터에서 다른 읍면을 골라 보세요.' : '검색어나 필터를 바꿔 보세요.'
               }
               action={
-                <Button color="primary" size="md" className="md:hidden" onClick={onOpenFilters}>
-                  필터 바꾸기
-                </Button>
+                townHasNoPlaces ? (
+                  // 이 종류에 없는 읍면은 시트에서 다른 칩을 고르기 전엔 안 풀린다 — 바로 푸는 것이 할 일이다(12 U1.6).
+                  <Button color="primary" size="md" onClick={onClearTown}>
+                    읍면 풀기
+                  </Button>
+                ) : (
+                  <Button color="primary" size="md" className="md:hidden" onClick={onOpenFilters}>
+                    필터 바꾸기
+                  </Button>
+                )
               }
             />
           )}

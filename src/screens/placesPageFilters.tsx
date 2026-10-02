@@ -90,7 +90,10 @@ export function PlacesPageFilters({
   onChangeSort,
 }: TPlacesPageFiltersProps) {
   // 이 종류에 실제로 장소가 있는 읍면만 보여준다 — 0곳인 읍면 칩을 눌러 빈 목록을 만들 이유가 없다.
-  const towns = topTowns(type, Number.MAX_SAFE_INTEGER);
+  // 단 **이미 골라 둔 읍면**이 이 종류에 없으면(숙소에서 고른 '서귀포' → 식당) 맨 앞에 `0` 칩을 켜진 채로 끼운다 —
+  // 안 그러면 버튼은 "필터 1" 인데 시트에 끌 칩이 없다(12 U1.6). 읍면은 종류를 넘어 유지되는 값이다.
+  const typeTowns = topTowns(type, Number.MAX_SAFE_INTEGER);
+  const towns = town !== null && !typeTowns.some((entry) => entry.town === town) ? [{ town, count: 0 }, ...typeTowns] : typeTowns;
 
   return (
     <div className={variant === 'bar' ? 'space-y-2 pb-3' : 'space-y-5'}>

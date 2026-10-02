@@ -339,6 +339,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
               activeChips={activeChips}
               onResetFilters={resetFilters}
               onClearQuery={() => setQuery('')}
+              onClearTown={() => setTown(null)}
               onOpenFilters={() => setIsFilterSheetOpen(true)}
               distances={distances}
             />

@@ -63,6 +63,7 @@ export function PlacesPageSwipePeek({ ref, type, side, top, height }: TPlacesPag
         query=""
         activeFilterCount={town !== null ? 1 : 0}
         onClearQuery={noop}
+        onClearTown={noop}
         // 새 화면에도 읍면 칩은 따라온다 — 엿보기에서 빠지면 손을 놓는 순간 줄이 튀어나온다.
         activeChips={town ? [{ key: 'town', label: town, onRemove: noop }] : []}
         onResetFilters={noop}
