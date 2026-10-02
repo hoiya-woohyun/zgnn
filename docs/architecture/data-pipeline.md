@@ -1,6 +1,8 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-10-01 (v28: `places.stay_environment`(숙소 환경 jsonb, 마이그레이션 `20261001160000`) → JSON `stay.environment`. 추출 스키마의 `stayEnvironment` 가 원천이고, 쓰는 쪽(`toNewPlaceRow`·`mergeIntoExisting`·`overwriteWithLatest`)은 행에 칸이 있을 때만 싣는다)
+> 최종 수정: 2026-10-02 (v29: **차이 게이트** — 게시된 곳을 쓴 글은 사이트와 **다른 사실**을 말할 때만 후보가 된다(`kindOf`, [todo/11](../todo/11-continuous-review-and-update-proposals.md) U1).
+> 제외 이유 `alreadyHave` 가 셋으로 갈렸다 — `sameAsSite`(같은 말) · `stale`(확인 날짜보다 옛 글) · `weak`(목록글·동반 근거 없음). 후보는 `extracted.match.kind`(`new`·`ask`·`fill`·`update`)를 싣는다)
+> 이전 2026-10-01 (v28: `places.stay_environment`(숙소 환경 jsonb, 마이그레이션 `20261001160000`) → JSON `stay.environment`. 추출 스키마의 `stayEnvironment` 가 원천이고, 쓰는 쪽(`toNewPlaceRow`·`mergeIntoExisting`·`overwriteWithLatest`)은 행에 칸이 있을 때만 싣는다)
 > 이전 (v27: `data:pull` 이 `place_report_flags()`(마이그레이션 `20261001150000`)로 **열린 폐업 제보 표식**을 장소 끝 키 `openReportKinds` 로 얹는다 — 상세가 그때 확인 날짜를 안 그린다. 함수가 없으면 경고 한 줄 뒤 표식 없이 계속)
 > 이전 (v26: `places.verified_at`(사람이 마지막으로 확인한 시각, 마이그레이션 `20261001140000`) → JSON `verifiedAt`(한국 날짜). **트리거가 아니라 쓰는 코드가** 찍는다 — 승인·덮어쓰기·주소 고치기·제보 `고쳤어요`·다녀왔어요 반영. 칸이 없는 원격에서는 쓰지 않는다)
 > 이전 (v25: 스키마 요약에 `place_reports`(사용자 제보, 마이그레이션 `20261001130000`, 원격 미적용) 한 줄 — [ADR-021](../decisions/ADR-021-place-reports.md))
@@ -193,12 +195,12 @@ flowchart LR
   옛 후보·장소는 `feeText`(한 칸)나 `feeLines`(줄 목록)만 들고 있고 읽는 쪽이 `feeLinesOf` 로 합쳐 본다 — 소급 마이그레이션은 하지 않는다(요금 계산은 줄을 읽던 길로 물러난다).
 - **후보 0건의 "왜" 가 `blog_posts.analysis` 에 남는다** — `{ model, promptVersion, candidates, candidateNames, excluded:[{name,type,reason}], skip }`. 제외 이유는 넷:
   `notJeju` · `other`(관광지·운동장 — 이름은 남는다) · `notAllowed`(본문이 동반 불가라고 함, [BUG-008](../bugs/BUG-008-empty-pet-policy-judged-ok.md)) ·
-  **`alreadyHave`**(이미 게시된 곳 — 아래). 본문 인용은 넣지 않는다.
+  **`sameAsSite` · `stale` · `weak`**(이미 게시된 곳을 쓴 글 — 아래 「차이 게이트」. v29 전 실행은 셋을 합쳐 `alreadyHave` 로 남겼다). 본문 인용은 넣지 않는다.
   **`blocked`**(넷째 이유) — 실행 시작에 `place_blocks` 를 읽어(`dry-run` 도 읽는다) 추출 직후 `blockFor` 로 건다: `name_key` 가 후보 이름 키와 같고, `town` 이 null 이거나 후보의 읍·면과 같거나 후보의 읍·면을 모르고,
   `lifted_at` 이 null 이고 `until` 이 null(영구)이거나 실행 시작 시각보다 뒤인 행. 만료는 비교이고 스케줄러는 없다([ADR-020](../decisions/ADR-020-pipeline-stages-and-blocklist.md) D1·D2).
   요약 줄에는 제외 합계 안 `· 차단 N`. **표가 원격에 없으면(마이그레이션 미적용) 조회 실패를 차단 0건으로 보고 경고 한 줄만 찍고 계속 간다.**
   **`edited`**(사람이 고친 후보가 이미 있는 같은 글·같은 가게 — 아래 「재분석」)도 추출 직후에 걸리지만 `excluded[]` 에만 남고 요약 줄에는 제외 합계 밖 `· 고침 유지 N` 로 따로 적는다.
-  앞의 셋은 추출 **직후**(`exclusionReason`)에 걸리고 `alreadyHave` 만 **짝짓기 뒤**에 걸린다 — 단계가 다르지만 요약 한 줄에서는
+  앞의 셋은 추출 **직후**(`exclusionReason`)에 걸리고 게이트의 셋은 **짝짓기 뒤**에 걸린다 — 단계가 다르지만 요약 한 줄에서는
   한 괄호에 넣는다(운영자가 읽는 뜻은 "후보로 안 들어간 수" 하나이고, 자리를 나누면 그 합을 사람이 더해야 한다).
   프롬프트를 고치면 `PROMPT_VERSION`(스키마+프롬프트의 sha256 앞 8자)이 바뀌고, `analysis->>'promptVersion'` 이 다른 글만 골라 재분석할 수 있다.
 
@@ -242,14 +244,19 @@ flowchart LR
   싸게 보려면 키를 그대로 두고 **`--dry-run --dump --limit 3`** 으로 돌려 JSON 의 `petPolicy.fees` 를 먼저 읽는다 — DB 에 아무것도 쓰지 않는다.
 - **같은 가게가 여러 글에서 나온다** — 첫 실행에서 한 펜션(자사 홍보 블로그, 저수지의 12%)이 13건, 목록 글 하나가 101건. 그래서 한 실행에 블로그당 2건(`--max-per-blog`, 넘친 글은 닫지 않고 뒤로 밀린다),
   `extracted.nameKey`(`normalizeName`)와 `dupOf`(먼저 난 pending 후보 id)로 묶고, `visited: false`(이름만 나열된 목록 글)를 표식으로 남긴다. 후보는 그래도 넣는다 — evidence 가 다른 글이다.
-- **이미 게시된 곳(`auto` + 짝이 `published`)은 후보를 만들지 않는다**(`skipAsExisting`, `scripts/analyze/analyzeCandidates.mjs`).
-  그 후보를 승인해도 하는 일은 기존 행의 **빈 칸을 채우는** 것뿐인데(`applyApproved`), 게시된 86곳은 이름·소개·조건이 사람 손으로
-  이미 차 있어 채울 칸이 거의 없다. 그런데 검수 목록에서는 신규와 같은 무게로 한 줄을 먹는다 — 아끼는 것은 비용이 아니라
-  **운영자가 훑을 줄 수**다(추출·네이버 조회는 이미 끝난 뒤의 판정이다).
-  **막는 것은 `published` 짝뿐이다.** 나머지를 막으면 조용히 길이 끊긴다 — `draft` 짝의 승인은 초안을 게시로 올리는 유일한 길이고
-  (`adminApply.ts`), `archived` 짝은 내린 가게를 쓴 새 글이 났다는 뜻이라 **재개업을 아는 유일한 신호**다('되살려서 합치기'). 단 그 가게가 블랙리스트에 있으면 이름 축에서 먼저 걸려 후보가 되지 않는다(해제 폼이 함께 거는 `place_blocks`, 09 T1.4 — 되살리면 풀린다).
-  `status` 를 모르면(시드·테스트 경로) 막지 않는다 — 모르는 것을 "이미 있다" 로 읽으면 후보가 조용히 사라지고, 그 반대는 사람이 화면에서 본다.
-  ⚠️ **이미 쌓인 pending `auto` 후보는 그대로 있다** — `/admin` 에서 `기존` 칩으로 걸러 일괄 반려하는 것이 사람의 몫이다.
+- **차이 게이트 — 게시된 곳을 쓴 글은 사이트와 다른 사실을 말할 때만 후보가 된다**(`kindOf`, `scripts/analyze/analyzeCandidates.mjs` · 사실 비교 `scripts/analyze/siteChanges.mjs`).
+  v14 는 `auto` + `published` 짝을 **전부** 버렸다(같은 말을 하는 글이 신규와 같은 무게로 한 줄을 먹어서). 그런데 그 길로 "대형견 불가로 바뀜" 같은
+  **갱신 신호도 같이 버려졌다**([todo/11](../todo/11-continuous-review-and-update-proposals.md) G1). 지금은 짝 행과 대 봐서 종류를 정한다:
+  `update`(이미 찬 칸과 다른 사실) · `fill`(빈 칸만 채움) · 둘 다 없으면 후보 없음(`sameAsSite`). 다른 사실이 있어도 목록글·교차점검 '동반 근거 없음' 이면
+  `weak`, 글 날짜가 그 장소의 `verified_at` 보다 앞이면 `stale` 로 뺀다. 교차점검 '동반 불가 정황' 은 다른 칸이 없어도 `update` 다.
+  ⚠️ **"다른 사실" 은 `overwriteWithLatest` 의 patch 가 아니다** — 그 patch 는 글자가 다른 칸이라, 두 글이 같은 조건을 다른 문장으로 쓰거나
+  네이버 주소 표기·좌표가 몇 m 다르기만 해도 서고, 그대로 쓰면 v14 의 소음이 돌아온다. 그래서 조건은 **구조 판단끼리**(후보가 `unknown`·`null`·`false` 로
+  "말하지 않은" 칸은 세지 않는다), 숙박 요금은 **금액끼리**, 숙소 환경은 **둘 다 값이 있는 칸끼리** 대 보고, 이름·주소·좌표·카테고리·홈페이지·소개·시설은 세지 않는다
+  (그 칸들은 덮어쓰기 화면에서 여전히 고른다). 사이트 판단(`pet_policy`)이 없는 시드는 "모른다" 와 대 보므로 조건을 말한 글이 전부 `update` 다 — 11 §4-5 의 **첫 갱신 물결**.
+  **거르는 것은 `published` 짝뿐이다.** `draft` 짝의 승인은 초안을 게시로 올리는 유일한 길이고(`adminApply.ts`), `archived` 짝은 내린 가게를 쓴 새 글이 났다는 뜻이라
+  **재개업을 아는 유일한 신호**다('되살려서 합치기') — 둘 다 늘 후보이고 종류만 붙는다. 단 그 가게가 블랙리스트에 있으면 이름 축에서 먼저 걸린다(해제 폼이 함께 거는 `place_blocks`, 09 T1.4 — 되살리면 풀린다).
+  `status` 나 짝 행을 모르면(시드·테스트 경로) 거르지 않는다 — 모르는 것을 "이미 있다" 로 읽으면 후보가 조용히 사라지고, 그 반대는 사람이 화면에서 본다.
+  **비용은 줄지 않는다**(추출·네이버 조회·홈페이지 읽기가 끝난 뒤의 판정이다) — 아끼는 것은 운영자가 훑을 줄 수다. 요약 줄에 `갱신 N · 보강 M` 과 제외 괄호의 `같은 말 · 옛 글 · 근거 약함`.
 - **검수는 `pnpm data:review`** — pending 을 같은 가게로 묶어 검수 순서(`reviewPriority`, 🙋 사용자가 다듬는 자리)대로 보여 주고, 후보마다 `정규식 [..] · AI [..] · 앱 [..]` 과 표식
   (`조건문 없음` · `정규식 못읽음` · `AI≠정규식` · `지역 없음` · `좌표 없음` · `목록글` · `중복표시`)을 찍는다. `approve <id…>`·`reject <id…> --note` 로 결정을 넣고, `status` 가 published 대기 draft 와 빈 칸을 센다.
   원문·evidence 는 `--verbose`/`--md` 에서만(05 의 로그 위생). Studio 는 그대로 쓸 수 있다.

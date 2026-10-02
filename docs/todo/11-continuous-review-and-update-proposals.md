@@ -194,7 +194,7 @@ P0 만 끝나도 사용자 요구 ③과 ④의 "어떤 글들이 참고됐고 �
 
 ### P0 — 갱신 신호가 운영자에게 닿는다
 
-#### [ ] T1.1 차이 게이트 — `skipAsExisting` 을 "같은 말" 로 좁히고 종류를 적는다
+#### [x] T1.1 차이 게이트 — `skipAsExisting` 을 "같은 말" 로 좁히고 종류를 적는다
 
 - 근거: G1·G2 · U1·U2.
 - 읽을 것: `scripts/analyze/analyzeCandidates.mjs`(`skipAsExisting` · `toCandidateRow` · `formatSummary`) · `scripts/analyze-candidates.mjs:470-490`(제외 분기) · `scripts/analyze/applyApproved.mjs`(`mergeIntoExisting` · `overwriteWithLatest`) · data-pipeline v14 문단.
@@ -207,6 +207,13 @@ P0 만 끝나도 사용자 요구 ③과 ④의 "어떤 글들이 참고됐고 �
 - 수용 기준: `pnpm test` 통과 · 기존 `skipAsExisting` 테스트가 그대로 초록(같은 말 케이스) · `--dry-run` 요약 줄에 두 수.
 - 문서: data-pipeline v14 문단을 "같은 말을 하는 글만 건너뛴다" 로 · 제외 이유 둘 · 09 D6 에 한 줄 메모(→ T3.1 이 정리).
 - 커밋: `feat(analyze) - 게시된 장소를 쓴 글은 사이트와 다른 말을 할 때만 후보가 된다 — 갱신·보강 종류`
+
+> 메모: **"다른 말" 은 `overwriteWithLatest` 의 patch 그대로가 아니다** — 그 patch 는 글자가 다른 칸이라 같은 조건을 다른 문장으로 쓴 글·네이버 주소 표기·좌표 몇 m 로도 서서,
+> 그대로 쓰면 G2 의 소음이 돌아온다. 사실 칸만 사실끼리 대 보는 `siteChanges`(`scripts/analyze/siteChanges.mjs` — 조건은 구조 판단, 숙박 요금은 금액, 환경은 칸별)를
+> patch 위에 얹었다(게이트 칸 ⊆ 덮어쓰기 전·후 목록은 그대로). 그래서 `match.changes` 는 `pet_policy_text`·`stay_price_text`·`stay_environment` 셋 중에서만 나온다.
+> 제외 이유는 둘이 아니라 **셋** — 목록글·`동반 근거 없음` 을 `sameAsSite` 로 세면 거짓이라 `weak`(근거 약함)을 따로 뒀다(T2.4 는 셋을 센다).
+> 게이트가 홈페이지 읽기 **뒤**로 갔다 — 카드가 `fill` 판정의 재료다(같은 link 는 실행당 한 번이라 비용은 작다).
+> ⚠️ 남은 구멍: 추출이 `petAllowed: 'no'` 로 낸 장소는 **짝짓기 전에** `notAllowed` 로 빠져, 게시된 곳이 "이제 안 받아요" 가 돼도 갱신으로 못 올라온다(게이트는 교차점검의 '불가 정황' 만 본다). 다음 손질 후보.
 
 #### [ ] T1.2 종류 칩·걸러 보기 — `tier` 와 다른 축
 

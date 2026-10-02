@@ -7,6 +7,7 @@
 import { parseRegion } from '../lib/placeFields.mjs';
 import { extractAddressUnits, inferRegionRaw } from './naverLocal.mjs';
 import { JEJU_TOWNS, normalizeName, THRESHOLD, townOf } from './matchPlace.mjs';
+import { fillColumns, siteChanges } from './siteChanges.mjs';
 
 /**
  * 🙋 auto 구간(confidence ≥ AUTO_MERGE)을 사람 확인 없이 바로 approved 로 넣을 것인가. 기본 false — 후보는 전부 pending 이고
@@ -228,25 +229,73 @@ export function tierOf(matched) {
 }
 
 /**
- * **이미 사이트에 있는 곳인가** — 그렇다면 후보를 만들지 않는다.
+ * 후보의 **종류**(docs/todo/11 U1·U2) — 승인하면 무슨 일이 일어나나. `tier`(짝이 맞나)와 다른 축이다.
+ *   'new'    짝이 없다 → 등록
+ *   'ask'    짝이 애매하다(0.4~0.85) → 사람이 고른다
+ *   'fill'   짝이 있고 **빈 칸만** 채운다(덧붙이는 글) → 합치기
+ *   'update' 짝이 있고 **이미 찬 칸과 다른 사실**을 말한다 → 덮어쓰기(칸 고르기)
+ * `exclude` 가 있으면 후보를 만들지 않는다(`blog_posts.analysis.excluded` 의 이유로 남는다):
+ *   'sameAsSite' 사이트와 같은 말(빈 칸도 다른 사실도 없다) — data-pipeline v14 가 막은 소음은 이것이다
+ *   'stale'      글이 그 장소의 `verified_at`(사람이 확인한 날)보다 오래됐다 — 운영자가 본 뒤의 글만 새 소식이다(U5)
+ *   'weak'       목록글(`visited === false`)이거나 교차점검이 '동반 근거 없음' — 그 글은 그 가게의 조건을 말할 근거가 약하다
  *
- * 'auto'(≥0.85)는 "기존 장소와 같은 가게" 라는 뜻이고, 그 후보를 승인해도 하는 일은 기존 행의 **빈 칸을 채우는**
- * 것뿐이다(applyApproved). 게시된 86곳은 이름·소개·조건이 이미 사람 손으로 차 있어 채울 칸이 거의 없는데,
- * 검수 목록에서는 그 후보가 신규와 같은 무게로 한 줄을 먹는다. 운영자가 훑어야 할 줄만 늘린다.
+ * **게시된(`published`) 짝일 때만** 거른다 — `draft` 짝은 그 승인이 초안을 게시로 올리는 유일한 길이고, `archived` 짝은
+ * 재개업을 아는 유일한 신호다(막으면 그 가게는 다음에 다른 이름으로 잡혀 복제본이 된다). 그 둘은 늘 후보이고 종류만 붙는다.
+ * `status` 나 짝 행을 모르면(시드·테스트 경로) 거르지 않는다 — 모르는 것을 "이미 있다" 로 읽으면 후보가 조용히 사라진다.
  *
- * **`published` 짝일 때만 막는다.** 나머지 둘은 막으면 조용히 길이 끊긴다:
- *  - `draft` 짝 — 그 후보를 승인하는 것이 **초안을 게시로 올리는 유일한 길**이다(adminApply.ts:157). 막으면 영영 초안이다.
- *  - `archived` 짝 — 내린 가게를 쓴 새 글이 났다는 뜻이고, 그것이 **재개업을 아는 유일한 신호**다
- *    ('되살려서 합치기' 경로). 막으면 그 가게는 다음에 다른 이름으로 잡혀 복제본이 된다.
+ * 순서: 같은 말이면 이유는 늘 'sameAsSite' 다(그것이 가장 많이 알려 준다). 다른 말이 있을 때만 근거(목록글·근거 없음)와 날짜를 본다.
+ * 교차점검이 '동반 불가 정황'(`petAllowedHere === 'no'`)이면 다른 칸이 없어도 'update' 다 — "이제 안 받는다" 가 가장 중요한 갱신이다.
  *
- * `status` 가 없으면(시드·테스트 경로) 막지 않는다 — 모르는 것을 "이미 있다" 로 읽으면 후보가 조용히 사라진다.
- * 그 반대(모르는 것을 후보로 남김)는 운영자가 화면에서 보고 판단할 수 있다.
+ * 비용은 줄지 않는다: 추출도 네이버 조회도 이미 끝난 뒤의 판정이라 **DB 에 안 넣을 뿐**이다(운영자가 훑을 줄 수를 아낀다).
  *
- * 비용은 줄지 않는다: 추출도 네이버 조회도 이미 끝난 뒤의 판정이라 **DB 에 안 넣을 뿐**이다.
- * 그 사실이 로그에서 보이도록 부르는 쪽이 `제외 … 이미 있음` 한 줄과 요약 개수를 남긴다.
+ * @param {{ match: object | null, confidence: number } | null} matched  matchPlace 결과(짝의 `status` 를 본다)
+ * @param {object | null} extracted  toCandidateRow 가 만든 extracted(네이버 주소·좌표가 합쳐진 값) — 없으면 짝의 상태만 본다
+ * @param {object | null} placeRow  짝의 places 행(snake_case, `verified_at` 포함) — 없으면 판정하지 않는다
+ * @param {{ postedAt?: string | null }} [opts]  글 날짜(`blog_posts.posted_at`)
+ * @returns {{ kind: 'new' | 'ask' | 'fill' | 'update', exclude: null | 'sameAsSite' | 'stale' | 'weak', changes: string[], fills: string[] }}
  */
-export function skipAsExisting(matched) {
-  return tierOf(matched) === 'auto' && matched?.match?.status === 'published';
+export function kindOf(matched, extracted, placeRow, { postedAt = null } = {}) {
+  const tier = tierOf(matched);
+  if (tier === 'new' || tier === 'ask') return { kind: tier, exclude: null, changes: [], fills: [] };
+
+  const changes = placeRow ? siteChanges(placeRow, extracted) : [];
+  const fills = placeRow ? fillColumns(placeRow, extracted) : [];
+  const deniedHere = extracted?.verify?.petAllowedHere === 'no';
+  const kind = changes.length > 0 || deniedHere ? 'update' : 'fill';
+  const result = { kind, exclude: null, changes, fills };
+
+  // 상태를 모르거나 짝 행이 없으면 거르지 않는다(머리 주석). draft·archived 는 늘 후보다.
+  if (matched?.match?.status !== 'published' || !placeRow || !extracted) return result;
+
+  if (kind === 'fill' && fills.length === 0) return { ...result, exclude: 'sameAsSite' };
+  // '동반 불가 정황' 은 근거가 약해도 올린다 — 그 글은 강아지를 데려가려다 막힌 글일 수 있다.
+  const weak = extracted.visited === false || (extracted.verify != null && !deniedHere && extracted.verify.petAllowedHere !== 'yes' && !extracted.verify.dogWasThere);
+  if (weak) return { ...result, exclude: 'weak' };
+  if (isOlder(postedAt, placeRow.verified_at)) return { ...result, exclude: 'stale' };
+  return result;
+}
+
+/** 글 날짜가 확인 날짜보다 앞인가. 둘 중 하나라도 없거나 못 읽으면 false — 모르는 날짜로 글을 버리지 않는다. */
+function isOlder(postedAt, verifiedAt) {
+  if (!postedAt || !verifiedAt) return false;
+  const posted = new Date(postedAt).getTime();
+  const verified = new Date(verifiedAt).getTime();
+  return Number.isFinite(posted) && Number.isFinite(verified) && posted < verified;
+}
+
+/**
+ * **이미 사이트에 있는 곳이고 같은 말인가** — 그렇다면 후보를 만들지 않는다. `kindOf` 의 얇은 래퍼다(호출부·테스트가 이 이름을 안다).
+ *
+ * 'auto'(≥0.85)는 "기존 장소와 같은 가게" 라는 뜻이다. 게시된 86곳은 이름·소개·조건이 이미 사람 손으로 차 있어, 같은 말을 하는 글의
+ * 후보는 검수 목록에서 신규와 같은 무게로 한 줄을 먹을 뿐이다(data-pipeline v14). **다른 말을 하는 글**은 그렇지 않다 —
+ * 그것이 사이트가 틀려 있다는 유일한 신호라 `kindOf` 가 'update'·'fill' 후보로 올린다(docs/todo/11 U1).
+ *
+ * `extracted`·`placeRow` 없이 부르면 옛 규칙(auto + published 면 막는다)이다 — 짝 행을 모르면 차이를 볼 수 없다.
+ * `draft`·`archived`·상태 미상 짝은 막지 않는다(`kindOf` 머리 주석).
+ */
+export function skipAsExisting(matched, extracted = null, placeRow = null, opts = {}) {
+  if (!extracted || !placeRow) return tierOf(matched) === 'auto' && matched?.match?.status === 'published';
+  return kindOf(matched, extracted, placeRow, opts).exclude !== null;
 }
 
 /**
@@ -290,10 +339,11 @@ export function toMatchCandidate(extracted, local) {
  *   meta — 어느 모델·프롬프트로 뽑았나(재분석 대상을 고르는 키). dupOf — 같은 nameKey 의 먼저 난 pending 후보 id(검수자가 묶어 보게).
  *   homepage — 공식 홈페이지 카드 `{ url, siteName, image }`(`homepageCard.mjs`). **`null` 은 "홈페이지 없음 또는 안 읽음"** 이다 —
  *   이름 축이 준 link 가 없거나 네이버·SNS·예약 플랫폼이었거나 읽기에 실패했다. 사진은 URL 뿐이다(ADR-002 v2).
+ *   kind — `kindOf` 결과(종류 · 다른 칸). 없으면 tier 로 정한다.
  *   verify — 교차점검 판단(`verifyPlaces.mjs`). **`null` 은 "점검하지 않았다" 다**(조건 문장이 있었거나 그 패스가 꺼졌거나 실패했다).
  *   "점검했고 근거가 없었다" 는 값이 든 객체이고, 둘을 섞으면 화면이 미점검 후보에 초록 표식을 단다.
  */
-export function toCandidateRow(post, extracted, local, regionRaw, matched, { meta = null, dupOf = null, verify = null, homepage = null } = {}) {
+export function toCandidateRow(post, extracted, local, regionRaw, matched, { meta = null, dupOf = null, verify = null, homepage = null, kind = null } = {}) {
   const tier = tierOf(matched);
   return {
     post_url: post.url,
@@ -314,7 +364,9 @@ export function toCandidateRow(post, extracted, local, regionRaw, matched, { met
       category: local?.category ?? null,
       regionRaw: regionRaw ?? null,
       regionRawAi: extracted.regionRaw ?? null,
-      match: { confidence: matched.confidence, reason: matched.reason, tier },
+      // kind — 승인하면 무슨 일이 일어나나(`kindOf`, 11 U2). 부르는 쪽이 짝 행과 대 본 결과를 넘긴다. 안 넘기면 짝의 확신으로만 정한다
+      // (auto 는 '보강' — 옛 '기존' 의 뜻). changes 는 'update' 가 된 칸(덮어쓰기 칸 이름) — 검수 화면이 그 칸을 먼저 보여 준다.
+      match: { confidence: matched.confidence, reason: matched.reason, tier, kind: kind?.kind ?? (tier === 'auto' ? 'fill' : tier), changes: kind?.changes ?? [] },
       // 교차점검 결과. applyApproved 는 칸을 명시해 읽으므로 이 값이 `places` 로 새지 않는다 — 검수 화면 전용 단서다.
       verify,
     },
@@ -341,6 +393,8 @@ export function toPostAnalysis({ meta = null, candidates = [], excluded = [], sk
 
 // 'auto' 를 '자동병합' 이라 부르지 않는 이유 — AUTO_APPROVE=false 면 아무것도 자동으로 병합되지 않는다. 구간 이름은 "기존과 일치" 다.
 const TIER_LABEL = { auto: '일치', ask: '확인요청', new: '신규' };
+// 종류(11 U2) — 짝이 있는 후보에만 덧붙인다(신규·확인요청은 구간 이름이 이미 그 말이다).
+const KIND_LABEL = { fill: '보강', update: '갱신' };
 
 /**
  * 로그 한 줄. 이름·종류·구간·confidence·짝지은 기존 장소·이유만 — evidence·petPolicyText 는 본문 인용이라 로그에 싣지 않는다(05).
@@ -350,7 +404,8 @@ const TIER_LABEL = { auto: '일치', ask: '확인요청', new: '신규' };
 export function formatCandidateLine(row, matchedName) {
   const { name, type, match } = row.extracted;
   const target = match.tier === 'new' ? '' : ` → ${matchedName ?? row.match_place_id}`;
-  return `후보 ${name} (${type}) ${TIER_LABEL[match.tier]} ${match.confidence.toFixed(2)}${target} · ${match.reason}`;
+  const kind = match.tier === 'auto' && KIND_LABEL[match.kind] ? ` · ${KIND_LABEL[match.kind]}${match.changes?.length ? `(${match.changes.join(', ')})` : ''}` : '';
+  return `후보 ${name} (${type}) ${TIER_LABEL[match.tier]} ${match.confidence.toFixed(2)}${target}${kind} · ${match.reason}`;
 }
 
 /** 마지막 한 줄. 터미널에서 이 줄만 보면 된다. */
@@ -359,15 +414,28 @@ export function formatSummary(stats, meterSummary, { dryRun } = {}) {
   const dropped = stats.dropped ? ` · 분석불가 ${stats.dropped}` : '';
   const ex = stats.excluded;
   /*
-   * `alreadyHave` 는 다른 셋과 **단계가 다르다** — 셋은 추출 직후(exclusionReason)에 걸리고 이것은 짝짓기 뒤에 걸린다.
+   * 짝짓기 뒤에 걸리는 셋(같은 말 · 옛 글 · 근거 약함 — `kindOf`)은 추출 직후에 걸리는 셋(exclusionReason)과 **단계가 다르다**.
    * 그래도 한 괄호에 넣는다: 운영자가 읽는 뜻은 "후보로 안 들어간 수" 하나이고, 자리를 나누면 그 합을 사람이 더해야 한다.
-   * 옛 실행의 stats 에는 이 칸이 없으므로 `?? 0` — 없다고 NaN 이 되면 요약 한 줄이 통째로 못 읽히게 된다.
+   * `alreadyHave` 는 차이 게이트 전의 이름(같은 말 + 다른 말 전부)이라 옛 stats 에만 있다.
+   * 옛 실행의 stats 에는 칸이 없으므로 `?? 0` — 없다고 NaN 이 되면 요약 한 줄이 통째로 못 읽히게 된다.
    */
   const already = ex?.alreadyHave ?? 0;
+  const same = ex?.sameAsSite ?? 0;
+  const stale = ex?.stale ?? 0;
+  const weak = ex?.weak ?? 0;
   const blocked = ex?.blocked ?? 0;
+  const tail = [
+    already && `이미 있음 ${already}`,
+    same && `같은 말 ${same}`,
+    stale && `옛 글 ${stale}`,
+    weak && `근거 약함 ${weak}`,
+    blocked && `차단 ${blocked}`,
+  ].filter(Boolean).map((part) => ` · ${part}`).join('');
   const excluded = ex
-    ? ` · 제외 ${ex.other + ex.notJeju + ex.notAllowed + already + blocked}(other ${ex.other} · 제주밖 ${ex.notJeju} · 동반불가 ${ex.notAllowed}${already ? ` · 이미 있음 ${already}` : ''}${blocked ? ` · 차단 ${blocked}` : ''})`
+    ? ` · 제외 ${ex.other + ex.notJeju + ex.notAllowed + already + same + stale + weak + blocked}(other ${ex.other} · 제주밖 ${ex.notJeju} · 동반불가 ${ex.notAllowed}${tail})`
     : '';
+  // 짝이 게시된 장소인 후보의 종류 — 이 두 수가 차이 게이트를 지나 올라온 것이다. 옛 stats 엔 칸이 없다.
+  const kinds = stats.update || stats.fill ? ` · 갱신 ${stats.update ?? 0} · 보강 ${stats.fill ?? 0}` : '';
   const dup = stats.dup ? ` · 중복표시 ${stats.dup}` : '';
   // 사람이 고친 후보가 있는 (글, 가게) 는 새로 만들지 않았다 — 제외 합계와 단계가 달라(추출 뒤·짝짓기 전) 따로 적는다. 옛 stats 엔 칸이 없다.
   const edited = stats.edited ? ` · 고침 유지 ${stats.edited}` : '';
@@ -377,5 +445,5 @@ export function formatSummary(stats, meterSummary, { dryRun } = {}) {
    */
   const v = stats.verify;
   const verify = v ? ` · 교차점검 ${v.checked}건(근거 없음 ${v.noEvidence} · 동반 불가 정황 ${v.notAllowed}${v.failed ? ` · 실패 ${v.failed}` : ''})` : '';
-  return `${prefix}분석 ${stats.analyzed}건 (후보 ${stats.candidates} · 일치 ${stats.auto} · 확인요청 ${stats.ask} · 신규 ${stats.new}${dup} · 건너뜀 ${stats.skipped}${dropped}${excluded}${edited}${verify}) · ${meterSummary}`;
+  return `${prefix}분석 ${stats.analyzed}건 (후보 ${stats.candidates} · 일치 ${stats.auto} · 확인요청 ${stats.ask} · 신규 ${stats.new}${kinds}${dup} · 건너뜀 ${stats.skipped}${dropped}${excluded}${edited}${verify}) · ${meterSummary}`;
 }

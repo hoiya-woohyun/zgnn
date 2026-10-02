@@ -49,8 +49,8 @@ import {
   parseArgs,
   pickPostsForRun,
   resolveRegionRaw,
+  kindOf,
   tierOf,
-  skipAsExisting,
   toCandidateRow,
   toMatchCandidate,
   toPostAnalysis,
@@ -236,6 +236,10 @@ const posts = pickPostsForRun(fetchedPosts, limit, maxPerBlog);
 const { data: placeRows, error: placesError } = await supabase.from('places').select('*').order('id');
 if (placesError) throw new Error(`places 조회 실패: ${placesError.message}`);
 const existing = placeRows.map(toMatchablePlace);
+// 차이 게이트가 짝의 지금 값을 본다(`kindOf`) — 짝 id → 행.
+const placeById = new Map(placeRows.map((row) => [row.id, row]));
+// 짝짓기 뒤 제외 이유의 로그 말(`kindOf`).
+const EXCLUDE_LABEL = { sameAsSite: '사이트와 같은 말', stale: '확인 날짜보다 옛 글', weak: '근거 약함(목록글·동반 근거 없음)' };
 // 86곳이 있어야 정상이다. 비어 있으면 다른 프로젝트·잘못된 키다 — 그대로 가면 후보 전부가 '신규' 로 기록된다(리뷰 지적).
 if (existing.length === 0) {
   console.error('places 가 비어 있다 — link 된 프로젝트(supabase/.temp/project-ref)가 맞는지 확인. 후보를 만들지 않고 멈춘다.');
@@ -389,7 +393,7 @@ function skipHint(e) {
 }
 
 const runStartedAt = new Date();
-const stats = { analyzed: 0, skipped: 0, dropped: 0, candidates: 0, auto: 0, ask: 0, new: 0, dup: 0, edited: 0, excluded: { other: 0, notJeju: 0, notAllowed: 0, alreadyHave: 0, blocked: 0 }, verify: { checked: 0, noEvidence: 0, notAllowed: 0, failed: 0 } };
+const stats = { analyzed: 0, skipped: 0, dropped: 0, candidates: 0, auto: 0, ask: 0, new: 0, dup: 0, edited: 0, update: 0, fill: 0, excluded: { other: 0, notJeju: 0, notAllowed: 0, sameAsSite: 0, stale: 0, weak: 0, blocked: 0 }, verify: { checked: 0, noEvidence: 0, notAllowed: 0, failed: 0 } };
 let fatal = false;
 const pendingCloses = []; // { url, reason } — 루프 끝에 성공이 1건이라도 있을 때만 analyzed_at 을 찍는다
 // --dump 용. DB 에 들어갈 후보 행(extracted 그대로, 본문 없음)과 제외 목록 — 정규화 품질을 사람이 볼 유일한 창이다(로그에는 안 찍는다, 05).
@@ -469,17 +473,6 @@ for (const post of posts) {
       // regionRaw 는 주소 기반이 우선(analyzeCandidates.mjs). 주소는 네이버 → 본문 순.
       const regionRaw = resolveRegionRaw(local?.address ?? extracted.address, extracted.regionRaw, existing);
       const matched = matchPlace(toMatchCandidate(extracted, local), existing);
-      /*
-       * 이미 게시된 곳이면 후보를 만들지 않는다(`skipAsExisting`). 추출·네이버 조회는 이미 끝난 뒤라
-       * **아끼는 것은 비용이 아니라 운영자가 훑을 줄 수**다 — 그래서 여기서 조용히 넘기지 않고
-       * 이름·짝을 한 줄 찍고 `analysis.excluded` 에도 남긴다. 안 남기면 "왜 이 글에서 후보가 0건이지" 의 답이 사라진다.
-       */
-      if (skipAsExisting(matched)) {
-        excluded.push({ extracted, reason: 'alreadyHave' });
-        stats.excluded.alreadyHave += 1;
-        console.log(`  제외 ${extracted.name} (${extracted.type}) · 이미 있음 → ${matched.match.name}`);
-        continue;
-      }
       const key = normalizeName(extracted.name);
       const dupOf = tierOf(matched) === 'new' ? (newNamesSeen.get(key) ?? null) : null;
       const row = toCandidateRow(post, extracted, local, regionRaw, matched, {
@@ -489,6 +482,22 @@ for (const post of posts) {
         verify: verdicts.get(normalizeName(extracted.name)) ?? null,
         homepage: await readHomepage(local?.naverLink),
       });
+      /*
+       * 차이 게이트(`kindOf`, docs/todo/11 U1) — 게시된 곳을 쓴 글은 **사이트와 다른 말을 할 때만** 후보가 된다.
+       * 같은 말 · 옛 글(확인 날짜 전) · 근거 약함(목록글 · 동반 근거 없음)은 후보를 만들지 않고 이유를 남긴다.
+       * 추출·네이버 조회는 이미 끝난 뒤라 **아끼는 것은 비용이 아니라 운영자가 훑을 줄 수**다 — 그래서 조용히 넘기지 않고
+       * 이름·짝을 한 줄 찍고 `analysis.excluded` 에도 남긴다. 안 남기면 "왜 이 글에서 후보가 0건이지" 의 답이 사라진다.
+       * 짝 행은 위에서 읽은 `placeRows` 에서 찾는다(새 조회 없음). `verified_at` 칸이 없는 원격에선 undefined → 날짜 규칙이 안 걸린다.
+       */
+      const kind = kindOf(matched, row.extracted, placeById.get(matched.match?.id) ?? null, { postedAt: post.posted_at });
+      if (kind.exclude) {
+        excluded.push({ extracted, reason: kind.exclude });
+        stats.excluded[kind.exclude] += 1;
+        console.log(`  제외 ${extracted.name} (${extracted.type}) · ${EXCLUDE_LABEL[kind.exclude]} → ${matched.match.name}`);
+        continue;
+      }
+      row.extracted.match.kind = kind.kind;
+      row.extracted.match.changes = kind.changes;
       const tier = row.extracted.match.tier;
       console.log(`  ${formatCandidateLine(row, matched.match?.name)}${row.extracted.visited === false ? ' · 목록글' : ''}`);
 
@@ -512,7 +521,10 @@ for (const post of posts) {
     // 끝까지 간 뒤에만 센다 — 중간에 실패한 글은 "건너뜀" 이지 "분석" 이 아니고, 그 글의 후보도 세지 않는다.
     stats.analyzed += 1;
     stats.candidates += rows.length;
-    for (const row of rows) stats[row.extracted.match.tier] += 1;
+    for (const row of rows) {
+      stats[row.extracted.match.tier] += 1;
+      if (row.extracted.match.tier === 'auto' && (row.extracted.match.kind === 'update' || row.extracted.match.kind === 'fill')) stats[row.extracted.match.kind] += 1;
+    }
   } catch (e) {
     // 인증 실패·CLI 없음·네이버 키 오류는 다음 글도 전부 같다 — 50건을 헛돌지 않고 여기서 끊는다. analyzed_at 은 안 찍혔으니 다음 실행이 이어 간다.
     if (isFatal(e)) {
