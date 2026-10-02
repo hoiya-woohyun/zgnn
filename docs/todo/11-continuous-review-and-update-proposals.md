@@ -249,13 +249,16 @@ P0 만 끝나도 사용자 요구 ③과 ④의 "어떤 글들이 참고됐고 �
 > 메모: 짝 묶음은 `OVERWRITE_PAIRS` + `expandOverwriteColumns`(applyApproved.mjs)로 export 했고 화면의 체크 토글(`toggleOverwritePick`, adminLatest.ts)도 같은 함수로 짝을 펼친다 — 쓰기와 체크가 짝을 따로 알지 않게.
 > `adminLatest` 의 `COLUMNS` 에 `stay_environment` 가 빠져 있었다(전·후 목록엔 안 보인 채 덮였다) — 칸을 고르면 그 칸이 조용히 빠지므로 한 줄 더했다(단계 밖, 같은 함정이라). 전부 골랐으면 칸 목록을 넘기지 않아 지금까지와 같은 쓰기다. H.4(🧑)는 아직이다.
 
-#### [ ] T1.5 `사이트가 맞아요` — 확인은 반려가 아니다
+#### [x] T1.5 `사이트가 맞아요` — 확인은 반려가 아니다
 
 - 근거: G9 · U8.
 - 읽을 것: `src/lib/adminApply.ts`(`rejectGroup` · `markPlaceVerified`) · `src/lib/adminCandidates.ts`(`REJECT_REASONS`) · `src/screens/adminPageGroupActions.tsx`(결정 줄 — 갱신 묶음의 버튼 구성) · `adminPageRejectForm.tsx`.
 - 단계: `confirmSite(client, group, place, nowIso)` — `markPlaceVerified` → 후보 전부 `rejected` + `[admin] 사이트 확인`(상수 `SITE_CONFIRMED_NOTE`, 반려 집계와 다른 문자열) · 블랙리스트 없음. 갱신 묶음의 결정 줄: `덮어쓰기(고른 N칸)` · `사이트가 맞아요` · `제외…`. 갱신용 사유 칩 `UPDATE_REJECT_REASONS`(4-4 ⑤) — 폼이 `kind` 로 칩 묶음을 고른다.
 - 수용 기준: `사이트가 맞아요` 뒤 `verified_at` 이 찍히고 `place_blocks` 에 아무것도 없다(테스트) · 신규 묶음의 반려 칩은 그대로.
 - 커밋: `feat(admin) - 갱신 묶음에 '사이트가 맞아요' — 확인 날짜를 찍고 블랙리스트는 건드리지 않는다`
+
+> 메모: 갱신용 칩은 넷이 아니라 **셋**(`글이 더 오래됨 · 홍보·협찬 · 정보 부족`)이다. `다른 가게예요` 를 반려 칩으로 두면 그 글(다른 가게의 새 후보일 수 있다)이 사라진다 —
+> 결정 줄에 이미 있는 `짝이 틀렸어요 — 새 장소로` 가 그 길이라 칩으로 겹쳐 두지 않았다. 순서는 날짜 먼저·후보 나중(날짜가 실패하면 확인이 어디에도 안 남는다). 일괄 줄에는 넣지 않았다(한 줄씩 대 보는 결정이다).
 
 ### P1 — 제안과 시간
 

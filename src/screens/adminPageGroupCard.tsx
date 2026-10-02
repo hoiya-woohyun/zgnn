@@ -31,7 +31,7 @@ import { ADMIN_CANDIDATE_GRID, ADMIN_LEAD_CELL, ADMIN_PANEL_DIVIDER, ADMIN_POLIC
 
 /** 묶음 하나의 화면 상태. 소유자는 `adminPage.tsx` 고 여기는 받아서 그린다. */
 export type TAdminPageGroupState = {
-  busy?: 'approving' | 'rejecting' | 'savingRegion' | 'savingEdit' | 'reanalyzing';
+  busy?: 'approving' | 'rejecting' | 'savingRegion' | 'savingEdit' | 'reanalyzing' | 'confirming';
   /** 끝난 묶음의 초록 한 줄. 이 값이 있으면 카드는 접힌 한 줄만 남는다. */
   done?: string;
   error?: string;
@@ -80,6 +80,8 @@ type TAdminPageGroupCardProps = {
   onCancelReject: () => void;
   onReject: (reason: TRejectReason, note: string, block: TBlockChoice) => void;
   onPickRegion: (regionRaw: string) => void;
+  /** 갱신 묶음의 '사이트가 맞아요'(11 U8) — 확인 날짜를 찍고 후보를 눕힌다. */
+  onConfirmSite: () => void;
   /** 덮어쓰기 칸 고르기의 체크 한 번 — 고른 칸 전체를 돌려준다. */
   onPickOverwrite: (picked: string[]) => void;
   onSaveRegion: (regionRaw: string) => void;
@@ -150,6 +152,7 @@ export function AdminPageGroupCard({
   onCancelReject,
   onReject,
   onPickRegion,
+  onConfirmSite,
   onPickOverwrite,
   onSaveRegion,
   onEditDraft,
@@ -403,6 +406,7 @@ export function AdminPageGroupCard({
                   onStartReject={onStartReject}
                   onCancelReject={onCancelReject}
                   onReject={onReject}
+                  onConfirmSite={onConfirmSite}
                   onPickRegion={onPickRegion}
                   onSaveRegion={onSaveRegion}
                   onChooseAddress={onChooseAddress}

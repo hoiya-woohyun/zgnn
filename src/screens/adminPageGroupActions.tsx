@@ -6,7 +6,7 @@ import { Button } from '../components/base/button';
 import { Select } from '../components/base/select';
 import type { TAddressChoice } from '../lib/adminAddress';
 import type { TBlockChoice } from '../lib/adminBlocks';
-import { regionOptionsFor, type TCandidateGroup, type TRejectReason } from '../lib/adminCandidates';
+import { regionOptionsFor, UPDATE_REJECT_REASONS, type TCandidateGroup, type TRejectReason } from '../lib/adminCandidates';
 import type { TLatestPlan } from '../lib/adminLatest';
 import { lastNoteLine, noteLineText, PLACE_STATUS_COLOR, PLACE_STATUS_LABEL } from '../lib/adminPlaces';
 import type { TAdminPageGroupState, TApproveChoice } from './adminPageGroupCard';
@@ -18,6 +18,7 @@ const BUSY_LABEL: Record<NonNullable<TAdminPageGroupState['busy']>, string> = {
   savingRegion: '저장하고 있어요…',
   savingEdit: '저장하고 있어요…',
   reanalyzing: '분석을 지우고 있어요…',
+  confirming: '확인을 남기고 있어요…',
 };
 
 /**
@@ -63,6 +64,7 @@ export function AdminPageGroupActions({
   onStartReject,
   onCancelReject,
   onReject,
+  onConfirmSite,
   onPickRegion,
   onSaveRegion,
   onChooseAddress,
@@ -89,6 +91,7 @@ export function AdminPageGroupActions({
   onStartReject: () => void;
   onCancelReject: () => void;
   onReject: (reason: TRejectReason, note: string, block: TBlockChoice) => void;
+  onConfirmSite: () => void;
   onPickRegion: (regionRaw: string) => void;
   onSaveRegion: (regionRaw: string) => void;
   onChooseAddress: (choice: TAddressChoice) => void;
@@ -109,7 +112,16 @@ export function AdminPageGroupActions({
 
   // 반려 폼은 이 줄 **자리에서** 열린다 — 누른 자리에서 이어서 고르고, 근거는 위에 그대로 남는다.
   if (state.rejecting) {
-    return <AdminPageRejectForm inline busy={busy === 'rejecting'} onCancel={onCancelReject} onSubmit={onReject} />;
+    return (
+      <AdminPageRejectForm
+        inline
+        busy={busy === 'rejecting'}
+        onCancel={onCancelReject}
+        onSubmit={onReject}
+        // 갱신 묶음은 칩이 다르다(11 §4-4 ⑤) — `폐업`·`동반 불가` 는 반려가 아니라 사이트를 바꿀 입구다.
+        reasons={group.kind === 'update' ? UPDATE_REJECT_REASONS : undefined}
+      />
+    );
   }
 
   // 재분석 확인도 같은 자리. 무엇이 사라지는지(형제 후보 수까지) 읽고 누르는 자리다.
@@ -397,6 +409,22 @@ export function AdminPageGroupActions({
           )}
           {approve}
           {overwrite({ mergeInto: pairId })}
+          {/*
+            * 갱신 묶음의 둘째 결정(11 U8) — 글들과 사이트를 대 봤더니 사이트가 맞다. 반려가 아니라 **확인**이다:
+            * 장소에 확인 날짜를 찍고(되돌릴 수 없다) 후보를 눕힌다. 블랙리스트는 건드리지 않는다 — 틀린 것은 가게가 아니라 글이다.
+            */}
+          {group.kind === 'update' && pairId && !matchedArchived && (
+            <TipButton
+              color="secondary"
+              size="sm"
+              isDisabled={off}
+              isLoading={busy === 'confirming'}
+              title="사이트 값이 맞아요 — 확인 날짜를 찍고 이 글들을 내려요. 이 날짜보다 옛 글은 다시 안 올라와요"
+              onClick={onConfirmSite}
+            >
+              사이트가 맞아요
+            </TipButton>
+          )}
           {tail(needsLook)}
           {/*
            * 짝이 잘못 붙은 경우 — 신규로 보낸다. **짝이 내린 곳이면 감춘다**: 그 경우 이 버튼은 내린 가게의 복제본을

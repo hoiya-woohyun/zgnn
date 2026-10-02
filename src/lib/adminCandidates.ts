@@ -345,7 +345,15 @@ export const KIND_LABEL: Record<TCandidateKind, string> = {
  */
 export const REJECT_REASONS = ['목록글', '홍보·협찬', '폐업', '제주 아님', '중복', '동반 불가', '정보 부족'] as const;
 
-export type TRejectReason = (typeof REJECT_REASONS)[number];
+/**
+ * 갱신 묶음의 반려 사유(11 U8 · §4-4 ⑤). 신규용 칩과 뜻이 달라 따로 둔다 — 갱신에서 `중복` 을 고르면 "이미 있는 곳" 이라는 당연한 말이 되고,
+ * `폐업`·`동반 불가` 는 반려가 아니라 **사이트를 바꿀 입구**다(그 글이 맞다면 덮어쓰기·등록 해제로 간다). "사이트가 맞아요" 는 칩이 아니라
+ * 결정 줄의 버튼이다(`confirmSite` — 확인 날짜를 찍는다). "다른 가게예요" 도 칩이 아니다 — 짝이 틀린 것이라 글은 새 장소 후보이고,
+ * 결정 줄의 `짝이 틀렸어요 — 새 장소로` 가 그 길이다(반려하면 그 글이 사라진다).
+ */
+export const UPDATE_REJECT_REASONS = ['글이 더 오래됨', '홍보·협찬', '정보 부족'] as const;
+
+export type TRejectReason = (typeof REJECT_REASONS)[number] | (typeof UPDATE_REJECT_REASONS)[number];
 
 /** 칩의 뜻 한 줄(화면 전용). 값(`REJECT_REASONS`)은 `reviewer_note` 에 적히므로 못 바꾼다 — 뜻만 화면에서 말한다. */
 export const REJECT_REASON_HINT: Record<TRejectReason, string> = {
@@ -356,6 +364,7 @@ export const REJECT_REASON_HINT: Record<TRejectReason, string> = {
   중복: '이미 올린 장소와 같은 가게예요',
   '동반 불가': '강아지를 데려갈 수 없는 가게예요',
   '정보 부족': '동반 조건을 알 만한 내용이 없어요',
+  '글이 더 오래됨': '사이트 값이 더 최근 정보예요 — 이 글은 옛 사실을 말해요',
 };
 
 /** `factsLine` 이 "판단은 있는데 조각이 0개" 를 말하는 센티넬. 화면이 이 리터럴을 인라인하지 않게 이름을 준다. */

@@ -17,6 +17,8 @@ type TAdminPageRejectFormProps = {
   count?: number;
   /** 결정 레일 안에서 열린다 — 자기 윗선·여백 없이 레일의 흐름을 따른다(`AdminPageGroupActions`). */
   inline?: boolean;
+  /** 사유 칩 묶음. 기본은 신규용(`REJECT_REASONS`), 갱신 묶음은 `UPDATE_REJECT_REASONS`(11 T1.5). */
+  reasons?: readonly TRejectReason[];
 };
 
 /** 고른 칩 — 핑크 채움은 주 버튼만 쓴다. 테두리로만 고른 것을 말한다(T6.9 의 `AdminFilterChip` 이 생기면 그리로). */
@@ -29,7 +31,7 @@ const PICKED_CHIP = 'ring-2! ring-brand!';
  * 반려 사유. 칩을 먼저 고르게 하는 이유 — 자유 입력만 두면 매번 다른 말이 적혀 나중에 "왜 반려했나" 를 셀 수 없다.
  * 메모는 선택이다(브리프 결정 8). 사유 없이 반려하는 길은 두지 않는다 — 사유가 없으면 같은 글이 다음 분석에 또 올라온다.
  */
-export function AdminPageRejectForm({ busy, onCancel, onSubmit, count, inline = false }: TAdminPageRejectFormProps) {
+export function AdminPageRejectForm({ busy, onCancel, onSubmit, count, inline = false, reasons = REJECT_REASONS }: TAdminPageRejectFormProps) {
   const [reason, setReason] = useState<TRejectReason | null>(null);
   const [note, setNote] = useState('');
   const [block, setBlock] = useState<TBlockChoice>('none');
@@ -49,7 +51,7 @@ export function AdminPageRejectForm({ busy, onCancel, onSubmit, count, inline = 
         없어요.
       </p>
       <div className="mt-2 flex flex-wrap gap-1.5">
-        {REJECT_REASONS.map((candidate) => (
+        {reasons.map((candidate) => (
           <Button
             key={candidate}
             size="sm"

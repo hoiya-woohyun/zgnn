@@ -7,7 +7,7 @@ import { Button } from '../components/base/button';
 import { Select } from '../components/base/select';
 import { EmptyState } from '../components/layout/emptyState';
 import { PageHeader } from '../components/layout/pageHeader';
-import { approveGroup, saveEdit, setRegion } from '../lib/adminApply';
+import { approveGroup, confirmSite, saveEdit, setRegion } from '../lib/adminApply';
 import {
   archiveAndBlock,
   archiveOutcomeText,
@@ -864,6 +864,38 @@ export function AdminPage() {
     [afterWrite, beginWrite, endWrite, patchState, removeLater],
   );
 
+  /**
+   * 갱신 묶음의 **사이트가 맞아요**(11 U8) — 확인 날짜를 찍고 후보를 눕힌다(`confirmSite`). 블랙리스트는 건드리지 않는다.
+   * 짝 행은 대조 장부(`placesRef`)에서 찾는다 — 찍은 날짜를 그 행에도 적어 두어야 다음 확인 표시가 새로고침 없이 맞는다.
+   */
+  const confirmSiteFor = useCallback(
+    async (group: TCandidateGroup) => {
+      const client = clientRef.current;
+      const place = placesRef.current.find((row) => row.id === group.lead.match_place_id);
+      if (!client || !place) return;
+      if (!beginWrite((message) => patchState(group.key, { error: message }))) return;
+      patchState(group.key, { busy: 'confirming', error: undefined });
+      try {
+        const { verifiedAt } = await confirmSite(client, group, place, new Date().toISOString());
+        if (verifiedAt) place.verified_at = verifiedAt;
+        patchState(group.key, {
+          busy: undefined,
+          done: verifiedAt
+            ? `${place.name} 은 사이트가 맞다고 확인했어요 · 확인 날짜를 찍었어요(블랙리스트는 그대로)`
+            : `${place.name} 은 사이트가 맞다고 표시했어요 · 확인 날짜 칸이 없어 날짜는 못 찍었어요`,
+        });
+        removeLater(group.key);
+        setPlacesView([...placesRef.current]);
+        afterWrite();
+      } catch (error) {
+        patchState(group.key, { busy: undefined, error: messageOf(error, '확인을 남기지 못했어요.') });
+      } finally {
+        endWrite();
+      }
+    },
+    [afterWrite, beginWrite, endWrite, patchState, removeLater],
+  );
+
   const reject = useCallback(
     async (group: TCandidateGroup, reason: TRejectReason, note: string, block: TBlockChoice) => {
       const client = clientRef.current;
@@ -1701,6 +1733,7 @@ export function AdminPage() {
                   onStartReject={() => patchState(group.key, { rejecting: true, error: undefined })}
                   onCancelReject={() => patchState(group.key, { rejecting: false })}
                   onReject={(reason, note, block) => void reject(group, reason, note, block)}
+                  onConfirmSite={() => void confirmSiteFor(group)}
                   onPickRegion={(regionRaw) => patchState(group.key, { regionDraft: regionRaw })}
                   onPickOverwrite={(picked) => patchState(group.key, { overwritePick: picked })}
                   onSaveRegion={(regionRaw) => void saveRegion(group, regionRaw)}
