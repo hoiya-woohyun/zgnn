@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { recoverFromChunkError } from '@/lib/appUpdate';
 import '../../styles/adminDensity.css';
 
 /**
@@ -9,7 +10,7 @@ import '../../styles/adminDensity.css';
  * 그래서 `ssr: false` 로 붙인다 — 그 옵션은 클라이언트 컴포넌트 안에서만 쓸 수 있어서 이 파일이 따로 있다
  * (`map/mapRouteClient.tsx` 와 같은 이유·같은 모양).
  */
-const AdminPage = dynamic(() => import('@/screens/adminPage').then((module) => module.AdminPage), {
+const AdminPage = dynamic(() => import('@/screens/adminPage').then((module) => module.AdminPage, recoverFromChunkError), {
   ssr: false,
   loading: () => <p className="px-5 pt-10 text-sm text-tertiary">불러오는 중이에요</p>,
 });

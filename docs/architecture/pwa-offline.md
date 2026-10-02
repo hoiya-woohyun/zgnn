@@ -1,6 +1,7 @@
 # PWA · 서비스워커 · 오프라인
 
-> 최종 수정: 2026-10-01 (v8: 라우트 `revision` 에 **배포 식별자**(`NEXT_PUBLIC_APP_BUILD`, 커밋 앞 7자)도 넣는다 — 제보가 싣는 그 값이 번들에 박혀 문서만 바뀐 커밋에서도 청크 이름이 바뀌기 때문. 사용자 제보의 insert 는 Supabase 호스트라 `NetworkOnly` 그대로 — 오프라인이면 실패를 말한다)
+> 최종 수정: 2026-10-02 (v9: **새 버전 알림과 청크 복구** — `controllerchange` 에 "새 정보가 있어요 · 새로고침"(첫 설치 제외), 동적 청크를 못 받으면 배포당 한 번만 새로고침([todo/12](../todo/12-ux-audit-2026-10-02.md) U2.4))
+> 이전 2026-10-01 (v8: 라우트 `revision` 에 **배포 식별자**(`NEXT_PUBLIC_APP_BUILD`, 커밋 앞 7자)도 넣는다 — 제보가 싣는 그 값이 번들에 박혀 문서만 바뀐 커밋에서도 청크 이름이 바뀌기 때문. 사용자 제보의 insert 는 Supabase 호스트라 `NetworkOnly` 그대로 — 오프라인이면 실패를 말한다)
 > 이전 2026-09-29 (v7: **Supabase 호스트에 `NetworkOnly` 를 `defaultCache` 앞에 둔다** — `defaultCache` 끝의 cross-origin catch-all 이 REST **GET** 을 1시간 캐시해
 > 운영자 검수 화면의 후보 목록이 묵고 로그아웃 뒤에도 사본이 남는다. 그리고 **`/admin` 은 프리캐시에 넣지 않았다**(의도 — 오프라인에서는 `/404.html`) → [ADR-018](../decisions/ADR-018-in-app-admin-review.md))
 > 이전 (v6: 로고·자원 호스트 줄의 `1x`/`2x` 서술을 고친다 — 프로토콜이 아니라 **기기 픽셀 비율**이 정하는 값이다(프로덕션 HTTPS 에서 `1x` 실측). 호스트가 프로토콜을 따른다는 쪽은 그대로 맞다)
@@ -48,6 +49,18 @@ next.config.mjs: additionalPrecacheEntries (라우트 HTML 93개 + 매니페스�
 | `<PROJECT_REF>.supabase.co` (**우리 호스트 하나만**) | **NetworkOnly** | 운영자 검수 화면(`/admin`)이 부르는 PostgREST·Auth. 와일드카드(`endsWith('.supabase.co')`)로 쓰지 않는다 — 그 조각이 번들에 남으면 좁힌 유출 검사(`scripts/check-bundle.mjs`)가 "우리 호스트가 아닌 supabase.co" 로 잡아 빌드를 멈춘다(실제로 멈췄다). 우리가 부르는 호스트는 하나뿐이라 `PROJECT_URL` 리터럴에서 뽑아 정확히 그것만 본다. **이 규칙은 `...defaultCache` 보다 앞에 있어야 한다** — `@serwist/next` 의 `defaultCache` 끝에 cross-origin catch-all(`NetworkFirst`·32칸·1시간)이 있어서, 없으면 REST **GET** 이 URL 로 1시간 캐시된다. `Authorization` 헤더는 캐시 키에 들어가지 않으므로 ① 승인한 뒤에도 후보 목록이 옛것으로 보이고 ② **로그아웃한 뒤에도 후보 사본이 브라우저에 남는다**. 둘 다 조용한 고장이다 — 화면은 정상으로 보인다(→ [ADR-018](../decisions/ADR-018-in-app-admin-review.md)) |
 | 그 외 | serwist `defaultCache` | |
 | 문서 요청 실패 | `/404.html` 폴백 | 오프라인에서 프리캐시에 없는 주소를 열었을 때 빈 화면 대신 404 |
+
+## 새 버전이 깔릴 때 — 알림과 청크 복구
+
+서비스워커는 `skipWaiting` · `clientsClaim` 이라 새 배포를 받는 즉시 열린 화면을 맡는다. 그런데 **이미 그려진 화면은 옛 번들·옛 데이터 그대로**다 —
+iOS 홈 화면 앱은 며칠씩 열려 있다. 그리고 그 세션에서 처음 여는 동적 청크(`/map`·`/admin`)는 옛 이름으로 요청되는데, 새 서비스워커의 프리캐시엔 그 이름이 없다.
+
+- **알림** — 셸의 `AppShellUpdateNotice` 가 `controllerchange` 를 받아 "새 정보가 있어요 · 새로고침"(셸 토스트, 10초). 새로고침을 강요하지 않는다(폼을 쓰던 사람이 있다).
+  **첫 설치는 알리지 않는다** — `clientsClaim` 때문에 첫 방문에도 `controllerchange` 가 오지만 바뀐 것이 없다. 마운트 때 이미 맡은 서비스워커가 있었을 때만 알린다.
+- **청크 복구** — 동적 import 에 `recoverFromChunkError`(`src/lib/appUpdate.ts`)를 건다. 청크 오류면 **한 번만** 새로고침하고, 두 번째는 그대로 던져 에러 경계가 받는다.
+  진짜 오프라인이거나 파일이 정말 없으면 새로고침해도 같은 실패라, 세지 않으면 무한히 다시 읽는다. 표시는 `sessionStorage` 에 **배포 식별자**(`NEXT_PUBLIC_APP_BUILD`)로 남겨
+  다음 배포에서 다시 한 번 허용한다. 저장소를 못 쓰면 새로고침하지 않는다(셀 수 없다).
+- dev 에서는 서비스워커가 꺼져 있어 둘 다 볼 수 없다 — `pnpm build` 산출물로 확인한다.
 
 ## 매니페스트와 아이콘
 

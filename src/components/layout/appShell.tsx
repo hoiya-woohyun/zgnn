@@ -8,6 +8,7 @@ import { AppTabBar } from './appTabBar';
 import { mainSurfaceProps, surfaceKindOf } from './appShellSurface';
 import { useAppShellSwipe } from './appShellSwipe';
 import { AppShellSwipePeek } from './appShellSwipePeek';
+import { AppShellUpdateNotice } from './appShellUpdateNotice';
 import { AppStatusToast } from './appStatusToast';
 import { stampHistoryDepth } from '../../lib/appHistory';
 import { isRootRoute, parentRouteOf } from '../../lib/appRoutes';
@@ -135,6 +136,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* 잠깐 뜨는 상태 한 줄("링크를 복사했어요"). `<main>` 밖이어야 스와이프에 끌려가지 않는다 — appStatusToast 참고. */}
       <AppStatusToast />
+      <AppShellUpdateNotice />
     </div>
   );
 }
