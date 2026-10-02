@@ -1,4 +1,5 @@
 import { Heart } from '@untitledui/icons';
+import { usePathname } from 'next/navigation';
 import { createFirstTimesGate, showAppStatus } from '../lib/appStatus';
 import { useAppStore, useIsSaved } from '../store/useAppStore';
 import { cx } from '../utils/cx';
@@ -23,13 +24,33 @@ const announceSaved = () => {
   showAppStatus('저장했어요', { link: { href: '/saved', label: '저장한 곳 보기' }, durationMs: 2500 });
 };
 
-/** 저장 상태와 토글. 알림 규칙(처음 두 번)을 다른 모양의 저장 버튼(상세 액션 줄)도 같이 쓰게 밖으로 뺐다. */
+/**
+ * 저장 상태와 토글. 알림 규칙(처음 두 번)을 다른 모양의 저장 버튼(상세 액션 줄)도 같이 쓰게 밖으로 뺐다.
+ *
+ * **저장 화면에서 끄면 되돌리기를 준다**(12 U2.2). 거기서는 하트가 비는 모습도 없이 카드가 통째로 사라지고,
+ * 하트를 끄면 메모도 지워진다(10 F5) — 그래서 되돌리기는 자리와 메모까지 살린다. 다른 화면에서는 하트가 비는 것으로 충분하다.
+ */
 export function useSaveToggle(id: string) {
   const saved = useIsSaved(id);
   const toggleSaved = useAppStore((state) => state.toggleSaved);
+  const restoreSaved = useAppStore((state) => state.restoreSaved);
+  const onSavedScreen = usePathname().startsWith('/saved');
   const toggle = () => {
-    if (!saved) announceSaved();
+    if (!saved) {
+      announceSaved();
+      toggleSaved(id);
+      return;
+    }
+    const { savedIds, savedNotes } = useAppStore.getState();
+    const index = savedIds.indexOf(id);
+    const note = savedNotes[id];
     toggleSaved(id);
+    if (onSavedScreen) {
+      showAppStatus('저장을 취소했어요', {
+        action: { label: '되돌리기', onPress: () => restoreSaved(id, index, note) },
+        durationMs: 6000,
+      });
+    }
   };
   return { saved, toggle };
 }

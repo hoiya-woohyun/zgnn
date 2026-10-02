@@ -211,3 +211,24 @@ describe('저장된 값의 모양이 깨졌을 때(12 U0.1)', () => {
     expect(isHydrationSettled()).toBe(false); // 신호는 StoreHydration 이 올린다
   });
 });
+
+describe('저장 해제 되돌리기(12 U2.2)', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('원래 자리와 메모까지 돌아온다 · 이미 저장돼 있으면 그대로', async () => {
+    const { PLACES } = await import('../lib/places');
+    const [a, b, c] = PLACES;
+    const map = installLocalStorage();
+    map.set(STORAGE_NAME, JSON.stringify({ state: { savedIds: [a.id, b.id, c.id], savedNotes: { [b.id]: '전화함' } }, version: 0 }));
+    const { useAppStore } = await rehydrateFresh();
+    useAppStore.getState().toggleSaved(b.id);
+    expect(useAppStore.getState().savedNotes).toEqual({});
+    useAppStore.getState().restoreSaved(b.id, 1, '전화함');
+    expect(useAppStore.getState().savedIds).toEqual([a.id, b.id, c.id]);
+    expect(useAppStore.getState().savedNotes).toEqual({ [b.id]: '전화함' });
+    useAppStore.getState().restoreSaved(b.id, 0);
+    expect(useAppStore.getState().savedIds).toEqual([a.id, b.id, c.id]);
+  });
+});

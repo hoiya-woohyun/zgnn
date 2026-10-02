@@ -25,6 +25,8 @@ type TAppState = {
    */
   town: string | null;
   toggleSaved: (id: string) => void;
+  /** 저장 해제를 되돌린다 — 원래 자리(`index`)와 메모까지(12 U2.2). 이미 저장돼 있으면 아무것도 안 한다. */
+  restoreSaved: (id: string, index: number, note?: string) => void;
   setSavedNote: (id: string, note: string) => void;
   toggleChecked: (id: string) => void;
   setSeason: (season: TSeasonFilter) => void;
@@ -96,6 +98,13 @@ export const useAppStore = create<TAppState>()(
           const savedNotes = { ...state.savedNotes };
           delete savedNotes[id];
           return { savedIds, savedNotes };
+        }),
+      restoreSaved: (id, index, note) =>
+        set((state) => {
+          if (state.savedIds.includes(id)) return {};
+          const savedIds = [...state.savedIds];
+          savedIds.splice(Math.max(0, Math.min(index, savedIds.length)), 0, id);
+          return note ? { savedIds, savedNotes: { ...state.savedNotes, [id]: note } } : { savedIds };
         }),
       // 저장하지 않은 곳에는 메모를 달지 않는다(화면도 저장한 곳에서만 입력 칸을 연다).
       setSavedNote: (id, note) =>
