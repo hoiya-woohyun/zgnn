@@ -76,6 +76,8 @@ export function AdminPageGroupSiteCompare({ group, place }: { group: TCandidateG
                 <AdminSourceChip source="ai" suffix="나갈 값" />
               </span>
               <span className={row.changed ? 'font-semibold text-primary' : 'text-tertiary'}>{row.changed ? row.next : '그대로'}</span>
+              {/* 완화(더 쉬워짐)는 틀리면 손님이 거절당한다 — 기본 체크가 꺼지고 이 한마디가 선다(11 U6). */}
+              {row.loosenHint && <p className="mt-1 font-semibold text-warning-primary">{row.loosenHint}</p>}
             </div>
           </div>
         ))}

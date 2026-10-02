@@ -11,6 +11,7 @@
 
 import { EMPTY_VALUE } from './adminEdit';
 import { factsLine, FACTS_EMPTY, type TCandidateExtracted, type TCandidateRow, type TPlaceRow } from './adminCandidates';
+import { LOOSEN_HINT, policyDirection } from './policyDirection';
 import { environmentPhrases } from './stayEnvironmentView';
 import type { TPetPolicyFacts, TStayEnvironment } from '../types';
 
@@ -85,6 +86,8 @@ export type TSiteCompareRow = {
   latestNote: string | null;
   /** 사이트 값과 나갈 값이 다르다. */
   changed: boolean;
+  /** 동반 판단이 **완화**로 바뀐다(`policyDirection`, 11 U6) — 그 줄에 `전화로 확인해 주세요`. 강화·중립이면 null. */
+  loosenHint: string | null;
 };
 
 /**
@@ -95,6 +98,7 @@ export type TSiteCompareRow = {
  */
 export function siteCompareRows(place: TPlaceRow, rows: TCandidateRow[], lead: TCandidateRow): TSiteCompareRow[] {
   const stay = place.type === 'stay' || lead.extracted.type === 'stay';
+  const loosen = policyDirection(place.pet_policy, lead.extracted.petPolicy).overall === 'loosen';
   return SITE_COMPARE_COLUMNS.flatMap((column) => {
     if (column.stayOnly && !stay) return [];
     const site = column.site(place);
@@ -114,6 +118,7 @@ export function siteCompareRows(place: TPlaceRow, rows: TCandidateRow[], lead: T
         conflict,
         latestNote: conflict && latest?.postedAt ? `최신 글(${latest.postedAt})은 "${latest.value}"` : null,
         changed: (site ?? null) !== (next ?? null),
+        loosenHint: loosen && column.key === 'pet_policy' ? LOOSEN_HINT : null,
       },
     ];
   });

@@ -288,13 +288,17 @@ P0 만 끝나도 사용자 요구 ③과 ④의 "어떤 글들이 참고됐고 �
 - 수용 기준: `proposal` 없는 갱신 묶음에 초록 표식이 없다(테스트) · `superseded` 행의 제안은 그리지 않는다.
 - 커밋: `feat(admin) - 갱신 묶음의 셋째 칸에 제안 — 없으면 '제안 없음'`
 
-#### [ ] T2.3 시간 규칙과 방향 — `stale` · 충돌 · 강화/완화
+#### [x] T2.3 시간 규칙과 방향 — `stale` · 충돌 · 강화/완화
 
 - 근거: G7·G8 · U5·U6.
 - 선행: T1.1(`stale` 분기는 거기서 섰다 — 여기는 방향).
 - 단계: `src/lib/policyDirection.ts`(순수) — `TPetPolicyFacts` 전·후를 받아 칸마다 `tighten | loosen | neutral`(무게 제한 생김/줄어듦 · 마릿수 줄어듦 · 실내 free→cage/outdoorOnly · largeDogOk true→false · 요금 인상 = tighten, 반대 = loosen, notes 변경 = neutral). `TPetPolicyFacts` 에 칸이 늘면 여기도 늘어야 한다 — `readNothing` 과 같은 함정이라 테스트가 칸 목록을 대 본다. 화면: 완화 줄에 `전화로 확인해 주세요`, 체크 기본 꺼짐(🙋 2). 후보 ↔ **사이트** 주소가 다르면 지금의 `주소 다름` 흐름(`addressConflictOf`)이 같은 자리에서 멈춘다 — AI 는 안 본다.
 - 수용 기준: 테스트 — 15kg→10kg 은 tighten · 10kg→15kg 은 loosen · 칸 누락 테스트.
 - 커밋: `feat(admin) - 조건 변화의 방향 — 강화는 바로, 완화는 확인 뒤`
+
+> 메모: T2.2 보다 **먼저** 했다 — T2.2 의 기본 체크가 이 함수를 읽는다. 칸 누락 방지는 `DIRECTION_RULES: Record<keyof TPetPolicyFacts, …>` 와 테스트의 `satisfies Required<TPetPolicyFacts>` 리터럴 둘이다(칸이 늘면 tsc 가 멈춘다).
+> "완화는 글 둘이면 켠다" 의 **글 둘** 쪽은 아직 아니다 — 지금은 완화면 늘 꺼진 채(사람이 켠다). 같은 완화를 말하는 글 수는 제안의 `basedOn` 이 생긴 뒤(T2.2)에 센다.
+> 주소: 후보 ↔ 사이트 주소 차이는 AI 가 아니라 전·후 목록의 `주소` 줄(사람이 체크)이 말한다 — 제안이 생기면 제안 밖 칸이라 기본 꺼짐이 된다(T2.2).
 
 #### [ ] T2.4 수집 완료 칸이 "기존 가게를 쓴 글" 의 수를 말한다
 

@@ -80,3 +80,14 @@ export function toggleOverwritePick(all: string[], picked: string[] | undefined,
   }
   return all.filter((col) => now.has(col));
 }
+
+/**
+ * 덮어쓰기의 **기본 체크**(11 U6·U7) — 순수. 사람이 체크를 건드리기 전에 켜져 있는 칸.
+ *  - 동반 조건이 **완화**로 바뀌면(`loosen`) 조건 짝(원문+판단)은 꺼진 채 시작한다 — 틀리면 손님이 거절당한다. 막지는 않는다(켜면 된다).
+ *  - 나머지는 바뀌는 칸 전부(지금까지의 동작). 제안(T2.2)이 생기면 그 칸만으로 좁힌다.
+ */
+export function defaultOverwritePick(all: string[], { loosen = false }: { loosen?: boolean } = {}): string[] {
+  if (!loosen) return all;
+  const policy = expandOverwriteColumns(['pet_policy_text']) as Set<string>;
+  return all.filter((key) => !policy.has(key));
+}

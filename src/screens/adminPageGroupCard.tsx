@@ -19,7 +19,8 @@ import type { TPetBadge } from '../lib/petPolicy';
 import { addressConflictOf, addressView, type TAddressChoice } from '../lib/adminAddress';
 import { policyCell, POLICY_STATE_WORD, type TAdminFlagView } from '../lib/adminPreview';
 import { verifyNeedsLook, verifyView } from '../lib/adminVerify';
-import { latestPlan, toggleOverwritePick } from '../lib/adminLatest';
+import { defaultOverwritePick, latestPlan, toggleOverwritePick } from '../lib/adminLatest';
+import { LOOSEN_HINT, policyDirection } from '../lib/policyDirection';
 import { cx } from '../utils/cx';
 import { AdminPageGroupDetail } from './adminPageGroupDetail';
 import { AdminPageGroupSiteCompare } from './adminPageGroupSiteCompare';
@@ -215,7 +216,11 @@ export function AdminPageGroupCard({
   const latest = expanded && pairPlace ? latestPlan(pairPlace, extracted) : null;
   /** 덮을 칸 — 안 건드렸으면 바뀌는 칸 전부(11 T1.4). 목록의 체크와 버튼의 칸 수가 이 값 하나를 읽는다. */
   const latestKeys = latest ? latest.changes.map((change) => change.key) : [];
-  const overwritePick = state.overwritePick ? state.overwritePick.filter((key) => latestKeys.includes(key)) : latestKeys;
+  // 동반 조건이 더 쉬워지는 덮어쓰기는 조건 칸이 꺼진 채 시작한다(11 U6 — `policyDirection`). 체크를 켜면 쓴다.
+  const loosen = Boolean(latest && pairPlace && policyDirection(pairPlace.pet_policy, extracted.petPolicy).overall === 'loosen');
+  const overwritePick = state.overwritePick
+    ? state.overwritePick.filter((key) => latestKeys.includes(key))
+    : defaultOverwritePick(latestKeys, { loosen });
   /**
    * 이 갈래에서 '덮어쓰기' 가 뜻이 있나. 내린 곳·닮은 곳 패널은 언제나(가리키는 장소가 있다),
    * 기본 갈래는 짝이 있고 지역이 되고 짝이 내린 곳이 아닐 때만 — 내린 곳이면 누르는 순간 되살릴지 묻는 패널로 간다.
@@ -378,7 +383,7 @@ export function AdminPageGroupCard({
               {latestAvailable && latest && latest.changes.length > 0 && (
                 <AdminChangeList
                   source="ai"
-                  title="덮어쓰면 바뀌는 칸 — 지금 장소 값 → 새 분석 값 · 덮을 칸을 고르세요"
+                  title={`덮어쓰면 바뀌는 칸 — 지금 장소 값 → 새 분석 값 · 덮을 칸을 고르세요${loosen ? ` · 동반 조건은 꺼 두었어요: ${LOOSEN_HINT}` : ''}`}
                   changes={latest.changes}
                   selectable={{
                     picked: overwritePick,

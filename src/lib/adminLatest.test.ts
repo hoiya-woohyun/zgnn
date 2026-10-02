@@ -3,7 +3,7 @@
  * 어긋나면 운영자가 본 것과 다른 칸이 덮인다.
  */
 import { describe, expect, it } from 'vitest';
-import { latestPlan, toggleOverwritePick } from './adminLatest';
+import { defaultOverwritePick, latestPlan, toggleOverwritePick } from './adminLatest';
 import { EMPTY_VALUE } from './adminEdit';
 import type { TCandidateExtracted, TPlaceRow } from './adminCandidates';
 
@@ -79,5 +79,13 @@ describe('칸 고르기(11 T1.4)', () => {
     expect(toggleOverwritePick(all, ['geo'], 'pet_policy_text')).toEqual(['geo', 'pet_policy_text', 'pet_policy']);
     expect(toggleOverwritePick(all, ['geo'], 'geo')).toEqual([]);
     expect(latestPlan(place, changed, []).patch).toBeNull();
+  });
+});
+
+describe('defaultOverwritePick — 완화는 꺼진 채(11 U6)', () => {
+  const all = ['geo', 'features', 'pet_policy_text', 'pet_policy'];
+  it('완화가 아니면 전부 · 완화면 조건 짝만 끈다', () => {
+    expect(defaultOverwritePick(all)).toEqual(all);
+    expect(defaultOverwritePick(all, { loosen: true })).toEqual(['geo', 'features']);
   });
 });

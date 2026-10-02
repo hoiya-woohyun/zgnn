@@ -57,3 +57,16 @@ describe('siteCompareRows — 지금 사이트 값 · 글들이 말한 것 · �
     expect(out.find((r) => r.key === 'category')).toMatchObject({ site: EMPTY_VALUE, next: '애견카페', changed: true });
   });
 });
+
+describe('완화 표식(11 T2.3)', () => {
+  it('동반 판단이 더 쉬워지면 그 줄에 전화 확인 한마디 · 강화면 없다', () => {
+    const strict = { indoor: 'cage', leash: true, largeDogOk: false, smallDogOnly: true, callFirst: false, feeFree: null, weightLimitKg: 10, maxDogs: 1, notes: null } as const;
+    const loose = { ...strict, largeDogOk: true, smallDogOnly: false, weightLimitKg: null };
+    const site = { ...place, pet_policy: strict } as TPlaceRow;
+    const rows = [row('a', '2026-08-01', { petPolicyText: '대형견도 돼요', petPolicy: loose })];
+    expect(siteCompareRows(site, rows, rows[0]).find((r) => r.key === 'pet_policy')?.loosenHint).toMatch(/전화로 확인/);
+    const back = { ...place, pet_policy: loose } as TPlaceRow;
+    const tight = [row('a', '2026-08-01', { petPolicyText: '소형견만', petPolicy: strict })];
+    expect(siteCompareRows(back, tight, tight[0]).find((r) => r.key === 'pet_policy')?.loosenHint).toBeNull();
+  });
+});
