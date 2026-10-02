@@ -29,7 +29,7 @@ import { AdminTypeChip } from './adminTypeChip';
 import { AdminPageEditForm } from './adminPageEditForm';
 import { AdminChangeList } from './adminChangeList';
 import { AdminPageGroupActions } from './adminPageGroupActions';
-import { ADMIN_CANDIDATE_GRID, ADMIN_LEAD_CELL, ADMIN_PANEL_DIVIDER, ADMIN_POLICY_TONE, ADMIN_ROW_OPEN } from './adminTable';
+import { ADMIN_LEAD_CELL, ADMIN_PANEL_DIVIDER, ADMIN_POLICY_TONE, ADMIN_ROW, ADMIN_ROW_CELLS, ADMIN_ROW_OPEN } from './adminTable';
 
 /** 묶음 하나의 화면 상태. 소유자는 `adminPage.tsx` 고 여기는 받아서 그린다. */
 export type TAdminPageGroupState = {
@@ -140,7 +140,7 @@ function PolicyCell({ items, state, message }: { items: TPetBadge[]; state: keyo
  * 후보 묶음 한 줄. 접힌 줄만으로 "올릴지 말지" 의 대부분이 판단되게 한다 —
  * 이름·종류·구간·지역·표식·동반 조건이 그 줄에 있고, 근거(원문·인용·원글)는 펼쳐야 나온다.
  *
- * `md` 이상에서는 머리글과 열이 맞는 **표의 한 줄**이다(`ADMIN_CANDIDATE_GRID`). 예전에는 같은 것을
+ * `md` 이상에서는 머리글과 열이 맞는 **표의 한 줄**이다(`ADMIN_ROW` · `ADMIN_ROW_CELLS`). 예전에는 같은 것을
  * 두 줄로(이름줄 + 흐린 메타줄) 쌓았는데, 그러면 지역·동반 조건이 줄마다 다른 가로 위치에서 시작해
  * 눈으로 세로로 훑을 수가 없다 — 142묶음을 보는 화면에서 그 훑기가 곧 일이다.
  */
@@ -244,12 +244,12 @@ export function AdminPageGroupCard({
      * 펼쳤으면 머리와 패널을 **왼쪽 한 줄기 색**으로 묶는다(`ADMIN_ROW_OPEN`): 결정 버튼이 그 패널에 있어서,
      * 어느 줄의 패널인지 눈으로 정하지 못하면 그것이 곧 다른 가게를 올리는 길이다.
      */
-    <li className={cx(expanded ? ADMIN_ROW_OPEN : 'hover:bg-primary_hover')}>
+    <li className={cx(ADMIN_ROW, expanded ? ADMIN_ROW_OPEN : 'hover:bg-primary_hover')}>
       {/*
         * 고르기 칸은 펼침 버튼 **바깥**에 선다. 버튼 안에 두면 버튼 안의 버튼이라 눌러도 체크가 아니라
         * 펼침이 토글되고, HTML 로도 틀린 구조다. 폭은 `ADMIN_LEAD_CELL` 이 머리글과 함께 소유한다.
         */}
-      <div className="flex items-stretch">
+      <div className="flex items-stretch md:grid md:grid-cols-subgrid">
         {/* 칸들이 위쪽 정렬이라 체크박스도 첫 줄(이름)에 맞춘다 — 가운데면 키 큰 줄에서 어느 줄의 것인지 흐려진다. */}
         <span className={cx(ADMIN_LEAD_CELL, 'md:items-start md:pt-2.5')}>
           <Checkbox
@@ -265,7 +265,7 @@ export function AdminPageGroupCard({
           type="button"
           onClick={onToggle}
           aria-expanded={expanded}
-          className={cx('min-w-0 flex-1 px-4 py-2 text-left', ADMIN_CANDIDATE_GRID)}
+          className={cx('min-w-0 flex-1 px-4 py-2 text-left md:col-[2/-1]', ADMIN_ROW_CELLS)}
         >
           {/*
             * **정상은 안 보이고 이상만**(2026-09-30 v2). `신규`(21/21)·`글 1건`·`분석 완료` 가 모든 줄에 붙어 있던 동안

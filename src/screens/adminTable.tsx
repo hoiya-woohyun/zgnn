@@ -33,7 +33,7 @@ const CELL_RULES =
  * `게시 대기`·`글 12건` 이 두 줄로 접히면 그 줄만 키가 커져 격자가 어긋난 것처럼 보인다.
  */
 /**
- * 장소 · 지역 · 동반 조건 · AI 요약 · 종류.
+ * 고르기 · 장소 · 지역 · 동반 조건 · AI 요약 · 종류. 첫 `2.5rem` 은 고르기 칸(`ADMIN_LEAD_CELL` 의 `w-10`)이다.
  *
  * **다섯 열로 줄었다**(2026-09-30 v2). 그 전 여덟 열 중 셋이 거의 늘 비었다 — `강아지 요금`·`필요 장비` 는 21줄 중 2~3줄만
  * 찼고(동반 조건 칸으로 되돌렸다, 순서는 `toPetBadges` 그대로), 끝의 펼침 표시(∨) 열은 화살표를 이름 옆으로 옮기며 없앴다
@@ -47,20 +47,41 @@ const CELL_RULES =
  * 지역이 `8.5rem` 인 것은 `동쪽 (구좌읍)`(9자 × 12px)이 선 24px 을 빼고 들어가는 최소값이라서다(이 화면은 `--spacing` 이
  * 4px 에 못 박혀 `text-xs` 가 12px 고정이다 — `adminDensity.css`). 종류 `4rem` 은 칩의 최소폭(36px) + 선 24px.
  */
-export const ADMIN_CANDIDATE_GRID = cx(
-  'md:grid md:grid-cols-[minmax(0,2.4fr)_8.5rem_minmax(0,2.4fr)_minmax(0,4.6fr)_4rem]',
-  CELL_RULES,
-);
+export const ADMIN_CANDIDATE_TRACKS =
+  'md:grid-cols-[2.5rem_minmax(0,2.4fr)_8.5rem_minmax(0,2.4fr)_minmax(0,4.6fr)_4rem]';
 
 /**
  * 장소 · 지역 · 동반 조건 · 소개 · 종류 · (버튼). **앞의 다섯 열이 후보 표와 같은 폭·같은 순서**다 — 두 칸을 오갈 때
  * 같은 값이 같은 자리에 있게. 상태와 내린 사유는 자기 열을 잃고 이름 칸으로 갔다: 86줄 중 84줄이 `게시중` 한 단어와
  * 빈 사유 칸이라, 두 열이 표 폭의 1/5 을 먹으면서 말하는 것은 두 줄뿐이었다.
+ *
+ * 버튼 열은 `auto` — 그 칸의 버튼 수가 칸(등록 완료 `내리기` 하나 · 등록 해제 `블랙리스트`+`되살리기(게시중으로)`)마다 다르다.
+ * 앞 다섯 열의 '같은 폭' 은 그래서 비율이 같다는 뜻이다 — 버튼 열이 먹은 만큼 `fr` 열이 함께 줄어든다.
  */
-export const ADMIN_PLACE_GRID = cx(
-  'md:grid md:grid-cols-[minmax(0,2.4fr)_8.5rem_minmax(0,2.4fr)_minmax(0,4.6fr)_4rem_10.5rem]',
-  CELL_RULES,
-);
+export const ADMIN_PLACE_TRACKS =
+  'md:grid-cols-[minmax(0,2.4fr)_8.5rem_minmax(0,2.4fr)_minmax(0,4.6fr)_4rem_auto]';
+
+/**
+ * **열 트랙은 표 상자 한 곳이 소유하고, 머리글·`<ul>`·`<li>`·줄 본체가 `subgrid` 로 물려받는다**(2026-10-02).
+ *
+ * 그 전에는 줄마다 자기 grid 를 가졌다. 줄끼리 서로의 내용을 모르니 열을 맞추려면 폭을 숫자로 박을 수밖에 없었고,
+ * 숫자로 박은 열에 줄바꿈 안 하는 버튼이 들어가면 조용히 넘쳤다 — 등록 해제 칸의 `블랙리스트`·`되살리기(게시중으로)`
+ * (188px)가 `10.5rem` 열(글자 자리 144px)을 44px 넘쳐 종류 칩을 덮었다. 트랙을 함께 쓰면 끝 열을 `auto` 로 둘 수 있다 —
+ * 가장 넓은 줄의 버튼만큼 스스로 넓어지고 남는 폭은 `fr` 열이 나눈다.
+ *
+ * `md` 미만에서는 여전히 grid 를 켜지 않는다(위 「`md` 미만」).
+ */
+const SUBGRID = 'md:col-span-full md:grid md:grid-cols-subgrid';
+
+/**
+ * 표의 한 줄(`<li>`). 트랙을 이어받고, **직속 자식은 전부 한 줄 전체 폭**이다 — 본체는 그 안에서 다시 subgrid 로
+ * 열에 서고, 펼친 패널·결과 줄·오류 줄은 열을 무시하고 가로로 다 쓴다. 패널마다 `col-span-full` 을 붙이면
+ * 하나만 빠뜨려도 그 패널이 첫 열 폭으로 접힌다.
+ */
+export const ADMIN_ROW = cx(SUBGRID, 'md:[&>*]:col-span-full');
+
+/** 칸들을 직접 자식으로 갖는 줄 본체. 어느 열에서 시작하는지는 쓰는 쪽이 정한다(후보 표는 고르기 칸 뒤). */
+export const ADMIN_ROW_CELLS = cx('md:grid md:grid-cols-subgrid', CELL_RULES);
 
 /**
  * 동반 배지 낱개의 톤 → 칩 모양. 사이트와 **같은 위계**다(`petBadges.tsx` 의 `TONE_COLOR`):
@@ -97,9 +118,8 @@ export const ADMIN_ROW_OPEN = 'bg-active shadow-[inset_3px_0_0_0_var(--color-bg-
  * 줄 맨 앞의 **고르기 칸**. 머리글과 줄이 같은 폭을 쓰도록 여기서 한 번만 정한다 — 두 곳에 적으면
  * 한쪽만 고쳤을 때 이름 열이 1px 씩 어긋나고, 그 어긋남이 이 표가 막으려는 바로 그 오독이다.
  *
- * **칸(grid) 이 아니라 flex 로 붙인다.** 줄의 본체는 `<button>` 이고 그것이 곧 grid 상자인데,
- * 체크박스는 버튼 **안에** 들어갈 수 없다(버튼 안의 버튼이고, 눌러도 펼침만 토글된다).
- * 그래서 grid 열을 하나 더 만드는 대신 버튼 **바깥 왼쪽**에 세우고, 머리글에도 같은 폭의 빈 자리를 둔다.
+ * 체크박스는 줄 본체(`<button>`) **바깥 왼쪽**에 선다 — 버튼 안에 넣으면 버튼 안의 버튼이고, 눌러도 펼침만 토글된다.
+ * `md` 이상에서는 그 자리가 트랙의 첫 열(`ADMIN_CANDIDATE_TRACKS` 의 `2.5rem`)이고 본체는 그 뒤 열부터 선다.
  * 칸 사이 세로선(`CELL_RULES`)이 여기까지 오지 않는 것도 의도다 — 값이 아니라 손잡이다.
  */
 export const ADMIN_LEAD_CELL = 'flex w-10 shrink-0 items-center justify-center';
@@ -141,6 +161,7 @@ export function AdminTable({
   lead = false,
   selectAll,
 }: {
+  /** 열 트랙(`ADMIN_*_TRACKS`). 머리글·줄이 이것을 subgrid 로 물려받는다. `lead` 면 첫 열이 고르기 칸이어야 한다. */
   grid: string;
   columns: string[];
   children: ReactNode;
@@ -150,13 +171,13 @@ export function AdminTable({
   selectAll?: TAdminTableSelectAll;
 }) {
   return (
-    <div className="px-4 md:px-6">
+    <div className={cx('px-4 md:grid md:px-6', grid)}>
       {/* 머리글은 `md` 이상에서만 — 그 아래에서는 줄이 grid 가 아니라 세로로 쌓여 이름표가 가리킬 열이 없다. */}
       {/*
         * `aria-hidden` 은 **열 이름 쪽에만** 둔다. 예전에는 머리글 상자 전체에 걸려 있었는데, 그 안에
         * 체크박스가 들어오면 보조기기에서 통째로 사라진다 — 보이는데 없는 컨트롤이 된다.
         */}
-      <div className="hidden border-t border-secondary md:flex">
+      <div className={cx('hidden border-t border-secondary', SUBGRID)}>
         {lead ? (
           <span className={ADMIN_LEAD_CELL}>
             {selectAll ? (
@@ -171,7 +192,10 @@ export function AdminTable({
             ) : null}
           </span>
         ) : null}
-        <div className={cx('min-w-0 flex-1 px-4 text-xs font-semibold text-quaternary', grid)} aria-hidden="true">
+        <div
+          className={cx('px-4 text-xs font-semibold text-quaternary', ADMIN_ROW_CELLS, lead ? 'md:col-[2/-1]' : 'md:col-span-full')}
+          aria-hidden="true"
+        >
           {columns.map((column, index) => (
             <span key={column || `blank-${index}`} className="truncate">
               {column}
@@ -180,7 +204,7 @@ export function AdminTable({
         </div>
       </div>
       {/* 줄을 가르는 선은 `<ul>` 이 긋는다 — 줄마다 테두리를 두면 선이 두 겹으로 겹쳐 굵기가 들쭉날쭉해진다. */}
-      <ul className="divide-y divide-secondary border-y border-secondary bg-primary">{children}</ul>
+      <ul className={cx('divide-y divide-secondary border-y border-secondary bg-primary', SUBGRID)}>{children}</ul>
     </div>
   );
 }

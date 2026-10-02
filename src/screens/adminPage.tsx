@@ -108,7 +108,7 @@ import { AdminPagePlaceList } from './adminPagePlaceList';
 import type { TAdminPagePlaceState } from './adminPagePlaceRow';
 import { AdminPagePostsPanel } from './adminPagePostsPanel';
 import { AdminPageSuggestions } from './adminPageSuggestions';
-import { ADMIN_CANDIDATE_GRID, AdminTable } from './adminTable';
+import { ADMIN_CANDIDATE_TRACKS, AdminTable } from './adminTable';
 
 /**
  * 운영자 검수 화면(ADR-018). 후보(candidates)를 묶어 보여 주고, "맞아요" 한 번으로 `places` 까지 반영한다.
@@ -1772,7 +1772,7 @@ export function AdminPage() {
         <>
           <div className="mt-3">
             <AdminTable
-              grid={ADMIN_CANDIDATE_GRID}
+              grid={ADMIN_CANDIDATE_TRACKS}
               columns={COLUMNS}
               lead
               /*
