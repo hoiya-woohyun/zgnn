@@ -20,6 +20,11 @@ import type { TDirection, TPetPolicyFacts, TRegion, TStayEnvironment } from '../
 
 export type TCandidateType = 'stay' | 'restaurant' | 'cafe' | 'other';
 export type TCandidateTier = 'auto' | 'ask' | 'new';
+/**
+ * 종류(docs/todo/11 U2) — 승인하면 무슨 일이 일어나나. `tier`(짝이 맞나)와 다른 축이다.
+ * 분석이 `extracted.match.kind` 로 싣고(`kindOf`, analyzeCandidates.mjs), 묶음은 `groupCandidates` 가 정한다(갱신이 하나라도 있으면 갱신).
+ */
+export type TCandidateKind = 'new' | 'fill' | 'update' | 'ask';
 export type TCandidateStatus = 'pending' | 'approved' | 'rejected' | 'merged';
 export type TPlaceStatus = 'draft' | 'published' | 'archived';
 
@@ -72,7 +77,11 @@ export type TCandidateExtracted = {
   /** 공식 홈페이지 카드(`scripts/analyze/homepageCard.mjs`). null 은 "없음 또는 안 읽음". 사진은 URL 뿐이다(ADR-002 v2). */
   homepage?: { url: string; siteName: string | null; image: string | null } | null;
   category?: string | null;
-  match?: { confidence: number; reason: string; tier: TCandidateTier };
+  /**
+   * `kind`·`changes` 는 차이 게이트(11 T1.1) 뒤의 후보에만 있다. `changes` 는 갱신이 된 칸(덮어쓰기 칸 이름 —
+   * `pet_policy_text`·`stay_price_text`·`stay_environment`).
+   */
+  match?: { confidence: number; reason: string; tier: TCandidateTier; kind?: TCandidateKind; changes?: string[] };
   /**
    * 교차점검 판단(`scripts/analyze/verifyPlaces.mjs`). **`null`·`undefined` 는 "점검하지 않았다" 다** —
    * 조건 문장이 있었거나, 그 패스가 꺼졌거나(`--no-verify`) 실패했거나, 이 패스가 생기기 전의 후보다.
@@ -143,6 +152,7 @@ export type TCandidateGroup = {
   rows: TCandidateRow[];
   lead: TCandidateRow;
   tier: TCandidateTier;
+  kind: TCandidateKind;
   visited: boolean;
   hasPolicyText: boolean;
   confidence: number;
@@ -314,6 +324,19 @@ export const TIER_LABEL: Record<TCandidateTier, string> = {
   ask: '확인',
   /** 짝이 없다. 승인하면 새 장소가 생긴다. */
   new: '신규',
+};
+
+/**
+ * 종류 표기(11 U2) — `TIER_LABEL` 과 같은 두 자. 칩은 짝이 `기존` 인 묶음에만 선다(신규·확인은 `TIER_LABEL` 이 이미 그 말이다).
+ * 걸러 보기(adminPage.tsx)도 이것을 읽는다.
+ */
+export const KIND_LABEL: Record<TCandidateKind, string> = {
+  /** 이미 찬 칸과 다른 사실을 말한다 — 덮어쓰기(칸 고르기). */
+  update: '갱신',
+  /** 빈 칸만 채운다 — 합치기. */
+  fill: '보강',
+  new: '신규',
+  ask: '확인',
 };
 
 /**

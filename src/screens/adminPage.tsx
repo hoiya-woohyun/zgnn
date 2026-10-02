@@ -32,6 +32,7 @@ import {
   flagsFor,
   groupPending,
   previewFor,
+  KIND_LABEL,
   TIER_LABEL,
   TYPE_LABEL,
   type TCandidateGroup,
@@ -87,6 +88,7 @@ import {
   writeAdminUrl,
   type TAdminTab,
   type TPolicyFilter,
+  type TKindFilter,
   type TTierFilter,
   type TTypeFilter,
   type TWarnFilter,
@@ -222,6 +224,20 @@ const TIER_FILTERS: { key: TTierFilter; label: string; hint?: string; match: (gr
 ];
 
 /**
+ * 할 일 축(11 U2) — 승인하면 무슨 일이 일어나나. 짝(tier)과 다른 축이라 따로 고른다: `기존` 묶음 안에서 `갱신`(사이트와 다른 사실)과
+ * `보강`(빈 칸만)이 갈린다. 묶음의 값은 `groupCandidates` 가 정한다(갱신 한 줄이면 갱신).
+ */
+const KIND_FILTERS: { key: TKindFilter; label: string; hint?: string }[] = [
+  { key: 'all', label: '전체' },
+  { key: 'update', label: KIND_LABEL.update, hint: '올린 장소와 다른 사실을 말하는 글 — 덮어쓸 칸을 고른다' },
+  { key: 'fill', label: KIND_LABEL.fill, hint: '올린 장소의 빈 칸만 채우는 글 — 합치기' },
+  { key: 'new', label: KIND_LABEL.new, hint: '처음 보는 곳' },
+  { key: 'ask', label: KIND_LABEL.ask, hint: '같은 곳인지 봐야 하는 곳' },
+];
+
+const kindMatches = (filter: TKindFilter, group: TCandidateGroup): boolean => filter === 'all' || group.kind === filter;
+
+/**
  * 종류 축. tier·동반 정보와 **겹치지 않는 세 번째 축**이다 — 종류로 좁힌 뒤 tier 로 다시 좁히는 것이
  * 실제 검수 순서다("카페부터 훑고, 그중 처음 보는 곳만").
  *
@@ -271,6 +287,7 @@ export function AdminPage() {
   const [states, setStates] = useState<Record<string, TAdminPageGroupState>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
   const [tierFilter, setTierFilter] = useState<TTierFilter>(initialUrl.tier);
+  const [kindFilter, setKindFilter] = useState<TKindFilter>(initialUrl.kind);
   const [policyFilter, setPolicyFilter] = useState<TPolicyFilter>(initialUrl.policy);
   const [typeFilter, setTypeFilter] = useState<TTypeFilter>(initialUrl.type);
   const [warnFilter, setWarnFilter] = useState<TWarnFilter>(initialUrl.warn);
@@ -1176,9 +1193,10 @@ export function AdminPage() {
    * 조건 토글을 켠 채 tier 칩을 보던 시절에 실제로 난 일이다. 축을 하나 더할 때 이 표에 한 줄만 더하면 되게 묶었다.
    */
   type TCard = (typeof cards)[number];
-  type TAxis = 'tier' | 'type' | 'policy' | 'warn';
+  type TAxis = 'tier' | 'kind' | 'type' | 'policy' | 'warn';
   const AXES: Record<TAxis, (card: TCard) => boolean> = {
     tier: (card) => activeTier.match(card.group),
+    kind: (card) => kindMatches(kindFilter, card.group),
     type: (card) => typeMatches(typeFilter, card.group),
     policy: (card) => policyFilter === 'all' || POLICY_FILTER_MATCH[policyFilter](card),
     warn: (card) => warnMatches(warnFilter, card),
@@ -1188,10 +1206,11 @@ export function AdminPage() {
     cards.filter((card) => (Object.keys(AXES) as TAxis[]).every((axis) => axis === except || AXES[axis](card)));
   const filtered = without('warn').filter(AXES.warn);
   const baseTier = without('tier');
+  const baseKind = without('kind');
   const baseType = without('type');
   const basePolicy = without('policy');
   const baseWarn = without('warn');
-  const filtersOn = tierFilter !== 'all' || typeFilter !== 'all' || policyFilter !== 'all' || warnFilter !== 'all';
+  const filtersOn = tierFilter !== 'all' || kindFilter !== 'all' || typeFilter !== 'all' || policyFilter !== 'all' || warnFilter !== 'all';
 
   // 걸러 보기를 바꾸면 '더 보기' 도 처음으로 — 효과가 아니라 여기서 함께 바꾼다(같은 사건의 두 결과다).
   const pickTier = (next: TTierFilter) => {
@@ -1203,8 +1222,13 @@ export function AdminPage() {
     setPolicyFilter(next);
     setShown(PAGE_SIZE);
   };
+  const pickKind = (next: TKindFilter) => {
+    setKindFilter(next);
+    setShown(PAGE_SIZE);
+  };
   const resetFilters = () => {
     setTierFilter('all');
+    setKindFilter('all');
     setTypeFilter('all');
     setPolicyFilter('all');
     setWarnFilter('all');
@@ -1227,10 +1251,10 @@ export function AdminPage() {
    * 첫 렌더의 값은 방금 주소에서 읽은 것이라 같은 문자열을 다시 쓸 뿐이다(바뀐 것이 없으면 아무것도 안 한다).
    */
   useEffect(() => {
-    const search = writeAdminUrl(window.location.search, { tab, tier: tierFilter, policy: policyFilter, type: typeFilter, warn: warnFilter });
+    const search = writeAdminUrl(window.location.search, { tab, tier: tierFilter, kind: kindFilter, policy: policyFilter, type: typeFilter, warn: warnFilter });
     const next = `${window.location.pathname}${search ? `?${search}` : ''}${window.location.hash}`;
     if (next !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.replaceState(window.history.state, '', next);
-  }, [policyFilter, tab, tierFilter, typeFilter, warnFilter]);
+  }, [kindFilter, policyFilter, tab, tierFilter, typeFilter, warnFilter]);
 
   /**
    * 걸러 보기에 걸린 묶음들. 무한 스크롤로 **아직 안 그린 것까지** 포함한다 — '전부 고르기' 가 고르는 범위다.
@@ -1536,6 +1560,19 @@ export function AdminPage() {
             {TIER_FILTERS.map((entry) => (
               <Select.Item key={entry.key} id={entry.key} supportingText={entry.hint}>
                 {`${entry.label} ${baseTier.filter((card) => entry.match(card.group)).length}`}
+              </Select.Item>
+            ))}
+          </Select>
+          <Select
+            label="할 일"
+            size="sm"
+            className="w-56"
+            selectedKey={kindFilter}
+            onSelectionChange={(key) => key && pickKind(key as TKindFilter)}
+          >
+            {KIND_FILTERS.map((entry) => (
+              <Select.Item key={entry.key} id={entry.key} supportingText={entry.hint}>
+                {`${entry.label} ${baseKind.filter((card) => kindMatches(entry.key, card.group)).length}`}
               </Select.Item>
             ))}
           </Select>

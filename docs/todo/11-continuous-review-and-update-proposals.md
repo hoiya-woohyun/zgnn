@@ -215,13 +215,15 @@ P0 만 끝나도 사용자 요구 ③과 ④의 "어떤 글들이 참고됐고 �
 > 게이트가 홈페이지 읽기 **뒤**로 갔다 — 카드가 `fill` 판정의 재료다(같은 link 는 실행당 한 번이라 비용은 작다).
 > ⚠️ 남은 구멍: 추출이 `petAllowed: 'no'` 로 낸 장소는 **짝짓기 전에** `notAllowed` 로 빠져, 게시된 곳이 "이제 안 받아요" 가 돼도 갱신으로 못 올라온다(게이트는 교차점검의 '불가 정황' 만 본다). 다음 손질 후보.
 
-#### [ ] T1.2 종류 칩·걸러 보기 — `tier` 와 다른 축
+#### [x] T1.2 종류 칩·걸러 보기 — `tier` 와 다른 축
 
 - 근거: U2 · 요구 ③.
 - 읽을 것: `src/lib/adminCandidates.ts`(`TIER_LABEL` · `groupPending`) · `scripts/analyze/reviewCandidates.mjs`(`groupCandidates` — 묶음 필드 하나 더) · `src/screens/adminPageGroupCard.tsx` · `src/lib/adminUrlState.ts`(`?kind=`).
 - 단계: `groupCandidates` 가 `g.kind`(갱신 > 보강 > 신규 > 확인 — 갱신 하나면 갱신; 옛 후보는 `match.kind` 없음 → `tier` 로 추정) · `KIND_LABEL` 두 자(`신규 · 보강 · 갱신 · 확인`) · 접힌 줄 칩 · 걸러 보기 드롭다운 다섯째 축 · 검수 순서(`reviewPriority`) 맨 앞에 **갱신 먼저**(사이트가 틀려 있는 시간이 비용이다).
 - 수용 기준: 옛 후보(`match.kind` 없음)가 깨지지 않는다(테스트) · `?kind=update` 가 새로고침 뒤에도 산다.
 - 커밋: `feat(admin) - 검수 대기에 종류 칩(신규·보강·갱신·확인)과 걸러 보기`
+
+> 메모: 화면에는 이미 `종류`(숙소·식당·카페) 드롭다운이 있어 이 축의 이름표는 **`할 일`** 로 했다(값은 `KIND_LABEL` 두 자 그대로). 칩은 짝이 `기존` 인 묶음에만 선다 — 신규·확인은 `TIER_LABEL` 이 같은 말을 이미 하므로 두 번 쓰지 않았다(§8 의 "두 축을 한 칩으로" 는 디자인 몫으로 남김). `data:review` 머리 줄도 `일치(갱신)` 꼴로 같은 값을 찍는다.
 
 #### [ ] T1.3 갱신 묶음의 세 칸 비교 — 지금 사이트 값이 선다
 

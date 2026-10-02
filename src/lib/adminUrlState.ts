@@ -14,6 +14,10 @@ export const DEFAULT_ADMIN_TAB: TAdminTab = 'candidates';
 export const TIER_FILTER_KEYS = ['all', 'auto', 'ask', 'new'] as const;
 export type TTierFilter = (typeof TIER_FILTER_KEYS)[number];
 
+/** 종류(11 U2) — `?kind=update` 가 갱신 묶음만. */
+export const KIND_FILTER_KEYS = ['all', 'update', 'fill', 'new', 'ask'] as const;
+export type TKindFilter = (typeof KIND_FILTER_KEYS)[number];
+
 export const POLICY_FILTER_KEYS = ['all', 'has', 'needsLook'] as const;
 export type TPolicyFilter = (typeof POLICY_FILTER_KEYS)[number];
 
@@ -26,6 +30,7 @@ export type TWarnFilter = (typeof WARN_FILTER_KEYS)[number];
 export type TAdminUrlState = {
   tab: TAdminTab;
   tier: TTierFilter;
+  kind: TKindFilter;
   policy: TPolicyFilter;
   type: TTypeFilter;
   warn: TWarnFilter;
@@ -34,6 +39,7 @@ export type TAdminUrlState = {
 export const DEFAULT_ADMIN_URL_STATE: TAdminUrlState = {
   tab: DEFAULT_ADMIN_TAB,
   tier: 'all',
+  kind: 'all',
   policy: 'all',
   type: 'all',
   warn: 'all',
@@ -48,6 +54,7 @@ export function parseAdminUrl(search: string): TAdminUrlState {
   return {
     tab: pick(ADMIN_TABS, params.get('tab'), DEFAULT_ADMIN_URL_STATE.tab),
     tier: pick(TIER_FILTER_KEYS, params.get('tier'), 'all'),
+    kind: pick(KIND_FILTER_KEYS, params.get('kind'), 'all'),
     policy: pick(POLICY_FILTER_KEYS, params.get('policy'), 'all'),
     type: pick(TYPE_FILTER_KEYS, params.get('type'), 'all'),
     warn: pick(WARN_FILTER_KEYS, params.get('warn'), 'all'),

@@ -6,6 +6,7 @@ import { Checkbox } from '../components/base/checkbox';
 import type { TBlockChoice } from '../lib/adminBlocks';
 import {
   regionUsable,
+  KIND_LABEL,
   TIER_LABEL,
   type TCandidateGroup,
   type TPlaceRow,
@@ -263,10 +264,23 @@ export function AdminPageGroupCard({
                 {matchedName ? ` → ${matchedName}` : ''}
               </Badge>
             ) : group.tier === 'auto' ? (
-              <span className="text-xs text-quaternary">
-                {TIER_LABEL.auto}
-                {matchedName ? ` → ${matchedName}` : ''}
-              </span>
+              <>
+                <span className="text-xs text-quaternary">
+                  {TIER_LABEL.auto}
+                  {matchedName ? ` → ${matchedName}` : ''}
+                </span>
+                {/*
+                  * 종류(11 U2) — `갱신` 만 색을 갖는다: 사이트와 다른 사실을 말하는 글이라 사람이 칸을 골라야 한다.
+                  * `보강`(빈 칸만)은 상태라 회색 글씨다.
+                  */}
+                {group.kind === 'update' ? (
+                  <Badge type="color" size="sm" color="brand">
+                    {KIND_LABEL.update}
+                  </Badge>
+                ) : (
+                  <span className="text-xs text-quaternary">{KIND_LABEL.fill}</span>
+                )}
+              </>
             ) : null}
             {matchedArchived && (
               <Badge type="color" size="sm" color="warning">

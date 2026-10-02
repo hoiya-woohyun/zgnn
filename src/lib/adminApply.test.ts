@@ -113,6 +113,7 @@ const group = (rows: TCandidateRow[]): TCandidateGroup => ({
   rows,
   lead: rows[0],
   tier: rows[0].extracted.match?.tier ?? 'new',
+  kind: rows[0].extracted.match?.tier === 'auto' ? 'fill' : (rows[0].extracted.match?.tier ?? 'new'),
   visited: true,
   hasPolicyText: rows.some((row) => Boolean(row.extracted.petPolicyText)),
   confidence: 0.8,
