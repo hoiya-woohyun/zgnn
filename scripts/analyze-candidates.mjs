@@ -452,7 +452,13 @@ for (const post of posts) {
     const excluded = [];
     for (const extracted of places) {
       const reason = exclusionReason(extracted);
-      if (reason) {
+      /*
+       * 동반 불가(`notAllowed`)는 **바로 버리지 않는다** — 그 가게가 이미 게시된 곳이면 "이제 안 받는다" 는 갱신 신호다(11 T1.1 메모의 구멍).
+       * 짝을 찾아 게시된 곳과 확실히 같을 때만(`auto` + `published`) 갱신 후보로 올리고, 아니면 아래에서 지금처럼 `notAllowed` 로 뺀다.
+       * 신규 가게의 동반 불가는 여전히 후보가 아니다(BUG-008 — 조건 없는 장소가 '갈 수 있어요' 로 읽힌다).
+       */
+      const denied = reason === 'notAllowed';
+      if (reason && !denied) {
         excluded.push({ extracted, reason });
         stats.excluded[reason] += 1;
         const why = reason === 'notJeju' ? ' · 제주 아님' : reason === 'notAllowed' ? ' · 동반 불가' : '';
@@ -502,6 +508,14 @@ for (const post of posts) {
        * 짝 행은 위에서 읽은 `placeRows` 에서 찾는다(새 조회 없음). `verified_at` 칸이 없는 원격에선 undefined → 날짜 규칙이 안 걸린다.
        */
       const kind = kindOf(matched, row.extracted, placeById.get(matched.match?.id) ?? null, { postedAt: post.posted_at });
+      // 동반 불가 글은 게시된 짝에 붙는 갱신일 때만 후보다 — 그 밖(신규·애매한 짝·초안·내린 곳·옛 글·목록글)은 지금처럼 `notAllowed` 로 뺀다.
+      if (denied && (kind.exclude || kind.kind !== 'update' || matched.match?.status !== 'published')) {
+        excluded.push({ extracted, reason: 'notAllowed' });
+        stats.excluded.notAllowed += 1;
+        console.log(`  제외 ${extracted.name} (${extracted.type} · 동반 불가)`);
+        continue;
+      }
+      if (denied) console.log(`  ※ ${extracted.name} — 글이 동반 불가라고 한다 · 게시된 ${matched.match.name} 의 갱신 후보로 올린다(등록 해제 또는 사이트가 맞아요)`);
       if (kind.exclude) {
         excluded.push({ extracted, reason: kind.exclude });
         stats.excluded[kind.exclude] += 1;

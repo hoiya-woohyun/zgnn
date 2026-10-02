@@ -245,7 +245,8 @@ export function tierOf(matched) {
  * `status` 나 짝 행을 모르면(시드·테스트 경로) 거르지 않는다 — 모르는 것을 "이미 있다" 로 읽으면 후보가 조용히 사라진다.
  *
  * 순서: 같은 말이면 이유는 늘 'sameAsSite' 다(그것이 가장 많이 알려 준다). 다른 말이 있을 때만 근거(목록글·근거 없음)와 날짜를 본다.
- * 교차점검이 '동반 불가 정황'(`petAllowedHere === 'no'`)이면 다른 칸이 없어도 'update' 다 — "이제 안 받는다" 가 가장 중요한 갱신이다.
+ * 교차점검이 '동반 불가 정황'(`petAllowedHere === 'no'`)이거나 추출이 동반 불가(`petAllowed === 'no'`)를 읽었으면 다른 칸이 없어도 'update' 다
+ * — "이제 안 받는다" 가 가장 중요한 갱신이다(추출 쪽은 부르는 쪽이 `notAllowed` 제외를 게시된 짝일 때만 미루고 여기로 보낸다).
  *
  * 비용은 줄지 않는다: 추출도 네이버 조회도 이미 끝난 뒤의 판정이라 **DB 에 안 넣을 뿐**이다(운영자가 훑을 줄 수를 아낀다).
  *
@@ -261,7 +262,8 @@ export function kindOf(matched, extracted, placeRow, { postedAt = null } = {}) {
 
   const changes = placeRow ? siteChanges(placeRow, extracted) : [];
   const fills = placeRow ? fillColumns(placeRow, extracted) : [];
-  const deniedHere = extracted?.verify?.petAllowedHere === 'no';
+  // "이제 안 받는다" 는 가장 중요한 갱신이다 — 교차점검의 불가 정황이든, 추출이 본문에서 읽은 동반 불가(`petAllowed: 'no'`)든.
+  const deniedHere = extracted?.verify?.petAllowedHere === 'no' || extracted?.petAllowed === 'no';
   const kind = changes.length > 0 || deniedHere ? 'update' : 'fill';
   const result = { kind, exclude: null, changes, fills };
 

@@ -1,6 +1,8 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-10-02 (v30: **분석이 Claude 를 세 번 부른다** — 셋째 패스 「제안」(`scripts/analyze/proposePlaces.mjs`, [todo/11](../todo/11-continuous-review-and-update-proposals.md) U3).
+> 최종 수정: 2026-10-02 (v31: **동반 불가 글도 게시된 가게의 갱신이 된다** — 추출이 `petAllowed: 'no'` 로 낸 장소를 바로 버리지 않고 짝을 찾아, 게시된 곳과 확실히 같으면(`auto` + `published`, 옛 글·목록글 아님) `update` 후보로 올린다.
+> 그 밖은 지금처럼 `notAllowed` 제외 — 신규 가게의 동반 불가가 후보가 되면 BUG-008 이 돌아온다. 그래서 동반 불가 장소도 네이버 검색 한 번을 쓴다)
+> 이전 2026-10-02 (v30: **분석이 Claude 를 세 번 부른다** — 셋째 패스 「제안」(`scripts/analyze/proposePlaces.mjs`, [todo/11](../todo/11-continuous-review-and-update-proposals.md) U3).
 > 루프가 끝난 뒤 이번 실행에서 `update` 후보가 생긴 장소마다 한 번, 사이트 값과 그 장소의 pending 후보 전부를 **구조값으로**(본문 없음) 넘기고 칸별 `keep/change` 를 받는다.
 > 코드가 다시 거른다(근거 글 없음·인용 불일치 → keep, 소개는 덧붙임만, 판단은 `correctPetPolicyFacts`, 충돌은 코드가 센다). 결과는 가장 새 글의 행 `extracted.proposal`, 옛 제안은 `superseded: true`.
 > `--no-propose` 로 끄고 `PROPOSE_MODEL` 로 모델을 덮는다. 계량기 셋째 줄 · 요약 `· 제안 N/M곳`)

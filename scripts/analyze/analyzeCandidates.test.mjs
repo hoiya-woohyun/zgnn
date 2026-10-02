@@ -224,6 +224,12 @@ describe('kindOf — 신규 · 보강 · 갱신 · 확인', () => {
     expect(kindOf(auto('published'), { ...differ, verify: { petAllowedHere: 'unknown', dogWasThere: false } }, row).exclude).toBe('weak');
     expect(kindOf(auto('published'), { ...sameX, verify: { petAllowedHere: 'no', dogWasThere: false } }, row)).toMatchObject({ kind: 'update', exclude: null });
   });
+  it('추출이 동반 불가(petAllowed no)를 읽으면 다른 칸이 없어도 update · 옛 글·목록글이면 여전히 제외', () => {
+    const denied = { ...sameX, petAllowed: 'no' };
+    expect(kindOf(auto('published'), denied, row)).toMatchObject({ kind: 'update', exclude: null });
+    expect(kindOf(auto('published'), { ...denied, visited: false }, row).exclude).toBe('weak');
+    expect(kindOf(auto('published'), denied, { ...row, verified_at: '2026-09-20' }, { postedAt: '2026-01-01' }).exclude).toBe('stale');
+  });
   it('글 날짜 < verified_at → stale · verified_at 이 없으면 update', () => {
     const verified = { ...row, verified_at: '2026-09-20T00:00:00Z' };
     expect(kindOf(auto('published'), differ, verified, { postedAt: '2026-08-01T00:00:00Z' }).exclude).toBe('stale');
