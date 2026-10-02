@@ -183,6 +183,8 @@ export function MapPage() {
   return (
     // 모바일에는 하단 탭바가 있어 그만큼 빼고, 탭바가 사라지는 md 이상에서는 화면을 꽉 채운다.
     <div className="relative h-[calc(100dvh-60px-env(safe-area-inset-bottom,0px))] overflow-hidden md:h-dvh">
+      {/* 제목은 lg 패널에만 보인다 — 모바일에서도 화면 이름은 낭독돼야 한다(12 U1.7). */}
+      <h1 className="sr-only lg:hidden">지도</h1>
       <div className="flex h-full">
         {/* 데스크톱 2단 — 좌측 결과 패널. lg 미만에서는 지도만 보인다. */}
         <aside className="hidden w-[360px] shrink-0 flex-col border-r border-secondary bg-primary lg:flex">
@@ -340,6 +342,20 @@ export function MapPage() {
                 {withGeo.length}곳 표시 중
               </span>
               {/*
+                좌표 없는 곳을 모바일에서도 말한다(12 U1.7) — 안내가 lg 패널에만 있어 모바일에선 말없이 빠졌다.
+                목록은 하나로만 보낸다: 저장 칩이면 저장 화면, 아니면 가장 많이 빠진 종류의 목록. 44px 히트 영역은 링크가 갖고 모양은 안쪽 칩이 갖는다.
+              */}
+              {missingGeoCount > 0 && (
+                <Link
+                  href={savedOnly ? '/saved' : `/places/${[...missingByType].sort((a, b) => b.count - a.count)[0].type}`}
+                  className="pointer-events-auto -mt-2.5 flex min-h-11 items-center lg:hidden"
+                >
+                  <span className="rounded-md bg-primary/92 px-2 py-1 text-xs font-semibold text-brand-secondary shadow-sm backdrop-blur">
+                    지도에 없는 {missingGeoCount}곳 ›
+                  </span>
+                </Link>
+              )}
+              {/*
                 내 위치 버튼. 위쪽 오른편에 두는 이유는 **아래쪽이 이미 차 있어서다** — 좌하단은 로고·저작권,
                 우하단은 축척 막대, 가운데 아래는 빈 상태 카드와 모바일 바텀시트가 쓴다(ADR-008 v9).
               */}
@@ -389,11 +405,25 @@ export function MapPage() {
           {withGeo.length === 0 && !(savedOnly && savedPlaces.length === 0) && (
             <div className="above-map-attribution pointer-events-none absolute inset-x-0 bottom-0 z-[1001] px-3 pt-3 lg:hidden">
               <div className="pointer-events-auto">
-                <EmptyState
-                  Icon={AlertTriangle}
-                  title="켜 둔 종류에 표시할 곳이 없어요"
-                  description="위에서 다른 종류를 켜 보세요."
-                />
+                {/* 저장한 곳이 전부 좌표 없음 + 종류가 다 켜져 있으면 켤 종류가 없다 — 저장 목록으로 보낸다(12 U1.7). */}
+                {savedOnly && types.length === PLACE_TYPES.length ? (
+                  <EmptyState
+                    Icon={AlertTriangle}
+                    title="저장한 곳은 지도에 위치가 없어요"
+                    description="저장한 곳 목록에서 볼 수 있어요."
+                    action={
+                      <Button color="primary" size="lg" href="/saved">
+                        저장한 곳 보기
+                      </Button>
+                    }
+                  />
+                ) : (
+                  <EmptyState
+                    Icon={AlertTriangle}
+                    title="켜 둔 종류에 표시할 곳이 없어요"
+                    description="위에서 다른 종류를 켜 보세요."
+                  />
+                )}
               </div>
             </div>
           )}
