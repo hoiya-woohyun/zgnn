@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LinkExternal01 } from '@untitledui/icons';
-import { NAV_ITEMS } from './navItems';
+import { NAV_ITEMS, navHref } from './navItems';
 import { AuthorAvatar } from '../authorAvatar';
 import { META } from '../../lib/places';
 import { cx } from '../../utils/cx';
@@ -30,7 +30,7 @@ export function AppSidebar() {
             return (
               <li key={item.to}>
                 <Link
-                  href={item.to}
+                  href={navHref(item, pathname)}
                   aria-current={active ? 'page' : undefined}
                   className={cx(
                     'flex h-11 items-center gap-3 rounded-lg px-3 text-md font-semibold transition-colors',

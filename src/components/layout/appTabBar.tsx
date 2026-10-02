@@ -1,7 +1,7 @@
 import type { MouseEvent } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { NAV_ITEMS } from './navItems';
+import { NAV_ITEMS, navHref } from './navItems';
 import { cx } from '../../utils/cx';
 
 /** 주소 끝의 `/` 를 떼어 비교를 한 가지 모양으로 맞춘다(정적 내보내기라 `/map/` 로도 들어온다). */
@@ -53,11 +53,12 @@ export function AppTabBar() {
       <ul className="mx-auto flex h-[60px] w-full max-w-lg">
         {NAV_ITEMS.map((item) => {
           const active = item.isActive(pathname);
+          const href = navHref(item, pathname);
           return (
             <li key={item.to} className="flex-1">
               <Link
-                href={item.to}
-                onClick={(event) => handleTabClick(event, item.to)}
+                href={href}
+                onClick={(event) => handleTabClick(event, href)}
                 aria-current={active ? 'page' : undefined}
                 className={cx(
                   'relative flex h-full flex-col items-center justify-center gap-0.5 text-xs font-semibold',

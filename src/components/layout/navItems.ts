@@ -2,6 +2,7 @@ import type { FC } from 'react';
 import { Compass01, Home02, Map01, Settings01 } from '@untitledui/icons';
 import { CheckDone01 } from '@untitledui/icons';
 import type { TIconProps } from '../icons/iconProps';
+import { placesTabHref } from '../../lib/lastPlaceType';
 
 export type TNavItem = {
   to: string;
@@ -9,7 +10,12 @@ export type TNavItem = {
   Icon: FC<TIconProps>;
   /** 현재 경로가 이 항목에 속하는지. 상세(/place/:id)는 '둘러보기' 아래로 본다. */
   isActive: (pathname: string) => boolean;
+  /** 주소가 상황에 따라 바뀌는 항목만 — 없으면 `to`. `to` 는 목록의 key 로도 쓰여 고정이다. */
+  hrefFor?: (pathname: string) => string;
 };
+
+/** 항목이 지금 가리킬 주소. 탭바·사이드바가 같은 답을 쓴다. */
+export const navHref = (item: TNavItem, pathname: string) => item.hrefFor?.(pathname) ?? item.to;
 
 /**
  * 모바일 하단 탭바와 데스크톱 사이드바가 같은 목록을 쓴다.
@@ -27,6 +33,8 @@ export const NAV_ITEMS: TNavItem[] = [
     Icon: Compass01,
     // `/places/` 까지 본다 — `/places` 로만 보면 `/placesX` 같은 404 에서도 불이 들어왔다(D5).
     isActive: (path) => path.startsWith('/places/') || path.startsWith('/place/'),
+    // 보던 종류로 돌아간다(12 U1.5) — 카페 목록에서 누르면 숙소로 넘어가지 않고 맨 위로, 지도에서 누르면 보던 카페로.
+    hrefFor: (path) => placesTabHref(path),
   },
   {
     to: '/checklist',

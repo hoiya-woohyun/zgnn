@@ -1,18 +1,9 @@
 import { useEffect, useState } from 'react';
+import { getLastPlaceType, setLastPlaceType } from '../lib/lastPlaceType';
 import { PLACE_TYPES } from '../lib/places';
 import type { TPlaceType } from '../types';
 
-/**
- * 직전에 보던 종류. **모듈 변수인 것이 요점이다.**
- *
- * 둘러보기는 종류를 바꾸면 화면을 통째로 새로 마운트한다(placesPage 의 `key={type}` — 조건을
- * 리셋하려고 일부러 그렇게 뒀다). 그래서 "어디서 왔는지" 는 어떤 컴포넌트 상태에도 남지
- * 않는다. 마운트를 넘어 살아남는 자리가 여기뿐이다.
- *
- * 주소를 새로 열면(새로고침·딥링크) 이 값은 null 이라 아무 데서도 오지 않은 것이 된다 —
- * 그때 움직이면 첫 화면이 이유 없이 흔들린다.
- */
-let lastType: TPlaceType | null = null;
+// 직전에 보던 종류는 `lib/lastPlaceType.ts` 의 모듈 변수다 — 셸의 둘러보기 탭도 읽는다(12 U1.5).
 
 /**
  * 스와이프로 넘어갈 때 주소를 바꾸기 **직전에** 부른다.
@@ -22,7 +13,7 @@ let lastType: TPlaceType | null = null;
  * 보게 된다. 도착점을 미리 적어 두면 새 화면은 fromIndex === toIndex 라 가만히 있는다.
  */
 export function arriveBySwipe(type: TPlaceType) {
-  lastType = type;
+  setLastPlaceType(type);
 }
 
 export type TPlaceTypeSwitch = {
@@ -44,10 +35,13 @@ export type TPlaceTypeSwitch = {
  */
 export function usePlaceTypeSwitch(type: TPlaceType): TPlaceTypeSwitch {
   const toIndex = PLACE_TYPES.indexOf(type);
-  const [fromIndex] = useState(() => (lastType === null ? toIndex : PLACE_TYPES.indexOf(lastType)));
+  const [fromIndex] = useState(() => {
+    const last = getLastPlaceType();
+    return last === null ? toIndex : PLACE_TYPES.indexOf(last);
+  });
 
   useEffect(() => {
-    lastType = type;
+    setLastPlaceType(type);
   }, [type]);
 
   return {
