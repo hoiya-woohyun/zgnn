@@ -1,6 +1,7 @@
 # BUG-002 — 저장된 값이 한 번 깨지면 앱이 영구히 저장 기능을 잃는다
 
-> 최종 수정: 2026-09-17 (v1: 신설)
+> 최종 수정: 2026-10-02 (v2: **저장소를 아예 못 여는 브라우저에서 앱 전체가 에러 화면**이었다 — v1 의 「`rehydrate().then` 이 올린다」 는 틀렸다. zustand 는 그때 `persist` API 자체를 안 붙인다. 가드 · 칸별 모양 검사 · `global-error.tsx`([todo/12](../todo/12-ux-audit-2026-10-02.md) U0.1))
+> 이전 2026-09-17 (v1: 신설)
 
 ## 증상
 
@@ -58,9 +59,23 @@ zustand 는 읽다 실패한 값을 그대로 둔다. 다음 로드에서 같은
 그 뒤로는 기다릴 이유가 없다는 뜻이다. 실패했으면 "저장된 것이 없는 사람" 과 같은 상태로
 그리면 되고, 그것이 사실이기도 하다.
 
-신호는 두 곳에서 올린다. 평소에는 `onRehydrateStorage`(성공·실패 모두 불린다)가, 저장소
-자체를 열 수 없어 zustand 가 그 콜백까지 건너뛰는 경우에는 `StoreHydration` 의
-`rehydrate().then(…)` 이 올린다. 먼저 온 쪽이 이긴다.
+신호는 두 곳에서 올린다. 평소에는 `onRehydrateStorage`(성공·실패 모두 불린다)가, 그리고
+`StoreHydration` 의 `rehydrate().then(…)` 이 한 번 더. 먼저 온 쪽이 이긴다.
+
+**저장소 자체를 열 수 없으면(v2)** — 쿠키·사이트 데이터 차단으로 `window.localStorage` 접근이 `SecurityError` —
+zustand 는 저장소를 포기하면서 **`useAppStore.persist` 를 붙이지 않는다**(타입은 늘 있다고 말한다). v1 은 이 경우에도
+`rehydrate()` 가 불린다고 적었지만 실제로는 `undefined.rehydrate` 로 첫 화면이 통째로 에러였다(Playwright 재현).
+지금은 `StoreHydration` 이 `persist` 가 없으면 신호만 올리고 끝낸다 — 읽을 것이 없다는 것도 결말이다.
+그 상태에서 스토어는 저장 없이 돌고, `set` 마다 zustand 가 경고 한 줄(`storage is currently unavailable`)을 찍는다(에러 아님).
+
+### 칸마다 모양을 본다 (v2)
+
+JSON 은 멀쩡한데 칸 하나가 깨진 값(`checkedItemIds: "x"`)은 위의 "지운다" 에 안 걸린다 — 파싱은 성공하므로.
+예전 `merge` 는 `...persisted` 로 펼쳐 그 값을 그대로 믿었고, 배열 메서드에서 터지면 앱이 에러 화면이 됐다.
+이제 `merge` 가 칸마다 검사해 깨진 칸만 기본값으로 돌린다(`savedIds`·`checkedItemIds` 는 문자열 배열, `season` 은 여름·겨울·없음).
+
+그래도 루트까지 무너지면 `src/app/global-error.tsx` 가 받는다 — "문제가 생겼어요 · 새로고침". `retry` 가 아니라 새로고침인 이유는
+첫 렌더의 오류는 같은 트리를 다시 그려도 같은 자리에서 터지기 때문이다.
 
 ### 깨진 값은 지운다
 
@@ -75,12 +90,12 @@ zustand 는 읽다 실패한 값을 그대로 둔다. 다음 로드에서 같은
 ## 회귀 방지
 
 `src/store/useAppStore.test.ts` — 깨진 값으로 하이드레이션했을 때 **신호가 오는지**와
-**깨진 값이 지워지는지**를 함께 본다. `hasHydrated()` 는 검사하지 않는다. 그 값은 고친
+**깨진 값이 지워지는지**를 함께 본다. v2 부터는 **깨진 칸만 기본값**이 되는지와, 저장소를 못 열면 `persist` 가 **없다**는 zustand 의 동작(가드의 전제)도 본다. `hasHydrated()` 는 검사하지 않는다. 그 값은 고친
 뒤에도 여전히 `false` 이고(고친 것은 화면이 보는 신호 쪽이다), 그걸 검사하면 다음 사람이
 엉뚱한 곳을 고치게 된다.
 
 ## 관련
 
-- `src/store/useAppStore.ts` · `src/providers/storeHydration.tsx` · `src/screens/dogProfilePage.tsx`
+- `src/store/useAppStore.ts` · `src/providers/storeHydration.tsx` · `src/app/global-error.tsx` · `src/screens/dogProfilePage.tsx`
 - [라우팅 · 화면 셸 · 클라이언트 상태](../architecture/app-shell-and-state.md)
 - [우리 강아지 프로필](../features/dog-profile.md)

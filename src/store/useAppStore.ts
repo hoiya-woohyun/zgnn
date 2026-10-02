@@ -39,6 +39,14 @@ const toggle = (list: string[], id: string) =>
 
 const STORAGE_NAME = 'zgnn-jeju';
 
+/** 저장된 목록 값을 믿지 않는다 — 배열이 아니면 빈 배열, 문자열이 아닌 원소는 버린다. */
+const stringList = (value: unknown): string[] =>
+  Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+
+const SEASONS: readonly TSeasonFilter[] = ['여름', '겨울', null];
+const seasonOf = (value: unknown): TSeasonFilter =>
+  SEASONS.includes(value as TSeasonFilter) ? (value as TSeasonFilter) : null;
+
 /**
  * localStorage 읽기가 **끝났는지**. 성공했는지가 아니다.
  *
@@ -128,15 +136,20 @@ export const useAppStore = create<TAppState>()(
       /**
        * 저장해 둔 장소가 데이터에서 빠지면 그 id 는 localStorage 에 그대로 남는다.
        * 불러오는 시점에 한 번 걸러내지 않으면 화면마다 다른 숫자가 나온다.
+       *
+       * **칸마다 모양을 검사한다**(12 U0.1). `...persisted` 로 펼친 값을 그대로 믿으면 깨진 한 칸
+       * (`checkedItemIds: "x"`)이 `.includes` 에서 터져 앱 전체가 에러 화면이 된다 — JSON 은 멀쩡해서
+       * `onRehydrateStorage` 의 지우기도 안 걸린다. 깨진 칸은 기본값으로, 나머지 칸은 살린다.
        */
       merge: (persistedState, currentState) => {
-        const persisted = (persistedState ?? {}) as Partial<TAppState>;
+        const persisted = (persistedState ?? {}) as Partial<Record<keyof TAppState, unknown>>;
         const exists = (id: string) => PLACES_BY_ID.has(id);
-        const savedIds = (persisted.savedIds ?? []).filter(exists);
+        const savedIds = stringList(persisted.savedIds).filter(exists);
         return {
           ...currentState,
-          ...persisted,
           savedIds,
+          checkedItemIds: stringList(persisted.checkedItemIds),
+          season: seasonOf(persisted.season),
           // 저장 목록에서 빠진 id 의 메모는 버린다(그 장소가 데이터에서 빠졌다) — 남겨 두면 다시 저장했을 때 옛 메모가 되살아난다.
           savedNotes: sanitizeSavedNotes(persisted.savedNotes, savedIds),
           // 옛 모양(`{ name, weightsKg }`)은 여기서 올려 변환된다 — lib/dogProfile.ts 참고.

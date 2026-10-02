@@ -168,3 +168,46 @@ describe('저장 메모(savedNotes)', () => {
     expect(useAppStore.getState().savedNotes).toEqual({});
   });
 });
+
+describe('저장된 값의 모양이 깨졌을 때(12 U0.1)', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('깨진 칸은 기본값으로, 멀쩡한 칸은 그대로 읽는다', async () => {
+    const { PLACES } = await import('../lib/places');
+    const map = installLocalStorage();
+    map.set(
+      STORAGE_NAME,
+      JSON.stringify({
+        state: { savedIds: [PLACES[0].id, 7], checkedItemIds: 'x', season: '봄', needsIndoor: true },
+        version: 0,
+      }),
+    );
+    const { useAppStore } = await rehydrateFresh();
+    const state = useAppStore.getState();
+    expect(state.checkedItemIds).toEqual([]);
+    expect(state.season).toBeNull();
+    expect(state.savedIds).toEqual([PLACES[0].id]);
+    expect(state.needsIndoor).toBe(true);
+    // 깨진 칸이 동작까지 막지 않는다 — 예전에는 `"x".includes` 가 아니라 배열 메서드에서 터졌다.
+    state.toggleChecked('water-bowl');
+    expect(useAppStore.getState().checkedItemIds).toEqual(['water-bowl']);
+  });
+
+  it('저장소를 열 수 없으면 zustand 는 persist API 를 붙이지 않는다 — StoreHydration 이 이것을 가드한다', async () => {
+    // 쿠키·사이트 데이터 차단 브라우저: localStorage 에 닿는 순간 SecurityError.
+    vi.stubGlobal('window', {
+      get localStorage() {
+        throw new DOMException('denied', 'SecurityError');
+      },
+    });
+    vi.resetModules();
+    const { useAppStore, isHydrationSettled } = await import('./useAppStore');
+    expect(useAppStore.persist as unknown).toBeUndefined();
+    // 스토어 자체는 저장 없이 돈다 — 화면은 기본값으로 그린다.
+    useAppStore.getState().toggleSaved('a');
+    expect(useAppStore.getState().savedIds).toEqual(['a']);
+    expect(isHydrationSettled()).toBe(false); // 신호는 StoreHydration 이 올린다
+  });
+});

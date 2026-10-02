@@ -21,11 +21,20 @@ export function StoreHydration() {
      * `rehydrate()` 는 성공이든 실패든 resolve 한다(측정). 그래서 여기서는 결과를 보지 않고
      * "끝났다" 는 것만 알린다 — 실패의 뒷정리는 store 쪽 `onRehydrateStorage` 가 맡는다.
      *
-     * store 쪽에서도 같은 신호를 올리는데 여기서 한 번 더 찍는 이유: localStorage 를 아예
-     * 열 수 없는 환경이면 zustand 가 저장소 자체를 포기하고 `onRehydrateStorage` 를 부르지
-     * 않는다. 그때는 이 경로만 남는다. 먼저 온 쪽이 이기므로 두 번 불려도 무해하다.
+     * store 쪽에서도 같은 신호를 올리는데 여기서 한 번 더 찍는 이유: 먼저 온 쪽이 이기므로
+     * 두 번 불려도 무해하고, 어느 한쪽이 빠져도 화면이 기다림에 갇히지 않는다.
+     *
+     * **localStorage 를 아예 열 수 없는 환경**(쿠키·사이트 데이터 차단 — 접근이 `SecurityError`)이면
+     * zustand 는 저장소를 포기하면서 `persist` API 자체를 **붙이지 않는다**(타입은 늘 있다고 말한다).
+     * 그대로 `.rehydrate()` 를 부르면 첫 화면이 통째로 에러가 된다(12 U0.1, 재현함). 그때는 읽을 것이
+     * 없다는 것이 결말이므로 신호만 올린다 — 화면은 기본값(저장 0·프로필 없음)으로 그린다.
      */
-    Promise.resolve(useAppStore.persist.rehydrate()).then(markHydrationSettled, markHydrationSettled);
+    const persistApi = useAppStore.persist as typeof useAppStore.persist | undefined;
+    if (!persistApi) {
+      markHydrationSettled();
+      return;
+    }
+    Promise.resolve(persistApi.rehydrate()).then(markHydrationSettled, markHydrationSettled);
   }, []);
 
   return null;
