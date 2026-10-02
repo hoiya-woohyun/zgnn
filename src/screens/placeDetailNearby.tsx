@@ -5,6 +5,7 @@ import { FilterChip } from '../components/filterChip';
 import { PetBadges } from '../components/petBadges';
 import { PlaceThumb } from '../components/placeThumb';
 import { TownChip } from '../components/townChip';
+import { sortNearby } from '../lib/distanceSort';
 import { formatKm } from '../lib/format';
 import { withJosa } from '../lib/korean';
 import { nearbyPlaces, TYPE_META, type TPlaceEntry } from '../lib/places';
@@ -26,20 +27,17 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
   // 카드마다 개별 useEligibility 를 부를 수 없으니(훅은 반복문에서 못 부른다) 한 번에 계산해 둔다.
   const eligibilityMap = useEligibilityMap();
 
-  // 종류로 걸러도 3곳을 채울 여유가 있게 넉넉히 가져온 뒤, 같은 읍면을 우선으로 다시 정렬한다.
+  // 종류로 걸러도 3곳을 채울 여유가 있게 넉넉히 가져온 뒤 다시 정렬한다 — 못 가는 곳은 뒤로, 그다음 거리순(`sortNearby`, 12 U1.4).
   const candidates = useMemo(() => nearbyPlaces(place, 20), [place]);
 
   const nearby = useMemo(() => {
     const filtered =
       filter === 'all' ? candidates : candidates.filter(({ place: other }) => other.type === filter);
-    return [...filtered]
-      .sort((a, b) => {
-        const aSameTown = a.place.region.town === place.region.town ? 0 : 1;
-        const bSameTown = b.place.region.town === place.region.town ? 0 : 1;
-        return aSameTown - bSameTown || a.km - b.km;
-      })
-      .slice(0, 3);
-  }, [candidates, filter, place.region.town]);
+    return sortNearby(filtered, {
+      isSameTown: ({ place: other }) => other.region.town === place.region.town,
+      isHard: ({ place: other }) => eligibilityMap?.get(other.id)?.level === 'hard',
+    }).slice(0, 3);
+  }, [candidates, filter, place.region.town, eligibilityMap]);
 
   if (candidates.length === 0) return null;
 

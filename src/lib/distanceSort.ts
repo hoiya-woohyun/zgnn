@@ -30,3 +30,26 @@ export function distanceLabel(km: number): string {
   if (km < 10) return `${km.toFixed(1)}km`;
   return `${Math.round(km)}km`;
 }
+
+/** 같은 읍면이 이기는 거리 차의 상한(km) — 그보다 멀면 같은 읍면이라도 가까운 쪽이 먼저다(12 U1.4). */
+export const SAME_TOWN_EDGE_KM = 1;
+
+/**
+ * 상세의 「근처 장소」 순서(docs/todo/12 U1.4). 순수.
+ *
+ * 예전에는 같은 읍면을 거리보다 **먼저** 세워 살롱드라방에서 12.9km → 16.9km → 1.9km 순이 됐고, 판정을 안 봐
+ * 대형견 프로필로 열면 근처 둘이 모두 "이용하기 어려워요" 였다. 이제 순서는 셋이다.
+ *  1. 판정이 어려움(`hard`)인 곳은 뒤로 — 강아지가 없으면(`isHard` 가 늘 false) 이 단계는 없다.
+ *  2. 거리순. 다만 같은 읍면은 `SAME_TOWN_EDGE_KM` 만큼 당겨 본다 — 1km 안의 차이면 같은 동네가 먼저.
+ *     비교 함수에 "차이가 1km 안이면" 을 직접 쓰지 않는 이유: 그 비교는 추이적이지 않아 정렬 결과가 입력 순서에 따라 흔들린다.
+ *  3. 그래도 같으면 실제 거리, 그다음 원래 순서.
+ */
+export function sortNearby<T extends { km: number }>(
+  list: readonly T[],
+  { isSameTown, isHard }: { isSameTown: (item: T) => boolean; isHard: (item: T) => boolean },
+): T[] {
+  return list
+    .map((item, index) => ({ item, index, hard: isHard(item) ? 1 : 0, key: item.km - (isSameTown(item) ? SAME_TOWN_EDGE_KM : 0) }))
+    .sort((a, b) => a.hard - b.hard || a.key - b.key || a.item.km - b.item.km || a.index - b.index)
+    .map(({ item }) => item);
+}
