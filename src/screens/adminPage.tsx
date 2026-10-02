@@ -1032,7 +1032,7 @@ export function AdminPage() {
       const chosen = groups.filter((group) => wanted.has(group.key));
       const jobs =
         kind === 'latest'
-          ? bulkLatestTargets(chosen, placesRef.current).eligible.map((entry) => ({ group: entry.group, choice: { mergeInto: entry.pairId, overwrite: true } }))
+          ? bulkLatestTargets(chosen, placesRef.current).eligible.map((entry) => ({ group: entry.group, choice: { mergeInto: entry.pairId, overwrite: true, overwriteColumns: entry.columns } }))
           : chosen.map((group) => ({ group, choice: {} }));
       setBulk({ busy: true, mode: kind });
       const done = new Set<string>();

@@ -21,6 +21,7 @@ import { policyCell, POLICY_STATE_WORD, type TAdminFlagView } from '../lib/admin
 import { verifyNeedsLook, verifyView } from '../lib/adminVerify';
 import { defaultOverwritePick, latestPlan, toggleOverwritePick } from '../lib/adminLatest';
 import { LOOSEN_HINT, policyDirection } from '../lib/policyDirection';
+import { liveProposal, proposalPick, proposalView, withProposal } from '../lib/adminProposal';
 import { cx } from '../utils/cx';
 import { AdminPageGroupDetail } from './adminPageGroupDetail';
 import { AdminPageGroupSiteCompare } from './adminPageGroupSiteCompare';
@@ -213,14 +214,18 @@ export function AdminPageGroupCard({
   const needsLook = verifyNeedsLook(extracted.verify);
   const openEdit = () => onEditDraft(draftFromExtracted(extracted));
   /** 덮어쓰면 무엇이 바뀌나 — 펼쳤고 가리키는 장소 행이 있을 때만 계산한다. */
-  const latest = expanded && pairPlace ? latestPlan(pairPlace, extracted) : null;
+  /** 갱신 묶음의 제안(11 T2.2) — 있으면 덮어쓰기의 '새 값' 이 제안 값이 된다(`withProposal`, 쓰기도 같은 함수를 지난다). */
+  const proposal = liveProposal(group.rows);
+  const proposalBadge = proposalView(group);
+  const latest = expanded && pairPlace ? latestPlan(pairPlace, withProposal(extracted, proposal, pairPlace)) : null;
   /** 덮을 칸 — 안 건드렸으면 바뀌는 칸 전부(11 T1.4). 목록의 체크와 버튼의 칸 수가 이 값 하나를 읽는다. */
   const latestKeys = latest ? latest.changes.map((change) => change.key) : [];
   // 동반 조건이 더 쉬워지는 덮어쓰기는 조건 칸이 꺼진 채 시작한다(11 U6 — `policyDirection`). 체크를 켜면 쓴다.
-  const loosen = Boolean(latest && pairPlace && policyDirection(pairPlace.pet_policy, extracted.petPolicy).overall === 'loosen');
+  const loosen = Boolean(latest && pairPlace && policyDirection(pairPlace.pet_policy, withProposal(extracted, proposal, pairPlace).petPolicy).overall === 'loosen');
+  // 제안이 있으면 기본 체크는 제안이 change 라 한 칸(완화는 근거 글 둘 이상일 때만) — 없으면 바뀌는 칸 전부(완화 조건은 끔).
   const overwritePick = state.overwritePick
     ? state.overwritePick.filter((key) => latestKeys.includes(key))
-    : defaultOverwritePick(latestKeys, { loosen });
+    : (pairPlace && proposalPick(latestKeys, proposal, pairPlace)) || defaultOverwritePick(latestKeys, { loosen });
   /**
    * 이 갈래에서 '덮어쓰기' 가 뜻이 있나. 내린 곳·닮은 곳 패널은 언제나(가리키는 장소가 있다),
    * 기본 갈래는 짝이 있고 지역이 되고 짝이 내린 곳이 아닐 때만 — 내린 곳이면 누르는 순간 되살릴지 묻는 패널로 간다.
@@ -293,9 +298,19 @@ export function AdminPageGroupCard({
                   * `보강`(빈 칸만)은 상태라 회색 글씨다.
                   */}
                 {group.kind === 'update' ? (
-                  <Badge type="color" size="sm" color="brand">
-                    {KIND_LABEL.update}
-                  </Badge>
+                  <>
+                    <Badge type="color" size="sm" color="brand">
+                      {KIND_LABEL.update}
+                    </Badge>
+                    {/* 제안 없음은 "안 봤다" 다 — 회색 뱃지, 초록이 아니다(`proposalView`). 있으면 회색 글씨로 칸 수만. */}
+                    {proposalBadge?.state === 'missing' ? (
+                      <Badge type="color" size="sm" color="gray">
+                        {proposalBadge.label}
+                      </Badge>
+                    ) : proposalBadge ? (
+                      <span className="text-xs text-quaternary">{proposalBadge.label}</span>
+                    ) : null}
+                  </>
                 ) : (
                   <span className="text-xs text-quaternary">{KIND_LABEL.fill}</span>
                 )}
@@ -393,7 +408,7 @@ export function AdminPageGroupCard({
                 />
               )}
               {/* 기존 장소를 고치거나 채우는 묶음은 **사이트에 지금 무엇이 있나** 부터 본다(11 T1.3). 신규 묶음에는 서지 않는다. */}
-              {pairPlace && (group.kind === 'update' || group.kind === 'fill') && <AdminPageGroupSiteCompare group={group} place={pairPlace} />}
+              {pairPlace && (group.kind === 'update' || group.kind === 'fill') && <AdminPageGroupSiteCompare group={group} place={pairPlace} proposal={proposal} />}
               <AdminPageGroupDetail group={group} preview={preview} />
             </div>
             <div className="mt-3 border-t border-secondary pt-3">

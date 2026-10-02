@@ -2,6 +2,7 @@
 
 import { Badge } from '../components/base/badges';
 import type { TCandidateGroup, TPlaceRow } from '../lib/adminCandidates';
+import { withProposal, type TProposal } from '../lib/adminProposal';
 import { siteCompareRows } from '../lib/adminSiteCompare';
 import { cx } from '../utils/cx';
 import { AdminSourceChip, SOURCE_TONE } from './adminSource';
@@ -13,12 +14,21 @@ import { AdminSourceChip, SOURCE_TONE } from './adminSource';
  * "사이트에 이미 있는 것" 이 기준이라 읽는 방향이 다르다. 한 표에 칸을 하나 더 꽂으면 신규 묶음에서는 그 칸이 늘 비어 있다.
  * 글들이 말한 것은 **글마다 한 줄**(날짜 · 제목 · 값), 새 글이 위다. 같은 칸에 글들이 다른 말을 하면 줄 머리에 `글마다 달라요`.
  */
-export function AdminPageGroupSiteCompare({ group, place }: { group: TCandidateGroup; place: TPlaceRow }) {
-  const rows = siteCompareRows(place, group.rows, group.lead);
+/** 비교표 줄 → 제안 칸(조건 원문·판단은 한 제안이다). */
+const proposalFieldOf = (key: string) => (key === 'pet_policy' ? 'pet_policy_text' : key);
+
+export function AdminPageGroupSiteCompare({ group, place, proposal = null }: { group: TCandidateGroup; place: TPlaceRow; proposal?: TProposal | null }) {
+  // 제안이 있으면 나갈 값은 제안 값이다(11 T2.2) — 덮어쓰기의 전·후 목록·쓰기와 같은 `withProposal`.
+  const lead = proposal ? { ...group.lead, extracted: withProposal(group.lead.extracted, proposal, place) } : group.lead;
+  const rows = siteCompareRows(place, group.rows, lead);
   if (!rows.length) return null;
   return (
     <div className="overflow-hidden rounded-lg border border-secondary bg-secondary text-xs">
-      <p className="px-3 py-1.5 font-semibold text-secondary">사이트와 대 보기 — 지금 사이트 · 글들이 말한 것 · 승인하면 나갈 값</p>
+      <p className="px-3 py-1.5 font-semibold text-secondary">
+        사이트와 대 보기 — 지금 사이트 · 글들이 말한 것 · {proposal ? '제안' : '승인하면 나갈 값'}
+      </p>
+      {/* 제안 한 줄 요약. 갱신 묶음인데 제안이 없으면 머리 칩(`제안 없음`)이 말한다 — 여기서 빈 자리를 초록으로 채우지 않는다. */}
+      {proposal?.summary && <p className="px-3 pb-1.5 text-tertiary">제안: {proposal.summary}</p>}
       <div className="hidden border-t border-secondary text-[0.6875rem] font-semibold text-tertiary md:grid md:grid-cols-[6rem_minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1fr)]">
         <span className="px-3 py-1.5">항목</span>
         <span className="border-l border-secondary bg-primary px-3 py-1.5">지금 사이트</span>
@@ -26,7 +36,7 @@ export function AdminPageGroupSiteCompare({ group, place }: { group: TCandidateG
           <AdminSourceChip source="blog" /> 글들이 말한 것
         </span>
         <span className={cx('flex items-center gap-1.5 border-l px-3 py-1.5', SOURCE_TONE.ai.surface, SOURCE_TONE.ai.border)}>
-          <AdminSourceChip source="ai" /> 나갈 값
+          <AdminSourceChip source="ai" /> {proposal ? '제안' : '나갈 값'}
         </span>
       </div>
       <div className="divide-y divide-secondary border-t border-secondary">
@@ -76,6 +86,9 @@ export function AdminPageGroupSiteCompare({ group, place }: { group: TCandidateG
                 <AdminSourceChip source="ai" suffix="나갈 값" />
               </span>
               <span className={row.changed ? 'font-semibold text-primary' : 'text-tertiary'}>{row.changed ? row.next : '그대로'}</span>
+              {proposal?.fields[proposalFieldOf(row.key)]?.why && (
+                <p className="mt-1 text-tertiary">{proposal.fields[proposalFieldOf(row.key)]?.why}</p>
+              )}
               {/* 완화(더 쉬워짐)는 틀리면 손님이 거절당한다 — 기본 체크가 꺼지고 이 한마디가 선다(11 U6). */}
               {row.loosenHint && <p className="mt-1 font-semibold text-warning-primary">{row.loosenHint}</p>}
             </div>

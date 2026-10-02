@@ -30,6 +30,7 @@ import {
 import { addressConflictOf, type TAddressConflict } from './adminAddress';
 import type { TCandidateEdit } from './adminEdit';
 import { hasVerifiedColumn, markPlaceVerified, restorePlace } from './adminPlaces';
+import { liveProposal, withProposal } from './adminProposal';
 import { appendReviewerNote } from './adminSession';
 import type { TPlace } from '../types';
 
@@ -369,7 +370,9 @@ export async function approveGroup(
   const verifiedColumn = hasVerifiedColumn(places);
   try {
     if (target && opts.overwrite) {
-      const plan = overwriteWithLatest(target, lead.extracted, opts.overwriteColumns ? { only: opts.overwriteColumns } : {}) as { patch: Partial<TPlaceRow>; previous: Record<string, unknown> } | null;
+      // 제안이 있으면 '새 값' 은 제안 값이다(11 T2.2) — 화면의 전·후 목록과 같은 `withProposal` 을 지나야 본 것과 덮이는 것이 같다.
+      const latest = withProposal(lead.extracted, liveProposal(group.rows), target);
+      const plan = overwriteWithLatest(target, latest, opts.overwriteColumns ? { only: opts.overwriteColumns } : {}) as { patch: Partial<TPlaceRow>; previous: Record<string, unknown> } | null;
       if (plan) {
         const { error } = await client.from('places').update(plan.patch).eq('id', target.id);
         failIf('최신본으로 덮기', error);
