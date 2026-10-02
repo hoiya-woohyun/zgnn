@@ -565,3 +565,22 @@ describe('isBlocked — 차단 목록에 걸린 가게는 후보를 만들지 �
     expect(formatSummary({ ...stats, excluded: { ...ex, blocked: 0 } }, 'x')).not.toContain('차단');
   });
 });
+
+describe('isFocusedTitle · mergeFocusedFirst — 분석 순서(2026-10-02)', () => {
+  it('반려동물 말이 있고 목록·일정형이 아니면 먼저', async () => {
+    const { isFocusedTitle } = await import('./analyzeCandidates.mjs');
+    expect(isFocusedTitle('[애월 애견동반 카페] 키에키 로스팅 룸 후기')).toBe(true);
+    expect(isFocusedTitle('제주 애견동반 카페 추천 — 노지커피')).toBe(true);
+    expect(isFocusedTitle('제주 강아지 동반 맛집 BEST 10')).toBe(false);
+    expect(isFocusedTitle('제주 애견동반 여행 3박4일 일정')).toBe(false);
+    expect(isFocusedTitle('Day 4 제주도 서쪽 애견동반 맛집')).toBe(false);
+    expect(isFocusedTitle('제주 서귀포 흑돼지 맛집')).toBe(false);
+    expect(isFocusedTitle(null)).toBe(false);
+  });
+
+  it('집중 글을 앞에, 겹침은 지우고 각 무리 순서는 그대로', async () => {
+    const { mergeFocusedFirst } = await import('./analyzeCandidates.mjs');
+    const merged = mergeFocusedFirst([{ url: 'b' }, { url: 'd' }], [{ url: 'a' }, { url: 'b' }, { url: 'c' }]);
+    expect(merged.map((post) => post.url)).toEqual(['b', 'd', 'a', 'c']);
+  });
+});

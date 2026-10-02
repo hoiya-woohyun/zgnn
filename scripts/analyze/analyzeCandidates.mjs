@@ -91,6 +91,32 @@ export function keyGate(axis, { hasKeys, noGeo, canPrompt }) {
 }
 
 /**
+ * 분석 **순서** — 제목으로 글을 둘로 가른다(2026-10-02, 버리지 않는다 · 뒤로 미룬다).
+ *
+ * 첫 실측(30건)에서 후보 59건 중 50건이 교차점검 `동반 근거 없음` 이었고, 대부분 "제주 맛집 20곳" 같은 목록·일정 글에서 이름만 나온 가게였다.
+ * 분석 전 4,839건 중 제목에 반려동물 말이 없는 글이 약 1,500건, 목록·일정형 제목이 약 890건이다 — 네이버 검색은 본문 어딘가에 검색어가 있으면 걸어 준다.
+ * 그래서 **제목에 반려동물 말이 있고 목록·일정형이 아닌 글**(`focused`)을 먼저 읽는다. 나머지는 지우지 않는다 — 앞 줄이 비면 그대로 이어서 읽는다.
+ *
+ * 두 정규식은 서버 쿼리(PostgREST `imatch` = Postgres `~*`)와 이 함수가 **같은 문자열**을 쓴다 — 갈라 두면 로그의 집중·나머지 수가 실제 고른 것과 어긋난다.
+ * 그래서 Postgres 와 JS 가 같게 읽는 문법만 쓴다(`[0-9]` · `?` · `|` — `\d` 를 안 쓰는 이유).
+ * "추천" 은 넣지 않는다 — "애월 애견동반 카페 추천" 처럼 한 가게 후기 제목에도 흔하다.
+ */
+export const PET_TITLE_SOURCE = '(애견|반려견|반려동물|강아지|댕댕|멍멍|펫)';
+export const LISTY_TITLE_SOURCE = '(best|top ?[0-9]|[0-9]+ ?(곳|군데|선)|총정리|모음|리스트|코스|일정|여행기|[0-9]+일차|day ?[0-9]|[0-9]+박 ?[0-9]+일)';
+
+const PET_TITLE = new RegExp(PET_TITLE_SOURCE, 'i');
+const LISTY_TITLE = new RegExp(LISTY_TITLE_SOURCE, 'i');
+
+/** 먼저 읽을 글인가 — 제목에 반려동물 말이 있고 목록·일정형이 아니다. */
+export const isFocusedTitle = (title) => PET_TITLE.test(title ?? '') && !LISTY_TITLE.test(title ?? '');
+
+/** 집중 글을 앞에, 나머지를 뒤에 — url 로 겹침을 지운다. 각 무리 안의 순서(최신순)는 그대로. 순수. */
+export function mergeFocusedFirst(focused, rest) {
+  const seen = new Set(focused.map((post) => post.url));
+  return [...focused, ...rest.filter((post) => !seen.has(post.url))];
+}
+
+/**
  * 이번 실행에 넣을 글 고르기 — 최신순을 지키되 한 블로그는 maxPerBlog 건까지만(DEFAULT_MAX_PER_BLOG 참고).
  * 호출자는 limit 보다 넉넉히 가져와야 한다(넘친 글이 자리를 비운다).
  */

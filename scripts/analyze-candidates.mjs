@@ -49,6 +49,10 @@ import {
   formatSummary,
   parseArgs,
   pickPostsForRun,
+  isFocusedTitle,
+  mergeFocusedFirst,
+  PET_TITLE_SOURCE,
+  LISTY_TITLE_SOURCE,
   resolveRegionRaw,
   kindOf,
   tierOf,
@@ -245,15 +249,27 @@ async function write(label, run) {
   console.log(`  ${label}`);
 }
 
-// 최신 글부터. 오래된 글이 계속 밀리는 건 감수한다 — 최근 글이 지금 운영 중인 가게일 가능성이 높다.
+// 최신 글부터 — 다만 **제목이 한 가게 후기로 보이는 글을 먼저**(`isFocusedTitle`, 2026-10-02). 목록·일정 글과 반려동물 말이 없는 글은
+// 지우지 않고 뒤로 미룬다 — 앞 줄이 비면 같은 실행에서 이어서 읽는다. 오래된 글이 계속 밀리는 건 감수한다.
 // limit 보다 넉넉히 읽는 이유 — 한 블로그의 글을 maxPerBlog 건으로 자르면(pickPostsForRun) 빈 자리를 다음 글이 채워야 한다.
-const { data: fetchedPosts, error: postsError } = await supabase
-  .from('blog_posts')
-  .select('url, blog_id, log_no, title, keyword, posted_at')
-  .is('analyzed_at', null)
-  .order('posted_at', { ascending: false })
-  .limit(maxPerBlog > 0 ? Math.min(limit * 4, 400) : limit);
-if (postsError) throw new Error(`blog_posts 조회 실패: ${postsError.message}`);
+const postWindow = maxPerBlog > 0 ? Math.min(limit * 4, 400) : limit;
+const unanalyzed = () =>
+  supabase
+    .from('blog_posts')
+    .select('url, blog_id, log_no, title, keyword, posted_at')
+    .is('analyzed_at', null)
+    .order('posted_at', { ascending: false });
+const { data: focusedPosts, error: focusedError } = await unanalyzed()
+  .filter('title', 'imatch', PET_TITLE_SOURCE)
+  .not('title', 'imatch', LISTY_TITLE_SOURCE)
+  .limit(postWindow);
+if (focusedError) throw new Error(`blog_posts 조회 실패(집중 글): ${focusedError.message}`);
+let fetchedPosts = focusedPosts;
+if (pickPostsForRun(focusedPosts, limit, maxPerBlog).length < limit) {
+  const { data: restPosts, error: restError } = await unanalyzed().limit(postWindow + focusedPosts.length);
+  if (restError) throw new Error(`blog_posts 조회 실패: ${restError.message}`);
+  fetchedPosts = mergeFocusedFirst(focusedPosts, restPosts);
+}
 const posts = pickPostsForRun(fetchedPosts, limit, maxPerBlog);
 
 // 지금 규모(86곳 + 신규 draft 몇)는 supabase-js 기본 1000행 제한에 한참 못 미친다 — 늘어나면 range() 로 페이지네이션.
@@ -294,7 +310,7 @@ for (const row of pendingRows) {
 }
 
 console.log(
-  `미분석 글 ${posts.length}건(읽은 ${fetchedPosts.length}건 중 블로그당 ${maxPerBlog || '무제한'}건) · 기존 장소 ${existing.length}곳(archived 제외) · pending 후보 ${pendingRows.length}건`,
+  `미분석 글 ${posts.length}건(집중 ${posts.filter((post) => isFocusedTitle(post.title)).length} · 나머지 ${posts.filter((post) => !isFocusedTitle(post.title)).length} — 읽은 ${fetchedPosts.length}건 중 블로그당 ${maxPerBlog || '무제한'}건) · 기존 장소 ${existing.length}곳(archived 제외) · pending 후보 ${pendingRows.length}건`,
 );
 
 // 네이버가 잠깐 죽었다고 글 전체를 버리지 않는다 — 실패하면 좌표 없이 간다(status 만 로그). 단 401/403 은 키가 틀린 것이라 실행을
