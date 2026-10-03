@@ -55,6 +55,7 @@ import {
   PET_TITLE_SOURCE,
   JEJU_TITLE_SOURCE,
   LISTY_TITLE_SOURCE,
+  TOPIC_TITLE_SOURCE,
   resolveRegionRaw,
   kindOf,
   tierOf,
@@ -251,7 +252,7 @@ async function write(label, run) {
   console.log(`  ${label}`);
 }
 
-// 최신 글부터 — 다만 **제목이 한 가게 후기로 보이는 글을 먼저**(`isFocusedTitle`, 2026-10-02). 목록·일정 글과 반려동물 말이 없는 글은
+// 최신 글부터 — 다만 **제목이 한 가게 후기로 보이는 글을 먼저**(`isFocusedTitle`, 2026-10-02). 목록·일정 글, 장소 없는 주제 글, 반려동물 말이 없는 글은
 // 지우지 않고 뒤로 미룬다 — 앞 줄이 비면 같은 실행에서 이어서 읽는다. 오래된 글이 계속 밀리는 건 감수한다.
 // limit 보다 넉넉히 읽는 이유 — 한 블로그의 글을 maxPerBlog 건으로 자르면(pickPostsForRun) 빈 자리를 다음 글이 채워야 한다.
 const postWindow = maxPerBlog > 0 ? Math.min(limit * 4, 400) : limit;
@@ -265,6 +266,7 @@ const { data: focusedPosts, error: focusedError } = await unanalyzed()
   .filter('title', 'imatch', PET_TITLE_SOURCE)
   .filter('title', 'match', JEJU_TITLE_SOURCE)
   .not('title', 'imatch', LISTY_TITLE_SOURCE)
+  .not('title', 'imatch', TOPIC_TITLE_SOURCE)
   .limit(postWindow);
 if (focusedError) throw new Error(`blog_posts 조회 실패(집중 글): ${focusedError.message}`);
 let fetchedPosts = focusedPosts;
@@ -286,7 +288,7 @@ const existing = placeRows.map(toMatchablePlace);
 // 차이 게이트가 짝의 지금 값을 본다(`kindOf`) — 짝 id → 행.
 const placeById = new Map(placeRows.map((row) => [row.id, row]));
 // 짝짓기 뒤 제외 이유의 로그 말(`kindOf`).
-const EXCLUDE_LABEL = { sameAsSite: '사이트와 같은 말', stale: '확인 날짜보다 옛 글', weak: '근거 약함(목록글·동반 근거 없음)' };
+const EXCLUDE_LABEL = { sameAsSite: '사이트와 같은 말', stale: '확인 날짜보다 옛 글', weak: '근거 약함(방문 안 함·동반 근거 없음)' };
 // 86곳이 있어야 정상이다. 비어 있으면 다른 프로젝트·잘못된 키다 — 그대로 가면 후보 전부가 '신규' 로 기록된다(리뷰 지적).
 if (existing.length === 0) {
   console.error('places 가 비어 있다 — link 된 프로젝트(supabase/.temp/project-ref)가 맞는지 확인. 후보를 만들지 않고 멈춘다.');
@@ -565,13 +567,13 @@ for (const post of posts) {
           extra: { town: townOf(regionRaw) ?? null, address: local?.address ?? extracted.address ?? null, recheck: null },
         });
         stats.excluded.noPetEvidence += 1;
-        console.log(`  제외 ${extracted.name} (${extracted.type}) · 신규·동반 근거 없음${row.extracted.visited === false ? ' · 목록글' : ''}`);
+        console.log(`  제외 ${extracted.name} (${extracted.type}) · 신규·동반 근거 없음${row.extracted.visited === false ? ' · 방문 안 함' : ''}`);
         continue;
       }
       row.extracted.match.kind = kind.kind;
       row.extracted.match.changes = kind.changes;
       const tier = row.extracted.match.tier;
-      console.log(`  ${formatCandidateLine(row, matched.match?.name)}${row.extracted.visited === false ? ' · 목록글' : ''}`);
+      console.log(`  ${formatCandidateLine(row, matched.match?.name)}${row.extracted.visited === false ? ' · 방문 안 함' : ''}`);
 
       if (tier === 'new') {
         if (dupOf) {

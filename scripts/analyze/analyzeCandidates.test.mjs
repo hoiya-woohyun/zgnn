@@ -581,6 +581,20 @@ describe('isFocusedTitle · mergeFocusedFirst — 분석 순서(2026-10-02)', ()
     expect(isFocusedTitle(null)).toBe(false);
   });
 
+  it('장소 없는 주제 글(오름 정리·배편·업주 연재·명소)은 뒤로, 가게 후기에 흔한 말은 그대로(2026-10-03 실측 제목)', async () => {
+    const { isFocusedTitle } = await import('./analyzeCandidates.mjs');
+    expect(isFocusedTitle('[제주 도민이 알려주는 애견동반 오름 정리 01] 새별오름')).toBe(false);
+    expect(isFocusedTitle('제주 목포 배편 퀸제누비아2 펫스위트룸 예약방법')).toBe(false);
+    expect(isFocusedTitle('강아지와 배타고 제주 완도항 출발 골드스텔라호 차량선적')).toBe(false);
+    expect(isFocusedTitle('[제주 애월 애견동반 전문펜션 엔젤하우스] 견종백과 제50편「로트')).toBe(false);
+    expect(isFocusedTitle('[제주 애월 애견전문 펜션 엔젤하우스] 제주 올레길 애견동반 제21편')).toBe(false);
+    expect(isFocusedTitle('제주동쪽스노클링 명소 애견동반 가능한 코난비치')).toBe(false);
+    expect(isFocusedTitle('제주 함덕해수욕장 애견동반 맛집 갈치옥 갈치구이')).toBe(true);
+    expect(isFocusedTitle('[제주공항]카페 깅코 | 운동장까지 있는 제주공항근처애견동반 카페')).toBe(true);
+    expect(isFocusedTitle('나만 알고 싶은 금오름 카페 바이못 by MOT | 제주 펫프렌들리')).toBe(true);
+    expect(isFocusedTitle('제주 애월 애견동반펜션 산책 후 갈치구이')).toBe(true);
+  });
+
   it('집중 글을 앞에, 겹침은 지우고 각 무리 순서는 그대로', async () => {
     const { mergeFocusedFirst } = await import('./analyzeCandidates.mjs');
     const merged = mergeFocusedFirst([{ url: 'b' }, { url: 'd' }], [{ url: 'a' }, { url: 'b' }, { url: 'c' }]);

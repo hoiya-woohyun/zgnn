@@ -107,14 +107,22 @@ export const PET_TITLE_SOURCE = '(애견|반려견|반려동물|강아지|댕댕
 // 제목에 지명이 없는 제주 글(가게 이름만 쓴 제목)도 있어 수집에서 버리지 않고 **순서**에만 쓴다.
 export const JEJU_TITLE_SOURCE = '(제주|애월|한림|한경|대정|안덕|중문|서귀포|남원|표선|성산|구좌|조천|우도|함덕|협재|세화|김녕|모슬포|곽지|월정|이호테우|사계|산방산|추자)';
 export const LISTY_TITLE_SOURCE = '(best|top ?[0-9]|[0-9]+ ?(곳|군데|선)|총정리|모음|리스트|코스|일정|여행기|[0-9]+일차|day ?[0-9]|[0-9]+박 ?[0-9]+일)';
+// 장소 없는 주제 글(2026-10-03) — 첫 30건 중 8건이 오름 정리·배편·업주 연재처럼 가게가 없는 글이라 추출 한 번씩을 쓰고 후보를 남기지 않았다.
+// 남은 집중 글 995건 중 88건이 여기 걸리고(업주 펜션의 「제N편」 연재 63 · 배편/선적 · 오름 정리 · 스노클링·꽃 명소), 하나씩 읽어 가게 후기는 없었다.
+// 넣지 않은 말: 산책·해변·해수욕장·숲·운동장·가볼만한곳 — "곽지해수욕장 맛집" "운동장 있는 카페" 처럼 가게 후기 제목에 흔하다. 맨 '오름' 도 "금오름 카페" 가 걸려 뺐다.
+export const TOPIC_TITLE_SOURCE = '(오름 ?정리|배편|선적|배 ?타고|올레길|명소|축제|스노[클쿨]링|제 ?[0-9]+ ?편)';
 
 const PET_TITLE = new RegExp(PET_TITLE_SOURCE, 'i');
 const JEJU_TITLE = new RegExp(JEJU_TITLE_SOURCE);
 const LISTY_TITLE = new RegExp(LISTY_TITLE_SOURCE, 'i');
+const TOPIC_TITLE = new RegExp(TOPIC_TITLE_SOURCE, 'i');
 
-/** 먼저 읽을 글인가 — 제목에 반려동물 말과 제주 지명이 있고 목록·일정형이 아니다. */
+/** 먼저 읽을 글인가 — 제목에 반려동물 말과 제주 지명이 있고 목록·일정형도 장소 없는 주제 글도 아니다. */
 export const isFocusedTitle = (title) =>
-  PET_TITLE.test(title ?? '') && JEJU_TITLE.test(title ?? '') && !LISTY_TITLE.test(title ?? '');
+  PET_TITLE.test(title ?? '') &&
+  JEJU_TITLE.test(title ?? '') &&
+  !LISTY_TITLE.test(title ?? '') &&
+  !TOPIC_TITLE.test(title ?? '');
 
 /** 집중 글을 앞에, 나머지를 뒤에 — url 로 겹침을 지운다. 각 무리 안의 순서(최신순)는 그대로. 순수. */
 export function mergeFocusedFirst(focused, rest) {
