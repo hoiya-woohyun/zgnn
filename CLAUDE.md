@@ -29,7 +29,8 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
 | 재빌드가 정말 걸렸나·Deploy Hook | [docs/todo/04](docs/todo/04-deploy-and-propagate.md) 4b · [ADR-018](docs/decisions/ADR-018-in-app-admin-review.md) 결정 9 · `src/lib/adminRebuild.ts` · `supabase/migrations/20260929121000_rebuild_log.sql` — `places` 변경 → 트리거 → Vault 의 훅. **`published` 가 끼는 변경만** 부르고, 결과가 `rebuild_log` 에 남아 `/admin` 머리글에 한 줄로 뜬다(4xx 면 훅 폐기). 훅 회전 절차는 [docs/todo/05](docs/todo/05-security.md) |
 | 매장 사진·공식 홈페이지 카드·'사진 보기' 버튼 | [ADR-002](docs/decisions/ADR-002-no-place-photos.md) v2·v3 · `scripts/analyze/homepageCard.mjs` · `src/lib/naverPlaceLink.ts` · `src/screens/placeDetailHomepage.tsx` — **사진 파일은 갖지 않는다.** 플레이스 사진은 링크로 보내고, 홈페이지는 `og:image` 한 장의 URL 만 출처와 함께 카드로. 출처 표시는 허락이 아니다 |
 | 사용자 **장소 제보**·다녀왔어요·확인일·장소 제안 | [docs/features/place-report.md](docs/features/place-report.md) · [ADR-021](docs/decisions/ADR-021-place-reports.md) · [docs/todo/10](docs/todo/10-user-feedback-personas.md) · `src/lib/placeReport.ts` · `src/lib/placeReportSend.ts` — **사이트가 런타임에 쓰는 유일한 곳**(insert 만, `.select()` 를 붙이면 42501). 표에 재빌드 트리거를 걸지 않는다 |
-| "왜 이렇게 했나" | [docs/decisions/](docs/decisions/) (ADR 21편) · 전체 지도는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| 둘러보기 검색·관광지 이름("중문")으로 찾기 | [ADR-022](docs/decisions/ADR-022-landmark-search-by-radius.md) · `src/lib/placeSearch.ts` · `src/lib/landmarks.ts` — **관광지는 지역 태그가 아니라 좌표 반경**이다. 태그는 주소에서 온 읍·면 하나, 수집 키워드는 태그와 무관 |
+| "왜 이렇게 했나" | [docs/decisions/](docs/decisions/) (ADR 22편) · 전체 지도는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 
 탐색 전에 위 표를 먼저 본다. 전체 구조가 필요하면 `docs/ARCHITECTURE.md` 하나만 읽으면 된다.
 
