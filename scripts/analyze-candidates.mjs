@@ -52,6 +52,8 @@ import {
   isFocusedTitle,
   isNoPetEvidenceNew,
   mergeFocusedFirst,
+  deferBlogs,
+  singlePlaceBlogs,
   PET_TITLE_SOURCE,
   JEJU_TITLE_SOURCE,
   LISTY_TITLE_SOURCE,
@@ -269,12 +271,24 @@ const { data: focusedPosts, error: focusedError } = await unanalyzed()
   .not('title', 'imatch', TOPIC_TITLE_SOURCE)
   .limit(postWindow);
 if (focusedError) throw new Error(`blog_posts 조회 실패(집중 글): ${focusedError.message}`);
+// 한 가게만 되풀이하는 블로그(`singlePlaceBlogs`)의 글은 집중이어도 맨 뒤로 — 그 블로그의 분석 끝난 글만 읽는다.
+const singlePlace = new Set();
+async function noteSinglePlaceBlogs(fetched) {
+  const blogIds = [...new Set(fetched.map((post) => post.blog_id).filter(Boolean))];
+  if (blogIds.length === 0) return;
+  const { data, error } = await supabase.from('blog_posts').select('blog_id, analysis').in('blog_id', blogIds).not('analyzed_at', 'is', null);
+  if (error) throw new Error(`blog_posts 조회 실패(블로그 이력): ${error.message}`);
+  for (const blogId of singlePlaceBlogs(data)) singlePlace.add(blogId);
+}
+await noteSinglePlaceBlogs(focusedPosts);
 let fetchedPosts = focusedPosts;
-if (pickPostsForRun(focusedPosts, limit, maxPerBlog).length < limit) {
+if (pickPostsForRun(focusedPosts.filter((post) => !singlePlace.has(post.blog_id)), limit, maxPerBlog).length < limit) {
   const { data: restPosts, error: restError } = await unanalyzed().limit(postWindow + focusedPosts.length);
   if (restError) throw new Error(`blog_posts 조회 실패: ${restError.message}`);
+  await noteSinglePlaceBlogs(restPosts);
   fetchedPosts = mergeFocusedFirst(focusedPosts, restPosts);
 }
+fetchedPosts = deferBlogs(fetchedPosts, singlePlace);
 const posts = pickPostsForRun(fetchedPosts, limit, maxPerBlog);
 
 // 지금 규모(86곳 + 신규 draft 몇)는 supabase-js 기본 1000행 제한에 한참 못 미친다 — 늘어나면 range() 로 페이지네이션.
@@ -315,7 +329,7 @@ for (const row of pendingRows) {
 }
 
 console.log(
-  `미분석 글 ${posts.length}건(집중 ${posts.filter((post) => isFocusedTitle(post.title)).length} · 나머지 ${posts.filter((post) => !isFocusedTitle(post.title)).length} — 읽은 ${fetchedPosts.length}건 중 블로그당 ${maxPerBlog || '무제한'}건) · 기존 장소 ${existing.length}곳(archived 제외) · pending 후보 ${pendingRows.length}건`,
+  `미분석 글 ${posts.length}건(집중 ${posts.filter((post) => isFocusedTitle(post.title)).length} · 나머지 ${posts.filter((post) => !isFocusedTitle(post.title)).length} — 읽은 ${fetchedPosts.length}건 중 블로그당 ${maxPerBlog || '무제한'}건 · 한 가게 블로그 ${singlePlace.size}곳 글 ${fetchedPosts.filter((post) => singlePlace.has(post.blog_id)).length}건 뒤로) · 기존 장소 ${existing.length}곳(archived 제외) · pending 후보 ${pendingRows.length}건`,
 );
 
 // 네이버가 잠깐 죽었다고 글 전체를 버리지 않는다 — 실패하면 좌표 없이 간다(status 만 로그). 단 401/403 은 키가 틀린 것이라 실행을

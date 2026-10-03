@@ -29,8 +29,8 @@ export const DEFAULT_LIMIT = 50;
 
 /**
  * 한 실행에서 같은 블로그(blog_id)의 글을 몇 건까지 읽나. 첫 분석(2026-09-28)에서 자사 홍보 블로그 하나가 저수지 3,360건의 12%(406건)를 차지했고
- * 30건 배치에 매번 4~5건씩 들어와 같은 펜션 후보를 13번 만들었다. 넘친 글은 닫지 않고 남긴다 — 그 블로거의 최신 글이 계속 앞에 서므로 사실상
- * 뒤로 밀린다(의도). 0 은 상한 없음.
+ * 30건 배치에 매번 4~5건씩 들어와 같은 펜션 후보를 13번 만들었다. 넘친 글은 닫지 않고 남긴다. 다만 실행마다 2건씩은
+ * 계속 들어오므로, 한 가게만 되풀이하는 블로그는 `singlePlaceBlogs` 가 따로 맨 뒤로 민다(2026-10-03). 0 은 상한 없음.
  */
 export const DEFAULT_MAX_PER_BLOG = 2;
 
@@ -110,7 +110,8 @@ export const LISTY_TITLE_SOURCE = '(best|top ?[0-9]|[0-9]+ ?(곳|군데|선)|총
 // 장소 없는 주제 글(2026-10-03) — 첫 30건 중 8건이 오름 정리·배편·업주 연재처럼 가게가 없는 글이라 추출 한 번씩을 쓰고 후보를 남기지 않았다.
 // 남은 집중 글 995건 중 88건이 여기 걸리고(업주 펜션의 「제N편」 연재 63 · 배편/선적 · 오름 정리 · 스노클링·꽃 명소), 하나씩 읽어 가게 후기는 없었다.
 // 넣지 않은 말: 산책·해변·해수욕장·숲·운동장·가볼만한곳 — "곽지해수욕장 맛집" "운동장 있는 카페" 처럼 가게 후기 제목에 흔하다. 맨 '오름' 도 "금오름 카페" 가 걸려 뺐다.
-export const TOPIC_TITLE_SOURCE = '(오름 ?정리|배편|선적|배 ?타고|올레길|명소|축제|스노[클쿨]링|제 ?[0-9]+ ?편)';
+// 「제N편」 은 꼬리가 잘린 `제11....` 도 잡는다 — 네이버 검색 API 가 긴 제목을 약 40자에서 자르고 `....` 를 붙여 저장된다(미분석 2,893건).
+export const TOPIC_TITLE_SOURCE = '(오름 ?정리|배편|선적|배 ?타고|올레길|명소|축제|스노[클쿨]링|제 ?[0-9]+ ?(편|[.]+$))';
 
 const PET_TITLE = new RegExp(PET_TITLE_SOURCE, 'i');
 const JEJU_TITLE = new RegExp(JEJU_TITLE_SOURCE);
@@ -128,6 +129,35 @@ export const isFocusedTitle = (title) =>
 export function mergeFocusedFirst(focused, rest) {
   const seen = new Set(focused.map((post) => post.url));
   return [...focused, ...rest.filter((post) => !seen.has(post.url))];
+}
+
+/**
+ * 한 가게만 되풀이하는 블로그(2026-10-03) — 분석이 끝난 글이 `minPosts` 건 이상인데 거기서 나온 가게 이름(후보 + 제외)이 **하나 이하**인 블로그.
+ * 업주 홍보 블로그 하나(`jejuangelhouse`)의 미분석 글이 283건이었고 제목(시니어케어·견종백과·일상)으로는 222건이 안 걸렸다 — `--max-per-blog` 는
+ * 실행마다 2건씩 계속 들여보낸다. 글이 많은 블로그를 통째로 미는 것은 틀리다: 67건·17건짜리 블로그는 여러 가게를 다니는 후기 블로거였다.
+ * 그래서 **글 수가 아니라 나온 가게의 가짓수**로 가른다. 가게 0 도 포함한다(오름·배편 같은 주제만 쓰는 블로그). 실패로 닫힌 글(`skip`)·옛 글(analysis 없음)은 세지 않는다.
+ * @param {{ blog_id: string, analysis: object | null }[]} rows  분석이 끝난 글들
+ * @returns {Set<string>}
+ */
+export function singlePlaceBlogs(rows, minPosts = 2) {
+  const perBlog = new Map();
+  for (const { blog_id: blogId, analysis } of rows) {
+    if (!blogId || !analysis || analysis.skip) continue;
+    const entry = perBlog.get(blogId) ?? { posts: 0, names: new Set() };
+    entry.posts += 1;
+    for (const name of [...(analysis.candidateNames ?? []), ...(analysis.excluded ?? []).map((x) => x.name)]) {
+      const key = normalizeName(name ?? '');
+      if (key) entry.names.add(key);
+    }
+    perBlog.set(blogId, entry);
+  }
+  return new Set([...perBlog].filter(([, { posts, names }]) => posts >= minPosts && names.size <= 1).map(([blogId]) => blogId));
+}
+
+/** 그 블로그들의 글을 맨 뒤로 — 지우지 않는다. 각 무리 안의 순서는 그대로. 순수. */
+export function deferBlogs(posts, blogIds) {
+  if (blogIds.size === 0) return posts;
+  return [...posts.filter((post) => !blogIds.has(post.blog_id)), ...posts.filter((post) => blogIds.has(post.blog_id))];
 }
 
 /**

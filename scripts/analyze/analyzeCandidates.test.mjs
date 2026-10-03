@@ -595,6 +595,42 @@ describe('isFocusedTitle · mergeFocusedFirst — 분석 순서(2026-10-02)', ()
     expect(isFocusedTitle('제주 애월 애견동반펜션 산책 후 갈치구이')).toBe(true);
   });
 
+  it('꼬리가 잘린 연재 제목(`제11....`)도 뒤로 — 「제주」 는 걸리지 않는다', async () => {
+    const { isFocusedTitle } = await import('./analyzeCandidates.mjs');
+    expect(isFocusedTitle('[제주 애월 애견동반 전문펜션 엔젤하우스] 강아지 시니어케어 제11....')).toBe(false);
+    expect(isFocusedTitle('제주 애견동반 카페 노지커피 후기....')).toBe(true);
+  });
+
+  it('singlePlaceBlogs — 분석 끝난 글 2건 이상에서 가게가 하나 이하인 블로그만', async () => {
+    const { singlePlaceBlogs } = await import('./analyzeCandidates.mjs');
+    const post = (blogId, candidateNames, excluded = [], extra = {}) => ({ blog_id: blogId, analysis: { candidateNames, excluded, skip: null, ...extra } });
+    const rows = [
+      // 업주 블로그 — 같은 펜션(띄어쓰기만 다름)이 후보·제외로 나온다
+      post('owner', ['엔젤하우스']),
+      post('owner', [], [{ name: '엔젤 하우스', reason: 'noPetEvidence' }]),
+      // 주제만 쓰는 블로그 — 가게 0
+      post('topic', []),
+      post('topic', []),
+      // 여러 가게를 다니는 블로거
+      post('reviewer', ['명월반점']),
+      post('reviewer', ['노지커피']),
+      // 1건뿐 — 아직 모른다
+      post('fresh', ['키에키']),
+      // 실패로 닫힌 글·옛 글은 세지 않는다
+      post('failed', []),
+      post('failed', [], [], { skip: 'body empty' }),
+      { blog_id: 'failed', analysis: null },
+    ];
+    expect([...singlePlaceBlogs(rows)].sort()).toEqual(['owner', 'topic']);
+  });
+
+  it('deferBlogs — 그 블로그 글만 맨 뒤로, 순서는 그대로', async () => {
+    const { deferBlogs } = await import('./analyzeCandidates.mjs');
+    const posts = [{ url: 'a', blog_id: 'owner' }, { url: 'b', blog_id: 'x' }, { url: 'c', blog_id: 'owner' }, { url: 'd', blog_id: 'y' }];
+    expect(deferBlogs(posts, new Set(['owner'])).map((post) => post.url)).toEqual(['b', 'd', 'a', 'c']);
+    expect(deferBlogs(posts, new Set())).toBe(posts);
+  });
+
   it('집중 글을 앞에, 겹침은 지우고 각 무리 순서는 그대로', async () => {
     const { mergeFocusedFirst } = await import('./analyzeCandidates.mjs');
     const merged = mergeFocusedFirst([{ url: 'b' }, { url: 'd' }], [{ url: 'a' }, { url: 'b' }, { url: 'c' }]);
