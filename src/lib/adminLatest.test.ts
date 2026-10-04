@@ -88,4 +88,14 @@ describe('defaultOverwritePick — 완화는 꺼진 채(11 U6)', () => {
     expect(defaultOverwritePick(all)).toEqual(all);
     expect(defaultOverwritePick(all, { loosen: true })).toEqual(['geo', 'features']);
   });
+  it('사이트에 값이 있는 이름·종류·소개는 꺼진 채 — 빈 칸을 채우는 것은 켠다(2026-10-04 프릳츠 사례)', () => {
+    const keys = ['name', 'type', 'address', 'features', 'pet_policy_text', 'pet_policy'];
+    expect(defaultOverwritePick(keys, { place: { name: '프릳츠', type: 'cafe', features: '커피 맛집이지만 빵 맛집… 성산일출봉 뷰' } })).toEqual([
+      'address',
+      'pet_policy_text',
+      'pet_policy',
+    ]);
+    expect(defaultOverwritePick(keys, { place: { name: '프릳츠', type: 'cafe', features: '  ' } })).toEqual(['address', 'features', 'pet_policy_text', 'pet_policy']);
+    expect(defaultOverwritePick(keys, { loosen: true, place: { name: '', type: 'cafe', features: '소개' } })).toEqual(['name', 'address']);
+  });
 });

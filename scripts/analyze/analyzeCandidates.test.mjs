@@ -16,6 +16,7 @@ import {
   isPlaceCandidate,
   keyGate,
   kindOf,
+  newSiblingOf,
   parseArgs,
   pickPostsForRun,
   resolveRegionRaw,
@@ -150,6 +151,14 @@ describe('resolveRegionRaw', () => {
     expect(resolveRegionRaw(null, '우도면', places)).toBe('우도면');
     expect(resolveRegionRaw(null, null, places)).toBeNull();
     expect(resolveRegionRaw(undefined, undefined, places)).toBeNull();
+  });
+  it('주소·AI 둘 다 못 정하면 이름의 지점 꼬리로 — "이춘옥고등어쌈밥 월정리점" 은 구좌읍(2026-10-04)', () => {
+    expect(resolveRegionRaw(null, null, places, '이춘옥고등어쌈밥 월정리점')).toBe('동쪽 (구좌읍)');
+    // 주소·AI 가 정하면 이름은 안 본다
+    expect(resolveRegionRaw('제주 제주시 애월읍 애월해안로 1', null, places, '이춘옥고등어쌈밥 월정리점')).toBe('서쪽 (애월읍)');
+    expect(resolveRegionRaw(null, '동쪽', places, '어느카페 성산점')).toBe('동쪽 (성산읍)');
+    // 이름 앞의 지명은 안 본다 — 본점 위치이거나 상호의 일부다
+    expect(resolveRegionRaw(null, null, places, '함덕해물라면')).toBeNull();
   });
 });
 
@@ -682,5 +691,39 @@ describe('isNoPetEvidenceNew — 신규·동반 근거 없음(ADR-019 v6 임시 
     const line = formatSummary(stats, '');
     expect(line).toContain('제외 3(');
     expect(line).toContain('신규·동반 근거 없음 3');
+  });
+});
+
+describe('newSiblingOf — 이름 키가 다른 같은 가게의 신규 후보(키를 물려받는다)', () => {
+  const geo = { lat: 33.4627, lng: 126.3094 };
+  const seen = [{ key: '본', name: '본카페', geo, address: '제주 제주시 애월읍 애월해안로 179 본카페', ref: 'c1' }];
+
+  it('본카페 ↔ 애월본카페 — 주소가 표기만 같고 좌표가 100m 안이면 먼저 난 쪽을 돌려준다', () => {
+    const near = { lat: 33.4628, lng: 126.3095 };
+    expect(newSiblingOf({ name: '애월본카페', geo: near, address: '제주 제주시 애월읍 애월해안로 179' }, seen)?.ref).toBe('c1');
+  });
+
+  it('좌표가 한쪽이라도 없으면 주소만으로 본다', () => {
+    expect(newSiblingOf({ name: '애월본카페', geo: null, address: '제주특별자치도 제주시 애월읍 애월해안로 179' }, seen)?.key).toBe('본');
+  });
+
+  it("주소가 같아도 두 좌표가 100m 밖이면 아니다 · 주소가 'unknown'·'different' 면 아니다", () => {
+    expect(newSiblingOf({ name: '애월본카페', geo: { lat: 33.47, lng: 126.32 }, address: '제주 제주시 애월읍 애월해안로 179' }, seen)).toBeNull();
+    expect(newSiblingOf({ name: '애월본카페', geo: null, address: '제주 제주시 애월읍 애월리 2510' }, seen)).toBeNull();
+    expect(newSiblingOf({ name: '애월본카페', geo: null, address: '제주 제주시 애월읍 애월해안로 180' }, seen)).toBeNull();
+    expect(newSiblingOf({ name: '애월본카페', geo: null, address: null }, seen)).toBeNull();
+  });
+
+  it('같은 자리여도 종류가 다르면 다른 가게다(1층 카페 ↔ 위층 숙소)', () => {
+    const cafe = [{ ...seen[0], type: 'cafe' }];
+    const address = '제주 제주시 애월읍 애월해안로 179';
+    expect(newSiblingOf({ name: '스테이본', type: 'stay', geo, address }, cafe)).toBeNull();
+    expect(newSiblingOf({ name: '애월본카페', type: 'cafe', geo, address }, cafe)?.ref).toBe('c1');
+  });
+
+  it('지점 표기만 다른 이름은 예전처럼 좌표가 100m 안일 때만', () => {
+    const branch = [{ key: '레스토랑성산점', name: '레스토랑 성산점', geo, address: null, ref: 'u1' }];
+    expect(newSiblingOf({ name: '레스토랑 제주성산점', geo, address: null }, branch)?.ref).toBe('u1');
+    expect(newSiblingOf({ name: '레스토랑 제주성산점', geo: null, address: null }, branch)).toBeNull();
   });
 });

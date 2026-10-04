@@ -64,4 +64,20 @@ describe('withProposal · proposalPick — 본 것과 덮이는 것이 같다', 
     const tight = proposal({ pet_policy_text: { action: 'change', value: '5kg 이하', petPolicy: { ...strict, weightLimitKg: 5 }, basedOn: ['https://blog/a'], quote: 'q', why: null } });
     expect(proposalPick(all, tight, place)).toEqual(['pet_policy_text', 'pet_policy']);
   });
+
+  it('근거 글 둘이 같은 블로그거나 같은 제목 틀(며칠 안)이면 하나로 센다 — 완화는 꺼진 채 시작한다(2026-10-04)', () => {
+    const loose = { ...strict, largeDogOk: true, weightLimitKg: null };
+    const two = proposal({ pet_policy_text: { action: 'change', value: '대형견도 돼요', petPolicy: loose, basedOn: ['https://blog/a', 'https://blog/b'], quote: 'q', why: null } });
+    const all = ['pet_policy_text', 'pet_policy'];
+    const withPost = (id: string, blog: string, title: string): TCandidateRow => ({
+      ...row(id),
+      blog_posts: { title, posted_at: '2026-09-01T00:00:00Z', keyword: 'k', blog_id: blog },
+    });
+    const sameBlog = [withPost('a', 'x', '첫 글'), withPost('b', 'x', '둘째 글')];
+    expect(proposalPick(all, two, place, sameBlog)).toEqual([]);
+    const sameFrame = [withPost('a', 'x', '제주공항 근처 애견동반식당 정말 추천할 만한 곳'), withPost('b', 'y', '제주공항 근처 애견동반식당 여행 전 힐링')];
+    expect(proposalPick(all, two, place, sameFrame)).toEqual([]);
+    const independent = [withPost('a', 'x', '구좌 바닷가 펜션 다녀온 후기'), withPost('b', 'y', '대형견이랑 묵은 숙소')];
+    expect(proposalPick(all, two, place, independent)).toEqual(['pet_policy_text', 'pet_policy']);
+  });
 });

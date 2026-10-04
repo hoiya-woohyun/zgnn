@@ -13,6 +13,10 @@ describe('parseAdminUrl', () => {
     expect(parseAdminUrl('tab=archived&tier=ask&policy=needsLook&type=cafe&warn=noBasis')).toEqual(expected);
   });
 
+  it('2026-10-04 에 더한 선택지(동반 표기만 · 종류 엇갈림)도 읽는다', () => {
+    expect(parseAdminUrl('?policy=listedOnly&warn=typeMismatch')).toMatchObject({ policy: 'listedOnly', warn: 'typeMismatch' });
+  });
+
   it('모르는 값은 기본값으로 읽는다', () => {
     expect(parseAdminUrl('?tab=nope&tier=zzz&type=hotel&kind=renew')).toEqual(DEFAULT_ADMIN_URL_STATE);
   });

@@ -32,6 +32,13 @@ describe('buildProposePrompt — 구조값만, 새 글이 위', () => {
     expect(prompt).toContain('대형견 가능, 1마리당 2만원');
     expect(prompt).not.toContain('--- 본문 ---');
   });
+  it("교차점검 표식은 verifyLabel 과 같은 갈래 — 동반 표기만과 동반 확인을 가른다(2026-10-04)", () => {
+    const prompt = (verify) => buildProposePrompt(place, [row('https://blog/v', '2026-09-01', { verify })]);
+    expect(prompt({ petAllowedHere: 'yes', dogWasThere: false, quote: 'q', why: null })).toContain('동반 표기만');
+    expect(prompt({ petAllowedHere: 'yes', dogWasThere: true, quote: 'q', why: null })).toContain('동반 확인');
+    expect(prompt({ petAllowedHere: 'unclear', dogWasThere: false, quote: null, why: null })).toContain('동반 근거 없음');
+    expect(prompt(null)).toContain('미점검');
+  });
   it('인자는 고정값 · 모델은 PROPOSE_MODEL 로 덮인다', () => {
     expect(buildProposeCliArgs()).toEqual(buildProposeCliArgs());
     expect(resolveProposeModel({ PROPOSE_MODEL: 'x-model' })).toBe('x-model');

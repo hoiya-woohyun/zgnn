@@ -85,6 +85,37 @@ export function blockRowFor(
 }
 
 /**
+ * 묶음의 차단 행 **전부** — 대표의 행(`blockRowFor`)에 더해, 대표와 **이름 키가 다른** 행마다 한 줄씩(키가 같은 것끼리는 하나).
+ * 같은 자리의 신규 묶음(`mergeSameSpotGroups` — "본카페" ↔ "애월본카페")은 키가 둘인 채 한 줄로 서는데, 대표 키만 막으면
+ * 다른 키의 글이 다음 분석에 그대로 올라온다. 읍·면은 그 행의 것(규칙은 `blockRowFor` 와 같다).
+ */
+export function blockRowsFor(
+  group: TCandidateGroup,
+  choice: TBlockChoice,
+  reason: string,
+  note: string | undefined,
+  now: Date,
+): TBlockInsert[] {
+  const lead = blockRowFor(group, choice, reason, note, now);
+  if (!lead) return [];
+  const out = [lead];
+  const keys = new Set([lead.name_key]);
+  for (const row of group.rows) {
+    const key = row.extracted.nameKey ?? normalizeName(row.extracted.name);
+    if (!key || keys.has(key)) continue;
+    keys.add(key);
+    out.push({
+      ...lead,
+      name_key: key,
+      town: extractAddressUnits(row.extracted.address).eupMyeon ?? townOf(row.extracted.regionRaw) ?? null,
+      display_name: row.extracted.name,
+      candidate_id: row.id,
+    });
+  }
+  return out;
+}
+
+/**
  * 등록 해제한 **장소** → 차단 행(09 T1.4). 읍·면 규칙은 `blockRowFor` 와 같다(주소 토큰 → 없으면 `region_raw`) —
  * 분석의 `blockFor` 가 후보에서 읽는 것과 같아야 걸린다. `place_id` 를 채우는 것은 되살릴 때 풀 행을 찾는 열쇠라서다.
  */
@@ -152,10 +183,10 @@ export async function rejectAndBlock(
   now: Date = new Date(),
 ): Promise<TRejectBlockOutcome> {
   const rejectLine = await rejectGroup(client, group, reason, note);
-  const row = blockRowFor(group, choice, reason, note, now);
-  if (!row || choice === 'none') return { blocked: 'none' };
+  const rows = blockRowsFor(group, choice, reason, note, now);
+  if (!rows.length || choice === 'none') return { blocked: 'none' };
   try {
-    await insertBlock(client, row);
+    for (const row of rows) await insertBlock(client, row);
   } catch (error) {
     return { blocked: 'none', blockError: error instanceof Error ? error.message : String(error) };
   }

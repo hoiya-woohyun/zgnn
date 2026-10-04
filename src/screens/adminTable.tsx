@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { Checkbox } from '../components/base/checkbox';
+import type { TVerifyTone } from '../lib/adminVerify';
 import type { TBadgeTone } from '../lib/petPolicy';
 import { cx } from '../utils/cx';
 
@@ -92,6 +93,16 @@ export const ADMIN_POLICY_TONE: Record<TBadgeTone, string> = {
   ok: 'bg-secondary text-secondary',
   cond: 'bg-secondary text-secondary',
   warn: 'bg-warning-primary text-warning-primary',
+};
+
+/**
+ * 교차점검 표식의 **글자** 색(뱃지 아닌 자리 — 접힌 줄의 '동반 확인', 펼친 상세의 교차점검 줄). 뱃지 자리는 `Badge color={tone}` 가 같은 톤을 그린다.
+ * '동반 확인' 이 회색 글씨이던 동안 '문장 없음' 옆에서 경고처럼 읽혔다(2026-10-04) — 긍정은 성공 톤이다.
+ */
+export const ADMIN_VERIFY_TEXT: Record<TVerifyTone, string> = {
+  success: 'text-success-primary',
+  warning: 'text-warning-primary',
+  error: 'text-error-primary',
 };
 
 /**

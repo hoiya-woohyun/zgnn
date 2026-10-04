@@ -66,8 +66,8 @@ import {
   type TVisitedTally,
   visitedTallyByPlace,
 } from '../lib/adminReports';
-import { adminFlagView } from '../lib/adminPreview';
-import { verifyNeedsLook } from '../lib/adminVerify';
+import { adminFlagView, TYPE_MISMATCH_FLAG, typeMismatchFlags } from '../lib/adminPreview';
+import { verifyListedOnly, verifyNeedsLook } from '../lib/adminVerify';
 import { fetchRebuildStatus, rebuildHeadline, type TRebuildHeadline } from '../lib/adminRebuild';
 import {
   allSelected as allKeysSelected,
@@ -174,28 +174,32 @@ const HELP = [
 type TBulkMode = 'reject' | 'reanalyze' | 'approve' | 'latest';
 
 /*
- * 동반 조건 축(`TPolicyFilter`)은 세 상태다. **불리언 토글 둘로 두지 않는다** — '조건이 적힌 것' 과 '교차점검이 근거를 못 찾은 것' 은
+ * 동반 조건 축(`TPolicyFilter`)은 한 축의 배타적인 선택지다. **불리언 토글 여럿으로 두지 않는다** — '조건이 적힌 것' 과 '교차점검이 근거를 못 찾은 것' 은
  * 교집합이 없다(교차점검은 조건 문장이 없는 후보에만 돈다). 토글 둘이면 둘을 같이 켤 수 있고 그 목록은 늘 빈다.
+ * '동반 표기만인 것'(2026-10-04)도 교차점검의 한 갈래라 같은 축에 선다(`verifyListedOnly`).
  * 걸러 보기 네 축의 타입은 주소 쿼리가 같이 읽고 써야 해서 `adminUrlState.ts` 가 소유한다.
  */
 
 /**
- * 경고 축(2026-09-30 v2). 21줄을 다 훑어야 경고를 찾던 자리다 — 올리기 전에 사람이 봐야 하는 세 가지만 센다.
- * `any` 는 셋의 합집합이고, 각 선택지는 서로 겹칠 수 있다(한 줄이 지역도 없고 주소도 다를 수 있다).
+ * 경고 축(2026-09-30 v2). 21줄을 다 훑어야 경고를 찾던 자리다 — 올리기 전에 사람이 봐야 하는 것만 센다.
+ * `any` 는 선택지 전부의 합집합이고, 각 선택지는 서로 겹칠 수 있다(한 줄이 지역도 없고 주소도 다를 수 있다).
+ * `종류 엇갈림`(2026-10-04)은 막지는 않지만 그대로 올리면 종류 칩·지도 색이 틀린다(`typeMismatchFlags`).
  */
 
 const WARN_MATCH: Record<Exclude<TWarnFilter, 'all' | 'any'>, (card: { group: TCandidateGroup; view: { badges: { key: string }[] } }) => boolean> = {
   region: (card) => card.view.badges.some((badge) => badge.key === '지역 없음'),
   address: (card) => addressUnresolved(card.group.lead.extracted),
   noBasis: (card) => verifyNeedsLook(card.group.lead.extracted.verify),
+  typeMismatch: (card) => card.view.badges.some((badge) => badge.key.startsWith(TYPE_MISMATCH_FLAG)),
 };
 
 const WARN_FILTERS: { key: TWarnFilter; label: string; hint?: string }[] = [
   { key: 'all', label: '전체' },
-  { key: 'any', label: '경고 있는 것', hint: '아래 셋 중 하나라도 걸린 곳' },
+  { key: 'any', label: '경고 있는 것', hint: '아래 중 하나라도 걸린 곳' },
   { key: 'region', label: '지역 없음', hint: '지역을 골라야 올릴 수 있어요' },
   { key: 'address', label: '주소 다름', hint: '원글 주소와 검색 주소 중 하나를 골라야 올릴 수 있어요' },
   { key: 'noBasis', label: '동반 근거 없음', hint: '교차점검이 강아지를 데려간 근거를 못 찾은 곳' },
+  { key: 'typeMismatch', label: '종류 엇갈림', hint: '네이버 카테고리·요약은 카페인데 종류가 식당인 곳(반대도)' },
 ];
 
 const warnMatches = (filter: TWarnFilter, card: { group: TCandidateGroup; view: { badges: { key: string }[] } }): boolean =>
@@ -206,11 +210,13 @@ const POLICY_FILTERS: { key: TPolicyFilter; label: string; hint?: string }[] = [
   { key: 'all', label: '전체' },
   { key: 'has', label: '조건이 적힌 것', hint: '블로그 본문에 동반 조건 문장이 있는 후보' },
   { key: 'needsLook', label: '동반 근거 없는 것', hint: '교차점검이 본문에서 강아지를 데려간 근거를 못 찾은 후보' },
+  { key: 'listedOnly', label: '동반 표기만인 것', hint: '본문이 동반 가능이라 적었을 뿐 강아지가 함께 있었다는 서술은 없는 후보' },
 ];
 
 const POLICY_FILTER_MATCH: Record<Exclude<TPolicyFilter, 'all'>, (card: { group: TCandidateGroup }) => boolean> = {
   has: (card) => card.group.hasPolicyText,
   needsLook: (card) => verifyNeedsLook(card.group.lead.extracted.verify),
+  listedOnly: (card) => verifyListedOnly(card.group.lead.extracted.verify),
 };
 
 /**
@@ -1223,7 +1229,8 @@ export function AdminPage() {
     () =>
       groups.map((group) => {
         const preview = previewFor(group.lead.extracted);
-        return { group, preview, view: adminFlagView([...flagsFor(group), ...preview.flags]) };
+        // 종류 엇갈림은 화면이 그때그때 본다(`typeMismatchFlags`) — CLI 표식(`groupFlags`)을 늘리지 않는다.
+        return { group, preview, view: adminFlagView([...flagsFor(group), ...preview.flags, ...typeMismatchFlags(group.lead.extracted)]) };
       }),
     [groups],
   );

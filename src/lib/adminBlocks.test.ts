@@ -4,6 +4,7 @@ import {
   BLOCKS_UNAVAILABLE_TEXT,
   blockNoteLine,
   blockRowFor,
+  blockRowsFor,
   blockUntil,
   countBlockRows,
   defaultBlockFor,
@@ -127,6 +128,30 @@ describe('blockUntil · blockRowFor', () => {
     expect(blockRowFor(group([candidate()]), 'forever', '폐업', undefined, now)?.town).toBe('구좌읍');
     const none = candidate({ extracted: extracted({ regionRaw: null }) });
     expect(blockRowFor(group([none]), 'forever', '폐업', undefined, now)?.town).toBeNull();
+  });
+});
+
+describe('blockRowsFor — 이름 키가 다른 행도 막는다(같은 자리 묶음)', () => {
+  const now = new Date('2026-10-01T00:00:00.000Z');
+  it('대표 키 하나에 다른 키마다 한 줄씩 — 같은 키는 하나', () => {
+    const rows = blockRowsFor(
+      group([
+        candidate({ id: 'a', extracted: extracted({ name: '애월본카페', nameKey: '애월본', address: '제주 제주시 애월읍 애월해안로 179' }) }),
+        candidate({ id: 'b', extracted: extracted({ name: '본카페', nameKey: '본', address: '제주 제주시 애월읍 애월해안로 179 본카페' }) }),
+        candidate({ id: 'c', extracted: extracted({ name: '본 카페', nameKey: '본' }) }),
+      ]),
+      'forever',
+      '폐업',
+      undefined,
+      now,
+    );
+    expect(rows.map((row) => [row.name_key, row.display_name, row.candidate_id, row.town])).toEqual([
+      ['애월본', '애월본카페', 'a', '애월읍'],
+      ['본', '본카페', 'b', '애월읍'],
+    ]);
+  });
+  it('none 이면 빈 목록', () => {
+    expect(blockRowsFor(group([candidate()]), 'none', '목록글', undefined, now)).toEqual([]);
   });
 });
 

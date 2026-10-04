@@ -177,11 +177,14 @@ describe('verifyPlaces — 부를지 말지', () => {
   });
 });
 
-describe('verifyLabel — 세 표식 + 미점검', () => {
+describe('verifyLabel — 네 표식 + 미점검', () => {
   it.each([
     [null, '미점검'],
     [{ petAllowedHere: 'no', dogWasThere: false }, '동반 불가 정황'],
-    [{ petAllowedHere: 'yes', dogWasThere: false }, '동반 확인'],
+    [{ petAllowedHere: 'no', dogWasThere: true }, '동반 불가 정황'],
+    // 본문이 동반 가능이라 적었을 뿐 강아지가 있었다는 서술은 없다 — '동반 확인' 과 가른다(2026-10-04).
+    [{ petAllowedHere: 'yes', dogWasThere: false }, '동반 표기만'],
+    [{ petAllowedHere: 'yes', dogWasThere: true }, '동반 확인'],
     [{ petAllowedHere: 'unclear', dogWasThere: true }, '동반 확인'],
     [{ petAllowedHere: 'unclear', dogWasThere: false }, '동반 근거 없음'],
   ])('%o → %s', (verify, label) => {

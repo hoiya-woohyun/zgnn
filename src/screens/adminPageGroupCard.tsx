@@ -26,7 +26,7 @@ import { AdminPageGroupDetail } from './adminPageGroupDetail';
 import { AdminPageGroupSiteCompare } from './adminPageGroupSiteCompare';
 import { AdminTypeChip } from './adminTypeChip';
 import { AdminPageGroupActions } from './adminPageGroupActions';
-import { ADMIN_LEAD_CELL, ADMIN_PANEL_DIVIDER, ADMIN_POLICY_TONE, ADMIN_ROW, ADMIN_ROW_CELLS, ADMIN_ROW_OPEN } from './adminTable';
+import { ADMIN_LEAD_CELL, ADMIN_PANEL_DIVIDER, ADMIN_POLICY_TONE, ADMIN_ROW, ADMIN_ROW_CELLS, ADMIN_ROW_OPEN, ADMIN_VERIFY_TEXT } from './adminTable';
 
 /** 묶음 하나의 화면 상태. 소유자는 `adminPage.tsx` 고 여기는 받아서 그린다. */
 export type TAdminPageGroupState = {
@@ -104,6 +104,8 @@ type TAdminPageGroupCardProps = {
  *
  * 비었을 때는 **상태마다 다른 짧은 단어**다(`POLICY_STATE_WORD`). `문장 없음` 은 정상이라 흐리게, `못 읽음` 은 볼 일이라
  * 노란 칩으로 — 같은 회색 글씨였던 동안 두 상태가 한 상태로 읽혔다. 긴 문장은 `title` 과 펼친 상세에 있다.
+ * `조건 미기재`(noLimit)도 노란 칩이다(2026-10-04) — 흐린 `제한 없음` 이던 동안 "다 된다" 로 읽혔는데, 그대로 승인하면
+ * 사이트가 조건 없이 '갈 수 있어요' 로 내보낸다. 승인 전에 원문을 한 번 볼 자리다.
  */
 function PolicyCell({ items, state, message }: { items: TPetBadge[]; state: keyof typeof POLICY_STATE_WORD | 'items'; message: string | null }) {
   return (
@@ -117,7 +119,7 @@ function PolicyCell({ items, state, message }: { items: TPetBadge[]; state: keyo
         : (
             <span
               title={message ?? undefined}
-              className={cx(state === 'noText' || state === 'noLimit' ? 'text-quaternary' : 'rounded bg-warning-primary px-1.5 py-px font-medium text-warning-primary')}
+              className={cx(state === 'noText' ? 'text-quaternary' : 'rounded bg-warning-primary px-1.5 py-px font-medium text-warning-primary')}
             >
               {POLICY_STATE_WORD[state]}
             </span>
@@ -189,6 +191,10 @@ export function AdminPageGroupCard({
   const verify = verifyView(extracted.verify);
   /** 짝 id. `matchedName` 은 임베드라 비어 있을 수 있어 **판정에 쓰지 않는다**. */
   const pairId = group.lead.match_place_id;
+  /** 같은 자리라 한 줄로 묶인 다른 이름들(`mergeSameSpotGroups` — "본카페" ↔ "애월본카페"). 올리면 대표 이름 하나로 선다. */
+  const otherNames = [...new Set(group.rows.map((row) => row.extracted.name))].filter((name) => name && name !== extracted.name);
+  /** 독립 글(`postClusters`)이 글 수보다 적다 — 같은 블로그·같은 제목 틀의 글이 섞였다(광고성 복제 글). */
+  const similarPosts = group.independentPosts != null && group.independentPosts < group.posts.length;
 
   // 끝난 묶음은 초록 한 줄로 접힌다. 3초 뒤 목록에서 사라지므로 그 사이의 확인용이다.
   if (state.done) {
@@ -212,10 +218,11 @@ export function AdminPageGroupCard({
   const latestKeys = latest ? latest.changes.map((change) => change.key) : [];
   // 동반 조건이 더 쉬워지는 덮어쓰기는 조건 칸이 꺼진 채 시작한다(11 U6 — `policyDirection`). 체크를 켜면 쓴다.
   const loosen = Boolean(latest && pairPlace && policyDirection(pairPlace.pet_policy, withProposal(extracted, proposal, pairPlace).petPolicy).overall === 'loosen');
-  // 제안이 있으면 기본 체크는 제안이 change 라 한 칸(완화는 근거 글 둘 이상일 때만) — 없으면 바뀌는 칸 전부(완화 조건은 끔).
+  // 제안이 있으면 기본 체크는 제안이 change 라 한 칸(완화는 독립 근거 글 둘 이상일 때만) — 없으면 바뀌는 칸 전부에서
+  // 완화 조건과 사이트에 값이 있는 이름·종류·소개를 끈다(`defaultOverwritePick`). 일괄(`bulkLatestTargets`)도 같은 식이다.
   const overwritePick = state.overwritePick
     ? state.overwritePick.filter((key) => latestKeys.includes(key))
-    : (pairPlace && proposalPick(latestKeys, proposal, pairPlace)) || defaultOverwritePick(latestKeys, { loosen });
+    : (pairPlace && proposalPick(latestKeys, proposal, pairPlace, group.rows)) || defaultOverwritePick(latestKeys, { loosen, place: pairPlace });
   /**
    * 이 갈래에서 '덮어쓰기' 가 뜻이 있나. 내린 곳·닮은 곳 패널은 언제나(가리키는 장소가 있다),
    * 기본 갈래는 짝이 있고 지역이 되고 짝이 내린 곳이 아닐 때만 — 내린 곳이면 누르는 순간 되살릴지 묻는 패널로 간다.
@@ -265,7 +272,14 @@ export function AdminPageGroupCard({
               aria-hidden="true"
               className={cx('size-3.5 shrink-0 text-fg-quaternary transition-transform', expanded && 'rotate-180')}
             />
-            {group.rows.length > 1 && <span className="text-xs text-quaternary">글 {group.rows.length}건</span>}
+            {group.rows.length > 1 && (
+              <span className="text-xs text-quaternary">
+                글 {group.rows.length}건
+                {/* 독립 수가 적으면 그 사실이 보이게(경고 톤) — "글 5건" 이 다섯 사람의 말이 아니다. 검수 순서는 이미 독립 수로 센다. */}
+                {similarPosts && <span className="text-warning-primary"> · 비슷한 글 묶음 {group.independentPosts}</span>}
+              </span>
+            )}
+            {otherNames.length > 0 && <span className="text-xs text-warning-primary">같은 자리: {otherNames.join(' · ')}</span>}
             {/*
               * tier 가 auto/ask 인데 짝이 비어 있으면 **사람이 비운 것**이고 승인은 **새 장소를 만든다**(adminApply.ts 의 decideTarget).
               * `확인`(닮은 곳 — 사람이 고를 일)만 색을 갖는다. `기존 → 이름` 은 상태라 회색 글씨, `신규` 는 기본값이라 안 쓴다.
@@ -329,13 +343,14 @@ export function AdminPageGroupCard({
               </Badge>
             ))}
             {/*
-              * 교차점검 — 근거를 못 찾은 것·불가 정황만 뱃지다. `동반 확인` 은 회색 글씨로 한 단 낮춘다:
-              * 근거가 운영자 소개글뿐인 경우에도 초록이 서서(엔젤하우스) 가장 센 표시가 가장 약한 근거에 붙었다.
+              * 교차점검 — `동반 확인`(강아지가 그 자리에 있었다)만 뱃지 없이 **초록 글씨**다. 회색이던 동안 '문장 없음' 옆에서
+              * 경고처럼 읽혔다(2026-10-04). 근거가 운영자 소개글뿐인 경우(엔젤하우스)는 이제 `동반 표기만` 으로 갈려 노란 뱃지가 선다 —
+              * 가장 센 표시가 가장 약한 근거에 붙던 것을 그 갈래가 막는다. 근거 없음·불가 정황도 뱃지다.
               * 미점검(`null`)은 아무것도 안 그린다(`adminVerify.ts`).
               */}
             {verify &&
-              (verify.ok ? (
-                <span className="text-xs text-quaternary">{verify.label}</span>
+              (verify.state === 'confirmed' ? (
+                <span className={cx('text-xs', ADMIN_VERIFY_TEXT[verify.tone])}>{verify.label}</span>
               ) : (
                 <Badge type="color" size="sm" color={verify.tone}>
                   {verify.label}

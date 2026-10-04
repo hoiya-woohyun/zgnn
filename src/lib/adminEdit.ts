@@ -430,7 +430,7 @@ export function chooseAddress(row: TCandidateRow, choice: TAddressChoice, places
     extracted: {
       ...edit.extracted,
       addressChosen: 'blog',
-      regionRaw: resolveRegionRaw(blog || null, prev.regionRawAi ?? null, PLACES) ?? null,
+      regionRaw: resolveRegionRaw(blog || null, prev.regionRawAi ?? null, PLACES, prev.name) ?? null,
     },
   };
 }

@@ -7,7 +7,9 @@ import {
   NAME_PARTIAL_MIN_CHARS,
   nameSimilarity,
   normalizeName,
+  SAME_SPOT_SCORE,
   sameBranchStem,
+  sameSpot,
   siOf,
   splitAliases,
   THRESHOLD,
@@ -193,6 +195,15 @@ describe('matchPlace — 자기충돌 검사 (86곳)', () => {
     }
     expect(collisions).toEqual([]);
   });
+  it('주소까지 넘겨도 서로 다른 장소끼리 같은 자리로 잡히는 쌍이 없다 — `sameSpot` 이 86곳 안에서 오탐하지 않는다', () => {
+    const collisions = [];
+    for (const p of places) {
+      const others = places.filter((q) => q.id !== p.id);
+      const r = matchPlace({ ...asCandidate(p), address: p.address }, others);
+      if (r.confidence >= THRESHOLD.ASK) collisions.push(`${p.name} → ${r.match?.name} (${r.confidence}, ${r.reason})`);
+    }
+    expect(collisions).toEqual([]);
+  });
 });
 
 describe('matchPlace — 같은 이름, 다른 곳 (우도 vs 본섬)', () => {
@@ -302,7 +313,8 @@ describe('matchPlace — 종류·부분 일치 보정', () => {
   });
   it('부분 일치 + 2km 밖 + 지역 다름은 신규로 떨어진다 — 임계값 미만이어도 reason 에 어디와 비교했는지 남긴다', () => {
     const r = matchPlace(
-      { name: '고기부엌', geo: byName('아오오').geo, type: 'cafe', address: '제주 서귀포시 성산읍 환해장성로 75' },
+      // 주소는 아오오(환해장성로 75)와 **다른 번지**다 — 같은 번지면 '같은 자리'(`sameSpot`)로 아오오에 '확인' 이 붙는다(2026-10-04).
+      { name: '고기부엌', geo: byName('아오오').geo, type: 'cafe', address: '제주 서귀포시 성산읍 환해장성로 999' },
       places,
     );
     expect(r.match).toBeNull();
@@ -368,7 +380,9 @@ describe('지점 표기만 다른 이름 — "레스토랑 성산점" ↔ "레�
   });
 
   it('좌표가 없거나 멀면 예전 그대로 신규다 — 몸통이 같은 다른 지점', () => {
-    expect(matchPlace(candidate({ geo: undefined }), [place()]).match).toBeNull();
+    expect(matchPlace(candidate({ geo: undefined, address: '제주 서귀포시 성산읍 일출로 2' }), [place()]).match).toBeNull();
+    // 좌표가 없어도 **주소가 같은 자리**면 '확인' 까지는 오른다(`sameSpot`, 2026-10-04) — 병합 구간에는 못 닿는다.
+    expect(matchPlace(candidate({ geo: undefined }), [place()]).confidence).toBe(SAME_SPOT_SCORE);
     expect(matchPlace(candidate({ name: '애단비 귀덕점', geo: { lat: 33.44, lng: 126.29 } }), [place({ name: '애단비 애월점', geo: { lat: 33.4, lng: 126.35 } })]).match).toBeNull();
   });
 
@@ -383,5 +397,46 @@ describe('siOf', () => {
     expect(siOf('제주특별자치도 서귀포시 대포로 93')).toBe('서귀포시');
     expect(siOf('제주 제주시 애월읍 신엄안3길 95')).toBe('제주시');
     expect(siOf('동쪽 (성산읍)')).toBeNull();
+  });
+});
+
+describe('이름은 안 맞는데 같은 자리 — "본카페" ↔ "애월본카페" (2026-10-04)', () => {
+  const geo = { lat: 33.4627, lng: 126.3094 };
+  const near = { lat: 33.4628, lng: 126.3095 }; // 약 14m
+  const place = (over = {}) => ({ id: 'p1', name: '애월본카페', type: 'cafe', geo, address: '제주 제주시 애월읍 애월해안로 179', status: 'published', ...over });
+  const candidate = (over = {}) => ({ name: '본카페', type: 'cafe', geo: near, address: '제주 제주시 애월읍 애월해안로 179 본카페', ...over });
+
+  it('이름 유사도는 0 이다 — 키가 한 글자("본")라 부분 일치 문턱(2자)에 못 미친다', () => {
+    expect(nameSimilarity('본카페', '애월본카페')).toBe(0);
+  });
+
+  it('sameSpot — 주소가 표기만 같고 좌표가 100m 안이면 참, 좌표가 한쪽이라도 없으면 주소만으로', () => {
+    expect(sameSpot(candidate(), place())).toBe(true);
+    expect(sameSpot(candidate({ geo: null }), place())).toBe(true);
+    expect(sameSpot(candidate({ geo: { lat: 33.47, lng: 126.32 } }), place())).toBe(false); // 1km 넘게
+  });
+
+  it("sameSpot — 주소가 'unknown'(지번↔도로명·주소 없음)이거나 'different' 면 거짓", () => {
+    expect(sameSpot(candidate({ address: '제주 제주시 애월읍 애월리 2510' }), place())).toBe(false);
+    expect(sameSpot(candidate({ address: null }), place())).toBe(false);
+    expect(sameSpot(candidate({ address: '제주 제주시 애월읍 애월해안로 180' }), place())).toBe(false);
+  });
+
+  it("기존 장소와 같은 자리면 '확인' 구간에 고정된다 — 같은 읍·면·가까운 좌표여도 병합 구간에 닿지 않는다", () => {
+    const r = matchPlace(candidate(), [place()]);
+    expect(r.match?.id).toBe('p1');
+    expect(r.confidence).toBe(SAME_SPOT_SCORE);
+    expect(r.confidence).toBeGreaterThanOrEqual(THRESHOLD.ASK);
+    expect(r.confidence).toBeLessThan(THRESHOLD.AUTO_MERGE);
+    expect(r.reason).toContain('주소 같음');
+  });
+
+  it('주소가 다르면 예전 그대로 신규다', () => {
+    expect(matchPlace(candidate({ address: '제주 제주시 애월읍 애월해안로 200' }), [place()]).match).toBeNull();
+  });
+
+  it('이름이 부분이라도 맞는 다른 장소가 있으면 그쪽이 이긴다', () => {
+    const named = place({ id: 'p2', name: '본 카페', address: '제주 제주시 애월읍 애월해안로 300', geo: null });
+    expect(matchPlace(candidate(), [place(), named]).match?.id).toBe('p2');
   });
 });

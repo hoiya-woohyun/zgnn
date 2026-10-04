@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { parsePetPolicy, toPetBadges, withPolicyFacts } from '../../src/lib/petPolicy';
-import { formatGroup, formatMarkdown, groupCandidates, groupFlags, kindOfRow, parseReviewArgs, previewPolicy, resolveIds } from './reviewCandidates.mjs';
+import {
+  formatGroup,
+  formatMarkdown,
+  groupCandidates,
+  groupFlags,
+  independentPostCount,
+  kindOfRow,
+  mergeSameSpotGroups,
+  parseReviewArgs,
+  postClusters,
+  previewPolicy,
+  resolveIds,
+} from './reviewCandidates.mjs';
 
 const parsers = { parsePetPolicy, toPetBadges, withPolicyFacts };
 const row = (id, name, over = {}, top = {}) => ({
@@ -125,5 +137,129 @@ describe('표식·출력·id', () => {
     expect(() => parseReviewArgs(['reject', 'ab'])).toThrow(/note/);
     expect(() => parseReviewArgs(['--tier', 'x'])).toThrow();
     expect(() => parseReviewArgs(['bogus'])).toThrow();
+  });
+});
+
+describe('같은 자리의 신규 묶음 합치기 — "본카페" ↔ "애월본카페" (2026-10-04)', () => {
+  const geo = { lat: 33.4627, lng: 126.3094 };
+  const near = { lat: 33.4628, lng: 126.3095 };
+  const bon = (id, over = {}, top = {}) => row(id, '본카페', { address: '제주 제주시 애월읍 애월해안로 179 본카페', geo, ...over }, top);
+  const aewol = (id, over = {}, top = {}) => row(id, '애월본카페', { address: '제주 제주시 애월읍 애월해안로 179', geo: near, confidence: 0.9, ...over }, top);
+
+  it('이름 키가 달라도 주소가 같은 자리면 한 묶음 — 대표는 confidence 가 높은 쪽, 키는 원래 키 중 정렬 앞의 것', () => {
+    const groups = groupCandidates([bon('b1'), aewol('a1'), row('x1', '다른카페', { address: '제주 제주시 애월읍 애월해안로 300' })]);
+    expect(groups).toHaveLength(2);
+    const merged = groups.find((g) => g.rows.length === 2);
+    expect(merged.rows.map((r) => r.id)).toEqual(['a1', 'b1']);
+    expect(merged.lead.id).toBe('a1');
+    expect(merged.key).toBe(['name:본', 'name:애월본'].sort()[0]);
+    expect(merged.posts).toHaveLength(2);
+    expect(merged.tier).toBe('new');
+  });
+
+  it('좌표가 한쪽이라도 없으면 주소만으로 · 두 좌표가 100m 밖이면 합치지 않는다', () => {
+    expect(groupCandidates([bon('b1', { geo: null }), aewol('a1')])).toHaveLength(1);
+    expect(groupCandidates([bon('b1'), aewol('a1', { geo: { lat: 33.47, lng: 126.32 } })])).toHaveLength(2);
+  });
+
+  it("주소가 'unknown'(지번↔도로명·주소 없음)이거나 'different' 면 합치지 않는다", () => {
+    expect(groupCandidates([bon('b1', { geo: null }), aewol('a1', { geo: null, address: '제주 제주시 애월읍 애월리 2510' })])).toHaveLength(2);
+    expect(groupCandidates([bon('b1', { geo: null }), aewol('a1', { geo: null, address: null })])).toHaveLength(2);
+    expect(groupCandidates([bon('b1'), aewol('a1', { address: '제주 제주시 애월읍 애월해안로 180' })])).toHaveLength(2);
+  });
+
+  it('기존 장소에 붙은 묶음은 대상이 아니다 — 주소가 같아도 그대로 둔다', () => {
+    const rows = [bon('b1'), aewol('a1', { match: { tier: 'ask', confidence: 0.5, reason: '' } }, { match_place_id: 'p1' })];
+    const groups = groupCandidates(rows);
+    expect(groups).toHaveLength(2);
+    expect(groups.map((g) => g.key).sort()).toEqual(['name:본', 'place:p1']);
+  });
+
+  it('같은 자리여도 종류가 다르면 다른 가게다 — 1층 카페 "모루티" ↔ 위층 숙소 "스테이모루티"', () => {
+    const groups = groupCandidates([bon('b1', { type: 'cafe' }), aewol('a1', { type: 'stay' })]);
+    expect(groups).toHaveLength(2);
+    // 종류를 한쪽이라도 모르면 예전대로 묶는다
+    expect(groupCandidates([bon('b1', { type: 'cafe' }), aewol('a1', { type: null })])).toHaveLength(1);
+  });
+
+  it('합칠 것이 없으면 입력 그대로다', () => {
+    const groups = [{ key: 'name:a', tier: 'new', rows: [row('a', 'a')] }];
+    expect(mergeSameSpotGroups(groups)).toBe(groups);
+  });
+});
+
+describe('독립 글 — 같은 블로그·같은 제목 틀의 글은 하나로 센다 (2026-10-04)', () => {
+  const day = (d) => `2026-09-${String(d).padStart(2, '0')}T10:00:00Z`;
+  // 실측: 한 식당 후보의 글 5건, 이틀 사이, 블로그는 전부 다르다(블로그 규칙으로는 못 잡는다).
+  const ads = [
+    ['u1', '제주공항 근처 애견동반식당 추천 서린 제주 고기국수 본점', 1],
+    ['u2', '제주공항 근처 애견동반식당 정말 추천할 만한 곳이에요', 1],
+    ['u3', '제주공항 근처 애견동반식당 여행 전 한 끼의 힐링', 2],
+    ['u4', '제주공항 근처 애견동반식당 추천 현지인 맛집 탐방', 2],
+    ['u5', '제주공항 근처 애견동반식당 추천 서린 제주 고기국수 본점', 2],
+  ].map(([url, title, d], i) => ({ url, title, postedAt: day(d), blogId: `ad${i}` }));
+  // 서로 다른 블로거의 평범한 후기 — 날짜를 **같은 창 안에** 둬서 제목 규칙만 시험한다.
+  const reviews = [
+    ['r1', '서귀포 카페 추천 포레스트정방 반려견동반가능', 3],
+    ['r2', '제주 정방폭포 카페 맛집 포레스트 정방 애견동반 추천', 3],
+    ['r3', '서귀포 카페 추천 제주 정방폭포 서귀포 애견동반 카페 다녀온 후기', 4],
+  ].map(([url, title, d], i) => ({ url, title, postedAt: day(d), blogId: `b${i}` }));
+
+  it('광고성 복제 글 5건은 한 덩어리다', () => {
+    expect(postClusters(ads, ['서린 제주 고기국수'])).toEqual([['u1', 'u2', 'u3', 'u4', 'u5']]);
+  });
+
+  it('가게 이름·지역명이 겹치는 평범한 후기는 합치지 않는다', () => {
+    expect(postClusters(reviews, ['포레스트정방'])).toHaveLength(3);
+  });
+
+  it('알려진 갈래 — 검색어를 그대로 제목에 쓴 서로 다른 블로거의 글은 며칠 안이면 묶인다(적게 세는 쪽으로 틀린다)', () => {
+    const keyword = [
+      { url: 'k1', title: '제주 애견동반 카페 추천 포레스트정방', postedAt: day(3), blogId: 'x' },
+      { url: 'k2', title: '제주 애견동반 카페 추천 포레스트정방 후기', postedAt: day(4), blogId: 'y' },
+    ];
+    expect(postClusters(keyword, ['포레스트정방'])).toHaveLength(1);
+    // 제목의 짜임이 다르면 같은 말이 섞여도 묶이지 않는다
+    const own = [
+      { url: 'o1', title: '서귀포 애견동반 카페 포레스트정방 후기', postedAt: day(3), blogId: 'x' },
+      { url: 'o2', title: '포레스트정방 애견동반 카페 다녀왔어요', postedAt: day(4), blogId: 'y' },
+    ];
+    expect(postClusters(own, ['포레스트정방'])).toHaveLength(2);
+  });
+
+  it('같은 블로그의 글은 제목·날짜와 무관하게 하나다', () => {
+    const posts = [
+      { url: 'a', title: '첫 방문', postedAt: day(1), blogId: 'same' },
+      { url: 'b', title: '두 번째 방문 완전 다른 제목', postedAt: '2026-01-01T00:00:00Z', blogId: 'same' },
+    ];
+    expect(postClusters(posts)).toHaveLength(1);
+  });
+
+  it('제목 틀이 같아도 며칠 넘게 떨어졌거나 날짜를 모르면 묶지 않는다', () => {
+    const far = ads.slice(0, 2).map((post, i) => ({ ...post, postedAt: i === 0 ? day(1) : day(20) }));
+    expect(postClusters(far, ['서린 제주 고기국수'])).toHaveLength(2);
+    const unknown = ads.slice(0, 2).map((post) => ({ ...post, postedAt: null }));
+    expect(postClusters(unknown, ['서린 제주 고기국수'])).toHaveLength(2);
+  });
+
+  it('글 정보가 없는 옛 행(blog_posts 없음)은 url 하나가 한 덩어리 — 지금까지의 셈과 같다', () => {
+    const rows = [row('o1', '카페'), row('o2', '카페')];
+    expect(independentPostCount(rows)).toBe(2);
+  });
+
+  it('묶음의 independentPosts 가 검수 순서에 쓰인다 — 복제 글 5건은 독립 글 2건짜리보다 뒤다', () => {
+    const adRows = ads.map((post) => row(post.url, '서린 제주 고기국수', {}, { post_url: post.url, blog_posts: { title: post.title, posted_at: post.postedAt, blog_id: post.blogId, keyword: 'k' } }));
+    const twoRows = reviews.slice(0, 2).map((post) => row(post.url, '포레스트정방', {}, { post_url: post.url, blog_posts: { title: post.title, posted_at: post.postedAt, blog_id: post.blogId, keyword: 'k' } }));
+    const groups = groupCandidates([...adRows, ...twoRows]);
+    expect(groups.map((g) => [g.lead.extracted.name, g.posts.length, g.independentPosts])).toEqual([
+      ['포레스트정방', 2, 2],
+      ['서린 제주 고기국수', 5, 1],
+    ]);
+  });
+
+  it('고른 url(제안의 근거 글)만 셀 수 있다 — 행에 없는 url 도 하나씩 센다', () => {
+    const adRows = ads.map((post) => row(post.url, '서린 제주 고기국수', {}, { post_url: post.url, blog_posts: { title: post.title, posted_at: post.postedAt, blog_id: post.blogId, keyword: 'k' } }));
+    expect(independentPostCount(adRows, ['u1', 'u2'])).toBe(1);
+    expect(independentPostCount(adRows, ['u1', 'zz'])).toBe(2);
   });
 });

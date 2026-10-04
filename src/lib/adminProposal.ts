@@ -10,7 +10,7 @@
  */
 
 import { expandOverwriteColumns } from '../../scripts/analyze/applyApproved.mjs';
-import type { TCandidateExtracted, TCandidateGroup, TCandidateRow, TPlaceRow } from './adminCandidates';
+import { independentPostsOf, type TCandidateExtracted, type TCandidateGroup, type TCandidateRow, type TPlaceRow } from './adminCandidates';
 import { policyDirection } from './policyDirection';
 import type { TPetPolicyFacts, TStayEnvironment } from '../types';
 
@@ -98,11 +98,14 @@ const PROPOSAL_COLUMNS: Record<string, string[]> = {
 };
 
 /**
- * 제안이 있을 때의 **기본 체크**(U6·U7) — 제안이 change 라 한 칸만. 동반 조건이 **완화**로 바뀌면 근거 글이 **둘 이상**일 때만 켠다
- * (글 하나의 완화는 꺼진 채 `전화로 확인해 주세요`). 제안이 없으면 null — 부르는 쪽이 지금까지의 기본(`defaultOverwritePick`)으로 간다.
+ * 제안이 있을 때의 **기본 체크**(U6·U7) — 제안이 change 라 한 칸만. 동반 조건이 **완화**로 바뀌면 근거 글이 **독립 글 둘 이상**일 때만 켠다
+ * (글 하나의 완화는 꺼진 채 `전화로 확인해 주세요`). 제안이 없으면 null — 부르는 쪽이 `defaultOverwritePick` 으로 간다.
+ * '독립' 인 이유(2026-10-04): 같은 제목 틀로 이틀 사이에 올라온 광고성 글 다섯이 URL 만 달라 "근거 글 둘 이상" 을 통과했다.
+ * 같은 블로그·같은 제목 틀의 글은 하나로 센다(`independentPostsOf`). 행을 안 주면 URL 수로 센다(옛 셈).
  * @param all 바뀌는 칸(`latestPlan(...).changes` 의 key)
+ * @param rows 묶음의 후보 행 — 근거 글의 블로그·제목·날짜를 여기서 읽는다
  */
-export function proposalPick(all: string[], proposal: TProposal | null, place: TPlaceRow): string[] | null {
+export function proposalPick(all: string[], proposal: TProposal | null, place: TPlaceRow, rows?: readonly TCandidateRow[]): string[] | null {
   if (!proposal) return null;
   const on = new Set<string>();
   for (const [field, columns] of Object.entries(PROPOSAL_COLUMNS)) {
@@ -110,7 +113,8 @@ export function proposalPick(all: string[], proposal: TProposal | null, place: T
     if (entry?.action !== 'change') continue;
     if (field === 'pet_policy_text') {
       const loosen = policyDirection(place.pet_policy, entry.petPolicy ?? null).overall === 'loosen';
-      if (loosen && new Set(entry.basedOn).size < 2) continue;
+      const sources = rows ? independentPostsOf(rows, entry.basedOn) : new Set(entry.basedOn).size;
+      if (loosen && sources < 2) continue;
     }
     for (const column of columns) on.add(column);
   }

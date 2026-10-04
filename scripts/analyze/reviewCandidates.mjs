@@ -5,7 +5,7 @@
 //  그리고 앱이 실제로 쓰는 병합 결과(withPolicyFacts) — 를 미리 봐야 하고, (3) 무엇이 비었는지(지역·좌표·조건문) 표식으로 보여야 한다.
 // 본문 인용(evidence)·원문은 --verbose 뒤에서만 찍는다(docs/todo/05 의 로그 위생 — 기본 출력은 이름·종류·구간·표식·구조화 결과만).
 import { correctPetPolicyFacts, feeLinesOf } from '../lib/petPolicyFacts.mjs';
-import { normalizeName } from './matchPlace.mjs';
+import { isToponymKey, normalizeName, sameSpot } from './matchPlace.mjs';
 
 const TIER_ORDER = { auto: 0, ask: 1, new: 2 };
 export const TIER_LABEL = { auto: '일치', ask: '확인요청', new: '신규' };
@@ -33,7 +33,7 @@ export const nameKeyOf = (extracted) => extracted?.nameKey ?? normalizeName(extr
  *   1) 구간: 일치(auto) → 확인요청(ask) → 신규(new)   — 기존 장소에 붙는 것이 빠르고 안전하다
  *   2) 직접 방문한 글(visited)이 목록·추천 글보다 먼저   — 목록 글은 이름·주소뿐이라 조건 확인이 안 된다(첫 분석: 한 글이 101건)
  *   3) 이용 조건 문장이 있는 것이 먼저                    — 없는 후보는 승인해도 앱이 '정보 없음' 으로만 보여 준다
- *   4) 글이 여럿인 것이 먼저                              — 여러 사람이 말한 가게
+ *   4) **독립 글**이 여럿인 것이 먼저                       — 여러 사람이 말한 가게. 같은 블로그·같은 제목 틀의 글 묶음은 하나로 센다(`postClusters`)
  *   5) AI confidence 높은 것이 먼저
  * 예: 신규 발굴을 우선하면 1) 을 맨 뒤로 보내고, 목록 글을 아예 뒤로 밀려면 2) 를 1) 앞에 둔다. 반환 배열의 앞자리가 더 센 기준이다.
  */
@@ -44,7 +44,7 @@ export function reviewPriority(group) {
     TIER_ORDER[group.tier] ?? 9,
     group.visited ? 0 : 1,
     group.hasPolicyText ? 0 : 1,
-    -group.posts.length,
+    -(group.independentPosts ?? group.posts.length),
     -group.confidence,
   ];
 }
@@ -57,7 +57,183 @@ export function compareGroups(a, b) {
 }
 
 /**
- * pending 후보를 같은 가게로 묶는다 — 기존 장소에 붙은 것은 match_place_id 로, 신규는 nameKey 로.
+ * 🙋 "비슷한 글" 의 문턱 — 사람이 다듬을 자리. 2026-10-04 실측: 한 식당 후보의 글 5건이 이틀 사이에 올라왔고 제목이 전부
+ * "제주공항 근처 애견동반식당 …" 틀이었다(광고성 복제 글). URL 이 다섯이라 "글 5건" · 검수 순서 앞자리 · "근거 글 둘 이상" 을 다 통과했다.
+ *  - `SIMILAR_TITLE_MIN_CHARS` 두 제목이 **이어진 같은 글자열**을 이만큼 이상 나눠 가지면 같은 틀이다. 공백·기호를 떼고, 후보의 가게 이름을 뺀 뒤 잰다.
+ *    실측: 복제 글끼리는 최소 12자("제주공항근처애견동반식당"), 서로 다른 블로거의 평범한 후기는 최대 7자("서귀포카페추천").
+ *    토큰·바이그램 겹침은 가르지 못했다 — 두 무리의 값이 0.37 ↔ 0.36 으로 붙어 있었다(제목이 짧고 '카페·추천·애견동반' 이 어디에나 있다).
+ *  - `SIMILAR_POST_WINDOW_DAYS` 그 두 글이 며칠 안에 올라왔나. 날짜를 모르면 제목만으로 묶지 않는다 — 모르는 것으로 근거를 깎지 않는다.
+ * 같은 블로그(`blog_id`)의 글은 제목·날짜와 무관하게 하나다 — 한 사람이 여러 번 쓴 것은 여러 사람이 말한 것이 아니다.
+ * 넘치게 묶으면 근거를 **적게** 세는 쪽으로 틀린다(검수 순서가 뒤로 · 완화 제안이 꺼진 채 시작) — 반대보다 안전하다.
+ * 알려진 갈래: 검색어를 그대로 제목에 쓴 서로 다른 블로거의 글("제주 애견동반 카페 추천 ○○" ↔ "… ○○ 후기")은 가게 이름을 빼면
+ * 정확히 10자("제주애견동반카페추천")가 같아 며칠 안이면 묶인다. 지역·검색어 말을 빼고 재면 이 틀은 풀리지만 광고 틀("제주공항근처애견동반식당")도
+ * 함께 부서진다 — 그래서 문턱을 그대로 두고 적게 세는 쪽을 택했다(`reviewCandidates.test.mjs` 가 이 갈래를 고정한다).
+ */
+export const SIMILAR_TITLE_MIN_CHARS = 10;
+export const SIMILAR_POST_WINDOW_DAYS = 3;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** 가게 이름에서 떼어 낼 조각이 아닌 말 — 이름의 일부여도 제목 틀의 일부다("서린 제주 고기국수" 의 '제주' 를 떼면 "제주공항" 이 부서진다). */
+const NAME_TOKEN_KEEP = new Set(['제주', '제주점', '본점', '카페', 'cafe']);
+const squash = (text) => String(text ?? '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+
+/** 제목을 비교용으로 — 공백·기호를 떼고 가게 이름 조각(통째 · 띄어 쓴 조각 2자 이상, 지명·접사 제외)을 지운다. 긴 조각부터. */
+function titleCore(title, names) {
+  const pieces = new Set();
+  for (const name of names) {
+    const whole = squash(name);
+    if (whole.length >= 2) pieces.add(whole);
+    const key = normalizeName(name);
+    if (key.length >= 2 && !isToponymKey(key)) pieces.add(key);
+    for (const token of String(name ?? '').split(/\s+/)) {
+      const t = squash(token);
+      if (t.length >= 2 && !NAME_TOKEN_KEEP.has(t) && !isToponymKey(t)) pieces.add(t);
+    }
+  }
+  let core = squash(title);
+  for (const piece of [...pieces].sort((a, b) => b.length - a.length)) core = core.split(piece).join('');
+  return core;
+}
+
+/** 두 문자열이 함께 가진 가장 긴 이어진 글자열의 길이. 제목은 수십 자라 O(n·m) 로 충분하다. */
+function longestCommonRun(a, b) {
+  let best = 0;
+  let prev = new Array(b.length + 1).fill(0);
+  for (let i = 1; i <= a.length; i += 1) {
+    const cur = new Array(b.length + 1).fill(0);
+    for (let j = 1; j <= b.length; j += 1) {
+      if (a[i - 1] === b[j - 1]) {
+        cur[j] = prev[j - 1] + 1;
+        if (cur[j] > best) best = cur[j];
+      }
+    }
+    prev = cur;
+  }
+  return best;
+}
+
+/**
+ * 글들을 **독립 글** 덩어리로 — 같은 블로그이거나, 제목 틀이 같고(`SIMILAR_TITLE_MIN_CHARS`) 며칠 안(`SIMILAR_POST_WINDOW_DAYS`)이면 한 덩어리. 순수.
+ * 한 덩어리에 이어지는 것은 사슬로 퍼진다(A~B, B~C 면 A·B·C 가 하나).
+ * @param {{ url: string, blogId?: string | null, title?: string | null, postedAt?: string | null }[]} posts  url 이 같은 글은 한 번만
+ * @param {string[]} [names]  후보의 가게 이름들 — 제목에서 지우고 잰다(가게 이름이 겹치는 것만으로 묶이지 않게)
+ * @returns {string[][]}  덩어리마다 url 목록(입력 순서)
+ */
+export function postClusters(posts, names = []) {
+  const list = [];
+  const seen = new Set();
+  for (const post of posts ?? []) {
+    if (!post?.url || seen.has(post.url)) continue;
+    seen.add(post.url);
+    const time = post.postedAt ? new Date(post.postedAt).getTime() : NaN;
+    list.push({ url: post.url, blogId: post.blogId ?? null, core: post.title ? titleCore(post.title, names) : null, time });
+  }
+  const parent = list.map((_, i) => i);
+  const find = (i) => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+  for (let i = 0; i < list.length; i += 1) {
+    for (let j = i + 1; j < list.length; j += 1) {
+      const a = list[i];
+      const b = list[j];
+      const sameBlog = a.blogId != null && a.blogId === b.blogId;
+      const close = Number.isFinite(a.time) && Number.isFinite(b.time) && Math.abs(a.time - b.time) <= SIMILAR_POST_WINDOW_DAYS * DAY_MS;
+      const sameFrame = close && a.core && b.core && longestCommonRun(a.core, b.core) >= SIMILAR_TITLE_MIN_CHARS;
+      if (sameBlog || sameFrame) parent[find(j)] = find(i);
+    }
+  }
+  const out = new Map();
+  list.forEach((post, i) => {
+    const root = find(i);
+    if (!out.has(root)) out.set(root, []);
+    out.get(root).push(post.url);
+  });
+  return [...out.values()];
+}
+
+/** 후보 행들 → `postClusters` 의 입력. 글 정보는 `blog_posts` 임베딩에서(없으면 url 만 — 그때는 url 하나가 한 덩어리다). */
+export function postsOfRows(rows) {
+  return (rows ?? [])
+    .filter((row) => row?.post_url)
+    .map((row) => ({ url: row.post_url, blogId: row.blog_posts?.blog_id ?? null, title: row.blog_posts?.title ?? null, postedAt: row.blog_posts?.posted_at ?? null }));
+}
+
+/**
+ * 행들의 독립 글 수. 고른 url(`urls`)만 셀 수도 있다 — 제안의 근거 글(`basedOn`)처럼.
+ * @param {readonly object[]} rows
+ * @param {readonly string[] | null} [urls]
+ * @returns {number}
+ */
+export function independentPostCount(rows, urls = null) {
+  const wanted = urls ? new Set(urls) : null;
+  const posts = postsOfRows(rows).filter((post) => !wanted || wanted.has(post.url));
+  const names = [...new Set((rows ?? []).map((row) => row?.extracted?.name).filter(Boolean))];
+  // 고른 url 중 행에 없는 것도 하나씩 센다 — 모르는 글을 0 으로 세면 근거가 사라진다.
+  const known = new Set(posts.map((post) => post.url));
+  const unknown = wanted ? [...wanted].filter((url) => !known.has(url)).length : 0;
+  return postClusters(posts, names).length + unknown;
+}
+
+/** 묶음 하나의 요약 칸을 채운다 — 행이 바뀌면(같은 자리 묶음 합치기) 다시 부른다. */
+function summarizeGroup(g) {
+  g.rows.sort((a, b) => (b.extracted?.confidence ?? 0) - (a.extracted?.confidence ?? 0));
+  g.lead = g.rows[0];
+  g.tier = g.rows.map((r) => r.extracted?.match?.tier ?? 'new').sort((a, b) => (TIER_ORDER[a] ?? 9) - (TIER_ORDER[b] ?? 9))[0];
+  g.kind = g.rows.some((r) => kindOfRow(r) === 'update') ? 'update' : g.tier === 'auto' ? 'fill' : g.tier;
+  g.visited = g.rows.some((r) => r.extracted?.visited !== false);
+  g.hasPolicyText = g.rows.some((r) => Boolean(r.extracted?.petPolicyText));
+  g.confidence = Math.max(...g.rows.map((r) => r.extracted?.confidence ?? 0));
+  g.posts = [...new Set(g.rows.map((r) => r.post_url).filter(Boolean))];
+  g.independentPosts = independentPostCount(g.rows);
+  return g;
+}
+
+const spotOf = (row) => ({ address: row?.extracted?.address ?? null, geo: row?.extracted?.geo ?? null });
+// 같은 건물의 **다른 업종**은 다른 가게다 — 1층 카페 "모루티" ↔ 위층 숙소 "스테이모루티"(2026-10-04). 종류를 둘 다 아는데 다르면 묶지 않는다.
+const sameTypeRows = (a, b) => !a?.extracted?.type || !b?.extracted?.type || a.extracted.type === b.extracted.type;
+
+/**
+ * 이름 키가 다른 **신규** 묶음끼리 같은 자리면 한 묶음으로(2026-10-04) — "본카페" ↔ "애월본카페". 순수.
+ *
+ * 이름 키가 '본'(1자)·'애월본' 이라 `nameSimilarity` 의 부분 일치(2자)도, 지점 꼬리(`sameBranchStem`)도 못 잡는데 두 주소는
+ * `제주 제주시 애월읍 애월해안로 179` ↔ `… 179 본카페` 로 같은 자리다(`sameSpot` — 주소 'same', 두 좌표가 다 있으면 100m 안).
+ * 두 줄로 두면 운영자가 둘 다 올려 같은 자리에 장소가 둘 선다. 분석은 앞으로 키를 물려받지만(`newSiblingOf`) 이미 쌓인 후보는 여기서 묶는다.
+ *
+ * 대상은 짝이 없는 신규 묶음(`name:` 키 · tier 'new')뿐이다 — 기존 장소에 붙은 묶음은 이미 그 장소 id 로 묶였다.
+ * 묶음 안의 행 어느 둘이든 같은 자리면 잇고, 사슬로 퍼진다. 합친 묶음의 키는 원래 키 중 가장 앞(정렬)의 것 — 다시 묶어도 같은 키가 나온다.
+ * 같은 건물의 다른 가게도 같은 주소다 — **종류가 다르면 묶지 않는다**(카페 "모루티" ↔ 숙소 "스테이모루티"). 종류까지 같은 다른 가게는 여전히 걸리므로
+ * 합치는 것은 **화면의 한 줄**이지 데이터가 아니다. 대표 이름 밖의 이름은 화면이 같이 보여 준다.
+ */
+export function mergeSameSpotGroups(groups) {
+  const isNew = (g) => g.key.startsWith('name:') && g.tier === 'new' && !g.rows.some((r) => r.match_place_id);
+  const pool = groups.filter(isNew);
+  if (pool.length < 2) return groups;
+  const parent = pool.map((_, i) => i);
+  const find = (i) => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+  for (let i = 0; i < pool.length; i += 1) {
+    for (let j = i + 1; j < pool.length; j += 1) {
+      if (find(i) === find(j)) continue;
+      if (pool[i].rows.some((a) => pool[j].rows.some((b) => sameTypeRows(a, b) && sameSpot(spotOf(a), spotOf(b))))) parent[find(j)] = find(i);
+    }
+  }
+  const merged = new Map();
+  pool.forEach((g, i) => {
+    const root = find(i);
+    if (!merged.has(root)) merged.set(root, []);
+    merged.get(root).push(g);
+  });
+  const out = groups.filter((g) => !isNew(g));
+  for (const members of merged.values()) {
+    if (members.length === 1) {
+      out.push(members[0]);
+      continue;
+    }
+    const key = members.map((g) => g.key).sort()[0];
+    out.push(summarizeGroup({ key, rows: members.flatMap((g) => g.rows) }));
+  }
+  return out;
+}
+
+/**
+ * pending 후보를 같은 가게로 묶는다 — 기존 장소에 붙은 것은 match_place_id 로, 신규는 nameKey 로, 그리고 키가 달라도 같은 자리인 신규끼리(`mergeSameSpotGroups`).
  * 묶음마다 대표(lead)는 AI confidence 가 가장 높은 후보. 묶음의 구간은 가장 강한 것(auto > ask > new).
  * 묶음의 종류(`kind`)는 **갱신이 하나라도 있으면 갱신**이다 — 다른 말을 하는 글이 하나라도 있으면 그 묶음은 "볼 일" 이다(11 U2).
  * 아니면 묶음의 구간을 따른다(auto → 보강).
@@ -69,19 +245,8 @@ export function groupCandidates(rows) {
     if (!groups.has(key)) groups.set(key, { key, rows: [] });
     groups.get(key).rows.push(row);
   }
-  const out = [];
-  for (const g of groups.values()) {
-    g.rows.sort((a, b) => (b.extracted?.confidence ?? 0) - (a.extracted?.confidence ?? 0));
-    g.lead = g.rows[0];
-    g.tier = g.rows.map((r) => r.extracted?.match?.tier ?? 'new').sort((a, b) => (TIER_ORDER[a] ?? 9) - (TIER_ORDER[b] ?? 9))[0];
-    g.kind = g.rows.some((r) => kindOfRow(r) === 'update') ? 'update' : g.tier === 'auto' ? 'fill' : g.tier;
-    g.visited = g.rows.some((r) => r.extracted?.visited !== false);
-    g.hasPolicyText = g.rows.some((r) => Boolean(r.extracted?.petPolicyText));
-    g.confidence = Math.max(...g.rows.map((r) => r.extracted?.confidence ?? 0));
-    g.posts = [...new Set(g.rows.map((r) => r.post_url).filter(Boolean))];
-    out.push(g);
-  }
-  return out.sort(compareGroups);
+  // 키로 묶은 뒤 이름 키가 다른 같은 자리의 신규 묶음을 합친다(`mergeSameSpotGroups`) — CLI 와 화면이 같은 묶음을 보게 여기서 한다.
+  return mergeSameSpotGroups([...groups.values()].map(summarizeGroup)).sort(compareGroups);
 }
 
 /**
@@ -157,7 +322,7 @@ export function formatGroup(group, preview, { verbose = false, matchedName = nul
   const e = group.lead.extracted ?? {};
   const head = [
     `■ ${e.name}`,
-    `[${TYPE_LABEL[e.type] ?? e.type} · ${TIER_LABEL[group.tier] ?? group.tier}${group.tier === 'auto' && group.kind ? `(${KIND_LABEL[group.kind]})` : ''}${group.lead.match_confidence != null && group.tier !== 'new' ? ` ${Number(group.lead.match_confidence).toFixed(2)}` : ''}${matchedName ? ` → ${matchedName}` : ''} · AI ${group.confidence.toFixed(2)} · 글 ${group.posts.length}]`,
+    `[${TYPE_LABEL[e.type] ?? e.type} · ${TIER_LABEL[group.tier] ?? group.tier}${group.tier === 'auto' && group.kind ? `(${KIND_LABEL[group.kind]})` : ''}${group.lead.match_confidence != null && group.tier !== 'new' ? ` ${Number(group.lead.match_confidence).toFixed(2)}` : ''}${matchedName ? ` → ${matchedName}` : ''} · AI ${group.confidence.toFixed(2)} · 글 ${group.posts.length}${group.independentPosts != null && group.independentPosts < group.posts.length ? `(비슷한 글 묶음 ${group.independentPosts})` : ''}]`,
     e.regionRaw ?? '지역?',
     e.geo ? `좌표 ${e.geoSource ?? 'local'}` : '',
     ...groupFlags(group).map((f) => `⚠ ${f}`),

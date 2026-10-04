@@ -13,6 +13,7 @@ import { cx } from '../utils/cx';
 import { AdminAddressLine } from './adminAddressLine';
 import { AdminChangeList } from './adminChangeList';
 import { AdminSourceChip, SOURCE_TONE } from './adminSource';
+import { ADMIN_VERIFY_TEXT } from './adminTable';
 
 type TAdminPageGroupDetailProps = {
   group: TCandidateGroup;
@@ -319,7 +320,7 @@ export function AdminPageGroupDetail({ group, preview, place }: TAdminPageGroupD
               site={siteOf(<span className="text-quaternary">—</span>)}
               result={
                 <>
-                  <p className="font-semibold text-secondary">{verify.label}</p>
+                  <p className={cx('font-semibold', ADMIN_VERIFY_TEXT[verify.tone])}>{verify.label}</p>
                   {extracted.verify?.why && <p className="mt-0.5 text-tertiary">{extracted.verify.why}</p>}
                 </>
               }
@@ -343,6 +344,15 @@ export function AdminPageGroupDetail({ group, preview, place }: TAdminPageGroupD
           title="인용은 본문 문장 그대로예요 · 어느 문장을 짚을지는 AI 가 골랐어요"
         >
           <AdminSourceChip source="blog" suffix={`수집한 글 ${group.rows.length}건`} />
+          {/*
+            * 독립 글이 글 수보다 적으면 그 사실을 말한다(`postClusters`) — 같은 블로그거나 같은 제목 틀로 며칠 사이에 올라온 글은
+            * 여러 사람의 말이 아니다(광고성 복제 글). 검수 순서·완화 제안은 이미 이 수로 센다.
+            */}
+          {group.independentPosts != null && group.independentPosts < group.posts.length && (
+            <span className="font-normal text-warning-primary">
+              비슷한 글 묶음 {group.independentPosts} — 같은 블로그·같은 제목 틀의 글은 하나로 세요
+            </span>
+          )}
         </p>
         <ul className="mt-2 divide-y divide-secondary">
           {group.rows.map((row) => (
@@ -363,6 +373,10 @@ export function AdminPageGroupDetail({ group, preview, place }: TAdminPageGroupD
                 <p className="mt-0.5 text-xs text-tertiary">
                   {row.blog_posts.posted_at} · 검색어 {row.blog_posts.keyword}
                 </p>
+              )}
+              {/* 같은 자리라 한 줄로 묶인 다른 이름(`mergeSameSpotGroups`) — 올리면 대표 이름 하나로 선다. */}
+              {row.extracted.name !== extracted.name && (
+                <p className="mt-0.5 text-xs text-warning-primary">이 글의 가게 이름: {row.extracted.name} — 주소가 같아 한 줄로 묶었어요</p>
               )}
               {(row.extracted.evidence ?? []).filter((quote) => !policyQuote || !policyQuote.includes(squash(quote))).map((quote, index) => (
                 <blockquote

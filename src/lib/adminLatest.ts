@@ -81,13 +81,26 @@ export function toggleOverwritePick(all: string[], picked: string[] | undefined,
   return all.filter((col) => now.has(col));
 }
 
+/** 사이트에 값이 있으면 기본으로 켜지 않는 칸 — 사람이 쓴(또는 고른) 정체·소개다. 비어 있으면 채우는 것이라 켠다. */
+export const SITE_OWNED_COLUMNS = ['name', 'type', 'features'] as const;
+
+const filled = (value: unknown) => value != null && String(value).trim() !== '';
+
 /**
- * 덮어쓰기의 **기본 체크**(11 U6·U7) — 순수. 사람이 체크를 건드리기 전에 켜져 있는 칸.
+ * 덮어쓰기의 **기본 체크**(11 U6·U7) — 순수. 사람이 체크를 건드리기 전에 켜져 있는 칸. 제안(`proposalPick`)이 없을 때 이 규칙이다.
  *  - 동반 조건이 **완화**로 바뀌면(`loosen`) 조건 짝(원문+판단)은 꺼진 채 시작한다 — 틀리면 손님이 거절당한다. 막지는 않는다(켜면 된다).
- *  - 나머지는 바뀌는 칸 전부(지금까지의 동작). 제안(T2.2)이 생기면 그 칸만으로 좁힌다.
+ *  - **사이트에 이미 값이 있는 이름·종류·소개는 꺼진 채 시작한다**(2026-10-04). 제안이 없는 묶음('확인' 묶음은 제안이 구조적으로 안 생긴다)에서
+ *    "바뀌는 칸 전부" 가 기본이던 동안, 사이트의 좋은 소개("커피 맛집이지만 빵 맛집… 성산일출봉 뷰")가 후보의 빈약한 한 줄
+ *    ("성산에 있는 카페예요. 반려견과 함께 들어갈 수 있어요.")로, 이름 "프릳츠" 가 "프릳츠 성산점" 으로 기본 덮어쓰기 됐다.
+ *    그 칸들은 사람이 쓴 것이고 AI 요약은 글 한 편의 말이다 — 바꾸려면 사람이 켠다. 빈 칸을 채우는 것은 그대로 켠다.
+ *  - 나머지(주소·좌표·조건·요금…)는 바뀌는 칸 전부(지금까지의 동작).
+ * @param place 짝 장소의 지금 값. 없으면(옛 호출) 이름·종류·소개 규칙을 건너뛴다.
  */
-export function defaultOverwritePick(all: string[], { loosen = false }: { loosen?: boolean } = {}): string[] {
-  if (!loosen) return all;
-  const policy = expandOverwriteColumns(['pet_policy_text']) as Set<string>;
-  return all.filter((key) => !policy.has(key));
+export function defaultOverwritePick(
+  all: string[],
+  { loosen = false, place }: { loosen?: boolean; place?: Pick<TPlaceRow, (typeof SITE_OWNED_COLUMNS)[number]> } = {},
+): string[] {
+  const policy = loosen ? (expandOverwriteColumns(['pet_policy_text']) as Set<string>) : new Set<string>();
+  const kept = new Set<string>(place ? SITE_OWNED_COLUMNS.filter((key) => filled(place[key])) : []);
+  return all.filter((key) => !policy.has(key) && !kept.has(key));
 }

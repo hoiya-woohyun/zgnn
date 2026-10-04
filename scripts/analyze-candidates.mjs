@@ -32,8 +32,9 @@
 //    (`matchPlace` 는 값 없는 신호를 감점 없이 건너뛴다). 세우면 **더하기만 하는 기능이 잘 돌던 파이프라인을 죽이는 새 통로**가 된다.
 //    대신 그 실행 동안 축을 **내리고**(geocodeAxisOff) 한 번만 크게 찍는다 — 남은 건마다 같은 실패를 반복해 쿼터를 더 태우지 않으려고.
 //  - 재시도는 CLI 에 맡긴다. 여기서 한 번 더 돌면 실패 한 건에 호출이 배가 된다.
-//  - 같은 실행 안에서 같은 이름의 신규 후보가 두 번 나와도 둘 다 넣는다(두 번째가 첫 번째를 가리키게 하지 않는다). 로그에만
-//    남기고 사람이 Studio 에서 본다 — 단순하게.
+//  - 같은 가게의 신규 후보가 두 번 나와도(이번 실행이든 앞선 실행의 pending 이든) 둘 다 넣는다 — 지우지 않고 **두 번째가 첫 번째를
+//    `dupOf` 로 가리킨다**(글 URL 또는 후보 id). 이름 키가 같으면 그대로, 키가 다르면 지점 표기만 다른 같은 건물이거나 같은 자리
+//    (`newSiblingOf`)일 때 먼저 난 쪽의 키를 물려받는다 — 검수 화면은 키로 묶으므로 그래야 한 줄로 선다.
 //  - `--dry-run` 은 DB 에 쓰지 않는다(analyzed_at 도). Claude 는 부른다 — 토큰은 쓰인다. 무엇이 후보가 되는지 보는 용도.
 //  - 로그에 시크릿·응답 본문·헤더·본문 텍스트를 남기지 않는다(docs/todo/05). 글 URL·제목, 후보 요약 한 줄, error.message 만.
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -53,6 +54,7 @@ import {
   isFocusedTitle,
   isNoPetEvidenceNew,
   mergeFocusedFirst,
+  newSiblingOf,
   deferBlogs,
   singlePlaceBlogs,
   PET_TITLE_SOURCE,
@@ -69,7 +71,7 @@ import {
 import { createUsageMeter, extractPlaces, isFatal, isRetryable, MODEL, PROMPT_VERSION, runClaudeCli } from './analyze/extractPlaces.mjs';
 import { formatGeocodeSummary, geocodeAddress, newGeocodeReasons, pickGeocoded, shouldGeocode } from './analyze/naverGeocode.mjs';
 import { newPickReasons, pickNaverPlace, searchNaverPlace } from './analyze/naverLocal.mjs';
-import { distanceMeters, matchPlace, normalizeName, sameBranchStem, siOf, townOf, WEIGHT } from './analyze/matchPlace.mjs';
+import { matchPlace, normalizeName, siOf, townOf } from './analyze/matchPlace.mjs';
 import { fetchHomepageCard } from './analyze/homepageCard.mjs';
 import { fetchPostText } from './analyze/naverPostBody.mjs';
 import { needsDogCheck, resolveVerifyModel, verifyLabel, VERIFY_PROMPT_VERSION, verifyPlaces } from './analyze/verifyPlaces.mjs';
@@ -346,15 +348,16 @@ else blocks = blockRows ?? [];
 // 사람이 고친 pending 후보의 (글, 가게) — 같은 글을 다시 읽어도 그 가게는 새로 만들지 않는다(D3·T2.2). 옆에 AI 판단이 또 한 벌 붙지 않게.
 const editedKeys = editedKeysFor(pendingRows);
 const newNamesSeen = new Map(); // nameKey → 먼저 난 pending 후보 id(이전 실행) 또는 글 URL(이번 실행)
-// 지점 표기만 다른 같은 건물의 신규 후보("레스토랑 성산점" ↔ "레스토랑 제주성산점") — 이름 키가 달라 위 Map 으로는 못 만난다.
-// 검수 묶음은 `nameKey` 로 묶이므로(`groupCandidates`) 찾으면 `dupOf` 와 함께 **먼저 난 쪽의 키를 물려준다**. 좌표 없는 후보는 대상이 아니다.
-const newPlacesSeen = []; // { key, name, geo, ref }
-const branchSibling = (name, geo) =>
-  geo ? (newPlacesSeen.find((seen) => sameBranchStem(name, seen.name) && distanceMeters(geo, seen.geo) <= WEIGHT.GEO_NEAR_M) ?? null) : null;
+// 이름 키가 다른 같은 가게의 신규 후보 — 지점 표기만 다른 같은 건물("레스토랑 성산점" ↔ "레스토랑 제주성산점")이거나 같은 자리("본카페" ↔ "애월본카페").
+// 위 Map 으로는 못 만난다. 검수 묶음은 `nameKey` 로 묶이므로(`groupCandidates`) 찾으면 `dupOf` 와 함께 **먼저 난 쪽의 키를 물려준다**(`newSiblingOf`).
+// 좌표·주소 둘 다 없는 후보는 대상이 아니다.
+const newPlacesSeen = []; // { key, name, type, geo, address, ref }
 for (const row of pendingRows) {
   const key = row.extracted?.nameKey ?? normalizeName(row.extracted?.name ?? '');
   if (key && !newNamesSeen.has(key)) newNamesSeen.set(key, row.id);
-  if (key && row.extracted?.geo && (row.extracted?.match?.tier ?? 'new') === 'new') newPlacesSeen.push({ key, name: row.extracted.name, geo: row.extracted.geo, ref: row.id });
+  if (key && (row.extracted?.geo || row.extracted?.address) && (row.extracted?.match?.tier ?? 'new') === 'new') {
+    newPlacesSeen.push({ key, name: row.extracted.name, type: row.extracted.type ?? null, geo: row.extracted.geo ?? null, address: row.extracted.address ?? null, ref: row.id });
+  }
 }
 
 console.log(
@@ -518,7 +521,7 @@ for (const post of posts) {
           const label = verifyLabel(verdict);
           if (label === '동반 근거 없음') stats.verify.noEvidence += 1;
           if (label === '동반 불가 정황') stats.verify.notAllowed += 1;
-          if (label !== '동반 확인') console.log(`  교차점검 ${names.find((n) => normalizeName(n) === key) ?? key} — ${label}`);
+          if (label !== '동반 확인' && label !== '동반 표기만') console.log(`  교차점검 ${names.find((n) => normalizeName(n) === key) ?? key} — ${label}`);
         }
       } catch (e) {
         if (isFatal(e)) throw e;
@@ -573,11 +576,12 @@ for (const post of posts) {
         local = await enrichWithGeocode(extracted.address);
       }
       // regionRaw 는 주소 기반이 우선(analyzeCandidates.mjs). 주소는 네이버 → 본문 순.
-      const regionRaw = resolveRegionRaw(local?.address ?? extracted.address, extracted.regionRaw, existing);
+      const regionRaw = resolveRegionRaw(local?.address ?? extracted.address, extracted.regionRaw, existing, extracted.name);
       const matched = matchPlace(toMatchCandidate(extracted, local), existing);
       const key = normalizeName(extracted.name);
       const geo = local ? { lat: local.lat, lng: local.lng } : null;
-      const sibling = tierOf(matched) === 'new' && !newNamesSeen.has(key) ? branchSibling(extracted.name, geo) : null;
+      const address = local?.address ?? extracted.address ?? null;
+      const sibling = tierOf(matched) === 'new' && !newNamesSeen.has(key) ? newSiblingOf({ name: extracted.name, type: extracted.type ?? null, geo, address }, newPlacesSeen) : null;
       const dupOf = tierOf(matched) === 'new' ? (newNamesSeen.get(key) ?? sibling?.ref ?? null) : null;
       const row = toCandidateRow(post, extracted, local, regionRaw, matched, {
         meta,
@@ -628,10 +632,10 @@ for (const post of posts) {
       if (tier === 'new') {
         if (dupOf) {
           stats.dup += 1;
-          console.log(`    ※ ${sibling ? `지점 표기만 다른 같은 자리의 신규 후보(${sibling.name})가` : '같은 이름의 신규 후보가'} 이미 있음(${dupOf}) — dupOf 로 표시하고 넣는다. pnpm data:review 가 묶어 보여 준다`);
+          console.log(`    ※ ${sibling ? `같은 자리의 신규 후보(${sibling.name})가` : '같은 이름의 신규 후보가'} 이미 있음(${dupOf}) — dupOf 로 표시하고 넣는다. pnpm data:review 가 묶어 보여 준다`);
         } else {
           newNamesSeen.set(key, post.url);
-          if (geo) newPlacesSeen.push({ key, name: extracted.name, geo, ref: post.url });
+          if (geo || address) newPlacesSeen.push({ key, name: extracted.name, type: extracted.type ?? null, geo, address, ref: post.url });
         }
       }
       rows.push(row);

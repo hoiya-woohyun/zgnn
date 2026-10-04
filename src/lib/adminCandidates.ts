@@ -10,8 +10,9 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { groupCandidates, groupFlags, previewPolicy } from '../../scripts/analyze/reviewCandidates.mjs';
+import { groupCandidates, groupFlags, independentPostCount, previewPolicy } from '../../scripts/analyze/reviewCandidates.mjs';
 import { townOf } from '../../scripts/analyze/matchPlace.mjs';
+import { canonicalRegionRaw, canonicalTown, regionFromBranchName } from '../../scripts/lib/jejuRegions.mjs';
 import { parseRegion } from '../../scripts/lib/placeFields.mjs';
 import { feeLinesOf } from '../../scripts/lib/petPolicyFacts.mjs';
 import { parsePetPolicy, toPetBadges, withPolicyFacts, type TPetBadge } from './petPolicy';
@@ -146,7 +147,10 @@ export type TPlaceRow = {
   verified_at?: string | null;
 };
 
-/** 같은 가게로 묶인 후보들. 만드는 쪽은 `groupCandidates`(reviewCandidates.mjs:46-65). */
+/**
+ * 같은 가게로 묶인 후보들. 만드는 쪽은 `groupCandidates`(reviewCandidates.mjs) — 키(짝 id · 이름 키)로 묶고,
+ * 키가 달라도 같은 자리인 신규 묶음끼리 합친다(`mergeSameSpotGroups`). 그래서 한 묶음의 행들이 **이름이 다를 수 있다**.
+ */
 export type TCandidateGroup = {
   key: string;
   rows: TCandidateRow[];
@@ -157,6 +161,11 @@ export type TCandidateGroup = {
   hasPolicyText: boolean;
   confidence: number;
   posts: string[];
+  /**
+   * 독립 글 수 — 같은 블로그 · 같은 제목 틀(며칠 안)의 글을 하나로 센다(`postClusters`). `posts.length` 보다 작으면
+   * "글 N건" 이 여러 사람의 말이 아니다(광고성 복제 글). `groupCandidates` 가 채운다 — 없는 손 fixture 는 `posts.length` 로 본다.
+   */
+  independentPosts?: number;
 };
 
 /** 앱이 이 후보의 조건 문장을 어떻게 읽을지(정규식 / AI / 병합 결과). `previewPolicy` 의 결과에 이름을 붙인 것. */
@@ -242,6 +251,13 @@ export function groupPending(rows: TCandidateRow[]): TCandidateGroup[] {
   return groupCandidates(rows) as TCandidateGroup[];
 }
 
+/**
+ * 독립 글 수(`independentPostCount`) 래퍼 — `urls` 를 주면 그 글만(제안의 근거 글 `basedOn`). 글 정보는 행의 `blog_posts` 임베딩에서 온다.
+ */
+export function independentPostsOf(rows: readonly TCandidateRow[], urls?: readonly string[]): number {
+  return independentPostCount(rows, urls ?? null) as number;
+}
+
 /** `previewPolicy` 래퍼 — 앱 파서 세 함수를 주입한다. CLI 도 같은 셋을 넘긴다(review-candidates.mjs:27). */
 export function previewFor(extracted: TCandidateExtracted): TPolicyPreview {
   return previewPolicy(extracted, { parsePetPolicy, toPetBadges, withPolicyFacts }) as TPolicyPreview;
@@ -261,17 +277,22 @@ export function regionUsable(raw: string | null | undefined): boolean {
 const DIRECTION_ORDER: TDirection[] = ['east', 'west', 'south', 'north', 'udo', 'unknown'];
 
 /**
- * '지역 고르기' 선택지 — 기존 86곳이 실제로 쓰는 지역 문자열이다. 새 문자열을 만들지 않는 이유:
- * `region_raw` 는 읍·면 칩과 방향 필터의 유일한 입력이라, 데이터에 없는 표기를 넣으면 그 장소 혼자 다른 칩을 단다.
+ * '지역 고르기' 선택지 — 기존 86곳이 실제로 쓰는 **읍·면**이다. 새 읍·면을 만들지 않는 이유:
+ * `region_raw` 는 읍·면 칩과 방향 필터의 유일한 입력이라, 데이터에 없는 읍·면을 넣으면 그 장소 혼자 다른 칩을 단다.
  *
- * 읍·면 하나당 **한 줄만** 남긴다(가장 짧은 표기). 시드에는 `남쪽 (서귀포시 월평로)` 처럼 거리 이름이 붙은 raw 가
- * 셋 있는데, 그건 그 장소 한 곳의 상세 주소지 고를 값이 아니다 — 선택지에 두면 새 장소가 그 거리에 산다고 적힌다.
+ * 읍·면 하나당 **한 줄만**, 표기는 정본(`canonicalRegionRaw` — scripts/lib/jejuRegions.mjs)이다(2026-10-04). 그 전에는
+ * `방향|읍·면` 문자열을 키로 모아 시드의 비정규 표기가 따로 섰다 — `서쪽 (안덕면)`/`남쪽 (안덕면)`(개떼목장 하나가 서쪽),
+ * `남쪽 (서귀포)`/`남쪽 (서귀포시)`(그리너리빌리지 펜션 하나가 '서귀포'). 거리 이름이 붙은 raw(`남쪽 (서귀포시 월평로)`)도 읍·면으로 접힌다.
+ * 정본 표에 없는 읍·면이 데이터에 생기면 그 표기를 그대로 둔다(가장 짧은 것) — 사라지는 것보다 낫다.
+ * 이미 게시된 장소의 비정규 값은 DB 라 여기서 고치지 않는다(`regionCheck.mjs` 가 경고한다).
  */
 const regionByTown = new Map<string, TRegion>();
 for (const place of PLACES) {
-  const key = `${place.region.direction}|${place.region.town}`;
-  const seen = regionByTown.get(key);
-  if (!seen || place.region.raw.length < seen.raw.length) regionByTown.set(key, place.region);
+  const town = canonicalTown(place.region.town) as string;
+  const raw = (canonicalRegionRaw(town) as string | null) ?? place.region.raw;
+  const region = parseRegion(raw) as TRegion;
+  const seen = regionByTown.get(town);
+  if (!seen || region.raw.length < seen.raw.length) regionByTown.set(town, region);
 }
 
 export const REGION_OPTIONS: string[] = [...regionByTown.values()]
@@ -285,17 +306,28 @@ export const REGION_OPTIONS: string[] = [...regionByTown.values()]
 /**
  * '지역 고르기' 의 선택지를 **주소의 읍·면으로 가른다** — 순수. 고르는 것은 여전히 사람이다.
  *
- * 자동으로 채우지 않는 이유: 이 셀렉트가 뜨는 후보는 분석이 지역을 못 정한 것이고, 그 대표가 안덕면처럼 기존 데이터에서
- * **방향이 갈리는** 읍·면이다(`naverLocal.mjs` 의 `inferRegionRaw` 가 일부러 '' 를 준다 — 시로 뭉개지 않는다).
- * 그런데 주소가 안덕면이라는 것까지 버리면 운영자는 20여 개 목록에서 `남쪽 (안덕면)` · `서쪽 (안덕면)` 을 찾아야 한다.
- * 그래서 그 둘만 위로 올리고, 어느 쪽인지는 사람이 정한다. 주소에 읍·면이 없으면(시내·주소 없음) 목록 그대로다.
+ * 이 셀렉트가 뜨는 후보는 분석이 지역을 못 정한 것이다. 주소에 읍·면이 있으면 그 선택지를 위로 올린다 —
+ * 20여 개 목록에서 찾게 두지 않는다. 주소에 읍·면이 없으면(시내·주소 없음) 목록 그대로다.
+ *
+ * `name` 을 주면 **이름의 지점 꼬리**로 정한 지역을 `preset` 으로 돌려준다(2026-10-04 — `regionFromBranchName`).
+ * 이미 쌓인 후보는 분석의 새 폴백(`resolveRegionRaw`)을 못 받았으므로 화면이 그때그때 계산해 **미리 고른 값**으로 둔다.
+ * 저장은 여전히 운영자가 누른다 — 꼬리의 지명이 틀릴 수 있다("공항점" 은 안 잡지만 같은 이름의 리가 두 읍·면에 있는 곳이 있다).
+ * 주소의 읍·면과 갈리거나 선택지에 없는 값이면 preset 을 내지 않는다 — 주소가 더 센 근거다.
  */
-export function regionOptionsFor(address: string | null | undefined): { town: string | null; suggested: string[]; rest: string[] } {
+export function regionOptionsFor(
+  address: string | null | undefined,
+  name?: string | null,
+): { town: string | null; suggested: string[]; rest: string[]; preset: string | null } {
+  const fromName = (regionFromBranchName(name ?? null) as string | null) ?? null;
   const town = townOf(address ?? '') as string | null;
-  if (!town) return { town: null, suggested: [], rest: REGION_OPTIONS };
-  const suggested = REGION_OPTIONS.filter((option) => option.includes(town));
-  if (!suggested.length) return { town: null, suggested: [], rest: REGION_OPTIONS };
-  return { town, suggested, rest: REGION_OPTIONS.filter((option) => !option.includes(town)) };
+  const suggested = town ? REGION_OPTIONS.filter((option) => option.includes(town)) : [];
+  // 선택지에 있는 값만 — 셀렉트가 그릴 수 없는 값을 미리 고를 수는 없다.
+  const preset = fromName && REGION_OPTIONS.includes(fromName) && (!town || fromName.includes(town)) ? fromName : null;
+  if (!suggested.length) {
+    if (!preset) return { town: null, suggested: [], rest: REGION_OPTIONS, preset: null };
+    return { town: null, suggested: [preset], rest: REGION_OPTIONS.filter((option) => option !== preset), preset };
+  }
+  return { town, suggested, rest: REGION_OPTIONS.filter((option) => !option.includes(town!)), preset };
 }
 
 export const TYPE_LABEL: Record<TCandidateType, string> = {

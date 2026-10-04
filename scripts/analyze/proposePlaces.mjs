@@ -114,11 +114,15 @@ const postedAtOf = (row) => {
 /** 글 행을 새 글이 위로. 날짜 모르는 글은 맨 뒤. */
 export const newestFirst = (rows) => [...rows].sort((a, b) => (postedAtOf(b) ?? '').localeCompare(postedAtOf(a) ?? ''));
 
-/** 교차점검 표식 — 본문 인용 없이 말만(`verifyLabel` 과 같은 갈래, node 모듈을 끌어오지 않으려고 여기서 다시 쓴다). */
+/**
+ * 교차점검 표식 — 본문 인용 없이 말만(`verifyLabel` 과 같은 갈래, node 모듈을 끌어오지 않으려고 여기서 다시 쓴다).
+ * '동반 표기만'(2026-10-04)은 user 프롬프트의 **데이터**에만 실린다 — 시스템 프롬프트는 그대로라 `PROPOSE_PROMPT_VERSION` 이 바뀌지 않는다.
+ */
 const verifyMark = (verify) => {
   if (!verify) return '미점검';
   if (verify.petAllowedHere === 'no') return '동반 불가 정황';
-  if (verify.petAllowedHere === 'yes' || verify.dogWasThere) return '동반 확인';
+  if (verify.dogWasThere) return '동반 확인';
+  if (verify.petAllowedHere === 'yes') return '동반 표기만';
   return '동반 근거 없음';
 };
 

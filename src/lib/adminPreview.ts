@@ -14,7 +14,7 @@
  * **주황 뱃지로 원문 그대로** 보여 준다 — 못생기게 드러나는 것이 조용히 묻히는 것보다 낫다.
  */
 
-import { factsLine, FACTS_EMPTY, type TPolicyPreview } from './adminCandidates';
+import { factsLine, FACTS_EMPTY, TYPE_LABEL, type TCandidateExtracted, type TPolicyPreview } from './adminCandidates';
 import type { TPetBadge } from './petPolicy';
 
 export type TFlagTone = 'gray' | 'warning' | 'error';
@@ -48,12 +48,47 @@ const RULES: Record<string, TRule> = {
   '짝 없음': { kind: 'hidden' }, // 구간 뱃지가 `새 장소로` 로 말한다
 };
 
+/** 종류 엇갈림 표식의 접두어. `PREFIX_RULES` 와 걸러 보기('경고' 의 종류 엇갈림)가 이 값으로 찾는다. */
+export const TYPE_MISMATCH_FLAG = '종류 엇갈림';
+
+/** 카페 쪽 말. 네이버 카테고리(`카페,디저트` · `베이커리` · `브런치카페`)와 소개 문장에 공통으로 나온다. */
+const CAFE_WORDS = /카페|디저트|베이커리|커피|찻집|제과/;
+/** 식당 쪽 카테고리 말 — **카테고리에서만** 쓴다. 소개 문장의 '맛집'·'고기' 는 "빵 맛집"·"고기 없는 메뉴" 처럼 카페에도 흔하다. */
+const RESTAURANT_CATEGORY = /음식점|식당|한식|양식|중식|일식|고기|국수|국밥|횟집|해물|해산물|분식|요리|치킨|피자|버거|라멘|돈가스|덮밥|흑돼지|갈치|고등어/;
+/** 식당 쪽 소개 말 — 카테고리가 없을 때만. 좁게 둔다. */
+const RESTAURANT_FEATURES = /식당|음식점|밥집/;
+
+/**
+ * **종류가 요약·카테고리와 엇갈리는가**(2026-10-04) — 요약은 "브런치 카페" 인데 종류는 식당인 후보가 그대로 승인되면
+ * 둘러보기의 종류 칩·지도 색이 틀린다. 프롬프트 쪽 수정은 따로고, 이미 쌓인 후보는 화면이 그때그때 본다(재분석 없이).
+ *
+ * **카테고리가 있으면 카테고리만** 본다 — 네이버가 업체로 등록한 종류라 요약 문장보다 믿을 만하고, 소개 문장의 "카페 같은 분위기" 를
+ * 종류로 읽지 않는다. 카테고리가 없을 때만 소개 문장을 본다. 숙소·기타는 보지 않는다(카페가 딸린 펜션은 흔하다).
+ * 판정이 아니라 표식이다 — 어느 쪽이 맞는지는 사람이 원글을 보고 정한다. 표식 문자열은 `종류 엇갈림(식당→카페)` 꼴.
+ */
+export function typeMismatchFlags(extracted: Pick<TCandidateExtracted, 'type' | 'category' | 'features'>): string[] {
+  const category = (extracted.category ?? '').trim();
+  const features = (extracted.features ?? '').trim();
+  const flag = (to: 'cafe' | 'restaurant') => [`${TYPE_MISMATCH_FLAG}(${TYPE_LABEL[extracted.type]}→${TYPE_LABEL[to]})`];
+  if (extracted.type === 'restaurant') {
+    if (category) return CAFE_WORDS.test(category) ? flag('cafe') : [];
+    return CAFE_WORDS.test(features) && !RESTAURANT_FEATURES.test(features) ? flag('cafe') : [];
+  }
+  if (extracted.type === 'cafe') {
+    if (category) return RESTAURANT_CATEGORY.test(category) && !CAFE_WORDS.test(category) ? flag('restaurant') : [];
+    return RESTAURANT_FEATURES.test(features) && !CAFE_WORDS.test(features) ? flag('restaurant') : [];
+  }
+  return [];
+}
+
 /**
  * 보간 표식은 어떤 Record 키와도 같을 수 없다 — `AI≠정규식(실내 ${facts.indoor}/${regex.indoor})`
  * (reviewCandidates.mjs:82). **접두어**로 잡는다. 값은 영어 enum(`free`·`cage`·`outdoorOnly`)이라 라벨에 싣지 않는다.
  */
 const PREFIX_RULES: readonly (readonly [string, TRule])[] = [
   ['AI≠정규식', { kind: 'badge', label: '실내 조건 엇갈림', tone: 'warning', rank: 2 }],
+  // `typeMismatchFlags` 가 낸다(이 파일). 화살표 뒤는 라벨에 싣지 않는다 — 어느 쪽인지는 종류 칩과 펼친 상세가 말한다.
+  [TYPE_MISMATCH_FLAG, { kind: 'badge', label: '종류 엇갈림', tone: 'warning', rank: 2 }],
 ];
 
 /** 모르는 표식. 회색으로 두면 새 표식이 조용히 묻힌다 — 원문을 그대로, 보이게. */
@@ -121,7 +156,7 @@ export type TPolicyCell = {
 /** 표의 동반 조건 칸에 서는 짧은 단어. 긴 문장(`message`)은 펼친 상세가 쓴다. */
 export const POLICY_STATE_WORD: Record<Exclude<TPolicyCell['state'], 'items'>, string> = {
   noText: '문장 없음',
-  noLimit: '제한 없음',
+  noLimit: '조건 미기재',
   aiHidden: '읽었지만 안 나감',
   unread: '못 읽음',
 };
@@ -143,10 +178,14 @@ export function policyCell(preview: TPolicyPreview, petPolicyText: string | null
    * 동반 가능으로 읽고(`unread: false` · level `자유`), 사이트는 칩 없이 내보낸다. 여기서 '못 읽었어요' 라고 하면
    * 운영자는 원문에 뭔가 더 있는 줄 알고 찾으러 가고, 정말 못 읽은 원문(`원문 확인 필요` 배지)과도 구별되지 않는다.
    * 그래서 사이트에 나갈 결과를 그대로 말한다 — 원문에 조건이 더 있었다면 사람이 여기서 알아챈다.
-   * '조건' 이 아니라 '제한' 인 이유: 정규식이 `실외 자유`·`마릿수 제한 없음` 처럼 **풀어 주는** 말을 읽은 경우도 이 갈래로 온다
-   * (배지가 없을 뿐 읽었다). 그것도 제한은 아니므로 두 경우에 다 맞는 말이다.
+   *
+   * 라벨이 `제한 없음` 이던 동안(~2026-10-04) 운영자에게 "다 된다" 로 읽혔다. 실제 뜻은 "글에 제한이 **안 적혀 있다**" 이고,
+   * 이 상태로 승인하면 사이트는 소·중형견을 조건 없이 '갈 수 있어요' 로 내보낸다 — 승인 전에 원문을 한 번 볼 자리라
+   * `조건 미기재` 로 낮추고 칸도 경고 톤으로 그린다(`adminPageGroupCard` 의 `PolicyCell`). 판정 자체(`eligibility.ts`)는 그대로다.
    */
-  if (preview.level === '자유') return { items: [], message: '적힌 제한이 없어요 — 사이트엔 조건 없이 나가요', state: 'noLimit' };
+  if (preview.level === '자유') {
+    return { items: [], message: "글에 조건이 안 적혀 있어요 — 승인하면 사이트엔 조건 없이('갈 수 있어요') 나가요", state: 'noLimit' };
+  }
   return { items: [], message: '동반 조건을 못 읽었어요', state: 'unread' };
 }
 

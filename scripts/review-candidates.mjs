@@ -28,7 +28,8 @@ const parsers = { parsePetPolicy, toPetBadges, withPolicyFacts };
 const supabase = createSupabase();
 
 async function loadPending() {
-  const { data, error } = await supabase.from('candidates').select('*').eq('status', 'pending').order('created_at', { ascending: true }).limit(1000);
+  // 글의 블로그·제목·날짜를 같이 받는다 — 독립 글 수(`postClusters`)가 화면(`CANDIDATE_SELECT`)과 같게 세어지도록.
+  const { data, error } = await supabase.from('candidates').select('*, blog_posts(title,posted_at,blog_id)').eq('status', 'pending').order('created_at', { ascending: true }).limit(1000);
   if (error) throw new Error(`candidates 조회 실패: ${error.message}`);
   return data;
 }

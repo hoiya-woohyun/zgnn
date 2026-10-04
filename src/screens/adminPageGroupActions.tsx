@@ -123,7 +123,9 @@ export function AdminPageGroupActions({
   const matchedArchived = matched?.status === 'archived';
   const matchedDraft = matched?.status === 'draft';
   const similarArchived = state.similar?.status === 'archived';
-  const regionChoices = regionOptionsFor(group.lead.extracted.address);
+  const regionChoices = regionOptionsFor(group.lead.extracted.address, group.lead.extracted.name);
+  /** 고른 지역 — 안 건드렸으면 이름의 지점 꼬리로 정한 값(`preset`)이 미리 골라져 있다. 저장은 여전히 운영자가 누른다. */
+  const regionPick = state.regionDraft ?? regionChoices.preset;
 
   // 반려 폼은 이 줄 **자리에서** 열린다 — 누른 자리에서 이어서 고르고, 근거는 위에 그대로 남는다.
   if (state.rejecting) {
@@ -353,6 +355,9 @@ export function AdminPageGroupActions({
           */}
         <Situation title="지역을 골라야 올릴 수 있어요">
           {regionChoices.town && <p>주소가 {regionChoices.town}이에요 — 맨 위의 {regionChoices.suggested.join(' · ')} 중에서 골라 주세요.</p>}
+          {!regionChoices.town && regionChoices.preset && (
+            <p>이름의 지점 이름으로 {regionChoices.preset} 을 골라 뒀어요 — 맞으면 저장해 주세요.</p>
+          )}
         </Situation>
         <Row>
           <Select
@@ -360,7 +365,7 @@ export function AdminPageGroupActions({
             size="sm"
             className="w-48"
             placeholder="지역 고르기"
-            selectedKey={state.regionDraft ?? null}
+            selectedKey={regionPick ?? null}
             onSelectionChange={(key) => key && onPickRegion(String(key))}
             isDisabled={off}
           >
@@ -373,9 +378,9 @@ export function AdminPageGroupActions({
           <TipButton
             color="primary"
             size="sm"
-            isDisabled={off || !state.regionDraft}
+            isDisabled={off || !regionPick}
             isLoading={busy === 'savingRegion'}
-            onClick={() => state.regionDraft && onSaveRegion(state.regionDraft)}
+            onClick={() => regionPick && onSaveRegion(regionPick)}
           >
             지역 저장
           </TipButton>

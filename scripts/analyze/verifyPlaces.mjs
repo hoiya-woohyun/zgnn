@@ -243,6 +243,8 @@ export async function verifyPlaces(run, post, bodyText, names, meter) {
 export function verifyLabel(verify) {
   if (!verify) return '미점검';
   if (verify.petAllowedHere === 'no') return '동반 불가 정황';
-  if (verify.petAllowedHere === 'yes' || verify.dogWasThere) return '동반 확인';
+  if (verify.dogWasThere) return '동반 확인';
+  // 본문이 동반 가능이라 **적었을 뿐** 글쓴이의 강아지가 있었다는 서술은 없다(2026-10-04 — 표시만 가른다, 걸러 내기는 그대로).
+  if (verify.petAllowedHere === 'yes') return '동반 표기만';
   return '동반 근거 없음';
 }

@@ -18,13 +18,13 @@ export type TTierFilter = (typeof TIER_FILTER_KEYS)[number];
 export const KIND_FILTER_KEYS = ['all', 'update', 'fill', 'new', 'ask'] as const;
 export type TKindFilter = (typeof KIND_FILTER_KEYS)[number];
 
-export const POLICY_FILTER_KEYS = ['all', 'has', 'needsLook'] as const;
+export const POLICY_FILTER_KEYS = ['all', 'has', 'needsLook', 'listedOnly'] as const;
 export type TPolicyFilter = (typeof POLICY_FILTER_KEYS)[number];
 
 export const TYPE_FILTER_KEYS = ['all', 'stay', 'restaurant', 'cafe', 'other'] as const;
 export type TTypeFilter = (typeof TYPE_FILTER_KEYS)[number];
 
-export const WARN_FILTER_KEYS = ['all', 'any', 'region', 'address', 'noBasis'] as const;
+export const WARN_FILTER_KEYS = ['all', 'any', 'region', 'address', 'noBasis', 'typeMismatch'] as const;
 export type TWarnFilter = (typeof WARN_FILTER_KEYS)[number];
 
 export type TAdminUrlState = {

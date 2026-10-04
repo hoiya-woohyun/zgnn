@@ -6,6 +6,7 @@ import { Checkbox } from '../components/base/checkbox';
 import type { TCandidateGroup, TPlaceRow } from '../lib/adminCandidates';
 import { withProposal, type TProposal } from '../lib/adminProposal';
 import { EMPTY_VALUE, type TEditChange } from '../lib/adminEdit';
+import { SITE_OWNED_COLUMNS } from '../lib/adminLatest';
 import { siteCompareRows, type TFieldVoice } from '../lib/adminSiteCompare';
 import { cx } from '../utils/cx';
 import { SOURCE_TONE } from './adminSource';
@@ -25,6 +26,9 @@ import { SOURCE_TONE } from './adminSource';
 const proposalFieldOf = (key: string) => (key === 'pet_policy' ? 'pet_policy_text' : key);
 
 /** 빈 칸이면 체크와 무관하게 채워지는 칸 — `mergeIntoExisting`(scripts/analyze/applyApproved.mjs)이 채우는 칸의 화면 키. */
+/** 사이트에 값이 있으면 기본 체크가 꺼지는 칸(`defaultOverwritePick`) — 꺼진 까닭을 그 줄이 말한다. */
+const SITE_OWNED_KEYS = new Set<string>(SITE_OWNED_COLUMNS);
+
 const FILLED_WHEN_BLANK = new Set(['address', 'geo', 'region_raw', 'features', 'pet_policy_text', 'category', 'stay_price_text', 'stay_amenities_text', 'homepage_url']);
 
 const GRID_WITH_WHY = 'md:grid-cols-[7.5rem_minmax(0,1.2fr)_minmax(0,1.3fr)_minmax(0,1fr)]';
@@ -184,7 +188,11 @@ export function AdminPageGroupSiteCompare({
                       */}
                     {!picked && (
                       <p className="mt-1 text-tertiary">
-                        {line.before === EMPTY_VALUE && FILLED_WHEN_BLANK.has(line.key) ? '체크를 꺼도 빈 칸이라 채워져요' : '체크를 꺼서 안 바꿔요 — 지금 값 그대로'}
+                        {line.before === EMPTY_VALUE && FILLED_WHEN_BLANK.has(line.key)
+                          ? '체크를 꺼도 빈 칸이라 채워져요'
+                          : SITE_OWNED_KEYS.has(line.key) && line.before !== EMPTY_VALUE
+                            ? '사이트 값이 있어 기본으로 꺼 뒀어요 — 바꾸려면 체크하세요'
+                            : '체크를 꺼서 안 바꿔요 — 지금 값 그대로'}
                       </p>
                     )}
                   </>

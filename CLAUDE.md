@@ -82,7 +82,7 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
   아니라 **`toMatchablePlace`** 로 만든다(`status` 한 칸을 얹는다 — 한 군데만 빠져도 동점 규칙이 조용히 꺼진다).
   빌드·테스트는 전부 통과한다(→ [ADR-018](docs/decisions/ADR-018-in-app-admin-review.md) 결정 7).
 - **`extracted.verify` 의 `null` 은 "근거 없음" 이 아니라 "안 봤다" 다.** 교차점검(`scripts/analyze/verifyPlaces.mjs`)의 상태는
-  셋이 아니라 **넷**이고(미점검 · 동반 확인 · 동반 근거 없음 · 동반 불가 정황), `verify` 의 truthy 만 보는 구현은 아직 안 본 후보를
+  셋이 아니라 **다섯**이고(미점검 · 동반 확인 · 동반 표기만 · 동반 근거 없음 · 동반 불가 정황), `verify` 의 truthy 만 보는 구현은 아직 안 본 후보를
   "봤고 괜찮았다" 로 보여 준다 — 그 패스를 만든 이유가 그대로 되돌아온다. 지금 쌓인 후보 218건이 전부 `null` 이다.
   화면은 그때 뱃지를 **안 그린다**(`src/lib/adminVerify.ts` 의 `verifyView`). 빌드·테스트는 통과한다
   (→ [ADR-019](docs/decisions/ADR-019-ai-cross-check-and-address-rules.md) 결정 3).
@@ -94,7 +94,7 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
   빌드·테스트는 전부 통과한다(→ [ADR-019](docs/decisions/ADR-019-ai-cross-check-and-address-rules.md) 결정 5).
 - **주소 표기 대조에 AI 를 붙이면 하나 있는 진짜 신호를 잃는다.** 두 주소(네이버 ↔ 원글)의 불일치 43쌍 중 39쌍이 `제주특별자치도`↔`제주`
   뿐이었고, 정말 다른 2쌍이 "검색이 동명의 다른 가게를 집었다" 는 유일한 신호다. 남은 갈래(지번↔도로명)는 조회해야 아는 것이라 모델이
-  지어내고, 지어낸 '같다' 가 그 2쌍을 덮는다 — `src/lib/addressMatch.ts` 의 `sameAddress` 가 `'unknown'` 을 돌려주는 것은 포기가 아니라 결정이다.
+  지어내고, 지어낸 '같다' 가 그 2쌍을 덮는다 — `scripts/lib/addressMatch.mjs` 의 `sameAddress` 가 `'unknown'` 을 돌려주는 것은 포기가 아니라 결정이다.
 - **`TPetPolicy` 에 조건 필드를 더하면 `readNothing`(`petPolicy.ts`)에도 더한다.** 빠지면 그 조건만 읽힌 원문이
   `unread` 가 되어 판정 C7("원문을 확인해 주세요")로 떨어진다 — 시드 86곳엔 그런 원문이 없어 테스트는 통과한다.
   같은 이유로 AI 판단은 `correctPetPolicyFacts`(`scripts/lib/petPolicyFacts.mjs`)를 거쳐야 판정에 닿는다: 원문에 근거 없는

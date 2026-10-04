@@ -9,21 +9,25 @@
 
 import { addressUnresolved } from './adminAddress';
 import { regionUsable, type TCandidateGroup, type TPlaceRow } from './adminCandidates';
-import { latestPlan } from './adminLatest';
+import { defaultOverwritePick, latestPlan } from './adminLatest';
 import { liveProposal, proposalPick, withProposal } from './adminProposal';
 import { verifyNeedsLook } from './adminVerify';
+import { policyDirection } from './policyDirection';
 
 export type TBulkLatest = {
   /**
-   * 덮을 수 있는 묶음과 짝 id · 바뀌는 칸 수. `columns` 는 덮을 칸 — 제안이 있으면 **제안이 켠 칸만**(11 U7), 없으면 undefined(전부).
+   * 덮을 수 있는 묶음과 짝 id · 덮을 칸 수. `columns` 는 덮을 칸 — **한 줄의 기본 체크와 같다**: 제안이 있으면 제안이 켠 칸만(11 U7),
+   * 없으면 `defaultOverwritePick`(완화된 조건 · 사이트에 값이 있는 이름·종류·소개는 끈다, 2026-10-04). 일괄이 한 줄보다 더 덮지 않는다.
    */
-  eligible: { group: TCandidateGroup; pairId: string; changes: number; columns?: string[] }[];
+  eligible: { group: TCandidateGroup; pairId: string; changes: number; columns: string[] }[];
   /** 짝이 없다 — 덮을 대상이 없다(새 장소 후보). */
   noPair: number;
   /** 짝이 내린 곳 — 되살릴지는 한 줄에서 사람이 정한다. */
   archived: number;
   /** 새 분석이 지금 값과 같다 — 덮을 칸이 없다. */
   same: number;
+  /** 바뀌는 칸은 있는데 기본으로 켜진 칸이 없다(이름·소개·완화된 조건뿐) — 덮으려면 한 줄에서 사람이 켠다. */
+  offByDefault: number;
 };
 
 /**
@@ -32,7 +36,7 @@ export type TBulkLatest = {
  */
 export function bulkLatestTargets(groups: TCandidateGroup[], places: TPlaceRow[]): TBulkLatest {
   const byId = new Map(places.map((place) => [place.id, place]));
-  const out: TBulkLatest = { eligible: [], noPair: 0, archived: 0, same: 0 };
+  const out: TBulkLatest = { eligible: [], noPair: 0, archived: 0, same: 0, offByDefault: 0 };
   for (const group of groups) {
     const pairId = group.lead.match_place_id;
     const place = pairId ? byId.get(pairId) : undefined;
@@ -40,10 +44,13 @@ export function bulkLatestTargets(groups: TCandidateGroup[], places: TPlaceRow[]
     else if (place.status === 'archived') out.archived += 1;
     else {
       const proposal = liveProposal(group.rows ?? []);
-      const keys = latestPlan(place, withProposal(group.lead.extracted, proposal, place)).changes.map((change) => change.key);
-      const columns = proposalPick(keys, proposal, place) ?? undefined;
-      const changes = columns ? columns.length : keys.length;
-      if (changes) out.eligible.push({ group, pairId, changes, ...(columns ? { columns } : {}) });
+      const effective = withProposal(group.lead.extracted, proposal, place);
+      const keys = latestPlan(place, effective).changes.map((change) => change.key);
+      // 한 줄의 기본 체크(`adminPageGroupCard`)와 같은 식 — 일괄이 더 공격적이면 "본 줄과 다른 것이 덮였다" 가 된다.
+      const loosen = policyDirection(place.pet_policy, effective.petPolicy).overall === 'loosen';
+      const columns = proposalPick(keys, proposal, place, group.rows) ?? defaultOverwritePick(keys, { loosen, place });
+      if (columns.length) out.eligible.push({ group, pairId, changes: columns.length, columns });
+      else if (keys.length) out.offByDefault += 1;
       else out.same += 1;
     }
   }
@@ -57,6 +64,7 @@ export function bulkLatestSummary(plan: TBulkLatest): string {
     plan.noPair && `짝 없는 ${plan.noPair}곳`,
     plan.archived && `짝이 내린 곳인 ${plan.archived}곳`,
     plan.same && `바뀔 칸이 없는 ${plan.same}곳`,
+    plan.offByDefault && `이름·소개처럼 사람이 켜야 하는 칸만 바뀌는 ${plan.offByDefault}곳`,
   ].filter(Boolean);
   const head = `${plan.eligible.length}곳의 기존 장소를 새 분석 값으로 덮어요 — 모두 ${cells}칸.`;
   return skipped.length ? `${head} ${skipped.join(' · ')}은 건너뛰어요.` : head;

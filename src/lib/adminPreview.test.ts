@@ -7,9 +7,11 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { adminFlagView, policyCell, policyLine, policySplit } from './adminPreview';
+import { adminFlagView, policyCell, policyLine, policySplit, POLICY_STATE_WORD, typeMismatchFlags } from './adminPreview';
 import { previewFor, type TCandidateExtracted, type TPolicyPreview } from './adminCandidates';
 import type { TPetBadge } from './petPolicy';
+
+const NO_LIMIT_MESSAGE = "글에 조건이 안 적혀 있어요 — 승인하면 사이트엔 조건 없이('갈 수 있어요') 나가요";
 
 /**
  * `mergedBadges`(라벨)와 `mergedBadgeList`(라벨+톤)는 실제로는 `toPetBadges` 한 번에서 함께 나온다
@@ -118,19 +120,24 @@ describe('policyCell — 네 갈래', () => {
    * "강아지 동반이 가능합니다" 한 줄 — 파서는 이것을 **읽은 것**으로 본다(`petPolicy.ts` 의 `isGenericAllowance`, level `자유`).
    * '못 읽었어요' 라고 하면 원문에 뭔가 더 있는 줄 알고 찾으러 가게 되고, 정말 못 읽은 원문과 구별되지 않는다(2026-09-30 실측 4건).
    */
-  it('실제 파서를 거쳐도 — "강아지 동반이 가능합니다" 는 제한 없음, 제한을 암시하면 원문 확인 필요', () => {
+  it('실제 파서를 거쳐도 — "강아지 동반이 가능합니다" 는 조건 미기재, 제한을 암시하면 원문 확인 필요', () => {
     const cellOf = (text: string) => {
       const extracted = { name: '제주삼춘', type: 'restaurant', petPolicyText: text, petPolicy: null } as unknown as TCandidateExtracted;
       return labelsOf(policyCell(previewFor(extracted), text));
     };
-    expect(cellOf('강아지 동반이 가능합니다')).toEqual({ items: [], message: '적힌 제한이 없어요 — 사이트엔 조건 없이 나가요' });
-    expect(cellOf('테라스에서만 동반 가능해요').message).not.toBe('적힌 제한이 없어요 — 사이트엔 조건 없이 나가요');
+    expect(cellOf('강아지 동반이 가능합니다')).toEqual({ items: [], message: NO_LIMIT_MESSAGE });
+    expect(cellOf('테라스에서만 동반 가능해요').message).not.toBe(NO_LIMIT_MESSAGE);
+  });
+
+  it('라벨은 "다 된다" 로 읽히지 않게 조건 미기재 — 승인하면 조건 없이 나간다는 것을 문장이 말한다(2026-10-04)', () => {
+    expect(POLICY_STATE_WORD.noLimit).toBe('조건 미기재');
+    expect(policyCell(preview({ mergedBadges: [], facts: null, level: '자유' }), '강아지 동반이 가능합니다').state).toBe('noLimit');
   });
 
   it('일반 허용 문장뿐이면 못 읽었다가 아니라 조건 없이 나간다고 말한다', () => {
     expect(labelsOf(policyCell(preview({ mergedBadges: [], facts: null, level: '자유' }), '강아지 동반이 가능합니다'))).toEqual({
       items: [],
-      message: '적힌 제한이 없어요 — 사이트엔 조건 없이 나가요',
+      message: NO_LIMIT_MESSAGE,
     });
   });
 
@@ -230,5 +237,35 @@ describe('policySplit — 세 칸으로 가르기', () => {
     const cell = policySplit(preview({ mergedBadges: [], mergedBadgeList: [], facts: null }), '애견동반 가능해요!');
     expect(cell.message).toBe('동반 조건을 못 읽었어요');
     expect([cell.condition, cell.fee, cell.gear]).toEqual([[], [], []]);
+  });
+});
+
+describe('typeMismatchFlags — 종류가 카테고리·요약과 엇갈린다(2026-10-04)', () => {
+  const x = (type: TCandidateExtracted['type'], category: string | null, features: string | null = null) => ({ type, category, features });
+
+  it('요약이 "브런치 카페" 인데 종류가 식당이면 표식 — 카테고리가 없을 때는 소개 문장을 본다', () => {
+    expect(typeMismatchFlags(x('restaurant', null, '바다 앞 브런치 카페예요'))).toEqual(['종류 엇갈림(식당→카페)']);
+    expect(adminFlagView(typeMismatchFlags(x('restaurant', null, '바다 앞 브런치 카페예요'))).badges).toEqual([
+      { key: '종류 엇갈림(식당→카페)', label: '종류 엇갈림', tone: 'warning' },
+    ]);
+  });
+
+  it('카테고리가 있으면 카테고리만 본다 — 소개의 "카페 같은 분위기" 를 종류로 읽지 않는다', () => {
+    expect(typeMismatchFlags(x('restaurant', '카페,디저트'))).toEqual(['종류 엇갈림(식당→카페)']);
+    expect(typeMismatchFlags(x('restaurant', '베이커리'))).toEqual(['종류 엇갈림(식당→카페)']);
+    expect(typeMismatchFlags(x('restaurant', '돼지고기구이', '카페 같은 분위기의 고깃집'))).toEqual([]);
+    expect(typeMismatchFlags(x('cafe', '카페,디저트', '식당 옆 카페'))).toEqual([]);
+  });
+
+  it('반대도 — 카페인데 카테고리가 식당 쪽이면 표식', () => {
+    expect(typeMismatchFlags(x('cafe', '국수'))).toEqual(['종류 엇갈림(카페→식당)']);
+    expect(typeMismatchFlags(x('cafe', '한식'))).toEqual(['종류 엇갈림(카페→식당)']);
+    expect(typeMismatchFlags(x('cafe', null, '동네 식당이에요'))).toEqual(['종류 엇갈림(카페→식당)']);
+    expect(typeMismatchFlags(x('cafe', null, '빵 맛집 카페'))).toEqual([]);
+  });
+
+  it('숙소·기타는 보지 않는다 — 카페가 딸린 펜션은 흔하다', () => {
+    expect(typeMismatchFlags(x('stay', '카페'))).toEqual([]);
+    expect(typeMismatchFlags(x('other', null, '카페'))).toEqual([]);
   });
 });

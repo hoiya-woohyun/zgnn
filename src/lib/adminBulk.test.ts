@@ -11,13 +11,25 @@ describe('bulkLatestTargets', () => {
   it('짝 없음 · 내린 곳 · 같음은 건너뛰고 나머지만 덮는다', () => {
     const plan = bulkLatestTargets(
       [group('a', 'p1'), group('b', null), group('c', 'p2'), group('d', 'p3', '옛 소개')],
-      [place('p1'), place('p2', { status: 'archived' }), place('p3')],
+      // p1 은 소개가 비어 있다 — 빈 칸을 채우는 것은 기본으로 켜진다(사이트에 값이 있는 소개는 꺼진다, 아래).
+      [place('p1', { features: '' }), place('p2', { status: 'archived' }), place('p3')],
     );
     expect(plan.eligible.map((entry) => entry.group.key)).toEqual(['a']);
     expect(plan).toMatchObject({ noPair: 1, archived: 1, same: 1 });
     expect(bulkLatestSummary(plan)).toBe(
       '1곳의 기존 장소를 새 분석 값으로 덮어요 — 모두 1칸. 짝 없는 1곳 · 짝이 내린 곳인 1곳 · 바뀔 칸이 없는 1곳은 건너뛰어요.',
     );
+  });
+});
+
+describe('bulkLatestTargets — 제안이 없으면 한 줄의 기본 체크와 같다(2026-10-04)', () => {
+  it('사이트에 값이 있는 이름·소개만 바뀌면 덮지 않고 따로 센다 · 다른 칸이 있으면 그 칸만', () => {
+    const plan = bulkLatestTargets([group('a', 'p1')], [place('p1')]);
+    expect(plan.eligible).toEqual([]);
+    expect(plan.offByDefault).toBe(1);
+    expect(bulkLatestSummary(plan)).toBe('0곳의 기존 장소를 새 분석 값으로 덮어요 — 모두 0칸. 이름·소개처럼 사람이 켜야 하는 칸만 바뀌는 1곳은 건너뛰어요.');
+    const withAddress = { ...group('b', 'p1'), lead: { match_place_id: 'p1', extracted: { ...group('b', 'p1').lead.extracted, address: '제주 제주시 애월읍 1' } } } as unknown as TCandidateGroup;
+    expect(bulkLatestTargets([withAddress], [place('p1')]).eligible[0]).toMatchObject({ changes: 1, columns: ['address'] });
   });
 });
 

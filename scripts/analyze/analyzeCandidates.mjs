@@ -4,9 +4,10 @@
 // 조립 규칙을 스크립트 밖으로 뺀 이유 — candidates.extracted 의 모양은 apply-approved.mjs(applyApproved.mjs)가 그대로 읽는
 // 계약이다. 키 하나가 빠지면(예: 네이버가 준 category) 빌드도 테스트도 통과한 채 반영 단계에서 조용히 안 채워진다.
 // 그래서 모양을 함수 하나에 모으고 테스트로 못 박는다.
+import { regionFromBranchName } from '../lib/jejuRegions.mjs';
 import { parseRegion } from '../lib/placeFields.mjs';
 import { extractAddressUnits, inferRegionRaw } from './naverLocal.mjs';
-import { JEJU_TOWNS, normalizeName, THRESHOLD, townOf } from './matchPlace.mjs';
+import { distanceMeters, JEJU_TOWNS, normalizeName, sameBranchStem, sameSpot, THRESHOLD, townOf, WEIGHT } from './matchPlace.mjs';
 import { fillColumns, siteChanges } from './siteChanges.mjs';
 
 /**
@@ -265,10 +266,18 @@ const TOWN_SET = new Set(JEJU_TOWNS);
 /**
  * regionRaw 는 주소 기반이 우선. AI 의 regionRaw 는 본문의 "동쪽 어디쯤" 같은 말에서 추측한 것이고, 주소(네이버 또는 본문)에서
  * 읍·면을 뽑아 기존 86곳의 방향 표기에 맞춘 것이 더 믿을 만하다. inferRegionRaw 가 '' 를 주면(읍·면을 못 정함 — 안덕면처럼 방향이
- * 갈리는 경우 포함) AI 값으로 물러선다. 둘 다 없으면 null — 사람이 Studio 에서 채운다.
+ * 갈리는 경우 포함) AI 값으로 물러선다.
+ * 둘 다 못 정하면 **가게 이름의 지점 꼬리**로 물러선다(2026-10-04 — `regionFromBranchName`): 주소 없는 "이춘옥고등어쌈밥 월정리점" 이
+ * '지역 없음' 으로 올라왔는데 '월정리' 는 구좌읍이다. 꼬리만 보고 이름 앞의 지명은 안 본다(그 함수의 주석). 그것도 없으면 null — 사람이 채운다.
+ * @param {string | null} [name]  가게 이름 — 마지막 폴백에만 쓴다
  * @returns {string | null}
  */
-export function resolveRegionRaw(address, aiRegionRaw, existing) {
+export function resolveRegionRaw(address, aiRegionRaw, existing, name = null) {
+  return regionFromPlaceText(address, aiRegionRaw, existing) ?? regionFromBranchName(name);
+}
+
+/** 주소 → AI 값 순서의 지역(이름 폴백 전). `resolveRegionRaw` 만 부른다. */
+function regionFromPlaceText(address, aiRegionRaw, existing) {
   const fromAddress = address ? inferRegionRaw(address, existing) : '';
   if (fromAddress) return fromAddress;
   // AI 값에 읍·면이 있으면 형식만 기존 86곳 표기("동쪽 (성산읍)", 우도는 "우도면")로 다시 만든다 — AI 는 맞는 읍·면을 형식만 틀리게 주기
@@ -455,6 +464,28 @@ export function toCandidateRow(post, extracted, local, regionRaw, matched, { met
 }
 
 /**
+ * 이름 키가 다른데 **같은 가게로 보이는** 먼저 난 신규 후보 — 찾으면 부르는 쪽이 그 키를 물려받고(`nameKey`) `dupOf` 로 가리킨다.
+ * 검수 묶음은 `nameKey` 로 묶이므로(`groupCandidates`) 키를 물려받아야 한 줄로 선다. 둘 중 하나면 같은 가게다:
+ *  - 지점 표기만 다르고 좌표가 100m 안("레스토랑 성산점" ↔ "레스토랑 제주성산점") — 좌표 없는 후보는 대상이 아니다
+ *  - 같은 자리(`sameSpot` — 주소가 표기만 같고, 두 좌표가 다 있으면 100m 안)("본카페" ↔ "애월본카페", 2026-10-04).
+ *    이름 키가 '본'·'애월본' 이라 부분 일치(2자)도 지점 꼬리도 없다. 종류가 다르면(카페 ↔ 숙소) 치지 않는다. 종류까지 같은 같은 건물의 다른 가게는 여기 걸리지만 **합치는 것이 아니라 한 줄로 보일 뿐**이고
+ *    올릴지는 사람이 정한다 — 두 줄로 따로 올려 같은 자리에 장소가 둘 서는 것보다 낫다.
+ * @param {{ name: string, type?: string | null, geo?: { lat: number, lng: number } | null, address?: string | null }} candidate
+ * @param {{ key: string, name: string, geo?: object | null, address?: string | null, ref: string }[]} seen  먼저 난 신규 후보들
+ */
+export function newSiblingOf(candidate, seen) {
+  // 같은 건물의 다른 업종(1층 카페 ↔ 위층 숙소)은 다른 가게다 — 종류를 둘 다 아는데 다르면 같은 자리로 치지 않는다.
+  const sameType = (a, b) => !a.type || !b.type || a.type === b.type;
+  const near = (a, b) => Boolean(a && b) && distanceMeters(a, b) <= WEIGHT.GEO_NEAR_M;
+  return (
+    (seen ?? []).find(
+      (other) =>
+        (near(candidate.geo, other.geo) && sameBranchStem(candidate.name, other.name)) || (sameType(candidate, other) && sameSpot(candidate, other)),
+    ) ?? null
+  );
+}
+
+/**
  * **신규** 후보인데 교차점검이 `동반 근거 없음` 이라 했나 — 그러면 후보로 만들지 않고 `noPetEvidence` 로 뺀다(2026-10-02, ADR-019 v6 의 **임시 단계**).
  *
  * 첫 실측 30건에서 신규 후보 58건 중 50건이 이 판정이었다 — 목록 글에서 이름만 나온 가게다. 그대로 두면 검수 대기가 9,000건대로 불어난다.
@@ -462,7 +493,8 @@ export function toCandidateRow(post, extracted, local, regionRaw, matched, { met
  * `recheck: null`(재검색 안 함)을 남겨, 결정 7 이 생기면 이 줄들만 골라 다시 볼 수 있게 한다.
  *
  * **`verify` 가 null 이면 빼지 않는다** — null 은 "근거 없음" 이 아니라 "안 봤다" 다(조건 문장이 있었거나, 교차점검이 꺼졌거나 실패했다. CLAUDE.md).
- * 판정은 `verifyLabel`(verifyPlaces.mjs)과 같다 — 불가 정황(`no`)·동반 확인(`yes` 또는 개가 있었다)이 아니면 근거 없음.
+ * 판정은 `verifyLabel`(verifyPlaces.mjs)의 '동반 근거 없음' 과 같다 — 불가 정황(`no`)·동반 확인(개가 있었다)·동반 표기만(`yes`)이 아니면 근거 없음.
+ * '동반 표기만' 은 표시만 갈린 것이라(2026-10-04) 여기서는 여전히 근거로 친다.
  * 짝이 있는 후보(`auto`·`ask`)는 여기 오지 않는다 — 그쪽은 `kindOf` 의 `weak` 가 같은 신호를 본다.
  */
 export function isNoPetEvidenceNew(tier, verify) {
