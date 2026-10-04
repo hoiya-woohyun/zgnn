@@ -69,7 +69,7 @@ import {
 import { createUsageMeter, extractPlaces, isFatal, isRetryable, MODEL, PROMPT_VERSION, runClaudeCli } from './analyze/extractPlaces.mjs';
 import { formatGeocodeSummary, geocodeAddress, newGeocodeReasons, pickGeocoded, shouldGeocode } from './analyze/naverGeocode.mjs';
 import { newPickReasons, pickNaverPlace, searchNaverPlace } from './analyze/naverLocal.mjs';
-import { matchPlace, normalizeName, townOf } from './analyze/matchPlace.mjs';
+import { distanceMeters, matchPlace, normalizeName, sameBranchStem, siOf, townOf, WEIGHT } from './analyze/matchPlace.mjs';
 import { fetchHomepageCard } from './analyze/homepageCard.mjs';
 import { fetchPostText } from './analyze/naverPostBody.mjs';
 import { needsDogCheck, resolveVerifyModel, verifyLabel, VERIFY_PROMPT_VERSION, verifyPlaces } from './analyze/verifyPlaces.mjs';
@@ -346,9 +346,15 @@ else blocks = blockRows ?? [];
 // 사람이 고친 pending 후보의 (글, 가게) — 같은 글을 다시 읽어도 그 가게는 새로 만들지 않는다(D3·T2.2). 옆에 AI 판단이 또 한 벌 붙지 않게.
 const editedKeys = editedKeysFor(pendingRows);
 const newNamesSeen = new Map(); // nameKey → 먼저 난 pending 후보 id(이전 실행) 또는 글 URL(이번 실행)
+// 지점 표기만 다른 같은 건물의 신규 후보("레스토랑 성산점" ↔ "레스토랑 제주성산점") — 이름 키가 달라 위 Map 으로는 못 만난다.
+// 검수 묶음은 `nameKey` 로 묶이므로(`groupCandidates`) 찾으면 `dupOf` 와 함께 **먼저 난 쪽의 키를 물려준다**. 좌표 없는 후보는 대상이 아니다.
+const newPlacesSeen = []; // { key, name, geo, ref }
+const branchSibling = (name, geo) =>
+  geo ? (newPlacesSeen.find((seen) => sameBranchStem(name, seen.name) && distanceMeters(geo, seen.geo) <= WEIGHT.GEO_NEAR_M) ?? null) : null;
 for (const row of pendingRows) {
   const key = row.extracted?.nameKey ?? normalizeName(row.extracted?.name ?? '');
   if (key && !newNamesSeen.has(key)) newNamesSeen.set(key, row.id);
+  if (key && row.extracted?.geo && (row.extracted?.match?.tier ?? 'new') === 'new') newPlacesSeen.push({ key, name: row.extracted.name, geo: row.extracted.geo, ref: row.id });
 }
 
 console.log(
@@ -427,12 +433,12 @@ async function enrichWithGeocode(address) {
   }
 }
 
-async function enrichWithNaver(name, town) {
+async function enrichWithNaver(name, { town, si }) {
   if (!naverKeys) return null;
   try {
     const items = await searchNaverPlace(name, naverKeys);
     naverStats.searched++;
-    const picked = pickNaverPlace(items, { name, town }, pickReasons);
+    const picked = pickNaverPlace(items, { name, town, si }, pickReasons);
     if (picked) naverStats.picked++;
     return picked;
   } catch (e) {
@@ -554,7 +560,11 @@ for (const post of posts) {
       }
       // 같은 이름이 여럿일 때 AI 가 읽은 읍·면(regionRaw 또는 본문 주소)이 검색 결과를 고르는 힌트다 — 우도 카페살레 vs 본섬 동명(리뷰 지적).
       // 네이버 지역 검색은 display 상한이 5 라(Kakao 는 15) 동명 구분이 더 약하다 — 이 힌트가 그만큼 중요해졌다.
-      let local = await enrichWithNaver(extracted.name, townOf(extracted.regionRaw) ?? townOf(extracted.address));
+      // 시는 주소가 우선이다 — regionRaw 는 "동쪽 (성산읍)" 처럼 시가 없는 꼴이 보통이다. 다른 지역의 동명 가게는 받지 않는다(`pickNaverPlace`).
+      let local = await enrichWithNaver(extracted.name, {
+        town: townOf(extracted.regionRaw) ?? townOf(extracted.address),
+        si: siOf(extracted.address) ?? siOf(extracted.regionRaw),
+      });
       // 이름 축이 못 붙였을 때만 주소 축으로 물러선다 — 이름으로 찾은 업체 쪽이 좌표 말고 category 까지 주므로 항상 우선이다.
       if (!local) {
         // `chance` 는 **이름 축이 실제로 찾아보고 못 붙인** 수다. 검색 키가 없으면 이름 축은 아무것도 보지 않았으므로 세지 않는다 —
@@ -566,7 +576,9 @@ for (const post of posts) {
       const regionRaw = resolveRegionRaw(local?.address ?? extracted.address, extracted.regionRaw, existing);
       const matched = matchPlace(toMatchCandidate(extracted, local), existing);
       const key = normalizeName(extracted.name);
-      const dupOf = tierOf(matched) === 'new' ? (newNamesSeen.get(key) ?? null) : null;
+      const geo = local ? { lat: local.lat, lng: local.lng } : null;
+      const sibling = tierOf(matched) === 'new' && !newNamesSeen.has(key) ? branchSibling(extracted.name, geo) : null;
+      const dupOf = tierOf(matched) === 'new' ? (newNamesSeen.get(key) ?? sibling?.ref ?? null) : null;
       const row = toCandidateRow(post, extracted, local, regionRaw, matched, {
         meta,
         dupOf,
@@ -607,6 +619,7 @@ for (const post of posts) {
         console.log(`  제외 ${extracted.name} (${extracted.type}) · 신규·동반 근거 없음${row.extracted.visited === false ? ' · 방문 안 함' : ''}`);
         continue;
       }
+      if (sibling) row.extracted.nameKey = sibling.key;
       row.extracted.match.kind = kind.kind;
       row.extracted.match.changes = kind.changes;
       const tier = row.extracted.match.tier;
@@ -615,8 +628,11 @@ for (const post of posts) {
       if (tier === 'new') {
         if (dupOf) {
           stats.dup += 1;
-          console.log(`    ※ 같은 이름의 신규 후보가 이미 있음(${dupOf}) — dupOf 로 표시하고 넣는다. pnpm data:review 가 묶어 보여 준다`);
-        } else newNamesSeen.set(key, post.url);
+          console.log(`    ※ ${sibling ? `지점 표기만 다른 같은 자리의 신규 후보(${sibling.name})가` : '같은 이름의 신규 후보가'} 이미 있음(${dupOf}) — dupOf 로 표시하고 넣는다. pnpm data:review 가 묶어 보여 준다`);
+        } else {
+          newNamesSeen.set(key, post.url);
+          if (geo) newPlacesSeen.push({ key, name: extracted.name, geo, ref: post.url });
+        }
       }
       rows.push(row);
     }
@@ -747,7 +763,7 @@ if (naverStats.searched > 0) {
   const r = pickReasons;
   console.log(
     `좌표 보강: 검색 ${naverStats.searched} · 채택 ${naverStats.picked} · 요청실패 ${naverStats.failed}\n` +
-      `  탈락 사유 — 제주밖주소 ${r.notJejuAddress} · 좌표파싱실패 ${r.coordUnparsable} · 좌표제주밖 ${r.coordOutOfJeju} · 이름불일치 ${r.nameMismatch} · 결과있었으나미채택 ${r.itemsButNoPick ?? 0}(호출 단위)`,
+      `  탈락 사유 — 제주밖주소 ${r.notJejuAddress} · 좌표파싱실패 ${r.coordUnparsable} · 좌표제주밖 ${r.coordOutOfJeju} · 이름불일치 ${r.nameMismatch} · 지역불일치 ${r.regionMismatch ?? 0} · 결과있었으나미채택 ${r.itemsButNoPick ?? 0}(호출 단위)`,
   );
   if (naverStats.picked === 0 && r.sample) {
     console.log(

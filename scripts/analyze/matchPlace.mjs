@@ -154,6 +154,45 @@ export function townOf(text) {
   return JEJU_TOWNS.find((town) => s.includes(town)) ?? null;
 }
 
+/** 주소·지역 문자열의 시. '서귀포시' 를 먼저 본다 — "제주특별자치도 서귀포시" 에도 '제주' 가 들어 있다. 없으면 null. */
+export function siOf(text) {
+  const s = text ?? '';
+  if (s.includes('서귀포시')) return '서귀포시';
+  if (s.includes('제주시')) return '제주시';
+  return null;
+}
+
+/**
+ * 지점 꼬리("성산점" · "제주성산점" · "공항본점")를 뗀 몸통 키. 꼬리가 없으면 null.
+ * 띄어 쓴 마지막 토큰이 '점' 으로 끝나면 그 토큰을, 붙여 썼으면 `(제주)지명(본)점` 꼴의 끝을 뗀다.
+ * `normalizeName` 에 넣지 않는 이유는 그 위 주석 그대로다 — 몸통만 같으면 체인의 다른 지점이 한 가게가 된다.
+ * 그래서 이 값은 **좌표가 붙어 있을 때만** 쓴다(`sameBranchStem` 을 부르는 두 곳).
+ */
+export function branchStem(name) {
+  const base = (name ?? '').replace(/\([^)]*\)/g, '').trim();
+  const tokens = base.split(/\s+/).filter(Boolean);
+  if (tokens.length >= 2 && tokens.at(-1).endsWith('점')) return normalizeName(tokens.slice(0, -1).join(' ')) || null;
+  const key = normalizeName(base);
+  for (const toponym of JEJU_TOPONYMS) {
+    for (const tail of [`${toponym}본점`, `${toponym}점`]) {
+      if (key.length > tail.length && key.endsWith(tail)) return normalizeName(key.slice(0, -tail.length)) || null;
+    }
+  }
+  return null;
+}
+
+/**
+ * 두 이름이 **지점 표기만 다른가** — "레스토랑 성산점" ↔ "레스토랑 제주성산점"(가운데 '제주' 때문에 부분 일치도 아니다, 2026-10-04 실측).
+ * 적어도 한쪽에 지점 꼬리가 있고 몸통이 같아야 한다. 몸통이 지명이거나 너무 짧으면 아니다(부분 일치와 같은 문턱).
+ * 이름만으로는 "A 애월점" ↔ "A 귀덕점" 도 참이다 — 부르는 쪽이 거리(`WEIGHT.GEO_NEAR_M`)를 함께 건다.
+ */
+export function sameBranchStem(a, b) {
+  const sa = branchStem(a), sb = branchStem(b);
+  if (sa == null && sb == null) return false;
+  const x = sa ?? normalizeName(a), y = sb ?? normalizeName(b);
+  return x === y && x.length >= NAME_PARTIAL_MIN_CHARS && !isToponymKey(x);
+}
+
 const formatDistance = (m) => (m < 1000 ? `${Math.round(m)}m` : `${(m / 1000).toFixed(1)}km`);
 
 /** 후보 하나 ↔ 기존 장소 하나. { score: 0..1, distance: number|null, reason } — 이름 신호가 0 이면 score 0. */
@@ -162,13 +201,18 @@ function scorePair(candidate, place) {
     return { score: 1, distance: null, reason: 'naverPlaceId 일치' };
   }
 
-  const name = nameSimilarity(candidate.name, place.name);
+  let name = nameSimilarity(candidate.name, place.name);
   const distance = candidate.geo && place.geo ? distanceMeters(candidate.geo, place.geo) : null;
+  // 이름이 축이라는 원칙의 단 하나의 예외 — 지점 표기만 다르고 **같은 건물**이면 부분 일치로 친다(`sameBranchStem`).
+  // 좌표가 없거나 100m 밖이면 예전 그대로 0 이다: 몸통이 같은 다른 지점은 여기서 걸러진다.
+  const sameBranch = name === 0 && distance != null && distance <= WEIGHT.GEO_NEAR_M && sameBranchStem(candidate.name, place.name);
+  if (sameBranch) name = 0.7;
   if (name === 0) return { score: 0, distance, reason: '이름 불일치' };
 
   const parts = [];
   let score = name;
   if (name === 1) parts.push('이름 일치');
+  else if (sameBranch) parts.push(`지점 표기만 다름(${normalizeName(candidate.name)} ~ ${normalizeName(place.name)})`);
   else parts.push(`이름 부분 일치(${splitAliases(candidate.name).join('/')} ~ ${splitAliases(place.name).join('/')})`);
 
   if (distance == null) parts.push('좌표 없음');

@@ -7,6 +7,8 @@ import {
   NAME_PARTIAL_MIN_CHARS,
   nameSimilarity,
   normalizeName,
+  sameBranchStem,
+  siOf,
   splitAliases,
   THRESHOLD,
   townOf,
@@ -344,5 +346,42 @@ describe('matchPlace — 내린 곳(archived)이 섞인 corpus', () => {
   it('status 가 없는 corpus(시드·테스트)도 그대로 돈다', () => {
     const result = matchPlace({ name: '숨도', type: 'cafe' }, [{ id: 'x', name: '숨도', type: 'cafe' }]);
     expect(result.match.id).toBe('x');
+  });
+});
+
+describe('지점 표기만 다른 이름 — "레스토랑 성산점" ↔ "레스토랑 제주성산점"', () => {
+  const geo = { lat: 33.45, lng: 126.9 };
+  const place = (over = {}) => ({ id: 'p1', name: '레스토랑 제주성산점', type: 'restaurant', geo, address: '제주 서귀포시 성산읍 일출로 1', status: 'published', ...over });
+  const candidate = (over = {}) => ({ name: '레스토랑 성산점', type: 'restaurant', geo, address: '제주 서귀포시 성산읍 일출로 1', ...over });
+
+  it('이름 유사도는 여전히 0 이다 — 가운데 "제주" 때문에 부분 일치도 아니다', () => {
+    expect(nameSimilarity('레스토랑 성산점', '레스토랑 제주성산점')).toBe(0);
+    expect(sameBranchStem('레스토랑 성산점', '레스토랑 제주성산점')).toBe(true);
+    expect(sameBranchStem('프릳츠성산점', '프릳츠 제주성산점')).toBe(true);
+  });
+
+  it('같은 건물이면 병합 구간에 든다', () => {
+    const result = matchPlace(candidate(), [place()]);
+    expect(result.match?.id).toBe('p1');
+    expect(result.confidence).toBeGreaterThanOrEqual(THRESHOLD.AUTO_MERGE);
+    expect(result.reason).toContain('지점 표기만 다름');
+  });
+
+  it('좌표가 없거나 멀면 예전 그대로 신규다 — 몸통이 같은 다른 지점', () => {
+    expect(matchPlace(candidate({ geo: undefined }), [place()]).match).toBeNull();
+    expect(matchPlace(candidate({ name: '애단비 귀덕점', geo: { lat: 33.44, lng: 126.29 } }), [place({ name: '애단비 애월점', geo: { lat: 33.4, lng: 126.35 } })]).match).toBeNull();
+  });
+
+  it('지점 꼬리가 어느 쪽에도 없거나 몸통이 지명이면 아니다', () => {
+    expect(sameBranchStem('본카페', '애월본카페')).toBe(false);
+    expect(sameBranchStem('성산 본점', '성산 제주점')).toBe(false);
+  });
+});
+
+describe('siOf', () => {
+  it('서귀포시를 먼저 본다 — 제주특별자치도에도 "제주" 가 있다', () => {
+    expect(siOf('제주특별자치도 서귀포시 대포로 93')).toBe('서귀포시');
+    expect(siOf('제주 제주시 애월읍 신엄안3길 95')).toBe('제주시');
+    expect(siOf('동쪽 (성산읍)')).toBeNull();
   });
 });

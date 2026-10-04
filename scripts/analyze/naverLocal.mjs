@@ -17,7 +17,7 @@
 // 실패 응답의 errorCode 와 우리가 쓴 라벨만 예외다(`lib/naverApiError.mjs`).
 import { naverErrorTail } from '../lib/naverApiError.mjs';
 import { NAVER_LOCAL_SEARCH_URL, naverAuthHeaders } from '../lib/naverSearchApi.mjs';
-import { nameSimilarity, townOf } from './matchPlace.mjs';
+import { nameSimilarity, siOf, townOf } from './matchPlace.mjs';
 
 const NAVER_LOCAL_URL = NAVER_LOCAL_SEARCH_URL; // 규격은 lib/naverSearchApi.mjs 가 정본(개발자센터 아님 — API HUB)
 
@@ -114,6 +114,7 @@ export function newPickReasons() {
     coordUnparsable: 0,
     coordOutOfJeju: 0,
     nameMismatch: 0,
+    regionMismatch: 0,
     itemsButNoPick: 0,
     sample: null,
   };
@@ -135,12 +136,14 @@ export function inJeju(lat, lng) {
  * 검색 결과 중 제주 주소이면서 title(태그 벗긴 것)이 후보 이름과 **정규화 후 완전 일치**(nameSimilarity 1)하는 첫 것. 없으면 null — 좌표를 지어내지 않는다.
  * 부분 일치(0.7)는 받지 않는다: "고기부엌" 검색에 "협재고기부엌"·"성산고기부엌" 이 같이 오면 엉뚱한 가게의 좌표·주소·category 가
  * 후보에 실리고, 그대로 places 에 쓰인다. 이름 비교는 matchPlace.mjs 의 nameSimilarity 를 그대로 쓴다(별칭·"카페" 접미 처리 공유).
- * 같은 이름이 여럿이면(우도 카페살레 vs 본섬 동명) AI 가 본문에서 읽은 읍·면(town)이 주소에 있는 것을 우선하고, 없으면 정확도순 첫 것.
+ * AI 가 본문에서 읽은 지역과 **다른 지역의 동명 가게는 받지 않는다**: 읍·면(town)이 있으면 주소에 그 읍·면이 있는 것만, 시(si)가 있으면 시가 같은 것만.
+ * 예전에는 맞는 것이 없으면 정확도순 첫 것으로 물러섰고, 그 길로 애월읍 글에 서귀포 동명 가게의 좌표가 붙었다(2026-10-04 실측, 114건 중 2건 —
+ * 엔젤하우스 · 본카페). 못 고르면 null 이고 부르는 쪽이 원글 주소 → 좌표 축으로 물러선다. 지역을 모르면(둘 다 null) 정확도순 첫 것이다.
  * @param {object[]} items  searchNaverPlace 의 반환값
- * @param {{ name: string, town?: string | null }} candidate
+ * @param {{ name: string, town?: string | null, si?: string | null }} candidate
  * @returns {{ lat: number, lng: number, address: string, naverLink: string | null, category: string | null } | null}
  */
-export function pickNaverPlace(items, { name, town = null }, reasons = null) {
+export function pickNaverPlace(items, { name, town = null, si = null }, reasons = null) {
   let best = null;
   let sawItem = false;
   for (const item of items ?? []) {
@@ -166,12 +169,14 @@ export function pickNaverPlace(items, { name, town = null }, reasons = null) {
       if (reasons) reasons.nameMismatch++;
       continue;
     }
-    const inTown = town != null && townOf(item.address || item.roadAddress) === town;
-    if (inTown) {
-      best = { item, lat, lng };
-      break;
+    const where = `${item.address ?? ''} ${item.roadAddress ?? ''}`;
+    const itemSi = siOf(where);
+    if ((town != null && townOf(where) !== town) || (si != null && itemSi != null && itemSi !== si)) {
+      if (reasons) reasons.regionMismatch++;
+      continue;
     }
-    if (!best) best = { item, lat, lng };
+    best = { item, lat, lng };
+    break;
   }
   if (!best) {
     if (reasons && sawItem) reasons.itemsButNoPick++;

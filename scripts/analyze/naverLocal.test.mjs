@@ -176,7 +176,19 @@ describe('pickNaverPlace', () => {
     expect(pickNaverPlace([mainland, udo], { name: '카페살레', town: '우도면' }).address).toContain('우도면');
     expect(pickNaverPlace([mainland, udo], { name: '카페살레', town: '성산읍' }).address).toContain('성산읍');
     expect(pickNaverPlace([mainland, udo], { name: '카페살레' }).address).toContain('성산읍');
-    expect(pickNaverPlace([mainland, udo], { name: '카페살레', town: '한림읍' }).address).toContain('성산읍');
+  });
+
+  it('AI 가 읽은 지역에 그 이름이 없으면 다른 지역의 동명 가게로 물러서지 않는다 — 애월읍 글에 서귀포 좌표가 붙었다', () => {
+    const mainland = item({ title: '카페살레', address: '제주특별자치도 서귀포시 성산읍 고성리 1', roadAddress: '', mapx: '1269000000', mapy: '334500000' });
+    const reasons = newPickReasons();
+    expect(pickNaverPlace([mainland], { name: '카페살레', town: '한림읍' }, reasons)).toBeNull();
+    expect(reasons.regionMismatch).toBe(1);
+    // 읍·면이 없는 동 지역끼리는 시로 가른다 — 엔젤하우스(제주시 글 ↔ 서귀포시 대포로).
+    const dong = item({ title: '엔젤하우스', address: '제주특별자치도 서귀포시 대포동 1', roadAddress: '제주특별자치도 서귀포시 대포로 93' });
+    expect(pickNaverPlace([dong], { name: '엔젤하우스', si: '제주시' })).toBeNull();
+    expect(pickNaverPlace([dong], { name: '엔젤하우스', si: '서귀포시' })).not.toBeNull();
+    // 읍·면 글인데 결과가 동 지역이면 읍·면이 없는 것도 불일치다.
+    expect(pickNaverPlace([dong], { name: '엔젤하우스', town: '애월읍', si: '제주시' })).toBeNull();
   });
 
   it('부분 일치는 받지 않는다 — "고기부엌" 에 "협재고기부엌" 이 오면 null', () => {
