@@ -84,10 +84,10 @@ let args;
 try {
   args = parseArgs(process.argv.slice(2));
 } catch (e) {
-  console.error(`${e.message} — 사용법: pnpm data:analyze [--limit N] [--max-per-blog N] [--no-geo] [--no-verify] [--no-propose] [--no-homepage] [--dry-run] [--dump[=경로]]`);
+  console.error(`${e.message} — 사용법: pnpm data:analyze [--limit N] [--max-per-blog N] [--no-geo] [--no-verify] [--no-propose] [--no-homepage] [--focused-only] [--dry-run] [--dump[=경로]]`);
   process.exit(1);
 }
-const { limit, dryRun, dump, maxPerBlog, noGeo, noVerify, noPropose, noHomepage } = args;
+const { limit, dryRun, dump, maxPerBlog, noGeo, noVerify, noPropose, noHomepage, focusedOnly } = args;
 console.log(dryRun ? '모드: dry-run — DB 에 쓰지 않는다(Claude 는 부른다)' : '모드: 분석 — candidates · blog_posts.analyzed_at 에 쓴다');
 
 // 한 번에 하나만(`runLock.mjs`) — 둘이 돌면 시작할 때 같은 미분석 글을 골라 같은 후보를 두 번 넣는다. 워크트리가 달라도 DB 는 하나라 잠금은 레포 밖(tmpdir)에 둔다.
@@ -295,7 +295,10 @@ async function noteSinglePlaceBlogs(fetched) {
 }
 await noteSinglePlaceBlogs(focusedPosts);
 let fetchedPosts = focusedPosts;
-if (pickPostsForRun(focusedPosts.filter((post) => !singlePlace.has(post.blog_id)), limit, maxPerBlog).length < limit) {
+if (focusedOnly) {
+  // 앞줄만 — 한 가게 블로그의 글도 뺀다(그것도 '뒤' 다).
+  fetchedPosts = focusedPosts.filter((post) => !singlePlace.has(post.blog_id));
+} else if (pickPostsForRun(focusedPosts.filter((post) => !singlePlace.has(post.blog_id)), limit, maxPerBlog).length < limit) {
   const { data: restPosts, error: restError } = await unanalyzed().limit(postWindow + focusedPosts.length);
   if (restError) throw new Error(`blog_posts 조회 실패: ${restError.message}`);
   await noteSinglePlaceBlogs(restPosts);
@@ -303,6 +306,11 @@ if (pickPostsForRun(focusedPosts.filter((post) => !singlePlace.has(post.blog_id)
 }
 fetchedPosts = deferBlogs(fetchedPosts, singlePlace);
 const posts = pickPostsForRun(fetchedPosts, limit, maxPerBlog);
+// 앞줄이 비면 끝 — 반복 실행(`for … || break`)이 빈 실행을 되풀이하지 않게 exit 1 로 알린다.
+if (focusedOnly && posts.length === 0) {
+  console.log('앞줄(--focused-only)에 남은 글이 없다 — 끝.');
+  process.exit(1);
+}
 
 // 지금 규모(86곳 + 신규 draft 몇)는 supabase-js 기본 1000행 제한에 한참 못 미친다 — 늘어나면 range() 로 페이지네이션.
 // **archived 를 빼지 않는다**(2026-09-29). 빼면 내린 곳(소프트 삭제)을 쓴 새 글이 '신규' 로 판정돼, 승인 한 번에
