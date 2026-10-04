@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { Button } from '../components/base/button';
 import { NaverLinkButton } from '../components/naverLinkButton';
 import type { TPlaceRow } from '../lib/adminCandidates';
 import { noteHistory, PLACE_STATUS_LABEL } from '../lib/adminPlaces';
@@ -12,7 +13,7 @@ import { ADMIN_PANEL_DIVIDER, ADMIN_POLICY_TONE } from './adminTable';
 
 /**
  * '올린 장소' 한 줄의 펼친 상세 — **지금 사이트에 나가 있는 값을 전부** 한 판에 보여 준다. 읽기만 한다 —
- * 고치는 길은 주소 줄의 '고치기' 하나이고, 폼은 줄(`adminPagePlaceRow`)이 따로 연다.
+ * 고치는 길은 맨 위의 `고치기` 하나이고(입구가 하나다), 폼은 줄(`adminPagePlaceRow`)이 이 판 대신 연다.
  *
  * 후보 상세(`adminPageGroupDetail`)처럼 원문 ↔ AI 비교표로 짜지 않는다. 이미 올라간 곳에는 견줄 두 값이 없고,
  * 여기서 하는 일은 "이 가게 정보가 아직 맞나 · 내려야 하나" 를 정하는 것이라 필요한 것은 **값 하나씩과 그 출처로 가는 링크**다.
@@ -23,12 +24,12 @@ import { ADMIN_PANEL_DIVIDER, ADMIN_POLICY_TONE } from './adminTable';
 export function AdminPagePlaceDetail({
   place,
   badges,
-  onEditAddress,
+  onEdit,
 }: {
   place: TPlaceRow;
   badges: TPetBadge[];
-  /** 주어지면 주소 줄에 '고치기' 가 선다. 내린 곳·쓰는 중·이미 폼이 열린 동안은 주지 않는다. */
-  onEditAddress?: () => void;
+  /** 주어지면 맨 위에 '고치기' 가 선다. 내린 곳·쓰는 중에는 주지 않는다(사이트에 없는 곳은 고칠 까닭이 없다). */
+  onEdit?: () => void;
 }) {
   const history = noteHistory(place.archive_note);
   const hasGeo = place.lat != null && place.lng != null;
@@ -37,6 +38,14 @@ export function AdminPagePlaceDetail({
 
   return (
     <div className={cx(ADMIN_PANEL_DIVIDER, 'px-4 py-3')}>
+      {onEdit && (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <Button color="secondary" size="sm" onClick={onEdit}>
+            고치기
+          </Button>
+          <span className="text-xs text-tertiary">이름·종류·지역·주소·좌표·링크·소개·동반 조건·숙소 칸을 고쳐요</span>
+        </div>
+      )}
       <dl className="grid gap-x-4 gap-y-2 text-xs md:grid-cols-[7rem_minmax(0,1fr)]">
         <Field label="동반 조건 원문">
           {place.pet_policy_text ? (
@@ -71,14 +80,7 @@ export function AdminPagePlaceDetail({
         )}
         <Field label="지역">{place.region_raw || <Empty />}</Field>
         <Field label="주소">
-          <span className="flex flex-wrap items-center gap-2">
-            {place.address || <Empty />}
-            {onEditAddress && (
-              <button type="button" onClick={onEditAddress} className="text-brand-secondary underline">
-                주소·좌표 고치기
-              </button>
-            )}
-          </span>
+          {place.address || <Empty />}
         </Field>
         <Field label="좌표">
           {hasGeo ? (

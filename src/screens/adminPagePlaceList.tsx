@@ -13,9 +13,9 @@ import {
   PLACE_STATUS_LABEL,
   placeGaps,
   type TArchiveReason,
-  type TPlaceAddressPatch,
   type TPlaceGap,
 } from '../lib/adminPlaces';
+import type { TPlaceEditPatch } from '../lib/adminPlaceEdit';
 import type { TBlockChoice, TPlaceBlock } from '../lib/adminBlocks';
 import type { TReportRow, TVisitedTally } from '../lib/adminReports';
 import { useAdminInfiniteScroll } from './adminInfiniteScroll';
@@ -99,8 +99,8 @@ type TAdminPagePlaceListProps = {
   /** 장소 id → 다녀왔어요 집계. */
   visited: Record<string, TVisitedTally>;
   onApplyVisited: (place: TPlaceRow, ids: string[]) => void;
-  /** 주소·좌표 고치기(쓰기는 `adminPage` 의 `savePlaceAddress`). 등록 해제 칸의 줄에는 버튼이 서지 않는다. */
-  onSaveAddress: (place: TPlaceRow, patch: TPlaceAddressPatch) => void;
+  /** 장소 고치기(쓰기는 `adminPage` 의 `savePlace`). 등록 해제 칸의 줄에는 버튼이 서지 않는다. */
+  onSavePlace: (place: TPlaceRow, patch: TPlaceEditPatch) => void;
   /** 끝난 줄의 초록 한 줄을 치운다 — 검색어·구간을 바꾸면 같이. */
   onClearDone: () => void;
 };
@@ -119,7 +119,7 @@ export function AdminPagePlaceList({
   updates,
   visited,
   onApplyVisited,
-  onSaveAddress,
+  onSavePlace,
   onClearDone,
 }: TAdminPagePlaceListProps) {
   /** "제보 있는 곳" 만 보기 — 10 T1.4 의 걸러 보기. */
@@ -311,9 +311,9 @@ export function AdminPagePlaceList({
                   patchState(place.id, { archiving: true, archiveReason: '폐업', error: undefined, done: undefined })
                 }
                 onRestore={() => onChange(place, 'restore')}
-                onStartEditAddress={() => patchState(place.id, { editingAddress: true, error: undefined, done: undefined })}
-                onCancelEditAddress={() => patchState(place.id, { editingAddress: false })}
-                onSaveAddress={(patch) => onSaveAddress(place, patch)}
+                onStartEdit={() => patchState(place.id, { editing: true, error: undefined, done: undefined })}
+                onCancelEdit={() => patchState(place.id, { editing: false })}
+                onSave={(patch) => onSavePlace(place, patch)}
               />
             ))}
             </AdminTable>

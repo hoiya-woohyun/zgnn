@@ -6,10 +6,12 @@ import { Button } from '../components/base/button';
 import { Select } from '../components/base/select';
 import type { TAddressChoice } from '../lib/adminAddress';
 import type { TBlockChoice } from '../lib/adminBlocks';
-import { regionOptionsFor, UPDATE_REJECT_REASONS, type TCandidateGroup, type TRejectReason } from '../lib/adminCandidates';
+import { regionOptionsFor, UPDATE_REJECT_REASONS, type TCandidateGroup, type TPlaceRow, type TRejectReason } from '../lib/adminCandidates';
 import type { TLatestPlan } from '../lib/adminLatest';
 import { lastNoteLine, noteLineText, PLACE_STATUS_COLOR, PLACE_STATUS_LABEL } from '../lib/adminPlaces';
+import type { TProposal } from '../lib/adminProposal';
 import type { TAdminPageGroupState, TApproveChoice } from './adminPageGroupCard';
+import { AdminPageGroupSiteCompare } from './adminPageGroupSiteCompare';
 import { AdminPageRejectForm } from './adminPageRejectForm';
 
 const BUSY_LABEL: Record<NonNullable<TAdminPageGroupState['busy']>, string> = {
@@ -34,7 +36,12 @@ function Situation({ title, children }: { title: ReactNode; children?: ReactNode
   );
 }
 
-/** 한 줄 버튼 무리. 주 버튼 하나 + 나머지는 회색 — 색은 누를 것 하나에만 쓴다. */
+/**
+ * 한 줄 버튼 무리. 주 버튼 하나 + 나머지는 회색 — 색은 누를 것 하나에만 쓴다.
+ *
+ * 줄은 **둘**이다(2026-10-04 v3): 윗줄은 이 장소를 어떻게 할지(채우기·사이트가 맞아요 …), 아랫줄은 `올리지 않기`(제외·재분석).
+ * 일곱 버튼이 한 줄에 서면 "사이트를 바꾸는 결정" 과 "후보를 만지는 도구" 가 같은 무게로 읽힌다.
+ */
 const Row = ({ children }: { children: ReactNode }) => <div className="flex flex-wrap items-center gap-1.5">{children}</div>;
 
 /**
@@ -60,6 +67,10 @@ export function AdminPageGroupActions({
   latest,
   latestAvailable,
   overwritePick,
+  overwriteNote,
+  pairPlace,
+  proposal,
+  onToggleOverwrite,
   onApprove,
   onStartReject,
   onCancelReject,
@@ -68,7 +79,6 @@ export function AdminPageGroupActions({
   onPickRegion,
   onSaveRegion,
   onChooseAddress,
-  onEdit,
   reanalyzeText,
   onStartReanalyze,
   onCancelReanalyze,
@@ -87,6 +97,12 @@ export function AdminPageGroupActions({
   latestAvailable: boolean;
   /** 덮을 칸(11 T1.4) — 근거 맨 위 목록의 체크. 바뀌는 칸 전부면 `latest.changes` 와 같다. */
   overwritePick: string[];
+  /** 덮어쓰기 표의 머리 한마디(완화라 조건 체크를 꺼 두었다) — 카드가 만든다. */
+  overwriteNote?: string;
+  /** 덮어쓰기 대상 장소의 지금 행과 제안 — 사이트 비교 분석 표가 읽는다(`latest` 와 같은 재료). */
+  pairPlace?: TPlaceRow;
+  proposal: TProposal | null;
+  onToggleOverwrite: (key: string) => void;
   onApprove: (choice?: TApproveChoice) => void;
   onStartReject: () => void;
   onCancelReject: () => void;
@@ -95,7 +111,6 @@ export function AdminPageGroupActions({
   onPickRegion: (regionRaw: string) => void;
   onSaveRegion: (regionRaw: string) => void;
   onChooseAddress: (choice: TAddressChoice) => void;
-  onEdit: () => void;
   reanalyzeText?: string;
   onStartReanalyze: () => void;
   onCancelReanalyze: () => void;
@@ -154,39 +169,61 @@ export function AdminPageGroupActions({
   );
 
   /**
-   * 덮어쓰기 — **고른** 칸 수를 이름에 싣는다(무엇이 바뀌는지는 근거 맨 위 목록이 말한다). 바뀔 칸이 없으면 안 그린다.
-   * 다 끄면 꺼진다. 전부 골랐으면 칸 목록을 넘기지 않는다 — 지금까지의 "바뀌는 칸 전부" 와 같은 쓰기다.
+   * 덮어쓰기 **표** — 사이트 비교 분석(블로그 · 지금 값 → 바뀔 값 · AI 제안 근거)의 줄 머리에 체크가 서고, 그 체크를 쓰는 버튼이 표 발치다
+   * (2026-10-04 v4). 체크 목록·비교표·버튼이 세 자리에 흩어져 있던 것을 결정 줄 바로 위 한 표로 모았다: 읽고 → 고르고 → 누른다.
+   * 바뀔 칸이 없으면 안 그린다. 다 끄면 꺼진다. 전부 골랐으면 칸 목록을 넘기지 않는다 — 지금까지의 "바뀌는 칸 전부" 와 같은 쓰기다.
+   * 덮어쓰기는 빈 칸 채우기를 **포함한다**(`approveGroup` 이 덮은 뒤 `fillBlanks` 를 돈다) — 발치 한마디가 그 말이다.
    */
-  const overwrite = (choice: TApproveChoice) =>
-    latestAvailable && latest && latest.changes.length ? (
-      <TipButton
-        color="secondary"
-        size="sm"
-        isDisabled={off || overwritePick.length === 0}
-        isLoading={busy === 'approving'}
-        title="기존 장소의 칸을 새 분석 값으로 바꿔요 — 덮을 칸은 위 목록에서 골라요"
-        onClick={() =>
-          onApprove({ ...choice, overwrite: true, overwriteColumns: overwritePick.length === latest.changes.length ? undefined : overwritePick })
-        }
-      >
-        덮어쓰기 · {overwritePick.length}칸
-      </TipButton>
+  const hasTable = Boolean(latestAvailable && latest && latest.changes.length && pairPlace);
+  const overwrite = (choice: TApproveChoice, keep?: ReactNode) =>
+    latestAvailable && latest && latest.changes.length && pairPlace ? (
+      <AdminPageGroupSiteCompare
+        group={group}
+        place={pairPlace}
+        proposal={proposal}
+        overwrite={{
+          changes: latest.changes,
+          picked: overwritePick,
+          disabled: off,
+          onToggle: onToggleOverwrite,
+          note: overwriteNote,
+          footer: (
+            <>
+              <TipButton
+                color="secondary"
+                size="sm"
+                isDisabled={off || overwritePick.length === 0}
+                isLoading={busy === 'approving'}
+                title="기존 장소의 체크한 칸을 새 분석 값으로 바꿔요 · 되돌릴 수 없어요"
+                onClick={() =>
+                  onApprove({ ...choice, overwrite: true, overwriteColumns: overwritePick.length === latest.changes.length ? undefined : overwritePick })
+                }
+              >
+                {overwritePick.length ? `체크한 ${overwritePick.length}칸 덮어쓰기` : '덮을 칸을 체크하세요'}
+              </TipButton>
+              {keep}
+              <span className="text-tertiary">덮어쓰면 빈 칸도 함께 채워요</span>
+            </>
+          ),
+        }}
+      />
     ) : null;
 
   /*
-   * 반려 · 고치기 · 재분석 — 모든 갈래 끝에 같은 순서로 선다.
-   * 고치기가 전부에 서는 이유: 닮은 곳(0.4~0.85)·지역 없음 줄이 곧 "이름·주소가 틀렸나" 를 가리는 자리다.
+   * 제외 · 재분석 — 모든 갈래 끝에 같은 순서로 선다(`올리지 않기`). **고치기는 없다**(2026-10-04): 검수 대기는 AI 분석대로 올릴지만
+   * 정하고, AI 가 틀렸으면 안 올리거나 다시 분석한다. 값 수정은 등록 완료의 장소 고치기에서 한다.
    * `rejectPrimary` 면 반려는 앞쪽 주 버튼으로 나갔으니 여기서 빠진다.
    */
-  const tail = (rejectPrimary = false) => (
-    <>
+  const tail = (rejectPrimary = false, escape?: ReactNode) => (
+    <Row>
+      <span className="text-xs text-tertiary">올리지 않기</span>
       {!rejectPrimary && tertiary('제외', onStartReject)}
-      {tertiary('고치기', onEdit)}
       {tertiary('재분석', onStartReanalyze, {
         isDisabled: !group.lead.post_url,
         title: group.lead.post_url ? '이 글을 수집 완료로 되돌려요(지우지 않아요)' : '글 링크가 없어 다시 읽을 수 없어요',
       })}
-    </>
+      {escape}
+    </Row>
   );
 
   let body: ReactNode;
@@ -200,6 +237,7 @@ export function AdminPageGroupActions({
     body = (
       <>
         <Situation title={<>내린 곳과 같은 가게예요 · {state.archived.placeName}</>}>{note && <p>{note}</p>}</Situation>
+        {overwrite({ mergeInto: placeId, restoreArchived: true })}
         <Row>
           <TipButton
             color="primary"
@@ -210,13 +248,14 @@ export function AdminPageGroupActions({
             /* **짝 id 를 실어 보낸다.** 안 실으면 그 사이 다른 줄의 승인이 캐시를 바꿔 다른 장소로 합쳐진다 — 조용한 오병합이다. */
             onClick={() => onApprove({ mergeInto: placeId, restoreArchived: true })}
           >
-            되살려서 합치기
+            되살려서 빈 칸만 채우기
           </TipButton>
-          {overwrite({ mergeInto: placeId, restoreArchived: true })}
-          {tail()}
-          {/* 같은 이름의 **다른** 가게는 실제로 있다. 막지 않고 맨 끝 회색 링크로 — `confirmedDifferent` 가 복제본 가드를 지나는 유일한 표식이다. */}
-          <Escape busy={busy} label="정말 다른 가게예요 — 새 장소로" title="같은 가게면 두 번 생겨요" onClick={() => onApprove({ asNew: true, confirmedDifferent: true })} />
         </Row>
+        {/* 같은 이름의 **다른** 가게는 실제로 있다. 막지 않고 맨 끝 회색 링크로 — `confirmedDifferent` 가 복제본 가드를 지나는 유일한 표식이다. */}
+        {tail(
+          false,
+          <Escape busy={busy} label="정말 다른 가게예요 — 새 장소로" title="같은 가게면 두 번 생겨요" onClick={() => onApprove({ asNew: true, confirmedDifferent: true })} />,
+        )}
       </>
     );
   } else if (state.similar) {
@@ -246,6 +285,7 @@ export function AdminPageGroupActions({
           </p>
           {archiveNote && <p>{archiveNote}</p>}
         </Situation>
+        {overwrite({ mergeInto: similar.id, restoreArchived: similarArchived || undefined })}
         <Row>
           <TipButton
             color="primary"
@@ -267,9 +307,8 @@ export function AdminPageGroupActions({
           >
             다른 곳이에요 — 새 장소로
           </TipButton>
-          {overwrite({ mergeInto: similar.id, restoreArchived: similarArchived || undefined })}
-          {tail()}
         </Row>
+        {tail()}
       </>
     );
   } else if (addressPick) {
@@ -297,8 +336,8 @@ export function AdminPageGroupActions({
           <TipButton color="secondary" size="sm" isDisabled={off} title="검색 주소·좌표를 그대로 써요" onClick={() => onChooseAddress('search')}>
             검색 주소로
           </TipButton>
-          {tail()}
         </Row>
+        {tail()}
       </>
     );
   } else if (!regionOk) {
@@ -340,8 +379,8 @@ export function AdminPageGroupActions({
           >
             지역 저장
           </TipButton>
-          {tail()}
         </Row>
+        {tail()}
       </>
     );
   } else {
@@ -356,6 +395,24 @@ export function AdminPageGroupActions({
       : group.tier === 'new'
         ? '같은 가게가 이미 있으면 거기 합쳐져요'
         : "새 장소로 올라가요 · 되돌릴 땐 '올린 장소' 에서 내려요";
+    /*
+     * 갱신 묶음의 둘째 결정(11 U8) — 글들과 사이트를 대 봤더니 사이트가 맞다. 반려가 아니라 **확인**이다:
+     * 장소에 확인 날짜를 찍고(되돌릴 수 없다) 후보를 눕힌다. 블랙리스트는 건드리지 않는다 — 틀린 것은 가게가 아니라 글이다.
+     * 표가 서면 그 발치에 덮어쓰기와 나란히 선다 — 한 표에 답이 둘이다(바꾼다 / 안 바꾼다).
+     */
+    const confirmSite =
+      group.kind === 'update' && pairId && !matchedArchived ? (
+        <TipButton
+          color="secondary"
+          size="sm"
+          isDisabled={off}
+          isLoading={busy === 'confirming'}
+          title="사이트 값이 맞아요 — 확인 날짜를 찍고 이 글들을 내려요. 이 날짜보다 옛 글은 다시 안 올라와요"
+          onClick={onConfirmSite}
+        >
+          {hasTable ? '바꾸지 않기 — 사이트가 맞아요' : '사이트가 맞아요'}
+        </TipButton>
+      ) : null;
     const approve = (
       <TipButton
         color={needsLook ? 'secondary' : 'primary'}
@@ -365,7 +422,7 @@ export function AdminPageGroupActions({
         title={approveTitle}
         onClick={() => onApprove()}
       >
-        {pairId ? '합치기' : '올리기'}
+        {pairId ? '빈 칸만 채우기' : '올리기'}
       </TipButton>
     );
     body = (
@@ -400,40 +457,33 @@ export function AdminPageGroupActions({
             {pairId && needsLook && <p>교차점검이 강아지를 데려간 근거를 못 찾았어요.</p>}
           </Situation>
         ) : null}
-        <Row>
-          {/* 근거가 없으면 반려가 주 버튼이다 — 5곳이 핑크 한 번씩에 게시되던 자리(UI 스냅샷 피드백). */}
-          {needsLook && (
-            <TipButton color="primary" size="sm" isDisabled={off} onClick={onStartReject}>
-              제외
-            </TipButton>
-          )}
-          {approve}
-          {overwrite({ mergeInto: pairId })}
-          {/*
-            * 갱신 묶음의 둘째 결정(11 U8) — 글들과 사이트를 대 봤더니 사이트가 맞다. 반려가 아니라 **확인**이다:
-            * 장소에 확인 날짜를 찍고(되돌릴 수 없다) 후보를 눕힌다. 블랙리스트는 건드리지 않는다 — 틀린 것은 가게가 아니라 글이다.
-            */}
-          {group.kind === 'update' && pairId && !matchedArchived && (
-            <TipButton
-              color="secondary"
-              size="sm"
-              isDisabled={off}
-              isLoading={busy === 'confirming'}
-              title="사이트 값이 맞아요 — 확인 날짜를 찍고 이 글들을 내려요. 이 날짜보다 옛 글은 다시 안 올라와요"
-              onClick={onConfirmSite}
-            >
-              사이트가 맞아요
-            </TipButton>
-          )}
-          {tail(needsLook)}
-          {/*
-           * 짝이 잘못 붙은 경우 — 신규로 보낸다. **짝이 내린 곳이면 감춘다**: 그 경우 이 버튼은 내린 가게의 복제본을
-           * 새 id 로 게시하는 길이 되고, 같은 일은 '내린 곳' 갈래의 '정말 다른 가게예요' 를 지나야 한다.
-           */}
-          {group.tier !== 'new' && pairId && !matchedArchived && (
+        {overwrite({ mergeInto: pairId }, confirmSite)}
+        {/*
+          * 표가 서면 `빈 칸만 채우기` 는 숨는다(2026-10-04) — 표에서 바꾸기 싫은 줄의 체크를 끄는 것이 같은 일이고, 승인 버튼이 둘이면
+          * "어느 쪽이 체크를 쓰나" 가 다시 흐려진다. 표가 없는 묶음(바뀔 칸 없음 · 신규)에서는 이 버튼이 유일한 승인이라 남는다.
+          */}
+        {(needsLook || !hasTable) && (
+          <Row>
+            {/* 근거가 없으면 반려가 주 버튼이다 — 5곳이 핑크 한 번씩에 게시되던 자리(UI 스냅샷 피드백). */}
+            {needsLook && (
+              <TipButton color="primary" size="sm" isDisabled={off} onClick={onStartReject}>
+                제외
+              </TipButton>
+            )}
+            {!hasTable && approve}
+            {!hasTable && confirmSite}
+          </Row>
+        )}
+        {/*
+         * 짝이 잘못 붙은 경우 — 신규로 보낸다. **짝이 내린 곳이면 감춘다**: 그 경우 이 버튼은 내린 가게의 복제본을
+         * 새 id 로 게시하는 길이 되고, 같은 일은 '내린 곳' 갈래의 '정말 다른 가게예요' 를 지나야 한다.
+         */}
+        {tail(
+          needsLook,
+          group.tier !== 'new' && pairId && !matchedArchived ? (
             <Escape busy={busy} label="짝이 틀렸어요 — 새 장소로" title="짝을 무시하고 새로 만들어요" onClick={() => onApprove({ asNew: true })} />
-          )}
-        </Row>
+          ) : null,
+        )}
       </>
     );
   }

@@ -1,6 +1,6 @@
 /**
  * 검수 화면에서 **후보를 고치는** 일의 순수 부분 — 초안 만들기 · 검증 · 고친 `extracted` 조립.
- * 쓰는 쪽은 `src/lib/adminApply.ts` 의 `saveEdit`(DB)과 `src/screens/adminPageEditForm.tsx`(화면)다.
+ * 쓰는 쪽은 `src/lib/adminApply.ts` 의 `saveEdit`(DB)과 `src/screens/adminPagePlaceEditForm.tsx`(화면 — 검수 대기의 후보 고치기 폼은 2026-10-04 에 없앴다)다.
  *
  * 고치는 것은 **승인 전 후보(`candidates.extracted`)뿐**이다. 이미 게시된 `places` 행은 건드리지 않는다 —
  * 그쪽은 되돌릴 길이 없고(트리거가 곧 재빌드를 부른다), 여기는 승인하기 전이라 실수의 값이 작다.
@@ -211,8 +211,8 @@ const toCoord = (raw: string): number | null => {
 };
 
 /**
- * 좌표 두 칸의 문제 한 줄 — 순수. 후보 고치기(`editProblem`)와 올린 장소의 주소 고치기(`placeAddressProblem`)가 같이 쓴다.
- * 두 벌로 두면 한쪽만 제주 범위를 고치는 날이 온다.
+ * 좌표 두 칸의 문제 한 줄 — 순수. 후보 고치기(`editProblem`)가 쓰고, 올린 장소 고치기(`adminPlaceEdit.ts` 의 `placeEditProblem`)도
+ * `editProblem` 을 거쳐 같은 줄을 쓴다. 두 벌로 두면 한쪽만 제주 범위를 고치는 날이 온다.
  */
 export function coordProblem(latRaw: string, lngRaw: string): string | null {
   const lat = toCoord(latRaw);

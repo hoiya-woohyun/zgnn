@@ -21,7 +21,7 @@ import {
   type TBlocksSummary,
   type TPlaceBlock,
 } from '../lib/adminBlocks';
-import { aiOriginalOf, buildEdit, chooseAddress, type TCandidateEditDraft } from '../lib/adminEdit';
+import { chooseAddress } from '../lib/adminEdit';
 import { addressUnresolved, type TAddressChoice } from '../lib/adminAddress';
 import { prepareReanalyze, reanalyzePlan, reanalyzeSummary } from '../lib/adminReanalyze';
 import { bulkApproveNeedsLook, bulkApproveSummary, bulkApproveText, bulkLatestSummary, bulkLatestTargets, summarizeBulk, type TBulkTally } from '../lib/adminBulk';
@@ -49,9 +49,8 @@ import {
   sortManagedPlaces,
   stampSeedVerified,
   type TArchiveReason,
-  type TPlaceAddressPatch,
-  updatePlaceAddress,
 } from '../lib/adminPlaces';
+import { type TPlaceEditPatch, updatePlace } from '../lib/adminPlaceEdit';
 import { countPosts, fetchSiblings, reopenPlan, type TPostCounts, type TReopenPlan } from '../lib/adminPosts';
 import {
   closeReportsForArchived,
@@ -809,25 +808,26 @@ export function AdminPage() {
   );
 
   /**
-   * 올린 장소의 주소·좌표 고치기. 순서·실패 처리는 `changePlace` 와 같다(잠금 → 쓰기 → 목록·대조 장부 → 풀기) —
-   * 대조 장부에도 알리는 이유는 같은 세션의 다음 승인이 고친 주소로 짝을 찾게 하려는 것이다.
+   * 올린 장소 고치기. 순서·실패 처리는 `changePlace` 와 같다(잠금 → 쓰기 → 목록·대조 장부 → 풀기) —
+   * 대조 장부에도 알리는 이유는 같은 세션의 다음 승인이 고친 이름·주소·플레이스 id 로 짝을 찾게 하려는 것이다.
+   * 재빌드는 부르지 않는다 — `places` UPDATE 라 트리거가 부른다(ADR-018 결정 9).
    */
-  const savePlaceAddress = useCallback(
-    async (place: TPlaceRow, patch: TPlaceAddressPatch) => {
+  const savePlace = useCallback(
+    async (place: TPlaceRow, patch: TPlaceEditPatch) => {
       const client = clientRef.current;
       if (!client) return;
       if (!beginWrite((message) => patchPlaceState(place.id, { error: message }))) return;
-      patchPlaceState(place.id, { busy: 'savingAddress', error: undefined, done: undefined });
+      patchPlaceState(place.id, { busy: 'saving', error: undefined, done: undefined });
       try {
-        const updated = await updatePlaceAddress(client, place, patch);
+        const updated = await updatePlace(client, place, patch);
         setManaged((prev) => (prev ? prev.map((row) => (row.id === updated.id ? updated : row)) : prev));
         applyPlaceChange(updated);
         const done =
-          place.status === 'published' ? '주소를 고쳤어요 · 다음 빌드부터 사이트에 반영돼요' : '주소를 고쳤어요';
-        patchPlaceState(place.id, { busy: undefined, editingAddress: false, done });
+          place.status === 'published' ? '고쳤어요 · 다음 빌드부터 사이트에 반영돼요' : '고쳤어요';
+        patchPlaceState(place.id, { busy: undefined, editing: false, done });
         afterWrite();
       } catch (error) {
-        patchPlaceState(place.id, { busy: undefined, error: messageOf(error, '주소를 고치지 못했어요.') });
+        patchPlaceState(place.id, { busy: undefined, error: messageOf(error, '장소를 고치지 못했어요.') });
       } finally {
         endWrite();
       }
@@ -1211,58 +1211,6 @@ export function AdminPage() {
   );
 
   /**
-   * 고친 내용을 저장한다.
-   *
-   * **정체(이름·종류·주소·좌표·짝)는 묶음의 모든 행에, 소개(`features`)는 대표 행에만** 쓴다.
-   * 정체를 대표에만 쓰면 다음 새로고침에서 `groupCandidates` 가 `nameKey`·`match_place_id` 로 다시 묶을 때
-   * 그 행만 딴 묶음으로 떨어져, 방금 고친 가게가 두 줄로 보인다. 반대로 소개까지 전부에 쓰면 글마다 다른
-   * 문장을 한 글의 것으로 덮어쓴다 — 승인이 읽는 것은 대표 하나뿐이라 그럴 이유가 없다.
-   *
-   * 실패하면 **아무것도 화면에 반영하지 않는다.** 일부만 쓰인 상태로 목록을 고쳐 두면 무엇이 저장됐는지
-   * 화면과 DB 가 갈리고, 그 갈림은 다음 승인에서야 드러난다.
-   */
-  const saveEditFor = useCallback(
-    async (group: TCandidateGroup, draft: TCandidateEditDraft) => {
-      const client = clientRef.current;
-      if (!client) return;
-      if (!beginWrite((message) => patchState(group.key, { error: message }))) return;
-      patchState(group.key, { busy: 'savingEdit', error: undefined });
-      try {
-        const edit = buildEdit(group.lead, draft, placesRef.current);
-        const updatedLead = await saveEdit(client, group.lead, edit);
-        const others: TCandidateRow[] = [];
-        for (const row of group.rows) {
-          if (row.id === group.lead.id) continue;
-          // 소개는 그 행의 것을 지킨다 — 정체만 맞춘다. AI 원본도 그 행의 것이다(대표의 스냅샷을 얹으면 남의 글이 원본이 된다).
-          const sibling = {
-            ...edit,
-            extracted: { ...edit.extracted, features: row.extracted.features ?? null, aiOriginal: aiOriginalOf(row.extracted) },
-          };
-          others.push(await saveEdit(client, row, sibling));
-        }
-        const byId = new Map([updatedLead, ...others].map((row) => [row.id, row]));
-        setGroups((prev) =>
-          prev.map((current) =>
-            current.key === group.key
-              ? { ...current, lead: updatedLead, rows: current.rows.map((row) => byId.get(row.id) ?? row) }
-              : current,
-          ),
-        );
-        /*
-         * 고친 뒤에는 '골라 주세요' 패널을 **지운다.** 남은 패널(비슷한 곳·내린 곳)은 결정 줄에서 주소 고르기보다 먼저 그려져
-         * 새로 생긴 `주소 다름` 을 가린다 — 다시 누르면 새 값으로 다시 판단한다.
-         */
-        patchState(group.key, { busy: undefined, editDraft: undefined, similar: undefined, archived: undefined });
-      } catch (error) {
-        patchState(group.key, { busy: undefined, error: messageOf(error, '고친 내용을 저장하지 못했어요.') });
-      } finally {
-        endWrite();
-      }
-    },
-    [beginWrite, endWrite, patchState],
-  );
-
-  /**
    * 펼친 줄의 패널이 가리키는 기존 장소 행 — 내린 곳 → 닮은 곳 → 짝 순서(카드가 패널을 고르는 순서와 같다).
    * '최신본으로 저장하기' 가 그 행의 **지금 값**과 후보를 대 본다. 캐시(`placesRef`)는 승인이 덮은 칸까지 반영돼 있다.
    */
@@ -1606,7 +1554,7 @@ export function AdminPage() {
             onHandleReports={(place, ids, status, note) => void handleReports(place, ids, status, note)}
             visited={visitedByPlace}
             onApplyVisited={(place, ids) => void applyVisited(place, ids)}
-            onSaveAddress={(place, patch) => void savePlaceAddress(place, patch)}
+            onSavePlace={(place, patch) => void savePlace(place, patch)}
             onClearDone={clearPlaceDone}
           />
         )}
@@ -1627,7 +1575,7 @@ export function AdminPage() {
             onHandleReports={(place, ids, status, note) => void handleReports(place, ids, status, note)}
             visited={visitedByPlace}
             onApplyVisited={(place, ids) => void applyVisited(place, ids)}
-            onSaveAddress={(place, patch) => void savePlaceAddress(place, patch)}
+            onSavePlace={(place, patch) => void savePlace(place, patch)}
             onClearDone={clearPlaceDone}
           />
         )}
@@ -1808,8 +1756,6 @@ export function AdminPage() {
                   onPickRegion={(regionRaw) => patchState(group.key, { regionDraft: regionRaw })}
                   onPickOverwrite={(picked) => patchState(group.key, { overwritePick: picked })}
                   onSaveRegion={(regionRaw) => void saveRegion(group, regionRaw)}
-                  onEditDraft={(editDraft) => patchState(group.key, { editDraft })}
-                  onSaveEdit={(editDraft) => void saveEditFor(group, editDraft)}
                   onChooseAddress={(choice) => void chooseAddressFor(group, choice)}
                   selected={selected.has(group.key)}
                   onSelect={() => setSelected((prev) => toggleSelected(prev, group.key))}

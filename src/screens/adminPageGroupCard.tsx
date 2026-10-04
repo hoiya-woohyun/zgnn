@@ -14,7 +14,6 @@ import {
   type TRejectReason,
 } from '../lib/adminCandidates';
 import type { TApplyOutcome, TSimilarPlace } from '../lib/adminApply';
-import { draftFromExtracted, type TCandidateEditDraft } from '../lib/adminEdit';
 import type { TPetBadge } from '../lib/petPolicy';
 import { addressConflictOf, addressView, type TAddressChoice } from '../lib/adminAddress';
 import { policyCell, POLICY_STATE_WORD, type TAdminFlagView } from '../lib/adminPreview';
@@ -26,8 +25,6 @@ import { cx } from '../utils/cx';
 import { AdminPageGroupDetail } from './adminPageGroupDetail';
 import { AdminPageGroupSiteCompare } from './adminPageGroupSiteCompare';
 import { AdminTypeChip } from './adminTypeChip';
-import { AdminPageEditForm } from './adminPageEditForm';
-import { AdminChangeList } from './adminChangeList';
 import { AdminPageGroupActions } from './adminPageGroupActions';
 import { ADMIN_LEAD_CELL, ADMIN_PANEL_DIVIDER, ADMIN_POLICY_TONE, ADMIN_ROW, ADMIN_ROW_CELLS, ADMIN_ROW_OPEN } from './adminTable';
 
@@ -51,11 +48,6 @@ export type TAdminPageGroupState = {
   regionDraft?: string;
   /** 덮어쓰기에서 고른 칸(11 T1.4, `latestPlan` 의 change key). `undefined` 는 "안 건드림" = 바뀌는 칸 전부. */
   overwritePick?: string[];
-  /**
-   * 고치기 폼이 열려 있으면 그 초안. `undefined` 가 '안 열림' 이다 — 불리언과 값을 따로 두면
-   * 닫을 때 둘을 같이 지워야 하고, 한쪽만 지우면 다음에 열 때 남의 초안이 들어 있다.
-   */
-  editDraft?: TCandidateEditDraft;
 };
 
 export type TApproveChoice = {
@@ -89,8 +81,6 @@ type TAdminPageGroupCardProps = {
   /** 덮어쓰기 칸 고르기의 체크 한 번 — 고른 칸 전체를 돌려준다. */
   onPickOverwrite: (picked: string[]) => void;
   onSaveRegion: (regionRaw: string) => void;
-  onEditDraft: (draft: TCandidateEditDraft | undefined) => void;
-  onSaveEdit: (draft: TCandidateEditDraft) => void;
   /** `주소 다름` 에서 맞는 주소를 골랐다(`chooseAddress`). */
   onChooseAddress: (choice: TAddressChoice) => void;
   /** 일괄 반려용으로 골라 뒀는가. 소유자는 `adminPage.tsx` 다(`adminSelection.ts`). */
@@ -160,8 +150,6 @@ export function AdminPageGroupCard({
   policyReports = 0,
   onPickOverwrite,
   onSaveRegion,
-  onEditDraft,
-  onSaveEdit,
   onChooseAddress,
   selected,
   onSelect,
@@ -215,7 +203,6 @@ export function AdminPageGroupCard({
 
   const regionOk = regionUsable(extracted.regionRaw);
   const needsLook = verifyNeedsLook(extracted.verify);
-  const openEdit = () => onEditDraft(draftFromExtracted(extracted));
   /** 덮어쓰면 무엇이 바뀌나 — 펼쳤고 가리키는 장소 행이 있을 때만 계산한다. */
   /** 갱신 묶음의 제안(11 T2.2) — 있으면 덮어쓰기의 '새 값' 이 제안 값이 된다(`withProposal`, 쓰기도 같은 함수를 지난다). */
   const proposal = liveProposal(group.rows);
@@ -387,76 +374,62 @@ export function AdminPageGroupCard({
         * 펼친 줄 = **근거 → 결정 줄**(2026-09-30 v2). 오른쪽 결정 레일(카드)을 없애고, 근거를 다 읽은 자리(`여기까지 · 접기`)에
         * 버튼을 한 줄로 둔다. 판도 한 겹이다 — 색 바탕 위에 카드를 또 얹던 것을 걷고 선으로만 가른다.
         *
-        * **고치기는 근거 자리를 대신 쓴다.** 폼의 왼쪽 열이 이미 "지금 값" 이라 근거 표를 두 번 보여 줄 까닭이 없고,
-        * 고치는 동안 승인 버튼이 옆에 서 있으면 "저장했나, 올렸나" 가 흐려진다 — 그래서 결정 줄도 접는다(폼이 저장·취소를 갖는다).
+        * **여기서는 값을 고치지 않는다**(2026-10-04). 검수 대기는 올릴지 말지만 정하는 자리다 — AI 가 틀렸으면 제외하거나 재분석하고,
+        * 값 수정은 등록 완료의 장소 고치기(`adminPagePlaceEditForm`)에서 한다. 주소 고르기·지역 고르기는 결정의 일부라 남는다.
         */}
-      {expanded &&
-        (state.editDraft ? (
-          <AdminPageEditForm
-            draft={state.editDraft}
-            original={extracted}
-            busy={busy === 'savingEdit'}
-            onChange={onEditDraft}
-            onCancel={() => onEditDraft(undefined)}
-            onSave={() => state.editDraft && onSaveEdit(state.editDraft)}
-          />
-        ) : (
-          <div className={cx(ADMIN_PANEL_DIVIDER, 'px-4 pt-3 pb-2 md:pl-14')}>
-            <div className="space-y-3">
-              {/* 덮어쓰면 바뀌는 칸 — 근거 맨 위. 이 목록과 버튼은 같은 계산(`latestPlan`)·같은 조건(`latestAvailable`)에서 나온다. */}
-              {latestAvailable && latest && latest.changes.length > 0 && (
-                <AdminChangeList
-                  source="ai"
-                  title={`덮어쓰면 바뀌는 칸 — 지금 장소 값 → 새 분석 값 · 덮을 칸을 고르세요${loosen ? ` · 동반 조건은 꺼 두었어요: ${LOOSEN_HINT}` : ''}`}
-                  changes={latest.changes}
-                  selectable={{
-                    picked: overwritePick,
-                    disabled: Boolean(busy),
-                    onToggle: (key) => onPickOverwrite(toggleOverwritePick(latestKeys, overwritePick, key)),
-                  }}
-                />
-              )}
-              {/* 기존 장소를 고치거나 채우는 묶음은 **사이트에 지금 무엇이 있나** 부터 본다(11 T1.3). 신규 묶음에는 서지 않는다. */}
-              {pairPlace && (group.kind === 'update' || group.kind === 'fill') && <AdminPageGroupSiteCompare group={group} place={pairPlace} proposal={proposal} />}
-              <AdminPageGroupDetail group={group} preview={preview} />
-            </div>
-            <div className="mt-3 border-t border-secondary pt-3">
-              <section aria-label="이 장소 결정">
-                <AdminPageGroupActions
-                  group={group}
-                  state={state}
-                  regionOk={regionOk}
-                  addressPick={addressPick}
-                  needsLook={needsLook}
-                  latest={latest}
-                  latestAvailable={latestAvailable}
-                  overwritePick={overwritePick}
-                  onApprove={onApprove}
-                  onStartReject={onStartReject}
-                  onCancelReject={onCancelReject}
-                  onReject={onReject}
-                  onConfirmSite={onConfirmSite}
-                  onPickRegion={onPickRegion}
-                  onSaveRegion={onSaveRegion}
-                  onChooseAddress={onChooseAddress}
-                  onEdit={openEdit}
-                  reanalyzeText={reanalyzeText}
-                  onStartReanalyze={onStartReanalyze}
-                  onCancelReanalyze={onCancelReanalyze}
-                  onReanalyze={onReanalyze}
-                />
-              </section>
-              <button
-                type="button"
-                onClick={onToggle}
-                className="mx-auto mt-3 flex items-center gap-1 py-1.5 text-xs text-tertiary hover:text-secondary"
-              >
-                <ChevronDown aria-hidden="true" className="size-3.5 rotate-180" />
-                여기까지 · 접기
-              </button>
-            </div>
+      {expanded && (
+        <div className={cx(ADMIN_PANEL_DIVIDER, 'px-4 pt-3 pb-2 md:pl-14')}>
+          <div className="space-y-3">
+            <AdminPageGroupDetail group={group} preview={preview} place={pairPlace} />
+            {/*
+              * 사이트 비교 분석은 **이 글을 어떻게 읽었나(위 표) 다음**이다. 덮어쓸 칸이 있으면 결정 줄이 체크·버튼과 함께 그리고(`AdminPageGroupActions`),
+              * 여기는 덮어쓰기가 뜻이 없는 갈래(주소 고르기 · 지역 없음 · 바뀔 칸 없음)에서 읽기 전용으로만 선다. 신규 묶음에는 서지 않는다.
+              */}
+            {pairPlace && (group.kind === 'update' || group.kind === 'fill') && !(latestAvailable && latest && latest.changes.length > 0) && (
+              <AdminPageGroupSiteCompare group={group} place={pairPlace} proposal={proposal} />
+            )}
           </div>
-        ))}
+          <div className="mt-3 border-t border-secondary pt-3">
+            <section aria-label="이 장소 결정">
+              <AdminPageGroupActions
+                group={group}
+                state={state}
+                regionOk={regionOk}
+                addressPick={addressPick}
+                needsLook={needsLook}
+                latest={latest}
+                latestAvailable={latestAvailable}
+                overwritePick={overwritePick}
+                /* 체크는 결정 줄의 사이트 비교 분석 표가 그린다 — 계산(`latestPlan`)·조건(`latestAvailable`)은 여기 것 그대로다. */
+                overwriteNote={loosen ? `동반 조건은 꺼 두었어요: ${LOOSEN_HINT}` : undefined}
+                pairPlace={pairPlace}
+                proposal={proposal}
+                onToggleOverwrite={(key) => onPickOverwrite(toggleOverwritePick(latestKeys, overwritePick, key))}
+                onApprove={onApprove}
+                onStartReject={onStartReject}
+                onCancelReject={onCancelReject}
+                onReject={onReject}
+                onConfirmSite={onConfirmSite}
+                onPickRegion={onPickRegion}
+                onSaveRegion={onSaveRegion}
+                onChooseAddress={onChooseAddress}
+                reanalyzeText={reanalyzeText}
+                onStartReanalyze={onStartReanalyze}
+                onCancelReanalyze={onCancelReanalyze}
+                onReanalyze={onReanalyze}
+              />
+            </section>
+            <button
+              type="button"
+              onClick={onToggle}
+              className="mx-auto mt-3 flex items-center gap-1 py-1.5 text-xs text-tertiary hover:text-secondary"
+            >
+              <ChevronDown aria-hidden="true" className="size-3.5 rotate-180" />
+              여기까지 · 접기
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 접힌 상태에서도 방금 실패한 것은 보여야 한다 — 펼치지 않으면 왜 안 됐는지 알 수 없다. */}
       {!expanded && state.error && <p className="px-4 pb-2 text-xs text-error-primary">{state.error}</p>}

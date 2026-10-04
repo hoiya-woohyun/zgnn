@@ -16,11 +16,11 @@ import {
   type TArchiveReason,
 } from '../lib/adminPlaces';
 import type { TPlaceRow } from '../lib/adminCandidates';
-import type { TPlaceAddressPatch } from '../lib/adminPlaces';
+import type { TPlaceEditPatch } from '../lib/adminPlaceEdit';
 import { cx } from '../utils/cx';
-import { AdminPagePlaceAddressForm } from './adminPagePlaceAddressForm';
 import { AdminPagePlaceArchiveForm } from './adminPagePlaceArchiveForm';
 import { AdminPagePlaceDetail } from './adminPagePlaceDetail';
+import { AdminPagePlaceEditForm } from './adminPagePlaceEditForm';
 import { AdminPagePlaceReports } from './adminPagePlaceReports';
 import { VISITED_MIN_COUNT, VISITED_WINDOW_DAYS, type TReportRow, type TVisitedTally } from '../lib/adminReports';
 import { ADMIN_PANEL_DIVIDER, ADMIN_POLICY_TONE, ADMIN_ROW, ADMIN_ROW_CELLS, ADMIN_ROW_OPEN } from './adminTable';
@@ -28,7 +28,7 @@ import { AdminTypeChip } from './adminTypeChip';
 
 /** 장소 한 줄의 화면 상태. 소유자는 `adminPagePlaceList` 고 여기는 받아서 그린다(묶음 카드와 같은 모양). */
 export type TAdminPagePlaceState = {
-  busy?: 'archiving' | 'restoring' | 'savingAddress' | 'blocking' | 'reports';
+  busy?: 'archiving' | 'restoring' | 'saving' | 'blocking' | 'reports';
   done?: string;
   error?: string;
   /** '내리기' 를 눌러 사유를 고르는 중. */
@@ -37,15 +37,15 @@ export type TAdminPagePlaceState = {
   archiveReason?: TArchiveReason;
   /** 등록 해제 칸에서 '블랙리스트' 를 눌러 기간을 고르는 중. */
   pickingBlock?: boolean;
-  /** 펼친 상세에서 '주소·좌표 고치기' 를 눌러 패널이 열려 있다. */
-  editingAddress?: boolean;
+  /** 펼친 상세에서 '고치기' 를 눌러 고치기 폼이 상세 자리에 열려 있다. */
+  editing?: boolean;
 };
 
 /**
  * 액션 칸(맨 끝 열)의 버튼 기준(2026-10-02).
  *
  * 1. **액션 칸의 동작은 전부 테두리 버튼**(`secondary`)이다. 텍스트 버튼은 줄 안의 이름 링크·회색 정보 글과 같은 모양이라
- *    누를 곳으로 읽히지 않는다. 텍스트 버튼은 문장·정보 칸 안에 끼는 보조 동작(상세의 `주소·좌표 고치기`)에만 쓴다.
+ *    누를 곳으로 읽히지 않는다. 텍스트 버튼은 문장·정보 칸 안에 끼는 보조 동작에만 쓴다(상세의 `고치기` 도 테두리 버튼이다).
  * 2. **색은 결정하는 순간에만.** 줄마다 서는 첫 단계(`내리기`·`블랙리스트`·`되살리기…`)는 회색 테두리 — 86줄 전부에 빨간
  *    `내리기` 가 서 있던 동안 표 전체가 경고처럼 보였다. 확인 단계의 실행만 채운 색(`primary`)이고 `취소` 는 `secondary` 다
  *    (후보 결정 패널 `adminPageGroupActions` 와 같은 짝).
@@ -81,9 +81,9 @@ type TAdminPagePlaceRowProps = {
   visited?: TVisitedTally;
   onApplyVisited: () => void;
   onRestore: () => void;
-  onStartEditAddress: () => void;
-  onCancelEditAddress: () => void;
-  onSaveAddress: (patch: TPlaceAddressPatch) => void;
+  onStartEdit: () => void;
+  onCancelEdit: () => void;
+  onSave: (patch: TPlaceEditPatch) => void;
 };
 
 /**
@@ -110,9 +110,9 @@ export function AdminPagePlaceRow({
   onCancelArchive,
   onArchive,
   onRestore,
-  onStartEditAddress,
-  onCancelEditAddress,
-  onSaveAddress,
+  onStartEdit,
+  onCancelEdit,
+  onSave,
   block,
   blocksUnavailable,
   onStartBlock,
@@ -308,13 +308,16 @@ export function AdminPagePlaceRow({
 
       {/* 결과·오류는 열에 끼우지 않는다 — 줄 전체 폭을 쓰는 편이 읽힌다(그리드 밖이라 열도 흔들지 않는다). */}
       {state.done && <p className="px-4 pb-2 text-xs text-success-primary">{state.done}</p>}
-      {expanded && (
-        <AdminPagePlaceDetail
-          place={place}
-          badges={badges}
-          onEditAddress={archived || state.editingAddress || busy ? undefined : onStartEditAddress}
-        />
-      )}
+      {/*
+        * 고치는 동안은 폼이 상세 자리를 쓴다 — 폼의 왼쪽 열이 곧 지금 값이라 상세를 같이 두면 같은 값이 두 번 선다.
+        * 내린 곳에는 열지 않는다: 줄 상태는 두 칸이 나눠 쓰므로, 폼을 연 채 내리면 `editing` 이 등록 해제 칸까지 따라온다.
+        */}
+      {expanded &&
+        (state.editing && !archived ? (
+          <AdminPagePlaceEditForm place={place} busy={busy === 'saving'} onSave={onSave} onCancel={onCancelEdit} />
+        ) : (
+          <AdminPagePlaceDetail place={place} badges={badges} onEdit={archived || busy ? undefined : onStartEdit} />
+        ))}
       {expanded && reports.length > 0 && (
         <AdminPagePlaceReports
           reports={reports}
@@ -343,14 +346,6 @@ export function AdminPagePlaceRow({
             </span>
           )}
         </div>
-      )}
-      {expanded && state.editingAddress && (
-        <AdminPagePlaceAddressForm
-          place={place}
-          busy={busy === 'savingAddress'}
-          onSave={onSaveAddress}
-          onCancel={onCancelEditAddress}
-        />
       )}
       {state.error && <p className="px-4 pb-2 text-xs text-error-primary">{state.error}</p>}
 

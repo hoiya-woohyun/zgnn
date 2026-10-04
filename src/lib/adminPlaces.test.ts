@@ -7,9 +7,6 @@ import {
   matchesPlaceQuery,
   noteHistory,
   noteLineText,
-  placeAddressDraft,
-  placeAddressPatch,
-  placeAddressProblem,
   placeBadges,
   placeGaps,
   sortManagedPlaces,
@@ -231,44 +228,6 @@ describe('noteHistory', () => {
 
   it('비어 있으면 빈 배열', () => {
     expect(noteHistory(null)).toEqual([]);
-  });
-});
-
-describe('placeAddressPatch', () => {
-  it('빈 주소를 채우면 그 칸만 쓴다', () => {
-    const row = place({ address: null });
-    expect(placeAddressPatch(row, { ...placeAddressDraft(row), address: ' 제주 서귀포시 안덕면 1 ' })).toEqual({
-      address: '제주 서귀포시 안덕면 1',
-    });
-  });
-
-  it('아무것도 안 바뀌면 null — 빈 update 로 재빌드를 헛돌리지 않는다', () => {
-    const row = place({ address: '제주시 1', lat: 33.4, lng: 126.5 });
-    expect(placeAddressPatch(row, placeAddressDraft(row))).toBeNull();
-  });
-
-  it('좌표는 두 칸을 함께 쓴다', () => {
-    const row = place({ lat: 33.4, lng: 126.5 });
-    expect(placeAddressPatch(row, { address: '', lat: '33.3', lng: '126.5' })).toEqual({ lat: 33.3, lng: 126.5 });
-  });
-
-  it('주소를 비우면 null 로 지운다', () => {
-    const row = place({ address: '제주시 1' });
-    expect(placeAddressPatch(row, { address: '  ', lat: '', lng: '' })).toEqual({ address: null });
-  });
-});
-
-describe('placeAddressProblem', () => {
-  it('좌표 한 칸만 채우면 막는다', () => {
-    expect(placeAddressProblem({ address: '', lat: '33.3', lng: '' })).toMatch('둘 다');
-  });
-
-  it('위·경도를 뒤바꾸면 막는다', () => {
-    expect(placeAddressProblem({ address: '', lat: '126.5', lng: '33.3' })).toMatch('제주 밖');
-  });
-
-  it('주소만 고치는 것은 된다', () => {
-    expect(placeAddressProblem({ address: '제주시 1', lat: '', lng: '' })).toBeNull();
   });
 });
 

@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 import { Badge } from '../components/base/badges';
 import { addressView } from '../lib/adminAddress';
-import { factsLine, FACTS_EMPTY, type TCandidateGroup, type TPolicyPreview } from '../lib/adminCandidates';
+import { factsLine, FACTS_EMPTY, type TCandidateGroup, type TPlaceRow, type TPolicyPreview } from '../lib/adminCandidates';
 import { aiEdits } from '../lib/adminEdit';
 import { policySplit } from '../lib/adminPreview';
 import { verifyView } from '../lib/adminVerify';
@@ -17,7 +17,20 @@ import { AdminSourceChip, SOURCE_TONE } from './adminSource';
 type TAdminPageGroupDetailProps = {
   group: TCandidateGroup;
   preview: TPolicyPreview;
+  /**
+   * 짝지은 장소의 지금 행. 있으면 표에 **짱구누나** 칸이 선다(블로그 원문 · 짱구누나 · AI 정리 — 아래 사이트 비교 분석과 같은 순서).
+   * 신규 묶음에는 사이트에 아직 아무것도 없어 칸째로 안 그린다(늘 빈 칸이 된다).
+   */
+  place?: TPlaceRow;
 };
+
+const GRID = 'md:grid-cols-[6rem_minmax(0,1fr)_minmax(0,1fr)]';
+const GRID_WITH_SITE = 'md:grid-cols-[6rem_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]';
+const SITE_LABEL = '짱구누나 · 지금 사이트';
+
+/** 짱구누나 칸의 값. 비었으면 빈 칸이라고 말한다 — 승인하면 채워지는 자리다. */
+const SiteText = ({ text }: { text: string | null | undefined }) =>
+  text?.trim() ? <p className="whitespace-pre-line text-secondary">{text}</p> : <span className="text-quaternary">사이트에 없어요</span>;
 
 const POLICY_TONE: Record<TBadgeTone, string> = {
   ok: 'bg-secondary text-secondary',
@@ -55,12 +68,15 @@ function Quote({ text, empty }: { text: string | null | undefined; empty: string
 function CompareRow({
   label,
   source,
+  site,
   result,
   edited = false,
 }: {
   label: string;
   /** 원문 칸. **없으면 한 칸으로 합친다** — 소개·홈페이지는 블로그 원문이 따로 없어서 왼쪽이 늘 같은 안내문이었다. */
   source?: ReactNode;
+  /** 짱구누나 칸(짝 장소의 지금 값). `undefined` 면 칸이 없는 표다(신규 묶음) — 그때는 지금까지의 두 칸 그대로. */
+  site?: ReactNode;
   result: ReactNode;
   edited?: boolean;
 }) {
@@ -69,8 +85,12 @@ function CompareRow({
    * 두 칸의 글자가 같은 회색이라 어느 쪽을 읽는지 줄마다 머리글을 다시 봐야 했다.
    */
   return (
-    <div className="grid md:grid-cols-[6rem_minmax(0,1fr)_minmax(0,1fr)]">
+    <div className={cx('grid', site !== undefined ? GRID_WITH_SITE : GRID)}>
       <div className="px-3 py-2 font-semibold text-secondary">{label}</div>
+      {/* 짱구누나 칸이 서는 표에서는 원문 없는 줄도 블로그 칸을 비워 둔다 — 칸을 합치면 짱구누나 칸이 줄마다 다른 자리에 선다. */}
+      {source === undefined && site !== undefined && (
+        <div className={cx('min-w-0 px-3 py-2 text-quaternary max-md:hidden md:border-l', SOURCE_TONE.blog.surface, SOURCE_TONE.blog.border)}>—</div>
+      )}
       {source !== undefined && (
         <div className={cx('min-w-0 px-3 py-2 md:border-l', SOURCE_TONE.blog.surface, SOURCE_TONE.blog.border)}>
           <span className="mb-1 block md:hidden">
@@ -79,17 +99,23 @@ function CompareRow({
           {source}
         </div>
       )}
+      {site !== undefined && (
+        <div className="min-w-0 px-3 py-2 md:border-l md:border-secondary">
+          <span className="mb-1 block text-tertiary md:hidden">{SITE_LABEL}</span>
+          {site}
+        </div>
+      )}
       <div
         className={cx(
           'min-w-0 px-3 py-2 md:border-l',
-          source === undefined && 'md:col-span-2',
+          source === undefined && site === undefined && 'md:col-span-2',
           SOURCE_TONE.ai.surface,
           SOURCE_TONE.ai.border,
         )}
       >
-        {source !== undefined && (
+        {(source !== undefined || site !== undefined) && (
           <span className="mb-1 block md:hidden">
-            <AdminSourceChip source="ai" suffix="나갈 값" />
+            <AdminSourceChip source="ai" suffix={site !== undefined ? undefined : '나갈 값'} />
           </span>
         )}
         {edited && (
@@ -120,7 +146,7 @@ const squash = (text: string) => text.replace(/\s+/g, ' ').trim();
  * 동반 조건 줄의 나갈 값은 **결론이 먼저**다 — 사이트에 실제로 보일 칩. 그것을 만든 재료(기본 규칙 / AI)는 접어 두고,
  * 둘이 어긋날 때만 펼친 채로 연다. 어긋나는 자리가 곧 "정규화가 잘 됐는가" 의 실측이라서다(reviewCandidates.mjs:68-69).
  */
-export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailProps) {
+export function AdminPageGroupDetail({ group, preview, place }: TAdminPageGroupDetailProps) {
   const extracted = group.lead.extracted;
   /*
    * 나갈 주소는 **어디서 온 주소인지**부터 말한다(`adminAddress.ts`). 예전에는 전부 '네이버 검색 결과' 로 적고 원글과
@@ -139,6 +165,9 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
   const editedKeys = new Set(edits.map((change) => change.key));
   const policyEdited = edits.some((change) => change.policy || change.key === 'petPolicyText');
   const regionAi = extracted.regionRawAi?.trim() ? extracted.regionRawAi : null;
+  // 짝이 없으면 전부 `undefined` — 줄마다 `site` 가 빠져 두 칸 표가 된다.
+  const siteOf = (node: ReactNode) => (place ? node : undefined);
+  const siteFacts = place ? factsLine(place.pet_policy ?? null) : null;
   const policyQuote = extracted.petPolicyText ? squash(extracted.petPolicyText) : '';
 
   return (
@@ -147,7 +176,7 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
 
       {/* 머리글은 짧은 이름표 — 뜻은 `title` 이 말한다(매일 보는 운영자에게 칸마다 문장은 소음이다). */}
       <div className="overflow-hidden rounded-lg border border-secondary bg-secondary">
-        <div className="hidden text-[0.6875rem] font-semibold text-tertiary md:grid md:grid-cols-[6rem_minmax(0,1fr)_minmax(0,1fr)]">
+        <div className={cx('hidden text-[0.6875rem] font-semibold text-tertiary md:grid', place ? GRID_WITH_SITE : GRID)}>
           <span className="px-3 py-1.5">항목</span>
           <span
             title="블로그 본문에 적힌 그대로"
@@ -155,11 +184,12 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
           >
             <AdminSourceChip source="blog" /> 원문
           </span>
+          {place && <span className="border-l border-secondary px-3 py-1.5">{SITE_LABEL}</span>}
           <span
-            title="승인하면 사이트에 나갈 값"
+            title={place ? 'AI 가 이 글에서 읽은 값 — 무엇을 바꿀지는 아래 사이트 비교 분석에서 골라요' : '승인하면 사이트에 나갈 값'}
             className={cx('flex items-center gap-1.5 border-l px-3 py-1.5', SOURCE_TONE.ai.surface, SOURCE_TONE.ai.border)}
           >
-            <AdminSourceChip source="ai" /> 나갈 값
+            <AdminSourceChip source="ai" /> {place ? null : '나갈 값'}
           </span>
         </div>
         <div className="divide-y divide-secondary md:border-t md:border-secondary">
@@ -167,6 +197,12 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
             label="동반 조건"
             edited={policyEdited}
             source={<Quote text={extracted.petPolicyText} empty="본문에 동반 조건 문장이 없어요" />}
+            site={siteOf(
+              <>
+                <SiteText text={place?.pet_policy_text} />
+                {siteFacts && siteFacts !== FACTS_EMPTY && <p className="mt-1 text-tertiary">{siteFacts}</p>}
+              </>,
+            )}
             result={
               <div className="space-y-1">
                 {policy.message ? (
@@ -205,6 +241,7 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
             label="주소"
             edited={editedKeys.has('address') || editedKeys.has('geo')}
             source={<Quote text={addressAi} empty="원글에 주소가 없어요" />}
+            site={siteOf(<SiteText text={place?.address} />)}
             result={
               <>
                 <AdminAddressLine view={address} />
@@ -215,12 +252,14 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
           <CompareRow
             label="지역"
             source={<Quote text={regionAi} empty="원글에서 지역을 못 읽었어요" />}
+            site={siteOf(<SiteText text={place?.region_raw} />)}
             result={<p className="text-secondary">{extracted.regionRaw ?? '지역 없음 — 아래에서 골라 주세요'}</p>}
           />
           {/* 소개·홈페이지는 블로그 원문이 없다 — 왼쪽이 늘 같은 안내문이던 줄이라 한 칸으로 합쳤다(다와풀빌라가 두 화면을 먹던 주된 이유). */}
           <CompareRow
             label="소개"
             edited={editedKeys.has('features')}
+            site={siteOf(<SiteText text={place?.features} />)}
             // `??` 가 아니라 `||` 다(AI 는 '' 로도 준다).
             result={<p className="whitespace-pre-line text-secondary">{extracted.features || '소개 문장이 없어요'}</p>}
           />
@@ -228,6 +267,7 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
           {extracted.type === 'stay' && (
             <CompareRow
               label="숙소 환경"
+              site={siteOf(<SiteText text={environmentPhrases(place?.stay_environment ?? undefined).join(' · ')} />)}
               result={
                 <p className="text-secondary">
                   {environmentPhrases(extracted.stayEnvironment ?? undefined).join(' · ') || '원글에 환경 문장이 없어요(사이트는 소개 문장에서 읽어요)'}
@@ -242,6 +282,7 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
           <CompareRow
             label="홈페이지"
             edited={editedKeys.has('homepageUrl') || editedKeys.has('homepageImage')}
+            site={siteOf(<SiteText text={place?.homepage_name ?? place?.homepage_url} />)}
             result={
               extracted.homepage ? (
                 <span className="flex items-start gap-2">
@@ -275,6 +316,7 @@ export function AdminPageGroupDetail({ group, preview }: TAdminPageGroupDetailPr
             <CompareRow
               label="교차점검"
               source={<Quote text={extracted.verify?.quote} empty="근거 문장을 못 찾았어요" />}
+              site={siteOf(<span className="text-quaternary">—</span>)}
               result={
                 <>
                   <p className="font-semibold text-secondary">{verify.label}</p>
