@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import places from '../../src/data/places.json' with { type: 'json' };
 import {
   distanceMeters,
+  isToponymKey,
   matchPlace,
   NAME_PARTIAL_MIN_CHARS,
   nameSimilarity,
@@ -37,6 +38,21 @@ describe('normalizeName / splitAliases', () => {
     expect(normalizeName('카페')).toBe('카페');
     expect(normalizeName('제주')).toBe('제주');
   });
+  it('지역 접사를 벗긴 나머지가 지명이면 벗기지 않는다 — "제주하도" 의 키가 동네 이름 "하도" 가 되면 안 된다', () => {
+    expect(normalizeName('제주하도')).toBe('제주하도');
+    expect(normalizeName('제주 하도')).toBe('제주하도');
+    expect(normalizeName('세화 제주점')).toBe('세화제주점');
+    // 지명이 아닌 나머지는 그대로 벗긴다. '카페' 는 지역 접사가 아니라 "카페 세화"·"세화 카페" 가 같은 키로 만난다.
+    expect(normalizeName('제주블루스')).toBe('블루스');
+    expect(normalizeName('카페 세화')).toBe(normalizeName('세화 카페'));
+  });
+  it('isToponymKey — 리·동 접미가 붙어도 지명이다', () => {
+    expect(isToponymKey('하도')).toBe(true);
+    expect(isToponymKey('하도리')).toBe(true);
+    expect(isToponymKey('중문동')).toBe(true);
+    expect(isToponymKey('제주하도')).toBe(false);
+    expect(isToponymKey('살레')).toBe(false);
+  });
   it('기호는 전부 지우되 글자·숫자는 남긴다', () => {
     expect(normalizeName('캄 : Kalm')).toBe('캄kalm');
     expect(normalizeName('13월봄')).toBe('13월봄');
@@ -62,6 +78,13 @@ describe('nameSimilarity', () => {
   it('지점 접미는 벗기지 않는다 — "A 애월점" 과 "A 함덕점" 은 다른 가게(체인). "제주점" 접사만 벗겨 "올드패션제주" 와 같은 키가 된다', () => {
     expect(nameSimilarity('카페A 애월점', '카페A 함덕점')).toBe(0);
     expect(normalizeName('올드패션 제주점')).toBe(normalizeName('올드패션제주'));
+  });
+  it('포함된 짧은 쪽이 지명이면 부분 일치가 아니다 — 같은 동네라는 뜻일 뿐', () => {
+    expect(nameSimilarity('제주하도', '하도리 독채펜션 소소')).toBe(0);
+    expect(nameSimilarity('제주하도', '하도스테이')).toBe(0);
+    expect(nameSimilarity('세화', '세화해변카페 모모')).toBe(0);
+    // 그 가게를 쓴 글은 완전 일치로 계속 붙는다.
+    expect(nameSimilarity('제주하도', '제주 하도')).toBe(1);
   });
   it(`부분 일치는 짧은 쪽이 ${NAME_PARTIAL_MIN_CHARS}자 이상일 때만`, () => {
     expect(nameSimilarity('가'.repeat(NAME_PARTIAL_MIN_CHARS - 1), '가'.repeat(NAME_PARTIAL_MIN_CHARS + 3))).toBe(0);
@@ -233,6 +256,22 @@ describe('matchPlace — 좌표 없는 기존 장소 5곳', () => {
     expect(matchPlace({ name: '브릭스 카페', type: 'cafe' }, places).match?.id).toBe(byName('브릭스제주').id);
     expect(matchPlace({ name: '롯지먼트 제주', type: 'cafe' }, places).match?.id).toBe(byName('롯지먼트').id);
     expect(matchPlace({ name: '개떼 목장', type: 'cafe' }, places).match?.id).toBe(byName('개떼목장').id);
+  });
+});
+
+describe('matchPlace — 이름이 지명인 가게 (제주하도)', () => {
+  const hado = byName('제주하도');
+  it('같은 동네의 다른 펜션은 100m 안이어도 붙지 않는다 — 신규 후보로 빠진다', () => {
+    const r = matchPlace(
+      { name: '하도리 독채펜션 소소', type: 'stay', geo: { lat: hado.geo.lat + 0.0003, lng: hado.geo.lng }, address: '제주 제주시 구좌읍 하도리 1' },
+      places,
+    );
+    expect(r.match).toBeNull();
+  });
+  it('그 가게를 쓴 글은 띄어 써도 병합된다', () => {
+    const r = matchPlace({ name: '제주 하도', type: 'stay', geo: hado.geo }, places);
+    expect(r.match?.id).toBe(hado.id);
+    expect(r.confidence).toBeGreaterThanOrEqual(THRESHOLD.AUTO_MERGE);
   });
 });
 

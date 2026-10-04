@@ -18,6 +18,51 @@ const NAME_AFFIXES = ['제주점', '본점', '카페', 'cafe', '제주'];
 // 지점 접미("○○ 애월점")를 통째로 벗기는 규칙은 넣지 않는다(2026-09-28 검토 뒤 철회) — "A 애월점" 과 "A 함덕점" 이 같은 가게가 돼 체인 지점끼리
 // 자동 병합된다(naverLocal.test 가 잡았다). 지점이 다른 이름은 부분 일치(0.7)로 ask 에 머무는 것이 맞다. "올드패션제주"·"올드패션 제주점" 은 위 접사만으로 같은 키다.
 
+/**
+ * 제주의 리·동·읍·면 이름(접미 '리·동·읍·면' 을 뗀 꼴). 이름 키가 여기 있으면 그 키는 가게가 아니라 **동네**를 가리킨다 —
+ * "제주하도"(구좌읍 하도리의 펜션)에서 '제주' 를 벗기면 키가 '하도' 가 되고, "하도리 ○○펜션" 이 전부 부분 일치(0.7)로 그 장소 카드에
+ * 붙었다(2026-10-04). 패턴이 아니라 목록인 이유는 `JEJU_TOWNS` 와 같다. 길이로 막지 않는 이유: "카페살레"↔"살레" 는 2자 부분 일치가 맞는 짝이다.
+ * 쓰는 곳은 둘 — `normalizeName`(지역 접사를 벗긴 나머지가 지명이면 벗기지 않는다)과 `nameSimilarity`(포함된 짧은 쪽이 지명이면 부분 일치가 아니다).
+ */
+const JEJU_TOPONYMS = new Set([
+  // 구좌읍
+  '구좌', '동복', '김녕', '월정', '행원', '한동', '평대', '세화', '상도', '하도', '종달', '송당', '덕천',
+  // 성산읍
+  '성산', '시흥', '오조', '고성', '수산', '온평', '난산', '신산', '삼달', '신풍', '신천',
+  // 조천읍
+  '조천', '신촌', '신흥', '함덕', '북촌', '선흘', '와산', '대흘', '와흘', '교래',
+  // 애월읍
+  '애월', '곽지', '금성', '봉성', '어음', '납읍', '상가', '하가', '용흥', '신엄', '중엄', '구엄', '고내', '하귀', '상귀', '장전', '소길', '유수암', '광령',
+  // 한림읍
+  '한림', '귀덕', '수원', '대림', '한수', '상대', '동명', '명월', '금악', '상명', '월림', '협재', '옹포', '금능', '월령', '비양',
+  // 한경면
+  '한경', '판포', '금등', '한원', '두모', '신창', '용당', '용수', '고산', '조수', '낙천', '청수', '산양', '저지',
+  // 대정읍
+  '대정', '상모', '하모', '모슬포', '동일', '일과', '인성', '안성', '보성', '신평', '구억', '가파', '마라', '영락', '무릉', '신도',
+  // 남원읍
+  '남원', '태흥', '위미', '하례', '신례', '한남', '수망', '의귀',
+  // 표선면
+  '표선', '하천', '성읍', '가시', '토산',
+  // 안덕면
+  '안덕', '화순', '사계', '덕수', '서광', '동광', '광평', '상천', '상창', '창천', '감산', '대평',
+  // 우도면 · 추자면
+  '우도', '추자',
+  // 제주시 동
+  '제주시', '일도', '이도', '삼도', '용담', '건입', '화북', '삼양', '봉개', '아라', '오라', '연동', '노형', '외도', '이호', '도두', '도련', '영평', '오등', '해안', '도평', '내도', '회천', '용강', '도남',
+  // 서귀포시 동
+  '서귀포', '서귀포시', '서귀', '법환', '서호', '호근', '동홍', '서홍', '상효', '하효', '신효', '보목', '토평', '중문', '회수', '대포', '월평', '강정', '도순', '하원', '색달', '상예', '하예', '영남', '대천',
+]);
+
+/** 정규화한 이름 키가 지명인가 — "하도" 도 "하도리" 도 지명이다. */
+export function isToponymKey(key) {
+  if (JEJU_TOPONYMS.has(key)) return true;
+  return /[리동읍면]$/.test(key) && JEJU_TOPONYMS.has(key.slice(0, -1));
+}
+
+/** 지역을 말하는 접사 — 벗긴 나머지가 지명이면 벗기지 않는다("제주하도" 는 '하도' 가 아니라 '제주하도' 다). '카페' 는 해당 없다("카페 세화"·"세화 카페" 는 같은 키로 만나야 한다). */
+const REGION_AFFIXES = new Set(['제주점', '제주']);
+const keepsAffix = (affix, rest) => REGION_AFFIXES.has(affix) && isToponymKey(rest);
+
 /** 이름 비교용 정규화 — 소문자, 괄호 제거, 글자·숫자 외 전부 제거, 접두/접미의 NAME_AFFIXES 제거. 괄호 안 별칭은 splitAliases 가 따로 뽑는다. */
 export function normalizeName(name) {
   let s = (name ?? '')
@@ -29,8 +74,8 @@ export function normalizeName(name) {
   for (let stripped = true; stripped; ) {
     stripped = false;
     for (const affix of NAME_AFFIXES) {
-      if (s.length > affix.length && s.startsWith(affix)) { s = s.slice(affix.length); stripped = true; }
-      if (s.length > affix.length && s.endsWith(affix)) { s = s.slice(0, -affix.length); stripped = true; }
+      if (s.length > affix.length && s.startsWith(affix) && !keepsAffix(affix, s.slice(affix.length))) { s = s.slice(affix.length); stripped = true; }
+      if (s.length > affix.length && s.endsWith(affix) && !keepsAffix(affix, s.slice(0, -affix.length))) { s = s.slice(0, -affix.length); stripped = true; }
     }
   }
   return s;
@@ -46,12 +91,16 @@ export function splitAliases(name) {
 /** 부분 일치로 인정하려면 짧은 쪽이 이 글자 수 이상이어야 한다. 86곳 자기충돌 검사(테스트)가 깨지면 임계값 대신 이걸 올린다. */
 export const NAME_PARTIAL_MIN_CHARS = 2;
 
-/** 0..1. 정규화 이름 중 하나가 완전 일치면 1, 한쪽이 다른 쪽을 포함(짧은 쪽 ≥ NAME_PARTIAL_MIN_CHARS)하면 0.7, 아니면 0. */
+/**
+ * 0..1. 정규화 이름 중 하나가 완전 일치면 1, 한쪽이 다른 쪽을 포함(짧은 쪽 ≥ NAME_PARTIAL_MIN_CHARS)하면 0.7, 아니면 0.
+ * 포함된 짧은 쪽이 지명이면 부분 일치로 치지 않는다 — '하도' 가 들어 있다는 것은 같은 동네라는 뜻일 뿐이다(`JEJU_TOPONYMS`).
+ */
 export function nameSimilarity(a, b) {
   const as = splitAliases(a), bs = splitAliases(b);
   for (const x of as) for (const y of bs) if (x === y) return 1;
   for (const x of as) for (const y of bs) {
-    if (Math.min(x.length, y.length) >= NAME_PARTIAL_MIN_CHARS && (x.includes(y) || y.includes(x))) return 0.7;
+    const [short, long] = x.length <= y.length ? [x, y] : [y, x];
+    if (short.length >= NAME_PARTIAL_MIN_CHARS && long.includes(short) && !isToponymKey(short)) return 0.7;
   }
   return 0;
 }
