@@ -117,7 +117,21 @@ describe('EXTRACT_SCHEMA — 구조화 출력이 받아들이는 모양', () => 
   });
 });
 
-describe('프롬프트 ↔ 앱 파서 계약 — 예시 문장은 parsePetPolicy 가 읽는 어휘여야 한다', () => {
+describe('프롬프트 규칙 — 종류·소개 문장', () => {
+  it('카페 업태가 식사보다 앞서고 type 과 features 의 업태 표현이 맞아야 한다', () => {
+    expect(SYSTEM_PROMPT.indexOf('간판·업태가 카페면 "cafe"')).toBeGreaterThan(-1);
+    expect(SYSTEM_PROMPT.indexOf('"cafe"')).toBeLessThan(SYSTEM_PROMPT.indexOf('식사가 주업이면 "restaurant"'));
+    expect(SYSTEM_PROMPT).toContain('type 과 features 의 업태 표현은 서로 맞아야 합니다');
+  });
+
+  it('features 는 장소를 주어로 한 서술만 쓰고 명령·권유와 "바로" 오독 음차를 막는다', () => {
+    expect(SYSTEM_PROMPT).toContain('문장의 주어는 장소이고');
+    expect(SYSTEM_PROMPT).toContain('"~해 주세요"');
+    expect(SYSTEM_PROMPT).toContain('"바로 운영" 으로 쓰지 않습니다');
+  });
+});
+
+describe('프롬프트 ↔ 앱 파서 계약— 예시 문장은 parsePetPolicy 가 읽는 어휘여야 한다', () => {
   it('PROMPT_POLICY_EXAMPLES 가 프롬프트에 그대로 들어 있다', () => {
     for (const example of PROMPT_POLICY_EXAMPLES) expect(SYSTEM_PROMPT).toContain(`"${example}"`);
   });
