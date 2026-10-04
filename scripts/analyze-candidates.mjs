@@ -295,9 +295,11 @@ async function noteSinglePlaceBlogs(fetched) {
 }
 await noteSinglePlaceBlogs(focusedPosts);
 let fetchedPosts = focusedPosts;
+let droppedSinglePlace = 0; // --focused-only 가 아예 뺀 한 가게 블로그 글 수(로그용)
 if (focusedOnly) {
   // 앞줄만 — 한 가게 블로그의 글도 뺀다(그것도 '뒤' 다).
   fetchedPosts = focusedPosts.filter((post) => !singlePlace.has(post.blog_id));
+  droppedSinglePlace = focusedPosts.length - fetchedPosts.length;
 } else if (pickPostsForRun(focusedPosts.filter((post) => !singlePlace.has(post.blog_id)), limit, maxPerBlog).length < limit) {
   const { data: restPosts, error: restError } = await unanalyzed().limit(postWindow + focusedPosts.length);
   if (restError) throw new Error(`blog_posts 조회 실패: ${restError.message}`);
@@ -350,7 +352,7 @@ for (const row of pendingRows) {
 }
 
 console.log(
-  `미분석 글 ${posts.length}건(집중 ${posts.filter((post) => isFocusedTitle(post.title)).length} · 나머지 ${posts.filter((post) => !isFocusedTitle(post.title)).length} — 읽은 ${fetchedPosts.length}건 중 블로그당 ${maxPerBlog || '무제한'}건 · 한 가게 블로그 ${singlePlace.size}곳 글 ${fetchedPosts.filter((post) => singlePlace.has(post.blog_id)).length}건 뒤로) · 기존 장소 ${existing.length}곳(archived 제외) · pending 후보 ${pendingRows.length}건`,
+  `미분석 글 ${posts.length}건(집중 ${posts.filter((post) => isFocusedTitle(post.title)).length} · 나머지 ${posts.filter((post) => !isFocusedTitle(post.title)).length} — 읽은 ${fetchedPosts.length}건 중 블로그당 ${maxPerBlog || '무제한'}건 · 한 가게 블로그 ${singlePlace.size}곳 글 ${droppedSinglePlace || fetchedPosts.filter((post) => singlePlace.has(post.blog_id)).length}건 ${focusedOnly ? '뺌' : '뒤로'}) · 기존 장소 ${existing.length}곳(archived 제외) · pending 후보 ${pendingRows.length}건`,
 );
 
 // 네이버가 잠깐 죽었다고 글 전체를 버리지 않는다 — 실패하면 좌표 없이 간다(status 만 로그). 단 401/403 은 키가 틀린 것이라 실행을
