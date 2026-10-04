@@ -25,6 +25,29 @@ describe('homepageUrlOf — 홈페이지라고 부를 수 있는 링크만', () 
   });
 });
 
+describe('homepageUrlOf — 번호로 된 주소는 플랫폼의 업체 페이지다', () => {
+  it('경로 마디나 쿼리 값이 숫자뿐이면 목록에 없는 호스트여도 카드를 만들지 않는다', () => {
+    for (const link of [
+      'https://www.some-directory.kr/0647230303',
+      'https://reservation.some-booking.kr/81278',
+      'https://noti.some-waiting.kr/link/point?path=restaurant_details&restaurant_idx=11235',
+    ]) {
+      expect(homepageUrlOf(link)).toBeNull();
+    }
+  });
+
+  it('업체 자기 사이트의 하위 경로는 그대로 받는다', () => {
+    for (const link of [
+      'https://www.glad-hotels.com/maisongladjeju/index.do',
+      'http://www.sunsetcoast.kr/html/index.html',
+      'https://www.sonohotelsresorts.com/calm_jj',
+      'https://phoenixhnr.co.kr/page/main/jeju',
+    ]) {
+      expect(homepageUrlOf(link)).not.toBeNull();
+    }
+  });
+});
+
 describe('parseHomepageCard', () => {
   const page = 'https://www.solsup.com/main/';
 

@@ -16,8 +16,9 @@ export const NOT_HOMEPAGE_HOSTS = [
   'instagram.com', 'facebook.com', 'fb.com', 'fb.me',
   'kakao.com', 'daum.net',
   'airbnb.co.kr', 'airbnb.com', 'booking.com', 'agoda.com', 'yanolja.com', 'goodchoice.kr', 'yeogi.com',
-  'tripadvisor.co.kr', 'tripadvisor.com', 'catchtable.co.kr',
+  'tripadvisor.co.kr', 'tripadvisor.com', 'catchtable.co.kr', 'bookinghub.co.kr', 'tabling.co.kr', 'onda.me',
   'linktr.ee', 'youtube.com',
+  'ok114.co.kr', // 전화번호부 사이트 — 업체 페이지처럼 보이지만 디렉터리의 한 줄이다
 ];
 
 /** 읽을 HTML 상한. 메타 태그는 `<head>` 에 있으니 앞부분이면 충분하다 — 큰 페이지를 끝까지 받지 않는다. */
@@ -26,7 +27,15 @@ export const MAX_HTML_BYTES = 512 * 1024;
 const isHostIn = (host, list) => list.some((h) => host === h || host.endsWith(`.${h}`));
 
 /**
- * 네이버 지역 검색의 link → 홈페이지 주소. http(s) 이고 위 목록 밖일 때만. 아니면 null.
+ * 경로 마디나 쿼리 값이 숫자뿐인가 — 플랫폼은 업체를 **번호로** 가리키고(`/81278` · `?restaurant_idx=11235`) 업체 자기 사이트는 그러지 않는다.
+ * 위 목록은 아는 호스트만 막는다: 첫 114건에서 목록 밖 플랫폼이 다섯 번 나왔고 넷이 이 꼴이었다(전화번호부 · 예약 · 대기 접수, 2026-10-04).
+ */
+const NUMERIC_ID = /^\d{3,}$/;
+const hasNumericId = (url) =>
+  url.pathname.split('/').some((part) => NUMERIC_ID.test(part)) || [...url.searchParams.values()].some((value) => NUMERIC_ID.test(value));
+
+/**
+ * 네이버 지역 검색의 link → 홈페이지 주소. http(s) 이고 위 목록 밖이고 번호로 된 주소가 아닐 때만. 아니면 null.
  * @param {string | null | undefined} link
  * @returns {string | null}
  */
@@ -41,6 +50,7 @@ export function homepageUrlOf(link) {
   }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
   if (isHostIn(url.hostname.toLowerCase().replace(/^www\./, ''), NOT_HOMEPAGE_HOSTS)) return null;
+  if (hasNumericId(url)) return null;
   return url.toString();
 }
 
