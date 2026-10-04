@@ -589,6 +589,10 @@ describe('isFocusedTitle · mergeFocusedFirst — 분석 순서(2026-10-02)', ()
     expect(isFocusedTitle('[제주 애월 애견동반 전문펜션 엔젤하우스] 견종백과 제50편「로트')).toBe(false);
     expect(isFocusedTitle('[제주 애월 애견전문 펜션 엔젤하우스] 제주 올레길 애견동반 제21편')).toBe(false);
     expect(isFocusedTitle('제주동쪽스노클링 명소 애견동반 가능한 코난비치')).toBe(false);
+    expect(isFocusedTitle('이스타항공 강아지 기내동반｜제주도 비행기 예약·이동장·요금')).toBe(false);
+    expect(isFocusedTitle('대형견과 제주도 배여행｜완도-제주 실버클라우드호 반려견 동반')).toBe(false);
+    expect(isFocusedTitle('제주도 애견동반 숙소 고를 때 꼭 확인할 7가지')).toBe(false);
+    expect(isFocusedTitle('제주 빛의섬루미버스 입장료 할인 제주민속촌 애견동반 야간개장')).toBe(false);
     expect(isFocusedTitle('제주 함덕해수욕장 애견동반 맛집 갈치옥 갈치구이')).toBe(true);
     expect(isFocusedTitle('[제주공항]카페 깅코 | 운동장까지 있는 제주공항근처애견동반 카페')).toBe(true);
     expect(isFocusedTitle('나만 알고 싶은 금오름 카페 바이못 by MOT | 제주 펫프렌들리')).toBe(true);

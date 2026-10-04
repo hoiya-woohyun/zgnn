@@ -37,7 +37,8 @@
 //  - `--dry-run` 은 DB 에 쓰지 않는다(analyzed_at 도). Claude 는 부른다 — 토큰은 쓰인다. 무엇이 후보가 되는지 보는 용도.
 //  - 로그에 시크릿·응답 본문·헤더·본문 텍스트를 남기지 않는다(docs/todo/05). 글 URL·제목, 후보 요약 한 줄, error.message 만.
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import {
   blockFor,
   blockUntilLabel,
@@ -76,6 +77,7 @@ import { PROPOSE_PROMPT_VERSION, proposalTargets, proposeForPlace, resolvePropos
 import { toMatchablePlace } from './lib/placeFields.mjs';
 import { naverKeyPairProblem } from './lib/naverKeyFormat.mjs';
 import { readHidden } from './lib/readHidden.mjs';
+import { acquireRunLock } from './lib/runLock.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
 
 let args;
@@ -87,6 +89,17 @@ try {
 }
 const { limit, dryRun, dump, maxPerBlog, noGeo, noVerify, noPropose, noHomepage } = args;
 console.log(dryRun ? '모드: dry-run — DB 에 쓰지 않는다(Claude 는 부른다)' : '모드: 분석 — candidates · blog_posts.analyzed_at 에 쓴다');
+
+// 한 번에 하나만(`runLock.mjs`) — 둘이 돌면 시작할 때 같은 미분석 글을 골라 같은 후보를 두 번 넣는다. 워크트리가 달라도 DB 는 하나라 잠금은 레포 밖(tmpdir)에 둔다.
+// dry-run 은 쓰지 않으므로 잠그지 않는다.
+if (!dryRun) {
+  const lock = acquireRunLock(join(tmpdir(), 'zgnn-data-analyze.lock'));
+  if (!lock.ok) {
+    console.error(`다른 data:analyze 가 이미 돌고 있다(pid ${lock.holder ?? '?'}) — 끝난 뒤 다시 실행. 같은 글을 두 번 분석해 후보가 겹친다.`);
+    process.exit(1);
+  }
+  process.on('exit', lock.release);
+}
 
 // 좌표 보강은 **02(수집)과 같은 네이버 키**를 쓴다 — 키를 하나 더 발급·관리하지 않는다(ADR-008 v4).
 // env 가 먼저고, 없으면 **사람 터미널에서만** 숨김 입력으로 받는다(`collect-blog.mjs` 와 같은 모양).
