@@ -700,3 +700,12 @@ describe("approveGroup — '최신본으로 저장하기'(overwrite)", () => {
     expect(calls.map((call) => call.table)).toEqual(['places']);
   });
 });
+
+describe("isGenericOnlyCandidate — '조건 미기재' 인 새 장소에는 확인 날짜를 찍지 않는다 (todo/13 A2)", () => {
+  it('일반 허용 문장뿐이면 참, 구체 조건이 하나라도 있으면 거짓', async () => {
+    const { isGenericOnlyCandidate } = await import('./adminApply');
+    const row = (petPolicyText: string) => ({ extracted: { petPolicyText, petPolicy: null } }) as never;
+    expect(isGenericOnlyCandidate(row('애견동반 가능해요'))).toBe(true);
+    expect(isGenericOnlyCandidate(row('케이지가 있어야 실내에 들어갈 수 있어요'))).toBe(false);
+  });
+});

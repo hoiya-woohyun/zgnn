@@ -33,6 +33,7 @@ import { hasVerifiedColumn, markPlaceVerified, restorePlace } from './adminPlace
 import { liveProposal, withProposal } from './adminProposal';
 import { appendReviewerNote } from './adminSession';
 import type { TPlace } from '../types';
+import { parsePetPolicy, withPolicyFacts } from './petPolicy';
 
 /**
  * 0.4~0.85 구간에서 "이 곳 아닌가요?" 로 보여 줄 기존 장소.
@@ -164,6 +165,12 @@ export function decideTarget(lead: TCandidateRow, existing: TPlace[], opts: TApp
     };
   }
   return { kind: 'target', targetId: null };
+}
+
+/** 이 후보로 만든 장소가 '조건 미기재'(일반 허용 문장뿐)인가 — 사이트가 읽는 것과 같은 길(`places.ts`)로 본다. */
+export function isGenericOnlyCandidate(row: Pick<TCandidateRow, 'extracted'>): boolean {
+  const text = row.extracted?.petPolicyText ?? '';
+  return withPolicyFacts(parsePetPolicy(text), row.extracted?.petPolicy ?? null, text).genericOnly;
 }
 
 const failIf = (step: string, error: { message: string } | null) => {
@@ -440,7 +447,9 @@ export async function approveGroup(
   }
 
   // 운영자가 이 가게를 보고 통과시켰다 — "최근 확인" 날짜(ADR-021 R5). 칸이 원격에 없으면 건너뛴다(새 행은 칸 키가 없어 장부 전체로 본다).
-  const verifiedAt = await markPlaceVerified(client, target, opts.nowIso, verifiedColumn);
+  // 단 **새로 만든 곳이 '조건 미기재'** 면 찍지 않는다(todo/13 A2) — 승인은 "올려도 된다" 이지 "조건을 확인했다" 가 아니다.
+  // 찍으면 "애견동반 가능" 한 줄이 판정 C9 를 지나 조건 없는 '갈 수 있어요' 로 나간다. 날짜는 등록 완료의 확인 버튼이 나중에 찍는다.
+  const verifiedAt = kind === 'created' && isGenericOnlyCandidate(lead) ? null : await markPlaceVerified(client, target, opts.nowIso, verifiedColumn);
   if (verifiedAt) target.verified_at = verifiedAt;
 
   return { kind, placeId, placeName, patchKeys, rows: group.rows.length, ...(overwrittenKeys.length ? { overwrittenKeys } : {}) };

@@ -302,6 +302,16 @@ const ruleUnread: TRule = (_dog, policy) => {
   return { level: 'cond', text: '조건 문장을 자동으로 읽지 못했어요 — 원문을 확인해 주세요' };
 };
 
+/**
+ * C9: 원문이 일반 허용 문장뿐("애견동반 가능해요")이고 **아무도 확인한 기록이 없다**(todo/13 A2). C7 과 같은 무게 — 어려움이 아니라 확인이다.
+ * 규칙을 문장이 아니라 확인 여부에 거는 이유: 시드는 작성자가 다녀온 곳이라 같은 문장이 맞는 '갈 수 있어요' 이고, 블로그에서 온 곳은
+ * "가능" 이라고만 적혔을 뿐 조건을 본 사람이 없다. 문장으로 일괄 바꾸면 시드의 맞는 답까지 흐려진다.
+ */
+const ruleGenericUnverified: TRule = (_dog, policy) => {
+  if (!policy.genericOnly || policy.verified) return null;
+  return { level: 'cond', text: '조건이 적혀 있지 않아요 — 가기 전에 확인해 주세요' };
+};
+
 /** U1: 원문에 동반 조건 자체가 없다. */
 const ruleNoInfo: TRule = (_dog, policy) => {
   if (!policy.noInfo) return null;
@@ -336,6 +346,7 @@ const RULES: [string, TRule][] = [
   ['C6', ruleCallFirst],
   ['C8', ruleVaccineRequired],
   ['C7', ruleUnread],
+  ['C9', ruleGenericUnverified],
   ['U1', ruleNoInfo],
   ['U1 보강', ruleNoInfoHint],
 ];

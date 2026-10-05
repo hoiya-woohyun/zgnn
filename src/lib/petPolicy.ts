@@ -70,6 +70,17 @@ export type TPetPolicy = {
    * "애견동반 가능해요!" 처럼 **일반 허용 문장만** 있는 원문은 읽은 것으로 본다(`GENERIC_ALLOWED`).
    */
   unread: boolean;
+  /**
+   * 원문이 **일반 허용 문장뿐**이다("애견동반 가능해요!") — 읽을 조건이 없어서 `unread` 가 아닌 원문. `unread` 와 같이 서지 않는다.
+   * 같은 문장이라도 누가 확인했느냐에 따라 무게가 다르다(todo/13 A2): 작성자가 다녀온 시드는 맞는 답이지만, 블로그에서 온 곳은
+   * 아무도 조건을 확인한 적이 없다. 그래서 판정(C9)은 이 값만이 아니라 `verified` 와 같이 본다.
+   */
+  genericOnly: boolean;
+  /**
+   * 사람이 이 장소를 확인한 기록이 있다(`TPlace.verifiedAt`). 원문에서 읽는 값이 아니라 **장소에서** 온다 — 파서는 늘 false 를 내고,
+   * 장소를 싣는 쪽(`places.ts`)이 `withVerifiedAt` 으로 얹는다. 판정 함수가 장소를 받지 않아(정책만 본다) 여기 싣는다.
+   */
+  verified: boolean;
   /** '애견동반 안됩니다' 처럼 원문이 동반 자체를 막는다고 적혀 있음. 판정은 강아지 조건과 무관하게 어려움(H0) */
   notAllowed: boolean;
   /** 계단식 무게·마릿수 조건. 웨스티하우스 → [{10,미만,2},{20,미만,1}] */
@@ -363,6 +374,8 @@ export const parsePetPolicy = (petPolicyText: string): TPetPolicy => {
     feeCharged: false,
     vaccineRequired: false,
     unread: false,
+    genericOnly: false,
+    verified: false,
     weightLimitKg: weightLimitKgFromTiers(tiers),
     maxDogs: maxDogsFromTiers(tiers),
     feeText: feeLines[0],
@@ -372,11 +385,17 @@ export const parsePetPolicy = (petPolicyText: string): TPetPolicy => {
     feeLines,
     sources,
   };
-  policy.unread = text.trim() !== '' && readNothing(policy) && !sentences.every(isGenericAllowance);
+  const nothing = text.trim() !== '' && readNothing(policy);
+  const generic = sentences.every(isGenericAllowance);
+  policy.unread = nothing && !generic;
+  policy.genericOnly = nothing && generic;
   return policy;
 };
 
-/** 판정·배지에 쓰일 조건이 하나도 없다. 새 필드를 TPetPolicy 에 더하면 **여기에도** 더한다 — 빠지면 읽은 원문이 '못 읽음' 이 된다. */
+/**
+ * 판정·배지에 쓰일 조건이 하나도 없다. 새 필드를 TPetPolicy 에 더하면 **여기에도** 더한다 — 빠지면 읽은 원문이 '못 읽음' 이 된다.
+ * 예외는 조건이 아니라 이 함수의 결과로 정해지는 칸(`unread`·`genericOnly`)과 장소에서 오는 칸(`verified`)이다.
+ */
 const readNothing = (p: TPetPolicy): boolean =>
   p.indoor === 'unknown' &&
   !p.leash &&
@@ -485,6 +504,11 @@ export const withPolicyFacts = (parsed: TPetPolicy, facts: TPetPolicyFacts | nul
     indoor !== 'unknown' || corrected.leash || corrected.largeDogOk !== null || corrected.smallDogOnly ||
     corrected.callFirst || vaccineRequired || corrected.feeFree !== null || feeLines.length > 0 || weightLimitKg !== undefined ||
     maxDogs !== undefined;
+  const outdoorFree = indoor === 'outdoorOnly' || parsed.outdoorFree;
+  const unlimitedDogs = parsed.unlimitedDogs && maxDogs === undefined;
+  const unread = !anyFact && (corrected.notes !== null || !splitSentences(petPolicyText).every(isGenericAllowance));
+  // `...parsed` 의 값을 그대로 두면 정규식 판단이 AI 판단 위로 샌다 — 여기서 다시 정한다. 정규식에만 남는 허용 단서 둘도 조건으로 센다.
+  const genericOnly = petPolicyText.trim() !== '' && !anyFact && !unread && !outdoorFree && !unlimitedDogs;
 
   return {
     ...parsed,
@@ -514,12 +538,20 @@ export const withPolicyFacts = (parsed: TPetPolicy, facts: TPetPolicyFacts | nul
     notAllowed: false,
     noInfo: false,
     // AI 에 대응 칸이 없는 허용 단서 둘은 정규식에 남긴다('실외는 자유' · '견수 제한 없음'). 마릿수 상한을 AI 가 읽었으면 무제한은 아니다.
-    outdoorFree: indoor === 'outdoorOnly' || parsed.outdoorFree,
-    unlimitedDogs: parsed.unlimitedDogs && maxDogs === undefined,
-    unread: !anyFact && (corrected.notes !== null || !splitSentences(petPolicyText).every(isGenericAllowance)),
+    outdoorFree,
+    unlimitedDogs,
+    unread,
+    genericOnly,
     sources,
   };
 };
+
+/**
+ * 장소의 확인 기록을 정책에 얹는다(`verified`). 판정은 정책만 받으므로 장소를 싣는 곳(`places.ts`)이 한 번 부른다 —
+ * 판정을 부르는 곳마다 날짜를 넘기게 하면 한 곳만 빠져도 목록과 상세가 다른 답을 한다.
+ */
+export const withVerifiedAt = (policy: TPetPolicy, verifiedAt: string | undefined): TPetPolicy =>
+  verifiedAt ? { ...policy, verified: true } : policy;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 배지 — 파싱 결과를 화면에 보여줄 한국어 라벨로 옮긴다.

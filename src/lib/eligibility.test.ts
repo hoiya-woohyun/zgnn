@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { compareEligibility, dogSize, headlineFor, judgeEligibility, primaryReason, verdictFor } from './eligibility';
-import { parsePetPolicy } from './petPolicy';
+import { parsePetPolicy, withPolicyFacts, withVerifiedAt } from './petPolicy';
 import { PLACES } from './places';
-import type { TDogProfile } from '../types';
+import type { TDogProfile, TPetPolicyFacts } from '../types';
 
 // 리뷰 §1 의 세 프로필. 실제 실사 표(사람 판단)와 비교하는 집계 테스트에도 그대로 쓴다.
 const TOFU: TDogProfile = { dogs: [{ name: '두부', weightKg: 4 }], carrier: 'bag' };
@@ -333,10 +333,10 @@ describe('judgeEligibility — 원문은 있는데 아무도 못 읽음(C7, todo
     expect(primaryReason(result)).toMatchObject({ rule: 'C7' });
   });
 
-  it("'애견동반 가능해요!' 처럼 일반 허용 문장만 있으면 읽은 것이다", () => {
+  it("'애견동반 가능해요!' 처럼 일반 허용 문장만 있으면 읽은 것이다 — C7 이 아니다(확인 기록이 있으면 '갈 수 있어요')", () => {
     const policy = parsePetPolicy('애견동반 가능해요!');
     expect(policy.unread).toBe(false);
-    expect(judgeEligibility(TOFU, policy).level).toBe('ok');
+    expect(judgeEligibility(TOFU, withVerifiedAt(policy, '2026-09-20')).level).toBe('ok');
   });
 
   it('허용 문장에 제한을 암시하는 말(야외)이 섞이면 일반 허용으로 보지 않는다', () => {
@@ -352,6 +352,55 @@ describe('judgeEligibility — 원문은 있는데 아무도 못 읽음(C7, todo
 
   it('시드 86곳에는 못 읽은 원문이 없다 — 이 규칙이 지금 사이트의 판정을 바꾸지 않는다', () => {
     expect(PLACES.filter((p) => p.policy.unread || p.policy.largeDogNo).map((p) => p.name)).toEqual([]);
+  });
+});
+
+describe('judgeEligibility — 확인 기록 없는 일반 허용 문장(C9, todo/13 A2)', () => {
+  const GENERIC = '애견동반 가능해요!';
+
+  it("확인 기록이 있으면 일반 허용 문장만으로도 '갈 수 있어요' 그대로다", () => {
+    const result = judgeEligibility(TOFU, withVerifiedAt(parsePetPolicy(GENERIC), '2026-10-01'));
+    expect(result.level).toBe('ok');
+    expect(result.reasons.some((r) => r.rule === 'C9')).toBe(false);
+  });
+
+  it('확인 기록이 없으면 확인이 필요하다 — 조건이 적혀 있지 않다는 것까지가 원문이다', () => {
+    const result = judgeEligibility(TOFU, withVerifiedAt(parsePetPolicy(GENERIC), undefined));
+    expect(result.level).toBe('cond');
+    expect(primaryReason(result)).toMatchObject({ rule: 'C9', text: '조건이 적혀 있지 않아요 — 가기 전에 확인해 주세요' });
+  });
+
+  it('구체 조건이 하나라도 있으면 C9 는 물러나고 기존 규칙대로 판정한다', () => {
+    const policy = withVerifiedAt(parsePetPolicy('애견동반 가능, 소형견만 가능해요'), undefined);
+    expect(policy.genericOnly).toBe(false);
+    const result = judgeEligibility(BORI_AND_KONG, policy);
+    expect(result.level).toBe('hard');
+    expect(result.reasons.some((r) => r.rule === 'C9')).toBe(false);
+    expect(judgeEligibility(TOFU, policy).level).toBe('ok');
+  });
+
+  it('AI 판단이 있어도 같다 — 읽은 조건이 없으면 일반 허용, 있으면 그 조건대로', () => {
+    const empty: TPetPolicyFacts = {
+      indoor: 'unknown', leash: false, largeDogOk: null, smallDogOnly: false, callFirst: false, vaccineRequired: false,
+      feeFree: null, feeText: null, fees: [], weightLimitKg: null, maxDogs: null, notes: null,
+    };
+    const generic = withPolicyFacts(parsePetPolicy(GENERIC), empty, GENERIC);
+    expect(judgeEligibility(TOFU, generic).reasons.map((r) => r.rule)).toContain('C9');
+    const leash = withPolicyFacts(parsePetPolicy('애견동반 가능, 리드줄 필수'), { ...empty, leash: true }, '애견동반 가능, 리드줄 필수');
+    expect(leash.genericOnly).toBe(false);
+  });
+
+  // 시드만 못 박는다(AI 판단 `petPolicy` 가 없는 곳 — `places.ts` 의 구분). pull 한 블로그 장소에 C9 가 서는 것은 이 규칙이 하는 일이다.
+  const SEEDS = PLACES.filter((p) => !p.petPolicy);
+
+  it('시드 86곳의 판정은 하나도 바뀌지 않는다 — 일반 허용 문장뿐인 시드가 없다', () => {
+    expect(SEEDS.length).toBeGreaterThan(0);
+    expect(SEEDS.filter((p) => p.policy.genericOnly && !p.policy.verified).map((p) => p.name)).toEqual([]);
+    for (const dog of [TOFU, BORI_AND_KONG, KONG]) {
+      for (const place of SEEDS) {
+        expect(judgeEligibility(dog, place.policy).reasons.some((r) => r.rule === 'C9')).toBe(false);
+      }
+    }
   });
 });
 

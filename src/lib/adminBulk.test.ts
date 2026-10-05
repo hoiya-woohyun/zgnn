@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bulkApproveNeedsLook, bulkApproveSummary, bulkApproveText, bulkLatestSummary, bulkLatestTargets, summarizeBulk } from './adminBulk';
+import { bulkApproveJobs, bulkApproveNeedsLook, bulkApproveSummary, bulkApproveText, bulkLatestSummary, bulkLatestTargets, summarizeBulk, thinNewEvidence } from './adminBulk';
 import type { TCandidateGroup, TPlaceRow } from './adminCandidates';
 
 const place = (id: string, over: Partial<TPlaceRow> = {}) =>
@@ -82,5 +82,57 @@ describe('bulkApproveSummary', () => {
     const plan = bulkApproveSummary([noRegion, toArchived], ['a', 'b'], [place('p2', { status: 'archived' })]);
     expect(plan).toMatchObject({ noRegion: 1, archivedTarget: 1, ok: 0 });
     expect(bulkApproveText(plan)).toContain('건너뛰어요');
+  });
+});
+
+describe('thinNewEvidence · 일괄 올리기에서 근거 얇은 신규를 뺀다(todo/13 A3)', () => {
+  const GENERIC = '애견동반 가능해요';
+  const thin = (key: string, over: { pair?: string | null; text?: string | null; independent?: number; posts?: number; dogWasThere?: boolean } = {}) => {
+    const base = group(key, over.pair ?? null);
+    return {
+      ...base,
+      posts: Array.from({ length: over.posts ?? 1 }, (_, i) => `u${i}`),
+      ...(over.independent !== undefined ? { independentPosts: over.independent } : {}),
+      lead: {
+        ...base.lead,
+        extracted: {
+          ...base.lead.extracted,
+          petPolicyText: over.text === undefined ? GENERIC : over.text,
+          verify: { petAllowedHere: 'yes', dogWasThere: over.dogWasThere ?? false },
+        },
+      },
+    } as unknown as TCandidateGroup;
+  };
+
+  it('조건 미기재 + 독립 글 1건이면 얇다 · 글이 여럿이어도 동반 표기만이면 얇다', () => {
+    expect(thinNewEvidence(thin('a', { independent: 1, posts: 1, dogWasThere: true }))).toBe(true);
+    expect(thinNewEvidence(thin('b', { independent: 3, posts: 3, dogWasThere: false }))).toBe(true);
+  });
+
+  it('독립 글이 둘 이상이고 동반 확인이면, 또는 조건이 적혀 있으면, 또는 짝이 있으면 얇지 않다', () => {
+    expect(thinNewEvidence(thin('a', { independent: 2, posts: 2, dogWasThere: true }))).toBe(false);
+    expect(thinNewEvidence(thin('b', { text: '애견동반 가능, 리드줄 필수' }))).toBe(false);
+    expect(thinNewEvidence(thin('c', { pair: 'p1' }))).toBe(false);
+  });
+
+  it('광고성 복제 글은 하나로 센다 — 글 5건이어도 독립 1건이면 얇다', () => {
+    expect(thinNewEvidence(thin('a', { independent: 1, posts: 5, dogWasThere: true }))).toBe(true);
+  });
+
+  it('집계는 건너뛴다고 세고 주 버튼을 내리며, 보낼 줄에서도 빠진다', () => {
+    const groups = [thin('a'), thin('b', { independent: 2, posts: 2, dogWasThere: true })];
+    const plan = bulkApproveSummary(groups, ['a', 'b']);
+    expect(plan).toMatchObject({ thin: 1, ok: 1 });
+    expect(bulkApproveNeedsLook(plan)).toBe(true);
+    expect(bulkApproveText(plan)).toBe(
+      '1곳 올려요. 근거가 얇아 한 줄씩 봐야 하는 1곳은 건너뛰어요. 짝이 있으면 그 장소의 빈 칸만 채우고, 없으면 새 장소로 올라가요.',
+    );
+    expect(bulkApproveJobs(groups).map((g) => g.key)).toEqual(['b']);
+  });
+
+  it('지역이 없는 줄은 지역 칸에 먼저 선다 — 한 줄은 한 칸에만 센다', () => {
+    const noRegion = thin('a');
+    (noRegion.lead.extracted as { regionRaw: string | null }).regionRaw = null;
+    expect(bulkApproveSummary([noRegion], ['a'])).toMatchObject({ noRegion: 1, thin: 0 });
   });
 });

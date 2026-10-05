@@ -3,7 +3,7 @@ import itemsJson from '../data/items.json';
 import metaJson from '../data/meta.json';
 import type { TDirection, TItem, TMeta, TPlace, TPlaceType, TStayEnvironment } from '../types';
 import { mergeStayEnvironment, parseStayEnvironment } from '../../scripts/lib/stayEnvironment.mjs';
-import { parsePetPolicy, withPolicyFacts, type TPetPolicy } from './petPolicy';
+import { parsePetPolicy, withPolicyFacts, withVerifiedAt, type TPetPolicy } from './petPolicy';
 
 /** 장소 한 건 + 미리 파싱해 둔 반려동물 이용 조건 + (숙소만) 환경. */
 export type TPlaceEntry = TPlace & { policy: TPetPolicy; environment?: TStayEnvironment };
@@ -26,7 +26,8 @@ const rawPlaces = placesJson as unknown as TPlace[];
 export const PLACES: TPlaceEntry[] = rawPlaces.map((place) => ({
   ...place,
   // 블로그 경로의 장소는 AI 판단(petPolicy)이 정규식 결과를 덮는다. 시드는 petPolicy 가 없어 정규식 그대로(ADR-017).
-  policy: withPolicyFacts(parsePetPolicy(place.petPolicyText), place.petPolicy, place.petPolicyText),
+  // 확인 기록(verifiedAt)도 여기서 얹는다 — 일반 허용 문장뿐인 곳의 판정(C9)이 그것을 본다.
+  policy: withVerifiedAt(withPolicyFacts(parsePetPolicy(place.petPolicyText), place.petPolicy, place.petPolicyText), place.verifiedAt),
   environment: environmentOf(place),
 }));
 

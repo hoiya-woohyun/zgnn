@@ -181,10 +181,13 @@ export function policyCell(preview: TPolicyPreview, petPolicyText: string | null
    *
    * 라벨이 `제한 없음` 이던 동안(~2026-10-04) 운영자에게 "다 된다" 로 읽혔다. 실제 뜻은 "글에 제한이 **안 적혀 있다**" 이고,
    * 이 상태로 승인하면 사이트는 소·중형견을 조건 없이 '갈 수 있어요' 로 내보낸다 — 승인 전에 원문을 한 번 볼 자리라
-   * `조건 미기재` 로 낮추고 칸도 경고 톤으로 그린다(`adminPageGroupCard` 의 `PolicyCell`). 판정 자체(`eligibility.ts`)는 그대로다.
+   * `조건 미기재` 로 낮추고 칸도 경고 톤으로 그린다(`adminPageGroupCard` 의 `PolicyCell`).
+   *
+   * 판정의 C9(확인 기록 없는 일반 허용 문장 → 확인 필요, todo/13 A2)가 여기서 올린 곳에도 서도록, 승인은 이 상태의 **새 장소에 확인 날짜를 찍지 않는다**
+   * (`approveGroup` 의 `isGenericOnlyCandidate`). 그래서 문구도 "'확인이 필요해요' 로 나가요" 다 — 조건을 확인한 뒤 등록 완료에서 확인하면 '갈 수 있어요' 가 된다.
    */
   if (preview.level === '자유') {
-    return { items: [], message: "글에 조건이 안 적혀 있어요 — 승인하면 사이트엔 조건 없이('갈 수 있어요') 나가요", state: 'noLimit' };
+    return { items: [], message: "글에 조건이 안 적혀 있어요 — 승인하면 사이트엔 '확인이 필요해요' 로 나가요(조건을 확인한 뒤 확인 날짜를 찍으면 '갈 수 있어요')", state: 'noLimit' };
   }
   return { items: [], message: '동반 조건을 못 읽었어요', state: 'unread' };
 }

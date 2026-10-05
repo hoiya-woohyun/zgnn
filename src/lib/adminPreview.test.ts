@@ -11,7 +11,7 @@ import { adminFlagView, policyCell, policyLine, policySplit, POLICY_STATE_WORD, 
 import { previewFor, type TCandidateExtracted, type TPolicyPreview } from './adminCandidates';
 import type { TPetBadge } from './petPolicy';
 
-const NO_LIMIT_MESSAGE = "글에 조건이 안 적혀 있어요 — 승인하면 사이트엔 조건 없이('갈 수 있어요') 나가요";
+const NO_LIMIT_MESSAGE = "글에 조건이 안 적혀 있어요 — 승인하면 사이트엔 '확인이 필요해요' 로 나가요(조건을 확인한 뒤 확인 날짜를 찍으면 '갈 수 있어요')";
 
 /**
  * `mergedBadges`(라벨)와 `mergedBadgeList`(라벨+톤)는 실제로는 `toPetBadges` 한 번에서 함께 나온다

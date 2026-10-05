@@ -24,7 +24,7 @@ import {
 import { chooseAddress } from '../lib/adminEdit';
 import { addressUnresolved, type TAddressChoice } from '../lib/adminAddress';
 import { prepareReanalyze, reanalyzePlan, reanalyzeSummary } from '../lib/adminReanalyze';
-import { bulkApproveNeedsLook, bulkApproveSummary, bulkApproveText, bulkLatestSummary, bulkLatestTargets, summarizeBulk, type TBulkTally } from '../lib/adminBulk';
+import { bulkApproveJobs, bulkApproveNeedsLook, bulkApproveSummary, bulkApproveText, bulkLatestSummary, bulkLatestTargets, summarizeBulk, type TBulkTally } from '../lib/adminBulk';
 import {
   countStrandedCandidates,
   fetchMatchablePlaces,
@@ -1100,7 +1100,8 @@ export function AdminPage() {
       const jobs =
         kind === 'latest'
           ? bulkLatestTargets(chosen, placesRef.current).eligible.map((entry) => ({ group: entry.group, choice: { mergeInto: entry.pairId, overwrite: true, overwriteColumns: entry.columns } }))
-          : chosen.map((group) => ({ group, choice: {} }));
+          : // 근거 얇은 신규는 보내지 않는다(todo/13 A3) — 확인 문장이 "건너뛰어요" 라고 센 그 줄들이다(같은 판정 `bulkApproveSlot`).
+            bulkApproveJobs(chosen, placesRef.current).map((group) => ({ group, choice: {} }));
       setBulk({ busy: true, mode: kind });
       const done = new Set<string>();
       const tally: TBulkTally = { done: 0, waiting: 0, failed: 0 };
@@ -1766,7 +1767,8 @@ export function AdminPage() {
                   onChooseAddress={(choice) => void chooseAddressFor(group, choice)}
                   selected={selected.has(group.key)}
                   onSelect={() => setSelected((prev) => toggleSelected(prev, group.key))}
-                  pairPlace={expanded === group.key ? pairPlaceOf(group, state) : undefined}
+                  /* 접힌 줄에도 준다 — 목록의 동반 조건 칸이 "올리면 나갈 조건"(사이트 쪽인지)을 가르는 데 쓴다(todo/13 T2.3). */
+                  pairPlace={pairPlaceOf(group, state)}
                   reanalyzeText={expanded === group.key && state.reanalyzing ? reanalyzeSummary(planFor([group.key])) : undefined}
                   onStartReanalyze={() => patchState(group.key, { reanalyzing: true, rejecting: false, error: undefined })}
                   onCancelReanalyze={() => patchState(group.key, { reanalyzing: false })}

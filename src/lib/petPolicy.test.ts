@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePetPolicy, toPetBadges, withPolicyFacts } from './petPolicy';
+import { parsePetPolicy, toPetBadges, withPolicyFacts, withVerifiedAt } from './petPolicy';
 import { formatDogFee } from './dogFee';
 import { judgeEligibility } from './eligibility';
 import { PLACES } from './places';
@@ -543,5 +543,33 @@ describe('withPolicyFacts — AI 구조화 판단이 정규식 결과를 덮는�
     expect(p.feeCharged).toBe(true);
     expect(toPetBadges(p).map((b) => b.label)).toContain('추가요금 있음');
     expect(p.unread).toBe(false);
+  });
+  it("AI 가 읽은 조건이 없고 원문이 일반 허용 문장뿐이면 genericOnly — '못 읽음' 도 아니고 조건도 아니다(todo/13 A2)", () => {
+    const text = '애견동반 가능합니다';
+    const none = { ...facts, indoor: 'unknown' as const, leash: false, weightLimitKg: null, maxDogs: null, feeFree: null, feeLines: [], fees: [], notes: null };
+    const p = withPolicyFacts(parsePetPolicy(text), none, text);
+    expect(p.unread).toBe(false);
+    expect(p.genericOnly).toBe(true);
+    // notes 가 있으면 원문 확인(C7) 쪽이다 — 둘이 같이 서지 않는다.
+    expect(withPolicyFacts(parsePetPolicy(text), { ...none, notes: '주말엔 안 될 수 있음' }, text).genericOnly).toBe(false);
+  });
+});
+
+describe('genericOnly · verified — 일반 허용 문장뿐인 원문과 확인 기록(todo/13 A2)', () => {
+  it('일반 허용 문장뿐이면 genericOnly, 조건이 하나라도 있으면 아니다', () => {
+    expect(parsePetPolicy('애견동반 가능해요!').genericOnly).toBe(true);
+    expect(parsePetPolicy('애견동반 가능해요! 리드줄 필수').genericOnly).toBe(false);
+  });
+
+  it('못 읽은 원문·빈 원문은 genericOnly 가 아니다 — 각각 C7 · U1 이 말한다', () => {
+    expect(parsePetPolicy('사장님 강아지들이랑 같이 뛰어놀 수 있어요').genericOnly).toBe(false);
+    expect(parsePetPolicy('').genericOnly).toBe(false);
+  });
+
+  it('파서는 확인 기록을 모른다 — 장소를 싣는 쪽이 withVerifiedAt 으로 얹는다', () => {
+    const p = parsePetPolicy('애견동반 가능해요!');
+    expect(p.verified).toBe(false);
+    expect(withVerifiedAt(p, '2026-09-20').verified).toBe(true);
+    expect(withVerifiedAt(p, undefined)).toBe(p);
   });
 });

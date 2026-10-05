@@ -16,11 +16,12 @@ import {
 import type { TApplyOutcome, TSimilarPlace } from '../lib/adminApply';
 import type { TPetBadge } from '../lib/petPolicy';
 import { addressConflictOf, addressView, type TAddressChoice } from '../lib/adminAddress';
-import { policyCell, POLICY_STATE_WORD, type TAdminFlagView } from '../lib/adminPreview';
+import { POLICY_STATE_WORD, type TAdminFlagView } from '../lib/adminPreview';
 import { verifyNeedsLook, verifyView } from '../lib/adminVerify';
-import { defaultOverwritePick, latestPlan, toggleOverwritePick } from '../lib/adminLatest';
-import { LOOSEN_HINT, policyDirection } from '../lib/policyDirection';
-import { liveProposal, proposalPick, proposalView, withProposal } from '../lib/adminProposal';
+import { toggleOverwritePick } from '../lib/adminLatest';
+import { listPolicyCell, overwriteDefault } from '../lib/adminPairPolicy';
+import { LOOSEN_HINT } from '../lib/policyDirection';
+import { liveProposal, proposalView } from '../lib/adminProposal';
 import { cx } from '../utils/cx';
 import { AdminPageGroupDetail } from './adminPageGroupDetail';
 import { AdminPageGroupSiteCompare } from './adminPageGroupSiteCompare';
@@ -88,7 +89,7 @@ type TAdminPageGroupCardProps = {
   onSelect: (selected: boolean) => void;
   /**
    * 지금 패널이 가리키는 기존 장소 행(내린 곳 · 닮은 곳 · 짝). '덮어쓰기' 의 전·후를 그리려면 그 행의 **지금 값**이 있어야 한다.
-   * 펼친 줄에만 넘어온다. 없으면(짝이 DB 에 없다) 그 버튼을 안 그린다.
+   * 접힌 줄에도 넘어온다(목록의 동반 조건 칸이 "올리면 나갈 조건" 을 가르는 데 쓴다). 없으면(짝이 DB 에 없다) 그 버튼을 안 그린다.
    */
   pairPlace?: TPlaceRow;
   /** 재분석 확인 문장 — 형제 후보까지 세려면 목록 전체가 필요해 페이지가 만들어 넘긴다. 확인이 열렸을 때만 온다. */
@@ -107,7 +108,18 @@ type TAdminPageGroupCardProps = {
  * `조건 미기재`(noLimit)도 노란 칩이다(2026-10-04) — 흐린 `제한 없음` 이던 동안 "다 된다" 로 읽혔는데, 그대로 승인하면
  * 사이트가 조건 없이 '갈 수 있어요' 로 내보낸다. 승인 전에 원문을 한 번 볼 자리다.
  */
-function PolicyCell({ items, state, message }: { items: TPetBadge[]; state: keyof typeof POLICY_STATE_WORD | 'items'; message: string | null }) {
+function PolicyCell({
+  items,
+  state,
+  message,
+  blogDiffers = false,
+}: {
+  items: TPetBadge[];
+  state: keyof typeof POLICY_STATE_WORD | 'items';
+  message: string | null;
+  /** 칸이 사이트의 지금 조건인데 글은 다르게 말한다 — 흐린 글씨 한마디로 남긴다(무엇이 다른지는 펼친 사이트 비교가 말한다). */
+  blogDiffers?: boolean;
+}) {
   return (
     <span className="flex min-w-0 flex-wrap content-start items-start gap-1 text-xs text-tertiary max-md:mt-0.5">
       {state === 'items'
@@ -124,6 +136,7 @@ function PolicyCell({ items, state, message }: { items: TPetBadge[]; state: keyo
               {POLICY_STATE_WORD[state]}
             </span>
           )}
+      {blogDiffers && <span className="text-quaternary">사이트 조건 · 글은 다르게 말해요</span>}
     </span>
   );
 }
@@ -162,7 +175,12 @@ export function AdminPageGroupCard({
   onReanalyze,
 }: TAdminPageGroupCardProps) {
   const extracted = group.lead.extracted;
-  const policy = policyCell(preview, extracted.petPolicyText);
+  /*
+   * 동반 조건 칸은 **올리면 나갈 조건**이다(todo/13 T2.3) — 짝 장소가 있고 조건 칸이 체크돼 있지 않으면 사이트의 지금 조건을 보여 준다.
+   * 글이 읽은 조건을 그대로 두면 상세의 제안("사이트 조건 유지")과 목록이 반대를 말했다(소길스테이).
+   */
+  const listPolicy = listPolicyCell(group, preview, pairPlace, state.overwritePick);
+  const policy = listPolicy.cell;
   const matchedName = group.lead.places?.name;
   const busy = state.busy;
   /*
@@ -213,16 +231,16 @@ export function AdminPageGroupCard({
   /** 갱신 묶음의 제안(11 T2.2) — 있으면 덮어쓰기의 '새 값' 이 제안 값이 된다(`withProposal`, 쓰기도 같은 함수를 지난다). */
   const proposal = liveProposal(group.rows);
   const proposalBadge = proposalView(group);
-  const latest = expanded && pairPlace ? latestPlan(pairPlace, withProposal(extracted, proposal, pairPlace)) : null;
+  // 짝 장소는 접힌 줄에도 온다(목록의 조건 칸이 쓴다) — 전·후 목록은 펼쳤을 때만 계산한다.
+  const pairDefault = expanded && pairPlace ? overwriteDefault(group, pairPlace) : null;
+  const latest = pairDefault?.plan ?? null;
   /** 덮을 칸 — 안 건드렸으면 바뀌는 칸 전부(11 T1.4). 목록의 체크와 버튼의 칸 수가 이 값 하나를 읽는다. */
   const latestKeys = latest ? latest.changes.map((change) => change.key) : [];
   // 동반 조건이 더 쉬워지는 덮어쓰기는 조건 칸이 꺼진 채 시작한다(11 U6 — `policyDirection`). 체크를 켜면 쓴다.
-  const loosen = Boolean(latest && pairPlace && policyDirection(pairPlace.pet_policy, withProposal(extracted, proposal, pairPlace).petPolicy).overall === 'loosen');
+  const loosen = Boolean(pairDefault?.loosen);
   // 제안이 있으면 기본 체크는 제안이 change 라 한 칸(완화는 독립 근거 글 둘 이상일 때만) — 없으면 바뀌는 칸 전부에서
-  // 완화 조건과 사이트에 값이 있는 이름·종류·소개를 끈다(`defaultOverwritePick`). 일괄(`bulkLatestTargets`)도 같은 식이다.
-  const overwritePick = state.overwritePick
-    ? state.overwritePick.filter((key) => latestKeys.includes(key))
-    : (pairPlace && proposalPick(latestKeys, proposal, pairPlace, group.rows)) || defaultOverwritePick(latestKeys, { loosen, place: pairPlace });
+  // 완화 조건과 사이트에 값이 있는 이름·종류·소개를 끈다. 일괄(`bulkLatestTargets`)·목록 조건 칸과 같은 함수(`overwriteDefault`)다.
+  const overwritePick = state.overwritePick ? state.overwritePick.filter((key) => latestKeys.includes(key)) : (pairDefault?.columns ?? []);
   /**
    * 이 갈래에서 '덮어쓰기' 가 뜻이 있나. 내린 곳·닮은 곳 패널은 언제나(가리키는 장소가 있다),
    * 기본 갈래는 짝이 있고 지역이 되고 짝이 내린 곳이 아닐 때만 — 내린 곳이면 누르는 순간 되살릴지 묻는 패널로 간다.
@@ -371,7 +389,7 @@ export function AdminPageGroupCard({
             ))}
           </span>
 
-          <PolicyCell items={policy.items} state={policy.state} message={policy.message} />
+          <PolicyCell items={policy.items} state={policy.state} message={policy.message} blogDiffers={listPolicy.blogDiffers} />
 
           {/*
             * AI 요약 = `extracted.features`. 승인되면 **그대로 사이트의 소개 문구가 된다** — 여기서 읽는 것이 곧 사이트에 나갈 글이다.

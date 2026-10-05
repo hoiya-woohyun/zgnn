@@ -8,11 +8,10 @@
  */
 
 import { addressUnresolved } from './adminAddress';
-import { regionUsable, type TCandidateGroup, type TPlaceRow } from './adminCandidates';
-import { defaultOverwritePick, latestPlan } from './adminLatest';
-import { liveProposal, proposalPick, withProposal } from './adminProposal';
-import { verifyNeedsLook } from './adminVerify';
-import { policyDirection } from './policyDirection';
+import { previewFor, regionUsable, type TCandidateGroup, type TPlaceRow } from './adminCandidates';
+import { overwriteDefault } from './adminPairPolicy';
+import { policyCell } from './adminPreview';
+import { verifyListedOnly, verifyNeedsLook } from './adminVerify';
 
 export type TBulkLatest = {
   /**
@@ -43,12 +42,9 @@ export function bulkLatestTargets(groups: TCandidateGroup[], places: TPlaceRow[]
     if (!pairId || !place) out.noPair += 1;
     else if (place.status === 'archived') out.archived += 1;
     else {
-      const proposal = liveProposal(group.rows ?? []);
-      const effective = withProposal(group.lead.extracted, proposal, place);
-      const keys = latestPlan(place, effective).changes.map((change) => change.key);
-      // 한 줄의 기본 체크(`adminPageGroupCard`)와 같은 식 — 일괄이 더 공격적이면 "본 줄과 다른 것이 덮였다" 가 된다.
-      const loosen = policyDirection(place.pet_policy, effective.petPolicy).overall === 'loosen';
-      const columns = proposalPick(keys, proposal, place, group.rows) ?? defaultOverwritePick(keys, { loosen, place });
+      // 한 줄의 기본 체크(`adminPageGroupCard`)와 같은 함수 — 일괄이 더 공격적이면 "본 줄과 다른 것이 덮였다" 가 된다.
+      const { plan, columns } = overwriteDefault(group, place);
+      const keys = plan.changes.map((change) => change.key);
       if (columns.length) out.eligible.push({ group, pairId, changes: columns.length, columns });
       else if (keys.length) out.offByDefault += 1;
       else out.same += 1;
@@ -83,26 +79,61 @@ export type TBulkApprove = {
   archivedTarget: number;
   /** 분석이 '닮은 곳, 확인 필요' 로 표시한 줄 — 올릴 때 고를 것을 띄울 수 있다. */
   ask: number;
+  /** 근거가 얇은 신규(`thinNewEvidence`) — 일괄로는 안 올리고 한 줄씩 보게 둔다(todo/13 A3). */
+  thin: number;
 };
 
 /**
+ * 근거가 얇은 신규인가(todo/13 A3) — 새 장소로 올라갈 묶음이 **조건 미기재**(`policyCell` 의 `noLimit` — "가능" 한 줄뿐)이면서
+ * 독립 글이 하나뿐이거나 교차점검이 '동반 표기만' 이다. 그대로 올리면 사이트가 "애견동반 가능" 한 줄을 조건 없는 '갈 수 있어요' 로 내보낸다.
+ *
+ * 막지 않는다 — 한 줄씩은 올릴 수 있다. 일괄에서만 빼는 이유는 일괄 버튼이 "봤다" 는 뜻을 잃지 않게 하는 것이다:
+ * 이런 줄은 원문을 한 번 읽어야 하는 자리인데, 백 줄을 한 번에 고르면 그 한 번이 사라진다.
+ * 짝이 있는 묶음(보강·갱신)은 사이트의 조건을 덮지 않으므로 대상이 아니다.
+ */
+export function thinNewEvidence(group: TCandidateGroup): boolean {
+  if (group.lead.match_place_id) return false;
+  const extracted = group.lead.extracted;
+  if (policyCell(previewFor(extracted), extracted.petPolicyText).state !== 'noLimit') return false;
+  const independent = group.independentPosts ?? group.posts?.length ?? 1;
+  return independent <= 1 || verifyListedOnly(extracted.verify);
+}
+
+/**
+ * 한 줄이 일괄 올리기에서 어느 칸에 서나 — 우선순위: 지역 → 주소 → 내린 곳 → 닮은 곳 → 근거 얇음 → 근거 없음 → 나머지.
+ * 집계(`bulkApproveSummary`)와 실제로 보낼 줄 고르기(`bulkApproveJobs`)가 **같은 함수**를 지나야 확인 문장이 말한 것과 올라간 것이 같다.
+ */
+function bulkApproveSlot(group: TCandidateGroup, byId: Map<string, TPlaceRow>): keyof TBulkApprove {
+  const extracted = group.lead.extracted;
+  const pairId = group.lead.match_place_id;
+  if (!regionUsable(extracted?.regionRaw)) return 'noRegion';
+  if (addressUnresolved(extracted)) return 'addressUnresolved';
+  if (pairId && byId.get(pairId)?.status === 'archived') return 'archivedTarget';
+  if (!pairId && extracted?.match?.tier === 'ask') return 'ask';
+  if (thinNewEvidence(group)) return 'thin';
+  if (verifyNeedsLook(extracted?.verify)) return 'noEvidence';
+  return 'ok';
+}
+
+/**
+ * 일괄 올리기가 실제로 `approveGroup` 에 보낼 묶음 — 근거 얇은 신규만 뺀다. 나머지 건너뛰는 줄(지역·주소·내린 곳·닮은 곳)은
+ * `approveGroup` 이 쓰기 전에 스스로 멈추고 그 줄에 패널을 세우므로 그대로 보낸다(그 패널이 다음 할 일이다).
+ */
+export function bulkApproveJobs(groups: TCandidateGroup[], places: TPlaceRow[] = []): TCandidateGroup[] {
+  const byId = new Map(places.map((place) => [place.id, place]));
+  return groups.filter((group) => bulkApproveSlot(group, byId) !== 'thin');
+}
+
+/**
  * 일괄 올리기 확인의 구성 — 고른 줄을 세어 무엇이 올라가고 무엇이 멈추나. `approveGroup` 의 가드(지역·주소·내린 곳)와 같은 판정을 쓴다.
- * 한 줄은 한 칸에만 센다(우선순위: 지역 → 주소 → 내린 곳 → 닮은 곳 → 근거 → 나머지). `places` 는 짝이 내린 곳인지 보는 캐시다.
+ * 한 줄은 한 칸에만 센다(`bulkApproveSlot` 의 우선순위). `places` 는 짝이 내린 곳인지 보는 캐시다.
  */
 export function bulkApproveSummary(groups: TCandidateGroup[], selected: readonly string[], places: TPlaceRow[] = []): TBulkApprove {
   const wanted = new Set(selected);
   const byId = new Map(places.map((place) => [place.id, place]));
-  const out: TBulkApprove = { ok: 0, noEvidence: 0, addressUnresolved: 0, noRegion: 0, archivedTarget: 0, ask: 0 };
+  const out: TBulkApprove = { ok: 0, noEvidence: 0, addressUnresolved: 0, noRegion: 0, archivedTarget: 0, ask: 0, thin: 0 };
   for (const group of groups) {
-    if (!wanted.has(group.key)) continue;
-    const extracted = group.lead.extracted;
-    const pairId = group.lead.match_place_id;
-    if (!regionUsable(extracted?.regionRaw)) out.noRegion += 1;
-    else if (addressUnresolved(extracted)) out.addressUnresolved += 1;
-    else if (pairId && byId.get(pairId)?.status === 'archived') out.archivedTarget += 1;
-    else if (!pairId && extracted?.match?.tier === 'ask') out.ask += 1;
-    else if (verifyNeedsLook(extracted?.verify)) out.noEvidence += 1;
-    else out.ok += 1;
+    if (wanted.has(group.key)) out[bulkApproveSlot(group, byId)] += 1;
   }
   return out;
 }
@@ -115,6 +146,7 @@ export function bulkApproveText(plan: TBulkApprove): string {
     plan.noRegion && `지역이 없는 ${plan.noRegion}곳`,
     plan.addressUnresolved && `주소가 원글과 다른 ${plan.addressUnresolved}곳`,
     plan.archivedTarget && `짝이 내린 곳인 ${plan.archivedTarget}곳`,
+    plan.thin && `근거가 얇아 한 줄씩 봐야 하는 ${plan.thin}곳`,
   ].filter(Boolean);
   const ask = plan.ask ? ` 닮은 곳 확인이 필요한 ${plan.ask}곳은 멈추고 그 줄에 고를 것을 띄울 수 있어요.` : '';
   const rest = skipped.length ? ` ${skipped.join(' · ')}은 건너뛰어요.` : '';
@@ -123,7 +155,7 @@ export function bulkApproveText(plan: TBulkApprove): string {
 
 /** 일괄 올리기 주 버튼을 내려야 하나 — 근거 없음이든 멈추는 줄이든 하나라도 있으면 핑크 한 번으로 보내지 않는다. */
 export function bulkApproveNeedsLook(plan: TBulkApprove): boolean {
-  return plan.noEvidence + plan.addressUnresolved + plan.noRegion + plan.archivedTarget + plan.ask > 0;
+  return plan.noEvidence + plan.addressUnresolved + plan.noRegion + plan.archivedTarget + plan.ask + plan.thin > 0;
 }
 
 export type TBulkTally = { done: number; waiting: number; failed: number };
