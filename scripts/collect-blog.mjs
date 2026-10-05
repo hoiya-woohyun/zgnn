@@ -7,6 +7,7 @@ import { readFile } from 'node:fs/promises';
 import { chunkForUrlFilter } from './lib/chunkForUrlFilter.mjs';
 import { describeKeyShape, naverErrorTail } from './lib/naverApiError.mjs';
 import { NAVER_BLOG_SEARCH_URL, naverAuthHeaders } from './lib/naverSearchApi.mjs';
+import { loadNaverEnvFile } from './lib/naverEnvFile.mjs';
 import { naverKeyPairProblem } from './lib/naverKeyFormat.mjs';
 import { readHidden } from './lib/readHidden.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
@@ -33,6 +34,14 @@ const supabase = createSupabase();
 // 네이버 키는 그럴 수 없으므로 **소유자 쪽인 여기서** 턴다. env 로 받은 값도 같이 턴다(셸에서 따옴표로 감싸며 붙기 쉽다).
 const trimKey = (v) => (typeof v === 'string' ? v.trim() : v);
 
+// env 에 없으면 사용자 홈의 파일에서 얹는다(레포 밖 · 이름 넷 고정 · 600 — lib/naverEnvFile.mjs). 없으면 아래의 숨김 입력으로 간다.
+try {
+  const fromFile = loadNaverEnvFile();
+  if (fromFile.loaded.length) console.log(`네이버 키: ${fromFile.path} 에서 ${fromFile.loaded.join(' · ')}`);
+} catch (e) {
+  console.error(e.message);
+  process.exit(1);
+}
 let { NAVER_CLIENT_ID: naverClientId, NAVER_CLIENT_SECRET: naverClientSecret } = process.env;
 naverClientId = trimKey(naverClientId);
 naverClientSecret = trimKey(naverClientSecret);

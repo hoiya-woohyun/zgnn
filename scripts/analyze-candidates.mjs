@@ -77,6 +77,7 @@ import { fetchPostText } from './analyze/naverPostBody.mjs';
 import { needsDogCheck, resolveVerifyModel, verifyLabel, VERIFY_PROMPT_VERSION, verifyPlaces } from './analyze/verifyPlaces.mjs';
 import { PROPOSE_PROMPT_VERSION, proposalTargets, proposeForPlace, resolveProposeModel } from './analyze/proposePlaces.mjs';
 import { toMatchablePlace } from './lib/placeFields.mjs';
+import { loadNaverEnvFile } from './lib/naverEnvFile.mjs';
 import { naverKeyPairProblem } from './lib/naverKeyFormat.mjs';
 import { readHidden } from './lib/readHidden.mjs';
 import { acquireRunLock } from './lib/runLock.mjs';
@@ -249,6 +250,14 @@ if (!homepageOff) {
  * 먼저 물으면 키 넷을 치고 나서 "pnpm data:login" 이나 "마이그레이션을 적용해라" 로 멈춰 그 입력이 통째로 헛수고가 된다.
  */
 if (noGeo) console.log('--no-geo — 좌표·주소 보강을 하지 않는다(후보는 이름·종류로만 대조된다)');
+// env 에 없는 네이버 키는 사용자 홈의 파일에서 얹는다(레포 밖 · 이름 넷 고정 · 600 — lib/naverEnvFile.mjs). 그래야 에이전트 세션·재실행이 숨김 입력 없이 돈다.
+try {
+  const fromFile = loadNaverEnvFile();
+  if (fromFile.loaded.length) console.log(`네이버 키: ${fromFile.path} 에서 ${fromFile.loaded.join(' · ')}`);
+} catch (e) {
+  console.error(e.message);
+  process.exit(1);
+}
 const naverKeys = await resolveKeys('search', ['NAVER_CLIENT_ID', 'NAVER_CLIENT_SECRET']);
 // 두 번째 축(주소 → 좌표)의 키는 **검색 키가 아니다** — NCP 콘솔의 Maps Application 쪽이고 헤더 이름만 같다(lib/naverMapsApi.mjs 의 표).
 // 검색 키를 여기 넣으면 그냥 401 이라, env 이름을 갈라 두는 것이 그 혼동의 유일한 방어다(BUG-006 이 같은 함정이었다).

@@ -1,6 +1,9 @@
 # ADR-016 — 시크릿은 저장하지 않는다: 운영자가 로그인하고, 스크립트는 그 짧은 세션으로 붙는다
 
-> 최종 수정: 2026-10-01 (v8: 인증 출처는 여전히 둘(세션·anon)이지만 **anon 이 처음 쓴다** — 사이트 상세의 장소 제보가 `place_reports` 에 열 단위 insert 만([ADR-021](ADR-021-place-reports.md), 마이그레이션 `20261001130000`). 키·세션 모델은 그대로다 — 새 키가 없다)
+> 최종 수정: 2026-10-05 (v9: **네이버 키는 사용자 홈의 파일 `~/.zgnn-naver.env` 에서도 읽는다**(`scripts/lib/naverEnvFile.mjs`) — env 가 비어 있을 때만, 이름 넷(`NAVER_CLIENT_ID`·`_SECRET`·`NAVER_MAP_CLIENT_ID`·`_SECRET`)만.
+> 재분석은 구독 한도에 닿을 때마다 다시 돌리는 일이라 매번 숨김 입력 넷이 그 일을 미루게 했고, 에이전트 세션은 입력을 받지 않아 아예 못 돌았다.
+> "저장하지 않는다" 의 대상은 여전히 **레포와 Supabase 장기 키**다 — 이 파일은 레포 밖이고, 다른 이름은 적혀 있어도 읽지 않으며, 600 이 아니면 멈춘다. 네이버 검색 키는 하루 한 번 초기화하는 값이라 둔 예외다)
+> 이전 2026-10-01 (v8: 인증 출처는 여전히 둘(세션·anon)이지만 **anon 이 처음 쓴다** — 사이트 상세의 장소 제보가 `place_reports` 에 열 단위 insert 만([ADR-021](ADR-021-place-reports.md), 마이그레이션 `20261001130000`). 키·세션 모델은 그대로다 — 새 키가 없다)
 > 이전 2026-09-29 (v7: **브라우저 세션 정책을 한 항으로 명시**했다 — 운영자 검수 화면 `/admin`([ADR-018](ADR-018-in-app-admin-review.md))도 CLI 와 같은 모양으로 붙는다:
 > access token 만 localStorage(`zgnn.admin.session`)에, refresh token 은 버린다, `persistSession:false`·`autoRefreshToken:false`, 수명 1일 초과면 거부.
 > supabase-js 의 브라우저 기본값(refresh token 을 localStorage 에 저장 + 자동 갱신)은 이 결정과 정반대라 **끄는 것이 설정이 아니라 경계**다.
