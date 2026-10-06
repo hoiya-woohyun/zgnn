@@ -143,7 +143,7 @@ export function SettingsPage() {
             <LinkExternal01 size={16} aria-hidden="true" />
           </a>
         </div>
-        <p className="mt-3 px-1 text-sm text-quaternary">방문 전 영업시간과 동반 조건을 한 번 더 확인해 주세요.</p>
+        <p className="mt-3 px-1 text-sm text-tertiary">방문 전 영업시간과 동반 조건을 한 번 더 확인해 주세요.</p>
       </Section>
     </div>
   );

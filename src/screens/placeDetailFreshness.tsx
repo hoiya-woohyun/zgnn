@@ -3,7 +3,6 @@
 import { useSyncExternalStore } from 'react';
 import { freshnessOf } from '../lib/placeFreshness';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
-import { cx } from '../utils/cx';
 
 const subscribeNever = () => () => undefined;
 /** 하루 단위로 충분하다 — 매 렌더 다른 값을 돌려주면 `useSyncExternalStore` 가 끝없이 다시 그린다. */
@@ -24,7 +23,7 @@ export function PlaceDetailFreshness({ place }: { place: TPlaceEntry }) {
     return <p className="mt-3 text-xs text-tertiary">{label} 정보는 바뀔 수 있어요. 방문 전 한 번 더 확인해 주세요.</p>;
   }
   return (
-    <p className={cx('mt-3 text-xs', freshness.stale ? 'text-quaternary' : 'text-tertiary')}>
+    <p className="mt-3 text-xs text-tertiary">
       {freshness.text}. {freshness.stale ? '방문 전 한 번 더 확인해 주세요.' : '그래도 바뀔 수 있으니 방문 전 한 번 더 확인해 주세요.'}
     </p>
   );

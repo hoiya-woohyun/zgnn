@@ -141,7 +141,7 @@ export function ReportSheet({ isOpen, onOpenChange, title, lead, placeId, kinds,
               placeholder={notePlaceholder}
               className="mt-1.5 block w-full resize-none rounded-xl border border-secondary bg-primary px-3 py-2 text-md text-primary placeholder:text-placeholder focus:border-brand focus:outline-none"
             />
-            <p className={cx('mt-1 text-right text-xs', length > REPORT_NOTE_MAX ? 'text-error-primary' : 'text-quaternary')}>
+            <p className={cx('mt-1 text-right text-xs', length > REPORT_NOTE_MAX ? 'text-error-primary' : 'text-tertiary')}>
               {length}/{REPORT_NOTE_MAX}
             </p>
           </div>

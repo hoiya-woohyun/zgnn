@@ -151,7 +151,7 @@ export function HomePage() {
         </div>
       </section>
 
-      <footer className="mt-10 px-4 pb-8 text-sm text-quaternary md:px-6">
+      <footer className="mt-10 px-4 pb-8 text-sm text-tertiary md:px-6">
         <p>
           {SOURCE_LINE}{' '}
           <a
