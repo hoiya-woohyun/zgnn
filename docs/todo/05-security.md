@@ -1,6 +1,7 @@
 # 5. 보안 — 키 분리 · RLS · 웹훅 · 프리뷰 보호
 
-> 최종 수정: 2026-10-06 (v17: 운영자 세션이 쓰는 표 `pipeline_runs`(실행 기록, [ADR-023](../decisions/ADR-023-ops-dashboard-and-run-log.md)) — select/insert/update 만, anon 없음. `error` 칸은 분류 문구만(장소명이 섞이는 원문은 콘솔에만). 표 맨 아래 한 줄)
+> 최종 수정: 2026-10-07 (v18: 운영자 세션이 쓰는 표 `collect_requests`(추가 수집 요청) — select/insert/update 만, anon 없음, 정책 셋 `is_operator()`. 검색어·가게 이름만 담고 네이버 키는 여전히 운영자 로컬뿐. 표 맨 아래 한 줄)
+> 이전 2026-10-06 (v17: 운영자 세션이 쓰는 표 `pipeline_runs`(실행 기록, [ADR-023](../decisions/ADR-023-ops-dashboard-and-run-log.md)) — select/insert/update 만, anon 없음. `error` 칸은 분류 문구만(장소명이 섞이는 원문은 콘솔에만). 표 맨 아래 한 줄)
 > 이전 2026-10-01 (v16: 비로그인 역할에 함수 하나 — `place_report_flags()`(security definer, 열린 폐업 제보가 있는 **게시 장소 id·종류만**, 내용·건수 없음). 표는 여전히 닫혀 있다)
 > 이전 2026-10-01 (v15: **비로그인 역할이 처음 쓴다** — 마이그레이션 `20261001130000_place_reports`(원격 미적용)가 사이트 상세의 제보를 받는다. 열 단위 insert 만, select 없음, 재빌드 트리거 없음([ADR-021](../decisions/ADR-021-place-reports.md)). 표 맨 아래 한 줄)
 > 이전 2026-09-30 (v14: 마이그레이션 `20260930120000_places_homepage` 는 `places` 에 text 칸 셋을 얹을 뿐이라 **GRANT·정책 변화가 없다**
@@ -54,6 +55,7 @@
 | anon(publishable) key | 공개 전제 | 위 코드 상수. Vercel 빌드와 로컬의 `data:pull` 이 같은 경로로 published 만 읽고, **`/admin` 이 같은 키로 브라우저에서 붙는다**(로그인 전에는 그 키만, 로그인 뒤에는 `Authorization: Bearer <운영자 JWT>` 가 얹힌다 — 키만으로는 `candidates` 가 42501) | 공개돼도 되는 키 — 방어선은 RLS·GRANT |
 | (제보) `place_reports` 에 쓰는 anon | 공개 전제 | **비로그인 역할이 처음 쓰는 표**(2026-10-01, [ADR-021](../decisions/ADR-021-place-reports.md)). 사이트 상세가 같은 publishable 키로 `insert (place_id, kind, note, app_build)` 만 한다 — select 없음(보낸 것도 못 읽는다), 정책은 published 장소에만·열린 상태로만, CHECK 가 종류·길이를 막는다. 재빌드 트리거에 **안 걸려 있다**. 빌드가 읽는 것은 표가 아니라 `place_report_flags()`(security definer — 게시 장소 id·폐업 종류만) | 남이 할 수 있는 일은 표를 키우는 것뿐이다(읽기·재빌드·다른 표 없음). 폭주하면 정책 `anon_insert` 를 끈다 |
 | (실행 기록) `pipeline_runs` 에 쓰는 운영자 세션 | — | **키가 늘지 않는다**(2026-10-06, [ADR-023](../decisions/ADR-023-ops-dashboard-and-run-log.md), 마이그레이션 `20261006120000`). collect·analyze·apply·`data:review approve/reject` 가 이미 쓰는 운영자 JWT 로 실행마다 insert → update. authenticated 에 select/insert/update(delete 없음), 정책 셋 `is_operator()`, anon 은 표도 rpc 도 42501(실측). `error` 칸은 **분류 문구 다섯**만 적고 URL 모양은 `<url>` 로 지운다 — 원문(PostgREST details 의 `Key (…)=(값)`)은 장소명이 섞여 콘솔에만. 집계 `ops_overview()` 는 definer 라 Vault 를 보지만 **이름 존재 boolean**(`slackConfigured`) 하나만 돌려주고 값은 읽지 않는다 | 운영자 세션이 새면 이미 더 큰 표(`places`·`candidates`)가 열려 있다 — 이 표가 더하는 위험은 없다. 기록이 거짓이 될 수는 있다(운영자가 고칠 수 있는 표다) — 위조 방지 표가 아니다 |
+| (추가 수집) `collect_requests` 에 쓰는 운영자 세션 | — | **키가 늘지 않는다**(2026-10-07, 마이그레이션 `20261007120000`). `/admin` 이 insert, `data:collect` 가 update. authenticated 에 select/insert/update(delete 없음), 정책 셋 `is_operator()`, anon 에는 grant 가 없다. 담는 것은 검색어·가게 이름·글 url 뿐 — **버튼이 네이버를 부르지 않는 것이 이 표가 있는 이유**다(검색 키를 번들에 싣지 않는다) | 운영자 세션이 새면 이미 더 큰 표가 열려 있다. 위조된 요청은 네이버 호출 30건 · 분석 몇 건을 쓰게 할 뿐이다 |
 
 - [x] **`out/` 유출 검사를 빌드에 넣는다.** `package.json` 의 `build`(`next build --webpack && node scripts/check-bundle.mjs`):
       `out/` 전체에서 `service_role`·`sk-ant-`·`sb_secret_`·JWT(헤더·페이로드 둘 다 base64url — `eyJ` 만 보면 오탐)·

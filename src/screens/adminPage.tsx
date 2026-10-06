@@ -26,6 +26,7 @@ import {
 import { chooseAddress } from '../lib/adminEdit';
 import { addressUnresolved, type TAddressChoice } from '../lib/adminAddress';
 import { prepareReanalyze, reanalyzePlan, reanalyzeSummary } from '../lib/adminReanalyze';
+import { collectView, fetchCollectRequests, requestCollect, type TCollectRequestsLoad } from '../lib/adminCollectRequest';
 import { bulkApproveJobs, bulkApproveNeedsLook, bulkApproveSummary, bulkApproveText, bulkLatestSummary, bulkLatestTargets, summarizeBulk, type TBulkTally } from '../lib/adminBulk';
 import {
   countStrandedCandidates,
@@ -338,6 +339,8 @@ export function AdminPage() {
   const [blockSummary, setBlockSummary] = useState<TBlocksSummary | undefined>(undefined);
   /** 장소 id → 열린 블랙리스트(등록 해제 칸의 칩). undefined = 표가 없거나 못 읽었다. */
   const [placeBlocks, setPlaceBlocks] = useState<Record<string, TPlaceBlock> | undefined>(undefined);
+  /** 추가 수집 요청(가게마다 마지막 하나). 못 읽었으면 카드에 버튼이 안 선다 — 검수는 막지 않는다. */
+  const [collectRequests, setCollectRequests] = useState<TCollectRequestsLoad | undefined>(undefined);
   /** 사용자 제보(ADR-021). undefined = 아직 못 읽었다. 쓰기 콜백이 최신 행을 보도록 ref 로도 든다. */
   const [reports, setReports] = useState<TReportsLoad | undefined>(undefined);
   const reportRowsRef = useRef<TReportRow[]>([]);
@@ -460,6 +463,7 @@ export function AdminPage() {
     setBlockSummary(await fetchBlockCounts(client));
     const byPlace = await fetchPlaceBlocks(client);
     setPlaceBlocks(byPlace.kind === 'ok' ? byPlace.byPlace : undefined);
+    setCollectRequests(await fetchCollectRequests(client));
     applyReports(await fetchReports(client));
   }, [applyReports]);
 
@@ -1094,6 +1098,28 @@ export function AdminPage() {
       );
     },
     [groups],
+  );
+
+  /**
+   * **추가 수집** — 이 가게를 상호명으로 한 번 더 찾게 요청한다(`adminCollectRequest.ts`). 후보·장소를 바꾸지 않는 쓰기라 `beginWrite` 직렬화 밖이다.
+   * 이미 대기 중이었으면(다른 탭에서 눌렀다) 실패가 아니다 — 목록을 다시 읽어 그 요청을 보여 준다.
+   */
+  const requestCollectFor = useCallback(
+    async (group: TCandidateGroup) => {
+      const client = clientRef.current;
+      if (!client) return;
+      patchState(group.key, { busy: 'requestingCollect', error: undefined });
+      try {
+        const { extracted } = group.lead;
+        const made = await requestCollect(client, { name: extracted.name, nameKey: extracted.nameKey, candidateId: group.lead.id });
+        if (made === 'alreadyQueued') setCollectRequests(await fetchCollectRequests(client));
+        else setCollectRequests((prev) => (prev?.kind === 'ok' ? { kind: 'ok', byName: { ...prev.byName, [made.name_key]: made } } : prev));
+        patchState(group.key, { busy: undefined });
+      } catch (error) {
+        patchState(group.key, { busy: undefined, error: messageOf(error, '추가 수집을 요청하지 못했어요.') });
+      }
+    },
+    [patchState],
   );
 
   /**
@@ -1878,6 +1904,8 @@ export function AdminPage() {
                   onStartReanalyze={() => patchState(group.key, { reanalyzing: true, rejecting: false, error: undefined })}
                   onCancelReanalyze={() => patchState(group.key, { reanalyzing: false })}
                   onReanalyze={() => void reanalyze([group.key], { key: group.key })}
+                  collect={collectView(collectRequests, group.lead.extracted)}
+                  onRequestCollect={() => void requestCollectFor(group)}
                 />
               );
             })}

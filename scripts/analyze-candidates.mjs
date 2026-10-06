@@ -78,6 +78,8 @@ import { fetchPostText } from './analyze/naverPostBody.mjs';
 import { needsDogCheck, resolveVerifyModel, verifyLabel, VERIFY_PROMPT_VERSION, verifyPlaces } from './analyze/verifyPlaces.mjs';
 import { PROPOSE_PROMPT_VERSION, proposalTargets, proposeForPlace, resolveProposeModel } from './analyze/proposePlaces.mjs';
 import { toMatchablePlace } from './lib/placeFields.mjs';
+import { chunkForUrlFilter } from './lib/chunkForUrlFilter.mjs';
+import { recentRequestUrls } from './lib/collectRequests.mjs';
 import { loadNaverEnvFile } from './lib/naverEnvFile.mjs';
 import { naverKeyPairProblem } from './lib/naverKeyFormat.mjs';
 import { readHidden } from './lib/readHidden.mjs';
@@ -322,7 +324,23 @@ if (focusedOnly) {
   fetchedPosts = mergeFocusedFirst(focusedPosts, restPosts);
 }
 fetchedPosts = deferBlogs(fetchedPosts, singlePlace);
+// `/admin` 의 **추가 수집**이 담은 글은 맨 앞 — 집중 제목·한 가게 블로그 판정과 상관없이. 운영자가 그 가게의 근거를 더 보려고 콕 집어 찾게 한
+// 글이라, 최신순·제목 순서에 맡기면 미분석 수천 건 뒤에 밀려 몇 주가 지나도 안 읽히고, 업주 블로그는 '한 가게 블로그' 로 맨 뒤에 간다.
+// 블로그당 상한(`pickPostsForRun`)은 그대로 받는다 — 업주 블로그 한 곳이 실행을 다 채우지 않게.
+const requestedUrls = await recentRequestUrls(supabase);
+let requestedCount = 0;
+if (requestedUrls.length > 0) {
+  const requested = [];
+  for (const chunk of chunkForUrlFilter(requestedUrls)) {
+    const { data, error } = await unanalyzed().in('url', chunk);
+    if (error) throw new Error(`blog_posts 조회 실패(추가 수집 글): ${error.message}`);
+    requested.push(...data);
+  }
+  requestedCount = requested.length;
+  fetchedPosts = mergeFocusedFirst(requested, fetchedPosts);
+}
 const posts = pickPostsForRun(fetchedPosts, limit, maxPerBlog);
+if (requestedCount > 0) console.log(`추가 수집(/admin) 글 ${requestedCount}건을 맨 앞에 세웠다`);
 // 앞줄이 비면 끝 — 반복 실행(`for … || break`)이 빈 실행을 되풀이하지 않게 exit 1 로 알린다.
 if (focusedOnly && posts.length === 0) {
   console.log('앞줄(--focused-only)에 남은 글이 없다 — 끝.');

@@ -1,5 +1,6 @@
 'use client';
 
+import type { ComponentProps } from 'react';
 import { ChevronDown } from '@untitledui/icons';
 import { Badge } from '../components/base/badges';
 import { Checkbox } from '../components/base/checkbox';
@@ -31,7 +32,7 @@ import { ADMIN_LEAD_CELL, ADMIN_PANEL_DIVIDER, ADMIN_POLICY_TONE, ADMIN_ROW, ADM
 
 /** 묶음 하나의 화면 상태. 소유자는 `adminPage.tsx` 고 여기는 받아서 그린다. */
 export type TAdminPageGroupState = {
-  busy?: 'approving' | 'rejecting' | 'savingRegion' | 'savingEdit' | 'reanalyzing' | 'confirming';
+  busy?: 'approving' | 'rejecting' | 'savingRegion' | 'savingEdit' | 'reanalyzing' | 'confirming' | 'requestingCollect';
   /** 끝난 묶음의 초록 한 줄. 이 값이 있으면 카드는 접힌 한 줄만 남는다. */
   done?: string;
   error?: string;
@@ -97,6 +98,9 @@ type TAdminPageGroupCardProps = {
   onStartReanalyze: () => void;
   onCancelReanalyze: () => void;
   onReanalyze: () => void;
+  /** 추가 수집 — 페이지가 이 가게의 마지막 요청으로 만든다(`adminCollectRequest.ts`). 요청 목록을 못 읽었으면 없다. */
+  collect?: ComponentProps<typeof AdminPageGroupActions>['collect'];
+  onRequestCollect?: () => void;
 };
 
 /**
@@ -173,6 +177,8 @@ export function AdminPageGroupCard({
   onStartReanalyze,
   onCancelReanalyze,
   onReanalyze,
+  collect,
+  onRequestCollect,
 }: TAdminPageGroupCardProps) {
   const extracted = group.lead.extracted;
   /*
@@ -450,6 +456,8 @@ export function AdminPageGroupCard({
                 onStartReanalyze={onStartReanalyze}
                 onCancelReanalyze={onCancelReanalyze}
                 onReanalyze={onReanalyze}
+                collect={collect}
+                onRequestCollect={onRequestCollect}
               />
             </section>
             <button

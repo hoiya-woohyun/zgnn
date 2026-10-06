@@ -6,6 +6,7 @@ import { Button } from '../components/base/button';
 import { Select } from '../components/base/select';
 import type { TAddressChoice } from '../lib/adminAddress';
 import type { TBlockChoice } from '../lib/adminBlocks';
+import { COLLECT_REQUESTS_UNAVAILABLE_TEXT } from '../lib/adminCollectRequest';
 import { regionOptionsFor, UPDATE_REJECT_REASONS, type TCandidateGroup, type TPlaceRow, type TRejectReason } from '../lib/adminCandidates';
 import type { TLatestPlan } from '../lib/adminLatest';
 import { lastNoteLine, noteLineText, PLACE_STATUS_COLOR, PLACE_STATUS_LABEL } from '../lib/adminPlaces';
@@ -21,6 +22,7 @@ const BUSY_LABEL: Record<NonNullable<TAdminPageGroupState['busy']>, string> = {
   savingEdit: '저장하고 있어요…',
   reanalyzing: '분석을 지우고 있어요…',
   confirming: '확인을 남기고 있어요…',
+  requestingCollect: '추가 수집을 요청하고 있어요…',
 };
 
 /**
@@ -83,6 +85,8 @@ export function AdminPageGroupActions({
   onStartReanalyze,
   onCancelReanalyze,
   onReanalyze,
+  collect,
+  onRequestCollect,
 }: {
   group: TCandidateGroup;
   state: TAdminPageGroupState;
@@ -115,6 +119,12 @@ export function AdminPageGroupActions({
   onStartReanalyze: () => void;
   onCancelReanalyze: () => void;
   onReanalyze: () => void;
+  /**
+   * 추가 수집(`adminCollectRequest.ts`) — 이 가게를 상호명으로 한 번 더 찾게 한다. 요청 목록을 아직 못 읽었으면 없다(버튼을 안 그린다).
+   * `line` 은 마지막 요청이 말하는 한 줄(대기 중 · 새 글 N건), `queued` 면 버튼을 끈다 — 같은 가게는 한 번만 찾으면 된다.
+   */
+  collect?: { query: string; line: string | null; queued: boolean; unavailable: boolean };
+  onRequestCollect?: () => void;
 }) {
   const busy = state.busy;
   const off = Boolean(busy);
@@ -212,20 +222,31 @@ export function AdminPageGroupActions({
     ) : null;
 
   /*
-   * 제외 · 재분석 — 모든 갈래 끝에 같은 순서로 선다(`올리지 않기`). **고치기는 없다**(2026-10-04): 검수 대기는 AI 분석대로 올릴지만
+   * 제외 · 재분석 · 추가 수집 — 모든 갈래 끝에 같은 순서로 선다(`올리지 않기`). 추가 수집은 "지금은 안 올리고 근거를 더 모은다" 라 여기 선다. **고치기는 없다**(2026-10-04): 검수 대기는 AI 분석대로 올릴지만
    * 정하고, AI 가 틀렸으면 안 올리거나 다시 분석한다. 값 수정은 등록 완료의 장소 고치기에서 한다.
    * `rejectPrimary` 면 반려는 앞쪽 주 버튼으로 나갔으니 여기서 빠진다.
    */
   const tail = (rejectPrimary = false, escape?: ReactNode) => (
-    <Row>
-      <span className="text-xs text-tertiary">올리지 않기</span>
-      {!rejectPrimary && tertiary('제외', onStartReject)}
-      {tertiary('재분석', onStartReanalyze, {
-        isDisabled: !group.lead.post_url,
-        title: group.lead.post_url ? '이 글을 수집 완료로 되돌려요(지우지 않아요)' : '글 링크가 없어 다시 읽을 수 없어요',
-      })}
-      {escape}
-    </Row>
+    <>
+      <Row>
+        <span className="text-xs text-tertiary">올리지 않기</span>
+        {!rejectPrimary && tertiary('제외', onStartReject)}
+        {tertiary('재분석', onStartReanalyze, {
+          isDisabled: !group.lead.post_url,
+          title: group.lead.post_url ? '이 글을 수집 완료로 되돌려요(지우지 않아요)' : '글 링크가 없어 다시 읽을 수 없어요',
+        })}
+        {collect &&
+          onRequestCollect &&
+          tertiary(collect.queued ? '추가 수집 대기 중' : '추가 수집', onRequestCollect, {
+            isDisabled: collect.queued || collect.unavailable,
+            title: collect.unavailable
+              ? COLLECT_REQUESTS_UNAVAILABLE_TEXT
+              : `'${collect.query}' 로 블로그를 한 번 더 찾아요 — 다음 pnpm data:collect 때`,
+          })}
+        {escape}
+      </Row>
+      {collect?.line && <p className="text-xs text-tertiary">{collect.line}</p>}
+    </>
   );
 
   let body: ReactNode;

@@ -1,6 +1,7 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-10-06 (v47: **읍면은 읽을 때 정본으로 접는다** — `parseRegion` 이 `서귀포`→`서귀포시` 를 한다(07 U8). 어느 쓰기 길도 저장 값을 고치지 않아, 시드의 `남쪽 (서귀포)` 1행은 손으로 고쳐야 했다)
+> 최종 수정: 2026-10-07 (v48: **추가 수집 요청**(`collect_requests`) — `/admin` 이 남긴 상호명 검색어를 `data:collect` 가 키워드 뒤에 한 페이지(30건)씩 돌고(`--only-requests` 면 요청만), `data:analyze` 는 그 글을 미분석 줄 맨 앞에 세운다. 표가 없으면 경고 한 줄 뒤 요청 없이 돈다 — [features/admin-review 「추가 수집」](../features/admin-review.md))
+> 이전 2026-10-06 (v47: **읍면은 읽을 때 정본으로 접는다** — `parseRegion` 이 `서귀포`→`서귀포시` 를 한다(07 U8). 어느 쓰기 길도 저장 값을 고치지 않아, 시드의 `남쪽 (서귀포)` 1행은 손으로 고쳐야 했다)
 > 이전 2026-10-06 (v46: 심장을 **쓰기 스크립트 넷 모두** 찍는다 — collect(페이지마다)·`data:review`(행마다)가 빠져 있어 10분 넘게 도는 실행이 살아 있어도 운영 현황에 "중단된 듯" 으로 떴다)
 > 이전 2026-10-06 (v45: **실행마다 `pipeline_runs` 한 행** — collect·analyze·apply·`data:review approve|reject` 가 시작에 insert, 끝에 상태·stats·분류 문구를 남긴다(analyze 는 그 사이 심장). 기록 실패는 경고 한 줄뿐이고 작업은 그대로 돈다. 콘솔 요약 줄은 `src/lib/runSummary.ts` 로 옮겨 화면과 같은 함수를 쓴다 — 그래서 `data:collect`·`data:analyze`·`data:apply` 도 `--experimental-strip-types` 로 돈다([ADR-023](../decisions/ADR-023-ops-dashboard-and-run-log.md), [todo/15](../todo/15-ops-dashboard.md) T2))
 > 이전 2026-10-06 (v44: **추출 정확도 평가** — 시드 86곳은 사람이 같은 블로그 글을 읽고 적은 값이라, 그 글을 운영 추출에 다시 넣어 채점한다(`pnpm data:eval`, [features/extraction-eval](../features/extraction-eval.md)). 정답은 `data/golden/seed-extract.json` 에 얼리고, 지표는 칸 일치율보다 **판정 뒤집힘**. golden 은 정규식이 사람 문장을 읽은 값이라 틀릴 수 있어 사람이 `review` 로 보정한다)
@@ -218,7 +219,9 @@ AI 분석 · 승인 · /admin 고치기) 저장 값을 고치는 곳은 하나�
 (검수·승인은 2026-09-29 부터 앱 안 `/admin` 이 기본이고, 거기서 승인하면 `data:apply` 단계까지 그 클릭이 대신한다 → [ADR-018](../decisions/ADR-018-in-app-admin-review.md)·[features/admin-review](../features/admin-review.md))
 (ADR-016 v5, GitHub Actions 폐지). 셋 다 운영자 세션(`pnpm data:login`)이 필요하고, `data:collect` 는 네이버 검색 키까지 필요하다 — env
 (`NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`)로 넘기거나 없으면 터미널 숨김 입력으로 받는다(어디에도 저장 안 함 · 에이전트 세션에서는 입력을 거부).
-그래서 수집은 사용자 몫이고 에이전트는 `data:analyze`·`data:apply` 만 돌린다. `blog_posts` 는 사용자가 돌릴 때만 찬다. 진행·결정은
+그래서 수집은 사용자 몫이고 에이전트는 `data:analyze`·`data:apply` 만 돌린다. `blog_posts` 는 사용자가 돌릴 때만 찬다.
+`/admin` 의 **추가 수집** 요청(`collect_requests`)은 같은 실행이 키워드 뒤에 돈다 — 요청마다 `제주 <상호명>` 한 페이지(30건), 결과(`found`·`new_posts`·`post_urls`)는
+upsert 가 끝난 **뒤에** 적는다(도중에 죽으면 대기로 남는다). 분석은 최근 30일 요청의 `post_urls` 를 미분석 줄 맨 앞에 세운다([features/admin-review 「추가 수집」](../features/admin-review.md)). 진행·결정은
 [todo/02](../todo/02-collect-naver-blog.md)·[todo/03](../todo/03-analyze-and-review.md).
 
 ```mermaid

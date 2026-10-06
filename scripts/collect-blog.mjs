@@ -3,9 +3,11 @@
 // HTML 을 통째로 긁지 않는 이유 — 네이버 약관(HTML 크롤링 금지)과 저작권(ADR-002 와 같은 기준). 검색 API 는
 // 공식 · 하루 25,000회 무료이고 title·link·description·postdate 만 준다. **본문은 여기서도, DB 에도 저장하지 않는다** —
 // 03(분석) 이 링크를 열어 그 순간에만 읽고 버린다. docs/todo/02-collect-naver-blog.md 가 정본.
+// `/admin` 의 **추가 수집** 요청(`collect_requests`)이 있으면 키워드 뒤에 그 검색어도 돈다 — `--only-requests` 면 요청만(키워드 47개를 건너뛴다).
 // 실행마다 `pipeline_runs` 에 한 행을 남긴다(scripts/lib/runLog.mjs, docs/todo/15) — 기록이 안 되면 경고 한 줄만 찍고 수집은 그대로 돈다.
 import { readFile } from 'node:fs/promises';
 import { chunkForUrlFilter } from './lib/chunkForUrlFilter.mjs';
+import { fetchQueuedRequests, markRequestDone, requestOutcome } from './lib/collectRequests.mjs';
 import { describeKeyShape, naverErrorTail } from './lib/naverApiError.mjs';
 import { NAVER_BLOG_SEARCH_URL, countNaverCall, naverAuthHeaders, readNaverCalls } from './lib/naverSearchApi.mjs';
 import { loadNaverEnvFile } from './lib/naverEnvFile.mjs';
@@ -24,6 +26,16 @@ import {
 
 // 세션 검사가 키 입력보다 먼저다 — 키 두 개를 치고 나서 "pnpm data:login" 으로 멈추면 헛수고라서.
 const supabase = createSupabase();
+
+// 요청도 키 입력보다 먼저 본다 — `--only-requests` 인데 대기 중인 요청이 없으면 키를 칠 이유가 없다.
+const onlyRequests = process.argv.slice(2).includes('--only-requests');
+// 추가 수집 요청(먼저 누른 것부터). 표가 아직 원격에 없으면 경고 한 줄 — 수집은 키워드만으로 그대로 돈다.
+const { requests, missing: requestsMissing } = await fetchQueuedRequests(supabase);
+if (requestsMissing) console.warn('⚠️ collect_requests 표가 원격에 없다(마이그레이션 미적용) — 추가 수집 요청 없이 돈다.');
+if (onlyRequests && requests.length === 0) {
+  console.log('대기 중인 추가 수집 요청이 없다 — 끝.');
+  process.exit(0);
+}
 
 // 네이버 검색 키(client id·secret)는 사용자가 로컬에서 직접 관리한다(ADR-016 v5) — 레포·키체인·파일 어디에도 없다.
 // env 로 받고, 없으면 터미널에서 숨김 입력으로 받는다. 받은 값은 이 프로세스 메모리에만 있고 로그·파일·키체인 어디에도 남기지 않는다 —
@@ -92,9 +104,11 @@ function dbError(what, error, count) {
 }
 
 const ROOT = new URL('./', import.meta.url);
-const keywords = JSON.parse(await readFile(new URL('collect/keywords.json', ROOT), 'utf8'));
+const keywords = onlyRequests ? [] : JSON.parse(await readFile(new URL('collect/keywords.json', ROOT), 'utf8'));
 
 const DISPLAY = 100;
+// 추가 수집은 한 페이지(최신 30건)만 — 가게 하나의 근거를 더 찾는 일이라 1년치를 다 볼 이유가 없고, 담은 글마다 분석이 `claude -p` 를 한 번 부른다.
+const REQUEST_DISPLAY = 30;
 const MAX_START = 1000;
 const MAX_PAGES = Math.ceil(MAX_START / DISPLAY);
 const REQUEST_DELAY_MS = 200;
@@ -109,10 +123,10 @@ const STOP_LABEL = {
 };
 
 // 응답 본문·헤더는 절대 로그에 남기지 않는다 — status 와 요청 URL 의 query 만 남긴다(docs/todo/05-security.md).
-async function searchBlog(query, start) {
+async function searchBlog(query, start, display = DISPLAY) {
   const url = new URL(NAVER_BLOG_SEARCH_URL);
   url.searchParams.set('query', query);
-  url.searchParams.set('display', String(DISPLAY));
+  url.searchParams.set('display', String(display));
   url.searchParams.set('start', String(start));
   url.searchParams.set('sort', 'date');
 
@@ -143,7 +157,7 @@ let excludedOther = 0;
 let truncated = 0;
 
 // 시작 기록은 키·키워드 검사가 다 지난 뒤에 — 그 앞의 exit(1) 은 "돌지 않은 것" 이지 실패한 실행이 아니다.
-const run = await beginRun(supabase, { script: 'collect', args: { keywords: keywords.length } });
+const run = await beginRun(supabase, { script: 'collect', args: { keywords: keywords.length, requests: requests.length } });
 // Ctrl-C 도 실패로 닫는다(130 유지). 닫기를 3초 넘게 기다리지 않는다 — 네트워크가 죽어 있으면 그만큼 사용자가 갇힌다.
 process.once('SIGINT', async () => {
   await Promise.race([run.end({ status: 'failed', error: RUN_ERROR.sigint }), sleep(3000)]);
@@ -154,7 +168,10 @@ try {
   // 진행 로그. 첫 실행은 1년치라 키워드 6 × 최대 10페이지를 돌고, 그 뒤 DB 조회·upsert 가 또 여러 번 나간다 —
   // 예전엔 그 몇 분 동안 **한 줄도 안 찍혀** 도는 중인지 멈춘 건지 사용자가 알 수 없었다(마지막 요약 한 줄이 전부였다).
   // 무엇을 찍고 무엇을 안 찍는지는 `collect/naverBlog.mjs` 의 포맷터 주석이 정본 — **응답 내용은 개수로만** 나간다(05-security).
-  console.log(`수집 시작: 키워드 ${keywords.length}개 · 최근 ${WINDOW_DAYS}일 · 키워드당 최대 ${MAX_PAGES}페이지(요청 사이 ${REQUEST_DELAY_MS}ms)`);
+  console.log(
+    `수집 시작: 키워드 ${keywords.length}개 · 최근 ${WINDOW_DAYS}일 · 키워드당 최대 ${MAX_PAGES}페이지(요청 사이 ${REQUEST_DELAY_MS}ms)` +
+      (requests.length ? ` · 추가 수집 ${requests.length}건(각 ${REQUEST_DISPLAY}건 한 페이지)` : ''),
+  );
 
   for (const [index, keyword] of keywords.entries()) {
     console.log(`[${index + 1}/${keywords.length}] ${keyword}`);
@@ -193,6 +210,21 @@ try {
     }
   }
 
+  // 추가 수집 — 검색어 하나에 한 페이지. 페이지 넘김·창 잘림(⚠️) 판정이 없다: 최신 30건이 전부다.
+  // 요청별 행을 따로 쥐고 있다가 upsert 가 끝난 **뒤에** 결과를 적는다 — 그 전에 죽으면 요청은 대기로 남는다.
+  const requestRows = new Map();
+  for (const [index, request] of requests.entries()) {
+    await run.tick();
+    const { items } = await searchBlog(request.query, 1, REQUEST_DISPLAY);
+    const tally = tallyPage(items ?? [], request.query, now);
+    collected.push(...tally.rows);
+    excludedOld += tally.old;
+    excludedOther += tally.other;
+    requestRows.set(request.id, tally.rows);
+    console.log(`[추가 ${index + 1}/${requests.length}] ${request.query} → ${tally.rows.length}건(받은 ${items?.length ?? 0})`);
+    await sleep(REQUEST_DELAY_MS);
+  }
+
   const beforeDedupe = collected.length;
   collected = dedupeByUrl(collected);
   const overlapped = beforeDedupe - collected.length;
@@ -227,6 +259,18 @@ try {
     console.log(`  ${i / UPSERT_CHUNK + 1}/${upsertChunks} upsert ${chunk.length}건`);
   }
 
+  // 추가 수집 결과 — 글은 이미 들어갔으므로 여기서 실패해도 실행을 죽이지 않는다(요청이 대기로 남아 다음에 한 번 더 찾을 뿐이다).
+  let requestNew = 0;
+  for (const request of requests) {
+    const outcome = requestOutcome(requestRows.get(request.id) ?? [], existingUrls);
+    requestNew += outcome.new_posts;
+    try {
+      await markRequestDone(supabase, request.id, outcome, now);
+    } catch (e) {
+      console.warn(`⚠️ ${e.message} — '${request.query}' 는 대기로 남는다`);
+    }
+  }
+
   if (truncated > 0) console.log(`⚠️ 키워드 ${truncated}개가 ${MAX_PAGES}페이지 상한에서 잘렸다 — 위 ⚠️ 줄을 보라`);
   const stats = {
     fetched: collected.length,
@@ -237,6 +281,7 @@ try {
     durationMs: Date.now() - startedAt,
     naverCalls: readNaverCalls(),
     truncatedKeywords: truncated,
+    ...(requests.length ? { requests: requests.length, requestNew } : {}),
   };
   // 같은 객체를 찍고 같은 객체를 남긴다 — 화면(/admin/ops)이 stats 로 이 줄을 글자까지 같게 다시 만든다(src/lib/runSummary.ts).
   console.log(formatCollectSummary(stats));
