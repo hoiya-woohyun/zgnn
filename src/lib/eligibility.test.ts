@@ -57,6 +57,19 @@ describe('judgeEligibility — 웨스티하우스(계단식 무게·마릿수)',
   });
 });
 
+describe('judgeEligibility — C2 는 원문이 이동가방을 적었으면 물러난다(14 W261006.4)', () => {
+  it('카페스누피 "실내에서는 유모차/이동 가방 필요" — 두부(이동가방)는 갈 수 있어요', () => {
+    const result = judgeEligibility(TOFU, findPlace('카페스누피').policy);
+    expect(result.reasons.map((r) => r.rule)).not.toContain('C2');
+    expect(result.level).toBe('ok');
+  });
+
+  it('"이동가방 불가" 는 허용이 아니다', () => {
+    const policy = parsePetPolicy('케이지 필수, 이동가방은 불가.');
+    expect(judgeEligibility(TOFU, policy).level).not.toBe('ok');
+  });
+});
+
 describe('judgeEligibility — 케이지 필수 식당("케이지 동반시 가능.")', () => {
   const place = findPlace('모닥식탁');
 

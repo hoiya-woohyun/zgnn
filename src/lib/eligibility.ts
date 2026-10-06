@@ -197,10 +197,18 @@ const ruleOutdoorOnly: TRule = (_dog, policy, opts) => {
   return { level: 'cond', text: '야외 자리만 가능해요', quote: policy.sources.indoor };
 };
 
-/** C2: 케이지 필수인 곳에 이동가방을 들고 간다. 슬링백을 케이지로 착각하지 않게 확인을 권한다. */
+/** 이동가방(슬링백) 뒤 16자 안에 '불가' 가 없을 때만 허용으로 읽는다 — 유모차의 `STROLLER_ALLOWED` 와 같은 어법. */
+const BAG_ALLOWED = /(가방|슬링)(?![^.\n]{0,16}불가)/;
+
+/**
+ * C2: 케이지 필수인 곳에 이동가방을 들고 간다. 슬링백을 케이지로 착각하지 않게 확인을 권한다.
+ * `indoor: 'cage'` 는 "케이지·이동가방·유모차 중 하나" 라서, 원문이 이동가방을 직접 적었으면(카페스누피 "실내에서는
+ * 유모차/이동 가방 필요") 이미 된다 — 되물으면 원문이 허락한 것을 의심하게 만든다(14 W261006.4). C3 과 같은 물러남.
+ */
 const ruleBagAtCagePlace: TRule = (dog, policy) => {
   if (policy.indoor !== 'cage') return null;
   if (dog.carrier !== 'bag') return null;
+  if (policy.sources.indoor && BAG_ALLOWED.test(policy.sources.indoor)) return null;
   return {
     level: 'cond',
     text: '케이지라고 적혀 있어요 — 이동가방도 되는지 확인해 주세요',
