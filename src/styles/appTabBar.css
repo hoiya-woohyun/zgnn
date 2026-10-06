@@ -1,0 +1,71 @@
+/*
+  하단 탭바(components/layout/appTabBar.tsx)의 두 가지 — 링크가 "그림" 처럼 굴지 않게 하는 것과, 불이 들어올 때의 모션.
+
+  1. 탭은 버튼이지 그림이 아니다. `<a>` 안에 svg 만 있으면 iOS 가 길게 누를 때 링크 미리보기·복사 시트를 띄우고
+     끌면 고스트 이미지가 따라온다 — 네이티브 탭바에는 없는 일이라 셋 다 끈다(callout · drag · select).
+     탭 하이라이트도 끈다 — 응답은 아래 모션이 한다.
+
+  2. 모션은 **비활성 → 활성으로 바뀌는 순간에만**, 그 칸의 아이콘 하나만 움직인다(처음 그릴 때 이미 활성인 칸은 가만히
+     있다 — 누가 누른 게 아니다). 붙이고 떼는 것은 appTabBar.tsx(`tab-icon-pop` + `data-motion`, animationend 에 뗀다).
+     아이콘마다 다르게 움직인다 — 같은 튀김을 다섯 번 보면 장식이고, 아이콘이 제 뜻대로 움직이면 응답이다:
+     집은 살짝 뛰고(bounce), 나침반은 바늘이 흔들리다 서고(wobble), 지도는 펼치듯 기울고(tilt),
+     준비물은 체크하듯 눌리고(press), 톱니는 한 칸 돈다(turn — 이 톱니는 8개라 90° 돌면 처음과 같은 모양이다).
+     전부 0.5s 안에 끝난다 — 화면 전환(스와이프 복귀·스크롤 복원)보다 길면 둘이 겹쳐 보인다.
+     `transform` 만 움직인다(합성 스레드 몫 — scrollMorph.css 와 같은 이유).
+*/
+.app-tab-bar a {
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tab-icon-pop[data-motion='bounce'] {
+    animation: tab-bounce 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .tab-icon-pop[data-motion='wobble'] {
+    animation: tab-wobble 0.5s ease-out;
+    transform-origin: 50% 50%;
+  }
+  .tab-icon-pop[data-motion='tilt'] {
+    animation: tab-tilt 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .tab-icon-pop[data-motion='press'] {
+    animation: tab-press 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .tab-icon-pop[data-motion='turn'] {
+    animation: tab-turn 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+@keyframes tab-bounce {
+  0% { transform: translateY(0); }
+  35% { transform: translateY(-4px); }
+  100% { transform: translateY(0); }
+}
+
+@keyframes tab-wobble {
+  0% { transform: rotate(0); }
+  30% { transform: rotate(-16deg); }
+  60% { transform: rotate(10deg); }
+  80% { transform: rotate(-4deg); }
+  100% { transform: rotate(0); }
+}
+
+@keyframes tab-tilt {
+  0% { transform: scale(1) rotate(0); }
+  40% { transform: scale(1.15) rotate(-8deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+
+@keyframes tab-press {
+  0% { transform: scale(1); }
+  40% { transform: scale(0.8); }
+  100% { transform: scale(1); }
+}
+
+@keyframes tab-turn {
+  0% { transform: rotate(0); }
+  100% { transform: rotate(90deg); }
+}

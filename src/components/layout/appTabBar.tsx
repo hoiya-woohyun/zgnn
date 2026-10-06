@@ -1,4 +1,4 @@
-import type { MouseEvent } from 'react';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { isNavActive, NAV_ITEMS, navHref } from './navItems';
@@ -35,6 +35,11 @@ const normalize = (pathname: string) => pathname.replace(/\/+$/, '') || '/';
  * 라벨은 없다 — 지도 모양 아이콘 하나로 충분하고, 원 밑에 글자가 서면 원이 솟을 자리가 없다(`aria-label` 로만 남긴다).
  * 솟은 만큼은 본문 위에 떠 있어 `appShellSurface` 의 아래 여백이 그만큼 더 크다.
  * 원은 늘 브랜드색이고 불이 들어왔는지는 말하지 않는다 — 원의 색을 바꾸면 "지도에 있을 때만 버튼이 있다" 로 읽힌다.
+ *
+ * **눌림 효과는 없고, 불이 들어오는 순간에만 아이콘이 움직인다.** 탭은 버튼이지 그림이 아니라 길게 누를 때 뜨는
+ * 링크 시트·끌기 고스트를 끄고(`styles/appTabBar.css`), 대신 비활성 → 활성으로 **바뀐** 칸의 아이콘 하나만 제 모양대로
+ * 한 번 움직인다(`item.motion`). 처음 그릴 때 이미 활성인 칸은 가만히 있다 — 누가 누른 게 아니다. 활성 칸은
+ * 주소에서 계산하므로 탭을 눌러서든 스와이프로든 같은 모션이 난다. 클래스는 animationend 에 떼어 다음에 또 움직인다.
  */
 
 /**
@@ -48,6 +53,20 @@ const RISE_PX = 16;
 export function AppTabBar() {
   const pathname = usePathname();
   const highlightPath = useNavHighlightPath();
+  const activeTo = NAV_ITEMS.find((item) => isNavActive(item, highlightPath))?.to ?? null;
+
+  // 비활성 → 활성으로 **바뀐** 칸만 움직인다. 첫 렌더의 활성 칸은 ref 초기값과 같아 건너뛴다.
+  const lastActiveTo = useRef(activeTo);
+  const [popTo, setPopTo] = useState<string | null>(null);
+  useEffect(() => {
+    if (lastActiveTo.current === activeTo) return;
+    lastActiveTo.current = activeTo;
+    setPopTo(activeTo);
+  }, [activeTo]);
+  const iconMotionProps = (to: string, motion: string) => ({
+    'data-motion': motion,
+    onAnimationEnd: () => setPopTo((current) => (current === to ? null : current)),
+  });
 
   const handleTabClick = (event: MouseEvent<HTMLAnchorElement>, to: string) => {
     if (normalize(pathname) !== normalize(to)) return;
@@ -68,7 +87,7 @@ export function AppTabBar() {
       // 반투명 + backdrop-blur 로 두면 그 자리에 밑을 지나는 내용이 비치고, Safari 26 은 이 요소의
       // background-color 를 읽어 자기 툴바를 칠하므로 흐린 색이 그대로 툴바로 번진다.
       // 본문과 가르는 것은 색이 아니라 `border-t` 한 줄이다.
-      className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-secondary bg-secondary md:hidden"
+      className="app-tab-bar pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-secondary bg-secondary md:hidden"
     >
       <ul className="mx-auto flex h-(--tab-bar-h) w-full max-w-lg">
         {NAV_ITEMS.map((item) => {
@@ -82,17 +101,19 @@ export function AppTabBar() {
                   onClick={(event) => handleTabClick(event, href)}
                   aria-current={active ? 'page' : undefined}
                   aria-label={item.label}
+                  draggable={false}
                   className="relative flex h-full justify-center"
                 >
                   <span
                     aria-hidden
                     style={{ top: -RISE_PX, width: CIRCLE_PX, height: CIRCLE_PX }}
-                    className={cx(
-                      'absolute flex items-center justify-center rounded-full bg-brand-solid text-primary_on-brand shadow-lg',
-                      'transition-transform duration-150 active:scale-95',
-                    )}
+                    className="absolute flex items-center justify-center rounded-full bg-brand-solid text-primary_on-brand shadow-lg"
                   >
-                    <item.Icon size={26} />
+                    <item.Icon
+                      size={26}
+                      {...iconMotionProps(item.to, item.motion)}
+                      className={cx(popTo === item.to && 'tab-icon-pop')}
+                    />
                   </span>
                   {/* 선이 원을 타고 넘는 부분 — 분홍 **바깥**에 1px 붙는 테두리(`box-content`)를 솟은 높이만큼만 보인다(그 밑은 바 안이라 선이 없어야 한다). */}
                   <span
@@ -116,6 +137,7 @@ export function AppTabBar() {
                 href={href}
                 onClick={(event) => handleTabClick(event, href)}
                 aria-current={active ? 'page' : undefined}
+                draggable={false}
                 className={cx(
                   'relative flex h-full flex-col items-center justify-center gap-0.5 text-xs font-semibold',
                   active ? 'text-brand-secondary' : 'text-tertiary',
@@ -123,7 +145,8 @@ export function AppTabBar() {
               >
                 <item.Icon
                   size={24}
-                  className={active ? 'text-brand-secondary' : 'text-quaternary'}
+                  {...iconMotionProps(item.to, item.motion)}
+                  className={cx(active ? 'text-brand-secondary' : 'text-quaternary', popTo === item.to && 'tab-icon-pop')}
                 />
                 {item.label}
               </Link>

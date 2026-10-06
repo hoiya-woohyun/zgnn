@@ -2,6 +2,7 @@
 @import './theme.css';
 @import './typography.css';
 @import './scrollMorph.css';
+@import './appTabBar.css';
 
 @plugin "tailwindcss-react-aria-components";
 @plugin "tailwindcss-animate";
