@@ -66,10 +66,13 @@ export function PlaceDetailEligibilityCard({ place }: { place: TPlaceEntry }) {
 
   return (
     <div className="mb-3 rounded-2xl border border-secondary bg-primary p-4">
-      {/* items-start + 점에 mt: 머리글이 두 줄로 접혀도 점은 첫 줄 글자 가운데에 남는다. */}
+      {/*
+       * items-start + 점에 mt: 머리글이 두 줄로 접혀도 점은 첫 줄 글자 가운데에 남는다(줄 높이 7.5 의 가운데 − 점 2.5 의 반).
+       * 판정 문장은 상세에서 가장 큰 본문 글자다 — 절 제목(text-lg)·1박 요금(text-lg)보다 크다. 이 화면이 답하는 것이 이것이다.
+       */}
       <div className="flex items-start gap-2">
-        <span aria-hidden="true" className={`mt-2 size-2.5 shrink-0 rounded-full ${DOT_CLASS[eligibility.level]}`} />
-        <p className="text-md font-bold text-primary">
+        <span aria-hidden="true" className={`mt-2.5 size-2.5 shrink-0 rounded-full ${DOT_CLASS[eligibility.level]}`} />
+        <p className="text-xl font-bold text-primary">
           {verdictFor(dog.dogs.map((d) => d.name), eligibility)}
         </p>
       </div>

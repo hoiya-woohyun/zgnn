@@ -28,7 +28,8 @@
 [2026-10-06 리뷰](../reviews/2026-10-06-frontend-design-review.md) §10. ID 는 `D<YYMMDD>.N`. 크림·핑크·잉크·사진 없음은 [브리프 결정]이라 태스크가 아니다.
 사람이 정할 것(디스플레이 서체·타입 단계 비율·준비물 이모지)은 [NOW.md](NOW.md) 「기다림」 에 있다.
 
-- [ ] D261006.1 **판정 문장을 상세 타입 위계의 맨 위로** — 지금 16px 로 가격·h2(18px)보다 작다. 최소 `text-lg`, 가격보다 크게 · `placeDetailEligibilityCard.tsx:72` vs `placeDetailPage.tsx:80` · 리뷰 ②
+- [x] D261006.1 **판정 문장을 상세 타입 위계의 맨 위로** — 지금 16px 로 가격·h2(18px)보다 작다. 최소 `text-lg`, 가격보다 크게 · `placeDetailEligibilityCard.tsx:72` vs `placeDetailPage.tsx:80` · 리뷰 ②
+  > 메모(2026-10-06): `text-md`(16px) → `text-xl`(20px). 절 제목·1박 요금(18px)보다 크고 장소 이름(24px)보다 작다 — 화면 이름 다음이 답이다. 점은 줄 높이(30px)에 맞춰 `mt-2.5` 로 옮겼다(390px 실측 첫 줄 가운데 15px)
 - [ ] D261006.2 **개수 줄의 '확인' → '확인 필요'**(`aria-label` 포함) — 상세의 '확인했어요'(검증됨)와 반대 뜻의 같은 낱말 · `placesPageResults.tsx:21`, `homeTypeCard.tsx:64·71` vs `placeFreshness.ts:16` · 리뷰 ⑤
 - [ ] D261006.3 **인사 카드의 `shadow-lg` 를 뺀다** — 홈에서 그림자가 있는 카드는 이것 하나라 가장 떠 보인다 · `homePage.tsx:58` · 리뷰 ④
 - [ ] D261006.4 **768 폭 이상 히어로 가장자리의 반 픽셀 선** — 크림 커튼이 반 픽셀에 걸려 잉크 판이 비친다는 추정을 먼저 확인 · `homePageHero.tsx:222-226` · 리뷰 §5-6
