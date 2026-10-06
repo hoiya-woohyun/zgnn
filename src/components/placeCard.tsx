@@ -9,7 +9,9 @@ import { categoryLabel } from '../lib/category';
 import { distanceLabel } from '../lib/distanceSort';
 import { primaryReason } from '../lib/eligibility';
 import { formatStayPrice } from '../lib/format';
+import { freshnessShortLabel } from '../lib/placeFreshness';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
+import { useToday } from '../hooks/useToday';
 import { useDogCount, useDogMaxWeightKg, useEligibility } from '../store/useDogEligibility';
 import { CARD_SURFACE } from './cardSurface';
 
@@ -42,6 +44,7 @@ export function PlaceCard({ place, footer, distanceKm, hideReasonText }: TPlaceC
   const reason = eligibility ? primaryReason(eligibility) : undefined;
   const weightKg = useDogMaxWeightKg();
   const dogCount = useDogCount();
+  const verified = freshnessShortLabel(place, useToday());
 
   return (
     <li className="relative">
@@ -58,6 +61,8 @@ export function PlaceCard({ place, footer, distanceKm, hideReasonText }: TPlaceC
               <span className="text-sm text-tertiary">
                 {categoryLabel(place.category, TYPE_META[place.type].label, place.type)}
                 {distanceKm !== undefined && ` · ${distanceLabel(distanceKm)}`}
+                {/* 확인 날짜는 상세에만 있었다 — 신뢰가 우리 차별점인데 들어가야 보였다(14 C2610.3). 한 단어로 종류 줄 끝에. */}
+                {verified && ` · ${verified}`}
               </span>
             </div>
           </div>

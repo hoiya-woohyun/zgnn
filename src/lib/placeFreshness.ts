@@ -43,3 +43,18 @@ export function freshnessOf(
     ? { text: `${label}에 마지막으로 확인했어요. 1년이 넘어 지금은 다를 수 있어요`, stale }
     : { text: `${label}에 확인했어요`, stale };
 }
+
+/**
+ * 목록 카드·지도 시트의 짧은 꼬리표 — "9월 확인"(경쟁 비교 C2610.3: 신뢰가 차별점인데 상세에 들어가야 보였다).
+ * 올해 것이면 달만, 아니면 해까지 붙인다 — 해가 바뀌었는데 "9월 확인" 이면 작년 9월이 올해 것으로 읽힌다.
+ * 지금을 모르면(정적 HTML) 해까지 붙인 쪽이 안전하다. 그리지 않는 경우는 `freshnessOf` 와 같다.
+ */
+export function freshnessShortLabel(
+  place: { verifiedAt?: string; openReportKinds?: string[] },
+  now: number | null,
+): string | null {
+  if (!freshnessOf(place, now) || !place.verifiedAt) return null;
+  const [year, month] = place.verifiedAt.split('-').map(Number);
+  const thisYear = now === null ? null : new Date(now + 9 * 60 * 60 * 1000).getUTCFullYear();
+  return year === thisYear ? `${month}월 확인` : `${year}년 ${month}월 확인`;
+}

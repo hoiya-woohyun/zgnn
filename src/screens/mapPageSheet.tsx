@@ -8,7 +8,9 @@ import { TownChip } from '../components/townChip';
 import { Button } from '@/components/base/button';
 import { categoryLabel } from '../lib/category';
 import { primaryReason } from '../lib/eligibility';
+import { freshnessShortLabel } from '../lib/placeFreshness';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
+import { useToday } from '../hooks/useToday';
 import { useDogCount, useDogMaxWeightKg, useEligibility } from '../store/useDogEligibility';
 
 type TMapPageSheetCardProps = {
@@ -29,6 +31,7 @@ export function MapPageSheetCard({ place }: TMapPageSheetCardProps) {
   const eligibility = useEligibility(place);
   const weightKg = useDogMaxWeightKg();
   const dogCount = useDogCount();
+  const verified = freshnessShortLabel(place, useToday());
 
   return (
     <div>
@@ -41,6 +44,8 @@ export function MapPageSheetCard({ place }: TMapPageSheetCardProps) {
               <TownChip town={place.region.town} type={place.type} />
               <span className="text-sm text-tertiary">
                 {categoryLabel(place.category, TYPE_META[place.type].label, place.type)}
+                {/* 목록 카드와 같은 자리·같은 말(14 C2610.3). */}
+                {verified && ` · ${verified}`}
               </span>
             </div>
           </div>

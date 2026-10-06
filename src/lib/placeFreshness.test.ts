@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { freshnessOf, monthLabel } from './placeFreshness';
+import { freshnessOf, freshnessShortLabel, monthLabel } from './placeFreshness';
 
 const now = new Date('2026-10-01T12:00:00+09:00').getTime();
 
@@ -27,5 +27,26 @@ describe('freshnessOf', () => {
 describe('monthLabel', () => {
   it('날은 쓰지 않는다', () => {
     expect(monthLabel('2026-01-05')).toBe('2026년 1월');
+  });
+});
+
+describe('freshnessShortLabel', () => {
+  it('올해 것이면 달만', () => {
+    expect(freshnessShortLabel({ verifiedAt: '2026-09-28' }, now)).toBe('9월 확인');
+  });
+
+  it('해가 다르거나 지금을 모르면 해까지', () => {
+    expect(freshnessShortLabel({ verifiedAt: '2025-12-20' }, now)).toBe('2025년 12월 확인');
+    expect(freshnessShortLabel({ verifiedAt: '2026-09-28' }, null)).toBe('2026년 9월 확인');
+  });
+
+  it('해는 KST 로 센다 — UTC 로는 아직 작년인 1월 1일 새벽', () => {
+    const newYearMorning = new Date('2027-01-01T02:00:00+09:00').getTime();
+    expect(freshnessShortLabel({ verifiedAt: '2027-01-01' }, newYearMorning)).toBe('1월 확인');
+  });
+
+  it('상세가 날짜를 안 그리는 곳은 여기서도 안 그린다', () => {
+    expect(freshnessShortLabel({}, now)).toBeNull();
+    expect(freshnessShortLabel({ verifiedAt: '2026-09-28', openReportKinds: ['closed'] }, now)).toBeNull();
   });
 });
