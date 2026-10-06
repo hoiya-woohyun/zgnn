@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { carrierWhatIf, countByLevel } from './eligibilityCounts';
+import { carrierWhatIf, countByLevel, outdoorFallback } from './eligibilityCounts';
 import { parsePetPolicy } from './petPolicy';
 import { placesOfType } from './places';
 import type { TDogProfile } from '../types';
@@ -49,5 +49,27 @@ describe('carrierWhatIf — 이동가방이 있으면 몇 곳이 열리나', () 
 
   it('대형견은 가방이어도 H4 가 그대로라 열리는 곳이 없다 → null', () => {
     expect(carrierWhatIf(cageOnly, DAEJANG_AND_CHOCO)).toBeNull();
+  });
+});
+
+describe('outdoorFallback — 갈 수 있는 곳이 없을 때 야외 자리로 되는 곳 (14 W261006.5)', () => {
+  const BORI: TDogProfile = { dogs: [{ name: '보리', weightKg: 30 }], carrier: 'none' };
+
+  it('식당 × 30kg — 가능 0곳, 야외 자리로는 3곳', () => {
+    const restaurants = placesOfType('restaurant');
+    expect(countByLevel(restaurants, BORI).ok).toBe(0);
+    expect(outdoorFallback(restaurants, BORI)).toBe(3);
+  });
+
+  it('갈 수 있는 곳이 하나라도 있으면 null', () => {
+    expect(outdoorFallback(placesOfType('restaurant'), { dogs: [{ name: '콩이', weightKg: 5 }], carrier: 'none' })).toBeNull();
+  });
+
+  it('실내 자리가 꼭 필요하면 야외는 차선이 아니다 → null', () => {
+    expect(outdoorFallback(placesOfType('restaurant'), BORI, { needsIndoor: true })).toBeNull();
+  });
+
+  it('야외가 열린 곳이 없으면 null', () => {
+    expect(outdoorFallback([{ policy: parsePetPolicy('케이지 동반시 가능.') }], BORI)).toBeNull();
   });
 });

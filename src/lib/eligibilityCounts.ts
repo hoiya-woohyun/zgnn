@@ -43,3 +43,28 @@ export const carrierWhatIf = (
   }
   return opened > 0 ? { carrier: 'bag', opened } : null;
 };
+
+/**
+ * "갈 수 있는 곳" 이 한 곳도 없을 때의 차선 — 야외 자리가 열려 있어 어려움은 아닌 곳의 수(14 W261006.5).
+ *
+ * 30kg 보리로 식당을 보면 '갈 수 있어요' 가 0곳이고 28곳이 "실내는 케이지 필수라 대형견은 어려워요" 다.
+ * 그 속에서 야외 자리로는 갈 수 있는 곳이 몇인지를 목록 머리가 한 줄로 말한다. 판정은 바꾸지 않는다.
+ *
+ * - 갈 수 있는 곳이 하나라도 있으면 null — 차선을 말할 때가 아니다.
+ * - 이번 여행에 실내 자리가 꼭 필요하면(`needsIndoor`) null — 야외는 차선이 될 수 없다.
+ * - 세는 것은 `outdoorFree` 이면서 어려움이 아닌 곳. 0 이면 null.
+ */
+export const outdoorFallback = (
+  places: readonly { policy: TPetPolicy }[],
+  dog: TDogProfile,
+  opts: { needsIndoor?: boolean } = {},
+): number | null => {
+  if (opts.needsIndoor) return null;
+  let outdoor = 0;
+  for (const place of places) {
+    const level = judgeEligibility(dog, place.policy, opts).level;
+    if (level === 'ok') return null;
+    if (place.policy.outdoorFree && level !== 'hard') outdoor++;
+  }
+  return outdoor > 0 ? outdoor : null;
+};

@@ -19,6 +19,11 @@ type TPlaceCardProps = {
   footer?: ReactNode;
   /** 가까운 순일 때 내 위치에서의 거리(km). 있으면 종류 옆에 붙는다(10 F7). */
   distanceKm?: number;
+  /**
+   * 목록 머리가 이미 한 번 말한 근거 문장(`placesPageRepeatedReason`). 이 카드의 근거가 그 문장과 같으면 줄을 뺀다 —
+   * 식당 34곳 중 29곳이 같은 문장을 되풀이했다(14 W261006.5). 판정 배지와 원문 칩("케이지 필요")은 그대로 남는다.
+   */
+  hideReasonText?: string;
 };
 
 /**
@@ -32,7 +37,7 @@ type TPlaceCardProps = {
  * 그만큼 줄여 카드 높이(총 배지 개수)를 그대로 유지한다. 프로필이 없으면 이 훅은 null 을
  * 돌려주므로 카드는 지금과 완전히 같은 모습이다.
  */
-export function PlaceCard({ place, footer, distanceKm }: TPlaceCardProps) {
+export function PlaceCard({ place, footer, distanceKm, hideReasonText }: TPlaceCardProps) {
   const eligibility = useEligibility(place);
   const reason = eligibility ? primaryReason(eligibility) : undefined;
   const weightKg = useDogMaxWeightKg();
@@ -71,8 +76,9 @@ export function PlaceCard({ place, footer, distanceKm }: TPlaceCardProps) {
         {eligibility?.fee && <p className="mt-1 text-sm text-secondary">{eligibility.fee}</p>}
 
         {/* 왜 "확인"·"어려움" 인지 한 줄 — 7곳을 다 눌러 봐야 알던 것을 목록에서 읽게(민준 N1).
-            카드 높이가 들쭉날쭉하지 않게 한 줄로 자른다. 상세의 첫 근거와 같은 문장이다. */}
-        {reason && <p className="clamp-1 mt-1 text-xs text-tertiary">{reason.text}</p>}
+            카드 높이가 들쭉날쭉하지 않게 한 줄로 자른다. 상세의 첫 근거와 같은 문장이다.
+            목록 머리가 같은 문장을 이미 말했으면 빼서, 다른 이유를 가진 카드만 줄이 남게 한다. */}
+        {reason && reason.text !== hideReasonText && <p className="clamp-1 mt-1 text-xs text-tertiary">{reason.text}</p>}
 
         <div className="mt-3 flex flex-wrap items-center gap-1">
           {eligibility && <EligibilityBadge eligibility={eligibility} />}

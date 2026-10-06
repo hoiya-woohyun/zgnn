@@ -8,8 +8,9 @@ import { handOffPlacesQuery } from './placesPageQueryHandoff';
 import { PlaceCard } from '../components/placeCard';
 import { EmptyState } from '../components/layout/emptyState';
 import { Button } from '../components/base/button';
-import type { TEligibilityLevel } from '../lib/eligibility';
-import { carrierWhatIf, countByLevel } from '../lib/eligibilityCounts';
+import { judgeEligibility, primaryReason, type TEligibilityLevel } from '../lib/eligibility';
+import { carrierWhatIf, countByLevel, outdoorFallback } from '../lib/eligibilityCounts';
+import { placesPageRepeatedReason } from '../lib/placesPageRepeatedReason';
 import { josa, withJosa } from '../lib/korean';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
 import { useAppStore } from '../store/useAppStore';
@@ -97,6 +98,23 @@ export function PlacesPageResults({
     [results, dog, needsIndoor, type],
   );
 
+  // 카드 대부분이 같은 근거 문장이면 머리가 한 번 말하고 카드는 그 줄을 뺀다(14 W261006.5) —
+  // 식당 34곳 중 29곳이 "케이지라고 적혀 있어요. …" 를 되풀이해 목록이 걸러 주는 게 없어 보였다.
+  // 카드와 같은 판정(`useEligibility` 와 같은 needsIndoor)에서 문장을 뽑아야 숨김이 정확히 맞는다.
+  const repeated = useMemo(
+    () =>
+      dog
+        ? placesPageRepeatedReason(results.map((place) => primaryReason(judgeEligibility(dog, place.policy, { needsIndoor }))?.text))
+        : null,
+    [results, dog, needsIndoor],
+  );
+
+  // 갈 수 있는 곳이 0곳일 때 야외 자리로는 되는 곳의 수(30kg 식당 → 3곳). 판정은 그대로, 안내만.
+  const outdoor = useMemo(
+    () => (dog ? outdoorFallback(results, dog, { needsIndoor }) : null),
+    [results, dog, needsIndoor],
+  );
+
   return (
     <>
       <div className="flex items-center justify-between px-4 pt-4 md:px-6">
@@ -119,22 +137,41 @@ export function PlacesPageResults({
 
       <PlacesPageActiveChips chips={activeChips} />
 
-      {whatIf && (
-        <p className="mx-4 mt-3 rounded-xl border border-secondary bg-primary px-3 pt-2 text-sm text-secondary md:mx-6">
-          이동가방이 있으면 {whatIf.opened}곳이 &lsquo;확인 필요&rsquo; 로 바뀌어요
-          <Link
-            href="/dog"
-            className="flex min-h-11 items-center font-semibold text-brand-secondary hover:text-brand-secondary_hover"
-          >
-            우리 강아지 정보 고치기 ›
-          </Link>
-        </p>
+      {/* 목록 전체에 대한 말은 한 상자에 모은다 — 같은 이유(케이지)와 그 출구(이동가방 what-if)가
+          따로 쌓이면 같은 이야기를 두 번 한다. 곳 수를 앞세워 문장이 빠진 카드가 어느 쪽인지 읽히게 한다. */}
+      {(repeated || outdoor || whatIf) && (
+        <div
+          className={`mx-4 mt-3 space-y-1 rounded-xl border border-secondary bg-primary px-3 pt-2 text-sm text-secondary md:mx-6 ${whatIf ? '' : 'pb-2'}`}
+        >
+          {repeated && (
+            <p>
+              <span className="font-semibold text-primary">{repeated.count}곳은 같은 이유예요</span> · {repeated.text}
+            </p>
+          )}
+          {outdoor && <p>갈 수 있는 곳은 없지만, 야외 자리로는 {outdoor}곳이 돼요</p>}
+          {whatIf && (
+            <div>
+              이동가방이 있으면 {whatIf.opened}곳이 &lsquo;확인 필요&rsquo; 로 바뀌어요
+              <Link
+                href="/dog"
+                className="flex min-h-11 items-center font-semibold text-brand-secondary hover:text-brand-secondary_hover"
+              >
+                우리 강아지 정보 고치기
+              </Link>
+            </div>
+          )}
+        </div>
       )}
 
       {results.length > 0 ? (
         <ul className="mt-3 space-y-3 px-4 md:px-6">
           {results.map((place) => (
-            <PlaceCard key={place.id} place={place} distanceKm={distances?.get(place.id)} />
+            <PlaceCard
+              key={place.id}
+              place={place}
+              distanceKm={distances?.get(place.id)}
+              hideReasonText={repeated?.text}
+            />
           ))}
         </ul>
       ) : (
