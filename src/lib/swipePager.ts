@@ -67,6 +67,14 @@ export const BACK_SWIPE_EDGE_PX = 24;
 export const SETTLE_MS = 260;
 export const SETTLE_EASING = 'cubic-bezier(0.16, 1, 0.3, 1)';
 /**
+ * 탭을 눌러 **멈춰 있던** 화면을 한 장 미끄러뜨리는 시간·곡선(appShellSwipe 의 `slideTo`).
+ * `SETTLE_EASING` 은 출발 기울기가 가파른 expo-out 이라 손가락이 남긴 속도를 이어받기엔 맞지만, 정지한 화면에
+ * 걸면 "밀렸다" 가 아니라 "튕겼다" 로 읽힌다. 정지에서 떠나는 이동은 살짝 떠서 감속한다(CSS `ease` 와 같은 곡선),
+ * 남은 거리가 아니라 한 장 전체를 가므로 조금 더 길게.
+ */
+export const TAP_SLIDE_MS = 300;
+export const TAP_SLIDE_EASING = 'cubic-bezier(0.25, 0.1, 0.25, 1)';
+/**
  * 속도는 이 구간(ms) 안의 샘플로 잰다. 마지막 두 move 만 보면 손가락이 떨어지기 직전 잠깐
  * 멈칫한 것이 0 으로 읽혀 플릭이 죽는다(실기에서 "끝까지 끌어야 넘어간다" 로 느껴진 원인).
  */

@@ -26,6 +26,8 @@ import {
   BACK_SWIPE_EDGE_PX,
   SETTLE_EASING,
   SETTLE_MS,
+  TAP_SLIDE_EASING,
+  TAP_SLIDE_MS,
   recentSamples,
   resistedOffset,
   settleSwipe,
@@ -41,7 +43,7 @@ import { arriveBySwipe } from '../../screens/placesPageTypeSwitch';
  * 받아오지 못하면(첫 방문 + 끊긴 망) 사용자는 **빈 화면 앞에 갇힌다** — 탭바만 남고 아무것도
  * 없으니 새로고침 말고는 길이 없다. 그럴 바엔 제자리로 돌려놓고 "안 넘어갔다" 로 보이는 편이 낫다.
  */
-const STUCK_MS = 1500;
+export const STUCK_MS = 1500;
 
 export type TAppShellPeek = {
   /** 이웃 두 칸. 그 방향으로 셸이 넘길 곳이 없으면 null(= 끝이라 저항만 준다). */
@@ -185,12 +187,12 @@ export function useAppShellSwipe(pathname: string) {
    * 지금 그려진 자리에서 `toDx` 까지 밀어낸 뒤 `route` 로 간다(제자리로 돌아오는 것은 `route` 가 지금 주소).
    * 손가락을 놓았을 때(`settle`)와 탭을 눌렀을 때(`slideTo`)가 같은 길을 쓴다.
    */
-  const slide = (toDx: number, route: string | null) => {
+  const slide = (toDx: number, route: string | null, timing: { duration: number; easing: string }) => {
     settling.current = true;
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const options: KeyframeAnimationOptions = {
-      duration: reduceMotion ? 0 : SETTLE_MS,
-      easing: SETTLE_EASING,
+      duration: reduceMotion ? 0 : timing.duration,
+      easing: timing.easing,
       fill: 'forwards',
     };
     // 키프레임을 하나만 주면 지금 그려진 자리(인라인 transform)에서 출발한다.
@@ -226,7 +228,8 @@ export function useAppShellSwipe(pathname: string) {
   const settle = (target: number, width: number) => {
     const toDx = target === slot ? 0 : target > slot ? -width : width;
     const route = target === slot ? normalizeRoute(pathname) : ((target > slot ? rightRoute : leftRoute) ?? null);
-    slide(toDx, route);
+    // 손가락이 남긴 속도를 이어받는 곡선 — 이미 움직이던 자리에서 출발한다.
+    slide(toDx, route, { duration: SETTLE_MS, easing: SETTLE_EASING });
   };
 
   /**
@@ -250,7 +253,8 @@ export function useAppShellSwipe(pathname: string) {
     flushSync(() =>
       setPeek({ left: side === 'left' ? route : null, right: side === 'right' ? route : null, width }),
     );
-    slide(side === 'right' ? -width : width, normalizeRoute(route));
+    // 멈춰 있던 화면이라 놓았을 때의 곡선을 쓰면 튕긴다 — 살짝 떠서 감속하는 곡선으로(swipePager 의 TAP_SLIDE_*).
+    slide(side === 'right' ? -width : width, normalizeRoute(route), { duration: TAP_SLIDE_MS, easing: TAP_SLIDE_EASING });
     return true;
   };
 

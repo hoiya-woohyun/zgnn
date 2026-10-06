@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { isNavActive, NAV_ITEMS, navHref } from './navItems';
 import { useNavHighlightPath } from './useNavHighlightPath';
+import { STUCK_MS } from './appShellSwipe';
 import { cx } from '../../utils/cx';
 
 /** 주소 끝의 `/` 를 떼어 비교를 한 가지 모양으로 맞춘다(정적 내보내기라 `/map/` 로도 들어온다). */
@@ -25,6 +26,9 @@ const normalize = (pathname: string) => pathname.replace(/\/+$/, '') || '/';
  * 전역 `scroll-behavior: smooth` 를 쓰지 않는 이유도 같다(그 복원까지 애니메이션된다).
  * 대신 **셸에 목적지를 건넨다**(`onNavigate`) — 손가락으로 밀 때와 같은 미끄러짐으로 옮기고 주소는 셸이 바꾼다
  * (ADR-014 v5). 셸이 못 받겠다고 하면(하위 화면·모션 줄임) 보통 링크처럼 간다.
+ * 셸이 맡았으면 **불은 누른 순간 옮긴다**(`pendingTo`) — 주소는 미끄러짐이 끝나야 바뀌는데(300ms), 그때까지 옛 탭에
+ * 불이 남아 있으면 손가락과 화면이 같이 가는데 탭바만 늦다. 아이콘 모션도 그 순간에 난다. 주소가 바뀌면 지우고,
+ * 안 바뀌면(끊긴 망 — 셸이 `STUCK_MS` 뒤 되돌린다) 같은 시간 뒤 지워 옛 탭으로 돌아간다.
  *
  * **탭바는 손가락으로 화면을 넘길 때도 움직이지 않는다**(ADR-014) — 화면들을 담는 틀이지
  * 화면이 아니다. 스와이프로 옮겨도 여기 하이라이트는 `isActive` 가 새 주소로 다시 계산한다.
@@ -59,7 +63,18 @@ type TAppTabBarProps = {
 
 export function AppTabBar({ onNavigate }: TAppTabBarProps) {
   const pathname = usePathname();
-  const highlightPath = useNavHighlightPath();
+  const routeHighlightPath = useNavHighlightPath();
+
+  // 셸이 미끄러뜨리는 동안 미리 불을 옮겨 둔 목적지. 떠난 주소와 함께 적어 두어 주소가 바뀌면(도착) 저절로 무효가 된다 —
+  // 그 뒤로는 주소가 말한다. 주소가 안 바뀌면 셸이 되돌리는 시간(STUCK_MS) 뒤에 비운다.
+  const [pending, setPending] = useState<{ to: string; from: string } | null>(null);
+  useEffect(() => {
+    if (pending === null) return;
+    const timer = window.setTimeout(() => setPending(null), STUCK_MS);
+    return () => window.clearTimeout(timer);
+  }, [pending]);
+  const pendingTo = pending !== null && pending.from === pathname ? pending.to : null;
+  const highlightPath = pendingTo ?? routeHighlightPath;
   const activeTo = NAV_ITEMS.find((item) => isNavActive(item, highlightPath))?.to ?? null;
 
   // 비활성 → 활성으로 **바뀐** 칸만 움직인다. 첫 렌더의 활성 칸은 ref 초기값과 같아 건너뛴다.
@@ -77,7 +92,10 @@ export function AppTabBar({ onNavigate }: TAppTabBarProps) {
 
   const handleTabClick = (event: MouseEvent<HTMLAnchorElement>, to: string) => {
     if (normalize(pathname) !== normalize(to)) {
-      if (onNavigate?.(to)) event.preventDefault();
+      if (onNavigate?.(to)) {
+        event.preventDefault();
+        setPending({ to, from: pathname });
+      }
       return;
     }
 
