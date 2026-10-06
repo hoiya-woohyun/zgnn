@@ -1,6 +1,7 @@
 # ADR-016 — 시크릿은 저장하지 않는다: 운영자가 로그인하고, 스크립트는 그 짧은 세션으로 붙는다
 
-> 최종 수정: 2026-10-05 (v9: **네이버 키는 사용자 홈의 파일 `~/.zgnn-naver.env` 에서도 읽는다**(`scripts/lib/naverEnvFile.mjs`) — env 가 비어 있을 때만, 이름 넷(`NAVER_CLIENT_ID`·`_SECRET`·`NAVER_MAP_CLIENT_ID`·`_SECRET`)만.
+> 최종 수정: 2026-10-06 (v10: 운영자 세션이 쓰는 표가 하나 늘었다 — `pipeline_runs`(실행 기록, [ADR-023](ADR-023-ops-dashboard-and-run-log.md), 마이그레이션 `20261006120000`). authenticated 에 select/insert/update(delete 없음) + 정책 셋 `is_operator()`, anon 은 아무것도 없다. 집계 rpc `ops_overview()` 는 definer · 첫 줄 운영자 확인 · anon/PUBLIC execute 회수, Vault 는 **이름만** 본다. 새 키·새 출처 없음)
+> 이전 2026-10-05 (v9: **네이버 키는 사용자 홈의 파일 `~/.zgnn-naver.env` 에서도 읽는다**(`scripts/lib/naverEnvFile.mjs`) — env 가 비어 있을 때만, 이름 넷(`NAVER_CLIENT_ID`·`_SECRET`·`NAVER_MAP_CLIENT_ID`·`_SECRET`)만.
 > 재분석은 구독 한도에 닿을 때마다 다시 돌리는 일이라 매번 숨김 입력 넷이 그 일을 미루게 했고, 에이전트 세션은 입력을 받지 않아 아예 못 돌았다.
 > "저장하지 않는다" 의 대상은 여전히 **레포와 Supabase 장기 키**다 — 이 파일은 레포 밖이고, 다른 이름은 적혀 있어도 읽지 않으며, 600 이 아니면 멈춘다. 네이버 검색 키는 하루 한 번 초기화하는 값이라 둔 예외다)
 > 이전 2026-10-01 (v8: 인증 출처는 여전히 둘(세션·anon)이지만 **anon 이 처음 쓴다** — 사이트 상세의 장소 제보가 `place_reports` 에 열 단위 insert 만([ADR-021](ADR-021-place-reports.md), 마이그레이션 `20261001130000`). 키·세션 모델은 그대로다 — 새 키가 없다)
@@ -151,6 +152,9 @@ Free private 레포는 브랜치·환경 보호가 안 된다. 러너에 키가 
   `.vercel/.env.production.local`(BUG-005 재현 때 service 키를 손으로 넣고 안 지운 것 + 마켓플레이스 변수 34개, `POSTGRES_PASSWORD` 등은 `[SENSITIVE]` 자리표시자).
   에이전트의 `rm` 은 권한 거부돼 사용자 터미널에서 `rm -f .env.local .vercel/.env.production.local` — 2026-09-22 둘 다 없는 것 확인(닫힘). v5 의 트립와이어가 보는 것은 **셸 env(export)** 뿐이다 —
   `data:*` 는 env 파일을 읽지 않으므로(결정 6) 파일이 남아 있어도 감지되지 않는다. 잔존 여부는 사용자가 `ls -la .env* .vercel/` 로 확인한다.
+- **실행 기록 `pipeline_runs`(2026-10-06)** — 쓰기 스크립트가 **같은 운영자 세션**으로 실행마다 한 행을 넣고 고친다(`scripts/lib/runLog.mjs`). 출처도 키도 늘지 않는다.
+  `rebuild_log`(definer 트리거만 쓰는 위조 방지 표, select 만 grant)와 달리 authenticated 에 select/insert/update — 운영자 자신의 메모장이라서다(ADR-023 「결과」).
+  원격 적용·실측(롤백 트랜잭션, `set local role` 로 역할을 바꿔서 — postgres 그대로면 RLS 를 우회한다): 운영자 insert·update 됨 · delete 42501 · anon select/insert/rpc 42501 · 비운영자 insert/rpc 42501.
 - **`pnpm login`·`pnpm logout` 은 pnpm 내장 명령**(npm 레지스트리 로그인)이라 package.json 의 `login` 스크립트를 가린다 — 그래서 `data:login`·`data:logout` 이다.
 
 ## 잔존 위험 — 이 머신에서 "관리자 없이 되는 것" (보안 리뷰 2026-09-21, 4 렌즈 일치 · v5 갱신 2026-09-22)

@@ -1,6 +1,7 @@
 # 15. 운영 현황 화면 — 파이프라인이 돌고 있는지를 `/admin/ops` 에서 보고, 실패는 Slack 으로 받는다
 
-> 최종 수정: 2026-10-06 (v1: 신설 — 설계·UI/UX·태스크. 코드 없음. 결정은 [ADR-023](../decisions/ADR-023-ops-dashboard-and-run-log.md), 화면은 [features/ops-dashboard.md](../features/ops-dashboard.md))
+> 최종 수정: 2026-10-06 (v2: T1.1·T1.2 구현 — 마이그레이션 `20261006120000_pipeline_runs` 원격 적용·롤백 실측. T1.3 은 T5·T6 와 함께로 미룸)
+> 이전 2026-10-06 (v1: 신설 — 설계·UI/UX·태스크. 코드 없음. 결정은 [ADR-023](../decisions/ADR-023-ops-dashboard-and-run-log.md), 화면은 [features/ops-dashboard.md](../features/ops-dashboard.md))
 
 **한 줄:** 수집·분석·반영 스크립트가 실행마다 `pipeline_runs` 한 행을 남기고, `/admin/ops` 가 그 행과 기존 표로 "어디가 막혔나" 다섯 칸을 그리고, 실패는 DB 트리거가 Slack 으로 보낸다. 지금은 **`rebuild_log` 하나 빼고 아무 기록도 없다** — "지난주에 수집 돌렸던가" 의 답이 터미널 스크롤백뿐이다.
 
@@ -28,18 +29,20 @@ T7 pg_cron(보류) 은 T2 로 한 달쯤 쌓인 뒤
 
 ### T1. 표와 권한 — `pipeline_runs` · `ops_overview` · `ops_slack_test`
 
-- [ ] **T1.1 마이그레이션 `pipeline_runs`** — `supabase/migrations/<ts>_pipeline_runs.sql`.
+- [x] **T1.1 마이그레이션 `pipeline_runs`** — `supabase/migrations/<ts>_pipeline_runs.sql`.
   컬럼: `id uuid pk default gen_random_uuid()` · `script text check in ('collect','analyze','apply','approve','reject')` · `status text check in ('running','ok','partial','failed')` · `started_at timestamptz default now()` · `ended_at` · `heartbeat_at` · `args jsonb`(플래그 목록, 값 없음) · `stats jsonb` · `error text` · `alert jsonb`(`{state:'sent'|'missing'|'error', requestId, responseStatus, respondedAt, note}`) · `operator uuid default auth.uid()`.
   권한: `alter table … enable row level security` 명시(`rebuild_log.sql:47` 과 같이), `grant select, insert, update on pipeline_runs to authenticated`(delete 없음, `narrow_grants` 뒤라 명시 필수), RLS 세 정책 전부 `(select is_operator())`. anon 은 아무것도 없음. **`rebuild_log` 와 다른 점**: 운영자가 행을 직접 update 할 수 있다(스크립트가 운영자 세션으로 쓰기 때문) — 위조 방지 표가 아니라 운영자 자신의 메모장이다(ADR-023 「결과」).
   인덱스: `(script, started_at desc)`.
   수용 기준: 운영자 세션으로 insert/update 가 되고 anon 은 42501. `id` 가 uuid 라 시퀀스 usage 없이 insert 된다.
   검증: `./node_modules/.bin/supabase db query --linked` 로 롤백 트랜잭션 안에서 insert → select → rollback(값은 안 본다). → [ADR-016](../decisions/ADR-016-secrets-by-login.md)·[05](05-security.md) 표에 한 줄.
-- [ ] **T1.2 rpc `ops_overview(days int default 7)`** — security definer, 첫 줄에서 `auth.uid()` 가 `operators` 에 있는지 확인(없으면 42501, `rebuild_status` 와 같은 모양). 돌려주는 json 하나:
+  ✅ 2026-10-06 `supabase/migrations/20261006120000_pipeline_runs.sql` **원격 적용**(`db push --linked`, 그 파일 하나만 대기 중이었다). 롤백 트랜잭션 실측(`set local role` + `request.jwt.claims` 로 역할을 바꿔 — postgres 그대로면 RLS 우회): 운영자 insert·update 1행 · delete 42501 · anon select/insert 42501 · 비운영자 insert 42501, 롤백 뒤 0행. `heartbeat_at` 은 `default now()` 로 두었다(tick 을 한 번도 못 부르고 죽은 실행도 "멎은 심장" 으로 읽히게).
+- [x] **T1.2 rpc `ops_overview(days int default 7)`** — security definer, 첫 줄에서 `auth.uid()` 가 `operators` 에 있는지 확인(없으면 42501, `rebuild_status` 와 같은 모양). 돌려주는 json 하나:
   `runsLatest`(스크립트별 마지막 행) · `funnel`(수집·분석·후보·승인·제외·보류·반영·재빌드 — [features](../features/ops-dashboard.md) ② 표의 기준) · `backlog`(미분석 글 수 · 가장 오래된 미분석 `fetched_at`) · `pending`(수 · 가장 오래된 `created_at`) · `stranded`(approved 인데 merged 아님) · `usage30d`(토큰 합 · 네이버 호출 · 재빌드 2xx) · `rebuildRecent`(`rebuild_status(5)` 와 같은 5행, `response_status` 포함 — 재빌드 칸 판정이 이 행을 직접 읽는다) · **`slackConfigured`**(Vault 에 `slack_webhook_url` 이름이 있는지 boolean — URL 은 돌려주지 않는다. 화면을 여는 것으로 Slack 에 아무것도 가지 않게 하려고 테스트 rpc 와 분리한다).
   `backlog` 는 `/admin` 의 `adminPosts.fetchPostBacklog` 와 같은 수를 SQL 로 한 번 더 세는 것이다 — 두 벌임을 인정한다. `/admin` 수집 완료 탭은 그대로 두고, 이 화면은 왕복 하나로 끝내는 쪽을 택한다.
   부수 효과: 불릴 때 `net._http_response` 에서 `alert.requestId` 가 있는 행의 응답을 `alert` 에 옮겨 적는다(`rebuild_status` 수법, 실패해도 넘어감).
   anon·PUBLIC 실행 권한 회수. 검증: 운영자 세션으로 호출해 키가 전부 있는지, anon 은 42501.
-- [ ] **T1.3 rpc `ops_slack_test()`** — **버튼 전용**(T6). definer, 운영자 확인, Vault 에 `slack_webhook_url` 없으면 `{state:'missing'}`, 있으면 고정 문구로 POST 하고 `{state:'sent', requestId}`. URL 을 돌려주지 않는다. 존재 확인에는 쓰지 않는다(그건 T1.2 의 `slackConfigured`). 검증: Vault 비어 있을 때 `missing`.
+  ✅ 같은 마이그레이션. 실측: 키 `backlog·days·funnel·pending·rebuildRecent·runsLastOk·runsLatest·slackConfigured·stranded·usage30d` 전부, `runsLatest` 행에 `operator` 없음, `rebuildRecent` 5행에 `responded_at` 포함, `slackConfigured=false`(Vault 비어 있음), 숫자가 아닌 `stats` 칸(`"calls":"x"`)은 합에서 빠지고 함수는 산다 · anon/비운영자 rpc 42501. 스펙과 다른 것 둘은 아래 「계획과 다르게 간 것」(`runsLastOk` 추가 · `rebuildRecent` 는 `rebuild_status` 를 `perform` 한 뒤 표를 직접 읽음).
+- [ ] **T1.3 rpc `ops_slack_test()`** — ⏸ 2026-10-06 T5·T6 와 함께 하기로 미룸(🙋 "Slack 은 T2 가 한 주 쌓인 뒤" 권장안). 존재 확인(`slackConfigured`)은 T1.2 에 들어갔다. — **버튼 전용**(T6). definer, 운영자 확인, Vault 에 `slack_webhook_url` 없으면 `{state:'missing'}`, 있으면 고정 문구로 POST 하고 `{state:'sent', requestId}`. URL 을 돌려주지 않는다. 존재 확인에는 쓰지 않는다(그건 T1.2 의 `slackConfigured`). 검증: Vault 비어 있을 때 `missing`.
 
 ### T2. 스크립트가 기록을 남긴다 — `scripts/lib/runLog.mjs`
 
@@ -119,7 +122,9 @@ T7 pg_cron(보류) 은 T2 로 한 달쯤 쌓인 뒤
 
 ## 계획과 다르게 간 것
 
-(구현하면서 채운다)
+- **T1.2 `runsLastOk` 를 더했다.** 수집 칸의 '실패' 는 마지막 실행을, '주의(7일 넘음)' 는 마지막 **ok** 실행을 본다 — 마지막 실행이 failed 면 `runsLatest` 만으로는 "마지막 성공이 언제였나" 를 답할 수 없다. `status in ('ok','partial')` 의 마지막 행(analyze 의 partial 은 건너뛴 글이 있었을 뿐 돌았다).
+- **T1.2 `rebuildRecent` 는 `rebuild_status(5)` 의 결과를 그대로 싣지 않는다.** 그 함수는 `responded_at` 을 돌려주지 않는데 T3.3 의 재빌드 칸이 "응답 null 이 3분 넘음" 을 그 값으로 판정한다. 그래서 `perform rebuild_status(5)` 로 옮겨 적기만 시키고 `rebuild_log` 에서 같은 다섯 행 + `responded_at` 을 직접 읽는다.
+- **T1.2 `backlog` 는 `excluded_at` 을 빼지 않는다.** `/admin` 의 `fetchPostBacklog` 는 `blog_posts.excluded_at`(글 단위 분석 제외)이 있으면 그 글을 빼는데, 그 칸을 만드는 마이그레이션이 레포에 없다 — 정적으로 참조하면 함수가 죽는다. 그 칸이 생기면 두 수가 갈린다(마이그레이션 머리 주석).
 
 ## 🙋 사용자가 정할 것
 
