@@ -24,6 +24,12 @@ const RANGE_AMOUNT_RE = /^\(?\s*(\d+)\s*~\s*(\d+)\s*kg\s*(\d+(?:\.\d+)?)\s*만\s
 /** 마리당 단일 금액 — "1마리당 3만원". "1마리당 1-2만원" 처럼 범위면 걸리지 않는다. */
 const PER_DOG_RE = /^\(?\s*1\s*마리\s*당\s*(\d+(?:\.\d+)?)\s*만\s*원\s*(?:추가)?\s*\)?$/;
 
+/**
+ * 마릿수·몸무게 중 하나만 맞아도 바뀌는 요금 — "(2마리 또는 10kg 이상 4만원)". 마리당 줄 옆에서만 쓴다(`withAlternative`).
+ * 1: 마릿수 · 2: kg 하한 · 3: 금액(만원).
+ */
+const COUNT_OR_KG_RE = /^(\d+)\s*마리\s*(?:이상\s*)?(?:또는|이거나)\s*(\d+(?:\.\d+)?)\s*kg\s*이상\s*(\d+(?:\.\d+)?)\s*만\s*원\s*(?:추가)?$/;
+
 /** 앞뒤 괄호·공백을 벗긴 원문 줄. "(2만원 추가)" → "2만원 추가". */
 const stripLine = (line: string): string => line.trim().replace(/^\(\s*/, '').replace(/\s*\)$/, '');
 
@@ -84,6 +90,29 @@ const multiplyPerDog = (line: string, policy: TPetPolicy, dog: TDogProfile, name
   const each = manwonToWon(m[1]);
   if (n === 1) return `${withJosa(names, '은/는')} ${formatWon(each)}`;
   return `${withJosa(names, '은/는')} ${formatWon(each * n)} (1마리당 ${formatWon(each)})`;
+};
+
+/**
+ * 캄(Kalm) "1마리당 3만원. (2마리 또는 10kg 이상 4만원)" — 기본 줄 하나와 **바꿔 붙는** 줄 하나. 둘째 줄은 마리당이 아니라
+ * 그 조건일 때의 요금이다("2마리" 가 조건이니 2마리에 4만원이지 8만원이 아니다). 그래서 곱하지 않고 고른다:
+ * - 마릿수가 조건 이상이거나 한 마리라도 kg 하한 이상 → 둘째 줄 금액 그대로.
+ * - 아니면(조건 아래 한 마리) → 첫 줄 금액.
+ * 줄이 정확히 이 둘이 아니거나, 마릿수가 조건 마릿수를 넘으면(3마리 — 원문이 말하지 않는다) 물러난다.
+ */
+const withAlternative = (policy: TPetPolicy, dog: TDogProfile, names: string): string | undefined => {
+  if (policy.feeLines.length !== 2) return undefined;
+  const [base, alt] = policy.feeLines.map(stripLine);
+  const each = PER_DOG_RE.exec(base);
+  const cond = COUNT_OR_KG_RE.exec(alt);
+  if (!each || !cond) return undefined;
+  const n = dog.dogs.length;
+  const count = Number(cond[1]);
+  if (policy.maxDogs !== undefined && n > policy.maxDogs) return undefined;
+  if (n > count) return undefined;
+  const who = withJosa(names, '은/는');
+  if (n === count || dog.dogs.some((d) => d.weightKg >= Number(cond[2]))) return `${who} ${formatWon(manwonToWon(cond[3]))} (${alt})`;
+  if (n > 1) return undefined;
+  return `${who} ${formatWon(manwonToWon(each[1]))} (${base})`;
 };
 
 /**
@@ -152,9 +181,15 @@ export const formatDogFee = (policy: TPetPolicy, dog: TDogProfile): string | und
   if (policy.feeRules?.length) {
     const byRules = sumByRules(policy.feeRules, policy, dog, names);
     if (byRules) return byRules;
+    // 구조가 "또는" 줄을 칸으로 못 담는다(`amountWon: null`) — 줄 모양이 캄과 같으면 그 길로 고른다.
+    const alternative = withAlternative(policy, dog, names);
+    if (alternative) return alternative;
     // 이름을 붙이지 않는다 — 곱하지 못한 줄은 "우리 강아지 기준" 이 아니라 원문을 옮긴 것이다.
     return `원문 요금 · ${policy.feeLines.map(stripLine).join(' · ')}`;
   }
+
+  const alternative = withAlternative(policy, dog, names);
+  if (alternative) return alternative;
 
   const summed = sumByWeightTiers(policy, dog, names);
   if (summed) return summed;
