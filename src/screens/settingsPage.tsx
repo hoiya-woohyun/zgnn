@@ -11,9 +11,10 @@ import { carrierSummary } from '../lib/eligibility';
 import { dogCallNames } from '../lib/korean';
 import { META, SOURCE_LINE } from '../lib/places';
 import { useAppStore, useDog, useSavedCount } from '../store/useAppStore';
+import { CARD_SURFACE } from '../components/cardSurface';
 
 const CARD_CLASS =
-  'flex items-center gap-3 rounded-2xl border border-secondary bg-primary px-4 py-4 transition-colors hover:bg-secondary';
+  `flex items-center gap-3 ${CARD_SURFACE} px-4 py-4 transition-colors hover:bg-secondary`;
 
 const RESET_ROW_CLASS =
   'flex min-h-11 w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold text-primary transition-colors hover:bg-secondary disabled:cursor-default disabled:text-quaternary disabled:hover:bg-transparent';
@@ -48,7 +49,7 @@ function SettingsPageResetRows() {
   };
 
   return (
-    <div className="divide-y divide-secondary overflow-hidden rounded-2xl border border-secondary bg-primary">
+    <div className={`divide-y divide-secondary overflow-hidden ${CARD_SURFACE}`}>
       <button type="button" className={RESET_ROW_CLASS} onClick={handleClearChecked} disabled={checkedCount === 0}>
         준비물 체크 모두 풀기
         <span className="font-normal text-tertiary">{checkedCount}개</span>
@@ -125,7 +126,7 @@ export function SettingsPage() {
       </Section>
 
       <Section title="정보" className="mt-8">
-        <div className="rounded-2xl border border-secondary bg-primary px-4 py-4">
+        <div className={`${CARD_SURFACE} px-4 py-4`}>
           <div className="flex items-center gap-3">
             <AuthorAvatar className="size-10" />
             <div className="min-w-0 flex-1">

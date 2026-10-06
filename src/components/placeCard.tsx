@@ -11,6 +11,7 @@ import { primaryReason } from '../lib/eligibility';
 import { formatStayPrice } from '../lib/format';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
 import { useEligibility } from '../store/useDogEligibility';
+import { CARD_SURFACE } from './cardSurface';
 
 type TPlaceCardProps = {
   place: TPlaceEntry;
@@ -39,7 +40,7 @@ export function PlaceCard({ place, footer, distanceKm }: TPlaceCardProps) {
     <li className="relative">
       <Link
         href={`/place/${place.id}`}
-        className="block rounded-2xl border border-secondary bg-primary p-4 transition-colors hover:bg-secondary"
+        className={`block ${CARD_SURFACE} p-4 transition-colors hover:bg-secondary`}
       >
         <div className="flex items-start gap-3">
           <PlaceThumb src={place.cover ?? place.images[0]} type={place.type} />

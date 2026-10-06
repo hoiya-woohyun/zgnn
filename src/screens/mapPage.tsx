@@ -375,6 +375,7 @@ export function MapPage() {
             <div className="above-map-attribution pointer-events-none absolute inset-x-0 bottom-0 z-[1001] px-3 pt-3">
               <div className="pointer-events-auto">
                 <EmptyState
+                  floating
                   Icon={Heart}
                   title="저장한 곳이 아직 없어요"
                   description="마음에 드는 곳의 하트를 누르면 여기에 모여요."
@@ -394,6 +395,7 @@ export function MapPage() {
                 {/* 저장한 곳이 전부 좌표 없음 + 종류가 다 켜져 있으면 켤 종류가 없다 — 저장 목록으로 보낸다(12 U1.7). */}
                 {savedOnly && types.length === PLACE_TYPES.length ? (
                   <EmptyState
+                    floating
                     Icon={AlertTriangle}
                     title="저장한 곳은 지도에 위치가 없어요"
                     description="저장한 곳 목록에서 볼 수 있어요."
@@ -405,6 +407,7 @@ export function MapPage() {
                   />
                 ) : (
                   <EmptyState
+                    floating
                     Icon={AlertTriangle}
                     title="켜 둔 종류에 표시할 곳이 없어요"
                     description="위에서 다른 종류를 켜 보세요."

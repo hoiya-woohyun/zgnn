@@ -16,6 +16,7 @@ import { DogProfileCarrierPicker } from './dogProfileCarrierPicker';
 import { DogProfileDogRows, type TDogRowDraft, type TDogRowError } from './dogProfileDogRows';
 import { DogProfileSizeOverride } from './dogProfileSizeOverride';
 import type { TCarrier, TDogEntry, TDogProfile, TDogSize } from '../types';
+import { CARD_SURFACE } from '../components/cardSurface';
 
 const EMPTY_ROW: TDogRowDraft = { name: '', weightKg: '' };
 
@@ -227,7 +228,7 @@ export function DogProfilePage() {
 
             <div className="space-y-3 pt-2">
               {heavyAsk && (
-                <div role="alert" className="rounded-2xl border border-secondary bg-primary p-4">
+                <div role="alert" className={`${CARD_SURFACE} p-4`}>
                   <p className="text-sm font-semibold text-primary">
                     {heavyAsk.map((d) => `${d.name} ${d.weightKg}kg`).join(' · ')} 이(가) 맞나요?
                   </p>

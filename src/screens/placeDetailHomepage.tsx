@@ -4,6 +4,7 @@ import { LinkExternal01 } from '@untitledui/icons';
 import { useState } from 'react';
 import { homepageHost } from '../lib/placeHomepage';
 import type { TPlaceHomepage } from '../types';
+import { CARD_SURFACE } from '../components/cardSurface';
 
 /**
  * 공식 홈페이지 **링크 카드**(ADR-002 v2). 사진은 업체가 공유 미리보기용으로 내놓은 `og:image` 를 **그 사이트에서 그대로** 띄운다 —
@@ -23,7 +24,7 @@ export function PlaceDetailHomepage({ homepage }: { homepage: TPlaceHomepage }) 
       href={homepage.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="block overflow-hidden rounded-2xl border border-secondary bg-primary"
+      className={`block overflow-hidden ${CARD_SURFACE}`}
     >
       {showImage && (
         <img

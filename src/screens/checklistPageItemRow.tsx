@@ -9,6 +9,7 @@ import { linkLabel } from '../lib/format';
 import { useAppStore } from '../store/useAppStore';
 import { cx } from '../utils/cx';
 import type { TItem } from '../types';
+import { CARD_SURFACE } from '../components/cardSurface';
 
 type TChecklistPageItemRowProps = {
   item: TItem;
@@ -65,7 +66,7 @@ export function ChecklistPageItemRow({
   };
 
   return (
-    <li className={cx('rounded-2xl border border-secondary bg-primary', provided && 'opacity-65')}>
+    <li className={cx(CARD_SURFACE, provided && 'opacity-65')}>
       <div className="flex items-center gap-1 p-2">
         <Checkbox
           size="md"

@@ -8,6 +8,7 @@ import { showAppStatus } from '../lib/appStatus';
 import { buildReport, canReportNow, PICKABLE_REPORT_KINDS, REPORT_COOLDOWN_TEXT, reportFailureText, reportSentText } from '../lib/placeReport';
 import { APP_BUILD, readReportRecord, rememberReport, sendPlaceReport } from '../lib/placeReportSend';
 import type { TPlaceEntry } from '../lib/places';
+import { CARD_SURFACE } from '../components/cardSurface';
 
 /**
  * 상세 맨 아래 "정보가 달라요" — 사용자 제보의 입구(docs/todo/10 F1, ADR-021).
@@ -44,7 +45,7 @@ export function PlaceDetailReport({ place }: { place: TPlaceEntry }) {
 
   return (
     <section className="mt-8 px-4 md:px-6" aria-labelledby="place-report-title">
-      <div className="rounded-2xl border border-secondary bg-primary p-4">
+      <div className={`${CARD_SURFACE} p-4`}>
         <h2 id="place-report-title" className="text-md font-bold text-primary">
           다녀오셨나요?
         </h2>

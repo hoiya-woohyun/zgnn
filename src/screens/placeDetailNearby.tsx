@@ -11,6 +11,7 @@ import { withJosa } from '../lib/korean';
 import { nearbyPlaces, TYPE_META, type TPlaceEntry } from '../lib/places';
 import { useEligibilityMap } from '../store/useDogEligibility';
 import type { TPlaceType } from '../types';
+import { CARD_SURFACE } from '../components/cardSurface';
 
 type TNearbyFilter = 'all' | TPlaceType;
 
@@ -69,7 +70,7 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
               <li key={other.id} className="w-44 shrink-0">
                 <Link
                   href={`/place/${other.id}`}
-                  className="flex h-full flex-col rounded-2xl border border-secondary bg-primary p-3 transition-colors hover:bg-secondary"
+                  className={`flex h-full flex-col ${CARD_SURFACE} p-3 transition-colors hover:bg-secondary`}
                 >
                   <div className="flex items-center justify-between">
                     <PlaceThumb src={other.cover ?? other.images[0]} type={other.type} variant="compact" />

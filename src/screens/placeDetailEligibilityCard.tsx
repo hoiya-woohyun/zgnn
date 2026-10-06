@@ -8,6 +8,7 @@ import { needsIndoorChangedLevel } from '../lib/needsIndoorWhatIf';
 import type { TPlaceEntry } from '../lib/places';
 import { useAppStore, useDog } from '../store/useAppStore';
 import { useEligibility } from '../store/useDogEligibility';
+import { CARD_SURFACE } from '../components/cardSurface';
 
 /**
  * 머리글 앞의 레벨 색 점. 배지(`EligibilityBadge`)를 쓰지 않는 이유: 배지 라벨이 문장이 되면서
@@ -33,8 +34,11 @@ const DOT_CLASS: Record<TEligibilityLevel, string> = {
  * 강아지가 없으면 강제 등록 없이 조용한 배너 한 줄만(2026-09-15 리뷰 §1② — 첫 진입 강제
  * 등록은 이탈). 있으면 색 점 + 머리글 + 근거(심각도순, `useEligibility` 가 이미 정렬해 준다).
  * 요금 정보(`info` 레벨)는 판정 근거가 아니라 참고 정보라 아래에 작게 따로 둔다.
+ *
+ * **원문(`evidence`)은 따로 상자를 갖지 않고 이 면 안에 구분선으로 딸린다**(ADR-003 v15). 예전에는 판정·원문이
+ * 같은 모양의 상자 둘로 쌓여 답과 근거가 같은 무게로 보였다. 강아지가 없으면 답이 없으므로 원문이 혼자 면을 갖는다.
  */
-export function PlaceDetailEligibilityCard({ place }: { place: TPlaceEntry }) {
+export function PlaceDetailEligibilityCard({ place, evidence }: { place: TPlaceEntry; evidence: ReactNode }) {
   const dog = useDog();
   const eligibility = useEligibility(place);
   const needsIndoor = useAppStore((state) => state.needsIndoor);
@@ -42,15 +46,18 @@ export function PlaceDetailEligibilityCard({ place }: { place: TPlaceEntry }) {
 
   if (!dog || !eligibility) {
     return (
-      <Link
-        href="/dog"
-        className="mb-3 flex min-h-11 items-center justify-between gap-2 rounded-2xl border border-secondary bg-secondary px-4 py-3 text-sm font-semibold text-secondary transition-colors hover:bg-tertiary"
-      >
-        우리 강아지를 등록하면 여기서 갈 수 있는지 바로 알려 드려요
-        <span aria-hidden="true" className="text-tertiary">
-          ›
-        </span>
-      </Link>
+      <>
+        <Link
+          href="/dog"
+          className="mb-3 flex min-h-11 items-center justify-between gap-2 rounded-2xl border border-secondary bg-secondary px-4 py-3 text-sm font-semibold text-secondary transition-colors hover:bg-tertiary"
+        >
+          우리 강아지를 등록하면 여기서 갈 수 있는지 바로 알려 드려요
+          <span aria-hidden="true" className="text-tertiary">
+            ›
+          </span>
+        </Link>
+        <div className={`${CARD_SURFACE} p-4`}>{evidence}</div>
+      </>
     );
   }
 
@@ -65,49 +72,57 @@ export function PlaceDetailEligibilityCard({ place }: { place: TPlaceEntry }) {
   const indoorChanged = needsIndoorChangedLevel(dog, place.policy, eligibility, needsIndoor);
 
   return (
-    <div className="mb-3 rounded-2xl border border-secondary bg-primary p-4">
-      {/*
-       * items-start + 점에 mt: 머리글이 두 줄로 접혀도 점은 첫 줄 글자 가운데에 남는다(줄 높이 7.5 의 가운데 − 점 2.5 의 반).
-       * 판정 문장은 상세에서 가장 큰 본문 글자다 — 절 제목(text-lg)·1박 요금(text-lg)보다 크다. 이 화면이 답하는 것이 이것이다.
-       */}
-      <div className="flex items-start gap-2">
-        <span aria-hidden="true" className={`mt-2.5 size-2.5 shrink-0 rounded-full ${DOT_CLASS[eligibility.level]}`} />
-        <p className="text-xl font-bold text-primary">
-          {verdictFor(dog.dogs.map((d) => d.name), eligibility)}
-        </p>
+    <div className={CARD_SURFACE}>
+      <div className="p-4">
+        {/*
+         * items-start + 점에 mt: 머리글이 두 줄로 접혀도 점은 첫 줄 글자 가운데에 남는다(줄 높이 7.5 의 가운데 − 점 2.5 의 반).
+         * 판정 문장은 상세에서 가장 큰 본문 글자다 — 절 제목(text-lg)·1박 요금(text-lg)보다 크다. 이 화면이 답하는 것이 이것이다.
+         */}
+        <div className="flex items-start gap-2">
+          <span aria-hidden="true" className={`mt-2.5 size-2.5 shrink-0 rounded-full ${DOT_CLASS[eligibility.level]}`} />
+          <p className="text-xl font-bold text-primary">
+            {verdictFor(dog.dogs.map((d) => d.name), eligibility)}
+          </p>
+        </div>
+
+        {mainReasons.length > 0 && (
+          <ul className="mt-3 space-y-1.5">
+            {mainReasons.map((reason, index) => (
+              <li key={index} className="flex gap-1.5 text-sm text-secondary">
+                <span aria-hidden="true" className="text-tertiary">
+                  ·
+                </span>
+                {reason.text}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {indoorChanged && (
+          <p className="mt-3 flex flex-wrap items-center gap-x-2 text-sm text-tertiary">
+            실내 자리 필요로 설정돼 있어요
+            <Button color="link-color" size="sm" className="min-h-11" onClick={() => setNeedsIndoor(false)}>
+              끄기
+            </Button>
+          </p>
+        )}
+
+        {subset && (
+          <p className="mt-3 rounded-xl bg-secondary px-3 py-2 text-sm text-secondary">
+            {dogCallNames(subset.names)}만 데려가면 {headlineFor(subset.eligibility)}
+          </p>
+        )}
+
+        {infoReasons.length > 0 && (
+          <p className="mt-2 text-sm text-tertiary">{infoReasons.map((reason) => reason.text).join(' · ')}</p>
+        )}
       </div>
 
-      {mainReasons.length > 0 && (
-        <ul className="mt-3 space-y-1.5">
-          {mainReasons.map((reason, index) => (
-            <li key={index} className="flex gap-1.5 text-sm text-secondary">
-              <span aria-hidden="true" className="text-tertiary">
-                ·
-              </span>
-              {reason.text}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {indoorChanged && (
-        <p className="mt-3 flex flex-wrap items-center gap-x-2 text-sm text-tertiary">
-          실내 자리 필요로 설정돼 있어요
-          <Button color="link-color" size="sm" className="min-h-11" onClick={() => setNeedsIndoor(false)}>
-            끄기
-          </Button>
-        </p>
-      )}
-
-      {subset && (
-        <p className="mt-3 rounded-xl bg-secondary px-3 py-2 text-sm text-secondary">
-          {dogCallNames(subset.names)}만 데려가면 {headlineFor(subset.eligibility)}
-        </p>
-      )}
-
-      {infoReasons.length > 0 && (
-        <p className="mt-2 text-sm text-tertiary">{infoReasons.map((reason) => reason.text).join(' · ')}</p>
-      )}
+      {/* 근거 — 판정과 같은 면, 구분선 아래. 이름표가 있어야 판정의 "원문을 확인해 주세요"(C7)가 가리키는 곳이 보인다. */}
+      <div className="border-t border-secondary p-4">
+        <p className="mb-2 text-xs font-semibold text-tertiary">원문</p>
+        {evidence}
+      </div>
     </div>
   );
 }

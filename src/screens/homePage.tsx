@@ -15,6 +15,7 @@ import type { TEligibilityLevel } from '../lib/eligibility';
 import { countByLevel } from '../lib/eligibilityCounts';
 import { useAppStore, useDog, useSavedPlaces } from '../store/useAppStore';
 import type { TPlaceType } from '../types';
+import { CARD_SURFACE } from '../components/cardSurface';
 
 export function HomePage() {
   const savedPlaces = useSavedPlaces();
@@ -63,7 +64,7 @@ export function HomePage() {
       {/* 예전에는 `-mt-10` 으로 히어로 위에 겹쳐 올렸다. 히어로가 라운드 판이 되면서 그 겹침이
           판의 아래 모서리를 덮어 버려(같은 폭이다) 판으로 보이지 않게 된다 — 겹치지 않고 아래에 둔다. */}
       <div className="px-4 md:px-6">
-        <section className="mt-4 rounded-2xl border border-secondary bg-primary p-5">
+        <section className={`mt-4 ${CARD_SURFACE} p-5`}>
           <p className="whitespace-pre-line text-sm text-secondary">{META.intro}</p>
           {/* 편지 서명처럼 오른쪽 아래. 첫 화면에서 "누가 쓴 자료인가" 를 얼굴로 한 번 더 말한다. */}
           <p className="mt-3 flex items-center justify-end gap-2 text-sm font-semibold text-brand-secondary">
@@ -79,7 +80,7 @@ export function HomePage() {
         <div className="px-4 md:px-6">
           <Link
             href="/dog"
-            className="mt-4 flex items-center gap-3 rounded-2xl border border-secondary bg-primary px-4 py-4 transition-colors hover:bg-secondary"
+            className={`mt-4 flex items-center gap-3 ${CARD_SURFACE} px-4 py-4 transition-colors hover:bg-secondary`}
           >
             <span
               aria-hidden="true"
@@ -110,7 +111,7 @@ export function HomePage() {
 
       <section className="mt-8 px-4 md:px-6">
         <h2 className="text-lg font-bold text-primary">여행 준비물</h2>
-        <div className="mt-3 rounded-2xl border border-secondary bg-primary p-4">
+        <div className={`mt-3 ${CARD_SURFACE} p-4`}>
           <p className="text-sm text-tertiary">{META.itemsIntro.split('\n')[0]}</p>
 
           {/* 계절칩은 고르기만 한다 — 누르자마자 화면이 넘어가면 다른 계절을 비교해 볼 수 없다.
@@ -133,7 +134,7 @@ export function HomePage() {
           현장에서 "저장한 곳 중 근처는?" 을 물을 때 목록을 한 번 거치지 않게.
           버튼은 카드 링크 **바깥의 형제**다. 안에 넣으면 a 안에 a 가 된다.
         */}
-        <div className="flex items-center gap-2 rounded-2xl border border-secondary bg-primary pr-3">
+        <div className={`flex items-center gap-2 ${CARD_SURFACE} pr-3`}>
           <Link
             href="/saved"
             className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl px-4 py-4 transition-colors hover:bg-secondary"

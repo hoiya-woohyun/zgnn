@@ -5,6 +5,7 @@ import { Button } from '../components/base/button';
 import { Input } from '../components/base/input';
 import { writeAdminSession, type TAdminSession } from '../lib/adminSession';
 import { signInAdmin } from '../lib/adminSupabase';
+import { CARD_SURFACE } from '../components/cardSurface';
 
 type TAdminPageLoginProps = {
   onSignedIn: (session: TAdminSession) => void;
@@ -41,7 +42,7 @@ export function AdminPageLogin({ onSignedIn, notice }: TAdminPageLoginProps) {
   return (
     <div className="px-4 pt-6 md:px-6">
       <form
-        className="mx-auto max-w-sm rounded-2xl border border-secondary bg-primary p-5"
+        className={`mx-auto max-w-sm ${CARD_SURFACE} p-5`}
         onSubmit={(event) => {
           event.preventDefault();
           void submit();

@@ -3,6 +3,7 @@ import { ChevronDown } from '@untitledui/icons';
 import { Select } from '../components/base/select';
 import { cx } from '../utils/cx';
 import type { TDogSize } from '../types';
+import { CARD_SURFACE } from '../components/cardSurface';
 
 export const SIZE_LABEL: Record<TDogSize, string> = { small: '소형견', medium: '중형견', large: '대형견' };
 
@@ -29,7 +30,7 @@ export function DogProfileSizeOverride({ computedSize, value, onChange }: TDogPr
   const shownSize = value ?? computedSize;
 
   return (
-    <div className="rounded-2xl border border-secondary bg-primary">
+    <div className={CARD_SURFACE}>
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}

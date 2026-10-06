@@ -124,7 +124,7 @@ export function ChecklistPage() {
       })}
 
       <footer className="mt-8 space-y-3 px-4 pb-8 md:px-6">
-        <p className="rounded-2xl border border-secondary bg-primary p-4 text-sm text-secondary">
+        <p className="text-sm text-secondary">
           {META.itemsAdvice}
         </p>
       </footer>

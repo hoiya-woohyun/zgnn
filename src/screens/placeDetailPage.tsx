@@ -16,6 +16,7 @@ import { formatStayPrice } from '../lib/format';
 import { getPlace } from '../lib/places';
 import { useDog } from '../store/useAppStore';
 import { environmentPhrases } from '../lib/stayEnvironmentView';
+import { CARD_SURFACE } from '../components/cardSurface';
 
 /**
  * id 는 라우트가 정해 준다(`app/place/[id]/page.tsx`). 거기서 이미 존재를 확인하므로
@@ -47,23 +48,27 @@ export function PlaceDetailPage({ id }: { id: string }) {
       <section className="mt-6 px-4 md:px-6">
         <h2 className="text-lg font-bold text-primary">반려동물 이용</h2>
         <div className="mt-2">
-          {/* 우리 강아지 기준 판정. 원문 카드보다 먼저 보여준다 — 원문은 판정의 근거일 뿐,
-              사용자가 먼저 알고 싶은 건 "우리 강아지가 갈 수 있는가"다. */}
-          <PlaceDetailEligibilityCard place={place} />
-          <div className="rounded-2xl border border-secondary bg-primary p-4">
-            {/* 파서가 조건을 놓쳤을 수 있어, 구조화 배지와 원문을 함께 보여준다. */}
-            <PetBadges
-              policy={place.policy}
-              hideNoInfo={Boolean(dog)}
-              sourceText={place.petPolicyText}
-              className="mb-3"
-            />
-            <p className="whitespace-pre-line text-sm text-secondary">
-              <HighlightedPolicyText text={place.petPolicyText} place={place} />
-            </p>
-            {/* 확인 날짜가 있으면 그 달을, 없으면 예전 문장(10 F3). */}
-            <PlaceDetailFreshness place={place} />
-          </div>
+          {/* 우리 강아지 기준 판정이 먼저, 원문은 그 면 안에 딸린 근거로 — 사용자가 먼저 알고 싶은 건
+              "우리 강아지가 갈 수 있는가"다. 원문은 따로 상자를 갖지 않는다(ADR-003 v15). */}
+          <PlaceDetailEligibilityCard
+            place={place}
+            evidence={
+              <>
+                {/* 파서가 조건을 놓쳤을 수 있어, 구조화 배지와 원문을 함께 보여준다. */}
+                <PetBadges
+                  policy={place.policy}
+                  hideNoInfo={Boolean(dog)}
+                  sourceText={place.petPolicyText}
+                  className="mb-3"
+                />
+                <p className="whitespace-pre-line text-sm text-secondary">
+                  <HighlightedPolicyText text={place.petPolicyText} place={place} />
+                </p>
+                {/* 확인 날짜가 있으면 그 달을, 없으면 예전 문장(10 F3). */}
+                <PlaceDetailFreshness place={place} />
+              </>
+            }
+          />
         </div>
 
         <PlaceItemsNote place={place} className="mt-3" />
@@ -73,7 +78,7 @@ export function PlaceDetailPage({ id }: { id: string }) {
       {place.stay && (place.stay.price.text !== '' || place.stay.amenitiesText !== '' || environment.length > 0) && (
         <section className="mt-6 px-4 md:px-6">
           <h2 className="text-lg font-bold text-primary">숙박 요금과 용품</h2>
-          <dl className="mt-2 divide-y divide-secondary rounded-2xl border border-secondary bg-primary">
+          <dl className={`mt-2 divide-y divide-secondary ${CARD_SURFACE}`}>
             {place.stay.price.text !== '' && (
               <div className="p-4">
                 <dt className="text-xs text-tertiary">1박 요금</dt>
