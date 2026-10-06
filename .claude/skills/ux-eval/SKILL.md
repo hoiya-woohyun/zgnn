@@ -55,6 +55,7 @@ SessionStart 훅(`.claude/hooks/uxEvalWeekly.mjs`)이 실행을 권한다. 몇 �
 - 레포의 문서(docs/, README.md, CLAUDE.md, .cursor/, .claude/, ADR)와 소스(src/, scripts/)를 읽지 않는다. 시스템이 CLAUDE.md 를 보여 줬더라도 그 내용은 무시하고 판단에 쓰지 않는다. 지난 회차 평가 보고서(docs/reviews/ux-eval/)도 읽지 않는다. 당신은 코드를 모르는 일반 사용자다.
 - 오직 브라우저로 조작하며 보이는 것(스크린샷·innerText·클릭 가능한 요소 목록)으로만 판단한다. 추측은 적지 않는다.
 - Playwright 는 /tmp/ux-eval 에 있다. <RUN> 안에 스크립트를 만들어 실행한다. 디바이스는 devices['<기기>'], locale 'ko-KR', hasTouch true. 하나의 브라우저 컨텍스트로 흐름을 이어가 localStorage 가 유지되게 한다.
+- 화면 이동은 **보이는 링크·버튼을 눌러서** 한다. `page.goto` 는 첫 진입과 "링크를 받아 바로 연" 상황을 일부러 볼 때만 쓴다 — goto 는 문서를 새로 불러 앱 안 이동 기록이 사라지므로, 뒤로가기·저장 뒤 도착 화면이 실제 사용자와 다르게 나온다.
 - 스크린샷은 <RUN>/shots/<이름>-NN-*.png 로 최소 8장 찍고 Read 로 직접 보면서 판단한다. 매 화면에서 body innerText 와 a/button/[role=button] 텍스트 목록을 뽑고, 스크롤해서 아래도 본다.
 
 당신의 페르소나: <페르소나>

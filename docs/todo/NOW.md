@@ -7,7 +7,6 @@
 
 ## 지금 (위에서부터)
 
-- [ ] 강아지 저장 뒤 `/settings` 로 떨어지는지 재현부터 — [14 ↪ 08 T3.3](14-weekly-ux-eval.md) · 왜 지금: 6/6 이 겪었지만 코드는 앱 안 이동이면 `router.back()`, 딥링크면 `/settings` — 평가가 `/dog` 를 직접 연 탓인지, 홈 CTA 가 앱 기록을 안 남기는지 Playwright 로 가른다
 - [ ] "지도에 없는 N곳" 을 그 N곳만 보이게 — [14 ↪ 12 U1.7](14-weekly-ux-eval.md) · 왜 지금: `mapPage.tsx` 의 링크가 `/places/<type>` 전체 목록으로 간다(코드 확인) — 5곳을 찾으러 26곳을 훑는다
 - [ ] 크림 바탕 보조 텍스트 대비 4.5:1 이상 — [14 W261006.15](14-weekly-ux-eval.md) · 왜 지금: `text-quaternary` = `neutral-500` `#7d756c` 14px 가 4.27:1(홈·설정 고지문). 토큰 한 곳
 - [ ] 이동 수단 "없어요" 부연을 "리드줄만 써요(걷거나 안고)" 로 — [14 W261006.14](14-weekly-ux-eval.md) · 왜 지금: `CARRIER_LABELS.none.hint` 한 줄. 대형견 보호자가 "안고 다녀요" 에서 첫인상을 잃는다
