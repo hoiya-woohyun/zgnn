@@ -13,6 +13,7 @@ import { META, PLACE_TYPES, placesOfType, SOURCE_LINE } from '../lib/places';
 import { checklistView } from '../lib/checklist';
 import type { TEligibilityLevel } from '../lib/eligibility';
 import { countByLevel } from '../lib/eligibilityCounts';
+import { homePageRegisterPreview, homePageRegisterPreviewText } from '../lib/homePageRegisterPreview';
 import { useAppStore, useDog, useSavedPlaces } from '../store/useAppStore';
 import type { TPlaceType } from '../types';
 import { CARD_SURFACE } from '../components/cardSurface';
@@ -40,6 +41,8 @@ export function HomePage() {
     for (const type of PLACE_TYPES) counts[type] = countByLevel(placesOfType(type), dog, { needsIndoor });
     return counts;
   }, [dog, needsIndoor]);
+  // 등록 전 미리보기(14 C2610.2) — 예시 두 몸무게로 숙소를 세어 "아이마다 다르다" 를 숫자로. 데이터가 빌드 시점에 묶여 있어 한 번만 센다.
+  const registerPreview = useMemo(() => homePageRegisterPreview(placesOfType('stay')), []);
 
   return (
     <div>
@@ -90,7 +93,11 @@ export function HomePage() {
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold text-primary">우리 강아지 등록하기</p>
-              <p className="text-sm text-tertiary">등록하면 갈 수 있는 곳을 바로 보여드려요</p>
+              <p className="text-sm text-tertiary">
+                {registerPreview
+                  ? `${homePageRegisterPreviewText(registerPreview)} — 우리 아이는요?`
+                  : '등록하면 갈 수 있는 곳을 바로 보여드려요'}
+              </p>
             </div>
           </Link>
         </div>
