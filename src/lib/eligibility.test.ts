@@ -376,17 +376,7 @@ describe('primaryReason — 목록 카드의 근거 한 줄', () => {
     expect(reason?.text).toBe('대장이(28kg)는 15kg 이하 조건을 넘어요');
   });
 
-  it('unknown + 원문 힌트 — "적혀 있지 않아요" 대신 힌트', () => {
-    const base = parsePetPolicy('정보 없음.');
-    const hinted = { ...base, largeDogOk: true, sources: { ...base.sources, largeDogOk: '대형견도 동반 가능!!' } };
-    const result = judgeEligibility(KONG, hinted);
-    expect(result.level).toBe('unknown');
-    const reason = primaryReason(result);
-    expect(reason?.level).toBe('info');
-    expect(reason?.text).toContain('대형견');
-  });
-
-  it('unknown 인데 힌트가 없으면 unknown 근거', () => {
+  it('unknown 이면 unknown 근거(U1)', () => {
     const reason = primaryReason(judgeEligibility(BIG, parsePetPolicy('정보 없음.')));
     expect(reason?.level).toBe('unknown');
   });

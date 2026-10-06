@@ -362,16 +362,6 @@ const ruleNoInfo: TRule = (_dog, policy) => {
   return { level: 'unknown', text: '동반 조건이 적혀 있지 않아요', quote: policy.sources.noInfo };
 };
 
-/**
- * U1 보강: "정보 없음" 이라 적어 놓고도 "대형견도 가능!!" 처럼 힌트가 붙은 곳이 있다(맘앤도그).
- * 판정을 바꾸진 않지만(여전히 unknown) 힌트를 info 로 남겨 상세에서 보여준다.
- */
-const ruleNoInfoHint: TRule = (_dog, policy) => {
-  if (!policy.noInfo) return null;
-  if (!policy.largeDogOk) return null;
-  return { level: 'info', text: '원문에 대형견도 가능하다는 문구가 있어요', quote: policy.sources.largeDogOk };
-};
-
 /** 규칙과 그 ID. ID 는 근거에 실려(`TReason.rule`) 화면이 "어느 규칙이 말했나" 를 문구 대신 ID 로 가른다. */
 const RULES: [string, TRule][] = [
   ['H0', ruleNotAllowed],
@@ -393,7 +383,6 @@ const RULES: [string, TRule][] = [
   ['C7', ruleUnread],
   ['C9', ruleGenericUnverified],
   ['U1', ruleNoInfo],
-  ['U1 보강', ruleNoInfoHint],
 ];
 
 export const judgeEligibility = (
@@ -463,15 +452,10 @@ export const verdictFor = (dogNames: string[], e: TEligibility): string =>
 /**
  * 목록 카드에 한 줄로 보일 대표 근거 — 눌러 보지 않아도 왜 "확인"·"어려움" 인지 읽히게(민준 N1).
  * 최종 레벨과 같은 레벨의 첫 근거(근거는 이미 표시 순서로 정렬돼 있다). `ok` 면 말할 이유가 없다.
- * `unknown` 은 "적혀 있지 않아요" 보다 원문 힌트("대형견도 가능")가 더 쓸모 있어 그쪽을 고른다(N9).
  * 요금(I1)은 카드가 이미 따로 한 줄 그리므로 고르지 않는다.
  */
 export const primaryReason = (e: TEligibility): TReason | undefined => {
   if (e.level === 'ok') return undefined;
-  if (e.level === 'unknown') {
-    const hint = e.reasons.find((r) => r.level === 'info' && r.rule !== 'I1');
-    if (hint) return hint;
-  }
   return e.reasons.find((r) => r.level === e.level);
 };
 
