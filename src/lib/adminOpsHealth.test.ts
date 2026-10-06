@@ -138,6 +138,7 @@ describe('stageHealth', () => {
     expect(at([rebuild()]).state).toBe('ok');
     expect(at([rebuild({ response_status: 429 })]).state).toBe('warn');
     expect(at([rebuild({ response_status: 404 })]).state).toBe('fail');
+    expect(at([rebuild({ response_status: 503 })])).toMatchObject({ state: 'fail', reason: 'Vercel 쪽 오류예요(503) — 잠시 뒤 다시 확인해 주세요' });
     expect(at([rebuild({ response_status: null, requested_at: ago(4 * MIN) })]).state).toBe('warn');
     expect(at([rebuild({ response_status: null, requested_at: ago(1 * MIN) })]).state).toBe('ok');
     expect(at([rebuild({ hook: 'missing', response_status: null })]).state).toBe('warn');

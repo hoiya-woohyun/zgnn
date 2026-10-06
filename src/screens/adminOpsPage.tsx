@@ -86,6 +86,8 @@ export function AdminOpsPage() {
   /** 걸러 보기를 빠르게 바꿀 때 늦게 온 옛 걸러 보기의 응답이 이기지 않게. */
   const runsSeqRef = useRef(0);
   const loadingMoreRef = useRef(false);
+  /** 장 넘김이 **오류로** 멈췄는가(다 읽어서가 아니라). 그렇다면 다음 새로고침이 성공할 때 다시 연다. */
+  const doneByErrorRef = useRef(false);
   const funnelDaysRef = useRef<TAdminOpsFunnelDays>(7);
   /** 7일 ↔ 30일을 빠르게 오갈 때 늦게 온 30일 응답이 이기지 않게. */
   const funnelSeqRef = useRef(0);
@@ -129,15 +131,32 @@ export function AdminOpsPage() {
     [loadOverview30],
   );
 
-  /** 7일 집계 + 지금 걸러 보기의 첫 장을 함께. 첫 장은 이미 든 목록에 합친다(`mergeRuns`). 받은 첫 장을 돌려준다. */
-  const refresh = useCallback(async (client: SupabaseClient): Promise<TPipelineRun[]> => {
+  /**
+   * 7일 집계 + 지금 걸러 보기의 첫 장을 함께. 첫 장은 이미 든 목록에 합친다(`mergeRuns`).
+   * **둘을 따로 산다** — 실행 기록만 실패했다고 다섯 칸·띠까지 옛 값에 묶이면 안 된다(흐름의 30일과 같은 이유). 집계가 실패하면 던지고,
+   * 실행 기록 실패는 표 쪽 한 줄(`runsError`)로만 말한다. 받은 첫 장을 돌려준다(실패면 null).
+   */
+  const refresh = useCallback(async (client: SupabaseClient): Promise<TPipelineRun[] | null> => {
     const filter = filterRef.current;
     const seq = runsSeqRef.current;
     const nowMs = Date.now();
-    const [nextOverview, firstPage] = await Promise.all([fetchOpsOverview(client, 7), fetchRuns(client, queryOf(filter, nowMs))]);
-    setOverview(nextOverview);
+    const [overviewResult, runsResult] = await Promise.allSettled([fetchOpsOverview(client, 7), fetchRuns(client, queryOf(filter, nowMs))]);
+    if (overviewResult.status === 'rejected') throw overviewResult.reason;
+    setOverview(overviewResult.value);
     setLoadedAt(Date.now());
-    if (seq === runsSeqRef.current) setRuns((current) => mergeRuns(current, firstPage));
+    const firstPage = runsResult.status === 'fulfilled' ? runsResult.value : null;
+    if (seq === runsSeqRef.current) {
+      if (firstPage) {
+        setRuns((current) => mergeRuns(current, firstPage));
+        setRunsError(null);
+        if (doneByErrorRef.current) {
+          doneByErrorRef.current = false;
+          setRunsDone(firstPage.length < RUNS_PAGE_SIZE);
+        }
+      } else {
+        setRunsError(messageOf(runsResult.status === 'rejected' ? runsResult.reason : null, '실행 기록을 읽지 못했어요.'));
+      }
+    }
     // 30일을 보고 있으면 그것도 새로 — 실패해도 위의 갱신은 남긴다(흐름 한 묶음만 오류를 말한다).
     if (funnelDaysRef.current === 30) void loadOverview30(client);
     return firstPage;
@@ -164,7 +183,8 @@ export function AdminOpsPage() {
         }
         setPhase('loading');
         const firstPage = await refresh(client);
-        setRunsDone(firstPage.length < RUNS_PAGE_SIZE);
+        doneByErrorRef.current = firstPage === null;
+        setRunsDone(firstPage === null || firstPage.length < RUNS_PAGE_SIZE);
         setPhase('ready');
       } catch (error) {
         setFatal(messageOf(error, '운영 현황을 불러오지 못했어요.'));
@@ -243,6 +263,11 @@ export function AdminOpsPage() {
     const client = clientRef.current;
     if (!client) return;
     const seq = ++runsSeqRef.current;
+    // 날아가는 중인 옛 걸러 보기의 다음 장이 잠금을 쥔 채면 새 목록의 감시판이 그냥 돌아선다 — 그 응답은 어차피 순번으로 버려진다.
+    loadingMoreRef.current = false;
+    doneByErrorRef.current = false;
+    // 링크로 연 행은 처음 화면의 것이다 — 걸러 보기를 바꾸면 그 결과만 보여 준다(맞지 않는 행이 맨 위에 남지 않게).
+    setPinnedRun(null);
     setRuns([]);
     setRunsDone(false);
     setRunsError(null);
@@ -254,7 +279,9 @@ export function AdminOpsPage() {
     } catch (error) {
       if (seq === runsSeqRef.current) {
         setRunsError(messageOf(error, '실행 기록을 읽지 못했어요.'));
-        setRunsDone(true); // 감시판이 실패한 장을 계속 다시 부르지 않게 — 걸러 보기를 다시 누르면 다시 읽는다
+        // 감시판이 실패한 장을 계속 다시 부르지 않게 — 다음 새로고침이 성공하면 다시 연다
+        setRunsDone(true);
+        doneByErrorRef.current = true;
       }
     }
   }, []);
@@ -277,6 +304,7 @@ export function AdminOpsPage() {
       if (seq === runsSeqRef.current) {
         setRunsError(messageOf(error, '실행 기록을 더 읽지 못했어요.'));
         setRunsDone(true);
+        doneByErrorRef.current = true;
       }
     } finally {
       loadingMoreRef.current = false;

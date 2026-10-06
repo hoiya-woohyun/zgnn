@@ -69,7 +69,7 @@ describe('fetchRuns', () => {
     expect(calls).toContainEqual(['in', 'script', ['approve', 'reject']]);
     expect(calls).toContainEqual([
       'or',
-      'status.in.(failed,partial),and(status.eq.running,heartbeat_at.lt.2026-10-06T00:00:00.000Z)',
+      'status.in.(failed,partial),and(status.eq.running,or(heartbeat_at.lt.2026-10-06T00:00:00.000Z,and(heartbeat_at.is.null,started_at.lt.2026-10-06T00:00:00.000Z)))',
     ]);
     expect(calls).toContainEqual(['lt', 'started_at', '2026-10-05T00:00:00.000Z']);
     expect(calls.at(-1)).toEqual(['limit', 10]);
@@ -143,6 +143,19 @@ describe('runSummaryLine — 터미널과 같은 문장', () => {
     expect(runSummaryLine({ script: 'reject', stats: { requested: 2, done: 2, failed: 0 } })).toBe('rejected 2건');
   });
 
+  it('null·문자열 수는 그럴듯한 틀린 문장이 되므로 null — apply 의 draftWaiting null 만 허락', () => {
+    expect(runSummaryLine({ script: 'collect', stats: { fetched: null, new: 1, existing: 0, excludedOld: 0, excludedOther: 0, durationMs: 1 } })).toBeNull();
+    expect(
+      runSummaryLine({ script: 'analyze', stats: { analyzed: 1, skipped: 0, candidates: 0, auto: 0, ask: 0, new: 0, excluded: { other: '3', notJeju: 0, notAllowed: 0 } } }),
+    ).toBeNull();
+    expect(
+      runSummaryLine({
+        script: 'apply',
+        stats: { applied: 1, patched: 1, patchedPublished: 0, inserted: 0, failed: 0, revertedToPending: 0, draftWaiting: null },
+      }),
+    ).toContain('published 대기 draft ?곳');
+  });
+
   it('stats 가 없거나 칸이 빠져 NaN·undefined 가 섞이면 null — 틀린 문장보다 빈 칸', () => {
     expect(runSummaryLine({ script: 'collect', stats: null })).toBeNull();
     expect(runSummaryLine({ script: 'collect', stats: { fetched: 3 } })).toBeNull();
@@ -155,10 +168,18 @@ describe('mergeRuns — 새로고침이 더 불러온 장을 날리지 않는다
   const row = (id: string, startedAt: string, status: TPipelineRun['status'] = 'ok') =>
     ({ id, started_at: startedAt, status }) as TPipelineRun;
 
+  it('첫 장이 덮는 구간에서 첫 장에 없는 옛 행은 버린다 — 실패만에서 다시 살아난 행이 남지 않게', () => {
+    const current = [row('x', '2026-10-06', 'running'), row('b', '2026-10-05'), row('a', '2026-10-01')];
+    // 첫 장이 꽉 찼다(pageSize 2) — b 까지가 덮인 구간, 그 안의 x 는 더 이상 맞지 않는다. a 는 구간 밖이라 남는다
+    expect(mergeRuns(current, [row('c', '2026-10-07'), row('b', '2026-10-05')], 2).map((r) => r.id)).toEqual(['c', 'b', 'a']);
+    // 첫 장이 덜 찼으면 그게 결과 전부다
+    expect(mergeRuns(current, [row('b', '2026-10-05')], 2).map((r) => r.id)).toEqual(['b']);
+  });
+
   it('같은 id 는 새 행이 이기고, 옛 장은 남고, 최신순', () => {
     const current = [row('b', '2026-10-05', 'running'), row('a', '2026-10-01')];
     const fresh = [row('c', '2026-10-06'), row('b', '2026-10-05', 'ok')];
-    expect(mergeRuns(current, fresh).map((r) => [r.id, r.status])).toEqual([
+    expect(mergeRuns(current, fresh, 2).map((r) => [r.id, r.status])).toEqual([
       ['c', 'ok'],
       ['b', 'ok'],
       ['a', 'ok'],

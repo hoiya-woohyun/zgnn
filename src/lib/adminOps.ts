@@ -131,7 +131,8 @@ export async function fetchRuns(client: SupabaseClient, query: TRunsQuery = {}):
   if (query.scripts && query.scripts.length > 0) request = request.in('script', [...query.scripts]);
   if (query.failedOnly) {
     request = request.or(
-      `status.in.(failed,partial),and(status.eq.running,heartbeat_at.lt.${query.failedOnly.stalledBefore})`,
+      // 심장이 null 인 running(옛 행·손으로 넣은 행)은 `runState` 가 시작 시각으로 판정한다 — SQL 의 `null < x` 는 거짓이라 같은 갈래를 따로 둔다.
+      `status.in.(failed,partial),and(status.eq.running,or(heartbeat_at.lt.${query.failedOnly.stalledBefore},and(heartbeat_at.is.null,started_at.lt.${query.failedOnly.stalledBefore})))`,
     );
   }
   if (query.before) request = request.lt('started_at', query.before);
@@ -143,9 +144,19 @@ export async function fetchRuns(client: SupabaseClient, query: TRunsQuery = {}):
 /**
  * 새로 읽은 첫 장을 이미 든 목록에 **id 로 합친다** — 화면이 60초마다 갈아 끼우면 더 불러온 장·펼친 줄·스크롤이 날아간다.
  * 같은 id 는 새 행이 이긴다(돌던 행이 끝났을 수 있다). 최신순을 다시 맞춘다. 순수.
+ *
+ * 다만 첫 장이 덮는 구간(첫 장의 마지막 행보다 새것 — 첫 장이 덜 찼으면 걸러 본 결과 전부)에서 **첫 장에 없는 옛 행은 버린다.**
+ * 걸러 보기(`실패만`)에서 멎었던 심장이 다시 뛰거나 실행이 끝나면 그 행은 더 이상 맞지 않는데, 더하기만 하면 옛 "중단된 듯" 이 남는다.
  */
-export function mergeRuns(current: readonly TPipelineRun[], fresh: readonly TPipelineRun[]): TPipelineRun[] {
-  const byId = new Map(current.map((run) => [run.id, run]));
+export function mergeRuns(
+  current: readonly TPipelineRun[],
+  fresh: readonly TPipelineRun[],
+  pageSize: number = RUNS_PAGE_SIZE,
+): TPipelineRun[] {
+  const freshIds = new Set(fresh.map((run) => run.id));
+  const floor = fresh.length >= pageSize ? fresh.at(-1)?.started_at : undefined;
+  const covered = (run: TPipelineRun) => floor === undefined || run.started_at >= floor;
+  const byId = new Map(current.filter((run) => freshIds.has(run.id) || !covered(run)).map((run) => [run.id, run]));
   for (const run of fresh) byId.set(run.id, run);
   return [...byId.values()].sort((a, b) => (a.started_at < b.started_at ? 1 : a.started_at > b.started_at ? -1 : 0));
 }
@@ -175,7 +186,7 @@ const NO_USAGE: TUsageTotals = { calls: 0, input: 0, output: 0, cacheRead: 0, ca
  */
 export function runSummaryLine(run: Pick<TPipelineRun, 'script' | 'stats'>): string | null {
   const stats = run.stats;
-  if (!stats || typeof stats !== 'object' || Array.isArray(stats)) return null;
+  if (!stats || typeof stats !== 'object' || Array.isArray(stats) || !numericLeaves(stats)) return null;
   let line: string;
   try {
     switch (run.script) {
@@ -201,6 +212,18 @@ export function runSummaryLine(run: Pick<TPipelineRun, 'script' | 'stats'>): str
     return null;
   }
   return /NaN|undefined/.test(line) ? null : line;
+}
+
+/**
+ * stats 의 잎이 전부 유한한 수인가 — `apply` 의 `draftWaiting`(못 셌으면 null)만 null 을 허락한다. 요약 함수는 칸을 믿고 더하므로
+ * `null` 은 "null건" 으로, 문자열 `"3"` 은 덧셈이 이어붙이기가 되어 **그럴듯한 틀린 수**(`제외 300000000`)로 나온다 — 글자로는 못 걸러 모양을 먼저 본다.
+ * `adminOpsHealth` 가 문자열 수를 수로 치지 않는 것과 같은 태도다.
+ */
+function numericLeaves(value: unknown, key = ''): boolean {
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (value === null) return key === 'draftWaiting';
+  if (typeof value !== 'object' || Array.isArray(value)) return false;
+  return Object.entries(value as Record<string, unknown>).every(([inner, child]) => numericLeaves(child, inner));
 }
 
 /**

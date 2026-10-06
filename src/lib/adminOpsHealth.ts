@@ -223,6 +223,8 @@ function rebuildStage(overview: TOpsOverview, nowMs: number): TStageHealth {
   const first = `${ago} · ${status}`;
   if (status >= 200 && status < 300) return { ...base, state: 'ok', first, reason: null };
   if (status === 429) return { ...base, state: 'warn', first, reason: '재빌드가 한도(시간당 60번)에 걸렸어요 — 훅은 그대로예요' };
+  // 5xx 는 Vercel 쪽 오류다 — "폐기" 라고 말하면 운영자가 멀쩡한 훅을 회전한다(429 와 같은 종류의 오독, BUG-011). 상태는 실패 그대로.
+  if (status >= 500) return { ...base, state: 'fail', first, reason: `Vercel 쪽 오류예요(${status}) — 잠시 뒤 다시 확인해 주세요` };
   if (status >= 400) return { ...base, state: 'fail', first, reason: `Deploy Hook 이 폐기된 듯해요(${status})` };
   return { ...base, state: 'warn', first, reason: `재빌드 응답이 예상과 달라요(${status})` };
 }
