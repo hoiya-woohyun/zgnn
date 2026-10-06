@@ -28,6 +28,8 @@
 - 🧑 읍면이 주소와 어긋난 세 곳(+ 안덕면 방향) 바로잡기 — [12 UH.1](12-ux-audit-2026-10-02.md) · 명령: `/admin` 등록 완료 → 위미애머물다락쿤(좌표·`naverPlaceId` 부터) · 살롱드라방 · 제주포슬 주소·지역 고치기
 - 🙋 미분석 글 저수지를 어디서 멈출지·수집을 줄일지 — [03 「2026-10-02 실측」](03-analyze-and-review.md) · 권고: 키워드는 그대로 두고 `--limit 30` 을 수율이 꺾일 때까지만(전량 읽기 계획 없음). 이게 정해져야 다음 대량 `data:analyze` 를 돌린다
 - 🙋 업체명 재검색(ADR-019 결정 7·8)을 열지 — [03](03-analyze-and-review.md) · 권고: 먼저 🧑 PostView 지도 카드·태그 모양 한 번 확인(03 「검증 계획」 A 명령), 뺀 것 허용선은 "10건 중 1건 이하" 제안대로
+- 🧑 운영 현황 실측 — [15 「검증」](15-ops-dashboard.md) · 명령: `pnpm data:collect` 한 번 → `/admin/ops` 수집 칸 "방금 · 신규 N", 실행 기록 첫 행 요약이 터미널 줄과 같은지. `pnpm data:analyze --limit 3` 도중 `kill -9` → 10분 뒤 "중단된 듯" + 안내 한 줄. 화면은 가짜 응답으로만 그려 봤다(진짜 세션·진짜 행은 아직)
+- 🙋 Slack 실패 알림을 켤지(15 T1.3·T5·T6) — [15](15-ops-dashboard.md) · 권고: 위 실측 뒤 기록이 한 주 쌓이면. 켜면 🧑 Incoming Webhook 을 만들어 Studio 에서 `vault.create_secret(…, 'slack_webhook_url')`(값은 Claude 에게 보이지 않게), 개인 DM · `partial` 은 실패 건수 > 0 일 때만
 
 ## 발견 (분류 전)
 
