@@ -11,6 +11,15 @@ import { dogCallNames } from './korean';
 export const MAX_DOGS = 3;
 export const DOG_NAME_MAX_LENGTH = 12;
 
+/**
+ * 이 몸무게를 **넘으면 저장 전에 한 번 묻는다**(12 U3.6). "7.0" 을 "70" 으로 잘못 쳐도 형식은 맞아서 조용히 대형견이 되고,
+ * 식당 대부분이 '어려움' 으로 뒤집힌다. 막지는 않는다 — 실제로 80kg 이 넘는 개도 있다(그레이트 데인·마스티프).
+ */
+export const HEAVY_DOG_CONFIRM_KG = 80;
+
+/** 확인이 필요한 몸무게의 강아지만. 경계값(80kg)은 묻지 않는다. */
+export const heavyDogs = (dogs: TDogEntry[]): TDogEntry[] => dogs.filter((d) => d.weightKg > HEAVY_DOG_CONFIRM_KG);
+
 /** 판정·요금이 함께 쓰는 최대 몸무게. 빈 배열이면 0 — `Math.max()` 의 -Infinity 가 조용히 '소형' 으로 새는 것을 막는다. */
 export const maxWeightKg = (dog: TDogProfile): number =>
   dog.dogs.length > 0 ? Math.max(...dog.dogs.map((d) => d.weightKg)) : 0;

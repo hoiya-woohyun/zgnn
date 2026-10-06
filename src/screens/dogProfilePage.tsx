@@ -8,7 +8,7 @@ import { PageHeader } from '../components/layout/pageHeader';
 import { canGoBackInApp, markReplacedNavigation } from '../lib/appHistory';
 import { parentRouteOf } from '../lib/appRoutes';
 import { showAppStatus } from '../lib/appStatus';
-import { DOG_NAME_MAX_LENGTH, MAX_DOGS, dogProfileSavedMessage } from '../lib/dogProfile';
+import { DOG_NAME_MAX_LENGTH, HEAVY_DOG_CONFIRM_KG, MAX_DOGS, dogProfileSavedMessage, heavyDogs } from '../lib/dogProfile';
 import { dogSize } from '../lib/eligibility';
 import { useStoreHydrated } from '../providers/storeHydration';
 import { useAppStore, useDog } from '../store/useAppStore';
@@ -86,6 +86,8 @@ export function DogProfilePage() {
   const [sizeOverride, setSizeOverride] = useState<TDogSize | undefined>(undefined);
   /** 저장을 눌렀을 때 잡힌 행 에러. 입력을 고치면 `liveRowError` 가 대신한다. */
   const [submitErrors, setSubmitErrors] = useState<TDogRowError[] | null>(null);
+  /** 저장을 눌렀을 때 몸무게가 너무 커 한 번 되물은 강아지들(12 U3.6). 입력을 고치면 사라진다. */
+  const [heavyAsk, setHeavyAsk] = useState<TDogEntry[] | null>(null);
 
   /**
    * 하이드레이션이 끝난 시점의 dog 로 폼을 한 번만 채운다. 이펙트 대신 "렌더 중 상태 조정"
@@ -110,10 +112,16 @@ export function DogProfilePage() {
   const updateRows = (next: (prev: TDogRowDraft[]) => TDogRowDraft[]) => {
     setRows(next);
     setSubmitErrors(null);
+    setHeavyAsk(null);
   };
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
+    save(false);
+  };
+
+  /** `heavyConfirmed` — 이상하리만큼 큰 몸무게를 되물었고 "맞아요" 를 눌렀다. */
+  const save = (heavyConfirmed: boolean) => {
 
     const errors = rows.map(submitRowError);
     const rowsInvalid = errors.some(hasRowError);
@@ -127,6 +135,11 @@ export function DogProfilePage() {
     if (rowsInvalid) return;
 
     const dogs = parseValidDogs(rows);
+    // 형식은 맞지만 "7.0" → "70" 같은 오타일 수 있다 — 막지 않고 한 번만 묻는다.
+    if (!heavyConfirmed && heavyDogs(dogs).length > 0) {
+      setHeavyAsk(heavyDogs(dogs));
+      return;
+    }
     setDog({ dogs, carrier, sizeOverride });
 
     /*
@@ -213,6 +226,24 @@ export function DogProfilePage() {
             <DogProfileSizeOverride computedSize={computedSize} value={sizeOverride} onChange={setSizeOverride} />
 
             <div className="space-y-3 pt-2">
+              {heavyAsk && (
+                <div role="alert" className="rounded-2xl border border-secondary bg-primary p-4">
+                  <p className="text-sm font-semibold text-primary">
+                    {heavyAsk.map((d) => `${d.name} ${d.weightKg}kg`).join(' · ')} 이(가) 맞나요?
+                  </p>
+                  <p className="mt-1 text-sm text-tertiary">
+                    {HEAVY_DOG_CONFIRM_KG}kg 이 넘으면 대형견 기준으로 판정해요. 소수점을 빼고 쓰지 않았는지 확인해 주세요.
+                  </p>
+                  <div className="mt-3 flex gap-2">
+                    <Button type="button" size="sm" color="primary" className="h-11" onClick={() => save(true)}>
+                      맞아요, 저장
+                    </Button>
+                    <Button type="button" size="sm" color="secondary" className="h-11" onClick={() => setHeavyAsk(null)}>
+                      다시 볼게요
+                    </Button>
+                  </div>
+                </div>
+              )}
               <Button type="submit" size="lg" className="w-full">
                 저장
               </Button>
