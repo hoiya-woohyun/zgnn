@@ -1,6 +1,7 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-10-06 (v44: **추출 정확도 평가** — 시드 86곳은 사람이 같은 블로그 글을 읽고 적은 값이라, 그 글을 운영 추출에 다시 넣어 채점한다(`pnpm data:eval`, [features/extraction-eval](../features/extraction-eval.md)). 정답은 `data/golden/seed-extract.json` 에 얼리고, 지표는 칸 일치율보다 **판정 뒤집힘**. golden 은 정규식이 사람 문장을 읽은 값이라 틀릴 수 있어 사람이 `review` 로 보정한다)
+> 최종 수정: 2026-10-06 (v45: **실행마다 `pipeline_runs` 한 행** — collect·analyze·apply·`data:review approve|reject` 가 시작에 insert, 끝에 상태·stats·분류 문구를 남긴다(analyze 는 그 사이 심장). 기록 실패는 경고 한 줄뿐이고 작업은 그대로 돈다. 콘솔 요약 줄은 `src/lib/runSummary.ts` 로 옮겨 화면과 같은 함수를 쓴다 — 그래서 `data:collect`·`data:analyze`·`data:apply` 도 `--experimental-strip-types` 로 돈다([ADR-023](../decisions/ADR-023-ops-dashboard-and-run-log.md), [todo/15](../todo/15-ops-dashboard.md) T2))
+> 이전 2026-10-06 (v44: **추출 정확도 평가** — 시드 86곳은 사람이 같은 블로그 글을 읽고 적은 값이라, 그 글을 운영 추출에 다시 넣어 채점한다(`pnpm data:eval`, [features/extraction-eval](../features/extraction-eval.md)). 정답은 `data/golden/seed-extract.json` 에 얼리고, 지표는 칸 일치율보다 **판정 뒤집힘**. golden 은 정규식이 사람 문장을 읽은 값이라 틀릴 수 있어 사람이 `review` 로 보정한다)
 > 이전 2026-10-06 (v43: **업종은 종류와 맞을 때만 싣는다** — 네이버 업종과 종류(시드·AI)는 출처가 달라 어긋난다(식당 '정체불명' 의 `카페,디저트`). 종류가 이기고 맞지 않는 업종은 바꿔 적지 않고 **버린다**(`scripts/lib/placeCategory.mjs`). 분석은 버린 원래 값을 `extracted.categoryNaver` 로 남기고, 승인 반영(채우기·덮어쓰기·신규)도 최종 종류로 한 번 더 거른다 — 규칙 전에 쌓인 후보 때문. 화면(`categoryLabel`)도 같은 규칙이라 이미 들어간 시드 행은 종류 이름으로 보인다(12 U3.6))
 > 이전 2026-10-04 (v42: **이름은 안 맞는데 같은 자리 · 독립 글 · 이름 속 지명** — ① "본카페" ↔ "애월본카페" 는 이름 키가 '본'(1자)·'애월본' 이라 부분 일치도 지점 꼬리도 못 잡았지만 주소는 표기만 같다(`sameSpot` — 주소 'same', 두 좌표가 다 있으면 100m 안). 신규 후보끼리는 키를 물려받아 한 줄로 서고(`newSiblingOf`, 이미 쌓인 후보는 화면이 묶는다 — `mergeSameSpotGroups`), **기존 장소와 같은 자리면 '확인'(0.5)에 고정**한다(`matchPlace` 의 둘째 예외 — 가점을 얹지 않는다: 같은 건물의 다른 가게도 같은 주소라 자동 병합까지 가면 안 된다). 주소 대조 규칙은 분석(plain node)도 쓰게 되어 `scripts/lib/addressMatch.mjs` 로 옮겼다 ② **독립 글** — 같은 블로그이거나 같은 제목 틀(가게 이름을 뺀 제목이 이어진 10자 이상 같고 3일 안)인 글은 하나로 센다(`postClusters`). 이틀 사이 "제주공항 근처 애견동반식당 …" 틀의 글 5건이 검수 순서 앞자리와 "근거 글 둘 이상" 을 통과했다. 검수 순서·완화 제안이 이 수로 센다 ③ 주소·AI 둘 다 지역을 못 정하면 **이름의 지점 꼬리**의 지명으로("…월정리점" → 구좌읍, `regionFromBranchName`). 지명 → 읍·면 → 방향의 정본 표는 `scripts/lib/jejuRegions.mjs` 하나다(안덕면은 남쪽 — 추출 프롬프트와 같다))
 > 이전 2026-10-04 (v41: **첫 114건 실측에서 나온 대조 규칙 둘** — ① 상호 검색은 AI 가 읽은 지역(읍·면, 없으면 시)과 **다른 지역의 동명 가게를 받지 않는다**(`pickNaverPlace`, 탈락 사유 `지역불일치`). 맞는 것이 없으면 첫 결과로 물러서던 길로 애월읍 글 2건에 서귀포 좌표가 붙었다 — 이제 원글 주소 → 좌표 축으로 물러선다. ② **지점 표기만 다른 이름**("성산점" ↔ "제주성산점")은 이름 점수가 0 이어도 좌표가 100m 안이면 부분 일치(0.7)로 친다(`sameBranchStem`). 좌표 조건이 없으면 체인의 다른 지점이 합쳐진다 — `normalizeName` 에 넣지 않은 이유 그대로다. 신규 후보끼리도 같은 규칙으로 `dupOf` 를 붙이고 먼저 난 쪽의 `nameKey` 를 물려준다(검수 묶음이 그 키로 묶인다). "본카페" ↔ "애월본카페" 처럼 지점 꼬리가 없는 쌍은 여전히 두 줄이다 — v42 가 주소로 닫았다)
@@ -347,6 +348,32 @@ flowchart LR
 두 경로가 다른 이유는 [ADR-018 §4](../decisions/ADR-018-in-app-admin-review.md) 에 있다 — `draft` 단계는 "사람이 한 번 더 본다" 는 뜻이었고,
 `/admin` 에서는 그 한 번이 버튼 누르기 직전에 이미 일어난다. CLI 는 그 눈이 없으므로 `draft` 를 유지한다.
 기존 장소에 병합하는 경우는 양쪽 다 `status` 를 건드리지 않는다 — 단 `/admin` 은 대상이 `draft` 면 그때 `published` 로 올린다.
+
+## 실행 기록 — 실행마다 `pipeline_runs` 한 행
+
+쓰기 스크립트 넷(`data:collect` · `data:analyze` · `data:apply` · `data:review approve|reject`)은 실행마다 `pipeline_runs`(마이그레이션 `20261006120000`)에
+한 행을 남긴다 — 시작에 `running`, 끝에 `ok`·`partial`·`failed` + `stats` + `error`. 같은 운영자 세션으로 쓰므로 키·출처가 늘지 않는다. 읽는 쪽은 운영 현황
+화면(`/admin/ops`, [todo/15](../todo/15-ops-dashboard.md) T3 — 아직 없다)과 rpc `ops_overview()`. 결정은 [ADR-023](../decisions/ADR-023-ops-dashboard-and-run-log.md).
+
+비직관적인 것:
+
+- **기록은 본업을 막지 않는다.** `scripts/lib/runLog.mjs` 는 어떤 실패도 던지지 않는다 — insert 가 안 되면(표가 없다 · 세션 만료 · 네트워크)
+  `⚠️ 실행 기록 못 남김: …` 한 줄을 찍고 빈 핸들로 계속 간다. 그래서 `pipeline_runs` 는 analyze 의 시작 점검(컬럼·마이그레이션 사전 검사)에 **넣지 않는다**.
+  닫기(`end`)가 실패하면 행이 `running` 으로 남아 화면에 "중단된 듯" 으로 보인다 — 콘솔에 `기록 못 닫음 — 화면에 중단된 듯으로 보일 수 있어요` 한 줄.
+- **시작 기록은 사전 점검이 다 지난 뒤다.** 키·컬럼·places 비어 있음 같은 점검의 `process.exit(1)` 은 "돌지 않은 것" 인데, 그 앞에서 행을 열면
+  `process.on('exit')` 안에선 await 를 못 써 닫을 수 없어 전부 거짓 "중단된 듯" 이 된다. 같은 이유로 `runLock` 에 막힌 analyze · `--dry-run` 은 남기지 않는다.
+- **심장(`heartbeat_at`)은 analyze 만 찍는다** — 글마다·"분석 불가" 닫기·제안 루프에서 `tick()`, 실제 쓰기는 60초에 한 번. 죽은 프로세스는 `running` 인데
+  심장이 멎은 행으로 드러난다(화면 판정은 10분). analyze 에는 SIGINT 핸들러가 없다 — `claude -p` 자식도 같은 신호를 받아서, 끝내지 않는 핸들러를 두면 루프가 계속 돈다.
+  collect 는 Ctrl-C 를 `중단(SIGINT)` 으로 닫고(3초 상한) 130 으로 끝낸다.
+- **`error` 칸은 분류 문구 다섯뿐이다** — `Claude 인증 실패` · `네이버 검색 429` · `DB 쓰기 실패` · `중단(SIGINT)` · `알 수 없음`. 던지는 자리가
+  `runError` 로 붙이고 `classifyRunError` 는 메시지를 읽지 않는다. 원문은 콘솔에만 — PostgREST details 에 `Key (…)=(값)` 꼴로 장소명이 섞이고, 이 칸은 Slack(T5)이 읽는다.
+  `args` 도 플래그 **이름**만(`--note` 의 문장 · `--dump` 경로 · `--merge-into` id 는 싣지 않는다).
+- **`stats` 는 콘솔 요약 줄의 입력 그대로다.** 스크립트가 한 객체를 `src/lib/runSummary.ts` 로 찍고 같은 객체를 `end()` 에 넘긴다 — 화면이 그 stats 로
+  터미널과 글자까지 같은 줄을 다시 만든다(`runSummary.test.ts` 가 옮기기 전 줄을 fixture 로 지킨다). 그래서 키 이름은 함수가 읽는 이름이다(analyze 는 `auto`·`ask`·`new` …).
+  analyze 는 여기에 패스별 Claude 계량기(`meters{extract,verify,propose}`) · 좌표 · 홈페이지 · `naverCalls` 를 더한다. 키 표의 정본은 [todo/15](../todo/15-ops-dashboard.md) T2.1.
+- **`naverCalls` 는 검색 API 요청 수다**(`scripts/lib/naverSearchApi.mjs` 의 프로세스 카운터 — 블로그·지역, 응답 전에 센다. 실패도 한 번). Geocoding 은 다른 쿼터라 안 센다.
+- **스크립트가 `src/lib` 의 `.ts` 를 읽는다**(`runSummary.ts` — import 없는 지울 수 있는 TS 만). 그래서 `data:collect`·`data:analyze`·`data:apply` 도
+  `data:review` 처럼 `node --experimental-strip-types` 로 돈다. `/admin` 번들에 들어가는 `.mjs`(`analyzeCandidates.mjs`)에는 `.ts` import 를 넣지 않는다.
 
 ## 추출 정확도 평가 — `pnpm data:eval`
 

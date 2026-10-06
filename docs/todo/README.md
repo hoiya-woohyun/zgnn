@@ -1,6 +1,7 @@
 # TODO — 블로그 수집 → AI 분석 → 승인 → DB → 자동 배포
 
-> 최종 수정: 2026-10-06 (v40: **주간 사용성 평가 1회차** — [14](14-weekly-ux-eval.md) 에 `W261006.1~17` + 기존 todo 로 보낸 11건. 6명 전원 조건부 재사용·평균 6.25. 가장 아픈 것은 **판정이 요금표·원문과 어긋나는 다섯 자리**(솔숲펜션 요금표 밖 '갈 수 있어요' 등)와 **저장 뒤 설정으로 떨어지는 흐름**(6/6, 닫힌 08 T3.3 과 충돌). 종합은 [reviews/ux-eval/2026-10-06](../reviews/ux-eval/2026-10-06/00-종합.md))
+> 최종 수정: 2026-10-06 (v41: [15](15-ops-dashboard.md) T1·T2 — 실행 기록 표·집계 rpc 원격 적용, 쓰기 스크립트가 실행마다 한 행을 남긴다. 화면(T3)은 기록이 한 주 쌓인 뒤)
+> 이전 2026-10-06 (v40: **주간 사용성 평가 1회차** — [14](14-weekly-ux-eval.md) 에 `W261006.1~17` + 기존 todo 로 보낸 11건. 6명 전원 조건부 재사용·평균 6.25. 가장 아픈 것은 **판정이 요금표·원문과 어긋나는 다섯 자리**(솔숲펜션 요금표 밖 '갈 수 있어요' 등)와 **저장 뒤 설정으로 떨어지는 흐름**(6/6, 닫힌 08 T3.3 과 충돌). 종합은 [reviews/ux-eval/2026-10-06](../reviews/ux-eval/2026-10-06/00-종합.md))
 > 이전 2026-10-06 (v39: **운영 현황 화면 [15](15-ops-dashboard.md) 신설(설계만)** — 수집·분석·반영 스크립트가 실행마다 `pipeline_runs` 한 행을 남기고,
 > `/admin/ops` 가 다섯 칸(수집→분석→검수→반영→재빌드)으로 "어디가 막혔나" 를 그리고, 실패는 DB 트리거가 Slack 으로 보낸다(Vault+pg_net, Deploy Hook 과 같은 모양). 결정은 [ADR-023](../decisions/ADR-023-ops-dashboard-and-run-log.md), pg_cron 은 계속 보류)
 > 이전 2026-10-06 (v38: **주간 사용성 평가 [14](14-weekly-ux-eval.md) 신설** — 월요일 시작 주마다 한 번 `/ux-eval` 로 페르소나 6명(Fable)이 앱을 써 보고,
@@ -123,7 +124,7 @@ flowchart LR
 | 12 | [12-ux-audit-2026-10-02.md](12-ux-audit-2026-10-02.md) | 계획만(2026-10-02, v2) — 태스크 22개 + 🧑 1 · 🙋 2, 전부 `[ ]` | 직접 띄워 본 화면 점검. 앱이 죽는 것(저장소 차단)·틀린 데이터(읍면)·검색·근처·되돌리기·새 버전 안내. [08](08-usability-and-process-plan.md) 규약 |
 | 13 | [13-ai-analysis-audit-2026-10-04.md](13-ai-analysis-audit-2026-10-04.md) | 코드 8건 완료(2026-10-04) — 남은 태스크 13개 + 🧑 1, 결정 A1~A6 은 권장안으로 닫음 | 운영자 자리에서 본 AI 분석 점검. 글 하나는 잘 읽고 **묶어서 믿는 일**을 못했다 — 재분석 · 확인일 없는 장소의 '조건 미기재' 판정 · 검수 화면 |
 | 14 | [14-weekly-ux-eval.md](14-weekly-ux-eval.md) | **1회차 완료**(2026-10-06) — W261006.1~17 전부 `[ ]`(17 은 스킬 수정 완료), ↪ 기존 11, 재현 필요 6 · 평균 6.25 | 매주 한 번 기획 문서를 안 본 페르소나 6명이 앱을 써 본 결과를 회차별 태스크로. 기존 07·08·10·11·12 와 겹치면 그 ID 를 가리킨다 |
-| 15 | [15-ops-dashboard.md](15-ops-dashboard.md) | 설계만(2026-10-06 신설) — 태스크 T1~T7 전부 `[ ]`, 🧑 2 · 🙋 5 | 파이프라인이 **돌고 있는지** 를 보는 `/admin/ops` — 스크립트가 남긴 `pipeline_runs` + 기존 표로 다섯 칸 건강 판정, 기간별 깔때기, 실행 기록, 사용량. 실패는 DB 가 Slack 으로. 결정은 [ADR-023](../decisions/ADR-023-ops-dashboard-and-run-log.md), 화면은 [features/ops-dashboard.md](../features/ops-dashboard.md) |
+| 15 | [15-ops-dashboard.md](15-ops-dashboard.md) | **T1·T2 구현**(2026-10-06) — `pipeline_runs`·`ops_overview()` 원격 적용, 쓰기 스크립트 넷이 실행 기록을 남긴다. 다음은 🧑 `data:collect`·`data:analyze` 실측 → 한 주 쌓인 뒤 T3 화면. T1.3·T5·T6(Slack) 보류 | 파이프라인이 **돌고 있는지** 를 보는 `/admin/ops` — 스크립트가 남긴 `pipeline_runs` + 기존 표로 다섯 칸 건강 판정, 기간별 깔때기, 실행 기록, 사용량. 실패는 DB 가 Slack 으로. 결정은 [ADR-023](../decisions/ADR-023-ops-dashboard-and-run-log.md), 화면은 [features/ops-dashboard.md](../features/ops-dashboard.md) |
 
 ## 이 계획이 서 있는 결정 — [ADR-015](../decisions/ADR-015-supabase-source-and-rebuild.md)
 

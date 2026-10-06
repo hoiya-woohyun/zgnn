@@ -1,6 +1,6 @@
 # 15. 운영 현황 화면 — 파이프라인이 돌고 있는지를 `/admin/ops` 에서 보고, 실패는 Slack 으로 받는다
 
-> 최종 수정: 2026-10-06 (v2: T1.1·T1.2 구현 — 마이그레이션 `20261006120000_pipeline_runs` 원격 적용·롤백 실측. T1.3 은 T5·T6 와 함께로 미룸)
+> 최종 수정: 2026-10-06 (v2: T1.1·T1.2·T2 구현 — 마이그레이션 `20261006120000_pipeline_runs` 원격 적용·롤백 실측, 쓰기 스크립트 넷이 실행 기록을 남기고 요약 줄은 `src/lib/runSummary.ts` 하나. T1.3 은 T5·T6 와 함께로 미룸. T2 의 수용 기준 실측은 🧑 터미널 몫이라 아직. stats 표를 구현에 맞춰 고쳤다)
 > 이전 2026-10-06 (v1: 신설 — 설계·UI/UX·태스크. 코드 없음. 결정은 [ADR-023](../decisions/ADR-023-ops-dashboard-and-run-log.md), 화면은 [features/ops-dashboard.md](../features/ops-dashboard.md))
 
 **한 줄:** 수집·분석·반영 스크립트가 실행마다 `pipeline_runs` 한 행을 남기고, `/admin/ops` 가 그 행과 기존 표로 "어디가 막혔나" 다섯 칸을 그리고, 실패는 DB 트리거가 Slack 으로 보낸다. 지금은 **`rebuild_log` 하나 빼고 아무 기록도 없다** — "지난주에 수집 돌렸던가" 의 답이 터미널 스크롤백뿐이다.
@@ -69,8 +69,10 @@ T7 pg_cron(보류) 은 T2 로 한 달쯤 쌓인 뒤
   ✅ 2026-10-06 구현 — 시작은 places 비어 있음 검사 뒤, 후보마다 `tick`. stats 에 `patchedPublished` 를 더했다(콘솔 줄이 원래 따로 말한다). ⏳ 실측은 🧑(`data:apply` — 승인된 후보가 있을 때).
 - [x] **T2.5 `review-candidates.mjs approve|reject`** — `script:'approve'|'reject'`, `stats:{requested, done, failed}`. `list`·`status` 는 기록 안 함(읽기).
   ✅ 2026-10-06 구현 — 대상이 정해진 뒤 시작(못 찾음 exit 1 · 대상 없음 exit 0 은 기록 안 함). 상태: 실패 0 → ok · 성공 0 → failed · 섞이면 partial, 실패가 있으면 `DB 쓰기 실패`. args 는 플래그 이름만(`--note` 의 문장은 싣지 않는다).
-- [ ] **T2.6 문서** — [architecture/data-pipeline.md](../architecture/data-pipeline.md) 에 "실행마다 `pipeline_runs` 한 행" 절, 각 스크립트 `--help`/머리 주석에 한 줄.
-- [ ] **T2.7 네이버 호출 카운터** — 지금 코드에 `naverCalls` 는 **없다**. `scripts/lib/naverBlog.mjs`(수집)와 `scripts/analyze` 의 상호·지역 검색 호출 자리에 카운터 하나(모듈 수준 `let`, `readNaverCalls()`), `collect`·`analyze` 의 `stats.naverCalls` 로 싣는다. 이게 없으면 ④ 사용량의 네이버 칸을 뺀다(🙋 표 참조).
+- [x] **T2.6 문서** — [architecture/data-pipeline.md](../architecture/data-pipeline.md) 에 "실행마다 `pipeline_runs` 한 행" 절, 각 스크립트 `--help`/머리 주석에 한 줄.
+  ✅ 2026-10-06 data-pipeline v45 「실행 기록」 절 · 네 스크립트 머리 주석 한 줄씩 · CLAUDE.md 길잡이 표 한 줄.
+- [x] **T2.7 네이버 호출 카운터** — 지금 코드에 `naverCalls` 는 **없다**. `scripts/lib/naverBlog.mjs`(수집)와 `scripts/analyze` 의 상호·지역 검색 호출 자리에 카운터 하나(모듈 수준 `let`, `readNaverCalls()`), `collect`·`analyze` 의 `stats.naverCalls` 로 싣는다. 이게 없으면 ④ 사용량의 네이버 칸을 뺀다(🙋 표 참조).
+  ✅ 2026-10-06 — 카운터는 `scripts/lib/naverSearchApi.mjs`(검색 API 규격 한 자리 — 블로그·지역이 둘 다 이걸 쓴다)에 `countNaverCall()`·`readNaverCalls()`. 블로그 검색의 fetch 는 `naverBlog.mjs`(순수 함수)가 아니라 `collect-blog.mjs` 의 `searchBlog` 에 있다. fetch **앞에서** 센다(실패 응답도 쿼터를 깎는다). Geocoding 은 다른 쿼터라 세지 않는다. 🙋 권장안(넣는다)대로.
 
 ### T3. 화면 — `/admin/ops`
 
