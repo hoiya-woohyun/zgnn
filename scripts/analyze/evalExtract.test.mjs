@@ -5,22 +5,16 @@ import places from '../../src/data/places.json' with { type: 'json' };
 import {
   buildGoldenEntry,
   classifyField,
-  compareVariants,
   diffSummaries,
   findPredicted,
-  formatComparison,
   formatReport,
   formatSummary,
   groundedFields,
-  groundlessRecovery,
-  parseEvalArgs,
   parseReviewUrl,
   parserDrift,
   predictedPolicy,
   scoreEntry,
-  selectTargets,
   summarize,
-  variantTag,
 } from './evalExtract.mjs';
 
 const fns = { parsePetPolicy, withPolicyFacts, judgeEligibility };
@@ -281,103 +275,5 @@ describe('scoreEntry — 근거없음', () => {
     expect(s.verdictFlips.places).toBe(flipped ? 1 : 0);
     expect(s.verdictFlips.sourceOnly).toBe(flipped && diff.every((f) => f.outcome === '근거없음') ? 1 : 0);
     expect(s.verdictFlips.groundedBasis).toBe(s.verdictFlips.places - s.verdictFlips.sourceOnly);
-  });
-});
-
-describe('parseEvalArgs — pnpm data:eval 인자', () => {
-  it('기본값 — 텍스트만, 상한 없음, 사진 8장', () => {
-    expect(parseEvalArgs(['extract'])).toMatchObject({ command: 'extract', images: false, maxImages: 8, limit: Infinity, only: [], prompt: null });
-  });
-
-  it('--images · --max-images(사진을 같이 켠다) · --limit · --only 여럿', () => {
-    expect(parseEvalArgs(['extract', '--images', '--limit', '2', '--only', '웨스티하우스', '쉼멍스테이'])).toMatchObject({
-      images: true, maxImages: 8, limit: 2, only: ['웨스티하우스', '쉼멍스테이'],
-    });
-    expect(parseEvalArgs(['score', '--max-images', '4'])).toMatchObject({ images: true, maxImages: 4 });
-    expect(parseEvalArgs(['extract'], { defaultMaxImages: 6 }).maxImages).toBe(6);
-  });
-
-  it('compare 는 늘 사진 쪽을 본다', () => {
-    expect(parseEvalArgs(['compare', '--prompt', 'abc'])).toMatchObject({ command: 'compare', images: true, prompt: 'abc' });
-  });
-
-  it('잘못된 인자는 던진다', () => {
-    expect(() => parseEvalArgs(['nope'])).toThrow(/모르는 명령/);
-    expect(() => parseEvalArgs(['extract', '--max-images', '0'])).toThrow(/1 이상/);
-    expect(() => parseEvalArgs(['extract', '--limit', 'x'])).toThrow(/1 이상/);
-    expect(() => parseEvalArgs(['extract', '--only'])).toThrow(/--only/);
-    expect(() => parseEvalArgs(['extract', '--wat'])).toThrow(/모르는 인자/);
-  });
-
-  it('selectTargets — --only 는 placeId · 이름 · logNo(캐시 파일 이름) 어느 것이든', () => {
-    const es = [{ placeId: 'p1', name: '가', logNo: '111' }, { placeId: 'p2', name: '나', logNo: '222' }, { placeId: 'p3', name: '다', logNo: '333' }];
-    expect(selectTargets(es, []).length).toBe(3);
-    expect(selectTargets(es, ['p1', '나', '333']).map((e) => e.placeId)).toEqual(['p1', 'p2', 'p3']);
-    expect(selectTargets(es, ['999'])).toEqual([]);
-  });
-
-  it('variantTag — 캐시 폴더 가운데 이름', () => {
-    expect(variantTag({ images: false, maxImages: 8 })).toBe('');
-    expect(variantTag({ images: true, maxImages: 8 })).toBe('img8');
-  });
-});
-
-describe('사진 실험 — 회수 · 지어냄 · 토큰 비교', () => {
-  const entry = () => buildGoldenEntry(seed({ petPolicyText: '10kg 이하 2마리까지 가능' }), parsePetPolicy);
-  const body = '사진으로 안내합니다';
-  const textOnly = { places: [aiPlace({ petPolicyText: '소형견 동반 가능', petPolicy: facts() })] };
-  const withPhoto = { places: [aiPlace({ petPolicyText: '10kg 이하 2마리까지 가능\n리드줄 필수', petPolicy: facts({ weightLimitKg: 10, maxDogs: 2, leash: true }) })] };
-  const usage = (input, output) => ({ calls: 1, input, output, cacheRead: 0, cacheWrite: 0 });
-
-  it('groundlessRecovery — 글에 근거 없던 사람 칸 중 AI 가 맞힌 수', () => {
-    expect(groundlessRecovery(scoreEntry(entry(), textOnly, fns, body))).toEqual({ ungrounded: 2, recovered: 0 });
-    expect(groundlessRecovery(scoreEntry(entry(), withPhoto, fns, body))).toEqual({ ungrounded: 2, recovered: 2 });
-    expect(groundlessRecovery({ status: 'notFound' })).toEqual({ ungrounded: 0, recovered: 0 });
-  });
-
-  it("review 'ai' 로 일치가 된 칸은 회수로 세지 않는다", () => {
-    const e = { ...entry(), review: { weightLimitKg: { verdict: 'ai' } } };
-    expect(groundlessRecovery(scoreEntry(e, textOnly, fns, body))).toEqual({ ungrounded: 2, recovered: 0 });
-  });
-
-  it('compareVariants — 같은 글끼리, 사진 쪽에만 생긴 지어냄과 토큰을 같이', () => {
-    const t = [{ ...scoreEntry(entry(), textOnly, fns, body), usage: usage(1000, 300), costUsd: 0.01 }, { ...scoreEntry({ ...entry(), placeId: 'p2' }, null, fns), usage: null }];
-    const i = [
-      { ...scoreEntry(entry(), withPhoto, fns, body), usage: usage(9000, 400), costUsd: 0.05, imagesSent: 3, addendumVersion: 'v1' },
-      { ...scoreEntry({ ...entry(), placeId: 'p2' }, textOnly, fns, body), usage: usage(1, 1), imagesSent: 0 },
-    ];
-    const c = compareVariants(t, i, { promptVersion: 'abc', model: 'm', maxImages: 8 });
-    // p2 는 텍스트 쪽 추출이 없어 빠진다.
-    expect(c.n).toBe(1);
-    expect(c.text).toMatchObject({ ungrounded: 2, recovered: 0, invented: 0, tokens: { known: 1, input: 1000, output: 300, costUsd: 0.01 } });
-    expect(c.img).toMatchObject({ ungrounded: 2, recovered: 2, invented: 1, tokens: { known: 1, input: 9000, output: 400, costUsd: 0.05 } });
-    expect(c.newlyInvented).toEqual([{ name: '솔숲펜션', field: 'leash', predicted: true, aiText: '10kg 이하 2마리까지 가능\n리드줄 필수' }]);
-    expect(c.posts[0]).toMatchObject({ imagesSent: 3, text: { recovered: 0 }, img: { recovered: 2, tokens: { input: 9000, output: 400 } } });
-    expect(c.fellBack).toEqual([]);
-
-    const lines = formatComparison(c).join('\n');
-    expect(lines).toContain('회수): 텍스트 0/2 → 사진 2/2');
-    expect(lines).toContain('지어냄(칸 합): 텍스트 0 → 사진 1');
-    expect(lines).toContain('1쌍 기준): 텍스트 1000/300 → 사진 9000/400');
-    expect(lines).toContain('leash = true');
-  });
-
-  it('토큰·비용은 양쪽 다 기록된 글로만 센다 — 한쪽만 있으면 양쪽에서 다 뺀다', () => {
-    const a = scoreEntry(entry(), textOnly, fns, body);
-    const b = scoreEntry({ ...entry(), placeId: 'p2' }, textOnly, fns, body);
-    const t = [{ ...a, usage: usage(1000, 100), costUsd: 0.01 }, { ...b, usage: null, costUsd: null }];
-    const i = [{ ...a, usage: usage(5000, 100), costUsd: 0.04, imagesSent: 2 }, { ...b, usage: usage(7000, 100), costUsd: 0.06, imagesSent: 2 }];
-    const c = compareVariants(t, i);
-    expect(c.n).toBe(2);
-    expect(c.text.tokens).toEqual({ known: 1, input: 1000, output: 100, costUsd: 0.01 });
-    expect(c.img.tokens).toEqual({ known: 1, input: 5000, output: 100, costUsd: 0.04 });
-    expect(formatComparison(c).join('\n')).toContain('2곳 중 1쌍만');
-  });
-
-  it('사진을 못 받아 텍스트로 부른 글은 짚는다', () => {
-    const r = { ...scoreEntry(entry(), textOnly, fns, body) };
-    const c = compareVariants([r], [{ ...r, imagesSent: 0 }]);
-    expect(c.fellBack).toEqual(['솔숲펜션']);
-    expect(formatComparison(c).join('\n')).toContain('텍스트로만 부른 글 1곳');
   });
 });
