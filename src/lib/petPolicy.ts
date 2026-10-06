@@ -385,6 +385,15 @@ export const parsePetPolicy = (petPolicyText: string): TPetPolicy => {
     feeLines,
     sources,
   };
+  // "정보 없음 … 대형견도 동반 가능!!"(맘앤도그) — 조건이 한 줄이라도 읽혔으면 그 줄이 조건이다(14 W261006.3). 전엔 '확인된 정보가 없어요'
+  // 판정 옆에 '대형견 OK' 칩이 같이 떠 서로 반대 말을 했다. 남은 "정보 없음 (문의해 보세요)" 는 작성자의 '물어보고 가라' 라서 C6(전화 확인)으로 읽는다.
+  // 전화 확인만 있는 원문("정보 없음. 전화 문의")은 조건을 읽은 게 아니라 여전히 정보 없음이다.
+  if (policy.noInfo && text.trim() !== '' && !readNothing({ ...policy, noInfo: false, callFirst: false })) {
+    policy.noInfo = false;
+    policy.callFirst = true;
+    sources.callFirst ??= sources.noInfo;
+    delete sources.noInfo;
+  }
   const nothing = text.trim() !== '' && readNothing(policy);
   const generic = sentences.every(isGenericAllowance);
   policy.unread = nothing && !generic;

@@ -11,8 +11,9 @@ const DAEJANG_AND_CHOCO: TDogProfile = {
 };
 
 describe('countByLevel', () => {
-  it('숙소 × 대형 2마리 — 가능 4 · 확인 3 · 정보 없음 5 · 어려움 14 (리뷰 §2 표)', () => {
-    expect(countByLevel(placesOfType('stay'), DAEJANG_AND_CHOCO)).toEqual({ ok: 4, cond: 3, unknown: 5, hard: 14 });
+  // 리뷰 §2 표는 확인 3 · 정보 없음 5 였다 — 맘앤도그("정보 없음 … 대형견도 동반 가능!!")가 정보 없음 → 확인으로 옮겼다(14 W261006.3).
+  it('숙소 × 대형 2마리 — 가능 4 · 확인 4 · 정보 없음 4 · 어려움 14', () => {
+    expect(countByLevel(placesOfType('stay'), DAEJANG_AND_CHOCO)).toEqual({ ok: 4, cond: 4, unknown: 4, hard: 14 });
   });
 
   it('레벨 합은 곳 수와 같다', () => {

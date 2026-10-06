@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { carrierSummary, compareEligibility, dogSize, headlineFor, judgeEligibility, primaryReason, verdictFor } from './eligibility';
-import { parsePetPolicy, withPolicyFacts, withVerifiedAt } from './petPolicy';
+import { NO_INFO_BADGE_LABEL, parsePetPolicy, toPetBadges, withPolicyFacts, withVerifiedAt } from './petPolicy';
 import { PLACES } from './places';
 import type { TDogProfile, TPetPolicyFacts } from '../types';
 
@@ -109,14 +109,23 @@ describe('judgeEligibility — 실내 케이지 · 실외 자유("무거버거")
   });
 });
 
-describe('judgeEligibility — 정보 없음 + 힌트("맘앤도그")', () => {
-  it('정보 없음이지만 대형견 가능 문구가 info 로 남는다', () => {
-    const place = findPlace('맘앤도그');
-    const result = judgeEligibility(KONG, place.policy);
-    expect(result.level).toBe('unknown');
-    expect(result.reasons.some((r) => r.level === 'unknown')).toBe(true);
-    const hint = result.reasons.find((r) => r.level === 'info' && r.text.includes('대형견'));
-    expect(hint).toBeDefined();
+describe('judgeEligibility — 정보 없음 + 조건 한 줄("맘앤도그", 14 W261006.3)', () => {
+  it('읽힌 조건이 있으면 정보 없음이 아니다 — 대형견 OK 와 전화 확인(cond)', () => {
+    const policy = findPlace('맘앤도그').policy;
+    expect(policy.noInfo).toBe(false);
+    expect(policy.largeDogOk).toBe(true);
+    expect(policy.callFirst).toBe(true);
+    const result = judgeEligibility(KONG, policy);
+    expect(result.level).toBe('cond');
+    expect(result.reasons.map((r) => r.rule)).toEqual(['C6']);
+    const labels = toPetBadges(policy).map((b) => b.label);
+    expect(labels).toContain('대형견 OK');
+    expect(labels).not.toContain(NO_INFO_BADGE_LABEL);
+  });
+
+  it('조건 없이 "정보 없음 · 전화 문의" 뿐이면 그대로 정보 없음', () => {
+    expect(judgeEligibility(KONG, parsePetPolicy('정보 없음. 전화 문의 주세요.')).level).toBe('unknown');
+    expect(judgeEligibility(KONG, findPlace('제주애빛').policy).level).toBe('unknown');
   });
 });
 
@@ -354,8 +363,10 @@ describe('primaryReason — 목록 카드의 근거 한 줄', () => {
     expect(reason?.text).toBe('대장이(28kg)는 15kg 이하 조건을 넘어요');
   });
 
-  it('unknown + 원문 힌트 — "적혀 있지 않아요" 대신 힌트(맘앤도그)', () => {
-    const result = judgeEligibility(KONG, findPlace('맘앤도그').policy);
+  it('unknown + 원문 힌트 — "적혀 있지 않아요" 대신 힌트', () => {
+    const base = parsePetPolicy('정보 없음.');
+    const hinted = { ...base, largeDogOk: true, sources: { ...base.sources, largeDogOk: '대형견도 동반 가능!!' } };
+    const result = judgeEligibility(KONG, hinted);
     expect(result.level).toBe('unknown');
     const reason = primaryReason(result);
     expect(reason?.level).toBe('info');
