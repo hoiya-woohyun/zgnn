@@ -9,10 +9,8 @@
 //
 // 어느 쪽이 맞는지는 판정하지 않는다 — 이름의 지명('위미' 는 남원)이 주소가 틀렸다는 단서일 때도 있다(검색이 동명의 다른 가게를 집은 것, ADR-019).
 
-/** 시내(동 단위) 주소를 읍면 자리에 쓰는 표기 — 시드에 `서귀포`·`서귀포시` 가 섞여 있다. */
-const CITY_ALIASES = { 서귀포: '서귀포시', 제주: '제주시' };
-
-const canonicalTown = (town) => CITY_ALIASES[town] ?? town ?? null;
+// 시를 읍면 자리에 쓴 표기(`서귀포`)는 정본 표(`jejuRegions.mjs`) 하나로 접는다 — 별칭 표를 여기 따로 두지 않는다.
+import { canonicalTown } from './jejuRegions.mjs';
 
 /**
  * 주소의 읍면. 읍·면이 없는 시내 주소는 시(`제주시`·`서귀포시`). 못 읽으면 null.

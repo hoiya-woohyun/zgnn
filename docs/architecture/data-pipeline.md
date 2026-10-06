@@ -1,6 +1,7 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-10-06 (v46: 심장을 **쓰기 스크립트 넷 모두** 찍는다 — collect(페이지마다)·`data:review`(행마다)가 빠져 있어 10분 넘게 도는 실행이 살아 있어도 운영 현황에 "중단된 듯" 으로 떴다)
+> 최종 수정: 2026-10-06 (v47: **읍면은 읽을 때 정본으로 접는다** — `parseRegion` 이 `서귀포`→`서귀포시` 를 한다(07 U8). 어느 쓰기 길도 저장 값을 고치지 않아, 시드의 `남쪽 (서귀포)` 1행은 손으로 고쳐야 했다)
+> 이전 2026-10-06 (v46: 심장을 **쓰기 스크립트 넷 모두** 찍는다 — collect(페이지마다)·`data:review`(행마다)가 빠져 있어 10분 넘게 도는 실행이 살아 있어도 운영 현황에 "중단된 듯" 으로 떴다)
 > 이전 2026-10-06 (v45: **실행마다 `pipeline_runs` 한 행** — collect·analyze·apply·`data:review approve|reject` 가 시작에 insert, 끝에 상태·stats·분류 문구를 남긴다(analyze 는 그 사이 심장). 기록 실패는 경고 한 줄뿐이고 작업은 그대로 돈다. 콘솔 요약 줄은 `src/lib/runSummary.ts` 로 옮겨 화면과 같은 함수를 쓴다 — 그래서 `data:collect`·`data:analyze`·`data:apply` 도 `--experimental-strip-types` 로 돈다([ADR-023](../decisions/ADR-023-ops-dashboard-and-run-log.md), [todo/15](../todo/15-ops-dashboard.md) T2))
 > 이전 2026-10-06 (v44: **추출 정확도 평가** — 시드 86곳은 사람이 같은 블로그 글을 읽고 적은 값이라, 그 글을 운영 추출에 다시 넣어 채점한다(`pnpm data:eval`, [features/extraction-eval](../features/extraction-eval.md)). 정답은 `data/golden/seed-extract.json` 에 얼리고, 지표는 칸 일치율보다 **판정 뒤집힘**. golden 은 정규식이 사람 문장을 읽은 값이라 틀릴 수 있어 사람이 `review` 로 보정한다)
 > 이전 2026-10-06 (v43: **업종은 종류와 맞을 때만 싣는다** — 네이버 업종과 종류(시드·AI)는 출처가 달라 어긋난다(식당 '정체불명' 의 `카페,디저트`). 종류가 이기고 맞지 않는 업종은 바꿔 적지 않고 **버린다**(`scripts/lib/placeCategory.mjs`). 분석은 버린 원래 값을 `extracted.categoryNaver` 로 남기고, 승인 반영(채우기·덮어쓰기·신규)도 최종 종류로 한 번 더 거른다 — 규칙 전에 쌓인 후보 때문. 화면(`categoryLabel`)도 같은 규칙이라 이미 들어간 시드 행은 종류 이름으로 보인다(12 U3.6))
@@ -204,6 +205,12 @@ Postgres 테이블엔 원래 순서 개념이 없는데, 화면은 "종류별 �
 읍면·방향(`TRegion`)·숙소 요금(`TStayPrice`) 변환 로직 자체는 그대로다. 다만 이제 그 함수는
 `scripts/lib/placeFields.mjs` 의 `parseRegion`·`parsePrice` 이고, 두 입구(Notion 재시드 / Supabase pull) 가
 공유한다.
+
+**읍면 표기는 쓰는 길이 아니라 읽는 길에서 하나로 접는다**(07 U8). 시를 읍면 자리에 쓴 `남쪽 (서귀포)` 는 `parseRegion` 이
+town `서귀포시` 로 읽는다(`jejuRegions.mjs` 의 `canonicalTown` — `regionCheck` 도 같은 표를 쓴다). 쓰는 길은 넷인데(시드 ·
+AI 분석 · 승인 · /admin 고치기) 저장 값을 고치는 곳은 하나도 없다 — AI 길이 깨끗한 것은 읍면을 **주소 토큰**에서 뽑기 때문이고,
+시드의 그 1행은 DB 에서 손으로 고쳤다. 네 길을 각각 막는 대신 모두가 지나는 `parseRegion`(시드·`pull-db`·대조·/admin) 한 곳에
+걸었다. `raw` 는 DB 값 그대로 둔다 — 정본이 아닌 값이 DB 에 남아도 사이트·검색(`CITY_TOWNS`)·읍면 칩에는 `서귀포시` 로 간다.
 
 ## 수집 · 분석 · 승인 (첫 실행 2026-09-28 — 글 50건 → 후보 160건, 네이버 키 없이)
 

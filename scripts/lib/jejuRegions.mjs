@@ -51,7 +51,7 @@ const TOWN_TOPONYMS = [
 /** 리·동 지명 → 읍·면(시). 삽입 순서가 곧 `TOWN_TOPONYMS` 의 순서다. */
 export const TOPONYM_TOWN = new Map(TOWN_TOPONYMS.flatMap(([town, names]) => names.map((name) => [name, town])));
 
-/** 시를 읍·면 자리에 쓴 비정규 표기 — 시드에 `서귀포`·`서귀포시` 가 섞여 있다(`regionCheck.mjs` 의 `CITY_ALIASES` 와 같은 값). */
+/** 시를 읍·면 자리에 쓴 비정규 표기 — 시드에 `서귀포`·`서귀포시` 가 섞여 있다. `parseRegion`·`regionCheck` 가 이 표 하나로 접는다(07 U8). */
 const TOWN_ALIASES = { 서귀포: '서귀포시', 제주: '제주시' };
 
 /** 읍·면 표기를 정본으로(`서귀포` → `서귀포시`). 모르면 그대로. */

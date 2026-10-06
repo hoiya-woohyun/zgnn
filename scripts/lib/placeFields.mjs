@@ -6,20 +6,28 @@
 //
 // 순수 모듈이다: 브라우저(src/lib/admin*)도 import 한다 — node 모듈을 다시 넣지 말 것(ADR-018). 그래서 writeDataJson 은 dataJson.mjs 로 뺐다.
 
+import { canonicalTown } from './jejuRegions.mjs';
+
 export const DIRECTION = { 동: 'east', 서: 'west', 남: 'south', 북: 'north' };
 
 export const clean = (s) => (s ?? '').split('\n').map((l) => l.trim()).filter(Boolean).join('\n');
 
-/** "동쪽 (구좌읍 세화)" → { direction:'east', town:'구좌읍', detail:'세화', raw } · "우도" → udo · 그 외 unknown */
+/**
+ * "동쪽 (구좌읍 세화)" → { direction:'east', town:'구좌읍', detail:'세화', raw } · "우도" → udo · 그 외 unknown
+ *
+ * 읍면은 여기서 정본으로 접는다(`남쪽 (서귀포)` → town `서귀포시`, 07 U8). 시드·`pull-db`·대조(`toMatchablePlace`)·/admin 이
+ * 전부 이 함수를 지나므로, DB 에 비정규 표기가 들어가도(시드 1행, Studio 에서 손으로 고친 `regionRaw`) 사이트까지 가지 않는다 —
+ * 안 접으면 '서귀포' 검색(`CITY_TOWNS`)과 읍면 칩에서 그 곳만 빠진다. `raw` 는 저장된 그대로 둔다(DB 와 같은 값이어야 한다).
+ */
 export function parseRegion(raw) {
   const s = (raw ?? '').trim();
   const m = s.match(/^(동|서|남|북)쪽\s*\((.+)\)$/);
   if (m) {
     const parts = m[2].trim().split(/\s+/);
-    return { direction: DIRECTION[m[1]], town: parts[0], detail: parts.slice(1).join(' ') || undefined, raw: s };
+    return { direction: DIRECTION[m[1]], town: canonicalTown(parts[0]), detail: parts.slice(1).join(' ') || undefined, raw: s };
   }
   if (s.startsWith('우도')) return { direction: 'udo', town: '우도면', raw: s };
-  return { direction: 'unknown', town: s, raw: s };
+  return { direction: 'unknown', town: canonicalTown(s), raw: s };
 }
 
 // "59,000원 ~ 79,000원", "230,000원 (3인)", "150,000원 ~ 200,000원\n(인스타 DM이 빨라요)"

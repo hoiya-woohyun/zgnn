@@ -101,3 +101,24 @@ describe('withReportFlags', () => {
     expect(withReportFlags(places, null)).toEqual(places);
   });
 });
+
+describe('parseRegion — 읍면 정본 (07 U8)', () => {
+  it('시를 읍면 자리에 쓴 표기(`남쪽 (서귀포)`)도 town 은 `서귀포시` — raw 는 저장된 그대로', async () => {
+    const { parseRegion } = await import('./placeFields.mjs');
+    expect(parseRegion('남쪽 (서귀포)')).toEqual({ direction: 'south', town: '서귀포시', detail: undefined, raw: '남쪽 (서귀포)' });
+    expect(parseRegion('북쪽 (제주 노형)')).toMatchObject({ town: '제주시', detail: '노형' });
+    expect(parseRegion('서귀포')).toMatchObject({ direction: 'unknown', town: '서귀포시' });
+  });
+
+  it('이미 정본이면 그대로, 빈 값은 빈 값', async () => {
+    const { parseRegion } = await import('./placeFields.mjs');
+    expect(parseRegion('남쪽 (서귀포시 월평로)')).toMatchObject({ town: '서귀포시', detail: '월평로' });
+    expect(parseRegion('동쪽 (구좌읍 세화)').town).toBe('구좌읍');
+    expect(parseRegion(null).town).toBe('');
+  });
+
+  it('DB 에서 읽는 길(fromPlaceRow)도 접힌다 — 사이트에 `서귀포` 가 가지 않는다', () => {
+    const place = fromPlaceRow({ id: 'x', name: 'x', type: 'stay', region_raw: '남쪽 (서귀포)' });
+    expect(place.region.town).toBe('서귀포시');
+  });
+});
