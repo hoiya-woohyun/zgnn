@@ -151,6 +151,10 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
   예: `dogProfileDogRows.tsx` → `DogProfileDogRows`.
 - `@/` 는 `src/` 다. 테스트는 Next 를 안 거치므로 `vitest.config.mts` 가 같은 경로를 다시 읽는다.
 - 로직은 `src/lib/` 에 순수 함수로 두고 단위 테스트를 붙인다(`pnpm test`).
+- **화면 결과를 볼 때는 Chrome 확장(`mcp__claude-in-chrome__*`)이 먼저다.** Playwright 보다 우선한다 — 사용자가 같은 창을 함께 보고,
+  로그인·localStorage 가 실제 브라우저 그대로다. 시작은 `claude-in-chrome` 스킬 → `tabs_context_mcp` → **새 탭**(사용자 탭을 재사용하지 않는다).
+  Playwright 는 Chrome 으로 안 되는 경우에만 쓴다: 확장이 연결 안 됨 · 병렬 서브에이전트(`/ux-eval` 의 페르소나 6명 — 한 브라우저를 나눠 쓸 수 없다) ·
+  기기 에뮬레이션·`setOffline`·응답 가로채기(route) 같은 스크립트 실측. 그때는 왜 Playwright 인지 한 줄 남긴다.
 
 ## 문서 갱신
 

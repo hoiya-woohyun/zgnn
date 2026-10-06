@@ -34,7 +34,7 @@ description: 대기열(docs/todo/NOW.md)의 맨 위 일을 묻지 않고 이어�
    - 시작할 때 한 줄: `▶ <제목> (<링크>)`.
    - 명세가 낡았으면(코드가 이미 그렇다·전제가 바뀌었다) 고치지 말고 명세에 `> 메모:` 로 사실을 적고 닫거나 다시 쓴다.
    - 구현은 CLAUDE.md 의 위임 규칙대로(여러 파일 → executor, 판단이 큰 설계 → opus). 프론트 편집 순서·owner-prefix·문서 갱신 정책을 지킨다.
-   - 검증: 관련 테스트 + `pnpm tsc --noEmit -p .`, 화면이 바뀌면 Playwright 로 한 번(개인 레포라 Chrome 도 된다).
+   - 검증: 관련 테스트 + `pnpm tsc --noEmit -p .`, 화면이 바뀌면 Chrome 확장으로 한 번(Playwright 는 확장이 안 될 때만 — CLAUDE.md 「작성 규칙」).
    - **줄 지우기** — 커밋 직전에 `node .claude/skills/next/claim.mjs done`. 잠금 안에서 NOW.md 의 내 줄을 지우고 선점을 푼다
      (완료 기록은 명세와 git 에 있다 — NOW 에 쌓지 않는다). Edit 로 지우지 않는다 — 다른 세션이 같은 파일을 동시에 고친다.
    - **커밋** — 경로를 지정해 `git add`(다른 세션의 변경을 섞지 않는다). 명세의 `[ ]` → `[x]` + `> 메모:` 한 줄, 그리고 `docs/todo/NOW.md` 를 같은 커밋에.
