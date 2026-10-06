@@ -241,6 +241,47 @@ const FEE_MIN_KG_RE = /(\d+)\s*kg\s*이상/;
 const FEE_RANGE_KG_RE = /\d+\s*~\s*(\d+)\s*kg/;
 
 /**
+ * 요금표가 몸무게 구간으로만 짜여 있을 때 그 표의 끝 kg("1~5kg · 6~10kg" → 10). 표가 위로 열려 있으면
+ * ("10kg 이상 4만원" · 무게 조건 없는 마리당 요금 · 구간 아닌 줄이 크기를 말함) 상한이 없는 것이라 undefined.
+ * 요금 구조(`feeRules`)가 있으면 그 칸으로, 없으면 원문 줄을 읽는다(`dogFee.ts` 와 같은 갈래).
+ */
+const feeTableTopKg = (policy: TPetPolicy): number | undefined => {
+  if (policy.feeRules) {
+    const perDog = policy.feeRules.filter((r) => r.basis === 'perDog');
+    const weighted = perDog.filter((r) => r.minKg !== null || r.maxKg !== null);
+    if (weighted.length === 0 || weighted.length < perDog.length) return undefined;
+    if (weighted.some((r) => r.maxKg === null)) return undefined;
+    return Math.max(...weighted.map((r) => r.maxKg as number));
+  }
+  const tops = policy.feeLines.flatMap((line) => {
+    const m = FEE_RANGE_KG_RE.exec(line);
+    return m ? [Number(m[1])] : [];
+  });
+  if (tops.length === 0) return undefined;
+  const opensUp = policy.feeLines.some(
+    (line) => !FEE_RANGE_KG_RE.test(line) && (FEE_MIN_KG_RE.test(line) || /kg|대형|중형|초과|이상/.test(line)),
+  );
+  return opensUp ? undefined : Math.max(...tops);
+};
+
+/**
+ * C10: 요금표가 몸무게 구간으로만 짜여 있고 우리 강아지가 그 끝을 넘는다(14 W261006.1, 솔숲펜션 "1~5kg · 6~10kg").
+ * 표에 없는 몸무게를 받는지 원문은 말하지 않는다 — 어려움은 아니지만 '갈 수 있어요' 도 아니다.
+ * 전엔 C5 안에만 있어서 대형견(25kg 초과)만 잡혔고, 12kg·20kg 은 요금 줄도 없이 '갈 수 있어요' 였다.
+ * 문구는 H1 처럼 **넘는 강아지만** 이름(몸무게)으로 적는다.
+ */
+const ruleWeightAboveFeeTable: TRule = (dog, policy) => {
+  if (policy.noInfo) return null;
+  const top = feeTableTopKg(policy);
+  if (top === undefined) return null;
+  const over = dog.dogs.filter((d) => d.weightKg > top);
+  if (over.length === 0) return null;
+  const labels = over.map((d) => `${dogCallName(d.name)}(${d.weightKg}kg)`);
+  const subject = over.length === 1 ? labels[0] : labels.join('·');
+  return { level: 'cond', text: `${top}kg 초과 요금이 적혀 있지 않아요 — ${subject}도 되는지 확인해 주세요` };
+};
+
+/**
  * C5: 대형견인데 원문에 대형견 가능 문구가 없다. 무게·마릿수 계단식 조건이 이미 있으면(tiers)
  * 그 조건이 실제 판정을 맡으므로 이 규칙은 물러난다. 케이지 필수 + 대형견 조합은 H4 가 이미
  * 담당하므로 같은 말을 두 번 하지 않는다.
@@ -249,7 +290,7 @@ const FEE_RANGE_KG_RE = /\d+\s*~\s*(\d+)\s*kg/;
  * - 정보 없음 — 원문에 조건 자체가 없는데 "대형견 언급" 을 꼬집으면 unknown 근거보다 먼저
  *   읽혀 엉뚱한 이유처럼 보였다. U1 이 말하게 물러난다.
  * - 요금 줄이 무게를 말함 — "10kg 이상 4만원" 이 있는데 "언급이 없다" 고 하면 원문과 반대다.
- *   구간 요금표("~10kg")만 있고 우리가 넘으면 "표가 N kg 까지만" 이라고 짚는다(07 U4, 솔숲펜션).
+ *   구간 요금표("~10kg")만 있고 우리가 넘으면 C10 이 크기와 무관하게 짚는다(07 U4 → 14 W261006.1, 솔숲펜션).
  */
 const ruleLargeDogUnmentioned: TRule = (dog, policy) => {
   if (policy.noInfo) return null;
@@ -268,14 +309,9 @@ const ruleLargeDogUnmentioned: TRule = (dog, policy) => {
     const n = Number((FEE_MIN_KG_RE.exec(minKgLine) as RegExpExecArray)[1]);
     return { level: 'cond', text: `${n}kg 이상 요금이 적혀 있어요 — ${weight}kg 도 되는지 확인해 주세요` };
   }
-  const rangeTops = policy.feeLines.flatMap((line) => {
-    const m = FEE_RANGE_KG_RE.exec(line);
-    return m ? [Number(m[1])] : [];
-  });
-  if (rangeTops.length > 0) {
-    const top = Math.max(...rangeTops);
-    if (weight > top) return { level: 'cond', text: `요금표가 ${top}kg 까지만 있어요 — 확인해 주세요` };
-  }
+  // 구간 요금표를 넘으면 C10 이 크기와 무관하게 "N kg 초과 요금" 으로 말한다 — 같은 말을 두 번 하지 않는다.
+  const top = feeTableTopKg(policy);
+  if (top !== undefined && weight > top) return null;
 
   return { level: 'cond', text: '대형견 언급이 없어요 — 확인해 주세요', quote: policy.sources.largeDogOk };
 };
@@ -345,6 +381,7 @@ const RULES: [string, TRule][] = [
   ['C3', ruleStrollerAtCagePlace],
   ['C4', ruleNoCarrierOutdoorFree],
   ['C5', ruleLargeDogUnmentioned],
+  ['C10', ruleWeightAboveFeeTable],
   ['C6', ruleCallFirst],
   ['C8', ruleVaccineRequired],
   ['C7', ruleUnread],

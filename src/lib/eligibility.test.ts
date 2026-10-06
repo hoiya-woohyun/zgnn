@@ -215,10 +215,53 @@ describe('judgeEligibility — C5 가 정보 없음·kg 요금 구간을 무시�
     expect(fromFacts.reasons.some((r) => r.rule === 'C5')).toBe(true);
   });
 
-  it('솔숲펜션 — 구간 요금표 상한을 넘으면 "10kg 까지만" (등급 cond)', () => {
+  it('솔숲펜션 — 구간 요금표 상한을 넘으면 C10 이 말하고 C5 는 물러난다(등급 cond)', () => {
     const result = judgeEligibility(BIG, findPlace('솔숲펜션').policy);
     expect(result.level).toBe('cond');
-    expect(result.reasons.some((r) => r.text.includes('10kg 까지만'))).toBe(true);
+    expect(result.reasons.map((r) => r.rule)).toContain('C10');
+    expect(result.reasons.map((r) => r.rule)).not.toContain('C5');
+  });
+});
+
+describe('judgeEligibility — C10 요금표 상한 밖 몸무게(14 W261006.1)', () => {
+  const dogOf = (...kgs: number[]): TDogProfile => ({
+    dogs: kgs.map((weightKg, i) => ({ name: ['콩이', '해피'][i], weightKg })),
+    carrier: 'none',
+  });
+  const solsup = () => findPlace('솔숲펜션').policy;
+
+  it.each([12, 20])('솔숲펜션 %ikg — 크기와 무관하게 "10kg 초과 요금" 으로 확인', (kg) => {
+    const result = judgeEligibility(dogOf(kg), solsup());
+    expect(result.level).toBe('cond');
+    const c10 = result.reasons.find((r) => r.rule === 'C10');
+    expect(c10?.text).toBe(`10kg 초과 요금이 적혀 있지 않아요 — 콩이(${kg}kg)도 되는지 확인해 주세요`);
+  });
+
+  it('표 안이면 걸리지 않는다(8kg → ok + 요금 줄)', () => {
+    const result = judgeEligibility(dogOf(8), solsup());
+    expect(result.level).toBe('ok');
+    expect(result.fee).toContain('1.5만원');
+  });
+
+  it('다두면 넘는 아이만 이름을 적는다', () => {
+    const c10 = judgeEligibility(dogOf(4, 12), solsup()).reasons.find((r) => r.rule === 'C10');
+    expect(c10?.text).toContain('해피(12kg)');
+    expect(c10?.text).not.toContain('콩이');
+  });
+
+  it('위로 열린 요금표("10kg 이상 4만원")에는 상한이 없다', () => {
+    const result = judgeEligibility(dogOf(20), parsePetPolicy('1~9kg 2만원.\n10kg 이상 4만원.'));
+    expect(result.reasons.map((r) => r.rule)).not.toContain('C10');
+  });
+
+  it('요금 구조(feeRules)가 모두 상한 있는 마리당 줄이면 그 끝을 본다', () => {
+    const rule = (maxKg: number | null) =>
+      ({ label: '', amountWon: 10000, basis: 'perDog', minKg: 1, maxKg, fromDog: null, perNight: false }) as const;
+    const base = parsePetPolicy('1~5kg 1만원.\n6~10kg 1.5만원.');
+    const closed = judgeEligibility(dogOf(12), { ...base, feeRules: [rule(5), rule(10)] });
+    expect(closed.reasons.map((r) => r.rule)).toContain('C10');
+    const open = judgeEligibility(dogOf(12), { ...base, feeRules: [rule(5), rule(null)] });
+    expect(open.reasons.map((r) => r.rule)).not.toContain('C10');
   });
 });
 
