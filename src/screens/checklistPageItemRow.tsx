@@ -134,7 +134,8 @@ export function ChecklistPageItemRow({
           expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
         )}
       >
-        <div className="overflow-hidden">
+        {/* 닫힌 칸은 `inert` — 시각만 숨기면 이유·링크가 낭독되고 탭이 멈춘다(12 U3.6). 링크마다 tabIndex 를 따로 끄던 것을 이것 하나로 대신한다. */}
+        <div className="overflow-hidden" inert={!expanded}>
           <div className="border-t border-secondary px-3 py-3">
             {item.reason && <p className="text-sm text-secondary">{item.reason}</p>}
             {item.variants && item.variants.length > 0 && (
@@ -152,8 +153,6 @@ export function ChecklistPageItemRow({
                       href={variant.linkUrl}
                       target="_blank"
                       rel="noreferrer"
-                      // 닫힌 동안에는 링크가 포커스를 받지 못하게 한다 — 보이지 않는데 탭이 멈춘다.
-                      tabIndex={expanded ? undefined : -1}
                       className="flex min-h-11 items-center gap-2 px-3 py-2 transition-colors hover:bg-secondary"
                     >
                       <span className="min-w-0 flex-1 text-sm font-semibold text-primary">
@@ -179,7 +178,6 @@ export function ChecklistPageItemRow({
                 color="tertiary"
                 size="sm"
                 iconTrailing={LinkExternal01}
-                tabIndex={expanded ? undefined : -1}
                 className={cx('h-11 w-full', item.reason ? 'mt-3' : 'mt-0')}
               >
                 {linkLabel(item.linkUrl)}
