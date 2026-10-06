@@ -64,10 +64,12 @@ describe('judgeEligibility — C2 는 원문이 이동가방을 적었으면 물
     expect(result.level).toBe('ok');
   });
 
-  it('"이동가방 불가" 는 허용이 아니다', () => {
-    const policy = parsePetPolicy('케이지 필수, 이동가방은 불가.');
-    expect(judgeEligibility(TOFU, policy).level).not.toBe('ok');
-  });
+  it.each(['케이지 필수, 이동가방은 불가.', '케이지 필수, 이동가방은 안 돼요.', '케이지 필수, 가방 금지.'])(
+    '"%s" — 거절은 허용이 아니다',
+    (text) => {
+      expect(judgeEligibility(TOFU, parsePetPolicy(text)).reasons.map((r) => r.rule)).toContain('C2');
+    },
+  );
 });
 
 describe('judgeEligibility — 케이지 필수 식당("케이지 동반시 가능.")', () => {
@@ -271,9 +273,20 @@ describe('judgeEligibility — C10 요금표 상한 밖 몸무게(14 W261006.1)'
     expect(c10?.text).not.toContain('콩이');
   });
 
-  it('위로 열린 요금표("10kg 이상 4만원")에는 상한이 없다', () => {
-    const result = judgeEligibility(dogOf(20), parsePetPolicy('1~9kg 2만원.\n10kg 이상 4만원.'));
+  it.each(['1~9kg 2만원.\n10kg 이상 4만원.', '1~5kg 1만원.\n1마리당 2만원.'])('위로 열린 요금표("%s")에는 상한이 없다', (text) => {
+    const result = judgeEligibility(dogOf(20), parsePetPolicy(text));
     expect(result.reasons.map((r) => r.rule)).not.toContain('C10');
+  });
+
+  it('무게 상한(H1)이 어려움으로 말하면 요금표 얘기를 덧붙이지 않는다', () => {
+    const result = judgeEligibility(dogOf(20), parsePetPolicy('15kg 이하만 가능.\n1~5kg 1만원.\n6~10kg 1.5만원.'));
+    expect(result.level).toBe('hard');
+    expect(result.reasons.map((r) => r.rule)).not.toContain('C10');
+  });
+
+  it('상한 안에 들지만 요금표를 넘으면 C10(15kg 이하 · 표는 10kg 까지 · 12kg)', () => {
+    const result = judgeEligibility(dogOf(12), parsePetPolicy('15kg 이하만 가능.\n1~5kg 1만원.\n6~10kg 1.5만원.'));
+    expect(result.reasons.map((r) => r.rule)).toContain('C10');
   });
 
   it('요금 구조(feeRules)가 모두 상한 있는 마리당 줄이면 그 끝을 본다', () => {

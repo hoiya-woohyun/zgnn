@@ -197,8 +197,11 @@ const ruleOutdoorOnly: TRule = (_dog, policy, opts) => {
   return { level: 'cond', text: '야외 자리만 가능해요', quote: policy.sources.indoor };
 };
 
-/** 이동가방(슬링백) 뒤 16자 안에 '불가' 가 없을 때만 허용으로 읽는다 — 유모차의 `STROLLER_ALLOWED` 와 같은 어법. */
-const BAG_ALLOWED = /(가방|슬링)(?![^.\n]{0,16}불가)/;
+/**
+ * 이동가방(슬링백) 뒤 16자 안에 거절 말이 없을 때만 허용으로 읽는다 — 유모차의 `STROLLER_ALLOWED` 와 같은 어법이되
+ * 거절 말을 `petPolicy.ts` 의 '실내 … 안 돼요' 만큼 넓힌다. 여기서 잘못 물러나면 지어낸 '갈 수 있어요' 다.
+ */
+const BAG_ALLOWED = /(가방|슬링)(?![^.\n]{0,16}(불가|안\s*(돼|됩|된)|금지))/;
 
 /**
  * C2: 케이지 필수인 곳에 이동가방을 들고 간다. 슬링백을 케이지로 착각하지 않게 확인을 권한다.
@@ -267,7 +270,7 @@ const feeTableTopKg = (policy: TPetPolicy): number | undefined => {
   });
   if (tops.length === 0) return undefined;
   const opensUp = policy.feeLines.some(
-    (line) => !FEE_RANGE_KG_RE.test(line) && (FEE_MIN_KG_RE.test(line) || /kg|대형|중형|초과|이상/.test(line)),
+    (line) => !FEE_RANGE_KG_RE.test(line) && /kg|대형|중형|초과|이상|마리\s*당/.test(line),
   );
   return opensUp ? undefined : Math.max(...tops);
 };
@@ -280,6 +283,9 @@ const feeTableTopKg = (policy: TPetPolicy): number | undefined => {
  */
 const ruleWeightAboveFeeTable: TRule = (dog, policy) => {
   if (policy.noInfo) return null;
+  // 무게 상한(H1)이 이미 '어려움' 으로 말했으면 요금표 얘기는 덧붙이지 않는다 — C5 가 tiers 앞에서 물러나는 것과 같다.
+  const weightTiers = policy.tiers.filter((t) => t.maxWeightKg !== undefined);
+  if (weightTiers.length > 0 && !weightTiers.some((t) => fitsTierWeight(t, maxWeightKg(dog)))) return null;
   const top = feeTableTopKg(policy);
   if (top === undefined) return null;
   const over = dog.dogs.filter((d) => d.weightKg > top);
