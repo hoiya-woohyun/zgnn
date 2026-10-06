@@ -1,7 +1,8 @@
 # 운영 현황 화면 `/admin/ops` — 수집·분석·검수·반영·재빌드가 돌고 있는지 한 화면에서
 
-> 최종 수정: 2026-10-06 (v1: 제안 — 화면 명세와 UI/UX 설계. 코드 없음)
-> 상태: **제안**. 왜 이런 모양인지는 [ADR-023](../decisions/ADR-023-ops-dashboard-and-run-log.md), 진행은 [todo/15](../todo/15-ops-dashboard.md).
+> 최종 수정: 2026-10-06 (v2: **화면 구현**(todo/15 T3) — 판정 규칙을 구현에 맞췄다: 재빌드 429 는 주의(BUG-011) · 수집·반영도 중단된 듯을 본다 · 반영 실패에 `failed` 크래시 포함. 승인·제외 막대는 한 칸에 위·아래, 알림 묶음엔 테스트 버튼이 아직 없다(T1.3·T6). 재빌드 칸 문장 중복과 "`src/` 가 `scripts/` 를 import 하는 길은 없다" 를 고쳤다)
+> 이전 2026-10-06 (v1: 제안 — 화면 명세와 UI/UX 설계. 코드 없음)
+> 상태: **구현 중** — 화면(`/admin/ops`)은 섰고 Slack(T5·T6)은 보류. 왜 이런 모양인지는 [ADR-023](../decisions/ADR-023-ops-dashboard-and-run-log.md), 진행은 [todo/15](../todo/15-ops-dashboard.md).
 
 이 화면이 답하는 질문은 하나다 — **"지금 어디가 막혀 있나, 아니면 다 괜찮나."** `/admin` 이 후보를 올리는 자리라면, 여기는 그 장치가 도는지 보는 자리다. 운영자(개발자 한 명)가 PC 에서 10초 훑고 닫는 것을 기준으로 설계한다. 핸드폰은 "읽힌다" 까지만.
 
@@ -64,17 +65,17 @@
 | **둘째 수**(쌓인 것) | 그 실행의 신규 N | 미분석 backlog N | 가장 오래된 pending 며칠 | approved 인데 merged 아님 N(= `countStrandedCandidates`) | 7일 훅 횟수 |
 | 판정 이유(주의·실패일 때만) | "7일 넘음" | "N일째 쌓임" / "중단된 듯" | "N일 넘게 대기" | "반영 안 된 승인 N" | "Deploy Hook 폐기된 듯" |
 
-상태점은 넷이다 — **정상**(초록 `success`) · **주의**(노랑 `warning`) · **실패**(빨강 `error`) · **기록 없음**(회색, "아직 한 번도 안 돌았어요"). 판정 규칙은 `src/lib/adminOpsHealth.ts` 한 곳이 소유하고 단위 테스트가 붙는다. 재빌드 칸은 `rebuildHeadline()` 의 문장(`{tone, text}`)을 파싱하지 않고 `fetchRebuildStatus()` 가 돌려주는 행(`response_status`·`hook`·`responded_at`)을 직접 받는다 — 머리글 한 줄은 그대로 `rebuildHeadline` 이 만든다. 재빌드 칸은 `rebuildHeadline()` 의 문장(`{tone, text}`)을 파싱하지 않고 `fetchRebuildStatus()` 가 돌려주는 행(`response_status`·`hook`·`responded_at`)을 직접 받는다 — 머리글 한 줄은 그대로 `rebuildHeadline` 이 만든다. 칸을 누르면 ③ 실행 기록이 그 스크립트로 걸러진다.
+상태점은 넷이다 — **정상**(초록 `success`) · **주의**(노랑 `warning`) · **실패**(빨강 `error`) · **기록 없음**(회색, "아직 한 번도 안 돌았어요"). 판정 규칙은 `src/lib/adminOpsHealth.ts` 한 곳이 소유하고 단위 테스트가 붙는다. 재빌드 칸은 `rebuildHeadline()` 의 문장(`{tone, text}`)을 파싱하지 않고 `ops_overview.rebuildRecent` 의 행(`response_status`·`hook`·`requested_at`)을 직접 받는다 — 건너뛰기 규칙(`latestRebuildCall`)과 응답 대기 한도는 `adminRebuild.ts` 의 것을 그대로 쓰고, 머리글 한 줄은 그대로 `rebuildHeadline` 이 만든다. 칸을 누르면 ③ 실행 기록이 그 스크립트로 걸러진다(검수 칸 → approve·reject, 한 번 더 누르면 전체). 재빌드 칸은 `rebuild_log` 라 걸러 볼 실행 기록이 없어 누를 수 없다. 띠에는 `worstStage` 하나 — 실패가 주의보다 먼저, 같은 무게면 장치 순서상 앞의 것.
 
 판정 규칙(권장 기본값 — 임계값은 🙋, [todo/15](../todo/15-ops-dashboard.md)):
 
 | 칸 | 실패 | 주의 | 기록 없음 |
 |---|---|---|---|
-| 수집 | 마지막 실행이 `failed` | 마지막 ok 가 **7일** 넘음 | `collect` 행이 0 |
+| 수집 | 마지막 실행이 `failed` · 중단된 듯 | 마지막 ok 가 **7일** 넘음 | `collect` 행이 0 |
 | 분석 | 마지막 실행이 `failed` · `running` 인데 `heartbeat_at` 이 **10분** 넘음(중단된 듯) | 미분석 글 > 0 이고 가장 오래된 미분석 글의 `fetched_at` 이 **2일** 넘음 | `analyze` 행이 0 |
 | 검수 | — (사람 몫, 실패가 없다) | 가장 오래된 pending 이 **7일** 넘음 | pending 0 → "비었어요"(정상) |
-| 반영 | 마지막 `apply` 에 실패 건수 > 0 | approved 인데 merged 아닌 후보 > 0 | — |
-| 재빌드 | 마지막 `sent` 행의 `response_status` 가 4xx·5xx | `missing`·`error` · 응답 null 이 3분 넘음(`rebuildHeadline` 과 같은 기준) | `rebuild_log` 0 |
+| 반영 | 마지막 `apply` 가 `failed`(크래시 — stats 없음) · 실패 건수 > 0 · 중단된 듯 | approved 인데 merged 아닌 후보 > 0 | — |
+| 재빌드 | 마지막 `sent` 행의 `response_status` 가 4xx·5xx — **429 는 빼고** | `missing`·`error` · **429**(시간당 60번 한도 — 훅은 멀쩡하다, [BUG-011](../bugs/BUG-011-rebuild-429-read-as-revoked-hook.md)) · 응답 null 이 3분 넘음(`rebuildHeadline` 과 같은 기준) | `rebuild_log` 0 |
 
 "운영자가 `/admin` 에서 승인하면 반영이 곧바로 일어난다"(ADR-018) 는 사실 때문에 **반영 칸의 주의는 거의 CLI 경로(`data:review approve` → `data:apply`)에서만 선다.** 그게 서면 "apply 를 돌리세요" 라는 뜻이다 — 칸 아래 그 명령을 한 줄 적어 준다.
 
@@ -92,7 +93,7 @@
 | 반영 | `extracted.applied.at` 이 기간 안인 후보 | `candidates` |
 | 재빌드 | `hook='sent'` 이고 응답 2xx 인 행 | `rebuild_log` |
 
-막대는 **가장 큰 줄을 100% 로 둔 비율**이다. 색은 한 가지(`bg-brand-solid` 의 약한 톤), 줄마다 다른 색을 쓰지 않는다 — 비교하는 축이 "얼마나 지났나" 하나뿐이다. 승인·제외는 한 줄에 둘을 나란히, **지금 보류 줄만 노랑**(`warning` 토큰)이다 — 그게 사람이 할 일이다. 수 0 인 줄은 막대 없이 `0` 만 쓴다. 차트 라이브러리를 들이지 않는다 — `div` 너비 하나다. 구현 전에 `dataviz` 스킬의 "stat tile · 비율 막대" 절을 한 번 읽는다.
+막대는 **가장 큰 줄을 100% 로 둔 비율**이다. 색은 한 가지(`bg-brand-solid` 의 약한 톤), 줄마다 다른 색을 쓰지 않는다 — 비교하는 축이 "얼마나 지났나" 하나뿐이다. 승인·제외는 한 줄에 둘 — 단 **같은 막대 칸 안에 위(승인)·아래(제외)로** 겹친다(반쪽 칸 둘로 나누면 그 줄만 막대 칸이 절반 폭이라 같은 수가 절반 길이로 보인다), **지금 보류 줄만 노랑**(`warning` 토큰)이다 — 그게 사람이 할 일이다. 수 0 인 줄은 막대 없이 `0` 만 쓴다. 차트 라이브러리를 들이지 않는다 — `div` 너비 하나다. 구현 전에 `dataviz` 스킬의 "stat tile · 비율 막대" 절을 한 번 읽는다.
 
 ### ③ 실행 기록 — 무슨 일이 있었나
 
@@ -107,7 +108,7 @@
 | 요약 | 콘솔 요약 줄을 `stats` 에서 **그대로 다시 만든 문장** | 터미널에서 본 것과 같은 말이어야 한다 |
 | 알림 | `—` · `Slack` · `Slack 실패` | `alert` 칸 |
 
-행을 펼치면 `stats` 의 전부(토큰 · 제외 사유별 수 · 좌표 보강 · 홈페이지), `args`(플래그 목록), `error` 한 줄, 알림 request_id 가 키-값으로 선다. 필터는 칩 둘 — 스크립트, `실패만`. URL 에 `?run=<id>` 가 오면 그 행이 펼쳐진 채 스크롤된다 — Slack 메시지의 링크가 여기로 온다.
+행을 펼치면 `stats` 의 전부(토큰 · 제외 사유별 수 · 좌표 보강 · 홈페이지), `args`(플래그 목록), `error` 한 줄, 알림 request_id 가 키-값으로 선다. 필터는 칩 둘 — 스크립트(`승인` 칩 = approve·reject), `실패만`(= `failed`·`partial`·중단된 듯). URL 에 `?run=<id>` 가 오면 그 행이 펼쳐진 채 스크롤된다 — Slack 메시지의 링크가 여기로 온다.
 
 **중단된 듯** 행에는 버튼이 없다. 운영자가 할 일은 터미널에서 다시 돌리는 것이다. `runLock`(`scripts/lib/runLock.mjs`)은 잠금을 쥔 pid 가 죽어 있으면 **알아서 이어받으므로** 락 파일을 지울 필요가 없다 — 행 아래 한 줄은 "프로세스가 죽었으면 그냥 다시 돌리면 돼요. 살아 있는데 멎어 있으면 그 프로세스를 끊고 다시" 다. 행을 손으로 `failed` 로 닫는 버튼은 두지 않는다 — 기록을 화면이 고치기 시작하면 정본이 둘이 된다.
 
@@ -118,7 +119,7 @@
 ### ⑤ 알림 — Slack 이 살아 있나
 
 - **웹훅 있음 / 없음** — Vault 에 `slack_webhook_url` 이 있는지는 브라우저가 알 수 없으므로 `ops_overview` 가 `slackConfigured: boolean` 으로 돌려준다(definer 가 Vault 의 **이름만** 확인, URL 은 반환하지 않는다). 화면을 여는 것만으로 Slack 에 아무것도 가지 않는다. 마지막 발송 시각·응답 코드는 `pipeline_runs.alert` 에서.
-- **테스트 보내기** 버튼 — 버튼 전용 rpc `ops_slack_test()` 를 부른다. 메시지는 고정 문구("zgnn 운영 알림 테스트 · <시각>"). 값은 어디에도 안 보인다.
+- **테스트 보내기** 버튼 — 버튼 전용 rpc `ops_slack_test()` 를 부른다. **아직 없다** — 그 rpc(todo/15 T1.3)를 Slack 트리거와 함께 하기로 미뤄 버튼도 T6.1 에서 더한다. 마지막 발송 시각도 아직 `ops_overview` 에 칸이 없다(그 전까지는 실행 기록의 알림 열). 메시지는 고정 문구("zgnn 운영 알림 테스트 · <시각>"). 값은 어디에도 안 보인다.
 - 웹훅이 없으면 이 묶음이 "Slack 알림을 켜려면 → todo/15 §Slack" 한 줄로 접힌다. 알림 없이도 화면은 전부 동작한다.
 
 Slack 메시지 모양(실패 알림):
@@ -168,7 +169,7 @@ PC 기준이되 깨지지 않게만 — 다섯 칸은 가로 스크롤 한 줄(�
 ## 조용히 깨지는 것들 (만들 때 확인)
 
 - **`heartbeat_at` 을 안 찍으면 "중단된 듯" 이 영원히 안 뜬다.** `running` 상태만 보는 구현은 죽은 프로세스를 "돌고 있음" 으로 보여 준다 — 교차점검 `verify` 의 `null` 과 같은 함정(CLAUDE.md). 테스트에 "running + 심장 11분 전 → 중단된 듯" 케이스를 둔다.
-- **`stats` 의 키 이름이 콘솔 요약과 어긋나면 요약 문장이 틀린 수를 말한다.** 요약 줄을 만드는 함수는 **이미 있다**(`scripts/analyze/analyzeCandidates.mjs` 의 `formatSummary(stats, meterSummary, …)`). 새 문장 생성기를 만들지 말고 그 함수를 `src/lib/runSummary.ts` 로 옮겨 스크립트와 화면이 같은 모듈을 쓴다 — 방향은 **스크립트가 `src/lib` 을 읽는 쪽**이다(`review-candidates.mjs` 가 `../src/lib/petPolicy.ts` 를 읽는 선례). `src/` 가 `scripts/lib/*.mjs` 를 import 하는 길은 없다.
+- **`stats` 의 키 이름이 콘솔 요약과 어긋나면 요약 문장이 틀린 수를 말한다.** 요약 줄을 만드는 함수는 **이미 있다**(`scripts/analyze/analyzeCandidates.mjs` 의 `formatSummary(stats, meterSummary, …)`). 새 문장 생성기를 만들지 말고 그 함수를 `src/lib/runSummary.ts` 로 옮겨 스크립트와 화면이 같은 모듈을 쓴다 — 방향은 **스크립트가 `src/lib` 을 읽는 쪽**이다(`review-candidates.mjs` 가 `../src/lib/petPolicy.ts` 를 읽는 선례). 반대 길(`src/` → `scripts/*.mjs`)도 있기는 하지만(`adminPosts.ts` 등) `/admin` 번들에 들어가는 `.mjs` 에 `.ts` import 를 넣지 않으려고 이쪽을 택했다(todo/15 「계획과 다르게 간 것」). 화면은 `adminOps.runSummaryLine` 이 스크립트와 같은 인자로 그 함수를 다시 부르고, 칸이 빠져 `NaN` 이 섞이면 문장 대신 빈 칸을 둔다.
 - **`fetched_at` 으로 "마지막 수집" 을 세면 틀린다** — `ignoreDuplicates` 라 신규 0건인 실행은 흔적이 없다. 수집 칸은 반드시 `pipeline_runs` 를 본다.
 - **approved 인데 반영 안 됨은 `/admin` 승인 경로에선 거의 0 이다** — 0 이 아니면 CLI 승인이 남아 있거나 `adminApply` 가 중간에 실패한 것이다. "정상이라 0" 과 "경로가 없어서 0" 을 화면이 구별할 필요는 없지만, 문서는 구별한다.
 - **Slack 메시지에 장소명이 들어가면 ADR-023 결정 5 위반이다.** 트리거 함수는 `stats` 의 **수 칸만** 읽고, `error` 는 200자로 자르고 `https?://` 를 지운다(`rebuild_log` 와 같은 정규식) — 하지만 진짜 보장은 스크립트가 `error` 에 분류 문구만 적는 것이다(위 「Slack 메시지 모양」).

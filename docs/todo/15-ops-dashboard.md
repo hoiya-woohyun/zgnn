@@ -1,6 +1,7 @@
 # 15. 운영 현황 화면 — 파이프라인이 돌고 있는지를 `/admin/ops` 에서 보고, 실패는 Slack 으로 받는다
 
-> 최종 수정: 2026-10-06 (v2: T1.1·T1.2·T2 구현 — 마이그레이션 `20261006120000_pipeline_runs` 원격 적용·롤백 실측, 쓰기 스크립트 넷이 실행 기록을 남기고 요약 줄은 `src/lib/runSummary.ts` 하나. T1.3 은 T5·T6 와 함께로 미룸. T2 의 수용 기준 실측은 🧑 터미널 몫이라 아직. stats 표를 구현에 맞춰 고쳤다)
+> 최종 수정: 2026-10-06 (v3: **T3 화면 구현** — `/admin/ops` 라우트·`adminOps`·`adminOpsHealth`·본체·다섯 칸·흐름·실행 기록·사용량·알림. 계획과 다르게 간 것 넷(429 는 주의 · 실행 칸 셋 모두 중단된 듯 · 승인·제외 막대 · 테스트 버튼 없음)을 아래에)
+> 이전 2026-10-06 (v2: T1.1·T1.2·T2 구현 — 마이그레이션 `20261006120000_pipeline_runs` 원격 적용·롤백 실측, 쓰기 스크립트 넷이 실행 기록을 남기고 요약 줄은 `src/lib/runSummary.ts` 하나. T1.3 은 T5·T6 와 함께로 미룸. T2 의 수용 기준 실측은 🧑 터미널 몫이라 아직. stats 표를 구현에 맞춰 고쳤다)
 > 이전 2026-10-06 (v1: 신설 — 설계·UI/UX·태스크. 코드 없음. 결정은 [ADR-023](../decisions/ADR-023-ops-dashboard-and-run-log.md), 화면은 [features/ops-dashboard.md](../features/ops-dashboard.md))
 
 **한 줄:** 수집·분석·반영 스크립트가 실행마다 `pipeline_runs` 한 행을 남기고, `/admin/ops` 가 그 행과 기존 표로 "어디가 막혔나" 다섯 칸을 그리고, 실패는 DB 트리거가 Slack 으로 보낸다. 지금은 **`rebuild_log` 하나 빼고 아무 기록도 없다** — "지난주에 수집 돌렸던가" 의 답이 터미널 스크롤백뿐이다.
@@ -93,7 +94,8 @@ T7 pg_cron(보류) 은 T2 로 한 달쯤 쌓인 뒤
   ✅ 2026-10-06 열 트랙은 이 표만 쓰므로 그 파일에(`ADMIN_OPS_RUN_TRACKS`). 서버 장 넘김(keyset `before`) + 감시판, 겹친 호출은 ref 로 막고 합칠 때 id 로 거른다. 걸러 보기를 바꾸면 순번으로 늦은 응답을 버린다. 장 읽기가 실패하면 감시판을 내린다(실패한 장을 계속 다시 부르지 않게). ① 칸을 누르면 그 스크립트로, 한 번 더 누르면 전체로. 요약 열은 `runSummaryLine` → 없으면 `error` → 돌고 있으면 "도는 중". `?run=` 은 마운트 때 한 번 `fetchRun` 해 첫 장에 없으면 맨 위에 하나 더 세우고(`· 링크`) 펼친 채 그 자리로 스크롤. 펼친 줄은 시작·끝·소요·심장·args·error·`stats.*`(점으로 편 키)·`alert.*`. 소요·알림 열은 좁은 화면에서 숨긴다(펼친 줄에 있다). 순수 함수 셋(`runDurationLabel`·`flattenStats`·`runAlertLabel`)은 `adminOps.ts` + 테스트.
 - [x] **T3.8 `adminOpsPageUsage.tsx` · `adminOpsPageAlerts.tsx`** — 사용량 한 줄 세 묶음(금액 환산 없음 · 각주 한 줄) · Slack 묶음(`missing` 이면 "켜려면 → 15 §T5" 로 접힘, 테스트 버튼은 T6).
   ✅ 2026-10-06 사용량은 Claude 다섯 수(호출·입력·출력·캐시 읽기·쓰기 — 패스 셋 합) │ 네이버 검색 │ 재빌드 2xx, 짧은 표기(1.2M) + 정확한 수는 `title`. 알림 묶음은 `slackConfigured` 한 줄뿐이다 — **테스트 버튼은 그리지 않았다**(부를 `ops_slack_test` 가 T1.3 으로 미뤄져 원격에 없다, T6.1 에서 더한다), **"마지막 발송" 도 없다**(overview 에 그 칸이 없고 T5 전엔 `alert` 가 언제나 null — 실행 기록의 알림 열이 대신한다). 화면 실측: Playwright 로 Supabase 응답을 가짜로 꽂아 1440·390px 에서 그려 봤다(가로 넘침 없음, 다섯 칸만 가로 스크롤) — 그 자리에서 고친 것: 이유 줄 없는 칸의 내용이 세로 가운데로 뜨던 것, 표의 스크립트 칩이 줄 높이로 늘던 것, 하루 넘는 소요가 "72시간 0분째" 이던 것(→ "3일 0시간째").
-- [ ] **T3.9 문서** — [features/ops-dashboard.md](../features/ops-dashboard.md) 를 `> 상태: 구현 중` 으로, 계획과 다르게 간 것은 아래 「계획과 다르게 간 것」 에.
+- [x] **T3.9 문서** — [features/ops-dashboard.md](../features/ops-dashboard.md) 를 `> 상태: 구현 중` 으로, 계획과 다르게 간 것은 아래 「계획과 다르게 간 것」 에.
+  ✅ 2026-10-06 features v2(상태 구현 중 · 판정 표를 구현에 맞춤 · 문장 중복과 import 방향 문장 고침) · app-shell-and-state v36 · todo/README v43 · CLAUDE.md 길잡이 한 줄.
 
 ### T4. `/admin` 과 잇는다
 

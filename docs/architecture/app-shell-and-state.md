@@ -1,6 +1,7 @@
 # 라우팅 · 화면 셸 · 클라이언트 상태
 
-> 최종 수정: 2026-10-06 (v35: `/saved` 는 홈 아래 — 코드(`navItems`·`parentRouteOf`)가 이미 그렇고 이 문서의 "설정 안" 이 낡았다(12 U3.6))
+> 최종 수정: 2026-10-06 (v36: 숨은 운영자 화면 하나 더 — **`/admin/ops`**(운영 현황). `/admin` 과 같은 장치(`ssr:false`·`data-admin-dense`·같은 세션)이고 역시 아무것도 등록하지 않는다 → [features/ops-dashboard.md](../features/ops-dashboard.md))
+> 이전 2026-10-06 (v35: `/saved` 는 홈 아래 — 코드(`navItems`·`parentRouteOf`)가 이미 그렇고 이 문서의 "설정 안" 이 낡았다(12 U3.6))
 > 이전 2026-10-06 (v34: 셸 토스트에 링크·버튼이 있으면 **최소 5초**, 마우스 hover·포커스 동안 타이머를 멈춘다(WCAG 2.2.1, 12 U3.5))
 > 이전 2026-10-06 (v33: 데이터에 없는 저장 id 를 **지우지 않는다** — 운영자가 내린 곳은 되살릴 수 있어서, `merge` 가 거르면 다음 쓰기에 사라져 되살려도 하트·메모가 안 돌아온다. 거르는 것은 보여 줄 때(`useSavedPlaces`) 한 곳, 저장 화면에 "더 이상 안내하지 않는 곳 N곳" 한 줄. 10 F5 의 "없는 id 는 메모까지 버린다" 를 뒤집는다(12 U2.3))
 > 이전 2026-10-02 (v32: 저장 해제·프로필 삭제에 **되돌리기** — 셸 토스트가 콜백 액션을 받는다(`showAppStatus` 의 `action`), 스토어 `restoreSaved`(12 U2.1·U2.2). 저장소를 못 여는 브라우저는 `persist` API 가 없다 — `StoreHydration` 이 가드(12 U0.1))
@@ -68,6 +69,8 @@ src/app/place/[id]/page.tsx   ─ 서버: generateStaticParams(86개) · generat
   이유는 SDK 가 아니라 **세션**이다: 로그인 상태가 localStorage 에만 있어 서버가 그릴 화면이 로그인 폼과 목록 중 어느 쪽인지 알 수 없다.
   이 화면은 탭바(`navItems.ts`)·스와이프 수열(`SWIPE_ROUTES`)·루트 목록(`ROOT_ROUTES`) 어디에도 없다 — 즉 **아무것도 등록하지 않는 것이 설정**이고,
   셸의 기본값(모르는 경로 = 하위 화면)이 뒤로가기를 붙여 준다. 프리캐시 목록에도 없어 오프라인에서는 404 다(→ [ADR-018](../decisions/ADR-018-in-app-admin-review.md)).
+  운영 현황 `/admin/ops`(`adminOpsRouteClient.tsx` → `screens/adminOpsPage.tsx`)도 같은 모양이다 — 세션은 `/admin` 의 것을 그대로 읽고,
+  `surfaceKindOf` 가 `/admin` 접두어로 보므로 `wide`·bare 도 따로 적을 것이 없다(→ [features/ops-dashboard.md](../features/ops-dashboard.md)).
 - `/map` 은 네이버 지도 SDK 를 `document.head` 에 스크립트로 붙여 받는다 — 서버에는 그 DOM 이 없어
   `src/app/map/mapRouteClient.tsx` 가 `dynamic(..., { ssr: false })` 로 감싼다.
 - `/map` 이 주소에서 읽는 것은 둘이다 — `?saved=1`(저장 칩)과 `?place=<id>`(상세의 미니 지도에서 넘어옴: 그 장소를 고르고
