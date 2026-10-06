@@ -12,10 +12,10 @@
 
 ## 지금 (위에서부터)
 
-- [ ] 재빌드를 뒤쪽에서 합치기(트리거는 `queued` 만 · pg_cron 이 조용해지면 한 번) — [13 §5.1](13-ai-analysis-audit-2026-10-04.md) · 왜 지금: 첫 블로그 장소 대량 게시 전에. 문장 단위로는 안 준다(일괄 올리기가 묶음마다 따로 요청). 설계부터 — `db push` 는 🧑
 
 ## 기다림 (사람 손·결정)
 
+- 🧑 재빌드 뒤쪽 합치기 반영 — [04 4b](04-deploy-and-propagate.md) · 명령: **프론트 배포가 먼저**(main 에 올라간 뒤) → `supabase db push` → `./node_modules/.bin/supabase db query --linked` 로 04 4b 의 세 줄(잡 둘 · `username`=postgres · 게시 장소 하나 저장 1~2분 뒤 `queued`→`sent` 2xx). 반대 순서면 옛 화면이 대기를 '응답 기다림' 으로 잘못 말한다
 - 🧑 휘닉스 아일랜드·소노벨·소노캄 재추출(저장된 요금 줄이 '추가' 를 잃었다 — 코드는 고쳤다) — [13 §5.1](13-ai-analysis-audit-2026-10-04.md) · 명령: `/admin` 검수 대기에서 세 후보의 `재분석`(수집 완료로 되돌린다) → `pnpm data:analyze --limit 3`. 프롬프트가 바뀌어 `pnpm data:eval extract` 캐시(23/86)도 다시 쌓아야 한다
 - 🙋 CLI 반영(`data:apply`)도 신규를 `published` 로 넣을지 — [13 §5.1](13-ai-analysis-audit-2026-10-04.md) · 권고: 맞춘다(승인은 한 길이어야 한다). 판포현스테이·협재현스테이 draft 2곳은 `/admin` 에서 올리면 된다
 - 🙋 디스플레이 서체를 더할지·타입 단계 비율(12·14·16·18)을 넓힐지 — [디자인 리뷰 §10](../reviews/2026-10-06-frontend-design-review.md) · 권고: 지금은 안 바꾼다. D261006.1(판정 크기)을 먼저 하고 그 화면을 보고 정한다 — 서체는 1.26MB 프리캐시·완성형 서브셋(ADR-006)이 걸려 있다

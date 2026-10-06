@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agoLabel, rebuildHeadline, RESPONSE_WAIT_LIMIT_MS, type TRebuildEntry } from './adminRebuild';
+import { agoLabel, QUEUE_STALL_MS, rebuildHeadline, RESPONSE_WAIT_LIMIT_MS, type TRebuildEntry } from './adminRebuild';
 
 const NOW = Date.parse('2026-09-29T13:00:00.000Z');
 
@@ -12,6 +12,7 @@ const entry = (patch: Partial<TRebuildEntry> = {}): TRebuildEntry => ({
   note: null,
   response_status: 201,
   response_error: null,
+  place_count: 1,
   ...patch,
 });
 
@@ -148,5 +149,56 @@ describe('rebuildHeadline', () => {
     const headline = rebuildHeadline([entry({ hook: 'skipped', place_status: 'draft', response_status: null })], NOW);
     expect(headline.tone).toBe('none');
     expect(headline.text).toContain('재빌드를 부르지 않았어요');
+  });
+
+  /*
+   * 뒤쪽 합치기(20261006130000) — 트리거는 줄만 세우고 cron 이 60초 조용해지면 한 번 부른다.
+   * 줄을 선 것은 오류도 '알 수 없음' 도 아니라 대기다. 단 cron 이 안 돌면 영원히 안 빌드되므로 5분 넘게 남으면 경고한다.
+   */
+  it('queued 는 대기로 말하고, 여러 곳이면 묶어서 부른다고 한다', () => {
+    const headline = rebuildHeadline(
+      [entry({ hook: 'queued', response_status: null, place_count: 3, requested_at: '2026-09-29T12:59:30.000Z' })],
+      NOW,
+    );
+    expect(headline.tone).toBe('waiting');
+    expect(headline.text).toContain('대기');
+    expect(headline.text).toContain('3곳을 묶어서 한 번');
+  });
+
+  it('queued 가 5분 넘게 남으면 cron 이 안 돈다고 경고하고 확인할 자리를 가리킨다', () => {
+    const headline = rebuildHeadline(
+      [entry({ hook: 'queued', response_status: null, requested_at: new Date(NOW - QUEUE_STALL_MS - 1000).toISOString() })],
+      NOW,
+    );
+    expect(headline.tone).toBe('warn');
+    expect(headline.text).toContain('재빌드 예약이 안 돌고 있어요');
+    expect(headline.text).toContain('cron.job');
+    // 응답 대기 3분(RESPONSE_WAIT_LIMIT_MS)과 섞이지 않는다 — 아직 보내지도 않았다.
+    expect(headline.text).not.toContain('응답');
+  });
+
+  it('queued 는 3분이 지나도 응답 경고가 아니다(5분 전까지는 대기)', () => {
+    const headline = rebuildHeadline(
+      [entry({ hook: 'queued', response_status: null, requested_at: new Date(NOW - RESPONSE_WAIT_LIMIT_MS - 1000).toISOString() })],
+      NOW,
+    );
+    expect(headline.tone).toBe('waiting');
+  });
+
+  /** 36곳을 묶은 한 호출이 마지막 장소 하나로만 읽히면 나머지 35곳이 반영됐는지 운영자가 알 수 없다. */
+  it('여러 곳을 묶은 호출은 수로 말한다 — 마지막 이름 하나로 말하지 않는다', () => {
+    const ok = rebuildHeadline([entry({ response_status: 201, place_count: 36 })], NOW);
+    expect(ok).toEqual({ tone: 'ok', text: '재빌드가 걸렸어요(2분 전 · 36곳 묶어 한 번) — 1~2분 뒤 사이트에 보여요' });
+
+    const rejected = rebuildHeadline([entry({ response_status: 404, place_count: 36, place_status: 'archived' })], NOW);
+    expect(rejected.text).toContain('바꾼 36곳');
+    expect(rejected.text).not.toContain('내린 것');
+  });
+
+  /** 429(한도)·폐기 판정은 묶음이어도 그대로다(BUG-011). */
+  it('묶은 호출의 429 도 한도라고 말하고 Vault 를 가리키지 않는다', () => {
+    const headline = rebuildHeadline([entry({ response_status: 429, place_count: 12 })], NOW);
+    expect(headline.text).toContain('60번');
+    expect(headline.text).not.toContain('vercel_deploy_hook');
   });
 });

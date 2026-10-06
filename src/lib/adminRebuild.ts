@@ -8,6 +8,10 @@
  * `20260929121000_rebuild_log.sql` 이 그 호출을 표에 남기고 `rebuild_status()` 로 읽게 해 준다.
  * 이 파일은 그 행들을 **사람이 읽을 한 줄**로 바꾼다. 판정은 전부 순수 함수라 테스트가 잡는다.
  *
+ * `20261006130000_rebuild_coalesce.sql` 부터는 트리거가 훅을 직접 부르지 않고 `queued` 줄만 세운다 — 1분마다 도는 cron 이
+ * 줄이 60초 조용해지면 **한 번** 부르고, 그 줄의 쓰기들이 같은 요청을 공유한다. 그래서 `rebuild_status()` 의 한 행은 이제
+ * 쓰기 하나가 아니라 **호출 하나**이고(`place_count` 곳을 묶음), 묶은 행의 `requested_at` 은 쓰기 시각이 아니라 **부른 시각**이다.
+ *
  * 이 한 줄이 특히 필요해진 계기는 Deploy Hook URL 이 에이전트 대화 기록에 남은 일이다(docs/todo/05).
  * 폐기·재발급이 권장되는데, 새 주소를 Vault 에 잘못 붙여 넣으면 증상이 **"아무 일도 안 일어남"** 이라
  * 회전 자체가 위험해진다. 회전을 안전하게 만드는 것은 새 주소가 아니라 "됐는지 볼 수 있는 자리" 다.
@@ -15,17 +19,23 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-/** `rebuild_status()` 가 돌려주는 한 행. 훅 주소는 여기 없다(그 표에 담지 않는다 — 마이그레이션 머리 주석). */
+/** `rebuild_status()` 가 돌려주는 한 행 = 재빌드 **호출 하나**. 훅 주소는 여기 없다(그 표에 담지 않는다 — 마이그레이션 머리 주석). */
 export type TRebuildEntry = {
+  /** 부른 시각. 아직 안 부른 `queued` 는 가장 최근 쓰기 시각 — 응답 대기·cron 고장 판정이 모두 이 값에서 잰다 */
   requested_at: string;
   op: string;
   place_name: string | null;
   place_status: string | null;
-  /** sent: 보냈다 · missing: Vault 에 훅이 없다 · skipped: 게시 집합이 안 바뀌어 안 불렀다 · error: 보내다 터졌다 */
-  hook: 'sent' | 'missing' | 'skipped' | 'error';
+  /**
+   * queued: 줄을 섰다(곧 묶어서 부른다) · sent: 보냈다 · missing: Vault 에 훅이 없다 ·
+   * skipped: 게시 집합이 안 바뀌어 안 불렀다 · error: 보내다 터졌다
+   */
+  hook: 'queued' | 'sent' | 'missing' | 'skipped' | 'error';
   note: string | null;
   response_status: number | null;
   response_error: string | null;
+  /** 이 호출에 묶인 쓰기 수. 이름(`place_name`)은 그중 가장 최근 하나뿐이라, 1 보다 크면 화면이 이름 대신 수를 말한다 */
+  place_count: number;
 };
 
 /** 머리글 한 줄의 색·문구. `tone` 이 문구를 고르지 않는다 — 문구가 먼저 정해지고 색이 따라온다. */
@@ -49,6 +59,16 @@ export const RESPONSE_WAIT_LIMIT_MS = 3 * 60 * 1000;
  * 10분은 Vercel 빌드(실측 1~2분)에 넉넉한 여유를 둔 값이다. 빌드 결과 자체는 여기서 알 수 없다(훅의 응답은 "접수" 까지다).
  */
 export const BUILD_SETTLE_MS = 10 * 60 * 1000;
+
+/**
+ * 가장 최근 `queued` 가 이만큼 넘게 남아 있으면 **cron 이 안 도는 것**으로 본다.
+ *
+ * 정상이면 마지막 쓰기 뒤 60초 조용 + cron 주기 1분 = 길어야 2분 남짓에 `sent` 가 된다. 5분은 그 두 배 반이다.
+ * 가장 **오래된** 줄이 아니라 가장 최근 줄에서 재는 이유: 쉬지 않고 고치는 동안은 일부러 안 부르므로(뒤쪽 합치기),
+ * 오래된 줄에서 재면 cron 이 멀쩡한데 경보가 난다. 가장 최근 줄이 5분 묵었다면 그동안 조용했는데도 안 부른 것이다.
+ * 이것을 따로 말하지 않으면 `rebuild_log` 를 만든 이유(조용히 아무 일도 안 일어남)가 cron 자리에서 되살아난다.
+ */
+export const QUEUE_STALL_MS = 5 * 60 * 1000;
 
 export async function fetchRebuildStatus(client: SupabaseClient, n = 5): Promise<TRebuildEntry[]> {
   const { data, error } = await client.rpc('rebuild_status', { n });
@@ -83,7 +103,13 @@ export function agoLabel(fromIso: string, nowMs: number): string {
  * 주어를 "승인한 것" 으로 못 박으면 폐업 가게를 내린 직후 머리글이 하지 않은 일을 말한다.
  * `place_status` 는 마이그레이션이 `touched.status` 로 채운다(`20260929121000_rebuild_log.sql:117`).
  */
-const subjectOf = (entry: TRebuildEntry): string => (entry.place_status === 'archived' ? '내린 것' : '올린 것');
+const subjectOf = (entry: TRebuildEntry): string =>
+  /* 여러 곳을 묶은 호출은 올림·내림이 섞일 수 있고 `place_status` 는 마지막 하나의 것이다 — 주어를 수로 말한다. */
+  entry.place_count > 1 ? `바꾼 ${entry.place_count}곳` : entry.place_status === 'archived' ? '내린 것' : '올린 것';
+
+/** "2분 전" 또는 "2분 전 · 36곳 묶어 한 번" — 묶은 호출이 마지막 장소 이름 하나로만 읽히지 않게. */
+const whenOf = (entry: TRebuildEntry, ago: string): string =>
+  entry.place_count > 1 ? `${ago} · ${entry.place_count}곳 묶어 한 번` : ago;
 
 /** 가장 최근 **실제 호출**(`skipped` 가 아닌 행). 운영 현황의 재빌드 칸(`adminOpsHealth.ts`)도 같은 행을 본다 — 건너뛰는 규칙이 둘로 갈리지 않게. */
 export const latestRebuildCall = <T extends TRebuildEntry>(entries: readonly T[]): T | undefined =>
@@ -99,6 +125,22 @@ export function rebuildHeadline(entries: TRebuildEntry[], nowMs: number): TRebui
 
   const ago = agoLabel(latest.requested_at, nowMs);
   const subject = subjectOf(latest);
+
+  /*
+   * 아직 안 불렀다 — 고장이 아니라 **대기**다(쓰기가 60초 조용해지면 cron 이 묶어서 부른다). 단 가장 최근 줄이 5분 넘게
+   * 그대로면 cron 이 안 도는 것이고, 그때는 영원히 안 빌드된다(쓰기도 화면도 멀쩡해 보인다) — 확인할 자리 하나를 가리킨다.
+   */
+  if (latest.hook === 'queued') {
+    return nowMs - Date.parse(latest.requested_at) > QUEUE_STALL_MS
+      ? {
+          tone: 'warn',
+          text: `${subject}이 아직 사이트에 반영되지 않았어요(${ago}) — 재빌드 예약이 안 돌고 있어요. Supabase 의 cron.job 에 flush-vercel-rebuild 잡이 있는지, 있으면 cron.job_run_details 에서 매분 실패하고 있지 않은지 확인해 주세요. 바꾼 것은 DB 에 남아 있어요.`,
+        }
+      : {
+          tone: 'waiting',
+          text: `재빌드 대기 중이에요(${ago}) — 변경이 1분 조용해지면 ${latest.place_count > 1 ? `${latest.place_count}곳을 ` : ''}묶어서 한 번 불러요`,
+        };
+  }
 
   if (latest.hook === 'missing') {
     return {
@@ -120,19 +162,20 @@ export function rebuildHeadline(entries: TRebuildEntry[], nowMs: number): TRebui
           tone: 'warn',
           text: `${subject}이 사이트에 반영됐는지 알 수 없어요(${ago}) — 재빌드를 보냈는데 응답을 못 받았어요. Vercel 배포 목록을 확인해 주세요.`,
         }
-      : { tone: 'waiting', text: `재빌드를 보냈어요(${ago}) · 응답을 기다리고 있어요` };
+      : { tone: 'waiting', text: `재빌드를 보냈어요(${whenOf(latest, ago)}) · 응답을 기다리고 있어요` };
   }
 
   if (status >= 200 && status < 300) {
     /* HTTP 코드는 적지 않는다 — 2xx 는 운영자에게 뜻이 없다. 코드는 실패(4xx·5xx) 문장에만 싣는다(훅 폐기의 유일한 신호다). */
     return nowMs - Date.parse(latest.requested_at) > BUILD_SETTLE_MS
-      ? { tone: 'ok', text: `사이트에 반영됐어요 · 마지막 재빌드 ${ago}` }
-      : { tone: 'ok', text: `재빌드가 걸렸어요(${ago}) — 1~2분 뒤 사이트에 보여요` };
+      ? { tone: 'ok', text: `사이트에 반영됐어요 · 마지막 재빌드 ${whenOf(latest, ago)}` }
+      : { tone: 'ok', text: `재빌드가 걸렸어요(${whenOf(latest, ago)}) — 1~2분 뒤 사이트에 보여요` };
   }
 
   /*
-   * 429 는 폐기가 아니라 **한도**다 — Deploy Hook 은 프로젝트당 시간당 60번(Vercel 문서 「Limits」). 트리거가 행마다 한 번씩 부르므로
-   * 일괄 승인·일괄 고치기 한 번에 닿는다(2026-10-02 실측: 같은 분에 6건 전부 429, 10-06 엔 같은 훅이 201). 이것을 "훅 폐기" 로 말하면
+   * 429 는 폐기가 아니라 **한도**다 — Deploy Hook 은 프로젝트당 시간당 60번(Vercel 문서 「Limits」). 트리거가 행마다 한 번씩 부르던 때는
+   * 일괄 승인·일괄 고치기 한 번에 닿았다(2026-10-02 실측: 같은 분에 6건 전부 429, 10-06 엔 같은 훅이 201). 지금은 cron 이 묶어 부르므로
+   * 분당 한 번이 상한이지만, 쉬엄쉬엄 한 시간 내내 고치면 여전히 닿을 수 있다. 이것을 "훅 폐기" 로 말하면
    * 운영자가 멀쩡한 훅을 회전한다(BUG-011). 빌드는 DB 전체를 읽으므로 **다음 성공한 호출 하나**가 거절된 변경까지 같이 반영한다.
    */
   if (status === 429) {

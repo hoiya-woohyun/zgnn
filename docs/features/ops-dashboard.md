@@ -1,6 +1,7 @@
 # 운영 현황 화면 `/admin/ops` — 수집·분석·검수·반영·재빌드가 돌고 있는지 한 화면에서
 
-> 최종 수정: 2026-10-06 (v2: **화면 구현**(todo/15 T3) — 판정 규칙을 구현에 맞췄다: 재빌드 429 는 주의(BUG-011) · 수집·반영도 중단된 듯을 본다 · 반영 실패에 `failed` 크래시 포함. 승인·제외 막대는 한 칸에 위·아래, 알림 묶음엔 테스트 버튼이 아직 없다(T1.3·T6). 재빌드 칸 문장 중복과 "`src/` 가 `scripts/` 를 import 하는 길은 없다" 를 고쳤다)
+> 최종 수정: 2026-10-06 (v3: 재빌드 횟수는 `rebuild_log` 행이 아니라 **호출**(서로 다른 `request_id`)을 센다 — 뒤쪽 합치기로 한 호출에 여러 행이 붙는다(ADR-018 결정 9 v7). `queued` 는 재빌드 칸에서 대기로 본다)
+> 이전 2026-10-06 (v2: **화면 구현**(todo/15 T3) — 판정 규칙을 구현에 맞췄다: 재빌드 429 는 주의(BUG-011) · 수집·반영도 중단된 듯을 본다 · 반영 실패에 `failed` 크래시 포함. 승인·제외 막대는 한 칸에 위·아래, 알림 묶음엔 테스트 버튼이 아직 없다(T1.3·T6). 재빌드 칸 문장 중복과 "`src/` 가 `scripts/` 를 import 하는 길은 없다" 를 고쳤다)
 > 이전 2026-10-06 (v1: 제안 — 화면 명세와 UI/UX 설계. 코드 없음)
 > 상태: **구현 중** — 화면(`/admin/ops`)은 섰고 Slack(T5·T6)은 보류. 왜 이런 모양인지는 [ADR-023](../decisions/ADR-023-ops-dashboard-and-run-log.md), 진행은 [todo/15](../todo/15-ops-dashboard.md).
 
@@ -62,7 +63,7 @@
 |---|---|---|---|---|---|
 | 상태점 + 이름 | ● | ● | ○(사람 몫이라 색을 약하게) | ● | ● |
 | **첫째 수**(마지막) | 마지막 ok 실행 상대 시각 | 마지막 ok 실행 또는 `돌고 있음(심장 N분 전)` | 대기 N건 | 마지막 ok 실행 | 마지막 `rebuild_log` 행의 상대 시각 · 응답 코드 |
-| **둘째 수**(쌓인 것) | 그 실행의 신규 N | 미분석 backlog N | 가장 오래된 pending 며칠 | approved 인데 merged 아님 N(= `countStrandedCandidates`) | 7일 훅 횟수 |
+| **둘째 수**(쌓인 것) | 그 실행의 신규 N | 미분석 backlog N | 가장 오래된 pending 며칠 | approved 인데 merged 아님 N(= `countStrandedCandidates`) | 7일 훅 호출 수(서로 다른 `request_id`) |
 | 판정 이유(주의·실패일 때만) | "7일 넘음" | "N일째 쌓임" / "중단된 듯" | "N일 넘게 대기" | "반영 안 된 승인 N" | "Deploy Hook 폐기된 듯" |
 
 상태점은 넷이다 — **정상**(초록 `success`) · **주의**(노랑 `warning`) · **실패**(빨강 `error`) · **기록 없음**(회색, "아직 한 번도 안 돌았어요"). 판정 규칙은 `src/lib/adminOpsHealth.ts` 한 곳이 소유하고 단위 테스트가 붙는다. 재빌드 칸은 `rebuildHeadline()` 의 문장(`{tone, text}`)을 파싱하지 않고 `ops_overview.rebuildRecent` 의 행(`response_status`·`hook`·`requested_at`)을 직접 받는다 — 건너뛰기 규칙(`latestRebuildCall`)과 응답 대기 한도는 `adminRebuild.ts` 의 것을 그대로 쓰고, 머리글 한 줄은 그대로 `rebuildHeadline` 이 만든다. 칸을 누르면 ③ 실행 기록이 그 스크립트로 걸러진다(검수 칸 → approve·reject, 한 번 더 누르면 전체). 재빌드 칸은 `rebuild_log` 라 걸러 볼 실행 기록이 없어 누를 수 없다. 띠에는 `worstStage` 하나 — 실패가 주의보다 먼저, 같은 무게면 장치 순서상 앞의 것.

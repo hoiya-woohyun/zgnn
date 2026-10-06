@@ -30,6 +30,7 @@ const rebuild = (patch: Partial<TOpsRebuildEntry> = {}): TOpsRebuildEntry => ({
   note: null,
   response_status: 201,
   response_error: null,
+  place_count: 1,
   responded_at: ago(2 * MIN),
   ...patch,
 });
@@ -143,6 +144,16 @@ describe('stageHealth', () => {
     expect(at([rebuild({ response_status: null, requested_at: ago(1 * MIN) })]).state).toBe('ok');
     expect(at([rebuild({ hook: 'missing', response_status: null })]).state).toBe('warn');
     expect(at([rebuild({ hook: 'skipped', response_status: null }), rebuild({ response_status: 410 })]).state).toBe('fail');
+  });
+
+  /** 줄을 선 것은 응답 대기가 아니다 — 3분 "응답 없음" 이 아니라 5분 "cron 이 안 돈다" 로만 경고한다(머리글과 같은 말). */
+  it('재빌드 — queued 는 대기, 5분 넘게 남으면 cron 경고', () => {
+    const at = (entries: TOpsRebuildEntry[]) => stage(overview({ rebuildRecent: entries }), 'rebuild');
+    const queued = { hook: 'queued' as const, response_status: null, responded_at: null };
+    expect(at([rebuild({ ...queued, requested_at: ago(4 * MIN) })])).toMatchObject({ state: 'ok', reason: null });
+    const stalled = at([rebuild({ ...queued, requested_at: ago(6 * MIN) })]);
+    expect(stalled.state).toBe('warn');
+    expect(stalled.reason).toContain('flush-vercel-rebuild');
   });
 });
 

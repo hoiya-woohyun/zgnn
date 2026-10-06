@@ -1,6 +1,8 @@
 # 4. Vercel 배포 · 빌드 시 DB 읽기 · 승인되면 재빌드
 
-> 최종 수정: 2026-10-01 (v11: `develop` 자동 Preview 도 다시 껐다 — 확인은 로컬에서, 미리보기가 필요할 때만 대시보드 **Create Deployment** 로
+> 최종 수정: 2026-10-06 (v12: **재빌드를 뒤쪽에서 합친다**(`20261006130000_rebuild_coalesce.sql`, ADR-018 결정 9 v7) — 트리거는 `queued` 한 줄만,
+> pg_cron `flush-vercel-rebuild` 가 매분 60초 조용한 줄을 훅 **한 번**으로. 🙋 "승인 N건 = 빌드 N번" 이 닫혔다. 확인 절차에 `queued → sent` 를 더했다)
+> 이전 2026-10-01 (v11: `develop` 자동 Preview 도 다시 껐다 — 확인은 로컬에서, 미리보기가 필요할 때만 대시보드 **Create Deployment** 로
 > `develop` 을 손으로 띄운다. `main` 자동 배포는 그대로. 무료 플랜에서도 브랜치 고정 주소 `zgnn-git-<branch>-…vercel.app` 가 생기는 것은 확인했다
 > (Preview 는 Vercel 로그인 보호로 302))
 > 이전 (v10: `develop` 만 Preview 를 다시 켰다)
@@ -66,8 +68,11 @@
 
 ```
 /admin 에서 "맞아요"  ──▶  places INSERT/UPDATE  ──▶  트리거 places_notify_vercel_rebuild
-                      ──▶  notify_vercel_rebuild()  ──▶  Vault 의 vercel_deploy_hook 으로 POST  ──▶  Vercel 빌드
+                      ──▶  notify_vercel_rebuild()  ──▶  rebuild_log 에 queued 한 줄 (네트워크 없음)
+pg_cron 매분          ──▶  flush_vercel_rebuild()  ──▶  가장 최근 queued 가 60초 조용하면
+                      ──▶  Vault 의 vercel_deploy_hook 으로 POST 한 번  ──▶  잡은 줄 전부 sent(같은 request_id)  ──▶  Vercel 빌드
 ```
+(2026-10-06 부터 — 그 전에는 트리거가 행마다 직접 POST 했다. 왜 바꿨는지는 ADR-018 결정 9 v7.)
 
 **대시보드 경로가 바뀌었다.** Database 아래가 아니라 **Integrations → Webhooks** 다. 그리고 이 프로젝트는 그 기능을 한 번도 켠 적이 없어
 `supabase_functions` 스키마도 `pg_net` 도 없었다(2026-09-29 실측). 그래서 대시보드로 만들지 않고 **마이그레이션으로 깔았다** —
@@ -108,7 +113,19 @@
       (게시 → 내림 = 사라져야 하고, 내림 → 게시 = 나타나야 한다. 어느 쪽도 빼면 사이트가 DB 와 어긋난다).
       건너뛴 것도 `hook='skipped'` 로 남긴다 — "왜 빌드가 안 돌았나" 의 답이 그 줄에 있다.
       소프트 삭제가 이 갈래를 실제로 만들었다: 초안을 내리는 것은 사이트와 무관한 정리 작업이다.
-- [ ] 🙋 **승인 N건 = 빌드 N번**(게시 집합이 바뀌는 경우). 한 묶음 승인이 `places` 를 M번 건드리면 훅도 M번이다.
+- [x] **뒤쪽 합치기**(2026-10-06, `20261006130000_rebuild_coalesce.sql`) — 아래 🙋 를 닫는다. 일괄 올리기 36곳이 훅 36번 → 429(BUG-011)가 실제로 났다.
+      🧑 `db push` 뒤 확인(원격 — 사용자 터미널, `./node_modules/.bin/supabase db query --linked`):
+      ```sql
+      -- 잡이 하나 있고 켜져 있나 · 누구로 도나(postgres 가 아니면 PUBLIC 회수에 막혀 매분 실패한다)
+      select jobid, jobname, schedule, active, username from cron.job where jobname in ('flush-vercel-rebuild', 'prune-cron-run-details');
+      -- 매분 돌고 있나(succeeded · '1 row')
+      select status, return_message, start_time from cron.job_run_details order by runid desc limit 3;
+      -- 게시 중인 장소 하나를 저장한 뒤 1~2분: queued 가 sent 로 바뀌고, 같은 request_id 를 나눠 갖는다
+      select hook, request_id, count(*), max(requested_at), max(flushed_at), max(response_status)
+      from public.rebuild_log where requested_at > now() - interval '1 hour' group by 1, 2 order by 4 desc;
+      ```
+      `queued` 가 5분 넘게 남으면 `/admin` 머리글이 "재빌드 예약이 안 돌고 있어요" 라고 말한다 — 그때 위 첫 줄(잡이 있나·`username`)과 둘째 줄(`status = 'failed'` 의 `return_message`)을 본다. 잡이 있는데 줄이 안 빠지면 플러시가 매분 롤백되고 있는 것이다.
+- [x] ~~🙋 **승인 N건 = 빌드 N번**~~ → 위 뒤쪽 합치기로 닫았다(2026-10-06). 아래는 그 전의 기록이다. 한 묶음 승인이 `places` 를 M번 건드리면 훅도 M번이었다.
       Hobby 에서 **먼저 걸리는 한도가 하루 배포 횟수인지 월 빌드 시간인지**를 첫 달에 관찰한다 — 이제 셀 수 있다:
       ```sql
       select hook, count(*) from public.rebuild_log where requested_at > now() - interval '7 days' group by hook;

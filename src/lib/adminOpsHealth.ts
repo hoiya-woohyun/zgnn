@@ -11,7 +11,7 @@
  *    일부러 가른 것을 다시 합쳐 운영자가 멀쩡한 훅을 회전한다. 429 는 주의, 그 밖의 4xx·5xx 만 실패다.
  */
 
-import { agoLabel, latestRebuildCall, RESPONSE_WAIT_LIMIT_MS } from './adminRebuild';
+import { agoLabel, latestRebuildCall, QUEUE_STALL_MS, RESPONSE_WAIT_LIMIT_MS } from './adminRebuild';
 import type { TOpsOverview, TPipelineRun, TRunScript } from './adminOps';
 
 /*
@@ -208,6 +208,12 @@ function rebuildStage(overview: TOpsOverview, nowMs: number): TStageHealth {
   if (!latest) return { ...base, state: 'ok', first: `안 부름 · ${agoLabel(entries[0].requested_at, nowMs)}`, reason: null };
 
   const ago = agoLabel(latest.requested_at, nowMs);
+  // 줄을 섰다 — 아래 "응답 null" 갈래로 흘리면 3분에 "응답 없음" 이 떠 머리글(5분에 cron 경고)과 다른 말을 한다.
+  if (latest.hook === 'queued') {
+    return nowMs - Date.parse(latest.requested_at) > QUEUE_STALL_MS
+      ? { ...base, state: 'warn', first: `${ago} · 대기`, reason: '재빌드 예약이 안 돌고 있어요 — cron.job 의 flush-vercel-rebuild 와 cron.job_run_details 의 실패를 확인해 주세요' }
+      : { ...base, state: 'ok', first: `${ago} · 대기`, reason: null };
+  }
   if (latest.hook === 'missing') {
     return { ...base, state: 'warn', first: ago, reason: '재빌드를 부를 주소가 없어요(Vault 의 vercel_deploy_hook)' };
   }
