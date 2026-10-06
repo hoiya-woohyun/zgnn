@@ -7,6 +7,17 @@
  * 원문이 더 많은 것을 알려주기 때문이다.
  */
 
-/** 카테고리가 비어 있으면(10곳) 종류 이름으로 대신한다. 메타 줄이 비지 않게. */
+/**
+ * 카테고리가 비어 있으면(10곳) 종류 이름으로 대신한다. 메타 줄이 비지 않게.
+ *
+ * 원문의 쉼표 구분(`카페,디저트` · `백반,가정식`)은 **표시에서만** `·` 로 바꾼다(12 U3.6) — 띄어쓰기 없는 쉼표는 한 단어처럼
+ * 붙어 읽히고, 메타 줄의 ` · `(읍면 · 업종)과 겹치지 않게 앞뒤를 붙여 쓴다. 저장된 값·검색은 원문 그대로다.
+ */
 export const categoryLabel = (category: string | undefined, typeLabel: string): string =>
-  category && category.trim() ? category : typeLabel;
+  category && category.trim()
+    ? category
+        .split(',')
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .join('·')
+    : typeLabel;
