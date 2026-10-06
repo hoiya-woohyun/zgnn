@@ -7,7 +7,7 @@ import { AuthorAvatar } from '../components/authorAvatar';
 import { StickyMorphTitle } from '../components/layout/stickyMorphTitle';
 import { Section } from '../components/layout/section';
 import { maxWeightKg } from '../lib/dogProfile';
-import { CARRIER_LABELS } from '../lib/eligibility';
+import { carrierSummary } from '../lib/eligibility';
 import { dogCallNames } from '../lib/korean';
 import { META, SOURCE_LINE } from '../lib/places';
 import { useAppStore, useDog, useSavedCount } from '../store/useAppStore';
@@ -84,7 +84,7 @@ export function SettingsPage() {
             <div className="min-w-0 flex-1">
               <p className="text-md font-bold text-primary">{dogCallNames(dog.dogs.map((d) => d.name))}</p>
               <p className="mt-0.5 text-sm text-tertiary">
-                {dog.dogs.length}마리 · 최대 {maxWeightKg(dog)}kg · {CARRIER_LABELS[dog.carrier].label}
+                {dog.dogs.length}마리 · 최대 {maxWeightKg(dog)}kg · {carrierSummary(dog.carrier)}
               </p>
             </div>
             <span className="flex shrink-0 items-center gap-0.5 text-sm font-semibold text-brand-secondary">

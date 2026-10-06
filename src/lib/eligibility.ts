@@ -438,3 +438,10 @@ export const CARRIER_LABELS: Record<TCarrier, { label: string; hint: string }> =
   cage: { label: '케이지', hint: '딱딱한 이동장(하드 케이지)을 써요' },
   stroller: { label: '유모차', hint: '반려동물용 유모차를 밀고 다녀요' },
 };
+
+/**
+ * 한 줄 요약(설정 강아지 줄)에서 이동 수단을 말하는 문구. 폼의 라벨 '없어요' 는 질문("이동 수단이 있나요?")
+ * 밑에서만 뜻이 통하고, 요약에선 무엇의 값인지 사라진다.
+ */
+export const carrierSummary = (carrier: TCarrier): string =>
+  carrier === 'none' ? '이동 수단 없음' : CARRIER_LABELS[carrier].label;

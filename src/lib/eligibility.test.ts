@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compareEligibility, dogSize, headlineFor, judgeEligibility, primaryReason, verdictFor } from './eligibility';
+import { carrierSummary, compareEligibility, dogSize, headlineFor, judgeEligibility, primaryReason, verdictFor } from './eligibility';
 import { parsePetPolicy, withPolicyFacts, withVerifiedAt } from './petPolicy';
 import { PLACES } from './places';
 import type { TDogProfile, TPetPolicyFacts } from '../types';
@@ -415,5 +415,17 @@ describe('verdictFor — 정보 없음은 강아지가 아니라 장소가 주�
     const verdict = verdictFor(['보리', '콩'], result);
     expect(verdict).toBe('이곳은 반려견 동반 조건이 공개돼 있지 않아요');
     expect(verdict).not.toContain('보리');
+  });
+});
+
+describe('carrierSummary', () => {
+  it('이동 수단이 없으면 "없어요" 가 아니라 무엇의 값인지 적는다', () => {
+    expect(carrierSummary('none')).toBe('이동 수단 없음');
+  });
+
+  it('있으면 폼의 라벨을 그대로 쓴다', () => {
+    expect(carrierSummary('bag')).toBe('이동가방·슬링백');
+    expect(carrierSummary('cage')).toBe('케이지');
+    expect(carrierSummary('stroller')).toBe('유모차');
   });
 });
