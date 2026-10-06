@@ -1,6 +1,7 @@
 # 프로젝트 아키텍처 인덱스
 
-> 최종 수정: 2026-10-06 (v22: ADR 표에 [ADR-023](./decisions/ADR-023-ops-dashboard-and-run-log.md)(제안) · features 표에 [ops-dashboard.md](./features/ops-dashboard.md)(제안) 한 줄씩)
+> 최종 수정: 2026-10-06 (v23: 라우트 표에 **숨은 운영 현황 화면 `/admin/ops`** 한 줄 — `/admin` 의 세션·밀도를 그대로 받는다([todo/15](./todo/15-ops-dashboard.md) T3.1))
+> 이전 2026-10-06 (v22: ADR 표에 [ADR-023](./decisions/ADR-023-ops-dashboard-and-run-log.md)(제안) · features 표에 [ops-dashboard.md](./features/ops-dashboard.md)(제안) 한 줄씩)
 > 이전 2026-10-03 (v21: ADR 표에 [ADR-022](./decisions/ADR-022-landmark-search-by-radius.md) 한 줄)
 > 이전 (v20: ADR 표에 [ADR-021](./decisions/ADR-021-place-reports.md) 한 줄)
 > 이전 (v19: ADR 표에 [ADR-020](./decisions/ADR-020-pipeline-stages-and-blocklist.md) 한 줄)
@@ -105,6 +106,7 @@ Notion 공개 페이지 ──(scripts, 무인증 API)──▶ data/jejudo-noti
 /saved            저장한 곳 (홈 아래 — 뒤로가기는 /, 홈 카드가 주 진입점. 설정 행은 보조 경로)
 /dog              우리 강아지 등록 — 마리별 이름·몸무게·이동 수단 (설정 안). 저장하면 판정(v1)의 입력이 된다
 /admin            **숨김 · 운영자 전용** 장소 검수 — 로그인(운영자 계정) 뒤 후보를 보고 "맞아요/반려하기". 탭바·스와이프·프리캐시에 없고 링크도 없다(경계는 RLS)
+/admin/ops        **숨김 · 운영자 전용** 운영 현황 — 수집·분석·검수·반영·재빌드가 돌고 있는지(`pipeline_runs`·`ops_overview`). `/admin` 과 같은 세션·같은 규칙(프리캐시 제외)
 ```
 
 `src/app/**/page.tsx` 는 주소·메타데이터·`generateStaticParams` 만 맡는 서버 컴포넌트,

@@ -76,7 +76,8 @@ T7 pg_cron(보류) 은 T2 로 한 달쯤 쌓인 뒤
 
 ### T3. 화면 — `/admin/ops`
 
-- [ ] **T3.1 라우트** — `src/app/admin/ops/page.tsx`(메타 · `robots noindex`, `/admin` 과 같이) + `adminOpsRouteClient.tsx`(`dynamic(..., {ssr:false})` + `<div data-admin-dense>` + `adminDensity.css` import — `adminRouteClient.tsx` 를 그대로 본뜬다). `next.config.mjs` 프리캐시엔 넣지 않는다(`/admin` 과 같이). → [ARCHITECTURE.md](../ARCHITECTURE.md) 라우트 표 한 줄.
+- [x] **T3.1 라우트** — `src/app/admin/ops/page.tsx`(메타 · `robots noindex`, `/admin` 과 같이) + `adminOpsRouteClient.tsx`(`dynamic(..., {ssr:false})` + `<div data-admin-dense>` + `adminDensity.css` import — `adminRouteClient.tsx` 를 그대로 본뜬다). `next.config.mjs` 프리캐시엔 넣지 않는다(`/admin` 과 같이). → [ARCHITECTURE.md](../ARCHITECTURE.md) 라우트 표 한 줄.
+  ✅ 2026-10-06 `src/app/admin/ops/{page,adminOpsRouteClient}.tsx` + 자리표시 `src/screens/adminOpsPage.tsx`(본체는 T3.4). 셸은 손대지 않았다 — `surfaceKindOf` 가 `startsWith('/admin')` 이라 이미 wide·bare, 셸 스와이프는 탭바 화면에만 걸린다. `pnpm build` 로 `out/admin/ops/index.html` 생성, `sw.js` 프리캐시엔 `/admin` 과 같이 JS 청크만 있고 HTML 라우트는 없다.
 - [ ] **T3.2 `src/lib/adminOps.ts`** — `fetchOpsOverview(client, days)`(rpc 호출 + 타입) · `fetchRuns(client, {script?, failedOnly?, before?, limit})`(무한 스크롤 페이지) · `fetchRun(client, id)`. 타입은 rpc json 에서 파생. 요약 문장은 `src/lib/runSummary.ts`(T2.1) 를 import.
 - [ ] **T3.3 `src/lib/adminOpsHealth.ts`** — 순수 함수 `stageHealth(overview, now) → TStageHealth[5]`(칸 · 상태 `ok|warn|fail|none` · 첫째 수 · 둘째 수 · 이유 문장). 규칙과 임계값 상수는 [features](../features/ops-dashboard.md) ① 표. 재빌드 칸은 `overview.rebuildRecent`(`TRebuildEntry[]` 의 `response_status`·`hook`·`responded_at`)를 직접 읽는다 — `rebuildHeadline()` 은 `{tone, text}` 만 돌려주므로 그 문장을 파싱하지 않는다. `runState(run, now) → 'ok'|'partial'|'failed'|'running'|'stalled'`(심장 10분).
   **테스트 필수 케이스**: running+심장 11분 → `stalled` · running+심장 2분 → `running` · collect 마지막 ok 8일 → `warn` · 행 0 → `none` · pending 0 → `ok`(비었어요) · stranded 2 → 반영 `warn` · 재빌드 404 → `fail`.
