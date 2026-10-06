@@ -14,6 +14,7 @@
 //    '어려움' 으로 보낸다(BUG-009). 놓침은 '확인 필요' 쪽으로 기운다.
 //  - 지표는 칸 일치율보다 **판정 뒤집힘**이다 — 고정 강아지 몇 마리로 golden 정책과 AI 정책을 각각 판정해 레벨이 다른 곳을 센다.
 import { amountsInWon } from '../lib/feeLine.mjs';
+import { exclusionReason } from './analyzeCandidates.mjs';
 import { NAME_PARTIAL_MIN_CHARS, normalizeName, sameBranchStem, splitAliases } from './matchPlace.mjs';
 
 /** reviewUrl(`https://blog.naver.com/<blogId>/<logNo>`) → { blogId, logNo }. 모양이 다르면 null. */
@@ -156,8 +157,11 @@ export function scoreEntry(entry, extraction, fns) {
 
   const blind = Object.entries(REGEX_BLIND_FIELDS).map(([field, get]) => ({ field, predicted: get(policy) === true }));
 
-  // 'no' 는 운영에서 후보가 아예 안 생긴다(analyze-candidates) — withPolicyFacts 는 notAllowed 를 늘 끄므로 여기서 '어려움' 으로 둔다.
-  const dropped = pred.petAllowed === 'no';
+  // 운영 분석이 후보를 만들지 않는 장소(제주 밖 · 종류 other · 동반 불가 — `exclusionReason` 그대로)는 사이트에 안 들어간다.
+  // withPolicyFacts 는 notAllowed 를 늘 끄므로 정책 경로로는 이 경우가 안 보인다 — 판정을 '어려움' 으로 둔다.
+  // (동반 불가가 **게시된 짝**에 붙으면 운영은 갱신 후보로 올리지만, 신규로 들어올 수 있었나를 재는 이 평가에서는 탈락으로 본다.)
+  const dropReason = exclusionReason(pred);
+  const dropped = dropReason !== null;
   const goldenForJudge = { ...golden, verified: false };
   const predForJudge = { ...policy, verified: false };
   const verdicts = DOG_PROFILES.map(({ id, dog }) => ({
@@ -174,6 +178,7 @@ export function scoreEntry(entry, extraction, fns) {
     predictedName: pred.name,
     predictedText: pred.petPolicyText ?? null,
     dropped,
+    dropReason,
     fields,
     blind,
     verdicts,
@@ -213,6 +218,7 @@ export function summarize(results, meta = {}) {
     notFound: results.filter((r) => r.status === 'notFound').length,
     ambiguous: found.filter((r) => r.ambiguous).length,
     dropped: found.filter((r) => r.dropped).length,
+    dropReasons: Object.fromEntries(['notJeju', 'other', 'notAllowed'].map((k) => [k, found.filter((r) => r.dropReason === k).length])),
     fields,
     blind,
     verdictFlips: { places: flipped.length, n: found.length, byProfile },
@@ -223,7 +229,7 @@ export function summarize(results, meta = {}) {
 export function formatSummary(s) {
   const lines = [
     `프롬프트 ${s.promptVersion ?? '?'} · 모델 ${s.model ?? '?'}`,
-    `golden ${s.golden}곳 · 추출 있음 ${s.extracted} · 짝 찾음 ${s.found} · 못 찾음 ${s.notFound} · 짝 후보 여럿 ${s.ambiguous} · 동반 불가로 읽음 ${s.dropped}`,
+    `golden ${s.golden}곳 · 추출 있음 ${s.extracted} · 짝 찾음 ${s.found} · 못 찾음 ${s.notFound} · 짝 후보 여럿 ${s.ambiguous} · 운영이면 후보 탈락 ${s.dropped}(제주밖 ${s.dropReasons?.notJeju ?? 0} · other ${s.dropReasons?.other ?? 0} · 동반불가 ${s.dropReasons?.notAllowed ?? 0})`,
     `판정 뒤집힘 ${s.verdictFlips.places}/${s.verdictFlips.n}곳 (${Object.entries(s.verdictFlips.byProfile).map(([k, v]) => `${k} ${v}`).join(' · ')})`,
     '',
     '칸 | 일치 | 지어냄 | 놓침 | 틀림 | 사이트 오류 후보',
@@ -290,7 +296,7 @@ export function formatReport(results, summary) {
       out.push(`글에서 이 장소를 못 찾았다. AI 가 뽑은 이름: ${r.predictedNames.length ? r.predictedNames.join(', ') : '(없음)'}`, '', '사람:', quote(r.goldenText), '');
       continue;
     }
-    out.push(`짝: ${r.predictedName} (${r.how}${r.ambiguous ? ', 후보 여럿' : ''})${r.dropped ? ' · **AI 가 동반 불가로 읽음 — 운영에서는 후보가 안 생긴다**' : ''}`, '');
+    out.push(`짝: ${r.predictedName} (${r.how}${r.ambiguous ? ', 후보 여럿' : ''})${r.dropped ? ` · **운영에서는 후보가 안 생긴다(${r.dropReason})**` : ''}`, '');
     out.push('사람:', quote(r.goldenText), '', 'AI:', quote(r.predictedText), '');
     const diffs = r.fields.filter((f) => f.outcome !== 'agree' || f.siteError);
     if (diffs.length) {

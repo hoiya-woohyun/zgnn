@@ -29,7 +29,7 @@ const seed = (over = {}) => ({
   petPolicyText: '1~5kg 1만원.\n6~10kg 1.5만원.', reviewUrl: 'https://blog.naver.com/someone/223444269811', ...over,
 });
 
-const aiPlace = (over = {}) => ({ name: '솔숲펜션', type: 'stay', petAllowed: 'yes', petPolicyText: null, petPolicy: null, ...over });
+const aiPlace = (over = {}) => ({ name: '솔숲펜션', type: 'stay', isJeju: true, petAllowed: 'yes', petPolicyText: null, petPolicy: null, ...over });
 
 describe('parseReviewUrl', () => {
   it('blogId·logNo 를 뽑는다', () => {
@@ -126,9 +126,17 @@ describe('scoreEntry', () => {
 
   it("petAllowed 'no' 는 후보가 안 생기는 것 — 판정은 전부 어려움", () => {
     const r = scoreEntry(golden, { places: [aiPlace({ petAllowed: 'no' })] }, fns);
-    expect(r.dropped).toBe(true);
+    expect(r).toMatchObject({ dropped: true, dropReason: 'notAllowed' });
     expect(r.fields.find((f) => f.field === 'petAllowed').outcome).toBe('틀림');
     expect(r.verdicts.every((v) => v.predicted === 'hard')).toBe(true);
+  });
+
+  it('제주 밖·종류 other 도 운영 분석처럼 탈락으로 센다', () => {
+    const notJeju = scoreEntry(golden, { places: [aiPlace({ isJeju: false })] }, fns);
+    const other = scoreEntry(golden, { places: [aiPlace({ type: 'other' })] }, fns);
+    expect(notJeju.dropReason).toBe('notJeju');
+    expect(other.dropReason).toBe('other');
+    expect(summarize([notJeju, other]).dropReasons).toEqual({ notJeju: 1, other: 1, notAllowed: 0 });
   });
 
   it("review 가 'ai' 면 AI 쪽이 맞은 것(사이트 오류 후보), 'unclear' 면 세지 않는다", () => {
