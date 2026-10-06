@@ -296,7 +296,7 @@ export function MapPage() {
                   type="button"
                   onClick={toggleSavedOnly}
                   aria-pressed={savedOnly}
-                  className={cx(CHIP_BUTTON, 'px-3.5', savedOnly ? 'text-primary' : 'text-quaternary')}
+                  className={cx(CHIP_BUTTON, 'px-3.5', savedOnly ? 'text-primary' : 'text-tertiary')}
                 >
                   <Heart
                     size={14}
@@ -319,7 +319,7 @@ export function MapPage() {
                       className={cx(
                         CHIP_BUTTON,
                         'px-2.5 first:pl-3.5 last:pr-3.5',
-                        active ? 'text-primary' : 'text-quaternary',
+                        active ? 'text-primary' : 'text-tertiary',
                       )}
                     >
                       {/*
