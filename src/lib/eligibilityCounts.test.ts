@@ -58,7 +58,13 @@ describe('outdoorFallback — 갈 수 있는 곳이 없을 때 야외 자리로 
   it('식당 × 30kg — 가능 0곳, 야외 자리로는 3곳', () => {
     const restaurants = placesOfType('restaurant');
     expect(countByLevel(restaurants, BORI).ok).toBe(0);
-    expect(outdoorFallback(restaurants, BORI)).toBe(3);
+    const outdoor = outdoorFallback(restaurants, BORI);
+    expect(outdoor).toHaveLength(3);
+    // 그 곳들만 시트로 펼치므로 곳 자체를, 목록 순서대로 돌려준다(14 W261006.5a).
+    expect(outdoor?.every((place) => place.policy.outdoorFree)).toBe(true);
+    expect(outdoor?.map((place) => place.id)).toEqual(
+      restaurants.filter((place) => outdoor?.includes(place)).map((place) => place.id),
+    );
   });
 
   it('갈 수 있는 곳이 하나라도 있으면 null', () => {

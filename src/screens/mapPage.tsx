@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertTriangle, Heart, NavigationPointer01 } from '@untitledui/icons';
 import { MapPageCanvas, type TMapPageCanvasHandle } from './mapPageCanvas';
-import { MapPageMissingGeoList } from './mapPageMissingGeoList';
+import { PlaceLinkList } from '../components/placeLinkList';
 import { MapPageSheetCard } from './mapPageSheet';
 import { useMapPageWideLayout } from './useMapPageWideLayout';
 import { BottomSheet } from '@/components/base/bottom-sheet';
@@ -182,7 +182,7 @@ export function MapPage() {
             {missingGeo.length > 0 && (
               <div className="mt-2">
                 <p className="text-xs text-tertiary">지도에 위치가 없는 {missingGeo.length}곳</p>
-                <MapPageMissingGeoList places={missingGeo} />
+                <PlaceLinkList places={missingGeo} />
               </div>
             )}
           </div>
@@ -442,7 +442,7 @@ export function MapPage() {
         <BottomSheet isOpen={missingOpen && missingGeo.length > 0} onOpenChange={setMissingOpen} label="지도에 없는 곳">
           <p className="pr-8 text-md font-bold text-primary">지도에 위치가 없는 {missingGeo.length}곳</p>
           <p className="mt-0.5 text-sm text-tertiary">좌표를 아직 못 찾아 마커로 못 그렸어요.</p>
-          <MapPageMissingGeoList places={missingGeo} />
+          <PlaceLinkList places={missingGeo} />
         </BottomSheet>
       )}
     </div>

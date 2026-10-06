@@ -1,20 +1,21 @@
 import Link from 'next/link';
-import { TownChip } from '../components/townChip';
+import { TownChip } from './townChip';
 import { categoryLabel } from '../lib/category';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
 
-type TMapPageMissingGeoListProps = {
+type TPlaceLinkListProps = {
   places: TPlaceEntry[];
 };
 
 /**
- * 지도에 좌표가 없어 마커로 못 그린 곳들 — 그 곳들만 바로 상세로 잇는다(14 ↪ 12 U1.7).
+ * 몇 곳만 골라 바로 상세로 잇는 줄 목록 — 이름 · 읍면 · 종류, 행 전체가 링크다.
  *
- * 예전에는 종류 목록(`/places/<type>`)으로 보내, 3곳을 찾으러 26곳을 훑게 했다. 목록에는 '좌표 없음'
- * 필터가 없고, 빠진 곳은 종류가 섞여 있어 한 목록으로 모이지도 않는다. 모바일 시트와 데스크톱 패널이
- * 같은 줄을 쓴다.
+ * "그 N곳" 을 말하는 자리가 전체 목록으로 보내면 3곳을 찾으러 26곳을 훑게 된다. 그래서 그 곳들만
+ * 시트(또는 패널)에 이 줄로 펼친다. 쓰는 곳 둘:
+ * - 지도 — 좌표가 없어 마커로 못 그린 곳(14 ↪ 12 U1.7). 모바일 시트와 데스크톱 패널이 같은 줄.
+ * - 둘러보기 머리 — 갈 수 있는 곳이 0곳일 때 야외 자리로는 되는 곳(14 W261006.5a).
  */
-export function MapPageMissingGeoList({ places }: TMapPageMissingGeoListProps) {
+export function PlaceLinkList({ places }: TPlaceLinkListProps) {
   return (
     <ul className="divide-y divide-secondary">
       {places.map((place) => (

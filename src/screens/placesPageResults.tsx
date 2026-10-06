@@ -1,12 +1,14 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ChevronRight, SearchMd } from '@untitledui/icons';
 import { PlacesPageActiveChips, type TActiveChip } from './placesPageActiveChips';
 import { handOffPlacesQuery } from './placesPageQueryHandoff';
 import { PlaceCard } from '../components/placeCard';
+import { PlaceLinkList } from '../components/placeLinkList';
 import { EmptyState } from '../components/layout/emptyState';
+import { BottomSheet } from '../components/base/bottom-sheet';
 import { Button } from '../components/base/button';
 import { judgeEligibility, primaryReason, type TEligibilityLevel } from '../lib/eligibility';
 import { carrierWhatIf, countByLevel, outdoorFallback } from '../lib/eligibilityCounts';
@@ -109,11 +111,13 @@ export function PlacesPageResults({
     [results, dog, needsIndoor],
   );
 
-  // 갈 수 있는 곳이 0곳일 때 야외 자리로는 되는 곳의 수(30kg 식당 → 3곳). 판정은 그대로, 안내만.
+  // 갈 수 있는 곳이 0곳일 때 야외 자리로는 되는 곳들(30kg 식당 → 3곳). 판정은 그대로, 안내만.
+  // 누르면 그 곳들만 시트로 펼친다(14 W261006.5a) — 목록에선 확인 필요·정보 없음 사이에 흩어져 있다.
   const outdoor = useMemo(
     () => (dog ? outdoorFallback(results, dog, { needsIndoor }) : null),
     [results, dog, needsIndoor],
   );
+  const [outdoorOpen, setOutdoorOpen] = useState(false);
 
   return (
     <>
@@ -141,14 +145,26 @@ export function PlacesPageResults({
           따로 쌓이면 같은 이야기를 두 번 한다. 곳 수를 앞세워 문장이 빠진 카드가 어느 쪽인지 읽히게 한다. */}
       {(repeated || outdoor || whatIf) && (
         <div
-          className={`mx-4 mt-3 space-y-1 rounded-xl border border-secondary bg-primary px-3 pt-2 text-sm text-secondary md:mx-6 ${whatIf ? '' : 'pb-2'}`}
+          // 마지막 줄이 44px 링크·버튼이면 그 높이가 아래 여백을 대신한다.
+          className={`mx-4 mt-3 space-y-1 rounded-xl border border-secondary bg-primary px-3 pt-2 text-sm text-secondary md:mx-6 ${whatIf || outdoor ? '' : 'pb-2'}`}
         >
           {repeated && (
             <p>
               <span className="font-semibold text-primary">{repeated.count}곳은 같은 이유예요</span> · {repeated.text}
             </p>
           )}
-          {outdoor && <p>갈 수 있는 곳은 없지만, 야외 자리로는 {outdoor}곳이 돼요</p>}
+          {outdoor && (
+            <div>
+              갈 수 있는 곳은 없지만, 야외 자리로는 {outdoor.length}곳이 돼요
+              <button
+                type="button"
+                onClick={() => setOutdoorOpen(true)}
+                className="flex min-h-11 items-center font-semibold text-brand-secondary hover:text-brand-secondary_hover"
+              >
+                야외 자리 {outdoor.length}곳 보기
+              </button>
+            </div>
+          )}
           {whatIf && (
             <div>
               이동가방이 있으면 {whatIf.opened}곳이 &lsquo;확인 필요&rsquo; 로 바뀌어요
@@ -242,6 +258,13 @@ export function PlacesPageResults({
           )}
         </div>
       )}
+
+      {/* 지도의 "지도에 없는 N곳" 시트와 같은 줄 목록(`PlaceLinkList`) — 그 곳들만, 바로 상세로. */}
+      <BottomSheet isOpen={outdoorOpen && outdoor !== null} onOpenChange={setOutdoorOpen} label="야외 자리로 갈 수 있는 곳">
+        <p className="pr-8 text-md font-bold text-primary">야외 자리로 갈 수 있는 {outdoor?.length}곳</p>
+        <p className="mt-0.5 text-sm text-tertiary">야외 자리가 열려 있는 곳이에요. 실내 동반은 가기 전에 확인해 보세요.</p>
+        {outdoor && <PlaceLinkList places={outdoor} />}
+      </BottomSheet>
     </>
   );
 }

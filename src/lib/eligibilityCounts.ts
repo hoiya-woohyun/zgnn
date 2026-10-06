@@ -52,19 +52,22 @@ export const carrierWhatIf = (
  *
  * - 갈 수 있는 곳이 하나라도 있으면 null — 차선을 말할 때가 아니다.
  * - 이번 여행에 실내 자리가 꼭 필요하면(`needsIndoor`) null — 야외는 차선이 될 수 없다.
- * - 세는 것은 `outdoorFree` 이면서 어려움이 아닌 곳. 0 이면 null.
+ * - 고르는 것은 `outdoorFree` 이면서 어려움이 아닌 곳. 하나도 없으면 null.
+ *
+ * 수가 아니라 그 곳들을 돌려준다 — 머리의 한 줄을 누르면 그 곳들만 시트로 펼친다(14 W261006.5a).
+ * 3곳을 찾으러 28곳을 훑게 하지 않는다. 받은 순서(목록의 정렬)를 그대로 둔다.
  */
-export const outdoorFallback = (
-  places: readonly { policy: TPetPolicy }[],
+export const outdoorFallback = <T extends { policy: TPetPolicy }>(
+  places: readonly T[],
   dog: TDogProfile,
   opts: { needsIndoor?: boolean } = {},
-): number | null => {
+): T[] | null => {
   if (opts.needsIndoor) return null;
-  let outdoor = 0;
+  const outdoor: T[] = [];
   for (const place of places) {
     const level = judgeEligibility(dog, place.policy, opts).level;
     if (level === 'ok') return null;
-    if (place.policy.outdoorFree && level !== 'hard') outdoor++;
+    if (place.policy.outdoorFree && level !== 'hard') outdoor.push(place);
   }
-  return outdoor > 0 ? outdoor : null;
+  return outdoor.length > 0 ? outdoor : null;
 };
