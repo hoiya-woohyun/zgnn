@@ -55,7 +55,7 @@ export function HomePage() {
       {/* 예전에는 `-mt-10` 으로 히어로 위에 겹쳐 올렸다. 히어로가 라운드 판이 되면서 그 겹침이
           판의 아래 모서리를 덮어 버려(같은 폭이다) 판으로 보이지 않게 된다 — 겹치지 않고 아래에 둔다. */}
       <div className="px-4 md:px-6">
-        <section className="mt-4 rounded-2xl border border-secondary bg-primary p-5 shadow-lg">
+        <section className="mt-4 rounded-2xl border border-secondary bg-primary p-5">
           <p className="whitespace-pre-line text-sm text-secondary">{META.intro}</p>
           {/* 편지 서명처럼 오른쪽 아래. 첫 화면에서 "누가 쓴 자료인가" 를 얼굴로 한 번 더 말한다. */}
           <p className="mt-3 flex items-center justify-end gap-2 text-sm font-semibold text-brand-secondary">
