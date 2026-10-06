@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
 import { AppShell } from '@/components/layout/appShell';
+import { PLACES, SITE_BLURB } from '@/lib/places';
 import { RouteProvider } from '@/providers/routerProvider';
 import { StoreHydration } from '@/providers/storeHydration';
 import '@/styles/globals.css';
@@ -35,8 +36,7 @@ const appSans = localFont({
   display: 'swap',
 });
 
-const DESCRIPTION =
-  '짱구누나가 직접 다녀온 반려견 동반 가능한 제주 숙소·식당·카페 86곳. 실내 동반 조건과 추가 요금을 한눈에 확인하세요.';
+const DESCRIPTION = `${SITE_BLURB} ${PLACES.length}곳. 실내 동반 조건과 추가 요금을 한눈에 확인하세요.`;
 
 export const metadata: Metadata = {
   title: {

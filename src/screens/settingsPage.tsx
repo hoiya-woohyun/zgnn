@@ -9,7 +9,7 @@ import { Section } from '../components/layout/section';
 import { maxWeightKg } from '../lib/dogProfile';
 import { CARRIER_LABELS } from '../lib/eligibility';
 import { dogCallNames } from '../lib/korean';
-import { META } from '../lib/places';
+import { META, SOURCE_LINE } from '../lib/places';
 import { useAppStore, useDog, useSavedCount } from '../store/useAppStore';
 
 const CARD_CLASS =
@@ -129,7 +129,7 @@ export function SettingsPage() {
             <AuthorAvatar className="size-10" />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold text-primary">{META.author}</p>
-              <p className="text-sm text-tertiary">모든 정보는 {META.author}님이 정리한 자료입니다.</p>
+              <p className="text-sm text-tertiary">{SOURCE_LINE}</p>
             </div>
           </div>
           <a

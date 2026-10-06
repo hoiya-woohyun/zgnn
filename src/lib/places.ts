@@ -92,6 +92,14 @@ const mergeItemVariants = (items: TItem[]): TItem[] => {
 export const ITEMS = mergeItemVariants(itemsJson as TItem[]);
 export const META = metaJson as TMeta;
 
+/*
+ * 출처·장소 수를 말하는 문구는 여기 한 곳에서 데이터로 만든다(12 U3.1). `/admin` 승인으로 블로그 후보가
+ * 들어오는 첫 빌드부터 "모든 정보는 … 정리한 자료"·"직접 다녀온"·"86곳" 은 틀린 말이 되고, 빌드는 통과한다.
+ * 장소마다 출처를 보이는 것은 별개의 일이다(11 T3.3 → 07).
+ */
+export const SOURCE_LINE = `${META.author}님이 정리한 자료를 바탕으로 모았어요.`;
+export const SITE_BLURB = `${META.author} 자료를 바탕으로 모은 반려견 동반 제주 숙소·식당·카페`;
+
 export const getPlace = (id: string | undefined) => (id ? PLACES_BY_ID.get(id) : undefined);
 
 export const placesOfType = (type: TPlaceType) => PLACES.filter((place) => place.type === type);

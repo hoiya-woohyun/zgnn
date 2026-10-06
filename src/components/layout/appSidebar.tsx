@@ -3,7 +3,7 @@ import { usePathname } from 'next/navigation';
 import { LinkExternal01 } from '@untitledui/icons';
 import { NAV_ITEMS, navHref } from './navItems';
 import { AuthorAvatar } from '../authorAvatar';
-import { META } from '../../lib/places';
+import { META, SOURCE_LINE } from '../../lib/places';
 import { cx } from '../../utils/cx';
 
 /**
@@ -54,7 +54,7 @@ export function AppSidebar() {
       <footer className="flex items-start gap-3 border-t border-secondary px-5 py-4 text-xs text-tertiary">
         <AuthorAvatar className="size-10" />
         <div>
-          <p>{META.author}님이 정리한 자료입니다.</p>
+          <p>{SOURCE_LINE}</p>
           <a
             href={META.sourceUrl}
             target="_blank"

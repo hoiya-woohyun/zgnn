@@ -9,7 +9,7 @@ import { AuthorAvatar } from '../components/authorAvatar';
 import { Button } from '../components/base/button';
 import { SeasonChips } from '../components/seasonChips';
 import { dogCallNames, withJosa } from '../lib/korean';
-import { META, PLACE_TYPES, placesOfType } from '../lib/places';
+import { META, PLACE_TYPES, placesOfType, SOURCE_LINE } from '../lib/places';
 import { checklistView } from '../lib/checklist';
 import type { TEligibilityLevel } from '../lib/eligibility';
 import { countByLevel } from '../lib/eligibilityCounts';
@@ -153,7 +153,7 @@ export function HomePage() {
 
       <footer className="mt-10 px-4 pb-8 text-sm text-quaternary md:px-6">
         <p>
-          모든 정보는 {META.author}님이 정리한 자료입니다.{' '}
+          {SOURCE_LINE}{' '}
           <a
             href={META.sourceUrl}
             target="_blank"
