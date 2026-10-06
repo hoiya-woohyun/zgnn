@@ -8,9 +8,9 @@ describe('parseAdminUrl', () => {
   });
 
   it('탭과 걸러 보기를 읽는다(앞의 ? 는 있어도 없어도)', () => {
-    const expected = { tab: 'archived', tier: 'ask', kind: 'all', policy: 'needsLook', type: 'cafe', warn: 'noBasis' };
-    expect(parseAdminUrl('?tab=archived&tier=ask&policy=needsLook&type=cafe&warn=noBasis')).toEqual(expected);
-    expect(parseAdminUrl('tab=archived&tier=ask&policy=needsLook&type=cafe&warn=noBasis')).toEqual(expected);
+    const expected = { tab: 'archived', kind: 'ask', policy: 'needsLook', type: 'cafe', warn: 'noBasis' };
+    expect(parseAdminUrl('?tab=archived&kind=ask&policy=needsLook&type=cafe&warn=noBasis')).toEqual(expected);
+    expect(parseAdminUrl('tab=archived&kind=ask&policy=needsLook&type=cafe&warn=noBasis')).toEqual(expected);
   });
 
   it('2026-10-04 에 더한 선택지(동반 표기만 · 종류 엇갈림)도 읽는다', () => {
@@ -18,7 +18,12 @@ describe('parseAdminUrl', () => {
   });
 
   it('모르는 값은 기본값으로 읽는다', () => {
-    expect(parseAdminUrl('?tab=nope&tier=zzz&type=hotel&kind=renew')).toEqual(DEFAULT_ADMIN_URL_STATE);
+    expect(parseAdminUrl('?tab=nope&type=hotel&kind=renew')).toEqual(DEFAULT_ADMIN_URL_STATE);
+  });
+
+  it('옛 ?tier= 는 에러 없이 무시한다 — 짝은 kind 하나다(todo/13 T4.3)', () => {
+    expect(parseAdminUrl('?tier=ask')).toEqual(DEFAULT_ADMIN_URL_STATE);
+    expect(parseAdminUrl('?tier=auto&kind=fill')).toEqual({ ...DEFAULT_ADMIN_URL_STATE, kind: 'fill' });
   });
 });
 
@@ -33,8 +38,12 @@ describe('writeAdminUrl', () => {
   });
 
   it('쓴 것을 다시 읽으면 같은 상태다', () => {
-    const state = { tab: 'places', tier: 'new', kind: 'update', policy: 'has', type: 'stay', warn: 'region' } as const;
+    const state = { tab: 'places', kind: 'update', policy: 'has', type: 'stay', warn: 'region' } as const;
     expect(parseAdminUrl(writeAdminUrl('', state))).toEqual(state);
+  });
+
+  it('옛 tier 키는 쓸 때 지운다 · 다른 키는 그대로', () => {
+    expect(writeAdminUrl('x=1&tier=ask', { ...DEFAULT_ADMIN_URL_STATE, kind: 'new' })).toBe('x=1&kind=new');
   });
 
   it('?kind=update 가 새로고침 뒤에도 산다(11 T1.2)', () => {

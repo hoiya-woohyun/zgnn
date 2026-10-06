@@ -90,11 +90,17 @@ export type TBulkApprove = {
  * 막지 않는다 — 한 줄씩은 올릴 수 있다. 일괄에서만 빼는 이유는 일괄 버튼이 "봤다" 는 뜻을 잃지 않게 하는 것이다:
  * 이런 줄은 원문을 한 번 읽어야 하는 자리인데, 백 줄을 한 번에 고르면 그 한 번이 사라진다.
  * 짝이 있는 묶음(보강·갱신)은 사이트의 조건을 덮지 않으므로 대상이 아니다.
+ *
+ * **문장 없음(`noText`)이면서 교차점검이 '동반 표기만'** 인 신규도 얇다(2026-10-06, todo/13 A7) — 조건 문장도 없고 강아지가 있었다는 서술도 없어,
+ * 근거가 "동반 가능" 이라는 표기 하나뿐이다. 문장 없음 + '동반 확인' 은 그대로 올라간다(교차점검이 개가 있었다고 봤다).
+ * 독립 글 수는 여기서 보지 않는다 — 글이 여럿이어도 표기만이면 얇고, 동반 확인이면 한 건이어도 근거가 있다.
  */
 export function thinNewEvidence(group: TCandidateGroup): boolean {
   if (group.lead.match_place_id) return false;
   const extracted = group.lead.extracted;
-  if (policyCell(previewFor(extracted), extracted.petPolicyText).state !== 'noLimit') return false;
+  const state = policyCell(previewFor(extracted), extracted.petPolicyText).state;
+  if (state === 'noText') return verifyListedOnly(extracted.verify);
+  if (state !== 'noLimit') return false;
   const independent = group.independentPosts ?? group.posts?.length ?? 1;
   return independent <= 1 || verifyListedOnly(extracted.verify);
 }

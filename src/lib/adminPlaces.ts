@@ -98,6 +98,21 @@ export function matchesPlaceQuery(place: TPlaceRow, query: string): boolean {
   return searchKey(`${place.name} ${place.region_raw} ${place.address ?? ''}`).includes(key);
 }
 
+/**
+ * 검수 대기 묶음의 이름 검색 — 순수(todo/13 T4.2). `matchesPlaceQuery` 와 **같은 규칙**(공백·대소문자 무시, 적은 그대로)이다.
+ * 대표 이름만 보지 않는다: 같은 자리로 묶인 다른 이름(`mergeSameSpotGroups`)과 짝 장소 이름도 본다 — 운영자가 기억하는 이름이
+ * 대표가 아닐 수 있고, 갱신 묶음은 사이트에 올라간 이름으로 찾는 일이 잦다. 지역·주소는 보지 않는다(이 칸은 이름으로 찾는 자리다).
+ */
+export function matchesGroupQuery(
+  group: { lead: { extracted: { name: string } }; rows: { extracted: { name: string }; places?: { name: string } | null }[] },
+  query: string,
+): boolean {
+  const key = searchKey(query);
+  if (key === '') return true;
+  const names = [group.lead.extracted.name, ...group.rows.flatMap((row) => [row.extracted.name, row.places?.name ?? ''])];
+  return names.some((name) => searchKey(name ?? '').includes(key));
+}
+
 /** 상태별 개수 — 순수. 필터 칩에 붙는 수다. */
 export function countPlacesByStatus(rows: TPlaceRow[]): Record<TPlaceStatus, number> {
   const counts: Record<TPlaceStatus, number> = { published: 0, draft: 0, archived: 0 };

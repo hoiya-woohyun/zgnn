@@ -57,7 +57,11 @@ describe('bulkApproveSummary', () => {
     const base = group(key, null);
     return {
       ...base,
-      lead: { ...base.lead, extracted: { ...base.lead.extracted, verify: petAllowedHere === undefined ? null : { petAllowedHere, dogWasThere: false }, ...over } },
+      // 'yes' 는 동반 확인(`dogWasThere`)으로 둔다 — 문장 없음 + 동반 표기만은 근거 얇음으로 빠진다(todo/13 A7, 아래 thinNewEvidence).
+      lead: {
+        ...base.lead,
+        extracted: { ...base.lead.extracted, verify: petAllowedHere === undefined ? null : { petAllowedHere, dogWasThere: petAllowedHere === 'yes' }, ...over },
+      },
     } as unknown as TCandidateGroup;
   };
 
@@ -128,6 +132,15 @@ describe('thinNewEvidence · 일괄 올리기에서 근거 얇은 신규를 뺀�
       '1곳 올려요. 근거가 얇아 한 줄씩 봐야 하는 1곳은 건너뛰어요. 짝이 있으면 그 장소의 빈 칸만 채우고, 없으면 새 장소로 올라가요.',
     );
     expect(bulkApproveJobs(groups).map((g) => g.key)).toEqual(['b']);
+  });
+
+  it('문장 없음이면 동반 표기만일 때만 얇다 — 동반 확인 · 미점검 · 짝이 있으면 얇지 않다(todo/13 A7)', () => {
+    expect(thinNewEvidence(thin('a', { text: null, independent: 3, posts: 3, dogWasThere: false }))).toBe(true);
+    expect(thinNewEvidence(thin('b', { text: null, independent: 1, posts: 1, dogWasThere: true }))).toBe(false);
+    expect(thinNewEvidence(thin('c', { text: null, pair: 'p1' }))).toBe(false);
+    const unchecked = thin('d', { text: null });
+    (unchecked.lead.extracted as { verify: unknown }).verify = null;
+    expect(thinNewEvidence(unchecked)).toBe(false);
   });
 
   it('지역이 없는 줄은 지역 칸에 먼저 선다 — 한 줄은 한 칸에만 센다', () => {

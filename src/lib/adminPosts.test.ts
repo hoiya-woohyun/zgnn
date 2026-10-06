@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { reopenPlan, reopenSummary, tallyExistingReasons } from './adminPosts';
+import { BACKLOG_NO_DATE, BACKLOG_NO_KEYWORD, reopenPlan, reopenSummary, tallyBacklog, tallyExistingReasons } from './adminPosts';
 
 describe('tallyExistingReasons — 이미 있는 가게를 쓴 글(11 T2.4)', () => {
   it('같은 말 · 옛 글 · 근거 약함을 세고, 옛 alreadyHave 는 같은 말에 합친다 · 다른 이유·이상한 값은 세지 않는다', () => {
@@ -45,5 +45,36 @@ describe('옛 규칙으로 버려진 글 다시 열기(11 런북 3단계를 화�
 describe('tallyExistingReasons — 신규·동반 근거 없음(ADR-019 v6)', () => {
   it('따로 세고 total 에는 안 넣는다', () => {
     expect(tallyExistingReasons([[{ reason: 'noPetEvidence' }, { reason: 'noPetEvidence' }, { reason: 'stale' }]])).toMatchObject({ total: 1, stale: 1, noPetEvidence: 2 });
+  });
+});
+
+describe('tallyBacklog — 미분석 글의 검색어별·달별 건수(todo/13 T4.4)', () => {
+  it('많은 검색어가 위 · 최근 달이 위 · 합은 행 수와 같다', () => {
+    const tally = tallyBacklog([
+      { keyword: '애월 애견동반', posted_at: '2026-09-03' },
+      { keyword: '애월 애견동반', posted_at: '2026-08-30' },
+      { keyword: '성산 애견카페', posted_at: '2026-09-21' },
+    ]);
+    expect(tally.total).toBe(3);
+    expect(tally.byKeyword).toEqual([
+      { key: '애월 애견동반', count: 2 },
+      { key: '성산 애견카페', count: 1 },
+    ]);
+    expect(tally.byMonth).toEqual([
+      { key: '2026-09', count: 2 },
+      { key: '2026-08', count: 1 },
+    ]);
+  });
+
+  it('검색어·날짜가 없는 글도 버리지 않고 한 칸에 모은다(날짜 없음은 맨 끝)', () => {
+    const tally = tallyBacklog([
+      { keyword: null, posted_at: null },
+      { keyword: '  ', posted_at: '2026-01-02' },
+    ]);
+    expect(tally.byKeyword).toEqual([{ key: BACKLOG_NO_KEYWORD, count: 2 }]);
+    expect(tally.byMonth).toEqual([
+      { key: '2026-01', count: 1 },
+      { key: BACKLOG_NO_DATE, count: 1 },
+    ]);
   });
 });

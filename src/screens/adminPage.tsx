@@ -1,9 +1,10 @@
 'use client';
 
-import { CheckDone01 } from '@untitledui/icons';
+import { CheckDone01, SearchLg } from '@untitledui/icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { Button } from '../components/base/button';
+import { Input } from '../components/base/input';
 import { Select } from '../components/base/select';
 import { EmptyState } from '../components/layout/emptyState';
 import { PageHeader } from '../components/layout/pageHeader';
@@ -44,6 +45,7 @@ import {
 import {
   fetchManagedPlaces,
   markPlaceVerified,
+  matchesGroupQuery,
   SEED_VERIFIED_AT,
   seedVerifyTargets,
   sortManagedPlaces,
@@ -51,7 +53,7 @@ import {
   type TArchiveReason,
 } from '../lib/adminPlaces';
 import { type TPlaceEditPatch, updatePlace } from '../lib/adminPlaceEdit';
-import { countPosts, fetchSiblings, reopenPlan, type TPostCounts, type TReopenPlan } from '../lib/adminPosts';
+import { countPosts, fetchPostBacklog, fetchSiblings, reopenPlan, type TPostBacklog, type TPostCounts, type TReopenPlan } from '../lib/adminPosts';
 import {
   closeReportsForArchived,
   fetchReports,
@@ -66,7 +68,8 @@ import {
   type TVisitedTally,
   visitedTallyByPlace,
 } from '../lib/adminReports';
-import { adminFlagView, TYPE_MISMATCH_FLAG, typeMismatchFlags } from '../lib/adminPreview';
+import { adminFlagView, POLICY_STATE_WORD, TYPE_MISMATCH_FLAG, typeMismatchFlags } from '../lib/adminPreview';
+import { UNREAD_BADGE_LABEL } from '../lib/petPolicy';
 import { verifyListedOnly, verifyNeedsLook } from '../lib/adminVerify';
 import { fetchRebuildStatus, rebuildHeadline, type TRebuildHeadline } from '../lib/adminRebuild';
 import {
@@ -93,7 +96,6 @@ import {
   type TAdminTab,
   type TPolicyFilter,
   type TKindFilter,
-  type TTierFilter,
   type TTypeFilter,
   type TWarnFilter,
 } from '../lib/adminUrlState';
@@ -161,15 +163,23 @@ const TAB_LABELS: { key: TTab; label: string }[] = [
 /**
  * 머리글의 `?` 가 말하는 것 — 화면 곳곳의 설명문을 여기 모았다(2026-09-30 v2). 운영자는 한 명이고 매일 보므로,
  * 칸·버튼마다 붙은 한 줄은 첫날 이후 소음이다. 화면에 남는 문장은 **예외일 때만**이다(주소 고르기 · 내린 곳 · 근거 없음 …).
+ *
+ * 뒤의 세 줄(2026-10-06, todo/13 T4.5)은 동반 조건 칸에 서는 비슷한 세 말의 차이다 — 하나는 정상이고 둘은 볼 일인데 같은 자리에 같은 크기로 선다.
+ * 단어는 상수에서 끼운다(표의 단어가 바뀌면 도움말도 따라간다). '원문 확인 필요' 는 칸의 단어가 아니라 **칩**이다(`UNREAD_BADGE_LABEL`) —
+ * 표의 '못 읽음'(`POLICY_STATE_WORD.unread`)은 그 칩조차 안 선 드문 갈래라 여기서 말하지 않는다.
  */
-const HELP = [
+const HELP_LINES = [
   '여기서 바꾼 것은 사이트가 다시 빌드된 뒤에 보여요.',
   '줄을 누르면 근거(원문 · 나갈 값 · 블로그 인용)가 펼쳐지고, 그 끝에서 이 줄을 올리거나 제외해요.',
   '제외: 사유를 고르면 후보는 목록에서 빠져요. 「블랙리스트에」 를 3개월·영구로 고르면 그 가게 이름의 새 글도 한동안 후보로 올라오지 않아요.',
   '줄 앞 체크박스로 여러 곳을 고르면 표 위에 한꺼번에 처리하는 줄이 떠요.',
   '올리기: 짝이 있으면 그 장소의 빈 칸만 채우고, 없으면 새 장소로 올라가요. 덮어쓰기: 짝의 칸을 새 분석 값으로 바꿔요.',
   '재분석: 그 글을 수집 완료로 되돌려요(지우지 않아요). 터미널에서 pnpm data:analyze 를 돌리면 다시 읽어요.',
-].join('\n');
+  `${POLICY_STATE_WORD.noText}: 블로그 본문에 동반 조건 문장이 아예 없어요 — 교차점검을 했으면 강아지가 있었는지는 그 줄이 말해요.`,
+  `${POLICY_STATE_WORD.noLimit}: "동반 가능" 문장은 있는데 크기·실내·요금 같은 조건이 안 적혀 있어요 — 올리면 사이트엔 '확인이 필요해요' 로 나가요.`,
+  `${UNREAD_BADGE_LABEL}(칩): 조건 문장은 있는데 판정 규칙이 못 읽었어요 — 사이트에도 "원문을 확인해 주세요" 로 나가요.`,
+];
+const HELP = HELP_LINES.join('\n');
 
 type TBulkMode = 'reject' | 'reanalyze' | 'approve' | 'latest';
 
@@ -220,35 +230,23 @@ const POLICY_FILTER_MATCH: Record<Exclude<TPolicyFilter, 'all'>, (card: { group:
 };
 
 /**
- * 걸러 보기는 **두 축**이다. 앞의 넷은 서로 배타적인 한 축(기존 장소와의 관계)이고,
- * '조건이 적힌 것만' 은 그 축을 가로지르는 따로 켜는 토글이다. 한 줄에 다섯을 같은 모양으로 두었을 때는
- * 조건 토글이 tier 필터를 **대체해서**, 조건 없는 후보(142묶음 중 112)가 통째로 사라진 목록을
- * 운영자가 "다 봤다" 로 읽었다.
- */
-const TIER_FILTERS: { key: TTierFilter; label: string; hint?: string; match: (group: TCandidateGroup) => boolean }[] = [
-  { key: 'all', label: '전체', match: () => true },
-  // 라벨은 표의 뱃지(`기존`·`확인`·`신규`)와 같은 두 자로 시작하고, 뜻은 선택지 밑 한 줄이 말한다 — 뱃지만 봐서는 뜻을 몰랐다.
-  { key: 'auto', label: TIER_LABEL.auto, hint: '이미 올린 장소와 같은 곳 — 올리면 거기 합쳐져요', match: (group) => group.tier === 'auto' },
-  { key: 'ask', label: TIER_LABEL.ask, hint: '비슷한 장소가 있어 같은 곳인지 봐야 해요', match: (group) => group.tier === 'ask' },
-  { key: 'new', label: TIER_LABEL.new, hint: '처음 보는 곳 — 올리면 새 장소로 올라가요', match: (group) => group.tier === 'new' },
-];
-
-/**
- * 할 일 축(11 U2) — 승인하면 무슨 일이 일어나나. 짝(tier)과 다른 축이라 따로 고른다: `기존` 묶음 안에서 `갱신`(사이트와 다른 사실)과
- * `보강`(빈 칸만)이 갈린다. 묶음의 값은 `groupCandidates` 가 정한다(갱신 한 줄이면 갱신).
+ * 짝 축 — 기존 장소와의 관계이자 승인하면 무슨 일이 일어나나. **하나의 축이다**(2026-10-06, todo/13 T4.3).
+ * 예전엔 '짝'(tier: 기존·확인·신규)과 '할 일'(kind: 갱신·보강·신규·확인, 11 U2)이 따로 섰는데, 신규·확인이 양쪽에 있고 `기존` = 갱신 + 보강이라
+ * 선택지가 사실상 같았다 — 둘을 엇갈리게 고르면 늘 빈 목록이 됐다. `kind` 가 `tier` 를 빈틈없이 나누므로(`summarizeGroup`: 갱신이 하나라도 있으면
+ * 갱신, 아니면 기존 → 보강 · 확인 · 신규) 더 잘게 가르는 `kind` 하나만 남긴다. 라벨 뒤의 `(기존)` 은 표의 뱃지와 이어 읽게 하려는 것이다.
  */
 const KIND_FILTERS: { key: TKindFilter; label: string; hint?: string }[] = [
   { key: 'all', label: '전체' },
-  { key: 'update', label: KIND_LABEL.update, hint: '올린 장소와 다른 사실을 말하는 글 — 덮어쓸 칸을 고른다' },
-  { key: 'fill', label: KIND_LABEL.fill, hint: '올린 장소의 빈 칸만 채우는 글 — 합치기' },
-  { key: 'new', label: KIND_LABEL.new, hint: '처음 보는 곳' },
-  { key: 'ask', label: KIND_LABEL.ask, hint: '같은 곳인지 봐야 하는 곳' },
+  { key: 'update', label: `${KIND_LABEL.update} (${TIER_LABEL.auto})`, hint: '이미 올린 장소에 다른 사실을 말하는 글 — 덮어쓸 칸을 골라요' },
+  { key: 'fill', label: `${KIND_LABEL.fill} (${TIER_LABEL.auto})`, hint: '이미 올린 장소와 같은 곳 — 올리면 빈 칸만 채워 합쳐져요' },
+  { key: 'ask', label: KIND_LABEL.ask, hint: '비슷한 장소가 있어 같은 곳인지 봐야 해요' },
+  { key: 'new', label: KIND_LABEL.new, hint: '처음 보는 곳 — 올리면 새 장소로 올라가요' },
 ];
 
 const kindMatches = (filter: TKindFilter, group: TCandidateGroup): boolean => filter === 'all' || group.kind === filter;
 
 /**
- * 종류 축. tier·동반 정보와 **겹치지 않는 세 번째 축**이다 — 종류로 좁힌 뒤 tier 로 다시 좁히는 것이
+ * 종류 축. 짝·동반 정보와 **겹치지 않는 축**이다 — 종류로 좁힌 뒤 짝으로 다시 좁히는 것이
  * 실제 검수 순서다("카페부터 훑고, 그중 처음 보는 곳만").
  *
  * `other` 도 칩을 갖는다. 분석기가 `other` 를 후보에서 제외하므로(`exclusionReason`) 평소엔 0이지만,
@@ -296,8 +294,12 @@ export function AdminPage() {
   const [stranded, setStranded] = useState<number | undefined>(undefined);
   const [states, setStates] = useState<Record<string, TAdminPageGroupState>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [tierFilter, setTierFilter] = useState<TTierFilter>(initialUrl.tier);
   const [kindFilter, setKindFilter] = useState<TKindFilter>(initialUrl.kind);
+  /**
+   * 이름 검색(todo/13 T4.2). 주소에 싣지 않는다 — 등록 완료 칸의 검색과 같은 결정이다: 검색어는 그 순간의 것이라
+   * 새로고침·재로그인 뒤에 남아 있으면 "목록이 왜 이렇게 짧지" 가 된다. 걸러 보기 축 하나로 센다(`AXES.query`).
+   */
+  const [nameQuery, setNameQuery] = useState('');
   const [policyFilter, setPolicyFilter] = useState<TPolicyFilter>(initialUrl.policy);
   const [typeFilter, setTypeFilter] = useState<TTypeFilter>(initialUrl.type);
   const [warnFilter, setWarnFilter] = useState<TWarnFilter>(initialUrl.warn);
@@ -324,6 +326,12 @@ export function AdminPage() {
   const [placeNotice, setPlaceNotice] = useState<string | undefined>(undefined);
   const [postCounts, setPostCounts] = useState<TPostCounts | undefined>(undefined);
   const [postError, setPostError] = useState<string | undefined>(undefined);
+  /**
+   * 미분석 글의 집계와 다음 30건(todo/13 T4.4). 6천 행을 읽으므로 로그인 직후가 아니라 **수집 완료 칸을 처음 열 때** 한 번 읽는다.
+   * undefined = 아직 안 읽었다(또는 읽는 중). 실패는 그 칸에서만 말한다.
+   */
+  const [backlog, setBacklog] = useState<{ data?: TPostBacklog; error?: string } | undefined>(undefined);
+  const backlogAskedRef = useRef(false);
   const [blockSummary, setBlockSummary] = useState<TBlocksSummary | undefined>(undefined);
   /** 장소 id → 열린 블랙리스트(등록 해제 칸의 칩). undefined = 표가 없거나 못 읽었다. */
   const [placeBlocks, setPlaceBlocks] = useState<Record<string, TPlaceBlock> | undefined>(undefined);
@@ -358,8 +366,8 @@ export function AdminPage() {
     setReports({ kind: 'ok', rows });
   }, []);
   /**
-   * 재빌드가 실제로 불렸는지. `undefined` 는 "못 읽었다" 이고 그때는 **아무 말도 하지 않는다** —
-   * 못 읽은 것을 "안 불렸다" 로 말하면 멀쩡한 시스템을 고장으로 신고하게 만든다(stranded 와 같은 어법).
+   * 재빌드가 실제로 불렸는지. `undefined` 는 "아직 읽는 중" 이다 — 머리글이 흐린 `재빌드 상태 확인 중` 으로 자리만 잡는다(todo/13 T4.1).
+   * 못 읽었으면 `refreshRebuild` 가 `tone: 'none'` 문장으로 채운다 — 못 읽은 것을 "안 불렸다" 로 말하면 멀쩡한 시스템을 고장으로 신고하게 만든다.
    */
   const [rebuild, setRebuild] = useState<TRebuildHeadline | undefined>(undefined);
 
@@ -435,6 +443,8 @@ export function AdminPage() {
     try {
       setPostError(undefined);
       setPostCounts(await countPosts(client));
+      // 건수가 바뀌었으면 미분석 집계도 낡았다 — 수집 완료 칸에 있으면 곧바로, 아니면 다음에 열 때 다시 읽는다(아래 효과).
+      backlogAskedRef.current = false;
     } catch (error) {
       setPostCounts(undefined);
       setPostError(messageOf(error, '수집한 글을 세지 못했어요.'));
@@ -453,6 +463,8 @@ export function AdminPage() {
     setPlaceNotice(undefined);
     setPostCounts(undefined);
     setPostError(undefined);
+    setBacklog(undefined);
+    backlogAskedRef.current = false;
     setBlockSummary(undefined);
     setPlaceBlocks(undefined);
     applyReports(undefined);
@@ -485,6 +497,8 @@ export function AdminPage() {
 
     void loadManaged(client);
     void loadCounts(client);
+    // 재빌드 줄은 끊긴 반영 수를 기다리지 않는다 — 머리글 자리는 미리 잡혀 있지만(T4.1), 경고 띠는 늦을수록 탭 줄을 늦게 민다.
+    void refreshRebuild(client);
 
     /*
      * 끊긴 반영(`approved`)은 목록에 안 나오므로 수만 따로 센다.
@@ -495,9 +509,27 @@ export function AdminPage() {
     } catch {
       setStranded(undefined);
     }
-
-    await refreshRebuild(client);
   }, [applyReports, loadCounts, loadManaged, refreshRebuild]);
+
+  /** 미분석 글의 집계·다음 30건 — 실패는 수집 완료 칸에서만 말한다(검수는 막지 않는다). */
+  const loadBacklog = useCallback(async (client: SupabaseClient, excludedApplied: boolean) => {
+    try {
+      setBacklog({ data: await fetchPostBacklog(client, excludedApplied) });
+    } catch (error) {
+      setBacklog({ error: messageOf(error, '미분석 글을 읽지 못했어요.') });
+    }
+  }, []);
+
+  /*
+   * 수집 완료 칸을 **열었을 때** 읽는다(`?tab=posts` 로 들어온 경우도 같다). 건수(`postCounts`)를 기다리는 이유:
+   * 분석 제외 칸이 있는지를 거기서 알아야 집계가 머리글의 "미분석 N" 과 같은 집합이 된다.
+   */
+  useEffect(() => {
+    const client = clientRef.current;
+    if (phase !== 'ready' || tab !== 'posts' || !postCounts || !client || backlogAskedRef.current) return;
+    backlogAskedRef.current = true;
+    void loadBacklog(client, postCounts.excluded !== null);
+  }, [loadBacklog, phase, postCounts, tab]);
 
   /*
    * 마운트 뒤에야 localStorage 를 읽는다 — 서버에는 그 저장소가 없다(그래서 이 화면은 `ssr: false` 다).
@@ -1236,16 +1268,16 @@ export function AdminPage() {
     [groups],
   );
 
-  const activeTier = TIER_FILTERS.find((entry) => entry.key === tierFilter) ?? TIER_FILTERS[0];
   /*
-   * **축이 넷이고, 어떤 선택지의 개수든 "나를 뺀 나머지 축을 적용한 뒤" 센다.** 누르면 보일 수와 선택지의 숫자가
+   * **어떤 선택지의 개수든 "나를 뺀 나머지 축을 적용한 뒤" 센다.** 누르면 보일 수와 선택지의 숫자가
    * 같아야 한다는 규칙이고, 이 화면에서 그것이 틀리면 운영자가 "다 봤다" 를 개수로 잘못 읽는다 —
-   * 조건 토글을 켠 채 tier 칩을 보던 시절에 실제로 난 일이다. 축을 하나 더할 때 이 표에 한 줄만 더하면 되게 묶었다.
+   * 조건 토글을 켠 채 짝 칩을 보던 시절에 실제로 난 일이다. 축을 하나 더할 때 이 표에 한 줄만 더하면 되게 묶었다.
+   * 이름 검색(`query`)도 한 축이다 — 검색 중에도 선택지 개수·"N곳 보는 중"·'전부 고르기' 가 검색 결과를 따른다.
    */
   type TCard = (typeof cards)[number];
-  type TAxis = 'tier' | 'kind' | 'type' | 'policy' | 'warn';
+  type TAxis = 'query' | 'kind' | 'type' | 'policy' | 'warn';
   const AXES: Record<TAxis, (card: TCard) => boolean> = {
-    tier: (card) => activeTier.match(card.group),
+    query: (card) => matchesGroupQuery(card.group, nameQuery),
     kind: (card) => kindMatches(kindFilter, card.group),
     type: (card) => typeMatches(typeFilter, card.group),
     policy: (card) => policyFilter === 'all' || POLICY_FILTER_MATCH[policyFilter](card),
@@ -1255,16 +1287,15 @@ export function AdminPage() {
   const without = (except: TAxis) =>
     cards.filter((card) => (Object.keys(AXES) as TAxis[]).every((axis) => axis === except || AXES[axis](card)));
   const filtered = without('warn').filter(AXES.warn);
-  const baseTier = without('tier');
   const baseKind = without('kind');
   const baseType = without('type');
   const basePolicy = without('policy');
   const baseWarn = without('warn');
-  const filtersOn = tierFilter !== 'all' || kindFilter !== 'all' || typeFilter !== 'all' || policyFilter !== 'all' || warnFilter !== 'all';
+  const filtersOn = nameQuery.trim() !== '' || kindFilter !== 'all' || typeFilter !== 'all' || policyFilter !== 'all' || warnFilter !== 'all';
 
   // 걸러 보기를 바꾸면 '더 보기' 도 처음으로 — 효과가 아니라 여기서 함께 바꾼다(같은 사건의 두 결과다).
-  const pickTier = (next: TTierFilter) => {
-    setTierFilter(next);
+  const typeName = (next: string) => {
+    setNameQuery(next);
     setShown(PAGE_SIZE);
   };
   /** 드롭다운은 값을 바로 고른다 — 토글(`pickPolicy`)과 달리 같은 것을 다시 골라도 풀리지 않는다. */
@@ -1276,8 +1307,9 @@ export function AdminPage() {
     setKindFilter(next);
     setShown(PAGE_SIZE);
   };
+  /** 검색어도 함께 지운다 — 0건 문구가 "걸러 보기를 꺼 보세요" 라서, 풀었는데 검색이 남아 여전히 빈 목록이면 안 된다. */
   const resetFilters = () => {
-    setTierFilter('all');
+    setNameQuery('');
     setKindFilter('all');
     setTypeFilter('all');
     setPolicyFilter('all');
@@ -1301,10 +1333,10 @@ export function AdminPage() {
    * 첫 렌더의 값은 방금 주소에서 읽은 것이라 같은 문자열을 다시 쓸 뿐이다(바뀐 것이 없으면 아무것도 안 한다).
    */
   useEffect(() => {
-    const search = writeAdminUrl(window.location.search, { tab, tier: tierFilter, kind: kindFilter, policy: policyFilter, type: typeFilter, warn: warnFilter });
+    const search = writeAdminUrl(window.location.search, { tab, kind: kindFilter, policy: policyFilter, type: typeFilter, warn: warnFilter });
     const next = `${window.location.pathname}${search ? `?${search}` : ''}${window.location.hash}`;
     if (next !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.replaceState(window.history.state, '', next);
-  }, [kindFilter, policyFilter, tab, tierFilter, typeFilter, warnFilter]);
+  }, [kindFilter, policyFilter, tab, typeFilter, warnFilter]);
 
   /**
    * 걸러 보기에 걸린 묶음들. 무한 스크롤로 **아직 안 그린 것까지** 포함한다 — '전부 고르기' 가 고르는 범위다.
@@ -1383,7 +1415,9 @@ export function AdminPage() {
 
   /*
    * 칸마다 제목·설명·탭 건수. 건수는 **이미 든 것에서 센다** — 탭을 바꿔도 다시 읽지 않는다.
-   * 못 센 것(아직 읽는 중·실패)은 숫자를 안 단다(0 으로 말하지 않는다). `미적용` 은 원격에 표·칸이 아직 없다는 뜻이다(09 「실행 규약」).
+   * 못 센 것(아직 읽는 중·실패)은 숫자를 안 단다(0 으로 말하지 않는다). `미적용` 은 원격에 표가 아직 없다는 뜻이다(09 「실행 규약」).
+   * 수집 완료 칸에는 달지 않는다(2026-10-06, todo/13 T4.4) — 칸 전체가 아니라 '글 단위 분석 제외' 한 기능의 사정이라 라벨 옆에선 뜻이
+   * 읽히지 않았다. 그 사정은 패널의 그 줄이 말한다. 블랙리스트는 칸 전체가 그 표라 남긴다.
    */
   const publishedCount = managed?.filter((place) => place.status === 'published').length;
   const draftCount = managed?.filter((place) => place.status === 'draft').length;
@@ -1397,7 +1431,6 @@ export function AdminPage() {
     blocks: blockSummary?.kind === 'ok' ? n(blockSummary.active) : undefined,
   };
   const tabUnapplied: Partial<Record<TTab, boolean>> = {
-    posts: postCounts?.excluded === null,
     blocks: blockSummary?.kind === 'unavailable',
   };
   const TAB_HEADER: Record<TTab, { title: string; description: string }> = {
@@ -1455,13 +1488,25 @@ export function AdminPage() {
         description={TAB_HEADER[tab].description}
         actions={
           <div className="flex items-center gap-2">
-            <span
-              title={HELP}
-              aria-label={HELP}
-              className="flex size-6 cursor-help items-center justify-center rounded-full border border-secondary text-xs text-tertiary"
-            >
-              ?
-            </span>
+            {/*
+              * `?` 는 **누르면 열린다**(2026-10-06, todo/13 T4.5) — `title` 툴팁만이던 동안 폰·태블릿에서는 볼 길이 없었다.
+              * 레포에 이미 쓰는 `<details>`(비교표의 '어떻게 읽었는지 보기')로 연다 — 팝오버 부품을 들이지 않는다. 마우스에는 `title` 도 남긴다.
+              * 펼친 목록은 떠 있는 카드라 흰 바탕(`bg-primary`)이다(크롬이 아니다 — ADR-010 v4).
+              */}
+            <details className="relative">
+              <summary
+                title={HELP}
+                aria-label="도움말"
+                className="flex size-6 cursor-pointer list-none items-center justify-center rounded-full border border-secondary text-xs text-tertiary [&::-webkit-details-marker]:hidden"
+              >
+                ?
+              </summary>
+              <ul className="absolute right-0 z-20 mt-2 w-80 max-w-[calc(100vw-2rem)] space-y-1.5 rounded-lg border border-secondary bg-primary p-3 text-xs text-secondary shadow-lg">
+                {HELP_LINES.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            </details>
             <Button color="secondary" size="sm" onClick={signOut}>
               로그아웃
             </Button>
@@ -1473,12 +1518,13 @@ export function AdminPage() {
           {session.email} · {expiry} 지나면 다시 로그인해요
         </p>
         {/*
-          * 재빌드가 **정말 걸렸는지** 를 말하는 줄(→ `adminRebuild.ts`). 못 읽었으면(undefined) 아무 말도 하지 않는다.
-          * 정상(`ok`)은 회색 글씨다 — 초록은 매번 뜨는 줄에 쓰기에는 센 색이다(경고만 색).
+          * 재빌드가 **정말 걸렸는지** 를 말하는 줄(→ `adminRebuild.ts`). 정상(`ok`)은 회색 글씨다 — 초록은 매번 뜨는 줄에 쓰기에는 센 색이다.
+          * **자리를 먼저 잡는다**(2026-10-06, todo/13 T4.1): 이 줄은 목록보다 늦게 읽혀서, 없던 줄이 생기며 탭 줄과 표를 한 줄 아래로 밀었다 —
+          * 누르려던 자리가 움직인다. 그래서 읽는 중에도 같은 높이로 서고(흐린 한 마디), 실패(`warn`)일 때는 이 자리를 비워 둔 채 탭 줄 위 띠로 말한다.
           */}
-        {rebuild ? (
-          <p className={cx('mt-0.5', rebuild.tone === 'warn' && 'text-warning-primary')}>{rebuild.text}</p>
-        ) : null}
+        <p className={cx('mt-0.5 min-h-4', !rebuild && 'text-quaternary')}>
+          {!rebuild ? '재빌드 상태 확인 중' : rebuild.tone === 'warn' ? null : rebuild.text}
+        </p>
         {/*
           * 쓰기 도중에 끊긴 후보는 `approved` 로 남아 **이 목록에 안 나온다**(목록은 pending 만 읽는다).
           * 그 줄을 안 띄우면 새로고침 뒤에 그냥 사라진 것처럼 보여 승인이 통과한 줄 안다 — 이어받는 길을 여기서 말해 준다.
@@ -1503,6 +1549,15 @@ export function AdminPage() {
         * **밑줄 탭이다**(2026-09-30 v2). 채운 핑크 버튼이던 동안 주 버튼(올리기)과 같은 모양이라 화면에서 가장 센 물체가
         * 가장 드문 동작(칸 전환)이었다. 좁은 화면에서는 줄이 가로로 밀린다 — 다섯 라벨이 한 줄에 안 들어가도 줄바꿈하지 않는다.
         */}
+      {/*
+        * 재빌드 실패는 머리글의 회색 한 줄이 아니라 **탭 줄 바로 위의 띠**다(todo/13 T4.1) — 429·폐기된 훅이면 승인해도 사이트에 안 나가는데,
+        * 머리글 셋째 줄의 주황 글씨로는 며칠을 못 보고 지나갔다(2026-10-02 부터의 429). 문구는 `rebuildHeadline` 이 만든 그대로다.
+        */}
+      {rebuild?.tone === 'warn' ? (
+        <p role="alert" className="mt-3 bg-warning-primary px-4 py-2 text-xs font-semibold text-warning-primary md:px-6">
+          {rebuild.text}
+        </p>
+      ) : null}
       <div className="mt-3 flex gap-5 overflow-x-auto border-b border-secondary px-4 md:px-6" role="tablist" aria-label="검수 칸">
         {TAB_LABELS.map((entry) => {
           const active = entry.key === tab;
@@ -1535,6 +1590,7 @@ export function AdminPage() {
         <AdminPagePostsPanel
           counts={postCounts}
           error={postError}
+          backlog={backlog}
           seedTargets={managed ? seedVerifyTargets(managed).length : null}
           onSeedVerify={seedVerify}
           onPlanReopen={planReopen}
@@ -1596,6 +1652,10 @@ export function AdminPage() {
          * 개수 규칙은 그대로다 — 나를 뺀 나머지 축을 적용한 뒤 센다(`without`). 폭은 선택지 설명이 잘리지 않을 만큼이다.
          */
         <div className="mt-3 flex flex-wrap items-end gap-x-3 gap-y-2 px-4 md:px-6">
+          {/* 이름 검색(todo/13 T4.2) — 대표 이름 · 같은 자리로 묶인 다른 이름 · 짝 장소 이름 중 하나라도 맞으면 남는다(`matchesGroupQuery`). */}
+          <div className="w-full sm:w-56">
+            <Input aria-label="이름으로 찾기" placeholder="이름으로 찾기" value={nameQuery} onChange={typeName} size="sm" icon={SearchLg} />
+          </div>
           <Select
             label="경고"
             size="sm"
@@ -1611,19 +1671,6 @@ export function AdminPage() {
           </Select>
           <Select
             label="짝"
-            size="sm"
-            className="w-56"
-            selectedKey={tierFilter}
-            onSelectionChange={(key) => key && pickTier(key as TTierFilter)}
-          >
-            {TIER_FILTERS.map((entry) => (
-              <Select.Item key={entry.key} id={entry.key} supportingText={entry.hint}>
-                {`${entry.label} ${baseTier.filter((card) => entry.match(card.group)).length}`}
-              </Select.Item>
-            ))}
-          </Select>
-          <Select
-            label="할 일"
             size="sm"
             className="w-56"
             selectedKey={kindFilter}

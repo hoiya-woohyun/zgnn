@@ -4,6 +4,7 @@ import {
   countPlacesByStatus,
   dayOf,
   lastNoteLine,
+  matchesGroupQuery,
   matchesPlaceQuery,
   noteHistory,
   noteLineText,
@@ -69,6 +70,26 @@ describe('sortManagedPlaces', () => {
     const rows = [place({ id: 'b', name: '나' }), place({ id: 'a', name: '가' })];
     sortManagedPlaces(rows);
     expect(rows.map((row) => row.id)).toEqual(['b', 'a']);
+  });
+});
+
+describe('matchesGroupQuery — 검수 대기 이름 검색(todo/13 T4.2)', () => {
+  const group = (lead: string, rows: { name: string; pair?: string }[] = []) => ({
+    lead: { extracted: { name: lead } },
+    rows: [{ extracted: { name: lead }, places: null }, ...rows.map((row) => ({ extracted: { name: row.name }, places: row.pair ? { name: row.pair } : null }))],
+  });
+
+  it('빈 검색어는 전부 통과 · 공백과 대소문자를 무시한다', () => {
+    expect(matchesGroupQuery(group('숨도'), '  ')).toBe(true);
+    expect(matchesGroupQuery(group('카페살레'), '카페 살레')).toBe(true);
+    expect(matchesGroupQuery(group('Cafe Salle'), 'cafesalle')).toBe(true);
+  });
+
+  it('같은 자리로 묶인 다른 이름과 짝 장소 이름으로도 찾는다', () => {
+    const merged = group('숨도', [{ name: '숨도카페', pair: '숨도 애월점' }]);
+    expect(matchesGroupQuery(merged, '숨도카페')).toBe(true);
+    expect(matchesGroupQuery(merged, '애월점')).toBe(true);
+    expect(matchesGroupQuery(merged, '살레')).toBe(false);
   });
 });
 

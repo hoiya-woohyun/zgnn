@@ -5,7 +5,7 @@ import { Badge } from '../components/base/badges';
 import { addressView } from '../lib/adminAddress';
 import { factsLine, FACTS_EMPTY, type TCandidateGroup, type TPlaceRow, type TPolicyPreview } from '../lib/adminCandidates';
 import { aiEdits } from '../lib/adminEdit';
-import { policySplit } from '../lib/adminPreview';
+import { policySplit, typeMismatchFlags } from '../lib/adminPreview';
 import { verifyView } from '../lib/adminVerify';
 import type { TBadgeTone, TPetBadge } from '../lib/petPolicy';
 import { environmentPhrases } from '../lib/stayEnvironmentView';
@@ -170,6 +170,12 @@ export function AdminPageGroupDetail({ group, preview, place }: TAdminPageGroupD
   const siteOf = (node: ReactNode) => (place ? node : undefined);
   const siteFacts = place ? factsLine(place.pet_policy ?? null) : null;
   const policyQuote = extracted.petPolicyText ? squash(extracted.petPolicyText) : '';
+  const category = extracted.category?.trim() ?? '';
+  /*
+   * 엇갈림 한 마디는 **카테고리가 있을 때만** 이 줄에 붙인다. `typeMismatchFlags` 는 카테고리가 비면 소개 문장으로 판정하는데,
+   * 그때 '없음' 옆에 "엇갈려요" 를 적으면 없는 카테고리가 엇갈린다고 말하게 된다(표식 자체는 장소 칸 뱃지가 그대로 말한다).
+   */
+  const categoryMismatch = category !== '' && typeMismatchFlags(extracted).length > 0;
 
   return (
     <div className="space-y-3 text-xs">
@@ -255,6 +261,21 @@ export function AdminPageGroupDetail({ group, preview, place }: TAdminPageGroupD
             source={<Quote text={regionAi} empty="원글에서 지역을 못 읽었어요" />}
             site={siteOf(<SiteText text={place?.region_raw} />)}
             result={<p className="text-secondary">{extracted.regionRaw ?? '지역 없음 — 아래에서 골라 주세요'}</p>}
+          />
+          {/*
+            * 네이버 카테고리(todo/13 T4.6) — 종류 엇갈림 뱃지가 선 묶음에서 운영자가 종류를 정할 근거다. 승인하면 장소의 `category` 로 나간다
+            * (새 장소는 그대로 · 짝이 있으면 그 칸이 빌 때만 — `mergeIntoExisting`).
+            * 블로그 원문이 없는 값이라 소개·홈페이지처럼 한 칸이다.
+            */}
+          <CompareRow
+            label="카테고리"
+            site={siteOf(<SiteText text={place?.category} />)}
+            result={
+              <p className="text-secondary">
+                {category || '없음'}
+                {categoryMismatch && <span className="ml-1.5 text-warning-primary">종류 칩과 엇갈려요</span>}
+              </p>
+            }
           />
           {/* 소개·홈페이지는 블로그 원문이 없다 — 왼쪽이 늘 같은 안내문이던 줄이라 한 칸으로 합쳤다(다와풀빌라가 두 화면을 먹던 주된 이유). */}
           <CompareRow
