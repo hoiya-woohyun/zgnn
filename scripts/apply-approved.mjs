@@ -17,10 +17,12 @@
 //
 // `--dry-run`: DB 에 아무것도 쓰지 않고 무엇을 할지 한 줄씩만 찍는다. 읽기는 한다(patch 를 계산하려면 기존 행이 필요).
 // 로그에 시크릿·응답 본문·헤더를 남기지 않는다 — 후보 id · 장소 id/이름 · 채울 컬럼명 · error.message 만(docs/todo/05).
+// 실행마다 `pipeline_runs` 에 한 행(scripts/lib/runLog.mjs, docs/todo/15 T2.4) — `--dry-run` 은 남기지 않는다. 기록이 안 돼도 반영은 그대로 돈다.
 import { randomUUID } from 'node:crypto';
 import { mergeIntoExisting, toNewPlaceRow, toRecheckCandidate } from './analyze/applyApproved.mjs';
 import { matchPlace, THRESHOLD } from './analyze/matchPlace.mjs';
 import { toMatchablePlace } from './lib/placeFields.mjs';
+import { beginRun, NO_RUN } from './lib/runLog.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
 import { formatApplySummary } from '../src/lib/runSummary.ts';
 
@@ -70,6 +72,9 @@ const existing = placeRows.map(toMatchablePlace);
 const environmentColumn = placeRows.some((row) => 'stay_environment' in row);
 const rowById = new Map(placeRows.map((row) => [row.id, row]));
 
+// 시작 기록은 사전 점검(후보·장소 읽기 · places 비어 있음) 뒤 — 그 앞의 exit(1) 은 돌지 않은 것이다.
+const run = dryRun ? NO_RUN : await beginRun(supabase, { script: 'apply', args: null });
+
 let merged = 0;
 let created = 0;
 let failed = 0;
@@ -77,6 +82,7 @@ let returned = 0; // 영구 실패 → pending 으로 되돌린 수
 let publishedMerged = 0; // published 장소의 빈 칸을 채운 수 — 다음 pull 에서 사람 재확인 없이 화면에 나간다(설계 검토 RP-3). 따로 센다.
 
 for (const candidate of candidates) {
+  await run.tick();
   console.log(`후보 ${candidate.id} (${candidate.extracted?.name ?? '이름 없음'})`);
   try {
     let placeId;
@@ -206,6 +212,8 @@ const runStats = {
   revertedToPending: returned,
   draftWaiting: draftCount ?? null,
 };
+// 콘솔 줄과 실행 기록의 stats 는 같은 객체다(src/lib/runSummary.ts). 실패가 있으면 partial — exit code 는 지금처럼 실패 수.
 console.log(formatApplySummary(runStats, { dryRun }));
+await run.end({ status: failed > 0 ? 'partial' : 'ok', stats: runStats });
 // process.exit() 은 파이프로 나가던 stdout 을 잘라먹을 수 있다 — 요약 한 줄이 사용자가 보는 유일한 관측이라 자연 종료를 기다린다.
 process.exitCode = Math.min(failed, 255);
