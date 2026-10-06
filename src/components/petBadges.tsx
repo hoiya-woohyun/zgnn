@@ -1,6 +1,7 @@
 import { Check } from '@untitledui/icons';
 import { Badge, BadgeWithIcon } from './base/badges';
 import type { BadgeColors } from './base/badge-types';
+import { feeChipForWeight } from '../lib/dogFee';
 import { isFeeBadgeRepeatedIn, NO_INFO_BADGE_LABEL, toPetBadges, type TBadgeTone, type TPetPolicy } from '../lib/petPolicy';
 
 /**
@@ -37,10 +38,12 @@ type TPetBadgesProps = {
   hideNoInfo?: boolean;
   /** 이 배지 줄 바로 밑에 원문을 같이 보여 줄 때 넘긴다 — 원문에 그대로 적힌 요금 배지는 같은 말이라 뺀다. */
   sourceText?: string;
+  /** 우리 강아지(가장 무거운 아이) 몸무게. 있으면 `limit` 자리의 요금 칩 하나를 그 구간 줄로 고른다(`feeChipForWeight`). */
+  weightKg?: number;
   className?: string;
 };
 
-export function PetBadges({ policy, limit, hideNoInfo = false, sourceText, className = '' }: TPetBadgesProps) {
+export function PetBadges({ policy, limit, hideNoInfo = false, sourceText, weightKg, className = '' }: TPetBadgesProps) {
   const all = toPetBadges(policy).filter((badge) => !(hideNoInfo && badge.label === NO_INFO_BADGE_LABEL))
     .filter((badge) => !(sourceText !== undefined && isFeeBadgeRepeatedIn(badge, sourceText)));
   /*
@@ -52,8 +55,18 @@ export function PetBadges({ policy, limit, hideNoInfo = false, sourceText, class
    *
    * 숨긴 요금 줄은 `+N` 에 들어간다 — 접힌 수가 실제와 달라지면 "더 있다" 는 신호가 거짓이 된다.
    */
+  const firstFee = all.findIndex((b) => b.axis === 'fee');
+  // 프로필이 있으면 그 하나는 첫 줄이 아니라 **우리 강아지 구간**이다(07 U5) — 20kg 아이에게 "1~5kg 1만원" 을 세우지 않는다.
+  const feeLabel =
+    firstFee >= 0 && weightKg !== undefined
+      ? feeChipForWeight(all.filter((b) => b.axis === 'fee').map((b) => b.label), weightKg)
+      : all[firstFee]?.label;
   const badges = limit
-    ? all.filter((badge, index) => badge.axis !== 'fee' || index === all.findIndex((b) => b.axis === 'fee'))
+    ? all.flatMap((badge, index) => {
+        if (badge.axis !== 'fee') return [badge];
+        if (index !== firstFee || feeLabel === null || feeLabel === undefined) return [];
+        return [{ ...badge, label: feeLabel }];
+      })
     : all;
   if (badges.length === 0) return null;
 

@@ -10,7 +10,7 @@ import { distanceLabel } from '../lib/distanceSort';
 import { primaryReason } from '../lib/eligibility';
 import { formatStayPrice } from '../lib/format';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
-import { useEligibility } from '../store/useDogEligibility';
+import { useDogMaxWeightKg, useEligibility } from '../store/useDogEligibility';
 import { CARD_SURFACE } from './cardSurface';
 
 type TPlaceCardProps = {
@@ -35,6 +35,7 @@ type TPlaceCardProps = {
 export function PlaceCard({ place, footer, distanceKm }: TPlaceCardProps) {
   const eligibility = useEligibility(place);
   const reason = eligibility ? primaryReason(eligibility) : undefined;
+  const weightKg = useDogMaxWeightKg();
 
   return (
     <li className="relative">
@@ -75,7 +76,12 @@ export function PlaceCard({ place, footer, distanceKm }: TPlaceCardProps) {
 
         <div className="mt-3 flex flex-wrap items-center gap-1">
           {eligibility && <EligibilityBadge eligibility={eligibility} />}
-          <PetBadges policy={place.policy} limit={eligibility ? 2 : 3} hideNoInfo={Boolean(eligibility)} />
+          <PetBadges
+            policy={place.policy}
+            limit={eligibility ? 2 : 3}
+            hideNoInfo={Boolean(eligibility)}
+            weightKg={weightKg}
+          />
         </div>
       </Link>
 

@@ -173,6 +173,46 @@ const sumByRules = (rules: TFeeRule[], policy: TPetPolicy, dog: TDogProfile, nam
   return plain ? `${who} ${amount}` : `${who} ${amount} (${shown.map((r) => r.label).join(' · ')})`;
 };
 
+/** 요금 줄의 몸무게 조건 — "1~5kg" · "10kg 이상" · "10kg 이하/미만". 마릿수와 "또는" 으로 묶인 줄("2마리 또는 10kg 이상")도 무게 쪽만 본다. */
+const LOWER_KG_RE = /(\d+(?:\.\d+)?)\s*kg\s*이상/;
+const UPPER_KG_RE = /(\d+(?:\.\d+)?)\s*kg\s*(?:이하|미만)/;
+
+const kgBounds = (label: string): { min: number; max: number } | undefined => {
+  const range = RANGE_RE.exec(label);
+  if (range) return { min: Number(range[1]), max: Number(range[2]) };
+  const lower = LOWER_KG_RE.exec(label);
+  if (lower) return { min: Number(lower[1]), max: Infinity };
+  const upper = UPPER_KG_RE.exec(label);
+  if (upper) return { min: 0, max: Number(upper[1]) };
+  return undefined;
+};
+
+/**
+ * 자리가 정해진 곳(목록 카드·지도 시트)에 세울 **요금 칩 하나**를 우리 강아지 몸무게로 고른다(07 U5).
+ * 예전엔 첫 줄을 그대로 세워 20kg 아이에게 "1~5kg 1만원" 을 보여 줬다 — 판정·요금 한 줄과 반대로 읽힌다.
+ *
+ * - 몸무게가 들어가는 구간 줄이 있으면 그 줄. 구간이 겹치면 첫 줄(원문 순서).
+ * - 없으면 몸무게 조건이 없는 첫 줄(마리당 기본 요금 — 캄의 "1마리당 3만원").
+ * - 줄이 전부 몸무게 조건인데 하나도 안 들면 **표가 어디까지인지만** 말한다: "10kg 까지 요금표". 숫자를 고르지 않는다.
+ *   위 끝이 없으면(하한 줄만) 칩을 뺀다(null) — "10kg 이상 2만원" 만 있는 곳의 5kg 는 원문이 말하지 않는다.
+ *
+ * `labels` 는 정규화한 배지 라벨(`toPetBadges` 의 요금 축) 순서 그대로다. 몸무게는 가장 무거운 아이(`maxWeightKg`) —
+ * `formatDogFee` 가 줄을 고르는 기준과 같다. 줄이 몸무게로 갈리지 않으면 첫 줄을 그대로 돌려준다.
+ */
+export const feeChipForWeight = (labels: readonly string[], weightKg: number): string | null => {
+  if (labels.length === 0) return null;
+  const bounds = labels.map(kgBounds);
+  const fit = labels.find((_, i) => {
+    const b = bounds[i];
+    return b !== undefined && weightKg >= b.min && weightKg <= b.max;
+  });
+  if (fit) return fit;
+  const plain = labels.find((_, i) => bounds[i] === undefined);
+  if (plain) return plain;
+  const top = Math.max(...bounds.map((b) => (b as { max: number }).max));
+  return Number.isFinite(top) ? `${top}kg 까지 요금표` : null;
+};
+
 export const formatDogFee = (policy: TPetPolicy, dog: TDogProfile): string | undefined => {
   const names = dogCallNames(dog.dogs.map((d) => d.name));
   if (policy.feeFree) return `${withJosa(names, '은/는')} 추가 요금 없음`;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDogFee, formatWon } from './dogFee';
+import { feeChipForWeight, formatDogFee, formatWon } from './dogFee';
 import { parsePetPolicy } from './petPolicy';
 import { FEE_EX, SYSTEM_PROMPT } from '../../scripts/analyze/extractPlaces.mjs';
 import { judgeEligibility } from './eligibility';
@@ -299,5 +299,36 @@ describe('프롬프트 예시 계약 — FEE_EX 가 앱에서 읽히는가', () 
   it('조건부 줄에 kg 절이 남아 있어 판정이 그것을 읽는다', () => {
     const reasons = judgeEligibility(BORI_AND_KONG, policyWithRules([FEE_EX.conditional])).reasons;
     expect(reasons.some((reason) => reason.text.includes('10kg 이상 요금'))).toBe(true);
+  });
+});
+
+describe('feeChipForWeight — 카드의 요금 칩 하나를 우리 강아지 구간으로(07 U5)', () => {
+  const tiers = ['1~5kg 1만원', '6~10kg 1.5만원'];
+
+  it('몸무게가 들어가는 구간 줄을 고른다 — 첫 줄이 아니라', () => {
+    expect(feeChipForWeight(tiers, 3)).toBe('1~5kg 1만원');
+    expect(feeChipForWeight(tiers, 7)).toBe('6~10kg 1.5만원');
+  });
+
+  it('어느 구간에도 안 들면 금액을 고르지 않고 표의 끝만 말한다 — 20kg 에게 "1~5kg 1만원" 을 세우지 않는다', () => {
+    expect(feeChipForWeight(tiers, 20)).toBe('10kg 까지 요금표');
+    // 구간 사이(5.5kg)도 고르지 않는다 — formatDogFee 도 이때 금액을 확정하지 않는다
+    expect(feeChipForWeight(tiers, 5.5)).toBe('10kg 까지 요금표');
+  });
+
+  it('몸무게 조건이 없는 기본 줄이 있으면 구간 밖일 때 그 줄 — 캄', () => {
+    const kalm = ['1마리당 3만원', '2마리 또는 10kg 이상 4만원'];
+    expect(feeChipForWeight(kalm, 5)).toBe('1마리당 3만원');
+    expect(feeChipForWeight(kalm, 15)).toBe('2마리 또는 10kg 이상 4만원');
+  });
+
+  it('하한 줄만 있고 그 아래면 칩을 뺀다 — 원문이 말하지 않는 몸무게', () => {
+    expect(feeChipForWeight(['10kg 이상 2만원'], 5)).toBeNull();
+    expect(feeChipForWeight(['10kg 이하 1만원'], 15)).toBe('10kg 까지 요금표');
+  });
+
+  it('몸무게로 갈리지 않는 줄은 첫 줄 그대로', () => {
+    expect(feeChipForWeight(['1마리당 2만원', '청소비 5만원'], 30)).toBe('1마리당 2만원');
+    expect(feeChipForWeight([], 5)).toBeNull();
   });
 });
