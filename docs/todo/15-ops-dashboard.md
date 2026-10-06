@@ -87,7 +87,8 @@ T7 pg_cron(보류) 은 T2 로 한 달쯤 쌓인 뒤
   ✅ 2026-10-06 세션·로그인·운영자 확인은 `/admin` 과 같은 모양(`notOperator`·`error` 갈래 포함). 다섯 칸·띠·머리글은 **언제나 7일 집계**를 읽는다(흐름의 30일은 따로 받는다 — T3.6). 새로고침 셋: 60초(숨은 탭은 건너뜀) · 다시 보일 때 낡았으면 곧바로 · 손 버튼, **매번 세션부터 보고**(만료면 로그인 폼 + 같은 안내) · 겹침 막음. 실행 기록 첫 장은 `mergeRuns`(id 로 합치기 — 갈아 끼우면 더 불러온 장·펼친 줄이 60초마다 날아간다). 조용한 새로고침이 실패하면 옛 수를 두고 머리글에 한 줄. "N초 전" 은 따로 뗀 작은 컴포넌트만 매초 다시 그린다. 재빌드 줄은 `/admin` 과 달리 경고여도 머리글에 둔다(탭 줄이 없어 띠로 옮길 자리가 없고, 띠는 `worstStage` 하나의 몫).
 - [x] **T3.5 `adminOpsPageStageStrip.tsx`** — 다섯 칸. 상태점 색은 `theme.css` 의 시맨틱 토큰(`text-success-primary` · `text-warning-primary` · `text-error-primary` 계열, 배경은 같은 계열의 `bg-*-secondary`) + 회색(`text-quaternary`). 원시 색값 금지. 칸 클릭 → ③ 필터. 높이 고정(로딩 때 뛰지 않게). 모바일 가로 스크롤.
   ✅ 2026-10-06 점은 칠한 점이라 `bg-*-solid`(회색 `bg-quaternary`), 검수만 속 빈 고리(`border-fg-*` — 경고 테두리 토큰이 따로 없다). 칸 바탕은 정상·기록 없음이 흰 카드, 주의·실패만 띠와 같은 `bg-warning-primary`·`bg-error-primary`. `h-32` 고정 + 읽는 중엔 `…` 다섯 자리, 칸 최소 폭 `min-w-40` 으로 좁으면 가로 스크롤. 재빌드 칸은 누를 수 없다(`STAGE_SCRIPTS.rebuild = null`). 칸 클릭 → 걸러 보기 연결은 표가 생기는 T3.7 에서.
-- [ ] **T3.6 `adminOpsPageFunnel.tsx`** — 7일/30일 토글, 줄 일곱(신규 글 · 분석 · 후보 · 승인+제외 · 반영 · 재빌드 · **지금 보류**), 비율 막대는 `div` 너비(**가장 큰 줄 100%** — 줄들이 부분집합이 아니다), 승인·제외는 한 줄에 둘, 지금 보류만 `warning` 이고 기간 토글의 영향을 받지 않는다. 0 은 막대 없이 수만. 구현 전 `dataviz` 스킬의 stat tile·비율 막대 절 확인.
+- [x] **T3.6 `adminOpsPageFunnel.tsx`** — 7일/30일 토글, 줄 일곱(신규 글 · 분석 · 후보 · 승인+제외 · 반영 · 재빌드 · **지금 보류**), 비율 막대는 `div` 너비(**가장 큰 줄 100%** — 줄들이 부분집합이 아니다), 승인·제외는 한 줄에 둘, 지금 보류만 `warning` 이고 기간 토글의 영향을 받지 않는다. 0 은 막대 없이 수만. 구현 전 `dataviz` 스킬의 stat tile·비율 막대 절 확인.
+  ✅ 2026-10-06 `dataviz` 의 막대 규격을 따랐다 — 한 색(`bg-brand-solid` 40%), 두께 10px, 끝만 4px 둥글게·기준선은 각지게, 수는 막대 색이 아니라 글자 토큰(`tabular-nums`). 30일은 **흐름만** 따로 받는다(`ops_overview(30)`, 처음 고를 때 + 새로고침마다) — 다섯 칸·띠는 7일 그대로. 늦게 온 응답은 순번으로 버린다. 승인·제외는 반쪽 칸 둘이 아니라 **같은 막대 칸에 위·아래 두 막대**(아래 「계획과 다르게 간 것」).
 - [ ] **T3.7 `adminOpsPageRunsTable.tsx`** — `adminTable` + `adminInfiniteScroll` 재사용, 열 여섯, 칩 필터(스크립트 · 실패만), 행 펼침(stats 키-값 · args · error · alert). `?run=<id>` 면 그 행을 받아 펼친 채 스크롤 — `useSearchParams` 가 아니라 effect 안의 `window.location.search`(정적 내보내기의 Suspense 요구 회피, 화면은 `ssr:false`). `stalled` 행 아래 한 줄: "죽었으면 그냥 다시 돌리면 돼요(`runLock` 이 죽은 pid 의 잠금을 이어받는다). 살아 있는데 멎었으면 그 프로세스를 끊고 다시". 손으로 상태를 바꾸는 버튼은 **없다**.
 - [ ] **T3.8 `adminOpsPageUsage.tsx` · `adminOpsPageAlerts.tsx`** — 사용량 한 줄 세 묶음(금액 환산 없음 · 각주 한 줄) · Slack 묶음(`missing` 이면 "켜려면 → 15 §T5" 로 접힘, 테스트 버튼은 T6).
 - [ ] **T3.9 문서** — [features/ops-dashboard.md](../features/ops-dashboard.md) 를 `> 상태: 구현 중` 으로, 계획과 다르게 간 것은 아래 「계획과 다르게 간 것」 에.
@@ -141,6 +142,7 @@ T7 pg_cron(보류) 은 T2 로 한 달쯤 쌓인 뒤
 - **T1.2 `backlog` 는 `excluded_at` 을 빼지 않는다.** `/admin` 의 `fetchPostBacklog` 는 `blog_posts.excluded_at`(글 단위 분석 제외)이 있으면 그 글을 빼는데, 그 칸을 만드는 마이그레이션이 레포에 없다 — 정적으로 참조하면 함수가 죽는다. 그 칸이 생기면 두 수가 갈린다(마이그레이션 머리 주석).
 - **T3.3 재빌드 429 는 실패가 아니라 주의다.** features ① 표는 "4xx·5xx → 실패" 인데 글자대로 옮기면 `rebuildHeadline` 이 일부러 가른 429(시간당 60번 한도, [BUG-011](../bugs/BUG-011-rebuild-429-read-as-revoked-hook.md))를 다시 '훅 폐기' 로 읽게 된다. 429 → 주의, 그 밖의 4xx·5xx → 실패.
 - **T3.3 실행 칸 셋(수집·분석·반영) 모두 중단된 듯을 본다.** 표는 분석 칸에만 적었지만 `collect`·`apply` 도 `running` 으로 죽을 수 있다(심장은 시작 때 찍힌다). 같은 규칙을 셋에.
+- **T3.6 승인·제외는 같은 막대 칸에 위·아래로 겹친다.** features 그림은 한 줄을 반으로 갈라 둘을 나란히 두지만, 그러면 그 줄의 막대 칸만 절반 폭이라 같은 수가 다른 줄의 절반 길이로 보인다 — 비율 막대의 눈금이 줄마다 달라진다. 수는 `18 · 15` 로 한 칸, 막대 둘은 얇게(4px).
 - **T3.3 반영 칸의 실패는 `status='failed'` 도 본다.** 표의 "실패 건수 > 0" 만 보면 stats 가 null 인 크래시를 놓친다.
 
 ## 🙋 사용자가 정할 것

@@ -11,6 +11,7 @@ import { rebuildHeadline } from '../lib/adminRebuild';
 import { ADMIN_SESSION_KEY, clearAdminSession, readAdminSession, sessionProblem, type TAdminSession } from '../lib/adminSession';
 import { createAdminClient, isOperator } from '../lib/adminSupabase';
 import { cx } from '../utils/cx';
+import { AdminOpsPageFunnel, type TAdminOpsFunnelDays } from './adminOpsPageFunnel';
 import { AdminOpsPageStageStrip } from './adminOpsPageStageStrip';
 import { AdminPageLogin } from './adminPageLogin';
 
@@ -63,6 +64,10 @@ export function AdminOpsPage() {
   /** 조용한 새로고침이 실패했을 때 — 화면은 옛 수를 그대로 두고 머리글에 한 마디만 한다. */
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [runs, setRuns] = useState<TPipelineRun[]>([]);
+  const [funnelDays, setFunnelDays] = useState<TAdminOpsFunnelDays>(7);
+  /** 흐름의 30일 집계 — 흐름 한 묶음만 읽는다. 7일이면 쓰지 않는다(위 `overview` 의 funnel). */
+  const [overview30, setOverview30] = useState<TOpsOverview | null>(null);
+  const [funnelError, setFunnelError] = useState<string | null>(null);
 
   const clientRef = useRef<SupabaseClient | null>(null);
   const sessionRef = useRef<TAdminSession | null>(null);
@@ -71,6 +76,9 @@ export function AdminOpsPage() {
   const refreshingRef = useRef(false);
   /** 걸러 보기를 빠르게 바꿀 때 늦게 온 옛 걸러 보기의 응답이 이기지 않게. */
   const runsSeqRef = useRef(0);
+  const funnelDaysRef = useRef<TAdminOpsFunnelDays>(7);
+  /** 7일 ↔ 30일을 빠르게 오갈 때 늦게 온 30일 응답이 이기지 않게. */
+  const funnelSeqRef = useRef(0);
 
   const resetToSignedOut = useCallback((why?: string) => {
     clearAdminSession();
@@ -84,6 +92,33 @@ export function AdminOpsPage() {
     setPhase('signedOut');
   }, []);
 
+  const loadOverview30 = useCallback(async (client: SupabaseClient) => {
+    const seq = ++funnelSeqRef.current;
+    try {
+      const next = await fetchOpsOverview(client, 30);
+      if (seq !== funnelSeqRef.current) return;
+      setOverview30(next);
+      setFunnelError(null);
+    } catch (error) {
+      if (seq === funnelSeqRef.current) setFunnelError(messageOf(error, '30일 흐름을 읽지 못했어요.'));
+    }
+  }, []);
+
+  /** 흐름 기간 토글. 30일은 처음 고를 때만 받고(그 뒤로는 새로고침이 갱신한다), 7일은 이미 든 집계를 쓴다. */
+  const changeFunnelDays = useCallback(
+    (days: TAdminOpsFunnelDays) => {
+      funnelDaysRef.current = days;
+      setFunnelDays(days);
+      if (days === 7) {
+        funnelSeqRef.current += 1; // 날아가는 중인 30일 응답을 버린다
+        setFunnelError(null);
+        return;
+      }
+      if (clientRef.current) void loadOverview30(clientRef.current);
+    },
+    [loadOverview30],
+  );
+
   /** 7일 집계 + 지금 걸러 보기의 첫 장을 함께. 첫 장은 이미 든 목록에 합친다(`mergeRuns`). */
   const refresh = useCallback(async (client: SupabaseClient) => {
     const filter = filterRef.current;
@@ -93,13 +128,16 @@ export function AdminOpsPage() {
     setOverview(nextOverview);
     setLoadedAt(Date.now());
     if (seq === runsSeqRef.current) setRuns((current) => mergeRuns(current, firstPage));
-  }, []);
+    // 30일을 보고 있으면 그것도 새로 — 실패해도 위의 갱신은 남긴다(흐름 한 묶음만 오류를 말한다).
+    if (funnelDaysRef.current === 30) void loadOverview30(client);
+  }, [loadOverview30]);
 
   const start = useCallback(
     async (next: TAdminSession) => {
       setFatal(null);
       setOverview(null);
       setRuns([]);
+      setOverview30(null);
       setRefreshError(null);
       setPhase('verifying');
       const client = createAdminClient(next.accessToken);
@@ -308,7 +346,17 @@ export function AdminOpsPage() {
         <AdminOpsPageStageStrip stages={stages} active={null} />
       </section>
 
-      {/* ② 흐름(T3.6) · ③ 실행 기록(T3.7) · ④ 사용량 · ⑤ 알림(T3.8) 이 여기 선다. */}
+      {/* ② 흐름 — ① 바로 아래(첫날에도 기존 표로 채워져 비어 있지 않다, features 「빈 상태」). */}
+      <AdminOpsPageFunnel
+        funnel={funnelDays === 7 ? overview.funnel : (overview30?.funnel ?? null)}
+        pendingNow={overview.funnel.pendingNow}
+        days={funnelDays}
+        onDays={changeFunnelDays}
+        loading={funnelDays === 30 && !overview30 && !funnelError}
+      />
+      {funnelDays === 30 && funnelError ? <p className="mt-1 px-4 text-xs text-error-primary md:px-6">{funnelError}</p> : null}
+
+      {/* ③ 실행 기록(T3.7) · ④ 사용량 · ⑤ 알림(T3.8) 이 여기 선다. */}
       <p className="px-4 pt-6 text-xs text-tertiary md:px-6">실행 기록 {runs.length}건</p>
     </div>
   );
