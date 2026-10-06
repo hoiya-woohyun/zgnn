@@ -46,7 +46,28 @@ export const NAV_ITEMS: TNavItem[] = [
     to: '/settings',
     label: '설정',
     Icon: Settings01,
-    // 강아지 프로필은 설정 안의 화면이라 거기 있을 때도 설정 탭에 불이 들어온다.
-    isActive: (path) => path.startsWith('/settings') || path.startsWith('/dog'),
+    // 강아지 프로필(`/dog`)은 여기 넣지 않는다 — 들어온 탭을 따른다(`navHighlightPath`).
+    isActive: (path) => path.startsWith('/settings'),
   },
 ];
+
+/**
+ * 어느 탭에도 속하지 않고 **들어온 탭을 따르는** 화면. 강아지 등록은 홈 카드·상세·목록·설정
+ * 어디서나 들어오는데, 설정에 못 박아 두면 홈에서 들어온 사람에게 '설정' 이 켜져 길을 잃은 듯 보인다
+ * (14 W261006.10, 3/6).
+ */
+const FOLLOWS_ORIGIN = new Set(['/dog']);
+
+/**
+ * 탭 하이라이트를 계산할 주소. 보통은 지금 주소 그대로이고, `FOLLOWS_ORIGIN` 화면에서는 들어오기
+ * 직전 주소다. 직전 주소가 없으면(딥링크로 바로 들어옴) null — 어느 탭에도 불을 켜지 않는다.
+ * 뒤로가기는 이와 무관하게 셸이 붙인다(`appRoutes.ts`).
+ */
+export const navHighlightPath = (pathname: string, originPath: string | null): string | null => {
+  const path = pathname.replace(/\/+$/, '') || '/';
+  return FOLLOWS_ORIGIN.has(path) ? originPath : pathname;
+};
+
+/** 이 항목에 불이 들어오는가. 계산할 주소가 없으면(null) 어느 탭도 아니다. */
+export const isNavActive = (item: TNavItem, highlightPath: string | null): boolean =>
+  highlightPath !== null && item.isActive(highlightPath);

@@ -1,7 +1,8 @@
 import type { MouseEvent } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { NAV_ITEMS, navHref } from './navItems';
+import { isNavActive, NAV_ITEMS, navHref } from './navItems';
+import { useNavHighlightPath } from './useNavHighlightPath';
 import { cx } from '../../utils/cx';
 
 /** 주소 끝의 `/` 를 떼어 비교를 한 가지 모양으로 맞춘다(정적 내보내기라 `/map/` 로도 들어온다). */
@@ -28,6 +29,7 @@ const normalize = (pathname: string) => pathname.replace(/\/+$/, '') || '/';
  */
 export function AppTabBar() {
   const pathname = usePathname();
+  const highlightPath = useNavHighlightPath();
 
   const handleTabClick = (event: MouseEvent<HTMLAnchorElement>, to: string) => {
     if (normalize(pathname) !== normalize(to)) return;
@@ -52,7 +54,7 @@ export function AppTabBar() {
     >
       <ul className="mx-auto flex h-[60px] w-full max-w-lg">
         {NAV_ITEMS.map((item) => {
-          const active = item.isActive(pathname);
+          const active = isNavActive(item, highlightPath);
           const href = navHref(item, pathname);
           return (
             <li key={item.to} className="flex-1">

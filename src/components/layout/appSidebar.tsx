@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LinkExternal01 } from '@untitledui/icons';
-import { NAV_ITEMS, navHref } from './navItems';
+import { isNavActive, NAV_ITEMS, navHref } from './navItems';
+import { useNavHighlightPath } from './useNavHighlightPath';
 import { AuthorAvatar } from '../authorAvatar';
 import { META, SOURCE_LINE } from '../../lib/places';
 import { cx } from '../../utils/cx';
@@ -12,6 +13,7 @@ import { cx } from '../../utils/cx';
  */
 export function AppSidebar() {
   const pathname = usePathname();
+  const highlightPath = useNavHighlightPath();
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-secondary bg-secondary md:flex">
@@ -26,7 +28,7 @@ export function AppSidebar() {
       <nav aria-label="주요 화면" className="flex-1 px-3">
         <ul className="flex flex-col gap-1">
           {NAV_ITEMS.map((item) => {
-            const active = item.isActive(pathname);
+            const active = isNavActive(item, highlightPath);
             return (
               <li key={item.to}>
                 <Link
