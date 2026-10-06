@@ -87,3 +87,22 @@ export const resetFiltersLabel = (hasQuery: boolean, conditionCount: number): st
   if (hasQuery) return '검색 지우기';
   return '필터 지우기';
 };
+
+/**
+ * 종류를 바꿔도 **따라오는** 조건 — 스토어에 사는 읍면과 '실내 자리 필요'(화면 state 인 방향·조건·정렬은 `key={type}` 로 리셋된다).
+ * 본 화면의 칩 줄과 스와이프 엿보기가 **같은 함수**로 칩을 만든다 — 따로 만들었더니 엿보기가 '실내 자리 필요' 를 빼먹어
+ * 손을 놓는 순간 칩 줄이 튀어나왔다(12 U3.6). 숙소 탭은 실내 조건을 세지도 보이지도 않는다(12 U0.3).
+ */
+export type TCarriedChip = { key: 'town' | 'indoor'; label: string };
+
+export const carriedFilterChips = (state: {
+  town: string | null;
+  needsIndoor: boolean;
+  hasDog: boolean;
+  type: TPlaceType;
+}): TCarriedChip[] => [
+  ...(state.town !== null ? [{ key: 'town' as const, label: state.town }] : []),
+  ...(state.hasDog && state.type !== 'stay' && state.needsIndoor
+    ? [{ key: 'indoor' as const, label: '실내 자리 필요' }]
+    : []),
+];

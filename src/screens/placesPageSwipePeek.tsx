@@ -3,9 +3,9 @@
 import { useMemo, type RefObject } from 'react';
 import { PlacesPageResults } from './placesPageResults';
 import { placesOfType } from '../lib/places';
-import { resetFiltersLabel } from '../lib/placeFilters';
+import { carriedFilterChips, resetFiltersLabel } from '../lib/placeFilters';
 import { sortByEligibility } from '../lib/sortByEligibility';
-import { useAppStore } from '../store/useAppStore';
+import { useAppStore, useDog } from '../store/useAppStore';
 import { useEligibilityMap } from '../store/useDogEligibility';
 import type { TPlaceType } from '../types';
 
@@ -33,6 +33,8 @@ const noop = () => undefined;
  */
 export function PlacesPageSwipePeek({ ref, type, side, top, height }: TPlacesPageSwipePeekProps) {
   const town = useAppStore((state) => state.town);
+  const needsIndoor = useAppStore((state) => state.needsIndoor);
+  const hasDog = Boolean(useDog());
   const eligibilityMap = useEligibilityMap();
 
   const byTown = useMemo(() => {
@@ -44,6 +46,9 @@ export function PlacesPageSwipePeek({ ref, type, side, top, height }: TPlacesPag
     () => (eligibilityMap ? sortByEligibility(byTown, eligibilityMap, (place) => place.id) : byTown),
     [byTown, eligibilityMap],
   );
+
+  // 새 화면에도 읍면·'실내 자리 필요' 칩은 따라온다 — 엿보기에서 빠지면 손을 놓는 순간 줄이 튀어나온다.
+  const chips = carriedFilterChips({ town, needsIndoor, hasDog, type });
 
   return (
     <div
@@ -58,14 +63,13 @@ export function PlacesPageSwipePeek({ ref, type, side, top, height }: TPlacesPag
         town={town}
         results={results}
         townHasNoPlaces={town !== null && byTown.length === 0}
-        hasFilters={town !== null}
-        resetLabel={resetFiltersLabel(false, town !== null ? 1 : 0)}
+        hasFilters={chips.length > 0}
+        resetLabel={resetFiltersLabel(false, chips.length)}
         query=""
-        activeFilterCount={town !== null ? 1 : 0}
+        activeFilterCount={chips.length}
         onClearQuery={noop}
         onClearTown={noop}
-        // 새 화면에도 읍면 칩은 따라온다 — 엿보기에서 빠지면 손을 놓는 순간 줄이 튀어나온다.
-        activeChips={town ? [{ key: 'town', label: town, onRemove: noop }] : []}
+        activeChips={chips.map((chip) => ({ ...chip, onRemove: noop }))}
         onResetFilters={noop}
         onOpenFilters={noop}
       />

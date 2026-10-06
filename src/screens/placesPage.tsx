@@ -13,7 +13,7 @@ import { PlacesPageTypeTabs } from './placesPageTypeTabs';
 import { usePlaceTypeSwitch } from './placesPageTypeSwitch';
 import { Input } from '../components/base/input';
 import { DIRECTION_LABEL, TYPE_META, placesOfType } from '../lib/places';
-import { PET_FILTERS, comparePrice, envFiltersWithData, resetFiltersLabel, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
+import { PET_FILTERS, carriedFilterChips, comparePrice, envFiltersWithData, resetFiltersLabel, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
 import { matchesQuery } from '../lib/placeSearch';
 import { sortByEligibility } from '../lib/sortByEligibility';
 import { distancesFrom, sortByDistance } from '../lib/distanceSort';
@@ -183,8 +183,12 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
 
   // 켜진 조건을 이름으로(T2.4). activeFilterCount 가 세는 것과 같은 목록이어야 한다 — 버튼엔
   // "필터 3" 인데 칩이 둘이면 셋째를 찾아 시트를 뒤진다. 검색어는 시트 밖이라 숫자엔 없지만 칩엔 둔다.
+  const carriedChips: TActiveChip[] = carriedFilterChips({ town, needsIndoor, hasDog: Boolean(dog), type }).map(
+    (chip) => ({ ...chip, onRemove: chip.key === 'town' ? () => setTown(null) : () => setNeedsIndoor(false) }),
+  );
   const activeChips: TActiveChip[] = [
-    ...(town !== null ? [{ key: 'town', label: town, onRemove: () => setTown(null) }] : []),
+    // 읍면·'실내 자리 필요' 는 스토어에 살아 종류를 바꿔도 따라온다 — 엿보기(`placesPageSwipePeek`)와 같은 함수로 만든다.
+    ...carriedChips,
     ...directions.map((direction) => ({
       key: `dir-${direction}`,
       label: DIRECTION_LABEL[direction],
@@ -203,9 +207,6 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
         ]
       : []),
     ...(dog && hideHard ? [{ key: 'hideHard', label: '어려운 곳 숨김', onRemove: () => setHideHard(false) }] : []),
-    ...(dog && type !== 'stay' && needsIndoor
-      ? [{ key: 'indoor', label: '실내 자리 필요', onRemove: () => setNeedsIndoor(false) }]
-      : []),
     ...(trimmedQuery ? [{ key: 'query', label: `"${trimmedQuery}"`, onRemove: () => setQuery('') }] : []),
   ];
 
