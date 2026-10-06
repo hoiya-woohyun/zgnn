@@ -13,7 +13,7 @@
 ## 0. 한 줄 요약
 
 **템플릿처럼 보이는 곳은 "흰 카드 상자" 하나다.** 같은 클래스(`rounded-2xl border border-secondary bg-primary`)가 19곳에 그대로 쓰이고,
-그림자는 인사 카드 하나에만 있다. 서체 위계에서는 **이 앱의 답인 판정 문장(16px)이 가격(18px)과 섹션 제목(18px)보다 작다.** 카피에서는 '확인' 이라는
+카드 중 그림자는 인사 카드 하나에만 있다. 서체 위계에서는 **이 앱의 답인 판정 문장(16px)이 가격(18px)과 섹션 제목(18px)보다 작다.** 카피에서는 '확인' 이라는
 한 낱말이 "확인했어요(검증됨)" 와 "확인 31(확인이 필요함)" 처럼 서로 반대 뜻으로 쓰인다. 크림·핑크·잉크·사진 없음은 브리프가 정한 것이고,
 화면에서 무리 없이 서 있다. 이 리뷰는 그것들을 바꾸라고 하지 않는다.
 
@@ -85,7 +85,7 @@
   (`placeDetailEligibilityCard.tsx:72` `text-md`, `placeDetailPage.tsx:80` `text-lg`). 스킬의 "headline 으로 쓰는 타입은 디자인의 능동적 요소" 라는 기준으로 보면,
   이 앱에서 headline 이 되어야 할 문장은 장소 이름 다음의 판정이다. r4 의 "상세 맨 위를 판정 배지 + 가격 + 한 줄 이유로" 와 같은 방향이다.
   이 리뷰가 보태는 근거는 **타입 위계가 판정을 섹션 제목보다 아래에 두고 있다**는 것이다. **[미결정 기본값]** → §10 의 ②.
-- **`font-medium` 6곳이 400 으로 그려진다**(`homeTypeCard.tsx:99`, `checklistPageItemRow.tsx:161`, `placeItemsNote.tsx:111`, `sheetSelect.tsx:135·199`).
+- **`font-medium` 5곳이 400 으로 그려진다**(`homeTypeCard.tsx:99`, `checklistPageItemRow.tsx:161`, `placeItemsNote.tsx:111`, `sheetSelect.tsx:135·199`).
   500 을 의도하고 쓴 클래스가 화면에서는 본문과 같은 굵기다. 400·600 둘만 싣는다는 결정은 브리프지만, 그 결정 뒤에 남은 `font-medium` 은 아무도 고르지 않은 잔재다.
   **[미결정 기본값]** — `font-normal` 이나 `font-semibold` 중 하나로 정해 의도를 화면과 맞춘다.
 - **줄 길이는 문제없다.** 768 폭에서 준비물 문단은 14.9px 에 약 445~496px 폭, 한 줄 32~39자(한글 advance 0.864em 으로 환산)다. 1280 폭에서는
@@ -140,7 +140,7 @@
    버튼 **`저장`**(`dogProfilePage.tsx:248`) → 목록 `우리 강아지 정보 고치기 ›`(`placesPageResults.tsx:124`). 특히 `저장` 은 이 앱에서 이미 **하트(장소 저장)** 를 뜻한다
    (`저장함`·`저장했어요`·`저장한 곳 보기`, `saveButton.tsx:24`). 등록 버튼까지 `저장` 이면 핵심 명사가 둘로 갈린다. **[미결정 기본값]** — 버튼은 `등록하기`/`고치기`
    (화면 제목과 같은 동사)로 하고, `프로필` 과 `정보` 중 하나로 맞춘다.
-3. **`사실 — 행동` 문장 9곳.** 판정 이유가 `케이지라고 적혀 있어요 — 이동가방도 되는지 확인해 주세요`(`eligibility.ts:217·233·295·324·330·345·354·364`)처럼
+3. **`사실 — 행동` 문장 9곳.** 판정 이유가 `케이지라고 적혀 있어요 — 이동가방도 되는지 확인해 주세요`(`eligibility.ts:212·225·287·316·322·337·346·356`)처럼
    띄운 줄표로 이어진다. 제보 시트 머리도 `{장소} — 무엇이 다른지 골라 주세요.`(`placeDetailReport.tsx:76`)다. 한국어 UI 에서 줄표는 드물어 번역문이나 문서체로 읽힌다.
    이 레포의 문서·주석 문체(줄표가 아주 많다)가 화면 글로 새어 나온 것으로 보인다. 구조(관찰 → 할 일)는 좋다. 그 구조를 **두 문장**으로 쓰거나 이유 줄과 할 일 줄로 나누면 된다.
    스킬 #5 의 `WORD — fragment` 와 모양이 같다. **[미결정 기본값]**, 중간. `eligibility.ts` 문구는 테스트가 문자열을 볼 수 있으니 고칠 때 함께 본다.
@@ -159,7 +159,7 @@
 | 주 버튼 | 흰 글씨 / brand-600 **5.01:1** | ✅ [브리프] |
 | 핑크 글자 | brand-600 / 크림 **4.72**, / 흰 5.01 · brand-700 / 크림 **6.32**, / brand-50 5.99 | ✅ |
 | 본문·보조 | text-primary / 크림 14.69 · text-tertiary / 크림 **6.49** | ✅ |
-| **text-quaternary 를 글자에** | **4.27:1**(14px, 크림) — 홈 바닥글(`homePage.tsx:154`), 설정 바닥 안내(`settingsPage.tsx:146`), 오래된 확인 날짜(`placeDetailFreshness.tsx:27`, 12px). ADR-006 v3 이 "글자에는 `text-tertiary` 까지만" 이라고 **이미 정한 규칙을 어긴 것**이다 | ❌ **[브리프 결정 위반]** → §10 |
+| **text-quaternary 를 글자에** | **4.27:1**(14px, 크림) — 홈 바닥글(`homePage.tsx:154`), 설정 바닥 안내(`settingsPage.tsx:146`), 제보 시트 글자 수(`reportSheet.tsx:144`, 12px, 시트가 크림이다), 오래된 확인 날짜(`placeDetailFreshness.tsx:27`, 12px, 로컬 데이터에 날짜가 없어 화면에 안 그려졌다. 코드 판독). ADR-006 v3 이 "글자에는 `text-tertiary` 까지만" 이라고 **이미 정한 규칙을 어긴 것**이다 | ❌ **[브리프 결정 위반]** → §10 |
 | 탭바 비활성 | 글자 `text-tertiary`, 아이콘만 quaternary(아이콘 3:1 기준 통과) | ✅ |
 | 네이버 초록 위 흰색 | **2.25:1** — ADR-003 v13 이 알고 고른 값이다(이름을 글자로 끝까지 말하게 둠) | [브리프 결정], 수치만 기록 |
 | reduced-motion | §6 — 시트·탭·스와이프는 즉시, 스크롤 구동은 의도대로 유지 | ✅ |
@@ -189,10 +189,10 @@
 | ⑤ | **개수 줄의 `확인` → `확인 필요`**(aria-label 포함) | `placesPageResults.tsx:21`, `homeTypeCard.tsx:64·71` vs `placeFreshness.ts:16` | 반대 뜻의 같은 낱말. 글자 몇 개 수정이다 |
 
 그 밖의 [미결정] 작은 것(한 커밋씩): 등록 버튼 `저장` → `등록하기`/`고치기`(`dogProfilePage.tsx:248`) · `이(가)` → `withJosa`(`dogProfilePage.tsx:236`) ·
-`사실 — 행동` 9곳을 두 문장으로(`eligibility.ts`) · `font-medium` 6곳 정리 · 글 끝 화살표 4곳.
+`사실 — 행동` 9곳을 두 문장으로(`eligibility.ts`) · `font-medium` 5곳 정리 · 글 끝 화살표 4곳.
 
 **결함·규칙 위반(디자인 판단이 필요 없다).**
-- `text-quaternary` 글자 3곳 → `text-tertiary`(`homePage.tsx:154`, `settingsPage.tsx:146`, `placeDetailFreshness.tsx:27`). ADR-006 v3 을 어긴 것이고 4.27:1 이다.
+- `text-quaternary` 글자 4곳 → `text-tertiary`(`homePage.tsx:154`, `settingsPage.tsx:146`, `reportSheet.tsx:144`, `placeDetailFreshness.tsx:27`). ADR-006 v3 을 어긴 것이고 4.27:1 이다.
 - 768 폭 이상 히어로 가장자리의 반 픽셀 선(`homePageHero.tsx:222-226`, §5-6). 원인 추정을 먼저 확인한다.
 
 ### 사용자 판단으로 넘길 것 — [브리프 결정]
