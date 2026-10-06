@@ -27,7 +27,8 @@ SessionStart 훅(`.claude/hooks/uxEvalWeekly.mjs`)이 실행을 권한다. 몇 �
 ## 1. 앱 띄우기 (메인)
 
 1. `pnpm build` (`--webpack` 이 스크립트에 들어 있다 — 그대로 쓴다). 실패하면 멈추고 보고한다.
-2. `pnpm preview` 를 `run_in_background` 로 → `http://localhost:7727`.
+2. **먼저 `lsof -nP -iTCP:7727 -sTCP:LISTEN` 으로 포트가 비어 있는지 본다.** 누가 쥐고 있으면(보통 다른 세션의 `next dev`) 멈추고 사용자에게 알린다 — `serve` 는 조용히 실패하고 라우트 확인은 그 dev 서버가 통과시켜, 평가자가 dev 서버(N 뱃지·미커밋 변경)를 평가하게 된다(2026-10-06 회차가 그랬다). 그 서버는 **내 것이 아니므로 죽이지 않는다.**
+   비어 있으면 `pnpm preview` 를 `run_in_background` 로 → `http://localhost:7727`. 뜬 뒤 `curl -sL http://localhost:7727/ | grep -c next-devtools` 가 **0** 인지 한 번 더 본다.
 3. 8개 라우트가 200 인지만 본다: `/` `/places` `/places/cafe` `/map` `/checklist` `/dog` `/saved` `/settings`
    (`curl -s -o /dev/null -w '%{http_code}'`). 하나라도 아니면 멈춘다.
 
@@ -110,6 +111,6 @@ SessionStart 훅(`.claude/hooks/uxEvalWeekly.mjs`)이 실행을 권한다. 몇 �
 
 ## 6. 정리
 
-- `lsof -ti:7727 | xargs kill` 로 preview 만 끈다. **광역 `pkill` 금지.**
+- 1단계에서 **내가 띄운** `pnpm preview` 만 끈다(배경 태스크 ID 로, 또는 `lsof -ti:7727` 의 pid 가 `serve` 인지 확인한 뒤). 남의 dev 서버가 쥐고 있었다면 손대지 않는다. **광역 `pkill` 금지.**
 - `$RUN` 은 지우지 않는다(스크린샷을 다시 볼 수 있게). 다음 회차가 새 날짜 디렉터리를 쓴다.
 - 사용자에게: 종합 경로, 합의도 상위 3건, 새로 생긴 todo 수, 지난 회차 대비 반복·해소 건수.
