@@ -1,6 +1,7 @@
 # 지금 할 일 — 대기열
 
-> 최종 수정: 2026-10-06 (v4: 맨 위 '추가 1마리' 를 끝내고 재추출을 「기다림」 에)
+> 최종 수정: 2026-10-06 (v5: 히어로 반 픽셀 선(재현 안 됨)·숫자판을 끝내고, 「발견」 의 요금 계산 가능 비율 관찰을 「기다림」 의 시드 평가 줄에 합쳤다)
+> 이전 2026-10-06 (v4: 맨 위 '추가 1마리' 를 끝내고 재추출을 「기다림」 에)
 > 이전 2026-10-06 (v3: 「발견」 3줄을 13 §5.1 로 옮기고 둘은 「지금」 맨 위(데이터가 틀리는 것 > 다듬기), 하나는 「기다림」)
 > 이전 2026-10-06 (v2: frontend-design 리뷰의 [미결정 기본값] 6개를 「지금」 끝에, 사람이 정할 타입·이모지 둘을 「기다림」 에. 대비 항목의 해법을 쓰임 4곳으로 고쳤다)
 > 이전 2026-10-06 (v1: 신설 — 00~15 의 열린 항목을 한 줄 대기열로. 명세는 번호 문서, 순서는 여기)
@@ -24,7 +25,7 @@
 - 🧑 Deploy Hook 회전(URL 이 대화 기록에 남았다) — [05 「Deploy Hook 회전」](05-security.md) · 명령: `vercel deploy-hooks create auto-deploy-2 --ref main` → Studio `vault.update_secret(…'vercel_deploy_hook'…)` → `vercel deploy-hooks remove gD3ioVFKtV` → `/admin` 머리글 `201` 확인 (create·list 는 URL 을 찍으니 **본인 터미널에서만**)
 - 🧑 Supabase 계정 2FA 켜기 — [05](05-security.md) · 명령: supabase.com 계정 설정의 MFA(Studio 로그인 = 관리자 인증이다)
 - 🙋 무료 티어 7일 일시정지 대책 — [05](05-security.md) · 권고: 주 1회 `pnpm data:collect` 를 습관으로(이제 `pipeline_runs` 에 남아 `/admin/ops` 가 "언제 돌렸나" 를 보여 준다). 그 주에 못 돌리면 Claude 가 `pnpm data:pull`(anon)로 깨운다
-- 🧑 시드 나머지 63곳 추출 평가 — [features/extraction-eval](../features/extraction-eval.md) · 명령: `pnpm data:eval extract --limit 20` 을 한도 안에서 반복(23/86 캐시됨) → `pnpm data:eval score`
+- 🧑 시드 나머지 63곳 추출 평가 — [features/extraction-eval](../features/extraction-eval.md) · 명령: `pnpm data:eval extract --limit 20` 을 한도 안에서 반복(23/86 캐시됨) → `pnpm data:eval score` — score 에서 **요금 계산 가능 비율**이 떨어졌는지도 본다: 새 프롬프트가 "기본 마릿수가 없으면 amountWon null" 이라 흔한 "1마리 추가 시 2만원"(마리당)도 계산을 멈출 수 있다(31922d6)
 - 🧑 읍면이 주소와 어긋난 세 곳(+ 안덕면 방향) 바로잡기 — [12 UH.1](12-ux-audit-2026-10-02.md) · 명령: `/admin` 등록 완료 → 위미애머물다락쿤(좌표·`naverPlaceId` 부터) · 살롱드라방 · 제주포슬 주소·지역 고치기
 - 🙋 미분석 글 저수지를 어디서 멈출지·수집을 줄일지 — [03 「2026-10-02 실측」](03-analyze-and-review.md) · 권고: 키워드는 그대로 두고 `--limit 30` 을 수율이 꺾일 때까지만(전량 읽기 계획 없음). 이게 정해져야 다음 대량 `data:analyze` 를 돌린다
 - 🙋 업체명 재검색(ADR-019 결정 7·8)을 열지 — [03](03-analyze-and-review.md) · 권고: 먼저 🧑 PostView 지도 카드·태그 모양 한 번 확인(03 「검증 계획」 A 명령), 뺀 것 허용선은 "10건 중 1건 이하" 제안대로
@@ -34,4 +35,3 @@
 ## 발견 (분류 전)
 
 <!-- /next 가 작업 중 찾은 것을 한 줄씩 — 출처: <커밋/파일>. 멈출 때 번호 문서로 옮긴다 -->
-- 새 프롬프트가 "기본 마릿수가 없으면 amountWon null" 이라 흔한 "반려견 1마리 추가 시 2만원"(마리당)도 모델 쪽에서 계산을 멈출 수 있다 — 안전한 쪽이지만 `data:eval score` 에서 계산 가능 비율이 떨어지는지 본다 — 출처: 31922d6
