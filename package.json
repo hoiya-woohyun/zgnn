@@ -18,6 +18,7 @@
     "data:homepage": "node scripts/fill-homepage.mjs",
     "data:apply": "node scripts/apply-approved.mjs",
     "data:review": "node --experimental-strip-types --no-warnings scripts/review-candidates.mjs",
+    "data:eval": "node --experimental-strip-types --no-warnings --import ./scripts/lib/tsExtResolve.mjs scripts/eval-extract.mjs",
     "data:fetch-images": "node scripts/fetch-blog-images.mjs",
     "data:optimize-images": "node scripts/optimize-images.mjs",
     "data:normalize": "node scripts/normalize.mjs"
