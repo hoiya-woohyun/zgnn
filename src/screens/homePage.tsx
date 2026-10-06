@@ -50,6 +50,14 @@ export function HomePage() {
             ? `${withJosa(dogCallNames(dog.dogs.map((d) => d.name)), '이랑/랑')} 제주 어디 갈까요?`
             : '짱구누나의 반려견 동반 제주 가이드'
         }
+        reach={
+          dog && levelCountsByType
+            ? {
+                label: `${withJosa(dogCallNames(dog.dogs.map((d) => d.name)), '이/가')} 갈 수 있는 곳`,
+                count: PLACE_TYPES.reduce((sum, type) => sum + levelCountsByType[type].ok, 0),
+              }
+            : null
+        }
       />
 
       {/* 예전에는 `-mt-10` 으로 히어로 위에 겹쳐 올렸다. 히어로가 라운드 판이 되면서 그 겹침이

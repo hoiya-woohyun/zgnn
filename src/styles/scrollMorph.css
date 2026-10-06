@@ -119,7 +119,7 @@
   [data-morph='scroll'] [data-scroll-morph='tone-in'] {
     animation-name: morph-tone-in;
   }
-  /* 부제·숫자판: 처음 25% 안에 비킨다. */
+  /* 부제·갈 수 있는 곳 수: 처음 25% 안에 비킨다. */
   [data-morph='scroll'] [data-scroll-morph='fade-early'] {
     animation-name: morph-fade-early;
   }

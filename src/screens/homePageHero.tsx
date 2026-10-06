@@ -3,7 +3,6 @@
 import { useEffect, useLayoutEffect, useRef, type CSSProperties } from 'react';
 import { collapseProgress, collapseRange } from '../lib/stickyMorph';
 import { morphModeOf, offsetInScroller, writeMorphMode, writeMorphRange } from '../components/layout/scrollDrivenMorph';
-import { PLACE_TYPES, TYPE_META, countByType } from '../lib/places';
 
 export function PawMark({ className = 'h-9 w-9 text-brand-300' }: { className?: string }) {
   return (
@@ -49,6 +48,13 @@ function offsetWithin(el: HTMLElement, ancestor: HTMLElement) {
 type THomePageHeroProps = {
   /** 제목 아래 한 줄. 프로필이 있으면 강아지 이름이 들어간다. */
   subtitle: string;
+  /**
+   * 우리 강아지 기준으로 **갈 수 있는**(판정 `ok`) 곳 수와 그 앞에 붙는 말("두부가 갈 수 있는 곳"). 프로필이 없으면 null — 그때는 숫자를 두지 않는다.
+   * 예전의 종류별 전체 수 판(숙소 26 · 식당 34 · 카페 24)은 바로 아래 종류 카드가 같은 수를 말해 첫 화면에 기준이 다른 숫자 묶음이
+   * 두 벌이었다(디자인 리뷰 ①). 이 앱만 말할 수 있는 숫자 하나만 남긴다. `cond` 를 더하지 않는 이유는 종류 카드가 "가능 · 확인" 을
+   * 일부러 나눠 적는 이유와 같다 — 확인 필요까지 '갈 수 있다' 로 읽힌다.
+   */
+  reach: { label: string; count: number } | null;
 };
 
 /**
@@ -69,7 +75,7 @@ type THomePageHeroProps = {
  * - **제목은 제자리에서 헤더 자리로 옮겨 간다**(translate + scale, 색 흰색 → 본문색). 블록이 올라가는 동안 제목은 블록 안에서
  *   내려가므로, 화면에서는 제목이 제 위치에서 헤더 위치까지 곧게 올라간다.
  * - **발바닥도 제목과 같은 식으로 헤더 맨 앞에 들어간다**(6단 크기로 줄며, 제목은 그 뒤에 붙는다). 헤더에 남는 유일한 브랜드 표식이다.
- * - 부제·숫자판은 먼저 사라진다(처음 25%). 헤더에 들어갈 자리가 없다.
+ * - 부제·갈 수 있는 곳 수는 먼저 사라진다(처음 25%). 헤더에 들어갈 자리가 없다.
  *
  * **접힘은 브라우저의 스크롤 구동 애니메이션이 돌린다**(`styles/scrollMorph.css`, 왜인지는 `scrollDrivenMorph.ts`). JS 는 크기가
  * 바뀔 때만 구간(`--morph-from`·`--morph-to`)과 기하(`--clip-top`·`--side`·`--tx`·`--ty`)를 적는다. 지원하지 않는 브라우저에서만
@@ -86,7 +92,7 @@ type THomePageHeroProps = {
  * 셸이 `<main>` 에 transform 을 거는 스와이프 중에도 `sticky` 는 스크롤 영역 기준이라 보정이 필요 없다(ADR-014 의
  * `--swipe-viewport-top` 은 `fixed` 용이다).
  */
-export function HomePageHero({ subtitle }: THomePageHeroProps) {
+export function HomePageHero({ subtitle, reach }: THomePageHeroProps) {
   const sentinelRef = useRef<HTMLSpanElement>(null);
   const blockRef = useRef<HTMLDivElement>(null);
   const padRef = useRef<HTMLDivElement>(null);
@@ -269,17 +275,12 @@ export function HomePageHero({ subtitle }: THomePageHeroProps) {
             <div data-scroll-morph="fade-early" style={fadeEarly}>
               <p className="mt-1.5 text-sm text-white/65">{subtitle}</p>
 
-              <dl className="mt-6 flex overflow-hidden rounded-xl border border-white/12 bg-white/6">
-                {PLACE_TYPES.map((type, index) => (
-                  <div key={type} className={`flex-1 px-3 py-2.5 ${index > 0 ? 'border-l border-white/12' : ''}`}>
-                    <dt className="text-xs text-white/55">{TYPE_META[type].label}</dt>
-                    <dd className="text-lg font-bold text-white">
-                      {countByType[type]}
-                      <span className="text-sm font-normal text-white/55">곳</span>
-                    </dd>
-                  </div>
-                ))}
-              </dl>
+              {/* 판·칸 없이 부제 밑 한 문장. 수는 발바닥과 같은 brand-300 — 잉크 위에서 이 앱의 답이라는 표시다. */}
+              {reach && (
+                <p className="mt-4 text-sm text-white/65">
+                  {reach.label} <strong className="text-lg font-bold text-brand-300">{reach.count}</strong>곳
+                </p>
+              )}
             </div>
           </header>
         </div>
