@@ -382,3 +382,150 @@ export function formatReport(results, summary) {
   }
   return out.join('\n');
 }
+
+// ── 사진도 읽히는 실험(`--images`) ─────────────────────────────────────────────────────────────────────────────
+// 텍스트만 읽힌 캐시와 사진을 몇 장 붙인 캐시를 **같은 글끼리** 견준다. 근거(grounded)는 여전히 글 본문 기준이다 —
+// 그래야 "글에 없던 사람 값을 사진으로 맞혔나" 를 셀 수 있다. 실험의 머리 숫자는 그것(회수)과 지어냄 증가, 글당 토큰 셋이다.
+
+export const EVAL_COMMANDS = ['golden', 'extract', 'score', 'compare'];
+export const EVAL_USAGE =
+  '사용법: pnpm data:eval golden [--force] | extract [--limit N] [--only <placeId|이름>…] [--refresh] [--images [--max-images N]] | score [--prompt <버전>] [--images [--max-images N]] | compare [--prompt <버전>] [--max-images N]';
+
+/** `pnpm data:eval` 인자. --max-images 는 --images 를 함께 켠다. compare 는 늘 사진 쪽을 텍스트 쪽과 견준다. */
+export function parseEvalArgs(argv, { defaultMaxImages = 8 } = {}) {
+  const [command, ...rest] = argv;
+  const opts = { command, force: false, refresh: false, limit: Infinity, only: [], prompt: null, images: false, maxImages: defaultMaxImages };
+  for (let i = 0; i < rest.length; i += 1) {
+    const a = rest[i];
+    if (a === '--force') opts.force = true;
+    else if (a === '--refresh') opts.refresh = true;
+    else if (a === '--images') opts.images = true;
+    else if (a === '--limit' || a === '--max-images') {
+      const n = Number(rest[++i]);
+      if (!Number.isInteger(n) || n < 1) throw new Error(`${a} 은 1 이상의 정수`);
+      if (a === '--limit') opts.limit = n;
+      else {
+        opts.maxImages = n;
+        opts.images = true;
+      }
+    } else if (a === '--prompt') {
+      opts.prompt = rest[++i];
+      if (!opts.prompt) throw new Error('--prompt 에 버전이 필요하다');
+    } else if (a === '--only') {
+      while (rest[i + 1] && !rest[i + 1].startsWith('--')) opts.only.push(rest[++i]);
+      if (opts.only.length === 0) throw new Error('--only 에 placeId 나 이름이 필요하다');
+    } else throw new Error(`모르는 인자: ${a}`);
+  }
+  if (!EVAL_COMMANDS.includes(command)) throw new Error(`모르는 명령: ${command ?? '(없음)'}`);
+  if (command === 'compare') opts.images = true;
+  return opts;
+}
+
+/** 캐시 폴더 이름의 가운데 — 텍스트만이면 '', 사진이면 `img<N>`. `<PROMPT_VERSION>-<variant>-<MODEL>` 로 쓴다. */
+export const variantTag = ({ images, maxImages }) => (images ? `img${maxImages}` : '');
+
+/**
+ * 채점 한 줄 → 글 본문에 근거가 없던 사람 칸(grounded === false) 수와 그중 AI 가 맞힌 수.
+ * review 의 'ai' 판정으로 일치가 된 칸(siteError)은 빼고 센다 — 그건 사진으로 맞힌 게 아니라 사람이 덮은 것이다.
+ */
+export function groundlessRecovery(result) {
+  if (result?.status !== 'found') return { ungrounded: 0, recovered: 0 };
+  const rows = result.fields.filter((f) => f.grounded === false && f.outcome !== 'excluded');
+  return { ungrounded: rows.length, recovered: rows.filter((f) => f.outcome === 'agree' && !f.siteError).length };
+}
+
+const inventedRows = (r) => (r?.status === 'found' ? r.fields.filter((f) => f.outcome === '지어냄') : []);
+const flipCount = (r) => (r?.status === 'found' ? r.verdicts.filter((v) => v.golden !== v.predicted).length : 0);
+/** 입력 토큰은 캐시 읽기·쓰기를 합친 값 — 사진은 매번 새 입력이라 캐시에 거의 안 걸린다. */
+const tokensOf = (u) => (u ? { input: (u.input ?? 0) + (u.cacheRead ?? 0) + (u.cacheWrite ?? 0), output: u.output ?? 0 } : null);
+
+/**
+ * 텍스트만 / 사진 포함 두 채점(각 줄에 CLI 가 usage · costUsd · imagesSent 를 붙여 넘긴다)을 같은 글끼리 견준다.
+ * 둘 다 추출이 있는 글만 센다 — 한쪽만 돌린 글이 섞이면 분모가 달라 비교가 안 된다.
+ */
+export function compareVariants(textResults, imgResults, meta = {}) {
+  const imgById = new Map(imgResults.map((r) => [r.placeId, r]));
+  const pairs = textResults
+    .map((t) => [t, imgById.get(t.placeId)])
+    .filter(([t, i]) => i && t.status !== 'noExtraction' && i.status !== 'noExtraction');
+  const side = (pick) => {
+    const rows = pairs.map(pick);
+    const rec = rows.map(groundlessRecovery);
+    const tokens = rows.map((r) => tokensOf(r.usage)).filter(Boolean);
+    const costs = rows.map((r) => r.costUsd).filter((c) => typeof c === 'number');
+    return {
+      summary: summarize(rows, meta),
+      ungrounded: rec.reduce((s, x) => s + x.ungrounded, 0),
+      recovered: rec.reduce((s, x) => s + x.recovered, 0),
+      invented: rows.reduce((s, r) => s + inventedRows(r).length, 0),
+      tokens: {
+        known: tokens.length,
+        input: tokens.reduce((s, t) => s + t.input, 0),
+        output: tokens.reduce((s, t) => s + t.output, 0),
+        costUsd: costs.length ? costs.reduce((s, c) => s + c, 0) : null,
+      },
+    };
+  };
+  const text = side(([t]) => t);
+  const img = side(([, i]) => i);
+  // 사진 쪽에만 생긴 지어냄 — 사진 속 진짜 조건이 사람의 짧은 문장에 빠진 것일 수도 있어 AI 문장을 같이 보여 준다(사람이 가른다).
+  const newlyInvented = pairs.flatMap(([t, i]) => {
+    const before = new Set(inventedRows(t).map((f) => f.field));
+    return inventedRows(i)
+      .filter((f) => !before.has(f.field))
+      .map((f) => ({ name: i.name, field: f.field, predicted: f.predicted, aiText: i.predictedText ?? null }));
+  });
+  const posts = pairs.map(([t, i]) => ({
+    name: t.name,
+    logNo: t.logNo,
+    imagesSent: i.imagesSent ?? null,
+    text: { ...groundlessRecovery(t), invented: inventedRows(t).length, flips: flipCount(t), tokens: tokensOf(t.usage), costUsd: t.costUsd ?? null },
+    img: { ...groundlessRecovery(i), invented: inventedRows(i).length, flips: flipCount(i), tokens: tokensOf(i.usage), costUsd: i.costUsd ?? null },
+  }));
+  return {
+    ...meta,
+    n: pairs.length,
+    text,
+    img,
+    newlyInvented,
+    posts,
+    fellBack: posts.filter((p) => p.imagesSent === 0).map((p) => p.name),
+    addendumVersions: [...new Set(pairs.map(([, i]) => i.addendumVersion).filter(Boolean))],
+  };
+}
+
+/** 비교 → 터미널 줄들. 머리 숫자(회수 · 지어냄 · 토큰)를 맨 위에. */
+export function formatComparison(c) {
+  const avg = (sum, n) => (n ? Math.round(sum / n) : '—');
+  const usd = (v) => (typeof v === 'number' ? `$${v.toFixed(3)}` : '—');
+  const tok = (t) => (t ? `${t.input}/${t.output}` : '—');
+  const lines = [
+    `텍스트만 vs 사진 ${c.maxImages ?? '?'}장까지 — 프롬프트 ${c.promptVersion ?? '?'} · 모델 ${c.model ?? '?'} · 같은 글 ${c.n}곳`,
+    '  claude -p 는 실행마다 흔들린다 — 몇 건 차이는 소음이다.',
+    '',
+    `■ 글에 근거 없던 사람 칸 중 맞힌 수(회수): 텍스트 ${c.text.recovered}/${c.text.ungrounded} → 사진 ${c.img.recovered}/${c.img.ungrounded}`,
+    `■ 지어냄(칸 합): 텍스트 ${c.text.invented} → 사진 ${c.img.invented}${c.newlyInvented.length ? ` · 사진 쪽에만 생긴 ${c.newlyInvented.length}칸(아래)` : ''}`,
+    `■ 글당 토큰(입력/출력, 평균): 텍스트 ${avg(c.text.tokens.input, c.text.tokens.known)}/${avg(c.text.tokens.output, c.text.tokens.known)} (${c.text.tokens.known}곳 기록) → 사진 ${avg(c.img.tokens.input, c.img.tokens.known)}/${avg(c.img.tokens.output, c.img.tokens.known)} (${c.img.tokens.known}곳) · 목록 단가 환산 합 ${usd(c.text.tokens.costUsd)} → ${usd(c.img.tokens.costUsd)}`,
+    `■ 판정 뒤집힘: 원값 ${c.text.summary.verdictFlips.places} → ${c.img.summary.verdictFlips.places} · 글 근거 기준 ${c.text.summary.verdictFlips.groundedBasis} → ${c.img.summary.verdictFlips.groundedBasis} (/${c.n})`,
+  ];
+  if (c.fellBack.length) lines.push(`⚠ 사진을 한 장도 못 받아 텍스트로만 부른 글 ${c.fellBack.length}곳: ${c.fellBack.join(', ')}`);
+  if (c.addendumVersions.length > 1) lines.push(`⚠ 사진 안내문 버전이 섞였다(${c.addendumVersions.join(', ')}) — --refresh 로 다시 돌린다`);
+  lines.push('', '칸 | 일치 텍스트→사진 | 지어냄 | 놓침 | 근거없음');
+  for (const [name, t] of Object.entries(c.text.summary.fields)) {
+    const i = c.img.summary.fields[name];
+    if (!i) continue;
+    const pair = (o) => `${t[o] ?? 0}→${i[o] ?? 0}`;
+    lines.push(`${name} | ${t.agree}/${t.n}→${i.agree}/${i.n} | ${pair('지어냄')} | ${pair('놓침')} | ${pair('근거없음')}`);
+  }
+  lines.push('', '글 | 사진 | 회수 텍스트→사진 | 지어냄 | 뒤집힌 강아지 | 토큰 입력/출력 텍스트 → 사진 | 비용 텍스트 → 사진');
+  for (const p of c.posts) {
+    lines.push(
+      `${p.name} | ${p.imagesSent ?? '?'}장 | ${p.text.recovered}/${p.text.ungrounded}→${p.img.recovered}/${p.img.ungrounded} | ${p.text.invented}→${p.img.invented} | ${p.text.flips}→${p.img.flips} | ${tok(p.text.tokens)} → ${tok(p.img.tokens)} | ${usd(p.text.costUsd)} → ${usd(p.img.costUsd)}`,
+    );
+  }
+  if (c.newlyInvented.length) {
+    lines.push('', '사진 쪽에만 생긴 지어냄 — 사진 속 진짜 조건(사람 문장에서 빠진)인지 지어낸 것인지 AI 문장으로 가른다:');
+    for (const f of c.newlyInvented) lines.push(`  ${f.name} · ${f.field} = ${JSON.stringify(f.predicted)} · AI: ${(f.aiText ?? '(없음)').replace(/\n/g, ' / ')}`);
+  }
+  return lines;
+}

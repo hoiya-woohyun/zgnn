@@ -89,7 +89,7 @@ function decodeEntities(s) {
 const BLOCK_BREAK = /<br\b[^>]*\/?>|<\/?(?:p|div|li|tr|td|th|h[1-6]|blockquote|table|ul|ol|dl|dd|dt|section|article|pre)\b[^>]*>/gi;
 
 // 태그 → 개행/제거 → 엔티티 디코드 순서다. 먼저 디코드하면 본문의 "&lt;b&gt;" 가 진짜 태그가 돼 지워진다.
-function htmlToText(fragment) {
+export function htmlToText(fragment) {
   const text = decodeEntities(fragment.replace(BLOCK_BREAK, '\n').replace(/<[^>]+>/g, ''));
   return text
     .replace(/[\u200b\ufeff\r]/g, '') // SE ONE 은 빈 문단을 zero-width space 로 채운다
@@ -100,9 +100,14 @@ function htmlToText(fragment) {
     .join('\n');
 }
 
+/** PostView HTML → 본문 컨테이너 안쪽 HTML(스크립트·주석·스크린리더 라벨을 뺀). 컨테이너가 없으면 null. 사진 고르기(postImages.mjs)도 같은 범위를 본다. */
+export function postContainerHtml(html) {
+  return sliceContainer(stripNonContent(html ?? ''));
+}
+
 /** PostView HTML → 본문 텍스트. 컨테이너가 없으면 ''. MAX_BODY_CHARS 로 잘린다. */
 export function extractPostText(html) {
-  const fragment = sliceContainer(stripNonContent(html ?? ''));
+  const fragment = postContainerHtml(html);
   if (fragment === null) return '';
   return htmlToText(fragment).slice(0, MAX_BODY_CHARS);
 }

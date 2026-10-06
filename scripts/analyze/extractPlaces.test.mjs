@@ -4,16 +4,19 @@ import {
   ClaudeCliError,
   EXTRACT_SCHEMA,
   ExtractionError,
+  IMAGE_PROMPT_ADDENDUM,
   MODEL,
   PROMPT_POLICY_EXAMPLES,
   PROMPT_VERSION,
   SYSTEM_PROMPT,
   buildCliArgs,
+  buildImageInput,
   buildPrompt,
   createUsageMeter,
   extractPlaces,
   isFatal,
   isRetryable,
+  lastResultLine,
   parseExtraction,
   resolveModel,
   runClaudeCli,
@@ -431,6 +434,65 @@ describe('extractPlaces — 가짜 run', () => {
     const bad = fakeRun(fakeResult({ structured_output: undefined }));
     await expect(extractPlaces(bad, post, '본문 3', meter)).rejects.toMatchObject({ code: 'no_structured_output' });
     expect(meter.totals()).toEqual({ calls: 3, input: 12000, output: 1500, cacheRead: 10500, cacheWrite: 0 });
+  });
+});
+
+describe('사진 실험(평가 전용) — stream-json 경로', () => {
+  const images = [{ mediaType: 'image/jpeg', data: 'QUJD' }];
+  // stream-json 출력: system 줄 · assistant 줄 · 마지막 result 줄.
+  const ndjson = (result) => [{ type: 'system', subtype: 'init' }, { type: 'assistant', message: { content: '비밀' } }, result].map((o) => JSON.stringify(o)).join('\n');
+
+  it('기본 인자는 그대로(json) — 운영 경로는 안 바뀐다', () => {
+    expect(buildCliArgs({})).toEqual(buildCliArgs());
+    expect(buildCliArgs()).not.toContain('stream-json');
+  });
+
+  it('streamJson 이면 입력·출력 둘 다 stream-json + --verbose, 나머지 인자는 같다', () => {
+    const a = buildCliArgs({ streamJson: true });
+    expect(a.slice(0, 7)).toEqual(['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--json-schema']);
+    expect(a.slice(6)).toEqual(buildCliArgs().slice(3));
+  });
+
+  it('입력은 user 메시지 한 줄 — 텍스트(본문 + 사진 안내) 뒤에 base64 이미지 블록', () => {
+    const line = buildImageInput(post, '본문', images);
+    expect(line.endsWith('\n')).toBe(true);
+    const msg = JSON.parse(line);
+    expect(msg).toMatchObject({ type: 'user', message: { role: 'user' } });
+    expect(msg.message.content[0]).toEqual({ type: 'text', text: `${buildPrompt(post, '본문')}\n\n${IMAGE_PROMPT_ADDENDUM}` });
+    expect(msg.message.content[1]).toEqual({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: 'QUJD' } });
+    // 시스템 프롬프트는 운영과 같다 — 사진 이야기는 user 메시지에만.
+    expect(SYSTEM_PROMPT).not.toContain('첨부 사진');
+  });
+
+  it('lastResultLine — 마지막 result 줄만, 없으면 null', () => {
+    expect(lastResultLine(ndjson(fakeResult()))).toMatchObject({ type: 'result', subtype: 'success' });
+    expect(lastResultLine('{"type":"system"}\n{잘린')).toBeNull();
+    expect(lastResultLine('')).toBeNull();
+  });
+
+  it('extractPlaces 에 images 를 주면 stream-json 으로 한 번 부르고, 후처리(정규화)는 같다', async () => {
+    const run = fakeRun(() => ndjson(withPlaces([goodPlace])));
+    const meter = createUsageMeter();
+    let seen = null;
+    const places = await extractPlaces(run, post, '본문', meter, { images, onResult: (r) => { seen = r.type; } });
+    expect(places).toEqual([goodPlace]);
+    expect(run.calls[0].args).toEqual(buildCliArgs({ streamJson: true }));
+    expect(run.calls[0].input).toBe(buildImageInput(post, '본문', images));
+    expect(meter.totals().calls).toBe(1);
+    expect(seen).toBe('result');
+  });
+
+  it('images 가 빈 배열이면 운영과 같은 텍스트 호출', async () => {
+    const run = fakeRun(withPlaces([]));
+    await extractPlaces(run, post, '본문', undefined, { images: [] });
+    expect(run.calls[0].args).toEqual(buildCliArgs());
+    expect(run.calls[0].input).toBe(buildPrompt(post, '본문'));
+  });
+
+  it('result 줄이 없으면 invalid_json — 다른 줄 내용은 메시지에 싣지 않는다', async () => {
+    const run = fakeRun('{"type":"assistant","message":"비밀"}');
+    await expect(extractPlaces(run, post, '본문', undefined, { images })).rejects.toMatchObject({ code: 'invalid_json' });
+    await expect(extractPlaces(run, post, '본문', undefined, { images })).rejects.not.toThrow(/비밀/);
   });
 });
 
