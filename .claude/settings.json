@@ -36,5 +36,19 @@
       "Bash(vercel env pull)",
       "Bash(vercel env pull *)"
     ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/uxEvalWeekly.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
   }
 }
