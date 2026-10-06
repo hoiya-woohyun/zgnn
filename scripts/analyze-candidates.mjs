@@ -37,6 +37,8 @@
 //    (`newSiblingOf`)일 때 먼저 난 쪽의 키를 물려받는다 — 검수 화면은 키로 묶으므로 그래야 한 줄로 선다.
 //  - `--dry-run` 은 DB 에 쓰지 않는다(analyzed_at 도). Claude 는 부른다 — 토큰은 쓰인다. 무엇이 후보가 되는지 보는 용도.
 //  - 로그에 시크릿·응답 본문·헤더·본문 텍스트를 남기지 않는다(docs/todo/05). 글 URL·제목, 후보 요약 한 줄, error.message 만.
+//  - 실행마다 `pipeline_runs` 에 한 행(scripts/lib/runLog.mjs, docs/todo/15 T2.3) — 사전 점검이 다 지난 뒤 시작하고, 글마다 심장을 찍는다.
+//    `--dry-run` 과 잠금에 막힌 실행은 남기지 않는다(쓰지 않았고, 돌지 않았다). 기록이 안 돼도 분석은 그대로 돈다.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -79,9 +81,11 @@ import { toMatchablePlace } from './lib/placeFields.mjs';
 import { loadNaverEnvFile } from './lib/naverEnvFile.mjs';
 import { naverKeyPairProblem } from './lib/naverKeyFormat.mjs';
 import { readHidden } from './lib/readHidden.mjs';
+import { readNaverCalls } from './lib/naverSearchApi.mjs';
+import { argFlags, beginRun, classifyRunError, NO_RUN, RUN_ERROR } from './lib/runLog.mjs';
 import { acquireRunLock } from './lib/runLock.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
-import { formatAnalyzeSummary } from '../src/lib/runSummary.ts';
+import { formatAnalyzeSummary, formatUsageSummary } from '../src/lib/runSummary.ts';
 
 let args;
 try {
@@ -472,7 +476,10 @@ async function enrichWithNaver(name, { town, si }) {
     // 이유(좌표 없이 이름만으로 대조 → 동명 가게가 ask 대신 auto)가 그대로 재현되는데 실행만 안 멈춘다.
     if (e?.status === 429) {
       // 429 만으로는 "일 상한 소진" 과 "순간 호출 제한" 을 구별할 수 없다 — 원인을 단정하지 않는다(리뷰 지적).
-      throw Object.assign(new Error('네이버 검색 호출이 429 — 일 상한(25,000) 소진이거나 순간 호출 제한이다. 좌표 없이 대조하면 동명 가게가 auto 로 올라가므로 멈춘다. 잠시 뒤 또는 내일 다시 돌리고, 남은 건은 --limit 으로 나눠라'), { fatal: true });
+      throw Object.assign(new Error('네이버 검색 호출이 429 — 일 상한(25,000) 소진이거나 순간 호출 제한이다. 좌표 없이 대조하면 동명 가게가 auto 로 올라가므로 멈춘다. 잠시 뒤 또는 내일 다시 돌리고, 남은 건은 --limit 으로 나눠라'), {
+        fatal: true,
+        runError: RUN_ERROR.naver429,
+      });
     }
     naverStats.failed++;
     console.log(`    네이버 보강 실패(좌표 없이 진행): ${e.message}`);
@@ -496,14 +503,23 @@ function skipHint(e) {
   return '';
 }
 
+/*
+ * 실행 기록의 시작은 **여기** — 사전 점검(컬럼 검사 · 앞줄 비어 있음 · places 비어 있음 · 키)이 전부 지난 뒤, 실제 작업 직전이다.
+ * 앞에 두면 그 점검들의 `process.exit(1)` 이 전부 "running 인데 심장이 멎은" 행, 곧 거짓 "중단된 듯" 이 된다
+ * (`process.on('exit')` 안에서는 await 를 못 써 닫을 수 없다). 이 뒤의 실패는 `fatal` 로 루프를 끊고 아래에서 failed 로 닫는다.
+ * 예상 못 한 예외로 죽으면 행이 running 으로 남는다 — 실제로 죽은 것이니 화면의 "중단된 듯" 이 맞는 말이다.
+ */
+const run = dryRun ? NO_RUN : await beginRun(supabase, { script: 'analyze', args: { flags: argFlags(process.argv.slice(2)) } });
 const runStartedAt = new Date();
 const stats = { analyzed: 0, skipped: 0, dropped: 0, candidates: 0, auto: 0, ask: 0, new: 0, dup: 0, edited: 0, update: 0, fill: 0, excluded: { other: 0, notJeju: 0, notAllowed: 0, sameAsSite: 0, stale: 0, weak: 0, blocked: 0, noPetEvidence: 0 }, verify: { checked: 0, noEvidence: 0, notAllowed: 0, failed: 0 } };
 let fatal = false;
+let fatalError = null; // 실행 기록의 error 칸 분류용 — 원문은 위 콘솔 줄에만
 const pendingCloses = []; // { url, reason } — 루프 끝에 성공이 1건이라도 있을 때만 analyzed_at 을 찍는다
 // --dump 용. DB 에 들어갈 후보 행(extracted 그대로, 본문 없음)과 제외 목록 — 정규화 품질을 사람이 볼 유일한 창이다(로그에는 안 찍는다, 05).
 const dumpEntries = [];
 
 for (const post of posts) {
+  await run.tick(); // 60초에 한 번만 실제로 쓴다 — 죽으면 이 값이 멎어 화면이 "중단된 듯" 을 읽는다
   console.log(`글 ${post.url} (${post.title ?? '제목 없음'})`);
   try {
     if (!post.blog_id || !post.log_no) throw Object.assign(new Error('blog_id/log_no 가 비어 있어 본문 주소를 만들 수 없다'), { permanent: true });
@@ -677,6 +693,7 @@ for (const post of posts) {
       console.error(`  중단: ${e.message}`);
       console.error('  이 실행의 나머지 글은 건너뛴다(같은 이유로 실패한다).');
       fatal = true;
+      fatalError = e;
       break;
     }
     if (isPermanentFailure(e)) {
@@ -693,6 +710,7 @@ for (const post of posts) {
 if (pendingCloses.length > 0) {
   if (stats.analyzed > 0) {
     for (const { url, reason } of pendingCloses) {
+      await run.tick();
       try {
         await write(`analyzed_at 기록 ${url} (분석 불가: ${reason.slice(0, 80)})`, () =>
           supabase
@@ -722,6 +740,7 @@ let proposeOff = noPropose;
 for (const [placeId, runRows] of updatedPlaces) {
   const placeRow = placeById.get(placeId);
   if (proposeOff || !placeRow) continue;
+  await run.tick(); // 제안은 장소마다 Claude 한 번 — 갱신이 많으면 이 루프만으로 10분을 넘길 수 있다
   try {
     let rowsForPlace = runRows;
     if (!dryRun) {
@@ -753,7 +772,18 @@ for (const [placeId, runRows] of updatedPlaces) {
   }
 }
 
-console.log(formatAnalyzeSummary(stats, meter.summary(), { dryRun }));
+/*
+ * 콘솔 요약과 실행 기록의 stats 는 **같은 객체**다 — 화면(/admin/ops)이 이 stats 로 아래 줄을 글자까지 같게 다시 만든다(src/lib/runSummary.ts).
+ * 계량기는 패스별 합계를 싣는다(30일 사용량이 셋을 다 더한다 — 추출만 세면 교차점검·제안이 태운 한도가 빠진다).
+ */
+const runStats = {
+  ...stats,
+  meters: { extract: meter.totals(), verify: verifyMeter.totals(), propose: proposeMeter.totals() },
+  geo: { ...naverStats, geocode: { ...geocodeStats } },
+  homepage: { ...homepageStats },
+  naverCalls: readNaverCalls(),
+};
+console.log(formatAnalyzeSummary(runStats, formatUsageSummary('추출', runStats.meters.extract), { dryRun }));
 if (verifyMeter.totals().calls > 0) console.log(`  ${verifyMeter.summary()}`);
 if (proposeMeter.totals().calls > 0) console.log(`  ${proposeMeter.summary()}`);
 
@@ -810,4 +840,8 @@ if (homepageStats.tried > 0) {
 
 // 글 단위 실패는 정상 경로(다음 실행에 재시도)라 exit 0. 시도한 글 중 성공이 0 이면 1 — "분석 불가" 도 성공이 아니다(위에서 닫지도 않았다).
 // process.exit() 은 파이프로 나가던 stdout 을 잘라먹을 수 있어 자연 종료를 기다린다.
-process.exitCode = fatal || (posts.length > 0 && stats.analyzed === 0) ? 1 : 0;
+// 실행 기록 — 같은 식이 failed 를 정한다. 건너뛴 글이 있으면 partial, 글이 0건이면 ok + analyzed 0("돌았는데 할 게 없었다" 도 기록이다).
+const failedRun = fatal || (posts.length > 0 && stats.analyzed === 0);
+const failedReason = fatalError?.name === 'ClaudeCliError' && fatalError.code === 'auth' ? RUN_ERROR.claudeAuth : classifyRunError(fatalError);
+await run.end({ status: failedRun ? 'failed' : stats.skipped > 0 ? 'partial' : 'ok', stats: runStats, error: failedRun ? failedReason : null });
+process.exitCode = failedRun ? 1 : 0;
