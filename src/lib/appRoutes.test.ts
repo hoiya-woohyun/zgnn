@@ -65,10 +65,10 @@ describe('SWIPE_ROUTES — 손가락으로 넘기는 한 줄', () => {
   it('탭바 순서대로이되 둘러보기만 종류 셋으로 펼쳐져 있다', () => {
     expect([...SWIPE_ROUTES]).toEqual([
       '/',
-      '/map',
       '/places/stay',
       '/places/restaurant',
       '/places/cafe',
+      '/map',
       '/checklist',
       '/settings',
     ]);
@@ -78,12 +78,17 @@ describe('SWIPE_ROUTES — 손가락으로 넘기는 한 줄', () => {
     for (const route of SWIPE_ROUTES) expect(isRootRoute(route)).toBe(true);
   });
 
-  it('카페에서 한 번 더 밀면 준비물이다 — 둘러보기의 끝은 막다른 길이 아니다', () => {
-    expect(SWIPE_ROUTES[swipeIndexOf('/places/cafe') + 1]).toBe('/checklist');
+  it('카페에서 한 번 더 밀면 지도다 — 둘러보기의 끝은 막다른 길이 아니다', () => {
+    expect(SWIPE_ROUTES[swipeIndexOf('/places/cafe') + 1]).toBe('/map');
   });
 
-  it('지도에서 왼쪽으로 밀면 둘러보기의 첫 종류로 들어온다', () => {
-    expect(SWIPE_ROUTES[swipeIndexOf('/map') + 1]).toBe('/places/stay');
+  it('홈에서 왼쪽으로 밀면 둘러보기의 첫 종류로 들어온다', () => {
+    expect(SWIPE_ROUTES[swipeIndexOf('/') + 1]).toBe('/places/stay');
+  });
+
+  it('지도는 가운데다 — 탭바의 솟은 원형 버튼 자리와 같다(navItems 의 prominent)', () => {
+    expect(swipeIndexOf('/map')).toBe(4);
+    expect(SWIPE_ROUTES[swipeIndexOf('/map') + 1]).toBe('/checklist');
   });
 
   it('수열에 없는 화면은 -1 이다', () => {

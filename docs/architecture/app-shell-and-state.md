@@ -86,7 +86,7 @@ src/app/place/[id]/page.tsx   ─ 서버: generateStaticParams(86개) · generat
 
 | 폭 | 구성 |
 |---|---|
-| < 768px | 하단 `AppTabBar`(홈·지도·둘러보기·준비물·설정) |
+| < 768px | 하단 `AppTabBar`(홈·둘러보기·**지도**·준비물·설정 — 가운데 지도는 솟은 원형 버튼, `navItems.ts` 의 `prominent`) |
 | ≥ 768px | 좌측 고정 `AppSidebar`. 탭바는 숨김 |
 | ≥ 1024px (지도만) | 목록 패널 + 지도 2단 (`useMapPageWideLayout`) |
 

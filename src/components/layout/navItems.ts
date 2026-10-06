@@ -12,6 +12,11 @@ export type TNavItem = {
   isActive: (pathname: string) => boolean;
   /** 주소가 상황에 따라 바뀌는 항목만 — 없으면 `to`. `to` 는 목록의 key 로도 쓰여 고정이다. */
   hrefFor?: (pathname: string) => string;
+  /**
+   * 탭바 **가운데의 솟은 원형 버튼**으로 그린다 — 하나뿐이어야 한다(둘이면 가운데가 없다).
+   * 사이드바는 이 표시를 무시한다(세로 목록엔 '가운데' 가 없다).
+   */
+  prominent?: boolean;
 };
 
 /** 항목이 지금 가리킬 주소. 탭바·사이드바가 같은 답을 쓴다. */
@@ -26,7 +31,6 @@ export const navHref = (item: TNavItem, pathname: string) => item.hrefFor?.(path
  */
 export const NAV_ITEMS: TNavItem[] = [
   { to: '/', label: '홈', Icon: Home02, isActive: (path) => path === '/' || path.startsWith('/saved') },
-  { to: '/map', label: '지도', Icon: Map01, isActive: (path) => path.startsWith('/map') },
   {
     to: '/places/stay',
     label: '둘러보기',
@@ -36,6 +40,9 @@ export const NAV_ITEMS: TNavItem[] = [
     // 보던 종류로 돌아간다(12 U1.5) — 카페 목록에서 누르면 숙소로 넘어가지 않고 맨 위로, 지도에서 누르면 보던 카페로.
     hrefFor: (path) => placesTabHref(path),
   },
+  // 다섯 자리의 **가운데**이고 솟은 원형 버튼이다 — 여행 중 가장 자주 여는 화면을 엄지 바로 위에 둔다.
+  // 순서를 바꾸면 `lib/appRoutes.ts` 의 `SWIPE_ROUTES` 도 같이 바꾼다(손가락 순서와 눈 순서가 같아야 한다).
+  { to: '/map', label: '지도', Icon: Map01, isActive: (path) => path.startsWith('/map'), prominent: true },
   {
     to: '/checklist',
     label: '준비물',

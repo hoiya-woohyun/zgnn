@@ -26,7 +26,20 @@ const normalize = (pathname: string) => pathname.replace(/\/+$/, '') || '/';
  *
  * **탭바는 손가락으로 화면을 넘길 때도 움직이지 않는다**(ADR-014) — 화면들을 담는 틀이지
  * 화면이 아니다. 스와이프로 옮겨도 여기 하이라이트는 `isActive` 가 새 주소로 다시 계산한다.
+ *
+ * **가운데 한 칸(`prominent`, 지도)은 솟은 원형 버튼이다.** 다섯 칸이 같은 모양이면 밋밋하고, 여행 중
+ * 가장 자주 여는 화면이 어느 것인지도 안 보인다. 원은 탭바 위로 `PROMINENT_RISE` 만큼 솟고, 바탕색(크림)
+ * 링을 둘러 `border-t` 선이 원 뒤에서 끊긴 것처럼 보이게 한다 — 노치를 파지 않고 같은 인상을 낸다.
+ * 솟은 만큼은 본문 위에 떠 있다(`appShellSurface` 의 아래 여백은 탭바 높이 기준이라 그 여유 안에 든다).
+ * 원은 늘 브랜드색이고, 불이 들어왔는지는 다른 칸과 같이 **라벨 색**으로만 말한다 — 원의 색을 바꾸면
+ * "지도에 있을 때만 버튼이 있다" 로 읽힌다.
  */
+
+/**
+ * 원형 버튼이 탭바 위로 솟는 높이. 지름(`size-13`)과 같이 움직인다 — 원의 아랫단이 라벨(아래 6px + 한 줄)에
+ * 닿지 않을 만큼은 솟아야 한다. `-top-3.5` 로 두었더니 원이 '지도' 글자를 덮었다.
+ */
+const PROMINENT_RISE = '-top-5';
 export function AppTabBar() {
   const pathname = usePathname();
   const highlightPath = useNavHighlightPath();
@@ -56,6 +69,36 @@ export function AppTabBar() {
         {NAV_ITEMS.map((item) => {
           const active = isNavActive(item, highlightPath);
           const href = navHref(item, pathname);
+          const labelColor = active ? 'text-brand-secondary' : 'text-tertiary';
+
+          if (item.prominent) {
+            return (
+              <li key={item.to} className="flex-1">
+                <Link
+                  href={href}
+                  onClick={(event) => handleTabClick(event, href)}
+                  aria-current={active ? 'page' : undefined}
+                  className={cx(
+                    'relative flex h-full flex-col items-center justify-end pb-1.5 text-xs font-semibold',
+                    labelColor,
+                  )}
+                >
+                  <span
+                    aria-hidden
+                    className={cx(
+                      'absolute flex size-13 items-center justify-center rounded-full bg-brand-solid text-primary_on-brand shadow-lg ring-4 ring-bg-secondary',
+                      'transition-transform duration-150 active:scale-95',
+                      PROMINENT_RISE,
+                    )}
+                  >
+                    <item.Icon size={26} />
+                  </span>
+                  {item.label}
+                </Link>
+              </li>
+            );
+          }
+
           return (
             <li key={item.to} className="flex-1">
               <Link
@@ -64,7 +107,7 @@ export function AppTabBar() {
                 aria-current={active ? 'page' : undefined}
                 className={cx(
                   'relative flex h-full flex-col items-center justify-center gap-0.5 text-xs font-semibold',
-                  active ? 'text-brand-secondary' : 'text-tertiary',
+                  labelColor,
                 )}
               >
                 <item.Icon
