@@ -38,7 +38,12 @@
         ],
         "sources": {}
       },
-      "review": null
+      "review": {
+        "maxDogs": {
+          "verdict": "ai",
+          "note": "글에 '반려동물동반 가능 (최대 2마리)' — 사이트 문장에서 빠짐(2026-10-06 사이트 수정)"
+        }
+      }
     },
     {
       "placeId": "278ddc10-ceae-811f-bcee-d05a31480417",
@@ -83,7 +88,24 @@
         ],
         "sources": {}
       },
-      "review": null
+      "review": {
+        "callFirst": {
+          "verdict": "ai",
+          "note": "글에 '방문전 미리 전화로 문의하시고' — 사이트 문장에서 빠짐(2026-10-06 사이트 수정)"
+        },
+        "weightLimitKg": {
+          "verdict": "unclear",
+          "note": "본문 글자에 무게 조건 없음 — 사진 속 안내로 보인다(사이트 값은 유지)"
+        },
+        "maxDogs": {
+          "verdict": "unclear",
+          "note": "본문 글자에 마릿수 없음 — 사진 속 안내로 보인다"
+        },
+        "feeAmountsWon": {
+          "verdict": "unclear",
+          "note": "본문 글자에 청소비 없음 — 사진 속 안내로 보인다"
+        }
+      }
     },
     {
       "placeId": "278ddc10-ceae-812c-bbd2-ce9e137669b3",
