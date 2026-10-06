@@ -131,6 +131,7 @@ pnpm data:analyze    # ③ 모은 글을 Claude 로 읽어 장소 후보를 만�
 | `pnpm data:pull` | 로컬 `src/data/*.json` 을 DB 최신으로 맞출 때. 결과가 비면 파일을 덮지 않고 멈춘다 |
 | `pnpm data:homepage` | 홈페이지 카드 기능이 생기기 전(2026-09-30)에 쌓인 후보에 카드를 채울 때. 한 번 돌리면 된다(`--dry-run` · `--limit N`) |
 | `pnpm data:logout` | 세션을 만료 전에 지울 때 |
+| `pnpm data:eval` | 추출 프롬프트를 고친 뒤 정확도를 잴 때. 시드 86곳이 정답이고 로그인이 필요 없다(`extract --limit N` 은 글당 Claude 1회 · `score` 는 호출 0) → [docs/features/extraction-eval.md](docs/features/extraction-eval.md) |
 
 ### 거의 안 씀 — 옛 경로·재구축용
 
