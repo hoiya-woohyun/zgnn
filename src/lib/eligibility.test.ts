@@ -205,6 +205,16 @@ describe('judgeEligibility — C5 가 정보 없음·kg 요금 구간을 무시�
     expect(result.reasons.some((r) => r.text.includes('대형견 언급'))).toBe(false);
   });
 
+  it('마릿수만 적힌 곳("최대 2마리")도 대형견에겐 "언급이 없어요" 다 — 원문에서도, AI 판단에서도', () => {
+    const fromText = judgeEligibility(BIG, parsePetPolicy('최대 2마리까지 가능해요.'));
+    expect(fromText.level).toBe('cond');
+    expect(fromText.reasons.some((r) => r.rule === 'C5')).toBe(true);
+
+    const facts = { indoor: 'free', leash: false, largeDogOk: null, smallDogOnly: false, callFirst: false, vaccineRequired: false, feeFree: null, fees: [], weightLimitKg: null, maxDogs: 2, notes: null } as unknown as TPetPolicyFacts;
+    const fromFacts = judgeEligibility(BIG, withPolicyFacts(parsePetPolicy('최대 2마리까지 가능해요.'), facts));
+    expect(fromFacts.reasons.some((r) => r.rule === 'C5')).toBe(true);
+  });
+
   it('솔숲펜션 — 구간 요금표 상한을 넘으면 "10kg 까지만" (등급 cond)', () => {
     const result = judgeEligibility(BIG, findPlace('솔숲펜션').policy);
     expect(result.level).toBe('cond');
