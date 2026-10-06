@@ -11,8 +11,8 @@ const normalize = (pathname: string) => pathname.replace(/\/+$/, '') || '/';
 /**
  * 모바일 하단 탭바. 데스크톱(md 이상)에서는 사이드바가 대신하므로 숨는다.
  *
- * 높이를 고정해 두는 이유는 appShell 이 이 값만큼 콘텐츠 아래를 비워야 하기 때문이다.
- * 여기 숫자나 가운데 원이 솟는 높이(`RISE_PX`)를 바꾸면 `appShellSurface.ts` 의 CONTENT_BOTTOM_SPACE 도 같이 바꾼다.
+ * 높이는 `--tab-bar-h`(globals.css) 하나다 — 지도 상자·스와이프 대역·본문 아래 여백이 같은 변수를 본다.
+ * 가운데 원이 솟는 높이(`RISE_PX`)를 바꾸면 `appShellSurface.ts` 의 CONTENT_BOTTOM_SPACE 도 같이 바꾼다.
  *
  * **이미 있는 탭을 다시 누르면 맨 위로 부드럽게 돌아간다** — 네이티브 탭바의 관례다.
  * 조건으로 `item.isActive` 를 쓰면 안 된다. 둘러보기 항목은 탭 하이라이트를 위해 상세
@@ -39,7 +39,7 @@ const normalize = (pathname: string) => pathname.replace(/\/+$/, '') || '/';
 
 /**
  * 원의 지름과 탭바 윗선 위로 솟는 높이(px). 반(26px)을 내놓으니 너무 튀어 보여 16px 로 들였다.
- * 탭바 높이(`h-[60px]`)처럼 픽셀로 못 박는다 — 선이 원을 넘는 자리는 1px 단위로 맞아야 해서 `--spacing` 축에
+ * 탭바 높이(`--tab-bar-h`)처럼 픽셀로 못 박는다 — 선이 원을 넘는 자리는 1px 단위로 맞아야 해서 `--spacing` 축에
  * 태우면 테두리 덮개와 원이 서로 어긋난다(탭바는 768px 미만에만 있어 축이 커질 일도 없다).
  */
 const CIRCLE_PX = 52;
@@ -70,7 +70,7 @@ export function AppTabBar() {
       // 본문과 가르는 것은 색이 아니라 `border-t` 한 줄이다.
       className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-secondary bg-secondary md:hidden"
     >
-      <ul className="mx-auto flex h-[60px] w-full max-w-lg">
+      <ul className="mx-auto flex h-(--tab-bar-h) w-full max-w-lg">
         {NAV_ITEMS.map((item) => {
           const active = isNavActive(item, highlightPath);
           const href = navHref(item, pathname);

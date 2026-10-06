@@ -40,6 +40,17 @@
   }
 }
 
+/*
+  모바일 하단 탭바의 높이. **네 곳이 같은 값을 봐야 해서** 변수다 — 탭바 자신(appTabBar), 탭바 위에서
+  끝나는 지도 상자(mapPage), 스와이프 중 지도 자리에 서는 대역(appShellSwipePeek), 스크롤 화면의
+  아래 여백(appShellSurface 의 CONTENT_BOTTOM_SPACE). 하나만 바꾸면 지도 밑에 띠가 남거나 마지막 줄이 가린다.
+  `--spacing` 축에 태우지 않는다 — 탭바는 768px 미만에만 있고, 가운데 원이 1px 단위로 맞물린다.
+  60px 였다가 52px 로 줄였다(아이콘 24 + 글자 한 줄 + 위아래 5px — 44px 터치 기준은 그대로 넘는다).
+*/
+:root {
+  --tab-bar-h: 52px;
+}
+
 @custom-variant dark (&:where(.dark-mode, .dark-mode *));
 @custom-variant label (& [data-label]);
 @custom-variant focus-input-within (&:has(input:focus));
@@ -205,7 +216,7 @@
     받아 그 띠에서만 글자가 눈금에 닿는다(v9 리뷰에서 실측으로 잡혔다).
   - **인셋(`--attribution-inset`) — 뷰포트가 정한다.** 탭바가 사라지는 `md` 이상에서만 지도가 화면 맨
     아래까지 닿으므로 홈 인디케이터 인셋을 더 뺀다. 그 아래에서는 지도가 탭바 **위에서** 끝나(mapPage.tsx 의
-    `100dvh - 60px - 인셋`) 인셋을 탭바가 이미 먹었다 — 여기서 또 빼면 이중 계산이다. 왼쪽 인셋은 보지
+    `100dvh - var(--tab-bar-h) - 인셋`) 인셋을 탭바가 이미 먹었다 — 여기서 또 빼면 이중 계산이다. 왼쪽 인셋은 보지
     않는다 — 세로 화면에서는 0 이고, `md` 이상은 지도 왼쪽에 사이드바가 있어 지도 경계가 화면 경계가 아니다.
 
   `--spacing` 배수라 `md`·`lg` 에서는 4.5·5px 로 조금씩 커진다(ADR-006) — 여유 쪽으로만 움직인다.

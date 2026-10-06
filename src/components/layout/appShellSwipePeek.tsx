@@ -22,7 +22,7 @@ import { SettingsPage } from '../../screens/settingsPage';
  * 사실이고, 도착하면 그 위에 타일이 얹힌다. 높이 계산은 `mapPage` 의 바깥 상자와 같아야 한다.
  */
 function MapStandIn() {
-  return <div className="h-[calc(100dvh-60px-env(safe-area-inset-bottom,0px))] bg-secondary md:h-dvh" />;
+  return <div className="h-[calc(100dvh-var(--tab-bar-h)-env(safe-area-inset-bottom,0px))] bg-secondary md:h-dvh" />;
 }
 
 /**

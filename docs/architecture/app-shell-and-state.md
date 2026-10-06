@@ -1,6 +1,7 @@
 # 라우팅 · 화면 셸 · 클라이언트 상태
 
-> 최종 수정: 2026-10-06 (v39: `/dog` 의 탭 불이 설정 고정에서 **들어온 탭**으로(홈→홈 · 딥링크면 없음, 14 W261006.10))
+> 최종 수정: 2026-10-06 (v40: 둘러보기 조건이 종류 탭을 넘어 남는다 — **저장하지 않는** 두 번째 스토어 `usePlacesPageFilterStore`(07 U3))
+> 이전 2026-10-06 (v39: `/dog` 의 탭 불이 설정 고정에서 **들어온 탭**으로(홈→홈 · 딥링크면 없음, 14 W261006.10))
 > 이전 2026-10-06 (v38: 상세의 **판정 카드가 원문을 안에 품는다**(`PlaceDetailEligibilityCard` 의 `evidence`) — 원문이 따로 상자이던 것을 구분선 아래로. 빈 상태(`EmptyState`)는 면 없이, 지도 위에서만 `floating`. 흰 카드 면 규칙은 [ADR-003 v15](../decisions/ADR-003-untitled-ui-and-palette.md))
 > 이전 2026-10-06 (v37: 홈 히어로의 **종류별 전체 수 판(숙소·식당·카페)을 뺐다** — 바로 아래 종류 카드와 같은 수였다. 프로필이 있으면 그 자리에 "두부가 갈 수 있는 곳 N곳" 한 줄(판정 `ok` 합, 종류 카드의 '가능' 합과 같다), 없으면 아무것도 없다(14 D261006.5 · 디자인 리뷰 ①))
 > 이전 2026-10-06 (v36: 숨은 운영자 화면 하나 더 — **`/admin/ops`**(운영 현황). `/admin` 과 같은 장치(`ssr:false`·`data-admin-dense`·같은 세션)이고 역시 아무것도 등록하지 않는다 → [features/ops-dashboard.md](../features/ops-dashboard.md))
@@ -86,7 +87,7 @@ src/app/place/[id]/page.tsx   ─ 서버: generateStaticParams(86개) · generat
 
 | 폭 | 구성 |
 |---|---|
-| < 768px | 하단 `AppTabBar`(홈·둘러보기·**지도**·준비물·설정 — 가운데 지도는 라벨 없는 솟은 원형 버튼 — 바의 `border-t` 가 원 가장자리를 타고 넘는다, `navItems.ts` 의 `prominent`) |
+| < 768px | 하단 `AppTabBar`(높이는 `globals.css` 의 `--tab-bar-h` 52px 하나 — 지도 상자·스와이프 대역·본문 여백·토스트가 같은 변수를 본다. 홈·둘러보기·**지도**·준비물·설정 — 가운데 지도는 라벨 없는 솟은 원형 버튼 — 바의 `border-t` 가 원 가장자리를 타고 넘는다, `navItems.ts` 의 `prominent`) |
 | ≥ 768px | 좌측 고정 `AppSidebar`. 탭바는 숨김 |
 | ≥ 1024px (지도만) | 목록 패널 + 지도 2단 (`useMapPageWideLayout`) |
 
@@ -483,6 +484,7 @@ Untitled UI 의 `Button href` / `Link` 는 react-aria 라 기본은 전체 새�
   이 훅이 필요한 곳은 **없는 것을 근거로 말을 거는 화면**뿐이다(등록 폼·"아직 안 챙겼어요").
   "0 에서 실제 값으로 채워지는" 것은 첫 프레임이 틀려도 해가 없어 그냥 그리면 된다.
 - **정합성**: 데이터에 더 이상 없는 저장 id 는 **저장소에서 지우지 않고 보여 줄 때 거른다**(`useSavedPlaces` → `selectSavedPlaces`, 개수 `useSavedCount` 도 같은 길). 장소가 빠지는 길은 운영자의 내리기(`archived`)이고 되살리기가 있다 — `merge` 에서 거르면 걸러진 목록이 다음 아무 쓰기에 localStorage 를 덮어써, 되살려도 하트와 메모가 돌아오지 않는다. 빠진 수는 저장 화면에 한 줄(`useUnlistedSavedCount`)로만 말한다(12 U2.3). `town` 도 같은 이유로 `ALL_TOWNS`(`lib/places.ts`)에 없는 값이면 `null` 로 되돌린다.
+- **둘러보기 조건은 저장하지 않는 별도 스토어에 산다**(`src/store/usePlacesPageFilterStore.ts`, `persist` 없음): 검색어·방향·'어려운 곳 숨기기'·**종류별** 반려동물 조건(`petKeysByType` — 숙소에만 환경 조건이 있어 종류마다 키 집합이 다르다). `useAppStore` 는 통째로 localStorage 에 쓰므로 여기 두면 지난 방문의 검색어가 다음 첫 화면을 걸러 버린다. 모듈 메모리라 탭 전환·스와이프·상세에서 뒤로·재진입에는 남고 새로고침에는 사라진다. **정렬·기준점은 싣지 않는다** — 가격순은 숙소에서만, 가까운 순은 위치를 한 번 받아야 의미가 있어서 따라오면 다른 탭에 아무 일도 안 하는 칩이 생긴다(둘 다 `placesPage` 의 로컬 state, `key={type}` 로 종류마다 리셋). 읍면·'실내 자리 필요' 는 전부터 `useAppStore` 값이라 그대로다. 목록·칩 계산은 `lib/placesPageFilter.ts` 한 곳이고 스와이프 엿보기가 같은 함수를 부른다(→ [ADR-013 v4](../decisions/ADR-013-places-swipe-pager.md)). "모두 지우기" 는 다른 종류의 조건까지 푼다 — 안 보이는 탭에 조건이 남지 않게.
 - v1 의 강아지 프로필도 이 스토어에 필드로 들어간다(→ [features/dog-profile.md](../features/dog-profile.md)). 서버가 없으니 다른 선택지가 없다.
 
 ## 순수 로직은 `src/lib/`

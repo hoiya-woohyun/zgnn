@@ -173,7 +173,7 @@ export function MapPage() {
 
   return (
     // 모바일에는 하단 탭바가 있어 그만큼 빼고, 탭바가 사라지는 md 이상에서는 화면을 꽉 채운다.
-    <div className="relative h-[calc(100dvh-60px-env(safe-area-inset-bottom,0px))] overflow-hidden md:h-dvh">
+    <div className="relative h-[calc(100dvh-var(--tab-bar-h)-env(safe-area-inset-bottom,0px))] overflow-hidden md:h-dvh">
       {/* 제목은 lg 패널에만 보인다 — 모바일에서도 화면 이름은 낭독돼야 한다(12 U1.7). */}
       <h1 className="sr-only lg:hidden">지도</h1>
       <div className="flex h-full">
