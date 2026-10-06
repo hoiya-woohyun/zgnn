@@ -123,6 +123,60 @@ export function predictedPolicy(pred, { parsePetPolicy, withPolicyFacts }) {
   return withPolicyFacts(parsePetPolicy(text), pred.petPolicy, text);
 }
 
+const squash = (t) => String(t ?? '').replace(/\s+/g, '');
+const HANGUL_COUNT = { 1: '한', 2: '두', 3: '세', 4: '네' };
+
+/** 원 단위 금액 하나가 글에 적히는 모양들 — `20000` → `2만원` · `20,000원` · `20000원` · `2만`, `15000` → `1.5만원` · `1만5천원`. 공백은 이미 지운 글에서 찾는다. */
+function amountForms(won) {
+  const forms = [`${won}원`, `${won.toLocaleString('en-US')}원`];
+  if (won >= 10000 && won % 1000 === 0) {
+    const man = Math.floor(won / 10000), rest = won % 10000;
+    if (rest === 0) forms.push(`${man}만원`, `${man}만`);
+    else {
+      forms.push(`${won / 10000}만원`, `${man}만${rest / 1000}천원`, `${man}만${rest / 1000}천`);
+      if (man === 0) forms.push(`${rest / 1000}천원`);
+    }
+  } else if (won < 10000 && won % 1000 === 0) forms.push(`${won / 1000}천원`);
+  return forms;
+}
+
+/** 불리언 칸이 "세워졌다" 고 말하려면 글에 적혀 있어야 하는 낱말 — 앱 파서의 정규식은 export 되지 않아 **느슨한** 목록을 따로 둔다(느슨할수록 '근거 있음' 쪽 = 놓침으로 남는다). */
+const KEYWORDS = {
+  indoor: /실내|실외|야외|테라스|마당|룸|객실|객장|매장|홀|좌석|내부/,
+  leash: /목줄|리드|하네스|줄|가슴줄/,
+  largeDogOk: /대형|큰\s*강아지|큰\s*아이|kg|키로|킬로/,
+  largeDogNo: /대형|큰\s*강아지|큰\s*아이|kg|키로|킬로/,
+  mediumDogOk: /중형|중간|kg|키로|킬로/,
+  smallDogOnly: /소형|작은\s*(강아지|아이)|kg|키로|킬로/,
+  callFirst: /전화|문의|연락|예약|사전|톡톡|DM|디엠|카톡/i,
+  feeFree: /무료|공짜|추가\s*(요금|비용)|비용|요금|원/,
+  outdoorFree: /야외|실외|테라스|마당|잔디/,
+  unlimitedDogs: /마리|제한|무제한|상관/,
+};
+
+/**
+ * golden 이 세운 칸마다 그 값이 **글 본문에 근거가 있나** — 사람 조건 문장의 숫자·조건이 사진(글에 안 적힌 것)에서 왔으면 AI 가 글만 읽고는 못 맞춘다.
+ * 보수적으로 센다: 확신할 수 없으면 true(= 근거 있음, 놓침으로 남긴다). false 는 "이 글에서 그 낱말·숫자를 못 찾았다" 일 때만.
+ * golden 값이 비어 있는 칸은 결과에 안 넣는다(지어냄 쪽은 근거와 무관하다).
+ * @param {object} expected golden.expected (parsePetPolicy 결과)  @param {string} body 글 본문
+ * @returns {Record<string, boolean>}
+ */
+export function groundedFields(expected, body) {
+  const text = squash(body);
+  const has = (re) => re.test(text);
+  const out = {};
+  const w = expected.weightLimitKg;
+  if (w != null) out.weightLimitKg = has(new RegExp(`(?<![\\d.])${w}(?:\\.0)?(?:kg|㎏|키로|킬로)`, 'i'));
+  const m = expected.maxDogs;
+  if (m != null) out.maxDogs = has(new RegExp(`(?<![\\d.])${m}(?:마리|두)`)) || (HANGUL_COUNT[m] != null && has(new RegExp(`${HANGUL_COUNT[m]}마리`)));
+  const amounts = feeAmounts(expected);
+  if (amounts.length) out.feeAmountsWon = amounts.some((won) => amountForms(won).some((f) => text.includes(f)));
+  for (const [field, re] of Object.entries(KEYWORDS)) {
+    if (!isEmptyValue(expected[field])) out[field] = has(re);
+  }
+  return out;
+}
+
 const REVIEW_VERDICTS = new Set(['site', 'ai', 'unclear']);
 
 /** review 한 칸을 적용한 결과. 'ai' 면 AI 가 맞았다(사이트 데이터 오류 후보), 'unclear' 면 이 칸은 세지 않는다. */
@@ -135,9 +189,10 @@ function applyReview(outcome, review) {
 
 /**
  * golden 항목 하나 + 캐시된 추출(없으면 null) → 채점 한 줄.
+ * body: 글 본문(없으면 null — 근거 판정을 못 하므로 옛 방식 그대로 센다).
  * status: 'noExtraction'(아직 안 돌림·본문 없음) · 'notFound'(글에서 이 장소를 못 뽑음) · 'found'.
  */
-export function scoreEntry(entry, extraction, fns) {
+export function scoreEntry(entry, extraction, fns, body = null) {
   const base = { placeId: entry.placeId, name: entry.name, logNo: entry.logNo, goldenText: entry.petPolicyText };
   if (!extraction || !Array.isArray(extraction.places)) return { ...base, status: 'noExtraction' };
   const match = findPredicted(entry.name, extraction.places);
@@ -147,13 +202,21 @@ export function scoreEntry(entry, extraction, fns) {
   const review = entry.review ?? {};
   const golden = entry.expected;
   const policy = predictedPolicy(pred, fns);
+  const grounded = typeof body === 'string' && body.length > 0 ? groundedFields(golden, body) : null;
 
   const fields = [
     ['type', entry.type, pred.type],
     // 시드는 전부 동반 가능한 곳이다 — golden 은 늘 'yes'.
     ['petAllowed', 'yes', pred.petAllowed],
     ...Object.entries(POLICY_FIELDS).map(([field, get]) => [field, get(golden), get(policy)]),
-  ].map(([field, g, p]) => ({ field, golden: g ?? null, predicted: p ?? null, ...applyReview(classifyField(g, p), review[field]) }));
+  ].map(([field, g, p]) => {
+    const row = { field, golden: g ?? null, predicted: p ?? null, ...applyReview(classifyField(g, p), review[field]) };
+    // 글에 근거가 없는 사람 값을 못 맞힌 것은 AI 의 놓침이 아니라 글의 한계다. 사람이 review 로 판정한 칸은 그 판정이 이긴다.
+    const reviewed = REVIEW_VERDICTS.has(review[field]?.verdict);
+    row.grounded = grounded ? (grounded[field] ?? null) : null;
+    if (!reviewed && row.grounded === false && (row.outcome === '놓침' || row.outcome === '틀림')) row.outcome = '근거없음';
+    return row;
+  });
 
   const blind = Object.entries(REGEX_BLIND_FIELDS).map(([field, get]) => ({ field, predicted: get(policy) === true }));
 
@@ -179,6 +242,7 @@ export function scoreEntry(entry, extraction, fns) {
     predictedText: pred.petPolicyText ?? null,
     dropped,
     dropReason,
+    bodyKnown: grounded !== null,
     fields,
     blind,
     verdicts,
@@ -190,7 +254,7 @@ export function parserDrift(entries, parsePetPolicy) {
   return entries.filter((e) => !same(e.expected, JSON.parse(JSON.stringify(parsePetPolicy(e.petPolicyText ?? ''))))).map((e) => e.name);
 }
 
-const OUTCOMES = ['agree', '지어냄', '놓침', '틀림'];
+const OUTCOMES = ['agree', '지어냄', '놓침', '틀림', '근거없음'];
 
 /** 채점 줄들 → 요약 객체(JSON 으로 저장해 다음 프롬프트 버전과 비교한다). */
 export function summarize(results, meta = {}) {
@@ -198,15 +262,21 @@ export function summarize(results, meta = {}) {
   const fieldNames = found[0]?.fields.map((f) => f.field) ?? ['type', 'petAllowed', ...Object.keys(POLICY_FIELDS)];
   const fields = Object.fromEntries(
     fieldNames.map((name) => {
-      const rows = found.map((r) => r.fields.find((f) => f.field === name)).filter((f) => f && f.outcome !== 'excluded');
-      const counts = Object.fromEntries(OUTCOMES.map((o) => [o, rows.filter((f) => f.outcome === o).length]));
-      return [name, { n: rows.length, ...counts, siteError: rows.filter((f) => f.siteError).length }];
+      const all = found.map((r) => r.fields.find((f) => f.field === name)).filter((f) => f && f.outcome !== 'excluded');
+      const counts = Object.fromEntries(OUTCOMES.map((o) => [o, all.filter((f) => f.outcome === o).length]));
+      // 근거없음은 분모에서 뺀다 — n 은 글이 말해 준 칸의 수다.
+      return [name, { n: all.length - counts['근거없음'], ...counts, siteError: all.filter((f) => f.siteError).length }];
     }),
   );
   const blind = Object.fromEntries(
     Object.keys(REGEX_BLIND_FIELDS).map((name) => [name, { n: found.length, aiTrue: found.filter((r) => r.blind.find((b) => b.field === name)?.predicted).length }]),
   );
   const flipped = found.filter((r) => r.verdicts.some((v) => v.golden !== v.predicted));
+  // 글 근거 기준: 뒤집힌 곳 중 어긋난 칸이 전부 '근거없음' 이면(= 글에 없는 사람 조건 때문에만 갈린 곳) 원천 탓이다. 본문을 모르는 곳은 옛 방식대로 AI 탓으로 둔다.
+  const sourceOnly = flipped.filter((r) => {
+    const diff = r.fields.filter((f) => f.outcome !== 'agree' && f.outcome !== 'excluded');
+    return diff.length > 0 && diff.every((f) => f.outcome === '근거없음');
+  });
   const byProfile = Object.fromEntries(
     DOG_PROFILES.map(({ id }) => [id, found.filter((r) => r.verdicts.some((v) => v.profile === id && v.golden !== v.predicted)).length]),
   );
@@ -221,7 +291,8 @@ export function summarize(results, meta = {}) {
     dropReasons: Object.fromEntries(['notJeju', 'other', 'notAllowed'].map((k) => [k, found.filter((r) => r.dropReason === k).length])),
     fields,
     blind,
-    verdictFlips: { places: flipped.length, n: found.length, byProfile },
+    bodiesKnown: found.filter((r) => r.bodyKnown).length,
+    verdictFlips: { places: flipped.length, sourceOnly: sourceOnly.length, groundedBasis: flipped.length - sourceOnly.length, n: found.length, byProfile },
   };
 }
 
@@ -230,12 +301,13 @@ export function formatSummary(s) {
   const lines = [
     `프롬프트 ${s.promptVersion ?? '?'} · 모델 ${s.model ?? '?'}`,
     `golden ${s.golden}곳 · 추출 있음 ${s.extracted} · 짝 찾음 ${s.found} · 못 찾음 ${s.notFound} · 짝 후보 여럿 ${s.ambiguous} · 운영이면 후보 탈락 ${s.dropped}(제주밖 ${s.dropReasons?.notJeju ?? 0} · other ${s.dropReasons?.other ?? 0} · 동반불가 ${s.dropReasons?.notAllowed ?? 0})`,
-    `판정 뒤집힘 ${s.verdictFlips.places}/${s.verdictFlips.n}곳 (${Object.entries(s.verdictFlips.byProfile).map(([k, v]) => `${k} ${v}`).join(' · ')})`,
+    `본문 캐시 있음 ${s.bodiesKnown ?? 0}/${s.found}곳 — 없는 곳은 근거 판정을 못 해 옛 방식(놓침·틀림 그대로)으로 센다`,
+    `판정 뒤집힘 원값 ${s.verdictFlips.places}/${s.verdictFlips.n}곳 · 글 근거 기준 ${s.verdictFlips.groundedBasis ?? s.verdictFlips.places}/${s.verdictFlips.n}곳(글에 없는 사람 조건 때문에만 갈린 ${s.verdictFlips.sourceOnly ?? 0}곳 제외) (${Object.entries(s.verdictFlips.byProfile).map(([k, v]) => `${k} ${v}`).join(' · ')})`,
     '',
-    '칸 | 일치 | 지어냄 | 놓침 | 틀림 | 사이트 오류 후보',
+    '칸 | 일치 | 지어냄 | 놓침 | 틀림 | 근거없음(분모 밖) | 사이트 오류 후보',
   ];
   for (const [name, f] of Object.entries(s.fields)) {
-    lines.push(`${name} | ${f.agree}/${f.n} | ${f['지어냄']}/${f.n} | ${f['놓침']}/${f.n} | ${f['틀림']}/${f.n} | ${f.siteError}`);
+    lines.push(`${name} | ${f.agree}/${f.n} | ${f['지어냄']}/${f.n} | ${f['놓침']}/${f.n} | ${f['틀림']}/${f.n} | ${f['근거없음'] ?? 0} | ${f.siteError}`);
   }
   lines.push('', '정규식이 못 읽는 칸(golden 은 늘 false — 방향 없음):');
   for (const [name, b] of Object.entries(s.blind)) lines.push(`  ${name} AI true ${b.aiTrue}/${b.n}`);
@@ -252,12 +324,12 @@ export function diffSummaries(prev, cur) {
     `이전 요약과 비교: ${prev.promptVersion}-${prev.model} → ${cur.promptVersion}-${cur.model}` +
       (prev.promptVersion !== cur.promptVersion ? ' (프롬프트 버전이 다르다)' : ''),
     '  claude -p 는 실행마다 결과가 흔들린다 — 몇 건 차이는 소음이다. 분모(n)가 다르면 비교 자체를 조심한다.',
-    `  짝 찾음 ${prev.found}/${prev.golden} → ${cur.found}/${cur.golden} · 판정 뒤집힘 ${prev.verdictFlips.places}/${prev.verdictFlips.n} → ${cur.verdictFlips.places}/${cur.verdictFlips.n} (${d(prev.verdictFlips.places, cur.verdictFlips.places)})`,
+    `  짝 찾음 ${prev.found}/${prev.golden} → ${cur.found}/${cur.golden} · 판정 뒤집힘 ${prev.verdictFlips.places}/${prev.verdictFlips.n} → ${cur.verdictFlips.places}/${cur.verdictFlips.n} (${d(prev.verdictFlips.places, cur.verdictFlips.places)}) · 글 근거 기준 ${prev.verdictFlips.groundedBasis ?? '?'} → ${cur.verdictFlips.groundedBasis}`,
   ];
   for (const [name, f] of Object.entries(cur.fields)) {
     const p = prev.fields?.[name];
     if (!p) continue;
-    const parts = ['지어냄', '놓침', '틀림'].filter((o) => p[o] !== f[o]).map((o) => `${o} ${p[o]}/${p.n}→${f[o]}/${f.n}`);
+    const parts = ['지어냄', '놓침', '틀림', '근거없음'].filter((o) => (p[o] ?? 0) !== (f[o] ?? 0)).map((o) => `${o} ${p[o]}/${p.n}→${f[o]}/${f.n}`);
     if (parts.length) lines.push(`  ${name}: ${parts.join(' · ')}`);
   }
   return lines;
@@ -277,6 +349,7 @@ export function formatReport(results, summary) {
     '- golden 은 사람이 쓴 조건 문장을 **정규식(parsePetPolicy)이 읽은 값**이다. 정규식은 요금 구간의 kg 을 무게 상한으로 읽는 등 틀릴 수 있다 —',
     '  AI 의 \'놓침\'·\'틀림\' 중 일부는 golden 쪽 오류다. 판정해서 `data/golden/seed-extract.json` 의 `review` 에 적는다(docs/features/extraction-eval.md).',
     '- **지어냄**이 가장 비싸다(BUG-009). 판정 뒤집힘은 review 를 반영하지 않은 원값이다.',
+    '- **근거없음**은 사람 값이 글 본문에 안 적혀 있어(사진 등) AI 가 글만 읽고는 못 맞힌 칸이다 — 분모에서 뺀다.',
     '',
     ...formatSummary(summary).map((l) => (l ? `    ${l}` : '')),
     '',

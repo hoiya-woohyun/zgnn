@@ -191,7 +191,8 @@ async function cmdScore(opts) {
   const { dir, version, model } = pickExtractDir(opts.prompt);
   const results = golden.entries.map((entry) => {
     const p = join(dir, `${entry.logNo}.json`);
-    return scoreEntry(entry, existsSync(p) ? readJson(p) : null, fns);
+    const bodyPath = join(BODY_DIR, `${entry.logNo}.txt`);
+    return scoreEntry(entry, existsSync(p) ? readJson(p) : null, fns, existsSync(bodyPath) ? readFileSync(bodyPath, 'utf8') : null);
   });
   const summary = summarize(results, { promptVersion: version, model, scoredAt: new Date().toISOString() });
 

@@ -9,6 +9,7 @@ import {
   findPredicted,
   formatReport,
   formatSummary,
+  groundedFields,
   parseReviewUrl,
   parserDrift,
   predictedPolicy,
@@ -193,5 +194,86 @@ describe('summarize · 출력', () => {
     const lines = diffSummaries({ ...s, promptVersion: 'bbbb2222' }, s).join('\n');
     expect(lines).toContain('프롬프트 버전이 다르다');
     expect(lines).toContain('소음');
+  });
+});
+
+describe('groundedFields — 사람 값이 글 본문에 적혀 있나', () => {
+  const exp = (text) => parsePetPolicy(text);
+
+  it('무게·마릿수·요금: 숫자+단위가 글에 있어야 근거 있음(표기 변형·공백 허용)', () => {
+    const e = exp('10kg 이하 2마리까지 가능. 1마리당 2만원.');
+    expect(groundedFields(e, '체중 10 키로 이하, 두 마리까지, 반려견 20,000원')).toMatchObject({ weightLimitKg: true, maxDogs: true, feeAmountsWon: true });
+    expect(groundedFields(e, '강아지랑 같이 가기 좋은 곳이에요. 사진으로 안내드려요')).toMatchObject({ weightLimitKg: false, maxDogs: false, feeAmountsWon: false });
+  });
+
+  it('숫자는 다른 숫자의 일부로 맞지 않는다(110kg ≠ 10kg)', () => {
+    const e = exp('10kg 이하');
+    expect(groundedFields(e, '최대 110kg')).toMatchObject({ weightLimitKg: false });
+  });
+
+  it('요금: 1.5만원 · 1만5천원 · 15,000원 을 같은 금액으로 본다', () => {
+    const e = exp('1.5만원');
+    for (const body of ['추가 1.5만원', '1만 5천원', '15,000원', '15000원']) expect(groundedFields(e, body).feeAmountsWon).toBe(true);
+  });
+
+  it('불리언: golden 이 true 인 칸만, 낱말이 있으면 근거 있음', () => {
+    const e = exp('방문 전 전화 문의 필수. 대형견 가능.');
+    expect(groundedFields(e, '예약 전화 주세요. 대형견도 환영')).toMatchObject({ callFirst: true, largeDogOk: true });
+    const g = groundedFields(e, '분위기가 좋아요');
+    expect(g.callFirst).toBe(false);
+    expect(g.largeDogOk).toBe(false);
+    expect('leash' in g).toBe(false);
+  });
+
+  it('golden 이 비어 있는 칸은 결과에 없다', () => {
+    expect(groundedFields(exp('주차 가능'), '아무 글')).toEqual({});
+  });
+});
+
+describe('scoreEntry — 근거없음', () => {
+  const entry = () => buildGoldenEntry(seed({ petPolicyText: '10kg 이하 2마리까지 가능' }), parsePetPolicy);
+  const extraction = { places: [aiPlace({ petPolicyText: '소형견 동반 가능', petPolicy: facts() })] };
+  const field = (r, name) => r.fields.find((f) => f.field === name);
+
+  it('글에 없는 사람 값을 못 맞힌 놓침은 근거없음으로 빠지고 분모에서 빠진다', () => {
+    const r = scoreEntry(entry(), extraction, fns, '사진으로 안내합니다');
+    expect(field(r, 'weightLimitKg')).toMatchObject({ outcome: '근거없음', grounded: false });
+    expect(field(r, 'maxDogs').outcome).toBe('근거없음');
+    expect(r.bodyKnown).toBe(true);
+    const s = summarize([r]);
+    expect(s.fields.weightLimitKg).toMatchObject({ n: 0, 근거없음: 1, 놓침: 0 });
+  });
+
+  it('글에 근거가 있으면 놓침 그대로', () => {
+    const r = scoreEntry(entry(), extraction, fns, '체중 10kg 이하, 2마리까지');
+    expect(field(r, 'weightLimitKg')).toMatchObject({ outcome: '놓침', grounded: true });
+    expect(summarize([r]).fields.weightLimitKg).toMatchObject({ n: 1, 놓침: 1, 근거없음: 0 });
+  });
+
+  it('본문이 없으면(null) 옛 방식 그대로 — 근거 판정을 하지 않는다', () => {
+    const r = scoreEntry(entry(), extraction, fns, null);
+    expect(field(r, 'weightLimitKg')).toMatchObject({ outcome: '놓침', grounded: null });
+    expect(r.bodyKnown).toBe(false);
+  });
+
+  it('review 판정이 있으면 자동 분류보다 이긴다', () => {
+    const e = { ...entry(), review: { weightLimitKg: { verdict: 'site' } } };
+    expect(field(scoreEntry(e, extraction, fns, '사진 안내'), 'weightLimitKg').outcome).toBe('놓침');
+  });
+
+  it('지어냄은 근거와 무관하게 그대로다', () => {
+    const e = buildGoldenEntry(seed({ petPolicyText: '동반 가능' }), parsePetPolicy);
+    const ex = { places: [aiPlace({ petPolicyText: '동반 가능, 10kg 이하', petPolicy: facts({ weightLimitKg: 10 }) })] };
+    expect(field(scoreEntry(e, ex, fns, '본문'), 'weightLimitKg').outcome).toBe('지어냄');
+  });
+
+  it('뒤집힘이 근거없음 칸 때문에만이면 sourceOnly 로 센다', () => {
+    const r = scoreEntry(entry(), extraction, fns, '사진 안내');
+    const diff = r.fields.filter((f) => f.outcome !== 'agree' && f.outcome !== 'excluded');
+    const flipped = r.verdicts.some((v) => v.golden !== v.predicted);
+    const s = summarize([r]);
+    expect(s.verdictFlips.places).toBe(flipped ? 1 : 0);
+    expect(s.verdictFlips.sourceOnly).toBe(flipped && diff.every((f) => f.outcome === '근거없음') ? 1 : 0);
+    expect(s.verdictFlips.groundedBasis).toBe(s.verdictFlips.places - s.verdictFlips.sourceOnly);
   });
 });
