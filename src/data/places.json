@@ -9,7 +9,7 @@
    "raw": "동쪽 (구좌읍)"
   },
   "features": "세화 해수욕장에서 차로 5분 거리에 위치한 곳이에요. 넓은 마당에서 바베큐와 불멍을 즐길 수 있어요. 가성비 갑!",
-  "petPolicyText": "1~5kg 1만원.\n6~10kg 1.5만원.",
+  "petPolicyText": "최대 2마리.\n1~5kg 1만원.\n6~10kg 1.5만원.",
   "reviewUrl": "https://blog.naver.com/sorkekajrdj777/223444269811",
   "naverUrl": "https://naver.me/xIgKjUqT",
   "naverPlaceId": "1118214877",
@@ -19,6 +19,7 @@
   },
   "address": "제주 제주시 구좌읍 충렬로 141-15 솔숲펜션",
   "category": "펜션",
+  "verifiedAt": "2026-10-06",
   "images": [],
   "stay": {
    "price": {
@@ -35,11 +36,11 @@
   "name": "그리너리빌리지 펜션",
   "region": {
    "direction": "south",
-   "town": "서귀포",
-   "raw": "남쪽 (서귀포)"
+   "town": "서귀포시",
+   "raw": "남쪽 (서귀포시)"
   },
   "features": "화이트톤의 해외 휴양지 느낌 가득. 자유롭게 돌아다닐 수 있는 개별 마당과 입욕을 즐길 수 있는 개별 자쿠지가 있어요.",
-  "petPolicyText": "5kg 이하의 1마리만 가능.\n숙박일 관계없이 청소비 5만원 추가.",
+  "petPolicyText": "5kg 이하의 1마리만 가능.\n숙박일 관계없이 청소비 5만원 추가.\n방문 전 전화로 문의해 주세요.",
   "reviewUrl": "https://blog.naver.com/jwkeb/223251384052",
   "naverUrl": "https://naver.me/GgP8DY34",
   "naverPlaceId": "1568626251",
@@ -49,6 +50,7 @@
   },
   "address": "제주 서귀포시 소보리당로 200",
   "category": "펜션",
+  "verifiedAt": "2026-10-06",
   "images": [],
   "stay": {
    "price": {
@@ -79,6 +81,7 @@
   },
   "address": "제주 제주시 구좌읍 해맞이해안로 2428-2",
   "category": "펜션",
+  "verifiedAt": "2026-09-20",
   "images": [],
   "stay": {
    "price": {
@@ -107,6 +110,7 @@
    "lat": 33.4550546,
    "lng": 126.3695751
   },
+  "verifiedAt": "2026-09-20",
   "images": [],
   "stay": {
    "price": {
@@ -138,6 +142,7 @@
   },
   "address": "제주 제주시 구좌읍 김월남길 111",
   "category": "펜션",
+  "verifiedAt": "2026-09-20",
   "images": [],
   "stay": {
    "price": {
@@ -168,6 +173,7 @@
   },
   "address": "제주 제주시 애월읍 애월해안로 907 프레임스파빌 오션뷰펜션",
   "category": "펜션",
+  "verifiedAt": "2026-09-20",
   "images": [],
   "stay": {
    "price": {
@@ -198,6 +204,7 @@
   },
   "address": "제주 서귀포시 대정읍 신영로 16-14 제주애견펜션 쉼멍스테이",
   "category": "펜션",
+  "verifiedAt": "2026-09-20",
   "images": [],
   "stay": {
    "price": {
@@ -228,6 +235,7 @@
   },
   "address": "제주 서귀포시 표선면 토산중앙로 487-134",
   "category": "펜션",
+  "verifiedAt": "2026-09-20",
   "images": [],
   "stay": {
    "price": {
@@ -258,6 +266,7 @@
   },
   "address": "제주 제주시 애월읍 장소로 147-23",
   "category": "민박",
+  "verifiedAt": "2026-09-20",
   "images": [],
   "stay": {
    "price": {
@@ -288,6 +297,7 @@
   },
   "address": "제주 제주시 한경면 명이3길 64",
   "category": "펜션",
+  "verifiedAt": "2026-09-20",
   "images": [],
   "stay": {
    "price": {
@@ -318,6 +328,7 @@
   },
   "address": "제주 서귀포시 대정읍 인성로 30-1 1층",
   "category": "펜션",
+  "verifiedAt": "2026-09-20",
   "images": [],
   "stay": {
    "price": {
@@ -348,6 +359,7 @@
   },
   "address": "제주 제주시 구좌읍 계룡길 25-11",
   "category": "민박",
+  "verifiedAt": "2026-09-20",
   "images": [],
   "stay": {
    "price": {
@@ -378,6 +390,7 @@
   },
   "address": "제주 제주시 조천읍 선교로 403",
   "category": "민박",
+  "verifiedAt": "2026-09-20",
   "images": [],
   "stay": {
    "price": {
@@ -409,6 +422,7 @@
   },
   "address": "제주 제주시 조천읍 조와로5길 45-2 1층",
   "category": "펜션",
+  "verifiedAt": "2026-09-20",
   "images": [],
   "stay": {
    "price": {
@@ -439,6 +453,7 @@
   },
   "address": "제주 제주시 구좌읍 해맞이해안로 1016",
   "category": "펜션",
+  "verifiedAt": "2026-09-20",
   "images": [],
   "stay": {
    "price": {
@@ -469,6 +484,7 @@
   },
   "address": "제주 제주시 구좌읍 비자림로 2239 스테이다랑쉬",
   "category": "기타숙박업",
+  "verifiedAt": "2026-09-20",
   "images": [],
   "stay": {
    "price": {
@@ -499,6 +515,7 @@
   },
   "address": "제주 제주시 한경면 청수로 14",
   "category": "펜션",
+  "verifiedAt": "2026-09-20",
   "images": [],
   "stay": {
    "price": {
@@ -529,6 +546,7 @@
   },
   "address": "제주 제주시 구좌읍 송당4길 5",
   "category": "펜션",
+  "verifiedAt": "2026-09-20",
   "images": [],
   "stay": {
    "price": {
@@ -560,6 +578,7 @@
   },
   "address": "제주 제주시 한경면 판포4길 41-41 부띠끄풀빌라나미브",
   "category": "펜션",
+  "verifiedAt": "2026-09-20",
   "images": [],
   "stay": {
    "price": {
@@ -590,6 +609,7 @@
   },
   "address": "제주 서귀포시 안덕면 일주서로1488번길 9 웨스티하우스",
   "category": "펜션",
+  "verifiedAt": "2026-09-20",
   "images": [],
   "stay": {
    "price": {
@@ -620,6 +640,7 @@
   },
   "address": "제주 제주시 애월읍 봉성로 45-1",
   "category": "펜션",
+  "verifiedAt": "2026-09-20",
   "images": [],
   "stay": {
    "price": {
@@ -650,6 +671,7 @@
   },
   "address": "제주 서귀포시 대정읍 영서중로 45-3 1층",
   "category": "펜션",
+  "verifiedAt": "2026-09-20",
   "images": [],
   "stay": {
    "price": {
@@ -680,6 +702,7 @@
   },
   "address": "제주 제주시 애월읍 구몰동길 6 13월봄",
   "category": "펜션",
+  "verifiedAt": "2026-09-20",
   "images": [],
   "stay": {
    "price": {
@@ -704,6 +727,7 @@
   "reviewUrl": "https://blog.naver.com/gpdls2001/223844816726",
   "naverUrl": "https://naver.me/Gq8V8KW0",
   "naverPlaceId": "1268585477",
+  "verifiedAt": "2026-09-20",
   "images": [],
   "stay": {
    "price": {
@@ -735,6 +759,7 @@
   },
   "address": "제주 서귀포시 표선면 토산중앙로49번길 29-3",
   "category": "민박",
+  "verifiedAt": "2026-09-20",
   "images": [],
   "stay": {
    "price": {
@@ -765,6 +790,7 @@
   },
   "address": "제주 제주시 구좌읍 문주란로5길 23-4 제주하도",
   "category": "펜션",
+  "verifiedAt": "2026-09-20",
   "images": [],
   "stay": {
    "price": {
@@ -795,6 +821,7 @@
   },
   "address": "제주 서귀포시 성산읍 서성일로 1024 부부키친",
   "category": "일식당",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -817,6 +844,7 @@
   },
   "address": "제주 서귀포시 성산읍 삼달로163번길 34",
   "category": "카페,디저트",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -839,6 +867,7 @@
   },
   "address": "제주 제주시 구좌읍 한동로 136",
   "category": "카레",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -861,6 +890,7 @@
   },
   "address": "제주 서귀포시 성산읍 해맞이해안로 2764",
   "category": "돼지고기구이",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -883,6 +913,7 @@
   },
   "address": "제주 제주시 구좌읍 해맞이해안로 1140 1층 평대바당반점",
   "category": "중식당",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -905,6 +936,7 @@
   },
   "address": "제주 제주시 조천읍 중산간동로 1364 1층",
   "category": "한식",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -927,6 +959,7 @@
   },
   "address": "제주 제주시 구좌읍 한동로1길 25 1층",
   "category": "육류,고기요리",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -949,6 +982,7 @@
   },
   "address": "제주 제주시 조천읍 신촌9길 40-3 동카름식당",
   "category": "한식",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -971,6 +1005,7 @@
   },
   "address": "제주 제주시 조천읍 조함해안로 356 무거버거",
   "category": "햄버거",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -993,6 +1028,7 @@
   },
   "address": "제주 제주시 조천읍 평사길 2 1층",
   "category": "종합분식",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1015,6 +1051,7 @@
   },
   "address": "제주 제주시 구좌읍 세화8길 7 1층",
   "category": "돈가스",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1024,8 +1061,7 @@
   "region": {
    "direction": "south",
    "town": "서귀포시",
-   "detail": "월평로",
-   "raw": "남쪽 (서귀포시 월평로)"
+   "raw": "남쪽 (서귀포시)"
   },
   "features": "옛날 제주 구옥을 개조한 곳으로, 천연 조미료만 사용해요. 고등어 파스타가 유명해요.",
   "petPolicyText": "케이지 동반시 가능.",
@@ -1038,6 +1074,7 @@
   },
   "address": "제주 서귀포시 월평로 15 우측 바깥채",
   "category": "백반,가정식",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1047,8 +1084,7 @@
   "region": {
    "direction": "south",
    "town": "서귀포시",
-   "detail": "소암로",
-   "raw": "남쪽 (서귀포시 소암로)"
+   "raw": "남쪽 (서귀포시)"
   },
   "features": "갈치조림 맛집으로, 갈치회, 갈치탕수 등 다양한 갈치 요리를 맛볼 수 있어요. 반려동물 동반 공간이 따로 마련되어 있어 편안하게 식사할 수 있어요.",
   "petPolicyText": "케이지 없이도 가능.",
@@ -1061,6 +1097,7 @@
   },
   "address": "제주 서귀포시 소암로 37",
   "category": "생선회",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1083,6 +1120,7 @@
   },
   "address": "제주 서귀포시 516로277번길 29 1층",
   "category": "한식",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1105,6 +1143,7 @@
   },
   "address": "제주 서귀포시 남원읍 태위로360번길 192 바깥집",
   "category": "양식",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1127,6 +1166,7 @@
   },
   "address": "제주 제주시 한경면 홍수암로 555 더크러스트",
   "category": "베이커리",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1149,6 +1189,7 @@
   },
   "address": "제주 제주시 애월읍 애월로 87-16 심바카레",
   "category": "카레",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1171,6 +1212,7 @@
   },
   "address": "제주 제주시 한경면 한경해안로 512-8 1층",
   "category": "라면",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1180,8 +1222,7 @@
   "region": {
    "direction": "south",
    "town": "서귀포시",
-   "detail": "일주서로",
-   "raw": "남쪽 (서귀포시 일주서로)"
+   "raw": "남쪽 (서귀포시)"
   },
   "features": "흑돼지 삼겹살이 유명한 한식당이에요. 콜키지도 무료라 원하는 와인이 가져가서 같이 먹을 수 있어요. (강아지 방석도 챙겨주신답니담)",
   "petPolicyText": "케이지 동반시 가능.",
@@ -1192,6 +1233,7 @@
    "lat": 33.2534895,
    "lng": 126.4545301
   },
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1208,6 +1250,7 @@
   "reviewUrl": "https://blog.naver.com/mayura-88/223490098009",
   "naverUrl": "https://naver.me/FhUcoeVR",
   "naverPlaceId": "1523067573",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1230,6 +1273,7 @@
   },
   "address": "제주 제주시 구좌읍 행원로1길 32-5",
   "category": "태국음식",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1252,6 +1296,7 @@
   },
   "address": "제주 제주시 한림읍 한림서길 18 바당길",
   "category": "칼국수,만두",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1274,6 +1319,7 @@
   },
   "address": "제주 제주시 조천읍 함덕로 24",
   "category": "생선회",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1296,6 +1342,7 @@
   },
   "address": "제주 제주시 구좌읍 월정1길 14 달이뜨는식탁",
   "category": "양식",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1316,6 +1363,7 @@
    "lat": 33.4108749,
    "lng": 126.2955745
   },
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1338,6 +1386,7 @@
   },
   "address": "제주 제주시 한림읍 협재1길 1 1층 협재고기부엌",
   "category": "돼지고기구이",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1360,6 +1409,7 @@
   },
   "address": "제주 서귀포시 성산읍 신고로22번길 37",
   "category": "한식",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1382,6 +1432,7 @@
   },
   "address": "제주 제주시 우도면 우도해안길 876 온오프",
   "category": "돈가스",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1404,6 +1455,7 @@
   },
   "address": "제주 제주시 탑동로11길 6 2층 궁서체",
   "category": "한식",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1426,6 +1478,7 @@
   },
   "address": "제주 제주시 애월읍 애월해안로 608 1층",
   "category": "돼지고기구이",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1448,6 +1501,7 @@
   },
   "address": "제주 서귀포시 성산읍 성산등용로 44 이어돈 성산흑돼지",
   "category": "돼지고기구이",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1470,6 +1524,7 @@
   },
   "address": "제주 서귀포시 남원읍 태위로398번길 7 취향의 섬",
   "category": "퓨전음식",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1479,8 +1534,7 @@
   "region": {
    "direction": "south",
    "town": "서귀포시",
-   "detail": "일주서로",
-   "raw": "남쪽 (서귀포시 일주서로)"
+   "raw": "남쪽 (서귀포시)"
   },
   "features": "갈치구이냐, 조림이냐 힘든 고민할 필요없이 모두 다 먹어볼 수 있어요. 직원분들이 강아지도 엄청 신경써 주셔서 눈치 안보고 마음 편히 식사할 수 있는 곳이라고 합니다!",
   "petPolicyText": "케이지 동반시 가능.",
@@ -1493,6 +1547,7 @@
   },
   "address": "제주 서귀포시 일주서로 915",
   "category": "해물,생선요리",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1515,6 +1570,7 @@
   },
   "address": "제주 제주시 한림읍 협재4길 19 배롱정원",
   "category": "브런치",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1537,6 +1593,7 @@
   },
   "address": "제주 서귀포시 성산읍 환해장성로 69 제이아일랜드",
   "category": "카페,디저트",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1559,22 +1616,7 @@
   },
   "address": "제주 서귀포시 성산읍 일주동로 5023",
   "category": "카페,디저트",
-  "images": []
- },
- {
-  "id": "278ddc10-ceae-8196-a113-f04ed0014668",
-  "type": "cafe",
-  "name": "개떼목장",
-  "region": {
-   "direction": "west",
-   "town": "안덕면",
-   "raw": "서쪽 (안덕면)"
-  },
-  "features": "대형견도 편안하게 뛰어놀 수 있는 넓은 놀이터를 갖춘 카페로, 반려견 전용 시설이 잘 갖추어져 있어요.",
-  "petPolicyText": "실내외 모두 가능",
-  "reviewUrl": "https://blog.naver.com/lucia_215/223220441594",
-  "naverUrl": "https://naver.me/GUQNY3Jc",
-  "naverPlaceId": "1778883516",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1597,6 +1639,7 @@
   },
   "address": "제주 제주시 구좌읍 비자림로 1202",
   "category": "카페,디저트",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1619,6 +1662,7 @@
   },
   "address": "제주 제주시 구좌읍 김녕로21길 21 쪼끌락카페",
   "category": "카페,디저트",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1635,22 +1679,7 @@
   "reviewUrl": "https://blog.naver.com/candy040991/223421076714",
   "naverUrl": "https://naver.me/xuIiFsnv",
   "naverPlaceId": "36830542",
-  "images": []
- },
- {
-  "id": "278ddc10-ceae-81a6-b1e9-c75a3fad9a21",
-  "type": "cafe",
-  "name": "롯지먼트",
-  "region": {
-   "direction": "east",
-   "town": "구좌읍",
-   "raw": "동쪽 (구좌읍)"
-  },
-  "features": "아기자기하고 예쁜 소품들이 많아요. 인스타 감성 좋아한다면 추천~ (우리 주인들도 즐겨야죠)",
-  "petPolicyText": "실내외 모두 가능",
-  "reviewUrl": "https://blog.naver.com/outsun_/223378906514",
-  "naverUrl": "https://naver.me/x2200t8F",
-  "naverPlaceId": "1090098579",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1673,6 +1702,7 @@
   },
   "address": "제주 제주시 구좌읍 금백조로 916 스누피 가든",
   "category": "카페,디저트",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1695,6 +1725,7 @@
   },
   "address": "제주 제주시 애월읍 산록서로 383 1층",
   "category": "애견카페",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1717,6 +1748,7 @@
   },
   "address": "제주 제주시 1100로 2894-49 1층",
   "category": "카페",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1739,6 +1771,7 @@
   },
   "address": "제주 제주시 한림읍 한림상로 17 1층",
   "category": "카페,디저트",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1761,6 +1794,7 @@
   },
   "address": "제주 제주시 애월읍 하가로 146-9",
   "category": "카페",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1783,6 +1817,7 @@
   },
   "address": "제주 제주시 구좌읍 해맞이해안로 997 2층",
   "category": "카페,디저트",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1805,6 +1840,7 @@
   },
   "address": "제주 제주시 구좌읍 해맞이해안로 1138 2층",
   "category": "카페,디저트",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1827,6 +1863,7 @@
   },
   "address": "제주 서귀포시 성산읍 일출로 222",
   "category": "카페,디저트",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1849,6 +1886,7 @@
   },
   "address": "제주 제주시 구좌읍 월정5길 48-2 카페구할구 제주",
   "category": "카페,디저트",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1871,6 +1909,7 @@
   },
   "address": "제주 서귀포시 안덕면 녹차분재로 44-26",
   "category": "카페,디저트",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1891,6 +1930,7 @@
    "lat": 33.3887536,
    "lng": 126.264844
   },
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1913,6 +1953,7 @@
   },
   "address": "제주 서귀포시 대정읍 추사로38번길 181 1층",
   "category": "카페,디저트",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1935,6 +1976,7 @@
   },
   "address": "제주 서귀포시 대정읍 노을해안로532번길 8 대정읍 노을해안로 532번길 8",
   "category": "카페,디저트",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1957,6 +1999,7 @@
   },
   "address": "제주 서귀포시 대정읍 일과대수로27번길 22 1층",
   "category": "카페,디저트",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -1979,6 +2022,7 @@
   },
   "address": "제주 제주시 구좌읍 구좌해안로 141 카페 모알보알",
   "category": "카페,디저트",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -2001,6 +2045,7 @@
   },
   "address": "제주 서귀포시 성산읍 환해장성로 75",
   "category": "카페,디저트",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -2023,6 +2068,7 @@
   },
   "address": "제주 제주시 우도면 우도해안길 816 1,2층",
   "category": "카페,디저트",
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -2043,6 +2089,7 @@
    "lat": 33.2694822,
    "lng": 126.4169176
   },
+  "verifiedAt": "2026-09-20",
   "images": []
  },
  {
@@ -2065,6 +2112,7 @@
   },
   "address": "제주 서귀포시 성산읍 신양로122번길 57 2층",
   "category": "카페,디저트",
+  "verifiedAt": "2026-09-20",
   "images": []
  }
 ]

@@ -250,8 +250,9 @@ describe('matchPlace — 같은 이름, 다른 곳 (우도 vs 본섬)', () => {
   });
 });
 
-describe('matchPlace — 좌표 없는 기존 장소 5곳', () => {
-  const NO_GEO = ['요호르기 스테이', '미트타운', '개떼목장', '브릭스제주', '롯지먼트'];
+describe('matchPlace — 좌표 없는 기존 장소 3곳', () => {
+  // 2026-10-06 개떼목장·롯지먼트를 내려(archived) 5곳 → 3곳.
+  const NO_GEO = ['요호르기 스테이', '미트타운', '브릭스제주'];
 
   it('데이터에 좌표 없는 곳이 정확히 이 5곳이다 — 바뀌면 이 절을 손본다', () => {
     expect(places.filter((p) => !p.geo).map((p) => p.name)).toEqual(NO_GEO);
@@ -265,10 +266,8 @@ describe('matchPlace — 좌표 없는 기존 장소 5곳', () => {
       expect(r.reason, name).toContain('좌표 없음');
     }
   });
-  it('블로그식 표기("브릭스 카페", "롯지먼트 제주")도 잡는다', () => {
+  it('블로그식 표기("브릭스 카페")도 잡는다', () => {
     expect(matchPlace({ name: '브릭스 카페', type: 'cafe' }, places).match?.id).toBe(byName('브릭스제주').id);
-    expect(matchPlace({ name: '롯지먼트 제주', type: 'cafe' }, places).match?.id).toBe(byName('롯지먼트').id);
-    expect(matchPlace({ name: '개떼 목장', type: 'cafe' }, places).match?.id).toBe(byName('개떼목장').id);
   });
 });
 

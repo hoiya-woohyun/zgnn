@@ -170,13 +170,13 @@ describe('compareEligibility', () => {
 describe('집계 — 보리+콩(28kg+17kg·이동 수단 없음) 실사 비교', () => {
   // 리뷰 문서(§1)의 사람 판단: 가능 9 / 조건부 30 / 어려움 42 / 정보 없음 5.
   // ±5 안이면 규칙표를 그대로 쓴다 — 벗어나면 억지로 맞추지 않고 보고서에 규칙별 표를 남긴다.
-  it('시드 86곳 이상 전체 판정이 사람 판단 ±5 안에 들어온다', () => {
+  it('pull 한 장소 전체 판정이 사람 판단 ±5 안에 들어온다', () => {
     const counts = { ok: 0, cond: 0, unknown: 0, hard: 0 };
     for (const place of PLACES) {
       counts[judgeEligibility(BORI_AND_KONG, place.policy).level]++;
     }
-    // 운영자 화면(/admin)이 승인한 장소가 pull 되면 86 을 넘는다(ADR-018) — 시드는 그대로 남으니 하한만 못 박는다.
-    expect(PLACES.length).toBeGreaterThanOrEqual(86);
+    // 승인하면 늘고(ADR-018) 내리면(archived) 준다 — 2026-10-06 개떼목장·롯지먼트를 내려 84. 더 줄면 사람 판단 표와 함께 본다.
+    expect(PLACES.length).toBeGreaterThanOrEqual(84);
     expect(counts.ok).toBeGreaterThanOrEqual(9 - 5);
     expect(counts.ok).toBeLessThanOrEqual(9 + 5);
     expect(counts.cond).toBeGreaterThanOrEqual(30 - 5);

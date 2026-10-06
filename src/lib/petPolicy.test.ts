@@ -238,7 +238,8 @@ describe('실제 데이터', () => {
    */
   it.each([
     ['부띠크풀빌라 나미브', ['1마리당 3만원', '소형견만']],
-    ['솔숲펜션', ['1~5kg 1만원', '6~10kg 1.5만원']],
+    // 2026-10-06 운영자가 원문 맨 앞에 "최대 2마리." 를 더했다 — 마릿수 배지가 뒤에 붙는다.
+    ['솔숲펜션', ['1~5kg 1만원', '6~10kg 1.5만원', '최대 2마리']],
     ['돌담연가', ['1마리당 5만원']],
     // 배지 라벨은 정규화한 줄이다(`normalizeFeeLines`) — 원문의 괄호가 벗겨진다. `feeLines` 원본은 그대로다.
     ['캄 : Kalm', ['1마리당 3만원', '2마리 또는 10kg 이상 4만원']],
@@ -259,9 +260,9 @@ describe('실제 데이터', () => {
     expect(unread.map((p) => `${p.name}: ${p.petPolicyText}`)).toEqual([]);
   });
 
-  it('시드 86곳 이상 전부 파싱에 실패하지 않는다', () => {
-    // 운영자 화면(/admin)이 승인한 장소가 pull 되면 86 을 넘는다(ADR-018) — 시드는 그대로 남으니 하한만 못 박는다.
-    expect(PLACES.length).toBeGreaterThanOrEqual(86);
+  it('pull 한 장소 전부 파싱에 실패하지 않는다', () => {
+    // 승인하면 늘고(ADR-018) 내리면(archived) 준다 — 2026-10-06 개떼목장·롯지먼트를 내려 84. 더 줄면 사람 판단 표와 함께 본다.
+    expect(PLACES.length).toBeGreaterThanOrEqual(84);
     for (const place of PLACES) {
       expect(typeof place.policy.indoor).toBe('string');
     }

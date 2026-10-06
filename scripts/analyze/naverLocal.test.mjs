@@ -262,8 +262,13 @@ describe('inferRegionRaw — 실제 86곳으로', () => {
     expect(inferRegionRaw('제주 서귀포시 소보리당로 200', places)).toBe('남쪽 (서귀포시)');
   });
 
-  it('기존 데이터에서 방향이 갈리는 읍·면(안덕면 남 1 · 서 1)은 정하지 않는다 — 시 로 뭉개지도 않는다', () => {
-    expect(inferRegionRaw('제주 서귀포시 안덕면 일주서로1488번길 9', places)).toBe('');
+  it('방향이 갈리는 읍·면(남 1 · 서 1)은 정하지 않는다 — 시 로 뭉개지도 않는다', () => {
+    // 실데이터의 안덕면 갈림은 2026-10-06 운영자가 남쪽으로 정리해 사라졌다 — 동수 규칙은 합성 데이터로 붙잡는다.
+    const existing = [
+      { region: { direction: 'south', town: '안덕면' } },
+      { region: { direction: 'west', town: '안덕면' } },
+    ];
+    expect(inferRegionRaw('제주 서귀포시 안덕면 일주서로1488번길 9', existing)).toBe('');
   });
 
   it('기존 데이터에 없는 읍·면이나 빈 주소는 ""', () => {
