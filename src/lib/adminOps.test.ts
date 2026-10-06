@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
-import { fetchOpsOverview, fetchRun, fetchRuns, RUN_COLUMNS, runSummaryLine } from './adminOps';
+import { fetchOpsOverview, fetchRun, fetchRuns, mergeRuns, RUN_COLUMNS, runSummaryLine, type TPipelineRun } from './adminOps';
 import { formatAnalyzeSummary, formatUsageSummary } from './runSummary';
 
 /** 쿼리 빌더가 받은 호출을 순서대로 적는다. 마지막(`limit`·`maybeSingle`)이 결과를 돌려준다. */
@@ -137,5 +137,20 @@ describe('runSummaryLine — 터미널과 같은 문장', () => {
     expect(runSummaryLine({ script: 'collect', stats: { fetched: 3 } })).toBeNull();
     expect(runSummaryLine({ script: 'analyze', stats: { analyzed: 1, excluded: { notJeju: 1 } } })).toBeNull();
     expect(runSummaryLine({ script: 'apply', stats: [] as unknown as Record<string, unknown> })).toBeNull();
+  });
+});
+
+describe('mergeRuns — 새로고침이 더 불러온 장을 날리지 않는다', () => {
+  const row = (id: string, startedAt: string, status: TPipelineRun['status'] = 'ok') =>
+    ({ id, started_at: startedAt, status }) as TPipelineRun;
+
+  it('같은 id 는 새 행이 이기고, 옛 장은 남고, 최신순', () => {
+    const current = [row('b', '2026-10-05', 'running'), row('a', '2026-10-01')];
+    const fresh = [row('c', '2026-10-06'), row('b', '2026-10-05', 'ok')];
+    expect(mergeRuns(current, fresh).map((r) => [r.id, r.status])).toEqual([
+      ['c', 'ok'],
+      ['b', 'ok'],
+      ['a', 'ok'],
+    ]);
   });
 });

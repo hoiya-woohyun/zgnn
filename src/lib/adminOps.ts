@@ -140,6 +140,16 @@ export async function fetchRuns(client: SupabaseClient, query: TRunsQuery = {}):
   return (data ?? []) as TPipelineRun[];
 }
 
+/**
+ * 새로 읽은 첫 장을 이미 든 목록에 **id 로 합친다** — 화면이 60초마다 갈아 끼우면 더 불러온 장·펼친 줄·스크롤이 날아간다.
+ * 같은 id 는 새 행이 이긴다(돌던 행이 끝났을 수 있다). 최신순을 다시 맞춘다. 순수.
+ */
+export function mergeRuns(current: readonly TPipelineRun[], fresh: readonly TPipelineRun[]): TPipelineRun[] {
+  const byId = new Map(current.map((run) => [run.id, run]));
+  for (const run of fresh) byId.set(run.id, run);
+  return [...byId.values()].sort((a, b) => (a.started_at < b.started_at ? 1 : a.started_at > b.started_at ? -1 : 0));
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
