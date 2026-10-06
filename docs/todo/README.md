@@ -1,6 +1,7 @@
 # TODO — 블로그 수집 → AI 분석 → 승인 → DB → 자동 배포
 
-> 최종 수정: 2026-10-06 (v39: **운영 현황 화면 [15](15-ops-dashboard.md) 신설(설계만)** — 수집·분석·반영 스크립트가 실행마다 `pipeline_runs` 한 행을 남기고,
+> 최종 수정: 2026-10-06 (v40: **하루 동선 트랙 [16](16-trip-route-planner.md) 신설**(설계만, 코드·PR 없음 — 사용자 "Todo 에다가 작업해서 문서화"). 경쟁 앱 비교([reviews/2026-10-06](../reviews/2026-10-06-competitor-usability-comparison.md) — 반려생활·댕기자·델고·펫패스·BringFido) 뒤 "루트 짜 주는 것" 을 1단계(날짜 묶기·순서) + 2단계(묶음 판정) + 내 위치로 좁혔고, 3단계(운전 경로)는 만들지 않고 `nmap://route/car` 경유지 스킴으로 넘긴다. P1~P6 제안 · 🙋 4 · 🧑 H.1 스킴 실측)
+> 이전 2026-10-06 (v39: **운영 현황 화면 [15](15-ops-dashboard.md) 신설(설계만)** — 수집·분석·반영 스크립트가 실행마다 `pipeline_runs` 한 행을 남기고,
 > `/admin/ops` 가 다섯 칸(수집→분석→검수→반영→재빌드)으로 "어디가 막혔나" 를 그리고, 실패는 DB 트리거가 Slack 으로 보낸다(Vault+pg_net, Deploy Hook 과 같은 모양). 결정은 [ADR-023](../decisions/ADR-023-ops-dashboard-and-run-log.md), pg_cron 은 계속 보류)
 > 이전 2026-10-06 (v38: **주간 사용성 평가 [14](14-weekly-ux-eval.md) 신설** — 월요일 시작 주마다 한 번 `/ux-eval` 로 페르소나 6명(Fable)이 앱을 써 보고,
 > 종합은 [reviews/ux-eval](../reviews/ux-eval/README.md) 에, 개선 태스크는 14 에 회차별로 쌓는다. 이번 주 종합이 없으면 SessionStart 훅이 권한다(밀린 주는 소급하지 않는다))
