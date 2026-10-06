@@ -316,10 +316,22 @@ describe('parsePetPolicy — 블로그에서 온 문장(2026-09-28 첫 data:anal
  * 라벨 문자열로는 못 가른다(요금 배지의 라벨이 원문 문장 그 자체다).
  */
 describe('toPetBadges — 축', () => {
-  it("'케이지 필요' 는 실내 판단에서 나오지만 장비 축이다 — 사람이 할 일은 가방을 챙기는 것이다", () => {
+  it("케이지 배지는 실내 판단에서 나오지만 장비 축이다 — 사람이 할 일은 가방을 챙기는 것이다", () => {
     const badges = toPetBadges(parsePetPolicy('실내는 이동가방 필수, 리드줄 착용'));
-    expect(badges.filter((b) => b.axis === 'gear').map((b) => b.label)).toEqual(['케이지 필요', '리드줄']);
+    expect(badges.filter((b) => b.axis === 'gear').map((b) => b.label)).toEqual(['이동가방 필요', '리드줄']);
     expect(badges.filter((b) => b.axis === 'indoor')).toEqual([]);
+  });
+
+  /** 판정 C2·C3 은 원문의 가방·유모차를 보고 물러나는데 칩이 '케이지 필요' 면 카드와 상세가 다른 말을 한다(14 W261006.18). */
+  it.each([
+    ['실내외 모두 가능하지만 실내에서는 유모차/이동 가방 필요.', '가방·유모차 필요'],
+    ['실내는 유모차 필수.', '유모차 필요'],
+    ['케이지 동반시 가능.', '케이지 필요'],
+    ['실내는 케이지 필수, 슬링백은 안 돼요.', '케이지 필요'],
+  ])('케이지 배지는 근거 문장이 적은 장비로 — "%s" → %s', (text, label) => {
+    const p = parsePetPolicy(text);
+    expect(p.indoor).toBe('cage');
+    expect(toPetBadges(p).find((b) => b.axis === 'gear')?.label).toBe(label);
   });
 
   it("'야외만'·'실내 OK' 는 챙길 것이 없으므로 실내 축이다", () => {

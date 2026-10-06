@@ -599,10 +599,30 @@ export const NO_INFO_BADGE_LABEL = '확인된 정보 없음';
 /** 원문은 있는데 아무 조건도 못 읽은 곳의 배지(`unread`). 판정이 없는 화면(프로필 미등록)에서도 "그대로 믿지 말 것" 을 말한다. */
 export const UNREAD_BADGE_LABEL = '원문 확인 필요';
 
+/**
+ * 원문이 이동가방(슬링백)을 허용으로 적었나 — 뒤 16자 안에 거절 말이 없을 때만. 여기서 잘못 읽으면 판정 C2 가 지어낸
+ * '갈 수 있어요' 를 내므로 거절 말을 '실내 … 안 돼요' 만큼 넓힌다. 판정(C2)과 배지(`cageBadge`)가 같은 식을 본다.
+ */
+export const BAG_ALLOWED = /(가방|슬링)(?![^.\n]{0,16}(불가|안\s*(돼|됩|된)|금지))/;
+/** 유모차를 허용으로 적었나 — 뒤 16자 안에 '불가' 가 없을 때만(NOT_DENIED 와 같은 어법). 판정 C3 과 배지가 같은 식을 본다. */
+export const STROLLER_ALLOWED = /유모차(?![^.\n]{0,16}불가)/;
+
+/**
+ * `indoor: 'cage'` 의 배지. 그 값은 "케이지·이동가방·유모차 중 하나" 라, 근거 문장이 가방·유모차를 직접 적었으면 그 말로 쓴다 —
+ * 카페스누피 "실내에서는 유모차/이동 가방 필요" 에 '케이지 필요' 칩을 붙이면, 판정(C2·C3)은 가방을 받는데 칩은 케이지를 말한다(14 W261006.18).
+ */
+const cageBadge = (source: string | undefined): TPetBadge => {
+  const bag = source !== undefined && BAG_ALLOWED.test(source);
+  const stroller = source !== undefined && STROLLER_ALLOWED.test(source);
+  const label = bag && stroller ? '가방·유모차 필요' : bag ? '이동가방 필요' : stroller ? '유모차 필요' : '케이지 필요';
+  return { label, tone: 'cond', axis: 'gear' };
+};
+
 const INDOOR_BADGE: Record<TIndoorPolicy, TPetBadge | null> = {
   free: { label: '실내 OK', tone: 'ok', axis: 'indoor' },
   // 이 하나만 축이 'gear' 다 — 실내 판단에서 나오지만 사람이 할 일은 "케이지·이동가방·유모차를 챙긴다" 다(`TBadgeAxis`).
-  cage: { label: '케이지 필요', tone: 'cond', axis: 'gear' },
+  // 라벨은 근거 문장에 따라 바뀐다 — `toPetBadges` 가 `cageBadge` 로 만든다. 이 칸은 근거가 없을 때의 모양이다.
+  cage: cageBadge(undefined),
   outdoorOnly: { label: '야외만', tone: 'cond', axis: 'indoor' },
   // 숙소 원문에는 실내 언급이 거의 없다. 없는 정보를 배지로 만들지 않는다.
   unknown: null,
@@ -618,7 +638,7 @@ export const toPetBadges = (policy: TPetPolicy): TPetBadge[] => {
   // 동반 자체가 안 되는 곳은 다른 배지가 의미 없다 — 맨 앞에 하나.
   if (policy.notAllowed) badges.push({ label: '동반 불가', tone: 'warn', axis: 'notAllowed' });
 
-  const indoorBadge = INDOOR_BADGE[policy.indoor];
+  const indoorBadge = policy.indoor === 'cage' ? cageBadge(policy.sources.indoor) : INDOOR_BADGE[policy.indoor];
   if (indoorBadge) badges.push(indoorBadge);
 
   if (policy.feeFree) badges.push({ label: '추가요금 없음', tone: 'ok', axis: 'fee' });

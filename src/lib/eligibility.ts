@@ -15,6 +15,7 @@ import type { TCarrier, TDogProfile, TDogSize } from '../types';
 import { formatDogFee } from './dogFee';
 import { maxWeightKg } from './dogProfile';
 import { dogCallName, dogCallNames, josa, withJosa } from './korean';
+import { BAG_ALLOWED, STROLLER_ALLOWED } from './petPolicy';
 import type { TPetPolicy, TPolicyTier } from './petPolicy';
 
 export type TEligibilityLevel = 'ok' | 'cond' | 'unknown' | 'hard';
@@ -198,12 +199,6 @@ const ruleOutdoorOnly: TRule = (_dog, policy, opts) => {
 };
 
 /**
- * 이동가방(슬링백) 뒤 16자 안에 거절 말이 없을 때만 허용으로 읽는다 — 유모차의 `STROLLER_ALLOWED` 와 같은 어법이되
- * 거절 말을 `petPolicy.ts` 의 '실내 … 안 돼요' 만큼 넓힌다. 여기서 잘못 물러나면 지어낸 '갈 수 있어요' 다.
- */
-const BAG_ALLOWED = /(가방|슬링)(?![^.\n]{0,16}(불가|안\s*(돼|됩|된)|금지))/;
-
-/**
  * C2: 케이지 필수인 곳에 이동가방을 들고 간다. 슬링백을 케이지로 착각하지 않게 확인을 권한다.
  * `indoor: 'cage'` 는 "케이지·이동가방·유모차 중 하나" 라서, 원문이 이동가방을 직접 적었으면(카페스누피 "실내에서는
  * 유모차/이동 가방 필요") 이미 된다 — 되물으면 원문이 허락한 것을 의심하게 만든다(14 W261006.4). C3 과 같은 물러남.
@@ -218,9 +213,6 @@ const ruleBagAtCagePlace: TRule = (dog, policy) => {
     quote: policy.sources.indoor,
   };
 };
-
-/** 유모차 뒤 16자 안에 '불가' 가 없을 때만 허용으로 읽는다(petPolicy.ts 의 NOT_DENIED 와 같은 어법). */
-const STROLLER_ALLOWED = /유모차(?![^.\n]{0,16}불가)/;
 
 /** C3: 케이지 필수인 곳에 유모차를 들고 간다. 원문이 유모차를 직접 허용한 게 아니면 확인을 권한다. */
 const ruleStrollerAtCagePlace: TRule = (dog, policy) => {
