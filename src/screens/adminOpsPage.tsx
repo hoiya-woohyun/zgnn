@@ -104,6 +104,16 @@ export function AdminOpsPage() {
     setPhase('signedOut');
   }, []);
 
+  /**
+   * 부르기 전에 세션이 살아 있는가. 죽었으면 로그인 폼으로 보내고 false — 만료된 토큰으로 보내면 PostgREST 의 "JWT expired" 한 줄이
+   * 표 밑에 뜨고 다음 60초 새로고침까지 그대로다. 모든 사용자 동작(칩·더 불러오기·기간 토글·새로고침)이 이것을 먼저 부른다.
+   */
+  const ensureSession = useCallback((): boolean => {
+    if (sessionProblem(sessionRef.current, Math.floor(Date.now() / 1000)) === 'none') return true;
+    resetToSignedOut('로그인이 만료됐어요. 다시 로그인해 주세요.');
+    return false;
+  }, [resetToSignedOut]);
+
   const loadOverview30 = useCallback(async (client: SupabaseClient) => {
     const seq = ++funnelSeqRef.current;
     try {
@@ -126,9 +136,9 @@ export function AdminOpsPage() {
         setFunnelError(null);
         return;
       }
-      if (clientRef.current) void loadOverview30(clientRef.current);
+      if (clientRef.current && ensureSession()) void loadOverview30(clientRef.current);
     },
-    [loadOverview30],
+    [ensureSession, loadOverview30],
   );
 
   /**
@@ -215,11 +225,7 @@ export function AdminOpsPage() {
    */
   const quietRefresh = useCallback(async () => {
     const client = clientRef.current;
-    if (!client || refreshingRef.current) return;
-    if (sessionProblem(sessionRef.current, Math.floor(Date.now() / 1000)) !== 'none') {
-      resetToSignedOut('로그인이 만료됐어요. 다시 로그인해 주세요.');
-      return;
-    }
+    if (!client || refreshingRef.current || !ensureSession()) return;
     refreshingRef.current = true;
     try {
       await refresh(client);
@@ -229,7 +235,7 @@ export function AdminOpsPage() {
     } finally {
       refreshingRef.current = false;
     }
-  }, [refresh, resetToSignedOut]);
+  }, [ensureSession, refresh]);
 
   /*
    * 60초마다, **탭이 보일 때만**. 숨은 탭에서 밤새 읽을 이유가 없다. 다시 보이면 낡았을 때 한 번 곧바로 읽는다 —
@@ -258,10 +264,10 @@ export function AdminOpsPage() {
 
   /** 걸러 보기가 바뀌면 목록을 비우고 첫 장부터. 순번으로 늦게 온 옛 걸러 보기의 응답을 버린다. */
   const changeRunFilter = useCallback(async (next: TAdminOpsRunFilter) => {
+    const client = clientRef.current;
+    if (!client || !ensureSession()) return;
     filterRef.current = next;
     setRunFilter(next);
-    const client = clientRef.current;
-    if (!client) return;
     const seq = ++runsSeqRef.current;
     // 날아가는 중인 옛 걸러 보기의 다음 장이 잠금을 쥔 채면 새 목록의 감시판이 그냥 돌아선다 — 그 응답은 어차피 순번으로 버려진다.
     loadingMoreRef.current = false;
@@ -284,7 +290,7 @@ export function AdminOpsPage() {
         doneByErrorRef.current = true;
       }
     }
-  }, []);
+  }, [ensureSession]);
 
   /**
    * 다음 장. 무한 스크롤 감시자는 커서·콜백이 바뀔 때마다 다시 걸려 같은 장을 두 번 부를 수 있다 — ref 로 막고, 합칠 때 id 로 한 번 더 거른다.
@@ -292,7 +298,7 @@ export function AdminOpsPage() {
   const loadMoreRuns = useCallback(async () => {
     const client = clientRef.current;
     const last = runs.at(-1);
-    if (!client || !last || loadingMoreRef.current || runsDone) return;
+    if (!client || !last || loadingMoreRef.current || runsDone || !ensureSession()) return;
     loadingMoreRef.current = true;
     const seq = runsSeqRef.current;
     try {
@@ -309,7 +315,7 @@ export function AdminOpsPage() {
     } finally {
       loadingMoreRef.current = false;
     }
-  }, [runs, runsDone]);
+  }, [ensureSession, runs, runsDone]);
 
   /** ① 칸을 누르면 그 스크립트로 걸러 본다. 이미 그 칸이면 전체로 돌린다. */
   const selectStage = useCallback(
