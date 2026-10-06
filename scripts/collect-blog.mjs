@@ -164,6 +164,8 @@ try {
     // MAX_START/DISPLAY 가 나중에 안 나눠떨어지게 바뀌면 조용한 undefined 대신 보수적인 라벨로 떨어지게.
     let stop = 'cap';
     for (let start = 1, page = 1; start <= MAX_START; start += DISPLAY, page += 1) {
+      // 심장 — 60초에 한 번만 실제로 쓴다. 안 찍으면 10분 넘게 도는 수집이 살아 있어도 운영 현황에 "중단된 듯" 으로 뜬다(runState).
+      await run.tick();
       const { items } = await searchBlog(keyword, start);
       const received = items?.length ?? 0;
       const tally = tallyPage(items ?? [], keyword, now);

@@ -32,5 +32,4 @@
 ## 발견 (분류 전)
 
 <!-- /next 가 작업 중 찾은 것을 한 줄씩 — 출처: <커밋/파일>. 멈출 때 번호 문서로 옮긴다 -->
-- [ ] `collect-blog.mjs`·`review-candidates.mjs` 가 `run.tick()` 을 안 부른다 — 10분 넘게 도는 수집은 살아 있어도 `/admin/ops` 에 "중단된 듯"(실패)로 뜬다. 키워드·페이지마다 `tick()` 한 줄 — 출처: 15 T3 리뷰(`src/lib/adminOpsHealth.ts` `runState`)
 - [ ] `/admin/ops` 에서 칩·더 불러오기·30일 토글은 세션 만료를 먼저 보지 않는다(60초 새로고침만 본다) — 만료 직후 누르면 로그인 폼 대신 "JWT expired" 한 줄. 1분 안에 새로고침이 로그인으로 보낸다 — 출처: 15 T3 리뷰(`src/screens/adminOpsPage.tsx`)

@@ -131,6 +131,7 @@ if (args.command === 'status') {
   let failed = 0;
   if (args.mergeInto) patch.match_place_id = args.mergeInto;
   for (const row of targets) {
+    await run.tick(); // 대상이 수백 건이면 10분을 넘길 수 있다 — 심장이 멎으면 운영 현황이 "중단된 듯" 으로 읽는다
     const note = args.note ? `${row.reviewer_note ? `${row.reviewer_note}\n` : ''}[data:review] ${args.note}` : row.reviewer_note;
     const { error } = await supabase.from('candidates').update({ ...patch, reviewer_note: note ?? null }).eq('id', row.id);
     if (error) {
