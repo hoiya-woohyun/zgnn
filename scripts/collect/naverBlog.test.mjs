@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   dedupeByUrl,
-  formatElapsed,
   formatPageLine,
-  formatSummary,
   isWithinDays,
   mentionsJeju,
   normalizeBlogUrl,
@@ -13,6 +11,7 @@ import {
   tallyPage,
   toBlogPostRow,
 } from './naverBlog.mjs';
+import { formatElapsed } from '../../src/lib/runSummary.ts';
 
 describe('stripBold', () => {
   it('강조 태그를 벗기고 엔티티를 디코드한다', () => {
@@ -276,16 +275,4 @@ describe('formatPageLine', () => {
   });
 });
 
-describe('formatSummary', () => {
-  it('마지막 한 줄', () => {
-    expect(
-      formatSummary({ collected: 2874, newCount: 1200, excludedOld: 900, excludedOther: 210, elapsedMs: 123_456 }),
-    ).toBe('수집 2874건 (신규 1200 · 기존 1674 · 1년 밖 제외 900 · 비네이버/비제주 제외 210) · 2분 3초');
-  });
-
-  it('0건도 말이 되게', () => {
-    expect(formatSummary({ collected: 0, newCount: 0, excludedOld: 0, excludedOther: 0, elapsedMs: 800 })).toBe(
-      '수집 0건 (신규 0 · 기존 0 · 1년 밖 제외 0 · 비네이버/비제주 제외 0) · 0.8초',
-    );
-  });
-});
+// 마지막 요약 한 줄은 src/lib/runSummary.ts 로 옮겼다 — 같은 두 줄을 runSummary.test.ts 의 fixture 가 지킨다.

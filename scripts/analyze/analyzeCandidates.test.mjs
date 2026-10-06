@@ -11,7 +11,6 @@ import {
   editedKeysFor,
   exclusionReason,
   formatCandidateLine,
-  formatSummary,
   isBlocked,
   isPlaceCandidate,
   keyGate,
@@ -26,6 +25,7 @@ import {
   toMatchCandidate,
   toPostAnalysis,
 } from './analyzeCandidates.mjs';
+import { formatAnalyzeSummary as formatSummary } from '../../src/lib/runSummary.ts';
 import { EDITED_NOTE as EDITED_NOTE_TS } from '../../src/lib/adminApply';
 import { matchPlace, normalizeName, THRESHOLD } from './matchPlace.mjs';
 import { toRecheckCandidate } from './applyApproved.mjs';
@@ -678,7 +678,7 @@ describe('isNoPetEvidenceNew — 신규·동반 근거 없음(ADR-019 v6 임시 
   });
 
   it('제외 기록에 재검색 재료가 실리고, 요약 줄이 센다', async () => {
-    const { toPostAnalysis, formatSummary } = await import('./analyzeCandidates.mjs');
+    const { toPostAnalysis } = await import('./analyzeCandidates.mjs');
     const analysis = toPostAnalysis({
       excluded: [{ extracted: { name: '해녀의집', type: 'restaurant' }, reason: 'noPetEvidence', extra: { town: '구좌읍', address: null, recheck: null } }],
     });

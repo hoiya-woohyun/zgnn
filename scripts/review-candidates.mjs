@@ -16,6 +16,7 @@ import { dirname, resolve } from 'node:path';
 import { parsePetPolicy, toPetBadges, withPolicyFacts } from '../src/lib/petPolicy.ts';
 import { formatGroup, formatMarkdown, groupCandidates, parseReviewArgs, previewPolicy, resolveIds, TIER_LABEL } from './analyze/reviewCandidates.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
+import { formatReviewSummary } from '../src/lib/runSummary.ts';
 
 let args;
 try {
@@ -121,6 +122,8 @@ if (args.command === 'status') {
     process.exit(0);
   }
   const patch = { status: args.command === 'approve' ? 'approved' : 'rejected' };
+  let done = 0;
+  let failed = 0;
   if (args.mergeInto) patch.match_place_id = args.mergeInto;
   for (const row of targets) {
     const note = args.note ? `${row.reviewer_note ? `${row.reviewer_note}\n` : ''}[data:review] ${args.note}` : row.reviewer_note;
@@ -128,9 +131,11 @@ if (args.command === 'status') {
     if (error) {
       console.error(`  실패 ${row.id}: ${error.message}`);
       process.exitCode = 1;
+      failed += 1;
       continue;
     }
+    done += 1;
     console.log(`  ${patch.status} ${row.extracted?.name} (${row.id.slice(0, 8)}, ${TIER_LABEL[row.extracted?.match?.tier] ?? '신규'})${args.mergeInto ? ` → ${args.mergeInto}` : ''}`);
   }
-  console.log(`${patch.status} ${targets.length}건${patch.status === 'approved' ? ' — 반영은 pnpm data:apply' : ''}`);
+  console.log(formatReviewSummary(args.command, { requested: targets.length, done, failed }));
 }

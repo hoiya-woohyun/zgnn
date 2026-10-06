@@ -11,12 +11,11 @@ import { loadNaverEnvFile } from './lib/naverEnvFile.mjs';
 import { naverKeyPairProblem } from './lib/naverKeyFormat.mjs';
 import { readHidden } from './lib/readHidden.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
+import { formatCollectSummary, formatElapsed } from '../src/lib/runSummary.ts';
 import {
   WINDOW_DAYS,
   dedupeByUrl,
-  formatElapsed,
   formatPageLine,
-  formatSummary,
   stopReason,
   tallyPage,
 } from './collect/naverBlog.mjs';
@@ -211,4 +210,6 @@ for (let i = 0; i < collected.length; i += UPSERT_CHUNK) {
 }
 
 if (truncated > 0) console.log(`⚠️ 키워드 ${truncated}개가 ${MAX_PAGES}페이지 상한에서 잘렸다 — 위 ⚠️ 줄을 보라`);
-console.log(formatSummary({ collected: collected.length, newCount, excludedOld, excludedOther, elapsedMs: Date.now() - startedAt }));
+console.log(
+  formatCollectSummary({ fetched: collected.length, new: newCount, existing: collected.length - newCount, excludedOld, excludedOther, durationMs: Date.now() - startedAt }),
+);

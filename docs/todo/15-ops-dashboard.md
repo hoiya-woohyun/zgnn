@@ -46,17 +46,18 @@ T7 pg_cron(보류) 은 T2 로 한 달쯤 쌓인 뒤
 
 ### T2. 스크립트가 기록을 남긴다 — `scripts/lib/runLog.mjs`
 
-- [ ] **T2.1 `runLog.mjs`** — `beginRun(client, {script, args}) → {id, tick(), end({status, stats, error})}`. insert 실패 시 `⚠️ 실행 기록 못 남김: <이유 한 줄>` 만 찍고 `id=null` 인 no-op 핸들을 돌려준다(fail-soft, ADR-023 결정 2). `tick()` 은 60초에 한 번만 `heartbeat_at` 을 갱신(호출은 자주 해도 됨). `end()` 는 `ended_at=now()`. `error` 는 **분류 문구만** 받는다("Claude 인증 실패" · "네이버 검색 429" · "DB 쓰기 실패" · "중단(SIGINT)" · "알 수 없음") — 원문은 콘솔에만. 그래도 `https?://\S+` 는 `<url>` 로 지운다. `runLog.mjs` 는 **DB 호출만** 맡는다.
+- [x] **T2.1 `runLog.mjs`** — `beginRun(client, {script, args}) → {id, tick(), end({status, stats, error})}`. insert 실패 시 `⚠️ 실행 기록 못 남김: <이유 한 줄>` 만 찍고 `id=null` 인 no-op 핸들을 돌려준다(fail-soft, ADR-023 결정 2). `tick()` 은 60초에 한 번만 `heartbeat_at` 을 갱신(호출은 자주 해도 됨). `end()` 는 `ended_at=now()`. `error` 는 **분류 문구만** 받는다("Claude 인증 실패" · "네이버 검색 429" · "DB 쓰기 실패" · "중단(SIGINT)" · "알 수 없음") — 원문은 콘솔에만. 그래도 `https?://\S+` 는 `<url>` 로 지운다. `runLog.mjs` 는 **DB 호출만** 맡는다.
   **`src/lib/runSummary.ts`** — 콘솔 요약 문장은 **새로 만들지 않는다.** `scripts/analyze/analyzeCandidates.mjs:542` 의 `formatSummary(stats, meterSummary, {dryRun})` 와 `collect`·`apply` 의 요약 줄을 이 TS 모듈로 옮기고, 스크립트가 `../src/lib/runSummary.ts` 를 읽는다(`review-candidates.mjs:16` 이 `../src/lib/petPolicy.ts` 를 읽는 선례. 반대 방향 — `src/` 가 `scripts/lib/*.mjs` 를 import — 은 열려 있지 않다). `stats` jsonb 에는 그 함수가 읽는 수 전부(meter 수치 포함)가 들어가야 한다.
   단위 테스트: 옮긴 함수가 지금 콘솔 줄과 글자까지 같다(기존 요약 줄을 fixture 로).
+  ✅ 2026-10-06 `scripts/lib/runLog.mjs`(+`runLog.test.mjs` — insert 거부·throw 에도 핸들이 돌아오고 tick/end 가 throw 하지 않는다 · end 실패(오류·0행·throw)는 "기록 못 닫음" 한 줄) · `src/lib/runSummary.ts`(+`runSummary.test.ts` — 옮기기 **전** 코드가 찍은 줄을 fixture 로 얼렸다: collect 2 · analyze 2 · apply 3(published 보강·pending 되돌림·draft `?`) · approve/reject). 옮긴 것: `naverBlog.mjs` 의 `formatSummary`·`formatElapsed`, `analyzeCandidates.mjs` 의 `formatSummary`, `createUsageMeter().summary()` 의 문장(이제 `formatUsageSummary` 를 부른다), apply·review 의 인라인 템플릿. 스크립트는 `node --experimental-strip-types` 로 그 `.ts` 를 직접 읽는다(`data:collect`·`data:analyze`·`data:apply` 에 플래그를 더했다 — `data:review` 와 같은 모양).
 
-  **`stats` 키(스크립트별 — 여기가 정본, 바뀌면 여기부터)**
+  **`stats` 키(스크립트별 — 여기가 정본, 바뀌면 여기부터)** — 2026-10-06 구현에 맞춰 고쳤다: 키 이름은 **요약 함수(`runSummary.ts`)가 읽는 이름 그대로**다(번역 층을 두지 않는다 — 아래 「계획과 다르게 간 것」).
 
   | script | 키 |
   |---|---|
   | `collect` | `fetched` · `new` · `existing` · `excludedOld` · `excludedOther` · `durationMs` · `naverCalls`(T2.7) · `truncatedKeywords` |
-  | `analyze` | `analyzed` · `candidates` · `matched` · `confirm` · `fresh` · `skipped` · `excluded{사유별}` · `verified` · `proposed` · `claudeCalls` · `totals{input,output,cacheRead,cacheWrite}`(`extractPlaces.mjs:599-602` 의 이름 그대로) · `geo` · `homepage` · `naverCalls`(T2.7) |
-  | `apply` | `applied` · `patched` · `inserted` · `failed` · `revertedToPending` · `draftWaiting` |
+  | `analyze` | 스크립트의 `stats` 그대로 — `analyzed` · `skipped` · `dropped` · `candidates` · `auto`(일치) · `ask`(확인요청) · `new`(신규) · `dup` · `edited` · `update` · `fill` · `excluded{other,notJeju,notAllowed,sameAsSite,stale,weak,blocked,noPetEvidence}` · `verify{checked,noEvidence,notAllowed,failed}` · `propose{places,done,failed}` + `meters{extract,verify,propose}`(각 `{calls,input,output,cacheRead,cacheWrite}` — `createUsageMeter().totals()`) · `geo{searched,picked,failed,geocode{chance,tried,picked,failed}}` · `homepage{tried,card,image,failed}` · `naverCalls`(T2.7) |
+  | `apply` | `applied` · `patched` · `patchedPublished` · `inserted` · `failed` · `revertedToPending` · `draftWaiting`(못 셌으면 null) |
   | `approve`/`reject` | `requested` · `done` · `failed` |
 - [ ] **T2.2 `collect-blog.mjs`** — 시작 `beginRun('collect', {keywords: n})`, 끝 `end({status:'ok', stats:{fetched, new, existing, excludedOld, excludedOther, durationMs, naverCalls, truncatedKeywords}})`. 예외는 `end({status:'failed', error})` 뒤 다시 throw(exit 1 유지). Ctrl-C(130)도 `failed` 로 닫는다(`SIGINT` 핸들러 — 이미 있으면 거기에).
   수용 기준: 돌리면 행이 `running → ok` 로 바뀌고 `stats.new` 가 콘솔의 신규 수와 같다.
@@ -124,6 +125,8 @@ T7 pg_cron(보류) 은 T2 로 한 달쯤 쌓인 뒤
 
 - **T1.2 `runsLastOk` 를 더했다.** 수집 칸의 '실패' 는 마지막 실행을, '주의(7일 넘음)' 는 마지막 **ok** 실행을 본다 — 마지막 실행이 failed 면 `runsLatest` 만으로는 "마지막 성공이 언제였나" 를 답할 수 없다. `status in ('ok','partial')` 의 마지막 행(analyze 의 partial 은 건너뛴 글이 있었을 뿐 돌았다).
 - **T1.2 `rebuildRecent` 는 `rebuild_status(5)` 의 결과를 그대로 싣지 않는다.** 그 함수는 `responded_at` 을 돌려주지 않는데 T3.3 의 재빌드 칸이 "응답 null 이 3분 넘음" 을 그 값으로 판정한다. 그래서 `perform rebuild_status(5)` 로 옮겨 적기만 시키고 `rebuild_log` 에서 같은 다섯 행 + `responded_at` 을 직접 읽는다.
+- **T2.1 `stats` 키 이름은 표의 것이 아니라 요약 함수가 읽는 이름이다.** 계획 표의 analyze 키(`matched`·`confirm`·`fresh`·`verified`·`proposed`·`claudeCalls`·`totals`)는 `formatSummary` 가 읽는 이름(`auto`·`ask`·`new`·`verify{}`·`propose{}`)과 달랐다. 규칙이 "문장을 새로 만들지 않는다" · "함수가 읽는 수는 전부 stats 에" 이므로 **함수의 입력 모양을 그대로 저장**한다 — 번역 층을 두면 그 층이 어긋나는 순간 화면이 틀린 수를 말한다. Claude 사용량은 패스별 `meters{extract,verify,propose}` 로 두고 `ops_overview.usage30d` 가 셋을 다 더한다(추출만 세면 교차점검·제안이 태운 한도가 빠진다). apply 는 콘솔 줄이 원래 published 보강 수를 따로 말해 `patchedPublished` 를 더했다.
+- **T2.1 "`src/` 가 `scripts/*.mjs` 를 import 하는 길은 없다" 는 사실이 아니었다.** `src/lib/adminPosts.ts`·`adminEdit.ts` 가 이미 `scripts/analyze/analyzeCandidates.mjs` 등을 읽는다. 그래도 방향은 계획대로 **스크립트가 `src/lib/runSummary.ts` 를 읽는다** — 다만 `/admin` 번들에 들어가는 `.mjs`(`analyzeCandidates.mjs`)에는 `.ts` import 를 넣지 않았다(요약 함수를 빼기만 했다). `.ts` 를 읽는 `.mjs` 는 스크립트 진입점과 `extractPlaces.mjs`(번들 밖)뿐이다.
 - **T1.2 `backlog` 는 `excluded_at` 을 빼지 않는다.** `/admin` 의 `fetchPostBacklog` 는 `blog_posts.excluded_at`(글 단위 분석 제외)이 있으면 그 글을 빼는데, 그 칸을 만드는 마이그레이션이 레포에 없다 — 정적으로 참조하면 함수가 죽는다. 그 칸이 생기면 두 수가 갈린다(마이그레이션 머리 주석).
 
 ## 🙋 사용자가 정할 것

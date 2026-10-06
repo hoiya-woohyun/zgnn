@@ -22,6 +22,7 @@ import { mergeIntoExisting, toNewPlaceRow, toRecheckCandidate } from './analyze/
 import { matchPlace, THRESHOLD } from './analyze/matchPlace.mjs';
 import { toMatchablePlace } from './lib/placeFields.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
+import { formatApplySummary } from '../src/lib/runSummary.ts';
 
 // 인자는 --dry-run 하나뿐. 모르는 인자(--dryrun 오타)로 실제 쓰기가 도는 일이 없게 거부한다(analyze 의 parseArgs 와 같은 원칙).
 const argv = process.argv.slice(2);
@@ -196,10 +197,15 @@ for (const candidate of candidates) {
 
 // published 로 올라가길 기다리는 draft — 승인만 하고 잊으면 화면에 영영 안 뜬다(설계 검토 RP-2). 요약에 같이 찍는다.
 const { count: draftCount } = await supabase.from('places').select('*', { count: 'exact', head: true }).eq('status', 'draft');
-const prefix = dryRun ? '[dry-run] ' : '';
-console.log(
-  `${prefix}반영 ${merged + created}건 (보강 ${merged}${publishedMerged ? ` — published ${publishedMerged}` : ''} · 신규 ${created} · 실패 ${failed}${returned ? ` · pending 되돌림 ${returned}` : ''})` +
-    ` · published 대기 draft ${draftCount ?? '?'}곳${(draftCount ?? 0) > 0 ? ' — Studio 에서 status 를 올려야 화면에 뜬다(pnpm data:review status)' : ''}`,
-);
+const runStats = {
+  applied: merged + created,
+  patched: merged,
+  patchedPublished: publishedMerged,
+  inserted: created,
+  failed,
+  revertedToPending: returned,
+  draftWaiting: draftCount ?? null,
+};
+console.log(formatApplySummary(runStats, { dryRun }));
 // process.exit() 은 파이프로 나가던 stdout 을 잘라먹을 수 있다 — 요약 한 줄이 사용자가 보는 유일한 관측이라 자연 종료를 기다린다.
 process.exitCode = Math.min(failed, 255);

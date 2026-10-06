@@ -24,6 +24,7 @@ import { createHash } from 'node:crypto';
 import { normalizeFeeLines } from '../lib/feeLine.mjs';
 import { correctPetPolicyFacts } from '../lib/petPolicyFacts.mjs';
 import { correctStayEnvironment } from '../lib/stayEnvironment.mjs';
+import { formatUsageSummary } from '../../src/lib/runSummary.ts';
 
 /** ANALYZE_MODEL 로 덮어쓸 수 있다 — 첫 1년치 대량 처리 때 haiku 로 비교해 보려는 용도(docs/todo/03 의 모델 표). */
 export function resolveModel(env = process.env) {
@@ -659,7 +660,8 @@ export function createUsageMeter(label = '추출') {
       return { ...totals };
     },
     summary() {
-      return `Claude ${label} ${totals.calls}회 · 입력 ${totals.input} · 출력 ${totals.output} · 캐시 읽기 ${totals.cacheRead} · 캐시 쓰기 ${totals.cacheWrite} 토큰`;
+      // 문장은 src/lib/runSummary.ts 한 곳 — 운영 현황 화면이 stats 의 합계로 같은 줄을 다시 만든다(docs/todo/15 T2.1).
+      return formatUsageSummary(label, totals);
     },
   };
 }

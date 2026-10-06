@@ -48,7 +48,6 @@ import {
   exclusionReason,
   formatCandidateLine,
   keyGate,
-  formatSummary,
   parseArgs,
   pickPostsForRun,
   isFocusedTitle,
@@ -82,6 +81,7 @@ import { naverKeyPairProblem } from './lib/naverKeyFormat.mjs';
 import { readHidden } from './lib/readHidden.mjs';
 import { acquireRunLock } from './lib/runLock.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
+import { formatAnalyzeSummary } from '../src/lib/runSummary.ts';
 
 let args;
 try {
@@ -753,7 +753,7 @@ for (const [placeId, runRows] of updatedPlaces) {
   }
 }
 
-console.log(formatSummary(stats, meter.summary(), { dryRun }));
+console.log(formatAnalyzeSummary(stats, meter.summary(), { dryRun }));
 if (verifyMeter.totals().calls > 0) console.log(`  ${verifyMeter.summary()}`);
 if (proposeMeter.totals().calls > 0) console.log(`  ${proposeMeter.summary()}`);
 

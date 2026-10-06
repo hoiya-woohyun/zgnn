@@ -538,47 +538,4 @@ export function formatCandidateLine(row, matchedName) {
   return `후보 ${name} (${type}) ${TIER_LABEL[match.tier]} ${match.confidence.toFixed(2)}${target}${kind} · ${match.reason}`;
 }
 
-/** 마지막 한 줄. 터미널에서 이 줄만 보면 된다. */
-export function formatSummary(stats, meterSummary, { dryRun } = {}) {
-  const prefix = dryRun ? '[dry-run] ' : '';
-  const dropped = stats.dropped ? ` · 분석불가 ${stats.dropped}` : '';
-  const ex = stats.excluded;
-  /*
-   * 짝짓기 뒤에 걸리는 셋(같은 말 · 옛 글 · 근거 약함 — `kindOf`)은 추출 직후에 걸리는 셋(exclusionReason)과 **단계가 다르다**.
-   * 그래도 한 괄호에 넣는다: 운영자가 읽는 뜻은 "후보로 안 들어간 수" 하나이고, 자리를 나누면 그 합을 사람이 더해야 한다.
-   * `alreadyHave` 는 차이 게이트 전의 이름(같은 말 + 다른 말 전부)이라 옛 stats 에만 있다.
-   * 옛 실행의 stats 에는 칸이 없으므로 `?? 0` — 없다고 NaN 이 되면 요약 한 줄이 통째로 못 읽히게 된다.
-   */
-  const already = ex?.alreadyHave ?? 0;
-  const same = ex?.sameAsSite ?? 0;
-  const stale = ex?.stale ?? 0;
-  const weak = ex?.weak ?? 0;
-  const blocked = ex?.blocked ?? 0;
-  const noEvidence = ex?.noPetEvidence ?? 0;
-  const tail = [
-    already && `이미 있음 ${already}`,
-    same && `같은 말 ${same}`,
-    stale && `옛 글 ${stale}`,
-    weak && `근거 약함 ${weak}`,
-    blocked && `차단 ${blocked}`,
-    noEvidence && `신규·동반 근거 없음 ${noEvidence}`,
-  ].filter(Boolean).map((part) => ` · ${part}`).join('');
-  const excluded = ex
-    ? ` · 제외 ${ex.other + ex.notJeju + ex.notAllowed + already + same + stale + weak + blocked + noEvidence}(other ${ex.other} · 제주밖 ${ex.notJeju} · 동반불가 ${ex.notAllowed}${tail})`
-    : '';
-  // 짝이 게시된 장소인 후보의 종류 — 이 두 수가 차이 게이트를 지나 올라온 것이다. 옛 stats 엔 칸이 없다.
-  const kinds = stats.update || stats.fill ? ` · 갱신 ${stats.update ?? 0} · 보강 ${stats.fill ?? 0}` : '';
-  const dup = stats.dup ? ` · 중복표시 ${stats.dup}` : '';
-  // 사람이 고친 후보가 있는 (글, 가게) 는 새로 만들지 않았다 — 제외 합계와 단계가 달라(추출 뒤·짝짓기 전) 따로 적는다. 옛 stats 엔 칸이 없다.
-  const edited = stats.edited ? ` · 고침 유지 ${stats.edited}` : '';
-  /*
-   * 교차점검은 **점검한 수와 근거를 못 찾은 수를 같이** 적는다. 하나만 적으면 0 을 두 가지로 읽을 수 있다 —
-   * "전부 근거가 있었다" 와 "패스가 안 돌았다" 는 운영자가 해야 할 일이 정반대다(⚠️ 판정 불가에 속지 말 것과 같은 자리).
-   */
-  const v = stats.verify;
-  const verify = v ? ` · 교차점검 ${v.checked}건(근거 없음 ${v.noEvidence} · 동반 불가 정황 ${v.notAllowed}${v.failed ? ` · 실패 ${v.failed}` : ''})` : '';
-  // 제안(셋째 패스) — 갱신이 생긴 장소 수와 제안을 실은 수를 같이(교차점검과 같은 이유: 0 이 "안 돌았다" 인지 "실패했다" 인지 갈라야 한다).
-  const p = stats.propose;
-  const propose = p && p.places ? ` · 제안 ${p.done}/${p.places}곳${p.failed ? `(실패 ${p.failed})` : ''}` : '';
-  return `${prefix}분석 ${stats.analyzed}건 (후보 ${stats.candidates} · 일치 ${stats.auto} · 확인요청 ${stats.ask} · 신규 ${stats.new}${kinds}${dup} · 건너뜀 ${stats.skipped}${dropped}${excluded}${edited}${verify}${propose}) · ${meterSummary}`;
-}
+// 마지막 요약 한 줄(`formatAnalyzeSummary`)은 src/lib/runSummary.ts 로 옮겼다(2026-10-06) — 운영 현황 화면이 실행 기록의 stats 로 같은 줄을 다시 만든다.

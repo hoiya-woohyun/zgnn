@@ -144,13 +144,6 @@ export function dedupeByUrl(rows) {
  * 개수로 집계될 뿐 문자열로 나가지 않는다 — 그래야 로그를 붙여 공유해도 되는 물건이 된다.
  */
 
-/** 12.4초 · 2분 3초. 초를 먼저 반올림해 "1분 60초" 가 나오지 않게 한다. */
-export function formatElapsed(ms) {
-  const seconds = Math.round(ms / 1000);
-  if (seconds < 60) return `${(ms / 1000).toFixed(1)}초`;
-  return `${Math.floor(seconds / 60)}분 ${seconds % 60}초`;
-}
-
 /** 페이지 한 장. 들여쓰기 두 칸은 analyze·apply 의 상세 줄과 같은 규칙이다. */
 export function formatPageLine({ page, start, received, tally, total }) {
   const excluded = [tally.old && `1년밖 ${tally.old}`, tally.other && `비네이버·비제주 ${tally.other}`].filter(Boolean);
@@ -158,10 +151,4 @@ export function formatPageLine({ page, start, received, tally, total }) {
   return `  p${page}(start=${start}) 받음 ${received} · 담음 ${tally.rows.length}${tail} · 누적 ${total}`;
 }
 
-/** 마지막 한 줄. 터미널에서 이 줄만 보면 된다(analyze 의 formatSummary 와 같은 자리). */
-export function formatSummary({ collected, newCount, excludedOld, excludedOther, elapsedMs }) {
-  return (
-    `수집 ${collected}건 (신규 ${newCount} · 기존 ${collected - newCount} · ` +
-    `1년 밖 제외 ${excludedOld} · 비네이버/비제주 제외 ${excludedOther}) · ${formatElapsed(elapsedMs)}`
-  );
-}
+// 마지막 요약 한 줄과 `formatElapsed` 는 src/lib/runSummary.ts 로 옮겼다(2026-10-06) — 운영 현황 화면이 실행 기록의 stats 로 같은 줄을 다시 만든다.
