@@ -1103,10 +1103,21 @@ export function AdminPage() {
       const next = groupPending(groups.flatMap((group) => group.rows).filter((row) => !laid.has(row.id)));
       const alive = new Set(next.map((group) => group.key));
       setGroups(next);
-      setStates((prev) => Object.fromEntries(Object.entries(prev).filter(([key]) => alive.has(key))));
+      /*
+       * 묶음이 **남을 수 있다** — 행이 전부 `[admin] 고침` 이면 `lay` 가 비어 그 줄은 그대로다(규칙 3). 그 줄의 `busy`·`reanalyzing` 을
+       * 여기서 풀지 않으면 "분석을 지우고 있어요…" 가 영영 서 있다(BUG-010). 사라진 줄의 상태는 버린다.
+       */
+      setStates((prev) =>
+        Object.fromEntries(
+          Object.entries(prev)
+            .filter(([key]) => alive.has(key))
+            .map(([key, state]) => (keys.includes(key) ? [key, { ...state, busy: undefined, reanalyzing: false }] : [key, state])),
+        ),
+      );
       setSelected((prev) => clearKeys(prev, [...keys]));
+      const kept = plan.keep.length ? ` · 사람이 고친 후보 ${plan.keep.length}건은 남았어요(다시 읽어도 그 가게는 새로 만들지 않아요)` : '';
       setBulk({
-        summary: `글 ${plan.posts.length}건을 수집 완료로 되돌렸어요 · 검수 대기 후보 ${plan.lay.length}건이 목록에서 빠졌어요 — 터미널에서 pnpm data:analyze 를 돌리면 다시 읽어요.`,
+        summary: `글 ${plan.posts.length}건을 수집 완료로 되돌렸어요 · 검수 대기 후보 ${plan.lay.length}건이 목록에서 빠졌어요${kept} — 터미널에서 pnpm data:analyze 를 돌리면 다시 읽어요.`,
       });
     },
     [beginWrite, endWrite, groups, patchState, planFor],

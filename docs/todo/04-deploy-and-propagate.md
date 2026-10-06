@@ -89,7 +89,8 @@
       타임아웃(빌드는 걸렸을 수 있다)과 죽은 URL 이 둘 다 null 로 보이던 문제인데, 이제 셋을 갈라 말한다 —
       **3분 안**이면 `응답을 기다리고 있어요`(실측 4.7초라 정상), **3분 넘게 null** 이면 `응답을 못 받았어요`,
       **4xx/5xx** 면 `Vercel 이 재빌드를 거절했어요(… · 404) — Deploy Hook 이 폐기된 것 같아요`.
-      판정은 `src/lib/adminRebuild.ts` 의 순수 함수고 테스트가 다섯 갈래를 다 잡는다. pg_net 이 재시도하지 않는다는 사실은 그대로다.
+      **단 429 는 따로**(2026-10-06): 시간당 60번 한도라 "훅은 그대로예요 · 다음 성공하는 재빌드가 같이 반영해요" — 일괄 작업이 행마다 부르면 닿는다([BUG-011](../bugs/BUG-011-rebuild-429-read-as-revoked-hook.md)).
+      판정은 `src/lib/adminRebuild.ts` 의 순수 함수고 테스트가 여섯 갈래를 다 잡는다. pg_net 이 재시도하지 않는다는 사실은 그대로다.
 - [x] **호출 기록을 남긴다** — `public.rebuild_log`(운영자 select 만, insert 는 definer 트리거만). 남기는 것: 언제·어느 op·어느 장소·
       그때 상태 · `hook` ∈ `sent|missing|skipped|error` · `request_id` · 옮겨 적은 응답. **훅 주소는 담지 않는다** —
       pg_net 오류 문구에 섞여 오면 저장 전에 `<hook>` 으로 지운다(이 표는 Vault 를 못 읽는 역할이 읽는다).

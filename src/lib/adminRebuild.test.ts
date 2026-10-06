@@ -101,6 +101,19 @@ describe('rebuildHeadline', () => {
     expect(headline.text).toContain('vercel_deploy_hook');
   });
 
+  /*
+   * 429 는 폐기가 아니라 시간당 60번 한도다(2026-10-02 일괄 고치기 뒤 6건 전부 429, 같은 훅이 10-06 엔 201).
+   * 폐기와 같은 문장으로 말하면 운영자가 멀쩡한 훅을 회전한다 — 그래서 Vault 를 가리키지 않는다.
+   */
+  it('429 는 한도라고 말하고 Vault 를 가리키지 않는다', () => {
+    const headline = rebuildHeadline([entry({ response_status: 429 })], NOW);
+    expect(headline.tone).toBe('warn');
+    expect(headline.text).toContain('429');
+    expect(headline.text).toContain('60번');
+    expect(headline.text).not.toContain('vercel_deploy_hook');
+    expect(headline.text).not.toContain('폐기');
+  });
+
   /** 응답이 아직 안 온 것은 고장이 아니라 대기다(실측 4.7초). 둘을 다른 말로 보여 준다. */
   it('응답 전은 대기, 한참 지나도 없으면 경고', () => {
     const waiting = rebuildHeadline([entry({ response_status: null })], NOW);
