@@ -25,11 +25,11 @@ import {
   AXIS_SLOP_PX,
   BACK_SWIPE_EDGE_PX,
   SETTLE_EASING,
-  SETTLE_MS,
   TAP_SLIDE_EASING,
   TAP_SLIDE_MS,
   recentSamples,
   resistedOffset,
+  settleDurationOf,
   settleSwipe,
   velocityOf,
   type TSample,
@@ -225,11 +225,12 @@ export function useAppShellSwipe(pathname: string) {
     );
   };
 
-  const settle = (target: number, width: number) => {
+  /** 손가락을 놓은(또는 빼앗긴) 자리 `dx` 에서 `target` 칸으로. 속도가 빠를수록 짧게 밀어낸다. */
+  const settle = (target: number, { dx, velocity, width }: { dx: number; velocity: number; width: number }) => {
     const toDx = target === slot ? 0 : target > slot ? -width : width;
     const route = target === slot ? normalizeRoute(pathname) : ((target > slot ? rightRoute : leftRoute) ?? null);
     // 손가락이 남긴 속도를 이어받는 곡선 — 이미 움직이던 자리에서 출발한다.
-    slide(toDx, route, { duration: SETTLE_MS, easing: SETTLE_EASING });
+    slide(toDx, route, { duration: settleDurationOf(Math.abs(toDx - dx), velocity), easing: SETTLE_EASING });
   };
 
   /**
@@ -343,7 +344,7 @@ export function useAppShellSwipe(pathname: string) {
 
     const { dx, width } = current;
     const velocity = velocityOf(recentSamples(current.samples, event.timeStamp));
-    settle(settleSwipe({ index: slot, count: slots, dx, velocity, width }), width);
+    settle(settleSwipe({ index: slot, count: slots, dx, velocity, width }), { dx, velocity, width });
   };
 
   const onPointerCancel = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -351,7 +352,7 @@ export function useAppShellSwipe(pathname: string) {
     if (!current || current.pointerId !== event.pointerId) return;
     gesture.current = null;
     // 브라우저가 제스처를 가져갔다(세로 스크롤 등). 넘어가지 않고 제자리로.
-    if (current.axis === 'x') settle(slot, current.width);
+    if (current.axis === 'x') settle(slot, { dx: current.dx, velocity: 0, width: current.width });
   };
 
   const onClickCapture = (event: MouseEvent<HTMLDivElement>) => {

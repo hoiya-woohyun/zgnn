@@ -3,7 +3,10 @@ import {
   COMMIT_DISTANCE_RATIO,
   COMMIT_VELOCITY,
   EDGE_RESISTANCE,
+  SETTLE_MIN_MS,
+  SETTLE_MS,
   resistedOffset,
+  settleDurationOf,
   settleSwipe,
 } from './swipePager';
 
@@ -73,5 +76,29 @@ describe('settleSwipe — 놓았을 때 어디에 안착하나', () => {
     // 이웃이 있는 방향은 평소처럼.
     expect(release({ index: 0, dx: -far })).toBe(1);
     expect(release({ index: COUNT - 1, dx: far })).toBe(1);
+  });
+});
+
+describe('settleDurationOf — 손가락이 빠를수록 짧게 밀어낸다', () => {
+  it('멈춘 채 놓으면(속도 0) 기본 시간', () => {
+    expect(settleDurationOf(300, 0)).toBe(SETTLE_MS);
+  });
+
+  it('느리게 놓으면 기본 시간을 넘지 않는다 — 300px 를 0.3px/ms 로 가면 1초지만 260ms 에서 끊는다', () => {
+    expect(settleDurationOf(300, 0.3)).toBe(SETTLE_MS);
+  });
+
+  it('남은 거리를 그 속도로 가는 시간 — 300px 를 2px/ms 면 150ms', () => {
+    expect(settleDurationOf(300, 2)).toBe(150);
+    // 부호는 안 본다 — 되돌아가는 방향으로 튕겨도 같은 셈.
+    expect(settleDurationOf(300, -2)).toBe(150);
+  });
+
+  it('아무리 세게 튕겨도 최소 시간보다 짧지 않다', () => {
+    expect(settleDurationOf(300, 10)).toBe(SETTLE_MIN_MS);
+  });
+
+  it('남은 거리가 없으면 최소 시간만 — 주소 바꾸기를 괜히 기다리지 않는다', () => {
+    expect(settleDurationOf(0, 0)).toBe(SETTLE_MIN_MS);
   });
 });

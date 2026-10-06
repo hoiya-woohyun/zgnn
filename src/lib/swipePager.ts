@@ -66,6 +66,24 @@ export const BACK_SWIPE_EDGE_PX = 24;
 /** 놓은 뒤 남은 거리를 밀어내는 시간. 알약이 탭 클릭으로 움직일 때와 같은 곡선(placesPageTypeTabs). */
 export const SETTLE_MS = 260;
 export const SETTLE_EASING = 'cubic-bezier(0.16, 1, 0.3, 1)';
+/** 아무리 세게 튕겨도 이보다 짧게는 안 밀어낸다 — 눈이 못 따라와 "순간이동" 으로 읽힌다. */
+export const SETTLE_MIN_MS = 120;
+
+/**
+ * 놓은 뒤 남은 거리를 밀어내는 시간 — **손가락이 빠를수록 짧다.**
+ *
+ * 늘 `SETTLE_MS` 면 세게 튕겼을 때 놓는 순간 화면이 손가락보다 느려져 속도가 끊긴다. "남은 거리를 그 속도로 가면
+ * 걸리는 시간" 을 그대로 쓰되, 느리게 놓았거나 멈춘 채 놓았으면(속도 0) 기본값을 넘지 않고, 아무리 빨라도
+ * `SETTLE_MIN_MS` 보다 짧지 않다. 곡선이 expo-out 이라 실제로는 그보다 먼저 거의 도착한다 — 그게 "이어받았다" 로
+ * 읽힌다. 남은 거리가 없으면(손가락이 이미 끝까지 끌어다 놓음) 최소값만 — 주소 바꾸기를 괜히 기다리지 않게.
+ * 두 인식기(둘러보기 안 · 화면 사이)가 같이 쓴다 — 느낌이 갈리면 안 된다.
+ */
+export const settleDurationOf = (remainingPx: number, velocity: number): number => {
+  if (remainingPx <= 0) return SETTLE_MIN_MS;
+  const speed = Math.abs(velocity);
+  if (speed <= 0) return SETTLE_MS;
+  return Math.round(Math.min(SETTLE_MS, Math.max(SETTLE_MIN_MS, remainingPx / speed)));
+};
 /**
  * 탭을 눌러 **멈춰 있던** 화면을 한 장 미끄러뜨리는 시간·곡선(appShellSwipe 의 `slideTo`).
  * `SETTLE_EASING` 은 출발 기울기가 가파른 expo-out 이라 손가락이 남긴 속도를 이어받기엔 맞지만, 정지한 화면에

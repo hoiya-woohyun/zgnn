@@ -17,9 +17,9 @@ import {
   AXIS_SLOP_PX,
   BACK_SWIPE_EDGE_PX,
   SETTLE_EASING,
-  SETTLE_MS,
   recentSamples,
   resistedOffset,
+  settleDurationOf,
   settleSwipe,
   velocityOf,
   type TSample,
@@ -123,12 +123,13 @@ export function usePlacesPageSwipe(type: TPlaceType, headerRef: RefObject<HTMLEl
     }
   };
 
-  const settle = (target: number, width: number) => {
+  /** 손가락을 놓은(또는 빼앗긴) 자리 `dx` 에서 `target` 종류로. 속도가 빠를수록 짧게 밀어낸다(swipePager 의 settleDurationOf). */
+  const settle = (target: number, { dx, velocity, width }: { dx: number; velocity: number; width: number }) => {
     settling.current = true;
     const toDx = target === index ? 0 : target > index ? -width : width;
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const options: KeyframeAnimationOptions = {
-      duration: reduceMotion ? 0 : SETTLE_MS,
+      duration: reduceMotion ? 0 : settleDurationOf(Math.abs(toDx - dx), velocity),
       easing: SETTLE_EASING,
       fill: 'forwards',
     };
@@ -254,7 +255,7 @@ export function usePlacesPageSwipe(type: TPlaceType, headerRef: RefObject<HTMLEl
 
     const { dx, width } = current;
     const velocity = velocityOf(recentSamples(current.samples, event.timeStamp));
-    settle(settleSwipe({ index, count, dx, velocity, width }), width);
+    settle(settleSwipe({ index, count, dx, velocity, width }), { dx, velocity, width });
   };
 
   const onPointerCancel = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -262,7 +263,7 @@ export function usePlacesPageSwipe(type: TPlaceType, headerRef: RefObject<HTMLEl
     if (!current || current.pointerId !== event.pointerId) return;
     gesture.current = null;
     // 브라우저가 제스처를 가져갔다(세로 스크롤 등). 넘어가지 않고 제자리로.
-    if (current.axis === 'x') settle(index, current.width);
+    if (current.axis === 'x') settle(index, { dx: current.dx, velocity: 0, width: current.width });
   };
 
   const onClickCapture = (event: MouseEvent<HTMLDivElement>) => {
