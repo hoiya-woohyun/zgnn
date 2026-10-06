@@ -15,6 +15,19 @@ declare namespace naver.maps {
     lng(): number;
   }
 
+  /** 남서·북동 두 모서리로 정한 범위. 저장 모드가 저장한 곳이 다 들어오게 맞출 때 쓴다(`Map.fitBounds`). */
+  class LatLngBounds {
+    constructor(sw: LatLng, ne: LatLng);
+  }
+
+  /** 화면 가장자리에서 띄울 픽셀. 칩 줄·탭바에 핀이 가리지 않게 한다. */
+  interface Margin {
+    top?: number;
+    right?: number;
+    bottom?: number;
+    left?: number;
+  }
+
   class Size {
     constructor(width: number, height: number);
   }
@@ -97,6 +110,8 @@ declare namespace naver.maps {
      * 따로 부르면 두 번 튄다. `zoom` 을 빼면 지금 줌을 유지한다.
      */
     morph(coord: LatLng, zoom?: number): void;
+    /** 범위가 다 들어오는 중심·줌으로 옮긴다. 핀이 가까이 모이면 끝까지 확대하므로 부른 뒤 줌을 눌러 준다. */
+    fitBounds(bounds: LatLngBounds, margin?: Margin): void;
     /**
      * 컨테이너 크기를 바꾼 뒤 부른다. Kakao 의 `relayout()` 자리 — 네이버엔 `relayout` 이 없다.
      * @param noEffect 페이드 인 효과를 건너뛸지(기본 false)

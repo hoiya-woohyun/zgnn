@@ -31,9 +31,10 @@ export function MapPage() {
   const eligibilityMap = useEligibilityMap();
 
   /*
-   * 칩은 "고른 종류" 가 아니라 **보이는 종류** 다 — 처음엔 셋 다 켜져 있고, 누르면 그 종류를 끈다.
+   * 칩은 "고른 종류" 가 아니라 **보이는 종류** 다 — 처음엔 셋 다 켜져 있다.
    * "빈 선택 = 전체" 로 두면 칩이 전부 꺼진 모양인데 마커는 다 보이고, 하나를 켜면 오히려 줄어든다.
    * 칩에 마커 색 점이 붙어 있어 범례 겸 스위치로 읽히니, 칩 모양과 지도를 일치시킨다.
+   * 누르면 **그 종류만** 보인다(`toggleType`) — 예전엔 누른 종류를 껐다.
    */
   const [types, setTypes] = useState<TPlaceType[]>(PLACE_TYPES);
   /*
@@ -139,12 +140,14 @@ export function MapPage() {
     else itemRefs.current.delete(id);
   }, []);
 
-  // 마지막 하나는 끄지 않는다 — 다 끄면 필터 때문에 빈 지도가 된다.
+  /*
+   * 누르면 **그 종류만**, 그것만 켜진 칩을 다시 누르면 셋 다로 돌아온다(14 W261006.12).
+   * 예전엔 누른 종류를 껐다 — "카페" 를 누르면 카페가 사라져(81 → 58곳) 카페만 보려면 숙소·식당을 따로 꺼야 했다.
+   * 지도에 와서 종류를 누르는 사람은 "카페가 어디 있나" 를 묻는 사람이다. 둘만 보는 조합은 잃는다 — 알고 받아들였다.
+   * 빈 지도가 되는 길은 없다(늘 하나 이상 켜져 있다).
+   */
   const toggleType = (type: TPlaceType) =>
-    setTypes((prev) => {
-      if (!prev.includes(type)) return [...prev, type];
-      return prev.length > 1 ? prev.filter((value) => value !== type) : prev;
-    });
+    setTypes((prev) => (prev.length === 1 && prev[0] === type ? PLACE_TYPES : [type]));
 
   /*
    * 저장 칩은 종류 칩과 달리 **주소(`?saved=1`)가 쥔다** — 저장 화면·홈의 "지도에서 보기" 가 같은
@@ -163,6 +166,8 @@ export function MapPage() {
       eligibilityMap={eligibilityMap}
       savedIds={savedIds}
       focus={focusPlace?.geo ?? null}
+      // 저장 모드는 저장한 곳이 다 들어오게 — 들어올 때와 종류를 바꿀 때만. 하트를 빼서 줄어드는 것은 열쇠가 같아 안 움직인다.
+      fitKey={savedOnly ? `saved:${types.join(',')}` : null}
     />
   );
 
@@ -410,7 +415,7 @@ export function MapPage() {
                     floating
                     Icon={AlertTriangle}
                     title="켜 둔 종류에 표시할 곳이 없어요"
-                    description="위에서 다른 종류를 켜 보세요."
+                    description="위에서 다른 종류를 눌러 보세요."
                   />
                 )}
               </div>

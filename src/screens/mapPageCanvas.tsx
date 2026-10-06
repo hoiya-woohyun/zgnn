@@ -29,6 +29,9 @@ const Z_MY_LOCATION = 2000;
  */
 const MY_LOCATION_ZOOM = 14;
 
+/** 저장 모드가 범위를 맞출 때 가장자리 여백(px). 위는 지도 위에 뜬 칩 줄 높이만큼 더 띄운다. */
+const FIT_MARGIN: naver.maps.Margin = { top: 88, right: 40, bottom: 40, left: 40 };
+
 /** 내 위치 점 — 옅은 후광 + 흰 테두리 파란 점. 핀과 같은 이유로 data URI 로 만든다(오프라인). */
 function myLocationIcon(maps: typeof naver.maps): naver.maps.ImageIcon {
   const size = MY_LOCATION_SIZE;
@@ -108,6 +111,12 @@ type TMapPageCanvasProps = {
    * 없으면 섬 전체가 드는 줌으로 연다. 지도를 만든 뒤에 바뀌면 그 자리로 옮긴다.
    */
   focus?: TGeo | null;
+  /**
+   * 값이 바뀔 때마다 `places` 가 다 들어오게 시야를 맞춘다(null 이면 맞추지 않는다). 저장 모드가 쓴다 —
+   * 섬 전체 줌으로 열면 성산 저장 2곳이 390px 화면 오른쪽 밖에 있었다(14 W261006.12). 열쇠로 받는 이유는
+   * **하트를 뺄 때마다 지도가 튀지 않게** 다: 목록이 줄어도 열쇠가 같으면 보던 자리를 둔다.
+   */
+  fitKey?: string | null;
 };
 
 /**
@@ -124,6 +133,7 @@ export function MapPageCanvas({
   eligibilityMap,
   savedIds,
   focus = null,
+  fitKey = null,
 }: TMapPageCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<naver.maps.Map | null>(null);
@@ -370,6 +380,41 @@ export function MapPageCanvas({
       queueMicrotask(() => setStatus('error'));
     }
   }, [focusLat, focusLng, status]);
+
+  /*
+   * `fitKey` 가 바뀌면 `places` 가 다 들어오게 맞춘다. 맞춘 열쇠는 `appliedFitKeyRef` 에 남겨 같은 열쇠로 두 번 옮기지
+   * 않는다(하트를 빼 목록이 줄어도 그대로). 목록이 비어 있으면 맞춘 것으로 치지 않는다 — 저장 목록은 마운트 뒤에
+   * 읽히므로(`skipHydration`) 첫 렌더엔 0곳이고, 그때 열쇠를 써 버리면 정작 저장한 곳이 들어왔을 때 안 맞춘다.
+   * `?place=` 로 한 곳을 가리키며 들어왔으면 그쪽이 더 구체적인 뜻이라 맞추지 않는다.
+   */
+  const appliedFitKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const map = mapRef.current;
+    const maps = window.naver?.maps;
+    if (status !== 'ready' || !map || !maps || !fitKey || focus || places.length === 0) return;
+    if (appliedFitKeyRef.current === fitKey) return;
+    appliedFitKeyRef.current = fitKey;
+    try {
+      if (places.length === 1) {
+        const { lat, lng } = places[0].geo as TGeo;
+        map.morph(new maps.LatLng(lat, lng), PLACE_FOCUS_ZOOM);
+        return;
+      }
+      const lats = places.map((place) => (place.geo as TGeo).lat);
+      const lngs = places.map((place) => (place.geo as TGeo).lng);
+      map.fitBounds(
+        new maps.LatLngBounds(
+          new maps.LatLng(Math.min(...lats), Math.min(...lngs)),
+          new maps.LatLng(Math.max(...lats), Math.max(...lngs)),
+        ),
+        FIT_MARGIN,
+      );
+      // 저장한 곳이 한 동네에 모여 있으면 fitBounds 가 골목까지 확대한다 — 한 곳을 가리킬 때의 줌에서 멈춘다.
+      if (map.getZoom() > PLACE_FOCUS_ZOOM) map.setZoom(PLACE_FOCUS_ZOOM);
+    } catch {
+      queueMicrotask(() => setStatus('error'));
+    }
+  }, [fitKey, focus, places, status]);
 
   /*
    * 내 위치로 옮기고 점을 찍는다. 옮기는 것은 누를 때 한 번뿐이다 — 따라다니지 않으므로(ADR-008 v13·v14)
