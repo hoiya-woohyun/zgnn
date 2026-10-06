@@ -106,6 +106,10 @@ export const placesOfType = (type: TPlaceType) => PLACES.filter((place) => place
 export const selectSavedPlaces = (savedIds: string[]): TPlaceEntry[] =>
   PLACES.filter((place) => savedIds.includes(place.id));
 
+/** 저장해 뒀지만 지금 데이터에 없는(운영자가 내린) 곳의 수 — 저장소에는 남아 있다(12 U2.3). */
+export const countUnlistedSaved = (savedIds: readonly string[]): number =>
+  savedIds.filter((id) => !PLACES_BY_ID.has(id)).length;
+
 export const countByType: Record<TPlaceType, number> = {
   stay: placesOfType('stay').length,
   restaurant: placesOfType('restaurant').length,

@@ -159,13 +159,41 @@ describe('저장 메모(savedNotes)', () => {
       }),
     );
     const { useAppStore } = await rehydrateFresh();
-    expect(useAppStore.getState().savedNotes).toEqual({ [a.id]: '전화함' });
+    expect(useAppStore.getState().savedNotes).toEqual({ [a.id]: '전화함', gone: '없는 곳' });
 
     useAppStore.getState().setSavedNote(b.id, '저장 안 했으면 안 붙는다');
     expect(useAppStore.getState().savedNotes[b.id]).toBeUndefined();
 
     useAppStore.getState().toggleSaved(a.id);
-    expect(useAppStore.getState().savedNotes).toEqual({});
+    expect(useAppStore.getState().savedNotes).toEqual({ gone: '없는 곳' });
+  });
+});
+
+describe('내린 장소의 저장(12 U2.3)', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('데이터에 없는 id 는 읽기·쓰기 뒤에도 저장소에 남고 개수에는 안 센다', async () => {
+    const { PLACES } = await import('../lib/places');
+    const [a, b] = PLACES;
+    const map = installLocalStorage();
+    map.set(
+      STORAGE_NAME,
+      JSON.stringify({ state: { savedIds: [a.id, 'archived-1'], savedNotes: { 'archived-1': '되살면 다시' } }, version: 0 }),
+    );
+    const { useAppStore } = await rehydrateFresh();
+
+    useAppStore.getState().toggleSaved(b.id);
+    const written = JSON.parse(map.get(STORAGE_NAME) ?? '{}').state;
+    expect(written.savedIds).toEqual([a.id, 'archived-1', b.id]);
+    expect(written.savedNotes).toEqual({ 'archived-1': '되살면 다시' });
+
+    const { countUnlistedSaved, selectSavedPlaces } = await import('../lib/places');
+    expect(countUnlistedSaved(useAppStore.getState().savedIds)).toBe(1);
+    expect(selectSavedPlaces(useAppStore.getState().savedIds).map((place) => place.id)).toEqual(
+      PLACES.filter((place) => place.id === a.id || place.id === b.id).map((place) => place.id),
+    );
   });
 });
 

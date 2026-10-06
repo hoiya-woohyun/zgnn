@@ -16,7 +16,7 @@ export function cleanSavedNote(value: string): string | null {
 }
 
 /**
- * 저장소에서 읽은 메모를 믿지 않는다 — 저장한 곳(`savedIds`)에 없는 id 의 메모는 버리고(하트를 지웠거나 장소가 데이터에서 빠졌다),
+ * 저장소에서 읽은 메모를 믿지 않는다 — 저장한 곳(`savedIds`)에 없는 id 의 메모는 버리고(하트를 지웠다 — 내린 곳의 하트는 남는다),
  * 문자열이 아니거나 비면 버리고, 길면 자른다.
  */
 export function sanitizeSavedNotes(value: unknown, savedIds: readonly string[]): Record<string, string> {

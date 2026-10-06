@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { sanitizeDog } from '../lib/dogProfile';
-import { ALL_TOWNS, PLACES_BY_ID, selectSavedPlaces } from '../lib/places';
+import { ALL_TOWNS, countUnlistedSaved, selectSavedPlaces } from '../lib/places';
 import { sanitizeSavedNotes, withSavedNote } from '../lib/savedNotes';
 import type { TDogProfile } from '../types';
 
@@ -149,8 +149,9 @@ export const useAppStore = create<TAppState>()(
         markHydrationSettled();
       },
       /**
-       * 저장해 둔 장소가 데이터에서 빠지면 그 id 는 localStorage 에 그대로 남는다.
-       * 불러오는 시점에 한 번 걸러내지 않으면 화면마다 다른 숫자가 나온다.
+       * 저장해 둔 장소가 데이터에서 빠져도(운영자가 내렸다) **id 와 메모를 지우지 않는다**(12 U2.3).
+       * 내린 곳은 되살릴 수 있어서(ADR-018 결정 6~8), 여기서 거르면 다음 아무 set 에 걸러진 목록이
+       * 덮어써져 되살려도 하트가 안 돌아온다. 거르는 것은 보여 줄 때 한 곳 — `useSavedPlaces` 다.
        *
        * **칸마다 모양을 검사한다**(12 U0.1). `...persisted` 로 펼친 값을 그대로 믿으면 깨진 한 칸
        * (`checkedItemIds: "x"`)이 `.includes` 에서 터져 앱 전체가 에러 화면이 된다 — JSON 은 멀쩡해서
@@ -158,14 +159,13 @@ export const useAppStore = create<TAppState>()(
        */
       merge: (persistedState, currentState) => {
         const persisted = (persistedState ?? {}) as Partial<Record<keyof TAppState, unknown>>;
-        const exists = (id: string) => PLACES_BY_ID.has(id);
-        const savedIds = stringList(persisted.savedIds).filter(exists);
+        const savedIds = stringList(persisted.savedIds);
         return {
           ...currentState,
           savedIds,
           checkedItemIds: stringList(persisted.checkedItemIds),
           season: seasonOf(persisted.season),
-          // 저장 목록에서 빠진 id 의 메모는 버린다(그 장소가 데이터에서 빠졌다) — 남겨 두면 다시 저장했을 때 옛 메모가 되살아난다.
+          // 하트가 없는 id 의 메모는 버린다 — 남겨 두면 다시 저장했을 때 옛 메모가 되살아난다. 내린 곳의 하트는 남으므로 메모도 남는다.
           savedNotes: sanitizeSavedNotes(persisted.savedNotes, savedIds),
           // 옛 모양(`{ name, weightsKg }`)은 여기서 올려 변환된다 — lib/dogProfile.ts 참고.
           dog: sanitizeDog(persisted.dog),
@@ -185,7 +185,7 @@ export const useIsSaved = (id: string) => useAppStore((state) => state.savedIds.
 /** 저장한 곳의 한 줄 메모. 없으면 undefined. */
 export const useSavedNote = (id: string) => useAppStore((state) => state.savedNotes[id]);
 
-/** 저장한 장소. 존재하지 않는 id 는 빠진다. */
+/** 저장한 장소. 데이터에 없는 id(내린 곳)는 저장소에 남아 있어도 여기서 빠진다. */
 export const useSavedPlaces = () => {
   const savedIds = useAppStore((state) => state.savedIds);
   return useMemo(() => selectSavedPlaces(savedIds), [savedIds]);
@@ -193,3 +193,6 @@ export const useSavedPlaces = () => {
 
 /** 홈 카드와 설정 화면의 "저장한 곳" 행이 쓰는 개수. 저장 화면의 목록 길이와 반드시 같다. */
 export const useSavedCount = () => useSavedPlaces().length;
+
+/** 저장해 뒀지만 지금 안내하지 않는 곳의 수. 되살아나면 목록으로 돌아온다. */
+export const useUnlistedSavedCount = () => useAppStore((state) => countUnlistedSaved(state.savedIds));

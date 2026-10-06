@@ -1,6 +1,7 @@
 # 라우팅 · 화면 셸 · 클라이언트 상태
 
-> 최종 수정: 2026-10-02 (v32: 저장 해제·프로필 삭제에 **되돌리기** — 셸 토스트가 콜백 액션을 받는다(`showAppStatus` 의 `action`), 스토어 `restoreSaved`(12 U2.1·U2.2). 저장소를 못 여는 브라우저는 `persist` API 가 없다 — `StoreHydration` 이 가드(12 U0.1))
+> 최종 수정: 2026-10-06 (v33: 데이터에 없는 저장 id 를 **지우지 않는다** — 운영자가 내린 곳은 되살릴 수 있어서, `merge` 가 거르면 다음 쓰기에 사라져 되살려도 하트·메모가 안 돌아온다. 거르는 것은 보여 줄 때(`useSavedPlaces`) 한 곳, 저장 화면에 "더 이상 안내하지 않는 곳 N곳" 한 줄. 10 F5 의 "없는 id 는 메모까지 버린다" 를 뒤집는다(12 U2.3))
+> 이전 2026-10-02 (v32: 저장 해제·프로필 삭제에 **되돌리기** — 셸 토스트가 콜백 액션을 받는다(`showAppStatus` 의 `action`), 스토어 `restoreSaved`(12 U2.1·U2.2). 저장소를 못 여는 브라우저는 `persist` API 가 없다 — `StoreHydration` 이 가드(12 U0.1))
 > 이전 2026-10-01 (v31: 둘러보기 정렬에 **가까운 순**(모든 종류) — 고르는 순간 위치를 한 번 받고 화면 state 에만 둔다(저장·전송 없음), 거절이면 정렬을 안 바꾸고 이유 한 줄. 좌표 없는 곳은 뒤로, 카드에 거리. 가격 둘은 숙소만(10 F7))
 > 이전 2026-10-01 (v30: 퍼시스트 필드 `savedNotes`(저장한 곳의 한 줄 메모, ≤80자) — 하트를 지우면 같이 지워지고, 읽을 때 저장 목록에 없는 id 의 메모를 버린다(10 F5). 공유에는 싣지 않는다. 제보 하루 한도는 스토어가 아니라 따로(`zgnn-reports`))
 > 이전 2026-09-30 (v29: 상세의 누르는 것(저장·공유·네이버 지도·사진·후기)을 **제목 밑 액션 줄 하나**(`placeDetailActions.tsx`)로 모았다 — 세 군데에 세 모양으로 흩어져 있었다. 공유 로직도 거기로 옮겼다. 전화는 번호 데이터가 없어 아직 없다)
@@ -452,7 +453,7 @@ Untitled UI 의 `Button href` / `Link` 는 react-aria 라 기본은 전체 새�
 | 필드 | 무엇 | 소비처 |
 |---|---|---|
 | `savedIds` | 저장한 장소 id | 저장 화면(`/saved`, 설정 안), 하트, 홈 카드·설정의 "저장한 곳 N곳" 개수, 지도 `?saved=1`, **준비물의 숙소 구비 용품**(`checklistView` — 저장한 숙소에 있는 물건을 준비된 것으로 센다. 목록을 좁히지는 않는다, ADR-009 v3) |
-| `savedNotes` | 저장한 곳의 한 줄 메모(id → ≤80자) | 저장 화면 카드 밑(`savedPageNote.tsx`). **하트를 지우면 같이 지워진다**(`toggleSaved`) — 남기면 다시 저장했을 때 옛 메모가 되살아난다. 단 **저장 화면에서** 끄면 셸 토스트의 되돌리기(`restoreSaved`)가 자리와 메모를 함께 돌린다 — 그 6초 동안만 클로저가 메모를 붙잡는다(12 U2.2). 읽을 때(`merge`) 저장 목록에 없는 id 는 버린다(`sanitizeSavedNotes`). 공유 링크(07 P1)에는 **싣지 않는다** — 사적인 메모다(10 F5) |
+| `savedNotes` | 저장한 곳의 한 줄 메모(id → ≤80자) | 저장 화면 카드 밑(`savedPageNote.tsx`). **하트를 지우면 같이 지워진다**(`toggleSaved`) — 남기면 다시 저장했을 때 옛 메모가 되살아난다. 단 **저장 화면에서** 끄면 셸 토스트의 되돌리기(`restoreSaved`)가 자리와 메모를 함께 돌린다 — 그 6초 동안만 클로저가 메모를 붙잡는다(12 U2.2). 읽을 때(`merge`) 저장 목록에 없는 id 는 버린다(`sanitizeSavedNotes`) — 내린 장소의 id 는 저장 목록에 남으므로 그 메모도 남는다(12 U2.3). 공유 링크(07 P1)에는 **싣지 않는다** — 사적인 메모다(10 F5) |
 | `checkedItemIds` | 챙긴 준비물 id | 준비물, 홈 진행률, 장소의 `PlaceItemsNote`(거기서 바로 체크도 한다) |
 | `season` | `null`(사계절) / 여름 / 겨울 | 준비물 필터, 홈 계절 칩(`SeasonChips` 공용 — 홈에서는 고르기만 하고 이동하지 않는다. "준비물 N가지" 링크의 숫자가 바뀌는 것이 피드백) |
 | `dog` | 우리 강아지 프로필(`TDogProfile \| null`, 마리별 `dogs[]`) | `/dog` 프로필 폼, 설정의 "우리 강아지" 카드, 판정(`useEligibility`/`useEligibilityMap`, `src/store/useDogEligibility.ts`). 목록·홈·지도·근처 장소(`placeCard.tsx`, `placesPage.tsx`, `homePage.tsx`, `mapPage.tsx`, `mapPageSheet.tsx`, `placeDetailNearby.tsx`)는 이 값이 `null` 이면 판정 관련 UI 를 아예 그리지 않는다(v0 화면 유지) |
@@ -468,7 +469,7 @@ Untitled UI 의 `Button href` / `Link` 는 react-aria 라 기본은 전체 새�
   `onRehydrateStorage` 에서 지운다 — 남겨 두면 다음 로드에서도 같은 자리에서 또 실패한다.
   이 훅이 필요한 곳은 **없는 것을 근거로 말을 거는 화면**뿐이다(등록 폼·"아직 안 챙겼어요").
   "0 에서 실제 값으로 채워지는" 것은 첫 프레임이 틀려도 해가 없어 그냥 그리면 된다.
-- **정합성**: `merge` 에서 데이터에 더 이상 없는 id 를 걸러낸다. Notion 자료가 바뀌어 장소가 사라져도 저장 목록이 깨지지 않는다. `town` 도 같은 이유로 `ALL_TOWNS`(`lib/places.ts`)에 없는 값이면 `null` 로 되돌린다.
+- **정합성**: 데이터에 더 이상 없는 저장 id 는 **저장소에서 지우지 않고 보여 줄 때 거른다**(`useSavedPlaces` → `selectSavedPlaces`, 개수 `useSavedCount` 도 같은 길). 장소가 빠지는 길은 운영자의 내리기(`archived`)이고 되살리기가 있다 — `merge` 에서 거르면 걸러진 목록이 다음 아무 쓰기에 localStorage 를 덮어써, 되살려도 하트와 메모가 돌아오지 않는다. 빠진 수는 저장 화면에 한 줄(`useUnlistedSavedCount`)로만 말한다(12 U2.3). `town` 도 같은 이유로 `ALL_TOWNS`(`lib/places.ts`)에 없는 값이면 `null` 로 되돌린다.
 - v1 의 강아지 프로필도 이 스토어에 필드로 들어간다(→ [features/dog-profile.md](../features/dog-profile.md)). 서버가 없으니 다른 선택지가 없다.
 
 ## 순수 로직은 `src/lib/`

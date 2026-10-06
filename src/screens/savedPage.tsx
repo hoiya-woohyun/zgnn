@@ -7,11 +7,12 @@ import { EmptyState } from '../components/layout/emptyState';
 import { PlaceCard } from '../components/placeCard';
 import { PLACE_TYPE_ICON } from '../components/icons/placeTypeIcon';
 import { PLACE_TYPES, TYPE_COLOR, TYPE_META, typeTint } from '../lib/places';
-import { useSavedPlaces } from '../store/useAppStore';
+import { useSavedPlaces, useUnlistedSavedCount } from '../store/useAppStore';
 import { SavedPageNote } from './savedPageNote';
 
 export function SavedPage() {
   const saved = useSavedPlaces();
+  const unlisted = useUnlistedSavedCount();
 
   return (
     <div>
@@ -19,6 +20,13 @@ export function SavedPage() {
         title="저장한 곳"
         description={saved.length > 0 ? `${saved.length}곳을 모아뒀어요` : '아직 저장한 곳이 없어요'}
       />
+
+      {/* 운영자가 내린 곳은 하트를 지우지 않고 감춘다 — 되살리면 메모와 함께 돌아온다(12 U2.3). */}
+      {unlisted > 0 && (
+        <p className="px-4 pt-3 text-sm text-tertiary md:px-6">
+          더 이상 안내하지 않는 곳 {unlisted}곳은 빼고 보여 드려요.
+        </p>
+      )}
 
       {saved.length === 0 ? (
         <div className="px-4 pt-6 md:px-6">
