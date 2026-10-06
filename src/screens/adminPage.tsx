@@ -1,6 +1,7 @@
 'use client';
 
 import { CheckDone01, SearchLg } from '@untitledui/icons';
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { Button } from '../components/base/button';
@@ -1499,6 +1500,10 @@ export function AdminPage() {
         description={TAB_HEADER[tab].description}
         actions={
           <div className="flex items-center gap-2">
+            {/* 운영 현황(`/admin/ops`, todo/15 T4.1) — 운영자는 `/admin` 은 매번 열지만 거기는 그렇지 않다. 같은 세션이라 다시 로그인하지 않는다. */}
+            <Link href="/admin/ops/" className="mr-1 text-sm font-semibold whitespace-nowrap text-brand-secondary hover:text-brand-secondary_hover">
+              운영 현황 →
+            </Link>
             {/*
               * `?` 는 **누르면 열린다**(2026-10-06, todo/13 T4.5) — `title` 툴팁만이던 동안 폰·태블릿에서는 볼 길이 없었다.
               * 레포에 이미 쓰는 `<details>`(비교표의 '어떻게 읽었는지 보기')로 연다 — 팝오버 부품을 들이지 않는다. 마우스에는 `title` 도 남긴다.
