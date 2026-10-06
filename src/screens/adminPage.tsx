@@ -72,6 +72,8 @@ import {
 import { adminFlagView, POLICY_STATE_WORD, TYPE_MISMATCH_FLAG, typeMismatchFlags } from '../lib/adminPreview';
 import { UNREAD_BADGE_LABEL } from '../lib/petPolicy';
 import { verifyListedOnly, verifyNeedsLook } from '../lib/adminVerify';
+import { fetchOpsOverview } from '../lib/adminOps';
+import { adminBandStage, stageHealth, type TStageHealth } from '../lib/adminOpsHealth';
 import { fetchRebuildStatus, rebuildHeadline, type TRebuildHeadline } from '../lib/adminRebuild';
 import {
   allSelected as allKeysSelected,
@@ -371,6 +373,11 @@ export function AdminPage() {
    * 못 읽었으면 `refreshRebuild` 가 `tone: 'none'` 문장으로 채운다 — 못 읽은 것을 "안 불렸다" 로 말하면 멀쩡한 시스템을 고장으로 신고하게 만든다.
    */
   const [rebuild, setRebuild] = useState<TRebuildHeadline | undefined>(undefined);
+  /**
+   * 운영 현황의 다섯 칸(todo/15 T4.2) — 경고 띠에 "수집이 9일째 없어요 · 운영 현황 →" 한 줄을 더하려고 받는다.
+   * 못 읽었으면 null 이고 **아무 말도 하지 않는다** — 이 줄은 덤이라, 못 읽은 것을 말하면 검수 화면이 남의 고장으로 시끄러워진다.
+   */
+  const [opsStages, setOpsStages] = useState<TStageHealth[] | null>(null);
 
   const clientRef = useRef<SupabaseClient | null>(null);
   /*
@@ -456,6 +463,18 @@ export function AdminPage() {
     applyReports(await fetchReports(client));
   }, [applyReports]);
 
+  /**
+   * 운영 현황 집계(7일)를 받아 다섯 칸으로 — **fire-and-forget**. `start` 의 `Promise.all` 에 넣지 않는다: 이 rpc 가 느리거나 없다고
+   * (마이그레이션 미적용) 검수를 못 하게 만들면 안 된다(todo/15 「위험」 — `/admin` 이 느려진다). 실패는 조용히.
+   */
+  const loadOpsStages = useCallback(async (client: SupabaseClient) => {
+    try {
+      setOpsStages(stageHealth(await fetchOpsOverview(client, 7), Date.now()));
+    } catch {
+      setOpsStages(null);
+    }
+  }, []);
+
   const start = useCallback(async (next: TAdminSession) => {
     setFatal(null);
     setManaged(null);
@@ -471,6 +490,7 @@ export function AdminPage() {
     applyReports(undefined);
     setStranded(undefined);
     setRebuild(undefined);
+    setOpsStages(null);
     setPhase('verifying');
     const client = createAdminClient(next.accessToken);
     clientRef.current = client;
@@ -500,6 +520,7 @@ export function AdminPage() {
     void loadCounts(client);
     // 재빌드 줄은 끊긴 반영 수를 기다리지 않는다 — 머리글 자리는 미리 잡혀 있지만(T4.1), 경고 띠는 늦을수록 탭 줄을 늦게 민다.
     void refreshRebuild(client);
+    void loadOpsStages(client);
 
     /*
      * 끊긴 반영(`approved`)은 목록에 안 나오므로 수만 따로 센다.
@@ -510,7 +531,7 @@ export function AdminPage() {
     } catch {
       setStranded(undefined);
     }
-  }, [applyReports, loadCounts, loadManaged, refreshRebuild]);
+  }, [applyReports, loadCounts, loadManaged, loadOpsStages, refreshRebuild]);
 
   /** 미분석 글의 집계·다음 30건 — 실패는 수집 완료 칸에서만 말한다(검수는 막지 않는다). */
   const loadBacklog = useCallback(async (client: SupabaseClient, excludedApplied: boolean) => {
@@ -1487,6 +1508,8 @@ export function AdminPage() {
 
   const reportLine = reports?.kind === 'ok' ? reportHeadline(reports.rows, new Date()) : undefined;
 
+  const opsBand = opsStages ? adminBandStage(opsStages, { rebuildWarn: rebuild?.tone === 'warn', strandedShown: Boolean(stranded) }) : null;
+
   const expiry = new Date(session.expiresAt * 1000).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' });
 
   return (
@@ -1572,6 +1595,25 @@ export function AdminPage() {
       {rebuild?.tone === 'warn' ? (
         <p role="alert" className="mt-3 bg-warning-primary px-4 py-2 text-xs font-semibold text-warning-primary md:px-6">
           {rebuild.text}
+        </p>
+      ) : null}
+      {/*
+        * 운영 현황의 가장 심한 칸 하나(todo/15 T4.2). 재빌드 줄이 이미 있으면 그 줄이 먼저고, 이 줄은 **검수 화면이 아직 말하지 않은 것**만이다
+        * (`adminBandStage` — 재빌드 경고·끊긴 반영은 위의 줄들이 말한다). 실패는 빨강, 주의는 재빌드 띠와 같은 노랑.
+        */}
+      {opsBand ? (
+        <p
+          role="alert"
+          className={cx(
+            'px-4 py-2 text-xs font-semibold md:px-6',
+            rebuild?.tone === 'warn' ? 'mt-px' : 'mt-3',
+            opsBand.state === 'fail' ? 'bg-error-primary text-error-primary' : 'bg-warning-primary text-warning-primary',
+          )}
+        >
+          {opsBand.reason} ·{' '}
+          <Link href="/admin/ops/" className="underline underline-offset-2">
+            운영 현황 →
+          </Link>
         </p>
       ) : null}
       <div className="mt-3 flex gap-5 overflow-x-auto border-b border-secondary px-4 md:px-6" role="tablist" aria-label="검수 칸">

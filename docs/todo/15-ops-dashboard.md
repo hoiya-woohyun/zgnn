@@ -101,7 +101,8 @@ T7 pg_cron(보류) 은 T2 로 한 달쯤 쌓인 뒤
 
 - [x] **T4.1 머리글 링크** — `adminPage.tsx` 머리글 오른쪽 `운영 현황 →`(`Link`, 텍스트).
   ✅ 2026-10-06 `?`·로그아웃 앞에 `운영 현황 →`(`next/link`, 브랜드 글자색). 같은 세션이라 다시 로그인하지 않는다.
-- [ ] **T4.2 경고 띠 한 줄** — `/admin` 의 `start()` 가 fire-and-forget 으로 `ops_overview(7)` 를 받아 `stageHealth` 의 `warn|fail` 중 가장 심한 하나를 기존 경고 띠에 "… · 운영 현황 →" 로 더한다. 재빌드 warn 과 겹치면 재빌드가 먼저(이미 있는 줄). 실패해도 `/admin` 은 그대로(try/catch, 조용히).
+- [x] **T4.2 경고 띠 한 줄** — `/admin` 의 `start()` 가 fire-and-forget 으로 `ops_overview(7)` 를 받아 `stageHealth` 의 `warn|fail` 중 가장 심한 하나를 기존 경고 띠에 "… · 운영 현황 →" 로 더한다. 재빌드 warn 과 겹치면 재빌드가 먼저(이미 있는 줄). 실패해도 `/admin` 은 그대로(try/catch, 조용히).
+  ✅ 2026-10-06 `adminOpsHealth.adminBandStage`(+테스트 2) — `worstStage` 와 같되 `/admin` 이 이미 말하는 칸을 뺀다(재빌드 경고 띠가 있으면 재빌드 칸, 머리글의 끊긴 반영 줄이 있으면 반영 칸의 **주의** — 반영 실패는 남긴다). 그래서 재빌드 줄과 겹치면 재빌드 줄이 먼저, 이 줄은 그다음 것을 말한다. `start()` 에서 fire-and-forget, 실패는 조용히(null). Playwright 로 응답을 꽂아 실측.
   수용 기준: `pipeline_runs` 가 비어 있으면 띠에 아무것도 더해지지 않는다(`none` 은 띠 대상이 아니다 — 첫날부터 노랗게 보이면 안 된다).
 
 ### T5. Slack — DB 가 보낸다

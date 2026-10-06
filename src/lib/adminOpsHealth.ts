@@ -259,3 +259,20 @@ export const STAGE_SCRIPTS: Record<TStageKey, readonly TRunScript[] | null> = {
   apply: ['apply'],
   rebuild: null,
 };
+
+/**
+ * `/admin` 의 경고 띠에 더할 한 줄(todo/15 T4.2) — `worstStage` 와 같되 **`/admin` 이 이미 말하는 칸은 뺀다.**
+ * 재빌드 경고는 같은 띠의 첫 줄(`rebuildHeadline`)이 먼저 말하고, 끊긴 반영(반영 칸의 주의)은 머리글의 "반영이 끊긴 후보 N건" 줄이 말한다 —
+ * 같은 사실을 두 줄로 말하면 띠가 두 배로 시끄러워지고 둘 중 무엇을 고쳐야 하는지 흐려진다. 뺀 뒤 남은 것 중 가장 심한 하나.
+ */
+export function adminBandStage(
+  stages: readonly TStageHealth[],
+  shown: { rebuildWarn: boolean; strandedShown: boolean },
+): TStageHealth | null {
+  return worstStage(
+    stages.filter(
+      (stage) =>
+        !(stage.key === 'rebuild' && shown.rebuildWarn) && !(stage.key === 'apply' && stage.state === 'warn' && shown.strandedShown),
+    ),
+  );
+}

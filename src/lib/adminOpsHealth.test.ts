@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TOpsOverview, TOpsRebuildEntry, TPipelineRun } from './adminOps';
-import { runState, stageHealth, stalledBefore, worstStage } from './adminOpsHealth';
+import { adminBandStage, runState, stageHealth, stalledBefore, worstStage } from './adminOpsHealth';
 
 const NOW = Date.parse('2026-10-06T12:00:00.000Z');
 const ago = (ms: number) => new Date(NOW - ms).toISOString();
@@ -158,5 +158,28 @@ describe('worstStage — 띠에는 가장 심한 하나', () => {
     );
     expect(worstStage(stages)?.key).toBe('rebuild');
     expect(worstStage(stages.filter((s) => s.key !== 'rebuild'))?.key).toBe('review');
+  });
+});
+
+describe('adminBandStage — /admin 띠에는 /admin 이 아직 말하지 않은 것만', () => {
+  const stages = stageHealth(
+    overview({
+      pending: { count: 3, oldestCreatedAt: ago(9 * DAY) },
+      stranded: 2,
+      rebuildRecent: [rebuild({ response_status: 404 })],
+    }),
+    NOW,
+  );
+
+  it('재빌드가 이미 띠에 있으면 그다음으로 심한 것', () => {
+    expect(adminBandStage(stages, { rebuildWarn: false, strandedShown: false })?.key).toBe('rebuild');
+    expect(adminBandStage(stages, { rebuildWarn: true, strandedShown: false })?.key).toBe('review');
+  });
+
+  it('끊긴 반영 줄이 머리글에 있으면 반영 칸의 주의는 빼지만, 반영 실패는 빼지 않는다', () => {
+    const onlyApply = stages.filter((s) => s.key === 'apply');
+    expect(adminBandStage(onlyApply, { rebuildWarn: true, strandedShown: true })).toBeNull();
+    const failed = stageHealth(overview({ runsLatest: { apply: run({ script: 'apply', status: 'failed' }) }, stranded: 2 }), NOW);
+    expect(adminBandStage(failed, { rebuildWarn: false, strandedShown: true })?.key).toBe('apply');
   });
 });
