@@ -60,6 +60,7 @@ P3  여행 단위(날짜·동선) · 데스크톱 2열
 ## P1 — 다음
 
 - [ ] **카톡 공유 미리보기** — 루트·상세에 OG 이미지(종류 색 + 아이콘 + 이름, 빌드 때 정적 생성 — 사진 없음 원칙 ADR-002 와 맞다), `sitemap.xml`·`robots.txt`(`/admin` 은 disallow).
+  > 메모(2026-10-07): **뒤 절반(robots·sitemap)만 했다**, OG 이미지는 남았다. `app/robots.ts`·`app/sitemap.ts`(force-static) → `out/robots.txt`·`out/sitemap.xml`. 도메인은 코드에 없어 문서(ADR-008 배포 줄)의 `https://zgnn.vercel.app` 을 `lib/siteIndex.ts` 한 곳에 뒀다. sitemap 은 누구에게나 같은 화면만 — 홈·종류 셋·지도·준비물·장소 84곳(90줄), `/saved`·`/dog`·`/settings`(내 기기 저장값)·`/places`(빈 리다이렉트)·`/admin` 은 뺐다. `lastModified` 는 안 적는다(믿을 수정 시각이 없다). 메타 `noindex` 는 그대로 함께 둔다
 - [ ] **저장 목록 공유 링크** — `/saved?ids=…` 같은 정적 주소로 "같이 가는 사람에게 보내기". 받는 쪽은 읽기 전용 보기 + "내 저장에 담기". 서버 없이 된다.
 - [ ] **홈 첫 화면 재배치** (U2) — 인사말은 첫 방문에만 펼치고 이후 접기(또는 설정·하단으로). 프로필이 있으면 히어로 아래에
       "보리와 콩이 갈 수 있는 곳 숙소 7 · 식당 6 · 카페 26" 한 줄, 없으면 등록 CTA 를 브랜드 면으로 올린다.

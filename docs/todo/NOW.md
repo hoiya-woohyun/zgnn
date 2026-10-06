@@ -18,7 +18,6 @@
 
 ## 지금 (위에서부터)
 
-- [ ] `robots.txt`(`/admin` disallow) · `sitemap.xml` 만 먼저 — [07 P1 앞 절반](07-product-and-ux.md) · 왜 지금: `/admin` 이 크롤러에 열려 있다, 정적 파일 둘. 사이트 도메인을 코드에서 못 찾으면 🙋 로
 - [ ] 검수 카드 주소 불일치(`different`)의 다른 토큰만 `<mark>` — [06 G](06-admin-review.md) · 왜 지금: 동명의 다른 가게를 운영자가 놓치지 않게, 칠할 범위는 `src/lib/` 순수 함수
 - [ ] 보정이 뺀 AI 판단이 원문의 어느 단어와 대조됐는지 칠하기 — [06 G](06-admin-review.md) · 왜 지금: 위 줄의 칠하기 함수를 그대로 쓴다(위 줄 뒤에)
 - [ ] 낡은 명세 닫기 — [07 U7](07-product-and-ux.md)(지도 "어려운 곳 숨기기" — `mapPage.tsx` 가 일부러 뺐다고 적었다) · [14 C2610.1](14-weekly-ux-eval.md)(목록 카드 조건 칩 — `petBadges.tsx` 에 이미 있는지 확인) · 왜 지금: 대기열 후보를 고를 때마다 걸린다
