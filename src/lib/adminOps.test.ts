@@ -1,6 +1,17 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
-import { fetchOpsOverview, fetchRun, fetchRuns, mergeRuns, RUN_COLUMNS, runSummaryLine, type TPipelineRun } from './adminOps';
+import {
+  fetchOpsOverview,
+  fetchRun,
+  fetchRuns,
+  flattenStats,
+  mergeRuns,
+  RUN_COLUMNS,
+  runAlertLabel,
+  runDurationLabel,
+  runSummaryLine,
+  type TPipelineRun,
+} from './adminOps';
 import { formatAnalyzeSummary, formatUsageSummary } from './runSummary';
 
 /** 쿼리 빌더가 받은 호출을 순서대로 적는다. 마지막(`limit`·`maybeSingle`)이 결과를 돌려준다. */
@@ -152,5 +163,39 @@ describe('mergeRuns — 새로고침이 더 불러온 장을 날리지 않는다
       ['b', 'ok'],
       ['a', 'ok'],
     ]);
+  });
+});
+
+describe('runDurationLabel', () => {
+  const at = (iso: string) => Date.parse(iso);
+  it('끝난 실행은 걸린 시간, 안 끝났으면 N분째', () => {
+    expect(runDurationLabel({ started_at: '2026-10-06T00:00:00Z', ended_at: '2026-10-06T00:00:42Z' }, 0)).toBe('42초');
+    expect(runDurationLabel({ started_at: '2026-10-06T00:00:00Z', ended_at: '2026-10-06T00:41:20Z' }, 0)).toBe('41분');
+    expect(runDurationLabel({ started_at: '2026-10-06T00:00:00Z', ended_at: '2026-10-06T01:05:00Z' }, 0)).toBe('1시간 5분');
+    expect(runDurationLabel({ started_at: '2026-10-06T00:00:00Z', ended_at: null }, at('2026-10-06T00:03:00Z'))).toBe('3분째');
+  });
+});
+
+describe('flattenStats', () => {
+  it('중첩은 점으로, 손으로 고친 문자열도 숨기지 않는다', () => {
+    expect(flattenStats({ analyzed: 1200, verify: { checked: 3, failed: '2' }, meters: {} , note: null })).toEqual([
+      ['analyzed', '1,200'],
+      ['verify.checked', '3'],
+      ['verify.failed', '"2"'],
+      ['meters', '{}'],
+      ['note', '—'],
+    ]);
+    expect(flattenStats(null)).toEqual([]);
+  });
+});
+
+describe('runAlertLabel', () => {
+  it('없음·꺼 둠은 —, 보냈으면 Slack, 오류·비2xx 는 Slack 실패', () => {
+    expect(runAlertLabel(null)).toBe('—');
+    expect(runAlertLabel({ state: 'missing' })).toBe('—');
+    expect(runAlertLabel({ state: 'sent', requestId: 1 })).toBe('Slack');
+    expect(runAlertLabel({ state: 'sent', requestId: 1, responseStatus: 200 })).toBe('Slack');
+    expect(runAlertLabel({ state: 'sent', requestId: 1, responseStatus: 404 })).toBe('Slack 실패');
+    expect(runAlertLabel({ state: 'error', note: 'x' })).toBe('Slack 실패');
   });
 });

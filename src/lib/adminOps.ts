@@ -202,3 +202,43 @@ export function runSummaryLine(run: Pick<TPipelineRun, 'script' | 'stats'>): str
   }
   return /NaN|undefined/.test(line) ? null : line;
 }
+
+/**
+ * 소요 열 — 끝났으면 `ended_at − started_at`, 아직 안 끝났으면 "N분째"(지금까지). 분석은 보통 수십 분이라 초는 1분 안쪽에서만 쓴다.
+ * 콘솔의 `formatElapsed`(12.4초 · 2분 3초)와 다르다 — 그쪽은 한 번 찍고 끝나는 줄이고, 여기는 열을 세로로 훑는 칸이다.
+ */
+export function runDurationLabel(run: Pick<TPipelineRun, 'started_at' | 'ended_at'>, nowMs: number): string {
+  const start = Date.parse(run.started_at);
+  const end = run.ended_at ? Date.parse(run.ended_at) : nowMs;
+  if (Number.isNaN(start) || Number.isNaN(end)) return '';
+  const seconds = Math.max(0, Math.round((end - start) / 1000));
+  const minutes = Math.floor(seconds / 60);
+  const text =
+    seconds < 60 ? `${seconds}초` : minutes < 60 ? `${minutes}분` : `${Math.floor(minutes / 60)}시간 ${minutes % 60}분`;
+  return run.ended_at ? text : `${text}째`;
+}
+
+/**
+ * 펼친 줄의 stats 키-값 — 중첩(`verify.checked`·`meters.extract.input`)을 점으로 편다. 배열·문자열도 그대로 보여 준다
+ * (손으로 고친 행을 숨기지 않는다 — 요약 열이 빈 이유가 여기서 보여야 한다). 순수.
+ */
+export function flattenStats(value: unknown, prefix = ''): [string, string][] {
+  if (value === null || value === undefined) return prefix ? [[prefix, '—']] : [];
+  if (typeof value !== 'object' || Array.isArray(value)) {
+    return [[prefix, typeof value === 'number' ? value.toLocaleString('ko-KR') : JSON.stringify(value) ?? String(value)]];
+  }
+  const entries = Object.entries(value as Record<string, unknown>);
+  if (entries.length === 0) return prefix ? [[prefix, '{}']] : [];
+  return entries.flatMap(([key, inner]) => flattenStats(inner, prefix ? `${prefix}.${key}` : key));
+}
+
+/**
+ * 알림 열 — `—` · `Slack` · `Slack 실패`(features ③). Slack 트리거(T5) 전에는 언제나 `—` 다.
+ * `missing`(웹훅 없음)은 실패가 아니라 꺼 둔 것이라 `—` 로 둔다(펼친 줄에 이유가 있다).
+ */
+export function runAlertLabel(alert: TRunAlert | null): '—' | 'Slack' | 'Slack 실패' {
+  if (!alert || alert.state === 'missing') return '—';
+  if (alert.state === 'error') return 'Slack 실패';
+  const status = alert.responseStatus;
+  return typeof status === 'number' && (status < 200 || status >= 300) ? 'Slack 실패' : 'Slack';
+}

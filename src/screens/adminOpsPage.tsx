@@ -5,13 +5,14 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '../components/base/button';
 import { PageHeader } from '../components/layout/pageHeader';
-import { fetchOpsOverview, fetchRuns, mergeRuns, RUNS_PAGE_SIZE, type TOpsOverview, type TPipelineRun, type TRunsQuery } from '../lib/adminOps';
-import { stageHealth, stalledBefore, worstStage } from '../lib/adminOpsHealth';
+import { fetchOpsOverview, fetchRun, fetchRuns, mergeRuns, RUNS_PAGE_SIZE, type TOpsOverview, type TPipelineRun, type TRunsQuery } from '../lib/adminOps';
+import { STAGE_SCRIPTS, stageHealth, stalledBefore, type TStageKey, worstStage } from '../lib/adminOpsHealth';
 import { rebuildHeadline } from '../lib/adminRebuild';
 import { ADMIN_SESSION_KEY, clearAdminSession, readAdminSession, sessionProblem, type TAdminSession } from '../lib/adminSession';
 import { createAdminClient, isOperator } from '../lib/adminSupabase';
 import { cx } from '../utils/cx';
 import { AdminOpsPageFunnel, type TAdminOpsFunnelDays } from './adminOpsPageFunnel';
+import { AdminOpsPageRunsTable, sameScripts } from './adminOpsPageRunsTable';
 import { AdminOpsPageStageStrip } from './adminOpsPageStageStrip';
 import { AdminPageLogin } from './adminPageLogin';
 
@@ -64,6 +65,12 @@ export function AdminOpsPage() {
   /** 조용한 새로고침이 실패했을 때 — 화면은 옛 수를 그대로 두고 머리글에 한 마디만 한다. */
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [runs, setRuns] = useState<TPipelineRun[]>([]);
+  const [runsDone, setRunsDone] = useState(false);
+  const [runsError, setRunsError] = useState<string | null>(null);
+  const [runFilter, setRunFilter] = useState<TAdminOpsRunFilter>({ scripts: null, failedOnly: false });
+  const [expandedRun, setExpandedRun] = useState<string | null>(null);
+  /** Slack 링크의 `?run=<id>` 로 연 행 — 첫 장에 없을 수 있어 따로 든다. */
+  const [pinnedRun, setPinnedRun] = useState<TPipelineRun | null>(null);
   const [funnelDays, setFunnelDays] = useState<TAdminOpsFunnelDays>(7);
   /** 흐름의 30일 집계 — 흐름 한 묶음만 읽는다. 7일이면 쓰지 않는다(위 `overview` 의 funnel). */
   const [overview30, setOverview30] = useState<TOpsOverview | null>(null);
@@ -76,6 +83,7 @@ export function AdminOpsPage() {
   const refreshingRef = useRef(false);
   /** 걸러 보기를 빠르게 바꿀 때 늦게 온 옛 걸러 보기의 응답이 이기지 않게. */
   const runsSeqRef = useRef(0);
+  const loadingMoreRef = useRef(false);
   const funnelDaysRef = useRef<TAdminOpsFunnelDays>(7);
   /** 7일 ↔ 30일을 빠르게 오갈 때 늦게 온 30일 응답이 이기지 않게. */
   const funnelSeqRef = useRef(0);
@@ -119,8 +127,8 @@ export function AdminOpsPage() {
     [loadOverview30],
   );
 
-  /** 7일 집계 + 지금 걸러 보기의 첫 장을 함께. 첫 장은 이미 든 목록에 합친다(`mergeRuns`). */
-  const refresh = useCallback(async (client: SupabaseClient) => {
+  /** 7일 집계 + 지금 걸러 보기의 첫 장을 함께. 첫 장은 이미 든 목록에 합친다(`mergeRuns`). 받은 첫 장을 돌려준다. */
+  const refresh = useCallback(async (client: SupabaseClient): Promise<TPipelineRun[]> => {
     const filter = filterRef.current;
     const seq = runsSeqRef.current;
     const nowMs = Date.now();
@@ -130,6 +138,7 @@ export function AdminOpsPage() {
     if (seq === runsSeqRef.current) setRuns((current) => mergeRuns(current, firstPage));
     // 30일을 보고 있으면 그것도 새로 — 실패해도 위의 갱신은 남긴다(흐름 한 묶음만 오류를 말한다).
     if (funnelDaysRef.current === 30) void loadOverview30(client);
+    return firstPage;
   }, [loadOverview30]);
 
   const start = useCallback(
@@ -137,6 +146,9 @@ export function AdminOpsPage() {
       setFatal(null);
       setOverview(null);
       setRuns([]);
+      setRunsDone(false);
+      setRunsError(null);
+      setPinnedRun(null);
       setOverview30(null);
       setRefreshError(null);
       setPhase('verifying');
@@ -149,11 +161,27 @@ export function AdminOpsPage() {
           return;
         }
         setPhase('loading');
-        await refresh(client);
+        const firstPage = await refresh(client);
+        setRunsDone(firstPage.length < RUNS_PAGE_SIZE);
         setPhase('ready');
       } catch (error) {
         setFatal(messageOf(error, '운영 현황을 불러오지 못했어요.'));
         setPhase('error');
+        return;
+      }
+      /*
+       * Slack 메시지의 링크(`/admin/ops/?run=<id>`). `useSearchParams` 는 정적 내보내기에서 Suspense 경계를 요구해, 마운트 effect 가
+       * 부르는 여기서 `window.location.search` 를 직접 읽는다(화면은 `ssr: false`). 못 읽으면 그 행만 안 펼쳐지고 화면은 그대로다.
+       */
+      const runId = new URLSearchParams(window.location.search).get('run');
+      if (!runId) return;
+      try {
+        const row = await fetchRun(client, runId);
+        if (!row) return;
+        setPinnedRun(row);
+        setExpandedRun(row.id);
+      } catch (error) {
+        setRunsError(messageOf(error, '링크의 실행 기록을 읽지 못했어요.'));
       }
     },
     [refresh],
@@ -205,6 +233,66 @@ export function AdminOpsPage() {
       document.removeEventListener('visibilitychange', onVisible);
     };
   }, [phase, quietRefresh]);
+
+  /** 걸러 보기가 바뀌면 목록을 비우고 첫 장부터. 순번으로 늦게 온 옛 걸러 보기의 응답을 버린다. */
+  const changeRunFilter = useCallback(async (next: TAdminOpsRunFilter) => {
+    filterRef.current = next;
+    setRunFilter(next);
+    const client = clientRef.current;
+    if (!client) return;
+    const seq = ++runsSeqRef.current;
+    setRuns([]);
+    setRunsDone(false);
+    setRunsError(null);
+    try {
+      const page = await fetchRuns(client, queryOf(next, Date.now()));
+      if (seq !== runsSeqRef.current) return;
+      setRuns(page);
+      setRunsDone(page.length < RUNS_PAGE_SIZE);
+    } catch (error) {
+      if (seq === runsSeqRef.current) {
+        setRunsError(messageOf(error, '실행 기록을 읽지 못했어요.'));
+        setRunsDone(true); // 감시판이 실패한 장을 계속 다시 부르지 않게 — 걸러 보기를 다시 누르면 다시 읽는다
+      }
+    }
+  }, []);
+
+  /**
+   * 다음 장. 무한 스크롤 감시자는 커서·콜백이 바뀔 때마다 다시 걸려 같은 장을 두 번 부를 수 있다 — ref 로 막고, 합칠 때 id 로 한 번 더 거른다.
+   */
+  const loadMoreRuns = useCallback(async () => {
+    const client = clientRef.current;
+    const last = runs.at(-1);
+    if (!client || !last || loadingMoreRef.current || runsDone) return;
+    loadingMoreRef.current = true;
+    const seq = runsSeqRef.current;
+    try {
+      const page = await fetchRuns(client, queryOf(filterRef.current, Date.now(), last.started_at));
+      if (seq !== runsSeqRef.current) return;
+      setRuns((current) => mergeRuns(current, page));
+      if (page.length < RUNS_PAGE_SIZE) setRunsDone(true);
+    } catch (error) {
+      if (seq === runsSeqRef.current) {
+        setRunsError(messageOf(error, '실행 기록을 더 읽지 못했어요.'));
+        setRunsDone(true);
+      }
+    } finally {
+      loadingMoreRef.current = false;
+    }
+  }, [runs, runsDone]);
+
+  /** ① 칸을 누르면 그 스크립트로 걸러 본다. 이미 그 칸이면 전체로 돌린다. */
+  const selectStage = useCallback(
+    (key: TStageKey) => {
+      const scripts = STAGE_SCRIPTS[key];
+      if (!scripts) return;
+      const current = filterRef.current;
+      void changeRunFilter({ ...current, scripts: sameScripts(current.scripts ?? null, scripts) ? null : scripts });
+    },
+    [changeRunFilter],
+  );
+
+  const toggleRun = useCallback((id: string) => setExpandedRun((current) => (current === id ? null : id)), []);
 
   // 마운트 뒤에야 localStorage 를 읽는다 — `/admin` 과 같은 순서(만료된 세션과 처음 여는 화면을 가른다).
   useEffect(() => {
@@ -306,6 +394,8 @@ export function AdminOpsPage() {
   const stages = stageHealth(overview, nowMs);
   const worst = worstStage(stages);
   const rebuild = rebuildHeadline(overview.rebuildRecent, nowMs);
+  const activeStage =
+    (Object.keys(STAGE_SCRIPTS) as TStageKey[]).find((key) => STAGE_SCRIPTS[key] && sameScripts(STAGE_SCRIPTS[key], runFilter.scripts ?? null)) ?? null;
 
   return (
     <div className="pb-8">
@@ -343,7 +433,7 @@ export function AdminOpsPage() {
       ) : null}
 
       <section className="mt-4" aria-label="파이프라인">
-        <AdminOpsPageStageStrip stages={stages} active={null} />
+        <AdminOpsPageStageStrip stages={stages} active={activeStage} onSelect={selectStage} />
       </section>
 
       {/* ② 흐름 — ① 바로 아래(첫날에도 기존 표로 채워져 비어 있지 않다, features 「빈 상태」). */}
@@ -356,8 +446,21 @@ export function AdminOpsPage() {
       />
       {funnelDays === 30 && funnelError ? <p className="mt-1 px-4 text-xs text-error-primary md:px-6">{funnelError}</p> : null}
 
-      {/* ③ 실행 기록(T3.7) · ④ 사용량 · ⑤ 알림(T3.8) 이 여기 선다. */}
-      <p className="px-4 pt-6 text-xs text-tertiary md:px-6">실행 기록 {runs.length}건</p>
+      <AdminOpsPageRunsTable
+        runs={runs}
+        pinned={pinnedRun}
+        nowMs={nowMs}
+        scripts={runFilter.scripts ?? null}
+        failedOnly={runFilter.failedOnly}
+        onFilter={(next) => void changeRunFilter(next)}
+        expandedId={expandedRun}
+        onToggle={toggleRun}
+        hasMore={!runsDone && runs.length > 0}
+        onMore={loadMoreRuns}
+        error={runsError}
+      />
+
+      {/* ④ 사용량 · ⑤ 알림(T3.8) 이 여기 선다. */}
     </div>
   );
 }
