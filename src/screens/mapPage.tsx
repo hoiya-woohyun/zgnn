@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 import { AlertTriangle, Heart, NavigationPointer01 } from '@untitledui/icons';
 import { MapPageCanvas, type TMapPageCanvasHandle } from './mapPageCanvas';
+import { MapPageMissingGeoList } from './mapPageMissingGeoList';
 import { MapPageSheetCard } from './mapPageSheet';
 import { useMapPageWideLayout } from './useMapPageWideLayout';
 import { BottomSheet } from '@/components/base/bottom-sheet';
@@ -104,24 +104,10 @@ export function MapPage() {
   );
 
   const withGeo = useMemo(() => filtered.filter((place) => place.geo), [filtered]);
-  const missingGeoCount = filtered.length - withGeo.length;
+  const missingGeo = useMemo(() => filtered.filter((place) => !place.geo), [filtered]);
   const selected = withGeo.find((place) => place.id === selectedId) ?? null;
-
-  /*
-   * "좌표 없는 N곳 제외" 는 지도만 보는 사용자에게 무슨 뜻인지 안 와닿는다(2026-09-15 리뷰 P2).
-   * 종류별로 몇 곳이 빠졌는지 세어, 그 종류의 목록 페이지로 바로 갈 수 있게 한다.
-   */
-  const missingByType = useMemo(() => {
-    const counts = new Map<TPlaceType, number>();
-    for (const place of filtered) {
-      if (place.geo) continue;
-      counts.set(place.type, (counts.get(place.type) ?? 0) + 1);
-    }
-    return PLACE_TYPES.filter((type) => counts.has(type)).map((type) => ({
-      type,
-      count: counts.get(type)!,
-    }));
-  }, [filtered]);
+  // 모바일에서 "지도에 없는 N곳" 을 누르면 그 N곳만 시트로 펼친다(14 ↪ 12 U1.7).
+  const [missingOpen, setMissingOpen] = useState(false);
 
   /*
    * 조건에 걸러진 장소의 선택은 남겨 두지 않는다.
@@ -193,18 +179,11 @@ export function MapPage() {
             <p className="mt-0.5 text-sm text-tertiary">
               {savedOnly ? `저장한 곳 중 ${withGeo.length}곳 표시 중` : `${withGeo.length}곳 표시 중`}
             </p>
-            {missingByType.length > 0 && (
-              <p className="mt-1 text-xs text-tertiary">
-                지도에 없는 {missingGeoCount}곳은 목록에서 보기:{' '}
-                {missingByType.map(({ type, count }, index) => (
-                  <span key={type}>
-                    {index > 0 && ', '}
-                    <Link href={`/places/${type}`} className="text-brand-secondary underline">
-                      {TYPE_META[type].label} {count}곳
-                    </Link>
-                  </span>
-                ))}
-              </p>
+            {missingGeo.length > 0 && (
+              <div className="mt-2">
+                <p className="text-xs text-tertiary">지도에 위치가 없는 {missingGeo.length}곳</p>
+                <MapPageMissingGeoList places={missingGeo} />
+              </div>
             )}
           </div>
 
@@ -348,18 +327,19 @@ export function MapPage() {
             */}
             <div className="flex items-start gap-2 px-3">
               {/*
-                좌표 없는 곳을 모바일에서도 말한다(12 U1.7) — 안내가 lg 패널에만 있어 모바일에선 말없이 빠졌다.
-                목록은 하나로만 보낸다: 저장 칩이면 저장 화면, 아니면 가장 많이 빠진 종류의 목록. 44px 히트 영역은 링크가 갖고 모양은 안쪽 칩이 갖는다.
+                좌표 없는 곳을 모바일에서도 말한다(12 U1.7). 종류 목록으로 보내면 3곳을 찾으러 26곳을 훑는다 —
+                그 곳들만 시트로 펼친다(14). 44px 히트 영역은 버튼이 갖고 모양은 안쪽 칩이 갖는다.
               */}
-              {missingGeoCount > 0 && (
-                <Link
-                  href={savedOnly ? '/saved' : `/places/${[...missingByType].sort((a, b) => b.count - a.count)[0].type}`}
+              {missingGeo.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setMissingOpen(true)}
                   className="pointer-events-auto -mt-2.5 flex min-h-11 items-center lg:hidden"
                 >
                   <span className="rounded-md bg-primary/92 px-2 py-1 text-xs font-semibold text-brand-secondary shadow-sm backdrop-blur">
-                    지도에 없는 {missingGeoCount}곳 ›
+                    지도에 없는 {missingGeo.length}곳 ›
                   </span>
-                </Link>
+                </button>
               )}
               {/*
                 내 위치 버튼. 위쪽 오른편에 두는 이유는 **아래쪽이 이미 차 있어서다** — 좌하단은 로고·저작권,
@@ -453,6 +433,13 @@ export function MapPage() {
           label={selected ? `${selected.name} 정보` : '장소 정보'}
         >
           {selected && <MapPageSheetCard place={selected} />}
+        </BottomSheet>
+      )}
+      {!isWide && (
+        <BottomSheet isOpen={missingOpen && missingGeo.length > 0} onOpenChange={setMissingOpen} label="지도에 없는 곳">
+          <p className="pr-8 text-md font-bold text-primary">지도에 위치가 없는 {missingGeo.length}곳</p>
+          <p className="mt-0.5 text-sm text-tertiary">좌표를 아직 못 찾아 마커로 못 그렸어요.</p>
+          <MapPageMissingGeoList places={missingGeo} />
         </BottomSheet>
       )}
     </div>
