@@ -11,6 +11,7 @@ import { rebuildHeadline } from '../lib/adminRebuild';
 import { ADMIN_SESSION_KEY, clearAdminSession, readAdminSession, sessionProblem, type TAdminSession } from '../lib/adminSession';
 import { createAdminClient, isOperator } from '../lib/adminSupabase';
 import { cx } from '../utils/cx';
+import { AdminOpsPageStageStrip } from './adminOpsPageStageStrip';
 import { AdminPageLogin } from './adminPageLogin';
 
 type TPhase = 'checking' | 'signedOut' | 'verifying' | 'loading' | 'ready' | 'notOperator' | 'error';
@@ -214,7 +215,15 @@ export function AdminOpsPage() {
   }
 
   if (phase === 'verifying' || phase === 'loading') {
-    return <PageHeader title="운영 현황" description={phase === 'verifying' ? '운영자인지 확인하고 있어요' : '기록을 불러오고 있어요'} />;
+    // 다섯 칸 자리를 먼저 잡는다(높이 고정) — 수가 들어올 때 아래가 뛰지 않게(features 「빈 상태와 첫 화면」).
+    return (
+      <div>
+        <PageHeader title="운영 현황" description={phase === 'verifying' ? '운영자인지 확인하고 있어요' : '기록을 불러오고 있어요'} />
+        <div className="mt-4">
+          <AdminOpsPageStageStrip stages={null} active={null} />
+        </div>
+      </div>
+    );
   }
 
   if (phase === 'notOperator') {
@@ -295,7 +304,11 @@ export function AdminOpsPage() {
         </p>
       ) : null}
 
-      {/* ① 다섯 칸(T3.5) · ② 흐름(T3.6) · ③ 실행 기록(T3.7) · ④ 사용량 · ⑤ 알림(T3.8) 이 여기 선다. */}
+      <section className="mt-4" aria-label="파이프라인">
+        <AdminOpsPageStageStrip stages={stages} active={null} />
+      </section>
+
+      {/* ② 흐름(T3.6) · ③ 실행 기록(T3.7) · ④ 사용량 · ⑤ 알림(T3.8) 이 여기 선다. */}
       <p className="px-4 pt-6 text-xs text-tertiary md:px-6">실행 기록 {runs.length}건</p>
     </div>
   );
