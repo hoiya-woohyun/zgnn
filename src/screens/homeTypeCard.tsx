@@ -55,20 +55,20 @@ export function HomeTypeCard({ type, levelCounts }: THomeTypeCardProps) {
             <p className="text-sm text-secondary">{meta.blurb}</p>
           </div>
 
-          {/* 프로필이 있으면 "가능 3 · 확인 3" 을 글자로. 예전엔 ok+cond 합을 "7 / 26" 으로만 적어
+          {/* 프로필이 있으면 "가능 3 · 확인 필요 3" 을 글자로. 예전엔 ok+cond 합을 "7 / 26" 으로만 적어
               "7 이 뭐예요?" 가 나왔고, 스크린리더만 "갈 수 있는 곳" 이라 읽어 확인 필요까지 가능으로
               부풀렸다(D 크리틱 #4). 보이는 말과 읽히는 말을 같게 둔다 — 목록 머리와도 같은 기준. */}
           {levelCounts ? (
             <p
               className="shrink-0 text-right text-sm font-semibold text-secondary"
-              aria-label={`가능 ${levelCounts.ok} · 확인 ${levelCounts.cond}`}
+              aria-label={`가능 ${levelCounts.ok} · 확인 필요 ${levelCounts.cond}`}
             >
               가능{' '}
               <span className="text-lg font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>
                 {levelCounts.ok}
               </span>
               <span aria-hidden="true"> · </span>
-              확인{' '}
+              확인 필요{' '}
               <span className="text-lg font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>
                 {levelCounts.cond}
               </span>

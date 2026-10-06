@@ -14,11 +14,12 @@ import { TYPE_META, type TPlaceEntry } from '../lib/places';
 import { useAppStore } from '../store/useAppStore';
 import type { TPlaceType } from '../types';
 
-// 목록 머리의 레벨 이름. 홈 종류 카드("가능 3 · 확인 3")와 같은 말을 쓴다 — 배지 문구
-// ("갈 수 있어요"…)를 그대로 늘어놓으면 한 줄에 안 들어간다.
+// 목록 머리의 레벨 이름. 홈 종류 카드("가능 3 · 확인 필요 3")와 같은 말을 쓴다 — 배지 문구
+// ("갈 수 있어요"…)를 그대로 늘어놓으면 한 줄에 안 들어간다. cond 를 '확인' 한 낱말로 줄이면
+// 상세의 "…에 확인했어요"(검증됨)와 반대 뜻의 같은 말이 된다 — '필요' 까지가 뜻이다.
 const LEVEL_SHORT: [TEligibilityLevel, string][] = [
   ['ok', '가능'],
-  ['cond', '확인'],
+  ['cond', '확인 필요'],
   ['unknown', '정보 없음'],
   ['hard', '어려움'],
 ];
