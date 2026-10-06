@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { ChevronDown, LinkExternal01 } from '@untitledui/icons';
+import { Checkbox as AriaCheckbox } from 'react-aria-components';
 import { Badge } from '../components/base/badges';
 import { Button } from '../components/base/button';
-import { Checkbox } from '../components/base/checkbox';
+import { CheckboxBase } from '../components/base/checkbox';
 import { showAppStatus } from '../lib/appStatus';
 import { shouldAskCarrierBag } from '../lib/checklist';
 import { linkLabel } from '../lib/format';
@@ -67,46 +68,54 @@ export function ChecklistPageItemRow({
 
   return (
     <li className={cx(CARD_SURFACE, provided && 'opacity-65')}>
+      {/*
+        줄 본체가 곧 체크다(14 W261006.8) — 예전엔 이름을 누르면 펼쳐져서, 체크하려던 사람이 이유를
+        펼치고 있었다. 짐을 싸며 하는 일은 체크가 거의 전부라 큰 면을 체크에 주고, 펼침은 오른쪽
+        화살표 칸 하나로 좁힌다. 체크 상자는 24px(목록의 주 동작이라 base 기본 20px 보다 한 단).
+      */}
       <div className="flex items-center gap-1 p-2">
-        <Checkbox
-          size="md"
+        <AriaCheckbox
           aria-label={`${item.name} 챙김`}
           isSelected={checked}
           onChange={handleToggleChecked}
-          className="h-11 w-11 items-center justify-center"
-        />
+          className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-lg px-2.5 outline-none"
+        >
+          {({ isSelected, isFocusVisible }) => (
+            <>
+              <CheckboxBase size="md" isSelected={isSelected} isFocusVisible={isFocusVisible} className="size-6" />
+              {/* item.emoji 는 데이터 콘텐츠라 장식용 이모지 금지 규칙의 예외로 그대로 보여준다. */}
+              <span className="text-xl" aria-hidden="true">
+                {item.emoji}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span
+                  className={cx(
+                    'block text-sm font-semibold',
+                    checked ? 'text-tertiary line-through' : 'text-primary',
+                  )}
+                >
+                  {item.name}
+                </span>
+                {provided && (
+                  <Badge type="color" size="sm" color="success" className="mt-1">
+                    숙소에 있어요
+                  </Badge>
+                )}
+              </span>
+            </>
+          )}
+        </AriaCheckbox>
 
         <button
           type="button"
           onClick={onToggleExpanded}
           aria-expanded={expanded}
-          className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2 text-left"
+          aria-label={`${item.name} 자세히`}
+          className="flex size-11 shrink-0 items-center justify-center rounded-lg text-tertiary transition-colors hover:bg-secondary"
         >
-          {/* item.emoji 는 데이터 콘텐츠라 장식용 이모지 금지 규칙의 예외로 그대로 보여준다. */}
-          <span className="text-xl" aria-hidden="true">
-            {item.emoji}
-          </span>
-          <span className="min-w-0 flex-1">
-            <span
-              className={cx(
-                'block text-sm font-semibold',
-                checked ? 'text-tertiary line-through' : 'text-primary',
-              )}
-            >
-              {item.name}
-            </span>
-            {provided && (
-              <Badge type="color" size="sm" color="success" className="mt-1">
-                숙소에 있어요
-              </Badge>
-            )}
-          </span>
           <ChevronDown
             aria-hidden="true"
-            className={cx(
-              'size-5 shrink-0 text-tertiary transition-transform duration-200',
-              expanded && 'rotate-180',
-            )}
+            className={cx('size-5 transition-transform duration-200', expanded && 'rotate-180')}
           />
         </button>
       </div>
