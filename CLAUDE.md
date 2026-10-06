@@ -9,7 +9,7 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
 
 | 무엇을 하려는가 | 읽을 곳 |
 |---|---|
-| 다음에 무엇을 하나·todo 이어 가기 | [docs/todo/NOW.md](docs/todo/NOW.md) · `/next`(`.claude/skills/next/SKILL.md`) · SessionStart 훅 `.claude/hooks/todoNow.mjs` — **대기열이 순서, 번호 문서가 명세**. 묻지 않고 맨 위부터 |
+| 다음에 무엇을 하나·todo 이어 가기 | [docs/todo/NOW.md](docs/todo/NOW.md) · `/next`(`.claude/skills/next/SKILL.md`) · SessionStart 훅 `.claude/hooks/todoNow.mjs` — **대기열이 순서, 번호 문서가 명세**. 묻지 않고 맨 위부터. 세션 여럿이 동시에 돌므로 줄은 `node .claude/skills/next/claim.mjs take` 로 **선점**해서 고른다(친 순서대로 서로 다른 줄) |
 | 빌드·PWA·서비스워커가 안 됨 | [README.md](README.md#실행) → [docs/architecture/pwa-offline.md](docs/architecture/pwa-offline.md) |
 | 이용 조건 파싱·판정 로직 | [docs/architecture/pet-policy-and-eligibility.md](docs/architecture/pet-policy-and-eligibility.md) · `src/lib/petPolicy.ts` · `src/lib/eligibility.ts` |
 | 준비물·장소별 필요 물건 | [docs/features/checklist.md](docs/features/checklist.md) · [docs/decisions/ADR-009-trip-derived-checklist.md](docs/decisions/ADR-009-trip-derived-checklist.md) · `src/lib/itemNeeds.ts` |
