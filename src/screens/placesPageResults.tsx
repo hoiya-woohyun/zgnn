@@ -2,8 +2,9 @@
 
 import { useMemo } from 'react';
 import Link from 'next/link';
-import { SearchMd } from '@untitledui/icons';
+import { ChevronRight, SearchMd } from '@untitledui/icons';
 import { PlacesPageActiveChips, type TActiveChip } from './placesPageActiveChips';
+import { handOffPlacesQuery } from './placesPageQueryHandoff';
 import { PlaceCard } from '../components/placeCard';
 import { EmptyState } from '../components/layout/emptyState';
 import { Button } from '../components/base/button';
@@ -48,6 +49,8 @@ type TPlacesPageResultsProps = {
   onOpenFilters: () => void;
   /** 가까운 순일 때 장소 id → 거리(km). 카드가 "1.2km" 를 붙인다(10 F7). */
   distances?: Map<string, number>;
+  /** 0곳일 때 같은 검색어가 맞는 다른 종류(`otherTypeMatches`). 엿보기는 검색어가 없어 넘기지 않는다. */
+  otherTypes?: { type: TPlaceType; count: number }[];
 };
 
 /**
@@ -72,6 +75,7 @@ export function PlacesPageResults({
   onResetFilters,
   onOpenFilters,
   distances,
+  otherTypes = [],
 }: TPlacesPageResultsProps) {
   const dog = useAppStore((state) => state.dog);
   const needsIndoor = useAppStore((state) => state.needsIndoor);
@@ -141,13 +145,34 @@ export function PlacesPageResults({
         */
         <div className="px-4 pt-6 md:px-6">
           {/*
+            검색은 종류 탭 안에서만 돈다 — 다른 종류에 있으면 그쪽으로 가는 길을 맨 위에 둔다(14 W261006.6).
+            "없어요" 보다 먼저 읽혀야 사용자가 그 가게가 없다고 결론 내리지 않는다. 검색어를 들고 넘어간다.
+          */}
+          {otherTypes.length > 0 && (
+            <ul className="mb-2 space-y-2">
+              {otherTypes.map((other) => (
+                <li key={other.type}>
+                  <Link
+                    href={`/places/${other.type}/`}
+                    onClick={() => handOffPlacesQuery(query)}
+                    className="flex min-h-11 items-center justify-between rounded-xl border border-secondary bg-primary px-4 text-sm font-semibold text-brand-secondary hover:text-brand-secondary_hover"
+                  >
+                    {TYPE_META[other.type].label}에 {other.count}곳 있어요
+                    <ChevronRight size={20} aria-hidden="true" className="shrink-0 text-quaternary" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+          {/*
             검색어만 걸려 0곳이면 필터를 탓하지 않는다(12 U1.2) — 시트에는 꺼 볼 것이 없고, 지울 것은 검색어다.
             이 버튼은 md 에서도 보인다: 펼쳐진 조건 판이 검색어를 지워 주지 않는다.
           */}
           {query && activeFilterCount === 0 && !townHasNoPlaces ? (
             <EmptyState
               Icon={SearchMd}
-              title={`'${query}'${josa(query, '과/와')} 맞는 곳이 없어요`}
+              // 다른 종류에 있으면 '없다' 를 이 종류로 좁힌다 — 바로 위 "식당에 1곳" 과 말이 엇갈리지 않게.
+              title={`${otherTypes.length > 0 ? `${TYPE_META[type].label}에는 ` : ''}'${query}'${josa(query, '과/와')} 맞는 곳이 없어요`}
               description="띄어쓰기를 바꾸거나 더 짧게 찾아보세요."
               action={
                 <Button color="primary" size="md" onClick={onClearQuery}>

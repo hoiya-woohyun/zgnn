@@ -17,7 +17,8 @@
  */
 
 import { isNearLandmark, landmarkOfWord } from './landmarks';
-import type { TPlaceEntry } from './places';
+import { PLACE_TYPES, placesOfType, type TPlaceEntry } from './places';
+import type { TPlaceType } from '../types';
 
 const TYPE_WORDS = new Set(['카페', '식당', '숙소']);
 
@@ -48,4 +49,27 @@ export function matchesQuery(
     const landmark = landmarkOfWord(word);
     return landmark !== null && isNearLandmark(place, landmark);
   });
+}
+
+/**
+ * 이 종류에서 검색이 0곳일 때, 같은 검색어가 **다른 종류**에 몇 곳 맞는가(14 W261006.6). 0곳인 종류는 뺀다.
+ *
+ * 검색은 종류 탭 안에서만 돈다 — 숙소 탭에서 "부부키친"(식당)을 치면 0곳이고, 사용자는 그 가게가 없는 줄 안다.
+ * 세는 조건은 검색어와 읍면뿐이다: 읍면은 스토어 값이라 탭을 넘어가도 따라오지만, 방향·이용 조건·정렬은 종류마다
+ * 다시 고르는 값이라 넘어간 화면에 없다. 여기서 그것까지 걸면 "식당에 1곳" 을 누르고 3곳을 보게 된다.
+ */
+export function otherTypeMatches(
+  type: TPlaceType,
+  query: string,
+  town: string | null,
+  placesOf: (type: TPlaceType) => readonly TPlaceEntry[] = placesOfType,
+): { type: TPlaceType; count: number }[] {
+  if (!query.trim()) return [];
+  return PLACE_TYPES.filter((other) => other !== type)
+    .map((other) => ({
+      type: other,
+      count: placesOf(other).filter((place) => (town === null || place.region.town === town) && matchesQuery(place, query))
+        .length,
+    }))
+    .filter((match) => match.count > 0);
 }

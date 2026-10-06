@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { SearchMd } from '@untitledui/icons';
 import { PlacesPageEligibilityToggles } from './placesPageEligibilityToggles';
 import type { TActiveChip } from './placesPageActiveChips';
@@ -14,7 +14,8 @@ import { usePlaceTypeSwitch } from './placesPageTypeSwitch';
 import { Input } from '../components/base/input';
 import { DIRECTION_LABEL, TYPE_META, placesOfType } from '../lib/places';
 import { PET_FILTERS, carriedFilterChips, comparePrice, envFiltersWithData, resetFiltersLabel, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
-import { matchesQuery } from '../lib/placeSearch';
+import { matchesQuery, otherTypeMatches } from '../lib/placeSearch';
+import { clearPlacesQueryHandoff, peekPlacesQueryHandoff } from './placesPageQueryHandoff';
 import { sortByEligibility } from '../lib/sortByEligibility';
 import { distancesFrom, sortByDistance } from '../lib/distanceSort';
 import { LOCATE_NOTICE, locateMe } from '../lib/myLocation';
@@ -51,7 +52,9 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
   const eligibilityMap = useEligibilityMap();
   const needsIndoor = useAppStore((state) => state.needsIndoor);
   const setNeedsIndoor = useAppStore((state) => state.setNeedsIndoor);
-  const [query, setQuery] = useState('');
+  // 다른 종류의 "식당에 1곳 있어요" 로 왔으면 그 검색어로 시작한다 — 첫 프레임부터 걸러진 목록이 그려진다.
+  const [query, setQuery] = useState(peekPlacesQueryHandoff);
+  useEffect(clearPlacesQueryHandoff, []);
   const [directions, setDirections] = useState<TDirection[]>([]);
   const [petKeys, setPetKeys] = useState<TPetFilterKey[]>([]);
   const [sort, setSort] = useState<TPlaceSort>('none');
@@ -109,6 +112,12 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     }
     return list;
   }, [byTown, filtersOfType, query, directions, petKeys, sort, origin, type, hideHard, eligibilityMap]);
+
+  // 0곳일 때만 센다 — 다른 두 종류를 다 훑으므로 결과가 있는 동안엔 돌지 않는다.
+  const otherTypes = useMemo(
+    () => (results.length === 0 ? otherTypeMatches(type, query, town) : []),
+    [results.length, type, query, town],
+  );
 
   const distances = useMemo(() => (sort === 'near' && origin ? distancesFrom(results, origin) : undefined), [origin, results, sort]);
 
@@ -343,6 +352,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
               onClearTown={() => setTown(null)}
               onOpenFilters={() => setIsFilterSheetOpen(true)}
               distances={distances}
+              otherTypes={otherTypes}
             />
             <PlacesPageSuggest type={type} />
           </div>
