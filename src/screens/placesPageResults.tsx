@@ -4,7 +4,6 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ChevronRight, SearchMd } from '@untitledui/icons';
 import { PlacesPageActiveChips, type TActiveChip } from './placesPageActiveChips';
-import { handOffPlacesQuery } from './placesPageQueryHandoff';
 import { PlaceCard } from '../components/placeCard';
 import { PlaceLinkList } from '../components/placeLinkList';
 import { EmptyState } from '../components/layout/emptyState';
@@ -52,7 +51,7 @@ type TPlacesPageResultsProps = {
   onOpenFilters: () => void;
   /** 가까운 순일 때 장소 id → 거리(km). 카드가 "1.2km" 를 붙인다(10 F7). */
   distances?: Map<string, number>;
-  /** 0곳일 때 같은 검색어가 맞는 다른 종류(`otherTypeMatches`). 엿보기는 검색어가 없어 넘기지 않는다. */
+  /** 0곳일 때 같은 검색어가 맞는 다른 종류(`otherTypeMatches`). 엿보기도 같은 검색어로 센다. */
   otherTypes?: { type: TPlaceType; count: number }[];
 };
 
@@ -199,7 +198,7 @@ export function PlacesPageResults({
         <div className="px-4 pt-6 md:px-6">
           {/*
             검색은 종류 탭 안에서만 돈다 — 다른 종류에 있으면 그쪽으로 가는 길을 맨 위에 둔다(14 W261006.6).
-            "없어요" 보다 먼저 읽혀야 사용자가 그 가게가 없다고 결론 내리지 않는다. 검색어를 들고 넘어간다.
+            "없어요" 보다 먼저 읽혀야 사용자가 그 가게가 없다고 결론 내리지 않는다. 검색어는 스토어에 있어 따라간다(07 U3).
           */}
           {otherTypes.length > 0 && (
             <ul className="mb-2 space-y-2">
@@ -207,7 +206,6 @@ export function PlacesPageResults({
                 <li key={other.type}>
                   <Link
                     href={`/places/${other.type}/`}
-                    onClick={() => handOffPlacesQuery(query)}
                     className="flex min-h-11 items-center justify-between rounded-xl border border-secondary bg-primary px-4 text-sm font-semibold text-brand-secondary hover:text-brand-secondary_hover"
                   >
                     {TYPE_META[other.type].label}에 {other.count}곳 있어요
@@ -224,8 +222,8 @@ export function PlacesPageResults({
           {query && activeFilterCount === 0 && !townHasNoPlaces ? (
             <EmptyState
               Icon={SearchMd}
-              // 다른 종류에 있으면 '없다' 를 이 종류로 좁힌다 — 바로 위 "식당에 1곳" 과 말이 엇갈리지 않게.
-              title={`${otherTypes.length > 0 ? `${TYPE_META[type].label}에는 ` : ''}'${query}'${josa(query, '과/와')} 맞는 곳이 없어요`}
+              // 검색어가 탭을 따라오므로 어느 종류에서 없는지를 늘 적는다 — 바로 위 "식당에 1곳" 과도 말이 엇갈리지 않는다.
+              title={`${TYPE_META[type].label}에는 '${query}'${josa(query, '과/와')} 맞는 곳이 없어요`}
               description="띄어쓰기를 바꾸거나 더 짧게 찾아보세요."
               action={
                 <Button color="primary" size="md" onClick={onClearQuery}>
@@ -237,7 +235,9 @@ export function PlacesPageResults({
             <EmptyState
               Icon={SearchMd}
               title={
-                townHasNoPlaces ? `${town}엔 ${withJosa(TYPE_META[type].label, '이/가')} 없어요` : '필터에 맞는 곳이 없어요'
+                townHasNoPlaces
+                  ? `${town}엔 ${withJosa(TYPE_META[type].label, '이/가')} 없어요`
+                  : `${TYPE_META[type].label}에는 필터에 맞는 곳이 없어요`
               }
               description={
                 townHasNoPlaces ? '읍면을 풀거나 필터에서 다른 읍면을 골라 보세요.' : '검색어나 필터를 바꿔 보세요.'

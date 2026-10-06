@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { SearchMd } from '@untitledui/icons';
 import { PlacesPageEligibilityToggles } from './placesPageEligibilityToggles';
 import type { TActiveChip } from './placesPageActiveChips';
@@ -12,10 +12,10 @@ import { PlacesPageSwipePeek } from './placesPageSwipePeek';
 import { PlacesPageTypeTabs } from './placesPageTypeTabs';
 import { usePlaceTypeSwitch } from './placesPageTypeSwitch';
 import { Input } from '../components/base/input';
-import { DIRECTION_LABEL, TYPE_META, placesOfType } from '../lib/places';
-import { PET_FILTERS, carriedFilterChips, comparePrice, envFiltersWithData, resetFiltersLabel, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
-import { matchesQuery, otherTypeMatches } from '../lib/placeSearch';
-import { clearPlacesQueryHandoff, peekPlacesQueryHandoff } from './placesPageQueryHandoff';
+import { TYPE_META } from '../lib/places';
+import { comparePrice, resetFiltersLabel, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
+import { otherTypeMatches } from '../lib/placeSearch';
+import { filterPlacesPage, placesByTown, placesPageChips } from '../lib/placesPageFilter';
 import { sortByEligibility } from '../lib/sortByEligibility';
 import { distancesFrom, sortByDistance } from '../lib/distanceSort';
 import { LOCATE_NOTICE, locateMe } from '../lib/myLocation';
@@ -23,6 +23,7 @@ import { showAppStatus } from '../lib/appStatus';
 import { PlacesPageSuggest } from './placesPageSuggest';
 import { useAppStore, useDog } from '../store/useAppStore';
 import { useEligibilityMap } from '../store/useDogEligibility';
+import { usePlacesPageFilterStore } from '../store/usePlacesPageFilterStore';
 import { cx } from '../utils/cx';
 import type { TDirection, TPlaceType } from '../types';
 
@@ -33,9 +34,10 @@ import type { TDirection, TPlaceType } from '../types';
  */
 export function PlacesPage({ type }: { type: TPlaceType }) {
   /*
-   * 종류마다 조건 항목이 달라서, 종류를 바꾸면 조건은 처음부터 다시 고른다.
-   * 리셋을 useEffect 로 하면 이전 조건이 적용된 목록이 한 프레임 먼저 그려진다.
-   * key 로 조건 상태를 통째로 새로 만들면 그 중간 상태 자체가 생기지 않는다.
+   * 검색어·방향·'어려운 곳 숨기기'·종류별 반려동물 조건은 스토어(`usePlacesPageFilterStore`)에 살아 종류를 바꿔도 남는다(07 U3).
+   * 정렬·기준점·시트 열림은 종류마다 처음부터다 — 가격순은 숙소에서만, 가까운 순은 위치를 받아야 의미가 있어서 따라오면
+   * 칩과 숫자만 있고 아무 일도 안 하는 조건이 된다. 리셋을 useEffect 로 하면 이전 값이 한 프레임 먼저 그려지므로
+   * key 로 그 로컬 상태를 통째로 새로 만든다 — 들어오는 애니메이션도 마운트마다 한 번이다.
    */
   return <PlacesPageOfType key={type} type={type} />;
 }
@@ -52,16 +54,20 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
   const eligibilityMap = useEligibilityMap();
   const needsIndoor = useAppStore((state) => state.needsIndoor);
   const setNeedsIndoor = useAppStore((state) => state.setNeedsIndoor);
-  // 다른 종류의 "식당에 1곳 있어요" 로 왔으면 그 검색어로 시작한다 — 첫 프레임부터 걸러진 목록이 그려진다.
-  const [query, setQuery] = useState(peekPlacesQueryHandoff);
-  useEffect(clearPlacesQueryHandoff, []);
-  const [directions, setDirections] = useState<TDirection[]>([]);
-  const [petKeys, setPetKeys] = useState<TPetFilterKey[]>([]);
+  const query = usePlacesPageFilterStore((state) => state.query);
+  const setQuery = usePlacesPageFilterStore((state) => state.setQuery);
+  const directions = usePlacesPageFilterStore((state) => state.directions);
+  const toggleDirection = usePlacesPageFilterStore((state) => state.toggleDirection);
+  const petKeys = usePlacesPageFilterStore((state) => state.petKeysByType[type]);
+  const togglePetKeyOfType = usePlacesPageFilterStore((state) => state.togglePetKey);
+  const hideHard = usePlacesPageFilterStore((state) => state.hideHard);
+  const setHideHard = usePlacesPageFilterStore((state) => state.setHideHard);
+  const toggleHideHard = usePlacesPageFilterStore((state) => state.toggleHideHard);
+  const resetStoredConditions = usePlacesPageFilterStore((state) => state.resetConditions);
   const [sort, setSort] = useState<TPlaceSort>('none');
   /** 가까운 순의 기준점 — 고를 때 한 번 받는다. 저장하지 않는다(ADR-012 대상 아님). */
   const [origin, setOrigin] = useState<{ lat: number; lng: number } | null>(null);
-  // 화면 로컬 상태 — 강아지 프로필이 없으면 hard 판정 개념이 없어 애초에 토글이 보이지 않는다.
-  const [hideHard, setHideHard] = useState(false);
+  // hideHard 는 강아지 프로필이 없으면 hard 판정 개념이 없어 애초에 토글이 보이지 않는다.
   /*
    * 모바일 필터 시트의 열림 상태. 시트 안이 아니라 여기에 두는 이유는 빈 상태의 버튼이
    * 시트를 열어야 하기 때문이다 — "다른 읍면을 골라 보세요" 라고 써 놓고 버튼은 읍면을
@@ -70,36 +76,12 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
 
   // 다른 조건과 별개로 먼저 걸러 둔다 — 이 종류에 그 읍면 자체가 없으면(0곳) 전용 빈 상태를 보여줘야 한다.
-  const byTown = useMemo(() => {
-    const list = placesOfType(type);
-    return town ? list.filter((place) => place.region.town === town) : list;
-  }, [type, town]);
+  const byTown = useMemo(() => placesByTown(type, town), [type, town]);
   const townHasNoPlaces = town !== null && byTown.length === 0;
 
-  /** 이 종류에서 고를 수 있는 조건 전부 — 반려동물 조건 + (숙소) 데이터가 있는 환경 조건(10 F6). 칩·걸러 내기가 같은 목록을 본다. */
-  const filtersOfType = useMemo(
-    () => (type === 'stay' ? [...PET_FILTERS.stay, ...envFiltersWithData(placesOfType('stay'))] : PET_FILTERS[type]),
-    [type],
-  );
-
   const results = useMemo(() => {
-    let list = byTown;
-
-    if (query.trim()) list = list.filter((place) => matchesQuery(place, query));
-
-    if (directions.length > 0) {
-      list = list.filter((place) => directions.includes(place.region.direction));
-    }
-    const activeTests = filtersOfType.filter((filter) => petKeys.includes(filter.key));
-    if (activeTests.length > 0) {
-      list = list.filter((place) => activeTests.every((filter) => filter.test(place.policy, place)));
-    }
-    // "실내 자리 필요"(needsIndoor)는 이미 judgeEligibility(opts) 를 통해 야외 전용 장소를
-    // 어려움으로 밀어 올린다 — 그 결과를 hideHard 가 걸러낸다. 여기서 policy.indoor 를
-    // 직접 다시 걸러내지 않는 이유는 판정 로직을 화면에서 중복하지 않기 위해서다.
-    if (hideHard && eligibilityMap) {
-      list = list.filter((place) => eligibilityMap.get(place.id)?.level !== 'hard');
-    }
+    // 걸러내기는 엿보기와 같은 함수다 — 정렬만 여기서 한다.
+    let list = filterPlacesPage({ type, town, query, directions, petKeys, hideHard, eligibilityMap });
     if (sort === 'near' && origin) {
       // 가까운 순을 고르면 거리가 우선이다 — 가격 정렬과 같은 결정(B3). 좌표 없는 곳은 뒤로.
       list = sortByDistance(list, origin);
@@ -111,7 +93,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
       list = sortByEligibility(list, eligibilityMap, (place) => place.id);
     }
     return list;
-  }, [byTown, filtersOfType, query, directions, petKeys, sort, origin, type, hideHard, eligibilityMap]);
+  }, [type, town, query, directions, petKeys, sort, origin, hideHard, eligibilityMap]);
 
   // 0곳일 때만 센다 — 다른 두 종류를 다 훑으므로 결과가 있는 동안엔 돌지 않는다.
   const otherTypes = useMemo(
@@ -139,20 +121,21 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     setSort('near');
   };
 
-  /*
-   * 접힌 시트 버튼에 붙는 숫자. 검색어는 빼고 센다 — 검색창은 시트 밖에 그대로 보이므로
-   * 여기에 더하면 버튼의 숫자가 시트를 열었을 때 켜져 있는 조건 수와 어긋난다.
-   */
-  const activeFilterCount =
-    (town !== null ? 1 : 0) +
-    directions.length +
-    petKeys.length +
-    (sort !== 'none' ? 1 : 0) +
-    (dog && hideHard ? 1 : 0) +
-    (dog && type !== 'stay' && needsIndoor ? 1 : 0);
-
   const trimmedQuery = query.trim();
-  const hasFilters = trimmedQuery.length > 0 || activeFilterCount > 0;
+  // 켜진 조건을 이름으로(T2.4). 칩·개수·지우기 링크 문구가 한 함수에서 나온다 — 엿보기(`placesPageSwipePeek`)도 같은 함수라
+  // 손을 놓는 순간 줄이 튀지 않고, 버튼엔 "필터 3" 인데 칩이 둘이라 셋째를 찾아 시트를 뒤지는 일도 없다.
+  // 개수는 검색어를 뺀다 — 검색창은 시트 밖에 그대로 보이므로 더하면 버튼 숫자가 시트 안의 켜진 조건 수와 어긋난다.
+  const { chips, activeFilterCount, hasFilters } = placesPageChips({
+    type,
+    town,
+    needsIndoor,
+    hasDog: Boolean(dog),
+    directions,
+    petKeys,
+    sortLabel: sort !== 'none' ? (SORT_OPTIONS.find((option) => option.id === sort)?.label ?? '') : null,
+    hideHard,
+    query,
+  });
 
   /*
    * 시트 안의 "모두 지우기" 는 검색어를 건드리지 않는다 — 검색창은 시트 밖에 그대로
@@ -161,10 +144,9 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
    */
   const resetConditions = () => {
     setTown(null);
-    setDirections([]);
-    setPetKeys([]);
+    // 방향·조건·숨기기는 다른 종류 것까지 푼다 — 이 탭에서 "모두 지우기" 를 눌렀는데 옆 탭에 안 보이는 조건이 남으면 안 된다.
+    resetStoredConditions();
     setSort('none');
-    setHideHard(false);
     // activeFilterCount 가 세는 것은 여기서 전부 풀어야 한다 — 숫자는 1 인데 눌러도 안 바뀌면 고장으로 보인다.
     // 숙소 탭은 세지도 보이지도 않으므로 건드리지 않는다 — 보이지 않는 전역 값을 몰래 끄면 식당·카페 판정이 말없이 바뀐다(12 U0.3).
     if (type !== 'stay') setNeedsIndoor(false);
@@ -182,42 +164,18 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
       )
     : undefined;
 
-  const toggleDirection = (direction: TDirection) =>
-    setDirections((prev) =>
-      prev.includes(direction) ? prev.filter((value) => value !== direction) : [...prev, direction],
-    );
+  const togglePetKey = (key: TPetFilterKey) => togglePetKeyOfType(type, key);
 
-  const togglePetKey = (key: TPetFilterKey) =>
-    setPetKeys((prev) => (prev.includes(key) ? prev.filter((value) => value !== key) : [...prev, key]));
-
-  // 켜진 조건을 이름으로(T2.4). activeFilterCount 가 세는 것과 같은 목록이어야 한다 — 버튼엔
-  // "필터 3" 인데 칩이 둘이면 셋째를 찾아 시트를 뒤진다. 검색어는 시트 밖이라 숫자엔 없지만 칩엔 둔다.
-  const carriedChips: TActiveChip[] = carriedFilterChips({ town, needsIndoor, hasDog: Boolean(dog), type }).map(
-    (chip) => ({ ...chip, onRemove: chip.key === 'town' ? () => setTown(null) : () => setNeedsIndoor(false) }),
-  );
-  const activeChips: TActiveChip[] = [
-    // 읍면·'실내 자리 필요' 는 스토어에 살아 종류를 바꿔도 따라온다 — 엿보기(`placesPageSwipePeek`)와 같은 함수로 만든다.
-    ...carriedChips,
-    ...directions.map((direction) => ({
-      key: `dir-${direction}`,
-      label: DIRECTION_LABEL[direction],
-      onRemove: () => toggleDirection(direction),
-    })),
-    ...filtersOfType
-      .filter((filter) => petKeys.includes(filter.key))
-      .map((filter) => ({ key: `pet-${filter.key}`, label: filter.label, onRemove: () => togglePetKey(filter.key) })),
-    ...(sort !== 'none'
-      ? [
-          {
-            key: 'sort',
-            label: SORT_OPTIONS.find((option) => option.id === sort)?.label ?? '',
-            onRemove: () => setSort('none'),
-          },
-        ]
-      : []),
-    ...(dog && hideHard ? [{ key: 'hideHard', label: '어려운 곳 숨김', onRemove: () => setHideHard(false) }] : []),
-    ...(trimmedQuery ? [{ key: 'query', label: `"${trimmedQuery}"`, onRemove: () => setQuery('') }] : []),
-  ];
+  const removeChip = (key: string) => {
+    if (key === 'town') setTown(null);
+    else if (key === 'indoor') setNeedsIndoor(false);
+    else if (key === 'sort') setSort('none');
+    else if (key === 'hideHard') setHideHard(false);
+    else if (key === 'query') setQuery('');
+    else if (key.startsWith('dir-')) toggleDirection(key.slice(4) as TDirection);
+    else if (key.startsWith('pet-')) togglePetKey(key.slice(4) as TPetFilterKey);
+  };
+  const activeChips: TActiveChip[] = chips.map((chip) => ({ ...chip, onRemove: () => removeChip(chip.key) }));
 
   return (
     <div>
@@ -268,7 +226,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
                   dog
                     ? {
                         hideHard,
-                        onToggleHideHard: () => setHideHard((value) => !value),
+                        onToggleHideHard: toggleHideHard,
                         needsIndoor,
                         onToggleNeedsIndoor: () => setNeedsIndoor(!needsIndoor),
                       }
@@ -305,7 +263,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
               variant="bar"
               type={type}
               hideHard={hideHard}
-              onToggleHideHard={() => setHideHard((value) => !value)}
+              onToggleHideHard={toggleHideHard}
               needsIndoor={needsIndoor}
               onToggleNeedsIndoor={() => setNeedsIndoor(!needsIndoor)}
             />
