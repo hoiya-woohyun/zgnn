@@ -4,7 +4,7 @@ import { useState, type ComponentProps, type ReactNode } from 'react';
 import { Badge } from '../components/base/badges';
 import { Button } from '../components/base/button';
 import { Select } from '../components/base/select';
-import type { TAddressChoice } from '../lib/adminAddress';
+import { addressDiffSpans, type TAddressChoice } from '../lib/adminAddress';
 import type { TBlockChoice } from '../lib/adminBlocks';
 import { COLLECT_REQUESTS_UNAVAILABLE_TEXT } from '../lib/adminCollectRequest';
 import { regionOptionsFor, UPDATE_REJECT_REASONS, type TCandidateGroup, type TPlaceRow, type TRejectReason } from '../lib/adminCandidates';
@@ -35,6 +35,27 @@ function Situation({ title, children }: { title: ReactNode; children?: ReactNode
       <p className="font-semibold text-primary">{title}</p>
       {children && <div className="mt-0.5 space-y-0.5 text-tertiary">{children}</div>}
     </div>
+  );
+}
+
+/**
+ * 주소 한 줄 — 상대 주소와 **실제로 다른 토큰만** `<mark>` 로 칠한다(06 G). 어느 토큰인지는 `addressDiffSpans` 가 정하고
+ * 여기는 감싸기만 한다. 색만으로 말하지 않게 Situation 제목이 "다른 부분" 을 글로 말한다.
+ */
+function AddressDiffLine({ label, address, other }: { label: string; address: string; other: string }) {
+  return (
+    <p>
+      {label} ·{' '}
+      {addressDiffSpans(address, other).map((span, index) =>
+        span.mark ? (
+          <mark key={index} className="rounded bg-warning-secondary px-0.5 font-semibold text-primary">
+            {span.text}
+          </mark>
+        ) : (
+          span.text
+        ),
+      )}
+    </p>
   );
 }
 
@@ -341,9 +362,9 @@ export function AdminPageGroupActions({
      */
     body = (
       <>
-        <Situation title="어느 주소가 맞나요?">
-          <p>원글 · {addressPick.blog}</p>
-          <p>검색 · {addressPick.search}</p>
+        <Situation title="어느 주소가 맞나요? 서로 다른 부분을 칠했어요">
+          <AddressDiffLine label="원글" address={addressPick.blog} other={addressPick.search} />
+          <AddressDiffLine label="검색" address={addressPick.search} other={addressPick.blog} />
         </Situation>
         <Row>
           <TipButton

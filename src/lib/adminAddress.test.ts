@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addressConflictOf, addressUnresolved, addressView } from './adminAddress';
+import { addressConflictOf, addressDiffSpans, addressUnresolved, addressView } from './adminAddress';
 
 /** 상호 검색이 준 주소 — 이름이 완전 일치한 업체의 등록 주소. */
 const local = {
@@ -163,5 +163,44 @@ describe('addressConflictOf — 승인을 멈출 주소 충돌', () => {
     expect(addressConflictOf(local)).toBeNull();
     expect(addressConflictOf({ ...local, addressAi: null })).toBeNull();
     expect(addressConflictOf({ ...local, geoSource: 'geocode', addressAi: '제주 서귀포시 대포로 93' })).toBeNull();
+  });
+});
+
+describe('addressDiffSpans — 두 주소에서 실제로 다른 토큰만 칠한다(06 G)', () => {
+  const marked = (address: string, other: string) =>
+    addressDiffSpans(address, other)
+      .filter((span) => span.mark)
+      .map((span) => span.text);
+
+  it('동명의 다른 가게 — 시·도로명·번호가 다 다르면 셋 다 칠한다', () => {
+    expect(marked('제주특별자치도 서귀포시 대포로 93', '제주시 애월읍 신엄안3길 95')).toEqual(['서귀포시', '대포로', '93']);
+    expect(marked('제주시 애월읍 신엄안3길 95', '제주특별자치도 서귀포시 대포로 93')).toEqual(['제주시', '신엄안3길', '95']);
+  });
+
+  it('번호만 다르면 번호만 — 표기 꼬리(도·층·괄호)는 칠하지 않는다', () => {
+    expect(marked('제주특별자치도 제주시 애월읍 애월해안로 179 1층', '제주 애월읍 애월해안로 197')).toEqual(['179']);
+  });
+
+  it('생략한 급은 다름이 아니다 — 한쪽에만 있는 시·읍면은 칠하지 않는다', () => {
+    expect(marked('제주시 애월읍 애월로 10', '애월로 11')).toEqual(['10']);
+  });
+
+  it('도로명↔지번이면 이름·번호를 견주지 않는다(조회해야 아는 것) — 시만 다르면 시만', () => {
+    expect(marked('서귀포시 대포로 93', '제주시 함덕리 272-4')).toEqual(['서귀포시']);
+    expect(marked('조천읍 함덕27길 18-2', '조천읍 함덕리 272-4')).toEqual([]);
+  });
+
+  it('도로명이 공백으로 갈린 표기도 원문 그대로 칠한다', () => {
+    expect(marked('서귀포시 칠십리로 214번길 9', '서귀포시 칠십리로214번길 11')).toEqual(['9']);
+    expect(marked('서귀포시 칠십리로 214번길 9', '서귀포시 태위로723번길 9')).toEqual(['칠십리로 214번길']);
+  });
+
+  it('번호는 도로명 뒤에서 찾는다 — 도로명에 박힌 숫자를 칠하지 않는다', () => {
+    expect(marked('제주시 1100로 1100', '제주시 1100로 2000')).toEqual(['1100']);
+    expect(addressDiffSpans('제주시 1100로 1100', '제주시 1100로 2000').map((span) => span.text).join('')).toBe('제주시 1100로 1100');
+  });
+
+  it('못 읽는 주소는 칠하지 않고 그대로 돌려준다', () => {
+    expect(addressDiffSpans('애월 어딘가', '제주시 애월로 10')).toEqual([{ text: '애월 어딘가', mark: false }]);
   });
 });

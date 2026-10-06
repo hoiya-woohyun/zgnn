@@ -20,7 +20,7 @@
  *
  * 앱 런타임(`src/lib/`)에 두는 이유도 `addressMatch` 와 같다 — 이미 쌓인 후보가 다음 분석을 기다리지 않는다.
  */
-import { sameAddress } from './addressMatch';
+import { addressKey, sameAddress, type TAddressKey } from './addressMatch';
 
 /**
  * 주소가 온 축.
@@ -211,6 +211,65 @@ export function addressConflictOf(extracted: Parameters<typeof addressView>[0]):
   if (view.cross?.tone !== 'warn' || !view.address) return null;
   const sourceAddress = (extracted.addressAi ?? '').trim();
   return sourceAddress ? { address: view.address, sourceAddress, edited: view.axis === 'operator' } : null;
+}
+
+/** 주소 한 줄의 조각. `mark` 가 참인 조각이 상대 주소와 실제로 다른 토큰이다. */
+export type TAddressSpan = { text: string; mark: boolean };
+
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * 두 주소에서 **실제로 다른 토큰만** 칠할 구간(06 G) — "어느 주소가 맞나요?" 의 두 줄이 같은 말을 길게 반복해
+ * 운영자가 어디가 다른지 글자를 맞대 봐야 했다. 동명의 다른 가게를 집었다는 신호는 보통 토큰 한두 개에 있다.
+ *
+ * 무엇이 다른지는 `sameAddress` 와 **같은 조각**(`addressKey`)으로 정한다 — 판정은 '같다' 인데 칠은 다르다고 하면
+ * (또는 그 반대면) 이 표시가 그 판정을 거스른다. 그래서 같은 규칙을 따른다:
+ * 시·읍면은 **양쪽에 다 있을 때만** 견주고(생략은 다름이 아니다), 이름·번호는 도로명↔지번이면 견주지 않는다(조회해야 아는 것).
+ * `제주특별자치도`·층·호·괄호처럼 판정이 걷어 낸 꼬리도 칠하지 않는다.
+ *
+ * 못 읽는 주소이거나 다른 토큰이 원문에서 안 찾아지면 칠하지 않은 한 조각을 돌려준다 — 덜 칠하는 쪽으로 틀린다.
+ */
+export function addressDiffSpans(address: string, other: string): TAddressSpan[] {
+  const whole: TAddressSpan[] = [{ text: address, mark: false }];
+  const mine = addressKey(address);
+  const theirs = addressKey(other);
+  if (!mine || !theirs) return whole;
+
+  const differs = (field: keyof TAddressKey) => mine[field] !== null && theirs[field] !== null && mine[field] !== theirs[field];
+  const sameKind = mine.kind === theirs.kind;
+
+  /*
+   * 원문 안 자리를 찾는다. 도로명은 `tokenize` 가 `칠십리로 214번길` 을 붙여 읽으므로 원문에서는 사이 공백을 허락하고,
+   * 번호는 도로명 **뒤에서** 찾는다(`1100로 93` 의 `1100` 이 번호로 잡히지 않게), 시·읍면은 도로명 **앞에서**.
+   */
+  const ranges: { start: number; end: number }[] = [];
+  const baseMatch = new RegExp(escapeRegExp(mine.base).replace(/(로)(\d)/, '$1\\s*$2')).exec(address);
+  if (!baseMatch) return whole;
+  const baseStart = baseMatch.index;
+  const baseEnd = baseStart + baseMatch[0].length;
+
+  for (const field of ['city', 'town'] as const) {
+    if (!differs(field)) continue;
+    const at = address.lastIndexOf(mine[field]!, baseStart);
+    if (at >= 0) ranges.push({ start: at, end: at + mine[field]!.length });
+  }
+  if (sameKind && differs('base')) ranges.push({ start: baseStart, end: baseEnd });
+  if (sameKind && differs('number')) {
+    const numberMatch = new RegExp(`(?<![\\d-])${escapeRegExp(mine.number)}(?![\\d-])`).exec(address.slice(baseEnd));
+    if (numberMatch) ranges.push({ start: baseEnd + numberMatch.index, end: baseEnd + numberMatch.index + mine.number.length });
+  }
+  if (ranges.length === 0) return whole;
+
+  ranges.sort((a, b) => a.start - b.start);
+  const spans: TAddressSpan[] = [];
+  let cursor = 0;
+  for (const range of ranges) {
+    if (range.start > cursor) spans.push({ text: address.slice(cursor, range.start), mark: false });
+    spans.push({ text: address.slice(range.start, range.end), mark: true });
+    cursor = range.end;
+  }
+  if (cursor < address.length) spans.push({ text: address.slice(cursor), mark: false });
+  return spans;
 }
 
 /**
