@@ -12,11 +12,11 @@ describe('isTableMissing', () => {
 });
 
 describe('requestOutcome', () => {
-  it('담은 글 · 그중 새 글 · url 목록(겹침 없이)', () => {
+  it('담은 글 · 그중 아직 분석 안 된 글 · url 목록(겹침 없이)', () => {
     const rows = [{ url: 'a' }, { url: 'b' }, { url: 'a' }, { url: 'c' }];
-    expect(requestOutcome(rows, new Set(['b']))).toEqual({ found: 3, new_posts: 2, post_urls: ['a', 'b', 'c'] });
+    expect(requestOutcome(rows, new Set(['b']))).toEqual({ found: 3, to_read: 2, post_urls: ['a', 'b', 'c'] });
   });
-  it('이미 있던 글만 찾았으면 새 글 0', () => {
-    expect(requestOutcome([{ url: 'a' }], new Set(['a']))).toEqual({ found: 1, new_posts: 0, post_urls: ['a'] });
+  it('전부 분석이 끝난 글이면 읽을 글 0', () => {
+    expect(requestOutcome([{ url: 'a' }], new Set(['a']))).toEqual({ found: 1, to_read: 0, post_urls: ['a'] });
   });
 });

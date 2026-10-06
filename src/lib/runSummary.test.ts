@@ -47,8 +47,8 @@ describe('runSummary — 옮기기 전 콘솔 줄과 글자까지 같다', () =>
     expect(formatCollectSummary({ fetched: 0, new: 0, existing: 0, excludedOld: 0, excludedOther: 0, durationMs: 800 })).toBe(FIXTURE.collect0);
     // 추가 수집(/admin 요청)이 있던 실행만 한 칸이 더 선다 — 옛 행(키 없음)은 위 두 줄 그대로.
     expect(
-      formatCollectSummary({ fetched: 40, new: 12, existing: 28, excludedOld: 0, excludedOther: 3, durationMs: 800, requests: 2, requestNew: 9 }),
-    ).toBe('수집 40건 (신규 12 · 기존 28 · 1년 밖 제외 0 · 비네이버/비제주 제외 3) · 추가 수집 2건(새 글 9) · 0.8초');
+      formatCollectSummary({ fetched: 40, new: 12, existing: 28, excludedOld: 0, excludedOther: 3, durationMs: 800, requests: 2, requestToRead: 9 }),
+    ).toBe('수집 40건 (신규 12 · 기존 28 · 1년 밖 제외 0 · 비네이버/비제주 제외 3) · 추가 수집 2건(읽을 글 9) · 0.8초');
   });
 
   it('Claude 계량기 한 줄', () => {

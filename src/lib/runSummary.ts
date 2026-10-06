@@ -43,9 +43,9 @@ export type TCollectStats = {
   durationMs: number;
   naverCalls?: number;
   truncatedKeywords?: number;
-  /** `/admin` 추가 수집 요청을 몇 건 찾았나 · 그 검색이 담은 새 글. 요청이 없던 실행에는 키가 없다(옛 행과 같은 모양). */
+  /** `/admin` 추가 수집 요청을 몇 건 찾았나 · 그 검색이 담은 글 중 아직 분석 안 된 글. 요청이 없던 실행에는 키가 없다(옛 행과 같은 모양). */
   requests?: number;
-  requestNew?: number;
+  requestToRead?: number;
 };
 
 /** 수집의 마지막 한 줄. 터미널에서 이 줄만 보면 된다. */
@@ -53,7 +53,7 @@ export function formatCollectSummary(stats: TCollectStats): string {
   return (
     `수집 ${stats.fetched}건 (신규 ${stats.new} · 기존 ${stats.existing} · ` +
     `1년 밖 제외 ${stats.excludedOld} · 비네이버/비제주 제외 ${stats.excludedOther}) · ` +
-    (stats.requests ? `추가 수집 ${stats.requests}건(새 글 ${stats.requestNew ?? 0}) · ` : '') +
+    (stats.requests ? `추가 수집 ${stats.requests}건(읽을 글 ${stats.requestToRead ?? 0}) · ` : '') +
     formatElapsed(stats.durationMs)
   );
 }

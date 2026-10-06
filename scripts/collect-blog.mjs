@@ -238,12 +238,16 @@ try {
   const urls = collected.map((row) => row.url);
   const chunks = chunkForUrlFilter(urls);
   const existingUrls = new Set();
+  const analyzedUrls = new Set(); // 추가 수집 결과의 '읽을 글' 을 세는 데만 쓴다(requestOutcome)
   // 덩어리 수를 먼저 찍는다 — 몇 번 더 남았는지 보이고, 길이 기반 분할이 실제로 몇 개를 만들었는지도 같이 드러난다(BUG-007 의 관측).
   if (chunks.length > 0) console.log(`기존 url 조회: ${urls.length}건 → ${chunks.length}덩어리`);
   for (const [i, chunk] of chunks.entries()) {
-    const { data, error } = await supabase.from('blog_posts').select('url').in('url', chunk);
+    const { data, error } = await supabase.from('blog_posts').select('url, analyzed_at').in('url', chunk);
     if (error) throw dbError('blog_posts 기존 url 조회', error, chunk.length);
-    for (const row of data) existingUrls.add(row.url);
+    for (const row of data) {
+      existingUrls.add(row.url);
+      if (row.analyzed_at) analyzedUrls.add(row.url);
+    }
     console.log(`  ${i + 1}/${chunks.length} 조회 ${chunk.length}건 · 기존 누적 ${existingUrls.size}`);
   }
   const newCount = collected.filter((row) => !existingUrls.has(row.url)).length;
@@ -260,10 +264,10 @@ try {
   }
 
   // 추가 수집 결과 — 글은 이미 들어갔으므로 여기서 실패해도 실행을 죽이지 않는다(요청이 대기로 남아 다음에 한 번 더 찾을 뿐이다).
-  let requestNew = 0;
+  let requestToRead = 0;
   for (const request of requests) {
-    const outcome = requestOutcome(requestRows.get(request.id) ?? [], existingUrls);
-    requestNew += outcome.new_posts;
+    const outcome = requestOutcome(requestRows.get(request.id) ?? [], analyzedUrls);
+    requestToRead += outcome.to_read;
     try {
       await markRequestDone(supabase, request.id, outcome, now);
     } catch (e) {
@@ -281,7 +285,7 @@ try {
     durationMs: Date.now() - startedAt,
     naverCalls: readNaverCalls(),
     truncatedKeywords: truncated,
-    ...(requests.length ? { requests: requests.length, requestNew } : {}),
+    ...(requests.length ? { requests: requests.length, requestToRead } : {}),
   };
   // 같은 객체를 찍고 같은 객체를 남긴다 — 화면(/admin/ops)이 stats 로 이 줄을 글자까지 같게 다시 만든다(src/lib/runSummary.ts).
   console.log(formatCollectSummary(stats));

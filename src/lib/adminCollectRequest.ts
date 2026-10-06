@@ -20,7 +20,7 @@ export type TCollectRequest = {
   requested_at: string;
   done_at: string | null;
   found: number | null;
-  new_posts: number | null;
+  to_read: number | null;
 };
 
 /** 이름 키 → 그 가게의 가장 최근 요청. 화면은 하나만 말한다(대기 중이면 대기, 아니면 마지막 결과). */
@@ -56,18 +56,18 @@ export function latestRequestByName(rows: readonly TCollectRequest[]): TCollectR
 }
 
 /**
- * 카드에 서는 한 줄. 요청이 없으면 `null`. 끝난 요청은 **새 글 수**를 말한다 — 이미 있던 글만 찾았으면 다음 분석이 읽을 것이 없고,
- * "추가 수집했어요" 만 적으면 운영자는 근거가 곧 붙을 줄 안다.
+ * 카드에 서는 한 줄. 요청이 없으면 `null`. 끝난 요청은 **다음 분석이 읽을 글 수**(`to_read` — 아직 분석 안 된 글)를 말한다.
+ * 전부 분석이 끝난 글이면 근거가 더 붙지 않는데, "추가 수집했어요" 만 적으면 운영자는 곧 붙을 줄 안다.
  */
 export function collectRequestLine(request: TCollectRequest | undefined): string | null {
   if (!request) return null;
   if (request.status === 'queued') return `'${request.query}' 로 찾을 차례예요 — 터미널에서 pnpm data:collect`;
   const when = request.done_at ? `${new Date(request.done_at).getMonth() + 1}월 ${new Date(request.done_at).getDate()}일 ` : '';
   const found = request.found ?? 0;
-  const fresh = request.new_posts ?? 0;
+  const toRead = request.to_read ?? 0;
   if (found === 0) return `${when}추가 수집 · 찾은 글이 없어요`;
-  if (fresh === 0) return `${when}추가 수집 · 글 ${found}건 모두 이미 있던 글이에요`;
-  return `${when}추가 수집 · 새 글 ${fresh}건 — 다음 pnpm data:analyze 가 먼저 읽어요`;
+  if (toRead === 0) return `${when}추가 수집 · 글 ${found}건 모두 분석이 끝난 글이에요 — 더 붙을 근거가 없어요`;
+  return `${when}추가 수집 · 글 ${found}건 중 ${toRead}건을 다음 pnpm data:analyze 가 먼저 읽어요`;
 }
 
 /** 대기 중 전부 + 최근 30일 안에 끝난 것. 오래된 결과는 카드에 말할 이유가 없다. */
@@ -75,7 +75,7 @@ export async function fetchCollectRequests(client: SupabaseClient, now: Date = n
   const since = new Date(now.getTime() - 30 * 86_400_000).toISOString();
   const { data, error } = await client
     .from('collect_requests')
-    .select('id, query, name_key, status, requested_at, done_at, found, new_posts')
+    .select('id, query, name_key, status, requested_at, done_at, found, to_read')
     .or(`status.eq.queued,done_at.gte."${since}"`);
   if (error) return isBlocksUnavailable(error) ? { kind: 'unavailable' } : { kind: 'error', message: error.message };
   return { kind: 'ok', byName: latestRequestByName((data ?? []) as TCollectRequest[]) };
@@ -98,7 +98,7 @@ export async function requestCollect(
   const { data, error } = await client
     .from('collect_requests')
     .insert(row)
-    .select('id, query, name_key, status, requested_at, done_at, found, new_posts')
+    .select('id, query, name_key, status, requested_at, done_at, found, to_read')
     .single();
   if (error?.code === '23505') return 'alreadyQueued';
   if (error) throw new Error(isBlocksUnavailable(error) ? COLLECT_REQUESTS_UNAVAILABLE_TEXT : `추가 수집 요청: ${error.message}`);

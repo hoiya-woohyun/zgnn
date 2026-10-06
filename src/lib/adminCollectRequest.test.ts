@@ -9,7 +9,7 @@ const request = (patch: Partial<TCollectRequest>): TCollectRequest => ({
   requested_at: '2026-10-01T00:00:00Z',
   done_at: '2026-10-02T03:00:00Z',
   found: 12,
-  new_posts: 5,
+  to_read: 5,
   ...patch,
 });
 
@@ -31,7 +31,7 @@ describe('latestRequestByName', () => {
   it('대기 중이 끝난 것보다 이기고, 끝난 것끼리는 늦게 끝난 쪽', () => {
     const old = request({ id: 'a', done_at: '2026-09-20T00:00:00Z' });
     const recent = request({ id: 'b', done_at: '2026-10-05T00:00:00Z' });
-    const queued = request({ id: 'c', status: 'queued', done_at: null, found: null, new_posts: null });
+    const queued = request({ id: 'c', status: 'queued', done_at: null, found: null, to_read: null });
     expect(latestRequestByName([old, recent]).카페살레.id).toBe('b');
     expect(latestRequestByName([queued, recent, old]).카페살레.id).toBe('c');
   });
@@ -44,10 +44,10 @@ describe('collectRequestLine', () => {
   it('대기 중이면 검색어와 다음 명령', () => {
     expect(collectRequestLine(request({ status: 'queued', done_at: null }))).toBe("'제주 카페살레' 로 찾을 차례예요 — 터미널에서 pnpm data:collect");
   });
-  it('끝났으면 새 글 수 — 0 이면 읽을 것이 없다고 말한다', () => {
-    expect(collectRequestLine(request({}))).toMatch(/새 글 5건 — 다음 pnpm data:analyze 가 먼저 읽어요$/);
-    expect(collectRequestLine(request({ new_posts: 0 }))).toMatch(/글 12건 모두 이미 있던 글이에요$/);
-    expect(collectRequestLine(request({ found: 0, new_posts: 0 }))).toMatch(/찾은 글이 없어요$/);
+  it('끝났으면 다음 분석이 읽을 글 수 — 0 이면 더 붙을 근거가 없다고 말한다', () => {
+    expect(collectRequestLine(request({}))).toMatch(/글 12건 중 5건을 다음 pnpm data:analyze 가 먼저 읽어요$/);
+    expect(collectRequestLine(request({ to_read: 0 }))).toMatch(/글 12건 모두 분석이 끝난 글이에요 — 더 붙을 근거가 없어요$/);
+    expect(collectRequestLine(request({ found: 0, to_read: 0 }))).toMatch(/찾은 글이 없어요$/);
   });
 });
 

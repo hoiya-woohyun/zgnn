@@ -6,7 +6,8 @@
 --
 -- 수명: `queued` → (data:collect 가 검색 · upsert 를 마친 뒤) `done`. 실행이 도중에 죽으면 `queued` 로 남아 다음 실행이 다시 한다.
 -- `post_urls` 는 그 검색이 담은 글 url 이다 — `data:analyze` 가 이 글들을 **미분석 줄 맨 앞**에 세운다(안 그러면 수천 건 뒤에 밀려 몇 주가 지나도
--- 안 읽힌다 · 업주 블로그는 '한 가게 블로그' 로 뒤로 간다). `found` 는 담은 글, `new_posts` 는 그중 DB 에 없던 글 — 0 이면 "새로 읽을 글이 없어요" 다.
+-- 안 읽힌다 · 업주 블로그는 '한 가게 블로그' 로 뒤로 간다). `found` 는 담은 글, `to_read` 는 그중 **아직 분석 안 된** 글(DB 에 없던 글 + 있었지만 미분석인 글) — 다음 분석이 맨 앞에서 읽을 수이고, 0 이면 "다음 분석이 읽을 글이 없어요" 다.
+-- (DB 에 없던 글만 세면 틀린다 — 미분석 수천 건 속에 이미 있던 글도 이 요청 덕에 맨 앞으로 오므로 읽힌다.)
 --
 -- 같은 가게(`name_key` = normalizeName(이름), `place_blocks` 와 같은 키)는 대기 중인 요청이 하나뿐이다 — 두 번 눌러도 한 번 찾는다.
 -- DELETE 는 주지 않는다(`20260922120000_narrow_grants.sql` 과 같은 경계). 비로그인 역할에는 아무것도 없다 — 운영자의 결정이다.
@@ -20,7 +21,7 @@ create table public.collect_requests (
   requested_at  timestamptz not null default now(),
   done_at       timestamptz,
   found         int,                           -- 검색이 담은 글(1년 안 · 제주 · 네이버 블로그)
-  new_posts     int,                           -- 그중 DB 에 없던 글
+  to_read       int,                           -- 그중 아직 분석 안 된 글(다음 data:analyze 가 맨 앞에서 읽는다)
   post_urls     text[] not null default '{}'
 );
 

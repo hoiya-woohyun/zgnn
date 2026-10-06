@@ -220,7 +220,7 @@ AI 분석 · 승인 · /admin 고치기) 저장 값을 고치는 곳은 하나�
 (ADR-016 v5, GitHub Actions 폐지). 셋 다 운영자 세션(`pnpm data:login`)이 필요하고, `data:collect` 는 네이버 검색 키까지 필요하다 — env
 (`NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`)로 넘기거나 없으면 터미널 숨김 입력으로 받는다(어디에도 저장 안 함 · 에이전트 세션에서는 입력을 거부).
 그래서 수집은 사용자 몫이고 에이전트는 `data:analyze`·`data:apply` 만 돌린다. `blog_posts` 는 사용자가 돌릴 때만 찬다.
-`/admin` 의 **추가 수집** 요청(`collect_requests`)은 같은 실행이 키워드 뒤에 돈다 — 요청마다 `제주 <상호명>` 한 페이지(30건), 결과(`found`·`new_posts`·`post_urls`)는
+`/admin` 의 **추가 수집** 요청(`collect_requests`)은 같은 실행이 키워드 뒤에 돈다 — 요청마다 `제주 <상호명>` 한 페이지(30건), 결과(`found`·`to_read` — 아직 분석 안 된 글 · `post_urls`)는
 upsert 가 끝난 **뒤에** 적는다(도중에 죽으면 대기로 남는다). 분석은 최근 30일 요청의 `post_urls` 를 미분석 줄 맨 앞에 세운다([features/admin-review 「추가 수집」](../features/admin-review.md)). 진행·결정은
 [todo/02](../todo/02-collect-naver-blog.md)·[todo/03](../todo/03-analyze-and-review.md).
 

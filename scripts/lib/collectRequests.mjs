@@ -18,14 +18,15 @@ export function isTableMissing(error) {
 export const REQUEST_PRIORITY_DAYS = 30;
 
 /**
- * 요청 하나의 결과 — 검색이 담은 행과, 실행 전에 DB 에 있던 url 집합으로. 순수.
- * `new_posts` 를 따로 적는 이유: upsert 는 `ignoreDuplicates` 라 이미 있던 글은 아무것도 안 바뀐다 — 그것만 찾았으면 "새로 읽을 글이 없다" 고 말해야 한다.
+ * 요청 하나의 결과 — 검색이 담은 행과, 실행 전에 DB 에서 **이미 분석이 끝난** url 집합으로. 순수.
+ * `to_read` 는 "DB 에 없던 글" 이 아니라 "아직 분석 안 된 글" 이다 — 미분석으로 쌓여 있던 글도 이 요청 덕에 분석 줄 맨 앞에 서서 읽히므로,
+ * 새 글만 세면 화면이 "읽을 것이 없다" 고 말한 뒤에 분석이 그 글들에서 후보를 만든다. 0 이면 정말 다음 분석이 읽을 것이 없다.
  * @param {{ url: string }[]} rows
- * @param {Set<string>} existingUrls
+ * @param {Set<string>} analyzedUrls
  */
-export function requestOutcome(rows, existingUrls) {
+export function requestOutcome(rows, analyzedUrls) {
   const urls = [...new Set(rows.map((row) => row.url))];
-  return { found: urls.length, new_posts: urls.filter((url) => !existingUrls.has(url)).length, post_urls: urls };
+  return { found: urls.length, to_read: urls.filter((url) => !analyzedUrls.has(url)).length, post_urls: urls };
 }
 
 /** 대기 중인 요청(먼저 누른 것부터). 표가 없으면 `{ requests: [], missing: true }`. 그 밖의 오류는 던진다. */

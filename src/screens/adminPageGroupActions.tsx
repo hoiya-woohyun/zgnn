@@ -121,7 +121,7 @@ export function AdminPageGroupActions({
   onReanalyze: () => void;
   /**
    * 추가 수집(`adminCollectRequest.ts`) — 이 가게를 상호명으로 한 번 더 찾게 한다. 요청 목록을 아직 못 읽었으면 없다(버튼을 안 그린다).
-   * `line` 은 마지막 요청이 말하는 한 줄(대기 중 · 새 글 N건), `queued` 면 버튼을 끈다 — 같은 가게는 한 번만 찾으면 된다.
+   * `line` 은 마지막 요청이 말하는 한 줄(대기 중 · 읽을 글 N건), `queued` 면 버튼을 끈다 — 같은 가게는 한 번만 찾으면 된다.
    */
   collect?: { query: string; line: string | null; queued: boolean; unavailable: boolean };
   onRequestCollect?: () => void;
