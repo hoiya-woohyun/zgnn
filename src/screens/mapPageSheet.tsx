@@ -46,7 +46,7 @@ export function MapPageSheetCard({ place }: TMapPageSheetCardProps) {
 
         {eligibility && (
           <div className="mt-2.5 flex items-center gap-2">
-            <EligibilityBadge level={eligibility.level} />
+            <EligibilityBadge eligibility={eligibility} />
             {/* 목록 카드와 같은 대표 근거(`primaryReason`) — `reasons[0]` 이면 같은 장소를 두 화면이 다른 말로 설명한다(12 U1.7). */}
             {primaryReason(eligibility) && (
               <span className="truncate text-sm text-secondary">{primaryReason(eligibility)?.text}</span>

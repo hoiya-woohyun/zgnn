@@ -7,7 +7,6 @@
 
 ## 지금 (위에서부터)
 
-- [ ] 야외 자유 옵션을 한 규칙으로(심바카레·무거버거·블리스풀 카드↔상세) — [14 W261006.4](14-weekly-ux-eval.md) · 왜 지금: 위 이동가방 줄을 끝낸 뒤의 나머지. 심바카레("케이지 동반시 가능")와 무거버거("실외는 자유")는 원문이 달라 판정이 다른 것이 맞을 수 있다 — 고치기 전에 원문부터 대 본다
 - [ ] 이동가방·유모차를 적은 원문에 "케이지 필요" 칩을 붙이지 않는다 — [14 W261006.18](14-weekly-ux-eval.md) · 왜 지금: 0638b0f 로 판정은 카페스누피 이동가방을 받는데 칩은 여전히 '케이지 필요' — 카드와 상세가 다른 말
 - [ ] 커밋된 `src/data/*.json` 을 `pnpm data:pull` 로 갱신 — [04](04-deploy-and-propagate.md) · 왜 지금: 레포 스냅샷이 시드 86곳 그대로라(`남쪽 (서귀포)` 등 13 T3.1 이 DB 에서 고친 지역이 안 보인다) 로컬 dev·테스트·다음 `/ux-eval` 이 낡은 데이터를 본다. anon 이라 세션 불필요, 0 이면 exit 1
 - [ ] 강아지 저장 뒤 `/settings` 로 떨어지는지 재현부터 — [14 ↪ 08 T3.3](14-weekly-ux-eval.md) · 왜 지금: 6/6 이 겪었지만 코드는 앱 안 이동이면 `router.back()`, 딥링크면 `/settings` — 평가가 `/dog` 를 직접 연 탓인지, 홈 CTA 가 앱 기록을 안 남기는지 Playwright 로 가른다
@@ -18,6 +17,7 @@
 
 ## 기다림 (사람 손·결정)
 
+- 🧑 심바카레·떠돌이식객 이용 조건 원문에 야외 문장 더하기 — [14 W261006.4](14-weekly-ux-eval.md) · 명령: `/admin` → 올린 장소 → 이용 조건 원문을 "실내는 케이지 동반시 가능. 야외 자리는 자유롭게 이용 가능."(심바카레) · "실내는 케이지 동반시 가능. 강아지와 함께 앉으려면 야외석만."(떠돌이식객) → 다음 빌드 뒤 `pnpm data:pull`. 지금은 소개글에만 있어 대형견이 '어려움'
 - 🧑 검수 대기 130곳을 `/admin` 에서 훑고 등록·제외 — [13 §5](13-ai-analysis-audit-2026-10-04.md) · 명령: `/admin` 검수 대기 탭(블로그 장소는 아직 하나도 사이트에 없다 — 첫 등록이 곧 첫 블로그 장소)
 - 🧑 Deploy Hook 회전(URL 이 대화 기록에 남았다) — [05 「Deploy Hook 회전」](05-security.md) · 명령: `vercel deploy-hooks create auto-deploy-2 --ref main` → Studio `vault.update_secret(…'vercel_deploy_hook'…)` → `vercel deploy-hooks remove gD3ioVFKtV` → `/admin` 머리글 `201` 확인 (create·list 는 URL 을 찍으니 **본인 터미널에서만**)
 - 🧑 Supabase 계정 2FA 켜기 — [05](05-security.md) · 명령: supabase.com 계정 설정의 MFA(Studio 로그인 = 관리자 인증이다)

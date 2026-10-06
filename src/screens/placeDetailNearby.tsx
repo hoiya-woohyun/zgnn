@@ -64,7 +64,7 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
       ) : (
         <ul className="no-scrollbar mt-3 flex gap-2.5 overflow-x-auto px-4 pb-1 md:px-6">
           {nearby.map(({ place: other, km }) => {
-            const level = eligibilityMap?.get(other.id)?.level;
+            const eligibility = eligibilityMap?.get(other.id);
             return (
               <li key={other.id} className="w-44 shrink-0">
                 <Link
@@ -80,8 +80,8 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
                     <TownChip town={other.region.town} type={other.type} />
                   </div>
                   <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                    {level && <EligibilityBadge level={level} />}
-                    <PetBadges policy={other.policy} limit={1} hideNoInfo={Boolean(level)} />
+                    {eligibility && <EligibilityBadge eligibility={eligibility} />}
+                    <PetBadges policy={other.policy} limit={1} hideNoInfo={Boolean(eligibility)} />
                   </div>
                 </Link>
               </li>

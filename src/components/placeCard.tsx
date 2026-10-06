@@ -73,7 +73,7 @@ export function PlaceCard({ place, footer, distanceKm }: TPlaceCardProps) {
         {reason && <p className="clamp-1 mt-1 text-xs text-tertiary">{reason.text}</p>}
 
         <div className="mt-3 flex flex-wrap items-center gap-1">
-          {eligibility && <EligibilityBadge level={eligibility.level} />}
+          {eligibility && <EligibilityBadge eligibility={eligibility} />}
           <PetBadges policy={place.policy} limit={eligibility ? 2 : 3} hideNoInfo={Boolean(eligibility)} />
         </div>
       </Link>
