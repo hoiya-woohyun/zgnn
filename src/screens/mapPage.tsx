@@ -278,63 +278,68 @@ export function MapPage() {
               aria-label="보이는 장소"
             >
               {/*
+                칩은 버튼마다 판을 칠하지 않고, **알약 하나에 담긴 색 점 + 글자** 다(ADR-008 v18).
+                켜짐 = 꽉 찬 점·진한 글자, 꺼짐 = 테두리만 남은 점·흐린 글자. 켜진 칩을 브랜드 분홍으로 칠하던 때는
+                셋 다 같은 분홍이라 범례인 종류 색이 손톱만 한 점으로 줄었다 — 이제 색은 점이 혼자 말한다.
+                판은 완전히 투명하게 두지 않는다: 지도 타일의 길·지명 글씨 위에서 글자가 안 읽힌다.
+
+                보이는 알약은 36px 이고 버튼은 44px 그대로다 — 판(`MapPageChipPill`)이 위아래 4px 안쪽에 그려질 뿐
+                히트 영역은 줄지 않는다(모바일 44px 기준).
+              */}
+              {/*
                 맨 앞의 저장 칩. "현장에서 내가 저장한 곳 중 근처는?" 을 지도 안에서 한 번에 답하려고
                 둔다 — 예전에는 설정 → 저장한 곳 → 지도에서 보기, 세 번을 거쳐야 켤 수 있었다.
-                camellia 는 브랜드색과 같은 값이라(theme.css) 켜진 모습만으로는 종류 칩과 안 갈린다 —
-                "무엇을 거르나" 가 다른 축이라는 것은 하트와 뒤따르는 세로 구분선이 말한다.
+                "무엇을 거르나" 가 종류와 다른 축이라 알약을 따로 쓴다 — 묶음이 곧 구분선이다.
               */}
-              <button
-                type="button"
-                onClick={toggleSavedOnly}
-                aria-pressed={savedOnly}
-                className={cx(
-                  'flex h-11 shrink-0 items-center gap-1.5 rounded-xl border px-3.5 text-sm font-semibold shadow-sm backdrop-blur transition-colors',
-                  savedOnly
-                    ? 'border-camellia bg-camellia text-white'
-                    : 'border-secondary bg-primary/92 text-secondary',
-                )}
-              >
-                <Heart
-                  size={16}
-                  aria-hidden="true"
-                  className={savedOnly ? 'fill-white' : 'fill-camellia text-camellia'}
-                />
-                저장 {savedPlaces.length}
-              </button>
-              <span aria-hidden="true" className="my-1.5 w-0.5 shrink-0 rounded-full bg-primary/92 shadow-sm" />
+              <MapPageChipPill>
+                <button
+                  type="button"
+                  onClick={toggleSavedOnly}
+                  aria-pressed={savedOnly}
+                  className={cx(CHIP_BUTTON, 'px-3.5', savedOnly ? 'text-primary' : 'text-quaternary')}
+                >
+                  <Heart
+                    size={14}
+                    aria-hidden="true"
+                    className={cx('text-camellia', savedOnly && 'fill-camellia')}
+                  />
+                  저장 {savedPlaces.length}
+                </button>
+              </MapPageChipPill>
 
-              {PLACE_TYPES.map((type) => {
-                const active = types.includes(type);
-                return (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => toggleType(type)}
-                    aria-pressed={active}
-                    className={cx(
-                      'flex h-11 shrink-0 items-center gap-1.5 rounded-xl border px-3.5 text-sm font-semibold shadow-sm backdrop-blur transition-colors',
-                      active
-                        ? 'border-brand bg-brand-solid text-white'
-                        : 'border-secondary bg-primary/92 text-secondary',
-                    )}
-                  >
-                    {/*
-                      켜져도 종류 색 점을 남긴다(D8) — 흰 점으로 바꾸면 켜진 칩 셋이 똑같은 분홍이 되어
-                      "어느 핀이 이 종류인가" 의 열쇠가 켤 때 사라졌다. 진한 면 위에서도 점이 보이게
-                      흰 원(bg-primary)을 받친다. 꺼짐도 같은 크기의 자리를 차지해 칩 폭이 안 흔들린다.
-                      색은 TYPE_COLOR 그대로 — 새 값을 만들지 않는다(theme.css 와 두 곳 동기화).
-                    */}
-                    <span
-                      className={cx('flex size-3.5 items-center justify-center rounded-full', active && 'bg-primary')}
-                      aria-hidden="true"
+              <MapPageChipPill>
+                {PLACE_TYPES.map((type) => {
+                  const active = types.includes(type);
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => toggleType(type)}
+                      aria-pressed={active}
+                      className={cx(
+                        CHIP_BUTTON,
+                        'px-2.5 first:pl-3.5 last:pr-3.5',
+                        active ? 'text-primary' : 'text-quaternary',
+                      )}
                     >
-                      <span className="size-2 rounded-full" style={{ background: TYPE_COLOR[type] }} />
-                    </span>
-                    {TYPE_META[type].label}
-                  </button>
-                );
-              })}
-
+                      {/*
+                        꺼져도 종류 색을 테두리로 남긴다 — 회색 점으로 바꾸면 "다시 켜면 어느 핀이 돌아오나" 의
+                        열쇠가 꺼질 때 사라진다. 꽉 참/빔 두 모양이 같은 크기라 칩 폭이 안 흔들린다.
+                        색은 TYPE_COLOR 그대로 — 새 값을 만들지 않는다(theme.css 와 두 곳 동기화).
+                      */}
+                      <span
+                        className="size-2.5 shrink-0 rounded-full border-2"
+                        style={{
+                          borderColor: TYPE_COLOR[type],
+                          background: active ? TYPE_COLOR[type] : 'transparent',
+                        }}
+                        aria-hidden="true"
+                      />
+                      {TYPE_META[type].label}
+                    </button>
+                  );
+                })}
+              </MapPageChipPill>
             </div>
 
             <div className="flex items-start gap-2 px-3">
@@ -449,6 +454,22 @@ export function MapPage() {
           {selected && <MapPageSheetCard place={selected} />}
         </BottomSheet>
       )}
+    </div>
+  );
+}
+
+const CHIP_BUTTON =
+  'relative flex h-11 shrink-0 items-center gap-1.5 text-sm font-semibold transition-colors hover:text-primary';
+
+/** 지도 칩 알약 — 판은 버튼 높이(44px)보다 위아래 4px 안쪽에 그려, 보이는 크기만 줄이고 히트 영역은 그대로 둔다. */
+function MapPageChipPill({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative isolate flex shrink-0">
+      <span
+        aria-hidden="true"
+        className="absolute inset-x-0 inset-y-1 -z-10 rounded-full border border-secondary bg-primary/92 shadow-sm backdrop-blur"
+      />
+      {children}
     </div>
   );
 }
