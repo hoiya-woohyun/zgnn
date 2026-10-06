@@ -12,7 +12,7 @@ const normalize = (pathname: string) => pathname.replace(/\/+$/, '') || '/';
  * 모바일 하단 탭바. 데스크톱(md 이상)에서는 사이드바가 대신하므로 숨는다.
  *
  * 높이를 고정해 두는 이유는 appShell 이 이 값만큼 콘텐츠 아래를 비워야 하기 때문이다.
- * 여기 숫자를 바꾸면 `appShellSurface.ts` 의 CONTENT_BOTTOM_SPACE 도 같이 바꾼다.
+ * 여기 숫자나 가운데 원이 솟는 높이(`RISE_PX`)를 바꾸면 `appShellSurface.ts` 의 CONTENT_BOTTOM_SPACE 도 같이 바꾼다.
  *
  * **이미 있는 탭을 다시 누르면 맨 위로 부드럽게 돌아간다** — 네이티브 탭바의 관례다.
  * 조건으로 `item.isActive` 를 쓰면 안 된다. 둘러보기 항목은 탭 하이라이트를 위해 상세
@@ -28,18 +28,23 @@ const normalize = (pathname: string) => pathname.replace(/\/+$/, '') || '/';
  * 화면이 아니다. 스와이프로 옮겨도 여기 하이라이트는 `isActive` 가 새 주소로 다시 계산한다.
  *
  * **가운데 한 칸(`prominent`, 지도)은 솟은 원형 버튼이다.** 다섯 칸이 같은 모양이면 밋밋하고, 여행 중
- * 가장 자주 여는 화면이 어느 것인지도 안 보인다. 원은 탭바 위로 `PROMINENT_RISE` 만큼 솟고, 바탕색(크림)
- * 링을 둘러 `border-t` 선이 원 뒤에서 끊긴 것처럼 보이게 한다 — 노치를 파지 않고 같은 인상을 낸다.
- * 솟은 만큼은 본문 위에 떠 있다(`appShellSurface` 의 아래 여백은 탭바 높이 기준이라 그 여유 안에 든다).
- * 원은 늘 브랜드색이고, 불이 들어왔는지는 다른 칸과 같이 **라벨 색**으로만 말한다 — 원의 색을 바꾸면
- * "지도에 있을 때만 버튼이 있다" 로 읽힌다.
+ * 가장 자주 여는 화면이 어느 것인지도 안 보인다. 원은 탭바 윗선 위로 `RISE_PX` 만큼만 살짝 솟고, `border-t` 선은
+ * 원을 만나면 **원의 가장자리를 타고 넘는다** — 원과 같은 크기의 테두리만 있는 원 하나를 위에 겹치고, 바 위로
+ * 솟은 부분만 남도록 잘라 낸다(`overflow-hidden`). 원 둘레에 크림 띠를 두르지 않는다 — 선이 분홍 가장자리에
+ * 바로 붙어야 "선이 원을 넘는다" 로 읽힌다(띠를 두르면 원이 구멍에 떠 있는 것처럼 보였다).
+ * 라벨은 없다 — 지도 모양 아이콘 하나로 충분하고, 원 밑에 글자가 서면 원이 솟을 자리가 없다(`aria-label` 로만 남긴다).
+ * 솟은 만큼은 본문 위에 떠 있어 `appShellSurface` 의 아래 여백이 그만큼 더 크다.
+ * 원은 늘 브랜드색이고 불이 들어왔는지는 말하지 않는다 — 원의 색을 바꾸면 "지도에 있을 때만 버튼이 있다" 로 읽힌다.
  */
 
 /**
- * 원형 버튼이 탭바 위로 솟는 높이. 지름(`size-13`)과 같이 움직인다 — 원의 아랫단이 라벨(아래 6px + 한 줄)에
- * 닿지 않을 만큼은 솟아야 한다. `-top-3.5` 로 두었더니 원이 '지도' 글자를 덮었다.
+ * 원의 지름과 탭바 윗선 위로 솟는 높이(px). 반(26px)을 내놓으니 너무 튀어 보여 16px 로 들였다.
+ * 탭바 높이(`h-[60px]`)처럼 픽셀로 못 박는다 — 선이 원을 넘는 자리는 1px 단위로 맞아야 해서 `--spacing` 축에
+ * 태우면 테두리 덮개와 원이 서로 어긋난다(탭바는 768px 미만에만 있어 축이 커질 일도 없다).
  */
-const PROMINENT_RISE = '-top-5';
+const CIRCLE_PX = 52;
+const RISE_PX = 16;
+
 export function AppTabBar() {
   const pathname = usePathname();
   const highlightPath = useNavHighlightPath();
@@ -69,31 +74,37 @@ export function AppTabBar() {
         {NAV_ITEMS.map((item) => {
           const active = isNavActive(item, highlightPath);
           const href = navHref(item, pathname);
-          const labelColor = active ? 'text-brand-secondary' : 'text-tertiary';
-
           if (item.prominent) {
             return (
-              <li key={item.to} className="flex-1">
+              <li key={item.to} className="relative flex-1">
                 <Link
                   href={href}
                   onClick={(event) => handleTabClick(event, href)}
                   aria-current={active ? 'page' : undefined}
-                  className={cx(
-                    'relative flex h-full flex-col items-center justify-end pb-1.5 text-xs font-semibold',
-                    labelColor,
-                  )}
+                  aria-label={item.label}
+                  className="relative flex h-full justify-center"
                 >
                   <span
                     aria-hidden
+                    style={{ top: -RISE_PX, width: CIRCLE_PX, height: CIRCLE_PX }}
                     className={cx(
-                      'absolute flex size-13 items-center justify-center rounded-full bg-brand-solid text-primary_on-brand shadow-lg ring-4 ring-bg-secondary',
+                      'absolute flex items-center justify-center rounded-full bg-brand-solid text-primary_on-brand shadow-lg',
                       'transition-transform duration-150 active:scale-95',
-                      PROMINENT_RISE,
                     )}
                   >
                     <item.Icon size={26} />
                   </span>
-                  {item.label}
+                  {/* 선이 원을 타고 넘는 부분 — 분홍 **바깥**에 1px 붙는 테두리(`box-content`)를 솟은 높이만큼만 보인다(그 밑은 바 안이라 선이 없어야 한다). */}
+                  <span
+                    aria-hidden
+                    style={{ top: -RISE_PX - 1, height: RISE_PX + 1, width: CIRCLE_PX + 2 }}
+                    className="pointer-events-none absolute overflow-hidden"
+                  >
+                    <span
+                      style={{ width: CIRCLE_PX, height: CIRCLE_PX }}
+                      className="box-content block rounded-full border border-secondary"
+                    />
+                  </span>
                 </Link>
               </li>
             );
@@ -107,7 +118,7 @@ export function AppTabBar() {
                 aria-current={active ? 'page' : undefined}
                 className={cx(
                   'relative flex h-full flex-col items-center justify-center gap-0.5 text-xs font-semibold',
-                  labelColor,
+                  active ? 'text-brand-secondary' : 'text-tertiary',
                 )}
               >
                 <item.Icon

@@ -8,10 +8,10 @@
  */
 
 /**
- * 스크롤 화면의 아래 여백. 탭바 높이(appTabBar)에 여유를 더해
- * 마지막 줄이 탭바에 가리지 않게 한다.
+ * 스크롤 화면의 아래 여백. 탭바 높이(60px, appTabBar)에 가운데 원이 솟는 높이(16px)와 여유를 더해
+ * 마지막 줄이 탭바에도, 솟은 원에도 가리지 않게 한다.
  */
-export const CONTENT_BOTTOM_SPACE = 'calc(76px + env(safe-area-inset-bottom, 0px))';
+export const CONTENT_BOTTOM_SPACE = 'calc(92px + env(safe-area-inset-bottom, 0px))';
 
 /**
  * 한 장의 폭이 정해지는 방식. 셋뿐이고, 늘어날 자리도 여기 하나다.
