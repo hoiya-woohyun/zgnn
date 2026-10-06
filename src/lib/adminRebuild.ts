@@ -85,8 +85,12 @@ export function agoLabel(fromIso: string, nowMs: number): string {
  */
 const subjectOf = (entry: TRebuildEntry): string => (entry.place_status === 'archived' ? '내린 것' : '올린 것');
 
+/** 가장 최근 **실제 호출**(`skipped` 가 아닌 행). 운영 현황의 재빌드 칸(`adminOpsHealth.ts`)도 같은 행을 본다 — 건너뛰는 규칙이 둘로 갈리지 않게. */
+export const latestRebuildCall = <T extends TRebuildEntry>(entries: readonly T[]): T | undefined =>
+  entries.find((entry) => entry.hook !== 'skipped');
+
 export function rebuildHeadline(entries: TRebuildEntry[], nowMs: number): TRebuildHeadline {
-  const latest = entries.find((entry) => entry.hook !== 'skipped');
+  const latest = latestRebuildCall(entries);
   if (!latest) {
     return entries.length > 0
       ? { tone: 'none', text: '최근 변경은 게시 중인 장소가 아니어서 재빌드를 부르지 않았어요.' }
