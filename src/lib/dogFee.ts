@@ -188,26 +188,43 @@ const kgBounds = (label: string): { min: number; max: number } | undefined => {
 };
 
 /**
- * 자리가 정해진 곳(목록 카드·지도 시트)에 세울 **요금 칩 하나**를 우리 강아지 몸무게로 고른다(07 U5).
+ * 요금 줄의 마릿수 조건 — "2마리 또는 10kg 이상" · "2마리 이상". 뒤에 조건어가 와야 걸린다 — "1마리당 3만원" 은 단가지 조건이 아니다.
+ * `COUNT_OR_KG_RE` 와 같은 낱말(이상 · 또는 · 이거나)을 본다.
+ */
+const COUNT_MIN_RE = /(\d+)\s*마리\s*(?:이상|또는|이거나)/;
+
+const countMin = (label: string): number | undefined => {
+  const m = COUNT_MIN_RE.exec(label);
+  return m ? Number(m[1]) : undefined;
+};
+
+/**
+ * 자리가 정해진 곳(목록 카드·지도 시트)에 세울 **요금 칩 하나**를 우리 강아지 몸무게·마릿수로 고른다(07 U5).
  * 예전엔 첫 줄을 그대로 세워 20kg 아이에게 "1~5kg 1만원" 을 보여 줬다 — 판정·요금 한 줄과 반대로 읽힌다.
  *
- * - 몸무게가 들어가는 구간 줄이 있으면 그 줄. 구간이 겹치면 첫 줄(원문 순서).
- * - 없으면 몸무게 조건이 없는 첫 줄(마리당 기본 요금 — 캄의 "1마리당 3만원").
+ * - 몸무게가 들어가는 구간 줄, 또는 마릿수 조건을 채우는 줄이 있으면 그 줄. 여럿이면 첫 줄(원문 순서).
+ *   캄 "2마리 또는 10kg 이상 4만원" 은 5kg 두 마리에도 걸린다 — 몸무게만 보면 칩은 "1마리당 3만원", 요금 한 줄은
+ *   "4만원" 이라 한 카드가 두 금액을 말했다(07 U5 후속).
+ * - 없으면 몸무게·마릿수 조건이 없는 첫 줄(마리당 기본 요금 — 캄의 "1마리당 3만원").
  * - 줄이 전부 몸무게 조건인데 하나도 안 들면 **표가 어디까지인지만** 말한다: "10kg 까지 요금표". 숫자를 고르지 않는다.
  *   위 끝이 없으면(하한 줄만) 칩을 뺀다(null) — "10kg 이상 2만원" 만 있는 곳의 5kg 는 원문이 말하지 않는다.
  *
  * `labels` 는 정규화한 배지 라벨(`toPetBadges` 의 요금 축) 순서 그대로다. 몸무게는 가장 무거운 아이(`maxWeightKg`) —
  * `formatDogFee` 가 줄을 고르는 기준과 같다. 줄이 몸무게로 갈리지 않으면 첫 줄을 그대로 돌려준다.
+ * 마릿수 조건을 채운 줄은 원문 그대로 세운다 — 조건 마릿수를 넘을 때(캄에 세 마리) 요금 한 줄은 원문으로 물러나지만,
+ * 칩도 원문 줄이라 서로 다른 금액을 말하지는 않는다.
  */
-export const feeChipForWeight = (labels: readonly string[], weightKg: number): string | null => {
+export const feeChipForWeight = (labels: readonly string[], weightKg: number, dogCount = 1): string | null => {
   if (labels.length === 0) return null;
   const bounds = labels.map(kgBounds);
+  const counts = labels.map(countMin);
   const fit = labels.find((_, i) => {
     const b = bounds[i];
-    return b !== undefined && weightKg >= b.min && weightKg <= b.max;
+    const c = counts[i];
+    return (b !== undefined && weightKg >= b.min && weightKg <= b.max) || (c !== undefined && dogCount >= c);
   });
   if (fit) return fit;
-  const plain = labels.find((_, i) => bounds[i] === undefined);
+  const plain = labels.find((_, i) => bounds[i] === undefined && counts[i] === undefined);
   if (plain) return plain;
   const top = Math.max(...bounds.map((b) => (b as { max: number }).max));
   return Number.isFinite(top) ? `${top}kg 까지 요금표` : null;

@@ -39,3 +39,6 @@ export const useEligibilityMap = (): Map<string, TEligibility> | null => {
 /** 가장 무거운 아이의 몸무게 — 카드·지도 시트가 요금 칩 하나를 고르는 데 쓴다(`PetBadges` 의 `weightKg`). 강아지가 없으면 undefined. */
 export const useDogMaxWeightKg = (): number | undefined =>
   useAppStore((state) => (state.dog ? maxWeightKg(state.dog) : undefined));
+
+/** 마릿수 — 요금 칩이 "2마리 또는 10kg 이상" 같은 마릿수 조건 줄을 고르는 데 쓴다(`PetBadges` 의 `dogCount`). 강아지가 없으면 undefined. */
+export const useDogCount = (): number | undefined => useAppStore((state) => state.dog?.dogs.length);

@@ -10,7 +10,7 @@ import { distanceLabel } from '../lib/distanceSort';
 import { primaryReason } from '../lib/eligibility';
 import { formatStayPrice } from '../lib/format';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
-import { useDogMaxWeightKg, useEligibility } from '../store/useDogEligibility';
+import { useDogCount, useDogMaxWeightKg, useEligibility } from '../store/useDogEligibility';
 import { CARD_SURFACE } from './cardSurface';
 
 type TPlaceCardProps = {
@@ -41,6 +41,7 @@ export function PlaceCard({ place, footer, distanceKm, hideReasonText }: TPlaceC
   const eligibility = useEligibility(place);
   const reason = eligibility ? primaryReason(eligibility) : undefined;
   const weightKg = useDogMaxWeightKg();
+  const dogCount = useDogCount();
 
   return (
     <li className="relative">
@@ -87,6 +88,7 @@ export function PlaceCard({ place, footer, distanceKm, hideReasonText }: TPlaceC
             limit={eligibility ? 2 : 3}
             hideNoInfo={Boolean(eligibility)}
             weightKg={weightKg}
+            dogCount={dogCount}
           />
         </div>
       </Link>

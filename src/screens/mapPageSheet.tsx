@@ -9,7 +9,7 @@ import { Button } from '@/components/base/button';
 import { categoryLabel } from '../lib/category';
 import { primaryReason } from '../lib/eligibility';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
-import { useDogMaxWeightKg, useEligibility } from '../store/useDogEligibility';
+import { useDogCount, useDogMaxWeightKg, useEligibility } from '../store/useDogEligibility';
 
 type TMapPageSheetCardProps = {
   place: TPlaceEntry;
@@ -28,6 +28,7 @@ type TMapPageSheetCardProps = {
 export function MapPageSheetCard({ place }: TMapPageSheetCardProps) {
   const eligibility = useEligibility(place);
   const weightKg = useDogMaxWeightKg();
+  const dogCount = useDogCount();
 
   return (
     <div>
@@ -56,7 +57,7 @@ export function MapPageSheetCard({ place }: TMapPageSheetCardProps) {
         )}
 
         <p className="clamp-2 mt-2.5 text-sm text-secondary">{place.features}</p>
-        <PetBadges policy={place.policy} limit={3} hideNoInfo={Boolean(eligibility)} weightKg={weightKg} className="mt-2.5" />
+        <PetBadges policy={place.policy} limit={3} hideNoInfo={Boolean(eligibility)} weightKg={weightKg} dogCount={dogCount} className="mt-2.5" />
       </Link>
 
       {/* 카드 본문 바깥에 둔다 — 자기도 링크라서 위 <Link> 안에 넣으면 a 안에 a 가 된다. */}

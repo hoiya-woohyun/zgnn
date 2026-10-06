@@ -40,10 +40,12 @@ type TPetBadgesProps = {
   sourceText?: string;
   /** 우리 강아지(가장 무거운 아이) 몸무게. 있으면 `limit` 자리의 요금 칩 하나를 그 구간 줄로 고른다(`feeChipForWeight`). */
   weightKg?: number;
+  /** 우리 강아지 마릿수. 캄 "2마리 또는 10kg 이상 4만원" 처럼 마릿수로도 갈리는 줄을 고를 때 쓴다. 없으면 한 마리로 본다. */
+  dogCount?: number;
   className?: string;
 };
 
-export function PetBadges({ policy, limit, hideNoInfo = false, sourceText, weightKg, className = '' }: TPetBadgesProps) {
+export function PetBadges({ policy, limit, hideNoInfo = false, sourceText, weightKg, dogCount, className = '' }: TPetBadgesProps) {
   const all = toPetBadges(policy).filter((badge) => !(hideNoInfo && badge.label === NO_INFO_BADGE_LABEL))
     .filter((badge) => !(sourceText !== undefined && isFeeBadgeRepeatedIn(badge, sourceText)));
   /*
@@ -59,7 +61,7 @@ export function PetBadges({ policy, limit, hideNoInfo = false, sourceText, weigh
   // 프로필이 있으면 그 하나는 첫 줄이 아니라 **우리 강아지 구간**이다(07 U5) — 20kg 아이에게 "1~5kg 1만원" 을 세우지 않는다.
   const feeLabel =
     firstFee >= 0 && weightKg !== undefined
-      ? feeChipForWeight(all.filter((b) => b.axis === 'fee').map((b) => b.label), weightKg)
+      ? feeChipForWeight(all.filter((b) => b.axis === 'fee').map((b) => b.label), weightKg, dogCount)
       : all[firstFee]?.label;
   const badges = limit
     ? all.flatMap((badge, index) => {

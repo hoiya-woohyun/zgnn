@@ -9,7 +9,7 @@ import { sortNearby } from '../lib/distanceSort';
 import { formatKm } from '../lib/format';
 import { withJosa } from '../lib/korean';
 import { nearbyPlaces, TYPE_META, type TPlaceEntry } from '../lib/places';
-import { useDogMaxWeightKg, useEligibilityMap } from '../store/useDogEligibility';
+import { useDogCount, useDogMaxWeightKg, useEligibilityMap } from '../store/useDogEligibility';
 import type { TPlaceType } from '../types';
 import { CARD_SURFACE } from '../components/cardSurface';
 
@@ -28,6 +28,7 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
   // 카드마다 개별 useEligibility 를 부를 수 없으니(훅은 반복문에서 못 부른다) 한 번에 계산해 둔다.
   const eligibilityMap = useEligibilityMap();
   const weightKg = useDogMaxWeightKg();
+  const dogCount = useDogCount();
 
   // 종류로 걸러도 3곳을 채울 여유가 있게 넉넉히 가져온 뒤 다시 정렬한다 — 못 가는 곳은 뒤로, 그다음 거리순(`sortNearby`, 12 U1.4).
   const candidates = useMemo(() => nearbyPlaces(place, 20), [place]);
@@ -83,7 +84,7 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
                   </div>
                   <div className="mt-1.5 flex flex-wrap items-center gap-1">
                     {eligibility && <EligibilityBadge eligibility={eligibility} />}
-                    <PetBadges policy={other.policy} limit={1} hideNoInfo={Boolean(eligibility)} weightKg={weightKg} />
+                    <PetBadges policy={other.policy} limit={1} hideNoInfo={Boolean(eligibility)} weightKg={weightKg} dogCount={dogCount} />
                   </div>
                 </Link>
               </li>

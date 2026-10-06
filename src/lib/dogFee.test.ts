@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { feeChipForWeight, formatDogFee, formatWon } from './dogFee';
-import { parsePetPolicy } from './petPolicy';
+import { parsePetPolicy, toPetBadges } from './petPolicy';
 import { FEE_EX, SYSTEM_PROMPT } from '../../scripts/analyze/extractPlaces.mjs';
 import { judgeEligibility } from './eligibility';
 import { PLACES } from './places';
@@ -320,6 +320,25 @@ describe('feeChipForWeight — 카드의 요금 칩 하나를 우리 강아지 �
     const kalm = ['1마리당 3만원', '2마리 또는 10kg 이상 4만원'];
     expect(feeChipForWeight(kalm, 5)).toBe('1마리당 3만원');
     expect(feeChipForWeight(kalm, 15)).toBe('2마리 또는 10kg 이상 4만원');
+  });
+
+  it('마릿수 조건도 본다 — 캄에 5kg 두 마리면 칩도 요금 한 줄도 4만원 줄(07 U5 후속)', () => {
+    // places.json 의 실제 배지 라벨로 — 정규화한 라벨 모양이 바뀌어도 여기서 드러난다
+    const policy = findPlace('캄 : Kalm').policy;
+    const labels = toPetBadges(policy).filter((b) => b.axis === 'fee').map((b) => b.label);
+    const twoSmall: TDogProfile = {
+      dogs: [
+        { name: '악동', weightKg: 5 },
+        { name: '두부', weightKg: 5 },
+      ],
+      carrier: 'bag',
+    };
+    expect(feeChipForWeight(labels, 5, 1)).toBe('1마리당 3만원');
+    expect(feeChipForWeight(labels, 5, 2)).toBe('2마리 또는 10kg 이상 4만원');
+    expect(formatDogFee(policy, twoSmall)).toBe('악동이와 두부는 4만원 (2마리 또는 10kg 이상 4만원)');
+    // 마릿수 조건만 있는 줄은 조건 아래면 기본 줄로 — "2마리 이상" 이 한 마리에게 서지 않는다
+    expect(feeChipForWeight(['2마리 이상 5만원', '1마리당 2만원'], 5, 1)).toBe('1마리당 2만원');
+    expect(feeChipForWeight(['2마리 이상 5만원', '1마리당 2만원'], 5, 2)).toBe('2마리 이상 5만원');
   });
 
   it('하한 줄만 있고 그 아래면 칩을 뺀다 — 원문이 말하지 않는 몸무게', () => {
