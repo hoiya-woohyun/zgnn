@@ -342,10 +342,11 @@ export function MapPage() {
               </MapPageChipPill>
             </div>
 
+            {/*
+              모바일에는 "N곳 표시 중" 을 두지 않는다(ADR-008 v19) — 지도를 보면 이미 보이는 수이고, 줄을 하나 차지했다.
+              켜 둔 조건은 칩이 말한다. 수는 자리가 넉넉한 데스크톱 패널에만 남긴다.
+            */}
             <div className="flex items-start gap-2 px-3">
-              <span className="pointer-events-auto rounded-md bg-primary/92 px-2 py-1 text-xs font-semibold text-secondary shadow-sm backdrop-blur lg:hidden">
-                {withGeo.length}곳 표시 중
-              </span>
               {/*
                 좌표 없는 곳을 모바일에서도 말한다(12 U1.7) — 안내가 lg 패널에만 있어 모바일에선 말없이 빠졌다.
                 목록은 하나로만 보낸다: 저장 칩이면 저장 화면, 아니면 가장 많이 빠진 종류의 목록. 44px 히트 영역은 링크가 갖고 모양은 안쪽 칩이 갖는다.
