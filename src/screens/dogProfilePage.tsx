@@ -224,7 +224,12 @@ export function DogProfilePage() {
               firstOptionRef={carrierFirstOptionRef}
             />
 
-            <DogProfileSizeOverride computedSize={computedSize} value={sizeOverride} onChange={setSizeOverride} />
+            <DogProfileSizeOverride
+              computedSize={computedSize}
+              value={sizeOverride}
+              onChange={setSizeOverride}
+              multiDog={validDogs.length > 1}
+            />
 
             <div className="space-y-3 pt-2">
               {heavyAsk && (

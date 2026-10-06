@@ -18,6 +18,11 @@ type TDogProfileSizeOverrideProps = {
   computedSize: TDogSize | undefined;
   value: TDogSize | undefined;
   onChange: (size: TDogSize | undefined) => void;
+  /**
+   * 몸무게를 정한 아이가 둘 이상. 크기는 프로필에 하나뿐이고 가장 무거운 아이로 정한다 — "(몸무게로 정했어요)" 만으로는
+   * 2.5kg 콩이 중형견이 된 건지, 큰 아이 기준인지 안 보였다(08 T5.7). 마리별 크기는 설계 뒤의 일이라 문구만 먼저.
+   */
+  multiDog?: boolean;
 };
 
 /**
@@ -25,7 +30,7 @@ type TDogProfileSizeOverrideProps = {
  * 한다. 기본은 몸무게에서 자동 계산하고, 원문의 "대형견" 기준과 어긋날 수 있는 경우에만
  * 여기서 고치게 한다(ADR-005).
  */
-export function DogProfileSizeOverride({ computedSize, value, onChange }: TDogProfileSizeOverrideProps) {
+export function DogProfileSizeOverride({ computedSize, value, onChange, multiDog = false }: TDogProfileSizeOverrideProps) {
   const [open, setOpen] = useState(value !== undefined);
   const shownSize = value ?? computedSize;
 
@@ -45,7 +50,9 @@ export function DogProfileSizeOverride({ computedSize, value, onChange }: TDogPr
             크기: {shownSize ? SIZE_LABEL[shownSize] : '몸무게를 입력하면 정해져요'}
           </span>
           {shownSize && (
-            <span className="text-tertiary">{value ? '(직접 골랐어요)' : '(몸무게로 정했어요)'}</span>
+            <span className="text-tertiary">
+              {value ? '(직접 골랐어요)' : multiDog ? '(가장 큰 아이 기준으로 봐요)' : '(몸무게로 정했어요)'}
+            </span>
           )}
           <span className="text-tertiary"> · </span>
           <span className="font-semibold text-brand-secondary">바꾸기</span>
