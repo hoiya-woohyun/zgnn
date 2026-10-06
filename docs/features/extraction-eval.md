@@ -1,5 +1,6 @@
 # AI 추출 정확도 평가 (`pnpm data:eval`)
 
+> 최종 수정: 2026-10-06 (v3: 실험 경로 `--images` — 글의 사진 몇 장(기본 8)을 같이 읽혀 근거없음 칸이 살아나는지 잰다. 사진은 메모리에서만 읽고 버린다(ADR-002). `compare` 가 회수 · 지어냄 증가 · 글당 토큰을 나란히 찍는다)
 > 최종 수정: 2026-10-06 (v2: 사람 값이 글 본문에 없으면 '놓침' 이 아니라 '근거없음' 으로 센다 — 숫자는 사진에 있었다. 판정 뒤집힘은 원값과 글 근거 기준 둘)
 > 최종 수정: 2026-10-06 (v1: 처음 씀 — 시드 86곳을 정답으로 운영 추출(`extractPlaces`)을 채점한다. golden 은 `data/golden/seed-extract.json` 에 얼려 두고, 추출은 캐시, 채점은 Claude 호출 없이)
 
@@ -19,6 +20,8 @@
 | `pnpm data:eval golden [--force]` | `src/data/places.json` → `data/golden/seed-extract.json`. **이미 있으면 거부한다**(`review` 가 날아간다). places.json 은 앞으로 바뀌므로 한 번 얼린다 | 0 |
 | `pnpm data:eval extract [--limit N] [--only <placeId\|이름>…] [--refresh]` | 글마다 본문을 받아(`data/raw/eval/bodies/`) `claude -p` 한 번. 결과는 `data/raw/eval/extract/<PROMPT_VERSION>-<MODEL>/<logNo>.json` — 있으면 건너뛴다. `--limit` 은 **이번에 부를 Claude 횟수**다 | 글당 `claude -p` 1회 |
 | `pnpm data:eval score [--prompt <버전>]` | golden + 캐시만 읽어 채점. 요약은 터미널과 `data/raw/eval/score-<버전>-<모델>.json`, 어긋난 곳 전부는 `data/raw/eval/report-<버전>.md` | 0 |
+| `… extract\|score --images [--max-images N]` | 실험(아래 「사진도 읽히는 실험」). 캐시는 `extract/<버전>-img<N>-<모델>/`, 요약·보고서도 `-img<N>` 이 붙는다 | 글당 `claude -p` 1회(입력 토큰 약 1.6배) |
+| `pnpm data:eval compare [--prompt <버전>] [--max-images N]` | 텍스트만 캐시와 사진 캐시를 **같은 글끼리** 견준다 | 0 |
 
 - **86곳 전체는 나눠 돌린다.** `claude -p` 는 구독이라 돈은 안 들지만 5시간 세션 한도를 대화와 공유한다. `--limit 20` 씩 돌리면 캐시 다음부터 이어 간다.
   로그인 안 됨·CLI 없음·한도에 걸리면 그 자리에서 멈춘다(나머지도 같은 이유로 실패한다).
@@ -72,6 +75,45 @@
 
 **남은 문제는 프롬프트가 아니다.** 사진에만 있는 조건은 글을 읽는 한 어떤 프롬프트로도 못 뽑는다. 이미지를 읽게 할지(비용·저작권·ADR-002 와의 관계)는 **제품 결정**이다.
 
+## 사진도 읽히는 실험 — `--images`
+
+근거없음이 "사진에 있었다" 는 가설이라면 사진을 같이 읽히면 그 칸이 살아나야 한다. 운영 분석은 건드리지 않고 **평가 도구 안에서만** 잰다
+(`analyze-candidates` 는 사진을 부르지 않는다 — `extractPlaces` 의 `images` 옵션을 넘기는 곳이 `eval-extract.mjs` 하나다).
+
+- **무엇을 보내나**: 글 HTML 에서 본문 사진을 글 순서로 모아(`scripts/analyze/postImages.mjs`) 상한(기본 8장) 안에서 고른다 —
+  ① 바로 앞·뒤 문단에 조건 낱말(요금·추가·kg·마리·이용·안내·주의·제한 …)이 있는 사진, ② 비율이 카메라 비율이 아닌 사진(휴대폰 캡처 `900x1638` 같은), ③ 남는 자리는 글 순서.
+  '강아지·애견·반려' 는 낱말에서 뺐다 — 반려견 글은 거의 모든 문단에 있어 결국 글 순서와 같아진다. 스티커·gif·작은 그림은 뺀다.
+  크기는 네이버 변형 `?type=w773`(긴 쪽 773px)로 받아 장당 50~170KB다. 이미지가 아니거나 1.5MB 를 넘거나 실패한 사진은 그 장만 건너뛴다.
+- **어떻게 보내나**: `claude -p` 는 이미지를 인자로 못 받는다. `--input-format stream-json` 으로 user 메시지 한 줄에 텍스트 블록과
+  base64 이미지 블록을 함께 넣는다(CLI 가 stream-json 입력엔 `--output-format stream-json --verbose` 를 요구한다 — 결과는 마지막 `type: result` 줄). 구독 인증 그대로, API 키 없음.
+- **프롬프트**: `SYSTEM_PROMPT`·스키마는 운영과 같다(그래서 `PROMPT_VERSION` 이 같아 텍스트만 돌린 결과와 견줄 수 있다). 본문 뒤에 짧은 안내
+  (`IMAGE_PROMPT_ADDENDUM` — 사진 속 **글자로 적힌** 조건만 petPolicyText 에 그대로 옮기고 evidence 는 `(사진)` 으로, 모습으로 추측 금지)만 붙인다.
+  안내문을 고치면 캐시 JSON 의 `images.addendumVersion` 이 달라지고 `compare` 가 섞임을 경고한다. 후처리(`correctPetPolicyFacts` 등)는 그대로 돈다 — 원문 대조는 AI 가 옮긴 petPolicyText 기준이다.
+- **캐시**: 추출 JSON 에 글당 `usage`(토큰)·`costUsd`(목록 단가 환산 — 구독이라 실제로 내는 돈은 아니다)가, 사진 쪽엔 고른 사진의 **URL·이유(keyword/screenshot/fill)·바이트** 가 남는다.
+  사진 자체는 남지 않는다. 회수 0 이 "고르기가 놓쳤나 · 사진에도 없었나 · 모델이 못 읽었나" 중 무엇인지 가르려고 이유를 적는다.
+
+### ADR-002 와의 관계
+
+ADR-002 는 사진을 **보여 주지 않는다**는 결정이다. 이 실험은 분석하는 순간에만 사진을 메모리에서 읽고 버린다 — 파일·DB·화면 어디에도 남기지 않고,
+캐시와 보고서에는 URL 과 AI 가 옮겨 적은 조건 문장만 남는다. 운영에 넣을지는 실험 결과를 보고 따로 정한다(그때 ADR 로 남긴다).
+
+### 무엇을 보고 정하나
+
+`compare` 머리의 세 줄이 판단 근거다(근거 판정은 여전히 **글 본문 기준** — 그래야 "글에 없던 것을 사진으로 맞혔나" 를 셀 수 있다).
+
+| 숫자 | 뜻 | 기준 |
+|---|---|---|
+| **회수** | 글에 근거 없던 사람 칸(`grounded: false`) 중 AI 값이 사람 값과 같은 수. review `ai` 로 일치가 된 칸은 뺀다. 텍스트 쪽도 같이 센다(≈0 이어야 정상) | 실험의 머리 숫자 |
+| **지어냄 증가** | 칸 합의 변화 + 사진 쪽에만 생긴 지어냄 목록(AI 문장 포함) | 가장 큰 위험. 목록은 사람이 연다 — 사람 문장이 짧아 빠진 진짜 사진 속 조건일 수도 있다 |
+| **글당 토큰** | 입력(캐시 포함)/출력 평균과 목록 단가 환산 합 | 구독 5시간 한도를 대화와 나눠 쓴다 |
+
+회수가 근거없음 칸의 의미 있는 몫이고 지어냄이 늘지 않을 때만 운영 쪽을 검토한다. 회수가 0 이면 휴리스틱을 고치기 전에 캐시의 `picks`·AI 의 `(사진)` evidence 로
+"사진을 읽었는데 조건이 없었다" 인지부터 본다.
+
+**첫 시험(2026-10-06, 2곳 — 쉼멍스테이·웨스티하우스)**: 회수 0/7, 지어냄 0→0, 글당 입력 약 11.9k → 18.7k 토큰(+57%), 목록 단가 환산 $0.088 → $0.148.
+모델은 사진을 읽었다(쉼멍스테이의 예약 화면 캡처를 `(사진) 202호 100,000원 / 기준 2인 …` 으로 인용) — 고른 캡처에 반려견 조건이 없었다.
+두 곳만으론 결론이 아니다. 21곳 전체는 사용자가 돌린다.
+
 ## 보정 — `review`
 
 보고서(`data/raw/eval/report-<버전>.md`)를 보고, 어긋난 칸을 **글을 직접 열어** 판정한 뒤 `data/golden/seed-extract.json` 의 그 장소 `review` 에 적는다(커밋한다).
@@ -97,6 +139,7 @@
 ## 관련 파일
 
 - `scripts/eval-extract.mjs` — I/O(golden 쓰기·본문/추출 캐시·채점 출력)
-- `scripts/analyze/evalExtract.mjs` · `evalExtract.test.mjs` — 짝 찾기·방향·판정 뒤집힘·보고서(순수, 앱 함수는 주입)
+- `scripts/analyze/evalExtract.mjs` · `evalExtract.test.mjs` — 짝 찾기·방향·판정 뒤집힘·보고서·인자·사진 실험 비교(순수, 앱 함수는 주입)
+- `scripts/analyze/postImages.mjs` · `postImages.test.mjs` — 사진 실험의 사진 고르기·받기(메모리만)
 - `scripts/lib/tsExtResolve.mjs` — `eligibility.ts` 의 확장자 없는 import 를 node 에서 풀어 주는 훅(`package.json` 의 `--import`)
 - `data/golden/seed-extract.json` — 얼린 정답 + 사람 보정
