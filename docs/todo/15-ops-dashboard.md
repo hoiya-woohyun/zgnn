@@ -67,7 +67,8 @@ T7 pg_cron(보류) 은 T2 로 한 달쯤 쌓인 뒤
   ✅ 2026-10-06 구현 — `beginRun` 은 사전 점검·`candidates`/`place_blocks` 읽기까지 다 지난 루프 직전(스펙의 `:343` 뒤가 아니라 그보다 아래 — 그 사이의 `pending` 조회도 throw 할 수 있다). `tick` 은 글마다 + "분석 불가" 닫기 루프 + **제안 루프**(장소마다 Claude 한 번이라 그 루프만으로 10분을 넘길 수 있다). fatal 은 `fatalError` 를 남겨 분류(`ClaudeCliError` auth → `Claude 인증 실패`, 네이버 429 → `네이버 검색 429`, 그 밖 `알 수 없음`). 상태는 지금의 exit 식 그대로. SIGINT 핸들러는 **두지 않았다** — `claude -p` 자식도 같은 신호를 받는데, 끝내지 않는 핸들러를 두면 루프가 계속 돈다. Ctrl-C 한 analyze 는 running 으로 남아 10분 뒤 "중단된 듯" — 실제로 멈춘 것이라 맞는 말이다. 예상 못 한 예외도 같다. ⏳ 수용 기준 실측(`kill -9` · places 0)은 🧑.
 - [x] **T2.4 `apply-approved.mjs`** — `stats:{applied, patched, inserted, failed, revertedToPending, draftWaiting}`. `failed>0` 이면 `partial`(exit code 는 지금처럼 실패 수). `--dry-run` 은 기록 안 함.
   ✅ 2026-10-06 구현 — 시작은 places 비어 있음 검사 뒤, 후보마다 `tick`. stats 에 `patchedPublished` 를 더했다(콘솔 줄이 원래 따로 말한다). ⏳ 실측은 🧑(`data:apply` — 승인된 후보가 있을 때).
-- [ ] **T2.5 `review-candidates.mjs approve|reject`** — `script:'approve'|'reject'`, `stats:{requested, done, failed}`. `list`·`status` 는 기록 안 함(읽기).
+- [x] **T2.5 `review-candidates.mjs approve|reject`** — `script:'approve'|'reject'`, `stats:{requested, done, failed}`. `list`·`status` 는 기록 안 함(읽기).
+  ✅ 2026-10-06 구현 — 대상이 정해진 뒤 시작(못 찾음 exit 1 · 대상 없음 exit 0 은 기록 안 함). 상태: 실패 0 → ok · 성공 0 → failed · 섞이면 partial, 실패가 있으면 `DB 쓰기 실패`. args 는 플래그 이름만(`--note` 의 문장은 싣지 않는다).
 - [ ] **T2.6 문서** — [architecture/data-pipeline.md](../architecture/data-pipeline.md) 에 "실행마다 `pipeline_runs` 한 행" 절, 각 스크립트 `--help`/머리 주석에 한 줄.
 - [ ] **T2.7 네이버 호출 카운터** — 지금 코드에 `naverCalls` 는 **없다**. `scripts/lib/naverBlog.mjs`(수집)와 `scripts/analyze` 의 상호·지역 검색 호출 자리에 카운터 하나(모듈 수준 `let`, `readNaverCalls()`), `collect`·`analyze` 의 `stats.naverCalls` 로 싣는다. 이게 없으면 ④ 사용량의 네이버 칸을 뺀다(🙋 표 참조).
 

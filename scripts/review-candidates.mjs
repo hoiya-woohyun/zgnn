@@ -11,10 +11,12 @@
 //
 // 앱 파서(src/lib/petPolicy.ts)를 그대로 불러 "앱이 이 문장을 어떻게 읽나" 를 보여 준다 — package.json 의 --experimental-strip-types 가 그 이유다.
 // 로그에 시크릿·본문은 없다. evidence·원문은 --verbose / --md 에서만(docs/todo/05).
+// approve·reject 는 실행마다 `pipeline_runs` 에 한 행(scripts/lib/runLog.mjs, docs/todo/15 T2.5). list·status 는 읽기라 남기지 않는다.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { parsePetPolicy, toPetBadges, withPolicyFacts } from '../src/lib/petPolicy.ts';
 import { formatGroup, formatMarkdown, groupCandidates, parseReviewArgs, previewPolicy, resolveIds, TIER_LABEL } from './analyze/reviewCandidates.mjs';
+import { argFlags, beginRun, RUN_ERROR } from './lib/runLog.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
 import { formatReviewSummary } from '../src/lib/runSummary.ts';
 
@@ -121,6 +123,9 @@ if (args.command === 'status') {
     console.log('대상 후보가 없다');
     process.exit(0);
   }
+  // 대상이 정해진 뒤에 시작한다 — 못 찾음(exit 1)·대상 없음(exit 0)은 아무것도 바꾸지 않은 실행이다.
+  // args 는 플래그 이름만(`--note` 의 값은 사람이 쓴 문장이라 싣지 않는다).
+  const run = await beginRun(supabase, { script: args.command, args: { flags: argFlags(process.argv.slice(2)) } });
   const patch = { status: args.command === 'approve' ? 'approved' : 'rejected' };
   let done = 0;
   let failed = 0;
@@ -137,5 +142,7 @@ if (args.command === 'status') {
     done += 1;
     console.log(`  ${patch.status} ${row.extracted?.name} (${row.id.slice(0, 8)}, ${TIER_LABEL[row.extracted?.match?.tier] ?? '신규'})${args.mergeInto ? ` → ${args.mergeInto}` : ''}`);
   }
-  console.log(formatReviewSummary(args.command, { requested: targets.length, done, failed }));
+  const stats = { requested: targets.length, done, failed };
+  console.log(formatReviewSummary(args.command, stats));
+  await run.end({ status: failed === 0 ? 'ok' : done === 0 ? 'failed' : 'partial', stats, error: failed > 0 ? RUN_ERROR.dbWrite : null });
 }
