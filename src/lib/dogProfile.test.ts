@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HEAVY_DOG_CONFIRM_KG, dogProfileSavedMessage, heavyDogs, sanitizeDog } from './dogProfile';
+import { HEAVY_DOG_CONFIRM_KG, dogProfileSavedMessage, heavyDogs, radioIndexAfterKey, sanitizeDog } from './dogProfile';
 
 describe('sanitizeDog — 새 모양', () => {
   it('스펙에 맞는 값은 그대로(이름은 trim)', () => {
@@ -94,5 +94,19 @@ describe('heavyDogs — 저장 전에 한 번 묻는 몸무게', () => {
       { name: '콩', weightKg: 700 },
     ];
     expect(heavyDogs(dogs)).toEqual([{ name: '콩', weightKg: 700 }]);
+  });
+});
+
+describe('radioIndexAfterKey — 라디오 화살표 이동', () => {
+  it('아래·오른쪽은 다음, 위·왼쪽은 이전 — 끝에서 처음으로 이어진다', () => {
+    expect(radioIndexAfterKey('ArrowDown', 0, 4)).toBe(1);
+    expect(radioIndexAfterKey('ArrowRight', 3, 4)).toBe(0);
+    expect(radioIndexAfterKey('ArrowUp', 0, 4)).toBe(3);
+    expect(radioIndexAfterKey('ArrowLeft', 2, 4)).toBe(1);
+  });
+
+  it('다른 키는 건드리지 않는다', () => {
+    expect(radioIndexAfterKey('Tab', 1, 4)).toBeNull();
+    expect(radioIndexAfterKey('Enter', 1, 4)).toBeNull();
   });
 });

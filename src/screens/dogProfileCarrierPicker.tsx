@@ -1,4 +1,5 @@
-import type { Ref } from 'react';
+import type { KeyboardEvent, Ref } from 'react';
+import { radioIndexAfterKey } from '../lib/dogProfile';
 import { CARRIER_LABELS } from '../lib/eligibility';
 import { HintText } from '../components/base/hint-text';
 import { Label } from '../components/base/label';
@@ -29,9 +30,22 @@ type TDogProfileCarrierPickerProps = {
  * 기본 선택이 없다(`value === null`) — 부모가 저장 전에 묻는다(`dogProfilePage.tsx`).
  */
 export function DogProfileCarrierPicker({ value, onChange, error, firstOptionRef }: TDogProfileCarrierPickerProps) {
+  // 직접 만든 radio 라 화살표 이동이 없다 — 방향 키로 고르고 포커스도 따라가게 한다(12 U3.6).
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]'));
+    const from = buttons.indexOf(event.target as HTMLElement);
+    if (from < 0) return;
+    const next = radioIndexAfterKey(event.key, from, CARRIER_ORDER.length);
+    if (next === null) return;
+    event.preventDefault();
+    onChange(CARRIER_ORDER[next]);
+    buttons[next]?.focus();
+  };
+
   return (
     <div
       role="radiogroup"
+      onKeyDown={handleKeyDown}
       aria-label="이동 수단"
       aria-invalid={error ? true : undefined}
       aria-describedby={error ? 'carrier-error' : undefined}
@@ -49,6 +63,8 @@ export function DogProfileCarrierPicker({ value, onChange, error, firstOptionRef
               type="button"
               role="radio"
               aria-checked={selected}
+              // 한 번에 하나만 탭이 멈춘다(roving tabindex) — 고른 칸, 아직 안 골랐으면 첫 칸. 나머지는 화살표로.
+              tabIndex={selected || (value === null && index === 0) ? 0 : -1}
               onClick={() => onChange(carrier)}
               className={cx(
                 'flex w-full min-h-11 items-center gap-3 rounded-2xl border px-3 py-2.5 text-left transition-colors',

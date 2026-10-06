@@ -20,6 +20,16 @@ export const HEAVY_DOG_CONFIRM_KG = 80;
 /** 확인이 필요한 몸무게의 강아지만. 경계값(80kg)은 묻지 않는다. */
 export const heavyDogs = (dogs: TDogEntry[]): TDogEntry[] => dogs.filter((d) => d.weightKg > HEAVY_DOG_CONFIRM_KG);
 
+/**
+ * 라디오 그룹에서 화살표 키가 가리키는 다음 칸(처음↔끝은 이어진다). 방향 키가 아니면 `null`.
+ * 직접 만든 `role="radio"` 는 브라우저가 화살표를 처리해 주지 않아 우리가 한다(12 U3.6).
+ */
+export const radioIndexAfterKey = (key: string, index: number, count: number): number | null => {
+  if (key === 'ArrowDown' || key === 'ArrowRight') return (index + 1) % count;
+  if (key === 'ArrowUp' || key === 'ArrowLeft') return (index - 1 + count) % count;
+  return null;
+};
+
 /** 판정·요금이 함께 쓰는 최대 몸무게. 빈 배열이면 0 — `Math.max()` 의 -Infinity 가 조용히 '소형' 으로 새는 것을 막는다. */
 export const maxWeightKg = (dog: TDogProfile): number =>
   dog.dogs.length > 0 ? Math.max(...dog.dogs.map((d) => d.weightKg)) : 0;
