@@ -129,6 +129,12 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
   값이 필요해 보이면 값 없이 되는 검사로 바꾼다(`pnpm data:pull` 의 exit 0, `gh secret list` 의 이름). GitHub Secrets 는 **0개**(2026-09-22 실측)라 넣을 것도 지울 것도 없다 —
   다시 생기면 `gh secret list` 로 보고 `gh secret delete`(이름만 다루므로 Claude 가 해도 된다). `supabase projects api-keys`·`security find-generic-password`·`vercel env pull` 금지 — `.claude/settings.json` 의 deny 는 사고 방지 장치지
   경계가 아니다(경계는 "값이 파일에 없다 · exp ≤ 1일 · RLS 범위"). `supabase` CLI 는 휴지 상태가 로그아웃이라 `db push`·`db query` 가 안 되면 사용자에게 로그인을 요청한다.
+- **원격 조회는 묻지 않고 직접 한다. 묻는 것은 바꾸거나 돈이 드는 일뿐이다.** `./node_modules/.bin/supabase db query --linked`(PATH 에 없다 · `--linked` 를 빼면
+  로컬을 본다)로 `select`·`migration list`·`pg_trigger`·`cron.job`·`rebuild_log`·vault **이름** 조회 같은 읽기는 허락 없이 바로 확인한다 — 결과를 보고 판단해 이어 간다.
+  롤백으로 끝나는 실측(`begin; …; rollback;` 뒤 다시 세어 0 확인)도 데이터가 남지 않으므로 읽기로 친다.
+  **사용자 허락이 필요한 것**: 데이터 insert·update·delete(원격 DB 의 행을 남기는 쓰기 전부 — `pnpm data:apply` 류 포함) · 표·스키마 삭제(`drop`·`truncate`)와
+  `db push`·마이그레이션 적용 · 재빌드(Deploy Hook)·배포를 실제로 걸거나 구독 한도·유료 API 를 크게 쓰는 일. **사용자에게 도움을 받는 때**: CLI 로그아웃·세션 만료처럼
+  로그인이 필요해 막혔을 때만 — 그때 로그인을 요청하고 기다린다. `vault.decrypted_secrets` 는 읽기라도 조회하지 않는다(위 시크릿 규칙).
 - **뒤로가기는 화면이 아니라 셸이 붙인다.** 새 화면에 `AppBar` 를 직접 달지 않는다 —
   탭바에 넣을 화면이면 `src/lib/appRoutes.ts` 의 `ROOT_ROUTES` 에 한 줄 더하고, 아니면 아무것도 안 한다.
 - **상태바 인셋도 셸이 처리한다**(ADR-010 v3). 화면에서 `env(safe-area-inset-top)` 이나 `pt-safe` 를
