@@ -3,13 +3,15 @@
 // HTML 을 통째로 긁지 않는 이유 — 네이버 약관(HTML 크롤링 금지)과 저작권(ADR-002 와 같은 기준). 검색 API 는
 // 공식 · 하루 25,000회 무료이고 title·link·description·postdate 만 준다. **본문은 여기서도, DB 에도 저장하지 않는다** —
 // 03(분석) 이 링크를 열어 그 순간에만 읽고 버린다. docs/todo/02-collect-naver-blog.md 가 정본.
+// 실행마다 `pipeline_runs` 에 한 행을 남긴다(scripts/lib/runLog.mjs, docs/todo/15) — 기록이 안 되면 경고 한 줄만 찍고 수집은 그대로 돈다.
 import { readFile } from 'node:fs/promises';
 import { chunkForUrlFilter } from './lib/chunkForUrlFilter.mjs';
 import { describeKeyShape, naverErrorTail } from './lib/naverApiError.mjs';
-import { NAVER_BLOG_SEARCH_URL, countNaverCall, naverAuthHeaders } from './lib/naverSearchApi.mjs';
+import { NAVER_BLOG_SEARCH_URL, countNaverCall, naverAuthHeaders, readNaverCalls } from './lib/naverSearchApi.mjs';
 import { loadNaverEnvFile } from './lib/naverEnvFile.mjs';
 import { naverKeyPairProblem } from './lib/naverKeyFormat.mjs';
 import { readHidden } from './lib/readHidden.mjs';
+import { beginRun, classifyRunError, RUN_ERROR } from './lib/runLog.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
 import { formatCollectSummary, formatElapsed } from '../src/lib/runSummary.ts';
 import {
@@ -124,7 +126,11 @@ async function searchBlog(query, start) {
     // 401 일 때만 **보낸 값의 모양**(길이·글자 종류, 값은 아님)을 함께 찍는다 — 숨김 입력이라 사용자가
     // 무엇을 넣었는지 볼 방법이 이것뿐이고, 흔한 실수(뒤바꿔 입력)가 여기서 한눈에 드러난다.
     if (res.status === 401) console.error(describeKeyShape(naverClientId, naverClientSecret));
-    throw new Error(`네이버 검색 API 실패: status=${res.status}${await naverErrorTail(res)} query=${url.searchParams.get('query')}`);
+    // 429 만 분류를 붙인다(실행 기록의 error 칸 — 분류 문구만 적는다, lib/runLog.mjs). 나머지는 '알 수 없음' 이고 원문은 콘솔에 남는다.
+    throw Object.assign(new Error(`네이버 검색 API 실패: status=${res.status}${await naverErrorTail(res)} query=${url.searchParams.get('query')}`), {
+      status: res.status,
+      ...(res.status === 429 ? { runError: RUN_ERROR.naver429 } : {}),
+    });
   }
   return res.json();
 }
@@ -136,81 +142,105 @@ let excludedOld = 0;
 let excludedOther = 0;
 let truncated = 0;
 
-// 진행 로그. 첫 실행은 1년치라 키워드 6 × 최대 10페이지를 돌고, 그 뒤 DB 조회·upsert 가 또 여러 번 나간다 —
-// 예전엔 그 몇 분 동안 **한 줄도 안 찍혀** 도는 중인지 멈춘 건지 사용자가 알 수 없었다(마지막 요약 한 줄이 전부였다).
-// 무엇을 찍고 무엇을 안 찍는지는 `collect/naverBlog.mjs` 의 포맷터 주석이 정본 — **응답 내용은 개수로만** 나간다(05-security).
-console.log(`수집 시작: 키워드 ${keywords.length}개 · 최근 ${WINDOW_DAYS}일 · 키워드당 최대 ${MAX_PAGES}페이지(요청 사이 ${REQUEST_DELAY_MS}ms)`);
+// 시작 기록은 키·키워드 검사가 다 지난 뒤에 — 그 앞의 exit(1) 은 "돌지 않은 것" 이지 실패한 실행이 아니다.
+const run = await beginRun(supabase, { script: 'collect', args: { keywords: keywords.length } });
+// Ctrl-C 도 실패로 닫는다(130 유지). 닫기를 3초 넘게 기다리지 않는다 — 네트워크가 죽어 있으면 그만큼 사용자가 갇힌다.
+process.once('SIGINT', async () => {
+  await Promise.race([run.end({ status: 'failed', error: RUN_ERROR.sigint }), sleep(3000)]);
+  process.exit(130);
+});
 
-for (const [index, keyword] of keywords.entries()) {
-  console.log(`[${index + 1}/${keywords.length}] ${keyword}`);
-  const keywordStartedAt = Date.now();
-  let kept = 0;
-  // 'cap' 은 이제 **닿지 않는 초기값**이다 — 마지막 페이지에서 stopReason 이 반드시 값을 준다(아래). 그래도 남겨 둔다:
-  // MAX_START/DISPLAY 가 나중에 안 나눠떨어지게 바뀌면 조용한 undefined 대신 보수적인 라벨로 떨어지게.
-  let stop = 'cap';
-  for (let start = 1, page = 1; start <= MAX_START; start += DISPLAY, page += 1) {
-    const { items } = await searchBlog(keyword, start);
-    const received = items?.length ?? 0;
-    const tally = tallyPage(items ?? [], keyword, now);
-    collected.push(...tally.rows);
-    kept += tally.rows.length;
-    excludedOld += tally.old;
-    excludedOther += tally.other;
-    if (received > 0) console.log(formatPageLine({ page, start, received, tally, total: kept }));
+try {
+  // 진행 로그. 첫 실행은 1년치라 키워드 6 × 최대 10페이지를 돌고, 그 뒤 DB 조회·upsert 가 또 여러 번 나간다 —
+  // 예전엔 그 몇 분 동안 **한 줄도 안 찍혀** 도는 중인지 멈춘 건지 사용자가 알 수 없었다(마지막 요약 한 줄이 전부였다).
+  // 무엇을 찍고 무엇을 안 찍는지는 `collect/naverBlog.mjs` 의 포맷터 주석이 정본 — **응답 내용은 개수로만** 나간다(05-security).
+  console.log(`수집 시작: 키워드 ${keywords.length}개 · 최근 ${WINDOW_DAYS}일 · 키워드당 최대 ${MAX_PAGES}페이지(요청 사이 ${REQUEST_DELAY_MS}ms)`);
 
-    // 멈출 이유는 순수 함수가 정한다 — 왜 그 판정이 코드 안에 있으면 안 되는지는 stopReason 의 주석(거짓 ⚠️).
-    const reason = stopReason({ received, display: DISPLAY, tally, isLastPage: start + DISPLAY > MAX_START });
-    if (reason) {
-      stop = reason;
-      break;
+  for (const [index, keyword] of keywords.entries()) {
+    console.log(`[${index + 1}/${keywords.length}] ${keyword}`);
+    const keywordStartedAt = Date.now();
+    let kept = 0;
+    // 'cap' 은 이제 **닿지 않는 초기값**이다 — 마지막 페이지에서 stopReason 이 반드시 값을 준다(아래). 그래도 남겨 둔다:
+    // MAX_START/DISPLAY 가 나중에 안 나눠떨어지게 바뀌면 조용한 undefined 대신 보수적인 라벨로 떨어지게.
+    let stop = 'cap';
+    for (let start = 1, page = 1; start <= MAX_START; start += DISPLAY, page += 1) {
+      const { items } = await searchBlog(keyword, start);
+      const received = items?.length ?? 0;
+      const tally = tallyPage(items ?? [], keyword, now);
+      collected.push(...tally.rows);
+      kept += tally.rows.length;
+      excludedOld += tally.old;
+      excludedOther += tally.other;
+      if (received > 0) console.log(formatPageLine({ page, start, received, tally, total: kept }));
+
+      // 멈출 이유는 순수 함수가 정한다 — 왜 그 판정이 코드 안에 있으면 안 되는지는 stopReason 의 주석(거짓 ⚠️).
+      const reason = stopReason({ received, display: DISPLAY, tally, isLastPage: start + DISPLAY > MAX_START });
+      if (reason) {
+        stop = reason;
+        break;
+      }
+      await sleep(REQUEST_DELAY_MS);
     }
-    await sleep(REQUEST_DELAY_MS);
+    console.log(`  → ${kept}건 · ${STOP_LABEL[stop]}에서 멈춤 · ${formatElapsed(Date.now() - keywordStartedAt)}`);
+    // 상한에서 멈췄다는 건 **최근 1년을 다 못 봤다**는 뜻이다(`start` 상한이 1000 이라 키워드당 1,000건이 천장).
+    // 실행을 세우지는 않는다 — 수집은 증분이고 주 1회 도는 일이라, 다음 실행이 새 글부터 다시 담는다. 다만
+    // 이 줄이 없으면 "그 키워드의 창이 잘렸다" 는 사실이 **어디에도 안 남는다**(요약의 건수만 보면 많이 담긴 것처럼 보인다).
+    if (stop === 'cap') {
+      truncated += 1;
+      console.log(`  ⚠️ ${MAX_PAGES}페이지를 다 썼는데 ${WINDOW_DAYS}일 경계에 닿지 못했다 — 이 키워드의 창은 거기서 잘렸다(실패는 아니다. 키워드를 좁히면 줄어든다)`);
+    }
   }
-  console.log(`  → ${kept}건 · ${STOP_LABEL[stop]}에서 멈춤 · ${formatElapsed(Date.now() - keywordStartedAt)}`);
-  // 상한에서 멈췄다는 건 **최근 1년을 다 못 봤다**는 뜻이다(`start` 상한이 1000 이라 키워드당 1,000건이 천장).
-  // 실행을 세우지는 않는다 — 수집은 증분이고 주 1회 도는 일이라, 다음 실행이 새 글부터 다시 담는다. 다만
-  // 이 줄이 없으면 "그 키워드의 창이 잘렸다" 는 사실이 **어디에도 안 남는다**(요약의 건수만 보면 많이 담긴 것처럼 보인다).
-  if (stop === 'cap') {
-    truncated += 1;
-    console.log(`  ⚠️ ${MAX_PAGES}페이지를 다 썼는데 ${WINDOW_DAYS}일 경계에 닿지 못했다 — 이 키워드의 창은 거기서 잘렸다(실패는 아니다. 키워드를 좁히면 줄어든다)`);
+
+  const beforeDedupe = collected.length;
+  collected = dedupeByUrl(collected);
+  const overlapped = beforeDedupe - collected.length;
+  console.log(`중복 제거: ${beforeDedupe} → ${collected.length}건${overlapped > 0 ? ` (키워드끼리 겹친 ${overlapped}건)` : ''}`);
+
+  // 기존 url 을 미리 세어 신규/기존을 구분한다(upsert 자체는 개수를 안 준다).
+  //
+  // ⚠️ **개수가 아니라 길이로 자른다**(→ BUG-007). `in()` 은 목록 전체를 쿼리 스트링에 싣기 때문에
+  // 500개씩 자르면 URL 이 33KB 가 되어 엣지가 PostgREST 에 닿기도 전에 평문 400 으로 거절한다.
+  // 그 실패는 `{ message: 'Bad Request' }` 라는 **스택도 없는 맨 객체**로 와서 원인을 알 수 없다.
+  const urls = collected.map((row) => row.url);
+  const chunks = chunkForUrlFilter(urls);
+  const existingUrls = new Set();
+  // 덩어리 수를 먼저 찍는다 — 몇 번 더 남았는지 보이고, 길이 기반 분할이 실제로 몇 개를 만들었는지도 같이 드러난다(BUG-007 의 관측).
+  if (chunks.length > 0) console.log(`기존 url 조회: ${urls.length}건 → ${chunks.length}덩어리`);
+  for (const [i, chunk] of chunks.entries()) {
+    const { data, error } = await supabase.from('blog_posts').select('url').in('url', chunk);
+    if (error) throw dbError('blog_posts 기존 url 조회', error, chunk.length);
+    for (const row of data) existingUrls.add(row.url);
+    console.log(`  ${i + 1}/${chunks.length} 조회 ${chunk.length}건 · 기존 누적 ${existingUrls.size}`);
   }
+  const newCount = collected.filter((row) => !existingUrls.has(row.url)).length;
+
+  // ignoreDuplicates: true — 이미 있는 글의 fetched_at·analyzed_at 을 덮어쓰지 않기 위해서다.
+  // analyzed_at 은 03(분석) 만 채우는데, upsert 로 덮으면 분석 완료 표시가 매 실행마다 지워진다.
+  const upsertChunks = Math.ceil(collected.length / UPSERT_CHUNK);
+  if (upsertChunks > 0) console.log(`upsert: ${collected.length}건 → ${upsertChunks}덩어리(${UPSERT_CHUNK}씩)`);
+  for (let i = 0; i < collected.length; i += UPSERT_CHUNK) {
+    const chunk = collected.slice(i, i + UPSERT_CHUNK);
+    const { error } = await supabase.from('blog_posts').upsert(chunk, { onConflict: 'url', ignoreDuplicates: true });
+    if (error) throw Object.assign(dbError('blog_posts upsert', error, chunk.length), { runError: RUN_ERROR.dbWrite });
+    console.log(`  ${i / UPSERT_CHUNK + 1}/${upsertChunks} upsert ${chunk.length}건`);
+  }
+
+  if (truncated > 0) console.log(`⚠️ 키워드 ${truncated}개가 ${MAX_PAGES}페이지 상한에서 잘렸다 — 위 ⚠️ 줄을 보라`);
+  const stats = {
+    fetched: collected.length,
+    new: newCount,
+    existing: collected.length - newCount,
+    excludedOld,
+    excludedOther,
+    durationMs: Date.now() - startedAt,
+    naverCalls: readNaverCalls(),
+    truncatedKeywords: truncated,
+  };
+  // 같은 객체를 찍고 같은 객체를 남긴다 — 화면(/admin/ops)이 stats 로 이 줄을 글자까지 같게 다시 만든다(src/lib/runSummary.ts).
+  console.log(formatCollectSummary(stats));
+  await run.end({ status: 'ok', stats });
+} catch (e) {
+  // 기록에는 분류 문구만(원문엔 장소명·URL 이 섞일 수 있다), 원문은 다시 던져 지금처럼 스택과 exit 1 로 보인다.
+  await run.end({ status: 'failed', error: classifyRunError(e) });
+  throw e;
 }
-
-const beforeDedupe = collected.length;
-collected = dedupeByUrl(collected);
-const overlapped = beforeDedupe - collected.length;
-console.log(`중복 제거: ${beforeDedupe} → ${collected.length}건${overlapped > 0 ? ` (키워드끼리 겹친 ${overlapped}건)` : ''}`);
-
-// 기존 url 을 미리 세어 신규/기존을 구분한다(upsert 자체는 개수를 안 준다).
-//
-// ⚠️ **개수가 아니라 길이로 자른다**(→ BUG-007). `in()` 은 목록 전체를 쿼리 스트링에 싣기 때문에
-// 500개씩 자르면 URL 이 33KB 가 되어 엣지가 PostgREST 에 닿기도 전에 평문 400 으로 거절한다.
-// 그 실패는 `{ message: 'Bad Request' }` 라는 **스택도 없는 맨 객체**로 와서 원인을 알 수 없다.
-const urls = collected.map((row) => row.url);
-const chunks = chunkForUrlFilter(urls);
-const existingUrls = new Set();
-// 덩어리 수를 먼저 찍는다 — 몇 번 더 남았는지 보이고, 길이 기반 분할이 실제로 몇 개를 만들었는지도 같이 드러난다(BUG-007 의 관측).
-if (chunks.length > 0) console.log(`기존 url 조회: ${urls.length}건 → ${chunks.length}덩어리`);
-for (const [i, chunk] of chunks.entries()) {
-  const { data, error } = await supabase.from('blog_posts').select('url').in('url', chunk);
-  if (error) throw dbError('blog_posts 기존 url 조회', error, chunk.length);
-  for (const row of data) existingUrls.add(row.url);
-  console.log(`  ${i + 1}/${chunks.length} 조회 ${chunk.length}건 · 기존 누적 ${existingUrls.size}`);
-}
-const newCount = collected.filter((row) => !existingUrls.has(row.url)).length;
-
-// ignoreDuplicates: true — 이미 있는 글의 fetched_at·analyzed_at 을 덮어쓰지 않기 위해서다.
-// analyzed_at 은 03(분석) 만 채우는데, upsert 로 덮으면 분석 완료 표시가 매 실행마다 지워진다.
-const upsertChunks = Math.ceil(collected.length / UPSERT_CHUNK);
-if (upsertChunks > 0) console.log(`upsert: ${collected.length}건 → ${upsertChunks}덩어리(${UPSERT_CHUNK}씩)`);
-for (let i = 0; i < collected.length; i += UPSERT_CHUNK) {
-  const chunk = collected.slice(i, i + UPSERT_CHUNK);
-  const { error } = await supabase.from('blog_posts').upsert(chunk, { onConflict: 'url', ignoreDuplicates: true });
-  if (error) throw dbError('blog_posts upsert', error, chunk.length);
-  console.log(`  ${i / UPSERT_CHUNK + 1}/${upsertChunks} upsert ${chunk.length}건`);
-}
-
-if (truncated > 0) console.log(`⚠️ 키워드 ${truncated}개가 ${MAX_PAGES}페이지 상한에서 잘렸다 — 위 ⚠️ 줄을 보라`);
-console.log(
-  formatCollectSummary({ fetched: collected.length, new: newCount, existing: collected.length - newCount, excludedOld, excludedOther, durationMs: Date.now() - startedAt }),
-);
