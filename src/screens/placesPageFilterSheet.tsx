@@ -118,6 +118,18 @@ export function PlacesPageFilterSheet({
               '[-webkit-mask-image:linear-gradient(to_bottom,black_calc(100%-1.5rem),transparent)]',
             )}
           >
+            {/* 우리 강아지 기준이 **맨 위**다(14 W261006.13) — 맨 아래에선 시트 높이에 따라 반쯤 잘려, 대형견 보호자의
+                핵심 스위치("어려운 곳 숨기기")가 스크롤해야 보였다. 읍면·조건 칩은 그 아래에서 좁힌다. */}
+            {eligibility && (
+              <PlacesPageEligibilityToggles
+                variant="sheet"
+                type={type}
+                hideHard={eligibility.hideHard}
+                onToggleHideHard={eligibility.onToggleHideHard}
+                needsIndoor={eligibility.needsIndoor}
+                onToggleNeedsIndoor={eligibility.onToggleNeedsIndoor}
+              />
+            )}
             <PlacesPageFilters
               variant="sheet"
               type={type}
@@ -130,17 +142,6 @@ export function PlacesPageFilterSheet({
               onTogglePetKey={onTogglePetKey}
               onChangeSort={onChangeSort}
             />
-
-            {eligibility && (
-              <PlacesPageEligibilityToggles
-                variant="sheet"
-                type={type}
-                hideHard={eligibility.hideHard}
-                onToggleHideHard={eligibility.onToggleHideHard}
-                needsIndoor={eligibility.needsIndoor}
-                onToggleNeedsIndoor={eligibility.onToggleNeedsIndoor}
-              />
-            )}
           </div>
 
           {/*
