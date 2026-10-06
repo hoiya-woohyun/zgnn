@@ -1,6 +1,7 @@
 # 프로젝트 아키텍처 인덱스
 
-> 최종 수정: 2026-10-03 (v21: ADR 표에 [ADR-022](./decisions/ADR-022-landmark-search-by-radius.md) 한 줄)
+> 최종 수정: 2026-10-06 (v22: ADR 표에 [ADR-023](./decisions/ADR-023-ops-dashboard-and-run-log.md)(제안) · features 표에 [ops-dashboard.md](./features/ops-dashboard.md)(제안) 한 줄씩)
+> 이전 2026-10-03 (v21: ADR 표에 [ADR-022](./decisions/ADR-022-landmark-search-by-radius.md) 한 줄)
 > 이전 (v20: ADR 표에 [ADR-021](./decisions/ADR-021-place-reports.md) 한 줄)
 > 이전 (v19: ADR 표에 [ADR-020](./decisions/ADR-020-pipeline-stages-and-blocklist.md) 한 줄)
 > 이전 (v18: 준비물 라우트 설명 — 저장한 곳으로 좁히지 않는 고정 목록, 장소가 읽는 쪽 → [ADR-009 v3](./decisions/ADR-009-trip-derived-checklist.md))
@@ -184,6 +185,7 @@ data/                         # Notion 추출본(커밋) · raw/(무시)
 |---|---|---|
 | [dog-profile.md](./features/dog-profile.md) | 구현 완료(v1) | 내 강아지 등록과 장소별 판정. 등록·판정 로직 + 홈·목록·상세·지도 반영까지 |
 | [admin-review.md](./features/admin-review.md) | 구현 중 | 운영자 검수 화면 `/admin` — 무엇이 보이고 버튼이 무엇을 쓰는지. 진행은 [todo/06](./todo/06-admin-review.md) |
+| [ops-dashboard.md](./features/ops-dashboard.md) | **제안** | 운영 현황 화면 `/admin/ops` — 수집·분석·검수·반영·재빌드 다섯 칸 건강 판정, 깔때기, 실행 기록(`pipeline_runs`), Slack 실패 알림. 진행은 [todo/15](./todo/15-ops-dashboard.md) |
 
 ## 주요 의사결정 (ADR)
 
@@ -210,6 +212,7 @@ data/                         # Notion 추출본(커밋) · raw/(무시)
 | [ADR-020](./decisions/ADR-020-pipeline-stages-and-blocklist.md) | 파이프라인을 다섯 칸(수집 완료·검수 대기·등록 완료·등록 해제·블랙리스트)으로 나누고, 반려한 가게는 **분석 단계의 차단 목록**(`place_blocks`, 기간·영구)이 막는다 — 재분석은 지우지 않고 수집 완료로 되돌리며 사람이 고친 후보는 남긴다 (**초안**, 마이그레이션 원격 미적용) |
 | [ADR-021](./decisions/ADR-021-place-reports.md) | 사용자 **장소 제보**는 Supabase `place_reports` 에 비로그인 insert 만 — 사이트가 처음으로 런타임에 쓴다(읽기 없음·재빌드 방아쇠 아님·연락처 없음). 폐업 제보는 기존 등록 해제 폼으로, "최근 확인" 날짜는 사람이 쓴다 (**초안**, 마이그레이션 원격 미적용) |
 | [ADR-022](./decisions/ADR-022-landmark-search-by-radius.md) | 관광지 이름(중문·협재)은 지역 태그가 아니라 **좌표 반경**으로 찾는다 — 태그는 주소에서 온 읍·면 하나로 두고, 둘러보기 검색어가 랜드마크면 반경 안의 장소도 맞는다. 수집 키워드는 태그와 무관하다 |
+| [ADR-023](./decisions/ADR-023-ops-dashboard-and-run-log.md) | **제안** — 파이프라인이 돌고 있는지는 스크립트가 남기는 실행 기록 `pipeline_runs` 로 본다(Slack·로그 파일은 정본이 아니다), 화면은 `/admin/ops`, 건강 판정은 저장하지 않고 계산, Slack 은 DB 트리거가 Vault+pg_net 으로(Deploy Hook 과 같은 모양), "안 돌았다" 알림은 pg_cron 보류 |
 
 ## 버그 기록
 

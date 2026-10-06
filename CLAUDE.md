@@ -32,7 +32,8 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
 | 둘러보기 검색·관광지 이름("중문")으로 찾기 | [ADR-022](docs/decisions/ADR-022-landmark-search-by-radius.md) · `src/lib/placeSearch.ts` · `src/lib/landmarks.ts` — **관광지는 지역 태그가 아니라 좌표 반경**이다. 태그는 주소에서 온 읍·면 하나, 수집 키워드는 태그와 무관 |
 | 주간 사용성 평가(페르소나 6명)·"이번 주 평가가 없어요" 알림 | [docs/reviews/ux-eval/README.md](docs/reviews/ux-eval/README.md) · `/ux-eval`(`.claude/skills/ux-eval/SKILL.md`) · 훅 `.claude/hooks/uxEvalWeekly.mjs` · 태스크 [docs/todo/14](docs/todo/14-weekly-ux-eval.md) — **평가는 메인이 하지 않는다**(fork 금지, `model: "fable"` 명시). 이번 주(KST 월요일~) `00-종합.md` 가 없을 때만 권하고, 밀린 주는 소급하지 않는다 |
 | AI 추출이 얼마나 맞나·프롬프트를 고친 뒤 비교 | [docs/features/extraction-eval.md](docs/features/extraction-eval.md) · `pnpm data:eval golden\|extract\|score` · `scripts/analyze/evalExtract.mjs` — **정답은 시드 86곳**(사람이 같은 글을 읽고 적은 값, `data/golden/seed-extract.json` 에 얼림). 지표는 **판정 뒤집힘**, 방향은 **지어냄**이 가장 비싸다. golden 은 정규식이 읽은 값이라 사람이 `review` 로 보정한다. 추출은 글당 `claude -p` 1회라 `--limit` 로 나눠 돈다, 채점은 호출 0 |
-| "왜 이렇게 했나" | [docs/decisions/](docs/decisions/) (ADR 22편) · 전체 지도는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| 파이프라인이 **돌고 있는지**(수집·분석·반영 마지막 실행·실패)·운영 현황 화면·Slack 알림 | [docs/todo/15](docs/todo/15-ops-dashboard.md)(설계만, 코드 없음) · [ADR-023](docs/decisions/ADR-023-ops-dashboard-and-run-log.md) · [docs/features/ops-dashboard.md](docs/features/ops-dashboard.md) — 정본은 스크립트가 남기는 `pipeline_runs` 표(지금은 `rebuild_log` 뿐), 화면은 `/admin/ops`(`/admin` 의 세션·레이아웃을 그대로 받는다), Slack 은 **DB 트리거**가 Vault+pg_net 으로 보낸다(스크립트·브라우저가 아니다). "안 돌았다" 알림(pg_cron)은 보류 |
+| "왜 이렇게 했나" | [docs/decisions/](docs/decisions/) (ADR 23편) · 전체 지도는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 
 탐색 전에 위 표를 먼저 본다. 전체 구조가 필요하면 `docs/ARCHITECTURE.md` 하나만 읽으면 된다.
 
