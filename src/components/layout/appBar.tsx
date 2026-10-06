@@ -107,10 +107,14 @@ export function AppBar({ backTo, title, actions }: TAppBarProps) {
     const clearMode = writeMorphMode(header, mode);
     const resize = new ResizeObserver(measure);
     if (main) resize.observe(main);
+    // 경로는 그대로인데 h1 글만 바뀌는 화면이 있다(/dog — 하이드레이션 뒤·삭제 뒤 '등록' ↔ '수정', 12 U3.6). 글이 바뀌면 다시 읽는다.
+    const headingWatch = new MutationObserver(() => setHeading(h1?.textContent?.trim() ?? null));
+    if (h1) headingWatch.observe(h1, { childList: true, characterData: true, subtree: true });
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onResize);
     return () => {
       resize.disconnect();
+      headingWatch.disconnect();
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onResize);
       clearMode();
