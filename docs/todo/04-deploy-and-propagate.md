@@ -114,7 +114,9 @@ pg_cron 매분          ──▶  flush_vercel_rebuild()  ──▶  가장 최
       건너뛴 것도 `hook='skipped'` 로 남긴다 — "왜 빌드가 안 돌았나" 의 답이 그 줄에 있다.
       소프트 삭제가 이 갈래를 실제로 만들었다: 초안을 내리는 것은 사이트와 무관한 정리 작업이다.
 - [x] **뒤쪽 합치기**(2026-10-06, `20261006130000_rebuild_coalesce.sql`) — 아래 🙋 를 닫는다. 일괄 올리기 36곳이 훅 36번 → 429(BUG-011)가 실제로 났다.
-      ✅ 2026-10-06 사용자가 `db push` 뒤 원격에서 확인했다(아래 첫 줄 · 셋째 줄 — 잡 둘 · `username` postgres · `queued` → `sent` 2xx).
+      2026-10-06 `db push` 뒤 원격: 첫째·둘째 줄 확인(잡 둘 · `username` postgres · 10:03 부터 매분 succeeded). 셋째 줄은 **반영 뒤 쓰기가 아직 없어** 새 경로의 줄이 0 —
+      보이는 `sent`·201 은 전부 `flushed_at` 이 null 인 옛 경로 기록이다(09:40 한 번에 36곳 → 훅 36번, 이 작업이 고친 바로 그 모양). 롤백 트랜잭션으로 원격의
+      트리거 → `queued` → 플러시 → Vault → `sent`(request_id) 까지는 확인했다(커밋 안 함 = 훅 안 나감). 남은 것은 실제 저장 한 번의 2xx.
       확인 절차(원격 — 사용자 터미널, `./node_modules/.bin/supabase db query --linked`):
       ```sql
       -- 잡이 하나 있고 켜져 있나 · 누구로 도나(postgres 가 아니면 PUBLIC 회수에 막혀 매분 실패한다)
