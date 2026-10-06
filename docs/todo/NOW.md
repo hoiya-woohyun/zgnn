@@ -14,7 +14,6 @@
 
 ## 지금 (위에서부터)
 
-- [ ] 낡은 태스크 닫기 + 카드 규칙 한 줄 — [14](14-weekly-ux-eval.md) W261006.7(84곳 전부 `verifiedAt` 있음)·W261006.17(ux-eval 스킬에 `lsof` 들어감)을 `> 메모:` 로 닫고, CLAUDE.md 「작성 규칙」 에 "흰 면은 `CARD_SURFACE`, 빈 상태는 `EmptyState`(지도 위만 `floating`)" 한 줄(5ddfa51, ADR-003 v15) · 왜 지금: 같은 클래스가 다시 퍼지기 전에
 
 ## 기다림 (사람 손·결정)
 

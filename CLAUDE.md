@@ -145,6 +145,8 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
   하위 화면 헤더가 전부 그렇다. **흰색(`bg-primary`)은 떠 있는 카드에만** 쓴다 — 크롬을 흰색으로 칠하면 SAT·SAB 가
   스크롤 위치마다 크림/흰색으로 갈린다. 상단 크롬은 불투명(반투명이면 밑의 카드가 상태바 뒤로 비친다), 본문과는 선으로 가른다.
   하단 시트(`base/bottom-sheet`)도 크림이다 — 그 위에서 눌림 표시는 `primary_hover`(크림과 같은 값)가 아니라 `bg-tertiary`.
+- **흰 면은 `CARD_SURFACE`(`src/components/cardSurface.ts`), 빈 상태는 `EmptyState`**(ADR-003 v15). 상자 클래스를 글자로 다시 적지 않는다.
+  면은 답(상세 판정)과 다루는 덩어리(누르는 카드·체크/입력 판)에만 — 근거는 같은 면 안 구분선으로 딸리고, 빈 상태는 면 없이 크림 위에 선다(지도 위만 `floating`).
 - **화면 본체는 `src/screens/`** (클라이언트), `src/app/**/page.tsx` 는 주소·메타·
   `generateStaticParams` 만. `src/pages/` 는 Next 가 옛 Pages Router 로 인식해서 못 쓴다.
 - **단일 소유자 파일은 소유자 접두어**를 파일명과 대표 export 에 붙인다(camelCase).
