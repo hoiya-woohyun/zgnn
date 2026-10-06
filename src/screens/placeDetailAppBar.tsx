@@ -36,7 +36,7 @@ export function PlaceDetailAppBar({ place, ref }: { place: TPlaceEntry; ref: Ref
           {place.name}
         </span>
         <span data-scroll-morph="title-trailing" className="shrink-0 pr-3 text-sm text-tertiary" style={{ opacity: 'var(--morph)' }}>
-          {place.region.town} · {categoryLabel(place.category, TYPE_META[place.type].label)}
+          {place.region.town} · {categoryLabel(place.category, TYPE_META[place.type].label, place.type)}
         </span>
       </div>
     </AppBarSlot>

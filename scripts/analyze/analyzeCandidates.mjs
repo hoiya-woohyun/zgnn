@@ -5,6 +5,7 @@
 // 계약이다. 키 하나가 빠지면(예: 네이버가 준 category) 빌드도 테스트도 통과한 채 반영 단계에서 조용히 안 채워진다.
 // 그래서 모양을 함수 하나에 모으고 테스트로 못 박는다.
 import { regionFromBranchName } from '../lib/jejuRegions.mjs';
+import { categoryForType } from '../lib/placeCategory.mjs';
 import { parseRegion } from '../lib/placeFields.mjs';
 import { extractAddressUnits, inferRegionRaw } from './naverLocal.mjs';
 import { distanceMeters, JEJU_TOWNS, normalizeName, sameBranchStem, sameSpot, THRESHOLD, townOf, WEIGHT } from './matchPlace.mjs';
@@ -448,7 +449,9 @@ export function toCandidateRow(post, extracted, local, regionRaw, matched, { met
       geoSource: local ? (local.geoSource ?? 'local') : null,
       naverLink: local?.naverLink ?? null,
       homepage,
-      category: local?.category ?? null,
+      // 종류와 어긋나는 업종(식당의 `카페,디저트`)은 버린다 — 종류가 이긴다(`placeCategory.mjs`). 네이버 원래 값은 검수 단서로 남긴다.
+      category: categoryForType(local?.category, extracted.type),
+      ...(local?.category && !categoryForType(local.category, extracted.type) ? { categoryNaver: local.category } : {}),
       regionRaw: regionRaw ?? null,
       regionRawAi: extracted.regionRaw ?? null,
       // kind — 승인하면 무슨 일이 일어나나(`kindOf`, 11 U2). 부르는 쪽이 짝 행과 대 본 결과를 넘긴다. 안 넘기면 짝의 확신으로만 정한다

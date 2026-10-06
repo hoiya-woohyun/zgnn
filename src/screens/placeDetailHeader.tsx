@@ -169,7 +169,7 @@ export function PlaceDetailHeader({ place }: { place: TPlaceEntry }) {
           {DIRECTION_LABEL[place.region.direction]} {place.region.town}
         </span>
         <span className="h-3 w-px bg-quaternary" aria-hidden="true" />
-        <span>{categoryLabel(place.category, TYPE_META[place.type].label)}</span>
+        <span>{categoryLabel(place.category, TYPE_META[place.type].label, place.type)}</span>
       </p>
 
       {place.address && <p className="mt-1 text-sm text-tertiary">{place.address}</p>}

@@ -95,8 +95,12 @@ describe('mergeIntoExisting', () => {
 
   it('category 는 extracted 에 있을 때만 채운다 — 없으면(TExtractedPlace 기본 모양) 빈 칸이어도 그대로', () => {
     expect(mergeIntoExisting({ ...solsup, category: null }, extracted)).toBeNull();
-    expect(mergeIntoExisting({ ...solsup, category: '' }, { ...extracted, category: '커피전문점' })).toEqual({ category: '커피전문점' });
-    expect(mergeIntoExisting(solsup, { ...extracted, category: '커피전문점' })).toBeNull();
+    expect(mergeIntoExisting({ ...solsup, category: '' }, { ...extracted, category: '펜션' })).toEqual({ category: '펜션' });
+    expect(mergeIntoExisting(solsup, { ...extracted, category: '펜션' })).toBeNull();
+  });
+
+  it('category 는 그 행의 종류와 맞을 때만 채운다 — 숙소에 커피전문점은 안 들어간다(12 U3.6)', () => {
+    expect(mergeIntoExisting({ ...solsup, category: '' }, { ...extracted, category: '커피전문점' })).toBeNull();
   });
 
   it('빈 칸이 여럿이면 한 patch 에 모두 담고, 채운 값은 양끝 공백을 지운다', () => {

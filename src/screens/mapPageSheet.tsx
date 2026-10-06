@@ -38,7 +38,7 @@ export function MapPageSheetCard({ place }: TMapPageSheetCardProps) {
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
               <TownChip town={place.region.town} type={place.type} />
               <span className="text-sm text-tertiary">
-                {categoryLabel(place.category, TYPE_META[place.type].label)}
+                {categoryLabel(place.category, TYPE_META[place.type].label, place.type)}
               </span>
             </div>
           </div>

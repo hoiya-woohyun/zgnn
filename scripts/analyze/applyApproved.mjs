@@ -8,6 +8,7 @@
 // 컬럼명은 places 테이블 그대로 snake_case 다(supabase/migrations/20260920124849_zgnn_schema.sql). camelCase 로
 // 바꾸는 건 pull-db.mjs 의 일이고, 여기서는 DB 에 쓸 모양을 만든다.
 
+import { categoryForType } from '../lib/placeCategory.mjs';
 import { parseRegion } from '../lib/placeFields.mjs';
 
 /** null · undefined · 공백뿐인 문자열을 "비어 있음" 으로 본다. 숫자(lat/lng)는 이 함수로 보지 않는다 — 0 은 값이다. */
@@ -94,7 +95,8 @@ export function mergeIntoExisting(existingRow, extracted, { postUrl = null } = {
     if (extracted?.petPolicy && typeof extracted.petPolicy === 'object') patch.pet_policy = extracted.petPolicy;
   }
 
-  const category = text(extracted?.category);
+  // 업종은 그 행의 종류와 맞을 때만 채운다(`placeCategory.mjs`) — 분석 전에 쌓인 후보는 네이버 값이 그대로다.
+  const category = categoryForType(text(extracted?.category), existingRow.type);
   if (isBlank(existingRow.category) && category) patch.category = category;
 
   const reviewUrl = text(postUrl);
@@ -187,7 +189,7 @@ export function overwriteWithLatest(existingRow, extracted, { only } = {}) {
     patch.pet_policy = petPolicy;
   }
 
-  const category = text(extracted?.category);
+  const category = categoryForType(text(extracted?.category), patch.type ?? existingRow.type);
   if (category) put('category', category);
 
   const placeId = placeIdOf(extracted);
@@ -291,7 +293,7 @@ export function toNewPlaceRow(candidate, { id, environmentColumn = false }) {
     lat: geo?.lat ?? null,
     lng: geo?.lng ?? null,
     address: text(extracted.address),
-    category: text(extracted.category),
+    category: categoryForType(text(extracted.category), type),
     stay_price_text: type === 'stay' ? text(extracted.stayPriceText) : null,
     stay_amenities_text: type === 'stay' ? text(extracted.stayAmenitiesText) : null,
     sort: null,

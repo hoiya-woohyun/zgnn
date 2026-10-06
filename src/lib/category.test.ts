@@ -16,3 +16,11 @@ describe('categoryLabel', () => {
     expect(categoryLabel('  ', '카페')).toBe('카페');
   });
 });
+
+describe('종류와 어긋나는 업종(12 U3.6)', () => {
+  it('식당의 카페 업종은 종류 이름으로 대신한다 · 맞는 업종은 그대로', () => {
+    expect(categoryLabel('카페,디저트', '식당', 'restaurant')).toBe('식당');
+    expect(categoryLabel('백반,가정식', '식당', 'restaurant')).toBe('백반·가정식');
+    expect(categoryLabel('카페,디저트', '카페', 'cafe')).toBe('카페·디저트');
+  });
+});
