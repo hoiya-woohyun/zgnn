@@ -465,6 +465,10 @@ describe('resolveRegionRaw — 시내(동 단위)는 시로 뭉친다', () => {
     expect(resolveRegionRaw(null, '북쪽 (노형동)', places)).toBe('북쪽 (제주시)');
     expect(resolveRegionRaw(null, '서쪽 (노형동)', places)).toBeNull();
   });
+  it('AI 가 시를 줄여 써도("남쪽 (서귀포)") 시로 받는다 — parseRegion 이 읍면을 정본으로 접는다(07 U8, 전에는 null 로 떨어졌다)', () => {
+    expect(resolveRegionRaw(null, '남쪽 (서귀포)', places)).toBe('남쪽 (서귀포시)');
+    expect(resolveRegionRaw(null, '서쪽 (제주)', places)).toBe('북쪽 (제주시)');
+  });
   it('시 이름은 AI 가 준 방향과 무관하게 코드가 정한다', () => {
     expect(resolveRegionRaw(null, '서쪽 (제주시)', places)).toBe('북쪽 (제주시)');
     expect(resolveRegionRaw(null, '남쪽 (서귀포시)', places)).toBe('남쪽 (서귀포시)');
