@@ -478,7 +478,7 @@ export const primaryReason = (e: TEligibility): TReason | undefined => {
 // 화면(폼)에서 이동 수단 4택을 그릴 때 쓰는 라벨·설명. 여기 두는 이유는 판정 규칙 문구와
 // 짝을 맞춰 관리하기 위해서다 — 규칙 문구가 바뀌면 이 설명도 같이 봐야 한다.
 export const CARRIER_LABELS: Record<TCarrier, { label: string; hint: string }> = {
-  none: { label: '없어요', hint: '케이지·이동가방·유모차 없이 안고 다녀요' },
+  none: { label: '없어요', hint: '케이지·이동가방·유모차 없이 리드줄만 써요(걷거나 안고)' },
   bag: { label: '이동가방·슬링백', hint: '천 가방이나 슬링백에 넣어 다녀요' },
   cage: { label: '케이지', hint: '딱딱한 이동장(하드 케이지)을 써요' },
   stroller: { label: '유모차', hint: '반려동물용 유모차를 밀고 다녀요' },
