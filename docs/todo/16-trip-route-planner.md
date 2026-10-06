@@ -74,7 +74,8 @@
 
 **T1 — 1단계: 묶기·순서 (순수 함수 먼저)**
 - [ ] T1.1 `tripPlan.ts` — `dayOf` · `order` 상태 모양, `savedIds` 와의 동기(해제 시 제거), 마이그레이션(`version` 올림). 테스트.
-- [ ] T1.2 `tripRoute.ts` — `suggestOrder(places, start, { stayLast: true })`: 가까운 순 그리디 + 숙소 마지막. 시작점 셋(현재 위치·전날 숙소·공항). 테스트(제주 좌표 샘플로 결정적).
+- [x] T1.2 `tripRoute.ts` — `suggestOrder(places, start, { stayLast: true })`: 가까운 순 그리디 + 숙소 마지막. 시작점 셋(현재 위치·전날 숙소·공항). 테스트(제주 좌표 샘플로 결정적).
+  > 메모(2026-10-07): `start` 는 좌표(`TGeo | null`)로 받고, 셋 → 좌표는 `routeStartGeo(TRouteStart)` 가 푼다(공항 = `JEJU_AIRPORT`, `landmarks.ts` 와 같은 값). 좌표 없는 곳은 그 묶음 뒤 원래 순서, 숙소가 둘이면 앞 체인 끝에서 이어 그리디. 전날 숙소에 좌표가 없으면 `null` → 첫 좌표 있는 곳부터. 🙋 2(시작점 기본값)는 화면(T1.4) 몫이라 함수는 셋을 다 받는다.
 - [ ] T1.3 `naverRouteLink.ts` — `routeUrl(stops, { appname })` · `navigationUrl(place)` · 5곳 분할 `splitStops`. 좌표 없는 곳은 빼고 "지도에 없는 N곳" 을 함께 돌려준다. 테스트(인코딩·분할·빈 입력).
 - [ ] T1.4 저장 화면에 날짜 라벨 · 하루 보기 · "순서 다시 제안" · "네이버 지도로 길찾기". **임시안**(10 §7 과 같은 뜻 — 자리·문구는 디자인 트랙 전).
 - [ ] T1.5 지도 시트에 "지금 여기로"(`nmap://navigation`). `naverLinkButton.tsx` 에 종류 하나 추가, 새 버튼 컴포넌트는 만들지 않는다(CLAUDE.md).
