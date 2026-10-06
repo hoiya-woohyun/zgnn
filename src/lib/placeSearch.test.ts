@@ -37,6 +37,21 @@ describe('matchesQuery', () => {
     expect(matchesQuery(place(), '카페')).toBe(true);
   });
 
+  it('"서귀포"·"제주시" — 시 이름은 소속 읍·면까지 맞는다(14 W261006.9)', () => {
+    expect(matchesQuery(place({ town: '성산읍' }), '서귀포')).toBe(true);
+    expect(matchesQuery(place({ town: '대정읍' }), '서귀포시 카페')).toBe(true);
+    expect(matchesQuery(place({ town: '서귀포시' }), '서귀포')).toBe(true);
+    expect(matchesQuery(place({ town: '애월읍' }), '서귀포')).toBe(false);
+    expect(matchesQuery(place({ town: '애월읍' }), '제주시')).toBe(true);
+    expect(matchesQuery(place({ town: '우도면' }), '제주시')).toBe(true);
+    expect(matchesQuery(place({ town: '표선면' }), '제주시')).toBe(false);
+  });
+
+  it('맨 "제주" 는 시를 고르지 않는다 — 섬 전체라 글자로만 찾는다', () => {
+    expect(matchesQuery(place({ town: '성산읍', name: '오늘도제주' }), '제주')).toBe(true);
+    expect(matchesQuery(place({ town: '애월읍', name: '어느 곳' }), '제주')).toBe(false);
+  });
+
   describe('관광지 이름 — 좌표 반경으로도 맞는다', () => {
     // 중문 중심(33.2496, 126.412)에서 위도 0.01° ≈ 1.1km.
     const nearJungmun = { lat: 33.2596, lng: 126.412 };

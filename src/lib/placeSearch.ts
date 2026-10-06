@@ -10,12 +10,25 @@
  *
  * 관광지 이름("중문")은 글자 **또는** 좌표로 맞는다 — 단어가 랜드마크면 그 반경 안의 장소도 참이다(`landmarks.ts`).
  * 읍·면이 아닌 관광지는 지역 태그에 없어 글자로는 거의 안 걸리기 때문이다.
+ *
+ * 시 이름("서귀포"·"제주시")은 그 시에 속한 읍·면까지 맞는다(14 W261006.9). 지역 태그는 읍·면 하나라 시 이름은 **동 지역**
+ * 태그(`서귀포시`·`제주시`)에만 글자로 걸렸다 — 성산·표선·대정이 '서귀포' 검색에서 빠졌다. 맨 '제주' 는 넣지 않는다:
+ * 섬 전체라 그 단어로 시를 고르는 사람은 없고, 이름·특징의 '제주' 를 찾는 검색이 시 하나로 좁아진다.
  */
 
 import { isNearLandmark, landmarkOfWord } from './landmarks';
 import type { TPlaceEntry } from './places';
 
 const TYPE_WORDS = new Set(['카페', '식당', '숙소']);
+
+/** 행정시 → 소속 읍·면(+ 동 지역 태그 자신). 행정구역은 고정이라 데이터에서 만들지 않는다 — 아직 장소가 없는 읍·면(추자면)도 넣는다. */
+const JEJU_CITY = new Set(['제주시', '애월읍', '한림읍', '한경면', '조천읍', '구좌읍', '우도면', '추자면']);
+const SEOGWIPO_CITY = new Set(['서귀포시', '대정읍', '안덕면', '남원읍', '표선면', '성산읍']);
+const CITY_TOWNS: ReadonlyMap<string, ReadonlySet<string>> = new Map([
+  ['제주시', JEJU_CITY],
+  ['서귀포', SEOGWIPO_CITY],
+  ['서귀포시', SEOGWIPO_CITY],
+]);
 
 const squash = (text: string) => text.toLowerCase().replace(/\s+/g, '');
 
@@ -31,6 +44,7 @@ export function matchesQuery(
   const haystack = squash([place.name, place.features, place.region.town, place.category ?? ''].join(' '));
   return words.every((word) => {
     if (haystack.includes(word)) return true;
+    if (CITY_TOWNS.get(word)?.has(place.region.town)) return true;
     const landmark = landmarkOfWord(word);
     return landmark !== null && isNearLandmark(place, landmark);
   });
