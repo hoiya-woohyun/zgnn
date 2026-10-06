@@ -160,7 +160,7 @@ export function ChecklistPageItemRow({
                         {variant.label}
                       </span>
                       <span className="shrink-0 text-xs font-medium text-brand-secondary">
-                        보러 가기
+                        {linkLabel(variant.linkUrl)}
                       </span>
                       <LinkExternal01
                         aria-hidden="true"

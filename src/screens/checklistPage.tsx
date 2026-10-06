@@ -61,6 +61,8 @@ export function ChecklistPage() {
 
       {/* 제목 줄 바로 밑에서 시작한다 — 제목이 줄 바닥에 앉아 있어 PageHeader 때의 간격(mt-1)이 그대로 난다. */}
       <p className="px-4 text-sm whitespace-pre-line text-tertiary md:px-6">{META.itemsIntro}</p>
+      {/* 제휴 링크가 대부분이라 고지는 링크가 나오는 이 목록의 머리에 둔다 — 맨 아래 작은 글씨는 링크와 너무 멀다. */}
+      <p className="mt-2 px-4 text-sm text-tertiary md:px-6">{META.disclosure}</p>
 
       <div>
         <div className="px-4 pt-4 md:px-6">
@@ -125,7 +127,6 @@ export function ChecklistPage() {
         <p className="rounded-2xl border border-secondary bg-primary p-4 text-sm text-secondary">
           {META.itemsAdvice}
         </p>
-        <p className="text-xs text-tertiary">{META.disclosure}</p>
       </footer>
     </div>
   );
