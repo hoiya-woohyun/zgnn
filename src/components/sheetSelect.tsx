@@ -132,7 +132,7 @@ function SheetPicker({ label, value, onChange, sections, noneLabel, className }:
           className,
         )}
       >
-        <span id={valueId} className="truncate text-sm font-medium text-primary">
+        <span id={valueId} className="truncate text-sm text-primary">
           {selected?.label ?? noneLabel}
         </span>
         <ChevronDown aria-hidden="true" className="ml-auto size-4 shrink-0 stroke-[2.25px] text-fg-quaternary" />
@@ -196,7 +196,7 @@ function SheetRow({ id, label, supportingText }: TSheetSelectOption) {
       {({ isSelected }) => (
         <>
           <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2">
-            <span className="truncate text-md font-medium">{label}</span>
+            <span className="truncate text-md">{label}</span>
             {supportingText && <span className="text-sm text-tertiary">{supportingText}</span>}
           </span>
           {isSelected && <Check aria-hidden="true" className="size-5 shrink-0 text-fg-brand-primary" />}

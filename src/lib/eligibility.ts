@@ -209,7 +209,7 @@ const ruleBagAtCagePlace: TRule = (dog, policy) => {
   if (policy.sources.indoor && BAG_ALLOWED.test(policy.sources.indoor)) return null;
   return {
     level: 'cond',
-    text: '케이지라고 적혀 있어요 — 이동가방도 되는지 확인해 주세요',
+    text: '케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요',
     quote: policy.sources.indoor,
   };
 };
@@ -222,7 +222,7 @@ const ruleStrollerAtCagePlace: TRule = (dog, policy) => {
   if (policy.sources.indoor && STROLLER_ALLOWED.test(policy.sources.indoor)) return null;
   return {
     level: 'cond',
-    text: '케이지라고 적혀 있어요 — 유모차도 되는지 확인해 주세요',
+    text: '케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요',
     quote: policy.sources.indoor,
   };
 };
@@ -284,7 +284,7 @@ const ruleWeightAboveFeeTable: TRule = (dog, policy) => {
   if (over.length === 0) return null;
   const labels = over.map((d) => `${dogCallName(d.name)}(${d.weightKg}kg)`);
   const subject = over.length === 1 ? labels[0] : labels.join('·');
-  return { level: 'cond', text: `${top}kg 초과 요금이 적혀 있지 않아요 — ${subject}도 되는지 확인해 주세요` };
+  return { level: 'cond', text: `${top}kg 초과 요금이 적혀 있지 않아요. ${subject}도 되는지 확인해 주세요` };
 };
 
 /**
@@ -313,13 +313,13 @@ const ruleLargeDogUnmentioned: TRule = (dog, policy) => {
   const minKgLine = policy.feeLines.find((line) => FEE_MIN_KG_RE.test(line));
   if (minKgLine) {
     const n = Number((FEE_MIN_KG_RE.exec(minKgLine) as RegExpExecArray)[1]);
-    return { level: 'cond', text: `${n}kg 이상 요금이 적혀 있어요 — ${weight}kg 도 되는지 확인해 주세요` };
+    return { level: 'cond', text: `${n}kg 이상 요금이 적혀 있어요. ${weight}kg 도 되는지 확인해 주세요` };
   }
   // 구간 요금표를 넘으면 C10 이 크기와 무관하게 "N kg 초과 요금" 으로 말한다 — 같은 말을 두 번 하지 않는다.
   const top = feeTableTopKg(policy);
   if (top !== undefined && weight > top) return null;
 
-  return { level: 'cond', text: '대형견 언급이 없어요 — 확인해 주세요', quote: policy.sources.largeDogOk };
+  return { level: 'cond', text: '대형견 언급이 없어요. 확인해 주세요', quote: policy.sources.largeDogOk };
 };
 
 /** C6: 방문 전 전화 확인이 필요하다고 적혀 있다. */
@@ -334,7 +334,7 @@ const ruleCallFirst: TRule = (_dog, policy) => {
  */
 const ruleVaccineRequired: TRule = (_dog, policy) => {
   if (!policy.vaccineRequired) return null;
-  return { level: 'cond', text: '예방접종을 마친 강아지만 들어갈 수 있어요 — 접종 증명을 챙겨 주세요', quote: policy.sources.vaccineRequired };
+  return { level: 'cond', text: '예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요', quote: policy.sources.vaccineRequired };
 };
 
 /**
@@ -343,7 +343,7 @@ const ruleVaccineRequired: TRule = (_dog, policy) => {
  */
 const ruleUnread: TRule = (_dog, policy) => {
   if (!policy.unread) return null;
-  return { level: 'cond', text: '조건 문장을 자동으로 읽지 못했어요 — 원문을 확인해 주세요' };
+  return { level: 'cond', text: '조건 문장을 자동으로 읽지 못했어요. 원문을 확인해 주세요' };
 };
 
 /**
@@ -353,7 +353,7 @@ const ruleUnread: TRule = (_dog, policy) => {
  */
 const ruleGenericUnverified: TRule = (_dog, policy) => {
   if (!policy.genericOnly || policy.verified) return null;
-  return { level: 'cond', text: '조건이 적혀 있지 않아요 — 가기 전에 확인해 주세요' };
+  return { level: 'cond', text: '조건이 적혀 있지 않아요. 가기 전에 확인해 주세요' };
 };
 
 /** U1: 원문에 동반 조건 자체가 없다. */

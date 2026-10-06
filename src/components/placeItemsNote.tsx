@@ -84,7 +84,6 @@ export function PlaceItemsNote({ place, className }: TPlaceItemsNoteProps) {
           className="-mr-1 flex min-h-11 shrink-0 items-center gap-1 rounded-lg px-1 text-sm font-semibold text-brand-secondary"
         >
           전체 목록
-          <ArrowRight aria-hidden="true" className="size-4" />
         </Link>
       </div>
 
@@ -108,7 +107,7 @@ export function PlaceItemsNote({ place, className }: TPlaceItemsNoteProps) {
                   toggleChecked(item.id);
                 }}
                 className={cx(
-                  'flex h-11 cursor-pointer items-center gap-1.5 rounded-lg px-3 text-sm font-medium transition-colors',
+                  'flex h-11 cursor-pointer items-center gap-1.5 rounded-lg px-3 text-sm transition-colors',
                   'focus-visible:outline-2 focus-visible:outline-offset-2 outline-focus-ring',
                   status === 'checked'
                     ? 'bg-brand-primary text-brand-secondary'

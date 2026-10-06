@@ -258,7 +258,7 @@ describe('judgeEligibility — C10 요금표 상한 밖 몸무게(14 W261006.1)'
     const result = judgeEligibility(dogOf(kg), solsup());
     expect(result.level).toBe('cond');
     const c10 = result.reasons.find((r) => r.rule === 'C10');
-    expect(c10?.text).toBe(`10kg 초과 요금이 적혀 있지 않아요 — 콩이(${kg}kg)도 되는지 확인해 주세요`);
+    expect(c10?.text).toBe(`10kg 초과 요금이 적혀 있지 않아요. 콩이(${kg}kg)도 되는지 확인해 주세요`);
   });
 
   it('표 안이면 걸리지 않는다(8kg → ok + 요금 줄)', () => {
@@ -447,7 +447,7 @@ describe('judgeEligibility — 확인 기록 없는 일반 허용 문장(C9, tod
   it('확인 기록이 없으면 확인이 필요하다 — 조건이 적혀 있지 않다는 것까지가 원문이다', () => {
     const result = judgeEligibility(TOFU, withVerifiedAt(parsePetPolicy(GENERIC), undefined));
     expect(result.level).toBe('cond');
-    expect(primaryReason(result)).toMatchObject({ rule: 'C9', text: '조건이 적혀 있지 않아요 — 가기 전에 확인해 주세요' });
+    expect(primaryReason(result)).toMatchObject({ rule: 'C9', text: '조건이 적혀 있지 않아요. 가기 전에 확인해 주세요' });
   });
 
   it('구체 조건이 하나라도 있으면 C9 는 물러나고 기존 규칙대로 판정한다', () => {

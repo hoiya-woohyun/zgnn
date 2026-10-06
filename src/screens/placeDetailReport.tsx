@@ -74,7 +74,7 @@ export function PlaceDetailReport({ place }: { place: TPlaceEntry }) {
         isOpen={open}
         onOpenChange={setOpen}
         title="정보가 달라요"
-        lead={`${place.name} — 무엇이 다른지 골라 주세요.`}
+        lead={`${place.name}에서 무엇이 다른지 골라 주세요.`}
         placeId={place.id}
         kinds={PICKABLE_REPORT_KINDS}
         notePlaceholder="예: 9월부터 영업 안 해요 · 실내는 안 되고 테라스만 돼요"

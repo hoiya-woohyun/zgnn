@@ -159,7 +159,7 @@ export function ChecklistPageItemRow({
                       <span className="min-w-0 flex-1 text-sm font-semibold text-primary">
                         {variant.label}
                       </span>
-                      <span className="shrink-0 text-xs font-medium text-brand-secondary">
+                      <span className="shrink-0 text-xs text-brand-secondary">
                         {linkLabel(variant.linkUrl)}
                       </span>
                       <LinkExternal01

@@ -230,14 +230,15 @@ export function DogProfilePage() {
               {heavyAsk && (
                 <div role="alert" className={`${CARD_SURFACE} p-4`}>
                   <p className="text-sm font-semibold text-primary">
-                    {heavyAsk.map((d) => `${d.name} ${d.weightKg}kg`).join(' · ')} 이(가) 맞나요?
+                    {/* 조사를 붙이지 않는다 — 끝 글자가 'kg' 라 `withJosa` 가 받침을 못 읽어 "60kg가" 가 된다. */}
+                    {heavyAsk.map((d) => `${d.name} ${d.weightKg}kg`).join(' · ')}, 맞나요?
                   </p>
                   <p className="mt-1 text-sm text-tertiary">
                     {HEAVY_DOG_CONFIRM_KG}kg 이 넘으면 대형견 기준으로 판정해요. 소수점을 빼고 쓰지 않았는지 확인해 주세요.
                   </p>
                   <div className="mt-3 flex gap-2">
                     <Button type="button" size="sm" color="primary" className="h-11" onClick={() => save(true)}>
-                      맞아요, 저장
+                      맞아요, {dog ? '고치기' : '등록하기'}
                     </Button>
                     <Button type="button" size="sm" color="secondary" className="h-11" onClick={() => setHeavyAsk(null)}>
                       다시 볼게요
@@ -245,8 +246,9 @@ export function DogProfilePage() {
                   </div>
                 </div>
               )}
+              {/* 화면 제목과 같은 동사 — `저장` 은 장소 저장(하트)의 낱말이라 핵심 명사가 둘로 갈렸다(디자인 리뷰 §10). */}
               <Button type="submit" size="lg" className="w-full">
-                저장
+                {dog ? '고치기' : '등록하기'}
               </Button>
               {dog && (
                 <Button

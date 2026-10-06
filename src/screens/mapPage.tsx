@@ -337,7 +337,7 @@ export function MapPage() {
                   className="pointer-events-auto -mt-2.5 flex min-h-11 items-center lg:hidden"
                 >
                   <span className="rounded-md bg-primary/92 px-2 py-1 text-xs font-semibold text-brand-secondary shadow-sm backdrop-blur">
-                    지도에 없는 {missingGeo.length}곳 ›
+                    지도에 없는 {missingGeo.length}곳
                   </span>
                 </button>
               )}
