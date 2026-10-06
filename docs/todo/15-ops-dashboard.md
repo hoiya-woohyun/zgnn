@@ -41,7 +41,7 @@ T7 pg_cron(보류) 은 T2 로 한 달쯤 쌓인 뒤
   `backlog` 는 `/admin` 의 `adminPosts.fetchPostBacklog` 와 같은 수를 SQL 로 한 번 더 세는 것이다 — 두 벌임을 인정한다. `/admin` 수집 완료 탭은 그대로 두고, 이 화면은 왕복 하나로 끝내는 쪽을 택한다.
   부수 효과: 불릴 때 `net._http_response` 에서 `alert.requestId` 가 있는 행의 응답을 `alert` 에 옮겨 적는다(`rebuild_status` 수법, 실패해도 넘어감).
   anon·PUBLIC 실행 권한 회수. 검증: 운영자 세션으로 호출해 키가 전부 있는지, anon 은 42501.
-  ✅ 같은 마이그레이션. 실측: 키 `backlog·days·funnel·pending·rebuildRecent·runsLastOk·runsLatest·slackConfigured·stranded·usage30d` 전부, `runsLatest` 행에 `operator` 없음, `rebuildRecent` 5행에 `responded_at` 포함, `slackConfigured=false`(Vault 비어 있음), 숫자가 아닌 `stats` 칸(`"calls":"x"`)은 합에서 빠지고 함수는 산다 · anon/비운영자 rpc 42501. 스펙과 다른 것 둘은 아래 「계획과 다르게 간 것」(`runsLastOk` 추가 · `rebuildRecent` 는 `rebuild_status` 를 `perform` 한 뒤 표를 직접 읽음).
+  ✅ 같은 마이그레이션. 실측: 키 `backlog·days·funnel·pending·rebuildRecent·runsLastOk·runsLatest·slackConfigured·stranded·usage30d` 전부, `runsLatest` 행에 `operator` 없음, `rebuildRecent` 5행에 `responded_at` 포함, `slackConfigured=false`(Vault 에 그 이름 없음 — 함수 소유자 postgres 의 `vault` usage·`vault.secrets` select 를 실측해 "읽을 수 없어 false" 가 아님을 확인, 대조군 `vercel_deploy_hook` 이름은 보인다), 숫자가 아닌 `stats` 칸(`"calls":"x"`)은 합에서 빠지고 함수는 산다 · anon/비운영자 rpc 42501. 스펙과 다른 것 둘은 아래 「계획과 다르게 간 것」(`runsLastOk` 추가 · `rebuildRecent` 는 `rebuild_status` 를 `perform` 한 뒤 표를 직접 읽음).
 - [ ] **T1.3 rpc `ops_slack_test()`** — ⏸ 2026-10-06 T5·T6 와 함께 하기로 미룸(🙋 "Slack 은 T2 가 한 주 쌓인 뒤" 권장안). 존재 확인(`slackConfigured`)은 T1.2 에 들어갔다. — **버튼 전용**(T6). definer, 운영자 확인, Vault 에 `slack_webhook_url` 없으면 `{state:'missing'}`, 있으면 고정 문구로 POST 하고 `{state:'sent', requestId}`. URL 을 돌려주지 않는다. 존재 확인에는 쓰지 않는다(그건 T1.2 의 `slackConfigured`). 검증: Vault 비어 있을 때 `missing`.
 
 ### T2. 스크립트가 기록을 남긴다 — `scripts/lib/runLog.mjs`
