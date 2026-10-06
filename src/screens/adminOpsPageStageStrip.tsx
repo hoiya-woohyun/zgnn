@@ -81,7 +81,8 @@ export function AdminOpsPageStageStrip({
           </>
         );
         const card = cx(
-          'block h-32 w-full rounded-lg border border-secondary p-3 text-left',
+          // 버튼은 내용을 세로 가운데로 띄운다 — 이유 줄이 없는 칸만 내려앉아 칸끼리 첫 줄이 어긋난다. 위로 붙인다.
+          'flex h-32 w-full flex-col justify-start rounded-lg border border-secondary p-3 text-left',
           CARD[state],
           active === stage?.key && 'shadow-[inset_0_0_0_2px_var(--color-border-brand)]',
         );

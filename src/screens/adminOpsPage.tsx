@@ -11,9 +11,11 @@ import { rebuildHeadline } from '../lib/adminRebuild';
 import { ADMIN_SESSION_KEY, clearAdminSession, readAdminSession, sessionProblem, type TAdminSession } from '../lib/adminSession';
 import { createAdminClient, isOperator } from '../lib/adminSupabase';
 import { cx } from '../utils/cx';
+import { AdminOpsPageAlerts } from './adminOpsPageAlerts';
 import { AdminOpsPageFunnel, type TAdminOpsFunnelDays } from './adminOpsPageFunnel';
 import { AdminOpsPageRunsTable, sameScripts } from './adminOpsPageRunsTable';
 import { AdminOpsPageStageStrip } from './adminOpsPageStageStrip';
+import { AdminOpsPageUsage } from './adminOpsPageUsage';
 import { AdminPageLogin } from './adminPageLogin';
 
 type TPhase = 'checking' | 'signedOut' | 'verifying' | 'loading' | 'ready' | 'notOperator' | 'error';
@@ -460,7 +462,8 @@ export function AdminOpsPage() {
         error={runsError}
       />
 
-      {/* ④ 사용량 · ⑤ 알림(T3.8) 이 여기 선다. */}
+      <AdminOpsPageUsage usage={overview.usage30d} />
+      <AdminOpsPageAlerts slackConfigured={overview.slackConfigured} />
     </div>
   );
 }

@@ -91,7 +91,8 @@ T7 pg_cron(보류) 은 T2 로 한 달쯤 쌓인 뒤
   ✅ 2026-10-06 `dataviz` 의 막대 규격을 따랐다 — 한 색(`bg-brand-solid` 40%), 두께 10px, 끝만 4px 둥글게·기준선은 각지게, 수는 막대 색이 아니라 글자 토큰(`tabular-nums`). 30일은 **흐름만** 따로 받는다(`ops_overview(30)`, 처음 고를 때 + 새로고침마다) — 다섯 칸·띠는 7일 그대로. 늦게 온 응답은 순번으로 버린다. 승인·제외는 반쪽 칸 둘이 아니라 **같은 막대 칸에 위·아래 두 막대**(아래 「계획과 다르게 간 것」).
 - [x] **T3.7 `adminOpsPageRunsTable.tsx`** — `adminTable` + `adminInfiniteScroll` 재사용, 열 여섯, 칩 필터(스크립트 · 실패만), 행 펼침(stats 키-값 · args · error · alert). `?run=<id>` 면 그 행을 받아 펼친 채 스크롤 — `useSearchParams` 가 아니라 effect 안의 `window.location.search`(정적 내보내기의 Suspense 요구 회피, 화면은 `ssr:false`). `stalled` 행 아래 한 줄: "죽었으면 그냥 다시 돌리면 돼요(`runLock` 이 죽은 pid 의 잠금을 이어받는다). 살아 있는데 멎었으면 그 프로세스를 끊고 다시". 손으로 상태를 바꾸는 버튼은 **없다**.
   ✅ 2026-10-06 열 트랙은 이 표만 쓰므로 그 파일에(`ADMIN_OPS_RUN_TRACKS`). 서버 장 넘김(keyset `before`) + 감시판, 겹친 호출은 ref 로 막고 합칠 때 id 로 거른다. 걸러 보기를 바꾸면 순번으로 늦은 응답을 버린다. 장 읽기가 실패하면 감시판을 내린다(실패한 장을 계속 다시 부르지 않게). ① 칸을 누르면 그 스크립트로, 한 번 더 누르면 전체로. 요약 열은 `runSummaryLine` → 없으면 `error` → 돌고 있으면 "도는 중". `?run=` 은 마운트 때 한 번 `fetchRun` 해 첫 장에 없으면 맨 위에 하나 더 세우고(`· 링크`) 펼친 채 그 자리로 스크롤. 펼친 줄은 시작·끝·소요·심장·args·error·`stats.*`(점으로 편 키)·`alert.*`. 소요·알림 열은 좁은 화면에서 숨긴다(펼친 줄에 있다). 순수 함수 셋(`runDurationLabel`·`flattenStats`·`runAlertLabel`)은 `adminOps.ts` + 테스트.
-- [ ] **T3.8 `adminOpsPageUsage.tsx` · `adminOpsPageAlerts.tsx`** — 사용량 한 줄 세 묶음(금액 환산 없음 · 각주 한 줄) · Slack 묶음(`missing` 이면 "켜려면 → 15 §T5" 로 접힘, 테스트 버튼은 T6).
+- [x] **T3.8 `adminOpsPageUsage.tsx` · `adminOpsPageAlerts.tsx`** — 사용량 한 줄 세 묶음(금액 환산 없음 · 각주 한 줄) · Slack 묶음(`missing` 이면 "켜려면 → 15 §T5" 로 접힘, 테스트 버튼은 T6).
+  ✅ 2026-10-06 사용량은 Claude 다섯 수(호출·입력·출력·캐시 읽기·쓰기 — 패스 셋 합) │ 네이버 검색 │ 재빌드 2xx, 짧은 표기(1.2M) + 정확한 수는 `title`. 알림 묶음은 `slackConfigured` 한 줄뿐이다 — **테스트 버튼은 그리지 않았다**(부를 `ops_slack_test` 가 T1.3 으로 미뤄져 원격에 없다, T6.1 에서 더한다), **"마지막 발송" 도 없다**(overview 에 그 칸이 없고 T5 전엔 `alert` 가 언제나 null — 실행 기록의 알림 열이 대신한다). 화면 실측: Playwright 로 Supabase 응답을 가짜로 꽂아 1440·390px 에서 그려 봤다(가로 넘침 없음, 다섯 칸만 가로 스크롤) — 그 자리에서 고친 것: 이유 줄 없는 칸의 내용이 세로 가운데로 뜨던 것, 표의 스크립트 칩이 줄 높이로 늘던 것, 하루 넘는 소요가 "72시간 0분째" 이던 것(→ "3일 0시간째").
 - [ ] **T3.9 문서** — [features/ops-dashboard.md](../features/ops-dashboard.md) 를 `> 상태: 구현 중` 으로, 계획과 다르게 간 것은 아래 「계획과 다르게 간 것」 에.
 
 ### T4. `/admin` 과 잇는다
@@ -144,6 +145,7 @@ T7 pg_cron(보류) 은 T2 로 한 달쯤 쌓인 뒤
 - **T3.3 재빌드 429 는 실패가 아니라 주의다.** features ① 표는 "4xx·5xx → 실패" 인데 글자대로 옮기면 `rebuildHeadline` 이 일부러 가른 429(시간당 60번 한도, [BUG-011](../bugs/BUG-011-rebuild-429-read-as-revoked-hook.md))를 다시 '훅 폐기' 로 읽게 된다. 429 → 주의, 그 밖의 4xx·5xx → 실패.
 - **T3.3 실행 칸 셋(수집·분석·반영) 모두 중단된 듯을 본다.** 표는 분석 칸에만 적었지만 `collect`·`apply` 도 `running` 으로 죽을 수 있다(심장은 시작 때 찍힌다). 같은 규칙을 셋에.
 - **T3.6 승인·제외는 같은 막대 칸에 위·아래로 겹친다.** features 그림은 한 줄을 반으로 갈라 둘을 나란히 두지만, 그러면 그 줄의 막대 칸만 절반 폭이라 같은 수가 다른 줄의 절반 길이로 보인다 — 비율 막대의 눈금이 줄마다 달라진다. 수는 `18 · 15` 로 한 칸, 막대 둘은 얇게(4px).
+- **T3.8 알림 묶음에 테스트 버튼·마지막 발송이 없다.** 버튼은 T1.3(`ops_slack_test`)과 함께 T6.1 로 — 원격에 없는 rpc 를 부르는 버튼은 누를 때마다 "함수 없음" 이다. 마지막 발송 시각은 `ops_overview` 에 칸이 없고 T5 전엔 쓸 값도 없다. T5 때 overview 에 `slackLast` 를 더할지 정한다.
 - **T3.3 반영 칸의 실패는 `status='failed'` 도 본다.** 표의 "실패 건수 > 0" 만 보면 stats 가 null 인 크래시를 놓친다.
 
 ## 🙋 사용자가 정할 것

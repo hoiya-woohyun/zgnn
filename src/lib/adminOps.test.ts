@@ -173,6 +173,7 @@ describe('runDurationLabel', () => {
     expect(runDurationLabel({ started_at: '2026-10-06T00:00:00Z', ended_at: '2026-10-06T00:41:20Z' }, 0)).toBe('41분');
     expect(runDurationLabel({ started_at: '2026-10-06T00:00:00Z', ended_at: '2026-10-06T01:05:00Z' }, 0)).toBe('1시간 5분');
     expect(runDurationLabel({ started_at: '2026-10-06T00:00:00Z', ended_at: null }, at('2026-10-06T00:03:00Z'))).toBe('3분째');
+    expect(runDurationLabel({ started_at: '2026-10-03T00:00:00Z', ended_at: null }, at('2026-10-06T02:00:00Z'))).toBe('3일 2시간째');
   });
 });
 

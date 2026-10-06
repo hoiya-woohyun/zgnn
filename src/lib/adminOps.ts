@@ -213,8 +213,16 @@ export function runDurationLabel(run: Pick<TPipelineRun, 'started_at' | 'ended_a
   if (Number.isNaN(start) || Number.isNaN(end)) return '';
   const seconds = Math.max(0, Math.round((end - start) / 1000));
   const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  // 하루를 넘는 것은 거의 언제나 중단된 행이다 — "72시간 0분째" 보다 "3일째" 가 그 뜻을 바로 말한다.
   const text =
-    seconds < 60 ? `${seconds}초` : minutes < 60 ? `${minutes}분` : `${Math.floor(minutes / 60)}시간 ${minutes % 60}분`;
+    seconds < 60
+      ? `${seconds}초`
+      : minutes < 60
+        ? `${minutes}분`
+        : hours < 24
+          ? `${hours}시간 ${minutes % 60}분`
+          : `${Math.floor(hours / 24)}일 ${hours % 24}시간`;
   return run.ended_at ? text : `${text}째`;
 }
 

@@ -20,7 +20,7 @@ import { ADMIN_PANEL_DIVIDER, ADMIN_ROW, ADMIN_ROW_CELLS, ADMIN_ROW_OPEN, AdminT
  * 시각 · 스크립트 · 상태 · 소요 · 요약 · 알림. 이 표 하나만 쓰는 트랙이라 여기 둔다(`adminTable.tsx` 의 둘은 두 표가 나눠 쓴다).
  * 요약 열이 남는 폭을 다 받는다 — 콘솔 한 줄을 그대로 싣는 칸이라 가장 길다.
  */
-const ADMIN_OPS_RUN_TRACKS = 'md:grid-cols-[6.5rem_5.5rem_7rem_5rem_minmax(0,1fr)_5.5rem]';
+const ADMIN_OPS_RUN_TRACKS = 'md:grid-cols-[6.5rem_5.5rem_7rem_6.5rem_minmax(0,1fr)_5.5rem]';
 
 /** 칩 — 스크립트 묶음. `승인` 은 approve·reject 둘이다(둘 다 `data:review`). */
 export const ADMIN_OPS_SCRIPT_CHIPS: readonly { label: string; scripts: readonly TRunScript[] | null }[] = [
@@ -85,14 +85,14 @@ function AdminOpsPageRunRow({
           {pinned ? <span className="text-brand-secondary">· 링크</span> : null}
         </span>
         {/* 좁은 화면에선 스크립트·상태가 한 줄에 같이 선다(features 「모바일에서」 — 열 셋으로 접는다). */}
-        <span className="mt-1 inline-flex md:mt-0">
+        <span className="mt-1 inline-flex items-start md:mt-0">
           <span className="rounded bg-secondary px-1.5 text-xs font-semibold text-tertiary">{run.script}</span>
         </span>
         <span className="ml-2 inline-flex items-center gap-1.5 text-xs text-secondary md:ml-0">
           <span aria-hidden="true" className={cx('size-2 shrink-0 rounded-full', STATE_DOT[state])} />
           {STATE_LABEL[state]}
         </span>
-        <span className="hidden text-xs text-tertiary tabular-nums md:block">{runDurationLabel(run, nowMs)}</span>
+        <span className="hidden text-xs whitespace-nowrap text-tertiary tabular-nums md:block">{runDurationLabel(run, nowMs)}</span>
         <span className={cx('mt-1 block text-xs md:mt-0', summary ? 'text-secondary' : run.error ? 'text-error-primary' : 'text-quaternary')}>
           {summary ?? run.error ?? (state === 'running' ? '도는 중이에요' : '요약할 수가 없어요')}
         </span>
