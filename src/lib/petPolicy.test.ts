@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePetPolicy, toPetBadges, withPolicyFacts, withVerifiedAt } from './petPolicy';
+import { isFeeBadgeRepeatedIn, parsePetPolicy, toPetBadges, withPolicyFacts, withVerifiedAt } from './petPolicy';
 import { formatDogFee } from './dogFee';
 import { judgeEligibility } from './eligibility';
 import { PLACES } from './places';
@@ -571,5 +571,21 @@ describe('genericOnly · verified — 일반 허용 문장뿐인 원문과 확�
     expect(p.verified).toBe(false);
     expect(withVerifiedAt(p, '2026-09-20').verified).toBe(true);
     expect(withVerifiedAt(p, undefined)).toBe(p);
+  });
+});
+
+describe('isFeeBadgeRepeatedIn', () => {
+  const fee = { label: '1~5kg 1만원', tone: 'cond', axis: 'fee' } as const;
+
+  it('원문에 그대로 적힌 요금 배지는 겹친다 — 띄어쓰기는 무시', () => {
+    expect(isFeeBadgeRepeatedIn(fee, '반려견 동반 가능\n1~5kg  1만원 / 6~10kg 1.5만원')).toBe(true);
+  });
+
+  it('원문에 없는 표기면 남긴다', () => {
+    expect(isFeeBadgeRepeatedIn(fee, '소형견 1만원')).toBe(false);
+  });
+
+  it('요금 축이 아니면 원문에 같은 글자가 있어도 남긴다', () => {
+    expect(isFeeBadgeRepeatedIn({ label: '리드줄', tone: 'cond', axis: 'gear' }, '리드줄 필수')).toBe(false);
   });
 });

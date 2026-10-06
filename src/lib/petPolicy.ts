@@ -576,6 +576,14 @@ export type TPetBadge = {
   axis: TBadgeAxis;
 };
 
+/**
+ * 요금 배지가 바로 옆 원문에 **그 말 그대로** 적혀 있는가 — 상세에서 같은 말을 두 번 읽히지 않으려는 판정.
+ * 띄어쓰기만 다른 것은 같은 말로 본다(`1~5kg 1만원` ↔ `1~5kg  1만원`). 정규화 때문에 표기가 달라진 줄은
+ * 겹치지 않는 것으로 두어 남긴다 — 안 겹치는 줄을 잘못 빼는 쪽이 중복을 남기는 쪽보다 나쁘다.
+ */
+export const isFeeBadgeRepeatedIn = (badge: TPetBadge, sourceText: string): boolean =>
+  badge.axis === 'fee' && sourceText.replace(/\s+/g, '').includes(badge.label.replace(/\s+/g, ''));
+
 /** 원문이 "정보 없음" 인 곳의 배지. 판정 배지("정보가 없어요")와 같은 줄에 서면 같은 말이라 `PetBadges` 가 이 라벨로 걸러낸다. */
 export const NO_INFO_BADGE_LABEL = '확인된 정보 없음';
 

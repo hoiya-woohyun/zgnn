@@ -1,7 +1,7 @@
 import { Check } from '@untitledui/icons';
 import { Badge, BadgeWithIcon } from './base/badges';
 import type { BadgeColors } from './base/badge-types';
-import { NO_INFO_BADGE_LABEL, toPetBadges, type TBadgeTone, type TPetPolicy } from '../lib/petPolicy';
+import { isFeeBadgeRepeatedIn, NO_INFO_BADGE_LABEL, toPetBadges, type TBadgeTone, type TPetPolicy } from '../lib/petPolicy';
 
 /**
  * 파서가 매긴 톤을 Untitled UI 배지 색으로 옮긴다.
@@ -35,11 +35,14 @@ type TPetBadgesProps = {
    * "확인된 정보 없음" 을 나란히 두면 같은 말을 두 번 하는 셈이라 뺀다.
    */
   hideNoInfo?: boolean;
+  /** 이 배지 줄 바로 밑에 원문을 같이 보여 줄 때 넘긴다 — 원문에 그대로 적힌 요금 배지는 같은 말이라 뺀다. */
+  sourceText?: string;
   className?: string;
 };
 
-export function PetBadges({ policy, limit, hideNoInfo = false, className = '' }: TPetBadgesProps) {
-  const all = toPetBadges(policy).filter((badge) => !(hideNoInfo && badge.label === NO_INFO_BADGE_LABEL));
+export function PetBadges({ policy, limit, hideNoInfo = false, sourceText, className = '' }: TPetBadgesProps) {
+  const all = toPetBadges(policy).filter((badge) => !(hideNoInfo && badge.label === NO_INFO_BADGE_LABEL))
+    .filter((badge) => !(sourceText !== undefined && isFeeBadgeRepeatedIn(badge, sourceText)));
   /*
    * **자리가 정해진 곳에서는 요금 줄을 첫 줄만 세운다.** 요금은 기준마다 한 줄이라 개수 상한이 없고
    * (`1마리당 3만원`·`청소비 5만원`·`주말 5만원`…), `toPetBadges` 의 순서에서 크기·무게·확인 필요보다 **앞**에 있다.

@@ -14,6 +14,7 @@ import { PlaceItemsNote } from '../components/placeItemsNote';
 import { PetBadges } from '../components/petBadges';
 import { formatStayPrice } from '../lib/format';
 import { getPlace } from '../lib/places';
+import { useDog } from '../store/useAppStore';
 import { environmentPhrases } from '../lib/stayEnvironmentView';
 
 /**
@@ -21,6 +22,7 @@ import { environmentPhrases } from '../lib/stayEnvironmentView';
  * 여기 notFound 는 실제로는 걸리지 않는다 — 타입을 좁히려고 둔다.
  */
 export function PlaceDetailPage({ id }: { id: string }) {
+  const dog = useDog();
   const place = getPlace(id);
   if (!place) notFound();
   const environment = environmentPhrases(place.environment);
@@ -50,7 +52,12 @@ export function PlaceDetailPage({ id }: { id: string }) {
           <PlaceDetailEligibilityCard place={place} />
           <div className="rounded-2xl border border-secondary bg-primary p-4">
             {/* 파서가 조건을 놓쳤을 수 있어, 구조화 배지와 원문을 함께 보여준다. */}
-            <PetBadges policy={place.policy} className="mb-3" />
+            <PetBadges
+              policy={place.policy}
+              hideNoInfo={Boolean(dog)}
+              sourceText={place.petPolicyText}
+              className="mb-3"
+            />
             <p className="whitespace-pre-line text-sm text-secondary">
               <HighlightedPolicyText text={place.petPolicyText} place={place} />
             </p>
