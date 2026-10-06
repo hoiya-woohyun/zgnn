@@ -13,11 +13,12 @@ export const DOG_NAME_MAX_LENGTH = 12;
 
 /**
  * 이 몸무게를 **넘으면 저장 전에 한 번 묻는다**(12 U3.6). "7.0" 을 "70" 으로 잘못 쳐도 형식은 맞아서 조용히 대형견이 되고,
- * 식당 대부분이 '어려움' 으로 뒤집힌다. 막지는 않는다 — 실제로 80kg 이 넘는 개도 있다(그레이트 데인·마스티프).
+ * 식당 대부분이 '어려움' 으로 뒤집힌다. 막지는 않는다 — 실제로 50kg 이 넘는 개도 있다(그레이트 피레니즈·마스티프).
+ * 처음엔 80 이었다 — 그러면 정작 그 예(70)를 못 잡는다. 묻기만 하므로 큰 개에게 드는 값은 탭 한 번이다.
  */
-export const HEAVY_DOG_CONFIRM_KG = 80;
+export const HEAVY_DOG_CONFIRM_KG = 50;
 
-/** 확인이 필요한 몸무게의 강아지만. 경계값(80kg)은 묻지 않는다. */
+/** 확인이 필요한 몸무게의 강아지만. 경계값(50kg)은 묻지 않는다. */
 export const heavyDogs = (dogs: TDogEntry[]): TDogEntry[] => dogs.filter((d) => d.weightKg > HEAVY_DOG_CONFIRM_KG);
 
 /**

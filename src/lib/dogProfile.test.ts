@@ -84,8 +84,9 @@ describe('dogProfileSavedMessage — 저장 뒤 돌아온 화면의 한 줄', ()
 });
 
 describe('heavyDogs — 저장 전에 한 번 묻는 몸무게', () => {
-  it('"7.0" 을 "70" 으로 친 값은 아직 묻지 않는다 — 80 을 넘는 것만 묻는다', () => {
-    expect(heavyDogs([{ name: '두부', weightKg: 70 }])).toEqual([]);
+  it('"7.0" 을 "70" 으로 친 값은 묻는다 · 큰 중형견(45kg)은 묻지 않는다', () => {
+    expect(heavyDogs([{ name: '두부', weightKg: 70 }])).toEqual([{ name: '두부', weightKg: 70 }]);
+    expect(heavyDogs([{ name: '보리', weightKg: 45 }])).toEqual([]);
   });
 
   it('경계값은 묻지 않고, 넘으면 그 강아지만 돌려준다', () => {
