@@ -16,7 +16,7 @@
 // I/O 는 searchNaverPlace 하나뿐이고 fetchImpl 을 주입받아 테스트한다. 키·응답 본문·헤더는 로그에 남기지 않는다(docs/todo/05) —
 // 실패 응답의 errorCode 와 우리가 쓴 라벨만 예외다(`lib/naverApiError.mjs`).
 import { naverErrorTail } from '../lib/naverApiError.mjs';
-import { NAVER_LOCAL_SEARCH_URL, naverAuthHeaders } from '../lib/naverSearchApi.mjs';
+import { NAVER_LOCAL_SEARCH_URL, countNaverCall, naverAuthHeaders } from '../lib/naverSearchApi.mjs';
 import { nameSimilarity, siOf, townOf } from './matchPlace.mjs';
 
 const NAVER_LOCAL_URL = NAVER_LOCAL_SEARCH_URL; // 규격은 lib/naverSearchApi.mjs 가 정본(개발자센터 아님 — API HUB)
@@ -58,6 +58,7 @@ export async function searchNaverPlace(query, { clientId, clientSecret }, fetchI
   url.searchParams.set('query', q);
   url.searchParams.set('display', String(DISPLAY_MAX));
 
+  countNaverCall();
   const res = await fetchImpl(url, {
     headers: naverAuthHeaders(clientId, clientSecret),
     signal: AbortSignal.timeout(15_000),

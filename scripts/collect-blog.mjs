@@ -6,7 +6,7 @@
 import { readFile } from 'node:fs/promises';
 import { chunkForUrlFilter } from './lib/chunkForUrlFilter.mjs';
 import { describeKeyShape, naverErrorTail } from './lib/naverApiError.mjs';
-import { NAVER_BLOG_SEARCH_URL, naverAuthHeaders } from './lib/naverSearchApi.mjs';
+import { NAVER_BLOG_SEARCH_URL, countNaverCall, naverAuthHeaders } from './lib/naverSearchApi.mjs';
 import { loadNaverEnvFile } from './lib/naverEnvFile.mjs';
 import { naverKeyPairProblem } from './lib/naverKeyFormat.mjs';
 import { readHidden } from './lib/readHidden.mjs';
@@ -114,6 +114,7 @@ async function searchBlog(query, start) {
   url.searchParams.set('start', String(start));
   url.searchParams.set('sort', 'date');
 
+  countNaverCall();
   const res = await fetch(url, {
     headers: naverAuthHeaders(naverClientId, naverClientSecret),
   });

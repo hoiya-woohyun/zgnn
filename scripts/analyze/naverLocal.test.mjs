@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import places from '../../src/data/places.json' with { type: 'json' };
+import { readNaverCalls } from '../lib/naverSearchApi.mjs';
 import { parseRegion } from '../lib/placeFields.mjs';
 import { extractAddressUnits, inferRegionRaw, newPickReasons, parseNaverCoord, pickNaverPlace, searchNaverPlace, stripTags, toNaverQuery } from './naverLocal.mjs';
 
@@ -82,6 +83,13 @@ describe('searchNaverPlace', () => {
     expect(calls[0].init.headers['X-NCP-APIGW-API-KEY']).toBe(KEYS.clientSecret);
     // 옛 헤더가 남아 있으면 안 된다 — 둘 다 보내면 어느 쪽으로 통과했는지 모르게 된다.
     expect(calls[0].init.headers['X-Naver-Client-Id']).toBeUndefined();
+  });
+
+  it('호출 수를 센다 — 실패 응답도 한 번이다(쿼터는 요청 수로 깎인다, 15 T2.7)', async () => {
+    const before = readNaverCalls();
+    await searchNaverPlace('솔숲펜션', KEYS, async () => okResponse([]));
+    await searchNaverPlace('솔숲펜션', KEYS, async () => ({ ok: false, status: 429, json: async () => ({}) })).catch(() => null);
+    expect(readNaverCalls() - before).toBe(2);
   });
 
   it('결과가 없으면 []', async () => {

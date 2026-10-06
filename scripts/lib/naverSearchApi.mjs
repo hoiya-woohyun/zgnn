@@ -27,6 +27,20 @@ const BASE = 'https://naverapihub.apigw.ntruss.com';
 export const NAVER_BLOG_SEARCH_URL = `${BASE}/search/v1/blog`;
 export const NAVER_LOCAL_SEARCH_URL = `${BASE}/search/v1/local`;
 
+/*
+ * 이 프로세스가 **검색 API**(블로그·지역)를 부른 횟수 — 실행 기록(`pipeline_runs.stats.naverCalls`, docs/todo/15 T2.7)과
+ * 운영 현황의 30일 사용량이 읽는다. 일 25,000 쿼터는 수집과 분석이 나눠 쓰므로 둘 다 센다.
+ * **응답을 기다리기 전에** 센다(`countNaverCall` 을 fetch 앞에서) — 쿼터는 요청 수로 깎이고, 4xx·타임아웃도 한 번이다.
+ * 지도(Geocoding, `naverMapsApi.mjs`)는 다른 Application·다른 쿼터라 세지 않는다.
+ */
+let naverCalls = 0;
+export function countNaverCall() {
+  naverCalls += 1;
+}
+export function readNaverCalls() {
+  return naverCalls;
+}
+
 /** API HUB 인증 헤더. 이름이 개발자센터와 다르다 — 값이 맞아도 헤더가 틀리면 401 이다. */
 export function naverAuthHeaders(clientId, clientSecret) {
   return { 'X-NCP-APIGW-API-KEY-ID': clientId, 'X-NCP-APIGW-API-KEY': clientSecret };
