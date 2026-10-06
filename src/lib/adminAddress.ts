@@ -21,6 +21,7 @@
  * 앱 런타임(`src/lib/`)에 두는 이유도 `addressMatch` 와 같다 — 이미 쌓인 후보가 다음 분석을 기다리지 않는다.
  */
 import { addressKey, sameAddress, type TAddressKey } from './addressMatch';
+import { spansOf, type TTextRange, type TTextSpan } from './textSpans';
 
 /**
  * 주소가 온 축.
@@ -214,7 +215,7 @@ export function addressConflictOf(extracted: Parameters<typeof addressView>[0]):
 }
 
 /** 주소 한 줄의 조각. `mark` 가 참인 조각이 상대 주소와 실제로 다른 토큰이다. */
-export type TAddressSpan = { text: string; mark: boolean };
+export type TAddressSpan = TTextSpan;
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -242,7 +243,7 @@ export function addressDiffSpans(address: string, other: string): TAddressSpan[]
    * 원문 안 자리를 찾는다. 도로명은 `tokenize` 가 `칠십리로 214번길` 을 붙여 읽으므로 원문에서는 사이 공백을 허락하고,
    * 번호는 도로명 **뒤에서** 찾는다(`1100로 93` 의 `1100` 이 번호로 잡히지 않게), 시·읍면은 도로명 **앞에서**.
    */
-  const ranges: { start: number; end: number }[] = [];
+  const ranges: TTextRange[] = [];
   const baseMatch = new RegExp(escapeRegExp(mine.base).replace(/(로)(\d)/, '$1\\s*$2')).exec(address);
   if (!baseMatch) return whole;
   const baseStart = baseMatch.index;
@@ -258,18 +259,7 @@ export function addressDiffSpans(address: string, other: string): TAddressSpan[]
     const numberMatch = new RegExp(`(?<![\\d-])${escapeRegExp(mine.number)}(?![\\d-])`).exec(address.slice(baseEnd));
     if (numberMatch) ranges.push({ start: baseEnd + numberMatch.index, end: baseEnd + numberMatch.index + mine.number.length });
   }
-  if (ranges.length === 0) return whole;
-
-  ranges.sort((a, b) => a.start - b.start);
-  const spans: TAddressSpan[] = [];
-  let cursor = 0;
-  for (const range of ranges) {
-    if (range.start > cursor) spans.push({ text: address.slice(cursor, range.start), mark: false });
-    spans.push({ text: address.slice(range.start, range.end), mark: true });
-    cursor = range.end;
-  }
-  if (cursor < address.length) spans.push({ text: address.slice(cursor), mark: false });
-  return spans;
+  return spansOf(address, ranges);
 }
 
 /**

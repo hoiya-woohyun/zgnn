@@ -147,8 +147,8 @@ describe('correctPetPolicyFacts — 원문에 없는 판단은 뺀다', () => {
   });
 
   it('원문이 없으면 판단도 없다고 보고 손대지 않는다(normalizePetPolicy 가 null 로 만든다)', () => {
-    expect(correctPetPolicyFacts(facts({ weightLimitKg: 10 }), '')).toEqual({ facts: facts({ weightLimitKg: 10 }), corrections: [] });
-    expect(correctPetPolicyFacts(null, '10kg 이하')).toEqual({ facts: null, corrections: [] });
+    expect(correctPetPolicyFacts(facts({ weightLimitKg: 10 }), '')).toEqual({ facts: facts({ weightLimitKg: 10 }), corrections: [], dropped: [] });
+    expect(correctPetPolicyFacts(null, '10kg 이하')).toEqual({ facts: null, corrections: [], dropped: [] });
   });
 });
 

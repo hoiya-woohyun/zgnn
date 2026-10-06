@@ -24,6 +24,7 @@ const preview = (over: Partial<TPolicyPreview> = {}): TPolicyPreview => {
     regexBadges: [],
     facts: null,
     corrections: [],
+    dropped: [],
     flags: [],
     level: '조건',
     ...over,

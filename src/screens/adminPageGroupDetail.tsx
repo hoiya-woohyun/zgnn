@@ -4,11 +4,13 @@ import type { ReactNode } from 'react';
 import { Badge } from '../components/base/badges';
 import { addressView } from '../lib/adminAddress';
 import { factsLine, FACTS_EMPTY, type TCandidateGroup, type TPlaceRow, type TPolicyPreview } from '../lib/adminCandidates';
+import { correctionView } from '../lib/adminCorrection';
 import { aiEdits } from '../lib/adminEdit';
 import { policySplit, typeMismatchFlags } from '../lib/adminPreview';
 import { verifyView } from '../lib/adminVerify';
 import type { TBadgeTone, TPetBadge } from '../lib/petPolicy';
 import { environmentPhrases } from '../lib/stayEnvironmentView';
+import type { TTextSpan } from '../lib/textSpans';
 import { cx } from '../utils/cx';
 import { AdminAddressLine } from './adminAddressLine';
 import { AdminChangeList } from './adminChangeList';
@@ -53,10 +55,25 @@ function Chips({ label, items }: { label: string; items: TPetBadge[] }) {
   );
 }
 
-/** 원문 칸의 인용 모양. 비었으면 **왜 비었는지** 말한다 — 줄이 사라지면 "AI 가 안 뽑은 것" 과 "내가 못 본 것" 이 구별되지 않는다. */
-function Quote({ text, empty }: { text: string | null | undefined; empty: string }) {
+/**
+ * 원문 칸의 인용 모양. 비었으면 **왜 비었는지** 말한다 — 줄이 사라지면 "AI 가 안 뽑은 것" 과 "내가 못 본 것" 이 구별되지 않는다.
+ * `spans` 가 오면 그 조각대로 칠한다(06 G — 보정이 대 본 원문의 말). 조각을 이으면 `text` 그대로다(`spansOf`).
+ */
+function Quote({ text, empty, spans }: { text: string | null | undefined; empty: string; spans?: TTextSpan[] }) {
   return text?.trim() ? (
-    <blockquote className="border-l-2 border-quaternary pl-2.5 whitespace-pre-line text-primary">{text}</blockquote>
+    <blockquote className="border-l-2 border-quaternary pl-2.5 whitespace-pre-line text-primary">
+      {spans
+        ? spans.map((span, index) =>
+            span.mark ? (
+              <mark key={index} className="rounded bg-warning-secondary px-0.5 font-semibold text-primary">
+                {span.text}
+              </mark>
+            ) : (
+              span.text
+            ),
+          )
+        : text}
+    </blockquote>
   ) : (
     <span className="text-quaternary">{empty}</span>
   );
@@ -162,6 +179,8 @@ export function AdminPageGroupDetail({ group, preview, place }: TAdminPageGroupD
   // 센티넬을 리터럴로 적지 않는다(`adminCandidates.ts` 의 패리티 주석이 지배하는 값이다).
   const aiLine = !facts || facts === FACTS_EMPTY ? 'AI 가 읽은 동반 조건이 없어요' : facts;
   const policy = policySplit(preview, extracted.petPolicyText);
+  // 보정이 원문의 무엇과 대 봤는지 — 같은 원문 문자열(`petPolicyText`)에 다시 돌려 칠한다(인덱스를 넘겨받지 않는다).
+  const correction = correctionView(extracted.petPolicyText, preview.dropped);
   const edits = aiEdits(extracted);
   const editedKeys = new Set(edits.map((change) => change.key));
   const policyEdited = edits.some((change) => change.policy || change.key === 'petPolicyText');
@@ -203,7 +222,13 @@ export function AdminPageGroupDetail({ group, preview, place }: TAdminPageGroupD
           <CompareRow
             label="동반 조건"
             edited={policyEdited}
-            source={<Quote text={extracted.petPolicyText} empty="본문에 동반 조건 문장이 없어요" />}
+            source={
+              <Quote
+                text={extracted.petPolicyText}
+                empty="본문에 동반 조건 문장이 없어요"
+                spans={correction.lines.length ? correction.spans : undefined}
+              />
+            }
             site={siteOf(
               <>
                 <SiteText text={place?.pet_policy_text} />
@@ -221,10 +246,16 @@ export function AdminPageGroupDetail({ group, preview, place }: TAdminPageGroupD
                     <Chips label="장비" items={policy.gear} />
                   </>
                 )}
-                {preview.corrections.map((note) => (
-                  <p key={note} className="text-warning-primary">
-                    원문에 없어 뺀 것: {note}
-                  </p>
+                {/*
+                  * 색만으로 말하지 않는다 — 원문 인용에 칠한 말을 이 줄이 글로 다시 적고, 칠할 것이 없으면(근거 단어가 원문에 없다)
+                  * 없는 말을 적는다. 칠한 곳 없는 인용만 남으면 "원문엔 문제가 없다" 로 읽힌다.
+                  */}
+                {correction.lines.map((line) => (
+                  <div key={line.note} className="text-warning-primary">
+                    <p>원문에 없어 뺀 것: {line.note}</p>
+                    {line.found.length > 0 && <p className="text-tertiary">원문에서 대 본 곳(칠함): {line.found.join(' · ')}</p>}
+                    {line.missing && <p className="text-tertiary">원문에 없는 말: {line.missing}</p>}
+                  </div>
                 ))}
                 {/*
                   * 결론은 `mergedBadges` 하나뿐이다 — `places.ts` 가 사용자 화면용 정책을 **같은 병합**으로 만든다.

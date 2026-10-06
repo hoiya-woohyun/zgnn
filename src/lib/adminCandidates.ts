@@ -14,7 +14,7 @@ import { groupCandidates, groupFlags, independentPostCount, previewPolicy } from
 import { townOf } from '../../scripts/analyze/matchPlace.mjs';
 import { canonicalRegionRaw, canonicalTown, regionFromBranchName } from '../../scripts/lib/jejuRegions.mjs';
 import { parseRegion } from '../../scripts/lib/placeFields.mjs';
-import { feeLinesOf } from '../../scripts/lib/petPolicyFacts.mjs';
+import { feeLinesOf, type TCorrectionDrop } from '../../scripts/lib/petPolicyFacts.mjs';
 import { parsePetPolicy, toPetBadges, withPolicyFacts, type TPetBadge } from './petPolicy';
 import { PLACES } from './places';
 import type { TDirection, TPetPolicyFacts, TRegion, TStayEnvironment } from '../types';
@@ -180,6 +180,8 @@ export type TPolicyPreview = {
   facts: TPetPolicyFacts | null;
   /** AI 판단 중 원문에 근거가 없어 앱이 빼고 보는 것(한국어 한 줄씩). `facts` 는 모델이 낸 그대로다. */
   corrections: string[];
+  /** 같은 줄에 원문의 무엇과 대 봤는지를 붙인 것 — `correctionView`(adminCorrection.ts)가 원문 인용에 칠한다. */
+  dropped: TCorrectionDrop[];
   flags: string[];
   level: '정보없음' | '동반불가' | '못읽음' | '조건' | '자유';
 };

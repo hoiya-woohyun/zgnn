@@ -274,10 +274,10 @@ export function previewPolicy(extracted, { parsePetPolicy, toPetBadges, withPoli
   if (merged.notAllowed) flags.push('동반불가 문장');
   // AI 판단 중 원문에 근거가 없어 앱이 빼고 보는 것(withPolicyFacts 가 같은 함수를 부른다). facts 는 **모델이 낸 그대로** 두고
   // 뺀 것을 따로 싣는다 — 운영자가 "AI 는 이렇게 읽었고 이건 원문에 없어서 안 썼다" 를 나란히 봐야 프롬프트를 고칠 수 있다.
-  const { corrections } = correctPetPolicyFacts(facts, text);
+  const { corrections, dropped } = correctPetPolicyFacts(facts, text);
   if (corrections.length) flags.push('AI 판단 보정');
   const level = merged.noInfo ? '정보없음' : merged.notAllowed ? '동반불가' : merged.unread ? '못읽음' : mergedBadges.length ? '조건' : '자유';
-  return { regexBadges, mergedBadges, mergedBadgeList, facts, corrections, flags, level };
+  return { regexBadges, mergedBadges, mergedBadgeList, facts, corrections, dropped, flags, level };
 }
 
 /** 묶음 단위 표식 — 승인하기 전에 채워야 할 것. */

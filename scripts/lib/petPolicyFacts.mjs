@@ -36,6 +36,36 @@ const GROUNDS = {
  */
 export const VACCINE_GROUNDS = GROUNDS.vaccineRequired;
 
+/**
+ * 보정 한 줄이 **원문의 무엇과 대 봤는가**(06 G) — `/admin` 이 원문 인용에서 그 자리를 칠한다.
+ *
+ * `near` 는 원문에서 칠할 말이다. 근거 단어 판단(`GROUNDS` 키)은 그 단어 자체라 뺀 경우엔 원문에 **없다** — 칠할 것이 0개이고,
+ * 화면은 그때 `words` 로 "원문에 '대형' 같은 말이 없어요" 를 글로 적는다(칠한 게 없다를 괜찮다로 읽히게 두지 않는다).
+ * 숫자(`kg`·`dogs`·`amount`)는 모델이 낸 숫자가 아니라 **원문에 실제로 있는 숫자**를 칠한다 — "원문은 이 숫자를 말한다".
+ * 모순(소형견만 ↔ 대형견 가능 · 요금 ↔ 무료)은 근거가 원문에 있어 그 말이 칠해진다.
+ *
+ * 정규식은 이 표 하나가 정본이다 — 화면이 근거 단어를 따로 적으면 "뺀 이유" 와 "칠한 곳" 이 다른 규칙을 말한다.
+ * @type {Record<string, { near: RegExp, words: string }>}
+ */
+export const CORRECTION_CUES = {
+  indoorFree: { near: GROUNDS.indoorFree, words: '실내·자유롭게' },
+  indoorCage: { near: GROUNDS.indoorCage, words: '케이지·이동가방·유모차' },
+  indoorOutdoor: { near: GROUNDS.indoorOutdoor, words: '야외·테라스·마당' },
+  leash: { near: GROUNDS.leash, words: '리드·목줄·하네스' },
+  largeDogYes: { near: GROUNDS.largeDogYes, words: '대형·무게 제한 없음' },
+  largeDogNo: { near: GROUNDS.largeDogNo, words: '대형' },
+  smallDogOnly: { near: GROUNDS.smallDogOnly, words: '소형' },
+  callFirst: { near: GROUNDS.callFirst, words: '전화·문의·예약' },
+  feeFree: { near: GROUNDS.feeFree, words: '무료·없음·0원' },
+  vaccineRequired: { near: GROUNDS.vaccineRequired, words: '접종·백신' },
+  kg: { near: /(?<![\d.])\d+(?:\.\d+)?\s*(?:kg|㎏|킬로|키로)/i, words: '무게(kg)' },
+  dogs: { near: /(?<!\d)(?:\d+|한|두|세|네|다섯|여섯)\s*마리/, words: '마릿수(N마리)' },
+  amount: { near: /(?<![\d.,])\d[\d,]*(?:\.\d+)?\s*(?:만\s*원|천\s*원|원)/, words: '금액(원)' },
+};
+
+/** @typedef {keyof typeof CORRECTION_CUES} TCorrectionCue */
+/** @typedef {{ note: string, cue: TCorrectionCue }} TCorrectionDrop */
+
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** 원문에 "N kg"(또는 킬로) 가 그대로 있는가. 10 이 "100kg" 이나 "1.5만원" 에 걸리지 않게 앞뒤 숫자를 막는다. */
@@ -108,7 +138,7 @@ export function feeLinesOf(facts) {
  *
  * @param {import('../../src/types').TFeeRule[]} fees
  * @param {string} text
- * @param {(note: string) => void} drop
+ * @param {(note: string, cue: TCorrectionCue) => void} drop
  */
 /**
  * 계산 칸이 **자기 label 과 같은 말을 하는가**. 금액·경계는 숫자라 원문에 대 볼 수 있지만 `basis`·`perNight`·`fromDog` 는 말이라
@@ -136,7 +166,7 @@ function correctFeeRules(fees, text, drop) {
     const label = String(rule?.label ?? '').trim();
     if (!label) continue;
     if (!feeTextGrounded(text, label)) {
-      drop(`요금 문장 "${label}" 이 원문에 없어 뺐어요`);
+      drop(`요금 문장 "${label}" 이 원문에 없어 뺐어요`, 'amount');
       continue;
     }
     const next = { ...rule, label };
@@ -150,7 +180,7 @@ function correctFeeRules(fees, text, drop) {
         !mentionsDogs(text, next.fromDog) &&
         !mentionsBaseDogs(text, next.fromDog - 1));
     if (ungrounded && next.amountWon != null) {
-      drop(`요금 "${label}" 의 금액·조건이 원문과 맞지 않아 계산에서 뺐어요`);
+      drop(`요금 "${label}" 의 금액·조건이 원문과 맞지 않아 계산에서 뺐어요`, 'amount');
       Object.assign(next, { amountWon: null, minKg: null, maxKg: null, fromDog: null });
     }
     out.push(next);
@@ -164,56 +194,60 @@ const FEE_AMOUNT = /\d[\d,.]*\s*만?\s*원/;
 /**
  * @param {TPetPolicyFacts | null | undefined} facts
  * @param {string | null | undefined} petPolicyText
- * @returns {{ facts: TPetPolicyFacts | null, corrections: string[] }}
+ * @returns {{ facts: TPetPolicyFacts | null, corrections: string[], dropped: TCorrectionDrop[] }}
  *   corrections 는 고친 것마다 한국어 한 줄 — `/admin` 과 `data:review` 가 "AI 가 뭐라 했고 왜 뺐나" 를 보여 준다.
+ *   dropped 는 같은 줄에 **원문의 무엇과 대 봤는지**(`CORRECTION_CUES` 키)를 붙인 것 — 순서·문장이 corrections 와 같다.
  */
 export function correctPetPolicyFacts(facts, petPolicyText) {
   const text = (petPolicyText ?? '').trim();
-  if (!facts || !text) return { facts: facts ?? null, corrections: [] };
+  if (!facts || !text) return { facts: facts ?? null, corrections: [], dropped: [] };
 
   const next = { ...facts };
-  const corrections = [];
-  const drop = (note) => corrections.push(note);
+  /** @type {TCorrectionDrop[]} */
+  const dropped = [];
+  /** @param {string} note @param {TCorrectionCue} cue */
+  const drop = (note, cue) => dropped.push({ note, cue });
 
   // 1) 숫자 — 원문에 그 숫자가 없으면 모델이 추측한 것이다.
   if (next.weightLimitKg != null && (next.weightLimitKg > 60 || !mentionsKg(text, next.weightLimitKg))) {
-    drop(`무게 상한 ${next.weightLimitKg}kg 이 원문에 없어 뺐어요`);
+    drop(`무게 상한 ${next.weightLimitKg}kg 이 원문에 없어 뺐어요`, 'kg');
     next.weightLimitKg = null;
   }
   if (next.maxDogs != null && (next.maxDogs > 10 || !mentionsDogs(text, next.maxDogs))) {
-    drop(`최대 ${next.maxDogs}마리가 원문에 없어 뺐어요`);
+    drop(`최대 ${next.maxDogs}마리가 원문에 없어 뺐어요`, 'dogs');
     next.maxDogs = null;
   }
 
   // 2) 근거 단어 — 참/거짓 판단도 원문에 그 말이 있어야 한다.
-  const indoorGround = { free: GROUNDS.indoorFree, cage: GROUNDS.indoorCage, outdoorOnly: GROUNDS.indoorOutdoor }[next.indoor];
-  if (indoorGround && !indoorGround.test(text)) {
-    drop(`실내 판단(${next.indoor})의 근거가 원문에 없어 뺐어요`);
+  /** @type {TCorrectionCue | undefined} */
+  const indoorCue = /** @type {const} */ ({ free: 'indoorFree', cage: 'indoorCage', outdoorOnly: 'indoorOutdoor' })[next.indoor];
+  if (indoorCue && !GROUNDS[indoorCue].test(text)) {
+    drop(`실내 판단(${next.indoor})의 근거가 원문에 없어 뺐어요`, indoorCue);
     next.indoor = 'unknown';
   }
   if (next.largeDogOk === true && !GROUNDS.largeDogYes.test(text)) {
-    drop('대형견 가능의 근거가 원문에 없어 뺐어요');
+    drop('대형견 가능의 근거가 원문에 없어 뺐어요', 'largeDogYes');
     next.largeDogOk = null;
   }
   if (next.largeDogOk === false && !GROUNDS.largeDogNo.test(text)) {
     // "10kg 이하" 에서 '대형견 불가' 를 추론한 경우 — 그 제한은 무게 상한이 이미 말한다(판정 H1).
-    drop('대형견 불가의 근거가 원문에 없어 뺐어요');
+    drop('대형견 불가의 근거가 원문에 없어 뺐어요', 'largeDogNo');
     next.largeDogOk = null;
   }
   if (next.smallDogOnly && !GROUNDS.smallDogOnly.test(text)) {
-    drop('소형견만의 근거가 원문에 없어 뺐어요');
+    drop('소형견만의 근거가 원문에 없어 뺐어요', 'smallDogOnly');
     next.smallDogOnly = false;
   }
   if (next.leash && !GROUNDS.leash.test(text)) {
-    drop('리드줄 조건의 근거가 원문에 없어 뺐어요');
+    drop('리드줄 조건의 근거가 원문에 없어 뺐어요', 'leash');
     next.leash = false;
   }
   if (next.callFirst && !GROUNDS.callFirst.test(text)) {
-    drop('전화 확인의 근거가 원문에 없어 뺐어요');
+    drop('전화 확인의 근거가 원문에 없어 뺐어요', 'callFirst');
     next.callFirst = false;
   }
   if (next.vaccineRequired && !GROUNDS.vaccineRequired.test(text)) {
-    drop('예방접종 필수의 근거가 원문에 없어 뺐어요');
+    drop('예방접종 필수의 근거가 원문에 없어 뺐어요', 'vaccineRequired');
     next.vaccineRequired = false;
   }
   /*
@@ -225,25 +259,25 @@ export function correctPetPolicyFacts(facts, petPolicyText) {
   const feeLines = feeLinesOf({ feeLines: next.feeLines, feeText: next.feeText });
   if (feeLines.length) {
     const grounded = feeLines.filter((line) => feeTextGrounded(text, line));
-    for (const line of feeLines) if (!grounded.includes(line)) drop(`요금 문장 "${line}" 이 원문에 없어 뺐어요`);
+    for (const line of feeLines) if (!grounded.includes(line)) drop(`요금 문장 "${line}" 이 원문에 없어 뺐어요`, 'amount');
     next.feeLines = grounded;
     next.feeText = null;
   }
   if (next.feeFree === true && !GROUNDS.feeFree.test(text)) {
-    drop('추가 요금 없음의 근거가 원문에 없어 뺐어요');
+    drop('추가 요금 없음의 근거가 원문에 없어 뺐어요', 'feeFree');
     next.feeFree = null;
   }
 
   // 3) 한 판단 안의 모순 — 어느 쪽이 맞는지 모르므로 **허용 쪽**을 뺀다(제한은 원문이 확인해 준다).
   if (next.smallDogOnly && next.largeDogOk === true) {
-    drop('소형견만인데 대형견 가능이라 해서 대형견 가능을 뺐어요');
+    drop('소형견만인데 대형견 가능이라 해서 대형견 가능을 뺐어요', 'smallDogOnly');
     next.largeDogOk = null;
   }
   // 줄이 여러 개면 **하나라도** 금액을 말하면 모순이다 — 첫 줄만 보면 "첫째 줄은 무료, 둘째 줄부터 2만원" 을 놓친다.
   if (next.feeFree === true && feeLinesOf(next).some((line) => FEE_AMOUNT.test(line))) {
-    drop('요금 문장이 있는데 추가 요금 없음이라 해서 추가 요금 없음을 뺐어요');
+    drop('요금 문장이 있는데 추가 요금 없음이라 해서 추가 요금 없음을 뺐어요', 'amount');
     next.feeFree = null;
   }
 
-  return { facts: next, corrections };
+  return { facts: next, corrections: dropped.map((d) => d.note), dropped };
 }
