@@ -9,7 +9,7 @@
 [ADR-009](../decisions/ADR-009-trip-derived-checklist.md)(준비물이 저장한 숙소에서 파생된다 — 동선도 같은 원천에서 파생한다) ·
 [ADR-008](../decisions/ADR-008-map-provider.md)(네이버 지도 · 비용은 "지도를 띄운 방문 수" — 이 문서는 지도를 **더 띄우지 않는다**) ·
 [ADR-012](../decisions/ADR-012-personal-data-and-consent.md)(현재 위치는 누를 때 받고 저장하지 않는다 — `myLocation.ts` 의 원칙을 그대로 잇는다) ·
-[reviews/2026-10-06 경쟁 앱 비교](../reviews/2026-10-06-competitor-usability-comparison.md) §6 방향 C-8.
+[reviews/competitor/2026-10](../reviews/competitor/2026-10.md) §6 방향 C-8.
 
 ## 0. 한 줄 요약
 
