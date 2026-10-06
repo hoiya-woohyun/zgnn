@@ -2,7 +2,7 @@
 // 채점 규칙은 scripts/analyze/evalExtract.mjs 의 순수 함수에 있고 여기는 I/O 만. 쓰는 법·비용·보정은 docs/features/extraction-eval.md.
 //
 //   pnpm data:eval golden [--force]                      src/data/places.json → data/golden/seed-extract.json (한 번 얼린다)
-//   pnpm data:eval extract [--limit N] [--only <placeId|이름>…] [--refresh]   글마다 claude -p 한 번(캐시가 있으면 건너뛴다)
+//   pnpm data:eval extract [--limit N] [--only <placeId|이름|logNo>…] [--refresh]   글마다 claude -p 한 번(캐시가 있으면 건너뛴다)
 //   pnpm data:eval score [--prompt <버전>]               golden + 캐시만 읽는다 — Claude 호출 0
 //   … extract|score 에 --images [--max-images N]          실험: 글의 사진 N장(기본 8)도 같이 읽힌다 — 캐시는 <버전>-img<N>-<모델>
 //   pnpm data:eval compare [--prompt <버전>] [--max-images N]   텍스트만 vs 사진 포함을 같은 글끼리 — Claude 호출 0
@@ -33,6 +33,7 @@ import {
   parseEvalArgs,
   parserDrift,
   scoreEntry,
+  selectTargets,
   summarize,
   variantTag,
 } from './analyze/evalExtract.mjs';
@@ -117,9 +118,7 @@ async function loadImages(entry, maxImages) {
 
 async function cmdExtract(opts) {
   const golden = loadGolden();
-  const targets = opts.only.length
-    ? golden.entries.filter((e) => opts.only.includes(e.placeId) || opts.only.includes(e.name))
-    : golden.entries;
+  const targets = selectTargets(golden.entries, opts.only);
   if (opts.only.length && targets.length === 0) throw new Error(`--only 에 맞는 golden 항목이 없다: ${opts.only.join(', ')}`);
   const variant = variantTag(opts);
   const dir = extractDir(PROMPT_VERSION, MODEL, variant);

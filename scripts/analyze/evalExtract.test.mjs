@@ -18,6 +18,7 @@ import {
   parserDrift,
   predictedPolicy,
   scoreEntry,
+  selectTargets,
   summarize,
   variantTag,
 } from './evalExtract.mjs';
@@ -308,6 +309,13 @@ describe('parseEvalArgs — pnpm data:eval 인자', () => {
     expect(() => parseEvalArgs(['extract', '--wat'])).toThrow(/모르는 인자/);
   });
 
+  it('selectTargets — --only 는 placeId · 이름 · logNo(캐시 파일 이름) 어느 것이든', () => {
+    const es = [{ placeId: 'p1', name: '가', logNo: '111' }, { placeId: 'p2', name: '나', logNo: '222' }, { placeId: 'p3', name: '다', logNo: '333' }];
+    expect(selectTargets(es, []).length).toBe(3);
+    expect(selectTargets(es, ['p1', '나', '333']).map((e) => e.placeId)).toEqual(['p1', 'p2', 'p3']);
+    expect(selectTargets(es, ['999'])).toEqual([]);
+  });
+
   it('variantTag — 캐시 폴더 가운데 이름', () => {
     expect(variantTag({ images: false, maxImages: 8 })).toBe('');
     expect(variantTag({ images: true, maxImages: 8 })).toBe('img8');
@@ -350,8 +358,20 @@ describe('사진 실험 — 회수 · 지어냄 · 토큰 비교', () => {
     const lines = formatComparison(c).join('\n');
     expect(lines).toContain('회수): 텍스트 0/2 → 사진 2/2');
     expect(lines).toContain('지어냄(칸 합): 텍스트 0 → 사진 1');
-    expect(lines).toContain('텍스트 1000/300 (1곳 기록) → 사진 9000/400');
+    expect(lines).toContain('1쌍 기준): 텍스트 1000/300 → 사진 9000/400');
     expect(lines).toContain('leash = true');
+  });
+
+  it('토큰·비용은 양쪽 다 기록된 글로만 센다 — 한쪽만 있으면 양쪽에서 다 뺀다', () => {
+    const a = scoreEntry(entry(), textOnly, fns, body);
+    const b = scoreEntry({ ...entry(), placeId: 'p2' }, textOnly, fns, body);
+    const t = [{ ...a, usage: usage(1000, 100), costUsd: 0.01 }, { ...b, usage: null, costUsd: null }];
+    const i = [{ ...a, usage: usage(5000, 100), costUsd: 0.04, imagesSent: 2 }, { ...b, usage: usage(7000, 100), costUsd: 0.06, imagesSent: 2 }];
+    const c = compareVariants(t, i);
+    expect(c.n).toBe(2);
+    expect(c.text.tokens).toEqual({ known: 1, input: 1000, output: 100, costUsd: 0.01 });
+    expect(c.img.tokens).toEqual({ known: 1, input: 5000, output: 100, costUsd: 0.04 });
+    expect(formatComparison(c).join('\n')).toContain('2곳 중 1쌍만');
   });
 
   it('사진을 못 받아 텍스트로 부른 글은 짚는다', () => {

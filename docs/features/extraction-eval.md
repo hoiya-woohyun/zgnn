@@ -18,7 +18,7 @@
 | 명령 | 하는 일 | 비용 |
 |---|---|---|
 | `pnpm data:eval golden [--force]` | `src/data/places.json` → `data/golden/seed-extract.json`. **이미 있으면 거부한다**(`review` 가 날아간다). places.json 은 앞으로 바뀌므로 한 번 얼린다 | 0 |
-| `pnpm data:eval extract [--limit N] [--only <placeId\|이름>…] [--refresh]` | 글마다 본문을 받아(`data/raw/eval/bodies/`) `claude -p` 한 번. 결과는 `data/raw/eval/extract/<PROMPT_VERSION>-<MODEL>/<logNo>.json` — 있으면 건너뛴다. `--limit` 은 **이번에 부를 Claude 횟수**다 | 글당 `claude -p` 1회 |
+| `pnpm data:eval extract [--limit N] [--only <placeId\|이름\|logNo>…] [--refresh]` | 글마다 본문을 받아(`data/raw/eval/bodies/`) `claude -p` 한 번. 결과는 `data/raw/eval/extract/<PROMPT_VERSION>-<MODEL>/<logNo>.json` — 있으면 건너뛴다. `--limit` 은 **이번에 부를 Claude 횟수**다 | 글당 `claude -p` 1회 |
 | `pnpm data:eval score [--prompt <버전>]` | golden + 캐시만 읽어 채점. 요약은 터미널과 `data/raw/eval/score-<버전>-<모델>.json`, 어긋난 곳 전부는 `data/raw/eval/report-<버전>.md` | 0 |
 | `… extract\|score --images [--max-images N]` | 실험(아래 「사진도 읽히는 실험」). 캐시는 `extract/<버전>-img<N>-<모델>/`, 요약·보고서도 `-img<N>` 이 붙는다 | 글당 `claude -p` 1회(입력 토큰 약 1.6배) |
 | `pnpm data:eval compare [--prompt <버전>] [--max-images N]` | 텍스트만 캐시와 사진 캐시를 **같은 글끼리** 견준다 | 0 |
@@ -105,14 +105,19 @@ ADR-002 는 사진을 **보여 주지 않는다**는 결정이다. 이 실험은
 |---|---|---|
 | **회수** | 글에 근거 없던 사람 칸(`grounded: false`) 중 AI 값이 사람 값과 같은 수. review `ai` 로 일치가 된 칸은 뺀다. 텍스트 쪽도 같이 센다(≈0 이어야 정상) | 실험의 머리 숫자 |
 | **지어냄 증가** | 칸 합의 변화 + 사진 쪽에만 생긴 지어냄 목록(AI 문장 포함) | 가장 큰 위험. 목록은 사람이 연다 — 사람 문장이 짧아 빠진 진짜 사진 속 조건일 수도 있다 |
-| **글당 토큰** | 입력(캐시 포함)/출력 평균과 목록 단가 환산 합 | 구독 5시간 한도를 대화와 나눠 쓴다 |
+| **글당 토큰** | 입력(캐시 포함)/출력 평균과 목록 단가 환산 합 — **양쪽 다 기록된 글**만(텍스트 캐시는 usage 를 적기 전에 돈 것이 많다. 다 채우려면 텍스트 쪽을 `--refresh`) | 구독 5시간 한도를 대화와 나눠 쓴다 |
 
 회수가 근거없음 칸의 의미 있는 몫이고 지어냄이 늘지 않을 때만 운영 쪽을 검토한다. 회수가 0 이면 휴리스틱을 고치기 전에 캐시의 `picks`·AI 의 `(사진)` evidence 로
 "사진을 읽었는데 조건이 없었다" 인지부터 본다.
 
 **첫 시험(2026-10-06, 2곳 — 쉼멍스테이·웨스티하우스)**: 회수 0/7, 지어냄 0→0, 글당 입력 약 11.9k → 18.7k 토큰(+57%), 목록 단가 환산 $0.088 → $0.148.
 모델은 사진을 읽었다(쉼멍스테이의 예약 화면 캡처를 `(사진) 202호 100,000원 / 기준 2인 …` 으로 인용) — 고른 캡처에 반려견 조건이 없었다.
-두 곳만으론 결론이 아니다. 21곳 전체는 사용자가 돌린다.
+두 곳만으론 결론이 아니다. 텍스트만 캐시가 있는 글 전부를 같은 묶음으로 돌리려면 캐시 파일 이름(logNo)을 `--only` 로 넘긴다:
+
+```sh
+pnpm data:eval extract --images --only $(ls data/raw/eval/extract/b0e978d8-claude-opus-5 | sed 's/\.json$//')
+pnpm data:eval score --images && pnpm data:eval compare
+```
 
 ## 보정 — `review`
 

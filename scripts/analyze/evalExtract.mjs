@@ -389,7 +389,12 @@ export function formatReport(results, summary) {
 
 export const EVAL_COMMANDS = ['golden', 'extract', 'score', 'compare'];
 export const EVAL_USAGE =
-  '사용법: pnpm data:eval golden [--force] | extract [--limit N] [--only <placeId|이름>…] [--refresh] [--images [--max-images N]] | score [--prompt <버전>] [--images [--max-images N]] | compare [--prompt <버전>] [--max-images N]';
+  '사용법: pnpm data:eval golden [--force] | extract [--limit N] [--only <placeId|이름|logNo>…] [--refresh] [--images [--max-images N]] | score [--prompt <버전>] [--images [--max-images N]] | compare [--prompt <버전>] [--max-images N]';
+
+/** --only 값(placeId · 이름 · logNo — 캐시 파일 이름이 logNo 다)에 맞는 golden 항목. 비었으면 전부. */
+export function selectTargets(entries, only) {
+  return only.length ? entries.filter((e) => only.includes(e.placeId) || only.includes(e.name) || only.includes(e.logNo)) : entries;
+}
 
 /** `pnpm data:eval` 인자. --max-images 는 --images 를 함께 켠다. compare 는 늘 사진 쪽을 텍스트 쪽과 견준다. */
 export function parseEvalArgs(argv, { defaultMaxImages = 8 } = {}) {
@@ -413,7 +418,7 @@ export function parseEvalArgs(argv, { defaultMaxImages = 8 } = {}) {
       if (!opts.prompt) throw new Error('--prompt 에 버전이 필요하다');
     } else if (a === '--only') {
       while (rest[i + 1] && !rest[i + 1].startsWith('--')) opts.only.push(rest[++i]);
-      if (opts.only.length === 0) throw new Error('--only 에 placeId 나 이름이 필요하다');
+      if (opts.only.length === 0) throw new Error('--only 에 placeId · 이름 · logNo 가 필요하다');
     } else throw new Error(`모르는 인자: ${a}`);
   }
   if (!EVAL_COMMANDS.includes(command)) throw new Error(`모르는 명령: ${command ?? '(없음)'}`);
@@ -448,11 +453,14 @@ export function compareVariants(textResults, imgResults, meta = {}) {
   const pairs = textResults
     .map((t) => [t, imgById.get(t.placeId)])
     .filter(([t, i]) => i && t.status !== 'noExtraction' && i.status !== 'noExtraction');
+  // 토큰·비용은 **양쪽 다 기록된 글**로만 — 텍스트 캐시 대부분은 usage 를 적기 전에 돌아서, 한쪽만 세면 다른 글 묶음끼리 견주게 된다.
+  const tokenPairs = pairs.filter(([t, i]) => t.usage && i.usage);
+  const costPairs = pairs.filter(([t, i]) => typeof t.costUsd === 'number' && typeof i.costUsd === 'number');
   const side = (pick) => {
     const rows = pairs.map(pick);
     const rec = rows.map(groundlessRecovery);
-    const tokens = rows.map((r) => tokensOf(r.usage)).filter(Boolean);
-    const costs = rows.map((r) => r.costUsd).filter((c) => typeof c === 'number');
+    const tokens = tokenPairs.map((p) => tokensOf(pick(p).usage));
+    const costs = costPairs.map((p) => pick(p).costUsd);
     return {
       summary: summarize(rows, meta),
       ungrounded: rec.reduce((s, x) => s + x.ungrounded, 0),
@@ -505,9 +513,10 @@ export function formatComparison(c) {
     '',
     `■ 글에 근거 없던 사람 칸 중 맞힌 수(회수): 텍스트 ${c.text.recovered}/${c.text.ungrounded} → 사진 ${c.img.recovered}/${c.img.ungrounded}`,
     `■ 지어냄(칸 합): 텍스트 ${c.text.invented} → 사진 ${c.img.invented}${c.newlyInvented.length ? ` · 사진 쪽에만 생긴 ${c.newlyInvented.length}칸(아래)` : ''}`,
-    `■ 글당 토큰(입력/출력, 평균): 텍스트 ${avg(c.text.tokens.input, c.text.tokens.known)}/${avg(c.text.tokens.output, c.text.tokens.known)} (${c.text.tokens.known}곳 기록) → 사진 ${avg(c.img.tokens.input, c.img.tokens.known)}/${avg(c.img.tokens.output, c.img.tokens.known)} (${c.img.tokens.known}곳) · 목록 단가 환산 합 ${usd(c.text.tokens.costUsd)} → ${usd(c.img.tokens.costUsd)}`,
+    `■ 글당 토큰(입력/출력, 평균 — 양쪽 다 기록된 ${c.text.tokens.known}쌍 기준): 텍스트 ${avg(c.text.tokens.input, c.text.tokens.known)}/${avg(c.text.tokens.output, c.text.tokens.known)} → 사진 ${avg(c.img.tokens.input, c.img.tokens.known)}/${avg(c.img.tokens.output, c.img.tokens.known)} · 목록 단가 환산 합 ${usd(c.text.tokens.costUsd)} → ${usd(c.img.tokens.costUsd)}`,
     `■ 판정 뒤집힘: 원값 ${c.text.summary.verdictFlips.places} → ${c.img.summary.verdictFlips.places} · 글 근거 기준 ${c.text.summary.verdictFlips.groundedBasis} → ${c.img.summary.verdictFlips.groundedBasis} (/${c.n})`,
   ];
+  if (c.text.tokens.known < c.n) lines.push(`  토큰은 ${c.n}곳 중 ${c.text.tokens.known}쌍만 — 텍스트 쪽을 extract --refresh 로 다시 돌리면 다 찬다(그만큼 호출 · 기준선이 새로 뽑힌다)`);
   if (c.fellBack.length) lines.push(`⚠ 사진을 한 장도 못 받아 텍스트로만 부른 글 ${c.fellBack.length}곳: ${c.fellBack.join(', ')}`);
   if (c.addendumVersions.length > 1) lines.push(`⚠ 사진 안내문 버전이 섞였다(${c.addendumVersions.join(', ')}) — --refresh 로 다시 돌린다`);
   lines.push('', '칸 | 일치 텍스트→사진 | 지어냄 | 놓침 | 근거없음');
