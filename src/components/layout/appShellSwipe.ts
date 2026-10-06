@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { flushSync } from 'react-dom';
 import {
   useCallback,
   useEffect,
@@ -96,6 +97,12 @@ const markPlacesArrival = (route: string) => {
  *
  * 나머지 손가락 규칙(축 고정 10px · iOS 뒤로가기 24px · 세로 스크롤 잠금 · 스와이프 뒤 click
  * 삼키기 · 모션 줄임)은 전부 `screens/placesPageSwipe.ts` 와 같고, 이유도 거기 적혀 있다.
+ *
+ * **탭바로 옮길 때도 같은 미끄러짐이다**(`slideTo`, ADR-014 v5). 손가락으로는 옆으로 밀리는 화면들이 탭을 누르면
+ * 제자리에서 갈아 끼워지면 "나란히 있다" 는 모델이 거기서 깨진다. 그래서 탭바는 주소를 바꾸는 대신 셸에
+ * 목적지를 건네고, 셸은 손가락을 놓았을 때와 같은 길(`slide`)로 — 지금 화면을 그 방향으로 밀어내고 목적지를
+ * 엿보기로 끌어들인 뒤 주소를 바꾼다. 방향은 `SWIPE_ROUTES` 의 자리 차이로 정하고, 두 칸 넘게 떨어져 있어도
+ * 한 장만 미끄러진다(사이 화면을 다 지나가면 느리고, 어차피 손가락으로도 한 번에 한 장이다).
  */
 export function useAppShellSwipe(pathname: string) {
   const router = useRouter();
@@ -174,9 +181,12 @@ export function useAppShellSwipe(pathname: string) {
     if (rightRef.current) rightRef.current.style.transform = `translateX(calc(100% + ${dx}px))`;
   };
 
-  const settle = (target: number, width: number) => {
+  /**
+   * 지금 그려진 자리에서 `toDx` 까지 밀어낸 뒤 `route` 로 간다(제자리로 돌아오는 것은 `route` 가 지금 주소).
+   * 손가락을 놓았을 때(`settle`)와 탭을 눌렀을 때(`slideTo`)가 같은 길을 쓴다.
+   */
+  const slide = (toDx: number, route: string | null) => {
     settling.current = true;
-    const toDx = target === slot ? 0 : target > slot ? -width : width;
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const options: KeyframeAnimationOptions = {
       duration: reduceMotion ? 0 : SETTLE_MS,
@@ -190,8 +200,6 @@ export function useAppShellSwipe(pathname: string) {
       rightRef.current?.animate({ transform: `translateX(calc(100% + ${toDx}px))` }, options),
     ].filter((animation) => animation !== undefined);
     running.current = animations;
-
-    const route = target === slot ? normalizeRoute(pathname) : ((target > slot ? rightRoute : leftRoute) ?? null);
 
     void Promise.all(animations.map((animation) => animation.finished)).then(
       () => {
@@ -213,6 +221,37 @@ export function useAppShellSwipe(pathname: string) {
       // 애니메이션이 취소되면(언마운트) 할 일이 없다.
       () => undefined,
     );
+  };
+
+  const settle = (target: number, width: number) => {
+    const toDx = target === slot ? 0 : target > slot ? -width : width;
+    const route = target === slot ? normalizeRoute(pathname) : ((target > slot ? rightRoute : leftRoute) ?? null);
+    slide(toDx, route);
+  };
+
+  /**
+   * 탭바가 부른다 — 목적지가 수열 안이면 그쪽으로 한 장 미끄러진 뒤 주소를 바꾸고 true. false 면 탭바가 보통
+   * 링크처럼 간다(하위 화면에서 누름 · 모션 줄임 · 같은 자리). 미끄러지는 중이면 삼킨다(true) — 두 이동이 겹치면
+   * 어느 주소에 도착했는지 알 수 없다.
+   */
+  const slideTo = (route: string): boolean => {
+    const to = swipeIndexOf(route);
+    if (index < 0 || to < 0 || to === index) return false;
+    if (settling.current || gesture.current) return true;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+    const main = mainRef.current;
+    if (!main) return false;
+    const width = main.clientWidth;
+    const side = to > index ? 'right' : 'left';
+    // 제스처가 잠기는 순간과 같은 준비 — fixed 상쇄값 · 출발 자리 · 엿보기. 엿보기는 **동기로** 세워야
+    // 바로 다음 줄의 `animate` 가 그 요소를 잡는다(한 프레임 뒤면 첫 프레임에 엿보기 없이 빈 크림이 보인다).
+    main.style.setProperty('--swipe-viewport-top', `${window.scrollY}px`);
+    paint(0);
+    flushSync(() =>
+      setPeek({ left: side === 'left' ? route : null, right: side === 'right' ? route : null, width }),
+    );
+    slide(side === 'right' ? -width : width, normalizeRoute(route));
+    return true;
   };
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -320,6 +359,7 @@ export function useAppShellSwipe(pathname: string) {
   return {
     peek,
     finish,
+    slideTo,
     /** 지도에서는 `touch-action` 을 걸면 안 된다 — 지도를 끄는 동작까지 브라우저가 가로챈다. */
     enabled,
     surfaceRef,

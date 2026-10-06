@@ -20,9 +20,11 @@ const normalize = (pathname: string) => pathname.replace(/\/+$/, '') || '/';
  * 못하고 제자리에서 스크롤만 한다. 여기서 묻는 것은 "어느 탭에 불이 들어오나" 가 아니라
  * "지금 이 주소에 서 있나" 다(같은 혼동을 `lib/appRoutes.ts` 도 경고한다).
  *
- * 다른 탭으로 옮길 때는 아무것도 하지 않는다 — 셸이 경로가 바뀌면 그 화면의 자리로
+ * 다른 탭으로 옮길 때는 스크롤에 손대지 않는다 — 셸이 경로가 바뀌면 그 화면의 자리로
  * 스크롤을 되돌리는데(`lib/appScroll.ts`), 여기서 부드러운 스크롤을 같이 걸면 둘이 경쟁한다.
  * 전역 `scroll-behavior: smooth` 를 쓰지 않는 이유도 같다(그 복원까지 애니메이션된다).
+ * 대신 **셸에 목적지를 건넨다**(`onNavigate`) — 손가락으로 밀 때와 같은 미끄러짐으로 옮기고 주소는 셸이 바꾼다
+ * (ADR-014 v5). 셸이 못 받겠다고 하면(하위 화면·모션 줄임) 보통 링크처럼 간다.
  *
  * **탭바는 손가락으로 화면을 넘길 때도 움직이지 않는다**(ADR-014) — 화면들을 담는 틀이지
  * 화면이 아니다. 스와이프로 옮겨도 여기 하이라이트는 `isActive` 가 새 주소로 다시 계산한다.
@@ -50,7 +52,12 @@ const normalize = (pathname: string) => pathname.replace(/\/+$/, '') || '/';
 const CIRCLE_PX = 52;
 const RISE_PX = 16;
 
-export function AppTabBar() {
+type TAppTabBarProps = {
+  /** 목적지로 미끄러뜨릴 수 있으면 맡아서 true — 그러면 링크의 기본 이동을 막는다. */
+  onNavigate?: (route: string) => boolean;
+};
+
+export function AppTabBar({ onNavigate }: TAppTabBarProps) {
   const pathname = usePathname();
   const highlightPath = useNavHighlightPath();
   const activeTo = NAV_ITEMS.find((item) => isNavActive(item, highlightPath))?.to ?? null;
@@ -69,7 +76,10 @@ export function AppTabBar() {
   });
 
   const handleTabClick = (event: MouseEvent<HTMLAnchorElement>, to: string) => {
-    if (normalize(pathname) !== normalize(to)) return;
+    if (normalize(pathname) !== normalize(to)) {
+      if (onNavigate?.(to)) event.preventDefault();
+      return;
+    }
 
     event.preventDefault();
     window.scrollTo({

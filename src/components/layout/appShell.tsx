@@ -62,7 +62,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const showBack = !bare && !isRootRoute(pathname);
   const surface = mainSurfaceProps(kind);
 
-  const { peek, finish, enabled, surfaceRef, mainRef, leftRef, rightRef, surfaceProps } =
+  const { peek, finish, slideTo, enabled, surfaceRef, mainRef, leftRef, rightRef, surfaceProps } =
     useAppShellSwipe(pathname);
 
   /** 지금 화면에서 마지막으로 본 세로 위치. 경로가 바뀔 때 이 값을 그 화면의 몫으로 적는다. */
@@ -139,7 +139,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {peek?.left && <AppShellSwipePeek ref={leftRef} side="left" route={peek.left} width={peek.width} />}
       {peek?.right && <AppShellSwipePeek ref={rightRef} side="right" route={peek.right} width={peek.width} />}
 
-      <AppTabBar />
+      {/* 탭을 누르면 주소를 바로 바꾸지 않고 셸이 손가락과 같은 길로 미끄러뜨린다(ADR-014 v5). */}
+      <AppTabBar onNavigate={slideTo} />
 
       {/* 잠깐 뜨는 상태 한 줄("링크를 복사했어요"). `<main>` 밖이어야 스와이프에 끌려가지 않는다 — appStatusToast 참고. */}
       <AppStatusToast />
