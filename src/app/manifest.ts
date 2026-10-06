@@ -12,7 +12,7 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: '/',
     scope: '/',
     display: 'standalone',
-    orientation: 'portrait',
+    // orientation 은 두지 않는다 — 셸이 태블릿 가로(사이드바 레이아웃)를 지원 대상으로 두는데 'portrait' 잠금은 그와 어긋났다(12 U3.6).
     // 맨 위 면이 전 화면 크림이라 스플래시 바탕과 같은 값이다(ADR-010 v3).
     // layout.tsx 의 viewport.themeColor 와 짝이다 — 한쪽만 바꾸면 어긋난다.
     theme_color: '#faf8f4',
