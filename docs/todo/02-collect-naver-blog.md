@@ -94,7 +94,8 @@
       입력을 받지 않고 exit 1 — 값이 대화 기록에 실릴 수 있어서. env 로 넘긴 값은 막지 않는다(사용자가 셸에서 준 것). TTY 도 아니면 exit 1.
 - [x] **대상은 NAVER API HUB 다**(2026-09-28, BUG-006) — `scripts/lib/naverSearchApi.mjs` 가 호스트·경로·헤더의 정본. 개발자센터가 아니다.
       env 이름(`NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`)은 그대로 둔다 — **API HUB 콘솔도 그 값을 "Client ID / Client Secret" 이라 부른다.**
-- [ ] **실행은 아직 안 했다** — 규격을 옮긴 뒤 첫 통과를 못 봤다. 첫 실행은 README 의 **실행 순서** 블록(`data:login` → `data:collect`).
+- [x] **실행은 아직 안 했다** — 규격을 옮긴 뒤 첫 통과를 못 봤다. 첫 실행은 README 의 **실행 순서** 블록(`data:login` → `data:collect`).
+  > 메모: 2026-10-06 대기열 정리 때 코드로 확인 — 2026-09-28 API HUB 로 첫 수집 성공(`blog_posts` 3,360건, README 진행 상태 2). 이후 실행도 돌아 미분석 저수지가 5,953건(13 §4).
 
 ## 실행 — 사용자 터미널, 스케줄 없음 (2026-09-22 (c))
 

@@ -1,6 +1,7 @@
 # TODO — 블로그 수집 → AI 분석 → 승인 → DB → 자동 배포
 
-> 최종 수정: 2026-10-06 (v41: [15](15-ops-dashboard.md) T1·T2 — 실행 기록 표·집계 rpc 원격 적용, 쓰기 스크립트가 실행마다 한 행을 남긴다. 화면(T3)은 기록이 한 주 쌓인 뒤)
+> 최종 수정: 2026-10-06 (v42: **들어오는 곳은 [NOW.md](NOW.md)** — 00~15 의 열린 항목을 한 줄 대기열(「지금」 10 · 「기다림」 8)로 세웠다. `/next` 가 맨 위부터 묻지 않고 처리하고, SessionStart 훅 `.claude/hooks/todoNow.mjs` 가 맨 위 셋을 첫 화면에 띄운다. 이 README·번호 문서는 명세다. 08 T0.1 의 Now/Next/Blocked 가 이것이다(README 줄이기·이력 분리는 남음))
+> 이전 2026-10-06 (v41: [15](15-ops-dashboard.md) T1·T2 — 실행 기록 표·집계 rpc 원격 적용, 쓰기 스크립트가 실행마다 한 행을 남긴다. 화면(T3)은 기록이 한 주 쌓인 뒤)
 > 이전 2026-10-06 (v40: **주간 사용성 평가 1회차** — [14](14-weekly-ux-eval.md) 에 `W261006.1~17` + 기존 todo 로 보낸 11건. 6명 전원 조건부 재사용·평균 6.25. 가장 아픈 것은 **판정이 요금표·원문과 어긋나는 다섯 자리**(솔숲펜션 요금표 밖 '갈 수 있어요' 등)와 **저장 뒤 설정으로 떨어지는 흐름**(6/6, 닫힌 08 T3.3 과 충돌). 종합은 [reviews/ux-eval/2026-10-06](../reviews/ux-eval/2026-10-06/00-종합.md))
 > 이전 2026-10-06 (v39: **운영 현황 화면 [15](15-ops-dashboard.md) 신설(설계만)** — 수집·분석·반영 스크립트가 실행마다 `pipeline_runs` 한 행을 남기고,
 > `/admin/ops` 가 다섯 칸(수집→분석→검수→반영→재빌드)으로 "어디가 막혔나" 를 그리고, 실패는 DB 트리거가 Slack 으로 보낸다(Vault+pg_net, Deploy Hook 과 같은 모양). 결정은 [ADR-023](../decisions/ADR-023-ops-dashboard-and-run-log.md), pg_cron 은 계속 보류)
@@ -167,7 +168,8 @@ flowchart LR
     - [x] 대시보드(2026-09-22 (3) 사용자 완료 보고): 회원가입 off · Secure password change on · legacy JWT secret 퇴역(Migrate → Rotate → legacy API keys disable → Revoke).
       퇴역 뒤 anon `data:pull` 86·15 diff 없음 실측. **JWT expiry 는 2026-09-22 사용자가 3600 → `43200` 으로 올렸다** — 코드의 30분 skew 를 빼면 실효 창 **11.5시간**이라
       ADR-016 의 "≥ 8시간" 전제를 채운다(코드는 손댈 것 없음 — `SESSION_MAX_TTL_S` 24시간 안). 남은 확인은 다음 `pnpm data:login` 의 만료 문구가 **+12시간**인지 하나뿐 · ~~Vercel env 삭제~~(완료)
-  - [ ] Vercel Deploy Hook(4b)
+  - [x] Vercel Deploy Hook(4b)
+    > 메모: 2026-10-06 대기열 정리 때 코드로 확인 — 훅은 `gD3ioVFKtV`(05)이고 `places` 트리거가 부른다 — 위 4b 줄과 같은 근거.
 - [x] 1 스키마 + RLS + 시드 + `scripts/pull-db.mjs` (시드→pull 왕복, `git diff src/data` 빈 결과로 확인)
 - **2** 수집
   - [x] 코드 — `scripts/collect/keywords.json` · `scripts/collect/naverBlog.mjs`(46 테스트 — `stopReason` 포함) · `scripts/collect-blog.mjs`(네이버 키: env 또는 TTY 숨김 입력, `CLAUDECODE` 거부 — 2026-09-22 (5)) ·
@@ -189,7 +191,8 @@ flowchart LR
         `--dry-run --limit 5`(아래 **실행 순서**). 키 없는 Claude 가 돌리면 좌표 보강이 건너뛰어져 ⚠️1 이 또 미검증으로 남는다
 - [x] 4a Vercel 빌드 명령 `pnpm data:pull && pnpm build`(`vercel.json`) — 첫 배포는 `outputDirectory: "out"` 때문에 실패했고(BUG-005) 고쳐 커밋했다.
       **`main` `66b15e1` 프로덕션 Ready 로 확인 완료**(2026-09-23 (3)): 빌드 로그 `publishable(anon)` · 86·15 · 유출 검사 530파일, 프로덕션 `/map` 브라우저 실측 정상
-- [ ] 4b DB 웹훅 → Deploy Hook 자동 재빌드 — **`/admin` 이 들어오면서 크리티컬 패스가 됐다**(승인 즉시 `published` 라 남은 사람 손은 재빌드 방아쇠뿐)
+- [x] 4b DB 웹훅 → Deploy Hook 자동 재빌드 — **`/admin` 이 들어오면서 크리티컬 패스가 됐다**(승인 즉시 `published` 라 남은 사람 손은 재빌드 방아쇠뿐)
+  > 메모: 2026-10-06 대기열 정리 때 코드로 확인 — `places` 트리거 → Vault 훅이 동작한다 — `rebuild_log` 에 2026-10-06 재빌드 201 다섯 건(13 T3.2). 10-02 의 429 는 시간당 60번 한도였다(BUG-011). 남은 것은 05 의 회전뿐.
 - **5** 보안
   - [x] `scripts/check-bundle.mjs` 유출 검사(빌드 뒤 자동 실행) · `.env.example` 커밋
   - [x] anon select 빈 결과(5 테이블 `[]`) · env→번들 유출 경로(참조가 있을 때만 잡힘 — 그게 맞는 자리) · 보안 헤더 3개(`vercel.json`)

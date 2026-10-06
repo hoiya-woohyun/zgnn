@@ -38,7 +38,8 @@
       Sign In / Providers → **Allow new users to sign up: off** · Secure password change on · legacy JWT secret 퇴역.
       **JWT expiry 는 `43200`**(2026-09-22 사용자가 기본 3600 에서 올렸다) — 코드의 30분 skew 를 빼면 실효 창 **11.5시간**이라 긴 `data:analyze` 도 한 세션에 든다.
       반영 확인은 다음 `pnpm data:login` 의 만료 문구가 **+12시간**인지 보는 것 하나뿐.
-- [ ] Database Webhooks 를 켤 수 있는지 확인(Database → Webhooks). 4b 에서 쓴다.
+- [x] Database Webhooks 를 켤 수 있는지 확인(Database → Webhooks). 4b 에서 쓴다.
+  > 메모: 2026-10-06 대기열 정리 때 코드로 확인 — Database Webhooks UI 대신 `places` 트리거 + pg_net(`20260929023000_vercel_rebuild_webhook.sql`)으로 갔고, `rebuild_log` 에 2026-10-06 재빌드 201 다섯 건이 남았다(13 T3.2).
 
 ## Vercel
 
@@ -56,7 +57,8 @@
       12개(`POSTGRES_*`·`SUPABASE_JWT_SECRET` 등)는 사용자가 연동을 끊자 함께 사라졌다. 그 상태에서 `main` 프로덕션이 `publishable(anon)` 86·15 로 Ready.
       다시 env 를 넣을 일이 생기면 Sensitive 로. **함정**: Sensitive 값은 `vercel pull` 로 내려받으면 `[SENSITIVE]` 자리표시자가 온다 — 로컬 `vercel build` 는 그 값이
       CLI 경로보다 우선돼 `Invalid API key` 로 죽는다. `vercel env pull` 은 쓰지 않는다 — `.env.local` 을 시크릿으로 덮어쓴다(ADR-016).
-- [ ] Deploy Hook 을 하나 만든다(Settings → Git → Deploy Hooks, 브랜치 `main`). URL 자체가 비밀이다 → Supabase 웹훅 설정에만 붙여 넣고 다른 데 적지 않는다.
+- [x] Deploy Hook 을 하나 만든다(Settings → Git → Deploy Hooks, 브랜치 `main`). URL 자체가 비밀이다 → Supabase 웹훅 설정에만 붙여 넣고 다른 데 적지 않는다.
+  > 메모: 2026-10-06 대기열 정리 때 코드로 확인 — 이미 있다 — `auto deploy` · `main` · id `gD3ioVFKtV`(05 Vercel 절, 2026-09-17 발급). URL 은 Vault 에만 있다. 회전은 05 「Deploy Hook 회전」.
 
 ## 네이버 지도 — 배포 주소 등록
 

@@ -40,8 +40,9 @@ P3  여행 단위(날짜·동선) · 데스크톱 2열
   - [ ] 화면: 상세의 판정 카드 바로 아래에 `tel:` 버튼 + "네이버에서 예약·문의" — 판정이 `cond`·`unknown` 일 때 주 버튼으로. 준비물 넛지는 그 아래로 내린다.
   - [ ] 전화가 없는 곳은 지금의 "네이버 지도에서 열기" 문구를 "네이버에서 전화번호 보기" 로 — 버튼이 무엇을 해결하는지 말하게.
   - 문서: `features/` 에 상세 화면 문서가 없다 → 이 작업이 `features/place-detail.md` 를 만들 계기다.
-- [ ] **틀린 정보 제보 — 카테고리로 받는다**(2026-09-29 사용자). 상세 맨 아래 "정보가 달라요" 한 줄 → 하나를 고르고 필요하면 한 줄 적는다.
+- [x] **틀린 정보 제보 — 카테고리로 받는다**(2026-09-29 사용자). 상세 맨 아래 "정보가 달라요" 한 줄 → 하나를 고르고 필요하면 한 줄 적는다.
       이게 없으면 폐업·조건 변경을 운영자가 블로그 수집으로만 알게 된다.
+  > 메모: 2026-10-06 대기열 정리 때 코드로 확인 — 10 F1 로 구현됐다 — `src/screens/placeDetailReport.tsx`·`src/lib/placeReport.ts`·`placeReportSend.ts`, `place_reports` insert-only([ADR-021](../decisions/ADR-021-place-reports.md) · [features/place-report.md](../features/place-report.md)), `/admin` 은 `adminPagePlaceReports.tsx`.
 
       | 카테고리 | 사용자에게 보이는 말 | 운영자가 할 일 |
       |---|---|---|

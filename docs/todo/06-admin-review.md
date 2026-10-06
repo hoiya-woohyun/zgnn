@@ -69,7 +69,8 @@
 
 **남은 사용자 몫**
 
-- [ ] 마이그레이션 2개 원격 적용(`supabase db push` — 휴지 상태면 로그인부터).
+- [x] 마이그레이션 2개 원격 적용(`supabase db push` — 휴지 상태면 로그인부터).
+  > 메모: 2026-10-06 대기열 정리 때 코드로 확인 — `places_archive`·`rebuild_log` 둘 다 원격에 있다 — 10 H.1 메모(2026-10-04 `supabase migration list` 전부 일치), 13 T3.2 가 `rebuild_log` 를 직접 읽었고, 15 T1.1 의 `db push` 때 대기 파일은 `pipeline_runs` 하나뿐이었다.
 - [ ] Deploy Hook 회전 — 절차·확인까지 [05](05-security.md) 의 「Deploy Hook 회전」 에 있다. `create`/`list` 는 URL 을 찍으므로 **사람이 자기 터미널에서**.
 - [ ] 적용 뒤 `/admin` 에서 한 곳 내렸다 되살려 보고, 머리글이 `재빌드가 걸렸어요(… · 201)` 인지 확인.
 
