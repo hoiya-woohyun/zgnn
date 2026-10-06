@@ -1,0 +1,194 @@
+/**
+ * 운영 현황 화면(`/admin/ops`)이 DB 에서 읽는 것 — 집계 rpc 하나와 실행 기록(`pipeline_runs`) 조회(docs/todo/15 T3.2 · ADR-023 결정 4).
+ *
+ * 화면은 **읽기만** 한다. 실행 기록을 고치는 함수(중단된 행을 닫기 등)는 일부러 없다 — 기록을 화면이 고치기 시작하면 정본이 둘이 된다
+ * (features/ops-dashboard.md ③). 건강 판정(초록·노랑·빨강)도 여기 없다 — `adminOpsHealth.ts` 한 곳이 가진다.
+ *
+ * 타입은 마이그레이션 `20261006120000_pipeline_runs.sql` 의 `ops_overview` 가 만드는 json 을 **키 이름 그대로** 옮겨 적은 것이다.
+ * 생성된 DB 타입이 없어 손으로 적는다 — 저쪽 키를 바꾸면 여기도 바꾼다(화면이 `undefined` 를 0 으로 읽고 조용히 틀린 수를 말하게 된다).
+ */
+
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { TRebuildEntry } from './adminRebuild';
+import {
+  formatAnalyzeSummary,
+  formatApplySummary,
+  formatCollectSummary,
+  formatReviewSummary,
+  formatUsageSummary,
+  type TAnalyzeStats,
+  type TApplyStats,
+  type TCollectStats,
+  type TReviewStats,
+  type TUsageTotals,
+} from './runSummary';
+
+export type TRunScript = 'collect' | 'analyze' | 'apply' | 'approve' | 'reject';
+
+/** 저장된 상태. 화면이 보는 상태(`중단된 듯` 포함)는 `adminOpsHealth.runState` 가 이것과 `heartbeat_at` 으로 계산한다. */
+export type TRunStatus = 'running' | 'ok' | 'partial' | 'failed';
+
+/** Slack 트리거(T5)가 남기는 칸. T5 전까지는 언제나 null 이다. */
+export type TRunAlert = {
+  state: 'sent' | 'missing' | 'error';
+  requestId?: number;
+  responseStatus?: number | null;
+  respondedAt?: string | null;
+  responseError?: string | null;
+  note?: string;
+};
+
+/** `pipeline_runs` 한 행 — `operator` 는 화면에 쓸 데가 없어 읽지 않는다(`RUN_COLUMNS`, rpc 도 `- 'operator'` 로 뺀다). */
+export type TPipelineRun = {
+  id: string;
+  script: TRunScript;
+  status: TRunStatus;
+  started_at: string;
+  ended_at: string | null;
+  heartbeat_at: string | null;
+  /** 플래그 목록·개수만(값 없음). 스크립트마다 모양이 다르다 */
+  args: unknown;
+  /** 콘솔 요약 줄이 읽는 수 전부(`runSummary.ts` 의 입력 그대로). 손으로 고친 행일 수 있어 모양을 믿지 않는다 */
+  stats: Record<string, unknown> | null;
+  /** 분류 문구 한 줄("Claude 인증 실패" 등) */
+  error: string | null;
+  alert: TRunAlert | null;
+};
+
+export const RUN_COLUMNS = 'id,script,status,started_at,ended_at,heartbeat_at,args,stats,error,alert';
+
+/** `rebuild_status(5)` 와 같은 행 + `responded_at`(재빌드 칸의 "응답 null 이 3분 넘음" 판정에 쓴다). */
+export type TOpsRebuildEntry = TRebuildEntry & { responded_at: string | null };
+
+export type TOpsFunnel = {
+  newPosts: number;
+  analyzed: number;
+  candidates: number;
+  /** `reviewed_at` 이 기간 안이고 approved·merged(반영되면 merged 로 바뀌므로 둘 다) */
+  approved: number;
+  rejected: number;
+  applied: number;
+  /** 2xx 를 받은 재빌드 */
+  rebuilds: number;
+  /** 기간 무관 — 지금 pending 수 */
+  pendingNow: number;
+};
+
+export type TOpsOverview = {
+  days: number;
+  /** 스크립트별 마지막 실행. 한 번도 안 돈 스크립트는 키가 없다 */
+  runsLatest: Partial<Record<TRunScript, TPipelineRun>>;
+  /** 스크립트별 마지막 ok·partial 실행 — 마지막 실행이 failed 일 때 "마지막 성공" 을 답하려고 따로 받는다 */
+  runsLastOk: Partial<Record<TRunScript, TPipelineRun>>;
+  funnel: TOpsFunnel;
+  backlog: { count: number; oldestFetchedAt: string | null };
+  pending: { count: number; oldestCreatedAt: string | null };
+  /** approved 인데 merged 아님(= `countStrandedCandidates`) */
+  stranded: number;
+  usage30d: {
+    claudeCalls: number;
+    input: number;
+    output: number;
+    cacheRead: number;
+    cacheWrite: number;
+    naverCalls: number;
+    rebuilds2xx: number;
+  };
+  rebuildRecent: TOpsRebuildEntry[];
+  /** Vault 에 `slack_webhook_url` **이름**이 있는가. URL 은 오지 않는다 */
+  slackConfigured: boolean;
+};
+
+export async function fetchOpsOverview(client: SupabaseClient, days: number): Promise<TOpsOverview> {
+  const { data, error } = await client.rpc('ops_overview', { days });
+  if (error) throw new Error(`운영 현황: ${error.message}`);
+  // definer 함수가 운영자가 아니면 42501 로 던지므로 null 은 함수가 없거나 모양이 바뀐 것이다 — 빈 화면을 "기록 없음" 으로 그리지 않는다.
+  if (!data || typeof data !== 'object') throw new Error('운영 현황: 집계가 비어 왔어요 — ops_overview 마이그레이션을 확인해 주세요.');
+  return data as TOpsOverview;
+}
+
+/** 한 번에 읽는 실행 기록 수. 하루 몇 번 도는 표라 30이면 한 주가 넘는다. */
+export const RUNS_PAGE_SIZE = 30;
+
+export type TRunsQuery = {
+  /** 이 스크립트들만. 비우면 전부 — `승인` 칩은 approve·reject 둘을 함께 준다(둘 다 `data:review` 다) */
+  scripts?: readonly TRunScript[];
+  /**
+   * 일이 잘못된 행만 — `failed`·`partial`, 그리고 `heartbeat_at` 이 `stalledBefore` 보다 오래된 `running`(중단된 듯).
+   * 중단된 듯은 저장된 상태가 아니라 계산한 상태라 기준 시각을 부르는 쪽이 준다(임계값은 `adminOpsHealth` 가 가진다).
+   */
+  failedOnly?: { stalledBefore: string };
+  /** 이 `started_at` 보다 앞선 행부터(무한 스크롤의 다음 장). 최신순이라 마지막 행의 `started_at` 을 넘긴다 */
+  before?: string;
+  limit?: number;
+};
+
+/**
+ * 실행 기록 한 장(최신순). 비운영자에게 RLS 는 에러가 아니라 0행을 주지만, 이 화면은 그 전에 `is_operator` 로 갈라 둔다.
+ */
+export async function fetchRuns(client: SupabaseClient, query: TRunsQuery = {}): Promise<TPipelineRun[]> {
+  let request = client.from('pipeline_runs').select(RUN_COLUMNS);
+  if (query.scripts && query.scripts.length > 0) request = request.in('script', [...query.scripts]);
+  if (query.failedOnly) {
+    request = request.or(
+      `status.in.(failed,partial),and(status.eq.running,heartbeat_at.lt.${query.failedOnly.stalledBefore})`,
+    );
+  }
+  if (query.before) request = request.lt('started_at', query.before);
+  const { data, error } = await request.order('started_at', { ascending: false }).limit(query.limit ?? RUNS_PAGE_SIZE);
+  if (error) throw new Error(`실행 기록: ${error.message}`);
+  return (data ?? []) as TPipelineRun[];
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * 행 하나 — Slack 링크의 `?run=<id>` 로 들어왔을 때. **주소에서 온 값이라 uuid 모양부터 본다** — 아니면 PostgREST 가
+ * 22P02(잘못된 uuid)로 던지고 그 문장이 화면에 뜬다. 모양이 아니거나 행이 없으면 null(조용히 첫 장만 보여 준다).
+ */
+export async function fetchRun(client: SupabaseClient, id: string): Promise<TPipelineRun | null> {
+  if (!UUID.test(id)) return null;
+  const { data, error } = await client.from('pipeline_runs').select(RUN_COLUMNS).eq('id', id).maybeSingle();
+  if (error) throw new Error(`실행 기록: ${error.message}`);
+  return (data ?? null) as TPipelineRun | null;
+}
+
+const NO_USAGE: TUsageTotals = { calls: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+
+/**
+ * 실행 기록의 요약 열 — **터미널에 찍힌 줄과 글자까지 같은 문장**(features/ops-dashboard.md ③). 새 문장을 만들지 않고 스크립트가 찍을 때
+ * 부른 `runSummary.ts` 의 함수를 같은 인자로 다시 부른다. analyze 의 계량기 한 줄도 스크립트와 같이 `formatUsageSummary('추출', meters.extract)`
+ * 다(`analyze-candidates.mjs` 의 마지막 줄). 그 밑의 교차점검·제안 계량기 줄은 콘솔에서도 따로 찍히는 줄이라 여기 싣지 않는다 — 펼친 줄의 stats 에 있다.
+ *
+ * 만들 수 없으면 null — stats 가 없거나(돌다 죽었다) 모양이 어긋난 행(손으로 고친 행 · 옛 행)이다. **틀린 문장보다 빈 칸이 낫다**:
+ * 요약 함수는 옛 행을 위해 일부 칸만 `?? 0` 으로 받으므로, 빠진 칸이 있으면 던지지 않고 `NaN`·`undefined` 를 문장에 넣는다. 그 글자가 보이면 버린다.
+ */
+export function runSummaryLine(run: Pick<TPipelineRun, 'script' | 'stats'>): string | null {
+  const stats = run.stats;
+  if (!stats || typeof stats !== 'object' || Array.isArray(stats)) return null;
+  let line: string;
+  try {
+    switch (run.script) {
+      case 'collect':
+        line = formatCollectSummary(stats as TCollectStats);
+        break;
+      case 'analyze': {
+        const analyze = stats as TAnalyzeStats;
+        line = formatAnalyzeSummary(analyze, formatUsageSummary('추출', analyze.meters?.extract ?? NO_USAGE));
+        break;
+      }
+      case 'apply':
+        line = formatApplySummary(stats as TApplyStats);
+        break;
+      case 'approve':
+      case 'reject':
+        line = formatReviewSummary(run.script, stats as TReviewStats);
+        break;
+      default:
+        return null;
+    }
+  } catch {
+    return null;
+  }
+  return /NaN|undefined/.test(line) ? null : line;
+}
