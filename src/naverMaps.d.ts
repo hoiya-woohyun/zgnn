@@ -155,6 +155,8 @@ declare namespace naver.maps {
     setZIndex(zIndex: number): void;
     setOpacity(opacity: number): void;
     setPosition(position: LatLng): void;
+    /** 마커의 바깥 div. `setIcon` 은 안쪽 그림만 바꾸고 이 요소는 그대로 둔다 — 여기 단 속성이 남는다. */
+    getElement(): HTMLElement;
   }
 
   /** `Event.addListener` 가 돌려주는 핸들. `removeListener` 에 그대로 넘긴다. */

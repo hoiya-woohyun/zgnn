@@ -3,6 +3,7 @@
 import { type Ref, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { AlertTriangle } from '@untitledui/icons';
 import { Button } from '@/components/base/button';
+import { ELIGIBILITY_META } from '../components/eligibilityBadge';
 import { EmptyState } from '../components/layout/emptyState';
 import type { TEligibility } from '../lib/eligibility';
 import { loadNaverMaps, onNaverMapsAuthFailure } from '../lib/naverMap';
@@ -58,7 +59,31 @@ type TMarkerEntry = {
   marker: naver.maps.Marker;
   type: TPlaceType;
   listener: naver.maps.MapEventListener;
+  /** 키보드 리스너를 뗀다. SDK 밖에서 마커 요소에 직접 건 것이라 `removeListener` 가 모른다. */
+  detachKeys: () => void;
 };
+
+/**
+ * 마커 요소를 버튼으로 읽히게 한다(14 W261006.11) — SDK 는 `title` 붙은 div 하나라 스크린리더가 지나치고
+ * 키보드로는 닿지 않았다. 이름엔 판정까지 넣는다: 흐린 핀(어려움)은 눈으로만 구분됐다.
+ *
+ * 히트 영역은 28px 그대로 둔다(44px 로 넓히지 않았다). 북·동 해안에서 중심 36px 안에 겹치는 쌍이 156개라,
+ * 보이지 않는 여백을 넓히면 위에 깔린 핀의 여백이 **아래 핀의 보이는 몸통**을 덮어 누른 것과 다른 곳이 열린다.
+ * 넓히는 것은 겹침(클러스터)을 푼 뒤의 일이다.
+ */
+function makeMarkerButton(element: HTMLElement, label: string, onActivate: () => void): () => void {
+  element.setAttribute('role', 'button');
+  element.setAttribute('tabindex', '0');
+  element.setAttribute('aria-label', label);
+  element.style.borderRadius = '9999px'; // 전역 :focus-visible 테두리가 원을 따라가게
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault(); // 스페이스가 페이지를 내리지 않게
+    onActivate();
+  };
+  element.addEventListener('keydown', onKeyDown);
+  return () => element.removeEventListener('keydown', onKeyDown);
+}
 
 /**
  * 마커를 지도에서 떼고 리스너를 푼다. 여러 번 불러도 안전하다.
@@ -82,6 +107,7 @@ function clearMarkers(markers: Map<string, TMarkerEntry>) {
     } catch {
       // 리스너를 못 떼어도 마커는 떼어 본다.
     }
+    entry.detachKeys();
     try {
       entry.marker.setMap(null);
     } catch {
@@ -321,15 +347,20 @@ export function MapPageCanvas({
           map,
           position: new maps.LatLng(place.geo.lat, place.geo.lng),
           icon: pinIcon(maps, place.type, selected, saved),
-          title: `${place.name} · ${TYPE_META[place.type].label}`,
           clickable: true,
           zIndex: selected ? Z_SELECTED : saved ? Z_SAVED : 0,
           opacity:
             eligibilityMap?.get(place.id)?.level === 'hard' ? MARKER_HARD_OPACITY : 1,
         });
         const listener = maps.Event.addListener(marker, 'click', () => onSelect(place.id));
+        const level = eligibilityMap?.get(place.id)?.level;
+        const detachKeys = makeMarkerButton(
+          marker.getElement(),
+          [place.name, TYPE_META[place.type].label, level && ELIGIBILITY_META[level].label].filter(Boolean).join(', '),
+          () => onSelect(place.id),
+        );
 
-        markers.set(place.id, { marker, type: place.type, listener });
+        markers.set(place.id, { marker, type: place.type, listener, detachKeys });
       }
     } catch {
       clearMarkers(markers);
