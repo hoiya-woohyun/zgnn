@@ -38,7 +38,14 @@ export function ChecklistPage() {
   const savedStayCount = savedPlaces.filter((place) => place.type === 'stay').length;
   const isReady = (item: TItem) => checkedItemIds.includes(item.id) || view.providedItemIds.has(item.id);
 
+  // 막대는 "더 챙길 게 없는 몫"(챙김 + 숙소에 있음)으로 차고, 그 안에서 두 몫을 다른 색으로 가른다.
+  // 숫자는 둘을 따로 말한다(07 U6) — 합친 숫자 하나는 숙소 물건을 내가 챙긴 것처럼 읽혔다.
   const percent = view.total > 0 ? Math.round((view.ready / view.total) * 100) : 0;
+  const progressText =
+    view.atStay > 0
+      ? `${view.total}가지 중 ${view.packed}가지 챙겼고, ${view.atStay}가지는 숙소에 있어요`
+      : `${view.total}가지 중 ${view.packed}가지 챙겼어요`;
+  const trailing = `${view.packed}/${view.total} 챙김${view.atStay > 0 ? ` · 숙소 ${view.atStay}` : ''}`;
 
   const renderRow = (item: TItem) => (
     <ChecklistPageItemRow
@@ -57,7 +64,7 @@ export function ChecklistPage() {
       {/* 제목이 곧 헤더다 — 스크롤하면 같이 올라가다 상단에 붙고, 스크롤한 만큼 헤더로 접힌다.
           준비물은 목록이 길어 아래에서 "몇 개 남았더라" 를 확인하려면 맨 위까지 되올라가야 했다 —
           접힌 헤더 오른쪽의 요약과 진행 막대가 그 자리를 대신한다. */}
-      <StickyMorphTitle title="여행 준비물" trailing={`${view.ready}/${view.total} 준비됨`} percent={percent} />
+      <StickyMorphTitle title="여행 준비물" trailing={trailing} percent={percent} />
 
       {/* 제목 줄 바로 밑에서 시작한다 — 제목이 줄 바닥에 앉아 있어 PageHeader 때의 간격(mt-1)이 그대로 난다. */}
       <p className="px-4 text-sm whitespace-pre-line text-tertiary md:px-6">{META.itemsIntro}</p>
@@ -68,18 +75,22 @@ export function ChecklistPage() {
         <div className="px-4 pt-4 md:px-6">
           <SeasonChips value={season} onSelect={setSeason} label="계절" />
 
-          <p className="mt-3 text-sm text-tertiary">
-            {view.total}가지 중 {view.ready}가지 준비됐어요
-          </p>
+          <p className="mt-3 text-sm text-tertiary">{progressText}</p>
           {/*
             숫자 옆에 막대를 하나 둔다. "12가지 중 4가지" 는 읽어서 비율로 옮겨야 알지만,
             막대는 눈이 먼저 안다. 진행률은 위 문장이 이미 말하므로 막대는 장식이다(aria-hidden).
+            두 겹이다 — 바깥(옅은 색)이 숙소 몫까지 찬 길이, 안쪽(진한 색)이 내가 챙긴 길이.
           */}
           <div aria-hidden="true" className="mt-2 h-1.5 overflow-hidden rounded-full bg-tertiary">
             <div
-              className="h-full rounded-full bg-brand-solid transition-[width] duration-300 ease-out"
+              className="relative h-full rounded-full bg-brand-secondary transition-[width] duration-300 ease-out"
               style={{ width: `${percent}%` }}
-            />
+            >
+              <div
+                className="absolute inset-y-0 left-0 rounded-full bg-brand-solid transition-[width] duration-300 ease-out"
+                style={{ width: view.ready > 0 ? `${(view.packed / view.ready) * 100}%` : '0%' }}
+              />
+            </div>
           </div>
 
           {/*

@@ -25,7 +25,7 @@ export function HomePage() {
   const setSeason = useAppStore((state) => state.setSeason);
   const checkedItemIds = useAppStore((state) => state.checkedItemIds);
   // 준비물 화면과 같은 함수로 센다 — 두 화면이 다른 숫자를 보여주면 안 된다.
-  // 분모는 계절 전체이고, 저장한 숙소가 갖고 있는 물건은 준비된 것으로 들어간다(ADR-009 v3).
+  // 분모는 계절 전체이고, 저장한 숙소가 갖고 있는 물건은 내가 챙긴 것과 따로 센다(ADR-009 v3 · 07 U6).
   const progress = useMemo(
     () => checklistView(season, checkedItemIds, savedPlaces),
     [season, checkedItemIds, savedPlaces],
@@ -130,7 +130,9 @@ export function HomePage() {
             className="mt-4 flex h-12 items-center justify-between rounded-lg bg-secondary px-4 text-sm font-semibold text-primary transition-colors hover:bg-tertiary"
           >
             준비물 {progress.total}가지 확인하기
-            <span className="text-sm font-semibold text-tertiary">{progress.ready}개 준비됨</span>
+            <span className="text-sm font-semibold text-tertiary">
+              {progress.packed}개 챙김{progress.atStay > 0 && ` · 숙소 ${progress.atStay}`}
+            </span>
           </Link>
         </div>
       </section>

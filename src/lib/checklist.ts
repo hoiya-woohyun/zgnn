@@ -13,7 +13,11 @@ export type TChecklistView = {
   providedItemIds: Set<string>;
   /** 진행률의 분모 = `items.length`. */
   total: number;
-  /** 이미 준비된 것 — 직접 체크했거나, 저장한 숙소가 갖고 있거나. */
+  /** 내가 직접 챙긴 것(체크). 숙소에도 있는 물건이라도 체크했으면 여기로 센다. */
+  packed: number;
+  /** 체크하지 않았지만 저장한 숙소가 갖고 있는 것. `packed` 와 겹치지 않는다. */
+  atStay: number;
+  /** 더 챙길 필요가 없는 것 = `packed + atStay`. 진행 막대와 묶음 머리의 "2/3" 이 이것으로 찬다. */
   ready: number;
 };
 
@@ -28,6 +32,9 @@ export type TChecklistView = {
  * 저장한 곳이 여기서 하는 일은 하나 남았다 — 저장한 숙소가 갖고 있는 물건을 '숙소에 있어요' 로
  * 표시하고 준비된 것으로 센다. 이건 목록을 줄이는 게 아니라 "안 챙겨도 된다" 는 사실을 알려 주는 것이다.
  *
+ * 다만 **내가 챙긴 것과는 따로 센다**(07 U6). 합쳐 세면 아무것도 체크하지 않은 사람에게 "1가지
+ * 준비됐어요" 가 떠서, 숙소가 가진 물건을 내가 챙긴 것처럼 말했다.
+ *
  * 홈·준비물 화면이 전부 여기서 나온 숫자를 쓴다. 두 곳이 각자 세면 서로 다른 숫자가 나온다.
  */
 export const checklistView = (
@@ -37,13 +44,17 @@ export const checklistView = (
 ): TChecklistView => {
   const items = visibleItems(season);
   const provided = tripProvidedItemIds(savedPlaces, items);
+  const packed = items.filter((item) => checkedItemIds.includes(item.id)).length;
+  const atStay = items.filter((item) => provided.has(item.id) && !checkedItemIds.includes(item.id)).length;
   return {
     items,
     providedItemIds: provided,
     total: items.length,
+    packed,
+    atStay,
     // 숙소가 갖고 있는 물건도 준비된 것으로 센다. 목록에서는 '숙소에 있어요' 로 흐리게
-    // 표시해 놓고 숫자에서만 빼면, 같은 화면의 줄과 숫자가 서로 다른 말을 한다.
-    ready: items.filter((item) => checkedItemIds.includes(item.id) || provided.has(item.id)).length,
+    // 표시해 놓고 막대에서만 빼면, 같은 화면의 줄과 막대가 서로 다른 말을 한다.
+    ready: packed + atStay,
   };
 };
 

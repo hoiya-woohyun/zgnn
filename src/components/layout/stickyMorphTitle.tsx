@@ -57,7 +57,7 @@ const useBeforePaint = typeof window === 'undefined' ? useEffect : useLayoutEffe
 type TStickyMorphTitleProps = {
   /** 제목. 진짜 `<h1>` 이다 — 접혀도 같은 요소라 스크린리더가 한 번만 읽는다. */
   title: string;
-  /** 접혔을 때 오른쪽에 나타나는 짧은 요약(예: `4/12 준비됨`). 본문에 같은 말이 있으므로 장식이다. */
+  /** 접혔을 때 오른쪽에 나타나는 짧은 요약(예: `4/12 챙김`). 본문에 같은 말이 있으므로 장식이다. */
   trailing?: ReactNode;
   /** 0~100. 주면 접힌 헤더 아래에 얇은 진행 막대가 나타난다(장식). */
   percent?: number;

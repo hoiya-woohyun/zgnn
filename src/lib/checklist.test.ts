@@ -53,9 +53,23 @@ describe('checklistView', () => {
     expect(view.ready).toBe(1);
   });
 
-  it('체크했고 숙소에도 있으면 한 번만 센다', () => {
+  it('숙소에 있는 것은 내가 챙긴 것과 따로 센다 — 아무것도 체크 안 했으면 챙긴 것은 0(07 U6)', () => {
+    const view = checklistView(null, [], [placeOf('stay', '강아지 침대 구비.')]);
+    expect(view.packed).toBe(0);
+    expect(view.atStay).toBe(1);
+  });
+
+  it('체크했고 숙소에도 있으면 한 번만 센다 — 내가 챙긴 쪽으로', () => {
     const stay = [placeOf('stay', '강아지 침대 구비.')];
-    expect(checklistView(null, [idOf('얇은 이불/담요')], stay).ready).toBe(1);
+    const view = checklistView(null, [idOf('얇은 이불/담요')], stay);
+    expect(view.ready).toBe(1);
+    expect(view.packed).toBe(1);
+    expect(view.atStay).toBe(0);
+  });
+
+  it('지금 계절에 안 보이는 체크는 세지 않는다', () => {
+    const summerOnly = visibleItems('여름').find((item) => !item.seasons.includes('사계절'))!;
+    expect(checklistView(null, [summerOnly.id], []).packed).toBe(0);
   });
 
   it('저장한 숙소들의 구비 용품을 전부 합쳐 반영한다', () => {
