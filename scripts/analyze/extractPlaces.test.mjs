@@ -20,6 +20,7 @@ import {
   claudeChildEnv,
 } from './extractPlaces.mjs';
 import { parsePetPolicy } from '../../src/lib/petPolicy';
+import { correctPetPolicyFacts } from '../lib/petPolicyFacts.mjs';
 
 // 실제 claude 는 부르지 않는다. `claude -p --output-format json` 이 stdout 에 쓰는 result 객체 모양만 흉내 낸 가짜
 // (2026-09-21 CLI 2.1.278 실측: 성공이면 stop_reason 이 'tool_use', structured_output 에 파싱된 객체).
@@ -242,6 +243,43 @@ describe('parseExtraction — result 객체 → places', () => {
       { label: '19kg 이하 1마리당 2만원', amountWon: 20000, basis: 'perDog', minKg: null, maxKg: 19, fromDog: null, perNight: false },
       { label: '20kg 이상 1마리당 3만원', amountWon: null, basis: 'perDog', minKg: 20, maxKg: null, fromDog: null, perNight: false },
     ]);
+  });
+
+  // "기본 1마리 + 추가 1마리 N원" — 세 겹(shapeMatchesLabel · FILLER · 프롬프트 예시)이 합쳐 `1마리 N원` 으로 만들던 원문들(docs/todo/13 §5.1).
+  describe.each([
+    ['휘닉스', '15kg 미만 반려견, 기본 1마리 최대 2마리, 반려묘 불가입니다.\n추가 반려견 1마리는 50,000원이며 추가 비품이 제공됩니다.', '추가 반려견 1마리 50,000원', 50000, '추가 1마리 5만원'],
+    ['소노벨', '객실당 기본 1마리, 최대 2마리까지 동반할 수 있어요.\n한 마리를 추가하면 30,000원의 추가 요금이 발생하며 현장에서 결제하면 된답니다.', '한 마리를 추가하면 30,000원', 30000, '추가 1마리 3만원'],
+    ['소노캄', '15kg 이하 반려견, 기본 1마리 최대 2마리 … 패밀리·스위트 객실은 기본 1마리이며 추가 1마리까지 가능하고 추가 반려견은 1마리당 30,000원입니다.', '추가 반려견은 1마리당 30,000원', 30000, '추가 1마리당 3만원'],
+  ])('추가 마리 요금 — %s', (_name, petPolicyText, label, amountWon, expectedLabel) => {
+    const raw = {
+      ...goodPlace,
+      petPolicyText,
+      petPolicy: {
+        indoor: 'unknown', leash: false, largeDogOk: null, smallDogOnly: false, callFirst: false, feeFree: false,
+        weightLimitKg: null, maxDogs: null, notes: null,
+        fees: [{ label, amountWon, basis: 'perDog', minKg: null, maxKg: null, fromDog: 2, perNight: false }],
+      },
+    };
+    it('label 의 추가·금액·fromDog 2 가 살아남고 앱의 재보정에도 같다', () => {
+      const [p] = parseExtraction(withPlaces([raw])).places;
+      expect(p.petPolicy.fees).toEqual([{ label: expectedLabel, amountWon, basis: 'perDog', minKg: null, maxKg: null, fromDog: 2, perNight: false }]);
+      expect(correctPetPolicyFacts(p.petPolicy, petPolicyText).facts.fees).toEqual(p.petPolicy.fees);
+    });
+  });
+
+  it('fromDog 가 없는 "반려견 1마리 추가 시 2만원" 은 금액이 유지된다(마리당 요금)', () => {
+    const petPolicyText = '반려견 1마리 추가 시 20,000원이 부과돼요.';
+    const raw = {
+      ...goodPlace,
+      petPolicyText,
+      petPolicy: {
+        indoor: 'unknown', leash: false, largeDogOk: null, smallDogOnly: false, callFirst: false, feeFree: false,
+        weightLimitKg: null, maxDogs: null, notes: null,
+        fees: [{ label: '반려견 1마리 추가 시 20,000원', amountWon: 20000, basis: 'perDog', minKg: null, maxKg: null, fromDog: null, perNight: false }],
+      },
+    };
+    const [p] = parseExtraction(withPlaces([raw])).places;
+    expect(p.petPolicy.fees[0]).toMatchObject({ label: '추가 1마리 2만원', amountWon: 20000, fromDog: null });
   });
 
   it('confidence 가 숫자가 아니면 0, 음수면 0', () => {

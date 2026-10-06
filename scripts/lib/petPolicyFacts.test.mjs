@@ -212,6 +212,29 @@ describe('correctPetPolicyFacts — 요금 구조(fees)는 줄과 계산 칸을 
     expect(r.facts.fees[0].amountWon).toBeNull();
   });
 
+  /** 소노벨 원문 — 둘째 마리라는 말(`2마리`)이 없어도 `기본 1마리` 가 fromDog 2 의 근거다. */
+  const extraText = '객실당 기본 1마리 동반할 수 있어요. 한 마리를 추가하면 30,000원의 추가 요금이 발생해요.';
+
+  it('추가 1마리 요금은 기본 마릿수 + 1 부터 — 기본 N마리가 근거다', () => {
+    const extra = rule({ label: '추가 1마리 30,000원', amountWon: 30000, fromDog: 2 });
+    const r = correctPetPolicyFacts(facts({ fees: [extra] }), extraText);
+    expect(r.facts.fees).toEqual([extra]);
+    expect(r.corrections).toEqual([]);
+  });
+
+  // 마리당 요금("반려견 1마리 추가 시 2만원")은 fromDog 없이도 라벨에 `추가 1마리` 가 나온다 — 거절하지 않는다(한 방향만 넓힌다).
+  it('fromDog 가 없는 `1마리 추가 시` 요금은 금액이 유지된다', () => {
+    const t = '반려견 1마리 추가 시 20,000원이 부과돼요.';
+    const r = correctPetPolicyFacts(facts({ fees: [rule({ label: '반려견 1마리 추가 시 2만원', amountWon: 20000 })] }), t);
+    expect(r.facts.fees[0].amountWon).toBe(20000);
+  });
+
+  it('`N마리부터` label 인데 fromDog 가 없으면 여전히 계산에서 뺀다', () => {
+    const t = '2마리부터 1마리당 20,000원';
+    const r = correctPetPolicyFacts(facts({ fees: [rule({ label: '2마리부터 1마리당 2만원', amountWon: 20000 })] }), t);
+    expect(r.facts.fees[0].amountWon).toBeNull();
+  });
+
   it('두 번 불러도 결과가 같다', () => {
     const once = correctPetPolicyFacts(facts({ fees: [rule({ label: '1마리당 9만원', amountWon: 90000 })] }), text).facts;
     expect(correctPetPolicyFacts(once, text).facts).toEqual(once);

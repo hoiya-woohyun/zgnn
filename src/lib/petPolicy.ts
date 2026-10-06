@@ -279,7 +279,8 @@ const extractTiers = (text: string): TPolicyTier[] => {
   const raw: TPolicyTier[] = [];
   for (const sentence of splitSentences(text)) {
     const weightMatch = NUMBER_RULES.weightLimitKg.exec(sentence);
-    const maxDogs = firstNumber(sentence, NUMBER_RULES.maxDogs);
+    // `추가 1마리까지 가능` 의 1 은 기본 마릿수를 넘는 마리 수지 상한이 아니다 — `(\d+)마리까지` 가 상한 1 로 읽지 않게 걷고 찾는다.
+    const maxDogs = firstNumber(sentence.replace(/추가\s*(?:반려견|반려동물|강아지|애견)?\s*(?:은|는)?\s*\d+\s*마리/g, ''), NUMBER_RULES.maxDogs);
     if (!weightMatch && maxDogs === undefined) continue;
     raw.push({
       maxWeightKg: weightMatch ? Number(weightMatch[1]) : undefined,

@@ -17,6 +17,24 @@ describe('normalizeFeeLines', () => {
     expect(normalizeFeeLines([line])).toEqual(expected);
   });
 
+  // 기본 마릿수를 넘는 마리의 요금 — `추가` 를 군말로 걷으면 `1마리 3만원` 이 되어 첫 마리 요금으로 읽힌다(docs/todo/13 §5.1).
+  it.each([
+    ['추가 1마리 30,000원', ['추가 1마리 3만원']],
+    ['한 마리를 추가하면 30,000원', ['추가 1마리 3만원']],
+    ['1마리 추가 시 3만원', ['추가 1마리 3만원']],
+    ['추가 반려견 1마리는 50,000원', ['추가 1마리 5만원']],
+    ['추가 1마리당 2만원', ['추가 1마리당 2만원']],
+    ['추가 반려견은 1마리당 30,000원입니다', ['추가 1마리당 3만원']],
+    ['추가 1마리 5만원', ['추가 1마리 5만원']],
+    ['(2만원 추가)', ['추가 2만원']],
+    ['2마리부터 1마리당 2만원 추가', ['2마리부터 1마리당 2만원']],
+    // 마리당 뒤의 추가는 요금이 붙는다는 군말 그대로
+    ['1마리당 2만원 추가', ['1마리당 2만원']],
+  ])('추가 마리는 남긴다: %s', (line, expected) => {
+    expect(normalizeFeeLines([line])).toEqual(expected);
+    expect(normalizeFeeLines(expected)).toEqual(expected);
+  });
+
   it('앱이 이미 읽는 모양은 그대로 둔다 — dogFee 의 곱셈·eligibility 의 kg 조건이 이 모양을 읽는다', () => {
     const lines = ['1마리당 3만원', '1~5kg 1만원', '6~10kg 1.5만원', '1박당 2만원', '주말 5만원'];
     expect(normalizeFeeLines(lines)).toEqual(lines);

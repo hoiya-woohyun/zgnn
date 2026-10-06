@@ -602,3 +602,13 @@ describe('isFeeBadgeRepeatedIn', () => {
     expect(isFeeBadgeRepeatedIn({ label: '리드줄', tone: 'cond', axis: 'gear' }, '리드줄 필수')).toBe(false);
   });
 });
+
+describe('parsePetPolicy — `추가 N마리` 는 마릿수 상한이 아니다', () => {
+  it('"기본 1마리, 추가 1마리까지 가능" 을 상한 1마리로 읽지 않는다', () => {
+    expect(parsePetPolicy('기본 1마리, 추가 1마리까지 가능해요.').maxDogs).toBeUndefined();
+  });
+
+  it('"최대 2마리" 는 그대로 읽는다', () => {
+    expect(parsePetPolicy('기본 1마리 최대 2마리. 추가 1마리까지 가능해요.').maxDogs).toBe(2);
+  });
+});

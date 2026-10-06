@@ -8,7 +8,7 @@
 //
 // 순수 모듈이다: 브라우저도 import 한다 — node 모듈을 넣지 말 것(placeFields.mjs 와 같은 규칙, ADR-018).
 
-import { amountsInWon } from './feeLine.mjs';
+import { amountsInWon, EXTRA_DOG_RE } from './feeLine.mjs';
 
 /** @typedef {import('../../src/types').TPetPolicyFacts} TPetPolicyFacts */
 
@@ -41,11 +41,17 @@ const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 /** 원문에 "N kg"(또는 킬로) 가 그대로 있는가. 10 이 "100kg" 이나 "1.5만원" 에 걸리지 않게 앞뒤 숫자를 막는다. */
 const mentionsKg = (text, n) => new RegExp(`(^|[^\\d.])${escapeRe(String(n))}\\s*(kg|㎏|킬로|키로)`, 'i').test(text);
 
-/** 원문에 "N마리"(또는 "두 마리") 가 있는가. */
-const mentionsDogs = (text, n) => {
-  if (new RegExp(`(^|\\D)${n}\\s*마리`).test(text)) return true;
-  return Object.entries(KOREAN_COUNT).some(([word, v]) => v === n && new RegExp(`${word}\\s*마리`).test(text));
-};
+/** 마릿수 N 을 숫자·한글 수(`한`·`두`) 둘 다로 찾는 식의 원천. 한글 수가 없는 N 은 아무것도 안 걸리게(`(?!)`). */
+const countSource = (n) => `(?:${n}|${Object.keys(KOREAN_COUNT).filter((word) => KOREAN_COUNT[word] === n).join('|') || '(?!)'})`;
+
+/** 원문에 "N마리"(또는 "두 마리") 가 있는가. 숫자는 앞 숫자에 걸리지 않게(`12마리` 의 2) 막는다. */
+const mentionsDogs = (text, n) => new RegExp(`(?:^|\\D)${countSource(n)}\\s*마리`).test(text);
+
+/**
+ * 원문이 "기본 N마리"(= 요금에 N마리가 들어 있다)를 말하는가. `추가 1마리 3만원` 의 `fromDog` 는 기본 마릿수 + 1 이라
+ * 원문에 그 숫자 자체는 없을 수 있다 — 기본 1마리 숙소는 `2마리` 를 말하지 않아도 된다.
+ */
+const mentionsBaseDogs = (text, n) => new RegExp(`기본\\s*${countSource(n)}\\s*마리`).test(text);
 
 /** 쉼표·공백을 턴 문자열. 두 쪽을 같은 모양으로 놓고 대 보려고. */
 const flatten = (s) => s.replace(/,/g, '').replace(/\s+/g, '');
@@ -114,7 +120,12 @@ function shapeMatchesLabel(rule, label) {
   if (once && rule.basis === 'perDog') return false;
   if (/마리\s*당/.test(label) && rule.basis === 'flat') return false;
   if (/박/.test(label) !== Boolean(rule.perNight)) return false;
-  if (/\d\s*마리\s*(부터|째)/.test(label) !== (rule.fromDog != null && rule.fromDog > 1)) return false;
+  // fromDog > 1 이면 label 이 몇째 마리인지 말해야 한다 — `N마리부터|째` 만이 아니라 `추가 1마리`(기본 마릿수를 넘는 마리)도 그렇다.
+  // 반대 방향은 넓히지 않는다: `추가 1마리` + fromDog null 은 "반려견 1마리 추가 시 2만원"(마리당 요금)이라 통과해야 하고,
+  // `N마리부터` 가 label 에 있는데 fromDog 가 없으면 그 조건을 잃은 것이라 거절한다(docs/todo/13 §5.1).
+  const nth = /\d\s*마리\s*(부터|째)/.test(label);
+  if (rule.fromDog != null && rule.fromDog > 1) return nth || EXTRA_DOG_RE.test(label);
+  if (nth) return false;
   return true;
 }
 
@@ -134,7 +145,10 @@ function correctFeeRules(fees, text, drop) {
       (next.amountWon != null && (!inText.has(next.amountWon) || !amountsInWon(label).includes(next.amountWon))) ||
       !shapeMatchesLabel(next, label) ||
       bounds.some((n) => !mentionsKg(text, n)) ||
-      (next.fromDog != null && next.fromDog > 1 && !mentionsDogs(text, next.fromDog));
+      (next.fromDog != null &&
+        next.fromDog > 1 &&
+        !mentionsDogs(text, next.fromDog) &&
+        !mentionsBaseDogs(text, next.fromDog - 1));
     if (ungrounded && next.amountWon != null) {
       drop(`요금 "${label}" 의 금액·조건이 원문과 맞지 않아 계산에서 뺐어요`);
       Object.assign(next, { amountWon: null, minKg: null, maxKg: null, fromDog: null });

@@ -241,6 +241,20 @@ describe('프롬프트 예시 계약 — FEE_EX 가 앱에서 읽히는가', () 
     expect(formatDogFee(policy, AKDONG_TOFU)).toBe('악동이와 두부는 2만원 (2마리부터 1마리당 2만원)');
   });
 
+  /** 휘닉스 아일랜드·소노벨 — "기본 1마리, 추가 1마리 N원". 한 마리만 데려가면 붙지 않는다(docs/todo/13 §5.1). */
+  it('추가 1마리 요금은 기본 마릿수를 넘는 마리에만 붙는다', () => {
+    const policy = policyWithRules([FEE_EX.extraDog]);
+    expect(formatDogFee(policy, AKDONG)).toBe('악동이는 추가 요금 없음 (추가 1마리 5만원)');
+    expect(formatDogFee(policy, AKDONG_TOFU)).toBe('악동이와 두부는 5만원 (추가 1마리 5만원)');
+  });
+
+  // 구조(feeRules)가 없는 옛 후보·시드 길 — `추가 1마리 5만원` 줄을 "1마리 5만원" 으로 곱해 확정 문장을 내면 안 된다.
+  it('feeRules 없이 feeLines 만 있는 `추가 1마리 5만원` 은 확정 문장 없이 원문 요금으로 물러난다', () => {
+    const policy = policyWith(['추가 1마리 5만원']);
+    expect(formatDogFee(policy, AKDONG)).toBe('원문 요금 · 추가 1마리 5만원');
+    expect(formatDogFee(policy, AKDONG_TOFU)).toBe('원문 요금 · 추가 1마리 5만원');
+  });
+
   it('여러 줄이 맞으면 가장 늦게 시작하는 줄이 그 마리의 요금이다', () => {
     const first = { ...FEE_EX.perDog, label: '1마리당 3만원' };
     expect(formatDogFee(policyWithRules([first, FEE_EX.fromSecond]), AKDONG_TOFU)).toBe(

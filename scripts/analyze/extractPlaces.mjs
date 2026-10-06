@@ -180,6 +180,8 @@ export const FEE_EX = {
   fromKg: { ...FEE_BASE, label: '20kg 이상 1마리당 3만원', amountWon: 30000, minKg: 20 },
   range: { ...FEE_BASE, label: '1~5kg 1만원', amountWon: 10000, minKg: 1, maxKg: 5 },
   fromSecond: { ...FEE_BASE, label: '2마리부터 1마리당 2만원', amountWon: 20000, fromDog: 2 },
+  /** "기본 1마리, 추가 1마리 5만원" — 요금이 둘째부터 붙는다. label 에서 '추가' 를 빼면 첫 마리 요금으로 읽힌다(docs/todo/13 §5.1). */
+  extraDog: { ...FEE_BASE, label: '추가 1마리 5만원', amountWon: 50000, fromDog: 2 },
   cleaning: { ...FEE_BASE, label: '청소비 5만원', amountWon: 50000, basis: 'flat' },
   perNight: { ...FEE_BASE, label: '1박당 2만원', amountWon: 20000, perNight: true },
   /** '또는' 은 칸으로 표현이 안 된다 — 금액을 비워야 앱이 곱하지 않는다. 줄에 무게는 남긴다(판정 C5 가 `10kg 이상` 을 읽는다). */
@@ -235,6 +237,9 @@ export const SYSTEM_PROMPT = `당신은 제주도 반려견 동반 여행 블로
       basis: 마리마다 붙으면 "perDog", 한 번 붙으면(청소비·총액) "flat".
       minKg / maxKg: 이 금액이 붙는 몸무게 범위(경계 포함, "20kg 이상" → minKg 20, "19kg 이하" → maxKg 19, "1~5kg" → 1 과 5). 없으면 null.
       fromDog: N번째 마리부터 붙으면 N("두 마리부터 1마리당 2만원" → 2). 첫 마리부터면 null.
+        "기본 1마리" 처럼 요금에 들어 있는 마릿수가 있고 그 위로 "추가 1마리 5만원"·"한 마리 추가 시 5만원" 이면 기본 마릿수 + 1 이고,
+        label 은 "추가 1마리 5만원" 처럼 **'추가' 를 남깁니다** — 빼면 첫 마리 요금으로 읽힙니다. 기본 마릿수를 본문이 말하지 않으면 amountWon 은 null.
+        "1마리당 2만원 추가" 의 '추가' 는 요금이 붙는다는 말일 뿐이라 첫 마리부터입니다(fromDog null).
       perNight: 1박마다 붙으면 true, 한 번이거나 본문이 말하지 않으면 false.
       **위 칸으로 조건을 온전히 표현할 수 없으면 amountWon 을 null** 로 둡니다 — '또는'·요일(주말)·객실 종류처럼 칸에 없는 조건입니다.
       null 이면 앱은 계산하지 않고 label 을 그대로 보여 줍니다. 틀린 금액을 계산하게 하는 것보다 낫습니다.
