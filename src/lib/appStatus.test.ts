@@ -1,9 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   STATUS_DURATION_MS,
+  STATUS_INTERACTIVE_MIN_MS,
   clearAppStatus,
   createFirstTimesGate,
   getAppStatus,
+  holdAppStatus,
+  releaseAppStatus,
+  statusDurationMs,
   showAppStatus,
   subscribeAppStatus,
 } from './appStatus';
@@ -27,12 +31,39 @@ describe('showAppStatus — 잠깐 떴다 사라지는 상태 한 줄', () => {
     expect(getAppStatus()).toBeNull();
   });
 
-  it('링크와 노출 시간을 따로 줄 수 있다', () => {
+  it('링크를 실어 보내고, 링크가 있으면 짧게 달라 해도 최소 시간은 둔다', () => {
     showAppStatus('저장했어요', { link: { href: '/saved', label: '저장한 곳 보기' }, durationMs: 2500 });
     expect(getAppStatus()?.link).toEqual({ href: '/saved', label: '저장한 곳 보기' });
-    vi.advanceTimersByTime(2000);
+    vi.advanceTimersByTime(STATUS_INTERACTIVE_MIN_MS - 1);
     expect(getAppStatus()).not.toBeNull();
-    vi.advanceTimersByTime(500);
+    vi.advanceTimersByTime(1);
+    expect(getAppStatus()).toBeNull();
+  });
+
+  it('링크가 없으면 준 시간 그대로다', () => {
+    showAppStatus('짧게', { durationMs: 1000 });
+    vi.advanceTimersByTime(1000);
+    expect(getAppStatus()).toBeNull();
+  });
+
+  it('포커스·hover 로 멈추면 사라지지 않고, 떼면 남은 시간(최소 기본 시간)부터 이어 간다', () => {
+    showAppStatus('저장했어요', { link: { href: '/saved', label: '저장한 곳 보기' } });
+    vi.advanceTimersByTime(4500); // 남은 500ms
+    holdAppStatus();
+    vi.advanceTimersByTime(60_000);
+    expect(getAppStatus()).not.toBeNull();
+    releaseAppStatus();
+    vi.advanceTimersByTime(STATUS_DURATION_MS - 1);
+    expect(getAppStatus()).not.toBeNull();
+    vi.advanceTimersByTime(1);
+    expect(getAppStatus()).toBeNull();
+  });
+
+  it('멈춘 채 새 알림이 오면 새 알림은 정상 타이머로 돈다', () => {
+    showAppStatus('하나', { action: { label: '되돌리기', onPress: () => {} } });
+    holdAppStatus();
+    showAppStatus('둘');
+    vi.advanceTimersByTime(STATUS_DURATION_MS);
     expect(getAppStatus()).toBeNull();
   });
 
@@ -88,5 +119,13 @@ describe('showAppStatus — 되돌리기 버튼(12 U2.1)', () => {
     expect(getAppStatus()?.action?.label).toBe('되돌리기');
     getAppStatus()?.action?.onPress();
     expect(onPress).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('statusDurationMs', () => {
+  it('링크·버튼이 있으면 최소 시간 이상, 더 길게 준 것은 그대로', () => {
+    expect(statusDurationMs({})).toBe(STATUS_DURATION_MS);
+    expect(statusDurationMs({ link: {} })).toBe(STATUS_INTERACTIVE_MIN_MS);
+    expect(statusDurationMs({ action: {}, durationMs: 6000 })).toBe(6000);
   });
 });

@@ -38,9 +38,24 @@ type TShowOpts = {
 /** 기본 노출 시간. 한 줄을 읽기에 충분하고, 다음 동작을 가릴 만큼 길지 않다. */
 export const STATUS_DURATION_MS = 2000;
 
+/**
+ * 링크·버튼이 있는 알림의 **최소** 노출 시간(WCAG 2.2.1 — 누르기 전에 사라지면 안 된다, 12 U3.5).
+ * 호출한 쪽이 이보다 짧게 줘도 이만큼은 둔다 — 문구를 읽고 겨냥해 누를 틈이다.
+ */
+export const STATUS_INTERACTIVE_MIN_MS = 5000;
+
+/** 알림이 실제로 떠 있을 시간. 누를 것이 있으면 최소 시간을 보장한다. */
+export const statusDurationMs = (opts: { link?: unknown; action?: unknown; durationMs?: number }): number => {
+  const requested = opts.durationMs ?? STATUS_DURATION_MS;
+  return opts.link || opts.action ? Math.max(requested, STATUS_INTERACTIVE_MIN_MS) : requested;
+};
+
 let current: TAppStatus | null = null;
 let nextId = 1;
 let timer: ReturnType<typeof setTimeout> | null = null;
+/** 지금 알림이 사라질 시각(ms, `Date.now()` 기준). 멈춘 동안은 남은 시간을 `heldRemainingMs` 에 둔다. */
+let deadline = 0;
+let heldRemainingMs: number | null = null;
 const listeners = new Set<() => void>();
 
 const emit = () => {
@@ -63,25 +78,51 @@ export const subscribeAppStatus = (listener: () => void) => {
 export const clearAppStatus = () => {
   if (timer) clearTimeout(timer);
   timer = null;
+  heldRemainingMs = null;
   if (current === null) return;
   current = null;
   emit();
 };
 
-export const showAppStatus = (text: string, opts: TShowOpts = {}): TAppStatus => {
+const armTimer = (id: number, ms: number) => {
   if (timer) clearTimeout(timer);
-  const status: TAppStatus = { id: nextId++, text, ...(opts.link ? { link: opts.link } : {}), ...(opts.action ? { action: opts.action } : {}) };
-  current = status;
-  emit();
+  deadline = Date.now() + ms;
   timer = setTimeout(() => {
     timer = null;
     // 그 사이 다른 메시지로 바뀌었으면 그 메시지의 타이머가 치운다.
-    if (current?.id === status.id) {
+    if (current?.id === id) {
       current = null;
       emit();
     }
-  }, opts.durationMs ?? STATUS_DURATION_MS);
+  }, ms);
+};
+
+export const showAppStatus = (text: string, opts: TShowOpts = {}): TAppStatus => {
+  const status: TAppStatus = { id: nextId++, text, ...(opts.link ? { link: opts.link } : {}), ...(opts.action ? { action: opts.action } : {}) };
+  current = status;
+  heldRemainingMs = null;
+  emit();
+  armTimer(status.id, statusDurationMs(opts));
   return status;
+};
+
+/**
+ * 포인터가 올라가 있거나 포커스가 들어가 있는 동안 타이머를 멈춘다(12 U3.5) — 누르려고 겨누는 중에 사라지면 안 된다.
+ * 남은 시간은 기억해 두었다가 `releaseAppStatus` 가 이어 간다.
+ */
+export const holdAppStatus = () => {
+  if (current === null || timer === null) return;
+  clearTimeout(timer);
+  timer = null;
+  heldRemainingMs = Math.max(deadline - Date.now(), 0);
+};
+
+/** 멈췄던 타이머를 잇는다. 손을 떼자마자 사라지면 놀라니 남은 시간이 짧아도 기본 노출 시간만큼은 준다. */
+export const releaseAppStatus = () => {
+  if (current === null || heldRemainingMs === null) return;
+  const ms = Math.max(heldRemainingMs, STATUS_DURATION_MS);
+  heldRemainingMs = null;
+  armTimer(current.id, ms);
 };
 /**
  * "처음 몇 번만 알린다" 를 세는 문. 부를 때마다 하나씩 세고, `limit` 번째까지만 true.

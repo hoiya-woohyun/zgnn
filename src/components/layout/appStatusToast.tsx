@@ -2,7 +2,14 @@
 
 import { useSyncExternalStore } from 'react';
 import Link from 'next/link';
-import { clearAppStatus, getAppStatus, getServerAppStatus, subscribeAppStatus } from '../../lib/appStatus';
+import {
+  clearAppStatus,
+  getAppStatus,
+  getServerAppStatus,
+  holdAppStatus,
+  releaseAppStatus,
+  subscribeAppStatus,
+} from '../../lib/appStatus';
 
 /**
  * 셸의 상태 한 줄 자리. 무엇을 띄울지는 `lib/appStatus.ts` 의 `showAppStatus` 를 부른 쪽이 정한다.
@@ -29,6 +36,11 @@ export function AppStatusToast() {
       {status && (
         <p
           key={status.id}
+          // 누르려고 겨누는 동안은 사라지지 않는다(12 U3.5). 터치는 mouseleave 가 안 와서 멈춘 채 남을 수 있어 마우스만 본다.
+          onPointerEnter={(e) => e.pointerType === 'mouse' && holdAppStatus()}
+          onPointerLeave={(e) => e.pointerType === 'mouse' && releaseAppStatus()}
+          onFocus={holdAppStatus}
+          onBlur={releaseAppStatus}
           className="pointer-events-auto flex max-w-md items-center gap-3 rounded-xl bg-primary-solid px-4 py-3 text-sm font-semibold text-white shadow-lg"
         >
           <span>{status.text}</span>

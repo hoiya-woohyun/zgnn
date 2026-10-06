@@ -21,7 +21,7 @@ const shouldAnnounceSave = createFirstTimesGate(2);
 /** 저장(해제 아님)일 때만 알린다. 해제는 하트가 비는 것으로 충분하다. */
 const announceSaved = () => {
   if (!shouldAnnounceSave()) return;
-  showAppStatus('저장했어요', { link: { href: '/saved', label: '저장한 곳 보기' }, durationMs: 2500 });
+  showAppStatus('저장했어요', { link: { href: '/saved', label: '저장한 곳 보기' } });
 };
 
 /**
