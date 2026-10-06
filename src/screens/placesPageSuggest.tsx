@@ -35,7 +35,7 @@ export function PlacesPageSuggest({ type }: { type: TPlaceType }) {
         placeId={null}
         kinds={['suggest']}
         noteRequired
-        notePlaceholder="예: 카페 바당, 애월읍 — 테라스에 강아지 동반 손님이 있었어요"
+        notePlaceholder="예: 카페 바당, 애월읍"
       />
     </div>
   );

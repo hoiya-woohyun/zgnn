@@ -128,7 +128,7 @@ export function ReportSheet({ isOpen, onOpenChange, title, lead, placeId, kinds,
 
           <div>
             <label htmlFor={noteId} className="text-sm font-semibold text-secondary">
-              {noteRequired ? '가게 이름' : '한 줄 더 (선택)'}
+              {noteRequired ? '가게 이름과 동네' : '한 줄 더 (선택)'}
             </label>
             <textarea
               id={noteId}

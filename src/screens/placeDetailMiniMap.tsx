@@ -122,7 +122,7 @@ export function PlaceDetailMiniMap({ place, geo }: { place: TPlaceEntry; geo: TG
   return (
     <div
       ref={slotRef}
-      className="relative h-44 overflow-hidden rounded-2xl border border-secondary bg-secondary"
+      className="relative isolate h-44 overflow-hidden rounded-2xl border border-secondary bg-secondary"
     >
       {status === 'error' ? (
         <p className="flex h-full items-center justify-center px-4 text-center text-sm text-tertiary">

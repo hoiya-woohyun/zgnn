@@ -100,6 +100,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-dvh bg-secondary">
+      {/* 키보드·스위치 사용자가 사이드바·탭 줄을 매번 지나지 않게. 포커스가 올 때만 보인다. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-3 focus:text-sm focus:font-semibold focus:text-primary focus:shadow-lg"
+      >
+        본문으로 건너뛰기
+      </a>
       {!bare && <AppSidebar />}
 
       <div className={cx(!bare && 'md:pl-64')}>
@@ -122,7 +129,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {...surfaceProps}
           className={cx('overflow-x-clip', enabled && 'touch-pan-y touch-pinch-zoom')}
         >
-          <main ref={mainRef} {...surface}>
+          <main ref={mainRef} id="main-content" tabIndex={-1} {...surface} className={cx(surface.className, 'outline-hidden')}>
             {showBack && <AppBar backTo={parentRouteOf(pathname)} />}
             {children}
           </main>

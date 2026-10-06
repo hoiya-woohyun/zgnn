@@ -10,6 +10,9 @@ export type TDogRowDraft = { name: string; weightKg: string };
 
 export type TDogRowError = { name?: string; weightKg?: string };
 
+/** 입력칸의 id. 에러 문구 연결(`aria-describedby`)과 저장 실패 시 첫 오류로 포커스를 옮기는 데 같이 쓴다. */
+export const dogRowFieldId = (index: number, field: keyof TDogRowError) => `dog-row-${index}-${field}`;
+
 type TDogProfileDogRowsProps = {
   values: TDogRowDraft[];
   /** 행마다 다른 에러. 빈 몸무게는 에러 없음(아직 안 채웠을 뿐), 저장을 눌렀을 때만 빈 이름이 에러가 된다. */
@@ -44,13 +47,19 @@ export function DogProfileDogRows({ values, errors, onChange, onAdd, onRemove }:
                     placeholder="예: 두부"
                     value={value.name}
                     onChange={(next) => onChange(index, { name: next })}
+                    id={dogRowFieldId(index, 'name')}
                     isInvalid={Boolean(error.name)}
+                    aria-describedby={error.name ? `${dogRowFieldId(index, 'name')}-error` : undefined}
                     maxLength={DOG_NAME_MAX_LENGTH}
                     /* wrapperClassName="h-11" 은 겉박스만 44px 로 키워 위아래 2px 가 탭해도 포커스가
                        안 잡히는 죽은 띠로 남았다. lg 프리셋은 input 자체가 44px 다. */
                     size="lg"
                   />
-                  {error.name && <HintText isInvalid>{error.name}</HintText>}
+                  {error.name && (
+                    <HintText isInvalid id={`${dogRowFieldId(index, 'name')}-error`}>
+                      {error.name}
+                    </HintText>
+                  )}
                 </div>
                 <div>
                   {/*
@@ -69,7 +78,9 @@ export function DogProfileDogRows({ values, errors, onChange, onAdd, onRemove }:
                       placeholder="예: 7"
                       value={value.weightKg}
                       onChange={(next) => onChange(index, { weightKg: next })}
+                      id={dogRowFieldId(index, 'weightKg')}
                       isInvalid={Boolean(error.weightKg)}
+                      aria-describedby={error.weightKg ? `${dogRowFieldId(index, 'weightKg')}-error` : undefined}
                       size="lg"
                       inputClassName={cx(
                         error.weightKg ? 'pr-16' : 'pr-10',
@@ -87,7 +98,11 @@ export function DogProfileDogRows({ values, errors, onChange, onAdd, onRemove }:
                       kg
                     </span>
                   </div>
-                  {error.weightKg && <HintText isInvalid>{error.weightKg}</HintText>}
+                  {error.weightKg && (
+                    <HintText isInvalid id={`${dogRowFieldId(index, 'weightKg')}-error`}>
+                      {error.weightKg}
+                    </HintText>
+                  )}
                 </div>
               </div>
               {values.length > 1 && (

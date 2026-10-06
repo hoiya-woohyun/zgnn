@@ -13,7 +13,7 @@ import { dogSize } from '../lib/eligibility';
 import { useStoreHydrated } from '../providers/storeHydration';
 import { useAppStore, useDog } from '../store/useAppStore';
 import { DogProfileCarrierPicker } from './dogProfileCarrierPicker';
-import { DogProfileDogRows, type TDogRowDraft, type TDogRowError } from './dogProfileDogRows';
+import { DogProfileDogRows, dogRowFieldId, type TDogRowDraft, type TDogRowError } from './dogProfileDogRows';
 import { DogProfileSizeOverride } from './dogProfileSizeOverride';
 import type { TCarrier, TDogEntry, TDogProfile, TDogSize } from '../types';
 import { CARD_SURFACE } from '../components/cardSurface';
@@ -126,7 +126,13 @@ export function DogProfilePage() {
 
     const errors = rows.map(submitRowError);
     const rowsInvalid = errors.some(hasRowError);
-    if (rowsInvalid) setSubmitErrors(errors);
+    if (rowsInvalid) {
+      setSubmitErrors(errors);
+      // 포커스가 저장 버튼에 남으면 오류가 어디인지 모른다 — 첫 오류 칸(위에서 아래로, 이름 → 몸무게)으로 옮긴다.
+      const index = errors.findIndex(hasRowError);
+      const field = errors[index].name ? 'name' : 'weightKg';
+      document.getElementById(dogRowFieldId(index, field))?.focus();
+    }
     if (carrier === null) {
       setCarrierError(true);
       // 행 에러가 함께 있으면 위쪽(행)이 먼저 눈에 들어오므로 포커스는 이동 수단만 없을 때 옮긴다.

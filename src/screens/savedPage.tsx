@@ -35,7 +35,7 @@ export function SavedPage() {
             title="하트를 눌러 모아보세요"
             description="저장한 곳은 지도에서 한 번에 확인할 수 있어요."
             action={
-              <Button color="primary" size="md" href="/places/stay/">
+              <Button color="primary" size="lg" href="/places/stay/">
                 장소 둘러보기
               </Button>
             }

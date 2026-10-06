@@ -137,6 +137,7 @@ function BottomSheetPanel({ label, onDismiss, children }: { label: string; onDis
   return (
     <AriaDialog
       aria-label={label}
+      aria-modal="true"
       style={drag.style}
       // 모바일은 위쪽 핸들 띠(h-7) 밑으로 내용이 들어가지 않게 pt-6. 데스크톱은 핸들이 없다.
       // 바닥은 pb-sheet — p-4 의 바닥분과 홈 인디케이터(safe-area)를 합친 값이다(globals.css 주석).
