@@ -339,6 +339,8 @@ export function useAppShellStack({ pathname, mainRef, surfaceRef }: TAppShellSta
       const moves = rewind || normalizeRoute(backTo.split(/[?#]/)[0]) !== normalizeRoute(current.current);
       candidate.current = moves ? capture() : null;
       popRequested.current = moves;
+      // 이미 거기다 — 갈아 끼우지 않는다. 끼우면 `markReplacedNavigation` 표식도 남아 다음 push 가 깊이를 못 늘린다.
+      if (!moves) return;
       if (rewind) {
         router.back();
         return;

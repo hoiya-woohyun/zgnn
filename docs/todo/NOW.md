@@ -63,7 +63,9 @@
 - 🙋 경로 짜기(16) 설계 확정 — [16 §7](16-trip-route-planner.md) · 권고: 문서 권장안대로(날짜 1~4일 + 미정, 시작점은 1일차 공항·이후 전날 숙소, 영업시간 데이터 없음, 일정 공유는 밖). 답이 T1.1 저장 모양을 정한다 — 그 전엔 순수 함수(T1.2·T1.3·T2.1·T2.2)만 할 수 있다
 - 🧑 경로 짜기 길찾기 링크 실기기 실측 — [16 H.1·H.2](16-trip-route-planner.md) · 명령: `nmap://route/car`(경유지 5)·`nmap://navigation`·안드로이드 인텐트를 iOS·Android 에서 1회씩. T1.3 머지 전. **먼저** 저장 카드의 「길찾기」(웹 `map.naver.com/p/directions/…`, 7394564)가 폰에서 길을 그리고 앱으로 넘어가는지 — 안 되면 형식만 고친다. 경유지 웹 주소(`{출발}/{도착}/{경유1:경유2}/car`, 9e048ff `naverRouteLink.ts`)의 `:` 구분자·5곳 상한도 — 다르면 상수 둘만
 - 🧑 덮어쓰기 뒤 `place_sources` 확인 — [11 H.4](11-continuous-review-and-update-proposals.md) · 명령: `/admin` 등록 완료 장소 하나를 `덮어쓰기`(한 줄·일괄) → `./node_modules/.bin/supabase db query --linked` 로 그 글이 `place_sources` 에 있는지. 09 T5.3 이 이 결과에 달렸다
+- 🧑 셸 제스처 고침 폰 재현 — [12 U4.1·U4.3](12-ux-audit-2026-10-02.md) · [BUG-013](../bugs/BUG-013-stack-gesture-outlives-navigation.md) · 명령: 안드로이드(또는 iOS 홈 화면 앱)에서 상세 화면 왼쪽 가장자리를 반쯤 끈 채 뒤로 버튼 → 홈에서 세로 스크롤이 되는지, 다시 상세로 들어가 덮기가 오른쪽에서 오는지. 코드 경로로만 확인했다
 
 ## 발견 (분류 전)
 
 <!-- /next 가 작업 중 찾은 것을 한 줄씩 — 출처: <커밋/파일>. 멈출 때 번호 문서로 옮긴다 -->
+- `docs/architecture/app-shell-and-state.md` 에 `carryHistoryStamp`(같은 경로 replace 가 깊이·탭을 잇는다) 한 줄 — 다른 작업이 그 파일을 고치는 중이라 ADR-025 「결과」 에만 적었다. 그 작업이 커밋되면 — 출처: 9befaf2
