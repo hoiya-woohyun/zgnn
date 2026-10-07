@@ -4,7 +4,7 @@ import { useMemo, type RefObject } from 'react';
 import { PlacesPageResults } from './placesPageResults';
 import { resetFiltersLabel } from '../lib/placeFilters';
 import { otherTypeMatches } from '../lib/placeSearch';
-import { filterPlacesPage, placesByTown, placesPageChips } from '../lib/placesPageFilter';
+import { filterPlacesPage, placesByTown, placesPageChips, townReleaseCount } from '../lib/placesPageFilter';
 import { sortByEligibility } from '../lib/sortByEligibility';
 import { useAppStore, useDog } from '../store/useAppStore';
 import { useEligibilityMap } from '../store/useDogEligibility';
@@ -56,6 +56,11 @@ export function PlacesPageSwipePeek({ ref, type, side, top, height }: TPlacesPag
     () => (results.length === 0 ? otherTypeMatches(type, query, town) : []),
     [results.length, type, query, town],
   );
+  const releasedByTown = useMemo(
+    () =>
+      results.length === 0 ? townReleaseCount({ type, town, query, directions, petKeys, hideHard, eligibilityMap }) : 0,
+    [results.length, type, town, query, directions, petKeys, hideHard, eligibilityMap],
+  );
 
   const { chips, activeFilterCount, hasFilters } = placesPageChips({
     type,
@@ -91,6 +96,7 @@ export function PlacesPageSwipePeek({ ref, type, side, top, height }: TPlacesPag
         onResetFilters={noop}
         onOpenFilters={noop}
         otherTypes={otherTypes}
+        townReleaseCount={releasedByTown}
       />
     </div>
   );

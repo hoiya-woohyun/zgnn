@@ -16,7 +16,7 @@ import { SEARCH_FIELD } from '../components/noAutofill';
 import { TYPE_META } from '../lib/places';
 import { comparePrice, resetFiltersLabel, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
 import { otherTypeMatches } from '../lib/placeSearch';
-import { filterPlacesPage, placesByTown, placesPageChips } from '../lib/placesPageFilter';
+import { filterPlacesPage, placesByTown, placesPageChips, townReleaseCount } from '../lib/placesPageFilter';
 import { sortByEligibility } from '../lib/sortByEligibility';
 import { distancesFrom, sortByDistance } from '../lib/distanceSort';
 import { LOCATE_NOTICE, locateMe } from '../lib/myLocation';
@@ -100,6 +100,12 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
   const otherTypes = useMemo(
     () => (results.length === 0 ? otherTypeMatches(type, query, town) : []),
     [results.length, type, query, town],
+  );
+  // 같은 이유로 0곳일 때만 — 읍면 하나가 원인인지(18 T2.1).
+  const releasedByTown = useMemo(
+    () =>
+      results.length === 0 ? townReleaseCount({ type, town, query, directions, petKeys, hideHard, eligibilityMap }) : 0,
+    [results.length, type, town, query, directions, petKeys, hideHard, eligibilityMap],
   );
 
   const distances = useMemo(() => (sort === 'near' && origin ? distancesFrom(results, origin) : undefined), [origin, results, sort]);
@@ -313,6 +319,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
               onOpenFilters={() => setIsFilterSheetOpen(true)}
               distances={distances}
               otherTypes={otherTypes}
+              townReleaseCount={releasedByTown}
             />
             <PlacesPageSuggest type={type} />
           </div>

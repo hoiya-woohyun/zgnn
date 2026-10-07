@@ -60,6 +60,16 @@ export const filterPlacesPage = ({
   return list;
 };
 
+/**
+ * 0곳일 때 **읍면 하나만** 풀면 몇 곳인가(18 T2.1). 읍면이 없으면 0.
+ *
+ * 읍면은 퍼시스트라 전에 걸어 둔 '구좌읍' 이 홈 관광지 칩("중문")과 겹쳐 이유 없이 0곳이 된다 — 홈은 퍼시스트 필터를
+ * 몰래 바꾸지 않는다(T2). 대신 빈 상태가 원인을 말하고 그 자리에서 푼다. 나머지 조건은 그대로 두고 센다 —
+ * 버튼이 하는 일(`setTown(null)`)과 같은 조건이라야 "N곳" 을 누르고 N곳을 본다.
+ */
+export const townReleaseCount = (conditions: TPlacesPageConditions): number =>
+  conditions.town === null ? 0 : filterPlacesPage({ ...conditions, town: null }).length;
+
 export type TPlacesPageChip = { key: string; label: string };
 
 /**

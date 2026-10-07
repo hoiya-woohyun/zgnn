@@ -19,6 +19,7 @@ export function HomePageLandmarkChips() {
 
   // 검색어는 덧붙이지 않고 바꾼다. `name` 은 "협재·금능" 처럼 합친 표기라 검색어로는 안 읽힌다 — 별칭 첫 말을 넣는다.
   // 숙소가 첫 종류라 숙소로 간다. 그 종류에 0곳이면 빈 상태가 다른 종류의 수를 안내한다(07 U3).
+  // 전에 걸어 둔 읍면(퍼시스트)은 여기서 풀지 않는다 — 겹쳐서 0곳이면 빈 상태가 "읍면을 풀면 N곳" 과 푸는 버튼을 준다(T2.1).
   const goToLandmark = (word: string) => {
     setQuery(word);
     router.push('/places/stay');

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { filterPlacesPage, filtersOfPlaceType, placesByTown, placesPageChips } from './placesPageFilter';
+import { filterPlacesPage, filtersOfPlaceType, placesByTown, placesPageChips, townReleaseCount } from './placesPageFilter';
 import { placesOfType } from './places';
 import type { TPlaceType } from '../types';
 
@@ -48,6 +48,22 @@ describe('filterPlacesPage', () => {
 
   it('읍면이 없는 종류는 byTown 이 0곳이다', () => {
     expect(placesByTown('cafe', '없는읍')).toHaveLength(0);
+  });
+});
+
+describe('townReleaseCount', () => {
+  it('읍면이 없으면 0', () => {
+    expect(townReleaseCount({ ...base, type: 'stay', query: '중문' })).toBe(0);
+  });
+
+  it('구좌읍 × 중문 = 0곳이어도 읍면만 풀면 중문 반경의 수 — 나머지 조건은 그대로 센다(18 T2.1)', () => {
+    const conditions = { ...base, type: 'stay' as const, town: '구좌읍', query: '중문' };
+    expect(filterPlacesPage(conditions)).toHaveLength(0);
+    const released = filterPlacesPage({ ...conditions, town: null }).length;
+    expect(released).toBeGreaterThan(0);
+    expect(townReleaseCount(conditions)).toBe(released);
+    // 방향은 풀지 않는다 — 중문(남쪽)에 '동쪽' 을 겹치면 읍면을 풀어도 0곳이다.
+    expect(townReleaseCount({ ...conditions, directions: ['east'] })).toBe(0);
   });
 });
 

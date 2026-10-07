@@ -53,6 +53,8 @@ type TPlacesPageResultsProps = {
   distances?: Map<string, number>;
   /** 0곳일 때 같은 검색어가 맞는 다른 종류(`otherTypeMatches`). 엿보기도 같은 검색어로 센다. */
   otherTypes?: { type: TPlaceType; count: number }[];
+  /** 0곳일 때 읍면만 풀면 몇 곳인가(`townReleaseCount`, 18 T2.1). 0 이면 읍면 탓이 아니다. */
+  townReleaseCount?: number;
 };
 
 /**
@@ -78,6 +80,7 @@ export function PlacesPageResults({
   onOpenFilters,
   distances,
   otherTypes = [],
+  townReleaseCount = 0,
 }: TPlacesPageResultsProps) {
   const dog = useAppStore((state) => state.dog);
   const needsIndoor = useAppStore((state) => state.needsIndoor);
@@ -219,7 +222,23 @@ export function PlacesPageResults({
             검색어만 걸려 0곳이면 필터를 탓하지 않는다(12 U1.2) — 시트에는 꺼 볼 것이 없고, 지울 것은 검색어다.
             이 버튼은 md 에서도 보인다: 펼쳐진 조건 판이 검색어를 지워 주지 않는다.
           */}
-          {query && activeFilterCount === 0 && !townHasNoPlaces ? (
+          {/*
+            읍면 하나가 원인이면 그렇다고 말하고 그 자리에서 푼다(18 T2.1). 읍면은 퍼시스트라 전에 걸어 둔 '구좌읍' 이
+            홈 관광지 칩("중문")과 겹쳐 0곳이 된다 — "필터 바꾸기" 로 시트를 열어도 사용자는 무엇이 걸렸는지 모른다.
+            이 종류에 그 읍면 자체가 없을 때는 아래 전용 빈 상태가 같은 버튼을 이미 준다.
+          */}
+          {town && !townHasNoPlaces && townReleaseCount > 0 ? (
+            <EmptyState
+              Icon={SearchMd}
+              title={`${town}에는 맞는 ${withJosa(TYPE_META[type].label, '이/가')} 없어요`}
+              description={`읍면을 풀면 ${townReleaseCount}곳이 있어요.`}
+              action={
+                <Button color="primary" size="md" onClick={onClearTown}>
+                  {`${town} 풀고 ${townReleaseCount}곳 보기`}
+                </Button>
+              }
+            />
+          ) : query && activeFilterCount === 0 && !townHasNoPlaces ? (
             <EmptyState
               Icon={SearchMd}
               // 검색어가 탭을 따라오므로 어느 종류에서 없는지를 늘 적는다 — 바로 위 "식당에 1곳" 과도 말이 엇갈리지 않는다.
