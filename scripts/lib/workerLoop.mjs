@@ -25,7 +25,7 @@ const DAY_MS = 86_400_000;
 
 /**
  * `wake()` 디바운스. 도는 중에 다시 부르면 **끝난 뒤 한 번 더**(플래그 하나) — 몇 번을 불러도 동시에 두 바퀴가 돌지 않고, 놓치지도 않는다.
- * Realtime(T4) · 60초 폴링 · 정기 타이머가 전부 이것 하나를 부른다. `daily` 는 쌓였다가 다음 바퀴 하나가 가져간다.
+ * Realtime(workerRealtime.mjs) · 60초 폴링 · 정기 수집(09:00)이 전부 이것 하나를 부른다. `daily` 는 쌓였다가 다음 바퀴 하나가 가져간다.
  * 바퀴가 던져도 루프는 산다(`onError`) — 워커 하나가 예외 한 번에 죽으면 큐가 DB 에 있어도 아무도 안 본다.
  * @param {(o: { daily: boolean }) => Promise<unknown>} runCycle
  */
@@ -116,6 +116,7 @@ export function recordRun(last, key, state, now) {
  *  - analyze: 요청 글(`requested_at`)이 있으면 `--requested-only`(ADR-024 결정 4 — 저수지는 안 읽는다). 「지금 분석 N건」 요청은 그와 따로 `--limit N`
  *    (저수지 포함, 기존 순서). Claude 한도로 쉬는 동안(`claudePausedUntil`)은 둘 다 빠진다 — 요청은 queued 로 남아 리셋 뒤 집힌다.
  *  - apply: 승인 후보가 있거나 「지금 반영」 요청.
+ * `forced` 는 Realtime 이벤트가 깨운 단계 key — 그 단계는 `isDue` 의 재시도 간격을 안 본다(이벤트가 "일이 늘었다" 그 자체다). 간격은 폴링에서만.
  * @returns {{ key: string, step: 'collect'|'analyze'|'apply', args: string[], requestIds: string[], reason: string }[]}
  */
 export function planCycle({
@@ -126,21 +127,23 @@ export function planCycle({
   isDailyTick = false,
   last = {},
   done = new Set(),
+  forced = new Set(),
   claudePausedUntil = 0,
   now = Date.now(),
 } = {}) {
   const ids = (rows) => rows.map((row) => row.id);
+  const due = (count, key) => isDue(count, forced.has(key) ? undefined : last[key], now);
   const steps = [];
 
   if (isDailyTick || requests.collect.length > 0) {
     const why = [isDailyTick && '정기 수집(09:00)', requests.collect.length > 0 && `「지금 수집」 요청 ${requests.collect.length}건`].filter(Boolean);
     steps.push({ key: 'collect', step: 'collect', args: [], requestIds: ids(requests.collect), reason: `${why.join(' · ')} — 키워드 전체` });
-  } else if (isDue(collectQueued, last.collect, now)) {
+  } else if (due(collectQueued, 'collect')) {
     steps.push({ key: 'collect', step: 'collect', args: ['--only-requests'], requestIds: [], reason: `추가 수집 요청 ${collectQueued}건` });
   }
 
   const claudeOk = now >= claudePausedUntil;
-  if (claudeOk && isDue(requestedPosts, last['analyze:requested'], now)) {
+  if (claudeOk && due(requestedPosts, 'analyze:requested')) {
     steps.push({ key: 'analyze:requested', step: 'analyze', args: ['--requested-only'], requestIds: [], reason: `요청 글 ${requestedPosts}건` });
   }
   if (claudeOk && requests.analyze.length > 0) {
@@ -148,7 +151,7 @@ export function planCycle({
     steps.push({ key: 'analyze:limit', step: 'analyze', args: ['--limit', String(limit)], requestIds: ids(requests.analyze), reason: `「지금 분석」 ${limit}건(저수지 포함)` });
   }
 
-  if (requests.apply.length > 0 || isDue(approved, last.apply, now)) {
+  if (requests.apply.length > 0 || due(approved, 'apply')) {
     const why = [approved > 0 && `승인 후보 ${approved}건`, requests.apply.length > 0 && `「지금 반영」 요청 ${requests.apply.length}건`].filter(Boolean);
     steps.push({ key: 'apply', step: 'apply', args: [], requestIds: ids(requests.apply), reason: why.join(' · ') });
   }
@@ -195,4 +198,11 @@ export function parseOnceArgs(argv) {
   const unknown = argv.filter((arg) => arg !== '--dry-run');
   if (unknown.length > 0) throw new Error(`알 수 없는 인자: ${unknown.join(' ')} — 사용법: pnpm data once [--dry-run]`);
   return { dryRun: argv.includes('--dry-run') };
+}
+
+/** 상주 워커(`pnpm data`)의 인자 — `--no-realtime`(폴링만, 디버깅용) 하나뿐. 모르는 인자는 거부한다(parseOnceArgs 와 같은 원칙). */
+export function parseResidentArgs(argv) {
+  const unknown = argv.filter((arg) => arg !== '--no-realtime');
+  if (unknown.length > 0) throw new Error(`알 수 없는 인자: ${unknown.join(' ')} — 사용법: pnpm data [--no-realtime]`);
+  return { realtime: !argv.includes('--no-realtime') };
 }

@@ -139,5 +139,8 @@ export function createSupabase({ readOnly = false } = {}) {
     auth: { persistSession: false, autoRefreshToken: false },
     // 사용자 JWT 는 두 번째 인자(apikey)가 아니라 Authorization 헤더로 간다 — apikey 자리에 넣으면 401 이 나서 RLS 버그처럼 보인다.
     ...(creds.accessToken ? { global: { headers: { Authorization: `Bearer ${creds.accessToken}` } } } : {}),
+    // Realtime 은 헤더를 안 본다 — supabase-js 가 넘기는 토큰 콜백이 auth 세션(없다)을 찾다 publishable 키로 떨어져, 구독은 SUBSCRIBED 인데 RLS 가 anon 이라
+    // 이벤트가 0건이다. `realtime.setAuth(jwt)` 도 안 붙는다: 콜백이 있으면 heartbeat(25초)마다 콜백 값으로 되돌린다. 그래서 콜백 자체를 세션으로 바꾼다(T4).
+    ...(creds.accessToken ? { realtime: { accessToken: async () => creds.accessToken } } : {}),
   });
 }

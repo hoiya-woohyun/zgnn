@@ -1,6 +1,7 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-10-07 (v51: 상주 워커 `pnpm data` · 한 바퀴 `once` 가 실제로 돈다(todo/17 T3) — 「워커 한 바퀴」 그림. 자동 분석은 `requested_at` 이 찍힌 글만, 추가 수집·재분석이 찍는다)
+> 최종 수정: 2026-10-07 (v52: 워커가 Realtime 으로도 깬다(todo/17 T4) — 깨우는 길 셋, 폴링이 정본. 채널 토큰은 `realtime.setAuth` 가 아니라 클라이언트의 토큰 콜백이어야 RLS 를 통과한다)
+> 이전 2026-10-07 (v51: 상주 워커 `pnpm data` · 한 바퀴 `once` 가 실제로 돈다(todo/17 T3) — 「워커 한 바퀴」 그림. 자동 분석은 `requested_at` 이 찍힌 글만, 추가 수집·재분석이 찍는다)
 > 이전 2026-10-07 (v50: 진입점 하나 `pnpm data <하위 명령>`(`scripts/data.mjs`, ADR-024) — `data:*` 13줄이 한 줄, 터미널 검수 창 `data:review`·사진 스크립트 둘·`data:homepage` 를 지웠고, seed·normalize 는 `node scripts/…` 로 직접)
 > 이전 2026-10-07 (v49: 추가 수집 — 요청 검색 실패는 그 요청만 대기로(키워드 수집분은 저장), 요청 글의 `keyword` 는 `추가 수집(/admin)`(상호명을 `검색어:` 로 주면 추출을 유도한다), `--only-requests` 는 `pipeline_runs` 에 안 남긴다(수집 칸의 '마지막 성공' 을 가린다))
 > 이전 2026-10-07 (v48: **추가 수집 요청**(`collect_requests`) — `/admin` 이 남긴 상호명 검색어를 `data:collect` 가 키워드 뒤에 한 페이지(30건)씩 돌고(`--only-requests` 면 요청만), `data:analyze` 는 그 글을 미분석 줄 맨 앞에 세운다. 표가 없으면 경고 한 줄 뒤 요청 없이 돈다 — [features/admin-review 「추가 수집」](../features/admin-review.md))
@@ -370,7 +371,7 @@ flowchart LR
 다시 센다 — 수집이 요청 글에 `requested_at` 을 찍어야 분석할 것이 생기고, 분석이 auto 후보를 바로 `approved` 로 넣어야 반영할 것이 생기기 때문이다.
 
 ```
- 깨우기: 60초 폴링 · 09:00 KST(폴링이 시각을 넘었는지 본다) · (T4) Realtime ──▶ wake() ─ 도는 중이면 끝난 뒤 한 번 더
+ 깨우기: Realtime(~1초) · 60초 폴링 · 09:00 KST(폴링이 시각을 넘었는지 본다) ──▶ wake() ─ 도는 중이면 끝난 뒤 한 번 더
                                                                                   │
    ┌──────────────────────────────── 세기(head count) ◀──────────────────────────┘◀──────────┐
    │  collect_requests queued · blog_posts(requested_at, 미분석) · candidates approved      │
@@ -385,6 +386,10 @@ flowchart LR
       할 것이 없으면 끝. 지워지지 않는 일감(계속 403 인 요청 글 등)은 수가 늘거나 30분이 지나야 폴링이 다시 깨운다
 ```
 
+- **깨우는 길은 셋이고 정본은 폴링이다.** Realtime(`scripts/lib/workerRealtime.mjs` — `collect_requests`·`pipeline_requests` INSERT · `candidates` 가 approved 가 된 UPDATE ·
+  `blog_posts` 가 요청 글이 된 UPDATE)이 주 길이고, 끊기면 supabase-js 의 자동 재연결에 맡긴 채 60초 폴링이 받친다 — 가장 나쁜 경우가 "60초 늦음". 09:00 정기 수집도 폴링이 본다.
+  이벤트가 깨운 단계는 재시도 간격(30분)을 건너뛴다. 채널이 세션 JWT 를 싣는 것은 `createSupabase` 의 `realtime.accessToken` 콜백이다 —
+  `realtime.setAuth(jwt)` 는 heartbeat(25초)마다 콜백 값(publishable 키)으로 되돌아가, 구독은 SUBSCRIBED 인데 RLS 가 anon 이라 이벤트가 0건이 된다. `--no-realtime` 이면 폴링만.
 - **단계는 각 스크립트의 `main` 을 같은 프로세스에서 부른다.** 그래서 프로세스 누계(`readNaverCalls`)는 실행마다 시작 값을 빼고, analyze 의 잠금은 끝날 때 바로 푼다
   (exit 훅에만 맡기면 두 번째 분석이 자기 pid 의 잠금에 막힌다).
 - **세션은 단계를 부르기 전에 본다** — `createSupabase` 는 만료면 `process.exit(1)` 이라 워커째 죽는다. 다시 로그인하면 풀리는 거부에만 `loginNeeded` 표식이 있고,

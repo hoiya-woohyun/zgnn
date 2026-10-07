@@ -5,7 +5,8 @@
 // 왜 이렇게 생겼나 —
 //  - **단계는 각 스크립트의 `main(argv)` 를 같은 프로세스에서 부른다**(scripts/data.mjs 의 runStep). 코드를 옮기지 않는다. 그 대가로 단계가
 //    `process.exit` 하는 자리는 워커도 끝낸다 — 그래서 세션은 단계를 부르기 **전에** 여기서 본다(`createSupabase` 는 만료면 exit 1 한다).
-//  - 깨우기는 지금 둘이다: 60초 폴링 · 정기 수집(09:00 KST). Realtime 은 T4. 셋 다 같은 `wake()` 다.
+//  - 깨우기는 셋이고 전부 같은 `wake()` 다: Realtime(`lib/workerRealtime.mjs`, 주 — 이벤트가 깨운 단계는 재시도 간격을 안 본다) · 60초 폴링(안전망) ·
+//    정기 수집(09:00 KST). `--no-realtime` 이면 폴링만(디버깅용).
 //    정기 수집은 긴 setTimeout 이 아니라 **폴링이 시각을 넘었는지 본다** — 맥이 잠든 동안 타이머 시계는 멈춰 있어, 하루짜리 타이머는 깨어난 뒤에도 몇 시간 늦는다.
 //  - 한 단계가 실패해도 워커는 다음 단계로 간다(승인 후보 반영은 분석 실패와 무관하다). `once` 는 T1 대로 거기서 멈춘다.
 //  - 로그는 한 줄씩 시각을 붙이고, 각 스크립트의 요약 줄은 그대로 흘려보낸다.
@@ -21,11 +22,13 @@ import {
   formatStep,
   nextDailyAt,
   parseOnceArgs,
+  parseResidentArgs,
   pickRequests,
   planCycle,
   recordRun,
 } from './lib/workerLoop.mjs';
 import { checkWorkerSchema, markRequests, readWorkerState } from './lib/workerQueue.mjs';
+import { startRealtime } from './lib/workerRealtime.mjs';
 
 const POLL_MS = 60_000;
 const SHUTDOWN_WAIT_MS = 3_000;
@@ -58,18 +61,19 @@ export async function main(argv, { mode, runStep }) {
     return 1;
   }
   let dryRun = false;
-  if (!resident) {
-    try {
-      ({ dryRun } = parseOnceArgs(argv));
-    } catch (e) {
-      console.error(e.message);
-      return 2;
-    }
+  let useRealtime = false;
+  try {
+    if (resident) ({ realtime: useRealtime } = parseResidentArgs(argv));
+    else ({ dryRun } = parseOnceArgs(argv));
+  } catch (e) {
+    console.error(e.message);
+    return 2;
   }
 
   // ── 세션 ─────────────────────────────────────────────────────────────
   let client = null;
   let heartbeat = null;
+  let realtime = null;
   let shutdown = async (code) => process.exit(code); // 상주 모드에서 아래가 바꾼다
   let claudePausedUntil = 0;
   const idlePhase = () => (Date.now() < claudePausedUntil ? 'rate-limited' : 'idle');
@@ -102,6 +106,7 @@ export async function main(argv, { mode, runStep }) {
     }
     client = createSupabase();
     heartbeat?.setClient(client);
+    await realtime?.restart(client); // 옛 채널은 옛 토큰을 쥐고 있다(workerRealtime.mjs 머리 주석)
     await heartbeat?.setPhase(idlePhase());
     return true;
   }
@@ -118,6 +123,8 @@ export async function main(argv, { mode, runStep }) {
 
   // ── 한 바퀴 ──────────────────────────────────────────────────────────
   let last = {}; // 단계 → 끝난 직후 다시 센 수(폴링 재시도 간격, `isDue`)
+  // Realtime 이 깨운 단계 key — 그 단계가 **시작할 때** 지운다. 도는 중에 온 이벤트는 다시 서서 다음 바퀴가 한 번 더 본다(이벤트를 잃지 않는다).
+  const forced = new Set();
   let current = { requestIds: [], runId: null };
   let waker = null;
 
@@ -144,6 +151,7 @@ export async function main(argv, { mode, runStep }) {
     const label = STEP_LABEL[step.step];
     const startedAt = Date.now();
     log(`${label} 시작 — ${step.reason}`);
+    forced.delete(step.key);
     current = { requestIds: step.requestIds, runId: null };
     await markRequests(client, step.requestIds, { status: 'taken', taken_at: new Date().toISOString() });
     await heartbeat?.setPhase(step.step);
@@ -168,7 +176,7 @@ export async function main(argv, { mode, runStep }) {
     let firstFailure = 0;
     let state = await readState();
     while (state) {
-      const steps = planCycle({ ...state, isDailyTick: daily, last, done, claudePausedUntil, now: Date.now() });
+      const steps = planCycle({ ...state, isDailyTick: daily, last, done, forced, claudePausedUntil, now: Date.now() });
       if (steps.length === 0) break;
       const step = steps[0];
       done.add(step.key);
@@ -217,7 +225,7 @@ export async function main(argv, { mode, runStep }) {
     if (closing) return;
     closing = true;
     clearInterval(pollTimer);
-    await Promise.race([heartbeat.close(), sleep(SHUTDOWN_WAIT_MS)]);
+    await Promise.race([Promise.all([heartbeat.close(), realtime?.close()]), sleep(SHUTDOWN_WAIT_MS)]);
     log(`워커 끝(${heartbeat.host})`);
     process.exit(code);
   };
@@ -226,7 +234,20 @@ export async function main(argv, { mode, runStep }) {
 
   waker = createWaker(runCycle, { onError: (e) => log(`⚠️ 이번 바퀴 실패(다음 폴링에 다시): ${e.message}`) });
   let nextDaily = nextDailyAt(Date.now());
-  log(`워커 시작 — ${heartbeat.host} · ${POLL_MS / 1000}초마다 확인 · 정기 수집 ${new Date(nextDaily).toLocaleString('ko-KR')} · 끝내려면 Ctrl-C`);
+  log(
+    `워커 시작 — ${heartbeat.host} · ${useRealtime ? 'realtime + ' : 'realtime 끔(--no-realtime) · '}${POLL_MS / 1000}초마다 확인 · ` +
+      `정기 수집 ${new Date(nextDaily).toLocaleString('ko-KR')} · 끝내려면 Ctrl-C`,
+  );
+  // 상주에서만 연다 — `once` 에서 웹소켓을 열면 이벤트 루프가 잡혀 자연 종료가 안 된다.
+  if (useRealtime) {
+    realtime = startRealtime(client, {
+      onEvent: (key) => {
+        if (key) forced.add(key);
+        waker.wake();
+      },
+      log,
+    });
+  }
   pollTimer = setInterval(() => {
     const daily = Date.now() >= nextDaily;
     if (daily) nextDaily = nextDailyAt(Date.now());

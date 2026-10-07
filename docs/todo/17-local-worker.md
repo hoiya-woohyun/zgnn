@@ -1,6 +1,7 @@
 # 17. 로컬 워커 — `pnpm data` 하나가 DB 를 보고 수집·분석·반영을 그때 돌리고, 화면이 진행을 실시간으로 본다
 
-> 최종 수정: 2026-10-07 (v4: T3 구현 — 상주 워커 `scripts/worker.mjs`(`pnpm data` · `once` · `once --dry-run`), 순수 판단 `workerLoop.mjs`, 세기 `workerQueue.mjs`, 심장 `workerHeartbeat.mjs`, `progress`·`--requested-only`·`requested_at` 찍기·재로그인·한도 휴식)
+> 최종 수정: 2026-10-07 (v5: T4.1 구현 — 워커 Realtime 구독 `workerRealtime.mjs`, 채널 토큰은 `createSupabase` 의 `realtime.accessToken` 콜백(`setAuth` 는 heartbeat 가 되돌린다), 이벤트가 깨운 단계만 재시도 간격 건너뜀, `--no-realtime`)
+> 이전 2026-10-07 (v4: T3 구현 — 상주 워커 `scripts/worker.mjs`(`pnpm data` · `once` · `once --dry-run`), 순수 판단 `workerLoop.mjs`, 세기 `workerQueue.mjs`, 심장 `workerHeartbeat.mjs`, `progress`·`--requested-only`·`requested_at` 찍기·재로그인·한도 휴식)
 > 이전 2026-10-07 (v3: T2 원격 적용·롤백 실측 — publication 은 여섯 표)
 > 이전 2026-10-07 (v2: T1 구현 — 죽은 스크립트 넷 삭제·진입점 `scripts/data.mjs`, `package.json` 의 `data:*` 13줄 → `data` 1줄)
 > 이전 2026-10-07 (v1: 신설 — 설계·태스크. 코드 없음. 결정은 [ADR-024](../decisions/ADR-024-local-worker-and-db-queues.md))
@@ -77,8 +78,11 @@ T1 은 DB 와 무관하니 먼저. T2 는 🧑 `db push` 가 필요하다(쓰기
 
 ### T4. Realtime(워커)
 
-- [ ] **T4.1 구독** — `supabase.channel('worker').on('postgres_changes', …)` 로 `collect_requests`(INSERT) · `pipeline_requests`(INSERT) · `candidates`(UPDATE, `status=approved`) · `blog_posts`(UPDATE, `requested_at` 가 생김) → `wake()`. 구독 실패·끊김은 경고 한 줄, 폴링이 받친다. 세션 토큰을 `realtime.setAuth` 로 넘긴다(RLS). `pipeline_requests` 에 realtime publication 을 더하는 건 T2.1 에 같이.
+- [x] **T4.1 구독** — `supabase.channel('worker').on('postgres_changes', …)` 로 `collect_requests`(INSERT) · `pipeline_requests`(INSERT) · `candidates`(UPDATE, `status=approved`) · `blog_posts`(UPDATE, `requested_at` 가 생김) → `wake()`. 구독 실패·끊김은 경고 한 줄, 폴링이 받친다. 세션 토큰을 `realtime.setAuth` 로 넘긴다(RLS). `pipeline_requests` 에 realtime publication 을 더하는 건 T2.1 에 같이.
   수용 기준: 「추가 수집」 뒤 **5초 안에** collect 시작. 웹소켓을 끊어도(네트워크 off/on) 다음 폴링에서 집는다.
+  ✅ 2026-10-07 — `scripts/lib/workerRealtime.mjs`(`REALTIME_BINDINGS` 넷 · 순수 `shouldWake(table, eventType, newRow)` · `startRealtime` → `restart`/`close`) + 테스트 8. `blog_posts` UPDATE 는 `requested_at` 있음 · `analyzed_at` 없음만 깨운다(분석이 글마다 찍는 UPDATE 는 거른다). 상태는 **바뀔 때만** 한 줄(`realtime 연결` / `realtime 끊김(…) — 폴링으로`) — 만료·절전 뒤 자동 재연결이 CHANNEL_ERROR 를 되풀이한다. 직접 재시도 루프 없음. 상주에서만 연다(`once` 는 웹소켓이 이벤트 루프를 잡아 안 끝난다). `pnpm data --no-realtime` = 폴링만 — `data.mjs` 가 `--` 로 시작하는 첫 인자를 상주로 보내고 워커가 모르는 인자를 거부한다(`parseResidentArgs`).
+  구독만 하는 실측(쓰기 없음): 채널 넷이 서버 바인딩과 맞아 `SUBSCRIBED`, heartbeat(25초)를 넘긴 30초 뒤에도 채널 토큰이 세션 JWT(불리언만 확인).
+  계획과 다른 것: ① **`realtime.setAuth(token)` 은 안 붙는다** — supabase-js 가 Realtime 에 토큰 콜백을 늘 넘기는데, 그 콜백은 auth 세션(헤더로만 붙어 없다)을 못 찾아 publishable 키로 떨어지고, 콜백이 있으면 `setAuth` 한 값을 heartbeat 마다 콜백 값으로 되돌린다. 그 결과 `SUBSCRIBED` 인데 RLS 가 anon 이라 이벤트 0건 — 테스트·구독 상태 어느 쪽도 모른다(고치기 전 실측: 3초 뒤부터 토큰이 JWT 가 아니었다). 그래서 `createSupabase` 가 세션이 있을 때 `realtime: { accessToken }` 콜백을 세션 토큰으로 준다. ② 재로그인 뒤 할 일도 `setAuth` 가 아니라 **새 클라이언트로 다시 구독**(`restart`) — 옛 클라이언트의 콜백은 옛 토큰을 쥐고 있다. ③ 재시도 간격 건너뛰기는 바퀴 단위가 아니라 **단계 key 단위**(`planCycle` 의 `forced` — collect_requests→collect · blog_posts→analyze:requested · candidates→apply, pipeline_requests 는 원래 늘 돈다)이고 그 단계가 **시작할 때** 지운다. 워커 자신의 쓰기도 이벤트를 내므로(수집이 찍는 `requested_at`, 반영이 approved 인 채로 쓰는 `match_place_id`) 바퀴 통째로 건너뛰면 방금 돈 단계를 다시 돈다. 도는 중에 온 이벤트는 다시 서서 다음 바퀴가 한 번 본다 — 그 한 번(멱등)이 대가다.
 
 ### T5. 화면 — 워커 배지·진행률·구독
 
@@ -103,6 +107,8 @@ pnpm data                  # 워커 — 켜 둔 채로 /admin 「추가 수집�
 
 그다음(T4·T5 뒤):
 
+- `pnpm data` 를 켜면 `realtime 연결 — 바뀌면 바로 깬다` 한 줄 → `/admin` 「추가 수집」 뒤 **5초 안에** `수집 시작 — 추가 수집 요청 1건`(60초 폴링이 아니라 이벤트로 깼는지).
+- Wi-Fi 를 끄고 30초 뒤 켠다 → `realtime 끊김(…) — 폴링으로` 한 줄(되풀이 없이) → 끈 동안 넣은 요청을 다음 폴링(60초 안)이 집고, 재연결되면 `realtime 연결` 이 다시 찍히는지.
 - 터미널에서 `pnpm data` → `/admin` 「추가 수집」 → 터미널 로그와 `/admin/ops` 진행률이 같은 수를 보이는지 · 승인 → apply → 재빌드 `queued` 까지 한 줄로 이어지는지 · 맥 잠자기 10분 뒤 깨어나 폴링이 이어 가는지.
 
 ## 열린 것

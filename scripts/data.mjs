@@ -28,7 +28,8 @@ const USAGE = `사용법: pnpm data <하위 명령> [인자…]
   logout    세션을 만료 전에 지운다
   eval      추출 정확도 — golden [--force] · extract [--limit N] [--only …] [--refresh] · score [--prompt 버전]
 
-  (없음)    상주 워커 — 터미널에 떠서 60초마다 DB 를 보고 once 를 돈다. 매일 09:00(KST) 키워드 전체 수집. 끝내려면 Ctrl-C
+  (없음)    상주 워커 — 터미널에 떠서 DB 가 바뀌면(Realtime) 곧바로, 아니어도 60초마다 보고 once 를 돈다. 매일 09:00(KST) 키워드 전체 수집. 끝내려면 Ctrl-C
+            --no-realtime(폴링만, 디버깅용)
             사람 터미널에서만(Claude Code 세션 안이면 거부) · 네이버 키는 env 나 ~/.zgnn-naver.env 에
             저수지(요청 안 된 미분석 글)는 자동으로 읽지 않는다 — /admin 의 「지금 분석」 요청으로만(ADR-024 결정 4)
   help      이 사용법`;
@@ -46,13 +47,15 @@ async function runWorker(mode, argv) {
 const [sub, ...rest] = process.argv.slice(2);
 
 try {
-  if (sub === undefined) {
-    process.exitCode = await runWorker('resident', []);
+  if (sub === 'help' || sub === '--help' || sub === '-h') {
+    console.log(USAGE);
+  } else if (sub === undefined || sub.startsWith('--')) {
+    // `pnpm data --no-realtime` — 하위 명령 없이 플래그만이면 상주 워커의 인자다(모르는 플래그는 워커가 거부한다).
+    // pnpm 은 `pnpm data -- --no-realtime` 의 `--` 를 그대로 넘긴다 — 그 하나는 버린다.
+    process.exitCode = await runWorker('resident', process.argv.slice(2).filter((arg) => arg !== '--'));
   } else if (sub === 'once') {
     // 한 단계가 실패하면(던지거나 0 이 아닌 코드) 거기서 멈춘다 — 수집이 죽었는데 분석·반영을 이어 가면 무엇이 돌았는지 흐려진다.
     process.exitCode = await runWorker('once', rest);
-  } else if (sub === 'help' || sub === '--help' || sub === '-h') {
-    console.log(USAGE);
   } else if (Object.hasOwn(STEPS, sub)) {
     process.exitCode = await runStep(sub, rest);
   } else {

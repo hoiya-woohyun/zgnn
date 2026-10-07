@@ -11,6 +11,7 @@ import {
   isDue,
   nextDailyAt,
   parseOnceArgs,
+  parseResidentArgs,
   pickRequests,
   planCycle,
   recordRun,
@@ -219,6 +220,17 @@ describe('planCycle — 한 바퀴의 단계', () => {
     expect(steps[1].reason).toBe('승인 후보 2건 · 「지금 반영」 요청 1건');
   });
 
+  it('Realtime 이 깨운 단계(forced)는 재시도 간격을 안 본다 — 그 단계만, 0 건이면 여전히 안 돈다', () => {
+    const last = { collect: { count: 1, at: now - 1000 }, 'analyze:requested': { count: 4, at: now - 1000 }, apply: { count: 2, at: now - 1000 } };
+    const forced = new Set(['apply']);
+    expect(keys(planCycle({ collectQueued: 1, requestedPosts: 4, approved: 2, last, forced, now }))).toEqual(['apply']);
+    expect(planCycle({ approved: 0, last, forced, now })).toEqual([]);
+    expect(keys(planCycle({ collectQueued: 1, requestedPosts: 4, last, forced: new Set(['collect', 'analyze:requested']), now }))).toEqual([
+      'collect --only-requests',
+      'analyze --requested-only',
+    ]);
+  });
+
   it('Claude 한도로 쉬는 동안은 분석 둘 다 빠지고 수집·반영은 돈다', () => {
     const requests = { ...none, analyze: [{ id: 'q1', args: { limit: 10 } }] };
     const paused = planCycle({ requests, collectQueued: 1, requestedPosts: 3, approved: 1, claudePausedUntil: now + 1, now });
@@ -263,5 +275,11 @@ describe('clockStamp · parseOnceArgs', () => {
     expect(parseOnceArgs([])).toEqual({ dryRun: false });
     expect(parseOnceArgs(['--dry-run'])).toEqual({ dryRun: true });
     expect(() => parseOnceArgs(['--dryrun'])).toThrow(/알 수 없는 인자: --dryrun/);
+  });
+
+  it('상주는 --no-realtime 하나만 받는다', () => {
+    expect(parseResidentArgs([])).toEqual({ realtime: true });
+    expect(parseResidentArgs(['--no-realtime'])).toEqual({ realtime: false });
+    expect(() => parseResidentArgs(['--no-realtim'])).toThrow(/알 수 없는 인자: --no-realtim/);
   });
 });
