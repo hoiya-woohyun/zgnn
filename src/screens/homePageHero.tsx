@@ -5,23 +5,26 @@ import Link from 'next/link';
 import { ChevronRight } from '@untitledui/icons';
 import { collapseProgress, collapseRange } from '../lib/stickyMorph';
 import { morphModeOf, offsetInScroller, writeMorphMode, writeMorphRange } from '../components/layout/scrollDrivenMorph';
-
-export function PawMark({ className = 'h-9 w-9 text-brand-300' }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 48 48" className={className} aria-hidden="true">
-      <ellipse cx="14.5" cy="15.5" rx="5" ry="6.4" fill="currentColor" />
-      <ellipse cx="25.5" cy="11.5" rx="5" ry="6.8" fill="currentColor" />
-      <ellipse cx="36" cy="16.5" rx="4.8" ry="6.2" fill="currentColor" />
-      <path
-        d="M25 24.5c6.4 0 11.4 4.4 11.4 9.4 0 4.2-3.4 6.6-7.6 6.6-2.2 0-3 -.9-5.1-.9-2.1 0-2.9.9-5.1.9-4.2 0-7.6-2.4-7.6-6.6 0-5 5.6-9.4 14-9.4Z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-}
+import { PawMark } from '../components/pawMark';
+import { useReplay } from '../hooks/useReplay';
+import { cx } from '../utils/cx';
 
 /** 접힌 헤더의 높이 — 준비물·설정의 제목 줄(StickyMorphTitle)·하위 화면 뒤로가기 줄과 같은 14단. */
 const BAR_HEIGHT = 'calc(var(--spacing) * 14)';
+
+/**
+ * 이스터에그 — 발바닥을 누르면 손을 흔들고, 짧은 사이(`PAW_TAP_WINDOW_MS`)에 다섯 번 누르면 발자국이 카드를 가로지른다.
+ * 발자국은 발바닥 자리에서 출발해 왼발·오른발이 번갈아 위아래로 엇갈리며 오른쪽으로 간다(발끝이 진행 방향). 자리는 블록 위쪽 백분율이라
+ * **카드가 펼쳐져 있을 때만 보인다** — 다 접히면 블록은 `top` 이 음수로 붙어 아래 헤더 줄만 화면에 남고, 발자국 자리는 화면 위로 나가 있다.
+ */
+const PAW_TAPS_FOR_TRAIL = 5;
+const PAW_TAP_WINDOW_MS = 2000;
+const PAW_TRAIL = [22, 33, 44, 55, 66, 77, 88].map((left, index) => ({
+  left: `${left}%`,
+  // 발바닥 옆 빈 띠(카드 위쪽)를 걷는다 — 아래쪽은 등록 버튼·갈 수 있는 곳 수가 있어 그 위를 밟으면 글자가 가린다.
+  top: index % 2 ? '9%' : '17%',
+  turn: index % 2 ? 78 : 102,
+}));
 
 /** 히어로 제목 → 헤더 제목의 크기 비. `display-sm`(7.5단) → `md`(4단). 둘 다 --spacing 배수라 브레이크포인트와 무관하다. */
 const TITLE_SCALE_END = 4 / 7.5;
@@ -108,6 +111,19 @@ export function HomePageHero({ subtitle, reach, cta }: THomePageHeroProps) {
   const pawRef = useRef<HTMLDivElement>(null);
   const insetProbeRef = useRef<HTMLSpanElement>(null);
   const barProbeRef = useRef<HTMLSpanElement>(null);
+
+  // 이스터에그(PAW_TRAIL). 누름에만 반응한다 — 홈은 마운트에 아무 일도 하지 않는 화면이다(스와이프 미리보기도 같은 컴포넌트를 그린다, ADR-014).
+  const [wave, replayWave] = useReplay();
+  const [trail, replayTrail] = useReplay();
+  const pawTapsRef = useRef<number[]>([]);
+  const tapPaw = () => {
+    const now = Date.now();
+    pawTapsRef.current = [...pawTapsRef.current.filter((at) => now - at < PAW_TAP_WINDOW_MS), now];
+    replayWave();
+    if (pawTapsRef.current.length < PAW_TAPS_FOR_TRAIL) return;
+    pawTapsRef.current = [];
+    replayTrail();
+  };
 
   useBeforePaint(() => {
     const sentinel = sentinelRef.current;
@@ -256,13 +272,18 @@ export function HomePageHero({ subtitle, reach, cta }: THomePageHeroProps) {
               style={{
                 transform: `translate(calc(var(--ptx, 0px) * var(--morph)), calc(var(--pty, 0px) * var(--morph))) scale(calc(1 - ${1 - PAW_SCALE_END} * var(--morph)))`,
               }}
+              // 이스터에그라 버튼으로 내세우지 않는다(읽히는 이름도, 포커스도 없다) — 찾아낸 사람의 몫이다.
+              onClick={tapPaw}
             >
-              <div data-scroll-morph="tone-out" style={toneOut}>
-                <PawMark className="block h-9 w-9 text-brand-300" />
-              </div>
-              <div data-scroll-morph="tone-in" className="absolute inset-0" style={toneIn}>
-                <PawMark className="block h-9 w-9 text-brand-secondary" />
-              </div>
+              {/* 흔들기는 안쪽 한 겹에 — 바깥(`hero-mark`)의 transform 은 접힘이 쥐고 있다. */}
+              <span key={wave} className={cx('relative block', wave > 0 && 'motion-wave')}>
+                <span data-scroll-morph="tone-out" className="block" style={toneOut}>
+                  <PawMark className="block h-9 w-9 text-brand-300" />
+                </span>
+                <span data-scroll-morph="tone-in" className="absolute inset-0" style={toneIn}>
+                  <PawMark className="block h-9 w-9 text-brand-secondary" />
+                </span>
+              </span>
             </div>
             <h1
               ref={titleRef}
@@ -307,6 +328,18 @@ export function HomePageHero({ subtitle, reach, cta }: THomePageHeroProps) {
               )}
             </div>
           </header>
+          {trail > 0 && (
+            <span key={trail} aria-hidden="true" className="motion-paw-trail pointer-events-none absolute inset-0 text-brand-300">
+              {PAW_TRAIL.map((step, index) => (
+                <span
+                  key={step.left}
+                  style={{ left: step.left, top: step.top, ['--i' as string]: index, ['--step' as string]: `rotate(${step.turn}deg)` }}
+                >
+                  <PawMark className="block size-5" />
+                </span>
+              ))}
+            </span>
+          )}
         </div>
       </div>
       {/* 탐침 둘 — env() 와 --spacing 파생값은 JS 가 직접 못 읽는다. 높이로 읽는다. */}

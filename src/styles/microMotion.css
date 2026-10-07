@@ -1,0 +1,213 @@
+/*
+  작은 응답 모션과 이스터에그 — 누른 사람에게 "됐어요" 를 몸짓으로 돌려주는 것들.
+
+  1. **한 번 도는 모션은 누른 순간에만 붙는다**(`hooks/useReplay.ts`). 상태가 바뀐 것을 보고 붙이면 안 된다 — 저장 상태는
+     마운트 뒤에 읽어 오므로(skipHydration) 첫 프레임 false → true 가 "누름" 처럼 보여, 저장 화면을 열 때마다 하트가 다 튄다.
+     요소의 `key` 를 바꿔 다시 붙이면 애니메이션이 처음부터 돈다 — 연달아 눌러도 끊기지 않는다.
+  2. `transform`·`opacity` 만 움직인다(합성 스레드 몫 — scrollMorph.css 와 같은 이유). 응답은 0.5s 안에 끝난다(appTabBar.css 와 같은 기준).
+     발자국(이스터에그)만 길다 — 일부러 찾아낸 사람에게 보여 주는 것이라 응답 시간 기준 밖이다.
+  3. 튀어나가는 조각(하트 둘레의 점·발자국)은 **기본이 투명**이다. 모션을 줄인 사람에게는 애니메이션이 아예 안 붙으므로
+     조각이 제자리에 그대로 남지 않게 한다. `position: fixed` 는 쓰지 않는다 — 스와이프 중 `<main>` 의 transform 에 끌려간다(ADR-014).
+*/
+
+.motion-burst > span,
+.motion-paw-trail > span,
+.motion-paw-parade > span {
+  position: absolute;
+  opacity: 0;
+}
+
+/* 하트 둘레로 퍼지는 점 여섯. `--a` 가 방향이다. 가끔(saveButton.tsx) 점 대신 발바닥이 퍼진다. */
+.motion-burst > span {
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
+  border-radius: 9999px;
+  background: currentColor;
+}
+.motion-burst[data-paws] > span {
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  background: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* 하트 — 쿵 하고 커졌다 돌아온다. 저장할 때만(끌 때는 하트가 비는 것으로 충분하다). */
+  .motion-heart-pop {
+    animation: motion-heart-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .motion-burst > span {
+    animation: motion-burst 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* 메모 연필 — 끄적이듯 펜촉을 축으로 흔들린다. */
+  .motion-scribble {
+    animation: motion-scribble 0.4s ease-out;
+    transform-origin: 15% 85%;
+  }
+
+  /* 준비물 이모지 — 챙기는 순간 가방에 들어가듯 한 번 뛴다. */
+  .motion-hop {
+    animation: motion-hop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  /* 홈 히어로 발바닥 — 누를 때마다 손 흔들기. 연달아 다섯 번이면 발자국이 카드를 가로지른다(homePageHero.tsx). */
+  .motion-wave {
+    animation: motion-wave 0.5s ease-out;
+    transform-origin: 50% 90%;
+  }
+  .motion-paw-trail > span {
+    animation: motion-paw-step 1.2s ease-out both;
+    animation-delay: calc(var(--i) * 150ms);
+  }
+
+  /* 준비물을 다 챙긴 순간 — 진행 막대 위로 발바닥이 차례로 뛰어오른다(checklistPage.tsx). */
+  .motion-paw-parade > span {
+    animation: motion-paw-parade 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(var(--i) * 90ms);
+  }
+}
+
+@keyframes motion-heart-pop {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.35); }
+  55% { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+
+@keyframes motion-burst {
+  0% { transform: rotate(var(--a)) translateY(-6px) scale(0.4); opacity: 0; }
+  25% { opacity: 1; }
+  100% { transform: rotate(var(--a)) translateY(-19px) scale(0.7); opacity: 0; }
+}
+
+@keyframes motion-scribble {
+  0% { transform: rotate(0); }
+  25% { transform: rotate(-14deg) translateX(-1px); }
+  50% { transform: rotate(10deg) translateX(1px); }
+  75% { transform: rotate(-6deg); }
+  100% { transform: rotate(0); }
+}
+
+@keyframes motion-hop {
+  0% { transform: translateY(0) scale(1); }
+  35% { transform: translateY(-6px) scale(1.15); }
+  70% { transform: translateY(1px) scale(0.95); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+@keyframes motion-wave {
+  0% { transform: rotate(0); }
+  20% { transform: rotate(-18deg); }
+  45% { transform: rotate(14deg); }
+  70% { transform: rotate(-8deg); }
+  100% { transform: rotate(0); }
+}
+
+@keyframes motion-paw-step {
+  0% { opacity: 0; transform: var(--step) scale(0.6); }
+  15% { opacity: 0.55; transform: var(--step) scale(1); }
+  70% { opacity: 0.55; transform: var(--step) scale(1); }
+  100% { opacity: 0; transform: var(--step) scale(1); }
+}
+
+@keyframes motion-paw-parade {
+  0% { opacity: 0; transform: translateY(4px) scale(0.5); }
+  30% { opacity: 1; transform: translateY(-14px) scale(1) rotate(var(--tilt)); }
+  100% { opacity: 0; transform: translateY(-26px) scale(0.8) rotate(var(--tilt)); }
+}
+
+/*
+  홈 — 줄이 화면 밖으로 나가기 직전에 뒤로 물러난다(작아지며 흐려진다). 아래에서 들어올 때는 반대로 다가온다.
+  시간이 아니라 **그 줄의 위치**의 함수다(`animation-timeline: view()`) — JS 도 리스너도 없다(홈은 효과 없는 화면이다, ADR-014).
+
+  - 화면 위 끝은 0 이 아니라 **접힌 히어로 줄의 아래선**이다 — 줄은 그 밑으로 들어가 가려진다. 위 inset = 줄 높이(14단) + 상태바.
+    아래 끝은 탭바 윗선이다(768px 부터는 탭바가 없다).
+  - 두 애니메이션이 같은 `transform` 을 다룬다. 둘 다 `both` 로 채우면 뒤의 것(물러나기)의 0% 가 들어오는 구간을 덮는다 —
+    그래서 들어오기는 **앞쪽만**(backwards), 물러나기는 **뒤쪽만**(forwards) 채운다. 그 사이(화면 안)에서는 둘 다 손을 뗀다.
+  - 정도는 아래 두 변수 하나씩이다. 줄마다 따로 붙인다(섹션째 붙이면 긴 섹션의 아래쪽이 아직 읽는 중에 흐려진다).
+  - 지원하지 않는 브라우저(iOS 26 미만 Safari·Firefox)는 아무 일도 없다 — 장식이라 대체 동작을 두지 않는다.
+*/
+.home-scroll-depth {
+  /* TODO(사용자): 물러날 때의 크기·투명도. 값이 이 앱의 "결" 을 정한다 — 0.9 / 0.2 면 확 빠지고, 0.98 / 0.7 이면 거의 모른다. */
+  --home-depth-scale: 0.94;
+  --home-depth-opacity: 0.35;
+  --home-depth-top: calc(var(--spacing) * 14 + env(safe-area-inset-top, 0px));
+  --home-depth-bottom: calc(var(--tab-bar-h) + env(safe-area-inset-bottom, 0px));
+  /* 위로 물러날 때 보이는 것은 아래쪽 끝이다 — 그 끝을 축으로 줄어야 가려지는 선에서 떨어져 나가는 것처럼 보인다. */
+  transform-origin: 50% 100%;
+}
+@media (min-width: 48rem) {
+  .home-scroll-depth {
+    --home-depth-bottom: 0px;
+  }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .home-scroll-depth {
+      animation-name: home-depth-in, home-depth-out;
+      animation-duration: auto, auto;
+      animation-timing-function: ease-out, ease-in;
+      animation-fill-mode: backwards, forwards;
+      animation-timeline: view(block var(--home-depth-top) var(--home-depth-bottom)),
+        view(block var(--home-depth-top) var(--home-depth-bottom));
+      animation-range: entry 0% entry 100%, exit 0% exit 100%;
+    }
+    /* 맨 아래 발바닥 — 끝까지 내려온 사람에게만 고개를 내민다(이스터에그). */
+    .home-footer-peek {
+      animation: home-footer-peek linear both;
+      animation-timeline: view(block 0px var(--home-depth-bottom, 0px));
+      animation-range: entry 0% entry 100%;
+    }
+  }
+}
+
+@keyframes home-depth-in {
+  from { transform: translateY(12px) scale(0.97); opacity: 0.6; }
+  to { transform: none; opacity: 1; }
+}
+
+@keyframes home-depth-out {
+  from { transform: none; opacity: 1; }
+  to { transform: scale(var(--home-depth-scale)); opacity: var(--home-depth-opacity); }
+}
+
+@keyframes home-footer-peek {
+  from { transform: translateY(70%) rotate(-25deg); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+/*
+  지나간 강아지의 발자국(`components/layout/appShellPawPrints.tsx`, 걸음은 `lib/pawTrail.ts`) — 시간이 지나면 바탕에 하나씩 찍힌다.
+  옅은 색(30%)이라 글·카드 위에도 얹힌다 — 버튼·입력칸·아이콘 위만 피한다. 손가락은 받지 않는다(누름은 밑의 버튼으로).
+  찍힐 때는 바깥 칸이 눌렸다 앉고(`motion-paw-stamp`), 사라질 때는 안쪽 발자국이 천천히 흐려진다(`paw-print-fading`) — 바깥 애니메이션이
+  투명도를 쥐고 있어 같은 칸에서는 전환이 안 먹기 때문에 두 겹이다. 기울기는 `rotate` 속성(인라인)이라 `scale` 과 겹치지 않는다.
+  흐려지는 길이(1.8s)는 `PAW_FADE_MS` 와 같아야 한다 — 그 시간이 지나면 기억에서도 지운다.
+*/
+.paw-print-mark {
+  opacity: 0.3;
+  transition:
+    opacity 1.8s ease-out,
+    scale 1.8s ease-out,
+    filter 1.8s ease-out;
+}
+.paw-print-mark.paw-print-fading {
+  opacity: 0;
+  scale: 0.8;
+  filter: blur(2px);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .motion-paw-stamp {
+    animation: motion-paw-stamp 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@keyframes motion-paw-stamp {
+  0% { opacity: 0; scale: 1.7; }
+  55% { opacity: 1; }
+  100% { opacity: 1; scale: 1; }
+}

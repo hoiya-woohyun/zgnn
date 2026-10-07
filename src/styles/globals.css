@@ -3,6 +3,7 @@
 @import './typography.css';
 @import './scrollMorph.css';
 @import './appTabBar.css';
+@import './microMotion.css';
 
 @plugin "tailwindcss-react-aria-components";
 @plugin "tailwindcss-animate";

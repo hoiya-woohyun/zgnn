@@ -3,7 +3,7 @@
 import { Heart, Image01, Map01, MessageTextSquare01, NavigationPointer01, Share01 } from '@untitledui/icons';
 import { ActionTile } from '../components/actionTile';
 import { NaverActionTile } from '../components/naverLinkButton';
-import { useSaveToggle } from '../components/saveButton';
+import { SaveBurst, saveHeartMotion, useSaveToggle } from '../components/saveButton';
 import { showAppStatus } from '../lib/appStatus';
 import { naverDirectionsUrl, naverPlacePhotoUrl } from '../lib/naverPlaceLink';
 import { shareMethodOf, shareTextFor } from '../lib/placeShare';
@@ -26,7 +26,7 @@ import { useEligibility } from '../store/useDogEligibility';
 export function PlaceDetailActions({ place }: { place: TPlaceEntry }) {
   const dog = useDog();
   const eligibility = useEligibility(place);
-  const { saved, toggle } = useSaveToggle(place.id);
+  const { saved, toggle, burst } = useSaveToggle(place.id);
   const photoUrl = naverPlacePhotoUrl(place.naverPlaceId);
   /*
    * 지도 칸은 **길찾기**가 먼저다 — 플레이스 페이지로 보내면 거기서 한 번 더 눌러야 길이 나온다. 좌표가 없는 곳(5곳)만
@@ -66,6 +66,8 @@ export function PlaceDetailActions({ place }: { place: TPlaceEntry }) {
         label={saved ? '저장함' : '저장'}
         tone={saved ? 'active' : 'neutral'}
         onClick={toggle}
+        iconMotion={saveHeartMotion(burst)}
+        effect={<SaveBurst burst={burst} />}
         aria-label={`${place.name} 저장`}
         aria-pressed={saved}
       />

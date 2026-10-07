@@ -30,7 +30,11 @@ export function SavedNoteForm({ id, name, onClose, className }: TSavedNoteFormPr
 
   return (
     <form
-      className={className ?? 'flex items-center gap-2'}
+      // 메모가 있던 자리에서 살짝 내려앉으며 나타난다. 닫힐 때는 바로 사라진다 — 여는 쪽이 폼을 통째로 내리고, 카드도 그 순간 링크로 돌아간다.
+      className={cx(
+        className ?? 'flex items-center gap-2',
+        'animate-in fade-in slide-in-from-top-1 duration-200 motion-reduce:animate-none',
+      )}
       onSubmit={(event) => {
         event.preventDefault();
         setSavedNote(id, draft);

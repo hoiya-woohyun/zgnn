@@ -87,7 +87,9 @@ export function AppShellSwipePeek({ ref, route, side, width }: TAppShellSwipePee
         style={{ width, transform: `translateX(${side === 'left' ? -100 : 100}%)` }}
       >
         <div ref={scrollRef} className="h-full overflow-hidden bg-secondary">
-          <div {...surface}>{screenOf(path)}</div>
+          <div {...surface}>
+            {screenOf(path)}
+          </div>
         </div>
       </div>
     </div>

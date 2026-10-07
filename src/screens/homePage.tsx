@@ -9,6 +9,7 @@ import { HomePageLandmarkChips } from './homePageLandmarkChips';
 import { HomePageTripCard } from './homePageTripCard';
 import { HomeTypeCard } from './homeTypeCard';
 import { Button } from '../components/base/button';
+import { PawMark } from '../components/pawMark';
 import { dogCallNames, withJosa } from '../lib/korean';
 import { META, PLACE_TYPES, placesOfType, SOURCE_LINE } from '../lib/places';
 import type { TEligibilityLevel } from '../lib/eligibility';
@@ -74,10 +75,14 @@ export function HomePage() {
 
       {/* 「내 여행」 — 저장·준비물(그리고 16 의 동선)이 한 입구다(18 T3). 머리 줄까지 카드가 그린다 —
           등록 전에 아무것도 없으면 섹션째 null 이라 머리만 남는 빈 섹션이 없다. */}
-      <HomePageTripCard />
+      {/* `home-scroll-depth` — 줄이 접힌 히어로 밑으로 들어가기 직전에 작아지며 흐려진다(`styles/microMotion.css`, 스크롤 위치의 함수라 JS 가 없다).
+          섹션째가 아니라 **줄마다** 붙인다 — 긴 섹션에 붙이면 아래쪽을 아직 읽는 중에 흐려진다. */}
+      <div className="home-scroll-depth">
+        <HomePageTripCard />
+      </div>
 
       {intro === 'card' && (
-        <div className="mt-4 px-4 md:px-6">
+        <div className="home-scroll-depth mt-4 px-4 md:px-6">
           <HomePageIntro variant="card" />
         </div>
       )}
@@ -86,16 +91,18 @@ export function HomePage() {
         <h2 className="text-lg font-bold text-primary">어디로 갈까요</h2>
         <div className="mt-3 space-y-3">
           {PLACE_TYPES.map((type) => (
-            <HomeTypeCard key={type} type={type} levelCounts={levelCountsByType?.[type]} />
+            <div key={type} className="home-scroll-depth">
+              <HomeTypeCard type={type} levelCounts={levelCountsByType?.[type]} />
+            </div>
           ))}
         </div>
 
-        <Button color="primary" size="lg" iconLeading={Map01} href="/map/" className="mt-3 w-full">
+        <Button color="primary" size="lg" iconLeading={Map01} href="/map/" className="home-scroll-depth mt-3 w-full">
           지도로 보기
         </Button>
       </section>
 
-      <section className="mt-8 px-4 md:px-6">
+      <section className="home-scroll-depth mt-8 px-4 md:px-6">
         <h2 className="text-lg font-bold text-primary">지역으로 찾기</h2>
         <HomePageLandmarkChips />
       </section>
@@ -122,6 +129,10 @@ export function HomePage() {
           </a>
         </p>
         <p className="mt-2">방문 전 영업시간과 동반 조건을 한 번 더 확인해 주세요.</p>
+        {/* 이스터에그 — 끝까지 내려온 사람에게만 발바닥이 고개를 내민다(스크롤 위치의 함수, `home-footer-peek`). 지원하지 않는 브라우저에선 가만히 서 있다. */}
+        <div aria-hidden="true" className="mt-6 flex justify-center">
+          <PawMark className="home-footer-peek block size-7 text-brand-300" />
+        </div>
       </footer>
     </div>
   );

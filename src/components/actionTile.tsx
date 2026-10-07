@@ -1,4 +1,4 @@
-import type { FC, SVGProps } from 'react';
+import type { FC, Key, ReactNode, SVGProps } from 'react';
 import { cx } from '../utils/cx';
 
 export type TActionTileIcon = FC<SVGProps<SVGSVGElement> & { size?: number }>;
@@ -13,6 +13,12 @@ type TActionTileProps = {
   /** 있으면 새 창 링크, 없으면 버튼. */
   href?: string;
   onClick?: () => void;
+  /**
+   * 누른 순간의 모션(저장 하트 — `SaveButton` 의 `saveHeartMotion`). key 가 바뀌면 아이콘이 새로 붙어 한 번 움직인다.
+   * `effect` 는 원 안 가운데에 겹쳐 그릴 조각(`SaveBurst`). 원이 `relative` 라 조각은 원 가운데에서 출발한다.
+   */
+  iconMotion?: { key: Key; className?: string };
+  effect?: ReactNode;
   'aria-label'?: string;
   'aria-pressed'?: boolean;
 };
@@ -29,16 +35,17 @@ const CIRCLE_TONE: Record<TActionTileTone, string> = {
  * 원 하나가 이미 44px 이라 터치 기준은 원이 지킨다. 이름은 **글자로 끝까지 말한다** — 네이버 초록 원은
  * 흰 아이콘 대비가 기준 미달이고(ADR-003 v13), 아이콘만으로는 "지도"와 "사진"이 어디로 가는지 모른다.
  */
-export function ActionTile({ icon: Icon, label, tone = 'neutral', href, onClick, ...aria }: TActionTileProps) {
+export function ActionTile({ icon: Icon, label, tone = 'neutral', href, onClick, iconMotion, effect, ...aria }: TActionTileProps) {
   const body = (
     <>
       <span
         className={cx(
-          'grid size-11 place-items-center rounded-full transition duration-100 ease-linear',
+          'relative grid size-11 place-items-center rounded-full transition duration-100 ease-linear',
           CIRCLE_TONE[tone],
         )}
       >
-        <Icon size={20} className={tone === 'active' ? 'fill-camellia' : undefined} />
+        <Icon key={iconMotion?.key} size={20} className={cx(tone === 'active' && 'fill-camellia', iconMotion?.className)} />
+        {effect}
       </span>
       <span className="text-xs font-semibold text-secondary">{label}</span>
     </>

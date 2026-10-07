@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { NaverLinkButton } from '../components/naverLinkButton';
 import { PlaceCard } from '../components/placeCard';
 import { SavedNoteForm } from '../components/savedNoteForm';
+import { useReplay } from '../hooks/useReplay';
 import { naverDirectionsUrl } from '../lib/naverPlaceLink';
 import type { TPlaceEntry } from '../lib/places';
 import { useIsSaved, useSavedNote } from '../store/useAppStore';
@@ -21,6 +22,8 @@ export function SavedPageCard({ place }: { place: TPlaceEntry }) {
   const saved = useIsSaved(place.id);
   const note = useSavedNote(place.id);
   const [editing, setEditing] = useState(false);
+  // 열 때만 연필이 끄적인다(`styles/microMotion.css`). 닫을 때는 입력 칸이 사라지는 것으로 충분하다.
+  const [scribble, replayScribble] = useReplay();
   // 저장한 곳은 "갈 곳" 이다 — 카드마다 길찾기(현재 위치 → 여기)를 바로 준다. 좌표 없는 곳(5곳)은 알약이 없다.
   const directions = naverDirectionsUrl(place);
 
@@ -34,13 +37,16 @@ export function SavedPageCard({ place }: { place: TPlaceEntry }) {
             type="button"
             aria-label={note ? `${place.name} 메모 고치기: ${note}` : `${place.name}에 메모 남기기`}
             aria-expanded={editing}
-            onClick={() => setEditing((open) => !open)}
+            onClick={() => {
+              if (!editing) replayScribble();
+              setEditing(!editing);
+            }}
             className={cx(
               'grid size-11 place-items-center rounded-full transition-colors',
               note || editing ? 'text-camellia' : 'text-quaternary hover:text-tertiary',
             )}
           >
-            <Edit03 size={20} aria-hidden="true" />
+            <Edit03 key={scribble} size={20} aria-hidden="true" className={cx(scribble > 0 && 'motion-scribble')} />
           </button>
         )
       }

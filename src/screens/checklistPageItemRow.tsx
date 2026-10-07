@@ -4,6 +4,7 @@ import { Checkbox as AriaCheckbox } from 'react-aria-components';
 import { Badge } from '../components/base/badges';
 import { Button } from '../components/base/button';
 import { CheckboxBase } from '../components/base/checkbox';
+import { useReplay } from '../hooks/useReplay';
 import { showAppStatus } from '../lib/appStatus';
 import { shouldAskCarrierBag } from '../lib/checklist';
 import { linkLabel } from '../lib/format';
@@ -51,9 +52,12 @@ export function ChecklistPageItemRow({
   const dog = useAppStore((state) => state.dog);
   const setDog = useAppStore((state) => state.setDog);
   const [askCarrier, setAskCarrier] = useState(false);
+  // 챙기는 순간 이모지가 가방에 들어가듯 한 번 뛴다(`styles/microMotion.css`). 누른 순간에만 — 체크 목록도 마운트 뒤에 읽어 온다.
+  const [hop, replayHop] = useReplay();
 
   const handleToggleChecked = () => {
     const becameChecked = !checked;
+    if (becameChecked) replayHop();
     onToggleChecked();
     setAskCarrier(shouldAskCarrierBag(item.name, becameChecked, dog));
   };
@@ -84,7 +88,7 @@ export function ChecklistPageItemRow({
             <>
               <CheckboxBase size="md" isSelected={isSelected} isFocusVisible={isFocusVisible} className="size-6" />
               {/* item.emoji 는 데이터 콘텐츠라 장식용 이모지 금지 규칙의 예외로 그대로 보여준다. */}
-              <span className="text-xl" aria-hidden="true">
+              <span key={hop} className={cx('text-xl', hop > 0 && 'motion-hop')} aria-hidden="true">
                 {item.emoji}
               </span>
               <span className="min-w-0 flex-1">

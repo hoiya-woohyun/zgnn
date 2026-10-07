@@ -3,12 +3,17 @@
 import { useMemo, useState } from 'react';
 import { ChecklistPageItemRow } from './checklistPageItemRow';
 import { StickyMorphTitle } from '../components/layout/stickyMorphTitle';
+import { PawMark } from '../components/pawMark';
 import { SeasonChips } from '../components/seasonChips';
+import { useReplay } from '../hooks/useReplay';
 import { META } from '../lib/places';
 import { checklistView } from '../lib/checklist';
 import { ITEM_GROUP_HINT, groupItems } from '../lib/itemGroups';
 import { useAppStore, useSavedPlaces } from '../store/useAppStore';
 import type { TItem } from '../types';
+
+/** 다 챙긴 순간 진행 막대 위로 뛰어오르는 발바닥 자리(막대 길이의 백분율)와 기울기. */
+const PARADE = [10, 26, 42, 58, 74, 90].map((left, index) => ({ left: `${left}%`, tilt: index % 2 ? 14 : -14 }));
 
 /**
  * 여행 준비물 — 짐 싸는 목록.
@@ -35,6 +40,10 @@ export function ChecklistPage() {
   const groups = useMemo(() => groupItems(view.items), [view.items]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  // 이스터에그 — 마지막 하나를 챙기는 순간 막대 위로 발바닥이 차례로 뛰어오른다. 누른 순간에만 판단한다: 다 챙긴 목록으로
+  // 돌아온 사람에게는 아무 일도 없다(체크 목록은 마운트 뒤에 읽어 오므로 상태를 보고 틀면 들어올 때마다 뛴다).
+  const [parade, replayParade] = useReplay();
+
   const savedStayCount = savedPlaces.filter((place) => place.type === 'stay').length;
   const isReady = (item: TItem) => checkedItemIds.includes(item.id) || view.providedItemIds.has(item.id);
 
@@ -54,7 +63,10 @@ export function ChecklistPage() {
       checked={checkedItemIds.includes(item.id)}
       provided={view.providedItemIds.has(item.id)}
       expanded={expandedId === item.id}
-      onToggleChecked={() => toggleChecked(item.id)}
+      onToggleChecked={() => {
+        if (!isReady(item) && view.ready + 1 === view.total) replayParade();
+        toggleChecked(item.id);
+      }}
       onToggleExpanded={() => setExpandedId(expandedId === item.id ? null : item.id)}
     />
   );
@@ -81,16 +93,32 @@ export function ChecklistPage() {
             막대는 눈이 먼저 안다. 진행률은 위 문장이 이미 말하므로 막대는 장식이다(aria-hidden).
             두 겹이다 — 바깥(옅은 색)이 숙소 몫까지 찬 길이, 안쪽(진한 색)이 내가 챙긴 길이.
           */}
-          <div aria-hidden="true" className="mt-2 h-1.5 overflow-hidden rounded-full bg-tertiary">
-            <div
-              className="relative h-full rounded-full bg-brand-secondary transition-[width] duration-300 ease-out"
-              style={{ width: `${percent}%` }}
-            >
+          {/* 막대를 감싸는 상자 — 다 챙긴 순간의 발바닥(PARADE)이 막대 밖으로 뛰어오르게 `overflow-hidden` 바깥에 선다. */}
+          <div className="relative mt-2">
+            <div aria-hidden="true" className="h-1.5 overflow-hidden rounded-full bg-tertiary">
               <div
-                className="absolute inset-y-0 left-0 rounded-full bg-brand-solid transition-[width] duration-300 ease-out"
-                style={{ width: view.ready > 0 ? `${(view.packed / view.ready) * 100}%` : '0%' }}
-              />
+                className="relative h-full rounded-full bg-brand-secondary transition-[width] duration-300 ease-out"
+                style={{ width: `${percent}%` }}
+              >
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full bg-brand-solid transition-[width] duration-300 ease-out"
+                  style={{ width: view.ready > 0 ? `${(view.packed / view.ready) * 100}%` : '0%' }}
+                />
+              </div>
             </div>
+            {parade > 0 && (
+              <span
+                key={parade}
+                aria-hidden="true"
+                className="motion-paw-parade pointer-events-none absolute inset-x-0 bottom-0 text-brand-secondary"
+              >
+                {PARADE.map((paw, index) => (
+                  <span key={paw.left} style={{ left: paw.left, bottom: 0, ['--i' as string]: index, ['--tilt' as string]: `${paw.tilt}deg` }}>
+                    <PawMark className="block size-4 -translate-x-1/2" />
+                  </span>
+                ))}
+              </span>
+            )}
           </div>
 
           {/*

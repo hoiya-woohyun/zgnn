@@ -8,12 +8,14 @@ import { AppTabBar } from './appTabBar';
 import { mainSurfaceProps, surfaceKindOf } from './appShellSurface';
 import { useAppShellStack } from './appShellStack';
 import { useAppShellSwipe } from './appShellSwipe';
+import { AppShellPawPrints } from './appShellPawPrints';
 import { AppShellSwipePeek } from './appShellSwipePeek';
 import { AppShellUpdateNotice } from './appShellUpdateNotice';
 import { AppStatusToast } from './appStatusToast';
 import { keepTabsOffHistory, stampHistoryDepth } from '../../lib/appHistory';
 import { isRootRoute, parentRouteOf } from '../../lib/appRoutes';
 import { arrivalScrollOf, rememberScroll } from '../../lib/appScroll';
+import { hasPawPrints } from '../../lib/pawTrail';
 // 설치 신호(`beforeinstallprompt`)는 로드당 한 번, 어느 화면에서든 온다 — 홈이 뜨기 전에 와도 받아 두도록 셸이 깨어날 때 듣기 시작한다(07 U9).
 import '../../lib/installPromptEvent';
 import { cx } from '../../utils/cx';
@@ -149,6 +151,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           className={cx('overflow-x-clip', (enabled || stack.enabled) && 'touch-pan-y touch-pinch-zoom')}
         >
           <main ref={mainRef} id="main-content" tabIndex={-1} {...surface} className={cx(surface.className, 'outline-hidden')}>
+            {/* 시간이 지나면 강아지 발자국이 하나씩 찍힌다(이스터에그). 탭바의 메인 화면만 — 지도는 캔버스라 뺀다. 화면마다 새로 붙이고, 떠나면 지운다. */}
+            {hasPawPrints(pathname) && <AppShellPawPrints key={pathname} route={pathname} />}
             {showBack && <AppBar backTo={parentRouteOf(pathname)} />}
             {children}
           </main>
