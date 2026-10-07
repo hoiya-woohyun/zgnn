@@ -1,11 +1,11 @@
 'use client';
 
-import { Heart, Image01, Map01, MessageTextSquare01, Share01 } from '@untitledui/icons';
+import { Heart, Image01, Map01, MessageTextSquare01, NavigationPointer01, Share01 } from '@untitledui/icons';
 import { ActionTile } from '../components/actionTile';
 import { NaverActionTile } from '../components/naverLinkButton';
 import { useSaveToggle } from '../components/saveButton';
 import { showAppStatus } from '../lib/appStatus';
-import { naverPlacePhotoUrl } from '../lib/naverPlaceLink';
+import { naverDirectionsUrl, naverPlacePhotoUrl } from '../lib/naverPlaceLink';
 import { shareMethodOf, shareTextFor } from '../lib/placeShare';
 import type { TPlaceEntry } from '../lib/places';
 import { useDog } from '../store/useAppStore';
@@ -28,6 +28,11 @@ export function PlaceDetailActions({ place }: { place: TPlaceEntry }) {
   const eligibility = useEligibility(place);
   const { saved, toggle } = useSaveToggle(place.id);
   const photoUrl = naverPlacePhotoUrl(place.naverPlaceId);
+  /*
+   * 지도 칸은 **길찾기**가 먼저다 — 플레이스 페이지로 보내면 거기서 한 번 더 눌러야 길이 나온다. 좌표가 없는 곳(5곳)만
+   * 예전처럼 플레이스 페이지(`naverUrl`)로. 둘 다 없으면 칸이 없다.
+   */
+  const directionsUrl = naverDirectionsUrl(place);
 
   /*
    * 공유 칸은 **늘 그린다**(지수 ⑤ — 카톡 인앱·데스크톱엔 Web Share 가 없어 버튼이 아예 없었다).
@@ -65,7 +70,11 @@ export function PlaceDetailActions({ place }: { place: TPlaceEntry }) {
         aria-pressed={saved}
       />
       <ActionTile icon={Share01} label="공유" onClick={share} aria-label={`${place.name} 공유하기`} />
-      {place.naverUrl && <NaverActionTile href={place.naverUrl} icon={Map01} label="네이버 지도" />}
+      {directionsUrl ? (
+        <NaverActionTile href={directionsUrl} icon={NavigationPointer01} label="길찾기" />
+      ) : (
+        place.naverUrl && <NaverActionTile href={place.naverUrl} icon={Map01} label="네이버 지도" />
+      )}
       {photoUrl && <NaverActionTile href={photoUrl} icon={Image01} label="네이버 사진" />}
       {place.reviewUrl && <ActionTile href={place.reviewUrl} icon={MessageTextSquare01} label="후기" />}
     </div>

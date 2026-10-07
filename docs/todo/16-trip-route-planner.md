@@ -79,6 +79,7 @@
 - [ ] T1.3 `naverRouteLink.ts` — `routeUrl(stops, { appname })` · `navigationUrl(place)` · 5곳 분할 `splitStops`. 좌표 없는 곳은 빼고 "지도에 없는 N곳" 을 함께 돌려준다. 테스트(인코딩·분할·빈 입력).
 - [ ] T1.4 저장 화면에 날짜 라벨 · 하루 보기 · "순서 다시 제안" · "네이버 지도로 길찾기". **임시안**(10 §7 과 같은 뜻 — 자리·문구는 디자인 트랙 전).
 - [ ] T1.5 지도 시트에 "지금 여기로"(`nmap://navigation`). `naverLinkButton.tsx` 에 종류 하나 추가, 새 버튼 컴포넌트는 만들지 않는다(CLAUDE.md).
+  > 2026-10-07: 한 곳짜리 길찾기는 **먼저 들어갔다** — `lib/naverPlaceLink.ts` 의 `naverDirectionsUrl`(웹 `map.naver.com/p/directions/-/{lng},{lat},{name}/-/car`, 출발지 비움). 저장 카드마다 알약, 상세 액션 줄의 지도 칸. 지도 시트는 아직. 스킴(`nmap://`)이 아니라 웹 주소로 간 이유는 앱 유무 판별·타임아웃 폴백을 안 가지려고 — H.1 실측 때 웹 주소가 폰에서 앱으로 넘어가는지 같이 본다.
 
 **T2 — 2단계: 판정 결합**
 - [ ] T2.1 `tripEligibility.ts` — 하루의 장소들에 `eligibility` 를 모아 묶음 판정(`level` = 가장 나쁜 것, `reasons[]` = 장소별 걸린 이유, `subset` = `dogSubsetWhatIf` 를 묶음에 적용 — "이 날은 콩이만"). 테스트.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { naverMapSearchUrl, naverPlacePhotoUrl, parseNaverPlaceId } from './naverPlaceLink';
+import { naverMapSearchUrl, naverPlacePhotoUrl, parseNaverPlaceId, naverDirectionsUrl } from './naverPlaceLink';
 
 describe('naverPlacePhotoUrl', () => {
   it('플레이스 id 로 사진 탭 주소를 만든다', () => {
@@ -48,5 +48,17 @@ describe('parseNaverPlaceId', () => {
 describe('naverMapSearchUrl', () => {
   it('제주를 붙여 검색한다', () => {
     expect(naverMapSearchUrl(' 솔숲펜션 ')).toBe(`https://map.naver.com/p/search/${encodeURIComponent('제주 솔숲펜션')}`);
+  });
+});
+
+describe('naverDirectionsUrl', () => {
+  it('출발지는 비우고 목적지를 경도,위도,이름 순으로 넣는다', () => {
+    expect(naverDirectionsUrl({ name: ' 솔숲펜션 ', geo: { lat: 33.5111848, lng: 126.8488419 } })).toBe(
+      `https://map.naver.com/p/directions/-/126.8488419,33.5111848,${encodeURIComponent('솔숲펜션')}/-/car`,
+    );
+  });
+
+  it('좌표가 없으면 주소도 없다 — 버튼이 서지 않는다', () => {
+    expect(naverDirectionsUrl({ name: '솔숲펜션' })).toBeUndefined();
   });
 });

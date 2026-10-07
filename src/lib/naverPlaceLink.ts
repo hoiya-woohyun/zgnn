@@ -47,3 +47,18 @@ export function parseNaverPlaceId(input: string): TNaverPlaceIdParse {
 export function naverMapSearchUrl(name: string): string {
   return `https://map.naver.com/p/search/${encodeURIComponent(`제주 ${name.trim()}`)}`;
 }
+
+/**
+ * 네이버 지도 **길찾기** 주소 — 출발지는 비우고(현재 위치) 목적지 하나를 좌표로 넣는다(16 P4 의 한 곳짜리).
+ *
+ * 앱 스킴(`nmap://navigation`)이 아니라 **웹 주소**인 이유: 스킴은 앱이 없는 기기에서 아무 반응이 없고, iOS 는 열렸는지도
+ * 알 수 없어 타임아웃 폴백이 필요하다. 웹 길찾기는 어디서나 열리고 폰에서는 네이버가 "앱으로 열기" 를 띄운다 — 우리가
+ * 앱 유무를 판별하지 않는다. 좌표가 없는 곳(86곳 중 5곳)은 `undefined` 라 버튼이 서지 않는다.
+ *
+ * 주소 꼴은 `/p/directions/{출발}/{경유…}/{도착}/-/car` — 비우는 칸은 `-`, 지점은 `{lng},{lat},{이름}` 순(경도가 먼저다).
+ */
+export function naverDirectionsUrl(place: { name: string; geo?: { lat: number; lng: number } }): string | undefined {
+  if (!place.geo) return undefined;
+  const { lat, lng } = place.geo;
+  return `https://map.naver.com/p/directions/-/${lng},${lat},${encodeURIComponent(place.name.trim())}/-/car`;
+}
