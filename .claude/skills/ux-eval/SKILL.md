@@ -1,6 +1,6 @@
 ---
 name: ux-eval
-description: 주간 사용성 평가 — 기획 문서를 안 본 페르소나 6명(Fable 서브에이전트)이 빌드한 앱을 Playwright 로 써 보고, 메인이 종합해 docs/reviews/ux-eval/<날짜>/ 와 docs/todo/14 에 남긴다. 월요일마다 한 번. "/ux-eval", "주간 사용성 평가", "페르소나 평가 돌려줘" 에서 실행.
+description: 주간 사용성 평가 — 기획 문서를 안 본 페르소나 6명(Opus 서브에이전트)이 빌드한 앱을 Playwright 로 써 보고, 메인이 종합해 docs/reviews/ux-eval/<날짜>/ 와 docs/todo/14 에 남긴다. 월요일마다 한 번. "/ux-eval", "주간 사용성 평가", "페르소나 평가 돌려줘" 에서 실행.
 disable-model-invocation: true
 ---
 
@@ -10,9 +10,10 @@ disable-model-invocation: true
 SessionStart 훅(`.claude/hooks/uxEvalWeekly.mjs`)이 실행을 권한다. 몇 주를 건너뛰었어도 이번 주 한 번이면 된다 —
 밀린 주를 소급해 돌리지 않는다.
 
-- **모델**: 평가자 6명은 Agent 호출마다 **`model: "fable"` 을 명시**한다(빠뜨리면 세션 모델로 돈다). 종합까지 Fable 로 하려면
-  사용자가 실행 전에 `/model` 로 Fable 을 고른다 — 세션 모델은 대화 중에 바꿀 수 없다.
-- **비용**: Fable 6명 병렬 + 각자 스크린샷 8장 이상. 구독 5시간 한도에 걸릴 수 있다. 묻지 않고 시작하지 않는다.
+- **모델**: 평가자 6명은 Agent 호출마다 **`model: "opus"` 를 명시**한다(빠뜨리면 세션 모델로 돈다). 권장 실행 환경은
+  **세션 Opus + `/effort xhigh`** — Agent 호출에는 effort 칸이 없어 평가자의 깊이는 세션 설정에 기댄다. 세션 모델은 대화 중에 바꿀 수 없으니
+  사용자가 실행 **전에** `/model`·`/effort` 로 맞춘다. 다른 설정이면 시작할 때 한 줄로 권하고, 사용자가 그대로 가자면 그대로 간다.
+- **비용**: Opus 6명 병렬 + 각자 스크린샷 8장 이상. 구독 5시간 한도에 걸릴 수 있다. 묻지 않고 시작하지 않는다.
 
 `<날짜>` = 오늘(KST) `YYYY-MM-DD`. `RUN=/tmp/ux-eval/<날짜>`.
 
@@ -39,7 +40,7 @@ SessionStart 훅(`.claude/hooks/uxEvalWeekly.mjs`)이 실행을 권한다. 몇 �
 
 ## 3. 평가자 6명 — 한 메시지에서 동시에
 
-- `subagent_type: "general-purpose"`, `model: "fable"`. **`fork` 는 쓰지 않는다** — 메인 컨텍스트(CLAUDE.md·이 스킬)를 물려받아
+- `subagent_type: "general-purpose"`, `model: "opus"`. **`fork` 는 쓰지 않는다** — 메인 컨텍스트(CLAUDE.md·이 스킬)를 물려받아
   "기획 의도를 모르는 눈" 이라는 전제가 깨진다.
 - **메인은 평가하지 않는다.** CLAUDE.md 를 읽은 메인의 판단은 기획 의도에 오염돼 있다.
 - 페르소나·과제는 아래 표를 **매주 그대로** 쓴다 — 주마다 같은 과제여야 지난 회차와 비교된다. 바꾸고 싶으면 이 파일을 고쳐 커밋한다.

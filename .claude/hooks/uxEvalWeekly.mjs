@@ -41,7 +41,7 @@ if (runs.some((d) => d >= monday && d <= today)) process.exit(0);
 
 const last = runs.at(-1);
 const lastNote = last ? `마지막 회차 ${last}` : '아직 회차 없음';
-const userLine = `🐶 이번 주(${monday}~) 사용성 평가가 아직 없어요 · ${lastNote} → /model 로 Fable 을 고른 뒤 /ux-eval`;
+const userLine = `🐶 이번 주(${monday}~) 사용성 평가가 아직 없어요 · ${lastNote} → Opus · /effort xhigh 로 /ux-eval`;
 
 process.stdout.write(
   JSON.stringify({
