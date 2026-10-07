@@ -7,7 +7,7 @@ import { isRootRoute, normalizeRoute } from './appRoutes';
  * 그 가장자리를 따라 걷다가(`nextPawStep` — 왼발·오른발이 진행선 양옆으로 번갈아) 몇 걸음 뒤 멈춘다. 잠깐 쉬었다 다른 데서 또 걷는다.
  * 어느 가장자리인지·출발점·방향·걸음 수·간격, 그리고 **어떤 강아지인지**(`TPawKind` — 발 크기·모양·보폭이 다르다)가 전부 운이다.
  * 한 마리는 끝까지 같은 발로 걷는다 — 발자국마다 모양이 바뀌면 "한 마리가 지나갔다" 가 아니라 무늬가 된다. 한 마리는 **3~6걸음**이고(`planPawWalk` 가 출발 전에 길을 다 정해 하한을 지킨다),
- * 같은 강아지 발자국은 한 화면에 **6개까지**만 보인다(`stampPawPrint` — 넘으면 그 종류의 가장 오래된 것부터 흐린다). 찍힌 발자국은 마리 단위 수명(`pawLifetimeMs`, 8~14초)이
+ * 한 화면에는 **30개까지**만 보인다(`stampPawPrint` — 넘으면 가장 오래된 것부터 흐린다). 찍힌 발자국은 마리 단위 수명(`pawLifetimeMs`, 8~14초)이
  * 다하면 꼬리부터 차례로, 또는 누르면 천천히 흐려져 사라진다.
  *
  * 발자국은 30% 옅은 색이라 **글·카드 위에는 얹혀도 된다.** 다만 누르는 칸(버튼·입력칸)과 아이콘 위는 피한다 — 찍기 전에 그 자리에 찍어도 되는지
@@ -68,12 +68,12 @@ const BOTTOM_BAND_PX = 64;
 /** 빈 출발점을 찾으려고 다시 뽑는 횟수. 다 실패하면 이번엔 쉬고 다음 차례에 다시 한다. */
 const START_TRIES = 12;
 
-/** 한 화면에 남는 발자국 수의 상한 — 넘으면 오래된 것부터 지운다. 종류별 상한(`MAX_PAWS_PER_KIND`)이 먼저 걸리므로 안전망이다. */
+/** 한 화면에 보이는(흐려지지 않은) 발자국 수의 상한 — 넘으면 가장 오래된 것부터 흐린다. 종류는 가리지 않는다. */
 export const MAX_PAW_PRINTS = 30;
 /** 한 마리가 찍는 걸음의 하한 — 한두 개면 "지나갔다" 가 아니라 얼룩이다. 이만큼 걸을 자리가 없으면 그 마리는 아예 출발하지 않는다. */
 export const MIN_PAW_WALK = 3;
-/** 같은 강아지(종류) 발자국이 한 화면에 함께 보이는 상한 — 넘으면 그 종류의 가장 오래된 것부터 흐려진다. 한 마리의 걸음 수 상한이기도 하다. */
-export const MAX_PAWS_PER_KIND = 6;
+/** 한 마리가 찍는 걸음의 상한 — 길게 걸으면 한 마리가 화면을 다 차지한다. */
+export const MAX_PAW_WALK = 6;
 
 const between = (rand: TRandom, min: number, max: number) => min + rand() * (max - min);
 const radians = (deg: number) => (deg * Math.PI) / 180;
@@ -85,8 +85,8 @@ const insideOf = (area: TPawArea, x: number, y: number) =>
 export const firstPawDelayMs = (rand: TRandom) => between(rand, 2_000, 5_000);
 /** 걸음 사이(0.6~1.8초) — 한 마리가 지나가는 것이 보일 만큼, 하나씩 찍히는 것이 보일 만큼. */
 export const pawStepDelayMs = (rand: TRandom) => between(rand, 600, 1_800);
-/** 한 마리가 지나간 뒤 다음 마리까지(3~8초). */
-export const pawRestDelayMs = (rand: TRandom) => between(rand, 3_000, 8_000);
+/** 한 마리가 지나간 뒤 다음 마리까지(1.5~4초) — 3~8초이던 때는 앞 마리가 거의 다 사라진 뒤에야 다음이 와 화면이 자주 비었다. */
+export const pawRestDelayMs = (rand: TRandom) => between(rand, 1_500, 4_000);
 /** 이번에 지나갈 강아지 — `weight` 몫대로. */
 export function pickPawKind(rand: TRandom): TPawKind {
   let roll = rand() * PAW_KIND_ORDER.reduce((sum, kind) => sum + PAW_KINDS[kind].weight, 0);
@@ -97,7 +97,7 @@ export function pickPawKind(rand: TRandom): TPawKind {
   return 'classic';
 }
 /** 한 번에 걷는 걸음 수(3~6) — 막히면 이보다 짧아질 수 있지만 `MIN_PAW_WALK` 밑으로는 안 내려간다(`planPawWalk`). */
-export const pawWalkLength = (rand: TRandom) => MIN_PAW_WALK + Math.floor(rand() * (MAX_PAWS_PER_KIND - MIN_PAW_WALK + 1));
+export const pawWalkLength = (rand: TRandom) => MIN_PAW_WALK + Math.floor(rand() * (MAX_PAW_WALK - MIN_PAW_WALK + 1));
 /**
  * 찍힌 뒤 흐려지기 시작할 때까지(8~14초) — **한 마리에 한 번** 뽑아 그 걸음 전부에 같은 길이를 준다. 그러면 먼저 찍힌 꼬리부터 차례로
  * 흐려져 길이 걸어온 순서대로 증발한다(발자국마다 뽑으면 중간이 먼저 빠져 구멍 난 길이 된다). 25~60초이던 때는 사라지는 것을 볼 일이 없어
@@ -229,14 +229,14 @@ export const subscribePawPrints = (listener: () => void) => {
 export const nextPawSeq = () => lastSeq + 1;
 
 /**
- * 찍는다. 같은 강아지의 (흐려지지 않은) 발자국이 `MAX_PAWS_PER_KIND` 를 넘으면 그 종류의 가장 오래된 것부터 **흐린다** — 툭 없애지 않고,
- * 새 발이 앞에 찍히는 만큼 꼬리가 증발하는 모양이 된다. 앞 마리가 덜 사라진 사이에 같은 종류가 또 지나갈 때 걸린다.
+ * 찍는다. (흐려지지 않은) 발자국이 `MAX_PAW_PRINTS` 를 넘으면 가장 오래된 것부터 **흐린다** — 툭 없애지 않고, 새 발이 찍히는 만큼
+ * 가장 먼저 찍힌 것이 증발한다. 흐려지는 것은 `erasePawPrints` 가 1.8초 뒤 기억에서 지운다.
  */
 export function stampPawPrint(route: string, print: TPawPrint) {
   lastSeq = Math.max(lastSeq, print.seq);
-  const next = [...pawPrintsOf(route), print].slice(-MAX_PAW_PRINTS);
-  const sameKind = next.filter((each) => each.kind === print.kind && !each.fading);
-  const over = new Set(sameKind.slice(0, Math.max(0, sameKind.length - MAX_PAWS_PER_KIND)).map((each) => each.seq));
+  const next = [...pawPrintsOf(route), print];
+  const visible = next.filter((each) => !each.fading);
+  const over = new Set(visible.slice(0, Math.max(0, visible.length - MAX_PAW_PRINTS)).map((each) => each.seq));
   write(route, over.size > 0 ? next.map((each) => (over.has(each.seq) ? { ...each, fading: true } : each)) : next);
 }
 

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  MAX_PAWS_PER_KIND,
   MAX_PAW_PRINTS,
+  MAX_PAW_WALK,
   MIN_PAW_WALK,
   PAW_KINDS,
   clearPawPrints,
@@ -107,7 +107,7 @@ describe('pawTrail', () => {
 
   it('걸음 수는 3~6, 수명은 8~14초(사라지는 것이 보일 만큼)', () => {
     expect(pawWalkLength(fixed(0))).toBe(MIN_PAW_WALK);
-    expect(pawWalkLength(fixed(0.999))).toBe(MAX_PAWS_PER_KIND);
+    expect(pawWalkLength(fixed(0.999))).toBe(MAX_PAW_WALK);
     expect(pawLifetimeMs(fixed(0))).toBe(8_000);
     expect(pawLifetimeMs(fixed(1))).toBe(14_000);
   });
@@ -133,22 +133,15 @@ describe('pawTrail', () => {
     expect(pawPrintNear(prints, 220, 400, 22)).toBeNull();
   });
 
-  it('같은 강아지는 6개까지만 보이고, 넘으면 그 종류의 가장 오래된 것부터 흐린다(다른 종류는 그대로)', () => {
-    stampPawPrint('/', print({ seq: 1, kind: 'big' }));
-    for (let seq = 2; seq <= MAX_PAWS_PER_KIND + 3; seq += 1) stampPawPrint('/', print({ seq }));
-    const prints = pawPrintsOf('/');
-    const classic = prints.filter((p) => p.kind === 'classic');
-    expect(classic.filter((p) => !p.fading)).toHaveLength(MAX_PAWS_PER_KIND);
-    expect(classic.filter((p) => p.fading).map((p) => p.seq)).toEqual([2, 3]);
-    expect(prints.find((p) => p.kind === 'big')!.fading).toBeFalsy();
-  });
-
-  it('화면마다 따로 기억하고, 전체 상한을 넘으면 오래된 것부터 지운다', () => {
+  it('화면마다 따로 기억하고, 30개를 넘으면 종류를 가리지 않고 가장 오래된 것부터 흐린다', () => {
     const kinds = Object.keys(PAW_KINDS) as TPawPrint['kind'][];
     for (let seq = 1; seq <= MAX_PAW_PRINTS + 5; seq += 1) stampPawPrint('/settings', print({ seq, kind: kinds[seq % kinds.length] }));
     const prints = pawPrintsOf('/settings/');
-    expect(prints).toHaveLength(MAX_PAW_PRINTS);
-    expect(prints[0].seq).toBe(6);
+    expect(prints.filter((p) => !p.fading)).toHaveLength(MAX_PAW_PRINTS);
+    expect(prints.filter((p) => p.fading).map((p) => p.seq)).toEqual([1, 2, 3, 4, 5]);
+    // 이미 흐려지는 것은 세지 않는다 — 하나 더 찍으면 다음으로 오래된 하나만 더 흐린다.
+    stampPawPrint('/settings', print({ seq: 99 }));
+    expect(pawPrintsOf('/settings').filter((p) => p.fading).map((p) => p.seq)).toEqual([1, 2, 3, 4, 5, 6]);
     expect(pawPrintsOf('/checklist')).toHaveLength(0);
   });
 
