@@ -1,6 +1,7 @@
 # ADR-023 — 파이프라인이 돌고 있는지는 스크립트가 남긴 실행 기록(`pipeline_runs`)으로 보고, 화면은 `/admin/ops`, 알림은 DB 가 Slack 으로 보낸다
 
-> 최종 수정: 2026-10-06 (v1: 제안 — 설계만. 구현은 [docs/todo/15](../todo/15-ops-dashboard.md) 가 추적한다)
+> 최종 수정: 2026-10-07 (v2: 「하지 않은 것」 의 **Realtime 구독을 번복** — 로컬 워커([ADR-024](ADR-024-local-worker-and-db-queues.md))가 생기면서 `/admin/ops` 는 "열 때 보는 화면" 에서 "도는 동안 보는 화면" 이 됐다. `workers` · `pipeline_runs` 둘만 구독, 60초 폴링은 안전망으로 남는다. 나머지 결정은 그대로)
+> 이전 2026-10-06 (v1: 제안 — 설계만. 구현은 [docs/todo/15](../todo/15-ops-dashboard.md) 가 추적한다)
 > 상태: **제안**. 코드에 대응물이 없다. 결정 1~6 전부 권장안이고(6 은 "보류" 라는 결정) 🙋 는 [todo/15](../todo/15-ops-dashboard.md) 「사용자가 정할 것」 에 모았다.
 
 ## 맥락
@@ -35,7 +36,7 @@
 
 - **GitHub Actions · Vercel Cron · 외부 모니터링(Sentry Cron Monitors 등)** — 실행 주체가 사용자 터미널이라 "안 돌았다" 를 바깥에서 알 방법이 없다. 바깥 장치는 **스케줄이 생겨야** 의미가 있고, 그 결정은 todo/README 🙋 "수집 주기" 다.
 - **Slack 을 로그 저장소로** — 검색·집계가 안 되고, 채널 전달 범위를 통제할 수 없다(결정 5 의 메시지 제한과 같은 이유).
-- **Supabase Realtime 구독** — 화면은 열어 두고 보는 것이 아니라 열 때 보는 것이다. 60초 자동 새로고침과 손 새로고침이면 된다. 구독은 publishable 키의 realtime 권한을 또 열어야 한다.
+- ~~**Supabase Realtime 구독** — 화면은 열어 두고 보는 것이 아니라 열 때 보는 것이다. 60초 자동 새로고침과 손 새로고침이면 된다. 구독은 publishable 키의 realtime 권한을 또 열어야 한다.~~ **v2 에서 번복** — [ADR-024](ADR-024-local-worker-and-db-queues.md) 결정 6. 워커가 도는 동안 진행률을 봐야 해서 `workers` · `pipeline_runs` 둘만 구독한다. Realtime 은 RLS 를 지키므로 세션 없는 publishable 키로는 아무 행도 안 온다.
 - **알림 채널 추상화**(Slack·Discord·이메일 중 고르기) — 지금 필요한 것은 하나다. Vault 의 이름 하나(`slack_webhook_url`)와 함수 하나라 바꾸는 날 바꾸면 된다.
 - **`pull-db` 기록**(결정 2) · **스크립트 쪽 재시도**(기록이 안 되면 그냥 넘어간다).
 - **차트 라이브러리** — 깔때기는 수와 가는 비율 막대로 충분하다. 운영자 한 명이 PC 에서 훑는 표다(ADR-018 결정 10 과 같은 자리).
