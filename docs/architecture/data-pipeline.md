@@ -1,6 +1,7 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-10-07 (v53: 리뷰 반영(todo/17) — 돌지 못한 요청은 queued 로 되돌린다(3번이면 done), 진척이 있으면 30분 안 기다린다, 막 승인된 후보는 60초 묵힌다, 요청 글의 정본은 `requested_at` 하나)
+> 최종 수정: 2026-10-07 (v54: **`pnpm data apply` 의 신규 장소도 곧바로 `published`** — `/admin` 과 같다(todo/13 §5.1). 같은 '승인' 이 길에 따라 사이트에 뜨고 안 뜨던 것을 맞췄다. 그 전에 들어간 초안(2곳)은 그대로 `draft`)
+> 이전 2026-10-07 (v53: 리뷰 반영(todo/17) — 돌지 못한 요청은 queued 로 되돌린다(3번이면 done), 진척이 있으면 30분 안 기다린다, 막 승인된 후보는 60초 묵힌다, 요청 글의 정본은 `requested_at` 하나)
 > 이전 2026-10-07 (v52: 워커가 Realtime 으로도 깬다(todo/17 T4) — 깨우는 길 셋, 폴링이 정본. 채널 토큰은 `realtime.setAuth` 가 아니라 클라이언트의 토큰 콜백이어야 RLS 를 통과한다)
 > 이전 2026-10-07 (v51: 상주 워커 `pnpm data` · 한 바퀴 `once` 가 실제로 돈다(todo/17 T3) — 「워커 한 바퀴」 그림. 자동 분석은 `requested_at` 이 찍힌 글만, 추가 수집·재분석이 찍는다)
 > 이전 2026-10-07 (v50: 진입점 하나 `pnpm data <하위 명령>`(`scripts/data.mjs`, ADR-024) — `data:*` 13줄이 한 줄, 터미널 검수 창 `data:review`·사진 스크립트 둘·`data:homepage` 를 지웠고, seed·normalize 는 `node scripts/…` 로 직접)
@@ -240,7 +241,7 @@ flowchart LR
   G -->|matchPlace vs places<br/>상태 무관 — archived·draft 포함<br/>게시된 짝은 차이 게이트 kindOf| C[(candidates<br/>pending · tier auto/ask/new<br/>kind new/fill/update/ask)]
   C -->|갱신이 생긴 장소마다 1회 · 루프 끝<br/>claude -p 셋째 패스 · 구조값만| PR[제안<br/>extracted.proposal]
   C -->|사람: /admin · Studio<br/>묶음 · 정규식/AI/앱 판정 미리보기| A{approved?}
-  A -->|approved → pnpm data apply| PL[(places<br/>빈 칸만 채움 · 신규는 draft)]
+  A -->|approved → pnpm data apply| PL[(places<br/>빈 칸만 채움 · 신규는 published)]
   A -->|/admin 의 '맞아요' — 승인과 반영이 한 번| PP[(places<br/>빈 칸만 채움 · 신규는 published)]
   A -->|rejected| X[끝]
   PL -.->|published 는 사람이 올림| PULL[pnpm data pull → 재빌드]
@@ -350,21 +351,22 @@ flowchart LR
 | `pending` | `pnpm data analyze` 가 만든다 | 사람이 볼 차례. `extracted.match.tier` 가 `auto`(≥0.85 — 기존 장소와 사실상 같음) · `ask`(0.4~0.85 — `match_place_id` 는 제안) · `new`(신규) |
 | `approved` | 사람(`/admin` · Studio). `AUTO_APPROVE=true` 면 `auto` 는 자동 | `pnpm data apply` 가 반영한다. `ask` 인데 신규가 맞으면 **`match_place_id` 를 비우고** 승인. `/admin` 에서는 이 상태가 **지나가는 자리**다 — 같은 클릭이 이어서 `places` 까지 쓰고 `merged` 로 넘긴다. 중간에 실패하면 여기 남고 `pnpm data apply` 가 이어받는다 |
 | `rejected` | 사람 | 끝. `reviewer_note` 에 이유 |
-| `merged` | `pnpm data apply` 또는 `/admin` | `places` 에 반영됐다(보강, 또는 신규 — `pnpm data apply` 는 `draft`·`/admin` 은 `published` + `place_sources` 링크). `extracted.applied = { placeId, kind, patchKeys, at }` 로 어느 칸을 채웠는지 남는다(되돌릴 때 그 칸을 null 로) |
+| `merged` | `pnpm data apply` 또는 `/admin` | `places` 에 반영됐다(보강, 또는 신규 — 어느 길이든 `published` + `place_sources` 링크). `extracted.applied = { placeId, kind, patchKeys, at }` 로 어느 칸을 채웠는지 남는다(되돌릴 때 그 칸을 null 로) |
 
 `pnpm data apply` 가 **반영하지 않고 pending 으로 되돌리는** 경우(사유는 `reviewer_note`): `regionRaw` 가 없거나 형식이 아님 · 신규 후보가 현재 장소와 ask 구간(0.4~0.85)으로 닮음(같은 곳이면
 `match_place_id` 를 채우고, 다른 곳이면 `extracted.match.tier` 를 `ask` 로 바꿔 재승인) · 대상이 archived(다시 연 가게면 `/admin` 의 '되살려서 합치기') · type other. 신규 숙소는 `stayPriceText`·`stayAmenitiesText` 가 `stay_*` 로 들어간다.
 
-`places.status` 는 별개이고 **경로에 따라 갈린다** — `pnpm data pull` 은 어느 쪽이든 `published` 만 가져온다.
+신규 장소는 **어느 길로 승인해도 곧바로 `published`** 다 — `pnpm data pull` 은 `published` 만 가져오고, insert 가 재빌드를 부르므로 1~2분 뒤 사이트에 보인다.
 
-| 승인한 곳 | 신규 장소가 들어오는 상태 | 사이트에 보이려면 |
-|---|---|---|
-| `pnpm data apply`(터미널) | `draft` | 사람이 Studio 에서 `published` 로 올린다 → 재빌드 |
-| `/admin`(운영자 화면) | **`published`** — 완성도 게이트(종류·이름·지역)를 버튼 앞에서 통과해야 눌린다 | 재빌드만 |
+| 승인한 곳 | 완성도 게이트(종류·이름·지역) |
+|---|---|
+| `/admin`(운영자 화면) | 버튼 **앞**에서 — 못 넘으면 버튼 대신 이유와 최소 편집 |
+| `pnpm data apply`(터미널) | 반영 **때** `toNewPlaceRow` 가 같은 검사로 막고 후보를 pending 으로 되돌린다 |
 
-두 경로가 다른 이유는 [ADR-018 §4](../decisions/ADR-018-in-app-admin-review.md) 에 있다 — `draft` 단계는 "사람이 한 번 더 본다" 는 뜻이었고,
-`/admin` 에서는 그 한 번이 버튼 누르기 직전에 이미 일어난다. CLI 는 그 눈이 없으므로 `draft` 를 유지한다.
-기존 장소에 병합하는 경우는 양쪽 다 `status` 를 건드리지 않는다 — 단 `/admin` 은 대상이 `draft` 면 그때 `published` 로 올린다.
+예전엔 CLI 만 `draft` 로 넣었다([ADR-018 §4](../decisions/ADR-018-in-app-admin-review.md) v9). "사람이 한 번 더 본다" 는 뜻이었지만, 사람의 눈은
+`approved` 로 바꿀 때 이미 거쳤고(분석의 `AUTO_APPROVE` 는 꺼져 있고, 켜도 `auto` 는 기존 장소 보강이라 새 행을 만들지 않는다) 남은 효과는
+"같은 승인이 길에 따라 뜨고 안 뜬다" 와 올리기를 잊은 초안뿐이었다(todo/13 §5.1). 그 전에 들어간 초안은 그대로 `draft` 다 — `/admin` '올린 장소' 에서 다룬다.
+기존 장소에 병합하는 경우는 양쪽 다 `status` 를 건드리지 않는다 — 단 `/admin` 은 대상이 예전 초안(`draft`)이면 그때 `published` 로 올린다.
 
 ## 워커 한 바퀴 — `pnpm data` · `pnpm data once`
 

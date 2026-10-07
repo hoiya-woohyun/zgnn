@@ -244,8 +244,10 @@ export function expandOverwriteColumns(only) {
 
 
 /**
- * 신규 장소 후보 → places 행. status 는 'draft' — published 로 올리는 건 사람이 Studio 에서 한다(03 의 🙋).
- * pnpm data pull 은 published 만 가져오므로, 이 행은 사람이 올리기 전까지 화면에 뜨지 않는다.
+ * 신규 장소 후보 → places 행. status 는 곧바로 'published' — `/admin` 승인(adminApply.ts)과 같다(todo/13 §5.1).
+ * 예전엔 CLI 만 'draft' 로 넣어 Studio 에서 한 번 더 올려야 했는데, 같은 '승인' 이 길에 따라 사이트에 뜨고 안 뜨는 데다
+ * 올리기를 잊은 초안이 화면에 영영 안 나왔다. 사람의 눈은 승인(`approved`) 때 이미 거쳤고, 완성도 게이트는 아래 검사가 같다.
+ * insert 가 재빌드 트리거에 닿으므로 반영 뒤 1~2분이면 사이트에 보인다(ADR-018 결정 9).
  *
  * type 'other' 는 신규 장소가 될 수 없다(숙소·식당·카페 아님). 분석 단계가 후보를 안 만드는 게 원칙이지만,
  * 사람이 Studio 에서 extracted 를 고치다 생길 수 있어 여기서 한 번 더 막는다 — DB 의 check 제약보다 먼저,
@@ -297,7 +299,7 @@ export function toNewPlaceRow(candidate, { id, environmentColumn = false }) {
     stay_price_text: type === 'stay' ? text(extracted.stayPriceText) : null,
     stay_amenities_text: type === 'stay' ? text(extracted.stayAmenitiesText) : null,
     sort: null,
-    status: 'draft',
+    status: 'published',
     source: 'blog',
     // 카드가 있을 때만 칸을 싣는다. 분석이 마이그레이션 20260930120000 을 확인한 뒤에만 카드를 만들므로(analyze-candidates.mjs)
     // 카드 없는 후보의 insert 는 그 마이그레이션 전후 어느 쪽에서도 같은 모양이다.
@@ -310,7 +312,7 @@ export function toNewPlaceRow(candidate, { id, environmentColumn = false }) {
 /**
  * 승인된 후보를 matchPlace 에 다시 넣을 때의 입력. 분석 때와 달리 좌표·주소는 extracted 에 이미 합쳐져 있다(toCandidateRow).
  * apply 가 다시 대조하는 이유 — 같은 새 가게를 말하는 글 둘이 같은 실행에 pending 이었다가 따로 승인되면, 분석 시점엔 서로를 모르므로
- * 둘 다 '신규' 다. 반영 시점에 현재 places(방금 만든 draft 포함)와 다시 대조해야 두 번째가 첫 번째로 합쳐진다(리뷰 지적).
+ * 둘 다 '신규' 다. 반영 시점에 현재 places(방금 만든 장소 포함)와 다시 대조해야 두 번째가 첫 번째로 합쳐진다(리뷰 지적).
  */
 export function toRecheckCandidate(candidate) {
   const extracted = candidate.extracted ?? {};

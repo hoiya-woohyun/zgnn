@@ -144,7 +144,7 @@ describe('toNewPlaceRow', () => {
       stay_price_text: null,
       stay_amenities_text: null,
       sort: null,
-      status: 'draft',
+      status: 'published',
       source: 'blog',
     });
   });

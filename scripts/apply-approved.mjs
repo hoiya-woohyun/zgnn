@@ -1,5 +1,5 @@
 // 사람이 Studio 에서 승인한 후보(candidates.status='approved')를 places 에 반영한다(`pnpm data apply`).
-// 병합 규칙(빈 칸만 채움 · 신규는 draft)은 scripts/analyze/applyApproved.mjs 의 순수 함수에 있고 여기는 I/O 만.
+// 병합 규칙(빈 칸만 채움 · 신규는 곧바로 published — `/admin` 과 같다)은 scripts/analyze/applyApproved.mjs 의 순수 함수에 있고 여기는 I/O 만.
 // docs/todo/03-analyze-and-review.md 가 정본.
 //
 // 한 후보당 순서: places 반영(update 또는 insert) → place_sources 링크 → 후보를 merged 로. PostgREST 에는 트랜잭션이
@@ -8,7 +8,7 @@
 // (insert 와 그 write-back 사이에서 죽는 창은 남는다 — 그때는 장소가 고아로 남고 재실행이 하나 더 만든다. Studio 에서 정리.)
 // 한 건이 실패해도 다음 건은 계속하고, 실패 수가 exit code 가 된다(사용자 터미널의 로그가 곧 관측).
 //
-// 분석 때 '신규'(tier new) 였던 후보만 insert 전에 현재 places(상태 무관 — archived 도, 이 실행이 방금 만든 draft 도 포함)와 **다시 대조**한다 —
+// 분석 때 '신규'(tier new) 였던 후보만 insert 전에 현재 places(상태 무관 — archived·draft 도, 이 실행이 방금 만든 장소도 포함)와 **다시 대조**한다 —
 // 같은 새 가게가 글 둘에서 따로 승인되면 분석 시점엔 서로 몰라 둘 다 '신규' 인데, 여기서 두 번째를 첫 번째로 합친다(toRecheckCandidate).
 // tier 가 auto/ask 인데 match_place_id 가 비어 있으면 **사람이 비운 것**이다 — 재대조로 되살리지 않고 신규로 존중한다(리뷰 지적).
 // archived 장소로는 병합하지 않는다 — 내린 곳에 후보가 조용히 merged 로 사라진다(리뷰 지적). 영구 실패로 남겨 사람이 /admin 에서 정한다.
@@ -69,12 +69,12 @@ export async function main(argv = process.argv.slice(2)) {
     if (fresh) console.log(`막 승인된 후보 ${fresh}건은 건너뛴다(${APPROVED_QUIET_MS / 1000}초 안 — 승인한 쪽이 아직 쓰는 중일 수 있다). 다음 실행이 집는다`);
   }
 
-  // 신규 후보 재대조용 현재 장소 목록. 이 실행이 draft 를 만들면 여기에도 넣어 다음 후보가 그것과 대조되게 한다.
+  // 신규 후보 재대조용 현재 장소 목록. 이 실행이 장소를 만들면 여기에도 넣어 다음 후보가 그것과 대조되게 한다.
   // **archived 도 읽는다**(2026-09-29, analyze-candidates.mjs:130 과 같은 이유): 빼면 내린 곳을 쓴 후보가 재대조에서
   // '신규' 가 돼 같은 가게가 새 id 로 되살아난다. 짝이 잡히면 아래 archived 가드(:108)가 permanent 로 멈춰 사람에게 넘긴다.
   const { data: placeRows, error: placesError } = await supabase.from('places').select('*').order('id');
   if (placesError) throw new Error(`places 조회 실패: ${placesError.message}`);
-  // 86곳이 있어야 정상이다. 비어 있으면 다른 프로젝트·잘못된 키다 — 그대로 가면 재대조가 무력화돼 신규가 전부 draft 로 들어간다(analyze 와 같은 가드).
+  // 86곳이 있어야 정상이다. 비어 있으면 다른 프로젝트·잘못된 키다 — 그대로 가면 재대조가 무력화돼 신규가 전부 — 이미 있는 가게의 복제본까지 — published 로 들어간다(analyze 와 같은 가드).
   if (placeRows.length === 0) {
     console.error('places 가 비어 있다 — link 된 프로젝트(supabase/.temp/project-ref)가 맞는지 확인. 아무것도 반영하지 않고 멈춘다.');
     return 1;
@@ -101,7 +101,7 @@ export async function main(argv = process.argv.slice(2)) {
       let kind;
       let patchKeys = [];
 
-      // 분석 때 신규였던 후보라도 현재 places 에 같은 가게가 이미 있으면(다른 글이 먼저 승인돼 draft 가 됐거나, 사람이 손으로 넣었거나) 보강으로 돌린다.
+      // 분석 때 신규였던 후보라도 현재 places 에 같은 가게가 이미 있으면(다른 글이 먼저 승인돼 장소가 됐거나, 사람이 손으로 넣었거나) 보강으로 돌린다.
       let targetId = candidate.match_place_id;
       if (!targetId && candidate.extracted?.match?.tier === 'new') {
         const rechecked = matchPlace(toRecheckCandidate(candidate), existing);
@@ -109,12 +109,12 @@ export async function main(argv = process.argv.slice(2)) {
           console.log(`  신규 후보지만 이미 있는 장소와 일치 → 보강으로: ${rechecked.match.name} (${rechecked.confidence.toFixed(2)}, ${rechecked.reason})`);
           targetId = rechecked.match.id;
         } else if (rechecked.match && rechecked.confidence >= THRESHOLD.ASK) {
-          // ask 구간은 코드가 정하지 않는다 — 신규로 넣으면 이웃 가게의 중복 draft 가 되고, 합치면 오병합이다(설계 검토 RP-7). pending 으로 되돌려 사람이 정한다.
+          // ask 구간은 코드가 정하지 않는다 — 신규로 넣으면 이웃 가게의 중복 장소가 되고, 합치면 오병합이다(설계 검토 RP-7). pending 으로 되돌려 사람이 정한다.
           //
           // 닮은 그 곳이 **내린 곳이면 안내가 달라진다.** 평소 안내의 둘째 갈래("tier 를 'ask' 로 바꿔서 다시 승인")를
           // 그대로 따르면 `!targetId && tier === 'new'` 가 거짓이 돼 재대조가 건너뛰어지고, 내린 가게의 **복제본**이
-          // draft 로 insert 된다 — 2026-09-29 에 corpus 가 archived 까지 읽게 되면서 생긴 갈래다(초안이라 사이트에는
-          // 안 나가지만, '올린 장소' 에 초안 한 줄로 남아 사람이 그걸 또 게시할 수 있다). 그래서 그 말을 하지 않는다.
+          // insert 된다 — 2026-09-29 에 corpus 가 archived 까지 읽게 되면서 생긴 갈래다. 신규가 곧바로 published 라(todo/13 §5.1)
+          // 그 복제본이 다음 빌드에 **사이트에 그대로 뜬다**. 그래서 그 말을 하지 않는다.
           const archivedMatch = rechecked.match.status === 'archived';
           throw Object.assign(
             new Error(
@@ -159,8 +159,8 @@ export async function main(argv = process.argv.slice(2)) {
         kind = 'merged';
       } else {
         const row = toNewPlaceRow(candidate, { id: randomUUID(), environmentColumn });
-        await write(`신규 ${row.name}(${row.id}) draft 로 insert`, () => supabase.from('places').insert(row));
-        // 같은 실행의 다음 후보가 이 draft 와 대조되게 목록에도 넣는다(dry-run 도 같은 경로 — 무엇이 합쳐질지 미리 보인다).
+        await write(`신규 ${row.name}(${row.id}) published 로 insert`, () => supabase.from('places').insert(row));
+        // 같은 실행의 다음 후보가 이 새 장소와 대조되게 목록에도 넣는다(dry-run 도 같은 경로 — 무엇이 합쳐질지 미리 보인다).
         existing.push(toMatchablePlace(row));
         rowById.set(row.id, row);
         // insert 직후 후보에 새 id 를 묶어 둔다 — 아래 단계에서 죽어도 재실행이 두 번째 insert 를 하지 않게(파일 머리 주석).
@@ -214,6 +214,7 @@ export async function main(argv = process.argv.slice(2)) {
   }
 
   // published 로 올라가길 기다리는 draft — 승인만 하고 잊으면 화면에 영영 안 뜬다(설계 검토 RP-2). 요약에 같이 찍는다.
+  // 이제 이 스크립트는 draft 를 만들지 않는다(todo/13 §5.1). 남는 것은 그 전에 들어간 초안뿐이다.
   const { count: draftCount } = await supabase.from('places').select('*', { count: 'exact', head: true }).eq('status', 'draft');
   const runStats = {
     applied: merged + created,

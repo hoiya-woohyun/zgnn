@@ -1,6 +1,7 @@
 # ADR-018 — 검수는 앱 안 숨은 화면(`/admin`)에서 하고, 승인이 곧 반영이다
 
-> 최종 수정: 2026-10-07 (v8: **결정 4 의 순서에서 `approved` 를 뺀다** — 후보는 pending → (places 쓰기) → `merged` 한 번에 닫고 승인 메모·`reviewed_at` 을 그 update 에 싣는다. 상주 워커([ADR-024](ADR-024-local-worker-and-db-queues.md))가 `approved` 를 큐로 보면서 그 사이에 apply 가 끼어 쌍둥이를 넣을 수 있게 됐다(todo/17 리뷰 18). 「왜」 의 '트랜잭션이 없는 것이 안전한 자리' 는 이제 '다시 누르면 이어진다' 다)
+> 최종 수정: 2026-10-07 (v9: **결정 4 의 'CLI 는 그대로 `draft`' 를 거둔다** — `pnpm data apply` 의 신규 장소도 곧바로 `published`(todo/13 §5.1). 같은 승인이 길에 따라 사이트에 뜨고 안 떴고, 올리기를 잊은 초안이 남았다. CLI 승인에도 사람의 눈(`approved`)과 같은 완성도 검사(`toNewPlaceRow`)가 이미 있다)
+> 이전 2026-10-07 (v8: **결정 4 의 순서에서 `approved` 를 뺀다** — 후보는 pending → (places 쓰기) → `merged` 한 번에 닫고 승인 메모·`reviewed_at` 을 그 update 에 싣는다. 상주 워커([ADR-024](ADR-024-local-worker-and-db-queues.md))가 `approved` 를 큐로 보면서 그 사이에 apply 가 끼어 쌍둥이를 넣을 수 있게 됐다(todo/17 리뷰 18). 「왜」 의 '트랜잭션이 없는 것이 안전한 자리' 는 이제 '다시 누르면 이어진다' 다)
 > 이전 2026-10-06 (v7: **결정 9 에 뒤쪽 합치기를 더한다** — 트리거는 훅을 부르지 않고 `queued` 줄만 세우고, pg_cron 이 1분마다
 > 줄이 60초 조용해지면 **한 번** 부른다(`20261006130000_rebuild_coalesce.sql`). 일괄 올리기 36곳이 훅 36번 → 시간당 60 한도의 429(BUG-011)를 막는다.
 > 머리글은 한 행을 한 호출로 읽고("N곳 묶어 한 번"), `queued` 가 5분 넘게 남으면 cron 이 안 돈다고 말한다. 결정 1~8·10~12 는 그대로다)
@@ -56,7 +57,8 @@ Supabase Studio 는 표 편집기라 `extracted` JSON 을 눈으로 읽어야 �
    **신규 장소는 곧바로 `status = 'published'`** 다 — [03](../todo/03-analyze-and-review.md) 의 🙋 "draft 를 생략하고 바로 published 로 갈지" 가 여기서 닫힌다.
    draft 로 넣으면 승인 뒤에 Studio 를 또 열어야 하고, 그러면 이 화면을 만든 이유(요구 3)가 사라진다.
    완성도 게이트가 draft 단계를 대신한다: `type` ∈ stay|restaurant|cafe · `name` 있음 · `region_raw` 가 `parseRegion` 을 통과. 못 넘으면 버튼 대신 이유를 보여 주고
-   **최소 편집**(지역 고르기 · '새 장소로 올리기' = 짝 비우기)만 허용한다. `pnpm data:apply` 는 그대로 `draft` 로 넣는다 — 두 경로의 차이는 이 게이트가 사람 앞에 있다는 것뿐이다.
+   **최소 편집**(지역 고르기 · '새 장소로 올리기' = 짝 비우기)만 허용한다. (v9) `pnpm data apply` 도 이제 `published` 로 넣는다 — 같은 검사를 반영 때 하고(못 넘으면 pending 으로 되돌린다),
+   두 경로의 차이는 이 게이트가 사람 **앞**에 있느냐뿐이다. 예전의 CLI `draft` 는 승인한 곳이 사이트에 안 뜨는 갈래만 남겼다.
 5. **사이트에 보이는 것은 그 다음 빌드부터다.** 정적 내보내기라 `pnpm data:pull && pnpm build` 가 다시 돌아야 새 장소의 HTML·프리캐시 항목이 생긴다
    ([ADR-015 §2](ADR-015-supabase-source-and-rebuild.md) 의 재빌드 모델은 그대로 살아 있다 — 번복한 것은 §2 의 "번들에 Supabase 없음" 한 줄뿐이다).
    그래서 화면은 성공 문구에 **"사이트에는 다음 빌드에서 보여요"** 를 붙인다. 그 빌드는 `places` 변경이 부르는 웹훅이 방아쇠다(4b, 2026-09-29 연결됨).

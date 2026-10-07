@@ -14,9 +14,10 @@
  *  (3) 어느 단계든 실패하면 **어느 단계인지 붙여서** 던진다. 화면이 그것을 그대로 보여 준다 —
  *      삼키면 사람이 두 번 누르고 장소가 두 개 생긴다.
  *
- * CLI 와 다른 점은 셋이다. 신규 장소가 곧바로 `published`(draft 단계 생략, 요구 "맞다 → 다른 사용자에게 보인다"),
- * `reviewer_note` 태그가 `[data:apply]` 대신 `[admin]`, 그리고 **짝이 내린 곳일 때 사람에게 묻는다**
- * (CLI 는 그 후보를 pending 으로 되돌리고 사유만 적는다 — 터미널에는 물어볼 자리가 없다).
+ * 신규 장소가 곧바로 `published` 인 것은 CLI 와 같다(요구 "맞다 → 다른 사용자에게 보인다" — CLI 도 todo/13 §5.1 에서 맞췄다).
+ * CLI 와 다른 점은 넷이다. `reviewer_note` 태그가 `[data:apply]` 대신 `[admin]`, **짝이 내린 곳일 때 사람에게 묻는다**
+ * (CLI 는 그 후보를 pending 으로 되돌리고 사유만 적는다 — 터미널에는 물어볼 자리가 없다), 보강 대상이 예전 초안(`draft`)이면
+ * 그때 `published` 로 올린다(`fillBlanks`), 그리고 승인 시각을 `verified_at` 에 찍는다(아래 `markPlaceVerified`).
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -406,6 +407,7 @@ export async function approveGroup(
       let created: TPlaceRow;
       try {
         // 승인 즉시 published — draft 로 넣으면 Studio 를 또 열어야 해 이 화면을 만든 이유가 사라진다(ADR-018).
+        // `toNewPlaceRow` 도 이제 published 를 주지만 이 화면의 계약이라 여기서 한 번 더 못 박는다.
         created = {
           ...(toNewPlaceRow(lead, { id: opts.newId(), environmentColumn: places.some((place) => 'stay_environment' in place) }) as unknown as TPlaceRow),
           status: 'published',
