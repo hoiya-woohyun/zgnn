@@ -6,7 +6,9 @@ import { isRootRoute, normalizeRoute } from './appRoutes';
  * 한 마리가 지나가는 모양이다: **가장자리**(왼쪽 끝·오른쪽 끝·아래쪽)에서 출발해(`startPawWalk`), 한 걸음씩 방향을 조금씩 틀며
  * 그 가장자리를 따라 걷다가(`nextPawStep` — 왼발·오른발이 진행선 양옆으로 번갈아) 몇 걸음 뒤 멈춘다. 잠깐 쉬었다 다른 데서 또 걷는다.
  * 어느 가장자리인지·출발점·방향·걸음 수·간격, 그리고 **어떤 강아지인지**(`TPawKind` — 발 크기·모양·보폭이 다르다)가 전부 운이다.
- * 한 마리는 끝까지 같은 발로 걷는다 — 발자국마다 모양이 바뀌면 "한 마리가 지나갔다" 가 아니라 무늬가 된다. 찍힌 발자국은 제 수명(`pawLifetimeMs`)이 다하면, 또는 누르면 천천히 흐려져 사라진다.
+ * 한 마리는 끝까지 같은 발로 걷는다 — 발자국마다 모양이 바뀌면 "한 마리가 지나갔다" 가 아니라 무늬가 된다. 한 마리는 **3~6걸음**이고(`planPawWalk` 가 출발 전에 길을 다 정해 하한을 지킨다),
+ * 같은 강아지 발자국은 한 화면에 **6개까지**만 보인다(`stampPawPrint` — 넘으면 그 종류의 가장 오래된 것부터 흐린다). 찍힌 발자국은 마리 단위 수명(`pawLifetimeMs`, 8~14초)이
+ * 다하면 꼬리부터 차례로, 또는 누르면 천천히 흐려져 사라진다.
  *
  * 발자국은 30% 옅은 색이라 **글·카드 위에는 얹혀도 된다.** 다만 누르는 칸(버튼·입력칸)과 아이콘 위는 피한다 — 찍기 전에 그 자리에 찍어도 되는지
  * 묻는다(`isFree` — 화면이 DOM 으로 판단해 넘긴다). 안 되면 출발점을 다시 뽑고, 걷다가 닿으면 몸을 돌리거나 멈춘다.
@@ -46,6 +48,9 @@ export type TPawPrint = {
   fading?: boolean;
 };
 
+/** 아직 안 찍힌 한 걸음 — 자리·방향·발·강아지만. 번호와 수명은 찍는 순간에 붙는다(`planPawWalk` 가 미리 정한 길). */
+export type TPawStep = Omit<TPawPrint, 'seq' | 'fadeAt' | 'fading'>;
+
 /** 걸어도 되는 사각형(발자국 층 기준 px) — 지금 보이는 화면에서 위 헤더·아래 탭바 자리를 뺀 곳. 좌우는 본문 밖 여백까지 넓힌다. */
 export type TPawArea = { left: number; right: number; top: number; bottom: number };
 
@@ -63,8 +68,12 @@ const BOTTOM_BAND_PX = 64;
 /** 빈 출발점을 찾으려고 다시 뽑는 횟수. 다 실패하면 이번엔 쉬고 다음 차례에 다시 한다. */
 const START_TRIES = 12;
 
-/** 한 화면에 남는 발자국 수의 상한 — 넘으면 오래된 것부터 지운다. */
+/** 한 화면에 남는 발자국 수의 상한 — 넘으면 오래된 것부터 지운다. 종류별 상한(`MAX_PAWS_PER_KIND`)이 먼저 걸리므로 안전망이다. */
 export const MAX_PAW_PRINTS = 30;
+/** 한 마리가 찍는 걸음의 하한 — 한두 개면 "지나갔다" 가 아니라 얼룩이다. 이만큼 걸을 자리가 없으면 그 마리는 아예 출발하지 않는다. */
+export const MIN_PAW_WALK = 3;
+/** 같은 강아지(종류) 발자국이 한 화면에 함께 보이는 상한 — 넘으면 그 종류의 가장 오래된 것부터 흐려진다. 한 마리의 걸음 수 상한이기도 하다. */
+export const MAX_PAWS_PER_KIND = 6;
 
 const between = (rand: TRandom, min: number, max: number) => min + rand() * (max - min);
 const radians = (deg: number) => (deg * Math.PI) / 180;
@@ -87,16 +96,20 @@ export function pickPawKind(rand: TRandom): TPawKind {
   }
   return 'classic';
 }
-/** 한 번에 걷는 걸음 수(5~12). */
-export const pawWalkLength = (rand: TRandom) => 5 + Math.floor(rand() * 8);
-/** 찍힌 뒤 흐려지기 시작할 때까지(25~60초) — 오래 남아 있으면 "늘 거기 있는 무늬" 가 된다. */
-export const pawLifetimeMs = (rand: TRandom) => between(rand, 25_000, 60_000);
+/** 한 번에 걷는 걸음 수(3~6) — 막히면 이보다 짧아질 수 있지만 `MIN_PAW_WALK` 밑으로는 안 내려간다(`planPawWalk`). */
+export const pawWalkLength = (rand: TRandom) => MIN_PAW_WALK + Math.floor(rand() * (MAX_PAWS_PER_KIND - MIN_PAW_WALK + 1));
+/**
+ * 찍힌 뒤 흐려지기 시작할 때까지(8~14초) — **한 마리에 한 번** 뽑아 그 걸음 전부에 같은 길이를 준다. 그러면 먼저 찍힌 꼬리부터 차례로
+ * 흐려져 길이 걸어온 순서대로 증발한다(발자국마다 뽑으면 중간이 먼저 빠져 구멍 난 길이 된다). 25~60초이던 때는 사라지는 것을 볼 일이 없어
+ * 쌓이기만 하는 무늬였다.
+ */
+export const pawLifetimeMs = (rand: TRandom) => between(rand, 8_000, 14_000);
 
 /** 발자국이 찍히는 화면 — 탭바의 메인 화면(홈·둘러보기·준비물·설정). 지도는 캔버스라 뺀다. */
 export const hasPawPrints = (pathname: string) => isRootRoute(pathname) && !normalizeRoute(pathname).startsWith('/map');
 
 /** 새 걸음의 첫 발자국 — 왼쪽 끝·오른쪽 끝(위아래로 걷는다)·아래쪽(옆으로 걷는다) 중 하나에서. 찍을 자리를 못 찾으면 null. */
-export function startPawWalk(area: TPawArea, rand: TRandom, isFree: TIsFree, seq: number, now: number): TPawPrint | null {
+export function startPawWalk(area: TPawArea, rand: TRandom, isFree: TIsFree): TPawStep | null {
   for (let tryIndex = 0; tryIndex < START_TRIES; tryIndex += 1) {
     const edge = rand();
     const along = (base: number) => normalizeHeading(base + between(rand, -TURN_DEG, TURN_DEG));
@@ -106,7 +119,7 @@ export function startPawWalk(area: TPawArea, rand: TRandom, isFree: TIsFree, seq
         : edge < 0.7
           ? { x: between(rand, area.right - EDGE_BAND_PX, area.right), y: between(rand, area.top, area.bottom), heading: along(rand() < 0.5 ? 0 : 180) }
           : { x: between(rand, area.left, area.right), y: between(rand, area.bottom - BOTTOM_BAND_PX, area.bottom), heading: along(rand() < 0.5 ? 90 : 270) };
-    const print: TPawPrint = { seq, ...start, foot: rand() < 0.5 ? -1 : 1, kind: pickPawKind(rand), fadeAt: now + pawLifetimeMs(rand) };
+    const print: TPawStep = { ...start, foot: rand() < 0.5 ? -1 : 1, kind: pickPawKind(rand) };
     const at = pawPrintPosition(print);
     if (isFree(at.x, at.y)) return print;
   }
@@ -119,20 +132,17 @@ export function startPawWalk(area: TPawArea, rand: TRandom, isFree: TIsFree, seq
  * 카드에 닿는다 — 바로 90° 꺾던 때는 걸음이 한두 개로 끝나 발자국이 드물었다(실측). 뒤로(180°) 돌지 않는 것은 일부러다: 막힌 띠에서 제 발자국 위를
  * 왕복하며 한 자리에 뭉쳤다(실측).
  */
-export function nextPawStep(prev: TPawPrint, area: TPawArea, rand: TRandom, isFree: TIsFree, seq: number, now: number): TPawPrint | null {
+export function nextPawStep(prev: TPawStep, area: TPawArea, rand: TRandom, isFree: TIsFree): TPawStep | null {
   const foot: -1 | 1 = prev.foot === 1 ? -1 : 1;
-  const fadeAt = now + pawLifetimeMs(rand);
   const { kind } = prev;
   const stride = PAW_KINDS[kind].stridePx;
-  const attempt = (heading: number): TPawPrint | null => {
-    const print: TPawPrint = {
-      seq,
+  const attempt = (heading: number): TPawStep | null => {
+    const print: TPawStep = {
       heading: normalizeHeading(heading),
       x: prev.x + Math.sin(radians(heading)) * stride,
       y: prev.y - Math.cos(radians(heading)) * stride,
       foot,
       kind,
-      fadeAt,
     };
     const at = pawPrintPosition(print);
     return insideOf(area, print.x, print.y) && isFree(at.x, at.y) ? print : null;
@@ -142,6 +152,29 @@ export function nextPawStep(prev: TPawPrint, area: TPawArea, rand: TRandom, isFr
   for (const turn of WALL_TURNS_DEG) {
     const print = attempt(heading + side * turn) ?? (turn === 0 ? null : attempt(heading - side * turn));
     if (print) return print;
+  }
+  return null;
+}
+
+/** 출발점을 다시 고르는 횟수 — 출발은 했는데 `MIN_PAW_WALK` 걸음을 못 채우면(곧 카드·버튼에 막힘) 다른 데서 다시. */
+const PLAN_TRIES = 6;
+
+/**
+ * 한 마리가 걸을 길 전체(`length` 걸음, 막히면 그보다 짧게) — **`MIN_PAW_WALK` 걸음 이상 걸을 수 있는 길만** 돌려준다. 못 찾으면 null(이번엔 쉰다).
+ * 한 걸음씩 그 자리에서 정하던 때는 출발하자마자 막혀 발자국 한두 개로 끝나는 마리가 많았다 — 미리 다 정해 두면 하한이 "무조건" 이 된다.
+ * 길은 층 기준 px 라 사용자가 걷는 도중에 스크롤해도 본문과 함께 움직인다.
+ */
+export function planPawWalk(area: TPawArea, rand: TRandom, isFree: TIsFree, length: number): TPawStep[] | null {
+  for (let tryIndex = 0; tryIndex < PLAN_TRIES; tryIndex += 1) {
+    const first = startPawWalk(area, rand, isFree);
+    if (!first) return null;
+    const walk = [first];
+    while (walk.length < length) {
+      const next = nextPawStep(walk[walk.length - 1], area, rand, isFree);
+      if (!next) break;
+      walk.push(next);
+    }
+    if (walk.length >= MIN_PAW_WALK) return walk;
   }
   return null;
 }
@@ -195,9 +228,16 @@ export const subscribePawPrints = (listener: () => void) => {
 
 export const nextPawSeq = () => lastSeq + 1;
 
+/**
+ * 찍는다. 같은 강아지의 (흐려지지 않은) 발자국이 `MAX_PAWS_PER_KIND` 를 넘으면 그 종류의 가장 오래된 것부터 **흐린다** — 툭 없애지 않고,
+ * 새 발이 앞에 찍히는 만큼 꼬리가 증발하는 모양이 된다. 앞 마리가 덜 사라진 사이에 같은 종류가 또 지나갈 때 걸린다.
+ */
 export function stampPawPrint(route: string, print: TPawPrint) {
   lastSeq = Math.max(lastSeq, print.seq);
-  write(route, [...pawPrintsOf(route), print].slice(-MAX_PAW_PRINTS));
+  const next = [...pawPrintsOf(route), print].slice(-MAX_PAW_PRINTS);
+  const sameKind = next.filter((each) => each.kind === print.kind && !each.fading);
+  const over = new Set(sameKind.slice(0, Math.max(0, sameKind.length - MAX_PAWS_PER_KIND)).map((each) => each.seq));
+  write(route, over.size > 0 ? next.map((each) => (over.has(each.seq) ? { ...each, fading: true } : each)) : next);
 }
 
 /** 흐려지기 시작한다 — 화면이 천천히 지우고 다 지워지면 `erasePawPrint` 를 부른다. */

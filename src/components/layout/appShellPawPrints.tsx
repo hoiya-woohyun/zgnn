@@ -8,18 +8,18 @@ import {
   fadePawPrints,
   firstPawDelayMs,
   nextPawSeq,
-  nextPawStep,
+  pawLifetimeMs,
   pawPrintNear,
   pawPrintPosition,
   pawPrintsOf,
   pawRestDelayMs,
   pawStepDelayMs,
   pawWalkLength,
-  startPawWalk,
+  planPawWalk,
   stampPawPrint,
   subscribePawPrints,
   type TPawArea,
-  type TPawPrint,
+  type TPawStep,
 } from '../../lib/pawTrail';
 import { cx } from '../../utils/cx';
 import { AppShellPawPrintShape } from './appShellPawPrintShape';
@@ -95,7 +95,8 @@ export function AppShellPawPrints({ route }: { route: string }) {
     };
 
     let stepTimer = 0;
-    let walk: { prev: TPawPrint | null; stepsLeft: number } | null = null;
+    // 지금 지나가는 마리 — 출발할 때 길 전체(3~6걸음)를 정해 두고 하나씩 찍는다. 수명은 마리에 하나라 꼬리부터 차례로 흐려진다.
+    let walk: { steps: TPawStep[]; next: number; lifetimeMs: number } | null = null;
     const schedule = (delayMs: number) => {
       stepTimer = window.setTimeout(step, delayMs);
     };
@@ -109,19 +110,19 @@ export function AppShellPawPrints({ route }: { route: string }) {
         schedule(pawStepDelayMs(Math.random));
         return;
       }
-      const seq = nextPawSeq();
-      const now = Date.now();
-      const print = walk?.prev
-        ? nextPawStep(walk.prev, area, Math.random, isFreeAt, seq, now)
-        : startPawWalk(area, Math.random, isFreeAt, seq, now);
-      // 걸을 곳이 막혔거나(버튼·아이콘에 닿음), 사용자가 스크롤해 그 마리가 화면 밖에 있으면 거기서 끝 — 다음 마리는 보이는 가장자리에서 다시 출발한다.
-      if (!print) {
+      // 걸을 길을 못 찾으면(3걸음 안에 버튼·아이콘에 막히는 자리뿐) 이번엔 쉰다 — 한두 개만 찍고 끝나는 마리는 없다.
+      walk ??= (() => {
+        const steps = planPawWalk(area, Math.random, isFreeAt, pawWalkLength(Math.random));
+        return steps && { steps, next: 0, lifetimeMs: pawLifetimeMs(Math.random) };
+      })();
+      if (!walk) {
         rest();
         return;
       }
-      stampPawPrint(route, print);
-      walk = { prev: print, stepsLeft: (walk?.stepsLeft ?? pawWalkLength(Math.random)) - 1 };
-      if (walk.stepsLeft <= 0) rest();
+      const now = Date.now();
+      stampPawPrint(route, { ...walk.steps[walk.next], seq: nextPawSeq(), fadeAt: now + walk.lifetimeMs });
+      walk.next += 1;
+      if (walk.next >= walk.steps.length) rest();
       else schedule(pawStepDelayMs(Math.random));
     }
 
