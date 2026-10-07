@@ -1,6 +1,7 @@
 # PWA · 서비스워커 · 오프라인
 
-> 최종 수정: 2026-10-02 (v9: **새 버전 알림과 청크 복구** — `controllerchange` 에 "새 정보가 있어요 · 새로고침"(첫 설치 제외), 동적 청크를 못 받으면 배포당 한 번만 새로고침([todo/12](../todo/12-ux-audit-2026-10-02.md) U2.4))
+> 최종 수정: 2026-10-07 (v10: **설치 안내** — 두 번째 방문부터 홈 하단 한 줄. 설치 신호가 있으면 설치 창, iOS 는 공유 → 홈 화면에 추가 두 단계, 인앱 브라우저·신호 없는 Android 는 아무 말도 안 한다([todo/07](../todo/07-product-and-ux.md) U9))
+> 이전 2026-10-02 (v9: **새 버전 알림과 청크 복구** — `controllerchange` 에 "새 정보가 있어요 · 새로고침"(첫 설치 제외), 동적 청크를 못 받으면 배포당 한 번만 새로고침([todo/12](../todo/12-ux-audit-2026-10-02.md) U2.4))
 > 이전 2026-10-01 (v8: 라우트 `revision` 에 **배포 식별자**(`NEXT_PUBLIC_APP_BUILD`, 커밋 앞 7자)도 넣는다 — 제보가 싣는 그 값이 번들에 박혀 문서만 바뀐 커밋에서도 청크 이름이 바뀌기 때문. 사용자 제보의 insert 는 Supabase 호스트라 `NetworkOnly` 그대로 — 오프라인이면 실패를 말한다)
 > 이전 2026-09-29 (v7: **Supabase 호스트에 `NetworkOnly` 를 `defaultCache` 앞에 둔다** — `defaultCache` 끝의 cross-origin catch-all 이 REST **GET** 을 1시간 캐시해
 > 운영자 검수 화면의 후보 목록이 묵고 로그아웃 뒤에도 사본이 남는다. 그리고 **`/admin` 은 프리캐시에 넣지 않았다**(의도 — 오프라인에서는 `/404.html`) → [ADR-018](../decisions/ADR-018-in-app-admin-review.md))
@@ -62,6 +63,25 @@ iOS 홈 화면 앱은 며칠씩 열려 있다. 그리고 그 세션에서 처음
   다음 배포에서 다시 한 번 허용한다. 저장소를 못 쓰면 새로고침하지 않는다(셀 수 없다).
 - dev 에서는 서비스워커가 꺼져 있어 둘 다 볼 수 없다 — `pnpm build` 산출물로 확인한다.
 
+## 설치 안내 — 홈 하단 한 줄 (07 U9)
+
+오프라인이 이 앱의 약속인데 그 약속은 홈 화면에 추가해야 쓸 만해진다. 그런데 설치를 권하는 곳이 없었다. 홈 맨 아래, 인사말 줄 밑에
+"홈 화면에 추가하기" 한 줄(`HomePageInstall`)을 둔다. 띄울지와 어떤 길인지는 순수 함수 `installGuideKind`(`src/lib/installGuide.ts`)가 정한다.
+
+| 상황 | 결과 | 왜 |
+|---|---|---|
+| 첫 방문(`visitCount` ≤ 1) · 이미 홈 화면 앱(standalone) | 없음 | 첫 화면은 인사·등록이 먼저다. 신호는 홈 인사말 접기와 같은 `visitCount` |
+| 카톡·네이버·인스타·페북·라인 인앱 브라우저 | 없음 | 그 웹뷰에는 "홈 화면에 추가" 메뉴가 없다 — 카톡 공유로 들어오는 길이 가장 흔하다 |
+| 브라우저가 설치 신호(`beforeinstallprompt`)를 줬다 | 누르면 설치 창 | Android Chrome·데스크톱 Chrome/Edge |
+| iPhone · iPadOS(UA 가 `Macintosh` + 터치) | 펼치면 공유 → 홈 화면에 추가 두 단계 | iOS 는 설치 창 API 가 없어 사용자가 방법을 알아야 한다 |
+| 그 밖(신호 없는 Android, 데스크톱 Safari·Firefox) | 없음 | 무엇을 누르라고 구체적으로 말할 수 없다. 신호 없는 Android 는 **이미 설치한** 사람일 가능성이 크다(Chrome 은 설치된 앱에 신호를 주지 않는다) |
+
+- **설치 신호는 셸이 듣는다.** 신호는 로드당 한 번, 어느 화면에서든 온다 — `/places` 로 들어와 나중에 홈으로 오면 홈의 effect 는 이미 늦다.
+  `src/lib/installPromptEvent.ts` 가 모듈이 읽히는 순간 듣고 `appShell` 이 그 모듈을 import 한다. `prompt()` 는 신호당 한 번이라 쓰고 나면 비운다(줄도 사라진다).
+- **iOS 그림은 이미지 파일이 아니라 아이콘이다.** 프리캐시 목록을 손으로 적는 구조라(위 「프리캐시 목록을 직접 만드는 이유」) `public/` 에 그림을 두고 빠뜨리면 오프라인에서 그림만 빈다.
+- **띠 배너(`fixed`)·닫기 버튼은 두지 않았다.** 셸 스와이프가 `<main>` 에 transform 을 걸어 `fixed` 가 어긋나고(ADR-014), 맨 아래 한 줄이라 닫을 만큼 거슬리지 않는다 — 설치하면 저절로 사라진다.
+- 설치 창 분기는 dev 에서 볼 수 없다(서비스워커가 없어 Chrome 이 신호를 주지 않는다) — 빌드본 + Android Chrome 으로 확인한다.
+
 ## 매니페스트와 아이콘
 
 - `src/app/manifest.ts`: `theme_color` 는 잉크 `#2e2327`, `background_color` 는 크림 `#faf8f4`. `layout.tsx` 의 `themeColor` 와 같은 값이어야 한다.
@@ -108,4 +128,5 @@ f.flavor='woff2'; f.save(f'src/app/fonts/ZgnnSans-{w}.woff2')" Regular
 
 ## 관련 파일
 
-`src/app/sw.ts`, `next.config.mjs`, `src/app/manifest.ts`, `src/app/layout.tsx`, `src/app/fonts/`, `scripts/make-icons.mjs`, `public/icons/`, `public/images/`
+`src/app/sw.ts`, `next.config.mjs`, `src/app/manifest.ts`, `src/app/layout.tsx`, `src/app/fonts/`, `scripts/make-icons.mjs`, `public/icons/`, `public/images/`,
+`src/lib/installGuide.ts`, `src/lib/installPromptEvent.ts`, `src/screens/homePageInstall.tsx`

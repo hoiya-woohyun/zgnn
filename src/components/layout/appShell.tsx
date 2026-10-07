@@ -13,6 +13,8 @@ import { AppStatusToast } from './appStatusToast';
 import { stampHistoryDepth } from '../../lib/appHistory';
 import { isRootRoute, parentRouteOf } from '../../lib/appRoutes';
 import { arrivalScrollOf, rememberScroll } from '../../lib/appScroll';
+// 설치 신호(`beforeinstallprompt`)는 로드당 한 번, 어느 화면에서든 온다 — 홈이 뜨기 전에 와도 받아 두도록 셸이 깨어날 때 듣기 시작한다(07 U9).
+import '../../lib/installPromptEvent';
 import { cx } from '../../utils/cx';
 
 /**

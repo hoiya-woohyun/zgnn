@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import Link from 'next/link';
 import { Heart, Map01 } from '@untitledui/icons';
 import { HomePageHero, PawMark } from './homePageHero';
+import { HomePageInstall } from './homePageInstall';
 import { HomePageIntro } from './homePageIntro';
 import { HomeTypeCard } from './homeTypeCard';
 import { Button } from '../components/base/button';
@@ -170,10 +171,12 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* 두 번째 방문부터의 인사말 자리 — 출처 줄 바로 위, "이 자료는 누가" 와 같은 묶음이다. */}
+      {/* 두 번째 방문부터의 인사말 자리 — 출처 줄 바로 위, "이 자료는 누가" 와 같은 묶음이다.
+          설치 안내(07 U9)도 같은 "두 번째 방문부터" 라 그 밑에 한 줄로 붙는다. 서지 않는 기기에선 스스로 null 이다. */}
       {intro === 'row' && (
-        <section className="mt-8 px-4 md:px-6">
+        <section className="mt-8 space-y-3 px-4 md:px-6">
           <HomePageIntro variant="row" />
+          <HomePageInstall />
         </section>
       )}
 
