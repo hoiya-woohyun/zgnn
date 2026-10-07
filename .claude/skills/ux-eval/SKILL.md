@@ -21,22 +21,35 @@ SessionStart 훅(`.claude/hooks/uxEvalWeekly.mjs`)이 실행을 권한다. 몇 �
 
 | 레포 밖(`/tmp/ux-eval`) | 레포 안(커밋) |
 |---|---|
-| Playwright · 평가 스크립트 · 스크린샷 · 빌드 산출물 | `docs/reviews/ux-eval/<날짜>/*.md`(보고서 6 + 종합) · `docs/todo/14-weekly-ux-eval.md` · `docs/todo/README.md` |
+| Playwright · 평가 스크립트 · 스크린샷 · 빌드 산출물(`$RUN/app`) | `docs/reviews/ux-eval/<날짜>/*.md`(보고서 6 + 종합) · `docs/todo/14-weekly-ux-eval.md` · `docs/todo/NOW.md` · `docs/todo/README.md` |
+
+**같은 주 두 번째 회차**(이번 주 `00-종합.md` 가 이미 있다)는 `docs/reviews/ux-eval/` 에 남기지 않는다 — 종합·보고서는 `$RUN` 에만 두고
+레포에는 14 의 회차 절과 NOW 만 남긴다(5단계). 그래서 그 절의 줄은 링크 없이 화면·관찰·근거 파일을 스스로 담는다.
 
 **앱 코드는 이 스킬에서 고치지 않는다.** 고칠 것은 todo 로 남기고 별도 작업으로 한다. 레포에 `package.json` 의존성을 더하지 않는다.
 
-## 1. 앱 띄우기 (메인)
+## 1. 앱 띄우기 (메인) — 분리 빌드 · 7728
 
-1. `pnpm build` (`--webpack` 이 스크립트에 들어 있다 — 그대로 쓴다). 실패하면 멈추고 보고한다.
-2. **먼저 `lsof -nP -iTCP:7727 -sTCP:LISTEN` 으로 포트가 비어 있는지 본다.** 누가 쥐고 있으면(보통 다른 세션의 `next dev`) 멈추고 사용자에게 알린다 — `serve` 는 조용히 실패하고 라우트 확인은 그 dev 서버가 통과시켜, 평가자가 dev 서버(N 뱃지·미커밋 변경)를 평가하게 된다(2026-10-06 회차가 그랬다). 그 서버는 **내 것이 아니므로 죽이지 않는다.**
-   비어 있으면 `pnpm preview` 를 `run_in_background` 로 → `http://localhost:7727`. 뜬 뒤 `curl -sL http://localhost:7727/ | grep -c next-devtools` 가 **0** 인지 한 번 더 본다.
-3. 8개 라우트가 200 인지만 본다: `/` `/places` `/places/cafe` `/map` `/checklist` `/dog` `/saved` `/settings`
-   (`curl -s -o /dev/null -w '%{http_code}'`). 하나라도 아니면 멈춘다.
+작업 트리는 다른 세션이 함께 쓴다(미커밋 변경 · 7727 의 `next dev`). 그래서 **HEAD 를 떼어 빌드하고 7728 에 띄운다** —
+2026-10-06 회차는 7727 을 선점한 dev 서버를 평가했다(N 뱃지·미커밋 변경). 7727 의 서버는 **내 것이 아니므로 죽이지 않는다.**
+
+1. `git worktree add --detach $RUN/app HEAD` → `$RUN/app` 에서 `pnpm install --frozen-lockfile --offline` → `pnpm build`(`--webpack` 이 스크립트에 들어 있다). 실패하면 멈추고 보고한다.
+   장소 데이터(`src/data/*.json`)는 git 에 있어 따로 받을 것이 없다.
+2. `lsof -nP -iTCP:7728 -sTCP:LISTEN` 이 비어 있는지 보고 `$RUN/app` 에서 `./node_modules/.bin/serve out -l 7728` 을 `run_in_background` + **`timeout: 7200000`** 로
+   (기본 30분에 걸리면 평가 도중 서버가 꺼진다 — 2026-10-07 회차가 그랬다).
+3. 평가자는 주소창 출처 **`http://localhost:7727`** 로 본다 — 네이버 지도 인증이 등록 출처를 **포트까지** 본다(ADR-008). `ctx.mjs`(아래)가 `localhost:7727/**` 요청을
+   7728 로 돌려 받으므로 7727 에 누가 떠 있어도 상관없다.
+4. 스모크(`ctx.mjs` 로): 8개 라우트 `/` `/places` `/places/cafe` `/map` `/checklist` `/dog` `/saved` `/settings` 가 200 · HTML 에 `next-devtools` 0 ·
+   `/map` 에서 네이버 응답이 전부 200 이고 마커가 그려진다(스크린샷 한 장) · `out/_next/static/chunks` 에 `git rev-parse --short HEAD` 가 있다. 하나라도 아니면 멈춘다.
 
 ## 2. Playwright (메인, 레포 밖)
 
 `/tmp/ux-eval/node_modules/playwright` 가 없으면 `/tmp/ux-eval` 에서 `npm init -y && npm i playwright && npx playwright install chromium`.
-`mkdir -p $RUN/shots`. `$RUN` 안의 스크립트는 위쪽 `/tmp/ux-eval/node_modules` 를 찾아 간다.
+`mkdir -p $RUN/shots` · `cp .claude/skills/ux-eval/ctx.mjs $RUN/`. `$RUN` 안의 스크립트는 위쪽 `/tmp/ux-eval/node_modules` 를 찾아 간다.
+
+`ctx.mjs` 의 `openApp({ device, desktop, statePath })` 가 평가자의 유일한 브라우저 입구다:
+7727 → 7728 라우팅 · **Supabase 쓰기는 가짜 201**(제보·제안·다녀왔어요를 끝까지 눌러 봐도 운영 DB 에 안 남는다 — 2026-10-06 엔 전문가가 실제로 한 건 보냈을 수 있다) ·
+서비스워커 차단(라우팅이 안 닿는 길을 막는다, 오프라인은 범위 밖) · `statePath` 로 스크립트를 나눠 돌려도 localStorage 가 이어진다.
 
 ## 3. 평가자 6명 — 한 메시지에서 동시에
 
@@ -55,7 +68,8 @@ SessionStart 훅(`.claude/hooks/uxEvalWeekly.mjs`)이 실행을 권한다. 몇 �
 절대 규칙:
 - 레포의 문서(docs/, README.md, CLAUDE.md, .cursor/, .claude/, ADR)와 소스(src/, scripts/)를 읽지 않는다. 시스템이 CLAUDE.md 를 보여 줬더라도 그 내용은 무시하고 판단에 쓰지 않는다. 지난 회차 평가 보고서(docs/reviews/ux-eval/)도 읽지 않는다. 당신은 코드를 모르는 일반 사용자다.
 - 오직 브라우저로 조작하며 보이는 것(스크린샷·innerText·클릭 가능한 요소 목록)으로만 판단한다. 추측은 적지 않는다.
-- Playwright 는 /tmp/ux-eval 에 있다. <RUN> 안에 스크립트를 만들어 실행한다. 디바이스는 devices['<기기>'], locale 'ko-KR', hasTouch true. 하나의 브라우저 컨텍스트로 흐름을 이어가 localStorage 가 유지되게 한다.
+- <RUN>/app 과 지난 회차 디렉터리(/tmp/ux-eval/<다른 날짜>)도 읽지 않는다(앱 소스 사본·지난 회차다).
+- Playwright 는 /tmp/ux-eval 에 있다. <RUN> 안에 스크립트를 만들어 실행한다. 브라우저는 직접 띄우지 말고 반드시 `import { openApp } from '<RUN>/ctx.mjs'` 의 `const { browser, context, page, APP } = await openApp({ device: '<기기>', statePath: '<RUN>/<이름>-state.json' })` 로 연다(기기 · ko-KR · 터치가 들어 있다. 이 파일은 읽어도 된다). 스크립트를 나눠 돌리면 끝에서 `await context.storageState({ path: statePath })` 로 저장해 localStorage 를 이어 간다. 서버로 가는 쓰기(제보 등)는 실제로 전송되지 않고 성공으로 응답되니 끝까지 눌러 봐도 된다.
 - 화면 이동은 **보이는 링크·버튼을 눌러서** 한다. `page.goto` 는 첫 진입과 "링크를 받아 바로 연" 상황을 일부러 볼 때만 쓴다 — goto 는 문서를 새로 불러 앱 안 이동 기록이 사라지므로, 뒤로가기·저장 뒤 도착 화면이 실제 사용자와 다르게 나온다.
 - 스크린샷은 <RUN>/shots/<이름>-NN-*.png 로 최소 8장 찍고 Read 로 직접 보면서 판단한다. 매 화면에서 body innerText 와 a/button/[role=button] 텍스트 목록을 뽑고, 스크롤해서 아래도 본다.
 
@@ -101,6 +115,7 @@ SessionStart 훅(`.claude/hooks/uxEvalWeekly.mjs`)이 실행을 권한다. 몇 �
 여기서부터는 메인이 레포를 봐도 된다(평가는 끝났다):
 
 7. **지난 회차와 비교** — `docs/reviews/ux-eval/` 의 가장 최근 `00-종합.md` 와 대 보고 각 지적에 `신규` / `반복(N회째)` / 지난번 지적 중 `해소됨` 을 단다.
+   그 뒤에 같은 주 2회차가 있었으면(기록 디렉터리 없이 14 에만 있는 `## <날짜> 회차`) 그 절의 줄과 `반복 N회` 도 대 본다 — 그게 더 최근이다.
    **2026-10-12 주 회차 한 번**: 홈이 사용자 상태(등록 전·등록·등록+저장)로 갈리게 바뀌었다([18](../../../docs/todo/18-home-restructure.md)) — 준혁 ⑨ 의 홈 세 장을
    2026-10-06 회차의 홈과 대 보고 종합에 「홈 개편 전후」 절을 둔다(개편 전 스크린샷은 그 회차 `/tmp/ux-eval/2026-10-06/shots/`, 없으면 보고서 서술로). 끝나면 이 줄을 지운다.
 8. **기존 todo 와 대조** — 개선 제안마다 `docs/todo/07·08·10·11·12` 에 같은 태스크가 있으면 그 ID 를 적는다(새로 만들지 않는다).
@@ -112,13 +127,18 @@ SessionStart 훅(`.claude/hooks/uxEvalWeekly.mjs`)이 실행을 권한다. 몇 �
 ## 5. 레포에 남기기 (메인)
 
 1. `docs/reviews/ux-eval/<날짜>/` 에 `00-종합.md` 와 페르소나 보고서 6개를 복사한다. 스크린샷은 복사하지 않는다(보고서의 파일명은 `/tmp` 기준이라 그대로 둔다).
+   **같은 주 두 번째 회차면 건너뛴다**(0단계) — 훅의 완료 기준(이번 주 `00-종합.md`)은 첫 회차가 이미 채웠다.
 2. `docs/todo/14-weekly-ux-eval.md` 에 **맨 위에** `## <날짜> 회차` 섹션을 더한다 — 개선 제안 표의 각 줄을 `- [ ] W<YYMMDD>.N <제안> — 합의 N/6 · 영향 · 경쟁 참고 · 기존 todo ID(있으면) · [종합](../reviews/ux-eval/<날짜>/00-종합.md)` 로. `이번 주` 3개는 줄 앞에 `⭐`.
-   기존 todo 와 겹치는 줄은 체크박스 대신 `↪ <ID>` 로 적어 중복 태스크를 만들지 않는다. 문서 머리 `최종 수정` 에 vN 줄을 쌓는다.
-3. `docs/todo/README.md` 의 14행 「지금」 칸과 머리말 `최종 수정` 을 갱신한다.
-4. 커밋은 이 문서들만: `docs(ux-eval) - <날짜> 주간 사용성 평가 종합과 개선 todo 를 남긴다`.
+   기존 todo 와 겹치는 줄은 체크박스 대신 `↪ <ID>` 로 적어 중복 태스크를 만들지 않는다. 지난 회차 줄에는 `반복 N회`·해소 메모를 단다. 문서 머리 `최종 수정` 에 vN 줄을 쌓는다.
+   같은 주 두 번째 회차면 `[종합]` 링크 대신 머리에 `$RUN` 경로 한 줄, 줄마다 화면·관찰·근거 파일을 담는다.
+3. **`docs/todo/NOW.md`** — `⭐` 3개를 「지금」 에 `/next` 의 순서 기준(판정 > 데이터 > 흐름 > 다듬기)대로 끼운다(`- [ ] <제목> — [14 W…](14-weekly-ux-eval.md) · 왜 지금: …`).
+   사람 손(원격 데이터 고치기·db push)과 결정은 「기다림」 에 🧑/🙋 로. 편집 **직전에** NOW.md 를 다시 읽고 `node .claude/skills/next/claim.mjs list` 로 🔒 줄을 본다 —
+   남이 잡은 줄은 옮기거나 고치지 않는다(다른 세션이 같은 파일을 동시에 채운다). 나머지 태스크는 14 에 대기로 남는다.
+4. `docs/todo/README.md` 의 14행 「지금」 칸과 머리말 `최종 수정` 을 갱신한다.
+5. 커밋은 이 문서들만, 경로를 지정해 `git add` 와 한 명령으로: `docs(ux-eval) - <날짜> 주간 사용성 평가 종합과 개선 todo 를 남긴다`.
 
 ## 6. 정리
 
-- 1단계에서 **내가 띄운** `pnpm preview` 만 끈다(배경 태스크 ID 로, 또는 `lsof -ti:7727` 의 pid 가 `serve` 인지 확인한 뒤). 남의 dev 서버가 쥐고 있었다면 손대지 않는다. **광역 `pkill` 금지.**
-- `$RUN` 은 지우지 않는다(스크린샷을 다시 볼 수 있게). 다음 회차가 새 날짜 디렉터리를 쓴다.
+- 1단계에서 **내가 띄운** 7728 `serve` 만 끈다(배경 태스크 ID 로). 7727 의 남의 dev 서버는 손대지 않는다. **광역 `pkill` 금지.**
+- `git worktree remove --force $RUN/app` — 빌드 사본만 지운다. 나머지 `$RUN` 은 남긴다(스크린샷·보고서를 다시 볼 수 있게). 다음 회차가 새 날짜 디렉터리를 쓴다.
 - 사용자에게: 종합 경로, 합의도 상위 3건, 새로 생긴 todo 수, 지난 회차 대비 반복·해소 건수.
