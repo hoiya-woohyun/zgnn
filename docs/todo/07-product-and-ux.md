@@ -62,8 +62,12 @@ P3  여행 단위(날짜·동선) · 데스크톱 2열
 
 ## P1 — 다음
 
-- [ ] **카톡 공유 미리보기** — 루트·상세에 OG 이미지(종류 색 + 아이콘 + 이름, 빌드 때 정적 생성 — 사진 없음 원칙 ADR-002 와 맞다), `sitemap.xml`·`robots.txt`(`/admin` 은 disallow).
+- [x] **카톡 공유 미리보기** — 루트·상세에 OG 이미지(종류 색 + 아이콘 + 이름, 빌드 때 정적 생성 — 사진 없음 원칙 ADR-002 와 맞다), `sitemap.xml`·`robots.txt`(`/admin` 은 disallow).
   > 메모(2026-10-07): **뒤 절반(robots·sitemap)만 했다**, OG 이미지는 남았다. `app/robots.ts`·`app/sitemap.ts`(force-static) → `out/robots.txt`·`out/sitemap.xml`. 도메인은 코드에 없어 문서(ADR-008 배포 줄)의 `https://zgnn.vercel.app` 을 `lib/siteIndex.ts` 한 곳에 뒀다. sitemap 은 누구에게나 같은 화면만 — 홈·종류 셋·지도·준비물·장소 84곳(90줄), `/saved`·`/dog`·`/settings`(내 기기 저장값)·`/places`(빈 리다이렉트)·`/admin` 은 뺐다. `lastModified` 는 안 적는다(믿을 수정 시각이 없다). 메타 `noindex` 는 그대로 함께 둔다
+  > 메모(2026-10-07, OG): 앞 절반도 했다. `app/og/[file]/route.ts` 가 빌드 때 `out/og/site.png` + 장소마다 `<id>.png`(85장, 1200×630)를 굽고, 레이아웃(`metadataBase`=`SITE_URL` + 공통 `openGraph`)과 상세(`generateMetadata`)가 가리킨다.
+  > **Next 의 `opengraph-image` 관례는 쓰지 않았다** — 정적 내보내기에서 확장자 없는 파일이 되고, `trailingSlash` 인 Vercel 은 점 없는 경로를 파일보다 먼저 `…/` 로 308 보내 404 다(`.vercel/output/config.json` 의 라우트로 확인, 빌드·로컬은 통과). 글꼴은 화면과 같은 woff2 를 `wawoff2`(dev 의존성)로 풀어 satori 에 준다.
+  > 카드: 크림 바탕 가운데 정렬(카톡이 넓은 그림을 가운데로 자를 때가 있다), 종류 색 판 + 아이콘 → `숙소 · 애월읍` → 이름 → 앱 아이콘·「강아지랑 제주」. 최장 이름 12자(「프레임스파빌 오션뷰펜션」)가 한 줄. 저장 목록 공유 링크는 사이트 카드를 받는다(`og:url` 은 적지 않는다 — 쿼리를 지운다).
+  > **카톡은 주소마다 미리보기를 캐시한다** — 배포 전에 이미 공유된 링크는 그림 없이 남아 있을 수 있다. 바로 보려면 카카오 공유 디버거(developers.kakao.com/tool/debugger/sharing)에서 그 주소를 초기화한다. 실기기 카톡 확인은 배포 뒤(「기다림」)
 - [x] **저장 목록 공유 링크** — `/saved?ids=…` 같은 정적 주소로 "같이 가는 사람에게 보내기". 받는 쪽은 읽기 전용 보기 + "내 저장에 담기". 서버 없이 된다.
   > 메모(2026-10-07): 저장 화면 「지도에서 보기」 옆 「목록 공유」(Web Share → 복사 → 안내, 상세 공유와 같은 갈래). 링크는 `/saved/?ids=<전체 id>,…`(`lib/savedShare.ts`) — id 를 줄이지 않는다:
   > 보낸 사람·받는 사람의 빌드가 달라 짧은 접두어는 언젠가 다른 곳을 가리킨다. 쉼표는 이스케이프하지 않는다(`%2C` 도 읽는다). 받는 쪽은 「공유받은 목록」(메모 칸 없음, 지도 버튼 없음 — `?saved=1` 은 **내** 저장이다)

@@ -156,6 +156,7 @@ src/
 │   ├── layout.tsx            # 셸(AppShell)·providers·themeColor
 │   ├── manifest.ts           # 웹 매니페스트
 │   ├── robots.ts · sitemap.ts # 정적 robots.txt(/admin 막음)·sitemap.xml — 경로·도메인은 lib/siteIndex.ts
+│   ├── og/[file]/route.ts    # 링크 미리보기 PNG(site.png·<장소 id>.png)를 빌드 때 굽는다 — 왜 opengraph-image 관례가 아닌지는 lib/ogImage.ts
 │   ├── sw.ts                 # 서비스워커 소스 (→ public/sw.js)
 │   └── (place|places|map|checklist|saved|dog|admin)/   # admin 만 숨김 라우트(프리캐시 제외)
 ├── screens/                  # 화면 본체(클라이언트). 파일명 = 소유 화면 접두어. adminPage*.tsx = 운영자 검수 화면

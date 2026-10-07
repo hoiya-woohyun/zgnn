@@ -96,6 +96,9 @@ importers:
       vitest:
         specifier: ^3.2.4
         version: 3.2.7(@types/node@22.20.2)(jiti@2.7.0)(lightningcss@1.32.0)(supports-color@7.2.0)
+      wawoff2:
+        specifier: 2.0.1
+        version: 2.0.1
 
 packages:
 
@@ -3063,6 +3066,10 @@ packages:
         optional: true
       jsdom:
         optional: true
+
+  wawoff2@2.0.1:
+    resolution: {integrity: sha512-r0CEmvpH63r4T15ebFqeOjGqU4+EgTx4I510NtK35EMciSdcTxCw3Byy3JnBonz7iyIFZ0AbVo0bbFpEVuhCYA==}
+    hasBin: true
 
   which-boxed-primitive@1.1.1:
     resolution: {integrity: sha512-TbX3mj8n0odCBFVlY8AxkqcHASw3L60jIuF8jFP78az3C2YhmGvqbHBpAjTRH2/xqYunrJ9g1jSyjCjpoWzIAA==}
@@ -6199,6 +6206,10 @@ snapshots:
       - terser
       - tsx
       - yaml
+
+  wawoff2@2.0.1:
+    dependencies:
+      argparse: 2.0.1
 
   which-boxed-primitive@1.1.1:
     dependencies:

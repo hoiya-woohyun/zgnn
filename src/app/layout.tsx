@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
 import { AppShell } from '@/components/layout/appShell';
+import { siteOpenGraph } from '@/lib/ogImage';
 import { PLACES, SITE_BLURB } from '@/lib/places';
+import { SITE_URL } from '@/lib/siteIndex';
 import { RouteProvider } from '@/providers/routerProvider';
 import { StoreHydration } from '@/providers/storeHydration';
 import '@/styles/globals.css';
@@ -39,11 +41,14 @@ const appSans = localFont({
 const DESCRIPTION = `${SITE_BLURB} ${PLACES.length}곳. 실내 동반 조건과 추가 요금을 한눈에 확인하세요.`;
 
 export const metadata: Metadata = {
+  // 미리보기 이미지(`og:image`)는 절대 주소여야 카톡이 읽는다. 정적 내보내기라 요청 호스트 대신 배포 주소로 붙인다.
+  metadataBase: new URL(SITE_URL),
   title: {
     default: '강아지랑 제주',
     template: '%s | 강아지랑 제주',
   },
   description: DESCRIPTION,
+  openGraph: siteOpenGraph('강아지랑 제주'),
   applicationName: '강아지랑 제주',
   appleWebApp: {
     capable: true,

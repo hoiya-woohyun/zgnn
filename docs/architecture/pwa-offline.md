@@ -119,6 +119,8 @@ f['name'].setName('Subset of Pretendard 1.3.9 (Hangul syllables + Latin), rename
 f.flavor='woff2'; f.save(f'src/app/fonts/ZgnnSans-{w}.woff2')" Regular
 ```
 
+링크 미리보기 이미지(`app/og/[file]/route.ts`)도 이 woff2 두 개를 빌드 때 풀어서(`wawoff2` — satori 가 woff2 를 못 읽는다) 쓰므로, 서브셋을 다시 만들면 미리보기 글자도 따라온다.
+
 굵기당 약 620KB 가 나온다(힌팅을 빼도 거의 안 준다 — 용량은 윤곽 자체다). 한글 완성형(U+AC00-D7A3) 11,172자를
 통째로 넣는 이유와 굵기를 400·600 둘로 제한한 이유는 ADR-006 에 있다.
 
