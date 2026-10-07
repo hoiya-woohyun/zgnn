@@ -1,6 +1,7 @@
 # ADR-024 — 수집·분석·반영은 터미널에 상주하는 로컬 워커 하나가 DB 를 보고 돈다. 큐는 새로 만들지 않고 기존 표의 상태 칸이고, 진행 상태는 표 하나·칸 하나로 화면에 실시간으로 비친다
 
-> 최종 수정: 2026-10-07 (v1: 결정. 구현은 [docs/todo/17](../todo/17-local-worker.md) 가 추적한다)
+> 최종 수정: 2026-10-07 (v2: 리뷰 18 — `/admin` 승인은 approved 를 거치지 않고, apply 는 막 승인된 행을 60초 묵힌다. 쌍둥이 장소 경쟁)
+> 이전 2026-10-07 (v1: 결정. 구현은 [docs/todo/17](../todo/17-local-worker.md) 가 추적한다)
 > 상태: **결정**. 코드는 todo/17 의 단계가 끝날 때마다 붙는다.
 
 ## 맥락
@@ -56,6 +57,7 @@ candidates.status = 'approved'       → 반영할 것        (analyze 가 auto 
 - 마이그레이션 하나 — `pipeline_requests` · `workers` 표(RLS `is_operator()`, authenticated select/insert/update, delete 없음), `pipeline_runs.progress` · `blog_posts.requested_at` 칸, `supabase_realtime` publication 에 `workers` · `pipeline_runs` 추가. Realtime 은 RLS 를 지키므로 publishable 키만으로는 아무것도 안 보인다(ADR-023 이 걱정한 "권한을 또 연다" 는 세션이 있어야 통과한다).
 - `scripts/data.mjs`(진입점 + 워커 루프) · `scripts/lib/worker*.mjs`(깨우기·디바운스·요청 집기 — 순수 부분은 테스트). `runLog.mjs` 에 `progress()` 하나. `collect-blog.mjs` 가 요청 글에 `requested_at` 을 찍고 `adminReanalyze.ts` 도 찍는다.
 - `/admin/ops` 에 워커 배지·진행률(구독), `/admin` 머리글에 워커 한 줄, 검수 대기에 「지금 분석」. `adminOpsHealth.ts` 에 "워커 없음"(last_seen 5분 초과) 판정 하나.
+- **승인과 워커의 경쟁(v2, todo/17 리뷰 18).** 워커가 `approved` 를 큐로 보자 `/admin` 「맞아요」 의 여러 번 쓰기(approved → places insert → 짝 → merged) 사이에 apply 가 끼어 같은 가게를 한 번 더 넣을 수 있게 됐다. 둘 다 고쳤다 — (a) `/admin` 은 approved 를 거치지 않고 pending → (places 쓰기) → merged 한 번에 닫는다(승인 메모·`reviewed_at` 도 그 update 에 — 트리거는 merged 에 안 찍는다). (b) apply 와 워커의 세기는 `reviewed_at` 이 60초 안인 approved 를 건너뛴다(Studio 손 승인·캐시된 옛 화면의 안전망 · analyze 의 auto insert 는 `reviewed_at` 이 null 이라 바로 집힌다). `/admin` 이 중간에 끊기면 후보는 pending 이고 다시 누르면 이어진다 — CLI 가 이어받던 옛 길은 없어졌다.
 - [ADR-023](ADR-023-ops-dashboard-and-run-log.md) v2 — Realtime 번복. [ADR-016](ADR-016-secrets-by-login.md) 은 안 바뀐다(워커가 재로그인을 묻는 것은 `login` 과 같은 경로). [todo/15](15-ops-dashboard.md) 의 남은 Slack 항목은 그대로 — 워커가 생겨도 알림은 DB 가 보낸다.
 - 문서: [architecture/data-pipeline.md](../architecture/data-pipeline.md) 의 명령 체인, [features/ops-dashboard.md](../features/ops-dashboard.md) 의 워커 칸, README 「실행」.
 

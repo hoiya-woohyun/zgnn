@@ -163,16 +163,15 @@ describe('approveGroup — 신규 장소', () => {
       rows: 1,
     });
 
-    // 순서가 계약이다 — insert 다음이 곧바로 짝 적기여야 한다.
+    // 순서가 계약이다 — insert 다음이 곧바로 짝 적기여야 한다. 후보는 approved 를 거치지 않는다(리뷰 18 — 워커 apply 가 그 사이를 집으면 쌍둥이).
     expect(trace(calls)).toEqual([
-      'candidates.update:approved',
       'places.insert:published',
       'candidates.update:match_place_id',
       'place_sources.upsert:place_id+post_url',
       'candidates.update:merged',
     ]);
 
-    const inserted = calls[1].payload;
+    const inserted = calls[0].payload;
     expect(inserted.id).toBe('new-place-id');
     // 승인 즉시 사용자에게 보여야 하므로 draft 를 거치지 않는다(ADR-018). source 는 블로그 경로 표시.
     expect(inserted.status).toBe('published');
@@ -180,12 +179,15 @@ describe('approveGroup — 신규 장소', () => {
     expect(inserted.name).toBe('새로운카페');
     expect(inserted.region_raw).toBe('동쪽 (구좌읍)');
 
-    expect(calls[2].payload).toEqual({ match_place_id: 'new-place-id' });
-    expect(calls[2].filter).toEqual({ id: 'cand-1' });
-    expect(calls[3].payload).toEqual({ place_id: 'new-place-id', post_url: 'https://blog.naver.com/x/1' });
-    expect(calls[3].options).toEqual({ onConflict: 'place_id,post_url', ignoreDuplicates: true });
+    expect(calls[1].payload).toEqual({ match_place_id: 'new-place-id' });
+    expect(calls[1].filter).toEqual({ id: 'cand-1' });
+    expect(calls[2].payload).toEqual({ place_id: 'new-place-id', post_url: 'https://blog.naver.com/x/1' });
+    expect(calls[2].options).toEqual({ onConflict: 'place_id,post_url', ignoreDuplicates: true });
 
-    const merged = calls[4].payload.extracted as TCandidateExtracted;
+    // 승인 메모와 reviewed_at 은 merged 한 번에 — 트리거는 merged 에 reviewed_at 을 안 찍어 운영 현황의 승인 수가 이 값을 센다.
+    expect(calls[3].payload.reviewer_note).toBe('[admin] 승인');
+    expect(calls[3].payload.reviewed_at).toBe('2026-09-29T01:00:00.000Z');
+    const merged = calls[3].payload.extracted as TCandidateExtracted;
     expect(merged.applied).toEqual({
       placeId: 'new-place-id',
       kind: 'created',
@@ -197,13 +199,30 @@ describe('approveGroup — 신규 장소', () => {
     expect(places.map((place) => place.id)).toEqual(['place-1', 'new-place-id']);
   });
 
+  /*
+   * 리뷰 18 — 후보가 approved 를 거치지 않으므로 중간에 끊기면 pending 이다. 그때 다시 누른 승인이 장소를 또 만들면 안 된다:
+   * 짝(`match_place_id`)을 insert 직후에 적었으니 두 번째 승인은 그 장소로 합친다.
+   */
+  it('짝을 적은 뒤 끊기면 후보는 pending 이고, 다시 누르면 같은 장소로 합친다(두 번째 insert 없음)', async () => {
+    const places = [placeRow()];
+    const lead = candidate();
+    const first = createFakeClient(2); // 0 insert · 1 짝 적기 · 2 출처에서 죽는다
+    await expect(approveGroup(first.client, group([lead]), places, OPTIONS)).rejects.toThrow(/출처 기록/);
+    expect(first.calls.some((call) => call.payload.status === 'approved' || call.payload.status === 'merged')).toBe(false);
+
+    const second = createFakeClient();
+    const outcome = await approveGroup(second.client, group([lead]), places, OPTIONS);
+    expect(outcome).toMatchObject({ kind: 'merged', placeId: 'new-place-id' });
+    expect(second.calls.some((call) => call.op === 'insert')).toBe(false);
+  });
+
   it('첫 승인 메모는 기존 메모를 덮지 않는다', async () => {
     const { calls, client } = createFakeClient();
     const lead = candidate({ reviewer_note: '[data:review] 확인 필요' });
 
     await approveGroup(client, group([lead]), [placeRow()], OPTIONS);
 
-    expect(calls[0].payload.reviewer_note).toBe('[data:review] 확인 필요\n[admin] 승인');
+    expect(calls.at(-1)?.payload.reviewer_note).toBe('[data:review] 확인 필요\n[admin] 승인');
   });
 });
 
@@ -239,10 +258,9 @@ describe('approveGroup — 기존 장소에 보강', () => {
       rows: 1,
     });
     // pet_policy_text·review_url 은 이미 차 있어 패치에 없다. region_raw 도 차 있다.
-    expect(calls[1].payload).toEqual({ address: '제주시 애월읍 1', features: '뷰가 좋아요', category: '카페' });
-    expect(calls[1].filter).toEqual({ id: 'place-9' });
+    expect(calls[0].payload).toEqual({ address: '제주시 애월읍 1', features: '뷰가 좋아요', category: '카페' });
+    expect(calls[0].filter).toEqual({ id: 'place-9' });
     expect(trace(calls)).toEqual([
-      'candidates.update:approved',
       'places.update:address+features+category',
       'place_sources.upsert:place_id+post_url',
       'candidates.update:merged',
@@ -256,7 +274,7 @@ describe('approveGroup — 기존 장소에 보강', () => {
 
     const outcome = await approveGroup(client, group([lead]), [target], OPTIONS);
 
-    expect(calls[1].payload.status).toBe('published');
+    expect(calls[0].payload.status).toBe('published');
     expect(outcome).toMatchObject({ kind: 'merged', patchKeys: expect.arrayContaining(['status']) });
   });
 
@@ -306,10 +324,10 @@ describe('approveGroup — 기존 장소에 보강', () => {
 
   /*
    * '되살려서 합치기'. **되살리기가 첫 쓰기여야 한다** — 뒤가 죽어도 장소는 published 로 남아 다음 빌드에 사이트로
-   * 돌아오고, 남은 일은 후보가 approved 로 남아 `pnpm data apply` 가 이어받는다. 반대 순서면 "승인은 됐는데
+   * 돌아오고, 후보는 pending 그대로라 다시 누르면 이어진다. 반대 순서면 "승인은 됐는데
    * 장소는 여전히 내려 있는" 상태로 끊기고 그것은 어느 화면에도 안 보인다.
    */
-  it("'되살려서 합치기' 는 장소를 먼저 published 로 돌린 뒤 후보를 승인한다", async () => {
+  it("'되살려서 합치기' 는 장소를 먼저 published 로 돌린 뒤 후보를 merged 로 닫는다", async () => {
     const { calls, client } = createFakeClient();
     const target = placeRow({ id: 'place-x', name: '옛가게', status: 'archived', archive_note: '[admin] 내림 · 폐업' });
     const lead = candidate({ match_place_id: 'place-x', extracted: extracted({ name: '옛가게' }) });
@@ -319,8 +337,7 @@ describe('approveGroup — 기존 장소에 보강', () => {
     expect(calls[0]).toMatchObject({ table: 'places' });
     expect(calls[0].payload.status).toBe('published');
     expect(calls[0].payload.archive_note).toContain('되살림');
-    expect(calls[1]).toMatchObject({ table: 'candidates' });
-    expect(calls[1].payload.status).toBe('approved');
+    expect(calls.slice(1).map((call) => call.payload.status).filter(Boolean)).toEqual(['merged']);
     expect(outcome).toMatchObject({ kind: 'merged', placeId: 'place-x' });
   });
 
@@ -344,7 +361,7 @@ describe('approveGroup — 기존 장소에 보강', () => {
    * 안 실으면 사람이 그 자리에서 '아니에요' 를 누르고(그건 candidates 만 건드린다) 내렸던 곳이 사이트로 돌아간다.
    */
   it('되살린 뒤 실패하면 장소가 이미 게시중이라고 말한다', async () => {
-    // 0번째 쓰기(되살리기)는 통과시키고 1번째(후보 승인 표시)에서 죽인다.
+    // 0번째 쓰기(되살리기)는 통과시키고 1번째(출처 기록)에서 죽인다.
     const { calls, client } = createFakeClient(1);
     const target = placeRow({ id: 'place-x', name: '옛가게', status: 'archived' });
     const lead = candidate({ match_place_id: 'place-x', extracted: extracted({ name: '옛가게' }) });
@@ -414,7 +431,7 @@ describe('approveGroup — 신규 후보 재대조', () => {
     const outcome = await approveGroup(client, group([lead]), [target], { ...OPTIONS, asNew: true });
 
     expect(outcome).toMatchObject({ kind: 'created', placeId: 'new-place-id' });
-    expect(calls[1].op).toBe('insert');
+    expect(calls[0].op).toBe('insert');
   });
 
   it("'여기에 합치기' 로 고른 장소는 짝이 없어도 그대로 쓴다", async () => {
@@ -535,20 +552,19 @@ describe('approveGroup — 묶음의 나머지 글', () => {
 
     expect(outcome).toMatchObject({ kind: 'created', placeId: 'new-place-id', rows: 2 });
     expect(trace(calls)).toEqual([
-      'candidates.update:approved',
       'places.insert:published',
       'candidates.update:match_place_id',
       'place_sources.upsert:place_id+post_url',
       'candidates.update:merged',
-      'candidates.update:approved',
       // 두 번째 글이 채운 주소 — 첫 후보엔 없던 빈 칸이다.
       'places.update:address',
       'place_sources.upsert:place_id+post_url',
       'candidates.update:merged',
     ]);
-    expect(calls[6].filter).toEqual({ id: 'new-place-id' });
-    expect(calls[7].payload).toEqual({ place_id: 'new-place-id', post_url: 'https://blog/2' });
-    expect((calls[8].payload.extracted as TCandidateExtracted).applied).toMatchObject({
+    expect(calls[4].filter).toEqual({ id: 'new-place-id' });
+    expect(calls[5].payload).toEqual({ place_id: 'new-place-id', post_url: 'https://blog/2' });
+    expect(calls[6].payload.reviewed_at).toBe('2026-09-29T01:00:00.000Z');
+    expect((calls[6].payload.extracted as TCandidateExtracted).applied).toMatchObject({
       placeId: 'new-place-id',
       kind: 'merged',
       patchKeys: ['address'],
@@ -657,10 +673,9 @@ describe('saveEdit — 사람이 고쳤다는 표시', () => {
 
 describe("approveGroup — '최신본으로 저장하기'(overwrite)", () => {
   /*
-   * 덮기는 **승인 표시보다 먼저** 간다. 뒤에서 끊기면 후보가 approved 로 남고 CLI(`pnpm data apply`)가 이어받는데,
-   * CLI 는 빈 칸 채우기뿐이라 새 값을 조용히 버린다. 먼저 덮으면 끊겨도 후보는 pending 이다.
+   * 덮기가 첫 장소 쓰기다(되살리기 다음). 후보는 끝(merged)까지 pending 이라 끊겨도 다시 누르면 같은 patch 가 나온다.
    */
-  it('되살린 뒤 칸을 덮고, 그다음 승인·출처·merged — 덮기 전 값을 applied.overwritten 에 남긴다', async () => {
+  it('되살린 뒤 칸을 덮고, 그다음 출처·merged — 덮기 전 값을 applied.overwritten 에 남긴다', async () => {
     const { calls, client } = createFakeClient();
     const target = placeRow({
       id: 'place-x',
@@ -680,18 +695,17 @@ describe("approveGroup — '최신본으로 저장하기'(overwrite)", () => {
     expect(trace(calls)).toEqual([
       'places.update:published',
       'places.update:features+pet_policy_text+pet_policy',
-      'candidates.update:approved',
       'place_sources.upsert:place_id+post_url',
       'candidates.update:merged',
     ]);
     expect(outcome).toMatchObject({ kind: 'merged', overwrittenKeys: ['features', 'pet_policy_text', 'pet_policy'] });
-    const applied = (calls[4].payload.extracted as TCandidateExtracted).applied as { overwritten: Record<string, unknown> };
+    const applied = (calls[3].payload.extracted as TCandidateExtracted).applied as { overwritten: Record<string, unknown> };
     expect(applied.overwritten).toEqual({ features: '옛 소개', pet_policy_text: '옛 조건', pet_policy: null });
     // review_url 은 덮지 않는다 — 합치기의 빈 칸 채우기에도 차 있어 안 들어간다.
     expect(target.review_url).toBe('https://old.example/1');
   });
 
-  it('덮기가 실패하면 후보는 승인 표시 전이다(pending 그대로)', async () => {
+  it('덮기가 실패하면 후보는 pending 그대로다', async () => {
     const { calls, client } = createFakeClient(0);
     const target = placeRow({ id: 'place-9', name: '살레', features: '옛 소개' });
     const lead = candidate({ match_place_id: 'place-9', extracted: extracted({ name: '살레', features: '새 소개', match: { confidence: 0.9, reason: '', tier: 'auto' } }) });

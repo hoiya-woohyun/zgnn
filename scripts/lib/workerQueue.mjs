@@ -1,5 +1,6 @@
 // 상주 워커가 "할 일" 을 세는 얇은 DB 호출(docs/todo/17 T3.1). 판단은 `workerLoop.mjs`, 여기는 질의뿐이다.
 // 큐는 대부분 기존 표의 상태 칸이다(ADR-024 결정 2) — 새 표는 `pipeline_requests` 하나. 수만 세는 질의는 `head: true` 로 행을 받지 않는다.
+import { settledApprovedFilter } from '../analyze/applyApproved.mjs';
 import { isTableMissing } from './collectRequests.mjs';
 
 /** 표나 칸이 원격에 없나(마이그레이션 미적용). 칸 없음은 Postgres 42703 · PostgREST 가 schema cache 를 말하는 꼴. */
@@ -43,7 +44,8 @@ export async function readWorkerState(client) {
   const [collectQueued, requestedPosts, approved, requests] = await Promise.all([
     count(client.from('collect_requests').select('id', head).eq('status', 'queued'), '추가 수집 요청'),
     count(client.from('blog_posts').select('url', head).is('analyzed_at', null).not('requested_at', 'is', null), '요청 글'),
-    count(client.from('candidates').select('id', head).eq('status', 'approved'), '승인 후보'),
+    // 반영이 고르는 것과 같은 식(막 승인된 행은 묵힌다) — 다르면 반영이 건너뛴 행이 수에 남아 재시도 간격(30분)에 걸린다.
+    count(client.from('candidates').select('id', head).eq('status', 'approved').or(settledApprovedFilter(Date.now())), '승인 후보'),
     client.from('pipeline_requests').select('id, kind, args, status, taken_at').in('status', ['queued', 'taken']).order('requested_at', { ascending: true }),
   ]);
   if (requests.error) throw new Error(`pipeline_requests 조회 실패: ${requests.error.message}`);

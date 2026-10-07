@@ -1,9 +1,12 @@
 /**
  * 승인·반려를 DB 에 쓰는 순서 — `scripts/apply-approved.mjs` 와 **같은 규칙·같은 필드**다(ADR-018).
  *
- * 왜 같아야 하나: 두 도구가 같은 테이블에 쓴다. 중간에 실패하면 후보가 `approved` 로 남고 터미널의
- * `pnpm data apply` 가 그대로 이어받는데, 규칙이 다르면 이어받은 쪽이 다른 값을 쓴다 — `places` 가 조용히 오염된다.
- * 그래서 병합 규칙(빈 칸만 채움)·재대조·place_sources 는 전부 그 스크립트가 쓰는 순수 함수를 그대로 부른다.
+ * 왜 같아야 하나: 두 도구가 같은 테이블에 쓴다. 규칙이 다르면 같은 가게가 어느 쪽으로 들어왔느냐에 따라 다른 값이 된다 —
+ * `places` 가 조용히 오염된다. 그래서 병합 규칙(빈 칸만 채움)·재대조·place_sources 는 전부 그 스크립트가 쓰는 순수 함수를 그대로 부른다.
+ *
+ * 다만 이 화면은 후보를 **`approved` 로 거쳐 가지 않는다** — pending 에서 곧바로 merged 다(`markMerged`, docs/todo/17 리뷰 18).
+ * 상주 워커가 approved 를 보는 순간 반영하므로, 승인 표시와 merged 사이에 보이는 approved 는 쌍둥이 장소의 창이었다.
+ * 중간에 실패하면 후보는 pending 그대로이고(새 장소였다면 짝만 적힌 채) 다시 누르면 이어진다.
  *
  * PostgREST 에는 **트랜잭션이 없다.** 그래서 순서가 곧 안전장치다 —
  *  (1) 쓰기 전에 순수 검사와 대상 판정을 끝낸다(막힌 후보는 DB 를 건드리지 않는다),
@@ -183,15 +186,6 @@ const failIf = (step: string, error: { message: string } | null) => {
  */
 export const EDITED_NOTE = '[admin] 고침';
 
-/** 후보를 approved 로. `reviewed_at` 은 적지 않는다 — 트리거가 찍는다(20260928150000:14-31). */
-async function markApproved(client: SupabaseClient, row: TCandidateRow): Promise<void> {
-  const { error } = await client
-    .from('candidates')
-    .update({ status: 'approved', reviewer_note: appendReviewerNote(row.reviewer_note, '[admin] 승인') })
-    .eq('id', row.id);
-  failIf('후보 승인 표시', error);
-}
-
 /**
  * 기존 장소의 **빈 칸만** 채운다. 사람이 쓴 칸은 AI 가 덮지 않는다는 원칙이 `mergeIntoExisting` 안에 있다.
  * 채운 컬럼 이름을 돌려준다(화면이 "무엇을 채웠는지" 를 말하고, `extracted.applied` 에 남는다).
@@ -222,6 +216,11 @@ async function linkSource(client: SupabaseClient, placeId: string, postUrl: stri
 /**
  * 후보를 merged 로 + 어느 장소의 어느 칸을 채웠는지. 되돌릴 때 그 칸을 비우면 된다(빈 칸만 채웠으므로).
  *
+ * **승인 표시(`approved`)를 따로 쓰지 않는다** — pending 에서 곧바로 merged 다(docs/todo/17 리뷰 18). 예전에는 approved → places 쓰기 → merged 였는데,
+ * 그 사이 approved 인 행을 상주 워커의 `pnpm data apply` 가 집으면 짝(`match_place_id`)이 아직 없어 같은 가게를 한 번 더 insert 했다(쌍둥이).
+ * 그래서 승인 메모와 `reviewed_at` 도 이 한 번의 update 에 싣는다 — 트리거(`candidates_set_reviewed_at`)는 approved·rejected 로 바뀔 때만 찍으므로
+ * merged 로 곧장 가면 비고, 운영 현황의 "승인 수"(`reviewed_at` 기준)가 0 이 된다. merged 에는 트리거가 손대지 않아 적은 값이 남는다.
+ *
  * 예외가 하나다 — **`status`**. draft 대상을 올린 승인은 그 키도 `patchKeys` 에 들어가는데(위 `fillBlanks`),
  * 그것은 빈 칸을 채운 게 아니라 상태를 바꾼 것이고 컬럼은 NOT NULL + check 다(`20260920124849_zgnn_schema.sql`).
  * 되돌릴 때 이 키만은 비우지 말고 `'draft'` 로 되돌린다.
@@ -240,7 +239,12 @@ async function markMerged(
 ): Promise<void> {
   const { error } = await client
     .from('candidates')
-    .update({ status: 'merged', extracted: { ...row.extracted, applied } })
+    .update({
+      status: 'merged',
+      extracted: { ...row.extracted, applied },
+      reviewer_note: appendReviewerNote(row.reviewer_note, '[admin] 승인'),
+      reviewed_at: applied.at,
+    })
     .eq('id', row.id);
   failIf('반영 완료 표시', error);
 }
@@ -353,7 +357,7 @@ export async function approveGroup(
 
   /*
    * 되살리기를 골랐으면 그것이 **첫 쓰기**다. 순서를 이렇게 두는 이유 — 뒤가 죽어도 장소는 `published` 로 남아
-   * 다음 빌드에 사이트로 돌아오고, 남은 일(빈 칸 채우기)은 후보가 `approved` 로 남아 `pnpm data apply` 가 이어받는다.
+   * 다음 빌드에 사이트로 돌아오고, 후보는 pending 그대로라 다시 누르면 이어진다(이미 게시중이라 되살리기는 건너뛴다).
    * 반대 순서면 "승인은 됐는데 장소는 여전히 내려 있는" 상태로 끊기고, 그건 화면에서 보이지 않는다.
    */
   let restoredName: string | null = null;
@@ -366,16 +370,20 @@ export async function approveGroup(
    * 되살리기가 커밋된 뒤에 뒷단계가 죽으면 **장소는 이미 게시중**이다. 그 사실을 실패 문구에 실어야 한다 —
    * 안 실으면 사람이 그 자리에서 '아니에요' 를 누르고(그건 `candidates` 만 건드린다) 내렸던 곳이 다음 빌드에
    * 사이트로 돌아간다. '올린 장소' 칸에서는 그냥 평범한 '게시중' 한 줄로 보여 흔적이 `archive_note` 한 줄뿐이다.
-   */
-  /*
-   * **최신본으로 덮기는 승인 표시보다 먼저** 쓴다. 뒤에서 끊기면 후보가 `approved` 로 남아 `pnpm data apply` 가 이어받는데,
-   * CLI 는 빈 칸 채우기뿐이라 이어받은 쪽이 새 값을 조용히 버린다. 먼저 덮으면 실패해도 후보는 pending 그대로이고,
-   * 다시 누르면 같은 patch 가 또 나온다(이미 덮인 칸은 "같다" 로 빠진다 — 두 번 눌러도 안전하다).
+   * 후보는 끝(`markMerged`)까지 pending 이라 뒤의 어느 단계에서 죽어도 같은 말이 필요하다 — 그래서 쓰기 전부를 감싼다.
    */
   let overwritten: Record<string, unknown> | undefined;
   let overwrittenKeys: string[] = [];
   const verifiedColumn = hasVerifiedColumn(places);
+  let placeId: string;
+  let placeName: string;
+  let kind: 'created' | 'merged';
+  let patchKeys: string[];
   try {
+    /*
+     * **최신본으로 덮기가 가장 먼저**다. 뒤에서 끊겨도 후보는 pending 그대로이고, 다시 누르면 같은 patch 가 또 나온다
+     * (이미 덮인 칸은 "같다" 로 빠진다 — 두 번 눌러도 안전하다).
+     */
     if (target && opts.overwrite) {
       // 제안이 있으면 '새 값' 은 제안 값이다(11 T2.2) — 화면의 전·후 목록과 같은 `withProposal` 을 지나야 본 것과 덮이는 것이 같다.
       const latest = withProposal(lead.extracted, liveProposal(group.rows), target);
@@ -388,62 +396,55 @@ export async function approveGroup(
         overwrittenKeys = Object.keys(plan.patch);
       }
     }
-    await markApproved(client, lead);
+
+    if (target) {
+      patchKeys = [...overwrittenKeys, ...(await fillBlanks(client, target, lead))];
+      placeId = target.id;
+      placeName = target.name;
+      kind = 'merged';
+    } else {
+      let created: TPlaceRow;
+      try {
+        // 승인 즉시 published — draft 로 넣으면 Studio 를 또 열어야 해 이 화면을 만든 이유가 사라진다(ADR-018).
+        created = {
+          ...(toNewPlaceRow(lead, { id: opts.newId(), environmentColumn: places.some((place) => 'stay_environment' in place) }) as unknown as TPlaceRow),
+          status: 'published',
+        };
+      } catch (e) {
+        // leadProblem 이 같은 규칙을 먼저 보므로 여기 오지 않는 게 정상이다 — 오면 그 함수의 메시지를 그대로 보여 준다.
+        // 이 갈래(짝 없음)에서는 아직 아무것도 쓰지 않았다 — 후보는 pending 그대로다.
+        return { kind: 'blocked', reason: e instanceof Error ? e.message : '장소 행을 만들지 못했어요.' };
+      }
+      const insert = await client.from('places').insert(created);
+      failIf('장소 추가', insert.error);
+      places.push(created);
+      // insert 직후 후보에 새 id 를 묶는다 — 다음 단계에서 죽어도 다시 누른 승인이 그 짝으로 합쳐 두 번째 insert 를 하지 않게(파일 머리 주석 (2)).
+      const writeBack = await client.from('candidates').update({ match_place_id: created.id }).eq('id', lead.id);
+      failIf('새 장소와 짝 맺기', writeBack.error);
+      lead.match_place_id = created.id;
+      target = created;
+      placeId = created.id;
+      placeName = created.name;
+      kind = 'created';
+      patchKeys = [];
+    }
+
+    await linkSource(client, placeId, lead.post_url);
+    await markMerged(client, lead, { placeId, kind, patchKeys, at: opts.nowIso, ...(overwritten ? { overwritten } : {}) });
+
+    // 같은 가게를 말하는 나머지 글들 — 대표가 정한 장소로 보강만 한다(새로 만들지 않는다).
+    for (const row of group.rows) {
+      if (row.id === lead.id) continue;
+      const keys = await fillBlanks(client, target, row);
+      await linkSource(client, placeId, row.post_url);
+      await markMerged(client, row, { placeId, kind: 'merged', patchKeys: keys, at: opts.nowIso });
+    }
   } catch (error) {
     throw restoredName
       ? new Error(
           `${error instanceof Error ? error.message : String(error)} — ${restoredName} 은 이미 게시중으로 돌아갔어요. 반려하려면 '올린 장소' 에서 다시 내려 주세요.`,
         )
       : error;
-  }
-
-  let placeId: string;
-  let placeName: string;
-  let kind: 'created' | 'merged';
-  let patchKeys: string[];
-
-  if (target) {
-    patchKeys = [...overwrittenKeys, ...(await fillBlanks(client, target, lead))];
-    placeId = target.id;
-    placeName = target.name;
-    kind = 'merged';
-  } else {
-    let created: TPlaceRow;
-    try {
-      // 승인 즉시 published — draft 로 넣으면 Studio 를 또 열어야 해 이 화면을 만든 이유가 사라진다(ADR-018).
-      created = {
-        ...(toNewPlaceRow(lead, { id: opts.newId(), environmentColumn: places.some((place) => 'stay_environment' in place) }) as unknown as TPlaceRow),
-        status: 'published',
-      };
-    } catch (e) {
-      // leadProblem 이 같은 규칙을 먼저 보므로 여기 오지 않는 게 정상이다 — 오면 그 함수의 메시지를 그대로 보여 준다.
-      // 이 자리는 approved 를 이미 적은 뒤다(두 규칙이 어긋났다는 뜻). 후보는 approved 로 남아 `pnpm data apply` 가
-      // 이어받아 같은 이유로 pending 으로 되돌리고 reviewer_note 에 사유를 적는다 — 잃어버리지는 않는다.
-      return { kind: 'blocked', reason: e instanceof Error ? e.message : '장소 행을 만들지 못했어요.' };
-    }
-    const insert = await client.from('places').insert(created);
-    failIf('장소 추가', insert.error);
-    places.push(created);
-    // insert 직후 후보에 새 id 를 묶는다 — 다음 단계에서 죽어도 재시도가 두 번째 insert 를 하지 않게(파일 머리 주석 (2)).
-    const writeBack = await client.from('candidates').update({ match_place_id: created.id }).eq('id', lead.id);
-    failIf('새 장소와 짝 맺기', writeBack.error);
-    target = created;
-    placeId = created.id;
-    placeName = created.name;
-    kind = 'created';
-    patchKeys = [];
-  }
-
-  await linkSource(client, placeId, lead.post_url);
-  await markMerged(client, lead, { placeId, kind, patchKeys, at: opts.nowIso, ...(overwritten ? { overwritten } : {}) });
-
-  // 같은 가게를 말하는 나머지 글들 — 대표가 정한 장소로 보강만 한다(새로 만들지 않는다).
-  for (const row of group.rows) {
-    if (row.id === lead.id) continue;
-    await markApproved(client, row);
-    const keys = await fillBlanks(client, target, row);
-    await linkSource(client, placeId, row.post_url);
-    await markMerged(client, row, { placeId, kind: 'merged', patchKeys: keys, at: opts.nowIso });
   }
 
   // 운영자가 이 가게를 보고 통과시켰다 — "최근 확인" 날짜(ADR-021 R5). 칸이 원격에 없으면 건너뛴다(새 행은 칸 키가 없어 장부 전체로 본다).

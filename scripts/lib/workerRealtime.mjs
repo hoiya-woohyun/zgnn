@@ -4,12 +4,14 @@
 // 토큰 — 이벤트도 RLS 를 거친다. 채널이 세션 JWT 를 싣는 것은 `createSupabase` 의 `realtime.accessToken` 콜백이다(거기 주석: `setAuth(jwt)` 는 heartbeat 가 되돌린다).
 // 그래서 재로그인 뒤 할 일은 `setAuth` 가 아니라 **새 클라이언트로 다시 구독**(`restart`)이다 — 옛 클라이언트의 콜백은 옛 토큰을 쥐고 있다.
 
+import { APPROVED_QUIET_MS } from '../analyze/applyApproved.mjs';
+
 /**
- * 승인 이벤트를 이만큼 묵힌 뒤 깨운다. `/admin` 「맞아요」 는 승인과 반영을 한 번에 하는데 순서가 approved → places insert → match_place_id → merged 라,
- * 1초 만에 깬 apply 가 그 사이(approved 인데 짝이 없다)를 읽으면 같은 가게를 **한 번 더 insert** 한다(쌍둥이 — 빌드·테스트는 통과).
- * 묵히면 브라우저가 merged 로 닫은 뒤라 셀 것이 0 이다. 줄일 뿐 없애지는 못한다(느린 네트워크) — 폴링에도 같은 창이 있었다. 승인 → 반영 수용 기준은 60초라 여유가 있다.
+ * 승인 이벤트를 이만큼 묵힌 뒤 깨운다 — apply 가 막 승인된 행을 `APPROVED_QUIET_MS`(60초) 동안 건너뛰므로(쌍둥이 안전망, docs/todo/17 리뷰 18)
+ * 그보다 일찍 깨면 셀 것이 0 이라 헛바퀴다. 그 창이 지난 직후에 깨운다.
+ * (`/admin` 「맞아요」 는 이제 approved 를 거치지 않아 이 이벤트를 내지 않는다 — 오는 것은 Studio 손 승인·캐시된 옛 화면뿐이다.)
  */
-export const APPROVED_SETTLE_MS = 5_000;
+export const APPROVED_SETTLE_MS = APPROVED_QUIET_MS + 1_000;
 
 /** 워커가 듣는 변경. `blog_posts` 는 replica identity default 라 old 값이 없어 "requested_at 이 새로 생김" 을 못 가른다 — 새 행만 보고 `shouldWake` 가 거른다. */
 export const REALTIME_BINDINGS = Object.freeze([

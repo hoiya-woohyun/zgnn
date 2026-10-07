@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { homepageColumns, mergeIntoExisting, overwriteWithLatest, toNewPlaceRow, toRecheckCandidate } from './applyApproved.mjs';
+import { APPROVED_QUIET_MS, homepageColumns, mergeIntoExisting, overwriteWithLatest, settledApprovedFilter, toNewPlaceRow, toRecheckCandidate } from './applyApproved.mjs';
 
 // places 행(snake_case) — 시드된 86곳 중 하나의 모양. 사람이 쓴 features·pet_policy_text 가 들어 있다.
 const solsup = {
@@ -399,5 +399,13 @@ describe('stay_environment — 숙소 환경(10 F6)', () => {
   it('덮어쓰기는 다를 때만', () => {
     expect(overwriteWithLatest({ ...solsup, stay_environment: env }, withEnv)?.patch.stay_environment).toBeUndefined();
     expect(overwriteWithLatest({ ...solsup, stay_environment: null }, withEnv)?.patch.stay_environment).toEqual(env);
+  });
+});
+
+describe('settledApprovedFilter — 막 승인된 행은 묵힌다(17 리뷰 18)', () => {
+  it('reviewed_at 이 없거나(analyze 의 auto insert) 60초보다 옛것만', () => {
+    const now = Date.parse('2026-10-07T03:00:00.000Z');
+    expect(settledApprovedFilter(now)).toBe(`reviewed_at.is.null,reviewed_at.lt.2026-10-07T02:59:00.000Z`);
+    expect(APPROVED_QUIET_MS).toBe(60_000);
   });
 });

@@ -1,6 +1,7 @@
 # ADR-018 — 검수는 앱 안 숨은 화면(`/admin`)에서 하고, 승인이 곧 반영이다
 
-> 최종 수정: 2026-10-06 (v7: **결정 9 에 뒤쪽 합치기를 더한다** — 트리거는 훅을 부르지 않고 `queued` 줄만 세우고, pg_cron 이 1분마다
+> 최종 수정: 2026-10-07 (v8: **결정 4 의 순서에서 `approved` 를 뺀다** — 후보는 pending → (places 쓰기) → `merged` 한 번에 닫고 승인 메모·`reviewed_at` 을 그 update 에 싣는다. 상주 워커([ADR-024](ADR-024-local-worker-and-db-queues.md))가 `approved` 를 큐로 보면서 그 사이에 apply 가 끼어 쌍둥이를 넣을 수 있게 됐다(todo/17 리뷰 18). 「왜」 의 '트랜잭션이 없는 것이 안전한 자리' 는 이제 '다시 누르면 이어진다' 다)
+> 이전 2026-10-06 (v7: **결정 9 에 뒤쪽 합치기를 더한다** — 트리거는 훅을 부르지 않고 `queued` 줄만 세우고, pg_cron 이 1분마다
 > 줄이 60초 조용해지면 **한 번** 부른다(`20261006130000_rebuild_coalesce.sql`). 일괄 올리기 36곳이 훅 36번 → 시간당 60 한도의 429(BUG-011)를 막는다.
 > 머리글은 한 행을 한 호출로 읽고("N곳 묶어 한 번"), `queued` 가 5분 넘게 남으면 cron 이 안 돈다고 말한다. 결정 1~8·10~12 는 그대로다)
 > 이전 2026-10-04 (v6: **결정 12 를 더한다** — 올린 장소는 `/admin` 의 등록 완료 칸에서 칸 전부를 고친다(주소·좌표 셋뿐이던 것을 넓혔다).
@@ -50,7 +51,7 @@ Supabase Studio 는 표 편집기라 `extracted` JSON 을 눈으로 읽어야 �
    가운데 것이 조용히 깨진다. 원격 JWT expiry 가 **43200초(12시간)** 이므로 **하루에 한 번 재로그인**이 이 화면의 값이다. 수명이 하루를 넘는 토큰은 CLI 처럼 거부한다.
    비운영자는 빈 목록으로 속이지 않고 "검수 권한이 없어요" 를 그린다(RLS 는 에러가 아니라 빈 결과를 주기 때문에, 화면이 `rpc('is_operator')` 로 따로 묻는다).
 4. **승인은 화면이 `places` 까지 쓴다 — `scripts/apply-approved.mjs` 와 같은 순서·같은 필드로.**
-   후보 `approved`(트리거가 `reviewed_at`) → 병합이면 **빈 칸만** 채우는 patch, 신규면 `places.insert` 후 **즉시** 후보에 `match_place_id` 적기 →
+   (v8: `approved` 를 거치지 않는다 — 아래 순서 뒤 `merged` 에 승인 메모·`reviewed_at` 을 함께 적는다.) 병합이면 **빈 칸만** 채우는 patch, 신규면 `places.insert` 후 **즉시** 후보에 `match_place_id` 적기 →
    `place_sources` upsert → `merged` + `extracted.applied`. 분석 때 '신규' 였던 후보는 insert 전에 현재 장소와 다시 대조한다(같은 가게를 말하는 글 둘이 따로 승인되는 경우).
    **신규 장소는 곧바로 `status = 'published'`** 다 — [03](../todo/03-analyze-and-review.md) 의 🙋 "draft 를 생략하고 바로 published 로 갈지" 가 여기서 닫힌다.
    draft 로 넣으면 승인 뒤에 Studio 를 또 열어야 하고, 그러면 이 화면을 만든 이유(요구 3)가 사라진다.
@@ -170,7 +171,7 @@ Supabase Studio 는 표 편집기라 `extracted` JSON 을 눈으로 읽어야 �
 - **화면이 CLI 와 다른 규칙으로 쓰면 `places` 가 조용히 오염된다.** 그래서 순수 로직(`matchPlace`·`mergeIntoExisting`·`toNewPlaceRow`·`parseRegion`·`groupCandidates`·`previewPolicy`)을
   TS 로 옮겨 두 벌로 만들지 않고, 브라우저가 `scripts/` 의 그 `.mjs` 를 **그대로 import** 한다. 그러려면 `scripts/lib/placeFields.mjs` 가 순수해야 해서
   `writeDataJson`(`node:fs`)만 `scripts/lib/dataJson.mjs` 로 떼어 냈고, 공개 상수는 `scripts/lib/supabasePublic.mjs`(import 없는 모듈)로 내렸다.
-- **트랜잭션이 없는 것이 오히려 안전한 자리다.** PostgREST 에 트랜잭션이 없어 승인 중간에 실패하면 후보가 `approved` 로 남는다.
+- **트랜잭션이 없는 것이 오히려 안전한 자리다.** (v8 부터는 중간에 실패하면 후보가 `pending` 으로 남고, 신규는 짝을 먼저 적어 뒀으므로 다시 누르면 그 장소로 합친다. 아래는 v7 까지의 설명이다.) PostgREST 에 트랜잭션이 없어 승인 중간에 실패하면 후보가 `approved` 로 남는다.
   같은 규칙을 쓰는 `pnpm data:apply` 가 그 상태를 그대로 이어받으므로 복구 경로가 이미 있다. 화면은 실패를 삼키지 않고 그대로 보여 준다 —
   삼키면 사람이 두 번 누르고 장소가 두 개 생긴다. 카드의 빨간 줄은 메모리에만 있어 새로고침하면 사라지므로, 머리글 아래에 `approved` 후보 수를 세어
   "터미널에서 `pnpm data:apply`" 를 가리킨다 — 그 줄이 없으면 이어받을 일이 있다는 사실 자체가 화면에서 사라진다.

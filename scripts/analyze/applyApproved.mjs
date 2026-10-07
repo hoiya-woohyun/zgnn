@@ -325,3 +325,20 @@ export function toRecheckCandidate(candidate) {
     regionRaw: text(extracted.regionRawAi) ?? text(extracted.regionRaw) ?? undefined,
   };
 }
+
+/**
+ * 막 승인된 후보는 이만큼 묵힌 뒤 반영한다(docs/todo/17 리뷰 18의 안전망). 승인한 쪽이 아직 쓰는 중일 수 있다 —
+ * 예전 `/admin` 은 approved → places insert → `match_place_id` → merged 순으로 썼고, 그 사이에 apply 가 집으면 같은 가게를 한 번 더 넣었다.
+ * 지금 `/admin` 은 approved 를 거치지 않지만(adminApply.ts `markMerged`) 캐시된 옛 화면·Studio 손 승인이 남는다.
+ * `reviewed_at` 은 트리거가 approved 로 **바뀔 때만** 찍는다 — analyze 가 auto 구간을 approved 로 **insert** 한 행은 null 이라 바로 집힌다.
+ */
+export const APPROVED_QUIET_MS = 60_000;
+
+/**
+ * 반영해도 되는 approved 행 — PostgREST `or` 필터 문자열(`reviewed_at` 이 없거나 `APPROVED_QUIET_MS` 보다 옛것).
+ * apply 의 고르기와 상주 워커의 세기(`workerQueue.readWorkerState`)가 **같은 식**을 써야 한다 — 세기만 묵힌 행을 세면
+ * 반영이 건너뛴 뒤 다시 센 수가 그대로라 워커가 재시도 간격(30분)을 기다린다.
+ */
+export function settledApprovedFilter(nowMs) {
+  return `reviewed_at.is.null,reviewed_at.lt.${new Date(nowMs - APPROVED_QUIET_MS).toISOString()}`;
+}

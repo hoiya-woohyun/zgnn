@@ -81,7 +81,7 @@ describe('startRealtime', () => {
     expect(events).toEqual(['collect', null, 'analyze:requested']);
   });
 
-  it('승인은 APPROVED_SETTLE_MS 묵혀 깨운다 — /admin 「맞아요」 가 반영을 끝내기 전에 apply 가 끼어들지 않게', () => {
+  it('승인은 APPROVED_SETTLE_MS 묵혀 깨운다 — apply 가 막 승인된 행을 건너뛰는 창(60초)이 지난 뒤에', () => {
     vi.useFakeTimers();
     try {
       const client = fakeClient();

@@ -19,7 +19,7 @@
 // 로그에 시크릿·응답 본문·헤더를 남기지 않는다 — 후보 id · 장소 id/이름 · 채울 컬럼명 · error.message 만(docs/todo/05).
 // 실행마다 `pipeline_runs` 에 한 행(scripts/lib/runLog.mjs, docs/todo/15 T2.4) — `--dry-run` 은 남기지 않는다. 기록이 안 돼도 반영은 그대로 돈다.
 import { randomUUID } from 'node:crypto';
-import { mergeIntoExisting, toNewPlaceRow, toRecheckCandidate } from './analyze/applyApproved.mjs';
+import { APPROVED_QUIET_MS, mergeIntoExisting, settledApprovedFilter, toNewPlaceRow, toRecheckCandidate } from './analyze/applyApproved.mjs';
 import { matchPlace, THRESHOLD } from './analyze/matchPlace.mjs';
 import { toMatchablePlace } from './lib/placeFields.mjs';
 import { beginRun, NO_RUN } from './lib/runLog.mjs';
@@ -51,12 +51,23 @@ export async function main(argv = process.argv.slice(2)) {
   }
 
   // 지금 규모(주 수십 건)는 supabase-js 기본 1000행 제한에 한참 못 미친다 — 늘어나면 range() 로 페이지네이션.
+  // **막 승인된 행(`reviewed_at` 60초 안)은 건너뛴다** — 승인한 쪽이 아직 places·짝을 쓰는 중일 수 있다(쌍둥이, `settledApprovedFilter` 주석).
+  const startedMs = Date.now();
   const { data: candidates, error: candidatesError } = await supabase
     .from('candidates')
     .select('*')
     .eq('status', 'approved')
+    .or(settledApprovedFilter(startedMs))
     .order('created_at', { ascending: true });
   if (candidatesError) throw new Error(`candidates 조회 실패: ${candidatesError.message}`);
+  {
+    const { count: fresh } = await supabase
+      .from('candidates')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'approved')
+      .gte('reviewed_at', new Date(startedMs - APPROVED_QUIET_MS).toISOString());
+    if (fresh) console.log(`막 승인된 후보 ${fresh}건은 건너뛴다(${APPROVED_QUIET_MS / 1000}초 안 — 승인한 쪽이 아직 쓰는 중일 수 있다). 다음 실행이 집는다`);
+  }
 
   // 신규 후보 재대조용 현재 장소 목록. 이 실행이 draft 를 만들면 여기에도 넣어 다음 후보가 그것과 대조되게 한다.
   // **archived 도 읽는다**(2026-09-29, analyze-candidates.mjs:130 과 같은 이유): 빼면 내린 곳을 쓴 후보가 재대조에서
