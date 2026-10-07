@@ -6,6 +6,7 @@ import { Heart, Map01 } from '@untitledui/icons';
 import { HomePageHero, PawMark } from './homePageHero';
 import { HomePageInstall } from './homePageInstall';
 import { HomePageIntro } from './homePageIntro';
+import { HomePageLandmarkChips } from './homePageLandmarkChips';
 import { HomeTypeCard } from './homeTypeCard';
 import { Button } from '../components/base/button';
 import { SeasonChips } from '../components/seasonChips';
@@ -116,6 +117,11 @@ export function HomePage() {
         <Button color="primary" size="lg" iconLeading={Map01} href="/map/" className="mt-3 w-full">
           지도로 보기
         </Button>
+      </section>
+
+      <section className="mt-8 px-4 md:px-6">
+        <h2 className="text-lg font-bold text-primary">지역으로 찾기</h2>
+        <HomePageLandmarkChips />
       </section>
 
       <section className="mt-8 px-4 md:px-6">

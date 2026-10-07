@@ -62,7 +62,9 @@ A·B·C 는 리뷰들이 쓰던 이름이다(A 등록 전 · B 등록, 저장 0 
 - 확인: 390px, 20kg 프로필로 홈 → 숙소 카드 "가능 7 · 확인 필요 3 / 26곳". 목록 머리의 수와 같다.
 - 커밋: `feat(home) - 종류 카드에 모수 — 가능·확인 필요 옆에 전체 수 (18 T1)`
 
-### [ ] T2 읍면 칩 → 관광지 칩 한 줄 (H2)
+### [x] T2 읍면 칩 → 관광지 칩 한 줄 (H2)
+
+> 메모(2026-10-07): 끝. 칩은 지금 27개(명세의 21 은 합치기 전 수). 칩 이름은 `name`, 검색어는 별칭 첫 말 — "협재·금능" 은 검색어로 안 읽힌다. 실측: 홈 "중문" → `/places/stay` 검색칸 "중문" 1곳 → 카페 탭에도 "중문" → 새로고침에 풀림(24곳), `town` 은 내내 null. 문서는 `docs/features/home-header.md` v7.
 
 - 근거: ux-expert M-5(홈 읍면 칩이 퍼시스트 `town` 을 걸어 종류 탭·다음 방문까지 남는다) · ADR-022.
 - 읽을 것: `src/screens/homeTypeCard.tsx`(`towns`·`goToTown` 블록) · `src/lib/landmarks.ts`(`LANDMARKS_BY_AREA`) · `src/screens/placesPage.tsx` 의 검색칸이 쓰는 `usePlacesPageFilterStore`(07 U3 메모) · `src/screens/placesPageActiveChips.tsx`
