@@ -12,7 +12,7 @@
  * - 3마리까지라 부분집합은 많아야 6개다 — 목록 전체에 돌려도 싸지만, 화면은 상세 한 곳에서만 부른다.
  */
 
-import { judgeEligibility, type TEligibility } from './eligibility';
+import { judgeEligibility, type TEligibility, type TEligibilityLevel } from './eligibility';
 import type { TPetPolicy } from './petPolicy';
 import type { TDogProfile } from '../types';
 
@@ -33,6 +33,31 @@ const properSubsets = <T>(items: readonly T[]): T[][] => {
   return subsets;
 };
 
+/**
+ * 비지 않은 진부분집합 중 **가장 많이 데려가는 조합** — 같은 수면 판정이 나은 쪽, 그다음 무거운 쪽.
+ * `judge` 가 그 조합의 판정을 내고, 받아들일 수 없는 조합이면 `null`. 장소 하나(`dogSubsetWhatIf`)와
+ * 하루 묶음(`tripEligibility`)이 무엇을 "된다" 로 치는지만 다르고 고르는 규칙은 같다.
+ */
+export function bestDogSubset<R extends { level: TEligibilityLevel }>(
+  dog: TDogProfile,
+  judge: (subset: TDogProfile) => R | null,
+): { names: string[]; result: R } | null {
+  let best: { names: string[]; result: R; weight: number } | null = null;
+  for (const dogs of properSubsets(dog.dogs)) {
+    const result = judge({ dogs, carrier: dog.carrier });
+    if (!result) continue;
+    const weight = dogs.reduce((sum, entry) => sum + entry.weightKg, 0);
+    const better =
+      !best ||
+      dogs.length > best.names.length ||
+      (dogs.length === best.names.length &&
+        (LEVEL_RANK[result.level] < LEVEL_RANK[best.result.level] ||
+          (LEVEL_RANK[result.level] === LEVEL_RANK[best.result.level] && weight > best.weight)));
+    if (better) best = { names: dogs.map((entry) => entry.name), result, weight };
+  }
+  return best ? { names: best.names, result: best.result } : null;
+}
+
 export function dogSubsetWhatIf(
   dog: TDogProfile,
   policy: TPetPolicy,
@@ -40,18 +65,9 @@ export function dogSubsetWhatIf(
   opts: { needsIndoor?: boolean } = {},
 ): TDogSubsetWhatIf | null {
   if (current.level !== 'hard' || dog.dogs.length < 2) return null;
-  let best: (TDogSubsetWhatIf & { weight: number }) | null = null;
-  for (const dogs of properSubsets(dog.dogs)) {
-    const eligibility = judgeEligibility({ dogs, carrier: dog.carrier }, policy, opts);
-    if (eligibility.level === 'hard' || eligibility.level === 'unknown') continue;
-    const weight = dogs.reduce((sum, entry) => sum + entry.weightKg, 0);
-    const better =
-      !best ||
-      dogs.length > best.names.length ||
-      (dogs.length === best.names.length &&
-        (LEVEL_RANK[eligibility.level] < LEVEL_RANK[best.eligibility.level] ||
-          (LEVEL_RANK[eligibility.level] === LEVEL_RANK[best.eligibility.level] && weight > best.weight)));
-    if (better) best = { names: dogs.map((entry) => entry.name), eligibility, weight };
-  }
-  return best ? { names: best.names, eligibility: best.eligibility } : null;
+  const best = bestDogSubset(dog, (subset) => {
+    const eligibility = judgeEligibility(subset, policy, opts);
+    return eligibility.level === 'hard' || eligibility.level === 'unknown' ? null : eligibility;
+  });
+  return best ? { names: best.names, eligibility: best.result } : null;
 }

@@ -90,7 +90,11 @@
   > 2026-10-07: 한 곳짜리 길찾기는 **먼저 들어갔다** — `lib/naverPlaceLink.ts` 의 `naverDirectionsUrl`(웹 `map.naver.com/p/directions/-/{lng},{lat},{name}/-/car`, 출발지 비움). 저장 카드마다 알약, 상세 액션 줄의 지도 칸. 지도 시트는 아직. 스킴(`nmap://`)이 아니라 웹 주소로 간 이유는 앱 유무 판별·타임아웃 폴백을 안 가지려고 — H.1 실측 때 웹 주소가 폰에서 앱으로 넘어가는지 같이 본다.
 
 **T2 — 2단계: 판정 결합**
-- [ ] T2.1 `tripEligibility.ts` — 하루의 장소들에 `eligibility` 를 모아 묶음 판정(`level` = 가장 나쁜 것, `reasons[]` = 장소별 걸린 이유, `subset` = `dogSubsetWhatIf` 를 묶음에 적용 — "이 날은 콩이만"). 테스트.
+- [x] T2.1 `tripEligibility.ts` — 하루의 장소들에 `eligibility` 를 모아 묶음 판정(`level` = 가장 나쁜 것, `reasons[]` = 장소별 걸린 이유, `subset` = `dogSubsetWhatIf` 를 묶음에 적용 — "이 날은 콩이만"). 테스트.
+  > 메모(2026-10-08): 들어갔다 — `tripEligibility(dog, places, { needsIndoor })` → `{ level, reasons, subset } | null`(빈 하루는 `null`). `reasons` 는 ok 아닌 곳마다 `{ id, level, reasons }`(info 제외, 나쁜 순 → 하루 순서).
+  > 고르는 규칙은 `dogSubsetWhatIf.ts` 의 `bestDogSubset(dog, judge)` 로 뺐다 — 장소 하나와 묶음이 "무엇을 된다로 치나" 만 다르다(장소 하나와 같은 답인 것을 테스트로 묶음).
+  > **장소 하나와 다른 점**: 묶음에선 원래 '정보 없음' 인 곳이 조합을 막지 않는다(정책에서 오는 판정이라 몇 마리든 같다 — 막으면 그런 곳이 한 곳만 끼어도 "콩이만" 을 못 한다). 그래서 `subset.level === 'unknown'` 이 나올 수 있는데 **실패가 아니다** —
+  > 어려운 곳은 다 풀렸고 정보 없는 곳이 남았을 뿐. T2.3 은 이것을 `headlineFor` 로 그대로 읽으면 안 된다("초코만 데려가면 확인된 정보가 없어요"). `reasons` 엔 U1(정보 없음) 근거가 남는다 — 상세 카드처럼 뺄지는 T2.3 이 정한다
 - [ ] T2.2 대안 — 걸린 장소와 같은 읍면·같은 종류에서 "가능" 인 곳 ≤3, 가까운 순. 상세의 "근처 장소" 와 같은 함수를 쓰되 **판정으로 거른다**. 테스트.
 - [ ] T2.3 화면 — 하루 머리의 묶음 판정 한 줄 + 걸린 장소 옆 "대신 △△". 임시안.
 
