@@ -100,6 +100,8 @@ SessionStart 훅(`.claude/hooks/uxEvalWeekly.mjs`)이 실행을 권한다. 몇 �
 | `ux-expert` | `iPhone 13` | UX 전문가. Nielsen 10 휴리스틱으로 보고, 접근성을 계측한다 — 터치 영역 44px 미만, WCAG 대비, 이름 없는 컨트롤, 12px 미만 글자, 키보드 포커스, 가로 스크롤 누수, prefers-reduced-motion. 데이터 품질은 카드 20장 이상을 표본으로 본다. | ① 8개 화면 각각 휴리스틱 위반을 찾는다 ② 모든 화면에서 44px 미만 터치 영역을 계측한다 ③ 텍스트 대비를 계측한다(WCAG AA) ④ 이름 없는 버튼·링크·입력을 찾는다 ⑤ 12px 미만 글자를 찾는다 ⑥ 키보드만으로 주요 흐름을 따라가며 포커스를 본다 ⑦ 가로 누수와 reduced-motion 동작을 본다 ⑧ 카드 20장 이상을 표본으로 이름·지역·조건·판정의 일관성과 빈칸을 본다 |
 
 과제는 프롬프트에 `1. … 2. …` 줄로 풀어 넣는다.
+`ux-expert` 는 과제 앞에 "8개 화면은 / · /places · /places/cafe · /map · /checklist · /dog · /saved · /settings 와, 목록에서 눌러 들어간 장소 상세 하나다" 를,
+Playwright 규칙 끝에 "reduced-motion 은 `page.emulateMedia({ reducedMotion: 'reduce' })`, 키보드는 `page.keyboard` · 8개 화면 전수 계측처럼 같은 측정을 반복할 때는 goto 를 써도 된다" 를 덧붙인다(2026-10-07 회차부터 — 그 회차와 비교된다).
 
 ## 4. 종합 (메인 — 평가가 다 끝난 뒤)
 
