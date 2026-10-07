@@ -595,6 +595,10 @@ describe('isQuotaExhausted — 구독 한도만, 일시 장애는 아니다', ()
     expect(isQuotaExhausted(cli({ result: "You've hit your limit · resets 3pm" }))).toBe(true);
     expect(isQuotaExhausted(cli({ result: '5-hour limit reached ∙ resets 3pm' }))).toBe(true);
     expect(isQuotaExhausted(cli({ api_error_status: 529, result: 'Overloaded' }))).toBe(false);
+    // 글 단위 오류 — 한도로 읽으면 그 글이 매번 앞줄에서 분석을 세운다(요청 글은 오래된 순)
+    expect(isQuotaExhausted(cli({ result: 'Context limit reached' }))).toBe(false);
+    expect(isQuotaExhausted(cli({ result: 'Prompt is too long' }))).toBe(false);
+    expect(isQuotaExhausted(cli({ result: 'Output token limit reached' }))).toBe(false);
     expect(isQuotaExhausted(cli({ api_error_status: 500, result: 'Internal server error' }))).toBe(false);
     expect(isQuotaExhausted(new ClaudeCliError('timeout', 'session limit', { retryable: true }))).toBe(false);
     expect(isQuotaExhausted(new Error('session limit'))).toBe(false);

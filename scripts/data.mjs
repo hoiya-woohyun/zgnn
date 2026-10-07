@@ -29,6 +29,7 @@ const USAGE = `사용법: pnpm data <하위 명령> [인자…]
   eval      추출 정확도 — golden [--force] · extract [--limit N] [--only …] [--refresh] · score [--prompt 버전]
 
   (없음)    상주 워커 — 터미널에 떠서 60초마다 DB 를 보고 once 를 돈다. 매일 09:00(KST) 키워드 전체 수집. 끝내려면 Ctrl-C
+            사람 터미널에서만(Claude Code 세션 안이면 거부) · 네이버 키는 env 나 ~/.zgnn-naver.env 에
             저수지(요청 안 된 미분석 글)는 자동으로 읽지 않는다 — /admin 의 「지금 분석」 요청으로만(ADR-024 결정 4)
   help      이 사용법`;
 

@@ -51,6 +51,12 @@ function sessionProblem() {
  */
 export async function main(argv, { mode, runStep }) {
   const resident = mode === 'resident';
+  // 상주 워커는 사람 터미널에서만 — 에이전트가 사용법을 보려고 `pnpm data` 를 치면 키체인 세션·네이버 키 파일로 진짜 수집·분석이 돌고,
+  // 셸 호출도 끝나지 않는다. `once` 는 막지 않는다(`--dry-run` 은 읽기만이고, 한 바퀴는 끝난다).
+  if (resident && process.env.CLAUDECODE) {
+    console.error('상주 워커(pnpm data)는 사람 터미널에서만 띄운다 — Claude Code 세션 안이다. 사용법은 pnpm data help, 계획만 보려면 pnpm data once --dry-run.');
+    return 1;
+  }
   let dryRun = false;
   if (!resident) {
     try {

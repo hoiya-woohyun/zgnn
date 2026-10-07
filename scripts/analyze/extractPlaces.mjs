@@ -440,8 +440,9 @@ function normalizePlace(raw) {
 // is_error 일 때 CLI 가 result(또는 errors[]) 에 넣어 주는 문구로 원인을 가른다. 문구는 버전에 따라 바뀔 수 있어 status 를 먼저 본다.
 // LIMIT_RE 는 단어 경계 없이 'limit'·'rate' 만 보면 'generated'·'separate' 를 담은 영구 오류까지 한도로 읽는다 — 구를 쓴다.
 const AUTH_RE = /not logged in|\/login|invalid api key|authentication|unauthorized/i;
-// `limit reached`·`hit your limit` 은 구독 5시간 창이 찼을 때의 CLI 문구다(`5-hour limit reached ∙ resets 3pm` 꼴) — 없으면 api_error 로 샜다.
-const LIMIT_RE = /rate.?limit|session limit|usage limit|limit reached|hit your limit|overloaded|too many requests|capacity/i;
+// `5-hour limit reached`·`hit your limit` 은 구독 창이 찼을 때의 CLI 문구다(`5-hour limit reached ∙ resets 3pm` 꼴) — 없으면 api_error 로 샜다.
+// 맨 `limit reached` 는 받지 않는다 — `Context limit reached` 같은 글 단위 오류까지 한도로 읽으면 그 글이 매번 앞줄에서 분석을 세운다.
+const LIMIT_RE = /rate.?limit|session limit|usage limit|(?:5-hour|weekly|usage|session) limit reached|hit your limit|overloaded|too many requests|capacity/i;
 
 // CLI 오류 결과는 두 모양이다(2.1.278 바이너리의 스키마): 로그인 실패처럼 subtype 이 'success' 인데 is_error 인 것(result 에 문구),
 // 그리고 subtype 이 'error_*' 인 것(result 없이 errors[]). 둘 다 여기로 온다.
@@ -597,7 +598,7 @@ export function isFatal(err) {
  * **구독 한도가 찼나**(5시간 창) — `limit` 중에서도 429 이거나 한도 문구인 것. 5xx·overloaded 는 한 번의 일시 장애라 아니다.
  * 찼으면 남은 글도 전부 같은 결과라 analyze 가 루프를 끊고, 상주 워커가 `rate-limited` 로 리셋 시각까지 잔다(docs/todo/17 T3.4).
  */
-const QUOTA_RE = /session limit|usage limit|limit reached|hit your limit/i;
+const QUOTA_RE = /session limit|usage limit|(?:5-hour|weekly|usage|session) limit reached|hit your limit/i;
 export function isQuotaExhausted(err) {
   return err?.name === 'ClaudeCliError' && err.code === 'limit' && (err.status === 429 || QUOTA_RE.test(err.message ?? ''));
 }
