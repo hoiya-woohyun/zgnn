@@ -108,7 +108,8 @@ const result = withLock(() => {
       save(claims);
       return `RESUME ${position(mine)} ${items.find((item) => item.title === mine).line}`;
     }
-    const free = items.find((item) => !claims[item.title]);
+    // 제목이 `🔒` 로 시작하면 사람이나 다른 세션이 손으로 잡아 둔 줄이다 — 레지스트리에 없어도 내주지 않는다.
+    const free = items.find((item) => !claims[item.title] && !item.title.startsWith('🔒'));
     if (!free) {
       save(claims);
       const taken = Object.keys(claims);
