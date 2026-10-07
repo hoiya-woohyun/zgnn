@@ -214,6 +214,19 @@ describe('placeEditPreview', () => {
     const { before, after } = placeEditPreview(row, { ...placeEditDraft(row), petPolicyText: '대형견 불가' });
     expect(before).not.toEqual(after);
   });
+
+  it('보정이 뺀 줄에 대 본 단서와 보정이 읽은 원문을 같이 낸다 — 폼이 그 원문에 칠한다', () => {
+    const row = place();
+    const draft = placeEditDraft(row);
+    const preview = placeEditPreview(row, {
+      ...draft,
+      petPolicyText: '  리드줄 착용 부탁드려요, 1층만 가능  ',
+      policy: { ...draft.policy, weightLimitKg: '10' },
+    });
+    expect(preview.policyText).toBe('리드줄 착용 부탁드려요, 1층만 가능');
+    expect(preview.dropped.map((d) => d.cue)).toContain('kg');
+    expect(preview.corrections).toEqual(preview.dropped.map((d) => d.note));
+  });
 });
 
 describe('updatePlace', () => {

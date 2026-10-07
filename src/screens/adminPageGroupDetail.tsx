@@ -15,6 +15,7 @@ import { cx } from '../utils/cx';
 import { AdminAddressLine } from './adminAddressLine';
 import { AdminChangeList } from './adminChangeList';
 import { AdminSourceChip, SOURCE_TONE } from './adminSource';
+import { AdminMarkedSpans } from './adminMarkedSpans';
 import { ADMIN_VERIFY_TEXT } from './adminTable';
 
 type TAdminPageGroupDetailProps = {
@@ -62,17 +63,7 @@ function Chips({ label, items }: { label: string; items: TPetBadge[] }) {
 function Quote({ text, empty, spans }: { text: string | null | undefined; empty: string; spans?: TTextSpan[] }) {
   return text?.trim() ? (
     <blockquote className="border-l-2 border-quaternary pl-2.5 whitespace-pre-line text-primary">
-      {spans
-        ? spans.map((span, index) =>
-            span.mark ? (
-              <mark key={index} className="rounded bg-warning-secondary px-0.5 font-semibold text-primary">
-                {span.text}
-              </mark>
-            ) : (
-              span.text
-            ),
-          )
-        : text}
+      {spans ? <AdminMarkedSpans spans={spans} /> : text}
     </blockquote>
   ) : (
     <span className="text-quaternary">{empty}</span>

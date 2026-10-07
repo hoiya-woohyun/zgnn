@@ -7,6 +7,7 @@ import { Input } from '../components/base/input';
 import { NO_AUTOFILL } from '../components/noAutofill';
 import { Select } from '../components/base/select';
 import { regionOptionsFor, TYPE_LABEL, type TPlaceRow } from '../lib/adminCandidates';
+import { correctionView } from '../lib/adminCorrection';
 import { EDITABLE_TYPES, type TPolicyDraft } from '../lib/adminEdit';
 import {
   placeCurrentText,
@@ -23,6 +24,7 @@ import { naverMapSearchUrl, naverPlacePhotoUrl, parseNaverPlaceId } from '../lib
 import type { TPetBadge } from '../lib/petPolicy';
 import { cx } from '../utils/cx';
 import { AdminChangeList } from './adminChangeList';
+import { AdminMarkedSpans } from './adminMarkedSpans';
 import { EDIT_GRID, EditRow, INDOOR_OPTIONS, TEXTAREA, TriButtons } from './adminPagePlaceEditFormParts';
 import { ADMIN_PANEL_DIVIDER, ADMIN_POLICY_TONE } from './adminTable';
 
@@ -72,6 +74,8 @@ export function AdminPagePlaceEditForm({
   const changes = placeEditChanges(place, draft);
   const changedKeys = new Set(changes.map((change) => change.key));
   const preview = placeEditPreview(place, draft);
+  // 검수 카드와 같은 칠하기(06 G) — 보정이 읽은 원문(`policyText`)에 다시 돌린다. 칠은 입력란이 아니라 미리보기 쪽 인용에.
+  const correction = correctionView(preview.policyText, preview.dropped);
   const placeHref = place.naver_url || naverPlacePhotoUrl(place.naver_place_id ?? undefined);
   const hasHomepage = 'homepage_url' in place;
   /* 좌표도 플레이스 id 도 없는 장소의 이름을 바꿀 때만 경고한다(`renameRisksTwin`) — 그때만 옛 이름의 새 글이 쌍둥이로 올라올 수 있다. */
@@ -286,8 +290,24 @@ export function AdminPagePlaceEditForm({
         <div className="md:border-l md:border-secondary md:pl-3">
           <p className="text-xs font-semibold text-secondary">저장하면</p>
           <BadgeChips badges={preview.after} />
-          {preview.corrections.length > 0 && (
-            <p className="mt-1 text-xs text-warning-primary">원문에 없어서 사이트가 빼고 보는 것: {preview.corrections.join(' · ')}</p>
+          {/*
+            * 색만으로 말하지 않는다 — 칠한 말을 줄마다 글로 다시 적고, 칠할 것이 없으면(근거 단어가 원문에 없다) 없는 말을 적는다.
+            * 칠한 곳 없는 인용만 남으면 "원문엔 문제가 없다" 로 읽힌다(검수 카드 `adminPageGroupDetail` 과 같은 규칙).
+            */}
+          {correction.lines.length > 0 && (
+            <div className="mt-2 space-y-1 text-xs">
+              <p className="text-warning-primary">원문에 없어서 사이트가 빼고 보는 것</p>
+              <blockquote className="border-l-2 border-quaternary pl-2.5 whitespace-pre-line text-primary">
+                <AdminMarkedSpans spans={correction.spans} />
+              </blockquote>
+              {correction.lines.map((line) => (
+                <div key={line.note} className="text-warning-primary">
+                  <p>{line.note}</p>
+                  {line.found.length > 0 && <p className="text-tertiary">원문에서 대 본 곳(칠함): {line.found.join(' · ')}</p>}
+                  {line.missing && <p className="text-tertiary">원문에 없는 말: {line.missing}</p>}
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </section>

@@ -11,6 +11,7 @@ import { regionOptionsFor, UPDATE_REJECT_REASONS, type TCandidateGroup, type TPl
 import type { TLatestPlan } from '../lib/adminLatest';
 import { lastNoteLine, noteLineText, PLACE_STATUS_COLOR, PLACE_STATUS_LABEL } from '../lib/adminPlaces';
 import type { TProposal } from '../lib/adminProposal';
+import { AdminMarkedSpans } from './adminMarkedSpans';
 import type { TAdminPageGroupState, TApproveChoice } from './adminPageGroupCard';
 import { AdminPageGroupSiteCompare } from './adminPageGroupSiteCompare';
 import { AdminPageRejectForm } from './adminPageRejectForm';
@@ -45,16 +46,7 @@ function Situation({ title, children }: { title: ReactNode; children?: ReactNode
 function AddressDiffLine({ label, address, other }: { label: string; address: string; other: string }) {
   return (
     <p>
-      {label} ·{' '}
-      {addressDiffSpans(address, other).map((span, index) =>
-        span.mark ? (
-          <mark key={index} className="rounded bg-warning-secondary px-0.5 font-semibold text-primary">
-            {span.text}
-          </mark>
-        ) : (
-          span.text
-        ),
-      )}
+      {label} · <AdminMarkedSpans spans={addressDiffSpans(address, other)} />
     </p>
   );
 }

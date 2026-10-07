@@ -16,7 +16,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { naverPlaceHomeUrl } from '../../scripts/analyze/applyApproved.mjs';
-import { correctPetPolicyFacts } from '../../scripts/lib/petPolicyFacts.mjs';
+import { correctPetPolicyFacts, type TCorrectionDrop } from '../../scripts/lib/petPolicyFacts.mjs';
 import { regionUsable, type TPlaceRow } from './adminCandidates';
 import {
   editChanges,
@@ -267,16 +267,21 @@ export function placeEditChanges(place: TPlaceRow, draft: TPlaceEditDraft): TEdi
  * 사이트의 동반 배지 — 지금 · 저장하면. **사이트와 같은 길**(`placeBadges`)이다. 후보 폼의 `editPreview`(`previewFor`) 를 쓰지 않는 이유는
  * 접힌 줄과 같다: 이 칸이 보여 줄 것은 "지금 나가 있는 것" 과 "저장하면 나갈 것" 이고, 두 길이 어긋나면 미리보기가 거짓말을 한다.
  * `corrections` 는 판단 중 원문에 근거가 없어 사이트가 빼고 보는 것(`correctPetPolicyFacts` — 사이트가 그릴 때마다 같은 보정이 돈다).
+ * `dropped` 는 같은 줄에 원문의 무엇과 대 봤는지를 붙인 것이고, `policyText` 는 그 보정이 읽은 원문 — 폼이 `correctionView` 로
+ * 칠할 문자열이 **보정이 읽은 것과 같아야** 구간이 맞는다(입력란 값이 아니라 다듬은 값).
  */
 export function placeEditPreview(
   place: TPlaceRow,
   draft: TPlaceEditDraft,
-): { before: TPetBadge[]; after: TPetBadge[]; corrections: string[] } {
+): { before: TPetBadge[]; after: TPetBadge[]; corrections: string[]; dropped: TCorrectionDrop[]; policyText: string } {
   const pair = petPolicyPair(place, draft);
+  const { corrections, dropped } = correctPetPolicyFacts(pair.policy, pair.text);
   return {
     before: placeBadges(place),
     after: placeBadges({ ...place, pet_policy_text: pair.text, pet_policy: pair.policy }),
-    corrections: correctPetPolicyFacts(pair.policy, pair.text).corrections,
+    corrections,
+    dropped,
+    policyText: pair.text,
   };
 }
 

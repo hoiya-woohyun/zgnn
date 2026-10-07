@@ -283,8 +283,11 @@ v5 에서 `올린 장소` 칸의 초안 행에 `올리기(게시중으로)` 버�
   > 펼친 카드의 조건 원문 인용을 칠한다 — 숫자는 원문에 있는 숫자, 모순은 원문 근거, **근거 단어 없음은 칠할 게 없어 `원문에 없는 말: …` 을 글로.**
   > 구간 자르기는 `spansOf`(`textSpans.ts`, 겹침 합침)로 꺼내 주소 칠하기와 나눠 쓴다. 고치기 폼(`editPreview`·`adminPlaceEdit`)의 같은 줄은 글뿐이다.
   > **화면은 못 봤다** — 판단 있는 후보 501건 중 보정 0건(원격 읽기로 실측)
-- [ ] **고치기 폼의 `원문에서 빼고 보는 것` 에도 같은 칠하기** — `adminPagePlaceEditForm.tsx:289`(장소 고치기)·`editPreview`(후보 고치기)는 아직 문장만 붙인다.
+- [x] **고치기 폼의 `원문에서 빼고 보는 것` 에도 같은 칠하기** — `adminPagePlaceEditForm.tsx:289`(장소 고치기)·`editPreview`(후보 고치기)는 아직 문장만 붙인다.
       `adminPlaceEdit.ts` 의 `placeEditPreview` 가 `dropped` 를 같이 돌려주면 `correctionView` 를 그대로 쓴다. 폼은 원문을 사람이 고치는 자리라 칠은 입력란 밖 미리보기에.
+  > 메모(2026-10-07): `placeEditPreview` 가 `dropped`·`policyText`(보정이 읽은 다듬은 원문)를 같이 내고, 폼의 "저장하면" 칸이 그 원문을 `correctionView` 로 칠한다.
+  > 칠 모양 `<mark>` 는 `AdminMarkedSpans`(`adminMarkedSpans.tsx`) 하나로 모아 주소 다름·검수 카드와 나눠 쓴다. **`editPreview`(후보 고치기)는 화면 호출처가 없다**(테스트만 부른다 — 후보 고치기 폼이 지금 화면에 없다) — 손대지 않았다.
+  > **화면은 못 봤다** — `/admin` 운영자 로그인이 필요하다(무게 상한만 넣고 원문에 kg 이 없으면 줄이 생긴다)
 - [x] **주소 불일치(`different`)** — `addressView` 가 다르다고 본 두 주소에서 도로명·건물번호처럼 실제로 다른 토큰만.
   > 메모(2026-10-07): `addressDiffSpans(address, other)`(`adminAddress.ts`) — `sameAddress` 와 같은 조각(`addressKey`)과 같은 규칙(양쪽에 있는 급만 · 같은 종류일 때만 이름·번호)으로 고른다. 도로명은 원문의 공백 갈림(`칠십리로 214번길`)도 찾고, 번호는 도로명 뒤에서만(`1100로` 의 숫자 안 칠함). 결정 줄 "어느 주소가 맞나요? 서로 다른 부분을 칠했어요" 두 줄에 `bg-warning-secondary` `<mark>`. **화면은 못 봤다** — 지금 검수 대기 92건 중 `주소 다름` 이 0건이다(로그인해서 확인). 경보 문장(`cross.text`) 안의 주소는 칠하지 않았다
 
