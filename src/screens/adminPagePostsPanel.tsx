@@ -1,8 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import { SearchLg } from '@untitledui/icons';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '../components/base/button';
-import { NEXT_POSTS, reopenSummary, type TBacklogCount, type TPostBacklog, type TPostCounts, type TReopenPlan } from '../lib/adminPosts';
+import { Checkbox } from '../components/base/checkbox';
+import { Input } from '../components/base/input';
+import { CARD_SURFACE } from '../components/cardSurface';
+import { EmptyState } from '../components/layout/emptyState';
+import { NO_AUTOFILL } from '../components/noAutofill';
+import {
+  NEXT_POSTS,
+  postPageCount,
+  reopenSummary,
+  rereadSummary,
+  type TBacklogCount,
+  type TPostBacklog,
+  type TPostCounts,
+  type TPostFilter,
+  type TPostPage,
+  type TPostRow,
+  type TReopenPlan,
+} from '../lib/adminPosts';
+import { cx } from '../utils/cx';
+import { AdminPagePostsPanelRow } from './adminPagePostsPanelRow';
 
 type TAdminPagePostsPanelProps = {
   /** undefined = 아직 못 셌다(조회 중이거나 실패 — `error` 가 이유). 건수 자체는 머리글(`PageHeader`)이 말한다. */
@@ -18,6 +38,18 @@ type TAdminPagePostsPanelProps = {
   onPlanReopen: () => Promise<TReopenPlan>;
   /** 계획대로 되돌린다 — 결과 한 줄을 돌려주고, 실패하면 던진다. */
   onReopen: (plan: TReopenPlan) => Promise<string>;
+  /** 이 칸이 열려 있나 — 글 목록은 처음 열 때 읽는다(칸은 `hidden` 으로 늘 마운트돼 있다). */
+  active: boolean;
+} & TPostListActions;
+
+/** 글 목록(09 T3.2)의 읽기·쓰기. 쓰기는 결과 한 줄을 돌려주고 실패하면 던진다 — 건수·후보 목록을 다시 읽는 것은 `adminPage` 몫이다. */
+type TPostListActions = {
+  onFetchPosts: (query: { filter: TPostFilter; page: number; excludedApplied: boolean }) => Promise<TPostPage>;
+  onExcludePosts: (urls: string[], note: string) => Promise<string>;
+  onUnexcludePosts: (urls: string[]) => Promise<string>;
+  /** 읽기만(잠금 없이). */
+  onPlanReread: (rows: TPostRow[]) => Promise<TReopenPlan>;
+  onReread: (plan: TReopenPlan) => Promise<string>;
 };
 
 type TStep = { busy?: boolean; confirming?: boolean; plan?: TReopenPlan; done?: string; error?: string };
@@ -51,6 +83,260 @@ function AdminPagePostsBacklogTable({ caption, head, rows }: { caption: string; 
   );
 }
 
+const PICKED_CHIP = 'ring-2! ring-brand!';
+
+type TBulkStep = { mode?: 'exclude' | 'reread'; plan?: TReopenPlan; busy?: boolean; error?: string };
+
+/**
+ * 수집한 글 목록(09 T3.2) — 세 칩이 전체를 나눈다(미분석 · 분석됨 · 제외, 분석된 뒤 제외한 글은 제외에만). 미분석 칩의 수는 머리글과 같은 `unanalyzed` 다.
+ * 고른 것은 **이 칸만의 집합**(글 url) — 검수 대기의 `selected` 와 키 공간이 달라 섞지 않는다. 걸러 보기·페이지를 바꾸면 비운다(안 보이는 줄에 일괄이 걸리지 않게).
+ * 쓰기가 끝나면 지금 페이지를 다시 읽는다 — 제외한 줄이 칩 밖으로 나가 페이지가 줄면 마지막 페이지로 물러선다.
+ */
+function AdminPagePostsList({
+  counts,
+  active,
+  onFetchPosts,
+  onExcludePosts,
+  onUnexcludePosts,
+  onPlanReread,
+  onReread,
+}: { counts: TPostCounts; active: boolean } & TPostListActions) {
+  const excludedApplied = counts.excluded !== null;
+  const [filter, setFilter] = useState<TPostFilter>('unanalyzed');
+  const [page, setPage] = useState(0);
+  const [load, setLoad] = useState<{ data?: TPostPage; error?: string; busy?: boolean }>({});
+  const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set());
+  const [bulk, setBulk] = useState<TBulkStep>({});
+  const [bulkNote, setBulkNote] = useState('');
+  const [notice, setNotice] = useState<string | undefined>(undefined);
+  const askedRef = useRef(false);
+
+  const read = async (nextFilter: TPostFilter, nextPage: number) => {
+    setLoad((prev) => ({ ...prev, busy: true, error: undefined }));
+    try {
+      let data = await onFetchPosts({ filter: nextFilter, page: nextPage, excludedApplied });
+      const last = postPageCount(data.total) - 1;
+      if (nextPage > last) {
+        data = await onFetchPosts({ filter: nextFilter, page: last, excludedApplied });
+        setPage(last);
+      }
+      setLoad({ data });
+    } catch (error) {
+      setLoad({ error: messageOf(error) });
+    }
+  };
+
+  // 칸을 처음 열 때 한 번(백로그와 같은 길). 탭을 오가는 것만으로는 다시 읽지 않는다 — 쓰기 뒤와 칩·페이지를 누를 때만.
+  useEffect(() => {
+    if (!active || askedRef.current) return;
+    askedRef.current = true;
+    void read(filter, page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 처음 한 번만. 그 뒤의 읽기는 손잡이(칩·페이지·쓰기)가 부른다.
+  }, [active]);
+
+  const go = (nextFilter: TPostFilter, nextPage: number) => {
+    setFilter(nextFilter);
+    setPage(nextPage);
+    setPicked(new Set());
+    setBulk({});
+    setNotice(undefined);
+    void read(nextFilter, nextPage);
+  };
+
+  /** 쓰기 하나 — 결과를 말하고, 고른 것을 비우고, 지금 페이지를 다시 읽는다. 실패는 던진다(부른 쪽 줄에 남는다). */
+  const afterWrite = async (write: () => Promise<string>) => {
+    const said = await write();
+    setNotice(said);
+    setPicked(new Set());
+    setBulk({});
+    setBulkNote('');
+    await read(filter, page);
+  };
+
+  const rows = load.data?.rows ?? [];
+  const pickedRows = rows.filter((row) => picked.has(row.url));
+  const allPicked = rows.length > 0 && pickedRows.length === rows.length;
+  const locked = Boolean(bulk.busy);
+  const pageCount = postPageCount(load.data?.total ?? 0);
+  const chips: { key: TPostFilter; label: string }[] = [
+    { key: 'unanalyzed', label: `미분석 ${n(counts.unanalyzed)}` },
+    { key: 'analyzed', label: '분석됨' },
+    ...(excludedApplied ? [{ key: 'excluded' as const, label: `제외 ${n(counts.excluded ?? 0)}` }] : []),
+  ];
+
+  const toggle = (url: string, next: boolean) =>
+    setPicked((prev) => {
+      const copy = new Set(prev);
+      if (next) copy.add(url);
+      else copy.delete(url);
+      return copy;
+    });
+
+  const runBulk = async (write: () => Promise<string>) => {
+    setBulk((prev) => ({ ...prev, busy: true, error: undefined }));
+    try {
+      await afterWrite(write);
+    } catch (error) {
+      setBulk((prev) => ({ ...prev, busy: false, error: messageOf(error) }));
+    }
+  };
+  const planBulkReread = async () => {
+    setBulk({ mode: 'reread', busy: true });
+    try {
+      setBulk({ mode: 'reread', plan: await onPlanReread(pickedRows) });
+    } catch (error) {
+      setBulk({ error: messageOf(error) });
+    }
+  };
+
+  return (
+    <section aria-label="수집한 글 목록" className="mt-6 space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        {chips.map((chip) => (
+          <Button
+            key={chip.key}
+            size="sm"
+            color="secondary"
+            className={filter === chip.key ? PICKED_CHIP : undefined}
+            aria-pressed={filter === chip.key}
+            isDisabled={load.busy || locked}
+            onClick={() => go(chip.key, 0)}
+          >
+            {chip.label}
+          </Button>
+        ))}
+      </div>
+
+      {rows.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs">
+          <Checkbox
+            size="sm"
+            isSelected={allPicked}
+            isIndeterminate={pickedRows.length > 0 && !allPicked}
+            isDisabled={locked}
+            onChange={(next) => setPicked(next ? new Set(rows.map((row) => row.url)) : new Set())}
+            label={<span className="text-xs text-secondary">이 페이지 {rows.length}건 전부 고르기</span>}
+          />
+          {pickedRows.length > 0 && !bulk.mode && (
+            <>
+              <span className="font-semibold text-primary">{pickedRows.length}건 고름</span>
+              {excludedApplied && filter !== 'excluded' && (
+                <Button color="secondary" size="sm" isDisabled={locked} onClick={() => setBulk({ mode: 'exclude' })}>
+                  분석 제외
+                </Button>
+              )}
+              {filter === 'excluded' && (
+                <Button
+                  color="secondary"
+                  size="sm"
+                  isDisabled={locked}
+                  isLoading={bulk.busy}
+                  onClick={() => void runBulk(() => onUnexcludePosts(pickedRows.map((row) => row.url)))}
+                >
+                  제외 해제
+                </Button>
+              )}
+              {filter === 'analyzed' && (
+                <Button color="secondary" size="sm" isDisabled={locked} isLoading={bulk.busy} onClick={() => void planBulkReread()}>
+                  다시 읽기
+                </Button>
+              )}
+              <Button color="link-gray" size="sm" isDisabled={locked} onClick={() => setPicked(new Set())}>
+                고름 풀기
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+
+      {bulk.mode === 'exclude' && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold text-primary">{pickedRows.length}건 분석 제외</span>
+          <div className="min-w-48 flex-1">
+            <Input {...NO_AUTOFILL} aria-label="제외 사유(선택)" placeholder="제외 사유 (선택) — 예: 광고 글" value={bulkNote} onChange={setBulkNote} isDisabled={locked} size="sm" />
+          </div>
+          <Button
+            color="secondary"
+            size="sm"
+            isLoading={bulk.busy}
+            isDisabled={locked || pickedRows.length === 0}
+            onClick={() => void runBulk(() => onExcludePosts(pickedRows.map((row) => row.url), bulkNote))}
+          >
+            {pickedRows.length}건 제외
+          </Button>
+          <Button color="secondary" size="sm" isDisabled={locked} onClick={() => setBulk({})}>
+            취소
+          </Button>
+        </div>
+      )}
+      {bulk.mode === 'reread' && bulk.plan && (
+        <div className="space-y-1.5 text-xs">
+          <p className="text-tertiary">{rereadSummary(bulk.plan)}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              color="secondary"
+              size="sm"
+              isLoading={bulk.busy}
+              isDisabled={locked || bulk.plan.posts.length === 0}
+              onClick={() => bulk.plan && void runBulk(() => onReread(bulk.plan as TReopenPlan))}
+            >
+              {bulk.plan.posts.length}건 다시 읽기
+            </Button>
+            <Button color="secondary" size="sm" isDisabled={locked} onClick={() => setBulk({})}>
+              취소
+            </Button>
+          </div>
+        </div>
+      )}
+      {bulk.error && <p className="text-xs text-error-primary">{bulk.error}</p>}
+      {notice && <p className="text-xs text-success-primary">{notice}</p>}
+
+      {load.error ? (
+        <p className="text-xs text-error-primary">{load.error}</p>
+      ) : !load.data ? (
+        <p className="text-xs text-tertiary">글 목록을 읽고 있어요</p>
+      ) : rows.length === 0 ? (
+        <EmptyState
+          Icon={SearchLg}
+          title={filter === 'excluded' ? '분석에서 뺀 글이 없어요' : filter === 'analyzed' ? '분석된 글이 없어요' : '미분석 글이 없어요'}
+          description={filter === 'excluded' ? '광고·목록 글은 줄의 분석 제외로 빼요.' : '새 글은 터미널에서 pnpm data collect 로 모아요.'}
+        />
+      ) : (
+        <ul className={cx(CARD_SURFACE, 'divide-y divide-secondary', load.busy && 'opacity-60')}>
+          {rows.map((row) => (
+            <AdminPagePostsPanelRow
+              key={row.url}
+              row={row}
+              excludedApplied={excludedApplied}
+              selected={picked.has(row.url)}
+              onSelect={(next) => toggle(row.url, next)}
+              locked={locked || Boolean(load.busy)}
+              onExclude={(note) => afterWrite(() => onExcludePosts([row.url], note))}
+              onUnexclude={() => afterWrite(() => onUnexcludePosts([row.url]))}
+              onPlanReread={() => onPlanReread([row])}
+              onReread={(plan) => afterWrite(() => onReread(plan))}
+            />
+          ))}
+        </ul>
+      )}
+
+      {load.data && (
+        <div className="flex items-center justify-center gap-3 text-xs text-secondary">
+          <Button color="secondary" size="sm" isDisabled={page === 0 || load.busy || locked} onClick={() => go(filter, page - 1)}>
+            이전
+          </Button>
+          <span className="tabular-nums">
+            {page + 1} / {pageCount}
+          </span>
+          <Button color="secondary" size="sm" isDisabled={page + 1 >= pageCount || load.busy || locked} onClick={() => go(filter, page + 1)}>
+            다음
+          </Button>
+        </div>
+      )}
+    </section>
+  );
+}
+
 /**
  * 수집 완료 칸(`blog_posts`, 09 D4·D5) — **다음 명령**을 말하고, 차이 게이트(11)로 넘어가는 **한 번짜리 준비 두 단계**를 버튼으로 둔다.
  *
@@ -58,7 +344,7 @@ function AdminPagePostsBacklogTable({ caption, head, rows }: { caption: string; 
  * 여기 버튼 둘은 DB 만 바꾼다(운영자 세션 · 새 GRANT 없음) — 11 런북의 `02-seed-verified-at.sql` · `03-reopen-already-have.sql` 과 같은 규칙이다.
  * 순서가 중요해 위에서 아래로 번호를 붙였다: ① 시드 확인 날짜를 먼저 찍어야 ② 다시 연 옛 글이 시드를 바꾸자고 하지 않는다.
  */
-export function AdminPagePostsPanel({ counts, error, backlog, seedTargets, onSeedVerify, onPlanReopen, onReopen }: TAdminPagePostsPanelProps) {
+export function AdminPagePostsPanel({ counts, error, backlog, seedTargets, onSeedVerify, onPlanReopen, onReopen, active, ...listActions }: TAdminPagePostsPanelProps) {
   const [seed, setSeed] = useState<TStep>({});
   const [reopen, setReopen] = useState<TStep>({});
 
@@ -221,6 +507,8 @@ export function AdminPagePostsPanel({ counts, error, backlog, seedTargets, onSee
           )}
         </section>
       )}
+
+      <AdminPagePostsList counts={counts} active={active} {...listActions} />
     </div>
   );
 }

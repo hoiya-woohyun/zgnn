@@ -60,7 +60,20 @@ import {
   type TArchiveReason,
 } from '../lib/adminPlaces';
 import { type TPlaceEditPatch, updatePlace } from '../lib/adminPlaceEdit';
-import { countPosts, fetchPostBacklog, fetchSiblings, reopenPlan, type TPostBacklog, type TPostCounts, type TReopenPlan } from '../lib/adminPosts';
+import {
+  countPosts,
+  excludePosts,
+  fetchPostBacklog,
+  fetchPosts,
+  fetchSiblings,
+  planReread,
+  reopenPlan,
+  unexcludePosts,
+  type TPostBacklog,
+  type TPostCounts,
+  type TPostRow,
+  type TReopenPlan,
+} from '../lib/adminPosts';
 import {
   closeReportsForArchived,
   fetchReports,
@@ -766,6 +779,54 @@ export function AdminPage() {
         setGroups((prev) => groupPending(prev.flatMap((group) => group.rows).filter((row) => !laid.has(row.id))));
         void loadCounts(client);
         return `글 ${plan.posts.length}건을 수집 완료로 되돌렸어요 · 터미널에서 pnpm data analyze --limit 30 을 돌리면 다시 읽어요`;
+      }),
+    [loadCounts, withWrite],
+  );
+
+  /*
+   * 수집 완료 칸의 글 목록(09 T3.2). 읽기는 잠금 없이, 쓰기는 후보 쓰기와 같은 잠금(`withWrite`) 하나로.
+   * 쓰기 뒤에는 건수를 다시 센다(`loadCounts` — 미분석 집계도 따라 낡음 표시가 된다). 페이지를 다시 읽는 것은 패널 몫이다.
+   */
+  const readPosts = useCallback((query: Parameters<typeof fetchPosts>[1]) => {
+    const client = clientRef.current;
+    return client ? fetchPosts(client, query) : Promise.reject(new Error('로그인이 필요해요.'));
+  }, []);
+
+  const excludePostRows = useCallback(
+    (urls: string[], note: string) =>
+      withWrite(async (client) => {
+        const changed = await excludePosts(client, urls, note);
+        void loadCounts(client);
+        return `글 ${changed}건을 분석에서 뺐어요 · 다음 pnpm data analyze 부터 안 읽어요(이미 올라온 후보는 그대로예요)`;
+      }),
+    [loadCounts, withWrite],
+  );
+
+  const unexcludePostRows = useCallback(
+    (urls: string[]) =>
+      withWrite(async (client) => {
+        const changed = await unexcludePosts(client, urls);
+        void loadCounts(client);
+        return `글 ${changed}건의 분석 제외를 풀었어요`;
+      }),
+    [loadCounts, withWrite],
+  );
+
+  const planPostReread = useCallback((rows: TPostRow[]) => {
+    const client = clientRef.current;
+    return client ? planReread(client, rows) : Promise.reject(new Error('로그인이 필요해요.'));
+  }, []);
+
+  /** 글 쪽 `다시 읽기` — ② 되돌리기와 같은 길(`prepareReanalyze` → 눕힌 후보를 검수 대기에서 빼고 → 건수). */
+  const rereadPosts = useCallback(
+    (plan: TReopenPlan) =>
+      withWrite(async (client) => {
+        await prepareReanalyze(client, plan);
+        const laid = new Set(plan.lay.map((row) => row.id));
+        setGroups((prev) => groupPending(prev.flatMap((group) => group.rows).filter((row) => !laid.has(row.id))));
+        void loadCounts(client);
+        const kept = plan.keep.length ? ` · 사람이 고친 후보 ${plan.keep.length}건은 남았어요` : '';
+        return `글 ${plan.posts.length}건을 미분석으로 되돌렸어요 · 검수 대기 후보 ${plan.lay.length}건이 목록에서 빠졌어요${kept} — 터미널에서 pnpm data analyze 를 돌리면 다시 읽어요`;
       }),
     [loadCounts, withWrite],
   );
@@ -1889,6 +1950,12 @@ export function AdminPage() {
           onSeedVerify={seedVerify}
           onPlanReopen={planReopen}
           onReopen={runReopen}
+          active={phase === 'ready' && tab === 'posts'}
+          onFetchPosts={readPosts}
+          onExcludePosts={excludePostRows}
+          onUnexcludePosts={unexcludePostRows}
+          onPlanReread={planPostReread}
+          onReread={rereadPosts}
         />
         <AdminPageSuggestions suggestions={suggestions} busyId={suggestionBusy} onClose={(row, status) => void closeSuggestion(row, status)} />
         {suggestionError ? <p className="mt-2 px-4 text-xs text-error-primary md:px-6">{suggestionError}</p> : null}

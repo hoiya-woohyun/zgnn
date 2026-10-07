@@ -18,6 +18,7 @@ import { createWorkerCycle } from './lib/workerCycle.mjs';
 import { startHeartbeat } from './lib/workerHeartbeat.mjs';
 import { clockStamp, createWaker, formatStep, nextDailyAt, parseOnceArgs, parseResidentArgs, pickRequests, planCycle } from './lib/workerLoop.mjs';
 import { checkWorkerSchema, closeRequests, markRequests, readWorkerState } from './lib/workerQueue.mjs';
+import { probeExcludedAt } from './lib/postExclusion.mjs';
 import { startRealtime } from './lib/workerRealtime.mjs';
 
 const POLL_MS = 60_000;
@@ -109,13 +110,15 @@ export async function main(argv, { mode, runStep }) {
       return 1;
     }
   }
+  // 글 단위 분석 제외(09 T3.2) — 칸이 없으면 경고 한 줄만 찍고 예전처럼 센다(적용은 사용자의 db push, 워커를 멈출 일이 아니다).
+  const excludedApplied = await probeExcludedAt(client, log);
 
   // ── 한 바퀴 ──────────────────────────────────────────────────────────
   let waker = null;
 
   async function readState() {
     if (!(await ensureSession())) return null;
-    const state = await readWorkerState(client);
+    const state = await readWorkerState(client, { excludedApplied });
     return { ...state, requests: pickRequests(state.requestRows, Date.now()) };
   }
 

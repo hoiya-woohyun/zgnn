@@ -37,13 +37,17 @@ async function count(query, what) {
 
 /**
  * 한 바퀴의 판단 재료 — `planCycle` 이 읽는 이름 그대로. `requestRows` 는 `pickRequests` 가 고르도록 queued·taken 전부.
+ * `excludedApplied` — `blog_posts.excluded_at` 이 있나(`postExclusion.probeExcludedAt`, 워커 시작 때 한 번). 있으면 제외한 글을 "요청 글" 에서 뺀다:
+ * 분석(`--requested-only`)이 그 글을 안 고르는데 수에 남으면 바퀴마다 빈 분석이 깨어난다(세기와 고르기는 같은 식 — 아래 승인 후보와 같은 이유).
  * @returns {Promise<{ collectQueued: number, requestedPosts: number, approved: number, requestRows: object[] }>}
  */
-export async function readWorkerState(client) {
+export async function readWorkerState(client, { excludedApplied = false } = {}) {
   const head = { count: 'exact', head: true };
+  let requested = client.from('blog_posts').select('url', head).is('analyzed_at', null).not('requested_at', 'is', null);
+  if (excludedApplied) requested = requested.is('excluded_at', null);
   const [collectQueued, requestedPosts, approved, requests] = await Promise.all([
     count(client.from('collect_requests').select('id', head).eq('status', 'queued'), '추가 수집 요청'),
-    count(client.from('blog_posts').select('url', head).is('analyzed_at', null).not('requested_at', 'is', null), '요청 글'),
+    count(requested, '요청 글'),
     // 반영이 고르는 것과 같은 식(막 승인된 행은 묵힌다) — 다르면 반영이 건너뛴 행이 수에 남아 재시도 간격(30분)에 걸린다.
     count(client.from('candidates').select('id', head).eq('status', 'approved').or(settledApprovedFilter(Date.now())), '승인 후보'),
     client.from('pipeline_requests').select('id, kind, args, status, taken_at').in('status', ['queued', 'taken']).order('requested_at', { ascending: true }),

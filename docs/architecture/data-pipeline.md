@@ -1,6 +1,7 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-10-07 (v54: **`pnpm data apply` 의 신규 장소도 곧바로 `published`** — `/admin` 과 같다(todo/13 §5.1). 같은 '승인' 이 길에 따라 사이트에 뜨고 안 뜨던 것을 맞췄다. 그 전에 들어간 초안(2곳)은 그대로 `draft`)
+> 최종 수정: 2026-10-07 (v55: 「재분석」 에 글 쪽 `다시 읽기`(수집 완료 칸, todo/09 T3.2)와 분석이 분석 제외한 글(`excluded_at`)을 안 고른다는 것)
+> 이전 2026-10-07 (v54: **`pnpm data apply` 의 신규 장소도 곧바로 `published`** — `/admin` 과 같다(todo/13 §5.1). 같은 '승인' 이 길에 따라 사이트에 뜨고 안 뜨던 것을 맞췄다. 그 전에 들어간 초안(2곳)은 그대로 `draft`)
 > 이전 2026-10-07 (v53: 리뷰 반영(todo/17) — 돌지 못한 요청은 queued 로 되돌린다(3번이면 done), 진척이 있으면 30분 안 기다린다, 막 승인된 후보는 60초 묵힌다, 요청 글의 정본은 `requested_at` 하나)
 > 이전 2026-10-07 (v52: 워커가 Realtime 으로도 깬다(todo/17 T4) — 깨우는 길 셋, 폴링이 정본. 채널 토큰은 `realtime.setAuth` 가 아니라 클라이언트의 토큰 콜백이어야 RLS 를 통과한다)
 > 이전 2026-10-07 (v51: 상주 워커 `pnpm data` · 한 바퀴 `once` 가 실제로 돈다(todo/17 T3) — 「워커 한 바퀴」 그림. 자동 분석은 `requested_at` 이 찍힌 글만, 추가 수집·재분석이 찍는다)
@@ -280,6 +281,8 @@ flowchart LR
 
   **1·2단계는 `/admin` 의 `분석 지우고 다시 읽기`(한 줄) · `고른 것 재분석 준비`(여러 줄)가 한다**(`src/lib/adminReanalyze.ts`,
   [admin-review 「분석 지우고 다시 읽기」](../features/admin-review.md)). 아래는 그 버튼이 지키는 규칙이자, 버튼 없이 손으로 할 때의 절차다.
+  글 쪽에서도 같다 — 수집 완료 칸의 `다시 읽기`(줄·일괄)가 같은 `prepareReanalyze` 를 부른다(형제 후보까지 눕힘, 사람이 반려한 후보가 딸린 글은 계획에서 뺌 — [admin-review 「수집 완료 칸」](../features/admin-review.md)).
+  분석은 `excluded_at` 이 빈 글만 고른다(`scripts/lib/postExclusion.mjs` — 수집 완료 칸의 `분석 제외`). 칸이 없으면(마이그레이션 미적용) 경고 한 줄을 남기고 조건 없이 고른다 — 미적용이라고 분석이 멈추면 안 된다.
 
   0. **지금 버전을 코드에서 읽는다** — 문서에 적어 두면 프롬프트를 한 번 더 고친 순간 거짓이 된다:
      `node -e "import('./scripts/analyze/extractPlaces.mjs').then(m=>console.log(m.PROMPT_VERSION))"`.

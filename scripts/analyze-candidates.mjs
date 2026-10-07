@@ -86,6 +86,7 @@ import { readNaverCalls } from './lib/naverSearchApi.mjs';
 import { argFlags, beginRun, classifyRunError, NO_RUN, RUN_ERROR } from './lib/runLog.mjs';
 import { acquireRunLock } from './lib/runLock.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
+import { notExcluded, probeExcludedAt } from './lib/postExclusion.mjs';
 import { formatAnalyzeSummary, formatUsageSummary } from '../src/lib/runSummary.ts';
 import { isDirectRun } from './lib/isDirectRun.mjs';
 
@@ -264,6 +265,8 @@ async function analyze(argv, args, { onRateLimit, nonInteractive = false } = {})
       return 1;
     }
   }
+  // 글 단위 분석 제외(09 T3.2) — 칸이 없으면(마이그레이션 미적용) 경고 한 줄만 찍고 조건 없이 고른다. 분석을 멈출 일이 아니다.
+  const excludedApplied = await probeExcludedAt(supabase);
 
   /*
    * 홈페이지 카드는 places 에 세 칸(마이그레이션 20260930120000)이 있어야 반영된다. 칸이 없는데 카드 든 후보를 만들면 그 후보의
@@ -315,12 +318,12 @@ async function analyze(argv, args, { onRateLimit, nonInteractive = false } = {})
   // 지우지 않고 뒤로 미룬다 — 앞 줄이 비면 같은 실행에서 이어서 읽는다. 오래된 글이 계속 밀리는 건 감수한다.
   // limit 보다 넉넉히 읽는 이유 — 한 블로그의 글을 maxPerBlog 건으로 자르면(pickPostsForRun) 빈 자리를 다음 글이 채워야 한다.
   const postWindow = maxPerBlog > 0 ? Math.min(limit * 4, 400) : limit;
+  // 제외 조건(`notExcluded`)은 세 질의(이것 · `--requested-only` · 요청 글 앞줄)에 다 붙는다 — 하나라도 빠지면 제외한 글이 그 길로 다시 읽힌다.
   const unanalyzed = () =>
-    supabase
-      .from('blog_posts')
-      .select('url, blog_id, log_no, title, keyword, posted_at')
-      .is('analyzed_at', null)
-      .order('posted_at', { ascending: false });
+    notExcluded(supabase.from('blog_posts').select('url, blog_id, log_no, title, keyword, posted_at').is('analyzed_at', null), excludedApplied).order(
+      'posted_at',
+      { ascending: false },
+    );
   // 한 가게만 되풀이하는 블로그 · 앞줄에서 뺀 수 · 요청 글 url — 아래 기본 고르기가 채우고 로그가 읽는다.
   const singlePlace = new Set();
   let droppedSinglePlace = 0; // --focused-only 가 아예 뺀 한 가게 블로그 글 수(로그용)
@@ -332,11 +335,10 @@ async function analyze(argv, args, { onRateLimit, nonInteractive = false } = {})
      * 아래의 기본 고르기를 통째로 건너뛴다 — 집중 제목 필터가 제목이 안 맞는 요청 글을 빼고, 한 가게 블로그 판정이 업주 블로그를 맨 뒤로 보내고,
      * 그 뒤 줄에 저수지 글이 섞인다. 오래 기다린 요청부터. 블로그당 상한은 그대로 받는다(업주 블로그 한 곳이 실행을 다 채우지 않게 — 남은 글은 다음 바퀴).
      */
-    const { data, error } = await supabase
-      .from('blog_posts')
-      .select('url, blog_id, log_no, title, keyword, posted_at')
-      .is('analyzed_at', null)
-      .not('requested_at', 'is', null)
+    const { data, error } = await notExcluded(
+      supabase.from('blog_posts').select('url, blog_id, log_no, title, keyword, posted_at').is('analyzed_at', null).not('requested_at', 'is', null),
+      excludedApplied,
+    )
       .order('requested_at', { ascending: true })
       .limit(postWindow);
     if (error) throw new Error(`blog_posts 조회 실패(요청 글): ${error.message}`);
@@ -375,11 +377,10 @@ async function analyze(argv, args, { onRateLimit, nonInteractive = false } = {})
     // 정본은 이 칸 하나다(`--requested-only` 와 같은 질의 — 예전엔 `collect_requests.post_urls` 를 따로 읽었다, todo/17 리뷰 14). 오래 기다린 것부터.
     // 블로그당 상한(`pickPostsForRun`)은 그대로 받는다 — 업주 블로그 한 곳이 실행을 다 채우지 않게.
     // `unanalyzed()` 를 쓰지 않는다 — 그 질의의 `posted_at` 정렬 뒤에 붙으면 둘째 키가 될 뿐이다.
-    const { data: requested, error: requestedError } = await supabase
-      .from('blog_posts')
-      .select('url, blog_id, log_no, title, keyword, posted_at')
-      .is('analyzed_at', null)
-      .not('requested_at', 'is', null)
+    const { data: requested, error: requestedError } = await notExcluded(
+      supabase.from('blog_posts').select('url, blog_id, log_no, title, keyword, posted_at').is('analyzed_at', null).not('requested_at', 'is', null),
+      excludedApplied,
+    )
       .order('requested_at', { ascending: true })
       .limit(postWindow);
     if (requestedError) throw new Error(`blog_posts 조회 실패(요청 글): ${requestedError.message}`);

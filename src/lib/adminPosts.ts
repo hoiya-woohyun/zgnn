@@ -6,12 +6,12 @@
  * (2026-10-06 — 탭 라벨 옆 `미적용` 은 무슨 뜻인지 읽히지 않아 뺐다, todo/13 T4.4).
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestFilterBuilder, SupabaseClient } from '@supabase/supabase-js';
 import { JEJU_TITLE_SOURCE, LISTY_TITLE_SOURCE, PET_TITLE_SOURCE, TOPIC_TITLE_SOURCE } from '../../scripts/analyze/analyzeCandidates.mjs';
 import { chunkForUrlFilter } from '../../scripts/lib/chunkForUrlFilter.mjs';
 import type { TCandidateRow } from './adminCandidates';
 import { EDITED_NOTE } from './adminApply';
-import { REANALYZE_NOTE, type TReanalyzePlan } from './adminReanalyze';
+import { REANALYZE_NOTE, reanalyzeSummary, type TReanalyzePlan } from './adminReanalyze';
 
 export type TPostCounts = {
   total: number;
@@ -144,6 +144,19 @@ export function reopenSummary(plan: TReopenPlan): string {
 
 const headCount = (client: SupabaseClient) => client.from('blog_posts').select('url', { count: 'exact', head: true });
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- 어느 select 모양의 질의든 받는다(필터만 붙인다).
+type TPostQuery = PostgrestFilterBuilder<any, any, any, any, any, any, any>;
+
+/**
+ * **"미분석" 의 정의 한 곳** — 머리글의 `미분석 N`(`countPosts`), 미분석 필터의 목록과 그 페이지 수(`fetchPosts`), 검색어·달별 집계(`fetchPostBacklog`)가
+ * 같은 집합이어야 숫자끼리 맞는다(09 T3.2 수용 기준). 분석 스크립트의 고르기(`scripts/lib/postExclusion.mjs`)와도 같은 꼴이다.
+ * 제외 칸이 없으면(마이그레이션 미적용) 제외 조건 없이 — 제외한 글이 있을 수 없다.
+ */
+export function onlyUnanalyzed<Q extends TPostQuery>(query: Q, excludedApplied: boolean): Q {
+  const pending = query.is('analyzed_at', null) as Q;
+  return excludedApplied ? (pending.is('excluded_at', null) as Q) : pending;
+}
+
 export async function countPosts(client: SupabaseClient): Promise<TPostCounts> {
   const total = await headCount(client);
   if (total.error) throw new Error(`수집한 글을 세지 못했어요 (${total.error.message})`);
@@ -151,9 +164,7 @@ export async function countPosts(client: SupabaseClient): Promise<TPostCounts> {
   const excluded = await headCount(client).not('excluded_at', 'is', null);
   const excludedCount = excluded.error ? null : (excluded.count ?? 0);
 
-  let pending = headCount(client).is('analyzed_at', null);
-  if (excludedCount !== null) pending = pending.is('excluded_at', null);
-  const unanalyzed = await pending;
+  const unanalyzed = await onlyUnanalyzed(headCount(client), excludedCount !== null);
   if (unanalyzed.error) throw new Error(`수집한 글을 세지 못했어요 (${unanalyzed.error.message})`);
 
   return { total: total.count ?? 0, unanalyzed: unanalyzed.count ?? 0, excluded: excludedCount, existing: await countExistingReasons(client) };
@@ -204,24 +215,21 @@ export const NEXT_POSTS = 30;
  * 분석 제외 칸이 있으면(`excludedApplied`) 제외한 글은 뺀다 — 머리글의 "미분석 N" 과 같은 집합이라야 합이 맞는다.
  *
  * 다음 30건은 **분석 스크립트와 같은 조건**이다(`analyze-candidates.mjs` 의 집중 글 쿼리 — 같은 정규식 문자열을 import 한다):
- * 미분석 · 제목에 반려동물 말과 제주 지명 · 목록·주제 글 아님 · 최신순. 스크립트는 제외 칸을 거르지 않으므로 여기서도 안 거른다.
+ * 미분석(분석 제외 아님) · 제목에 반려동물 말과 제주 지명 · 목록·주제 글 아님 · 최신순.
  * 블로그당 상한(`maxPerBlog`)·한 가게 블로그 후순위는 재현하지 않는다 — 화면이 "대략" 이라고 말한다.
  */
 export async function fetchPostBacklog(client: SupabaseClient, excludedApplied: boolean): Promise<TPostBacklog> {
   const rows: { keyword: string | null; posted_at: string | null }[] = [];
   for (let from = 0; ; from += PAGE) {
-    let query = client.from('blog_posts').select('keyword, posted_at').is('analyzed_at', null);
-    if (excludedApplied) query = query.is('excluded_at', null);
-    const { data, error } = await query.order('url').range(from, from + PAGE - 1);
+    const { data, error } = await onlyUnanalyzed(client.from('blog_posts').select('keyword, posted_at'), excludedApplied)
+      .order('url')
+      .range(from, from + PAGE - 1);
     if (error) throw new Error(`미분석 글을 읽지 못했어요 (${error.message})`);
     rows.push(...((data ?? []) as typeof rows));
     if (!data || data.length < PAGE) break;
   }
 
-  const { data: next, error } = await client
-    .from('blog_posts')
-    .select('url, title, keyword, posted_at')
-    .is('analyzed_at', null)
+  const { data: next, error } = await onlyUnanalyzed(client.from('blog_posts').select('url, title, keyword, posted_at'), excludedApplied)
     .filter('title', 'imatch', PET_TITLE_SOURCE)
     .filter('title', 'match', JEJU_TITLE_SOURCE)
     .not('title', 'imatch', LISTY_TITLE_SOURCE)
@@ -231,4 +239,116 @@ export async function fetchPostBacklog(client: SupabaseClient, excludedApplied: 
   if (error) throw new Error(`다음에 읽을 글을 고르지 못했어요 (${error.message})`);
 
   return { tally: tallyBacklog(rows), next: (next ?? []) as TNextPost[] };
+}
+
+/* ── 글 목록(수집 완료 칸, 09 T3.2) ───────────────────────────────────────────────────────────── */
+
+export type TPostFilter = 'unanalyzed' | 'analyzed' | 'excluded';
+
+/** 한 페이지 줄 수 — 3,360건을 한 번에 그리지 않는다. */
+export const POSTS_PAGE = 50;
+
+export type TPostRow = {
+  url: string;
+  title: string | null;
+  keyword: string | null;
+  posted_at: string | null;
+  analyzed_at: string | null;
+  /** 제외 칸이 없으면(미적용) 늘 undefined — select 에서 뺀다(넣으면 400). */
+  excluded_at?: string | null;
+  exclude_note?: string | null;
+  /** `analysis->>promptVersion` — 분석된 글만. */
+  promptVersion: string | null;
+};
+
+export type TPostPage = { rows: TPostRow[]; total: number };
+
+/**
+ * 줄의 상태 칩. **제외를 먼저 본다** — 분석된 뒤 제외한 글은 `제외` 칸에만 있고(분석됨 필터가 빼므로), 칩도 그 칸과 같은 말을 해야 한다.
+ * 분석된 글은 프롬프트 버전 앞 8자(어느 판으로 읽혔나 — T3.3 의 분포와 같은 값), 버전이 없던 옛 분석은 `분석됨`.
+ */
+export function postStatus(row: Pick<TPostRow, 'analyzed_at' | 'excluded_at' | 'promptVersion'>): string {
+  if (row.excluded_at) return '제외';
+  if (!row.analyzed_at) return '미분석';
+  return row.promptVersion ? row.promptVersion.slice(0, 8) : '분석됨';
+}
+
+/** 페이지 수 — 0건이어도 1(빈 페이지 하나를 `1 / 1` 로 말한다). */
+export function postPageCount(total: number): number {
+  return Math.max(1, Math.ceil(total / POSTS_PAGE));
+}
+
+/** `posted_at`(date, YYYY-MM-DD) → `25.10.07`. 모양이 아니면 그대로, 없으면 `날짜 없음`. */
+export function postDateLabel(postedAt: string | null): string {
+  if (!postedAt) return '날짜 없음';
+  const match = /^\d{2}(\d{2})-(\d{2})-(\d{2})/.exec(postedAt);
+  return match ? `${match[1]}.${match[2]}.${match[3]}` : postedAt;
+}
+
+/**
+ * 한 페이지. 정렬은 글 날짜 최신순 + **`url` 둘째 키** — `posted_at` 은 날짜뿐이라 같은 날 글이 많고, 둘째 키가 없으면 50건 페이지가 겹치거나 빠진다.
+ * 분석됨 필터는 제외한 글을 뺀다(제외 칩과 겹치지 않게 — 세 칩이 전체를 나눈다). 제외 칸이 없으면(`excludedApplied` false) 그 두 칸을 select 에서 빼고,
+ * `excluded` 필터는 부를 수 없다(화면이 칩을 안 그린다).
+ */
+export async function fetchPosts(
+  client: SupabaseClient,
+  { filter, page, excludedApplied }: { filter: TPostFilter; page: number; excludedApplied: boolean },
+): Promise<TPostPage> {
+  if (filter === 'excluded' && !excludedApplied) throw new Error('글 단위 분석 제외는 DB 마이그레이션이 적용된 뒤에 쓸 수 있어요.');
+  const columns: string = excludedApplied
+    ? 'url, title, keyword, posted_at, analyzed_at, excluded_at, exclude_note, promptVersion:analysis->>promptVersion'
+    : 'url, title, keyword, posted_at, analyzed_at, promptVersion:analysis->>promptVersion';
+  let query = client.from('blog_posts').select(columns, { count: 'exact' });
+  if (filter === 'unanalyzed') query = onlyUnanalyzed(query, excludedApplied);
+  else if (filter === 'analyzed') {
+    query = query.not('analyzed_at', 'is', null);
+    if (excludedApplied) query = query.is('excluded_at', null);
+  } else query = query.not('excluded_at', 'is', null);
+  const from = page * POSTS_PAGE;
+  const { data, error, count } = await query
+    .order('posted_at', { ascending: false, nullsFirst: false })
+    .order('url')
+    .range(from, from + POSTS_PAGE - 1);
+  if (error) throw new Error(`수집한 글을 읽지 못했어요 (${error.message})`);
+  return { rows: (data ?? []) as unknown as TPostRow[], total: count ?? 0 };
+}
+
+/** `in.(…)` 을 길이 예산으로 나눠 같은 patch 를 쓴다. 바뀐 행 수를 돌려준다. */
+async function patchPosts(client: SupabaseClient, urls: string[], patch: Record<string, string | null>, what: string): Promise<number> {
+  let changed = 0;
+  for (const chunk of chunkForUrlFilter(urls) as string[][]) {
+    const { error, count } = await client.from('blog_posts').update(patch, { count: 'exact' }).in('url', chunk);
+    if (error) throw new Error(`${what} (${error.message})`);
+    changed += count ?? 0;
+  }
+  return changed;
+}
+
+/**
+ * 분석 제외 — 다음 `pnpm data analyze` 부터 그 글을 안 고른다. 이미 분석된 글을 제외해도 그 글의 후보는 그대로다(눕히려면 검수 대기에서).
+ * 빈 사유는 null(공백 한 칸을 사유로 남기지 않는다).
+ */
+export function excludePosts(client: SupabaseClient, urls: string[], note: string): Promise<number> {
+  return patchPosts(client, urls, { excluded_at: new Date().toISOString(), exclude_note: note.trim() || null }, '분석 제외를 적지 못했어요');
+}
+
+/** 제외 해제 — 사유도 같이 지운다. 미분석이던 글은 다시 분석 차례에 선다. */
+export function unexcludePosts(client: SupabaseClient, urls: string[]): Promise<number> {
+  return patchPosts(client, urls, { excluded_at: null, exclude_note: null }, '제외를 풀지 못했어요');
+}
+
+/**
+ * 글 쪽 `다시 읽기` 의 계획(읽기만) — 후보 쪽 재분석과 **같은 규칙**이다(`adminReanalyze` 머리 주석의 규칙 1·4: 형제 후보까지 눕히고, 후보 먼저 글 나중).
+ * 계획은 `reopenPlan`(사람이 반려한 후보가 딸린 글은 빼고, 사람이 고친 후보는 남긴다), 쓰기는 `prepareReanalyze` 그대로.
+ * 분석된 글만 받는다 — 미분석 글은 다시 읽을 것이 없고, 제외한 글은 먼저 풀어야 한다(되돌려도 분석이 안 고른다).
+ */
+export async function planReread(client: SupabaseClient, rows: Pick<TPostRow, 'url' | 'analyzed_at' | 'excluded_at'>[]): Promise<TReopenPlan> {
+  const urls = rows.filter((row) => row.analyzed_at && !row.excluded_at).map((row) => row.url);
+  return reopenPlan(urls, await fetchSiblings(client, urls));
+}
+
+/** `다시 읽기` 확인 문장 — 후보 쪽 재분석 문장(`reanalyzeSummary`)에 뺀 글의 수만 덧붙인다(`reopenSummary` 는 "옛 규칙" 글의 말이라 여기 맞지 않는다). */
+export function rereadSummary(plan: TReopenPlan): string {
+  const skipped = plan.skipped ? ` 사람이 제외한 후보가 딸린 글 ${plan.skipped}건은 빼요(다시 읽으면 그 가게가 또 올라와요).` : '';
+  return `${reanalyzeSummary(plan)}${skipped}`;
 }
