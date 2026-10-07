@@ -11,8 +11,11 @@ export type TNavItem = {
   to: string;
   label: string;
   Icon: FC<TIconProps>;
-  /** 현재 경로가 이 항목에 속하는지. 상세(/place/:id)는 '둘러보기' 아래로 본다. */
-  isActive: (pathname: string) => boolean;
+  /**
+   * 이 탭 화면에 불이 들어오는가. **탭 화면 주소만** 받는다 — 하위 화면(상세·저장한 곳·강아지)이 어느 탭 밑인지는
+   * 정적 규칙이 아니라 들어온 길이 정한다(`lib/appRoutes.ts` 의 `ownerRootOf`, 셸의 `useNavHighlightPath`).
+   */
+  isActive: (rootPath: string) => boolean;
   /** 주소가 상황에 따라 바뀌는 항목만 — 없으면 `to`. `to` 는 목록의 key 로도 쓰여 고정이다. */
   hrefFor?: (pathname: string) => string;
   /** 탭바에서 비활성 → 활성이 되는 순간의 아이콘 모션(사이드바는 안 움직인다). */
@@ -32,17 +35,16 @@ export const navHref = (item: TNavItem, pathname: string) => item.hrefFor?.(path
  * 두 곳이 갈리면 화면 폭을 바꿨을 때 내비게이션이 달라 보인다.
  *
  * 저장 개수 배지는 탭에 두지 않는다 — 개수는 홈 카드·지도의 저장 칩·설정의 "저장한 곳" 행에서 보인다.
- * 저장한 곳(`/saved`)은 홈 카드가 주 진입점이라 홈 탭에 불이 들어온다(설정은 보조 경로).
  */
 export const NAV_ITEMS: TNavItem[] = [
-  { to: '/', label: '홈', Icon: Home02, motion: 'bounce', isActive: (path) => path === '/' || path.startsWith('/saved') },
+  { to: '/', label: '홈', Icon: Home02, motion: 'bounce', isActive: (path) => path === '/' },
   {
     to: '/places/stay',
     label: '둘러보기',
     Icon: Compass01,
     motion: 'wobble',
     // `/places/` 까지 본다 — `/places` 로만 보면 `/placesX` 같은 404 에서도 불이 들어왔다(D5).
-    isActive: (path) => path.startsWith('/places/') || path.startsWith('/place/'),
+    isActive: (path) => path.startsWith('/places/'),
     // 보던 종류로 돌아간다(12 U1.5) — 카페 목록에서 누르면 숙소로 넘어가지 않고 맨 위로, 지도에서 누르면 보던 카페로.
     hrefFor: (path) => placesTabHref(path),
   },
@@ -61,28 +63,9 @@ export const NAV_ITEMS: TNavItem[] = [
     label: '설정',
     Icon: Settings01,
     motion: 'turn',
-    // 강아지 프로필(`/dog`)은 여기 넣지 않는다 — 들어온 탭을 따른다(`navHighlightPath`).
     isActive: (path) => path.startsWith('/settings'),
   },
 ];
 
-/**
- * 어느 탭에도 속하지 않고 **들어온 탭을 따르는** 화면. 강아지 등록은 홈 카드·상세·목록·설정
- * 어디서나 들어오는데, 설정에 못 박아 두면 홈에서 들어온 사람에게 '설정' 이 켜져 길을 잃은 듯 보인다
- * (14 W261006.10, 3/6).
- */
-const FOLLOWS_ORIGIN = new Set(['/dog']);
-
-/**
- * 탭 하이라이트를 계산할 주소. 보통은 지금 주소 그대로이고, `FOLLOWS_ORIGIN` 화면에서는 들어오기
- * 직전 주소다. 직전 주소가 없으면(딥링크로 바로 들어옴) null — 어느 탭에도 불을 켜지 않는다.
- * 뒤로가기는 이와 무관하게 셸이 붙인다(`appRoutes.ts`).
- */
-export const navHighlightPath = (pathname: string, originPath: string | null): string | null => {
-  const path = pathname.replace(/\/+$/, '') || '/';
-  return FOLLOWS_ORIGIN.has(path) ? originPath : pathname;
-};
-
-/** 이 항목에 불이 들어오는가. 계산할 주소가 없으면(null) 어느 탭도 아니다. */
-export const isNavActive = (item: TNavItem, highlightPath: string | null): boolean =>
-  highlightPath !== null && item.isActive(highlightPath);
+/** 이 항목에 불이 들어오는가. `highlightPath` 는 탭 화면 주소다(`useNavHighlightPath`). */
+export const isNavActive = (item: TNavItem, highlightPath: string): boolean => item.isActive(highlightPath);

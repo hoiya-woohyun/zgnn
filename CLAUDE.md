@@ -15,6 +15,7 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
 | 준비물·장소별 필요 물건 | [docs/features/checklist.md](docs/features/checklist.md) · [docs/decisions/ADR-009-trip-derived-checklist.md](docs/decisions/ADR-009-trip-derived-checklist.md) · `src/lib/itemNeeds.ts` |
 | 라우팅·화면 셸·클라이언트 상태 | [docs/architecture/app-shell-and-state.md](docs/architecture/app-shell-and-state.md) · `src/store/useAppStore.ts` |
 | 화면 간 좌우 스와이프·스크롤 복원 | [docs/decisions/ADR-014-shell-owned-swipe-pager.md](docs/decisions/ADR-014-shell-owned-swipe-pager.md) · `src/components/layout/appShellSwipe.ts` · `src/lib/appScroll.ts` |
+| 하위 화면(`/dog`·`/saved`·`/place/:id`)이 덮이고 걷히는 전환·가장자리 끌어 뒤로가기 | [ADR-025](docs/decisions/ADR-025-stack-push-pop-transition.md) · `src/components/layout/appShellStack.ts` · `src/lib/stackTransition.ts` — 뒤로가기는 `goBackInApp` 하나로(직접 `router.back()` 하면 그 길만 그림이 빠진다). 탭 불은 **들어온 탭**(`ownerRootOf`, history 에 새김), 탭 화면끼리는 history 를 안 쌓는다(`keepTabsOffHistory` — 탭으로 가는 링크에 `replace` 를 따로 달지 않는다) |
 | 둘러보기 안의 종류 스와이프·탭 전환 애니메이션 | [docs/decisions/ADR-013-places-swipe-pager.md](docs/decisions/ADR-013-places-swipe-pager.md) · `src/screens/placesPageSwipe.ts` · `src/lib/swipePager.ts` |
 | 뒤로가기가 안 보임·새 화면 추가 | [docs/decisions/ADR-007-shell-owned-back-navigation.md](docs/decisions/ADR-007-shell-owned-back-navigation.md) · `src/lib/appRoutes.ts` |
 | 노치·상태바 밑으로 내용이 들어감 | [docs/decisions/ADR-010-shell-owned-safe-area.md](docs/decisions/ADR-010-shell-owned-safe-area.md) · `src/components/layout/appShell.tsx` |
@@ -34,7 +35,7 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
 | 주간 사용성 평가(페르소나 6명)·"이번 주 평가가 없어요" 알림 | [docs/reviews/ux-eval/README.md](docs/reviews/ux-eval/README.md) · `/ux-eval`(`.claude/skills/ux-eval/SKILL.md`) · 훅 `.claude/hooks/uxEvalWeekly.mjs` · 태스크 [docs/todo/14](docs/todo/14-weekly-ux-eval.md) — **평가는 메인이 하지 않는다**(fork 금지, `model: "fable"` 명시). 이번 주(KST 월요일~) `00-종합.md` 가 없을 때만 권하고, 밀린 주는 소급하지 않는다 |
 | AI 추출이 얼마나 맞나·프롬프트를 고친 뒤 비교 | [docs/features/extraction-eval.md](docs/features/extraction-eval.md) · `pnpm data eval golden\|extract\|score` · `scripts/analyze/evalExtract.mjs` — **정답은 시드 86곳**(사람이 같은 글을 읽고 적은 값, `data/golden/seed-extract.json` 에 얼림). 지표는 **판정 뒤집힘**, 방향은 **지어냄**이 가장 비싸다. golden 은 정규식이 읽은 값이라 사람이 `review` 로 보정한다. 추출은 글당 `claude -p` 1회라 `--limit` 로 나눠 돈다, 채점은 호출 0 |
 | 파이프라인이 **돌고 있는지**(수집·분석·반영 마지막 실행·실패)·운영 현황 화면·Slack 알림 | [docs/todo/15](docs/todo/15-ops-dashboard.md)(T1~T3 구현 — 표·rpc·스크립트 기록·화면, Slack(T5·T6)·`/admin` 연결(T4)은 아직) · [ADR-023](docs/decisions/ADR-023-ops-dashboard-and-run-log.md) · [docs/features/ops-dashboard.md](docs/features/ops-dashboard.md) — 정본은 스크립트가 남기는 `pipeline_runs` 표(`scripts/lib/runLog.mjs` — 기록 실패는 경고 한 줄, 작업은 그대로. 요약 줄은 `src/lib/runSummary.ts` 를 스크립트와 화면이 나눠 쓴다), 화면은 `/admin/ops`(`/admin` 의 세션·레이아웃을 그대로 받는다), Slack 은 **DB 트리거**가 Vault+pg_net 으로 보낸다(스크립트·브라우저가 아니다). "안 돌았다" 알림(pg_cron)은 보류 |
-| "왜 이렇게 했나" | [docs/decisions/](docs/decisions/) (ADR 23편) · 전체 지도는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| "왜 이렇게 했나" | [docs/decisions/](docs/decisions/) (ADR 25편) · 전체 지도는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 
 탐색 전에 위 표를 먼저 본다. 전체 구조가 필요하면 `docs/ARCHITECTURE.md` 하나만 읽으면 된다.
 

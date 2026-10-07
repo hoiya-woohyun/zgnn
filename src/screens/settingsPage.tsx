@@ -105,7 +105,7 @@ export function SettingsPage() {
       </Section>
 
       <Section className="mt-4">
-        {/* 보조 진입점이다 — `/saved` 는 홈 아래(주 진입점은 홈 카드, 홈 탭에 불이 들어온다. `navItems.ts`·`parentRouteOf`). */}
+        {/* `/saved` 는 설정 밑의 화면이다(`parentRouteOf`). 홈 카드·지도에서도 열리고, 그때는 들어온 탭에 불이 들어온다(`ownerRootOf`). */}
         <Link href="/saved" className={CARD_CLASS}>
           <span
             aria-hidden="true"

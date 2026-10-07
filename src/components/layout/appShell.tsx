@@ -6,16 +6,20 @@ import { AppBar } from './appBar';
 import { AppSidebar } from './appSidebar';
 import { AppTabBar } from './appTabBar';
 import { mainSurfaceProps, surfaceKindOf } from './appShellSurface';
+import { useAppShellStack } from './appShellStack';
 import { useAppShellSwipe } from './appShellSwipe';
 import { AppShellSwipePeek } from './appShellSwipePeek';
 import { AppShellUpdateNotice } from './appShellUpdateNotice';
 import { AppStatusToast } from './appStatusToast';
-import { stampHistoryDepth } from '../../lib/appHistory';
+import { keepTabsOffHistory, stampHistoryDepth } from '../../lib/appHistory';
 import { isRootRoute, parentRouteOf } from '../../lib/appRoutes';
 import { arrivalScrollOf, rememberScroll } from '../../lib/appScroll';
 // 설치 신호(`beforeinstallprompt`)는 로드당 한 번, 어느 화면에서든 온다 — 홈이 뜨기 전에 와도 받아 두도록 셸이 깨어날 때 듣기 시작한다(07 U9).
 import '../../lib/installPromptEvent';
 import { cx } from '../../utils/cx';
+
+// 탭 화면끼리는 history 를 쌓지 않는다 — Next 가 자기 effect 에서 pushState 를 감싸기 **전에** 감싸야 해서 모듈 최상단이다(`appHistory`).
+keepTabsOffHistory();
 
 /**
  * 앱 셸.
@@ -38,6 +42,9 @@ import { cx } from '../../utils/cx';
  * **좌우 스와이프도 셸이 붙인다**(ADR-014). 탭바의 다섯 화면은 손가락으로 넘나들 수 있고,
  * 그 이동은 화면 하나의 사정이 아니라 화면들 **사이**의 사정이라 화면이 알 수 없다.
  * 제스처는 `appShellSwipe`, 옆에서 따라 들어오는 이웃은 `appShellSwipePeek` 이 맡는다.
+ *
+ * **하위 화면은 쌓인다**(ADR-025). 탭 화면에서 안으로 들어가면 새 화면이 오른쪽에서 덮고, 뒤로가기로 나오면 오른쪽으로
+ * 걷힌다 — 옆 페이저가 "나란히" 라면 이쪽은 "위에". 그림은 `appShellStack` 이 맡고, 방향은 `lib/stackTransition.ts` 가 정한다.
  *
  * ## 스크롤은 화면마다 제자리를 지킨다
  *
@@ -66,6 +73,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const { peek, finish, slideTo, enabled, surfaceRef, mainRef, leftRef, rightRef, surfaceProps } =
     useAppShellSwipe(pathname);
+  // 하위 화면으로 들어가고 나오는 그림(쌓기·걷기). 탭 화면끼리의 페이저와 같은 `<main>` 을 쓴다 — 순서는 아래 이펙트.
+  const stack = useAppShellStack({ pathname, mainRef, surfaceRef });
+  const { arrive } = stack;
 
   /** 지금 화면에서 마지막으로 본 세로 위치. 경로가 바뀔 때 이 값을 그 화면의 몫으로 적는다. */
   const lastScrollY = useRef(0);
@@ -79,8 +89,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   useLayoutEffect(() => {
-    if (previousPath.current !== pathname) {
-      rememberScroll(previousPath.current, lastScrollY.current);
+    const from = previousPath.current;
+    if (from !== pathname) {
+      rememberScroll(from, lastScrollY.current);
       previousPath.current = pathname;
     }
 
@@ -92,13 +103,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     finish();
 
     // 상세의 뒤로가기가 앱 밖으로 나가도 되는지 판단하는 근거. lib/appHistory.ts 참고.
-    stampHistoryDepth();
+    const depthDelta = stampHistoryDepth();
+
+    // 하위 화면이면 덮거나 걷는다. `finish` 와 스크롤 복원 **뒤**여야 한다 — `finish` 는 `<main>` 의 transform 을 지우고,
+    // 걷히는 그림의 밑장(`<main>`)은 이미 제자리에 내려앉아 있어야 한다.
+    arrive(from, depthDelta);
 
     if (target === 0 || window.scrollY === target) return;
     // 도착한 화면이 아직 그만큼 길지 않으면 브라우저가 잘라 버린다 — 다음 프레임에 한 번만 더.
     const retry = requestAnimationFrame(() => window.scrollTo(0, target));
     return () => cancelAnimationFrame(retry);
-  }, [pathname, finish]);
+  }, [pathname, finish, arrive]);
 
   return (
     <div className="min-h-dvh bg-secondary">
@@ -128,8 +143,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         */}
         <div
           ref={surfaceRef}
+          // 탭 화면은 탭 페이저가, 쌓인 화면은 가장자리 걷기가 받는다 — 한 화면에 둘이 동시에 붙지 않는다.
           {...surfaceProps}
-          className={cx('overflow-x-clip', enabled && 'touch-pan-y touch-pinch-zoom')}
+          {...stack.surfaceProps}
+          className={cx('overflow-x-clip', (enabled || stack.enabled) && 'touch-pan-y touch-pinch-zoom')}
         >
           <main ref={mainRef} id="main-content" tabIndex={-1} {...surface} className={cx(surface.className, 'outline-hidden')}>
             {showBack && <AppBar backTo={parentRouteOf(pathname)} />}

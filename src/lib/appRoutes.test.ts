@@ -4,7 +4,9 @@ import {
   canStartSwipeAt,
   hasSwipeSurface,
   isRootRoute,
+  isTabSwitch,
   isWithinPlacesSwipe,
+  ownerRootOf,
   parentRouteOf,
   swipeIndexOf,
   takesHorizontalPan,
@@ -51,13 +53,57 @@ describe('parentRouteOf — 되감을 화면이 없을 때 올라갈 곳', () =>
   });
 
   it('저장한 곳·강아지 프로필은 설정으로 올라간다 — 설정 탭 안의 화면이라서', () => {
-    expect(parentRouteOf('/saved')).toBe('/');
+    expect(parentRouteOf('/saved')).toBe('/settings');
     expect(parentRouteOf('/dog')).toBe('/settings');
     expect(parentRouteOf('/dog/')).toBe('/settings');
   });
 
   it('그 밖의 하위 화면은 홈으로 올라간다', () => {
     expect(parentRouteOf('/something-new')).toBe('/');
+  });
+});
+
+describe('isTabSwitch — history 를 쌓지 않는 이동', () => {
+  it('탭 화면에서 다른 탭 화면으로', () => {
+    expect(isTabSwitch('/', '/map/')).toBe(true);
+    expect(isTabSwitch('/places/stay', '/places/cafe')).toBe(true);
+  });
+
+  it('하위 화면이 끼면 쌓는다 — 들어가는 것도, 하위 화면에서 탭바로 나가는 것도', () => {
+    expect(isTabSwitch('/settings', '/saved')).toBe(false);
+    expect(isTabSwitch(`/place/${cafeId}`, '/map')).toBe(false);
+  });
+
+  it('같은 탭 화면(쿼리만 바뀜·끝 / 차이)은 탭 전환이 아니다', () => {
+    expect(isTabSwitch('/map', '/map/')).toBe(false);
+  });
+});
+
+describe('ownerRootOf — 하위 화면은 가장 가까운 history 의 탭 밑에 있다', () => {
+  it('탭 화면은 자기 자신이다 — 새긴 값·직전 값과 무관하게', () => {
+    expect(ownerRootOf({ pathname: '/settings/', stamped: '/', previous: '/map' })).toBe('/settings');
+    expect(ownerRootOf({ pathname: '/places/cafe', stamped: undefined, previous: null })).toBe('/places/cafe');
+  });
+
+  it('처음 들어온 하위 화면은 직전 화면의 탭을 물려받는다 — 같은 저장한 곳이 어디서 왔느냐로 갈린다', () => {
+    expect(ownerRootOf({ pathname: '/saved', stamped: undefined, previous: '/' })).toBe('/');
+    expect(ownerRootOf({ pathname: '/saved', stamped: undefined, previous: '/settings' })).toBe('/settings');
+    expect(ownerRootOf({ pathname: `/place/${cafeId}`, stamped: undefined, previous: '/map' })).toBe('/map');
+  });
+
+  it('뒤로가기로 돌아온 화면은 처음 새긴 값을 따른다 — 직전 화면(상세)이 무엇이었든', () => {
+    expect(ownerRootOf({ pathname: '/saved', stamped: '/settings', previous: '/map' })).toBe('/settings');
+  });
+
+  it('새긴 값이 탭 화면이 아니면 무시한다', () => {
+    expect(ownerRootOf({ pathname: '/saved', stamped: '/dog', previous: '/' })).toBe('/');
+    expect(ownerRootOf({ pathname: '/saved', stamped: 3, previous: null })).toBe('/settings');
+  });
+
+  it('들어온 길을 모르면(딥링크) 정해 둔 부모의 탭', () => {
+    expect(ownerRootOf({ pathname: `/place/${cafeId}`, stamped: undefined, previous: null })).toBe('/places/cafe');
+    expect(ownerRootOf({ pathname: '/dog/', stamped: undefined, previous: null })).toBe('/settings');
+    expect(ownerRootOf({ pathname: '/something-new', stamped: undefined, previous: null })).toBe('/');
   });
 });
 

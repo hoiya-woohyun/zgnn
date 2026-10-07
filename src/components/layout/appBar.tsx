@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ArrowLeft } from '@untitledui/icons';
-import { usePathname, useRouter } from 'next/navigation';
-import { canGoBackInApp, markReplacedNavigation } from '../../lib/appHistory';
+import { usePathname } from 'next/navigation';
 import { barRevealRange } from '../../lib/stickyMorph';
 import { cx } from '../../utils/cx';
 import { registerAppBarSlot } from './appBarSlot';
+import { goBackInApp } from './appShellStack';
 import { morphModeOf, offsetInScroller, writeMorphMode, writeMorphRange } from './scrollDrivenMorph';
 
 type TAppBarProps = {
@@ -55,10 +55,10 @@ type TAppBarProps = {
  *
  * 뒤로가기는 history 를 되감되, 링크를 받아 이 화면으로 바로 들어온 경우에는
  * 되감을 앱 안 화면이 없어 앱 밖으로 나가 버린다. 그래서 지금 history 항목이 앱 안에서
- * 몇 번째인지를 보고(lib/appHistory.ts), 첫 화면이면 backTo 로 올려보낸다.
+ * 몇 번째인지를 보고(lib/appHistory.ts), 첫 화면이면 backTo 로 올려보낸다. 그 판단과 걷히는 그림은
+ * 셸의 것이라(`appShellStack` 의 `goBackInApp`) 여기서는 부르기만 한다.
  */
 export function AppBar({ backTo, title, actions }: TAppBarProps) {
-  const router = useRouter();
   const pathname = usePathname();
   const headerRef = useRef<HTMLElement>(null);
   /** 내려 읽는 중인가 — 아래 선을 긋는다. */
@@ -121,15 +121,8 @@ export function AppBar({ backTo, title, actions }: TAppBarProps) {
     };
   }, [pathname]);
 
-  const goBack = () => {
-    if (!canGoBackInApp()) {
-      // 항목을 갈아 끼우는 이동이라 깊이는 그대로여야 한다.
-      markReplacedNavigation();
-      router.replace(backTo);
-    } else {
-      router.back();
-    }
-  };
+  // 되감거나(앱 안에 되감을 화면이 있으면) 부모로 갈아 끼운다 — 어느 쪽이든 셸이 한 장을 걷어 내며 간다(appShellStack).
+  const goBack = () => goBackInApp(backTo);
 
   const shownTitle = title ?? heading;
 

@@ -117,3 +117,17 @@ export const velocityOf = (samples: TSample[]): number => {
   if (!first || !last || samples.length < 2) return 0;
   return (last.x - first.x) / Math.max(1, last.t - first.t);
 };
+
+/**
+ * 쌓이는 화면(stack)이 덮이고 걷히는 시간·곡선(`components/layout/appShellStack`).
+ *
+ * 옆으로 미는 페이저와 따로 두는 이유: 저기는 손가락이 이미 끌어다 놓은 화면을 **이어받는** 것이고, 여기는
+ * 탭 한 번으로 **멈춰 있던** 화면이 한 장 전체를 건너온다. iOS 내비게이션 스택처럼 빠르게 떠나 길게 감속한다.
+ */
+export const STACK_SLIDE_MS = 340;
+export const STACK_SLIDE_EASING = 'cubic-bezier(0.32, 0.72, 0, 1)';
+/**
+ * 덮이는 화면이 덮는 화면을 따라 물러나는 비율. 0 이면 제자리, 1 이면 함께 밀린다.
+ * 같이 밀리면 옆 페이저(나란히)와 구별이 안 되고, 제자리면 깊이가 안 느껴진다 — iOS 와 같은 30%.
+ */
+export const STACK_PARALLAX = 0.3;

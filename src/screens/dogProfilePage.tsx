@@ -1,12 +1,11 @@
 'use client';
 
 import { useRef, useState, type FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
 import { Button } from '../components/base/button';
 import { HintText } from '../components/base/hint-text';
 import { PageHeader } from '../components/layout/pageHeader';
-import { canGoBackInApp, markReplacedNavigation } from '../lib/appHistory';
 import { parentRouteOf } from '../lib/appRoutes';
+import { goBackInApp } from '../components/layout/appShellStack';
 import { showAppStatus } from '../lib/appStatus';
 import { DOG_NAME_MAX_LENGTH, HEAVY_DOG_CONFIRM_KG, MAX_DOGS, dogProfileSavedMessage, heavyDogs } from '../lib/dogProfile';
 import { dogSize } from '../lib/eligibility';
@@ -69,7 +68,6 @@ const hasRowError = (error: TDogRowError) => Boolean(error.name || error.weightK
  */
 
 export function DogProfilePage() {
-  const router = useRouter();
   const hydrated = useStoreHydrated();
   const dog = useDog();
   const setDog = useAppStore((state) => state.setDog);
@@ -156,12 +154,8 @@ export function DogProfilePage() {
      * 셸의 뒤로가기(`AppBar`)와 같은 규칙이다. 알림은 셸이 그리므로 화면이 바뀌어도 남는다.
      */
     showAppStatus(dogProfileSavedMessage(dogs));
-    if (canGoBackInApp()) {
-      router.back();
-    } else {
-      markReplacedNavigation();
-      router.replace(parentRouteOf('/dog'));
-    }
+    // 헤더의 뒤로가기와 같은 문 — 되감기 · 딥링크면 갈아 끼우기 · 한 장 걷는 그림까지 셸이 맡는다.
+    goBackInApp(parentRouteOf('/dog'));
   };
 
   /** 폼을 프로필 하나(또는 빈 폼)로 다시 채운다 — 삭제와 그 되돌리기가 같은 모양을 쓴다. */

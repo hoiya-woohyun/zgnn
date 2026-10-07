@@ -9,9 +9,11 @@
  * 만들면 뒤로가기가 저절로 생기고, 탭바에 넣을 때에만 이 표에 한 줄을 더한다.
  * 반대로 뒀다면 새 화면마다 "뒤로가기 챙겼나" 를 기억해야 한다.
  *
- * `navItems.ts` 의 `isActive` 를 재사용하면 안 된다 — 둘러보기 항목은 상세(`/place/:id`)까지
- * 자기 것으로 보기 때문에(탭 하이라이트용) 상세가 루트로 분류돼 뒤로가기를 잃는다.
+ * 탭바의 불(`navItems.ts`)과 섞으면 안 된다 — 상세에서도 들어온 탭에 불이 들어와 있다(`ownerRootOf`).
  * 저기는 "어느 탭에 불이 들어오나", 여기는 "되돌아 나올 곳이 있나" 로 질문이 다르다.
+ *
+ * 탭 화면은 **맨 위**(스택의 바닥)다. 하위 화면은 들어올 수 있는 탭 화면 밑에 쌓이고(`parentRouteOf` ·
+ * `ownerRootOf`), 탭 화면끼리는 history 를 쌓지 않는다(`isTabSwitch`) — 그래서 탭 화면 뒤에는 되돌아갈 탭이 없다.
  */
 import { PLACE_TYPES, getPlace } from './places';
 import { BACK_SWIPE_EDGE_PX } from './swipePager';
@@ -35,7 +37,7 @@ export const normalizeRoute = (pathname: string) => {
  * `prominent`). 탭바 순서를 바꾸면 여기도 같이 바꾼다 — 손가락 순서와 눈 순서가 어긋나면
  * 둘러보기를 누른 뒤 오른쪽으로 밀었는데 홈이 나온다.
  *
- * 탭바의 하이라이트는 여전히 다섯 칸이다(`components/layout/navItems.ts` 의 `isActive`) —
+ * 탭바의 하이라이트는 여전히 다섯 칸이다(`components/layout/navItems.ts`) —
  * 여기는 "다음이 무엇인가", 저기는 "어느 탭에 불이 들어오나" 로 질문이 다르다.
  */
 export const SWIPE_ROUTES: readonly string[] = [
@@ -58,6 +60,16 @@ export const SWIPE_ROUTES: readonly string[] = [
 const ROOT_ROUTES = new Set<string>(SWIPE_ROUTES);
 
 export const isRootRoute = (pathname: string): boolean => ROOT_ROUTES.has(normalizeRoute(pathname));
+
+/**
+ * 탭 화면에서 **다른** 탭 화면으로 옮기는가 — 이 이동은 history 를 쌓지 않는다(`appHistory` 의 `keepTabsOffHistory`).
+ *
+ * 탭 화면은 맨 위(스택의 바닥)라 그 뒤에 되돌아갈 앱 안 화면이 없어야 한다. 쌓아 두면 iOS Safari 의 가장자리 뒤로가기가
+ * 직전 탭으로 걷히는데, 같은 화면에서 같은 방향(오른쪽)으로 끄는 손가락이 탭 페이저(ADR-014)에선 "왼쪽 이웃 탭" 이다 —
+ * 한 동작이 두 뜻이 된다. 쿼리만 바뀌는 이동(`/map` → `/map?saved=1`)은 화면이 그대로라 여기 들지 않는다.
+ */
+export const isTabSwitch = (from: string, to: string): boolean =>
+  isRootRoute(from) && isRootRoute(to) && normalizeRoute(from) !== normalizeRoute(to);
 
 /** 스와이프 수열에서의 자리. 수열에 없는 화면(= 하위 화면)이면 -1. */
 export const swipeIndexOf = (pathname: string): number => SWIPE_ROUTES.indexOf(normalizeRoute(pathname));
@@ -111,13 +123,16 @@ export const canStartSwipeAt = (pathname: string, clientX: number, viewportWidth
 };
 
 /**
- * 되감을 앱 안 화면이 없을 때(딥링크로 바로 들어온 경우) 올라갈 부모 경로.
+ * 하위 화면의 **정해 둔 부모** — 되감을 앱 안 화면이 없을 때(딥링크로 바로 들어온 경우) 올라갈 곳이자,
+ * 들어온 길을 모를 때 불을 켤 탭(`ownerRootOf`).
  *
- * 상세는 장소의 종류에 따라 부모 탭이 갈린다 — 카페 상세에서 올라갔는데 숙소 목록이
- * 나오면 안 되므로 경로만 보지 않고 데이터를 본다. 데이터는 빌드 시점에 묶여 있어
- * 클라이언트에서 그냥 읽을 수 있다. 강아지 프로필은 설정 탭 안의 화면이라 설정으로,
- * 그 밖의 화면(저장한 곳 포함)은 홈으로 올려보낸다. 저장한 곳은 홈 카드가 주 진입점이라
- * 홈 아래로 옮겼다 — 설정 밑에 두면 가장 자주 여는 목록이 가장 깊이 묻힌다.
+ * 하위 화면은 **그 화면으로 들어갈 수 있는 탭 화면** 밑에 있다. 상세는 장소의 종류에 따라 부모 탭이
+ * 갈린다 — 카페 상세에서 올라갔는데 숙소 목록이 나오면 안 되므로 경로만 보지 않고 데이터를 본다.
+ * 데이터는 빌드 시점에 묶여 있어 클라이언트에서 그냥 읽을 수 있다. 강아지 프로필·저장한 곳은 설정 안의
+ * 화면이라 설정으로, 그 밖의 화면은 홈으로 올려보낸다.
+ *
+ * 여러 곳에서 들어오는 화면(저장한 곳은 홈 카드·지도·저장 알림에서도 열린다)이 실제로 어느 탭 밑에
+ * 있는지는 여기가 아니라 **들어온 길**이 정한다(`ownerRootOf`). 여기는 그 길을 모를 때의 답이다.
  */
 export const parentRouteOf = (pathname: string): string => {
   const path = normalizeRoute(pathname);
@@ -127,7 +142,37 @@ export const parentRouteOf = (pathname: string): string => {
     return place ? `/places/${place.type}` : '/places/stay';
   }
 
-  if (path === '/dog') return '/settings';
+  if (path === '/dog' || path === '/saved') return '/settings';
 
   return '/';
+};
+
+/**
+ * 이 화면이 **어느 탭 화면 밑에 쌓여 있나** — 탭바·사이드바가 불을 켤 자리(탭 화면 주소 하나).
+ *
+ *   - 탭 화면이면 자기 자신. 탭 화면은 맨 위(스택의 바닥)다.
+ *   - 하위 화면이면 **가장 가까운 history 의 탭** — 그 history 항목에 새겨 둔 값(`stamped`), 없으면 직전 화면의
+ *     값(`previous`)을 물려받는다. 설정 → 저장한 곳 → 상세 → 근처 상세 는 끝까지 설정이고, 홈 카드에서 연 저장한 곳은 홈이다.
+ *     뒤로가기로 돌아온 화면은 처음 들어올 때 새긴 값을 다시 읽으므로 직전 화면이 무엇이었든 제 탭으로 돌아간다.
+ *   - 둘 다 없으면(딥링크·새로고침 직후의 첫 그림) 정해 둔 부모(`parentRouteOf`)의 탭.
+ *
+ * 탭이 정적 규칙(`isActive` 에 `/saved` 를 넣는 식)이면 안 되는 이유: 같은 화면이 어디서 왔느냐로 답이 갈린다.
+ * 직전 주소 하나로도 안 된다 — 상세에서 뒤로 돌아온 저장한 곳의 직전 주소는 상세다.
+ */
+export const ownerRootOf = ({
+  pathname,
+  stamped,
+  previous,
+}: {
+  pathname: string;
+  /** 이 history 항목에 새겨 둔 값(`appHistory`). 처음 들어온 항목이면 없다. */
+  stamped: unknown;
+  /** 직전 화면의 탭. 문서의 첫 화면이면 null. */
+  previous: string | null;
+}): string => {
+  const path = normalizeRoute(pathname);
+  if (isRootRoute(path)) return path;
+  if (typeof stamped === 'string' && isRootRoute(stamped)) return normalizeRoute(stamped);
+  if (previous !== null) return previous;
+  return normalizeRoute(parentRouteOf(path));
 };
