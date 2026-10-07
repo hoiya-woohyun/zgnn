@@ -2,6 +2,7 @@
 
 import { useEffect, useSyncExternalStore } from 'react';
 import {
+  countVisitOnce,
   isHydrationSettled,
   markHydrationSettled,
   subscribeHydrationSettled,
@@ -15,6 +16,15 @@ import {
  * zustand persist 가 첫 렌더에서 localStorage 를 읽어버리면 서버 HTML 과 값이 달라져
  * 하이드레이션 경고가 난다. 그래서 store 쪽은 skipHydration 으로 두고 여기서 깨운다.
  */
+/**
+ * 방문 수를 센 뒤 신호를 올린다. 보통은 store 의 `onRehydrateStorage` 가 둘 다 먼저 해서 여기선 둘 다 no-op 이다 —
+ * 저장소를 열 수 없어 그 콜백이 아예 안 도는 경우(아래 `!persistApi`)를 위해 같은 순서로 한 번 더 둔다.
+ */
+const settleAndCountVisit = () => {
+  countVisitOnce();
+  markHydrationSettled();
+};
+
 export function StoreHydration() {
   useEffect(() => {
     /*
@@ -31,10 +41,10 @@ export function StoreHydration() {
      */
     const persistApi = useAppStore.persist as typeof useAppStore.persist | undefined;
     if (!persistApi) {
-      markHydrationSettled();
+      settleAndCountVisit();
       return;
     }
-    Promise.resolve(persistApi.rehydrate()).then(markHydrationSettled, markHydrationSettled);
+    Promise.resolve(persistApi.rehydrate()).then(settleAndCountVisit, settleAndCountVisit);
   }, []);
 
   return null;

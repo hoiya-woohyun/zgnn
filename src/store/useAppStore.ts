@@ -24,6 +24,12 @@ type TAppState = {
    * "하나만 고치면: 읍면 한 번 고르면 숙소·식당·카페·지도 모두 유지").
    */
   town: string | null;
+  /**
+   * 이 기기에서 앱을 연 횟수(페이지 로드마다 1, `StoreHydration` 이 읽기가 끝난 뒤 센다).
+   * "첫 방문에만" · "두 번째 방문부터" 를 가르는 유일한 신호다 — 홈 인사말 접기(07 U2), 설치 안내(07 U9).
+   * 읽기 전(0)과 첫 방문(1)을 구별해야 하는 화면은 `useStoreHydrated` 와 함께 본다.
+   */
+  visitCount: number;
   toggleSaved: (id: string) => void;
   /** 저장 해제를 되돌린다 — 원래 자리(`index`)와 메모까지(12 U2.2). 이미 저장돼 있으면 아무것도 안 한다. */
   restoreSaved: (id: string, index: number, note?: string) => void;
@@ -38,6 +44,7 @@ type TAppState = {
   clearDog: () => void;
   setNeedsIndoor: (needsIndoor: boolean) => void;
   setTown: (town: string | null) => void;
+  countVisit: () => void;
 };
 
 const toggle = (list: string[], id: string) =>
@@ -52,6 +59,10 @@ const stringList = (value: unknown): string[] =>
 const SEASONS: readonly TSeasonFilter[] = ['여름', '겨울', null];
 const seasonOf = (value: unknown): TSeasonFilter =>
   SEASONS.includes(value as TSeasonFilter) ? (value as TSeasonFilter) : null;
+
+/** 방문 수는 0 이상의 정수만 믿는다 — 깨진 값이면 0(= 아직 한 번도 안 열었다)으로 돌아가 인사말이 한 번 더 펼쳐질 뿐이다. */
+const visitCountOf = (value: unknown): number =>
+  typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : 0;
 
 /**
  * localStorage 읽기가 **끝났는지**. 성공했는지가 아니다.
@@ -94,6 +105,7 @@ export const useAppStore = create<TAppState>()(
       dog: null,
       needsIndoor: false,
       town: null,
+      visitCount: 0,
       // 하트를 지우면 메모도 지운다 — "저장한 곳의 메모" 라 저장이 없으면 붙을 데가 없다.
       toggleSaved: (id) =>
         set((state) => {
@@ -121,6 +133,7 @@ export const useAppStore = create<TAppState>()(
       clearDog: () => set({ dog: null }),
       setNeedsIndoor: (needsIndoor) => set({ needsIndoor }),
       setTown: (town) => set({ town }),
+      countVisit: () => set((state) => ({ visitCount: state.visitCount + 1 })),
     }),
     {
       name: STORAGE_NAME,
@@ -146,6 +159,8 @@ export const useAppStore = create<TAppState>()(
             // 지울 수조차 없는 환경(사파리 시크릿 등)이면 그대로 둔다 — 아래 신호는 어차피 올린다.
           }
         }
+        // 신호 **앞**에서 센다 — 뒤에서 세면 신호를 받은 화면이 옛 수(두 번째 방문인데 1)로 한 프레임 그린다.
+        countVisitOnce();
         markHydrationSettled();
       },
       /**
@@ -172,11 +187,26 @@ export const useAppStore = create<TAppState>()(
           needsIndoor: typeof persisted.needsIndoor === 'boolean' ? persisted.needsIndoor : false,
           town:
             typeof persisted.town === 'string' && ALL_TOWNS.has(persisted.town) ? persisted.town : null,
+          visitCount: visitCountOf(persisted.visitCount),
         };
       },
     },
   ),
 );
+
+/** 이 페이지 로드의 방문을 이미 셌는지. 개발 모드 StrictMode 가 `rehydrate` 를 두 번 불러도 한 번만 센다. */
+let visitCounted = false;
+
+/**
+ * 이 페이지 로드의 방문을 **한 번** 센다. 읽기가 끝난 뒤, 하이드레이션 신호 전에 — 그래야 저장된 수 위에 더해지고(읽기 전에
+ * 올리면 곧 읽어온 값에 덮인다), 신호를 받은 화면이 이미 오른 수를 본다. 저장소가 없거나 깨졌으면 0 위에 더해져 1 이 된다 —
+ * "첫 방문" 으로 보이는 것이 맞다, 이 기기엔 기록이 없으니.
+ */
+export const countVisitOnce = () => {
+  if (visitCounted) return;
+  visitCounted = true;
+  useAppStore.getState().countVisit();
+};
 
 export const useDog = () => useAppStore((state) => state.dog);
 

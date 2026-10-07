@@ -76,7 +76,7 @@ describe('저장된 값 읽기가 끝났다는 신호', () => {
   });
 
   /** BUG-002 의 재현 조건. 이 테스트가 깨지면 등록 화면이 다시 "불러오는 중" 에 갇힌다. */
-  it('값이 깨져 있어도 신호가 오고, 깨진 값은 지워진다', async () => {
+  it('값이 깨져 있어도 신호가 오고, 깨진 값은 멀쩡한 기본값으로 바뀐다', async () => {
     const map = installLocalStorage();
     map.set(STORAGE_NAME, '{broken json');
 
@@ -85,8 +85,10 @@ describe('저장된 값 읽기가 끝났다는 신호', () => {
     expect(isHydrationSettled()).toBe(true);
     // 기본값으로 그린다 — 읽을 수 없었으므로 "저장된 것이 없다" 와 같은 상태다.
     expect(useAppStore.getState().dog).toBeNull();
-    // 남겨 두면 다음 로드에서도 같은 자리에서 또 실패한다(영구 고장).
-    expect(map.has(STORAGE_NAME)).toBe(false);
+    // 남겨 두면 다음 로드에서도 같은 자리에서 또 실패한다(영구 고장). 지운 직후 방문 수(1)를 쓰므로 키는 다시 생기되 읽히는 값이다.
+    const stored = JSON.parse(map.get(STORAGE_NAME) ?? 'null');
+    expect(stored.state.dog).toBeNull();
+    expect(stored.state.visitCount).toBe(1);
   });
 
   /**
@@ -277,5 +279,52 @@ describe('설정의 비우기 두 줄(12 U2.6)', () => {
     useAppStore.getState().clearSaved();
     expect(useAppStore.getState().savedIds).toEqual([]);
     expect(useAppStore.getState().savedNotes).toEqual({});
+  });
+});
+
+describe('방문 수(visitCount, 07 U2·U9)', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('저장된 수 위에 하나 더한다 · 기록이 없으면 1 이 첫 방문이다', async () => {
+    const map = installLocalStorage();
+    const first = await rehydrateFresh();
+    expect(first.useAppStore.getState().visitCount).toBe(1);
+    expect(JSON.parse(map.get(STORAGE_NAME) ?? '{}').state.visitCount).toBe(1);
+
+    const second = await rehydrateFresh();
+    expect(second.useAppStore.getState().visitCount).toBe(2);
+  });
+
+  it('읽기가 끝나면 스스로 한 번 센다 — StrictMode 가 두 번 읽어도 1, 신호보다 먼저', async () => {
+    const map = installLocalStorage();
+    map.set(STORAGE_NAME, JSON.stringify({ state: { visitCount: 4 }, version: 0 }));
+    vi.resetModules();
+    const store = await import('./useAppStore');
+    let seenAtSignal = -1;
+    store.subscribeHydrationSettled(() => {
+      seenAtSignal = store.useAppStore.getState().visitCount;
+    });
+    await store.useAppStore.persist.rehydrate();
+    await store.useAppStore.persist.rehydrate();
+    expect(store.useAppStore.getState().visitCount).toBe(5);
+    expect(seenAtSignal).toBe(5);
+  });
+
+  it('저장된 값이 깨져 있으면 지우고 1 부터 센다', async () => {
+    const map = installLocalStorage();
+    map.set(STORAGE_NAME, '{not json');
+    const { useAppStore } = await rehydrateFresh();
+    expect(useAppStore.getState().visitCount).toBe(1);
+  });
+
+  it('깨진 값(음수·소수·문자열)은 0 으로 읽고, 그 위에 이 로드의 1 이 더해진다', async () => {
+    for (const broken of [-3, 1.5, '4', null]) {
+      const map = installLocalStorage();
+      map.set(STORAGE_NAME, JSON.stringify({ state: { visitCount: broken }, version: 0 }));
+      const { useAppStore } = await rehydrateFresh();
+      expect(useAppStore.getState().visitCount).toBe(1);
+    }
   });
 });

@@ -1,6 +1,7 @@
 # 라우팅 · 화면 셸 · 클라이언트 상태
 
-> 최종 수정: 2026-10-06 (v40: 둘러보기 조건이 종류 탭을 넘어 남는다 — **저장하지 않는** 두 번째 스토어 `usePlacesPageFilterStore`(07 U3))
+> 최종 수정: 2026-10-07 (v41: 홈 **인사말은 첫 방문에만** 히어로 밑에, 이후엔 맨 아래 한 줄(`HomePageIntro`) · 등록 CTA 는 히어로 바로 밑 브랜드 면. "첫 방문" 은 새 스토어 칸 `visitCount`(07 U2))
+> 이전 2026-10-06 (v40: 둘러보기 조건이 종류 탭을 넘어 남는다 — **저장하지 않는** 두 번째 스토어 `usePlacesPageFilterStore`(07 U3))
 > 이전 2026-10-06 (v39: `/dog` 의 탭 불이 설정 고정에서 **들어온 탭**으로(홈→홈 · 딥링크면 없음, 14 W261006.10))
 > 이전 2026-10-06 (v38: 상세의 **판정 카드가 원문을 안에 품는다**(`PlaceDetailEligibilityCard` 의 `evidence`) — 원문이 따로 상자이던 것을 구분선 아래로. 빈 상태(`EmptyState`)는 면 없이, 지도 위에서만 `floating`. 흰 카드 면 규칙은 [ADR-003 v15](../decisions/ADR-003-untitled-ui-and-palette.md))
 > 이전 2026-10-06 (v37: 홈 히어로의 **종류별 전체 수 판(숙소·식당·카페)을 뺐다** — 바로 아래 종류 카드와 같은 수였다. 프로필이 있으면 그 자리에 "두부가 갈 수 있는 곳 N곳" 한 줄(판정 `ok` 합, 종류 카드의 '가능' 합과 같다), 없으면 아무것도 없다(14 D261006.5 · 디자인 리뷰 ①))
@@ -286,6 +287,10 @@ viewport 에 고정돼 스크롤을 내리면 색이 안 맞는 내용 위에 �
   (지금 발바닥은 사라지지 않고 제목 앞 표식으로 헤더에 들어간다. 부제·"갈 수 있는 곳 N곳" 줄만 25% 안에 비킨다. 그 줄은 프로필이 있을 때만 있어 블록 높이가 하이드레이션 뒤에 바뀐다 — `ResizeObserver` 가 다시 잰다.)
 - **면은 v24 부터 `clip-path` 가 아니라 크림 커튼·귀로 가린다** — 아래 절.
 
+**히어로 밑의 순서(v41, 07 U2)** — 등록 CTA(프로필 없을 때, 브랜드 면) → 인사말 카드(**첫 방문에만**) → 어디로 갈까요 → 준비물 → 저장한 곳 → 인사말 한 줄(두 번째 방문부터, 누르면 펼침) → 출처.
+인사말이 매번 히어로 밑에 펼쳐져 화면 절반을 먹고 CTA 를 폴드 밑으로 밀었다(UX 평가 2026-10-06). 글은 첫 화면에서 한 번은 읽혀야 해서(신뢰는 "짱구누나가 직접" 에서 온다) 없애지 않고 자리를 옮겼다.
+어느 쪽인지는 `visitCount`(스토어 표) 로 가르고, 읽기 전엔 둘 다 그리지 않는다.
+
 ### 접히는 헤더가 모바일에서 버벅이던 것 (v24)
 
 PC 에서는 매끄러웠고 폰에서만 버벅였다. 원인은 둘이었고, 둘 다 "GPU 를 켜면" 풀리는 것이 아니었다 — GPU 가 할 수 없는 일을 매 프레임 시키고 있었다.
@@ -472,6 +477,7 @@ Untitled UI 의 `Button href` / `Link` 는 react-aria 라 기본은 전체 새�
 | `season` | `null`(사계절) / 여름 / 겨울 | 준비물 필터, 홈 계절 칩(`SeasonChips` 공용 — 홈에서는 고르기만 하고 이동하지 않는다. "준비물 N가지" 링크의 숫자가 바뀌는 것이 피드백) |
 | `dog` | 우리 강아지 프로필(`TDogProfile \| null`, 마리별 `dogs[]`) | `/dog` 프로필 폼, 설정의 "우리 강아지" 카드, 판정(`useEligibility`/`useEligibilityMap`, `src/store/useDogEligibility.ts`). 목록·홈·지도·근처 장소(`placeCard.tsx`, `placesPage.tsx`, `homePage.tsx`, `mapPage.tsx`, `mapPageSheet.tsx`, `placeDetailNearby.tsx`)는 이 값이 `null` 이면 판정 관련 UI 를 아예 그리지 않는다(v0 화면 유지) |
 | `needsIndoor` | 이번 여행에 실내 자리가 꼭 필요한지 | 판정의 `opts.needsIndoor` — 강아지 정보가 아니라 여행 정보라 `dog` 와 분리(→ [features/dog-profile.md](../features/dog-profile.md)). 둘러보기 식당·카페 탭의 "실내 자리 필요" 토글(`placesPageEligibilityToggles.tsx`)이 값을 바꾼다 |
+| `visitCount` | 이 기기에서 앱을 연 횟수(페이지 로드마다 1) | `onRehydrateStorage` 가 **읽기가 끝난 뒤, 하이드레이션 신호 앞에서** `countVisitOnce()`(읽기 전에 올리면 곧 읽어온 값에 덮이고, 신호 뒤에 올리면 신호를 받은 화면이 옛 수로 한 프레임 그린다 · 모듈 플래그로 StrictMode 중복을 막는다. 저장소를 못 열어 그 콜백이 안 돌면 `StoreHydration` 이 같은 순서로 한 번 더). 깨진 저장값은 지운 직후 이 수(1)를 쓰며 멀쩡한 값으로 바뀐다. 홈 인사말(`homePageIntro.tsx`) — 1 이면 히어로 밑 카드, 2 부터 맨 아래 한 줄. 읽기 전(0)은 `useStoreHydrated` 로 가려 **아무것도 안 그린다**(재방문자 화면이 접히며 튀지 않게). 설치 안내(07 U9)의 "두 번째 방문부터" 도 이 칸. 깨진 값은 0 — 인사가 한 번 더 펼쳐질 뿐 |
 | `town` | 지금 둘러보는 읍면(`string \| null`) | 둘러보기 읍면 칩(`placesPageFilters.tsx`), 지도 읍면 피커(`mapPage.tsx`, `SheetSelect`), 홈 종류 카드 읍면 바로가기(`homeTypeCard.tsx`) — 한 번 고르면 셋을 넘나들어도 유지된다(2026-09-15 리뷰 P1) |
 
 - **하이드레이션**: HTML 이 빌드 때 만들어지므로 첫 렌더에서 localStorage 를 읽으면 서버 HTML 과 어긋난다.

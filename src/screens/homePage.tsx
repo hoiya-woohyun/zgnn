@@ -4,8 +4,8 @@ import { useMemo } from 'react';
 import Link from 'next/link';
 import { Heart, Map01 } from '@untitledui/icons';
 import { HomePageHero, PawMark } from './homePageHero';
+import { HomePageIntro } from './homePageIntro';
 import { HomeTypeCard } from './homeTypeCard';
-import { AuthorAvatar } from '../components/authorAvatar';
 import { Button } from '../components/base/button';
 import { SeasonChips } from '../components/seasonChips';
 import { dogCallNames, withJosa } from '../lib/korean';
@@ -14,6 +14,7 @@ import { checklistView } from '../lib/checklist';
 import type { TEligibilityLevel } from '../lib/eligibility';
 import { countByLevel } from '../lib/eligibilityCounts';
 import { homePageRegisterPreview, homePageRegisterPreviewText } from '../lib/homePageRegisterPreview';
+import { useStoreHydrated } from '../providers/storeHydration';
 import { useAppStore, useDog, useSavedPlaces } from '../store/useAppStore';
 import type { TPlaceType } from '../types';
 import { CARD_SURFACE } from '../components/cardSurface';
@@ -44,6 +45,13 @@ export function HomePage() {
   // 등록 전 미리보기(14 C2610.2) — 예시 두 몸무게로 숙소를 세어 "아이마다 다르다" 를 숫자로. 데이터가 빌드 시점에 묶여 있어 한 번만 센다.
   const registerPreview = useMemo(() => homePageRegisterPreview(placesOfType('stay')), []);
 
+  // 인사말은 첫 방문에만 히어로 밑에 펼치고, 그 뒤로는 맨 아래 한 줄이다(07 U2). 읽기가 끝나기 전엔 **둘 다 그리지 않는다** —
+  // 저장된 값은 마운트 뒤에 들어오므로(skipHydration) 기본값(0)으로 먼저 그리면 재방문자에게도 카드가 펼쳐졌다가
+  // 접히며 화면 전체가 위로 튄다. 첫 방문자는 반대로 비어 있다 카드가 생기는데, 그건 처음 한 번뿐이고 밀리는 쪽이라 덜 거슬린다.
+  const hydrated = useStoreHydrated();
+  const visitCount = useAppStore((state) => state.visitCount);
+  const intro = !hydrated ? null : visitCount <= 1 ? 'card' : 'row';
+
   return (
     <div>
       {/* 잉크 히어로가 스크롤을 따라 그대로 헤더가 된다 — 카드가 줄어들며 크림 헤더 한 줄로 붙는다(HomePageHero).
@@ -64,42 +72,35 @@ export function HomePage() {
         }
       />
 
-      {/* 예전에는 `-mt-10` 으로 히어로 위에 겹쳐 올렸다. 히어로가 라운드 판이 되면서 그 겹침이
-          판의 아래 모서리를 덮어 버려(같은 폭이다) 판으로 보이지 않게 된다 — 겹치지 않고 아래에 둔다. */}
-      <div className="px-4 md:px-6">
-        <section className={`mt-4 ${CARD_SURFACE} p-5`}>
-          <p className="whitespace-pre-line text-sm text-secondary">{META.intro}</p>
-          {/* 편지 서명처럼 오른쪽 아래. 첫 화면에서 "누가 쓴 자료인가" 를 얼굴로 한 번 더 말한다. */}
-          <p className="mt-3 flex items-center justify-end gap-2 text-sm font-semibold text-brand-secondary">
-            <AuthorAvatar className="size-9" />
-            {META.author}
-          </p>
-        </section>
-      </div>
-
-      {/* 프로필이 없을 때만. 첫 진입 강제 등록은 이탈로 이어진다는 리뷰 지적이 있어(2026-09-15
-          §1) 조용한 카드 하나로만 유도하고, 강제 라우팅은 하지 않는다. */}
+      {/* 프로필이 없을 때만, 히어로 **바로 밑**에. 첫 진입 강제 등록은 이탈로 이어진다는 리뷰 지적이 있어(2026-09-15 §1)
+          카드 하나로만 유도하고 강제 라우팅은 하지 않는다 — 대신 이 화면에서 할 일은 이것 하나라 흰 카드가 아니라 **브랜드 면**이고,
+          인사말보다 위다(폴드 아래로 밀렸었다, UX 평가 2026-10-06 · 07 U2).
+          예전에는 `-mt-10` 으로 히어로 위에 겹쳐 올렸다. 히어로가 라운드 판이 되면서 그 겹침이 판의 아래 모서리를 덮어 버려
+          (같은 폭이다) 판으로 보이지 않게 된다 — 겹치지 않고 아래에 둔다. */}
       {!dog && (
         <div className="px-4 md:px-6">
           <Link
             href="/dog"
-            className={`mt-4 flex items-center gap-3 ${CARD_SURFACE} px-4 py-4 transition-colors hover:bg-secondary`}
+            className="mt-4 flex items-center gap-3 rounded-2xl bg-brand-primary px-4 py-4 ring-1 ring-inset ring-brand-200 transition-colors hover:bg-brand-secondary"
           >
-            <span
-              aria-hidden="true"
-              className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-primary"
-            >
-              <PawMark className="h-5 w-5 text-brand-secondary" />
+            <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-solid">
+              <PawMark className="h-5 w-5 text-white" />
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold text-primary">우리 강아지 등록하기</p>
-              <p className="text-sm text-tertiary">
+              <p className="text-sm text-secondary">
                 {registerPreview
                   ? `${homePageRegisterPreviewText(registerPreview)} — 우리 아이는요?`
                   : '등록하면 갈 수 있는 곳을 바로 보여드려요'}
               </p>
             </div>
           </Link>
+        </div>
+      )}
+
+      {intro === 'card' && (
+        <div className="mt-4 px-4 md:px-6">
+          <HomePageIntro variant="card" />
         </div>
       )}
 
@@ -168,6 +169,13 @@ export function HomePage() {
           )}
         </div>
       </section>
+
+      {/* 두 번째 방문부터의 인사말 자리 — 출처 줄 바로 위, "이 자료는 누가" 와 같은 묶음이다. */}
+      {intro === 'row' && (
+        <section className="mt-8 px-4 md:px-6">
+          <HomePageIntro variant="row" />
+        </section>
+      )}
 
       <footer className="mt-10 px-4 pb-8 text-sm text-tertiary md:px-6">
         <p>
