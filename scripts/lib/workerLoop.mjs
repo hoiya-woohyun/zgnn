@@ -37,8 +37,10 @@ export function createWaker(runCycle, { onError = (e) => console.error(e) } = {}
   let daily = false;
   let carried = false; // 못 돈 정기 수집 — 다음 wake 가 가져간다(루프를 다시 돌게 하지 않는다)
 
+  // 다 돌면 `running` 을 **루프 안에서 동기적으로** 비운다 — `.finally` 로 비우면 루프가 끝난 뒤 그 마이크로태스크까지의 틈에 들어온 wake() 가
+  // 끝나 가는 바퀴를 보고 `again` 만 세운 채 버려진다(지금 깨우는 길은 전부 매크로태스크라 실제로는 안 일어난다, todo/17 리뷰 11).
   async function loop() {
-    do {
+    for (;;) {
       again = false;
       const isDaily = daily || carried;
       daily = false;
@@ -50,7 +52,11 @@ export function createWaker(runCycle, { onError = (e) => console.error(e) } = {}
         if (isDaily) carried = true;
         onError(e);
       }
-    } while (again || daily);
+      if (!again && !daily) {
+        running = null;
+        return;
+      }
+    }
   }
 
   /** @returns {Promise<void>} 지금 바퀴(와 그 뒤 한 번 더)가 끝날 때 풀린다 */
@@ -60,9 +66,7 @@ export function createWaker(runCycle, { onError = (e) => console.error(e) } = {}
       again = true;
       return running;
     }
-    running = loop().finally(() => {
-      running = null;
-    });
+    running = loop();
     return running;
   }
 
