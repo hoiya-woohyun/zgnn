@@ -57,3 +57,4 @@
 ## 발견 (분류 전)
 
 <!-- /next 가 작업 중 찾은 것을 한 줄씩 — 출처: <커밋/파일>. 멈출 때 번호 문서로 옮긴다 -->
+- ADR-025 스택 전환(커밋 전) 리뷰 = REQUEST CHANGES. HIGH: 가장자리 끌기 중 이동하면 `arrive()` 가 `gesture.current` 를 안 비워 앱 전체 세로 스크롤이 죽는다(+ `play`/`settleBack` 이 `running` 을 취소 없이 덮음). MEDIUM: 스택 애니메이션 끝이 탭 페이저의 transform 을 지움 · 같은 경로 이동에 `popRequested` 가 남아 다음 push 를 pop 으로 · 같은 경로 `router.replace` 가 `zgnnDepth` 를 지움 · md+(iPad)에서 가장자리 띠가 사이드바 밑이라 시작 불가 — 출처: `appShellStack.ts`·`stackTransition.ts`·`appHistory.ts` 리뷰 보고(2026-10-07)
