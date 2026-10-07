@@ -7,7 +7,7 @@ import { factsLine, FACTS_EMPTY, type TCandidateGroup, type TPlaceRow, type TPol
 import { correctionView } from '../lib/adminCorrection';
 import { aiEdits } from '../lib/adminEdit';
 import { policySplit, typeMismatchFlags } from '../lib/adminPreview';
-import { verifyView } from '../lib/adminVerify';
+import { deniedQuoteView, verifyView } from '../lib/adminVerify';
 import type { TBadgeTone, TPetBadge } from '../lib/petPolicy';
 import { environmentPhrases } from '../lib/stayEnvironmentView';
 import type { TTextSpan } from '../lib/textSpans';
@@ -58,12 +58,22 @@ function Chips({ label, items }: { label: string; items: TPetBadge[] }) {
 
 /**
  * 원문 칸의 인용 모양. 비었으면 **왜 비었는지** 말한다 — 줄이 사라지면 "AI 가 안 뽑은 것" 과 "내가 못 본 것" 이 구별되지 않는다.
- * `spans` 가 오면 그 조각대로 칠한다(06 G — 보정이 대 본 원문의 말). 조각을 이으면 `text` 그대로다(`spansOf`).
+ * `spans` 가 오면 그 조각대로 칠한다(06 G — 보정이 대 본 원문의 말 · 동반 불가 정황의 말). 조각을 이으면 `text` 그대로다(`spansOf`).
  */
-function Quote({ text, empty, spans }: { text: string | null | undefined; empty: string; spans?: TTextSpan[] }) {
+function Quote({
+  text,
+  empty,
+  spans,
+  tone,
+}: {
+  text: string | null | undefined;
+  empty: string;
+  spans?: TTextSpan[];
+  tone?: 'warning' | 'error';
+}) {
   return text?.trim() ? (
     <blockquote className="border-l-2 border-quaternary pl-2.5 whitespace-pre-line text-primary">
-      {spans ? <AdminMarkedSpans spans={spans} /> : text}
+      {spans ? <AdminMarkedSpans spans={spans} tone={tone} /> : text}
     </blockquote>
   ) : (
     <span className="text-quaternary">{empty}</span>
@@ -165,6 +175,8 @@ export function AdminPageGroupDetail({ group, preview, place }: TAdminPageGroupD
   const addressAi = extracted.addressAi?.trim() ? extracted.addressAi : null;
   const address = addressView(extracted);
   const verify = verifyView(extracted.verify);
+  // '동반 불가 정황' 이면 그 인용에서 불가를 말한 곳(06 G). 미점검·다른 갈래는 null — 칠할 문장이 없다.
+  const denied = deniedQuoteView(extracted.verify);
   const facts = factsLine(preview.facts);
   // `AI [(판단 없음)]` 과 `AI [—]` 는 글자만 다르고 운영자가 읽는 뜻이 같다 — 한 문구로 합친다.
   // 센티넬을 리터럴로 적지 않는다(`adminCandidates.ts` 의 패리티 주석이 지배하는 값이다).
@@ -359,12 +371,18 @@ export function AdminPageGroupDetail({ group, preview, place }: TAdminPageGroupD
           {verify && (
             <CompareRow
               label="교차점검"
-              source={<Quote text={extracted.verify?.quote} empty="근거 문장을 못 찾았어요" />}
+              source={<Quote text={extracted.verify?.quote} empty="근거 문장을 못 찾았어요" spans={denied?.spans} tone="error" />}
               site={siteOf(<span className="text-quaternary">—</span>)}
               result={
                 <>
                   <p className={cx('font-semibold', ADMIN_VERIFY_TEXT[verify.tone])}>{verify.label}</p>
                   {extracted.verify?.why && <p className="mt-0.5 text-tertiary">{extracted.verify.why}</p>}
+                  {/* 색만으로 말하지 않는다 — 칠한 말을 글로 다시 적고, 칠할 말을 못 찾았으면 그렇다고 적는다(칠한 곳 없는 인용이 "괜찮다" 로 읽히지 않게). */}
+                  {denied && (
+                    <p className="mt-0.5 text-tertiary">
+                      {denied.found.length > 0 ? `불가 정황(칠함): ${denied.found.join(' · ')}` : '칠할 말을 못 찾았어요 — 인용 문장 전체가 근거예요'}
+                    </p>
+                  )}
                 </>
               }
             />

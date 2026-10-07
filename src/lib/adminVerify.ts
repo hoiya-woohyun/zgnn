@@ -16,6 +16,7 @@
  */
 
 import type { TCandidateVerify } from './adminCandidates';
+import { spansOf, type TTextRange, type TTextSpan } from './textSpans';
 
 export type TVerifyTone = 'success' | 'warning' | 'error';
 /** 점검한 것의 네 갈래(미점검은 `verifyView` 가 null 로 말한다). */
@@ -48,4 +49,36 @@ export function verifyListedOnly(verify: TCandidateVerify | null | undefined): b
 export function verifyNeedsLook(verify: TCandidateVerify | null | undefined): boolean {
   const view = verifyView(verify);
   return view !== null && !view.ok;
+}
+
+/**
+ * '동반 불가 정황' 인용에서 칠할 말(06 G). **표시 전용**이다 — 불가라는 판단은 교차점검이 이미 했고, 여기는 운영자가
+ * 문장 하나를 다 읽지 않아도 "어느 말 때문인가" 를 보게 할 뿐이다. 그래서 넓게 잡는다(놓치면 칠한 곳이 0 이 된다).
+ *
+ * - 부정어는 들어가기·데려가기·동반 말 **뒤**(12자 안)에 붙은 것만 — `주차 불가` 처럼 동반과 무관한 '불가' 를 칠하지 않는다.
+ * - '노펫존', 강아지를 차·숙소에 두고 갔다는 정황(프롬프트가 '그 장소에 함께 있지 않았다' 의 예로 드는 말)도 칠한다.
+ * 실데이터의 '불가 정황' 이 아직 0건이라(2026-10-07 원격 읽기) 어휘는 프롬프트와 판정의 `NOT_ALLOWED_PATTERNS` 에서 왔다.
+ */
+const DENIED_CUES: readonly RegExp[] = [
+  /노\s*(펫|독|도그)(\s*존)?/g,
+  /(동반|출입|입장|입실|반입|들어가|들어갈|들어올|데려가|데려갈|데리고)[^.,!?\n]{0,12}?(불가|금지|사절|안\s*(돼|됩|된|되)|못|어렵|어려워|제한)/g,
+  /못\s*(들어|데려)/g,
+  /(차|차량|숙소)(에|에서)\s*(두고|놔두고|남겨|기다)/g,
+];
+
+export type TDeniedQuoteView = {
+  spans: TTextSpan[];
+  /** 칠한 말(중복 제거, 나온 순). 비었으면 칠할 말을 못 찾은 것이다 — 화면이 "문장 전체를 읽어 달라" 고 글로 말한다. */
+  found: string[];
+};
+
+/** 미점검·불가 아님·인용 없음이면 `null` — 칠할 문장이 없다. */
+export function deniedQuoteView(verify: TCandidateVerify | null | undefined): TDeniedQuoteView | null {
+  const quote = verify?.quote?.trim() ? verify.quote : null;
+  if (!quote || verifyView(verify)?.state !== 'denied') return null;
+  const ranges: TTextRange[] = DENIED_CUES.flatMap((cue) =>
+    [...quote.matchAll(new RegExp(cue.source, cue.flags))].map((match) => ({ start: match.index, end: match.index + match[0].length })),
+  );
+  const spans = spansOf(quote, ranges);
+  return { spans, found: [...new Set(spans.filter((span) => span.mark).map((span) => span.text))] };
 }

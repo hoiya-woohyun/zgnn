@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { verifyListedOnly, verifyNeedsLook, verifyView } from './adminVerify';
+import { deniedQuoteView, verifyListedOnly, verifyNeedsLook, verifyView } from './adminVerify';
 import type { TCandidateVerify } from './adminCandidates';
 
 const verify = (over: Partial<TCandidateVerify> = {}): TCandidateVerify => ({
@@ -66,5 +66,40 @@ describe('verifyNeedsLook — 걸러 보기가 세는 것', () => {
     [verify({ petAllowedHere: 'yes', quote: 'x' }), false], // 동반 표기만도 근거로 친다 — 표시만 갈랐다
   ])('%o → %s', (value, expected) => {
     expect(verifyNeedsLook(value)).toBe(expected);
+  });
+});
+
+describe('deniedQuoteView — 동반 불가 정황의 근거 문장 칠하기(06 G)', () => {
+  const denied = (quote: string | null) => verify({ petAllowedHere: 'no', quote });
+  const marked = (quote: string) => deniedQuoteView(denied(quote))?.found;
+
+  it('동반·출입 말 뒤의 부정어를 칠한다', () => {
+    expect(marked('여기는 반려동물 출입 금지라서 아쉬웠어요')).toEqual(['출입 금지']);
+    expect(marked('강아지 동반은 안 된다고 하셔서 포장했어요')).toEqual(['동반은 안 된']);
+    expect(marked('입장 불가예요')).toEqual(['입장 불가']);
+  });
+
+  it('노펫존·차에 두고 간 정황도 칠한다', () => {
+    expect(marked('노펫존이라 아이는 차에 두고 들어갔어요')).toEqual(['노펫존', '차에 두고']);
+  });
+
+  it('동반과 무관한 불가는 칠하지 않는다 — 칠할 말이 없으면 found 가 비어 화면이 글로 말한다', () => {
+    const view = deniedQuoteView(denied('주차 불가라 근처에 댔어요'));
+    expect(view?.found).toEqual([]);
+    expect(view?.spans).toEqual([{ text: '주차 불가라 근처에 댔어요', mark: false }]);
+  });
+
+  it('조각을 이으면 인용 그대로다', () => {
+    const quote = '반려견 동반 불가, 노 펫 존입니다';
+    expect(deniedQuoteView(denied(quote))?.spans.map((span) => span.text).join('')).toBe(quote);
+  });
+
+  it.each([
+    ['미점검', null],
+    ['불가가 아님', verify({ petAllowedHere: 'yes', quote: '출입 금지는 아니에요' })],
+    ['인용 없음', verify({ petAllowedHere: 'no', quote: null })],
+    ['빈 인용', verify({ petAllowedHere: 'no', quote: '  ' })],
+  ])('%s → 칠할 문장이 없다(null)', (_, value) => {
+    expect(deniedQuoteView(value)).toBeNull();
   });
 });
