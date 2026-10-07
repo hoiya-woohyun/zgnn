@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { PLACES, TYPE_COLOR, TYPE_COLOR_DEEP, TYPE_META, type TPlaceEntry } from '@/lib/places';
+import { TYPE_COLOR, TYPE_COLOR_DEEP, TYPE_META, type TPlaceEntry } from '@/lib/places';
 import { PLACE_TYPE_GLYPH } from '@/lib/placeTypeGlyph';
 
 /*
@@ -48,8 +48,9 @@ export const ogImageSiteCard = (icon: string): ReactElement =>
     <div key="name" style={{ marginTop: 44, fontSize: 96, fontWeight: 600, letterSpacing: -2 }}>
       강아지랑 제주
     </div>,
+    // 곳 수는 그림에 넣지 않는다 — 주소(`/og/site.png`)가 늘 같아 카톡이 캐시한 옛 숫자가 남는다. 수는 og:description 에.
     <div key="blurb" style={{ marginTop: 20, fontSize: 40, fontWeight: 400, color: MUTED }}>
-      {`반려견 동반 숙소·식당·카페 ${PLACES.length}곳`}
+      반려견 동반 제주 숙소·식당·카페
     </div>,
     <div key="pitch" style={{ marginTop: 10, fontSize: 40, fontWeight: 600, color: BRAND }}>
       우리 강아지가 갈 수 있는지 바로 봐요
