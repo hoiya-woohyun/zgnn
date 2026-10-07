@@ -27,6 +27,9 @@ export type TInstallGuideInput = {
 /** 메뉴에 "홈 화면에 추가" 가 없는 인앱 브라우저 — 카카오톡·네이버 앱·인스타그램·페이스북·라인. */
 const IN_APP_BROWSER = /KAKAOTALK|NAVER\(inapp|Instagram|FBAN|FBAV|Line\//i;
 
+/** 인앱 브라우저인가. 그 웹뷰의 저장소는 Safari·홈 화면 앱과 **따로**라 저장 목록 공유 담기(`savedPageShared`)도 이걸 본다. */
+export const isInAppBrowser = (userAgent: string): boolean => IN_APP_BROWSER.test(userAgent);
+
 export function isIOSDevice(userAgent: string, maxTouchPoints: number): boolean {
   if (/iPhone|iPad|iPod/.test(userAgent)) return true;
   return /Macintosh/.test(userAgent) && maxTouchPoints > 1;
@@ -34,7 +37,7 @@ export function isIOSDevice(userAgent: string, maxTouchPoints: number): boolean 
 
 export function installGuideKind(input: TInstallGuideInput): TInstallGuide {
   if (input.visitCount < 2 || input.standalone) return 'none';
-  if (IN_APP_BROWSER.test(input.userAgent)) return 'none';
+  if (isInAppBrowser(input.userAgent)) return 'none';
   if (input.canPrompt) return 'prompt';
   if (isIOSDevice(input.userAgent, input.maxTouchPoints)) return 'ios';
   return 'none';

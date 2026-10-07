@@ -171,6 +171,29 @@ describe('저장 메모(savedNotes)', () => {
   });
 });
 
+describe('공유받은 목록 담기(addSaved, 07 P1)', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('이미 저장한 곳은 자리·메모 그대로, 새 곳만 순서대로 뒤에 붙인다', async () => {
+    const { PLACES } = await import('../lib/places');
+    const [a, b, c] = PLACES;
+    const map = installLocalStorage();
+    map.set(STORAGE_NAME, JSON.stringify({ state: { savedIds: [b.id, a.id], savedNotes: { a: 'x', [a.id]: '전화함' } }, version: 0 }));
+    const { useAppStore } = await rehydrateFresh();
+
+    useAppStore.getState().addSaved([c.id, a.id, c.id]);
+    expect(useAppStore.getState().savedIds).toEqual([b.id, a.id, c.id]);
+    expect(useAppStore.getState().savedNotes[a.id]).toBe('전화함');
+
+    // 전부 이미 있으면 목록을 새로 만들지 않는다 — 구독자가 다시 그리지 않게.
+    const before = useAppStore.getState().savedIds;
+    useAppStore.getState().addSaved([a.id, b.id]);
+    expect(useAppStore.getState().savedIds).toBe(before);
+  });
+});
+
 describe('내린 장소의 저장(12 U2.3)', () => {
   beforeEach(() => {
     vi.unstubAllGlobals();

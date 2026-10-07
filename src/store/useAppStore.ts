@@ -33,6 +33,11 @@ type TAppState = {
   toggleSaved: (id: string) => void;
   /** 저장 해제를 되돌린다 — 원래 자리(`index`)와 메모까지(12 U2.2). 이미 저장돼 있으면 아무것도 안 한다. */
   restoreSaved: (id: string, index: number, note?: string) => void;
+  /**
+   * 공유받은 목록을 내 저장에 합친다(07 P1). 이미 있는 곳은 그대로 두고(자리·메모 유지) 새 곳만 뒤에 붙인다 —
+   * `toggleSaved` 를 돌리면 이미 저장한 곳의 하트가 꺼지고 메모가 지워진다. 넣는 쪽이 지금 데이터에 있는 id 로 거른 값만 준다.
+   */
+  addSaved: (ids: readonly string[]) => void;
   setSavedNote: (id: string, note: string) => void;
   toggleChecked: (id: string) => void;
   /** 준비물 체크를 모두 푼다 — 다음 여행 준비(12 U2.6). */
@@ -121,6 +126,11 @@ export const useAppStore = create<TAppState>()(
           const savedIds = [...state.savedIds];
           savedIds.splice(Math.max(0, Math.min(index, savedIds.length)), 0, id);
           return note ? { savedIds, savedNotes: { ...state.savedNotes, [id]: note } } : { savedIds };
+        }),
+      addSaved: (ids) =>
+        set((state) => {
+          const added = ids.filter((id, index) => !state.savedIds.includes(id) && ids.indexOf(id) === index);
+          return added.length > 0 ? { savedIds: [...state.savedIds, ...added] } : {};
         }),
       // 저장하지 않은 곳에는 메모를 달지 않는다(화면도 저장한 곳에서만 입력 칸을 연다).
       setSavedNote: (id, note) =>
