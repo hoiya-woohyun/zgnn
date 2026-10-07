@@ -32,7 +32,7 @@ import { addressUnresolved, type TAddressChoice } from '../lib/adminAddress';
 import { prepareReanalyze, reanalyzePlan, reanalyzeSummary } from '../lib/adminReanalyze';
 import { collectView, fetchCollectRequests, requestCollect, type TCollectRequestsLoad } from '../lib/adminCollectRequest';
 import { requestAnalyze, type TAnalyzeLimit } from '../lib/adminRequests';
-import { bulkApproveJobs, bulkApproveNeedsLook, bulkApproveSummary, bulkApproveText, bulkLatestSummary, bulkLatestTargets, bulkTone, summarizeBulk, type TBulkTally, type TBulkTone } from '../lib/adminBulk';
+import { bulkApproveJobs, bulkApproveNeedsLook, bulkApproveSummary, bulkApproveText, bulkLatestSummary, bulkLatestTargets, bulkTone, stoppedNote, summarizeBulk, type TBulkTally, type TBulkTone } from '../lib/adminBulk';
 import {
   countStrandedCandidates,
   fetchMatchablePlaces,
@@ -339,7 +339,22 @@ export function AdminPage() {
    * 표 위 줄의 상태. `mode` 는 **지금 열린 확인 하나**다 — 반려 폼·재분석 확인·올리기 확인·최신본 확인이 동시에 열리면
    * 어느 확인 버튼이 무엇을 하는지 흐려진다(불리언 여럿이던 때 둘이 같이 열릴 수 있었다).
    */
-  const [bulk, setBulk] = useState<{ busy?: boolean; mode?: TBulkMode; summary?: string; tone?: TBulkTone; error?: string }>({});
+  const [bulk, setBulk] = useState<{
+    busy?: boolean;
+    mode?: TBulkMode;
+    /** 돌고 있는 동안 몇 번째인지(todo/09 T6.5). */
+    progress?: { done: number; total: number };
+    stopping?: boolean;
+    summary?: string;
+    tone?: TBulkTone;
+    error?: string;
+  }>({});
+  /** `멈추기` 의 깃발 — 루프가 다음 묶음 전에 본다. 상태가 아니라 ref 인 이유: 루프는 한 번 닫힌 클로저라 state 를 못 본다. */
+  const bulkStopRef = useRef(false);
+  const stopBulk = useCallback(() => {
+    bulkStopRef.current = true;
+    setBulk((prev) => ({ ...prev, stopping: true }));
+  }, []);
   const [tab, setTab] = useState<TTab>(initialUrl.tab);
   /*
    * 등록 완료·등록 해제가 **한 목록을 나눠 쓴다**(`status` 로 가른다) — 되살리기 한 번에 두 탭 건수가 같은 틱에 움직인다.
@@ -1174,16 +1189,25 @@ export function AdminPage() {
       if (!beginWrite((message) => setBulk({ mode: 'reject', error: message }))) return;
       const wanted = new Set(keys);
       const targets = groups.filter((group) => wanted.has(group.key));
-      setBulk({ busy: true, mode: 'reject' });
+      bulkStopRef.current = false;
+      setBulk({ busy: true, mode: 'reject', progress: { done: 0, total: targets.length } });
       const done = new Set<string>();
       let failed = 0;
       let blockFailed = 0;
+      let stopped = 0;
       let firstError: string | undefined;
       try {
-        for (const group of targets) {
+        for (const [index, group] of targets.entries()) {
+          if (bulkStopRef.current) {
+            stopped = targets.length - index;
+            break;
+          }
+          setBulk((prev) => ({ ...prev, progress: { done: index, total: targets.length } }));
           try {
             const outcome = await rejectAndBlock(client, group, reason, note, block);
             done.add(group.key);
+            // 된 줄은 그때그때 빠진다 — 끝에 한꺼번에 빠지면 돌고 있는 동안 표가 멈춘 것처럼 보인다.
+            setGroups((prev) => prev.filter((other) => other.key !== group.key));
             if (outcome.blockError) {
               blockFailed += 1;
               firstError ??= `블랙리스트에는 안 들어갔어요(${outcome.blockError})`;
@@ -1201,7 +1225,11 @@ export function AdminPage() {
       setSelected((prev) => clearKeys(prev, [...done]));
       if (block !== 'none' && done.size > blockFailed) setBlocks(await fetchBlocks(client));
       // 블랙리스트만 실패한 곳도 '남은 일' 로 센다 — 제외는 됐지만 다시 올라올 수 있는 구멍이라 초록일 수 없다.
-      setBulk({ summary: summarizeBulkReject(done.size, failed, blockFailed), tone: bulkTone({ done: done.size, waiting: 0, failed: failed + blockFailed }), error: firstError });
+      setBulk({
+        summary: summarizeBulkReject(done.size, failed, blockFailed) + stoppedNote(stopped),
+        tone: bulkTone({ done: done.size, waiting: 0, failed: failed + blockFailed, stopped }),
+        error: firstError,
+      });
     },
     [beginWrite, endWrite, groups],
   );
@@ -1326,11 +1354,18 @@ export function AdminPage() {
           ? bulkLatestTargets(chosen, placesRef.current).eligible.map((entry) => ({ group: entry.group, choice: { mergeInto: entry.pairId, overwrite: true, overwriteColumns: entry.columns } }))
           : // 근거 얇은 신규는 보내지 않는다(todo/13 A3) — 확인 문장이 "건너뛰어요" 라고 센 그 줄들이다(같은 판정 `bulkApproveSlot`).
             bulkApproveJobs(chosen, placesRef.current).map((group) => ({ group, choice: {} }));
-      setBulk({ busy: true, mode: kind });
+      bulkStopRef.current = false;
+      setBulk({ busy: true, mode: kind, progress: { done: 0, total: jobs.length } });
       const done = new Set<string>();
       const tally: TBulkTally = { done: 0, waiting: 0, failed: 0 };
       try {
-        for (const { group, choice } of jobs) {
+        for (const [index, { group, choice }] of jobs.entries()) {
+          // 멈추기는 묶음 사이에서만 — 지금 쓰는 줄은 끝까지 간다(반쯤 쓴 행을 남기지 않는다).
+          if (bulkStopRef.current) {
+            tally.stopped = jobs.length - index;
+            break;
+          }
+          setBulk((prev) => ({ ...prev, progress: { done: index, total: jobs.length } }));
           try {
             const outcome = await approveGroup(client, group, placesRef.current, { nowIso: new Date().toISOString(), newId: newPlaceId, ...choice });
             if (outcome.kind === 'needsDecision') {
@@ -1352,6 +1387,8 @@ export function AdminPage() {
               void written;
               tally.done += 1;
               done.add(group.key);
+              // 된 줄은 그때그때 빠진다(todo/09 T6.5) — 진행 수와 표가 같이 움직여야 멈춘 것과 구별된다.
+              setGroups((prev) => prev.filter((other) => other.key !== group.key));
             }
           } catch (error) {
             tally.failed += 1;
@@ -2024,6 +2061,9 @@ export function AdminPage() {
           onClear={() => setSelected(EMPTY_SELECTION)}
           onStart={(mode) => setBulk({ mode })}
           onCancel={() => setBulk({})}
+          onStop={stopBulk}
+          progress={bulk.progress}
+          stopping={bulk.stopping}
           onReject={(reason, note, block) => void rejectSelected(selectedKeys, reason, note, block)}
           onConfirm={() => {
             if (bulk.mode === 'reanalyze') void reanalyze(selectedKeys, 'bulk');

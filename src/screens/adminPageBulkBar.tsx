@@ -23,6 +23,10 @@ type TAdminPageBulkBarProps = {
   busy: boolean;
   /** 지금 열린 확인 하나. 반려는 사유 폼, 나머지는 확인 문장 + 버튼. */
   mode?: TBulkMode;
+  /** 돌고 있는 동안 몇 번째인지(todo/09 T6.5). 없으면 진행 줄을 안 그린다. */
+  progress?: { done: number; total: number };
+  /** `멈추기` 를 눌렀고 지금 줄이 끝나기를 기다리는 중. */
+  stopping?: boolean;
   summary?: string;
   /** 결과 줄의 색(`bulkTone`) — 없으면 초록. 글이 "3곳 실패" 라 해도 초록이면 안 읽힌다(todo/09 T6.4). */
   tone?: TBulkTone;
@@ -37,6 +41,8 @@ type TAdminPageBulkBarProps = {
   onClear: () => void;
   onStart: (mode: TBulkMode) => void;
   onCancel: () => void;
+  /** 돌고 있는 일괄을 다음 묶음 전에 멈춘다 — 지금 쓰는 줄은 끝까지 간다(반쯤 쓴 행을 남기지 않는다). */
+  onStop: () => void;
   onReject: (reason: TRejectReason, note: string, block: TBlockChoice) => void;
   onConfirm: () => void;
 };
@@ -68,6 +74,8 @@ export function AdminPageBulkBar({
   allSelected,
   busy,
   mode,
+  progress,
+  stopping,
   summary,
   tone = 'success',
   error,
@@ -78,6 +86,7 @@ export function AdminPageBulkBar({
   onClear,
   onStart,
   onCancel,
+  onStop,
   onReject,
   onConfirm,
 }: TAdminPageBulkBarProps) {
@@ -133,6 +142,20 @@ export function AdminPageBulkBar({
         )}
       </div>
 
+      {/*
+        * 돌고 있는 동안의 한 줄 — 141건이 순차 `await` 라 스피너 하나면 멈춘 것과 구별이 안 됐다(todo/09 T6.5).
+        * `멈추기` 는 다음 묶음 전에 멈춘다. 된 줄은 그때그때 목록에서 빠지므로 숫자와 표가 같이 움직인다.
+        */}
+      {busy && progress ? (
+        <p className="mt-1.5 flex items-center gap-2 text-xs text-secondary" role="status" aria-live="polite">
+          <span className="tabular-nums">
+            {progress.done} / {progress.total}
+          </span>
+          <Button color="link-gray" size="sm" isDisabled={stopping} onClick={onStop}>
+            {stopping ? '이 줄까지만 하고 멈춰요' : '멈추기'}
+          </Button>
+        </p>
+      ) : null}
       {summary ? <p className={cx('mt-1.5 text-xs', SUMMARY_TONE[tone])}>{summary}</p> : null}
       {error ? <p className="mt-1.5 text-xs text-error-primary">{error}</p> : null}
 

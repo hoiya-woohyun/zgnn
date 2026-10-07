@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bulkApproveJobs, bulkApproveNeedsLook, bulkTone, bulkApproveSummary, bulkApproveText, bulkLatestSummary, bulkLatestTargets, summarizeBulk, thinNewEvidence } from './adminBulk';
+import { bulkApproveJobs, bulkApproveNeedsLook, bulkTone, bulkApproveSummary, bulkApproveText, bulkLatestSummary, bulkLatestTargets, stoppedNote, summarizeBulk, thinNewEvidence } from './adminBulk';
 import type { TCandidateGroup, TPlaceRow } from './adminCandidates';
 
 const place = (id: string, over: Partial<TPlaceRow> = {}) =>
@@ -51,6 +51,10 @@ describe('bulkTone', () => {
     expect(bulkTone({ done: 138, waiting: 0, failed: 3 })).toBe('warning');
     expect(bulkTone({ done: 3, waiting: 2, failed: 0 })).toBe('warning');
   });
+  it('멈춰서 안 한 것도 남은 일이다', () => {
+    expect(bulkTone({ done: 12, waiting: 0, failed: 0, stopped: 129 })).toBe('warning');
+    expect(bulkTone({ done: 0, waiting: 0, failed: 0, stopped: 141 })).toBe('error');
+  });
 });
 
 describe('summarizeBulk', () => {
@@ -59,6 +63,12 @@ describe('summarizeBulk', () => {
     expect(summarizeBulk('올렸어요', { done: 3, waiting: 2, failed: 1 })).toBe(
       '3곳 올렸어요 · 2곳은 직접 골라야 해요(줄을 펼쳐 보세요) · 1곳 실패 — 줄에 이유를 적어 뒀어요',
     );
+  });
+  it('멈춘 수는 맨 끝에 — 실패와 섞지 않는다', () => {
+    expect(summarizeBulk('올렸어요', { done: 12, waiting: 0, failed: 1, stopped: 128 })).toBe(
+      '12곳 올렸어요 · 1곳 실패 — 줄에 이유를 적어 뒀어요 · 멈춰서 128곳은 안 했어요',
+    );
+    expect(stoppedNote(0)).toBe('');
   });
 });
 

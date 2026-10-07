@@ -164,7 +164,18 @@ export function bulkApproveNeedsLook(plan: TBulkApprove): boolean {
   return plan.noEvidence + plan.addressUnresolved + plan.noRegion + plan.archivedTarget + plan.ask + plan.thin > 0;
 }
 
-export type TBulkTally = { done: number; waiting: number; failed: number };
+export type TBulkTally = {
+  done: number;
+  waiting: number;
+  failed: number;
+  /** 운영자가 `멈추기` 를 눌러 **손대지 않은** 묶음 수(todo/09 T6.5). 실패도 기다림도 아니다 — 다시 고르면 그대로 돈다. */
+  stopped?: number;
+};
+
+/** 멈춰서 안 한 수를 결과 줄 끝에 — 올리기·덮어쓰기·제외가 같은 말을 쓴다. */
+export function stoppedNote(stopped: number | undefined): string {
+  return stopped ? ` · 멈춰서 ${stopped}곳은 안 했어요` : '';
+}
 
 /**
  * 일괄 결과 한 줄. **기다리는 것(사람이 골라야 하는 줄)을 실패와 섞지 않는다** — 실패는 다시 누르면 되고,
@@ -174,7 +185,7 @@ export function summarizeBulk(verb: string, tally: TBulkTally): string {
   const parts = [`${tally.done}곳 ${verb}`];
   if (tally.waiting) parts.push(`${tally.waiting}곳은 직접 골라야 해요(줄을 펼쳐 보세요)`);
   if (tally.failed) parts.push(`${tally.failed}곳 실패 — 줄에 이유를 적어 뒀어요`);
-  return parts.join(' · ');
+  return parts.join(' · ') + stoppedNote(tally.stopped);
 }
 
 export type TBulkTone = 'success' | 'warning' | 'error';
@@ -185,7 +196,7 @@ export type TBulkTone = 'success' | 'warning' | 'error';
  * 일부가 기다리거나 실패했으면 노랑(할 일이 남았다), 전부 됐을 때만 초록.
  */
 export function bulkTone(tally: TBulkTally): TBulkTone {
-  const left = tally.waiting + tally.failed;
+  const left = tally.waiting + tally.failed + (tally.stopped ?? 0);
   if (left === 0) return 'success';
   return tally.done === 0 ? 'error' : 'warning';
 }

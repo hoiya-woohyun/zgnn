@@ -414,7 +414,10 @@ P0 세 줄은 독립이다. 권장: T2.1(문구·색, 가장 싸고 지금 혼�
 - 단계: `state.similar || state.archived` 면 접힌 줄에 `골라 주세요` 뱃지 + 줄기색. 경고 드롭다운에 `결정 기다림`·`실패` 선택지(`states` 기준). 결과 줄의 톤 — `tally.done === 0` 이면 `error`, 부분 실패면 `warning`(지금은 늘 `text-success-primary`, `adminPageBulkBar.tsx:122` · `adminPage.tsx:700` — "0곳 올렸어요 · 3곳 실패" 도 초록). `summarizeBulk` 에 `tone` 한 칸.
 - 커밋: `feat(admin) - 일괄 뒤 기다리는 줄·실패한 줄을 접힌 채로 찾고 결과 줄이 색으로 말한다`
 
-### [ ] T6.5 141건 일괄에 진행 표시가 스피너 하나다
+### [x] T6.5 141건 일괄에 진행 표시가 스피너 하나다
+
+> 메모(2026-10-07): `bulk.progress`(`{done,total}`)를 루프 안에서 갱신, 일괄 줄에 `N / M` + `멈추기`(`bulkStopRef` — 다음 묶음 전 깃발 검사, 올리기·덮어쓰기·제외 셋 다). 된 줄은 그때그때 `setGroups` 로 뺀다.
+> 안 한 수는 `TBulkTally.stopped` → `stoppedNote`, `bulkTone` 이 남은 일로 센다(테스트). 재분석 일괄은 계획 한 번의 쓰기라 뺐다. **화면은 못 봤다**(로그인·실제 일괄 필요).
 
 - 근거: 순차 `await` 인데(`adminPage.tsx:661-695`) 몇 번째인지 없고 끝날 때까지 `setGroups` 도 안 바뀐다(된 줄이 끝에 한꺼번에 빠진다). 운영자는 멈춘 줄 안다.
 - 단계: `setBulk({ busy, progress: { done, total } })` 를 루프 안에서 갱신, 확인 상자에 `12 / 141`. 중간 취소는 다음 항목 전 플래그 검사. 된 줄은 그때그때 빠진다.
