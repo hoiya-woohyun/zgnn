@@ -83,11 +83,17 @@ export function applyRunToOverview(overview: TOpsOverview, run: TPipelineRun): T
   };
 }
 
+/**
+ * 채널 이름 뒤에 붙이는 순번. `client.channel(name)` 은 같은 이름의 채널이 아직 목록에 있으면 **그것을 돌려주는데**, `removeChannel` 은
+ * 비동기라 cleanup 직후의 재구독(개발 모드 StrictMode 의 마운트 두 번 · HMR)이 떠나는 중인 채널을 받아 `subscribe` 가 던진다.
+ */
+let channelSeq = 0;
+
 /** `subscribe` 의 상태 — `SUBSCRIBED` 가 아니면 화면이 "실시간 꺼짐" 을 말한다. */
 export type TOpsRealtimeStatus = 'SUBSCRIBED' | 'TIMED_OUT' | 'CLOSED' | 'CHANNEL_ERROR';
 
 /**
- * 구독 하나(채널 `ops`)에 두 표. 돌려준 함수가 채널을 뗀다(언마운트·다시 로그인할 때).
+ * 구독 하나(채널 `ops:N`)에 두 표. 돌려준 함수가 채널을 뗀다(언마운트·다시 로그인할 때).
  * `postgres_changes_options.wait` — 이것 없이는 표가 publication 에 없어도 `SUBSCRIBED` 가 떠 "실시간 켜짐" 이 거짓말이 된다.
  * DELETE 는 오지 않는다(두 표 모두 delete GRANT 가 없다) — 와도 `new` 가 비어 버려진다.
  */
@@ -96,7 +102,7 @@ export function subscribeOps(
   on: { worker: (worker: TOpsWorker) => void; run: (run: TPipelineRun) => void; status: (status: TOpsRealtimeStatus) => void },
 ): () => void {
   const channel = client
-    .channel('ops', { config: { postgres_changes_options: { wait: true } } })
+    .channel(`ops:${++channelSeq}`, { config: { postgres_changes_options: { wait: true } } })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'workers' }, (payload) => {
       const worker = workerFromRow(payload.new);
       if (worker) on.worker(worker);

@@ -1544,12 +1544,15 @@ export function AdminPage() {
   const reportLine = reports?.kind === 'ok' ? reportHeadline(reports.rows, new Date()) : undefined;
 
   const opsBand = opsStages ? adminBandStage(opsStages, { rebuildWarn: rebuild?.tone === 'warn', strandedShown: Boolean(stranded) }) : null;
-  /** 워커가 없거나 멎었으면 띠에 한 줄 — 추가 수집 요청·승인 뒤 반영은 워커가 집어 간다(ADR-024). */
+  /**
+   * 워커가 없거나 멎었으면 띠에 한 줄 — 추가 수집 요청·재분석·「지금 분석」 은 워커가 집어 간다(ADR-024). 승인은 이 화면이 곧바로
+   * `places` 에 쓰므로(ADR-018) 워커와 무관하다 — "승인이 반영되지 않아요" 라고 말하면 워커가 꺼진 대부분의 시간에 멀쩡한 승인을 고장이라 말한다.
+   */
   const workerBand =
     opsWorker?.state === 'none'
-      ? '로컬 워커가 없어요 — 추가 수집·승인이 반영되지 않아요. 터미널에서 pnpm data 를 켜 주세요'
+      ? '로컬 워커가 없어요 — 추가 수집·재분석 요청이 처리되지 않아요. 터미널에서 pnpm data 를 켜 주세요'
       : opsWorker?.state === 'stale'
-        ? '로컬 워커가 멎은 듯해요 — 추가 수집·승인이 반영되지 않아요. 터미널을 확인해 주세요'
+        ? '로컬 워커가 멎은 듯해요 — 추가 수집·재분석 요청이 처리되지 않아요. 터미널을 확인해 주세요'
         : null;
 
   const expiry = new Date(session.expiresAt * 1000).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' });
