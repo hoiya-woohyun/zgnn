@@ -79,6 +79,7 @@ T1 은 DB 와 무관하니 먼저. T2 는 🧑 `db push` 가 필요하다(쓰기
   ✅ 2026-10-07 — 세션은 **단계를 부르기 전에** 본다: `createSupabase` 가 만료면 `process.exit(1)` 이라 401 을 잡을 자리가 없어서다. `resolveSupabaseCredentials` 의 로그인 계열 거부(없음·JWT 아님·만료·skew 창)에만 `loginNeeded: true` 표식을 달았고(service 키 트립와이어·project-ref 불일치·하루 넘는 토큰엔 없다 — 묻기를 되풀이하지 않게, 테스트), 워커는 그때 `phase: login-needed` → `login.mjs` 의 `main()` → 클라이언트 재생성. TTY 가 아니면 안내 뒤 exit 1, 로그인 실패면 다음 바퀴에 다시 묻는다. `login.mjs` 이메일 칸의 Ctrl-C 는 readline 이 삼켜 멈춤만 됐다 — 진짜 SIGINT 로 다시 올린다.
   계획과 다른 것: ① `RUN_ERROR` 에 한도 문구가 **없었다**(Claude 한도는 글 단위 건너뜀이었다) — `RUN_ERROR.claudeLimit = 'Claude 한도'` 와 `isQuotaExhausted`(extractPlaces — `limit` 중 429·`limit reached` 류. 5xx·overloaded 는 아니다)를 더했고, analyze 는 한도에서 **루프를 끊는다**(남은 글마다 본문을 받고 claude 를 불러 헛돌았다). 워커는 `main` 의 둘째 인자 `{ onRateLimit }` 로 듣는다. ② `LIMIT_RE` 가 구독 창 문구(`5-hour limit reached` · `hit your limit`)를 못 읽어 api_error 로 샜다 — 더했다. 맨 `limit reached` 는 **받지 않는다**(앞말 `5-hour|weekly|usage|session` 이 붙은 것만): `Context limit reached` 같은 글 단위 오류를 한도로 읽으면 analyze 가 루프를 끊고, 요청 글은 오래된 순이라 그 글이 리셋 뒤에도 맨 앞에서 또 세워 분석이 굶는다(아닌 문구를 테스트가 붙잡는다). ③ 리셋 시각은 `|<epoch초>` 와 `resets 3pm`/`resets at 15:30` 두 모양만 읽고 못 읽으면 30분. 쉬는 동안은 **분석만** 빠진다(수집·반영은 돈다).
   알고 두는 것: 「지금 분석 N건」 이 한도로 중간에 끊겨도 그 요청은 `done` 이다(실패해도 done 규칙) — 남은 건수를 다시 세워 주지 않는다. T6 버튼을 만들 때 다시 볼 자리.
+  → 리뷰 3 뒤: 한도로 끊긴 **실패**(exit ≠ 0)는 `queued` 로 되돌아가 리셋 뒤 다시 돈다(최대 3번, 같은 N건). 일부라도 읽고 끝난 실행(exit 0)은 여전히 done.
 
 ### T4. Realtime(워커)
 
@@ -105,6 +106,7 @@ T1 은 DB 와 무관하니 먼저. T2 는 🧑 `db push` 가 필요하다(쓰기
   ✅ 2026-10-07 — `requestAnalyze(client, {limit})`(대기 중 analyze 를 `head` count 로 먼저 세고 insert 만 — `.select()` 없음 · 세기 실패는 넣지 않고 던진다 · 표 없음은 insert 오류가 "미적용") · 순수 `isAnalyzeLimit`(10·30·100) · `analyzeRequestView(worker, backlog, limit)` + 테스트 11. 화면 `adminPageAnalyzeRequest.tsx`(`[10건 ▾] 미분석 M건 중 N건 분석`, secondary). M 은 `/admin` 이 이미 받는 `ops_overview` 의 `backlog.count`, 요청 뒤 그 집계를 다시 읽는다.
   계획과 다른 것: ① 버튼은 카드의 결정 줄이 아니라 **검수 대기 칸 맨 위에 하나** — 저수지는 어느 후보에도 딸리지 않아 카드마다 서면 수십 번 반복된다. 걸러 보기 줄 밖이라 목록이 비어도 선다. ② `/admin` 머리글엔 요청 대기 수를 그리는 곳이 없었다 — 워커 한 줄 뒤에 `· 요청 N건 대기`(0 이면 안 말한다)를 새로 붙였다. ③ 로그인 기다림도 켜 둔다(요청은 남고 로그인 뒤 돈다) · 워커를 모르면(집계 못 읽음) 켜 둔다 · 저수지 0 이면 끈다. ④ 세기와 넣기는 원자적이지 않다 — 겹쳐 들어가도 워커의 `requestLimit` 이 가장 큰 limit 하나로 합쳐 돈다.
   알고 두는 것: 한도로 분석이 끊겨도 요청은 `done`(T3.4) — 화면이 대신 한도 휴식 힌트에 "한도로 끊기면 다시 눌러 주세요" 를 붙였다. 남은 건수를 워커가 다시 세우는 것은 아직 없다.
+  → 리뷰 3 뒤: 한도로 끊긴 실패는 `queued` 로 되돌아가(최대 3번) 버튼이 대기 중으로 꺼져 있다 — 그 힌트 문구는 고칠 자리(화면 파일은 이번 리뷰 범위 밖).
   ⚠️ 화면 실측 못 함 — Chrome 에 운영자 세션이 없다(T5 와 같다). 🧑 실측 때 같이 본다.
 
 ### 🧑 실측(T3·T4·T5 뒤)
@@ -134,7 +136,7 @@ pnpm data                  # 워커 — 켜 둔 채로 /admin 「추가 수집�
 - **4** done/queued 쓰기 직전에 `ensureSession()`.
 - **5** 단계 hooks `nonInteractive`(키를 묻지 않는다) — analyze 키 게이트의 `process.exit` 넷은 문구를 찍은 뒤 표식 오류를 던지고 `main` 이 그 코드를 돌려준다(T1 의 문구 그대로). collect 는 원래 return 이었다. raw 모드 `exit` 리스너는 `readHidden.restoreTtyOnExit` 하나로(login · collect · analyze 공용, 프로세스에 한 번).
 - **6** collect — `requested_at` 표시가 칸 없음(`isSchemaMissing` — PostgREST 는 update 의 모르는 칸을 42703 이 아니라 `PGRST204` 로 준다) 말고 실패하면 요청을 done 으로 적지 않고 대기로 둔다. `markedRequested` 는 `count: 'exact'`.
-- **7** `prompt is too long` · `context limit` · `token limit` 류는 `too_long`(permanent) — 그 전엔 400 이라 **fatal**(실행 전체가 멈춤)이었다. 한도 문구가 섞이면 한도가 먼저. 그 글은 성공 0 인 실행에서도 닫는다(워커의 요청 글은 한두 건씩이라 성공 0 가드에 걸려 영영 안 닫혔다). 닫는 모양은 기존 `analysis.skip`.
+- **7** `prompt is too long` · `context limit|length|window` · `output token limit` 은 `too_long`(permanent — 429·5xx·한도 문구면 아니다. 맨 `token limit` 은 분당 토큰 한도와 섞여 뺐다) — 그 전엔 400 이라 **fatal**(실행 전체가 멈춤)이었다. 한도 문구가 섞이면 한도가 먼저. 그 글은 성공 0 인 실행에서도 닫는다(워커의 요청 글은 한두 건씩이라 성공 0 가드에 걸려 영영 안 닫혔다). 닫는 모양은 기존 `analysis.skip`.
 - **8** progress — 루프 끝에 `{done: 손댄 글 수, total}` 를 스로틀 없이(`force`), `end()` 도 마지막 값을 같이 쓴다(끊긴 실행은 total 이 아니라 손댄 수).
 - **9** 상태를 못 읽은 바퀴는 실패(`once` exit 1), 정기 수집을 맡은 바퀴가 한 단계도 못 돌면 `daily` 를 **다음 wake** 에 얹는다(`createWaker` — 그 자리에서 다시 돌면 오프라인일 때 빈 바퀴가 쉬지 않는다).
 - **10** `once` 도 `--dry-run` 이 아니면 `CLAUDECODE` 에서 거부.

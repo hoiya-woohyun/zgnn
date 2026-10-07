@@ -603,6 +603,10 @@ describe('글이 너무 길다 — permanent(그 글만 닫는다), 실행을 �
   it('한도 문구가 섞이면 한도가 먼저다 — 맨 context 는 글 오류로 읽지 않는다', () => {
     expect(cli({ result: 'rate limit: too many input tokens per minute' })).toMatchObject({ code: 'limit', retryable: true });
     expect(cli({ api_error_status: 400, result: 'invalid context management option' })).toMatchObject({ code: 'api_error', fatal: true });
+    // 429·5xx 는 문구와 상관없이 한도 — 분당 토큰 한도를 '글이 길다' 로 읽으면 성공 0 인 실행에서도 글을 닫는다
+    expect(cli({ api_error_status: 429, result: 'exceeded token limit' })).toMatchObject({ code: 'limit', retryable: true });
+    expect(cli({ api_error_status: 529, result: 'Prompt is too long' })).toMatchObject({ code: 'limit', retryable: true });
+    expect(cli({ result: 'too many tokens per minute' })).not.toMatchObject({ code: 'too_long' });
   });
 });
 

@@ -445,8 +445,9 @@ const AUTH_RE = /not logged in|\/login|invalid api key|authentication|unauthoriz
 const LIMIT_RE = /rate.?limit|session limit|usage limit|(?:5-hour|weekly|usage|session) limit reached|hit your limit|overloaded|too many requests|capacity/i;
 // **글 하나가 너무 길다**(docs/todo/17 리뷰 7) — 다시 불러도 같고 다른 글과는 무관하다. 보통 API 400 으로 와서 아래 4xx 갈래(fatal)에 걸려
 // 실행 전체를 세웠고, 상태 코드 없이 오면 api_error(retryable)로 매 실행 재시도됐다 — 요청 글은 오래된 순이라 그 글이 늘 맨 앞에 선다.
-// 맨 `context` 는 받지 않는다(타임아웃 문구 등에 섞인다). 한도 문구(LIMIT_RE)가 먼저다 — 한도면 재시도가 맞다.
-const TOO_LONG_RE = /prompt is too long|context (?:length|window)|context limit|maximum context|(?:input|token) limit|too many (?:input )?tokens/i;
+// 맨 `context` 는 받지 않는다(타임아웃 문구 등에 섞인다). 맨 `token limit`·`too many tokens` 도 받지 않는다 — 분당 토큰 한도(429) 문구에 섞이고,
+// 그걸 permanent 로 읽으면 성공 0 인 실행에서도 글을 닫아(아래 analyze 의 `sure`) 요청 글이 통째로 사라진다. 429·5xx·한도 문구가 먼저다.
+const TOO_LONG_RE = /prompt is too long|context (?:length|window)|context limit|maximum context|output token limit/i;
 
 // CLI 오류 결과는 두 모양이다(2.1.278 바이너리의 스키마): 로그인 실패처럼 subtype 이 'success' 인데 is_error 인 것(result 에 문구),
 // 그리고 subtype 이 'error_*' 인 것(result 없이 errors[]). 둘 다 여기로 온다.
@@ -464,7 +465,7 @@ export function classifyCliError(result) {
   if (status === 401 || status === 403 || AUTH_RE.test(text)) {
     return new ClaudeCliError('auth', `claude 인증 실패 — 이 머신에서 \`claude\` 로그인이 필요하다: ${text}`, { fatal: true, status });
   }
-  if (!LIMIT_RE.test(text) && TOO_LONG_RE.test(text)) {
+  if (status !== 429 && !(status != null && status >= 500) && !LIMIT_RE.test(text) && TOO_LONG_RE.test(text)) {
     return new ClaudeCliError('too_long', `글이 모델에 비해 너무 길다(다시 불러도 같다): ${text}`, { permanent: true, status });
   }
   if (status === 429 || (status != null && status >= 500) || LIMIT_RE.test(text)) {

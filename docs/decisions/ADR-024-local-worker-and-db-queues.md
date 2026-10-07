@@ -50,6 +50,7 @@ candidates.status = 'approved'       → 반영할 것        (analyze 가 auto 
 - **워커 여럿의 분산 잠금** — 기기가 하나다. `workers` 행이 둘 이상이면 화면이 둘 다 보여 주고 `runLock`(tmpdir)이 같은 기기 안의 겹침만 막는다. 다른 기기끼리 겹치면 `pipeline_runs` 두 행이 running 으로 보이는 것으로 드러난다 — 그때 고친다.
 - **Realtime 로 `/admin` 검수 목록까지** — 거기는 사람이 읽고 고르는 표라 밑에서 줄이 움직이면 안 된다. 구독은 `workers` · `pipeline_runs` 둘뿐이고 후보 표는 그대로 손 새로고침이다.
 - **요청 표의 재시도·만료** — `taken` 인데 워커가 죽으면 `pipeline_runs` 가 stalled 로 드러내고, 다음 워커가 `taken` 이 10분 넘은 요청을 다시 집는다. 그 이상의 상태 기계는 두지 않는다.
+  (v2: 하나만 더했다 — **돌지 못한 실패**(실행 행 전 — 잠금·키·세션)와 Claude 한도로 끊긴 실패는 `queued` 로 되돌리고 `args.attempts` 를 세어 3번째면 `done`. 칸은 늘리지 않았다. todo/17 리뷰 3)
 
 ## 결과
 
