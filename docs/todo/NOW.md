@@ -50,7 +50,7 @@
 - 🧑 운영 현황 실측 — [15 「검증」](15-ops-dashboard.md) · 명령: `pnpm data collect` 한 번 → `/admin/ops` 수집 칸 "방금 · 신규 N", 실행 기록 첫 행 요약이 터미널 줄과 같은지. `pnpm data analyze --limit 3` 도중 `kill -9` → 10분 뒤 "중단된 듯" + 안내 한 줄. 화면은 가짜 응답으로만 그려 봤다(진짜 세션·진짜 행은 아직)
 - 🙋 Slack 실패 알림을 켤지(15 T1.3·T5·T6) — [15](15-ops-dashboard.md) · 권고: 위 실측 뒤 기록이 한 주 쌓이면. 켜면 🧑 Incoming Webhook 을 만들어 Studio 에서 `vault.create_secret(…, 'slack_webhook_url')`(값은 Claude 에게 보이지 않게), 개인 DM · `partial` 은 실패 건수 > 0 일 때만
 - 🙋 경로 짜기(16) 설계 확정 — [16 §7](16-trip-route-planner.md) · 권고: 문서 권장안대로(날짜 1~4일 + 미정, 시작점은 1일차 공항·이후 전날 숙소, 영업시간 데이터 없음, 일정 공유는 밖). 답이 T1.1 저장 모양을 정한다 — 그 전엔 순수 함수 T1.2 만 할 수 있다
-- 🧑 경로 짜기 길찾기 링크 실기기 실측 — [16 H.1·H.2](16-trip-route-planner.md) · 명령: `nmap://route/car`(경유지 5)·`nmap://navigation`·안드로이드 인텐트를 iOS·Android 에서 1회씩. T1.3 머지 전. **먼저** 저장 카드의 「길찾기」(웹 `map.naver.com/p/directions/…`, 7394564)가 폰에서 길을 그리고 앱으로 넘어가는지 — 안 되면 형식만 고친다
+- 🧑 경로 짜기 길찾기 링크 실기기 실측 — [16 H.1·H.2](16-trip-route-planner.md) · 명령: `nmap://route/car`(경유지 5)·`nmap://navigation`·안드로이드 인텐트를 iOS·Android 에서 1회씩. T1.3 머지 전. **먼저** 저장 카드의 「길찾기」(웹 `map.naver.com/p/directions/…`, 7394564)가 폰에서 길을 그리고 앱으로 넘어가는지 — 안 되면 형식만 고친다. 경유지 웹 주소(`{출발}/{도착}/{경유1:경유2}/car`, 9e048ff `naverRouteLink.ts`)의 `:` 구분자·5곳 상한도 — 다르면 상수 둘만
 - 🧑 `place_blocks` 원격 적용 여부 확인 — [10 H.1](10-user-feedback-personas.md) · 명령: `./node_modules/.bin/supabase migration list --linked` 에서 `20261001120000_place_blocks`. `/admin` 차단 패널에 '미적용' 갈래가 있다
 - 🧑 덮어쓰기 뒤 `place_sources` 확인 — [11 H.4](11-continuous-review-and-update-proposals.md) · 명령: `/admin` 등록 완료 장소 하나를 `덮어쓰기`(한 줄·일괄) → `./node_modules/.bin/supabase db query --linked` 로 그 글이 `place_sources` 에 있는지. 09 T5.3 이 이 결과에 달렸다
 
