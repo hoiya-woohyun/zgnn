@@ -24,7 +24,7 @@ import {
   velocityOf,
   type TSample,
 } from '../../lib/swipePager';
-import { STUCK_MS } from './appShellSwipe';
+import { STACK_DRAWING_ATTR, STUCK_MS } from './appShellSwipe';
 
 /** 덮이는 화면 위에 내려앉는 그늘의 최대 짙기(`bg-overlay` 의 불투명도). 깊이를 말할 만큼만. */
 const DIM_OPACITY = 0.12;
@@ -167,6 +167,7 @@ export function useAppShellStack({ pathname, mainRef, surfaceRef }: TAppShellSta
     for (const property of ['transform', 'position', 'z-index', 'background-color', 'min-height', 'box-shadow', '--swipe-viewport-top']) {
       main.style.removeProperty(property);
     }
+    main.removeAttribute(STACK_DRAWING_ATTR);
   }, [mainRef]);
 
   /**
@@ -220,6 +221,8 @@ export function useAppShellStack({ pathname, mainRef, surfaceRef }: TAppShellSta
        * 짧은 화면이어도 한 장을 다 덮게. transform 과 `--swipe-viewport-top` 은 같은 프레임에 건다(ADR-014 「결과」).
        */
       main.style.setProperty('--swipe-viewport-top', `${window.scrollY}px`);
+      // 그리는 동안 탭 페이저가 끼어들지 않게 — 끝 정리가 그쪽 transform 까지 지운다(`STACK_DRAWING_ATTR`).
+      main.setAttribute(STACK_DRAWING_ATTR, '');
       if (kind === 'push') {
         main.style.position = 'relative';
         main.style.zIndex = '25';

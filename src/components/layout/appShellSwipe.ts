@@ -45,6 +45,16 @@ import { arriveBySwipe } from '../../screens/placesPageTypeSwitch';
  */
 export const STUCK_MS = 1500;
 
+/**
+ * 쌓기·걷기 그림(`appShellStack` 의 `play`)이 `<main>` 을 움직이는 동안 그 `<main>` 에 서는 표식.
+ *
+ * 두 페이저가 `<main>` 하나의 transform 을 나눠 쓴다. 걷기가 탭 화면에 도착한 뒤 그리는 동안 이 페이저가 시작하면
+ * 이미 깨진다 — 스택의 `fill: forwards` 가 `paint` 의 인라인 transform 을 가려 엿보기만 손가락을 따라가고, 끝 정리(`stop`)가
+ * transform 과 `--swipe-viewport-top` 을 지운다. 그래서 그동안은 시작하지 않는다 — 스택의 가장자리 제스처가 자기 그림이
+ * 도는 동안 시작하지 않는 것과 같은 규칙이다. 덮기(push)는 하위 화면에 도착해 이 페이저가 아예 없으니 겹치는 것은 걷기뿐이다.
+ */
+export const STACK_DRAWING_ATTR = 'data-stack-drawing';
+
 export type TAppShellPeek = {
   /** 이웃 두 칸. 그 방향으로 셸이 넘길 곳이 없으면 null(= 끝이라 저항만 준다). */
   left: string | null;
@@ -244,7 +254,8 @@ export function useAppShellSwipe(pathname: string) {
     if (settling.current || gesture.current) return true;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
     const main = mainRef.current;
-    if (!main) return false;
+    // 걷기 그림이 도는 중이면 보통 링크로 — 주소는 이미 도착해 있어 겹칠 것이 없고, 셸의 `arrive` 가 그 그림을 먼저 걷는다.
+    if (!main || main.hasAttribute(STACK_DRAWING_ATTR)) return false;
     const width = main.clientWidth;
     const side = to > index ? 'right' : 'left';
     // 제스처가 잠기는 순간과 같은 준비 — fixed 상쇄값 · 출발 자리 · 엿보기. 엿보기는 **동기로** 세워야
@@ -302,6 +313,11 @@ export function useAppShellSwipe(pathname: string) {
       }
       const surface = surfaceRef.current;
       if (!surface) return;
+      // 걷기 그림이 아직 `<main>` 을 움직이는 중 — 잠그는 순간에 본다(누를 때 보면 그림이 끝난 직후의 제스처까지 버린다).
+      if (mainRef.current?.hasAttribute(STACK_DRAWING_ATTR)) {
+        current.axis = 'off';
+        return;
+      }
 
       current.axis = 'x';
       // 방향을 정하는 데 쓴 거리는 버리고 여기서부터 0 으로 센다 — 잠기는 순간 화면이 10px 튀지 않게.
