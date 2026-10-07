@@ -184,6 +184,12 @@ export function useAppShellSwipe(pathname: string) {
     mainRef.current?.style.removeProperty('--swipe-viewport-top');
     setPeek(null);
     settling.current = false;
+    /*
+     * 끄는 도중에 주소가 바뀌었으면(안드로이드 뒤로·앞으로) 그 제스처는 여기서 끝난다. 남겨 두면 도착한 곳이 하위 화면일 때
+     * `surfaceProps` 가 비어 손을 떼도 아무도 안 비우고, `axis: 'x'` 가 남아 `lockScroll` 이 앱 전체의 세로 스크롤을 막는다
+     * (BUG-013 과 같은 모양). 손이 붙어 있는 동안 여기가 불리는 것은 그때뿐이다 — 밀어내는 중(`settling`)엔 새 제스처를 안 받는다.
+     */
+    gesture.current = null;
     // 셸이 경로 이펙트에서 부르므로 매 렌더 새로 만들면 안 된다 — ref 와 setPeek 만 쓰니 고정할 수 있다.
   }, []);
 

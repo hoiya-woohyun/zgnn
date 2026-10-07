@@ -29,7 +29,6 @@
 
 ## 지금 (위에서부터)
 
-- [ ] 탭 페이저도 끄는 중에 주소가 바뀌면 세로 스크롤이 잠길 수 있다 — [12 U4.6](12-ux-audit-2026-10-02.md) · 왜 지금: BUG-013 과 같은 모양, 미재현이라 먼저 재현
 - [ ] 하루 묶음 판정 `tripEligibility.ts` — [16 T2.1](16-trip-route-planner.md) · 왜 지금: §7 결정 없이 되는 순수 함수, 판정은 `placeDetailEligibilityCard` 와 같은 입력으로
 - [ ] 걸린 장소의 대안 ≤3 — [16 T2.2](16-trip-route-planner.md) · 왜 지금: T2.1 바로 뒤, 상세 "근처 장소" 함수를 판정으로 거른다
 - [ ] ADR-026 "경로는 우리, 운전 안내는 네이버" + `docs/features/trip-route.md` — [16 T3.1](16-trip-route-planner.md) · 왜 지금: 웹 주소로 간 결정(T1.3·T1.5)이 문서에 없다
