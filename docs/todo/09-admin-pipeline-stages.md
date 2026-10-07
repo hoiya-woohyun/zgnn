@@ -237,7 +237,9 @@ P0 세 줄은 독립이다. 권장: T2.1(문구·색, 가장 싸고 지금 혼�
 - 커밋: `feat(admin) - 등록 해제할 때 블랙리스트 기간을 같은 자리에서 고른다 — 되살리면 풀린다`
 - > 메모: 폼은 `adminPagePlaceArchiveForm.tsx`(T6.8 이 같이 닫혔다). 쓰기는 `adminBlocks.ts` 의 `archiveAndBlock`·`restoreAndLift`·`setPlaceBlock` — 읍·면은 `placeBlockRowFor` 가 후보와 같은 규칙(`extractAddressUnits(address).eupMyeon ?? townOf(region_raw)`). 칩은 장소마다 가장 늦게 풀리는 열린 행 하나(`latestBlockByPlace`, 영구가 이긴다). 등록 해제 칸의 `블랙리스트` 는 고르는 즉시 쓴다(열린 것을 풀고 새로 건다, `none` 은 풀기만). 해제 폼은 사유를 미리 고른 채 열 수 있다(`archiveReason`) — 10 T1.4 의 폐업 제보가 그 길로 연다.
 
-### [ ] T1.5 블랙리스트 탭 — 보기 · 풀기 · 기간 바꾸기
+### [x] T1.5 블랙리스트 탭 — 보기 · 풀기 · 기간 바꾸기
+
+> 메모(2026-10-07): 읽기는 `fetchBlocks` 하나 — 탭 건수(`blocksSummaryOf`)·등록 해제 칩(`placeBlocksOf`)·목록이 그 결과에서 파생해 `풀기`(`liftBlock`)·`기간 바꾸기`(`extendBlock`) 뒤 같은 틱에 움직인다(옛 `fetchBlockCounts`·`fetchPlaceBlocks` 는 지웠다). 화면은 `adminPageBlocksPanel.tsx` + 줄 `adminPageBlocksRow.tsx`, 열은 `ADMIN_BLOCK_TRACKS`. 장소 링크는 탭만 바꾼다(그 칸의 검색·페이지는 그대로라 줄이 화면 밖일 수 있다). 링크는 등록 해제 칩 쪽만 — 제외 결과 줄은 몇 초 뒤 사라져 붙이지 않았다. '권한 없음' 은 페이지의 운영자 확인이 맡는다(RLS 는 빈 배열). 화면은 로그인 뒤라 못 봤다.
 
 - 근거: D2·D6 — 만료는 비교라 **목록이 없으면 무엇이 막혀 있는지 아무도 모른다.** 등록된 적 없는 가게(제외한 후보)도 서는 표라 등록 해제 탭 안에 둘 수 없다 — 다섯째 탭(✅ 사용자 "블랙리스트 개념").
 - 선행: T1.3 · T3.1.

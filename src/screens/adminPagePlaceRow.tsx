@@ -70,6 +70,8 @@ type TAdminPagePlaceRowProps = {
   onStartBlock: () => void;
   onCancelBlock: () => void;
   onSetBlock: (choice: TBlockChoice) => void;
+  /** 블랙리스트 칸으로 간다(칩 옆 `보기`, 09 T1.5). */
+  onGoToBlocks?: () => void;
   /** 이 장소에 열린 사용자 제보(처리할 것만). 없거나 표가 없으면 빈 배열. */
   reports: TReportRow[];
   /** 검수 대기에 이 장소의 갱신 묶음이 몇 개 있나(11 T3.2) — 제보와 같은 가게의 또 하나의 신호. */
@@ -118,6 +120,7 @@ export function AdminPagePlaceRow({
   onStartBlock,
   onCancelBlock,
   onSetBlock,
+  onGoToBlocks,
   reports,
   pendingUpdates = 0,
   onHandleReports,
@@ -211,6 +214,12 @@ export function AdminPagePlaceRow({
             <Badge size="sm" color={block ? 'gray' : 'blue'}>
               {block ? `블랙리스트 ${blockChipText(block, new Date())}` : '블랙리스트 없음'}
             </Badge>
+          )}
+          {/* 걸린 것이 있을 때만 — 칸에서 그 행을 풀거나 기간을 바꾼다. `<button>` 이라 줄의 펼침 클릭(`toggleFromRow`)이 흘려보낸다. */}
+          {archived && block && onGoToBlocks && (
+            <button type="button" onClick={onGoToBlocks} className="text-xs text-tertiary underline underline-offset-2 hover:text-secondary">
+              블랙리스트 보기
+            </button>
           )}
           {(why || place.status === 'draft') && (
             <span className="basis-full text-xs text-tertiary">

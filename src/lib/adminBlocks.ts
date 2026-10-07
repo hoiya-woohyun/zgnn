@@ -230,30 +230,60 @@ export type TBlocksSummary =
   | { kind: 'unavailable' }
   | { kind: 'error'; message: string };
 
-export async function fetchBlockCounts(client: SupabaseClient, now: Date = new Date()): Promise<TBlocksSummary> {
-  const { data, error } = await client.from('place_blocks').select('until').is('lifted_at', null);
+/** `place_blocks` 의 한 행(풀지 않은 것만 읽는다). 블랙리스트 칸의 한 줄이 이것이다. */
+export type TBlockRow = {
+  id: string;
+  name_key: string;
+  town: string | null;
+  display_name: string;
+  reason: string;
+  note: string | null;
+  until: string | null;
+  lifted_at: string | null;
+  candidate_id: string | null;
+  place_id: string | null;
+  created_at: string;
+};
+
+/** 블랙리스트 읽기 결과. `unavailable` 은 표가 원격에 없는 것이라 "0건" 과 다르게 말한다. */
+export type TBlocksLoad = { kind: 'ok'; rows: TBlockRow[] } | { kind: 'unavailable' } | { kind: 'error'; message: string };
+
+/**
+ * 풀지 않은 행 **전부**(09 T1.5) — 만료가 지난 것도 담는다. 분석은 지난 행을 이미 안 보지만(`blockFor`), 화면에서까지 빼면
+ * "막아 둔 가게가 왜 다시 후보로 올라왔나" 를 읽을 자리가 없다 — 그 줄이 `지남` 으로 서 있어야 답이 된다.
+ * 탭 건수(`blocksSummaryOf`)와 등록 해제 칸의 칩(`placeBlocksOf`)도 이 한 번 읽은 것에서 파생한다 — 따로 읽으면
+ * 풀기 한 번에 세 값이 서로 다른 틱에 움직인다.
+ */
+export async function fetchBlocks(client: SupabaseClient): Promise<TBlocksLoad> {
+  const { data, error } = await client
+    .from('place_blocks')
+    .select('id, name_key, town, display_name, reason, note, until, lifted_at, candidate_id, place_id, created_at')
+    .is('lifted_at', null)
+    .order('created_at', { ascending: false });
   if (error) return isBlocksUnavailable(error) ? { kind: 'unavailable' } : { kind: 'error', message: error.message };
-  return { kind: 'ok', ...countBlockRows((data ?? []) as { until: string | null }[], now) };
+  return { kind: 'ok', rows: (data ?? []) as TBlockRow[] };
+}
+
+/** 읽기 결과 → 탭 라벨의 바탕 — 순수. 아직 못 읽었으면 undefined. */
+export function blocksSummaryOf(load: TBlocksLoad | undefined, now: Date): TBlocksSummary | undefined {
+  if (!load) return undefined;
+  if (load.kind !== 'ok') return load;
+  return { kind: 'ok', ...countBlockRows(load.rows, now) };
+}
+
+/**
+ * 읽기 결과 → 장소 id 별 열린 차단 하나(등록 해제 칸의 칩) — 순수. 표가 없거나 못 읽었으면 undefined
+ * (그 칸은 undefined 를 보고 칩과 `블랙리스트` 버튼을 숨긴다).
+ */
+export function placeBlocksOf(load: TBlocksLoad | undefined): Record<string, TPlaceBlock> | undefined {
+  if (load?.kind !== 'ok') return undefined;
+  const rows: TPlaceBlock[] = [];
+  for (const row of load.rows) if (row.place_id) rows.push({ id: row.id, place_id: row.place_id, until: row.until });
+  return latestBlockByPlace(rows);
 }
 
 /** 장소에 걸린 **열린** 차단 하나(풀지 않은 것). 등록 해제 칸의 줄 칩이 이것을 그린다. */
 export type TPlaceBlock = { id: string; place_id: string; until: string | null };
-
-/**
- * 장소 id → 그 장소에서 건 열린 차단(여럿이면 가장 늦게 풀리는 것 — 영구가 이긴다). 표가 없으면 `unavailable`.
- * 만료가 지난 것도 담는다 — 칩이 `지남` 으로 말해야 "왜 다시 후보가 올라왔나" 가 읽힌다.
- */
-export async function fetchPlaceBlocks(
-  client: SupabaseClient,
-): Promise<{ kind: 'ok'; byPlace: Record<string, TPlaceBlock> } | { kind: 'unavailable' } | { kind: 'error'; message: string }> {
-  const { data, error } = await client
-    .from('place_blocks')
-    .select('id, place_id, until')
-    .is('lifted_at', null)
-    .not('place_id', 'is', null);
-  if (error) return isBlocksUnavailable(error) ? { kind: 'unavailable' } : { kind: 'error', message: error.message };
-  return { kind: 'ok', byPlace: latestBlockByPlace((data ?? []) as TPlaceBlock[]) };
-}
 
 /** 순수 — 장소마다 가장 늦게 풀리는 차단 하나(영구 = 무한대). */
 export function latestBlockByPlace(rows: readonly TPlaceBlock[]): Record<string, TPlaceBlock> {
@@ -271,6 +301,49 @@ export function blockChipText(block: Pick<TPlaceBlock, 'until'>, now: Date): str
   if (!block.until) return '영구';
   if (new Date(block.until).getTime() <= now.getTime()) return '지남';
   return `~${block.until.slice(0, 10)}`;
+}
+
+/** 블랙리스트 칸 한 줄의 표기 — 순수. `origin` 은 그 행을 어디서 걸었나(후보 제외 · 장소 등록 해제). */
+export type TBlockRowView = {
+  /** `영구` · `~2027-01-01` · `지남` — 등록 해제 칸의 칩과 같은 말(`blockChipText`). */
+  remaining: string;
+  /** 기간이 지나 더는 걸리지 않는다(분석의 `blockFor` 와 같은 비교). 화면은 회색으로 낮춘다. */
+  expired: boolean;
+  origin: 'candidate' | 'place' | 'none';
+};
+
+export function blockRowView(row: Pick<TBlockRow, 'until' | 'candidate_id' | 'place_id'>, now: Date): TBlockRowView {
+  const remaining = blockChipText(row, now);
+  return {
+    remaining,
+    expired: remaining === '지남',
+    origin: row.place_id ? 'place' : row.candidate_id ? 'candidate' : 'none',
+  };
+}
+
+/**
+ * 한 행을 일찍 푼다(`lifted_at`). DELETE 가 아닌 이유는 머리 주석 — 풀어도 행은 남아 "언제 왜 막았다 풀었나" 가 읽힌다.
+ * 이미 풀린 행은 건드리지 않는다(두 번 눌러도 처음 푼 시각이 남는다). 표가 없으면 `BLOCKS_UNAVAILABLE_TEXT` 로 던진다.
+ */
+export async function liftBlock(client: SupabaseClient, id: string, now: Date = new Date()): Promise<void> {
+  const { error } = await client.from('place_blocks').update({ lifted_at: now.toISOString() }).eq('id', id).is('lifted_at', null);
+  if (error) throw new Error(isBlocksUnavailable(error) ? BLOCKS_UNAVAILABLE_TEXT : error.message);
+}
+
+/**
+ * 기간을 바꾼다 — `until` 한 칸. 3개월은 **지금부터** 3개월이다(처음 건 날부터가 아니라): 지난 행을 다시 막는 손잡이이기도 해서,
+ * 건 날부터 세면 이미 지난 날짜가 되어 눌러도 아무 일이 없다. 바뀐 `until` 을 돌려준다(화면이 다시 읽지 않고 그 줄만 고친다).
+ */
+export async function extendBlock(
+  client: SupabaseClient,
+  id: string,
+  choice: Exclude<TBlockChoice, 'none'>,
+  now: Date = new Date(),
+): Promise<string | null> {
+  const until = blockUntil(choice, now);
+  const { error } = await client.from('place_blocks').update({ until }).eq('id', id).is('lifted_at', null);
+  if (error) throw new Error(isBlocksUnavailable(error) ? BLOCKS_UNAVAILABLE_TEXT : error.message);
+  return until;
 }
 
 /**

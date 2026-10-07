@@ -12,7 +12,13 @@ import {
   archiveAndBlock,
   archiveOutcomeText,
   blockChipText,
+  blockRowView,
+  blocksSummaryOf,
+  extendBlock,
   latestBlockByPlace,
+  liftBlock,
+  placeBlocksOf,
+  type TBlockRow,
   placeBlockRowFor,
   rejectAndBlock,
   restoreAndLift,
@@ -320,5 +326,115 @@ describe('latestBlockByPlace · blockChipText', () => {
     expect(blockChipText(map.p, now)).toBe('영구');
     expect(blockChipText(map.q, now)).toBe('지남');
     expect(blockChipText({ until: '2027-01-01T00:00:00.000Z' }, now)).toBe('~2027-01-01');
+  });
+});
+
+const blockRow = (patch: Partial<TBlockRow> = {}): TBlockRow => ({
+  id: 'b-1',
+  name_key: '살레',
+  town: '구좌읍',
+  display_name: '살레',
+  reason: '폐업',
+  note: null,
+  until: null,
+  lifted_at: null,
+  candidate_id: null,
+  place_id: null,
+  created_at: '2026-09-01T00:00:00.000Z',
+  ...patch,
+});
+
+describe('blockRowView — 블랙리스트 칸 한 줄의 표기', () => {
+  const now = new Date('2026-10-01T00:00:00.000Z');
+
+  it('until 이 null 이면 영구, 막는 중', () => {
+    expect(blockRowView(blockRow({ until: null }), now)).toMatchObject({ remaining: '영구', expired: false });
+  });
+
+  it('만료가 지난 행은 지남 — 경계(until == now)도 지남이다(분석의 blockFor 와 같은 비교)', () => {
+    expect(blockRowView(blockRow({ until: '2026-09-01T00:00:00.000Z' }), now)).toMatchObject({ remaining: '지남', expired: true });
+    expect(blockRowView(blockRow({ until: now.toISOString() }), now)).toMatchObject({ remaining: '지남', expired: true });
+  });
+
+  it('미래면 ~YYYY-MM-DD', () => {
+    expect(blockRowView(blockRow({ until: '2027-01-01T00:00:00.000Z' }), now)).toMatchObject({
+      remaining: '~2027-01-01',
+      expired: false,
+    });
+  });
+
+  it('어디서 — 장소가 후보보다 먼저, 둘 다 없으면 none', () => {
+    expect(blockRowView(blockRow({ place_id: 'p-1' }), now).origin).toBe('place');
+    expect(blockRowView(blockRow({ candidate_id: 'c-1' }), now).origin).toBe('candidate');
+    expect(blockRowView(blockRow(), now).origin).toBe('none');
+  });
+});
+
+describe('blocksSummaryOf · placeBlocksOf — 한 번 읽은 행에서 파생', () => {
+  const now = new Date('2026-10-01T00:00:00.000Z');
+  const rows = [
+    blockRow({ id: 'a', until: null, place_id: 'p' }),
+    blockRow({ id: 'b', until: '2026-09-01T00:00:00.000Z', candidate_id: 'c' }),
+    blockRow({ id: 'c', until: '2027-01-01T00:00:00.000Z', place_id: 'q' }),
+  ];
+
+  it('지난 행은 건수에서 막힘이 아니라 지남으로', () => {
+    expect(blocksSummaryOf({ kind: 'ok', rows }, now)).toEqual({ kind: 'ok', active: 2, expired: 1 });
+    expect(blocksSummaryOf({ kind: 'unavailable' }, now)).toEqual({ kind: 'unavailable' });
+    expect(blocksSummaryOf(undefined, now)).toBeUndefined();
+  });
+
+  it('칩 지도는 장소에서 건 행만, 표가 없으면 undefined', () => {
+    expect(Object.keys(placeBlocksOf({ kind: 'ok', rows }) ?? {}).sort()).toEqual(['p', 'q']);
+    expect(placeBlocksOf({ kind: 'error', message: 'x' })).toBeUndefined();
+  });
+});
+
+describe('liftBlock · extendBlock', () => {
+  const now = new Date('2026-10-01T00:00:00.000Z');
+
+  function fakeUpdateClient(error: { code?: string; message: string } | null = null) {
+    const calls: { payload: Record<string, unknown>; filters: string[] }[] = [];
+    const client = {
+      from() {
+        return {
+          update(payload: Record<string, unknown>) {
+            const call = { payload, filters: [] as string[] };
+            calls.push(call);
+            const chain = {
+              eq(col: string, value: unknown) {
+                call.filters.push(`${col}=${String(value)}`);
+                return chain;
+              },
+              is(col: string, value: unknown) {
+                call.filters.push(`${col} is ${String(value)}`);
+                return Promise.resolve({ error });
+              },
+            };
+            return chain;
+          },
+        };
+      },
+    } as unknown as SupabaseClient;
+    return { calls, client };
+  }
+
+  it('풀기는 그 행의 lifted_at 하나 — 이미 풀린 행은 건드리지 않는다', async () => {
+    const { calls, client } = fakeUpdateClient();
+    await liftBlock(client, 'b-1', now);
+    expect(calls).toEqual([{ payload: { lifted_at: '2026-10-01T00:00:00.000Z' }, filters: ['id=b-1', 'lifted_at is null'] }]);
+  });
+
+  it('표가 없으면 미적용 문장으로 던진다', async () => {
+    const { client } = fakeUpdateClient({ code: 'PGRST205', message: 'x' });
+    await expect(liftBlock(client, 'b-1', now)).rejects.toThrow(BLOCKS_UNAVAILABLE_TEXT);
+    await expect(extendBlock(client, 'b-1', 'forever', now)).rejects.toThrow(BLOCKS_UNAVAILABLE_TEXT);
+  });
+
+  it('3개월은 지금부터, 영구는 null — 쓴 값을 돌려준다', async () => {
+    const { calls, client } = fakeUpdateClient();
+    expect(await extendBlock(client, 'b-1', 'months3', now)).toBe(blockUntil('months3', now));
+    expect(await extendBlock(client, 'b-1', 'forever', now)).toBeNull();
+    expect(calls.map((c) => c.payload)).toEqual([{ until: blockUntil('months3', now) }, { until: null }]);
   });
 });

@@ -27,7 +27,6 @@
 
 ## 지금 (위에서부터)
 
-- [ ] 블랙리스트 탭 — 보기·풀기·기간 바꾸기 — [09 T1.5](09-admin-pipeline-stages.md) · 왜 지금: `place_blocks` 는 원격에 있는데 목록이 없어 무엇이 막혀 있는지 아무도 모른다. `adminBlocks.ts` 에 `fetchBlocks`·`liftBlock`·`extendBlock` 이 아직 없다
 - [ ] 일괄 처리에 진행 수와 취소 — [09 T6.5](09-admin-pipeline-stages.md) · 왜 지금: 141건이 스피너 하나라 멈춘 줄 안다. T6.4 와 같은 파일(`adminPageBulkBar.tsx`)이라 그 뒤에
 - [ ] 수집 완료 칸 — 글 목록·글 단위 분석 제외·다시 읽기 — [09 T3.2](09-admin-pipeline-stages.md) · 왜 지금: 광고·목록 글은 가게 차단으로 못 막는다. 마이그레이션은 **파일만**(적용은 끝나면 「기다림」 에 `db push` 줄로) — 컬럼 없을 때 폴백 조회를 빼먹지 않는다
 - [ ] 덮어쓰기 버튼 옆에서 바뀌는 칸을 본다 — [09 T6.7](09-admin-pipeline-stages.md) · 왜 지금: 목록(판 위)과 버튼(판 아래)이 한 화면 거리. 작다

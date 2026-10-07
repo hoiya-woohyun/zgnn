@@ -14,15 +14,18 @@ import { approveGroup, confirmSite, saveEdit, setRegion } from '../lib/adminAppl
 import {
   archiveAndBlock,
   archiveOutcomeText,
-  fetchBlockCounts,
-  fetchPlaceBlocks,
+  blocksSummaryOf,
+  extendBlock,
+  fetchBlocks,
+  liftBlock,
+  placeBlocksOf,
   rejectAndBlock,
   rejectOutcomeText,
   restoreAndLift,
   setPlaceBlock,
   type TBlockChoice,
-  type TBlocksSummary,
-  type TPlaceBlock,
+  type TBlockRow,
+  type TBlocksLoad,
 } from '../lib/adminBlocks';
 import { chooseAddress } from '../lib/adminEdit';
 import { addressUnresolved, type TAddressChoice } from '../lib/adminAddress';
@@ -109,6 +112,7 @@ import { cx } from '../utils/cx';
 import { useAdminInfiniteScroll } from './adminInfiniteScroll';
 import { AdminPageAnalyzeRequest } from './adminPageAnalyzeRequest';
 import { AdminPageBlocksPanel } from './adminPageBlocksPanel';
+import type { TAdminPageBlocksRowState } from './adminPageBlocksRow';
 import { AdminPageBulkBar } from './adminPageBulkBar';
 import { AdminPageGroupCard, type TAdminPageGroupState, type TApproveChoice } from './adminPageGroupCard';
 import { AdminPageLogin } from './adminPageLogin';
@@ -354,9 +358,18 @@ export function AdminPage() {
    */
   const [backlog, setBacklog] = useState<{ data?: TPostBacklog; error?: string } | undefined>(undefined);
   const backlogAskedRef = useRef(false);
-  const [blockSummary, setBlockSummary] = useState<TBlocksSummary | undefined>(undefined);
+  /**
+   * 풀지 않은 블랙리스트 행 전부(09 T1.5). undefined = 아직 못 읽었다. 탭 건수(`blockSummary`)와 등록 해제 칸의 칩(`placeBlocks`)은
+   * **여기서 파생한다** — 풀기·기간 바꾸기가 이 하나를 고치면 셋이 같은 틱에 움직인다.
+   */
+  const [blocks, setBlocks] = useState<TBlocksLoad | undefined>(undefined);
+  const blockSummary = useMemo(() => blocksSummaryOf(blocks, new Date()), [blocks]);
   /** 장소 id → 열린 블랙리스트(등록 해제 칸의 칩). undefined = 표가 없거나 못 읽었다. */
-  const [placeBlocks, setPlaceBlocks] = useState<Record<string, TPlaceBlock> | undefined>(undefined);
+  const placeBlocks = useMemo(() => placeBlocksOf(blocks), [blocks]);
+  /** 블랙리스트 칸의 줄 상태(풀기·기간 바꾸기) — 행 id 별. */
+  const [blockStates, setBlockStates] = useState<Record<string, TAdminPageBlocksRowState>>({});
+  /** 방금 푼 줄의 한 줄 — 푼 줄은 목록에서 빠지므로 패널 위에 선다. */
+  const [blockNotice, setBlockNotice] = useState<string | undefined>(undefined);
   /** 추가 수집 요청(가게마다 마지막 하나). 못 읽었으면 카드에 버튼이 안 선다 — 검수는 막지 않는다. */
   const [collectRequests, setCollectRequests] = useState<TCollectRequestsLoad | undefined>(undefined);
   /** 사용자 제보(ADR-021). undefined = 아직 못 읽었다. 쓰기 콜백이 최신 행을 보도록 ref 로도 든다. */
@@ -488,9 +501,7 @@ export function AdminPage() {
       setPostCounts(undefined);
       setPostError(messageOf(error, '수집한 글을 세지 못했어요.'));
     }
-    setBlockSummary(await fetchBlockCounts(client));
-    const byPlace = await fetchPlaceBlocks(client);
-    setPlaceBlocks(byPlace.kind === 'ok' ? byPlace.byPlace : undefined);
+    setBlocks(await fetchBlocks(client));
     setCollectRequests(await fetchCollectRequests(client));
     applyReports(await fetchReports(client));
   }, [applyReports]);
@@ -522,8 +533,9 @@ export function AdminPage() {
     setPostError(undefined);
     setBacklog(undefined);
     backlogAskedRef.current = false;
-    setBlockSummary(undefined);
-    setPlaceBlocks(undefined);
+    setBlocks(undefined);
+    setBlockStates({});
+    setBlockNotice(undefined);
     applyReports(undefined);
     setStranded(undefined);
     setRebuild(undefined);
@@ -906,6 +918,73 @@ export function AdminPage() {
     [beginWrite, endWrite, loadCounts, patchPlaceState],
   );
 
+  const patchBlockState = useCallback((id: string, patch: Partial<TAdminPageBlocksRowState>) => {
+    setBlockStates((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+  }, []);
+
+  /**
+   * 블랙리스트 칸의 `풀기`(09 T1.5). 다시 읽지 않고 그 행을 목록에서 뺀다 — 탭 건수·등록 해제 칸의 칩이 같은 상태에서
+   * 파생하므로(`blocksSummaryOf`·`placeBlocksOf`) 같은 틱에 준다. `places` 는 안 바뀌므로 재빌드와 무관하다.
+   */
+  const liftBlockRow = useCallback(
+    async (row: TBlockRow) => {
+      const client = clientRef.current;
+      if (!client) return;
+      if (!beginWrite((message) => patchBlockState(row.id, { error: message }))) return;
+      patchBlockState(row.id, { busy: 'lifting', error: undefined, done: undefined });
+      try {
+        await liftBlock(client, row.id);
+        setBlocks((prev) => (prev?.kind === 'ok' ? { kind: 'ok', rows: prev.rows.filter((r) => r.id !== row.id) } : prev));
+        setBlockStates((prev) => Object.fromEntries(Object.entries(prev).filter(([id]) => id !== row.id)));
+        setBlockNotice(`${row.display_name} — 블랙리스트에서 풀었어요 · 다음 분석부터 이 가게의 새 글이 후보로 올라와요`);
+      } catch (error) {
+        patchBlockState(row.id, { busy: undefined, error: messageOf(error, '풀지 못했어요.') });
+      } finally {
+        endWrite();
+      }
+    },
+    [beginWrite, endWrite, patchBlockState],
+  );
+
+  /** 블랙리스트 칸의 `기간 바꾸기` — `until` 한 칸. 그 줄만 제자리에서 고친다(지난 줄이면 다시 막는 줄이 되어 건수가 같은 틱에 는다). */
+  const extendBlockRow = useCallback(
+    async (row: TBlockRow, choice: Exclude<TBlockChoice, 'none'>) => {
+      const client = clientRef.current;
+      if (!client) return;
+      if (!beginWrite((message) => patchBlockState(row.id, { error: message }))) return;
+      patchBlockState(row.id, { busy: 'extending', error: undefined, done: undefined });
+      try {
+        const until = await extendBlock(client, row.id, choice);
+        setBlocks((prev) =>
+          prev?.kind === 'ok' ? { kind: 'ok', rows: prev.rows.map((r) => (r.id === row.id ? { ...r, until } : r)) } : prev,
+        );
+        patchBlockState(row.id, {
+          busy: undefined,
+          picking: false,
+          done: until ? `${until.slice(0, 10)}까지로 바꿨어요` : '영구로 바꿨어요',
+        });
+      } catch (error) {
+        patchBlockState(row.id, { busy: undefined, error: messageOf(error, '기간을 바꾸지 못했어요.') });
+      } finally {
+        endWrite();
+      }
+    },
+    [beginWrite, endWrite, patchBlockState],
+  );
+
+  /**
+   * 블랙리스트 줄 → 그 장소가 있는 칸(등록 완료·등록 해제, 장소의 `status` 로). 탭만 바꾼다 — 그 칸의 검색어·펼침은
+   * 그 칸의 것이라(`AdminPagePlaceList`) 그 줄이 화면 밖일 수 있다. 장소 목록에 없으면 링크를 안 그린다.
+   */
+  const goToPlace = useCallback(
+    (placeId: string) => {
+      const place = managed?.find((row) => row.id === placeId);
+      if (!place) return undefined;
+      return () => setTab(place.status === 'archived' ? 'archived' : 'places');
+    },
+    [managed],
+  );
+
   /**
    * 올린 장소 고치기. 순서·실패 처리는 `changePlace` 와 같다(잠금 → 쓰기 → 목록·대조 장부 → 풀기) —
    * 대조 장부에도 알리는 이유는 같은 세션의 다음 승인이 고친 이름·주소·플레이스 id 로 짝을 찾게 하려는 것이다.
@@ -1066,6 +1145,8 @@ export function AdminPage() {
         const outcome = await rejectAndBlock(client, group, reason, note, block);
         patchState(group.key, { busy: undefined, rejecting: false, done: rejectOutcomeText(reason, outcome) });
         removeLater(group.key);
+        // 방금 건 행이 블랙리스트 칸·탭 건수에 바로 보이게 다시 읽는다(실패는 그 칸이 말한다 — 제외는 이미 됐다).
+        if (outcome.blocked !== 'none') setBlocks(await fetchBlocks(client));
       } catch (error) {
         patchState(group.key, { busy: undefined, error: messageOf(error, '제외하지 못했어요.') });
       } finally {
@@ -1118,6 +1199,7 @@ export function AdminPage() {
       setGroups((prev) => prev.filter((group) => !done.has(group.key)));
       setStates((prev) => Object.fromEntries(Object.entries(prev).filter(([key]) => !done.has(key))));
       setSelected((prev) => clearKeys(prev, [...done]));
+      if (block !== 'none' && done.size > blockFailed) setBlocks(await fetchBlocks(client));
       // 블랙리스트만 실패한 곳도 '남은 일' 로 센다 — 제외는 됐지만 다시 올라올 수 있는 구멍이라 초록일 수 없다.
       setBulk({ summary: summarizeBulkReject(done.size, failed, blockFailed), tone: bulkTone({ done: done.size, waiting: 0, failed: failed + blockFailed }), error: firstError });
     },
@@ -1775,7 +1857,16 @@ export function AdminPage() {
         {suggestionError ? <p className="mt-2 px-4 text-xs text-error-primary md:px-6">{suggestionError}</p> : null}
       </div>
       <div hidden={tab !== 'blocks'}>
-        <AdminPageBlocksPanel summary={blockSummary} />
+        <AdminPageBlocksPanel
+          load={blocks}
+          states={blockStates}
+          notice={blockNotice}
+          goToPlace={goToPlace}
+          onLift={(row) => void liftBlockRow(row)}
+          onStartExtend={(row) => patchBlockState(row.id, { picking: true, error: undefined, done: undefined })}
+          onCancelExtend={(row) => patchBlockState(row.id, { picking: false })}
+          onExtend={(row, choice) => void extendBlockRow(row, choice)}
+        />
       </div>
       <div hidden={tab !== 'places'}>
         {placeTabFallback ?? (
@@ -1788,6 +1879,7 @@ export function AdminPage() {
             onChange={(place, kind, reason, note, block) => void changePlace(place, kind, reason, note, block)}
             blocks={placeBlocks}
             onSetBlock={(place, choice) => void changePlaceBlock(place, choice)}
+            onGoToBlocks={() => setTab('blocks')}
             reports={reportsByPlace}
             updates={updatesByPlace}
             onHandleReports={(place, ids, status, note) => void handleReports(place, ids, status, note)}
@@ -1809,6 +1901,7 @@ export function AdminPage() {
             onChange={(place, kind, reason, note, block) => void changePlace(place, kind, reason, note, block)}
             blocks={placeBlocks}
             onSetBlock={(place, choice) => void changePlaceBlock(place, choice)}
+            onGoToBlocks={() => setTab('blocks')}
             reports={reportsByPlace}
             updates={updatesByPlace}
             onHandleReports={(place, ids, status, note) => void handleReports(place, ids, status, note)}

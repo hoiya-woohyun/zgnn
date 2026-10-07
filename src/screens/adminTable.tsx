@@ -63,6 +63,14 @@ export const ADMIN_PLACE_TRACKS =
   'md:grid-cols-[minmax(0,2.4fr)_8.5rem_minmax(0,2.4fr)_minmax(0,4.6fr)_4rem_auto]';
 
 /**
+ * 블랙리스트 칸(09 T1.5): 이름 · 읍·면 · 사유 · 남은 기간 · 어디서 · (버튼). 이름이 장소 표와 같은 폭이라 칸을 오가도 첫 열이 그 자리다.
+ * 읍·면 `8.5rem` 은 지역 열과 같은 값(같은 종류의 글), 남은 기간 `7.5rem` 은 `~2027-01-01` + 선 24px,
+ * 버튼 열은 장소 표처럼 `auto`(`풀기`·`기간 바꾸기` 두 개가 줄바꿈 없이 서는 폭).
+ */
+export const ADMIN_BLOCK_TRACKS =
+  'md:grid-cols-[minmax(0,2.4fr)_8.5rem_minmax(0,3fr)_7.5rem_6.5rem_auto]';
+
+/**
  * **열 트랙은 표 상자 한 곳이 소유하고, 머리글·`<ul>`·`<li>`·줄 본체가 `subgrid` 로 물려받는다**(2026-10-02).
  *
  * 그 전에는 줄마다 자기 grid 를 가졌다. 줄끼리 서로의 내용을 모르니 열을 맞추려면 폭을 숫자로 박을 수밖에 없었고,

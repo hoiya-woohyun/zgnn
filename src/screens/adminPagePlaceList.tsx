@@ -92,6 +92,8 @@ type TAdminPagePlaceListProps = {
   /** 장소 id → 열린 블랙리스트. `undefined` 면 표가 없거나 못 읽었다(칩을 안 그린다). */
   blocks?: Record<string, TPlaceBlock>;
   onSetBlock: (place: TPlaceRow, choice: TBlockChoice) => void;
+  /** 블랙리스트 칸으로 간다(등록 해제 칸의 칩 옆). */
+  onGoToBlocks?: () => void;
   /** 장소 id → 처리할 사용자 제보. 표가 없으면 빈 객체. */
   reports: Record<string, TReportRow[]>;
   onHandleReports: (place: TPlaceRow, ids: string[], status: 'handled' | 'dismissed', note: string) => void;
@@ -115,6 +117,7 @@ export function AdminPagePlaceList({
   onChange,
   blocks,
   onSetBlock,
+  onGoToBlocks,
   reports,
   onHandleReports,
   updates,
@@ -304,6 +307,7 @@ export function AdminPagePlaceList({
                 onStartBlock={() => patchState(place.id, { pickingBlock: true, error: undefined, done: undefined })}
                 onCancelBlock={() => patchState(place.id, { pickingBlock: false })}
                 onSetBlock={(choice) => onSetBlock(place, choice)}
+                onGoToBlocks={onGoToBlocks}
                 reports={reports[place.id] ?? NO_REPORTS}
                 pendingUpdates={updates?.[place.id] ?? 0}
                 onHandleReports={(ids, nextStatus, note) => onHandleReports(place, ids, nextStatus, note)}
