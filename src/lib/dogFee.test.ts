@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { feeChipForWeight, formatDogFee, formatWon } from './dogFee';
+import { feeChipForWeight, feeUnitNote, formatDogFee, formatWon } from './dogFee';
 import { parsePetPolicy, toPetBadges } from './petPolicy';
 import { FEE_EX, SYSTEM_PROMPT } from '../../scripts/analyze/extractPlaces.mjs';
 import { judgeEligibility } from './eligibility';
@@ -349,5 +349,45 @@ describe('feeChipForWeight — 카드의 요금 칩 하나를 우리 강아지 �
   it('몸무게로 갈리지 않는 줄은 첫 줄 그대로', () => {
     expect(feeChipForWeight(['1마리당 2만원', '청소비 5만원'], 30)).toBe('1마리당 2만원');
     expect(feeChipForWeight([], 5)).toBeNull();
+  });
+});
+
+describe('feeUnitNote — 1박마다인지 원문이 말하지 않으면 상세가 한 줄 붙인다(08 T5.1)', () => {
+  const NOTE = '1박 기준인지는 원문에 없어요';
+  const seed = (name: string) => {
+    const place = PLACES.find((p) => p.name === name);
+    if (!place) throw new Error(`시드에 없다: ${name}`);
+    return place;
+  };
+  const noteFor = (name: string, dog: TDogProfile = AKDONG) => {
+    const place = seed(name);
+    return feeUnitNote(place.type, place.petPolicyText, place.policy, formatDogFee(place.policy, dog));
+  };
+
+  it('"1마리당 3만원" 은 단위가 없다 — 붙인다', () => {
+    expect(noteFor('호텔 핀코')).toBe(NOTE);
+  });
+
+  it('"숙박일 관계없이 청소비" 는 한 번이라는 말이다 — 붙이지 않는다', () => {
+    expect(noteFor('그리너리빌리지 펜션')).toBeNull();
+  });
+
+  it('구조가 1박마다라고 했으면 한 줄이 이미 "1박 …" 이다 — 붙이지 않는다', () => {
+    const policy = parsePetPolicy('1마리당 2만원.');
+    const rule: TFeeRule = { label: '1마리당 2만원', basis: 'perDog', amountWon: 20000, minKg: null, maxKg: null, fromDog: null, perNight: true };
+    expect(feeUnitNote('stay', '1마리당 2만원.', { ...policy, feeRules: [rule] }, '악동은 1박 2만원')).toBeNull();
+  });
+
+  it('요금 줄이 없거나 추가 요금 없음 · 숙소가 아니면 붙이지 않는다', () => {
+    const policy = parsePetPolicy('1마리당 2만원.');
+    expect(feeUnitNote('stay', '1마리당 2만원.', policy, undefined)).toBeNull();
+    expect(feeUnitNote('stay', '추가 요금 없음.', policy, '악동은 추가 요금 없음')).toBeNull();
+    expect(feeUnitNote('restaurant', '1마리당 2만원.', policy, '악동은 2만원')).toBeNull();
+  });
+
+  it('"1박당" · "1회" 를 말하는 원문은 붙이지 않는다', () => {
+    const policy = parsePetPolicy('1마리당 2만원.');
+    expect(feeUnitNote('stay', '1박당 1마리 2만원.', policy, '악동은 2만원')).toBeNull();
+    expect(feeUnitNote('stay', '1회 청소비 3만원.', policy, '원문 요금 · 청소비 3만원')).toBeNull();
   });
 });

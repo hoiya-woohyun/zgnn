@@ -12,7 +12,7 @@
  * 않기 위해서다.
  */
 
-import type { TDogProfile, TFeeRule } from '../types';
+import type { TDogProfile, TFeeRule, TPlaceType } from '../types';
 import { maxWeightKg } from './dogProfile';
 import { dogCallNames, withJosa } from './korean';
 import type { TPetPolicy } from './petPolicy';
@@ -268,4 +268,30 @@ export const formatDogFee = (policy: TPetPolicy, dog: TDogProfile): string | und
   );
   // 이름을 붙이지 않는다 — 곱하지 못한 줄은 "우리 강아지 기준" 이 아니라 원문을 옮긴 것이다.
   return `원문 요금 · ${shown.map(stripLine).join(' · ')}`;
+};
+
+/** 원문이 요금의 단위(1박마다 · 한 번)를 말하는 낱말. "숙박일 관계없이 청소비 5만원" 은 한 번이라는 말이다. */
+const FEE_UNIT_RE = /1\s*박|박\s*당|매\s*박|1\s*회|한\s*번|관계\s*없이/;
+
+/**
+ * 요금 한 줄 밑에 붙일 "단위를 모른다" 는 말(08 T5.1). 시드 숙소 16곳 중 15곳이 "1마리당 3만원" 처럼 1박마다인지
+ * 한 번인지를 말하지 않는다 — 2박이면 두 배일 수 있는데 한 줄은 확정된 금액처럼 읽힌다.
+ *
+ * 요금 한 줄(`formatDogFee`)에 붙이지 않고 따로 돌려준다 — 그 줄은 카드·상세가 같은 문자열을 쓴다는 계약이 있고,
+ * 거의 모든 숙소에 붙는 말이라 카드마다 달면 소음이다. 상세의 요금 줄 밑에서만 쓴다.
+ *
+ * null: 숙소가 아니다 · 요금 줄이 없다(어려움이라 싣지 않았다 · 추가 요금 없음) · 구조가 1박마다라고 했다(`perNight`)
+ * · 원문이 단위를 말한다. `청소비` 라는 낱말만으로 한 번이라고 보지 않는다 — 그것은 짐작이다.
+ * `perNight: false` 도 근거가 아니다 — 원문이 말하지 않을 때도 false 다(`TFeeRule`).
+ */
+export const feeUnitNote = (
+  type: TPlaceType,
+  policyText: string,
+  policy: Pick<TPetPolicy, 'feeLines' | 'feeRules'>,
+  fee: string | undefined,
+): string | null => {
+  if (type !== 'stay' || !fee || fee.includes('추가 요금 없음')) return null;
+  if (policy.feeRules?.some((rule) => rule.perNight)) return null;
+  if (FEE_UNIT_RE.test([policyText, ...policy.feeLines].join(' '))) return null;
+  return '1박 기준인지는 원문에 없어요';
 };

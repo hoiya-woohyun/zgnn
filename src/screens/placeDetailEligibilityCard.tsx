@@ -1,6 +1,7 @@
 import { Fragment, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Button } from '../components/base/button';
+import { feeUnitNote } from '../lib/dogFee';
 import { dogSubsetWhatIf } from '../lib/dogSubsetWhatIf';
 import { headlineFor, verdictFor, type TEligibilityLevel } from '../lib/eligibility';
 import { dogCallNames } from '../lib/korean';
@@ -65,6 +66,8 @@ export function PlaceDetailEligibilityCard({ place, evidence }: { place: TPlaceE
   // 다두 what-if(10 F11) — 어려움일 때만, 가장 많이 데려갈 수 있는 조합 하나. 판정을 다시 돌릴 뿐 규칙을 새로 쓰지 않는다.
   const subset = dogSubsetWhatIf(dog, place.policy, eligibility, { needsIndoor });
   const infoReasons = eligibility.reasons.filter((r) => r.level === 'info');
+  // 요금이 1박마다인지 원문이 말하지 않으면 한 줄 밑에 그렇다고 적는다(08 T5.1). 카드엔 붙이지 않는다 — 숙소 거의 전부라 소음이다.
+  const feeNote = feeUnitNote(place.type, place.petPolicyText, place.policy, eligibility.fee);
   /*
    * '실내 자리 필요' 는 식당·카페 목록에서만 보이는 전역 값이라, 켜 둔 걸 잊으면 판정이 이유 없이 달라진다(12 U0.3).
    * 그 값이 **등급을 바꾼 곳**에서만 말한다 — 등급이 같으면 소음이다. 끄면 이 화면과 목록·지도·홈이 함께 바뀐다.
@@ -116,6 +119,7 @@ export function PlaceDetailEligibilityCard({ place, evidence }: { place: TPlaceE
         {infoReasons.length > 0 && (
           <p className="mt-2 text-sm text-tertiary">{infoReasons.map((reason) => reason.text).join(' · ')}</p>
         )}
+        {feeNote && <p className="mt-0.5 text-xs text-tertiary">{feeNote}</p>}
       </div>
 
       {/* 근거 — 판정과 같은 면, 구분선 아래. 이름표가 있어야 판정의 "원문을 확인해 주세요"(C7)가 가리키는 곳이 보인다. */}
