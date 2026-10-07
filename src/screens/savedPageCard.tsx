@@ -15,7 +15,7 @@ import { cx } from '../utils/cx';
  *
  * 메모는 **하트 왼쪽 연필**로 연다. 예전엔 카드 밑에 "메모 남기기" 회색 줄이 따로 있어, 적어 둔 메모(카드 안 이름 밑)와
  * 고치는 곳(카드 밖 밑)이 갈렸다. 지금은 연필을 누르면 메모가 보이던 그 자리가 입력 칸이 되고(`PlaceCard` 의 `noteEditor`),
- * 그동안 카드는 링크가 아니다. 기기 안에만 저장되고 공유에는 싣지 않는다.
+ * 그동안 카드는 링크가 아니다. 기기 안에만 저장되고 공유에는 싣지 않는다. 길찾기 알약은 카드 안 오른쪽 아래(`cornerAction`).
  */
 export function SavedPageCard({ place }: { place: TPlaceEntry }) {
   const saved = useIsSaved(place.id);
@@ -45,15 +45,8 @@ export function SavedPageCard({ place }: { place: TPlaceEntry }) {
         )
       }
       noteEditor={saved && editing ? <SavedNoteForm id={place.id} name={place.name} onClose={() => setEditing(false)} /> : undefined}
-      footer={
-        directions && (
-          <div className="mt-1 flex justify-end">
-            <NaverLinkButton href={directions} className="shrink-0">
-              길찾기
-            </NaverLinkButton>
-          </div>
-        )
-      }
+      // 카드 밖 밑에 따로 서면 카드 사이 간격이 들쭉날쭉하고 어느 카드의 것인지 흐려졌다 — 배지 줄 끝, 카드 안에 둔다.
+      cornerAction={directions && <NaverLinkButton href={directions}>길찾기</NaverLinkButton>}
     />
   );
 }

@@ -19,8 +19,6 @@ import { cx } from '../utils/cx';
 
 type TPlaceCardProps = {
   place: TPlaceEntry;
-  /** 카드 아래, 링크 **밖**에 붙는 것(저장 화면의 메모 줄). 링크 안에 두면 입력 칸을 누르는 것이 상세로 가는 것이 된다. */
-  footer?: ReactNode;
   /** 가까운 순일 때 내 위치에서의 거리(km). 있으면 종류 옆에 붙는다(10 F7). */
   distanceKm?: number;
   /**
@@ -35,6 +33,11 @@ type TPlaceCardProps = {
    * 상세로 가는 것이 된다(a 안의 input 도 HTML 위반). 닫히면 다시 링크다.
    */
   noteEditor?: ReactNode;
+  /**
+   * 카드 **안** 오른쪽 아래, 배지 줄 끝에 서는 것(저장 화면의 길찾기 알약). 카드가 링크라 그 안에 링크를 넣을 수 없어
+   * 하트처럼 카드 위에 겹쳐 세우고, 배지 줄은 그만큼 오른쪽을 비우고 알약 높이(h-9)를 바닥으로 갖는다 — 배지와 알약이 한 줄에 선다.
+   */
+  cornerAction?: ReactNode;
 };
 
 /**
@@ -48,7 +51,7 @@ type TPlaceCardProps = {
  * 그만큼 줄여 카드 높이(총 배지 개수)를 그대로 유지한다. 프로필이 없으면 이 훅은 null 을
  * 돌려주므로 카드는 지금과 완전히 같은 모습이다.
  */
-export function PlaceCard({ place, footer, distanceKm, hideReasonText, actions, noteEditor }: TPlaceCardProps) {
+export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEditor, cornerAction }: TPlaceCardProps) {
   const eligibility = useEligibility(place);
   const reason = eligibility ? primaryReason(eligibility) : undefined;
   const weightKg = useDogMaxWeightKg();
@@ -94,11 +97,12 @@ export function PlaceCard({ place, footer, distanceKm, hideReasonText, actions, 
           목록 머리가 같은 문장을 이미 말했으면 빼서, 다른 이유를 가진 카드만 줄이 남게 한다. */}
       {reason && reason.text !== hideReasonText && <p className="clamp-1 mt-1 text-xs text-tertiary">{reason.text}</p>}
 
-      <div className="mt-3 flex flex-wrap items-center gap-1">
+      <div className={cx('mt-3 flex flex-wrap items-center gap-1', cornerAction && 'min-h-9 pr-24')}>
         {eligibility && <EligibilityBadge eligibility={eligibility} />}
         <PetBadges
           policy={place.policy}
-          limit={eligibility ? 2 : 3}
+          // 오른쪽 알약이 배지 하나 몫을 차지한다 — 하나 덜 보여(나머지는 +N) 배지 줄이 두 줄로 꺾이지 않게.
+          limit={(eligibility ? 2 : 3) - (cornerAction ? 1 : 0)}
           hideNoInfo={Boolean(eligibility)}
           weightKg={weightKg}
           dogCount={dogCount}
@@ -121,7 +125,7 @@ export function PlaceCard({ place, footer, distanceKm, hideReasonText, actions, 
         {actions}
         <SaveButton id={place.id} name={place.name} />
       </div>
-      {footer}
+      {cornerAction && <div className="absolute right-4 bottom-4">{cornerAction}</div>}
     </li>
   );
 }
