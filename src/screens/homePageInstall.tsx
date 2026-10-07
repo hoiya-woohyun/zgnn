@@ -96,7 +96,7 @@ export function HomePageInstall() {
             <Share01 size={20} />
           </span>
           <span>
-            <b className="font-semibold text-primary">1.</b> Safari 의 <b className="font-semibold text-primary">공유</b> 버튼을 눌러요
+            <b className="font-semibold text-primary">1.</b> 브라우저의 <b className="font-semibold text-primary">공유</b> 버튼을 눌러요
             <span className="block text-tertiary">안 보이면 ··· 안에 있어요</span>
           </span>
         </li>
