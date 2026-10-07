@@ -1,6 +1,7 @@
 # PWA · 서비스워커 · 오프라인
 
-> 최종 수정: 2026-10-07 (v11: **인앱 브라우저에선 침묵 대신 바깥 브라우저로 여는 길** — 카카오톡은 `kakaotalk://web/openExternal` 한 줄, 다른 앱은 ··· 메뉴 두 단계(`installGuideKind` 의 `inApp`, 07 U9 후속))
+> 최종 수정: 2026-10-07 (v12: **관례 경로 아이콘** — `public/favicon.ico`·`apple-touch-icon.png` 를 `pnpm icons` 가 함께 만든다. 링크를 안 읽는 클라이언트의 404 잡음만 없앤다, 프리캐시엔 안 넣는다([todo/08](../todo/08-usability-and-process-plan.md) T5.9))
+> 이전 2026-10-07 (v11: **인앱 브라우저에선 침묵 대신 바깥 브라우저로 여는 길** — 카카오톡은 `kakaotalk://web/openExternal` 한 줄, 다른 앱은 ··· 메뉴 두 단계(`installGuideKind` 의 `inApp`, 07 U9 후속))
 > 이전 2026-10-07 (v10: **설치 안내** — 두 번째 방문부터 홈 하단 한 줄. 설치 신호가 있으면 설치 창, iOS 는 공유 → 홈 화면에 추가 두 단계, 인앱 브라우저·신호 없는 Android 는 아무 말도 안 한다([todo/07](../todo/07-product-and-ux.md) U9))
 > 이전 2026-10-02 (v9: **새 버전 알림과 청크 복구** — `controllerchange` 에 "새 정보가 있어요 · 새로고침"(첫 설치 제외), 동적 청크를 못 받으면 배포당 한 번만 새로고침([todo/12](../todo/12-ux-audit-2026-10-02.md) U2.4))
 > 이전 2026-10-01 (v8: 라우트 `revision` 에 **배포 식별자**(`NEXT_PUBLIC_APP_BUILD`, 커밋 앞 7자)도 넣는다 — 제보가 싣는 그 값이 번들에 박혀 문서만 바뀐 커밋에서도 청크 이름이 바뀌기 때문. 사용자 제보의 insert 는 Supabase 호스트라 `NetworkOnly` 그대로 — 오프라인이면 실패를 말한다)
@@ -88,6 +89,9 @@ iOS 홈 화면 앱은 며칠씩 열려 있다. 그리고 그 세션에서 처음
 - `src/app/manifest.ts`: `theme_color` 는 잉크 `#2e2327`, `background_color` 는 크림 `#faf8f4`. `layout.tsx` 의 `themeColor` 와 같은 값이어야 한다.
 - 아이콘은 `scripts/make-icons.mjs` 가 SVG(잉크 둥근 사각 + brand-300 발자국)를 sharp 로 PNG 4장으로 만든다. 팔레트가 바뀔 때만 `pnpm icons`.
   maskable 은 기기가 바깥을 잘라내므로 발자국을 안쪽으로 모은다.
+- 같은 스크립트가 `public/` 루트에 **관례 경로** 둘(`favicon.ico` 16·32px, `apple-touch-icon.png` 180px)도 쓴다. 페이지는 `layout.tsx` 의
+  `icons` 선언을 따라 `/icons/` 를 쓰므로 이 둘은 `<link>` 를 안 읽는 클라이언트(크롤러·북마크·링크 없는 문서를 연 탭)의 404 를 없애는 용도뿐이다.
+  `publicEntries` 가 `icons/`·`images/` 만 훑어 프리캐시에는 안 들어간다 — 오프라인에서 없어도 보이는 것이 달라지지 않는다.
 
 ## 글꼴 self-host
 

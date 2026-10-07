@@ -473,7 +473,8 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
   > 메모(2026-10-06): 문구만 — 몸무게를 정한 아이가 둘 이상이면 크기 접힘 머리가 "크기: 중형견(가장 큰 아이 기준으로 봐요)"(`DogProfileSizeOverride` 의 `multiDog`). 직접 고른 크기는 그대로 "(직접 골랐어요)". 근거는 ux-eval 2026-10-06 junhyuk(콩 2.5kg + 해피 → 중형견). 마리별 크기 표시·"이번 여행엔 OO만" 은 [14](14-weekly-ux-eval.md) ↪ 줄 그대로 설계 뒤
 - [x] T5.8 dev 콘솔의 404 리소스 — 다음 캡처 때 `page.on('response', r => r.status() === 404 && console.log(r.url()))` 로 URL 을 받아 확정. 프로덕션 영향 미확인.
   > 메모(2026-10-07): **`/favicon.ico` 다**(r1-first-visit 이 적은 것과 같다). 12개 경로(홈·둘러보기·지도·준비물·저장·설정·등록·상세·/admin)를 390px 로 돌며 4xx 를 모두 받았더니 dev(7727)·프로덕션 모두 **앱 리소스 404 는 0건** — 페이지는 `layout.tsx` 의 `icons` 로 `/icons/icon-192.png` 를 선언해 그쪽을 쓴다. 콘솔 404 는 `<link rel="icon">` 이 없는 문서(`/manifest.webmanifest` 를 직접 연 탭)에서만 하나 났고, 그때 브라우저가 관례 경로 `/favicon.ico` 를 찾는다(`page.on('response')` 엔 안 잡히는 브라우저 요청이라 curl 로 확인: dev·`zgnn.vercel.app` 둘 다 404, `/apple-touch-icon.png` 도 404). 사용자 화면 영향 없음. 파일을 둘지는 T5.9
-- [ ] T5.9 관례 경로 아이콘 두기 — `/favicon.ico`·`/apple-touch-icon.png` 가 404(T5.8). 탭 아이콘은 선언된 PNG 로 이미 뜨므로 **잡음 줄이기**뿐이다: 링크를 안 읽는 클라이언트(일부 크롤러·북마크·Safari 기록)용. `pnpm icons` 가 두 파일도 만들게 하고 `public/` 루트에 둔다 — 지우면 안 되는 프리캐시 목록(`next.config.mjs` 의 `additionalPrecacheEntries`)에는 넣지 않아도 된다
+- [x] T5.9 관례 경로 아이콘 두기 — `/favicon.ico`·`/apple-touch-icon.png` 가 404(T5.8). 탭 아이콘은 선언된 PNG 로 이미 뜨므로 **잡음 줄이기**뿐이다: 링크를 안 읽는 클라이언트(일부 크롤러·북마크·Safari 기록)용. `pnpm icons` 가 두 파일도 만들게 하고 `public/` 루트에 둔다 — 지우면 안 되는 프리캐시 목록(`next.config.mjs` 의 `additionalPrecacheEntries`)에는 넣지 않아도 된다
+  > 메모(2026-10-07): `pnpm icons`(`scripts/make-icons.mjs`)가 `public/favicon.ico`(PNG 를 담은 ICO, 16·32px — sharp 가 ICO 를 못 써서 봉투만 손으로)와 `public/apple-touch-icon.png`(180px)를 더 쓴다. 기존 4장은 바이트 그대로. dev 에서 두 경로 200 확인. 프리캐시 목록은 손대지 않았다
 
 ## 🧑 사람 손 (에이전트가 할 수 없는 것)
 

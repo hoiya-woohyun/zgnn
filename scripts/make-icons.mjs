@@ -1,11 +1,16 @@
 // PWA 아이콘 생성: SVG(둥근 사각 배경 + 발자국) → sharp 로 PNG.
 // 실행: pnpm icons  → public/icons/{icon-180,icon-192,icon-512,icon-maskable-512}.png
+//                    + public/{favicon.ico,apple-touch-icon.png}
 // 결과 PNG 는 커밋해 두고, 팔레트가 바뀔 때만 다시 실행한다.
+//
+// 루트의 두 파일은 **관례 경로**용이다 — 페이지는 layout.tsx 의 `icons` 로 /icons/ 를 선언해 그쪽을 쓰지만,
+// <link rel="icon"> 을 안 읽는 클라이언트(일부 크롤러·북마크·링크 없는 문서를 연 탭)는 이 두 경로를 그냥 찾아 404 를 낸다(08 T5.8).
+// 프리캐시(next.config.mjs 의 publicEntries)는 icons/·images/ 만 훑으므로 여기엔 안 들어간다 — 들어갈 필요도 없다.
 import sharp from 'sharp';
 import { mkdir, writeFile } from 'node:fs/promises';
 
-const OUT = new URL('../public/icons/', import.meta.url);
-await mkdir(OUT, { recursive: true });
+const PUBLIC = new URL('../public/', import.meta.url);
+await mkdir(new URL('icons/', PUBLIC), { recursive: true });
 
 const BG = '#2e2327'; // 잉크 (theme.css --color-ink)
 const FG = '#fe9bbd'; // 핑크 (theme.css --color-brand-300)
@@ -43,14 +48,43 @@ const standard = Buffer.from(svg({ radius: 112, scale: 0.86, bleed: 0 }));
 const maskable = Buffer.from(svg({ radius: 0, scale: 0.62, bleed: 0 }));
 
 const targets = [
-  { name: 'icon-180.png', source: standard, size: 180 },
-  { name: 'icon-192.png', source: standard, size: 192 },
-  { name: 'icon-512.png', source: standard, size: 512 },
-  { name: 'icon-maskable-512.png', source: maskable, size: 512 },
+  { name: 'icons/icon-180.png', source: standard, size: 180 },
+  { name: 'icons/icon-192.png', source: standard, size: 192 },
+  { name: 'icons/icon-512.png', source: standard, size: 512 },
+  { name: 'icons/icon-maskable-512.png', source: maskable, size: 512 },
+  { name: 'apple-touch-icon.png', source: standard, size: 180 },
 ];
 
+const toPng = (source, size) => sharp(source).resize(size, size).png({ compressionLevel: 9 }).toBuffer();
+
 for (const target of targets) {
-  const png = await sharp(target.source).resize(target.size, target.size).png({ compressionLevel: 9 }).toBuffer();
-  await writeFile(new URL(target.name, OUT), png);
-  console.log(`wrote icons/${target.name} (${target.size}px)`);
+  await writeFile(new URL(target.name, PUBLIC), await toPng(target.source, target.size));
+  console.log(`wrote ${target.name} (${target.size}px)`);
 }
+
+/**
+ * favicon.ico — sharp 는 ICO 를 못 쓰므로 PNG 를 ICO 봉투에 그대로 담는다(Vista 이후 모든 브라우저가 PNG 든 ICO 를 읽는다).
+ * 머리 6바이트 + 크기마다 목록 16바이트 + PNG 본문. 탭(16)과 고해상도 탭(32) 두 장.
+ */
+const ICO_SIZES = [16, 32];
+const images = await Promise.all(ICO_SIZES.map((size) => toPng(standard, size)));
+const header = Buffer.alloc(6);
+header.writeUInt16LE(0, 0); // 예약
+header.writeUInt16LE(1, 2); // 1 = 아이콘
+header.writeUInt16LE(images.length, 4);
+let offset = header.length + images.length * 16;
+const entries = images.map((png, i) => {
+  const entry = Buffer.alloc(16);
+  entry.writeUInt8(ICO_SIZES[i], 0); // 폭(256 이면 0)
+  entry.writeUInt8(ICO_SIZES[i], 1); // 높이
+  entry.writeUInt8(0, 2); // 팔레트 없음
+  entry.writeUInt8(0, 3); // 예약
+  entry.writeUInt16LE(1, 4); // 색 평면
+  entry.writeUInt16LE(32, 6); // 픽셀당 비트
+  entry.writeUInt32LE(png.length, 8);
+  entry.writeUInt32LE(offset, 12);
+  offset += png.length;
+  return entry;
+});
+await writeFile(new URL('favicon.ico', PUBLIC), Buffer.concat([header, ...entries, ...images]));
+console.log(`wrote favicon.ico (${ICO_SIZES.join('·')}px)`);

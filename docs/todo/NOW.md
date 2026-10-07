@@ -28,7 +28,6 @@
 ## 지금 (위에서부터)
 
 - [ ] 수집 완료 칸 — 글 목록·글 단위 분석 제외·다시 읽기 — [09 T3.2](09-admin-pipeline-stages.md) · 왜 지금: 광고·목록 글은 가게 차단으로 못 막는다. 마이그레이션은 **파일만**(적용은 끝나면 「기다림」 에 `db push` 줄로) — 컬럼 없을 때 폴백 조회를 빼먹지 않는다
-- [ ] 관례 경로 아이콘 `/favicon.ico`·`/apple-touch-icon.png` — [08 T5.9](08-usability-and-process-plan.md) · 왜 지금: 링크를 안 읽는 클라이언트의 404 잡음. `pnpm icons` 가 둘을 더 만들어 `public/` 루트에(프리캐시 목록엔 안 넣는다)
 - [ ] 접힌 줄에 블로그 인용 한 줄 — [09 T6.6](09-admin-pipeline-stages.md) · 왜 지금: 접힌 줄이 전부 AI 값이라 매 줄을 펼친다. T6.7 과 같은 파일(`adminPageGroupCard.tsx`)이라 떨어뜨려 놓았다
 
 ## 기다림 (사람 손·결정)
