@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import Link from 'next/link';
 import { CheckDone01, ChevronRight, Heart, Map01 } from '@untitledui/icons';
-import { Button } from '../components/base/button';
 import { CARD_SURFACE } from '../components/cardSurface';
 import { checklistView, type TChecklistView } from '../lib/checklist';
 import { useStoreHydrated } from '../providers/storeHydration';
@@ -51,8 +50,9 @@ export function HomePageTripCard() {
 function HomePageTripCardRows({ savedCount, progress }: { savedCount: number; progress: TChecklistView }) {
   return (
     <div className={`mt-3 divide-y divide-secondary overflow-hidden ${CARD_SURFACE}`}>
-      {/* 지도 버튼은 저장 줄 링크 **바깥의 형제**다 — 안에 넣으면 a 안에 a 가 된다. */}
-      <div className="flex items-center gap-2 pr-3">
+      {/* 지도 링크는 저장 줄 링크 **바깥의 형제**다 — 안에 넣으면 a 안에 a 가 된다.
+          테두리 버튼이면 아래 준비물 줄의 `>` 와 모양이 갈려, 같은 `>` 를 끝에 단 글자 링크로 둔다 — px-4 라 두 셰브론이 한 세로선에 선다. */}
+      <div className="flex items-stretch">
         <Link href="/saved" className={ROW_LINK}>
           <Heart aria-hidden="true" size={20} className="shrink-0 fill-camellia text-camellia" />
           <span className="flex-1 text-sm font-semibold text-primary">
@@ -61,9 +61,14 @@ function HomePageTripCardRows({ savedCount, progress }: { savedCount: number; pr
           {savedCount === 0 && <span className="text-sm text-tertiary">하트로 모아 두세요</span>}
         </Link>
         {savedCount > 0 && (
-          <Button color="secondary" size="md" iconLeading={Map01} href="/map/?saved=1" className="shrink-0">
+          <Link
+            href="/map/?saved=1"
+            className="flex min-h-11 shrink-0 items-center gap-1 px-4 text-sm font-semibold text-brand-secondary transition-colors hover:bg-secondary"
+          >
+            <Map01 aria-hidden="true" size={18} className="shrink-0" />
             지도
-          </Button>
+            <ChevronRight aria-hidden="true" size={18} className="shrink-0 text-fg-quaternary" />
+          </Link>
         )}
       </div>
 
