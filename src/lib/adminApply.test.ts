@@ -306,7 +306,7 @@ describe('approveGroup — 기존 장소에 보강', () => {
 
   /*
    * '되살려서 합치기'. **되살리기가 첫 쓰기여야 한다** — 뒤가 죽어도 장소는 published 로 남아 다음 빌드에 사이트로
-   * 돌아오고, 남은 일은 후보가 approved 로 남아 `pnpm data:apply` 가 이어받는다. 반대 순서면 "승인은 됐는데
+   * 돌아오고, 남은 일은 후보가 approved 로 남아 `pnpm data apply` 가 이어받는다. 반대 순서면 "승인은 됐는데
    * 장소는 여전히 내려 있는" 상태로 끊기고 그것은 어느 화면에도 안 보인다.
    */
   it("'되살려서 합치기' 는 장소를 먼저 published 로 돌린 뒤 후보를 승인한다", async () => {
@@ -657,7 +657,7 @@ describe('saveEdit — 사람이 고쳤다는 표시', () => {
 
 describe("approveGroup — '최신본으로 저장하기'(overwrite)", () => {
   /*
-   * 덮기는 **승인 표시보다 먼저** 간다. 뒤에서 끊기면 후보가 approved 로 남고 CLI(`data:apply`)가 이어받는데,
+   * 덮기는 **승인 표시보다 먼저** 간다. 뒤에서 끊기면 후보가 approved 로 남고 CLI(`pnpm data apply`)가 이어받는데,
    * CLI 는 빈 칸 채우기뿐이라 새 값을 조용히 버린다. 먼저 덮으면 끊겨도 후보는 pending 이다.
    */
   it('되살린 뒤 칸을 덮고, 그다음 승인·출처·merged — 덮기 전 값을 applied.overwritten 에 남긴다', async () => {

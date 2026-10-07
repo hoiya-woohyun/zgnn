@@ -304,7 +304,7 @@ const ruleLargeDogUnmentioned: TRule = (dog, policy) => {
   if (policy.largeDogOk) return null;
   if (policy.largeDogNo) return null; // H7 이 어려움으로 말한다
   // 몸무게가 있는 구간만 대형견을 말한 것이다 — 마릿수만 있는 구간('최대 2마리')은 크기에 대해 아무 말도 안 했다.
-  // 전엔 구간이 하나라도 있으면 넘어가서, 마릿수만 적힌 곳의 대형견이 '갈 수 있어요' 로 나왔다(data:eval 이 찾음).
+  // 전엔 구간이 하나라도 있으면 넘어가서, 마릿수만 적힌 곳의 대형견이 '갈 수 있어요' 로 나왔다(pnpm data eval 이 찾음).
   if (policy.tiers.some((tier) => tier.maxWeightKg !== undefined)) return null;
   const handledByH4 = policy.indoor === 'cage' && dog.carrier !== 'cage';
   if (handledByH4) return null;

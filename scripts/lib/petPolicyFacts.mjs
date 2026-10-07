@@ -195,7 +195,7 @@ const FEE_AMOUNT = /\d[\d,.]*\s*만?\s*원/;
  * @param {TPetPolicyFacts | null | undefined} facts
  * @param {string | null | undefined} petPolicyText
  * @returns {{ facts: TPetPolicyFacts | null, corrections: string[], dropped: TCorrectionDrop[] }}
- *   corrections 는 고친 것마다 한국어 한 줄 — `/admin` 과 `data:review` 가 "AI 가 뭐라 했고 왜 뺐나" 를 보여 준다.
+ *   corrections 는 고친 것마다 한국어 한 줄 — `/admin` 이 "AI 가 뭐라 했고 왜 뺐나" 를 보여 준다.
  *   dropped 는 같은 줄에 **원문의 무엇과 대 봤는지**(`CORRECTION_CUES` 키)를 붙인 것 — 순서·문장이 corrections 와 같다.
  */
 export function correctPetPolicyFacts(facts, petPolicyText) {

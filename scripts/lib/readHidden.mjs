@@ -1,4 +1,4 @@
-// 터미널 숨김 입력. `pnpm data:login` 의 비밀번호와 `pnpm data:collect` 의 네이버 검색 키(env 가 없을 때) — 두 소유자라 owner-prefix 를 붙이지 않는다.
+// 터미널 숨김 입력. `pnpm data login` 의 비밀번호와 `pnpm data collect` 의 네이버 검색 키(env 가 없을 때) — 두 소유자라 owner-prefix 를 붙이지 않는다.
 // raw 모드로 한 글자씩 받아 **글자 수만큼 `*` 를 찍고**, readline 의 비공개 API(_writeToOutput)에 기대지 않는다. 받은 값은 호출자에게 돌려줄 뿐 어디에도 남기지 않는다.
 //
 // **왜 완전 무표시가 아니라 마스킹인가**(2026-09-28). 처음엔 아무것도 안 찍었는데, 그러면 **붙여넣기가 들어갔는지조차 알 수 없다** —

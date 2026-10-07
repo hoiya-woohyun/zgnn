@@ -22,7 +22,7 @@ import { ADMIN_PANEL_DIVIDER, ADMIN_ROW, ADMIN_ROW_CELLS, ADMIN_ROW_OPEN, AdminT
  */
 const ADMIN_OPS_RUN_TRACKS = 'md:grid-cols-[6.5rem_5.5rem_7rem_6.5rem_minmax(0,1fr)_5.5rem]';
 
-/** 칩 — 스크립트 묶음. `승인` 은 approve·reject 둘이다(둘 다 `data:review`). */
+/** 칩 — 스크립트 묶음. `승인` 은 approve·reject 둘이다(둘 다 옛 `data:review` — ADR-024 로 지웠다). */
 export const ADMIN_OPS_SCRIPT_CHIPS: readonly { label: string; scripts: readonly TRunScript[] | null }[] = [
   { label: '전체', scripts: null },
   { label: '수집', scripts: ['collect'] },
@@ -207,7 +207,7 @@ export function AdminOpsPageRunsTable({
       <div className="mt-3">
         {shown.length === 0 && !error ? (
           <p className="px-4 text-xs text-tertiary md:px-6">
-            {scripts || failedOnly ? '걸러 본 기록이 없어요.' : '아직 기록이 없어요 — 다음 pnpm data:collect 부터 쌓여요.'}
+            {scripts || failedOnly ? '걸러 본 기록이 없어요.' : '아직 기록이 없어요 — 다음 pnpm data collect 부터 쌓여요.'}
           </p>
         ) : (
           <AdminTable grid={ADMIN_OPS_RUN_TRACKS} columns={['시각', '스크립트', '상태', '소요', '요약', '알림']}>

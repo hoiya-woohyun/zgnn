@@ -2,7 +2,7 @@
  * 승인·반려를 DB 에 쓰는 순서 — `scripts/apply-approved.mjs` 와 **같은 규칙·같은 필드**다(ADR-018).
  *
  * 왜 같아야 하나: 두 도구가 같은 테이블에 쓴다. 중간에 실패하면 후보가 `approved` 로 남고 터미널의
- * `pnpm data:apply` 가 그대로 이어받는데, 규칙이 다르면 이어받은 쪽이 다른 값을 쓴다 — `places` 가 조용히 오염된다.
+ * `pnpm data apply` 가 그대로 이어받는데, 규칙이 다르면 이어받은 쪽이 다른 값을 쓴다 — `places` 가 조용히 오염된다.
  * 그래서 병합 규칙(빈 칸만 채움)·재대조·place_sources 는 전부 그 스크립트가 쓰는 순수 함수를 그대로 부른다.
  *
  * PostgREST 에는 **트랜잭션이 없다.** 그래서 순서가 곧 안전장치다 —
@@ -353,7 +353,7 @@ export async function approveGroup(
 
   /*
    * 되살리기를 골랐으면 그것이 **첫 쓰기**다. 순서를 이렇게 두는 이유 — 뒤가 죽어도 장소는 `published` 로 남아
-   * 다음 빌드에 사이트로 돌아오고, 남은 일(빈 칸 채우기)은 후보가 `approved` 로 남아 `pnpm data:apply` 가 이어받는다.
+   * 다음 빌드에 사이트로 돌아오고, 남은 일(빈 칸 채우기)은 후보가 `approved` 로 남아 `pnpm data apply` 가 이어받는다.
    * 반대 순서면 "승인은 됐는데 장소는 여전히 내려 있는" 상태로 끊기고, 그건 화면에서 보이지 않는다.
    */
   let restoredName: string | null = null;
@@ -368,7 +368,7 @@ export async function approveGroup(
    * 사이트로 돌아간다. '올린 장소' 칸에서는 그냥 평범한 '게시중' 한 줄로 보여 흔적이 `archive_note` 한 줄뿐이다.
    */
   /*
-   * **최신본으로 덮기는 승인 표시보다 먼저** 쓴다. 뒤에서 끊기면 후보가 `approved` 로 남아 `pnpm data:apply` 가 이어받는데,
+   * **최신본으로 덮기는 승인 표시보다 먼저** 쓴다. 뒤에서 끊기면 후보가 `approved` 로 남아 `pnpm data apply` 가 이어받는데,
    * CLI 는 빈 칸 채우기뿐이라 이어받은 쪽이 새 값을 조용히 버린다. 먼저 덮으면 실패해도 후보는 pending 그대로이고,
    * 다시 누르면 같은 patch 가 또 나온다(이미 덮인 칸은 "같다" 로 빠진다 — 두 번 눌러도 안전하다).
    */
@@ -417,7 +417,7 @@ export async function approveGroup(
       };
     } catch (e) {
       // leadProblem 이 같은 규칙을 먼저 보므로 여기 오지 않는 게 정상이다 — 오면 그 함수의 메시지를 그대로 보여 준다.
-      // 이 자리는 approved 를 이미 적은 뒤다(두 규칙이 어긋났다는 뜻). 후보는 approved 로 남아 `pnpm data:apply` 가
+      // 이 자리는 approved 를 이미 적은 뒤다(두 규칙이 어긋났다는 뜻). 후보는 approved 로 남아 `pnpm data apply` 가
       // 이어받아 같은 이유로 pending 으로 되돌리고 reviewer_note 에 사유를 적는다 — 잃어버리지는 않는다.
       return { kind: 'blocked', reason: e instanceof Error ? e.message : '장소 행을 만들지 못했어요.' };
     }

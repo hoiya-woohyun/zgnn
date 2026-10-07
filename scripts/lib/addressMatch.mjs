@@ -1,6 +1,6 @@
 // 두 주소가 같은 곳을 가리키는가 — 정본. `src/lib/addressMatch.ts` 는 이 파일에 타입만 입힌 래퍼다.
 //
-// .mjs 에 두는 이유(2026-10-04): 분석(`data:analyze`)은 TS 를 못 읽는 plain node 로 돈다. 같은 날 분석이 "같은 자리의 신규 후보"
+// .mjs 에 두는 이유(2026-10-04): 분석(`pnpm data analyze`)은 TS 를 못 읽는 plain node 로 돈다. 같은 날 분석이 "같은 자리의 신규 후보"
 // (`isSameSpot`, analyzeCandidates.mjs)와 기존 장소 대조(`matchPlace`)에 이 판정을 쓰기 시작했고, 화면만 쓰던 때처럼 TS 에 두면
 // 두 벌이 된다 — 그러면 분석과 화면이 같은 두 주소를 다르게 부르는 날이 온다. 그래서 다른 공유 로직처럼 src/lib 가 이 .mjs 를 부른다.
 

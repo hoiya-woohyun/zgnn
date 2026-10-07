@@ -1,8 +1,8 @@
 /**
- * **재분석 준비** — 글의 분석 결과를 지우고 `pnpm data:analyze` 가 그 글을 다시 읽게 되돌린다(검수 화면, 2026-09-30).
+ * **재분석 준비** — 글의 분석 결과를 지우고 `pnpm data analyze` 가 그 글을 다시 읽게 되돌린다(검수 화면, 2026-09-30).
  *
  * 절차의 정본은 docs/architecture/data-pipeline.md 「재분석」이다. 그동안 DB 를 손으로 되돌렸고, 이 파일은 그 손질을 버튼 하나로 옮긴다.
- * `data:analyze` 는 `analyzed_at is null` 인 글만 고르므로 되돌리는 칸은 그것 하나다(`analysis` 는 다음 실행이 덮는다).
+ * `pnpm data analyze` 는 `analyzed_at is null` 인 글만 고르므로 되돌리는 칸은 그것 하나다(`analysis` 는 다음 실행이 덮는다).
  *
  * 규칙 넷 — 전부 그 문서에서 왔다.
  *  1. **글 단위로 되돌린다.** 글을 다시 읽으면 그 글의 장소가 **전부** 다시 후보가 된다. 이 묶음의 행만 눕히면 같은 글의
@@ -10,7 +10,7 @@
  *  2. **지우지 않고 눕힌다**(`status='rejected'` + `[admin] 재분석`). `candidates` 에 DELETE grant 가 없고, 남아야 옛 판단과 새 판단을 대 본다.
  *     머리표가 사람의 반려와 달라 반려 사유 집계에 섞이지 않는다.
  *  3. **사람이 고친 후보(`[admin] 고침`)는 남긴다** — 눕히면 그 손질이 새 후보에 묻힌다. `approved`·`merged`·`rejected` 도 안 건드린다(이미 정한 것).
- *  4. **후보를 먼저 눕히고 글을 나중에 되돌린다.** 거꾸로 하면 그 사이에 터미널에서 돈 `data:analyze` 가 새 후보를 만들고,
+ *  4. **후보를 먼저 눕히고 글을 나중에 되돌린다.** 거꾸로 하면 그 사이에 터미널에서 돈 `pnpm data analyze` 가 새 후보를 만들고,
  *     옛 후보가 그대로 pending 이라 한 가게가 옛 판단·새 판단 두 벌로 묶인다(대표가 어느 쪽인지 알 수 없다).
  */
 
@@ -48,7 +48,7 @@ export function reanalyzeSummary(plan: TReanalyzePlan): string {
   const kept = plan.keep.length ? `이미 등록한 장소와 사람이 고친 후보 ${plan.keep.length}건은` : '이미 등록한 장소는';
   // 고친 후보가 있을 때만 — 다시 읽어도 그 (글, 가게) 는 새로 만들지 않는다(analyze-candidates 의 `editedKeysFor`, D3).
   const again = plan.keep.length ? ' 다시 읽어도 그 가게는 새로 만들지 않아요.' : '';
-  return `글 ${plan.posts.length}건을 수집 완료로 되돌려요. 그 글에서 나온 검수 대기 후보 ${plan.lay.length}건(다른 줄 포함)은 목록에서 빠져요 — DB 에는 '재분석' 표시로 남아요. ${kept} 그대로예요.${again} 다음 pnpm data:analyze 가 다시 읽어요.`;
+  return `글 ${plan.posts.length}건을 수집 완료로 되돌려요. 그 글에서 나온 검수 대기 후보 ${plan.lay.length}건(다른 줄 포함)은 목록에서 빠져요 — DB 에는 '재분석' 표시로 남아요. ${kept} 그대로예요.${again} 다음 pnpm data analyze 가 다시 읽어요.`;
 }
 
 const failIf = (step: string, error: { message: string } | null) => {

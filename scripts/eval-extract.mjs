@@ -1,9 +1,9 @@
-// AI 추출 정확도 평가(`pnpm data:eval`). 정답은 시드 86곳 — 사람이 같은 블로그 글(reviewUrl)을 읽고 적은 조건이다.
+// AI 추출 정확도 평가(`pnpm data eval`). 정답은 시드 86곳 — 사람이 같은 블로그 글(reviewUrl)을 읽고 적은 조건이다.
 // 채점 규칙은 scripts/analyze/evalExtract.mjs 의 순수 함수에 있고 여기는 I/O 만. 쓰는 법·비용·보정은 docs/features/extraction-eval.md.
 //
-//   pnpm data:eval golden [--force]                      src/data/places.json → data/golden/seed-extract.json (한 번 얼린다)
-//   pnpm data:eval extract [--limit N] [--only <placeId|이름|logNo>…] [--refresh]   글마다 claude -p 한 번(캐시가 있으면 건너뛴다)
-//   pnpm data:eval score [--prompt <버전>]               golden + 캐시만 읽는다 — Claude 호출 0
+//   pnpm data eval golden [--force]                      src/data/places.json → data/golden/seed-extract.json (한 번 얼린다)
+//   pnpm data eval extract [--limit N] [--only <placeId|이름|logNo>…] [--refresh]   글마다 claude -p 한 번(캐시가 있으면 건너뛴다)
+//   pnpm data eval score [--prompt <버전>]               golden + 캐시만 읽는다 — Claude 호출 0
 //
 // Supabase 는 안 쓴다(places.json 이 로컬에 있다). Claude 는 운영 분석과 같은 `claude -p`(구독) — 같은 extractPlaces 를 그대로 부른다.
 // 본문은 data/raw/eval/bodies 에만 둔다(gitignored · 레포가 공개다). 로그에 본문을 싣지 않는다.
@@ -21,6 +21,7 @@ import {
   summarize,
 } from './analyze/evalExtract.mjs';
 import { fetchPostText } from './analyze/naverPostBody.mjs';
+import { isDirectRun } from './lib/isDirectRun.mjs';
 
 const ROOT = resolve(dirname(new URL(import.meta.url).pathname), '..');
 const GOLDEN_PATH = join(ROOT, 'data/golden/seed-extract.json');
@@ -28,7 +29,7 @@ const EVAL_DIR = join(ROOT, 'data/raw/eval');
 const BODY_DIR = join(EVAL_DIR, 'bodies');
 const EXTRACT_DIR = join(EVAL_DIR, 'extract');
 
-const USAGE = '사용법: pnpm data:eval golden [--force] | extract [--limit N] [--only <placeId|이름|logNo>…] [--refresh] | score [--prompt <버전>]';
+const USAGE = '사용법: pnpm data eval golden [--force] | extract [--limit N] [--only <placeId|이름|logNo>…] [--refresh] | score [--prompt <버전>]';
 
 function parseArgs(argv) {
   const [command, ...rest] = argv;
@@ -59,7 +60,7 @@ const writeJson = (p, v) => {
 };
 
 function loadGolden() {
-  if (!existsSync(GOLDEN_PATH)) throw new Error('data/golden/seed-extract.json 이 없다 — 먼저 pnpm data:eval golden');
+  if (!existsSync(GOLDEN_PATH)) throw new Error('data/golden/seed-extract.json 이 없다 — 먼저 pnpm data eval golden');
   return readJson(GOLDEN_PATH);
 }
 
@@ -232,18 +233,22 @@ async function cmdScore(opts) {
   console.log(`\n요약 → ${summaryPath.slice(ROOT.length + 1)} · 어긋난 곳 전부 → ${reportPath.slice(ROOT.length + 1)}`);
 }
 
-let opts;
-try {
-  opts = parseArgs(process.argv.slice(2));
-} catch (e) {
-  console.error(`${e.message} — ${USAGE}`);
-  process.exit(1);
+export async function main(argv = process.argv.slice(2)) {
+  let opts;
+  try {
+    opts = parseArgs(argv);
+  } catch (e) {
+    console.error(`${e.message} — ${USAGE}`);
+    return 1;
+  }
+  try {
+    if (opts.command === 'golden') await cmdGolden(opts);
+    else if (opts.command === 'extract') await cmdExtract(opts);
+    else await cmdScore(opts);
+  } catch (e) {
+    console.error(e.message);
+    return 1;
+  }
 }
-try {
-  if (opts.command === 'golden') await cmdGolden(opts);
-  else if (opts.command === 'extract') await cmdExtract(opts);
-  else await cmdScore(opts);
-} catch (e) {
-  console.error(e.message);
-  process.exit(1);
-}
+
+if (isDirectRun(import.meta.url)) process.exitCode = await main();

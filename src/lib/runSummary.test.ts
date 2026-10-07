@@ -28,7 +28,7 @@ const FIXTURE = {
     '반영 7건 (보강 5 — published 4 · 신규 2 · 실패 1 · pending 되돌림 3) · published 대기 draft 6곳 — Studio 에서 status 를 올려야 화면에 뜬다',
   applyZero: '반영 0건 (보강 0 · 신규 0 · 실패 0) · published 대기 draft 0곳',
   applyUnknownDraft: '[dry-run] 반영 1건 (보강 1 · 신규 0 · 실패 0) · published 대기 draft ?곳',
-  approve: 'approved 3건 — 반영은 pnpm data:apply',
+  approve: 'approved 3건 — 반영은 pnpm data apply',
   reject: 'rejected 2건',
 };
 

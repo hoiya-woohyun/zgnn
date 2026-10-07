@@ -6,7 +6,7 @@ import { acquireRunLock } from './runLock.mjs';
 
 const lockPath = () => join(mkdtempSync(join(tmpdir(), 'runlock-')), 'x.lock');
 
-describe('acquireRunLock — data:analyze 동시 실행 막기', () => {
+describe('acquireRunLock — pnpm data analyze 동시 실행 막기', () => {
   it('비어 있으면 잡고, release 하면 풀린다', () => {
     const path = lockPath();
     const lock = acquireRunLock(path, { pid: 111 });

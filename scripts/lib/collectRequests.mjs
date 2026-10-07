@@ -1,5 +1,5 @@
-// `/admin` 의 **추가 수집 요청**(`collect_requests`)을 스크립트 쪽에서 다룬다 — `data:collect` 가 대기 중인 요청을 검색하고 결과를 적고,
-// `data:analyze` 가 그 요청이 담은 글을 미분석 줄 맨 앞에 세운다. 화면 쪽은 src/lib/adminCollectRequest.ts, 표는 마이그레이션 20261007120000.
+// `/admin` 의 **추가 수집 요청**(`collect_requests`)을 스크립트 쪽에서 다룬다 — `pnpm data collect` 가 대기 중인 요청을 검색하고 결과를 적고,
+// `pnpm data analyze` 가 그 요청이 담은 글을 미분석 줄 맨 앞에 세운다. 화면 쪽은 src/lib/adminCollectRequest.ts, 표는 마이그레이션 20261007120000.
 //
 // **표가 원격에 없어도 실행을 멈추지 않는다** — 마이그레이션은 사용자가 따로 `db push` 하고, 그 전에도 수집·분석은 지금처럼 돌아야 한다.
 // 없으면 경고 한 줄과 함께 "요청 0건" 이다.

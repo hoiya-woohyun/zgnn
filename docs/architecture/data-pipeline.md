@@ -1,6 +1,7 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-10-07 (v49: 추가 수집 — 요청 검색 실패는 그 요청만 대기로(키워드 수집분은 저장), 요청 글의 `keyword` 는 `추가 수집(/admin)`(상호명을 `검색어:` 로 주면 추출을 유도한다), `--only-requests` 는 `pipeline_runs` 에 안 남긴다(수집 칸의 '마지막 성공' 을 가린다))
+> 최종 수정: 2026-10-07 (v50: 진입점 하나 `pnpm data <하위 명령>`(`scripts/data.mjs`, ADR-024) — `data:*` 13줄이 한 줄, 터미널 검수 창 `data:review`·사진 스크립트 둘·`data:homepage` 를 지웠고, seed·normalize 는 `node scripts/…` 로 직접)
+> 이전 2026-10-07 (v49: 추가 수집 — 요청 검색 실패는 그 요청만 대기로(키워드 수집분은 저장), 요청 글의 `keyword` 는 `추가 수집(/admin)`(상호명을 `검색어:` 로 주면 추출을 유도한다), `--only-requests` 는 `pipeline_runs` 에 안 남긴다(수집 칸의 '마지막 성공' 을 가린다))
 > 이전 2026-10-07 (v48: **추가 수집 요청**(`collect_requests`) — `/admin` 이 남긴 상호명 검색어를 `data:collect` 가 키워드 뒤에 한 페이지(30건)씩 돌고(`--only-requests` 면 요청만), `data:analyze` 는 그 글을 미분석 줄 맨 앞에 세운다. 표가 없으면 경고 한 줄 뒤 요청 없이 돈다 — [features/admin-review 「추가 수집」](../features/admin-review.md))
 > 이전 2026-10-06 (v47: **읍면은 읽을 때 정본으로 접는다** — `parseRegion` 이 `서귀포`→`서귀포시` 를 한다(07 U8). 어느 쓰기 길도 저장 값을 고치지 않아, 시드의 `남쪽 (서귀포)` 1행은 손으로 고쳐야 했다)
 > 이전 2026-10-06 (v46: 심장을 **쓰기 스크립트 넷 모두** 찍는다 — collect(페이지마다)·`data:review`(행마다)가 빠져 있어 10분 넘게 도는 실행이 살아 있어도 운영 현황에 "중단된 듯" 으로 떴다)
@@ -89,37 +90,37 @@ Notion 은 1회 시드 경로로만 남는다.
 
 ```mermaid
 flowchart LR
-  N[(Notion 공개 페이지<br/>1회 시드, 지금은 안 씀)] -.->|pnpm data:seed<br/>완료됨, 재현용| SB[(Supabase<br/>places · items)]
+  N[(Notion 공개 페이지<br/>1회 시드, 지금은 안 씀)] -.->|node scripts/seed-db.mjs<br/>완료됨, 재현용| SB[(Supabase<br/>places · items)]
   Studio[Supabase Studio<br/>손 편집] --> SB
   Blog[블로그 수집 · AI 분석 · 승인<br/>todo/02·03, 진행 중] -.-> SB
-  SB -->|pnpm data:pull| P[src/data/places.json]
-  SB -->|pnpm data:pull| I[src/data/items.json]
+  SB -->|pnpm data pull| P[src/data/places.json]
+  SB -->|pnpm data pull| I[src/data/items.json]
   M[src/data/meta.json<br/>손으로 관리] --> B[next build]
   P --> B
   I --> B
 ```
 
 - 장소·준비물 화면은 런타임에 아무것도 fetch 하지 않는다. 장소 86곳(숙소 26·식당 34·카페 26), 준비물 15가지 — 지금까지와 동일
-  (승인한 장소가 `data:pull` 로 들어오면 86 을 넘는다). `/admin` 만 예외다(위 예외 문단).
-- 갱신은 여전히 사람이 **재배포를 일으켜야** 반영된다. Vercel 빌드 명령은 `pnpm data:pull && pnpm build` 다(`vercel.json` 의 `buildCommand`, [todo/00](../todo/00-setup-supabase-vercel.md) 4a —
-  끝났고 프로덕션 Ready 로 실측됐다), 그래서 **배포될 때마다 DB 를 새로 읽는다** — 커밋된 `src/data/*.json` 은 키 없이 `pnpm dev`·`pnpm test` 를 돌리기 위한 스냅샷이고, 배포 빌드는 그 위에 `data:pull` 결과를 덮어쓴다.
+  (승인한 장소가 `pnpm data pull` 로 들어오면 86 을 넘는다). `/admin` 만 예외다(위 예외 문단).
+- 갱신은 여전히 사람이 **재배포를 일으켜야** 반영된다. Vercel 빌드 명령은 `pnpm data pull && pnpm build` 다(`vercel.json` 의 `buildCommand`, [todo/00](../todo/00-setup-supabase-vercel.md) 4a —
+  끝났고 프로덕션 Ready 로 실측됐다), 그래서 **배포될 때마다 DB 를 새로 읽는다** — 커밋된 `src/data/*.json` 은 키 없이 `pnpm dev`·`pnpm test` 를 돌리기 위한 스냅샷이고, 배포 빌드는 그 위에 `pnpm data pull` 결과를 덮어쓴다.
   아직 없는 것은 4b 뿐이다: 승인이 **저절로** 재배포를 일으키는 DB 웹훅 → Deploy Hook. 그전까진 push 나 Redeploy 가 그 방아쇠다.
 
-## 갱신 경로 — `pnpm data:pull`
+## 갱신 경로 — `pnpm data pull`
 
 - 데이터를 고치는 곳은 이제 Supabase Studio(나중엔 관리 화면)지 Notion 이 아니다.
-- `scripts/pull-db.mjs`(`pnpm data:pull`) 가 `status='published'` 인 `places`·`items` 를 읽어 `src/data/places.json`·
+- `scripts/pull-db.mjs`(`pnpm data pull`) 가 `status='published'` 인 `places`·`items` 를 읽어 `src/data/places.json`·
   `items.json` 을 다시 쓴다.
 - `src/data/*.json` 은 계속 **커밋**한다 — 키 없이도 `pnpm dev`·`pnpm test`·로컬 `pnpm build` 가 돌아야 해서다.
-  **다만 4a 뒤로 이 스냅샷은 배포의 안전망이 아니다**: 배포 빌드는 `data:pull` 로 시작하므로, Supabase 가 무료 티어 7일 비활성으로 잠들면
-  `data:pull` 이 exit 1 이고 **재배포가 막힌다**(이전 배포는 그대로 산다 — [todo/05](../todo/05-security.md)). 조용히 옛 데이터로 빌드되지 않게 한 것이 의도다.
-- 접속이 안 되면 `data:pull` 은 조용히 옛 스냅샷을 쓰는 대신 **명확히 실패한다**(`exit 1`) — Vercel 빌드가 조용히 옛 데이터로
+  **다만 4a 뒤로 이 스냅샷은 배포의 안전망이 아니다**: 배포 빌드는 `pnpm data pull` 로 시작하므로, Supabase 가 무료 티어 7일 비활성으로 잠들면
+  `pnpm data pull` 이 exit 1 이고 **재배포가 막힌다**(이전 배포는 그대로 산다 — [todo/05](../todo/05-security.md)). 조용히 옛 데이터로 빌드되지 않게 한 것이 의도다.
+- 접속이 안 되면 `pnpm data pull` 은 조용히 옛 스냅샷을 쓰는 대신 **명확히 실패한다**(`exit 1`) — Vercel 빌드가 조용히 옛 데이터로
   돌아가는 사고를 막기 위해서다. 인증은 `scripts/lib/supabaseClient.mjs` 가 고른다([ADR-016 v5](../decisions/ADR-016-secrets-by-login.md)) — 출처는 **둘**뿐이고
-  스크립트 종류가 정한다: `data:pull`(readOnly)은 publishable 키만(anon), 쓰기 스크립트(seed·collect·analyze·apply)는 키체인의 운영자 세션(`pnpm data:login`, 만료면 멈춘다).
-  `data:pull` 은 세션이 있어도 **항상 anon** 이라 Vercel 빌드와 로컬이 같은 경로로 돌고, RLS 가 `places(published)`·`items` select 만 연다. 결과가 비면 파일을 덮어쓰지 않고 exit 1.
-  쓰기 스크립트는 세션이 없으면 그 자리에서 "pnpm data:login" 으로 멈춘다. service_role 키는 어디서도 안 쓴다 — env 에 남아 있으면 쓰기 스크립트는 **멈추고**(트립와이어),
-  `data:pull` 은 anon 으로 계속 가되 무시한 env 이름을 경고 한 줄로 찍는다. URL·publishable 키는 코드 상수(공개값). 어느 출처로 붙었는지는 첫 로그 줄 `Supabase 인증: …` 이 말한다.
-  레포에 env 파일 없음 — `data:*` 는 env 파일을 읽지 않는다(`ANALYZE_MODEL` 은 셸 env 로).
+  스크립트 종류가 정한다: `pnpm data pull`(readOnly)은 publishable 키만(anon), 쓰기 스크립트(seed·collect·analyze·apply)는 키체인의 운영자 세션(`pnpm data login`, 만료면 멈춘다).
+  `pnpm data pull` 은 세션이 있어도 **항상 anon** 이라 Vercel 빌드와 로컬이 같은 경로로 돌고, RLS 가 `places(published)`·`items` select 만 연다. 결과가 비면 파일을 덮어쓰지 않고 exit 1.
+  쓰기 스크립트는 세션이 없으면 그 자리에서 "pnpm data login" 으로 멈춘다. service_role 키는 어디서도 안 쓴다 — env 에 남아 있으면 쓰기 스크립트는 **멈추고**(트립와이어),
+  `pnpm data pull` 은 anon 으로 계속 가되 무시한 env 이름을 경고 한 줄로 찍는다. URL·publishable 키는 코드 상수(공개값). 어느 출처로 붙었는지는 첫 로그 줄 `Supabase 인증: …` 이 말한다.
+  레포에 env 파일 없음 — `pnpm data …` 는 env 파일을 읽지 않는다(`ANALYZE_MODEL` 은 셸 env 로).
 - **읍면 대조는 경고만 한다**(`scripts/lib/regionCheck.mjs`). `region` 은 사람이 고른 값이고 주소·좌표는 네이버에서 온 값이라 따로 움직인다 —
   어긋나면 '남원읍' 목록에 구좌읍 핀이 섞여도 빌드·테스트는 초록이다. 빌드를 막지 않는 이유는 고칠 곳이 여기가 아니라 `/admin`(원본 Supabase)이고,
   막으면 다른 승인까지 사이트에 못 나간다. 어느 쪽이 맞는지도 정하지 않는다 — 이름의 지명이 **주소가 틀렸다**는 단서일 때가 있다(ADR-019 의 동명 가게).
@@ -130,23 +131,23 @@ flowchart LR
 `scripts/lib/placeFields.mjs` 로 옮겼다. Notion 경로(`normalize.mjs`)와 Supabase 경로(`pull-db.mjs`) 가
 **같은 함수**를 쓴다. `toPlace` 의 키 순서와 `writeDataJson`(들여쓰기 1칸, 끝 개행 없음)이 정확히 같아야
 어느 입구로 들어와도 같은 JSON 바이트가 나오고, `git diff` 가 "진짜 바뀐 것" 만 보여준다.
-실제로 시드 → `data:pull` 왕복 뒤 `git diff src/data` 가 빈 것으로 확인했다.
+실제로 시드 → `pnpm data pull` 왕복 뒤 `git diff src/data` 가 빈 것으로 확인했다.
 
-## `data:normalize` 는 더 이상 데이터를 만드는 명령이 아니다
+## `scripts/normalize.mjs` 는 더 이상 데이터를 만드는 명령이 아니다
 
 예전엔 이게 유일한 데이터 생성 경로였다. 지금은 Notion 원본을 **다시 Supabase 로 시드**하고 싶을 때만 쓴다
-(예: Supabase 를 새로 만들어야 하는 재해복구 상황). 평소 갱신은 `data:pull` 이다.
+(예: Supabase 를 새로 만들어야 하는 재해복구 상황). 평소 갱신은 `pnpm data pull` 이다.
 `data/jejudo-notion-export.json` 은 여전히 레포에 있다 — "다음 갱신 소스" 가 아니라 **1회 시드의 근거 기록**이다.
 
 ## `sort` 컬럼
 
 Postgres 테이블엔 원래 순서 개념이 없는데, 화면은 "종류별 → Notion 원래 순서" 를 그대로 보여준다(준비물 카드
 나열, 장소 목록 정렬 등). 시드할 때 배열 인덱스를 그대로 `places.sort`·`items.sort` 에 넣어 이 순서를 보존했다.
-새로 추가되는 행은 `sort=null`, `data:pull` 은 nulls last 로 정렬해 새 행이 끝에 붙는다.
+새로 추가되는 행은 `sort=null`, `pnpm data pull` 은 nulls last 로 정렬해 새 행이 끝에 붙는다.
 
 ## `archived` 는 pull 에서 빠진다 — 그것이 곧 소프트 삭제다
 
-`places.status` 는 `draft`/`published`/`archived` 세 가지고, `data:pull` 은 `published` 만 가져온다. 그래서
+`places.status` 는 `draft`/`published`/`archived` 세 가지고, `pnpm data pull` 은 `published` 만 가져온다. 그래서
 `archived` 로 내린 장소는 `places.json`·라우트·프리캐시에서 사라지고, 저장 목록에서도 함께 빠진다 —
 `selectSavedPlaces` 가 `PLACES.filter` 라 모르는 id 는 오류 없이 버려진다(`src/lib/places.ts`).
 
@@ -186,7 +187,7 @@ Postgres 테이블엔 원래 순서 개념이 없는데, 화면은 "종류별 �
 
 ## 이미지
 
-`places` 테이블에 `images` 컬럼은 없다. `data:pull` 은 항상 `images: []` 를 쓴다. `TPlace` 계약(코드가 읽는
+`places` 테이블에 `images` 컬럼은 없다. `pnpm data pull` 은 항상 `images: []` 를 쓴다. `TPlace` 계약(코드가 읽는
 타입)은 그대로 남겨 뒀지만(→ [ADR-002](../decisions/ADR-002-no-place-photos.md), 사진 없음이 기본 디자인),
 실제 값을 채우는 경로는 지금 없다.
 
@@ -194,7 +195,7 @@ Postgres 테이블엔 원래 순서 개념이 없는데, 화면은 "종류별 �
 
 - **네이버 플레이스 사진 탭으로 보내는 버튼** — `naverPlaceId` 에서 주소를 만든다. `naverUrl` 은 `naver.me` 단축 링크라 쓸 수 없다.
 - **공식 홈페이지 링크 카드** — `places.homepage_*` 세 칸 → `TPlace.homepage`. 주소가 없으면 키째 빠져 시드 86곳의 `places.json` 바이트는 그대로다.
-  분석이 카드를 만드는 것은 그 세 칸이 DB 에 있을 때뿐이다(`data:analyze` 가 먼저 확인하고 없으면 카드만 끈다) — 없는 칸을 실은
+  분석이 카드를 만드는 것은 그 세 칸이 DB 에 있을 때뿐이다(`pnpm data analyze` 가 먼저 확인하고 없으면 카드만 끈다) — 없는 칸을 실은
   후보를 승인하면 insert 가 통째로 거절되기 때문이다. 같은 이유로 `toNewPlaceRow` 는 카드가 있을 때만 그 칸을 싣는다.
 
 ## 파싱은 여전히 런타임
@@ -216,11 +217,12 @@ AI 분석 · 승인 · /admin 고치기) 저장 값을 고치는 곳은 하나�
 
 ## 수집 · 분석 · 승인 (첫 실행 2026-09-28 — 글 50건 → 후보 160건, 네이버 키 없이)
 
-**사용자 터미널에서** `pnpm data:collect` → `pnpm data:analyze` → (검수·승인) → `pnpm data:apply` 를 순서대로 돌린다 — 스케줄·CI 없음
-(검수·승인은 2026-09-29 부터 앱 안 `/admin` 이 기본이고, 거기서 승인하면 `data:apply` 단계까지 그 클릭이 대신한다 → [ADR-018](../decisions/ADR-018-in-app-admin-review.md)·[features/admin-review](../features/admin-review.md))
-(ADR-016 v5, GitHub Actions 폐지). 셋 다 운영자 세션(`pnpm data:login`)이 필요하고, `data:collect` 는 네이버 검색 키까지 필요하다 — env
+**사용자 터미널에서** `pnpm data collect` → `pnpm data analyze` → (검수·승인) → `pnpm data apply` 를 순서대로 돌린다 — 스케줄·CI 없음.
+`pnpm data once` 는 그 셋을 한 번에 돈다(수집은 `/admin` 의 추가 수집 요청만, `scripts/data.mjs` — 상주 워커는 [todo/17](../todo/17-local-worker.md) T3)
+(검수·승인은 2026-09-29 부터 앱 안 `/admin` 이 기본이고, 거기서 승인하면 `pnpm data apply` 단계까지 그 클릭이 대신한다 → [ADR-018](../decisions/ADR-018-in-app-admin-review.md)·[features/admin-review](../features/admin-review.md))
+(ADR-016 v5, GitHub Actions 폐지). 셋 다 운영자 세션(`pnpm data login`)이 필요하고, `pnpm data collect` 는 네이버 검색 키까지 필요하다 — env
 (`NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`)로 넘기거나 없으면 터미널 숨김 입력으로 받는다(어디에도 저장 안 함 · 에이전트 세션에서는 입력을 거부).
-그래서 수집은 사용자 몫이고 에이전트는 `data:analyze`·`data:apply` 만 돌린다. `blog_posts` 는 사용자가 돌릴 때만 찬다.
+그래서 수집은 사용자 몫이고 에이전트는 `pnpm data analyze`·`pnpm data apply` 만 돌린다. `blog_posts` 는 사용자가 돌릴 때만 찬다.
 `/admin` 의 **추가 수집** 요청(`collect_requests`)은 같은 실행이 키워드 뒤에 돈다 — 요청마다 `제주 <상호명>` 한 페이지(30건), 결과(`found`·`to_read` — 아직 분석 안 된 글 · `post_urls`)는
 upsert 가 끝난 **뒤에** 적는다(도중에 죽으면 대기로 남는다). 분석은 최근 30일 요청의 `post_urls` 를 미분석 줄 맨 앞에 세운다([features/admin-review 「추가 수집」](../features/admin-review.md)). 진행·결정은
 [todo/02](../todo/02-collect-naver-blog.md)·[todo/03](../todo/03-analyze-and-review.md).
@@ -234,11 +236,11 @@ flowchart LR
   V -->|네이버 지역 검색: 이름 완전 일치만| G[좌표·주소·regionRaw]
   G -->|matchPlace vs places<br/>상태 무관 — archived·draft 포함<br/>게시된 짝은 차이 게이트 kindOf| C[(candidates<br/>pending · tier auto/ask/new<br/>kind new/fill/update/ask)]
   C -->|갱신이 생긴 장소마다 1회 · 루프 끝<br/>claude -p 셋째 패스 · 구조값만| PR[제안<br/>extracted.proposal]
-  C -->|사람: /admin · pnpm data:review · Studio<br/>묶음 · 정규식/AI/앱 판정 미리보기| A{approved?}
-  A -->|approved → data:apply| PL[(places<br/>빈 칸만 채움 · 신규는 draft)]
+  C -->|사람: /admin · Studio<br/>묶음 · 정규식/AI/앱 판정 미리보기| A{approved?}
+  A -->|approved → pnpm data apply| PL[(places<br/>빈 칸만 채움 · 신규는 draft)]
   A -->|/admin 의 '맞아요' — 승인과 반영이 한 번| PP[(places<br/>빈 칸만 채움 · 신규는 published)]
   A -->|rejected| X[끝]
-  PL -.->|published 는 사람이 올림| PULL[data:pull → 재빌드]
+  PL -.->|published 는 사람이 올림| PULL[pnpm data pull → 재빌드]
   PP -.->|다음 빌드에서 보인다| PULL
 ```
 
@@ -269,7 +271,7 @@ flowchart LR
   다시 계산되므로 `extracted.editedFrom.nameKey`(처음 고치기 전 키, 처음 한 번만)도 집합에 넣는다 — 이미 고친 뒤의 행은 그 키가 없어 지금 키만 걸린다.
   같은 가게라도 **다른 글**이면 만든다(새 근거). 머리표 `[admin] 고침` 은 `EDITED_NOTE`(TS)와 `analyzeCandidates.mjs` 의 상수 둘이고 테스트가 같은 값인지 묶는다.
 
-  **`data:analyze` 에 그 스위치는 없다.** 글을 고르는 조건은 `analyzed_at is null` 하나뿐이라(`analyze-candidates.mjs:207`),
+  **`pnpm data analyze` 에 그 스위치는 없다.** 글을 고르는 조건은 `analyzed_at is null` 하나뿐이라(`analyze-candidates.mjs:207`),
   재분석은 **DB 를 손으로 되돌려** 그 조건에 다시 걸리게 하는 일이다. 순서가 중요하다:
 
   **1·2단계는 `/admin` 의 `분석 지우고 다시 읽기`(한 줄) · `고른 것 재분석 준비`(여러 줄)가 한다**(`src/lib/adminReanalyze.ts`,
@@ -288,7 +290,7 @@ flowchart LR
   1-1. **글 단위로 되돌린다.** 글 하나를 다시 읽으면 그 글의 장소가 **전부** 다시 후보가 된다 — 요금 문장이 있는 후보만
      골라 눕히면 형제 후보가 새 행으로 또 생겨 같은 가게가 두 줄이 된다(`dupOf`·`중복표시`).
   2. 그 글의 `analyzed_at` 을 `null` 로 되돌린다. `analysis` 는 두어도 된다 — 다음 실행이 덮는다.
-  3. `pnpm data:analyze --limit 2` 로 **먼저 두 건만** 돌려 결과를 `/admin` 에서 확인한 뒤 나머지를 돌린다.
+  3. `pnpm data analyze --limit 2` 로 **먼저 두 건만** 돌려 결과를 `/admin` 에서 확인한 뒤 나머지를 돌린다.
      `claude -p`(구독)를 쓰므로 5시간 한도를 한 번에 태우면 그 실행이 중간에 멈춘다.
 
   ⚠️ 승인·반려로 **사람이 이미 결정한 글을 되돌리면 그 결정이 되살아나지 않는다** — 후보만 다시 생긴다.
@@ -313,10 +315,9 @@ flowchart LR
   **재개업을 아는 유일한 신호**다('되살려서 합치기') — 둘 다 늘 후보이고 종류만 붙는다. 단 그 가게가 블랙리스트에 있으면 이름 축에서 먼저 걸린다(해제 폼이 함께 거는 `place_blocks`, 09 T1.4 — 되살리면 풀린다).
   `status` 나 짝 행을 모르면(시드·테스트 경로) 거르지 않는다 — 모르는 것을 "이미 있다" 로 읽으면 후보가 조용히 사라지고, 그 반대는 사람이 화면에서 본다.
   **비용은 줄지 않는다**(추출·네이버 조회·홈페이지 읽기가 끝난 뒤의 판정이다) — 아끼는 것은 운영자가 훑을 줄 수다. 요약 줄에 `갱신 N · 보강 M` 과 제외 괄호의 `같은 말 · 옛 글 · 근거 약함`.
-- **검수는 `pnpm data:review`** — pending 을 같은 가게로 묶어 검수 순서(`reviewPriority`, 🙋 사용자가 다듬는 자리)대로 보여 주고(글 수는 **독립 글**로 센다 —
-  같은 블로그·같은 제목 틀의 글은 하나, `postClusters`. URL 다섯이 다섯 사람의 말이 아닌 광고성 복제 글이 앞자리를 차지했다), 후보마다 `정규식 [..] · AI [..] · 앱 [..]` 과 표식
-  (`조건문 없음` · `정규식 못읽음` · `AI≠정규식` · `지역 없음` · `좌표 없음` · `목록글` · `중복표시`)을 찍는다. `approve <id…>`·`reject <id…> --note` 로 결정을 넣고, `status` 가 published 대기 draft 와 빈 칸을 센다.
-  원문·evidence 는 `--verbose`/`--md` 에서만(05 의 로그 위생). Studio 는 그대로 쓸 수 있다.
+- **검수는 `/admin`** — pending 을 같은 가게로 묶어 검수 순서(`reviewPriority`, 🙋 사용자가 다듬는 자리)대로 보여 주고(글 수는 **독립 글**로 센다 —
+  같은 블로그·같은 제목 틀의 글은 하나, `postClusters`. URL 다섯이 다섯 사람의 말이 아닌 광고성 복제 글이 앞자리를 차지했다), 후보마다 정규식·AI·앱 판정과 표식을 보인다
+  (묶기·표식은 `scripts/analyze/reviewCandidates.mjs`). 터미널 검수 창 `pnpm data:review` 는 ADR-024 로 지웠다. Studio 는 그대로 쓸 수 있다.
 
 2026-09-30 에 하나 더 배웠다(사용자 지적).
 
@@ -342,19 +343,19 @@ flowchart LR
 
 | `candidates.status` | 누가 바꾸나 | 뜻 |
 |---|---|---|
-| `pending` | `data:analyze` 가 만든다 | 사람이 볼 차례. `extracted.match.tier` 가 `auto`(≥0.85 — 기존 장소와 사실상 같음) · `ask`(0.4~0.85 — `match_place_id` 는 제안) · `new`(신규) |
-| `approved` | 사람(`/admin` · `pnpm data:review` · Studio). `AUTO_APPROVE=true` 면 `auto` 는 자동 | `data:apply` 가 반영한다. `ask` 인데 신규가 맞으면 **`match_place_id` 를 비우고** 승인. `/admin` 에서는 이 상태가 **지나가는 자리**다 — 같은 클릭이 이어서 `places` 까지 쓰고 `merged` 로 넘긴다. 중간에 실패하면 여기 남고 `data:apply` 가 이어받는다 |
+| `pending` | `pnpm data analyze` 가 만든다 | 사람이 볼 차례. `extracted.match.tier` 가 `auto`(≥0.85 — 기존 장소와 사실상 같음) · `ask`(0.4~0.85 — `match_place_id` 는 제안) · `new`(신규) |
+| `approved` | 사람(`/admin` · Studio). `AUTO_APPROVE=true` 면 `auto` 는 자동 | `pnpm data apply` 가 반영한다. `ask` 인데 신규가 맞으면 **`match_place_id` 를 비우고** 승인. `/admin` 에서는 이 상태가 **지나가는 자리**다 — 같은 클릭이 이어서 `places` 까지 쓰고 `merged` 로 넘긴다. 중간에 실패하면 여기 남고 `pnpm data apply` 가 이어받는다 |
 | `rejected` | 사람 | 끝. `reviewer_note` 에 이유 |
-| `merged` | `data:apply` 또는 `/admin` | `places` 에 반영됐다(보강, 또는 신규 — `data:apply` 는 `draft`·`/admin` 은 `published` + `place_sources` 링크). `extracted.applied = { placeId, kind, patchKeys, at }` 로 어느 칸을 채웠는지 남는다(되돌릴 때 그 칸을 null 로) |
+| `merged` | `pnpm data apply` 또는 `/admin` | `places` 에 반영됐다(보강, 또는 신규 — `pnpm data apply` 는 `draft`·`/admin` 은 `published` + `place_sources` 링크). `extracted.applied = { placeId, kind, patchKeys, at }` 로 어느 칸을 채웠는지 남는다(되돌릴 때 그 칸을 null 로) |
 
-`data:apply` 가 **반영하지 않고 pending 으로 되돌리는** 경우(사유는 `reviewer_note`): `regionRaw` 가 없거나 형식이 아님 · 신규 후보가 현재 장소와 ask 구간(0.4~0.85)으로 닮음(같은 곳이면
+`pnpm data apply` 가 **반영하지 않고 pending 으로 되돌리는** 경우(사유는 `reviewer_note`): `regionRaw` 가 없거나 형식이 아님 · 신규 후보가 현재 장소와 ask 구간(0.4~0.85)으로 닮음(같은 곳이면
 `match_place_id` 를 채우고, 다른 곳이면 `extracted.match.tier` 를 `ask` 로 바꿔 재승인) · 대상이 archived(다시 연 가게면 `/admin` 의 '되살려서 합치기') · type other. 신규 숙소는 `stayPriceText`·`stayAmenitiesText` 가 `stay_*` 로 들어간다.
 
-`places.status` 는 별개이고 **경로에 따라 갈린다** — `data:pull` 은 어느 쪽이든 `published` 만 가져온다.
+`places.status` 는 별개이고 **경로에 따라 갈린다** — `pnpm data pull` 은 어느 쪽이든 `published` 만 가져온다.
 
 | 승인한 곳 | 신규 장소가 들어오는 상태 | 사이트에 보이려면 |
 |---|---|---|
-| `pnpm data:apply`(터미널) | `draft` | 사람이 Studio 에서 `published` 로 올린다 → 재빌드 |
+| `pnpm data apply`(터미널) | `draft` | 사람이 Studio 에서 `published` 로 올린다 → 재빌드 |
 | `/admin`(운영자 화면) | **`published`** — 완성도 게이트(종류·이름·지역)를 버튼 앞에서 통과해야 눌린다 | 재빌드만 |
 
 두 경로가 다른 이유는 [ADR-018 §4](../decisions/ADR-018-in-app-admin-review.md) 에 있다 — `draft` 단계는 "사람이 한 번 더 본다" 는 뜻이었고,
@@ -363,7 +364,7 @@ flowchart LR
 
 ## 실행 기록 — 실행마다 `pipeline_runs` 한 행
 
-쓰기 스크립트 넷(`data:collect` · `data:analyze` · `data:apply` · `data:review approve|reject`)은 실행마다 `pipeline_runs`(마이그레이션 `20261006120000`)에
+쓰기 스크립트 셋(`pnpm data collect` · `analyze` · `apply` — 옛 `data:review approve|reject` 의 행도 남아 있다)은 실행마다 `pipeline_runs`(마이그레이션 `20261006120000`)에
 한 행을 남긴다 — 시작에 `running`, 끝에 `ok`·`partial`·`failed` + `stats` + `error`. 같은 운영자 세션으로 쓰므로 키·출처가 늘지 않는다. 읽는 쪽은 운영 현황
 화면(`/admin/ops`, [todo/15](../todo/15-ops-dashboard.md) T3 — 아직 없다)과 rpc `ops_overview()`. 결정은 [ADR-023](../decisions/ADR-023-ops-dashboard-and-run-log.md).
 
@@ -374,7 +375,7 @@ flowchart LR
   닫기(`end`)가 실패하면 행이 `running` 으로 남아 화면에 "중단된 듯" 으로 보인다 — 콘솔에 `기록 못 닫음 — 화면에 중단된 듯으로 보일 수 있어요` 한 줄.
 - **시작 기록은 사전 점검이 다 지난 뒤다.** 키·컬럼·places 비어 있음 같은 점검의 `process.exit(1)` 은 "돌지 않은 것" 인데, 그 앞에서 행을 열면
   `process.on('exit')` 안에선 await 를 못 써 닫을 수 없어 전부 거짓 "중단된 듯" 이 된다. 같은 이유로 `runLock` 에 막힌 analyze · `--dry-run` 은 남기지 않는다.
-- **심장(`heartbeat_at`)은 쓰기 스크립트 넷 모두 찍는다** — analyze 는 글마다·"분석 불가" 닫기·제안 루프, apply 는 후보마다, collect 는 검색 페이지마다, `data:review` 는 행마다 `tick()`. 실제 쓰기는 60초에 한 번이라 자주 불러도 된다. 하나라도 빠지면 10분 넘게 도는 그 실행이 살아 있어도 화면에 "중단된 듯"(실패)으로 뜬다. 죽은 프로세스는 `running` 인데
+- **심장(`heartbeat_at`)은 쓰기 스크립트 셋 모두 찍는다** — analyze 는 글마다·"분석 불가" 닫기·제안 루프, apply 는 후보마다, collect 는 검색 페이지마다 `tick()`. 실제 쓰기는 60초에 한 번이라 자주 불러도 된다. 하나라도 빠지면 10분 넘게 도는 그 실행이 살아 있어도 화면에 "중단된 듯"(실패)으로 뜬다. 죽은 프로세스는 `running` 인데
   심장이 멎은 행으로 드러난다(화면 판정은 10분). analyze 에는 SIGINT 핸들러가 없다 — `claude -p` 자식도 같은 신호를 받아서, 끝내지 않는 핸들러를 두면 루프가 계속 돈다.
   collect 는 Ctrl-C 를 `중단(SIGINT)` 으로 닫고(3초 상한) 130 으로 끝낸다.
 - **`error` 칸은 분류 문구 다섯뿐이다** — `Claude 인증 실패` · `네이버 검색 429` · `DB 쓰기 실패` · `중단(SIGINT)` · `알 수 없음`. 던지는 자리가
@@ -384,10 +385,10 @@ flowchart LR
   터미널과 글자까지 같은 줄을 다시 만든다(`runSummary.test.ts` 가 옮기기 전 줄을 fixture 로 지킨다). 그래서 키 이름은 함수가 읽는 이름이다(analyze 는 `auto`·`ask`·`new` …).
   analyze 는 여기에 패스별 Claude 계량기(`meters{extract,verify,propose}`) · 좌표 · 홈페이지 · `naverCalls` 를 더한다. 키 표의 정본은 [todo/15](../todo/15-ops-dashboard.md) T2.1.
 - **`naverCalls` 는 검색 API 요청 수다**(`scripts/lib/naverSearchApi.mjs` 의 프로세스 카운터 — 블로그·지역, 응답 전에 센다. 실패도 한 번). Geocoding 은 다른 쿼터라 안 센다.
-- **스크립트가 `src/lib` 의 `.ts` 를 읽는다**(`runSummary.ts` — import 없는 지울 수 있는 TS 만). 그래서 `data:collect`·`data:analyze`·`data:apply` 도
-  `data:review` 처럼 `node --experimental-strip-types` 로 돈다. `/admin` 번들에 들어가는 `.mjs`(`analyzeCandidates.mjs`)에는 `.ts` import 를 넣지 않는다.
+- **스크립트가 `src/lib` 의 `.ts` 를 읽는다**(`runSummary.ts` — import 없는 지울 수 있는 TS 만). 그래서 진입점 `scripts/data.mjs` 가
+  `node --experimental-strip-types` 로 돈다(`package.json` 의 `data` 한 줄). `/admin` 번들에 들어가는 `.mjs`(`analyzeCandidates.mjs`)에는 `.ts` import 를 넣지 않는다.
 
-## 추출 정확도 평가 — `pnpm data:eval`
+## 추출 정확도 평가 — `pnpm data eval`
 
 프롬프트를 고칠 때 "좋아졌나" 를 재는 자리다. 시드 86곳은 짱구누나가 **글 하나씩**(`reviewUrl`)을 쓰고 그 글을 보며 조건을 적었으므로,
 같은 글을 운영 추출(`extractPlaces` — 같은 함수, 같은 보정)에 넣어 나온 값과 비교한다. 정답은 `data/golden/seed-extract.json` 에 얼려 두고(places.json 은 앞으로 바뀐다),
@@ -408,7 +409,7 @@ flowchart LR
 | `TItem` | `id`, `name`, `emoji`, `seasons`, `reason`, `linkUrl?`, `variants?` | 준비물. `linkUrl` 은 쿠팡 파트너스 링크라 `meta.disclosure` 를 함께 표시. `variants` 는 원본의 여러 줄을 `lib/places.ts` 의 `ITEM_VARIANTS` 가 한 항목으로 합치면서 생긴다(기내용 가방의 5kg 이하/이상) — DB·JSON 어디에도 없는 파생 필드다 |
 | `place_blocks`(DB 표, `TPlace` 아님) | `name_key`, `town?`, `display_name`, `reason`, `until?`(null=영구), `lifted_at?`, `candidate_id?`, `place_id?` | 분석이 실행마다 읽는 **가게 차단 목록**(마이그레이션 `20261001120000`, 원격 미적용 — 🧑 `db push`). `until is null or until > now()` 이고 `lifted_at` 이 null 인 행이 "걸린 것" — 스케줄러 없이 비교로 만료. DELETE grant 없음, 공개 역할 grant 없음 → [ADR-020](../decisions/ADR-020-pipeline-stages-and-blocklist.md) D1·D2 |
 | `place_reports`(DB 표, `TPlace` 아님) | `place_id?`(제안만 null), `kind`, `note?`(≤200), `app_build?`, `status`(open·handled·dismissed), `handled_note?`, `handled_at?` | 사이트 상세의 **사용자 제보**(마이그레이션 `20261001130000`, 원격 미적용 — 🧑 `db push`). 비로그인은 열 단위 insert 만(select 없음), 운영자는 select·update, DELETE 없음. **재빌드 트리거에 안 걸려 있다**(의도) → [ADR-021](../decisions/ADR-021-place-reports.md) |
-| `openReportKinds?`(`TPlace` 끝 키) | `['closed'\|'replaced']` | 빌드 때 `data:pull` 이 `place_report_flags()`(security definer — 비로그인 역할에게 표를 열지 않고 **장소 id·종류만**)로 얹는다. 있으면 상세가 "최근 확인" 을 그리지 않는다(ADR-021 R5). 맨 뒤 키라 없는 장소의 JSON 바이트는 그대로. 함수가 원격에 없으면 경고 한 줄 뒤 표식 없이 — 날짜 하나 숨기자고 배포를 멈추지 않는다 |
+| `openReportKinds?`(`TPlace` 끝 키) | `['closed'\|'replaced']` | 빌드 때 `pnpm data pull` 이 `place_report_flags()`(security definer — 비로그인 역할에게 표를 열지 않고 **장소 id·종류만**)로 얹는다. 있으면 상세가 "최근 확인" 을 그리지 않는다(ADR-021 R5). 맨 뒤 키라 없는 장소의 JSON 바이트는 그대로. 함수가 원격에 없으면 경고 한 줄 뒤 표식 없이 — 날짜 하나 숨기자고 배포를 멈추지 않는다 |
 | `stay.environment?`(`TStayInfo`) | `{ standalone, yard, fencedYard, stairs }` 칸마다 true·false·null | `places.stay_environment`(마이그레이션 `20261001160000`). AI 가 원문에서 읽고 근거 단어로 거른 값(`correctStayEnvironment`). 시드는 없다 — 앱이 소개·용품을 정규식으로 읽어 합친다(`TPlaceEntry.environment`). **판정에 안 들어간다**(선호, ADR-017 결정 12). 쓰는 쪽은 행에 칸이 있을 때만 싣는다 — 없는 칸을 쓰면 insert·update 가 통째로 거절된다 |
 | `TMeta` | `author`, `sourceUrl`, `intro`, … | 화면 문구. 손으로 관리 |
 
@@ -418,14 +419,15 @@ flowchart LR
   **node 모듈을 import 하지 않는다** — 브라우저(`src/lib/admin*.ts`)가 이 파일을 그대로 가져가므로 `node:fs` 한 줄이 다시 들어오면 `/admin` 번들이 깨진다.
   파일을 쓰는 쪽은 `scripts/lib/dataJson.mjs`(`writeDataJson`)로 떼어 놨다. 공개 상수(`PROJECT_REF`·`PUBLISHABLE_KEY`·`PROJECT_URL`)도 같은 이유로 `scripts/lib/supabasePublic.mjs`(import 없음)에 있다
 - 운영자 검수 화면: `src/lib/admin{Session,Supabase,Candidates,Apply}.ts` · `src/screens/adminPage*.tsx` · `src/app/admin/` — 순수 로직은 위 `scripts/` 모듈을 그대로 import 한다(두 벌로 만들지 않는다)
-- 수집·분석·검수·승인: `scripts/collect-blog.mjs`(`data:collect`) · `scripts/analyze-candidates.mjs`(`data:analyze`) · `scripts/review-candidates.mjs`(`data:review`, 앱 파서를 `--experimental-strip-types` 로 읽는다) · `scripts/apply-approved.mjs`(`data:apply`) —
+- 진입점: `scripts/data.mjs`(`pnpm data <하위 명령>`, ADR-024) — 각 스크립트의 `main(argv)` 를 골라 부른다. 인자 없음·모르는 하위 명령이면 사용법
+- 수집·분석·승인: `scripts/collect-blog.mjs`(`pnpm data collect`) · `scripts/analyze-candidates.mjs`(`pnpm data analyze`) · `scripts/apply-approved.mjs`(`pnpm data apply`) · 한 바퀴 `pnpm data once` —
   순수 함수는 `scripts/collect/*`·`scripts/analyze/*`(각각 `*.test.mjs`). 스케줄은 없다 — 사용자 터미널에서 돌린다(ADR-016 v5)
-- 인증·입력: `scripts/lib/supabaseClient.mjs`(출처 선택), `scripts/login.mjs`(`pnpm data:login`), `scripts/lib/readHidden.mjs`(비밀번호·네이버 키 숨김 입력, 두 소유자)
-- `scripts/pull-db.mjs`(`pnpm data:pull`), `scripts/seed-db.mjs`(`pnpm data:seed`, 1회용이지만 재현성 때문에 레포에 둔다)
-- `scripts/normalize.mjs`(`pnpm data:normalize`, 이제는 Notion 재시드 전용), `scripts/fetch-blog-images.mjs`(허용목록 비어 있음), `scripts/optimize-images.mjs`
+- 인증·입력: `scripts/lib/supabaseClient.mjs`(출처 선택), `scripts/login.mjs`(`pnpm data login`), `scripts/lib/readHidden.mjs`(비밀번호·네이버 키 숨김 입력, 두 소유자)
+- `scripts/pull-db.mjs`(`pnpm data pull`), `scripts/seed-db.mjs`(`node scripts/seed-db.mjs` 로 직접 — 1회용이지만 재해복구용으로 레포에 둔다)
+- `scripts/normalize.mjs`(`node scripts/normalize.mjs` 로 직접, 이제는 Notion 재시드 전용)
 - `data/jejudo-notion-export.json`(1회 시드 근거), `src/data/*.json`, `src/types.ts`
 - 빌드 시 라우트 목록도 `places.json` 에서 만든다: `next.config.mjs`(프리캐시), `src/app/place/[id]/page.tsx`(`generateStaticParams`)
-- Vercel 은 `vercel.json` 의 `buildCommand: "pnpm data:pull && pnpm build"` 로 빌드 안에서 DB 를 읽는다(4a). `outputDirectory` 는 비워 둔다(BUG-005)
+- Vercel 은 `vercel.json` 의 `buildCommand: "pnpm data pull && pnpm build"` 로 빌드 안에서 DB 를 읽는다(4a). `outputDirectory` 는 비워 둔다(BUG-005)
 - Supabase 스키마·RLS·시드 절차: [todo/01](../todo/01-schema-and-seed.md)
 
 ## 부록 — Notion 시드가 만들어진 과정 (역사 기록, 지금은 안 씀)
@@ -447,7 +449,7 @@ HTML 안의 `"coordinate":{"x","y"}` 와 `roadAddress`, `category` 를 읽었다
 **미확보 5곳**(요호르기 스테이, 미트타운, 개떼목장, 브릭스제주, 롯지먼트)은 지도에서 빠지고 화면이
 "좌표 없는 5곳 제외" 로 알린다. 억지로 좌표를 지어내지 않았다.
 
-**새 후보의 좌표는 축이 둘이다**(`data:analyze`). 순서가 있고, 키가 서로 다르다.
+**새 후보의 좌표는 축이 둘이다**(`pnpm data analyze`). 순서가 있고, 키가 서로 다르다.
 
 | | 이름 축 | 주소 축 |
 |---|---|---|
@@ -470,7 +472,7 @@ HTML 안의 `"coordinate":{"x","y"}` 와 `roadAddress`, `category` 를 읽었다
 그 결과가 2026-09-28 의 첫 실행이다 — 글 50건을 다 읽고 Claude 한도를 쓴 뒤에야 좌표 0건인 걸 알았고 후보 160건을 통째로 버렸다.
 지금은 **이름 축의 키가 없으면 Claude 를 부르기 전에 멈춘다**(좌표 없이 대조하면 동명 가게가 `ask` 가 아니라 `auto` 로 올라간다).
 좌표 없이 돌릴 작정이면 `--no-geo` 를 명시한다 — 그때는 묻지도 세우지도 않는다.
-키는 **세션·마이그레이션 검사 뒤에** 묻는다(먼저 물으면 키 넷을 치고 나서 `pnpm data:login` 으로 멈춰 헛수고가 된다).
+키는 **세션·마이그레이션 검사 뒤에** 묻는다(먼저 물으면 키 넷을 치고 나서 `pnpm data login` 으로 멈춰 헛수고가 된다).
 ⚠️ 주소 축은 **거친 주소를 스스로 거른다** — Geocoding 은 "제주시 애월읍" 에도 `status OK` 로 읍 중심점을 주고 그 점은 제주 범위 박스 안이다
 (→ [03](../todo/03-analyze-and-review.md) 의 두 겹 방어).
 
@@ -484,7 +486,7 @@ HTML 안의 `"coordinate":{"x","y"}` 와 `roadAddress`, `category` 를 읽었다
 
 그래서 **재시도로 채워질 자리가 아니다**:
 - 스크레이퍼를 다시 돌려도 같다(엔트리가 없다). 폐업·통합·삭제 중 무엇인지는 이 신호로 가려지지 않는다 — "엔트리가 없다" 까지만 말한다.
-- `data:analyze` 의 **이름 축**(`naverLocal.mjs`)으로도 안 채워진다. 그쪽은 **정규화 이름 완전 일치 + 제주 범위**만 채택하므로,
+- `pnpm data analyze` 의 **이름 축**(`naverLocal.mjs`)으로도 안 채워진다. 그쪽은 **정규화 이름 완전 일치 + 제주 범위**만 채택하므로,
   0건이거나 원주·서귀포의 **다른 가게**인 위 결과는 설계대로 전부 탈락한다. 이건 가드가 제 일을 하는 것이다(동명 가게의 좌표가 실리는 것이 더 나쁘다).
 - **주소 축**(`naverGeocode.mjs`)이 원리상 이 문제를 푼다 — 엔트리가 없어도 주소는 좌표를 유일하게 정하고, 이 5곳의 주소는 후기에서 실측해
   [03](../todo/03-analyze-and-review.md) 에 표로 있다. 그런데 **이 5곳에는 닿지 않는다**: 축은 `candidates` 를 만드는 경로에만 있고

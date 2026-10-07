@@ -179,7 +179,7 @@ export function AdminPageGroupActions({
         <Situation title="수집 완료로 되돌릴까요?">
           <p>{reanalyzeText}</p>
           <p>
-            목록에서 빠진 후보는 반려 목록에 남아요. 그다음 터미널에서 <code>pnpm data:analyze</code> 를 돌려 주세요.
+            목록에서 빠진 후보는 반려 목록에 남아요. 그다음 터미널에서 <code>pnpm data analyze</code> 를 돌려 주세요.
           </p>
         </Situation>
         <Row>
@@ -262,7 +262,7 @@ export function AdminPageGroupActions({
             isDisabled: collect.queued || collect.unavailable,
             title: collect.unavailable
               ? COLLECT_REQUESTS_UNAVAILABLE_TEXT
-              : `'${collect.query}' 로 블로그를 한 번 더 찾아요 — 다음 pnpm data:collect 때`,
+              : `'${collect.query}' 로 블로그를 한 번 더 찾아요 — 다음 pnpm data collect 때`,
           })}
         {escape}
       </Row>

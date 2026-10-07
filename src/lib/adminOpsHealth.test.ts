@@ -131,7 +131,7 @@ describe('stageHealth', () => {
     const handEdited = run({ script: 'apply', status: 'ok', stats: { failed: '2' } });
     expect(stage(overview({ runsLatest: { apply: handEdited }, runsLastOk: { apply: handEdited } }), 'apply').state).toBe('ok');
 
-    expect(stage(overview({ stranded: 2 }), 'apply')).toMatchObject({ state: 'warn', hint: 'pnpm data:apply' });
+    expect(stage(overview({ stranded: 2 }), 'apply')).toMatchObject({ state: 'warn', hint: 'pnpm data apply' });
   });
 
   it('재빌드 — 429 는 주의(BUG-011), 그 밖의 4xx 는 실패, 응답 없이 3분 넘으면 주의, skipped 는 건너뛴다', () => {

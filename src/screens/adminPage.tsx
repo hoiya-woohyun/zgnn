@@ -178,7 +178,7 @@ const HELP_LINES = [
   '제외: 사유를 고르면 후보는 목록에서 빠져요. 「블랙리스트에」 를 3개월·영구로 고르면 그 가게 이름의 새 글도 한동안 후보로 올라오지 않아요.',
   '줄 앞 체크박스로 여러 곳을 고르면 표 위에 한꺼번에 처리하는 줄이 떠요.',
   '올리기: 짝이 있으면 그 장소의 빈 칸만 채우고, 없으면 새 장소로 올라가요. 덮어쓰기: 짝의 칸을 새 분석 값으로 바꿔요.',
-  '재분석: 그 글을 수집 완료로 되돌려요(지우지 않아요). 터미널에서 pnpm data:analyze 를 돌리면 다시 읽어요.',
+  '재분석: 그 글을 수집 완료로 되돌려요(지우지 않아요). 터미널에서 pnpm data analyze 를 돌리면 다시 읽어요.',
   `${POLICY_STATE_WORD.noText}: 블로그 본문에 동반 조건 문장이 아예 없어요 — 교차점검을 했으면 강아지가 있었는지는 그 줄이 말해요.`,
   `${POLICY_STATE_WORD.noLimit}: "동반 가능" 문장은 있는데 크기·실내·요금 같은 조건이 안 적혀 있어요 — 올리면 사이트엔 '확인이 필요해요' 로 나가요.`,
   `${UNREAD_BADGE_LABEL}(칩): 조건 문장은 있는데 판정 규칙이 못 읽었어요 — 사이트에도 "원문을 확인해 주세요" 로 나가요.`,
@@ -703,7 +703,7 @@ export function AdminPage() {
         const laid = new Set(plan.lay.map((row) => row.id));
         setGroups((prev) => groupPending(prev.flatMap((group) => group.rows).filter((row) => !laid.has(row.id))));
         void loadCounts(client);
-        return `글 ${plan.posts.length}건을 수집 완료로 되돌렸어요 · 터미널에서 pnpm data:analyze --limit 30 을 돌리면 다시 읽어요`;
+        return `글 ${plan.posts.length}건을 수집 완료로 되돌렸어요 · 터미널에서 pnpm data analyze --limit 30 을 돌리면 다시 읽어요`;
       }),
     [loadCounts, withWrite],
   );
@@ -1127,7 +1127,7 @@ export function AdminPage() {
    *
    * 끝나면 눕힌 후보를 빼고 **다시 묶는다**(`groupPending`). 형제 후보가 다른 줄에 섞여 있을 수 있어 줄 단위로 지우면
    * 그 줄의 대표만 남거나 빈 줄이 남는다. 결과 한 줄은 표 위 줄에 남긴다 — 한 줄에서 눌렀어도 그 줄은 사라지므로
-   * 말할 자리가 거기뿐이고, 다음에 할 일(터미널에서 `pnpm data:analyze`)을 거기서 말한다.
+   * 말할 자리가 거기뿐이고, 다음에 할 일(터미널에서 `pnpm data analyze`)을 거기서 말한다.
    */
   const reanalyze = useCallback(
     async (keys: readonly string[], from: 'bulk' | { key: string }) => {
@@ -1165,7 +1165,7 @@ export function AdminPage() {
       setSelected((prev) => clearKeys(prev, [...keys]));
       const kept = plan.keep.length ? ` · 사람이 고친 후보 ${plan.keep.length}건은 남았어요(다시 읽어도 그 가게는 새로 만들지 않아요)` : '';
       setBulk({
-        summary: `글 ${plan.posts.length}건을 수집 완료로 되돌렸어요 · 검수 대기 후보 ${plan.lay.length}건이 목록에서 빠졌어요${kept} — 터미널에서 pnpm data:analyze 를 돌리면 다시 읽어요.`,
+        summary: `글 ${plan.posts.length}건을 수집 완료로 되돌렸어요 · 검수 대기 후보 ${plan.lay.length}건이 목록에서 빠졌어요${kept} — 터미널에서 pnpm data analyze 를 돌리면 다시 읽어요.`,
       });
     },
     [beginWrite, endWrite, groups, patchState, planFor],
@@ -1604,7 +1604,7 @@ export function AdminPage() {
         ) : null}
         {stranded ? (
           <p className="mt-0.5 text-warning-primary">
-            반영이 끊긴 후보 {stranded}건이 있어요 — 터미널에서 pnpm data:apply 를 한 번 돌려 주세요.
+            반영이 끊긴 후보 {stranded}건이 있어요 — 터미널에서 pnpm data apply 를 한 번 돌려 주세요.
           </p>
         ) : null}
       </div>

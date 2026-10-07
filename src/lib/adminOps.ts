@@ -133,7 +133,7 @@ export async function fetchOpsOverview(client: SupabaseClient, days: number): Pr
 export const RUNS_PAGE_SIZE = 30;
 
 export type TRunsQuery = {
-  /** 이 스크립트들만. 비우면 전부 — `승인` 칩은 approve·reject 둘을 함께 준다(둘 다 `data:review` 다) */
+  /** 이 스크립트들만. 비우면 전부 — `승인` 칩은 approve·reject 둘을 함께 준다(둘 다 옛 `data:review` 다 — ADR-024 로 지웠다) */
   scripts?: readonly TRunScript[];
   /**
    * 일이 잘못된 행만 — `failed`·`partial`, 그리고 `heartbeat_at` 이 `stalledBefore` 보다 오래된 `running`(중단된 듯).

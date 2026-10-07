@@ -1,8 +1,8 @@
 /**
  * **추가 수집** — 검수 대기의 후보 하나를 그 상호명으로 블로그에서 한 번 더 찾게 한다(docs/features/admin-review.md 「추가 수집」).
  *
- * 버튼은 `collect_requests` 에 한 줄만 남긴다. 검색은 다음 `pnpm data:collect`(사용자 터미널 — 네이버 키가 거기만 있다)가 하고,
- * 담은 글은 다음 `pnpm data:analyze` 가 미분석 줄 맨 앞에 세워 읽는다. 새 글에서 나온 같은 가게 후보는 원래 줄과 같은 이름 키라
+ * 버튼은 `collect_requests` 에 한 줄만 남긴다. 검색은 다음 `pnpm data collect`(사용자 터미널 — 네이버 키가 거기만 있다)가 하고,
+ * 담은 글은 다음 `pnpm data analyze` 가 미분석 줄 맨 앞에 세워 읽는다. 새 글에서 나온 같은 가게 후보는 원래 줄과 같은 이름 키라
  * 같은 묶음에 근거로 붙는다(`groupCandidates`) — 따로 합치는 코드가 없다.
  *
  * 표가 원격에 없을 수 있다(마이그레이션은 사용자가 `db push`) — 그때는 버튼을 끄고 "미적용" 으로 말한다. 검수는 막지 않는다.
@@ -66,15 +66,15 @@ export function latestRequestByName(rows: readonly TCollectRequest[]): TCollectR
  */
 export function collectRequestLine(request: TCollectRequest | undefined): string | null {
   if (!request) return null;
-  if (request.status === 'queued') return `'${request.query}' 로 찾을 차례예요 — 터미널에서 pnpm data:collect`;
+  if (request.status === 'queued') return `'${request.query}' 로 찾을 차례예요 — 터미널에서 pnpm data collect`;
   const when = request.done_at ? `${new Date(request.done_at).getMonth() + 1}월 ${new Date(request.done_at).getDate()}일 ` : '';
   const found = request.found ?? 0;
   const toRead = request.to_read ?? 0;
   if (found === 0) return `${when}추가 수집 · 찾은 글이 없어요`;
   if (toRead === 0) return `${when}추가 수집 · 글 ${found}건 모두 이미 분석이 끝난 글이었어요 — 더 붙을 근거가 없어요`;
-  if (request.unread === undefined) return `${when}추가 수집 · 글 ${found}건 중 수집 때 미분석 ${toRead}건 — pnpm data:analyze 가 먼저 읽어요`;
+  if (request.unread === undefined) return `${when}추가 수집 · 글 ${found}건 중 수집 때 미분석 ${toRead}건 — pnpm data analyze 가 먼저 읽어요`;
   if (request.unread === 0) return `${when}추가 수집 · 글 ${found}건을 다 읽었어요 — 붙은 근거는 이 카드의 글 목록에 있어요`;
-  return `${when}추가 수집 · 글 ${found}건 중 ${request.unread}건이 아직 분석 전이에요 — pnpm data:analyze 가 먼저 읽어요`;
+  return `${when}추가 수집 · 글 ${found}건 중 ${request.unread}건이 아직 분석 전이에요 — pnpm data analyze 가 먼저 읽어요`;
 }
 
 const REQUEST_COLUMNS = 'id, query, name_key, status, requested_at, done_at, found, to_read, post_urls';

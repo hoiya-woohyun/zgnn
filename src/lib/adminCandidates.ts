@@ -209,7 +209,7 @@ export async function fetchPendingCandidates(client: SupabaseClient): Promise<TC
  *
  * 쓰기 도중(예: `place_sources` upsert)에 실패하면 후보는 `approved` 로 남는다. 실패는 카드에 빨간 줄로 뜨지만 그 줄은 메모리에만 있어,
  * 새로고침 한 번에 목록에서도 사라지고 머리글은 여전히 "확인할 장소 N곳" 이다 — 사람은 승인이 통과한 줄 안다.
- * 되찾는 길은 터미널의 `pnpm data:apply` 하나뿐이므로(ADR-018 "이어받기") 화면이 그 수를 말해 준다.
+ * 되찾는 길은 터미널의 `pnpm data apply` 하나뿐이므로(ADR-018 "이어받기") 화면이 그 수를 말해 준다.
  */
 export async function countStrandedCandidates(client: SupabaseClient): Promise<number> {
   const { count, error } = await client

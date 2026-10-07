@@ -15,7 +15,7 @@ import { REANALYZE_NOTE, type TReanalyzePlan } from './adminReanalyze';
 
 export type TPostCounts = {
   total: number;
-  /** 아직 `data:analyze` 가 읽지 않은 글. `excluded_at` 이 있으면 분석 제외한 글은 뺀다. */
+  /** 아직 `pnpm data analyze` 가 읽지 않은 글. `excluded_at` 이 있으면 분석 제외한 글은 뺀다. */
   unanalyzed: number;
   /** 분석 제외한 글. 칸이 없으면(마이그레이션 미적용) null. */
   excluded: number | null;
@@ -139,7 +139,7 @@ export async function fetchSiblings(client: SupabaseClient, posts: string[]): Pr
 export function reopenSummary(plan: TReopenPlan): string {
   const skipped = plan.skipped ? ` 사람이 제외한 후보가 딸린 글 ${plan.skipped}건은 빼요(다시 읽으면 그 가게가 또 올라와요).` : '';
   const kept = plan.keep.length ? ` 사람이 고친 후보 ${plan.keep.length}건은 그대로예요.` : '';
-  return `옛 규칙으로 기존 가게를 건너뛴 글 ${plan.posts.length}건을 수집 완료로 되돌려요. 그 글의 검수 대기 후보 ${plan.lay.length}건은 '재분석' 표시로 내려가요.${kept}${skipped} 다음 pnpm data:analyze 가 사이트와 대 보며 다시 읽어요.`;
+  return `옛 규칙으로 기존 가게를 건너뛴 글 ${plan.posts.length}건을 수집 완료로 되돌려요. 그 글의 검수 대기 후보 ${plan.lay.length}건은 '재분석' 표시로 내려가요.${kept}${skipped} 다음 pnpm data analyze 가 사이트와 대 보며 다시 읽어요.`;
 }
 
 const headCount = (client: SupabaseClient) => client.from('blog_posts').select('url', { count: 'exact', head: true });
@@ -194,7 +194,7 @@ export type TNextPost = { url: string; title: string | null; keyword: string | n
 
 export type TPostBacklog = { tally: TBacklogTally; next: TNextPost[] };
 
-/** "다음에 읽을 글" 의 수 — 터미널 안내(`pnpm data:analyze --limit 30`)와 같은 수. */
+/** "다음에 읽을 글" 의 수 — 터미널 안내(`pnpm data analyze --limit 30`)와 같은 수. */
 export const NEXT_POSTS = 30;
 
 /**

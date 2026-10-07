@@ -43,14 +43,14 @@ describe('collectRequestLine', () => {
     expect(collectRequestLine(undefined)).toBeNull();
   });
   it('대기 중이면 검색어와 다음 명령', () => {
-    expect(collectRequestLine(request({ status: 'queued', done_at: null }))).toBe("'제주 카페살레' 로 찾을 차례예요 — 터미널에서 pnpm data:collect");
+    expect(collectRequestLine(request({ status: 'queued', done_at: null }))).toBe("'제주 카페살레' 로 찾을 차례예요 — 터미널에서 pnpm data collect");
   });
   it('끝났으면 **지금** 미분석 수(unread) — 분석이 다 읽은 뒤에는 "먼저 읽어요" 가 남지 않는다', () => {
-    expect(collectRequestLine(request({ unread: 3 }))).toMatch(/글 12건 중 3건이 아직 분석 전이에요 — pnpm data:analyze 가 먼저 읽어요$/);
+    expect(collectRequestLine(request({ unread: 3 }))).toMatch(/글 12건 중 3건이 아직 분석 전이에요 — pnpm data analyze 가 먼저 읽어요$/);
     expect(collectRequestLine(request({ unread: 0 }))).toMatch(/글 12건을 다 읽었어요/);
   });
   it('못 셌으면(unread 없음) 수집 시점의 말로', () => {
-    expect(collectRequestLine(request({}))).toMatch(/글 12건 중 수집 때 미분석 5건 — pnpm data:analyze 가 먼저 읽어요$/);
+    expect(collectRequestLine(request({}))).toMatch(/글 12건 중 수집 때 미분석 5건 — pnpm data analyze 가 먼저 읽어요$/);
   });
   it('수집 때부터 읽을 글이 없었거나 찾은 글이 없으면 그렇게 말한다', () => {
     expect(collectRequestLine(request({ to_read: 0, unread: 0 }))).toMatch(/모두 이미 분석이 끝난 글이었어요 — 더 붙을 근거가 없어요$/);

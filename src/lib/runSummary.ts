@@ -1,5 +1,5 @@
 /*
- * 파이프라인 스크립트의 **콘솔 요약 줄** — 터미널(`pnpm data:collect`·`data:analyze`·`data:apply`·`data:review approve|reject`)과
+ * 파이프라인 스크립트의 **콘솔 요약 줄** — 터미널(`pnpm data collect`·`analyze`·`apply`, 옛 `data:review approve|reject`)과
  * 운영 현황 화면(`/admin/ops` 의 실행 기록 요약 열)이 같은 문장을 쓰는 한 자리다(docs/todo/15 T2.1, ADR-023).
  *
  * 새로 만든 문장이 아니다 — 원래 `scripts/collect/naverBlog.mjs`·`scripts/analyze/analyzeCandidates.mjs` 의 `formatSummary` 와
@@ -170,5 +170,5 @@ export type TReviewStats = { requested: number; done: number; failed: number };
 /** 승인·반려의 마지막 한 줄. */
 export function formatReviewSummary(script: 'approve' | 'reject', stats: TReviewStats): string {
   const status = script === 'approve' ? 'approved' : 'rejected';
-  return `${status} ${stats.requested}건${status === 'approved' ? ' — 반영은 pnpm data:apply' : ''}`;
+  return `${status} ${stats.requested}건${status === 'approved' ? ' — 반영은 pnpm data apply' : ''}`;
 }

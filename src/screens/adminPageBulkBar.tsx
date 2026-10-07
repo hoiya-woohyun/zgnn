@@ -132,7 +132,7 @@ export function AdminPageBulkBar({
           <p className="text-xs text-secondary">{confirmText}</p>
           {mode === 'reanalyze' && (
             <p className="text-xs text-tertiary">
-              목록에서 빠진 후보는 반려 목록에 남아요. 그다음 터미널에서 <code>pnpm data:analyze</code> 를 돌려 주세요.
+              목록에서 빠진 후보는 반려 목록에 남아요. 그다음 터미널에서 <code>pnpm data analyze</code> 를 돌려 주세요.
             </p>
           )}
           <div className="flex gap-2">

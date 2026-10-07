@@ -104,7 +104,7 @@ export function parseNaverCoord(value) {
 }
 
 /**
- * pickNaverPlace 의 탈락 사유 계수기. **`data:analyze` 의 첫 실행이 좌표 포맷의 실측**이라
+ * pickNaverPlace 의 탈락 사유 계수기. **`pnpm data analyze` 의 첫 실행이 좌표 포맷의 실측**이라
  * "왜 좌표가 안 붙었는가" 를 구별할 신호가 필요하다 — 이게 없으면 "포맷이 틀렸다" 와
  * "이름이 안 맞았다" 가 똑같이 `null` 로만 보이고, 운영자가 볼 단서는 "후보 N건" 뿐이다.
  * `sample` 은 처음 걸린 응답의 원시 `mapx`/`mapy` — 자릿수를 눈으로 보려고 남긴다(값은 좌표라 비밀이 아니다).

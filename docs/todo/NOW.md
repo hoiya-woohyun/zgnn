@@ -33,20 +33,20 @@
 
 - 🙋 지도 마커 겹침(156쌍)을 어떻게 풀지 — [14 W261006.11](14-weekly-ux-eval.md) 의 뒤 절반 · 권고: 중심 36px 안에 겹친 무리를 "N곳" 원 하나로 묶고 누르면 그 범위로 확대(네이버 MarkerClustering 확장 파일을 들이지 않고 직접 — 81곳이라 계산이 싸다). 묶은 뒤에 히트 영역 44px(지금 넓히면 아래 핀을 누른 손이 위 핀을 연다, ADR-008 v22)
 
-- 🧑 휘닉스 아일랜드·소노벨·소노캄 재추출(저장된 요금 줄이 '추가' 를 잃었다 — 코드는 고쳤다) — [13 §5.1](13-ai-analysis-audit-2026-10-04.md) · 명령: `/admin` 검수 대기에서 세 후보의 `재분석`(수집 완료로 되돌린다) → `pnpm data:analyze --limit 3`. 프롬프트가 바뀌어 `pnpm data:eval extract` 캐시(23/86)도 다시 쌓아야 한다
-- 🙋 CLI 반영(`data:apply`)도 신규를 `published` 로 넣을지 — [13 §5.1](13-ai-analysis-audit-2026-10-04.md) · 권고: 맞춘다(승인은 한 길이어야 한다). 판포현스테이·협재현스테이 draft 2곳은 `/admin` 에서 올리면 된다
+- 🧑 휘닉스 아일랜드·소노벨·소노캄 재추출(저장된 요금 줄이 '추가' 를 잃었다 — 코드는 고쳤다) — [13 §5.1](13-ai-analysis-audit-2026-10-04.md) · 명령: `/admin` 검수 대기에서 세 후보의 `재분석`(수집 완료로 되돌린다) → `pnpm data analyze --limit 3`. 프롬프트가 바뀌어 `pnpm data eval extract` 캐시(23/86)도 다시 쌓아야 한다
+- 🙋 CLI 반영(`pnpm data apply`)도 신규를 `published` 로 넣을지 — [13 §5.1](13-ai-analysis-audit-2026-10-04.md) · 권고: 맞춘다(승인은 한 길이어야 한다). 판포현스테이·협재현스테이 draft 2곳은 `/admin` 에서 올리면 된다
 - 🙋 디스플레이 서체를 더할지·타입 단계 비율(12·14·16·18)을 넓힐지 — [디자인 리뷰 §10](../reviews/2026-10-06-frontend-design-review.md) · 권고: 지금은 안 바꾼다. D261006.1(판정 크기)을 먼저 하고 그 화면을 보고 정한다 — 서체는 1.26MB 프리캐시·완성형 서브셋(ADR-006)이 걸려 있다
 - 🙋 준비물 이모지를 라인 아이콘으로 바꿀지 — [디자인 리뷰 §10](../reviews/2026-10-06-frontend-design-review.md) · 권고: 유지. 작성자 원 자료라 목소리가 줄어든다
-- 🧑 심바카레·떠돌이식객 이용 조건 원문에 야외 문장 더하기 — [14 W261006.4](14-weekly-ux-eval.md) · 명령: `/admin` → 올린 장소 → 이용 조건 원문을 "실내는 케이지 동반시 가능. 야외 자리는 자유롭게 이용 가능."(심바카레) · "실내는 케이지 동반시 가능. 강아지와 함께 앉으려면 야외석만."(떠돌이식객) → 다음 빌드 뒤 `pnpm data:pull`. 지금은 소개글에만 있어 대형견이 '어려움'
+- 🧑 심바카레·떠돌이식객 이용 조건 원문에 야외 문장 더하기 — [14 W261006.4](14-weekly-ux-eval.md) · 명령: `/admin` → 올린 장소 → 이용 조건 원문을 "실내는 케이지 동반시 가능. 야외 자리는 자유롭게 이용 가능."(심바카레) · "실내는 케이지 동반시 가능. 강아지와 함께 앉으려면 야외석만."(떠돌이식객) → 다음 빌드 뒤 `pnpm data pull`. 지금은 소개글에만 있어 대형견이 '어려움'
 - 🧑 검수 대기 130곳을 `/admin` 에서 훑고 등록·제외 — [13 §5](13-ai-analysis-audit-2026-10-04.md) · 명령: `/admin` 검수 대기 탭(블로그 장소는 아직 하나도 사이트에 없다 — 첫 등록이 곧 첫 블로그 장소)
 - 🧑 Deploy Hook 회전(URL 이 대화 기록에 남았다) — [05 「Deploy Hook 회전」](05-security.md) · 명령: `vercel deploy-hooks create auto-deploy-2 --ref main` → Studio `vault.update_secret(…'vercel_deploy_hook'…)` → `vercel deploy-hooks remove gD3ioVFKtV` → `/admin` 머리글 `201` 확인 (create·list 는 URL 을 찍으니 **본인 터미널에서만**)
 - 🧑 Supabase 계정 2FA 켜기 — [05](05-security.md) · 명령: supabase.com 계정 설정의 MFA(Studio 로그인 = 관리자 인증이다)
-- 🙋 무료 티어 7일 일시정지 대책 — [05](05-security.md) · 권고: 주 1회 `pnpm data:collect` 를 습관으로(이제 `pipeline_runs` 에 남아 `/admin/ops` 가 "언제 돌렸나" 를 보여 준다). 그 주에 못 돌리면 Claude 가 `pnpm data:pull`(anon)로 깨운다
-- 🧑 시드 나머지 63곳 추출 평가 — [features/extraction-eval](../features/extraction-eval.md) · 명령: `pnpm data:eval extract --limit 20` 을 한도 안에서 반복(23/86 캐시됨) → `pnpm data:eval score` — score 에서 **요금 계산 가능 비율**이 떨어졌는지도 본다: 새 프롬프트가 "기본 마릿수가 없으면 amountWon null" 이라 흔한 "1마리 추가 시 2만원"(마리당)도 계산을 멈출 수 있다(31922d6)
+- 🙋 무료 티어 7일 일시정지 대책 — [05](05-security.md) · 권고: 주 1회 `pnpm data collect` 를 습관으로(이제 `pipeline_runs` 에 남아 `/admin/ops` 가 "언제 돌렸나" 를 보여 준다). 그 주에 못 돌리면 Claude 가 `pnpm data pull`(anon)로 깨운다
+- 🧑 시드 나머지 63곳 추출 평가 — [features/extraction-eval](../features/extraction-eval.md) · 명령: `pnpm data eval extract --limit 20` 을 한도 안에서 반복(23/86 캐시됨) → `pnpm data eval score` — score 에서 **요금 계산 가능 비율**이 떨어졌는지도 본다: 새 프롬프트가 "기본 마릿수가 없으면 amountWon null" 이라 흔한 "1마리 추가 시 2만원"(마리당)도 계산을 멈출 수 있다(31922d6)
 - 🧑 읍면이 주소와 어긋난 세 곳(+ 안덕면 방향) 바로잡기 — [12 UH.1](12-ux-audit-2026-10-02.md) · 명령: `/admin` 등록 완료 → 위미애머물다락쿤(좌표·`naverPlaceId` 부터) · 살롱드라방 · 제주포슬 주소·지역 고치기
-- 🙋 미분석 글 저수지를 어디서 멈출지·수집을 줄일지 — [03 「2026-10-02 실측」](03-analyze-and-review.md) · 권고: 키워드는 그대로 두고 `--limit 30` 을 수율이 꺾일 때까지만(전량 읽기 계획 없음). 이게 정해져야 다음 대량 `data:analyze` 를 돌린다
+- 🙋 미분석 글 저수지를 어디서 멈출지·수집을 줄일지 — [03 「2026-10-02 실측」](03-analyze-and-review.md) · 권고: 키워드는 그대로 두고 `--limit 30` 을 수율이 꺾일 때까지만(전량 읽기 계획 없음). 이게 정해져야 다음 대량 `pnpm data analyze` 를 돌린다
 - 🙋 업체명 재검색(ADR-019 결정 7·8)을 열지 — [03](03-analyze-and-review.md) · 권고: 먼저 🧑 PostView 지도 카드·태그 모양 한 번 확인(03 「검증 계획」 A 명령), 뺀 것 허용선은 "10건 중 1건 이하" 제안대로
-- 🧑 운영 현황 실측 — [15 「검증」](15-ops-dashboard.md) · 명령: `pnpm data:collect` 한 번 → `/admin/ops` 수집 칸 "방금 · 신규 N", 실행 기록 첫 행 요약이 터미널 줄과 같은지. `pnpm data:analyze --limit 3` 도중 `kill -9` → 10분 뒤 "중단된 듯" + 안내 한 줄. 화면은 가짜 응답으로만 그려 봤다(진짜 세션·진짜 행은 아직)
+- 🧑 운영 현황 실측 — [15 「검증」](15-ops-dashboard.md) · 명령: `pnpm data collect` 한 번 → `/admin/ops` 수집 칸 "방금 · 신규 N", 실행 기록 첫 행 요약이 터미널 줄과 같은지. `pnpm data analyze --limit 3` 도중 `kill -9` → 10분 뒤 "중단된 듯" + 안내 한 줄. 화면은 가짜 응답으로만 그려 봤다(진짜 세션·진짜 행은 아직)
 - 🙋 Slack 실패 알림을 켤지(15 T1.3·T5·T6) — [15](15-ops-dashboard.md) · 권고: 위 실측 뒤 기록이 한 주 쌓이면. 켜면 🧑 Incoming Webhook 을 만들어 Studio 에서 `vault.create_secret(…, 'slack_webhook_url')`(값은 Claude 에게 보이지 않게), 개인 DM · `partial` 은 실패 건수 > 0 일 때만
 - 🙋 경로 짜기(16) 설계 확정 — [16 §7](16-trip-route-planner.md) · 권고: 문서 권장안대로(날짜 1~4일 + 미정, 시작점은 1일차 공항·이후 전날 숙소, 영업시간 데이터 없음, 일정 공유는 밖). 답이 T1.1 저장 모양을 정한다 — 그 전엔 순수 함수 T1.2 만 할 수 있다
 - 🧑 경로 짜기 길찾기 링크 실기기 실측 — [16 H.1·H.2](16-trip-route-planner.md) · 명령: `nmap://route/car`(경유지 5)·`nmap://navigation`·안드로이드 인텐트를 iOS·Android 에서 1회씩. T1.3 머지 전

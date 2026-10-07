@@ -46,7 +46,7 @@ describe('resolveSupabaseCredentials — 출처', () => {
   it('service 키는 CI 든 아니든 거부한다 — v5 는 service 경로 자체가 없어 env 에 "있다" 가 곧 사고다. 세션이 유효해도 먼저 멈춘다', () => {
     for (const ci of [{}, { CI: 'true' }, { CI: '1' }, { CI: 'false' }, { CI: 'true', GITHUB_ACTIONS: 'true' }]) {
       const env = { ...ci, SUPABASE_SERVICE_ROLE_KEY: 'k' };
-      expect(() => resolve({ env, readSession: () => valid })).toThrow(/어디서도 쓰지 않는다.*pnpm data:login/s);
+      expect(() => resolve({ env, readSession: () => valid })).toThrow(/어디서도 쓰지 않는다.*pnpm data login/s);
       expect(() => resolve({ env })).toThrow(/SUPABASE_SERVICE_ROLE_KEY 가 있다/);
     }
     // 옛 "CI 에서만 쓴다" 예외는 사라졌다 — CI=1 한 줄로 트립와이어를 넘어갈 수 없다
@@ -67,7 +67,7 @@ describe('resolveSupabaseCredentials — 출처', () => {
 
   it('GITHUB_ACTIONS=true 여도 세션이 없으면 로그인 안내다 — Actions 전용 문구(gh secret set)는 사라졌다', () => {
     const env = { CI: 'true', GITHUB_ACTIONS: 'true' };
-    expect(() => resolve({ env })).toThrow(/로그인이 필요하다.*pnpm data:login/s);
+    expect(() => resolve({ env })).toThrow(/로그인이 필요하다.*pnpm data login/s);
     expect(() => resolve({ env })).not.toThrow(/gh secret set|GitHub Secrets/);
     expect(resolve({ env, readSession: () => valid }).source).toBe('session'); // 러너라는 이유로 세션을 거부하지도 않는다
   });
@@ -92,9 +92,9 @@ describe('resolveSupabaseCredentials — 출처', () => {
   });
 
   it('쓰기 스크립트: 세션이 없거나·JWT 가 아니거나·만료면 로그인 안내로 멈춘다', () => {
-    expect(() => resolve()).toThrow(/로그인이 필요하다.*pnpm data:login/s);
-    expect(() => resolve({ readSession: () => 'garbage' })).toThrow(/JWT 가 아니다.*pnpm data:login/s);
-    expect(() => resolve({ readSession: () => expired })).toThrow(/만료됐다.*pnpm data:login/s);
+    expect(() => resolve()).toThrow(/로그인이 필요하다.*pnpm data login/s);
+    expect(() => resolve({ readSession: () => 'garbage' })).toThrow(/JWT 가 아니다.*pnpm data login/s);
+    expect(() => resolve({ readSession: () => expired })).toThrow(/만료됐다.*pnpm data login/s);
   });
 
   it('만료 여유(skew) 안쪽은 세션으로 쓰지 않는다 — 긴 분석이 중간에 401 로 죽지 않게(한 실행은 세션 창 안에)', () => {
@@ -109,7 +109,7 @@ describe('resolveSupabaseCredentials — 출처', () => {
     expect(msg).toMatch(/^로그인 세션이 만료됐다\(/);
     expect(msg).toContain(formatTime(NOW - 10));
     expect(msg).not.toMatch(/분 전/);
-    expect(msg).toContain('pnpm data:login');
+    expect(msg).toContain('pnpm data login');
     // 두 문구가 갈리는 경계 — exp 가 정확히 지금이면 "만료됐다", 1초 뒤면 skew 창. `<` 로 바뀌면 "지금 만료되는데 N분 전" 이 된다
     expect(() => resolve({ readSession: () => jwt({ sub: 'u1', exp: NOW }) })).toThrow(/^로그인 세션이 만료됐다\(/);
     expect(() => resolve({ readSession: () => jwt({ sub: 'u1', exp: NOW }) })).not.toThrow(/분 전/);
@@ -124,7 +124,7 @@ describe('resolveSupabaseCredentials — 출처', () => {
     expect(msg).toContain(`만료 ${SESSION_EXP_SKEW_MIN}분 전이라 세션으로 쓰지 않는다`);
     expect(msg).toContain(`만료 ${formatTime(exp)}`);
     expect(msg).not.toMatch(/만료됐다/);
-    expect(msg).toContain('pnpm data:login');
+    expect(msg).toContain('pnpm data login');
   });
 
   it('sessionUsableUntil 은 exp 에서 skew 를 뺀 실효 시각 — login·createSupabase 가 사용자에게 보여 주는 값', () => {

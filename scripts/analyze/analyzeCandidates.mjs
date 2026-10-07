@@ -14,16 +14,16 @@ import { fillColumns, siteChanges } from './siteChanges.mjs';
 /**
  * 🙋 auto 구간(confidence ≥ AUTO_MERGE)을 사람 확인 없이 바로 approved 로 넣을 것인가. 기본 false — 후보는 전부 pending 이고
  * tier 만 'auto' 로 표시돼 Studio 에서 걸러 한꺼번에 승인한다(`extracted->match->>tier = 'auto'`). true 로 바꾸면 같은 잡의
- * data:apply 가 즉시 places 를 고친다(빈 칸만이지만 좌표·주소·category 는 "빈 칸" 이라 그대로 들어간다 — 리뷰 지적). 86곳이라
+ * pnpm data apply 가 즉시 places 를 고친다(빈 칸만이지만 좌표·주소·category 는 "빈 칸" 이라 그대로 들어간다 — 리뷰 지적). 86곳이라
  * 사람 확인 비용이 싸다는 03 의 전제를 따라 보수적으로 시작한다.
  */
 export const AUTO_APPROVE = false;
 
 /**
  * 한 실행에 읽는 미분석 글 수. 글 하나가 Claude 호출 한 번(수 초~수십 초)이고, 실행 전체가 운영자 세션 창 안에 끝나야 한다 —
- * 세션은 `pnpm data:login` 의 JWT 라, 실효 창은 대시보드 JWT expiry 에서 supabaseClient 의 skew(30분)를 뺀 값이다:
+ * 세션은 `pnpm data login` 의 JWT 라, 실효 창은 대시보드 JWT expiry 에서 supabaseClient 의 skew(30분)를 뺀 값이다:
  * **지금 이 프로젝트의 expiry 는 43200 — 실효 창 11.5시간이다**(2026-09-22 에 3600 에서 올렸다). 다음 사람이 "우리는 어느 쪽인가" 를 다시 찾지 않게 적어 둔다.
- * 확인은 `pnpm data:login` 이 찍는 만료 문구(+12시간). 코드가 거부하는 상한은 supabaseClient 의 SESSION_MAX_TTL_S(하루)라 여유가 있다.
+ * 확인은 `pnpm data login` 이 찍는 만료 문구(+12시간). 코드가 거부하는 상한은 supabaseClient 의 SESSION_MAX_TTL_S(하루)라 여유가 있다.
  * 다시 3600 으로 내려가면 실효 창이 **30분**이라 50건이 넉넉히 들어간다고 장담 못 한다 — 그때는 `--limit 30` 씩 나눈다.
  * 중간에 세션이 죽으면 그 글부터 DB 쓰기가 실패해 건너뛰고(analyzed_at 안 찍힘) 다음 실행이 이어 간다. 구독의 5시간 창도 같은 이유로 --limit 을 누른다.
  */
@@ -437,7 +437,7 @@ export function toCandidateRow(post, extracted, local, regionRaw, matched, { met
     post_url: post.url,
     extracted: {
       ...extracted,
-      // Studio·data:review 에서 같은 가게를 묶는 키(normalizeName). 첫 분석에서 같은 펜션이 13건 따로 쌓였다.
+      // /admin 에서 같은 가게를 묶는 키(normalizeName). 첫 분석에서 같은 펜션이 13건 따로 쌓였다.
       nameKey: normalizeName(extracted.name),
       dupOf,
       meta,

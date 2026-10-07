@@ -245,7 +245,7 @@ export function expandOverwriteColumns(only) {
 
 /**
  * 신규 장소 후보 → places 행. status 는 'draft' — published 로 올리는 건 사람이 Studio 에서 한다(03 의 🙋).
- * data:pull 은 published 만 가져오므로, 이 행은 사람이 올리기 전까지 화면에 뜨지 않는다.
+ * pnpm data pull 은 published 만 가져오므로, 이 행은 사람이 올리기 전까지 화면에 뜨지 않는다.
  *
  * type 'other' 는 신규 장소가 될 수 없다(숙소·식당·카페 아님). 분석 단계가 후보를 안 만드는 게 원칙이지만,
  * 사람이 Studio 에서 extracted 를 고치다 생길 수 있어 여기서 한 번 더 막는다 — DB 의 check 제약보다 먼저,

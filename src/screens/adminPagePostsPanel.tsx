@@ -98,10 +98,10 @@ export function AdminPagePostsPanel({ counts, error, backlog, seedTargets, onSee
     <div className="space-y-2 px-4 pt-6 text-sm text-secondary md:px-6">
       {counts.unanalyzed > 0 ? (
         <p>
-          미분석 {counts.unanalyzed.toLocaleString('ko-KR')}건 — 터미널에서 <code>pnpm data:analyze --limit 30</code> 를 돌리면 읽어요.
+          미분석 {counts.unanalyzed.toLocaleString('ko-KR')}건 — 터미널에서 <code>pnpm data analyze --limit 30</code> 를 돌리면 읽어요.
         </p>
       ) : (
-        <p>미분석 글이 없어요 — 새 글은 터미널에서 <code>pnpm data:collect</code> 로 모아요.</p>
+        <p>미분석 글이 없어요 — 새 글은 터미널에서 <code>pnpm data collect</code> 로 모아요.</p>
       )}
       {/*
         * 미분석이 **어디에 쌓여 있고 다음에 무엇을 읽나**(todo/13 T4.4). 숫자 하나로는 어느 검색어를 더 모을지·어디서 멈출지를 정할 수 없었다.
@@ -189,7 +189,7 @@ export function AdminPagePostsPanel({ counts, error, backlog, seedTargets, onSee
           {showReopen && (
             <div className="space-y-1.5">
               <p>
-                ② 옛 규칙으로 기존 가게를 건너뛴 글 {oldPosts.toLocaleString('ko-KR')}건 다시 열기 — 다음 <code>pnpm data:analyze</code> 가 사이트와 대 보며 다시 읽어요.
+                ② 옛 규칙으로 기존 가게를 건너뛴 글 {oldPosts.toLocaleString('ko-KR')}건 다시 열기 — 다음 <code>pnpm data analyze</code> 가 사이트와 대 보며 다시 읽어요.
               </p>
               {reopen.done ? (
                 <p className="text-success-primary">{reopen.done}</p>

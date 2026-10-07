@@ -27,7 +27,7 @@ export function AdminPageSuggestions({ suggestions, busyId, onClose }: TAdminPag
         사용자가 알려 준 곳 {suggestions.length}
       </h2>
       <p className="mt-0.5 text-xs text-tertiary">
-        이름으로 찾아보고, 블로그 글이 있으면 그 이름으로 수집해요(<code>pnpm data:collect</code>). 한 줄은 근거가 아니라 단서예요.
+        이름으로 찾아보고, 블로그 글이 있으면 그 이름으로 수집해요(<code>pnpm data collect</code>). 한 줄은 근거가 아니라 단서예요.
       </p>
       <ul className="mt-2 divide-y divide-secondary rounded-xl border border-secondary bg-primary">
         {suggestions.map((row) => {

@@ -45,7 +45,7 @@ export type TStageHealth = {
   second: string;
   /** 주의·실패일 때만 — 왜 노랗고 빨간가. 그대로 경고 띠의 문장이 된다 */
   reason: string | null;
-  /** 운영자가 터미널에서 할 일 한 줄(반영 칸의 `pnpm data:apply` 등). 화면은 기록을 고치지 않고 명령만 적어 준다 */
+  /** 운영자가 터미널에서 할 일 한 줄(반영 칸의 `pnpm data apply` 등). 화면은 기록을 고치지 않고 명령만 적어 준다 */
   hint?: string;
 };
 
@@ -129,7 +129,7 @@ function collectStage(overview: TOpsOverview, nowMs: number): TStageHealth {
       state: 'warn',
       first,
       reason: days === null ? '수집이 한 번도 끝까지 돈 적이 없어요' : `수집이 ${days}일째 없어요`,
-      hint: 'pnpm data:collect',
+      hint: 'pnpm data collect',
     };
   }
   return { ...base, state: 'ok', first, reason: null };
@@ -146,7 +146,7 @@ function analyzeStage(overview: TOpsOverview, nowMs: number): TStageHealth {
   const first = lastOk ? agoLabel(finishedAt(lastOk), nowMs) : '성공 없음';
   const days = count > 0 ? daysSince(oldestFetchedAt, nowMs) : null;
   if (days !== null && days >= BACKLOG_STALE_DAYS) {
-    return { ...base, state: 'warn', first, reason: `분석 backlog ${count}건(${days}일째)`, hint: 'pnpm data:analyze' };
+    return { ...base, state: 'warn', first, reason: `분석 backlog ${count}건(${days}일째)`, hint: 'pnpm data analyze' };
   }
   return { ...base, state: 'ok', first, reason: null };
 }
@@ -176,7 +176,7 @@ function applyStage(overview: TOpsOverview, nowMs: number): TStageHealth {
   const base = { key: 'apply' as const, label: '반영', second: `끊긴 ${stranded}` };
   if (latest) {
     const early = runningOrFailed(base, latest, nowMs);
-    if (early) return { ...early, hint: early.state === 'fail' ? 'pnpm data:apply' : undefined };
+    if (early) return { ...early, hint: early.state === 'fail' ? 'pnpm data apply' : undefined };
     const failed = numberIn(latest.stats, 'failed');
     if (failed !== null && failed > 0) {
       return {
@@ -184,13 +184,13 @@ function applyStage(overview: TOpsOverview, nowMs: number): TStageHealth {
         state: 'fail',
         first: agoLabel(finishedAt(latest), nowMs),
         reason: `마지막 반영에서 ${failed}건이 실패했어요`,
-        hint: 'pnpm data:apply',
+        hint: 'pnpm data apply',
       };
     }
   }
   const first = lastOk ? agoLabel(finishedAt(lastOk), nowMs) : '터미널 반영 없음';
   if (stranded > 0) {
-    return { ...base, state: 'warn', first, reason: `반영 안 된 승인 ${stranded}건`, hint: 'pnpm data:apply' };
+    return { ...base, state: 'warn', first, reason: `반영 안 된 승인 ${stranded}건`, hint: 'pnpm data apply' };
   }
   return { ...base, state: 'ok', first, reason: null };
 }

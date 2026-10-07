@@ -269,7 +269,7 @@ describe('실제 데이터', () => {
   });
 });
 
-describe('parsePetPolicy — 블로그에서 온 문장(2026-09-28 첫 data:analyze 실측)', () => {
+describe('parsePetPolicy — 블로그에서 온 문장(2026-09-28 첫 pnpm data analyze 실측)', () => {
   it("빈 원문은 '정보 없음' 과 같다 — 신규 장소가 조건 없이 '갈 수 있어요' 가 되지 않게(BUG-008)", () => {
     expect(parsePetPolicy('').noInfo).toBe(true);
     expect(parsePetPolicy('  \n').noInfo).toBe(true);

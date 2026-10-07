@@ -58,7 +58,7 @@ export type TFeeRule = {
 };
 
 /**
- * AI(data:analyze)가 petPolicyText 를 읽고 판단한 구조화 값. 블로그 경로에만 있고 시드 86곳엔 없다(DB null → JSON 에 키 없음).
+ * AI(pnpm data analyze)가 petPolicyText 를 읽고 판단한 구조화 값. 블로그 경로에만 있고 시드 86곳엔 없다(DB null → JSON 에 키 없음).
  * 앱은 이것이 있으면 **판정 필드를 이 값만으로** 정한다(withPolicyFacts, ADR-017 v5). 스키마가 모든 칸을 요구하므로
  * null 은 "모름" 이 아니라 "읽어 봤는데 그런 조건이 없다" 이다 — 정규식 값으로 메우지 않는다.
  */
@@ -129,7 +129,7 @@ export type TPlace = {
   images: string[];
   stay?: TStayInfo;
   /**
-   * 열린 폐업 제보(`closed`·`replaced`)가 있다 — 빌드 때 `data:pull` 이 `place_report_flags()` 로 얹는다(ADR-021 R5).
+   * 열린 폐업 제보(`closed`·`replaced`)가 있다 — 빌드 때 `pnpm data pull` 이 `place_report_flags()` 로 얹는다(ADR-021 R5).
    * 있으면 상세가 "최근 확인" 날짜를 그리지 않는다. 내용·건수는 싣지 않는다.
    */
   openReportKinds?: string[];
