@@ -1,6 +1,7 @@
 # 17. 로컬 워커 — `pnpm data` 하나가 DB 를 보고 수집·분석·반영을 그때 돌리고, 화면이 진행을 실시간으로 본다
 
-> 최종 수정: 2026-10-07 (v5: T4.1 구현 — 워커 Realtime 구독 `workerRealtime.mjs`, 채널 토큰은 `createSupabase` 의 `realtime.accessToken` 콜백(`setAuth` 는 heartbeat 가 되돌린다), 이벤트가 깨운 단계만 재시도 간격 건너뜀, `--no-realtime`)
+> 최종 수정: 2026-10-07 (v6: T5 구현 — `/admin/ops` 워커 칸(배지·단계·심장·진행 막대)·Realtime 구독(`adminOpsRealtime.ts`), `/admin` 머리글 워커 한 줄·경고 띠, `createAdminClient` 에 `accessToken` 콜백)
+> 이전 2026-10-07 (v5: T4.1 구현 — 워커 Realtime 구독 `workerRealtime.mjs`, 채널 토큰은 `createSupabase` 의 `realtime.accessToken` 콜백(`setAuth` 는 heartbeat 가 되돌린다), 이벤트가 깨운 단계만 재시도 간격 건너뜀, `--no-realtime`)
 > 이전 2026-10-07 (v4: T3 구현 — 상주 워커 `scripts/worker.mjs`(`pnpm data` · `once` · `once --dry-run`), 순수 판단 `workerLoop.mjs`, 세기 `workerQueue.mjs`, 심장 `workerHeartbeat.mjs`, `progress`·`--requested-only`·`requested_at` 찍기·재로그인·한도 휴식)
 > 이전 2026-10-07 (v3: T2 원격 적용·롤백 실측 — publication 은 여섯 표)
 > 이전 2026-10-07 (v2: T1 구현 — 죽은 스크립트 넷 삭제·진입점 `scripts/data.mjs`, `package.json` 의 `data:*` 13줄 → `data` 1줄)
@@ -86,9 +87,14 @@ T1 은 DB 와 무관하니 먼저. T2 는 🧑 `db push` 가 필요하다(쓰기
 
 ### T5. 화면 — 워커 배지·진행률·구독
 
-- [ ] **T5.1 `adminOpsHealth.ts`** — `worker` 판정: `last_seen_at` 5분 초과 = 없음(안내 "`pnpm data` 를 켜 주세요"), `login-needed`·`rate-limited` 는 그대로 문구. 단위 테스트.
-- [ ] **T5.2 `/admin/ops` 구독** — `workers` · `pipeline_runs` 의 `postgres_changes` 를 받아 상태만 갱신(전체 다시 안 부름). 60초 폴링은 남긴다. 워커 칸: 배지(살아 있음/없음/로그인 필요/한도) + 지금 단계 + 진행 막대(`progress.done/total`, `current` 한 줄).
-- [ ] **T5.3 `/admin` 머리글** — 워커 한 줄(`운영 현황 →` 옆). 없음이면 경고 띠에 한 줄.
+- [x] **T5.1 `adminOpsHealth.ts`** — `worker` 판정: `last_seen_at` 5분 초과 = 없음(안내 "`pnpm data` 를 켜 주세요"), `login-needed`·`rate-limited` 는 그대로 문구. 단위 테스트.
+  ✅ 2026-10-07 — `workerHealth(workers, now)` → `{state: none|alive|stale|login-needed|rate-limited, tone, label, host, phase, runId, ageSec, others, hint}` · `WORKER_STALE_MS`(5분) · `WORKER_PHASE_LABEL`. 행이 여럿이면 가장 최근에 뛴 하나, 나머지는 `others`. 계획과 다른 것: 행 없음(`none`)과 심장 멎음(`stale`)을 갈랐다(없음은 켜 달라, 멎음은 터미널을 봐 달라 — 할 일이 다르다). **로그인 기다림·한도 휴식이 멎음보다 먼저** — 로그인을 기다리는 워커는 세션이 끝나 심장 쓰기(`workerHeartbeat.mjs`)도 실패하므로 5분 규칙을 먼저 보면 그 배지가 안 뜬다. 그때 심장이 멎었으면 문구에 "꺼졌을 수도" 를 붙인다(테스트가 순서를 붙잡는다).
+- [x] **T5.2 `/admin/ops` 구독** — `workers` · `pipeline_runs` 의 `postgres_changes` 를 받아 상태만 갱신(전체 다시 안 부름). 60초 폴링은 남긴다. 워커 칸: 배지(살아 있음/없음/로그인 필요/한도) + 지금 단계 + 진행 막대(`progress.done/total`, `current` 한 줄).
+  ✅ 2026-10-07 — `RUN_COLUMNS` 에 `progress`. `src/lib/adminOpsRealtime.ts`: 순수 합치기(`runFromRow` · `workerFromRow` · `upsertWorker` · `runMatchesFilter` · `upsertRun` · `applyRunToOverview`, 테스트 13) + `subscribeOps`(채널 `ops`, `postgres_changes_options.wait`). 화면 `adminOpsPageWorker.tsx`(다섯 칸 위). 실행 행은 목록(걸러 보기에 맞을 때만, 안 맞게 된 행은 뺀다) · `runsLatest`/`runsLastOk`(다섯 칸이 진행 막대와 같은 말을 하게) · 링크로 연 행을 함께 고친다. 끊겼다 다시 `SUBSCRIBED` 면 한 번 조용히 다시 읽는다, 아니면 머리글에 `실시간 꺼짐 — 60초마다`.
+  계획과 다른 것: **`realtime.setAuth(token)` 만으로는 안 된다**(T4 와 같은 함정) — supabase-js 는 Realtime 에 늘 토큰 콜백을 넘기고 세션 없는 클라이언트의 콜백은 publishable 키를 줘, 하트비트·재연결마다 수동 토큰을 덮는다(RLS 표의 변경이 에러 없이 0건). `createAdminClient` 에 `accessToken: async () => token` 을 줬다(`client.auth` 는 던지는 Proxy 가 되지만 이 클라이언트는 auth 를 안 쓴다 — 로그인은 따로 만든 클라이언트). 진행 행은 실행 기록 목록이 아니라 `runsLatest` 에서 `run_id` 로 찾는다(목록은 걸러져 있다).
+  ⚠️ 화면 실측 못 함 — Chrome 에 운영자 세션이 없어 로그인 폼에서 멈췄다(비밀번호는 넣지 않는다). 🧑 실측 때 같이 본다.
+- [x] **T5.3 `/admin` 머리글** — 워커 한 줄(`운영 현황 →` 옆). 없음이면 경고 띠에 한 줄.
+  ✅ 2026-10-07 — 이미 부르던 `ops_overview`(`loadOpsStages`)의 `workers` 를 같은 `workerHealth` 로 판정, 따로 select 하지 않는다. 열 때 한 번, 구독 없음. `none`·`stale` 이면 경고 띠 맨 아래에 "로컬 워커가 없어요(멎은 듯해요) — 추가 수집·승인이 반영되지 않아요". 집계를 못 읽었거나 `workers` 키가 없으면 둘 다 말하지 않는다.
 
 ### T6. 「지금 분석」 버튼
 

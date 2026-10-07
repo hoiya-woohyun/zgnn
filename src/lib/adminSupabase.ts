@@ -19,10 +19,18 @@ import { jwtExpiresAt, type TAdminSession } from './adminSession';
 
 const AUTH_OPTIONS = { persistSession: false, autoRefreshToken: false } as const;
 
-/** 운영자 세션으로 읽고 쓰는 클라이언트. 토큰이 바뀌면 새로 만든다(헤더가 생성 시점에 박히므로). */
+/**
+ * 운영자 세션으로 읽고 쓰는 클라이언트. 토큰이 바뀌면 새로 만든다(헤더가 생성 시점에 박히므로).
+ *
+ * `accessToken` 콜백은 **Realtime 때문이다**(`/admin/ops` 의 구독, todo/17 T5.2). 헤더는 웹소켓에 안 실리고, supabase-js 는 Realtime 에
+ * 언제나 토큰 콜백을 넘기는데 세션이 없는 클라이언트의 기본 콜백은 publishable 키를 준다 — 손으로 `realtime.setAuth(token)` 을 불러도
+ * 하트비트·재연결마다 그 콜백 값으로 덮여 운영자 표(RLS)의 변경이 조용히 안 온다. 콜백을 주면 `client.auth` 는 접근만 해도 던지는데,
+ * 이 클라이언트는 auth 를 쓰지 않는다(로그인은 `signInAdmin` 의 따로 만든 클라이언트다).
+ */
 export function createAdminClient(accessToken: string): SupabaseClient {
   return createClient(PROJECT_URL, PUBLISHABLE_KEY, {
     auth: AUTH_OPTIONS,
+    accessToken: async () => accessToken,
     global: { headers: { Authorization: `Bearer ${accessToken}` } },
   });
 }

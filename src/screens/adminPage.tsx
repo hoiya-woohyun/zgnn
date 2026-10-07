@@ -74,7 +74,7 @@ import { adminFlagView, POLICY_STATE_WORD, TYPE_MISMATCH_FLAG, typeMismatchFlags
 import { UNREAD_BADGE_LABEL } from '../lib/petPolicy';
 import { verifyListedOnly, verifyNeedsLook } from '../lib/adminVerify';
 import { fetchOpsOverview } from '../lib/adminOps';
-import { adminBandStage, stageHealth, type TStageHealth } from '../lib/adminOpsHealth';
+import { adminBandStage, stageHealth, type TStageHealth, type TWorkerHealth, WORKER_PHASE_LABEL, workerHealth } from '../lib/adminOpsHealth';
 import { fetchRebuildStatus, rebuildHeadline, type TRebuildHeadline } from '../lib/adminRebuild';
 import {
   allSelected as allKeysSelected,
@@ -381,6 +381,11 @@ export function AdminPage() {
    * 못 읽었으면 null 이고 **아무 말도 하지 않는다** — 이 줄은 덤이라, 못 읽은 것을 말하면 검수 화면이 남의 고장으로 시끄러워진다.
    */
   const [opsStages, setOpsStages] = useState<TStageHealth[] | null>(null);
+  /**
+   * 로컬 워커(todo/17 T5.3) — 같은 `ops_overview` 응답에서 판정한다. 열 때 한 번이고 구독하지 않는다(구독은 `/admin/ops`).
+   * 못 읽었거나 응답에 `workers` 키가 없으면(마이그레이션 전) null — 모르는 것을 "워커 없음" 으로 말하지 않는다.
+   */
+  const [opsWorker, setOpsWorker] = useState<TWorkerHealth | null>(null);
 
   const clientRef = useRef<SupabaseClient | null>(null);
   /*
@@ -473,9 +478,12 @@ export function AdminPage() {
    */
   const loadOpsStages = useCallback(async (client: SupabaseClient) => {
     try {
-      setOpsStages(stageHealth(await fetchOpsOverview(client, 7), Date.now()));
+      const overview = await fetchOpsOverview(client, 7);
+      setOpsStages(stageHealth(overview, Date.now()));
+      setOpsWorker(overview.workers ? workerHealth(overview.workers, Date.now()) : null);
     } catch {
       setOpsStages(null);
+      setOpsWorker(null);
     }
   }, []);
 
@@ -495,6 +503,7 @@ export function AdminPage() {
     setStranded(undefined);
     setRebuild(undefined);
     setOpsStages(null);
+    setOpsWorker(null);
     setPhase('verifying');
     const client = createAdminClient(next.accessToken);
     clientRef.current = client;
@@ -1535,6 +1544,13 @@ export function AdminPage() {
   const reportLine = reports?.kind === 'ok' ? reportHeadline(reports.rows, new Date()) : undefined;
 
   const opsBand = opsStages ? adminBandStage(opsStages, { rebuildWarn: rebuild?.tone === 'warn', strandedShown: Boolean(stranded) }) : null;
+  /** 워커가 없거나 멎었으면 띠에 한 줄 — 추가 수집 요청·승인 뒤 반영은 워커가 집어 간다(ADR-024). */
+  const workerBand =
+    opsWorker?.state === 'none'
+      ? '로컬 워커가 없어요 — 추가 수집·승인이 반영되지 않아요. 터미널에서 pnpm data 를 켜 주세요'
+      : opsWorker?.state === 'stale'
+        ? '로컬 워커가 멎은 듯해요 — 추가 수집·승인이 반영되지 않아요. 터미널을 확인해 주세요'
+        : null;
 
   const expiry = new Date(session.expiresAt * 1000).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' });
 
@@ -1550,6 +1566,19 @@ export function AdminPage() {
         actions={
           <div className="flex items-center gap-2">
             {/* 운영 현황(`/admin/ops`, todo/15 T4.1) — 운영자는 `/admin` 은 매번 열지만 거기는 그렇지 않다. 같은 세션이라 다시 로그인하지 않는다. */}
+            {/* 로컬 워커 한 줄(todo/17 T5.3) — 배지 점 + 단계. 자세한 것(진행률·심장)은 운영 현황에 있다. */}
+            {opsWorker ? (
+              <span className="flex items-center gap-1 text-xs whitespace-nowrap text-tertiary" title={opsWorker.hint ?? opsWorker.host}>
+                <span
+                  aria-hidden="true"
+                  className={cx(
+                    'size-2 shrink-0 rounded-full',
+                    opsWorker.tone === 'ok' ? 'bg-success-solid' : opsWorker.tone === 'fail' ? 'bg-error-solid' : 'bg-warning-solid',
+                  )}
+                />
+                {opsWorker.state === 'alive' && opsWorker.phase ? `워커 ${WORKER_PHASE_LABEL[opsWorker.phase]}` : opsWorker.label}
+              </span>
+            ) : null}
             <Link href="/admin/ops/" className="mr-1 text-sm font-semibold whitespace-nowrap text-brand-secondary hover:text-brand-secondary_hover">
               운영 현황 →
             </Link>
@@ -1637,6 +1666,21 @@ export function AdminPage() {
           )}
         >
           {opsBand.reason} ·{' '}
+          <Link href="/admin/ops/" className="underline underline-offset-2">
+            운영 현황 →
+          </Link>
+        </p>
+      ) : null}
+      {/* 로컬 워커가 없음·멎음(todo/17 T5.3). 띠가 셋까지 쌓일 수 있어 앞에 띠가 하나라도 있으면 1px 로 붙인다. */}
+      {workerBand ? (
+        <p
+          role="alert"
+          className={cx(
+            'bg-warning-primary px-4 py-2 text-xs font-semibold text-warning-primary md:px-6',
+            rebuild?.tone === 'warn' || opsBand ? 'mt-px' : 'mt-3',
+          )}
+        >
+          {workerBand} ·{' '}
           <Link href="/admin/ops/" className="underline underline-offset-2">
             운영 현황 →
           </Link>

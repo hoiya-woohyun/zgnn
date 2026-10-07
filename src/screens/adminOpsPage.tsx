@@ -6,7 +6,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '../components/base/button';
 import { PageHeader } from '../components/layout/pageHeader';
 import { fetchOpsOverview, fetchRun, fetchRuns, mergeRuns, RUNS_PAGE_SIZE, type TOpsOverview, type TPipelineRun, type TRunsQuery } from '../lib/adminOps';
-import { STAGE_SCRIPTS, stageHealth, stalledBefore, type TStageKey, worstStage } from '../lib/adminOpsHealth';
+import { STAGE_SCRIPTS, stageHealth, stalledBefore, type TStageKey, workerHealth, worstStage } from '../lib/adminOpsHealth';
+import { applyRunToOverview, runMatchesFilter, subscribeOps, type TOpsRealtimeStatus, upsertRun, upsertWorker } from '../lib/adminOpsRealtime';
 import { rebuildHeadline } from '../lib/adminRebuild';
 import { ADMIN_SESSION_KEY, clearAdminSession, readAdminSession, sessionProblem, type TAdminSession } from '../lib/adminSession';
 import { createAdminClient, isOperator } from '../lib/adminSupabase';
@@ -16,6 +17,7 @@ import { AdminOpsPageFunnel, type TAdminOpsFunnelDays } from './adminOpsPageFunn
 import { AdminOpsPageRunsTable, sameScripts } from './adminOpsPageRunsTable';
 import { AdminOpsPageStageStrip } from './adminOpsPageStageStrip';
 import { AdminOpsPageUsage } from './adminOpsPageUsage';
+import { AdminOpsPageWorker } from './adminOpsPageWorker';
 import { AdminPageLogin } from './adminPageLogin';
 
 type TPhase = 'checking' | 'signedOut' | 'verifying' | 'loading' | 'ready' | 'notOperator' | 'error';
@@ -77,6 +79,8 @@ export function AdminOpsPage() {
   /** 흐름의 30일 집계 — 흐름 한 묶음만 읽는다. 7일이면 쓰지 않는다(위 `overview` 의 funnel). */
   const [overview30, setOverview30] = useState<TOpsOverview | null>(null);
   const [funnelError, setFunnelError] = useState<string | null>(null);
+  /** Realtime 채널 상태. null 은 아직 모름(붙는 중) — 그때는 아무 말도 하지 않는다. */
+  const [realtime, setRealtime] = useState<TOpsRealtimeStatus | null>(null);
 
   const clientRef = useRef<SupabaseClient | null>(null);
   const sessionRef = useRef<TAdminSession | null>(null);
@@ -262,6 +266,34 @@ export function AdminOpsPage() {
     };
   }, [phase, quietRefresh]);
 
+  /*
+   * Realtime(todo/17 T5.2) — 워커 심장·진행률·실행 행을 받는 대로 **상태만** 고친다(집계 rpc 를 다시 부르지 않는다, `adminOpsRealtime`).
+   * 붙는 클라이언트는 `start` 가 만든 운영자 세션의 것이다 — 다시 로그인하면 phase 가 ready 를 떠났다 돌아오므로 옛 채널은 cleanup 이 뗀다.
+   * 끊겼다 다시 붙으면 그 사이의 이벤트는 오지 않는다 — 한 번 조용히 다시 읽어 메운다. 60초 폴링은 그대로 남는다.
+   */
+  useEffect(() => {
+    const client = clientRef.current;
+    if (phase !== 'ready' || !client) return;
+    let wasDown = false;
+    const stop = subscribeOps(client, {
+      worker: (worker) => setOverview((current) => current && { ...current, workers: upsertWorker(current.workers ?? [], worker) }),
+      run: (run) => {
+        setOverview((current) => current && applyRunToOverview(current, run));
+        setRuns((current) => upsertRun(current, run, runMatchesFilter(run, filterRef.current, Date.now())));
+        setPinnedRun((current) => (current?.id === run.id ? run : current));
+      },
+      status: (status) => {
+        setRealtime(status);
+        if (status === 'SUBSCRIBED' && wasDown) void quietRefresh();
+        wasDown = status !== 'SUBSCRIBED';
+      },
+    });
+    return () => {
+      stop();
+      setRealtime(null);
+    };
+  }, [phase, quietRefresh]);
+
   /** 걸러 보기가 바뀌면 목록을 비우고 첫 장부터. 순번으로 늦게 온 옛 걸러 보기의 응답을 버린다. */
   const changeRunFilter = useCallback(async (next: TAdminOpsRunFilter) => {
     const client = clientRef.current;
@@ -430,6 +462,9 @@ export function AdminOpsPage() {
   const stages = stageHealth(overview, nowMs);
   const worst = worstStage(stages);
   const rebuild = rebuildHeadline(overview.rebuildRecent, nowMs);
+  // 워커 키가 없으면(마이그레이션 전 응답) 칸을 그리지 않는다 — 모르는 것을 "워커 없음" 으로 말하지 않는다.
+  const worker = overview.workers ? workerHealth(overview.workers, nowMs) : null;
+  const workerRun = worker?.runId ? (Object.values(overview.runsLatest).find((row) => row?.id === worker.runId) ?? null) : null;
   const activeStage =
     (Object.keys(STAGE_SCRIPTS) as TStageKey[]).find((key) => STAGE_SCRIPTS[key] && sameScripts(STAGE_SCRIPTS[key], runFilter.scripts ?? null)) ?? null;
 
@@ -445,6 +480,7 @@ export function AdminOpsPage() {
               새로고침
             </Button>
             <AdminOpsPageSince key={loadedAt} at={loadedAt} />
+            {realtime && realtime !== 'SUBSCRIBED' ? <span title={realtime}>실시간 꺼짐 — 60초마다</span> : null}
           </div>
         }
       />
@@ -467,6 +503,8 @@ export function AdminOpsPage() {
           {worst.hint ? <span className="ml-2 font-normal">— 터미널에서 {worst.hint}</span> : null}
         </p>
       ) : null}
+
+      {worker ? <AdminOpsPageWorker health={worker} run={workerRun} requestsQueued={overview.requestsQueued} nowMs={nowMs} /> : null}
 
       <section className="mt-4" aria-label="파이프라인">
         <AdminOpsPageStageStrip stages={stages} active={activeStage} onSelect={selectStage} />

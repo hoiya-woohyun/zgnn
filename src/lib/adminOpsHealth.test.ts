@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { TOpsOverview, TOpsRebuildEntry, TPipelineRun } from './adminOps';
-import { adminBandStage, runState, stageHealth, stalledBefore, worstStage } from './adminOpsHealth';
+import type { TOpsOverview, TOpsRebuildEntry, TOpsWorker, TPipelineRun } from './adminOps';
+import { adminBandStage, runState, stageHealth, stalledBefore, workerHealth, worstStage } from './adminOpsHealth';
 
 const NOW = Date.parse('2026-10-06T12:00:00.000Z');
 const ago = (ms: number) => new Date(NOW - ms).toISOString();
@@ -192,5 +192,54 @@ describe('adminBandStage — /admin 띠에는 /admin 이 아직 말하지 않은
     expect(adminBandStage(onlyApply, { rebuildWarn: true, strandedShown: true })).toBeNull();
     const failed = stageHealth(overview({ runsLatest: { apply: run({ script: 'apply', status: 'failed' }) }, stranded: 2 }), NOW);
     expect(adminBandStage(failed, { rebuildWarn: false, strandedShown: true })?.key).toBe('apply');
+  });
+});
+
+describe('workerHealth', () => {
+  const worker = (patch: Partial<TOpsWorker> = {}): TOpsWorker => ({
+    host: 'mac',
+    last_seen_at: ago(10_000),
+    phase: 'idle',
+    run_id: null,
+    started_at: ago(DAY),
+    version: 'abc1234',
+    ...patch,
+  });
+
+  it('행이 없으면 없음 — 켜 달라고 말한다', () => {
+    const health = workerHealth([], NOW);
+    expect(health.state).toBe('none');
+    expect(health.hint).toContain('pnpm data');
+  });
+
+  it('심장이 5분 안이면 살아 있음, 단계와 run_id 를 넘긴다', () => {
+    const health = workerHealth([worker({ phase: 'analyze', run_id: 'r9', last_seen_at: ago(4 * MIN) })], NOW);
+    expect(health).toMatchObject({ state: 'alive', tone: 'ok', phase: 'analyze', runId: 'r9', ageSec: 240, hint: null });
+  });
+
+  it('심장이 5분 넘게 멎었으면 멎은 듯 — 행이 남아 있어도(kill -9)', () => {
+    const health = workerHealth([worker({ phase: 'analyze', last_seen_at: ago(6 * MIN) })], NOW);
+    expect(health.state).toBe('stale');
+    expect(health.hint).toContain('터미널');
+  });
+
+  it('로그인 기다림은 심장이 멎었어도 그 상태다 — 만료된 세션으로는 심장을 못 쓴다', () => {
+    const health = workerHealth([worker({ phase: 'login-needed', last_seen_at: ago(20 * MIN) })], NOW);
+    expect(health.state).toBe('login-needed');
+    expect(health.hint).toContain('20분 전');
+    expect(workerHealth([worker({ phase: 'login-needed' })], NOW).hint).not.toContain('꺼졌을');
+  });
+
+  it('한도 휴식도 단계가 먼저다', () => {
+    expect(workerHealth([worker({ phase: 'rate-limited', last_seen_at: ago(2 * 60 * MIN) })], NOW).state).toBe('rate-limited');
+  });
+
+  it('여러 행이면 가장 최근에 뛴 하나, 나머지는 수로', () => {
+    const health = workerHealth([worker({ host: 'old', last_seen_at: ago(DAY) }), worker({ host: 'new', last_seen_at: ago(MIN) })], NOW);
+    expect(health).toMatchObject({ state: 'alive', host: 'new', others: 1 });
+  });
+
+  it('시각을 못 읽으면 멎은 것으로 친다', () => {
+    expect(workerHealth([worker({ last_seen_at: 'garbage' })], NOW).state).toBe('stale');
   });
 });

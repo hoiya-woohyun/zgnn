@@ -12,7 +12,7 @@
  */
 
 import { agoLabel, latestRebuildCall, QUEUE_STALL_MS, RESPONSE_WAIT_LIMIT_MS } from './adminRebuild';
-import type { TOpsOverview, TPipelineRun, TRunScript } from './adminOps';
+import type { TOpsOverview, TOpsWorker, TPipelineRun, TRunScript, TWorkerPhase } from './adminOps';
 
 /*
  * 임계값(todo/15 🙋 — 권장안 그대로). "며칠이면 늦은 건가" 는 운영자의 수집 리듬이라 바뀔 수 있다 — 바꾸면 여기 한 곳.
@@ -265,6 +265,81 @@ export const STAGE_SCRIPTS: Record<TStageKey, readonly TRunScript[] | null> = {
   apply: ['apply'],
   rebuild: null,
 };
+
+/**
+ * 워커 심장(`workers.last_seen_at`)이 이보다 오래 멎었으면 멎은 듯. 심장은 15초에 한 번(`workerHeartbeat.mjs`)이라 스무 번을 놓친 것이다.
+ * `kill -9` 처럼 닫지 못하고 죽은 워커는 행이 그대로 남으니, 행이 있다는 것만으로 "켜져 있다" 고 말하면 안 된다.
+ */
+export const WORKER_STALE_MS = 5 * 60 * 1000;
+
+export type TWorkerState = 'none' | 'alive' | 'stale' | 'login-needed' | 'rate-limited';
+
+export type TWorkerHealth = {
+  state: TWorkerState;
+  /** 배지 색 — 다섯 칸과 같은 축 */
+  tone: THealth;
+  /** 배지 글자(짧게) */
+  label: string;
+  /** 가장 최근에 뛴 행 하나. `none` 이면 없다 */
+  host?: string;
+  phase?: TWorkerPhase;
+  /** 그 행의 `run_id` — 진행 막대가 찾을 실행 행 */
+  runId?: string | null;
+  /** 마지막 심장 뒤로 지난 초 */
+  ageSec?: number;
+  /** 그 밖의 행 수(다른 기기). 기기당 한 행이라 보통 0 */
+  others: number;
+  /** 운영자가 할 일 한 줄 — 살아 있으면 null */
+  hint: string | null;
+};
+
+/** `phase` 의 화면 낱말 */
+export const WORKER_PHASE_LABEL: Record<TWorkerPhase, string> = {
+  idle: '쉬는 중',
+  collect: '수집 중',
+  analyze: '분석 중',
+  apply: '반영 중',
+  'login-needed': '로그인 기다림',
+  'rate-limited': '한도 휴식',
+};
+
+/**
+ * 로컬 워커 판정(todo/17 T5.1) — 여러 행이면 가장 최근에 뛴 하나만 보고 나머지는 수로 센다.
+ *
+ * ⚠️ **로그인 기다림·한도 휴식은 멎은 듯보다 먼저다.** 로그인을 기다리는 워커는 세션이 끝난 뒤라 심장 쓰기도 실패해
+ * `last_seen_at` 이 그 자리에 멈춘다 — 5분 규칙을 먼저 보면 이 배지가 보여 주려던 바로 그 상태가 "멎은 듯" 으로 바뀐다.
+ * 한도 휴식은 리셋까지 몇 시간을 자기도 해 그 사이 세션이 끝날 수 있다. 대신 심장이 멎었으면 문구에 그 나이를 붙인다
+ * (그 상태로 죽은 워커일 수도 있다). 판정은 `phase` 만 믿고, 시각을 못 읽으면 멎은 것으로 친다.
+ */
+export function workerHealth(workers: readonly TOpsWorker[], nowMs: number): TWorkerHealth {
+  const seenAt = (worker: TOpsWorker) => {
+    const at = Date.parse(worker.last_seen_at);
+    return Number.isNaN(at) ? -Infinity : at;
+  };
+  const [latest, ...rest] = [...workers].sort((a, b) => seenAt(b) - seenAt(a));
+  if (!latest) {
+    return { state: 'none', tone: 'warn', label: '워커 없음', others: 0, hint: '터미널에서 pnpm data 를 켜 주세요' };
+  }
+  const at = seenAt(latest);
+  const ageMs = at === -Infinity ? Infinity : Math.max(0, nowMs - at);
+  const base = {
+    host: latest.host,
+    phase: latest.phase,
+    runId: latest.run_id,
+    ageSec: Number.isFinite(ageMs) ? Math.round(ageMs / 1000) : undefined,
+    others: rest.length,
+  };
+  const stale = ageMs > WORKER_STALE_MS;
+  const silent = stale ? ` (심장 ${at === -Infinity ? '모름' : agoLabel(latest.last_seen_at, nowMs)} — 워커가 꺼졌을 수도 있어요)` : '';
+  if (latest.phase === 'login-needed') {
+    return { ...base, state: 'login-needed', tone: 'warn', label: '로그인 필요', hint: `워커가 로그인을 기다려요 — 터미널에서 비밀번호를 넣어 주세요${silent}` };
+  }
+  if (latest.phase === 'rate-limited') {
+    return { ...base, state: 'rate-limited', tone: 'warn', label: '한도 휴식', hint: `Claude 한도라 분석을 쉬어요 — 리셋 뒤 저절로 이어 가요${silent}` };
+  }
+  if (stale) return { ...base, state: 'stale', tone: 'fail', label: '워커 멎음', hint: '워커가 멎은 듯 — 터미널을 확인해 주세요' };
+  return { ...base, state: 'alive', tone: 'ok', label: '워커 켜짐', hint: null };
+}
 
 /**
  * `/admin` 의 경고 띠에 더할 한 줄(todo/15 T4.2) — `worstStage` 와 같되 **`/admin` 이 이미 말하는 칸은 뺀다.**

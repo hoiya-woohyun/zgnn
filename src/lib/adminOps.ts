@@ -54,13 +54,13 @@ export type TPipelineRun = {
   error: string | null;
   alert: TRunAlert | null;
   /**
-   * 진행률(로컬 워커, ADR-024) — 마이그레이션 `20261007140000` 의 칸이라 그 전 응답엔 없다. `RUN_COLUMNS` 에는 아직 넣지 않는다
-   * (적용 전에 넣으면 PostgREST 가 없는 칸으로 42703 을 내 실행 기록 목록이 통째로 깨진다). rpc 의 `runsLatest` 에는 `to_jsonb` 라 저절로 실린다.
+   * 진행률(로컬 워커, ADR-024) — 마이그레이션 `20261007140000` 의 칸. 적용됐으니 `RUN_COLUMNS` 에 있다(적용 전 DB 를 가리키면
+   * PostgREST 가 42703 을 내 실행 기록 목록이 통째로 깨진다). 끝까지 돌지 않은 행·옛 행은 null. 워커가 5초에 한 번 쓴다.
    */
   progress?: { done?: number; total?: number; current?: string } | null;
 };
 
-export const RUN_COLUMNS = 'id,script,status,started_at,ended_at,heartbeat_at,args,stats,error,alert';
+export const RUN_COLUMNS = 'id,script,status,started_at,ended_at,heartbeat_at,args,stats,error,alert,progress';
 
 /** `rebuild_status(5)` 와 같은 행 + `responded_at`(재빌드 칸의 "응답 null 이 3분 넘음" 판정에 쓴다). */
 export type TOpsRebuildEntry = TRebuildEntry & { responded_at: string | null };
