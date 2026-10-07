@@ -1,6 +1,7 @@
 import { Heart } from '@untitledui/icons';
 import { usePathname } from 'next/navigation';
 import { createFirstTimesGate, showAppStatus } from '../lib/appStatus';
+import { rememberUnsavedOnSavedPage, takeUnsavedOnSavedPage } from '../lib/savedPageSession';
 import { useAppStore, useIsSaved } from '../store/useAppStore';
 import { cx } from '../utils/cx';
 
@@ -27,8 +28,9 @@ const announceSaved = () => {
 /**
  * 저장 상태와 토글. 알림 규칙(처음 두 번)을 다른 모양의 저장 버튼(상세 액션 줄)도 같이 쓰게 밖으로 뺐다.
  *
- * **저장 화면에서 끄면 되돌리기를 준다**(12 U2.2). 거기서는 하트가 비는 모습도 없이 카드가 통째로 사라지고,
- * 하트를 끄면 메모도 지워진다(10 F5) — 그래서 되돌리기는 자리와 메모까지 살린다. 다른 화면에서는 하트가 비는 것으로 충분하다.
+ * **저장 화면에서는 하트가 곧 되돌리기다**(12 U2.2 v2). 거기서 끈 카드는 다음에 들어올 때까지 자리에 남으므로
+ * (`lib/savedPageSession.ts`), 다시 켜면 **원래 자리와 메모**를 그대로 돌린다 — 하트를 끄면 메모가 지워지고(10 F5)
+ * `toggleSaved` 로 켜면 맨 뒤에 붙기 때문이다. 다른 화면에서는 하트가 비는 것으로 충분하다.
  */
 export function useSaveToggle(id: string) {
   const saved = useIsSaved(id);
@@ -37,6 +39,11 @@ export function useSaveToggle(id: string) {
   const onSavedScreen = usePathname().startsWith('/saved');
   const toggle = () => {
     if (!saved) {
+      const memory = onSavedScreen ? takeUnsavedOnSavedPage(id) : undefined;
+      if (memory) {
+        restoreSaved(id, memory.index, memory.note);
+        return;
+      }
       announceSaved();
       toggleSaved(id);
       return;
@@ -46,10 +53,8 @@ export function useSaveToggle(id: string) {
     const note = savedNotes[id];
     toggleSaved(id);
     if (onSavedScreen) {
-      showAppStatus('저장을 취소했어요', {
-        action: { label: '되돌리기', onPress: () => restoreSaved(id, index, note) },
-        durationMs: 6000,
-      });
+      rememberUnsavedOnSavedPage(id, { index, note });
+      showAppStatus('저장을 취소했어요. 다시 들어오면 목록에서 빠져요');
     }
   };
   return { saved, toggle };

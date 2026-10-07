@@ -6,7 +6,7 @@ import { Button } from '../components/base/button';
 import { Input } from '../components/base/input';
 import { NO_AUTOFILL } from '../components/noAutofill';
 import { SAVED_NOTE_MAX } from '../lib/savedNotes';
-import { useAppStore, useSavedNote } from '../store/useAppStore';
+import { useAppStore, useIsSaved, useSavedNote } from '../store/useAppStore';
 
 /**
  * 저장한 곳 카드 밑의 한 줄 메모(docs/todo/10 F5). "1일차 · 아내가 고름 · 전화했음, 2마리 OK" 같은 말을 적는다.
@@ -15,10 +15,14 @@ import { useAppStore, useSavedNote } from '../store/useAppStore';
  * 입력은 누를 때만 연다 — 늘 열린 칸이면 저장 목록이 폼이 되고, 메모 없는 카드가 비어 보인다.
  */
 export function SavedPageNote({ id, name }: { id: string; name: string }) {
+  const saved = useIsSaved(id);
   const note = useSavedNote(id);
   const setSavedNote = useAppStore((state) => state.setSavedNote);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
+
+  // 하트를 끈 카드는 이번 방문 동안 자리에 남는다(savedPageSession) — 저장 없는 곳엔 메모를 못 다니 줄을 감춘다.
+  if (!saved) return null;
 
   const open = () => {
     setDraft(note ?? '');
