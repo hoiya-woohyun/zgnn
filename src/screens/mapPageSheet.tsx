@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { EligibilityBadge } from '../components/eligibilityBadge';
+import { NaverLinkButton } from '../components/naverLinkButton';
 import { PlaceItemsNote } from '../components/placeItemsNote';
 import { PetBadges } from '../components/petBadges';
 import { PlaceThumb } from '../components/placeThumb';
@@ -9,6 +10,7 @@ import { TownChip } from '../components/townChip';
 import { Button } from '@/components/base/button';
 import { categoryLabel } from '../lib/category';
 import { primaryReason } from '../lib/eligibility';
+import { naverDirectionsUrl } from '../lib/naverPlaceLink';
 import { freshnessShortLabel } from '../lib/placeFreshness';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
 import { useToday } from '../hooks/useToday';
@@ -33,6 +35,7 @@ export function MapPageSheetCard({ place }: TMapPageSheetCardProps) {
   const weightKg = useDogMaxWeightKg();
   const dogCount = useDogCount();
   const verified = freshnessShortLabel(place, useToday());
+  const directions = naverDirectionsUrl(place);
 
   return (
     <div>
@@ -71,6 +74,13 @@ export function MapPageSheetCard({ place }: TMapPageSheetCardProps) {
 
       {/* 카드 본문 바깥에 둔다 — 자기도 링크라서 위 <Link> 안에 넣으면 a 안에 a 가 된다. */}
       <PlaceItemsNote place={place} className="mt-3" />
+
+      {/* 지도에서 고른 곳은 "지금 여기로" 가 가장 잦은 동작(16 T1.5) — 저장 카드·상세와 같은 한 곳짜리 길찾기. 버튼 줄에 세 번째로 넣으면 좁아 따로 한 줄. */}
+      {directions && (
+        <NaverLinkButton href={directions} className="mt-3">
+          길찾기
+        </NaverLinkButton>
+      )}
 
       <div className="mt-4 flex gap-2">
         <Button color="primary" size="lg" href={`/place/${place.id}/`} className="flex-1">

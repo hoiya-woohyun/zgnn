@@ -78,7 +78,8 @@
   > 메모(2026-10-07): `start` 는 좌표(`TGeo | null`)로 받고, 셋 → 좌표는 `routeStartGeo(TRouteStart)` 가 푼다(공항 = `JEJU_AIRPORT`, `landmarks.ts` 와 같은 값). 좌표 없는 곳은 그 묶음 뒤 원래 순서, 숙소가 둘이면 앞 체인 끝에서 이어 그리디. 전날 숙소에 좌표가 없으면 `null` → 첫 좌표 있는 곳부터. 🙋 2(시작점 기본값)는 화면(T1.4) 몫이라 함수는 셋을 다 받는다.
 - [ ] T1.3 `naverRouteLink.ts` — `routeUrl(stops, { appname })` · `navigationUrl(place)` · 5곳 분할 `splitStops`. 좌표 없는 곳은 빼고 "지도에 없는 N곳" 을 함께 돌려준다. 테스트(인코딩·분할·빈 입력).
 - [ ] T1.4 저장 화면에 날짜 라벨 · 하루 보기 · "순서 다시 제안" · "네이버 지도로 길찾기". **임시안**(10 §7 과 같은 뜻 — 자리·문구는 디자인 트랙 전).
-- [ ] T1.5 지도 시트에 "지금 여기로"(`nmap://navigation`). `naverLinkButton.tsx` 에 종류 하나 추가, 새 버튼 컴포넌트는 만들지 않는다(CLAUDE.md).
+- [x] T1.5 지도 시트에 "지금 여기로"(`nmap://navigation`). `naverLinkButton.tsx` 에 종류 하나 추가, 새 버튼 컴포넌트는 만들지 않는다(CLAUDE.md).
+  > 메모(2026-10-07): 들어갔다 — 이름은 "길찾기"(저장 카드·상세와 같은 말), 준비물 줄과 버튼 줄 사이 `NaverLinkButton` 한 줄. 스킴이 아니라 아래 웹 주소다.
   > 2026-10-07: 한 곳짜리 길찾기는 **먼저 들어갔다** — `lib/naverPlaceLink.ts` 의 `naverDirectionsUrl`(웹 `map.naver.com/p/directions/-/{lng},{lat},{name}/-/car`, 출발지 비움). 저장 카드마다 알약, 상세 액션 줄의 지도 칸. 지도 시트는 아직. 스킴(`nmap://`)이 아니라 웹 주소로 간 이유는 앱 유무 판별·타임아웃 폴백을 안 가지려고 — H.1 실측 때 웹 주소가 폰에서 앱으로 넘어가는지 같이 본다.
 
 **T2 — 2단계: 판정 결합**
