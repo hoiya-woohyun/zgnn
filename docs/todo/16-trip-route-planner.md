@@ -94,7 +94,7 @@
 - [ ] T2.3 화면 — 하루 머리의 묶음 판정 한 줄 + 걸린 장소 옆 "대신 △△". 임시안.
 
 **T3 — 문서**
-- [ ] T3.1 ADR-024 "경로는 우리, 운전 안내는 네이버 — Directions API 를 들이지 않는다"(P1·P4·P5). `docs/features/trip-route.md`.
+- [ ] T3.1 ADR-025(024 는 로컬 워커가 썼다) "경로는 우리, 운전 안내는 네이버 — Directions API 를 들이지 않는다"(P1·P4·P5). `docs/features/trip-route.md`.
 - [ ] T3.2 `docs/decisions/ADR-009` v+1 — "날짜별 준비물은 하지 않는다" 한 줄. CLAUDE.md 표에 한 줄.
 
 **🧑 H — 사람 손**
