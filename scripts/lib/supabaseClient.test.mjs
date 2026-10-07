@@ -97,6 +97,20 @@ describe('resolveSupabaseCredentials — 출처', () => {
     expect(() => resolve({ readSession: () => expired })).toThrow(/만료됐다.*pnpm data login/s);
   });
 
+  it('다시 로그인하면 풀리는 거부에만 loginNeeded 표식 — 워커가 이것만 보고 비밀번호를 묻는다', () => {
+    const thrown = (opts) => {
+      try { resolve(opts); } catch (e) { return e; }
+      return null;
+    };
+    for (const readSession of [() => undefined, () => 'garbage', () => expired, () => jwt({ sub: 'u1', exp: NOW + 1 })]) {
+      expect(thrown({ readSession }).loginNeeded).toBe(true);
+    }
+    // 로그인해도 안 풀리는 것 — 표식이 없어야 워커가 묻기를 되풀이하지 않는다
+    expect(thrown({ env: { SUPABASE_SERVICE_ROLE_KEY: 'k' }, readSession: () => jwt({ sub: 'u1', exp: NOW + 3600 }) }).loginNeeded).toBeUndefined();
+    expect(thrown({ linkedRef: 'abcdefghijklmnopqrst', readSession: () => jwt({ sub: 'u1', exp: NOW + 3600 }) }).loginNeeded).toBeUndefined();
+    expect(thrown({ readSession: () => jwt({ sub: 'u1', exp: NOW + SESSION_MAX_TTL_S + 1 }) }).loginNeeded).toBeUndefined();
+  });
+
   it('만료 여유(skew) 안쪽은 세션으로 쓰지 않는다 — 긴 분석이 중간에 401 로 죽지 않게(한 실행은 세션 창 안에)', () => {
     expect(() => resolve({ readSession: () => jwt({ sub: 'u1', exp: NOW + SESSION_EXP_SKEW_S - 1 }) })).toThrow(/세션으로 쓰지 않는다/);
     expect(() => resolve({ readSession: () => jwt({ sub: 'u1', exp: NOW + SESSION_EXP_SKEW_S }) })).toThrow(/세션으로 쓰지 않는다/);

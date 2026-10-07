@@ -13,6 +13,7 @@ import {
   createUsageMeter,
   extractPlaces,
   isFatal,
+  isQuotaExhausted,
   isRetryable,
   parseExtraction,
   resolveModel,
@@ -576,6 +577,28 @@ describe('isRetryable / isFatal', () => {
       expect(isRetryable(e)).toBe(false);
       expect(isFatal(e)).toBe(false);
     }
+  });
+});
+
+describe('isQuotaExhausted — 구독 한도만, 일시 장애는 아니다', () => {
+  it('429 · 한도 문구는 참, 5xx·overloaded·다른 code 는 거짓', () => {
+    const cli = (r) => {
+      try {
+        parseExtraction({ type: 'result', subtype: 'success', is_error: true, usage: {}, ...r });
+      } catch (e) {
+        return e;
+      }
+      return null;
+    };
+    expect(isQuotaExhausted(cli({ api_error_status: 429, result: 'Too many requests' }))).toBe(true);
+    expect(isQuotaExhausted(cli({ result: 'Claude AI usage limit reached|1759820400' }))).toBe(true);
+    expect(isQuotaExhausted(cli({ result: "You've hit your limit · resets 3pm" }))).toBe(true);
+    expect(isQuotaExhausted(cli({ result: '5-hour limit reached ∙ resets 3pm' }))).toBe(true);
+    expect(isQuotaExhausted(cli({ api_error_status: 529, result: 'Overloaded' }))).toBe(false);
+    expect(isQuotaExhausted(cli({ api_error_status: 500, result: 'Internal server error' }))).toBe(false);
+    expect(isQuotaExhausted(new ClaudeCliError('timeout', 'session limit', { retryable: true }))).toBe(false);
+    expect(isQuotaExhausted(new Error('session limit'))).toBe(false);
+    expect(isQuotaExhausted(undefined)).toBe(false);
   });
 });
 

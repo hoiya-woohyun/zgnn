@@ -16,6 +16,7 @@ import { randomUUID } from 'node:crypto';
 export const RUN_ERROR = Object.freeze({
   claudeAuth: 'Claude 인증 실패',
   naver429: '네이버 검색 429',
+  claudeLimit: 'Claude 한도',
   dbWrite: 'DB 쓰기 실패',
   sigint: '중단(SIGINT)',
   unknown: '알 수 없음',
@@ -37,6 +38,8 @@ export function argFlags(argv) {
 }
 
 const HEARTBEAT_MS = 60_000;
+/** `progress` 를 실제로 쓰는 간격 — 화면이 구독해 "분석 중 12/40" 을 그린다(docs/todo/17 T3.3). 심장(60초)과 따로 센다. */
+export const PROGRESS_MS = 5_000;
 const scrubUrls = (text) => String(text ?? '').replace(/https?:\/\/\S+/g, '<url>');
 /** 콘솔 경고에 실을 이유 한 줄 — 첫 줄만, URL 은 지운다. */
 const reasonOf = (e) => scrubUrls(e?.message ?? e).split('\n')[0].slice(0, 200);
@@ -45,14 +48,25 @@ const reasonOf = (e) => scrubUrls(e?.message ?? e).split('\n')[0].slice(0, 200);
 export const NO_RUN = Object.freeze({
   id: null,
   async tick() {},
+  async progress() {},
   async end() {},
 });
+
+/*
+ * 실행 행이 섰을 때 알릴 곳 하나 — 상주 워커(`scripts/worker.mjs`)가 `workers.run_id` 를 그 행에 잇는 데만 쓴다.
+ * 각 스크립트의 `main` 은 exit code 만 돌려주므로 id 를 밖으로 꺼낼 다른 길이 없다. 리스너가 던져도 본업은 그대로다(fail-soft).
+ */
+let runListener = null;
+/** @param {((run: { id: string, script: string }) => void) | null} fn */
+export function setRunListener(fn) {
+  runListener = fn;
+}
 
 /**
  * @param {import('@supabase/supabase-js').SupabaseClient} client  운영자 세션 클라이언트(createSupabase)
  * @param {{ script: 'collect'|'analyze'|'apply'|'approve'|'reject', args?: object|null }} run
  * @param {{ now?: () => number, warn?: (line: string) => void }} [deps]  시계·경고 출력(테스트 주입용)
- * @returns {Promise<{ id: string|null, tick: () => Promise<void>, end: (r: { status: 'ok'|'partial'|'failed', stats?: object|null, error?: string|null }) => Promise<void> }>}
+ * @returns {Promise<{ id: string|null, tick: () => Promise<void>, progress: (p: { done: number, total: number, current?: string|null }) => Promise<void>, end: (r: { status: 'ok'|'partial'|'failed', stats?: object|null, error?: string|null }) => Promise<void> }>}
  */
 export async function beginRun(client, { script, args = null }, { now = Date.now, warn = (line) => console.warn(line) } = {}) {
   // id 를 여기서 정한다 — insert 에 `.select()` 를 붙이면 RETURNING 때문에 select 권한·정책까지 걸리고(`20260922120000` 의 원칙과 어긋난다),
@@ -66,8 +80,14 @@ export async function beginRun(client, { script, args = null }, { now = Date.now
     warn(`⚠️ 실행 기록 못 남김: ${reasonOf(e)}`);
     return NO_RUN;
   }
+  try {
+    runListener?.({ id, script });
+  } catch {
+    /* 워커 쪽 표시가 하나 늦을 뿐이다 */
+  }
 
   let lastBeat = now();
+  let lastProgress = -Infinity;
   let ended = false;
   return {
     id,
@@ -79,6 +99,19 @@ export async function beginRun(client, { script, args = null }, { now = Date.now
         await client.from('pipeline_runs').update({ heartbeat_at: new Date(lastBeat).toISOString() }).eq('id', id);
       } catch {
         /* 심장 한 번 놓친 것 — 화면이 10분을 기다리므로 다음 tick 이 메운다 */
+      }
+    },
+    /**
+     * 어디까지 왔나(`{done, total, current}`) — 5초에 한 번만 쓴다. `tick` 과 같은 태도: 실패는 삼키고 다음 호출이 다시 쓴다.
+     * 마지막 값이 스로틀에 걸려 안 써져도 괜찮다 — 끝나면 화면은 progress 가 아니라 status 를 읽는다.
+     */
+    async progress(value) {
+      if (ended || now() - lastProgress < PROGRESS_MS) return;
+      lastProgress = now();
+      try {
+        await client.from('pipeline_runs').update({ progress: value }).eq('id', id);
+      } catch {
+        /* 한 번 놓친 진행 — 5초 뒤 다음 값이 덮는다 */
       }
     },
     /** 한 번만 닫는다. 실패하면 행이 running 으로 남는다 — 화면에 "중단된 듯" 으로 보이는 거짓 경보지만 들키는 쪽이라 한 줄로 알린다. */

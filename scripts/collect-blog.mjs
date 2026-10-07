@@ -153,6 +153,8 @@ export async function main(argv = process.argv.slice(2)) {
 
   const now = new Date().toISOString();
   const startedAt = Date.now();
+  // 이 프로세스의 누계라(`naverSearchApi.mjs`) 시작 값을 빼야 이 실행의 호출 수다 — 워커·once 는 한 프로세스에서 수집·분석을 여러 번 돈다.
+  const naverCallsAtStart = readNaverCalls();
   let collected = [];
   let excludedOld = 0;
   let excludedOther = 0;
@@ -284,6 +286,24 @@ export async function main(argv = process.argv.slice(2)) {
       console.log(`  ${i / UPSERT_CHUNK + 1}/${upsertChunks} upsert ${chunk.length}건`);
     }
 
+    /*
+     * 요청이 담은 글에 `requested_at` 을 찍는다 — 상주 워커의 자동 분석은 이 칸이 있는 미분석 글만 읽는다(ADR-024 결정 4).
+     * upsert 가 `ignoreDuplicates` 라 이미 있던 글에는 아무것도 안 쓰므로 따로 update 한 번이다. 이미 분석된 글은 건드리지 않는다
+     * (`analyzed_at is null` — 다시 읽게 하는 것은 재분석 버튼의 일이다). 결과 적기(`markRequestDone`)보다 **먼저** 한다: 그 사이에 죽으면
+     * 요청이 대기로 남아 다음 실행이 다시 찍는다(멱등). 실패는 경고 한 줄 — 칸이 원격에 없어도(마이그레이션 전) 수집은 그대로 끝난다.
+     */
+    const requestedUrls = [...new Set([...requestRows.values()].flat().map((row) => row.url))].filter((url) => !analyzedUrls.has(url));
+    let markedRequested = 0;
+    for (const chunk of chunkForUrlFilter(requestedUrls)) {
+      const { error } = await supabase.from('blog_posts').update({ requested_at: now }).in('url', chunk).is('analyzed_at', null);
+      if (error) {
+        console.warn(`⚠️ 요청 글 표시(requested_at) 실패 — 워커가 이 글들을 자동으로 읽지 않는다(손으로 pnpm data analyze): ${error.message}`);
+        break;
+      }
+      markedRequested += chunk.length;
+    }
+    if (markedRequested > 0) console.log(`요청 글 표시: ${markedRequested}건(requested_at)`);
+
     // 추가 수집 결과 — 글은 이미 들어갔으므로 여기서 실패해도 실행을 죽이지 않는다(요청이 대기로 남아 다음에 한 번 더 찾을 뿐이다).
     let requestToRead = 0;
     for (const request of requests) {
@@ -305,7 +325,7 @@ export async function main(argv = process.argv.slice(2)) {
       excludedOld,
       excludedOther,
       durationMs: Date.now() - startedAt,
-      naverCalls: readNaverCalls(),
+      naverCalls: readNaverCalls() - naverCallsAtStart,
       truncatedKeywords: truncated,
       ...(requestRows.size ? { requests: requestRows.size, requestToRead } : {}),
     };

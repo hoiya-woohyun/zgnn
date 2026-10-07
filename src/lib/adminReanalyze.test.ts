@@ -49,6 +49,8 @@ describe('prepareReanalyze — 후보 먼저, 글 나중', () => {
 
     expect(calls.map((c) => c.table)).toEqual(['candidates', 'blog_posts']);
     expect(calls[0].payload).toEqual({ status: 'rejected', reviewer_note: `[data:review] 확인\n${REANALYZE_NOTE}` });
-    expect(calls[1]).toEqual({ table: 'blog_posts', payload: { analyzed_at: null }, filter: { url: 'post-a' } });
+    // requested_at — 워커의 자동 분석은 요청 글만 읽는다(ADR-024 결정 4). 되돌린 글도 요청 글이다
+    expect(calls[1]).toEqual({ table: 'blog_posts', payload: { analyzed_at: null, requested_at: expect.any(String) }, filter: { url: 'post-a' } });
+    expect(Number.isNaN(Date.parse(calls[1].payload.requested_at as string))).toBe(false);
   });
 });

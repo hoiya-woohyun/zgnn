@@ -30,6 +30,12 @@ export async function main() {
   process.on('exit', () => { try { process.stdin.setRawMode(false); } catch { /* TTY 아님 */ } });
 
   const rl = createInterface({ input: process.stdin, output: process.stdout });
+  // 이메일 칸의 Ctrl-C 는 readline 이 삼킨다(리스너가 없으면 멈춤만 된다) — 진짜 신호로 다시 올려 보낸다. 혼자 돌 땐 그대로 끝나고,
+  // 상주 워커(`pnpm data`)가 세션 만료로 이 함수를 부른 때는 워커의 종료 처리(`workers` 행 닫기)가 받는다.
+  rl.on('SIGINT', () => {
+    rl.close();
+    process.kill(process.pid, 'SIGINT');
+  });
   const email = (await rl.question(`Supabase 로그인(${PROJECT_REF}) — 이메일: `)).trim();
   rl.close();
   if (!email) {

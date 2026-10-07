@@ -94,7 +94,7 @@ HTML 이 빌드 때 만들어지므로 첫 렌더에서 localStorage 를 읽으�
 자세한 구조는 [docs/architecture/data-pipeline.md](docs/architecture/data-pipeline.md), 진행 상황은 [docs/todo/](docs/todo/README.md).
 
 데이터 명령은 `pnpm data <하위 명령>` 하나로 들어갑니다(`scripts/data.mjs`, [ADR-024](docs/decisions/ADR-024-local-worker-and-db-queues.md)).
-Vercel 빌드가 부르는 `pnpm data pull` 말고는 **전부 운영자 터미널에서 손으로** 돌립니다(스케줄·CI 없음). `pnpm data` 만 치면 사용법이 나옵니다.
+Vercel 빌드가 부르는 `pnpm data pull` 말고는 **전부 운영자 터미널에서** 돌립니다(스케줄·CI 없음 — 손으로 치거나, 터미널에 워커를 띄워 둡니다). 사용법은 `pnpm data help`.
 **평소에는 명령 셋과 `/admin` 화면이면 됩니다.** 나머지는 가끔 씁니다.
 
 ### 평소 흐름 — 이 순서대로
@@ -119,7 +119,8 @@ pnpm data analyze    # ③ 모은 글을 Claude 로 읽어 장소 후보를 만�
 
 | 명령 | 언제 |
 |---|---|
-| `pnpm data once` | 추가 수집 요청만 수집 → 분석 → 반영을 한 번에. **분석은 아직 기본 동작**(미분석 최대 50건 — `claude -p` 최대 50회, 요청 글이 먼저)이고 요청 글만 읽는 것은 T3 부터다. 상주 워커(인자 없는 `pnpm data`)는 [docs/todo/17](docs/todo/17-local-worker.md) T3 에서 온다 |
+| `pnpm data` | **상주 워커** — 터미널에 띄워 두면 60초마다 DB 를 보고 할 것만 돈다: `/admin` 의 추가 수집 요청 → 요청 글(추가 수집·재분석이 찍은 `requested_at`) 분석 → 승인 후보 반영. 매일 09:00(KST)엔 키워드 전체 수집. 요청 안 된 미분석 글(저수지)은 자동으로 읽지 않는다. 세션이 끝나면 그 자리에서 비밀번호를 묻고, Claude 한도면 리셋까지 분석만 쉰다. 끝내려면 Ctrl-C([ADR-024](docs/decisions/ADR-024-local-worker-and-db-queues.md)) |
+| `pnpm data once` | 워커의 **한 바퀴**만 — 위와 같은 판단으로 할 것만 돌고 끝난다. 없으면 "할 일 없음". `--dry-run` 은 계획만 찍는다(아무것도 안 돌린다) |
 | `pnpm data apply` | 승인됐는데 반영이 끊긴 후보를 `places` 에 반영한다(기존 장소는 빈 칸만 채움 · 신규는 `draft`). `/admin` 이 "반영이 끊긴 후보" 를 말할 때(`--dry-run`) |
 | `pnpm data pull` | 로컬 `src/data/*.json` 을 DB 최신으로 맞출 때. 결과가 비면 파일을 덮지 않고 멈춘다 |
 | `pnpm data logout` | 세션을 만료 전에 지울 때 |

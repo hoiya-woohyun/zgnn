@@ -1,6 +1,7 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-10-07 (v50: 진입점 하나 `pnpm data <하위 명령>`(`scripts/data.mjs`, ADR-024) — `data:*` 13줄이 한 줄, 터미널 검수 창 `data:review`·사진 스크립트 둘·`data:homepage` 를 지웠고, seed·normalize 는 `node scripts/…` 로 직접)
+> 최종 수정: 2026-10-07 (v51: 상주 워커 `pnpm data` · 한 바퀴 `once` 가 실제로 돈다(todo/17 T3) — 「워커 한 바퀴」 그림. 자동 분석은 `requested_at` 이 찍힌 글만, 추가 수집·재분석이 찍는다)
+> 이전 2026-10-07 (v50: 진입점 하나 `pnpm data <하위 명령>`(`scripts/data.mjs`, ADR-024) — `data:*` 13줄이 한 줄, 터미널 검수 창 `data:review`·사진 스크립트 둘·`data:homepage` 를 지웠고, seed·normalize 는 `node scripts/…` 로 직접)
 > 이전 2026-10-07 (v49: 추가 수집 — 요청 검색 실패는 그 요청만 대기로(키워드 수집분은 저장), 요청 글의 `keyword` 는 `추가 수집(/admin)`(상호명을 `검색어:` 로 주면 추출을 유도한다), `--only-requests` 는 `pipeline_runs` 에 안 남긴다(수집 칸의 '마지막 성공' 을 가린다))
 > 이전 2026-10-07 (v48: **추가 수집 요청**(`collect_requests`) — `/admin` 이 남긴 상호명 검색어를 `data:collect` 가 키워드 뒤에 한 페이지(30건)씩 돌고(`--only-requests` 면 요청만), `data:analyze` 는 그 글을 미분석 줄 맨 앞에 세운다. 표가 없으면 경고 한 줄 뒤 요청 없이 돈다 — [features/admin-review 「추가 수집」](../features/admin-review.md))
 > 이전 2026-10-06 (v47: **읍면은 읽을 때 정본으로 접는다** — `parseRegion` 이 `서귀포`→`서귀포시` 를 한다(07 U8). 어느 쓰기 길도 저장 값을 고치지 않아, 시드의 `남쪽 (서귀포)` 1행은 손으로 고쳐야 했다)
@@ -218,7 +219,7 @@ AI 분석 · 승인 · /admin 고치기) 저장 값을 고치는 곳은 하나�
 ## 수집 · 분석 · 승인 (첫 실행 2026-09-28 — 글 50건 → 후보 160건, 네이버 키 없이)
 
 **사용자 터미널에서** `pnpm data collect` → `pnpm data analyze` → (검수·승인) → `pnpm data apply` 를 순서대로 돌린다 — 스케줄·CI 없음.
-`pnpm data once` 는 그 셋을 한 번에 돈다(수집은 `/admin` 의 추가 수집 요청만, `scripts/data.mjs` — 상주 워커는 [todo/17](../todo/17-local-worker.md) T3)
+`pnpm data once` 는 그 셋 중 **할 것만** 한 번 돌고, 인자 없는 `pnpm data`(상주 워커)는 그것을 60초마다 돈다 — 아래 「워커 한 바퀴」.
 (검수·승인은 2026-09-29 부터 앱 안 `/admin` 이 기본이고, 거기서 승인하면 `pnpm data apply` 단계까지 그 클릭이 대신한다 → [ADR-018](../decisions/ADR-018-in-app-admin-review.md)·[features/admin-review](../features/admin-review.md))
 (ADR-016 v5, GitHub Actions 폐지). 셋 다 운영자 세션(`pnpm data login`)이 필요하고, `pnpm data collect` 는 네이버 검색 키까지 필요하다 — env
 (`NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`)로 넘기거나 없으면 터미널 숨김 입력으로 받는다(어디에도 저장 안 함 · 에이전트 세션에서는 입력을 거부).
@@ -290,6 +291,7 @@ flowchart LR
   1-1. **글 단위로 되돌린다.** 글 하나를 다시 읽으면 그 글의 장소가 **전부** 다시 후보가 된다 — 요금 문장이 있는 후보만
      골라 눕히면 형제 후보가 새 행으로 또 생겨 같은 가게가 두 줄이 된다(`dupOf`·`중복표시`).
   2. 그 글의 `analyzed_at` 을 `null` 로 되돌린다. `analysis` 는 두어도 된다 — 다음 실행이 덮는다.
+     버튼은 `requested_at` 도 찍는다 — 상주 워커(`pnpm data`)가 그 글을 요청 글로 보고 바로 읽는다(`--requested-only`). 손으로 되돌린 글은 이 칸이 없으면 저수지에 섞여 기다린다.
   3. `pnpm data analyze --limit 2` 로 **먼저 두 건만** 돌려 결과를 `/admin` 에서 확인한 뒤 나머지를 돌린다.
      `claude -p`(구독)를 쓰므로 5시간 한도를 한 번에 태우면 그 실행이 중간에 멈춘다.
 
@@ -362,6 +364,34 @@ flowchart LR
 `/admin` 에서는 그 한 번이 버튼 누르기 직전에 이미 일어난다. CLI 는 그 눈이 없으므로 `draft` 를 유지한다.
 기존 장소에 병합하는 경우는 양쪽 다 `status` 를 건드리지 않는다 — 단 `/admin` 은 대상이 `draft` 면 그때 `published` 로 올린다.
 
+## 워커 한 바퀴 — `pnpm data` · `pnpm data once`
+
+상주 워커([ADR-024](../decisions/ADR-024-local-worker-and-db-queues.md))는 큐를 새로 두지 않고 **상태 칸을 센다**. 한 바퀴는 단계를 하나 돌 때마다
+다시 센다 — 수집이 요청 글에 `requested_at` 을 찍어야 분석할 것이 생기고, 분석이 auto 후보를 바로 `approved` 로 넣어야 반영할 것이 생기기 때문이다.
+
+```
+ 깨우기: 60초 폴링 · 09:00 KST(폴링이 시각을 넘었는지 본다) · (T4) Realtime ──▶ wake() ─ 도는 중이면 끝난 뒤 한 번 더
+                                                                                  │
+   ┌──────────────────────────────── 세기(head count) ◀──────────────────────────┘◀──────────┐
+   │  collect_requests queued · blog_posts(requested_at, 미분석) · candidates approved      │
+   │  · pipeline_requests queued/10분 넘은 taken                                             │
+   ▼                                                                                          │
+ planCycle ─▶ collect   정기·「지금 수집」→ 키워드 전체 / 추가 수집 요청 → --only-requests    │
+   (이미 돈       └─ 요청이 담은 미분석 글에 requested_at                                     │
+    단계 제외)  analyze  요청 글 → --requested-only(저수지는 안 읽는다)                       │
+               analyze  「지금 분석 N건」 → --limit N(저수지 포함) · Claude 한도면 둘 다 쉼   │
+               apply    승인 후보 · 「지금 반영」                                             │
+   └─ 하나 돌고(workers.phase · run_id, pipeline_requests taken → done) ───────────────────────┘
+      할 것이 없으면 끝. 지워지지 않는 일감(계속 403 인 요청 글 등)은 수가 늘거나 30분이 지나야 폴링이 다시 깨운다
+```
+
+- **단계는 각 스크립트의 `main` 을 같은 프로세스에서 부른다.** 그래서 프로세스 누계(`readNaverCalls`)는 실행마다 시작 값을 빼고, analyze 의 잠금은 끝날 때 바로 푼다
+  (exit 훅에만 맡기면 두 번째 분석이 자기 pid 의 잠금에 막힌다).
+- **세션은 단계를 부르기 전에 본다** — `createSupabase` 는 만료면 `process.exit(1)` 이라 워커째 죽는다. 다시 로그인하면 풀리는 거부에만 `loginNeeded` 표식이 있고,
+  그때 워커는 `phase: login-needed` 로 적고 그 자리에서 `login.mjs` 의 숨김 입력을 부른다(TTY 가 아니면 끝낸다).
+- **Claude 한도**(`isQuotaExhausted` — 429·`limit reached` 류, 5xx 는 아니다)를 만나면 analyze 가 루프를 끊고(`Claude 한도`) 워커는 리셋 시각까지(못 읽으면 30분) 분석만 쉰다 — `phase: rate-limited`.
+- 워커에서는 한 단계가 실패해도 다음 단계로 간다(승인 반영은 분석 실패와 무관하다). `once` 는 T1 대로 거기서 멈춘다.
+
 ## 실행 기록 — 실행마다 `pipeline_runs` 한 행
 
 쓰기 스크립트 셋(`pnpm data collect` · `analyze` · `apply` — 옛 `data:review approve|reject` 의 행도 남아 있다)은 실행마다 `pipeline_runs`(마이그레이션 `20261006120000`)에
@@ -378,7 +408,7 @@ flowchart LR
 - **심장(`heartbeat_at`)은 쓰기 스크립트 셋 모두 찍는다** — analyze 는 글마다·"분석 불가" 닫기·제안 루프, apply 는 후보마다, collect 는 검색 페이지마다 `tick()`. 실제 쓰기는 60초에 한 번이라 자주 불러도 된다. 하나라도 빠지면 10분 넘게 도는 그 실행이 살아 있어도 화면에 "중단된 듯"(실패)으로 뜬다. 죽은 프로세스는 `running` 인데
   심장이 멎은 행으로 드러난다(화면 판정은 10분). analyze 에는 SIGINT 핸들러가 없다 — `claude -p` 자식도 같은 신호를 받아서, 끝내지 않는 핸들러를 두면 루프가 계속 돈다.
   collect 는 Ctrl-C 를 `중단(SIGINT)` 으로 닫고(3초 상한) 130 으로 끝낸다.
-- **`error` 칸은 분류 문구 다섯뿐이다** — `Claude 인증 실패` · `네이버 검색 429` · `DB 쓰기 실패` · `중단(SIGINT)` · `알 수 없음`. 던지는 자리가
+- **`error` 칸은 분류 문구 여섯뿐이다** — `Claude 인증 실패` · `Claude 한도`(구독 5시간 창, analyze 가 루프를 끊을 때) · `네이버 검색 429` · `DB 쓰기 실패` · `중단(SIGINT)` · `알 수 없음`. 던지는 자리가
   `runError` 로 붙이고 `classifyRunError` 는 메시지를 읽지 않는다. 원문은 콘솔에만 — PostgREST details 에 `Key (…)=(값)` 꼴로 장소명이 섞이고, 이 칸은 Slack(T5)이 읽는다.
   `args` 도 플래그 **이름**만(`--note` 의 문장 · `--dump` 경로 · `--merge-into` id 는 싣지 않는다).
 - **`stats` 는 콘솔 요약 줄의 입력 그대로다.** 스크립트가 한 객체를 `src/lib/runSummary.ts` 로 찍고 같은 객체를 `end()` 에 넘긴다 — 화면이 그 stats 로
@@ -419,7 +449,8 @@ flowchart LR
   **node 모듈을 import 하지 않는다** — 브라우저(`src/lib/admin*.ts`)가 이 파일을 그대로 가져가므로 `node:fs` 한 줄이 다시 들어오면 `/admin` 번들이 깨진다.
   파일을 쓰는 쪽은 `scripts/lib/dataJson.mjs`(`writeDataJson`)로 떼어 놨다. 공개 상수(`PROJECT_REF`·`PUBLISHABLE_KEY`·`PROJECT_URL`)도 같은 이유로 `scripts/lib/supabasePublic.mjs`(import 없음)에 있다
 - 운영자 검수 화면: `src/lib/admin{Session,Supabase,Candidates,Apply}.ts` · `src/screens/adminPage*.tsx` · `src/app/admin/` — 순수 로직은 위 `scripts/` 모듈을 그대로 import 한다(두 벌로 만들지 않는다)
-- 진입점: `scripts/data.mjs`(`pnpm data <하위 명령>`, ADR-024) — 각 스크립트의 `main(argv)` 를 골라 부른다. 인자 없음·모르는 하위 명령이면 사용법
+- 진입점: `scripts/data.mjs`(`pnpm data <하위 명령>`, ADR-024) — 각 스크립트의 `main(argv)` 를 골라 부른다. 모르는 하위 명령이면 사용법
+- 워커: `scripts/worker.mjs`(인자 없음 = 상주 · `once`) — 판단은 `scripts/lib/workerLoop.mjs`(순수, 테스트), 세기는 `workerQueue.mjs`, 심장은 `workerHeartbeat.mjs`
 - 수집·분석·승인: `scripts/collect-blog.mjs`(`pnpm data collect`) · `scripts/analyze-candidates.mjs`(`pnpm data analyze`) · `scripts/apply-approved.mjs`(`pnpm data apply`) · 한 바퀴 `pnpm data once` —
   순수 함수는 `scripts/collect/*`·`scripts/analyze/*`(각각 `*.test.mjs`). 스케줄은 없다 — 사용자 터미널에서 돌린다(ADR-016 v5)
 - 인증·입력: `scripts/lib/supabaseClient.mjs`(출처 선택), `scripts/login.mjs`(`pnpm data login`), `scripts/lib/readHidden.mjs`(비밀번호·네이버 키 숨김 입력, 두 소유자)

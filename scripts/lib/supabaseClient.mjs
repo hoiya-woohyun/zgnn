@@ -49,6 +49,10 @@ function linkedProjectRef() {
 
 const LOGIN_HINT = '사용자 터미널에서 `pnpm data login`(이메일·비밀번호) 뒤 다시 실행. 에이전트 세션 안에서는 되지 않는다.';
 
+// 다시 로그인하면 풀리는 거부에만 붙는 표식(`loginNeeded: true`). 상주 워커(`pnpm data`)가 이것만 보고 그 자리에서 비밀번호를 묻는다 —
+// service 키 트립와이어·project-ref 불일치는 로그인해도 안 풀리므로 표식이 없다. 메시지로 가르지 않는다(문구 한 줄 고치면 조용히 샌다).
+const loginNeeded = (message) => Object.assign(new Error(message), { loginNeeded: true });
+
 // 세션 수명이 하루를 넘으면 세션으로 쓰지 않는다(login.mjs 도 저장 전에 같은 검사). 반환: 문제 없으면 undefined, 있으면 이유.
 export function sessionTtlProblem(exp, now) {
   if (exp - now > SESSION_MAX_TTL_S) {
@@ -88,16 +92,16 @@ export function resolveSupabaseCredentials({
   }
 
   const token = readSession();
-  if (!token) throw new Error(`로그인이 필요하다 — ${LOGIN_HINT}`);
+  if (!token) throw loginNeeded(`로그인이 필요하다 — ${LOGIN_HINT}`);
   const exp = jwtExpiresAt(token);
-  if (exp === undefined) throw new Error(`저장된 세션이 JWT 가 아니다 — ${LOGIN_HINT}`);
+  if (exp === undefined) throw loginNeeded(`저장된 세션이 JWT 가 아니다 — ${LOGIN_HINT}`);
   const at = now();
   const tooLong = sessionTtlProblem(exp, at);
   if (tooLong) throw new Error(tooLong);
   // 진짜 만료와 skew 창 안을 나눠 말한다 — 후자를 "만료됐다(미래 시각)" 로 쓰면 시계가 틀린 것처럼 읽힌다.
-  if (exp <= at) throw new Error(`로그인 세션이 만료됐다(${formatTime(exp)}) — ${LOGIN_HINT}`);
+  if (exp <= at) throw loginNeeded(`로그인 세션이 만료됐다(${formatTime(exp)}) — ${LOGIN_HINT}`);
   if (sessionUsableUntil(exp) <= at) {
-    throw new Error(`로그인 세션이 만료 ${SESSION_EXP_SKEW_MIN}분 전이라 세션으로 쓰지 않는다(만료 ${formatTime(exp)} — 긴 pnpm data analyze 가 중간에 죽지 않게 ${SESSION_EXP_SKEW_MIN}분 앞당겨 본다) — ${LOGIN_HINT}`);
+    throw loginNeeded(`로그인 세션이 만료 ${SESSION_EXP_SKEW_MIN}분 전이라 세션으로 쓰지 않는다(만료 ${formatTime(exp)} — 긴 pnpm data analyze 가 중간에 죽지 않게 ${SESSION_EXP_SKEW_MIN}분 앞당겨 본다) — ${LOGIN_HINT}`);
   }
   return { url, key: publishableKey, source: 'session', accessToken: token, expiresAt: exp };
 }

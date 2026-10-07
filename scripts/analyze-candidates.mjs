@@ -69,7 +69,7 @@ import {
   toMatchCandidate,
   toPostAnalysis,
 } from './analyze/analyzeCandidates.mjs';
-import { createUsageMeter, extractPlaces, isFatal, isRetryable, MODEL, PROMPT_VERSION, runClaudeCli } from './analyze/extractPlaces.mjs';
+import { createUsageMeter, extractPlaces, isFatal, isQuotaExhausted, isRetryable, MODEL, PROMPT_VERSION, runClaudeCli } from './analyze/extractPlaces.mjs';
 import { formatGeocodeSummary, geocodeAddress, newGeocodeReasons, pickGeocoded, shouldGeocode } from './analyze/naverGeocode.mjs';
 import { newPickReasons, pickNaverPlace, searchNaverPlace } from './analyze/naverLocal.mjs';
 import { matchPlace, normalizeName, siOf, townOf } from './analyze/matchPlace.mjs';
@@ -90,27 +90,43 @@ import { createSupabase } from './lib/supabaseClient.mjs';
 import { formatAnalyzeSummary, formatUsageSummary } from '../src/lib/runSummary.ts';
 import { isDirectRun } from './lib/isDirectRun.mjs';
 
-export async function main(argv = process.argv.slice(2)) {
+/**
+ * @param {string[]} argv
+ * @param {{ onRateLimit?: (message: string) => void }} [hooks]  상주 워커(`scripts/worker.mjs`)가 Claude 구독 한도를 알아듣는 길 — exit code 만으로는 못 가른다
+ */
+export async function main(argv = process.argv.slice(2), hooks = {}) {
   let args;
   try {
     args = parseArgs(argv);
   } catch (e) {
-    console.error(`${e.message} — 사용법: pnpm data analyze [--limit N] [--max-per-blog N] [--no-geo] [--no-verify] [--no-propose] [--no-homepage] [--focused-only] [--dry-run] [--dump[=경로]]`);
+    console.error(`${e.message} — 사용법: pnpm data analyze [--limit N] [--max-per-blog N] [--requested-only] [--no-geo] [--no-verify] [--no-propose] [--no-homepage] [--focused-only] [--dry-run] [--dump[=경로]]`);
     return 1;
   }
-  const { limit, dryRun, dump, maxPerBlog, noGeo, noVerify, noPropose, noHomepage, focusedOnly } = args;
-  console.log(dryRun ? '모드: dry-run — DB 에 쓰지 않는다(Claude 는 부른다)' : '모드: 분석 — candidates · blog_posts.analyzed_at 에 쓴다');
+  console.log(args.dryRun ? '모드: dry-run — DB 에 쓰지 않는다(Claude 는 부른다)' : '모드: 분석 — candidates · blog_posts.analyzed_at 에 쓴다');
 
   // 한 번에 하나만(`runLock.mjs`) — 둘이 돌면 시작할 때 같은 미분석 글을 골라 같은 후보를 두 번 넣는다. 워크트리가 달라도 DB 는 하나라 잠금은 레포 밖(tmpdir)에 둔다.
   // dry-run 은 쓰지 않으므로 잠그지 않는다.
-  if (!dryRun) {
-    const lock = acquireRunLock(join(tmpdir(), 'zgnn-data-analyze.lock'));
-    if (!lock.ok) {
-      console.error(`다른 pnpm data analyze 가 이미 돌고 있다(pid ${lock.holder ?? '?'}) — 끝난 뒤 다시 실행. 같은 글을 두 번 분석해 후보가 겹친다.`);
-      return 1;
-    }
-    process.on('exit', lock.release);
+  if (args.dryRun) return analyze(argv, args, hooks);
+  const lock = acquireRunLock(join(tmpdir(), 'zgnn-data-analyze.lock'));
+  if (!lock.ok) {
+    console.error(`다른 pnpm data analyze 가 이미 돌고 있다(pid ${lock.holder ?? '?'}) — 끝난 뒤 다시 실행. 같은 글을 두 번 분석해 후보가 겹친다.`);
+    return 1;
   }
+  // 끝나면 바로 푼다 — 상주 워커는 같은 프로세스에서 analyze 를 또 부르는데, exit 훅에만 맡기면 두 번째부터 자기 pid 의 잠금에 막힌다.
+  // exit 훅은 그 사이에 죽을 때(키 확인의 `process.exit`)를 위한 것이고, 바퀴마다 쌓이지 않게 같이 뗀다.
+  process.on('exit', lock.release);
+  try {
+    return await analyze(argv, args, hooks);
+  } finally {
+    lock.release();
+    process.off('exit', lock.release);
+  }
+}
+
+async function analyze(argv, args, { onRateLimit } = {}) {
+  const { limit, dryRun, dump, maxPerBlog, noGeo, noVerify, noPropose, noHomepage, focusedOnly, requestedOnly } = args;
+  // 이 프로세스의 누계라(`naverSearchApi.mjs`) 시작 값을 빼야 이 실행의 호출 수다 — 워커·once 는 한 프로세스에서 수집·분석을 여러 번 돈다.
+  const naverCallsAtStart = readNaverCalls();
 
   // 좌표 보강은 **02(수집)과 같은 네이버 키**를 쓴다 — 키를 하나 더 발급·관리하지 않는다(ADR-008 v4).
   // env 가 먼저고, 없으면 **사람 터미널에서만** 숨김 입력으로 받는다(`collect-blog.mjs` 와 같은 모양).
@@ -296,48 +312,68 @@ export async function main(argv = process.argv.slice(2)) {
       .select('url, blog_id, log_no, title, keyword, posted_at')
       .is('analyzed_at', null)
       .order('posted_at', { ascending: false });
-  const { data: focusedPosts, error: focusedError } = await unanalyzed()
-    .filter('title', 'imatch', PET_TITLE_SOURCE)
-    .filter('title', 'match', JEJU_TITLE_SOURCE)
-    .not('title', 'imatch', LISTY_TITLE_SOURCE)
-    .not('title', 'imatch', TOPIC_TITLE_SOURCE)
-    .limit(postWindow);
-  if (focusedError) throw new Error(`blog_posts 조회 실패(집중 글): ${focusedError.message}`);
-  // 한 가게만 되풀이하는 블로그(`singlePlaceBlogs`)의 글은 집중이어도 맨 뒤로 — 그 블로그의 분석 끝난 글만 읽는다.
+  // 한 가게만 되풀이하는 블로그 · 앞줄에서 뺀 수 · 추가 수집 글 url — 아래 기본 고르기가 채우고 로그가 읽는다.
   const singlePlace = new Set();
-  async function noteSinglePlaceBlogs(fetched) {
-    const blogIds = [...new Set(fetched.map((post) => post.blog_id).filter(Boolean))];
-    if (blogIds.length === 0) return;
-    const { data, error } = await supabase.from('blog_posts').select('blog_id, analysis').in('blog_id', blogIds).not('analyzed_at', 'is', null);
-    if (error) throw new Error(`blog_posts 조회 실패(블로그 이력): ${error.message}`);
-    for (const blogId of singlePlaceBlogs(data)) singlePlace.add(blogId);
-  }
-  await noteSinglePlaceBlogs(focusedPosts);
-  let fetchedPosts = focusedPosts;
   let droppedSinglePlace = 0; // --focused-only 가 아예 뺀 한 가게 블로그 글 수(로그용)
-  if (focusedOnly) {
-    // 앞줄만 — 한 가게 블로그의 글도 뺀다(그것도 '뒤' 다).
-    fetchedPosts = focusedPosts.filter((post) => !singlePlace.has(post.blog_id));
-    droppedSinglePlace = focusedPosts.length - fetchedPosts.length;
-  } else if (pickPostsForRun(focusedPosts.filter((post) => !singlePlace.has(post.blog_id)), limit, maxPerBlog).length < limit) {
-    const { data: restPosts, error: restError } = await unanalyzed().limit(postWindow + focusedPosts.length);
-    if (restError) throw new Error(`blog_posts 조회 실패: ${restError.message}`);
-    await noteSinglePlaceBlogs(restPosts);
-    fetchedPosts = mergeFocusedFirst(focusedPosts, restPosts);
-  }
-  fetchedPosts = deferBlogs(fetchedPosts, singlePlace);
-  // `/admin` 의 **추가 수집**이 담은 글은 맨 앞 — 집중 제목·한 가게 블로그 판정과 상관없이. 운영자가 그 가게의 근거를 더 보려고 콕 집어 찾게 한
-  // 글이라, 최신순·제목 순서에 맡기면 미분석 수천 건 뒤에 밀려 몇 주가 지나도 안 읽히고, 업주 블로그는 '한 가게 블로그' 로 맨 뒤에 간다.
-  // 블로그당 상한(`pickPostsForRun`)은 그대로 받는다 — 업주 블로그 한 곳이 실행을 다 채우지 않게.
-  const requestedUrls = await recentRequestUrls(supabase);
-  if (requestedUrls.length > 0) {
-    const requested = [];
-    for (const chunk of chunkForUrlFilter(requestedUrls)) {
-      const { data, error } = await unanalyzed().in('url', chunk);
-      if (error) throw new Error(`blog_posts 조회 실패(추가 수집 글): ${error.message}`);
-      requested.push(...data);
+  let requestedUrls = [];
+  let fetchedPosts;
+  if (requestedOnly) {
+    /*
+     * `--requested-only`(상주 워커의 자동 분석, ADR-024 결정 4) — **사람이 요청한 글만**: 추가 수집이 담은 글과 재분석으로 되돌린 글(`requested_at`).
+     * 아래의 기본 고르기를 통째로 건너뛴다 — 집중 제목 필터가 제목이 안 맞는 요청 글을 빼고, 한 가게 블로그 판정이 업주 블로그를 맨 뒤로 보내고,
+     * 그 뒤 줄에 저수지 글이 섞인다. 오래 기다린 요청부터. 블로그당 상한은 그대로 받는다(업주 블로그 한 곳이 실행을 다 채우지 않게 — 남은 글은 다음 바퀴).
+     */
+    const { data, error } = await supabase
+      .from('blog_posts')
+      .select('url, blog_id, log_no, title, keyword, posted_at')
+      .is('analyzed_at', null)
+      .not('requested_at', 'is', null)
+      .order('requested_at', { ascending: true })
+      .limit(postWindow);
+    if (error) throw new Error(`blog_posts 조회 실패(요청 글): ${error.message}`);
+    fetchedPosts = data ?? [];
+  } else {
+    const { data: focusedPosts, error: focusedError } = await unanalyzed()
+      .filter('title', 'imatch', PET_TITLE_SOURCE)
+      .filter('title', 'match', JEJU_TITLE_SOURCE)
+      .not('title', 'imatch', LISTY_TITLE_SOURCE)
+      .not('title', 'imatch', TOPIC_TITLE_SOURCE)
+      .limit(postWindow);
+    if (focusedError) throw new Error(`blog_posts 조회 실패(집중 글): ${focusedError.message}`);
+    // 한 가게만 되풀이하는 블로그(`singlePlaceBlogs`)의 글은 집중이어도 맨 뒤로 — 그 블로그의 분석 끝난 글만 읽는다.
+    async function noteSinglePlaceBlogs(fetched) {
+      const blogIds = [...new Set(fetched.map((post) => post.blog_id).filter(Boolean))];
+      if (blogIds.length === 0) return;
+      const { data, error } = await supabase.from('blog_posts').select('blog_id, analysis').in('blog_id', blogIds).not('analyzed_at', 'is', null);
+      if (error) throw new Error(`blog_posts 조회 실패(블로그 이력): ${error.message}`);
+      for (const blogId of singlePlaceBlogs(data)) singlePlace.add(blogId);
     }
-    fetchedPosts = mergeFocusedFirst(requested, fetchedPosts);
+    await noteSinglePlaceBlogs(focusedPosts);
+    fetchedPosts = focusedPosts;
+    if (focusedOnly) {
+      // 앞줄만 — 한 가게 블로그의 글도 뺀다(그것도 '뒤' 다).
+      fetchedPosts = focusedPosts.filter((post) => !singlePlace.has(post.blog_id));
+      droppedSinglePlace = focusedPosts.length - fetchedPosts.length;
+    } else if (pickPostsForRun(focusedPosts.filter((post) => !singlePlace.has(post.blog_id)), limit, maxPerBlog).length < limit) {
+      const { data: restPosts, error: restError } = await unanalyzed().limit(postWindow + focusedPosts.length);
+      if (restError) throw new Error(`blog_posts 조회 실패: ${restError.message}`);
+      await noteSinglePlaceBlogs(restPosts);
+      fetchedPosts = mergeFocusedFirst(focusedPosts, restPosts);
+    }
+    fetchedPosts = deferBlogs(fetchedPosts, singlePlace);
+    // `/admin` 의 **추가 수집**이 담은 글은 맨 앞 — 집중 제목·한 가게 블로그 판정과 상관없이. 운영자가 그 가게의 근거를 더 보려고 콕 집어 찾게 한
+    // 글이라, 최신순·제목 순서에 맡기면 미분석 수천 건 뒤에 밀려 몇 주가 지나도 안 읽히고, 업주 블로그는 '한 가게 블로그' 로 맨 뒤에 간다.
+    // 블로그당 상한(`pickPostsForRun`)은 그대로 받는다 — 업주 블로그 한 곳이 실행을 다 채우지 않게.
+    requestedUrls = await recentRequestUrls(supabase);
+    if (requestedUrls.length > 0) {
+      const requested = [];
+      for (const chunk of chunkForUrlFilter(requestedUrls)) {
+        const { data, error } = await unanalyzed().in('url', chunk);
+        if (error) throw new Error(`blog_posts 조회 실패(추가 수집 글): ${error.message}`);
+        requested.push(...data);
+      }
+      fetchedPosts = mergeFocusedFirst(requested, fetchedPosts);
+    }
   }
   const posts = pickPostsForRun(fetchedPosts, limit, maxPerBlog);
   // 센 것은 **이번에 읽는** 수다(limit·블로그당 상한을 지난 뒤) — 맨 앞에 선 전체가 아니다.
@@ -350,6 +386,14 @@ export async function main(argv = process.argv.slice(2)) {
   if (focusedOnly && posts.length === 0) {
     console.log('앞줄(--focused-only)에 남은 글이 없다 — 끝.');
     return 1;
+  }
+  // 요청 글이 없으면 실행 기록도 남기지 않는다 — 워커가 깰 때마다 "analyzed 0" 행이 쌓이면 운영 현황의 마지막 분석이 빈 실행으로 덮인다.
+  if (requestedOnly) {
+    if (posts.length === 0) {
+      console.log('요청 글(requested_at)이 없다 — 끝.');
+      return 0;
+    }
+    console.log(`요청 글 ${posts.length}건을 읽는다(읽은 ${fetchedPosts.length}건 중 블로그당 ${maxPerBlog || '무제한'}건)`);
   }
 
   // 지금 규모(86곳 + 신규 draft 몇)는 supabase-js 기본 1000행 제한에 한참 못 미친다 — 늘어나면 range() 로 페이지네이션.
@@ -537,12 +581,15 @@ export async function main(argv = process.argv.slice(2)) {
   const stats = { analyzed: 0, skipped: 0, dropped: 0, candidates: 0, auto: 0, ask: 0, new: 0, dup: 0, edited: 0, update: 0, fill: 0, excluded: { other: 0, notJeju: 0, notAllowed: 0, sameAsSite: 0, stale: 0, weak: 0, blocked: 0, noPetEvidence: 0 }, verify: { checked: 0, noEvidence: 0, notAllowed: 0, failed: 0 } };
   let fatal = false;
   let fatalError = null; // 실행 기록의 error 칸 분류용 — 원문은 위 콘솔 줄에만
+  let rateLimited = null; // Claude 구독 한도에 걸린 오류 — 루프를 끊고, 워커에 알린다(`onRateLimit`)
   const pendingCloses = []; // { url, reason } — 루프 끝에 성공이 1건이라도 있을 때만 analyzed_at 을 찍는다
   // --dump 용. DB 에 들어갈 후보 행(extracted 그대로, 본문 없음)과 제외 목록 — 정규화 품질을 사람이 볼 유일한 창이다(로그에는 안 찍는다, 05).
   const dumpEntries = [];
 
-  for (const post of posts) {
+  for (const [index, post] of posts.entries()) {
     await run.tick(); // 60초에 한 번만 실제로 쓴다 — 죽으면 이 값이 멎어 화면이 "중단된 듯" 을 읽는다
+    // 어디까지 왔나 — 5초에 한 번만 쓴다. 제목 앞 20자(후보에 이미 이름이 있는 글이라 지울 이유가 없다, docs/todo/17 T3.3).
+    await run.progress({ done: index, total: posts.length, current: post.title ? post.title.slice(0, 20) : null });
     console.log(`글 ${post.url} (${post.title ?? '제목 없음'})`);
     try {
       if (!post.blog_id || !post.log_no) throw Object.assign(new Error('blog_id/log_no 가 비어 있어 본문 주소를 만들 수 없다'), { permanent: true });
@@ -719,6 +766,15 @@ export async function main(argv = process.argv.slice(2)) {
         fatalError = e;
         break;
       }
+      // Claude 구독 한도(5시간 창)는 남은 글도 전부 같은 결과다 — 글마다 본문을 받고 claude 를 불러 헛돌지 않게 여기서 끊는다.
+      // fatal 과 달리 이 글은 실패가 아니라 "아직" 이다: analyzed_at 이 비어 있어 리셋 뒤 다음 실행이 이어 간다.
+      if (isQuotaExhausted(e)) {
+        stats.skipped += 1;
+        console.error(`  중단: ${e.message}`);
+        console.error('  Claude 구독 한도 — 이 실행의 나머지 글은 건너뛴다(리셋 뒤 다음 실행이 이어 간다).');
+        rateLimited = e;
+        break;
+      }
       if (isPermanentFailure(e)) {
         console.error(`  분석 불가(루프 끝에 닫는다): ${e.message}`);
         pendingCloses.push({ url: post.url, reason: e.message });
@@ -759,7 +815,7 @@ export async function main(argv = process.argv.slice(2)) {
    * 로그에는 칸 수·충돌 수만 — 제안 값·인용은 본문에서 파생된 것이라 찍지 않는다(05).
    */
   stats.propose = { places: noPropose ? 0 : updatedPlaces.size, done: 0, failed: 0 };
-  let proposeOff = noPropose;
+  let proposeOff = noPropose || rateLimited !== null; // 한도가 찼으면 제안도 같은 결과다
   for (const [placeId, runRows] of updatedPlaces) {
     const placeRow = placeById.get(placeId);
     if (proposeOff || !placeRow) continue;
@@ -804,7 +860,7 @@ export async function main(argv = process.argv.slice(2)) {
     meters: { extract: meter.totals(), verify: verifyMeter.totals(), propose: proposeMeter.totals() },
     geo: { ...naverStats, geocode: { ...geocodeStats } },
     homepage: { ...homepageStats },
-    naverCalls: readNaverCalls(),
+    naverCalls: readNaverCalls() - naverCallsAtStart,
   };
   console.log(formatAnalyzeSummary(runStats, formatUsageSummary('추출', runStats.meters.extract), { dryRun }));
   if (verifyMeter.totals().calls > 0) console.log(`  ${verifyMeter.summary()}`);
@@ -865,8 +921,10 @@ export async function main(argv = process.argv.slice(2)) {
   // exit code 를 돌려줄 뿐 process.exit() 은 부르지 않는다 — 파이프로 나가던 stdout 을 잘라먹을 수 있어 자연 종료를 기다린다.
   // 실행 기록 — 같은 식이 failed 를 정한다. 건너뛴 글이 있으면 partial, 글이 0건이면 ok + analyzed 0("돌았는데 할 게 없었다" 도 기록이다).
   const failedRun = fatal || (posts.length > 0 && stats.analyzed === 0);
-  const failedReason = fatalError?.name === 'ClaudeCliError' && fatalError.code === 'auth' ? RUN_ERROR.claudeAuth : classifyRunError(fatalError);
+  const failedReason =
+    fatalError?.name === 'ClaudeCliError' && fatalError.code === 'auth' ? RUN_ERROR.claudeAuth : rateLimited && !fatal ? RUN_ERROR.claudeLimit : classifyRunError(fatalError);
   await run.end({ status: failedRun ? 'failed' : stats.skipped > 0 ? 'partial' : 'ok', stats: runStats, error: failedRun ? failedReason : null });
+  if (rateLimited) onRateLimit?.(rateLimited.message);
   return failedRun ? 1 : 0;
 }
 

@@ -42,7 +42,7 @@ export const DEFAULT_MAX_PER_BLOG = 2;
  * 사람이 볼 유일한 창, 로그에는 여전히 본문 인용을 찍지 않는다). 모르는 인자나 1 미만의 limit 은 throw — 오타로 전체를 돌리는 일이 없게.
  */
 export function parseArgs(argv) {
-  const args = { limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false, focusedOnly: false };
+  const args = { limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false, focusedOnly: false, requestedOnly: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--dry-run') { args.dryRun = true; continue; }
@@ -52,6 +52,8 @@ export function parseArgs(argv) {
     if (arg === '--no-homepage') { args.noHomepage = true; continue; }
     // 앞줄(`isFocusedTitle` · 한 가게 블로그 아님)만 — 비면 뒤 무리로 넘어가지 않고 끝난다. 저수지를 앞줄에서 멈추는 결정(2026-10-04)의 손잡이.
     if (arg === '--focused-only') { args.focusedOnly = true; continue; }
+    // 사람이 요청한 글(`requested_at`)만 — 상주 워커의 자동 분석(ADR-024 결정 4). 저수지는 읽지 않는다.
+    if (arg === '--requested-only') { args.requestedOnly = true; continue; }
     if (arg === '--dump') { args.dump = ''; continue; } // '' = 기본 경로(data/raw/analyze-<시각>.json)
     if (arg.startsWith('--dump=')) { args.dump = arg.slice('--dump='.length); continue; }
     let key;

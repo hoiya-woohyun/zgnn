@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { argFlags, beginRun, classifyRunError, NO_RUN, RUN_ERROR } from './runLog.mjs';
+import { argFlags, beginRun, classifyRunError, NO_RUN, PROGRESS_MS, RUN_ERROR, setRunListener } from './runLog.mjs';
 
 /**
  * supabase-js 의 `from(t).insert(row)` · `from(t).update(patch, opts).eq(col, v)` 모양만 흉내 낸다.
@@ -92,6 +92,67 @@ describe('tick — 60초에 한 번만 쓴다', () => {
     const run = await beginRun(client, { script: 'analyze' }, { now: () => t });
     t = 120_000;
     await expect(run.tick()).resolves.toBeUndefined();
+  });
+});
+
+describe('progress — 5초에 한 번만 쓴다', () => {
+  it('첫 값은 바로, 그 뒤 5초 안의 값은 버리고, 지나면 progress 하나만 쓴다', async () => {
+    let t = 0;
+    const client = fakeClient();
+    const run = await beginRun(client, { script: 'analyze' }, { now: () => t });
+    await run.progress({ done: 0, total: 40, current: '애월 카페' });
+    t = PROGRESS_MS - 1;
+    await run.progress({ done: 1, total: 40, current: '협재 펜션' });
+    expect(client.calls.update).toHaveLength(1);
+    t = PROGRESS_MS;
+    await run.progress({ done: 2, total: 40, current: '성산 식당' });
+    expect(client.calls.update).toHaveLength(2);
+    expect(client.calls.update.map((c) => c.patch)).toEqual([
+      { progress: { done: 0, total: 40, current: '애월 카페' } },
+      { progress: { done: 2, total: 40, current: '성산 식당' } },
+    ]);
+    expect(client.calls.update[1]).toMatchObject({ col: 'id', value: run.id });
+  });
+
+  it('심장과 따로 센다 — progress 가 썼다고 tick 이 밀리지 않는다', async () => {
+    let t = 0;
+    const client = fakeClient();
+    const run = await beginRun(client, { script: 'analyze' }, { now: () => t });
+    t = 60_000;
+    await run.progress({ done: 1, total: 2 });
+    await run.tick();
+    expect(client.calls.update.map((c) => Object.keys(c.patch)[0])).toEqual(['progress', 'heartbeat_at']);
+  });
+
+  it('갱신이 던져도 삼키고, 닫힌 뒤와 NO_RUN 은 아무것도 안 한다', async () => {
+    const throwing = await beginRun(fakeClient({ update: () => { throw new Error('network'); } }), { script: 'analyze' });
+    await expect(throwing.progress({ done: 1, total: 2 })).resolves.toBeUndefined();
+    let t = 0;
+    const client = fakeClient();
+    const run = await beginRun(client, { script: 'analyze' }, { now: () => t });
+    await run.end({ status: 'ok' });
+    t = PROGRESS_MS * 2;
+    await run.progress({ done: 2, total: 2 });
+    expect(client.calls.update).toHaveLength(1);
+    await expect(NO_RUN.progress({ done: 1, total: 1 })).resolves.toBeUndefined();
+  });
+});
+
+describe('setRunListener — 워커가 실행 행 id 를 받는 길', () => {
+  it('행이 섰을 때만 알리고, 리스너가 던져도 실행은 그대로다', async () => {
+    const seen = [];
+    try {
+      setRunListener((r) => seen.push(r));
+      const run = await beginRun(fakeClient(), { script: 'apply' });
+      await beginRun(fakeClient({ insert: () => ({ error: { message: 'x' } }) }), { script: 'collect' }, { warn: () => {} });
+      expect(seen).toEqual([{ id: run.id, script: 'apply' }]);
+      setRunListener(() => {
+        throw new Error('listener');
+      });
+      expect((await beginRun(fakeClient(), { script: 'analyze' })).id).toMatch(/^[0-9a-f-]{36}$/);
+    } finally {
+      setRunListener(null);
+    }
   });
 });
 

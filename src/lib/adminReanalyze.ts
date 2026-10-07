@@ -3,6 +3,7 @@
  *
  * 절차의 정본은 docs/architecture/data-pipeline.md 「재분석」이다. 그동안 DB 를 손으로 되돌렸고, 이 파일은 그 손질을 버튼 하나로 옮긴다.
  * `pnpm data analyze` 는 `analyzed_at is null` 인 글만 고르므로 되돌리는 칸은 그것 하나다(`analysis` 는 다음 실행이 덮는다).
+ * 거기에 `requested_at` 을 찍어 상주 워커가 그 글을 바로 읽게 한다(사람이 요청한 글 — ADR-024 결정 4).
  *
  * 규칙 넷 — 전부 그 문서에서 왔다.
  *  1. **글 단위로 되돌린다.** 글을 다시 읽으면 그 글의 장소가 **전부** 다시 후보가 된다. 이 묶음의 행만 눕히면 같은 글의
@@ -64,8 +65,10 @@ export async function prepareReanalyze(client: SupabaseClient, plan: TReanalyzeP
       .eq('id', row.id);
     failIf('후보 눕히기', error);
   }
+  // `requested_at` 도 찍는다 — 상주 워커(`pnpm data`)의 자동 분석은 사람이 요청한 글만 읽는다(ADR-024 결정 4). 안 찍으면 저수지에 섞여 기다린다.
+  const requestedAt = new Date().toISOString();
   for (const url of plan.posts) {
-    const { error } = await client.from('blog_posts').update({ analyzed_at: null }).eq('url', url);
+    const { error } = await client.from('blog_posts').update({ analyzed_at: null, requested_at: requestedAt }).eq('url', url);
     failIf('글 되돌리기', error);
   }
 }

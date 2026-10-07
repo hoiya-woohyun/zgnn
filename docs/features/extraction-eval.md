@@ -1,4 +1,4 @@
-# AI 추출 정확도 평가 (`pnpm data:eval`)
+# AI 추출 정확도 평가 (`pnpm data eval`)
 
 > 최종 수정: 2026-10-06 (v4: 사진 읽기 실험을 걷어 냈다 — 2곳에서 회수 0/7, 하지 않기로 했다. 글당 `usage`·`costUsd` 캐시와 `--only` 의 logNo 는 남긴다)
 > 최종 수정: 2026-10-06 (v3: 실험 경로 `--images` — 글의 사진 몇 장(기본 8)을 같이 읽혀 근거없음 칸이 살아나는지 잰다. 사진은 메모리에서만 읽고 버린다(ADR-002). `compare` 가 회수 · 지어냄 증가 · 글당 토큰을 나란히 찍는다)
@@ -18,9 +18,9 @@
 
 | 명령 | 하는 일 | 비용 |
 |---|---|---|
-| `pnpm data:eval golden [--force]` | `src/data/places.json` → `data/golden/seed-extract.json`. **이미 있으면 거부한다**(`review` 가 날아간다). places.json 은 앞으로 바뀌므로 한 번 얼린다 | 0 |
-| `pnpm data:eval extract [--limit N] [--only <placeId\|이름\|logNo>…] [--refresh]` | 글마다 본문을 받아(`data/raw/eval/bodies/`) `claude -p` 한 번. 결과는 `data/raw/eval/extract/<PROMPT_VERSION>-<MODEL>/<logNo>.json` — 있으면 건너뛴다. `--limit` 은 **이번에 부를 Claude 횟수**다 | 글당 `claude -p` 1회 |
-| `pnpm data:eval score [--prompt <버전>]` | golden + 캐시만 읽어 채점. 요약은 터미널과 `data/raw/eval/score-<버전>-<모델>.json`, 어긋난 곳 전부는 `data/raw/eval/report-<버전>.md` | 0 |
+| `pnpm data eval golden [--force]` | `src/data/places.json` → `data/golden/seed-extract.json`. **이미 있으면 거부한다**(`review` 가 날아간다). places.json 은 앞으로 바뀌므로 한 번 얼린다 | 0 |
+| `pnpm data eval extract [--limit N] [--only <placeId\|이름\|logNo>…] [--refresh]` | 글마다 본문을 받아(`data/raw/eval/bodies/`) `claude -p` 한 번. 결과는 `data/raw/eval/extract/<PROMPT_VERSION>-<MODEL>/<logNo>.json` — 있으면 건너뛴다. `--limit` 은 **이번에 부를 Claude 횟수**다 | 글당 `claude -p` 1회 |
+| `pnpm data eval score [--prompt <버전>]` | golden + 캐시만 읽어 채점. 요약은 터미널과 `data/raw/eval/score-<버전>-<모델>.json`, 어긋난 곳 전부는 `data/raw/eval/report-<버전>.md` | 0 |
 
 - **86곳 전체는 나눠 돌린다.** `claude -p` 는 구독이라 돈은 안 들지만 5시간 세션 한도를 대화와 공유한다. `--limit 20` 씩 돌리면 캐시 다음부터 이어 간다.
   로그인 안 됨·CLI 없음·한도에 걸리면 그 자리에서 멈춘다(나머지도 같은 이유로 실패한다).
@@ -28,7 +28,7 @@
   `score` 는 다른 버전의 요약이 있으면 차이를 같이 찍는다 — **`claude -p` 는 같은 입력에도 결과가 흔들린다.** 몇 건 차이는 소음이고, 분모가 다르면(한쪽만 다 돌렸으면) 비교가 안 된다.
 - 운영과 다른 점 하나: 운영 분석은 수집 검색어(`keyword`)를 넘기지만 시드 글엔 그게 없어 비운다. 글 제목은 같은 응답의 `og:title` 에서 읽는다.
   **장소 이름을 프롬프트에 넣지 않는다** — 정답을 흘린다.
-- Supabase 는 쓰지 않는다. 로그인(`pnpm data:login`)도 필요 없다.
+- Supabase 는 쓰지 않는다. 로그인(`pnpm data login`)도 필요 없다.
 - **본문 캐시는 예외다.** 운영 분석은 본문을 받아 쓰고 버린다(`naverPostBody.mjs` · todo/02). 여기서는 같은 글을 버전마다 다시 받지 않으려고
   `data/raw/eval/bodies/` 에 둔다 — 이 머신에만 있고(gitignored · 레포가 공개다) 지워도 된다(다음 `extract` 가 다시 받는다).
   보고서도 본문은 싣지 않고 사람 조건 문장과 AI 의 `petPolicyText` 만 인용한다.
