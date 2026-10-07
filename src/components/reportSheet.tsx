@@ -15,6 +15,7 @@ import {
   type TReportKind,
 } from '../lib/placeReport';
 import { APP_BUILD, readReportRecord, rememberReport, sendPlaceReport } from '../lib/placeReportSend';
+import { NO_AUTOFILL } from './noAutofill';
 import { cx } from '../utils/cx';
 
 type TReportSheetProps = {
@@ -131,6 +132,7 @@ export function ReportSheet({ isOpen, onOpenChange, title, lead, placeId, kinds,
               {noteRequired ? '가게 이름과 동네' : '한 줄 더 (선택)'}
             </label>
             <textarea
+              {...NO_AUTOFILL}
               id={noteId}
               value={note}
               onChange={(event) => {

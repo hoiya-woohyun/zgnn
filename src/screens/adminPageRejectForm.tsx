@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button } from '../components/base/button';
 import { Input } from '../components/base/input';
+import { NO_AUTOFILL } from '../components/noAutofill';
 import { BLOCK_CHOICE_LABEL, BLOCK_CHOICES, defaultBlockFor, type TBlockChoice } from '../lib/adminBlocks';
 import { REJECT_REASON_HINT, REJECT_REASONS, type TRejectReason } from '../lib/adminCandidates';
 
@@ -89,6 +90,7 @@ export function AdminPageRejectForm({ busy, onCancel, onSubmit, count, inline = 
       <div className="mt-2 max-w-md">
         <Input
           aria-label="제외 메모(선택)"
+          {...NO_AUTOFILL}
           placeholder="메모 (선택)"
           value={note}
           onChange={setNote}

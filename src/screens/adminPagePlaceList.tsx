@@ -4,6 +4,7 @@ import { SearchLg } from '@untitledui/icons';
 import { useCallback, useMemo, useState } from 'react';
 import { Button } from '../components/base/button';
 import { Input } from '../components/base/input';
+import { SEARCH_FIELD } from '../components/noAutofill';
 import { Select } from '../components/base/select';
 import { TYPE_LABEL, type TCandidateType, type TPlaceRow, type TPlaceStatus } from '../lib/adminCandidates';
 import {
@@ -198,6 +199,7 @@ export function AdminPagePlaceList({
         <div className="w-full sm:w-64">
           <Input
             aria-label="장소 검색"
+            {...SEARCH_FIELD}
             placeholder="이름·지역·주소로 찾기"
             value={query}
             onChange={typeQuery}

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button } from '../components/base/button';
 import { Input } from '../components/base/input';
+import { NO_AUTOFILL } from '../components/noAutofill';
 import { CLOSURE_KINDS, reportDay, type TReportRow } from '../lib/adminReports';
 import { REPORT_KIND_SHORT } from '../lib/placeReport';
 import { cx } from '../utils/cx';
@@ -53,7 +54,7 @@ export function AdminPagePlaceReports({ reports, busy, canArchive, onHandle, onA
       </ul>
 
       <div className="mt-2 max-w-md">
-        <Input aria-label="처리 메모(선택)" placeholder="처리 메모 (선택)" value={note} onChange={setNote} isDisabled={busy} size="sm" />
+        <Input {...NO_AUTOFILL} aria-label="처리 메모(선택)" placeholder="처리 메모 (선택)" value={note} onChange={setNote} isDisabled={busy} size="sm" />
       </div>
       <div className="mt-2 flex flex-wrap gap-2">
         {hasClosure && canArchive && (

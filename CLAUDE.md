@@ -147,6 +147,8 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
   하단 시트(`base/bottom-sheet`)도 크림이다 — 그 위에서 눌림 표시는 `primary_hover`(크림과 같은 값)가 아니라 `bg-tertiary`.
 - **흰 면은 `CARD_SURFACE`(`src/components/cardSurface.ts`), 빈 상태는 `EmptyState`**(ADR-003 v15). 상자 클래스를 글자로 다시 적지 않는다.
   면은 답(상세 판정)과 다루는 덩어리(누르는 카드·체크/입력 판)에만 — 근거는 같은 면 안 구분선으로 딸리고, 빈 상태는 면 없이 크림 위에 선다(지도 위만 `floating`).
+- **새 입력칸에는 `{...NO_AUTOFILL}`(검색칸이면 `SEARCH_FIELD`)을 펼친다**(`src/components/noAutofill.ts`). Safari 는 `autocomplete="off"` 를 무시하고 자리표시·라벨의 "이름"·"주소" 를 보고
+  연락처를 띄운다 — `name` 의 `search` 가 그 훑기를 멈춘다. 로그인 칸만 예외(→ [BUG-012](docs/bugs/BUG-012-safari-contact-autofill-on-search.md)).
 - **화면 본체는 `src/screens/`** (클라이언트), `src/app/**/page.tsx` 는 주소·메타·
   `generateStaticParams` 만. `src/pages/` 는 Next 가 옛 Pages Router 로 인식해서 못 쓴다.
 - **단일 소유자 파일은 소유자 접두어**를 파일명과 대표 export 에 붙인다(camelCase).

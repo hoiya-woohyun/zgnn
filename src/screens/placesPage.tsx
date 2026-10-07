@@ -12,6 +12,7 @@ import { PlacesPageSwipePeek } from './placesPageSwipePeek';
 import { PlacesPageTypeTabs } from './placesPageTypeTabs';
 import { usePlaceTypeSwitch } from './placesPageTypeSwitch';
 import { Input } from '../components/base/input';
+import { SEARCH_FIELD } from '../components/noAutofill';
 import { TYPE_META } from '../lib/places';
 import { comparePrice, resetFiltersLabel, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
 import { otherTypeMatches } from '../lib/placeSearch';
@@ -197,6 +198,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
           <div className="mt-3 flex items-center gap-2">
             <Input
               aria-label="장소 검색"
+              {...SEARCH_FIELD}
               icon={SearchMd}
               placeholder="이름·특징·읍면 검색"
               value={query}

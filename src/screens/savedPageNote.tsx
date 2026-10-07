@@ -4,6 +4,7 @@ import { Edit03 } from '@untitledui/icons';
 import { useState } from 'react';
 import { Button } from '../components/base/button';
 import { Input } from '../components/base/input';
+import { NO_AUTOFILL } from '../components/noAutofill';
 import { SAVED_NOTE_MAX } from '../lib/savedNotes';
 import { useAppStore, useSavedNote } from '../store/useAppStore';
 
@@ -40,6 +41,7 @@ export function SavedPageNote({ id, name }: { id: string; name: string }) {
         <div className="min-w-0 flex-1">
           <Input
             aria-label={`${name} 메모`}
+            {...NO_AUTOFILL}
             placeholder="예: 1일차 · 전화했음, 2마리 OK"
             value={draft}
             onChange={setDraft}

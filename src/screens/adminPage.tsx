@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { Button } from '../components/base/button';
 import { Input } from '../components/base/input';
+import { SEARCH_FIELD } from '../components/noAutofill';
 import { Select } from '../components/base/select';
 import { EmptyState } from '../components/layout/emptyState';
 import { PageHeader } from '../components/layout/pageHeader';
@@ -1814,7 +1815,7 @@ export function AdminPage() {
         <div className="mt-3 flex flex-wrap items-end gap-x-3 gap-y-2 px-4 md:px-6">
           {/* 이름 검색(todo/13 T4.2) — 대표 이름 · 같은 자리로 묶인 다른 이름 · 짝 장소 이름 중 하나라도 맞으면 남는다(`matchesGroupQuery`). */}
           <div className="w-full sm:w-56">
-            <Input aria-label="이름으로 찾기" placeholder="이름으로 찾기" value={nameQuery} onChange={typeName} size="sm" icon={SearchLg} />
+            <Input {...SEARCH_FIELD} aria-label="이름으로 찾기" placeholder="이름으로 찾기" value={nameQuery} onChange={typeName} size="sm" icon={SearchLg} />
           </div>
           <Select
             label="경고"

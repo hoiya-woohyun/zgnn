@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button } from '../components/base/button';
 import { Input } from '../components/base/input';
+import { NO_AUTOFILL } from '../components/noAutofill';
 import { BLOCK_CHOICE_LABEL, BLOCK_CHOICES, defaultBlockFor, type TBlockChoice } from '../lib/adminBlocks';
 import { ARCHIVE_REASONS, type TArchiveReason } from '../lib/adminPlaces';
 import { cx } from '../utils/cx';
@@ -78,7 +79,7 @@ export function AdminPagePlaceArchiveForm({ wasDraft, busy, initialReason, onCan
       </div>
 
       <div className="mt-2 max-w-md">
-        <Input aria-label="내림 메모(선택)" placeholder="메모 (선택)" value={note} onChange={setNote} isDisabled={busy} size="sm" />
+        <Input {...NO_AUTOFILL} aria-label="내림 메모(선택)" placeholder="메모 (선택)" value={note} onChange={setNote} isDisabled={busy} size="sm" />
       </div>
 
       {/* 거짓말을 하지 않는 자리다 — DB 에서 내려도 사이트에서 사라지는 것은 다음 빌드부터다(ADR-015). */}

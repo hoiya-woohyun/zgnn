@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { Button } from '../components/base/button';
 import { Checkbox } from '../components/base/checkbox';
 import { Input } from '../components/base/input';
+import { NO_AUTOFILL } from '../components/noAutofill';
 import { Select } from '../components/base/select';
 import { regionOptionsFor, TYPE_LABEL, type TPlaceRow } from '../lib/adminCandidates';
 import { EDITABLE_TYPES, type TPolicyDraft } from '../lib/adminEdit';
@@ -117,7 +118,7 @@ export function AdminPagePlaceEditForm({
           <span>고칠 값</span>
         </div>
         <p className="px-2 pt-1 text-xs font-semibold text-secondary">장소</p>
-        {row('name', '이름', <Input aria-label="이름" size="sm" value={draft.name} onChange={(value) => set({ name: value })} isDisabled={busy} />)}
+        {row('name', '이름', <Input {...NO_AUTOFILL} aria-label="이름" size="sm" value={draft.name} onChange={(value) => set({ name: value })} isDisabled={busy} />)}
         {row(
           'type',
           '종류',
@@ -159,7 +160,7 @@ export function AdminPagePlaceEditForm({
             )}
           </>,
         )}
-        {row('address', '주소', <Input aria-label="주소" size="sm" placeholder="제주특별자치도 서귀포시 안덕면 …" value={draft.address} onChange={(value) => set({ address: value })} isDisabled={busy} />)}
+        {row('address', '주소', <Input {...NO_AUTOFILL} aria-label="주소" size="sm" placeholder="제주특별자치도 서귀포시 안덕면 …" value={draft.address} onChange={(value) => set({ address: value })} isDisabled={busy} />)}
         {/*
           * 좌표는 두 칸이다. 한 칸만 채운 상태는 `validGeo` 가 통째로 버려 좌표가 조용히 사라지므로 `placeEditProblem` 이 저장을 막는다.
           * 주소만 고쳐도 되지만 지도 핀은 좌표로만 선다 — 그걸 숨기면 "고쳤는데 지도에 없다" 가 된다.
@@ -169,8 +170,8 @@ export function AdminPagePlaceEditForm({
           '좌표',
           <>
             <div className="grid grid-cols-2 gap-2">
-              <Input aria-label="위도" placeholder="위도 (33.xx)" size="sm" value={draft.lat} onChange={(value) => set({ lat: value })} isDisabled={busy} />
-              <Input aria-label="경도" placeholder="경도 (126.xx)" size="sm" value={draft.lng} onChange={(value) => set({ lng: value })} isDisabled={busy} />
+              <Input {...NO_AUTOFILL} aria-label="위도" placeholder="위도 (33.xx)" size="sm" value={draft.lat} onChange={(value) => set({ lat: value })} isDisabled={busy} />
+              <Input {...NO_AUTOFILL} aria-label="경도" placeholder="경도 (126.xx)" size="sm" value={draft.lng} onChange={(value) => set({ lng: value })} isDisabled={busy} />
             </div>
             <p className="mt-1 text-xs text-tertiary">비워도 저장돼요. 지도에 핀이 서려면 위도·경도가 둘 다 있어야 해요.</p>
           </>,
@@ -178,7 +179,7 @@ export function AdminPagePlaceEditForm({
         {row(
           'naverPlace',
           '네이버 플레이스',
-          <Input
+          <Input {...NO_AUTOFILL}
             aria-label="네이버 플레이스"
             size="sm"
             placeholder="가게 화면 주소나 숫자 id"
@@ -192,16 +193,16 @@ export function AdminPagePlaceEditForm({
         {/* 홈페이지 카드는 세 칸이 한 벌이다 — 주소를 비우면 카드째 빠진다. 칸이 없는 원격(마이그레이션 20260930120000 전)에서는 줄을 세우지 않는다. */}
         {hasHomepage && (
           <>
-            {row('homepageUrl', '홈페이지', <Input aria-label="공식 홈페이지" size="sm" placeholder="https://…" value={draft.homepageUrl} onChange={(value) => set({ homepageUrl: value })} isDisabled={busy} />)}
-            {row('homepageName', '홈페이지 이름', <Input aria-label="홈페이지 이름" size="sm" placeholder="카드에 적힐 사이트 이름" value={draft.homepageName} onChange={(value) => set({ homepageName: value })} isDisabled={busy} />)}
-            {row('homepageImage', '홈페이지 사진', <Input aria-label="홈페이지 사진" size="sm" placeholder="비우면 사진 없이 카드만" value={draft.homepageImage} onChange={(value) => set({ homepageImage: value })} isDisabled={busy} />)}
+            {row('homepageUrl', '홈페이지', <Input {...NO_AUTOFILL} aria-label="공식 홈페이지" size="sm" placeholder="https://…" value={draft.homepageUrl} onChange={(value) => set({ homepageUrl: value })} isDisabled={busy} />)}
+            {row('homepageName', '홈페이지 이름', <Input {...NO_AUTOFILL} aria-label="홈페이지 이름" size="sm" placeholder="카드에 적힐 사이트 이름" value={draft.homepageName} onChange={(value) => set({ homepageName: value })} isDisabled={busy} />)}
+            {row('homepageImage', '홈페이지 사진', <Input {...NO_AUTOFILL} aria-label="홈페이지 사진" size="sm" placeholder="비우면 사진 없이 카드만" value={draft.homepageImage} onChange={(value) => set({ homepageImage: value })} isDisabled={busy} />)}
           </>
         )}
-        {row('category', '카테고리', <Input aria-label="카테고리" size="sm" placeholder="예: 카페, 디저트" value={draft.category} onChange={(value) => set({ category: value })} isDisabled={busy} />)}
+        {row('category', '카테고리', <Input {...NO_AUTOFILL} aria-label="카테고리" size="sm" placeholder="예: 카페, 디저트" value={draft.category} onChange={(value) => set({ category: value })} isDisabled={busy} />)}
         {row(
           'features',
           '소개',
-          <textarea aria-label="소개" rows={3} value={draft.features} disabled={busy} onChange={(event) => set({ features: event.target.value })} className={TEXTAREA} />,
+          <textarea {...NO_AUTOFILL} aria-label="소개" rows={3} value={draft.features} disabled={busy} onChange={(event) => set({ features: event.target.value })} className={TEXTAREA} />,
         )}
 
         {/* ── 동반 정보 — 원문과 구조값을 한 무리로(후보 폼과 같은 이유: `correctPetPolicyFacts` 가 원문에 근거 없는 판단을 지운다). */}
@@ -210,7 +211,7 @@ export function AdminPagePlaceEditForm({
           'petPolicyText',
           '조건 원문',
           <>
-            <textarea
+            <textarea {...NO_AUTOFILL}
               aria-label="조건 원문"
               rows={2}
               value={draft.petPolicyText}
@@ -248,7 +249,7 @@ export function AdminPagePlaceEditForm({
         {row(
           'feeLines',
           '강아지 요금',
-          <textarea
+          <textarea {...NO_AUTOFILL}
             aria-label="강아지 요금"
             rows={2}
             value={draft.policy.feeLines}
@@ -258,20 +259,20 @@ export function AdminPagePlaceEditForm({
             className={TEXTAREA}
           />,
         )}
-        {row('weightLimitKg', '무게 상한', <Input aria-label="무게 상한(kg)" placeholder="숫자만 (kg)" size="sm" value={draft.policy.weightLimitKg} isDisabled={busy} onChange={(weightLimitKg) => setPolicy({ weightLimitKg })} />)}
-        {row('maxDogs', '마릿수 상한', <Input aria-label="마릿수 상한" placeholder="숫자만 (마리)" size="sm" value={draft.policy.maxDogs} isDisabled={busy} onChange={(maxDogs) => setPolicy({ maxDogs })} />)}
+        {row('weightLimitKg', '무게 상한', <Input {...NO_AUTOFILL} aria-label="무게 상한(kg)" placeholder="숫자만 (kg)" size="sm" value={draft.policy.weightLimitKg} isDisabled={busy} onChange={(weightLimitKg) => setPolicy({ weightLimitKg })} />)}
+        {row('maxDogs', '마릿수 상한', <Input {...NO_AUTOFILL} aria-label="마릿수 상한" placeholder="숫자만 (마리)" size="sm" value={draft.policy.maxDogs} isDisabled={busy} onChange={(maxDogs) => setPolicy({ maxDogs })} />)}
         {row('leash', '리드줄', <Checkbox size="sm" label="리드줄 필수" isSelected={draft.policy.leash} isDisabled={busy} onChange={(leash) => setPolicy({ leash })} />)}
         {row('smallDogOnly', '소형견만', <Checkbox size="sm" label="소형견만 가능" isSelected={draft.policy.smallDogOnly} isDisabled={busy} onChange={(smallDogOnly) => setPolicy({ smallDogOnly })} />)}
         {row('callFirst', '전화 확인', <Checkbox size="sm" label="가기 전 전화 확인" isSelected={draft.policy.callFirst} isDisabled={busy} onChange={(callFirst) => setPolicy({ callFirst })} />)}
         {row('vaccineRequired', '예방접종', <Checkbox size="sm" label="예방접종 필수" isSelected={draft.policy.vaccineRequired} isDisabled={busy} onChange={(vaccineRequired) => setPolicy({ vaccineRequired })} />)}
-        {row('notes', '그 밖의 조건', <Input aria-label="그 밖의 조건" size="sm" value={draft.policy.notes} isDisabled={busy} onChange={(notes) => setPolicy({ notes })} />)}
+        {row('notes', '그 밖의 조건', <Input {...NO_AUTOFILL} aria-label="그 밖의 조건" size="sm" value={draft.policy.notes} isDisabled={busy} onChange={(notes) => setPolicy({ notes })} />)}
 
         {/* 숙소 칸은 고친 종류가 숙소일 때만 — 다른 종류에는 원래 없는 칸이고, 쓰기에도 실리지 않는다(`placeEditPatch`). */}
         {draft.type === 'stay' && (
           <>
             <p className="mt-2 border-t border-secondary px-2 pt-2 text-xs font-semibold text-secondary">숙소</p>
-            {row('stayPriceText', '숙박 요금', <textarea aria-label="숙박 요금" rows={2} value={draft.stayPriceText} disabled={busy} onChange={(event) => set({ stayPriceText: event.target.value })} className={TEXTAREA} />)}
-            {row('stayAmenitiesText', '숙소 시설', <textarea aria-label="숙소 시설" rows={2} value={draft.stayAmenitiesText} disabled={busy} onChange={(event) => set({ stayAmenitiesText: event.target.value })} className={TEXTAREA} />)}
+            {row('stayPriceText', '숙박 요금', <textarea {...NO_AUTOFILL} aria-label="숙박 요금" rows={2} value={draft.stayPriceText} disabled={busy} onChange={(event) => set({ stayPriceText: event.target.value })} className={TEXTAREA} />)}
+            {row('stayAmenitiesText', '숙소 시설', <textarea {...NO_AUTOFILL} aria-label="숙소 시설" rows={2} value={draft.stayAmenitiesText} disabled={busy} onChange={(event) => set({ stayAmenitiesText: event.target.value })} className={TEXTAREA} />)}
           </>
         )}
       </section>

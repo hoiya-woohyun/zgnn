@@ -1,5 +1,6 @@
 import { Plus, XClose } from '@untitledui/icons';
 import { Input } from '../components/base/input';
+import { NO_AUTOFILL } from '../components/noAutofill';
 import { Label } from '../components/base/label';
 import { HintText } from '../components/base/hint-text';
 import { DOG_NAME_MAX_LENGTH, MAX_DOGS } from '../lib/dogProfile';
@@ -43,6 +44,7 @@ export function DogProfileDogRows({ values, errors, onChange, onAdd, onRemove }:
                       (react-aria 가 둘을 잇는다). 자리표시 글자만으로는 입력을 시작하면 무슨 칸인지 사라졌다(D11). */}
                   <Input
                     label="이름"
+                    {...NO_AUTOFILL}
                     aria-label={nth}
                     placeholder="예: 두부"
                     value={value.name}
@@ -72,6 +74,7 @@ export function DogProfileDogRows({ values, errors, onChange, onAdd, onRemove }:
                   <div className="relative">
                     <Input
                       label="몸무게"
+                      {...NO_AUTOFILL}
                       aria-label={nth}
                       type="number"
                       inputMode="decimal"
