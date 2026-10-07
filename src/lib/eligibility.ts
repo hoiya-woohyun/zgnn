@@ -158,18 +158,23 @@ const ruleLargeDogNo: TRule = (dog, policy) => {
  * H4: 실내가 케이지 필수인데 대형견이고 케이지가 없다. 야외 자리가 열려 있으면(outdoorFree)
  * 아예 어려움은 아니고 "야외는 가능" 으로 낮춘다 — 단, 이번 여행에 실내가 꼭 필요하면(C4 와 같은
  * 기준) 야외 자리는 답이 아니므로 어려움이다.
+ *
+ * 원문이 대형견을 받는다고 적었으면(`largeDogOk`) 막는 것은 크기가 아니라 케이지다 — "대형견은 어려워요" 라고 하면
+ * "(대형견도 환영)" 바로 옆에서 원문과 반대 말을 한다(신창해물라면와랑식탁, 14 W261007.3).
  */
 const ruleLargeNeedsCage: TRule = (dog, policy, opts) => {
   if (policy.indoor !== 'cage') return null;
   if (dogSize(dog) !== 'large') return null;
   if (dog.carrier === 'cage') return null;
+  const subject = policy.largeDogOk ? '케이지가 없어' : '실내는 케이지 필수라 대형견은';
   if (policy.outdoorFree) {
-    const text = '실내는 케이지 필수라 대형견은 야외 자리만 가능해요';
+    const text = `${subject} 야외 자리만 가능해요`;
     return opts.needsIndoor
       ? { level: 'hard', text, quote: policy.sources.indoor }
       : { level: 'cond', text, quote: policy.sources.indoor };
   }
-  return { level: 'hard', text: '실내는 케이지 필수라 대형견은 어려워요', quote: policy.sources.indoor };
+  const text = policy.largeDogOk ? '케이지가 없어 실내는 어려워요' : '실내는 케이지 필수라 대형견은 어려워요';
+  return { level: 'hard', text, quote: policy.sources.indoor };
 };
 
 /**
@@ -303,6 +308,8 @@ const ruleLargeDogUnmentioned: TRule = (dog, policy) => {
   if (dogSize(dog) !== 'large') return null;
   if (policy.largeDogOk) return null;
   if (policy.largeDogNo) return null; // H7 이 어려움으로 말한다
+  // "소형견에 한해" 가 이미 크기를 말했다 — H3 이 어려움으로 짚는 옆에 "언급이 없어요" 를 두면 이유끼리 다툰다(14 W261007.3).
+  if (policy.smallDogOnly) return null;
   // 몸무게가 있는 구간만 대형견을 말한 것이다 — 마릿수만 있는 구간('최대 2마리')은 크기에 대해 아무 말도 안 했다.
   // 전엔 구간이 하나라도 있으면 넘어가서, 마릿수만 적힌 곳의 대형견이 '갈 수 있어요' 로 나왔다(pnpm data eval 이 찾음).
   if (policy.tiers.some((tier) => tier.maxWeightKg !== undefined)) return null;

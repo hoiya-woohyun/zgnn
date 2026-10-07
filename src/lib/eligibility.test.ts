@@ -96,6 +96,26 @@ describe('judgeEligibility — 케이지 필수 식당("케이지 동반시 가�
   });
 });
 
+describe('judgeEligibility — 이유끼리·원문과 다투지 않는다(14 W261007.3)', () => {
+  const BORI: TDogProfile = { dogs: [{ name: '보리', weightKg: 30 }], carrier: 'none' };
+
+  it('"소형견에 한해" 면 H3 만 말하고 "대형견 언급이 없어요" 를 옆에 두지 않는다(부띠크풀빌라 나미브)', () => {
+    const result = judgeEligibility(BORI, findPlace('부띠크풀빌라 나미브').policy);
+    expect(result.level).toBe('hard');
+    const texts = result.reasons.map((r) => r.text);
+    expect(texts).toContain('소형견만 가능해요');
+    expect(texts.some((t) => t.includes('대형견 언급이 없어요'))).toBe(false);
+  });
+
+  it('"(대형견도 환영)" 이면 막는 것은 크기가 아니라 케이지다(신창해물라면와랑식탁)', () => {
+    const result = judgeEligibility(BORI, findPlace('신창해물라면와랑식탁').policy);
+    expect(result.level).toBe('hard');
+    const texts = result.reasons.map((r) => r.text);
+    expect(texts).toContain('케이지가 없어 실내는 어려워요');
+    expect(texts.some((t) => t.includes('대형견은'))).toBe(false);
+  });
+});
+
 describe('judgeEligibility — 실내 케이지 · 실외 자유("무거버거")', () => {
   it('보리+콩은 조건부 — 야외 자리는 갈 수 있다', () => {
     const place = findPlace('무거버거');
