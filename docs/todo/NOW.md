@@ -33,6 +33,7 @@
 - [ ] ADR-026 "경로는 우리, 운전 안내는 네이버" + `docs/features/trip-route.md` — [16 T3.1](16-trip-route-planner.md) · 왜 지금: 웹 주소로 간 결정(T1.3·T1.5)이 문서에 없다
 - [ ] 어려움 곳을 목록 끝에 접기 — [08 T5.3](08-usability-and-process-plan.md) · 왜 지금: 판정 화면 다듬기. `hideHard` 와의 관계는 권고로 정해 진행하고 「기다림」 에 🙋
 - [ ] md+(iPad)에서 가장자리 띠가 사이드바 밑 — [12 U4.5](12-ux-audit-2026-10-02.md) · 왜 지금: iPad 에서 끌어 뒤로가 안 된다. `appShell.tsx` 를 다른 작업이 고치는 중이면 건너뛴다
+- [ ] app-shell-and-state 에 `carryHistoryStamp` 한 줄 — [12 U4.7](12-ux-audit-2026-10-02.md) · 왜 지금: 그 파일을 고치던 작업이 끝났다, 문서 한 줄
 - [ ] 데스크톱 목록 2열·필터 칩 줄바꿈 — [07 U10](07-product-and-ux.md) · 왜 지금: 다듬기, 상세 sticky 열(08 T5.6 뒤 절반)은 빼고 목록만
 
 ## 기다림 (사람 손·결정)
@@ -65,4 +66,3 @@
 ## 발견 (분류 전)
 
 <!-- /next 가 작업 중 찾은 것을 한 줄씩 — 출처: <커밋/파일>. 멈출 때 번호 문서로 옮긴다 -->
-- `docs/architecture/app-shell-and-state.md` 에 `carryHistoryStamp`(같은 경로 replace 가 깊이·탭을 잇는다) 한 줄 — 다른 작업이 그 파일을 고치는 중이라 ADR-025 「결과」 에만 적었다. 그 작업이 커밋되면 — 출처: 9befaf2
