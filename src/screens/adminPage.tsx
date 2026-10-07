@@ -29,7 +29,7 @@ import { addressUnresolved, type TAddressChoice } from '../lib/adminAddress';
 import { prepareReanalyze, reanalyzePlan, reanalyzeSummary } from '../lib/adminReanalyze';
 import { collectView, fetchCollectRequests, requestCollect, type TCollectRequestsLoad } from '../lib/adminCollectRequest';
 import { requestAnalyze, type TAnalyzeLimit } from '../lib/adminRequests';
-import { bulkApproveJobs, bulkApproveNeedsLook, bulkApproveSummary, bulkApproveText, bulkLatestSummary, bulkLatestTargets, summarizeBulk, type TBulkTally } from '../lib/adminBulk';
+import { bulkApproveJobs, bulkApproveNeedsLook, bulkApproveSummary, bulkApproveText, bulkLatestSummary, bulkLatestTargets, bulkTone, summarizeBulk, type TBulkTally, type TBulkTone } from '../lib/adminBulk';
 import {
   countStrandedCandidates,
   fetchMatchablePlaces,
@@ -203,11 +203,20 @@ type TBulkMode = 'reject' | 'reanalyze' | 'approve' | 'latest';
  * `종류 엇갈림`(2026-10-04)은 막지는 않지만 그대로 올리면 종류 칩·지도 색이 틀린다(`typeMismatchFlags`).
  */
 
-const WARN_MATCH: Record<Exclude<TWarnFilter, 'all' | 'any'>, (card: { group: TCandidateGroup; view: { badges: { key: string }[] } }) => boolean> = {
+const WARN_MATCH: Record<Exclude<TWarnFilter, 'all' | 'any' | 'waiting' | 'failed'>, (card: { group: TCandidateGroup; view: { badges: { key: string }[] } }) => boolean> = {
   region: (card) => card.view.badges.some((badge) => badge.key === '지역 없음'),
   address: (card) => addressUnresolved(card.group.lead.extracted),
   noBasis: (card) => verifyNeedsLook(card.group.lead.extracted.verify),
   typeMismatch: (card) => card.view.badges.some((badge) => badge.key.startsWith(TYPE_MISMATCH_FLAG)),
+};
+
+/**
+ * 후보의 성질이 아니라 **방금 일괄이 남긴 줄**을 고르는 둘(todo/09 T6.4). 결과 줄이 "2곳은 직접 골라야 해요 · 1곳 실패" 라 말한
+ * 그 셋을 141줄에서 찾는 길이다. `any`(경고 있는 것)에는 안 넣는다 — 그 선택지는 올리기 전에 볼 성질을 세는 것이고 이 둘은 새로고침하면 없다.
+ */
+const BULK_MATCH: Record<'waiting' | 'failed', (state: TAdminPageGroupState | undefined) => boolean> = {
+  waiting: (state) => Boolean(state?.similar || state?.archived),
+  failed: (state) => Boolean(state?.error),
 };
 
 const WARN_FILTERS: { key: TWarnFilter; label: string; hint?: string }[] = [
@@ -217,11 +226,17 @@ const WARN_FILTERS: { key: TWarnFilter; label: string; hint?: string }[] = [
   { key: 'address', label: '주소 다름', hint: '원글 주소와 검색 주소 중 하나를 골라야 올릴 수 있어요' },
   { key: 'noBasis', label: '동반 근거 없음', hint: '교차점검이 강아지를 데려간 근거를 못 찾은 곳' },
   { key: 'typeMismatch', label: '종류 엇갈림', hint: '네이버 카테고리·요약은 카페인데 종류가 식당인 곳(반대도)' },
+  { key: 'waiting', label: '결정 기다림', hint: '방금 일괄에서 사람이 골라야 해서 멈춘 줄 — 펼쳐서 고르세요' },
+  { key: 'failed', label: '실패', hint: '방금 쓰기가 실패한 줄 — 이유는 줄에 적혀 있어요' },
 ];
 
-const warnMatches = (filter: TWarnFilter, card: { group: TCandidateGroup; view: { badges: { key: string }[] } }): boolean =>
+const warnMatches = (filter: TWarnFilter, card: { group: TCandidateGroup; view: { badges: { key: string }[] } }, state?: TAdminPageGroupState): boolean =>
   filter === 'all' ||
-  (filter === 'any' ? Object.values(WARN_MATCH).some((match) => match(card)) : WARN_MATCH[filter](card));
+  (filter === 'any'
+    ? Object.values(WARN_MATCH).some((match) => match(card))
+    : filter === 'waiting' || filter === 'failed'
+      ? BULK_MATCH[filter](state)
+      : WARN_MATCH[filter](card));
 
 const POLICY_FILTERS: { key: TPolicyFilter; label: string; hint?: string }[] = [
   { key: 'all', label: '전체' },
@@ -320,7 +335,7 @@ export function AdminPage() {
    * 표 위 줄의 상태. `mode` 는 **지금 열린 확인 하나**다 — 반려 폼·재분석 확인·올리기 확인·최신본 확인이 동시에 열리면
    * 어느 확인 버튼이 무엇을 하는지 흐려진다(불리언 여럿이던 때 둘이 같이 열릴 수 있었다).
    */
-  const [bulk, setBulk] = useState<{ busy?: boolean; mode?: TBulkMode; summary?: string; error?: string }>({});
+  const [bulk, setBulk] = useState<{ busy?: boolean; mode?: TBulkMode; summary?: string; tone?: TBulkTone; error?: string }>({});
   const [tab, setTab] = useState<TTab>(initialUrl.tab);
   /*
    * 등록 완료·등록 해제가 **한 목록을 나눠 쓴다**(`status` 로 가른다) — 되살리기 한 번에 두 탭 건수가 같은 틱에 움직인다.
@@ -1103,7 +1118,8 @@ export function AdminPage() {
       setGroups((prev) => prev.filter((group) => !done.has(group.key)));
       setStates((prev) => Object.fromEntries(Object.entries(prev).filter(([key]) => !done.has(key))));
       setSelected((prev) => clearKeys(prev, [...done]));
-      setBulk({ summary: summarizeBulkReject(done.size, failed, blockFailed), error: firstError });
+      // 블랙리스트만 실패한 곳도 '남은 일' 로 센다 — 제외는 됐지만 다시 올라올 수 있는 구멍이라 초록일 수 없다.
+      setBulk({ summary: summarizeBulkReject(done.size, failed, blockFailed), tone: bulkTone({ done: done.size, waiting: 0, failed: failed + blockFailed }), error: firstError });
     },
     [beginWrite, endWrite, groups],
   );
@@ -1267,7 +1283,7 @@ export function AdminPage() {
       setStates((prev) => Object.fromEntries(Object.entries(prev).filter(([key]) => !done.has(key))));
       setSelected((prev) => clearKeys(prev, [...done]));
       setPlacesView([...placesRef.current]);
-      setBulk({ summary: `${summarizeBulk(kind === 'latest' ? '덮어썼어요' : '올렸어요', tally)} · 사이트에는 다음 빌드에서 보여요` });
+      setBulk({ summary: `${summarizeBulk(kind === 'latest' ? '덮어썼어요' : '올렸어요', tally)} · 사이트에는 다음 빌드에서 보여요`, tone: bulkTone(tally) });
       if (tally.done) afterWrite();
       // 실패가 후보를 `approved` 로 남겼을 수 있다 — 한 줄 승인과 같은 이유로 다시 센다.
       if (tally.failed) {
@@ -1375,7 +1391,7 @@ export function AdminPage() {
     kind: (card) => kindMatches(kindFilter, card.group),
     type: (card) => typeMatches(typeFilter, card.group),
     policy: (card) => policyFilter === 'all' || POLICY_FILTER_MATCH[policyFilter](card),
-    warn: (card) => warnMatches(warnFilter, card),
+    warn: (card) => warnMatches(warnFilter, card, states[card.group.key]),
   };
   /** `except` 축을 열어 둔 채 나머지를 적용한 목록 — 그 축의 선택지 개수를 세는 바탕이다. */
   const without = (except: TAxis) =>
@@ -1826,7 +1842,7 @@ export function AdminPage() {
           >
             {WARN_FILTERS.map((entry) => (
               <Select.Item key={entry.key} id={entry.key} supportingText={entry.hint}>
-                {`${entry.label} ${baseWarn.filter((card) => warnMatches(entry.key, card)).length}`}
+                {`${entry.label} ${baseWarn.filter((card) => warnMatches(entry.key, card, states[card.group.key])).length}`}
               </Select.Item>
             ))}
           </Select>
@@ -1896,6 +1912,7 @@ export function AdminPage() {
           busy={Boolean(bulk.busy)}
           mode={bulk.mode}
           summary={bulk.summary}
+          tone={bulk.tone}
           error={bulk.error}
           latestCount={selectedKeys.length ? bulkLatestTargets(groups.filter((group) => selectedSet.has(group.key)), placesView).eligible.length : 0}
           approveNeedsLook={bulkApproveNeedsLook(bulkApproveSummary(groups, selectedKeys, placesView))}

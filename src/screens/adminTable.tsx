@@ -124,6 +124,12 @@ export const ADMIN_PANEL_DIVIDER = 'border-t border-dashed border-tertiary';
  * 열이 어긋나고, 어긋난 열은 이 표가 막으려는 바로 그 오독이다. `inset` 그림자는 자리를 먹지 않는다.
  */
 export const ADMIN_ROW_OPEN = 'bg-active shadow-[inset_3px_0_0_0_var(--color-bg-brand-solid)]';
+/**
+ * 접힌 줄이 **방금 일괄에서 멈춘 자리**라는 표식(todo/09 T6.4). 펼친 줄과 같은 안쪽 그림자 자리에 색만 다르다 —
+ * 사람이 골라야 해서 멈췄으면 노랑, 쓰기가 실패했으면 빨강. 141줄 중 어느 셋이 기다리는지 줄을 훑으며 찾는 자리라 글보다 먼저 보여야 한다.
+ */
+export const ADMIN_ROW_WAITING = 'shadow-[inset_3px_0_0_0_var(--color-bg-warning-solid)]';
+export const ADMIN_ROW_FAILED = 'shadow-[inset_3px_0_0_0_var(--color-bg-error-solid)]';
 
 /**
  * 줄 맨 앞의 **고르기 칸**. 머리글과 줄이 같은 폭을 쓰도록 여기서 한 번만 정한다 — 두 곳에 적으면

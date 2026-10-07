@@ -28,7 +28,7 @@ import { AdminPageGroupDetail } from './adminPageGroupDetail';
 import { AdminPageGroupSiteCompare } from './adminPageGroupSiteCompare';
 import { AdminTypeChip } from './adminTypeChip';
 import { AdminPageGroupActions } from './adminPageGroupActions';
-import { ADMIN_LEAD_CELL, ADMIN_PANEL_DIVIDER, ADMIN_POLICY_TONE, ADMIN_ROW, ADMIN_ROW_CELLS, ADMIN_ROW_OPEN, ADMIN_VERIFY_TEXT } from './adminTable';
+import { ADMIN_LEAD_CELL, ADMIN_PANEL_DIVIDER, ADMIN_POLICY_TONE, ADMIN_ROW, ADMIN_ROW_CELLS, ADMIN_ROW_FAILED, ADMIN_ROW_OPEN, ADMIN_ROW_WAITING, ADMIN_VERIFY_TEXT } from './adminTable';
 
 /** 묶음 하나의 화면 상태. 소유자는 `adminPage.tsx` 고 여기는 받아서 그린다. */
 export type TAdminPageGroupState = {
@@ -255,6 +255,8 @@ export function AdminPageGroupCard({
   /** 고를 두 주소 — `approveGroup` 의 가드와 같은 판정(`addressConflictOf`)이라 여기서 안 뜨는 줄은 거기서도 안 멈춘다. */
   const conflict = addressConflictOf(extracted);
   const addressPick = conflict ? { blog: conflict.sourceAddress, search: conflict.address } : null;
+  /** 쓰기 전에 멈춰 사람이 고를 차례인 줄 — `similar`(닮은 곳)·`archived`(내린 곳) 둘 다 같은 종류의 상태다. */
+  const waiting = Boolean(state.similar || state.archived);
 
   return (
     /*
@@ -262,7 +264,15 @@ export function AdminPageGroupCard({
      * 펼쳤으면 머리와 패널을 **왼쪽 한 줄기 색**으로 묶는다(`ADMIN_ROW_OPEN`): 결정 버튼이 그 패널에 있어서,
      * 어느 줄의 패널인지 눈으로 정하지 못하면 그것이 곧 다른 가게를 올리는 길이다.
      */
-    <li className={cx(ADMIN_ROW, expanded ? ADMIN_ROW_OPEN : 'hover:bg-primary_hover')}>
+    <li
+      className={cx(
+        ADMIN_ROW,
+        expanded ? ADMIN_ROW_OPEN : 'hover:bg-primary_hover',
+        // 접힌 채로도 멈춘 줄은 줄기색으로 찾힌다 — 일괄이 141줄 중 셋을 세워 두면 그 셋을 한 줄씩 펼쳐 찾던 자리(todo/09 T6.4).
+        !expanded && waiting && ADMIN_ROW_WAITING,
+        !expanded && !waiting && state.error && ADMIN_ROW_FAILED,
+      )}
+    >
       {/*
         * 고르기 칸은 펼침 버튼 **바깥**에 선다. 버튼 안에 두면 버튼 안의 버튼이라 눌러도 체크가 아니라
         * 펼침이 토글되고, HTML 로도 틀린 구조다. 폭은 `ADMIN_LEAD_CELL` 이 머리글과 함께 소유한다.
@@ -296,6 +306,12 @@ export function AdminPageGroupCard({
               aria-hidden="true"
               className={cx('size-3.5 shrink-0 text-fg-quaternary transition-transform', expanded && 'rotate-180')}
             />
+            {/* 펼치면 '골라 주세요' 패널이 그 말을 하므로 뱃지는 접힌 동안만 — 결과 줄의 "N곳은 직접 골라야 해요" 가 가리키는 줄이 이것이다. */}
+            {!expanded && waiting && (
+              <Badge type="color" size="sm" color="warning">
+                골라 주세요
+              </Badge>
+            )}
             {group.rows.length > 1 && (
               <span className="text-xs text-quaternary">
                 글 {group.rows.length}건

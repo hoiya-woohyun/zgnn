@@ -176,3 +176,16 @@ export function summarizeBulk(verb: string, tally: TBulkTally): string {
   if (tally.failed) parts.push(`${tally.failed}곳 실패 — 줄에 이유를 적어 뒀어요`);
   return parts.join(' · ');
 }
+
+export type TBulkTone = 'success' | 'warning' | 'error';
+
+/**
+ * 일괄 결과 줄의 색. 글은 `summarizeBulk` 가 바르게 세어도 줄이 늘 초록이면 운영자는 숫자를 안 읽는다 —
+ * "0곳 올렸어요 · 3곳 실패" 가 초록으로 선 것이 todo/09 T6.4 의 출발이다. 하나도 못 했으면 빨강,
+ * 일부가 기다리거나 실패했으면 노랑(할 일이 남았다), 전부 됐을 때만 초록.
+ */
+export function bulkTone(tally: TBulkTally): TBulkTone {
+  const left = tally.waiting + tally.failed;
+  if (left === 0) return 'success';
+  return tally.done === 0 ? 'error' : 'warning';
+}

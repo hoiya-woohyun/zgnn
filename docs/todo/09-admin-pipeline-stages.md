@@ -403,7 +403,10 @@ P0 세 줄은 독립이다. 권장: T2.1(문구·색, 가장 싸고 지금 혼�
 
 ## P1 — 운영자를 느리게 하는 자리 (UX 감사)
 
-### [ ] T6.4 일괄 뒤 "직접 골라야 해요" 줄을 접힌 채로 찾을 수 없다
+### [x] T6.4 일괄 뒤 "직접 골라야 해요" 줄을 접힌 채로 찾을 수 없다
+
+> 메모(2026-10-07): 접힌 줄에 `골라 주세요` 뱃지 + 노란 줄기(실패는 빨간 줄기, `adminTable.tsx` 의 `ADMIN_ROW_WAITING`·`ADMIN_ROW_FAILED`) · 경고 드롭다운에 `결정 기다림`·`실패`(`BULK_MATCH` — `states` 를 보고 고르므로 `any` 엔 안 센다, 새로고침하면 빈다) ·
+> 결과 줄 색은 `bulkTone`(`adminBulk.ts`, 테스트) — 제외 줄은 블랙리스트만 실패한 곳도 남은 일로 세어 노랑. **화면은 못 봤다**(로그인 뒤 일괄 쓰기 결과라 원격 쓰기 없이는 안 선다) — 다음 실제 일괄 때 한 번 볼 것.
 
 - 근거: `needsDecision`·`archivedTarget` 은 `state.similar`/`state.archived` 만 세우고(`adminPage.tsx:668-677`), 접힌 줄은 `!expanded && state.error` 만 그린다(`adminPageGroupCard.tsx:218,391`). 141줄 중 어느 3줄이 기다리는지는 한 줄씩 펼쳐야 안다.
 - 단계: `state.similar || state.archived` 면 접힌 줄에 `골라 주세요` 뱃지 + 줄기색. 경고 드롭다운에 `결정 기다림`·`실패` 선택지(`states` 기준). 결과 줄의 톤 — `tally.done === 0` 이면 `error`, 부분 실패면 `warning`(지금은 늘 `text-success-primary`, `adminPageBulkBar.tsx:122` · `adminPage.tsx:700` — "0곳 올렸어요 · 3곳 실패" 도 초록). `summarizeBulk` 에 `tone` 한 칸.

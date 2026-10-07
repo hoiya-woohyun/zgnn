@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bulkApproveJobs, bulkApproveNeedsLook, bulkApproveSummary, bulkApproveText, bulkLatestSummary, bulkLatestTargets, summarizeBulk, thinNewEvidence } from './adminBulk';
+import { bulkApproveJobs, bulkApproveNeedsLook, bulkTone, bulkApproveSummary, bulkApproveText, bulkLatestSummary, bulkLatestTargets, summarizeBulk, thinNewEvidence } from './adminBulk';
 import type { TCandidateGroup, TPlaceRow } from './adminCandidates';
 
 const place = (id: string, over: Partial<TPlaceRow> = {}) =>
@@ -40,6 +40,16 @@ describe('bulkLatestTargets — 제안이 있으면 제안이 켠 칸만(11 U7)'
     const plan = bulkLatestTargets([g], [place('p1', { category: '카페' })]);
     expect(plan.eligible).toHaveLength(1);
     expect(plan.eligible[0]).toMatchObject({ changes: 1, columns: ['category'] });
+  });
+});
+
+describe('bulkTone', () => {
+  it('하나도 못 했으면 빨강, 일부가 남았으면 노랑, 전부 됐을 때만 초록', () => {
+    expect(bulkTone({ done: 3, waiting: 0, failed: 0 })).toBe('success');
+    expect(bulkTone({ done: 0, waiting: 0, failed: 3 })).toBe('error');
+    expect(bulkTone({ done: 0, waiting: 2, failed: 0 })).toBe('error');
+    expect(bulkTone({ done: 138, waiting: 0, failed: 3 })).toBe('warning');
+    expect(bulkTone({ done: 3, waiting: 2, failed: 0 })).toBe('warning');
   });
 });
 

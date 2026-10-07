@@ -3,11 +3,18 @@
 import { Button } from '../components/base/button';
 import { Checkbox } from '../components/base/checkbox';
 import type { TBlockChoice } from '../lib/adminBlocks';
+import type { TBulkTone } from '../lib/adminBulk';
 import type { TRejectReason } from '../lib/adminCandidates';
 import { cx } from '../utils/cx';
 import { AdminPageRejectForm } from './adminPageRejectForm';
 
 type TBulkMode = 'reject' | 'reanalyze' | 'approve' | 'latest';
+
+const SUMMARY_TONE: Record<TBulkTone, string> = {
+  success: 'text-success-primary',
+  warning: 'text-warning-primary',
+  error: 'text-error-primary',
+};
 
 type TAdminPageBulkBarProps = {
   selectedCount: number;
@@ -17,6 +24,8 @@ type TAdminPageBulkBarProps = {
   /** 지금 열린 확인 하나. 반려는 사유 폼, 나머지는 확인 문장 + 버튼. */
   mode?: TBulkMode;
   summary?: string;
+  /** 결과 줄의 색(`bulkTone`) — 없으면 초록. 글이 "3곳 실패" 라 해도 초록이면 안 읽힌다(todo/09 T6.4). */
+  tone?: TBulkTone;
   error?: string;
   /** 고른 것 중 덮어쓸 수 있는 곳 수 — 버튼 라벨에 싣고 0 이면 버튼을 안 그린다. */
   latestCount: number;
@@ -60,6 +69,7 @@ export function AdminPageBulkBar({
   busy,
   mode,
   summary,
+  tone = 'success',
   error,
   latestCount,
   approveNeedsLook,
@@ -123,7 +133,7 @@ export function AdminPageBulkBar({
         )}
       </div>
 
-      {summary ? <p className="mt-1.5 text-xs text-success-primary">{summary}</p> : null}
+      {summary ? <p className={cx('mt-1.5 text-xs', SUMMARY_TONE[tone])}>{summary}</p> : null}
       {error ? <p className="mt-1.5 text-xs text-error-primary">{error}</p> : null}
 
       {confirm && confirmText ? (

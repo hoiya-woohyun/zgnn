@@ -28,7 +28,6 @@
 ## 지금 (위에서부터)
 
 - [ ] CLI 반영(`pnpm data apply`)의 신규 장소도 `published` 로 — [13 §5.1 P2](13-ai-analysis-audit-2026-10-04.md) · 왜 지금: 같은 '승인' 이 길에 따라 사이트에 뜨고 안 뜬다(권고 "맞춘다" 대로 진행 — `applyApproved.mjs:300` 한 줄 + 주석·data-pipeline 문서. 돌리는 건 사용자)
-- [ ] 일괄 뒤 기다리는 줄·실패한 줄을 접힌 채로 찾고 결과 줄이 색으로 말한다 — [09 T6.4](09-admin-pipeline-stages.md) · 왜 지금: "0곳 올렸어요 · 3곳 실패" 가 초록이라 운영자가 잘못 믿는다. 가장 작다
 - [ ] 블랙리스트 탭 — 보기·풀기·기간 바꾸기 — [09 T1.5](09-admin-pipeline-stages.md) · 왜 지금: `place_blocks` 는 원격에 있는데 목록이 없어 무엇이 막혀 있는지 아무도 모른다. `adminBlocks.ts` 에 `fetchBlocks`·`liftBlock`·`extendBlock` 이 아직 없다
 - [ ] 검수 카드에 "동반 불가 정황" 근거 문장 칠하기 — [06 G](06-admin-review.md) 둘째 항목 · 왜 지금: 같은 절의 `correctionView`·`spansOf` 가 본보기라 한 칸 더 얹는 일. 첫 항목(원글↔다른 글 충돌)은 재검색이 먼저라 아니다
 - [ ] 일괄 처리에 진행 수와 취소 — [09 T6.5](09-admin-pipeline-stages.md) · 왜 지금: 141건이 스피너 하나라 멈춘 줄 안다. T6.4 와 같은 파일(`adminPageBulkBar.tsx`)이라 그 뒤에

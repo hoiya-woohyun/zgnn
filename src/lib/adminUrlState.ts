@@ -24,7 +24,11 @@ export type TPolicyFilter = (typeof POLICY_FILTER_KEYS)[number];
 export const TYPE_FILTER_KEYS = ['all', 'stay', 'restaurant', 'cafe', 'other'] as const;
 export type TTypeFilter = (typeof TYPE_FILTER_KEYS)[number];
 
-export const WARN_FILTER_KEYS = ['all', 'any', 'region', 'address', 'noBasis', 'typeMismatch'] as const;
+/**
+ * `waiting`·`failed` 는 후보의 성질이 아니라 **방금 일괄이 남긴 자리**다(사람이 골라야 멈춘 줄 · 쓰기 실패한 줄, todo/09 T6.4).
+ * 새로고침하면 그 상태가 없어 비므로 주소에 적혀도 뜻이 없지만, 같은 드롭다운이라 같은 키 묶음에 둔다.
+ */
+export const WARN_FILTER_KEYS = ['all', 'any', 'region', 'address', 'noBasis', 'typeMismatch', 'waiting', 'failed'] as const;
 export type TWarnFilter = (typeof WARN_FILTER_KEYS)[number];
 
 export type TAdminUrlState = {
