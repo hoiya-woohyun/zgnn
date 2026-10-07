@@ -31,6 +31,7 @@
 ## 지금 (위에서부터)
 
 - [ ] C4 단독도 '야외 자리에서 갈 수 있어요' — [14 W261007.2](14-weekly-ux-eval.md) · 왜 지금: 무거버거 '확인 필요' vs 부부키친 '야외 가능', 같은 답이 갈린다(반복 2회). `eligibility.ts` 머리글 규칙 한 곳
+- [ ] 하루 머리의 묶음 판정 + 걸린 곳 옆 "대신 △△"(임시안) — [16 T2.3](16-trip-route-planner.md) · 왜 지금: T2.1·T2.2(`tripEligibility`·`tripAlternatives`)가 들어갔고 화면만 남았다
 - [ ] ADR-026 "경로는 우리, 운전 안내는 네이버" + `docs/features/trip-route.md` — [16 T3.1](16-trip-route-planner.md) · 왜 지금: 웹 주소로 간 결정(T1.3·T1.5)이 문서에 없다
 - [ ] 어려움 곳을 목록 끝에 접기 — [08 T5.3](08-usability-and-process-plan.md) · 왜 지금: 판정 화면 다듬기. `hideHard` 와의 관계는 권고로 정해 진행하고 「기다림」 에 🙋
 - [ ] md+(iPad)에서 가장자리 띠가 사이드바 밑 — [12 U4.5](12-ux-audit-2026-10-02.md) · 왜 지금: iPad 에서 끌어 뒤로가 안 된다. `appShell.tsx` 를 다른 작업이 고치는 중이면 건너뛴다
