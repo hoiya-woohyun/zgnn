@@ -129,7 +129,15 @@
   }
 }
 
+/*
+  transform 키프레임은 `from` 을 꼭 적는다. 비워 두면 인라인 `scale(calc(1 - … * var(--morph)))` 가 시작값이 되는데, WebKit(iOS Safari)은
+  그때 scale 을 진행률의 **제곱**으로 낸다(실측: 진행 0.498 에서 0.252, translate 는 선형). 히어로에서는 좌우 커튼이 귀보다 먼저 걷혀
+  모서리가 어긋나고 카드 둘레에 선이 보였다. 시작은 언제나 제자리(항등)다.
+*/
 @keyframes morph-title {
+  from {
+    transform: translateY(0) scale(1);
+  }
   to {
     transform: translateY(calc(var(--spacing) * -2)) scale(var(--title-scale, 1));
   }
@@ -148,6 +156,9 @@
 
 /* 크기는 절반까지 다 줄고(판이 빠지는 것과 같이), 가로 이동은 끝까지 고르게 간다. 도착 자세(100%)는 그대로다. */
 @keyframes morph-flight-thumb {
+  0% {
+    transform: translateX(0) scale(1);
+  }
   50% {
     transform: translateX(calc(var(--thumb-tx, 0px) * 0.5)) scale(var(--thumb-scale, 1));
   }
@@ -167,6 +178,9 @@
 }
 
 @keyframes morph-flight-title {
+  from {
+    transform: translateX(0) scale(1);
+  }
   to {
     transform: translateX(var(--title-tx, 0px)) scale(var(--title-scale, 1));
   }
@@ -193,18 +207,27 @@
 }
 
 @keyframes morph-hero-mark {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
   to {
     transform: translate(var(--ptx, 0px), var(--pty, 0px)) scale(var(--mark-scale, 1));
   }
 }
 
 @keyframes morph-hero-title {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
   to {
     transform: translate(var(--tx, 0px), var(--ty, 0px)) scale(var(--title-scale, 1));
   }
 }
 
 @keyframes morph-curtain-side {
+  from {
+    transform: scaleX(1);
+  }
   to {
     transform: scaleX(0);
   }
@@ -220,24 +243,36 @@
 }
 
 @keyframes morph-corner-tl {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
   to {
     transform: translate(calc(-1 * var(--side, 0px)), var(--clip-top, 0px)) scale(0);
   }
 }
 
 @keyframes morph-corner-tr {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
   to {
     transform: translate(var(--side, 0px), var(--clip-top, 0px)) scale(0);
   }
 }
 
 @keyframes morph-corner-bl {
+  from {
+    transform: translateX(0) scale(1);
+  }
   to {
     transform: translateX(calc(-1 * var(--side, 0px))) scale(0);
   }
 }
 
 @keyframes morph-corner-br {
+  from {
+    transform: translateX(0) scale(1);
+  }
   to {
     transform: translateX(var(--side, 0px)) scale(0);
   }

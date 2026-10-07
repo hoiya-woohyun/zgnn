@@ -35,6 +35,9 @@ const PAW_SCALE_END = 6 / 9;
 /** 헤더에서 발바닥과 제목 사이 간격 = 줄어든 발바닥 폭의 1/3(6단 → 2단). --spacing 을 따로 재지 않으려고 폭에서 파생한다. */
 const PAW_GAP_RATIO = 1 / 3;
 
+/** 귀 조각이 카드 바깥으로 넘치는 폭(`corner` 주석). 커튼 폭(16px)보다 작기만 하면 된다. */
+const CORNER_BLEED = '2px';
+
 const useBeforePaint = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 /** 부모 사슬을 따라 `ancestor` 기준 위치를 더한다. offset* 은 transform 을 무시하므로 접힌 중에 재도 **제자리**가 나온다. */
@@ -213,10 +216,15 @@ export function HomePageHero({ subtitle, reach, cta }: THomePageHeroProps) {
   const sideCurtain = { transform: 'scaleX(calc(1 - var(--morph)))' } satisfies CSSProperties;
   const topCurtain = { height: 'var(--clip-top, 0px)', transform: 'scaleY(var(--morph))' } satisfies CSSProperties;
   // 네 귀: 카드 모서리를 따라 옮겨 가며(좌우는 여백만큼 바깥으로, 위의 둘은 커튼과 같이 아래로) 16px → 0 으로 준다.
+  // 귀는 카드 바깥(커튼 위)으로 `CORNER_BLEED` 만큼 넘친다. 귀 네모의 변이 카드 변과 딱 겹치면 두 층의 안티앨리어싱이 겹쳐
+  // 잉크가 한 줄 비치고, 둥근 모서리 바깥에 네모 테두리가 옅게 남았다(실측). 축소 기준점은 넘친 만큼 안쪽 = 카드 모서리 그대로다.
   const corner = (x: -1 | 1, top: boolean) =>
     ({
-      width: 'var(--radius-2xl)',
-      height: 'var(--radius-2xl)',
+      width: `calc(var(--radius-2xl) + ${CORNER_BLEED})`,
+      height: `calc(var(--radius-2xl) + ${CORNER_BLEED})`,
+      [x < 0 ? 'marginLeft' : 'marginRight']: `-${CORNER_BLEED}`,
+      [top ? 'marginTop' : 'marginBottom']: `-${CORNER_BLEED}`,
+      transformOrigin: `${x < 0 ? CORNER_BLEED : `calc(100% - ${CORNER_BLEED})`} ${top ? CORNER_BLEED : `calc(100% - ${CORNER_BLEED})`}`,
       transform: `translate(calc(${x} * var(--side, 0px) * var(--morph)), calc(${top ? 'var(--clip-top, 0px)' : '0px'} * var(--morph))) scale(calc(1 - var(--morph)))`,
       // 귀는 모서리 바깥만 크림이다 — 원의 중심이 카드 안쪽 귀퉁이에 있다.
       background: `radial-gradient(circle at ${x < 0 ? 100 : 0}% ${top ? 100 : 0}%, transparent calc(var(--radius-2xl) - 0.5px), var(--color-bg-secondary) var(--radius-2xl))`,
@@ -257,10 +265,10 @@ export function HomePageHero({ subtitle, reach, cta }: THomePageHeroProps) {
           <div data-scroll-morph="curtain-side" className="absolute inset-y-0 left-0 w-4 origin-left bg-secondary md:w-6" style={sideCurtain} />
           <div data-scroll-morph="curtain-side" className="absolute inset-y-0 right-0 w-4 origin-right bg-secondary md:w-6" style={sideCurtain} />
           <div data-scroll-morph="curtain-top" className="absolute inset-x-0 top-0 origin-top bg-secondary" style={topCurtain} />
-          <div data-scroll-morph="corner-tl" className="absolute left-4 top-0 origin-top-left md:left-6" style={corner(-1, true)} />
-          <div data-scroll-morph="corner-tr" className="absolute right-4 top-0 origin-top-right md:right-6" style={corner(1, true)} />
-          <div data-scroll-morph="corner-bl" className="absolute bottom-0 left-4 origin-bottom-left md:left-6" style={corner(-1, false)} />
-          <div data-scroll-morph="corner-br" className="absolute bottom-0 right-4 origin-bottom-right md:right-6" style={corner(1, false)} />
+          <div data-scroll-morph="corner-tl" className="absolute left-4 top-0 md:left-6" style={corner(-1, true)} />
+          <div data-scroll-morph="corner-tr" className="absolute right-4 top-0 md:right-6" style={corner(1, true)} />
+          <div data-scroll-morph="corner-bl" className="absolute bottom-0 left-4 md:left-6" style={corner(-1, false)} />
+          <div data-scroll-morph="corner-br" className="absolute bottom-0 right-4 md:right-6" style={corner(1, false)} />
         </div>
 
         <div ref={padRef} className="relative px-4 md:px-6">
