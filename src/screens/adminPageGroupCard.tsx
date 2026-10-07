@@ -23,11 +23,13 @@ import { toggleOverwritePick } from '../lib/adminLatest';
 import { listPolicyCell, overwriteDefault } from '../lib/adminPairPolicy';
 import { LOOSEN_HINT } from '../lib/policyDirection';
 import { liveProposal, proposalView } from '../lib/adminProposal';
+import { groupQuote } from '../lib/adminGroupQuote';
 import { cx } from '../utils/cx';
 import { AdminPageGroupDetail } from './adminPageGroupDetail';
 import { AdminPageGroupSiteCompare } from './adminPageGroupSiteCompare';
 import { AdminTypeChip } from './adminTypeChip';
 import { AdminPageGroupActions } from './adminPageGroupActions';
+import { AdminSourceChip } from './adminSource';
 import { ADMIN_LEAD_CELL, ADMIN_PANEL_DIVIDER, ADMIN_POLICY_TONE, ADMIN_ROW, ADMIN_ROW_CELLS, ADMIN_ROW_FAILED, ADMIN_ROW_OPEN, ADMIN_ROW_WAITING, ADMIN_VERIFY_TEXT } from './adminTable';
 
 /** 묶음 하나의 화면 상태. 소유자는 `adminPage.tsx` 고 여기는 받아서 그린다. */
@@ -181,6 +183,8 @@ export function AdminPageGroupCard({
   onRequestCollect,
 }: TAdminPageGroupCardProps) {
   const extracted = group.lead.extracted;
+  /** 접힌 줄의 사람 말 한 조각(09 T6.6) — 나머지 칸이 전부 AI 값이라 이것 없이는 매 줄을 펼친다. 펼치면 근거 목록이 말하므로 접힌 동안만. */
+  const quote = expanded ? null : groupQuote(group);
   /*
    * 동반 조건 칸은 **올리면 나갈 조건**이다(todo/13 T2.3) — 짝 장소가 있고 조건 칸이 체크돼 있지 않으면 사이트의 지금 조건을 보여 준다.
    * 글이 읽은 조건을 그대로 두면 상세의 제안("사이트 조건 유지")과 목록이 반대를 말했다(소길스테이).
@@ -300,102 +304,116 @@ export function AdminPageGroupCard({
             * 문제 없는 줄도 경고 줄만큼 화려했다. 이제 이름 옆에 서는 것은 승인을 막거나 미루는 표식뿐이고,
             * 상태(기존 짝 · 글 여러 건 · 동반 확인)는 회색 글씨다.
             */}
-          <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
-            <span className="text-sm font-bold text-primary">{extracted.name || '(이름 없음)'}</span>
-            <ChevronDown
-              aria-hidden="true"
-              className={cx('size-3.5 shrink-0 text-fg-quaternary transition-transform', expanded && 'rotate-180')}
-            />
-            {/* 펼치면 '골라 주세요' 패널이 그 말을 하므로 뱃지는 접힌 동안만 — 결과 줄의 "N곳은 직접 골라야 해요" 가 가리키는 줄이 이것이다. */}
-            {!expanded && waiting && (
-              <Badge type="color" size="sm" color="warning">
-                골라 주세요
-              </Badge>
-            )}
-            {group.rows.length > 1 && (
-              <span className="text-xs text-quaternary">
-                글 {group.rows.length}건
-                {/* 독립 수가 적으면 그 사실이 보이게(경고 톤) — "글 5건" 이 다섯 사람의 말이 아니다. 검수 순서는 이미 독립 수로 센다. */}
-                {similarPosts && <span className="text-warning-primary"> · 비슷한 글 묶음 {group.independentPosts}</span>}
-              </span>
-            )}
-            {otherNames.length > 0 && <span className="text-xs text-warning-primary">같은 자리: {otherNames.join(' · ')}</span>}
-            {/*
-              * tier 가 auto/ask 인데 짝이 비어 있으면 **사람이 비운 것**이고 승인은 **새 장소를 만든다**(adminApply.ts 의 decideTarget).
-              * `확인`(닮은 곳 — 사람이 고를 일)만 색을 갖는다. `기존 → 이름` 은 상태라 회색 글씨, `신규` 는 기본값이라 안 쓴다.
-              */}
-            {group.tier !== 'new' && !pairId ? (
-              <span className="text-xs text-quaternary">짝 비움 · 새 장소로</span>
-            ) : group.tier === 'ask' ? (
-              <Badge type="color" size="sm" color="warning">
-                {TIER_LABEL.ask}
-                {matchedName ? ` → ${matchedName}` : ''}
-              </Badge>
-            ) : group.tier === 'auto' ? (
-              <>
+          <span className="block min-w-0">
+            <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
+              <span className="text-sm font-bold text-primary">{extracted.name || '(이름 없음)'}</span>
+              <ChevronDown
+                aria-hidden="true"
+                className={cx('size-3.5 shrink-0 text-fg-quaternary transition-transform', expanded && 'rotate-180')}
+              />
+              {/* 펼치면 '골라 주세요' 패널이 그 말을 하므로 뱃지는 접힌 동안만 — 결과 줄의 "N곳은 직접 골라야 해요" 가 가리키는 줄이 이것이다. */}
+              {!expanded && waiting && (
+                <Badge type="color" size="sm" color="warning">
+                  골라 주세요
+                </Badge>
+              )}
+              {group.rows.length > 1 && (
                 <span className="text-xs text-quaternary">
-                  {TIER_LABEL.auto}
-                  {matchedName ? ` → ${matchedName}` : ''}
+                  글 {group.rows.length}건
+                  {/* 독립 수가 적으면 그 사실이 보이게(경고 톤) — "글 5건" 이 다섯 사람의 말이 아니다. 검수 순서는 이미 독립 수로 센다. */}
+                  {similarPosts && <span className="text-warning-primary"> · 비슷한 글 묶음 {group.independentPosts}</span>}
                 </span>
-                {/*
-                  * 종류(11 U2) — `갱신` 만 색을 갖는다: 사이트와 다른 사실을 말하는 글이라 사람이 칸을 골라야 한다.
-                  * `보강`(빈 칸만)은 상태라 회색 글씨다.
-                  */}
-                {group.kind === 'update' ? (
-                  <>
-                    <Badge type="color" size="sm" color="brand">
-                      {KIND_LABEL.update}
-                    </Badge>
-                    {/* 제안 없음은 "안 봤다" 다 — 회색 뱃지, 초록이 아니다(`proposalView`). 있으면 회색 글씨로 칸 수만. */}
-                    {proposalBadge?.state === 'missing' ? (
-                      <Badge type="color" size="sm" color="gray">
-                        {proposalBadge.label}
+              )}
+              {otherNames.length > 0 && <span className="text-xs text-warning-primary">같은 자리: {otherNames.join(' · ')}</span>}
+              {/*
+                * tier 가 auto/ask 인데 짝이 비어 있으면 **사람이 비운 것**이고 승인은 **새 장소를 만든다**(adminApply.ts 의 decideTarget).
+                * `확인`(닮은 곳 — 사람이 고를 일)만 색을 갖는다. `기존 → 이름` 은 상태라 회색 글씨, `신규` 는 기본값이라 안 쓴다.
+                */}
+              {group.tier !== 'new' && !pairId ? (
+                <span className="text-xs text-quaternary">짝 비움 · 새 장소로</span>
+              ) : group.tier === 'ask' ? (
+                <Badge type="color" size="sm" color="warning">
+                  {TIER_LABEL.ask}
+                  {matchedName ? ` → ${matchedName}` : ''}
+                </Badge>
+              ) : group.tier === 'auto' ? (
+                <>
+                  <span className="text-xs text-quaternary">
+                    {TIER_LABEL.auto}
+                    {matchedName ? ` → ${matchedName}` : ''}
+                  </span>
+                  {/*
+                    * 종류(11 U2) — `갱신` 만 색을 갖는다: 사이트와 다른 사실을 말하는 글이라 사람이 칸을 골라야 한다.
+                    * `보강`(빈 칸만)은 상태라 회색 글씨다.
+                    */}
+                  {group.kind === 'update' ? (
+                    <>
+                      <Badge type="color" size="sm" color="brand">
+                        {KIND_LABEL.update}
                       </Badge>
-                    ) : proposalBadge ? (
-                      <span className="text-xs text-quaternary">{proposalBadge.label}</span>
-                    ) : null}
-                  </>
-                ) : (
-                  <span className="text-xs text-quaternary">{KIND_LABEL.fill}</span>
-                )}
-              </>
-            ) : null}
-            {matchedArchived && (
-              <Badge type="color" size="sm" color="warning">
-                짝이 내린 곳
-              </Badge>
-            )}
-            {/* 같은 가게에 사용자도 "조건이 달라요" 를 보냈다 — 처리는 등록 완료 칸에서(11 T3.2). */}
-            {pairId && policyReports > 0 && (
-              <Badge type="color" size="sm" color="error">
-                사용자 제보 {policyReports}
-              </Badge>
-            )}
-            {addressConflict && (
-              <Badge type="color" size="sm" color="warning">
-                주소 다름
-              </Badge>
-            )}
-            {/* **막는 것이 먼저다.** `view.badges` 는 빨강(지역 없음·동반불가)부터 정렬돼 온다. */}
-            {view.badges.map((badge) => (
-              <Badge key={badge.key} type="color" size="sm" color={badge.tone}>
-                {badge.label}
-              </Badge>
-            ))}
-            {/*
-              * 교차점검 — `동반 확인`(강아지가 그 자리에 있었다)만 뱃지 없이 **초록 글씨**다. 회색이던 동안 '문장 없음' 옆에서
-              * 경고처럼 읽혔다(2026-10-04). 근거가 운영자 소개글뿐인 경우(엔젤하우스)는 이제 `동반 표기만` 으로 갈려 노란 뱃지가 선다 —
-              * 가장 센 표시가 가장 약한 근거에 붙던 것을 그 갈래가 막는다. 근거 없음·불가 정황도 뱃지다.
-              * 미점검(`null`)은 아무것도 안 그린다(`adminVerify.ts`).
-              */}
-            {verify &&
-              (verify.state === 'confirmed' ? (
-                <span className={cx('text-xs', ADMIN_VERIFY_TEXT[verify.tone])}>{verify.label}</span>
-              ) : (
-                <Badge type="color" size="sm" color={verify.tone}>
-                  {verify.label}
+                      {/* 제안 없음은 "안 봤다" 다 — 회색 뱃지, 초록이 아니다(`proposalView`). 있으면 회색 글씨로 칸 수만. */}
+                      {proposalBadge?.state === 'missing' ? (
+                        <Badge type="color" size="sm" color="gray">
+                          {proposalBadge.label}
+                        </Badge>
+                      ) : proposalBadge ? (
+                        <span className="text-xs text-quaternary">{proposalBadge.label}</span>
+                      ) : null}
+                    </>
+                  ) : (
+                    <span className="text-xs text-quaternary">{KIND_LABEL.fill}</span>
+                  )}
+                </>
+              ) : null}
+              {matchedArchived && (
+                <Badge type="color" size="sm" color="warning">
+                  짝이 내린 곳
+                </Badge>
+              )}
+              {/* 같은 가게에 사용자도 "조건이 달라요" 를 보냈다 — 처리는 등록 완료 칸에서(11 T3.2). */}
+              {pairId && policyReports > 0 && (
+                <Badge type="color" size="sm" color="error">
+                  사용자 제보 {policyReports}
+                </Badge>
+              )}
+              {addressConflict && (
+                <Badge type="color" size="sm" color="warning">
+                  주소 다름
+                </Badge>
+              )}
+              {/* **막는 것이 먼저다.** `view.badges` 는 빨강(지역 없음·동반불가)부터 정렬돼 온다. */}
+              {view.badges.map((badge) => (
+                <Badge key={badge.key} type="color" size="sm" color={badge.tone}>
+                  {badge.label}
                 </Badge>
               ))}
+              {/*
+                * 교차점검 — `동반 확인`(강아지가 그 자리에 있었다)만 뱃지 없이 **초록 글씨**다. 회색이던 동안 '문장 없음' 옆에서
+                * 경고처럼 읽혔다(2026-10-04). 근거가 운영자 소개글뿐인 경우(엔젤하우스)는 이제 `동반 표기만` 으로 갈려 노란 뱃지가 선다 —
+                * 가장 센 표시가 가장 약한 근거에 붙던 것을 그 갈래가 막는다. 근거 없음·불가 정황도 뱃지다.
+                * 미점검(`null`)은 아무것도 안 그린다(`adminVerify.ts`).
+                */}
+              {verify &&
+                (verify.state === 'confirmed' ? (
+                  <span className={cx('text-xs', ADMIN_VERIFY_TEXT[verify.tone])}>{verify.label}</span>
+                ) : (
+                  <Badge type="color" size="sm" color={verify.tone}>
+                    {verify.label}
+                  </Badge>
+                ))}
+            </span>
+            {/*
+              * 이름 밑 한 줄 = 블로그가 실제로 한 말(09 T6.6). 칩이 "여기부터 사람 말" 을 가른다 — 펼친 근거 목록과 같은 칩(`SOURCE_TONE`)이라
+              * 접혀 있어도 옆의 AI 요약과 섞이지 않는다. 한 줄로 자른다: 줄 높이는 계속 AI 요약 칸이 정한다.
+              */}
+            {quote && (
+              <span className="mt-1 flex min-w-0 items-center gap-1.5">
+                <span className="shrink-0">
+                  <AdminSourceChip source="blog" />
+                </span>
+                <span className="truncate text-xs text-secondary">“{quote}”</span>
+              </span>
+            )}
           </span>
 
           {/*
