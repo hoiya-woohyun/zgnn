@@ -140,7 +140,7 @@ pnpm data                  # 워커 — 켜 둔 채로 /admin 「추가 수집�
 - **8** progress — 루프 끝에 `{done: 손댄 글 수, total}` 를 스로틀 없이(`force`), `end()` 도 마지막 값을 같이 쓴다(끊긴 실행은 total 이 아니라 손댄 수).
 - **9** 상태를 못 읽은 바퀴는 실패(`once` exit 1), 정기 수집을 맡은 바퀴가 한 단계도 못 돌면 `daily` 를 **다음 wake** 에 얹는다(`createWaker` — 그 자리에서 다시 돌면 오프라인일 때 빈 바퀴가 쉬지 않는다).
 - **10** `once` 도 `--dry-run` 이 아니면 `CLAUDECODE` 에서 거부.
-- **11** 이번 지시 목록에 없었다(리드 판단) — 내용은 리드에게 확인 중.
+- **11** 고침(신뢰도 LOW, P3) — `createWaker` 의 `running` 을 `.finally` 마이크로태스크가 아니라 루프가 빠지는 순간 동기적으로 비운다. 그 틈에 마이크로태스크로 들어온 `wake()` 의 `again` 이 버려질 수 있었다 — 지금 깨우는 길(타이머·폴링·Realtime 콜백)은 전부 매크로태스크라 실제로는 안 일어났고 두 바퀴가 겹치지도 않았다. 한 줄로 막았다.
 - **12** collect 는 `ownsSignals: false` 면 SIGINT 를 안 단다. `setRunListener` 가 실행 행의 `end` 도 넘겨, 워커가 신호를 받으면 도는 단계의 행(`abortRun` → `failed · 중단(SIGINT)`)과 `workers` 행을 같이 닫는다 — analyze·apply 행도 이제 닫힌다.
 - **13** 「지금 분석」 이 여럿이면 가장 오래된 하나만 집는다(`requestLimit` 은 행 하나).
 - **14** 요청 글의 정본은 `requested_at` 하나 — 기본 분석의 앞줄도 `requested_at is not null` 오래된 순, `recentRequestUrls`·`REQUEST_PRIORITY_DAYS` 삭제.
