@@ -117,6 +117,23 @@ export const subscribeHistoryOwnerRoot = (listener: () => void) => {
 };
 
 /**
+ * 같은 화면 안에서 주소만 고치는 `replaceState`(쿼리·끝 `/` — 지도의 `?saved=1`, 저장한 곳의 주소 정리)에 지금 항목의
+ * 깊이·탭을 잇는다. 순수 함수.
+ *
+ * Next 는 `router.replace` 에도 우리 값을 싣지 않는다(`preserveCustomHistoryState: false` — 새 state 는 `{ __NA, … }` 뿐).
+ * 그런데 경로가 그대로라 셸이 다시 새기지(`stampHistoryDepth`) 않는다. 그대로 두면 그 항목은 값을 잃고, 나중에 뒤로가기로
+ * 돌아올 때 **처음 온 항목**으로 읽혀(`resolveDepth` 가 직전 + 1) 걷기가 덮기로 그려지고 탭 불도 제 탭을 잃는다.
+ * 경로가 바뀌는 replace 는 잇지 않는다 — 그건 새 화면이고 셸이 곧 새긴다(갈아 끼운 깊이는 `markReplacedNavigation` 이 맡는다).
+ */
+export const carryHistoryStamp = (current: unknown, next: unknown, samePath: boolean): unknown => {
+  if (!samePath || typeof next !== 'object' || typeof current !== 'object' || current === null) return next;
+  const from = current as Record<string, unknown>;
+  const to = (next ?? {}) as Record<string, unknown>;
+  if (from[DEPTH_KEY] === undefined || to[DEPTH_KEY] !== undefined) return next;
+  return { ...to, [DEPTH_KEY]: from[DEPTH_KEY], [ROOT_KEY]: from[ROOT_KEY] };
+};
+
+/**
  * 탭 화면끼리의 이동은 history 를 **쌓지 않고 갈아 끼운다**(`isTabSwitch`). 문서를 불러올 때 한 번 부른다.
  *
  * 탭바·사이드바·좌우 스와이프·종류 알약·화면 안의 링크(홈의 "지도에서 보기" 등)가 전부 탭 사이를 옮기는데, 그 길마다
@@ -147,6 +164,12 @@ export const keepTabsOffHistory = () => {
       }
     }
     nativePush(data, unused, url);
+  };
+  // 같은 경로의 replace 가 새긴 값을 지우지 않게(`carryHistoryStamp`). 우리 자신의 새기기는 `url` 없이 부르므로 그대로 지난다.
+  history.replaceState = (data: unknown, unused: string, url?: string | URL | null) => {
+    const samePath =
+      url != null && normalizeRoute(new URL(url, window.location.href).pathname) === normalizeRoute(window.location.pathname);
+    nativeReplace(carryHistoryStamp(history.state, data, samePath), unused, url);
   };
 };
 
