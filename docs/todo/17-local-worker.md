@@ -1,6 +1,7 @@
 # 17. 로컬 워커 — `pnpm data` 하나가 DB 를 보고 수집·분석·반영을 그때 돌리고, 화면이 진행을 실시간으로 본다
 
-> 최종 수정: 2026-10-07 (v7: T6 구현 — 검수 대기 칸 맨 위 「저수지 N건 분석」(`adminRequests.ts` · `adminPageAnalyzeRequest.tsx`), 머리글 `· 요청 N건 대기`)
+> 최종 수정: 2026-10-07 (v8: 리뷰 반영 — 아래 「리뷰 반영」 절. 돌지 못한 요청은 queued 로 되돌림(3번이면 done), 진척이면 바로 다시, `/admin` 승인은 approved 를 거치지 않음(쌍둥이), `requested_at` backfill 마이그레이션(미적용))
+> 이전 2026-10-07 (v7: T6 구현 — 검수 대기 칸 맨 위 「저수지 N건 분석」(`adminRequests.ts` · `adminPageAnalyzeRequest.tsx`), 머리글 `· 요청 N건 대기`)
 > 이전 2026-10-07 (v6: T5 구현 — `/admin/ops` 워커 칸(배지·단계·심장·진행 막대)·Realtime 구독(`adminOpsRealtime.ts`), `/admin` 머리글 워커 한 줄·경고 띠, `createAdminClient` 에 `accessToken` 콜백)
 > 이전 2026-10-07 (v5: T4.1 구현 — 워커 Realtime 구독 `workerRealtime.mjs`, 채널 토큰은 `createSupabase` 의 `realtime.accessToken` 콜백(`setAuth` 는 heartbeat 가 되돌린다), 이벤트가 깨운 단계만 재시도 간격 건너뜀, `--no-realtime`)
 > 이전 2026-10-07 (v4: T3 구현 — 상주 워커 `scripts/worker.mjs`(`pnpm data` · `once` · `once --dry-run`), 순수 판단 `workerLoop.mjs`, 세기 `workerQueue.mjs`, 심장 `workerHeartbeat.mjs`, `progress`·`--requested-only`·`requested_at` 찍기·재로그인·한도 휴식)
@@ -55,6 +56,7 @@ T1 은 DB 와 무관하니 먼저. T2 는 🧑 `db push` 가 필요하다(쓰기
   수용 기준: 롤백 트랜잭션 실측 — 운영자 insert/update 되고 delete 42501, anon 전부 42501. `select * from pg_publication_tables where pubname='supabase_realtime'` 에 두 표.
   🧑 `db push --linked`(쓰기 — 사용자 확인). → [ADR-016](../decisions/ADR-016-secrets-by-login.md)·[05](05-security.md) 표에 두 줄.
   ✅ 2026-10-07 `supabase/migrations/20261007140000_local_worker.sql`(b335ce8) **원격 적용**(사용자 터미널 `db push` — Claude 의 push 는 권한 분류기가 막는다). 롤백 실측: 운영자 insert/update·upsert 됨 · 운영자 delete 42501 · 비운영자 insert 42501 · anon select 42501 · 잔여 0행 · publication 에 **여섯 표**(`blog_posts`·`candidates`·`collect_requests`·`pipeline_requests`·`pipeline_runs`·`workers` — 워커가 T4 에서 앞 넷을 구독하므로 계획의 둘이 아니라 여섯). 계획과 다른 것: `blog_posts` 인덱스는 `(requested_at) where analyzed_at is null`(조건 안에서 `analyzed_at` 은 늘 null), `workers.run_id` 에 FK 없음(실행 행보다 심장이 먼저 쓰인다), replica identity default 라 UPDATE 이벤트에 old 값이 없다 — "`requested_at` 이 새로 생김" 은 구별 못 하고 `wake()` 멱등에 기댄다.
+  ⏳ **backfill 미적용** — `20261007150000_requested_at_backfill.sql`(리뷰 1): 칸이 생기기 전에 끝난 추가 수집 요청의 글 24건(2026-10-07 원격 실측, 롤백 트랜잭션으로 24행 갱신 확인 · 잔여 0)에 `requested_at = done_at`. 🧑 `db push` 전까지 그 24건은 요청 글 앞줄에서 빠진다 — 분석이 `collect_requests.post_urls` 를 따로 읽던 길을 걷어내서다(리뷰 14).
 - [x] **T2.2 `ops_overview` 에 워커** — `workers` 전부(`host`·`last_seen_at`·`phase`·`run_id`)와 `pipeline_requests` 의 queued 수를 json 에 더한다. 화면 첫 그림용(구독은 그 뒤 갱신).
   ✅ 2026-10-07 같은 마이그레이션 안. `src/lib/adminOps.ts` 의 `TOpsOverview` 에 `workers?`·`requestsQueued?`, `TPipelineRun` 에 `progress?`(optional). `RUN_COLUMNS` 에는 `progress` 를 아직 안 넣었다 — T5 에서.
 
@@ -121,6 +123,29 @@ pnpm data                  # 워커 — 켜 둔 채로 /admin 「추가 수집�
 - `pnpm data` 를 켜면 `realtime 연결 — 바뀌면 바로 깬다` 한 줄 → `/admin` 「추가 수집」 뒤 **5초 안에** `수집 시작 — 추가 수집 요청 1건`(60초 폴링이 아니라 이벤트로 깼는지).
 - Wi-Fi 를 끄고 30초 뒤 켠다 → `realtime 끊김(…) — 폴링으로` 한 줄(되풀이 없이) → 끈 동안 넣은 요청을 다음 폴링(60초 안)이 집고, 재연결되면 `realtime 연결` 이 다시 찍히는지.
 - 터미널에서 `pnpm data` → `/admin` 「추가 수집」 → 터미널 로그와 `/admin/ops` 진행률이 같은 수를 보이는지 · 승인 → apply → 재빌드 `queued` 까지 한 줄로 이어지는지 · 맥 잠자기 10분 뒤 깨어나 폴링이 이어 가는지.
+
+## 리뷰 반영(2026-10-07, 커밋 `7285380`~`21ac6d3` 독립 리뷰)
+
+번호는 리뷰 번호다.
+
+- **1** `requested_at` backfill 마이그레이션 — T2.1 의 ⏳ 줄(원격 적용은 🧑).
+- **2** `isDue` — 지난 실행이 수를 **줄였으면**(진척) 바로 다시 돈다. 30분은 수가 그대로일 때만(`recordRun` 이 단계 앞뒤 수로 `progressed`).
+- **3** 요청 닫기 — 실행 행 없이 실패했거나 Claude 한도로 끊긴 실패만 `queued` 로(`taken_at` null), 나머지는 `done`. `args.attempts` 3번째면 `done` + 경고(`requestClose`). 실행 행 없이 **성공**한 것(요청 글 0건 · 실행 기록 insert 실패)은 done — 되돌리면 같은 수집을 세 번 한다. 손 `pnpm data analyze` 가 잠금을 쥔 동안의 「지금 분석」 은 약 3분 만에 포기된다(알고 둔다).
+- **4** done/queued 쓰기 직전에 `ensureSession()`.
+- **5** 단계 hooks `nonInteractive`(키를 묻지 않는다) — analyze 키 게이트의 `process.exit` 넷은 문구를 찍은 뒤 표식 오류를 던지고 `main` 이 그 코드를 돌려준다(T1 의 문구 그대로). collect 는 원래 return 이었다. raw 모드 `exit` 리스너는 `readHidden.restoreTtyOnExit` 하나로(login · collect · analyze 공용, 프로세스에 한 번).
+- **6** collect — `requested_at` 표시가 칸 없음(`isSchemaMissing` — PostgREST 는 update 의 모르는 칸을 42703 이 아니라 `PGRST204` 로 준다) 말고 실패하면 요청을 done 으로 적지 않고 대기로 둔다. `markedRequested` 는 `count: 'exact'`.
+- **7** `prompt is too long` · `context limit` · `token limit` 류는 `too_long`(permanent) — 그 전엔 400 이라 **fatal**(실행 전체가 멈춤)이었다. 한도 문구가 섞이면 한도가 먼저. 그 글은 성공 0 인 실행에서도 닫는다(워커의 요청 글은 한두 건씩이라 성공 0 가드에 걸려 영영 안 닫혔다). 닫는 모양은 기존 `analysis.skip`.
+- **8** progress — 루프 끝에 `{done: 손댄 글 수, total}` 를 스로틀 없이(`force`), `end()` 도 마지막 값을 같이 쓴다(끊긴 실행은 total 이 아니라 손댄 수).
+- **9** 상태를 못 읽은 바퀴는 실패(`once` exit 1), 정기 수집을 맡은 바퀴가 한 단계도 못 돌면 `daily` 를 **다음 wake** 에 얹는다(`createWaker` — 그 자리에서 다시 돌면 오프라인일 때 빈 바퀴가 쉬지 않는다).
+- **10** `once` 도 `--dry-run` 이 아니면 `CLAUDECODE` 에서 거부.
+- **11** 이번 지시 목록에 없었다(리드 판단) — 내용은 리드에게 확인 중.
+- **12** collect 는 `ownsSignals: false` 면 SIGINT 를 안 단다. `setRunListener` 가 실행 행의 `end` 도 넘겨, 워커가 신호를 받으면 도는 단계의 행(`abortRun` → `failed · 중단(SIGINT)`)과 `workers` 행을 같이 닫는다 — analyze·apply 행도 이제 닫힌다.
+- **13** 「지금 분석」 이 여럿이면 가장 오래된 하나만 집는다(`requestLimit` 은 행 하나).
+- **14** 요청 글의 정본은 `requested_at` 하나 — 기본 분석의 앞줄도 `requested_at is not null` 오래된 순, `recentRequestUrls`·`REQUEST_PRIORITY_DAYS` 삭제.
+- **15** `package.json` `engines.node >=22.15`.
+- **16** `scripts/data.mjs` 머리 주석 — 직접 실행 플래그(`--experimental-strip-types --no-warnings`, eval 은 `--import ./scripts/lib/tsExtResolve.mjs` 더).
+- **17** `worker.mjs` 의 `runOne`/`runCycle` 을 `scripts/lib/workerCycle.mjs`(의존 주입)로 떼고 테스트 8 — 실패→queued · 한도 휴식 · 단계 뒤 다시 세기 · once 첫 실패 정지 · 진척 · abortRun. `workerHeartbeat.test.mjs`(경고 1회·다시 붙음·`setClient`) · `workerQueue.test.mjs`(fail-soft · `isSchemaMissing` · 행마다 닫기).
+- **18** 쌍둥이 장소 경쟁 — **(a)+(b) 둘 다**. (a) `/admin` 승인은 approved 를 거치지 않는다: pending → (places 쓰기) → `merged` 한 번, 승인 메모·`reviewed_at` 도 그 update 에(트리거는 merged 에 안 찍어, 안 실으면 운영 현황의 승인 수가 0). 끊기면 pending 이고 다시 누르면 짝으로 합친다(테스트). (b) apply 와 워커의 세기가 같은 식으로 `reviewed_at` 60초 안의 approved 를 건너뛴다(`settledApprovedFilter` — analyze 의 auto insert 는 `reviewed_at` null 이라 바로). 승인 이벤트 지연도 61초로. → [ADR-024](../decisions/ADR-024-local-worker-and-db-queues.md) 「결과」, [ADR-018](../decisions/ADR-018-in-app-admin-review.md) v8.
 
 ## 열린 것
 

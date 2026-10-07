@@ -1,6 +1,7 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-10-07 (v52: 워커가 Realtime 으로도 깬다(todo/17 T4) — 깨우는 길 셋, 폴링이 정본. 채널 토큰은 `realtime.setAuth` 가 아니라 클라이언트의 토큰 콜백이어야 RLS 를 통과한다)
+> 최종 수정: 2026-10-07 (v53: 리뷰 반영(todo/17) — 돌지 못한 요청은 queued 로 되돌린다(3번이면 done), 진척이 있으면 30분 안 기다린다, 막 승인된 후보는 60초 묵힌다, 요청 글의 정본은 `requested_at` 하나)
+> 이전 2026-10-07 (v52: 워커가 Realtime 으로도 깬다(todo/17 T4) — 깨우는 길 셋, 폴링이 정본. 채널 토큰은 `realtime.setAuth` 가 아니라 클라이언트의 토큰 콜백이어야 RLS 를 통과한다)
 > 이전 2026-10-07 (v51: 상주 워커 `pnpm data` · 한 바퀴 `once` 가 실제로 돈다(todo/17 T3) — 「워커 한 바퀴」 그림. 자동 분석은 `requested_at` 이 찍힌 글만, 추가 수집·재분석이 찍는다)
 > 이전 2026-10-07 (v50: 진입점 하나 `pnpm data <하위 명령>`(`scripts/data.mjs`, ADR-024) — `data:*` 13줄이 한 줄, 터미널 검수 창 `data:review`·사진 스크립트 둘·`data:homepage` 를 지웠고, seed·normalize 는 `node scripts/…` 로 직접)
 > 이전 2026-10-07 (v49: 추가 수집 — 요청 검색 실패는 그 요청만 대기로(키워드 수집분은 저장), 요청 글의 `keyword` 는 `추가 수집(/admin)`(상호명을 `검색어:` 로 주면 추출을 유도한다), `--only-requests` 는 `pipeline_runs` 에 안 남긴다(수집 칸의 '마지막 성공' 을 가린다))
@@ -384,6 +385,7 @@ flowchart LR
                apply    승인 후보 · 「지금 반영」                                             │
    └─ 하나 돌고(workers.phase · run_id, pipeline_requests taken → done) ───────────────────────┘
       할 것이 없으면 끝. 지워지지 않는 일감(계속 403 인 요청 글 등)은 수가 늘거나 30분이 지나야 폴링이 다시 깨운다
+      (지난 실행이 수를 **줄였으면** 진척이라 바로 다시 — 30분은 수가 그대로였을 때만)
 ```
 
 - **깨우는 길은 셋이고 정본은 폴링이다.** Realtime(`scripts/lib/workerRealtime.mjs` — `collect_requests`·`pipeline_requests` INSERT · `candidates` 가 approved 가 된 UPDATE ·
@@ -396,6 +398,12 @@ flowchart LR
   그때 워커는 `phase: login-needed` 로 적고 그 자리에서 `login.mjs` 의 숨김 입력을 부른다(TTY 가 아니면 끝낸다).
 - **Claude 한도**(`isQuotaExhausted` — 429·`limit reached` 류, 5xx 는 아니다)를 만나면 analyze 가 루프를 끊고(`Claude 한도`) 워커는 리셋 시각까지(못 읽으면 30분) 분석만 쉰다 — `phase: rate-limited`.
 - 워커에서는 한 단계가 실패해도 다음 단계로 간다(승인 반영은 분석 실패와 무관하다). `once` 는 T1 대로 거기서 멈춘다.
+- **요청 행(`pipeline_requests`)을 닫는 규칙** — 성공이거나 실행 행이 선 실패면 `done`(+ `run_id`). **돌지 못한 실패**(실행 행이 서기 전 — 잠금·키·세션)와
+  **Claude 한도로 끊긴 실패**만 `queued` 로 되돌린다(`taken_at` 비움, `workerLoop.requestClose`). 되돌릴 때마다 `args.attempts` 를 세고 **3번째면 `done` + 경고** —
+  같은 요청이 영원히 되돌아오지 않게. 그래서 손으로 돌린 긴 `pnpm data analyze` 가 잠금을 쥔 동안 들어온 「지금 분석」 은 약 3분(바퀴 셋) 만에 포기된다. 「지금 분석」 이 여럿이면 가장 오래된 하나만 집는다.
+- **막 승인된 후보(`reviewed_at` 60초 안)는 반영하지 않는다** — 승인한 쪽이 아직 쓰는 중일 수 있다(쌍둥이 장소, todo/17 리뷰 18). 워커의 세기도 같은 식이라 그 60초가 지나면 수가 늘어 바로 돈다.
+  `/admin` 의 승인은 이제 `approved` 를 거치지 않는다(pending → merged 한 번).
+- 단계는 묻지 않는다(`nonInteractive` — 네이버 키는 env 나 `~/.zgnn-naver.env` 에), 신호도 워커가 받는다(collect 의 SIGINT 핸들러를 끄고, 워커가 도는 단계의 실행 행과 `workers` 행을 같이 닫는다).
 
 ## 실행 기록 — 실행마다 `pipeline_runs` 한 행
 
@@ -455,7 +463,7 @@ flowchart LR
   파일을 쓰는 쪽은 `scripts/lib/dataJson.mjs`(`writeDataJson`)로 떼어 놨다. 공개 상수(`PROJECT_REF`·`PUBLISHABLE_KEY`·`PROJECT_URL`)도 같은 이유로 `scripts/lib/supabasePublic.mjs`(import 없음)에 있다
 - 운영자 검수 화면: `src/lib/admin{Session,Supabase,Candidates,Apply}.ts` · `src/screens/adminPage*.tsx` · `src/app/admin/` — 순수 로직은 위 `scripts/` 모듈을 그대로 import 한다(두 벌로 만들지 않는다)
 - 진입점: `scripts/data.mjs`(`pnpm data <하위 명령>`, ADR-024) — 각 스크립트의 `main(argv)` 를 골라 부른다. 모르는 하위 명령이면 사용법
-- 워커: `scripts/worker.mjs`(인자 없음 = 상주 · `once`) — 판단은 `scripts/lib/workerLoop.mjs`(순수, 테스트), 세기는 `workerQueue.mjs`, 심장은 `workerHeartbeat.mjs`
+- 워커: `scripts/worker.mjs`(인자 없음 = 상주 · `once`) — 판단은 `scripts/lib/workerLoop.mjs`(순수, 테스트), 한 바퀴의 조율은 `workerCycle.mjs`(의존 주입, 테스트), 세기는 `workerQueue.mjs`, 심장은 `workerHeartbeat.mjs`
 - 수집·분석·승인: `scripts/collect-blog.mjs`(`pnpm data collect`) · `scripts/analyze-candidates.mjs`(`pnpm data analyze`) · `scripts/apply-approved.mjs`(`pnpm data apply`) · 한 바퀴 `pnpm data once` —
   순수 함수는 `scripts/collect/*`·`scripts/analyze/*`(각각 `*.test.mjs`). 스케줄은 없다 — 사용자 터미널에서 돌린다(ADR-016 v5)
 - 인증·입력: `scripts/lib/supabaseClient.mjs`(출처 선택), `scripts/login.mjs`(`pnpm data login`), `scripts/lib/readHidden.mjs`(비밀번호·네이버 키 숨김 입력, 두 소유자)

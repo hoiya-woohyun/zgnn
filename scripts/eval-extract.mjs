@@ -7,7 +7,7 @@
 //
 // Supabase 는 안 쓴다(places.json 이 로컬에 있다). Claude 는 운영 분석과 같은 `claude -p`(구독) — 같은 extractPlaces 를 그대로 부른다.
 // 본문은 data/raw/eval/bodies 에만 둔다(gitignored · 레포가 공개다). 로그에 본문을 싣지 않는다.
-// 앱의 TS 를 부르므로 package.json 이 --experimental-strip-types 와 확장자 훅(scripts/lib/tsExtResolve.mjs)을 같이 건다.
+// 앱의 TS 를 부르므로 --experimental-strip-types(package.json 의 `data` 줄)와 확장자 훅(scripts/lib/tsExtResolve.mjs — scripts/data.mjs 가 건다)이 같이 필요하다.
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { createUsageMeter, extractPlaces, isFatal, MODEL, PROMPT_VERSION, runClaudeCli } from './analyze/extractPlaces.mjs';
