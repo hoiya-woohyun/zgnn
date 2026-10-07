@@ -55,10 +55,18 @@ export function naverMapSearchUrl(name: string): string {
  * 알 수 없어 타임아웃 폴백이 필요하다. 웹 길찾기는 어디서나 열리고 폰에서는 네이버가 "앱으로 열기" 를 띄운다 — 우리가
  * 앱 유무를 판별하지 않는다. 좌표가 없는 곳(86곳 중 5곳)은 `undefined` 라 버튼이 서지 않는다.
  *
- * 주소 꼴은 `/p/directions/{출발}/{경유…}/{도착}/-/car` — 비우는 칸은 `-`, 지점은 `{lng},{lat},{이름}` 순(경도가 먼저다).
+ * 주소 꼴은 `/p/directions/{출발}/{도착}/{경유}/car` — **경유가 도착 뒤에** 온다. 비우는 칸은 `-`, 지점은 `naverDirectionsPoint`.
+ * 여러 곳은 `naverRouteLink.ts`.
  */
 export function naverDirectionsUrl(place: { name: string; geo?: { lat: number; lng: number } }): string | undefined {
   if (!place.geo) return undefined;
-  const { lat, lng } = place.geo;
-  return `https://map.naver.com/p/directions/-/${lng},${lat},${encodeURIComponent(place.name.trim())}/-/car`;
+  return `https://map.naver.com/p/directions/-/${naverDirectionsPoint(place.name, place.geo)}/-/car`;
+}
+
+/**
+ * 길찾기 주소의 지점 한 칸 — `{lng},{lat},{이름}`(**경도가 먼저다**). 한 곳짜리와 경유지 주소가 이 하나를 나눠 써야
+ * 순서가 두 군데서 따로 적혀 갈라지지 않는다. 이름의 `/`·`,` 는 칸 구분자라 인코딩이 꼭 필요하다.
+ */
+export function naverDirectionsPoint(name: string, geo: { lat: number; lng: number }): string {
+  return `${geo.lng},${geo.lat},${encodeURIComponent(name.trim())}`;
 }

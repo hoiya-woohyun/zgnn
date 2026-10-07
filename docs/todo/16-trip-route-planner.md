@@ -1,6 +1,7 @@
 # 16. 하루 동선 — 저장한 곳을 순서로 묶고, 운전 안내는 네이버에 넘긴다
 
-> 최종 수정: 2026-10-06 (v1: 신설. 경쟁 앱 비교(반려생활·댕기자·델고·펫패스·BringFido, 2026-10-06 프로젝트 스레드) 뒤 사용자가 "루트 짜 주는 것까지 하면 빡셀까" 로 열었고,
+> 최종 수정: 2026-10-07 (v2: T1.3 경유지 웹 주소 함수 — 스킴 대신 웹, §5 의 웹 주소 칸 순서를 `{출발}/{도착}/{경유}/car` 로 바로잡음)
+> 이전 2026-10-06 (v1: 신설. 경쟁 앱 비교(반려생활·댕기자·델고·펫패스·BringFido, 2026-10-06 프로젝트 스레드) 뒤 사용자가 "루트 짜 주는 것까지 하면 빡셀까" 로 열었고,
 > 범위를 **1단계(순서·날짜 묶기) + 2단계(판정 결합) + 내 위치** 로 정했다. 3단계(실제 운전 경로·소요 시간)는 **만들지 않고** 네이버 지도 앱의 길찾기 URL 스킴(경유지)으로 넘긴다.
 > **설계 문서만** 이다 — 코드·PR 없음(사용자 "설계부터 PR 로 할 게 아니라 Todo 에다가 작업해서 문서화"). 결정 P1~P6 은 **제안**, 🙋 넷)
 > 상태: **계획**. 다음 세션은 §6 T1.1 부터.
@@ -67,7 +68,7 @@
 - `nmap://route/car` 파라미터: `slat slng sname`(출발, **선택** — 비우면 현재 위치) · `dlat dlng dname`(도착, 필수) · `v1lat v1lng v1name … v5…`(경유 최대 5) · `appname`(필수, 우리 도메인 또는 앱 이름).
 - `nmap://navigation?dlat&dlng&dname&appname` — 목적지 하나로 바로 안내.
 - 좌표는 WGS84 — 우리 `geo` 와 같다. 이름은 URL 인코딩.
-- 폴백: iOS 는 스킴 열기 뒤 타임아웃으로 App Store, Android 는 `intent://…#Intent;scheme=nmap;package=com.nhn.android.nmap;end`. 웹은 `https://map.naver.com/p/directions/{slng},{slat},{sname}/{v…}/{dlng},{dlat},{dname}/-/car` 꼴(경유지는 구간으로).
+- 폴백: iOS 는 스킴 열기 뒤 타임아웃으로 App Store, Android 는 `intent://…#Intent;scheme=nmap;package=com.nhn.android.nmap;end`. 웹은 `https://map.naver.com/p/directions/{slng},{slat},{sname}/{dlng},{dlat},{dname}/{v1:v2…}/car` 꼴 — **경유가 도착 뒤**(T1.3 메모, 처음 적은 `{s}/{v…}/{d}/-/car` 는 칸이 하나 많았다).
 - ⚠️ **전부 문서·검색 기준**이다(NCP "지도 앱 연동 URL Scheme" 가이드). 출발지 생략 시 현재 위치 · 웹 경유지 형식 · 안드로이드 인텐트는 **폰에서 한 번씩 눌러 봐야 한다** — 🧑 H.1.
 
 ## 6. 태스크
@@ -76,7 +77,12 @@
 - [ ] T1.1 `tripPlan.ts` — `dayOf` · `order` 상태 모양, `savedIds` 와의 동기(해제 시 제거), 마이그레이션(`version` 올림). 테스트.
 - [x] T1.2 `tripRoute.ts` — `suggestOrder(places, start, { stayLast: true })`: 가까운 순 그리디 + 숙소 마지막. 시작점 셋(현재 위치·전날 숙소·공항). 테스트(제주 좌표 샘플로 결정적).
   > 메모(2026-10-07): `start` 는 좌표(`TGeo | null`)로 받고, 셋 → 좌표는 `routeStartGeo(TRouteStart)` 가 푼다(공항 = `JEJU_AIRPORT`, `landmarks.ts` 와 같은 값). 좌표 없는 곳은 그 묶음 뒤 원래 순서, 숙소가 둘이면 앞 체인 끝에서 이어 그리디. 전날 숙소에 좌표가 없으면 `null` → 첫 좌표 있는 곳부터. 🙋 2(시작점 기본값)는 화면(T1.4) 몫이라 함수는 셋을 다 받는다.
-- [ ] T1.3 `naverRouteLink.ts` — `routeUrl(stops, { appname })` · `navigationUrl(place)` · 5곳 분할 `splitStops`. 좌표 없는 곳은 빼고 "지도에 없는 N곳" 을 함께 돌려준다. 테스트(인코딩·분할·빈 입력).
+- [x] T1.3 `naverRouteLink.ts` — `routeUrl(stops, { appname })` · `navigationUrl(place)` · 5곳 분할 `splitStops`. 좌표 없는 곳은 빼고 "지도에 없는 N곳" 을 함께 돌려준다. 테스트(인코딩·분할·빈 입력).
+  > 메모(2026-10-07): 들어갔다 — **스킴이 아니라 웹 주소**(T1.5 와 같은 이유)라 `appname` 은 받지 않는다. `splitStops(stops, { start })` → `{ legs, missing }`(좌표 없는 곳은 순서 가운데 있어도 빼서 `missing`),
+  > 묶음당 새 지점 6곳(경유 5 + 도착), **두 번째 묶음부터 출발 = 앞 묶음 도착**(비우면 미리 연 링크가 현재 위치에서 출발한다). `routeUrl(leg)` 은 경유 0·출발 비움일 때 `naverDirectionsUrl` 과 같은 문자열(테스트로 묶음),
+  > 지점 한 칸은 `naverDirectionsPoint` 하나를 나눠 쓴다. `navigationUrl(place)` 는 새로 만들지 않았다 — `naverDirectionsUrl` 이 그것이다.
+  > 칸 순서는 **`{출발}/{도착}/{경유}/car`**(경유가 도착 뒤) — 한 곳짜리 코드(`-/{도착}/-/car`)가 그 꼴이고 §5 와 옛 주석의 `{출발}/{경유}/{도착}/-/car` 는 칸이 하나 많아 틀렸다.
+  > ⚠️ 경유 구분자 `:`(`WAYPOINT_SEPARATOR`)·상한 5(`MAX_WAYPOINTS`)는 **폰에서 확인 전**(H.1) — 테스트는 우리 모양을 고정할 뿐이다. 다르면 두 상수만 고친다. 화면(T1.4)엔 아직 안 붙였다
 - [ ] T1.4 저장 화면에 날짜 라벨 · 하루 보기 · "순서 다시 제안" · "네이버 지도로 길찾기". **임시안**(10 §7 과 같은 뜻 — 자리·문구는 디자인 트랙 전).
 - [x] T1.5 지도 시트에 "지금 여기로"(`nmap://navigation`). `naverLinkButton.tsx` 에 종류 하나 추가, 새 버튼 컴포넌트는 만들지 않는다(CLAUDE.md).
   > 메모(2026-10-07): 들어갔다 — 이름은 "길찾기"(저장 카드·상세와 같은 말), 준비물 줄과 버튼 줄 사이 `NaverLinkButton` 한 줄. 스킴이 아니라 아래 웹 주소다.
