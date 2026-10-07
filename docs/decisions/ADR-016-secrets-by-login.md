@@ -1,6 +1,7 @@
 # ADR-016 — 시크릿은 저장하지 않는다: 운영자가 로그인하고, 스크립트는 그 짧은 세션으로 붙는다
 
-> 최종 수정: 2026-10-06 (v10: 운영자 세션이 쓰는 표가 하나 늘었다 — `pipeline_runs`(실행 기록, [ADR-023](ADR-023-ops-dashboard-and-run-log.md), 마이그레이션 `20261006120000`). authenticated 에 select/insert/update(delete 없음) + 정책 셋 `is_operator()`, anon 은 아무것도 없다. 집계 rpc `ops_overview()` 는 definer · 첫 줄 운영자 확인 · anon/PUBLIC execute 회수, Vault 는 **이름만** 본다. 새 키·새 출처 없음)
+> 최종 수정: 2026-10-07 (v11: 운영자 세션이 쓰는 표가 둘 늘었다 — `pipeline_requests`(지금 돌려 줘 요청)·`workers`(로컬 워커 심장, [ADR-024](ADR-024-local-worker-and-db-queues.md), 마이그레이션 `20261007140000`, 원격 미적용). 모양은 `pipeline_runs` 그대로(select/insert/update · 정책 셋 `is_operator()` · delete·anon 없음). Realtime publication 에 표 여섯 — 구독은 RLS 를 지켜 publishable 키만으론 행이 안 온다. 새 키·새 출처 없음)
+> 이전 2026-10-06 (v10: 운영자 세션이 쓰는 표가 하나 늘었다 — `pipeline_runs`(실행 기록, [ADR-023](ADR-023-ops-dashboard-and-run-log.md), 마이그레이션 `20261006120000`). authenticated 에 select/insert/update(delete 없음) + 정책 셋 `is_operator()`, anon 은 아무것도 없다. 집계 rpc `ops_overview()` 는 definer · 첫 줄 운영자 확인 · anon/PUBLIC execute 회수, Vault 는 **이름만** 본다. 새 키·새 출처 없음)
 > 이전 2026-10-05 (v9: **네이버 키는 사용자 홈의 파일 `~/.zgnn-naver.env` 에서도 읽는다**(`scripts/lib/naverEnvFile.mjs`) — env 가 비어 있을 때만, 이름 넷(`NAVER_CLIENT_ID`·`_SECRET`·`NAVER_MAP_CLIENT_ID`·`_SECRET`)만.
 > 재분석은 구독 한도에 닿을 때마다 다시 돌리는 일이라 매번 숨김 입력 넷이 그 일을 미루게 했고, 에이전트 세션은 입력을 받지 않아 아예 못 돌았다.
 > "저장하지 않는다" 의 대상은 여전히 **레포와 Supabase 장기 키**다 — 이 파일은 레포 밖이고, 다른 이름은 적혀 있어도 읽지 않으며, 600 이 아니면 멈춘다. 네이버 검색 키는 하루 한 번 초기화하는 값이라 둔 예외다)
@@ -155,6 +156,9 @@ Free private 레포는 브랜치·환경 보호가 안 된다. 러너에 키가 
 - **실행 기록 `pipeline_runs`(2026-10-06)** — 쓰기 스크립트가 **같은 운영자 세션**으로 실행마다 한 행을 넣고 고친다(`scripts/lib/runLog.mjs`). 출처도 키도 늘지 않는다.
   `rebuild_log`(definer 트리거만 쓰는 위조 방지 표, select 만 grant)와 달리 authenticated 에 select/insert/update — 운영자 자신의 메모장이라서다(ADR-023 「결과」).
   원격 적용·실측(롤백 트랜잭션, `set local role` 로 역할을 바꿔서 — postgres 그대로면 RLS 를 우회한다): 운영자 insert·update 됨 · delete 42501 · anon select/insert/rpc 42501 · 비운영자 insert/rpc 42501.
+- **로컬 워커 `pipeline_requests`·`workers`(2026-10-07, [ADR-024](ADR-024-local-worker-and-db-queues.md))** — 워커(`pnpm data`)도 **같은 운영자 세션**으로 붙는다. 세션이 만료되면 `login` 과 같은 숨김 입력으로 묻는다 — refresh token 을 두는 데몬은 없다.
+  두 표는 `pipeline_runs` 와 같은 모양(authenticated select/insert/update, delete·anon 없음). Realtime(`supabase_realtime` 에 여섯 표)은 구독자의 RLS 를 적용하므로 publishable 키만으로는 아무 행도 오지 않는다 — 워커는 세션 토큰을 `realtime.setAuth` 로 넘긴다.
+  마이그레이션 `20261007140000` 은 **원격 미적용** — 적용 뒤 같은 롤백 실측을 한다(파일 끝 주석에 SQL).
 - **`pnpm login`·`pnpm logout` 은 pnpm 내장 명령**(npm 레지스트리 로그인)이라 package.json 의 `login` 스크립트를 가린다 — 그래서 `data:login`·`data:logout` 이다.
 
 ## 잔존 위험 — 이 머신에서 "관리자 없이 되는 것" (보안 리뷰 2026-09-21, 4 렌즈 일치 · v5 갱신 2026-09-22)

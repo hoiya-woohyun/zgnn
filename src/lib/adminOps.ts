@@ -4,7 +4,7 @@
  * 화면은 **읽기만** 한다. 실행 기록을 고치는 함수(중단된 행을 닫기 등)는 일부러 없다 — 기록을 화면이 고치기 시작하면 정본이 둘이 된다
  * (features/ops-dashboard.md ③). 건강 판정(초록·노랑·빨강)도 여기 없다 — `adminOpsHealth.ts` 한 곳이 가진다.
  *
- * 타입은 마이그레이션 `20261006120000_pipeline_runs.sql` 의 `ops_overview` 가 만드는 json 을 **키 이름 그대로** 옮겨 적은 것이다.
+ * 타입은 마이그레이션 `20261006120000_pipeline_runs.sql` 의 `ops_overview`(최신 정의는 `20261007140000_local_worker.sql`)가 만드는 json 을 **키 이름 그대로** 옮겨 적은 것이다.
  * 생성된 DB 타입이 없어 손으로 적는다 — 저쪽 키를 바꾸면 여기도 바꾼다(화면이 `undefined` 를 0 으로 읽고 조용히 틀린 수를 말하게 된다).
  */
 
@@ -53,6 +53,11 @@ export type TPipelineRun = {
   /** 분류 문구 한 줄("Claude 인증 실패" 등) */
   error: string | null;
   alert: TRunAlert | null;
+  /**
+   * 진행률(로컬 워커, ADR-024) — 마이그레이션 `20261007140000` 의 칸이라 그 전 응답엔 없다. `RUN_COLUMNS` 에는 아직 넣지 않는다
+   * (적용 전에 넣으면 PostgREST 가 없는 칸으로 42703 을 내 실행 기록 목록이 통째로 깨진다). rpc 의 `runsLatest` 에는 `to_jsonb` 라 저절로 실린다.
+   */
+  progress?: { done?: number; total?: number; current?: string } | null;
 };
 
 export const RUN_COLUMNS = 'id,script,status,started_at,ended_at,heartbeat_at,args,stats,error,alert';
@@ -97,6 +102,23 @@ export type TOpsOverview = {
   rebuildRecent: TOpsRebuildEntry[];
   /** Vault 에 `slack_webhook_url` **이름**이 있는가. URL 은 오지 않는다 */
   slackConfigured: boolean;
+  /** 로컬 워커 심장(최근에 본 순). 마이그레이션 `20261007140000` 전의 응답엔 키가 없다 */
+  workers?: TOpsWorker[];
+  /** `pipeline_requests` 의 queued 수. 위와 같이 적용 전엔 없다 */
+  requestsQueued?: number;
+};
+
+export type TWorkerPhase = 'idle' | 'collect' | 'analyze' | 'apply' | 'login-needed' | 'rate-limited';
+
+/** `workers` 한 행(기기당 하나). 살아 있나 판정(5분)은 `adminOpsHealth` 가 `last_seen_at` 으로 한다 */
+export type TOpsWorker = {
+  host: string;
+  last_seen_at: string;
+  phase: TWorkerPhase;
+  run_id: string | null;
+  started_at: string | null;
+  /** git sha 짧게 */
+  version: string | null;
 };
 
 export async function fetchOpsOverview(client: SupabaseClient, days: number): Promise<TOpsOverview> {
