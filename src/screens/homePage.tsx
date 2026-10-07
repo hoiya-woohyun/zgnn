@@ -2,38 +2,24 @@
 
 import { useMemo } from 'react';
 import Link from 'next/link';
-import { Heart, Map01 } from '@untitledui/icons';
+import { Map01 } from '@untitledui/icons';
 import { HomePageHero, PawMark } from './homePageHero';
 import { HomePageInstall } from './homePageInstall';
 import { HomePageIntro } from './homePageIntro';
 import { HomePageLandmarkChips } from './homePageLandmarkChips';
+import { HomePageTripCard } from './homePageTripCard';
 import { HomeTypeCard } from './homeTypeCard';
 import { Button } from '../components/base/button';
-import { SeasonChips } from '../components/seasonChips';
 import { dogCallNames, withJosa } from '../lib/korean';
 import { META, PLACE_TYPES, placesOfType, SOURCE_LINE } from '../lib/places';
-import { checklistView } from '../lib/checklist';
 import type { TEligibilityLevel } from '../lib/eligibility';
 import { countByLevel } from '../lib/eligibilityCounts';
 import { homePageRegisterPreview, homePageRegisterPreviewText } from '../lib/homePageRegisterPreview';
 import { useStoreHydrated } from '../providers/storeHydration';
-import { useAppStore, useDog, useSavedPlaces } from '../store/useAppStore';
+import { useAppStore, useDog } from '../store/useAppStore';
 import type { TPlaceType } from '../types';
-import { CARD_SURFACE } from '../components/cardSurface';
 
 export function HomePage() {
-  const savedPlaces = useSavedPlaces();
-  const savedCount = savedPlaces.length;
-  const season = useAppStore((state) => state.season);
-  const setSeason = useAppStore((state) => state.setSeason);
-  const checkedItemIds = useAppStore((state) => state.checkedItemIds);
-  // 준비물 화면과 같은 함수로 센다 — 두 화면이 다른 숫자를 보여주면 안 된다.
-  // 분모는 계절 전체이고, 저장한 숙소가 갖고 있는 물건은 내가 챙긴 것과 따로 센다(ADR-009 v3 · 07 U6).
-  const progress = useMemo(
-    () => checklistView(season, checkedItemIds, savedPlaces),
-    [season, checkedItemIds, savedPlaces],
-  );
-
   const dog = useDog();
   const needsIndoor = useAppStore((state) => state.needsIndoor);
   // 종류별 판정 레벨 수. 목록 머리와 같은 함수(countByLevel)로 센다 — 홈이 "7/26", 목록이
@@ -100,6 +86,10 @@ export function HomePage() {
         </div>
       )}
 
+      {/* 「내 여행」 — 저장·준비물(그리고 16 의 동선)이 한 입구다(18 T3). 머리 줄까지 카드가 그린다 —
+          등록 전에 아무것도 없으면 섹션째 null 이라 머리만 남는 빈 섹션이 없다. */}
+      <HomePageTripCard />
+
       {intro === 'card' && (
         <div className="mt-4 px-4 md:px-6">
           <HomePageIntro variant="card" />
@@ -122,59 +112,6 @@ export function HomePage() {
       <section className="mt-8 px-4 md:px-6">
         <h2 className="text-lg font-bold text-primary">지역으로 찾기</h2>
         <HomePageLandmarkChips />
-      </section>
-
-      <section className="mt-8 px-4 md:px-6">
-        <h2 className="text-lg font-bold text-primary">여행 준비물</h2>
-        <div className={`mt-3 ${CARD_SURFACE} p-4`}>
-          <p className="text-sm text-tertiary">{META.itemsIntro.split('\n')[0]}</p>
-
-          {/* 계절칩은 고르기만 한다 — 누르자마자 화면이 넘어가면 다른 계절을 비교해 볼 수 없다.
-              준비물로 가는 건 아래 링크이고, 그 숫자가 계절에 따라 바뀌어 고른 결과가 바로 보인다. */}
-          <SeasonChips value={season} onSelect={setSeason} label="계절 선택" className="mt-3" />
-
-          <Link
-            href="/checklist"
-            className="mt-4 flex h-12 items-center justify-between rounded-lg bg-secondary px-4 text-sm font-semibold text-primary transition-colors hover:bg-tertiary"
-          >
-            준비물 {progress.total}가지 확인하기
-            <span className="text-sm font-semibold text-tertiary">
-              {progress.packed}개 챙김{progress.atStay > 0 && ` · 숙소 ${progress.atStay}`}
-            </span>
-          </Link>
-        </div>
-      </section>
-
-      <section className="mt-8 px-4 md:px-6">
-        {/*
-          저장한 곳의 주 진입점. 카드 본문은 목록(`/saved`)으로, 오른쪽 버튼은 저장 칩을 켠 지도로 곧장 간다 —
-          현장에서 "저장한 곳 중 근처는?" 을 물을 때 목록을 한 번 거치지 않게.
-          버튼은 카드 링크 **바깥의 형제**다. 안에 넣으면 a 안에 a 가 된다.
-        */}
-        <div className={`flex items-center gap-2 ${CARD_SURFACE} pr-3`}>
-          <Link
-            href="/saved"
-            className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl px-4 py-4 transition-colors hover:bg-secondary"
-          >
-            <span
-              aria-hidden="true"
-              className="grid size-10 shrink-0 place-items-center rounded-full bg-camellia-wash text-camellia"
-            >
-              <Heart size={20} className="fill-camellia" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold text-primary">저장한 곳 {savedCount}</p>
-              <p className="text-sm text-tertiary">
-                {savedCount > 0 ? '모아 둔 곳을 목록과 지도로 봐요' : '마음에 드는 곳의 하트를 눌러보세요'}
-              </p>
-            </div>
-          </Link>
-          {savedCount > 0 && (
-            <Button color="secondary" size="md" iconLeading={Map01} href="/map/?saved=1" className="shrink-0">
-              지도
-            </Button>
-          )}
-        </div>
       </section>
 
       {/* 두 번째 방문부터의 인사말 자리 — 출처 줄 바로 위, "이 자료는 누가" 와 같은 묶음이다.
