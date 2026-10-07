@@ -251,7 +251,9 @@ export function HomePageHero({ subtitle, reach, cta }: THomePageHeroProps) {
             카드 바깥이 비어 보인다. 좌우 커튼의 폭 = 아래 padRef 의 좌우 여백(`px-4 md:px-6`). */}
         <div aria-hidden="true" className="pointer-events-none absolute inset-0">
           <div data-scroll-morph="tone-out" className="basalt absolute inset-0" style={toneOut} />
-          <div data-scroll-morph="tone-in" className="absolute inset-0 border-b border-secondary bg-secondary" style={toneIn} />
+          <div data-scroll-morph="tone-in" className="absolute inset-0 bg-secondary" style={toneIn} />
+          {/* 헤더 밑줄은 크림 판과 따로 맨 끝에만 들어온다 — 같이 들어오면 아직 카드일 때 밑변에 테두리처럼 보였다(`morph-hero-rule`). */}
+          <div data-scroll-morph="hero-rule" className="absolute inset-x-0 bottom-0 border-b border-secondary" style={{ opacity: 'var(--morph)' }} />
           <div data-scroll-morph="curtain-side" className="absolute inset-y-0 left-0 w-4 origin-left bg-secondary md:w-6" style={sideCurtain} />
           <div data-scroll-morph="curtain-side" className="absolute inset-y-0 right-0 w-4 origin-right bg-secondary md:w-6" style={sideCurtain} />
           <div data-scroll-morph="curtain-top" className="absolute inset-x-0 top-0 origin-top bg-secondary" style={topCurtain} />

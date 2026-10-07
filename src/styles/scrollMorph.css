@@ -119,6 +119,10 @@
   [data-morph='scroll'] [data-scroll-morph='tone-in'] {
     animation-name: morph-tone-in;
   }
+  /* 헤더 밑줄: 카드가 헤더 모양이 다 된 뒤(0.95 → 1)에만. */
+  [data-morph='scroll'] [data-scroll-morph='hero-rule'] {
+    animation-name: morph-hero-rule;
+  }
   /* 부제·갈 수 있는 곳 수: 처음 25% 안에 비킨다. */
   [data-morph='scroll'] [data-scroll-morph='fade-early'] {
     animation-name: morph-fade-early;
@@ -293,6 +297,20 @@
     opacity: 0;
   }
   95%,
+  100% {
+    opacity: 1;
+  }
+}
+
+/*
+  크림 판(tone-in)과 같이 들어오면 아직 카드일 때 카드 밑변에 테두리처럼 보였다 — 선 색이 크림보다 어두워, 반쯤 섞인 면 아래에
+  어두운 1px 이 남았다(실측, morph 0.7). 좌우 커튼·귀가 다 걷힌 끝에서만 들어온다.
+*/
+@keyframes morph-hero-rule {
+  0%,
+  95% {
+    opacity: 0;
+  }
   100% {
     opacity: 1;
   }
