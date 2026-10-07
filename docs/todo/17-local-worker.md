@@ -1,6 +1,7 @@
 # 17. 로컬 워커 — `pnpm data` 하나가 DB 를 보고 수집·분석·반영을 그때 돌리고, 화면이 진행을 실시간으로 본다
 
-> 최종 수정: 2026-10-07 (v2: T1 구현 — 죽은 스크립트 넷 삭제·진입점 `scripts/data.mjs`, `package.json` 의 `data:*` 13줄 → `data` 1줄)
+> 최종 수정: 2026-10-07 (v3: T2 원격 적용·롤백 실측 — publication 은 여섯 표)
+> 이전 2026-10-07 (v2: T1 구현 — 죽은 스크립트 넷 삭제·진입점 `scripts/data.mjs`, `package.json` 의 `data:*` 13줄 → `data` 1줄)
 > 이전 2026-10-07 (v1: 신설 — 설계·태스크. 코드 없음. 결정은 [ADR-024](../decisions/ADR-024-local-worker-and-db-queues.md))
 
 **한 줄:** `package.json` 의 `data:*` 13줄을 `data` 한 줄로 줄이고, 그 명령이 터미널에 상주하며 `collect_requests` · `blog_posts.analyzed_at` · `candidates.approved` · `pipeline_requests` 를 보고 있다가 필요한 순간 collect → analyze → apply 를 돈다. 도는 동안 `workers` · `pipeline_runs.progress` 가 바뀌고 `/admin/ops` 가 그걸 구독해 "분석 중 12/40" 을 그린다.
@@ -41,7 +42,7 @@ T1 은 DB 와 무관하니 먼저. T2 는 🧑 `db push` 가 필요하다(쓰기
 
 ### T2. 마이그레이션 `<ts>_local_worker.sql`
 
-- [ ] **T2.1 표·칸** —
+- [x] **T2.1 표·칸** —
   `pipeline_requests`: `id uuid pk default gen_random_uuid()` · `kind text check in ('collect','analyze','apply')` · `args jsonb`(`{limit: 20}` 같은 수만) · `status text check in ('queued','taken','done') default 'queued'` · `requested_at timestamptz default now()` · `requested_by uuid default auth.uid()` · `taken_at` · `run_id uuid references pipeline_runs`. 인덱스 `(status, requested_at)`.
   `workers`: `host text pk` · `last_seen_at timestamptz` · `phase text check in ('idle','collect','analyze','apply','login-needed','rate-limited')` · `run_id uuid` · `started_at` · `version text`(git sha 짧게).
   `pipeline_runs` 에 `progress jsonb`. `blog_posts` 에 `requested_at timestamptz`(인덱스 `(analyzed_at, requested_at)` 부분 — `where analyzed_at is null`).
@@ -49,7 +50,9 @@ T1 은 DB 와 무관하니 먼저. T2 는 🧑 `db push` 가 필요하다(쓰기
   Realtime: `alter publication supabase_realtime add table workers, pipeline_runs;` + `alter table … replica identity full`(UPDATE 의 old 값이 필요 없으니 default 로 충분한지 확인 — 필요 없으면 default).
   수용 기준: 롤백 트랜잭션 실측 — 운영자 insert/update 되고 delete 42501, anon 전부 42501. `select * from pg_publication_tables where pubname='supabase_realtime'` 에 두 표.
   🧑 `db push --linked`(쓰기 — 사용자 확인). → [ADR-016](../decisions/ADR-016-secrets-by-login.md)·[05](05-security.md) 표에 두 줄.
-- [ ] **T2.2 `ops_overview` 에 워커** — `workers` 전부(`host`·`last_seen_at`·`phase`·`run_id`)와 `pipeline_requests` 의 queued 수를 json 에 더한다. 화면 첫 그림용(구독은 그 뒤 갱신).
+  ✅ 2026-10-07 `supabase/migrations/20261007140000_local_worker.sql`(b335ce8) **원격 적용**(사용자 터미널 `db push` — Claude 의 push 는 권한 분류기가 막는다). 롤백 실측: 운영자 insert/update·upsert 됨 · 운영자 delete 42501 · 비운영자 insert 42501 · anon select 42501 · 잔여 0행 · publication 에 **여섯 표**(`blog_posts`·`candidates`·`collect_requests`·`pipeline_requests`·`pipeline_runs`·`workers` — 워커가 T4 에서 앞 넷을 구독하므로 계획의 둘이 아니라 여섯). 계획과 다른 것: `blog_posts` 인덱스는 `(requested_at) where analyzed_at is null`(조건 안에서 `analyzed_at` 은 늘 null), `workers.run_id` 에 FK 없음(실행 행보다 심장이 먼저 쓰인다), replica identity default 라 UPDATE 이벤트에 old 값이 없다 — "`requested_at` 이 새로 생김" 은 구별 못 하고 `wake()` 멱등에 기댄다.
+- [x] **T2.2 `ops_overview` 에 워커** — `workers` 전부(`host`·`last_seen_at`·`phase`·`run_id`)와 `pipeline_requests` 의 queued 수를 json 에 더한다. 화면 첫 그림용(구독은 그 뒤 갱신).
+  ✅ 2026-10-07 같은 마이그레이션 안. `src/lib/adminOps.ts` 의 `TOpsOverview` 에 `workers?`·`requestsQueued?`, `TPipelineRun` 에 `progress?`(optional). `RUN_COLUMNS` 에는 `progress` 를 아직 안 넣었다 — T5 에서.
 
 ### T3. 워커 루프(폴링부터)
 
