@@ -1,7 +1,6 @@
 import { Heart } from '@untitledui/icons';
 import { usePathname } from 'next/navigation';
 import { createFirstTimesGate, showAppStatus } from '../lib/appStatus';
-import { triggerHaptic } from '../lib/haptic';
 import { useAppStore, useIsSaved } from '../store/useAppStore';
 import { cx } from '../utils/cx';
 
@@ -37,8 +36,6 @@ export function useSaveToggle(id: string) {
   const restoreSaved = useAppStore((state) => state.restoreSaved);
   const onSavedScreen = usePathname().startsWith('/saved');
   const toggle = () => {
-    // 클릭의 동기 구간에서 — 저장·해제 둘 다 한 번(iOS 만, 장식). 상태 갱신보다 먼저여야 사용자 활성화 안에 든다.
-    triggerHaptic();
     if (!saved) {
       announceSaved();
       toggleSaved(id);
