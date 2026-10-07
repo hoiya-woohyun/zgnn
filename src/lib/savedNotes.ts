@@ -5,14 +5,20 @@
  * 기기 안에만 있다(localStorage). 공유 링크(07 P1)에는 **싣지 않는다** — 사적인 메모다.
  */
 
-/** 한 줄. 길면 카드가 메모장이 된다. */
-export const SAVED_NOTE_MAX = 80;
+/** 한 줄. 길면 카드가 메모장이 된다 — 입력 칸이 "(10/30)" 으로 센다. */
+export const SAVED_NOTE_MAX = 30;
+
+/**
+ * 이미 저장된 메모를 읽을 때의 상한. 예전 입력 상한(80)으로 적어 둔 메모를 30 으로 자르면 기기 안의 글이 말없이 잘린다 —
+ * 읽을 때는 예전 상한으로 두고, 다시 고칠 때(`withSavedNote`) 새 상한이 걸린다.
+ */
+const SAVED_NOTE_STORED_MAX = 80;
 
 /** 입력 → 저장할 값. 앞뒤 공백을 걷고, 줄바꿈은 한 칸으로, 길면 자른다(글자 단위). 비면 null(지운다). */
-export function cleanSavedNote(value: string): string | null {
+export function cleanSavedNote(value: string, max = SAVED_NOTE_MAX): string | null {
   const flat = value.replace(/\s*\n\s*/g, ' ').trim();
   if (flat === '') return null;
-  return [...flat].slice(0, SAVED_NOTE_MAX).join('');
+  return [...flat].slice(0, max).join('');
 }
 
 /**
@@ -25,7 +31,7 @@ export function sanitizeSavedNotes(value: unknown, savedIds: readonly string[]):
   const notes: Record<string, string> = {};
   for (const [id, note] of Object.entries(value)) {
     if (!keep.has(id) || typeof note !== 'string') continue;
-    const cleaned = cleanSavedNote(note);
+    const cleaned = cleanSavedNote(note, SAVED_NOTE_STORED_MAX);
     if (cleaned) notes[id] = cleaned;
   }
   return notes;

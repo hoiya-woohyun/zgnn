@@ -15,6 +15,7 @@ import { TYPE_META, type TPlaceEntry } from '../lib/places';
 import { useToday } from '../hooks/useToday';
 import { useDogCount, useDogMaxWeightKg, useEligibility } from '../store/useDogEligibility';
 import { CARD_SURFACE } from './cardSurface';
+import { cx } from '../utils/cx';
 
 type TPlaceCardProps = {
   place: TPlaceEntry;
@@ -27,6 +28,13 @@ type TPlaceCardProps = {
    * 식당 34곳 중 29곳이 같은 문장을 되풀이했다(14 W261006.5). 판정 배지와 원문 칩("케이지 필요")은 그대로 남는다.
    */
   hideReasonText?: string;
+  /** 하트 **왼쪽**에 함께 서는 버튼(저장 화면의 메모 연필). 이름 줄 오른쪽 여백이 그만큼 넓어진다. */
+  actions?: ReactNode;
+  /**
+   * 있으면 메모 줄 자리에 이것(입력 폼)을 그리고, 카드는 그동안 **링크가 아니다** — 링크 안의 입력 칸은 누르는 것이
+   * 상세로 가는 것이 된다(a 안의 input 도 HTML 위반). 닫히면 다시 링크다.
+   */
+  noteEditor?: ReactNode;
 };
 
 /**
@@ -40,69 +48,79 @@ type TPlaceCardProps = {
  * 그만큼 줄여 카드 높이(총 배지 개수)를 그대로 유지한다. 프로필이 없으면 이 훅은 null 을
  * 돌려주므로 카드는 지금과 완전히 같은 모습이다.
  */
-export function PlaceCard({ place, footer, distanceKm, hideReasonText }: TPlaceCardProps) {
+export function PlaceCard({ place, footer, distanceKm, hideReasonText, actions, noteEditor }: TPlaceCardProps) {
   const eligibility = useEligibility(place);
   const reason = eligibility ? primaryReason(eligibility) : undefined;
   const weightKg = useDogMaxWeightKg();
   const dogCount = useDogCount();
   const verified = freshnessShortLabel(place, useToday());
 
-  return (
-    <li className="relative">
-      <Link
-        href={`/place/${place.id}`}
-        className={`block ${CARD_SURFACE} p-4 transition-colors hover:bg-secondary`}
-      >
-        <div className="flex items-start gap-3">
-          <PlaceThumb src={place.cover ?? place.images[0]} type={place.type} />
-          <div className="min-w-0 flex-1 pr-10">
-            <p className="text-md font-bold text-primary">{place.name}</p>
-            <div className="mt-1 flex flex-wrap items-center gap-1.5">
-              <TownChip town={place.region.town} type={place.type} />
-              <span className="text-sm text-tertiary">
-                {categoryLabel(place.category, TYPE_META[place.type].label, place.type)}
-                {distanceKm !== undefined && ` · ${distanceLabel(distanceKm)}`}
-                {/* 확인 날짜는 상세에만 있었다 — 신뢰가 우리 차별점인데 들어가야 보였다(14 C2610.3). 한 단어로 종류 줄 끝에. */}
-                {verified && ` · ${verified}`}
-              </span>
-            </div>
+  const body = (
+    <>
+      <div className="flex items-start gap-3">
+        <PlaceThumb src={place.cover ?? place.images[0]} type={place.type} />
+        <div className={cx('min-w-0 flex-1', actions ? 'pr-20' : 'pr-10')}>
+          <p className="text-md font-bold text-primary">{place.name}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            <TownChip town={place.region.town} type={place.type} />
+            <span className="text-sm text-tertiary">
+              {categoryLabel(place.category, TYPE_META[place.type].label, place.type)}
+              {distanceKm !== undefined && ` · ${distanceLabel(distanceKm)}`}
+              {/* 확인 날짜는 상세에만 있었다 — 신뢰가 우리 차별점인데 들어가야 보였다(14 C2610.3). 한 단어로 종류 줄 끝에. */}
+              {verified && ` · ${verified}`}
+            </span>
           </div>
         </div>
+      </div>
 
-        {/* 내 메모는 이름 바로 밑 — 이 장소에 대한 내 표시라 가게 설명보다 먼저. 저장 화면만이 아니라 카드가 보이는 모든 자리에. */}
-        <SavedNoteLine id={place.id} className="mt-3" />
+      {/* 내 메모는 이름 바로 밑 — 이 장소에 대한 내 표시라 가게 설명보다 먼저. 저장 화면만이 아니라 카드가 보이는 모든 자리에. */}
+      {noteEditor ? <div className="mt-3">{noteEditor}</div> : <SavedNoteLine id={place.id} className="mt-3" />}
 
-        {/* 블로그에서 들어온 신규 숙소는 요금 원문이 비어 있을 수 있다 — 빈 굵은 줄을 그리지 않는다. */}
-        {place.stay && place.stay.price.text !== '' && (
-          // brand-700 은 CTA 색이라 26개 숙소 가격이 전부 그 색이면 "눌러야 할 것"과
-          // "읽을 것"이 섞인다(2026-09-15 디자인 리뷰 ①) — 본문 색 + bold 로 내린다.
-          <p className="mt-3 text-sm font-bold text-primary">{formatStayPrice(place.stay.price)}</p>
-        )}
+      {/* 블로그에서 들어온 신규 숙소는 요금 원문이 비어 있을 수 있다 — 빈 굵은 줄을 그리지 않는다. */}
+      {place.stay && place.stay.price.text !== '' && (
+        // brand-700 은 CTA 색이라 26개 숙소 가격이 전부 그 색이면 "눌러야 할 것"과
+        // "읽을 것"이 섞인다(2026-09-15 디자인 리뷰 ①) — 본문 색 + bold 로 내린다.
+        <p className="mt-3 text-sm font-bold text-primary">{formatStayPrice(place.stay.price)}</p>
+      )}
 
-        <p className="clamp-2 mt-2 text-sm text-secondary">{place.features}</p>
+      <p className="clamp-2 mt-2 text-sm text-secondary">{place.features}</p>
 
-        {/* "두부는 1만원 (1~5kg)" — 이름까지 붙은 완성 문장(lib/dogFee.ts)이라 그대로 출력한다.
-            상세의 info 근거와 같은 문자열이어야 한다(2026-09-15 디자인 리뷰 §1 "이름 넣은 요금 한 줄"). */}
-        {eligibility?.fee && <p className="mt-1 text-sm text-secondary">{eligibility.fee}</p>}
+      {/* "두부는 1만원 (1~5kg)" — 이름까지 붙은 완성 문장(lib/dogFee.ts)이라 그대로 출력한다.
+          상세의 info 근거와 같은 문자열이어야 한다(2026-09-15 디자인 리뷰 §1 "이름 넣은 요금 한 줄"). */}
+      {eligibility?.fee && <p className="mt-1 text-sm text-secondary">{eligibility.fee}</p>}
 
-        {/* 왜 "확인"·"어려움" 인지 한 줄 — 7곳을 다 눌러 봐야 알던 것을 목록에서 읽게(민준 N1).
-            카드 높이가 들쭉날쭉하지 않게 한 줄로 자른다. 상세의 첫 근거와 같은 문장이다.
-            목록 머리가 같은 문장을 이미 말했으면 빼서, 다른 이유를 가진 카드만 줄이 남게 한다. */}
-        {reason && reason.text !== hideReasonText && <p className="clamp-1 mt-1 text-xs text-tertiary">{reason.text}</p>}
+      {/* 왜 "확인"·"어려움" 인지 한 줄 — 7곳을 다 눌러 봐야 알던 것을 목록에서 읽게(민준 N1).
+          카드 높이가 들쭉날쭉하지 않게 한 줄로 자른다. 상세의 첫 근거와 같은 문장이다.
+          목록 머리가 같은 문장을 이미 말했으면 빼서, 다른 이유를 가진 카드만 줄이 남게 한다. */}
+      {reason && reason.text !== hideReasonText && <p className="clamp-1 mt-1 text-xs text-tertiary">{reason.text}</p>}
 
-        <div className="mt-3 flex flex-wrap items-center gap-1">
-          {eligibility && <EligibilityBadge eligibility={eligibility} />}
-          <PetBadges
-            policy={place.policy}
-            limit={eligibility ? 2 : 3}
-            hideNoInfo={Boolean(eligibility)}
-            weightKg={weightKg}
-            dogCount={dogCount}
-          />
-        </div>
-      </Link>
+      <div className="mt-3 flex flex-wrap items-center gap-1">
+        {eligibility && <EligibilityBadge eligibility={eligibility} />}
+        <PetBadges
+          policy={place.policy}
+          limit={eligibility ? 2 : 3}
+          hideNoInfo={Boolean(eligibility)}
+          weightKg={weightKg}
+          dogCount={dogCount}
+        />
+      </div>
+    </>
+  );
 
-      <SaveButton id={place.id} name={place.name} className="absolute top-2 right-2" />
+  return (
+    <li className="relative">
+      {noteEditor ? (
+        <div className={`${CARD_SURFACE} p-4`}>{body}</div>
+      ) : (
+        <Link href={`/place/${place.id}`} className={`block ${CARD_SURFACE} p-4 transition-colors hover:bg-secondary`}>
+          {body}
+        </Link>
+      )}
+
+      <div className="absolute top-2 right-2 flex">
+        {actions}
+        <SaveButton id={place.id} name={place.name} />
+      </div>
       {footer}
     </li>
   );

@@ -1,12 +1,10 @@
 'use client';
 
-import { NaverLinkButton } from '../components/naverLinkButton';
 import { PlaceCard } from '../components/placeCard';
 import { PLACE_TYPE_ICON } from '../components/icons/placeTypeIcon';
-import { naverDirectionsUrl } from '../lib/naverPlaceLink';
 import { PLACE_TYPES, TYPE_COLOR, TYPE_META, typeTint, type TPlaceEntry } from '../lib/places';
 import { useAppStore } from '../store/useAppStore';
-import { SavedPageNote } from './savedPageNote';
+import { SavedPageCard } from './savedPageCard';
 
 type TSavedPageGroupsProps = {
   places: readonly TPlaceEntry[];
@@ -38,31 +36,7 @@ export function SavedPageGroups({ places, withNotes }: TSavedPageGroupsProps) {
           {TYPE_META[type].label} {count}곳
         </h2>
         <ul className="mt-3 space-y-3">
-          {group.map((place) => {
-            // 저장한 곳은 "갈 곳" 이다 — 카드마다 길찾기(현재 위치 → 여기)를 바로 준다. 좌표 없는 곳(5곳)은 알약이 없다.
-            const directions = withNotes ? naverDirectionsUrl(place) : undefined;
-            return (
-              <PlaceCard
-                key={place.id}
-                place={place}
-                footer={
-                  withNotes ? (
-                    <SavedPageNote
-                      id={place.id}
-                      name={place.name}
-                      trailing={
-                        directions && (
-                          <NaverLinkButton href={directions} className="shrink-0">
-                            길찾기
-                          </NaverLinkButton>
-                        )
-                      }
-                    />
-                  ) : undefined
-                }
-              />
-            );
-          })}
+          {group.map((place) => (withNotes ? <SavedPageCard key={place.id} place={place} /> : <PlaceCard key={place.id} place={place} />))}
         </ul>
       </section>
     );

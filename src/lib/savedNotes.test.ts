@@ -15,6 +15,12 @@ describe('sanitizeSavedNotes', () => {
     expect(sanitizeSavedNotes(null, ['a'])).toEqual({});
     expect(sanitizeSavedNotes(['x'], ['0'])).toEqual({});
   });
+
+  it('예전 상한(80)으로 적은 메모는 읽을 때 30 으로 자르지 않는다 — 다시 고칠 때만 새 상한', () => {
+    const old = '가'.repeat(50);
+    expect(sanitizeSavedNotes({ a: old }, ['a'])).toEqual({ a: old });
+    expect([...withSavedNote({ a: old }, 'a', old).a].length).toBe(SAVED_NOTE_MAX);
+  });
 });
 
 describe('withSavedNote', () => {

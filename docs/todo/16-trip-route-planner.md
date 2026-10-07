@@ -33,7 +33,7 @@
 ## 2. 지금 코드에 있는 것 / 없는 것 (2026-10-06 `develop`)
 
 **있는 것**
-- `useAppStore.savedIds` + `savedNotes`(80자 메모, 저장 해제 시 함께 지움) — 날짜 묶음은 이 옆에 선다.
+- `useAppStore.savedIds` + `savedNotes`(30자 메모, 저장 해제 시 함께 지움) — 날짜 묶음은 이 옆에 선다.
 - `distanceSort.ts` — `sortByDistance` · `distancesFrom` · `distanceLabel`. 순수 함수, 테스트 있음.
 - `myLocation.ts` — `locateMe()` 한 번 받고 버린다. 지도의 "내 위치" 버튼과 목록의 "가까운 순" 이 쓴다.
 - `eligibility.ts` · `dogSubsetWhatIf.ts` — 장소 하나에 대한 판정과 "○○만 데려가면".
