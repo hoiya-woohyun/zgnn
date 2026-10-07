@@ -7,7 +7,7 @@
  * 스크립트는 이 함수로 찍고, 같은 입력 객체를 `pipeline_runs.stats` 에 넣는다 — 그래서 **함수가 읽는 수는 전부 stats 에 있다.**
  * 한 함수를 두 곳이 쓰게 한 이유는 하나다: `stats` 키가 바뀌는데 화면 문장이 안 바뀌어 틀린 수를 말하는 일을 테스트가 막게.
  *
- * ⚠️ 스크립트가 `node`(--experimental-strip-types)로 이 파일을 **직접** 읽는다(`review-candidates.mjs` 가 `petPolicy.ts` 를 읽는 선례).
+ * ⚠️ 스크립트가 `node`(--experimental-strip-types)로 이 파일을 **직접** 읽는다(`collect-blog.mjs`·`analyze-candidates.mjs`·`apply-approved.mjs`).
  *   그래서: import 를 두지 않는다(`@/` 별칭은 vitest·Next 전용이고, 확장자 없는 상대 경로는 node 가 못 찾는다) ·
  *   enum·namespace·parameter property 같은 **지울 수 없는** TS 문법을 쓰지 않는다(타입 표기만 — 지우면 그대로 JS 다).
  * 옛 실행의 stats 에는 나중에 생긴 칸이 없다 — 읽을 때 `?? 0` 으로 받아 요약 한 줄이 NaN 으로 깨지지 않게 한다.
@@ -160,11 +160,11 @@ export function formatApplySummary(stats: TApplyStats, { dryRun }: { dryRun?: bo
   const draft = stats.draftWaiting;
   return (
     `${prefix}반영 ${stats.applied}건 (보강 ${stats.patched}${stats.patchedPublished ? ` — published ${stats.patchedPublished}` : ''} · 신규 ${stats.inserted} · 실패 ${stats.failed}${stats.revertedToPending ? ` · pending 되돌림 ${stats.revertedToPending}` : ''})` +
-    ` · published 대기 draft ${draft ?? '?'}곳${(draft ?? 0) > 0 ? ' — Studio 에서 status 를 올려야 화면에 뜬다(pnpm data:review status)' : ''}`
+    ` · published 대기 draft ${draft ?? '?'}곳${(draft ?? 0) > 0 ? ' — Studio 에서 status 를 올려야 화면에 뜬다' : ''}`
   );
 }
 
-/** `data:review approve|reject` 의 stats. `requested` 는 대상으로 고른 후보 수다(성공 수가 아니다 — 줄이 원래 그 수를 말했다). */
+/** 옛 `data:review approve|reject`(ADR-024 로 지웠다)의 stats — 화면이 그때 남은 실행 행을 읽는다. `requested` 는 대상으로 고른 후보 수다(성공 수가 아니다 — 줄이 원래 그 수를 말했다). */
 export type TReviewStats = { requested: number; done: number; failed: number };
 
 /** 승인·반려의 마지막 한 줄. */

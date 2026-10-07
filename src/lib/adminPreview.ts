@@ -1,10 +1,9 @@
 /**
  * 접힌 카드의 표식·동반 조건 한 칸을 **화면 말**로 옮기는 층.
  *
- * `scripts/analyze/reviewCandidates.mjs` 는 CLI 정본이고 그 테스트가 문자열을 정확히 단정하므로 건드리지 않는다
+ * `scripts/analyze/reviewCandidates.mjs` 는 정본이고 그 테스트가 문자열을 정확히 단정하므로 건드리지 않는다
  * (`reviewCandidates.test.mjs:41·43·51·61`). 그래서 그 파일이 내는 한국어 문자열을 **키로** 받아
- * 라벨·색·자리를 여기서 정한다. 대가는 하나다 — `pnpm data:review` 는 옛 말을 계속 쓴다(의도된 갈라짐,
- * docs/features/admin-review.md 에 적어 둔다).
+ * 라벨·색·자리를 여기서 정한다.
  *
  * 색을 라벨 문자열로 찾던 `FLAG_COLOR`(옛 adminPageGroupCard.tsx:65-69)를 이 표가 대체한다 —
  * 그 표는 보간 표식(`AI≠정규식(...)`)을 절대 못 잡아 그 뱃지가 영구히 회색이었다.

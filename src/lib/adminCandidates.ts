@@ -2,7 +2,7 @@
  * 검수 화면이 보는 데이터 — `candidates` 행의 타입, 조회, 그리고 CLI 의 순수 함수에 얇은 타입 옷을 입힌 래퍼(ADR-018).
  *
  * 묶기·미리보기·표식 로직을 여기로 **옮기지 않는다.** `scripts/analyze/reviewCandidates.mjs` 가 정본이고 이 파일은
- * 그것을 부른다 — 두 벌로 두면 CLI(`pnpm data:review`)와 화면이 같은 후보를 다르게 묶는 날이 온다. 그 모듈들이
+ * 그것을 부른다 — 터미널 검수 창(ADR-024 로 지웠다)과 화면이 같은 후보를 같게 묶으려고 둔 자리이고, 순수 함수와 테스트는 그 파일에 남았다. 그 모듈들이
  * JSDoc 타입만 들고 있어서 경계에서 한 번 캐스팅하고, 그 뒤는 여기 정의한 타입으로만 다룬다.
  *
  * 상대경로로 `../../scripts/...` 를 import 하는 것은 의도다. `@/` 별칭은 src 안만 가리키고,
@@ -260,7 +260,7 @@ export function independentPostsOf(rows: readonly TCandidateRow[], urls?: readon
   return independentPostCount(rows, urls ?? null) as number;
 }
 
-/** `previewPolicy` 래퍼 — 앱 파서 세 함수를 주입한다. CLI 도 같은 셋을 넘긴다(review-candidates.mjs:27). */
+/** `previewPolicy` 래퍼 — 앱 파서 세 함수를 주입한다. */
 export function previewFor(extracted: TCandidateExtracted): TPolicyPreview {
   return previewPolicy(extracted, { parsePetPolicy, toPetBadges, withPolicyFacts }) as TPolicyPreview;
 }
@@ -340,7 +340,7 @@ export const TYPE_LABEL: Record<TCandidateType, string> = {
 };
 
 /**
- * 화면 표기. CLI(`TIER_LABEL`, reviewCandidates.mjs:10)는 터미널 몫이라 그대로 둔다.
+ * 화면 표기.
  * 걸러 보기 칩(adminPage.tsx)과 카드 뱃지(adminPageGroupCard.tsx)가 **둘 다** 이것을 읽는다 — 값이 갈리지 않게.
  *
  * **두 자로 통일했다**(2026-09-30). 앞선 두 판이 다 안 읽혔다:
@@ -405,9 +405,7 @@ export const REJECT_REASON_HINT: Record<TRejectReason, string> = {
 export const FACTS_EMPTY = '(판단 없음)';
 
 /**
- * AI 판단(`petPolicy`)을 한국어 한 줄로. CLI 의 `factsLine`(reviewCandidates.mjs:100-115)과 같은 규칙이지만
- * 그쪽은 export 되지 않아 여기서 다시 쓴다 — 두 줄이 어긋나면 터미널과 화면이 같은 후보를 다르게 설명한다.
- * 규칙을 고칠 일이 생기면 **양쪽을 같이** 고친다.
+ * AI 판단(`petPolicy`)을 한국어 한 줄로. 터미널 검수 창의 `factsLine` 과 같은 규칙으로 시작했다(그 창은 ADR-024 로 지웠다).
  */
 export function factsLine(facts: TPetPolicyFacts | null): string | null {
   if (!facts) return null;

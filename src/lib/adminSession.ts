@@ -137,8 +137,8 @@ export function clearAdminSession(): void {
 }
 
 /**
- * `candidates.reviewer_note` 에 한 줄 덧붙이기. CLI(`review-candidates.mjs:125`)와 **같은 모양**이어야 한다 —
- * 두 도구가 같은 칸에 쓰므로 한쪽이 덮어쓰면 사람이 남긴 사유가 사라진다. 태그만 `[admin]` 으로 다르다.
+ * `candidates.reviewer_note` 에 한 줄 덧붙이기. 옛 터미널 검수 창(ADR-024 로 지웠다)이 `[data:review]` 로 남긴 줄과 **같은 모양**이다 —
+ * 같은 칸에 쌓이므로 덮어쓰면 사람이 남긴 사유가 사라진다. 태그만 `[admin]` 으로 다르다.
  */
 export function appendReviewerNote(existing: string | null | undefined, line: string): string {
   return existing ? `${existing}\n${line}` : line;

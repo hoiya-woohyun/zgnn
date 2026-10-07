@@ -1,16 +1,13 @@
-// pnpm data:review(scripts/review-candidates.mjs)가 쓰는 순수 함수 — 후보 묶기 · 검수 순서 · 표식 · 미리보기 · 출력. I/O 없음, 테스트는 reviewCandidates.test.mjs.
+// /admin(src/lib/adminCandidates.ts)이 쓰는 순수 함수 — 후보 묶기 · 검수 순서 · 표식 · 미리보기. I/O 없음, 테스트는 reviewCandidates.test.mjs.
+// 터미널 검수 창(`review-candidates.mjs`)은 /admin 이 대체해 지웠다(ADR-024) — 출력·인자 파싱도 함께 지웠다.
 //
 // 왜 있나 — 검수의 유일한 창이 Studio 의 JSONB 셀이었다(2026-09-28 설계 검토 RP-1·OB-8·FF-5). 사람이 "정리된 데이터" 를 보고 결정하려면
 //  (1) 같은 가게를 묶어야 하고(첫 분석에서 같은 펜션이 13건), (2) 앱이 그 문장을 어떻게 읽을지 — 정규식(parsePetPolicy)과 AI 판단(petPolicy),
 //  그리고 앱이 실제로 쓰는 병합 결과(withPolicyFacts) — 를 미리 봐야 하고, (3) 무엇이 비었는지(지역·좌표·조건문) 표식으로 보여야 한다.
-// 본문 인용(evidence)·원문은 --verbose 뒤에서만 찍는다(docs/todo/05 의 로그 위생 — 기본 출력은 이름·종류·구간·표식·구조화 결과만).
-import { correctPetPolicyFacts, feeLinesOf } from '../lib/petPolicyFacts.mjs';
+import { correctPetPolicyFacts } from '../lib/petPolicyFacts.mjs';
 import { isToponymKey, normalizeName, sameSpot } from './matchPlace.mjs';
 
 const TIER_ORDER = { auto: 0, ask: 1, new: 2 };
-export const TIER_LABEL = { auto: '일치', ask: '확인요청', new: '신규' };
-/** 종류(docs/todo/11 U2) — 승인하면 무슨 일이 일어나나. 터미널 말. 화면 말은 `KIND_LABEL`(src/lib/adminCandidates.ts). */
-export const KIND_LABEL = { update: '갱신', fill: '보강', new: '신규', ask: '확인' };
 
 /**
  * 후보 한 줄의 종류. 분석이 `extracted.match.kind` 를 싣기 전(11 T1.1)의 후보는 칸이 없다 — 그때는 짝의 확신으로 정한다
@@ -22,7 +19,6 @@ export function kindOfRow(row) {
   if (tier !== 'auto') return tier;
   return match?.kind === 'update' ? 'update' : 'fill';
 }
-const TYPE_LABEL = { stay: '숙소', restaurant: '식당', cafe: '카페', other: '기타' };
 
 /** 묶는 키. 옛 후보(nameKey 없음)는 이름으로 계산한다. */
 export const nameKeyOf = (extracted) => extracted?.nameKey ?? normalizeName(extracted?.name ?? '');
@@ -245,13 +241,13 @@ export function groupCandidates(rows) {
     if (!groups.has(key)) groups.set(key, { key, rows: [] });
     groups.get(key).rows.push(row);
   }
-  // 키로 묶은 뒤 이름 키가 다른 같은 자리의 신규 묶음을 합친다(`mergeSameSpotGroups`) — CLI 와 화면이 같은 묶음을 보게 여기서 한다.
+  // 키로 묶은 뒤 이름 키가 다른 같은 자리의 신규 묶음을 합친다(`mergeSameSpotGroups`) — 화면이 받는 묶음이 이미 합쳐져 있게 여기서 한다.
   return mergeSameSpotGroups([...groups.values()].map(summarizeGroup)).sort(compareGroups);
 }
 
 /**
  * 앱이 이 후보의 이용 조건을 어떻게 읽을지 — 정규식(parsePetPolicy)과 AI 판단(petPolicy)을 각각, 그리고 앱이 실제로 쓰는 병합 결과(withPolicyFacts).
- * 둘이 어긋나면 표식으로 알린다 — 그 자리가 "정규화가 잘 됐는가" 의 실측이다. parsers 는 src/lib/petPolicy.ts 의 세 함수(CLI 가 넘긴다).
+ * 둘이 어긋나면 표식으로 알린다 — 그 자리가 "정규화가 잘 됐는가" 의 실측이다. parsers 는 src/lib/petPolicy.ts 의 세 함수(`adminCandidates.ts` 가 넘긴다).
  */
 export function previewPolicy(extracted, { parsePetPolicy, toPetBadges, withPolicyFacts }) {
   const text = extracted?.petPolicyText ?? '';
@@ -290,133 +286,4 @@ export function groupFlags(group) {
   if (group.rows.some((r) => r.extracted?.dupOf)) flags.push('중복표시');
   if (group.tier !== 'new' && !group.rows.some((r) => r.match_place_id)) flags.push('짝 없음');
   return flags;
-}
-
-const shortId = (id) => String(id ?? '').slice(0, 8);
-const factsLine = (facts) => {
-  if (!facts) return null;
-  const parts = [];
-  if (facts.indoor !== 'unknown') parts.push({ free: '실내 자유', cage: '실내 케이지', outdoorOnly: '야외만' }[facts.indoor]);
-  if (facts.leash) parts.push('리드줄');
-  if (facts.largeDogOk === true) parts.push('대형견 OK');
-  if (facts.largeDogOk === false) parts.push('대형견 불가');
-  if (facts.smallDogOnly) parts.push('소형견만');
-  if (facts.weightLimitKg != null) parts.push(`~${facts.weightLimitKg}kg`);
-  if (facts.maxDogs != null) parts.push(`최대 ${facts.maxDogs}마리`);
-  if (facts.feeFree === true) parts.push('추가요금 없음');
-  // 요금은 줄마다 하나 — 첫 줄만 찍으면 구간 요금표("1~5kg 1만원" + "6~10kg 1.5만원")의 둘째 줄이 터미널에서도 사라진다.
-  parts.push(...feeLinesOf(facts));
-  if (facts.callFirst) parts.push('전화 확인');
-  if (facts.vaccineRequired) parts.push('예방접종 필수');
-  if (facts.notes) parts.push(facts.notes);
-  return parts.length ? parts.join(' · ') : '(판단 없음)';
-};
-
-/**
- * 묶음 하나를 터미널 몇 줄로. verbose 면 원문·evidence 까지(본문 인용이라 기본은 안 찍는다).
- * @param {object} group  groupCandidates 결과 하나
- * @param {object} preview  previewPolicy(lead.extracted) 결과
- * @param {{ verbose?: boolean, matchedName?: string | null }} [opts]
- */
-export function formatGroup(group, preview, { verbose = false, matchedName = null } = {}) {
-  const e = group.lead.extracted ?? {};
-  const head = [
-    `■ ${e.name}`,
-    `[${TYPE_LABEL[e.type] ?? e.type} · ${TIER_LABEL[group.tier] ?? group.tier}${group.tier === 'auto' && group.kind ? `(${KIND_LABEL[group.kind]})` : ''}${group.lead.match_confidence != null && group.tier !== 'new' ? ` ${Number(group.lead.match_confidence).toFixed(2)}` : ''}${matchedName ? ` → ${matchedName}` : ''} · AI ${group.confidence.toFixed(2)} · 글 ${group.posts.length}${group.independentPosts != null && group.independentPosts < group.posts.length ? `(비슷한 글 묶음 ${group.independentPosts})` : ''}]`,
-    e.regionRaw ?? '지역?',
-    e.geo ? `좌표 ${e.geoSource ?? 'local'}` : '',
-    ...groupFlags(group).map((f) => `⚠ ${f}`),
-  ].filter(Boolean);
-  const lines = [head.join('  ')];
-  lines.push(`   id ${group.rows.map((r) => shortId(r.id)).join(' ')}   ${group.posts.slice(0, 2).join('  ')}${group.posts.length > 2 ? `  (+${group.posts.length - 2})` : ''}`);
-  const policy = [
-    `조건: ${preview.level}`,
-    `정규식 [${preview.regexBadges.join(', ') || '—'}]`,
-    `AI [${factsLine(preview.facts) ?? '—'}]`,
-    `앱 [${preview.mergedBadges.join(', ') || '—'}]`,
-    ...preview.flags.map((f) => `⚠ ${f}`),
-  ];
-  lines.push(`   ${policy.join(' · ')}`);
-  if (e.address || e.addressAi) lines.push(`   주소: ${e.address ?? '—'}${e.addressAi && e.addressAi !== e.address ? ` (AI: ${e.addressAi})` : ''}`);
-  if (verbose) {
-    if (e.petPolicyText) lines.push(`   원문: ${String(e.petPolicyText).replace(/\s*\n\s*/g, ' / ')}`);
-    if (e.features) lines.push(`   소개: ${e.features}`);
-    for (const row of group.rows) {
-      for (const q of row.extracted?.evidence ?? []) lines.push(`   “${q}” — ${shortId(row.id)}`);
-    }
-  }
-  return lines.join('\n');
-}
-
-/** 마크다운 보고서 — 파일로 저장해 에디터에서 검수할 때. verbose 와 같은 정보를 담는다(원문·evidence 포함). */
-export function formatMarkdown(groups, previews, { matchedNames = new Map() } = {}) {
-  const out = [`# 후보 검수 (pending ${groups.reduce((n, g) => n + g.rows.length, 0)}건 · 묶음 ${groups.length})`, ''];
-  for (const g of groups) {
-    const e = g.lead.extracted ?? {};
-    const p = previews.get(g.key);
-    out.push(`## ${e.name} — ${TYPE_LABEL[e.type] ?? e.type} · ${TIER_LABEL[g.tier] ?? g.tier}${matchedNames.get(g.key) ? ` → ${matchedNames.get(g.key)}` : ''}`);
-    out.push('');
-    out.push(`- id: ${g.rows.map((r) => `\`${shortId(r.id)}\``).join(' ')}`);
-    out.push(`- 지역: ${e.regionRaw ?? '—'} · 좌표: ${e.geo ? `${e.geo.lat}, ${e.geo.lng} (${e.geoSource ?? 'local'})` : '—'} · 주소: ${e.address ?? '—'}`);
-    out.push(`- 표식: ${[...groupFlags(g), ...p.flags].map((f) => `⚠ ${f}`).join(' ') || '없음'}`);
-    out.push(`- 조건(${p.level}): 정규식 [${p.regexBadges.join(', ') || '—'}] · AI [${factsLine(p.facts) ?? '—'}] · 앱 [${p.mergedBadges.join(', ') || '—'}]`);
-    for (const note of p.corrections ?? []) out.push(`  · AI 보정: ${note}`);
-    if (e.petPolicyText) out.push(`- 원문: ${String(e.petPolicyText).replace(/\n/g, ' / ')}`);
-    if (e.features) out.push(`- 소개: ${e.features}`);
-    for (const row of g.rows) {
-      out.push(`- 글: ${row.post_url}`);
-      for (const q of row.extracted?.evidence ?? []) out.push(`  > ${q}`);
-    }
-    out.push('');
-  }
-  return out.join('\n');
-}
-
-/** id 앞자리로 후보를 고른다. 없는 것·둘 이상 맞는 것은 따로 돌려준다 — 조용히 엉뚱한 후보를 승인하지 않게. */
-export function resolveIds(rows, prefixes) {
-  const found = [];
-  const missing = [];
-  const ambiguous = [];
-  for (const prefix of prefixes) {
-    const hits = rows.filter((r) => String(r.id).startsWith(prefix));
-    if (hits.length === 1) found.push(hits[0]);
-    else if (hits.length === 0) missing.push(prefix);
-    else ambiguous.push(prefix);
-  }
-  return { found, missing, ambiguous };
-}
-
-/** `list [--tier t] [--limit N] [--verbose] [--md 경로]` · `status` · `approve <id…> [--merge-into id] [--note …]` · `reject <id…> --note …` */
-export function parseReviewArgs(argv) {
-  const args = { command: 'list', ids: [], tier: null, limit: null, verbose: false, md: null, mergeInto: null, note: null, all: false };
-  const rest = [...argv];
-  if (rest.length && !rest[0].startsWith('-')) args.command = rest.shift();
-  if (!['list', 'status', 'approve', 'reject'].includes(args.command)) throw new Error(`알 수 없는 명령: ${args.command}`);
-  while (rest.length) {
-    const arg = rest.shift();
-    const takeValue = (name) => {
-      const v = rest.shift();
-      if (v === undefined) throw new Error(`${name} 뒤에 값이 필요합니다`);
-      return v;
-    };
-    if (arg === '--verbose' || arg === '-v') args.verbose = true;
-    else if (arg === '--all') args.all = true;
-    else if (arg === '--tier') {
-      args.tier = takeValue('--tier');
-      if (!TIER_ORDER[args.tier] && args.tier !== 'auto') throw new Error(`--tier 는 auto|ask|new: ${args.tier}`);
-    } else if (arg === '--limit') {
-      const v = takeValue('--limit');
-      if (!/^\d+$/.test(v) || Number(v) < 1) throw new Error(`--limit 은 1 이상의 정수: ${v}`);
-      args.limit = Number(v);
-    } else if (arg === '--md') args.md = takeValue('--md');
-    else if (arg === '--merge-into') args.mergeInto = takeValue('--merge-into');
-    else if (arg === '--note') args.note = takeValue('--note');
-    else if (arg.startsWith('-')) throw new Error(`알 수 없는 인자: ${arg}`);
-    else args.ids.push(arg);
-  }
-  if ((args.command === 'approve' || args.command === 'reject') && args.ids.length === 0 && !args.tier) {
-    throw new Error(`${args.command} 는 후보 id(앞자리) 또는 --tier 가 필요합니다`);
-  }
-  if (args.command === 'reject' && !args.note) throw new Error('reject 는 --note "이유" 가 필요합니다(reviewer_note 에 남는다)');
-  return args;
 }

@@ -1,6 +1,7 @@
 # 17. 로컬 워커 — `pnpm data` 하나가 DB 를 보고 수집·분석·반영을 그때 돌리고, 화면이 진행을 실시간으로 본다
 
-> 최종 수정: 2026-10-07 (v1: 신설 — 설계·태스크. 코드 없음. 결정은 [ADR-024](../decisions/ADR-024-local-worker-and-db-queues.md))
+> 최종 수정: 2026-10-07 (v2: T1 구현 — 죽은 스크립트 넷 삭제·진입점 `scripts/data.mjs`, `package.json` 의 `data:*` 13줄 → `data` 1줄)
+> 이전 2026-10-07 (v1: 신설 — 설계·태스크. 코드 없음. 결정은 [ADR-024](../decisions/ADR-024-local-worker-and-db-queues.md))
 
 **한 줄:** `package.json` 의 `data:*` 13줄을 `data` 한 줄로 줄이고, 그 명령이 터미널에 상주하며 `collect_requests` · `blog_posts.analyzed_at` · `candidates.approved` · `pipeline_requests` 를 보고 있다가 필요한 순간 collect → analyze → apply 를 돈다. 도는 동안 `workers` · `pipeline_runs.progress` 가 바뀌고 `/admin/ops` 가 그걸 구독해 "분석 중 12/40" 을 그린다.
 
@@ -28,8 +29,9 @@ T1 은 DB 와 무관하니 먼저. T2 는 🧑 `db push` 가 필요하다(쓰기
 
 ### T1. 스크립트 정리와 진입점 `scripts/data.mjs`
 
-- [ ] **T1.1 죽은 스크립트 삭제** — `scripts/fetch-blog-images.mjs` · `optimize-images.mjs` · `fill-homepage.mjs` · `review-candidates.mjs`(`scripts/analyze/reviewCandidates.mjs` 중 `/admin` 이 안 쓰는 부분도) 파일 삭제. `seed-db.mjs` · `normalize.mjs` 는 **파일만** 남기고 스크립트 줄에서 뺀다. 그 파일들만 보던 테스트·lib 가 있으면 같이 지운다(`placeFields` 는 pull 이 쓰니 남는다).
+- [x] **T1.1 죽은 스크립트 삭제** — `scripts/fetch-blog-images.mjs` · `optimize-images.mjs` · `fill-homepage.mjs` · `review-candidates.mjs`(`scripts/analyze/reviewCandidates.mjs` 중 `/admin` 이 안 쓰는 부분도) 파일 삭제. `seed-db.mjs` · `normalize.mjs` 는 **파일만** 남기고 스크립트 줄에서 뺀다. 그 파일들만 보던 테스트·lib 가 있으면 같이 지운다(`placeFields` 는 pull 이 쓰니 남는다).
   수용 기준: `pnpm test` · `pnpm lint` 통과, `grep -rn "data:review\|data:homepage\|fetch-images" src scripts docs` 가 docs 의 이력 문장 말고는 0.
+  ✅ 2026-10-07 — 파일 넷 삭제(`fetch-blog-images` · `optimize-images` · `fill-homepage` · `review-candidates`). `reviewCandidates.mjs` 는 `/admin` 이 쓰는 묶기·미리보기·표식만 남기고 출력(`formatGroup` · `formatMarkdown` · `factsLine`)·인자(`parseReviewArgs` · `resolveIds`)·라벨을 지웠다(테스트 셋도). `seed-db` · `normalize` 는 머리 주석에 직접 실행 한 줄. 계획과 다른 것: 반영 요약 줄의 `(pnpm data:review status)` 안내도 뺐다(없는 명령을 가리켰다) · `formatReviewSummary` 는 남겼다 — `/admin/ops` 가 옛 승인·반려 실행 행을 그 함수로 읽는다 · 삭제 넷은 같은 작업 트리의 다른 세션 커밋(`f427b35`)에 섞여 들어갔다.
 - [ ] **T1.2 진입점 `scripts/data.mjs`** — `pnpm data <sub>` 를 받아 분기. `collect-blog.mjs` · `analyze-candidates.mjs` · `apply-approved.mjs` · `pull-db.mjs` · `login.mjs` · `logout.mjs` · `eval-extract.mjs` 는 각각 `main(argv)` 를 export 하고, `import.meta.url` 이 진입점일 때만 스스로 돈다(기존 직접 실행도 깨지지 않게). `eval` 의 `--import ./scripts/lib/tsExtResolve.mjs` 는 `data.mjs` 가 `eval` 일 때 `register()` 로 건다.
   `package.json`: `data:*` 전부 삭제 → `"data": "node --experimental-strip-types --no-warnings scripts/data.mjs"`. `vercel.json` `buildCommand` → `pnpm data pull && pnpm build`.
   수용 기준: `pnpm data pull` 이 지금의 `data:pull` 과 같은 파일을 만든다(바이트 동일, `dataJson` 보장). `pnpm data` 인자 없음·모르는 하위 명령이면 사용법 한 화면. `pnpm data once` 는 T3 전까지 "collect(요청만) → analyze(요청 글만) → apply" 를 한 번 돈다.

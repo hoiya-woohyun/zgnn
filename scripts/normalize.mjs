@@ -2,6 +2,7 @@
 //   → src/data/places.json, src/data/items.json
 // 원본이 Supabase 로 옮겨진 뒤(ADR-015)로는 데이터를 "만드는" 명령이 아니다 — Notion export 를 다시 시드해야
 // 할 때만 쓴다. 평소 갱신은 `pnpm data:pull`(scripts/pull-db.mjs). 파생 규칙은 scripts/lib/placeFields.mjs, 파일 쓰기는 scripts/lib/dataJson.mjs 가 공유한다.
+// `node scripts/normalize.mjs` 로 직접 부른다(재해복구용, ADR-024 — package.json 스크립트 줄은 없다).
 import { mkdir, readFile } from 'node:fs/promises';
 import { writeDataJson } from './lib/dataJson.mjs';
 import { toItem, toPlace } from './lib/placeFields.mjs';

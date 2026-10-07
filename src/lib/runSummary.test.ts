@@ -25,7 +25,7 @@ const FIXTURE = {
   analyzeZero:
     '분석 0건 (후보 0 · 일치 0 · 확인요청 0 · 신규 0 · 건너뜀 0 · 제외 0(other 0 · 제주밖 0 · 동반불가 0) · 교차점검 0건(근거 없음 0 · 동반 불가 정황 0)) · Claude 추출 0회 · 입력 0 · 출력 0 · 캐시 읽기 0 · 캐시 쓰기 0 토큰',
   applyFull:
-    '반영 7건 (보강 5 — published 4 · 신규 2 · 실패 1 · pending 되돌림 3) · published 대기 draft 6곳 — Studio 에서 status 를 올려야 화면에 뜬다(pnpm data:review status)',
+    '반영 7건 (보강 5 — published 4 · 신규 2 · 실패 1 · pending 되돌림 3) · published 대기 draft 6곳 — Studio 에서 status 를 올려야 화면에 뜬다',
   applyZero: '반영 0건 (보강 0 · 신규 0 · 실패 0) · published 대기 draft 0곳',
   applyUnknownDraft: '[dry-run] 반영 1건 (보강 1 · 신규 0 · 실패 0) · published 대기 draft ?곳',
   approve: 'approved 3건 — 반영은 pnpm data:apply',

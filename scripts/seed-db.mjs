@@ -1,6 +1,7 @@
 // src/data/places.json · items.json (Notion export 로 만든 마지막 스냅샷) 을 Supabase 로 1회 옮긴다.
 // ADR-015: 원본이 Supabase 로 바뀐 뒤로는 이 명령이 데이터를 "만드는" 경로가 아니지만, 재현성을 위해 레포에 둔다
 // (스키마를 다시 만들거나 다른 프로젝트로 옮길 때 처음부터 다시 짤 필요가 없게). 여러 번 돌려도 안전하다(upsert).
+// `node scripts/seed-db.mjs` 로 직접 부른다(재해복구용, ADR-024 — package.json 스크립트 줄은 없다).
 import { readFile } from 'node:fs/promises';
 import { createSupabase } from './lib/supabaseClient.mjs';
 

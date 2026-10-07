@@ -1,18 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parsePetPolicy, toPetBadges, withPolicyFacts } from '../../src/lib/petPolicy';
-import {
-  formatGroup,
-  formatMarkdown,
-  groupCandidates,
-  groupFlags,
-  independentPostCount,
-  kindOfRow,
-  mergeSameSpotGroups,
-  parseReviewArgs,
-  postClusters,
-  previewPolicy,
-  resolveIds,
-} from './reviewCandidates.mjs';
+import { groupCandidates, groupFlags, independentPostCount, kindOfRow, mergeSameSpotGroups, postClusters, previewPolicy } from './reviewCandidates.mjs';
 
 const parsers = { parsePetPolicy, toPetBadges, withPolicyFacts };
 const row = (id, name, over = {}, top = {}) => ({
@@ -104,39 +92,10 @@ describe('previewPolicy — 앱이 문장을 어떻게 읽을지', () => {
   });
 });
 
-describe('표식·출력·id', () => {
+describe('표식', () => {
   it('groupFlags — 지역·좌표 없음, 목록글, 중복표시', () => {
     const g = groupCandidates([row('a', '카페', { regionRaw: null, visited: false, dupOf: 'x' })])[0];
     expect(groupFlags(g)).toEqual(['지역 없음', '좌표 없음', '목록글', '중복표시']);
-  });
-  it('formatGroup 기본 출력에는 evidence·원문이 없고 verbose 에만 있다', () => {
-    const g = groupCandidates([row('abcdef12-0000', '카페', { petPolicyText: '리드줄 필수' })])[0];
-    const p = previewPolicy(g.lead.extracted, parsers);
-    const plain = formatGroup(g, p);
-    expect(plain).toContain('■ 카페');
-    expect(plain).toContain('abcdef12');
-    expect(plain).not.toContain('인용문');
-    expect(plain).not.toContain('리드줄 필수');
-    const verbose = formatGroup(g, p, { verbose: true });
-    expect(verbose).toContain('인용문');
-    expect(verbose).toContain('원문: 리드줄 필수');
-    expect(formatMarkdown([g], new Map([[g.key, p]]))).toContain('> 인용문');
-  });
-  it('resolveIds — 앞자리로 고르되 없거나 둘 이상이면 따로', () => {
-    const rows = [row('abc123', '가'), row('abd456', '나'), row('abc789', '다')];
-    expect(resolveIds(rows, ['abd', 'abc1', 'zzz', 'abc']).found.map((r) => r.id)).toEqual(['abd456', 'abc123']);
-    expect(resolveIds(rows, ['zzz']).missing).toEqual(['zzz']);
-    expect(resolveIds(rows, ['abc']).ambiguous).toEqual(['abc']);
-  });
-  it('parseReviewArgs — 기본은 list, approve/reject 는 id 나 --tier, reject 는 --note 필수', () => {
-    expect(parseReviewArgs([]).command).toBe('list');
-    expect(parseReviewArgs(['--tier', 'new', '--limit', '5', '-v']).tier).toBe('new');
-    expect(parseReviewArgs(['approve', 'ab', 'cd', '--merge-into', 'p1'])).toMatchObject({ command: 'approve', ids: ['ab', 'cd'], mergeInto: 'p1' });
-    expect(parseReviewArgs(['approve', '--tier', 'auto']).tier).toBe('auto');
-    expect(() => parseReviewArgs(['approve'])).toThrow();
-    expect(() => parseReviewArgs(['reject', 'ab'])).toThrow(/note/);
-    expect(() => parseReviewArgs(['--tier', 'x'])).toThrow();
-    expect(() => parseReviewArgs(['bogus'])).toThrow();
   });
 });
 

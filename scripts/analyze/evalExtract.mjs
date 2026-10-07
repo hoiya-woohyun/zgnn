@@ -1,6 +1,6 @@
 // AI 추출 정확도 채점(`pnpm data:eval score`). 정답은 시드 86곳 — 짱구누나가 **같은 글**(reviewUrl)을 읽고 손으로 적은 조건이다.
 // 글마다 운영 추출(`extractPlaces`)을 한 번 돌려 캐시에 두고(scripts/eval-extract.mjs), 여기서는 golden 과 캐시만 읽어 비교한다 —
-// Claude 호출도 I/O 도 없다. 앱 함수(parsePetPolicy·withPolicyFacts·judgeEligibility)는 주입받는다(review-candidates.mjs 의 parsers 와 같은 꼴):
+// Claude 호출도 I/O 도 없다. 앱 함수(parsePetPolicy·withPolicyFacts·judgeEligibility)는 주입받는다(reviewCandidates.mjs 의 previewPolicy 와 같은 꼴):
 // 테스트는 vitest 가 TS 를 직접 읽고, CLI 는 확장자 훅(scripts/lib/tsExtResolve.mjs)을 깔고 불러 넘긴다.
 //
 // 왜 이렇게 생겼나 —

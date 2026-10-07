@@ -12,16 +12,10 @@
     "data:pull": "node scripts/pull-db.mjs",
     "data:login": "node scripts/login.mjs",
     "data:logout": "node scripts/logout.mjs",
-    "data:seed": "node scripts/seed-db.mjs",
     "data:collect": "node --experimental-strip-types --no-warnings scripts/collect-blog.mjs",
     "data:analyze": "node --experimental-strip-types --no-warnings scripts/analyze-candidates.mjs",
-    "data:homepage": "node scripts/fill-homepage.mjs",
     "data:apply": "node --experimental-strip-types --no-warnings scripts/apply-approved.mjs",
-    "data:review": "node --experimental-strip-types --no-warnings scripts/review-candidates.mjs",
-    "data:eval": "node --experimental-strip-types --no-warnings --import ./scripts/lib/tsExtResolve.mjs scripts/eval-extract.mjs",
-    "data:fetch-images": "node scripts/fetch-blog-images.mjs",
-    "data:optimize-images": "node scripts/optimize-images.mjs",
-    "data:normalize": "node scripts/normalize.mjs"
+    "data:eval": "node --experimental-strip-types --no-warnings --import ./scripts/lib/tsExtResolve.mjs scripts/eval-extract.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",
