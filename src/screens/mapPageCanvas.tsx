@@ -11,8 +11,14 @@ import { pinIcon } from '../lib/naverMapPin';
 import { JEJU_CENTER, jejuZoomFor, MY_LOCATION_COLOR, PLACE_FOCUS_ZOOM, TYPE_META, type TPlaceEntry } from '../lib/places';
 import type { TGeo, TPlaceType } from '../types';
 
-/** 판정이 'hard' 인 곳. 숨기지 않고 "갈 수는 있지만 눈에 덜 띄게" 흐린다 — Marker 의 기본 옵션이다. */
-const MARKER_HARD_OPACITY = 0.45;
+/**
+ * 판정이 'hard' 인 곳. 숨기지 않고 "갈 수는 있지만 눈에 덜 띄게" 흐린다.
+ *
+ * **마커 바깥 요소에 직접 건다 — 네이버 `Marker` 에는 `opacity` 옵션도 `setOpacity` 도 없다.** 옵션으로 넘기면
+ * 조용히 버려지고 핀은 1.0 으로 그려진다(2026-10-08 실측, 14 W261007.1). Kakao 시절의 옵션을 그대로 옮겨 적어
+ * 빌드·테스트가 통과한 채 지도에서만 판정이 사라져 있었다. `setIcon` 은 안쪽 그림만 바꾸므로 이 스타일은 남는다.
+ */
+const MARKER_HARD_OPACITY = '0.45';
 
 /** 저장한 곳은 겹쳤을 때 위로 올린다 — 모아 보려고 저장했는데 남의 핀 밑에 깔리면 안 된다. */
 const Z_SAVED = 500;
@@ -349,11 +355,10 @@ export function MapPageCanvas({
           icon: pinIcon(maps, place.type, selected, saved),
           clickable: true,
           zIndex: selected ? Z_SELECTED : saved ? Z_SAVED : 0,
-          opacity:
-            eligibilityMap?.get(place.id)?.level === 'hard' ? MARKER_HARD_OPACITY : 1,
         });
         const listener = maps.Event.addListener(marker, 'click', () => onSelect(place.id));
         const level = eligibilityMap?.get(place.id)?.level;
+        if (level === 'hard') marker.getElement().style.opacity = MARKER_HARD_OPACITY;
         const detachKeys = makeMarkerButton(
           marker.getElement(),
           [place.name, TYPE_META[place.type].label, level && ELIGIBILITY_META[level].label].filter(Boolean).join(', '),

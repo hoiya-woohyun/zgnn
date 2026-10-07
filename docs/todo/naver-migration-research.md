@@ -20,6 +20,8 @@
 
 `naver.maps.Marker` 의 `MarkerOptions` 에 **`opacity` 가 있다**(`setOpacity()` 도). `hard` 판정을 0.45 로 흐리는 ADR-008 의 유일한 시각 인코딩을 SVG 에 굽지 않고 그대로 옮길 수 있다.
 
+> 메모(2026-10-08): **틀렸다.** 실측하니 `setOpacity` 는 `undefined` 이고 `opacity` 옵션은 조용히 버려진다 — '어려움' 핀이 전부 1.0 이었다(14 W261007.1). 흐림은 `marker.getElement().style.opacity` 로 건다(ADR-008 v23).
+
 | Kakao | 네이버 |
 |---|---|
 | `MarkerImage(src, Size, { offset, alt })` | `icon: { url, size, scaledSize, origin, anchor }` (ImageIcon). **`anchor` = Kakao 의 `offset`** — 좌표에 맞출 이미지 안의 지점 |

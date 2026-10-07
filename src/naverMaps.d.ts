@@ -143,8 +143,7 @@ declare namespace naver.maps {
     title?: string;
     clickable?: boolean;
     zIndex?: number;
-    /** 0~1. 판정이 'hard' 인 곳을 눈에 덜 띄게 할 때 쓴다 — Kakao 와 마찬가지로 기본 옵션이다. */
-    opacity?: number;
+    // `opacity` 는 없다(Kakao 와 다르다) — 넘기면 조용히 버려진다. 흐림은 `getElement().style.opacity` 로(2026-10-08 실측).
     visible?: boolean;
   }
 
@@ -153,7 +152,6 @@ declare namespace naver.maps {
     setMap(map: Map | null): void;
     setIcon(icon: ImageIcon | string): void;
     setZIndex(zIndex: number): void;
-    setOpacity(opacity: number): void;
     setPosition(position: LatLng): void;
     /** 마커의 바깥 div. `setIcon` 은 안쪽 그림만 바꾸고 이 요소는 그대로 둔다 — 여기 단 속성이 남는다. */
     getElement(): HTMLElement;
