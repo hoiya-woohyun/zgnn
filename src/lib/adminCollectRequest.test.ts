@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { collectRequestKey, collectRequestLine, collectRequestQuery, collectView, latestRequestByName, type TCollectRequest } from './adminCollectRequest';
+import { collectRequestKey, collectRequestLine, collectRequestQuery, collectView, latestRequestByName, withUnread, type TCollectRequest } from './adminCollectRequest';
 
 const request = (patch: Partial<TCollectRequest>): TCollectRequest => ({
   id: 'r1',
@@ -10,6 +10,7 @@ const request = (patch: Partial<TCollectRequest>): TCollectRequest => ({
   done_at: '2026-10-02T03:00:00Z',
   found: 12,
   to_read: 5,
+  post_urls: [],
   ...patch,
 });
 
@@ -44,9 +45,15 @@ describe('collectRequestLine', () => {
   it('대기 중이면 검색어와 다음 명령', () => {
     expect(collectRequestLine(request({ status: 'queued', done_at: null }))).toBe("'제주 카페살레' 로 찾을 차례예요 — 터미널에서 pnpm data:collect");
   });
-  it('끝났으면 다음 분석이 읽을 글 수 — 0 이면 더 붙을 근거가 없다고 말한다', () => {
-    expect(collectRequestLine(request({}))).toMatch(/글 12건 중 5건을 다음 pnpm data:analyze 가 먼저 읽어요$/);
-    expect(collectRequestLine(request({ to_read: 0 }))).toMatch(/글 12건 모두 분석이 끝난 글이에요 — 더 붙을 근거가 없어요$/);
+  it('끝났으면 **지금** 미분석 수(unread) — 분석이 다 읽은 뒤에는 "먼저 읽어요" 가 남지 않는다', () => {
+    expect(collectRequestLine(request({ unread: 3 }))).toMatch(/글 12건 중 3건이 아직 분석 전이에요 — pnpm data:analyze 가 먼저 읽어요$/);
+    expect(collectRequestLine(request({ unread: 0 }))).toMatch(/글 12건을 다 읽었어요/);
+  });
+  it('못 셌으면(unread 없음) 수집 시점의 말로', () => {
+    expect(collectRequestLine(request({}))).toMatch(/글 12건 중 수집 때 미분석 5건 — pnpm data:analyze 가 먼저 읽어요$/);
+  });
+  it('수집 때부터 읽을 글이 없었거나 찾은 글이 없으면 그렇게 말한다', () => {
+    expect(collectRequestLine(request({ to_read: 0, unread: 0 }))).toMatch(/모두 이미 분석이 끝난 글이었어요 — 더 붙을 근거가 없어요$/);
     expect(collectRequestLine(request({ found: 0, to_read: 0 }))).toMatch(/찾은 글이 없어요$/);
   });
 });
@@ -64,5 +71,27 @@ describe('collectView', () => {
     const queued = request({ status: 'queued', done_at: null });
     expect(collectView({ kind: 'ok', byName: { 카페살레: queued } }, extracted)?.queued).toBe(true);
     expect(collectView({ kind: 'ok', byName: {} }, extracted)).toEqual({ query: '제주 카페살레', line: null, queued: false, unavailable: false });
+  });
+});
+
+describe('withUnread', () => {
+  it('끝난 요청에만 지금 미분석 수를 얹는다', () => {
+    const done = request({ post_urls: ['a', 'b', 'c'] });
+    const queued = request({ id: 'q', status: 'queued', done_at: null, post_urls: [] });
+    const [d, q] = withUnread([done, queued], new Set(['b']));
+    expect(d.unread).toBe(1);
+    expect(q.unread).toBeUndefined();
+  });
+});
+
+describe('collectView — 묶음의 다른 이름 키', () => {
+  it('대표가 바뀌어도 다른 행의 키로 건 요청을 찾는다(대기 중이면 버튼이 꺼진 채)', () => {
+    const queued = request({ name_key: '심바카레', status: 'queued', done_at: null });
+    const view = collectView({ kind: 'ok', byName: { 심바카레: queued } }, { name: '심바 카레 애월점', nameKey: '심바카레애월' }, [
+      { name: '심바 카레 애월점', nameKey: '심바카레애월' },
+      { name: '심바카레', nameKey: '심바카레' },
+    ]);
+    expect(view?.queued).toBe(true);
+    expect(view?.query).toBe('제주 심바 카레 애월점');
   });
 });

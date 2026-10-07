@@ -328,7 +328,6 @@ fetchedPosts = deferBlogs(fetchedPosts, singlePlace);
 // 글이라, 최신순·제목 순서에 맡기면 미분석 수천 건 뒤에 밀려 몇 주가 지나도 안 읽히고, 업주 블로그는 '한 가게 블로그' 로 맨 뒤에 간다.
 // 블로그당 상한(`pickPostsForRun`)은 그대로 받는다 — 업주 블로그 한 곳이 실행을 다 채우지 않게.
 const requestedUrls = await recentRequestUrls(supabase);
-let requestedCount = 0;
 if (requestedUrls.length > 0) {
   const requested = [];
   for (const chunk of chunkForUrlFilter(requestedUrls)) {
@@ -336,11 +335,15 @@ if (requestedUrls.length > 0) {
     if (error) throw new Error(`blog_posts 조회 실패(추가 수집 글): ${error.message}`);
     requested.push(...data);
   }
-  requestedCount = requested.length;
   fetchedPosts = mergeFocusedFirst(requested, fetchedPosts);
 }
 const posts = pickPostsForRun(fetchedPosts, limit, maxPerBlog);
-if (requestedCount > 0) console.log(`추가 수집(/admin) 글 ${requestedCount}건을 맨 앞에 세웠다`);
+// 센 것은 **이번에 읽는** 수다(limit·블로그당 상한을 지난 뒤) — 맨 앞에 선 전체가 아니다.
+{
+  const requestedSet = new Set(requestedUrls);
+  const picked = posts.filter((post) => requestedSet.has(post.url)).length;
+  if (picked > 0) console.log(`추가 수집(/admin) 글 ${picked}건을 이번에 먼저 읽는다`);
+}
 // 앞줄이 비면 끝 — 반복 실행(`for … || break`)이 빈 실행을 되풀이하지 않게 exit 1 로 알린다.
 if (focusedOnly && posts.length === 0) {
   console.log('앞줄(--focused-only)에 남은 글이 없다 — 끝.');

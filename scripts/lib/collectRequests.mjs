@@ -14,6 +14,13 @@ export function isTableMissing(error) {
   );
 }
 
+/**
+ * 추가 수집이 담은 글의 `blog_posts.keyword`. **상호명을 쓰지 않는다** — 추출 프롬프트가 이 칸을 `검색어:` 로 읽어서(`extractPlaces.mjs`),
+ * 상호명을 주면 그 이름이 스치기만 한 글에서도 그 가게를 뽑게 유도한다(ADR-019 v5 가 검색어에서 `애견동반` 을 뺀 것과 같은 이유).
+ * 어느 요청이 담았는지는 `collect_requests.post_urls` 가 말한다. 수집 완료 칸의 검색어별 집계에는 이 표식 한 줄로 모인다.
+ */
+export const REQUEST_KEYWORD = '추가 수집(/admin)';
+
 /** 끝난 요청이 미분석 줄 맨 앞에 서는 기간. 그 뒤로는 보통 글처럼 최신순에 섞인다. */
 export const REQUEST_PRIORITY_DAYS = 30;
 
@@ -29,11 +36,17 @@ export function requestOutcome(rows, analyzedUrls) {
   return { found: urls.length, to_read: urls.filter((url) => !analyzedUrls.has(url)).length, post_urls: urls };
 }
 
-/** 대기 중인 요청(먼저 누른 것부터). 표가 없으면 `{ requests: [], missing: true }`. 그 밖의 오류는 던진다. */
+/**
+ * 대기 중인 요청(먼저 누른 것부터). 표가 없으면 `{ requests: [], missing: true }`. 그 밖의 오류도 **경고 한 줄 뒤 0건**이다 —
+ * 덤인 요청을 못 읽었다고 키워드 수집까지 멈추면 안 된다(분석 쪽 `recentRequestUrls` 와 같은 태도).
+ */
 export async function fetchQueuedRequests(supabase) {
   const { data, error } = await supabase.from('collect_requests').select('id, query').eq('status', 'queued').order('requested_at', { ascending: true });
   if (isTableMissing(error)) return { requests: [], missing: true };
-  if (error) throw new Error(`collect_requests 조회 실패: ${error.message}`);
+  if (error) {
+    console.warn(`⚠️ 추가 수집 요청을 못 읽었다(요청 없이 돈다) — ${error.message}`);
+    return { requests: [], missing: false };
+  }
   return { requests: data ?? [], missing: false };
 }
 

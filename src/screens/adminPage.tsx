@@ -1904,7 +1904,7 @@ export function AdminPage() {
                   onStartReanalyze={() => patchState(group.key, { reanalyzing: true, rejecting: false, error: undefined })}
                   onCancelReanalyze={() => patchState(group.key, { reanalyzing: false })}
                   onReanalyze={() => void reanalyze([group.key], { key: group.key })}
-                  collect={collectView(collectRequests, group.lead.extracted)}
+                  collect={collectView(collectRequests, group.lead.extracted, group.rows.map((row) => row.extracted))}
                   onRequestCollect={() => void requestCollectFor(group)}
                 />
               );

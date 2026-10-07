@@ -1,6 +1,7 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-10-07 (v48: **추가 수집 요청**(`collect_requests`) — `/admin` 이 남긴 상호명 검색어를 `data:collect` 가 키워드 뒤에 한 페이지(30건)씩 돌고(`--only-requests` 면 요청만), `data:analyze` 는 그 글을 미분석 줄 맨 앞에 세운다. 표가 없으면 경고 한 줄 뒤 요청 없이 돈다 — [features/admin-review 「추가 수집」](../features/admin-review.md))
+> 최종 수정: 2026-10-07 (v49: 추가 수집 — 요청 검색 실패는 그 요청만 대기로(키워드 수집분은 저장), 요청 글의 `keyword` 는 `추가 수집(/admin)`(상호명을 `검색어:` 로 주면 추출을 유도한다), `--only-requests` 는 `pipeline_runs` 에 안 남긴다(수집 칸의 '마지막 성공' 을 가린다))
+> 이전 2026-10-07 (v48: **추가 수집 요청**(`collect_requests`) — `/admin` 이 남긴 상호명 검색어를 `data:collect` 가 키워드 뒤에 한 페이지(30건)씩 돌고(`--only-requests` 면 요청만), `data:analyze` 는 그 글을 미분석 줄 맨 앞에 세운다. 표가 없으면 경고 한 줄 뒤 요청 없이 돈다 — [features/admin-review 「추가 수집」](../features/admin-review.md))
 > 이전 2026-10-06 (v47: **읍면은 읽을 때 정본으로 접는다** — `parseRegion` 이 `서귀포`→`서귀포시` 를 한다(07 U8). 어느 쓰기 길도 저장 값을 고치지 않아, 시드의 `남쪽 (서귀포)` 1행은 손으로 고쳐야 했다)
 > 이전 2026-10-06 (v46: 심장을 **쓰기 스크립트 넷 모두** 찍는다 — collect(페이지마다)·`data:review`(행마다)가 빠져 있어 10분 넘게 도는 실행이 살아 있어도 운영 현황에 "중단된 듯" 으로 떴다)
 > 이전 2026-10-06 (v45: **실행마다 `pipeline_runs` 한 행** — collect·analyze·apply·`data:review approve|reject` 가 시작에 insert, 끝에 상태·stats·분류 문구를 남긴다(analyze 는 그 사이 심장). 기록 실패는 경고 한 줄뿐이고 작업은 그대로 돈다. 콘솔 요약 줄은 `src/lib/runSummary.ts` 로 옮겨 화면과 같은 함수를 쓴다 — 그래서 `data:collect`·`data:analyze`·`data:apply` 도 `--experimental-strip-types` 로 돈다([ADR-023](../decisions/ADR-023-ops-dashboard-and-run-log.md), [todo/15](../todo/15-ops-dashboard.md) T2))

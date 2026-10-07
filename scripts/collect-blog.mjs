@@ -7,13 +7,13 @@
 // 실행마다 `pipeline_runs` 에 한 행을 남긴다(scripts/lib/runLog.mjs, docs/todo/15) — 기록이 안 되면 경고 한 줄만 찍고 수집은 그대로 돈다.
 import { readFile } from 'node:fs/promises';
 import { chunkForUrlFilter } from './lib/chunkForUrlFilter.mjs';
-import { fetchQueuedRequests, markRequestDone, requestOutcome } from './lib/collectRequests.mjs';
+import { fetchQueuedRequests, markRequestDone, REQUEST_KEYWORD, requestOutcome } from './lib/collectRequests.mjs';
 import { describeKeyShape, naverErrorTail } from './lib/naverApiError.mjs';
 import { NAVER_BLOG_SEARCH_URL, countNaverCall, naverAuthHeaders, readNaverCalls } from './lib/naverSearchApi.mjs';
 import { loadNaverEnvFile } from './lib/naverEnvFile.mjs';
 import { naverKeyPairProblem } from './lib/naverKeyFormat.mjs';
 import { readHidden } from './lib/readHidden.mjs';
-import { beginRun, classifyRunError, RUN_ERROR } from './lib/runLog.mjs';
+import { beginRun, classifyRunError, NO_RUN, RUN_ERROR } from './lib/runLog.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
 import { formatCollectSummary, formatElapsed } from '../src/lib/runSummary.ts';
 import {
@@ -157,7 +157,10 @@ let excludedOther = 0;
 let truncated = 0;
 
 // 시작 기록은 키·키워드 검사가 다 지난 뒤에 — 그 앞의 exit(1) 은 "돌지 않은 것" 이지 실패한 실행이 아니다.
-const run = await beginRun(supabase, { script: 'collect', args: { keywords: keywords.length, requests: requests.length } });
+// `--only-requests` 실행은 **남기지 않는다** — 운영 현황의 수집 칸은 마지막 성공(`last_ok`)으로 "수집 7일째 없음" 을 가르는데, 요청만 돈 실행이
+// 그 자리를 차지하면 키워드 수집이 몇 주 멈춰도 칸이 초록이다. `script` 에 체크 제약이 있어 다른 라벨을 쓰려면 마이그레이션이 필요하고,
+// 그 실행의 결과는 요청 행(`done_at`·`found`·`to_read`)에 이미 남는다.
+const run = onlyRequests ? NO_RUN : await beginRun(supabase, { script: 'collect', args: { keywords: keywords.length, requests: requests.length } });
 // Ctrl-C 도 실패로 닫는다(130 유지). 닫기를 3초 넘게 기다리지 않는다 — 네트워크가 죽어 있으면 그만큼 사용자가 갇힌다.
 process.once('SIGINT', async () => {
   await Promise.race([run.end({ status: 'failed', error: RUN_ERROR.sigint }), sleep(3000)]);
@@ -212,11 +215,25 @@ try {
 
   // 추가 수집 — 검색어 하나에 한 페이지. 페이지 넘김·창 잘림(⚠️) 판정이 없다: 최신 30건이 전부다.
   // 요청별 행을 따로 쥐고 있다가 upsert 가 끝난 **뒤에** 결과를 적는다 — 그 전에 죽으면 요청은 대기로 남는다.
+  // **요청 하나의 실패가 실행을 죽이지 않는다** — 이 루프는 키워드 수집이 끝난 뒤 · upsert 앞이라, 여기서 던지면 메모리에 쥔 키워드 수집분이
+  // 통째로 버려지고, 늘 실패하는 요청(이상한 상호명의 4xx)이면 다음 실행도 같은 자리에서 죽는다. 실패한 요청은 대기로 남는다.
+  // 429 는 한도라 남은 요청도 같은 꼴이 된다 — 거기서 요청 루프만 멈추고 담은 것은 저장한다.
+  // 글의 `keyword` 는 상호명이 아니라 표식(`REQUEST_KEYWORD`)이다 — 추출 프롬프트가 `검색어:` 로 읽어, 상호명을 주면 이름만 스친 글에서 그 가게를 지어내게 유도한다.
   const requestRows = new Map();
   for (const [index, request] of requests.entries()) {
     await run.tick();
-    const { items } = await searchBlog(request.query, 1, REQUEST_DISPLAY);
-    const tally = tallyPage(items ?? [], request.query, now);
+    let items;
+    try {
+      ({ items } = await searchBlog(request.query, 1, REQUEST_DISPLAY));
+    } catch (e) {
+      console.warn(`⚠️ [추가 ${index + 1}/${requests.length}] ${request.query} 검색 실패 — 대기로 남긴다: ${e.message}`);
+      if (e.status === 429) {
+        console.warn(`⚠️ 429 — 남은 추가 수집 ${requests.length - index - 1}건도 대기로 남기고, 담은 것은 저장한다`);
+        break;
+      }
+      continue;
+    }
+    const tally = tallyPage(items ?? [], REQUEST_KEYWORD, now);
     collected.push(...tally.rows);
     excludedOld += tally.old;
     excludedOther += tally.other;
@@ -266,6 +283,7 @@ try {
   // 추가 수집 결과 — 글은 이미 들어갔으므로 여기서 실패해도 실행을 죽이지 않는다(요청이 대기로 남아 다음에 한 번 더 찾을 뿐이다).
   let requestToRead = 0;
   for (const request of requests) {
+    if (!requestRows.has(request.id)) continue; // 검색이 실패한 요청 — 대기로 남는다
     const outcome = requestOutcome(requestRows.get(request.id) ?? [], analyzedUrls);
     requestToRead += outcome.to_read;
     try {
@@ -285,7 +303,7 @@ try {
     durationMs: Date.now() - startedAt,
     naverCalls: readNaverCalls(),
     truncatedKeywords: truncated,
-    ...(requests.length ? { requests: requests.length, requestToRead } : {}),
+    ...(requestRows.size ? { requests: requestRows.size, requestToRead } : {}),
   };
   // 같은 객체를 찍고 같은 객체를 남긴다 — 화면(/admin/ops)이 stats 로 이 줄을 글자까지 같게 다시 만든다(src/lib/runSummary.ts).
   console.log(formatCollectSummary(stats));
