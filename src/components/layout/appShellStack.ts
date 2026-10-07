@@ -302,6 +302,12 @@ export function useAppShellStack({ pathname, mainRef, surfaceRef }: TAppShellSta
       candidate.current = null;
       popRequested.current = false;
       skipNext.current = false;
+      /*
+       * 끄는 도중에 주소가 바뀌었으면(브라우저 뒤로·안드로이드 뒤로) 그 제스처는 여기서 끝난다. 남겨 두면 도착한 곳이 탭 화면일 때
+       * `surfaceProps` 가 비어 손을 떼도 아무도 안 비우고, `axis: 'x'` 가 남아 `lockScroll` 이 앱 전체의 세로 스크롤을 막는다.
+       * 쌓인 화면이면 손을 뗄 때 `settleBack` 이 이미 걷힌 층으로 한 번 더 뒤로 간다.
+       */
+      gesture.current = null;
       stop();
 
       const kind = stackTransitionOf({ from, to: pathname, depthDelta, popRequested: requested });
@@ -375,6 +381,8 @@ export function useAppShellStack({ pathname, mainRef, surfaceRef }: TAppShellSta
       easing: SETTLE_EASING,
       fill: 'forwards',
     };
+    // 앞 그림을 버리기 전에 끈다 — `fill: forwards` 는 참조를 잃어도 `<main>` 을 붙들고 있어 `stop` 으로도 못 걷는다.
+    for (const animation of running.current) animation.cancel();
     const animations = [
       main.animate({ transform: `translateX(${toDx}px)` }, options),
       current.sheet?.animate({ transform: `translateX(${back ? 0 : -current.behind}px)` }, options),
