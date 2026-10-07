@@ -266,7 +266,14 @@ export function useAppShellStack({ pathname, mainRef, surfaceRef }: TAppShellSta
     };
     const onPopState = () => {
       // 셸의 뒤로가기는 거는 쪽이 이미 떴다. 그 밖(브라우저 뒤로·앞으로·안드로이드 뒤로)은 여기서.
-      if (popRequested.current) return;
+      if (popRequested.current) {
+        // 되감은 곳이 같은 주소(쿼리만 다름)면 주소가 안 바뀌어 `arrive` 가 안 불린다 — 표식이 남으면 다음 push 를 pop 으로 그린다.
+        if (normalizeRoute(window.location.pathname) === normalizeRoute(current.current)) {
+          popRequested.current = false;
+          candidate.current = null;
+        }
+        return;
+      }
       candidate.current = capture();
       skipNext.current = uaTransition.current || (isIOS() && !isStandalone());
       uaTransition.current = false;
@@ -327,9 +334,12 @@ export function useAppShellStack({ pathname, mainRef, surfaceRef }: TAppShellSta
    */
   const goBack = useCallback(
     (backTo: string) => {
-      candidate.current = capture();
-      popRequested.current = true;
-      if (canGoBackInApp()) {
+      // 갈아 끼울 곳이 지금 주소면 화면이 안 바뀌어 `arrive` 가 안 불린다 — 그때 세운 표식은 다음 이동까지 남는다.
+      const rewind = canGoBackInApp();
+      const moves = rewind || normalizeRoute(backTo.split(/[?#]/)[0]) !== normalizeRoute(current.current);
+      candidate.current = moves ? capture() : null;
+      popRequested.current = moves;
+      if (rewind) {
         router.back();
         return;
       }

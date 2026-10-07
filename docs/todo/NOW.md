@@ -28,7 +28,6 @@
 
 ## 지금 (위에서부터)
 
-- [ ] 같은 경로 이동에 남은 `popRequested` 가 다음 push 를 pop 으로 — [12 U4.3](12-ux-audit-2026-10-02.md) · 왜 지금: 전환 방향이 거꾸로 그려진다
 - [ ] 같은 경로 `router.replace` 가 `zgnnDepth` 를 지운다 — [12 U4.4](12-ux-audit-2026-10-02.md) · 왜 지금: 깊이를 잃으면 덮기/걷기가 뒤집힌다
 - [ ] 스택 애니메이션 끝이 탭 페이저의 transform 을 지운다 — [12 U4.2](12-ux-audit-2026-10-02.md) · 왜 지금: 두 페이저가 `<main>` 하나를 나눠 쓴다
 - [ ] 하루 묶음 판정 `tripEligibility.ts` — [16 T2.1](16-trip-route-planner.md) · 왜 지금: §7 결정 없이 되는 순수 함수, 판정은 `placeDetailEligibilityCard` 와 같은 입력으로
