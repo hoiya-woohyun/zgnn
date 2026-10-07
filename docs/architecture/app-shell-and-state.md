@@ -1,6 +1,7 @@
 # 라우팅 · 화면 셸 · 클라이언트 상태
 
-> 최종 수정: 2026-10-07 (v41: 홈 **인사말은 첫 방문에만** 히어로 밑에, 이후엔 맨 아래 한 줄(`HomePageIntro`) · 등록 CTA 는 히어로 바로 밑 브랜드 면. "첫 방문" 은 새 스토어 칸 `visitCount`(07 U2))
+> 최종 수정: 2026-10-07 (v42: 탭바 52 → **58px**, 늘린 6px 는 아이콘 **위에만**(아래는 홈 인디케이터가 이미 비운다))
+> 이전 2026-10-07 (v41: 홈 **인사말은 첫 방문에만** 히어로 밑에, 이후엔 맨 아래 한 줄(`HomePageIntro`) · 등록 CTA 는 히어로 바로 밑 브랜드 면. "첫 방문" 은 새 스토어 칸 `visitCount`(07 U2))
 > 이전 2026-10-06 (v40: 둘러보기 조건이 종류 탭을 넘어 남는다 — **저장하지 않는** 두 번째 스토어 `usePlacesPageFilterStore`(07 U3))
 > 이전 2026-10-06 (v39: `/dog` 의 탭 불이 설정 고정에서 **들어온 탭**으로(홈→홈 · 딥링크면 없음, 14 W261006.10))
 > 이전 2026-10-06 (v38: 상세의 **판정 카드가 원문을 안에 품는다**(`PlaceDetailEligibilityCard` 의 `evidence`) — 원문이 따로 상자이던 것을 구분선 아래로. 빈 상태(`EmptyState`)는 면 없이, 지도 위에서만 `floating`. 흰 카드 면 규칙은 [ADR-003 v15](../decisions/ADR-003-untitled-ui-and-palette.md))
@@ -88,7 +89,7 @@ src/app/place/[id]/page.tsx   ─ 서버: generateStaticParams(86개) · generat
 
 | 폭 | 구성 |
 |---|---|
-| < 768px | 하단 `AppTabBar`(높이는 `globals.css` 의 `--tab-bar-h` 52px 하나 — 지도 상자·스와이프 대역·본문 여백·토스트가 같은 변수를 본다. 홈·둘러보기·**지도**·준비물·설정 — 가운데 지도는 라벨 없는 솟은 원형 버튼 — 바의 `border-t` 가 원 가장자리를 타고 넘는다, `navItems.ts` 의 `prominent`. 탭을 누르면 셸이 손가락으로 밀 때와 같은 미끄러짐으로 옮긴다(`onNavigate` → `appShellSwipe` 의 `slideTo`, ADR-014 v5). 눌림 효과·길게 누름 시트는 없고 비활성 → 활성으로 **바뀐** 칸의 아이콘만 제 모양대로 한 번 움직인다 — `navItems.ts` 의 `motion`, 키프레임은 `styles/appTabBar.css`) |
+| < 768px | 하단 `AppTabBar`(높이는 `globals.css` 의 `--tab-bar-h` 58px 하나 — 늘린 6px 는 위에만 — 지도 상자·스와이프 대역·본문 여백·토스트가 같은 변수를 본다. 홈·둘러보기·**지도**·준비물·설정 — 가운데 지도는 라벨 없는 솟은 원형 버튼 — 바의 `border-t` 가 원 가장자리를 타고 넘는다, `navItems.ts` 의 `prominent`. 탭을 누르면 셸이 손가락으로 밀 때와 같은 미끄러짐으로 옮긴다(`onNavigate` → `appShellSwipe` 의 `slideTo`, ADR-014 v5). 눌림 효과·길게 누름 시트는 없고 비활성 → 활성으로 **바뀐** 칸의 아이콘만 제 모양대로 한 번 움직인다 — `navItems.ts` 의 `motion`, 키프레임은 `styles/appTabBar.css`) |
 | ≥ 768px | 좌측 고정 `AppSidebar`. 탭바는 숨김 |
 | ≥ 1024px (지도만) | 목록 패널 + 지도 2단 (`useMapPageWideLayout`) |
 

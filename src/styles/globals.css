@@ -47,9 +47,11 @@
   아래 여백(appShellSurface 의 CONTENT_BOTTOM_SPACE). 하나만 바꾸면 지도 밑에 띠가 남거나 마지막 줄이 가린다.
   `--spacing` 축에 태우지 않는다 — 탭바는 768px 미만에만 있고, 가운데 원이 1px 단위로 맞물린다.
   60px 였다가 52px 로 줄였다(아이콘 24 + 글자 한 줄 + 위아래 5px — 44px 터치 기준은 그대로 넘는다).
+  그 뒤 58px — 늘린 6px 는 **위쪽에만** 준다(appTabBar 의 `pt-[6px]`). 홈 인디케이터 자리(pb-safe)가 아래를 이미
+  넉넉히 비워 두는데 위만 4px 라, 아이콘이 윗선에 붙어 보였다.
 */
 :root {
-  --tab-bar-h: 52px;
+  --tab-bar-h: 58px;
 }
 
 @custom-variant dark (&:where(.dark-mode, .dark-mode *));

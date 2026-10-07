@@ -167,7 +167,8 @@ export function AppTabBar({ onNavigate }: TAppTabBarProps) {
                 aria-current={active ? 'page' : undefined}
                 draggable={false}
                 className={cx(
-                  'relative flex h-full flex-col items-center justify-center gap-0.5 text-xs font-semibold',
+                  // 위에만 6px — `--tab-bar-h` 가 늘린 만큼이다(globals.css). 솟은 원은 윗선 기준이라 영향이 없다.
+                  'relative flex h-full flex-col items-center justify-center gap-0.5 pt-[6px] text-xs font-semibold',
                   active ? 'text-brand-secondary' : 'text-tertiary',
                 )}
               >
