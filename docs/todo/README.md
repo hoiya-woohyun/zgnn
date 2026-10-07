@@ -129,6 +129,7 @@ flowchart LR
 | 13 | [13-ai-analysis-audit-2026-10-04.md](13-ai-analysis-audit-2026-10-04.md) | 코드 8건 완료(2026-10-04) — 남은 태스크 13개 + 🧑 1, 결정 A1~A6 은 권장안으로 닫음 | 운영자 자리에서 본 AI 분석 점검. 글 하나는 잘 읽고 **묶어서 믿는 일**을 못했다 — 재분석 · 확인일 없는 장소의 '조건 미기재' 판정 · 검수 화면 |
 | 14 | [14-weekly-ux-eval.md](14-weekly-ux-eval.md) | **1회차 완료**(2026-10-06) — W261006.1~17 전부 `[ ]`(17 은 스킬 수정 완료), ↪ 기존 11, 재현 필요 6 · 평균 6.25 | 매주 한 번 기획 문서를 안 본 페르소나 6명이 앱을 써 본 결과를 회차별 태스크로. 기존 07·08·10·11·12 와 겹치면 그 ID 를 가리킨다 |
 | 15 | [15-ops-dashboard.md](15-ops-dashboard.md) | **T1~T3 구현**(2026-10-06) — `pipeline_runs`·`ops_overview()` 원격 적용, 쓰기 스크립트 넷이 실행 기록을 남기고, `/admin/ops` 화면이 섰다. 다음은 T4(`/admin` 머리글 링크·경고 띠) · 🧑 `data:collect`·`data:analyze` 실측. T1.3·T5·T6(Slack) 보류 | 파이프라인이 **돌고 있는지** 를 보는 `/admin/ops` — 스크립트가 남긴 `pipeline_runs` + 기존 표로 다섯 칸 건강 판정, 기간별 깔때기, 실행 기록, 사용량. 실패는 DB 가 Slack 으로. 결정은 [ADR-023](../decisions/ADR-023-ops-dashboard-and-run-log.md), 화면은 [features/ops-dashboard.md](../features/ops-dashboard.md) |
+| 18 | [18-home-restructure.md](18-home-restructure.md) | 계획만(2026-10-07) — T1~T5 전부 `[ ]`, 🙋 2(권고와 함께 「기다림」) | 홈의 축을 **종류별 디렉터리에서 사용자 상태(등록 전·등록·등록+저장)** 로 — 모수 표시 · 읍면 칩을 관광지 검색 칩으로(퍼시스트 필터 누수 M-5) · 저장+준비물을 「내 여행」 카드 하나로(동선 [16](16-trip-route-planner.md) 의 입구) · 등록 전엔 히어로가 곧 CTA. 지도는 홈에 띄우지 않는다 |
 
 ## 이 계획이 서 있는 결정 — [ADR-015](../decisions/ADR-015-supabase-source-and-rebuild.md)
 
