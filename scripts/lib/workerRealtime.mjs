@@ -4,11 +4,18 @@
 // 토큰 — 이벤트도 RLS 를 거친다. 채널이 세션 JWT 를 싣는 것은 `createSupabase` 의 `realtime.accessToken` 콜백이다(거기 주석: `setAuth(jwt)` 는 heartbeat 가 되돌린다).
 // 그래서 재로그인 뒤 할 일은 `setAuth` 가 아니라 **새 클라이언트로 다시 구독**(`restart`)이다 — 옛 클라이언트의 콜백은 옛 토큰을 쥐고 있다.
 
+/**
+ * 승인 이벤트를 이만큼 묵힌 뒤 깨운다. `/admin` 「맞아요」 는 승인과 반영을 한 번에 하는데 순서가 approved → places insert → match_place_id → merged 라,
+ * 1초 만에 깬 apply 가 그 사이(approved 인데 짝이 없다)를 읽으면 같은 가게를 **한 번 더 insert** 한다(쌍둥이 — 빌드·테스트는 통과).
+ * 묵히면 브라우저가 merged 로 닫은 뒤라 셀 것이 0 이다. 줄일 뿐 없애지는 못한다(느린 네트워크) — 폴링에도 같은 창이 있었다. 승인 → 반영 수용 기준은 60초라 여유가 있다.
+ */
+export const APPROVED_SETTLE_MS = 5_000;
+
 /** 워커가 듣는 변경. `blog_posts` 는 replica identity default 라 old 값이 없어 "requested_at 이 새로 생김" 을 못 가른다 — 새 행만 보고 `shouldWake` 가 거른다. */
 export const REALTIME_BINDINGS = Object.freeze([
   { table: 'collect_requests', event: 'INSERT' },
   { table: 'pipeline_requests', event: 'INSERT' },
-  { table: 'candidates', event: 'UPDATE', filter: 'status=eq.approved' },
+  { table: 'candidates', event: 'UPDATE', filter: 'status=eq.approved', delayMs: APPROVED_SETTLE_MS },
   { table: 'blog_posts', event: 'UPDATE' },
 ]);
 
@@ -56,9 +63,12 @@ export function startRealtime(initialClient, { onEvent, log }) {
   function subscribe(next) {
     client = next;
     const mine = REALTIME_BINDINGS.reduce(
-      (ch, { table, event, filter }) =>
+      (ch, { table, event, filter, delayMs }) =>
         ch.on('postgres_changes', { event, schema: 'public', table, ...(filter ? { filter } : {}) }, (payload) => {
-          if (shouldWake(payload.table, payload.eventType, payload.new)) onEvent(REALTIME_STEP[payload.table] ?? null);
+          if (!shouldWake(payload.table, payload.eventType, payload.new)) return;
+          const fire = () => onEvent(REALTIME_STEP[payload.table] ?? null);
+          if (delayMs) setTimeout(fire, delayMs);
+          else fire();
         }),
       client.channel('worker'),
     );

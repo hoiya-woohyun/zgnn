@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { REALTIME_BINDINGS, REALTIME_STEP, shouldWake, startRealtime } from './workerRealtime.mjs';
+import { describe, expect, it, vi } from 'vitest';
+import { APPROVED_SETTLE_MS, REALTIME_BINDINGS, REALTIME_STEP, shouldWake, startRealtime } from './workerRealtime.mjs';
 
 describe('shouldWake — 이 변경이 할 일을 늘렸나', () => {
   it('collect_requests · pipeline_requests 는 INSERT 면 깨우고, 그 밖의 변경은 아니다', () => {
@@ -79,6 +79,22 @@ describe('startRealtime', () => {
     fire(3, { table: 'blog_posts', eventType: 'UPDATE', new: { requested_at: 'x', analyzed_at: 'y' } });
     fire(3, { table: 'blog_posts', eventType: 'UPDATE', new: { requested_at: 'x', analyzed_at: null } });
     expect(events).toEqual(['collect', null, 'analyze:requested']);
+  });
+
+  it('승인은 APPROVED_SETTLE_MS 묵혀 깨운다 — /admin 「맞아요」 가 반영을 끝내기 전에 apply 가 끼어들지 않게', () => {
+    vi.useFakeTimers();
+    try {
+      const client = fakeClient();
+      const events = [];
+      startRealtime(client, { onEvent: (key) => events.push(key), log: () => {} });
+      client.channels[0].bindings[2].handler({ table: 'candidates', eventType: 'UPDATE', new: { status: 'approved' } });
+      vi.advanceTimersByTime(APPROVED_SETTLE_MS - 1);
+      expect(events).toEqual([]);
+      vi.advanceTimersByTime(1);
+      expect(events).toEqual(['apply']);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('상태는 바뀔 때만 한 줄 — 되풀이되는 CHANNEL_ERROR 는 한 번', () => {
