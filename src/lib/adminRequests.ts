@@ -28,7 +28,7 @@ export const PIPELINE_REQUESTS_UNAVAILABLE_TEXT = '요청 표가 아직 적용�
 
 /**
  * 같은 kind 의 `queued` 가 이미 있으면 넣지 않는다(멱등). 세기와 넣기 사이는 원자적이지 않지만, 두 줄이 겹쳐 들어가도
- * 워커가 대기 중인 analyze 요청을 **가장 큰 limit 하나**로 합쳐 한 번 돈다(`scripts/lib/workerLoop.mjs` 의 `requestLimit`) — 해가 없다.
+ * 워커가 **가장 오래된 하나씩** 집어 돈다(`scripts/lib/workerLoop.mjs` 의 `requestLimit`, 17 리뷰 13) — 두 번 도는 것이 전부라 해가 없다.
  *
  * 세기는 `head: true` 라 표가 없을 때도 오류 code 가 비어 온다(todo/17 T3.1) — 미적용은 insert 쪽 오류가 말하게 두고, 세기 실패는 그대로 던진다.
  */
@@ -64,7 +64,7 @@ export function analyzeRequestView(worker: TWorkerHealth | null, backlog: number
   if (worker?.state === 'none' || worker?.state === 'stale') {
     return { label, disabled: true, hint: `워커를 켜 주세요(터미널에서 pnpm data)${worker.state === 'stale' ? ' — 지금 워커는 멎은 듯해요' : ''}` };
   }
-  if (worker?.state === 'rate-limited') return { label, disabled: false, hint: '한도 휴식 중 — 요청은 넣을 수 있고 깨어나면 돌아요. 한도로 끊기면 다시 눌러 주세요' };
+  if (worker?.state === 'rate-limited') return { label, disabled: false, hint: '한도 휴식 중 — 요청은 넣을 수 있고 깨어나면 돌아요. 한도로 끊긴 요청은 대기로 돌아가 다시 집혀요' };
   if (worker?.state === 'login-needed') return { label, disabled: false, hint: '워커가 로그인을 기다려요 — 요청은 넣을 수 있고 로그인 뒤 돌아요' };
   return { label, disabled: false, hint: null };
 }
