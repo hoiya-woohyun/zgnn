@@ -107,9 +107,10 @@ P3  여행 단위(날짜·동선) · 데스크톱 2열
   > 카톡·네이버·인스타·페북·라인 인앱(메뉴가 없다) · 신호 없는 Android(이미 설치했을 가능성) · standalone. 신호는 셸이 import 하는 `installPromptEvent.ts` 가 모듈 로드 때 듣는다(홈 effect 면 늦다).
   > 닫기·`fixed` 배너는 두지 않았다. 실측(Playwright iPhone 에뮬레이션 — Chrome 확장은 데스크톱 Mac 이라 판정이 none): 1회차 없음 → 재로드 2회차 한 줄(66px) → 펼침 두 단계 · 카톡 UA 는 인사말 줄만.
   > **설치 창 분기는 화면으로 못 봤다**(dev 엔 서비스워커가 없어 Chrome 이 신호를 안 준다) — 빌드본 + Android Chrome 에서 확인할 것
-- [ ] 인앱 브라우저에서 "Safari·Chrome 으로 열기" 안내 (U9 후속) — 카톡 공유로 들어온 사람은 설치도 오프라인 캐시도 못 쓰는 웹뷰 안이다. 지금 U9 는 그곳에서 침묵만 한다.
+- [x] 인앱 브라우저에서 "Safari·Chrome 으로 열기" 안내 (U9 후속) — 카톡 공유로 들어온 사람은 설치도 오프라인 캐시도 못 쓰는 웹뷰 안이다. 지금 U9 는 그곳에서 침묵만 한다.
       카카오톡은 `kakaotalk://web/openExternal?url=` 로 외부 브라우저를 열 수 있다(다른 앱은 메뉴 안내뿐). 판정은 `installGuide.ts` 의 인앱 정규식을 그대로 쓴다
       "두 번째 방문부터" 는 U2 가 만든 `visitCount >= 2`(+ `useStoreHydrated`) 그대로 — 새 신호를 만들지 않는다.
+  > 메모: 2026-10-07 끝 — `installGuideKind` 가 인앱이면 `inApp`, 홈 설치 줄 자리에 "Safari로 열기"(Android 는 "브라우저로 열기"). 카카오톡은 `openExternalUrl` 링크 한 줄, 다른 앱은 ··· 메뉴 두 단계. 실측: 로컬 playwright 로 카톡·네이버 UA(390px) — Playwright MCP 는 다른 세션이 쓰고 있었고 Chrome 확장은 UA 를 못 바꾼다. **실기기 카톡에서 외부 열기가 실제로 넘어가는지는 못 봤다.**
 
 ## P3 — 나중에
 

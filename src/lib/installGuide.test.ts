@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { installGuideKind, type TInstallGuideInput } from './installGuide';
+import { installGuideKind, openExternalUrl, type TInstallGuideInput } from './installGuide';
 
 const IPHONE =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1';
@@ -51,8 +51,23 @@ describe('installGuideKind (07 U9)', () => {
     ['인스타그램', `${IPHONE} Instagram 350.0.0.0`],
     ['페이스북', `${IPHONE} [FBAN/FBIOS;FBAV/480.0.0]`],
     ['라인', `${IPHONE} Line/14.0.0`],
-  ])('%s 인앱 브라우저에는 메뉴가 없어 권하지 않는다', (_name, userAgent) => {
-    expect(installGuideKind({ ...base, userAgent })).toBe('none');
-    expect(installGuideKind({ ...base, userAgent, canPrompt: true })).toBe('none');
+  ])('%s 인앱 브라우저에는 설치 메뉴가 없어 바깥 브라우저로 여는 길을 알린다(07 U9 후속)', (_name, userAgent) => {
+    expect(installGuideKind({ ...base, userAgent })).toBe('inApp');
+    expect(installGuideKind({ ...base, userAgent, canPrompt: true })).toBe('inApp');
+    // 첫 방문엔 여기서도 조르지 않는다 — 공유 링크를 처음 연 사람은 그 내용부터 본다.
+    expect(installGuideKind({ ...base, userAgent, visitCount: 1 })).toBe('none');
+  });
+});
+
+describe('openExternalUrl', () => {
+  it('카카오톡은 외부 브라우저 주소로 지금 주소를 통째로 넘긴다', () => {
+    expect(openExternalUrl(`${IPHONE} KAKAOTALK 10.8.0`, 'https://zgnn.app/saved/?ids=a,b')).toBe(
+      'kakaotalk://web/openExternal?url=https%3A%2F%2Fzgnn.app%2Fsaved%2F%3Fids%3Da%2Cb',
+    );
+  });
+
+  it('다른 인앱·일반 브라우저엔 그런 주소가 없다', () => {
+    expect(openExternalUrl(`${IPHONE} NAVER(inapp; search; 2000; 12.8.0)`, 'https://zgnn.app/')).toBeNull();
+    expect(openExternalUrl(IPHONE, 'https://zgnn.app/')).toBeNull();
   });
 });
