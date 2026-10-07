@@ -30,7 +30,7 @@
 ## 기다림 (사람 손·결정)
 
 - 🧑 카톡 인앱에서 「Safari로 열기」 실기기 확인 — [07 U9 후속](07-product-and-ux.md) · 명령: 배포본 링크를 카톡으로 보내 두 번 열고(첫 방문엔 안 뜬다) 홈 맨 아래 줄을 눌러 Safari·Chrome 으로 넘어가는지. 안 넘어가면 `openExternalUrl` 을 빼고 메뉴 안내로
-- 🧑 로컬 워커 backfill 적용·실측 — [17 🧑 실측](17-local-worker.md) · 명령: `./node_modules/.bin/supabase db push --linked`(`20261007150000_requested_at_backfill` 하나 — 기존 요청 글 24건에 `requested_at`) → `pnpm data login` → `pnpm data once --dry-run` → `pnpm data`(터미널 탭 하나 상주) → `/admin` 「추가 수집」 뒤 5초 안에 터미널 `수집 시작`·`/admin/ops` 진행 막대 → 다른 터미널에서 `kill <pid>` → 배지 "없음". `/admin`·`/admin/ops` 의 워커 배지·띠는 에이전트가 세션이 없어 아직 아무도 못 봤다
+- 🧑 로컬 워커 backfill 적용·실측 — [17 🧑 실측](17-local-worker.md) · 명령: `pnpm data login`(backfill 마이그레이션은 원격 적용 확인됨) → `pnpm data once --dry-run` → `pnpm data`(터미널 탭 하나 상주) → `/admin` 「추가 수집」 뒤 5초 안에 터미널 `수집 시작`·`/admin/ops` 진행 막대 → 다른 터미널에서 `kill <pid>` → 배지 "없음". `/admin`·`/admin/ops` 의 워커 배지·띠는 에이전트가 세션이 없어 아직 아무도 못 봤다
 - 🙋 홈 개편(18) 둘 — 계절 칩을 홈에서 뺄지 · 종류 카드 blurb 를 뺄지 — [18 §4](18-home-restructure.md) · 권고: 둘 다 뺀다(홈에서 계절을 고른 페르소나가 없다 · 모수가 들어가면 카드가 세 줄). T3 는 권고대로 진행하고, 다르면 그때 되돌린다
 - 🙋 지도 마커 겹침(156쌍)을 어떻게 풀지 — [14 W261006.11](14-weekly-ux-eval.md) 의 뒤 절반 · 권고: 중심 36px 안에 겹친 무리를 "N곳" 원 하나로 묶고 누르면 그 범위로 확대(네이버 MarkerClustering 확장 파일을 들이지 않고 직접 — 81곳이라 계산이 싸다). 묶은 뒤에 히트 영역 44px(지금 넓히면 아래 핀을 누른 손이 위 핀을 연다, ADR-008 v22)
 
@@ -51,7 +51,6 @@
 - 🙋 Slack 실패 알림을 켤지(15 T1.3·T5·T6) — [15](15-ops-dashboard.md) · 권고: 위 실측 뒤 기록이 한 주 쌓이면. 켜면 🧑 Incoming Webhook 을 만들어 Studio 에서 `vault.create_secret(…, 'slack_webhook_url')`(값은 Claude 에게 보이지 않게), 개인 DM · `partial` 은 실패 건수 > 0 일 때만
 - 🙋 경로 짜기(16) 설계 확정 — [16 §7](16-trip-route-planner.md) · 권고: 문서 권장안대로(날짜 1~4일 + 미정, 시작점은 1일차 공항·이후 전날 숙소, 영업시간 데이터 없음, 일정 공유는 밖). 답이 T1.1 저장 모양을 정한다 — 그 전엔 순수 함수 T1.2 만 할 수 있다
 - 🧑 경로 짜기 길찾기 링크 실기기 실측 — [16 H.1·H.2](16-trip-route-planner.md) · 명령: `nmap://route/car`(경유지 5)·`nmap://navigation`·안드로이드 인텐트를 iOS·Android 에서 1회씩. T1.3 머지 전. **먼저** 저장 카드의 「길찾기」(웹 `map.naver.com/p/directions/…`, 7394564)가 폰에서 길을 그리고 앱으로 넘어가는지 — 안 되면 형식만 고친다. 경유지 웹 주소(`{출발}/{도착}/{경유1:경유2}/car`, 9e048ff `naverRouteLink.ts`)의 `:` 구분자·5곳 상한도 — 다르면 상수 둘만
-- 🧑 `place_blocks` 원격 적용 여부 확인 — [10 H.1](10-user-feedback-personas.md) · 명령: `./node_modules/.bin/supabase migration list --linked` 에서 `20261001120000_place_blocks`. `/admin` 차단 패널에 '미적용' 갈래가 있다
 - 🧑 덮어쓰기 뒤 `place_sources` 확인 — [11 H.4](11-continuous-review-and-update-proposals.md) · 명령: `/admin` 등록 완료 장소 하나를 `덮어쓰기`(한 줄·일괄) → `./node_modules/.bin/supabase db query --linked` 로 그 글이 `place_sources` 에 있는지. 09 T5.3 이 이 결과에 달렸다
 
 ## 발견 (분류 전)

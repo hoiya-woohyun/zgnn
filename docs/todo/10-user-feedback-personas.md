@@ -210,6 +210,7 @@ P3  F11 다두 what-if
       `150000_place_report_flags` · `160000_places_stay_environment`. 적용 전에도 코드는 돈다 — 제보 보내기는 "지금은 보낼 수 없어요", `/admin` 은 `미적용`,
       `data:pull` 은 표식 함수 없음 경고 한 줄, 확인일·환경 칸은 쓰지 않는다. 적용 뒤 확인: 비로그인 `select` 가 `place_reports` 에서 42501 인지 · 상세에서 제보 1건 → `/admin` 에 `제보 1`.
       > 메모(2026-10-04): **적용은 끝나 있다** — `supabase migration list` 에서 넷 모두 원격과 일치. 남은 것은 위 "적용 뒤 확인" 둘뿐이다.
+      > 메모(2026-10-07): 09 T1.4 의 `20261001120000_place_blocks` 도 원격과 일치(`migration list --linked`) — `/admin` 차단 패널의 '미적용' 갈래는 이제 안 탄다.
       > 시드 확인일도 채워져 있다([11](11-continuous-review-and-update-proposals.md) H.6 — `01-check.sql` 의 `no_verified_at: 0`), 배포 사이트 상세가 "2026년 9월에 확인했어요" 를 그린다.
 - [ ] **H.2 디자인 트랙(§7)** — 자리·문구가 정해지면 `placeDetailReport.tsx` · `placesPageSuggest.tsx` · `placeDetailFreshness.tsx` · `savedPageNote.tsx` 하나씩 옮긴다.
 - [ ] **H.3 기존 후보의 숙소 환경** — `stayEnvironment` 는 새로 분석한 글부터 생긴다. 이미 등록된 숙소는 사이트가 소개 문장을 정규식으로 읽는다(독채·마당만). 필요하면 재분석.
