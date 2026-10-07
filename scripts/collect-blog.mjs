@@ -12,8 +12,9 @@ import { describeKeyShape, naverErrorTail } from './lib/naverApiError.mjs';
 import { NAVER_BLOG_SEARCH_URL, countNaverCall, naverAuthHeaders, readNaverCalls } from './lib/naverSearchApi.mjs';
 import { loadNaverEnvFile } from './lib/naverEnvFile.mjs';
 import { naverKeyPairProblem } from './lib/naverKeyFormat.mjs';
-import { readHidden } from './lib/readHidden.mjs';
+import { readHidden, restoreTtyOnExit } from './lib/readHidden.mjs';
 import { beginRun, classifyRunError, NO_RUN, RUN_ERROR } from './lib/runLog.mjs';
+import { isSchemaMissing } from './lib/workerQueue.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
 import { formatCollectSummary, formatElapsed } from '../src/lib/runSummary.ts';
 import {
@@ -25,7 +26,12 @@ import {
 } from './collect/naverBlog.mjs';
 import { isDirectRun } from './lib/isDirectRun.mjs';
 
-export async function main(argv = process.argv.slice(2)) {
+/**
+ * @param {string[]} argv
+ * @param {{ nonInteractive?: boolean, ownsSignals?: boolean }} [hooks]  상주 워커(`scripts/lib/workerCycle.mjs` 의 `STEP_HOOKS`)가 넘긴다 —
+ *   `nonInteractive`: 키가 없으면 묻지 않고 멈춘다 · `ownsSignals: false`: SIGINT 핸들러를 달지 않는다(워커가 받아 실행 행을 닫는다).
+ */
+export async function main(argv = process.argv.slice(2), { nonInteractive = false, ownsSignals = true } = {}) {
   // 세션 검사가 키 입력보다 먼저다 — 키 두 개를 치고 나서 "pnpm data login" 으로 멈추면 헛수고라서.
   const supabase = createSupabase();
 
@@ -65,12 +71,16 @@ export async function main(argv = process.argv.slice(2)) {
       console.error('네이버 키는 에이전트 세션에서 입력하지 않는다 — 수집은 사용자 터미널에서 `pnpm data collect`.');
       return 1;
     }
+    if (nonInteractive) {
+      console.error('네이버 키가 env 에도 ~/.zgnn-naver.env 에도 없다 — 상주 워커는 묻지 않는다. 파일에 넣거나 env 로 넘긴 뒤 워커를 다시 켠다.');
+      return 1;
+    }
     if (!process.stdin.isTTY || !process.stdout.isTTY) {
       console.error('NAVER_CLIENT_ID · NAVER_CLIENT_SECRET 을 env 로 넘기거나 터미널에서 실행(숨김 입력).');
       return 1;
     }
     // 예외로 빠져나가도 터미널이 raw 모드에 남지 않게(login.mjs 와 같다).
-    process.on('exit', () => { try { process.stdin.setRawMode(false); } catch { /* TTY 아님 */ } });
+    restoreTtyOnExit();
     // 둘 중 하나만 env 에 있으면 없는 쪽만 묻는다.
     try {
       if (!naverClientId) naverClientId = trimKey(await readHidden('NAVER_CLIENT_ID(숨김 입력): '));
@@ -166,12 +176,13 @@ export async function main(argv = process.argv.slice(2)) {
   // 그 실행의 결과는 요청 행(`done_at`·`found`·`to_read`)에 이미 남는다.
   const run = onlyRequests ? NO_RUN : await beginRun(supabase, { script: 'collect', args: { keywords: keywords.length, requests: requests.length } });
   // Ctrl-C 도 실패로 닫는다(130 유지). 닫기를 3초 넘게 기다리지 않는다 — 네트워크가 죽어 있으면 그만큼 사용자가 갇힌다.
-  // 끝나면 떼어 낸다 — `pnpm data once` 는 이 뒤에 분석·반영을 같은 프로세스에서 돈다. 남겨 두면 그때의 Ctrl-C 가 끝난 수집 행을 실패로 덮는다.
+  // 끝나면 떼어 낸다 — 남겨 두면 뒤의 Ctrl-C 가 끝난 수집 행을 실패로 덮는다.
+  // 워커 안(`ownsSignals: false`)에서는 달지 않는다 — 신호는 워커가 받아 이 실행 행(`setRunListener` 로 받은 `end`)과 workers 행을 같이 닫는다.
   const onSigint = async () => {
     await Promise.race([run.end({ status: 'failed', error: RUN_ERROR.sigint }), sleep(3000)]);
     process.exit(130);
   };
-  process.once('SIGINT', onSigint);
+  if (ownsSignals) process.once('SIGINT', onSigint);
 
   try {
     // 진행 로그. 첫 실행은 1년치라 키워드 6 × 최대 10페이지를 돌고, 그 뒤 DB 조회·upsert 가 또 여러 번 나간다 —
@@ -292,15 +303,23 @@ export async function main(argv = process.argv.slice(2)) {
      * (`analyzed_at is null` — 다시 읽게 하는 것은 재분석 버튼의 일이다). 결과 적기(`markRequestDone`)보다 **먼저** 한다: 그 사이에 죽으면
      * 요청이 대기로 남아 다음 실행이 다시 찍는다(멱등). 실패는 경고 한 줄 — 칸이 원격에 없어도(마이그레이션 전) 수집은 그대로 끝난다.
      */
+    // 칸이 없는 것(마이그레이션 전)만 넘어간다. 그 밖의 실패(세션·네트워크)면 요청을 **끝냈다고 적지 않는다**(`keepRequestsQueued`) —
+    // 적으면 담은 글이 `requested_at` 없이 저수지에 섞여 워커가 영영 안 읽는다. 대기로 두면 다음 실행이 다시 찾고 다시 찍는다(멱등, 리뷰 6).
     const requestedUrls = [...new Set([...requestRows.values()].flat().map((row) => row.url))].filter((url) => !analyzedUrls.has(url));
     let markedRequested = 0;
+    let keepRequestsQueued = false;
     for (const chunk of chunkForUrlFilter(requestedUrls)) {
-      const { error } = await supabase.from('blog_posts').update({ requested_at: now }).in('url', chunk).is('analyzed_at', null);
+      const { error, count } = await supabase.from('blog_posts').update({ requested_at: now }, { count: 'exact' }).in('url', chunk).is('analyzed_at', null);
       if (error) {
-        console.warn(`⚠️ 요청 글 표시(requested_at) 실패 — 워커가 이 글들을 자동으로 읽지 않는다(손으로 pnpm data analyze): ${error.message}`);
+        keepRequestsQueued = !isSchemaMissing(error);
+        console.warn(
+          keepRequestsQueued
+            ? `⚠️ 요청 글 표시(requested_at) 실패 — 추가 수집 요청을 대기로 남겨 다음 실행이 다시 찍는다: ${error.message}`
+            : `⚠️ blog_posts.requested_at 칸이 없다(마이그레이션 미적용) — 워커가 이 글들을 자동으로 읽지 않는다(손으로 pnpm data analyze): ${error.message}`,
+        );
         break;
       }
-      markedRequested += chunk.length;
+      markedRequested += count ?? 0; // 실제로 바뀐 행 — 그 사이 분석이 끝난 글은 빠진다
     }
     if (markedRequested > 0) console.log(`요청 글 표시: ${markedRequested}건(requested_at)`);
 
@@ -308,6 +327,7 @@ export async function main(argv = process.argv.slice(2)) {
     let requestToRead = 0;
     for (const request of requests) {
       if (!requestRows.has(request.id)) continue; // 검색이 실패한 요청 — 대기로 남는다
+      if (keepRequestsQueued) continue; // 요청 글 표시가 실패했다 — 대기로 남긴다(위)
       const outcome = requestOutcome(requestRows.get(request.id) ?? [], analyzedUrls);
       requestToRead += outcome.to_read;
       try {
@@ -337,7 +357,7 @@ export async function main(argv = process.argv.slice(2)) {
     await run.end({ status: 'failed', error: classifyRunError(e) });
     throw e;
   } finally {
-    process.off('SIGINT', onSigint);
+    if (ownsSignals) process.off('SIGINT', onSigint);
   }
 }
 

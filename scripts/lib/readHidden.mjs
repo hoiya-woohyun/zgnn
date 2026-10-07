@@ -58,6 +58,23 @@ export function readHiddenStep(state, chunk) {
   return { buf, mode: mode === 'esc' ? 'text' : mode };
 }
 
+let ttyGuarded = false;
+/**
+ * 예외로 빠져나가도 터미널이 raw 모드에 남지 않게 — `exit` 리스너를 **프로세스에 한 번만** 단다. 숨김 입력을 쓰는 셋(login · collect · analyze)이
+ * 각자 달면 상주 워커는 재로그인·단계마다 리스너를 하나씩 쌓는다(MaxListenersExceededWarning, docs/todo/17 리뷰 5).
+ */
+export function restoreTtyOnExit() {
+  if (ttyGuarded) return;
+  ttyGuarded = true;
+  process.on('exit', () => {
+    try {
+      process.stdin.setRawMode(false);
+    } catch {
+      /* TTY 아님 */
+    }
+  });
+}
+
 // 터미널 래퍼. stdin/stdout 을 주입할 수 있어 가짜 스트림으로도 돈다. raw 모드는 끝나는 두 경로(제출·취소) 모두에서 되돌린다.
 export function readHidden(prompt, { stdin, stdout } = process) {
   return new Promise((resolve, reject) => {

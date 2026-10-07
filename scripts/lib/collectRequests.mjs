@@ -1,5 +1,6 @@
-// `/admin` 의 **추가 수집 요청**(`collect_requests`)을 스크립트 쪽에서 다룬다 — `pnpm data collect` 가 대기 중인 요청을 검색하고 결과를 적고,
-// `pnpm data analyze` 가 그 요청이 담은 글을 미분석 줄 맨 앞에 세운다. 화면 쪽은 src/lib/adminCollectRequest.ts, 표는 마이그레이션 20261007120000.
+// `/admin` 의 **추가 수집 요청**(`collect_requests`)을 스크립트 쪽에서 다룬다 — `pnpm data collect` 가 대기 중인 요청을 검색하고 결과를 적는다.
+// 그 요청이 담은 글은 collect 가 `blog_posts.requested_at` 을 찍고, analyze 는 그 칸으로 맨 앞에 세운다(정본은 그 칸 하나 — docs/todo/17 리뷰 14).
+// 화면 쪽은 src/lib/adminCollectRequest.ts, 표는 마이그레이션 20261007120000.
 //
 // **표가 원격에 없어도 실행을 멈추지 않는다** — 마이그레이션은 사용자가 따로 `db push` 하고, 그 전에도 수집·분석은 지금처럼 돌아야 한다.
 // 없으면 경고 한 줄과 함께 "요청 0건" 이다.
@@ -21,9 +22,6 @@ export function isTableMissing(error) {
  */
 export const REQUEST_KEYWORD = '추가 수집(/admin)';
 
-/** 끝난 요청이 미분석 줄 맨 앞에 서는 기간. 그 뒤로는 보통 글처럼 최신순에 섞인다. */
-export const REQUEST_PRIORITY_DAYS = 30;
-
 /**
  * 요청 하나의 결과 — 검색이 담은 행과, 실행 전에 DB 에서 **이미 분석이 끝난** url 집합으로. 순수.
  * `to_read` 는 "DB 에 없던 글" 이 아니라 "아직 분석 안 된 글" 이다 — 미분석으로 쌓여 있던 글도 이 요청 덕에 분석 줄 맨 앞에 서서 읽히므로,
@@ -38,7 +36,7 @@ export function requestOutcome(rows, analyzedUrls) {
 
 /**
  * 대기 중인 요청(먼저 누른 것부터). 표가 없으면 `{ requests: [], missing: true }`. 그 밖의 오류도 **경고 한 줄 뒤 0건**이다 —
- * 덤인 요청을 못 읽었다고 키워드 수집까지 멈추면 안 된다(분석 쪽 `recentRequestUrls` 와 같은 태도).
+ * 덤인 요청을 못 읽었다고 키워드 수집까지 멈추면 안 된다.
  */
 export async function fetchQueuedRequests(supabase) {
   const { data, error } = await supabase.from('collect_requests').select('id, query').eq('status', 'queued').order('requested_at', { ascending: true });
@@ -57,15 +55,4 @@ export async function markRequestDone(supabase, id, outcome, now) {
     .update({ status: 'done', done_at: now, ...outcome })
     .eq('id', id);
   if (error) throw new Error(`collect_requests 갱신 실패: ${error.message}`);
-}
-
-/** 최근(`REQUEST_PRIORITY_DAYS`) 끝난 요청들이 담은 글 url. 표가 없거나 읽지 못하면 빈 배열 — 분석의 순서만 바뀔 뿐 막을 일이 아니다. */
-export async function recentRequestUrls(supabase, now = new Date()) {
-  const since = new Date(now.getTime() - REQUEST_PRIORITY_DAYS * 86_400_000).toISOString();
-  const { data, error } = await supabase.from('collect_requests').select('post_urls').eq('status', 'done').gte('done_at', since);
-  if (error) {
-    if (!isTableMissing(error)) console.warn(`⚠️ 추가 수집 요청을 못 읽었다(순서만 보통대로) — ${error.message}`);
-    return [];
-  }
-  return [...new Set((data ?? []).flatMap((row) => row.post_urls ?? []))];
 }

@@ -21,6 +21,7 @@
 //    네트워크 · 한도 · 타임아웃 · DB 쓰기 실패)는 analyzed_at 을 비워 둬 다음 실행이 다시 시도한다. 글 단위 실패는 exit code 를 올리지 않는다.
 //    단 닫기는 **루프 끝에 몰아서, 이 실행에서 성공한 글이 1건이라도 있을 때만** 쓴다 — 전부 "분석 불가" 면 글이 아니라 파이프라인이
 //    고장 난 것(에디터 구조 변경 · 차단 페이지가 200 으로 옴)이라 아무것도 닫지 않고 exit 1(리뷰 지적). 시도한 글 중 성공이 0 이면 exit 1.
+//    예외 하나 — **글이 모델에 비해 너무 긴 것**(`too_long`)은 글 탓이 확실해 성공 0 이어도 닫는다(워커의 요청 글은 한두 건씩이라, docs/todo/17 리뷰 7).
 //  - 같은 글의 후보는 insert 한 번에 넣는다(PostgREST 의 한 요청 = 한 문장이라 원자적). insert 와 analyzed_at 사이에서 죽으면
 //    다음 실행이 그 글의 후보를 한 번 더 만든다 — 창은 작고, Studio 에서 보인다.
 //  - Claude 는 API SDK 가 아니라 `claude -p`(구독, 로컬 `claude` 로그인) 로 부른다 — extractPlaces.mjs 머리 주석. 인증 실패·CLI 없음 같은
@@ -78,11 +79,9 @@ import { fetchPostText } from './analyze/naverPostBody.mjs';
 import { needsDogCheck, resolveVerifyModel, verifyLabel, VERIFY_PROMPT_VERSION, verifyPlaces } from './analyze/verifyPlaces.mjs';
 import { PROPOSE_PROMPT_VERSION, proposalTargets, proposeForPlace, resolveProposeModel } from './analyze/proposePlaces.mjs';
 import { toMatchablePlace } from './lib/placeFields.mjs';
-import { chunkForUrlFilter } from './lib/chunkForUrlFilter.mjs';
-import { recentRequestUrls } from './lib/collectRequests.mjs';
 import { loadNaverEnvFile } from './lib/naverEnvFile.mjs';
 import { naverKeyPairProblem } from './lib/naverKeyFormat.mjs';
-import { readHidden } from './lib/readHidden.mjs';
+import { readHidden, restoreTtyOnExit } from './lib/readHidden.mjs';
 import { readNaverCalls } from './lib/naverSearchApi.mjs';
 import { argFlags, beginRun, classifyRunError, NO_RUN, RUN_ERROR } from './lib/runLog.mjs';
 import { acquireRunLock } from './lib/runLock.mjs';
@@ -90,9 +89,13 @@ import { createSupabase } from './lib/supabaseClient.mjs';
 import { formatAnalyzeSummary, formatUsageSummary } from '../src/lib/runSummary.ts';
 import { isDirectRun } from './lib/isDirectRun.mjs';
 
+/** 키 게이트가 실행을 멈출 때 던지는 표식 — 문구는 던지기 전에 찍었고, `main` 이 그 코드를 돌려준다(`process.exit` 대신 — 워커 안에서는 워커까지 끝낸다). */
+const keyStop = (exitCode) => Object.assign(new Error(`키 게이트 exit ${exitCode}`), { keyStopCode: exitCode });
+
 /**
  * @param {string[]} argv
- * @param {{ onRateLimit?: (message: string) => void }} [hooks]  상주 워커(`scripts/worker.mjs`)가 Claude 구독 한도를 알아듣는 길 — exit code 만으로는 못 가른다
+ * @param {{ onRateLimit?: (message: string) => void, nonInteractive?: boolean }} [hooks]  상주 워커(`scripts/lib/workerCycle.mjs`)가 넘긴다 —
+ *   `onRateLimit`: Claude 구독 한도를 알아듣는 길(exit code 만으로는 못 가른다) · `nonInteractive`: 키가 없으면 묻지 않는다(사람 터미널이어도)
  */
 export async function main(argv = process.argv.slice(2), hooks = {}) {
   let args;
@@ -106,24 +109,33 @@ export async function main(argv = process.argv.slice(2), hooks = {}) {
 
   // 한 번에 하나만(`runLock.mjs`) — 둘이 돌면 시작할 때 같은 미분석 글을 골라 같은 후보를 두 번 넣는다. 워크트리가 달라도 DB 는 하나라 잠금은 레포 밖(tmpdir)에 둔다.
   // dry-run 은 쓰지 않으므로 잠그지 않는다.
-  if (args.dryRun) return analyze(argv, args, hooks);
+  if (args.dryRun) return analyzeOrKeyStop(argv, args, hooks);
   const lock = acquireRunLock(join(tmpdir(), 'zgnn-data-analyze.lock'));
   if (!lock.ok) {
     console.error(`다른 pnpm data analyze 가 이미 돌고 있다(pid ${lock.holder ?? '?'}) — 끝난 뒤 다시 실행. 같은 글을 두 번 분석해 후보가 겹친다.`);
     return 1;
   }
   // 끝나면 바로 푼다 — 상주 워커는 같은 프로세스에서 analyze 를 또 부르는데, exit 훅에만 맡기면 두 번째부터 자기 pid 의 잠금에 막힌다.
-  // exit 훅은 그 사이에 죽을 때(키 확인의 `process.exit`)를 위한 것이고, 바퀴마다 쌓이지 않게 같이 뗀다.
+  // exit 훅은 그 사이에 프로세스가 죽을 때(Ctrl-C 등)를 위한 것이고, 바퀴마다 쌓이지 않게 같이 뗀다.
   process.on('exit', lock.release);
   try {
-    return await analyze(argv, args, hooks);
+    return await analyzeOrKeyStop(argv, args, hooks);
   } finally {
     lock.release();
     process.off('exit', lock.release);
   }
 }
 
-async function analyze(argv, args, { onRateLimit } = {}) {
+async function analyzeOrKeyStop(argv, args, hooks) {
+  try {
+    return await analyze(argv, args, hooks);
+  } catch (e) {
+    if (e?.keyStopCode != null) return e.keyStopCode;
+    throw e;
+  }
+}
+
+async function analyze(argv, args, { onRateLimit, nonInteractive = false } = {}) {
   const { limit, dryRun, dump, maxPerBlog, noGeo, noVerify, noPropose, noHomepage, focusedOnly, requestedOnly } = args;
   // 이 프로세스의 누계라(`naverSearchApi.mjs`) 시작 값을 빼야 이 실행의 호출 수다 — 워커·once 는 한 프로세스에서 수집·분석을 여러 번 돈다.
   const naverCallsAtStart = readNaverCalls();
@@ -142,8 +154,8 @@ async function analyze(argv, args, { onRateLimit } = {}) {
   // 붙여넣기가 끌고 온 공백을 사람이 볼 방법이 없다(2026-09-28 에 실제로 여기서 막혔다 → BUG-006).
   const trimKey = (v) => (typeof v === 'string' ? v.trim() : v);
   // 에이전트 세션에서는 묻지 않는다 — 입력한 값이 대화 기록에 실린다. env 로 넘어온 값은 그대로 쓴다(경계는 "누가 돌리나" 가 아니라 "값이 기록에 실리나").
-  const canPrompt = Boolean(process.stdin.isTTY && process.stdout.isTTY && !process.env.CLAUDECODE);
-  let rawModeGuarded = false;
+  // 상주 워커도 묻지 않는다(`nonInteractive`) — 묻는 동안 phase 가 analyze 인 채 멈추고, 넣은 값은 env 에 안 남아 단계마다 다시 묻는다.
+  const canPrompt = Boolean(process.stdin.isTTY && process.stdout.isTTY && !process.env.CLAUDECODE && !nonInteractive);
 
   /**
    * 키 **모양** 게이트(`naverKeyFormat.mjs`). 상태 코드가 없는 실패(헤더에 한글 → ByteString 오류)는 401 게이트를 지나쳐
@@ -154,7 +166,7 @@ async function analyze(argv, args, { onRateLimit } = {}) {
     if (!problem) return keys;
     if (axis === 'search') {
       console.error(`네이버 키 모양이 틀렸다: ${problem} — 고친 뒤 다시 실행하거나, 좌표 없이 돌릴 작정이면 --no-geo 를 붙인다.`);
-      process.exit(1);
+      throw keyStop(1);
     }
     console.log(`  ${problem} — 주소→좌표 보강(두 번째 축)을 건너뛴다`);
     return null;
@@ -178,15 +190,12 @@ async function analyze(argv, args, { onRateLimit } = {}) {
         `${idName} · ${secretName} 없음 — 좌표 없이 대조하면 동명 가게가 '확인요청' 이 아니라 '일치' 로 올라간다.\n` +
           'env 로 넘기거나 사람 터미널에서 돌려라(숨김 입력). 좌표 없이 돌릴 작정이면 --no-geo 를 붙인다.',
       );
-      process.exit(1);
+      throw keyStop(1);
     }
     if (gate === 'skip') return null;
 
-    // 예외로 빠져나가도 터미널이 raw 모드에 남지 않게(collect-blog.mjs · login.mjs 와 같다).
-    if (!rawModeGuarded) {
-      rawModeGuarded = true;
-      process.on('exit', () => { try { process.stdin.setRawMode(false); } catch { /* TTY 아님 */ } });
-    }
+    // 예외로 빠져나가도 터미널이 raw 모드에 남지 않게(collect-blog.mjs · login.mjs 와 같다 — 리스너는 프로세스에 하나).
+    restoreTtyOnExit();
     try {
       // 둘 중 하나만 env 에 있으면 없는 쪽만 묻는다.
       if (!clientId) clientId = trimKey(await readHidden(`${idName}(숨김 입력${axis === 'map' ? ' · 비우면 건너뜀' : ''}): `));
@@ -194,7 +203,7 @@ async function analyze(argv, args, { onRateLimit } = {}) {
     } catch {
       // Ctrl-C/Ctrl-D — readHidden 이 reject 한다. **축 하나를 끄는 게 아니라 실행을 끝낸다**(collect-blog.mjs:53 과 같다).
       // 여기서 null 을 돌려주고 계속 가면, 멈추려고 Ctrl-C 를 누른 사람이 좌표 없는 분석을 통째로 돌리게 된다 — 이 게이트가 막으려던 바로 그것이다.
-      process.exit(130);
+      throw keyStop(130);
     }
     if (clientId && clientSecret) return checkedKeys(axis, names, { clientId, clientSecret });
 
@@ -204,7 +213,7 @@ async function analyze(argv, args, { onRateLimit } = {}) {
       // 빈 엔터를 '건너뛰기' 로 받으면 `--no-geo` 말고 **두 번째 옵트아웃**이 생긴다 — 붙여넣기가 실패해 `*` 가 0개인 것도 같은 모양이라
       // 사람이 의도한 건너뛰기와 구별되지 않는다. 좌표 없이 돌리는 길은 하나여야 하고, 그것은 명시하는 쪽(`--no-geo`)이다.
       console.error(`네이버 키가 비었다: ${empty} — 다시 실행해 입력하거나, 좌표 없이 돌릴 작정이면 --no-geo 를 붙인다.`);
-      process.exit(1);
+      throw keyStop(1);
     }
     console.log(`  ${empty} 를 비웠다 — 주소→좌표 보강(두 번째 축)을 건너뛴다`);
     return null;
@@ -312,7 +321,7 @@ async function analyze(argv, args, { onRateLimit } = {}) {
       .select('url, blog_id, log_no, title, keyword, posted_at')
       .is('analyzed_at', null)
       .order('posted_at', { ascending: false });
-  // 한 가게만 되풀이하는 블로그 · 앞줄에서 뺀 수 · 추가 수집 글 url — 아래 기본 고르기가 채우고 로그가 읽는다.
+  // 한 가게만 되풀이하는 블로그 · 앞줄에서 뺀 수 · 요청 글 url — 아래 기본 고르기가 채우고 로그가 읽는다.
   const singlePlace = new Set();
   let droppedSinglePlace = 0; // --focused-only 가 아예 뺀 한 가게 블로그 글 수(로그용)
   let requestedUrls = [];
@@ -361,26 +370,28 @@ async function analyze(argv, args, { onRateLimit } = {}) {
       fetchedPosts = mergeFocusedFirst(focusedPosts, restPosts);
     }
     fetchedPosts = deferBlogs(fetchedPosts, singlePlace);
-    // `/admin` 의 **추가 수집**이 담은 글은 맨 앞 — 집중 제목·한 가게 블로그 판정과 상관없이. 운영자가 그 가게의 근거를 더 보려고 콕 집어 찾게 한
-    // 글이라, 최신순·제목 순서에 맡기면 미분석 수천 건 뒤에 밀려 몇 주가 지나도 안 읽히고, 업주 블로그는 '한 가게 블로그' 로 맨 뒤에 간다.
+    // **요청 글**(`requested_at` — `/admin` 의 추가 수집이 담았거나 재분석으로 되돌린 글)은 맨 앞 — 집중 제목·한 가게 블로그 판정과 상관없이.
+    // 운영자가 콕 집어 읽게 한 글이라, 최신순·제목 순서에 맡기면 미분석 수천 건 뒤에 밀려 몇 주가 지나도 안 읽히고, 업주 블로그는 '한 가게 블로그' 로 맨 뒤에 간다.
+    // 정본은 이 칸 하나다(`--requested-only` 와 같은 질의 — 예전엔 `collect_requests.post_urls` 를 따로 읽었다, todo/17 리뷰 14). 오래 기다린 것부터.
     // 블로그당 상한(`pickPostsForRun`)은 그대로 받는다 — 업주 블로그 한 곳이 실행을 다 채우지 않게.
-    requestedUrls = await recentRequestUrls(supabase);
-    if (requestedUrls.length > 0) {
-      const requested = [];
-      for (const chunk of chunkForUrlFilter(requestedUrls)) {
-        const { data, error } = await unanalyzed().in('url', chunk);
-        if (error) throw new Error(`blog_posts 조회 실패(추가 수집 글): ${error.message}`);
-        requested.push(...data);
-      }
-      fetchedPosts = mergeFocusedFirst(requested, fetchedPosts);
-    }
+    // `unanalyzed()` 를 쓰지 않는다 — 그 질의의 `posted_at` 정렬 뒤에 붙으면 둘째 키가 될 뿐이다.
+    const { data: requested, error: requestedError } = await supabase
+      .from('blog_posts')
+      .select('url, blog_id, log_no, title, keyword, posted_at')
+      .is('analyzed_at', null)
+      .not('requested_at', 'is', null)
+      .order('requested_at', { ascending: true })
+      .limit(postWindow);
+    if (requestedError) throw new Error(`blog_posts 조회 실패(요청 글): ${requestedError.message}`);
+    requestedUrls = (requested ?? []).map((post) => post.url);
+    if (requestedUrls.length > 0) fetchedPosts = mergeFocusedFirst(requested, fetchedPosts);
   }
   const posts = pickPostsForRun(fetchedPosts, limit, maxPerBlog);
   // 센 것은 **이번에 읽는** 수다(limit·블로그당 상한을 지난 뒤) — 맨 앞에 선 전체가 아니다.
   {
     const requestedSet = new Set(requestedUrls);
     const picked = posts.filter((post) => requestedSet.has(post.url)).length;
-    if (picked > 0) console.log(`추가 수집(/admin) 글 ${picked}건을 이번에 먼저 읽는다`);
+    if (picked > 0) console.log(`요청 글(추가 수집·재분석) ${picked}건을 이번에 먼저 읽는다`);
   }
   // 앞줄이 비면 끝 — 반복 실행(`for … || break`)이 빈 실행을 되풀이하지 않게 exit 1 로 알린다.
   if (focusedOnly && posts.length === 0) {
@@ -572,7 +583,7 @@ async function analyze(argv, args, { onRateLimit } = {}) {
 
   /*
    * 실행 기록의 시작은 **여기** — 사전 점검(컬럼 검사 · 앞줄 비어 있음 · places 비어 있음 · 키)이 전부 지난 뒤, 실제 작업 직전이다.
-   * 앞에 두면 그 점검들의 `process.exit(1)` 이 전부 "running 인데 심장이 멎은" 행, 곧 거짓 "중단된 듯" 이 된다
+   * 앞에 두면 그 점검들의 멈춤(return 1 · 키 게이트)이 전부 "running 인데 심장이 멎은" 행, 곧 거짓 "중단된 듯" 이 된다
    * (`process.on('exit')` 안에서는 await 를 못 써 닫을 수 없다). 이 뒤의 실패는 `fatal` 로 루프를 끊고 아래에서 failed 로 닫는다.
    * 예상 못 한 예외로 죽으면 행이 running 으로 남는다 — 실제로 죽은 것이니 화면의 "중단된 듯" 이 맞는 말이다.
    */
@@ -582,7 +593,8 @@ async function analyze(argv, args, { onRateLimit } = {}) {
   let fatal = false;
   let fatalError = null; // 실행 기록의 error 칸 분류용 — 원문은 위 콘솔 줄에만
   let rateLimited = null; // Claude 구독 한도에 걸린 오류 — 루프를 끊고, 워커에 알린다(`onRateLimit`)
-  const pendingCloses = []; // { url, reason } — 루프 끝에 성공이 1건이라도 있을 때만 analyzed_at 을 찍는다
+  const pendingCloses = []; // { url, reason, sure } — 루프 끝에 성공이 1건이라도 있을 때만 analyzed_at 을 찍는다(`sure` 는 성공 0 이어도)
+  let processed = 0; // 실제로 손댄 글 수 — 루프가 끊겨도 마지막 progress 가 "끝까지 갔다" 고 거짓말하지 않게
   // --dump 용. DB 에 들어갈 후보 행(extracted 그대로, 본문 없음)과 제외 목록 — 정규화 품질을 사람이 볼 유일한 창이다(로그에는 안 찍는다, 05).
   const dumpEntries = [];
 
@@ -777,35 +789,43 @@ async function analyze(argv, args, { onRateLimit } = {}) {
       }
       if (isPermanentFailure(e)) {
         console.error(`  분석 불가(루프 끝에 닫는다): ${e.message}`);
-        pendingCloses.push({ url: post.url, reason: e.message });
+        // 글이 너무 길다(too_long)는 파이프라인 고장일 수 없다 — 성공 0 인 실행에서도 닫는다(아래). 워커의 요청 글은 한두 건씩이라
+        // 안 그러면 그 글 하나뿐인 실행이 매번 성공 0 이 되어 영영 안 닫히고 30분마다 같은 claude 호출을 되풀이한다(todo/17 리뷰 7).
+        pendingCloses.push({ url: post.url, reason: e.message, sure: e?.code === 'too_long' });
         continue;
       }
       stats.skipped += 1;
       console.error(`  건너뜀: ${e.message}${skipHint(e)}`);
+    } finally {
+      processed = index + 1;
     }
   }
+  // 막대의 마지막 값 — 5초 스로틀을 건너뛴다(안 그러면 "11/12" 에 멈춘 채 끝난다). 끊긴 실행은 손댄 글 수까지만.
+  await run.progress({ done: processed, total: posts.length, current: null }, { force: true });
 
   // "분석 불가" 닫기 — 성공이 1건이라도 있어야 파이프라인이 살아 있다는 증거다. 아니면 글이 아니라 구조가 고장 난 것이니 닫지 않는다.
+  // 예외는 글 자체가 원인으로 확실한 것(`sure` — 너무 긴 글)뿐이다.
   if (pendingCloses.length > 0) {
-    if (stats.analyzed > 0) {
-      for (const { url, reason } of pendingCloses) {
-        await run.tick();
-        try {
-          await write(`analyzed_at 기록 ${url} (분석 불가: ${reason.slice(0, 80)})`, () =>
-            supabase
-              .from('blog_posts')
-              .update({ analyzed_at: new Date().toISOString(), analysis: toPostAnalysis({ meta, skip: reason.slice(0, 200) }) })
-              .eq('url', url),
-          );
-          stats.dropped += 1;
-        } catch (writeError) {
-          stats.skipped += 1;
-          console.error(`  analyzed_at 기록 실패(다음 실행에 재시도): ${writeError.message}`);
-        }
+    const closable = stats.analyzed > 0 ? pendingCloses : pendingCloses.filter((close) => close.sure);
+    const held = pendingCloses.length - closable.length;
+    for (const { url, reason } of closable) {
+      await run.tick();
+      try {
+        await write(`analyzed_at 기록 ${url} (분석 불가: ${reason.slice(0, 80)})`, () =>
+          supabase
+            .from('blog_posts')
+            .update({ analyzed_at: new Date().toISOString(), analysis: toPostAnalysis({ meta, skip: reason.slice(0, 200) }) })
+            .eq('url', url),
+        );
+        stats.dropped += 1;
+      } catch (writeError) {
+        stats.skipped += 1;
+        console.error(`  analyzed_at 기록 실패(다음 실행에 재시도): ${writeError.message}`);
       }
-    } else {
-      stats.skipped += pendingCloses.length;
-      console.error(`분석 성공이 0건이라 "분석 불가" ${pendingCloses.length}건을 닫지 않는다 — 글이 아니라 파이프라인 문제일 수 있다(에디터 구조 변경·차단 페이지). 다음 실행에 재시도.`);
+    }
+    if (held > 0) {
+      stats.skipped += held;
+      console.error(`분석 성공이 0건이라 "분석 불가" ${held}건을 닫지 않는다 — 글이 아니라 파이프라인 문제일 수 있다(에디터 구조 변경·차단 페이지). 다음 실행에 재시도.`);
     }
   }
 

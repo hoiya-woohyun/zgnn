@@ -580,6 +580,32 @@ describe('isRetryable / isFatal', () => {
   });
 });
 
+describe('글이 너무 길다 — permanent(그 글만 닫는다), 실행을 세우지도 재시도하지도 않는다(17 리뷰 7)', () => {
+  const cli = (r) => {
+    try {
+      parseExtraction({ type: 'result', subtype: 'success', is_error: true, usage: {}, ...r });
+    } catch (e) {
+      return e;
+    }
+    return null;
+  };
+  it('400 이어도 fatal 이 아니라 too_long · permanent', () => {
+    for (const r of [
+      { api_error_status: 400, result: 'Prompt is too long' },
+      { result: 'Context limit reached' },
+      { result: 'input length and `max_tokens` exceed context limit' },
+      { result: 'Output token limit reached' },
+    ]) {
+      const e = cli(r);
+      expect(e).toMatchObject({ code: 'too_long', permanent: true, fatal: false, retryable: false });
+    }
+  });
+  it('한도 문구가 섞이면 한도가 먼저다 — 맨 context 는 글 오류로 읽지 않는다', () => {
+    expect(cli({ result: 'rate limit: too many input tokens per minute' })).toMatchObject({ code: 'limit', retryable: true });
+    expect(cli({ api_error_status: 400, result: 'invalid context management option' })).toMatchObject({ code: 'api_error', fatal: true });
+  });
+});
+
 describe('isQuotaExhausted — 구독 한도만, 일시 장애는 아니다', () => {
   it('429 · 한도 문구는 참, 5xx·overloaded·다른 code 는 거짓', () => {
     const cli = (r) => {
