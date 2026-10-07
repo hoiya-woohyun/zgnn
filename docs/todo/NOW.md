@@ -19,8 +19,6 @@
 
 ## 지금 (위에서부터)
 
-- [ ] 🔒 로컬 워커 T1 — 죽은 스크립트 다섯 삭제 + `scripts/data.mjs` 진입점, `package.json` 의 `data:*` 13줄 → `data` 1줄, `vercel.json`·README·data-pipeline.md — [17 T1](17-local-worker.md) · 왜 지금: ADR-024 의 첫 단계, DB 와 무관해 바로 된다 (이 세션이 잡았다)
-- [ ] 로컬 워커 T2 — 마이그레이션 `pipeline_requests`·`workers`·`pipeline_runs.progress`·`blog_posts.requested_at`·realtime publication, `ops_overview` 에 워커 — [17 T2](17-local-worker.md) · `db push` 는 🧑
 - [ ] 로컬 워커 T3 — 워커 루프(폴링·타이머·한 바퀴·심장·progress·재로그인) — [17 T3](17-local-worker.md) · T1·T2 뒤
 - [ ] 로컬 워커 T4 — 워커 Realtime 구독 — [17 T4](17-local-worker.md)
 - [ ] 로컬 워커 T5 — `/admin/ops` 워커 배지·진행률·구독, `/admin` 머리글 — [17 T5](17-local-worker.md)
