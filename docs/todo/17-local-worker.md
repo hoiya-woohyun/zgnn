@@ -1,6 +1,7 @@
 # 17. 로컬 워커 — `pnpm data` 하나가 DB 를 보고 수집·분석·반영을 그때 돌리고, 화면이 진행을 실시간으로 본다
 
-> 최종 수정: 2026-10-07 (v6: T5 구현 — `/admin/ops` 워커 칸(배지·단계·심장·진행 막대)·Realtime 구독(`adminOpsRealtime.ts`), `/admin` 머리글 워커 한 줄·경고 띠, `createAdminClient` 에 `accessToken` 콜백)
+> 최종 수정: 2026-10-07 (v7: T6 구현 — 검수 대기 칸 맨 위 「저수지 N건 분석」(`adminRequests.ts` · `adminPageAnalyzeRequest.tsx`), 머리글 `· 요청 N건 대기`)
+> 이전 2026-10-07 (v6: T5 구현 — `/admin/ops` 워커 칸(배지·단계·심장·진행 막대)·Realtime 구독(`adminOpsRealtime.ts`), `/admin` 머리글 워커 한 줄·경고 띠, `createAdminClient` 에 `accessToken` 콜백)
 > 이전 2026-10-07 (v5: T4.1 구현 — 워커 Realtime 구독 `workerRealtime.mjs`, 채널 토큰은 `createSupabase` 의 `realtime.accessToken` 콜백(`setAuth` 는 heartbeat 가 되돌린다), 이벤트가 깨운 단계만 재시도 간격 건너뜀, `--no-realtime`)
 > 이전 2026-10-07 (v4: T3 구현 — 상주 워커 `scripts/worker.mjs`(`pnpm data` · `once` · `once --dry-run`), 순수 판단 `workerLoop.mjs`, 세기 `workerQueue.mjs`, 심장 `workerHeartbeat.mjs`, `progress`·`--requested-only`·`requested_at` 찍기·재로그인·한도 휴식)
 > 이전 2026-10-07 (v3: T2 원격 적용·롤백 실측 — publication 은 여섯 표)
@@ -98,7 +99,11 @@ T1 은 DB 와 무관하니 먼저. T2 는 🧑 `db push` 가 필요하다(쓰기
 
 ### T6. 「지금 분석」 버튼
 
-- [ ] **T6.1 `src/lib/adminRequests.ts`** — `pipeline_requests` insert(`kind: 'analyze', args: {limit}`), 같은 kind 의 queued 가 있으면 안 넣는다(멱등). 검수 대기 탭 결정 줄에 버튼 "저수지 N건 분석" (limit 는 10/30 선택). 워커가 없으면 비활성 + "워커를 켜 주세요".
+- [x] **T6.1 `src/lib/adminRequests.ts`** — `pipeline_requests` insert(`kind: 'analyze', args: {limit}`), 같은 kind 의 queued 가 있으면 안 넣는다(멱등). 검수 대기 탭 결정 줄에 버튼 "저수지 N건 분석" (limit 는 10/30 선택). 워커가 없으면 비활성 + "워커를 켜 주세요".
+  ✅ 2026-10-07 — `requestAnalyze(client, {limit})`(대기 중 analyze 를 `head` count 로 먼저 세고 insert 만 — `.select()` 없음 · 세기 실패는 넣지 않고 던진다 · 표 없음은 insert 오류가 "미적용") · 순수 `isAnalyzeLimit`(10·30·100) · `analyzeRequestView(worker, backlog, limit)` + 테스트 11. 화면 `adminPageAnalyzeRequest.tsx`(`[10건 ▾] 미분석 M건 중 N건 분석`, secondary). M 은 `/admin` 이 이미 받는 `ops_overview` 의 `backlog.count`, 요청 뒤 그 집계를 다시 읽는다.
+  계획과 다른 것: ① 버튼은 카드의 결정 줄이 아니라 **검수 대기 칸 맨 위에 하나** — 저수지는 어느 후보에도 딸리지 않아 카드마다 서면 수십 번 반복된다. 걸러 보기 줄 밖이라 목록이 비어도 선다. ② `/admin` 머리글엔 요청 대기 수를 그리는 곳이 없었다 — 워커 한 줄 뒤에 `· 요청 N건 대기`(0 이면 안 말한다)를 새로 붙였다. ③ 로그인 기다림도 켜 둔다(요청은 남고 로그인 뒤 돈다) · 워커를 모르면(집계 못 읽음) 켜 둔다 · 저수지 0 이면 끈다. ④ 세기와 넣기는 원자적이지 않다 — 겹쳐 들어가도 워커의 `requestLimit` 이 가장 큰 limit 하나로 합쳐 돈다.
+  알고 두는 것: 한도로 분석이 끊겨도 요청은 `done`(T3.4) — 화면이 대신 한도 휴식 힌트에 "한도로 끊기면 다시 눌러 주세요" 를 붙였다. 남은 건수를 워커가 다시 세우는 것은 아직 없다.
+  ⚠️ 화면 실측 못 함 — Chrome 에 운영자 세션이 없다(T5 와 같다). 🧑 실측 때 같이 본다.
 
 ### 🧑 실측(T3·T4·T5 뒤)
 

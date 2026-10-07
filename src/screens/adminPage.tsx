@@ -27,6 +27,7 @@ import { chooseAddress } from '../lib/adminEdit';
 import { addressUnresolved, type TAddressChoice } from '../lib/adminAddress';
 import { prepareReanalyze, reanalyzePlan, reanalyzeSummary } from '../lib/adminReanalyze';
 import { collectView, fetchCollectRequests, requestCollect, type TCollectRequestsLoad } from '../lib/adminCollectRequest';
+import { requestAnalyze, type TAnalyzeLimit } from '../lib/adminRequests';
 import { bulkApproveJobs, bulkApproveNeedsLook, bulkApproveSummary, bulkApproveText, bulkLatestSummary, bulkLatestTargets, summarizeBulk, type TBulkTally } from '../lib/adminBulk';
 import {
   countStrandedCandidates,
@@ -105,6 +106,7 @@ import {
 } from '../lib/adminUrlState';
 import { cx } from '../utils/cx';
 import { useAdminInfiniteScroll } from './adminInfiniteScroll';
+import { AdminPageAnalyzeRequest } from './adminPageAnalyzeRequest';
 import { AdminPageBlocksPanel } from './adminPageBlocksPanel';
 import { AdminPageBulkBar } from './adminPageBulkBar';
 import { AdminPageGroupCard, type TAdminPageGroupState, type TApproveChoice } from './adminPageGroupCard';
@@ -386,6 +388,11 @@ export function AdminPage() {
    * 못 읽었거나 응답에 `workers` 키가 없으면(마이그레이션 전) null — 모르는 것을 "워커 없음" 으로 말하지 않는다.
    */
   const [opsWorker, setOpsWorker] = useState<TWorkerHealth | null>(null);
+  /**
+   * 같은 응답의 미분석 글 수와 대기 중인 요청 수(todo/17 T6) — 「저수지 N건 분석」 라벨과 머리글 `요청 N건 대기`.
+   * 요청을 넣은 뒤엔 로컬로 +1 하지 않고 `loadOpsStages` 를 다시 부른다(워커 상태까지 한 번에 맞는다). 못 읽었으면 null.
+   */
+  const [opsQueue, setOpsQueue] = useState<{ backlog: number; requestsQueued?: number } | null>(null);
 
   const clientRef = useRef<SupabaseClient | null>(null);
   /*
@@ -481,9 +488,11 @@ export function AdminPage() {
       const overview = await fetchOpsOverview(client, 7);
       setOpsStages(stageHealth(overview, Date.now()));
       setOpsWorker(overview.workers ? workerHealth(overview.workers, Date.now()) : null);
+      setOpsQueue({ backlog: overview.backlog.count, requestsQueued: overview.requestsQueued });
     } catch {
       setOpsStages(null);
       setOpsWorker(null);
+      setOpsQueue(null);
     }
   }, []);
 
@@ -504,6 +513,7 @@ export function AdminPage() {
     setRebuild(undefined);
     setOpsStages(null);
     setOpsWorker(null);
+    setOpsQueue(null);
     setPhase('verifying');
     const client = createAdminClient(next.accessToken);
     clientRef.current = client;
@@ -1132,6 +1142,21 @@ export function AdminPage() {
   );
 
   /**
+   * **저수지 N건 분석**(todo/17 T6) — 워커에 `pipeline_requests` 한 줄. 넣었든 이미 있었든 집계를 다시 읽는다 — 머리글의 `요청 N건 대기` 와
+   * 워커 상태가 한 번에 맞는다. 다시 읽기가 실패해도 요청은 들어갔으니 결과는 그대로 돌려준다(`loadOpsStages` 는 던지지 않는다).
+   */
+  const requestAnalyzeNow = useCallback(
+    async (limit: TAnalyzeLimit) => {
+      const client = clientRef.current;
+      if (!client) throw new Error('세션이 없어요 — 다시 로그인해 주세요.');
+      const result = await requestAnalyze(client, { limit });
+      void loadOpsStages(client);
+      return result;
+    },
+    [loadOpsStages],
+  );
+
+  /**
    * **재분석** — 고른 묶음의 글을 되돌린다(`adminReanalyze.ts`). 한 줄(레일)과 일괄(표 위 줄)이 같은 함수를 쓴다.
    *
    * 끝나면 눕힌 후보를 빼고 **다시 묶는다**(`groupPending`). 형제 후보가 다른 줄에 섞여 있을 수 있어 줄 단위로 지우면
@@ -1580,6 +1605,8 @@ export function AdminPage() {
                   )}
                 />
                 {opsWorker.state === 'alive' && opsWorker.phase ? `워커 ${WORKER_PHASE_LABEL[opsWorker.phase]}` : opsWorker.label}
+                {/* 대기 중인 「지금」 요청(todo/17 T6) — 0 이면 말하지 않는다. */}
+                {opsQueue?.requestsQueued ? ` · 요청 ${opsQueue.requestsQueued}건 대기` : null}
               </span>
             ) : null}
             <Link href="/admin/ops/" className="mr-1 text-sm font-semibold whitespace-nowrap text-brand-secondary hover:text-brand-secondary_hover">
@@ -1777,6 +1804,8 @@ export function AdminPage() {
       </div>
 
       <div hidden={tab !== 'candidates'}>
+      {/* 저수지 N건 분석(todo/17 T6) — 칸에 하나, 목록이 비어도 선다(검수할 것이 없을 때가 저수지를 읽힐 때다). */}
+      <AdminPageAnalyzeRequest worker={opsWorker} backlog={opsQueue?.backlog} onRequest={requestAnalyzeNow} />
       {groups.length > 0 && (
         /*
          * **걸러 보기 = 이름표가 붙은 드롭다운 넷.** 드롭다운은 고른 값 하나만 보이고, 펼치면 **선택지마다 뜻과 개수**가 나온다.
