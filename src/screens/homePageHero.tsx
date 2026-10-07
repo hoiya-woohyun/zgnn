@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, type CSSProperties } from 'react';
+import Link from 'next/link';
+import { ChevronRight } from '@untitledui/icons';
 import { collapseProgress, collapseRange } from '../lib/stickyMorph';
 import { morphModeOf, offsetInScroller, writeMorphMode, writeMorphRange } from '../components/layout/scrollDrivenMorph';
 
@@ -55,6 +57,12 @@ type THomePageHeroProps = {
    * 일부러 나눠 적는 이유와 같다 — 확인 필요까지 '갈 수 있다' 로 읽힌다.
    */
   reach: { label: string; count: number } | null;
+  /**
+   * 프로필이 없을 때 `reach` 자리에 서는 등록 버튼(18 T4). 둘 중 하나만 그린다 — 프로필이 있으면 `reach`, 없으면 `cta`.
+   * 예전에는 히어로 **밑**에 핑크 면 카드로 따로 섰다. 첫 화면에 큰 덩어리가 둘(잉크 판 + 핑크 판)이라 히어로 위에 템플릿이
+   * 얹힌 것처럼 읽혔고(디자인 리뷰 §10 ①), 그 화면에서 할 일은 등록 하나뿐이라 히어로가 곧 그 말이 된다.
+   */
+  cta?: { title: string; body: string; href: string };
 };
 
 /**
@@ -75,7 +83,7 @@ type THomePageHeroProps = {
  * - **제목은 제자리에서 헤더 자리로 옮겨 간다**(translate + scale, 색 흰색 → 본문색). 블록이 올라가는 동안 제목은 블록 안에서
  *   내려가므로, 화면에서는 제목이 제 위치에서 헤더 위치까지 곧게 올라간다.
  * - **발바닥도 제목과 같은 식으로 헤더 맨 앞에 들어간다**(6단 크기로 줄며, 제목은 그 뒤에 붙는다). 헤더에 남는 유일한 브랜드 표식이다.
- * - 부제·갈 수 있는 곳 수는 먼저 사라진다(처음 25%). 헤더에 들어갈 자리가 없다.
+ * - 부제·갈 수 있는 곳 수(등록 전엔 등록 버튼)는 먼저 사라진다(처음 25%). 헤더에 들어갈 자리가 없다.
  *
  * **접힘은 브라우저의 스크롤 구동 애니메이션이 돌린다**(`styles/scrollMorph.css`, 왜인지는 `scrollDrivenMorph.ts`). JS 는 크기가
  * 바뀔 때만 구간(`--morph-from`·`--morph-to`)과 기하(`--clip-top`·`--side`·`--tx`·`--ty`)를 적는다. 지원하지 않는 브라우저에서만
@@ -92,7 +100,7 @@ type THomePageHeroProps = {
  * 셸이 `<main>` 에 transform 을 거는 스와이프 중에도 `sticky` 는 스크롤 영역 기준이라 보정이 필요 없다(ADR-014 의
  * `--swipe-viewport-top` 은 `fixed` 용이다).
  */
-export function HomePageHero({ subtitle, reach }: THomePageHeroProps) {
+export function HomePageHero({ subtitle, reach, cta }: THomePageHeroProps) {
   const sentinelRef = useRef<HTMLSpanElement>(null);
   const blockRef = useRef<HTMLDivElement>(null);
   const padRef = useRef<HTMLDivElement>(null);
@@ -276,10 +284,26 @@ export function HomePageHero({ subtitle, reach }: THomePageHeroProps) {
               <p className="mt-1.5 text-sm text-white/65">{subtitle}</p>
 
               {/* 판·칸 없이 부제 밑 한 문장. 수는 발바닥과 같은 brand-300 — 잉크 위에서 이 앱의 답이라는 표시다. */}
-              {reach && (
+              {reach ? (
                 <p className="mt-4 text-sm text-white/65">
                   {reach.label} <strong className="text-lg font-bold text-brand-300">{reach.count}</strong>곳
                 </p>
+              ) : (
+                // 등록 버튼은 부제와 같은 묶음이라 같이 먼저 사라진다 — 접힌 헤더엔 제목만. 다 접히면 `fade-early` 가 `visibility` 로
+                // 숨으므로 상태바 자리에 걸린 투명한 버튼이 눌리지도 않는다.
+                cta && (
+                  <Link
+                    href={cta.href}
+                    className="mt-5 flex items-center gap-3 rounded-xl bg-brand-solid px-4 py-3.5 transition-colors hover:bg-brand-solid_hover"
+                  >
+                    <PawMark className="h-6 w-6 shrink-0 text-white" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-bold text-white">{cta.title}</span>
+                      <span className="mt-0.5 block text-sm text-white/85">{cta.body}</span>
+                    </span>
+                    <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-white/85" />
+                  </Link>
+                )
               )}
             </div>
           </header>

@@ -1,9 +1,8 @@
 'use client';
 
 import { useMemo } from 'react';
-import Link from 'next/link';
 import { Map01 } from '@untitledui/icons';
-import { HomePageHero, PawMark } from './homePageHero';
+import { HomePageHero } from './homePageHero';
 import { HomePageInstall } from './homePageInstall';
 import { HomePageIntro } from './homePageIntro';
 import { HomePageLandmarkChips } from './homePageLandmarkChips';
@@ -58,33 +57,20 @@ export function HomePage() {
               }
             : null
         }
-      />
-
-      {/* 프로필이 없을 때만, 히어로 **바로 밑**에. 첫 진입 강제 등록은 이탈로 이어진다는 리뷰 지적이 있어(2026-09-15 §1)
-          카드 하나로만 유도하고 강제 라우팅은 하지 않는다 — 대신 이 화면에서 할 일은 이것 하나라 흰 카드가 아니라 **브랜드 면**이고,
-          인사말보다 위다(폴드 아래로 밀렸었다, UX 평가 2026-10-06 · 07 U2).
-          예전에는 `-mt-10` 으로 히어로 위에 겹쳐 올렸다. 히어로가 라운드 판이 되면서 그 겹침이 판의 아래 모서리를 덮어 버려
-          (같은 폭이다) 판으로 보이지 않게 된다 — 겹치지 않고 아래에 둔다. */}
-      {!dog && (
-        <div className="px-4 md:px-6">
-          <Link
-            href="/dog"
-            className="mt-4 flex items-center gap-3 rounded-2xl bg-brand-primary px-4 py-4 ring-1 ring-inset ring-brand-200 transition-colors hover:bg-brand-secondary"
-          >
-            <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-solid">
-              <PawMark className="h-5 w-5 text-white" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold text-primary">우리 강아지 등록하기</p>
-              <p className="text-sm text-secondary">
-                {registerPreview
+        // 프로필이 없으면 히어로가 곧 등록 버튼이다(18 T4). 첫 진입 강제 등록은 이탈로 이어진다는 리뷰 지적이 있어(2026-09-15 §1)
+        // 버튼 하나로만 유도하고 강제 라우팅은 하지 않는다.
+        cta={
+          dog
+            ? undefined
+            : {
+                title: '우리 강아지 등록하기',
+                body: registerPreview
                   ? `${homePageRegisterPreviewText(registerPreview)} — 우리 아이는요?`
-                  : '등록하면 갈 수 있는 곳을 바로 보여드려요'}
-              </p>
-            </div>
-          </Link>
-        </div>
-      )}
+                  : '등록하면 갈 수 있는 곳을 바로 보여드려요',
+                href: '/dog',
+              }
+        }
+      />
 
       {/* 「내 여행」 — 저장·준비물(그리고 16 의 동선)이 한 입구다(18 T3). 머리 줄까지 카드가 그린다 —
           등록 전에 아무것도 없으면 섹션째 null 이라 머리만 남는 빈 섹션이 없다. */}
