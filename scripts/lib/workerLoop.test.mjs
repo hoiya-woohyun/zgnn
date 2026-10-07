@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ANALYZE_REQUEST_DEFAULT_LIMIT,
   ANALYZE_REQUEST_MAX_LIMIT,
+  MAX_REQUEST_ATTEMPTS,
   RETRY_AFTER_MS,
   STALE_TAKEN_MS,
   claudeResetAt,
@@ -15,6 +16,7 @@ import {
   pickRequests,
   planCycle,
   recordRun,
+  requestClose,
   requestLimit,
 } from './workerLoop.mjs';
 
@@ -104,6 +106,31 @@ describe('createWaker — 도는 중이면 끝난 뒤 한 번 더', () => {
     expect(errors).toEqual(['boom']);
     expect(runs).toBe(2);
   });
+
+  it('정기 수집을 못 돈 바퀴(dailyDone false · 던짐)는 daily 를 다음 wake 에 넘긴다 — 그 자리에서 다시 돌지 않는다(17 리뷰 9)', async () => {
+    const seen = [];
+    const results = [{ dailyDone: false }, undefined, { dailyDone: true }];
+    const waker = createWaker(async ({ daily }) => {
+      seen.push(daily);
+      return results.shift();
+    });
+    await waker.wake({ daily: true });
+    expect(seen).toEqual([true]); // 바로 다시 돌지 않는다
+    expect(waker.dailyCarried()).toBe(true);
+    await waker.wake(); // 다음 폴링이 가져간다
+    expect(seen).toEqual([true, true]);
+    expect(waker.dailyCarried()).toBe(false);
+
+    const thrown = createWaker(
+      async ({ daily }) => {
+        seen.push(daily);
+        if (daily) throw new Error('offline');
+      },
+      { onError: () => {} },
+    );
+    await thrown.wake({ daily: true });
+    expect(thrown.dailyCarried()).toBe(true);
+  });
 });
 
 describe('nextDailyAt — 다음 09:00 KST', () => {
@@ -148,17 +175,44 @@ describe('pickRequests — queued 와 10분 넘은 taken', () => {
 });
 
 describe('requestLimit', () => {
-  it('가장 큰 정수 하나, 없거나 이상하면 기본값, 상한으로 자른다', () => {
-    expect(requestLimit([{ args: { limit: 10 } }, { args: { limit: 30 } }])).toBe(30);
-    expect(requestLimit([{ args: null }, { args: { limit: '30' } }, { args: { limit: -1 } }, { args: { limit: 2.5 } }])).toBe(ANALYZE_REQUEST_DEFAULT_LIMIT);
-    expect(requestLimit([{ args: { limit: 5000 } }])).toBe(ANALYZE_REQUEST_MAX_LIMIT);
+  it('요청 하나의 정수, 없거나 이상하면 기본값, 상한으로 자른다', () => {
+    expect(requestLimit({ args: { limit: 30 } })).toBe(30);
+    for (const args of [null, { limit: '30' }, { limit: -1 }, { limit: 2.5 }]) expect(requestLimit({ args })).toBe(ANALYZE_REQUEST_DEFAULT_LIMIT);
+    expect(requestLimit({ args: { limit: 5000 } })).toBe(ANALYZE_REQUEST_MAX_LIMIT);
+  });
+});
+
+describe('requestClose — 요청을 done 으로 닫을까 queued 로 되돌릴까(17 리뷰 3)', () => {
+  it('성공·실행 행이 선 실패는 done(run_id 는 행이 섰을 때만)', () => {
+    expect(requestClose({ args: null }, { code: 0, runId: 'run-1', rateLimited: false })).toEqual({ patch: { status: 'done', run_id: 'run-1' }, gaveUp: false });
+    expect(requestClose({ args: null }, { code: 0, runId: null, rateLimited: false })).toEqual({ patch: { status: 'done' }, gaveUp: false });
+    expect(requestClose({ args: null }, { code: 1, runId: 'run-1', rateLimited: false }).patch.status).toBe('done');
+  });
+
+  it('실행 행 없는 실패(잠금·키·세션)와 한도로 끊긴 실패는 queued 로, attempts 를 센다', () => {
+    expect(requestClose({ args: { limit: 10 } }, { code: 1, runId: null, rateLimited: false })).toEqual({
+      patch: { status: 'queued', taken_at: null, args: { limit: 10, attempts: 1 } },
+      gaveUp: false,
+    });
+    expect(requestClose({ args: { limit: 10, attempts: 1 } }, { code: 1, runId: 'run-1', rateLimited: true }).patch).toEqual({
+      status: 'queued',
+      taken_at: null,
+      args: { limit: 10, attempts: 2 },
+    });
+  });
+
+  it(`${MAX_REQUEST_ATTEMPTS}번째면 done 으로 닫고 gaveUp — 같은 요청이 영원히 되돌아오지 않게`, () => {
+    expect(requestClose({ args: { attempts: MAX_REQUEST_ATTEMPTS - 1 } }, { code: 1, runId: null, rateLimited: false })).toEqual({
+      patch: { status: 'done', args: { attempts: MAX_REQUEST_ATTEMPTS } },
+      gaveUp: true,
+    });
   });
 });
 
 describe('isDue · recordRun — 지워지지 않는 일감이 60초마다 다시 돌지 않게', () => {
   const now = 1_000_000_000;
 
-  it('처음 · 수가 늘면 · 30분 지나면 돈다. 같거나 줄었으면 기다린다. 0 이면 안 돈다', () => {
+  it('처음 · 수가 늘면 · 30분 지나면 돈다. 같으면 기다린다. 0 이면 안 돈다', () => {
     expect(isDue(2, undefined, now)).toBe(true);
     expect(isDue(0, undefined, now)).toBe(false);
     expect(isDue(2, { count: 2, at: now - 1000 }, now)).toBe(false);
@@ -167,12 +221,18 @@ describe('isDue · recordRun — 지워지지 않는 일감이 60초마다 다�
     expect(isDue(2, { count: 2, at: now - RETRY_AFTER_MS }, now)).toBe(true);
   });
 
-  it('끝난 뒤 다시 센 수를 적는다 — 트리거가 없는 단계는 그대로', () => {
-    const state = { collectQueued: 1, requestedPosts: 3, approved: 0 };
-    expect(recordRun({}, 'analyze:requested', state, now)).toEqual({ 'analyze:requested': { count: 3, at: now } });
-    expect(recordRun({ apply: { count: 9, at: 0 } }, 'apply', state, now)).toEqual({ apply: { count: 0, at: now } });
+  it('지난번 실행이 수를 줄였으면(진척) 30분을 안 기다리고 바로 — 그대로였을 때만 기다린다(17 리뷰 2)', () => {
+    expect(isDue(1, { count: 1, at: now - 1000, progressed: true }, now)).toBe(true);
+    expect(isDue(1, { count: 1, at: now - 1000, progressed: false }, now)).toBe(false);
+  });
+
+  it('끝난 뒤 다시 센 수와 진척(단계 앞보다 줄었나)을 적는다 — 트리거가 없는 단계는 그대로', () => {
+    const before = { collectQueued: 1, requestedPosts: 5, approved: 0 };
+    const after = { collectQueued: 1, requestedPosts: 3, approved: 0 };
+    expect(recordRun({}, 'analyze:requested', before, after, now)).toEqual({ 'analyze:requested': { count: 3, at: now, progressed: true } });
+    expect(recordRun({ apply: { count: 9, at: 0 } }, 'apply', before, after, now)).toEqual({ apply: { count: 0, at: now, progressed: false } });
     const last = {};
-    expect(recordRun(last, 'analyze:limit', state, now)).toBe(last);
+    expect(recordRun(last, 'analyze:limit', before, after, now)).toBe(last);
   });
 });
 
@@ -201,6 +261,13 @@ describe('planCycle — 한 바퀴의 단계', () => {
     const steps = planCycle({ requests: { ...none, analyze: [{ id: 'q1', args: { limit: 30 } }] }, requestedPosts: 2, now });
     expect(keys(steps)).toEqual(['analyze --requested-only', 'analyze --limit 30']);
     expect(steps[1].requestIds).toEqual(['q1']);
+  });
+
+  it('「지금 분석」 이 여럿이면 가장 오래된 하나만 집는다 — 나머지는 queued 로 남아 다음 바퀴가(17 리뷰 13)', () => {
+    const analyze = [{ id: 'old', args: { limit: 10 } }, { id: 'new', args: { limit: 30 } }];
+    const [step] = planCycle({ requests: { ...none, analyze }, now });
+    expect(step).toMatchObject({ args: ['--limit', '10'], requestIds: ['old'], requests: [analyze[0]] });
+    expect(step.reason).toBe('「지금 분석」 10건(저수지 포함) · 뒤에 1건 대기');
   });
 
   it('저수지는 자동으로 읽지 않는다 — 요청 글도 요청도 없으면 analyze 가 없다', () => {

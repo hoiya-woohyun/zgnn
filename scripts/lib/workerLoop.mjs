@@ -27,21 +27,27 @@ const DAY_MS = 86_400_000;
  * `wake()` 디바운스. 도는 중에 다시 부르면 **끝난 뒤 한 번 더**(플래그 하나) — 몇 번을 불러도 동시에 두 바퀴가 돌지 않고, 놓치지도 않는다.
  * Realtime(workerRealtime.mjs) · 60초 폴링 · 정기 수집(09:00)이 전부 이것 하나를 부른다. `daily` 는 쌓였다가 다음 바퀴 하나가 가져간다.
  * 바퀴가 던져도 루프는 산다(`onError`) — 워커 하나가 예외 한 번에 죽으면 큐가 DB 에 있어도 아무도 안 본다.
- * @param {(o: { daily: boolean }) => Promise<unknown>} runCycle
+ * 정기 수집을 맡은 바퀴가 한 단계도 못 돌았으면(던졌거나 `{ dailyDone: false }` — 세션·네트워크) `daily` 를 **다음 wake 에** 얹는다(docs/todo/17 리뷰 9).
+ * 그 자리에서 다시 돌지 않는다 — 네트워크가 죽어 있으면 빈 바퀴가 쉬지 않고 돈다. 다음 폴링(60초)이 들고 간다.
+ * @param {(o: { daily: boolean }) => Promise<{ dailyDone?: boolean } | void>} runCycle
  */
 export function createWaker(runCycle, { onError = (e) => console.error(e) } = {}) {
   let running = null;
   let again = false;
   let daily = false;
+  let carried = false; // 못 돈 정기 수집 — 다음 wake 가 가져간다(루프를 다시 돌게 하지 않는다)
 
   async function loop() {
     do {
       again = false;
-      const isDaily = daily;
+      const isDaily = daily || carried;
       daily = false;
+      carried = false;
       try {
-        await runCycle({ daily: isDaily });
+        const result = await runCycle({ daily: isDaily });
+        if (isDaily && result?.dailyDone === false) carried = true;
       } catch (e) {
+        if (isDaily) carried = true;
         onError(e);
       }
     } while (again || daily);
@@ -60,7 +66,7 @@ export function createWaker(runCycle, { onError = (e) => console.error(e) } = {}
     return running;
   }
 
-  return { wake, isRunning: () => running !== null };
+  return { wake, isRunning: () => running !== null, dailyCarried: () => carried };
 }
 
 /** 다음 `hourKST` 시 정각(KST)의 timestamp. 지금이 정확히 그 시각이면 내일이다(방금 돈 것을 또 돌지 않게). */
@@ -87,27 +93,53 @@ export function pickRequests(rows, now) {
   return out;
 }
 
-/** 「지금 분석」 요청들의 건수 — 가장 큰 것 하나(같은 kind 의 queued 가 있으면 화면이 더 넣지 않는다, T6). 정수가 아니면 기본값. */
-export function requestLimit(rows) {
-  const limits = rows.map((row) => row.args?.limit).filter((n) => Number.isInteger(n) && n > 0);
-  return Math.min(limits.length ? Math.max(...limits) : ANALYZE_REQUEST_DEFAULT_LIMIT, ANALYZE_REQUEST_MAX_LIMIT);
+/** 「지금 분석」 요청 하나의 건수 — 정수가 아니면 기본값, 상한으로 자른다. */
+export function requestLimit(row) {
+  const limit = row?.args?.limit;
+  return Math.min(Number.isInteger(limit) && limit > 0 ? limit : ANALYZE_REQUEST_DEFAULT_LIMIT, ANALYZE_REQUEST_MAX_LIMIT);
+}
+
+/** 요청 하나가 되돌아올 수 있는 횟수 — 넘으면 `done` 으로 닫고 경고한다(같은 요청이 영원히 되돌아오지 않게, docs/todo/17 리뷰 3). */
+export const MAX_REQUEST_ATTEMPTS = 3;
+
+/**
+ * 단계가 끝난 뒤 요청 행을 어떻게 닫나. **실패했는데 실행 행이 서지 않았거나**(잠금에 막힘 · 키 없음 · 세션 — 돌지 않았다)
+ * **Claude 한도로 끊긴** 실패만 `queued` 로 되돌린다(`taken_at` 은 비운다) — 다음 바퀴(한도면 리셋 뒤)가 다시 집는다.
+ * 나머지는 `done`: 성공은 물론, 실행 행이 선 실패도 그 행이 실패를 말하고 되풀이해도 같은 실패라서다.
+ * 실행 행 없이 성공한 것(요청 글 0건 · 실행 기록 insert 실패)도 `done` 이다 — 되돌리면 같은 일을 세 번 한다.
+ * 되돌릴 때마다 `args.attempts` 를 센다(스키마 그대로 jsonb 안). `MAX_REQUEST_ATTEMPTS` 째면 `done` + `gaveUp`.
+ * @param {{ args?: object|null }} row
+ * @param {{ code: number, runId: string|null, rateLimited: boolean }} outcome
+ * @returns {{ patch: object, gaveUp: boolean }}
+ */
+export function requestClose(row, { code, runId, rateLimited }) {
+  const runIdPatch = runId ? { run_id: runId } : {};
+  if (code === 0 || (runId != null && !rateLimited)) return { patch: { status: 'done', ...runIdPatch }, gaveUp: false };
+  const attempts = (Number.isInteger(row.args?.attempts) ? row.args.attempts : 0) + 1;
+  const args = { ...(row.args ?? {}), attempts };
+  if (attempts >= MAX_REQUEST_ATTEMPTS) return { patch: { status: 'done', args, ...runIdPatch }, gaveUp: true };
+  return { patch: { status: 'queued', taken_at: null, args }, gaveUp: false };
 }
 
 /**
- * 상태 칸이 큐인 단계(요청 수집 · 요청 글 분석 · 반영)를 **폴링이** 다시 돌릴 차례인가. 할 것이 있고, 지난번 뒤로 수가 늘었거나 `RETRY_AFTER_MS` 가 지났을 때.
- * @param {{ count: number, at: number } | undefined} last  그 단계가 끝난 직후 다시 센 수와 시각(`recordRun`)
+ * 상태 칸이 큐인 단계(요청 수집 · 요청 글 분석 · 반영)를 **폴링이** 다시 돌릴 차례인가. 할 것이 있고, 지난번 뒤로 수가 늘었거나,
+ * 지난번 실행이 수를 **줄였거나**(진척 — 블로그당 상한·limit 에 걸려 남은 것, 바로 이어 간다) `RETRY_AFTER_MS` 가 지났을 때.
+ * 30분 대기는 수가 그대로였을 때만이다 — 계속 403 인 글·반영이 안 되는 후보처럼 돌아도 안 줄어드는 일감.
+ * @param {{ count: number, at: number, progressed?: boolean } | undefined} last  그 단계가 끝난 직후 다시 센 수·시각·진척(`recordRun`)
  */
 export function isDue(count, last, now) {
-  return count > 0 && (!last || count > last.count || now - last.at >= RETRY_AFTER_MS);
+  return count > 0 && (!last || count > last.count || last.progressed === true || now - last.at >= RETRY_AFTER_MS);
 }
 
 /** 단계 → 그 단계를 깨우는 상태 칸의 수(`readWorkerState` 의 이름). 명시 요청(`pipeline_requests`)·정기 수집은 여기 없다 — 늘 돈다. */
 export const STEP_TRIGGER = Object.freeze({ collect: 'collectQueued', 'analyze:requested': 'requestedPosts', apply: 'approved' });
 
-/** 단계가 끝난 뒤 다시 센 상태로 `last` 를 갱신한 새 객체. 트리거가 없는 단계(「지금 분석」)는 그대로. */
-export function recordRun(last, key, state, now) {
+/** 단계가 끝난 뒤 다시 센 상태(`after`)로 `last` 를 갱신한 새 객체 — 단계 앞의 수(`before`)보다 줄었으면 `progressed`. 트리거가 없는 단계(「지금 분석」)는 그대로. */
+export function recordRun(last, key, before, after, now) {
   const field = STEP_TRIGGER[key];
-  return field ? { ...last, [key]: { count: state[field] ?? 0, at: now } } : last;
+  if (!field) return last;
+  const count = after[field] ?? 0;
+  return { ...last, [key]: { count, at: now, progressed: count < (before?.[field] ?? 0) } };
 }
 
 /**
@@ -117,7 +149,7 @@ export function recordRun(last, key, state, now) {
  *    (저수지 포함, 기존 순서). Claude 한도로 쉬는 동안(`claudePausedUntil`)은 둘 다 빠진다 — 요청은 queued 로 남아 리셋 뒤 집힌다.
  *  - apply: 승인 후보가 있거나 「지금 반영」 요청.
  * `forced` 는 Realtime 이벤트가 깨운 단계 key — 그 단계는 `isDue` 의 재시도 간격을 안 본다(이벤트가 "일이 늘었다" 그 자체다). 간격은 폴링에서만.
- * @returns {{ key: string, step: 'collect'|'analyze'|'apply', args: string[], requestIds: string[], reason: string }[]}
+ * @returns {{ key: string, step: 'collect'|'analyze'|'apply', args: string[], requests: object[], requestIds: string[], reason: string }[]}
  */
 export function planCycle({
   requests = { collect: [], analyze: [], apply: [] },
@@ -137,23 +169,26 @@ export function planCycle({
 
   if (isDailyTick || requests.collect.length > 0) {
     const why = [isDailyTick && '정기 수집(09:00)', requests.collect.length > 0 && `「지금 수집」 요청 ${requests.collect.length}건`].filter(Boolean);
-    steps.push({ key: 'collect', step: 'collect', args: [], requestIds: ids(requests.collect), reason: `${why.join(' · ')} — 키워드 전체` });
+    steps.push({ key: 'collect', step: 'collect', args: [], requests: requests.collect, requestIds: ids(requests.collect), reason: `${why.join(' · ')} — 키워드 전체` });
   } else if (due(collectQueued, 'collect')) {
-    steps.push({ key: 'collect', step: 'collect', args: ['--only-requests'], requestIds: [], reason: `추가 수집 요청 ${collectQueued}건` });
+    steps.push({ key: 'collect', step: 'collect', args: ['--only-requests'], requests: [], requestIds: [], reason: `추가 수집 요청 ${collectQueued}건` });
   }
 
   const claudeOk = now >= claudePausedUntil;
   if (claudeOk && due(requestedPosts, 'analyze:requested')) {
-    steps.push({ key: 'analyze:requested', step: 'analyze', args: ['--requested-only'], requestIds: [], reason: `요청 글 ${requestedPosts}건` });
+    steps.push({ key: 'analyze:requested', step: 'analyze', args: ['--requested-only'], requests: [], requestIds: [], reason: `요청 글 ${requestedPosts}건` });
   }
+  // 「지금 분석」 은 **가장 오래된 하나만** 집는다 — 나머지는 queued 로 남아 다음 바퀴가 집는다(여럿을 한 번에 done 으로 닫으면 뒤의 것이 할 일을 잃는다).
   if (claudeOk && requests.analyze.length > 0) {
-    const limit = requestLimit(requests.analyze);
-    steps.push({ key: 'analyze:limit', step: 'analyze', args: ['--limit', String(limit)], requestIds: ids(requests.analyze), reason: `「지금 분석」 ${limit}건(저수지 포함)` });
+    const [oldest] = requests.analyze;
+    const limit = requestLimit(oldest);
+    const waiting = requests.analyze.length > 1 ? ` · 뒤에 ${requests.analyze.length - 1}건 대기` : '';
+    steps.push({ key: 'analyze:limit', step: 'analyze', args: ['--limit', String(limit)], requests: [oldest], requestIds: [oldest.id], reason: `「지금 분석」 ${limit}건(저수지 포함)${waiting}` });
   }
 
   if (requests.apply.length > 0 || due(approved, 'apply')) {
     const why = [approved > 0 && `승인 후보 ${approved}건`, requests.apply.length > 0 && `「지금 반영」 요청 ${requests.apply.length}건`].filter(Boolean);
-    steps.push({ key: 'apply', step: 'apply', args: [], requestIds: ids(requests.apply), reason: why.join(' · ') });
+    steps.push({ key: 'apply', step: 'apply', args: [], requests: requests.apply, requestIds: ids(requests.apply), reason: why.join(' · ') });
   }
 
   return steps.filter((step) => !done.has(step.key));

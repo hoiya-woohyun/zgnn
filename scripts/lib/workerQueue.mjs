@@ -61,3 +61,17 @@ export async function markRequests(client, ids, patch, warn = (line) => console.
   const { error } = await client.from('pipeline_requests').update(patch).in('id', ids);
   if (error) warn(`⚠️ 요청 ${ids.length}건을 ${patch.status} 로 못 적음 — ${error.message}`);
 }
+
+/**
+ * 요청 행을 **행마다** 닫는다(`requestClose` 가 정한 patch — 되돌릴 때 `args.attempts` 가 행마다 달라 한 번에 못 쓴다). `markRequests` 와 같은 태도로 fail-soft.
+ * @param {{ id: string, args?: object|null }[]} rows
+ * @param {(row: object) => { patch: object, gaveUp: boolean }} decide
+ */
+export async function closeRequests(client, rows, decide, warn = (line) => console.warn(line)) {
+  for (const row of rows) {
+    const { patch, gaveUp } = decide(row);
+    if (gaveUp) warn(`⚠️ 요청 ${row.id} 가 ${patch.args?.attempts}번 돌지 못해 done 으로 닫는다 — 터미널의 앞선 줄(잠금·키·세션)을 보고 /admin 에서 다시 넣는다`);
+    const { error } = await client.from('pipeline_requests').update(patch).eq('id', row.id);
+    if (error) warn(`⚠️ 요청 ${row.id} 를 ${patch.status} 로 못 적음 — ${error.message}`);
+  }
+}

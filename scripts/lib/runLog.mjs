@@ -53,11 +53,11 @@ export const NO_RUN = Object.freeze({
 });
 
 /*
- * 실행 행이 섰을 때 알릴 곳 하나 — 상주 워커(`scripts/worker.mjs`)가 `workers.run_id` 를 그 행에 잇는 데만 쓴다.
- * 각 스크립트의 `main` 은 exit code 만 돌려주므로 id 를 밖으로 꺼낼 다른 길이 없다. 리스너가 던져도 본업은 그대로다(fail-soft).
+ * 실행 행이 섰을 때 알릴 곳 하나 — 상주 워커(`scripts/worker.mjs`)가 `workers.run_id` 를 그 행에 잇고, 신호를 받았을 때 그 행을 닫는 데(`end`) 쓴다.
+ * 각 스크립트의 `main` 은 exit code 만 돌려주므로 id·핸들을 밖으로 꺼낼 다른 길이 없다. 리스너가 던져도 본업은 그대로다(fail-soft).
  */
 let runListener = null;
-/** @param {((run: { id: string, script: string }) => void) | null} fn */
+/** @param {((run: { id: string, script: string, end: (r: { status: string, stats?: object|null, error?: string|null }) => Promise<void> }) => void) | null} fn */
 export function setRunListener(fn) {
   runListener = fn;
 }
@@ -80,16 +80,11 @@ export async function beginRun(client, { script, args = null }, { now = Date.now
     warn(`⚠️ 실행 기록 못 남김: ${reasonOf(e)}`);
     return NO_RUN;
   }
-  try {
-    runListener?.({ id, script });
-  } catch {
-    /* 워커 쪽 표시가 하나 늦을 뿐이다 */
-  }
-
   let lastBeat = now();
   let lastProgress = -Infinity;
+  let latestProgress = null; // 스로틀에 걸려 안 써진 값도 쥔다 — `end` 가 마지막 값을 함께 쓴다
   let ended = false;
-  return {
+  const handle = {
     id,
     /** 자주 불러도 된다 — 60초에 한 번만 실제로 쓴다. 실패는 삼킨다(다음 tick 이 다시 찍는다). */
     async tick() {
@@ -103,10 +98,13 @@ export async function beginRun(client, { script, args = null }, { now = Date.now
     },
     /**
      * 어디까지 왔나(`{done, total, current}`) — 5초에 한 번만 쓴다. `tick` 과 같은 태도: 실패는 삼키고 다음 호출이 다시 쓴다.
-     * 마지막 값이 스로틀에 걸려 안 써져도 괜찮다 — 끝나면 화면은 progress 가 아니라 status 를 읽는다.
+     * 루프가 끝난 뒤의 마지막 값은 `{ force: true }` 로 스로틀을 건너뛴다 — 안 그러면 막대가 "11/12" 에 멈춘 채 끝난다.
+     * 그래도 놓친 값은 `end` 가 함께 쓴다.
      */
-    async progress(value) {
-      if (ended || now() - lastProgress < PROGRESS_MS) return;
+    async progress(value, { force = false } = {}) {
+      if (ended) return;
+      latestProgress = value;
+      if (!force && now() - lastProgress < PROGRESS_MS) return;
       lastProgress = now();
       try {
         await client.from('pipeline_runs').update({ progress: value }).eq('id', id);
@@ -122,7 +120,17 @@ export async function beginRun(client, { script, args = null }, { now = Date.now
       try {
         const { error: dbError, count } = await client
           .from('pipeline_runs')
-          .update({ status, stats, error: error == null ? null : scrubUrls(error).slice(0, 200), ended_at: at, heartbeat_at: at }, { count: 'exact' })
+          .update(
+            {
+              status,
+              stats,
+              error: error == null ? null : scrubUrls(error).slice(0, 200),
+              ended_at: at,
+              heartbeat_at: at,
+              ...(latestProgress ? { progress: latestProgress } : {}),
+            },
+            { count: 'exact' },
+          )
           .eq('id', id);
         if (dbError) throw dbError;
         // 0행 = 에러 없이 아무것도 안 바뀌었다(정책이 행을 가렸다). 조용히 넘기면 "닫았다" 고 믿는 running 행이 남는다.
@@ -132,4 +140,10 @@ export async function beginRun(client, { script, args = null }, { now = Date.now
       }
     },
   };
+  try {
+    runListener?.({ id, script, end: handle.end });
+  } catch {
+    /* 워커 쪽 표시가 하나 늦을 뿐이다 */
+  }
+  return handle;
 }

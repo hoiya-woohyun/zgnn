@@ -138,6 +138,25 @@ describe('progress — 5초에 한 번만 쓴다', () => {
   });
 });
 
+describe('progress — 끝의 마지막 값(17 리뷰 8)', () => {
+  it('force 는 스로틀을 건너뛰고, 스로틀에 걸린 마지막 값은 end 가 함께 쓴다', async () => {
+    let t = 0;
+    const client = fakeClient();
+    const run = await beginRun(client, { script: 'analyze' }, { now: () => t });
+    await run.progress({ done: 0, total: 3 });
+    t = 1;
+    await run.progress({ done: 3, total: 3, current: null }, { force: true });
+    expect(client.calls.update.at(-1).patch).toEqual({ progress: { done: 3, total: 3, current: null } });
+
+    const other = fakeClient();
+    const run2 = await beginRun(other, { script: 'analyze' }, { now: () => t });
+    await run2.progress({ done: 0, total: 2 });
+    await run2.progress({ done: 1, total: 2 }); // 스로틀에 걸린다
+    await run2.end({ status: 'partial' });
+    expect(other.calls.update.at(-1).patch).toMatchObject({ status: 'partial', progress: { done: 1, total: 2 } });
+  });
+});
+
 describe('setRunListener — 워커가 실행 행 id 를 받는 길', () => {
   it('행이 섰을 때만 알리고, 리스너가 던져도 실행은 그대로다', async () => {
     const seen = [];
@@ -145,7 +164,7 @@ describe('setRunListener — 워커가 실행 행 id 를 받는 길', () => {
       setRunListener((r) => seen.push(r));
       const run = await beginRun(fakeClient(), { script: 'apply' });
       await beginRun(fakeClient({ insert: () => ({ error: { message: 'x' } }) }), { script: 'collect' }, { warn: () => {} });
-      expect(seen).toEqual([{ id: run.id, script: 'apply' }]);
+      expect(seen).toEqual([{ id: run.id, script: 'apply', end: run.end }]);
       setRunListener(() => {
         throw new Error('listener');
       });
