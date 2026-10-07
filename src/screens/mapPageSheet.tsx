@@ -4,6 +4,7 @@ import { PlaceItemsNote } from '../components/placeItemsNote';
 import { PetBadges } from '../components/petBadges';
 import { PlaceThumb } from '../components/placeThumb';
 import { SaveButton } from '../components/saveButton';
+import { SavedNoteLine } from '../components/savedNoteLine';
 import { TownChip } from '../components/townChip';
 import { Button } from '@/components/base/button';
 import { categoryLabel } from '../lib/category';
@@ -50,6 +51,9 @@ export function MapPageSheetCard({ place }: TMapPageSheetCardProps) {
             </div>
           </div>
         </div>
+
+        {/* 목록 카드와 같은 자리의 내 메모(저장 화면에서 적은 것). */}
+        <SavedNoteLine id={place.id} className="mt-2.5" />
 
         {eligibility && (
           <div className="mt-2.5 flex items-center gap-2">

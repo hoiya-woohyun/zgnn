@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { PLACE_TYPE_ICON } from '../components/icons/placeTypeIcon';
 import { PLACE_THUMB, PlaceThumb } from '../components/placeThumb';
+import { SavedNoteLine } from '../components/savedNoteLine';
 import { TYPE_COLOR } from '../lib/places';
 import {
   morphModeOf,
@@ -173,6 +174,9 @@ export function PlaceDetailHeader({ place }: { place: TPlaceEntry }) {
       </p>
 
       {place.address && <p className="mt-1 text-sm text-tertiary">{place.address}</p>}
+
+      {/* 저장 화면에 적은 내 메모 — 목록 카드와 같은 자리(이름 블록 바로 밑). 고치는 것은 저장 화면에서. */}
+      <SavedNoteLine id={place.id} className="mt-3" />
     </header>
   );
 }

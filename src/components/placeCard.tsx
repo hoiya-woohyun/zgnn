@@ -4,6 +4,7 @@ import { EligibilityBadge } from './eligibilityBadge';
 import { PetBadges } from './petBadges';
 import { PlaceThumb } from './placeThumb';
 import { SaveButton } from './saveButton';
+import { SavedNoteLine } from './savedNoteLine';
 import { TownChip } from './townChip';
 import { categoryLabel } from '../lib/category';
 import { distanceLabel } from '../lib/distanceSort';
@@ -67,6 +68,9 @@ export function PlaceCard({ place, footer, distanceKm, hideReasonText }: TPlaceC
             </div>
           </div>
         </div>
+
+        {/* 내 메모는 이름 바로 밑 — 이 장소에 대한 내 표시라 가게 설명보다 먼저. 저장 화면만이 아니라 카드가 보이는 모든 자리에. */}
+        <SavedNoteLine id={place.id} className="mt-3" />
 
         {/* 블로그에서 들어온 신규 숙소는 요금 원문이 비어 있을 수 있다 — 빈 굵은 줄을 그리지 않는다. */}
         {place.stay && place.stay.price.text !== '' && (
