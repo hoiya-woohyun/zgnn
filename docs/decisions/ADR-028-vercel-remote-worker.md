@@ -1,11 +1,12 @@
 # ADR-028 — 수집·분석을 Vercel 함수에서도 돌린다. 버튼을 누른 운영자의 세션이 곧 작업 권한이고, 서버에 두는 장기 값은 Claude 토큰과 네이버 키 둘뿐이다
 
-> 최종 수정: 2026-10-08 (v1: 제안 — `worker/api/probe.mjs` 실측(c39beaf)으로 Vercel 함수 안 `claude -p` 가 `setup-token` 으로 도는 것을 확인. 구현은 [docs/todo/20](../todo/20-vercel-remote-worker.md))
+> 최종 수정: 2026-10-08 (v2: **채택**. 결정 5 를 코드에 맞게 고쳤다 — 버튼 셋 중 `pipeline_requests` 에 줄을 넣는 것은 「저수지 N건 분석」 하나뿐이고 「추가 수집」 은 `collect_requests`, 「재분석」 은 `blog_posts.requested_at` 이다. 그래서 서버도 로컬 `once` 와 같은 한 바퀴를 돌고, 로컬과 겹치지 않게 하는 것은 원자 집기가 아니라 `workers` 심장이다(`candidates` 에 유일 제약이 없어 같은 글을 둘이 읽으면 후보가 둘 생긴다). 결정 9(번들)·10(겹침)을 더했다)
+> 이전 2026-10-08 (v1: 제안 — `worker/api/probe.mjs` 실측(c39beaf)으로 Vercel 함수 안 `claude -p` 가 `setup-token` 으로 도는 것을 확인. 구현은 [docs/todo/20](../todo/20-vercel-remote-worker.md))
 
 ## 상태
 
-**제안.** 채택하면 [ADR-016](ADR-016-secrets-by-login.md)(장기 키 없음)과 [ADR-024](ADR-024-local-worker-and-db-queues.md) 「하지 않은 것」 의
-"Vercel 에서 수집·분석" 을 고친다. 아래 「무엇을 고치나」 가 그 범위다. 실측용 probe 말고는 코드가 없다.
+**채택**(2026-10-08). [ADR-016](ADR-016-secrets-by-login.md)(장기 키 없음)과 [ADR-024](ADR-024-local-worker-and-db-queues.md) 「하지 않은 것」 의
+"Vercel 에서 수집·분석" 을 고친다. 아래 「무엇을 고치나」 가 그 범위다. 구현과 진행은 [docs/todo/20](../todo/20-vercel-remote-worker.md).
 
 ## 맥락
 
@@ -40,14 +41,26 @@ ADR-024 가 서버 실행을 뺀 이유는 셋이었다. ① 키가 밖으로 �
 4. **DB 쓰기 권한은 그 요청의 JWT 다.** `resolveSupabaseCredentials` 는 이미 `readSession` 을 주입받는다. 서버에서는 키체인 대신 요청 헤더를 넘긴다.
    형식·만료·30분 앞당김(`SESSION_EXP_SKEW_S`)·RLS 는 로컬과 같은 검사를 거친다. 그래서 **Supabase 쪽 장기 키는 서버에 생기지 않는다.**
    브라우저는 남은 시간이 30분보다 적으면 `refreshSession()` 뒤에 보낸다(기본 access token 은 1시간).
-5. **일 단위는 요청 한 줄이다.** `pipeline_requests` 를 `update … where status = 'queued' returning` 으로 **원자적으로** 집는다. 로컬 워커도 같은 집기로 바꿔, 둘이 함께 켜져 있어도 한 줄을 한 곳만 집게 한다.
-   한 번의 함수 호출은 글 최대 5건(30초 × 5 + 여유 < 300초)까지다. 남으면 그 줄을 `queued` 로 되돌리고, **같은 JWT 로 자기 자신을 한 번 더 부른다.**
-   이 사슬은 JWT 의 실효 시각에서 끊긴다 — 상한을 따로 두지 않아도 1시간 안에서 멈춘다. 끊긴 뒤 남은 일은 다음 버튼이나 로컬 워커가 이어 간다.
+5. **일 단위는 로컬 `once` 와 같은 한 바퀴다**(v2 — v1 은 "요청 한 줄" 이었다). 버튼 셋이 남기는 흔적이 셋 다르다 — 「추가 수집」 은 `collect_requests`, 「재분석」 은
+   `blog_posts.requested_at`, 「저수지 N건 분석」 만 `pipeline_requests` 한 줄이다. 그래서 서버는 줄 하나를 집는 대신 로컬 워커의 한 바퀴(`createWorkerCycle`)를 그대로 돈다.
+   다른 점은 상한 하나다 — **한 번의 함수 호출(홉)은 분석 단계를 하나만, 글 최대 5건**(30초 × 5 + 여유 < 300초)까지 돈다. 요청 글은 `--requested-only --limit 5`,
+   「저수지 N건」 은 `--limit 5` 를 돌고 남은 수(N−5)를 그 줄에 적어 `queued` 로 되돌린다.
+   홉이 끝나면 다시 세어 **할 일이 남았고 · 이번 홉이 줄였고 · JWT 실효가 한 홉 이상 남았으면** 같은 JWT 로 자기 자신을 한 번 더 부른다.
+   "줄였고" 가 없으면 403 으로 계속 실패하는 글 하나가 JWT 가 끝날 때까지 한도를 태운다. 끊긴 뒤 남은 일은 다음 버튼이나 로컬 워커가 이어 간다.
+   `pipeline_requests` 는 여전히 원자적으로 집는다(`update … where status = 관찰한 값 returning`) — 서버 인스턴스 둘, 로컬 둘이 같은 줄을 동시에 볼 때의 안전망이다.
 6. **서버 env 에는 장기 값 둘만 둔다**: `CLAUDE_CODE_OAUTH_TOKEN`(1년), `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`(하루 한 번 초기화 — ADR-016 의 기존 예외). 둘 다 Sensitive · Production 에만 둔다.
    `claude` 자식 env 허용 목록(`claudeChildEnv`)에는 **워커 런타임일 때만** `CLAUDE_CODE_OAUTH_TOKEN` 을 넣는다. 로컬의 "env 토큰이면 멈춘다" 는 그대로 둔다(ADR-016 v4 의 의도).
-7. **로컬 워커는 남긴다.** 같은 큐를 보고, 서버가 한도에 걸리거나 꺼져도 PC 가 이어 받는다. 서버는 `workers` 에 `host = 'vercel'` 한 행으로 심장을 남겨 `/admin/ops` 배지에 같이 보인다.
+7. **로컬 워커는 남긴다.** 같은 큐를 보고, 서버가 한도에 걸리거나 꺼져도 PC 가 이어 받는다. 서버는 `workers` 에 `host = 'vercel'` 한 행으로 심장을 남긴다.
+   `/admin` 의 로컬 워커 배지(`workerHealth`)는 그 행을 세지 않는다 — 서버 행은 홉 사이에 늘 '멎은' 모양이라 섞으면 "워커 멎음" 이 뜬다. 서버가 도는 동안만 따로 한 줄로 보인다.
 8. **자동으로 도는 것은 없다.** cron 도, DB 트리거 → pg_net 호출도 두지 않는다. 사람이 누를 때만 돈다. 키워드 정기 수집(하루 1회)은 로컬 워커 몫으로 남긴다.
    운영자 JWT 가 없는 자동 실행에는 Supabase 장기 키가 필요해지기 때문이다.
+9. **번들은 로컬에서 만든다**(v2). `worker/` 는 `../scripts` 를 직접 import 하지 않는다 — Vercel 이 `worker/` 에만 의존성을 설치하면 `scripts/lib` 에서 시작한 패키지 해석이
+   레포 루트의 `node_modules` 를 찾다 실패하고, 앱 TS(`src/lib/runSummary.ts`)도 끼어 있다. 그래서 `pnpm worker:build` 가 esbuild 로 진입점(`worker/entry/run.mjs`)과
+   거기서 닿는 `scripts/`·`src/lib/` 를 한 파일(`worker/api/run.mjs`, 커밋 안 함)로 묶고, `worker/` 에서 `vercel deploy --prod` 한다. 밖에 남기는 것은 `claude` 바이너리 패키지뿐이다(`includeFiles`).
+   이 번들을 레포 밖 빈 폴더에 `worker/package.json` 만으로 설치해 import 해 보는 것이 배포 전 확인이다(T1).
+10. **로컬과 서버는 심장으로 비킨다**(v2). `candidates` 에 유일 제약이 없어 같은 글을 둘이 읽으면 후보가 둘 생긴다. 상태 칸 큐(요청 글·추가 수집)는 원자적으로 집을 줄이 없으니
+    `workers` 로 가른다 — 서버는 로컬 행(`host ≠ 'vercel'`)이 60초 안에 뛰었으면 아무것도 하지 않고 "로컬 워커가 맡아요" 로 답한다(로컬이 ~1초 안에 집는다).
+    로컬은 서버 행이 60초 안에 뛰었고 `idle` 이 아니면 그 바퀴를 넘긴다. 둘이 같은 순간에 시작하는 틈은 남는다 — 그 틈에 같은 글이 두 번 읽히면 검수 대기에 같은 후보가 둘 보일 뿐 사이트에는 닿지 않는다.
 
 ## 왜 이것인가
 
@@ -65,11 +78,12 @@ ADR-024 가 서버 실행을 뺀 이유는 셋이었다. ① 키가 밖으로 �
 - **Claude API 키(종량제)** — 구독으로 되고 이용 조건 안이다. 한도가 모자라면 그때 다시 본다.
 - **한 함수 안에서 긴 배치** — 300초 상한. 결정 5 의 사슬로 나눈다.
 
-## 무엇을 고치나 (채택하면)
+## 무엇을 고치나
 
 - ADR-016: 「서버에 두는 장기 값」 절을 새로 둔다(값 둘 · 프로젝트 · 회전 · 샐 때 피해). "레포와 Supabase 장기 키는 없다" 는 그대로다.
 - ADR-024: 「하지 않은 것」 첫 줄에 이 ADR 로 번복했다는 표시를 단다. 결정 3(터미널 상주)은 "실행기 둘 중 하나" 로 바뀐다.
-- `scripts/analyze/extractPlaces.mjs` `claudeChildEnv` · `scripts/lib/supabaseClient.mjs`(세션 주입 진입점) · `scripts/lib/workerQueue.mjs`(원자 집기).
+- `scripts/analyze/extractPlaces.mjs` `claudeChildEnv` · `scripts/lib/supabaseClient.mjs`(세션 주입 진입점) · `scripts/lib/workerQueue.mjs`(원자 집기) ·
+  `scripts/lib/workerLoop.mjs`(분석 상한·남은 수 되돌리기) · `scripts/lib/workerRemote.mjs`(홉 하나) · `worker/entry/run.mjs` · `scripts/build-worker.mjs`.
 
 ## 남은 위험
 
