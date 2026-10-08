@@ -31,25 +31,40 @@ export function distanceLabel(km: number): string {
   return `${Math.round(km)}km`;
 }
 
-/** 같은 읍면이 이기는 거리 차의 상한(km) — 그보다 멀면 같은 읍면이라도 가까운 쪽이 먼저다(12 U1.4). */
-export const SAME_TOWN_EDGE_KM = 1;
-
 /**
- * 상세의 「근처 장소」 순서(docs/todo/12 U1.4). 순수.
+ * 상세의 「근처 장소」 카드(docs/todo/12 U1.4 → 14 재점검). 순수.
  *
- * 예전에는 같은 읍면을 거리보다 **먼저** 세워 살롱드라방에서 12.9km → 16.9km → 1.9km 순이 됐고, 판정을 안 봐
- * 대형견 프로필로 열면 근처 둘이 모두 "이용하기 어려워요" 였다. 이제 순서는 셋이다.
- *  1. 판정이 어려움(`hard`)인 곳은 뒤로 — 강아지가 없으면(`isHard` 가 늘 false) 이 단계는 없다.
- *  2. 거리순. 다만 같은 읍면은 `SAME_TOWN_EDGE_KM` 만큼 당겨 본다 — 1km 안의 차이면 같은 동네가 먼저.
- *     비교 함수에 "차이가 1km 안이면" 을 직접 쓰지 않는 이유: 그 비교는 추이적이지 않아 정렬 결과가 입력 순서에 따라 흔들린다.
- *  3. 그래도 같으면 실제 거리, 그다음 원래 순서.
+ * **카드에 km 가 찍히므로 순서는 거리 하나다.** 예전 규칙 둘이 숫자를 뒤집어 "거리순이 아니다" 로 읽혔다:
+ *  - 같은 읍면을 1km 당겨 보기 — 달중이네에서 2.2km(같은 읍면) → 1.9km.
+ *  - 어려움을 뒤로 — 호텔 핀코 식당에서 5.4km → 2.5km(어려움) → 3.4km(어려움).
+ * 그래서 어려움은 뒤로 보내지 않고 **빼고 센다**(`hiddenHard`) — 대형견 프로필로 열었을 때 셋이 다 "어려워요" 인 것(12 U1.4 ②)은
+ * 그대로 막으면서, 더 가까운 곳이 말없이 사라지지 않게 화면이 "더 가까운 n곳은 어려워요" 라고 말한다.
+ * `withHard` 면 거르지 않는다(사용자가 '함께 보기' 를 눌렀다).
+ *
+ * `hiddenHard` 는 보인 마지막 카드보다 앞에 있던 어려움 수다 — 더 먼 어려움은 어차피 안 보였을 곳이라 세지 않는다.
+ * 카드가 `limit` 보다 적게 남으면 끝까지 본 것이라 어려움 전부다.
  */
-export function sortNearby<T extends { km: number }>(
+export function pickNearby<T extends { km: number }>(
   list: readonly T[],
-  { isSameTown, isHard }: { isSameTown: (item: T) => boolean; isHard: (item: T) => boolean },
-): T[] {
-  return list
-    .map((item, index) => ({ item, index, hard: isHard(item) ? 1 : 0, key: item.km - (isSameTown(item) ? SAME_TOWN_EDGE_KM : 0) }))
-    .sort((a, b) => a.hard - b.hard || a.key - b.key || a.item.km - b.item.km || a.index - b.index)
+  { isHard, withHard = false, limit = 3 }: { isHard: (item: T) => boolean; withHard?: boolean; limit?: number },
+): { shown: T[]; hiddenHard: number } {
+  const sorted = list
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => a.item.km - b.item.km || a.index - b.index)
     .map(({ item }) => item);
+  if (withHard) return { shown: sorted.slice(0, limit), hiddenHard: 0 };
+  const shown: T[] = [];
+  let hardBefore = 0;
+  let hiddenHard = 0;
+  for (const item of sorted) {
+    if (isHard(item)) {
+      hardBefore += 1;
+      continue;
+    }
+    shown.push(item);
+    hiddenHard = hardBefore;
+    if (shown.length === limit) break;
+  }
+  if (shown.length < limit) hiddenHard = hardBefore;
+  return { shown, hiddenHard };
 }

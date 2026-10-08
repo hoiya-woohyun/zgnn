@@ -6,7 +6,7 @@
  *  - `judgeEligibility` 가 'ok' 인 곳만 — 대안이 다시 '확인이 필요해요' 면 걸린 것을 다른 걸린 것으로 바꿀 뿐이다.
  *    판정 입력(프로필 · `needsIndoor`)은 묶음 판정(`tripEligibility`)과 같다 — 둘이 다른 강아지를 보면 "대신" 이 또 걸린다.
  *  - `excludeIds` — 이미 그 하루에 있는 곳은 대안으로 내지 않는다.
- * 상세와 달리 `sortNearby` 의 같은 읍면 당김은 쓰지 않는다 — 이미 같은 읍면만 남아 순수한 거리순이 된다.
+ * 순서는 상세(`pickNearby`)와 같이 거리 하나다 — 다른 섬(우도)은 `nearbyPlaces` 가 이미 뺀다.
  */
 
 import { judgeEligibility } from './eligibility';

@@ -250,11 +250,19 @@ export const distanceKm = (
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(h));
 };
 
-/** 좌표가 있는 장소 중 가까운 순으로. 좌표가 없는 장소는 빈 배열을 돌려준다. */
+/**
+ * 배를 타야 닿는 섬(읍·면 하나가 섬 하나). 직선거리로는 5km 여도 다른 하루다 — 호텔 핀코(구좌읍) 근처 카페에
+ * 우도의 카페살레(5.5km)가 섞였다(14 ↪ 12 U1.4 재점검). 가파도·마라도는 대정읍 안이라 읍면으로는 못 가르고, 아직 장소도 없다.
+ */
+const ISLAND_TOWNS: ReadonlySet<string> = new Set(['우도면', '추자면']);
+const islandOf = (place: TPlaceEntry): string => (ISLAND_TOWNS.has(place.region.town) ? place.region.town : '본섬');
+
+/** 좌표가 있는 장소 중 가까운 순으로 — 같은 섬 안에서만. 좌표가 없는 장소는 빈 배열을 돌려준다. */
 export const nearbyPlaces = (place: TPlaceEntry, limit = 3): { place: TPlaceEntry; km: number }[] => {
   const origin = place.geo;
   if (!origin) return [];
-  return PLACES.filter((other) => other.id !== place.id && other.geo)
+  const island = islandOf(place);
+  return PLACES.filter((other) => other.id !== place.id && other.geo && islandOf(other) === island)
     .map((other) => ({ place: other, km: distanceKm(origin, other.geo!) }))
     .sort((a, b) => a.km - b.km)
     .slice(0, limit);

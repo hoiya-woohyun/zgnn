@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { distanceLabel, distancesFrom, sortByDistance, sortNearby } from './distanceSort';
+import { distanceLabel, distancesFrom, pickNearby, sortByDistance } from './distanceSort';
 
 const origin = { lat: 33.5, lng: 126.5 };
 const at = (id: string, lat?: number, lng?: number) => ({ id, geo: lat === undefined ? undefined : { lat, lng: lng ?? 126.5 } });
@@ -26,30 +26,34 @@ describe('distanceLabel', () => {
   });
 });
 
-describe('sortNearby', () => {
-  type TItem = { id: string; km: number; town: string; hard?: boolean };
-  const order = (items: TItem[], town = '애월읍') =>
-    sortNearby(items, { isSameTown: (item) => item.town === town, isHard: (item) => item.hard === true }).map((item) => item.id);
+describe('pickNearby', () => {
+  type TItem = { id: string; km: number; hard?: boolean };
+  const pick = (items: TItem[], withHard = false) => {
+    const { shown, hiddenHard } = pickNearby(items, { isHard: (item) => item.hard === true, withHard });
+    return { ids: shown.map((item) => item.id), hiddenHard };
+  };
 
-  it('같은 읍면이라도 멀면 가까운 곳이 먼저 — 살롱드라방의 12.9 → 16.9 → 1.9 를 고친다', () => {
-    expect(order([
-      { id: 'a', km: 12.9, town: '애월읍' },
-      { id: 'b', km: 16.9, town: '애월읍' },
-      { id: 'c', km: 1.9, town: '한림읍' },
-    ])).toEqual(['c', 'a', 'b']);
+  it('거리 하나로 — 같은 읍면이라도 먼 곳이 앞서지 않는다(달중이네 2.2 → 1.9 를 고친다)', () => {
+    expect(pick([{ id: 'same', km: 2.2 }, { id: 'other', km: 1.9 }, { id: 'far', km: 6.1 }]).ids).toEqual(['other', 'same', 'far']);
   });
 
-  it('거리 차가 1km 안이면 같은 읍면이 먼저', () => {
-    expect(order([
-      { id: 'other', km: 1.8, town: '한림읍' },
-      { id: 'same', km: 2.5, town: '애월읍' },
-    ])).toEqual(['same', 'other']);
+  it('어려움은 뒤로 보내지 않고 빼고 센다 — 숫자가 거꾸로 서지 않는다(핀코 5.4 → 2.5 → 3.4 를 고친다)', () => {
+    expect(pick([
+      { id: 'h1', km: 2.5, hard: true },
+      { id: 'h2', km: 3.4, hard: true },
+      { id: 'a', km: 1.8 },
+      { id: 'b', km: 5.1 },
+      { id: 'c', km: 5.4 },
+      { id: 'h3', km: 9, hard: true },
+    ])).toEqual({ ids: ['a', 'b', 'c'], hiddenHard: 2 });
   });
 
-  it('어려움은 가까워도 뒤로', () => {
-    expect(order([
-      { id: 'hard', km: 0.5, town: '애월읍', hard: true },
-      { id: 'ok', km: 5, town: '한림읍' },
-    ])).toEqual(['ok', 'hard']);
+  it('카드가 모자라면 어려움 전부를 센다 — 다 어려우면 카드 0장', () => {
+    expect(pick([{ id: 'h1', km: 1, hard: true }, { id: 'a', km: 2 }, { id: 'h2', km: 9, hard: true }])).toEqual({ ids: ['a'], hiddenHard: 2 });
+    expect(pick([{ id: 'h1', km: 1, hard: true }])).toEqual({ ids: [], hiddenHard: 1 });
+  });
+
+  it('함께 보기면 거르지 않고 거리순', () => {
+    expect(pick([{ id: 'a', km: 3 }, { id: 'h', km: 1, hard: true }], true)).toEqual({ ids: ['h', 'a'], hiddenHard: 0 });
   });
 });
