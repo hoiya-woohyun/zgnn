@@ -66,7 +66,7 @@ export function createWorkerCycle({
     onPause(claudePausedUntil);
   }
 
-  /** @returns {Promise<{ code: number, skipped: boolean, rateLimited: boolean }>} `skipped` — 집을 줄을 남이 먼저 집어 돌지 않았다 */
+  /** @returns {Promise<{ code: number, skipped: boolean, rateLimited: boolean, taken: number }>} `skipped` — 집을 줄을 남이 먼저 집어 돌지 않았다 · `taken` — 집어서 닫은 요청 줄 수 */
   async function runOne(step) {
     const label = STEP_LABEL[step.step];
     const startedAt = now();
@@ -75,7 +75,7 @@ export function createWorkerCycle({
     const requests = step.requests.length > 0 ? await takeRequests(step.requests) : step.requests;
     if (step.requests.length > 0 && requests.length === 0 && !step.regular) {
       log(`${label} — ${step.reason} — 다른 워커가 먼저 집었다, 건너뛴다`);
-      return { code: 0, skipped: true, rateLimited: false };
+      return { code: 0, skipped: true, rateLimited: false, taken: 0 };
     }
     log(`${label} 시작 — ${step.reason}`);
     current = { requests, runId: null, end: null, rateLimited: false };
@@ -94,12 +94,13 @@ export function createWorkerCycle({
     current = { ...current, end: null };
     await setPhase(idlePhase());
     log(`${label} 끝 — ${code === 0 ? '성공' : `exit ${code}`} · ${formatElapsed(now() - startedAt)}`);
-    return { code, skipped: false, rateLimited: outcome.rateLimited };
+    return { code, skipped: false, rateLimited: outcome.rateLimited, taken: requests.length };
   }
 
   /**
-   * `history` — 실제로 돈 단계마다 `{ key, step, code, rateLimited, remainder, progressed }`(건너뛴 단계는 없다). `progressed` 는 끝난 뒤 다시 센 수가
-   * 줄었나(`recordRun`), 그 수가 없는 「지금 분석」 은 성공했나다 — 성공하면 그 줄이 닫히거나 남은 수가 줄어 같은 일을 되풀이하지 않는다. 다시 못 셌으면 false.
+   * `history` — 실제로 돈 단계마다 `{ key, step, code, rateLimited, remainder, progressed }`(건너뛴 단계는 없다). `progressed` 는 둘 중 하나다:
+   * 끝난 뒤 다시 센 상태 칸이 줄었나(`recordRun`), 또는 집은 `pipeline_requests` 줄을 성공으로 닫았나(닫히거나 남은 수가 줄어 같은 줄을 되풀이하지 않는다).
+   * 성공(code 0)만으로는 아니다 — 검색이 실패한 추가 수집 요청은 queued 로 남고 collect 는 0 을 돌려준다. 다시 못 셌으면 false.
    * `state` — 마지막으로 센 상태(못 셌으면 null).
    * @returns {Promise<{ ran: number, code: number, dailyDone: boolean, history: object[], state: object|null }>}
    */
@@ -116,7 +117,7 @@ export function createWorkerCycle({
       if (steps.length === 0) break;
       const step = steps[0];
       done.add(step.key);
-      const { code, skipped, rateLimited } = await runOne(step);
+      const { code, skipped, rateLimited, taken } = await runOne(step);
       if (code !== 0 && !firstFailure) firstFailure = code;
       const before = state;
       state = await readState();
@@ -124,7 +125,7 @@ export function createWorkerCycle({
       else if (!firstFailure) firstFailure = 1;
       if (!skipped) {
         const remainder = step.remainder ?? 0;
-        const progressed = state != null && (Object.hasOwn(STEP_TRIGGER, step.key) ? last[step.key].progressed : code === 0);
+        const progressed = state != null && ((Object.hasOwn(STEP_TRIGGER, step.key) && last[step.key].progressed) || (code === 0 && taken > 0));
         history.push({ key: step.key, step: step.step, code, rateLimited, remainder, progressed });
       }
       if (code !== 0 && !resident) break;

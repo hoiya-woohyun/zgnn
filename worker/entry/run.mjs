@@ -5,7 +5,7 @@ import { createRequire } from 'node:module';
 import { delimiter, dirname, join } from 'node:path';
 import { waitUntil } from '@vercel/functions';
 import { WORKER_RUNTIME } from '../../scripts/analyze/extractPlaces.mjs';
-import { handleRun, runHop } from '../../scripts/lib/workerRemote.mjs';
+import { HOP_HEADER, handleRun, runHop } from '../../scripts/lib/workerRemote.mjs';
 
 const log = (line) => console.log(`[worker] ${line}`);
 // `scripts/build-worker.mjs` 가 빌드 때 git sha 로 바꿔 박는다 — 서버에는 git 이 없다(심장의 version 칸).
@@ -47,21 +47,22 @@ else log('claude 바이너리(linux-x64)를 못 찾음 — 분석은 not_found �
 
 /**
  * 다음 홉. 프로덕션 도메인으로만 — 배포 URL 은 Deployment Protection 뒤라 막히고, 프리뷰가 프로덕션 코드를 부르면 안 된다.
- * 응답 상태만 남긴다(본문·토큰은 찍지 않는다).
+ * 깊이(`HOP_HEADER`)를 실어 받는 쪽이 `MAX_HOPS` 에서 끊게 한다. 응답 상태만 남긴다(본문·토큰은 찍지 않는다).
  */
-async function chain(token) {
+async function chain(token, nextHop) {
   const host = process.env.VERCEL_PROJECT_PRODUCTION_URL;
   if (process.env.VERCEL_ENV !== 'production' || !host) {
     log('프로덕션이 아니라 사슬을 걸지 않는다 — 남은 일은 다음 버튼이나 로컬 워커가');
     return;
   }
-  const res = await fetch(`https://${host}/api/run`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(30_000) });
+  const headers = { Authorization: `Bearer ${token}`, [HOP_HEADER]: String(nextHop) };
+  const res = await fetch(`https://${host}/api/run`, { method: 'POST', headers, signal: AbortSignal.timeout(30_000) });
   await res.body?.cancel();
-  log(`다음 홉 호출 — ${res.status}`);
+  log(`다음 홉(${nextHop + 1}) 호출 — ${res.status}`);
 }
 
 export function POST(request) {
-  return handleRun(request, { waitUntil, startHop: (token) => runHop(token, { chain, version: VERSION }) });
+  return handleRun(request, { waitUntil, startHop: (token, hop) => runHop(token, { hop, chain, version: VERSION }) });
 }
 
 export function GET() {

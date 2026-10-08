@@ -4,7 +4,6 @@
   "functions": {
     "api/run.mjs": {
       "maxDuration": 300,
-      "memory": 2048,
       "includeFiles": "node_modules/@anthropic-ai/**"
     }
   }

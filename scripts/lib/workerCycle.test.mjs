@@ -144,6 +144,21 @@ describe('createWorkerCycle — 서버 워커의 홉(analyzeCap · stopAfter · 
     expect(limited.calls.closed[0].patch).toEqual({ status: 'queued', taken_at: null, args: { limit: 10, attempts: 1 } });
   });
 
+  it('수집 성공만으로는 진척이 아니다 — 검색이 실패한 추가 수집 요청이 queued 로 남으면 false, 요청 줄을 집어 닫았으면 true', async () => {
+    // collect-blog 는 검색이 실패한 요청을 queued 로 남기고 0 을 돌려준다 — 그 줄 하나가 사슬을 끝없이 잇지 않게
+    const stuck = harness({ ...hop, states: [state({ collectQueued: 1 }), state({ collectQueued: 1 })] });
+    expect((await stuck.cycle.runCycle()).history).toEqual([
+      { key: 'collect', step: 'collect', code: 0, rateLimited: false, remainder: 0, progressed: false },
+    ]);
+
+    const r1 = { id: 'r1', kind: 'collect' };
+    const asked = harness({ ...hop, states: [state({ collectQueued: 1, requests: { ...none, collect: [r1] } }), state({ collectQueued: 1 })] });
+    expect((await asked.cycle.runCycle()).history).toEqual([
+      { key: 'collect', step: 'collect', code: 0, rateLimited: false, remainder: 0, progressed: true },
+    ]);
+    expect(asked.calls.closed).toEqual([{ id: 'r1', patch: { status: 'done' }, gaveUp: false }]);
+  });
+
   it('남이 먼저 집어 건너뛴 단계는 history 에 없고 stopAfter 도 걸리지 않는다 — 뒤의 반영이 그 홉에서 돈다', async () => {
     const q1 = { id: 'q1', kind: 'analyze', args: { limit: 10 } };
     const { cycle, calls } = harness({

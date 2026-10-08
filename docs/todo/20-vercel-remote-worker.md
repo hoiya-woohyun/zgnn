@@ -49,7 +49,9 @@ T2~T4 는 서로 독립이라 아무 순서나 된다. T5 는 셋 모두에 기�
 - [x] ✅ 2026-10-08 — 레포 밖 번들 실측: 토큰 없음 401 · 가짜 토큰 401 · GET 405(darwin 이라 linux 바이너리 못 찾음 한 줄, import 는 된다). 테스트 22.
   명세와 다르게: 「저수지 N건」 단계의 진척은 `code === 0` 이다(N≤5 의 마지막 홉도 진척이어야 뒤따르는 반영·다음 요청이 이어진다 — 성공은 줄을 닫거나 줄이므로 돌지 않는다).
   한계 둘: ① `pipeline_requests` kind `collect`(키워드 전체 수집)는 서버에서 `collect/keywords.json` 을 `import.meta.url` 로 읽다 ENOENT — 그 요청을 넣는 화면이 없고 서버는 정기 수집을 안 하므로 로컬 몫으로 둔다.
-  ② 홉 안 단계 사이에 심장이 잠깐 `idle` 이 된다 — 그 순간 로컬이 폴링하면 둘이 돌 수 있다(결정 10 이 받아들인 틈, `phase` check 에 '홉 중' 값이 없다).
+  ② ~~홉 안 단계 사이에 심장이 잠깐 `idle`~~ → 보안 리뷰 반영(아래)으로 닫혔다. 남은 틈은 홉 **시작** 때 `startHeartbeat` 가 행을 `idle` 로 쓰고 첫 단계까지 수백 ms — 로컬이 그 순간 폴링하면 둘이 돈다(결정 10 이 받아들인 틈).
+- [x] 2026-10-08 보안 리뷰(MEDIUM 종합 · 인증 우회·토큰 유출 없음) 반영: [HIGH] 사슬 폭주 — 검색이 실패해 queued 로 남는 추가 수집 요청 하나로 몇 초짜리 홉이 JWT 실효(~11시간) 내내 자기를 부를 수 있었다. 진척은 수가 줄었거나 요청 줄을 닫았을 때만, 깊이 상한 `MAX_HOPS = 12`(`X-Zgnn-Hop` 헤더).
+  [MEDIUM] 인스턴스 간 겹침 — 서버 행이 바쁘면 202 busy, 홉 동안 서버 심장은 idle 로 안 내려간다(마지막 close 만). [LOW] 310초 넘은 바쁨은 낡은 것으로 · busy 로 버린 깨우기는 홉 끝에서 한 번 더 · 실효 없는 토큰은 네트워크 전에 401.
 - `POST` 만. Bearer → `auth.getUser` → `rpc('is_operator')`(401·403 이면 Claude 0회) → 로컬 행이 살아 있으면 200 "로컬 워커가 맡아요" → 인스턴스가 바쁘면 202 "이미 도는 중" → 202 + `waitUntil(hop())`.
   `hop` = 세션 주입 · 심장(`host: 'vercel'`) · `createWorkerCycle({ resident: false })` 를 분석 상한 5(`planCycle` 의 `analyzeCap` — 「저수지 N건」 은 N−5 를 적어 되돌린다)로, 분석 단계 하나 뒤 멈춤 → 심장 `idle` →
   다시 세어 **남았고 · 줄였고 · JWT 실효가 한 홉(5분) 이상 남았으면** 같은 토큰으로 `https://$VERCEL_PROJECT_PRODUCTION_URL/api/run` 을 부른다(배포 URL 은 Deployment Protection 뒤라 안 된다).
