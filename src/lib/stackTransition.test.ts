@@ -72,4 +72,13 @@ describe('canStartStackBackAt — 어디서 끌면 걷어 내나', () => {
     expect(canStartStackBackAt(30, false)).toBe(true);
     expect(canStartStackBackAt(60, false)).toBe(false);
   });
+
+  it('md+ 는 사이드바(256px) 오른쪽 본문 끝에서 잰다 — Safari 몫과 안 겹쳐 띠 전체가 우리 것', () => {
+    expect(canStartStackBackAt(30, false, 256)).toBe(false);
+    expect(canStartStackBackAt(255, false, 256)).toBe(false);
+    expect(canStartStackBackAt(256, false, 256)).toBe(true);
+    expect(canStartStackBackAt(303, false, 256)).toBe(true);
+    expect(canStartStackBackAt(304, false, 256)).toBe(false);
+    expect(canStartStackBackAt(260, true, 256)).toBe(true);
+  });
 });

@@ -67,9 +67,12 @@ export const stackTransitionOf = ({ from, to, depthDelta, popRequested }: TStack
  *   - 홈 화면 앱(standalone): 시스템 뒤로가기 제스처가 없다 — 맨 끝부터 `BACK_SWIPE_EDGE_PX * 2`(48px)까지 전부 우리 몫.
  *   - 브라우저: 맨 왼쪽 24px 는 Safari 가 자기 뒤로가기로 가져간다(셸의 다른 인식기도 비켜 선다, ADR-014) —
  *     그다음 띠(24~48px)만 쓴다. 지도에서 탭 페이저가 쓰는 왼쪽 띠와 같은 자리다.
+ *
+ * 띠는 화면이 아니라 **본문의 왼쪽 끝**(`surfaceLeft`)에서 잰다 — md+ 에선 사이드바(256px)가 왼쪽을 차지해 화면 기준 띠가
+ * 사이드바 밑에 깔려 끌기를 시작할 수 없었다(12 U4.5). Safari 몫은 화면 기준(`clientX`) 그대로라, 본문이 그보다 오른쪽이면 띠 전체가 우리 몫이다.
  */
-export const canStartStackBackAt = (clientX: number, standalone: boolean): boolean => {
-  const band = BACK_SWIPE_EDGE_PX * 2;
-  if (clientX >= band) return false;
+export const canStartStackBackAt = (clientX: number, standalone: boolean, surfaceLeft = 0): boolean => {
+  const fromEdge = clientX - surfaceLeft;
+  if (fromEdge < 0 || fromEdge >= BACK_SWIPE_EDGE_PX * 2) return false;
   return standalone || clientX > BACK_SWIPE_EDGE_PX;
 };

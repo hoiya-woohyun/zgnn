@@ -437,7 +437,8 @@ export function useAppShellStack({ pathname, mainRef, surfaceRef }: TAppShellSta
     if (!stackScreen || event.pointerType !== 'touch' || gesture.current) return;
     // 덮거나 걷는 그림이 도는 중이면 받지 않는다 — 애니메이션과 손가락이 같은 `<main>` 을 두고 싸운다.
     if (running.current.length > 0 || backByGesture.current) return;
-    if (!canStartStackBackAt(event.clientX, isStandalone())) return;
+    // 띠는 본문 왼쪽 끝 기준 — md+ 에선 사이드바만큼 오른쪽이다(12 U4.5). 누르는 순간엔 끄는 transform 이 없어 제자리 값이다.
+    if (!canStartStackBackAt(event.clientX, isStandalone(), event.currentTarget.getBoundingClientRect().left)) return;
     // 시트·대화상자 안에서 시작한 제스처는 그쪽 것이다(탭 페이저와 같은 이유 — React 이벤트는 포털을 넘어 온다).
     if (event.target instanceof Element && event.target.closest('[role="dialog"]')) return;
     gesture.current = {
