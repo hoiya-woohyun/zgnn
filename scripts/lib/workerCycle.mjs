@@ -4,8 +4,10 @@
 //  - 단계마다 다시 센다 — 수집이 요청 글을 만들고 분석이 auto 후보를 approved 로 넣는다(workerLoop.mjs 머리 주석).
 //  - 한 단계가 실패해도 상주는 다음 단계로 간다(승인 후보 반영은 분석 실패와 무관하다). `once` 는 거기서 멈춘다.
 //  - 상태를 못 읽은 바퀴(세션·네트워크)는 실패다 — `once` 는 exit 1, 상주는 정기 수집을 다음 wake 에 넘긴다(`dailyDone: false`).
+//  - 서버 워커의 홉(`workerRemote.mjs`, ADR-028 결정 5)은 같은 바퀴를 분석 상한(`analyzeCap`)과 `stopAfter`(분석 하나 뒤 멈춤)로 돈다.
+//    돌려주는 `history`·`state` 는 그 홉이 "사슬을 이을까" 를 정하는 재료다 — 로컬은 읽지 않는다.
 import { formatElapsed } from '../../src/lib/runSummary.ts';
-import { RATE_LIMIT_FALLBACK_MS, claudeResetAt, planCycle, recordRun, requestClose } from './workerLoop.mjs';
+import { RATE_LIMIT_FALLBACK_MS, STEP_TRIGGER, claudeResetAt, planCycle, recordRun, requestClose } from './workerLoop.mjs';
 
 const STEP_LABEL = { collect: '수집', analyze: '분석', apply: '반영' };
 
@@ -29,9 +31,25 @@ export const STEP_HOOKS = Object.freeze({ nonInteractive: true, ownsSignals: fal
  *   onPause?: (untilMs: number) => void,             // Claude 한도 — 상주가 리셋 뒤 깨울 타이머를 건다
  *   log: (line: string) => void,
  *   now?: () => number,
+ *   analyzeCap?: number,                             // 분석 한 번의 글 상한(`planCycle`) — 서버 워커의 홉만 유한
+ *   stopAfter?: (step: object) => boolean,           // 이 단계를 **실제로 돌린 뒤** 다시 세고 바퀴를 끝낸다(서버 워커: 분석 하나)
  * }} deps
  */
-export function createWorkerCycle({ resident, runStep, readState, ensureSession, takeRequests, closeRequests, setPhase = async () => {}, currentPhase = () => null, onPause = () => {}, log, now = Date.now }) {
+export function createWorkerCycle({
+  resident,
+  runStep,
+  readState,
+  ensureSession,
+  takeRequests,
+  closeRequests,
+  setPhase = async () => {},
+  currentPhase = () => null,
+  onPause = () => {},
+  log,
+  now = Date.now,
+  analyzeCap = Infinity,
+  stopAfter = () => false,
+}) {
   let last = {}; // 단계 → 끝난 직후 다시 센 수·진척(폴링 재시도 간격, `isDue`)
   // Realtime 이 깨운 단계 key — 그 단계가 **시작할 때** 지운다. 도는 중에 온 이벤트는 다시 서서 다음 바퀴가 한 번 더 본다(이벤트를 잃지 않는다).
   const forced = new Set();
@@ -48,6 +66,7 @@ export function createWorkerCycle({ resident, runStep, readState, ensureSession,
     onPause(claudePausedUntil);
   }
 
+  /** @returns {Promise<{ code: number, skipped: boolean, rateLimited: boolean }>} `skipped` — 집을 줄을 남이 먼저 집어 돌지 않았다 */
   async function runOne(step) {
     const label = STEP_LABEL[step.step];
     const startedAt = now();
@@ -56,7 +75,7 @@ export function createWorkerCycle({ resident, runStep, readState, ensureSession,
     const requests = step.requests.length > 0 ? await takeRequests(step.requests) : step.requests;
     if (step.requests.length > 0 && requests.length === 0 && !step.regular) {
       log(`${label} — ${step.reason} — 다른 워커가 먼저 집었다, 건너뛴다`);
-      return 0;
+      return { code: 0, skipped: true, rateLimited: false };
     }
     log(`${label} 시작 — ${step.reason}`);
     current = { requests, runId: null, end: null, rateLimited: false };
@@ -70,36 +89,48 @@ export function createWorkerCycle({ resident, runStep, readState, ensureSession,
     }
     // 닫기 전에 세션을 다시 본다 — 긴 분석 사이에 토큰이 끝났으면 done/queued 쓰기가 조용히 0행이 된다(리뷰 4). 못 붙어도 쓰기는 시도한다(fail-soft).
     if (requests.length > 0) await ensureSession();
-    const outcome = { code, runId: current.runId, rateLimited: current.rateLimited };
+    const outcome = { code, runId: current.runId, rateLimited: current.rateLimited, remainder: step.remainder ?? 0 };
     await closeRequests(requests, (row) => requestClose(row, outcome));
     current = { ...current, end: null };
     await setPhase(idlePhase());
     log(`${label} 끝 — ${code === 0 ? '성공' : `exit ${code}`} · ${formatElapsed(now() - startedAt)}`);
-    return code;
+    return { code, skipped: false, rateLimited: outcome.rateLimited };
   }
 
-  /** @returns {Promise<{ ran: number, code: number, dailyDone: boolean }>} */
+  /**
+   * `history` — 실제로 돈 단계마다 `{ key, step, code, rateLimited, remainder, progressed }`(건너뛴 단계는 없다). `progressed` 는 끝난 뒤 다시 센 수가
+   * 줄었나(`recordRun`), 그 수가 없는 「지금 분석」 은 성공했나다 — 성공하면 그 줄이 닫히거나 남은 수가 줄어 같은 일을 되풀이하지 않는다. 다시 못 셌으면 false.
+   * `state` — 마지막으로 센 상태(못 셌으면 null).
+   * @returns {Promise<{ ran: number, code: number, dailyDone: boolean, history: object[], state: object|null }>}
+   */
   async function runCycle({ daily = false } = {}) {
     if (currentPhase() !== null && currentPhase() !== idlePhase()) await setPhase(idlePhase()); // 한도 휴식이 끝났으면 idle 로
     const done = new Set();
+    const history = [];
     let firstFailure = 0;
     let state = await readState();
     if (!state) firstFailure = 1; // 상태를 못 읽었다(세션·네트워크) — 할 일 없음이 아니라 실패다(리뷰 9)
     while (state) {
       if (state.remoteBusy) break; // 서버 워커가 일하는 중 — 같은 글을 둘이 분석하지 않게 이번 바퀴는 넘긴다(정기 수집은 `dailyDone: false` 로 다음에)
-      const steps = planCycle({ ...state, isDailyTick: daily, last, done, forced, claudePausedUntil, now: now() });
+      const steps = planCycle({ ...state, isDailyTick: daily, last, done, forced, claudePausedUntil, analyzeCap, now: now() });
       if (steps.length === 0) break;
       const step = steps[0];
       done.add(step.key);
-      const code = await runOne(step);
+      const { code, skipped, rateLimited } = await runOne(step);
       if (code !== 0 && !firstFailure) firstFailure = code;
       const before = state;
       state = await readState();
       if (state) last = recordRun(last, step.key, before, state, now());
       else if (!firstFailure) firstFailure = 1;
+      if (!skipped) {
+        const remainder = step.remainder ?? 0;
+        const progressed = state != null && (Object.hasOwn(STEP_TRIGGER, step.key) ? last[step.key].progressed : code === 0);
+        history.push({ key: step.key, step: step.step, code, rateLimited, remainder, progressed });
+      }
       if (code !== 0 && !resident) break;
+      if (!skipped && stopAfter(step)) break;
     }
-    return { ran: done.size, code: firstFailure, dailyDone: !daily || done.size > 0 };
+    return { ran: done.size, code: firstFailure, dailyDone: !daily || done.size > 0, history, state };
   }
 
   return {

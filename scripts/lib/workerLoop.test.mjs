@@ -201,6 +201,29 @@ describe('requestClose — 요청을 done 으로 닫을까 queued 로 되돌릴�
     });
   });
 
+  it('성공한 홉의 남은 몫(remainder)은 그 수를 limit 에 적어 queued 로 — attempts 는 세지 않는다(ADR-028 결정 5)', () => {
+    expect(requestClose({ args: { limit: 30, attempts: 1 } }, { code: 0, runId: 'run-1', rateLimited: false, remainder: 25 })).toEqual({
+      patch: { status: 'queued', taken_at: null, args: { limit: 25, attempts: 1 }, run_id: 'run-1' },
+      gaveUp: false,
+    });
+    expect(requestClose({ args: null }, { code: 0, runId: null, rateLimited: false, remainder: 5 })).toEqual({
+      patch: { status: 'queued', taken_at: null, args: { limit: 5 } },
+      gaveUp: false,
+    });
+    // 남은 몫이 없으면 기존대로 done
+    expect(requestClose({ args: { limit: 5 } }, { code: 0, runId: 'run-1', rateLimited: false, remainder: 0 }).patch).toEqual({ status: 'done', run_id: 'run-1' });
+  });
+
+  it('남은 몫이 있어도 실패·한도는 기존 규칙 — 원래 limit 그대로', () => {
+    expect(requestClose({ args: { limit: 30 } }, { code: 1, runId: 'run-1', rateLimited: false, remainder: 25 }).patch).toEqual({ status: 'done', run_id: 'run-1' });
+    expect(requestClose({ args: { limit: 30 } }, { code: 1, runId: 'run-1', rateLimited: true, remainder: 25 }).patch).toEqual({
+      status: 'queued',
+      taken_at: null,
+      args: { limit: 30, attempts: 1 },
+    });
+    expect(requestClose({ args: { limit: 30 } }, { code: 1, runId: null, rateLimited: false, remainder: 25 }).patch.args).toEqual({ limit: 30, attempts: 1 });
+  });
+
   it(`${MAX_REQUEST_ATTEMPTS}번째면 done 으로 닫고 gaveUp — 같은 요청이 영원히 되돌아오지 않게`, () => {
     expect(requestClose({ args: { attempts: MAX_REQUEST_ATTEMPTS - 1 } }, { code: 1, runId: null, rateLimited: false })).toEqual({
       patch: { status: 'done', args: { attempts: MAX_REQUEST_ATTEMPTS } },
@@ -303,6 +326,29 @@ describe('planCycle — 한 바퀴의 단계', () => {
     const paused = planCycle({ requests, collectQueued: 1, requestedPosts: 3, approved: 1, claudePausedUntil: now + 1, now });
     expect(keys(paused)).toEqual(['collect --only-requests', 'apply']);
     expect(keys(planCycle({ requests, requestedPosts: 3, claudePausedUntil: now, now }))).toEqual(['analyze --requested-only', 'analyze --limit 10']);
+  });
+
+  it('analyzeCap(서버 홉) — 요청 글은 --limit cap, 「지금 분석 N건」 은 min(N, cap) 만 돌고 남는 수를 remainder 로(ADR-028 결정 5)', () => {
+    const analyze = [{ id: 'q1', args: { limit: 30 } }, { id: 'q2', args: { limit: 10 } }];
+    const steps = planCycle({ requests: { ...none, analyze }, requestedPosts: 12, analyzeCap: 5, now });
+    expect(keys(steps)).toEqual(['analyze --requested-only --limit 5', 'analyze --limit 5']);
+    expect(steps[0].reason).toBe('요청 글 12건 · 이번에 최대 5건');
+    expect(steps[0].remainder).toBeUndefined();
+    expect(steps[1]).toMatchObject({ remainder: 25, requestIds: ['q1'] });
+    expect(steps[1].reason).toBe('「지금 분석」 30건(저수지 포함) 중 5건 · 남은 25건은 되돌린다 · 뒤에 1건 대기');
+  });
+
+  it('analyzeCap 보다 적게 남은 「지금 분석」 은 remainder 없이 그 수만', () => {
+    const [step] = planCycle({ requests: { ...none, analyze: [{ id: 'q1', args: { limit: 3 } }] }, analyzeCap: 5, now });
+    expect(step.args).toEqual(['--limit', '3']);
+    expect(step).not.toHaveProperty('remainder');
+    expect(step.reason).toBe('「지금 분석」 3건(저수지 포함)');
+  });
+
+  it('analyzeCap 이 무한(기본)이면 출력이 그대로다 — 로컬 워커는 바뀌지 않는다', () => {
+    const input = { requests: { ...none, analyze: [{ id: 'q1', args: { limit: 30 } }] }, collectQueued: 1, requestedPosts: 12, approved: 2, now };
+    expect(planCycle({ ...input, analyzeCap: Infinity })).toEqual(planCycle(input));
+    expect(planCycle(input).every((step) => !Object.hasOwn(step, 'remainder'))).toBe(true);
   });
 
   it('formatStep — dry-run 한 줄', () => {

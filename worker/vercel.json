@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "git": { "deploymentEnabled": false },
   "functions": {
-    "api/probe.mjs": {
+    "api/run.mjs": {
       "maxDuration": 300,
       "memory": 2048,
       "includeFiles": "node_modules/@anthropic-ai/**"

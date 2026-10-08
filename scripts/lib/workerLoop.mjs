@@ -112,12 +112,17 @@ export const MAX_REQUEST_ATTEMPTS = 3;
  * 나머지는 `done`: 성공은 물론, 실행 행이 선 실패도 그 행이 실패를 말하고 되풀이해도 같은 실패라서다.
  * 실행 행 없이 성공한 것(요청 글 0건 · 실행 기록 insert 실패)도 `done` 이다 — 되돌리면 같은 일을 세 번 한다.
  * 되돌릴 때마다 `args.attempts` 를 센다(스키마 그대로 jsonb 안). `MAX_REQUEST_ATTEMPTS` 째면 `done` + `gaveUp`.
+ * `remainder` — 서버 워커의 홉이 「지금 분석 N건」 을 상한까지만 돌고 남긴 수(`planCycle` 의 `analyzeCap`, ADR-028 결정 5). **성공했을 때만** 그 수를
+ * `args.limit` 에 적어 `queued` 로 되돌린다 — 실패의 되돌림이 아니라 일의 나머지라 `attempts` 는 세지 않는다. 실패·한도는 위 규칙 그대로(원래 수로 다시).
  * @param {{ args?: object|null }} row
- * @param {{ code: number, runId: string|null, rateLimited: boolean }} outcome
+ * @param {{ code: number, runId: string|null, rateLimited: boolean, remainder?: number }} outcome
  * @returns {{ patch: object, gaveUp: boolean }}
  */
-export function requestClose(row, { code, runId, rateLimited }) {
+export function requestClose(row, { code, runId, rateLimited, remainder = 0 }) {
   const runIdPatch = runId ? { run_id: runId } : {};
+  if (code === 0 && remainder > 0) {
+    return { patch: { status: 'queued', taken_at: null, args: { ...(row.args ?? {}), limit: remainder }, ...runIdPatch }, gaveUp: false };
+  }
   if (code === 0 || (runId != null && !rateLimited)) return { patch: { status: 'done', ...runIdPatch }, gaveUp: false };
   const attempts = (Number.isInteger(row.args?.attempts) ? row.args.attempts : 0) + 1;
   const args = { ...(row.args ?? {}), attempts };
@@ -154,7 +159,9 @@ export function recordRun(last, key, before, after, now) {
  *  - apply: 승인 후보가 있거나 「지금 반영」 요청.
  * `forced` 는 Realtime 이벤트가 깨운 단계 key — 그 단계는 `isDue` 의 재시도 간격을 안 본다(이벤트가 "일이 늘었다" 그 자체다). 간격은 폴링에서만.
  * `regular` — 요청과 상관없이 도는 단계(정기 수집). 요청을 남이 먼저 집어도 이 단계는 돈다(요청 없이).
- * @returns {{ key: string, step: 'collect'|'analyze'|'apply', args: string[], requests: object[], requestIds: string[], regular?: boolean, reason: string }[]}
+ * `analyzeCap` — 분석 한 번이 읽을 글의 상한(서버 워커의 홉, ADR-028 결정 5 — 함수 하나가 300초 안에 끝나야 한다). 기본(무한)이면 위 그대로다.
+ *   유한하면 요청 글은 `--limit cap` 을 더하고, 「지금 분석 N건」 은 `min(N, cap)` 만 돌고 남는 수를 `remainder` 로 싣는다(`requestClose` 가 그 줄에 적어 되돌린다).
+ * @returns {{ key: string, step: 'collect'|'analyze'|'apply', args: string[], requests: object[], requestIds: string[], regular?: boolean, remainder?: number, reason: string }[]}
  */
 export function planCycle({
   requests = { collect: [], analyze: [], apply: [] },
@@ -166,6 +173,7 @@ export function planCycle({
   done = new Set(),
   forced = new Set(),
   claudePausedUntil = 0,
+  analyzeCap = Infinity,
   now = Date.now(),
 } = {}) {
   const ids = (rows) => rows.map((row) => row.id);
@@ -180,15 +188,24 @@ export function planCycle({
   }
 
   const claudeOk = now >= claudePausedUntil;
+  const capped = Number.isFinite(analyzeCap);
   if (claudeOk && due(requestedPosts, 'analyze:requested')) {
-    steps.push({ key: 'analyze:requested', step: 'analyze', args: ['--requested-only'], requests: [], requestIds: [], reason: `요청 글 ${requestedPosts}건` });
+    const args = capped ? ['--requested-only', '--limit', String(analyzeCap)] : ['--requested-only'];
+    const cap = capped ? ` · 이번에 최대 ${analyzeCap}건` : '';
+    steps.push({ key: 'analyze:requested', step: 'analyze', args, requests: [], requestIds: [], reason: `요청 글 ${requestedPosts}건${cap}` });
   }
   // 「지금 분석」 은 **가장 오래된 하나만** 집는다 — 나머지는 queued 로 남아 다음 바퀴가 집는다(여럿을 한 번에 done 으로 닫으면 뒤의 것이 할 일을 잃는다).
   if (claudeOk && requests.analyze.length > 0) {
     const [oldest] = requests.analyze;
     const limit = requestLimit(oldest);
+    const run = Math.min(limit, analyzeCap);
     const waiting = requests.analyze.length > 1 ? ` · 뒤에 ${requests.analyze.length - 1}건 대기` : '';
-    steps.push({ key: 'analyze:limit', step: 'analyze', args: ['--limit', String(limit)], requests: [oldest], requestIds: [oldest.id], reason: `「지금 분석」 ${limit}건(저수지 포함)${waiting}` });
+    const step = { key: 'analyze:limit', step: 'analyze', args: ['--limit', String(run)], requests: [oldest], requestIds: [oldest.id], reason: `「지금 분석」 ${limit}건(저수지 포함)${waiting}` };
+    if (run < limit) {
+      step.remainder = limit - run;
+      step.reason = `「지금 분석」 ${limit}건(저수지 포함) 중 ${run}건 · 남은 ${limit - run}건은 되돌린다${waiting}`;
+    }
+    steps.push(step);
   }
 
   if (requests.apply.length > 0 || due(approved, 'apply')) {
