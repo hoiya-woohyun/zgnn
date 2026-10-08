@@ -53,6 +53,8 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
   `.next/` 의 매니페스트를 읽은 뒤 `output: 'export'` 를 스스로 감지해 `out/` 을 서빙한다. `out` 을 못 박으면
   `pull`·`next build`·유출 검사가 전부 통과한 **뒤에** `out/routes-manifest.json` 없음으로 배포만 실패한다
   (→ [BUG-005](docs/bugs/BUG-005-vercel-output-directory.md)). 배포 설정 검증은 로컬 `vercel build --prod`(배포 없음).
+- **`vercel.json` 의 rewrite `source` 는 끝 슬래시까지 맞춘다.** `trailingSlash: true` 라 Vercel 이 슬래시 없는 주소를 먼저 308 로 붙이고, 규칙은 엄격하게 맞춰
+  `/api/worker/:path*` 만 있으면 `/api/worker/run/` 이 404 다 — 빌드·배포는 초록이고 서버 워커 깨우기만 전부 "못 깨웠어요" 가 된다. 슬래시 붙은 규칙을 함께 둔다(→ [ADR-028](docs/decisions/ADR-028-vercel-remote-worker.md)).
 - **`pnpm build` 의 `--webpack` 은 필수.** `@serwist/next` 가 webpack 플러그인이라, 빼면
   빌드는 통과하지만 `sw.js` 가 안 만들어져 PWA 가 조용히 사라진다. `dev` 의 `--turbopack`
   명시도 필수(webpack 설정만 있으면 Next 16 이 빌드를 멈춘다).

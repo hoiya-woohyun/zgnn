@@ -25,8 +25,10 @@ const appBuild = (() => {
  * 서버 워커(ADR-028)를 깨울 주소. 프로덕션 사이트는 `vercel.json` rewrite 로 같은 출처의 `/api/worker/run` 이다(CORS 를 열지 않는다).
  * 로컬 dev·HEAD 분리 빌드에는 그 rewrite 가 없어 비워 둔다 — 비면 `/admin` 이 깨우지 않고 로컬 워커(`pnpm data`)에 맡긴다.
  * 일부러 붙여 보려면 `NEXT_PUBLIC_WORKER_URL` 을 준다(`src/lib/adminWorkerWake.ts`).
+ * 끝 슬래시는 일부러다 — `trailingSlash: true` 라 Vercel 이 `/api/worker/run` 을 먼저 `/run/` 으로 308 하고, rewrite 는 끝 슬래시까지 엄격하게 맞춘다
+ * (`vercel.json` 의 슬래시 붙은 규칙이 그 길이다. 슬래시 없는 규칙만 있으면 배포는 초록인데 깨우기가 전부 404 — 2026-10-08 실측).
  */
-const workerWakeUrl = process.env.NEXT_PUBLIC_WORKER_URL ?? (process.env.VERCEL_ENV === 'production' ? '/api/worker/run' : '');
+const workerWakeUrl = process.env.NEXT_PUBLIC_WORKER_URL ?? (process.env.VERCEL_ENV === 'production' ? '/api/worker/run/' : '');
 
 /*
  * 프리캐시 항목의 revision.
