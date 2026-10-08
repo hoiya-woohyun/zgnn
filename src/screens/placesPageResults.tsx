@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ChevronRight, SearchMd } from '@untitledui/icons';
+import { ChevronDown, ChevronRight, SearchMd } from '@untitledui/icons';
 import { PlacesPageActiveChips, type TActiveChip } from './placesPageActiveChips';
 import { PlaceCard } from '../components/placeCard';
 import { PlaceLinkList } from '../components/placeLinkList';
@@ -11,11 +11,13 @@ import { BottomSheet } from '../components/base/bottom-sheet';
 import { Button } from '../components/base/button';
 import { judgeEligibility, primaryReason, type TEligibilityLevel } from '../lib/eligibility';
 import { carrierWhatIf, countByLevel, outdoorFallback } from '../lib/eligibilityCounts';
+import { placesPageHardFold } from '../lib/placesPageHardFold';
 import { placesPageRepeatedReason } from '../lib/placesPageRepeatedReason';
 import { josa, withJosa } from '../lib/korean';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
 import { useAppStore } from '../store/useAppStore';
 import type { TPlaceType } from '../types';
+import { cx } from '../utils/cx';
 
 // 목록 머리의 레벨 이름. 홈 종류 카드("가능 3 · 확인 필요 3")와 같은 말을 쓴다 — 배지 문구
 // ("갈 수 있어요"…)를 그대로 늘어놓으면 한 줄에 안 들어간다. cond 를 '확인' 한 낱말로 줄이면
@@ -121,6 +123,21 @@ export function PlacesPageResults({
   );
   const [outdoorOpen, setOutdoorOpen] = useState(false);
 
+  // 어려운 곳은 끝에 접는다(08 T5.3) — 프로필이 있을 때 기본 보기. 곳 수는 그대로 세고 카드만 접는다(`placesPageHardFold`).
+  // 열림은 이 마운트에만 — 종류를 바꾸면(`key={type}`) 다시 접히고, 엿보기는 늘 접힌 채라 손을 놓아도 모양이 같다.
+  const fold = useMemo(
+    () =>
+      dog
+        ? placesPageHardFold(results, (place) => judgeEligibility(dog, place.policy, { needsIndoor }).level === 'hard')
+        : { shown: results, folded: [] },
+    [results, dog, needsIndoor],
+  );
+  const [hardOpen, setHardOpen] = useState(false);
+
+  const renderCard = (place: TPlaceEntry) => (
+    <PlaceCard key={place.id} place={place} distanceKm={distances?.get(place.id)} hideReasonText={repeated?.text} />
+  );
+
   return (
     <>
       <div className="flex items-center justify-between px-4 pt-4 md:px-6">
@@ -182,16 +199,28 @@ export function PlacesPageResults({
       )}
 
       {results.length > 0 ? (
-        <ul className="mt-3 space-y-3 px-4 md:px-6">
-          {results.map((place) => (
-            <PlaceCard
-              key={place.id}
-              place={place}
-              distanceKm={distances?.get(place.id)}
-              hideReasonText={repeated?.text}
-            />
-          ))}
-        </ul>
+        <>
+          <ul className="mt-3 space-y-3 px-4 md:px-6">{fold.shown.map(renderCard)}</ul>
+          {fold.folded.length > 0 && (
+            <div className="mt-3 px-4 md:px-6">
+              {/* 이름은 머리 줄의 "어려움 N" 과 같은 말 — 접힌 것이 그 N곳이라는 게 읽혀야 한다. */}
+              <button
+                type="button"
+                aria-expanded={hardOpen}
+                onClick={() => setHardOpen((open) => !open)}
+                className="flex min-h-11 w-full items-center justify-center gap-1 rounded-xl border border-secondary text-sm font-semibold text-secondary hover:bg-tertiary"
+              >
+                어려움 {fold.folded.length}곳 {hardOpen ? '접기' : '보기'}
+                <ChevronDown
+                  size={20}
+                  aria-hidden="true"
+                  className={cx('shrink-0 text-quaternary transition-transform motion-reduce:transition-none', hardOpen && 'rotate-180')}
+                />
+              </button>
+              {hardOpen && <ul className="mt-3 space-y-3">{fold.folded.map(renderCard)}</ul>}
+            </div>
+          )}
+        </>
       ) : (
         /*
           빈 상태의 버튼은 필터를 *지우지* 않고 *열어* 준다. "다른 읍면을 골라 보세요" 라고
