@@ -75,9 +75,10 @@ T2~T4 는 서로 독립이라 아무 순서나 된다. T5 는 셋 모두에 기�
   수용: 순수 부분(보낼지·새로 고칠지) 테스트. Chrome 으로 버튼 → `/admin/ops` 배지 `vercel · 분석 중`.
 
 ### T8. 🧑 env 와 정리
+- [x] 2026-10-08 env 다섯(`CLAUDE_CODE_OAUTH_TOKEN` · `NAVER_CLIENT_ID`·`_SECRET` · `NAVER_MAP_CLIENT_ID`·`_SECRET`) Production·Sensitive, 프리뷰·개발엔 Claude 토큰 없음(`vercel env ls` 이름만) → `--prod` 재배포(dpl_HjDkvprY…) · 401·401·405.
 - [x] 2026-10-08 프로덕션 배포(env 없음) — 이전 배포가 다 지워진 프로젝트라 첫 `vercel deploy` 가 프리뷰가 아니라 **프로덕션**으로 갔다(`zgnn-worker.vercel.app` 별칭). 공개 URL: 토큰 없음 401 · 가짜 토큰 401 · GET 405 · `entry/`·`package.json`·옛 probe 404. 보안 리뷰 반영본으로 다시 `--prod`(dpl_GduH5VCc…).
-- [ ] 🧑 `claude setup-token` 값을 복사한 뒤 `cd worker && pbpaste | tr -d '[:space:]' | vercel env add CLAUDE_CODE_OAUTH_TOKEN production --sensitive`.
-- [ ] 🧑 네이버 키 **넷**(검색 둘 + NCP Maps 둘)을 홈 파일에서 값을 찍지 않고 — 저장소의 파서(`parseNaverEnv`)로 한 개씩 꺼내 파이프로 넣는다:
+- [x] 2026-10-08 🧑 `claude setup-token` 값을 복사한 뒤 `cd worker && pbpaste | tr -d '[:space:]' | vercel env add CLAUDE_CODE_OAUTH_TOKEN production --sensitive`.
+- [x] 2026-10-08 🧑 네이버 키 **넷**(검색 둘 + NCP Maps 둘)을 홈 파일에서 값을 찍지 않고 — 저장소의 파서(`parseNaverEnv`)로 한 개씩 꺼내 파이프로 넣는다:
   `cd ~/Develop/woohyun/zgnn && for k in NAVER_CLIENT_ID NAVER_CLIENT_SECRET NAVER_MAP_CLIENT_ID NAVER_MAP_CLIENT_SECRET; do node --input-type=module -e "import {parseNaverEnv,NAVER_ENV_FILE} from './scripts/lib/naverEnvFile.mjs'; import {readFileSync} from 'node:fs'; process.stdout.write(parseNaverEnv(readFileSync(NAVER_ENV_FILE,'utf8'))[process.argv[1]] ?? '')" "$k" | vercel env add "$k" production --sensitive --cwd worker; done`
 - [ ] 🧑 프리뷰의 `CLAUDE_CODE_OAUTH_TOKEN` 지우기(`vercel env rm … preview`). Settings → Deployment Protection 의 **bypass 토큰**(T0 에 `vercel curl` 이 자동 생성) 지우기.
 - [x] 2026-10-08 ADR-016 v12 · ADR-024 v3 · ARCHITECTURE v25 · data-pipeline v59 · CLAUDE.md(표 한 줄 + 「조용히 깨지는 것들」 의 단계 스크립트 `process.exit` 금지) · ADR-028 채택(v2).
