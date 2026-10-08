@@ -62,6 +62,10 @@ type TPlacesPageResultsProps = {
    * 엿보기도 같은 검색어로 센다.
    */
   otherTypes?: { type: TPlaceType; count: number }[];
+  /** 0곳일 때, 숨김 조건만 풀면 맞는 곳이 있는 다른 종류(`otherTypeHiddenMatches`, 14 W261007.11b). `otherTypes` 와 겹치지 않는다. */
+  hiddenOtherTypes?: { type: TPlaceType; count: number }[];
+  /** '어려운 곳 숨기기'·'갈 수 있는 곳만' 을 함께 푼다 — 숨긴 종류로 넘어가는 링크가 넘어가기 전에 부른다. */
+  onReleaseHidden?: () => void;
   /** 0곳일 때 읍면만 풀면 몇 곳인가(`townReleaseCount`, 18 T2.1). 0 이면 읍면 탓이 아니다. */
   townReleaseCount?: number;
   /** 홈 동네 카드가 건 권역(19 T3). */
@@ -101,6 +105,8 @@ export function PlacesPageResults({
   onOpenFilters,
   distances,
   otherTypes = [],
+  hiddenOtherTypes = [],
+  onReleaseHidden,
   townReleaseCount = 0,
   area = null,
   areaReleaseCount = 0,
@@ -300,7 +306,7 @@ export function PlacesPageResults({
             검색은 종류 탭 안에서만 돈다 — 다른 종류에 있으면 그쪽으로 가는 길을 맨 위에 둔다(14 W261006.6).
             "없어요" 보다 먼저 읽혀야 사용자가 그 가게가 없다고 결론 내리지 않는다. 검색어는 스토어에 있어 따라간다(07 U3).
           */}
-          {otherTypes.length > 0 && (
+          {(otherTypes.length > 0 || hiddenOtherTypes.length > 0) && (
             <ul className="mb-2 space-y-2">
               {otherTypes.map((other) => (
                 <li key={other.type}>
@@ -309,6 +315,31 @@ export function PlacesPageResults({
                     className="flex min-h-11 items-center justify-between rounded-xl border border-secondary bg-primary px-4 text-sm font-semibold text-brand-secondary hover:text-brand-secondary_hover"
                   >
                     {TYPE_META[other.type].label}에 {other.count}곳 있어요
+                    <ChevronRight size={20} aria-hidden="true" className="shrink-0 text-quaternary" />
+                  </Link>
+                </li>
+              ))}
+              {/*
+                숨김 조건에 가려진 종류도 말한다(14 W261007.11b) — 위 수는 넘어간 탭의 수라 '어려움' 인 가게는 빠지는데, 그러면 사용자는
+                그 가게가 없다고 읽는다. 무엇이 가렸는지 칩 이름 그대로 적고, 누르면 그것을 풀고 넘어가 같은 수를 본다.
+              */}
+              {hiddenOtherTypes.map((other) => (
+                <li key={other.type}>
+                  <Link
+                    href={`/places/${other.type}/`}
+                    onClick={onReleaseHidden}
+                    className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-secondary bg-primary px-4 py-2 text-sm font-semibold text-brand-secondary hover:text-brand-secondary_hover"
+                  >
+                    <span>
+                      {TYPE_META[other.type].label}에 {other.count}곳 있어요
+                      <span className="block text-xs font-normal text-tertiary">
+                        {activeChips
+                          .filter((chip) => chip.key === 'onlyReachable' || chip.key === 'hideHard')
+                          .map((chip) => `'${chip.label}'`)
+                          .join('·')}{' '}
+                        을 풀면 보여요
+                      </span>
+                    </span>
                     <ChevronRight size={20} aria-hidden="true" className="shrink-0 text-quaternary" />
                   </Link>
                 </li>

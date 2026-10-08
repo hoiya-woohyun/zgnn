@@ -15,7 +15,7 @@ import { Input } from '../components/base/input';
 import { SEARCH_FIELD } from '../components/noAutofill';
 import { TYPE_META } from '../lib/places';
 import { comparePrice, resetFiltersLabel, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
-import { areaCarriedRelease, areaReleaseCount, filterPlacesPage, otherTypeMatches, placesByTown, placesPageChips, reachableReleaseCount, townReleaseCount } from '../lib/placesPageFilter';
+import { areaCarriedRelease, areaReleaseCount, filterPlacesPage, otherTypeHiddenMatches, otherTypeMatches, placesByTown, placesPageChips, reachableReleaseCount, townReleaseCount } from '../lib/placesPageFilter';
 import { sortByEligibility } from '../lib/sortByEligibility';
 import { distancesFrom, sortByDistance } from '../lib/distanceSort';
 import { LOCATE_NOTICE, locateMe } from '../lib/myLocation';
@@ -106,6 +106,14 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
   const otherTypes = useMemo(
     () => otherTypeMatches({ type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap }, petKeysByType),
     [type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap, petKeysByType],
+  );
+  // 0곳일 때만 — 숨김 조건에 가려 위 수에서 빠진 다른 종류(14 W261007.11b). 결과가 있으면 머리 밑 한 줄은 넘어간 탭의 수만 말한다.
+  const hiddenOtherTypes = useMemo(
+    () =>
+      results.length > 0
+        ? []
+        : otherTypeHiddenMatches({ type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap }, petKeysByType),
+    [results.length, type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap, petKeysByType],
   );
   // 같은 이유로 0곳일 때만 — 읍면 하나(18 T2.1)·권역 하나(19 T3)가 원인인지.
   const released = useMemo(() => {
@@ -340,6 +348,11 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
               onOpenFilters={() => setIsFilterSheetOpen(true)}
               distances={distances}
               otherTypes={otherTypes}
+              hiddenOtherTypes={hiddenOtherTypes}
+              onReleaseHidden={() => {
+                setHideHard(false);
+                clearOnlyReachable();
+              }}
               townReleaseCount={released.town}
               area={area}
               areaReleaseCount={released.area}

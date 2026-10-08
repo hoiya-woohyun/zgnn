@@ -6,6 +6,7 @@ import {
   areaReleaseCount,
   filterPlacesPage,
   filtersOfPlaceType,
+  otherTypeHiddenMatches,
   otherTypeMatches,
   placesByTown,
   placesPageChips,
@@ -293,5 +294,42 @@ describe('다른 종류에도 있어요 — 줄의 n = 눌러 넘어간 탭의 �
       expect(countOf(east, other)).toBe(filterPlacesPage({ ...base, type: other, query, directions: ['east'] }).length);
     }
     expect(countOf(east, 'cafe')).toBeLessThan(cafes);
+  });
+});
+
+describe('0곳 안내가 숨긴 종류도 말한다(14 W261007.11b)', () => {
+  const DUBU: TDogProfile = { dogs: [{ name: '두부', weightKg: 3 }], carrier: 'bag' };
+  const BORI: TDogProfile = { dogs: [{ name: '보리', weightKg: 30 }], carrier: 'none' };
+  const mapOf = (dog: TDogProfile) => new Map(PLACES.map((place) => [place.id, judgeEligibility(dog, place.policy)]));
+  const noKeys = { stay: [], restaurant: [], cafe: [] };
+  const stayTab = { ...base, type: 'stay' as const };
+
+  it('숨김 조건이 없거나 판정 맵이 없으면 빈 배열', () => {
+    expect(otherTypeHiddenMatches({ ...stayTab, query: '함덕', eligibilityMap: mapOf(BORI) }, noKeys)).toEqual([]);
+    expect(otherTypeHiddenMatches({ ...stayTab, query: '함덕', hideHard: true, onlyReachable: true }, noKeys)).toEqual([]);
+  });
+
+  // 보이는 줄과 겹치지 않고, 수는 두 조건을 함께 푼 넘어간 탭의 곳 수 — 누르는 쪽이 둘 다 푼다. 숨긴 종류가 실제로 생겨야 지킨다.
+  it.each([
+    ['두부', DUBU, { onlyReachable: true }],
+    ['보리', BORI, { onlyReachable: true }],
+    ['보리', BORI, { hideHard: true }],
+    ['보리', BORI, { hideHard: true, onlyReachable: true }],
+  ] as const)('%s × %o — 보이는 종류와 겹치지 않고 푼 탭의 수와 같다', (_, dog, flags) => {
+    const eligibilityMap = mapOf(dog);
+    let hiddenSeen = 0;
+    for (const query of ['함덕', '애월', '중문', '서귀포', '성산', '협재']) {
+      for (const area of [null, ...AREAS.map(({ id }) => id)]) {
+        const conditions = { ...stayTab, area, query, ...flags, eligibilityMap };
+        const shown = otherTypeMatches(conditions, noKeys).map((match) => match.type);
+        for (const hidden of otherTypeHiddenMatches(conditions, noKeys)) {
+          hiddenSeen += 1;
+          expect(shown, `${query}/${area}`).not.toContain(hidden.type);
+          const released = filterPlacesPage({ ...base, type: hidden.type, area, query, eligibilityMap }).length;
+          expect(hidden.count, `${query}/${area}/${hidden.type}`).toBe(released);
+        }
+      }
+    }
+    expect(hiddenSeen).toBeGreaterThan(0);
   });
 });

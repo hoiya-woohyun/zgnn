@@ -141,6 +141,24 @@ export const otherTypeMatches = (
     .filter((match) => match.count > 0);
 };
 
+/**
+ * `otherTypeMatches` 가 0곳이라 말하지 않은 종류 중, 숨김 조건('어려운 곳 숨기기'·'갈 수 있는 곳만')만 풀면 맞는 곳이 있는 종류(14 W261007.11b).
+ *
+ * 다른 종류 수가 넘어간 탭의 목록 수가 되면서(W261007.11a), 찾던 가게가 이 강아지에게 '어려움' 이라 숨겨지면 0곳 안내에서 아예 빠졌다 —
+ * "숙소에는 '부부키친'과 맞는 곳이 없어요" 만 남아 W261006.6 이 막은 "그 가게가 없다" 가 숨기기를 켠 사람에게 돌아온다.
+ * 수는 두 조건을 **함께** 푼 넘어간 탭의 곳 수다 — 누르는 쪽이 둘 다 풀어야 같은 수를 본다. 판정 맵이 없으면 두 조건이 거르지 않아 늘 빈 배열.
+ */
+export const otherTypeHiddenMatches = (
+  conditions: Omit<TPlacesPageConditions, 'petKeys'>,
+  petKeysByType: Readonly<Record<TPlaceType, readonly TPetFilterKey[]>>,
+): { type: TPlaceType; count: number }[] => {
+  if (!conditions.hideHard && !conditions.onlyReachable) return [];
+  const shown = new Set(otherTypeMatches(conditions, petKeysByType).map((match) => match.type));
+  return otherTypeMatches({ ...conditions, hideHard: false, onlyReachable: false }, petKeysByType).filter(
+    (match) => !shown.has(match.type),
+  );
+};
+
 export type TPlacesPageChip = { key: string; label: string };
 
 /**
