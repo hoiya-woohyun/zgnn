@@ -131,6 +131,11 @@ describe('프롬프트 규칙 — 종류·소개 문장', () => {
     expect(SYSTEM_PROMPT).toContain('"~해 주세요"');
     expect(SYSTEM_PROMPT).toContain('"바로 운영" 으로 쓰지 않습니다');
   });
+
+  it('features 는 동반 조건을 말하지 않는다 — 포크 소개문이 근거 없이 "실내에서 함께" 라고 해 C12 와 반대를 말했다(13 §5.2 P2)', () => {
+    expect(SYSTEM_PROMPT).toContain('**동반 조건은 쓰지 않습니다**');
+    expect(SYSTEM_PROMPT).not.toMatch(/강아지 편의\s*\(마당/);
+  });
 });
 
 describe('프롬프트 ↔ 앱 파서 계약— 예시 문장은 parsePetPolicy 가 읽는 어휘여야 한다', () => {
