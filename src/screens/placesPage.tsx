@@ -15,8 +15,7 @@ import { Input } from '../components/base/input';
 import { SEARCH_FIELD } from '../components/noAutofill';
 import { TYPE_META } from '../lib/places';
 import { comparePrice, resetFiltersLabel, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
-import { otherTypeMatches } from '../lib/placeSearch';
-import { areaCarriedRelease, areaReleaseCount, filterPlacesPage, placesByTown, placesOfTypeInArea, placesPageChips, reachableReleaseCount, townReleaseCount } from '../lib/placesPageFilter';
+import { areaCarriedRelease, areaReleaseCount, filterPlacesPage, otherTypeMatches, placesByTown, placesPageChips, reachableReleaseCount, townReleaseCount } from '../lib/placesPageFilter';
 import { sortByEligibility } from '../lib/sortByEligibility';
 import { distancesFrom, sortByDistance } from '../lib/distanceSort';
 import { LOCATE_NOTICE, locateMe } from '../lib/myLocation';
@@ -59,7 +58,8 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
   const setQuery = usePlacesPageFilterStore((state) => state.setQuery);
   const directions = usePlacesPageFilterStore((state) => state.directions);
   const toggleDirection = usePlacesPageFilterStore((state) => state.toggleDirection);
-  const petKeys = usePlacesPageFilterStore((state) => state.petKeysByType[type]);
+  const petKeysByType = usePlacesPageFilterStore((state) => state.petKeysByType);
+  const petKeys = petKeysByType[type];
   const togglePetKeyOfType = usePlacesPageFilterStore((state) => state.togglePetKey);
   const hideHard = usePlacesPageFilterStore((state) => state.hideHard);
   const onlyReachable = usePlacesPageFilterStore((state) => state.onlyReachable);
@@ -101,10 +101,11 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     return list;
   }, [type, town, area, query, directions, petKeys, sort, origin, hideHard, onlyReachable, eligibilityMap]);
 
-  // 결과가 있어도 센다 — "다른 종류에도 있어요 · 식당 1곳"(14 W261007.11). 검색어가 없으면 바로 빈 배열이다. 권역은 탭을 따라오므로 그 안에서 센다.
+  // 결과가 있어도 센다 — "다른 종류에도 있어요 · 식당 1곳"(14 W261007.11). 검색어가 없으면 바로 빈 배열이다.
+  // 넘어간 탭과 같은 조건으로 센다(W261007.11a) — 그 탭의 조건 칩까지라 종류별 칩을 통째로 넘긴다.
   const otherTypes = useMemo(
-    () => otherTypeMatches(type, query, town, (other) => placesOfTypeInArea(other, area)),
-    [type, query, town, area],
+    () => otherTypeMatches({ type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap }, petKeysByType),
+    [type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap, petKeysByType],
   );
   // 같은 이유로 0곳일 때만 — 읍면 하나(18 T2.1)·권역 하나(19 T3)가 원인인지.
   const released = useMemo(() => {

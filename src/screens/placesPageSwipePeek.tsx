@@ -3,8 +3,7 @@
 import { useMemo, type RefObject } from 'react';
 import { PlacesPageResults } from './placesPageResults';
 import { resetFiltersLabel } from '../lib/placeFilters';
-import { otherTypeMatches } from '../lib/placeSearch';
-import { areaCarriedRelease, areaReleaseCount, filterPlacesPage, placesByTown, placesOfTypeInArea, placesPageChips, reachableReleaseCount, townReleaseCount } from '../lib/placesPageFilter';
+import { areaCarriedRelease, areaReleaseCount, filterPlacesPage, otherTypeMatches, placesByTown, placesPageChips, reachableReleaseCount, townReleaseCount } from '../lib/placesPageFilter';
 import { sortByEligibility } from '../lib/sortByEligibility';
 import { useAppStore, useDog } from '../store/useAppStore';
 import { useEligibilityMap } from '../store/useDogEligibility';
@@ -43,7 +42,8 @@ export function PlacesPageSwipePeek({ ref, type, side, top, height }: TPlacesPag
   const directions = usePlacesPageFilterStore((state) => state.directions);
   const hideHard = usePlacesPageFilterStore((state) => state.hideHard);
   const onlyReachable = usePlacesPageFilterStore((state) => state.onlyReachable);
-  const petKeys = usePlacesPageFilterStore((state) => state.petKeysByType[type]);
+  const petKeysByType = usePlacesPageFilterStore((state) => state.petKeysByType);
+  const petKeys = petKeysByType[type];
   const area = usePlacesPageFilterStore((state) => state.area);
 
   const byTown = useMemo(() => placesByTown(type, town), [type, town]);
@@ -55,8 +55,8 @@ export function PlacesPageSwipePeek({ ref, type, side, top, height }: TPlacesPag
 
   // 본 화면과 같이 결과가 있어도 센다 — 엿보기도 같은 줄을 그려야 손을 놓아도 안 튄다.
   const otherTypes = useMemo(
-    () => otherTypeMatches(type, query, town, (other) => placesOfTypeInArea(other, area)),
-    [type, query, town, area],
+    () => otherTypeMatches({ type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap }, petKeysByType),
+    [type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap, petKeysByType],
   );
   const released = useMemo(() => {
     if (results.length > 0) return { town: 0, area: 0, reachable: 0 };

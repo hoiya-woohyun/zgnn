@@ -12,7 +12,7 @@
  * '대형견' 을 친 사람에게 '대형견 불가' 곳을 내면 답이 거꾸로다. 크기 칩은 큰 쪽 하나만 서므로 '중형견' 은 '대형견 OK' 곳을 못 찾는다.
  *
  * 종류 이름(카페·식당·숙소)은 글자가 아니라 **종류를 고르는 말**이다. 지금 탭과 같으면 전부 맞고(글자로 보면 숙소 탭의 "애월 숙소" 가
- * 특징에 '숙소' 라는 말이 없는 곳을 전부 떨어뜨린다), 다른 종류면 이 탭은 0곳이 되어 빈 상태가 그 탭으로 안내한다(`otherTypeMatches`).
+ * 특징에 '숙소' 라는 말이 없는 곳을 전부 떨어뜨린다), 다른 종류면 이 탭은 0곳이 되어 빈 상태가 그 탭으로 안내한다(`placesPageFilter` 의 `otherTypeMatches`).
  * 예전에는 둘 다 버려서 숙소 탭의 "서귀포 카페" 가 서귀포 펜션 7곳을 냈다.
  *
  * 관광지 이름("중문")은 글자 **또는** 좌표로 맞는다 — 단어가 랜드마크면 그 반경 안의 장소도 참이다(`landmarks.ts`).
@@ -25,7 +25,7 @@
 
 import { isNearLandmark, landmarkOfWord } from './landmarks';
 import { toPetBadges, type TPetPolicy } from './petPolicy';
-import { PLACE_TYPES, placesOfType, TYPE_META, type TPlaceEntry } from './places';
+import { PLACE_TYPES, TYPE_META, type TPlaceEntry } from './places';
 import type { TPlaceType } from '../types';
 
 /** 종류 이름 → 종류. 탭 이름과 같은 말이어야 하므로 `TYPE_META` 에서 만든다. */
@@ -73,27 +73,4 @@ export function matchesQuery(
     const landmark = landmarkOfWord(word);
     return landmark !== null && isNearLandmark(place, landmark);
   });
-}
-
-/**
- * 이 종류에서 검색이 0곳일 때, 같은 검색어가 **다른 종류**에 몇 곳 맞는가(14 W261006.6). 0곳인 종류는 뺀다.
- *
- * 검색은 종류 탭 안에서만 돈다 — 숙소 탭에서 "부부키친"(식당)을 치면 0곳이고, 사용자는 그 가게가 없는 줄 안다.
- * 세는 조건은 검색어와 읍면뿐이다: 읍면은 스토어 값이라 탭을 넘어가도 따라오지만, 방향·이용 조건·정렬은 종류마다
- * 다시 고르는 값이라 넘어간 화면에 없다. 여기서 그것까지 걸면 "식당에 1곳" 을 누르고 3곳을 보게 된다.
- */
-export function otherTypeMatches(
-  type: TPlaceType,
-  query: string,
-  town: string | null,
-  placesOf: (type: TPlaceType) => readonly TPlaceEntry[] = placesOfType,
-): { type: TPlaceType; count: number }[] {
-  if (!query.trim()) return [];
-  return PLACE_TYPES.filter((other) => other !== type)
-    .map((other) => ({
-      type: other,
-      count: placesOf(other).filter((place) => (town === null || place.region.town === town) && matchesQuery(place, query))
-        .length,
-    }))
-    .filter((match) => match.count > 0);
 }

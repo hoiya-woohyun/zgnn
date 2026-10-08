@@ -6,8 +6,8 @@ import {
   areaReleaseCount,
   filterPlacesPage,
   filtersOfPlaceType,
+  otherTypeMatches,
   placesByTown,
-  placesOfTypeInArea,
   placesPageChips,
   reachableReleaseCount,
   townReleaseCount,
@@ -80,12 +80,10 @@ describe('townReleaseCount', () => {
 });
 
 describe('권역(19 T3)', () => {
-  it('권역은 그 권역 읍면의 곳만 남긴다 — placesOfTypeInArea 와 같은 집합', () => {
+  it('권역은 그 권역 읍면의 곳만 남긴다', () => {
     const found = filterPlacesPage({ ...base, type: 'stay', area: 'west' });
     expect(found.length).toBeGreaterThan(0);
-    expect(found.every((place) => areaOf(place) === 'west')).toBe(true);
-    expect(found).toEqual(placesOfTypeInArea('stay', 'west'));
-    expect(placesOfTypeInArea('stay', null)).toEqual(placesOfType('stay'));
+    expect(found).toEqual(placesOfType('stay').filter((place) => areaOf(place) === 'west'));
   });
 
   it('권역이 없으면 0, 서부 × 중문 = 0곳이면 권역만 풀면 중문 반경의 수', () => {
@@ -100,7 +98,7 @@ describe('권역(19 T3)', () => {
   it('읍면과 권역이 어긋나면(구좌읍 × 서부) 둘 다 풀 거리가 된다 — 읍면을 풀면 서부의 수', () => {
     const conditions = { ...base, type: 'stay' as const, town: '구좌읍', area: 'west' as const };
     expect(filterPlacesPage(conditions)).toHaveLength(0);
-    expect(townReleaseCount(conditions)).toBe(placesOfTypeInArea('stay', 'west').length);
+    expect(townReleaseCount(conditions)).toBe(filterPlacesPage({ ...base, type: 'stay', area: 'west' }).length);
     expect(areaReleaseCount(conditions)).toBe(placesByTown('stay', '구좌읍').length);
   });
 });
@@ -234,5 +232,66 @@ describe('카드 진입에 따라온 읍면·방향·조건 칩(19 T4.2)', () =>
     const withQuery = filterPlacesPage({ ...conditions, town: null }).length;
     expect(withQuery).toBeLessThan(pick!.card);
     expect(areaCarriedRelease(conditions, shown)?.count ?? null).toBe(withQuery > shown ? withQuery : null);
+  });
+});
+
+describe('다른 종류에도 있어요 — 줄의 n = 눌러 넘어간 탭의 곳 수(14 W261007.11a)', () => {
+  const DUBU: TDogProfile = { dogs: [{ name: '두부', weightKg: 3 }], carrier: 'bag' };
+  const BORI: TDogProfile = { dogs: [{ name: '보리', weightKg: 30 }], carrier: 'none' };
+  const mapOf = (dog: TDogProfile) => new Map(PLACES.map((place) => [place.id, judgeEligibility(dog, place.policy)]));
+  const noKeys = { stay: [], restaurant: [], cafe: [] };
+  const stayTab = { ...base, type: 'stay' as const };
+  const countOf = (matches: { type: TPlaceType; count: number }[], type: TPlaceType) =>
+    matches.find((match) => match.type === type)?.count ?? 0;
+
+  it('검색어가 없으면 아무것도 권하지 않는다', () => {
+    expect(otherTypeMatches({ ...stayTab, query: '  ' }, noKeys)).toEqual([]);
+  });
+
+  it('지금 종류는 세지 않고 0곳인 종류는 뺀다 — 숙소 탭의 "애월 카페" 는 카페 탭으로만', () => {
+    expect(otherTypeMatches({ ...stayTab, query: '애월 카페' }, noKeys).map((match) => match.type)).toEqual(['cafe']);
+  });
+
+  // 링크는 탭만 바꾼다 — 넘어간 탭은 스토어 조건 그대로에 그 탭의 조건 칩을 건 목록을 그린다. 그 수와 같아야 하고,
+  // 예전 셈(검색어·읍면·권역만)보다 줄어드는 곳이 실제로 있어야 이 테스트가 그 구멍을 지킨다(두부는 '어려움' 이 드물어 숨기기로는 안 준다).
+  it.each([
+    ['두부', DUBU, 'onlyReachable'],
+    ['보리', BORI, 'onlyReachable'],
+    ['보리', BORI, 'hideHard'],
+  ] as const)('%s × %s — 검색어·권역마다 넘어간 탭과 같은 수, 예전 셈보다 적은 곳이 있다', (_, dog, flag) => {
+    const eligibilityMap = mapOf(dog);
+    let shrunk = 0;
+    for (const query of ['함덕', '애월', '중문', '서귀포', '성산']) {
+      for (const area of [null, ...AREAS.map(({ id }) => id)]) {
+        const matches = otherTypeMatches({ ...stayTab, area, query, [flag]: true, eligibilityMap }, noKeys);
+        for (const other of ['restaurant', 'cafe'] as const) {
+          const opened = filterPlacesPage({ ...base, type: other, area, query, [flag]: true, eligibilityMap }).length;
+          expect(countOf(matches, other), `${query}/${area}/${other}`).toBe(opened);
+          if (opened < filterPlacesPage({ ...base, type: other, area, query }).length) shrunk += 1;
+        }
+      }
+    }
+    expect(shrunk).toBeGreaterThan(0);
+  });
+
+  it('방향과 넘어간 탭의 조건 칩도 센다 — 지금 탭의 칩은 걸지 않는다', () => {
+    const query = '서귀포';
+    const cafes = filterPlacesPage({ ...base, type: 'cafe', query }).length;
+    const cafeKey = filtersOfPlaceType('cafe').find(
+      (filter) => filterPlacesPage({ ...base, type: 'cafe', query, petKeys: [filter.key] }).length < cafes,
+    )?.key;
+    expect(cafeKey, '서귀포 카페를 줄이는 조건 칩이 없다').toBeDefined();
+    const withCafeKey = otherTypeMatches({ ...stayTab, query }, { ...noKeys, cafe: [cafeKey!] });
+    expect(countOf(withCafeKey, 'cafe')).toBe(filterPlacesPage({ ...base, type: 'cafe', query, petKeys: [cafeKey!] }).length);
+    expect(countOf(withCafeKey, 'cafe')).toBeLessThan(cafes);
+
+    const [stayKey] = filtersOfPlaceType('stay');
+    expect(otherTypeMatches({ ...stayTab, query }, { ...noKeys, stay: [stayKey.key] })).toEqual(otherTypeMatches({ ...stayTab, query }, noKeys));
+
+    const east = otherTypeMatches({ ...stayTab, query, directions: ['east'] }, noKeys);
+    for (const other of ['restaurant', 'cafe'] as const) {
+      expect(countOf(east, other)).toBe(filterPlacesPage({ ...base, type: other, query, directions: ['east'] }).length);
+    }
+    expect(countOf(east, 'cafe')).toBeLessThan(cafes);
   });
 });

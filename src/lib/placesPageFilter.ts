@@ -1,6 +1,6 @@
 import { areaOf, areaTownsLabel, type TAreaId } from './areaGroups';
 import { AREA_CARD_TYPES } from './homePageAreaCards';
-import { DIRECTION_LABEL, placesOfType, type TPlaceEntry } from './places';
+import { DIRECTION_LABEL, PLACE_TYPES, placesOfType, type TPlaceEntry } from './places';
 import { PET_FILTERS, carriedFilterChips, envFiltersWithData, type TPetFilter, type TPetFilterKey } from './placeFilters';
 import { matchesQuery } from './placeSearch';
 import type { TEligibility } from './eligibility';
@@ -21,15 +21,6 @@ export const filtersOfPlaceType = (type: TPlaceType): TPetFilter[] =>
 export const placesByTown = (type: TPlaceType, town: string | null): TPlaceEntry[] => {
   const list = placesOfType(type);
   return town ? list.filter((place) => place.region.town === town) : list;
-};
-
-/**
- * 권역 안의 그 종류 — 권역이 없으면 전부. 0곳일 때 "다른 종류에 N곳"(`otherTypeMatches` 의 `placesOf`)도 이것으로 센다:
- * 권역은 탭을 따라오므로 다른 종류의 수도 그 권역 안이어야 누른 뒤 같은 수를 본다.
- */
-export const placesOfTypeInArea = (type: TPlaceType, area: TAreaId | null): TPlaceEntry[] => {
-  const list = placesOfType(type);
-  return area ? list.filter((place) => areaOf(place) === area) : list;
 };
 
 export type TPlacesPageConditions = {
@@ -130,6 +121,24 @@ export const areaCarriedRelease = (conditions: TPlacesPageConditions, shown: num
   if (town === null && directions.length === 0 && petKeys.length === 0) return null;
   const count = filterPlacesPage({ ...conditions, town: null, directions: [], petKeys: [] }).length;
   return count > shown ? { count, town, directions: directions.length, petKeys: petKeys.length } : null;
+};
+
+/**
+ * 같은 검색어가 **다른 종류**에 몇 곳 맞는가 — 0곳일 때의 큰 안내(14 W261006.6)와 결과가 있을 때의 "다른 종류에도 있어요 · 카페 n곳"
+ * (W261007.11)이 같이 쓴다. 0곳인 종류는 뺀다. 검색은 종류 탭 안에서만 돌아서, 숙소 탭에서 "부부키친"(식당)을 치면 그 가게가 없는 줄 안다.
+ *
+ * 링크는 탭만 바꾸므로 셈은 **넘어간 탭의 `filterPlacesPage` 그대로**다 — 검색어·읍면·권역·방향·'어려운 곳 숨기기'·'갈 수 있는 곳만' 은
+ * 스토어 전역이라 따라가고, 조건 칩은 그 종류의 것(`petKeysByType[other]`)이 걸린다. 예전에는 검색어·읍면·권역만 셌다: 동네 카드로 들어와
+ * '함덕' 을 치면 "카페 4곳" 을 눌러 그보다 적게 봤다(W261007.11a). 조건을 하나씩 덧대지 않고 같은 함수로 센다 — 하나만 빠져도 수가 갈린다.
+ */
+export const otherTypeMatches = (
+  { type, ...conditions }: Omit<TPlacesPageConditions, 'petKeys'>,
+  petKeysByType: Readonly<Record<TPlaceType, readonly TPetFilterKey[]>>,
+): { type: TPlaceType; count: number }[] => {
+  if (!conditions.query.trim()) return [];
+  return PLACE_TYPES.filter((other) => other !== type)
+    .map((other) => ({ type: other, count: filterPlacesPage({ ...conditions, type: other, petKeys: petKeysByType[other] }).length }))
+    .filter((match) => match.count > 0);
 };
 
 export type TPlacesPageChip = { key: string; label: string };

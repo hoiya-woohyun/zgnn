@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parsePetPolicy } from './petPolicy';
-import { matchesQuery, otherTypeMatches } from './placeSearch';
+import { matchesQuery } from './placeSearch';
 import type { TPlaceEntry } from './places';
 import type { TPlaceType } from '../types';
 
@@ -100,40 +100,5 @@ describe('matchesQuery', () => {
       expect(matchesQuery(place({ geo: nearJungmun, category: '카레' }), '중문 카레')).toBe(true);
       expect(matchesQuery(place({ geo: nearJungmun }), '중문 카레')).toBe(false);
     });
-  });
-});
-
-describe('otherTypeMatches', () => {
-  const byType = {
-    stay: [place({ type: 'stay', name: '함덕 스테이', town: '조천읍' })],
-    restaurant: [
-      place({ type: 'restaurant', name: '부부키친', town: '애월읍' }),
-      place({ type: 'restaurant', name: '함덕 국수', town: '조천읍' }),
-    ],
-    cafe: [place({ type: 'cafe', name: '함덕 카페', town: '조천읍' }), place({ type: 'cafe', name: '함덕 언덕', town: '조천읍' })],
-  } as unknown as Record<TPlaceType, TPlaceEntry[]>;
-  const placesOf = (type: TPlaceType) => byType[type];
-
-  it('숙소 탭의 "부부키친" — 식당에 1곳, 0곳인 카페는 빼고 말한다', () => {
-    expect(otherTypeMatches('stay', '부부키친', null, placesOf)).toEqual([{ type: 'restaurant', count: 1 }]);
-  });
-
-  it('지금 종류는 세지 않고, 나머지는 종류 순서대로', () => {
-    expect(otherTypeMatches('stay', '함덕', null, placesOf)).toEqual([
-      { type: 'restaurant', count: 1 },
-      { type: 'cafe', count: 2 },
-    ]);
-  });
-
-  it('숙소 탭의 "함덕 카페" — 카페 탭으로만 안내한다', () => {
-    expect(otherTypeMatches('stay', '함덕 카페', null, placesOf)).toEqual([{ type: 'cafe', count: 2 }]);
-  });
-
-  it('읍면은 탭을 넘어가도 따라오므로 같이 건다', () => {
-    expect(otherTypeMatches('stay', '부부키친', '조천읍', placesOf)).toEqual([]);
-  });
-
-  it('검색어가 없으면 아무것도 권하지 않는다', () => {
-    expect(otherTypeMatches('stay', '  ', null, placesOf)).toEqual([]);
   });
 });
