@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { freshnessOf, freshnessShortLabel, monthLabel } from './placeFreshness';
+import { PLACES } from './places';
 
 const now = new Date('2026-10-01T12:00:00+09:00').getTime();
 
@@ -21,6 +22,19 @@ describe('freshnessOf', () => {
     expect(freshnessOf({}, now)).toBeNull();
     expect(freshnessOf({ verifiedAt: '2026-09-28', openReportKinds: ['closed'] }, now)).toBeNull();
     expect(freshnessOf({ verifiedAt: 'bad' }, now)).toBeNull();
+  });
+
+  it('원문에 동반 조건이 없으면(정보 없음 · 못 읽음) "확인했어요" 를 안 쓴다 — 확인할 조건이 없다(14 W261007.17)', () => {
+    expect(freshnessOf({ verifiedAt: '2026-09-20', policy: { noInfo: true, unread: false } }, now)).toBeNull();
+    expect(freshnessOf({ verifiedAt: '2026-09-20', policy: { noInfo: false, unread: true } }, now)).toBeNull();
+    expect(freshnessOf({ verifiedAt: '2026-09-20', policy: { noInfo: false, unread: false } }, now)?.text).toBe('2026년 9월에 확인했어요');
+  });
+
+  it('실제 데이터 — 서쪽에서 귤이네("정보 없음.")는 상세·꼬리표 둘 다 안 그린다', () => {
+    const place = PLACES.find((entry) => entry.name === '서쪽에서 귤이네');
+    expect(place?.verifiedAt).toBeDefined();
+    expect(freshnessOf(place!, now)).toBeNull();
+    expect(freshnessShortLabel(place!, now)).toBeNull();
   });
 });
 
