@@ -108,6 +108,7 @@ export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEdit
           hideNoInfo={Boolean(eligibility)}
           weightKg={weightKg}
           dogCount={dogCount}
+          feeLine={eligibility?.fee}
         />
       </div>
     </>

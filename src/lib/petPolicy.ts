@@ -241,6 +241,8 @@ const NUMBER_RULES = {
  * 숫자가 앞에 붙은 '원' 만 요금으로 본다 — 그러지 않으면 '공원'·'병원'·'정원' 이 요금이 된다.
  */
 const FEE_TEXT_RULE = /[^.\n]*\d[\d,.]*\s*만?\s*원[^.\n]*/g;
+/** 요금 문장 바로 뒤에 금액 없이 따로 적힌 `(마리당)`. */
+const PER_DOG_NOTE_AFTER = /^\.?\s*\(\s*마리\s*당\s*\)/;
 
 const matchesAny = (text: string, patterns: RegExp[]) => patterns.some((re) => re.test(text));
 
@@ -365,7 +367,16 @@ export const parsePetPolicy = (petPolicyText: string): TPetPolicy => {
 
   const tiers = extractTiers(text);
   // 중복을 턴다 — 같은 요금 문장이 두 번 적힌 원문이 있고, 배지의 key 가 라벨이라 React 키 충돌이 난다.
-  const feeLines = [...new Set([...text.matchAll(FEE_TEXT_RULE)].map((m) => m[0].trim()))];
+  // 금액 없는 `(마리당)` 이 다음 문장으로 떨어져 있으면 그 줄에 붙인다 — 달중이네 쉬멍 "1마리 이상 2만원 추가. (마리당)".
+  // 떨어진 채로 두면 줄만으로는 정액인지 마리당인지 몰라 합계를 못 낸다(14 W261007.6).
+  const feeLines = [
+    ...new Set(
+      [...text.matchAll(FEE_TEXT_RULE)].map((m) => {
+        const line = m[0].trim();
+        return PER_DOG_NOTE_AFTER.test(text.slice((m.index ?? 0) + m[0].length)) ? `${line} (마리당)` : line;
+      }),
+    ),
+  ];
   const outdoorFree = indoor === 'outdoorOnly' || matchesAny(text, OUTDOOR_FREE_PATTERNS);
   const unlimitedDogs = matchesAny(text, UNLIMITED_DOGS_PATTERNS);
 

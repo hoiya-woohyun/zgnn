@@ -42,10 +42,16 @@ type TPetBadgesProps = {
   weightKg?: number;
   /** 우리 강아지 마릿수. 캄 "2마리 또는 10kg 이상 4만원" 처럼 마릿수로도 갈리는 줄을 고를 때 쓴다. 없으면 한 마리로 본다. */
   dogCount?: number;
+  /**
+   * 카드가 배지 줄 위에 세우는 우리 강아지 요금 한 줄(`eligibility.fee`). 고른 요금 칩이 그 줄에 그대로 들어 있으면 칩을 뺀다 —
+   * "두부는 3만원 (1마리당 3만원)" 밑에 `1마리당 3만원` 칩이 또 섰다(14 W261007.6). 다른 줄로 바꿔 세우지 않는다:
+   * 캄에서 칩이 기본 줄로 물러나면 한 카드가 4만원과 3만원을 같이 말한다(07 U5 후속).
+   */
+  feeLine?: string;
   className?: string;
 };
 
-export function PetBadges({ policy, limit, hideNoInfo = false, sourceText, weightKg, dogCount, className = '' }: TPetBadgesProps) {
+export function PetBadges({ policy, limit, hideNoInfo = false, sourceText, weightKg, dogCount, feeLine, className = '' }: TPetBadgesProps) {
   const all = toPetBadges(policy).filter((badge) => !(hideNoInfo && badge.label === NO_INFO_BADGE_LABEL))
     .filter((badge) => !(sourceText !== undefined && isFeeBadgeRepeatedIn(badge, sourceText)));
   /*
@@ -59,10 +65,12 @@ export function PetBadges({ policy, limit, hideNoInfo = false, sourceText, weigh
    */
   const firstFee = all.findIndex((b) => b.axis === 'fee');
   // 프로필이 있으면 그 하나는 첫 줄이 아니라 **우리 강아지 구간**이다(07 U5) — 20kg 아이에게 "1~5kg 1만원" 을 세우지 않는다.
-  const feeLabel =
+  const pickedFee =
     firstFee >= 0 && weightKg !== undefined
       ? feeChipForWeight(all.filter((b) => b.axis === 'fee').map((b) => b.label), weightKg, dogCount)
       : all[firstFee]?.label;
+  const feeInLine = pickedFee != null && feeLine !== undefined && isFeeBadgeRepeatedIn({ label: pickedFee, axis: 'fee', tone: 'cond' }, feeLine);
+  const feeLabel = feeInLine ? null : pickedFee;
   const badges = limit
     ? all.flatMap((badge, index) => {
         if (badge.axis !== 'fee') return [badge];
@@ -74,7 +82,8 @@ export function PetBadges({ policy, limit, hideNoInfo = false, sourceText, weigh
 
   const shown = limit ? badges.slice(0, limit) : badges;
   // 접힌 수는 **거른 뒤가 아니라 전부**에서 센다 — 빼 둔 요금 줄이 `+N` 에 안 들어가면 "더 있다" 가 거짓이 된다.
-  const hidden = all.length - shown.length;
+  // 요금 한 줄에 그대로 있어 뺀 칩은 숨긴 게 아니라 이미 보이는 것이라 `+N` 에서 뺀다.
+  const hidden = all.length - shown.length - (limit && feeInLine ? 1 : 0);
 
   return (
     <ul className={`flex flex-wrap items-center gap-1 ${className}`}>

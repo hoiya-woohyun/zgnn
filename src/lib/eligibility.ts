@@ -392,6 +392,13 @@ const RULES: [string, TRule][] = [
   ['U1', ruleNoInfo],
 ];
 
+/**
+ * 우리 강아지를 **받아 주는지**가 아직 열린 규칙 — 이 근거가 있으면 요금 한 줄 앞에 "받아 준다면" 을 붙인다.
+ * C5(대형견 언급 없음)·C10(요금표가 우리 몸무게 앞에서 끝남)만이다. 야외 자리(C1·C4)·가방(C2·C3)은 받아 주는 곳이고,
+ * C6(전화 먼저)·C8(예방접종)은 가는 방법·서류를 말할 뿐이며, C7·C9(원문을 못 읽음·일반 문장뿐)는 요금 줄 자체가 드물다.
+ */
+const ADMISSION_UNSURE_RULES = new Set(['C5', 'C10']);
+
 export const judgeEligibility = (
   dog: TDogProfile,
   policy: TPetPolicy,
@@ -411,7 +418,10 @@ export const judgeEligibility = (
   // 요금은 이름까지 붙은 완성 문장(`dogFee.ts`)이라 카드·상세가 같은 줄을 그대로 보여준다.
   // **어려움이면 요금을 싣지 않는다**(`fee` 도, 요금 info 근거도) — 못 간다는 곳 밑에 "대장이와
   // 초코 · 청소비 5만원" 이 붙으면 우리가 낼 돈으로 읽힌다(민준, 그리너리빌리지).
-  const fee = level === 'hard' ? undefined : formatDogFee(policy, dog);
+  const dogFee = level === 'hard' ? undefined : formatDogFee(policy, dog);
+  // 받아 주는지부터 확인해야 하는 곳이면 요금이 그 말을 앞서지 않게 조건을 붙인다 — "보리는 5만원" 바로 밑의
+  // "대형견 언급이 없어요" 는 요금이 확정이고 크기만 물어보면 되는 것처럼 읽혔다(돌담연가, 14 W261007.6).
+  const fee = dogFee && reasons.some((r) => r.rule !== undefined && ADMISSION_UNSURE_RULES.has(r.rule)) ? `받아 준다면 ${dogFee}` : dogFee;
   if (fee) reasons.push({ level: 'info', text: fee, rule: 'I1' });
 
   // Array#sort 는 안정 정렬이라 같은 레벨 안에서는 RULES 순서(표시 순서)가 그대로 유지된다.

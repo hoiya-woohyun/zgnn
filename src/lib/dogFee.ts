@@ -4,7 +4,7 @@
  * 원칙은 파서와 같다 — **숫자를 지어내지 않는다.** 마릿수만큼 곱해도 되는 것이 원문에서 확실할
  * 때만 곱한다: "1마리당 3만원" 같은 마리당 단일 금액, 또는 모든 마리가 각자 들어가는 무게 구간의
  * 단일 금액. 범위 금액("1-2만원")·단위가 불명한 금액("5만원")·청소비 같은 줄은 곱하지 않고
- * "원문 요금 · {원문 줄}" 로 그대로 보여준다. **이름은 곱셈이 성립했을 때만 붙인다** —
+ * "적힌 요금 · {원문 줄}" 로 그대로 보여준다(`RAW_FEE_PREFIX`). **이름은 곱셈이 성립했을 때만 붙인다** —
  * "대장이와 초코 · 청소비 5만원" 은 우리가 낼 돈이 확정된 것처럼 읽혔다(원문 줄일 뿐인데).
  *
  * 줄을 고르는 순서는 예전 `feeForDog` 그대로다: 최대 몸무게가 들어가는 구간 줄 → 구간이 아닌 첫
@@ -23,6 +23,17 @@ const RANGE_RE = /(\d+)\s*~\s*(\d+)\s*kg/;
 const RANGE_AMOUNT_RE = /^\(?\s*(\d+)\s*~\s*(\d+)\s*kg\s*(\d+(?:\.\d+)?)\s*만\s*원\s*(?:추가)?\s*\)?$/;
 /** 마리당 단일 금액 — "1마리당 3만원". "1마리당 1-2만원" 처럼 범위면 걸리지 않는다. */
 const PER_DOG_RE = /^\(?\s*1\s*마리\s*당\s*(\d+(?:\.\d+)?)\s*만\s*원\s*(?:추가)?\s*\)?$/;
+/**
+ * 마리당이라고 **따로 적어 둔** 단일 금액 — 달중이네 쉬멍 "1마리 이상 2만원 추가. (마리당)". 파서가 뒤따르는 `(마리당)` 을
+ * 줄에 붙여 준다(`petPolicy.ts` 의 `PER_DOG_NOTE_AFTER`). 붙지 않은 "1마리 이상 2만원 추가" 는 정액인지 마리당인지 모른다.
+ */
+const PER_DOG_NOTED_RE = /^1\s*마리\s*이상\s*(\d+(?:\.\d+)?)\s*만\s*원\s*(?:추가)?\s*\(\s*마리\s*당\s*\)$/;
+
+/**
+ * 곱하지 못한 줄 앞에 붙는 말. 예전엔 "원문 요금" 이었다 — '원문' 은 우리 쪽 말이라 사용자에게 무엇인지 안 읽혔다(14 W261007.6).
+ * 이름이 붙지 않는 것이 "우리 강아지 기준이 아니다" 를 말한다.
+ */
+export const RAW_FEE_PREFIX = '적힌 요금 · ';
 
 /**
  * 마릿수·몸무게 중 하나만 맞아도 바뀌는 요금 — "(2마리 또는 10kg 이상 4만원)". 마리당 줄 옆에서만 쓴다(`withAlternative`).
@@ -35,6 +46,9 @@ const stripLine = (line: string): string => line.trim().replace(/^\(\s*/, '').re
 
 /** 만원 단위 문자열 → 원. 소수(1.5만원)는 정수 원으로 올려 부동소수 합산 오차를 피한다. */
 const manwonToWon = (manwon: string): number => Math.round(Number(manwon) * 10000);
+
+/** 40000·70000 → "4만~7만원". 앞쪽의 '원' 은 뗀다. */
+const formatWonRange = (low: number, high: number): string => `${formatWon(low).replace(/원$/, '')}~${formatWon(high)}`;
 
 /** 15000 → "1.5만원", 60000 → "6만원", 5000 → "5,000원". */
 export const formatWon = (won: number): string => {
@@ -82,7 +96,7 @@ const sumByWeightTiers = (policy: TPetPolicy, dog: TDogProfile, names: string): 
 
 /** "1마리당 3만원" × 마릿수. 마릿수 상한을 넘으면 그 요금이 우리에게 적용된다고 볼 수 없어 곱하지 않는다. */
 const multiplyPerDog = (line: string, policy: TPetPolicy, dog: TDogProfile, names: string): string | undefined => {
-  const m = PER_DOG_RE.exec(line);
+  const m = PER_DOG_RE.exec(line) ?? PER_DOG_NOTED_RE.exec(line);
   if (!m) return undefined;
   const n = dog.dogs.length;
   if (policy.maxDogs !== undefined && n > policy.maxDogs) return undefined;
@@ -94,8 +108,11 @@ const multiplyPerDog = (line: string, policy: TPetPolicy, dog: TDogProfile, name
 
 /**
  * 캄(Kalm) "1마리당 3만원. (2마리 또는 10kg 이상 4만원)" — 기본 줄 하나와 **바꿔 붙는** 줄 하나. 둘째 줄은 마리당이 아니라
- * 그 조건일 때의 요금이다("2마리" 가 조건이니 2마리에 4만원이지 8만원이 아니다). 그래서 곱하지 않고 고른다:
- * - 마릿수가 조건 이상이거나 한 마리라도 kg 하한 이상 → 둘째 줄 금액 그대로.
+ * 그 조건일 때의 요금이다. 그래서 곱하지 않고 고른다:
+ * - 한 마리가 kg 하한 이상 → 둘째 줄 금액 그대로(한 마리면 읽기가 하나뿐이다).
+ * - **여러 마리**가 조건에 들면 → **범위**. "2마리에 4만원"(둘째 줄이 합계)과 "첫 마리 3만 + 둘째 4만 = 7만원"(기본 요금에
+ *   더한다)이 둘 다 원문에 맞다 — 평가자 하나가 실제로 7만원으로 읽었다(14 W261007.6). 한쪽을 확정 문장으로 내면 다른 쪽
+ *   보호자에게 틀린 숫자다. 그래서 "4만~7만원" 으로 둘 다 말한다.
  * - 아니면(조건 아래 한 마리) → 첫 줄 금액.
  * 줄이 정확히 이 둘이 아니거나, 마릿수가 조건 마릿수를 넘으면(3마리 — 원문이 말하지 않는다) 물러난다.
  */
@@ -110,14 +127,18 @@ const withAlternative = (policy: TPetPolicy, dog: TDogProfile, names: string): s
   if (policy.maxDogs !== undefined && n > policy.maxDogs) return undefined;
   if (n > count) return undefined;
   const who = withJosa(names, '은/는');
-  if (n === count || dog.dogs.some((d) => d.weightKg >= Number(cond[2]))) return `${who} ${formatWon(manwonToWon(cond[3]))} (${alt})`;
+  if (n === count || dog.dogs.some((d) => d.weightKg >= Number(cond[2]))) {
+    const altWon = manwonToWon(cond[3]);
+    if (n === 1) return `${who} ${formatWon(altWon)} (${alt})`;
+    return `${who} ${formatWonRange(altWon, manwonToWon(each[1]) + altWon)} (${base} · ${alt})`;
+  }
   if (n > 1) return undefined;
   return `${who} ${formatWon(manwonToWon(each[1]))} (${base})`;
 };
 
 /**
  * 요금 구조(`feeRules`, AI 가 뽑은 칸)로 계산한다 — 줄 모양을 정규식으로 읽지 않는다(ADR-017 v5).
- * 원칙은 위와 같다: **확정할 수 없으면 undefined** 를 돌려주고 호출부가 "원문 요금 · …" 으로 물러난다.
+ * 원칙은 위와 같다: **확정할 수 없으면 undefined** 를 돌려주고 호출부가 "적힌 요금 · …" 으로 물러난다.
  *
  * - 칸으로 표현 못 한 줄(`amountWon: null`)이 하나라도 있으면 물러난다 — 그 줄이 우리에게 붙는지 모른다(`hasUnusedCondition` 과 같은 이유).
  * - 마리마다 몸무게에 맞는 `perDog` 줄을 고른다. 몸무게가 어느 줄에도 안 들어가면(19kg 이하 / 20kg 이상 사이의 19.5kg) 물러난다.
@@ -242,7 +263,7 @@ export const formatDogFee = (policy: TPetPolicy, dog: TDogProfile): string | und
     const alternative = withAlternative(policy, dog, names);
     if (alternative) return alternative;
     // 이름을 붙이지 않는다 — 곱하지 못한 줄은 "우리 강아지 기준" 이 아니라 원문을 옮긴 것이다.
-    return `원문 요금 · ${policy.feeLines.map(stripLine).join(' · ')}`;
+    return `${RAW_FEE_PREFIX}${policy.feeLines.map(stripLine).join(' · ')}`;
   }
 
   const alternative = withAlternative(policy, dog, names);
@@ -267,7 +288,7 @@ export const formatDogFee = (policy: TPetPolicy, dog: TDogProfile): string | und
     (candidate) => candidate === line || (/마리|kg/i.test(candidate) && !RANGE_RE.test(candidate)),
   );
   // 이름을 붙이지 않는다 — 곱하지 못한 줄은 "우리 강아지 기준" 이 아니라 원문을 옮긴 것이다.
-  return `원문 요금 · ${shown.map(stripLine).join(' · ')}`;
+  return `${RAW_FEE_PREFIX}${shown.map(stripLine).join(' · ')}`;
 };
 
 /** 원문이 요금의 단위(1박마다 · 한 번)를 말하는 낱말. "숙박일 관계없이 청소비 5만원" 은 한 번이라는 말이다. */

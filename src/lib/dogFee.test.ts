@@ -73,7 +73,7 @@ describe('formatDogFee — 마리당 단일 금액은 마릿수만큼 곱한다'
   });
 
   it('마릿수 상한을 넘으면 곱하지 않는다 — 그 요금이 우리에게 적용된다고 볼 수 없다', () => {
-    expect(formatDogFee(policyWith(['1마리당 3만원'], { maxDogs: 1 }), AKDONG_TOFU)).toBe('원문 요금 · 1마리당 3만원');
+    expect(formatDogFee(policyWith(['1마리당 3만원'], { maxDogs: 1 }), AKDONG_TOFU)).toBe('적힌 요금 · 1마리당 3만원');
     expect(formatDogFee(policyWith(['1마리당 3만원'], { maxDogs: 2 }), AKDONG_TOFU)).toBe(
       '악동이와 두부는 6만원 (1마리당 3만원)',
     );
@@ -112,11 +112,11 @@ describe('formatDogFee — 무게 구간은 마리별 몸무게로 각자 찾아
 
   it('구간 밖이어도 구간이 아닌 요금 줄이 있으면 그 줄로 물러난다(곱하지 않는다)', () => {
     const policy = policyWith(['1~5kg 1만원', '청소비 3만원 추가']);
-    expect(formatDogFee(policy, BORI_AND_KONG)).toBe('원문 요금 · 청소비 3만원 추가');
+    expect(formatDogFee(policy, BORI_AND_KONG)).toBe('적힌 요금 · 청소비 3만원 추가');
   });
 
   it('구간 금액이 범위("1~5kg 1-2만원")면 합산하지 않고 그 줄을 그대로', () => {
-    expect(formatDogFee(policyWith(['1~5kg 1-2만원']), AKDONG)).toBe('원문 요금 · 1~5kg 1-2만원');
+    expect(formatDogFee(policyWith(['1~5kg 1-2만원']), AKDONG)).toBe('적힌 요금 · 1~5kg 1-2만원');
   });
 });
 
@@ -134,19 +134,19 @@ describe('formatDogFee — 다른 줄에 마릿수·무게 조건이 남아 있�
     expect(formatDogFee(kalm, one(kg))).toBe('두부는 4만원 (2마리 또는 10kg 이상 4만원)');
   });
 
-  it('2마리는 둘째 줄 금액 그대로 — 곱하지 않는다(6만원도 8만원도 아니다)', () => {
-    expect(formatDogFee(kalm, AKDONG_TOFU)).toBe('악동이와 두부는 4만원 (2마리 또는 10kg 이상 4만원)');
-    expect(formatDogFee(kalm, BORI_AND_KONG)).toBe('보리와 콩이는 4만원 (2마리 또는 10kg 이상 4만원)');
+  it('2마리는 곱하지 않고 두 읽기의 범위 — 둘째 줄이 합계면 4만원, 기본에 더하면 7만원(14 W261007.6)', () => {
+    expect(formatDogFee(kalm, AKDONG_TOFU)).toBe('악동이와 두부는 4만~7만원 (1마리당 3만원 · 2마리 또는 10kg 이상 4만원)');
+    expect(formatDogFee(kalm, BORI_AND_KONG)).toBe('보리와 콩이는 4만~7만원 (1마리당 3만원 · 2마리 또는 10kg 이상 4만원)');
   });
 
   it('3마리는 원문이 말하지 않는다 — 줄 전부를 그대로', () => {
     const three: TDogProfile = { dogs: [...AKDONG_TOFU.dogs, { name: '콩', weightKg: 3 }], carrier: 'bag' };
-    expect(formatDogFee(kalm, three)).toBe('원문 요금 · 1마리당 3만원 · 2마리 또는 10kg 이상 4만원');
+    expect(formatDogFee(kalm, three)).toBe('적힌 요금 · 1마리당 3만원 · 2마리 또는 10kg 이상 4만원');
   });
 
   it('마릿수 상한을 넘으면 고르지 않는다', () => {
     expect(formatDogFee(policyWith(kalm.feeLines, { maxDogs: 1 }), AKDONG_TOFU)).toBe(
-      '원문 요금 · 1마리당 3만원 · 2마리 또는 10kg 이상 4만원',
+      '적힌 요금 · 1마리당 3만원 · 2마리 또는 10kg 이상 4만원',
     );
   });
 
@@ -163,18 +163,18 @@ describe('formatDogFee — 다른 줄에 마릿수·무게 조건이 남아 있�
   it('구간 합산도 마릿수 상한을 넘으면 하지 않는다', () => {
     const policy = policyWith(['1~5kg 1만원', '6~10kg 1.5만원'], { maxDogs: 1 });
     // 최대 몸무게(8kg)가 들어가는 구간 줄 하나로 물러난다 — 예전 `feeForDog` 와 같은 선택.
-    expect(formatDogFee(policy, AKDONG_TOFU)).toBe('원문 요금 · 6~10kg 1.5만원');
+    expect(formatDogFee(policy, AKDONG_TOFU)).toBe('적힌 요금 · 6~10kg 1.5만원');
   });
 });
 
 describe('formatDogFee — 확실하지 않은 줄은 곱하지 않고 "원문 요금 · {줄}"', () => {
   it.each([
-    ['1마리당 1-2만원', '원문 요금 · 1마리당 1-2만원'],
-    ['5만원', '원문 요금 · 5만원'],
-    ['(2만원 추가)', '원문 요금 · 2만원 추가'],
-    ['1마리 이상 2만원 추가', '원문 요금 · 1마리 이상 2만원 추가'],
-    ['(2마리 또는 10kg 이상 4만원)', '원문 요금 · 2마리 또는 10kg 이상 4만원'],
-    ['숙박일 관계없이 청소비 5만원 추가', '원문 요금 · 숙박일 관계없이 청소비 5만원 추가'],
+    ['1마리당 1-2만원', '적힌 요금 · 1마리당 1-2만원'],
+    ['5만원', '적힌 요금 · 5만원'],
+    ['(2만원 추가)', '적힌 요금 · 2만원 추가'],
+    ['1마리 이상 2만원 추가', '적힌 요금 · 1마리 이상 2만원 추가'],
+    ['(2마리 또는 10kg 이상 4만원)', '적힌 요금 · 2마리 또는 10kg 이상 4만원'],
+    ['숙박일 관계없이 청소비 5만원 추가', '적힌 요금 · 숙박일 관계없이 청소비 5만원 추가'],
   ])('%s', (line, expected) => {
     expect(formatDogFee(policyWith([line]), AKDONG_TOFU)).toBe(expected);
   });
@@ -192,7 +192,7 @@ describe('formatDogFee — 곱하지 못한 줄에는 강아지 이름을 붙이
     };
     const fee = formatDogFee(policy, dog);
     expect(fee?.startsWith('대장이')).toBe(false);
-    expect(fee?.startsWith('원문 요금')).toBe(true);
+    expect(fee?.startsWith('적힌 요금')).toBe(true);
   });
 });
 
@@ -231,7 +231,7 @@ describe('프롬프트 예시 계약 — FEE_EX 가 앱에서 읽히는가', () 
   it('두 경계 사이에 끼는 몸무게는 계산하지 않는다 — 원문이 말하지 않은 칸이다', () => {
     const policy = policyWithRules([FEE_EX.upToKg, FEE_EX.fromKg]);
     const between: TDogProfile = { dogs: [{ name: '보리', weightKg: 19.5 }], carrier: 'none' };
-    expect(formatDogFee(policy, between)).toBe('원문 요금 · 19kg 이하 1마리당 2만원 · 20kg 이상 1마리당 3만원');
+    expect(formatDogFee(policy, between)).toBe('적힌 요금 · 19kg 이하 1마리당 2만원 · 20kg 이상 1마리당 3만원');
   });
 
   /** 애단비 — "한 마리까지 추가금 없고, 두 마리부터 한 마리당 2만원". */
@@ -251,8 +251,8 @@ describe('프롬프트 예시 계약 — FEE_EX 가 앱에서 읽히는가', () 
   // 구조(feeRules)가 없는 옛 후보·시드 길 — `추가 1마리 5만원` 줄을 "1마리 5만원" 으로 곱해 확정 문장을 내면 안 된다.
   it('feeRules 없이 feeLines 만 있는 `추가 1마리 5만원` 은 확정 문장 없이 원문 요금으로 물러난다', () => {
     const policy = policyWith(['추가 1마리 5만원']);
-    expect(formatDogFee(policy, AKDONG)).toBe('원문 요금 · 추가 1마리 5만원');
-    expect(formatDogFee(policy, AKDONG_TOFU)).toBe('원문 요금 · 추가 1마리 5만원');
+    expect(formatDogFee(policy, AKDONG)).toBe('적힌 요금 · 추가 1마리 5만원');
+    expect(formatDogFee(policy, AKDONG_TOFU)).toBe('적힌 요금 · 추가 1마리 5만원');
   });
 
   it('여러 줄이 맞으면 가장 늦게 시작하는 줄이 그 마리의 요금이다', () => {
@@ -265,7 +265,7 @@ describe('프롬프트 예시 계약 — FEE_EX 가 앱에서 읽히는가', () 
   /** "몇째" 는 프로필 행 순서라 몸무게 조건과 섞이면 [25kg, 5kg] 와 [5kg, 25kg] 의 합계가 달라진다. */
   it('몇째 마리 조건과 몸무게 조건이 섞이면 계산하지 않는다', () => {
     const policy = policyWithRules([FEE_EX.fromKg, FEE_EX.fromSecond]);
-    expect(formatDogFee(policy, BORI_AND_KONG)?.startsWith('원문 요금')).toBe(true);
+    expect(formatDogFee(policy, BORI_AND_KONG)?.startsWith('적힌 요금')).toBe(true);
   });
 
   it('청소비는 마릿수와 무관하게 한 번 더한다', () => {
@@ -276,23 +276,23 @@ describe('프롬프트 예시 계약 — FEE_EX 가 앱에서 읽히는가', () 
 
   it('1박마다 붙는 요금은 1박 기준으로 말하고, 한 번 붙는 요금과는 합치지 않는다', () => {
     expect(formatDogFee(policyWithRules([FEE_EX.perNight]), AKDONG_TOFU)).toBe('악동이와 두부는 1박 4만원 (1박당 2만원)');
-    expect(formatDogFee(policyWithRules([FEE_EX.perNight, FEE_EX.cleaning]), AKDONG)).toBe('원문 요금 · 1박당 2만원 · 청소비 5만원');
+    expect(formatDogFee(policyWithRules([FEE_EX.perNight, FEE_EX.cleaning]), AKDONG)).toBe('적힌 요금 · 1박당 2만원 · 청소비 5만원');
   });
 
   /** 칸으로 표현 못 한 줄(금액 범위)은 계산 전체를 멈춘다. */
   it('칸으로 표현 못 한 줄(범위 금액)이 있으면 계산하지 않는다', () => {
     const policy = policyWithRules([FEE_EX.perDog, FEE_EX.amountRange]);
-    expect(formatDogFee(policy, AKDONG_TOFU)).toBe(`원문 요금 · ${FEE_EX.perDog.label} · ${FEE_EX.amountRange.label}`);
+    expect(formatDogFee(policy, AKDONG_TOFU)).toBe(`적힌 요금 · ${FEE_EX.perDog.label} · ${FEE_EX.amountRange.label}`);
   });
 
   /** 캄(Kalm) — 구조는 "또는" 줄을 칸으로 못 담지만(`amountWon: null`), 줄 모양으로 바꿔 붙는 요금을 고른다(14 W261006.2). */
-  it('조건부 줄(2마리 또는 10kg 이상)은 구조가 못 담아도 줄 모양으로 고른다 — 2마리는 6만원이 아니라 4만원', () => {
+  it('조건부 줄(2마리 또는 10kg 이상)은 구조가 못 담아도 줄 모양으로 고른다 — 2마리는 6만원이 아니라 4만~7만원', () => {
     const policy = policyWithRules([FEE_EX.perDog, FEE_EX.conditional]);
-    expect(formatDogFee(policy, AKDONG_TOFU)).toBe(`악동이와 두부는 4만원 (${FEE_EX.conditional.label})`);
+    expect(formatDogFee(policy, AKDONG_TOFU)).toBe(`악동이와 두부는 4만~7만원 (${FEE_EX.perDog.label} · ${FEE_EX.conditional.label})`);
   });
 
   it('마릿수 상한을 넘으면 계산하지 않는다', () => {
-    expect(formatDogFee(policyWithRules([FEE_EX.perDog], { maxDogs: 1 }), AKDONG_TOFU)?.startsWith('원문 요금')).toBe(true);
+    expect(formatDogFee(policyWithRules([FEE_EX.perDog], { maxDogs: 1 }), AKDONG_TOFU)?.startsWith('적힌 요금')).toBe(true);
   });
 
   /** 조건부 줄의 `10kg 이상` 은 판정이 대형견 보호자에게 알리는 근거다(`eligibility.ts` 의 `FEE_MIN_KG_RE`). */
@@ -335,7 +335,7 @@ describe('feeChipForWeight — 카드의 요금 칩 하나를 우리 강아지 �
     };
     expect(feeChipForWeight(labels, 5, 1)).toBe('1마리당 3만원');
     expect(feeChipForWeight(labels, 5, 2)).toBe('2마리 또는 10kg 이상 4만원');
-    expect(formatDogFee(policy, twoSmall)).toBe('악동이와 두부는 4만원 (2마리 또는 10kg 이상 4만원)');
+    expect(formatDogFee(policy, twoSmall)).toBe('악동이와 두부는 4만~7만원 (1마리당 3만원 · 2마리 또는 10kg 이상 4만원)');
     // 마릿수 조건만 있는 줄은 조건 아래면 기본 줄로 — "2마리 이상" 이 한 마리에게 서지 않는다
     expect(feeChipForWeight(['2마리 이상 5만원', '1마리당 2만원'], 5, 1)).toBe('1마리당 2만원');
     expect(feeChipForWeight(['2마리 이상 5만원', '1마리당 2만원'], 5, 2)).toBe('2마리 이상 5만원');
@@ -388,6 +388,33 @@ describe('feeUnitNote — 1박마다인지 원문이 말하지 않으면 상세�
   it('"1박당" · "1회" 를 말하는 원문은 붙이지 않는다', () => {
     const policy = parsePetPolicy('1마리당 2만원.');
     expect(feeUnitNote('stay', '1박당 1마리 2만원.', policy, '악동은 2만원')).toBeNull();
-    expect(feeUnitNote('stay', '1회 청소비 3만원.', policy, '원문 요금 · 청소비 3만원')).toBeNull();
+    expect(feeUnitNote('stay', '1회 청소비 3만원.', policy, '적힌 요금 · 청소비 3만원')).toBeNull();
+  });
+});
+
+/** 14 W261007.6 — 요금 한 줄이 받아 주는지보다 앞서지 않게, 따로 적힌 `(마리당)` 도 읽게. */
+describe('요금 한 줄 — 받아 주는지·마리당 주석(14 W261007.6)', () => {
+  const BORI: TDogProfile = { dogs: [{ name: '보리', weightKg: 30 }], carrier: 'none' };
+
+  it('달중이네 쉬멍 — 다음 문장의 "(마리당)" 을 붙여 합계를 낸다', () => {
+    const p = parsePetPolicy('최대 3마리까지 가능. (15kg까지)\n1마리 이상 2만원 추가. (마리당)');
+    expect(p.feeLines).toEqual(['1마리 이상 2만원 추가 (마리당)']);
+    expect(formatDogFee(p, AKDONG)).toBe('악동이는 2만원');
+    expect(formatDogFee(p, AKDONG_TOFU)).toBe('악동이와 두부는 4만원 (1마리당 2만원)');
+  });
+
+  it('"(마리당)" 이 없으면 정액인지 몰라 곱하지 않는다', () => {
+    expect(formatDogFee(parsePetPolicy('1마리 이상 2만원 추가.'), AKDONG_TOFU)).toBe('적힌 요금 · 1마리 이상 2만원 추가');
+  });
+
+  it('돌담연가 — 대형견 언급이 없어 받아 주는지 확인해야 하면 "받아 준다면"', () => {
+    const p = parsePetPolicy('1마리당 5만원.');
+    expect(judgeEligibility(BORI, p).fee).toBe('받아 준다면 보리는 5만원');
+    expect(judgeEligibility(AKDONG, p).fee).toBe('악동이는 5만원');
+  });
+
+  it('야외 자리·전화 먼저 같은 확인은 받아 주는 곳이라 붙이지 않는다', () => {
+    const p = parsePetPolicy('야외석만 가능. 1마리당 1만원.');
+    expect(judgeEligibility(AKDONG, p).fee).toBe('악동이는 1만원');
   });
 });
