@@ -633,7 +633,9 @@ describe('judgeEligibility — 실내 조건을 모르는 식당·카페에 실�
   });
 
   it('시드(확인 기록이 있는 곳)의 식당·카페는 이 규칙에 안 걸린다 — 모두 실내·야외 중 하나를 읽었다', () => {
-    const hit = PLACES.filter((p) => p.verifiedAt && p.type !== 'stay')
+    const seeds = PLACES.filter((p) => p.verifiedAt && p.type !== 'stay');
+    expect(seeds.length).toBeGreaterThan(0);
+    const hit = seeds
       .filter((p) => judgeEligibility(TOFU, p.policy, { needsIndoor: true }).reasons.some((r) => r.rule === 'C12'))
       .map((p) => p.name);
     expect(hit).toEqual([]);
