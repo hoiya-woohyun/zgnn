@@ -212,7 +212,8 @@ function AdminPagePostsList({
     setPicked(new Set());
     setBulk({});
     setNotice(undefined);
-    if (nextFilter === 'analyzed' && !versions) void readVersions();
+    // 못 셌던 적이 있으면(`error`) 분석됨 칩을 다시 누를 때 다시 센다 — 쓰기가 있어야만 풀리지 않게.
+    if (nextFilter === 'analyzed' && !versions?.data) void readVersions();
     void read(nextFilter, nextPage, nextVersion);
   };
 
