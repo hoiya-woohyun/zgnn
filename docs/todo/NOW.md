@@ -35,7 +35,6 @@
 
 ## 지금 (위에서부터)
 
-- [ ] 포커스가 하단 탭바 밑에 숨지 않게(`scroll-padding-bottom` = 탭바 높이) — [14 W261007.15](14-weekly-ux-eval.md) · 왜 지금: 홈 Tab 42곳 중 11곳이 가려진다(WCAG 2.4.11) · 작다
 - [ ] '가까운 순' 을 위치 권한 없이 고르면 이유를 말한다 — [14 W261007.16](14-weekly-ux-eval.md) · 왜 지금: 합의 2/6 · 먼저 `placesPage.tsx` 의 `LOCATE_NOTICE` 가 이미 그 일을 하는지 본다(명세가 낡았으면 메모로 닫는다)
 - [ ] 19 문서 묶음(features/area-cards.md · ADR-027 · 18 v+1 · CLAUDE.md 표 · ux-eval 「동네 카드」 회차 줄) — [19 T5](19-area-cards.md) · 왜 지금: 카드가 나가면 바로 · **19 T4 뒤**(없으면 `claim.mjs release` 하고 다음 줄)
 

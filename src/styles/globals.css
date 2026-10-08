@@ -63,6 +63,12 @@
   html {
     background-color: var(--color-bg-secondary);
     -webkit-text-size-adjust: 100%;
+    /* Tab 으로 옮긴 포커스가 하단 탭바·솟은 원(16px) 밑에 숨지 않게(WCAG 2.2 SC 2.4.11, 14 W261007.15).
+       브라우저가 포커스를 화면 안으로 끌어올 때 이만큼을 화면 밖으로 친다. 탭바는 768px 미만에만 있다. */
+    scroll-padding-bottom: calc(var(--tab-bar-h) + 16px + env(safe-area-inset-bottom, 0px));
+    @media (width >= 768px) {
+      scroll-padding-bottom: 0;
+    }
   }
 
   body {
