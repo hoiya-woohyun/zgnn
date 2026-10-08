@@ -1,10 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { areaOf } from './areaGroups';
-import { areaReleaseCount, filterPlacesPage, filtersOfPlaceType, placesByTown, placesOfTypeInArea, placesPageChips, townReleaseCount } from './placesPageFilter';
-import { placesOfType } from './places';
-import type { TPlaceType } from '../types';
+import { AREAS, areaOf, countByArea } from './areaGroups';
+import { judgeEligibility } from './eligibility';
+import {
+  areaReleaseCount,
+  filterPlacesPage,
+  filtersOfPlaceType,
+  placesByTown,
+  placesOfTypeInArea,
+  placesPageChips,
+  reachableReleaseCount,
+  townReleaseCount,
+} from './placesPageFilter';
+import { PLACES, placesOfType } from './places';
+import type { TDogProfile, TPlaceType } from '../types';
 
-const base = { town: null, area: null, query: '', directions: [], petKeys: [], hideHard: false, eligibilityMap: null } as const;
+const base = { town: null, area: null, query: '', directions: [], petKeys: [], hideHard: false, onlyReachable: false, eligibilityMap: null } as const;
 const TYPES: TPlaceType[] = ['stay', 'restaurant', 'cafe'];
 
 describe('filterPlacesPage', () => {
@@ -120,5 +130,58 @@ describe('placesPageChips', () => {
   it('강아지가 없으면 숨김 칩을 안 그린다 · 검색어만이면 개수 0 에 hasFilters', () => {
     expect(placesPageChips({ ...chipBase, hasDog: false, hideHard: true }).chips).toEqual([]);
     expect(placesPageChips({ ...chipBase, query: '카레' })).toMatchObject({ activeFilterCount: 0, hasFilters: true });
+  });
+});
+
+describe("'갈 수 있는 곳만'(19 T4.1)", () => {
+  const DUBU: TDogProfile = { dogs: [{ name: '두부', weightKg: 3 }], carrier: 'bag' };
+  const BORI: TDogProfile = { dogs: [{ name: '보리', weightKg: 30 }], carrier: 'none' };
+  const KONG_HAPPY: TDogProfile = { dogs: [{ name: '콩', weightKg: 2.5 }, { name: '해피', weightKg: 12 }], carrier: 'stroller' };
+  const mapOf = (dog: TDogProfile, opts: { needsIndoor?: boolean } = {}) =>
+    new Map(PLACES.map((place) => [place.id, judgeEligibility(dog, place.policy, opts)]));
+
+  // 카드가 센 수 = 카드를 눌러 연 목록의 수. 진입(`enterArea`)이 거는 조건 그대로 — 권역 + '갈 수 있는 곳만', 나머지는 기본값.
+  it.each([
+    ['두부', DUBU, {}],
+    ['보리', BORI, {}],
+    ['콩+해피', KONG_HAPPY, {}],
+    ['보리 · 실내 자리 필요', BORI, { needsIndoor: true }],
+  ] as const)('%s — 6권역 × 숙소·카페 모두 카드 수와 목록 수가 같다', (_, dog, opts) => {
+    const counts = countByArea(PLACES, dog, opts);
+    const eligibilityMap = mapOf(dog, opts);
+    for (const { id } of AREAS) {
+      for (const type of ['stay', 'cafe'] as const) {
+        const opened = filterPlacesPage({ ...base, type, area: id, onlyReachable: true, eligibilityMap });
+        expect(opened, `${id}/${type}`).toHaveLength(counts[id][type].ok + counts[id][type].outdoor);
+      }
+    }
+  });
+
+  it("'어려운 곳 숨기기' 로는 같아지지 않는다 — 이 조건을 따로 둔 이유(보리 · 서남 숙소)", () => {
+    const eligibilityMap = mapOf(BORI);
+    const card = countByArea(PLACES, BORI).southwest.stay;
+    const hidden = filterPlacesPage({ ...base, type: 'stay', area: 'southwest', hideHard: true, eligibilityMap });
+    expect(hidden.length).toBeGreaterThan(card.ok + card.outdoor);
+  });
+
+  it('판정 맵이 없으면(강아지 없음) 거르지 않고 칩도 없다', () => {
+    expect(filterPlacesPage({ ...base, type: 'cafe', onlyReachable: true })).toHaveLength(placesOfType('cafe').length);
+    const chipBase = { type: 'cafe' as const, town: null, needsIndoor: false, directions: [], petKeys: [], hideHard: false, query: '' };
+    expect(placesPageChips({ ...chipBase, hasDog: false, onlyReachable: true }).chips).toEqual([]);
+  });
+
+  it('칩은 권역 바로 뒤, 시트 버튼 숫자(activeFilterCount)에는 안 센다', () => {
+    const chipBase = { type: 'stay' as const, town: null, needsIndoor: false, hasDog: true, directions: [], petKeys: [], hideHard: false, query: '' };
+    const result = placesPageChips({ ...chipBase, area: 'west', onlyReachable: true });
+    expect(result.chips.map((chip) => chip.key)).toEqual(['area', 'onlyReachable']);
+    expect(result.activeFilterCount).toBe(0);
+  });
+
+  it('0곳이면 이 조건 하나만 푼 수를 센다 — 꺼져 있거나 맵이 없으면 0', () => {
+    const eligibilityMap = mapOf(BORI);
+    const conditions = { ...base, type: 'stay' as const, area: 'southwest' as const, onlyReachable: true, eligibilityMap };
+    expect(reachableReleaseCount(conditions)).toBe(filterPlacesPage({ ...conditions, onlyReachable: false }).length);
+    expect(reachableReleaseCount({ ...conditions, onlyReachable: false })).toBe(0);
+    expect(reachableReleaseCount({ ...conditions, eligibilityMap: null })).toBe(0);
   });
 });

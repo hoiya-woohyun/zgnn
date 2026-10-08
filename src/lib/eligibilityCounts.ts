@@ -1,5 +1,5 @@
 import type { TCarrier, TDogProfile } from '../types';
-import { isOutdoorSeatOnly, judgeEligibility, type TEligibilityLevel } from './eligibility';
+import { isOutdoorSeatOnly, judgeEligibility, type TEligibility, type TEligibilityLevel } from './eligibility';
 import type { TPetPolicy } from './petPolicy';
 
 /**
@@ -32,6 +32,14 @@ export const countByLevel = (
 };
 
 /**
+ * 판정 하나가 "갈 수 있는 곳" 인가 — `ok` 또는 야외 자리만 되는 곳. `countByLevel` 의 `ok + outdoor` 칸과 같은 말이다.
+ * `reachablePlaces`(히어로 시트)와 둘러보기의 '갈 수 있는 곳만'(`filterPlacesPage`, 19 T4.1)이 이 술어 하나를 쓴다 —
+ * 두 벌이면 카드 "묵을 곳 1" 을 눌러 2곳을 본다.
+ */
+export const isReachable = (eligibility: TEligibility): boolean =>
+  eligibility.level === 'ok' || isOutdoorSeatOnly(eligibility);
+
+/**
  * 우리 강아지가 **갈 수 있는** 곳 — 판정 `ok` 와 야외 자리만 되는 곳(`isOutdoorSeatOnly`). 홈 히어로의
  * "두부가 갈 수 있는 곳 N곳" 이 이 길이로 세고, 누르면 이 곳들을 시트로 펼친다(14 W261007.12).
  * 수와 펼치는 곳이 한 함수에서 나와야 한다 — 따로 세면 한쪽만 고쳐도 빌드·테스트가 통과하고 "44곳" 을 눌러 43곳을 본다.
@@ -48,8 +56,8 @@ export const reachablePlaces = <T extends { policy: TPetPolicy }>(
   const outdoor: T[] = [];
   for (const place of places) {
     const eligibility = judgeEligibility(dog, place.policy, opts);
-    if (eligibility.level === 'ok') ok.push(place);
-    else if (isOutdoorSeatOnly(eligibility)) outdoor.push(place);
+    if (!isReachable(eligibility)) continue;
+    (eligibility.level === 'ok' ? ok : outdoor).push(place);
   }
   return [...ok, ...outdoor];
 };

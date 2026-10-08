@@ -4,7 +4,7 @@ import { useMemo, type RefObject } from 'react';
 import { PlacesPageResults } from './placesPageResults';
 import { resetFiltersLabel } from '../lib/placeFilters';
 import { otherTypeMatches } from '../lib/placeSearch';
-import { areaReleaseCount, filterPlacesPage, placesByTown, placesOfTypeInArea, placesPageChips, townReleaseCount } from '../lib/placesPageFilter';
+import { areaReleaseCount, filterPlacesPage, placesByTown, placesOfTypeInArea, placesPageChips, reachableReleaseCount, townReleaseCount } from '../lib/placesPageFilter';
 import { sortByEligibility } from '../lib/sortByEligibility';
 import { useAppStore, useDog } from '../store/useAppStore';
 import { useEligibilityMap } from '../store/useDogEligibility';
@@ -42,15 +42,16 @@ export function PlacesPageSwipePeek({ ref, type, side, top, height }: TPlacesPag
   const query = usePlacesPageFilterStore((state) => state.query);
   const directions = usePlacesPageFilterStore((state) => state.directions);
   const hideHard = usePlacesPageFilterStore((state) => state.hideHard);
+  const onlyReachable = usePlacesPageFilterStore((state) => state.onlyReachable);
   const petKeys = usePlacesPageFilterStore((state) => state.petKeysByType[type]);
   const area = usePlacesPageFilterStore((state) => state.area);
 
   const byTown = useMemo(() => placesByTown(type, town), [type, town]);
 
   const results = useMemo(() => {
-    const filtered = filterPlacesPage({ type, town, area, query, directions, petKeys, hideHard, eligibilityMap });
+    const filtered = filterPlacesPage({ type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap });
     return eligibilityMap ? sortByEligibility(filtered, eligibilityMap, (place) => place.id) : filtered;
-  }, [type, town, area, query, directions, petKeys, hideHard, eligibilityMap]);
+  }, [type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap]);
 
   // 본 화면과 같은 이유로 0곳일 때만 센다 — 엿보기도 같은 빈 상태를 그려야 손을 놓아도 안 튄다.
   const otherTypes = useMemo(
@@ -58,10 +59,10 @@ export function PlacesPageSwipePeek({ ref, type, side, top, height }: TPlacesPag
     [results.length, type, query, town, area],
   );
   const released = useMemo(() => {
-    if (results.length > 0) return { town: 0, area: 0 };
-    const conditions = { type, town, area, query, directions, petKeys, hideHard, eligibilityMap };
-    return { town: townReleaseCount(conditions), area: areaReleaseCount(conditions) };
-  }, [results.length, type, town, area, query, directions, petKeys, hideHard, eligibilityMap]);
+    if (results.length > 0) return { town: 0, area: 0, reachable: 0 };
+    const conditions = { type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap };
+    return { town: townReleaseCount(conditions), area: areaReleaseCount(conditions), reachable: reachableReleaseCount(conditions) };
+  }, [results.length, type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap]);
 
   const { chips, activeFilterCount, hasFilters } = placesPageChips({
     type,
@@ -72,6 +73,7 @@ export function PlacesPageSwipePeek({ ref, type, side, top, height }: TPlacesPag
     directions,
     petKeys,
     hideHard,
+    onlyReachable,
     query,
   });
 
@@ -102,6 +104,8 @@ export function PlacesPageSwipePeek({ ref, type, side, top, height }: TPlacesPag
         area={area}
         areaReleaseCount={released.area}
         onClearArea={noop}
+        reachableReleaseCount={released.reachable}
+        onClearOnlyReachable={noop}
       />
     </div>
   );

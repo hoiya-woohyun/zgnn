@@ -13,13 +13,15 @@ import type { TDirection, TPlaceType } from '../types';
  * 해서, 따라오면 다른 탭에서 칩과 숫자만 있고 아무 일도 안 하는 조건이 된다. 읍면·'실내 자리 필요' 는 이미 `useAppStore` 에 있다.
  *
  * 권역(`area`, 19 T3)이 여기 사는 이유도 같다 — 읍면(`town`, 퍼시스트)은 카페 탭·다음 방문까지 샜다(ux-expert M-5).
- * 홈 동네 카드는 `enterArea` 하나로 권역·'어려운 곳 숨기기' 를 함께 걸고 검색어를 비운다. 관광지 칩(검색어)과 권역은 서로를 지운다 —
+ * 홈 동네 카드는 `enterArea` 하나로 권역·'갈 수 있는 곳만' 을 함께 걸고 검색어를 비운다(카드가 센 수 = 열린 목록 수, 19 T4.1). 관광지 칩(검색어)과 권역은 서로를 지운다 —
  * 홈에서 들어오는 길 둘이 겹쳐 이유 없이 0곳이 되지 않게.
  */
 type TPlacesPageFilterState = {
   query: string;
   directions: TDirection[];
   hideHard: boolean;
+  /** '갈 수 있는 곳만'(19 T4.1) — 동네 카드가 권역과 함께 건다. 권역처럼 시트에 자리가 없고 칩으로만 푼다. */
+  onlyReachable: boolean;
   /** 6권역. 시트에는 없고 검색 줄 밑 한 줄로만 보인다(`PlacesPageAreaLine`). */
   area: TAreaId | null;
   /** 조건 항목이 종류마다 달라서(숙소엔 환경 조건) 종류별로 따로 둔다 — 숙소 → 식당 → 숙소 로 돌아오면 숙소 칩이 그대로다. */
@@ -28,9 +30,10 @@ type TPlacesPageFilterState = {
   clearQuery: () => void;
   /** 홈 관광지 칩의 진입 — 검색어를 바꾸고 권역은 푼다. */
   enterLandmark: (word: string) => void;
-  /** 홈 동네 카드의 진입 — 권역 + '어려운 곳 숨기기'(강아지가 없으면 거르지 않는다), 검색어는 비운다. 숙소 탭으로 가는 것은 부르는 쪽(`usePlacesPageAreaEntry`). */
+  /** 홈 동네 카드의 진입 — 권역 + '갈 수 있는 곳만'(카드가 센 집합, 강아지가 없으면 거르지 않는다), 검색어는 비운다. 숙소 탭으로 가는 것은 부르는 쪽(`usePlacesPageAreaEntry`). */
   enterArea: (area: TAreaId) => void;
   clearArea: () => void;
+  clearOnlyReachable: () => void;
   toggleDirection: (direction: TDirection) => void;
   toggleHideHard: () => void;
   setHideHard: (value: boolean) => void;
@@ -45,13 +48,15 @@ export const usePlacesPageFilterStore = create<TPlacesPageFilterState>()((set) =
   query: '',
   directions: [],
   hideHard: false,
+  onlyReachable: false,
   area: null,
   petKeysByType: emptyPetKeys(),
   setQuery: (query) => set({ query }),
   clearQuery: () => set({ query: '' }),
-  enterLandmark: (word) => set({ query: word, area: null }),
-  enterArea: (area) => set({ area, hideHard: true, query: '' }),
+  enterLandmark: (word) => set({ query: word, area: null, onlyReachable: false }),
+  enterArea: (area) => set({ area, onlyReachable: true, query: '' }),
   clearArea: () => set({ area: null }),
+  clearOnlyReachable: () => set({ onlyReachable: false }),
   toggleDirection: (direction) =>
     set((state) => ({
       directions: state.directions.includes(direction)

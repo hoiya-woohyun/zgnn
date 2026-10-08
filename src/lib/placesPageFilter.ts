@@ -3,6 +3,7 @@ import { DIRECTION_LABEL, placesOfType, type TPlaceEntry } from './places';
 import { PET_FILTERS, carriedFilterChips, envFiltersWithData, type TPetFilter, type TPetFilterKey } from './placeFilters';
 import { matchesQuery } from './placeSearch';
 import type { TEligibility } from './eligibility';
+import { isReachable } from './eligibilityCounts';
 import type { TDirection, TPlaceType } from '../types';
 
 /**
@@ -40,12 +41,17 @@ export type TPlacesPageConditions = {
   /** **이 종류의** 반려동물·환경 조건 키. */
   petKeys: readonly TPetFilterKey[];
   hideHard: boolean;
-  /** 강아지가 없으면 null — 그때 hideHard 는 걸러 내지 않는다. */
+  /**
+   * '갈 수 있는 곳만'(19 T4.1) — 가능 + 야외 자리(`isReachable`). 홈 동네 카드가 권역과 함께 건다: 카드 "묵을 곳 n" 이 그 셈이라
+   * `hideHard`(어려움만 뺀다)로는 확인·정보 없음이 남아 "1곳" 을 눌러 2곳을 봤다. 시트에는 없다(권역처럼 칩으로만 푼다).
+   */
+  onlyReachable: boolean;
+  /** 강아지가 없으면 null — 그때 hideHard·onlyReachable 은 걸러 내지 않는다. */
   eligibilityMap: Map<string, TEligibility> | null;
 };
 
 /**
- * 정렬 전의 걸러진 목록. 순서는 읍면 → 권역 → 검색어 → 방향 → 반려동물·환경 조건 → 어려운 곳 숨기기.
+ * 정렬 전의 걸러진 목록. 순서는 읍면 → 권역 → 검색어 → 방향 → 반려동물·환경 조건 → 어려운 곳 숨기기 → 갈 수 있는 곳만.
  * 정렬은 호출하는 쪽 몫이다 — 가까운 순·가격순은 화면 로컬 상태(`sort`·`origin`)라 엿보기는 갖지 않는다.
  *
  * "실내 자리 필요"(needsIndoor)는 판정(`judgeEligibility` opts)이 야외 전용 장소를 어려움으로 밀어 올리므로
@@ -59,6 +65,7 @@ export const filterPlacesPage = ({
   directions,
   petKeys,
   hideHard,
+  onlyReachable,
   eligibilityMap,
 }: TPlacesPageConditions): TPlaceEntry[] => {
   let list = placesByTown(type, town);
@@ -72,6 +79,10 @@ export const filterPlacesPage = ({
   if (activeTests.length > 0) list = list.filter((place) => activeTests.every((filter) => filter.test(place.policy, place)));
 
   if (hideHard && eligibilityMap) list = list.filter((place) => eligibilityMap.get(place.id)?.level !== 'hard');
+  if (onlyReachable && eligibilityMap) list = list.filter((place) => {
+    const eligibility = eligibilityMap.get(place.id);
+    return eligibility !== undefined && isReachable(eligibility);
+  });
   return list;
 };
 
@@ -94,11 +105,18 @@ export const townReleaseCount = (conditions: TPlacesPageConditions): number =>
 export const areaReleaseCount = (conditions: TPlacesPageConditions): number =>
   conditions.area === null ? 0 : filterPlacesPage({ ...conditions, area: null }).length;
 
+/**
+ * 0곳일 때 **'갈 수 있는 곳만' 하나만** 풀면 몇 곳인가(19 T4.1). 꺼져 있으면 0. 동네 카드 "묵을 곳 0" 도 누를 수 있어서,
+ * 열면 0곳이다 — 그 권역의 확인·정보 없음 곳은 있는데 권역을 통째로 풀라고 하면 방금 고른 동네를 잃는다. 그래서 권역보다 먼저 본다.
+ */
+export const reachableReleaseCount = (conditions: TPlacesPageConditions): number =>
+  conditions.onlyReachable && conditions.eligibilityMap ? filterPlacesPage({ ...conditions, onlyReachable: false }).length : 0;
+
 export type TPlacesPageChip = { key: string; label: string };
 
 /**
  * 켜진 조건을 이름으로. 순서는 권역 → 따라오는 것(읍면·실내) → 방향 → 반려동물 → 정렬 → 어려운 곳 숨김 → 검색어.
- * `activeFilterCount` 는 **검색어·권역을 뺀** 칩 수다 — 검색어는 검색창에 보이고 권역은 시트에 고르는 자리가 없다(홈 동네 카드만 건다, 19 T3).
+ * `activeFilterCount` 는 **검색어·권역·'갈 수 있는 곳만' 을 뺀** 칩 수다 — 검색어는 검색창에 보이고 뒤의 둘은 시트에 고르는 자리가 없다(홈 동네 카드만 건다, 19 T3·T4.1).
  * 접힌 시트 버튼의 숫자는 시트 안에서 끌 수 있는 것의 수여야 한다. 권역은 맨 앞 — 목록 전체의 테두리라 먼저 읽혀야 한다.
  * `sortLabel` 은 본 화면만 준다(정렬은 종류를 바꾸면 리셋되므로 엿보기엔 늘 없다).
  */
@@ -112,9 +130,11 @@ export const placesPageChips = ({
   petKeys,
   sortLabel = null,
   hideHard,
+  onlyReachable = false,
   query,
 }: Pick<TPlacesPageConditions, 'type' | 'town' | 'directions' | 'petKeys' | 'hideHard'> & {
   area?: TAreaId | null;
+  onlyReachable?: boolean;
   needsIndoor: boolean;
   hasDog: boolean;
   sortLabel?: string | null;
@@ -132,6 +152,7 @@ export const placesPageChips = ({
   ];
   const chips = [
     ...(area ? [{ key: 'area', label: areaTownsLabel(area) }] : []),
+    ...(hasDog && onlyReachable ? [{ key: 'onlyReachable', label: '갈 수 있는 곳만' }] : []),
     ...conditionChips,
     ...(trimmedQuery ? [{ key: 'query', label: `"${trimmedQuery}"` }] : []),
   ];

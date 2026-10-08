@@ -66,6 +66,9 @@ type TPlacesPageResultsProps = {
   areaReleaseCount?: number;
   /** 권역만 푼다 — 권역 탓으로 0곳일 때 빈 상태의 버튼. */
   onClearArea?: () => void;
+  /** 0곳일 때 '갈 수 있는 곳만' 을 풀면 몇 곳인가(`reachableReleaseCount`, 19 T4.1). */
+  reachableReleaseCount?: number;
+  onClearOnlyReachable?: () => void;
 };
 
 /**
@@ -95,6 +98,8 @@ export function PlacesPageResults({
   area = null,
   areaReleaseCount = 0,
   onClearArea,
+  reachableReleaseCount = 0,
+  onClearOnlyReachable,
 }: TPlacesPageResultsProps) {
   const dog = useAppStore((state) => state.dog);
   const needsIndoor = useAppStore((state) => state.needsIndoor);
@@ -280,6 +285,21 @@ export function PlacesPageResults({
               action={
                 <Button color="primary" size="md" onClick={onClearTown}>
                   {`${town} 풀고 ${townReleaseCount}곳 보기`}
+                </Button>
+              }
+            />
+          ) : reachableReleaseCount > 0 ? (
+            /*
+              '갈 수 있는 곳만' 이 원인이면(19 T4.1) — 동네 카드 "묵을 곳 0" 을 눌러 들어온 길. 권역보다 먼저 본다: 권역을 풀면
+              방금 고른 동네를 잃고, 그 동네엔 확인·정보 없음 곳이 남아 있다. "없어요" 가 아니라 '확인된 곳' 이 없다고 말한다(19 §1).
+            */
+            <EmptyState
+              Icon={SearchMd}
+              title={`갈 수 있다고 확인된 ${withJosa(TYPE_META[type].label, '은/는')} 아직 없어요`}
+              description={`'갈 수 있는 곳만' 을 풀면 ${reachableReleaseCount}곳이 있어요.`}
+              action={
+                <Button color="primary" size="md" onClick={onClearOnlyReachable}>
+                  {`풀고 ${reachableReleaseCount}곳 보기`}
                 </Button>
               }
             />
