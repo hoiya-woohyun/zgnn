@@ -51,6 +51,7 @@
 
 ## 기다림 (사람 손·결정)
 
+- 🙋 서버 워커(Vercel `zgnn-worker`)를 들일지 — [ADR-028](../decisions/ADR-028-vercel-remote-worker.md) · [20](20-vercel-remote-worker.md) · 권고: **들인다**(실측으로 `setup-token` + `claude -p` 가 함수 안에서 돈다, DB 장기 키는 안 생긴다). 채택하면 20 T1~T7 은 에이전트 몫, T8 env 등록은 🧑
 - 🧑 작업 트리에 **커밋 안 된 ADR-009 v4**(준비물 탭 개편 — 16파일, 신규 `checklistPageItemSheet.tsx`, 삭제 `itemGroups.ts`·`seasonChips.tsx`)가 있다. 2026-10-08 /next 세션이 주인을 못 찾았다(트랜스크립트에 그 파일을 쓴 세션이 없다) — [ADR-009](../decisions/ADR-009-trip-derived-checklist.md) · [14 W261007.13](14-weekly-ux-eval.md) · 명령: 하던 쪽이 `git status` 로 보고 커밋. 그 커밋 전엔 HEAD 의 탭이 저장 숙소의 '간식 어메니티' 로 간식을 지운다(14 메모가 v4 로 닫힌다고 적은 셋)
 - 🧑 포크 게시 소개문에서 '대형견과 실내에서 함께 머물 수 있어요' 를 빼기(원글에 근거 없음, C12 '확인' 바로 위에서 반대를 말한다) — [13 §5.2 P2](13-ai-analysis-audit-2026-10-04.md) · 명령: `/admin` 에서 포크(aef2f05a) 소개를 "…아기자기한 소품이 많고 안쪽에 1인 좌석도 있어요." 로 고쳐 저장(또는 "해도 돼" 라고 하면 Claude 가 `places.features` 단건 update)
 - 🙋 확인일에 "무엇으로"(후기·전화·현장·제보)를 붙일지 — [14 W261007.17](14-weekly-ux-eval.md) 뒤 절반 · 권고: **붙인다**, 단 `places.verified_method` 칸 + 마이그레이션(🧑 `supabase db push`)이 먼저 — 지금은 날짜를 찍는 길 셋 모두 방법을 안 남겨 지어낼 수밖에 없다. 결정되면 마이그레이션·`/admin` 세 길·`placeFreshness` 한 줄은 에이전트 몫
