@@ -517,14 +517,19 @@ export function parseExtraction(result) {
  */
 // `claude` 자식에 넘기는 env 는 허용 목록이다 — 거부 목록은 아직 이름이 없는 시크릿(POSTGRES_URL·VERCEL_TOKEN·GH_TOKEN…)을 못 거른다(리뷰 지적).
 // 프로세스·로케일·네트워크 경로(프록시·CA)·CLI 자신의 설정 위치·모델 선택만. 인증 토큰 env 는 넘기지 않는다 — 인증은 HOME 의 키체인 로그인이
-// 전부다(ADR-016 · 로컬 실행만). CLAUDECODE 는 일부러 뺀다 — 대화형 세션 안에서 돌릴 때 중첩 표시.
+// 전부다(ADR-016). 예외는 서버 워커 하나(아래 `WORKER_RUNTIME`). CLAUDECODE 는 일부러 뺀다 — 대화형 세션 안에서 돌릴 때 중첩 표시.
 const CLAUDE_CHILD_ENV_KEEP = [
   'PATH', 'HOME', 'USER', 'SHELL', 'TERM', 'TMPDIR', 'LANG', 'LC_ALL', 'LC_CTYPE', 'TZ',
   'HTTP_PROXY', 'HTTPS_PROXY', 'NO_PROXY', 'http_proxy', 'https_proxy', 'no_proxy', 'SSL_CERT_FILE', 'NODE_EXTRA_CA_CERTS',
   'XDG_CONFIG_HOME', 'CLAUDE_CONFIG_DIR', 'ANALYZE_MODEL',
 ];
+// 서버 워커(Vercel `zgnn-worker`, ADR-028 결정 6)에는 키체인이 없어 `claude setup-token` 의 env 토큰이 인증의 전부다 — 그때만 넘긴다.
+// 표식은 진입점(`worker/entry/run.mjs`)이 프로세스 env 에 적는다. 로컬은 env 에 토큰이 있어도 그대로 빠진다(그 머신의 `claude` 는 키체인 로그인으로 돈다).
+export const WORKER_RUNTIME = 'vercel';
 export function claudeChildEnv(env) {
-  return Object.fromEntries(CLAUDE_CHILD_ENV_KEEP.filter((k) => env[k] !== undefined).map((k) => [k, env[k]]));
+  const kept = Object.fromEntries(CLAUDE_CHILD_ENV_KEEP.filter((k) => env[k] !== undefined).map((k) => [k, env[k]]));
+  if (env.ZGNN_WORKER_RUNTIME === WORKER_RUNTIME && env.CLAUDE_CODE_OAUTH_TOKEN) kept.CLAUDE_CODE_OAUTH_TOKEN = env.CLAUDE_CODE_OAUTH_TOKEN;
+  return kept;
 }
 
 export function runClaudeCli(args, input, { env = process.env, bin = 'claude', timeoutMs = CLI_TIMEOUT_MS } = {}) {

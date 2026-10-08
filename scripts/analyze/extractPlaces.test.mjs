@@ -19,6 +19,7 @@ import {
   resolveModel,
   runClaudeCli,
   claudeChildEnv,
+  WORKER_RUNTIME,
 } from './extractPlaces.mjs';
 import { parsePetPolicy } from '../../src/lib/petPolicy';
 import { correctPetPolicyFacts } from '../lib/petPolicyFacts.mjs';
@@ -524,6 +525,15 @@ describe('runClaudeCli — 자식 프로세스', () => {
     const out = await runClaudeCli(nodeScript('process.stdout.write(JSON.stringify({keys: Object.keys(process.env).sort()}))'), '', { bin: 'node', env });
     // macOS 가 자식마다 __CF_USER_TEXT_ENCODING 을 끼워 넣는다 — 우리가 넘긴 것만 본다.
     expect(JSON.parse(out).keys.filter((k) => !k.startsWith('__'))).toEqual(['HOME', 'PATH']);
+  });
+
+  it('서버 워커 표식(ZGNN_WORKER_RUNTIME=vercel)이 있을 때만 CLAUDE_CODE_OAUTH_TOKEN 을 넘긴다 — 표식 이름·값이 하나라도 다르면 빠진다', () => {
+    const env = { PATH: '/p', HOME: '/tmp/claude-home', CLAUDE_CODE_OAUTH_TOKEN: 't', SUPABASE_SERVICE_ROLE_KEY: 's' };
+    expect(claudeChildEnv({ ...env, ZGNN_WORKER_RUNTIME: WORKER_RUNTIME })).toEqual({ PATH: '/p', HOME: '/tmp/claude-home', CLAUDE_CODE_OAUTH_TOKEN: 't' });
+    expect(claudeChildEnv({ ...env, ZGNN_WORKER_RUNTIME: 'local' })).toEqual({ PATH: '/p', HOME: '/tmp/claude-home' });
+    expect(claudeChildEnv({ ...env, VERCEL: '1' })).toEqual({ PATH: '/p', HOME: '/tmp/claude-home' });
+    // 표식만 있고 토큰이 없으면 칸을 만들지 않는다(undefined 를 실은 키가 생기지 않게).
+    expect(claudeChildEnv({ PATH: '/p', ZGNN_WORKER_RUNTIME: WORKER_RUNTIME })).toEqual({ PATH: '/p' });
   });
 
   it('JSON 앞에 다른 줄(경고)이 섞여도 첫 { 부터 돌려준다', async () => {
