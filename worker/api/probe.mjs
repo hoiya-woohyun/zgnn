@@ -1,5 +1,6 @@
 // 실측용 — Vercel 함수 안에서 `claude -p` 가 뜨는지만 본다(ADR-028 초안 전 단계). 본 워커가 아니다.
 // 접근은 Vercel Deployment Protection(프리뷰)에 맡기고 `vercel curl` 로만 부른다 — 코드에 인증이 없다.
+// 그 보호(Standard)는 프로덕션 도메인(`zgnn-worker.vercel.app`)을 막지 않는다. 그래서 프로덕션에서는 아무것도 하지 않는다.
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -53,6 +54,7 @@ function shapeOf(t) {
 }
 
 export async function GET() {
+  if (process.env.VERCEL_ENV === 'production') return new Response('Not Found', { status: 404 });
   const home = '/tmp/claude-home';
   mkdirSync(home, { recursive: true });
   const { bin, tried } = findBinary();
