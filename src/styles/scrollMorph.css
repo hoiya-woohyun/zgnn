@@ -11,7 +11,7 @@
   면 전체를 다시 그렸다(크롬 실측). 판 자체를 누르지 않는 이유는 `homePageHero.tsx` 머리 주석.
 
   방식은 루트의 `data-morph` 가 정한다(`scrollDrivenMorph.ts` 의 `morphModeOf`). `scroll` 이면 아래 애니메이션이, `snap`(지원하지
-  않는 브라우저)이면 컴포넌트의 인라인 `calc(var(--morph))` 가 0 ↔ 1 두 값만 받고 그 사이를 짧은 전환이 채운다 — 스크롤을 따라가지 않는다.
+  않는 브라우저 · '동작 줄이기' — 전역 reduce 규칙은 스크롤 타임라인을 못 멈춘다)이면 컴포넌트의 인라인 `calc(var(--morph))` 가 0 ↔ 1 두 값만 받고 그 사이를 짧은 전환이 채운다 — 스크롤을 따라가지 않는다.
   `scroll` 에서는 애니메이션 값이 인라인 스타일을 이긴다. 구간 비율(0.25·0.55·0.95…)은 `scroll` 에서만 보인다.
 */
 
@@ -34,9 +34,13 @@
 /*
   AppBar 의 제목 칸을 화면이 채우면(AppBarSlot) 셸의 "밑에서 올라오기" 를 끈다. 채운 쪽이 자기 등장(상세: 본문 제목 줄이 날아와
   겹쳐 바뀜)을 갖고 있고, 그 도착점은 움직이지 않아야 한다. 인라인 transform·opacity 를 이겨야 해서 !important 다.
+  **전환도 끈다** — snap 의 전환 규칙(위)이 여기에도 걸려, 슬롯이 채워지는 순간 transform 이 translateY(10단) → none 으로
+  "전환되며" 바뀌었다. 상세 제목 줄(placeDetailHeader)은 바로 그 순간 막대 칸 아랫변을 한 번 재 두는데, 전환의 시작값(40px 아래)을
+  읽어 스크롤 0 에서도 접힌 채로 열렸다(reduce 의 0.01ms 전환도 같다 — '동작 줄이기' 가 snap 으로 오며 드러남, 14 W261007.19).
 */
 [data-scroll-morph='bar-reveal']:has(> [data-app-bar-slot]:not(:empty)) {
   animation: none !important;
+  transition: none !important;
   transform: none !important;
   opacity: 1 !important;
 }

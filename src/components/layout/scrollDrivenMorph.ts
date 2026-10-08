@@ -26,14 +26,20 @@ export function supportsScrollTimeline(): boolean {
  * 접히는 방식. 루트 요소의 `data-morph` 로 적고 `styles/scrollMorph.css` 가 읽는다.
  *
  * - `scroll` — 스크롤 구동 애니메이션. 스크롤한 만큼 접힌다.
- * - `snap` — 지원하지 않는 브라우저. **스크롤을 따라가지 않는다.** 경계를 넘는 순간 `--morph` 를 0 ↔ 1 로 한 번 바꾸고,
+ * - `snap` — 지원하지 않는 브라우저, 그리고 **'동작 줄이기'(reduce)**. **스크롤을 따라가지 않는다.** 경계를 넘는 순간 `--morph` 를 0 ↔ 1 로 한 번 바꾸고,
  *   사이는 짧은 CSS 전환(합성되는 transform·opacity)이 채운다. JS 가 스크롤마다 중간값을 적으면 한 박자 늦고 떨리는데
  *   (위 설명), 그 문제를 가진 채 "같은 모습" 을 흉내 내는 것보다 다르게 보이더라도 매끄러운 쪽을 골랐다.
+ *   reduce 에서는 그 전환도 0 이라(`scrollMorph.css`) 경계에서 한 번에 바뀐다.
+ *
+ * reduce 를 CSS 로만 막을 수 없는 이유: 전역 규칙(`globals.css` 의 `animation-duration: 0.01ms`)은 시간으로 도는 애니메이션만 멈춘다 —
+ * 스크롤 타임라인은 시간을 구간 비율로 바꿔 읽어 그대로 스크롤을 따라 줄었다(14 W261007.19). `scroll` 애니메이션을 꺼 버리면
+ * 이번엔 `scroll` 모드가 `--morph` 를 적지 않아 영영 안 접힌다. 그래서 모드를 `snap` 으로 돌린다. 설정을 바꾸면 화면을 다시 열 때부터 따른다.
  */
 export type TMorphMode = 'scroll' | 'snap';
 
 export function morphModeOf(): TMorphMode {
-  return supportsScrollTimeline() ? 'scroll' : 'snap';
+  const reduceMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  return supportsScrollTimeline() && !reduceMotion ? 'scroll' : 'snap';
 }
 
 /**
