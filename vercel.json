@@ -5,6 +5,9 @@
   "git": {
     "deploymentEnabled": { "main": true, "**": false }
   },
+  "rewrites": [
+    { "source": "/api/worker/:path*", "destination": "https://zgnn-worker.vercel.app/api/:path*" }
+  ],
   "headers": [
     {
       "source": "/(.*)",

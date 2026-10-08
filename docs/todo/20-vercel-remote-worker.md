@@ -52,7 +52,9 @@ T2~T4 는 서로 독립이라 아무 순서나 된다. T5 는 셋 모두에 기�
   수용: 순수 부분(사슬 조건·응답 고르기) 테스트 · 번들로 토큰 없음 401 · 가짜 토큰 401.
 
 ### T6. 사이트 rewrite
-- [ ] 루트 `vercel.json` `rewrites: [{ source: '/api/worker/:path*', destination: 'https://zgnn-worker.vercel.app/api/:path*' }]`(도메인은 배포 뒤 확정).
+- [x] 2026-10-08 — rewrite 와 `NEXT_PUBLIC_WORKER_URL`(`next.config.mjs`: 프로덕션 빌드(`VERCEL_ENV=production`)면 `/api/worker/run`, 아니면 빈 값 — env 로 덮을 수 있다). 프로덕션 401 확인은 T9.
+  로컬 `vercel build --prod` 로는 못 봤다 — pnpm 12 가 `package.json` 의 `pnpm.onlyBuiltDependencies` 를 안 읽어 설치가 `ERR_PNPM_IGNORED_BUILDS` 로 멈춘다(이 변경 전부터, Vercel 은 pnpm 10 이라 무관 — NOW 「발견」).
+- 루트 `vercel.json` `rewrites: [{ source: '/api/worker/:path*', destination: 'https://zgnn-worker.vercel.app/api/:path*' }]`(도메인은 배포 뒤 확정).
   로컬 dev(7727)는 Next rewrite 가 없으니 `/admin` 이 `NEXT_PUBLIC_WORKER_URL` 이 있을 때만 부른다. 없으면 깨우지 않고 로컬 워커에 맡긴다.
   수용: 프로덕션에서 `/api/worker/run` 이 401(토큰 없이). 정적 페이지 응답 헤더는 그대로.
 

@@ -88,5 +88,6 @@
 
 ## 발견 (분류 전)
 
+- 로컬 `vercel build --prod`(CLAUDE.md 가 말하는 배포 설정 검증)가 설치에서 멈춘다 — 로컬 pnpm 12.8 이 `package.json` 의 `pnpm.onlyBuiltDependencies` 를 안 읽어 `ERR_PNPM_IGNORED_BUILDS`(esbuild·unrs-resolver). `npm_config_strict_dep_builds=false` 로도 안 풀린다. Vercel 은 pnpm 10 이라 배포는 무관. 설정을 `pnpm-workspace.yaml`(`allowBuilds`)로 옮길지 — 출처: todo/20 T6
 
 <!-- /next 가 작업 중 찾은 것을 한 줄씩 — 출처: <커밋/파일>. 멈출 때 번호 문서로 옮긴다 -->

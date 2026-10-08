@@ -21,6 +21,13 @@ const appBuild = (() => {
   }
 })();
 
+/**
+ * 서버 워커(ADR-028)를 깨울 주소. 프로덕션 사이트는 `vercel.json` rewrite 로 같은 출처의 `/api/worker/run` 이다(CORS 를 열지 않는다).
+ * 로컬 dev·HEAD 분리 빌드에는 그 rewrite 가 없어 비워 둔다 — 비면 `/admin` 이 깨우지 않고 로컬 워커(`pnpm data`)에 맡긴다.
+ * 일부러 붙여 보려면 `NEXT_PUBLIC_WORKER_URL` 을 준다(`src/lib/adminWorkerWake.ts`).
+ */
+const workerWakeUrl = process.env.NEXT_PUBLIC_WORKER_URL ?? (process.env.VERCEL_ENV === 'production' ? '/api/worker/run' : '');
+
 /*
  * 프리캐시 항목의 revision.
  *
@@ -132,7 +139,7 @@ const nextConfig = {
    */
   allowedDevOrigins: ['192.168.*.*', '10.*.*.*'],
   images: { unoptimized: true },
-  env: { NEXT_PUBLIC_APP_BUILD: appBuild },
+  env: { NEXT_PUBLIC_APP_BUILD: appBuild, NEXT_PUBLIC_WORKER_URL: workerWakeUrl },
   /*
    * `next dev` 가 프로젝트 루트에 AGENTS.md / CLAUDE.md 를 자동 생성하는 기능을 끈다.
    * 이 레포는 `.claude/` 와 사용자 전역 규칙을 이미 쓰고 있어서, Next 가 만든 파일이
