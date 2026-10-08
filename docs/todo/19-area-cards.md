@@ -44,9 +44,10 @@
 
 ## 3. 태스크
 
-- [ ] **T1 권역 셈 순수 함수** — `src/lib/areaGroups.ts`(여럿이 쓰니 접두어 없음): `AREAS`(6, 순서·화면 이름), `TOWN_TO_AREA`, `LANDMARK_KEY_TO_AREA`, `areaOf(place)`,
+- [x] **T1 권역 셈 순수 함수** — `src/lib/areaGroups.ts`(여럿이 쓰니 접두어 없음): `AREAS`(6, 순서·화면 이름), `TOWN_TO_AREA`, `LANDMARK_KEY_TO_AREA`, `areaOf(place)`,
   `countByArea(places, dog, opts)` → 권역 × 종류 `TLevelCounts`(`countByLevel` 을 부른다). 테스트: ① 두 매핑이 맞는다 ② 모든 `ALL_TOWNS` 가 매핑에 있다 ③ 6권역 합 = 종류별 `countByLevel` 전체
   ④ 토론 §1 표(두부 3kg 가방 · 보리 30kg 없음 · 콩+해피 유모차)를 고정. 화면 없음.
+  > 메모: 2026-10-08 — `src/lib/areaGroups.ts` + 테스트 12. 토론 §1 표 세 원형이 지금 데이터(84곳)로 **칸마다 그대로** 나온다. 관광지 키 매핑은 `Record<keyof typeof LANDMARKS_BY_AREA, …>` 라 키가 늘면 타입 에러. 히어로 수는 그새 `reachablePlaces`(14 W261007.12 — 길이 = `ok + outdoor`)로 바뀌었다 — T4 카드가 누르면 펼칠 곳이 필요하면 권역별로 같은 함수를 쓴다
 - [ ] **T2 `pnpm data coverage`** — `scripts/data.mjs` 하위 명령. T1 을 그대로 불러 원형 셋 × 6권역 × 숙소·카페·식당 표 + §4 문턱 통과 수를 찍는다(오프라인, `src/data/places.json`).
   세션이 있으면(`pnpm data login`) 칸마다 검수 대기 신규 후보 수(주소 → 읍면)도 — 없으면 그 열만 빼고 한 줄 안내. 이 출력이 🧑 H.1 의 검수 순서표이자 나중의 B2G 공백 표다. **T1 뒤.**
 - [ ] **T3 둘러보기 권역 조건** — `usePlacesPageFilterStore` 에 비퍼시스트 `area` 한 칸. 목록 거르기는 순수 함수로(`areaOf`), 걸려 있으면 검색 줄 근처에 "서부(애월·한림·한경) ✕" 한 줄.
