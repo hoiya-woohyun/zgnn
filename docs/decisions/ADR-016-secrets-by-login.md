@@ -164,12 +164,13 @@ Free private 레포는 브랜치·환경 보호가 안 된다. 러너에 키가 
 
 ## 서버에 두는 장기 값 (v12, [ADR-028](ADR-028-vercel-remote-worker.md))
 
-"레포와 Supabase 장기 키는 없다" 는 그대로다. 서버 워커(별도 Vercel 프로젝트 `zgnn-worker`)에만 값 둘이 산다.
+"레포와 Supabase 장기 키는 없다" 는 그대로다. 서버 워커(별도 Vercel 프로젝트 `zgnn-worker`)에만 Claude 토큰과 네이버 키 넷이 산다. 네이버 넷은 홈 파일(`~/.zgnn-naver.env`)과 같은 이름이라 그 파일에서 값을 찍지 않고 넣는다(todo/20 T8 의 한 줄).
 
 | 값 | 수명 | 새면 | 회전 |
 |---|---|---|---|
 | `CLAUDE_CODE_OAUTH_TOKEN`(`claude setup-token`) | 1년 | 구독 한도가 탄다 — DB 에는 닿지 않는다 | claude.ai 에서 회수 → `claude setup-token` → `pbpaste \| tr -d '[:space:]' \| vercel env add CLAUDE_CODE_OAUTH_TOKEN production --sensitive` |
 | `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`(검색 API) | 발급 앱 수명 | 하루 호출 한도가 쓰인다 | 네이버 개발자 센터에서 재발급 → 같은 식 |
+| `NAVER_MAP_CLIENT_ID`·`NAVER_MAP_CLIENT_SECRET`(NCP Maps · Geocoding) | 발급 앱 수명 | 지오코딩 한도가 쓰인다 | NCP 콘솔에서 재발급 → 같은 식 |
 
 - **Production 에만, Sensitive 로.** 프리뷰에는 두지 않는다(T0 실측 때 넣었던 것은 지운다 — todo/20 T8). 숨김 입력에 붙여 넣으면 줄바꿈이 Enter 로 먹혀 값이 잘린다(실측 49자) — 파이프로 넣는다.
 - **DB 쓰기 권한은 서버에 없다.** 함수는 요청 헤더의 운영자 JWT 를 같은 검사(형식·exp·30분 앞당김·하루 상한·service 키 트립와이어)로 받아 그 요청 동안만 쓴다(`injectSession`). 그래서 서버가 통째로 새도 places 는 바뀌지 않는다.

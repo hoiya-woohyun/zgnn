@@ -72,7 +72,9 @@ T2~T4 는 서로 독립이라 아무 순서나 된다. T5 는 셋 모두에 기�
   수용: 순수 부분(보낼지·새로 고칠지) 테스트. Chrome 으로 버튼 → `/admin/ops` 배지 `vercel · 분석 중`.
 
 ### T8. 🧑 env 와 정리
-- [ ] 🧑 `cd worker && pbpaste | tr -d '[:space:]' | vercel env add CLAUDE_CODE_OAUTH_TOKEN production --sensitive`, 네이버 둘도 같은 식(`~/.zgnn-naver.env` 의 값).
+- [ ] 🧑 `claude setup-token` 값을 복사한 뒤 `cd worker && pbpaste | tr -d '[:space:]' | vercel env add CLAUDE_CODE_OAUTH_TOKEN production --sensitive`.
+- [ ] 🧑 네이버 키 **넷**(검색 둘 + NCP Maps 둘)을 홈 파일에서 값을 찍지 않고 — 저장소의 파서(`parseNaverEnv`)로 한 개씩 꺼내 파이프로 넣는다:
+  `cd ~/Develop/woohyun/zgnn && for k in NAVER_CLIENT_ID NAVER_CLIENT_SECRET NAVER_MAP_CLIENT_ID NAVER_MAP_CLIENT_SECRET; do node --input-type=module -e "import {parseNaverEnv,NAVER_ENV_FILE} from './scripts/lib/naverEnvFile.mjs'; import {readFileSync} from 'node:fs'; process.stdout.write(parseNaverEnv(readFileSync(NAVER_ENV_FILE,'utf8'))[process.argv[1]] ?? '')" "$k" | vercel env add "$k" production --sensitive --cwd worker; done`
 - [ ] 🧑 프리뷰의 `CLAUDE_CODE_OAUTH_TOKEN` 지우기(`vercel env rm … preview`). Settings → Deployment Protection 의 **bypass 토큰**(T0 에 `vercel curl` 이 자동 생성) 지우기.
 - [x] 2026-10-08 ADR-016 v12 · ADR-024 v3 · ARCHITECTURE v25 · data-pipeline v59 · CLAUDE.md(표 한 줄 + 「조용히 깨지는 것들」 의 단계 스크립트 `process.exit` 금지) · ADR-028 채택(v2).
 - ADR-016 「서버에 두는 장기 값」 절 · ADR-024 「하지 않은 것」 번복 표시 · CLAUDE.md 표 한 줄 · ADR-028 상태 → 채택.

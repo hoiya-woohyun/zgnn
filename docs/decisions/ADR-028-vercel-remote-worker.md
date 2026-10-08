@@ -1,6 +1,7 @@
 # ADR-028 — 수집·분석을 Vercel 함수에서도 돌린다. 버튼을 누른 운영자의 세션이 곧 작업 권한이고, 서버에 두는 장기 값은 Claude 토큰과 네이버 키 둘뿐이다
 
-> 최종 수정: 2026-10-08 (v2: **채택**. 결정 5 를 코드에 맞게 고쳤다 — 버튼 셋 중 `pipeline_requests` 에 줄을 넣는 것은 「저수지 N건 분석」 하나뿐이고 「추가 수집」 은 `collect_requests`, 「재분석」 은 `blog_posts.requested_at` 이다. 그래서 서버도 로컬 `once` 와 같은 한 바퀴를 돌고, 로컬과 겹치지 않게 하는 것은 원자 집기가 아니라 `workers` 심장이다(`candidates` 에 유일 제약이 없어 같은 글을 둘이 읽으면 후보가 둘 생긴다). 결정 9(번들)·10(겹침)을 더했다. 결정 4 의 `refreshSession()` 은 `/admin` 에 refresh token 이 없어(ADR-016) "50분 미만이면 안 깨우고 재로그인 안내" 로)
+> 최종 수정: 2026-10-08 (v3: 네이버 키는 **넷**이다(결정 6) — 검색 둘에 더해 주소→좌표의 NCP Maps 둘. 보안 리뷰로 사슬 상한(진척·깊이 12)·홉 동안 심장 유지·하위 도메인 위험을 더했다)
+> 이전 2026-10-08 (v2: **채택**. 결정 5 를 코드에 맞게 고쳤다 — 버튼 셋 중 `pipeline_requests` 에 줄을 넣는 것은 「저수지 N건 분석」 하나뿐이고 「추가 수집」 은 `collect_requests`, 「재분석」 은 `blog_posts.requested_at` 이다. 그래서 서버도 로컬 `once` 와 같은 한 바퀴를 돌고, 로컬과 겹치지 않게 하는 것은 원자 집기가 아니라 `workers` 심장이다(`candidates` 에 유일 제약이 없어 같은 글을 둘이 읽으면 후보가 둘 생긴다). 결정 9(번들)·10(겹침)을 더했다. 결정 4 의 `refreshSession()` 은 `/admin` 에 refresh token 이 없어(ADR-016) "50분 미만이면 안 깨우고 재로그인 안내" 로)
 > 이전 2026-10-08 (v1: 제안 — `worker/api/probe.mjs` 실측(c39beaf)으로 Vercel 함수 안 `claude -p` 가 `setup-token` 으로 도는 것을 확인. 구현은 [docs/todo/20](../todo/20-vercel-remote-worker.md))
 
 ## 상태
@@ -49,7 +50,8 @@ ADR-024 가 서버 실행을 뺀 이유는 셋이었다. ① 키가 밖으로 �
    홉이 끝나면 다시 세어 **할 일이 남았고 · 이번 홉이 줄였고 · JWT 실효가 한 홉 이상 남았으면** 같은 JWT 로 자기 자신을 한 번 더 부른다.
    "줄였고" 가 없으면 403 으로 계속 실패하는 글 하나가 JWT 가 끝날 때까지 한도를 태운다. 끊긴 뒤 남은 일은 다음 버튼이나 로컬 워커가 이어 간다.
    `pipeline_requests` 는 여전히 원자적으로 집는다(`update … where status = 관찰한 값 returning`) — 서버 인스턴스 둘, 로컬 둘이 같은 줄을 동시에 볼 때의 안전망이다.
-6. **서버 env 에는 장기 값 둘만 둔다**: `CLAUDE_CODE_OAUTH_TOKEN`(1년), `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`(하루 한 번 초기화 — ADR-016 의 기존 예외). 둘 다 Sensitive · Production 에만 둔다.
+6. **서버 env 에는 장기 값 두 종류만 둔다**: `CLAUDE_CODE_OAUTH_TOKEN`(1년)과 네이버 키 넷 — 검색 API `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`(수집·분석의 이름 축, 없으면 분석이 Claude 전에 멈춘다)과
+   NCP Maps `NAVER_MAP_CLIENT_ID`·`NAVER_MAP_CLIENT_SECRET`(주소→좌표, 없으면 그 축만 꺼져 로컬보다 덜 채운다 — v3 에서 바로잡음, v1·v2 는 검색 둘만 적었다). 전부 Sensitive · Production 에만 둔다.
    `claude` 자식 env 허용 목록(`claudeChildEnv`)에는 **워커 런타임일 때만** `CLAUDE_CODE_OAUTH_TOKEN` 을 넣는다. 로컬의 "env 토큰이면 멈춘다" 는 그대로 둔다(ADR-016 v4 의 의도).
 7. **로컬 워커는 남긴다.** 같은 큐를 보고, 서버가 한도에 걸리거나 꺼져도 PC 가 이어 받는다. 서버는 `workers` 에 `host = 'vercel'` 한 행으로 심장을 남긴다.
    `/admin` 의 로컬 워커 배지(`workerHealth`)는 그 행을 세지 않는다 — 서버 행은 홉 사이에 늘 '멎은' 모양이라 섞으면 "워커 멎음" 이 뜬다. 서버가 도는 동안만 따로 한 줄로 보인다.
@@ -88,6 +90,7 @@ ADR-024 가 서버 실행을 뺀 이유는 셋이었다. ① 키가 밖으로 �
 
 ## 남은 위험
 
+- **rewrite 대상 하위 도메인**(`zgnn-worker.vercel.app`)은 사이트 `vercel.json` 에 박혀 있다. 워커 프로젝트를 지우거나 이름을 바꾸면 그 이름을 남이 가져가 `/admin` 이 보내는 운영자 JWT(12시간)를 받을 수 있다 — 프로젝트를 없앨 때 rewrite 를 **먼저** 지운다.
 - **Vercel CLI 로그인이 있는 기기에서는 에이전트도 `vercel deploy --prod` 를 할 수 있다.** 토큰을 찍는 코드를 배포하면 읽힌다. 경계가 아니라 "배포 전 diff 를 본다" 는 습관이다.
   회전은 `claude setup-token` 재발급 → `pbpaste | tr -d '[:space:]' | vercel env add …`(줄바꿈이 숨김 입력을 끊는다 — 실측 때 49자로 잘렸다).
 - **구독 5시간 한도를 로컬 대화와 나눠 쓴다.** 서버가 한도에 걸리면 `rate-limited` 로 요청을 되돌린다(ADR-024 v2 의 `attempts` 그대로).

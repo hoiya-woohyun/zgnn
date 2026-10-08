@@ -1,6 +1,7 @@
 # 지금 할 일 — 대기열
 
-> 최종 수정: 2026-10-08 (v40: 20 T1~T7 끝 — 서버 워커 배포·env·실측을 「기다림」 맨 위에 **순서대로**(워커가 먼저 서야 develop→main 을 합친다))
+> 최종 수정: 2026-10-08 (v41: 서버 워커 env 의 네이버 키를 넷으로 바로잡고(검색 둘 + NCP Maps 둘), 보안 리뷰의 범위 밖 둘을 「발견」 에)
+> 이전 2026-10-08 (v40: 20 T1~T7 끝 — 서버 워커 배포·env·실측을 「기다림」 맨 위에 **순서대로**(워커가 먼저 서야 develop→main 을 합친다))
 > 이전 2026-10-08 (v39: ADR-028 채택 — 「기다림」 의 🙋 서버 워커 줄을 걷었다. 20 T1~T7 은 채택한 세션이 이어서 하므로 「지금」 에 올리지 않는다(다른 세션이 선점하지 않게). 🧑 T8 은 그 세션이 끝날 때 「기다림」 에)
 > 이전 2026-10-08 (v38: 「지금」 이 비어 다시 채웠다 — 판정·데이터급은 혼자 끝낼 것이 없어(전부 🧑·🙋) 판정이 안 보이는 두 화면(근처 장소 거리순 · 데스크톱 지도 목록) 먼저, 09 재분석 흐름 T5.1·T5.2·T3.3, 다듬기, 09 이름 정리(T3.4)는 09 의 마지막이라 끝. 08 T0.6 Stop 훅은 하네스 설정을 바꿔 넣지 않았다)
 > 이전 2026-10-08 (v37: 14 W261007.11b 끝 — 0곳 안내가 숨김 조건에 가려진 종류도 말한다. 「지금」 이 비었다)
@@ -54,7 +55,7 @@
 ## 기다림 (사람 손·결정)
 
 - 🙋 서버 워커(ADR-028) 배포 허락 — [20 T5·T9](20-vercel-remote-worker.md) · 순서가 중요하다: ① 에이전트 `pnpm worker:build && cd worker && vercel deploy`(프리뷰, Deployment Protection 뒤) → `vercel curl` 로 401 확인 ② 🧑 아래 env ③ `vercel deploy --prod` → `curl -X POST https://zgnn-worker.vercel.app/api/run` 이 401 ④ **그다음에** develop → main. ⚠️ main 을 먼저 합치면 프로덕션 `/admin` 버튼마다 "서버 워커를 못 깨웠어요" 가 뜨고 "로컬 워커가 없어요" 띠는 내려간다(워커 프로덕션 배포는 지금 없다)
-- 🧑 서버 워커 env·정리(20 T8) · 명령: `cd worker && pbpaste | tr -d '[:space:]' | vercel env add CLAUDE_CODE_OAUTH_TOKEN production --sensitive`(`claude setup-token` 값을 복사한 뒤) · `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET` 도 같은 식(`~/.zgnn-naver.env` 의 값) · `vercel env rm CLAUDE_CODE_OAUTH_TOKEN preview --yes` · 대시보드 zgnn-worker → Settings → Deployment Protection 의 bypass 토큰 지우기 · (선택) 49자로 잘렸던 토큰 둘을 claude.ai 에서 회수
+- 🧑 서버 워커 env·정리(20 T8) · 명령: `cd worker && pbpaste | tr -d '[:space:]' | vercel env add CLAUDE_CODE_OAUTH_TOKEN production --sensitive`(`claude setup-token` 값을 복사한 뒤) · 네이버 키 **넷**(검색 둘 + NCP Maps 둘)은 [20 T8](20-vercel-remote-worker.md) 의 한 줄(홈 파일에서 값을 찍지 않고 넣는다) · env 는 다음 배포부터 먹으니 넣은 뒤 에이전트가 `vercel deploy --prod` 한 번 더 · `vercel env rm CLAUDE_CODE_OAUTH_TOKEN preview --yes` · 대시보드 zgnn-worker → Settings → Deployment Protection 의 bypass 토큰 지우기 · (선택) 49자로 잘렸던 토큰 둘을 claude.ai 에서 회수
 - 🧑 서버 워커 실측(20 T9) — 배포·env 뒤 · 명령: PC 의 `pnpm data` 를 끈 채 `/admin` 에서 추가 수집 1 · 재분석 1 · 저수지 10(사슬 두 번) → `/admin/ops` 에 "서버 · 분석 중" · `pipeline_runs` 행. 이어서 `pnpm data` 를 켠 채 같은 것 → 응답이 `local` 이고 서버 배지가 안 뜨는지
 
 - 🧑 작업 트리에 **커밋 안 된 ADR-009 v4**(준비물 탭 개편 — 16파일, 신규 `checklistPageItemSheet.tsx`, 삭제 `itemGroups.ts`·`seasonChips.tsx`)가 있다. 2026-10-08 /next 세션이 주인을 못 찾았다(트랜스크립트에 그 파일을 쓴 세션이 없다) — [ADR-009](../decisions/ADR-009-trip-derived-checklist.md) · [14 W261007.13](14-weekly-ux-eval.md) · 명령: 하던 쪽이 `git status` 로 보고 커밋. 그 커밋 전엔 HEAD 의 탭이 저장 숙소의 '간식 어메니티' 로 간식을 지운다(14 메모가 v4 로 닫힌다고 적은 셋)
@@ -93,6 +94,8 @@
 
 ## 발견 (분류 전)
 
+- 서버 워커에서 `homepageCard.mjs` 의 `fetch(…, { redirect: 'follow' })` 는 시작 URL 만 검사한다 — 같은 코드가 이제 Vercel 서버에서 돈다(리다이렉트로 내부 주소에 닿는 SSRF 면, 추정). 출처: 보안 리뷰(todo/20)
+- `pnpm audit --prod`: next 16.x 에 critical 1 · high 몇(SSRF 등) — 사이트는 정적 내보내기라 노출은 좁다. next ≥ 16.3.8 로 올릴지. 출처: 보안 리뷰(todo/20)
 - 로컬 `vercel build --prod`(CLAUDE.md 가 말하는 배포 설정 검증)가 설치에서 멈춘다 — 로컬 pnpm 12.8 이 `package.json` 의 `pnpm.onlyBuiltDependencies` 를 안 읽어 `ERR_PNPM_IGNORED_BUILDS`(esbuild·unrs-resolver). `npm_config_strict_dep_builds=false` 로도 안 풀린다. Vercel 은 pnpm 10 이라 배포는 무관. 설정을 `pnpm-workspace.yaml`(`allowBuilds`)로 옮길지 — 출처: todo/20 T6
 
 <!-- /next 가 작업 중 찾은 것을 한 줄씩 — 출처: <커밋/파일>. 멈출 때 번호 문서로 옮긴다 -->
