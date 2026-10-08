@@ -17,7 +17,7 @@ import { createSupabase, resolveSupabaseCredentials } from './lib/supabaseClient
 import { createWorkerCycle } from './lib/workerCycle.mjs';
 import { startHeartbeat } from './lib/workerHeartbeat.mjs';
 import { clockStamp, createWaker, formatStep, nextDailyAt, parseOnceArgs, parseResidentArgs, pickRequests, planCycle } from './lib/workerLoop.mjs';
-import { checkWorkerSchema, closeRequests, markRequests, readWorkerState } from './lib/workerQueue.mjs';
+import { checkWorkerSchema, closeRequests, readWorkerPeers, readWorkerState, remoteWorkerBusy, takeRequests } from './lib/workerQueue.mjs';
 import { probeExcludedAt } from './lib/postExclusion.mjs';
 import { startRealtime } from './lib/workerRealtime.mjs';
 
@@ -116,10 +116,25 @@ export async function main(argv, { mode, runStep }) {
   // ── 한 바퀴 ──────────────────────────────────────────────────────────
   let waker = null;
 
+  // 서버 워커(host 'vercel')가 일하는 중인가 — 조회가 실패하면(표 없음·네트워크) 비키지 않는다(fail-open: 로컬 워커를 멈출 일이 아니다).
+  // 상태가 이어지는 동안은 매 바퀴 찍지 않는다(60초 폴링마다 같은 줄이 쌓이지 않게).
+  let remoteBusyLogged = false;
+  async function readRemoteBusy() {
+    let busy = false;
+    try {
+      busy = remoteWorkerBusy(await readWorkerPeers(client), Date.now());
+    } catch {
+      busy = false;
+    }
+    if (busy !== remoteBusyLogged) log(busy ? '서버 워커(vercel)가 일하는 중 — 끝날 때까지 이번 바퀴를 넘긴다' : '서버 워커(vercel)가 쉰다 — 다시 본다');
+    remoteBusyLogged = busy;
+    return busy;
+  }
+
   async function readState() {
     if (!(await ensureSession())) return null;
     const state = await readWorkerState(client, { excludedApplied });
-    return { ...state, requests: pickRequests(state.requestRows, Date.now()) };
+    return { ...state, requests: pickRequests(state.requestRows, Date.now()), remoteBusy: await readRemoteBusy() };
   }
 
   cycle = createWorkerCycle({
@@ -127,7 +142,7 @@ export async function main(argv, { mode, runStep }) {
     runStep,
     readState,
     ensureSession,
-    takeRequests: (rows) => markRequests(client, rows.map((row) => row.id), { status: 'taken', taken_at: new Date().toISOString() }),
+    takeRequests: (rows) => takeRequests(client, rows, new Date().toISOString(), log),
     closeRequests: (rows, decide) => closeRequests(client, rows, decide, log),
     setPhase: async (phase) => heartbeat?.setPhase(phase),
     currentPhase: () => heartbeat?.phase() ?? null,
@@ -148,6 +163,7 @@ export async function main(argv, { mode, runStep }) {
     if (dryRun) {
       const state = await readState();
       if (!state) return 1;
+      if (state.remoteBusy) console.log('서버 워커(vercel)가 일하는 중 — 실제 바퀴는 넘긴다');
       const steps = planCycle({ ...state, now: Date.now() });
       console.log(
         `상태: 추가 수집 요청 ${state.collectQueued} · 요청 글 ${state.requestedPosts} · 승인 후보 ${state.approved} · ` +

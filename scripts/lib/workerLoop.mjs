@@ -153,7 +153,8 @@ export function recordRun(last, key, before, after, now) {
  *    (저수지 포함, 기존 순서). Claude 한도로 쉬는 동안(`claudePausedUntil`)은 둘 다 빠진다 — 요청은 queued 로 남아 리셋 뒤 집힌다.
  *  - apply: 승인 후보가 있거나 「지금 반영」 요청.
  * `forced` 는 Realtime 이벤트가 깨운 단계 key — 그 단계는 `isDue` 의 재시도 간격을 안 본다(이벤트가 "일이 늘었다" 그 자체다). 간격은 폴링에서만.
- * @returns {{ key: string, step: 'collect'|'analyze'|'apply', args: string[], requests: object[], requestIds: string[], reason: string }[]}
+ * `regular` — 요청과 상관없이 도는 단계(정기 수집). 요청을 남이 먼저 집어도 이 단계는 돈다(요청 없이).
+ * @returns {{ key: string, step: 'collect'|'analyze'|'apply', args: string[], requests: object[], requestIds: string[], regular?: boolean, reason: string }[]}
  */
 export function planCycle({
   requests = { collect: [], analyze: [], apply: [] },
@@ -173,7 +174,7 @@ export function planCycle({
 
   if (isDailyTick || requests.collect.length > 0) {
     const why = [isDailyTick && '정기 수집(09:00)', requests.collect.length > 0 && `「지금 수집」 요청 ${requests.collect.length}건`].filter(Boolean);
-    steps.push({ key: 'collect', step: 'collect', args: [], requests: requests.collect, requestIds: ids(requests.collect), reason: `${why.join(' · ')} — 키워드 전체` });
+    steps.push({ key: 'collect', step: 'collect', args: [], requests: requests.collect, requestIds: ids(requests.collect), regular: isDailyTick, reason: `${why.join(' · ')} — 키워드 전체` });
   } else if (due(collectQueued, 'collect')) {
     steps.push({ key: 'collect', step: 'collect', args: ['--only-requests'], requests: [], requestIds: [], reason: `추가 수집 요청 ${collectQueued}건` });
   }

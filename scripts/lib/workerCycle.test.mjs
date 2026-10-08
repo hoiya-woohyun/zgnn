@@ -8,7 +8,7 @@ const state = (patch = {}) => ({ collectQueued: 0, requestedPosts: 0, approved: 
  * 가짜 의존성 — DB 대신 상태를 차례로 돌려주고, 단계는 `steps[name]` 이 정한다(기본 exit 0).
  * `closed` 에는 요청 행마다 `requestClose` 가 정한 patch 가 쌓인다.
  */
-function harness({ resident = false, states, steps = {}, sessionOk = true } = {}) {
+function harness({ resident = false, states, steps = {}, sessionOk = true, lose = [] } = {}) {
   const queue = [...states];
   const calls = { runStep: [], taken: [], closed: [], phases: [], ensure: 0, paused: [], order: [] };
   let cycle;
@@ -26,6 +26,7 @@ function harness({ resident = false, states, steps = {}, sessionOk = true } = {}
     },
     takeRequests: async (rows) => {
       calls.taken.push(rows.map((row) => row.id));
+      return rows.filter((row) => !lose.includes(row.id)); // lose — 남이 먼저 집은 줄
     },
     closeRequests: async (rows, decide) => {
       calls.order.push('close');
@@ -43,6 +44,46 @@ function harness({ resident = false, states, steps = {}, sessionOk = true } = {}
 }
 
 const names = (calls) => calls.runStep.map(({ name, argv }) => `${name} ${argv.join(' ')}`.trim());
+
+describe('createWorkerCycle — 원자 집기와 비킴(ADR-028)', () => {
+  it('요청 줄을 하나도 못 집었으면 그 단계를 건너뛴다(같은 바퀴에서 다시 고르지도 않는다)', async () => {
+    const q1 = { id: 'q1', kind: 'analyze', args: { limit: 10 } };
+    const { cycle, calls } = harness({ states: [state({ requests: { ...none, analyze: [q1] } })], lose: ['q1'] });
+    expect(await cycle.runCycle()).toMatchObject({ ran: 1, code: 0 });
+    expect(names(calls)).toEqual([]);
+    expect(calls.closed).toEqual([]);
+  });
+
+  it('일부만 집히면 집힌 줄만 돌리고 닫는다', async () => {
+    const r1 = { id: 'r1', kind: 'collect' };
+    const r2 = { id: 'r2', kind: 'collect' };
+    const { cycle, calls } = harness({ states: [state({ requests: { ...none, collect: [r1, r2] } }), state()], lose: ['r2'] });
+    await cycle.runCycle();
+    expect(names(calls)).toEqual(['collect']);
+    expect(calls.closed.map((c) => c.id)).toEqual(['r1']);
+  });
+
+  it('정기 수집이 겸한 collect 는 요청을 못 집어도 요청 없이 돈다', async () => {
+    const r1 = { id: 'r1', kind: 'collect' };
+    const { cycle, calls } = harness({ states: [state({ requests: { ...none, collect: [r1] } }), state()], lose: ['r1'] });
+    await cycle.runCycle({ daily: true });
+    expect(names(calls)).toEqual(['collect']);
+    expect(calls.closed).toEqual([]);
+  });
+
+  it('요청만으로 선 collect 는 못 집으면 건너뛴다', async () => {
+    const r1 = { id: 'r1', kind: 'collect' };
+    const { cycle, calls } = harness({ states: [state({ requests: { ...none, collect: [r1] } })], lose: ['r1'] });
+    await cycle.runCycle();
+    expect(names(calls)).toEqual([]);
+  });
+
+  it('서버 워커가 일하는 중(remoteBusy)이면 바퀴를 넘기고, 정기 수집은 다음으로 미룬다', async () => {
+    const { cycle, calls } = harness({ states: [state({ collectQueued: 1, remoteBusy: true })] });
+    expect(await cycle.runCycle({ daily: true })).toEqual({ ran: 0, code: 0, dailyDone: false });
+    expect(names(calls)).toEqual([]);
+  });
+});
 
 describe('createWorkerCycle — 한 바퀴의 조율(17 리뷰 17)', () => {
   it('단계마다 다시 센다 — 수집이 만든 요청 글을 분석이, 분석이 만든 승인을 반영이 이어받는다', async () => {
@@ -109,7 +150,7 @@ describe('createWorkerCycle — 한 바퀴의 조율(17 리뷰 17)', () => {
     });
     await cycle.runCycle();
     expect(names(calls)).toEqual(['analyze --requested-only', 'apply']); // 「지금 분석」 은 쉬는 동안 빠진다 — 요청은 queued 그대로
-    expect(calls.taken).toEqual([[], []]);
+    expect(calls.taken).toEqual([]);
     expect(calls.paused).toHaveLength(1);
     expect(cycle.idlePhase()).toBe('rate-limited');
     expect(calls.phases.at(-1)).toBe('rate-limited');

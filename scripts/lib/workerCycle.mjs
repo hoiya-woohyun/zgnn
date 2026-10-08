@@ -20,9 +20,9 @@ export const STEP_HOOKS = Object.freeze({ nonInteractive: true, ownsSignals: fal
  * @param {{
  *   resident: boolean,
  *   runStep: (name: string, argv: string[], hooks: object) => Promise<number>,
- *   readState: () => Promise<object|null>,           // 세션을 보고 센 상태(+ `requests`), 세션이 없으면 null
+ *   readState: () => Promise<object|null>,           // 세션을 보고 센 상태(+ `requests`, 서버 워커가 일하는 중이면 `remoteBusy`), 세션이 없으면 null
  *   ensureSession: () => Promise<boolean>,
- *   takeRequests: (rows: object[]) => Promise<void>,
+ *   takeRequests: (rows: object[]) => Promise<object[]>, // 원자 집기 — 내가 집은 행만 돌려준다(남이 먼저 집은 줄은 빠진다)
  *   closeRequests: (rows: object[], decide: (row: object) => { patch: object, gaveUp: boolean }) => Promise<void>,
  *   setPhase?: (phase: string) => Promise<void>,
  *   currentPhase?: () => string|null,
@@ -51,10 +51,15 @@ export function createWorkerCycle({ resident, runStep, readState, ensureSession,
   async function runOne(step) {
     const label = STEP_LABEL[step.step];
     const startedAt = now();
-    log(`${label} 시작 — ${step.reason}`);
     forced.delete(step.key);
-    current = { requests: step.requests, runId: null, end: null, rateLimited: false };
-    await takeRequests(step.requests);
+    // 요청 줄로 선 단계는 집은 줄만 한다 — 하나도 못 집었으면 다른 워커(서버·다른 PC)가 하는 일이라 건너뛴다. 정기 수집이 겸한 collect 만 요청 없이 돈다.
+    const requests = step.requests.length > 0 ? await takeRequests(step.requests) : step.requests;
+    if (step.requests.length > 0 && requests.length === 0 && !step.regular) {
+      log(`${label} — ${step.reason} — 다른 워커가 먼저 집었다, 건너뛴다`);
+      return 0;
+    }
+    log(`${label} 시작 — ${step.reason}`);
+    current = { requests, runId: null, end: null, rateLimited: false };
     await setPhase(step.step);
     let code;
     try {
@@ -64,9 +69,9 @@ export function createWorkerCycle({ resident, runStep, readState, ensureSession,
       code = 1;
     }
     // 닫기 전에 세션을 다시 본다 — 긴 분석 사이에 토큰이 끝났으면 done/queued 쓰기가 조용히 0행이 된다(리뷰 4). 못 붙어도 쓰기는 시도한다(fail-soft).
-    if (step.requests.length > 0) await ensureSession();
+    if (requests.length > 0) await ensureSession();
     const outcome = { code, runId: current.runId, rateLimited: current.rateLimited };
-    await closeRequests(step.requests, (row) => requestClose(row, outcome));
+    await closeRequests(requests, (row) => requestClose(row, outcome));
     current = { ...current, end: null };
     await setPhase(idlePhase());
     log(`${label} 끝 — ${code === 0 ? '성공' : `exit ${code}`} · ${formatElapsed(now() - startedAt)}`);
@@ -81,6 +86,7 @@ export function createWorkerCycle({ resident, runStep, readState, ensureSession,
     let state = await readState();
     if (!state) firstFailure = 1; // 상태를 못 읽었다(세션·네트워크) — 할 일 없음이 아니라 실패다(리뷰 9)
     while (state) {
+      if (state.remoteBusy) break; // 서버 워커가 일하는 중 — 같은 글을 둘이 분석하지 않게 이번 바퀴는 넘긴다(정기 수집은 `dailyDone: false` 로 다음에)
       const steps = planCycle({ ...state, isDailyTick: daily, last, done, forced, claudePausedUntil, now: now() });
       if (steps.length === 0) break;
       const step = steps[0];

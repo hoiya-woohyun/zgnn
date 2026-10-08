@@ -57,17 +57,27 @@ export async function readWorkerState(client, { excludedApplied = false } = {}) 
 }
 
 /**
- * 요청 행의 상태를 바꾼다(queued → taken → done). **실패해도 단계는 돈다** — 못 적은 taken 은 10분 뒤 다시 집히고, 못 적은 done 은
- * 다음 바퀴가 같은 요청을 한 번 더 할 뿐이다(세 단계 모두 멱등). 그래서 던지지 않고 경고 한 줄.
+ * 요청 행을 **원자적으로** 집는다(queued → taken). 두 워커(PC · Vercel)가 같은 줄을 동시에 집을 수 있어, 행마다 **관찰한 상태가 그대로일 때만** 바꾸고
+ * (`update … where id = ? and status = ?`) 돌아온 행 수로 이겼는지 안다 — 1행이면 내 것, 0행이면 남이 먼저 집었다.
+ * 10분 넘은 `taken`(집은 워커가 죽었다)을 다시 집을 때는 `taken_at` 도 같아야 한다 — 둘이 동시에 되집으면 `taken_at` 이 먼저 바뀐 쪽만 이긴다.
+ * **실패해도 단계는 돈다는 태도는 그대로다**(경고 한 줄, 그 행은 못 집은 것으로 친다) — 못 집은 줄은 queued 로 남아 다음 바퀴가 다시 집는다.
+ * @param {{ id: string, status: string, taken_at?: string|null }[]} rows  `pickRequests` 가 고른 행(관찰한 상태)
+ * @returns {Promise<object[]>} 집힌 행들(받은 객체 그대로)
  */
-export async function markRequests(client, ids, patch, warn = (line) => console.warn(line)) {
-  if (ids.length === 0) return;
-  const { error } = await client.from('pipeline_requests').update(patch).in('id', ids);
-  if (error) warn(`⚠️ 요청 ${ids.length}건을 ${patch.status} 로 못 적음 — ${error.message}`);
+export async function takeRequests(client, rows, nowIso, warn = (line) => console.warn(line)) {
+  const taken = [];
+  for (const row of rows) {
+    let query = client.from('pipeline_requests').update({ status: 'taken', taken_at: nowIso }).eq('id', row.id).eq('status', row.status);
+    if (row.status === 'taken') query = row.taken_at ? query.eq('taken_at', row.taken_at) : query.is('taken_at', null);
+    const { data, error } = await query.select('id');
+    if (error) warn(`⚠️ 요청 ${row.id} 를 taken 으로 못 적음 — ${error.message}`);
+    else if ((data ?? []).length > 0) taken.push(row);
+  }
+  return taken;
 }
 
 /**
- * 요청 행을 **행마다** 닫는다(`requestClose` 가 정한 patch — 되돌릴 때 `args.attempts` 가 행마다 달라 한 번에 못 쓴다). `markRequests` 와 같은 태도로 fail-soft.
+ * 요청 행을 **행마다** 닫는다(`requestClose` 가 정한 patch — 되돌릴 때 `args.attempts` 가 행마다 달라 한 번에 못 쓴다). `takeRequests` 와 같은 태도로 fail-soft.
  * @param {{ id: string, args?: object|null }[]} rows
  * @param {(row: object) => { patch: object, gaveUp: boolean }} decide
  */
@@ -78,4 +88,37 @@ export async function closeRequests(client, rows, decide, warn = (line) => conso
     const { error } = await client.from('pipeline_requests').update(patch).eq('id', row.id);
     if (error) warn(`⚠️ 요청 ${row.id} 를 ${patch.status} 로 못 적음 — ${error.message}`);
   }
+}
+
+// ── 두 워커의 비킴(ADR-028 결정 10) ─────────────────────────────────────
+// 서버 워커(Vercel)는 `workers` 에 `host = 'vercel'` 한 행을 쓴다. 로컬은 그 행이 일하는 중이면 이번 바퀴를 넘기고(같은 글을 둘이 분석하면 후보가 둘 생긴다 —
+// `candidates` 에 유일 제약이 없다), 서버는 로컬이 살아서 일할 수 있으면 비킨다. 둘 다 **심장(last_seen_at)이 최근일 때만** 믿는다.
+export const REMOTE_WORKER_HOST = 'vercel';
+/** 심장이 이 안에 뛰었으면 살아 있다 — 심장 주기(15초)의 네 배. */
+export const PEER_FRESH_MS = 60_000;
+
+const fresh = (row, now) => {
+  const seen = Date.parse(row?.last_seen_at);
+  return Number.isFinite(seen) && now - seen <= PEER_FRESH_MS;
+};
+
+/** 서버 워커가 지금 일하나 — vercel 행이 60초 안에 뛰었고 phase 가 idle 이 아니다. 시각을 못 읽으면 false(워커를 멈출 근거가 아니다). */
+export function remoteWorkerBusy(rows, now) {
+  const row = (rows ?? []).find((r) => r.host === REMOTE_WORKER_HOST);
+  return Boolean(row) && fresh(row, now) && row.phase !== 'idle';
+}
+
+/**
+ * 로컬 워커가 **일할 수 있는 채로** 살아 있나(서버가 비킬지 정한다). vercel 이 아닌 행 중 60초 안에 뛴 것이 있어야 하고,
+ * `login-needed`·`rate-limited` 인 로컬은 지금 일을 못 하므로 **살아 있다고 치지 않는다** — PC 워커가 로그인을 기다리는 동안 서버가 대신 돌아야 큐가 안 막힌다.
+ */
+export function localWorkerAlive(rows, now) {
+  return (rows ?? []).some((r) => r.host !== REMOTE_WORKER_HOST && fresh(r, now) && r.phase !== 'login-needed' && r.phase !== 'rate-limited');
+}
+
+/** `workers` 의 비킴 판단 재료. 오류는 던진다 — 부르는 쪽이 fail-open 으로 다룬다(로컬 워커를 멈출 일이 아니다). */
+export async function readWorkerPeers(client) {
+  const { data, error } = await client.from('workers').select('host, phase, last_seen_at');
+  if (error) throw new Error(`workers 조회 실패: ${error.message}`);
+  return data ?? [];
 }
