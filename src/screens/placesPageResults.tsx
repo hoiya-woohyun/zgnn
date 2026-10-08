@@ -134,6 +134,9 @@ export function PlacesPageResults({
   );
   const [hardOpen, setHardOpen] = useState(false);
 
+  // 넓은 화면은 두 열(07 U10). lg 부터 — md 는 사이드바를 빼면 본문이 512px 이라 한 열 카드가 이미 그 폭이다.
+  const listClass = 'space-y-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3 lg:space-y-0';
+
   const renderCard = (place: TPlaceEntry) => (
     <PlaceCard key={place.id} place={place} distanceKm={distances?.get(place.id)} hideReasonText={repeated?.text} />
   );
@@ -200,7 +203,7 @@ export function PlacesPageResults({
 
       {results.length > 0 ? (
         <>
-          <ul className="mt-3 space-y-3 px-4 md:px-6">{fold.shown.map(renderCard)}</ul>
+          <ul className={cx('mt-3 px-4 md:px-6', listClass)}>{fold.shown.map(renderCard)}</ul>
           {fold.folded.length > 0 && (
             <div className="mt-3 px-4 md:px-6">
               {/* 이름은 머리 줄의 "어려움 N" 과 같은 말 — 접힌 것이 그 N곳이라는 게 읽혀야 한다. */}
@@ -217,7 +220,7 @@ export function PlacesPageResults({
                   className={cx('shrink-0 text-quaternary transition-transform motion-reduce:transition-none', hardOpen && 'rotate-180')}
                 />
               </button>
-              {hardOpen && <ul className="mt-3 space-y-3">{fold.folded.map(renderCard)}</ul>}
+              {hardOpen && <ul className={cx('mt-3', listClass)}>{fold.folded.map(renderCard)}</ul>}
             </div>
           )}
         </>

@@ -45,11 +45,15 @@ const STAY_ENV_FILTERS = envFiltersWithData(placesOfType('stay'));
  * 가로 스크롤 줄 오른쪽 끝을 살짝 흐려서 "더 있다" 는 신호를 준다.
  * 마스크가 마지막 칩까지 가리면 안 되므로, 마스크가 시작되는 지점보다
  * 넓게 오른쪽 padding 을 잡아 마지막 칩은 항상 마스크 밖(완전 불투명)에 있게 한다.
+ *
+ * lg 부터는 줄을 바꾼다(07 U10) — 넓은 화면에서 칩을 옆으로 밀어 찾게 할 이유가 없다. md 는 사이드바를 빼면
+ * 본문이 512px 이라 읍면 10개가 세 줄이 되고, 이 줄은 sticky 머리 안이라 그만큼 목록을 가린다 — 그래서 md 는 스크롤 그대로.
  */
 const SCROLL_ROW_CLASS =
   'no-scrollbar flex items-center gap-2 overflow-x-auto px-4 pr-8 md:px-6 md:pr-10 ' +
   '[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] ' +
-  '[-webkit-mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]';
+  '[-webkit-mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] ' +
+  'lg:flex-wrap lg:overflow-x-visible lg:pr-6 lg:[mask-image:none] lg:[-webkit-mask-image:none]';
 
 /** 조건 한 묶음. bar 에서는 이름표 없는 스크롤 줄, sheet 에서는 이름표를 단 줄바꿈 묶음. */
 function FilterGroup({
