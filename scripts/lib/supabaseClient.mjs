@@ -1,7 +1,10 @@
-// Supabase 클라이언트를 만드는 유일한 곳(ADR-016 v5: Auth 로그인 모델, service 키 없음). 인증은 두 출처 중 하나로, 스크립트 종류가 고른다:
+// Supabase 클라이언트를 만드는 유일한 곳(ADR-016 v5: Auth 로그인 모델, service 키 없음). 인증은 세 출처 중 하나로, 스크립트 종류가 고른다:
 //   1. 키체인의 로그인 세션(`pnpm data login` 이 넣은 access token) — 쓰기 스크립트(collect·analyze·apply·seed). publishable 키 + `Authorization: Bearer <JWT>` 로
 //      PostgREST 에 가고, RLS 가 `operators` 허용 목록으로 가른다. `exp` 가 지났으면 여기서 멈추고 다시 로그인하라고 한다.
 //   2. publishable 키만(anon) — `pnpm data pull`(readOnly). Vercel 빌드와 로컬이 같은 경로다. RLS 가 published places·items 의 select 만 허용한다.
+//   3. 서버 워커가 주입한 요청 JWT(`injectSession` — ADR-028 결정 4). Vercel 함수엔 키체인이 없고 `/admin` 이 보낸 `Authorization: Bearer <운영자 JWT>` 가 있다.
+//      1번과 **같은 검사**(형식·exp·skew·하루 상한·service 키 트립와이어)를 같은 코드로 타고, 읽는 곳만 키체인에서 주입값으로 바뀐다. 주입 중엔 키체인을 부르지 않는다.
+//      모듈 상태라 한 프로세스에서 두 요청이 겹치면 안 된다 — 서버 진입점의 인스턴스 바쁨 표식이 막는다.
 // service_role 키는 어디서도 쓰지 않는다(v5 에서 Actions 폐지) — env 에 있으면 "안 쓴다" 가 아니라 **멈춘다**(resolveSupabaseCredentials 의 트립와이어).
 // 값은 이 프로세스 안에만 있고 찍지 않는다 — 어느 출처를 썼는지(이름)만 로그에 남긴다. 경계는 세 가지뿐이다: 파일에 값이 없다 · `exp`(≤1일) ·
 // RLS 범위. 키체인 deny 는 이 머신에서 경계가 아니다(`node -e` 로 읽힌다) — 읽어도 하루면 죽고 운영자 권한 밖은 못 하게 하는 것이 설계다.
@@ -47,6 +50,19 @@ function linkedProjectRef() {
   }
 }
 
+// 서버 워커가 요청마다 꽂는 JWT(null 이면 주입 없음 → 키체인). 겹치는 요청이 없다는 전제는 머리 주석 3번.
+let injectedToken = null;
+
+// 주입을 걸고, 이전 상태로 되돌리는 함수를 돌려준다(`finally` 에서 부른다). 빈 값·문자열이 아닌 값은 거부 — 조용히 키체인으로 떨어지면 서버에서 `security` spawn 이 죽는다.
+export function injectSession(token) {
+  if (typeof token !== 'string' || !token) throw new Error('injectSession: 비어 있지 않은 JWT 문자열이 필요하다');
+  const previous = injectedToken;
+  injectedToken = token;
+  return () => {
+    injectedToken = previous;
+  };
+}
+
 const LOGIN_HINT = '사용자 터미널에서 `pnpm data login`(이메일·비밀번호) 뒤 다시 실행. 에이전트 세션 안에서는 되지 않는다.';
 
 // 다시 로그인하면 풀리는 거부에만 붙는 표식(`loginNeeded: true`). 상주 워커(`pnpm data`)가 이것만 보고 그 자리에서 비밀번호를 묻는다 —
@@ -68,7 +84,7 @@ export function sessionTtlProblem(exp, now) {
 // URL 은 코드 상수로 고정한다(env 로 못 바꾼다) — 바꿀 수 있으면 `SUPABASE_URL=https://attacker pnpm data apply` 한 줄이 키체인 JWT 를 밖으로 보낸다.
 export function resolveSupabaseCredentials({
   env = process.env,
-  readSession = readKeychainSession,
+  readSession = injectedToken ? () => injectedToken : readKeychainSession,
   now = () => Date.now() / 1000,
   readOnly = false,
   linkedRef = linkedProjectRef(),
@@ -103,11 +119,12 @@ export function resolveSupabaseCredentials({
   if (sessionUsableUntil(exp) <= at) {
     throw loginNeeded(`로그인 세션이 만료 ${SESSION_EXP_SKEW_MIN}분 전이라 세션으로 쓰지 않는다(만료 ${formatTime(exp)} — 긴 pnpm data analyze 가 중간에 죽지 않게 ${SESSION_EXP_SKEW_MIN}분 앞당겨 본다) — ${LOGIN_HINT}`);
   }
-  return { url, key: publishableKey, source: 'session', accessToken: token, expiresAt: exp };
+  return { url, key: publishableKey, source: injectedToken ? 'injected' : 'session', accessToken: token, expiresAt: exp };
 }
 
 const SOURCE_LABEL = {
   session: '로그인 세션(JWT — operators RLS)',
+  injected: '요청 세션(JWT — operators RLS, 서버 워커)',
   anon: 'publishable(anon — published 읽기만)',
 };
 
@@ -126,6 +143,8 @@ export function createSupabase({ readOnly = false } = {}) {
   try {
     creds = resolveSupabaseCredentials({ readOnly });
   } catch (e) {
+    // 서버 워커(주입 중)에선 exit 하면 인스턴스가 죽는다 — 호출한 쪽이 요청 하나의 실패로 다루게 그대로 던진다.
+    if (injectedToken) throw e;
     console.error(e.message);
     process.exit(1);
   }

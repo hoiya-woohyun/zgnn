@@ -1,8 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   PROJECT_REF, SESSION_EXP_SKEW_MIN, SESSION_EXP_SKEW_S, SESSION_MAX_TTL_S, assertPublishableKey, formatTime, ignoredEnvWarning, jwtExpiresAt,
-  projectUrl, resolveSupabaseCredentials, sessionTtlProblem, sessionUsableUntil,
+  createSupabase, injectSession, projectUrl, resolveSupabaseCredentials, sessionTtlProblem, sessionUsableUntil,
 } from './supabaseClient.mjs';
+import { readSession as readKeychainSession } from './sessionKeychain.mjs';
+
+// 기본값 경로(readSession 인자 없음)를 보려고 키체인 모듈을 막는다 — 주입 중엔 이게 불리면 안 된다.
+vi.mock('./sessionKeychain.mjs', () => ({ readSession: vi.fn(() => undefined) }));
 
 // 서명 없는 가짜 JWT — 서명은 서버가 확인하고, 여기선 `exp` 만 읽는다.
 const jwt = (payload) => `eyJhbGciOiJIUzI1NiJ9.${Buffer.from(JSON.stringify(payload)).toString('base64url')}.sig`;
@@ -192,5 +196,78 @@ describe('ignoredEnvWarning — 경고가 조용히 사라지는 것을 막는 �
 describe('projectUrl', () => {
   it('ref 로 URL 을 만든다 — SUPABASE_URL 을 따로 둘 필요가 없다', () => {
     expect(projectUrl('abc')).toBe('https://abc.supabase.co');
+  });
+});
+
+describe('injectSession — 서버 워커가 요청 JWT 를 꽂는 출처(ADR-028 결정 4)', () => {
+  let restore;
+  afterEach(() => {
+    restore?.();
+    restore = undefined;
+    vi.mocked(readKeychainSession).mockClear();
+    vi.restoreAllMocks();
+  });
+  // readSession 인자를 넘기지 않는다 — 기본값이 주입을 따르는지가 검사 대상.
+  const base = { env: {}, now: () => NOW, linkedRef: PROJECT_REF, publishableKey: PUB };
+
+  it('유효 토큰 → source injected · accessToken 일치 · exp 채움. 키체인은 부르지 않는다', () => {
+    restore = injectSession(valid);
+    expect(resolveSupabaseCredentials(base)).toStrictEqual({ url: PINNED, key: PUB, source: 'injected', accessToken: valid, expiresAt: NOW + 3600 });
+    expect(readKeychainSession).not.toHaveBeenCalled();
+  });
+
+  it('빈 값·문자열 아님은 거부', () => {
+    for (const bad of ['', undefined, null, 42]) expect(() => injectSession(bad)).toThrow(/injectSession/);
+  });
+
+  it('restore 뒤엔 주입이 풀려 키체인으로 돌아간다(중첩은 이전 값으로)', () => {
+    const outer = injectSession(valid);
+    const other = jwt({ sub: 'u2', exp: NOW + 7200 });
+    const inner = injectSession(other);
+    expect(resolveSupabaseCredentials(base).accessToken).toBe(other);
+    inner();
+    expect(resolveSupabaseCredentials(base).accessToken).toBe(valid);
+    outer();
+    expect(() => resolveSupabaseCredentials(base)).toThrow(/로그인이 필요하다/);
+    expect(readKeychainSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('같은 검사가 걸린다 — 만료·skew 창·JWT 아님·하루 초과는 loginNeeded(하루 초과는 아님), service 키는 표식 없는 throw', () => {
+    restore = injectSession(expired);
+    expect(() => resolveSupabaseCredentials(base)).toThrow(/만료됐다/);
+    try { resolveSupabaseCredentials(base); } catch (e) { expect(e.loginNeeded).toBe(true); }
+    restore();
+    restore = injectSession(jwt({ sub: 'u1', exp: NOW + 600 }));
+    expect(() => resolveSupabaseCredentials(base)).toThrow(new RegExp(`만료 ${SESSION_EXP_SKEW_MIN}분 전`));
+    restore();
+    restore = injectSession('not-a-jwt');
+    expect(() => resolveSupabaseCredentials(base)).toThrow(/JWT 가 아니다/);
+    restore();
+    restore = injectSession(jwt({ sub: 'u1', exp: NOW + SESSION_MAX_TTL_S + 100 }));
+    expect(() => resolveSupabaseCredentials(base)).toThrow(/하루를 넘는다/);
+    restore();
+    restore = injectSession(valid);
+    expect(() => resolveSupabaseCredentials({ ...base, env: { SUPABASE_SERVICE_ROLE_KEY: 'k' } })).toThrow(/SUPABASE_SERVICE_ROLE_KEY 가 있다/);
+    expect(readKeychainSession).not.toHaveBeenCalled();
+  });
+
+  it('readSession 인자를 넘기면 그게 우선(기존 테스트 경로 유지)', () => {
+    restore = injectSession(valid);
+    const other = jwt({ sub: 'u3', exp: NOW + 1800 + 3600 });
+    const c = resolveSupabaseCredentials({ ...base, readSession: () => other });
+    expect(c.accessToken).toBe(other);
+  });
+
+  it('createSupabase: 주입 중 만료 토큰이면 exit 하지 않고 throw, 주입이 없으면 exit 1', () => {
+    const exit = vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('EXIT'); });
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    restore = injectSession(jwt({ sub: 'u1', exp: 1 })); // 실제 시계로도 과거
+    expect(() => createSupabase()).toThrow(/만료됐다/);
+    expect(exit).not.toHaveBeenCalled();
+    restore();
+    restore = undefined;
+    expect(() => createSupabase()).toThrow('EXIT');
+    expect(exit).toHaveBeenCalledWith(1);
+    expect(err).toHaveBeenCalled();
   });
 });
