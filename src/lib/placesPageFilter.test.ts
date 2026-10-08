@@ -221,6 +221,12 @@ describe('카드 진입에 따라온 읍면·방향·조건 칩(19 T4.2)', () =>
     if (shown === opened.length) expect(areaCarriedRelease(sameDirection, shown)).toBeNull();
   });
 
+  it('식당 탭이면 null — 권역은 탭을 따라오지만 카드는 식당을 세지 않는다', () => {
+    const { id, towns } = pick!;
+    const conditions = { ...entered, type: 'restaurant' as const, area: id, town: towns[0] };
+    expect(areaCarriedRelease(conditions, 0)).toBeNull();
+  });
+
   it('검색어는 풀지 않는다 — 진입이 비웠으니 뒤에 친 것이다', () => {
     const { id, opened, towns } = pick!;
     const conditions = { ...entered, area: id, town: towns[0], query: opened.find((place) => place.region.town === towns[0])!.name };
