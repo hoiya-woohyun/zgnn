@@ -167,7 +167,15 @@ describe('toPetBadges', () => {
 
   it('실내 정보가 없으면 실내 배지를 만들지 않는다', () => {
     const labels = toPetBadges(parsePetPolicy('10kg 미만의 최대 2마리 가능.')).map((b) => b.label);
-    expect(labels).toEqual(['~10kg', '최대 2마리']);
+    expect(labels).toEqual(['10kg 미만', '최대 2마리']);
+  });
+
+  // 14 W261007.8 — 스테이다랑쉬(7kg 이하)와 쉼멍스테이(7kg 미만)가 같은 `~7kg` 이었다. 두부(7kg)에게 판정은 반대다.
+  it('무게 칩은 이하와 미만을 다른 글자로 쓴다', () => {
+    const label = (text: string) => toPetBadges(parsePetPolicy(text)).find((b) => b.axis === 'limit')?.label;
+    expect(label('7kg 이하 1마리 가능')).toBe('7kg 이하');
+    expect(label('7kg 까지 가능')).toBe('7kg 이하');
+    expect(label('7kg 미만 1마리 가능')).toBe('7kg 미만');
   });
 
   it('실내 자유 + 리드줄은 두 배지로 나온다', () => {
@@ -342,7 +350,7 @@ describe('toPetBadges — 축', () => {
   it('요금 줄은 모두 요금 축, 무게·마릿수는 제한 축이다', () => {
     const badges = toPetBadges(parsePetPolicy('10kg 이하 2마리까지. 1마리당 2만원 추가'));
     expect(badges.filter((b) => b.axis === 'fee').map((b) => b.label)).toEqual(['1마리당 2만원']);
-    expect(badges.filter((b) => b.axis === 'limit').map((b) => b.label)).toEqual(['~10kg', '최대 2마리']);
+    expect(badges.filter((b) => b.axis === 'limit').map((b) => b.label)).toEqual(['10kg 이하', '최대 2마리']);
   });
 });
 
@@ -368,6 +376,16 @@ describe('withPolicyFacts — AI 구조화 판단이 정규식 결과를 덮는�
     expect(p.sources.indoor).toBe(text);
   });
 
+  // 14 W261007.8 — AI 는 숫자만 준다. 경계를 '이하' 로 박아 두면 "7kg 미만" 인 곳에 7kg 강아지가 '갈 수 있어요' 가 된다.
+  it('AI 경로도 원문의 "미만" 을 읽어 경계에 선 강아지를 막는다', () => {
+    const text = '7kg 미만 소형견 1마리만 가능합니다';
+    const p = withPolicyFacts(parsePetPolicy(text), { ...facts, indoor: 'unknown', leash: false, weightLimitKg: 7, maxDogs: 1 }, text);
+    expect(p.tiers[0]?.weightInclusive).toBe(false);
+    expect(toPetBadges(p).map((b) => b.label)).toContain('7kg 미만');
+    const dubu = { dogs: [{ name: '두부', weightKg: 7 }], carrier: 'none' as const };
+    expect(judgeEligibility(dubu, p).level).toBe('hard');
+  });
+
   /*
    * **AI 의 null 은 정규식으로 메우지 않는다**(ADR-017 v5). 스키마가 모든 칸을 요구하므로 facts 가 있는 한 null 은
    * "읽어 봤는데 그런 조건이 없다" 이다. 정규식은 무게 상한과 요금 구간을 가르지 못한다 — 다와풀빌라가 그 실측이다.
@@ -379,7 +397,7 @@ describe('withPolicyFacts — AI 구조화 판단이 정규식 결과를 덮는�
     const p = withPolicyFacts(parsed, { ...facts, indoor: 'unknown', leash: false, weightLimitKg: null, maxDogs: 3 }, text);
     expect(p.weightLimitKg).toBeUndefined();
     expect(p.tiers).toEqual([{ maxWeightKg: undefined, weightInclusive: undefined, maxDogs: 3, source: expect.any(String) }]);
-    expect(toPetBadges(p).map((b) => b.label)).not.toContain('~19kg');
+    expect(toPetBadges(p).map((b) => b.label)).not.toContain('19kg 이하');
     const big = { dogs: [{ name: '보리', weightKg: 25 }], carrier: 'none' as const };
     expect(judgeEligibility(big, p).level).not.toBe('hard');
   });

@@ -31,7 +31,7 @@ describe('listPolicyCell — 목록 조건 칸은 올리면 나갈 조건(todo/1
     const out = listPolicyCell(group(r), previewFor(r.extracted), place());
     expect(out.fromSite).toBe(true);
     expect(out.blogDiffers).toBe(true);
-    expect(labels(out.cell)).toContain('~10kg');
+    expect(labels(out.cell)).toContain('10kg 미만');
     expect(labels(out.cell)).not.toContain('대형견 OK');
   });
 

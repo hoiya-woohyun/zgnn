@@ -339,14 +339,14 @@ describe('editPreview — 고친 값이 실제로 사이트에 어떻게 나가�
 
   it('원문에 근거가 있으면 칩이 된다', () => {
     const { cell, corrections } = editPreview(withPolicy({ weightLimitKg: '10' }, '10kg 이하만 가능해요'));
-    expect(cell.items.map((i) => i.label)).toContain('~10kg');
+    expect(cell.items.map((i) => i.label)).toContain('10kg 이하');
     expect(corrections).toEqual([]);
   });
 
   /** 같은 값인데 원문만 다르다 — 그 차이가 그대로 화면에 보여야 한다. */
   it('원문에 없으면 빠지고, 뺀 이유가 함께 온다', () => {
     const { cell, corrections } = editPreview(withPolicy({ weightLimitKg: '10' }, '리드줄 착용 부탁드려요'));
-    expect(cell.items.map((i) => i.label)).not.toContain('~10kg');
+    expect(cell.items.map((i) => i.label)).not.toContain('10kg 이하');
     expect(corrections.length).toBeGreaterThan(0);
   });
 

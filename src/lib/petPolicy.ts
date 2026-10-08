@@ -485,6 +485,9 @@ export const withPolicyFacts = (parsed: TPetPolicy, facts: TPetPolicyFacts | nul
   const vaccineRequired = corrected.vaccineRequired === true;
   const maxDogs = corrected.maxDogs ?? undefined;
   const weightLimitKg = corrected.weightLimitKg ?? undefined;
+  // AI 는 숫자만 준다 — 경계를 포함하는지는 원문이 말한다. 원문에 "N kg 미만" 이 있을 때만 제외, 아니면 '이하'(정규식 tier 와 같은 기본).
+  const weightInclusive =
+    weightLimitKg === undefined ? undefined : !new RegExp(`(?<![\\d.])${String(weightLimitKg).replace('.', '\\.')}\\s*kg\\s*미만`, 'i').test(petPolicyText);
 
   /*
    * 근거 문장: 정규식이 **같은 판단**을 짚은 문장이 있으면 그것을, 없으면 그 말이 든 줄을 쓴다.
@@ -541,7 +544,7 @@ export const withPolicyFacts = (parsed: TPetPolicy, facts: TPetPolicyFacts | nul
     // AI 는 상한 하나씩만 준다 — 계단식 칸이 필요해지면 스키마에 목록을 더한다(요금이 `feeLines` → `fees` 로 간 것과 같은 길).
     tiers:
       weightLimitKg !== undefined || maxDogs !== undefined
-        ? [{ maxWeightKg: weightLimitKg, weightInclusive: weightLimitKg !== undefined ? true : undefined, maxDogs, source: firstLine }]
+        ? [{ maxWeightKg: weightLimitKg, weightInclusive, maxDogs, source: firstLine }]
         : [],
     // 후보가 있다는 것 자체가 AI 가 '동반 불가' 가 아니라고 읽었다는 뜻이다(`petAllowed: 'no'` 는 추출 단계에서 빠진다).
     // 정규식의 '불가' 는 크기·자리 조건의 부정("루프탑은 … 불가") 에서도 걸릴 수 있어 H0 로 보낼 근거가 못 된다.
@@ -667,8 +670,12 @@ export const toPetBadges = (policy: TPetPolicy): TPetBadge[] => {
   else if (policy.mediumDogOk) badges.push({ label: '중형견 OK', tone: 'ok', axis: 'size' });
   else if (policy.smallDogOnly) badges.push({ label: '소형견만', tone: 'cond', axis: 'size' });
 
+  // '이하' 와 '미만' 을 같은 글자(`~7kg`)로 쓰면 경계에 선 강아지(7kg)에게 한 칩이 두 판정을 말한다(14 W261007.8).
+  // 경계는 상한을 정한 tier 의 것이다 — 판정(`eligibility.ts` 의 `fitsTierWeight`)이 같은 칸을 같은 기본값으로 읽는다.
   if (policy.weightLimitKg !== undefined) {
-    badges.push({ label: `~${policy.weightLimitKg}kg`, tone: 'cond', axis: 'limit' });
+    const tier = policy.tiers.find((t) => t.maxWeightKg === policy.weightLimitKg);
+    const bound = tier?.weightInclusive ? '이하' : '미만';
+    badges.push({ label: `${policy.weightLimitKg}kg ${bound}`, tone: 'cond', axis: 'limit' });
   }
   if (policy.maxDogs !== undefined) {
     badges.push({ label: `최대 ${policy.maxDogs}마리`, tone: 'cond', axis: 'limit' });
