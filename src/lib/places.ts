@@ -48,12 +48,12 @@ export const PLACES_BY_ID = new Map(PLACES.map((place) => [place.id, place]));
  * `members` 의 이름은 `src/data/items.json` 의 name 과 정확히 일치해야 한다(itemNeeds.ts 와
  * 같은 어법). 어긋나면 합치지 않고 원본 두 줄이 그대로 남는다 — 테스트가 그것을 잡는다.
  */
-const ITEM_VARIANTS: { name: string; members: { itemName: string; label: string }[] }[] = [
+const ITEM_VARIANTS: { name: string; members: { itemName: string; label: string; kg?: { min?: number; max?: number } }[] }[] = [
   {
     name: '강아지 기내용 가방',
     members: [
-      { itemName: '강아지 기내용 가방(5kg 이하)', label: '5kg 이하' },
-      { itemName: '강아지 기내용 가방(5kg 이상)', label: '5kg 이상' },
+      { itemName: '강아지 기내용 가방(5kg 이하)', label: '5kg 이하', kg: { max: 5 } },
+      { itemName: '강아지 기내용 가방(5kg 이상)', label: '5kg 이상', kg: { min: 5 } },
     ],
   },
 ];
@@ -75,7 +75,7 @@ const mergeItemVariants = (items: TItem[]): TItem[] => {
 
     const [head] = members;
     const variants = members.flatMap(({ member, item }) =>
-      item?.linkUrl ? [{ label: member.label, linkUrl: item.linkUrl }] : [],
+      item?.linkUrl ? [{ label: member.label, linkUrl: item.linkUrl, kg: member.kg }] : [],
     );
     merged.push({ ...head.item!, name: group.name, linkUrl: undefined, variants });
     for (const { item } of members) consumed.add(item!.id);

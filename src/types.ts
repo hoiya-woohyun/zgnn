@@ -184,7 +184,12 @@ export type TItem = {
    * 갈래마다 따로 한 줄이지만, 챙기는 사람 입장에서는 **하나를 사는** 일이라 한 줄로 합친다.
    * 합쳐진 항목은 `linkUrl` 대신 이 목록을 들고 있다 — `lib/places.ts` 의 ITEM_VARIANTS 참고.
    */
-  variants?: { label: string; linkUrl: string }[];
+  variants?: {
+    label: string;
+    linkUrl: string;
+    /** 이 갈래가 맞는 몸무게(kg, 양 끝 포함) — 라벨을 파싱하지 않으려고 숫자로 둔다. 준비물 줄이 우리 강아지 몸무게로 갈래를 고른다(`variantsForDog`). */
+    kg?: { min?: number; max?: number };
+  }[];
 };
 
 export type TMeta = {

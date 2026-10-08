@@ -6,7 +6,7 @@ import { Button } from '../components/base/button';
 import { CheckboxBase } from '../components/base/checkbox';
 import { useReplay } from '../hooks/useReplay';
 import { showAppStatus } from '../lib/appStatus';
-import { shouldAskCarrierBag } from '../lib/checklist';
+import { shouldAskCarrierBag, shouldOfferStroller, variantsForDog } from '../lib/checklist';
 import { linkLabel } from '../lib/format';
 import { useAppStore } from '../store/useAppStore';
 import { cx } from '../utils/cx';
@@ -61,6 +61,10 @@ export function ChecklistPageItemRow({
     onToggleChecked();
     setAskCarrier(shouldAskCarrierBag(item.name, becameChecked, dog));
   };
+
+  // 이 몸무게에 맞는 갈래만(W261007.13). 강아지가 없으면 전부.
+  const variants = item.variants ? variantsForDog(item.variants, dog) : [];
+  const offerStroller = shouldOfferStroller(item.name, checked, dog);
 
   const acceptCarrier = () => {
     if (dog) {
@@ -128,6 +132,16 @@ export function ChecklistPageItemRow({
         묻기만 한다 — 판정을 바꾸는 것은 사용자의 [바꾸기] 한 번이다(ADR-009 의 반대 방향은 여전히 금지).
         펼침 칸 위에 둬서 접힌 줄에서도 보인다. 두 버튼 모두 44px.
       */}
+      {/* 프로필 → 준비물은 묻기만 한다(`shouldOfferStroller`) — 조용히 챙김으로 세면 안 챙긴 것을 챙긴 것처럼 말한다(07 U6). 체크하면 사라진다. */}
+      {offerStroller && (
+        <div className="mx-2 mb-2 flex items-center gap-2 rounded-xl bg-secondary p-3" role="group" aria-label="유모차 챙기기">
+          <p className="min-w-0 flex-1 text-sm text-secondary">유모차로 다닌다고 적어 두셨어요. 챙기셨나요?</p>
+          <Button size="sm" color="secondary" className="h-11 shrink-0" onClick={handleToggleChecked}>
+            챙겼어요
+          </Button>
+        </div>
+      )}
+
       {askCarrier && (
         <div className="mx-2 mb-2 rounded-xl bg-secondary p-3" role="group" aria-label="이동 수단 바꾸기">
           <p className="text-sm text-secondary">우리 강아지 이동 수단도 &lsquo;이동가방&rsquo; 으로 바꿀까요?</p>
@@ -152,7 +166,7 @@ export function ChecklistPageItemRow({
         <div className="overflow-hidden" inert={!expanded}>
           <div className="border-t border-secondary px-3 py-3">
             {item.reason && <p className="text-sm text-secondary">{item.reason}</p>}
-            {item.variants && item.variants.length > 0 && (
+            {variants.length > 0 && (
               // 갈래는 버튼을 나란히 두지 않고 줄로 세운다. 나란히 두면 둘 중 하나를 "고르는"
               // 것처럼 보이는데, 실제로는 우리 강아지에 해당하는 한 줄만 보면 되는 목록이다.
               <ul
@@ -161,7 +175,7 @@ export function ChecklistPageItemRow({
                   item.reason ? 'mt-3' : 'mt-0',
                 )}
               >
-                {item.variants.map((variant) => (
+                {variants.map((variant) => (
                   <li key={variant.label}>
                     <a
                       href={variant.linkUrl}

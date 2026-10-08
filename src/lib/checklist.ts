@@ -79,3 +79,32 @@ export const shouldAskCarrierBag = (
   becameChecked: boolean,
   dog: TDogProfile | null,
 ): boolean => becameChecked && itemName === CARRY_BAG_ITEM_NAME && dog?.carrier === 'none';
+
+/**
+ * 갈래 있는 준비물(기내용 가방)에서 **우리 강아지 몸무게에 맞는 갈래만**(14 W261007.13). 두부 3kg 에게 "5kg 이상" 링크까지
+ * 나란히 보이면 어느 쪽인지 사용자가 다시 따져야 했다. 여러 마리면 맞는 갈래의 합(콩 2.5 + 해피 12 → 둘 다),
+ * 경계(정확히 5kg)는 두 라벨이 다 5 를 품으니 둘 다. 강아지가 없거나 하나도 안 맞으면 전부 — 링크를 숨기지 않는다.
+ *
+ * 화면에서만 거른다. `ITEMS`(분모·id)는 그대로다 — 갈래는 링크만 가르고 세는 일에 끼지 않는다(ADR-009 「갈래」 · features/checklist.md v10).
+ */
+export const variantsForDog = <T extends { kg?: { min?: number; max?: number } }>(
+  variants: readonly T[],
+  dog: TDogProfile | null,
+): readonly T[] => {
+  if (!dog || dog.dogs.length === 0) return variants;
+  const fits = variants.filter(({ kg }) =>
+    dog.dogs.some(({ weightKg }) => !kg || ((kg.min ?? -Infinity) <= weightKg && weightKg <= (kg.max ?? Infinity))),
+  );
+  return fits.length > 0 ? fits : variants;
+};
+
+/** 준비물의 유모차 — 이름으로 찾는다(`CARRY_BAG_ITEM_NAME` 과 같은 이유). */
+export const STROLLER_ITEM_NAME = '강아지 유모차';
+
+/**
+ * 프로필 이동 수단이 유모차인데 준비물의 유모차가 아직 안 챙김이면, 그 줄에서 **한 번에 챙기게 묻는다**(14 W261007.13).
+ * 조용히 챙김으로 바꾸지 않는다 — 유모차로 다닌다는 것이 짐을 쌌다는 뜻은 아니고(이 항목 이유가 '공항 근처 대여' 다),
+ * 안 챙긴 것을 챙긴 것처럼 세는 것은 07 U6 이 고친 거짓말이다. `shouldAskCarrierBag` 의 거울: 체크는 사용자의 한 번 누름뿐.
+ */
+export const shouldOfferStroller = (itemName: string, checked: boolean, dog: TDogProfile | null): boolean =>
+  !checked && itemName === STROLLER_ITEM_NAME && dog?.carrier === 'stroller';

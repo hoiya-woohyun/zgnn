@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { CARRY_BAG_ITEM_NAME, checklistView, shouldAskCarrierBag, visibleItems } from './checklist';
+import {
+  CARRY_BAG_ITEM_NAME,
+  checklistView,
+  shouldAskCarrierBag,
+  shouldOfferStroller,
+  STROLLER_ITEM_NAME,
+  variantsForDog,
+  visibleItems,
+} from './checklist';
 import { parsePetPolicy } from './petPolicy';
 import { ITEMS } from './places';
 import type { TPlaceEntry } from './places';
@@ -109,5 +117,47 @@ describe('shouldAskCarrierBag — 가방을 챙기면 프로필 이동 수단도
 
   it('다른 준비물은 묻지 않는다', () => {
     expect(shouldAskCarrierBag('배변봉투', true, dogWith('none'))).toBe(false);
+  });
+});
+
+describe('variantsForDog — 기내용 가방 갈래를 몸무게로(14 W261007.13)', () => {
+  const bag = ITEMS.find((item) => item.name === CARRY_BAG_ITEM_NAME)!;
+  const labels = (dog: TDogProfile | null) => variantsForDog(bag.variants ?? [], dog).map((variant) => variant.label);
+  const DUBU: TDogProfile = { dogs: [{ name: '두부', weightKg: 3 }], carrier: 'bag' };
+  const BORI: TDogProfile = { dogs: [{ name: '보리', weightKg: 30 }], carrier: 'none' };
+  const KONG_HAPPY: TDogProfile = { dogs: [{ name: '콩', weightKg: 2.5 }, { name: '해피', weightKg: 12 }], carrier: 'stroller' };
+
+  it('갈래 둘에 몸무게 구간이 실려 있다 — 없으면 전부 보이는 쪽으로 조용히 물러난다', () => {
+    expect(bag.variants?.every((variant) => variant.kg)).toBe(true);
+  });
+
+  it('한 마리면 맞는 갈래 하나', () => {
+    expect(labels(DUBU)).toEqual(['5kg 이하']);
+    expect(labels(BORI)).toEqual(['5kg 이상']);
+  });
+
+  it('여러 마리면 맞는 갈래의 합, 경계(5kg)는 둘 다', () => {
+    expect(labels(KONG_HAPPY)).toEqual(['5kg 이하', '5kg 이상']);
+    expect(labels({ dogs: [{ name: '오', weightKg: 5 }], carrier: 'none' })).toEqual(['5kg 이하', '5kg 이상']);
+  });
+
+  it('강아지가 없으면 전부', () => {
+    expect(labels(null)).toEqual(['5kg 이하', '5kg 이상']);
+  });
+});
+
+describe('shouldOfferStroller — 유모차 등록자에게 한 번에 챙기게(14 W261007.13)', () => {
+  const stroller: TDogProfile = { dogs: [{ name: '콩', weightKg: 2.5 }], carrier: 'stroller' };
+
+  it('이름이 준비물에 있다 — 어긋나면 조용히 한 번도 안 묻는다', () => {
+    expect(ITEMS.some((item) => item.name === STROLLER_ITEM_NAME)).toBe(true);
+  });
+
+  it('유모차 프로필 · 안 챙김일 때만', () => {
+    expect(shouldOfferStroller(STROLLER_ITEM_NAME, false, stroller)).toBe(true);
+    expect(shouldOfferStroller(STROLLER_ITEM_NAME, true, stroller)).toBe(false);
+    expect(shouldOfferStroller(CARRY_BAG_ITEM_NAME, false, stroller)).toBe(false);
+    expect(shouldOfferStroller(STROLLER_ITEM_NAME, false, { ...stroller, carrier: 'bag' })).toBe(false);
+    expect(shouldOfferStroller(STROLLER_ITEM_NAME, false, null)).toBe(false);
   });
 });
