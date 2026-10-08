@@ -32,7 +32,6 @@
 
 - [ ] 하루 머리의 묶음 판정 + 걸린 곳 옆 "대신 △△"(임시안) — [16 T2.3](16-trip-route-planner.md) · 왜 지금: T2.1·T2.2(`tripEligibility`·`tripAlternatives`)가 들어갔고 화면만 남았다
 - [ ] md+(iPad)에서 가장자리 띠가 사이드바 밑 — [12 U4.5](12-ux-audit-2026-10-02.md) · 왜 지금: iPad 에서 끌어 뒤로가 안 된다. `appShell.tsx` 를 다른 작업이 고치는 중이면 건너뛴다
-- [ ] app-shell-and-state 에 `carryHistoryStamp` 한 줄 — [12 U4.7](12-ux-audit-2026-10-02.md) · 왜 지금: 그 파일을 고치던 작업이 끝났다, 문서 한 줄
 - [ ] 데스크톱 목록 2열·필터 칩 줄바꿈 — [07 U10](07-product-and-ux.md) · 왜 지금: 다듬기, 상세 sticky 열(08 T5.6 뒤 절반)은 빼고 목록만
 
 ## 기다림 (사람 손·결정)
