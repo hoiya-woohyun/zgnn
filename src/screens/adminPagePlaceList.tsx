@@ -20,6 +20,7 @@ import type { TPlaceEditPatch } from '../lib/adminPlaceEdit';
 import type { TBlockChoice, TPlaceBlock } from '../lib/adminBlocks';
 import type { TReportRow, TVisitedTally } from '../lib/adminReports';
 import { useAdminInfiniteScroll } from './adminInfiniteScroll';
+import type { TPlaceRereadPlan } from '../lib/adminPosts';
 import { AdminPagePlaceRow, type TAdminPagePlaceState } from './adminPagePlaceRow';
 import { ADMIN_PLACE_TRACKS, AdminTable } from './adminTable';
 
@@ -106,6 +107,9 @@ type TAdminPagePlaceListProps = {
   onSavePlace: (place: TPlaceRow, patch: TPlaceEditPatch) => void;
   /** 끝난 줄의 초록 한 줄을 치운다 — 검색어·구간을 바꾸면 같이. */
   onClearDone: () => void;
+  /** `다시 분석` — 출처 글 계획(읽기)과 쓰기. 쓰기는 `adminPage` 의 `rereadPlaceSources`. */
+  onPlanReread: (place: TPlaceRow) => Promise<TPlaceRereadPlan>;
+  onReread: (plan: TPlaceRereadPlan) => Promise<string>;
 };
 
 export function AdminPagePlaceList({
@@ -125,6 +129,8 @@ export function AdminPagePlaceList({
   onApplyVisited,
   onSavePlace,
   onClearDone,
+  onPlanReread,
+  onReread,
 }: TAdminPagePlaceListProps) {
   /** "제보 있는 곳" 만 보기 — 10 T1.4 의 걸러 보기. */
   const [reportedOnly, setReportedOnly] = useState(false);
@@ -320,6 +326,8 @@ export function AdminPagePlaceList({
                 onStartEdit={() => patchState(place.id, { editing: true, error: undefined, done: undefined })}
                 onCancelEdit={() => patchState(place.id, { editing: false })}
                 onSave={(patch) => onSavePlace(place, patch)}
+                onPlanReread={() => onPlanReread(place)}
+                onReread={onReread}
               />
             ))}
             </AdminTable>

@@ -66,11 +66,13 @@ import {
   fetchPostBacklog,
   fetchPosts,
   fetchSiblings,
+  planPlaceReread,
   planReread,
   reopenPlan,
   unexcludePosts,
   type TPostBacklog,
   type TPostCounts,
+  type TPlaceRereadPlan,
   type TPostRow,
   type TReopenPlan,
 } from '../lib/adminPosts';
@@ -827,6 +829,28 @@ export function AdminPage() {
         void loadCounts(client);
         const kept = plan.keep.length ? ` · 사람이 고친 후보 ${plan.keep.length}건은 남았어요` : '';
         return `글 ${plan.posts.length}건을 미분석으로 되돌렸어요 · 검수 대기 후보 ${plan.lay.length}건이 목록에서 빠졌어요${kept} — 터미널에서 pnpm data analyze 를 돌리면 다시 읽어요`;
+      }),
+    [loadCounts, withWrite],
+  );
+
+  const planPlaceSources = useCallback((place: TPlaceRow) => {
+    const client = clientRef.current;
+    return client ? planPlaceReread(client, [place.id]) : Promise.reject(new Error('로그인이 필요해요.'));
+  }, []);
+
+  /**
+   * 등록한 장소의 `다시 분석`(09 T5.2) — 출처 글을 글 쪽 `다시 읽기` 와 같은 길(`prepareReanalyze`)로 되돌린다.
+   * **`places` 에는 쓰지 않는다**(재빌드 트리거가 걸린 표) — 장소 목록·대조 장부는 그대로 두고 검수 대기만 다시 읽는다.
+   */
+  const rereadPlaceSources = useCallback(
+    ({ plan }: TPlaceRereadPlan) =>
+      withWrite(async (client) => {
+        await prepareReanalyze(client, plan);
+        const laid = new Set(plan.lay.map((row) => row.id));
+        setGroups((prev) => groupPending(prev.flatMap((group) => group.rows).filter((row) => !laid.has(row.id))));
+        void loadCounts(client);
+        const kept = plan.keep.length ? ` · 사람이 고친 후보 ${plan.keep.length}건은 남았어요` : '';
+        return `출처 글 ${plan.posts.length}건을 수집 완료로 되돌렸어요 · 사이트의 장소는 그대로예요${kept} — 터미널에서 pnpm data analyze 를 돌리면 검수 대기에 갱신 제안으로 올라와요`;
       }),
     [loadCounts, withWrite],
   );
@@ -1991,6 +2015,8 @@ export function AdminPage() {
             onApplyVisited={(place, ids) => void applyVisited(place, ids)}
             onSavePlace={(place, patch) => void savePlace(place, patch)}
             onClearDone={clearPlaceDone}
+            onPlanReread={planPlaceSources}
+            onReread={rereadPlaceSources}
           />
         )}
       </div>
@@ -2013,6 +2039,8 @@ export function AdminPage() {
             onApplyVisited={(place, ids) => void applyVisited(place, ids)}
             onSavePlace={(place, patch) => void savePlace(place, patch)}
             onClearDone={clearPlaceDone}
+            onPlanReread={planPlaceSources}
+            onReread={rereadPlaceSources}
           />
         )}
       </div>

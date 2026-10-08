@@ -14,6 +14,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { chunkForUrlFilter } from '../../scripts/lib/chunkForUrlFilter.mjs';
 import { appendReviewerNote } from './adminSession';
 import type { TPlaceRow, TPlaceStatus } from './adminCandidates';
 import { parsePetPolicy, toPetBadges, withPolicyFacts, type TPetBadge } from './petPolicy';
@@ -323,4 +324,20 @@ export async function stampSeedVerified(client: SupabaseClient, ids: readonly st
     .select('id');
   if (error) throw new Error(`확인 날짜를 찍지 못했어요 (${error.message})`);
   return ((data ?? []) as { id: string }[]).map((row) => row.id);
+}
+
+/**
+ * 장소 → 그 장소를 만든 출처 글 url(`place_sources`, 읽기만). 출처 행이 없는 장소는 맵에 키가 없다 — Notion 시드가 그렇다.
+ * `in.(…)` 은 길이 예산으로 나눠 읽는다(`chunkForUrlFilter`).
+ */
+export async function fetchPlaceSources(client: SupabaseClient, placeIds: string[]): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  for (const chunk of chunkForUrlFilter(placeIds) as string[][]) {
+    const { data, error } = await client.from('place_sources').select('place_id, post_url').in('place_id', chunk);
+    if (error) throw new Error(`장소의 출처 글을 읽지 못했어요 (${error.message})`);
+    for (const row of (data ?? []) as { place_id: string; post_url: string }[]) {
+      out.set(row.place_id, [...(out.get(row.place_id) ?? []), row.post_url]);
+    }
+  }
+  return out;
 }

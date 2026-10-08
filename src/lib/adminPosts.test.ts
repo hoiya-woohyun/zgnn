@@ -8,12 +8,16 @@ import {
   planReread,
   postDateLabel,
   postPageCount,
+  placeRereadSummary,
+  planPlaceReread,
   postStatus,
   reopenPlan,
   reopenSummary,
   rereadSummary,
   tallyBacklog,
   tallyExistingReasons,
+  unionSourceUrls,
+  type TPlaceRereadPlan,
 } from './adminPosts';
 
 describe('tallyExistingReasons — 이미 있는 가게를 쓴 글(11 T2.4)', () => {
@@ -200,5 +204,81 @@ describe('글 목록(수집 완료 칸, 09 T3.2)', () => {
     expect(plan.skipped).toBe(1);
     expect(rereadSummary(plan)).toContain('글 1건을 수집 완료로 되돌려요');
     expect(rereadSummary(plan)).toContain('사람이 제외한 후보가 딸린 글 1건은 빼요');
+  });
+});
+
+describe('등록한 장소 다시 분석 (09 T5.2)', () => {
+  const plan = (patch: Partial<TPlaceRereadPlan['plan']> = {}, unreadable = 0): TPlaceRereadPlan => ({
+    plan: { posts: ['p1', 'p2'], lay: [], keep: [], skipped: 0, ...patch },
+    sourceCount: 2,
+    unreadable,
+  });
+
+  it('출처 url 은 합집합 — 중복 없이, 출처 없는 장소는 건너뛴다', () => {
+    const sources = new Map([
+      ['a', ['p1', 'p2']],
+      ['b', ['p2', 'p3']],
+    ]);
+    expect(unionSourceUrls(sources, ['a', 'b', 'seed'])).toEqual(['p1', 'p2', 'p3']);
+    expect(unionSourceUrls(sources, ['seed'])).toEqual([]);
+  });
+
+  it('확인 문장 — 사이트 장소는 그대로, 갱신 제안으로 올라온다', () => {
+    const text = placeRereadSummary(plan());
+    expect(text).toContain('출처 글 2건을 수집 완료로 되돌려요');
+    expect(text).toContain('사이트의 장소는 그대로이고');
+    expect(text).toContain('갱신 제안으로 올라와요');
+    expect(text).not.toContain('검수 대기 후보');
+  });
+
+  it('눕힐 후보·고친 후보·뺀 글·되돌릴 수 없는 글을 있을 때만 말한다', () => {
+    const rows = [{ id: 'c1' }, { id: 'c2' }] as TPlaceRereadPlan['plan']['lay'];
+    const text = placeRereadSummary(plan({ lay: rows, keep: rows.slice(0, 1), skipped: 1 }, 3));
+    expect(text).toContain('검수 대기 후보 2건');
+    expect(text).toContain('사람이 고친 후보 1건');
+    expect(text).toContain('사람이 제외한 후보가 딸린 글 1건');
+    expect(text).toContain('분석 전이거나 분석에서 뺀 글 3건');
+  });
+});
+
+describe('planPlaceReread — 읽기만, places 는 건드리지 않는다', () => {
+  const fake = (tables: Record<string, unknown[]>) => {
+    const touched: string[] = [];
+    const client = {
+      from: (table: string) => {
+        touched.push(table);
+        return { select: () => ({ in: async () => ({ data: tables[table] ?? [], error: null }) }) };
+      },
+    } as unknown as SupabaseClient;
+    return { client, touched };
+  };
+
+  it('출처 글이 0이면 글·후보를 읽지 않고 sourceCount 0', async () => {
+    const { client, touched } = fake({ place_sources: [] });
+    const result = await planPlaceReread(client, ['seed']);
+    expect(result.sourceCount).toBe(0);
+    expect(result.plan.posts).toEqual([]);
+    expect(touched).not.toContain('places');
+  });
+
+  it('분석 전·제외 글은 계획에서 빠지고 unreadable 로 센다', async () => {
+    const { client, touched } = fake({
+      place_sources: [
+        { place_id: 'a', post_url: 'p1' },
+        { place_id: 'a', post_url: 'p2' },
+        { place_id: 'a', post_url: 'p3' },
+      ],
+      blog_posts: [
+        { url: 'p1', analyzed_at: '2026-10-01', excluded_at: null },
+        { url: 'p2', analyzed_at: null, excluded_at: null },
+        { url: 'p3', analyzed_at: '2026-10-01', excluded_at: '2026-10-02' },
+      ],
+      candidates: [],
+    });
+    const result = await planPlaceReread(client, ['a']);
+    expect(result.sourceCount).toBe(3);
+    expect(result.plan.posts).toEqual(['p1']);
+    expect(result.unreadable).toBe(2);
+    expect(touched).not.toContain('places');
   });
 });

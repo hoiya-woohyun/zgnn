@@ -11,6 +11,7 @@ import { JEJU_TITLE_SOURCE, LISTY_TITLE_SOURCE, PET_TITLE_SOURCE, TOPIC_TITLE_SO
 import { chunkForUrlFilter } from '../../scripts/lib/chunkForUrlFilter.mjs';
 import type { TCandidateRow } from './adminCandidates';
 import { EDITED_NOTE } from './adminApply';
+import { fetchPlaceSources } from './adminPlaces';
 import { REANALYZE_NOTE, reanalyzeSummary, type TReanalyzePlan } from './adminReanalyze';
 
 export type TPostCounts = {
@@ -352,3 +353,46 @@ export function rereadSummary(plan: TReopenPlan): string {
   const skipped = plan.skipped ? ` 사람이 제외한 후보가 딸린 글 ${plan.skipped}건은 빼요(다시 읽으면 그 가게가 또 올라와요).` : '';
   return `${reanalyzeSummary(plan)}${skipped}`;
 }
+
+export type TPlaceRereadPlan = {
+  /** 글 쪽 `다시 읽기` 와 같은 계획 — 쓰기는 `prepareReanalyze` 그대로(장소 `status` 는 건드리지 않는다). */
+  plan: TReopenPlan;
+  /** 출처 글 총수(중복 제거). 0 이면 Notion 시드처럼 다시 읽을 글이 없다. */
+  sourceCount: number;
+  /** 출처 글인데 미분석·분석 제외라 계획에서 빠진 수 — 되돌릴 것이 없다. */
+  unreadable: number;
+};
+
+/** 장소들의 출처 글 url 합집합(순서 유지·중복 제거). 순수. */
+export function unionSourceUrls(sources: Map<string, string[]>, placeIds: string[]): string[] {
+  return [...new Set(placeIds.flatMap((id) => sources.get(id) ?? []))];
+}
+
+/**
+ * 등록한 장소의 `다시 분석` 계획(읽기만) — 출처 글 합집합을 글 쪽 `planReread` 에 넘긴다.
+ * 출처 글이 0이면 글을 읽지 않는다. 글 상태(`analyzed_at`·`excluded_at`)는 chunk 로 읽는다.
+ */
+export async function planPlaceReread(client: SupabaseClient, placeIds: string[]): Promise<TPlaceRereadPlan> {
+  const urls = unionSourceUrls(await fetchPlaceSources(client, placeIds), placeIds);
+  const rows: Pick<TPostRow, 'url' | 'analyzed_at' | 'excluded_at'>[] = [];
+  for (const chunk of chunkForUrlFilter(urls) as string[][]) {
+    const { data, error } = await client.from('blog_posts').select('url, analyzed_at, excluded_at').in('url', chunk);
+    if (error) throw new Error(`출처 글을 읽지 못했어요 (${error.message})`);
+    rows.push(...((data ?? []) as typeof rows));
+  }
+  const plan = await planReread(client, rows);
+  // 읽은 글 중 계획에 못 든 것 = 미분석·제외(planReread 거름) + 사람이 반려한 형제가 있어 뺀 것(plan.skipped, 따로 말한다).
+  const eligible = rows.filter((row) => row.analyzed_at && !row.excluded_at).length;
+  return { plan, sourceCount: urls.length, unreadable: urls.length - eligible };
+}
+
+/** 확인 문장 — 사이트의 장소는 그대로이고 검수 대기에 갱신 제안으로 올라온다는 것. 글 쪽 문장(`rereadSummary`)에서 눕힐 후보·고친 후보·뺀 글을 이어 쓴다. */
+export function placeRereadSummary({ plan, unreadable }: TPlaceRereadPlan): string {
+  const lay = plan.lay.length ? ` 그 글의 검수 대기 후보 ${plan.lay.length}건은 '재분석' 표시로 내려가요.` : '';
+  const kept = plan.keep.length ? ` 사람이 고친 후보 ${plan.keep.length}건은 그대로예요.` : '';
+  const skipped = plan.skipped ? ` 사람이 제외한 후보가 딸린 글 ${plan.skipped}건은 빼요(다시 읽으면 그 가게가 또 올라와요).` : '';
+  const unread = unreadable ? ` 아직 분석 전이거나 분석에서 뺀 글 ${unreadable}건은 되돌릴 것이 없어요.` : '';
+  return `출처 글 ${plan.posts.length}건을 수집 완료로 되돌려요. 사이트의 장소는 그대로이고, 다음 pnpm data analyze 뒤 검수 대기에 갱신 제안으로 올라와요.${lay}${kept}${skipped}${unread}`;
+}
+
+export const NO_REREAD_SOURCES = '다시 읽을 글이 없어요';

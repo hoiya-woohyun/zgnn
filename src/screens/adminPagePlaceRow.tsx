@@ -4,6 +4,7 @@ import { ChevronDown } from '@untitledui/icons';
 import { useState, type MouseEvent } from 'react';
 import { Badge } from '../components/base/badges';
 import { Button } from '../components/base/button';
+import { NO_REREAD_SOURCES, placeRereadSummary, type TPlaceRereadPlan } from '../lib/adminPosts';
 import { BLOCK_CHOICE_LABEL, blockChipText, type TBlockChoice, type TPlaceBlock } from '../lib/adminBlocks';
 import {
   lastNoteLine,
@@ -86,7 +87,13 @@ type TAdminPagePlaceRowProps = {
   onStartEdit: () => void;
   onCancelEdit: () => void;
   onSave: (patch: TPlaceEditPatch) => void;
+  /** `다시 분석` — 출처 글을 읽어 계획을 세운다(읽기만). 장소 `status` 는 건드리지 않는다. */
+  onPlanReread: () => Promise<TPlaceRereadPlan>;
+  /** 확인 뒤 쓴다(출처 글을 수집 완료로 되돌린다). 결과 한 줄을 돌려준다. */
+  onReread: (plan: TPlaceRereadPlan) => Promise<string>;
 };
+
+type TRereadStep = { plan?: TPlaceRereadPlan; busy?: boolean; error?: string; done?: string };
 
 /**
  * 장소 한 줄. `md` 이상에서는 머리글과 열이 맞는 **표의 한 줄**이다(`ADMIN_ROW` · `ADMIN_ROW_CELLS`) —
@@ -127,9 +134,13 @@ export function AdminPagePlaceRow({
   onArchiveFromReport,
   visited,
   onApplyVisited,
+  onPlanReread,
+  onReread,
 }: TAdminPagePlaceRowProps) {
   /** '되살리기(게시중으로)' 를 눌러 한 번 더 묻는 중 — 되살리면 초안이었던 행도 게시가 된다. */
   const [askingRestore, setAskingRestore] = useState(false);
+  /** `다시 분석` 의 확인 단계 — 줄이 들고 있다(후보·글 쪽 `다시 읽기` 와 같은 꼴). 초안(`draft`)은 출처 글이 없어 버튼이 없다. */
+  const [reread, setReread] = useState<TRereadStep | null>(null);
   const busy = state.busy;
   const archived = place.status === 'archived';
   const why = archived ? noteLineText(lastNoteLine(place.archive_note)) : undefined;
@@ -142,6 +153,28 @@ export function AdminPagePlaceRow({
    * 이름이 사이트 링크고 끝에 내리기 버튼이 있어서, 버튼 안의 링크·버튼이 된다. 그래서 상자는 div 로 두고
    * 클릭만 받으며, 안쪽의 링크·버튼에서 올라온 클릭은 흘려보낸다. 키보드·스크린리더는 이름 옆 화살표 버튼으로 연다.
    */
+  const planReread = async () => {
+    setReread({ busy: true });
+    try {
+      setReread({ plan: await onPlanReread() });
+    } catch (error) {
+      setReread({ error: error instanceof Error ? error.message : '출처 글을 읽지 못했어요.' });
+    }
+  };
+  const runReread = async (plan: TPlaceRereadPlan) => {
+    setReread({ plan, busy: true });
+    try {
+      setReread({ done: await onReread(plan) });
+    } catch (error) {
+      setReread({ plan, error: error instanceof Error ? error.message : '되돌리지 못했어요.' });
+    }
+  };
+  const rereadButton = place.status !== 'draft' && (
+    <Button color="secondary" size="sm" className={ROW_ACTION} isDisabled={Boolean(busy) || Boolean(reread?.busy)} isLoading={Boolean(reread?.busy) && !reread?.plan} onClick={() => void planReread()}>
+      다시 분석
+    </Button>
+  );
+
   const toggleFromRow = (event: MouseEvent<HTMLDivElement>) => {
     if ((event.target as HTMLElement).closest('a, button, input')) return;
     onToggle();
@@ -284,6 +317,7 @@ export function AdminPagePlaceRow({
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
+                  {rereadButton}
                   {!blocksUnavailable && (
                     <Button color="secondary" size="sm" className={ROW_ACTION} isDisabled={Boolean(busy)} onClick={onStartBlock}>
                       블랙리스트
@@ -302,15 +336,12 @@ export function AdminPagePlaceRow({
                * 없어 막다른 패널이 된다 — 초안을 올리는 길은 '확인할 장소' 의 승인이다(→ docs/todo/06 「열린 것」 F).
                */
               /* 회색 테두리(`ROW_ACTION` 의 기준 2) — 되돌릴 수 없는 순간(사유를 고른 뒤의 확인 버튼)만 빨강이다. */
-              <Button
-                color="secondary"
-                size="sm"
-                className={ROW_ACTION}
-                isDisabled={Boolean(busy)}
-                onClick={onStartArchive}
-            >
-              내리기
-            </Button>
+              <div className="flex items-center gap-2">
+                {rereadButton}
+                <Button color="secondary" size="sm" className={ROW_ACTION} isDisabled={Boolean(busy)} onClick={onStartArchive}>
+                  내리기
+                </Button>
+              </div>
           )}
         </div>
       </div>
@@ -357,6 +388,35 @@ export function AdminPagePlaceRow({
         </div>
       )}
       {state.error && <p className="px-4 pb-2 text-xs text-error-primary">{state.error}</p>}
+
+      {/* 다시 분석의 확인 단계 — 누르면 바로 쓰지 않는다. 출처 글이 0이면(Notion 시드) 쓸 수 있는 버튼 없이 이유만 말한다. */}
+      {reread && !reread.busy && (reread.plan || reread.done || reread.error) && (
+        <div className={cx(ADMIN_PANEL_DIVIDER, 'space-y-1.5 px-4 py-3 text-xs')}>
+          {reread.done ? (
+            <p className="text-success-primary">{reread.done}</p>
+          ) : reread.plan && reread.plan.sourceCount === 0 ? (
+            <p className="text-tertiary">{NO_REREAD_SOURCES} — 블로그 글에서 올린 장소가 아니에요.</p>
+          ) : reread.plan ? (
+            <p className="text-tertiary">{placeRereadSummary(reread.plan)}</p>
+          ) : null}
+          {reread.error && <p className="text-error-primary">{reread.error}</p>}
+          <div className="flex flex-wrap gap-2">
+            {reread.plan && reread.plan.sourceCount > 0 && !reread.done && (
+              <Button
+                color="secondary"
+                size="sm"
+                isDisabled={reread.plan.plan.posts.length === 0}
+                onClick={() => reread.plan && void runReread(reread.plan)}
+              >
+                다시 분석
+              </Button>
+            )}
+            <Button color="secondary" size="sm" onClick={() => setReread(null)}>
+              {reread.done ? '닫기' : '취소'}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {state.archiving && (
         <AdminPagePlaceArchiveForm
