@@ -1,0 +1,9 @@
+{
+  "name": "zgnn-worker",
+  "private": true,
+  "type": "module",
+  "engines": { "node": "24.x" },
+  "dependencies": {
+    "@anthropic-ai/claude-code": "2.1.293"
+  }
+}
