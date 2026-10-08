@@ -12,7 +12,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "icons": "node scripts/make-icons.mjs",
-    "data": "node --experimental-strip-types --no-warnings scripts/data.mjs"
+    "data": "node --experimental-strip-types --no-warnings scripts/data.mjs",
+    "worker:build": "node scripts/build-worker.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",
@@ -31,6 +32,8 @@
     "@types/node": "^22.18.1",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "@vercel/functions": "3.9.9",
+    "esbuild": "0.28.2",
     "eslint": "^9.36.0",
     "eslint-config-next": "^16.3.5",
     "globals": "^16.4.0",

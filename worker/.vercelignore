@@ -1,0 +1,4 @@
+# vercel deploy 가 올리지 않는 것 — 진입점 원본은 번들(api/run.mjs)에 들어 있고, 올리면 정적 파일로 공개된다.
+.env*
+.omc
+entry

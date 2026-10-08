@@ -23,7 +23,9 @@ T2~T4 는 서로 독립이라 아무 순서나 된다. T5 는 셋 모두에 기�
   `HOME=/tmp/claude-home`. 결과는 ADR-028 「맥락」 표. 토큰은 처음 두 번 49자로 잘렸다 — 숨김 입력이 줄바꿈을 Enter 로 받는다. `pbpaste | tr -d '[:space:]' | vercel env add …` 로 108자.
 
 ### T1. 번들이 레포 밖에서 import 되는지(ADR-028 결정 9)
-- [ ] `pnpm worker:build`(`scripts/build-worker.mjs`, esbuild) — `worker/entry/run.mjs` 와 거기서 닿는 `scripts/`·`src/lib/` 를 `worker/api/run.mjs` 한 파일로. `@anthropic-ai/*` 만 밖에 둔다.
+- [x] ✅ 2026-10-08 로컬 — 번들 1.1MB(입력 86). 레포 밖 빈 폴더에 `worker/package.json` 만 설치(`@anthropic-ai/claude-code` 둘)하고 import → 단계 셋·`createWorkerCycle` 이 실리고 `PROMPT_VERSION` 이 같다. `sessionKeychain` 은 import 만으로 `security` 를 부르지 않는다.
+  단계 스크립트 끝의 `isDirectRun(import.meta.url)` 은 한 파일로 묶이면 셋이 같은 URL 이라 `node worker/api/run.mjs` 한 번에 셋이 다 돈다 — 번들에서는 늘 거짓인 가짜로 바꿔 끼운다. Vercel 위 확인은 T5 뒤.
+- `pnpm worker:build`(`scripts/build-worker.mjs`, esbuild) — `worker/entry/run.mjs` 와 거기서 닿는 `scripts/`·`src/lib/` 를 `worker/api/run.mjs` 한 파일로. `@anthropic-ai/*` 만 밖에 둔다.
   수용: 번들과 `worker/package.json` 을 **레포 밖 빈 폴더**(scratchpad)에 두고 `npm install` 뒤 `node -e "import('./api/run.mjs')"` 가 된다(루트 `node_modules` 에 기대지 않는 진짜 해석).
   번들이 단계 진입점 넷(`collect-blog`·`analyze-candidates`·`apply-approved`·`workerCycle`)을 품는지, `sessionKeychain` 을 import 만으로 `security` 를 부르지 않는지.
   Vercel 위에서의 확인(`vercel deploy`, 프리뷰)은 🙋 배포 허락을 받아 T5 뒤에 한 번.

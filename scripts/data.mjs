@@ -6,13 +6,14 @@
 // 하위 명령의 모듈은 **고른 것만** 동적으로 불러온다: Vercel 빌드의 `pull` 이 수집·분석 의존성까지 읽지 않게, `eval` 의 확장자 훅이 그 전에 걸리게.
 // 인자 없음은 상주 워커, `once` 는 그 한 바퀴다(scripts/worker.mjs, docs/todo/17 T3). 둘 다 단계를 아래 `runStep` 으로 부른다.
 
+import { PIPELINE_STEPS } from './lib/workerSteps.mjs';
+
 const STEPS = {
   login: () => import('./login.mjs'),
   logout: () => import('./logout.mjs'),
   pull: () => import('./pull-db.mjs'),
-  collect: () => import('./collect-blog.mjs'),
-  analyze: () => import('./analyze-candidates.mjs'),
-  apply: () => import('./apply-approved.mjs'),
+  // 수집·분석·반영은 서버 워커(ADR-028)와 같은 표 — `lib/workerSteps.mjs`.
+  ...PIPELINE_STEPS,
   eval: async () => {
     // 앱의 TS(eligibility.ts)가 확장자 없는 상대 import 를 쓴다 — 예전 `--import ./scripts/lib/tsExtResolve.mjs` 와 같은 훅을 불러오기 전에 건다.
     await import('./lib/tsExtResolve.mjs');
