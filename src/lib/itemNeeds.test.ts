@@ -104,6 +104,14 @@ describe('itemNeedsAt', () => {
     expect(statusOf(without, [], '얇은 이불/담요')).toBe('missing');
   });
 
+  it('숙소에 간식이 있어도 식당·카페의 간식은 그대로 챙길 것이다 — 구비 용품은 그 숙소 안에서만 읽는다', () => {
+    // 14 W261007.13: 저장 숙소의 '간식' 이 준비물 전체를 지우던 때, 식당에서 기다릴 때 쓰는 간식까지 빠졌다.
+    const stayWithTreats = placeOf('stay', '', '웰컴 간식 제공.');
+    expect(statusOf(stayWithTreats, [], '오래 씹을 수 있는 간식')).toBeUndefined();
+    expect(statusOf(placeOf('restaurant'), [], '오래 씹을 수 있는 간식')).toBe('missing');
+    expect(statusOf(placeOf('cafe'), [], '오래 씹을 수 있는 간식')).toBe('missing');
+  });
+
   it('체크했어도 이 숙소에 있으면 provided 가 이긴다', () => {
     const withBedding = placeOf('stay', '', '강아지 침대 구비.');
     const bedding = ITEMS.find((item) => item.name === '얇은 이불/담요')!;

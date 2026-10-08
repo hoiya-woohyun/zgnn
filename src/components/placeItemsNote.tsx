@@ -48,9 +48,13 @@ export function PlaceItemsNote({ place, className }: TPlaceItemsNoteProps) {
 
   if (!hydrated || needs.length === 0 || !shouldShowPlaceItems(level)) return null;
 
-  const readyCount = needs.filter((need) => need.status !== 'missing').length;
+  // '챙김' 은 체크한 것만 센다. 숙소에 있는 것까지 세면 체크가 하나도 없는 숙소에서 "1/5 챙김" 이 된다
+  // (14 W261007.13). 숙소에 있는 것은 챙길 것이 아니라 분모에서도 빠진다 — 알약에 '숙소에 있어요' 가 따로 붙는다.
+  const checkedCount = needs.filter((need) => need.status === 'checked').length;
+  const toPackCount = needs.filter((need) => need.status !== 'provided').length;
+  const providedCount = needs.length - toPackCount;
 
-  if (readyCount === needs.length && !touched) {
+  if (checkedCount === toPackCount && !touched) {
     return (
       <Link
         href="/checklist"
@@ -61,7 +65,11 @@ export function PlaceItemsNote({ place, className }: TPlaceItemsNoteProps) {
         )}
       >
         <CheckCircle aria-hidden="true" className="size-4 shrink-0 text-fg-success-primary" />
-        <span className="min-w-0 flex-1">여기 필요한 준비물 {needs.length}가지는 다 챙겼어요</span>
+        <span className="min-w-0 flex-1">
+          {providedCount === 0
+            ? `여기 필요한 준비물 ${needs.length}가지는 다 챙겼어요`
+            : `여기 챙길 준비물 ${toPackCount}가지는 다 챙겼어요 · ${providedCount}가지는 숙소에 있어요`}
+        </span>
         <ArrowRight aria-hidden="true" className="size-4 shrink-0 text-tertiary" />
       </Link>
     );
@@ -76,7 +84,7 @@ export function PlaceItemsNote({ place, className }: TPlaceItemsNoteProps) {
         <p className="min-w-0 flex-1 text-sm font-semibold text-primary">
           여기 필요한 준비물
           <span className="ml-1.5 font-normal text-tertiary">
-            {readyCount}/{needs.length} 챙김
+            {checkedCount}/{toPackCount} 챙김
           </span>
         </p>
         <Link
