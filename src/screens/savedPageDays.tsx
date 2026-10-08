@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { NaverLinkButton } from '../components/naverLinkButton';
 import { Button } from '../components/base/button';
 import { showAppStatus } from '../lib/appStatus';
@@ -13,6 +13,7 @@ import { JEJU_AIRPORT_NAME, movedStop, tripDayStart, tripDayStops } from '../lib
 import type { TGeo } from '../types';
 import { useAppStore } from '../store/useAppStore';
 import { SavedPageCard } from './savedPageCard';
+import { SavedPageDayAlternatives, SavedPageDayVerdict, useSavedPageDayVerdict } from './savedPageDayVerdict';
 
 /**
  * 저장 화면의 「날짜별」 보기(16 T1.4, 임시안) — 1~4일차 중 곳이 있는 날마다 한 묶음, 끝에 미정.
@@ -57,6 +58,8 @@ function SavedPageDay({ day, plan, places }: { day: TTripDay; plan: TTripPlan; p
   const start = tripDayStart(plan, places, day);
   const stops = tripDayStops(plan, places, day, here ?? undefined);
   const ids = stops.map((stop) => stop.id);
+  // 묶음 판정(16 T2.3) — 손 순서든 제안이든 화면에 보이는 그 순서로 판정한다.
+  const verdict = useSavedPageDayVerdict(stops);
   const routeStart = here
     ? null
     : start.kind === 'airport'
@@ -86,6 +89,7 @@ function SavedPageDay({ day, plan, places }: { day: TTripDay; plan: TTripPlan; p
       <h2 className="text-lg font-bold text-primary">
         {day}일차 · {stops.length}곳
       </h2>
+      <SavedPageDayVerdict verdict={verdict} />
       <p className="mt-1 text-sm text-tertiary">{startLabel}</p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <Button color="secondary" size="md" onClick={locate} isLoading={locating}>
@@ -99,15 +103,17 @@ function SavedPageDay({ day, plan, places }: { day: TTripDay; plan: TTripPlan; p
       </div>
       <ul className="mt-3 space-y-3">
         {stops.map((place, index) => (
-          <SavedPageCard
-            key={place.id}
-            place={place}
-            order={{
-              position: index + 1,
-              count: stops.length,
-              onMove: (delta) => setTripDayOrder(day, movedStop(ids, place.id, delta)),
-            }}
-          />
+          <Fragment key={place.id}>
+            <SavedPageCard
+              place={place}
+              order={{
+                position: index + 1,
+                count: stops.length,
+                onMove: (delta) => setTripDayOrder(day, movedStop(ids, place.id, delta)),
+              }}
+            />
+            {verdict?.hardIds.includes(place.id) && <SavedPageDayAlternatives blocked={place} stops={stops} />}
+          </Fragment>
         ))}
       </ul>
       {legs.length > 0 && (
