@@ -593,3 +593,49 @@ describe('carrierSummary', () => {
     expect(carrierSummary('stroller')).toBe('유모차');
   });
 });
+
+describe('judgeEligibility — 실내 조건을 모르는 식당·카페에 실내 자리가 필요하다(C12, todo/13 §5.2)', () => {
+  const NO_INDOOR = ['포크', '오롬마르', '더클리프'];
+
+  it("'실내 자리 필요' 를 켜면 실내를 말하지 않은 카페는 '갈 수 있어요' 가 아니다", () => {
+    for (const name of NO_INDOOR) {
+      const place = findPlace(name);
+      expect(place.policy.indoor).toBe('unknown');
+      const result = judgeEligibility(TOFU, place.policy, { needsIndoor: true });
+      expect(result.level, name).toBe('cond');
+      expect(result.reasons.find((r) => r.rule === 'C12'), name).toMatchObject({
+        level: 'cond',
+        text: '실내 동반은 적혀 있지 않아요. 확인해 주세요',
+      });
+    }
+  });
+
+  it('실내 자리가 필요하지 않으면 판정은 그대로다 — 실내를 묻지 않았다', () => {
+    for (const name of NO_INDOOR) {
+      const result = judgeEligibility(TOFU, findPlace(name).policy);
+      expect(result.reasons.some((r) => r.rule === 'C12'), name).toBe(false);
+    }
+  });
+
+  it('숙소는 실내외를 묻지 않는다 — 실내 조건이 없어도 C12 가 걸리지 않는다', () => {
+    const stays = PLACES.filter((p) => p.type === 'stay' && p.policy.indoor === 'unknown');
+    expect(stays.length).toBeGreaterThan(0);
+    for (const place of stays) {
+      expect(judgeEligibility(TOFU, place.policy, { needsIndoor: true }).reasons.some((r) => r.rule === 'C12'), place.name).toBe(false);
+    }
+  });
+
+  it('원문이 비었거나 못 읽은 곳은 이미 U1·C7 이 말한다 — 같은 확인을 두 번 말하지 않는다', () => {
+    const unread = { ...parsePetPolicy('사장님 강아지들이랑 같이 뛰어놀 수 있어요'), seating: true };
+    expect(judgeEligibility(TOFU, unread, { needsIndoor: true }).reasons.some((r) => r.rule === 'C12')).toBe(false);
+    const empty = { ...parsePetPolicy(''), seating: true };
+    expect(judgeEligibility(TOFU, empty, { needsIndoor: true }).reasons.some((r) => r.rule === 'C12')).toBe(false);
+  });
+
+  it('시드(확인 기록이 있는 곳)의 식당·카페는 이 규칙에 안 걸린다 — 모두 실내·야외 중 하나를 읽었다', () => {
+    const hit = PLACES.filter((p) => p.verifiedAt && p.type !== 'stay')
+      .filter((p) => judgeEligibility(TOFU, p.policy, { needsIndoor: true }).reasons.some((r) => r.rule === 'C12'))
+      .map((p) => p.name);
+    expect(hit).toEqual([]);
+  });
+});

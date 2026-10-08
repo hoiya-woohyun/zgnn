@@ -12,7 +12,7 @@
 
 import { amountsInWon, normalizeFeeLines } from '../../scripts/lib/feeLine.mjs';
 import { correctPetPolicyFacts, feeLinesOf, VACCINE_GROUNDS, weekdaysIn } from '../../scripts/lib/petPolicyFacts.mjs';
-import type { TFeeRule, TPetPolicyFacts, TWeekday } from '../types';
+import type { TFeeRule, TPetPolicyFacts, TPlaceType, TWeekday } from '../types';
 
 export type TIndoorPolicy =
   /** 실내 자유 */
@@ -87,6 +87,12 @@ export type TPetPolicy = {
    * 장소를 싣는 쪽(`places.ts`)이 `withVerifiedAt` 으로 얹는다. 판정 함수가 장소를 받지 않아(정책만 본다) 여기 싣는다.
    */
   verified: boolean;
+  /**
+   * 식당·카페다 — 실내 자리와 야외 자리를 고르는 곳(숙소가 아니다). `verified` 처럼 원문이 아니라 **장소에서** 온다: 파서는 늘 false 를 내고
+   * `places.ts` 가 `withPlaceType` 으로 얹는다. 판정 C12(실내 조건을 모르는데 실내 자리가 필요하다)가 숙소를 가르는 데 쓴다 —
+   * 숙소는 실내외를 묻지 않아 `indoor: 'unknown'` 이 대부분이다.
+   */
+  seating: boolean;
   /** '애견동반 안됩니다' 처럼 원문이 동반 자체를 막는다고 적혀 있음. 판정은 강아지 조건과 무관하게 어려움(H0) */
   notAllowed: boolean;
   /** 계단식 무게·마릿수 조건. 웨스티하우스 → [{10,미만,2},{20,미만,1}] */
@@ -416,6 +422,7 @@ export const parsePetPolicy = (petPolicyText: string): TPetPolicy => {
     unread: false,
     genericOnly: false,
     verified: false,
+    seating: false,
     weightLimitKg: weightLimitKgFromTiers(tiers),
     maxDogs: maxDogsFromTiers(tiers),
     feeText: feeLines[0],
@@ -609,6 +616,10 @@ export const withPolicyFacts = (parsed: TPetPolicy, facts: TPetPolicyFacts | nul
  */
 export const withVerifiedAt = (policy: TPetPolicy, verifiedAt: string | undefined): TPetPolicy =>
   verifiedAt ? { ...policy, verified: true } : policy;
+
+/** 장소 종류를 정책에 얹는다(`seating`). `withVerifiedAt` 과 같은 이유로 장소를 싣는 곳이 한 번 부른다. */
+export const withPlaceType = (policy: TPetPolicy, type: TPlaceType): TPetPolicy =>
+  type === 'stay' ? policy : { ...policy, seating: true };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 배지 — 파싱 결과를 화면에 보여줄 한국어 라벨로 옮긴다.

@@ -373,6 +373,18 @@ const ruleGenericUnverified: TRule = (_dog, policy) => {
   return { level: 'cond', text: '조건이 적혀 있지 않아요. 가기 전에 확인해 주세요' };
 };
 
+/**
+ * C12: 식당·카페인데 원문이 실내를 말하지 않았고(`indoor: 'unknown'`), 이번 여행은 실내 자리가 꼭 필요하다(todo/13 §5.2).
+ * "반려견 동반 가능 리드줄 필수" 처럼 다른 조건이 읽혀 C9 를 비켜 간 곳이 실내 근거 없이 '갈 수 있어요' 였다 — 지어낸 확신(BUG-009 계열).
+ * 어려움은 아니다: 실내가 안 된다고 적힌 것도 아니다. 실내 자리가 필요 없으면 걸지 않는다 — 실내를 묻지 않았고, 시드의
+ * '갈 수 있어요' 는 늘 실내·야외 중 하나를 읽은 뒤였다. 원문이 비었거나(U1) 못 읽었으면(C7) 그쪽이 이미 확인을 말한다.
+ */
+const ruleIndoorUnstated: TRule = (_dog, policy, opts) => {
+  if (!opts.needsIndoor || !policy.seating || policy.indoor !== 'unknown') return null;
+  if (policy.noInfo || policy.unread) return null;
+  return { level: 'cond', text: '실내 동반은 적혀 있지 않아요. 확인해 주세요' };
+};
+
 /** U1: 원문에 동반 조건 자체가 없다. */
 const ruleNoInfo: TRule = (_dog, policy) => {
   if (!policy.noInfo) return null;
@@ -398,6 +410,7 @@ const RULES: [string, TRule][] = [
   ['C6', ruleCallFirst],
   ['C8', ruleVaccineRequired],
   ['C11', rulePetDays],
+  ['C12', ruleIndoorUnstated],
   ['C7', ruleUnread],
   ['C9', ruleGenericUnverified],
   ['U1', ruleNoInfo],
