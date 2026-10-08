@@ -14,7 +14,7 @@ type THomeTypeCardProps = {
 /**
  * 홈의 종류별 진입 카드 — 사진 대신 타입 색과 아이콘, 건수.
  * 읍면 칩은 18 T2 에서 뺐다 — 퍼시스트 `town` 을 걸어 다른 종류·다음 방문까지 남았다. 지역은 홈의
- * 「지역으로 찾기」(`HomePageLandmarkChips`)가 비퍼시스트 검색어로 받는다.
+ * 「두부랑 갈 동네」(`HomePageAreaCards`)가 비퍼시스트 권역·검색어로 받는다.
  */
 export function HomeTypeCard({ type, levelCounts }: THomeTypeCardProps) {
   const meta = TYPE_META[type];

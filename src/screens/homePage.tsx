@@ -2,10 +2,10 @@
 
 import { useMemo, useState } from 'react';
 import { Map01 } from '@untitledui/icons';
+import { HomePageAreaCards } from './homePageAreaCards';
 import { HomePageHero } from './homePageHero';
 import { HomePageInstall } from './homePageInstall';
 import { HomePageIntro } from './homePageIntro';
-import { HomePageLandmarkChips } from './homePageLandmarkChips';
 import { HomePageTripCard } from './homePageTripCard';
 import { HomeTypeCard } from './homeTypeCard';
 import { BottomSheet } from '../components/base/bottom-sheet';
@@ -113,10 +113,7 @@ export function HomePage() {
         </Button>
       </section>
 
-      <section className="home-scroll-depth mt-8 px-4 md:px-6">
-        <h2 className="text-lg font-bold text-primary">지역으로 찾기</h2>
-        <HomePageLandmarkChips />
-      </section>
+      <HomePageAreaCards />
 
       {/* 두 번째 방문부터의 인사말 자리 — 출처 줄 바로 위, "이 자료는 누가" 와 같은 묶음이다.
           설치 안내(07 U9)도 같은 "두 번째 방문부터" 라 그 밑에 한 줄로 붙는다. 서지 않는 기기에선 스스로 null 이다. */}
