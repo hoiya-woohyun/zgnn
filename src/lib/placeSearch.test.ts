@@ -1,20 +1,43 @@
 import { describe, expect, it } from 'vitest';
+import { parsePetPolicy } from './petPolicy';
 import { matchesQuery, otherTypeMatches } from './placeSearch';
 import type { TPlaceEntry } from './places';
 import type { TPlaceType } from '../types';
 
-const place = (over: Partial<Pick<TPlaceEntry, 'name' | 'features' | 'category' | 'geo'>> & { town?: string } = {}) => ({
+const place = (
+  over: Partial<Pick<TPlaceEntry, 'type' | 'name' | 'features' | 'category' | 'geo'>> & { town?: string; policyText?: string } = {},
+) => ({
+  type: over.type ?? ('cafe' as TPlaceType),
   name: over.name ?? '어느 곳',
   features: over.features ?? '',
   category: over.category,
   geo: over.geo,
   region: { direction: 'west' as const, town: over.town ?? '애월읍', raw: '' },
+  policy: parsePetPolicy(over.policyText ?? ''),
 });
 
 describe('matchesQuery', () => {
-  it('"애월 카페" — 종류 이름은 빼고 읍면으로 찾는다', () => {
+  it('"애월 카페" — 종류 이름은 종류로, 나머지는 읍면으로 찾는다', () => {
     expect(matchesQuery(place({ town: '애월읍' }), '애월 카페')).toBe(true);
     expect(matchesQuery(place({ town: '구좌읍' }), '애월 카페')).toBe(false);
+  });
+
+  it('다른 종류 이름이면 이 탭은 0곳 — 숙소 탭의 "서귀포 카페" 가 펜션을 내지 않는다(14 W261007.11)', () => {
+    expect(matchesQuery(place({ type: 'stay', town: '서귀포시' }), '서귀포 카페')).toBe(false);
+    expect(matchesQuery(place({ type: 'stay', town: '서귀포시' }), '서귀포 숙소')).toBe(true);
+    // 글자로 보지 않는다 — 특징에 '카페' 가 있는 숙소도 카페 검색에 안 걸린다.
+    expect(matchesQuery(place({ type: 'stay', features: '1층 카페에서 조식' }), '카페')).toBe(false);
+  });
+
+  it('카드의 조건 칩 글자로 찾는다 — "대형견"·"유모차"(14 W261007.11)', () => {
+    expect(matchesQuery(place({ policyText: '대형견도 환영. 실내 동반 가능' }), '대형견')).toBe(true);
+    expect(matchesQuery(place({ policyText: '대형견도 환영. 실내 동반 가능' }), '대형견 ok')).toBe(true);
+    expect(matchesQuery(place({ policyText: '실내에서는 유모차/이동 가방 필요' }), '유모차')).toBe(true);
+    expect(matchesQuery(place({ policyText: '실내 동반 가능' }), '유모차')).toBe(false);
+  });
+
+  it('거절하는 칩은 찾지 않는다 — "대형견" 에 "대형견 불가" 곳을 내면 답이 거꾸로다', () => {
+    expect(matchesQuery(place({ policyText: '대형견 불가. 실내 동반 가능' }), '대형견')).toBe(false);
   });
 
   it('"그리너리 빌리지" — 이름의 띄어쓰기와 상관없다', () => {
@@ -32,10 +55,11 @@ describe('matchesQuery', () => {
     expect(matchesQuery(place({ category: undefined }), '카레')).toBe(false);
   });
 
-  it('빈 질의 · 종류 이름뿐이면 전부 맞는다', () => {
+  it('빈 질의는 전부 · 종류 이름뿐이면 그 종류 전부가 맞는다', () => {
     expect(matchesQuery(place(), '')).toBe(true);
     expect(matchesQuery(place(), '   ')).toBe(true);
-    expect(matchesQuery(place(), '카페')).toBe(true);
+    expect(matchesQuery(place({ type: 'cafe' }), '카페')).toBe(true);
+    expect(matchesQuery(place({ type: 'restaurant' }), '카페')).toBe(false);
   });
 
   it('"서귀포"·"제주시" — 시 이름은 소속 읍·면까지 맞는다(14 W261006.9)', () => {
@@ -81,9 +105,12 @@ describe('matchesQuery', () => {
 
 describe('otherTypeMatches', () => {
   const byType = {
-    stay: [place({ name: '함덕 스테이', town: '조천읍' })],
-    restaurant: [place({ name: '부부키친', town: '애월읍' }), place({ name: '함덕 국수', town: '조천읍' })],
-    cafe: [place({ name: '함덕 카페', town: '조천읍' }), place({ name: '함덕 언덕', town: '조천읍' })],
+    stay: [place({ type: 'stay', name: '함덕 스테이', town: '조천읍' })],
+    restaurant: [
+      place({ type: 'restaurant', name: '부부키친', town: '애월읍' }),
+      place({ type: 'restaurant', name: '함덕 국수', town: '조천읍' }),
+    ],
+    cafe: [place({ type: 'cafe', name: '함덕 카페', town: '조천읍' }), place({ type: 'cafe', name: '함덕 언덕', town: '조천읍' })],
   } as unknown as Record<TPlaceType, TPlaceEntry[]>;
   const placesOf = (type: TPlaceType) => byType[type];
 
@@ -96,6 +123,10 @@ describe('otherTypeMatches', () => {
       { type: 'restaurant', count: 1 },
       { type: 'cafe', count: 2 },
     ]);
+  });
+
+  it('숙소 탭의 "함덕 카페" — 카페 탭으로만 안내한다', () => {
+    expect(otherTypeMatches('stay', '함덕 카페', null, placesOf)).toEqual([{ type: 'cafe', count: 2 }]);
   });
 
   it('읍면은 탭을 넘어가도 따라오므로 같이 건다', () => {

@@ -100,10 +100,10 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     return list;
   }, [type, town, area, query, directions, petKeys, sort, origin, hideHard, onlyReachable, eligibilityMap]);
 
-  // 0곳일 때만 센다 — 다른 두 종류를 다 훑으므로 결과가 있는 동안엔 돌지 않는다. 권역은 탭을 따라오므로 그 안에서 센다.
+  // 결과가 있어도 센다 — "다른 종류에도 있어요 · 식당 1곳"(14 W261007.11). 검색어가 없으면 바로 빈 배열이다. 권역은 탭을 따라오므로 그 안에서 센다.
   const otherTypes = useMemo(
-    () => (results.length === 0 ? otherTypeMatches(type, query, town, (other) => placesOfTypeInArea(other, area)) : []),
-    [results.length, type, query, town, area],
+    () => otherTypeMatches(type, query, town, (other) => placesOfTypeInArea(other, area)),
+    [type, query, town, area],
   );
   // 같은 이유로 0곳일 때만 — 읍면 하나(18 T2.1)·권역 하나(19 T3)가 원인인지.
   const released = useMemo(() => {

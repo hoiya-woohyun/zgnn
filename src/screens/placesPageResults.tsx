@@ -56,7 +56,10 @@ type TPlacesPageResultsProps = {
   onOpenFilters: () => void;
   /** 가까운 순일 때 장소 id → 거리(km). 카드가 "1.2km" 를 붙인다(10 F7). */
   distances?: Map<string, number>;
-  /** 0곳일 때 같은 검색어가 맞는 다른 종류(`otherTypeMatches`). 엿보기도 같은 검색어로 센다. */
+  /**
+   * 같은 검색어가 맞는 다른 종류(`otherTypeMatches`). 0곳이면 빈 상태 맨 위에 큰 안내로, 결과가 있으면 머리 밑 한 줄로(14 W261007.11).
+   * 엿보기도 같은 검색어로 센다.
+   */
   otherTypes?: { type: TPlaceType; count: number }[];
   /** 0곳일 때 읍면만 풀면 몇 곳인가(`townReleaseCount`, 18 T2.1). 0 이면 읍면 탓이 아니다. */
   townReleaseCount?: number;
@@ -179,6 +182,24 @@ export function PlacesPageResults({
       </div>
 
       <PlacesPageActiveChips chips={activeChips} />
+
+      {/* 결과가 있어도 같은 검색어가 다른 종류에 맞으면 그 수를 말한다(14 W261007.11) — 검색은 탭 안에서만 돌아서 '함덕' 을 친 사람은
+          식당·카페에도 있는 줄 모른다. 0곳일 때의 큰 안내(아래 빈 상태)와 달리 목록을 밀어내지 않게 한 줄로. */}
+      {results.length > 0 && otherTypes.length > 0 && (
+        <p className="flex flex-wrap items-center gap-x-3 px-4 text-sm text-tertiary md:px-6">
+          다른 종류에도 있어요
+          {otherTypes.map((other) => (
+            <Link
+              key={other.type}
+              href={`/places/${other.type}/`}
+              className="inline-flex min-h-11 items-center gap-0.5 font-semibold text-brand-secondary hover:text-brand-secondary_hover"
+            >
+              {TYPE_META[other.type].label} {other.count}곳
+              <ChevronRight size={16} aria-hidden="true" className="shrink-0" />
+            </Link>
+          ))}
+        </p>
+      )}
 
       {/* 목록 전체에 대한 말은 한 상자에 모은다 — 같은 이유(케이지)와 그 출구(이동가방 what-if)가
           따로 쌓이면 같은 이야기를 두 번 한다. 곳 수를 앞세워 문장이 빠진 카드가 어느 쪽인지 읽히게 한다. */}

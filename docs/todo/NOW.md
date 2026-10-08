@@ -37,7 +37,6 @@
 
 ## 지금 (위에서부터)
 
-- [ ] 검색이 카드에 보이는 글자('대형견'·'유모차' 조건 칩)를 찾고, 종류 이름('카페')은 그 탭으로 안내 — [14 W261007.11](14-weekly-ux-eval.md) · 왜 지금: 합의 3/6 · 막힌 흐름 · `placeSearch.ts`
 - [ ] ADR-009 v+1 "날짜별 준비물은 하지 않는다" 한 줄 + CLAUDE.md 표 — [16 T3.2](16-trip-route-planner.md) · 왜 지금: 작다
 - [ ] 19 문서 묶음(features/area-cards.md · ADR-027 · 18 v+1 · CLAUDE.md 표 · ux-eval 「동네 카드」 회차 줄) — [19 T5](19-area-cards.md) · 왜 지금: 카드가 나가면 바로 · **19 T4 뒤**(없으면 `claim.mjs release` 하고 다음 줄)
 - [ ] 19 문턱 기준선 다시 재기 — 스냅샷을 DB 최신(게시 122곳)으로 `pnpm data pull` 뒤 `pnpm data coverage`, 고정 수 테스트(`areaGroups` §1 표 · `areaCoverage`)와 19 §4 실측 칸 갱신 — [19 T2.1](19-area-cards.md) · 왜 지금: 10-22 첫 판정 전 · 스냅샷이 바뀌면 다른 고정 수 테스트도 깨질 수 있어 한 커밋에 모은다

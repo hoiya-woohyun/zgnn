@@ -53,10 +53,10 @@ export function PlacesPageSwipePeek({ ref, type, side, top, height }: TPlacesPag
     return eligibilityMap ? sortByEligibility(filtered, eligibilityMap, (place) => place.id) : filtered;
   }, [type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap]);
 
-  // 본 화면과 같은 이유로 0곳일 때만 센다 — 엿보기도 같은 빈 상태를 그려야 손을 놓아도 안 튄다.
+  // 본 화면과 같이 결과가 있어도 센다 — 엿보기도 같은 줄을 그려야 손을 놓아도 안 튄다.
   const otherTypes = useMemo(
-    () => (results.length === 0 ? otherTypeMatches(type, query, town, (other) => placesOfTypeInArea(other, area)) : []),
-    [results.length, type, query, town, area],
+    () => otherTypeMatches(type, query, town, (other) => placesOfTypeInArea(other, area)),
+    [type, query, town, area],
   );
   const released = useMemo(() => {
     if (results.length > 0) return { town: 0, area: 0, reachable: 0 };
