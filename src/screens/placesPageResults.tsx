@@ -118,7 +118,7 @@ export function PlacesPageResults({
   );
 
   // 갈 수 있는 곳이 0곳일 때 야외 자리로는 되는 곳들(30kg 식당 → 무거버거 1곳 — 카드가 "야외 자리에서 갈 수 있어요" 인 곳만). 판정은 그대로, 안내만.
-  // 누르면 그 곳들만 시트로 펼친다(14 W261006.5a) — 목록에선 확인 필요·정보 없음 사이에 흩어져 있다.
+  // 누르면 그 곳들만 시트로 펼친다(14 W261006.5a) — 기본 정렬은 그곳을 맨 앞에 두지만(W261007.5a) 가까운 순·가격 순에선 흩어진다.
   const outdoor = useMemo(
     () => (dog ? outdoorFallback(results, dog, { needsIndoor }) : null),
     [results, dog, needsIndoor],
@@ -177,9 +177,10 @@ export function PlacesPageResults({
               <span className="font-semibold text-primary">{repeated.count}곳은 같은 이유예요</span> · {repeated.text}
             </p>
           )}
+          {/* 수는 머리 줄의 "야외 N" 이 이미 말한다 — 문장으로 한 번 더 세지 않고 그 N곳을 여는 버튼만 둔다(14 W261007.5a).
+              이름이 "야외 N" 과 같은 말인 것은 "어려움 N곳 보기" 와 같은 이유다. */}
           {outdoor && (
             <div>
-              갈 수 있는 곳은 없지만, 야외 자리로는 {outdoor.length}곳이 돼요
               <button
                 type="button"
                 onClick={() => setOutdoorOpen(true)}

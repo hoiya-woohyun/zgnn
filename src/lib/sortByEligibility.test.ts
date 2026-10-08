@@ -32,6 +32,29 @@ describe('sortByEligibility', () => {
     expect(sortByEligibility(items, map, (item) => item.id).map((item) => item.id)).toEqual(['a', 'b', 'c']);
   });
 
+  it('cond 안에서는 야외 자리만 남은 곳(C1·C4·H4)을 확인 필요 앞에 둔다(14 W261007.5a)', () => {
+    const condBy = (...rules: string[]): TEligibility => ({
+      level: 'cond',
+      reasons: rules.map((rule) => ({ level: 'cond', text: rule, rule })),
+    });
+    const items: TItem[] = [{ id: 'check' }, { id: 'unknown' }, { id: 'outdoor' }, { id: 'mixed' }, { id: 'ok' }];
+    const map = new Map<string, TEligibility>([
+      ['check', condBy('C6')],
+      ['unknown', eligibilityOf('unknown')],
+      ['outdoor', condBy('H4', 'C4')],
+      ['mixed', condBy('C1', 'C5')],
+      ['ok', eligibilityOf('ok')],
+    ]);
+
+    expect(sortByEligibility(items, map, (item) => item.id).map((item) => item.id)).toEqual([
+      'ok',
+      'outdoor',
+      'check',
+      'mixed',
+      'unknown',
+    ]);
+  });
+
   it('판정 맵에 없는 항목은 정보 없음 취급한다', () => {
     const items: TItem[] = [{ id: 'known' }, { id: 'missing' }];
     const map = new Map<string, TEligibility>([['known', eligibilityOf('ok')]]);
