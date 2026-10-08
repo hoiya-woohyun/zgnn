@@ -1,3 +1,4 @@
+import { areaOf, areaTownsLabel, type TAreaId } from './areaGroups';
 import { DIRECTION_LABEL, placesOfType, type TPlaceEntry } from './places';
 import { PET_FILTERS, carriedFilterChips, envFiltersWithData, type TPetFilter, type TPetFilterKey } from './placeFilters';
 import { matchesQuery } from './placeSearch';
@@ -20,9 +21,20 @@ export const placesByTown = (type: TPlaceType, town: string | null): TPlaceEntry
   return town ? list.filter((place) => place.region.town === town) : list;
 };
 
+/**
+ * 권역 안의 그 종류 — 권역이 없으면 전부. 0곳일 때 "다른 종류에 N곳"(`otherTypeMatches` 의 `placesOf`)도 이것으로 센다:
+ * 권역은 탭을 따라오므로 다른 종류의 수도 그 권역 안이어야 누른 뒤 같은 수를 본다.
+ */
+export const placesOfTypeInArea = (type: TPlaceType, area: TAreaId | null): TPlaceEntry[] => {
+  const list = placesOfType(type);
+  return area ? list.filter((place) => areaOf(place) === area) : list;
+};
+
 export type TPlacesPageConditions = {
   type: TPlaceType;
   town: string | null;
+  /** 6권역(19 T3) — 홈 동네 카드가 건다. **비퍼시스트**라 새로고침하면 풀린다(읍면과 다르다). */
+  area: TAreaId | null;
   query: string;
   directions: readonly TDirection[];
   /** **이 종류의** 반려동물·환경 조건 키. */
@@ -33,7 +45,7 @@ export type TPlacesPageConditions = {
 };
 
 /**
- * 정렬 전의 걸러진 목록. 순서는 읍면 → 검색어 → 방향 → 반려동물·환경 조건 → 어려운 곳 숨기기.
+ * 정렬 전의 걸러진 목록. 순서는 읍면 → 권역 → 검색어 → 방향 → 반려동물·환경 조건 → 어려운 곳 숨기기.
  * 정렬은 호출하는 쪽 몫이다 — 가까운 순·가격순은 화면 로컬 상태(`sort`·`origin`)라 엿보기는 갖지 않는다.
  *
  * "실내 자리 필요"(needsIndoor)는 판정(`judgeEligibility` opts)이 야외 전용 장소를 어려움으로 밀어 올리므로
@@ -42,6 +54,7 @@ export type TPlacesPageConditions = {
 export const filterPlacesPage = ({
   type,
   town,
+  area,
   query,
   directions,
   petKeys,
@@ -49,6 +62,8 @@ export const filterPlacesPage = ({
   eligibilityMap,
 }: TPlacesPageConditions): TPlaceEntry[] => {
   let list = placesByTown(type, town);
+
+  if (area) list = list.filter((place) => areaOf(place) === area);
 
   if (query.trim()) list = list.filter((place) => matchesQuery(place, query));
   if (directions.length > 0) list = list.filter((place) => directions.includes(place.region.direction));
@@ -70,16 +85,27 @@ export const filterPlacesPage = ({
 export const townReleaseCount = (conditions: TPlacesPageConditions): number =>
   conditions.town === null ? 0 : filterPlacesPage({ ...conditions, town: null }).length;
 
+/**
+ * 0곳일 때 **권역 하나만** 풀면 몇 곳인가(19 T3). 권역이 없으면 0. `townReleaseCount` 와 같은 모양 — 나머지 조건은 그대로 센다.
+ *
+ * 권역은 홈 카드가 걸고(hideHard 와 함께) 검색어는 사용자가 친다 — "서부" 에서 '중문' 을 치면 이유 없이 0곳이 된다.
+ * 빈 상태가 권역 탓이라고 말하고 그 자리에서 푼다.
+ */
+export const areaReleaseCount = (conditions: TPlacesPageConditions): number =>
+  conditions.area === null ? 0 : filterPlacesPage({ ...conditions, area: null }).length;
+
 export type TPlacesPageChip = { key: string; label: string };
 
 /**
- * 켜진 조건을 이름으로. 순서는 따라오는 것(읍면·실내) → 방향 → 반려동물 → 정렬 → 어려운 곳 숨김 → 검색어.
- * `activeFilterCount` 는 **검색어를 뺀** 칩 수다 — 검색창은 시트 밖에 그대로 보이므로 접힌 시트 버튼의 숫자에 더하지 않는다.
+ * 켜진 조건을 이름으로. 순서는 권역 → 따라오는 것(읍면·실내) → 방향 → 반려동물 → 정렬 → 어려운 곳 숨김 → 검색어.
+ * `activeFilterCount` 는 **검색어·권역을 뺀** 칩 수다 — 검색어는 검색창에 보이고 권역은 시트에 고르는 자리가 없다(홈 동네 카드만 건다, 19 T3).
+ * 접힌 시트 버튼의 숫자는 시트 안에서 끌 수 있는 것의 수여야 한다. 권역은 맨 앞 — 목록 전체의 테두리라 먼저 읽혀야 한다.
  * `sortLabel` 은 본 화면만 준다(정렬은 종류를 바꾸면 리셋되므로 엿보기엔 늘 없다).
  */
 export const placesPageChips = ({
   type,
   town,
+  area = null,
   needsIndoor,
   hasDog,
   directions,
@@ -88,6 +114,7 @@ export const placesPageChips = ({
   hideHard,
   query,
 }: Pick<TPlacesPageConditions, 'type' | 'town' | 'directions' | 'petKeys' | 'hideHard'> & {
+  area?: TAreaId | null;
   needsIndoor: boolean;
   hasDog: boolean;
   sortLabel?: string | null;
@@ -103,6 +130,10 @@ export const placesPageChips = ({
     ...(sortLabel !== null ? [{ key: 'sort', label: sortLabel }] : []),
     ...(hasDog && hideHard ? [{ key: 'hideHard', label: '어려운 곳 숨김' }] : []),
   ];
-  const chips = trimmedQuery ? [...conditionChips, { key: 'query', label: `"${trimmedQuery}"` }] : conditionChips;
+  const chips = [
+    ...(area ? [{ key: 'area', label: areaTownsLabel(area) }] : []),
+    ...conditionChips,
+    ...(trimmedQuery ? [{ key: 'query', label: `"${trimmedQuery}"` }] : []),
+  ];
   return { chips, activeFilterCount: conditionChips.length, hasFilters: chips.length > 0 };
 };

@@ -4,7 +4,7 @@ import { useMemo, type RefObject } from 'react';
 import { PlacesPageResults } from './placesPageResults';
 import { resetFiltersLabel } from '../lib/placeFilters';
 import { otherTypeMatches } from '../lib/placeSearch';
-import { filterPlacesPage, placesByTown, placesPageChips, townReleaseCount } from '../lib/placesPageFilter';
+import { areaReleaseCount, filterPlacesPage, placesByTown, placesOfTypeInArea, placesPageChips, townReleaseCount } from '../lib/placesPageFilter';
 import { sortByEligibility } from '../lib/sortByEligibility';
 import { useAppStore, useDog } from '../store/useAppStore';
 import { useEligibilityMap } from '../store/useDogEligibility';
@@ -43,28 +43,30 @@ export function PlacesPageSwipePeek({ ref, type, side, top, height }: TPlacesPag
   const directions = usePlacesPageFilterStore((state) => state.directions);
   const hideHard = usePlacesPageFilterStore((state) => state.hideHard);
   const petKeys = usePlacesPageFilterStore((state) => state.petKeysByType[type]);
+  const area = usePlacesPageFilterStore((state) => state.area);
 
   const byTown = useMemo(() => placesByTown(type, town), [type, town]);
 
   const results = useMemo(() => {
-    const filtered = filterPlacesPage({ type, town, query, directions, petKeys, hideHard, eligibilityMap });
+    const filtered = filterPlacesPage({ type, town, area, query, directions, petKeys, hideHard, eligibilityMap });
     return eligibilityMap ? sortByEligibility(filtered, eligibilityMap, (place) => place.id) : filtered;
-  }, [type, town, query, directions, petKeys, hideHard, eligibilityMap]);
+  }, [type, town, area, query, directions, petKeys, hideHard, eligibilityMap]);
 
   // 본 화면과 같은 이유로 0곳일 때만 센다 — 엿보기도 같은 빈 상태를 그려야 손을 놓아도 안 튄다.
   const otherTypes = useMemo(
-    () => (results.length === 0 ? otherTypeMatches(type, query, town) : []),
-    [results.length, type, query, town],
+    () => (results.length === 0 ? otherTypeMatches(type, query, town, (other) => placesOfTypeInArea(other, area)) : []),
+    [results.length, type, query, town, area],
   );
-  const releasedByTown = useMemo(
-    () =>
-      results.length === 0 ? townReleaseCount({ type, town, query, directions, petKeys, hideHard, eligibilityMap }) : 0,
-    [results.length, type, town, query, directions, petKeys, hideHard, eligibilityMap],
-  );
+  const released = useMemo(() => {
+    if (results.length > 0) return { town: 0, area: 0 };
+    const conditions = { type, town, area, query, directions, petKeys, hideHard, eligibilityMap };
+    return { town: townReleaseCount(conditions), area: areaReleaseCount(conditions) };
+  }, [results.length, type, town, area, query, directions, petKeys, hideHard, eligibilityMap]);
 
   const { chips, activeFilterCount, hasFilters } = placesPageChips({
     type,
     town,
+    area,
     needsIndoor,
     hasDog,
     directions,
@@ -96,7 +98,10 @@ export function PlacesPageSwipePeek({ ref, type, side, top, height }: TPlacesPag
         onResetFilters={noop}
         onOpenFilters={noop}
         otherTypes={otherTypes}
-        townReleaseCount={releasedByTown}
+        townReleaseCount={released.town}
+        area={area}
+        areaReleaseCount={released.area}
+        onClearArea={noop}
       />
     </div>
   );

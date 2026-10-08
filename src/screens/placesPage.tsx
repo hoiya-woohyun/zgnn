@@ -16,7 +16,7 @@ import { SEARCH_FIELD } from '../components/noAutofill';
 import { TYPE_META } from '../lib/places';
 import { comparePrice, resetFiltersLabel, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
 import { otherTypeMatches } from '../lib/placeSearch';
-import { filterPlacesPage, placesByTown, placesPageChips, townReleaseCount } from '../lib/placesPageFilter';
+import { areaReleaseCount, filterPlacesPage, placesByTown, placesOfTypeInArea, placesPageChips, townReleaseCount } from '../lib/placesPageFilter';
 import { sortByEligibility } from '../lib/sortByEligibility';
 import { distancesFrom, sortByDistance } from '../lib/distanceSort';
 import { LOCATE_NOTICE, locateMe } from '../lib/myLocation';
@@ -65,6 +65,8 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
   const setHideHard = usePlacesPageFilterStore((state) => state.setHideHard);
   const toggleHideHard = usePlacesPageFilterStore((state) => state.toggleHideHard);
   const resetStoredConditions = usePlacesPageFilterStore((state) => state.resetConditions);
+  const area = usePlacesPageFilterStore((state) => state.area);
+  const clearArea = usePlacesPageFilterStore((state) => state.clearArea);
   const [sort, setSort] = useState<TPlaceSort>('none');
   /** 가까운 순의 기준점 — 고를 때 한 번 받는다. 저장하지 않는다(ADR-012 대상 아님). */
   const [origin, setOrigin] = useState<{ lat: number; lng: number } | null>(null);
@@ -82,7 +84,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
 
   const results = useMemo(() => {
     // 걸러내기는 엿보기와 같은 함수다 — 정렬만 여기서 한다.
-    let list = filterPlacesPage({ type, town, query, directions, petKeys, hideHard, eligibilityMap });
+    let list = filterPlacesPage({ type, town, area, query, directions, petKeys, hideHard, eligibilityMap });
     if (sort === 'near' && origin) {
       // 가까운 순을 고르면 거리가 우선이다 — 가격 정렬과 같은 결정(B3). 좌표 없는 곳은 뒤로.
       list = sortByDistance(list, origin);
@@ -94,19 +96,19 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
       list = sortByEligibility(list, eligibilityMap, (place) => place.id);
     }
     return list;
-  }, [type, town, query, directions, petKeys, sort, origin, hideHard, eligibilityMap]);
+  }, [type, town, area, query, directions, petKeys, sort, origin, hideHard, eligibilityMap]);
 
-  // 0곳일 때만 센다 — 다른 두 종류를 다 훑으므로 결과가 있는 동안엔 돌지 않는다.
+  // 0곳일 때만 센다 — 다른 두 종류를 다 훑으므로 결과가 있는 동안엔 돌지 않는다. 권역은 탭을 따라오므로 그 안에서 센다.
   const otherTypes = useMemo(
-    () => (results.length === 0 ? otherTypeMatches(type, query, town) : []),
-    [results.length, type, query, town],
+    () => (results.length === 0 ? otherTypeMatches(type, query, town, (other) => placesOfTypeInArea(other, area)) : []),
+    [results.length, type, query, town, area],
   );
-  // 같은 이유로 0곳일 때만 — 읍면 하나가 원인인지(18 T2.1).
-  const releasedByTown = useMemo(
-    () =>
-      results.length === 0 ? townReleaseCount({ type, town, query, directions, petKeys, hideHard, eligibilityMap }) : 0,
-    [results.length, type, town, query, directions, petKeys, hideHard, eligibilityMap],
-  );
+  // 같은 이유로 0곳일 때만 — 읍면 하나(18 T2.1)·권역 하나(19 T3)가 원인인지.
+  const released = useMemo(() => {
+    if (results.length > 0) return { town: 0, area: 0 };
+    const conditions = { type, town, area, query, directions, petKeys, hideHard, eligibilityMap };
+    return { town: townReleaseCount(conditions), area: areaReleaseCount(conditions) };
+  }, [results.length, type, town, area, query, directions, petKeys, hideHard, eligibilityMap]);
 
   const distances = useMemo(() => (sort === 'near' && origin ? distancesFrom(results, origin) : undefined), [origin, results, sort]);
 
@@ -135,6 +137,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
   const { chips, activeFilterCount, hasFilters } = placesPageChips({
     type,
     town,
+    area,
     needsIndoor,
     hasDog: Boolean(dog),
     directions,
@@ -159,8 +162,10 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     if (type !== 'stay') setNeedsIndoor(false);
   };
 
+  // 목록 위 지우기 링크는 시트에 없는 것(검색어·권역)까지 지운다 — 칩 줄에 보이는 것을 전부 지우는 것이 그 링크의 말이다.
   const resetFilters = () => {
     setQuery('');
+    clearArea();
     resetConditions();
   };
 
@@ -174,7 +179,8 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
   const togglePetKey = (key: TPetFilterKey) => togglePetKeyOfType(type, key);
 
   const removeChip = (key: string) => {
-    if (key === 'town') setTown(null);
+    if (key === 'area') clearArea();
+    else if (key === 'town') setTown(null);
     else if (key === 'indoor') setNeedsIndoor(false);
     else if (key === 'sort') setSort('none');
     else if (key === 'hideHard') setHideHard(false);
@@ -319,7 +325,10 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
               onOpenFilters={() => setIsFilterSheetOpen(true)}
               distances={distances}
               otherTypes={otherTypes}
-              townReleaseCount={releasedByTown}
+              townReleaseCount={released.town}
+              area={area}
+              areaReleaseCount={released.area}
+              onClearArea={clearArea}
             />
             <PlacesPageSuggest type={type} />
           </div>

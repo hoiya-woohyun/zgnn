@@ -13,6 +13,7 @@ import { judgeEligibility, primaryReason } from '../lib/eligibility';
 import { carrierWhatIf, countByLevel, outdoorFallback, type TLevelCounts } from '../lib/eligibilityCounts';
 import { placesPageHardFold } from '../lib/placesPageHardFold';
 import { placesPageRepeatedReason } from '../lib/placesPageRepeatedReason';
+import { areaTownsLabel, type TAreaId } from '../lib/areaGroups';
 import { josa, withJosa } from '../lib/korean';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
 import { useAppStore } from '../store/useAppStore';
@@ -59,6 +60,12 @@ type TPlacesPageResultsProps = {
   otherTypes?: { type: TPlaceType; count: number }[];
   /** 0곳일 때 읍면만 풀면 몇 곳인가(`townReleaseCount`, 18 T2.1). 0 이면 읍면 탓이 아니다. */
   townReleaseCount?: number;
+  /** 홈 동네 카드가 건 권역(19 T3). */
+  area?: TAreaId | null;
+  /** 0곳일 때 권역만 풀면 몇 곳인가(`areaReleaseCount`). 0 이면 권역 탓이 아니다. */
+  areaReleaseCount?: number;
+  /** 권역만 푼다 — 권역 탓으로 0곳일 때 빈 상태의 버튼. */
+  onClearArea?: () => void;
 };
 
 /**
@@ -85,6 +92,9 @@ export function PlacesPageResults({
   distances,
   otherTypes = [],
   townReleaseCount = 0,
+  area = null,
+  areaReleaseCount = 0,
+  onClearArea,
 }: TPlacesPageResultsProps) {
   const dog = useAppStore((state) => state.dog);
   const needsIndoor = useAppStore((state) => state.needsIndoor);
@@ -270,6 +280,21 @@ export function PlacesPageResults({
               action={
                 <Button color="primary" size="md" onClick={onClearTown}>
                   {`${town} 풀고 ${townReleaseCount}곳 보기`}
+                </Button>
+              }
+            />
+          ) : area && areaReleaseCount > 0 ? (
+            /*
+              권역이 원인이면 같은 모양으로(19 T3) — 카드에서 '서부' 를 열고 '중문' 을 치거나, 그 권역에 이 종류가 아예 없을 때.
+              읍면 갈래를 먼저 본다: 읍면은 퍼시스트라 사용자가 건 줄 모르고, 권역은 방금 카드로 건 것이다.
+            */
+            <EmptyState
+              Icon={SearchMd}
+              title={`${areaTownsLabel(area)}에는 맞는 ${withJosa(TYPE_META[type].label, '이/가')} 없어요`}
+              description={`권역을 풀면 ${areaReleaseCount}곳이 있어요.`}
+              action={
+                <Button color="primary" size="md" onClick={onClearArea}>
+                  {`권역 풀고 ${areaReleaseCount}곳 보기`}
                 </Button>
               }
             />

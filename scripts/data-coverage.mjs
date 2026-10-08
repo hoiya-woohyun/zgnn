@@ -3,7 +3,7 @@
 // 오프라인이 기본이다. 로그인 세션이 있으면(`pnpm data login`) 칸마다 검수 대기 신규 후보 수를 하나 더 찍는다 — 🧑 19 H.1 의 검수 순서표.
 // 세션이 없어도 멈추지 않는다: 그 열만 빼고 한 줄 안내. 원격은 읽기만 한다(candidates select).
 // 앱의 TS 를 부르므로 --experimental-strip-types(package.json 의 `data` 줄)와 확장자·JSON 훅(scripts/lib/tsExtResolve.mjs — scripts/data.mjs 가 건다)이 같이 필요하다.
-import { AREAS, countByArea, TOWN_TO_AREA } from '../src/lib/areaGroups.ts';
+import { AREAS, areaTownsLabel, countByArea, TOWN_TO_AREA } from '../src/lib/areaGroups.ts';
 import { COVERAGE_DOGS, COVERAGE_GOALS, coverageGates, reachOf } from '../src/lib/areaCoverage.ts';
 import { PLACES } from '../src/lib/places.ts';
 import { canonicalTown } from './lib/jejuRegions.mjs';
@@ -16,14 +16,6 @@ const TYPE_LABEL = { stay: '숙소', cafe: '카페', restaurant: '식당' };
 /** 열 순서 — 카드가 말하는 순서(묵을 곳 → 카페), 식당은 맨 뒤. */
 const PLACE_TYPES = Object.keys(TYPE_LABEL);
 const NO_AREA = '지역 모름';
-
-/** 권역 이름 + 읍면 — "서부(애월·한림·한경)". 읍면은 매핑에서 읽는다(손으로 적으면 매핑과 갈린다). */
-const areaTitle = (id) => {
-  const towns = Object.entries(TOWN_TO_AREA)
-    .filter(([, area]) => area === id)
-    .map(([town]) => town.replace(/(읍|면)$/, ''));
-  return `${AREAS.find((area) => area.id === id).label}(${towns.join('·')})`;
-};
 
 /**
  * 승인되면 그 후보가 들어갈 권역. 새 장소의 `region_raw` 는 `extracted.regionRaw` 그대로라(`toNewPlaceRow` — CLI·/admin 두 길 모두) 그것을 먼저 보고
@@ -59,7 +51,7 @@ export function pendingByArea(rows) {
 // 한글은 터미널에서 두 칸이다 — String.padEnd 로 맞추면 열이 어긋난다.
 const width = (s) => [...s].reduce((w, ch) => w + (/[ᄀ-ᇿ㄰-㆏가-힯]/.test(ch) ? 2 : 1), 0);
 const pad = (s, n) => s + ' '.repeat(Math.max(0, n - width(s)));
-const TITLE_W = Math.max(...AREAS.map(({ id }) => width(areaTitle(id)))) + 2;
+const TITLE_W = Math.max(...AREAS.map(({ id }) => width(areaTownsLabel(id)))) + 2;
 const CELL_W = 9;
 const header = (first) => pad(first, TITLE_W) + PLACE_TYPES.map((type) => pad(TYPE_LABEL[type], CELL_W)).join('');
 
@@ -94,7 +86,7 @@ export async function main(argv = []) {
         const c = counts[area][type];
         return pad(`${reachOf(c)}/${Object.values(c).reduce((sum, n) => sum + n, 0)}`, CELL_W);
       });
-      console.log(pad(areaTitle(area), TITLE_W) + cells.join(''));
+      console.log(pad(areaTownsLabel(area), TITLE_W) + cells.join(''));
     }
     console.log('');
   }
@@ -123,7 +115,7 @@ export async function main(argv = []) {
     const row = byArea.get(area);
     if (!row && area === NO_AREA) continue;
     for (const type of PLACE_TYPES) total[type] += row?.[type] ?? 0;
-    const title = area === NO_AREA ? NO_AREA : areaTitle(area);
+    const title = area === NO_AREA ? NO_AREA : areaTownsLabel(area);
     console.log(pad(title, TITLE_W) + PLACE_TYPES.map((type) => pad(String(row?.[type] ?? 0), CELL_W)).join(''));
   }
   console.log(pad('합', TITLE_W) + PLACE_TYPES.map((type) => pad(String(total[type]), CELL_W)).join(''));

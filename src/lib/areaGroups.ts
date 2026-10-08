@@ -63,6 +63,14 @@ export const LANDMARK_KEY_TO_AREA: Readonly<Record<keyof typeof LANDMARKS_BY_ARE
   제주시: 'north',
 };
 
+/** 권역 이름 + 읍면 — "서부(애월·한림·한경)". 읍면은 매핑에서 읽는다(손으로 적으면 매핑과 갈린다). 둘러보기 칩과 `pnpm data coverage` 가 쓴다. */
+export const areaTownsLabel = (id: TAreaId): string => {
+  const towns = Object.entries(TOWN_TO_AREA)
+    .filter(([, area]) => area === id)
+    .map(([town]) => town.replace(/(읍|면)$/, ''));
+  return `${AREAS.find((area) => area.id === id)?.label ?? id}(${towns.join('·')})`;
+};
+
 /** 장소의 권역. 매핑에 없는 읍면이면 null — 셈에서 빠진다(테스트가 그런 읍면이 없음을 지킨다). */
 export const areaOf = (place: { region: { town: string } }): TAreaId | null => TOWN_TO_AREA[place.region.town] ?? null;
 

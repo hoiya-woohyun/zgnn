@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AREAS, areaOf, countByArea, LANDMARK_KEY_TO_AREA, TOWN_TO_AREA, type TAreaCounts } from './areaGroups';
+import { AREAS, areaOf, areaTownsLabel, countByArea, LANDMARK_KEY_TO_AREA, TOWN_TO_AREA, type TAreaCounts } from './areaGroups';
 import { countByLevel } from './eligibilityCounts';
 import { LANDMARKS_BY_AREA } from './landmarks';
 import { ALL_TOWNS, PLACE_TYPES, PLACES, placesOfType } from './places';
@@ -33,6 +33,11 @@ describe('두 매핑 — 읍면(셈)과 관광지 키(칩 배치)', () => {
   it('6권역 모두 읍면이 있다 — 빈 카드가 매핑 실수로 생기지 않는다', () => {
     const used = new Set(Object.values(TOWN_TO_AREA));
     for (const { id } of AREAS) expect(used.has(id), id).toBe(true);
+  });
+
+  it('권역 라벨은 매핑의 읍면에서 — 읍·면 꼬리만 뗀다', () => {
+    expect(areaTownsLabel('west')).toBe('서부(애월·한림·한경)');
+    expect(areaTownsLabel('south')).toBe('남부(서귀포시·남원)');
   });
 
   it('모르는 읍면은 null', () => {

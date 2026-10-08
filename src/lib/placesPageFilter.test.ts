@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { filterPlacesPage, filtersOfPlaceType, placesByTown, placesPageChips, townReleaseCount } from './placesPageFilter';
+import { areaOf } from './areaGroups';
+import { areaReleaseCount, filterPlacesPage, filtersOfPlaceType, placesByTown, placesOfTypeInArea, placesPageChips, townReleaseCount } from './placesPageFilter';
 import { placesOfType } from './places';
 import type { TPlaceType } from '../types';
 
-const base = { town: null, query: '', directions: [], petKeys: [], hideHard: false, eligibilityMap: null } as const;
+const base = { town: null, area: null, query: '', directions: [], petKeys: [], hideHard: false, eligibilityMap: null } as const;
 const TYPES: TPlaceType[] = ['stay', 'restaurant', 'cafe'];
 
 describe('filterPlacesPage', () => {
@@ -67,8 +68,42 @@ describe('townReleaseCount', () => {
   });
 });
 
+describe('권역(19 T3)', () => {
+  it('권역은 그 권역 읍면의 곳만 남긴다 — placesOfTypeInArea 와 같은 집합', () => {
+    const found = filterPlacesPage({ ...base, type: 'stay', area: 'west' });
+    expect(found.length).toBeGreaterThan(0);
+    expect(found.every((place) => areaOf(place) === 'west')).toBe(true);
+    expect(found).toEqual(placesOfTypeInArea('stay', 'west'));
+    expect(placesOfTypeInArea('stay', null)).toEqual(placesOfType('stay'));
+  });
+
+  it('권역이 없으면 0, 서부 × 중문 = 0곳이면 권역만 풀면 중문 반경의 수', () => {
+    expect(areaReleaseCount({ ...base, type: 'stay', query: '중문' })).toBe(0);
+    const conditions = { ...base, type: 'stay' as const, area: 'west' as const, query: '중문' };
+    expect(filterPlacesPage(conditions)).toHaveLength(0);
+    const released = filterPlacesPage({ ...conditions, area: null }).length;
+    expect(released).toBeGreaterThan(0);
+    expect(areaReleaseCount(conditions)).toBe(released);
+  });
+
+  it('읍면과 권역이 어긋나면(구좌읍 × 서부) 둘 다 풀 거리가 된다 — 읍면을 풀면 서부의 수', () => {
+    const conditions = { ...base, type: 'stay' as const, town: '구좌읍', area: 'west' as const };
+    expect(filterPlacesPage(conditions)).toHaveLength(0);
+    expect(townReleaseCount(conditions)).toBe(placesOfTypeInArea('stay', 'west').length);
+    expect(areaReleaseCount(conditions)).toBe(placesByTown('stay', '구좌읍').length);
+  });
+});
+
 describe('placesPageChips', () => {
   const chipBase = { type: 'restaurant' as const, town: null, needsIndoor: false, hasDog: true, directions: [], petKeys: [], hideHard: false, query: '' };
+
+  it('권역은 맨 앞 칩이고 시트 버튼 숫자(activeFilterCount)에 안 든다', () => {
+    const result = placesPageChips({ ...chipBase, area: 'west', hideHard: true, query: '카레' });
+    expect(result.chips.map((chip) => chip.key)).toEqual(['area', 'hideHard', 'query']);
+    expect(result.chips[0].label).toBe('서부(애월·한림·한경)');
+    expect(result.activeFilterCount).toBe(1);
+    expect(placesPageChips({ ...chipBase, area: 'west' }).hasFilters).toBe(true);
+  });
 
   it('조건이 없으면 비어 있다', () => {
     expect(placesPageChips(chipBase)).toEqual({ chips: [], activeFilterCount: 0, hasFilters: false });
