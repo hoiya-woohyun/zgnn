@@ -225,6 +225,15 @@ export function blockFor(extracted, blocks, now = new Date()) {
 
 export const isBlocked = (extracted, blocks, now = new Date()) => blockFor(extracted, blocks, now) !== null;
 
+/**
+ * **일부러 다시 읽힌 출처 글은 블랙리스트보다 우선한다**(docs/todo/09 T5.1 · D7). 등록 해제 + 영구 차단인 가게도 운영자가 그 장소의 출처 글을
+ * 다시 읽히면 갱신할 수 있어야 한다 — 아니면 해제한 가게를 영영 고칠 수 없다.
+ *
+ * 차단은 **이 글이 출처인 바로 그 장소**와 짝지어질 때만 풀린다(`sourcePlaceIds` = 이 글의 `place_sources.place_id`). "출처 글이면 다 푼다" 로 넓히면
+ * "애월 카페 5곳" 같은 목록글이 한 곳의 출처일 때 나머지 넷 중 차단된 가게까지 되살아난다. 그래서 차단 판정을 매칭 뒤로 미뤄 짝의 id 를 본다.
+ */
+export const blockWaivedBySource = (matched, sourcePlaceIds) => Boolean(matched?.match?.id && sourcePlaceIds?.has(matched.match.id));
+
 /** 로그용 — 차단이 언제까지인가. */
 export const blockUntilLabel = (block) => (block.until ? `~${new Date(block.until).toISOString().slice(0, 10)}` : '영구');
 

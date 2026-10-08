@@ -46,6 +46,7 @@ import { dirname, join, resolve } from 'node:path';
 import {
   blockFor,
   blockUntilLabel,
+  blockWaivedBySource,
   editedKey,
   editedKeysFor,
   exclusionReason,
@@ -437,6 +438,17 @@ async function analyze(argv, args, { onRateLimit, nonInteractive = false } = {})
   const { data: blockRows, error: blocksError } = await supabase.from('place_blocks').select('name_key, town, until, lifted_at');
   if (blocksError) console.warn(`⚠ place_blocks 조회 실패 — 차단 0건으로 진행한다(마이그레이션 미적용이면 정상): ${blocksError.message}`);
   else blocks = blockRows ?? [];
+  // 이번에 읽을 글이 어느 장소의 출처인가(`place_sources`) — 출처 글은 그 장소의 차단을 넘는다(`blockWaivedBySource`, 09 T5.1).
+  // 조회가 실패하면 특례 없이(차단은 그대로) 간다 — 경고 한 줄. 막는 쪽으로 틀리는 편이 해제한 가게를 되살리는 쪽보다 싸다.
+  const sourcesOfPost = new Map(); // post_url → Set<place_id>
+  if (posts.length > 0) {
+    const { data: sourceRows, error: sourcesError } = await supabase.from('place_sources').select('place_id, post_url').in('post_url', posts.map((post) => post.url));
+    if (sourcesError) console.warn(`⚠ place_sources 조회 실패 — 출처 글 특례 없이 진행한다: ${sourcesError.message}`);
+    for (const { place_id: placeId, post_url: postUrl } of sourceRows ?? []) {
+      if (!sourcesOfPost.has(postUrl)) sourcesOfPost.set(postUrl, new Set());
+      sourcesOfPost.get(postUrl).add(placeId);
+    }
+  }
   // 사람이 고친 pending 후보의 (글, 가게) — 같은 글을 다시 읽어도 그 가게는 새로 만들지 않는다(D3·T2.2). 옆에 AI 판단이 또 한 벌 붙지 않게.
   const editedKeys = editedKeysFor(pendingRows);
   const newNamesSeen = new Map(); // nameKey → 먼저 난 pending 후보 id(이전 실행) 또는 글 URL(이번 실행)
@@ -657,7 +669,9 @@ async function analyze(argv, args, { onRateLimit, nonInteractive = false } = {})
           continue;
         }
         const block = blockFor(extracted, blocks, runStartedAt);
-        if (block) {
+        // 출처 글이면 차단 판정을 매칭 뒤로 미룬다 — 짝이 이 글의 출처 장소일 때만 풀린다(아래 `blockWaivedBySource`).
+        const sourcePlaceIds = sourcesOfPost.get(post.url);
+        if (block && !sourcePlaceIds) {
           excluded.push({ extracted, reason: 'blocked' });
           stats.excluded.blocked += 1;
           console.log(`  제외 ${extracted.name} · 차단(${blockUntilLabel(block)})`);
@@ -686,6 +700,15 @@ async function analyze(argv, args, { onRateLimit, nonInteractive = false } = {})
         // regionRaw 는 주소 기반이 우선(analyzeCandidates.mjs). 주소는 네이버 → 본문 순.
         const regionRaw = resolveRegionRaw(local?.address ?? extracted.address, extracted.regionRaw, existing, extracted.name);
         const matched = matchPlace(toMatchCandidate(extracted, local), existing);
+        if (block) {
+          if (!blockWaivedBySource(matched, sourcePlaceIds)) {
+            excluded.push({ extracted, reason: 'blocked' });
+            stats.excluded.blocked += 1;
+            console.log(`  제외 ${extracted.name} · 차단(${blockUntilLabel(block)})`);
+            continue;
+          }
+          console.log(`  ※ ${extracted.name} — 차단(${blockUntilLabel(block)})이지만 이 글이 ${matched.match.name} 의 출처라 다시 읽는다`);
+        }
         const key = normalizeName(extracted.name);
         const geo = local ? { lat: local.lat, lng: local.lng } : null;
         const address = local?.address ?? extracted.address ?? null;

@@ -6,6 +6,7 @@ import {
   DEFAULT_MAX_PER_BLOG,
   EDITED_NOTE,
   blockFor,
+  blockWaivedBySource,
   blockUntilLabel,
   editedKey,
   editedKeysFor,
@@ -733,5 +734,19 @@ describe('newSiblingOf — 이름 키가 다른 같은 가게의 신규 후보(�
     const branch = [{ key: '레스토랑성산점', name: '레스토랑 성산점', geo, address: null, ref: 'u1' }];
     expect(newSiblingOf({ name: '레스토랑 제주성산점', geo, address: null }, branch)?.ref).toBe('u1');
     expect(newSiblingOf({ name: '레스토랑 제주성산점', geo: null, address: null }, branch)).toBeNull();
+  });
+});
+
+describe('blockWaivedBySource — 출처 글은 그 장소의 차단을 넘는다(09 T5.1)', () => {
+  const sources = new Set(['place-a']);
+  it('이 글이 출처인 장소와 짝이면 푼다 — 내린 곳이어도', () => {
+    expect(blockWaivedBySource({ match: { id: 'place-a', status: 'archived' }, confidence: 1 }, sources)).toBe(true);
+  });
+  it('같은 글의 다른 가게(목록글)는 풀지 않는다', () => {
+    expect(blockWaivedBySource({ match: { id: 'place-b', status: 'archived' }, confidence: 1 }, sources)).toBe(false);
+  });
+  it('짝이 없거나 출처가 아닌 글이면 풀지 않는다', () => {
+    expect(blockWaivedBySource({ match: null, confidence: 0 }, sources)).toBe(false);
+    expect(blockWaivedBySource({ match: { id: 'place-a' }, confidence: 1 }, undefined)).toBe(false);
   });
 });
