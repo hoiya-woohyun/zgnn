@@ -1,6 +1,7 @@
 # ADR-016 — 시크릿은 저장하지 않는다: 운영자가 로그인하고, 스크립트는 그 짧은 세션으로 붙는다
 
-> 최종 수정: 2026-10-07 (v11: 운영자 세션이 쓰는 표가 둘 늘었다 — `pipeline_requests`(지금 돌려 줘 요청)·`workers`(로컬 워커 심장, [ADR-024](ADR-024-local-worker-and-db-queues.md), 마이그레이션 `20261007140000`, 원격 미적용). 모양은 `pipeline_runs` 그대로(select/insert/update · 정책 셋 `is_operator()` · delete·anon 없음). Realtime publication 에 표 여섯 — 구독은 RLS 를 지켜 publishable 키만으론 행이 안 온다. 새 키·새 출처 없음)
+> 최종 수정: 2026-10-08 (v12: 「서버에 두는 장기 값」 절 — [ADR-028](ADR-028-vercel-remote-worker.md) 서버 워커(Vercel `zgnn-worker`)에 `CLAUDE_CODE_OAUTH_TOKEN`·네이버 검색 키 둘만 둔다. Supabase 장기 키는 여전히 어디에도 없다 — 서버의 DB 쓰기는 버튼을 누른 운영자의 JWT 다)
+> 이전 2026-10-07 (v11: 운영자 세션이 쓰는 표가 둘 늘었다 — `pipeline_requests`(지금 돌려 줘 요청)·`workers`(로컬 워커 심장, [ADR-024](ADR-024-local-worker-and-db-queues.md), 마이그레이션 `20261007140000`, 원격 미적용). 모양은 `pipeline_runs` 그대로(select/insert/update · 정책 셋 `is_operator()` · delete·anon 없음). Realtime publication 에 표 여섯 — 구독은 RLS 를 지켜 publishable 키만으론 행이 안 온다. 새 키·새 출처 없음)
 > 이전 2026-10-06 (v10: 운영자 세션이 쓰는 표가 하나 늘었다 — `pipeline_runs`(실행 기록, [ADR-023](ADR-023-ops-dashboard-and-run-log.md), 마이그레이션 `20261006120000`). authenticated 에 select/insert/update(delete 없음) + 정책 셋 `is_operator()`, anon 은 아무것도 없다. 집계 rpc `ops_overview()` 는 definer · 첫 줄 운영자 확인 · anon/PUBLIC execute 회수, Vault 는 **이름만** 본다. 새 키·새 출처 없음)
 > 이전 2026-10-05 (v9: **네이버 키는 사용자 홈의 파일 `~/.zgnn-naver.env` 에서도 읽는다**(`scripts/lib/naverEnvFile.mjs`) — env 가 비어 있을 때만, 이름 넷(`NAVER_CLIENT_ID`·`_SECRET`·`NAVER_MAP_CLIENT_ID`·`_SECRET`)만.
 > 재분석은 구독 한도에 닿을 때마다 다시 돌리는 일이라 매번 숨김 입력 넷이 그 일을 미루게 했고, 에이전트 세션은 입력을 받지 않아 아예 못 돌았다.
@@ -160,6 +161,20 @@ Free private 레포는 브랜치·환경 보호가 안 된다. 러너에 키가 
   두 표는 `pipeline_runs` 와 같은 모양(authenticated select/insert/update, delete·anon 없음). Realtime(`supabase_realtime` 에 여섯 표)은 구독자의 RLS 를 적용하므로 publishable 키만으로는 아무 행도 오지 않는다 — 워커는 세션 토큰을 `realtime.setAuth` 로 넘긴다.
   마이그레이션 `20261007140000` 은 **원격 미적용** — 적용 뒤 같은 롤백 실측을 한다(파일 끝 주석에 SQL).
 - **`pnpm login`·`pnpm logout` 은 pnpm 내장 명령**(npm 레지스트리 로그인)이라 package.json 의 `login` 스크립트를 가린다 — 그래서 `data:login`·`data:logout` 이다.
+
+## 서버에 두는 장기 값 (v12, [ADR-028](ADR-028-vercel-remote-worker.md))
+
+"레포와 Supabase 장기 키는 없다" 는 그대로다. 서버 워커(별도 Vercel 프로젝트 `zgnn-worker`)에만 값 둘이 산다.
+
+| 값 | 수명 | 새면 | 회전 |
+|---|---|---|---|
+| `CLAUDE_CODE_OAUTH_TOKEN`(`claude setup-token`) | 1년 | 구독 한도가 탄다 — DB 에는 닿지 않는다 | claude.ai 에서 회수 → `claude setup-token` → `pbpaste \| tr -d '[:space:]' \| vercel env add CLAUDE_CODE_OAUTH_TOKEN production --sensitive` |
+| `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`(검색 API) | 발급 앱 수명 | 하루 호출 한도가 쓰인다 | 네이버 개발자 센터에서 재발급 → 같은 식 |
+
+- **Production 에만, Sensitive 로.** 프리뷰에는 두지 않는다(T0 실측 때 넣었던 것은 지운다 — todo/20 T8). 숨김 입력에 붙여 넣으면 줄바꿈이 Enter 로 먹혀 값이 잘린다(실측 49자) — 파이프로 넣는다.
+- **DB 쓰기 권한은 서버에 없다.** 함수는 요청 헤더의 운영자 JWT 를 같은 검사(형식·exp·30분 앞당김·하루 상한·service 키 트립와이어)로 받아 그 요청 동안만 쓴다(`injectSession`). 그래서 서버가 통째로 새도 places 는 바뀌지 않는다.
+- **`claude` 자식 env 허용 목록은 그대로다.** 서버 워커 표식(`ZGNN_WORKER_RUNTIME=vercel`, 진입점이 적는다)일 때만 토큰을 더한다 — 로컬은 env 에 토큰이 있어도 넘기지 않는다(결정 4 의 "그 env 로만 인증받던 머신은 멈춘다" 유지).
+- **git 자동 배포는 꺼져 있다**(`worker/vercel.json`). push 한 줄이 env 를 읽는 빌드를 돌리지 못하게 — 배포는 `vercel deploy --prod` 손으로만. 남는 구멍은 Vercel CLI 로그인이 있는 기기에서 에이전트가 배포할 수 있다는 것 — 경계가 아니라 "배포 전 diff 를 본다" 는 습관이다(위협 4 와 같은 모양).
 
 ## 잔존 위험 — 이 머신에서 "관리자 없이 되는 것" (보안 리뷰 2026-09-21, 4 렌즈 일치 · v5 갱신 2026-09-22)
 

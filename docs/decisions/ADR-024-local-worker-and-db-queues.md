@@ -1,6 +1,7 @@
 # ADR-024 — 수집·분석·반영은 터미널에 상주하는 로컬 워커 하나가 DB 를 보고 돈다. 큐는 새로 만들지 않고 기존 표의 상태 칸이고, 진행 상태는 표 하나·칸 하나로 화면에 실시간으로 비친다
 
-> 최종 수정: 2026-10-07 (v2: 리뷰 18 — `/admin` 승인은 approved 를 거치지 않고, apply 는 막 승인된 행을 60초 묵힌다. 쌍둥이 장소 경쟁)
+> 최종 수정: 2026-10-08 (v3: 「하지 않은 것」 첫 줄의 Vercel 부분을 [ADR-028](ADR-028-vercel-remote-worker.md) 로 번복 — `setup-token` 으로 함수 안 `claude -p` 가 돈다(실측). 결정 3 의 터미널 상주는 실행기 둘 중 하나가 됐다)
+> 이전 2026-10-07 (v2: 리뷰 18 — `/admin` 승인은 approved 를 거치지 않고, apply 는 막 승인된 행을 60초 묵힌다. 쌍둥이 장소 경쟁)
 > 이전 2026-10-07 (v1: 결정. 구현은 [docs/todo/17](../todo/17-local-worker.md) 가 추적한다)
 > 상태: **결정**. 코드는 todo/17 의 단계가 끝날 때마다 붙는다.
 
@@ -29,7 +30,7 @@ candidates.status = 'approved'       → 반영할 것        (analyze 가 auto 
    - `pipeline_requests` 표 — "**지금** 돌려 줘" 라는 사람의 의도. `kind`(collect/analyze/apply) · `args`(limit 같은 플래그 이름·수만) · `status`(queued/taken/done) · `run_id`. `/admin` 의 「지금 분석」 버튼이 한 줄 넣고 워커가 집는다. 이것만은 상태 칸으로 표현할 자리가 없다(저수지의 글 N건을 "이번에" 읽으라는 말이라).
    - `workers` 표 — 기기당 한 행. `host` · `last_seen_at` · `phase`(idle / collect / analyze / apply / login-needed / rate-limited) · `run_id`. 화면이 "로컬 워커 · 살아 있음(3초 전) · 분석 중" 또는 "워커 없음 — `pnpm data` 를 켜 주세요" 를 그리는 근거다.
    - `pipeline_runs.progress` jsonb 칸 — `{done, total, current}` 를 5초마다. `heartbeat_at`(60초, 건강 판정용)과 역할이 다르다 — 하나는 "살아 있나", 하나는 "어디까지 왔나".
-3. **워커는 터미널에 상주한다**(`pnpm data`). launchd·cron·Actions 가 아니다. 깨우는 길은 셋이고 **전부 같은 `wake()` 를 부른다** — Realtime 구독(`postgres_changes`, ~1초) 이 주, 60초 폴링이 안전망, 하루 한 번 타이머(09:00 KST)가 키워드 정기 수집. `wake()` 는 "도는 중이면 끝난 뒤 한 번 더" 로 디바운스하고, 한 바퀴는 collect(요청만) → analyze → apply 순이다. 세 길이 겹쳐 불러도 멱등이라 중복은 비용이 아니라 안전망이다. `runLock` 은 그대로 — 워커 둘(또는 워커 + 손 실행)이 analyze 를 겹치지 않게.
+3. **워커는 터미널에 상주한다**(`pnpm data`). (v3: 실행기 둘 중 하나다 — 다른 하나는 버튼이 깨우는 서버 워커, [ADR-028](ADR-028-vercel-remote-worker.md). 둘은 `workers` 심장으로 비킨다.) launchd·cron·Actions 가 아니다. 깨우는 길은 셋이고 **전부 같은 `wake()` 를 부른다** — Realtime 구독(`postgres_changes`, ~1초) 이 주, 60초 폴링이 안전망, 하루 한 번 타이머(09:00 KST)가 키워드 정기 수집. `wake()` 는 "도는 중이면 끝난 뒤 한 번 더" 로 디바운스하고, 한 바퀴는 collect(요청만) → analyze → apply 순이다. 세 길이 겹쳐 불러도 멱등이라 중복은 비용이 아니라 안전망이다. `runLock` 은 그대로 — 워커 둘(또는 워커 + 손 실행)이 analyze 를 겹치지 않게.
 4. **워커가 알아서 분석하는 글은 "사람이 요청한 글" 뿐이다** — `추가 수집` 요청에서 온 글과 `재분석` 으로 되돌린 글. 키워드 정기 수집이 쌓는 **저수지는 자동으로 읽지 않는다** — `claude` 구독은 5시간 한도고 저수지를 어디서 멈출지는 열린 결정이다([NOW](../todo/NOW.md) 🙋). 저수지는 「지금 분석 N건」(`pipeline_requests` kind=analyze, args.limit) 으로만 읽는다. 구분은 `blog_posts.requested_at`(요청에서 왔거나 재분석으로 되돌릴 때 찍는다) 한 칸 — 워커의 자동 analyze 는 `analyzed_at is null and requested_at is not null` 만 센다.
 5. **세션 만료는 그 자리에서 묻는다.** 워커는 TTY 에서 도니까 access token 이 만료되면 `login` 과 같은 숨김 입력으로 비밀번호를 묻고 이어 간다. ADR-016 의 경계(장기 키 없음 · exp ≤ 1일 · RLS 범위)는 그대로다 — refresh token 을 키체인에 두는 백그라운드 데몬(launchd)은 하지 않는다. 묻는 동안 `workers.phase = login-needed` 라 화면에 "로그인이 필요해요" 가 뜬다. `claude -p` 가 한도에 걸리면 `rate-limited` 로 눕고 리셋 시각까지 잔다(`pipeline_runs.error` 는 기존 분류 문구).
 6. **화면은 구독한다**(ADR-023 「하지 않은 것」 의 Realtime 을 **v2 로 번복**). `/admin/ops` 가 `workers` · `pipeline_runs` 의 `postgres_changes` 를 받아 워커 배지와 진행률을 그 자리에서 바꾼다. 그때는 "열 때 보는 화면" 이라 폴링이면 됐지만, 이제는 **도는 동안 보는 화면**이다. 60초 폴링은 재연결 안전망으로 남긴다. `/admin` 검수 화면에는 「지금 분석」 버튼(`pipeline_requests` insert) 하나와 머리글의 워커 한 줄이 들어간다.
@@ -45,6 +46,7 @@ candidates.status = 'approved'       → 반영할 것        (analyze 가 auto 
 ## 하지 않은 것
 
 - **GitHub Actions · Vercel Cron · Supabase Edge Function 에서 수집·분석** — 키가 바깥으로 나간다, 비용이 붙는다, `claude` 구독 로그인은 러너에서 안 된다.
+  (v3: Vercel **함수**는 [ADR-028](ADR-028-vercel-remote-worker.md) 로 **번복** — 셋째 이유가 틀렸다(`setup-token` 실측). 버튼을 누른 운영자의 JWT 로만 돌고 서버 장기 값은 Claude 토큰·네이버 키 둘이다. Actions·Cron·Edge Function 은 그대로 안 한다 — 운영자 JWT 없이 도는 자동 실행이라 Supabase 장기 키가 필요해진다.)
 - **launchd 데몬 + refresh token** — 결정 5.
 - **저수지 자동 분석** — 결정 4. 한도와 수율 결정이 먼저다.
 - **워커 여럿의 분산 잠금** — 기기가 하나다. `workers` 행이 둘 이상이면 화면이 둘 다 보여 주고 `runLock`(tmpdir)이 같은 기기 안의 겹침만 막는다. 다른 기기끼리 겹치면 `pipeline_runs` 두 행이 running 으로 보이는 것으로 드러난다 — 그때 고친다.

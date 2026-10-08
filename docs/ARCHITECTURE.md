@@ -1,6 +1,7 @@
 # 프로젝트 아키텍처 인덱스
 
-> 최종 수정: 2026-10-08 (v24: ADR 표에 ADR-027 — 지역은 추천이 아니라 판정 개수로(홈 6권역 카드, [features/area-cards](./features/area-cards.md)))
+> 최종 수정: 2026-10-08 (v25: ADR 표에 ADR-028 — 서버 워커(Vercel `zgnn-worker`), 레포에 `worker/`)
+> 이전 2026-10-08 (v24: ADR 표에 ADR-027 — 지역은 추천이 아니라 판정 개수로(홈 6권역 카드, [features/area-cards](./features/area-cards.md)))
 > 이전 2026-10-06 (v23: 라우트 표에 **숨은 운영 현황 화면 `/admin/ops`** 한 줄 — `/admin` 의 세션·밀도를 그대로 받는다([todo/15](./todo/15-ops-dashboard.md) T3.1))
 > 이전 2026-10-06 (v22: ADR 표에 [ADR-023](./decisions/ADR-023-ops-dashboard-and-run-log.md)(제안) · features 표에 [ops-dashboard.md](./features/ops-dashboard.md)(제안) 한 줄씩)
 > 이전 2026-10-03 (v21: ADR 표에 [ADR-022](./decisions/ADR-022-landmark-search-by-radius.md) 한 줄)
@@ -221,6 +222,7 @@ data/                         # Notion 추출본(커밋) · raw/(무시)
 | [ADR-025](./decisions/ADR-025-stack-push-pop-transition.md) | 탭 안으로 들어간 화면은 **위에 쌓인다** — 오른쪽에서 덮고 오른쪽으로 걷히며, 왼쪽 가장자리를 끌어 걷어 낸다. 옆 장은 떠나기 직전 `<main>` 의 DOM 복제(View Transitions 는 손가락을 못 따라가 쓰지 않는다), 방향은 history 깊이. 하위 화면은 들어온 탭 밑(탭 불은 history 에 새긴 탭), 탭 화면끼리는 history 를 쌓지 않아 탭 화면의 가장자리 뒤로가기가 갈 곳이 없다(v2) |
 | [ADR-026](./decisions/ADR-026-route-ours-navigation-naver.md) | 하루 동선은 **경로는 우리, 운전 안내는 네이버** — 저장한 곳에 날짜 라벨을 얹고 직선거리로 순서를 제안한 뒤, 네이버 지도 **웹** 길찾기 주소(경유 5 + 도착, 넘치면 이어지는 묶음)로 넘긴다. Directions API·서버·키 없음, 앱 스킴(`nmap://`)은 앱 유무 판별이 필요해 쓰지 않는다. 판정은 반려동물 조건까지(영업시간 없음) |
 | [ADR-027](./decisions/ADR-027-areas-by-verdict-count.md) | 지역은 **추천이 아니라 판정 개수**로 — 홈 6권역 카드가 "묵을 곳 n · 카페 n"(히어로와 같은 셈, 눌러 연 목록도 같은 술어)을 말하고, 0칸은 "저희가 아직 덜 모았다"·"m곳 중 0곳" 으로 '모른다' 와 '어렵다' 를 가른다. 식당은 머리 숫자에서 빼고, '추천' 라벨은 데이터 문턱을 넘은 칸에만. 경유 카페·일자 자동 추천·새 동네 화면은 버렸다 |
+| [ADR-028](./decisions/ADR-028-vercel-remote-worker.md) | 수집·분석을 **버튼이 깨우는 Vercel 함수**에서도 돌린다(별도 프로젝트 `zgnn-worker`, 레포의 `worker/` — 사이트는 정적 그대로). 권한은 버튼을 누른 운영자의 JWT, 서버 장기 값은 Claude `setup-token`·네이버 키 둘. 한 호출은 로컬 `once` 와 같은 한 바퀴를 분석 하나·글 5건까지 돌고 같은 JWT 로 자기를 다시 부른다. 로컬 워커와는 `workers` 심장으로 비킨다. cron·자동 실행은 없다 |
 
 ## 버그 기록
 
