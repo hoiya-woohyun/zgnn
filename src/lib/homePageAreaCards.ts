@@ -8,12 +8,15 @@
  * 적게 모았으면 '모른다', 모았는데 0 이면 '어렵다'. "없어요"·"추천" 은 쓰지 않는다.
  */
 
-import { AREAS, LANDMARK_KEY_TO_AREA, type TAreaCounts, type TAreaId } from './areaGroups';
-import type { TLevelCounts } from './eligibilityCounts';
+import { AREAS, LANDMARK_KEY_TO_AREA, areaOf, countByArea, type TAreaCounts, type TAreaId } from './areaGroups';
+import { COVERAGE_DOGS, COVERAGE_GOALS, coverageGates, reachOf, type TCoverageDogId } from './areaCoverage';
+import { dogSize, judgeEligibility } from './eligibility';
+import { isReachable, type TLevelCounts } from './eligibilityCounts';
+import { sortByEligibility } from './sortByEligibility';
 import { LANDMARKS_BY_AREA, type TLandmark } from './landmarks';
 import { matchesQuery } from './placeSearch';
 import type { TPlaceEntry } from './places';
-import type { TPlaceType } from '../types';
+import type { TDogProfile, TPlaceType } from '../types';
 
 /** 머리 숫자의 종류 — 식당은 뺀다. */
 export const AREA_CARD_TYPES = ['stay', 'cafe'] as const satisfies readonly TPlaceType[];
@@ -84,4 +87,56 @@ export const homePageAreaLandmarks = (
     }
   }
   return byArea;
+};
+
+/**
+ * 사용자 강아지가 어느 원형의 문턱을 따르나(19 T6). 대형견이 한 마리라도 있으면 big(가장 엄한 쪽 — 그 강아지가 못 가면 다 못 간다),
+ * 아니면 둘 이상이거나 중형이면 multi(원형 '콩+해피' 가 중형을 품는다), 나머지는 small. 크기는 판정과 같은 `dogSize` 다.
+ */
+export const coverageDogOf = (dog: TDogProfile): TCoverageDogId => {
+  const size = dogSize(dog);
+  if (size === 'large') return 'big';
+  return dog.dogs.length > 1 || size === 'medium' ? 'multi' : 'small';
+};
+
+/**
+ * 원형마다 라벨 문턱(§4)이 열렸나 — `pnpm data coverage` 와 같은 함수(`coverageGates`)로 잰다. 데이터가 빌드 시점이라 화면은 한 번만 부른다.
+ * 대형견은 숙소 권역 수와 빈칸 둘 다 넘어야 한다(빈칸이 많은 동안은 숫자만 — ADR-027 결정 3).
+ */
+export const areaLabelGates = (
+  places: readonly Parameters<typeof countByArea>[0][number][],
+): Record<TCoverageDogId, boolean> => {
+  const gates = coverageGates(
+    Object.fromEntries(COVERAGE_DOGS.map(({ id, dog }) => [id, countByArea(places, dog)])) as Record<TCoverageDogId, TAreaCounts>,
+  );
+  return {
+    small: gates.small.cells >= COVERAGE_GOALS.smallCells,
+    multi: gates.multi.cells >= COVERAGE_GOALS.multiCells,
+    big: gates.bigStayAreas >= COVERAGE_GOALS.bigStayAreas && gates.bigEmptyCells <= COVERAGE_GOALS.bigEmptyMax,
+  };
+};
+
+/** 라벨을 다는 칸인가 — 그 원형의 문턱이 열렸고, **이 강아지에게** 그 칸이 `cellMin` 곳 이상 갈 수 있다. */
+export const isAreaLabelCell = (gateOpen: boolean, cell: TLevelCounts): boolean =>
+  gateOpen && reachOf(cell) >= COVERAGE_GOALS.cellMin;
+
+/** 라벨 칸 안에 보일 곳 수. */
+export const AREA_LABEL_PICKS = 3;
+
+/**
+ * 라벨 칸 안의 곳 — **카드가 센 집합**(`isReachable`)을 둘러보기 기본 정렬(`sortByEligibility`)로 세워 앞에서 `AREA_LABEL_PICKS` 곳.
+ * 같은 집합·같은 순서라 카드를 눌러 연 목록의 맨 위에 이 곳들이 그대로 있다(T4.1 과 같은 꼴). 다른 기준(저장 수·후기)으로 고르면
+ * 그 순서를 우리가 보증하는 셈이 된다 — '추천' 이 아니라 판정 순서다.
+ */
+export const homePageAreaPicks = <T extends TPlaceEntry>(
+  places: readonly T[],
+  dog: TDogProfile,
+  area: TAreaId,
+  type: TPlaceType,
+  opts: { needsIndoor?: boolean } = {},
+): T[] => {
+  const inCell = places.filter((place) => place.type === type && areaOf(place) === area);
+  const map = new Map(inCell.map((place) => [place.id, judgeEligibility(dog, place.policy, opts)]));
+  const reachable = inCell.filter((place) => isReachable(map.get(place.id)!));
+  return sortByEligibility(reachable, map, (place) => place.id).slice(0, AREA_LABEL_PICKS);
 };

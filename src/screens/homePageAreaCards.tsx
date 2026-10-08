@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronRight } from '@untitledui/icons';
 import { usePlacesPageAreaEntry } from './placesPageAreaEntry';
@@ -10,7 +11,11 @@ import { ReportSheet } from '../components/reportSheet';
 import { AREAS, areaOf, countByArea, TOWN_TO_AREA, type TAreaId } from '../lib/areaGroups';
 import {
   AREA_CARD_TYPES,
+  areaLabelGates,
+  coverageDogOf,
   homePageAreaCardCounts,
+  homePageAreaPicks,
+  isAreaLabelCell,
   homePageAreaLandmarks,
   homePageAreaStayGap,
   nearestAreaWithStay,
@@ -21,6 +26,10 @@ import { useAppStore, useDog } from '../store/useAppStore';
 import { usePlacesPageFilterStore } from '../store/usePlacesPageFilterStore';
 import { cx } from '../utils/cx';
 
+// 라벨 문턱(19 §4)도 빌드 시점 데이터로 한 번 — `pnpm data coverage` 와 같은 함수다. 문턱 전 원형(지금은 대형견)엔 라벨이 없다(ADR-027 결정 3).
+const LABEL_GATES = areaLabelGates(PLACES);
+/** 라벨 머리 — 숙소는 '묵기', 카페는 '가기'. */
+const LABEL_TAIL = { stay: '묵기 좋은 곳', cafe: '가기 좋은 카페' } as const;
 // 빌드 시점 데이터라 한 번만 센다 — 0곳 관광지 칩은 여기서 빠진다(14 W261007.9).
 const LANDMARKS_BY_CARD = homePageAreaLandmarks(PLACES);
 /** 등록 전 카드의 총수. 등록 뒤에는 `countByArea` 의 레벨 합과 같은 값이다. */
@@ -63,6 +72,7 @@ export function HomePageAreaCards() {
 
   const counts = useMemo(() => (dog ? countByArea(PLACES, dog, { needsIndoor }) : null), [dog, needsIndoor]);
   const dogNames = dog ? dogCallNames(dog.dogs.map((d) => d.name)) : '';
+  const labelOpen = dog ? LABEL_GATES[coverageDogOf(dog)] : false;
 
   // 관광지 칩은 예전처럼 검색어를 걸고 숙소로 간다. 권역은 푼다(`enterLandmark`) — '서부' 안에서 '중문' 을 찾는 꼴이 되지 않게.
   const goToLandmark = (word: string) => {
@@ -79,6 +89,8 @@ export function HomePageAreaCards() {
           const gap = card ? homePageAreaStayGap(card) : null;
           const nearest = gap && counts ? nearestAreaWithStay(counts, id) : null;
           const landmarks = LANDMARKS_BY_CARD[id];
+          // 문턱을 넘은 칸에만 '{이름}랑 …좋은 곳' + 카드가 센 집합의 앞 3곳(19 T6). 문턱 전엔 숫자만 — '추천' 은 데이터가 보증할 때만 한다.
+          const labeled = counts && dog ? AREA_CARD_TYPES.filter((type) => isAreaLabelCell(labelOpen, counts[id][type])) : [];
 
           return (
             <div key={id} className={cx(CARD_SURFACE, 'p-1.5')}>
@@ -105,6 +117,27 @@ export function HomePageAreaCards() {
                 </span>
                 <ChevronRight size={20} aria-hidden="true" className="shrink-0 text-quaternary" />
               </button>
+
+              {labeled.map((type) => (
+                <div key={type} className="px-2.5 pb-1">
+                  <p className="text-xs font-semibold text-brand-secondary">
+                    {withJosa(dogNames, '이랑/랑')} {LABEL_TAIL[type]}
+                  </p>
+                  {/* 이름만 — 소개문은 띄우지 않는다. 카드 안에서 소개가 판정과 다른 말을 할 자리를 만들지 않는다(13 §5.2 P2). */}
+                  <ul className="flex flex-wrap gap-x-3">
+                    {homePageAreaPicks(PLACES, dog!, id, type, { needsIndoor }).map((place) => (
+                      <li key={place.id}>
+                        <Link
+                          href={`/place/${place.id}`}
+                          className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline-offset-2 hover:underline"
+                        >
+                          {place.name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
 
               {gap && (
                 <div className="px-2.5 pb-2 text-sm text-tertiary">

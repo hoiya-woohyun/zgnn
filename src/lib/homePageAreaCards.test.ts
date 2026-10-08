@@ -2,12 +2,22 @@ import { describe, expect, it } from 'vitest';
 import { AREAS, countByArea, type TAreaCounts } from './areaGroups';
 import { LANDMARKS } from './landmarks';
 import {
+  AREA_CARD_TYPES,
+  AREA_LABEL_PICKS,
+  areaLabelGates,
+  coverageDogOf,
   homePageAreaCardCounts,
+  homePageAreaPicks,
+  isAreaLabelCell,
   homePageAreaLandmarks,
   homePageAreaStayGap,
   nearestAreaWithStay,
 } from './homePageAreaCards';
 import { countByLevel } from './eligibilityCounts';
+import { COVERAGE_DOGS, coverageGates, type TCoverageDogId } from './areaCoverage';
+import { judgeEligibility } from './eligibility';
+import { filterPlacesPage } from './placesPageFilter';
+import { sortByEligibility } from './sortByEligibility';
 import { PLACES, placesOfType } from './places';
 import type { TDogProfile } from '../types';
 
@@ -83,5 +93,50 @@ describe('카드 안 관광지 칩 (14 W261007.9)', () => {
 
   it('중문은 남부 카드에', () => {
     expect(byArea.south.map(({ landmark }) => landmark.name)).toContain('중문');
+  });
+});
+
+describe("'{이름}랑 가기 좋은 곳' 라벨(19 T6)", () => {
+  const gates = areaLabelGates(PLACES);
+  const labelCells = (dog: TDogProfile) => {
+    const counts = countByArea(PLACES, dog);
+    const open = gates[coverageDogOf(dog)];
+    return AREAS.flatMap(({ id }) => AREA_CARD_TYPES.filter((type) => isAreaLabelCell(open, counts[id][type])));
+  };
+
+  it('원형 분류 — 대형견이 하나라도 있으면 big, 둘 이상·중형이면 multi, 나머지 small', () => {
+    expect(COVERAGE_DOGS.map(({ dog }) => coverageDogOf(dog))).toEqual(COVERAGE_DOGS.map(({ id }) => id));
+    expect(coverageDogOf({ dogs: [{ name: '라떼', weightKg: 12 }], carrier: 'none' })).toBe('multi');
+    expect(coverageDogOf({ dogs: [{ name: '콩', weightKg: 2 }, { name: '보리', weightKg: 30 }], carrier: 'none' })).toBe('big');
+  });
+
+  it('대형견은 문턱 전이라 라벨 0칸 — 숙소 권역·빈칸이 목표에 못 닿았다(ADR-027 결정 3)', () => {
+    const raw = coverageGates(
+      Object.fromEntries(COVERAGE_DOGS.map(({ id, dog }) => [id, countByArea(PLACES, dog)])) as Record<TCoverageDogId, TAreaCounts>,
+    );
+    expect(gates.big).toBe(raw.bigStayAreas >= 4 && raw.bigEmptyCells <= 2);
+    if (!gates.big) expect(labelCells(BORI)).toHaveLength(0);
+  });
+
+  it('원형 두부의 라벨 칸 수 = coverage 의 소형 칸 수(문턱이 열렸을 때)', () => {
+    const raw = coverageGates(
+      Object.fromEntries(COVERAGE_DOGS.map(({ id, dog }) => [id, countByArea(PLACES, dog)])) as Record<TCoverageDogId, TAreaCounts>,
+    );
+    expect(labelCells(DUBU)).toHaveLength(gates.small ? raw.small.cells : 0);
+  });
+
+  it('고른 곳 = 카드를 눌러 연 목록의 맨 위 — 같은 집합·같은 순서', () => {
+    for (const opts of [{}, { needsIndoor: true }]) {
+      const map = new Map(PLACES.map((place) => [place.id, judgeEligibility(DUBU, place.policy, opts)]));
+      for (const { id } of AREAS) {
+        for (const type of AREA_CARD_TYPES) {
+          const opened = filterPlacesPage({
+            type, town: null, area: id, query: '', directions: [], petKeys: [], hideHard: false, onlyReachable: true, eligibilityMap: map,
+          });
+          const top = sortByEligibility(opened, map, (place) => place.id).slice(0, AREA_LABEL_PICKS);
+          expect(homePageAreaPicks(PLACES, DUBU, id, type, opts).map((p) => p.id), `${id}/${type}`).toEqual(top.map((p) => p.id));
+        }
+      }
+    }
   });
 });
