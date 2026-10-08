@@ -113,7 +113,8 @@
 - [x] T3.1 ADR-026(024 는 로컬 워커, 025 는 스택 전환이 썼다) "경로는 우리, 운전 안내는 네이버 — Directions API 를 들이지 않는다"(P1·P4·P5). `docs/features/trip-route.md`.
   > 메모(2026-10-08): 들어갔다 — [ADR-026](../decisions/ADR-026-route-ours-navigation-naver.md)(P1·P4·P5 + 앱 스킴 대신 웹 주소로 간 이유 표 · 벤더는 네이버 하나) · [features/trip-route](../features/trip-route.md). ARCHITECTURE ADR 표에 한 줄.
   > 기능 문서의 시작점 규칙(1일차 공항 · 전날 숙소 · 숙소 없으면 출발점 없음)은 아직 커밋 전인 T1.4 의 `tripDayView.ts` 를 읽고 적었다 — T1.4 가 규칙을 바꾸면 그 문서도 같이
-- [ ] T3.2 `docs/decisions/ADR-009` v+1 — "날짜별 준비물은 하지 않는다" 한 줄. CLAUDE.md 표에 한 줄.
+- [x] T3.2 `docs/decisions/ADR-009` v+1 — "날짜별 준비물은 하지 않는다" 한 줄. CLAUDE.md 표에 한 줄.
+  > 메모: 2026-10-08 — ADR-009 v3.3(「v3 · 하지 않기로 한 것」 한 줄, 근거: 날짜별로 세면 '1일차 다 챙김' 과 '전체 3/10' 이 갈린다) · CLAUDE.md 준비물 줄 꼬리
 
 **🧑 H — 사람 손**
 - [ ] H.1 `nmap://route/car`(출발지 생략·경유지 5) · `nmap://navigation` · 안드로이드 인텐트 폴백 · 웹 directions 경유지 — iOS·Android 각 1회 실측. **T1.3 머지 전**.
