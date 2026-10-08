@@ -10,6 +10,7 @@ import { useMapPageWideLayout } from './useMapPageWideLayout';
 import { BottomSheet } from '@/components/base/bottom-sheet';
 import { Button } from '@/components/base/button';
 import { EmptyState } from '../components/layout/emptyState';
+import { EligibilityBadge } from '../components/eligibilityBadge';
 import { PlaceThumb } from '../components/placeThumb';
 import { TownChip } from '../components/townChip';
 import { LOCATE_MAP_NOT_READY, LOCATE_NOTICE, locateMe } from '../lib/myLocation';
@@ -27,7 +28,7 @@ export function MapPage() {
   const savedIds = useMemo(() => new Set(savedPlaces.map((place) => place.id)), [savedPlaces]);
   const isWide = useMapPageWideLayout();
 
-  // 판정은 마커 흐리기(hard)와 시트 배지에만 쓴다 — 지도에서 거르지는 않는다.
+  // 판정은 마커 흐리기(hard)와 배지(시트·데스크톱 패널 목록)에만 쓴다 — 지도에서 거르지는 않는다.
   const eligibilityMap = useEligibilityMap();
 
   /*
@@ -195,6 +196,7 @@ export function MapPage() {
           <ul className="flex-1 overflow-y-auto p-2">
             {withGeo.map((place) => {
               const active = place.id === selectedId;
+              const eligibility = eligibilityMap?.get(place.id);
               return (
                 <li key={place.id} ref={(node) => registerItem(place.id, node)}>
                   <button
@@ -211,11 +213,16 @@ export function MapPage() {
                       <span className="block truncate text-sm font-bold text-primary">
                         {place.name}
                       </span>
-                      <span className="mt-1 flex items-center gap-1.5">
+                      {/*
+                        판정 배지는 목록 탭·지도 시트와 같은 것(14 W261007.19) — 2단이 된 큰 화면에서만 판정이 안 보였다.
+                        줄을 따로 쓰지 않고 동네 칩 뒤에 붙인다: 장소를 고르면 아래 카드가 패널의 절반을 가져가 목록 칸이
+                        한 줄 남짓만 남는데(1280×800), 줄이 71→101px 로 높아지면 고른 줄조차 잘린다. 패널 폭이 고정(360px)이라
+                        "야외 자리에서 갈 수 있어요" 도 한 줄에 들어간다(119곳 실측) — 넘치면 꺾일 뿐 잘리지는 않는다.
+                      */}
+                      <span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1">
                         <TownChip town={place.region.town} type={place.type} />
-                        <span className="truncate text-xs text-tertiary">
-                          {TYPE_META[place.type].label}
-                        </span>
+                        <span className="text-xs text-tertiary">{TYPE_META[place.type].label}</span>
+                        {eligibility && <EligibilityBadge eligibility={eligibility} />}
                       </span>
                     </span>
                   </button>
