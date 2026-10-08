@@ -6,7 +6,8 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   // .vercel 은 로컬 `vercel build` 산출물(gitignored) — .next·out 과 같은 부류다. 빠지면 번들 4천 건이 lint 를 빨갛게 한다.
-  { ignores: ['.next', '.vercel', 'out', 'node_modules', 'public', 'scripts'] },
+  // worker/api 는 `pnpm worker:build` 의 생성 번들(커밋 안 함) — 원본은 worker/entry 와 scripts/.
+  { ignores: ['.next', '.vercel', 'out', 'node_modules', 'public', 'scripts', 'worker/api'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   ...nextCoreWebVitals,
