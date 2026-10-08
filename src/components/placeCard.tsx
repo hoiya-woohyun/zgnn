@@ -38,6 +38,8 @@ type TPlaceCardProps = {
    * 하트처럼 카드 위에 겹쳐 세우고, 배지 줄은 그만큼 오른쪽을 비우고 알약 높이(h-9)를 바닥으로 갖는다 — 배지와 알약이 한 줄에 선다.
    */
   cornerAction?: ReactNode;
+  /** 카드 **밖** 바로 밑 한 줄(저장 화면의 날짜 고르기·순서 버튼). 카드는 링크라 그 안에 컨트롤을 못 넣는다. */
+  footer?: ReactNode;
 };
 
 /**
@@ -51,7 +53,7 @@ type TPlaceCardProps = {
  * 그만큼 줄여 카드 높이(총 배지 개수)를 그대로 유지한다. 프로필이 없으면 이 훅은 null 을
  * 돌려주므로 카드는 지금과 완전히 같은 모습이다.
  */
-export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEditor, cornerAction }: TPlaceCardProps) {
+export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEditor, cornerAction, footer }: TPlaceCardProps) {
   const eligibility = useEligibility(place);
   const reason = eligibility ? primaryReason(eligibility) : undefined;
   const weightKg = useDogMaxWeightKg();
@@ -112,20 +114,23 @@ export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEdit
   );
 
   return (
-    <li className="relative">
-      {noteEditor ? (
-        <div className={`${CARD_SURFACE} p-4`}>{body}</div>
-      ) : (
-        <Link href={`/place/${place.id}`} className={`block ${CARD_SURFACE} p-4 transition-colors hover:bg-secondary`}>
-          {body}
-        </Link>
-      )}
+    <li>
+      <div className="relative">
+        {noteEditor ? (
+          <div className={`${CARD_SURFACE} p-4`}>{body}</div>
+        ) : (
+          <Link href={`/place/${place.id}`} className={`block ${CARD_SURFACE} p-4 transition-colors hover:bg-secondary`}>
+            {body}
+          </Link>
+        )}
 
-      <div className="absolute top-2 right-2 flex">
-        {actions}
-        <SaveButton id={place.id} name={place.name} />
+        <div className="absolute top-2 right-2 flex">
+          {actions}
+          <SaveButton id={place.id} name={place.name} />
+        </div>
+        {cornerAction && <div className="absolute right-4 bottom-4">{cornerAction}</div>}
       </div>
-      {cornerAction && <div className="absolute right-4 bottom-4">{cornerAction}</div>}
+      {footer}
     </li>
   );
 }

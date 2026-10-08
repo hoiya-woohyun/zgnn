@@ -323,6 +323,18 @@ describe('저장 해제 되돌리기(12 U2.2)', () => {
     useAppStore.getState().restoreSaved(b.id, 0);
     expect(useAppStore.getState().savedIds).toEqual([a.id, b.id, c.id]);
   });
+
+  it('날짜 라벨도 돌아온다(16 T1.4)', async () => {
+    const { PLACES } = await import('../lib/places');
+    const [a, b] = PLACES;
+    const map = installLocalStorage();
+    map.set(STORAGE_NAME, JSON.stringify({ state: { savedIds: [a.id, b.id], tripDays: { [b.id]: 2 } }, version: 0 }));
+    const { useAppStore } = await rehydrateFresh();
+    useAppStore.getState().toggleSaved(b.id);
+    expect(useAppStore.getState().tripDays).toEqual({});
+    useAppStore.getState().restoreSaved(b.id, 1, undefined, 2);
+    expect(useAppStore.getState().tripDays).toEqual({ [b.id]: 2 });
+  });
 });
 
 describe('설정의 비우기 두 줄(12 U2.6)', () => {

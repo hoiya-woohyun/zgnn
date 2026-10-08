@@ -45,8 +45,8 @@ type TAppState = {
    */
   visitCount: number;
   toggleSaved: (id: string) => void;
-  /** 저장 해제를 되돌린다 — 원래 자리(`index`)와 메모까지(12 U2.2). 이미 저장돼 있으면 아무것도 안 한다. */
-  restoreSaved: (id: string, index: number, note?: string) => void;
+  /** 저장 해제를 되돌린다 — 원래 자리(`index`)와 메모·날짜 라벨까지(12 U2.2, 16 T1.4). 손 순서는 돌리지 않는다. 이미 저장돼 있으면 아무것도 안 한다. */
+  restoreSaved: (id: string, index: number, note?: string, day?: TTripDay) => void;
   /**
    * 공유받은 목록을 내 저장에 합친다(07 P1). 이미 있는 곳은 그대로 두고(자리·메모 유지) 새 곳만 뒤에 붙인다 —
    * `toggleSaved` 를 돌리면 이미 저장한 곳의 하트가 꺼지고 메모가 지워진다. 넣는 쪽이 지금 데이터에 있는 id 로 거른 값만 준다.
@@ -142,12 +142,17 @@ export const useAppStore = create<TAppState>()(
           const trip = withTripDay({ days: state.tripDays, order: state.tripOrder }, id, null);
           return { savedIds, savedNotes, tripDays: trip.days, tripOrder: trip.order };
         }),
-      restoreSaved: (id, index, note) =>
+      restoreSaved: (id, index, note, day) =>
         set((state) => {
           if (state.savedIds.includes(id)) return {};
           const savedIds = [...state.savedIds];
           savedIds.splice(Math.max(0, Math.min(index, savedIds.length)), 0, id);
-          return note ? { savedIds, savedNotes: { ...state.savedNotes, [id]: note } } : { savedIds };
+          const trip = day ? withTripDay({ days: state.tripDays, order: state.tripOrder }, id, day) : null;
+          return {
+            savedIds,
+            ...(note ? { savedNotes: { ...state.savedNotes, [id]: note } } : {}),
+            ...(trip ? { tripDays: trip.days, tripOrder: trip.order } : {}),
+          };
         }),
       addSaved: (ids) =>
         set((state) => {

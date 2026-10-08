@@ -8,10 +8,12 @@ import { PageHeader } from '../components/layout/pageHeader';
 import { EmptyState } from '../components/layout/emptyState';
 import { showAppStatus } from '../lib/appStatus';
 import { PLACES_BY_ID } from '../lib/places';
+import { cx } from '../utils/cx';
 import { shareMethodOf } from '../lib/placeShare';
 import { parseSharedIds, sharedSavedUrl, type TSharedIds } from '../lib/savedShare';
 import { useStoreHydrated } from '../providers/storeHydration';
-import { useSavedPlaces, useUnlistedSavedCount } from '../store/useAppStore';
+import { useAppStore, useSavedPlaces, useUnlistedSavedCount } from '../store/useAppStore';
+import { SavedPageDays } from './savedPageDays';
 import { SavedPageGroups } from './savedPageGroups';
 import { useSavedPageListed } from './savedPageListed';
 import { SavedPageShared } from './savedPageShared';
@@ -25,6 +27,15 @@ export function SavedPage() {
   const unlisted = useUnlistedSavedCount();
   const hydrated = useStoreHydrated();
   const router = useRouter();
+
+  // 보기 전환(16 T1.4) — 화면 state 로만. 처음 하이드레이션이 끝났을 때 한 번 정한다(라벨이 하나라도 있으면 날짜별).
+  // 계속 파생하면 종류별에서 첫 라벨을 다는 순간 화면이 날짜별로 뒤집힌다.
+  const [view, setView] = useState<'type' | 'day' | null>(null);
+  useEffect(() => {
+    if (!hydrated) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setView((current) => current ?? (Object.keys(useAppStore.getState().tripDays).length > 0 ? 'day' : 'type'));
+  }, [hydrated]);
 
   /*
    * 공유받은 목록(`?ids=`, 07 P1). `useSearchParams` 는 정적 내보내기에서 Suspense 경계를 요구하고 그 누락은 `pnpm build` 에서야 드러나,
@@ -109,7 +120,24 @@ export function SavedPage() {
             </Button>
           </div>
 
-          <SavedPageGroups places={listed} withNotes />
+          <div role="group" aria-label="보기" className="mx-4 mt-4 flex gap-1 rounded-full bg-secondary p-1 md:mx-6">
+            {(['type', 'day'] as const).map((value) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={(view ?? 'type') === value}
+                onClick={() => setView(value)}
+                className={cx(
+                  'h-11 flex-1 rounded-full text-sm font-bold transition-colors',
+                  (view ?? 'type') === value ? 'bg-primary text-primary shadow-xs' : 'text-tertiary',
+                )}
+              >
+                {value === 'type' ? '종류별' : '날짜별'}
+              </button>
+            ))}
+          </div>
+
+          {view === 'day' ? <SavedPageDays places={listed} /> : <SavedPageGroups places={listed} withNotes />}
         </>
       )}
     </div>

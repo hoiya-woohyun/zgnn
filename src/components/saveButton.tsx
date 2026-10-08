@@ -80,19 +80,20 @@ export function useSaveToggle(id: string) {
       setBurst((current) => ({ n: current.n + 1, paws: Math.random() < PAW_BURST_CHANCE }));
       const memory = onSavedScreen ? takeUnsavedOnSavedPage(id) : undefined;
       if (memory) {
-        restoreSaved(id, memory.index, memory.note);
+        restoreSaved(id, memory.index, memory.note, memory.day);
         return;
       }
       announceSaved();
       toggleSaved(id);
       return;
     }
-    const { savedIds, savedNotes } = useAppStore.getState();
+    const { savedIds, savedNotes, tripDays } = useAppStore.getState();
     const index = savedIds.indexOf(id);
     const note = savedNotes[id];
+    const day = tripDays[id];
     toggleSaved(id);
     if (onSavedScreen) {
-      rememberUnsavedOnSavedPage(id, { index, note });
+      rememberUnsavedOnSavedPage(id, { index, note, day });
       showAppStatus('저장을 취소했어요. 다시 들어오면 목록에서 빠져요');
     }
   };
