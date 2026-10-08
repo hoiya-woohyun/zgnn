@@ -12,8 +12,7 @@ import { Button } from '../components/base/button';
 import { PawMark } from '../components/pawMark';
 import { dogCallNames, withJosa } from '../lib/korean';
 import { META, PLACE_TYPES, placesOfType, SOURCE_LINE } from '../lib/places';
-import type { TEligibilityLevel } from '../lib/eligibility';
-import { countByLevel } from '../lib/eligibilityCounts';
+import { countByLevel, type TLevelCounts } from '../lib/eligibilityCounts';
 import { homePageRegisterPreview, homePageRegisterPreviewText } from '../lib/homePageRegisterPreview';
 import { useStoreHydrated } from '../providers/storeHydration';
 import { useAppStore, useDog } from '../store/useAppStore';
@@ -26,7 +25,7 @@ export function HomePage() {
   // "26곳" 이라 서로 다른 숫자처럼 읽혔다(T2.2). 프로필이 없으면 null(카드는 총수만).
   const levelCountsByType = useMemo(() => {
     if (!dog) return null;
-    const counts = {} as Record<TPlaceType, Record<TEligibilityLevel, number>>;
+    const counts = {} as Record<TPlaceType, TLevelCounts>;
     for (const type of PLACE_TYPES) counts[type] = countByLevel(placesOfType(type), dog, { needsIndoor });
     return counts;
   }, [dog, needsIndoor]);
@@ -54,7 +53,8 @@ export function HomePage() {
           dog && levelCountsByType
             ? {
                 label: `${withJosa(dogCallNames(dog.dogs.map((d) => d.name)), '이/가')} 갈 수 있는 곳`,
-                count: PLACE_TYPES.reduce((sum, type) => sum + levelCountsByType[type].ok, 0),
+                // 야외 자리만 되는 곳도 센다(14 W261007.5) — 카드 머리글이 "야외 자리에서 갈 수 있어요" 라 '확인 필요' 와 달리 갈 수 있는 곳이다.
+                count: PLACE_TYPES.reduce((sum, type) => sum + levelCountsByType[type].ok + levelCountsByType[type].outdoor, 0),
               }
             : null
         }

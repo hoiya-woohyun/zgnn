@@ -3,9 +3,18 @@ import { isOutdoorSeatOnly, judgeEligibility, type TEligibilityLevel } from './e
 import type { TPetPolicy } from './petPolicy';
 
 /**
+ * 판정 레벨별 곳 수 — `outdoor` 는 세는 칸이지 판정 레벨이 아니다(판정은 여전히 `cond`).
+ * 카드가 "야외 자리에서 갈 수 있어요" 라고 하는 곳(`isOutdoorSeatOnly`)을 `cond` 에서 떼어 센다.
+ */
+export type TLevelCounts = Record<TEligibilityLevel | 'outdoor', number>;
+
+/**
  * 판정 레벨별 곳 수. 홈 종류 카드와 목록 머리가 **이 함수 하나로** 센다 — 홈은 ok+cond 합을
  * 이름표 없이 "7/26" 으로, 목록은 "26곳" 으로 보여 서로 다른 숫자처럼 읽혔다(지수·민준·D4).
  * 두 화면이 같은 레벨 이름("가능"·"확인")으로 같은 수를 말하게 하는 것이 요점이다.
+ *
+ * 야외 자리만 되는 곳은 `outdoor` 로 따로 센다(14 W261007.5) — 카드 머리글이 "야외 자리에서 갈 수 있어요" 인데
+ * 요약이 그곳을 "확인 필요" 로 세면 카드와 요약이 다른 말을 한다. 합은 그대로 곳 수다.
  *
  * `needsIndoor` 는 판정 옵션이라 그대로 넘긴다 — 빼면 둘러보기 토글을 켠 뒤에도 수가 안 바뀐다.
  */
@@ -13,9 +22,12 @@ export const countByLevel = (
   places: readonly { policy: TPetPolicy }[],
   dog: TDogProfile,
   opts: { needsIndoor?: boolean } = {},
-): Record<TEligibilityLevel, number> => {
-  const counts: Record<TEligibilityLevel, number> = { ok: 0, cond: 0, unknown: 0, hard: 0 };
-  for (const place of places) counts[judgeEligibility(dog, place.policy, opts).level]++;
+): TLevelCounts => {
+  const counts: TLevelCounts = { ok: 0, outdoor: 0, cond: 0, unknown: 0, hard: 0 };
+  for (const place of places) {
+    const eligibility = judgeEligibility(dog, place.policy, opts);
+    counts[isOutdoorSeatOnly(eligibility) ? 'outdoor' : eligibility.level]++;
+  }
   return counts;
 };
 

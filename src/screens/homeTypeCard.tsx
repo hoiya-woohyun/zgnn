@@ -1,14 +1,14 @@
 import Link from 'next/link';
 import { PLACE_TYPE_ICON } from '../components/icons/placeTypeIcon';
 import { TYPE_COLOR, TYPE_COLOR_DEEP, TYPE_META, countByType, typeTint } from '../lib/places';
-import type { TEligibilityLevel } from '../lib/eligibility';
+import type { TLevelCounts } from '../lib/eligibilityCounts';
 import type { TPlaceType } from '../types';
 
 type THomeTypeCardProps = {
   type: TPlaceType;
   /** 우리 강아지 기준 레벨별 곳 수(`countByLevel`). 없으면(undefined) 프로필이 없다는 뜻 —
    *  기존처럼 전체 건수만 보여준다. */
-  levelCounts?: Record<TEligibilityLevel, number>;
+  levelCounts?: TLevelCounts;
 };
 
 /**
@@ -48,16 +48,26 @@ export function HomeTypeCard({ type, levelCounts }: THomeTypeCardProps) {
           {/* 프로필이 있으면 "가능 3 · 확인 필요 3" 을 글자로. 예전엔 ok+cond 합을 "7 / 26" 으로만 적어
               "7 이 뭐예요?" 가 나왔고, 스크린리더만 "갈 수 있는 곳" 이라 읽어 확인 필요까지 가능으로
               부풀렸다(D 크리틱 #4). 보이는 말과 읽히는 말을 같게 둔다 — 목록 머리와도 같은 기준.
-              끝의 "/ 26곳" 은 모수 — 20kg 아이에게 26곳 중 7곳뿐이라는 사실이 수 둘만으로는 안 드러났다(18 T1). */}
+              끝의 "/ 26곳" 은 모수 — 20kg 아이에게 26곳 중 7곳뿐이라는 사실이 수 둘만으로는 안 드러났다(18 T1).
+              "야외 N" 은 카드가 "야외 자리에서 갈 수 있어요" 인 곳 — 있을 때만(목록 머리와 같은 규칙, 14 W261007.5). */}
           {levelCounts ? (
             <p
               className="shrink-0 text-right text-sm font-semibold text-secondary"
-              aria-label={`${countByType[type]}곳 중 가능 ${levelCounts.ok} · 확인 필요 ${levelCounts.cond}`}
+              aria-label={`${countByType[type]}곳 중 가능 ${levelCounts.ok}${levelCounts.outdoor > 0 ? ` · 야외 ${levelCounts.outdoor}` : ''} · 확인 필요 ${levelCounts.cond}`}
             >
               가능{' '}
               <span className="text-lg font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>
                 {levelCounts.ok}
               </span>
+              {levelCounts.outdoor > 0 && (
+                <>
+                  <span aria-hidden="true"> · </span>
+                  야외{' '}
+                  <span className="text-lg font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>
+                    {levelCounts.outdoor}
+                  </span>
+                </>
+              )}
               <span aria-hidden="true"> · </span>
               확인 필요{' '}
               <span className="text-lg font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>

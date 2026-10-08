@@ -14,17 +14,39 @@ const DAEJANG_AND_CHOCO: TDogProfile = {
 describe('countByLevel', () => {
   // 리뷰 §2 표는 확인 3 · 정보 없음 5 였다 — 맘앤도그("정보 없음 … 대형견도 동반 가능!!")가 정보 없음 → 확인으로 옮겼다(14 W261006.3).
   it('숙소 × 대형 2마리 — 가능 4 · 확인 4 · 정보 없음 4 · 어려움 14', () => {
-    expect(countByLevel(placesOfType('stay'), DAEJANG_AND_CHOCO)).toEqual({ ok: 4, cond: 4, unknown: 4, hard: 14 });
+    expect(countByLevel(placesOfType('stay'), DAEJANG_AND_CHOCO)).toEqual({ ok: 4, outdoor: 0, cond: 4, unknown: 4, hard: 14 });
   });
 
   it('레벨 합은 곳 수와 같다', () => {
     const places = placesOfType('restaurant');
     const counts = countByLevel(places, DAEJANG_AND_CHOCO);
-    expect(counts.ok + counts.cond + counts.unknown + counts.hard).toBe(places.length);
+    expect(counts.ok + counts.outdoor + counts.cond + counts.unknown + counts.hard).toBe(places.length);
   });
 
   it('빈 목록이면 전부 0', () => {
-    expect(countByLevel([], DAEJANG_AND_CHOCO)).toEqual({ ok: 0, cond: 0, unknown: 0, hard: 0 });
+    expect(countByLevel([], DAEJANG_AND_CHOCO)).toEqual({ ok: 0, outdoor: 0, cond: 0, unknown: 0, hard: 0 });
+  });
+
+  // 14 W261007.5 — 카드가 "야외 자리에서 갈 수 있어요" 인 곳을 '확인 필요' 로 세지 않는다.
+  describe('야외 자리만 되는 곳은 outdoor 로 따로', () => {
+    const BORI: TDogProfile = { dogs: [{ name: '보리', weightKg: 30 }], carrier: 'none' };
+    const restaurants = placesOfType('restaurant');
+
+    it('식당 × 30kg — 야외 칸이 야외 차선 시트(outdoorFallback)와 같은 곳 수', () => {
+      expect(countByLevel(restaurants, BORI).outdoor).toBe(outdoorFallback(restaurants, BORI)?.length);
+    });
+
+    it('야외 칸의 곳은 전부 머리글이 "야외 자리에서 갈 수 있어요" 다', () => {
+      const outdoorOnly = restaurants.filter((place) => countByLevel([place], BORI).outdoor === 1);
+      expect(outdoorOnly.length).toBeGreaterThan(0);
+      for (const place of outdoorOnly) {
+        expect(headlineFor(judgeEligibility(BORI, place.policy))).toBe('야외 자리에서 갈 수 있어요');
+      }
+    });
+
+    it('실내 자리가 꼭 필요하면 야외는 0', () => {
+      expect(countByLevel(restaurants, BORI, { needsIndoor: true }).outdoor).toBe(0);
+    });
   });
 });
 
