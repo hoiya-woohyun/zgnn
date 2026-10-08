@@ -90,6 +90,7 @@ ADR-024 가 서버 실행을 뺀 이유는 셋이었다. ① 키가 밖으로 �
 
 ## 남은 위험
 
+- **`vercel curl` 은 보호된 배포를 부를 때 자동화 bypass 를 저절로 만든다**(T0 에 하나 생겼고 2026-10-08 회수). 그 키는 프리뷰 보호를 통째로 넘고 배포 env(`VERCEL_AUTOMATION_BYPASS_SECRET`)로도 실린다 — 프리뷰 확인에 썼으면 `vercel api` 로 회수한다(todo/20 T8).
 - **rewrite 대상 하위 도메인**(`zgnn-worker.vercel.app`)은 사이트 `vercel.json` 에 박혀 있다. 워커 프로젝트를 지우거나 이름을 바꾸면 그 이름을 남이 가져가 `/admin` 이 보내는 운영자 JWT(12시간)를 받을 수 있다 — 프로젝트를 없앨 때 rewrite 를 **먼저** 지운다.
 - **Vercel CLI 로그인이 있는 기기에서는 에이전트도 `vercel deploy --prod` 를 할 수 있다.** 토큰을 찍는 코드를 배포하면 읽힌다. 경계가 아니라 "배포 전 diff 를 본다" 는 습관이다.
   회전은 `claude setup-token` 재발급 → `pbpaste | tr -d '[:space:]' | vercel env add …`(줄바꿈이 숨김 입력을 끊는다 — 실측 때 49자로 잘렸다).

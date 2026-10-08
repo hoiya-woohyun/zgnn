@@ -80,7 +80,9 @@ T2~T4 는 서로 독립이라 아무 순서나 된다. T5 는 셋 모두에 기�
 - [x] 2026-10-08 🧑 `claude setup-token` 값을 복사한 뒤 `cd worker && pbpaste | tr -d '[:space:]' | vercel env add CLAUDE_CODE_OAUTH_TOKEN production --sensitive`.
 - [x] 2026-10-08 🧑 네이버 키 **넷**(검색 둘 + NCP Maps 둘)을 홈 파일에서 값을 찍지 않고 — 저장소의 파서(`parseNaverEnv`)로 한 개씩 꺼내 파이프로 넣는다:
   `cd ~/Develop/woohyun/zgnn && for k in NAVER_CLIENT_ID NAVER_CLIENT_SECRET NAVER_MAP_CLIENT_ID NAVER_MAP_CLIENT_SECRET; do node --input-type=module -e "import {parseNaverEnv,NAVER_ENV_FILE} from './scripts/lib/naverEnvFile.mjs'; import {readFileSync} from 'node:fs'; process.stdout.write(parseNaverEnv(readFileSync(NAVER_ENV_FILE,'utf8'))[process.argv[1]] ?? '')" "$k" | vercel env add "$k" production --sensitive --cwd worker; done`
-- [ ] 🧑 프리뷰의 `CLAUDE_CODE_OAUTH_TOKEN` 지우기(`vercel env rm … preview`). Settings → Deployment Protection 의 **bypass 토큰**(T0 에 `vercel curl` 이 자동 생성) 지우기.
+- [x] 2026-10-08 프리뷰 Claude 토큰은 `vercel env ls` 에 없다(이름만 확인). 자동화 bypass(T0 의 `vercel curl` 이 16:00 에 만든 것, 1개)는 에이전트가 `vercel api` 로 회수 — 키는 조회 결과에서 회수 요청 본문으로 파이프로만 넘겨 찍지 않았다, 다시 조회 0개.
+  ⚠️ `vercel curl` 로 보호된 배포를 부르면 bypass 가 **저절로 다시 생긴다** — 프리뷰 확인에 썼으면 끝나고 같은 식으로 회수한다.
+- 🧑 프리뷰의 `CLAUDE_CODE_OAUTH_TOKEN` 지우기(`vercel env rm … preview`). Settings → Deployment Protection 의 **bypass 토큰**(T0 에 `vercel curl` 이 자동 생성) 지우기.
 - [x] 2026-10-08 ADR-016 v12 · ADR-024 v3 · ARCHITECTURE v25 · data-pipeline v59 · CLAUDE.md(표 한 줄 + 「조용히 깨지는 것들」 의 단계 스크립트 `process.exit` 금지) · ADR-028 채택(v2).
 - ADR-016 「서버에 두는 장기 값」 절 · ADR-024 「하지 않은 것」 번복 표시 · CLAUDE.md 표 한 줄 · ADR-028 상태 → 채택.
 

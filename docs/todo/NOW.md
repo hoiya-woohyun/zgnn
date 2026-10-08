@@ -57,7 +57,7 @@
 
 ## 기다림 (사람 손·결정)
 
-- 🙋 서버 워커(ADR-028) — env 다섯(Claude 토큰 · 네이버 넷, Production·Sensitive)을 싣고 프로덕션 재배포까지 됐다(2026-10-08 dpl_HjDkvprY…, 토큰 없이 401) — [20 T8·T9](20-vercel-remote-worker.md) · 남은 순서: ① 🙋 develop → main(깨우기 주소는 프로덕션 사이트 빌드에만 들어가 **이게 먼저여야 T9 가 된다** · 2026-10-08 기준 origin/main 에 없는 커밋 89 — 이 일 17 + 다른 세션 72) ② T9 실측 · 🧑 남은 정리: 대시보드 Deployment Protection 의 bypass 토큰 지우기 · (선택) 49자로 잘렸던 토큰 둘 회수
+- 🙋 서버 워커(ADR-028) — env 다섯(Claude 토큰 · 네이버 넷, Production·Sensitive)을 싣고 프로덕션 재배포까지 됐다(2026-10-08 dpl_HjDkvprY…, 토큰 없이 401) — [20 T8·T9](20-vercel-remote-worker.md) · 남은 순서: ① 🙋 develop → main(깨우기 주소는 프로덕션 사이트 빌드에만 들어가 **이게 먼저여야 T9 가 된다** · 2026-10-08 기준 origin/main 에 없는 커밋 89 — 이 일 17 + 다른 세션 72) ② T9 실측 · 🧑 (선택) 49자로 잘렸던 토큰 둘을 claude.ai 에서 회수(bypass 는 회수됨)
 - 🧑 서버 워커 실측(20 T9) — **env·재배포·main 합치기 뒤** · 에이전트가 `vercel logs --follow`(zgnn-worker)를 켠 채: `curl -X POST https://zgnn.vercel.app/api/worker/run` 401(rewrite) → PC 의 `pnpm data` 를 끈 채 `/admin` 에서 추가 수집 1 · 재분석 1 · 저수지 10(사슬 두 번) → `/admin/ops` 에 "서버 · 분석 중" · `pipeline_runs` 행(첫 버튼에 '못 깨웠어요' 면 rewrite 가 Authorization 을 버리는 것). 이어서 `pnpm data` 를 켠 채 같은 것 → 응답이 `local` 이고 서버 배지가 안 뜨는지
 
 - 🧑 작업 트리에 **커밋 안 된 ADR-009 v4**(준비물 탭 개편 — 16파일, 신규 `checklistPageItemSheet.tsx`, 삭제 `itemGroups.ts`·`seasonChips.tsx`)가 있다. 2026-10-08 /next 세션이 주인을 못 찾았다(트랜스크립트에 그 파일을 쓴 세션이 없다) — [ADR-009](../decisions/ADR-009-trip-derived-checklist.md) · [14 W261007.13](14-weekly-ux-eval.md) · 명령: 하던 쪽이 `git status` 로 보고 커밋. 그 커밋 전엔 HEAD 의 탭이 저장 숙소의 '간식 어메니티' 로 간식을 지운다(14 메모가 v4 로 닫힌다고 적은 셋)
