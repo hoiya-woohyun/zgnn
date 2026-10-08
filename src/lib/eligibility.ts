@@ -345,6 +345,16 @@ const ruleVaccineRequired: TRule = (_dog, policy) => {
 };
 
 /**
+ * C11: 동반이 특정 요일에만 된다(`petDays`, 14 W261007.4). 어려움이 아니라 조건이다 — 그 요일에 가면 되는 곳이라서.
+ * **오늘 요일을 보고 판정을 바꾸지 않는다**: 판정·카드는 정적 빌드 결과이고 사용자가 며칠 뒤 갈지 모르며, 이 앱은 날짜를 판정 입력으로 안 쓴다.
+ * 문장이 요일을 못 박아 말하는 것으로 충분하다. (C8 과 같은 무게.)
+ */
+const rulePetDays: TRule = (_dog, policy) => {
+  if (!policy.petDays?.length) return null;
+  return { level: 'cond', text: `매주 ${policy.petDays.join('·')}요일에만 함께 들어갈 수 있어요`, quote: policy.sources.petDays };
+};
+
+/**
  * C7: 원문은 있는데 정규식도 AI 도 조건을 하나도 못 읽었다(`unread`). 전에는 규칙이 하나도 안 걸려 '갈 수 있어요' 였다 —
  * 읽지 못한 제한이 있을 수 있는 곳을 가장 좋은 답으로 보냈다(todo/06 A-1). 어려움은 아니다: 원문이 무엇을 막는지 모르니까.
  */
@@ -387,6 +397,7 @@ const RULES: [string, TRule][] = [
   ['C10', ruleWeightAboveFeeTable],
   ['C6', ruleCallFirst],
   ['C8', ruleVaccineRequired],
+  ['C11', rulePetDays],
   ['C7', ruleUnread],
   ['C9', ruleGenericUnverified],
   ['U1', ruleNoInfo],

@@ -103,6 +103,7 @@ describe('draftFromExtracted — 폼은 전부 문자열이다', () => {
         smallDogOnly: false,
         callFirst: false,
         vaccineRequired: false,
+        petDays: '',
         feeFree: 'unknown',
         feeLines: '',
         weightLimitKg: '',
@@ -307,6 +308,14 @@ describe('policyFactsFrom — 빈 판단은 객체가 아니라 null 이다', ()
     expect(policyFactsFrom({ ...empty, largeDogOk: 'yes' })?.largeDogOk).toBe(true);
     // '언급 없음' 하나만으로는 판단이 생기지 않는다 — false 와 null 을 가르는 것이 이 폼의 요점이다.
     expect(policyFactsFrom({ ...empty, largeDogOk: 'unknown' })).toBeNull();
+  });
+
+  it('동반 요일은 요일 글자만 남겨 배열로 — "수요일, 토요일" · 중복 · 요일 아닌 글자를 걸러 낸다', () => {
+    expect(policyFactsFrom({ ...empty, petDays: '수' })?.petDays).toEqual(['수']);
+    expect(policyFactsFrom({ ...empty, petDays: '수요일, 토요일 수' })?.petDays).toEqual(['수', '토']);
+    // 요일 칸만 적어도 빈 판단이 아니다 · 요일 아닌 글자만 적으면 비운 것과 같다.
+    expect(policyFactsFrom({ ...empty, petDays: '없음' })).toBeNull();
+    expect(policyDraftFrom({ ...policyFactsFrom({ ...empty, petDays: '수, 토' })! }).petDays).toBe('수, 토');
   });
 
   it('숫자 칸은 빈 문자열이면 null', () => {

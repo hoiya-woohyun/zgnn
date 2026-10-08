@@ -269,6 +269,7 @@ export function AdminPagePlaceEditForm({
         {row('smallDogOnly', '소형견만', <Checkbox size="sm" label="소형견만 가능" isSelected={draft.policy.smallDogOnly} isDisabled={busy} onChange={(smallDogOnly) => setPolicy({ smallDogOnly })} />)}
         {row('callFirst', '전화 확인', <Checkbox size="sm" label="가기 전 전화 확인" isSelected={draft.policy.callFirst} isDisabled={busy} onChange={(callFirst) => setPolicy({ callFirst })} />)}
         {row('vaccineRequired', '예방접종', <Checkbox size="sm" label="예방접종 필수" isSelected={draft.policy.vaccineRequired} isDisabled={busy} onChange={(vaccineRequired) => setPolicy({ vaccineRequired })} />)}
+        {row('petDays', '동반 요일', <Input {...NO_AUTOFILL} aria-label="동반 요일" placeholder="특정 요일에만 되면 (예: 수, 토)" size="sm" value={draft.policy.petDays} isDisabled={busy} onChange={(petDays) => setPolicy({ petDays })} />)}
         {row('notes', '그 밖의 조건', <Input {...NO_AUTOFILL} aria-label="그 밖의 조건" size="sm" value={draft.policy.notes} isDisabled={busy} onChange={(notes) => setPolicy({ notes })} />)}
 
         {/* 숙소 칸은 고친 종류가 숙소일 때만 — 다른 종류에는 원래 없는 칸이고, 쓰기에도 실리지 않는다(`placeEditPatch`). */}

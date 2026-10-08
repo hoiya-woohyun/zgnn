@@ -63,6 +63,11 @@ describe('petPolicyFactChanges — 사실끼리 대 본다', () => {
     expect(petPolicyFactChanges(facts(), facts({ maxDogs: 1 }))).toEqual(['maxDogs']);
     expect(petPolicyFactChanges(facts(), facts({ fees: [{ label: '1마리당 3만원', amountWon: 30000 }] }))).toEqual(['fees']);
   });
+  it('요일 제한은 후보가 요일을 말했고 사이트와 다를 때만 차이다', () => {
+    expect(petPolicyFactChanges(facts(), facts({ petDays: ['수'] }))).toEqual(['petDays']);
+    expect(petPolicyFactChanges(facts({ petDays: ['수'] }), facts({ petDays: ['수'] }))).toEqual([]);
+    expect(petPolicyFactChanges(facts({ petDays: ['수'] }), facts({ petDays: null }))).toEqual([]);
+  });
   it('후보가 모르는 칸(unknown · null)은 차이가 아니다', () => {
     expect(petPolicyFactChanges(facts(), facts({ indoor: 'unknown', largeDogOk: null, maxDogs: null, fees: [] }))).toEqual([]);
   });

@@ -53,6 +53,8 @@ export const POLICY_FIELDS = {
   mediumDogOk: (p) => p.mediumDogOk,
   smallDogOnly: (p) => p.smallDogOnly,
   callFirst: (p) => p.callFirst,
+  // 요일은 정규식도 세운다(`parsePetPolicy`) — 맹점 칸이 아니라 일반 칸. 비교는 문자열("수토")로, 없으면 null.
+  petDays: (p) => (p.petDays?.length ? p.petDays.join('') : null),
   feeFree: (p) => p.feeFree,
   feeAmountsWon: feeAmounts,
   weightLimitKg: (p) => p.weightLimitKg ?? null,
@@ -149,6 +151,7 @@ const KEYWORDS = {
   mediumDogOk: /중형|중간|kg|키로|킬로/,
   smallDogOnly: /소형|작은\s*(강아지|아이)|kg|키로|킬로/,
   callFirst: /전화|문의|연락|예약|사전|톡톡|DM|디엠|카톡/i,
+  petDays: /[월화수목금토일]\s*요일/,
   feeFree: /무료|공짜|추가\s*(요금|비용)|비용|요금|원/,
   outdoorFree: /야외|실외|테라스|마당|잔디/,
   unlimitedDogs: /마리|제한|무제한|상관/,

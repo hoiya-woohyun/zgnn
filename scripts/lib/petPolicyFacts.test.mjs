@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { correctPetPolicyFacts } from './petPolicyFacts.mjs';
+import { correctPetPolicyFacts, weekdaysIn, weekdaysOrNull } from './petPolicyFacts.mjs';
 
 /** 모델이 아무것도 안 읽은 판단. 각 테스트가 필요한 칸만 덮어쓴다. */
 const empty = {
@@ -253,5 +253,29 @@ describe('correctPetPolicyFacts — 요금 구조(fees)는 줄과 계산 칸을 
     const dropped = correctPetPolicyFacts(facts({ vaccineRequired: true }), '리드줄 착용하면 실내 가능해요');
     expect(dropped.facts.vaccineRequired).toBe(false);
     expect(dropped.corrections).toEqual(['예방접종 필수의 근거가 원문에 없어 뺐어요']);
+  });
+
+  it('동반 요일은 원문에 `X요일` 로 있는 것만 남는다 — 없는 요일은 빼고, 다 빠지면 null', () => {
+    const text = "매주 수요일에는 '반려동물 동반데이' 입니다";
+    const kept = correctPetPolicyFacts(facts({ petDays: ['수'] }), text);
+    expect(kept.facts.petDays).toEqual(['수']);
+    expect(kept.corrections).toEqual([]);
+
+    const partial = correctPetPolicyFacts(facts({ petDays: ['수', '토'] }), text);
+    expect(partial.facts.petDays).toEqual(['수']);
+    expect(partial.corrections).toEqual(['동반 요일 토요일이 원문에 없어 뺐어요']);
+
+    const none = correctPetPolicyFacts(facts({ petDays: ['금'] }), text);
+    expect(none.facts.petDays).toBeNull();
+    // 묶음 표기("수·토요일")의 앞 요일도 원문에 있는 것이다
+    expect(correctPetPolicyFacts(facts({ petDays: ['수', '토'] }), '수·토요일에만 동반 가능').facts.petDays).toEqual(['수', '토']);
+  });
+
+  it('weekdaysIn · weekdaysOrNull — 읽기와 모양 정리', () => {
+    expect(weekdaysIn('수, 토요일과 일요일 / 수요일')).toEqual(['수', '토', '일']);
+    expect(weekdaysIn('요일별로 달라요')).toEqual([]);
+    expect(weekdaysOrNull(['수', '수', '화요일', 3])).toEqual(['수']);
+    expect(weekdaysOrNull([])).toBeNull();
+    expect(weekdaysOrNull(undefined)).toBeNull();
   });
 });

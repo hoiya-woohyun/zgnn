@@ -586,6 +586,45 @@ describe('withPolicyFacts — AI 구조화 판단이 정규식 결과를 덮는�
   });
 });
 
+describe('parsePetPolicy — 요일 제한(14 W261007.4)', () => {
+  it("카페스누피 \"매주 수요일에는 '반려동물 동반데이'\" 를 잡는다 — 근거 문장과 배지까지", () => {
+    const text = "매주 수요일에는 '반려동물 동반데이'";
+    const p = parsePetPolicy(text);
+    expect(p.petDays).toEqual(['수']);
+    expect(p.sources.petDays).toBe(text);
+    expect(toPetBadges(p)).toContainEqual({ label: '수요일만', tone: 'cond', axis: 'limit' });
+  });
+
+  it('여러 요일은 원문 순서로 한 배지 — "수·토요일만"', () => {
+    const p = parsePetPolicy('애견 동반은 수·토요일에만 가능해요');
+    expect(p.petDays).toEqual(['수', '토']);
+    expect(toPetBadges(p)).toContainEqual({ label: '수·토요일만', tone: 'cond', axis: 'limit' });
+    expect(parsePetPolicy('반려견은 목요일에만 입장돼요').petDays).toEqual(['목']);
+  });
+
+  it('휴무·불가 문장은 요일 제한이 아니다 — 쉬는 날이 가는 날로 뒤집히면 정반대 안내가 된다', () => {
+    expect(parsePetPolicy('매주 월요일 휴무예요. 반려견 동반 가능').petDays).toBeUndefined();
+    expect(parsePetPolicy('수요일 정기휴무, 강아지 동반 가능').petDays).toBeUndefined();
+    expect(parsePetPolicy('반려견 동반 가능, 월요일 휴무').petDays).toBeUndefined();
+    expect(parsePetPolicy('토요일에는 반려동물 동반 불가').petDays).toBeUndefined();
+    // 동반 낱말이 없는 문장은 영업 요일 이야기다
+    expect(parsePetPolicy('매주 수요일에는 브레이크 타임이 있어요').petDays).toBeUndefined();
+  });
+
+  it('AI 판단이 있으면 요일도 AI 값만 쓴다 — null 이면 정규식이 읽은 요일도 지운다, 요일만 읽혀도 못 읽음이 아니다', () => {
+    const text = "매주 수요일에는 '반려동물 동반데이'";
+    const base = { indoor: 'unknown' as const, leash: false, largeDogOk: null, smallDogOnly: false, callFirst: false, feeFree: null, weightLimitKg: null, maxDogs: null, notes: null };
+    const withDay = withPolicyFacts(parsePetPolicy(text), { ...base, petDays: ['수'] }, text);
+    expect(withDay.petDays).toEqual(['수']);
+    expect(withDay.unread).toBe(false);
+    expect(withDay.sources.petDays).toBe(text);
+    const none = withPolicyFacts(parsePetPolicy(text), { ...base, petDays: null }, text);
+    expect(none.petDays).toBeUndefined();
+    // 원문에 없는 요일은 보정이 뺀다
+    expect(withPolicyFacts(parsePetPolicy(text), { ...base, petDays: ['금'] }, text).petDays).toBeUndefined();
+  });
+});
+
 describe('genericOnly · verified — 일반 허용 문장뿐인 원문과 확인 기록(todo/13 A2)', () => {
   it('일반 허용 문장뿐이면 genericOnly, 조건이 하나라도 있으면 아니다', () => {
     expect(parsePetPolicy('애견동반 가능해요!').genericOnly).toBe(true);

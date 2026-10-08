@@ -491,6 +491,19 @@ describe('judgeEligibility — 원문은 있는데 아무도 못 읽음(C7, todo
     expect(primaryReason(result)).toMatchObject({ rule: 'C8' });
   });
 
+  it('특정 요일에만 동반되는 곳은 어려움이 아니라 확인이다(C11) — 요일만 읽힌 원문도 못 읽음(C7)이 아니다', () => {
+    const text = "매주 수요일에는 '반려동물 동반데이'";
+    const policy = parsePetPolicy(text);
+    expect(policy.petDays).toEqual(['수']);
+    expect(policy.unread).toBe(false);
+    const result = judgeEligibility(TOFU, policy);
+    expect(result.level).toBe('cond');
+    expect(primaryReason(result)).toMatchObject({ rule: 'C11', text: '매주 수요일에만 함께 들어갈 수 있어요', quote: text });
+    expect(result.reasons.some((r) => r.rule === 'C7')).toBe(false);
+    const two = judgeEligibility(TOFU, parsePetPolicy('매주 수·토요일에만 반려견 동반 가능'));
+    expect(primaryReason(two)).toMatchObject({ rule: 'C11', text: '매주 수·토요일에만 함께 들어갈 수 있어요' });
+  });
+
   it('시드 86곳에는 못 읽은 원문이 없다 — 이 규칙이 지금 사이트의 판정을 바꾸지 않는다', () => {
     expect(PLACES.filter((p) => p.policy.unread || p.policy.largeDogNo).map((p) => p.name)).toEqual([]);
   });

@@ -62,6 +62,9 @@ export type TFeeRule = {
  * 앱은 이것이 있으면 **판정 필드를 이 값만으로** 정한다(withPolicyFacts, ADR-017 v5). 스키마가 모든 칸을 요구하므로
  * null 은 "모름" 이 아니라 "읽어 봤는데 그런 조건이 없다" 이다 — 정규식 값으로 메우지 않는다.
  */
+/** 한국어 한 글자 요일 — `petDays` 의 값. 휴무일이 아니라 **동반이 되는 날**이다. */
+export type TWeekday = '월' | '화' | '수' | '목' | '금' | '토' | '일';
+
 export type TPetPolicyFacts = {
   indoor: 'free' | 'cage' | 'outdoorOnly' | 'unknown';
   leash: boolean;
@@ -73,6 +76,12 @@ export type TPetPolicyFacts = {
    * 2026-10-01 이전에 분석된 판단에는 칸이 없다(없으면 false 로 읽는다 — 그때 그 조건은 `notes` 에 들어가 있다).
    */
   vaccineRequired?: boolean;
+  /**
+   * 반려동물 동반이 **이 요일들에만** 된다("매주 수요일에는 반려동물 동반데이" → ['수']). 없거나 null 이면 요일 제한 없음.
+   * 휴무일은 넣지 않는다 — 쉬는 날은 동반 조건이 아니라 영업일이고, 섞으면 "월요일 휴무" 가 "월요일만 동반" 으로 뒤집힌다.
+   * 2026-10-08 이전에 분석된 판단에는 칸이 없다.
+   */
+  petDays?: TWeekday[] | null;
   feeFree: boolean | null;
   /**
    * 요금 기준마다 한 줄(원문 표기). **한 문장으로 접을 수 없다** — 시드 18줄의 실측만으로도 기준이 넷이다:

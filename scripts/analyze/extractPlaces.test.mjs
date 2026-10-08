@@ -224,6 +224,17 @@ describe('parseExtraction — result 객체 → places', () => {
     expect(p.isJeju).toBe(false);
   });
 
+  it('동반 요일(petDays): 요일 글자만 남기고 중복을 털며, 하나도 없으면 null', () => {
+    const shape = (petDays) => parseExtraction(withPlaces([{
+      ...goodPlace,
+      petPolicyText: '매주 수요일 반려동물 동반데이',
+      petPolicy: { indoor: 'unknown', leash: false, largeDogOk: null, smallDogOnly: false, callFirst: false, feeFree: null, weightLimitKg: null, maxDogs: null, notes: null, petDays },
+    }])).places[0].petPolicy.petDays;
+    expect(shape(['수', '수', '화요일', 3])).toEqual(['수']);
+    expect(shape([])).toBeNull();
+    expect(shape(undefined)).toBeNull();
+  });
+
   it('요금 구조(fees): label 은 모양만 맞추고(나누지 않는다) 어긋난 칸은 "계산 못 함" 쪽으로 눕힌다', () => {
     const petPolicyText = '19kg 이하 1마리당 20,000원\n20kg 이상 1마리당 30,000원';
     const raw = {

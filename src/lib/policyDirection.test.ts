@@ -37,9 +37,15 @@ describe('policyDirection — 강화는 바로, 완화는 확인 뒤', () => {
     expect(policyDirection(base, { ...base, notes: '사장님 친절' }).overall).toBe('neutral');
     expect(policyDirection(null, base).overall).toBe('neutral');
   });
+  it('동반 요일: 제한이 새로 생기거나 요일이 줄면 강화 · 없어지거나 늘면 완화', () => {
+    expect(policyDirection(base, { ...base, petDays: ['수'] }).overall).toBe('tighten');
+    expect(policyDirection({ ...base, petDays: ['수', '토'] }, { ...base, petDays: ['수'] }).overall).toBe('tighten');
+    expect(policyDirection({ ...base, petDays: ['수'] }, base).overall).toBe('loosen');
+    expect(policyDirection({ ...base, petDays: ['수'] }, { ...base, petDays: ['수', '토'] }).overall).toBe('loosen');
+  });
   it('TPetPolicyFacts 의 칸이 전부 규칙을 갖는다 — 칸이 늘면 이 리터럴이 tsc 에서 먼저 멈춘다(readNothing 과 같은 함정)', () => {
     const every = {
-      indoor: 'free', leash: false, largeDogOk: null, smallDogOnly: false, callFirst: false, vaccineRequired: false, feeFree: null,
+      indoor: 'free', leash: false, largeDogOk: null, smallDogOnly: false, callFirst: false, vaccineRequired: false, petDays: null, feeFree: null,
       feeLines: [], fees: [], feeText: null, weightLimitKg: null, maxDogs: null, notes: null,
     } satisfies Required<TPetPolicyFacts>;
     expect(Object.keys(DIRECTION_RULES).sort()).toEqual(Object.keys(every).sort());

@@ -11,8 +11,8 @@
  */
 
 import { amountsInWon, normalizeFeeLines } from '../../scripts/lib/feeLine.mjs';
-import { correctPetPolicyFacts, feeLinesOf, VACCINE_GROUNDS } from '../../scripts/lib/petPolicyFacts.mjs';
-import type { TFeeRule, TPetPolicyFacts } from '../types';
+import { correctPetPolicyFacts, feeLinesOf, VACCINE_GROUNDS, weekdaysIn } from '../../scripts/lib/petPolicyFacts.mjs';
+import type { TFeeRule, TPetPolicyFacts, TWeekday } from '../types';
 
 export type TIndoorPolicy =
   /** 실내 자유 */
@@ -51,6 +51,12 @@ export type TPetPolicy = {
    * "접종 권장" 과 "접종 완료견만" 은 글자로 가를 수 없어 모델이 판단하고, 근거 단어 확인만 `correctPetPolicyFacts` 가 한다.
    */
   vaccineRequired: boolean;
+  /**
+   * 동반이 **이 요일에만** 된다("매주 수요일에는 반려동물 동반데이", 14 W261007.4). 없으면 요일 제한이 없다.
+   * 휴무일은 담지 않는다 — "월요일 휴무" 는 영업일 이야기지 동반 조건이 아니라, 섞으면 쉬는 날이 동반되는 날로 뒤집힌다.
+   * 오늘이 무슨 요일인지는 보지 않는다(판정은 날짜와 무관, C11 은 문장으로만 말한다).
+   */
+  petDays?: TWeekday[];
   weightLimitKg?: number;
   maxDogs?: number;
   feeFree: boolean;
@@ -110,6 +116,7 @@ export type TPetPolicy = {
       | 'smallDogOnly'
       | 'callFirst'
       | 'vaccineRequired'
+      | 'petDays'
       | 'leash'
       | 'feeFree'
       | 'noInfo'
@@ -243,6 +250,24 @@ const NUMBER_RULES = {
 const FEE_TEXT_RULE = /[^.\n]*\d[\d,.]*\s*만?\s*원[^.\n]*/g;
 /** 요금 문장 바로 뒤에 금액 없이 따로 적힌 `(마리당)`. */
 const PER_DOG_NOTE_AFTER = /^\.?\s*\(\s*마리\s*당\s*\)/;
+
+/**
+ * 요일 제한 문장. 같은 문장 안에 **요일 + 동반 낱말**이 있고, 요일이 "그날만" 으로 읽힐 때만 잡는다:
+ * `매주 수요일` · `수요일에만` · `수·토요일`(묶음 표기). 휴무 문장("월요일 휴무"·"수요일 정기휴무")과 불가 문장("토요일은 동반 불가")은 뺀다 —
+ * 쉬는 날·못 가는 날이 가는 날로 뒤집히면 정반대 안내가 된다.
+ */
+const PET_DAYS_PET_WORD = /동반|반려|애견|펫|강아지/;
+const PET_DAYS_NEGATIVE = /휴무|휴일|쉬는|쉽니다|쉬어|정기|영업\s*(?:안|않)|불가|금지|안\s*(?:돼|됩)|어렵/;
+const PET_DAYS_ONLY = /매주\s*[월화수목금토일]|[월화수목금토일]\s*요일\s*(?:에는?\s*)?만|[월화수목금토일]\s*[·ㆍ,/&]\s*[월화수목금토일]\s*요일/;
+
+const findPetDays = (sentences: string[]): { days: TWeekday[]; source: string } | undefined => {
+  for (const sentence of sentences) {
+    if (!PET_DAYS_PET_WORD.test(sentence) || PET_DAYS_NEGATIVE.test(sentence) || !PET_DAYS_ONLY.test(sentence)) continue;
+    const days = weekdaysIn(sentence) as TWeekday[];
+    if (days.length > 0) return { days, source: sentence };
+  }
+  return undefined;
+};
 
 const matchesAny = (text: string, patterns: RegExp[]) => patterns.some((re) => re.test(text));
 
@@ -379,12 +404,15 @@ export const parsePetPolicy = (petPolicyText: string): TPetPolicy => {
   ];
   const outdoorFree = indoor === 'outdoorOnly' || matchesAny(text, OUTDOOR_FREE_PATTERNS);
   const unlimitedDogs = matchesAny(text, UNLIMITED_DOGS_PATTERNS);
+  const petDaysHit = findPetDays(sentences);
+  if (petDaysHit) sources.petDays = petDaysHit.source;
 
   const policy: TPetPolicy = {
     indoor,
     ...flags,
     feeCharged: false,
     vaccineRequired: false,
+    petDays: petDaysHit?.days,
     unread: false,
     genericOnly: false,
     verified: false,
@@ -426,6 +454,7 @@ const readNothing = (p: TPetPolicy): boolean =>
   !p.smallDogOnly &&
   !p.callFirst &&
   !p.vaccineRequired &&
+  !p.petDays?.length &&
   !p.feeFree &&
   !p.feeCharged &&
   !p.noInfo &&
@@ -494,6 +523,8 @@ export const withPolicyFacts = (parsed: TPetPolicy, facts: TPetPolicyFacts | nul
   const feeRules = corrected.fees?.length && corrected.fees.length === feeLines.length ? corrected.fees : undefined;
   const indoor = corrected.indoor;
   const vaccineRequired = corrected.vaccineRequired === true;
+  // AI 판단이 있으면 요일도 그 값만 쓴다 — 정규식이 읽은 요일로 메우지 않는다(null 은 "요일 제한 없음").
+  const petDays = corrected.petDays?.length ? corrected.petDays : undefined;
   const maxDogs = corrected.maxDogs ?? undefined;
   const weightLimitKg = corrected.weightLimitKg ?? undefined;
   // AI 는 숫자만 준다 — 경계를 포함하는지는 원문이 말한다. 원문에 "N kg 미만" 이 있을 때만 제외, 아니면 '이하'(정규식 tier 와 같은 기본).
@@ -518,6 +549,7 @@ export const withPolicyFacts = (parsed: TPetPolicy, facts: TPetPolicyFacts | nul
   keep('callFirst', corrected.callFirst, parsed.callFirst, /전화|문의|연락|예약/);
   // 정규식에 예방접종 규칙이 없으니 늘 그 말이 든 줄을 쓴다 — 근거 단어는 `correctPetPolicyFacts` 와 같은 것이어야 한다.
   keep('vaccineRequired', vaccineRequired, false, VACCINE_GROUNDS);
+  keep('petDays', petDays !== undefined, petDays?.join() === parsed.petDays?.join(), /[월화수목금토일]\s*요일/);
   keep('feeFree', corrected.feeFree === true, parsed.feeFree, /무료|없/);
 
   // AI 가 조건을 하나라도 읽었으면 '못 읽음' 이 아니다. notes 는 세지 않는다 — 판정에 안 쓰이는 조건이라,
@@ -526,7 +558,7 @@ export const withPolicyFacts = (parsed: TPetPolicy, facts: TPetPolicyFacts | nul
   // (v6 부터 그 조건은 `vaccineRequired` 칸으로 읽혀 C8 이 말한다. 칸이 없는 옛 판단은 여전히 notes → C7 이다.)
   const anyFact =
     indoor !== 'unknown' || corrected.leash || corrected.largeDogOk !== null || corrected.smallDogOnly ||
-    corrected.callFirst || vaccineRequired || corrected.feeFree !== null || feeLines.length > 0 || weightLimitKg !== undefined ||
+    corrected.callFirst || vaccineRequired || petDays !== undefined || corrected.feeFree !== null || feeLines.length > 0 || weightLimitKg !== undefined ||
     maxDogs !== undefined;
   const outdoorFree = indoor === 'outdoorOnly' || parsed.outdoorFree;
   const unlimitedDogs = parsed.unlimitedDogs && maxDogs === undefined;
@@ -545,6 +577,7 @@ export const withPolicyFacts = (parsed: TPetPolicy, facts: TPetPolicyFacts | nul
     smallDogOnly: corrected.smallDogOnly,
     callFirst: corrected.callFirst,
     vaccineRequired,
+    petDays,
     feeFree: corrected.feeFree === true,
     feeCharged: corrected.feeFree === false,
     feeLines,
@@ -643,6 +676,9 @@ const INDOOR_BADGE: Record<TIndoorPolicy, TPetBadge | null> = {
   unknown: null,
 };
 
+/** 요일 배지 라벨 — 하나면 "수요일만", 여럿이면 "수·토요일만". */
+const petDaysBadgeLabel = (days: TWeekday[]): string => `${days.join('·')}요일만`;
+
 /**
  * 카드와 상세에서 같은 순서로 보이도록 여기서 순서를 고정한다.
  * 카드에서는 앞에서부터 잘라 쓴다.
@@ -673,6 +709,8 @@ export const toPetBadges = (policy: TPetPolicy): TPetBadge[] => {
   }
   // AI 가 '요금이 있다' 고만 읽고 금액 문장은 못 뽑은 경우 — 없으면 그 판단이 화면 어디에도 안 보인다(todo/06 A-2).
   else if (policy.feeCharged) badges.push({ label: '추가요금 있음', tone: 'cond', axis: 'fee' });
+  // 요일 제한은 크기 줄 앞에 둔다 — 가는 날이 틀리면 헛걸음이라 크기·무게 조건보다 먼저 눈에 띄어야 하고, 카드는 앞에서부터 잘라 쓴다.
+  if (policy.petDays?.length) badges.push({ label: petDaysBadgeLabel(policy.petDays), tone: 'cond', axis: 'limit' });
   // 크기 조건은 하나만 보여준다. 큰 쪽이 되면 작은 쪽은 말할 필요가 없고,
   // '소형견만' 은 숫자 상한이 없는 숙소의 유일한 크기 단서라 맨 뒤에 둔다.
   // '대형견 불가' 가 크기 줄의 맨 앞이다 — 판정 H7 이 이것으로 어려움을 내므로, 배지가 없으면 목록에서 이유가 안 보인다.

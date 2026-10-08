@@ -30,6 +30,30 @@ const GROUNDS = {
   vaccineRequired: /접종|백신|광견병|켄넬\s*코프|항체/,
 };
 
+/** 한 글자 요일 — `TWeekday`. 정렬은 하지 않는다(원문 순서가 정본). */
+export const WEEKDAYS = ['월', '화', '수', '목', '금', '토', '일'];
+
+/**
+ * 글에 `X요일` 로 적힌 요일들(원문 순서, 중복 제거). `수·토요일`·`수, 토요일` 처럼 묶은 표기의 앞 요일도 센다.
+ * 앱의 정규식 파서(`parsePetPolicy`)와 아래 근거 보정이 **같은 읽기**를 써야 한쪽에서만 읽히는 요일이 없다.
+ * @param {string} text
+ * @returns {string[]}
+ */
+export function weekdaysIn(text) {
+  const out = [];
+  for (const m of String(text ?? '').matchAll(/[월화수목금토일](?:\s*[·ㆍ,/&]\s*[월화수목금토일])*\s*요일/g)) {
+    for (const ch of m[0].replace(/\s*요일$/, '')) if (WEEKDAYS.includes(ch) && !out.includes(ch)) out.push(ch);
+  }
+  return out;
+}
+
+/** 모델이 낸 요일 배열을 칸 모양으로 — 알 수 없는 값은 버리고 중복을 턴다. 하나도 안 남으면 null(= 요일 제한 없음). */
+export function weekdaysOrNull(value) {
+  if (!Array.isArray(value)) return null;
+  const days = [...new Set(value.filter((d) => WEEKDAYS.includes(d)))];
+  return days.length ? days : null;
+}
+
 /**
  * 예방접종의 근거 단어 — 앱(`withPolicyFacts`)이 근거 **문장**을 고를 때도 같은 규칙을 쓴다. 따로 적어 두면 한쪽에만 있는 말
  * (`항체`·`켄넬코프`)이 "판단은 남는데 근거 문장은 첫 줄" 로 어긋난다.
@@ -58,6 +82,7 @@ export const CORRECTION_CUES = {
   callFirst: { near: GROUNDS.callFirst, words: '전화·문의·예약' },
   feeFree: { near: GROUNDS.feeFree, words: '무료·없음·0원' },
   vaccineRequired: { near: GROUNDS.vaccineRequired, words: '접종·백신' },
+  petDays: { near: /[월화수목금토일]\s*요일/, words: '요일(수요일)' },
   kg: { near: /(?<![\d.])\d+(?:\.\d+)?\s*(?:kg|㎏|킬로|키로)/i, words: '무게(kg)' },
   dogs: { near: /(?<!\d)(?:\d+|한|두|세|네|다섯|여섯)\s*마리/, words: '마릿수(N마리)' },
   amount: { near: /(?<![\d.,])\d[\d,]*(?:\.\d+)?\s*(?:만\s*원|천\s*원|원)/, words: '금액(원)' },
@@ -249,6 +274,14 @@ export function correctPetPolicyFacts(facts, petPolicyText) {
   if (next.vaccineRequired && !GROUNDS.vaccineRequired.test(text)) {
     drop('예방접종 필수의 근거가 원문에 없어 뺐어요', 'vaccineRequired');
     next.vaccineRequired = false;
+  }
+  // 요일은 하나씩 대 본다 — 원문에 `X요일` 로 없는 요일은 모델이 지어낸 것이다(weightLimitKg 의 mentionsKg 와 같다).
+  // 다 빠지면 null: 남은 게 없는데 빈 배열을 두면 "요일 제한 있음" 처럼 읽힌다.
+  if (Array.isArray(next.petDays) && next.petDays.length) {
+    const inText = weekdaysIn(text);
+    const kept = next.petDays.filter((d) => inText.includes(d));
+    for (const d of next.petDays) if (!kept.includes(d)) drop(`동반 요일 ${d}요일이 원문에 없어 뺐어요`, 'petDays');
+    next.petDays = kept.length ? kept : null;
   }
   /*
    * 요금은 **줄마다 따로** 대 본다. 한 덩어리로 보면 근거 있는 줄 하나가 지어낸 줄들을 통째로 통과시키고,

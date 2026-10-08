@@ -48,6 +48,8 @@ export function petPolicyFactChanges(site, next) {
   for (const key of ['leash', 'smallDogOnly', 'callFirst', 'vaccineRequired']) {
     if (next[key] === true && s[key] !== true) out.push(key);
   }
+  // 요일 제한은 후보가 요일을 말했고 사이트와 다를 때만 — 비어 있으면 "언급 없음"(`correctPetPolicyFacts` 가 근거 없는 요일을 null 로 눕힌다).
+  if (Array.isArray(next.petDays) && next.petDays.length > 0 && !sameList([...next.petDays].sort(), [...(s.petDays ?? [])].sort())) out.push('petDays');
   const amounts = feeAmounts(next);
   if (amounts.length > 0 && !sameList(amounts, feeAmounts(s))) out.push('fees');
   return out;

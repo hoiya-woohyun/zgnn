@@ -22,7 +22,7 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { normalizeFeeLines } from '../lib/feeLine.mjs';
-import { correctPetPolicyFacts } from '../lib/petPolicyFacts.mjs';
+import { correctPetPolicyFacts, weekdaysOrNull } from '../lib/petPolicyFacts.mjs';
 import { correctStayEnvironment } from '../lib/stayEnvironment.mjs';
 import { formatUsageSummary } from '../../src/lib/runSummary.ts';
 
@@ -49,7 +49,7 @@ const PET_POLICY_SCHEMA = {
     {
       type: 'object',
       additionalProperties: false,
-      required: ['indoor', 'leash', 'largeDogOk', 'smallDogOnly', 'callFirst', 'vaccineRequired', 'feeFree', 'fees', 'weightLimitKg', 'maxDogs', 'notes'],
+      required: ['indoor', 'leash', 'largeDogOk', 'smallDogOnly', 'callFirst', 'vaccineRequired', 'petDays', 'feeFree', 'fees', 'weightLimitKg', 'maxDogs', 'notes'],
       properties: {
         indoor: { type: 'string', enum: ['free', 'cage', 'outdoorOnly', 'unknown'] },
         leash: { type: 'boolean' },
@@ -58,6 +58,8 @@ const PET_POLICY_SCHEMA = {
         callFirst: { type: 'boolean' },
         // 예방접종 필수(ADR-017 v6). 정규식 파서에는 대응 규칙이 없다 — "접종 완료한 아이만" · "접종 증명서 지참" 처럼 말이 제각각이라 모델이 판단한다.
         vaccineRequired: { type: 'boolean' },
+        // 반려동물 동반이 특정 요일에만 되는 곳의 요일(14 W261007.4). 휴무일이 아니다. 정규식 파서에도 좁은 대응 규칙이 있다.
+        petDays: { anyOf: [{ type: 'array', items: { type: 'string', enum: ['월', '화', '수', '목', '금', '토', '일'] } }, { type: 'null' }] },
         feeFree: NULLABLE_BOOLEAN,
         /*
          * 요금은 **구조의 배열**이다(ADR-017 v5). 한 칸 문자열(`feeText`) → 줄 목록(`feeLines`) → 줄마다 구조(`fees`).
@@ -228,6 +230,8 @@ export const SYSTEM_PROMPT = `당신은 제주도 반려견 동반 여행 블로
     smallDogOnly: 소형견만이면 true. callFirst: 방문·예약 전 전화나 문의가 필요하다고 하면 true.
     vaccineRequired: 예방접종(종합백신·광견병 등)을 마친 강아지만 받거나 접종 증명서·수첩을 보여 달라고 하면 true.
       "접종 권장"·"접종하고 오시면 좋아요" 처럼 권하기만 하거나 접종 언급이 없으면 false. 이 조건은 notes 에 다시 적지 않습니다.
+    petDays: 반려동물 동반이 **특정 요일에만** 되면 그 요일들(예: "매주 수요일 반려동물 동반데이" → ["수"], 원문에 적힌 순서). 요일 제한이 없으면 null.
+      **휴무일("월요일 휴무"·"수요일 정기휴무")은 넣지 않습니다** — 쉬는 날이지 동반이 되는 날이 아닙니다. 원문에 "X요일" 로 적힌 요일만 씁니다.
     feeFree: 반려견 추가 요금이 없다고 하면 true, 있으면 false, 언급 없으면 null.
     fees: 반려견 요금을 **기준마다 하나씩** 나열한 배열. 기준이 셋이면 셋입니다 — 한 문장으로 합치지 마세요.
       label: 그 기준을 **기준 + 금액**만 20자 이내로 짧게(본문 "숙박일 관계없이 청소비 5만원 추가" → "청소비 5만원").
@@ -374,6 +378,7 @@ function shapePetPolicy(raw) {
     smallDogOnly: raw.smallDogOnly === true,
     callFirst: raw.callFirst === true,
     vaccineRequired: raw.vaccineRequired === true,
+    petDays: weekdaysOrNull(raw.petDays),
     feeFree: boolOrNull(raw.feeFree),
     fees: (Array.isArray(raw.fees) ? raw.fees : []).map(shapeFeeRule).filter(Boolean),
     // 옛 모양(`feeLines`·`feeText`)도 받아 준다 — 스키마가 안 보장하는 가짜 응답·모델 변경에 대비. 합치는 것은 `feeLinesOf` 하나가 한다.

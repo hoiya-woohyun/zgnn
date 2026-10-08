@@ -54,6 +54,15 @@ export const DIRECTION_RULES: Record<keyof TPetPolicyFacts, (before: TFacts, aft
   smallDogOnly: (b, a) => flag(b?.smallDogOnly, a?.smallDogOnly),
   callFirst: (b, a) => flag(b?.callFirst, a?.callFirst),
   vaccineRequired: (b, a) => flag(b?.vaccineRequired, a?.vaccineRequired),
+  // 요일 제한이 새로 생기거나 요일이 줄면(= 동반되는 날이 적어지면) 강화, 제한이 사라지거나 요일이 늘면 완화.
+  petDays: (b, a) => {
+    const nb = b?.petDays?.length ?? 0;
+    const na = a?.petDays?.length ?? 0;
+    if (nb === na) return 'neutral';
+    if (nb === 0) return 'tighten';
+    if (na === 0) return 'loosen';
+    return na < nb ? 'tighten' : 'loosen';
+  },
   feeFree: (b, a) => flag(b?.feeFree == null ? null : !b.feeFree, a?.feeFree == null ? null : !a.feeFree),
   fees: (b, a) => compare(maxFee(b), maxFee(a), 'tighten'),
   feeLines: () => 'neutral', // `fees` 규칙이 셋을 함께 본다
