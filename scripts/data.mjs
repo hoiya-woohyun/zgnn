@@ -2,7 +2,7 @@
 // 코드를 옮기지 않는다 — 각 스크립트가 `main(argv)` 를 export 하고 여기는 고르기만 한다.
 // 직접 실행도 된다 — 단 플래그를 package.json 의 `data` 줄과 같이 준다: `node --experimental-strip-types --no-warnings scripts/<x>.mjs`
 // (`src/lib/runSummary.ts` 같은 앱 TS 를 import 한다. Node 22.15+ 기준 — `engines`. 23.6+ 는 플래그 없이도 TS 를 벗긴다).
-// `eval-extract.mjs` 만 하나 더: `--import ./scripts/lib/tsExtResolve.mjs`(앱 TS 의 확장자 없는 import — 여기서는 아래 `eval` 이 건다).
+// `eval-extract.mjs`·`data-coverage.mjs` 는 하나 더: `--import ./scripts/lib/tsExtResolve.mjs`(앱 TS 의 확장자 없는 import·JSON import — 여기서는 아래 `eval`·`coverage` 가 건다).
 // 하위 명령의 모듈은 **고른 것만** 동적으로 불러온다: Vercel 빌드의 `pull` 이 수집·분석 의존성까지 읽지 않게, `eval` 의 확장자 훅이 그 전에 걸리게.
 // 인자 없음은 상주 워커, `once` 는 그 한 바퀴다(scripts/worker.mjs, docs/todo/17 T3). 둘 다 단계를 아래 `runStep` 으로 부른다.
 

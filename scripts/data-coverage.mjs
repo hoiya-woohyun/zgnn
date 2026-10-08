@@ -26,13 +26,13 @@ const areaTitle = (id) => {
 };
 
 /**
- * 승인되면 그 후보가 들어갈 권역. 반영기가 `region_raw` 에 `extracted.regionRaw` 를 그대로 쓰므로 그것을 먼저 보고(카드가 그 값으로 센다),
- * 없으면 주소의 읍면. 둘 다 못 읽으면 null — '지역 모름' 줄에 센다(빼면 검수할 곳이 표에서 사라진다).
+ * 승인되면 그 후보가 들어갈 권역. 새 장소의 `region_raw` 는 `extracted.regionRaw` 그대로라(`toNewPlaceRow` — CLI·/admin 두 길 모두) 그것을 먼저 보고
+ * (카드가 그 값으로 센다), 그 읍면이 권역 매핑에 없으면 주소의 읍면. `parseRegion` 은 형식 밖 문자열('남쪽')도 통째로 town 에 담으므로
+ * "읽혔다" 가 아니라 "매핑에 있다" 로 가른다. 둘 다 못 읽으면 null — '지역 모름' 줄에 센다(빼면 검수할 곳이 표에서 사라진다).
  */
 export function candidateArea(extracted) {
-  const fromRegion = extracted?.regionRaw ? parseRegion(extracted.regionRaw).town : null;
-  const town = fromRegion ?? canonicalTown(townOfAddress(extracted?.address));
-  return (town && TOWN_TO_AREA[town]) ?? null;
+  const fromRegion = extracted?.regionRaw ? TOWN_TO_AREA[parseRegion(extracted.regionRaw).town] : undefined;
+  return fromRegion ?? TOWN_TO_AREA[canonicalTown(townOfAddress(extracted?.address))] ?? null;
 }
 
 /**
@@ -70,7 +70,8 @@ async function fetchPendingRows() {
     return { skipped: e.loginNeeded ? '로그인 세션이 없다 — 사용자 터미널에서 `pnpm data login` 뒤 다시 보면 칸마다 검수 대기 수가 붙는다' : e.message };
   }
   const supabase = createSupabase();
-  const { data, error } = await supabase.from('candidates').select('extracted').eq('status', 'pending').limit(5000);
+  // 지금 대기는 100여 행(2026-10-08) — PostgREST 기본 상한(1000)을 넘으면 조용히 잘리므로 그때 range() 로 페이지를 넘긴다.
+  const { data, error } = await supabase.from('candidates').select('extracted').eq('status', 'pending').limit(1000);
   if (error) return { skipped: `후보를 읽지 못했다(${error.code ?? ''} ${error.message})` };
   return { rows: data };
 }

@@ -13,6 +13,10 @@ describe('candidateArea — 승인되면 들어갈 권역', () => {
     expect(candidateArea({ regionRaw: null, address: '제주특별자치도 서귀포시 중문관광로 72' })).toBe('south');
   });
 
+  it('regionRaw 가 형식 밖이라 매핑에 없으면 주소로 넘어간다', () => {
+    expect(candidateArea({ regionRaw: '남쪽', address: '제주특별자치도 제주시 구좌읍 세화리 1' })).toBe('east');
+  });
+
   it('둘 다 못 읽으면 null', () => {
     expect(candidateArea({ regionRaw: null, address: null })).toBeNull();
   });
