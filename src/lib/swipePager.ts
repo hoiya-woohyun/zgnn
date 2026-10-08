@@ -61,6 +61,22 @@ export const settleSwipe = ({ index, count, dx, velocity, width }: TSwipeRelease
 
 /** 이만큼(px) 움직이기 전엔 세로 스크롤인지 가로 스와이프인지 정하지 않는다. */
 export const AXIS_SLOP_PX = 10;
+/**
+ * 가로가 세로의 이 배수는 돼야 가로 스와이프다 — 약 30°(tan 30° ≈ 1/1.7)보다 눕은 이동만.
+ *
+ * 예전 기준은 `|dx| ≥ |dy|`(45°)라, 목록을 위로 올리다 손가락이 비스듬히 쓸리면 옆 종류로 넘어갔다(14 W261007.14 — 두 번 재현).
+ * 세로 스크롤은 엄지가 호를 그려 30~45° 로 자주 기운다. 그 사이는 **세로로 친다**: 넘기려던 사람은 다시 쓸면 되지만,
+ * 읽던 목록이 옆 화면으로 바뀌면 자리를 잃는다. 두 인식기(둘러보기 안 · 화면 사이)가 같은 함수로 정한다.
+ */
+export const AXIS_X_RATIO = 1.7;
+
+/** 첫 움직임으로 축을 정한다. 문턱 전이면 'pending', 충분히 누웠으면 'x', 나머지는 세로('y' — 브라우저 스크롤에 맡긴다). */
+export const swipeAxisOf = (dx: number, dy: number): 'pending' | 'x' | 'y' => {
+  const ax = Math.abs(dx);
+  const ay = Math.abs(dy);
+  if (Math.max(ax, ay) < AXIS_SLOP_PX) return 'pending';
+  return ax >= ay * AXIS_X_RATIO ? 'x' : 'y';
+};
 /** 화면 왼쪽 가장자리 이 폭(px)에서 시작한 제스처는 iOS Safari 의 뒤로가기라 건드리지 않는다. */
 export const BACK_SWIPE_EDGE_PX = 24;
 /** 놓은 뒤 남은 거리를 밀어내는 시간. 알약이 탭 클릭으로 움직일 때와 같은 곡선(placesPageTypeTabs). */

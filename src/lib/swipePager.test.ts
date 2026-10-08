@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AXIS_SLOP_PX,
+  AXIS_X_RATIO,
   COMMIT_DISTANCE_RATIO,
   COMMIT_VELOCITY,
   EDGE_RESISTANCE,
@@ -8,6 +10,7 @@ import {
   resistedOffset,
   settleDurationOf,
   settleSwipe,
+  swipeAxisOf,
 } from './swipePager';
 
 const WIDTH = 400;
@@ -100,5 +103,28 @@ describe('settleDurationOf — 손가락이 빠를수록 짧게 밀어낸다', (
 
   it('남은 거리가 없으면 최소 시간만 — 주소 바꾸기를 괜히 기다리지 않는다', () => {
     expect(settleDurationOf(0, 0)).toBe(SETTLE_MIN_MS);
+  });
+});
+
+describe('swipeAxisOf — 첫 움직임의 축(14 W261007.14)', () => {
+  it('문턱 전엔 정하지 않는다', () => {
+    expect(swipeAxisOf(AXIS_SLOP_PX - 1, 0)).toBe('pending');
+    expect(swipeAxisOf(-3, 6)).toBe('pending');
+  });
+
+  it('충분히 누운 이동만 가로 — 방향(좌우) 무관', () => {
+    expect(swipeAxisOf(30, 0)).toBe('x');
+    expect(swipeAxisOf(-30, 10)).toBe('x');
+    expect(swipeAxisOf(17, 10)).toBe('x');
+  });
+
+  it('비스듬한 위로 올리기(45° 근처)는 세로 — 예전엔 가로로 잡혀 옆 종류로 넘어갔다', () => {
+    expect(swipeAxisOf(12, -12)).toBe('y');
+    expect(swipeAxisOf(-14, -10)).toBe('y');
+    expect(swipeAxisOf(10 * AXIS_X_RATIO - 0.1, 10)).toBe('y');
+  });
+
+  it('곧은 세로는 세로', () => {
+    expect(swipeAxisOf(0, 20)).toBe('y');
   });
 });

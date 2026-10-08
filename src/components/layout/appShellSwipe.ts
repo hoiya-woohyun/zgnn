@@ -22,7 +22,6 @@ import {
 import { rememberScroll } from '../../lib/appScroll';
 import { PLACE_TYPES } from '../../lib/places';
 import {
-  AXIS_SLOP_PX,
   BACK_SWIPE_EDGE_PX,
   SETTLE_EASING,
   TAP_SLIDE_EASING,
@@ -30,6 +29,7 @@ import {
   recentSamples,
   resistedOffset,
   settleDurationOf,
+  swipeAxisOf,
   settleSwipe,
   velocityOf,
   type TSample,
@@ -307,8 +307,9 @@ export function useAppShellSwipe(pathname: string) {
     if (current.axis === 'pending') {
       const dx = event.clientX - current.startX;
       const dy = event.clientY - current.startY;
-      if (Math.max(Math.abs(dx), Math.abs(dy)) < AXIS_SLOP_PX) return;
-      if (Math.abs(dy) > Math.abs(dx)) {
+      const axis = swipeAxisOf(dx, dy);
+      if (axis === 'pending') return;
+      if (axis === 'y') {
         current.axis = 'off';
         return;
       }
