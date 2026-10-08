@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { AREAS, areaOf, countByArea } from './areaGroups';
 import { judgeEligibility } from './eligibility';
 import {
+  areaCarriedRelease,
   areaReleaseCount,
   filterPlacesPage,
   filtersOfPlaceType,
@@ -183,5 +184,49 @@ describe("'갈 수 있는 곳만'(19 T4.1)", () => {
     expect(reachableReleaseCount(conditions)).toBe(filterPlacesPage({ ...conditions, onlyReachable: false }).length);
     expect(reachableReleaseCount({ ...conditions, onlyReachable: false })).toBe(0);
     expect(reachableReleaseCount({ ...conditions, eligibilityMap: null })).toBe(0);
+  });
+});
+
+describe('카드 진입에 따라온 읍면·방향·조건 칩(19 T4.2)', () => {
+  const DUBU: TDogProfile = { dogs: [{ name: '두부', weightKg: 3 }], carrier: 'bag' };
+  const eligibilityMap = new Map(PLACES.map((place) => [place.id, judgeEligibility(DUBU, place.policy)]));
+  const entered = { ...base, type: 'cafe' as const, onlyReachable: true, eligibilityMap };
+  // 카드가 0 이 아니고 읍면 둘 이상에 걸친 권역 — 읍면 하나를 걸면 카드보다 적어진다.
+  const counts = countByArea(PLACES, DUBU);
+  const pick = AREAS.map(({ id }) => {
+    const opened = filterPlacesPage({ ...entered, area: id });
+    const towns = [...new Set(opened.map((place) => place.region.town))];
+    return { id, opened, towns, card: counts[id].cafe.ok + counts[id].cafe.outdoor };
+  }).find(({ towns }) => towns.length >= 2);
+
+  it('읍면이 걸려 카드보다 적으면 푼 수는 카드 수다 — 버튼이 하는 일과 같은 조건', () => {
+    expect(pick, '읍면 둘 이상에 걸친 권역이 없다').toBeDefined();
+    const { id, towns, card } = pick!;
+    const conditions = { ...entered, area: id, town: towns[0] };
+    const shown = filterPlacesPage(conditions).length;
+    expect(shown).toBeLessThan(card);
+    expect(areaCarriedRelease(conditions, shown)).toEqual({ count: card, town: towns[0], directions: 0, petKeys: 0 });
+  });
+
+  it('따라온 것이 없거나 · 카드 진입이 아니거나 · 풀어도 같으면 null', () => {
+    const { id, opened, towns } = pick!;
+    expect(areaCarriedRelease({ ...entered, area: id }, opened.length)).toBeNull();
+    expect(areaCarriedRelease({ ...entered, area: id, town: towns[0], onlyReachable: false }, 0)).toBeNull();
+    expect(areaCarriedRelease({ ...entered, area: null, town: towns[0] }, 0)).toBeNull();
+    expect(areaCarriedRelease({ ...entered, area: id, town: towns[0], eligibilityMap: null }, 0)).toBeNull();
+    // 권역 안 방향을 고르면(그 권역 곳이 전부 그 방향) 줄지 않는다 — 원인이 아니라 말하지 않는다.
+    const direction = opened[0].region.direction;
+    const sameDirection = { ...entered, area: id, directions: [direction] };
+    const shown = filterPlacesPage(sameDirection).length;
+    if (shown === opened.length) expect(areaCarriedRelease(sameDirection, shown)).toBeNull();
+  });
+
+  it('검색어는 풀지 않는다 — 진입이 비웠으니 뒤에 친 것이다', () => {
+    const { id, opened, towns } = pick!;
+    const conditions = { ...entered, area: id, town: towns[0], query: opened.find((place) => place.region.town === towns[0])!.name };
+    const shown = filterPlacesPage(conditions).length;
+    const withQuery = filterPlacesPage({ ...conditions, town: null }).length;
+    expect(withQuery).toBeLessThan(pick!.card);
+    expect(areaCarriedRelease(conditions, shown)?.count ?? null).toBe(withQuery > shown ? withQuery : null);
   });
 });

@@ -34,6 +34,8 @@ type TPlacesPageFilterState = {
   enterArea: (area: TAreaId) => void;
   clearArea: () => void;
   clearOnlyReachable: () => void;
+  /** 동네 카드 진입에 따라온 방향·이 종류의 조건 칩을 푼다(19 T4.2). 읍면은 퍼시스트라 부르는 쪽이 `setTown(null)` 을 함께 부른다. */
+  releaseAreaCarried: (type: TPlaceType) => void;
   toggleDirection: (direction: TDirection) => void;
   toggleHideHard: () => void;
   setHideHard: (value: boolean) => void;
@@ -57,6 +59,7 @@ export const usePlacesPageFilterStore = create<TPlacesPageFilterState>()((set) =
   enterArea: (area) => set({ area, onlyReachable: true, query: '' }),
   clearArea: () => set({ area: null }),
   clearOnlyReachable: () => set({ onlyReachable: false }),
+  releaseAreaCarried: (type) => set((state) => ({ directions: [], petKeysByType: { ...state.petKeysByType, [type]: [] } })),
   toggleDirection: (direction) =>
     set((state) => ({
       directions: state.directions.includes(direction)

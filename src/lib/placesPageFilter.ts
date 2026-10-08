@@ -112,6 +112,23 @@ export const areaReleaseCount = (conditions: TPlacesPageConditions): number =>
 export const reachableReleaseCount = (conditions: TPlacesPageConditions): number =>
   conditions.onlyReachable && conditions.eligibilityMap ? filterPlacesPage({ ...conditions, onlyReachable: false }).length : 0;
 
+/** 동네 카드로 들어온 뒤 따라와 걸린 것 — 카드는 이것들 없이 셌다. */
+export type TAreaCarried = { count: number; town: string | null; directions: number; petKeys: number };
+
+/**
+ * 동네 카드로 들어왔는데(권역 + '갈 수 있는 곳만') **0곳은 아니지만 카드보다 적게** 보일 때, 따라온 읍면·방향·조건 칩을 풀면
+ * 몇 곳인가(19 T4.2). `enterArea` 는 검색어만 비운다 — 읍면은 퍼시스트이고 홈은 그것을 몰래 바꾸지 않는다(18 T2).
+ * 그래서 목록 머리가 원인을 말하고 그 자리에서 푼다. 푸는 것은 셋뿐이다: 검색어는 진입이 비웠으니 뒤에 친 것이고,
+ * '실내 자리 필요' 는 카드도 같은 판정으로 세므로 원인이 아니다. 풀어도 늘지 않으면 null.
+ */
+export const areaCarriedRelease = (conditions: TPlacesPageConditions, shown: number): TAreaCarried | null => {
+  const { area, onlyReachable, eligibilityMap, town, directions, petKeys } = conditions;
+  if (!area || !onlyReachable || !eligibilityMap) return null;
+  if (town === null && directions.length === 0 && petKeys.length === 0) return null;
+  const count = filterPlacesPage({ ...conditions, town: null, directions: [], petKeys: [] }).length;
+  return count > shown ? { count, town, directions: directions.length, petKeys: petKeys.length } : null;
+};
+
 export type TPlacesPageChip = { key: string; label: string };
 
 /**

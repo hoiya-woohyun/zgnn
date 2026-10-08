@@ -12,6 +12,7 @@ import { Button } from '../components/base/button';
 import { judgeEligibility, primaryReason } from '../lib/eligibility';
 import { carrierWhatIf, countByLevel, outdoorFallback, type TLevelCounts } from '../lib/eligibilityCounts';
 import { placesPageHardFold } from '../lib/placesPageHardFold';
+import type { TAreaCarried } from '../lib/placesPageFilter';
 import { placesPageRepeatedReason } from '../lib/placesPageRepeatedReason';
 import { areaTownsLabel, type TAreaId } from '../lib/areaGroups';
 import { josa, withJosa } from '../lib/korean';
@@ -72,6 +73,9 @@ type TPlacesPageResultsProps = {
   /** 0곳일 때 '갈 수 있는 곳만' 을 풀면 몇 곳인가(`reachableReleaseCount`, 19 T4.1). */
   reachableReleaseCount?: number;
   onClearOnlyReachable?: () => void;
+  /** 동네 카드로 들어왔는데 따라온 읍면·방향·조건 칩 탓에 카드보다 적게 보이면(`areaCarriedRelease`, 19 T4.2). */
+  areaCarried?: TAreaCarried | null;
+  onReleaseAreaCarried?: () => void;
 };
 
 /**
@@ -103,6 +107,8 @@ export function PlacesPageResults({
   onClearArea,
   reachableReleaseCount = 0,
   onClearOnlyReachable,
+  areaCarried = null,
+  onReleaseAreaCarried,
 }: TPlacesPageResultsProps) {
   const dog = useAppStore((state) => state.dog);
   const needsIndoor = useAppStore((state) => state.needsIndoor);
@@ -182,6 +188,26 @@ export function PlacesPageResults({
       </div>
 
       <PlacesPageActiveChips chips={activeChips} />
+
+      {/* 동네 카드는 n곳이라 했는데 목록이 그보다 적으면 무엇이 걸렸는지 말하고 그 자리에서 푼다(19 T4.2) — 홈은 퍼시스트 읍면을
+          몰래 바꾸지 않으므로(18 T2) 전에 걸어 둔 읍면·칩이 카드 진입을 따라온다. 0곳이면 아래 빈 상태가 같은 일을 한다. */}
+      {results.length > 0 && areaCarried && (
+        <p className="flex flex-wrap items-center gap-x-3 px-4 text-sm text-tertiary md:px-6">
+          {`동네 카드는 ${areaCarried.count}곳인데 ${withJosa(
+            [areaCarried.town, areaCarried.directions > 0 && '방향', areaCarried.petKeys > 0 && `조건 ${areaCarried.petKeys}개`]
+              .filter(Boolean)
+              .join(' · '),
+            '이/가',
+          )} 걸려 있어요`}
+          <button
+            type="button"
+            onClick={onReleaseAreaCarried}
+            className="inline-flex min-h-11 items-center font-semibold text-brand-secondary hover:text-brand-secondary_hover"
+          >
+            풀고 {areaCarried.count}곳 보기
+          </button>
+        </p>
+      )}
 
       {/* 결과가 있어도 같은 검색어가 다른 종류에 맞으면 그 수를 말한다(14 W261007.11) — 검색은 탭 안에서만 돌아서 '함덕' 을 친 사람은
           식당·카페에도 있는 줄 모른다. 0곳일 때의 큰 안내(아래 빈 상태)와 달리 목록을 밀어내지 않게 한 줄로. */}

@@ -16,7 +16,7 @@ import { SEARCH_FIELD } from '../components/noAutofill';
 import { TYPE_META } from '../lib/places';
 import { comparePrice, resetFiltersLabel, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
 import { otherTypeMatches } from '../lib/placeSearch';
-import { areaReleaseCount, filterPlacesPage, placesByTown, placesOfTypeInArea, placesPageChips, reachableReleaseCount, townReleaseCount } from '../lib/placesPageFilter';
+import { areaCarriedRelease, areaReleaseCount, filterPlacesPage, placesByTown, placesOfTypeInArea, placesPageChips, reachableReleaseCount, townReleaseCount } from '../lib/placesPageFilter';
 import { sortByEligibility } from '../lib/sortByEligibility';
 import { distancesFrom, sortByDistance } from '../lib/distanceSort';
 import { LOCATE_NOTICE, locateMe } from '../lib/myLocation';
@@ -69,6 +69,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
   const area = usePlacesPageFilterStore((state) => state.area);
   const clearArea = usePlacesPageFilterStore((state) => state.clearArea);
   const clearOnlyReachable = usePlacesPageFilterStore((state) => state.clearOnlyReachable);
+  const releaseAreaCarried = usePlacesPageFilterStore((state) => state.releaseAreaCarried);
   const [sort, setSort] = useState<TPlaceSort>('none');
   /** 가까운 순의 기준점 — 고를 때 한 번 받는다. 저장하지 않는다(ADR-012 대상 아님). */
   const [origin, setOrigin] = useState<{ lat: number; lng: number } | null>(null);
@@ -111,6 +112,14 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     const conditions = { type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap };
     return { town: townReleaseCount(conditions), area: areaReleaseCount(conditions), reachable: reachableReleaseCount(conditions) };
   }, [results.length, type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap]);
+  // 0곳이 아니어도 카드보다 적으면 — 동네 카드 진입에 따라온 읍면·방향·조건 칩(19 T4.2). 0곳이면 위 빈 상태 몫이다.
+  const areaCarried = useMemo(
+    () =>
+      results.length > 0
+        ? areaCarriedRelease({ type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap }, results.length)
+        : null,
+    [results.length, type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap],
+  );
 
   const distances = useMemo(() => (sort === 'near' && origin ? distancesFrom(results, origin) : undefined), [origin, results, sort]);
 
@@ -336,6 +345,11 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
               onClearArea={clearArea}
               reachableReleaseCount={released.reachable}
               onClearOnlyReachable={clearOnlyReachable}
+              areaCarried={areaCarried}
+              onReleaseAreaCarried={() => {
+                setTown(null);
+                releaseAreaCarried(type);
+              }}
             />
             <PlacesPageSuggest type={type} />
           </div>

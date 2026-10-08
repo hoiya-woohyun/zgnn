@@ -4,7 +4,7 @@ import { useMemo, type RefObject } from 'react';
 import { PlacesPageResults } from './placesPageResults';
 import { resetFiltersLabel } from '../lib/placeFilters';
 import { otherTypeMatches } from '../lib/placeSearch';
-import { areaReleaseCount, filterPlacesPage, placesByTown, placesOfTypeInArea, placesPageChips, reachableReleaseCount, townReleaseCount } from '../lib/placesPageFilter';
+import { areaCarriedRelease, areaReleaseCount, filterPlacesPage, placesByTown, placesOfTypeInArea, placesPageChips, reachableReleaseCount, townReleaseCount } from '../lib/placesPageFilter';
 import { sortByEligibility } from '../lib/sortByEligibility';
 import { useAppStore, useDog } from '../store/useAppStore';
 import { useEligibilityMap } from '../store/useDogEligibility';
@@ -63,6 +63,14 @@ export function PlacesPageSwipePeek({ ref, type, side, top, height }: TPlacesPag
     const conditions = { type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap };
     return { town: townReleaseCount(conditions), area: areaReleaseCount(conditions), reachable: reachableReleaseCount(conditions) };
   }, [results.length, type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap]);
+  // 0곳이 아니어도 카드보다 적으면 — 동네 카드 진입에 따라온 읍면·방향·조건 칩(19 T4.2). 0곳이면 위 빈 상태 몫이다.
+  const areaCarried = useMemo(
+    () =>
+      results.length > 0
+        ? areaCarriedRelease({ type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap }, results.length)
+        : null,
+    [results.length, type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap],
+  );
 
   const { chips, activeFilterCount, hasFilters } = placesPageChips({
     type,
@@ -106,6 +114,8 @@ export function PlacesPageSwipePeek({ ref, type, side, top, height }: TPlacesPag
         onClearArea={noop}
         reachableReleaseCount={released.reachable}
         onClearOnlyReachable={noop}
+        areaCarried={areaCarried}
+        onReleaseAreaCarried={noop}
       />
     </div>
   );
