@@ -218,6 +218,7 @@ data/                         # Notion 추출본(커밋) · raw/(무시)
 | [ADR-022](./decisions/ADR-022-landmark-search-by-radius.md) | 관광지 이름(중문·협재)은 지역 태그가 아니라 **좌표 반경**으로 찾는다 — 태그는 주소에서 온 읍·면 하나로 두고, 둘러보기 검색어가 랜드마크면 반경 안의 장소도 맞는다. 수집 키워드는 태그와 무관하다 |
 | [ADR-023](./decisions/ADR-023-ops-dashboard-and-run-log.md) | **제안** — 파이프라인이 돌고 있는지는 스크립트가 남기는 실행 기록 `pipeline_runs` 로 본다(Slack·로그 파일은 정본이 아니다), 화면은 `/admin/ops`, 건강 판정은 저장하지 않고 계산, Slack 은 DB 트리거가 Vault+pg_net 으로(Deploy Hook 과 같은 모양), "안 돌았다" 알림은 pg_cron 보류 |
 | [ADR-025](./decisions/ADR-025-stack-push-pop-transition.md) | 탭 안으로 들어간 화면은 **위에 쌓인다** — 오른쪽에서 덮고 오른쪽으로 걷히며, 왼쪽 가장자리를 끌어 걷어 낸다. 옆 장은 떠나기 직전 `<main>` 의 DOM 복제(View Transitions 는 손가락을 못 따라가 쓰지 않는다), 방향은 history 깊이. 하위 화면은 들어온 탭 밑(탭 불은 history 에 새긴 탭), 탭 화면끼리는 history 를 쌓지 않아 탭 화면의 가장자리 뒤로가기가 갈 곳이 없다(v2) |
+| [ADR-026](./decisions/ADR-026-route-ours-navigation-naver.md) | 하루 동선은 **경로는 우리, 운전 안내는 네이버** — 저장한 곳에 날짜 라벨을 얹고 직선거리로 순서를 제안한 뒤, 네이버 지도 **웹** 길찾기 주소(경유 5 + 도착, 넘치면 이어지는 묶음)로 넘긴다. Directions API·서버·키 없음, 앱 스킴(`nmap://`)은 앱 유무 판별이 필요해 쓰지 않는다. 판정은 반려동물 조건까지(영업시간 없음) |
 
 ## 버그 기록
 
