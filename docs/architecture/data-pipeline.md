@@ -1,6 +1,7 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-10-07 (v55: 「재분석」 에 글 쪽 `다시 읽기`(수집 완료 칸, todo/09 T3.2)와 분석이 분석 제외한 글(`excluded_at`)을 안 고른다는 것)
+> 최종 수정: 2026-10-08 (v56: `pnpm data coverage`(todo/19 T2) — 원형 셋 × 6권역 표와 데이터 문턱. 앱의 `PLACES` 를 그대로 쓰려고 확장자 훅이 `.json` import 속성도 메운다)
+> 이전 2026-10-07 (v55: 「재분석」 에 글 쪽 `다시 읽기`(수집 완료 칸, todo/09 T3.2)와 분석이 분석 제외한 글(`excluded_at`)을 안 고른다는 것)
 > 이전 2026-10-07 (v54: **`pnpm data apply` 의 신규 장소도 곧바로 `published`** — `/admin` 과 같다(todo/13 §5.1). 같은 '승인' 이 길에 따라 사이트에 뜨고 안 뜨던 것을 맞췄다. 그 전에 들어간 초안(2곳)은 그대로 `draft`)
 > 이전 2026-10-07 (v53: 리뷰 반영(todo/17) — 돌지 못한 요청은 queued 로 되돌린다(3번이면 done), 진척이 있으면 30분 안 기다린다, 막 승인된 후보는 60초 묵힌다, 요청 글의 정본은 `requested_at` 하나)
 > 이전 2026-10-07 (v52: 워커가 Realtime 으로도 깬다(todo/17 T4) — 깨우는 길 셋, 폴링이 정본. 채널 토큰은 `realtime.setAuth` 가 아니라 클라이언트의 토큰 콜백이어야 RLS 를 통과한다)
@@ -114,6 +115,9 @@ flowchart LR
 ## 갱신 경로 — `pnpm data pull`
 
 - 데이터를 고치는 곳은 이제 Supabase Studio(나중엔 관리 화면)지 Notion 이 아니다.
+- 6권역 커버리지: `scripts/data-coverage.mjs`(`pnpm data coverage`, todo/19 T2) — 홈 카드와 **같은 셈**(`src/lib/areaGroups.ts` 의 `countByArea`)을 **같은 입력**(`src/lib/places.ts` 의 `PLACES`)에 돌린다.
+  그래서 앱 TS 를 node 에서 부르고, `places.ts` 의 JSON import 때문에 `scripts/lib/tsExtResolve.mjs` 가 `with { type: 'json' }` 를 얹는다(places.json 을 따로 읽어 파싱하면 판정 입력이 화면과 갈린다).
+  문턱 판정은 `src/lib/areaCoverage.ts`. 세션이 있을 때만 검수 대기 열(읽기만) — 없어도 멈추지 않는다
 - `scripts/pull-db.mjs`(`pnpm data pull`) 가 `status='published'` 인 `places`·`items` 를 읽어 `src/data/places.json`·
   `items.json` 을 다시 쓴다.
 - `src/data/*.json` 은 계속 **커밋**한다 — 키 없이도 `pnpm dev`·`pnpm test`·로컬 `pnpm build` 가 돌아야 해서다.

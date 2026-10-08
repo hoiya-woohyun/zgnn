@@ -18,6 +18,11 @@ const STEPS = {
     await import('./lib/tsExtResolve.mjs');
     return import('./eval-extract.mjs');
   },
+  coverage: async () => {
+    // places.ts 의 JSON import 와 판정 TS 의 확장자 없는 import — eval 과 같은 훅.
+    await import('./lib/tsExtResolve.mjs');
+    return import('./data-coverage.mjs');
+  },
 };
 
 const USAGE = `사용법: pnpm data <하위 명령> [인자…]
@@ -30,6 +35,7 @@ const USAGE = `사용법: pnpm data <하위 명령> [인자…]
   pull      src/data/*.json 을 DB 최신으로(Vercel 빌드가 부른다) — 결과가 비면 덮지 않고 멈춘다
   logout    세션을 만료 전에 지운다
   eval      추출 정확도 — golden [--force] · extract [--limit N] [--only …] [--refresh] · score [--prompt 버전]
+  coverage  원형 셋 × 6권역 × 종류의 갈 수 있는 곳 표 + 데이터 문턱(오프라인). 세션이 있으면 칸마다 검수 대기 신규 후보 수도
 
   (없음)    상주 워커 — 터미널에 떠서 DB 가 바뀌면(Realtime) 곧바로, 아니어도 60초마다 보고 once 를 돈다. 매일 09:00(KST) 키워드 전체 수집. 끝내려면 Ctrl-C
             --no-realtime(폴링만, 디버깅용)

@@ -48,8 +48,11 @@
   `countByArea(places, dog, opts)` → 권역 × 종류 `TLevelCounts`(`countByLevel` 을 부른다). 테스트: ① 두 매핑이 맞는다 ② 모든 `ALL_TOWNS` 가 매핑에 있다 ③ 6권역 합 = 종류별 `countByLevel` 전체
   ④ 토론 §1 표(두부 3kg 가방 · 보리 30kg 없음 · 콩+해피 유모차)를 고정. 화면 없음.
   > 메모: 2026-10-08 — `src/lib/areaGroups.ts` + 테스트 12. 토론 §1 표 세 원형이 지금 데이터(84곳)로 **칸마다 그대로** 나온다. 관광지 키 매핑은 `Record<keyof typeof LANDMARKS_BY_AREA, …>` 라 키가 늘면 타입 에러. 히어로 수는 그새 `reachablePlaces`(14 W261007.12 — 길이 = `ok + outdoor`)로 바뀌었다 — T4 카드가 누르면 펼칠 곳이 필요하면 권역별로 같은 함수를 쓴다
-- [ ] **T2 `pnpm data coverage`** — `scripts/data.mjs` 하위 명령. T1 을 그대로 불러 원형 셋 × 6권역 × 숙소·카페·식당 표 + §4 문턱 통과 수를 찍는다(오프라인, `src/data/places.json`).
+- [x] **T2 `pnpm data coverage`** — `scripts/data.mjs` 하위 명령. T1 을 그대로 불러 원형 셋 × 6권역 × 숙소·카페·식당 표 + §4 문턱 통과 수를 찍는다(오프라인, `src/data/places.json`).
   세션이 있으면(`pnpm data login`) 칸마다 검수 대기 신규 후보 수(주소 → 읍면)도 — 없으면 그 열만 빼고 한 줄 안내. 이 출력이 🧑 H.1 의 검수 순서표이자 나중의 B2G 공백 표다. **T1 뒤.**
+  > 메모: 2026-10-08 — `scripts/data-coverage.mjs` · 문턱 판정 `src/lib/areaCoverage.ts`(T6 도 이것을 본다) · 테스트 9. 입력은 앱의 `PLACES` 그대로(확장자 훅이 JSON import 속성을 메운다).
+    **기준선이 둘이다**: §4 의 "소형 6 · 다견 4" 는 야외를 뺀 `ok` 로 센 값이고, 카드와 같은 `ok + 야외` 로는 **소형 7 · 다견 5**(대형견 숙소 권역 0/6 · 대형견 빈칸 4/12). 출력은 둘 다 찍는다 — 목표(10·8)는 `ok + 야외` 기준으로 읽는다.
+    후보의 권역은 주소보다 `regionRaw` 를 먼저 본다(반영기가 그 값을 `region_raw` 로 쓰니 승인 뒤 카드가 그 값으로 센다). 같은 가게의 여러 글은 `nameKey` 로 접는다. 세션 없는 상태로만 실측했다 — 검수 대기 열은 단위 테스트뿐
 - [ ] **T3 둘러보기 권역 조건** — `usePlacesPageFilterStore` 에 비퍼시스트 `area` 한 칸. 목록 거르기는 순수 함수로(`areaOf`), 걸려 있으면 검색 줄 근처에 "서부(애월·한림·한경) ✕" 한 줄.
   퍼시스트 `town`·검색어와 겹쳐 0곳이면 빈 상태가 무엇을 풀면 몇 곳인지 말한다(18 T2.1 과 같은 모양). 홈 → 둘러보기 진입 함수 하나가 `area`·숙소 탭·`hideHard` 를 함께 건다. **T1 뒤.**
 - [ ] **T4 홈 「두부랑 갈 동네」 카드** — `screens/homePageAreaCards.tsx` 가 `homePageLandmarkChips.tsx` 자리를 대신한다(관광지 칩은 각 카드 안으로 — 세 종류 모두 0곳인 관광지 칩은 빼거나 수를 단다 = **14 W261007.9 를 여기서 닫는다**).
