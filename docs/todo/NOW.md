@@ -1,6 +1,7 @@
 # 지금 할 일 — 대기열
 
-> 최종 수정: 2026-10-08 (v39: ADR-028 채택 — 「기다림」 의 🙋 서버 워커 줄을 걷었다. 20 T1~T7 은 채택한 세션이 이어서 하므로 「지금」 에 올리지 않는다(다른 세션이 선점하지 않게). 🧑 T8 은 그 세션이 끝날 때 「기다림」 에)
+> 최종 수정: 2026-10-08 (v40: 20 T1~T7 끝 — 서버 워커 배포·env·실측을 「기다림」 맨 위에 **순서대로**(워커가 먼저 서야 develop→main 을 합친다))
+> 이전 2026-10-08 (v39: ADR-028 채택 — 「기다림」 의 🙋 서버 워커 줄을 걷었다. 20 T1~T7 은 채택한 세션이 이어서 하므로 「지금」 에 올리지 않는다(다른 세션이 선점하지 않게). 🧑 T8 은 그 세션이 끝날 때 「기다림」 에)
 > 이전 2026-10-08 (v38: 「지금」 이 비어 다시 채웠다 — 판정·데이터급은 혼자 끝낼 것이 없어(전부 🧑·🙋) 판정이 안 보이는 두 화면(근처 장소 거리순 · 데스크톱 지도 목록) 먼저, 09 재분석 흐름 T5.1·T5.2·T3.3, 다듬기, 09 이름 정리(T3.4)는 09 의 마지막이라 끝. 08 T0.6 Stop 훅은 하네스 설정을 바꿔 넣지 않았다)
 > 이전 2026-10-08 (v37: 14 W261007.11b 끝 — 0곳 안내가 숨김 조건에 가려진 종류도 말한다. 「지금」 이 비었다)
 > 이전 2026-10-08 (v36: 14 W261007.11a 끝 — 다른 종류 수를 넘어간 탭의 목록 그대로 센다. 그 대가로 0곳 큰 안내가 숨긴 가게를 말하지 않는 11b 를 「지금」 에)
@@ -51,6 +52,10 @@
 - [ ] 관리 화면의 같은 동작 다섯 이름을 등록·등록 해제·제외로 — [09 T3.4](09-admin-pipeline-stages.md) · 왜 지금: 09 의 맨 마지막 커밋이어야 해서(T5.1·T5.2 뒤) 끝에
 
 ## 기다림 (사람 손·결정)
+
+- 🙋 서버 워커(ADR-028) 배포 허락 — [20 T5·T9](20-vercel-remote-worker.md) · 순서가 중요하다: ① 에이전트 `pnpm worker:build && cd worker && vercel deploy`(프리뷰, Deployment Protection 뒤) → `vercel curl` 로 401 확인 ② 🧑 아래 env ③ `vercel deploy --prod` → `curl -X POST https://zgnn-worker.vercel.app/api/run` 이 401 ④ **그다음에** develop → main. ⚠️ main 을 먼저 합치면 프로덕션 `/admin` 버튼마다 "서버 워커를 못 깨웠어요" 가 뜨고 "로컬 워커가 없어요" 띠는 내려간다(워커 프로덕션 배포는 지금 없다)
+- 🧑 서버 워커 env·정리(20 T8) · 명령: `cd worker && pbpaste | tr -d '[:space:]' | vercel env add CLAUDE_CODE_OAUTH_TOKEN production --sensitive`(`claude setup-token` 값을 복사한 뒤) · `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET` 도 같은 식(`~/.zgnn-naver.env` 의 값) · `vercel env rm CLAUDE_CODE_OAUTH_TOKEN preview --yes` · 대시보드 zgnn-worker → Settings → Deployment Protection 의 bypass 토큰 지우기 · (선택) 49자로 잘렸던 토큰 둘을 claude.ai 에서 회수
+- 🧑 서버 워커 실측(20 T9) — 배포·env 뒤 · 명령: PC 의 `pnpm data` 를 끈 채 `/admin` 에서 추가 수집 1 · 재분석 1 · 저수지 10(사슬 두 번) → `/admin/ops` 에 "서버 · 분석 중" · `pipeline_runs` 행. 이어서 `pnpm data` 를 켠 채 같은 것 → 응답이 `local` 이고 서버 배지가 안 뜨는지
 
 - 🧑 작업 트리에 **커밋 안 된 ADR-009 v4**(준비물 탭 개편 — 16파일, 신규 `checklistPageItemSheet.tsx`, 삭제 `itemGroups.ts`·`seasonChips.tsx`)가 있다. 2026-10-08 /next 세션이 주인을 못 찾았다(트랜스크립트에 그 파일을 쓴 세션이 없다) — [ADR-009](../decisions/ADR-009-trip-derived-checklist.md) · [14 W261007.13](14-weekly-ux-eval.md) · 명령: 하던 쪽이 `git status` 로 보고 커밋. 그 커밋 전엔 HEAD 의 탭이 저장 숙소의 '간식 어메니티' 로 간식을 지운다(14 메모가 v4 로 닫힌다고 적은 셋)
 - 🧑 포크 게시 소개문에서 '대형견과 실내에서 함께 머물 수 있어요' 를 빼기(원글에 근거 없음, C12 '확인' 바로 위에서 반대를 말한다) — [13 §5.2 P2](13-ai-analysis-audit-2026-10-04.md) · 명령: `/admin` 에서 포크(aef2f05a) 소개를 "…아기자기한 소품이 많고 안쪽에 1인 좌석도 있어요." 로 고쳐 저장(또는 "해도 돼" 라고 하면 Claude 가 `places.features` 단건 update)
