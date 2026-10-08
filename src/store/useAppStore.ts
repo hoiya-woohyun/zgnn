@@ -4,6 +4,16 @@ import { persist } from 'zustand/middleware';
 import { sanitizeDog } from '../lib/dogProfile';
 import { ALL_TOWNS, countUnlistedSaved, selectSavedPlaces } from '../lib/places';
 import { sanitizeSavedNotes, withSavedNote } from '../lib/savedNotes';
+import {
+  sanitizeTripDays,
+  sanitizeTripOrder,
+  withDayOrder,
+  withoutDayOrder,
+  withTripDay,
+  type TTripDay,
+  type TTripDays,
+  type TTripOrder,
+} from '../lib/tripPlan';
 import type { TDogProfile } from '../types';
 
 /** 사계절 항목은 항상 보이므로, 계절 선택은 여름/겨울 둘 중 하나이거나 선택 안 함(null)이다. */
@@ -13,6 +23,10 @@ type TAppState = {
   savedIds: string[];
   /** 저장한 곳의 한 줄 메모(id → 메모, ≤80자). 하트를 지우면 같이 지워진다. 공유에는 싣지 않는다(10 F5). */
   savedNotes: Record<string, string>;
+  /** 저장한 곳의 날짜 라벨(id → 1~4일, 없으면 미정). 메모와 같이 하트를 지우면 빠진다(16 P1, lib/tripPlan.ts). */
+  tripDays: TTripDays;
+  /** 하루 → 사용자가 끌어 바꾼 순서. 손댄 날만 있고, 없는 날은 화면이 제안한다(16 P2). */
+  tripOrder: TTripOrder;
   checkedItemIds: string[];
   season: TSeasonFilter;
   /** 우리 강아지 프로필. 없으면(null) 판정 없이 v0 화면 그대로. */
@@ -39,10 +53,15 @@ type TAppState = {
    */
   addSaved: (ids: readonly string[]) => void;
   setSavedNote: (id: string, note: string) => void;
+  /** 저장한 곳의 날을 바꾼다(`null` = 미정). 저장하지 않은 곳에는 달지 않는다. */
+  setTripDay: (id: string, day: TTripDay | null) => void;
+  setTripDayOrder: (day: TTripDay, ids: readonly string[]) => void;
+  /** "순서 다시 제안" — 그 날의 손 순서를 지운다. */
+  resetTripDayOrder: (day: TTripDay) => void;
   toggleChecked: (id: string) => void;
   /** 준비물 체크를 모두 푼다 — 다음 여행 준비(12 U2.6). */
   clearChecked: () => void;
-  /** 저장을 모두 비운다 — 메모도 함께(메모는 저장한 곳의 것이다, 12 U2.6). */
+  /** 저장을 모두 비운다 — 메모·날짜 라벨도 함께(저장한 곳의 것이다, 12 U2.6). */
   clearSaved: () => void;
   setSeason: (season: TSeasonFilter) => void;
   setDog: (dog: TDogProfile) => void;
@@ -105,20 +124,23 @@ export const useAppStore = create<TAppState>()(
     (set) => ({
       savedIds: [],
       savedNotes: {},
+      tripDays: {},
+      tripOrder: {},
       checkedItemIds: [],
       season: null,
       dog: null,
       needsIndoor: false,
       town: null,
       visitCount: 0,
-      // 하트를 지우면 메모도 지운다 — "저장한 곳의 메모" 라 저장이 없으면 붙을 데가 없다.
+      // 하트를 지우면 메모·날짜 라벨도 지운다 — "저장한 곳의 것" 이라 저장이 없으면 붙을 데가 없다.
       toggleSaved: (id) =>
         set((state) => {
           const savedIds = toggle(state.savedIds, id);
-          if (savedIds.includes(id) || !(id in state.savedNotes)) return { savedIds };
+          if (savedIds.includes(id)) return { savedIds };
           const savedNotes = { ...state.savedNotes };
           delete savedNotes[id];
-          return { savedIds, savedNotes };
+          const trip = withTripDay({ days: state.tripDays, order: state.tripOrder }, id, null);
+          return { savedIds, savedNotes, tripDays: trip.days, tripOrder: trip.order };
         }),
       restoreSaved: (id, index, note) =>
         set((state) => {
@@ -135,9 +157,19 @@ export const useAppStore = create<TAppState>()(
       // 저장하지 않은 곳에는 메모를 달지 않는다(화면도 저장한 곳에서만 입력 칸을 연다).
       setSavedNote: (id, note) =>
         set((state) => (state.savedIds.includes(id) ? { savedNotes: withSavedNote(state.savedNotes, id, note) } : {})),
+      setTripDay: (id, day) =>
+        set((state) => {
+          if (!state.savedIds.includes(id)) return {};
+          const trip = withTripDay({ days: state.tripDays, order: state.tripOrder }, id, day);
+          return { tripDays: trip.days, tripOrder: trip.order };
+        }),
+      setTripDayOrder: (day, ids) =>
+        set((state) => ({ tripOrder: withDayOrder({ days: state.tripDays, order: state.tripOrder }, day, ids).order })),
+      resetTripDayOrder: (day) =>
+        set((state) => ({ tripOrder: withoutDayOrder({ days: state.tripDays, order: state.tripOrder }, day).order })),
       toggleChecked: (id) => set((state) => ({ checkedItemIds: toggle(state.checkedItemIds, id) })),
       clearChecked: () => set({ checkedItemIds: [] }),
-      clearSaved: () => set({ savedIds: [], savedNotes: {} }),
+      clearSaved: () => set({ savedIds: [], savedNotes: {}, tripDays: {}, tripOrder: {} }),
       setSeason: (season) => set({ season }),
       setDog: (dog) => set({ dog }),
       clearDog: () => set({ dog: null }),
@@ -185,6 +217,7 @@ export const useAppStore = create<TAppState>()(
       merge: (persistedState, currentState) => {
         const persisted = (persistedState ?? {}) as Partial<Record<keyof TAppState, unknown>>;
         const savedIds = stringList(persisted.savedIds);
+        const tripDays = sanitizeTripDays(persisted.tripDays, savedIds);
         return {
           ...currentState,
           savedIds,
@@ -192,6 +225,9 @@ export const useAppStore = create<TAppState>()(
           season: seasonOf(persisted.season),
           // 하트가 없는 id 의 메모는 버린다 — 남겨 두면 다시 저장했을 때 옛 메모가 되살아난다. 내린 곳의 하트는 남으므로 메모도 남는다.
           savedNotes: sanitizeSavedNotes(persisted.savedNotes, savedIds),
+          // 라벨·순서도 같은 규칙 — 칸이 없던 옛 저장값은 빈 값으로 읽혀 전부 미정이 된다(그래서 version 을 올리지 않는다).
+          tripDays,
+          tripOrder: sanitizeTripOrder(persisted.tripOrder, tripDays),
           // 옛 모양(`{ name, weightsKg }`)은 여기서 올려 변환된다 — lib/dogProfile.ts 참고.
           dog: sanitizeDog(persisted.dog),
           needsIndoor: typeof persisted.needsIndoor === 'boolean' ? persisted.needsIndoor : false,

@@ -75,7 +75,10 @@
 ## 6. 태스크
 
 **T1 — 1단계: 묶기·순서 (순수 함수 먼저)**
-- [ ] T1.1 `tripPlan.ts` — `dayOf` · `order` 상태 모양, `savedIds` 와의 동기(해제 시 제거), 마이그레이션(`version` 올림). 테스트.
+- [x] T1.1 `tripPlan.ts` — `dayOf` · `order` 상태 모양, `savedIds` 와의 동기(해제 시 제거), 마이그레이션(`version` 올림). 테스트.
+  > 메모(2026-10-08): 들어갔다 — 스토어 칸은 `tripDays`(id → 1~4, 없음 = 미정 · §7 🙋1 권고대로) · `tripOrder`(손댄 날만), 액션 `setTripDay` · `setTripDayOrder` · `resetTripDayOrder`. 하트 해제·`clearSaved` 가 같이 지운다.
+  > **version 은 올리지 않았다** — 이 스토어는 version 이 아니라 `merge` 가 칸마다 모양을 검사한다(12 U0.1). 칸이 없던 옛 값은 빈 값으로 읽혀 전부 미정. 하루 보기 재료는 `tripDayMembers`(저장 순서) · `manualDayOrder`(없으면 `null` → `suggestOrder`).
+  > 남은 것: 저장 화면에서 하트를 껐다 같은 방문에 다시 켜면 `restoreSaved` 가 메모는 돌리지만 날짜 라벨은 못 돌린다 — T1.4 에서 라벨을 화면에 붙일 때 함께
 - [x] T1.2 `tripRoute.ts` — `suggestOrder(places, start, { stayLast: true })`: 가까운 순 그리디 + 숙소 마지막. 시작점 셋(현재 위치·전날 숙소·공항). 테스트(제주 좌표 샘플로 결정적).
   > 메모(2026-10-07): `start` 는 좌표(`TGeo | null`)로 받고, 셋 → 좌표는 `routeStartGeo(TRouteStart)` 가 푼다(공항 = `JEJU_AIRPORT`, `landmarks.ts` 와 같은 값). 좌표 없는 곳은 그 묶음 뒤 원래 순서, 숙소가 둘이면 앞 체인 끝에서 이어 그리디. 전날 숙소에 좌표가 없으면 `null` → 첫 좌표 있는 곳부터. 🙋 2(시작점 기본값)는 화면(T1.4) 몫이라 함수는 셋을 다 받는다.
 - [x] T1.3 `naverRouteLink.ts` — `routeUrl(stops, { appname })` · `navigationUrl(place)` · 5곳 분할 `splitStops`. 좌표 없는 곳은 빼고 "지도에 없는 N곳" 을 함께 돌려준다. 테스트(인코딩·분할·빈 입력).

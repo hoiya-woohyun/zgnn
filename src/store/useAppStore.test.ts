@@ -171,6 +171,45 @@ describe('저장 메모(savedNotes)', () => {
   });
 });
 
+describe('날짜 라벨·하루 순서(tripDays·tripOrder, 16 T1.1)', () => {
+  beforeEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('칸이 없던 옛 저장값은 전부 미정으로 읽는다', async () => {
+    const map = installLocalStorage();
+    map.set(STORAGE_NAME, JSON.stringify({ state: { savedIds: ['a'] }, version: 0 }));
+    const { useAppStore } = await rehydrateFresh();
+    expect(useAppStore.getState().tripDays).toEqual({});
+    expect(useAppStore.getState().tripOrder).toEqual({});
+  });
+
+  it('저장 안 한 곳·범위 밖 날은 읽을 때 버리고, 순서는 라벨을 따른다 · 하트를 지우면 라벨·순서에서도 빠진다', async () => {
+    const map = installLocalStorage();
+    map.set(
+      STORAGE_NAME,
+      JSON.stringify({
+        state: { savedIds: ['a', 'b', 'gone'], tripDays: { a: 1, b: 1, c: 2, gone: 9 }, tripOrder: { 1: ['b', 'a', 'c'], 2: ['c'] } },
+        version: 0,
+      }),
+    );
+    const { useAppStore } = await rehydrateFresh();
+    expect(useAppStore.getState().tripDays).toEqual({ a: 1, b: 1 });
+    expect(useAppStore.getState().tripOrder).toEqual({ 1: ['b', 'a'] });
+
+    useAppStore.getState().setTripDay('c', 2);
+    expect(useAppStore.getState().tripDays.c).toBeUndefined();
+
+    useAppStore.getState().toggleSaved('b');
+    expect(useAppStore.getState().tripDays).toEqual({ a: 1 });
+    expect(useAppStore.getState().tripOrder).toEqual({ 1: ['a'] });
+
+    useAppStore.getState().clearSaved();
+    expect(useAppStore.getState().tripDays).toEqual({});
+    expect(useAppStore.getState().tripOrder).toEqual({});
+  });
+});
+
 describe('공유받은 목록 담기(addSaved, 07 P1)', () => {
   beforeEach(() => {
     vi.unstubAllGlobals();
