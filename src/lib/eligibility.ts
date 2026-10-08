@@ -433,17 +433,29 @@ const HEADLINE: Record<TEligibilityLevel, string> = {
 };
 
 /**
- * 머리글은 **근거가 하나뿐일 때 근거를 따른다.** cond 근거가 C1(야외 자리만) 하나뿐이면 확인할
- * 것이 없다 — 야외 자리에서는 갈 수 있다. 그런데 머리글이 "확인이 필요해요" 라고 하면 바로 아래
+ * "야외 자리만 된다" 를 말하는 cond 규칙 — C1(야외 자리만 있는 곳) · C4(실내는 케이지, 야외는 자유) ·
+ * H4 의 cond 갈래(대형견, 야외는 자유). 이 강아지에게는 셋이 같은 답이다(14 W261007.2 — 무거버거 vs 부부키친).
+ */
+const OUTDOOR_SEAT_RULES = new Set(['C1', 'C4', 'H4']);
+
+/**
+ * 확인할 것은 없고 야외 자리에서는 갈 수 있다 — cond 근거가 전부 야외 자리 규칙일 때.
+ * "하나뿐" 이 아니라 "전부" 인 것은 대형견·이동 수단 없음이면 H4 와 C4 가 같은 말을 둘이 하기 때문이다.
+ * 머리글(`headlineFor`)과 목록의 야외 차선(`outdoorFallback`)이 이 하나로 가른다 — 둘이 다른 기준이면
+ * 시트는 "야외 자리로는 돼요" 인데 그 안의 카드는 "확인이 필요해요" 라고 한다.
+ */
+export const isOutdoorSeatOnly = (e: TEligibility): boolean => {
+  if (e.level !== 'cond') return false;
+  return e.reasons.every((r) => r.level !== 'cond' || (r.rule !== undefined && OUTDOOR_SEAT_RULES.has(r.rule)));
+};
+
+/**
+ * 머리글은 **근거가 같은 말을 할 때 근거를 따른다.** cond 근거가 전부 야외 자리 규칙이면(`isOutdoorSeatOnly`)
+ * 확인할 것이 없다 — 야외 자리에서는 갈 수 있다. 그런데 머리글이 "확인이 필요해요" 라고 하면 바로 아래
  * "야외 자리만 가능해요" 와 싸운다(지수). 요금(info)은 판정 근거가 아니라 세지 않는다.
  */
-export const headlineFor = (e: TEligibility): string => {
-  if (e.level === 'cond') {
-    const condReasons = e.reasons.filter((r) => r.level === 'cond');
-    if (condReasons.length === 1 && condReasons[0].rule === 'C1') return '야외 자리에서 갈 수 있어요';
-  }
-  return HEADLINE[e.level];
-};
+export const headlineFor = (e: TEligibility): string =>
+  isOutdoorSeatOnly(e) ? '야외 자리에서 갈 수 있어요' : HEADLINE[e.level];
 
 /** unknown 머리글. 강아지가 아니라 장소가 주어다 — 판정한 것이 없는데 "보리는 …" 으로 시작하면 판정한 것처럼 읽힌다. */
 export const NO_INFO_VERDICT = '이곳은 반려견 동반 조건이 공개돼 있지 않아요';

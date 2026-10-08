@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { headlineFor, judgeEligibility } from './eligibility';
 import { carrierWhatIf, countByLevel, outdoorFallback } from './eligibilityCounts';
 import { parsePetPolicy } from './petPolicy';
 import { placesOfType } from './places';
@@ -55,11 +56,15 @@ describe('carrierWhatIf — 이동가방이 있으면 몇 곳이 열리나', () 
 describe('outdoorFallback — 갈 수 있는 곳이 없을 때 야외 자리로 되는 곳 (14 W261006.5)', () => {
   const BORI: TDogProfile = { dogs: [{ name: '보리', weightKg: 30 }], carrier: 'none' };
 
-  it('식당 × 30kg — 가능 0곳, 야외 자리로는 3곳', () => {
+  it('식당 × 30kg — 가능 0곳, 야외 자리로는 무거버거 1곳(크기·전화 확인이 남은 부부키친·정체불명은 빠진다)', () => {
     const restaurants = placesOfType('restaurant');
     expect(countByLevel(restaurants, BORI).ok).toBe(0);
     const outdoor = outdoorFallback(restaurants, BORI);
-    expect(outdoor).toHaveLength(3);
+    // 시트 안의 카드가 전부 "야외 자리에서 갈 수 있어요" 여야 한다 — "돼요" 라고 한 줄 밑에서 "확인이 필요해요" 가 나오지 않게.
+    expect(outdoor?.map((place) => place.name)).toEqual(['무거버거']);
+    expect(outdoor?.every((place) => headlineFor(judgeEligibility(BORI, place.policy)) === '야외 자리에서 갈 수 있어요')).toBe(
+      true,
+    );
     // 그 곳들만 시트로 펼치므로 곳 자체를, 목록 순서대로 돌려준다(14 W261006.5a).
     expect(outdoor?.every((place) => place.policy.outdoorFree)).toBe(true);
     expect(outdoor?.map((place) => place.id)).toEqual(

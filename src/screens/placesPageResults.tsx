@@ -113,7 +113,7 @@ export function PlacesPageResults({
     [results, dog, needsIndoor],
   );
 
-  // 갈 수 있는 곳이 0곳일 때 야외 자리로는 되는 곳들(30kg 식당 → 3곳). 판정은 그대로, 안내만.
+  // 갈 수 있는 곳이 0곳일 때 야외 자리로는 되는 곳들(30kg 식당 → 무거버거 1곳 — 카드가 "야외 자리에서 갈 수 있어요" 인 곳만). 판정은 그대로, 안내만.
   // 누르면 그 곳들만 시트로 펼친다(14 W261006.5a) — 목록에선 확인 필요·정보 없음 사이에 흩어져 있다.
   const outdoor = useMemo(
     () => (dog ? outdoorFallback(results, dog, { needsIndoor }) : null),

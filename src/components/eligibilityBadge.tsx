@@ -31,7 +31,7 @@ export const ELIGIBILITY_META: Record<TEligibilityLevel, { label: string; color:
 
 type TEligibilityBadgeProps = {
   /**
-   * 판정 전체를 받는다 — 라벨이 레벨 하나로 정해지지 않는다. cond 근거가 C1(야외 자리만) 하나뿐이면 상세 머리글이
+   * 판정 전체를 받는다 — 라벨이 레벨 하나로 정해지지 않는다. cond 근거가 전부 야외 자리 규칙(C1·C4·H4)이면 상세 머리글이
    * "야외 자리에서 갈 수 있어요" 인데 카드가 "확인이 필요해요" 라고 하면 같은 가게를 두 말로 한다(블리스풀, 14 W261006.4).
    * 그래서 라벨은 상세와 같은 `headlineFor` 에서 온다. 색은 레벨 그대로(앰버) — 야외만이라는 조건은 남아 있다.
    */

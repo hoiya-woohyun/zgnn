@@ -346,7 +346,7 @@ describe('judgeEligibility — H1 근거에 한도를 넘는 강아지 이름을
   });
 });
 
-describe('headlineFor — 머리글은 근거가 하나뿐일 때 근거를 따른다', () => {
+describe('headlineFor — 머리글은 근거가 같은 말을 할 때 근거를 따른다', () => {
   it('C1 단독이면 "야외 자리에서 갈 수 있어요" — 요금 info 는 세지 않는다', () => {
     const result = judgeEligibility(TOFU, parsePetPolicy('야외좌석만 가능.\n1마리당 1만원.'));
     expect(result.level).toBe('cond');
@@ -360,6 +360,47 @@ describe('headlineFor — 머리글은 근거가 하나뿐일 때 근거를 따�
     const result = judgeEligibility(big, parsePetPolicy('야외좌석만 가능.'));
     expect(result.reasons.filter((r) => r.level === 'cond').map((r) => r.rule)).toEqual(['C1', 'C5']);
     expect(headlineFor(result)).toBe('확인이 필요해요');
+  });
+
+  // 14 W261007.2 — 무거버거("실내 케이지 필수. 실외 자유", C4)와 부부키친("바깥 하우스 자리만", C1)은
+  // 이동 수단 없는 아이에게 같은 답인데 하나는 "확인이 필요해요" 였다.
+  it('C4 단독(이동 수단 없음 · 실내 케이지 · 야외 자유)도 "야외 자리에서 갈 수 있어요"', () => {
+    const small: TDogProfile = { dogs: [{ name: '두부', weightKg: 4 }], carrier: 'none' };
+    const result = judgeEligibility(small, findPlace('무거버거').policy);
+    expect(result.reasons.filter((r) => r.level === 'cond').map((r) => r.rule)).toEqual(['C4']);
+    expect(headlineFor(result)).toBe('야외 자리에서 갈 수 있어요');
+  });
+
+  it('대형견 · 이동 수단 없음이면 H4·C4 가 같은 말을 둘이 한다 — 전부 야외 자리 규칙이라 같은 머리글', () => {
+    const big: TDogProfile = { dogs: [{ name: '보리', weightKg: 28 }], carrier: 'none' };
+    const result = judgeEligibility(big, findPlace('무거버거').policy);
+    expect(result.reasons.filter((r) => r.level === 'cond').map((r) => r.rule)).toEqual(['H4', 'C4']);
+    expect(headlineFor(result)).toBe('야외 자리에서 갈 수 있어요');
+  });
+
+  it('이동가방이면 C2(가방도 되는지 확인)가 남아 "확인이 필요해요"', () => {
+    const bag: TDogProfile = { dogs: [{ name: '두부', weightKg: 4 }], carrier: 'bag' };
+    const result = judgeEligibility(bag, parsePetPolicy('실내 케이지 필수. 실외 자유.'));
+    expect(result.reasons.some((r) => r.rule === 'C2')).toBe(true);
+    expect(headlineFor(result)).toBe('확인이 필요해요');
+  });
+
+  it('C4 + C6(전화 확인)이면 "확인이 필요해요"', () => {
+    const result = headlineFor({
+      level: 'cond',
+      reasons: [
+        { level: 'cond', text: '실내는 케이지, 야외는 자유예요', rule: 'C4' },
+        { level: 'cond', text: '방문 전 전화 확인이 필요해요', rule: 'C6' },
+      ],
+    });
+    expect(result).toBe('확인이 필요해요');
+  });
+
+  it('실내 자리가 꼭 필요하면 C4 가 어려움이라 "이용하기 어려워요"', () => {
+    const small: TDogProfile = { dogs: [{ name: '두부', weightKg: 4 }], carrier: 'none' };
+    const result = judgeEligibility(small, findPlace('무거버거').policy, { needsIndoor: true });
+    expect(result.level).toBe('hard');
+    expect(headlineFor(result)).toBe('이용하기 어려워요');
   });
 
   it('C6 단독이면 "확인이 필요해요"(목록 배지와 같은 말)', () => {

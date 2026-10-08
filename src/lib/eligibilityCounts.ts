@@ -1,5 +1,5 @@
 import type { TCarrier, TDogProfile } from '../types';
-import { judgeEligibility, type TEligibilityLevel } from './eligibility';
+import { isOutdoorSeatOnly, judgeEligibility, type TEligibilityLevel } from './eligibility';
 import type { TPetPolicy } from './petPolicy';
 
 /**
@@ -52,7 +52,9 @@ export const carrierWhatIf = (
  *
  * - 갈 수 있는 곳이 하나라도 있으면 null — 차선을 말할 때가 아니다.
  * - 이번 여행에 실내 자리가 꼭 필요하면(`needsIndoor`) null — 야외는 차선이 될 수 없다.
- * - 고르는 것은 `outdoorFree` 이면서 어려움이 아닌 곳. 하나도 없으면 null.
+ * - 고르는 것은 카드가 "야외 자리에서 갈 수 있어요" 라고 하는 곳(`isOutdoorSeatOnly`). 하나도 없으면 null.
+ *   전에는 `outdoorFree` 이면서 어려움이 아닌 곳이라, 크기 확인(C5)·전화 확인(C6)이 남은 곳까지 "돼요" 에
+ *   들어가 시트 안의 카드가 "확인이 필요해요" 라고 했다(14 W261007.2 — 30kg 식당 3곳 → 1곳).
  *
  * 수가 아니라 그 곳들을 돌려준다 — 머리의 한 줄을 누르면 그 곳들만 시트로 펼친다(14 W261006.5a).
  * 3곳을 찾으러 28곳을 훑게 하지 않는다. 받은 순서(목록의 정렬)를 그대로 둔다.
@@ -65,9 +67,9 @@ export const outdoorFallback = <T extends { policy: TPetPolicy }>(
   if (opts.needsIndoor) return null;
   const outdoor: T[] = [];
   for (const place of places) {
-    const level = judgeEligibility(dog, place.policy, opts).level;
-    if (level === 'ok') return null;
-    if (place.policy.outdoorFree && level !== 'hard') outdoor.push(place);
+    const eligibility = judgeEligibility(dog, place.policy, opts);
+    if (eligibility.level === 'ok') return null;
+    if (isOutdoorSeatOnly(eligibility)) outdoor.push(place);
   }
   return outdoor.length > 0 ? outdoor : null;
 };
