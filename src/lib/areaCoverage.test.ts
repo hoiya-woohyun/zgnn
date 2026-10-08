@@ -11,13 +11,14 @@ describe('coverageGates — 19 §4 데이터 문턱', () => {
     expect(reachOf({ ok: 2, outdoor: 1, cond: 5, unknown: 1, hard: 1 })).toBe(3);
   });
 
-  // 게시 84곳 기준선. 토론의 "소형 6 · 다견 4" 는 야외를 뺀 셈(okOnly)이다 — 데이터가 바뀌면 여기가 먼저 깨진다.
-  it('지금 데이터 — 소형 7(야외 빼면 6) · 다견 5(4) · 대형견 숙소 권역 0 · 대형견 빈칸 4', () => {
+  // 기준선 — 게시 122곳(2026-10-08, 19 T2.1). 84곳 때는 소형 7(6) · 다견 5(4) · 빈칸 4 였다. 토론의 "소형 6 · 다견 4" 는 야외를 뺀 셈(okOnly)이다.
+  // 데이터가 바뀌면 여기가 먼저 깨진다 — `pnpm data coverage` 출력과 19 §4 실측 칸을 같이 고친다.
+  it('지금 데이터 — 소형 10(야외 빼면 9) · 다견 8(7) · 대형견 숙소 권역 0 · 대형견 빈칸 3', () => {
     expect(coverageGates(byDogOf())).toEqual({
-      small: { cells: 7, okOnly: 6 },
-      multi: { cells: 5, okOnly: 4 },
+      small: { cells: 10, okOnly: 9 },
+      multi: { cells: 8, okOnly: 7 },
       bigStayAreas: 0,
-      bigEmptyCells: 4,
+      bigEmptyCells: 3,
     });
   });
 

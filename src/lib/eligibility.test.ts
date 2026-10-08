@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { carrierSummary, compareEligibility, dogSize, headlineFor, judgeEligibility, primaryReason, verdictFor } from './eligibility';
 import { NO_INFO_BADGE_LABEL, parsePetPolicy, toPetBadges, withPolicyFacts, withVerifiedAt } from './petPolicy';
 import { PLACES } from './places';
+import golden from '../../data/golden/seed-extract.json';
 import type { TDogProfile, TPetPolicyFacts } from '../types';
 
 // 리뷰 §1 의 세 프로필. 실제 실사 표(사람 판단)와 비교하는 집계 테스트에도 그대로 쓴다.
@@ -187,16 +188,25 @@ describe('compareEligibility', () => {
   });
 });
 
+/**
+ * 시드 장소 — 사람이 같은 글을 읽고 정답을 적은 86곳(`data/golden/seed-extract.json`) 중 지금 게시된 곳. 정규식 파서와 사람 판단 표는
+ * 이 집합에서 나왔다. 블로그로 들어온 곳(AI 판단 경로, 2026-10-08 38곳)은 원문에 실내 언급이 없는 일이 흔해 같은 기대를 걸 수 없다.
+ * `petPolicy` 유무로 고르지 않는 것은 운영자 편집이 시드 행에도 그 칸을 쓸 수 있어서다 — 집합이 조용히 줄면 아래 84 가 잡는다.
+ */
+const SEED_IDS = new Set(golden.entries.map((entry) => entry.placeId));
+const SEED_PLACES = PLACES.filter((place) => SEED_IDS.has(place.id));
+
 describe('집계 — 보리+콩(28kg+17kg·이동 수단 없음) 실사 비교', () => {
   // 리뷰 문서(§1)의 사람 판단: 가능 9 / 조건부 30 / 어려움 42 / 정보 없음 5.
   // ±5 안이면 규칙표를 그대로 쓴다 — 벗어나면 억지로 맞추지 않고 보고서에 규칙별 표를 남긴다.
-  it('pull 한 장소 전체 판정이 사람 판단 ±5 안에 들어온다', () => {
+  // 사람 판단은 시드 86곳을 본 것이라 시드끼리만 견준다 — 블로그 곳이 들어온 뒤(2026-10-08 122곳) 전체로 세면 어려움이 56 이 되어 표와 무관하게 깨졌다.
+  it('시드 장소 판정이 사람 판단 ±5 안에 들어온다', () => {
     const counts = { ok: 0, cond: 0, unknown: 0, hard: 0 };
-    for (const place of PLACES) {
+    for (const place of SEED_PLACES) {
       counts[judgeEligibility(BORI_AND_KONG, place.policy).level]++;
     }
-    // 승인하면 늘고(ADR-018) 내리면(archived) 준다 — 2026-10-06 개떼목장·롯지먼트를 내려 84. 더 줄면 사람 판단 표와 함께 본다.
-    expect(PLACES.length).toBeGreaterThanOrEqual(84);
+    // 내리면(archived) 준다 — 2026-10-06 개떼목장·롯지먼트를 내려 84. 더 줄면 사람 판단 표와 함께 본다.
+    expect(SEED_PLACES).toHaveLength(84);
     expect(counts.ok).toBeGreaterThanOrEqual(9 - 5);
     expect(counts.ok).toBeLessThanOrEqual(9 + 5);
     expect(counts.cond).toBeGreaterThanOrEqual(30 - 5);

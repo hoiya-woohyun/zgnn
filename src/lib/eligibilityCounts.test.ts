@@ -13,8 +13,9 @@ const DAEJANG_AND_CHOCO: TDogProfile = {
 
 describe('countByLevel', () => {
   // 리뷰 §2 표는 확인 3 · 정보 없음 5 였다 — 맘앤도그("정보 없음 … 대형견도 동반 가능!!")가 정보 없음 → 확인으로 옮겼다(14 W261006.3).
-  it('숙소 × 대형 2마리 — 가능 4 · 확인 4 · 정보 없음 4 · 어려움 14', () => {
-    expect(countByLevel(placesOfType('stay'), DAEJANG_AND_CHOCO)).toEqual({ ok: 4, outdoor: 0, cond: 4, unknown: 4, hard: 14 });
+  // 2026-10-08 숙소 26 → 31곳(블로그 5곳)으로 확인 4 → 6 · 어려움 14 → 17(19 T2.1).
+  it('숙소 × 대형 2마리 — 가능 4 · 확인 6 · 정보 없음 4 · 어려움 17', () => {
+    expect(countByLevel(placesOfType('stay'), DAEJANG_AND_CHOCO)).toEqual({ ok: 4, outdoor: 0, cond: 6, unknown: 4, hard: 17 });
   });
 
   it('레벨 합은 곳 수와 같다', () => {
@@ -108,12 +109,12 @@ describe('carrierWhatIf — 이동가방이 있으면 몇 곳이 열리나', () 
 describe('outdoorFallback — 갈 수 있는 곳이 없을 때 야외 자리로 되는 곳 (14 W261006.5)', () => {
   const BORI: TDogProfile = { dogs: [{ name: '보리', weightKg: 30 }], carrier: 'none' };
 
-  it('식당 × 30kg — 가능 0곳, 야외 자리로는 무거버거 1곳(크기·전화 확인이 남은 부부키친·정체불명은 빠진다)', () => {
+  it('식당 × 30kg — 가능 0곳, 야외 자리로는 무거버거·온평바다한그릇 2곳(크기·전화 확인이 남은 부부키친·정체불명은 빠진다)', () => {
     const restaurants = placesOfType('restaurant');
     expect(countByLevel(restaurants, BORI).ok).toBe(0);
     const outdoor = outdoorFallback(restaurants, BORI);
     // 시트 안의 카드가 전부 "야외 자리에서 갈 수 있어요" 여야 한다 — "돼요" 라고 한 줄 밑에서 "확인이 필요해요" 가 나오지 않게.
-    expect(outdoor?.map((place) => place.name)).toEqual(['무거버거']);
+    expect(outdoor?.map((place) => place.name)).toEqual(['무거버거', '온평바다한그릇 성산본점']);
     expect(outdoor?.every((place) => headlineFor(judgeEligibility(BORI, place.policy)) === '야외 자리에서 갈 수 있어요')).toBe(
       true,
     );

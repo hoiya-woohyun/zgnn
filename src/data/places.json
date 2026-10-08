@@ -2114,5 +2114,1398 @@
   "category": "카페,디저트",
   "verifiedAt": "2026-09-20",
   "images": []
+ },
+ {
+  "id": "04984b4a-a2b9-4e5e-87bd-ea5a58b02f16",
+  "type": "stay",
+  "name": "제주 부티아 독채 펜션",
+  "region": {
+   "direction": "east",
+   "town": "구좌읍",
+   "raw": "동쪽 (구좌읍)"
+  },
+  "features": "구좌읍 종달리에 있는 방 3개·화장실 3개 구조의 독채 펜션이에요. 개별 바비큐장과 일부 객실 야외 수영장·자쿠지가 있고, 숙소 근처 해변 산책로에서 강아지와 산책할 수 있어요.",
+  "petPolicyText": "강아지 동반이 가능해요.\n고양이 동반도 환영합니다.\n반려동물 추가 요금은 별도로 발생해요. (자세한 요금은 예약 시 확인이 필요해요.)",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": null,
+   "indoor": "unknown",
+   "feeFree": false,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": true,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/haezik/224424900049",
+  "geo": {
+   "lat": 33.4905659,
+   "lng": 126.9077182
+  },
+  "address": "제주 제주시 구좌읍 종달동길 84 부티아 독채 펜션",
+  "category": "민박",
+  "homepage": {
+   "url": "https://butiaps.co.kr/index.html",
+   "name": "제주 부티아 독채 펜션 - 홈",
+   "image": "https://bookingplay-media.s3.amazonaws.com/item_images/2025/01/02/7FrtIeCdo2mE.jpg"
+  },
+  "images": [],
+  "stay": {
+   "price": {
+    "text": ""
+   },
+   "amenitiesText": "",
+   "environment": {
+    "yard": null,
+    "stairs": null,
+    "fencedYard": null,
+    "standalone": true
+   }
+  }
+ },
+ {
+  "id": "0f4e7643-a9aa-4b0f-8725-548ba4e0c138",
+  "type": "restaurant",
+  "name": "소금바치순이네",
+  "region": {
+   "direction": "east",
+   "town": "구좌읍",
+   "raw": "동쪽 (구좌읍)"
+  },
+  "features": "돌문어볶음이 메인이고 해물뚝배기·구이·소면도 있는 해안도로 앞 식당이에요. 야외 테이블에서 강아지와 함께 식사할 수 있고 예약 없이 웨이팅만 가능해요.",
+  "petPolicyText": "야외 테이블은 강아지 동반도 가능해요.\n야외 자리 강아지 동반 제약은 거의 없어요.\n실내는 만석이라 웨이팅이 있어요.",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": null,
+   "indoor": "outdoorOnly",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/yovelyyomi/224424913318",
+  "geo": {
+   "lat": 33.5036573,
+   "lng": 126.912638
+  },
+  "address": "제주 제주시 구좌읍 해맞이해안로 2196",
+  "category": "해물,생선요리",
+  "images": []
+ },
+ {
+  "id": "15054579-6cb5-4bdf-be99-ed3067d7a338",
+  "type": "stay",
+  "name": "판포현스테이",
+  "region": {
+   "direction": "west",
+   "town": "한경면",
+   "raw": "서쪽 (한경면)"
+  },
+  "features": "판포포구까지 걸어서 약 10분 거리에 있는 2024년 신축 독채 숙소로, A동은 방 1개와 주방 겸 거실의 1.5룸 구성이에요. 잔디 개인 마당과 데크, 야외 자쿠지가 있고 안전 펜스도 설치되어 있어요.",
+  "petPolicyText": "10kg 미만 반려견과 머물 수 있는 제주 애견 동반 숙소예요.\n한 객실당 최대 2마리까지 동반 가능해요.\n반려견 추가 요금은 1마리당 20,000원이에요.\n반려견과 같이 머문다면 몸무게와 마리 수를 미리 전달하고 동반 가능 여부와 이용 조건을 한 번 더 확인해 주세요.",
+  "petPolicy": {
+   "fees": [
+    {
+     "basis": "perDog",
+     "label": "1마리당 2만원",
+     "maxKg": null,
+     "minKg": null,
+     "fromDog": null,
+     "perNight": false,
+     "amountWon": 20000
+    }
+   ],
+   "leash": false,
+   "notes": null,
+   "indoor": "unknown",
+   "feeFree": false,
+   "maxDogs": 2,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": 10,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/marshmallow_travel/224423588312",
+  "geo": {
+   "lat": 33.3612118,
+   "lng": 126.2027497
+  },
+  "address": "제주 제주시 한경면 판포중길 13-4",
+  "category": "펜션",
+  "images": [],
+  "stay": {
+   "price": {
+    "text": ""
+   },
+   "amenitiesText": "반려견 계단, 반려견용 식기, 방석",
+   "environment": {
+    "yard": true,
+    "stairs": null,
+    "fencedYard": null,
+    "standalone": true
+   }
+  }
+ },
+ {
+  "id": "1716dc79-ce8f-46d0-8330-7d8d84df92e5",
+  "type": "cafe",
+  "name": "언더라운지 제주함덕점",
+  "region": {
+   "direction": "east",
+   "town": "조천읍",
+   "raw": "동쪽 (조천읍)"
+  },
+  "features": "함덕해수욕장이 보이는 건물 5~6층 루프탑 카페로, 커피와 케이크, 수제청 에이드를 팔고 해가 지면 맥주와 칵테일을 내는 라운지바로 바뀌어요. 통창으로 바다가 보이는 실내에서 반려견과 함께 있을 수 있어요.",
+  "petPolicyText": "애견동반이 가능한 곳이에요.\n반려견과 함께 입장할 경우 예방접종 확인 후 이용 가능하다는 점은 참고해야 해요.\n반려동물 루프탑 이용 불가",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": "루프탑은 반려동물 이용 불가",
+   "indoor": "unknown",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": true
+  },
+  "reviewUrl": "https://blog.naver.com/kbs13982/224428648047",
+  "geo": {
+   "lat": 33.5424129,
+   "lng": 126.6712369
+  },
+  "address": "제주 제주시 조천읍 함덕로 40 5층, 6층",
+  "category": "카페,디저트",
+  "images": []
+ },
+ {
+  "id": "19325760-7ec7-4720-9193-eb27eadd51f3",
+  "type": "restaurant",
+  "name": "중문보말칼국수",
+  "region": {
+   "direction": "south",
+   "town": "서귀포시",
+   "raw": "남쪽 (서귀포시)"
+  },
+  "features": "보말칼국수·몸국·흑돼지 수육 같은 제주 국물 요리를 파는 식당이에요. 매장 앞에 넓은 주차장이 있고 주문은 키오스크로 해요.",
+  "petPolicyText": "애견동반도 케이지나 유모차가 있으면 가능하다고 해요",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": null,
+   "indoor": "cage",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/poem486/224427631892",
+  "geo": {
+   "lat": 33.2592012,
+   "lng": 126.4273544
+  },
+  "address": "제주 서귀포시 중문로 90 1층",
+  "category": "한식",
+  "images": []
+ },
+ {
+  "id": "2194b705-4445-4c84-89cc-f6d8c2977653",
+  "type": "cafe",
+  "name": "라망드제주 애월점",
+  "region": {
+   "direction": "west",
+   "town": "애월읍",
+   "raw": "서쪽 (애월읍)"
+  },
+  "features": "통창 오션뷰와 유럽풍 야외 정원을 갖춘 베이커리 카페로 리본크루아상과 애월바다라떼 같은 빵·음료를 팔아요. 강아지 전용 물그릇이 있고 카페 앞에 넓은 잔디 정원이 있어 바람 쐬러 나갈 수 있어요.",
+  "petPolicyText": "실내와 야외 정원 모두 반려동물 동반 출입이 가능한 곳이에요.\n착석 위치나 동반 방식은 매장 상황에 따라 다를 수 있으니 방문 전 한 번 더 여쭤보는 센스! 필수",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": null,
+   "indoor": "free",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/w_www03/224428664918",
+  "geo": {
+   "lat": 33.4533411,
+   "lng": 126.4252209
+  },
+  "address": "제주 제주시 애월읍 하광로 416 1,2층",
+  "category": "베이커리",
+  "images": []
+ },
+ {
+  "id": "318eba20-79ff-44a9-9a34-a53c28968051",
+  "type": "stay",
+  "name": "협재현스테이",
+  "region": {
+   "direction": "west",
+   "town": "한림읍",
+   "raw": "서쪽 (한림읍)"
+  },
+  "features": "협재해수욕장 도보 5분 거리에 있는 독채 구성 애견동반 숙소예요. 1층 객실 앞에 울타리와 개인 데크가 있고 작은 마당도 있어요.",
+  "petPolicyText": "애견동반 추가 요금 2만원\n최대 2마리\n1마리당 최대 무게 15kg",
+  "petPolicy": {
+   "fees": [
+    {
+     "basis": "flat",
+     "label": "동반 2만원",
+     "maxKg": null,
+     "minKg": null,
+     "fromDog": null,
+     "perNight": false,
+     "amountWon": 20000
+    }
+   ],
+   "leash": false,
+   "notes": null,
+   "indoor": "unknown",
+   "feeFree": false,
+   "maxDogs": 2,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": 15,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/eunjicindy/224424292075",
+  "geo": {
+   "lat": 33.3991812,
+   "lng": 126.2452613
+  },
+  "address": "제주 제주시 한림읍 협재1길 55-3 협재현스테이",
+  "category": "펜션",
+  "images": [],
+  "stay": {
+   "price": {
+    "text": "주말 기준 1박 15만원 정도",
+    "min": 150000,
+    "max": 150000
+   },
+   "amenitiesText": "강아지 하우스, 강아지 계단, 밥그릇",
+   "environment": {
+    "yard": true,
+    "stairs": null,
+    "fencedYard": null,
+    "standalone": true
+   }
+  }
+ },
+ {
+  "id": "3b9549a5-22dd-4832-9b95-7f9ffa45155c",
+  "type": "cafe",
+  "name": "무히어",
+  "region": {
+   "direction": "south",
+   "town": "남원읍",
+   "raw": "남쪽 (남원읍)"
+  },
+  "features": "바다가 보이는 창과 정성 들인 인테리어가 있는 조용한 분위기의 카페로, 커피·에이드·생과일주스와 바스크치즈케이크, 티라미수를 팔아요. 반려동물은 실외 동반이 가능해요.",
+  "petPolicyText": "반려동물 동반 ( 실외 )\n이번에만 강아지 예방접종 확인 가능하면 들어오라 하셔서 보여드리고 들어왔어요",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": null,
+   "indoor": "outdoorOnly",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": true
+  },
+  "reviewUrl": "https://blog.naver.com/ghtkns123/224425788962",
+  "geo": {
+   "lat": 33.2634268,
+   "lng": 126.6408164
+  },
+  "address": "제주 서귀포시 남원읍 공천포로 51",
+  "category": "카페",
+  "images": []
+ },
+ {
+  "id": "3df5b54a-9ad0-4c86-bdab-fdf7f03e4a96",
+  "type": "restaurant",
+  "name": "부가네얼큰이 신시가지점",
+  "region": {
+   "direction": "north",
+   "town": "제주시",
+   "raw": "북쪽 (제주시)"
+  },
+  "features": "매운 닭날개와 닭목살 소금구이, 계란찜 등을 파는 술집이에요. 테이블 5개 규모의 깔끔한 내부에 화장실과 셀프 바(bar)가 있어요.",
+  "petPolicyText": "반려동물동반가능\n애견동반은 케이지가 있어야하며\n방문전 전화드리고 방문하셔요",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": null,
+   "indoor": "cage",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": true,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/ysj-1017/224429141808",
+  "geo": {
+   "lat": 33.4765082,
+   "lng": 126.4876686
+  },
+  "address": "제주 제주시 과원로 39 1층",
+  "category": "불닭",
+  "images": []
+ },
+ {
+  "id": "3f87c848-c268-47b6-b6a7-5e726dc5ca30",
+  "type": "cafe",
+  "name": "그러므로part2",
+  "region": {
+   "direction": "north",
+   "town": "제주시",
+   "raw": "북쪽 (제주시)"
+  },
+  "features": "제주공항 근처에 있는 디저트 카페로 직접 로스팅한 커피와 타르트·에클레어 같은 디저트를 팔아요. 돌담과 큰 나무로 둘러싸인 넓은 잔디 정원이 있어 야외 좌석에서 강아지와 함께 있을 수 있어요.",
+  "petPolicyText": "애견동반 가능 (야외좌석만 가능)",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": null,
+   "indoor": "outdoorOnly",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/parcom0228/224424058029",
+  "geo": {
+   "lat": 33.4684408,
+   "lng": 126.4858668
+  },
+  "address": "제주 제주시 수목원길 16-14",
+  "category": "카페,디저트",
+  "images": []
+ },
+ {
+  "id": "445583a6-8acf-4806-bab8-5412967d119b",
+  "type": "restaurant",
+  "name": "마씸 성산점",
+  "region": {
+   "direction": "east",
+   "town": "성산읍",
+   "raw": "동쪽 (성산읍)"
+  },
+  "features": "정성 가득한 반찬 한상의 백반 정식과 술안주 메뉴를 파는 식당이에요. 외부 좌석이 있어 반려견과 함께 식사할 수 있고 자체 주차장도 있어요.",
+  "petPolicyText": "애견동반가능\n이렇게 외부 좌석도 있어서 애견동반도 가능한 곳이라 날씨가 좋은 요즘 같은 경우 가을 바람을 맞으며 먹을 수 있는 성산밥집 입니다.",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": null,
+   "indoor": "outdoorOnly",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/oliviakim1013/224429042952",
+  "geo": {
+   "lat": 33.4461341,
+   "lng": 126.8866129
+  },
+  "address": "제주 서귀포시 성산읍 수시로10번길 3 1층",
+  "category": "한식",
+  "images": []
+ },
+ {
+  "id": "4b0bfed1-d348-4b2c-86df-512eca1d525e",
+  "type": "cafe",
+  "name": "고바치",
+  "region": {
+   "direction": "west",
+   "town": "대정읍",
+   "raw": "서쪽 (대정읍)"
+  },
+  "features": "브런치와 음료를 파는 화이트톤 감성 카페로 1층 쇼파석, 2층 통창 테이블석과 루프탑이 있어요. 천연잔디 앞마당과 낮은 야외 수영장이 있어 강아지가 물놀이와 공놀이를 할 수 있고 입장료 없이 간식도 챙겨 줘요.",
+  "petPolicyText": "실내애견동반 가능.\n강아지 입장료가 따로 없었어요.\n오프리쉬 여부는 당시 상황에 따라 달라질 수 있어요.\n잔디마당 입구 안전문이 열려 있으니 주의해서 이용해달라고 하셨어요.\n강아지가 자유롭게 뛰어놀 수 있는 공간을 기대하고 방문한다면 당일 안전문 상태를 사장님께 확인해보는 게 좋을 것 같아요.",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": "잔디마당 안전문 상태에 따라 오프리쉬 가능 여부가 달라져요",
+   "indoor": "free",
+   "feeFree": true,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/ed-ed/224425668839",
+  "geo": {
+   "lat": 33.2824824,
+   "lng": 126.2247456
+  },
+  "address": "제주 서귀포시 대정읍 무영로254번길 21-1",
+  "category": "브런치카페",
+  "images": []
+ },
+ {
+  "id": "4c51b4d2-4fa9-4b5c-8371-b89674f45363",
+  "type": "restaurant",
+  "name": "서린고기국수 공항본점",
+  "region": {
+   "direction": "north",
+   "town": "제주시",
+   "raw": "북쪽 (제주시)"
+  },
+  "features": "제주공항에서 차로 5~10분 거리인 고기국수 식당이에요. 고기국수·비빔국수 11,000원, 멸치국수 9,000원이고 반려견 동반이 가능하며 주차 공간이 넉넉해요.",
+  "petPolicyText": "애견 동반이 가능하다는 점에서 선택하게 되었답니다.\n매장 내부는 쾌적하고 넓어서 애견과 함께 식사하기에 너무 좋았답니다.",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": null,
+   "indoor": "free",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/slipa13557/224429045855",
+  "geo": {
+   "lat": 33.5186051,
+   "lng": 126.499637
+  },
+  "address": "제주 제주시 서해안로 578 1층 서린고기국수 공항본점",
+  "category": "한식",
+  "images": []
+ },
+ {
+  "id": "5545cdbc-5c9e-44fe-8f9a-e25efca03349",
+  "type": "cafe",
+  "name": "구둠",
+  "region": {
+   "direction": "west",
+   "town": "한림읍",
+   "raw": "서쪽 (한림읍)"
+  },
+  "features": "스콘과 메론소다·블루베리 요거트 스무디 같은 음료를 파는 한림 카페예요. 외부 자리가 넓어 반려동물은 야외 공간을 이용할 수 있어요.",
+  "petPolicyText": "반려동물 동반 가능\n반려동물 동반 했다면 야외 공간 이용 가능!",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": null,
+   "indoor": "outdoorOnly",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/hjlle/224425312875",
+  "geo": {
+   "lat": 33.407791,
+   "lng": 126.2580657
+  },
+  "address": "제주 제주시 한림읍 한림로 564 1층 제2호",
+  "category": "카페,디저트",
+  "images": []
+ },
+ {
+  "id": "5c9a578a-508b-4d9a-93a3-45b44f1e7b19",
+  "type": "cafe",
+  "name": "카페 브리피",
+  "region": {
+   "direction": "north",
+   "town": "제주시",
+   "raw": "북쪽 (제주시)"
+  },
+  "features": "제주공항 근처의 브런치 카페로 프렌치토스트 같은 브런치 메뉴와 커피를 팔아요. 반려견용 멍푸치노가 있고 건물 앞에 반려동물과 산책할 수 있는 작은 정원이 있어요.",
+  "petPolicyText": "리드 줄만 있으면 반려동물도 함께 실내를 이용할 수 있어요.",
+  "petPolicy": {
+   "fees": [],
+   "leash": true,
+   "notes": null,
+   "indoor": "free",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/gangmigona/224426508211",
+  "geo": {
+   "lat": 33.5175205,
+   "lng": 126.4984313
+  },
+  "address": "제주 제주시 어영길 64-12 1층 카페 브리피",
+  "category": "카페,디저트",
+  "images": []
+ },
+ {
+  "id": "6080f123-2a51-4442-a188-c68b24e626f3",
+  "type": "restaurant",
+  "name": "온평바다한그릇 성산본점",
+  "region": {
+   "direction": "east",
+   "town": "성산읍",
+   "raw": "동쪽 (성산읍)"
+  },
+  "features": "해녀가 직접 채취한 전복·뿔소라·딱새우 같은 제철 해산물과 고등어회, 활전복문어해물라면을 파는 식당이에요. 성산일출봉과 섭지코지 바다가 보이는 야외 포차 자리가 있어 대형견도 함께 식사할 수 있어요.",
+  "petPolicyText": "소형견은 물론! 대형 강아지들도 야외 테이블이나 포차 공간에서 편안하게 식사 가능",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": null,
+   "indoor": "outdoorOnly",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": true,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/drboxstudio/224427101374",
+  "geo": {
+   "lat": 33.3988269,
+   "lng": 126.9049887
+  },
+  "address": "제주 서귀포시 성산읍 환해장성로 467",
+  "category": "생선회",
+  "images": []
+ },
+ {
+  "id": "679ba765-a890-460f-ab8e-797a803059c8",
+  "type": "cafe",
+  "name": "솔옆수",
+  "region": {
+   "direction": "south",
+   "town": "표선면",
+   "raw": "남쪽 (표선면)"
+  },
+  "features": "주택을 개조한 조용한 카페로 레몬애플티에이드, 청귤에이드 같은 음료를 팔아요. 입구에 잔디밭이 있고 카페 강아지 순애가 지내요.",
+  "petPolicyText": "반려동물 출입가능\n예방접종을 완료한 강아지와 고양이만 출입 가능해서 방문 전 예방접종 여부를 꼭 확인해주세요\n카페에는 순애라는 강아지도 있는데, 신장이 아파서 간식이나 먹을 것을 절대 주면 안 된다고 해요",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": "카페 강아지 순애에게 간식이나 먹을 것을 주면 안 돼요",
+   "indoor": "unknown",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": true
+  },
+  "reviewUrl": "https://blog.naver.com/jg11_29/224420404899",
+  "geo": {
+   "lat": 33.3067588,
+   "lng": 126.8063148
+  },
+  "address": "제주 서귀포시 표선면 민속해안로 1",
+  "category": "카페,디저트",
+  "images": []
+ },
+ {
+  "id": "720fcd87-e259-4c3f-8459-f000c30022d4",
+  "type": "restaurant",
+  "name": "드림회센터",
+  "region": {
+   "direction": "south",
+   "town": "서귀포시",
+   "raw": "남쪽 (서귀포시)"
+  },
+  "features": "회와 해산물을 파는 서귀포매일올레시장 근처 횟집이에요. 야외 좌석에 강아지와 함께 앉을 수 있어요.",
+  "petPolicyText": "여기 야외좌석 강아지 가능",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": null,
+   "indoor": "outdoorOnly",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/fullity__/224424750427",
+  "geo": {
+   "lat": 33.2490795,
+   "lng": 126.5629002
+  },
+  "address": "제주 서귀포시 중정로61번길 14",
+  "category": "생선회",
+  "images": []
+ },
+ {
+  "id": "8827e114-cae7-4295-a16d-b56c5d6b4c0a",
+  "type": "restaurant",
+  "name": "제주라면 2호점",
+  "region": {
+   "direction": "north",
+   "town": "제주시",
+   "raw": "북쪽 (제주시)"
+  },
+  "features": "제주공항 근처 무지개해안도로 초입에 있는 해물라면 전문 식당이에요. 강아지와 함께 앉을 수 있는 테라스 자리와 넉넉한 주차 공간이 있어요.",
+  "petPolicyText": "아이들이 케이지 안에 있으면 함께 입장할 수 있다고 안내받았고요.\n강아지와 함께 식사할 수 있으면서도 햇살이 들어오는 테라스 자리도 마련되어 있는데요.\n강아지 동반 식당이라도 시기에 따라 이용 조건은 달라질 수 있으니 애견동반으로 방문하실 예정이라면 출발 전에 매장에 다시 확인해보는걸 추천드려요!",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": null,
+   "indoor": "cage",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/esallye/224424149412",
+  "geo": {
+   "lat": 33.5069415,
+   "lng": 126.469836
+  },
+  "address": "제주 제주시 서해안로 210 1층",
+  "category": "라면",
+  "images": []
+ },
+ {
+  "id": "889629d7-48f0-4587-a3cb-a5320d155775",
+  "type": "cafe",
+  "name": "일기초록",
+  "region": {
+   "direction": "north",
+   "town": "제주시",
+   "raw": "북쪽 (제주시)"
+  },
+  "features": "브루잉 커피의 향을 직접 맡아보고 고를 수 있고 음료와 디저트, 읽을 책이 많은 미드센추리 분위기의 카페예요. 강아지를 위한 물그릇도 준비돼 있어요.",
+  "petPolicyText": "반려동물동반가능\n접종정보만 있으면 동반가능",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": null,
+   "indoor": "unknown",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": true
+  },
+  "reviewUrl": "https://blog.naver.com/ysj-1017/224425964625",
+  "geo": {
+   "lat": 33.5076402,
+   "lng": 126.5357352
+  },
+  "address": "제주 제주시 신산로11길 15 1층 일기초록",
+  "category": "베이커리",
+  "images": []
+ },
+ {
+  "id": "8d86ab34-393a-43e0-8d30-2f3d70291b85",
+  "type": "cafe",
+  "name": "외도339",
+  "region": {
+   "direction": "north",
+   "town": "제주시",
+   "raw": "북쪽 (제주시)"
+  },
+  "features": "바다 바로 앞에 있는 베이커리 카페로 빵과 커피, 화덕 샌드위치를 팔아요. 인조잔디와 돌길이 깔린 야외 애견동반 공간과 해안 산책로가 이어지고 강아지 물그릇도 준비되어 있어요.",
+  "petPolicyText": "애견동반은 야외 자리에서만 가능해요.\n야외에 애견동반 공간이 따로 있어서 강아지들이 오프리쉬로 편하게 뛰어다니면서 놀 수 있답니다!",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": null,
+   "indoor": "outdoorOnly",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/seoyoojin96/224422961231",
+  "geo": {
+   "lat": 33.4937169,
+   "lng": 126.4316712
+  },
+  "address": "제주 제주시 일주서로 7345 OEDO339",
+  "category": "베이커리",
+  "images": []
+ },
+ {
+  "id": "8fab8b22-9805-45cf-b44f-d59b56c8bed8",
+  "type": "cafe",
+  "name": "터틀락",
+  "region": {
+   "direction": "south",
+   "town": "안덕면",
+   "raw": "남쪽 (안덕면)"
+  },
+  "features": "시그니처 음료와 디저트, 식사 대용 메뉴까지 있어 브런치로도 들를 수 있는 감성 카페예요. 건물 앞·옆 마당에 강아지 운동장이 있고 실내 동반도 가능해요.",
+  "petPolicyText": "반려동물 동반 가능\n카페 내부에도 반려동물 동반이 가능해요.\n카페 건물 앞, 옆으로 마당이 있고, 다른 손님들과의 협의를 통해 오프리쉬가 가능했어요.",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": "마당에서는 다른 손님들과 협의되면 오프리쉬 가능",
+   "indoor": "free",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/beinsorrow/224425178735",
+  "geo": {
+   "lat": 33.2771491,
+   "lng": 126.3635514
+  },
+  "address": "제주 서귀포시 안덕면 한창로110번길 44",
+  "category": "카페,디저트",
+  "images": []
+ },
+ {
+  "id": "915a8358-92ec-4879-b851-ec4f20219378",
+  "type": "cafe",
+  "name": "오또도넛 서귀점",
+  "region": {
+   "direction": "south",
+   "town": "서귀포시",
+   "raw": "남쪽 (서귀포시)"
+  },
+  "features": "커피와 도넛을 파는 카페로 커피를 사면 도넛 한 개를 증정해요. 실내와 야외 모두 반려견과 함께 머물 수 있고 건물 주차 공간이 넉넉해요.",
+  "petPolicyText": "실내외 반려견 동반 가능하며, 리쉬 또는 이동장 필수임.",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": "리쉬 또는 이동장 필수",
+   "indoor": "free",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/boriwithpets/224425267604",
+  "geo": {
+   "lat": 33.2438498,
+   "lng": 126.5651635
+  },
+  "address": "제주 서귀포시 부두로 16 천일빌딩 1층 오또도넛 서귀점",
+  "category": "도넛",
+  "images": []
+ },
+ {
+  "id": "985f5ff3-6a5d-4c2e-a286-f47a49d01fe8",
+  "type": "restaurant",
+  "name": "광복이네",
+  "region": {
+   "direction": "west",
+   "town": "대정읍",
+   "raw": "서쪽 (대정읍)"
+  },
+  "features": "전복돌솥밥 같은 한식 솥밥과 반찬이 푸짐하게 나오는 식당이에요. 점심특선이 만원이고 주차도 크게 불편하지 않아요.",
+  "petPolicyText": "제가 방문했을 당시에는 짱아와 함께 실내에서 식사할 수 있었어요.\n짱아는 이동가방에 넣어 의자 위에 두었고요. 문을 다 닫지 않아도 괜찮다고 하셔서 지퍼는 열어둘 수 있었어요.\n다만 반려견 동반 운영 방식은 바뀔 수 있으니 방문 전 한 번 확인하고 가시는 걸 추천드려요!\n음식 나오는 동안 여기 밖에 잠깐 산책을 좀 해도 괜찮은지 여쭤보니 흔쾌히 된다고 했습니다.",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": "이동가방에 넣어 의자 위에 두고 지퍼는 열어둘 수 있었어요.",
+   "indoor": "cage",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": true,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/justjjangaaa/224422781090",
+  "geo": {
+   "lat": 33.2810192,
+   "lng": 126.1884636
+  },
+  "address": "제주 서귀포시 대정읍 일주서로 3494 1층",
+  "category": "한식",
+  "images": []
+ },
+ {
+  "id": "abe294e2-faf9-4ceb-a5ed-00455c10bf36",
+  "type": "restaurant",
+  "name": "쇠소깍한끼",
+  "region": {
+   "direction": "south",
+   "town": "서귀포시",
+   "raw": "남쪽 (서귀포시)"
+  },
+  "features": "제주 농수산물로 만든 해물라면, 파스타, 김밥, 돈가스 등을 파는 식당이에요. 층고가 높고 좌석 간격이 여유로우며 매장 앞 주차장이 넓어요.",
+  "petPolicyText": "강아지는 개모차, 가방 출입 가능\n개모차, 혹은 가방 지참시 출입가능!",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": null,
+   "indoor": "cage",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/tongkihouse/224423914743",
+  "geo": {
+   "lat": 33.2526587,
+   "lng": 126.6223174
+  },
+  "address": "제주 서귀포시 쇠소깍로 122 B동",
+  "category": "라면",
+  "images": []
+ },
+ {
+  "id": "aef2f05a-595b-4c42-85b5-e529a8147189",
+  "type": "cafe",
+  "name": "포크",
+  "region": {
+   "direction": "west",
+   "town": "한림읍",
+   "raw": "서쪽 (한림읍)"
+  },
+  "features": "핸드드립커피와 바닐라빈 라떼, 치즈케이크·쿠키 같은 디저트를 파는 한림의 작은 카페예요. 식물과 엽서·퍼즐 등 아기자기한 소품이 많고 안쪽에 1인 좌석도 있어 대형견과 실내에서 함께 머물 수 있어요.",
+  "petPolicyText": "반려동물 동반 되는 카페 찾다가 대형견도 괜찮다고 하셔서 두번째 방문한 한림 카페 포크",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": null,
+   "indoor": "unknown",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": true,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/kbozoo/224425334059",
+  "geo": {
+   "lat": 33.4091227,
+   "lng": 126.2590803
+  },
+  "address": "제주 제주시 한림읍 한림로 586 1층",
+  "category": "카페,디저트",
+  "images": []
+ },
+ {
+  "id": "bab2fbf3-caad-4b10-a849-e6505f51bdbe",
+  "type": "cafe",
+  "name": "열두달정원카페",
+  "region": {
+   "direction": "north",
+   "town": "제주시",
+   "raw": "북쪽 (제주시)"
+  },
+  "features": "제주공항 근처 오라동에 있는 가드닝 브런치 카페로, 수제흑돼지 로제미트볼과 차·커피를 팔아요. 앞뒤로 넓은 정원과 야외 좌석, 건물 뒤편 테라스가 있어 강아지도 편하게 쉴 수 있어요.",
+  "petPolicyText": "애견동반 가능 카페.\n단 실내 입장의 경우 소형견+케이지+접종이력 강아지만 가능.",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": null,
+   "indoor": "cage",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": true,
+   "weightLimitKg": null,
+   "vaccineRequired": true
+  },
+  "reviewUrl": "https://blog.naver.com/cielbleu_3/224428452711",
+  "geo": {
+   "lat": 33.4649369,
+   "lng": 126.5141016
+  },
+  "address": "제주 제주시 정실동길 26 1층",
+  "category": "카페",
+  "images": []
+ },
+ {
+  "id": "c50854aa-2a95-4e78-9c5c-e74f0ff988b6",
+  "type": "cafe",
+  "name": "차한모금",
+  "region": {
+   "direction": "east",
+   "town": "구좌읍",
+   "raw": "동쪽 (구좌읍)"
+  },
+  "features": "과일 빙수로 유명한 카페로 팥빙수, 가래떡 구이와 조청, 당근 주스 같은 전통 디저트를 팔아요. 반려견 동반이 가능하고 매장 앞에 주차할 수 있어요.",
+  "petPolicyText": "애견동반: 가능, 케이지 필수",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": null,
+   "indoor": "cage",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/suding712/224423884988",
+  "geo": {
+   "lat": 33.4946104,
+   "lng": 126.811639
+  },
+  "address": "제주 제주시 구좌읍 비자숲길 21 검은색 건물",
+  "category": "카페,디저트",
+  "images": []
+ },
+ {
+  "id": "cce905a8-315b-44df-ab37-6390906b8b9e",
+  "type": "cafe",
+  "name": "오롬마르",
+  "region": {
+   "direction": "west",
+   "town": "애월읍",
+   "raw": "서쪽 (애월읍)"
+  },
+  "features": "애월 장전리에 있는 반려견 동반 카페로 음료와 다양한 베이커리를 파는 곳이에요. 실내와 야외가 모두 있고 그늘 많은 넓은 잔디 마당에서 오프리쉬로 뛸 수 있어요.",
+  "petPolicyText": "반려동물 동반 (오프리쉬 가능)\n강아지 입장료가 없다\n야외에 펜스가 별도로 쳐져있진 않기 때문에 콜링이 잘 안되는 아이는 위험할 수 있어서 리드줄이 필요하다",
+  "petPolicy": {
+   "fees": [],
+   "leash": true,
+   "notes": "입구에서 나가면 바로 주차장이라 안전 대비가 필요해요.",
+   "indoor": "unknown",
+   "feeFree": true,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/namuese/224426029982",
+  "geo": {
+   "lat": 33.4498579,
+   "lng": 126.3954965
+  },
+  "address": "제주 제주시 애월읍 장전리 110-5",
+  "category": "카페,디저트",
+  "images": []
+ },
+ {
+  "id": "d6d3ee9a-c568-4c53-b358-825a9f535367",
+  "type": "stay",
+  "name": "먼슬리브 인 제주",
+  "region": {
+   "direction": "south",
+   "town": "서귀포시",
+   "raw": "남쪽 (서귀포시)"
+  },
+  "features": "서귀포 색달동에 있는 장기 체류형 숙소로, 반려동물 동반이 가능한 B동을 따로 운영해요. 약 400평 천연잔디 펜스 운동장과 펫 계단, 펫베드, 반려견 식기가 준비되어 있어요.",
+  "petPolicyText": "반려동물 동반이 가능한 B동을 별도로 운영하고 있으며 소형견부터 중형견, 대형견까지 이용할 수 있는 숙소로 안내되고 있어요.\n다만 실제 예약 시에는 반려동물 동반 가능 객실과 이용 규정을 다시 확인하는 게 좋아요.\n공용 공간에서는 리드줄 착용이 기본이고, 반려견 오프리쉬는 객실 내부와 펜스 운동장 등 안내된 공간에서만 가능해요.\n※ 예약 기간, 객실별 반려동물 이용 조건 및 요금은 변동될 수 있으니 예약 전 최신 안내를 확인하는 것을 추천해요.",
+  "petPolicy": {
+   "fees": [],
+   "leash": true,
+   "notes": "공용 공간은 리드줄 착용, 오프리쉬는 객실 내부와 펜스 운동장에서만 가능",
+   "indoor": "free",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": true,
+   "largeDogOk": true,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/puppybobpul/224429452330",
+  "geo": {
+   "lat": 33.2591297,
+   "lng": 126.4105027
+  },
+  "address": "제주 서귀포시 색달로72번길 22 먼슬리브 인 제주",
+  "images": [],
+  "stay": {
+   "price": {
+    "text": ""
+   },
+   "amenitiesText": "펫 계단, 펫베드, 반려견 식기",
+   "environment": {
+    "yard": true,
+    "stairs": null,
+    "fencedYard": true,
+    "standalone": null
+   }
+  }
+ },
+ {
+  "id": "e03bf309-3dc0-4d5e-999a-69ac0077b61e",
+  "type": "cafe",
+  "name": "스프레무따",
+  "region": {
+   "direction": "north",
+   "town": "제주시",
+   "raw": "북쪽 (제주시)"
+  },
+  "features": "한라산 자락 오등동에 있는 정원뷰 브런치 카페로, 한라봉 음료와 레몬커피, 베이커리와 브런치 메뉴를 팔아요. 한옥을 개조한 실내와 반 야외석, 정원 좌석이 있어요.",
+  "petPolicyText": "예방접종 받은 반려동물이 카페에 출입 가능.\n야외 정원 좌석에서 취식 시에는 새를 주의해야 한다는 문구가 있었다.",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": "야외 정원 좌석에서 취식할 때 새를 주의해야 해요.",
+   "indoor": "unknown",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": true
+  },
+  "reviewUrl": "https://blog.naver.com/alldaydabin/224428854522",
+  "geo": {
+   "lat": 33.4231425,
+   "lng": 126.5514323
+  },
+  "address": "제주 제주시 산록북로 607 스프레무따",
+  "category": "카페",
+  "images": []
+ },
+ {
+  "id": "e552ee96-81ae-4a4c-91f3-2536cafc54e4",
+  "type": "cafe",
+  "name": "담소요",
+  "region": {
+   "direction": "south",
+   "town": "남원읍",
+   "raw": "남쪽 (남원읍)"
+  },
+  "features": "아메리카노·밀크티·바스크 치즈 케이크 같은 음료와 디저트를 파는 카페예요. 연못과 오리가 있는 넓은 야외 정원에 자리가 많아 강아지와 야외에서 머물 수 있어요.",
+  "petPolicyText": "반려동물 동반 ( 야외 )\n강아지는 실내는 안되는거 같더라구요",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": null,
+   "indoor": "outdoorOnly",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/ghtkns123/224428100945",
+  "geo": {
+   "lat": 33.2993441,
+   "lng": 126.6253522
+  },
+  "address": "제주 서귀포시 남원읍 신례천로 193 담소요",
+  "category": "카페,디저트",
+  "homepage": {
+   "url": "https://damsoyo.com/",
+   "name": "D A M S O Y O",
+   "image": "https://cdn.myportfolio.com/1d7a71a5-3151-449e-8193-f810cb583adf/1f2c1b03-479d-42b4-bc06-e8e40294515e_rw_600.png?h=728cabad44e407f9de2fde33975b2df9"
+  },
+  "images": []
+ },
+ {
+  "id": "e68ae390-0258-47f8-b319-03b715f1d90f",
+  "type": "restaurant",
+  "name": "라스또르따스",
+  "region": {
+   "direction": "north",
+   "town": "제주시",
+   "raw": "북쪽 (제주시)"
+  },
+  "features": "멕시코풍 인테리어에 키오스크 주문으로 까르니따스, 뜨리빠 같은 타코를 파는 식당이에요. 야외 야장 좌석이 있어 강아지와 함께 앉을 수 있고 키치테이블도 가능해요.",
+  "petPolicyText": "애견동반이 가능하지만 실내에서는 이동 가방 지참 필수",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": null,
+   "indoor": "cage",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/wlsrud8856/224427269154",
+  "geo": {
+   "lat": 33.4991841,
+   "lng": 126.531113
+  },
+  "address": "제주 제주시 광양11길 8-1",
+  "category": "멕시코,남미음식",
+  "images": []
+ },
+ {
+  "id": "e99ff3f9-e68f-4dce-be26-ced7cb91c04f",
+  "type": "restaurant",
+  "name": "명월반점",
+  "region": {
+   "direction": "west",
+   "town": "한림읍",
+   "raw": "서쪽 (한림읍)"
+  },
+  "features": "짬뽕과 짜장면을 파는 중식당으로 점심과 저녁 메뉴가 달라 저녁에는 파스타도 있어요. 반찬을 리필할 수 있는 셀프바가 있고 실내까지 반려견과 함께 들어갈 수 있어요.",
+  "petPolicyText": "반려동물 동반 가능\n따로 안내 되어 있지 않지만 명월반점은 실내 반려동물 동반이 가능해요.",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": null,
+   "indoor": "free",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/beinsorrow/224426954115",
+  "geo": {
+   "lat": 33.3828418,
+   "lng": 126.2688412
+  },
+  "address": "제주 제주시 한림읍 명월로 123 제3동",
+  "category": "중식당",
+  "images": []
+ },
+ {
+  "id": "ebaaefd4-ee25-41ea-b5db-363d1ef848a8",
+  "type": "cafe",
+  "name": "바람",
+  "region": {
+   "direction": "east",
+   "town": "구좌읍",
+   "raw": "동쪽 (구좌읍)"
+  },
+  "features": "월정리 해수욕장 인근 작은 마을 골목에 있는 아프리카 컨셉 카페로, 드립 커피 같은 심플한 메뉴와 편집숍을 함께 운영해요. 담쟁이로 덮인 건물 앞에 평상 자리가 있고 실내에도 4팀 정도 앉는 테이블이 있어 강아지와 함께 들어갈 수 있어요.",
+  "petPolicyText": "실내 애견 동반 가능, 아기의자❌️",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": "아기의자는 없어요.",
+   "indoor": "free",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/cohas_log/224424877460",
+  "geo": {
+   "lat": 33.5551721,
+   "lng": 126.7927763
+  },
+  "address": "제주 제주시 구좌읍 월정1길 46-9",
+  "category": "카페,디저트",
+  "images": []
+ },
+ {
+  "id": "f043bf86-3023-4a61-a35d-db4586258437",
+  "type": "stay",
+  "name": "선흘안",
+  "region": {
+   "direction": "east",
+   "town": "조천읍",
+   "raw": "동쪽 (조천읍)"
+  },
+  "features": "제주 동쪽 조천에 있는 한 팀만 받는 독채 감성 숙소로, 수영장과 다도 공간, 침실 두 개와 야외 바베큐 시설이 있어요. 예약할 때 강아지 동반을 말하면 강아지 용품을 준비해 주고, 담벼락이 낮지 않은 정원에서 풀어놓고 놀 수 있어요.",
+  "petPolicyText": "강아지는 13kg 미만 최대 2마리까지 가능하고 1박당 2만 원 견추비 추가 비용이 있어요!!\n애견 동반이지만 강아지는 수영장에 들어갈 수 없어요ㅠ\n대신 화장실 욕조는 강아지도 들어가도 된다고 해요\n선흘안은 프라이빗하게 한 팀만 받다 보니 강아지도 풀어놓고 자유롭게 놀게 할 수 있어서 좋았어요",
+  "petPolicy": {
+   "fees": [
+    {
+     "basis": "perDog",
+     "label": "1박당 2만원",
+     "maxKg": null,
+     "minKg": null,
+     "fromDog": null,
+     "perNight": true,
+     "amountWon": 20000
+    }
+   ],
+   "leash": false,
+   "notes": "강아지는 수영장 입수 불가, 화장실 욕조는 이용 가능",
+   "indoor": "free",
+   "feeFree": false,
+   "maxDogs": 2,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": 13,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/yjharchive/224424204665",
+  "geo": {
+   "lat": 33.4931257,
+   "lng": 126.694689
+  },
+  "address": "제주 제주시 조천읍 선흘남1길 144-40 1층",
+  "category": "펜션",
+  "images": [],
+  "stay": {
+   "price": {
+    "text": ""
+   },
+   "amenitiesText": "강아지 용품(예약 시 요청하면 준비)",
+   "environment": {
+    "yard": true,
+    "stairs": null,
+    "fencedYard": null,
+    "standalone": true
+   }
+  }
+ },
+ {
+  "id": "f1964983-6f15-4016-a77c-31c7b6f4f0d8",
+  "type": "cafe",
+  "name": "더클리프",
+  "region": {
+   "direction": "south",
+   "town": "서귀포시",
+   "raw": "남쪽 (서귀포시)"
+  },
+  "features": "중문색달해변 오션뷰 야외석이 넓은 카페 겸 펍으로 커피·에이드와 칵테일, 피자·파스타 같은 식사 메뉴도 있어요. 리드줄만 하면 평상·비치의자·빈백이 있는 야외 공간을 강아지와 자유롭게 다닐 수 있어요.",
+  "petPolicyText": "반려견 동반 가능\n리드줄만 하면 어디든 돌아다닐수 있어서 편했다\n반려견 동반 가능 리드줄 필수",
+  "petPolicy": {
+   "fees": [],
+   "leash": true,
+   "notes": null,
+   "indoor": "unknown",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/wonderful_ym/224424258577",
+  "geo": {
+   "lat": 33.2444575,
+   "lng": 126.414929
+  },
+  "address": "제주 서귀포시 중문관광로 154-17",
+  "category": "카페,디저트",
+  "images": []
+ },
+ {
+  "id": "fe234621-6eb9-413e-a104-ae7419c17031",
+  "type": "restaurant",
+  "name": "이오리 동문점",
+  "region": {
+   "direction": "north",
+   "town": "제주시",
+   "raw": "북쪽 (제주시)"
+  },
+  "features": "오리 주물럭과 오리탕을 내는 식당이에요. 실내가 넓고 시원하고 오리기름이 거의 튀지 않아 강아지와 함께 있기 편하고 케이지가 있으면 실내 동반이 가능해요.",
+  "petPolicyText": "반려동물동반가능\n케이지있으면 눈치보지말고 방문",
+  "petPolicy": {
+   "fees": [],
+   "leash": false,
+   "notes": null,
+   "indoor": "cage",
+   "feeFree": null,
+   "maxDogs": null,
+   "feeLines": [],
+   "callFirst": false,
+   "largeDogOk": null,
+   "smallDogOnly": false,
+   "weightLimitKg": null,
+   "vaccineRequired": false
+  },
+  "reviewUrl": "https://blog.naver.com/ysj-1017/224423157088",
+  "geo": {
+   "lat": 33.5141911,
+   "lng": 126.5287586
+  },
+  "address": "제주 제주시 산지로 31-1 이오리동문점",
+  "category": "오리요리",
+  "images": []
  }
 ]

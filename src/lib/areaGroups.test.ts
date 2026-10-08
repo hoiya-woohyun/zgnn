@@ -66,28 +66,29 @@ describe('countByArea — 권역 × 종류', () => {
     for (const { id } of AREAS) for (const type of PLACE_TYPES) expect(counts[id][type].ok).toBe(0);
   });
 
-  // 토론 §1 표(게시 84곳). 데이터·판정이 바뀌면 여기가 먼저 깨진다 — 표를 고친 뒤 이 값을 고친다.
+  // 토론 §1 표 — 게시 84곳에서 시작해 2026-10-08 122곳(블로그 38곳)으로 다시 쟀다(19 T2.1). 데이터·판정이 바뀌면 여기가 먼저 깨진다 —
+  // 새 곳만 들어온 갱신이면 칸은 같거나 늘어야 한다(줄면 판정 회귀다). 표(19 §4)를 고친 뒤 이 값을 고친다.
   describe('토론 §1 표 — 갈 수 있는 곳(ok + 야외), 권역 순서 서부·서남·남부·동남·동부·북부', () => {
     it('두부 3kg · 가방', () => {
       const counts = countByArea(PLACES, DUBU);
-      expect(reachRow(counts, 'stay')).toEqual([8, 3, 0, 2, 5, 2]);
-      expect(reachRow(counts, 'cafe')).toEqual([3, 4, 1, 5, 9, 1]);
-      expect(reachRow(counts, 'restaurant')).toEqual([2, 0, 1, 1, 0, 0]);
+      expect(reachRow(counts, 'stay')).toEqual([10, 3, 0, 2, 5, 3]);
+      expect(reachRow(counts, 'cafe')).toEqual([7, 6, 4, 5, 10, 4]);
+      expect(reachRow(counts, 'restaurant')).toEqual([3, 0, 3, 3, 1, 2]);
     });
 
-    it('보리 30kg · 이동 수단 없음 — 식당은 전 권역 ok 0, 북부 야외 1', () => {
+    it('보리 30kg · 이동 수단 없음 — 식당은 전 권역 ok 0, 동남·북부 야외 1', () => {
       const counts = countByArea(PLACES, BORI);
       expect(reachRow(counts, 'stay')).toEqual([1, 1, 0, 0, 1, 1]);
-      expect(reachRow(counts, 'cafe')).toEqual([0, 1, 1, 1, 1, 0]);
+      expect(reachRow(counts, 'cafe')).toEqual([1, 1, 1, 1, 1, 0]);
       expect(AREAS.map(({ id }) => counts[id].restaurant.ok)).toEqual([0, 0, 0, 0, 0, 0]);
-      expect(counts.north.restaurant.outdoor).toBe(1);
+      expect(AREAS.map(({ id }) => counts[id].restaurant.outdoor)).toEqual([0, 0, 0, 1, 0, 1]);
     });
 
     it('콩 2.5kg + 해피 12kg · 유모차', () => {
       const counts = countByArea(PLACES, KONG_HAPPY);
-      expect(reachRow(counts, 'stay')).toEqual([3, 1, 0, 1, 1, 2]);
-      expect(reachRow(counts, 'cafe')).toEqual([3, 4, 1, 5, 9, 1]);
-      expect(reachRow(counts, 'restaurant')).toEqual([2, 0, 1, 1, 0, 0]);
+      expect(reachRow(counts, 'stay')).toEqual([4, 1, 0, 1, 1, 3]);
+      expect(reachRow(counts, 'cafe')).toEqual([7, 6, 4, 5, 10, 4]);
+      expect(reachRow(counts, 'restaurant')).toEqual([3, 0, 3, 3, 1, 1]);
     });
   });
 });

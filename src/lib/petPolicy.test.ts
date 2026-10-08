@@ -3,6 +3,7 @@ import { isFeeBadgeRepeatedIn, parsePetPolicy, toPetBadges, withPolicyFacts, wit
 import { formatDogFee } from './dogFee';
 import { judgeEligibility } from './eligibility';
 import { PLACES } from './places';
+import golden from '../../data/golden/seed-extract.json';
 
 describe('parsePetPolicy — 식당·카페', () => {
   it('실내 불가 문장은 야외만으로 읽는다', () => {
@@ -229,10 +230,19 @@ describe('취약 규칙 보강', () => {
   });
 });
 
+/**
+ * 시드 장소 — 사람이 같은 글을 읽고 정답을 적은 86곳(`data/golden/seed-extract.json`) 중 지금 게시된 곳. 정규식 파서와 사람 판단 표는
+ * 이 집합에서 나왔다. 블로그로 들어온 곳(AI 판단 경로, 2026-10-08 38곳)은 원문에 실내 언급이 없는 일이 흔해 같은 기대를 걸 수 없다.
+ * `petPolicy` 유무로 고르지 않는 것은 운영자 편집이 시드 행에도 그 칸을 쓸 수 있어서다 — 집합이 조용히 줄면 아래 84 가 잡는다.
+ */
+const SEED_IDS = new Set(golden.entries.map((entry) => entry.placeId));
+const SEED_PLACES = PLACES.filter((place) => SEED_IDS.has(place.id));
+
 describe('실제 데이터', () => {
-  it('숙소 26곳은 모두 배지가 하나 이상 나온다', () => {
+  it('숙소는 모두 배지가 하나 이상 나온다', () => {
     const stays = PLACES.filter((place) => place.type === 'stay');
-    expect(stays).toHaveLength(26);
+    // 승인하면 는다(2026-10-08 26 → 31) — 블로그 숙소도 이 불변식을 지킨다.
+    expect(stays.length).toBeGreaterThanOrEqual(26);
     const bare = stays.filter((place) => toPetBadges(place.policy).length === 0);
     expect(bare.map((place) => place.name)).toEqual([]);
   });
@@ -263,8 +273,9 @@ describe('실제 데이터', () => {
   });
 
 
-  it('식당과 카페는 모두 실내 동반 조건을 읽어낸다', () => {
-    const unread = PLACES.filter((p) => p.type !== 'stay' && p.policy.indoor === 'unknown');
+  it('시드의 식당과 카페는 모두 실내 동반 조건을 읽어낸다', () => {
+    expect(SEED_PLACES).toHaveLength(84);
+    const unread = SEED_PLACES.filter((p) => p.type !== 'stay' && p.policy.indoor === 'unknown');
     expect(unread.map((p) => `${p.name}: ${p.petPolicyText}`)).toEqual([]);
   });
 
