@@ -1,6 +1,7 @@
 # 지금 할 일 — 대기열
 
-> 최종 수정: 2026-10-08 (v42: 서버 워커 프로덕션 배포(보안 리뷰 반영본) — 「기다림」 맨 위를 env → 재배포 → 실측 → main 순서로)
+> 최종 수정: 2026-10-08 (v43: 서버 워커 순서 바로잡음 — T9 는 main 합치기 뒤에만 된다(깨우기 주소가 프로덕션 사이트 빌드에만 있다). env → 재배포 → main → T9)
+> 이전 2026-10-08 (v42: 서버 워커 프로덕션 배포(보안 리뷰 반영본) — 「기다림」 맨 위를 env → 재배포 → 실측 → main 순서로)
 > 이전 2026-10-08 (v41: 서버 워커 env 의 네이버 키를 넷으로 바로잡고(검색 둘 + NCP Maps 둘), 보안 리뷰의 범위 밖 둘을 「발견」 에)
 > 이전 2026-10-08 (v40: 20 T1~T7 끝 — 서버 워커 배포·env·실측을 「기다림」 맨 위에 **순서대로**(워커가 먼저 서야 develop→main 을 합친다))
 > 이전 2026-10-08 (v39: ADR-028 채택 — 「기다림」 의 🙋 서버 워커 줄을 걷었다. 20 T1~T7 은 채택한 세션이 이어서 하므로 「지금」 에 올리지 않는다(다른 세션이 선점하지 않게). 🧑 T8 은 그 세션이 끝날 때 「기다림」 에)
@@ -55,9 +56,9 @@
 
 ## 기다림 (사람 손·결정)
 
-- 🧑 서버 워커(ADR-028) — 프로덕션 배포는 됐다(2026-10-08 `zgnn-worker.vercel.app`, 보안 리뷰 반영본 · env 없음 · 토큰 없이 401) — [20 T8·T9](20-vercel-remote-worker.md) · 남은 순서: ① 🧑 아래 env ② 에이전트 `pnpm worker:build && cd worker && vercel deploy --prod`(env 는 새 배포부터 먹는다) ③ 🧑 T9 실측 ④ **그다음에** develop → main. ⚠️ main 을 먼저 합치면 env 없는 워커가 버튼마다 깨어나 네이버 키 단계에서 멈춘다(요청은 남아 로컬이 집지만 '로컬 워커가 없어요' 띠는 내려가 있다)
+- 🧑 서버 워커(ADR-028) — 프로덕션 배포는 됐다(2026-10-08 `zgnn-worker.vercel.app`, 보안 리뷰 반영본 · env 없음 · 토큰 없이 401) — [20 T8·T9](20-vercel-remote-worker.md) · 남은 순서: ① 🧑 아래 env ② 에이전트 `pnpm worker:build && cd worker && vercel deploy --prod`(env 는 새 배포부터 먹는다) ③ 🙋 develop → main(깨우기 주소는 프로덕션 사이트 빌드에만 들어가 **이게 먼저여야 T9 가 된다** · 다른 세션 커밋도 실려 나간다) ④ T9 실측. ⚠️ ①②보다 main 을 먼저 합치면 env 없는 워커가 버튼마다 깨어나 네이버 키 단계에서 멈춘다(요청은 남아 로컬이 집지만 '로컬 워커가 없어요' 띠는 내려가 있다)
 - 🧑 서버 워커 env·정리(20 T8) · 명령: `cd worker && pbpaste | tr -d '[:space:]' | vercel env add CLAUDE_CODE_OAUTH_TOKEN production --sensitive`(`claude setup-token` 값을 복사한 뒤) · 네이버 키 **넷**(검색 둘 + NCP Maps 둘)은 [20 T8](20-vercel-remote-worker.md) 의 한 줄(홈 파일에서 값을 찍지 않고 넣는다) · env 는 다음 배포부터 먹으니 넣은 뒤 에이전트가 `vercel deploy --prod` 한 번 더 · `vercel env rm CLAUDE_CODE_OAUTH_TOKEN preview --yes` · 대시보드 zgnn-worker → Settings → Deployment Protection 의 bypass 토큰 지우기 · (선택) 49자로 잘렸던 토큰 둘을 claude.ai 에서 회수
-- 🧑 서버 워커 실측(20 T9) — 배포·env 뒤 · 명령: PC 의 `pnpm data` 를 끈 채 `/admin` 에서 추가 수집 1 · 재분석 1 · 저수지 10(사슬 두 번) → `/admin/ops` 에 "서버 · 분석 중" · `pipeline_runs` 행. 이어서 `pnpm data` 를 켠 채 같은 것 → 응답이 `local` 이고 서버 배지가 안 뜨는지
+- 🧑 서버 워커 실측(20 T9) — **env·재배포·main 합치기 뒤** · 에이전트가 `vercel logs --follow`(zgnn-worker)를 켠 채: `curl -X POST https://zgnn.vercel.app/api/worker/run` 401(rewrite) → PC 의 `pnpm data` 를 끈 채 `/admin` 에서 추가 수집 1 · 재분석 1 · 저수지 10(사슬 두 번) → `/admin/ops` 에 "서버 · 분석 중" · `pipeline_runs` 행(첫 버튼에 '못 깨웠어요' 면 rewrite 가 Authorization 을 버리는 것). 이어서 `pnpm data` 를 켠 채 같은 것 → 응답이 `local` 이고 서버 배지가 안 뜨는지
 
 - 🧑 작업 트리에 **커밋 안 된 ADR-009 v4**(준비물 탭 개편 — 16파일, 신규 `checklistPageItemSheet.tsx`, 삭제 `itemGroups.ts`·`seasonChips.tsx`)가 있다. 2026-10-08 /next 세션이 주인을 못 찾았다(트랜스크립트에 그 파일을 쓴 세션이 없다) — [ADR-009](../decisions/ADR-009-trip-derived-checklist.md) · [14 W261007.13](14-weekly-ux-eval.md) · 명령: 하던 쪽이 `git status` 로 보고 커밋. 그 커밋 전엔 HEAD 의 탭이 저장 숙소의 '간식 어메니티' 로 간식을 지운다(14 메모가 v4 로 닫힌다고 적은 셋)
 - 🧑 포크 게시 소개문에서 '대형견과 실내에서 함께 머물 수 있어요' 를 빼기(원글에 근거 없음, C12 '확인' 바로 위에서 반대를 말한다) — [13 §5.2 P2](13-ai-analysis-audit-2026-10-04.md) · 명령: `/admin` 에서 포크(aef2f05a) 소개를 "…아기자기한 소품이 많고 안쪽에 1인 좌석도 있어요." 로 고쳐 저장(또는 "해도 돼" 라고 하면 Claude 가 `places.features` 단건 update)
