@@ -2,7 +2,7 @@
  * "이 장소에 가려면 무엇을 챙겨야 하는가" — 장소가 준비물 목록을 읽는 규칙.
  *
  * 준비물 목록은 저장한 곳과 무관하게 늘 같은 원본이고, 장소 화면이 여기 규칙으로 그 중 자기에게
- * 필요한 것을 골라 보여준다(ADR-009 v3). 준비물 화면의 묶음(`itemGroups.ts`)도 이 표에서 파생된다.
+ * 필요한 것을 골라 보여준다(ADR-009 v3). 준비물 탭은 이 표를 읽지 않는다(ADR-009 v4).
  *
  * ✅ 규칙은 여기서 조정한다. 아래 `ITEM_NEEDS` 한 줄이 규칙 하나다.
  *    itemName 은 src/data/items.json 의 name 과 정확히 일치해야 한다(`amenities.ts` 와 같은 어법).
@@ -74,14 +74,6 @@ const needsByItemId = new Map<string, TItemNeed>(
   }),
 );
 
-/**
- * 이 준비물이 필요한 장소 종류. 규칙이 없으면 `null` — 장소를 안 가리는 준비물이라는 뜻이다
- * (기내용 가방·유모차처럼 오가는 길의 물건). 준비물 화면의 묶음(`itemGroups.ts`)이 이 값으로
- * 갈리므로, 규칙 표 한 곳만 고치면 묶음도 따라온다.
- */
-export const placeTypesNeeding = (item: TItem): TPlaceType[] | null =>
-  needsByItemId.get(item.id)?.types ?? null;
-
 const isNeededAt = (item: TItem, place: TPlaceEntry): boolean => {
   const need = needsByItemId.get(item.id);
   if (!need) return false;
@@ -131,12 +123,3 @@ export const itemNeedsAt = (
  */
 export const shouldShowPlaceItems = (level: TEligibilityLevel | undefined): boolean =>
   level !== 'hard';
-
-/** 저장한 숙소들이 대신 갖고 있는 준비물. 한 곳이라도 갖고 있으면 챙긴 것으로 본다. */
-export const tripProvidedItemIds = (places: TPlaceEntry[], items: TItem[]): Set<string> => {
-  const provided = new Set<string>();
-  for (const place of places) {
-    for (const id of resolveProvidedItemIds(place.stay?.amenitiesText, items)) provided.add(id);
-  }
-  return provided;
-};

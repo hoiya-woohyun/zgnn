@@ -1,6 +1,7 @@
 # 라우팅 · 화면 셸 · 클라이언트 상태
 
 > 최종 수정: 2026-10-08 (v68: **'동작 줄이기' 면 접힘이 `snap`** — 전역 reduce 리셋은 스크롤 타임라인을 못 멈춰 제목이 스크롤을 따라 줄었다. 그리고 채워진 AppBar 막대의 전환을 끈다 — snap 에서 상세 제목 줄이 전환 시작값을 재 접힌 채로 열렸다([BUG-015](../bugs/BUG-015-reduced-motion-scroll-morph.md)))
+> 이전 2026-10-08 (v67: 준비물 탭이 저장한 곳·계절을 읽지 않는다 — `savedIds`·`season` 표의 쓰임을 고쳤다(ADR-009 v4))
 > 이전 2026-10-08 (v66: 동네 카드 진입이 '어려운 곳 숨기기' 대신 **'갈 수 있는 곳만'**(`onlyReachable`, 19 T4.1) — 카드 수 = 열린 목록 수, 0곳이면 이 조건부터 풀라고 한다)
 > 이전 2026-10-08 (v65: 둘러보기 **권역** 조건(19 T3) — 비퍼시스트 `area`, 홈 진입은 `usePlacesPageAreaEntry` 하나(권역·숨기기·숙소 탭), 관광지 칩과 서로 지운다, 0곳이 권역 탓이면 "권역을 풀면 N곳")
 > 이전 2026-10-08 (v64: 딥링크 보정에 `carryHistoryStamp` 한 줄 — 같은 경로 replace 가 깊이·탭을 잇는다, 12 U4.7)
@@ -593,11 +594,11 @@ Untitled UI 의 `Button href` / `Link` 는 react-aria 라 기본은 전체 새�
 
 | 필드 | 무엇 | 소비처 |
 |---|---|---|
-| `savedIds` | 저장한 장소 id | 저장 화면(`/saved`, 설정 밑 · 탭 불은 들어온 탭 — `?ids=` 로 열면 공유받은 목록, 담기는 `addSaved` 로 **합친다**: `toggleSaved` 를 돌리면 이미 저장한 곳의 하트가 꺼지고 메모가 지워진다. 링크의 모르는 id 는 퍼시스트에 넣지 않고 "N곳은 빼고" 로만 말한다 · 카톡 인앱 웹뷰의 저장소는 Safari 와 따로라 거기서 담으면 그 안에만 남는다고 알린다), 하트, 홈 카드·설정의 "저장한 곳 N곳" 개수, 지도 `?saved=1`, **준비물의 숙소 구비 용품**(`checklistView` — 저장한 숙소에 있는 물건을 준비된 것으로 센다. 목록을 좁히지는 않는다, ADR-009 v3) |
+| `savedIds` | 저장한 장소 id | 저장 화면(`/saved`, 설정 밑 · 탭 불은 들어온 탭 — `?ids=` 로 열면 공유받은 목록, 담기는 `addSaved` 로 **합친다**: `toggleSaved` 를 돌리면 이미 저장한 곳의 하트가 꺼지고 메모가 지워진다. 링크의 모르는 id 는 퍼시스트에 넣지 않고 "N곳은 빼고" 로만 말한다 · 카톡 인앱 웹뷰의 저장소는 Safari 와 따로라 거기서 담으면 그 안에만 남는다고 알린다), 하트, 홈 카드·설정의 "저장한 곳 N곳" 개수, 지도 `?saved=1` — 준비물 탭은 읽지 않는다(ADR-009 v4) |
 | `savedNotes` | 저장한 곳의 한 줄 메모(id → ≤30자, 예전에 80자로 적은 것은 읽을 때 그대로) | **카드 안 이름 밑** 읽기 전용 한 줄(`components/savedNoteLine.tsx` — 목록 카드·지도 시트·상세 머리 모두), 고치기는 저장 화면 카드의 하트 왼쪽 연필(`screens/savedPageCard.tsx` — 그 줄 자리가 입력 칸이 되고 그동안 카드는 링크가 아니다, `PlaceCard` 의 `noteEditor`)과 상세의 그 줄을 눌러서(`placeDetailNote.tsx`) — 폼은 `components/savedNoteForm.tsx` 하나. **하트를 지우면 같이 지워진다**(`toggleSaved`) — 남기면 다시 저장했을 때 옛 메모가 되살아난다. 단 **저장 화면에서** 끄면 카드가 이번 방문 동안 자리에 남고(`lib/savedPageSession.ts` 가 들어올 때 목록을 찍는다 — 하이드레이션 뒤에, 먼저 찍으면 빈 목록이 된다), 같은 방문 안에서 하트를 다시 켜면 `restoreSaved` 가 자리와 메모를 함께 돌린다 — 기억은 화면을 나가면 버린다(12 U2.2 v2, 되돌리기 토스트는 이것으로 대체). 머리글·그룹 제목의 수는 켜진 하트만 센다. 읽을 때(`merge`) 저장 목록에 없는 id 는 버린다(`sanitizeSavedNotes`) — 내린 장소의 id 는 저장 목록에 남으므로 그 메모도 남는다(12 U2.3). 공유 링크(07 P1)에는 **싣지 않는다** — 사적인 메모다(10 F5) |
 | `tripDays` · `tripOrder` | 저장한 곳의 날짜 라벨(id → 1~4일, 라벨 없음 = 미정)과 사용자가 끌어 바꾼 하루 순서(손댄 날만). 일정은 새 집합이 아니라 저장의 부분집합이다(16 P1) — **하트를 지우면 라벨·순서에서도 빠지고**(`toggleSaved`), 저장 안 한 곳엔 라벨을 달지 않는다. 순서가 없는 날은 화면이 `suggestOrder` 로 제안하고 손 순서는 덮지 않는다 — "순서 다시 제안" 만 지운다(16 P2). 읽을 때 저장 목록 밖 id·범위 밖 날·그 날 라벨이 아닌 순서 id 는 버린다(`lib/tripPlan.ts`). 화면은 저장 화면의 「종류별 | 날짜별」 전환(`screens/savedPageDays.tsx` — 기본값은 하이드레이션 때 한 번, 라벨이 있으면 날짜별. 계속 파생하면 첫 라벨을 다는 순간 화면이 뒤집힌다). 날짜 고르기·↑↓ 는 카드 **밖** 밑 줄(`PlaceCard` 의 `footer` — 카드가 링크라 안에 컨트롤을 못 둔다). 하트를 껐다 같은 방문에 다시 켜면 라벨도 돌아온다(`restoreSaved` 의 `day`), 손 순서는 안 돌린다 |
 | `checkedItemIds` | 챙긴 준비물 id | 준비물, 홈 진행률, 장소의 `PlaceItemsNote`(거기서 바로 체크도 한다) |
-| `season` | `null`(사계절) / 여름 / 겨울 | 준비물 필터, 홈 계절 칩(`SeasonChips` 공용 — 홈에서는 고르기만 하고 이동하지 않는다. "준비물 N가지" 링크의 숫자가 바뀌는 것이 피드백) |
+| `season` | `null`(사계절) / 여름 / 겨울 | 장소 쪽 "여기 필요한 준비물"(`itemsNeededAt`)만 읽는다. **고르는 화면이 없다** — 준비물 탭의 계절 칩이 ADR-009 v4 에서 빠졌다(탭은 계절과 무관하게 전부). 예전 값이 남는 것은 ADR-009 「남은 것」 |
 | `dog` | 우리 강아지 프로필(`TDogProfile \| null`, 마리별 `dogs[]`) | `/dog` 프로필 폼, 설정의 "우리 강아지" 카드, 판정(`useEligibility`/`useEligibilityMap`, `src/store/useDogEligibility.ts`). 목록·홈·지도·근처 장소(`placeCard.tsx`, `placesPage.tsx`, `homePage.tsx`, `mapPage.tsx`, `mapPageSheet.tsx`, `placeDetailNearby.tsx`)는 이 값이 `null` 이면 판정 관련 UI 를 아예 그리지 않는다(v0 화면 유지) |
 | `needsIndoor` | 이번 여행에 실내 자리가 꼭 필요한지 | 판정의 `opts.needsIndoor` — 강아지 정보가 아니라 여행 정보라 `dog` 와 분리(→ [features/dog-profile.md](../features/dog-profile.md)). 둘러보기 식당·카페 탭의 "실내 자리 필요" 토글(`placesPageEligibilityToggles.tsx`)이 값을 바꾼다 |
 | `visitCount` | 이 기기에서 앱을 연 횟수(페이지 로드마다 1) | `onRehydrateStorage` 가 **읽기가 끝난 뒤, 하이드레이션 신호 앞에서** `countVisitOnce()`(읽기 전에 올리면 곧 읽어온 값에 덮이고, 신호 뒤에 올리면 신호를 받은 화면이 옛 수로 한 프레임 그린다 · 모듈 플래그로 StrictMode 중복을 막는다. 저장소를 못 열어 그 콜백이 안 돌면 `StoreHydration` 이 같은 순서로 한 번 더). 깨진 저장값은 지운 직후 이 수(1)를 쓰며 멀쩡한 값으로 바뀐다. 홈 인사말(`homePageIntro.tsx`) — 1 이면 히어로 밑 카드, 2 부터 맨 아래 한 줄. 읽기 전(0)은 `useStoreHydrated` 로 가려 **아무것도 안 그린다**(재방문자 화면이 접히며 튀지 않게). 설치 안내(07 U9)의 "두 번째 방문부터" 도 이 칸. 깨진 값은 0 — 인사가 한 번 더 펼쳐질 뿐 |

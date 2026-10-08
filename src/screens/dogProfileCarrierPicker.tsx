@@ -24,7 +24,7 @@ type TDogProfileCarrierPickerProps = {
  * (`eligibility.ts` 의 C2/C3/C4/H5)이 정확해진다 — 라벨·설명은 그 판정 문구와 짝을
  * 맞추기 위해 `CARRIER_LABELS` 에 함께 둔다.
  *
- * 세그먼트 버튼 그룹(`SeasonChips` 와 같은 어법) 대신 세로 목록 + 설명 한 줄을 쓴다.
+ * 세그먼트 버튼 그룹(준비물 보기 칩과 같은 어법) 대신 세로 목록 + 설명 한 줄을 쓴다.
  * 네 선택지 각각 설명이 필요해서 가로 칩엔 안 들어간다.
  *
  * 기본 선택이 없다(`value === null`) — 부모가 저장 전에 묻는다(`dogProfilePage.tsx`).

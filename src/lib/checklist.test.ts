@@ -1,29 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
   CARRY_BAG_ITEM_NAME,
-  checklistView,
+  checklistProgress,
+  filterChecklistItems,
   shouldAskCarrierBag,
   shouldOfferStroller,
   STROLLER_ITEM_NAME,
   variantsForDog,
   visibleItems,
 } from './checklist';
-import { parsePetPolicy } from './petPolicy';
 import { ITEMS } from './places';
-import type { TPlaceEntry } from './places';
-import type { TDogProfile, TPlaceType } from '../types';
-
-const placeOf = (type: TPlaceType, amenitiesText?: string): TPlaceEntry => ({
-  id: `${type}-test`,
-  type,
-  name: '테스트',
-  region: { direction: 'east', town: '구좌읍', raw: '구좌읍' },
-  features: '',
-  petPolicyText: '',
-  images: [],
-  policy: parsePetPolicy(''),
-  ...(amenitiesText === undefined ? {} : { stay: { price: { text: '' }, amenitiesText } }),
-});
+import type { TDogProfile } from '../types';
 
 const idOf = (name: string) => ITEMS.find((item) => item.name === name)!.id;
 
@@ -37,53 +24,64 @@ describe('visibleItems', () => {
   });
 });
 
-describe('checklistView', () => {
-  it('분모는 계절 전체다 — 저장한 곳이 없어도 있어도 같다', () => {
-    expect(checklistView(null, [], []).total).toBe(visibleItems(null).length);
-    expect(checklistView(null, [], [placeOf('cafe')]).total).toBe(visibleItems(null).length);
-    expect(checklistView('여름', [], []).items).toEqual(visibleItems('여름'));
+// itemGroups.test.ts 에서 옮겨 왔다 — 묶음은 ADR-009 v4 에서 없어졌지만 갈래 합치기는 그대로다.
+describe('ITEMS 갈래 합치기', () => {
+  const itemNamed = (name: string) => ITEMS.find((item) => item.name === name)!;
+
+  it('기내용 가방은 한 줄로 합쳐지고 몸무게 구간이 그 안으로 들어간다', () => {
+    const bag = itemNamed('강아지 기내용 가방');
+    expect(bag).toBeDefined();
+    expect(bag.variants?.map((variant) => variant.label)).toEqual(['5kg 이하', '5kg 이상']);
+    // 갈래마다 링크가 다르다 — 합치면서 하나로 뭉개면 5kg 이상인 사람이 잘못된 상품을 본다.
+    expect(new Set(bag.variants?.map((variant) => variant.linkUrl)).size).toBe(2);
+    // 합쳐진 항목은 바깥 링크를 갖지 않는다. 있으면 시트 안에 링크가 세 개가 된다.
+    expect(bag.linkUrl).toBeUndefined();
   });
 
-  it('저장한 곳이 목록을 줄이지 않는다 — 카페만 저장해도 숙소 준비물이 남는다(ADR-009 v3)', () => {
-    const names = checklistView(null, [], [placeOf('cafe')]).items.map((item) => item.name);
-    expect(names).toContain('얇은 이불/담요');
+  it('합쳐진 원본 두 줄은 목록에서 사라진다 — 남으면 영영 체크되지 않는 줄이 된다', () => {
+    const names = ITEMS.map((item) => item.name);
+    expect(names).not.toContain('강아지 기내용 가방(5kg 이하)');
+    expect(names).not.toContain('강아지 기내용 가방(5kg 이상)');
+    expect(new Set(ITEMS.map((item) => item.id)).size).toBe(ITEMS.length);
+  });
+});
+
+describe('checklistProgress', () => {
+  it('분모는 준비물 전부다 — 계절 물건도 늘 들어간다(ADR-009 v4: 계절로 거르면 검색한 물건이 안 나온다)', () => {
+    const view = checklistProgress([]);
+    expect(view.total).toBe(ITEMS.length);
+    expect(view.items.some((item) => !item.seasons.includes('사계절'))).toBe(true);
   });
 
-  it('체크한 것은 저장한 곳과 무관하게 센다', () => {
-    const cafeOnly = [placeOf('cafe')];
-    expect(checklistView(null, [idOf('얇은 이불/담요')], cafeOnly).ready).toBe(1);
+  it('체크한 것만 챙긴 것으로 센다', () => {
+    expect(checklistProgress([]).packed).toBe(0);
+    expect(checklistProgress([idOf('얇은 이불/담요'), idOf('배변봉투')]).packed).toBe(2);
   });
 
-  it('숙소가 갖고 있는 물건도 준비된 것으로 센다 — 목록의 흐린 줄과 숫자가 어긋나면 안 된다', () => {
-    const stay = [placeOf('stay', '강아지 침대 구비.')];
-    const view = checklistView(null, [], stay);
-    expect(view.providedItemIds.has(idOf('얇은 이불/담요'))).toBe(true);
-    expect(view.ready).toBe(1);
+  it('목록에 없는 id(지난 데이터의 체크)는 세지 않는다', () => {
+    expect(checklistProgress(['사라진-항목']).packed).toBe(0);
+  });
+});
+
+describe('filterChecklistItems', () => {
+  const checked = [idOf('배변봉투')];
+
+  it('빈 검색어 · 전체면 원본 그대로, 순서도 같다', () => {
+    expect(filterChecklistItems(ITEMS, '  ', 'all', checked)).toEqual(ITEMS);
   });
 
-  it('숙소에 있는 것은 내가 챙긴 것과 따로 센다 — 아무것도 체크 안 했으면 챙긴 것은 0(07 U6)', () => {
-    const view = checklistView(null, [], [placeOf('stay', '강아지 침대 구비.')]);
-    expect(view.packed).toBe(0);
-    expect(view.atStay).toBe(1);
+  it('이름 일부로 찾는다 — 앞뒤 공백은 무시한다', () => {
+    const names = filterChecklistItems(ITEMS, ' 배변 ', 'all', checked).map((item) => item.name);
+    expect(names).toContain('배변봉투');
   });
 
-  it('체크했고 숙소에도 있으면 한 번만 센다 — 내가 챙긴 쪽으로', () => {
-    const stay = [placeOf('stay', '강아지 침대 구비.')];
-    const view = checklistView(null, [idOf('얇은 이불/담요')], stay);
-    expect(view.ready).toBe(1);
-    expect(view.packed).toBe(1);
-    expect(view.atStay).toBe(0);
+  it('챙긴 것 · 안 챙긴 것은 체크로 가른다', () => {
+    expect(filterChecklistItems(ITEMS, '', 'packed', checked).map((item) => item.name)).toEqual(['배변봉투']);
+    expect(filterChecklistItems(ITEMS, '', 'unpacked', checked)).toHaveLength(ITEMS.length - 1);
   });
 
-  it('지금 계절에 안 보이는 체크는 세지 않는다', () => {
-    const summerOnly = visibleItems('여름').find((item) => !item.seasons.includes('사계절'))!;
-    expect(checklistView(null, [summerOnly.id], []).packed).toBe(0);
-  });
-
-  it('저장한 숙소들의 구비 용품을 전부 합쳐 반영한다', () => {
-    const view = checklistView(null, [], [placeOf('stay', '강아지 식기와 침대 구비.')]);
-    expect(view.providedItemIds.has(idOf('휴대용 물병/밥그릇'))).toBe(true);
-    expect(view.providedItemIds.has(idOf('얇은 이불/담요'))).toBe(true);
+  it('검색어와 보기 칩은 함께 건다 — 챙긴 것 안에서 못 찾으면 빈 목록', () => {
+    expect(filterChecklistItems(ITEMS, '이불', 'packed', checked)).toEqual([]);
   });
 });
 

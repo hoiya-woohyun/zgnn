@@ -1,61 +1,67 @@
-import { tripProvidedItemIds } from './itemNeeds';
+import { ITEMS } from './places';
 import { visibleItems } from './seasonItems';
-import type { TPlaceEntry } from './places';
-import type { TSeasonFilter } from '../store/useAppStore';
 import type { TDogProfile, TItem } from '../types';
 
 export { visibleItems };
 
-export type TChecklistView = {
-  /** 이번 계절의 준비물 전부. 저장한 곳에 따라 늘거나 줄지 않는다. */
+export type TChecklistProgress = {
+  /** 준비물 전부 — 계절·저장한 곳과 무관하게 늘 같다(ADR-009 v4). */
   items: TItem[];
-  /** 저장한 숙소가 대신 갖고 있는 준비물. */
-  providedItemIds: Set<string>;
   /** 진행률의 분모 = `items.length`. */
   total: number;
-  /** 내가 직접 챙긴 것(체크). 숙소에도 있는 물건이라도 체크했으면 여기로 센다. */
+  /** 내가 체크한 것. */
   packed: number;
-  /** 체크하지 않았지만 저장한 숙소가 갖고 있는 것. `packed` 와 겹치지 않는다. */
-  atStay: number;
-  /** 더 챙길 필요가 없는 것 = `packed + atStay`. 진행 막대와 묶음 머리의 "2/3" 이 이것으로 찬다. */
-  ready: number;
 };
 
 /**
- * 준비물 목록 — 계절로만 거른 **고정된 원본**.
+ * 준비물 탭의 숫자 — **내 짐만 센다**(ADR-009 v4).
  *
- * v2 까지는 저장한 곳에 필요한 것만 추려 분모로 삼았다. 그런데 짐 목록이 하트를 누를 때마다
- * 늘고 줄었고, 무엇보다 "저장한 곳에 필요 없음" 을 "여행에 필요 없음" 으로 말했다 — 숙소를 아직
- * 안 골랐을 뿐인 사람에게 이불이 '그 밖에' 로 접혀 들어갔다. 이제 목록은 늘 같고, 장소 쪽이
- * 이 목록을 읽어 "여기 필요한 것" 을 보여준다(`itemNeedsAt`, ADR-009 v3).
- *
- * 저장한 곳이 여기서 하는 일은 하나 남았다 — 저장한 숙소가 갖고 있는 물건을 '숙소에 있어요' 로
- * 표시하고 준비된 것으로 센다. 이건 목록을 줄이는 게 아니라 "안 챙겨도 된다" 는 사실을 알려 주는 것이다.
- *
- * 다만 **내가 챙긴 것과는 따로 센다**(07 U6). 합쳐 세면 아무것도 체크하지 않은 사람에게 "1가지
- * 준비됐어요" 가 떠서, 숙소가 가진 물건을 내가 챙긴 것처럼 말했다.
- *
- * 홈·준비물 화면이 전부 여기서 나온 숫자를 쓴다. 두 곳이 각자 세면 서로 다른 숫자가 나온다.
+ * v3 까지는 저장한 숙소가 갖고 있는 물건을 '숙소에 있어요' 로 따로 셌고, 목록은 계절 칩으로 걸렀다.
+ * 탭이 "내 물건을 찾아 챙겼는지 표시하는 곳" 이 되면서 둘 다 뺐다 — 숙소 몫은 장소 쪽(`PlaceItemsNote`)이
+ * 말하고, 계절로 거르면 검색한 물건이 안 나온다. 홈 「내 여행」 과 탭 머리가 이 함수 하나로 센다.
  */
-export const checklistView = (
-  season: TSeasonFilter,
+export const checklistProgress = (checkedItemIds: string[]): TChecklistProgress => ({
+  items: ITEMS,
+  total: ITEMS.length,
+  packed: ITEMS.filter((item) => checkedItemIds.includes(item.id)).length,
+});
+
+/** 준비물 탭의 보기 칩. */
+export type TChecklistFilter = 'all' | 'unpacked' | 'packed';
+
+export const CHECKLIST_FILTER_LABEL: Record<TChecklistFilter, string> = {
+  all: '전체',
+  unpacked: '안 챙긴 것',
+  packed: '챙긴 것',
+};
+
+/**
+ * 검색어가 이 준비물에 맞는가. 빈 검색어는 `filterChecklistItems` 가 먼저 걸러 여기 오지 않는다.
+ */
+export const matchesItemQuery = (item: TItem, query: string): boolean => {
+  // TODO(사용자): 어디까지 찾을지 정한다. 지금은 이름에 적은 그대로 들어 있는지만 본다 — 그래서
+  //  - 띄어쓰기: "배변 봉투" 는 '배변봉투' 를, "이불담요" 는 '얇은 이불/담요' 를 못 찾는다(가장 먼저 부딪힐 곳)
+  //  - 대소문자: 지금 이름엔 영문이 없지만 데이터가 늘면
+  //  - 이유(`item.reason`)까지 볼지: 더 잡히지만 "물" 하나로 거의 전부가 걸린다
+  //  - 초성("ㅂㅂ")까지 받을지
+  // 같은 결의 선례: `adminPlaces.ts` 의 `matchesPlaceQuery`(공백·대소문자 무시).
+  return item.name.includes(query);
+};
+
+/** 검색어 + 보기 칩으로 목록을 거른다. 순서는 원본 그대로다(체크한 것을 아래로 내리면 누른 줄이 손 밑에서 사라진다). */
+export const filterChecklistItems = (
+  items: TItem[],
+  query: string,
+  filter: TChecklistFilter,
   checkedItemIds: string[],
-  savedPlaces: TPlaceEntry[],
-): TChecklistView => {
-  const items = visibleItems(season);
-  const provided = tripProvidedItemIds(savedPlaces, items);
-  const packed = items.filter((item) => checkedItemIds.includes(item.id)).length;
-  const atStay = items.filter((item) => provided.has(item.id) && !checkedItemIds.includes(item.id)).length;
-  return {
-    items,
-    providedItemIds: provided,
-    total: items.length,
-    packed,
-    atStay,
-    // 숙소가 갖고 있는 물건도 준비된 것으로 센다. 목록에서는 '숙소에 있어요' 로 흐리게
-    // 표시해 놓고 막대에서만 빼면, 같은 화면의 줄과 막대가 서로 다른 말을 한다.
-    ready: packed + atStay,
-  };
+): TItem[] => {
+  const trimmed = query.trim();
+  return items.filter((item) => {
+    const checked = checkedItemIds.includes(item.id);
+    if (filter === 'packed' && !checked) return false;
+    if (filter === 'unpacked' && checked) return false;
+    return trimmed === '' || matchesItemQuery(item, trimmed);
+  });
 };
 
 /**
