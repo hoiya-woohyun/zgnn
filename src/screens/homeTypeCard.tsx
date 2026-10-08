@@ -45,43 +45,53 @@ export function HomeTypeCard({ type, levelCounts }: THomeTypeCardProps) {
             <p className="text-sm text-secondary">{meta.blurb}</p>
           </div>
 
-          {/* 프로필이 있으면 "가능 3 · 확인 필요 3" 을 글자로. 예전엔 ok+cond 합을 "7 / 26" 으로만 적어
-              "7 이 뭐예요?" 가 나왔고, 스크린리더만 "갈 수 있는 곳" 이라 읽어 확인 필요까지 가능으로
-              부풀렸다(D 크리틱 #4). 보이는 말과 읽히는 말을 같게 둔다 — 목록 머리와도 같은 기준.
-              끝의 "/ 26곳" 은 모수 — 20kg 아이에게 26곳 중 7곳뿐이라는 사실이 수 둘만으로는 안 드러났다(18 T1).
-              "야외 N" 은 카드가 "야외 자리에서 갈 수 있어요" 인 곳 — 있을 때만(목록 머리와 같은 규칙, 14 W261007.5). */}
-          {levelCounts ? (
-            <p
-              className="shrink-0 text-right text-sm font-semibold text-secondary"
-              aria-label={`${countByType[type]}곳 중 가능 ${levelCounts.ok}${levelCounts.outdoor > 0 ? ` · 야외 ${levelCounts.outdoor}` : ''} · 확인 필요 ${levelCounts.cond}`}
-            >
-              가능{' '}
-              <span className="text-lg font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>
-                {levelCounts.ok}
-              </span>
-              {levelCounts.outdoor > 0 && (
-                <>
-                  <span aria-hidden="true"> · </span>
-                  야외{' '}
-                  <span className="text-lg font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>
-                    {levelCounts.outdoor}
-                  </span>
-                </>
-              )}
-              <span aria-hidden="true"> · </span>
-              확인 필요{' '}
-              <span className="text-lg font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>
-                {levelCounts.cond}
-              </span>
-              <span className="text-sm font-normal text-tertiary"> / {countByType[type]}곳</span>
-            </p>
-          ) : (
+          {!levelCounts && (
             <p className="text-xl font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>
               {countByType[type]}
               <span className="text-sm font-semibold">곳</span>
             </p>
           )}
         </div>
+
+        {/* 프로필이 있으면 "가능 3 · 확인 필요 3" 을 글자로. 예전엔 ok+cond 합을 "7 / 26" 으로만 적어
+            "7 이 뭐예요?" 가 나왔고, 스크린리더만 "갈 수 있는 곳" 이라 읽어 확인 필요까지 가능으로
+            부풀렸다(D 크리틱 #4). 보이는 말과 읽히는 말을 같게 둔다 — 목록 머리와도 같은 기준.
+            끝의 "/ 26곳" 은 모수 — 20kg 아이에게 26곳 중 7곳뿐이라는 사실이 수 둘만으로는 안 드러났다(18 T1).
+            "야외 N" 은 카드가 "야외 자리에서 갈 수 있어요" 인 곳 — 있을 때만(목록 머리와 같은 규칙, 14 W261007.5).
+            **이름 밑 줄**에 둔다(14 W261007.10) — 오른쪽에 세우면 수 묶음이 폭을 먹어 390px 에서도 이름 칸이 50px,
+            320px 에선 0px 이 돼 "식/당" 이 한 글자씩 내려왔다. 낱말 묶음(`whitespace-nowrap`) 사이에서만 꺾인다. */}
+        {levelCounts && (
+          <p
+            className="mt-3 text-sm font-semibold text-secondary"
+            aria-label={`${countByType[type]}곳 중 가능 ${levelCounts.ok}${levelCounts.outdoor > 0 ? ` · 야외 ${levelCounts.outdoor}` : ''} · 확인 필요 ${levelCounts.cond}`}
+          >
+            <span className="whitespace-nowrap">
+              가능{' '}
+              <span className="text-lg font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>
+                {levelCounts.ok}
+              </span>
+              <span aria-hidden="true"> ·</span>
+            </span>{' '}
+            {levelCounts.outdoor > 0 && (
+              <>
+                <span className="whitespace-nowrap">
+                  야외{' '}
+                  <span className="text-lg font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>
+                    {levelCounts.outdoor}
+                  </span>
+                  <span aria-hidden="true"> ·</span>
+                </span>{' '}
+              </>
+            )}
+            <span className="whitespace-nowrap">
+              확인 필요{' '}
+              <span className="text-lg font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>
+                {levelCounts.cond}
+              </span>
+            </span>{' '}
+            <span className="whitespace-nowrap text-sm font-normal text-tertiary">/ {countByType[type]}곳</span>
+          </p>
+        )}
       </Link>
     </div>
   );
