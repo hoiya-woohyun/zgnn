@@ -1,6 +1,7 @@
 # 18. 홈 구성 바꾸기 — 종류별 디렉터리에서 "내 여행" 중심으로
 
-> 최종 수정: 2026-10-07 (v1: 신설. 사용자 "구성 자체를 변경한다면" 에 답한 계획. 장기 목표(저장한 곳 → 하루 동선, [16](16-trip-route-planner.md))을
+> 최종 수정: 2026-10-08 (v2: T2 의 관광지 칩 한 줄은 [19](19-area-cards.md) 의 **6권역 카드** 안으로 들어갔다 — 0곳인 칩 11개는 빠졌다(27 → 16). 홈이 퍼시스트를 안 건다는 원칙은 그대로, 권역도 비퍼시스트([ADR-027](../decisions/ADR-027-areas-by-verdict-count.md) 결정 5))
+> 이전 2026-10-07 (v1: 신설. 사용자 "구성 자체를 변경한다면" 에 답한 계획. 장기 목표(저장한 곳 → 하루 동선, [16](16-trip-route-planner.md))을
 > 받칠 수 있는 구성으로 축을 옮긴다 — **종류(숙소·식당·카페)가 아니라 사용자 상태(등록 전 · 등록 · 등록+저장)** 가 홈을 가른다.
 > 결정 H1~H4 는 **제안**, 🙋 둘. 한 태스크 = 한 커밋, [08](08-usability-and-process-plan.md) 규약)
 > 상태: **계획**. T1·T2 는 지금 구성에서도 가치가 있어 먼저 하고, T3·T4 가 구성 변경이다.
@@ -65,6 +66,7 @@ A·B·C 는 리뷰들이 쓰던 이름이다(A 등록 전 · B 등록, 저장 0 
 ### [x] T2 읍면 칩 → 관광지 칩 한 줄 (H2)
 
 > 메모(2026-10-07): 끝. 칩은 지금 27개(명세의 21 은 합치기 전 수). 칩 이름은 `name`, 검색어는 별칭 첫 말 — "협재·금능" 은 검색어로 안 읽힌다. 실측: 홈 "중문" → `/places/stay` 검색칸 "중문" 1곳 → 카페 탭에도 "중문" → 새로고침에 풀림(24곳), `town` 은 내내 null. 문서는 `docs/features/home-header.md` v7.
+> 메모(2026-10-08): 칩 줄은 19 T4 가 6권역 카드(`screens/homePageAreaCards.tsx`)로 바꿨다 — `homePageLandmarkChips.tsx` 는 없다. 칩은 권역 카드 안에, 세 종류 합 0곳인 칩은 뺐다. 문서는 [features/area-cards](../features/area-cards.md).
 
 - 근거: ux-expert M-5(홈 읍면 칩이 퍼시스트 `town` 을 걸어 종류 탭·다음 방문까지 남는다) · ADR-022.
 - 읽을 것: `src/screens/homeTypeCard.tsx`(`towns`·`goToTown` 블록) · `src/lib/landmarks.ts`(`LANDMARKS_BY_AREA`) · `src/screens/placesPage.tsx` 의 검색칸이 쓰는 `usePlacesPageFilterStore`(07 U3 메모) · `src/screens/placesPageActiveChips.tsx`
