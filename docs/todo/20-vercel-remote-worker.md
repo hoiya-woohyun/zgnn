@@ -89,7 +89,8 @@ T2~T4 는 서로 독립이라 아무 순서나 된다. T5 는 셋 모두에 기�
 ### T9. 실측 — **develop → main 뒤에만 된다**
 깨우기 주소(`NEXT_PUBLIC_WORKER_URL`)는 `main` 에서 나온 프로덕션 사이트 빌드에만 들어간다. 로컬 `/admin`(7727)은 빈 값이라 깨우지 않고, 워커 주소를 직접 넣어도
 다른 출처라 CORS 가 없어 막힌다(사전 요청 OPTIONS 가 405). 그래서 순서는 🧑 env → 에이전트 `--prod` 재배포 → 🙋 develop → main(다른 세션 커밋도 실려 나간다) → 이것.
-- [ ] rewrite: `curl -X POST https://zgnn.vercel.app/api/worker/run/` 이 401(로컬 `vercel build` 로 못 본 것 — T6).
+- [x] 2026-10-08 dda522e 배포 뒤 — rewrite: `curl -X POST https://zgnn.vercel.app/api/worker/run/` 이 워커의 401 JSON(icn1 → iad1 경유), 슬래시 없는 주소도 308 을 따라 401.
+- rewrite: `curl -X POST https://zgnn.vercel.app/api/worker/run/` 이 401(로컬 `vercel build` 로 못 본 것 — T6).
   2026-10-08 첫 합치기(f95985d)에서 **308 → 404** — `trailingSlash: true` 로 `/run` 이 `/run/` 으로 리다이렉트되고, rewrite 는 끝 슬래시까지 엄격하게 맞춰 `/api/worker/:path*` 가 `/run/` 을 놓쳤다.
   슬래시 붙은 규칙을 더하고 깨우기 주소를 `/api/worker/run/` 로.
 - [ ] 헤더 전달: 위 401 은 "토큰 없음" 과 "프록시가 Authorization 을 떨어뜨림" 을 못 가른다. 로그인 직후 첫 버튼에 "서버 워커를 못 깨웠어요" 가 뜨면 rewrite 가 헤더를 버리는 것이다.
