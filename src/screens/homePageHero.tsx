@@ -62,8 +62,11 @@ type THomePageHeroProps = {
    * 두 벌이었다(디자인 리뷰 ①). 이 앱만 말할 수 있는 숫자 하나만 남긴다. `cond` 를 더하지 않는 이유는 종류 카드가 "가능 · 확인" 을
    * 일부러 나눠 적는 이유와 같다 — 확인 필요까지 '갈 수 있다' 로 읽힌다. 야외 자리만 되는 곳은 카드 머리글부터 "야외 자리에서 갈 수
    * 있어요" 라 그 이유가 해당하지 않아 더한다(14 W261007.5) — 평가자 3/6 이 "홈 수에서 빠진다" 를 짚었다.
+   *
+   * 수는 누르는 줄이다(14 W261007.12) — `onOpen` 이 그 N곳을 시트로 펼친다. 옆의 `editHref` 는 등록 뒤 홈에 남는 강아지 고치기 입구다
+   * (등록 전엔 히어로 전체가 등록 버튼이라 고칠 길이 보였는데, 등록하고 나면 설정까지 가야 했다).
    */
-  reach: { label: string; count: number } | null;
+  reach: { label: string; count: number; onOpen: () => void; editHref: string } | null;
   /**
    * 프로필이 없을 때 `reach` 자리에 서는 등록 버튼(18 T4). 둘 중 하나만 그린다 — 프로필이 있으면 `reach`, 없으면 `cta`.
    * 예전에는 히어로 **밑**에 핑크 면 카드로 따로 섰다. 첫 화면에 큰 덩어리가 둘(잉크 판 + 핑크 판)이라 히어로 위에 템플릿이
@@ -315,11 +318,25 @@ export function HomePageHero({ subtitle, reach, cta }: THomePageHeroProps) {
             <div data-scroll-morph="fade-early" style={fadeEarly}>
               <p className="mt-1.5 text-sm text-white/65">{subtitle}</p>
 
-              {/* 판·칸 없이 부제 밑 한 문장. 수는 발바닥과 같은 brand-300 — 잉크 위에서 이 앱의 답이라는 표시다. */}
+              {/* 판·칸 없이 부제 밑 한 줄. 수는 발바닥과 같은 brand-300 — 잉크 위에서 이 앱의 답이라는 표시다.
+                  누르면 그 곳들(14 W261007.12), 옆은 강아지 고치기. 좁으면 고치기가 다음 줄로 내려간다(320 폭). 둘 다 44px 히트. */}
               {reach ? (
-                <p className="mt-4 text-sm text-white/65">
-                  {reach.label} <strong className="text-lg font-bold text-brand-300">{reach.count}</strong>곳
-                </p>
+                <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-4">
+                  <button
+                    type="button"
+                    onClick={reach.onOpen}
+                    className="flex min-h-11 items-center gap-0.5 text-sm text-white/65 transition-colors hover:text-white/85"
+                  >
+                    {reach.label}&nbsp;<strong className="text-lg font-bold text-brand-300">{reach.count}</strong>곳
+                    <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-white/65" />
+                  </button>
+                  <Link
+                    href={reach.editHref}
+                    className="flex min-h-11 items-center text-sm font-semibold text-white/85 underline underline-offset-4 hover:text-white"
+                  >
+                    강아지 정보 고치기
+                  </Link>
+                </div>
               ) : (
                 // 등록 버튼은 부제와 같은 묶음이라 같이 먼저 사라진다 — 접힌 헤더엔 제목만. 다 접히면 `fade-early` 가 `visibility` 로
                 // 숨으므로 상태바 자리에 걸린 투명한 버튼이 눌리지도 않는다.

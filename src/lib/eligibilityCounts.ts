@@ -32,6 +32,29 @@ export const countByLevel = (
 };
 
 /**
+ * 우리 강아지가 **갈 수 있는** 곳 — 판정 `ok` 와 야외 자리만 되는 곳(`isOutdoorSeatOnly`). 홈 히어로의
+ * "두부가 갈 수 있는 곳 N곳" 이 이 길이로 세고, 누르면 이 곳들을 시트로 펼친다(14 W261007.12).
+ * 수와 펼치는 곳이 한 함수에서 나와야 한다 — 따로 세면 한쪽만 고쳐도 빌드·테스트가 통과하고 "44곳" 을 눌러 43곳을 본다.
+ * 길이는 `countByLevel` 의 `ok + outdoor` 와 같다(테스트가 못 박는다).
+ *
+ * 순서는 목록 정렬(`sortByEligibility`)과 같게 가능 먼저, 야외 뒤 — 같은 칸 안에서는 받은 순서 그대로.
+ */
+export const reachablePlaces = <T extends { policy: TPetPolicy }>(
+  places: readonly T[],
+  dog: TDogProfile,
+  opts: { needsIndoor?: boolean } = {},
+): T[] => {
+  const ok: T[] = [];
+  const outdoor: T[] = [];
+  for (const place of places) {
+    const eligibility = judgeEligibility(dog, place.policy, opts);
+    if (eligibility.level === 'ok') ok.push(place);
+    else if (isOutdoorSeatOnly(eligibility)) outdoor.push(place);
+  }
+  return [...ok, ...outdoor];
+};
+
+/**
  * "이동가방이 있으면 N곳이 열린다" — 이동 수단 what-if(07 P2 → 08 T2.5).
  *
  * 이동 수단 없음(`none`) 프로필로 케이지 필수 식당을 보면 전부 "어려움 · 케이지 필요" 로 떠서,

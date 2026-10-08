@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { headlineFor, judgeEligibility } from './eligibility';
-import { carrierWhatIf, countByLevel, outdoorFallback } from './eligibilityCounts';
+import { carrierWhatIf, countByLevel, outdoorFallback, reachablePlaces } from './eligibilityCounts';
 import { parsePetPolicy } from './petPolicy';
-import { placesOfType } from './places';
+import { PLACE_TYPES, placesOfType } from './places';
 import type { TDogProfile } from '../types';
 
 // 리뷰(2026-09-29) 민준 — 대형견 2마리, 이동 수단 없음.
@@ -47,6 +47,36 @@ describe('countByLevel', () => {
     it('실내 자리가 꼭 필요하면 야외는 0', () => {
       expect(countByLevel(restaurants, BORI, { needsIndoor: true }).outdoor).toBe(0);
     });
+  });
+});
+
+describe('reachablePlaces — 홈 "갈 수 있는 곳 N곳" 과 그 시트 (14 W261007.12)', () => {
+  const DUBU: TDogProfile = { dogs: [{ name: '두부', weightKg: 7 }], carrier: 'none' };
+  const BORI: TDogProfile = { dogs: [{ name: '보리', weightKg: 30 }], carrier: 'none' };
+
+  it.each([
+    ['두부 7kg', DUBU, {}],
+    ['보리 30kg', BORI, {}],
+    ['보리 30kg · 실내 자리 필요', BORI, { needsIndoor: true }],
+  ])('%s — 길이가 countByLevel 의 가능 + 야외와 같다', (_, dog, opts) => {
+    for (const type of PLACE_TYPES) {
+      const places = placesOfType(type);
+      const counts = countByLevel(places, dog, opts);
+      expect(reachablePlaces(places, dog, opts)).toHaveLength(counts.ok + counts.outdoor);
+    }
+  });
+
+  it('가능 먼저, 야외 뒤 — 식당 × 30kg 는 야외 곳만이고 그게 야외 차선과 같은 곳', () => {
+    const restaurants = placesOfType('restaurant');
+    expect(reachablePlaces(restaurants, BORI)).toEqual(outdoorFallback(restaurants, BORI));
+  });
+
+  it('종류마다 가능이 야외보다 앞에 온다', () => {
+    for (const type of PLACE_TYPES) {
+      const levels = reachablePlaces(placesOfType(type), DUBU).map((place) => judgeEligibility(DUBU, place.policy).level);
+      const firstOutdoor = levels.indexOf('cond');
+      expect(firstOutdoor === -1 || levels.lastIndexOf('ok') < firstOutdoor).toBe(true);
+    }
   });
 });
 
