@@ -6,12 +6,13 @@
  * (2026-10-06 — 탭 라벨 옆 `미적용` 은 무슨 뜻인지 읽히지 않아 뺐다, todo/13 T4.4).
  */
 
-import type { PostgrestFilterBuilder, SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { JEJU_TITLE_SOURCE, LISTY_TITLE_SOURCE, PET_TITLE_SOURCE, TOPIC_TITLE_SOURCE } from '../../scripts/analyze/analyzeCandidates.mjs';
 import { chunkForUrlFilter } from '../../scripts/lib/chunkForUrlFilter.mjs';
 import type { TCandidateRow } from './adminCandidates';
 import { EDITED_NOTE } from './adminApply';
 import { fetchPlaceSources } from './adminPlaces';
+import { onlyAnalyzed, withPromptVersion, type TPostQuery } from './adminPostVersions';
 import { REANALYZE_NOTE, reanalyzeSummary, type TReanalyzePlan } from './adminReanalyze';
 
 export type TPostCounts = {
@@ -144,9 +145,6 @@ export function reopenSummary(plan: TReopenPlan): string {
 }
 
 const headCount = (client: SupabaseClient) => client.from('blog_posts').select('url', { count: 'exact', head: true });
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- 어느 select 모양의 질의든 받는다(필터만 붙인다).
-type TPostQuery = PostgrestFilterBuilder<any, any, any, any, any, any, any>;
 
 /**
  * **"미분석" 의 정의 한 곳** — 머리글의 `미분석 N`(`countPosts`), 미분석 필터의 목록과 그 페이지 수(`fetchPosts`), 검색어·달별 집계(`fetchPostBacklog`)가
@@ -290,10 +288,16 @@ export function postDateLabel(postedAt: string | null): string {
  * 한 페이지. 정렬은 글 날짜 최신순 + **`url` 둘째 키** — `posted_at` 은 날짜뿐이라 같은 날 글이 많고, 둘째 키가 없으면 50건 페이지가 겹치거나 빠진다.
  * 분석됨 필터는 제외한 글을 뺀다(제외 칩과 겹치지 않게 — 세 칩이 전체를 나눈다). 제외 칸이 없으면(`excludedApplied` false) 그 두 칸을 select 에서 빼고,
  * `excluded` 필터는 부를 수 없다(화면이 칩을 안 그린다).
+ * `promptVersion` 은 분석됨 필터 안에서 판 하나로 좁힌다(09 T3.3 — undefined 면 전부, null 이면 판이 안 적힌 글). 다른 필터에선 무시한다.
  */
 export async function fetchPosts(
   client: SupabaseClient,
-  { filter, page, excludedApplied }: { filter: TPostFilter; page: number; excludedApplied: boolean },
+  {
+    filter,
+    page,
+    excludedApplied,
+    promptVersion,
+  }: { filter: TPostFilter; page: number; excludedApplied: boolean; promptVersion?: string | null },
 ): Promise<TPostPage> {
   if (filter === 'excluded' && !excludedApplied) throw new Error('글 단위 분석 제외는 DB 마이그레이션이 적용된 뒤에 쓸 수 있어요.');
   const columns: string = excludedApplied
@@ -301,10 +305,8 @@ export async function fetchPosts(
     : 'url, title, keyword, posted_at, analyzed_at, promptVersion:analysis->>promptVersion';
   let query = client.from('blog_posts').select(columns, { count: 'exact' });
   if (filter === 'unanalyzed') query = onlyUnanalyzed(query, excludedApplied);
-  else if (filter === 'analyzed') {
-    query = query.not('analyzed_at', 'is', null);
-    if (excludedApplied) query = query.is('excluded_at', null);
-  } else query = query.not('excluded_at', 'is', null);
+  else if (filter === 'analyzed') query = withPromptVersion(onlyAnalyzed(query, excludedApplied), promptVersion);
+  else query = query.not('excluded_at', 'is', null);
   const from = page * POSTS_PAGE;
   const { data, error, count } = await query
     .order('posted_at', { ascending: false, nullsFirst: false })

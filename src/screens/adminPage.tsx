@@ -76,6 +76,7 @@ import {
   type TPostRow,
   type TReopenPlan,
 } from '../lib/adminPosts';
+import { fetchPromptVersions } from '../lib/adminPostVersions';
 import {
   closeReportsForArchived,
   fetchReports,
@@ -792,6 +793,12 @@ export function AdminPage() {
   const readPosts = useCallback((query: Parameters<typeof fetchPosts>[1]) => {
     const client = clientRef.current;
     return client ? fetchPosts(client, query) : Promise.reject(new Error('로그인이 필요해요.'));
+  }, []);
+
+  // 분석됨 칩 안의 프롬프트 판 분포(09 T3.3) — 읽기만. 언제 읽을지는 패널이 정한다(그 칩을 처음 열 때 · 쓰기 뒤).
+  const readPromptVersions = useCallback((excludedApplied: boolean) => {
+    const client = clientRef.current;
+    return client ? fetchPromptVersions(client, excludedApplied) : Promise.reject(new Error('로그인이 필요해요.'));
   }, []);
 
   const excludePostRows = useCallback(
@@ -1976,6 +1983,7 @@ export function AdminPage() {
           onReopen={runReopen}
           active={phase === 'ready' && tab === 'posts'}
           onFetchPosts={readPosts}
+          onFetchPromptVersions={readPromptVersions}
           onExcludePosts={excludePostRows}
           onUnexcludePosts={unexcludePostRows}
           onPlanReread={planPostReread}

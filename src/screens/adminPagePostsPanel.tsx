@@ -21,6 +21,7 @@ import {
   type TPostRow,
   type TReopenPlan,
 } from '../lib/adminPosts';
+import { NO_PROMPT_VERSION_LABEL, type TPromptVersionTally } from '../lib/adminPostVersions';
 import { cx } from '../utils/cx';
 import { AdminPagePostsPanelRow } from './adminPagePostsPanelRow';
 
@@ -44,7 +45,10 @@ type TAdminPagePostsPanelProps = {
 
 /** 글 목록(09 T3.2)의 읽기·쓰기. 쓰기는 결과 한 줄을 돌려주고 실패하면 던진다 — 건수·후보 목록을 다시 읽는 것은 `adminPage` 몫이다. */
 type TPostListActions = {
-  onFetchPosts: (query: { filter: TPostFilter; page: number; excludedApplied: boolean }) => Promise<TPostPage>;
+  /** `promptVersion` — 분석됨 칩 안에서 판 하나로(undefined = 전부, null = 판 기록 없음). */
+  onFetchPosts: (query: { filter: TPostFilter; page: number; excludedApplied: boolean; promptVersion?: string | null }) => Promise<TPostPage>;
+  /** 분석됨 글의 프롬프트 판 분포(09 T3.3) — 읽기만. */
+  onFetchPromptVersions: (excludedApplied: boolean) => Promise<TPromptVersionTally>;
   onExcludePosts: (urls: string[], note: string) => Promise<string>;
   onUnexcludePosts: (urls: string[]) => Promise<string>;
   /** 읽기만(잠금 없이). */
@@ -85,6 +89,54 @@ function AdminPagePostsBacklogTable({ caption, head, rows }: { caption: string; 
 
 const PICKED_CHIP = 'ring-2! ring-brand!';
 
+/**
+ * 분석됨 칩 안의 판별 칩(09 T3.3) — 옛 프롬프트로 읽힌 글만 골라 다시 읽히는 길. 맨 앞 판이 `최근`(마지막으로 분석이 쓴 판)이다.
+ * `최신` 이라 적지 않는다: 화면은 지금 코드의 판을 모르고(`adminPostVersions` 머리 주석), 프롬프트를 고친 뒤 아직 안 돌렸으면 그 판도 옛 판이다.
+ */
+function AdminPagePostsVersionChips({
+  tally,
+  picked,
+  disabled,
+  onPick,
+}: {
+  tally: TPromptVersionTally;
+  picked: string | null | undefined;
+  disabled: boolean;
+  onPick: (version: string | null | undefined) => void;
+}) {
+  const chips: { key: string; version: string | null | undefined; label: string }[] = [
+    { key: '*', version: undefined, label: `전부 ${n(tally.total)}` },
+    ...tally.versions.map((entry, index) => ({
+      key: entry.version ?? '-',
+      version: entry.version,
+      label: `${entry.version ?? NO_PROMPT_VERSION_LABEL}${index === 0 && entry.lastAnalyzedAt ? ' · 최근' : ''} ${n(entry.count)}`,
+    })),
+  ];
+  return (
+    <div className="space-y-1">
+      <div role="group" aria-label="프롬프트 판" className="flex flex-wrap items-center gap-1.5">
+        {chips.map((chip) => (
+          <Button
+            key={chip.key}
+            size="xs"
+            color="secondary"
+            className={cx('font-mono', picked === chip.version && PICKED_CHIP)}
+            aria-pressed={picked === chip.version}
+            isDisabled={disabled}
+            onClick={() => onPick(chip.version)}
+          >
+            {chip.label}
+          </Button>
+        ))}
+      </div>
+      <p className="text-xs text-tertiary">
+        프롬프트 판별 — <b className="font-semibold">최근</b>은 마지막으로 분석이 쓴 판이에요(그 뒤 프롬프트를 고쳤으면 그것도 옛 판). 옛 판을 눌러 글을 고른 뒤
+        다시 읽기.
+      </p>
+    </div>
+  );
+}
+
 type TBulkStep = { mode?: 'exclude' | 'reread'; plan?: TReopenPlan; busy?: boolean; error?: string };
 
 /**
@@ -96,6 +148,7 @@ function AdminPagePostsList({
   counts,
   active,
   onFetchPosts,
+  onFetchPromptVersions,
   onExcludePosts,
   onUnexcludePosts,
   onPlanReread,
@@ -104,6 +157,10 @@ function AdminPagePostsList({
   const excludedApplied = counts.excluded !== null;
   const [filter, setFilter] = useState<TPostFilter>('unanalyzed');
   const [page, setPage] = useState(0);
+  /** 분석됨 칩 안에서 고른 판 — undefined = 전부, null = 판 기록 없음. 다른 칩으로 가면 전부로 돌아온다. */
+  const [version, setVersion] = useState<string | null | undefined>(undefined);
+  /** 판 분포 — 분석됨 칩을 처음 열 때 읽는다(undefined = 아직 안 읽었다). */
+  const [versions, setVersions] = useState<{ data?: TPromptVersionTally; error?: string } | undefined>(undefined);
   const [load, setLoad] = useState<{ data?: TPostPage; error?: string; busy?: boolean }>({});
   const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set());
   const [bulk, setBulk] = useState<TBulkStep>({});
@@ -111,13 +168,14 @@ function AdminPagePostsList({
   const [notice, setNotice] = useState<string | undefined>(undefined);
   const askedRef = useRef(false);
 
-  const read = async (nextFilter: TPostFilter, nextPage: number) => {
+  const read = async (nextFilter: TPostFilter, nextPage: number, nextVersion: string | null | undefined) => {
     setLoad((prev) => ({ ...prev, busy: true, error: undefined }));
+    const promptVersion = nextFilter === 'analyzed' ? nextVersion : undefined;
     try {
-      let data = await onFetchPosts({ filter: nextFilter, page: nextPage, excludedApplied });
+      let data = await onFetchPosts({ filter: nextFilter, page: nextPage, excludedApplied, promptVersion });
       const last = postPageCount(data.total) - 1;
       if (nextPage > last) {
-        data = await onFetchPosts({ filter: nextFilter, page: last, excludedApplied });
+        data = await onFetchPosts({ filter: nextFilter, page: last, excludedApplied, promptVersion });
         setPage(last);
       }
       setLoad({ data });
@@ -126,31 +184,58 @@ function AdminPagePostsList({
     }
   };
 
+  /** 판 분포를 (다시) 센다 — 센 것을 돌려준다(실패면 undefined, 줄에 이유가 남는다). */
+  const readVersions = async () => {
+    try {
+      const data = await onFetchPromptVersions(excludedApplied);
+      setVersions({ data });
+      return data;
+    } catch (error) {
+      setVersions({ error: messageOf(error) });
+      return undefined;
+    }
+  };
+
   // 칸을 처음 열 때 한 번(백로그와 같은 길). 탭을 오가는 것만으로는 다시 읽지 않는다 — 쓰기 뒤와 칩·페이지를 누를 때만.
   useEffect(() => {
     if (!active || askedRef.current) return;
     askedRef.current = true;
-    void read(filter, page);
+    void read(filter, page, version);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 처음 한 번만. 그 뒤의 읽기는 손잡이(칩·페이지·쓰기)가 부른다.
   }, [active]);
 
-  const go = (nextFilter: TPostFilter, nextPage: number) => {
+  /** 칩·판·페이지를 옮긴다. 판은 분석됨 칩 안에서만 산다 — 다른 칩으로 가면 부른 쪽이 undefined 를 넘긴다. */
+  const go = (nextFilter: TPostFilter, nextPage: number, nextVersion: string | null | undefined) => {
     setFilter(nextFilter);
     setPage(nextPage);
+    setVersion(nextVersion);
     setPicked(new Set());
     setBulk({});
     setNotice(undefined);
-    void read(nextFilter, nextPage);
+    if (nextFilter === 'analyzed' && !versions) void readVersions();
+    void read(nextFilter, nextPage, nextVersion);
   };
 
-  /** 쓰기 하나 — 결과를 말하고, 고른 것을 비우고, 지금 페이지를 다시 읽는다. 실패는 던진다(부른 쪽 줄에 남는다). */
+  /**
+   * 쓰기 하나 — 결과를 말하고, 고른 것을 비우고, 지금 페이지를 다시 읽는다. 실패는 던진다(부른 쪽 줄에 남는다).
+   * `다시 읽기`·`분석 제외` 는 글을 분석됨 밖으로 옮기므로 판 분포도 다시 센다. 고른 판이 비었으면 전부로 물러선다 —
+   * 빈 목록이 "분석된 글이 없어요" 로 읽히지 않게.
+   */
   const afterWrite = async (write: () => Promise<string>) => {
     const said = await write();
     setNotice(said);
     setPicked(new Set());
     setBulk({});
     setBulkNote('');
-    await read(filter, page);
+    let nextVersion = version;
+    if (versions) {
+      const tally = await readVersions();
+      if (nextVersion !== undefined && tally && !tally.versions.some((entry) => entry.version === nextVersion)) {
+        nextVersion = undefined;
+        setVersion(undefined);
+      }
+    }
+    await read(filter, page, nextVersion);
   };
 
   const rows = load.data?.rows ?? [];
@@ -158,9 +243,11 @@ function AdminPagePostsList({
   const allPicked = rows.length > 0 && pickedRows.length === rows.length;
   const locked = Boolean(bulk.busy);
   const pageCount = postPageCount(load.data?.total ?? 0);
+  // 세 칩이 전체를 나눈다 — 분석됨 = 전체 − 미분석 − 제외. 판별 칩의 합(`fetchPromptVersions`)이 이 수와 같아야 한다(09 T3.3 수용 기준).
+  const analyzedCount = counts.total - counts.unanalyzed - (counts.excluded ?? 0);
   const chips: { key: TPostFilter; label: string }[] = [
     { key: 'unanalyzed', label: `미분석 ${n(counts.unanalyzed)}` },
-    { key: 'analyzed', label: '분석됨' },
+    { key: 'analyzed', label: `분석됨 ${n(analyzedCount)}` },
     ...(excludedApplied ? [{ key: 'excluded' as const, label: `제외 ${n(counts.excluded ?? 0)}` }] : []),
   ];
 
@@ -200,12 +287,28 @@ function AdminPagePostsList({
             className={filter === chip.key ? PICKED_CHIP : undefined}
             aria-pressed={filter === chip.key}
             isDisabled={load.busy || locked}
-            onClick={() => go(chip.key, 0)}
+            onClick={() => go(chip.key, 0, undefined)}
           >
             {chip.label}
           </Button>
         ))}
       </div>
+
+      {filter === 'analyzed' &&
+        (versions?.error ? (
+          <p className="text-xs text-error-primary">{versions.error}</p>
+        ) : versions?.data ? (
+          versions.data.total > 0 && (
+            <AdminPagePostsVersionChips
+              tally={versions.data}
+              picked={version}
+              disabled={Boolean(load.busy) || locked}
+              onPick={(next) => go('analyzed', 0, next)}
+            />
+          )
+        ) : (
+          <p className="text-xs text-tertiary">프롬프트 판별로 세고 있어요</p>
+        ))}
 
       {rows.length > 0 && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs">
@@ -322,13 +425,13 @@ function AdminPagePostsList({
 
       {load.data && (
         <div className="flex items-center justify-center gap-3 text-xs text-secondary">
-          <Button color="secondary" size="sm" isDisabled={page === 0 || load.busy || locked} onClick={() => go(filter, page - 1)}>
+          <Button color="secondary" size="sm" isDisabled={page === 0 || load.busy || locked} onClick={() => go(filter, page - 1, version)}>
             이전
           </Button>
           <span className="tabular-nums">
             {page + 1} / {pageCount}
           </span>
-          <Button color="secondary" size="sm" isDisabled={page + 1 >= pageCount || load.busy || locked} onClick={() => go(filter, page + 1)}>
+          <Button color="secondary" size="sm" isDisabled={page + 1 >= pageCount || load.busy || locked} onClick={() => go(filter, page + 1, version)}>
             다음
           </Button>
         </div>
