@@ -12,6 +12,7 @@
  */
 
 import { agoLabel, latestRebuildCall, QUEUE_STALL_MS, RESPONSE_WAIT_LIMIT_MS } from './adminRebuild';
+import { REMOTE_WORKER_HOST } from './adminWorkerWake';
 import type { TOpsOverview, TOpsWorker, TPipelineRun, TRunScript, TWorkerPhase } from './adminOps';
 
 /*
@@ -311,7 +312,9 @@ export const WORKER_PHASE_LABEL: Record<TWorkerPhase, string> = {
  * 한도 휴식은 리셋까지 몇 시간을 자기도 해 그 사이 세션이 끝날 수 있다. 대신 심장이 멎었으면 문구에 그 나이를 붙인다
  * (그 상태로 죽은 워커일 수도 있다). 판정은 `phase` 만 믿고, 시각을 못 읽으면 멎은 것으로 친다.
  */
-export function workerHealth(workers: readonly TOpsWorker[], nowMs: number): TWorkerHealth {
+export function workerHealth(allWorkers: readonly TOpsWorker[], nowMs: number): TWorkerHealth {
+  // 서버 워커(vercel) 행은 세지 않는다 — 홉 사이엔 늘 멎은 모양이라 섞으면 로컬이 꺼진 적 없는데도 "워커 멎음" 이 뜬다(ADR-028 결정 7). 서버는 `remoteWorkerView` 가 따로 말한다.
+  const workers = allWorkers.filter((worker) => worker.host !== REMOTE_WORKER_HOST);
   const seenAt = (worker: TOpsWorker) => {
     const at = Date.parse(worker.last_seen_at);
     return Number.isNaN(at) ? -Infinity : at;
@@ -339,6 +342,24 @@ export function workerHealth(workers: readonly TOpsWorker[], nowMs: number): TWo
   }
   if (stale) return { ...base, state: 'stale', tone: 'fail', label: '워커 멎음', hint: '워커가 멎은 듯 — 터미널을 확인해 주세요' };
   return { ...base, state: 'alive', tone: 'ok', label: '워커 켜짐', hint: null };
+}
+
+/** 서버 행이 이 안에 뛰었으면 지금 도는 것이다. 홉 사이(재호출 사이)는 수 초라 넉넉히 잡는다. */
+export const REMOTE_WORKER_FRESH_MS = 60 * 1000;
+
+/**
+ * 서버 워커 한 줄(ADR-028 결정 7) — 60초 안에 뛰었고 `idle` 이 아닐 때만. 아니면 null(배지를 그리지 않는다).
+ * 로컬 배지(`workerHealth`)와 따로 둔다: 서버는 요청이 있을 때만 잠깐 도는 일꾼이라 "없음·멎음" 이 고장이 아니다.
+ */
+export function remoteWorkerView(
+  workers: readonly TOpsWorker[],
+  nowMs: number,
+): { label: string; phase: TWorkerPhase; runId: string | null } | null {
+  const row = workers.find((worker) => worker.host === REMOTE_WORKER_HOST);
+  if (!row || row.phase === 'idle') return null;
+  const at = Date.parse(row.last_seen_at);
+  if (Number.isNaN(at) || nowMs - at > REMOTE_WORKER_FRESH_MS) return null;
+  return { label: `서버 · ${WORKER_PHASE_LABEL[row.phase]}`, phase: row.phase, runId: row.run_id };
 }
 
 /**

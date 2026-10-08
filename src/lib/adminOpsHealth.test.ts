@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TOpsOverview, TOpsRebuildEntry, TOpsWorker, TPipelineRun } from './adminOps';
-import { adminBandStage, runState, stageHealth, stalledBefore, workerHealth, worstStage } from './adminOpsHealth';
+import { adminBandStage, remoteWorkerView, runState, stageHealth, stalledBefore, workerHealth, worstStage } from './adminOpsHealth';
 
 const NOW = Date.parse('2026-10-06T12:00:00.000Z');
 const ago = (ms: number) => new Date(NOW - ms).toISOString();
@@ -241,5 +241,33 @@ describe('workerHealth', () => {
 
   it('시각을 못 읽으면 멎은 것으로 친다', () => {
     expect(workerHealth([worker({ last_seen_at: 'garbage' })], NOW).state).toBe('stale');
+  });
+
+  it('서버(vercel) 행은 세지 않는다 — 가장 최근이어도, 혼자여도', () => {
+    const server = worker({ host: 'vercel', phase: 'analyze', last_seen_at: ago(1000) });
+    expect(workerHealth([worker({ last_seen_at: ago(MIN) }), server], NOW)).toMatchObject({ state: 'alive', host: 'mac', others: 0 });
+    expect(workerHealth([server], NOW).state).toBe('none');
+  });
+});
+
+describe('remoteWorkerView', () => {
+  const server = (patch: Partial<TOpsWorker> = {}): TOpsWorker => ({
+    host: 'vercel',
+    last_seen_at: ago(10_000),
+    phase: 'analyze',
+    run_id: 'r1',
+    started_at: ago(MIN),
+    version: null,
+    ...patch,
+  });
+
+  it('60초 안에 뛰었고 쉬는 중이 아니면 한 줄', () => {
+    expect(remoteWorkerView([server()], NOW)).toEqual({ label: '서버 · 분석 중', phase: 'analyze', runId: 'r1' });
+  });
+  it('쉬는 중·60초 넘게 멎음·서버 행 없음·시각 불명은 null', () => {
+    expect(remoteWorkerView([server({ phase: 'idle' })], NOW)).toBeNull();
+    expect(remoteWorkerView([server({ last_seen_at: ago(61_000) })], NOW)).toBeNull();
+    expect(remoteWorkerView([{ ...server(), host: 'mac' }], NOW)).toBeNull();
+    expect(remoteWorkerView([server({ last_seen_at: 'garbage' })], NOW)).toBeNull();
   });
 });

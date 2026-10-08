@@ -95,7 +95,8 @@ import { adminFlagView, POLICY_STATE_WORD, TYPE_MISMATCH_FLAG, typeMismatchFlags
 import { UNREAD_BADGE_LABEL } from '../lib/petPolicy';
 import { verifyListedOnly, verifyNeedsLook } from '../lib/adminVerify';
 import { fetchOpsOverview } from '../lib/adminOps';
-import { adminBandStage, stageHealth, type TStageHealth, type TWorkerHealth, WORKER_PHASE_LABEL, workerHealth } from '../lib/adminOpsHealth';
+import { adminBandStage, remoteWorkerView, stageHealth, type TStageHealth, type TWorkerHealth, WORKER_PHASE_LABEL, workerHealth } from '../lib/adminOpsHealth';
+import { WORKER_WAKE_URL, wakeNotice, wakeRemoteWorker } from '../lib/adminWorkerWake';
 import { fetchRebuildStatus, rebuildHeadline, type TRebuildHeadline } from '../lib/adminRebuild';
 import {
   allSelected as allKeysSelected,
@@ -453,6 +454,10 @@ export function AdminPage() {
    * 요청을 넣은 뒤엔 로컬로 +1 하지 않고 `loadOpsStages` 를 다시 부른다(워커 상태까지 한 번에 맞는다). 못 읽었으면 null.
    */
   const [opsQueue, setOpsQueue] = useState<{ backlog: number; requestsQueued?: number } | null>(null);
+  /** 서버 워커가 지금 도는 한 줄(todo/20 T7) — 로컬 배지와 따로다(`remoteWorkerView`). 안 돌면 null. */
+  const [opsRemote, setOpsRemote] = useState<string | null>(null);
+  /** 서버 워커를 못 깨웠다는 한 줄(`wakeNotice`) — 요청은 남았다. 다음 깨우기가 성공하면 지운다. */
+  const [wakeLine, setWakeLine] = useState<string | null>(null);
 
   const clientRef = useRef<SupabaseClient | null>(null);
   /*
@@ -547,11 +552,25 @@ export function AdminPage() {
       setOpsStages(stageHealth(overview, Date.now()));
       setOpsWorker(overview.workers ? workerHealth(overview.workers, Date.now()) : null);
       setOpsQueue({ backlog: overview.backlog.count, requestsQueued: overview.requestsQueued });
+      setOpsRemote(overview.workers ? (remoteWorkerView(overview.workers, Date.now())?.label ?? null) : null);
     } catch {
       setOpsStages(null);
       setOpsWorker(null);
       setOpsQueue(null);
+      setOpsRemote(null);
     }
+  }, []);
+
+  /**
+   * 요청을 DB 에 남긴 **뒤에** 서버 워커를 깨운다(`adminWorkerWake.ts`, todo/20 T7) — 기다리지 않는다(버튼 응답을 늦추지 않는다).
+   * 못 깨워도 요청은 그대로라 로컬 워커가 집는다 — 실패는 한 줄로만 말하고 요청을 실패로 바꾸지 않는다. 세션은 ref 로 읽어 콜백 deps 를 늘리지 않는다.
+   */
+  const sessionRef = useRef<TAdminSession | null>(null);
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
+  const wakeServerWorker = useCallback(() => {
+    void wakeRemoteWorker(sessionRef.current).then((result) => setWakeLine(wakeNotice(result)));
   }, []);
 
   const start = useCallback(async (next: TAdminSession) => {
@@ -573,6 +592,8 @@ export function AdminPage() {
     setOpsStages(null);
     setOpsWorker(null);
     setOpsQueue(null);
+    setOpsRemote(null);
+    setWakeLine(null);
     setPhase('verifying');
     const client = createAdminClient(next.accessToken);
     clientRef.current = client;
@@ -778,12 +799,13 @@ export function AdminPage() {
     (plan: TReopenPlan) =>
       withWrite(async (client) => {
         await prepareReanalyze(client, plan);
+        wakeServerWorker();
         const laid = new Set(plan.lay.map((row) => row.id));
         setGroups((prev) => groupPending(prev.flatMap((group) => group.rows).filter((row) => !laid.has(row.id))));
         void loadCounts(client);
         return `글 ${plan.posts.length}건을 수집 완료로 되돌렸어요 · 터미널에서 pnpm data analyze --limit 30 을 돌리면 다시 읽어요`;
       }),
-    [loadCounts, withWrite],
+    [loadCounts, wakeServerWorker, withWrite],
   );
 
   /*
@@ -831,13 +853,14 @@ export function AdminPage() {
     (plan: TReopenPlan) =>
       withWrite(async (client) => {
         await prepareReanalyze(client, plan);
+        wakeServerWorker();
         const laid = new Set(plan.lay.map((row) => row.id));
         setGroups((prev) => groupPending(prev.flatMap((group) => group.rows).filter((row) => !laid.has(row.id))));
         void loadCounts(client);
         const kept = plan.keep.length ? ` · 사람이 고친 후보 ${plan.keep.length}건은 남았어요` : '';
         return `글 ${plan.posts.length}건을 미분석으로 되돌렸어요 · 검수 대기 후보 ${plan.lay.length}건이 목록에서 빠졌어요${kept} — 터미널에서 pnpm data analyze 를 돌리면 다시 읽어요`;
       }),
-    [loadCounts, withWrite],
+    [loadCounts, wakeServerWorker, withWrite],
   );
 
   const planPlaceSources = useCallback((place: TPlaceRow) => {
@@ -853,13 +876,14 @@ export function AdminPage() {
     ({ plan }: TPlaceRereadPlan) =>
       withWrite(async (client) => {
         await prepareReanalyze(client, plan);
+        wakeServerWorker();
         const laid = new Set(plan.lay.map((row) => row.id));
         setGroups((prev) => groupPending(prev.flatMap((group) => group.rows).filter((row) => !laid.has(row.id))));
         void loadCounts(client);
         const kept = plan.keep.length ? ` · 사람이 고친 후보 ${plan.keep.length}건은 남았어요` : '';
         return `출처 글 ${plan.posts.length}건을 수집 완료로 되돌렸어요 · 사이트의 장소는 그대로예요${kept} — 터미널에서 pnpm data analyze 를 돌리면 검수 대기에 갱신 제안으로 올라와요`;
       }),
-    [loadCounts, withWrite],
+    [loadCounts, wakeServerWorker, withWrite],
   );
 
   /**
@@ -1352,12 +1376,13 @@ export function AdminPage() {
         const made = await requestCollect(client, { name: extracted.name, nameKey: extracted.nameKey, candidateId: group.lead.id });
         if (made === 'alreadyQueued') setCollectRequests(await fetchCollectRequests(client));
         else setCollectRequests((prev) => (prev?.kind === 'ok' ? { kind: 'ok', byName: { ...prev.byName, [made.name_key]: made } } : prev));
+        wakeServerWorker();
         patchState(group.key, { busy: undefined });
       } catch (error) {
         patchState(group.key, { busy: undefined, error: messageOf(error, '추가 수집을 요청하지 못했어요.') });
       }
     },
-    [patchState],
+    [patchState, wakeServerWorker],
   );
 
   /**
@@ -1369,10 +1394,12 @@ export function AdminPage() {
       const client = clientRef.current;
       if (!client) throw new Error('세션이 없어요 — 다시 로그인해 주세요.');
       const result = await requestAnalyze(client, { limit });
+      // 이미 대기 중이었어도 깨운다 — 서버가 안 돌고 있을 수 있다.
+      wakeServerWorker();
       void loadOpsStages(client);
       return result;
     },
-    [loadOpsStages],
+    [loadOpsStages, wakeServerWorker],
   );
 
   /**
@@ -1394,6 +1421,7 @@ export function AdminPage() {
       else patchState(from.key, { busy: 'reanalyzing', error: undefined });
       try {
         await prepareReanalyze(client, plan);
+        wakeServerWorker();
       } catch (error) {
         fail(messageOf(error, '재분석하지 못했어요.'));
         return;
@@ -1421,7 +1449,7 @@ export function AdminPage() {
         summary: `글 ${plan.posts.length}건을 수집 완료로 되돌렸어요 · 검수 대기 후보 ${plan.lay.length}건이 목록에서 빠졌어요${kept} — 터미널에서 pnpm data analyze 를 돌리면 다시 읽어요.`,
       });
     },
-    [beginWrite, endWrite, groups, patchState, planFor],
+    [beginWrite, endWrite, groups, patchState, planFor, wakeServerWorker],
   );
 
   /**
@@ -1802,7 +1830,9 @@ export function AdminPage() {
    * `places` 에 쓰므로(ADR-018) 워커와 무관하다 — "승인이 반영되지 않아요" 라고 말하면 워커가 꺼진 대부분의 시간에 멀쩡한 승인을 고장이라 말한다.
    */
   const workerBand =
-    opsWorker?.state === 'none'
+    WORKER_WAKE_URL !== ''
+      ? null // 서버 워커가 받는다(todo/20) — "처리되지 않아요" 는 거짓이다. 서버를 못 깨웠을 때는 wakeLine 이 말한다.
+      : opsWorker?.state === 'none'
       ? '로컬 워커가 없어요 — 추가 수집·재분석 요청이 처리되지 않아요. 터미널에서 pnpm data 를 켜 주세요'
       : opsWorker?.state === 'stale'
         ? '로컬 워커가 멎은 듯해요 — 추가 수집·재분석 요청이 처리되지 않아요. 터미널을 확인해 주세요'
@@ -1835,6 +1865,13 @@ export function AdminPage() {
                 {opsWorker.state === 'alive' && opsWorker.phase ? `워커 ${WORKER_PHASE_LABEL[opsWorker.phase]}` : opsWorker.label}
                 {/* 대기 중인 「지금」 요청(todo/17 T6) — 0 이면 말하지 않는다. */}
                 {opsQueue?.requestsQueued ? ` · 요청 ${opsQueue.requestsQueued}건 대기` : null}
+              </span>
+            ) : null}
+            {/* 서버 워커가 도는 동안만(todo/20 T7) — 로컬 배지와 따로. */}
+            {opsRemote ? (
+              <span className="flex items-center gap-1 text-xs whitespace-nowrap text-tertiary">
+                <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-success-solid" />
+                {opsRemote}
               </span>
             ) : null}
             <Link href="/admin/ops/" className="mr-1 text-sm font-semibold whitespace-nowrap text-brand-secondary hover:text-brand-secondary_hover">
@@ -1927,6 +1964,12 @@ export function AdminPage() {
           <Link href="/admin/ops/" className="underline underline-offset-2">
             운영 현황 →
           </Link>
+        </p>
+      ) : null}
+      {/* 서버 워커를 못 깨웠다(todo/20 T7) — 요청은 남았다. 띠 규칙(앞에 띠가 있으면 1px)은 아래 로컬 워커 띠와 같다. */}
+      {wakeLine ? (
+        <p role="status" className={cx('bg-warning-primary px-4 py-2 text-xs font-semibold text-warning-primary md:px-6', rebuild?.tone === 'warn' || opsBand ? 'mt-px' : 'mt-3')}>
+          {wakeLine}
         </p>
       ) : null}
       {/* 로컬 워커가 없음·멎음(todo/17 T5.3). 띠가 셋까지 쌓일 수 있어 앞에 띠가 하나라도 있으면 1px 로 붙인다. */}

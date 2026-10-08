@@ -10,6 +10,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isBlocksUnavailable } from './adminBlocks';
 import type { TWorkerHealth } from './adminOpsHealth';
+import { WORKER_WAKE_URL } from './adminWorkerWake';
 
 /** 고를 수 있는 건수. 화면은 앞의 둘만 내놓고, 100 은 워커의 상한(`ANALYZE_REQUEST_MAX_LIMIT`)과 같은 수다. */
 export const ANALYZE_LIMITS = [10, 30, 100] as const;
@@ -51,17 +52,23 @@ export type TAnalyzeRequestView = { label: string; disabled: boolean; hint: stri
 /**
  * 순수 — 버튼 한 칸. `backlog` 는 미분석 글 수(`ops_overview.backlog.count`), 못 읽었으면 `undefined`.
  *
- * - 워커가 없거나 멎었으면 끈다 — 요청이 쌓이기만 하고 아무도 집지 않는다.
+ * - 로컬 워커가 없거나 멎었으면 끈다 — 요청이 쌓이기만 하고 아무도 집지 않는다. **단 서버 워커를 깨울 수 있으면(`remote`) 켠다** — 요청을 넣으면 서버가 돈다(ADR-028).
  * - 한도 휴식·로그인 기다림이면 켠다 — 요청은 남고 깨어나면 돈다. 한도 휴식이면 "끊기면 다시" 를 붙인다: 분석이 한도로 중간에 끊겨도
  *   그 요청은 `done` 이라(실패해도 done 규칙, todo/17 T3.4) 남은 건수를 워커가 다시 세워 주지 않는다.
  * - 워커를 모르면(`null` — 집계를 못 읽었거나 마이그레이션 전) 켜 둔다. 모르는 것을 "워커 없음" 으로 말하지 않는 머리글 규칙과 같다.
  * - 저수지가 0 이면 끈다. 라벨의 N 은 저수지보다 클 수 없다.
  */
-export function analyzeRequestView(worker: TWorkerHealth | null, backlog: number | undefined, limit: TAnalyzeLimit): TAnalyzeRequestView {
+export function analyzeRequestView(
+  worker: TWorkerHealth | null,
+  backlog: number | undefined,
+  limit: TAnalyzeLimit,
+  remote: boolean = WORKER_WAKE_URL !== '',
+): TAnalyzeRequestView {
   const n = backlog === undefined ? limit : Math.min(backlog, limit);
   const label = backlog === undefined ? `저수지 ${n}건 분석` : `미분석 ${backlog}건 중 ${n}건 분석`;
   if (backlog === 0) return { label: '저수지 분석', disabled: true, hint: '미분석 글이 없어요' };
   if (worker?.state === 'none' || worker?.state === 'stale') {
+    if (remote) return { label, disabled: false, hint: 'PC 워커가 꺼져 있어 서버 워커가 돌려요' };
     return { label, disabled: true, hint: `워커를 켜 주세요(터미널에서 pnpm data)${worker.state === 'stale' ? ' — 지금 워커는 멎은 듯해요' : ''}` };
   }
   if (worker?.state === 'rate-limited') return { label, disabled: false, hint: '한도 휴식 중 — 요청은 넣을 수 있고 깨어나면 돌아요. 한도로 끊긴 요청은 대기로 돌아가 다시 집혀요' };

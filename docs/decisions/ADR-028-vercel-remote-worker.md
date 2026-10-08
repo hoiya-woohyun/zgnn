@@ -1,6 +1,6 @@
 # ADR-028 — 수집·분석을 Vercel 함수에서도 돌린다. 버튼을 누른 운영자의 세션이 곧 작업 권한이고, 서버에 두는 장기 값은 Claude 토큰과 네이버 키 둘뿐이다
 
-> 최종 수정: 2026-10-08 (v2: **채택**. 결정 5 를 코드에 맞게 고쳤다 — 버튼 셋 중 `pipeline_requests` 에 줄을 넣는 것은 「저수지 N건 분석」 하나뿐이고 「추가 수집」 은 `collect_requests`, 「재분석」 은 `blog_posts.requested_at` 이다. 그래서 서버도 로컬 `once` 와 같은 한 바퀴를 돌고, 로컬과 겹치지 않게 하는 것은 원자 집기가 아니라 `workers` 심장이다(`candidates` 에 유일 제약이 없어 같은 글을 둘이 읽으면 후보가 둘 생긴다). 결정 9(번들)·10(겹침)을 더했다)
+> 최종 수정: 2026-10-08 (v2: **채택**. 결정 5 를 코드에 맞게 고쳤다 — 버튼 셋 중 `pipeline_requests` 에 줄을 넣는 것은 「저수지 N건 분석」 하나뿐이고 「추가 수집」 은 `collect_requests`, 「재분석」 은 `blog_posts.requested_at` 이다. 그래서 서버도 로컬 `once` 와 같은 한 바퀴를 돌고, 로컬과 겹치지 않게 하는 것은 원자 집기가 아니라 `workers` 심장이다(`candidates` 에 유일 제약이 없어 같은 글을 둘이 읽으면 후보가 둘 생긴다). 결정 9(번들)·10(겹침)을 더했다. 결정 4 의 `refreshSession()` 은 `/admin` 에 refresh token 이 없어(ADR-016) "50분 미만이면 안 깨우고 재로그인 안내" 로)
 > 이전 2026-10-08 (v1: 제안 — `worker/api/probe.mjs` 실측(c39beaf)으로 Vercel 함수 안 `claude -p` 가 `setup-token` 으로 도는 것을 확인. 구현은 [docs/todo/20](../todo/20-vercel-remote-worker.md))
 
 ## 상태
@@ -40,7 +40,8 @@ ADR-024 가 서버 실행을 뺀 이유는 셋이었다. ① 키가 밖으로 �
    - 사이트에서는 `vercel.json` rewrite(`/api/worker/:path*` → `zgnn-worker` 프로덕션)로 **같은 출처**로 부른다. CORS 를 열지 않는다.
 4. **DB 쓰기 권한은 그 요청의 JWT 다.** `resolveSupabaseCredentials` 는 이미 `readSession` 을 주입받는다. 서버에서는 키체인 대신 요청 헤더를 넘긴다.
    형식·만료·30분 앞당김(`SESSION_EXP_SKEW_S`)·RLS 는 로컬과 같은 검사를 거친다. 그래서 **Supabase 쪽 장기 키는 서버에 생기지 않는다.**
-   브라우저는 남은 시간이 30분보다 적으면 `refreshSession()` 뒤에 보낸다(기본 access token 은 1시간).
+   (v2) `/admin` 에는 새로 고칠 refresh token 이 없다(ADR-016 — 로그인 때 버린다). 그래서 남은 시간이 **50분**(서버의 앞당김 30분 + 사슬 여유 20분)보다 적으면 보내지 않고
+   "다시 로그인하면 다음 요청부터 서버가 돌려요" 한 줄을 띄운다. JWT 가 12시간(43200)이라 로그인 뒤 약 11시간은 깨운다 — refresh token 을 다시 쥐는 것(ADR-016 을 푸는 일)보다 싸다.
 5. **일 단위는 로컬 `once` 와 같은 한 바퀴다**(v2 — v1 은 "요청 한 줄" 이었다). 버튼 셋이 남기는 흔적이 셋 다르다 — 「추가 수집」 은 `collect_requests`, 「재분석」 은
    `blog_posts.requested_at`, 「저수지 N건 분석」 만 `pipeline_requests` 한 줄이다. 그래서 서버는 줄 하나를 집는 대신 로컬 워커의 한 바퀴(`createWorkerCycle`)를 그대로 돈다.
    다른 점은 상한 하나다 — **한 번의 함수 호출(홉)은 분석 단계를 하나만, 글 최대 5건**(30초 × 5 + 여유 < 300초)까지 돈다. 요청 글은 `--requested-only --limit 5`,

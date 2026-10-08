@@ -76,6 +76,13 @@ describe('analyzeRequestView', () => {
     expect(analyzeRequestView(worker('stale'), 50, 10)).toMatchObject({ disabled: true, hint: expect.stringContaining('멎은 듯') });
   });
 
+  it('서버 워커를 깨울 수 있으면 PC 워커가 없어도 켠다', () => {
+    const on = { disabled: false, hint: 'PC 워커가 꺼져 있어 서버 워커가 돌려요' };
+    expect(analyzeRequestView(worker('none'), 50, 10, true)).toMatchObject(on);
+    expect(analyzeRequestView(worker('stale'), 50, 10, true)).toMatchObject(on);
+    expect(analyzeRequestView(worker('none'), 0, 10, true)).toMatchObject({ disabled: true, hint: '미분석 글이 없어요' });
+  });
+
   it('한도 휴식·로그인 기다림은 켜 둔다 — 요청은 남고 깨어나면 돈다', () => {
     expect(analyzeRequestView(worker('rate-limited'), 50, 10)).toMatchObject({ disabled: false, hint: expect.stringContaining('한도 휴식 중') });
     expect(analyzeRequestView(worker('login-needed'), 50, 10)).toMatchObject({ disabled: false, hint: expect.stringContaining('로그인') });
