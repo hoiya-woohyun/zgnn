@@ -55,14 +55,19 @@ const SCROLL_ROW_CLASS =
   '[-webkit-mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] ' +
   'lg:flex-wrap lg:overflow-x-visible lg:pr-6 lg:[mask-image:none] lg:[-webkit-mask-image:none]';
 
-/** 조건 한 묶음. bar 에서는 이름표 없는 스크롤 줄, sheet 에서는 이름표를 단 줄바꿈 묶음. */
+/**
+ * 조건 한 묶음. bar 에서는 이름표 없는 스크롤 줄, sheet 에서는 이름표를 단 줄바꿈 묶음.
+ * `hint` 는 sheet 에서 이름표 밑 한 줄 — 칩이 **무엇을 기준으로** 거르는지 말한다(14 W261007.7).
+ */
 function FilterGroup({
   variant,
   label,
+  hint,
   children,
 }: {
   variant: TFiltersVariant;
   label: string;
+  hint?: string;
   children: ReactNode;
 }) {
   if (variant === 'bar') {
@@ -76,6 +81,7 @@ function FilterGroup({
   return (
     <section role="group" aria-label={label}>
       <h3 className="text-sm font-semibold text-secondary">{label}</h3>
+      {hint && <p className="mt-0.5 text-sm text-tertiary">{hint}</p>}
       <div className="mt-2 flex flex-wrap gap-2">{children}</div>
     </section>
   );
@@ -152,7 +158,16 @@ export function PlacesPageFilters({
         </FilterGroup>
       )}
 
-      <FilterGroup variant={variant} label="반려동물">
+      {/*
+        이 칩들은 **원문에 적힌 것**으로 거른다 — 판정과 축이 다르다(14 W261007.7). 두 마리 프로필로 '2마리 이상' 을 켜면
+        판정이 '갈 수 있어요' 인 숙소 4곳(마릿수가 원문에 없어 막지 않은 곳)이 빠져, 칩 이름만으로는 판정과 반대 말을 했다.
+        이름표·설명이 축을 말한다. 판정을 바꾸는 쪽은 위의 '우리 강아지 기준'(실내 자리 필요)이다.
+      */}
+      <FilterGroup
+        variant={variant}
+        label="원문에 적힌 조건"
+        hint="원문에 그렇게 적힌 곳만 남겨요. 적혀 있지 않으면 '갈 수 있어요' 인 곳도 빠져요."
+      >
         {PET_FILTERS[type].map((filter) => {
           const active = petKeys.includes(filter.key);
           return (

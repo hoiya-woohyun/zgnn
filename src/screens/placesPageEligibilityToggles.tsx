@@ -51,6 +51,10 @@ export function PlacesPageEligibilityToggles({
     return (
       <section role="group" aria-label="우리 강아지 기준">
         <h3 className="text-sm font-semibold text-secondary">우리 강아지 기준</h3>
+        {/* '실내 자리 필요' 는 곳을 빼지 않고 판정을 바꾼다 — 아래 '실내 동반 OK'(원문으로 거름)와 이름이 비슷해 축이 섞였다(14 W261007.7). */}
+        {type !== 'stay' && (
+          <p className="mt-0.5 text-sm text-tertiary">&lsquo;실내 자리 필요&rsquo; 는 곳을 빼지 않고, 실내 자리 기준으로 다시 판정해요.</p>
+        )}
         <div className="mt-2 flex flex-wrap gap-2">{buttons}</div>
       </section>
     );
