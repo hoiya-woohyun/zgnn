@@ -44,6 +44,12 @@ export const STATUS_DURATION_MS = 2000;
  */
 export const STATUS_INTERACTIVE_MIN_MS = 5000;
 
+/**
+ * '되돌리기' 알림의 노출 시간. 최소 시간보다 길게 둔다 — 지운 뒤에야 "아, 그거 아니었는데" 를 깨닫는 자리라
+ * 읽고 겨냥할 틈에 망설일 틈이 더해진다. 멈춤은 hover·포커스뿐이라 터치에서는 이 시간이 전부다(6초는 짧았다, 14 W261007.19).
+ */
+export const STATUS_UNDO_MS = 10_000;
+
 /** 알림이 실제로 떠 있을 시간. 누를 것이 있으면 최소 시간을 보장한다. */
 export const statusDurationMs = (opts: { link?: unknown; action?: unknown; durationMs?: number }): number => {
   const requested = opts.durationMs ?? STATUS_DURATION_MS;

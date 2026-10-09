@@ -6,7 +6,7 @@ import { HintText } from '../components/base/hint-text';
 import { PageHeader } from '../components/layout/pageHeader';
 import { parentRouteOf } from '../lib/appRoutes';
 import { goBackInApp } from '../components/layout/appShellStack';
-import { showAppStatus } from '../lib/appStatus';
+import { showAppStatus, STATUS_UNDO_MS } from '../lib/appStatus';
 import { DOG_NAME_MAX_LENGTH, HEAVY_DOG_CONFIRM_KG, MAX_DOGS, dogProfileSavedMessage, heavyDogs } from '../lib/dogProfile';
 import { dogSize } from '../lib/eligibility';
 import { useStoreHydrated } from '../providers/storeHydration';
@@ -185,7 +185,7 @@ export function DogProfilePage() {
           seedForm(removed);
         },
       },
-      durationMs: 6000,
+      durationMs: STATUS_UNDO_MS,
     });
   };
 

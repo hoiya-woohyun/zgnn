@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { ChevronRight, Heart, LinkExternal01 } from '@untitledui/icons';
-import { showAppStatus } from '../lib/appStatus';
+import { showAppStatus, STATUS_UNDO_MS } from '../lib/appStatus';
 import { AuthorAvatar } from '../components/authorAvatar';
 import { StickyMorphTitle } from '../components/layout/stickyMorphTitle';
 import { Section } from '../components/layout/section';
@@ -35,16 +35,17 @@ function SettingsPageResetRows() {
     clearChecked();
     showAppStatus('준비물 체크를 모두 풀었어요', {
       action: { label: '되돌리기', onPress: () => useAppStore.setState({ checkedItemIds }) },
-      durationMs: 6000,
+      durationMs: STATUS_UNDO_MS,
     });
   };
 
+  // `clearSaved` 는 날짜 묶음·순서까지 지운다 — 되돌리기도 그 넷을 함께 붙잡아야 날짜별 목록이 돌아온다.
   const handleClearSaved = () => {
-    const { savedIds, savedNotes } = useAppStore.getState();
+    const { savedIds, savedNotes, tripDays, tripOrder } = useAppStore.getState();
     clearSaved();
     showAppStatus('저장한 곳을 비웠어요', {
-      action: { label: '되돌리기', onPress: () => useAppStore.setState({ savedIds, savedNotes }) },
-      durationMs: 6000,
+      action: { label: '되돌리기', onPress: () => useAppStore.setState({ savedIds, savedNotes, tripDays, tripOrder }) },
+      durationMs: STATUS_UNDO_MS,
     });
   };
 
