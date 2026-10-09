@@ -23,6 +23,7 @@ import {
 } from '../lib/adminPosts';
 import { NO_PROMPT_VERSION_LABEL, type TPromptVersionTally } from '../lib/adminPostVersions';
 import { cx } from '../utils/cx';
+import { AdminFilterChip } from './adminFilterChip';
 import { nextStepText } from '../lib/adminNextStep';
 import { AdminPagePostsPanelRow } from './adminPagePostsPanelRow';
 
@@ -88,8 +89,6 @@ function AdminPagePostsBacklogTable({ caption, head, rows }: { caption: string; 
   );
 }
 
-const PICKED_CHIP = 'ring-2! ring-brand!';
-
 /**
  * 분석됨 칩 안의 판별 칩(09 T3.3) — 옛 프롬프트로 읽힌 글만 골라 다시 읽히는 길. 맨 앞 판이 `최근`(마지막으로 분석이 쓴 판)이다.
  * `최신` 이라 적지 않는다: 화면은 지금 코드의 판을 모르고(`adminPostVersions` 머리 주석), 프롬프트를 고친 뒤 아직 안 돌렸으면 그 판도 옛 판이다.
@@ -117,17 +116,16 @@ function AdminPagePostsVersionChips({
     <div className="space-y-1">
       <div role="group" aria-label="프롬프트 판" className="flex flex-wrap items-center gap-1.5">
         {chips.map((chip) => (
-          <Button
+          <AdminFilterChip
             key={chip.key}
             size="xs"
-            color="secondary"
-            className={cx('font-mono', picked === chip.version && PICKED_CHIP)}
-            aria-pressed={picked === chip.version}
+            className="font-mono"
+            pressed={picked === chip.version}
             isDisabled={disabled}
             onClick={() => onPick(chip.version)}
           >
             {chip.label}
-          </Button>
+          </AdminFilterChip>
         ))}
       </div>
       <p className="text-xs text-tertiary">
@@ -282,17 +280,9 @@ function AdminPagePostsList({
     <section aria-label="수집한 글 목록" className="mt-6 space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         {chips.map((chip) => (
-          <Button
-            key={chip.key}
-            size="sm"
-            color="secondary"
-            className={filter === chip.key ? PICKED_CHIP : undefined}
-            aria-pressed={filter === chip.key}
-            isDisabled={load.busy || locked}
-            onClick={() => go(chip.key, 0, undefined)}
-          >
+          <AdminFilterChip key={chip.key} pressed={filter === chip.key} isDisabled={load.busy || locked} onClick={() => go(chip.key, 0, undefined)}>
             {chip.label}
-          </Button>
+          </AdminFilterChip>
         ))}
       </div>
 
