@@ -1,12 +1,14 @@
 'use client';
 
-import { useSyncExternalStore } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   clearAppStatus,
   getAppStatus,
   getServerAppStatus,
   holdAppStatus,
+  isAtStatusLink,
   releaseAppStatus,
   subscribeAppStatus,
 } from '../../lib/appStatus';
@@ -26,6 +28,13 @@ import {
  */
 export function AppStatusToast() {
   const status = useSyncExternalStore(subscribeAppStatus, getAppStatus, getServerAppStatus);
+  const pathname = usePathname();
+
+  // 링크가 가리키는 화면에 (링크가 아닌 길로) 와 있으면 걷는다 — 저장한 곳 위의 '저장한 곳 보기'. 다른 이동에는 알림이 그대로 남는다.
+  const linkHref = status?.link?.href;
+  useEffect(() => {
+    if (linkHref && isAtStatusLink(pathname, linkHref)) clearAppStatus();
+  }, [pathname, linkHref]);
 
   return (
     <div

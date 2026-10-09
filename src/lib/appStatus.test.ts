@@ -6,6 +6,7 @@ import {
   createFirstTimesGate,
   getAppStatus,
   holdAppStatus,
+  isAtStatusLink,
   releaseAppStatus,
   statusDurationMs,
   showAppStatus,
@@ -127,5 +128,22 @@ describe('statusDurationMs', () => {
     expect(statusDurationMs({})).toBe(STATUS_DURATION_MS);
     expect(statusDurationMs({ link: {} })).toBe(STATUS_INTERACTIVE_MIN_MS);
     expect(statusDurationMs({ action: {}, durationMs: 6000 })).toBe(6000);
+  });
+});
+
+describe('isAtStatusLink — 링크가 가리키는 화면에 와 있나', () => {
+  it('끝 슬래시 유무와 상관없이 같은 화면', () => {
+    expect(isAtStatusLink('/saved/', '/saved')).toBe(true);
+    expect(isAtStatusLink('/saved', '/saved/')).toBe(true);
+  });
+
+  it('쿼리는 떼고, 그 아래 경로도 도착', () => {
+    expect(isAtStatusLink('/saved/', '/saved?ids=a')).toBe(true);
+    expect(isAtStatusLink('/saved/x/', '/saved')).toBe(true);
+  });
+
+  it('이름이 앞만 같은 다른 화면은 아니다', () => {
+    expect(isAtStatusLink('/savedx/', '/saved')).toBe(false);
+    expect(isAtStatusLink('/map/', '/saved')).toBe(false);
   });
 });

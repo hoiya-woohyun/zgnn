@@ -144,3 +144,15 @@ export const createFirstTimesGate = (limit: number) => {
     return count <= limit;
   };
 };
+
+/**
+ * 알림의 링크가 가리키는 화면에 이미 와 있는가. 그러면 셸이 알림을 걷는다 — '저장한 곳 보기' 가 저장한 곳 위에 남으면
+ * 지금 화면으로 가라는 말이 된다(14 W261007.19). 알림을 일괄로 걷지 않는 것은 이동 뒤에도 살아야 하는 알림이 있어서다(프로필 저장).
+ * 주소는 끝 슬래시 유무가 섞여 온다(`trailingSlash`) — 둘 다 떼고 견주고, 그 아래 경로(`/saved/x`)도 도착으로 친다.
+ */
+export const isAtStatusLink = (pathname: string, href: string): boolean => {
+  const trim = (path: string) => path.replace(/\/+$/, '') || '/';
+  const here = trim(pathname);
+  const target = trim(href.split(/[?#]/)[0]);
+  return here === target || here.startsWith(`${target}/`);
+};
