@@ -78,8 +78,10 @@ export function AppBar({ backTo, title, actions }: TAppBarProps) {
     const header = headerRef.current;
     if (!header) return;
     const main = header.closest('main');
-    const h1 = main?.querySelector('h1') ?? null;
-    setHeading(h1?.textContent?.trim() ?? null);
+    // 화면이 h1 노드를 갈아 끼우면 아래 `swapWatch` 가 새 노드로 바꿔 단다 — 그래서 const 가 아니다.
+    let h1 = main?.querySelector('h1') ?? null;
+    const readHeading = () => setHeading(h1?.textContent?.trim() ?? null);
+    readHeading();
 
     const mode = morphModeOf();
     let last = -1;
@@ -108,13 +110,33 @@ export function AppBar({ backTo, title, actions }: TAppBarProps) {
     const resize = new ResizeObserver(measure);
     if (main) resize.observe(main);
     // 경로는 그대로인데 h1 글만 바뀌는 화면이 있다(/dog — 하이드레이션 뒤·삭제 뒤 '등록' ↔ '수정', 12 U3.6). 글이 바뀌면 다시 읽는다.
-    const headingWatch = new MutationObserver(() => setHeading(h1?.textContent?.trim() ?? null));
-    if (h1) headingWatch.observe(h1, { childList: true, characterData: true, subtree: true });
+    const headingWatch = new MutationObserver(readHeading);
+    const watchHeading = () => {
+      headingWatch.disconnect();
+      if (h1) headingWatch.observe(h1, { childList: true, characterData: true, subtree: true });
+    };
+    watchHeading();
+    /*
+     * 글이 아니라 **h1 노드가 바뀌는** 화면도 있다(/saved — 주소의 `?ids=` 를 읽기 전 자리표시 머리 → '공유받은 목록' · 내 목록).
+     * 경로가 같아 이 effect 는 다시 안 돌고, 위 감시는 떨어져 나간 옛 노드만 본다 — 헤더 제목도 올라오기 구간도 옛 h1 에 묶인다
+     * (공유받은 목록 헤더가 "저장한 곳" 이던 까닭, 14 W261007.19). 본문 어디서든 첫 h1 이 달라지면 새 노드로 다시 붙는다.
+     */
+    const swapWatch = new MutationObserver(() => {
+      const next = main?.querySelector('h1') ?? null;
+      if (next === h1) return;
+      h1 = next;
+      readHeading();
+      watchHeading();
+      last = -1;
+      onResize();
+    });
+    if (main) swapWatch.observe(main, { childList: true, subtree: true });
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onResize);
     return () => {
       resize.disconnect();
       headingWatch.disconnect();
+      swapWatch.disconnect();
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onResize);
       clearMode();
