@@ -100,5 +100,6 @@
 - `pnpm audit --prod`: next 16.x 에 critical 1 · high 몇(SSRF 등) — 사이트는 정적 내보내기라 노출은 좁다. next ≥ 16.3.8 로 올릴지. 출처: 보안 리뷰(todo/20)
 - 로컬 `vercel build --prod`(CLAUDE.md 가 말하는 배포 설정 검증)가 설치에서 멈춘다 — 로컬 pnpm 12.8 이 `package.json` 의 `pnpm.onlyBuiltDependencies` 를 안 읽어 `ERR_PNPM_IGNORED_BUILDS`(esbuild·unrs-resolver). `npm_config_strict_dep_builds=false` 로도 안 풀린다. Vercel 은 pnpm 10 이라 배포는 무관. 설정을 `pnpm-workspace.yaml`(`allowBuilds`)로 옮길지 — 출처: todo/20 T6
 - `pnpm lint` 가 `.claude/skills/next/claim.mjs:44,84` 의 빈 `catch {}`(`no-empty`) 두 개로 exit 1 — src 는 깨끗한데 린트 전체가 빨갛다. 주석 한 줄씩 넣거나 eslint 범위에서 `.claude/` 를 뺄지. 출처: 09 T6.9 검증
+- `/next` 스킬의 "경로를 지정해 `git add`" 로는 세션끼리 안 갈린다 — 인덱스가 작업 트리 하나에 하나라, 내가 add 하고 commit 하기 전 틈에 다른 세션의 `git commit` 이 내 스테이징까지 싣는다(T6.9 의 대부분이 남의 `d3ecd38` 에 실렸다). SKILL.md 를 `git add <새 파일> && git commit -- <경로>`(pathspec 커밋은 인덱스의 다른 것을 안 싣는다) 한 명령으로, 남의 hunk 가 섞인 파일은 `GIT_INDEX_FILE=<scratch>` 개인 인덱스로 바꿀지. 출처: d3ecd38 · 88fd0b2
 
 <!-- /next 가 작업 중 찾은 것을 한 줄씩 — 출처: <커밋/파일>. 멈출 때 번호 문서로 옮긴다 -->
