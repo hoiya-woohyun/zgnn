@@ -8,9 +8,30 @@ import {
   REPORT_COOLDOWN_MS,
   REPORT_KIND_LABEL,
   REPORT_KINDS,
+  recentReportKinds,
   reportKey,
   reportPromiseText,
+  reportTraceText,
 } from './placeReport';
+
+describe('recentReportKinds · reportTraceText — 보낸 뒤 상세의 흔적', () => {
+  const now = 1_000_000_000_000;
+  const record = {
+    [reportKey('p1', 'visited_ok')]: now - 60_000,
+    [reportKey('p1', 'closed')]: now - REPORT_COOLDOWN_MS + 1,
+    [reportKey('p1', 'policy')]: now - REPORT_COOLDOWN_MS,
+    [reportKey('p2', 'address')]: now - 1,
+  };
+
+  it('이 장소의 하루 안 기록만, 종류 순서대로 — 하루가 찬 것과 다른 장소는 빠진다', () => {
+    expect(recentReportKinds(record, 'p1', now)).toEqual(['closed', 'visited_ok']);
+  });
+
+  it('고를 때 본 말로 한 줄, 없으면 null', () => {
+    expect(reportTraceText(['closed'])).toBe('알려 주셨어요 — ‘문을 닫았어요(폐업·휴업)’. 운영자가 확인할게요.');
+    expect(reportTraceText([])).toBeNull();
+  });
+});
 
 describe('reportPromiseText', () => {
   it('장소 제안만 받는 시트는 "고친 내용" 이 아니라 "올라가요"', () => {

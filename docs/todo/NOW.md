@@ -52,7 +52,6 @@
 
 ## 지금 (위에서부터)
 
-- [ ] 제보를 보낸 뒤 상세에 흔적 한 줄("오늘 '폐업' 을 알려 주셨어요") — [14 W261007.19](14-weekly-ux-eval.md) · 왜 지금: 묶음의 마지막 코드 일 · 기록은 이미 localStorage `zgnn-reports`(`readReportRecord`)에 있고 상세가 쿨다운에만 쓴다, 보낸 직후 다시 그리려면 `ReportSheet` 에 `onSent` · 문서 place-report
 - [ ] `.mdc` 의 "src 를 고친 즉시 docs" 를 CLAUDE.md 기준(동작·설계가 바뀔 때만)으로 — [08 T0.4](08-usability-and-process-plan.md) · 왜 지금: 두 정본이 반대를 말한다, 작음
 - [ ] 관리 화면의 같은 동작 다섯 이름을 등록·등록 해제·제외로 — [09 T3.4](09-admin-pipeline-stages.md) · 왜 지금: 09 의 맨 마지막 커밋이어야 해서(T5.1·T5.2 뒤) 끝에
 

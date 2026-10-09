@@ -104,6 +104,26 @@ export function canReportNow(record: TReportRecord, placeId: string | null, kind
   return at === undefined || now - at >= REPORT_COOLDOWN_MS;
 }
 
+/**
+ * 이 기기에서 이 장소에 하루 안에 보낸 종류(종류 순서대로). 보낸 것을 서버에서 다시 읽을 수 없어(insert 만) 흔적은 이 기록뿐이다.
+ * 창이 쿨다운과 같은 하루라, 흔적이 보이는 동안은 같은 종류를 다시 못 보낸다는 것과 맞물린다.
+ */
+export function recentReportKinds(record: TReportRecord, placeId: string, now: number): TReportKind[] {
+  return REPORT_KINDS.filter((kind) => {
+    const at = record[reportKey(placeId, kind)];
+    return kind !== 'suggest' && at !== undefined && now - at < REPORT_COOLDOWN_MS;
+  });
+}
+
+/**
+ * 상세 제보 칸의 흔적 한 줄(14 W261007.19 — 보낸 뒤 토스트가 사라지면 아무 일도 없었던 것처럼 보였다).
+ * "오늘" 이라 쓰지 않는다 — 기록은 24시간 창이라 어젯밤에 보낸 것도 들어 있다. 종류는 고를 때 본 말 그대로 옮긴다.
+ */
+export function reportTraceText(kinds: readonly TReportKind[]): string | null {
+  if (kinds.length === 0) return null;
+  return `알려 주셨어요 — ${kinds.map((kind) => `‘${REPORT_KIND_LABEL[kind]}’`).join(' · ')}. 운영자가 확인할게요.`;
+}
+
 /** 보낸 뒤의 기록 — 하루가 지난 것은 버린다(기록이 끝없이 자라지 않게). */
 export function recordReport(record: TReportRecord, placeId: string | null, kind: TReportKind, now: number): TReportRecord {
   const next: TReportRecord = {};

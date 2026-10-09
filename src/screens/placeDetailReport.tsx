@@ -1,11 +1,21 @@
 'use client';
 
 import { CheckCircle, MessageAlertSquare } from '@untitledui/icons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '../components/base/button';
 import { ReportSheet } from '../components/reportSheet';
 import { showAppStatus } from '../lib/appStatus';
-import { buildReport, canReportNow, PICKABLE_REPORT_KINDS, REPORT_COOLDOWN_TEXT, reportFailureText, reportSentText } from '../lib/placeReport';
+import {
+  buildReport,
+  canReportNow,
+  PICKABLE_REPORT_KINDS,
+  recentReportKinds,
+  REPORT_COOLDOWN_TEXT,
+  reportFailureText,
+  reportSentText,
+  reportTraceText,
+  type TReportKind,
+} from '../lib/placeReport';
 import { APP_BUILD, readReportRecord, rememberReport, sendPlaceReport } from '../lib/placeReportSend';
 import type { TPlaceEntry } from '../lib/places';
 import { CARD_SURFACE } from '../components/cardSurface';
@@ -19,6 +29,20 @@ import { CARD_SURFACE } from '../components/cardSurface';
 export function PlaceDetailReport({ place }: { place: TPlaceEntry }) {
   const [open, setOpen] = useState(false);
   const [sendingVisit, setSendingVisit] = useState(false);
+
+  /*
+   * 보낸 흔적(14 W261007.19) — 보낸 것을 서버에서 다시 읽을 수 없어 이 기기의 하루 기록(`zgnn-reports`)이 전부다.
+   * 미리 그린 HTML 엔 localStorage 가 없어 마운트 뒤에 읽는다(빈 기록으로 시작 — 하이드레이션과 어긋나지 않게). 보낸 직후에는 다시 읽는다.
+   */
+  const [sentKinds, setSentKinds] = useState<TReportKind[]>([]);
+  // 지금 시각은 읽는 순간에 잰다 — 렌더 중에 재면 다시 그릴 때마다 값이 흔들린다.
+  const reread = () => setSentKinds(recentReportKinds(readReportRecord(), place.id, Date.now()));
+  useEffect(() => {
+    // localStorage 는 React 밖의 상태다 — 마운트 때 한 번 옮겨 담는다.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSentKinds(recentReportKinds(readReportRecord(), place.id, Date.now()));
+  }, [place.id]);
+  const trace = reportTraceText(sentKinds);
 
   /*
    * 다녀왔어요(F2) — **한 번 누르면 바로 간다.** 고를 것도 적을 것도 없는 긍정 신호라 시트를 열면 아무도 안 누른다.
@@ -41,6 +65,7 @@ export function PlaceDetailReport({ place }: { place: TPlaceEntry }) {
     }
     rememberReport(place.id, 'visited_ok');
     showAppStatus(reportSentText('visited_ok'));
+    reread();
   };
 
   return (
@@ -68,6 +93,7 @@ export function PlaceDetailReport({ place }: { place: TPlaceEntry }) {
             정보가 달라요
           </Button>
         </div>
+        {trace && <p className="mt-3 text-sm text-secondary">{trace}</p>}
       </div>
 
       <ReportSheet
@@ -78,6 +104,7 @@ export function PlaceDetailReport({ place }: { place: TPlaceEntry }) {
         placeId={place.id}
         kinds={PICKABLE_REPORT_KINDS}
         notePlaceholder="예: 9월부터 영업 안 해요 · 실내는 안 되고 테라스만 돼요"
+        onSent={reread}
       />
     </section>
   );

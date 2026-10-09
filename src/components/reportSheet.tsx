@@ -34,6 +34,8 @@ type TReportSheetProps = {
   noteRequired?: boolean;
   /** 열 때마다 한 줄 칸에 미리 채울 글(둘러보기의 방금 검색어). 시트는 닫혀도 마운트돼 있어 첫 값만으로는 다시 열 때 안 채워진다. */
   initialNote?: string;
+  /** 보내고 기록까지 남긴 뒤 — 상세가 흔적 한 줄을 다시 그린다. */
+  onSent?: () => void;
 };
 
 /**
@@ -52,6 +54,7 @@ export function ReportSheet({
   notePlaceholder,
   noteRequired = false,
   initialNote = '',
+  onSent,
 }: TReportSheetProps) {
   const [kind, setKind] = useState<TReportKind | null>(kinds.length === 1 ? kinds[0] : null);
   const [note, setNote] = useState('');
@@ -97,6 +100,7 @@ export function ReportSheet({
     }
     rememberReport(placeId, kind);
     showAppStatus(reportSentText(kind));
+    onSent?.();
     close();
   };
 
