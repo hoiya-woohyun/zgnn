@@ -12,7 +12,7 @@ import { PlaceDetailNearby } from './placeDetailNearby';
 import { PlaceDetailReport } from './placeDetailReport';
 import { PlaceItemsNote } from '../components/placeItemsNote';
 import { PetBadges } from '../components/petBadges';
-import { formatStayPrice } from '../lib/format';
+import { formatStayPrice, stayPriceSourceLine } from '../lib/format';
 import { getPlace } from '../lib/places';
 import { useDog } from '../store/useAppStore';
 import { environmentPhrases } from '../lib/stayEnvironmentView';
@@ -83,7 +83,7 @@ export function PlaceDetailPage({ id }: { id: string }) {
               <div className="p-4">
                 <dt className="text-xs text-tertiary">1박 요금</dt>
                 <dd className="mt-0.5 text-lg font-bold text-primary">{formatStayPrice(place.stay.price)}</dd>
-                {place.stay.price.text !== formatStayPrice(place.stay.price) && (
+                {stayPriceSourceLine(place.stay.price) !== null && (
                   <dd className="mt-1 whitespace-pre-line text-sm text-tertiary">{place.stay.price.text}</dd>
                 )}
               </div>

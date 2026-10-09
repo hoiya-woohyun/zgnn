@@ -12,6 +12,15 @@ export const formatStayPrice = (price: TStayPrice): string => {
   return note ? `${body} (${note})` : body;
 };
 
+/**
+ * 굵은 요금 줄 밑에 원문을 한 번 더 보일지 — 원문이 그 줄보다 더 말할 때만 원문을 돌려준다.
+ * 줄바꿈·공백만 다른 원문("…원\n(인스타 DM이 빨라요)")을 따로 그리면 같은 요금이 두 번 선다.
+ */
+export const stayPriceSourceLine = (price: TStayPrice): string | null => {
+  const flat = price.text.replace(/\s+/g, ' ').trim();
+  return flat === '' || flat === formatStayPrice(price) ? null : price.text;
+};
+
 export const formatKm = (km: number): string => (km < 1 ? `${Math.round(km * 1000)}m` : `${km.toFixed(1)}km`);
 
 /** 쿠팡 파트너스 링크와 네이버 링크를 버튼 문구로 구분한다. */
