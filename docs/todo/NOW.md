@@ -52,7 +52,6 @@
 
 ## 지금 (위에서부터)
 
-- [ ] 관리 화면의 고른 칩을 `AdminFilterChip` 하나로(상태 칩이 아직 핑크) — [09 T6.9](09-admin-pipeline-stages.md) · 왜 지금: 작음, 일부 됨(반려 폼)
 - [ ] 14 W261007.19 자잘한 것 나머지(대비 2곳 · 되돌리기 6초 · 토스트가 도착 화면에 남음 · 공유 목록 상단바 · 제보 뒤 흔적 · 제안 시트 미리 채우기 · 지도 원형 버튼 · 설정 '최대 5kg' · 요금 두 번 · '기타숙박업') — [14 W261007.19](14-weekly-ux-eval.md) · 왜 지금: 다듬기 묶음 · '쿠팡에서 보기' 는 미커밋 ADR-009 v4 뒤, '9월 확인' 연도는 의도(C2610.3)라 뺀다
 - [ ] `.mdc` 의 "src 를 고친 즉시 docs" 를 CLAUDE.md 기준(동작·설계가 바뀔 때만)으로 — [08 T0.4](08-usability-and-process-plan.md) · 왜 지금: 두 정본이 반대를 말한다, 작음
 - [ ] 관리 화면의 같은 동작 다섯 이름을 등록·등록 해제·제외로 — [09 T3.4](09-admin-pipeline-stages.md) · 왜 지금: 09 의 맨 마지막 커밋이어야 해서(T5.1·T5.2 뒤) 끝에
@@ -100,5 +99,6 @@
 - 서버 워커에서 `homepageCard.mjs` 의 `fetch(…, { redirect: 'follow' })` 는 시작 URL 만 검사한다 — 같은 코드가 이제 Vercel 서버에서 돈다(리다이렉트로 내부 주소에 닿는 SSRF 면, 추정). 출처: 보안 리뷰(todo/20)
 - `pnpm audit --prod`: next 16.x 에 critical 1 · high 몇(SSRF 등) — 사이트는 정적 내보내기라 노출은 좁다. next ≥ 16.3.8 로 올릴지. 출처: 보안 리뷰(todo/20)
 - 로컬 `vercel build --prod`(CLAUDE.md 가 말하는 배포 설정 검증)가 설치에서 멈춘다 — 로컬 pnpm 12.8 이 `package.json` 의 `pnpm.onlyBuiltDependencies` 를 안 읽어 `ERR_PNPM_IGNORED_BUILDS`(esbuild·unrs-resolver). `npm_config_strict_dep_builds=false` 로도 안 풀린다. Vercel 은 pnpm 10 이라 배포는 무관. 설정을 `pnpm-workspace.yaml`(`allowBuilds`)로 옮길지 — 출처: todo/20 T6
+- `pnpm lint` 가 `.claude/skills/next/claim.mjs:44,84` 의 빈 `catch {}`(`no-empty`) 두 개로 exit 1 — src 는 깨끗한데 린트 전체가 빨갛다. 주석 한 줄씩 넣거나 eslint 범위에서 `.claude/` 를 뺄지. 출처: 09 T6.9 검증
 
 <!-- /next 가 작업 중 찾은 것을 한 줄씩 — 출처: <커밋/파일>. 멈출 때 번호 문서로 옮긴다 -->

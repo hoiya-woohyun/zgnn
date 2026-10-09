@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 import type { TWorkerHealth } from './adminOpsHealth';
-import { analyzeRequestView, isAnalyzeLimit, PIPELINE_REQUESTS_UNAVAILABLE_TEXT, requestAnalyze } from './adminRequests';
+import { analyzeRequestView, isAnalyzeLimit, PIPELINE_REQUESTS_UNAVAILABLE_TEXT, requestAnalyze, requestApply } from './adminRequests';
 
 const worker = (state: TWorkerHealth['state']): TWorkerHealth => ({ state, tone: 'ok', label: '', others: 0, hint: null });
 
@@ -26,6 +26,20 @@ describe('isAnalyzeLimit', () => {
   it('10·30·100 만 통과한다', () => {
     expect([10, 30, 100].every(isAnalyzeLimit)).toBe(true);
     expect([0, 20, 50, 101, '10', null, undefined, 10.5].some(isAnalyzeLimit)).toBe(false);
+  });
+});
+
+describe('requestApply', () => {
+  it('대기 중인 apply 가 없으면 빈 args 로 넣는다', async () => {
+    const { client, inserted } = fakeClient({ count: 0 });
+    await expect(requestApply(client)).resolves.toBe('queued');
+    expect(inserted).toEqual([{ kind: 'apply', args: {} }]);
+  });
+
+  it('이미 대기 중이면 넣지 않는다(멱등)', async () => {
+    const { client, inserted } = fakeClient({ count: 1 });
+    await expect(requestApply(client)).resolves.toBe('alreadyQueued');
+    expect(inserted).toEqual([]);
   });
 });
 

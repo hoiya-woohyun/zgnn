@@ -454,11 +454,12 @@ P0 세 줄은 독립이다. 권장: T2.1(문구·색, 가장 싸고 지금 혼�
 - 근거: 줄의 `useState`(`adminPagePlaceRow.tsx:438-439`)라 `폐업 고름 → 취소 → 다른 날 다시` 에 `폐업` 이 미리 눌려 있다. 후보 반려 폼은 모드가 꺼지면 언마운트돼 비워진다 — 둘이 다르다. T1.4 가 두 폼에 같은 세그먼트를 재사용하므로 **그때 함께**(T1.4 단계 1 에 넣었다 — 여기서는 확인만).
 - 커밋: T1.4 에 포함.
 
-### [ ] T6.9 고른 칩이 주 버튼과 같은 핑크 채움이다
+### [x] T6.9 고른 칩이 주 버튼과 같은 핑크 채움이다
 
 - 근거: v20 이 탭에서 걷어낸 이유("가장 드문 동작이 주 버튼과 같은 모양")가 상태 칩(`adminPagePlaceList.tsx:289`) · 반려 사유 칩(`adminPageRejectForm.tsx:42`) · TriButtons(`adminPageEditForm.tsx:65,324`)에 그대로다. 반려 폼에서는 고른 사유 칩(핑크)이 빨간 `반려하기` 바로 위에 선다.
 - 단계: `AdminFilterChip` 하나 — `secondary` + `aria-pressed` + `border-brand` 테두리. 세 곳을 이것으로. T1.3 의 블랙리스트 세그먼트도 이 꼴.
 - 커밋: `style(admin) - 고른 칩은 한 꼴 — 핑크 채움은 주 버튼만`
+- > 메모: `src/screens/adminFilterChip.tsx` 의 `AdminFilterChip`(`pressed` 하나가 `aria-pressed` 와 테두리를 함께 정한다). 근거의 줄 번호는 낡았다 — `adminPageEditForm.tsx` 는 이제 `adminPagePlaceEditFormParts.tsx`(TriButtons)·`adminPagePlaceEditForm.tsx`(실내 칩). 핑크였던 곳: 상태 칩 + `제보 있는 곳`(`adminPagePlaceList`) · TriButtons · 실내 칩 · 블랙리스트 기간 연장(`adminPageBlocksRow`). 임시 `PICKED_CHIP` 이던 곳: 반려 폼 · 내림 폼 · 수집 글 칸(걸러 보기 + 프롬프트 판). 테두리는 `border-brand` 가 아니라 **`ring-2! ring-brand!`** — `Button` 의 가장자리가 border 가 아니라 inset ring 이라 border 로는 안 보인다(계산값 실측: 고른 칩 `2px inset #e34b8c`, 바탕 흰색). 뺀 것: `/admin/ops` 의 기간·스크립트 알약(옅은 `bg-brand-primary` 라 핑크 채움이 아니다) · 사이트의 `placesPageFilterSheet`(관리 화면 아님).
 
 ## P2 — 다듬기 (UX 감사, 한 줄씩 — 할 때 태스크로 올린다)
 

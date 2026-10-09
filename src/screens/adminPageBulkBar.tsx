@@ -5,6 +5,7 @@ import { Checkbox } from '../components/base/checkbox';
 import type { TBlockChoice } from '../lib/adminBlocks';
 import type { TBulkTone } from '../lib/adminBulk';
 import type { TRejectReason } from '../lib/adminCandidates';
+import { nextStepText } from '../lib/adminNextStep';
 import { cx } from '../utils/cx';
 import { AdminPageRejectForm } from './adminPageRejectForm';
 
@@ -165,7 +166,7 @@ export function AdminPageBulkBar({
           <p className="text-xs text-secondary">{confirmText}</p>
           {mode === 'reanalyze' && (
             <p className="text-xs text-tertiary">
-              목록에서 빠진 후보는 반려 목록에 남아요. 그다음 터미널에서 <code>pnpm data analyze</code> 를 돌려 주세요.
+              목록에서 빠진 후보는 반려 목록에 남아요. 그다음 {nextStepText('reread')}.
             </p>
           )}
           <div className="flex gap-2">

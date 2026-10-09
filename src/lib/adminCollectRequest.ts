@@ -11,6 +11,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { normalizeName } from '../../scripts/analyze/matchPlace.mjs';
 import { isBlocksUnavailable } from './adminBlocks';
+import { nextStepText } from './adminNextStep';
 
 export type TCollectRequest = {
   id: string;
@@ -66,15 +67,15 @@ export function latestRequestByName(rows: readonly TCollectRequest[]): TCollectR
  */
 export function collectRequestLine(request: TCollectRequest | undefined): string | null {
   if (!request) return null;
-  if (request.status === 'queued') return `'${request.query}' 로 찾을 차례예요 — 터미널에서 pnpm data collect`;
+  if (request.status === 'queued') return `'${request.query}' 로 찾을 차례예요 — ${nextStepText('collectQueued')}`;
   const when = request.done_at ? `${new Date(request.done_at).getMonth() + 1}월 ${new Date(request.done_at).getDate()}일 ` : '';
   const found = request.found ?? 0;
   const toRead = request.to_read ?? 0;
   if (found === 0) return `${when}추가 수집 · 찾은 글이 없어요`;
   if (toRead === 0) return `${when}추가 수집 · 글 ${found}건 모두 이미 분석이 끝난 글이었어요 — 더 붙을 근거가 없어요`;
-  if (request.unread === undefined) return `${when}추가 수집 · 글 ${found}건 중 수집 때 미분석 ${toRead}건 — pnpm data analyze 가 먼저 읽어요`;
+  if (request.unread === undefined) return `${when}추가 수집 · 글 ${found}건 중 수집 때 미분석 ${toRead}건 — 다음 분석이 먼저 읽어요`;
   if (request.unread === 0) return `${when}추가 수집 · 글 ${found}건을 다 읽었어요 — 붙은 근거는 이 카드의 글 목록에 있어요`;
-  return `${when}추가 수집 · 글 ${found}건 중 ${request.unread}건이 아직 분석 전이에요 — pnpm data analyze 가 먼저 읽어요`;
+  return `${when}추가 수집 · 글 ${found}건 중 ${request.unread}건이 아직 분석 전이에요 — 다음 분석이 먼저 읽어요`;
 }
 
 const REQUEST_COLUMNS = 'id, query, name_key, status, requested_at, done_at, found, to_read, post_urls';

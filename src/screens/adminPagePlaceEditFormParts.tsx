@@ -1,9 +1,9 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { Button } from '../components/base/button';
 import type { TPolicyDraft, TTriState } from '../lib/adminEdit';
 import { cx } from '../utils/cx';
+import { AdminFilterChip } from './adminFilterChip';
 
 export const INDOOR_OPTIONS: { key: TPolicyDraft['indoor']; label: string }[] = [
   { key: 'unknown', label: '언급 없음' },
@@ -38,16 +38,9 @@ export function TriButtons({
   return (
     <div className="flex flex-wrap gap-1.5">
       {options.map((option) => (
-        <Button
-          key={option.key}
-          size="sm"
-          color={value === option.key ? 'primary' : 'secondary'}
-          aria-pressed={value === option.key}
-          isDisabled={busy}
-          onClick={() => onChange(option.key)}
-        >
+        <AdminFilterChip key={option.key} pressed={value === option.key} isDisabled={busy} onClick={() => onChange(option.key)}>
           {option.text}
-        </Button>
+        </AdminFilterChip>
       ))}
     </div>
   );

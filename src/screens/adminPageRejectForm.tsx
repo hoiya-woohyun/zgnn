@@ -6,6 +6,7 @@ import { Input } from '../components/base/input';
 import { NO_AUTOFILL } from '../components/noAutofill';
 import { BLOCK_CHOICE_LABEL, BLOCK_CHOICES, defaultBlockFor, type TBlockChoice } from '../lib/adminBlocks';
 import { REJECT_REASON_HINT, REJECT_REASONS, type TRejectReason } from '../lib/adminCandidates';
+import { AdminFilterChip } from './adminFilterChip';
 
 type TAdminPageRejectFormProps = {
   busy: boolean;
@@ -21,9 +22,6 @@ type TAdminPageRejectFormProps = {
   /** 사유 칩 묶음. 기본은 신규용(`REJECT_REASONS`), 갱신 묶음은 `UPDATE_REJECT_REASONS`(11 T1.5). */
   reasons?: readonly TRejectReason[];
 };
-
-/** 고른 칩 — 핑크 채움은 주 버튼만 쓴다. 테두리로만 고른 것을 말한다(T6.9 의 `AdminFilterChip` 이 생기면 그리로). */
-const PICKED_CHIP = 'ring-2! ring-brand!';
 
 /**
  * 제외 사유 + 블랙리스트 기간(ADR-020). 둘째 줄의 기간은 사유를 고르면 기본값이 따라 바뀐다(사람이 바꾼 뒤엔 안 따라간다).
@@ -53,29 +51,18 @@ export function AdminPageRejectForm({ busy, onCancel, onSubmit, count, inline = 
       </p>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {reasons.map((candidate) => (
-          <Button
-            key={candidate}
-            size="sm"
-            color="secondary"
-            className={reason === candidate ? PICKED_CHIP : undefined}
-            aria-pressed={reason === candidate}
-            isDisabled={busy}
-            onClick={() => pickReason(candidate)}
-          >
+          <AdminFilterChip key={candidate} pressed={reason === candidate} isDisabled={busy} onClick={() => pickReason(candidate)}>
             {candidate}
-          </Button>
+          </AdminFilterChip>
         ))}
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <span className="text-xs font-semibold text-secondary">블랙리스트에</span>
         {BLOCK_CHOICES.map((choice) => (
-          <Button
+          <AdminFilterChip
             key={choice}
-            size="sm"
-            color="secondary"
-            className={block === choice ? PICKED_CHIP : undefined}
-            aria-pressed={block === choice}
+            pressed={block === choice}
             isDisabled={busy}
             onClick={() => {
               setBlock(choice);
@@ -83,7 +70,7 @@ export function AdminPageRejectForm({ busy, onCancel, onSubmit, count, inline = 
             }}
           >
             {BLOCK_CHOICE_LABEL[choice]}
-          </Button>
+          </AdminFilterChip>
         ))}
       </div>
 

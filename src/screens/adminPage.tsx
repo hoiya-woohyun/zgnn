@@ -31,7 +31,7 @@ import { chooseAddress } from '../lib/adminEdit';
 import { addressUnresolved, type TAddressChoice } from '../lib/adminAddress';
 import { prepareReanalyze, reanalyzePlan, reanalyzeSummary } from '../lib/adminReanalyze';
 import { collectView, fetchCollectRequests, requestCollect, type TCollectRequestsLoad } from '../lib/adminCollectRequest';
-import { requestAnalyze, type TAnalyzeLimit } from '../lib/adminRequests';
+import { requestAnalyze, requestApply, type TAnalyzeLimit } from '../lib/adminRequests';
 import { bulkApproveJobs, bulkApproveNeedsLook, bulkApproveSummary, bulkApproveText, bulkLatestSummary, bulkLatestTargets, bulkTone, stoppedNote, summarizeBulk, type TBulkTally, type TBulkTone } from '../lib/adminBulk';
 import {
   countStrandedCandidates,
@@ -97,6 +97,7 @@ import { verifyListedOnly, verifyNeedsLook } from '../lib/adminVerify';
 import { fetchOpsOverview } from '../lib/adminOps';
 import { adminBandStage, remoteWorkerView, stageHealth, type TStageHealth, type TWorkerHealth, WORKER_PHASE_LABEL, workerHealth } from '../lib/adminOpsHealth';
 import { WORKER_WAKE_URL, wakeNotice, wakeRemoteWorker } from '../lib/adminWorkerWake';
+import { HAS_SERVER_WORKER, nextStepText } from '../lib/adminNextStep';
 import { fetchRebuildStatus, rebuildHeadline, type TRebuildHeadline } from '../lib/adminRebuild';
 import {
   allSelected as allKeysSelected,
@@ -202,7 +203,7 @@ const HELP_LINES = [
   '제외: 사유를 고르면 후보는 목록에서 빠져요. 「블랙리스트에」 를 3개월·영구로 고르면 그 가게 이름의 새 글도 한동안 후보로 올라오지 않아요.',
   '줄 앞 체크박스로 여러 곳을 고르면 표 위에 한꺼번에 처리하는 줄이 떠요.',
   '올리기: 짝이 있으면 그 장소의 빈 칸만 채우고, 없으면 새 장소로 올라가요. 덮어쓰기: 짝의 칸을 새 분석 값으로 바꿔요.',
-  '재분석: 그 글을 수집 완료로 되돌려요(지우지 않아요). 터미널에서 pnpm data analyze 를 돌리면 다시 읽어요.',
+  `재분석: 그 글을 수집 완료로 되돌려요(지우지 않아요). ${nextStepText('reread')}.`,
   `${POLICY_STATE_WORD.noText}: 블로그 본문에 동반 조건 문장이 아예 없어요 — 교차점검을 했으면 강아지가 있었는지는 그 줄이 말해요.`,
   `${POLICY_STATE_WORD.noLimit}: "동반 가능" 문장은 있는데 크기·실내·요금 같은 조건이 안 적혀 있어요 — 올리면 사이트엔 '확인이 필요해요' 로 나가요.`,
   `${UNREAD_BADGE_LABEL}(칩): 조건 문장은 있는데 판정 규칙이 못 읽었어요 — 사이트에도 "원문을 확인해 주세요" 로 나가요.`,
@@ -335,6 +336,8 @@ export function AdminPage() {
   const [groups, setGroups] = useState<TCandidateGroup[]>([]);
   /** 반영이 끊겨 `approved` 로 남은 후보 수. 셀 수 없었으면(조회 실패) undefined — 그때는 아무 말도 하지 않는다. */
   const [stranded, setStranded] = useState<number | undefined>(undefined);
+  /** 끊긴 반영을 서버 워커에 맡긴 결과 한 줄(「서버에서 반영」)과 그때의 건수 — 줄이 다시 세어져 수가 바뀌면 그 말은 낡았으니 버튼으로 돌아간다. */
+  const [strandedAsk, setStrandedAsk] = useState<{ count: number | undefined; text: string } | null>(null);
   const [states, setStates] = useState<Record<string, TAdminPageGroupState>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
   const [kindFilter, setKindFilter] = useState<TKindFilter>(initialUrl.kind);
@@ -803,7 +806,7 @@ export function AdminPage() {
         const laid = new Set(plan.lay.map((row) => row.id));
         setGroups((prev) => groupPending(prev.flatMap((group) => group.rows).filter((row) => !laid.has(row.id))));
         void loadCounts(client);
-        return `글 ${plan.posts.length}건을 수집 완료로 되돌렸어요 · 터미널에서 pnpm data analyze --limit 30 을 돌리면 다시 읽어요`;
+        return `글 ${plan.posts.length}건을 수집 완료로 되돌렸어요 · ${nextStepText('reread')}`;
       }),
     [loadCounts, wakeServerWorker, withWrite],
   );
@@ -828,7 +831,7 @@ export function AdminPage() {
       withWrite(async (client) => {
         const changed = await excludePosts(client, urls, note);
         void loadCounts(client);
-        return `글 ${changed}건을 분석에서 뺐어요 · 다음 pnpm data analyze 부터 안 읽어요(이미 올라온 후보는 그대로예요)`;
+        return `글 ${changed}건을 분석에서 뺐어요 · 다음 분석부터 안 읽어요(이미 올라온 후보는 그대로예요)`;
       }),
     [loadCounts, withWrite],
   );
@@ -858,7 +861,7 @@ export function AdminPage() {
         setGroups((prev) => groupPending(prev.flatMap((group) => group.rows).filter((row) => !laid.has(row.id))));
         void loadCounts(client);
         const kept = plan.keep.length ? ` · 사람이 고친 후보 ${plan.keep.length}건은 남았어요` : '';
-        return `글 ${plan.posts.length}건을 미분석으로 되돌렸어요 · 검수 대기 후보 ${plan.lay.length}건이 목록에서 빠졌어요${kept} — 터미널에서 pnpm data analyze 를 돌리면 다시 읽어요`;
+        return `글 ${plan.posts.length}건을 미분석으로 되돌렸어요 · 검수 대기 후보 ${plan.lay.length}건이 목록에서 빠졌어요${kept} — ${nextStepText('reread')}`;
       }),
     [loadCounts, wakeServerWorker, withWrite],
   );
@@ -881,7 +884,7 @@ export function AdminPage() {
         setGroups((prev) => groupPending(prev.flatMap((group) => group.rows).filter((row) => !laid.has(row.id))));
         void loadCounts(client);
         const kept = plan.keep.length ? ` · 사람이 고친 후보 ${plan.keep.length}건은 남았어요` : '';
-        return `출처 글 ${plan.posts.length}건을 수집 완료로 되돌렸어요 · 사이트의 장소는 그대로예요${kept} — 터미널에서 pnpm data analyze 를 돌리면 검수 대기에 갱신 제안으로 올라와요`;
+        return `출처 글 ${plan.posts.length}건을 수집 완료로 되돌렸어요 · 사이트의 장소는 그대로예요${kept} — ${nextStepText('reread')} · 검수 대기에 갱신 제안으로 올라와요`;
       }),
     [loadCounts, wakeServerWorker, withWrite],
   );
@@ -1402,12 +1405,26 @@ export function AdminPage() {
     [loadOpsStages, wakeServerWorker],
   );
 
+  /** **서버에서 반영** — 끊긴 반영을 요청 줄 하나로 워커에 맡기고 깨운다. 실패해도 머리글 줄은 그대로 남는다(다시 누르면 된다). */
+  const requestApplyNow = useCallback(async () => {
+    const client = clientRef.current;
+    if (!client) return;
+    try {
+      const result = await requestApply(client);
+      wakeServerWorker();
+      const text = result === 'queued' ? '서버 워커에 맡겼어요 — 반영되면 이 줄이 사라져요' : '이미 맡겨 둔 반영이 있어요 — 서버 워커가 이어 받아요';
+      setStrandedAsk({ count: stranded, text });
+    } catch (error) {
+      setStrandedAsk({ count: stranded, text: messageOf(error, '반영을 맡기지 못했어요.') });
+    }
+  }, [stranded, wakeServerWorker]);
+
   /**
    * **재분석** — 고른 묶음의 글을 되돌린다(`adminReanalyze.ts`). 한 줄(레일)과 일괄(표 위 줄)이 같은 함수를 쓴다.
    *
    * 끝나면 눕힌 후보를 빼고 **다시 묶는다**(`groupPending`). 형제 후보가 다른 줄에 섞여 있을 수 있어 줄 단위로 지우면
    * 그 줄의 대표만 남거나 빈 줄이 남는다. 결과 한 줄은 표 위 줄에 남긴다 — 한 줄에서 눌렀어도 그 줄은 사라지므로
-   * 말할 자리가 거기뿐이고, 다음에 할 일(터미널에서 `pnpm data analyze`)을 거기서 말한다.
+   * 말할 자리가 거기뿐이고, 누가 이어 읽는지(`nextStepText` — 서버 워커 또는 터미널)를 거기서 말한다.
    */
   const reanalyze = useCallback(
     async (keys: readonly string[], from: 'bulk' | { key: string }) => {
@@ -1446,7 +1463,7 @@ export function AdminPage() {
       setSelected((prev) => clearKeys(prev, [...keys]));
       const kept = plan.keep.length ? ` · 사람이 고친 후보 ${plan.keep.length}건은 남았어요(다시 읽어도 그 가게는 새로 만들지 않아요)` : '';
       setBulk({
-        summary: `글 ${plan.posts.length}건을 수집 완료로 되돌렸어요 · 검수 대기 후보 ${plan.lay.length}건이 목록에서 빠졌어요${kept} — 터미널에서 pnpm data analyze 를 돌리면 다시 읽어요.`,
+        summary: `글 ${plan.posts.length}건을 수집 완료로 되돌렸어요 · 검수 대기 후보 ${plan.lay.length}건이 목록에서 빠졌어요${kept} — ${nextStepText('reread')}.`,
       });
     },
     [beginWrite, endWrite, groups, patchState, planFor, wakeServerWorker],
@@ -1927,8 +1944,21 @@ export function AdminPage() {
           </p>
         ) : null}
         {stranded ? (
-          <p className="mt-0.5 text-warning-primary">
-            반영이 끊긴 후보 {stranded}건이 있어요 — 터미널에서 pnpm data apply 를 한 번 돌려 주세요.
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-warning-primary">
+            {HAS_SERVER_WORKER ? (
+              <>
+                반영이 끊긴 후보 {stranded}건이 있어요
+                {strandedAsk?.count === stranded ? (
+                  <span className="text-tertiary">{strandedAsk.text}</span>
+                ) : (
+                  <button type="button" className="font-semibold underline underline-offset-2" onClick={() => void requestApplyNow()}>
+                    서버에서 반영
+                  </button>
+                )}
+              </>
+            ) : (
+              <>반영이 끊긴 후보 {stranded}건이 있어요 — 터미널에서 pnpm data apply 를 한 번 돌려 주세요.</>
+            )}
           </p>
         ) : null}
       </div>

@@ -24,6 +24,7 @@ import { naverMapSearchUrl, naverPlacePhotoUrl, parseNaverPlaceId } from '../lib
 import type { TPetBadge } from '../lib/petPolicy';
 import { cx } from '../utils/cx';
 import { AdminChangeList } from './adminChangeList';
+import { AdminFilterChip } from './adminFilterChip';
 import { AdminMarkedSpans } from './adminMarkedSpans';
 import { EDIT_GRID, EditRow, INDOOR_OPTIONS, TEXTAREA, TriButtons } from './adminPagePlaceEditFormParts';
 import { ADMIN_PANEL_DIVIDER, ADMIN_POLICY_TONE } from './adminTable';
@@ -235,16 +236,14 @@ export function AdminPagePlaceEditForm({
           '실내',
           <div className="flex flex-wrap gap-1.5">
             {INDOOR_OPTIONS.map((option) => (
-              <Button
+              <AdminFilterChip
                 key={option.key}
-                size="sm"
-                color={draft.policy.indoor === option.key ? 'primary' : 'secondary'}
-                aria-pressed={draft.policy.indoor === option.key}
+                pressed={draft.policy.indoor === option.key}
                 isDisabled={busy}
                 onClick={() => setPolicy({ indoor: option.key })}
               >
                 {option.label}
-              </Button>
+              </AdminFilterChip>
             ))}
           </div>,
         )}

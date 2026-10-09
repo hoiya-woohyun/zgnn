@@ -2,7 +2,6 @@
 
 import { SearchLg } from '@untitledui/icons';
 import { useCallback, useMemo, useState } from 'react';
-import { Button } from '../components/base/button';
 import { Input } from '../components/base/input';
 import { SEARCH_FIELD } from '../components/noAutofill';
 import { Select } from '../components/base/select';
@@ -19,6 +18,7 @@ import {
 import type { TPlaceEditPatch } from '../lib/adminPlaceEdit';
 import type { TBlockChoice, TPlaceBlock } from '../lib/adminBlocks';
 import type { TReportRow, TVisitedTally } from '../lib/adminReports';
+import { AdminFilterChip } from './adminFilterChip';
 import { useAdminInfiniteScroll } from './adminInfiniteScroll';
 import type { TPlaceRereadPlan } from '../lib/adminPosts';
 import { AdminPagePlaceRow, type TAdminPagePlaceState } from './adminPagePlaceRow';
@@ -222,24 +222,16 @@ export function AdminPagePlaceList({
           const count = entry.key === 'all' ? visible.length : counts[entry.key];
           const active = entry.key === status;
           return (
-            <Button
-              key={entry.key}
-              size="sm"
-              color={active ? 'primary' : 'secondary'}
-              aria-pressed={active}
-              onClick={() => pickStatus(entry.key)}
-            >
+            <AdminFilterChip key={entry.key} pressed={active} onClick={() => pickStatus(entry.key)}>
               {entry.label} {count}
-            </Button>
+            </AdminFilterChip>
           );
         })}
         </div>
         )}
         {reportedCount > 0 || reportedOnly ? (
-          <Button
-            size="sm"
-            color={reportedOnly ? 'primary' : 'secondary'}
-            aria-pressed={reportedOnly}
+          <AdminFilterChip
+            pressed={reportedOnly}
             onClick={() => {
               clearDone();
               setReportedOnly((prev) => !prev);
@@ -247,7 +239,7 @@ export function AdminPagePlaceList({
             }}
           >
             제보 있는 곳 {reportedCount}
-          </Button>
+          </AdminFilterChip>
         ) : null}
       </div>
 

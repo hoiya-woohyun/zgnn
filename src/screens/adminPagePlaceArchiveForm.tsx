@@ -7,10 +7,8 @@ import { NO_AUTOFILL } from '../components/noAutofill';
 import { BLOCK_CHOICE_LABEL, BLOCK_CHOICES, defaultBlockFor, type TBlockChoice } from '../lib/adminBlocks';
 import { ARCHIVE_REASONS, type TArchiveReason } from '../lib/adminPlaces';
 import { cx } from '../utils/cx';
+import { AdminFilterChip } from './adminFilterChip';
 import { ADMIN_PANEL_DIVIDER } from './adminTable';
-
-/** 고른 칩 — 핑크 채움은 주 버튼만 쓴다(`adminPageRejectForm` 과 같은 꼴). */
-const PICKED_CHIP = 'ring-2! ring-brand!';
 
 type TAdminPagePlaceArchiveFormProps = {
   wasDraft: boolean;
@@ -44,29 +42,18 @@ export function AdminPagePlaceArchiveForm({ wasDraft, busy, initialReason, onCan
       <p className="text-xs font-semibold text-secondary">왜 내리나요?</p>
       <div className="mt-2 flex flex-wrap gap-2">
         {ARCHIVE_REASONS.map((candidate) => (
-          <Button
-            key={candidate}
-            size="sm"
-            color="secondary"
-            className={reason === candidate ? PICKED_CHIP : undefined}
-            aria-pressed={reason === candidate}
-            isDisabled={busy}
-            onClick={() => pickReason(candidate)}
-          >
+          <AdminFilterChip key={candidate} pressed={reason === candidate} isDisabled={busy} onClick={() => pickReason(candidate)}>
             {candidate}
-          </Button>
+          </AdminFilterChip>
         ))}
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <span className="text-xs font-semibold text-secondary">블랙리스트에</span>
         {BLOCK_CHOICES.map((choice) => (
-          <Button
+          <AdminFilterChip
             key={choice}
-            size="sm"
-            color="secondary"
-            className={block === choice ? PICKED_CHIP : undefined}
-            aria-pressed={block === choice}
+            pressed={block === choice}
             isDisabled={busy}
             onClick={() => {
               setBlock(choice);
@@ -74,7 +61,7 @@ export function AdminPagePlaceArchiveForm({ wasDraft, busy, initialReason, onCan
             }}
           >
             {BLOCK_CHOICE_LABEL[choice]}
-          </Button>
+          </AdminFilterChip>
         ))}
       </div>
 

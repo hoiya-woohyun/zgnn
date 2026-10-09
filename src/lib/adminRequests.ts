@@ -35,15 +35,27 @@ export const PIPELINE_REQUESTS_UNAVAILABLE_TEXT = '요청 표가 아직 적용�
  */
 export async function requestAnalyze(client: SupabaseClient, input: { limit: TAnalyzeLimit }): Promise<TAnalyzeRequestResult> {
   if (!isAnalyzeLimit(input.limit)) throw new Error(`분석 요청: 건수는 ${ANALYZE_LIMITS.join('·')} 중 하나여야 해요`);
+  return requestOnce(client, 'analyze', { limit: input.limit }, '분석 요청');
+}
+
+/**
+ * **「서버에서 반영」** — 쓰기 도중 끊겨 `approved` 로 남은 후보(머리글의 "반영이 끊긴 후보 N건")를 워커가 이어 반영하게 한다.
+ * 워커는 승인 후보가 있으면 반영을 돌지만(`planCycle`) 재시도 간격(30분)을 지키므로, 요청 줄이 있어야 **이번 홉에** 돈다.
+ */
+export function requestApply(client: SupabaseClient): Promise<TAnalyzeRequestResult> {
+  return requestOnce(client, 'apply', {}, '반영 요청');
+}
+
+async function requestOnce(client: SupabaseClient, kind: 'analyze' | 'apply', args: object, what: string): Promise<TAnalyzeRequestResult> {
   const { count, error: countError } = await client
     .from('pipeline_requests')
     .select('id', { count: 'exact', head: true })
-    .eq('kind', 'analyze')
+    .eq('kind', kind)
     .eq('status', 'queued');
-  if (countError) throw new Error(`분석 요청: 대기 중인 요청을 세지 못했어요${countError.message ? ` — ${countError.message}` : ''}`);
+  if (countError) throw new Error(`${what}: 대기 중인 요청을 세지 못했어요${countError.message ? ` — ${countError.message}` : ''}`);
   if ((count ?? 0) > 0) return 'alreadyQueued';
-  const { error } = await client.from('pipeline_requests').insert({ kind: 'analyze', args: { limit: input.limit } });
-  if (error) throw new Error(isBlocksUnavailable(error) ? PIPELINE_REQUESTS_UNAVAILABLE_TEXT : `분석 요청: ${error.message}`);
+  const { error } = await client.from('pipeline_requests').insert({ kind, args });
+  if (error) throw new Error(isBlocksUnavailable(error) ? PIPELINE_REQUESTS_UNAVAILABLE_TEXT : `${what}: ${error.message}`);
   return 'queued';
 }
 

@@ -3,6 +3,7 @@
 import { Button } from '../components/base/button';
 import { BLOCK_CHOICE_LABEL, blockRowView, type TBlockChoice, type TBlockRow } from '../lib/adminBlocks';
 import { cx } from '../utils/cx';
+import { AdminFilterChip } from './adminFilterChip';
 import { ADMIN_PANEL_DIVIDER, ADMIN_ROW, ADMIN_ROW_CELLS, ADMIN_ROW_OPEN } from './adminTable';
 
 /** 블랙리스트 한 줄의 화면 상태. 소유자는 `adminPage` 고 여기는 받아서 그린다(장소 줄과 같은 모양). */
@@ -100,17 +101,15 @@ export function AdminPageBlocksRow({ row, state, now, onGoToPlace, onLift, onSta
         <div className={cx(ADMIN_PANEL_DIVIDER, 'flex flex-wrap items-center gap-1.5 px-4 py-3')}>
           <span className="text-xs font-semibold text-secondary">기간을</span>
           {EXTEND_CHOICES.map((choice) => (
-            <Button
+            <AdminFilterChip
               key={choice}
-              size="sm"
-              color={current === choice ? 'primary' : 'secondary'}
-              aria-pressed={current === choice}
+              pressed={current === choice}
               isDisabled={Boolean(busy)}
               isLoading={busy === 'extending'}
               onClick={() => onExtend(choice)}
             >
               {BLOCK_CHOICE_LABEL[choice]}
-            </Button>
+            </AdminFilterChip>
           ))}
           <Button color="link-gray" size="sm" isDisabled={Boolean(busy)} onClick={onCancelExtend}>
             취소
