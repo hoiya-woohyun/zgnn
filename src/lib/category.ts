@@ -17,9 +17,14 @@ import { categoryForType } from '../../scripts/lib/placeCategory.mjs';
  *
  * 종류(`type`)와 어긋나는 업종(식당의 `카페,디저트`)도 종류 이름으로 대신한다 — 규칙의 정본은 `scripts/lib/placeCategory.mjs`
  * 이고 분석·승인 반영도 같은 규칙으로 업종을 거른다. 화면에서 한 번 더 거르는 것은 그 전에 들어간 시드 행 때문이다.
+ *
+ * `기타숙박업` 처럼 **`기타` 로 시작하는 업종**도 종류 이름으로 대신한다(14 W261007.19) — 네이버의 행정 분류 꼬리표라 사용자에게는
+ * "분류가 안 된 숙박업" 이라는 말뿐이고 `숙소` 보다 아는 것이 없다. 표시에서만 거른다 — 정본 규칙(`placeCategory.mjs`)은 원문을
+ * 지어내지 않는 것이 원칙이라 값은 그대로 들어가고, 검색도 원문으로 된다.
  */
 export const categoryLabel = (category: string | undefined, typeLabel: string, type?: string): string => {
-  const fitting = type ? categoryForType(category, type) : category?.trim();
+  const matched = type ? categoryForType(category, type) : category?.trim();
+  const fitting = matched?.startsWith('기타') ? undefined : matched;
   return fitting
     ? fitting
         .split(',')

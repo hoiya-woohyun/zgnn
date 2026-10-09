@@ -11,6 +11,11 @@ describe('categoryLabel', () => {
     expect(categoryLabel('한식', '식당')).toBe('한식');
   });
 
+  it("'기타' 로 시작하는 행정 분류는 종류 이름으로 — 종류를 알든 모르든", () => {
+    expect(categoryLabel('기타숙박업', '숙소', 'stay')).toBe('숙소');
+    expect(categoryLabel('기타숙박업', '숙소')).toBe('숙소');
+  });
+
   it('비어 있으면 종류 이름', () => {
     expect(categoryLabel(undefined, '카페')).toBe('카페');
     expect(categoryLabel('  ', '카페')).toBe('카페');
