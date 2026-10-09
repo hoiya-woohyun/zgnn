@@ -1,7 +1,7 @@
 # BUG-016 — 서버 워커 사슬이 5홉째에서 Vercel 508(루프 감지)로 끊겨, 남은 일이 조용히 멈췄다
 
 > 최종 수정: 2026-10-09 (v1: 신설 — [todo/20](../todo/20-vercel-remote-worker.md) T9 첫 실측에서 발견)
-> 상태: 고침(`scripts/lib/workerRemote.mjs` `MAX_HOPS` 12 → 4 · `worker/entry/run.mjs` 사슬 실패 로그). 워커 재배포 전에는 프로덕션이 옛 값이다.
+> 상태: 고침(`scripts/lib/workerRemote.mjs` `MAX_HOPS` 12 → 4 · `worker/entry/run.mjs` 사슬 실패 로그). 2026-10-09 워커 `--prod` 재배포.
 
 ## 증상
 
