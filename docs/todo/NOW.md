@@ -1,6 +1,7 @@
 # 지금 할 일 — 대기열
 
-> 최종 수정: 2026-10-08 (v45: develop → main 을 합쳤다(fast-forward, 91커밋) — 서버 워커 줄은 T9 실측 하나로)
+> 최종 수정: 2026-10-09 (v46: 서버 워커 T9 첫 실측 — 분석은 서버에서 돈다(4홉 · 글 20). 5홉째 Vercel 508 → `MAX_HOPS` 4, 줄은 🙋 재배포 허락으로)
+> 이전 2026-10-08 (v45: develop → main 을 합쳤다(fast-forward, 91커밋) — 서버 워커 줄은 T9 실측 하나로)
 > 이전 2026-10-08 (v44: 서버 워커 env 다섯을 싣고 재배포 — 🧑 env 줄을 걷고, 맨 위는 🙋 develop → main 뒤 T9)
 > 이전 2026-10-08 (v43: 서버 워커 순서 바로잡음 — T9 는 main 합치기 뒤에만 된다(깨우기 주소가 프로덕션 사이트 빌드에만 있다). env → 재배포 → main → T9)
 > 이전 2026-10-08 (v42: 서버 워커 프로덕션 배포(보안 리뷰 반영본) — 「기다림」 맨 위를 env → 재배포 → 실측 → main 순서로)
@@ -58,7 +59,7 @@
 
 ## 기다림 (사람 손·결정)
 
-- 🧑 서버 워커(ADR-028) T9 실측 — develop → main 은 2026-10-08 fast-forward 로 합쳤다(f95985d, 91커밋) · [20 T9](20-vercel-remote-worker.md) · 에이전트가 `vercel logs --follow`(zgnn-worker)를 켠 채: PC 의 `pnpm data` 를 끄고 `/admin` 에서 추가 수집 1 · 재분석 1 · 저수지 10(사슬 두 번) → `/admin/ops` "서버 · 분석 중" · `pipeline_runs` 행(첫 버튼에 '못 깨웠어요' 면 rewrite 가 Authorization 을 버리는 것) → `pnpm data` 를 켠 채 같은 것 → `local` 로 비키는지 · (선택) 49자로 잘렸던 토큰 둘을 claude.ai 에서 회수
+- 🙋 서버 워커(ADR-028) — **워커 `--prod` 재배포 허락**(`MAX_HOPS` 12 → 4, [BUG-016](../bugs/BUG-016-worker-chain-508-loop-detected.md) — 5홉째가 Vercel 508 이라 남은 일이 조용히 멈췄다) → 🧑 `/admin` 로그인 뒤 버튼 하나(요청 글 37건 · 저수지 10 이 남아 있다)로 [20 T9](20-vercel-remote-worker.md) 남은 셋: 브라우저 깨우기가 깊이를 새로 세는지(다시 4홉) · NCP Maps 축 · 로컬 켠 채 `local` 로 비키는지. 첫 성공 경로·헤더 전달은 2026-10-08 확인(4홉 · 글 20 · 후보 4) · (선택) 49자로 잘렸던 토큰 둘을 claude.ai 에서 회수
 
 - 🧑 작업 트리에 **커밋 안 된 ADR-009 v4**(준비물 탭 개편 — 16파일, 신규 `checklistPageItemSheet.tsx`, 삭제 `itemGroups.ts`·`seasonChips.tsx`)가 있다. 2026-10-08 /next 세션이 주인을 못 찾았다(트랜스크립트에 그 파일을 쓴 세션이 없다) — [ADR-009](../decisions/ADR-009-trip-derived-checklist.md) · [14 W261007.13](14-weekly-ux-eval.md) · 명령: 하던 쪽이 `git status` 로 보고 커밋. 그 커밋 전엔 HEAD 의 탭이 저장 숙소의 '간식 어메니티' 로 간식을 지운다(14 메모가 v4 로 닫힌다고 적은 셋)
 - 🧑 포크 게시 소개문에서 '대형견과 실내에서 함께 머물 수 있어요' 를 빼기(원글에 근거 없음, C12 '확인' 바로 위에서 반대를 말한다) — [13 §5.2 P2](13-ai-analysis-audit-2026-10-04.md) · 명령: `/admin` 에서 포크(aef2f05a) 소개를 "…아기자기한 소품이 많고 안쪽에 1인 좌석도 있어요." 로 고쳐 저장(또는 "해도 돼" 라고 하면 Claude 가 `places.features` 단건 update)

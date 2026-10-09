@@ -1,6 +1,7 @@
 # ADR-028 — 수집·분석을 Vercel 함수에서도 돌린다. 버튼을 누른 운영자의 세션이 곧 작업 권한이고, 서버에 두는 장기 값은 Claude 토큰과 네이버 키 둘뿐이다
 
-> 최종 수정: 2026-10-08 (v3: 네이버 키는 **넷**이다(결정 6) — 검색 둘에 더해 주소→좌표의 NCP Maps 둘. 보안 리뷰로 사슬 상한(진척·깊이 12)·홉 동안 심장 유지·하위 도메인 위험을 더했다)
+> 최종 수정: 2026-10-09 (v4: 사슬은 **4홉**까지다(결정 5) — Vercel 이 자기 호출 사슬을 4번째 자기 호출에서 508 로 끊는다(T9 실측, [BUG-016](../bugs/BUG-016-worker-chain-508-loop-detected.md)). 깨우기 한 번 = 글 최대 20건)
+> 이전 2026-10-08 (v3: 네이버 키는 **넷**이다(결정 6) — 검색 둘에 더해 주소→좌표의 NCP Maps 둘. 보안 리뷰로 사슬 상한(진척·깊이 12)·홉 동안 심장 유지·하위 도메인 위험을 더했다)
 > 이전 2026-10-08 (v2: **채택**. 결정 5 를 코드에 맞게 고쳤다 — 버튼 셋 중 `pipeline_requests` 에 줄을 넣는 것은 「저수지 N건 분석」 하나뿐이고 「추가 수집」 은 `collect_requests`, 「재분석」 은 `blog_posts.requested_at` 이다. 그래서 서버도 로컬 `once` 와 같은 한 바퀴를 돌고, 로컬과 겹치지 않게 하는 것은 원자 집기가 아니라 `workers` 심장이다(`candidates` 에 유일 제약이 없어 같은 글을 둘이 읽으면 후보가 둘 생긴다). 결정 9(번들)·10(겹침)을 더했다. 결정 4 의 `refreshSession()` 은 `/admin` 에 refresh token 이 없어(ADR-016) "50분 미만이면 안 깨우고 재로그인 안내" 로)
 > 이전 2026-10-08 (v1: 제안 — `worker/api/probe.mjs` 실측(c39beaf)으로 Vercel 함수 안 `claude -p` 가 `setup-token` 으로 도는 것을 확인. 구현은 [docs/todo/20](../todo/20-vercel-remote-worker.md))
 
@@ -49,6 +50,8 @@ ADR-024 가 서버 실행을 뺀 이유는 셋이었다. ① 키가 밖으로 �
    「저수지 N건」 은 `--limit 5` 를 돌고 남은 수(N−5)를 그 줄에 적어 `queued` 로 되돌린다.
    홉이 끝나면 다시 세어 **할 일이 남았고 · 이번 홉이 줄였고 · JWT 실효가 한 홉 이상 남았으면** 같은 JWT 로 자기 자신을 한 번 더 부른다.
    "줄였고" 가 없으면 403 으로 계속 실패하는 글 하나가 JWT 가 끝날 때까지 한도를 태운다. 끊긴 뒤 남은 일은 다음 버튼이나 로컬 워커가 이어 간다.
+   (v4) 사슬은 **4홉**(`MAX_HOPS`)까지다 — Vercel 이 함수가 자기를 부르는 사슬을 4번째 자기 호출에서 508(`INFINITE_LOOP_DETECTED`)로 끊는다(2026-10-08 실측).
+   감지 방식이 공개돼 있지 않아 피해 가지 않고 그 상한에 맞춘다. 그래서 깨우기 한 번 = 글 최대 20건이고, 그 뒤는 다음 깨우기가 잇는다([BUG-016](../bugs/BUG-016-worker-chain-508-loop-detected.md)).
    `pipeline_requests` 는 여전히 원자적으로 집는다(`update … where status = 관찰한 값 returning`) — 서버 인스턴스 둘, 로컬 둘이 같은 줄을 동시에 볼 때의 안전망이다.
 6. **서버 env 에는 장기 값 두 종류만 둔다**: `CLAUDE_CODE_OAUTH_TOKEN`(1년)과 네이버 키 넷 — 검색 API `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET`(수집·분석의 이름 축, 없으면 분석이 Claude 전에 멈춘다)과
    NCP Maps `NAVER_MAP_CLIENT_ID`·`NAVER_MAP_CLIENT_SECRET`(주소→좌표, 없으면 그 축만 꺼져 로컬보다 덜 채운다 — v3 에서 바로잡음, v1·v2 는 검색 둘만 적었다). 전부 Sensitive · Production 에만 둔다.

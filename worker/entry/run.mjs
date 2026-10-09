@@ -58,7 +58,8 @@ async function chain(token, nextHop) {
   const headers = { Authorization: `Bearer ${token}`, [HOP_HEADER]: String(nextHop) };
   const res = await fetch(`https://${host}/api/run`, { method: 'POST', headers, signal: AbortSignal.timeout(30_000) });
   await res.body?.cancel();
-  log(`다음 홉(${nextHop + 1}) 호출 — ${res.status}`);
+  if (res.ok) log(`다음 홉(${nextHop + 1}) 호출 — ${res.status}`);
+  else log(`⚠️ 다음 홉(${nextHop + 1}) 호출 — ${res.status}${res.status === 508 ? '(Vercel 루프 감지)' : ''} · 사슬이 끊겼다 — 남은 일은 다음 버튼이나 로컬 워커가`);
 }
 
 export function POST(request) {

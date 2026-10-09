@@ -108,6 +108,8 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
   `unread` 가 되어 판정 C7("원문을 확인해 주세요")로 떨어진다 — 시드 86곳엔 그런 원문이 없어 테스트는 통과한다.
   같은 이유로 AI 판단은 `correctPetPolicyFacts`(`scripts/lib/petPolicyFacts.mjs`)를 거쳐야 판정에 닿는다: 원문에 근거 없는
   숫자 하나(`weightLimitKg: 10`)가 대형견을 '어려움' 으로 보낸다(→ [BUG-009](docs/bugs/BUG-009-unread-and-denied-policy-judged-ok.md)).
+- **서버 워커 사슬은 4홉까지다**(`MAX_HOPS`, `scripts/lib/workerRemote.mjs`). Vercel 이 함수의 자기 호출을 4번째에서 508(루프 감지)로 끊는다 — 상한을 올리면 홉마다 초록인데
+  5홉째에서 멈추고, `/admin` 의 서버 배지가 사라져 다 끝난 것처럼 보인다. 남은 일은 `queued` 로 조용히 남는다(→ [BUG-016](docs/bugs/BUG-016-worker-chain-508-loop-detected.md)).
 - **단계 스크립트(collect·analyze·apply)에서 `process.exit` 를 부르지 않는다** — exit code 를 돌려준다. 로컬 상주 워커와 서버 워커가 같은 프로세스에서 `main()` 을 부르므로
   exit 한 줄이 로컬은 워커를, 서버는 함수 인스턴스를 끝낸다. 서버에선 응답이 이미 202 라 아무도 모른다 — 요청 줄은 10분 뒤 다시 집히고 심장은 그 자리에 멈춘다(→ [ADR-028](docs/decisions/ADR-028-vercel-remote-worker.md)).
 - **첫 프레임에 "저장 0" 으로 보이는 것은 의도**다(`skipHydration`). 정적 HTML 이라

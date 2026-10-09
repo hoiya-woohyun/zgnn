@@ -30,8 +30,12 @@ import { runPipelineStep } from './workerSteps.mjs';
 export const HOP_ANALYZE_CAP = 5;
 /** 다음 홉을 부르려면 JWT 실효(exp − 30분)가 이만큼 남아야 한다 — 모자라면 그 홉의 단계 스크립트가 `createSupabase` 에서 거부된다. */
 export const HOP_BUDGET_S = 5 * 60;
-/** 깨우기 한 번이 도는 홉의 상한 — 「저수지 30건」(화면이 고르는 큰 쪽) = 6홉 + 수집·반영·재시도 여유. */
-export const MAX_HOPS = 12;
+/**
+ * 깨우기 한 번이 도는 홉의 상한 = **Vercel 이 허락하는 깊이**. 함수가 자기를 부르는 사슬을 Vercel 이 4번째 자기 호출에서 508(INFINITE_LOOP_DETECTED)로 끊는다
+ * (2026-10-08 실측: 브라우저 깨우기 1 + 자기 호출 3 = 4홉이 돌고 다섯 번째 호출이 508). 감지 방식이 공개돼 있지 않아 피해 가지 않고 그 상한에 맞춘다 —
+ * 12 로 두면 5홉째에서 508 을 맞고 조용히 멈춘다(화면은 서버 배지가 사라져 끝난 것처럼 보인다). 그래서 깨우기 한 번 = 글 최대 20건이고, 「저수지 30건」 은 두 번 깨워야 한다.
+ */
+export const MAX_HOPS = 4;
 /** 사슬 호출이 다음 홉의 번호(0부터)를 싣는 헤더. 첫 깨우기(`/admin`)에는 없다 = 0. 인증을 통과한 운영자만 싣을 수 있어 믿어도 된다. */
 export const HOP_HEADER = 'X-Zgnn-Hop';
 /** 이만큼 지난 바쁨은 낡았다 — `maxDuration`(300초) + 여유. 그 뒤에 온 깨우기는 새 홉을 세운다. */
