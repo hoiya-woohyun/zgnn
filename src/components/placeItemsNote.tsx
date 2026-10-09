@@ -104,7 +104,7 @@ export function PlaceItemsNote({ place, className }: TPlaceItemsNoteProps) {
                 {/* item.emoji 는 데이터 콘텐츠라 장식용 이모지 금지 규칙의 예외다(준비물 화면과 같다). */}
                 <span aria-hidden="true">{item.emoji}</span>
                 {item.name}
-                <span className="text-xs font-semibold text-success-primary">숙소에 있어요</span>
+                <span className="text-xs font-semibold text-utility-green-700">숙소에 있어요</span>
               </span>
             ) : (
               <button

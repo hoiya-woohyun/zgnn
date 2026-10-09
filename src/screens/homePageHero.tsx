@@ -348,7 +348,7 @@ export function HomePageHero({ subtitle, reach, cta }: THomePageHeroProps) {
                     <PawMark className="h-6 w-6 shrink-0 text-white" />
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm font-bold text-white">{cta.title}</span>
-                      <span className="mt-0.5 block text-sm text-white/85">{cta.body}</span>
+                      <span className="mt-0.5 block text-sm text-white">{cta.body}</span>
                     </span>
                     <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-white/85" />
                   </Link>
