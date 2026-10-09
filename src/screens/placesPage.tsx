@@ -365,7 +365,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
                 releaseAreaCarried(type);
               }}
             />
-            <PlacesPageSuggest type={type} />
+            <PlacesPageSuggest type={type} query={trimmedQuery} />
           </div>
         </div>
 

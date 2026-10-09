@@ -133,6 +133,17 @@ export function reportSentText(kind: TReportKind): string {
   return '고마워요! 운영자가 확인하고 고칠게요';
 }
 
+/**
+ * 시트 맨 아래 약속 한 줄. 장소 제안은 고칠 것이 없다 — "고친 내용은 반영돼요" 가 제안 시트에 서면 무엇을 고친다는지 묻게 된다(14 W261007.19).
+ * 제안이면 확인 뒤 **올라간다**고 말한다.
+ */
+export function reportPromiseText(kinds: readonly TReportKind[]): string {
+  const suggestOnly = kinds.length > 0 && kinds.every((kind) => kind === 'suggest');
+  return suggestOnly
+    ? '연락처는 받지 않아요. 그래서 따로 답장은 못 드리지만, 확인되면 다음 업데이트에 올라가요.'
+    : '연락처는 받지 않아요. 그래서 따로 답장은 못 드리지만, 고친 내용은 다음 업데이트에 반영돼요.';
+}
+
 export type TReportSendFailure = 'offline' | 'unavailable' | 'rejected' | 'network';
 
 export function reportFailureText(reason: TReportSendFailure): string {

@@ -11,6 +11,7 @@ import {
   REPORT_KIND_LABEL,
   REPORT_NOTE_MAX,
   reportFailureText,
+  reportPromiseText,
   reportSentText,
   type TReportKind,
 } from '../lib/placeReport';
@@ -31,6 +32,8 @@ type TReportSheetProps = {
   notePlaceholder: string;
   /** 한 줄이 꼭 있어야 하나(장소 제안 — 가게 이름). */
   noteRequired?: boolean;
+  /** 열 때마다 한 줄 칸에 미리 채울 글(둘러보기의 방금 검색어). 시트는 닫혀도 마운트돼 있어 첫 값만으로는 다시 열 때 안 채워진다. */
+  initialNote?: string;
 };
 
 /**
@@ -39,9 +42,25 @@ type TReportSheetProps = {
  * **보낸 뒤 다시 읽을 수 없다**(비로그인 역할에 select 가 없다) — 그래서 결과는 성공/실패 한 줄(`showAppStatus`)뿐이고 답장이 없다.
  * 장소는 상세에서 자동으로 실린다 — 사용자가 어느 곳인지 다시 적지 않는다. 연락처를 묻는 칸은 만들지 않는다(ADR-012 의 선 바깥).
  */
-export function ReportSheet({ isOpen, onOpenChange, title, lead, placeId, kinds, notePlaceholder, noteRequired = false }: TReportSheetProps) {
+export function ReportSheet({
+  isOpen,
+  onOpenChange,
+  title,
+  lead,
+  placeId,
+  kinds,
+  notePlaceholder,
+  noteRequired = false,
+  initialNote = '',
+}: TReportSheetProps) {
   const [kind, setKind] = useState<TReportKind | null>(kinds.length === 1 ? kinds[0] : null);
   const [note, setNote] = useState('');
+  // 열리는 순간 미리 채운다 — effect 가 아니라 렌더 중 이전 값과 견주는 꼴(닫힌 사이에 바뀐 검색어도 열 때 반영된다).
+  const [wasOpen, setWasOpen] = useState(isOpen);
+  if (isOpen !== wasOpen) {
+    setWasOpen(isOpen);
+    if (isOpen && initialNote !== '') setNote(initialNote);
+  }
   const [sending, setSending] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const noteId = useId();
@@ -148,9 +167,7 @@ export function ReportSheet({ isOpen, onOpenChange, title, lead, placeId, kinds,
             </p>
           </div>
 
-          <p className="text-xs text-tertiary">
-            연락처는 받지 않아요. 그래서 따로 답장은 못 드리지만, 고친 내용은 다음 업데이트에 반영돼요.
-          </p>
+          <p className="text-xs text-tertiary">{reportPromiseText(kinds)}</p>
         </div>
 
         {problem && (

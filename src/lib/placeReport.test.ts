@@ -9,7 +9,19 @@ import {
   REPORT_KIND_LABEL,
   REPORT_KINDS,
   reportKey,
+  reportPromiseText,
 } from './placeReport';
+
+describe('reportPromiseText', () => {
+  it('장소 제안만 받는 시트는 "고친 내용" 이 아니라 "올라가요"', () => {
+    expect(reportPromiseText(['suggest'])).toContain('확인되면 다음 업데이트에 올라가요');
+    expect(reportPromiseText(['suggest'])).not.toContain('고친 내용');
+  });
+
+  it('고칠 것을 받는 시트는 그대로 "고친 내용"', () => {
+    expect(reportPromiseText(['closed', 'policy'])).toContain('고친 내용은 다음 업데이트에 반영돼요');
+  });
+});
 
 describe('buildReport', () => {
   it('장소·종류·한 줄·배포를 싣는다 — 한 줄은 공백을 걷고 비면 null', () => {

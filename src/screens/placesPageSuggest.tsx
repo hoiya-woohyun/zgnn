@@ -13,8 +13,10 @@ import type { TPlaceType } from '../types';
  * 장소 id 가 없는 유일한 제보라 하루 한도를 걸지 않는다(`canReportNow`).
  *
  * 스와이프 엿보기(`placesPageSwipePeek`)가 그리는 목록(`PlacesPageResults`) 밖에 둔다 — 안에 두면 시트가 두 벌 생긴다.
+ *
+ * 방금 친 검색어를 한 줄 칸에 미리 채운다 — 찾다가 없어서 누른 사람이 같은 이름을 두 번 치지 않게(14 W261007.19).
  */
-export function PlacesPageSuggest({ type }: { type: TPlaceType }) {
+export function PlacesPageSuggest({ type, query = '' }: { type: TPlaceType; query?: string }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -36,6 +38,7 @@ export function PlacesPageSuggest({ type }: { type: TPlaceType }) {
         kinds={['suggest']}
         noteRequired
         notePlaceholder="예: 카페 바당, 애월읍"
+        initialNote={query}
       />
     </div>
   );
