@@ -35,6 +35,10 @@ export const radioIndexAfterKey = (key: string, index: number, count: number): n
 export const maxWeightKg = (dog: TDogProfile): number =>
   dog.dogs.length > 0 ? Math.max(...dog.dogs.map((d) => d.weightKg)) : 0;
 
+/** 설정 카드의 몸무게 요약. 한 마리에게 "1마리 · 최대 5kg" 은 '최대' 가 무엇과 견준 말인지 없다 — 그때는 몸무게만. */
+export const dogWeightSummary = (dog: TDogProfile): string =>
+  dog.dogs.length > 1 ? `${dog.dogs.length}마리 · 최대 ${maxWeightKg(dog)}kg` : `${maxWeightKg(dog)}kg`;
+
 const CARRIERS: TCarrier[] = ['none', 'bag', 'cage', 'stroller'];
 const SIZES: TDogSize[] = ['small', 'medium', 'large'];
 

@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { HEAVY_DOG_CONFIRM_KG, dogProfileSavedMessage, heavyDogs, radioIndexAfterKey, sanitizeDog } from './dogProfile';
+import { HEAVY_DOG_CONFIRM_KG, dogProfileSavedMessage, dogWeightSummary, heavyDogs, radioIndexAfterKey, sanitizeDog } from './dogProfile';
+
+describe('dogWeightSummary', () => {
+  it('한 마리면 몸무게만 — "1마리 · 최대" 를 쓰지 않는다', () => {
+    expect(dogWeightSummary({ dogs: [{ name: '두부', weightKg: 5 }], carrier: 'none' })).toBe('5kg');
+  });
+
+  it('두 마리부터 마릿수와 가장 무거운 아이', () => {
+    const dog = { dogs: [{ name: '콩', weightKg: 4 }, { name: '해피', weightKg: 12 }], carrier: 'none' as const };
+    expect(dogWeightSummary(dog)).toBe('2마리 · 최대 12kg');
+  });
+});
 
 describe('sanitizeDog — 새 모양', () => {
   it('스펙에 맞는 값은 그대로(이름은 trim)', () => {
