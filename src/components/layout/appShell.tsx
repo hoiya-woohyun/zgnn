@@ -68,6 +68,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   /*
    * 검수 화면(`wide`)은 **앱의 길 밖에 있다** — 사이드바(홈·지도·…)도 뒤로가기도 거기서는 갈 곳을 말하지 못한다.
    * 사이드바는 PC 표에서 260px 을 먹고, 뒤로가기(`/`)는 어디로 가는지 모를 화살표였다. 둘 다 빼고 표에 폭을 준다.
+   * **폰의 하단 탭바도 뺀다**(2026-10-10, todo/14 W261010.2) — 로그인 화면에도 '홈' 불이 들어오고, 지도 원을 누르면 관리 밖으로
+   * 나가 돌아와도 펼침·스크롤이 처음으로 돌아갔다. 탭바 몫의 여백은 `data-no-tab-bar` 가 `--tab-bar-h` 를 0 으로 돌려 함께 걷는다.
    */
   const bare = kind === 'wide';
   const showBack = !bare && !isRootRoute(pathname);
@@ -118,7 +120,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [pathname, finish, arrive]);
 
   return (
-    <div className="min-h-dvh bg-secondary">
+    <div className="min-h-dvh bg-secondary" data-no-tab-bar={bare || undefined}>
       {/* 키보드·스위치 사용자가 사이드바·탭 줄을 매번 지나지 않게. 포커스가 올 때만 보인다. */}
       <a
         href="#main-content"
@@ -163,7 +165,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {peek?.right && <AppShellSwipePeek ref={rightRef} side="right" route={peek.right} width={peek.width} />}
 
       {/* 탭을 누르면 주소를 바로 바꾸지 않고 셸이 손가락과 같은 길로 미끄러뜨린다(ADR-014 v5). */}
-      <AppTabBar onNavigate={slideTo} />
+      {!bare && <AppTabBar onNavigate={slideTo} />}
 
       {/* 잠깐 뜨는 상태 한 줄("링크를 복사했어요"). `<main>` 밖이어야 스와이프에 끌려가지 않는다 — appStatusToast 참고. */}
       <AppStatusToast />

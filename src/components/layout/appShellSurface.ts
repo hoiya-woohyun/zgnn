@@ -14,6 +14,13 @@
 export const CONTENT_BOTTOM_SPACE = 'calc(var(--tab-bar-h) + 32px + env(safe-area-inset-bottom, 0px))';
 
 /**
+ * 폼의 주 버튼 줄이 화면 아래에 붙는 자리(모바일, `max-md:sticky` 와 같이 쓴다). 탭바 높이 + 윗선 1px + 원이 솟는 16px + 여유 8px.
+ * 이보다 낮으면 가운데 원이 버튼 가운데를 덮어, '등록하기' 를 누른 손가락이 지도로 넘어가고 쓰던 입력이 사라졌다(todo/14 W261010.2).
+ * 원이 솟는 높이(`appTabBar` 의 `RISE_PX`)를 바꾸면 여기도 같이 바꾼다.
+ */
+export const STICKY_ACTION_BOTTOM = 'calc(var(--tab-bar-h) + 25px + env(safe-area-inset-bottom, 0px))';
+
+/**
  * 한 장의 폭이 정해지는 방식. 셋뿐이고, 늘어날 자리도 여기 하나다.
  *
  * - `reading` — 기본. 한 줄이 너무 길면 읽기 나빠서 `max-w-3xl` 에서 멈춘다.

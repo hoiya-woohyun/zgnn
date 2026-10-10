@@ -13,7 +13,7 @@ const normalize = (pathname: string) => pathname.replace(/\/+$/, '') || '/';
  * 모바일 하단 탭바. 데스크톱(md 이상)에서는 사이드바가 대신하므로 숨는다.
  *
  * 높이는 `--tab-bar-h`(globals.css) 하나다 — 지도 상자·스와이프 대역·본문 아래 여백이 같은 변수를 본다.
- * 가운데 원이 솟는 높이(`RISE_PX`)를 바꾸면 `appShellSurface.ts` 의 CONTENT_BOTTOM_SPACE 도 같이 바꾼다.
+ * 가운데 원이 솟는 높이(`RISE_PX`)를 바꾸면 `appShellSurface.ts` 의 CONTENT_BOTTOM_SPACE · STICKY_ACTION_BOTTOM 도 같이 바꾼다.
  *
  * **이미 있는 탭을 다시 누르면 맨 위로 부드럽게 돌아간다** — 네이티브 탭바의 관례다.
  * 조건으로 "불이 들어와 있나" 를 쓰면 안 된다. 하위 화면(상세 등)에서도 들어온 탭에 불이 들어와 있으므로,

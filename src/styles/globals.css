@@ -50,9 +50,14 @@
   60px 였다가 52px 로 줄였다(아이콘 24 + 글자 한 줄 + 위아래 5px — 44px 터치 기준은 그대로 넘는다).
   그 뒤 58px — 늘린 6px 는 **위쪽에만** 준다(appTabBar 의 `pt-[6px]`). 홈 인디케이터 자리(pb-safe)가 아래를 이미
   넉넉히 비워 두는데 위만 4px 라, 아이콘이 윗선에 붙어 보였다.
+  **탭바가 없는 화면(`/admin`, 셸의 `data-no-tab-bar`)에서는 0** 이다 — 위의 자리들이 이 변수 하나로 탭바 몫을 빼므로,
+  탭바만 안 그리고 값을 두면 아래 여백·토스트가 빈 띠 위에 뜬다(2026-10-10, todo/14 W261010.2).
 */
 :root {
   --tab-bar-h: 58px;
+}
+:root:has([data-no-tab-bar]) {
+  --tab-bar-h: 0px;
 }
 
 @custom-variant dark (&:where(.dark-mode, .dark-mode *));

@@ -1,13 +1,15 @@
 'use client';
 
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Button } from '../components/base/button';
 import { HintText } from '../components/base/hint-text';
 import { PageHeader } from '../components/layout/pageHeader';
 import { parentRouteOf } from '../lib/appRoutes';
 import { goBackInApp } from '../components/layout/appShellStack';
+import { STICKY_ACTION_BOTTOM } from '../components/layout/appShellSurface';
 import { showAppStatus, STATUS_UNDO_MS } from '../lib/appStatus';
 import { DOG_NAME_MAX_LENGTH, HEAVY_DOG_CONFIRM_KG, MAX_DOGS, dogProfileSavedMessage, heavyDogs } from '../lib/dogProfile';
+import { dogProfileFormDirty, dogProfileFormOf, restorableDogProfileDraft, type TDogProfileDraft } from '../lib/dogProfileDraft';
 import { dogSize } from '../lib/eligibility';
 import { useStoreHydrated } from '../providers/storeHydration';
 import { useAppStore, useDog } from '../store/useAppStore';
@@ -18,6 +20,12 @@ import type { TCarrier, TDogEntry, TDogProfile, TDogSize } from '../types';
 import { CARD_SURFACE } from '../components/cardSurface';
 
 const EMPTY_ROW: TDogRowDraft = { name: '', weightKg: '' };
+
+/**
+ * 화면을 떠날 때 남긴 쓰다 만 입력(todo/14 W261010.2). 모듈에 둬서 앱 안에서 오가는 동안만 산다 — 새로고침하면 없다.
+ * 언마운트할 때마다 덮어쓴다(손댄 데가 없으면 `null`) — 저장·삭제 뒤엔 폼이 프로필과 같아 저절로 비워진다.
+ */
+let leftDraft: TDogProfileDraft | null = null;
 
 const parseWeight = (raw: string): number | undefined => {
   if (raw.trim() === '') return undefined;
@@ -96,12 +104,25 @@ export function DogProfilePage() {
   const [seededFor, setSeededFor] = useState<'pending' | TDogProfile | null>('pending');
   if (hydrated && seededFor === 'pending') {
     setSeededFor(dog);
-    if (dog) {
-      setRows(dog.dogs.map((d) => ({ name: d.name, weightKg: String(d.weightKg) })));
-      setCarrier(dog.carrier);
-      setSizeOverride(dog.sizeOverride);
-    }
+    // 떠날 때 쓰다 만 것이 있으면 그것부터 — 기준 프로필이 그대로일 때만(`restorableDogProfileDraft`).
+    const form = restorableDogProfileDraft(leftDraft, dog) ?? dogProfileFormOf(dog);
+    setRows(form.rows);
+    setCarrier(form.carrier);
+    setSizeOverride(form.sizeOverride);
   }
+
+  // 떠나는 순간의 폼을 남긴다. 정리 함수는 첫 렌더의 클로저라 최신 값은 ref 로 읽는다.
+  const latestForm = useRef({ ready: false, form: dogProfileFormOf(null), base: null as TDogProfile | null });
+  useEffect(() => {
+    latestForm.current = { ready: hydrated && seededFor !== 'pending', form: { rows, carrier, sizeOverride }, base: dog };
+  });
+  useEffect(
+    () => () => {
+      const { ready, form, base } = latestForm.current;
+      leftDraft = ready && dogProfileFormDirty(form, base) ? { form, base } : null;
+    },
+    [],
+  );
 
   const validDogs = parseValidDogs(rows);
   const rowErrors = submitErrors ?? rows.map(liveRowError);
@@ -160,10 +181,11 @@ export function DogProfilePage() {
 
   /** 폼을 프로필 하나(또는 빈 폼)로 다시 채운다 — 삭제와 그 되돌리기가 같은 모양을 쓴다. */
   const seedForm = (profile: TDogProfile | null) => {
-    setRows(profile ? profile.dogs.map((d) => ({ name: d.name, weightKg: String(d.weightKg) })) : [EMPTY_ROW]);
-    setCarrier(profile?.carrier ?? null);
+    const form = dogProfileFormOf(profile);
+    setRows(form.rows);
+    setCarrier(form.carrier);
     setCarrierError(false);
-    setSizeOverride(profile?.sizeOverride);
+    setSizeOverride(form.sizeOverride);
     setSubmitErrors(null);
   };
 
@@ -231,7 +253,16 @@ export function DogProfilePage() {
               multiDog={validDogs.length > 1}
             />
 
-            <div className="space-y-3 pt-2">
+            {/*
+              주 버튼 줄은 폰에서 탭바 위에 붙는다(todo/14 W261010.2) — 흐름에 두면 첫 화면에서 버튼이 탭바 띠에 걸려,
+              가운데 지도 원이 버튼 가운데를 덮었다(누르면 지도로 넘어가 쓰던 입력이 사라졌다). `fixed` 가 아니라 `sticky` 다(ADR-014 —
+              스와이프 중 `<main>` 의 transform). 폼의 **직속 자식**이어야 폼 높이만큼 따라다닌다. 몸무게 되묻기도 이 줄 안에 —
+              중간에서 누른 사람에게 폼 끝의 카드는 안 보인다. '프로필 삭제' 는 줄 밖(주 버튼 바로 밑에 붙지 않게).
+            */}
+            <div
+              style={{ bottom: STICKY_ACTION_BOTTOM }}
+              className="z-10 space-y-3 max-md:sticky max-md:-mx-4 max-md:border-t max-md:border-secondary max-md:bg-secondary max-md:px-4 max-md:py-3"
+            >
               {heavyAsk && (
                 <div role="alert" className={`${CARD_SURFACE} p-4`}>
                   <p className="text-sm font-semibold text-primary">
@@ -255,18 +286,18 @@ export function DogProfilePage() {
               <Button type="submit" size="lg" className="w-full">
                 {dog ? '고치기' : '등록하기'}
               </Button>
-              {dog && (
-                <Button
-                  type="button"
-                  color="secondary-destructive"
-                  size="lg"
-                  className="w-full"
-                  onClick={handleDelete}
-                >
-                  프로필 삭제
-                </Button>
-              )}
             </div>
+            {dog && (
+              <Button
+                type="button"
+                color="secondary-destructive"
+                size="lg"
+                className="w-full"
+                onClick={handleDelete}
+              >
+                프로필 삭제
+              </Button>
+            )}
           </form>
         )}
       </div>
