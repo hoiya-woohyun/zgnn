@@ -46,7 +46,7 @@
 |---|---|
 | `places.archived_at`·`archive_note` + 찍는 트리거 | `supabase/migrations/20260929120000_places_archive.sql` |
 | `rebuild_log` · 게시 게이트 · `rebuild_status()` | `supabase/migrations/20260929121000_rebuild_log.sql` |
-| '올린 장소' 칸(검색·상태 칩·내리기/되살리기) | `src/screens/adminPagePlaceList.tsx` · `adminPagePlaceRow.tsx` · `src/lib/adminPlaces.ts` |
+| '등록 완료' · '등록 해제' 칸(검색·상태 칩·내리기/되살리기 — 옛 이름 '올린 장소') | `src/screens/adminPagePlaceList.tsx` · `adminPagePlaceRow.tsx` · `src/lib/adminPlaces.ts` |
 | 머리글의 재빌드 한 줄 | `src/lib/adminRebuild.ts` |
 | 내린 곳 짝 처리(`archivedTarget` · `restoreArchived` · `confirmedDifferent`) | `src/lib/adminApply.ts` · `src/screens/adminPageGroupCard.tsx` |
 | 대조 corpus 3곳 + 동점 규칙 + `toMatchablePlace` | `analyze-candidates.mjs` · `apply-approved.mjs` · `adminCandidates.ts` · `matchPlace.mjs` · `placeFields.mjs` |
@@ -72,7 +72,7 @@
 - [x] 마이그레이션 2개 원격 적용(`supabase db push` — 휴지 상태면 로그인부터).
   > 메모: 2026-10-06 대기열 정리 때 코드로 확인 — `places_archive`·`rebuild_log` 둘 다 원격에 있다 — 10 H.1 메모(2026-10-04 `supabase migration list` 전부 일치), 13 T3.2 가 `rebuild_log` 를 직접 읽었고, 15 T1.1 의 `db push` 때 대기 파일은 `pipeline_runs` 하나뿐이었다.
 - [ ] Deploy Hook 회전 — 절차·확인까지 [05](05-security.md) 의 「Deploy Hook 회전」 에 있다. `create`/`list` 는 URL 을 찍으므로 **사람이 자기 터미널에서**.
-- [ ] 적용 뒤 `/admin` 에서 한 곳 내렸다 되살려 보고, 머리글이 `재빌드가 걸렸어요(… · 201)` 인지 확인.
+- [ ] 적용 뒤 `/admin` 등록 완료 탭에서 한 곳 내렸다(등록 해제 탭에서) 되살려 보고, 머리글이 `재빌드가 걸렸어요(…) — 1~2분 뒤 사이트에 보여요` 인지 확인(응답 코드 `201` 은 `/admin/ops` 재빌드 칸에만 보인다).
 
 ## 결정 (설계 단계에서 닫은 것 — 구현이 다시 열지 않는다)
 
