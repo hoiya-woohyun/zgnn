@@ -10,11 +10,12 @@
 //
 //   node .claude/skills/worker-watch/check.mjs                  → 판정 JSON 한 줄 + 사람용 한 줄
 //   node .claude/skills/worker-watch/check.mjs --pressed <결과> → 버튼 결과를 적는다(ok · already · expiring · failed · login · no-button)
-//   node .claude/skills/worker-watch/check.mjs --reset          → 멈춤(halt)과 상태를 지운다(사람이 문제를 본 뒤)
+//   node .claude/skills/worker-watch/check.mjs --reset          → 멈춤(halt)과 상태를 지운다(사람이 문제를 본 뒤). 그 시각 전의 멈춘 심장·running 행은
+//                                                                  "본 것" 으로 친다 — DB 의 그 행들은 아무도 안 고치므로, 안 그러면 reset 뒤 첫 회차가 같은 이유로 또 멈춘다
 //
 // 판정(verdict): press(눌러라) · wait(한도·바쁨 — 다음 회차) · halt(사람이 봐야 한다 — 누르지 않는다) · idle(할 일 없음) · blocked(CLI 가 안 된다)
 
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -58,7 +59,7 @@ const dayKey = (t) => new Date(t).toLocaleDateString('sv-SE');
 
 // ── 기록 모드 ──────────────────────────────────────────────────────────────
 if (args[0] === '--reset') {
-  saveState({});
+  saveState({ resetAt: now });
   console.log('상태를 지웠다 — 다음 회차가 처음부터 판정한다');
   process.exit(0);
 }
@@ -117,8 +118,13 @@ try {
 let logLines = [];
 if (out.verdict !== 'blocked') {
   try {
-    const raw = sh('vercel', ['logs', '--since', '40m', '--limit', '300', '--expand'], { cwd: join(ROOT, 'worker') });
-    logLines = raw.split('\n').map(mask);
+    // `vercel logs` 는 TTY 가 아니면 로그 본문을 **stderr** 로 낸다(stdout 은 빈다) — stdout 만 읽으면 아래 로그 감지가 전부 조용히 꺼진다.
+    const r = spawnSync('vercel', ['logs', '--since', '40m', '--limit', '300', '--expand'], {
+      cwd: join(ROOT, 'worker'), encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 90_000,
+    });
+    if (r.error) throw r.error;
+    if (r.status !== 0) throw new Error(`exit ${r.status}: ${r.stderr.trim().split('\n').pop()}`);
+    logLines = `${r.stdout}\n${r.stderr}`.split('\n').map(mask);
   } catch (e) {
     out.verdict = 'blocked';
     out.reason = `vercel logs 실패(${String(e.message).split('\n')[0].slice(0, 120)})`;
@@ -166,11 +172,15 @@ if (db) {
   const server = workers.find((w) => w.host === 'vercel');
   const seenAgo = server ? now - Date.parse(server.seen) : Infinity;
   const serverBusy = server && server.phase !== 'idle' && seenAgo < STUCK_MS;
-  const serverStuck = server && server.phase !== 'idle' && seenAgo >= STUCK_MS;
+  // `--reset` 전에 멈춘 심장·행은 사람이 본 것 — 끊긴 홉이 남긴 행은 아무도 안 고치므로 시각으로 거른다(새 홉이 서면 그 뒤 시각이라 다시 잡힌다)
+  const ackAt = state.resetAt ?? 0;
+  const serverStuck = server && server.phase !== 'idle' && seenAgo >= STUCK_MS && Date.parse(server.seen) > ackAt;
   const localAlive = workers.some(
     (w) => w.host !== 'vercel' && now - Date.parse(w.seen) < PEER_FRESH_MS && w.phase !== 'login-needed' && w.phase !== 'rate-limited',
   );
-  const staleRun = runs.find((r) => r.status === 'running' && now - Date.parse(r.heartbeat_at) > STUCK_MS);
+  const staleRun = runs.find(
+    (r) => r.status === 'running' && now - Date.parse(r.heartbeat_at) > STUCK_MS && Date.parse(r.heartbeat_at) > ackAt,
+  );
   const since = state.lastCheckAt ?? now - 40 * MIN;
   const newRuns = runs.filter((r) => Date.parse(r.started_at) > since);
   const newFailed = newRuns.filter((r) => r.status === 'failed');
