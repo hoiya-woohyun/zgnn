@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Heart } from '@untitledui/icons';
 import { usePathname } from 'next/navigation';
 import { PawMark } from './pawMark';
-import { createFirstTimesGate, showAppStatus } from '../lib/appStatus';
+import { createFirstTimesGate, getAppStatus, showAppStatus, STATUS_UNDO_MS } from '../lib/appStatus';
 import { rememberUnsavedOnSavedPage, takeUnsavedOnSavedPage } from '../lib/savedPageSession';
 import { useAppStore, useIsSaved } from '../store/useAppStore';
 import { cx } from '../utils/cx';
@@ -21,10 +21,31 @@ type TSaveButtonProps = {
  */
 const shouldAnnounceSave = createFirstTimesGate(2);
 
-/** 저장(해제 아님)일 때만 알린다. 해제는 하트가 비는 것으로 충분하다. */
-const announceSaved = () => {
-  if (!shouldAnnounceSave()) return;
-  showAppStatus('저장했어요', { link: { href: '/saved', label: '저장한 곳 보기' } });
+/** 지금 떠 있는 해제 알림의 id — 다시 저장하면 그 알림을 갈아 끼운다. */
+let unsavedStatusId: number | null = null;
+
+/**
+ * 저장 알림. 처음 두 번이 아니어도 **해제 알림이 떠 있으면** 갈아 끼운다 — 토스트는 마지막 상태를 말해야 한다.
+ * 하트를 다시 눌러 되살렸는데 "저장을 취소했어요" 가 남아 있으면 무엇이 맞는지 모른다(14 W261010.3).
+ */
+const announceSaved = ({ firstTimes }: { firstTimes: boolean }) => {
+  const replacing = unsavedStatusId !== null && getAppStatus()?.id === unsavedStatusId;
+  unsavedStatusId = null;
+  if (firstTimes && shouldAnnounceSave()) showAppStatus('저장했어요', { link: { href: '/saved', label: '저장한 곳 보기' } });
+  else if (replacing) showAppStatus('다시 저장했어요');
+};
+
+/**
+ * 해제 알림 — **어디서 끄든 되돌리기**를 준다(14 W261010.3). 예전엔 "하트가 비는 것으로 충분" 하다며 저장 화면에서만,
+ * 그것도 되돌리기 없이 알렸는데, 메모 연필 옆의 하트를 빗나가 누른 사람은 메모까지 잃었다(하트를 끄면 메모가 지워진다, 10 F5).
+ * 되돌리기는 `restoreSaved` 로 원래 자리·메모·날짜를 돌린다.
+ */
+const announceUnsaved = (onSavedScreen: boolean, undo: () => void) => {
+  const status = showAppStatus(onSavedScreen ? '저장을 취소했어요. 다시 들어오면 목록에서 빠져요' : '저장을 취소했어요', {
+    action: { label: '되돌리기', onPress: undo },
+    durationMs: STATUS_UNDO_MS,
+  });
+  unsavedStatusId = status.id;
 };
 
 /**
@@ -81,9 +102,11 @@ export function useSaveToggle(id: string) {
       const memory = onSavedScreen ? takeUnsavedOnSavedPage(id) : undefined;
       if (memory) {
         restoreSaved(id, memory.index, memory.note, memory.day);
+        // 저장 화면 안의 되살리기 — '저장한 곳 보기' 는 여기서 갈 곳이 없으니 해제 알림을 갈아 끼우기만 한다.
+        announceSaved({ firstTimes: false });
         return;
       }
-      announceSaved();
+      announceSaved({ firstTimes: true });
       toggleSaved(id);
       return;
     }
@@ -92,10 +115,12 @@ export function useSaveToggle(id: string) {
     const note = savedNotes[id];
     const day = tripDays[id];
     toggleSaved(id);
-    if (onSavedScreen) {
-      rememberUnsavedOnSavedPage(id, { index, note, day });
-      showAppStatus('저장을 취소했어요. 다시 들어오면 목록에서 빠져요');
-    }
+    if (onSavedScreen) rememberUnsavedOnSavedPage(id, { index, note, day });
+    announceUnsaved(onSavedScreen, () => {
+      // 저장 화면의 기억도 비운다 — 안 비우면 되돌린 뒤 하트를 끄고 켤 때 옛 기억이 한 번 더 쓰인다.
+      if (onSavedScreen) takeUnsavedOnSavedPage(id);
+      restoreSaved(id, index, note, day);
+    });
   };
   return { saved, toggle, burst };
 }

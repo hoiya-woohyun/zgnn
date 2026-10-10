@@ -64,7 +64,7 @@ export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEdit
     <>
       <div className="flex items-start gap-3">
         <PlaceThumb src={place.cover ?? place.images[0]} type={place.type} />
-        <div className={cx('min-w-0 flex-1', actions ? 'pr-20' : 'pr-10')}>
+        <div className={cx('min-w-0 flex-1', actions ? 'pr-26' : 'pr-10')}>
           <p className="text-md font-bold text-primary">{place.name}</p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             <TownChip town={place.region.town} type={place.type} />
@@ -125,7 +125,8 @@ export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEdit
           </Link>
         )}
 
-        <div className="absolute top-2 right-2 flex">
+        {/* 연필과 하트 사이 8px — 붙어 있으면 연필을 노리다 하트를 눌러 저장(과 메모)이 풀렸다(14 W261010.3). 이름 줄 여백(`pr-26`)도 그만큼 넓다. */}
+        <div className="absolute top-2 right-2 flex gap-2">
           {actions}
           <SaveButton id={place.id} name={place.name} />
         </div>
