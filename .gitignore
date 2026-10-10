@@ -17,3 +17,6 @@ data/raw/
 # /next 선점 기록(.claude/skills/next/claim.mjs) — 세션끼리의 런타임 상태라 커밋하지 않는다
 .claude/next-claims.json
 .claude/next-claims.lock/
+
+# /worker-watch 회차 상태(.claude/skills/worker-watch/check.mjs) — 한도 리셋 시각·멈춤·깨우기 수, 런타임 상태라 커밋하지 않는다
+.claude/worker-watch.json
