@@ -11,7 +11,7 @@ import { addressUnresolved } from './adminAddress';
 import { previewFor, regionUsable, type TCandidateGroup, type TPlaceRow } from './adminCandidates';
 import { overwriteDefault } from './adminPairPolicy';
 import { policyCell } from './adminPreview';
-import { verifyListedOnly, verifyNeedsLook } from './adminVerify';
+import { verifyListedOnly, verifyNeedsLook, verifyView } from './adminVerify';
 
 export type TBulkLatest = {
   /**
@@ -69,8 +69,13 @@ export function bulkLatestSummary(plan: TBulkLatest): string {
 export type TBulkApprove = {
   /** 근거 걱정 없이 올라가는 줄. */
   ok: number;
-  /** 교차점검이 `동반 근거 없음`·`동반 불가 정황` 인데 올라가는 줄 — 한 줄 결정 줄은 이 경우 주 버튼을 반려로 뒤집는다. */
+  /** 교차점검이 `동반 근거 없음` 인데 올라가는 줄 — 한 줄 결정 줄은 이 경우 주 버튼을 반려로 뒤집는다. */
   noEvidence: number;
+  /**
+   * 교차점검이 `동반 불가 정황` 이라 일괄로는 올리지 않는 줄(2026-10-10, todo/14 W261010.1). 예전엔 근거 없음과 한 칸이라
+   * "근거 없음 2곳도 그대로 올라가요" 에 빨간 표식의 가게가 섞여 게시됐다 — 강아지를 못 데려간다는 정황을 일괄 한 번이 덮으면 안 된다.
+   */
+  denied: number;
   /** 주소가 원글과 달라 올라가지 않는 줄(줄에서 직접 고른다). */
   addressUnresolved: number;
   /** 지역이 없어 올라가지 않는 줄. */
@@ -81,7 +86,18 @@ export type TBulkApprove = {
   ask: number;
   /** 근거가 얇은 신규(`thinNewEvidence`) — 일괄로는 안 올리고 한 줄씩 보게 둔다(todo/13 A3). */
   thin: number;
+  /** 확인 문장에 이름을 적는 칸 — 근거 없이 **올라가는** 곳과 동반 불가 정황이라 **건너뛰는** 곳. 수만 보이면 어느 줄인지 다시 찾아야 한다. */
+  names: { noEvidence: string[]; denied: string[] };
 };
+
+type TBulkSlot = Exclude<keyof TBulkApprove, 'names'>;
+
+/** 이름 몇 개를 한 덩어리로 — 셋까지 적고 나머지는 수로. */
+export function namesNote(names: readonly string[], max = 3): string {
+  if (!names.length) return '';
+  const shown = names.slice(0, max).join(' · ');
+  return names.length > max ? `${shown} 외 ${names.length - max}곳` : shown;
+}
 
 /**
  * 근거가 얇은 신규인가(todo/13 A3) — 새 장소로 올라갈 묶음이 **조건 미기재**(`policyCell` 의 `noLimit` — "가능" 한 줄뿐)이면서
@@ -106,12 +122,14 @@ export function thinNewEvidence(group: TCandidateGroup): boolean {
 }
 
 /**
- * 한 줄이 일괄 올리기에서 어느 칸에 서나 — 우선순위: 지역 → 주소 → 내린 곳 → 닮은 곳 → 근거 얇음 → 근거 없음 → 나머지.
+ * 한 줄이 일괄 올리기에서 어느 칸에 서나 — 우선순위: 동반 불가 정황 → 지역 → 주소 → 내린 곳 → 닮은 곳 → 근거 얇음 → 근거 없음 → 나머지.
+ * 동반 불가 정황이 맨 앞인 이유: 다른 이유로도 건너뛰는 줄이라도 확인 문장에 그 이름이 적혀야 한다(가장 비싼 오류다).
  * 집계(`bulkApproveSummary`)와 실제로 보낼 줄 고르기(`bulkApproveJobs`)가 **같은 함수**를 지나야 확인 문장이 말한 것과 올라간 것이 같다.
  */
-function bulkApproveSlot(group: TCandidateGroup, byId: Map<string, TPlaceRow>): keyof TBulkApprove {
+function bulkApproveSlot(group: TCandidateGroup, byId: Map<string, TPlaceRow>): TBulkSlot {
   const extracted = group.lead.extracted;
   const pairId = group.lead.match_place_id;
+  if (verifyView(extracted?.verify)?.state === 'denied') return 'denied';
   if (!regionUsable(extracted?.regionRaw)) return 'noRegion';
   if (addressUnresolved(extracted)) return 'addressUnresolved';
   if (pairId && byId.get(pairId)?.status === 'archived') return 'archivedTarget';
@@ -121,13 +139,17 @@ function bulkApproveSlot(group: TCandidateGroup, byId: Map<string, TPlaceRow>): 
   return 'ok';
 }
 
+/** 확인 문장이 "건너뛰어요" 라 말하고 **보내지도 않는** 칸. */
+const SKIPPED_SLOTS: ReadonlySet<TBulkSlot> = new Set(['thin', 'denied', 'noRegion']);
+
 /**
- * 일괄 올리기가 실제로 `approveGroup` 에 보낼 묶음 — 근거 얇은 신규만 뺀다. 나머지 건너뛰는 줄(지역·주소·내린 곳·닮은 곳)은
- * `approveGroup` 이 쓰기 전에 스스로 멈추고 그 줄에 패널을 세우므로 그대로 보낸다(그 패널이 다음 할 일이다).
+ * 일괄 올리기가 실제로 `approveGroup` 에 보낼 묶음 — 근거 얇은 신규 · 동반 불가 정황 · 지역 없음은 뺀다. 지역 없음을 보내면
+ * `approveGroup` 이 `blocked` 로 돌려줘 결과 줄이 확인 문장의 "건너뛰어요" 를 '실패' 로 셌다(2026-10-10, todo/14 W261010.1).
+ * 나머지 멈추는 줄(주소·내린 곳·닮은 곳)은 `approveGroup` 이 쓰기 전에 스스로 멈추고 그 줄에 패널을 세우므로 그대로 보낸다(그 패널이 다음 할 일이다).
  */
 export function bulkApproveJobs(groups: TCandidateGroup[], places: TPlaceRow[] = []): TCandidateGroup[] {
   const byId = new Map(places.map((place) => [place.id, place]));
-  return groups.filter((group) => bulkApproveSlot(group, byId) !== 'thin');
+  return groups.filter((group) => !SKIPPED_SLOTS.has(bulkApproveSlot(group, byId)));
 }
 
 /**
@@ -137,9 +159,12 @@ export function bulkApproveJobs(groups: TCandidateGroup[], places: TPlaceRow[] =
 export function bulkApproveSummary(groups: TCandidateGroup[], selected: readonly string[], places: TPlaceRow[] = []): TBulkApprove {
   const wanted = new Set(selected);
   const byId = new Map(places.map((place) => [place.id, place]));
-  const out: TBulkApprove = { ok: 0, noEvidence: 0, addressUnresolved: 0, noRegion: 0, archivedTarget: 0, ask: 0, thin: 0 };
+  const out: TBulkApprove = { ok: 0, noEvidence: 0, denied: 0, addressUnresolved: 0, noRegion: 0, archivedTarget: 0, ask: 0, thin: 0, names: { noEvidence: [], denied: [] } };
   for (const group of groups) {
-    if (wanted.has(group.key)) out[bulkApproveSlot(group, byId)] += 1;
+    if (!wanted.has(group.key)) continue;
+    const slot = bulkApproveSlot(group, byId);
+    out[slot] += 1;
+    if (slot === 'noEvidence' || slot === 'denied') out.names[slot].push(group.lead.extracted?.name ?? '이름 없음');
   }
   return out;
 }
@@ -147,8 +172,11 @@ export function bulkApproveSummary(groups: TCandidateGroup[], selected: readonly
 /** 일괄 올리기를 확인하는 자리의 문장. 올라가지 않는 줄은 '건너뛰어요', 올라가는데 근거가 없는 줄은 그렇다고 적는다. */
 export function bulkApproveText(plan: TBulkApprove): string {
   const up = plan.ok + plan.noEvidence;
-  const head = plan.noEvidence ? `${up}곳 올려요 — 그중 근거 없음 ${plan.noEvidence}곳도 그대로 올라가요.` : `${up}곳 올려요.`;
+  const head = plan.noEvidence
+    ? `${up}곳 올려요 — 그중 근거 없음 ${plan.noEvidence}곳(${namesNote(plan.names.noEvidence)})도 그대로 올라가요.`
+    : `${up}곳 올려요.`;
   const skipped = [
+    plan.denied && `동반 불가 정황인 ${plan.denied}곳(${namesNote(plan.names.denied)})`,
     plan.noRegion && `지역이 없는 ${plan.noRegion}곳`,
     plan.addressUnresolved && `주소가 원글과 다른 ${plan.addressUnresolved}곳`,
     plan.archivedTarget && `짝이 내린 곳인 ${plan.archivedTarget}곳`,
@@ -161,7 +189,7 @@ export function bulkApproveText(plan: TBulkApprove): string {
 
 /** 일괄 올리기 주 버튼을 내려야 하나 — 근거 없음이든 멈추는 줄이든 하나라도 있으면 핑크 한 번으로 보내지 않는다. */
 export function bulkApproveNeedsLook(plan: TBulkApprove): boolean {
-  return plan.noEvidence + plan.addressUnresolved + plan.noRegion + plan.archivedTarget + plan.ask + plan.thin > 0;
+  return plan.noEvidence + plan.denied + plan.addressUnresolved + plan.noRegion + plan.archivedTarget + plan.ask + plan.thin > 0;
 }
 
 export type TBulkTally = {
@@ -170,6 +198,10 @@ export type TBulkTally = {
   failed: number;
   /** 운영자가 `멈추기` 를 눌러 **손대지 않은** 묶음 수(todo/09 T6.5). 실패도 기다림도 아니다 — 다시 고르면 그대로 돈다. */
   stopped?: number;
+  /** 확인 문장이 "건너뛰어요" 라 말해 **보내지 않은** 묶음 수 — 실패가 아니다(2026-10-10). 줄은 목록에 남아 한 줄씩 본다. */
+  skipped?: number;
+  /** 된 묶음의 이름 — "2곳 올렸어요" 만으로는 무엇이 사이트에 나갔는지 모른다. */
+  doneNames?: string[];
 };
 
 /** 멈춰서 안 한 수를 결과 줄 끝에 — 올리기·덮어쓰기·제외가 같은 말을 쓴다. */
@@ -182,9 +214,11 @@ export function stoppedNote(stopped: number | undefined): string {
  * 기다리는 것은 펼쳐서 골라야 한다. 둘을 한 수로 말하면 운영자가 할 일을 모른다.
  */
 export function summarizeBulk(verb: string, tally: TBulkTally): string {
-  const parts = [`${tally.done}곳 ${verb}`];
+  const names = namesNote(tally.doneNames ?? []);
+  const parts = [`${tally.done}곳 ${verb}${names ? `(${names})` : ''}`];
   if (tally.waiting) parts.push(`${tally.waiting}곳은 직접 골라야 해요(줄을 펼쳐 보세요)`);
   if (tally.failed) parts.push(`${tally.failed}곳 실패 — 줄에 이유를 적어 뒀어요`);
+  if (tally.skipped) parts.push(`${tally.skipped}곳은 건너뛰었어요`);
   return parts.join(' · ') + stoppedNote(tally.stopped);
 }
 
@@ -196,7 +230,7 @@ export type TBulkTone = 'success' | 'warning' | 'error';
  * 일부가 기다리거나 실패했으면 노랑(할 일이 남았다), 전부 됐을 때만 초록.
  */
 export function bulkTone(tally: TBulkTally): TBulkTone {
-  const left = tally.waiting + tally.failed + (tally.stopped ?? 0);
+  const left = tally.waiting + tally.failed + (tally.stopped ?? 0) + (tally.skipped ?? 0);
   if (left === 0) return 'success';
   return tally.done === 0 ? 'error' : 'warning';
 }

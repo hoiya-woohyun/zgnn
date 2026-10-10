@@ -1540,7 +1540,7 @@ export function AdminPage() {
    * **고른 것 올리기 · 고른 것 덮어쓰기** — 한 줄 버튼과 같은 `approveGroup` 을 고른 묶음마다 차례로 부른다.
    *
    * 사람이 골라야 하는 줄은 넘기지 않는다: `needsDecision`(닮은 곳)·`archivedTarget`(내린 곳)·`addressConflict`(주소 다름)가 오면 **쓰기 전에** 멈춘 것이므로
-   * 그 줄에 패널을 세워 두고 다음으로 간다. `blocked`(지역 없음 등)와 예외는 그 줄에 이유를 적는다. 끝나면 된 것만 목록에서 빼고
+   * 그 줄에 패널을 세워 두고 다음으로 간다. `blocked` 와 예외는 그 줄에 이유를 적는다(지역 없음은 애초에 보내지 않는다 — `bulkApproveJobs`). 끝나면 된 것만 목록에서 빼고
    * `summarizeBulk` 한 줄로 말한다 — 기다리는 것과 실패를 따로 센다(할 일이 다르다).
    *
    * 최신본은 **덮을 수 있는 묶음만** 돈다(`bulkLatestTargets` — 짝이 있고 살아 있고 바뀌는 칸이 있는 것). 짝 id 를 실어 보낸다 —
@@ -1556,12 +1556,13 @@ export function AdminPage() {
       const jobs =
         kind === 'latest'
           ? bulkLatestTargets(chosen, placesRef.current).eligible.map((entry) => ({ group: entry.group, choice: { mergeInto: entry.pairId, overwrite: true, overwriteColumns: entry.columns } }))
-          : // 근거 얇은 신규는 보내지 않는다(todo/13 A3) — 확인 문장이 "건너뛰어요" 라고 센 그 줄들이다(같은 판정 `bulkApproveSlot`).
+          : // 근거 얇은 신규·동반 불가 정황·지역 없음은 보내지 않는다(todo/13 A3 · 14 W261010.1) — 확인 문장이 "건너뛰어요" 라고 센 그 줄들이다(같은 판정 `bulkApproveSlot`).
             bulkApproveJobs(chosen, placesRef.current).map((group) => ({ group, choice: {} }));
       bulkStopRef.current = false;
       setBulk({ busy: true, mode: kind, progress: { done: 0, total: jobs.length } });
       const done = new Set<string>();
-      const tally: TBulkTally = { done: 0, waiting: 0, failed: 0 };
+      // 보내지 않은 줄은 실패가 아니라 건너뜀이다 — 최신본은 덮을 것이 없는 줄이라 셀 것이 없다(확인 문장이 따로 말한다).
+      const tally: TBulkTally = { done: 0, waiting: 0, failed: 0, skipped: kind === 'approve' ? chosen.length - jobs.length : 0, doneNames: [] };
       try {
         for (const [index, { group, choice }] of jobs.entries()) {
           // 멈추기는 묶음 사이에서만 — 지금 쓰는 줄은 끝까지 간다(반쯤 쓴 행을 남기지 않는다).
@@ -1590,6 +1591,7 @@ export function AdminPage() {
               const written: 'created' | 'merged' = outcome.kind;
               void written;
               tally.done += 1;
+              tally.doneNames?.push(group.lead.extracted?.name ?? '이름 없음');
               done.add(group.key);
               // 된 줄은 그때그때 빠진다(todo/09 T6.5) — 진행 수와 표가 같이 움직여야 멈춘 것과 구별된다.
               setGroups((prev) => prev.filter((other) => other.key !== group.key));

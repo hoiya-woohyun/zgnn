@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bulkApproveJobs, bulkApproveNeedsLook, bulkTone, bulkApproveSummary, bulkApproveText, bulkLatestSummary, bulkLatestTargets, stoppedNote, summarizeBulk, thinNewEvidence } from './adminBulk';
+import { bulkApproveJobs, bulkApproveNeedsLook, bulkTone, bulkApproveSummary, bulkApproveText, bulkLatestSummary, bulkLatestTargets, namesNote, stoppedNote, summarizeBulk, thinNewEvidence } from './adminBulk';
 import type { TCandidateGroup, TPlaceRow } from './adminCandidates';
 
 const place = (id: string, over: Partial<TPlaceRow> = {}) =>
@@ -106,6 +106,43 @@ describe('bulkApproveSummary', () => {
     const plan = bulkApproveSummary([noRegion, toArchived], ['a', 'b'], [place('p2', { status: 'archived' })]);
     expect(plan).toMatchObject({ noRegion: 1, archivedTarget: 1, ok: 0 });
     expect(bulkApproveText(plan)).toContain('건너뛰어요');
+  });
+});
+
+describe('일괄 올리기 — 동반 불가 정황은 건너뛰고 이름을 적는다(14 W261010.1)', () => {
+  const named = (key: string, name: string, petAllowedHere: 'yes' | 'no' | null, over: Record<string, unknown> = {}) => {
+    const base = group(key, null);
+    return {
+      ...base,
+      lead: { ...base.lead, extracted: { ...base.lead.extracted, name, verify: { petAllowedHere, dogWasThere: petAllowedHere === 'yes' }, ...over } },
+    } as unknown as TCandidateGroup;
+  };
+
+  it('동반 불가 정황은 근거 없음과 따로 세고 보내지 않는다 · 확인 문장에 이름이 선다', () => {
+    const groups = [named('a', '세화 바다밥상', 'no'), named('b', '한림 국수', null), named('c', '애월 카페', 'yes')];
+    const plan = bulkApproveSummary(groups, ['a', 'b', 'c']);
+    expect(plan).toMatchObject({ ok: 1, noEvidence: 1, denied: 1 });
+    expect(bulkApproveNeedsLook(plan)).toBe(true);
+    expect(bulkApproveText(plan)).toBe(
+      '2곳 올려요 — 그중 근거 없음 1곳(한림 국수)도 그대로 올라가요. 동반 불가 정황인 1곳(세화 바다밥상)은 건너뛰어요. 짝이 있으면 그 장소의 빈 칸만 채우고, 없으면 새 장소로 올라가요.',
+    );
+    expect(bulkApproveJobs(groups).map((g) => g.key)).toEqual(['b', 'c']);
+  });
+
+  it('지역이 없는 줄은 보내지 않는다 — 확인이 "건너뛰어요" 라 했으니 실패로 세지 않는다', () => {
+    const groups = [named('a', '지역 없는 곳', 'yes', { regionRaw: null }), named('b', '애월 카페', 'yes')];
+    expect(bulkApproveJobs(groups).map((g) => g.key)).toEqual(['b']);
+  });
+
+  it('결과 줄은 올린 곳 이름과 건너뛴 수를 말한다 · 건너뛴 것이 남으면 초록이 아니다', () => {
+    const tally = { done: 2, waiting: 0, failed: 0, skipped: 1, doneNames: ['한림 국수', '애월 카페'] };
+    expect(summarizeBulk('올렸어요', tally)).toBe('2곳 올렸어요(한림 국수 · 애월 카페) · 1곳은 건너뛰었어요');
+    expect(bulkTone(tally)).toBe('warning');
+  });
+
+  it('이름은 셋까지 적고 나머지는 수로', () => {
+    expect(namesNote(['가', '나', '다', '라', '마'])).toBe('가 · 나 · 다 외 2곳');
+    expect(namesNote([])).toBe('');
   });
 });
 
