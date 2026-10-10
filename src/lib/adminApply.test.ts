@@ -290,7 +290,7 @@ describe('approveGroup — 기존 장소에 보강', () => {
     const outcome = await approveGroup(client, group([lead]), [placeRow({ id: 'place-1' })], OPTIONS);
 
     expect(outcome.kind).toBe('blocked');
-    expect(outcome).toMatchObject({ reason: expect.stringContaining('새 장소로 올리기') });
+    expect(outcome).toMatchObject({ reason: expect.stringContaining('새 장소로') });
     expect(outcome).toMatchObject({ reason: expect.not.stringContaining('새로고침') });
     expect(calls).toHaveLength(0);
   });

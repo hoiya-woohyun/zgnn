@@ -124,7 +124,7 @@ describe('일괄 올리기 — 동반 불가 정황은 건너뛰고 이름을 �
     expect(plan).toMatchObject({ ok: 1, noEvidence: 1, denied: 1 });
     expect(bulkApproveNeedsLook(plan)).toBe(true);
     expect(bulkApproveText(plan)).toBe(
-      '2곳 올려요 — 그중 근거 없음 1곳(한림 국수)도 그대로 올라가요. 동반 불가 정황인 1곳(세화 바다밥상)은 건너뛰어요. 짝이 있으면 그 장소의 빈 칸만 채우고, 없으면 새 장소로 올라가요.',
+      '2곳 등록해요 — 그중 근거 없음 1곳(한림 국수)도 그대로 등록돼요. 동반 불가 정황인 1곳(세화 바다밥상)은 건너뛰어요. 짝이 있으면 그 장소의 빈 칸만 채우고, 없으면 새 장소로 등록돼요.',
     );
     expect(bulkApproveJobs(groups).map((g) => g.key)).toEqual(['b', 'c']);
   });
@@ -186,7 +186,7 @@ describe('thinNewEvidence · 일괄 올리기에서 근거 얇은 신규를 뺀�
     expect(plan).toMatchObject({ thin: 1, ok: 1 });
     expect(bulkApproveNeedsLook(plan)).toBe(true);
     expect(bulkApproveText(plan)).toBe(
-      '1곳 올려요. 근거가 얇아 한 줄씩 봐야 하는 1곳은 건너뛰어요. 짝이 있으면 그 장소의 빈 칸만 채우고, 없으면 새 장소로 올라가요.',
+      '1곳 등록해요. 근거가 얇아 한 줄씩 봐야 하는 1곳은 건너뛰어요. 짝이 있으면 그 장소의 빈 칸만 채우고, 없으면 새 장소로 등록돼요.',
     );
     expect(bulkApproveJobs(groups).map((g) => g.key)).toEqual(['b']);
   });

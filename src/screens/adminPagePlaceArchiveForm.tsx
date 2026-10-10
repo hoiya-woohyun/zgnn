@@ -39,7 +39,7 @@ export function AdminPagePlaceArchiveForm({ wasDraft, busy, initialReason, onCan
 
   return (
     <div className={cx(ADMIN_PANEL_DIVIDER, 'px-4 py-3')}>
-      <p className="text-xs font-semibold text-secondary">왜 내리나요?</p>
+      <p className="text-xs font-semibold text-secondary">왜 등록 해제하나요?</p>
       <div className="mt-2 flex flex-wrap gap-2">
         {ARCHIVE_REASONS.map((candidate) => (
           <AdminFilterChip key={candidate} pressed={reason === candidate} isDisabled={busy} onClick={() => pickReason(candidate)}>
@@ -66,14 +66,14 @@ export function AdminPagePlaceArchiveForm({ wasDraft, busy, initialReason, onCan
       </div>
 
       <div className="mt-2 max-w-md">
-        <Input {...NO_AUTOFILL} aria-label="내림 메모(선택)" placeholder="메모 (선택)" value={note} onChange={setNote} isDisabled={busy} size="sm" />
+        <Input {...NO_AUTOFILL} aria-label="등록 해제 메모(선택)" placeholder="메모 (선택)" value={note} onChange={setNote} isDisabled={busy} size="sm" />
       </div>
 
       {/* 거짓말을 하지 않는 자리다 — DB 에서 내려도 사이트에서 사라지는 것은 다음 빌드부터다(ADR-015). */}
       <p className="mt-2 text-xs text-tertiary">
         {wasDraft
-          ? '내리면 ‘등록 해제’ 칸으로 옮겨져요. 사이트에는 원래 없던 곳이에요.'
-          : '내리면 다음 빌드부터 사이트에서 사라져요. 되살리려면 ‘등록 해제’ 칸에서 찾으면 돼요.'}
+          ? '등록 해제하면 ‘등록 해제’ 칸으로 옮겨져요. 사이트에는 원래 없던 곳이에요.'
+          : '등록 해제하면 다음 빌드부터 사이트에서 사라져요. 되살리려면 ‘등록 해제’ 칸에서 찾으면 돼요.'}
         {block === 'none'
           ? ' 이 가게를 쓴 새 글은 다시 검수 대기로 올라와요.'
           : ` 블랙리스트에 있는 동안 이 가게를 쓴 새 글은 후보가 되지 않아요. 되살리면 풀려요.`}
@@ -87,7 +87,7 @@ export function AdminPagePlaceArchiveForm({ wasDraft, busy, initialReason, onCan
           isLoading={busy}
           onClick={() => reason && onSubmit(reason, note, block)}
         >
-          {busy ? '내리고 있어요…' : `내리기${block === 'none' ? '' : ` · 블랙리스트 ${BLOCK_CHOICE_LABEL[block]}`}`}
+          {busy ? '등록 해제하고 있어요…' : `등록 해제${block === 'none' ? '' : ` · 블랙리스트 ${BLOCK_CHOICE_LABEL[block]}`}`}
         </Button>
         <Button color="secondary" size="sm" isDisabled={busy} onClick={onCancel}>
           취소

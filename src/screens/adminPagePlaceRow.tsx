@@ -256,7 +256,7 @@ export function AdminPagePlaceRow({
           )}
           {(why || place.status === 'draft') && (
             <span className="basis-full text-xs text-tertiary">
-              {why ?? '아직 사이트에 안 올라간 곳이에요 — ‘검수 대기’ 에서 이 가게의 후보를 승인하면 올라가요.'}
+              {why ?? '아직 사이트에 안 나간 곳이에요 — ‘검수 대기’ 에서 이 가게의 후보를 등록하면 사이트에 나가요.'}
             </span>
           )}
         </div>
@@ -339,7 +339,7 @@ export function AdminPagePlaceRow({
               <div className="flex items-center gap-2">
                 {rereadButton}
                 <Button color="secondary" size="sm" className={ROW_ACTION} isDisabled={Boolean(busy)} onClick={onStartArchive}>
-                  내리기
+                  등록 해제
                 </Button>
               </div>
           )}
@@ -395,7 +395,7 @@ export function AdminPagePlaceRow({
           {reread.done ? (
             <p className="text-success-primary">{reread.done}</p>
           ) : reread.plan && reread.plan.sourceCount === 0 ? (
-            <p className="text-tertiary">{NO_REREAD_SOURCES} — 블로그 글에서 올린 장소가 아니에요.</p>
+            <p className="text-tertiary">{NO_REREAD_SOURCES} — 블로그 글에서 등록한 장소가 아니에요.</p>
           ) : reread.plan ? (
             <p className="text-tertiary">{placeRereadSummary(reread.plan)}</p>
           ) : null}

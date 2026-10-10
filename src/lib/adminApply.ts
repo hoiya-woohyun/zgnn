@@ -133,8 +133,8 @@ const PLACE_TYPES = new Set(['stay', 'restaurant', 'cafe']);
 export function leadProblem(lead: TCandidateRow): string | null {
   const extracted = lead.extracted;
   const type = extracted?.type;
-  if (type === 'other') return "종류가 '기타' 라 장소로 올릴 수 없어요 — 숙소·식당·카페만 올려요.";
-  if (!type || !PLACE_TYPES.has(type)) return `종류 '${String(type)}' 는 장소가 될 수 없어요 — 숙소·식당·카페만 올려요.`;
+  if (type === 'other') return "종류가 '기타' 라 장소로 등록할 수 없어요 — 숙소·식당·카페만 등록해요.";
+  if (!type || !PLACE_TYPES.has(type)) return `종류 '${String(type)}' 는 장소가 될 수 없어요 — 숙소·식당·카페만 등록해요.`;
   if (!extracted.name || extracted.name.trim() === '') return '이름이 비어 있어요.';
   if (!regionUsable(extracted.regionRaw)) {
     return '지역을 골라 주세요 — "동쪽 (구좌읍)" 형식이 있어야 읍·면 칩과 방향 필터에 들어가요.';
@@ -340,7 +340,7 @@ export async function approveGroup(
        */
       return {
         kind: 'blocked',
-        reason: `짝지은 장소(${decision.targetId})가 DB 에 없어요 — 지워졌거나 다른 프로젝트의 id 예요. '새 장소로 올리기' 로 올리거나 Studio 에서 확인해 주세요.`,
+        reason: `짝지은 장소(${decision.targetId})가 DB 에 없어요 — 지워졌거나 다른 프로젝트의 id 예요. '짝이 틀렸어요 — 새 장소로' 로 등록하거나 Studio 에서 확인해 주세요.`,
       };
     }
     /*
@@ -444,7 +444,7 @@ export async function approveGroup(
   } catch (error) {
     throw restoredName
       ? new Error(
-          `${error instanceof Error ? error.message : String(error)} — ${restoredName} 은 이미 게시중으로 돌아갔어요. 반려하려면 '올린 장소' 에서 다시 내려 주세요.`,
+          `${error instanceof Error ? error.message : String(error)} — ${restoredName} 은 이미 게시중으로 돌아갔어요. 제외하려면 '등록 완료' 에서 다시 등록 해제해 주세요.`,
         )
       : error;
   }
@@ -475,7 +475,7 @@ export async function rejectGroup(
       .from('candidates')
       .update({ status: 'rejected', reviewer_note: appendReviewerNote(row.reviewer_note, line) })
       .eq('id', row.id);
-    failIf('후보 반려', error);
+    failIf('후보 제외', error);
   }
   return line;
 }

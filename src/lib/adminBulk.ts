@@ -173,8 +173,8 @@ export function bulkApproveSummary(groups: TCandidateGroup[], selected: readonly
 export function bulkApproveText(plan: TBulkApprove): string {
   const up = plan.ok + plan.noEvidence;
   const head = plan.noEvidence
-    ? `${up}곳 올려요 — 그중 근거 없음 ${plan.noEvidence}곳(${namesNote(plan.names.noEvidence)})도 그대로 올라가요.`
-    : `${up}곳 올려요.`;
+    ? `${up}곳 등록해요 — 그중 근거 없음 ${plan.noEvidence}곳(${namesNote(plan.names.noEvidence)})도 그대로 등록돼요.`
+    : `${up}곳 등록해요.`;
   const skipped = [
     plan.denied && `동반 불가 정황인 ${plan.denied}곳(${namesNote(plan.names.denied)})`,
     plan.noRegion && `지역이 없는 ${plan.noRegion}곳`,
@@ -184,7 +184,7 @@ export function bulkApproveText(plan: TBulkApprove): string {
   ].filter(Boolean);
   const ask = plan.ask ? ` 닮은 곳 확인이 필요한 ${plan.ask}곳은 멈추고 그 줄에 고를 것을 띄울 수 있어요.` : '';
   const rest = skipped.length ? ` ${skipped.join(' · ')}은 건너뛰어요.` : '';
-  return `${head}${rest}${ask} 짝이 있으면 그 장소의 빈 칸만 채우고, 없으면 새 장소로 올라가요.`;
+  return `${head}${rest}${ask} 짝이 있으면 그 장소의 빈 칸만 채우고, 없으면 새 장소로 등록돼요.`;
 }
 
 /** 일괄 올리기 주 버튼을 내려야 하나 — 근거 없음이든 멈추는 줄이든 하나라도 있으면 핑크 한 번으로 보내지 않는다. */

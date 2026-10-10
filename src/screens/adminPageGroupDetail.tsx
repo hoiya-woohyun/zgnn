@@ -215,7 +215,7 @@ export function AdminPageGroupDetail({ group, preview, place }: TAdminPageGroupD
           </span>
           {place && <span className="border-l border-secondary px-3 py-1.5">{SITE_LABEL}</span>}
           <span
-            title={place ? 'AI 가 이 글에서 읽은 값 — 무엇을 바꿀지는 아래 사이트 비교 분석에서 골라요' : '승인하면 사이트에 나갈 값'}
+            title={place ? 'AI 가 이 글에서 읽은 값 — 무엇을 바꿀지는 아래 사이트 비교 분석에서 골라요' : '등록하면 사이트에 나갈 값'}
             className={cx('flex items-center gap-1.5 border-l px-3 py-1.5', SOURCE_TONE.ai.surface, SOURCE_TONE.ai.border)}
           >
             <AdminSourceChip source="ai" /> {place ? null : '나갈 값'}

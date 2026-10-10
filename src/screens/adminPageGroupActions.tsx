@@ -18,7 +18,7 @@ import { AdminPageGroupSiteCompare } from './adminPageGroupSiteCompare';
 import { AdminPageRejectForm } from './adminPageRejectForm';
 
 const BUSY_LABEL: Record<NonNullable<TAdminPageGroupState['busy']>, string> = {
-  approving: '반영하고 있어요…',
+  approving: '등록하고 있어요…',
   rejecting: '제외하고 있어요…',
   savingRegion: '저장하고 있어요…',
   savingEdit: '저장하고 있어요…',
@@ -172,7 +172,7 @@ export function AdminPageGroupActions({
         <Situation title="수집 완료로 되돌릴까요?">
           <p>{reanalyzeText}</p>
           <p>
-            목록에서 빠진 후보는 반려 목록에 남아요. 그다음 {nextStepText('reread')}.
+            목록에서 빠진 후보는 제외 목록에 남아요. 그다음 {nextStepText('reread')}.
           </p>
         </Situation>
         <Row>
@@ -243,7 +243,7 @@ export function AdminPageGroupActions({
   const tail = (rejectPrimary = false, escape?: ReactNode) => (
     <>
       <Row>
-        <span className="text-xs text-tertiary">올리지 않기</span>
+        <span className="text-xs text-tertiary">등록하지 않기</span>
         {!rejectPrimary && tertiary('제외', onStartReject)}
         {tertiary('재분석', onStartReanalyze, {
           isDisabled: !group.lead.post_url,
@@ -281,7 +281,7 @@ export function AdminPageGroupActions({
             size="sm"
             isDisabled={off}
             isLoading={busy === 'approving'}
-            title="게시로 되돌리고 빈 칸만 채워요"
+            title="등록 완료로 되돌리고 빈 칸만 채워요"
             /* **짝 id 를 실어 보낸다.** 안 실으면 그 사이 다른 줄의 승인이 캐시를 바꿔 다른 장소로 합쳐진다 — 조용한 오병합이다. */
             onClick={() => onApprove({ mergeInto: placeId, restoreArchived: true })}
           >
@@ -310,7 +310,7 @@ export function AdminPageGroupActions({
               같은 가게일까요? · {similar.name}{' '}
               {similarArchived && (
                 <Badge type="color" size="sm" color="warning">
-                  내림
+                  등록 해제
                 </Badge>
               )}
             </>
@@ -388,7 +388,7 @@ export function AdminPageGroupActions({
           * 주소에 읍·면이 있으면 그 선택지를 맨 위로(`regionOptionsFor`) — 안덕면처럼 방향이 갈리는 곳이 대표라, 20여 개 목록에서
           * `남쪽 (안덕면)`·`서쪽 (안덕면)` 을 찾게 두지 않는다. 어느 쪽인지는 여전히 사람이 정한다.
           */}
-        <Situation title="지역을 골라야 올릴 수 있어요">
+        <Situation title="지역을 골라야 등록할 수 있어요">
           {regionChoices.town && <p>주소가 {regionChoices.town}이에요 — 맨 위의 {regionChoices.suggested.join(' · ')} 중에서 골라 주세요.</p>}
           {!regionChoices.town && regionChoices.preset && (
             <p>이름의 지점 이름으로 {regionChoices.preset} 을 골라 뒀어요 — 맞으면 저장해 주세요.</p>
@@ -430,11 +430,11 @@ export function AdminPageGroupActions({
      */
     const approveTitle = pairId
       ? matchedDraft
-        ? '빈 칸만 채우고 그 곳을 게시해요 · 되돌릴 수 없어요'
+        ? '빈 칸만 채우고 그 곳을 등록 완료로 되돌려요 · 되돌릴 수 없어요'
         : '빈 칸만 채워요 · 합친 내용은 되돌릴 수 없어요'
       : group.tier === 'new'
         ? '같은 가게가 이미 있으면 거기 합쳐져요'
-        : "새 장소로 올라가요 · 되돌릴 땐 '올린 장소' 에서 내려요";
+        : "새 장소로 등록돼요 · 되돌릴 땐 '등록 완료' 에서 등록 해제해요";
     /*
      * 갱신 묶음의 둘째 결정(11 U8) — 글들과 사이트를 대 봤더니 사이트가 맞다. 반려가 아니라 **확인**이다:
      * 장소에 확인 날짜를 찍고(되돌릴 수 없다) 후보를 눕힌다. 블랙리스트는 건드리지 않는다 — 틀린 것은 가게가 아니라 글이다.
@@ -462,7 +462,7 @@ export function AdminPageGroupActions({
         title={approveTitle}
         onClick={() => onApprove()}
       >
-        {pairId ? '빈 칸만 채우기' : '올리기'}
+        {pairId ? '빈 칸만 채우기' : '등록하기'}
       </TipButton>
     );
     body = (
@@ -492,7 +492,7 @@ export function AdminPageGroupActions({
             }
           >
             {/* 병합 승인은 초안 대상을 **게시로 올린다**(`adminApply.ts`) — 버튼 앞에서 "사이트는 안 바뀐다" 로 읽히면 안 된다. */}
-            {matchedDraft && <p>아직 사이트에 없는 곳이에요 — 합치면 함께 게시돼요.</p>}
+            {matchedDraft && <p>아직 사이트에 없는 곳이에요 — 합치면 함께 등록돼요.</p>}
             {matchedArchived && <p>짝이 내린 곳이에요 — 누르면 되살릴지 물어봐요.</p>}
             {pairId && needsLook && <p>교차점검이 강아지를 데려간 근거를 못 찾았어요.</p>}
           </Situation>

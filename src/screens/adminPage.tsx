@@ -202,13 +202,13 @@ const TAB_LABELS: { key: TTab; label: string }[] = [
  */
 const HELP_LINES = [
   '여기서 바꾼 것은 사이트가 다시 빌드된 뒤에 보여요.',
-  '줄을 누르면 근거(원문 · 나갈 값 · 블로그 인용)가 펼쳐지고, 그 끝에서 이 줄을 올리거나 제외해요.',
+  '줄을 누르면 근거(원문 · 나갈 값 · 블로그 인용)가 펼쳐지고, 그 끝에서 이 줄을 등록하거나 제외해요.',
   '제외: 사유를 고르면 후보는 목록에서 빠져요. 「블랙리스트에」 를 3개월·영구로 고르면 그 가게 이름의 새 글도 한동안 후보로 올라오지 않아요.',
   '줄 앞 체크박스로 여러 곳을 고르면 표 위에 한꺼번에 처리하는 줄이 떠요.',
-  '올리기: 짝이 있으면 그 장소의 빈 칸만 채우고, 없으면 새 장소로 올라가요. 덮어쓰기: 짝의 칸을 새 분석 값으로 바꿔요.',
+  '등록하기: 짝이 있으면 그 장소의 빈 칸만 채우고, 없으면 새 장소로 등록돼요. 덮어쓰기: 짝의 칸을 새 분석 값으로 바꿔요.',
   `재분석: 그 글을 수집 완료로 되돌려요(지우지 않아요). ${nextStepText('reread')}.`,
   `${POLICY_STATE_WORD.noText}: 블로그 본문에 동반 조건 문장이 아예 없어요 — 교차점검을 했으면 강아지가 있었는지는 그 줄이 말해요.`,
-  `${POLICY_STATE_WORD.noLimit}: "동반 가능" 문장은 있는데 크기·실내·요금 같은 조건이 안 적혀 있어요 — 올리면 사이트엔 '확인이 필요해요' 로 나가요.`,
+  `${POLICY_STATE_WORD.noLimit}: "동반 가능" 문장은 있는데 크기·실내·요금 같은 조건이 안 적혀 있어요 — 등록하면 사이트엔 '확인이 필요해요' 로 나가요.`,
   `${UNREAD_BADGE_LABEL}(칩): 조건 문장은 있는데 판정 규칙이 못 읽었어요 — 사이트에도 "원문을 확인해 주세요" 로 나가요.`,
 ];
 const HELP = HELP_LINES.join('\n');
@@ -247,8 +247,8 @@ const BULK_MATCH: Record<'waiting' | 'failed', (state: TAdminPageGroupState | un
 const WARN_FILTERS: { key: TWarnFilter; label: string; hint?: string }[] = [
   { key: 'all', label: '전체' },
   { key: 'any', label: '경고 있는 것', hint: '아래 중 하나라도 걸린 곳' },
-  { key: 'region', label: '지역 없음', hint: '지역을 골라야 올릴 수 있어요' },
-  { key: 'address', label: '주소 다름', hint: '원글 주소와 검색 주소 중 하나를 골라야 올릴 수 있어요' },
+  { key: 'region', label: '지역 없음', hint: '지역을 골라야 등록할 수 있어요' },
+  { key: 'address', label: '주소 다름', hint: '원글 주소와 검색 주소 중 하나를 골라야 등록할 수 있어요' },
   { key: 'noBasis', label: '동반 근거 없음', hint: '교차점검이 강아지를 데려간 근거를 못 찾은 곳' },
   { key: 'typeMismatch', label: '종류 엇갈림', hint: '네이버 카테고리·요약은 카페인데 종류가 식당인 곳(반대도)' },
   { key: 'waiting', label: '결정 기다림', hint: '방금 일괄에서 사람이 골라야 해서 멈춘 줄 — 펼쳐서 고르세요' },
@@ -284,10 +284,10 @@ const POLICY_FILTER_MATCH: Record<Exclude<TPolicyFilter, 'all'>, (card: { group:
  */
 const KIND_FILTERS: { key: TKindFilter; label: string; hint?: string }[] = [
   { key: 'all', label: '전체' },
-  { key: 'update', label: `${KIND_LABEL.update} (${TIER_LABEL.auto})`, hint: '이미 올린 장소에 다른 사실을 말하는 글 — 덮어쓸 칸을 골라요' },
-  { key: 'fill', label: `${KIND_LABEL.fill} (${TIER_LABEL.auto})`, hint: '이미 올린 장소와 같은 곳 — 올리면 빈 칸만 채워 합쳐져요' },
+  { key: 'update', label: `${KIND_LABEL.update} (${TIER_LABEL.auto})`, hint: '이미 등록한 장소에 다른 사실을 말하는 글 — 덮어쓸 칸을 골라요' },
+  { key: 'fill', label: `${KIND_LABEL.fill} (${TIER_LABEL.auto})`, hint: '이미 등록한 장소와 같은 곳 — 등록하면 빈 칸만 채워 합쳐져요' },
   { key: 'ask', label: KIND_LABEL.ask, hint: '비슷한 장소가 있어 같은 곳인지 봐야 해요' },
-  { key: 'new', label: KIND_LABEL.new, hint: '처음 보는 곳 — 올리면 새 장소로 올라가요' },
+  { key: 'new', label: KIND_LABEL.new, hint: '처음 보는 곳 — 등록하면 새 장소로 등록돼요' },
 ];
 
 const kindMatches = (filter: TKindFilter, group: TCandidateGroup): boolean => filter === 'all' || group.kind === filter;
@@ -1271,7 +1271,7 @@ export function AdminPage() {
         }
         const what =
           outcome.kind === 'created'
-            ? `올렸어요 · ${outcome.placeName}`
+            ? `등록했어요 · ${outcome.placeName}`
             : outcome.overwrittenKeys?.length
               ? `${outcome.placeName} 을 덮어썼어요 (${outcome.overwrittenKeys.length}칸)`
               : `${outcome.placeName} 에 채웠어요${outcome.patchKeys.length ? ` (${outcome.patchKeys.join(', ')})` : ' — 채울 빈 칸은 없었어요'}`;
@@ -1287,7 +1287,7 @@ export function AdminPage() {
         setPlacesView([...placesRef.current]);
         afterWrite();
       } catch (error) {
-        patchState(group.key, { busy: undefined, error: messageOf(error, '반영하지 못했어요.') });
+        patchState(group.key, { busy: undefined, error: messageOf(error, '등록하지 못했어요.') });
         /*
          * 이 실패가 후보를 `approved` 로 남겼을 수 있다(어느 단계에서 끊겼는지는 메시지에만 있다).
          * 그래서 짐작으로 세지 않고 다시 센다 — 머리글의 노란 줄이 지금을 말해야 새로고침 없이도 이어받을 일을 안다.
@@ -1582,7 +1582,7 @@ export function AdminPage() {
             } else if (outcome.kind === 'addressConflict') {
               // 일괄은 주소를 대신 고르지 않는다 — 줄을 펼치면 결정 줄이 두 주소를 나란히 보여 준다.
               tally.waiting += 1;
-              patchState(group.key, { error: '일괄로는 올리지 않았어요 — 주소가 원글과 달라 이 줄에서 직접 골라 주세요.' });
+              patchState(group.key, { error: '일괄로는 등록하지 않았어요 — 주소가 원글과 달라 이 줄에서 직접 골라 주세요.' });
             } else if (outcome.kind === 'blocked') {
               tally.failed += 1;
               patchState(group.key, { error: outcome.reason });
@@ -1598,7 +1598,7 @@ export function AdminPage() {
             }
           } catch (error) {
             tally.failed += 1;
-            patchState(group.key, { error: messageOf(error, '반영하지 못했어요.') });
+            patchState(group.key, { error: messageOf(error, '등록하지 못했어요.') });
           }
         }
       } finally {
@@ -1608,7 +1608,7 @@ export function AdminPage() {
       setStates((prev) => Object.fromEntries(Object.entries(prev).filter(([key]) => !done.has(key))));
       setSelected((prev) => clearKeys(prev, [...done]));
       setPlacesView([...placesRef.current]);
-      setBulk({ summary: `${summarizeBulk(kind === 'latest' ? '덮어썼어요' : '올렸어요', tally)} · 사이트에는 다음 빌드에서 보여요`, tone: bulkTone(tally) });
+      setBulk({ summary: `${summarizeBulk(kind === 'latest' ? '덮어썼어요' : '등록했어요', tally)} · 사이트에는 다음 빌드에서 보여요`, tone: bulkTone(tally) });
       if (tally.done) afterWrite();
       // 실패가 후보를 `approved` 로 남겼을 수 있다 — 한 줄 승인과 같은 이유로 다시 센다.
       if (tally.failed) {
@@ -1796,7 +1796,7 @@ export function AdminPage() {
   if (phase === 'signedOut') {
     return (
       <div>
-        <PageHeader title="장소 검수" description="블로그에서 찾은 장소를 확인하고 올려요" />
+        <PageHeader title="장소 검수" description="블로그에서 찾은 장소를 확인하고 등록해요" />
         <AdminPageLogin onSignedIn={signedIn} notice={notice} />
       </div>
     );
@@ -1879,7 +1879,7 @@ export function AdminPage() {
     places: {
       title: '등록 완료',
       description:
-        publishedCount === undefined ? '장소를 불러오고 있어요' : `게시 ${n(publishedCount)} · 게시 대기 ${n(draftCount ?? 0)} — 내리거나 다시 볼 수 있어요`,
+        publishedCount === undefined ? '장소를 불러오고 있어요' : `게시 ${n(publishedCount)} · 게시 대기 ${n(draftCount ?? 0)} — 등록 해제하거나 다시 볼 수 있어요`,
     },
     archived: {
       title: '등록 해제',
@@ -2273,7 +2273,7 @@ export function AdminPage() {
         <div className="px-4 pt-6 md:px-6">
           <EmptyState
             Icon={CheckDone01}
-            title="확인할 장소가 없어요"
+            title="검수할 후보가 없어요"
             description="새 블로그 글을 분석하면 여기 쌓여요 — 지금은 기다리면 돼요."
           />
         </div>

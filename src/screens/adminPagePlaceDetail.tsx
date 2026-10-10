@@ -128,7 +128,7 @@ export function AdminPagePlaceDetail({
               ))}
             </ol>
           ) : (
-            <span className="text-quaternary">내리거나 되살린 적 없어요</span>
+            <span className="text-quaternary">등록 해제하거나 되살린 적 없어요</span>
           )}
         </Field>
       </dl>

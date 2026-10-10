@@ -49,7 +49,7 @@ type TAdminPageBulkBarProps = {
 };
 
 const CONFIRM: Record<Exclude<TBulkMode, 'reject'>, { title: (n: number) => string; button: string; destructive: boolean }> = {
-  approve: { title: (n) => `고른 ${n}곳을 올릴까요?`, button: '올리기', destructive: false },
+  approve: { title: (n) => `고른 ${n}곳을 등록할까요?`, button: '등록하기', destructive: false },
   latest: { title: () => '고른 것을 덮어쓸까요?', button: '덮어쓰기', destructive: false },
   reanalyze: { title: (n) => `고른 ${n}곳을 수집 완료로 되돌릴까요?`, button: '재분석', destructive: false },
 };
@@ -122,7 +122,7 @@ export function AdminPageBulkBar({
             <span className="text-xs font-semibold text-primary">{selectedCount}곳 고름</span>
             <div className="flex flex-wrap items-center gap-1.5">
               <Button color={approveNeedsLook ? 'secondary' : 'primary'} size="sm" isDisabled={!picked || locked} onClick={() => onStart('approve')}>
-                올리기
+                등록하기
               </Button>
               {latestCount > 0 && (
                 <Button color="secondary" size="sm" isDisabled={locked} onClick={() => onStart('latest')}>
@@ -166,7 +166,7 @@ export function AdminPageBulkBar({
           <p className="text-xs text-secondary">{confirmText}</p>
           {mode === 'reanalyze' && (
             <p className="text-xs text-tertiary">
-              목록에서 빠진 후보는 반려 목록에 남아요. 그다음 {nextStepText('reread')}.
+              목록에서 빠진 후보는 제외 목록에 남아요. 그다음 {nextStepText('reread')}.
             </p>
           )}
           <div className="flex gap-2">

@@ -31,7 +31,7 @@ export type TArchiveReason = (typeof ARCHIVE_REASONS)[number];
 export const PLACE_STATUS_LABEL: Record<TPlaceStatus, string> = {
   published: '게시중',
   draft: '게시 대기',
-  archived: '내림',
+  archived: '등록 해제',
 };
 
 /** 상태 배지 색. 게시중만 초록이고 내림은 회색이다 — 내리는 것은 사고가 아니라 정상 운영이라 빨강을 쓰지 않는다. */
@@ -254,7 +254,7 @@ async function setPlaceStatus(
     .single();
   if (error)
     throw new Error(
-      `${status === 'archived' ? '내리지' : '되살리지'} 못했어요 — 다시 눌러 보고, 안 되면 로그아웃하고 다시 로그인해 주세요. (${error.message})`,
+      `${status === 'archived' ? '등록 해제하지' : '되살리지'} 못했어요 — 다시 눌러 보고, 안 되면 로그아웃하고 다시 로그인해 주세요. (${error.message})`,
     );
   return (data ?? { ...place, status, archive_note }) as TPlaceRow;
 }

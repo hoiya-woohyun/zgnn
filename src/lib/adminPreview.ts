@@ -186,7 +186,7 @@ export function policyCell(preview: TPolicyPreview, petPolicyText: string | null
    * (`approveGroup` 의 `isGenericOnlyCandidate`). 그래서 문구도 "'확인이 필요해요' 로 나가요" 다 — 조건을 확인한 뒤 등록 완료에서 확인하면 '갈 수 있어요' 가 된다.
    */
   if (preview.level === '자유') {
-    return { items: [], message: "글에 조건이 안 적혀 있어요 — 승인하면 사이트엔 '확인이 필요해요' 로 나가요(조건을 확인한 뒤 확인 날짜를 찍으면 '갈 수 있어요')", state: 'noLimit' };
+    return { items: [], message: "글에 조건이 안 적혀 있어요 — 등록하면 사이트엔 '확인이 필요해요' 로 나가요(조건을 확인한 뒤 확인 날짜를 찍으면 '갈 수 있어요')", state: 'noLimit' };
   }
   return { items: [], message: '동반 조건을 못 읽었어요', state: 'unread' };
 }
