@@ -5,9 +5,12 @@ import {
   DEFAULT_LIMIT,
   DEFAULT_MAX_PER_BLOG,
   EDITED_NOTE,
+  POST_ESTIMATE_MS,
+  PROPOSE_ESTIMATE_MS,
   blockFor,
   blockWaivedBySource,
   blockUntilLabel,
+  canStartWithin,
   editedKey,
   editedKeysFor,
   exclusionReason,
@@ -64,11 +67,11 @@ describe('parseArgs', () => {
     expect(parseArgs(['--limit', '10']).requestedOnly).toBe(false);
   });
   it('인자가 없으면 기본 limit · dry-run 아님', () => {
-    expect(parseArgs([])).toEqual({ limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false, focusedOnly: false, requestedOnly: false });
+    expect(parseArgs([])).toEqual({ limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false, focusedOnly: false, requestedOnly: false, deadline: null });
   });
   it('--limit N 과 --limit=N 둘 다 받고, --dry-run 은 어디에 있어도 된다', () => {
-    expect(parseArgs(['--limit', '5', '--dry-run'])).toEqual({ limit: 5, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false, focusedOnly: false, requestedOnly: false });
-    expect(parseArgs(['--dry-run', '--limit=20'])).toEqual({ limit: 20, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false, focusedOnly: false, requestedOnly: false });
+    expect(parseArgs(['--limit', '5', '--dry-run'])).toEqual({ limit: 5, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false, focusedOnly: false, requestedOnly: false, deadline: null });
+    expect(parseArgs(['--dry-run', '--limit=20'])).toEqual({ limit: 20, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false, focusedOnly: false, requestedOnly: false, deadline: null });
     expect(parseArgs(['--no-geo']).noGeo).toBe(true);
     expect(parseArgs(['--no-verify']).noVerify).toBe(true);
     expect(parseArgs(['--no-propose']).noPropose).toBe(true);
@@ -81,6 +84,14 @@ describe('parseArgs', () => {
     expect(parseArgs(['--max-per-blog=5']).maxPerBlog).toBe(5);
     expect(() => parseArgs(['--max-per-blog', '-1'])).toThrow();
   });
+  it('--deadline — 서버 홉이 붙이는 epoch ms 마감(없으면 null = 제한 없음)', () => {
+    expect(parseArgs(['--requested-only', '--limit', '5', '--deadline', '1760000280000'])).toMatchObject({ requestedOnly: true, limit: 5, deadline: 1760000280000 });
+    expect(parseArgs(['--deadline=1760000280000']).deadline).toBe(1760000280000);
+    expect(parseArgs(['--limit', '5']).deadline).toBeNull();
+    for (const bad of [['--deadline'], ['--deadline', 'abc'], ['--deadline=0'], ['--deadline', '-1'], ['--deadline=1.5']]) {
+      expect(() => parseArgs(bad)).toThrow('--deadline');
+    }
+  });
   it('limit 이 없거나 0·음수·문자면 throw — 오타로 전체를 돌리지 않게', () => {
     expect(() => parseArgs(['--limit'])).toThrow('--limit');
     expect(() => parseArgs(['--limit', '0'])).toThrow('--limit');
@@ -88,6 +99,27 @@ describe('parseArgs', () => {
   });
   it('모르는 인자는 throw', () => {
     expect(() => parseArgs(['--dryrun'])).toThrow('알 수 없는 인자');
+  });
+});
+
+describe('canStartWithin — 서버 홉의 시간 예산(docs/todo/20 T11)', () => {
+  const DEADLINE = 1_000_000;
+  it('마감이 없으면 늘 true — 로컬은 제한이 없다', () => {
+    expect(canStartWithin(Number.MAX_SAFE_INTEGER, null, POST_ESTIMATE_MS)).toBe(true);
+    expect(canStartWithin(5, undefined, PROPOSE_ESTIMATE_MS)).toBe(true);
+  });
+  it('now + 추정치가 마감 이하면 true, 딱 맞는 경계도 된다 — 1ms 라도 넘으면 false', () => {
+    expect(canStartWithin(DEADLINE - POST_ESTIMATE_MS - 1, DEADLINE, POST_ESTIMATE_MS)).toBe(true);
+    expect(canStartWithin(DEADLINE - POST_ESTIMATE_MS, DEADLINE, POST_ESTIMATE_MS)).toBe(true);
+    expect(canStartWithin(DEADLINE - POST_ESTIMATE_MS + 1, DEADLINE, POST_ESTIMATE_MS)).toBe(false);
+  });
+  it('마감이 이미 지났으면 false', () => {
+    expect(canStartWithin(DEADLINE + 1, DEADLINE, POST_ESTIMATE_MS)).toBe(false);
+  });
+  it('제안은 글보다 가벼운 추정치라 같은 시각에도 글은 못 시작하고 제안은 시작할 수 있다', () => {
+    const now = DEADLINE - PROPOSE_ESTIMATE_MS;
+    expect(canStartWithin(now, DEADLINE, POST_ESTIMATE_MS)).toBe(false);
+    expect(canStartWithin(now, DEADLINE, PROPOSE_ESTIMATE_MS)).toBe(true);
   });
 });
 

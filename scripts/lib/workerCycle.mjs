@@ -81,15 +81,16 @@ export function createWorkerCycle({
     current = { requests, runId: null, end: null, rateLimited: false };
     await setPhase(step.step);
     let code;
+    let deferred = 0; // 분석의 시간 예산(`--deadline`, 서버 홉만)이 끊어 손대지 않은 글 수 — 「지금 분석 N건」 의 남은 건수에 더한다
     try {
-      code = await runStep(step.step, step.args, { ...STEP_HOOKS, ...(step.step === 'analyze' ? { onRateLimit } : {}) });
+      code = await runStep(step.step, step.args, { ...STEP_HOOKS, ...(step.step === 'analyze' ? { onRateLimit, onDeadline: (left) => (deferred = left) } : {}) });
     } catch (e) {
       console.error(e);
       code = 1;
     }
     // 닫기 전에 세션을 다시 본다 — 긴 분석 사이에 토큰이 끝났으면 done/queued 쓰기가 조용히 0행이 된다(리뷰 4). 못 붙어도 쓰기는 시도한다(fail-soft).
     if (requests.length > 0) await ensureSession();
-    const outcome = { code, runId: current.runId, rateLimited: current.rateLimited, remainder: step.remainder ?? 0 };
+    const outcome = { code, runId: current.runId, rateLimited: current.rateLimited, remainder: (step.remainder ?? 0) + deferred };
     await closeRequests(requests, (row) => requestClose(row, outcome));
     current = { ...current, end: null };
     await setPhase(idlePhase());

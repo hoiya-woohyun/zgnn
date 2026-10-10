@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
-import { HOP_ANALYZE_CAP, HOP_BUDGET_S, HOP_HEADER, HOP_STALE_MS, MAX_HOPS, bearerToken, handleRun, isBusy, runHop, shouldChain } from './workerRemote.mjs';
+import { HOP_ANALYZE_CAP, HOP_BUDGET_S, HOP_DEADLINE_MS, HOP_HEADER, HOP_STALE_MS, MAX_HOPS, bearerToken, handleRun, isBusy, runHop, shouldChain } from './workerRemote.mjs';
 
 const NOW = Date.parse('2026-10-08T03:00:00Z');
 const NOW_S = NOW / 1000;
 const SKEW_S = 30 * 60; // supabaseClient 의 SESSION_EXP_SKEW_S
 const jwt = (exp) => ['h', Buffer.from(JSON.stringify({ exp })).toString('base64url'), 's'].join('.');
 const TOKEN = jwt(NOW_S + 2 * 3600);
+/** 서버 홉이 분석 단계를 부르는 모양 — 마감은 홉 시작(가짜 now) + `HOP_DEADLINE_MS` 의 epoch ms 다(docs/todo/20 T11). */
+const ANALYZE_LINE = `analyze --requested-only --limit ${HOP_ANALYZE_CAP} --deadline ${NOW + HOP_DEADLINE_MS}`;
 
 const deferred = () => {
   let resolve;
@@ -267,7 +269,7 @@ describe('runHop — 주입 → 한 바퀴 → 심장 idle → 되돌림 → 사
     const { deps, order, listeners } = hopDeps({ states: [{ requestedPosts: 8 }, { requestedPosts: 3 }] });
     const decision = await runHop(TOKEN, deps);
     expect(decision.chain).toBe(true);
-    expect(order).toEqual(['inject', 'client', 'heartbeat', `analyze --requested-only --limit ${HOP_ANALYZE_CAP}`, 'close', 'restore', 'chain 1 busy=false']);
+    expect(order).toEqual(['inject', 'client', 'heartbeat', ANALYZE_LINE, 'close', 'restore', 'chain 1 busy=false']);
     expect(deps.injectSession).toHaveBeenCalledWith(TOKEN);
     expect(deps.startHeartbeat.mock.calls[0][1]).toMatchObject({ host: 'vercel', version: 'abc1234' });
     expect(listeners).toHaveLength(2);
@@ -280,7 +282,20 @@ describe('runHop — 주입 → 한 바퀴 → 심장 idle → 되돌림 → 사
     const { deps, order, phases } = hopDeps({ states: [{ collectQueued: 1 }, { requestedPosts: 8 }, { requestedPosts: 3 }] });
     await runHop(TOKEN, deps);
     expect(phases).toEqual(['collect', 'analyze']);
-    expect(order).toEqual(['inject', 'client', 'heartbeat', 'collect --only-requests', `analyze --requested-only --limit ${HOP_ANALYZE_CAP}`, 'close', 'restore', 'chain 1 busy=false']);
+    expect(order).toEqual(['inject', 'client', 'heartbeat', 'collect --only-requests', ANALYZE_LINE, 'close', 'restore', 'chain 1 busy=false']);
+  });
+
+  it('시간 마감은 분석 단계에만, 홉 시작 시각 + HOP_DEADLINE_MS 로 붙는다 — 수집·반영 argv 는 그대로', async () => {
+    const later = NOW + 123_456;
+    const analyze = hopDeps({ states: [{ collectQueued: 1 }, { requestedPosts: 8 }, { requestedPosts: 3 }], now: later });
+    await runHop(TOKEN, analyze.deps);
+    expect(analyze.order.filter((line) => line.includes('--deadline'))).toEqual([`analyze --requested-only --limit ${HOP_ANALYZE_CAP} --deadline ${later + HOP_DEADLINE_MS}`]);
+    expect(analyze.order).toContain('collect --only-requests');
+
+    const apply = hopDeps({ states: [{ approved: 2 }, { approved: 0 }] });
+    await runHop(TOKEN, apply.deps);
+    expect(apply.order).toContain('apply');
+    expect(apply.order.some((line) => line.includes('--deadline'))).toBe(false);
   });
 
   it(`사슬 깊이 — ${MAX_HOPS}번째 홉(번호 ${MAX_HOPS - 1})은 남았어도 부르지 않는다`, async () => {
@@ -308,7 +323,7 @@ describe('runHop — 주입 → 한 바퀴 → 심장 idle → 되돌림 → 사
   it('바퀴 중간에 던져도 밖으로 새지 않고 — 리스너·심장·주입·바쁨을 되돌린다, 사슬은 없다', async () => {
     const { deps, order, listeners } = hopDeps({ states: [{ requestedPosts: 8 }, new Error('blog_posts 조회 실패')] });
     await expect(runHop(TOKEN, deps)).resolves.toMatchObject({ chain: false });
-    expect(order).toEqual(['inject', 'client', 'heartbeat', `analyze --requested-only --limit ${HOP_ANALYZE_CAP}`, 'close', 'restore']);
+    expect(order).toEqual(['inject', 'client', 'heartbeat', ANALYZE_LINE, 'close', 'restore']);
     expect(listeners.at(-1)).toBeNull();
     expect(isBusy(NOW)).toBe(false);
   });

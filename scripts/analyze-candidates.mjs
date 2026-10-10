@@ -44,9 +44,12 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import {
+  POST_ESTIMATE_MS,
+  PROPOSE_ESTIMATE_MS,
   blockFor,
   blockUntilLabel,
   blockWaivedBySource,
+  canStartWithin,
   editedKey,
   editedKeysFor,
   exclusionReason,
@@ -96,15 +99,16 @@ const keyStop = (exitCode) => Object.assign(new Error(`키 게이트 exit ${exit
 
 /**
  * @param {string[]} argv
- * @param {{ onRateLimit?: (message: string) => void, nonInteractive?: boolean }} [hooks]  상주 워커(`scripts/lib/workerCycle.mjs`)가 넘긴다 —
- *   `onRateLimit`: Claude 구독 한도를 알아듣는 길(exit code 만으로는 못 가른다) · `nonInteractive`: 키가 없으면 묻지 않는다(사람 터미널이어도)
+ * @param {{ onRateLimit?: (message: string) => void, onDeadline?: (left: number) => void, nonInteractive?: boolean }} [hooks]  상주 워커(`scripts/lib/workerCycle.mjs`)가 넘긴다 —
+ *   `onRateLimit`: Claude 구독 한도를 알아듣는 길(exit code 만으로는 못 가른다) · `onDeadline`: 시간 예산(`--deadline`)이 글 루프를 끊었을 때 손대지 않은 글 수 ·
+ *   `nonInteractive`: 키가 없으면 묻지 않는다(사람 터미널이어도)
  */
 export async function main(argv = process.argv.slice(2), hooks = {}) {
   let args;
   try {
     args = parseArgs(argv);
   } catch (e) {
-    console.error(`${e.message} — 사용법: pnpm data analyze [--limit N] [--max-per-blog N] [--requested-only] [--no-geo] [--no-verify] [--no-propose] [--no-homepage] [--focused-only] [--dry-run] [--dump[=경로]]`);
+    console.error(`${e.message} — 사용법: pnpm data analyze [--limit N] [--max-per-blog N] [--requested-only] [--no-geo] [--no-verify] [--no-propose] [--no-homepage] [--focused-only] [--deadline epochMs] [--dry-run] [--dump[=경로]]`);
     return 1;
   }
   console.log(args.dryRun ? '모드: dry-run — DB 에 쓰지 않는다(Claude 는 부른다)' : '모드: 분석 — candidates · blog_posts.analyzed_at 에 쓴다');
@@ -137,8 +141,8 @@ async function analyzeOrKeyStop(argv, args, hooks) {
   }
 }
 
-async function analyze(argv, args, { onRateLimit, nonInteractive = false } = {}) {
-  const { limit, dryRun, dump, maxPerBlog, noGeo, noVerify, noPropose, noHomepage, focusedOnly, requestedOnly } = args;
+async function analyze(argv, args, { onRateLimit, onDeadline, nonInteractive = false } = {}) {
+  const { limit, dryRun, dump, maxPerBlog, noGeo, noVerify, noPropose, noHomepage, focusedOnly, requestedOnly, deadline } = args;
   // 이 프로세스의 누계라(`naverSearchApi.mjs`) 시작 값을 빼야 이 실행의 호출 수다 — 워커·once 는 한 프로세스에서 수집·분석을 여러 번 돈다.
   const naverCallsAtStart = readNaverCalls();
 
@@ -612,6 +616,13 @@ async function analyze(argv, args, { onRateLimit, nonInteractive = false } = {})
   const dumpEntries = [];
 
   for (const [index, post] of posts.entries()) {
+    // 서버 홉의 시간 예산 — 이 글을 시작해 마감(`--deadline`) 안에 끝나지 않을 것 같으면 여기서 끊는다. 남은 글은 손대지 않아(analyzed_at · requested_at 그대로) 다음 홉이 집는다.
+    // 로컬은 마감이 없어 늘 통과한다(`canStartWithin`). 끊어도 실패가 아니다 — 아래 `failedRun` 이 손댄 글이 있을 때만 "성공 0" 을 실패로 본다.
+    if (!canStartWithin(Date.now(), deadline, POST_ESTIMATE_MS)) {
+      console.log(`시간 예산 — 남은 글 ${posts.length - index}건은 다음 홉이 잇는다`);
+      onDeadline?.(posts.length - index); // 「지금 분석 N건」 요청이 이 수를 남은 건수에 더해 되돌린다(`workerCycle.runOne`) — 요청 글은 `requested_at` 이 남아 있어 따로 필요 없다
+      break;
+    }
     await run.tick(); // 60초에 한 번만 실제로 쓴다 — 죽으면 이 값이 멎어 화면이 "중단된 듯" 을 읽는다
     // 어디까지 왔나 — 5초에 한 번만 쓴다. 제목 앞 20자(후보에 이미 이름이 있는 글이라 지울 이유가 없다, docs/todo/17 T3.3).
     await run.progress({ done: index, total: posts.length, current: post.title ? post.title.slice(0, 20) : null });
@@ -863,6 +874,12 @@ async function analyze(argv, args, { onRateLimit, nonInteractive = false } = {})
   for (const [placeId, runRows] of updatedPlaces) {
     const placeRow = placeById.get(placeId);
     if (proposeOff || !placeRow) continue;
+    // 글 루프가 마감 직전에 끝나도 제안(장소마다 Claude 한 번)이 남아 있다 — 마감 안에 못 끝날 것 같으면 남은 장소의 제안을 건너뛴다(후보는 '제안 없음' 으로 남는다).
+    if (!canStartWithin(Date.now(), deadline, PROPOSE_ESTIMATE_MS)) {
+      proposeOff = true;
+      console.log("시간 예산 — 남은 장소의 제안은 건너뛴다(후보는 '제안 없음' 으로 남는다)");
+      continue;
+    }
     await run.tick(); // 제안은 장소마다 Claude 한 번 — 갱신이 많으면 이 루프만으로 10분을 넘길 수 있다
     try {
       let rowsForPlace = runRows;
@@ -964,7 +981,8 @@ async function analyze(argv, args, { onRateLimit, nonInteractive = false } = {})
   // 글 단위 실패는 정상 경로(다음 실행에 재시도)라 exit 0. 시도한 글 중 성공이 0 이면 1 — "분석 불가" 도 성공이 아니다(위에서 닫지도 않았다).
   // exit code 를 돌려줄 뿐 process.exit() 은 부르지 않는다 — 파이프로 나가던 stdout 을 잘라먹을 수 있어 자연 종료를 기다린다.
   // 실행 기록 — 같은 식이 failed 를 정한다. 건너뛴 글이 있으면 partial, 글이 0건이면 ok + analyzed 0("돌았는데 할 게 없었다" 도 기록이다).
-  const failedRun = fatal || (posts.length > 0 && stats.analyzed === 0);
+  // `processed > 0` — 시간 예산이 첫 글 앞에서 끊은 실행(손댄 글 0)은 실패가 아니라 "아직" 이다. 그 밖의 끊김(fatal · 한도)은 글을 손댄 뒤라 식이 그대로다.
+  const failedRun = fatal || (posts.length > 0 && processed > 0 && stats.analyzed === 0);
   const failedReason =
     fatalError?.name === 'ClaudeCliError' && fatalError.code === 'auth' ? RUN_ERROR.claudeAuth : rateLimited && !fatal ? RUN_ERROR.claudeLimit : classifyRunError(fatalError);
   await run.end({ status: failedRun ? 'failed' : stats.skipped > 0 ? 'partial' : 'ok', stats: runStats, error: failedRun ? failedReason : null });

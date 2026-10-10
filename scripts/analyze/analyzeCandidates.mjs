@@ -37,12 +37,27 @@ export const DEFAULT_LIMIT = 50;
 export const DEFAULT_MAX_PER_BLOG = 2;
 
 /**
+ * 서버 워커 홉의 시간 예산(`--deadline`, docs/todo/20 T11) — **마감을 서버 홉만 넘긴다**(`workerRemote.mjs` 의 `HOP_DEADLINE_MS`). 로컬은 마감이 없어 제한도 없다.
+ * 글 수 상한(홉당 5건)만으로는 300초를 못 지킨다 — 2026-10-10 홉 3 이 5건에 258초였고, 장소가 4~8곳인 글은 곳마다 네이버 검색·교차점검이 붙어 글당 ~50초가 된다.
+ * 아래 둘은 "다음 일을 시작해도 마감 안에 끝나는가" 의 추정치다(끝나는 시각을 미리 알 수 없어 시작 전에만 막는다).
+ *  - `POST_ESTIMATE_MS`: 글 하나 80초 = 실측 ~50초(장소 많은 글) + 여유. 홉 마감이 280초이니 경과 ~200초를 넘으면 다음 글을 시작하지 않는다.
+ *  - `PROPOSE_ESTIMATE_MS`: 제안 하나 60초 = Claude 1회(장소의 pending 후보 전부를 읽는다). 글 루프가 끝난 뒤에도 따로 막는 이유 —
+ *    2026-10-10 21:31 홉 3 은 글 5/5 가 +248초에 끝난 뒤 이 패스가 도는 중 +300초에 잘렸다(`분석 끝` 줄 없이 실행 행이 running 으로 남았다).
+ */
+export const POST_ESTIMATE_MS = 80_000;
+export const PROPOSE_ESTIMATE_MS = 60_000;
+
+/** 마감(`deadline`, epoch ms) 안에 `estimateMs` 짜리 일을 시작해도 되나. 마감이 없으면(null · undefined) 늘 true — 로컬은 제한이 없다. 딱 맞게 끝나는 경계는 된다. */
+export const canStartWithin = (now, deadline, estimateMs) => deadline == null || now + estimateMs <= deadline;
+
+/**
  * `--dry-run` · `--limit N` · `--max-per-blog N` · `--no-geo` · `--no-verify`(교차점검 패스를 끈다 — Claude 호출이 글마다
  * 최대 한 번 더 늘어나므로 한도가 아까울 때) · `--no-propose`(셋째 패스 「제안」을 끈다 — 갱신 후보가 생긴 장소마다 한 번 더 부른다, docs/todo/11 U3) · `--no-homepage`(공식 홈페이지 카드를 읽지 않는다 — 업체 사이트에 요청이 나가지 않게) · `--dump[=경로]`(후보·제외 목록을 로컬 JSON 으로 — 정규화 품질을
- * 사람이 볼 유일한 창, 로그에는 여전히 본문 인용을 찍지 않는다). 모르는 인자나 1 미만의 limit 은 throw — 오타로 전체를 돌리는 일이 없게.
+ * 사람이 볼 유일한 창, 로그에는 여전히 본문 인용을 찍지 않는다) · `--deadline <epoch ms>`(서버 워커의 홉만 붙인다 — 이 시각 안에 못 끝날 일은 시작하지 않는다, `canStartWithin`).
+ * 모르는 인자나 1 미만의 limit 은 throw — 오타로 전체를 돌리는 일이 없게.
  */
 export function parseArgs(argv) {
-  const args = { limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false, focusedOnly: false, requestedOnly: false };
+  const args = { limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false, focusedOnly: false, requestedOnly: false, deadline: null };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--dry-run') { args.dryRun = true; continue; }
@@ -56,6 +71,12 @@ export function parseArgs(argv) {
     if (arg === '--requested-only') { args.requestedOnly = true; continue; }
     if (arg === '--dump') { args.dump = ''; continue; } // '' = 기본 경로(data/raw/analyze-<시각>.json)
     if (arg.startsWith('--dump=')) { args.dump = arg.slice('--dump='.length); continue; }
+    if (arg === '--deadline' || arg.startsWith('--deadline=')) {
+      const value = arg === '--deadline' ? argv[++i] : arg.slice('--deadline='.length);
+      if (!/^\d+$/.test(value ?? '') || Number(value) < 1) throw new Error(`--deadline 은 epoch ms 정수여야 합니다: ${value ?? '(없음)'}`);
+      args.deadline = Number(value);
+      continue;
+    }
     let key;
     let value;
     for (const [flag, k] of [['--limit', 'limit'], ['--max-per-blog', 'maxPerBlog']]) {

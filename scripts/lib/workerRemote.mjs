@@ -8,6 +8,7 @@
 //    같은 글을 둘이 읽으면 후보가 둘 생긴다. 로컬은 같은 요청을 ~1초 안에 집는다. 다른 서버 인스턴스가 홉을 도는 중이어도(vercel 행이 idle 아님) 비킨다.
 //    조회가 실패하면 비키지 않는다(서버를 멈출 근거가 아니다).
 //  - **홉 하나는 로컬 `once` 의 한 바퀴를 분석 하나·글 5건까지만**(결정 5) — 함수 하나가 300초 안에 끝나야 한다. 남았고 줄였으면 같은 JWT 로 자기를 다시 부른다.
+//    글 수만으로는 300초를 못 지켜서(장소 많은 글은 글당 ~50초) 분석 단계에는 시간 마감도 붙는다 — `HOP_DEADLINE_MS`, 서버 홉만(로컬은 제한 없음).
 //    사슬은 `X-Zgnn-Hop` 으로 깊이를 세고 `MAX_HOPS` 에서 끊는다 — 진척 판정이 한 군데 틀려도 JWT 실효 끝(~11시간)까지 자기를 부르지 않게 하는 마지막 둑이다.
 //  - **한 인스턴스에서 홉은 하나만** 돈다(`activeHop`). Fluid 는 한 인스턴스에 요청을 겹쳐 보낼 수 있는데, 세션 주입(`injectSession`)과
 //    실행 행 리스너(`setRunListener`)가 모듈 상태라 두 홉이 겹치면 서로의 JWT·실행 행을 덮는다. 그래서 확인과 세움 사이에 `await` 가 없다.
@@ -30,6 +31,12 @@ import { runPipelineStep } from './workerSteps.mjs';
 export const HOP_ANALYZE_CAP = 5;
 /** 다음 홉을 부르려면 JWT 실효(exp − 30분)가 이만큼 남아야 한다 — 모자라면 그 홉의 단계 스크립트가 `createSupabase` 에서 거부된다. */
 export const HOP_BUDGET_S = 5 * 60;
+/**
+ * 홉의 **시간 마감** = 홉 시작 + 이만큼(ms) — `HOP_BUDGET_S`(JWT 실효 검사)와 다른 값이다. `maxDuration` 300초에서 요약 줄·실행 행 닫기·다음 홉 호출 몫 20초를 뺀 것으로,
+ * 서버 홉이 분석 단계 argv 에 `--deadline <epoch ms>` 로 붙인다(`runHop`). 분석은 이 시각 안에 못 끝날 글·제안을 시작하지 않는다(`canStartWithin`, docs/todo/20 T11).
+ * 글 수 상한(`HOP_ANALYZE_CAP`)은 둑으로 남는다 — 2026-10-10 홉 하나가 5건에 258초, 다른 홉이 300초에 잘렸다. 로컬 워커는 이 값을 쓰지 않아 제한이 없다.
+ */
+export const HOP_DEADLINE_MS = 280_000;
 /**
  * 깨우기 한 번이 도는 홉의 상한 = **Vercel 이 허락하는 깊이**. 함수가 자기를 부르는 사슬을 Vercel 이 4번째 자기 호출에서 508(INFINITE_LOOP_DETECTED)로 끊는다
  * (2026-10-08 실측: 브라우저 깨우기 1 + 자기 호출 3 = 4홉이 돌고 다섯 번째 호출이 508). 감지 방식이 공개돼 있지 않아 피해 가지 않고 그 상한에 맞춘다 —
@@ -216,11 +223,13 @@ export async function runHop(token, deps = {}) {
         return false;
       }
     };
+    // 마감은 서버 홉만 붙인다 — `planCycle` 의 argv 는 로컬 워커와 공유라 거기에 넣지 않고, 서버 홉이 단계를 부르는 자리에서 분석에만 얹는다.
+    const deadline = startedAt + HOP_DEADLINE_MS;
     const cycle = createWorkerCycle({
       resident: false,
       analyzeCap: HOP_ANALYZE_CAP,
       stopAfter: (step) => step.step === 'analyze',
-      runStep,
+      runStep: (name, argv, hooks) => runStep(name, name === 'analyze' ? [...argv, '--deadline', String(deadline)] : argv, hooks),
       // 서버가 곧 remote 라 `remoteBusy` 는 넣지 않는다 — 로컬과의 비킴은 `handleRun` 이 시작 전에 한 번 본다.
       readState: async () => {
         if (!(await ensureSession())) return null;

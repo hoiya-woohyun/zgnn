@@ -121,6 +121,31 @@ describe('createWorkerCycle — 서버 워커의 홉(analyzeCap · stopAfter · 
     expect(result.history).toEqual([{ key: 'analyze:limit', step: 'analyze', code: 0, rateLimited: false, remainder: 7, progressed: true }]);
   });
 
+  it('「지금 분석 N건」 이 시간 예산(onDeadline)에 끊기면 손대지 않은 글 수가 남은 수에 더해진다 — 요청한 건수가 조용히 줄지 않게', async () => {
+    const run = (limit, left, cap) => {
+      const q = { id: 'q1', kind: 'analyze', args: { limit } };
+      return harness({
+        ...hop,
+        analyzeCap: cap,
+        states: [state({ requests: { ...none, analyze: [q] } }), state({ requests: { ...none, analyze: [q] } })],
+        steps: {
+          [`analyze --limit ${Math.min(limit, cap)}`]: ({ hooks, cycle: c }) => {
+            c.onRunStarted({ id: 'run-4', end: async () => {} });
+            hooks.onDeadline(left); // 마감이 글 루프를 끊었다 — left 건은 손대지 않았다
+            return 0;
+          },
+        },
+      });
+    };
+    const cut = run(12, 3, 5); // 5건 중 2건만 읽었다 → 남은 7 + 손대지 않은 3
+    await cut.cycle.runCycle();
+    expect(cut.calls.closed).toEqual([{ id: 'q1', patch: { status: 'queued', taken_at: null, args: { limit: 10 }, run_id: 'run-4' }, gaveUp: false }]);
+
+    const small = run(4, 2, 5); // cap 안(남은 0)이어도 손대지 않은 2건은 되돌아온다 — done 으로 닫으면 요청에서 사라진다
+    await small.cycle.runCycle();
+    expect(small.calls.closed).toEqual([{ id: 'q1', patch: { status: 'queued', taken_at: null, args: { limit: 2 }, run_id: 'run-4' }, gaveUp: false }]);
+  });
+
   it('진척 — 다시 센 수가 그대로면 false, 「지금 분석」 은 실패면 false, 한도는 rateLimited', async () => {
     const stuck = harness({ ...hop, states: [state({ requestedPosts: 2 }), state({ requestedPosts: 2 })] });
     expect((await stuck.cycle.runCycle()).history).toEqual([
