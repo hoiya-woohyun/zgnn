@@ -511,3 +511,7 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
 | P2 문구 U4 | **T1.4 에서 닫는다** |
 | P2 배지 U5 · 준비물 진행률 U6 · 지도 필터 U7 · 읍면 U8 · 설치 U9 | 07 그대로 |
 | P3 여행 단위 · 데스크톱 | T5.4 · T5.6 에서 합친다 |
+
+### [ ] T0.10 로컬 `vercel build --prod` 가 설치에서 멈춘다
+
+- 로컬 `vercel build --prod`(CLAUDE.md 가 말하는 배포 설정 검증)가 설치에서 멈춘다 — 로컬 pnpm 12.8 이 `package.json` 의 `pnpm.onlyBuiltDependencies` 를 안 읽어 `ERR_PNPM_IGNORED_BUILDS`(esbuild·unrs-resolver). `npm_config_strict_dep_builds=false` 로도 안 풀린다. Vercel 은 pnpm 10 이라 배포는 무관. 설정을 `pnpm-workspace.yaml`(`allowBuilds`)로 옮길지 — 출처: todo/20 T6
