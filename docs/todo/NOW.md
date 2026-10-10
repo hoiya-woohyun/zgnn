@@ -56,7 +56,6 @@
 
 ## 지금 (위에서부터)
 
-- [ ] `.mdc` 의 "src 를 고친 즉시 docs" 를 CLAUDE.md 기준(동작·설계가 바뀔 때만)으로 — [08 T0.4](08-usability-and-process-plan.md) · 왜 지금: 두 정본이 반대를 말한다, 작음
 - [ ] 관리 화면의 같은 동작 다섯 이름을 등록·등록 해제·제외로 — [09 T3.4](09-admin-pipeline-stages.md) · 왜 지금: 09 의 맨 마지막 커밋이어야 해서(T5.1·T5.2 뒤) 끝에
 - [ ] `pnpm lint` 가 `claim.mjs` 빈 catch 둘로 빨갛다 — [08 T0.9](08-usability-and-process-plan.md) · 왜 지금: 린트 전체가 실패라 진짜 실패가 묻힌다, 두 줄
 - [ ] `/next` 커밋을 pathspec 한 명령으로 — [08 T0.8](08-usability-and-process-plan.md) · 왜 지금: 세션 둘 이상이 돌 때마다 남의 커밋에 섞인다(d3ecd38), 스킬 한 단락
