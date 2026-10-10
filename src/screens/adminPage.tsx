@@ -94,9 +94,11 @@ import {
 import { adminFlagView, POLICY_STATE_WORD, TYPE_MISMATCH_FLAG, typeMismatchFlags } from '../lib/adminPreview';
 import { UNREAD_BADGE_LABEL } from '../lib/petPolicy';
 import { verifyListedOnly, verifyNeedsLook } from '../lib/adminVerify';
-import { fetchOpsOverview } from '../lib/adminOps';
-import { adminBandStage, remoteWorkerView, stageHealth, type TStageHealth, type TWorkerHealth, WORKER_PHASE_LABEL, workerHealth } from '../lib/adminOpsHealth';
-import { WORKER_WAKE_URL, wakeNotice, wakeRemoteWorker } from '../lib/adminWorkerWake';
+import { fetchOpsOverview, type TOpsWorker, type TPipelineRun, type TRunScript } from '../lib/adminOps';
+import { adminBandStage, stageHealth, type TStageHealth, workerHealth } from '../lib/adminOpsHealth';
+import { subscribeOps, upsertWorker } from '../lib/adminOpsRealtime';
+import { liveStatus } from '../lib/adminLiveStatus';
+import { wakeNotice, wakeRemoteWorker } from '../lib/adminWorkerWake';
 import { HAS_SERVER_WORKER, nextStepText } from '../lib/adminNextStep';
 import { fetchRebuildStatus, rebuildHeadline, type TRebuildHeadline } from '../lib/adminRebuild';
 import {
@@ -129,6 +131,7 @@ import {
 import { cx } from '../utils/cx';
 import { useAdminInfiniteScroll } from './adminInfiniteScroll';
 import { AdminPageAnalyzeRequest } from './adminPageAnalyzeRequest';
+import { AdminPageLiveStatus } from './adminPageLiveStatus';
 import { AdminPageBlocksPanel } from './adminPageBlocksPanel';
 import type { TAdminPageBlocksRowState } from './adminPageBlocksRow';
 import { AdminPageBulkBar } from './adminPageBulkBar';
@@ -448,19 +451,33 @@ export function AdminPage() {
    */
   const [opsStages, setOpsStages] = useState<TStageHealth[] | null>(null);
   /**
-   * 로컬 워커(todo/17 T5.3) — 같은 `ops_overview` 응답에서 판정한다. 열 때 한 번이고 구독하지 않는다(구독은 `/admin/ops`).
+   * 워커 심장 행(로컬·서버) — 열 때 `ops_overview` 로 받고, 그 뒤엔 Realtime(`subscribeOps`)이 행 단위로 고친다. 판정은 렌더마다(`opsWorker`·`live`).
    * 못 읽었거나 응답에 `workers` 키가 없으면(마이그레이션 전) null — 모르는 것을 "워커 없음" 으로 말하지 않는다.
    */
-  const [opsWorker, setOpsWorker] = useState<TWorkerHealth | null>(null);
+  const [opsWorkers, setOpsWorkers] = useState<TOpsWorker[] | null>(null);
+  /** 스크립트별 마지막 실행 — 진행 막대와 "분석 3분 전 끝" 을 읽는다. 같은 구독이 고친다. */
+  const [opsRuns, setOpsRuns] = useState<Partial<Record<TRunScript, TPipelineRun>>>({});
+  /** 판정 시각. 시각만으로 바뀌는 판정(서버 60초·로컬 5분)이 이벤트 없이도 넘어가게 15초마다 올린다. */
+  const [liveNow, setLiveNow] = useState(() => Date.now());
+  /** Realtime 이 붙었나 — 끊겼으면 실시간 줄이 "새로 고쳐야 보여요" 라고 말한다. */
+  const [liveOn, setLiveOn] = useState(false);
+  /** 분석이 끝나 검수 대기에 새 후보가 생겼을 수 있다 — 목록을 저절로 갈아 끼우지 않고 `목록 새로 읽기` 를 띄운다. */
+  const [freshCandidates, setFreshCandidates] = useState(false);
   /**
    * 같은 응답의 미분석 글 수와 대기 중인 요청 수(todo/17 T6) — 「저수지 N건 분석」 라벨과 머리글 `요청 N건 대기`.
    * 요청을 넣은 뒤엔 로컬로 +1 하지 않고 `loadOpsStages` 를 다시 부른다(워커 상태까지 한 번에 맞는다). 못 읽었으면 null.
    */
   const [opsQueue, setOpsQueue] = useState<{ backlog: number; requestsQueued?: number } | null>(null);
-  /** 서버 워커가 지금 도는 한 줄(todo/20 T7) — 로컬 배지와 따로다(`remoteWorkerView`). 안 돌면 null. */
-  const [opsRemote, setOpsRemote] = useState<string | null>(null);
   /** 서버 워커를 못 깨웠다는 한 줄(`wakeNotice`) — 요청은 남았다. 다음 깨우기가 성공하면 지운다. */
   const [wakeLine, setWakeLine] = useState<string | null>(null);
+  const opsWorker = useMemo(() => (opsWorkers ? workerHealth(opsWorkers, liveNow) : null), [opsWorkers, liveNow]);
+  const live = useMemo(
+    () =>
+      opsWorkers
+        ? liveStatus({ workers: opsWorkers, runsLatest: opsRuns, requestsQueued: opsQueue?.requestsQueued, remote: HAS_SERVER_WORKER, nowMs: liveNow })
+        : null,
+    [opsWorkers, opsRuns, opsQueue, liveNow],
+  );
 
   const clientRef = useRef<SupabaseClient | null>(null);
   /*
@@ -553,14 +570,14 @@ export function AdminPage() {
     try {
       const overview = await fetchOpsOverview(client, 7);
       setOpsStages(stageHealth(overview, Date.now()));
-      setOpsWorker(overview.workers ? workerHealth(overview.workers, Date.now()) : null);
+      setOpsWorkers(overview.workers ?? null);
+      setOpsRuns(overview.runsLatest);
       setOpsQueue({ backlog: overview.backlog.count, requestsQueued: overview.requestsQueued });
-      setOpsRemote(overview.workers ? (remoteWorkerView(overview.workers, Date.now())?.label ?? null) : null);
+      setLiveNow(Date.now());
     } catch {
       setOpsStages(null);
-      setOpsWorker(null);
+      setOpsWorkers(null);
       setOpsQueue(null);
-      setOpsRemote(null);
     }
   }, []);
 
@@ -593,9 +610,10 @@ export function AdminPage() {
     setStranded(undefined);
     setRebuild(undefined);
     setOpsStages(null);
-    setOpsWorker(null);
+    setOpsWorkers(null);
+    setOpsRuns({});
     setOpsQueue(null);
-    setOpsRemote(null);
+    setFreshCandidates(false);
     setWakeLine(null);
     setPhase('verifying');
     const client = createAdminClient(next.accessToken);
@@ -638,6 +656,55 @@ export function AdminPage() {
       setStranded(undefined);
     }
   }, [applyReports, loadCounts, loadManaged, loadOpsStages, refreshRebuild]);
+
+  /**
+   * **실시간 줄**(`adminPageLiveStatus`) — 검수가 열려 있는 동안 워커 심장·실행 행·요청 표를 받는다(`/admin/ops` 와 같은 `subscribeOps`).
+   * 수집·분석·반영 실행이 **끝나면** 그 결과에 기대는 수만 다시 센다(건수·미분석·끊긴 반영). 후보 목록은 갈아 끼우지 않는다 —
+   * 보던 줄·고른 줄이 흔들린다. 분석이 끝났으면 `목록 새로 읽기` 만 띄운다. 요청 표가 바뀌면 집계를 다시 읽어 `요청 N건 대기` 를 맞춘다.
+   */
+  useEffect(() => {
+    const client = clientRef.current;
+    if (phase !== 'ready' || !client) return;
+    const tick = setInterval(() => setLiveNow(Date.now()), 15_000);
+    const stop = subscribeOps(client, {
+      worker: (worker) => {
+        setOpsWorkers((prev) => upsertWorker(prev ?? [], worker));
+        setLiveNow(Date.now());
+      },
+      run: (run) => {
+        setOpsRuns((prev) => {
+          const current = prev[run.script];
+          const newer = !current || current.id === run.id || Date.parse(run.started_at) >= Date.parse(current.started_at);
+          return newer ? { ...prev, [run.script]: run } : prev;
+        });
+        setLiveNow(Date.now());
+        if (run.status === 'running') return;
+        if (run.script === 'analyze') setFreshCandidates(true);
+        if (run.script === 'collect' || run.script === 'analyze') void loadCounts(client);
+        if (run.script === 'apply') void countStrandedCandidates(client).then(setStranded, () => setStranded(undefined));
+        void loadOpsStages(client);
+      },
+      request: () => void loadOpsStages(client),
+      status: (status) => setLiveOn(status === 'SUBSCRIBED'),
+    });
+    return () => {
+      clearInterval(tick);
+      stop();
+      setLiveOn(false);
+    };
+  }, [phase, session, loadCounts, loadOpsStages]);
+
+  /** `목록 새로 읽기` — 검수 대기만 다시 읽는다. 남은 줄의 펼침·고름은 키가 같으면 그대로다(사라진 줄의 상태는 `groupPending` 뒤 안 쓰인다). */
+  const reloadPending = useCallback(async () => {
+    const client = clientRef.current;
+    if (!client) return;
+    setFreshCandidates(false);
+    try {
+      setGroups(groupPending(await fetchPendingCandidates(client)));
+    } catch {
+      setFreshCandidates(true); // 못 읽었으면 단추를 되살린다 — 다시 누르면 된다
+    }
+  }, []);
 
   /** 미분석 글의 집계·다음 30건 — 실패는 수집 완료 칸에서만 말한다(검수는 막지 않는다). */
   const loadBacklog = useCallback(async (client: SupabaseClient, excludedApplied: boolean) => {
@@ -1842,18 +1909,6 @@ export function AdminPage() {
   const reportLine = reports?.kind === 'ok' ? reportHeadline(reports.rows, new Date()) : undefined;
 
   const opsBand = opsStages ? adminBandStage(opsStages, { rebuildWarn: rebuild?.tone === 'warn', strandedShown: Boolean(stranded) }) : null;
-  /**
-   * 워커가 없거나 멎었으면 띠에 한 줄 — 추가 수집 요청·재분석·「지금 분석」 은 워커가 집어 간다(ADR-024). 승인은 이 화면이 곧바로
-   * `places` 에 쓰므로(ADR-018) 워커와 무관하다 — "승인이 반영되지 않아요" 라고 말하면 워커가 꺼진 대부분의 시간에 멀쩡한 승인을 고장이라 말한다.
-   */
-  const workerBand =
-    WORKER_WAKE_URL !== ''
-      ? null // 서버 워커가 받는다(todo/20) — "처리되지 않아요" 는 거짓이다. 서버를 못 깨웠을 때는 wakeLine 이 말한다.
-      : opsWorker?.state === 'none'
-      ? '로컬 워커가 없어요 — 추가 수집·재분석 요청이 처리되지 않아요. 터미널에서 pnpm data 를 켜 주세요'
-      : opsWorker?.state === 'stale'
-        ? '로컬 워커가 멎은 듯해요 — 추가 수집·재분석 요청이 처리되지 않아요. 터미널을 확인해 주세요'
-        : null;
 
   const expiry = new Date(session.expiresAt * 1000).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' });
 
@@ -1868,32 +1923,6 @@ export function AdminPage() {
         description={TAB_HEADER[tab].description}
         actions={
           <div className="flex items-center gap-2">
-            {/* 운영 현황(`/admin/ops`, todo/15 T4.1) — 운영자는 `/admin` 은 매번 열지만 거기는 그렇지 않다. 같은 세션이라 다시 로그인하지 않는다. */}
-            {/* 로컬 워커 한 줄(todo/17 T5.3) — 배지 점 + 단계. 자세한 것(진행률·심장)은 운영 현황에 있다. */}
-            {opsWorker ? (
-              <span className="flex items-center gap-1 text-xs whitespace-nowrap text-tertiary" title={opsWorker.hint ?? opsWorker.host}>
-                <span
-                  aria-hidden="true"
-                  className={cx(
-                    'size-2 shrink-0 rounded-full',
-                    opsWorker.tone === 'ok' ? 'bg-success-solid' : opsWorker.tone === 'fail' ? 'bg-error-solid' : 'bg-warning-solid',
-                  )}
-                />
-                {opsWorker.state === 'alive' && opsWorker.phase ? `워커 ${WORKER_PHASE_LABEL[opsWorker.phase]}` : opsWorker.label}
-                {/* 대기 중인 「지금」 요청(todo/17 T6) — 0 이면 말하지 않는다. */}
-                {opsQueue?.requestsQueued ? ` · 요청 ${opsQueue.requestsQueued}건 대기` : null}
-              </span>
-            ) : null}
-            {/* 서버 워커가 도는 동안만(todo/20 T7) — 로컬 배지와 따로. */}
-            {opsRemote ? (
-              <span className="flex items-center gap-1 text-xs whitespace-nowrap text-tertiary">
-                <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-success-solid" />
-                {opsRemote}
-              </span>
-            ) : null}
-            <Link href="/admin/ops/" className="mr-1 text-sm font-semibold whitespace-nowrap text-brand-secondary hover:text-brand-secondary_hover">
-              운영 현황 →
-            </Link>
             {/*
               * `?` 는 **누르면 열린다**(2026-10-06, todo/13 T4.5) — `title` 툴팁만이던 동안 폰·태블릿에서는 볼 길이 없었다.
               * 레포에 이미 쓰는 `<details>`(비교표의 '어떻게 읽었는지 보기')로 연다 — 팝오버 부품을 들이지 않는다. 마우스에는 `title` 도 남긴다.
@@ -1962,6 +1991,17 @@ export function AdminPage() {
           </p>
         ) : null}
       </div>
+      {/* 실시간 한 줄 — 로컬·서버 워커 배지, 요청 대기, 워커 없음·깨우기 실패 띠가 여기 하나로 모였다(`adminLiveStatus`). 집계를 못 읽었으면 안 그린다. */}
+      {live ? (
+        <AdminPageLiveStatus
+          status={live}
+          live={liveOn}
+          wakeLine={wakeLine}
+          onReload={freshCandidates && tab === 'candidates' ? () => void reloadPending() : null}
+        />
+      ) : wakeLine ? (
+        <p className="mt-2 px-4 text-xs font-semibold text-warning-primary md:px-6">{wakeLine}</p>
+      ) : null}
 
       {/*
         * 다섯 칸 — 올리는 일과 내리는 일을 한 목록에 섞지 않는다(`TTab` 주석). 라벨 옆 숫자가 "어디에 일이 있나" 를 탭 줄에서 읽히게 한다.
@@ -1991,27 +2031,6 @@ export function AdminPage() {
           )}
         >
           {opsBand.reason} ·{' '}
-          <Link href="/admin/ops/" className="underline underline-offset-2">
-            운영 현황 →
-          </Link>
-        </p>
-      ) : null}
-      {/* 서버 워커를 못 깨웠다(todo/20 T7) — 요청은 남았다. 띠 규칙(앞에 띠가 있으면 1px)은 아래 로컬 워커 띠와 같다. */}
-      {wakeLine ? (
-        <p role="status" className={cx('bg-warning-primary px-4 py-2 text-xs font-semibold text-warning-primary md:px-6', rebuild?.tone === 'warn' || opsBand ? 'mt-px' : 'mt-3')}>
-          {wakeLine}
-        </p>
-      ) : null}
-      {/* 로컬 워커가 없음·멎음(todo/17 T5.3). 띠가 셋까지 쌓일 수 있어 앞에 띠가 하나라도 있으면 1px 로 붙인다. */}
-      {workerBand ? (
-        <p
-          role="alert"
-          className={cx(
-            'bg-warning-primary px-4 py-2 text-xs font-semibold text-warning-primary md:px-6',
-            rebuild?.tone === 'warn' || opsBand ? 'mt-px' : 'mt-3',
-          )}
-        >
-          {workerBand} ·{' '}
           <Link href="/admin/ops/" className="underline underline-offset-2">
             운영 현황 →
           </Link>

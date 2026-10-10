@@ -93,15 +93,16 @@ let channelSeq = 0;
 export type TOpsRealtimeStatus = 'SUBSCRIBED' | 'TIMED_OUT' | 'CLOSED' | 'CHANNEL_ERROR';
 
 /**
- * 구독 하나(채널 `ops:N`)에 두 표. 돌려준 함수가 채널을 뗀다(언마운트·다시 로그인할 때).
+ * 구독 하나(채널 `ops:N`)에 두 표(+ `request` 를 주면 `pipeline_requests` 까지 셋). 돌려준 함수가 채널을 뗀다(언마운트·다시 로그인할 때).
+ * `request` 는 행을 넘기지 않는다 — 부르는 쪽(`/admin`)은 대기 수만 필요해 집계를 다시 읽는다(요청은 드물다: 넣기·집기·닫기).
  * `postgres_changes_options.wait` — 이것 없이는 표가 publication 에 없어도 `SUBSCRIBED` 가 떠 "실시간 켜짐" 이 거짓말이 된다.
  * DELETE 는 오지 않는다(두 표 모두 delete GRANT 가 없다) — 와도 `new` 가 비어 버려진다.
  */
 export function subscribeOps(
   client: SupabaseClient,
-  on: { worker: (worker: TOpsWorker) => void; run: (run: TPipelineRun) => void; status: (status: TOpsRealtimeStatus) => void },
+  on: { worker: (worker: TOpsWorker) => void; run: (run: TPipelineRun) => void; status: (status: TOpsRealtimeStatus) => void; request?: () => void },
 ): () => void {
-  const channel = client
+  let channel = client
     .channel(`ops:${++channelSeq}`, { config: { postgres_changes_options: { wait: true } } })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'workers' }, (payload) => {
       const worker = workerFromRow(payload.new);
@@ -110,8 +111,10 @@ export function subscribeOps(
     .on('postgres_changes', { event: '*', schema: 'public', table: 'pipeline_runs' }, (payload) => {
       const run = runFromRow(payload.new);
       if (run) on.run(run);
-    })
-    .subscribe((status) => on.status(status));
+    });
+  const onRequest = on.request;
+  if (onRequest) channel = channel.on('postgres_changes', { event: '*', schema: 'public', table: 'pipeline_requests' }, () => onRequest());
+  channel.subscribe((status) => on.status(status));
   return () => {
     void client.removeChannel(channel);
   };
