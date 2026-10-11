@@ -362,10 +362,16 @@ async function analyze(argv, args, { onRateLimit, onDeadline, nonInteractive = f
     // 한 가게만 되풀이하는 블로그(`singlePlaceBlogs`)의 글은 집중이어도 맨 뒤로 — 그 블로그의 분석 끝난 글만 읽는다.
     async function noteSinglePlaceBlogs(fetched) {
       const blogIds = [...new Set(fetched.map((post) => post.blog_id).filter(Boolean))];
-      if (blogIds.length === 0) return;
-      const { data, error } = await supabase.from('blog_posts').select('blog_id, analysis').in('blog_id', blogIds).not('analyzed_at', 'is', null);
-      if (error) throw new Error(`blog_posts 조회 실패(블로그 이력): ${error.message}`);
-      for (const blogId of singlePlaceBlogs(data)) singlePlace.add(blogId);
+      // 블로그 id 는 길이로 자르고(BUG-007) 덩어리마다 끝까지 읽는다(BUG-017) — 큰 `--limit` 이면 이력이 1000행을 넘어 업주 블로그를 못 알아본다.
+      const history = [];
+      for (const chunk of chunkForUrlFilter(blogIds)) {
+        const { data, error } = await selectAllPages((from, to) =>
+          supabase.from('blog_posts').select('blog_id, analysis').in('blog_id', chunk).not('analyzed_at', 'is', null).order('url').range(from, to),
+        );
+        if (error) throw new Error(`blog_posts 조회 실패(블로그 이력): ${error.message}`);
+        history.push(...data);
+      }
+      for (const blogId of singlePlaceBlogs(history)) singlePlace.add(blogId);
     }
     await noteSinglePlaceBlogs(focusedPosts);
     fetchedPosts = focusedPosts;
