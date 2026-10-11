@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createAnalyzePrefetch } from './analyzePrefetch.mjs';
+import { createAnalyzePrefetch, lookaheadFor } from './analyzePrefetch.mjs';
 
 /** 손으로 풀어 주는 prepare — 몇 개가 동시에 떠 있는지 센다. */
 function controlled() {
@@ -29,15 +29,50 @@ describe('createAnalyzePrefetch', () => {
     const first = prefetch.take(0);
     await tick();
     expect(c.started).toEqual([0, 1]);
-    // 뒤 글이 먼저 끝나도 앞 글을 기다린다
+    // 뒤 글이 먼저 끝나도 받는 쪽은 앞 글을 기다린다 — 빈 칸은 그 사이 다음 글로 채운다
     c.pending.get(1).resolve('B');
     c.pending.get(0).resolve('A');
     expect(await first).toEqual({ ok: true, value: 'A' });
-    const second = prefetch.take(1);
     await tick();
-    expect(c.started).toEqual([0, 1, 2]);
-    expect(await second).toEqual({ ok: true, value: 'B' });
+    expect(c.started).toEqual([0, 1, 2, 3]);
+    expect(await prefetch.take(1)).toEqual({ ok: true, value: 'B' });
     expect(c.peak()).toBe(2);
+  });
+
+  it('느린 앞 글이 다른 칸을 묶지 않는다 — 끝난 칸은 바로 다음 글을 띄운다', async () => {
+    const c = controlled();
+    const prefetch = createAnalyzePrefetch(['a', 'b', 'c', 'd', 'e'], c.prepare, { concurrency: 2 });
+    const first = prefetch.take(0);
+    await tick();
+    c.pending.get(1).resolve('B');
+    await tick();
+    c.pending.get(2).resolve('C');
+    await tick();
+    expect(c.started).toEqual([0, 1, 2, 3]); // 0 이 아직 안 끝났어도
+    expect(c.peak()).toBe(2);
+    c.pending.get(0).resolve('A');
+    expect(await first).toEqual({ ok: true, value: 'A' });
+    expect(await prefetch.take(1)).toEqual({ ok: true, value: 'B' });
+    expect(await prefetch.take(2)).toEqual({ ok: true, value: 'C' });
+  });
+
+  it('앞서 가는 거리는 lookaheadFor 까지 — 받는 글이 나아가야 더 띄운다', async () => {
+    const c = controlled();
+    const items = Array.from({ length: 10 }, (_, i) => i);
+    const prefetch = createAnalyzePrefetch(items, c.prepare, { concurrency: 2 });
+    expect(lookaheadFor(2)).toBe(6);
+    const first = prefetch.take(0);
+    await tick();
+    for (const i of [1, 2, 3, 4, 5]) {
+      c.pending.get(i).resolve(i);
+      await tick();
+    }
+    expect(c.started).toEqual([0, 1, 2, 3, 4, 5]); // 0 + 6 에서 멈춘다
+    c.pending.get(0).resolve(0);
+    await first;
+    prefetch.take(1);
+    await tick();
+    expect(c.started).toEqual([0, 1, 2, 3, 4, 5, 6]);
   });
 
   it('concurrency 1 은 지금의 직렬과 같다', async () => {
@@ -94,10 +129,11 @@ describe('createAnalyzePrefetch', () => {
     const first = prefetch.take(0);
     await tick();
     expect(seen).toEqual([0, 1, 2]);
+    // 0 이 끝나 빈 칸이 나면 4번째 글을 띄운다 — 받는 글은 아직 0 이라 앞에 셋(0·1·2)이 기다린다
     c.pending.get(0).resolve('A');
     await first;
-    prefetch.take(1);
-    expect(seen).toEqual([0, 1, 2, 2]);
+    await tick();
+    expect(seen).toEqual([0, 1, 2, 3]);
   });
 
   it('stop 뒤로는 띄우지 않지만 이미 뜬 것은 받을 수 있고, settle 이 그것을 기다린다', async () => {
