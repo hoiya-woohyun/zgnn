@@ -85,6 +85,7 @@ import { needsDogCheck, resolveVerifyModel, verifyLabel, VERIFY_PROMPT_VERSION, 
 import { PROPOSE_PROMPT_VERSION, proposalTargets, proposeForPlace, resolveProposeModel } from './analyze/proposePlaces.mjs';
 import { toMatchablePlace } from './lib/placeFields.mjs';
 import { chunkForUrlFilter } from './lib/chunkForUrlFilter.mjs';
+import { selectAllPages } from './lib/selectAllPages.mjs';
 import { loadNaverEnvFile } from './lib/naverEnvFile.mjs';
 import { naverKeyPairProblem } from './lib/naverKeyFormat.mjs';
 import { readHidden, restoreTtyOnExit } from './lib/readHidden.mjs';
@@ -435,7 +436,10 @@ async function analyze(argv, args, { onRateLimit, onDeadline, nonInteractive = f
 
   // 이전 실행의 pending 후보 이름을 미리 읽어 같은 가게가 또 나오면 dupOf 로 묶는다(2026-09-28 설계 검토 NQ-8 — 첫 분석에서 같은 펜션이 13건).
   // 옛 후보(nameKey 없음)는 이름으로 계산한다. 넣지 않는 게 아니라 **표시만** 한다 — evidence 가 다른 글이라 검수에 쓸모가 있다.
-  const { data: pendingRows, error: pendingError } = await supabase.from('candidates').select('id, post_url, reviewer_note, extracted').eq('status', 'pending').limit(1000);
+  // 전부 읽는다 — PostgREST 가 1000행에서 에러 없이 자른다(2026-10-11 pending 1,075건 중 1000건만 읽혀 빠진 가게는 묶이지 않고 쌍둥이 후보가 됐다).
+  const { data: pendingRows, error: pendingError } = await selectAllPages((from, to) =>
+    supabase.from('candidates').select('id, post_url, reviewer_note, extracted').eq('status', 'pending').order('id').range(from, to),
+  );
   if (pendingError) throw new Error(`candidates 조회 실패: ${pendingError.message}`);
   // 차단 목록(`place_blocks`, ADR-020 D1·D2) — 걸린 가게는 후보를 만들지 않는다. 만료는 스케줄러가 아니라 **읽는 순간의 비교**다(`blockFor`).
   // 표는 마이그레이션이 원격에 적용돼야 생긴다(🧑 `supabase db push`). 조회가 실패하면(표 없음 등) **실행을 멈추지 않고** 차단 0건으로 가되 경고 한 줄 —

@@ -9,6 +9,7 @@ import { PLACES } from '../src/lib/places.ts';
 import { canonicalTown } from './lib/jejuRegions.mjs';
 import { parseRegion } from './lib/placeFields.mjs';
 import { townOfAddress } from './lib/regionCheck.mjs';
+import { selectAllPages } from './lib/selectAllPages.mjs';
 import { createSupabase, resolveSupabaseCredentials } from './lib/supabaseClient.mjs';
 import { isDirectRun } from './lib/isDirectRun.mjs';
 
@@ -62,8 +63,10 @@ async function fetchPendingRows() {
     return { skipped: e.loginNeeded ? '로그인 세션이 없다 — 사용자 터미널에서 `pnpm data login` 뒤 다시 보면 칸마다 검수 대기 수가 붙는다' : e.message };
   }
   const supabase = createSupabase();
-  // 지금 대기는 100여 행(2026-10-08) — PostgREST 기본 상한(1000)을 넘으면 조용히 잘리므로 그때 range() 로 페이지를 넘긴다.
-  const { data, error } = await supabase.from('candidates').select('extracted').eq('status', 'pending').limit(1000);
+  // 전부 읽는다 — PostgREST 가 1000행에서 에러 없이 자른다(2026-10-11 대기 1,075건, `selectAllPages`).
+  const { data, error } = await selectAllPages((from, to) =>
+    supabase.from('candidates').select('extracted').eq('status', 'pending').order('id').range(from, to),
+  );
   if (error) return { skipped: `후보를 읽지 못했다(${error.code ?? ''} ${error.message})` };
   return { rows: data };
 }
