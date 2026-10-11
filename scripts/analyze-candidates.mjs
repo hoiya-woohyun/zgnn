@@ -84,6 +84,7 @@ import { fetchPostText } from './analyze/naverPostBody.mjs';
 import { needsDogCheck, resolveVerifyModel, verifyLabel, VERIFY_PROMPT_VERSION, verifyPlaces } from './analyze/verifyPlaces.mjs';
 import { PROPOSE_PROMPT_VERSION, proposalTargets, proposeForPlace, resolveProposeModel } from './analyze/proposePlaces.mjs';
 import { toMatchablePlace } from './lib/placeFields.mjs';
+import { chunkForUrlFilter } from './lib/chunkForUrlFilter.mjs';
 import { loadNaverEnvFile } from './lib/naverEnvFile.mjs';
 import { naverKeyPairProblem } from './lib/naverKeyFormat.mjs';
 import { readHidden, restoreTtyOnExit } from './lib/readHidden.mjs';
@@ -446,9 +447,14 @@ async function analyze(argv, args, { onRateLimit, onDeadline, nonInteractive = f
   // 이번에 읽을 글이 어느 장소의 출처인가(`place_sources`) — 출처 글은 그 장소의 차단을 넘는다(`blockWaivedBySource`, 09 T5.1).
   // 조회가 실패하면 특례 없이(차단은 그대로) 간다 — 경고 한 줄. 막는 쪽으로 틀리는 편이 해제한 가게를 되살리는 쪽보다 싸다.
   const sourcesOfPost = new Map(); // post_url → Set<place_id>
-  if (posts.length > 0) {
-    const { data: sourceRows, error: sourcesError } = await supabase.from('place_sources').select('place_id, post_url').in('post_url', posts.map((post) => post.url));
-    if (sourcesError) console.warn(`⚠ place_sources 조회 실패 — 출처 글 특례 없이 진행한다: ${sourcesError.message}`);
+  // 글 주소를 쿼리 스트링에 싣는 질의라 길이로 자른다(BUG-007) — 한 번에 실으면 `--limit 300` 에서 URL 이 1만 6천 자를 넘어 fetch 자체가 실패했다.
+  for (const chunk of chunkForUrlFilter(posts.map((post) => post.url))) {
+    const { data: sourceRows, error: sourcesError } = await supabase.from('place_sources').select('place_id, post_url').in('post_url', chunk);
+    if (sourcesError) {
+      console.warn(`⚠ place_sources 조회 실패 — 출처 글 특례 없이 진행한다: ${sourcesError.message}`);
+      sourcesOfPost.clear(); // 일부만 아는 특례는 덩어리마다 다르게 풀린다 — 전부 끈다
+      break;
+    }
     for (const { place_id: placeId, post_url: postUrl } of sourceRows ?? []) {
       if (!sourcesOfPost.has(postUrl)) sourcesOfPost.set(postUrl, new Set());
       sourcesOfPost.get(postUrl).add(placeId);
@@ -869,7 +875,7 @@ async function analyze(argv, args, { onRateLimit, onDeadline, nonInteractive = f
     }
   }
   // 루프를 끊은 뒤에도 떠 있는 `claude -p` 를 기다린다 — 안 그러면 실행 기록을 닫은 뒤에 자식 프로세스가 돌고, 서버에선 응답 뒤에 잘린다.
-  // 네이버 fatal(뒤 절반)로 끊겼으면 떠 있던 추출은 끝까지 돌고 버려진다(다음 실행이 다시 읽는다) — 최대 `--concurrency` − 1 회, 받아들인 값이다.
+  // 네이버 fatal(뒤 절반)로 끊겼으면 떠 있던 추출과 먼저 끝나 쌓아 둔 결과는 버려진다(다음 실행이 다시 읽는다) — 최대 `lookaheadFor(--concurrency)` − 1 건, 받아들인 값이다.
   await prefetch.settle();
   // 막대의 마지막 값 — 5초 스로틀을 건너뛴다(안 그러면 "11/12" 에 멈춘 채 끝난다). 끊긴 실행은 손댄 글 수까지만.
   await run.progress({ done: processed, total: posts.length, current: null }, { force: true });
