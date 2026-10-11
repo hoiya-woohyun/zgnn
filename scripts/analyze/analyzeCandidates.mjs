@@ -37,6 +37,13 @@ export const DEFAULT_LIMIT = 50;
 export const DEFAULT_MAX_PER_BLOG = 2;
 
 /**
+ * 글 몇 건의 앞 절반(본문 받기 · 추출 · 교차점검 — `claude -p` 가 붙는 곳)을 동시에 띄우나(`createAnalyzePrefetch`). 뒤 절반(대조 · insert)은 늘 하나씩이다.
+ * 총 토큰은 그대로이고 구독 5시간 창을 **빨리** 쓸 뿐이다 — 한도에 닿으면 떠 있던 글까지만 받고 멈춘다. 1 은 지금까지의 직렬.
+ * 서버 홉은 따로 적는다(`workerRemote.mjs` 의 `HOP_ANALYZE_CONCURRENCY`) — 함수 한 인스턴스 메모리에 `claude` 프로세스가 그만큼 뜬다.
+ */
+export const DEFAULT_CONCURRENCY = 3;
+
+/**
  * 서버 워커 홉의 시간 예산(`--deadline`, docs/todo/20 T11) — **마감을 서버 홉만 넘긴다**(`workerRemote.mjs` 의 `HOP_DEADLINE_MS`). 로컬은 마감이 없어 제한도 없다.
  * 글 수 상한(홉당 5건)만으로는 300초를 못 지킨다 — 2026-10-10 홉 3 이 5건에 258초였고, 장소가 4~8곳인 글은 곳마다 네이버 검색·교차점검이 붙어 글당 ~50초가 된다.
  * 아래 둘은 "다음 일을 시작해도 마감 안에 끝나는가" 의 추정치다(끝나는 시각을 미리 알 수 없어 시작 전에만 막는다).
@@ -46,6 +53,14 @@ export const DEFAULT_MAX_PER_BLOG = 2;
  */
 export const POST_ESTIMATE_MS = 80_000;
 export const PROPOSE_ESTIMATE_MS = 60_000;
+/**
+ * 글 하나의 뒤 절반(네이버 보강 · 홈페이지 · 대조 · insert) 추정 20초 — 장소 4~8곳이면 곳마다 검색 200ms 간격 + 홈페이지 한 번.
+ * 글을 동시에 띄우면(`--concurrency`) 뒤 절반은 줄을 서므로, 새 글의 끝은 "앞에서 기다리는 글 수 × 이 값" 만큼 밀린다(`analysisStartEstimate`).
+ */
+export const BACK_ESTIMATE_MS = 20_000;
+
+/** 앞에 `ahead` 건이 뒤 절반을 기다릴 때 새 글을 띄우는 일의 추정 — 직렬(`ahead` 0)이면 예전 그대로 `POST_ESTIMATE_MS`. */
+export const analysisStartEstimate = (ahead) => POST_ESTIMATE_MS + ahead * BACK_ESTIMATE_MS;
 
 /** 마감(`deadline`, epoch ms) 안에 `estimateMs` 짜리 일을 시작해도 되나. 마감이 없으면(null · undefined) 늘 true — 로컬은 제한이 없다. 딱 맞게 끝나는 경계는 된다. */
 export const canStartWithin = (now, deadline, estimateMs) => deadline == null || now + estimateMs <= deadline;
@@ -53,11 +68,11 @@ export const canStartWithin = (now, deadline, estimateMs) => deadline == null ||
 /**
  * `--dry-run` · `--limit N` · `--max-per-blog N` · `--no-geo` · `--no-verify`(교차점검 패스를 끈다 — Claude 호출이 글마다
  * 최대 한 번 더 늘어나므로 한도가 아까울 때) · `--no-propose`(셋째 패스 「제안」을 끈다 — 갱신 후보가 생긴 장소마다 한 번 더 부른다, docs/todo/11 U3) · `--no-homepage`(공식 홈페이지 카드를 읽지 않는다 — 업체 사이트에 요청이 나가지 않게) · `--dump[=경로]`(후보·제외 목록을 로컬 JSON 으로 — 정규화 품질을
- * 사람이 볼 유일한 창, 로그에는 여전히 본문 인용을 찍지 않는다) · `--deadline <epoch ms>`(서버 워커의 홉만 붙인다 — 이 시각 안에 못 끝날 일은 시작하지 않는다, `canStartWithin`).
+ * 사람이 볼 유일한 창, 로그에는 여전히 본문 인용을 찍지 않는다) · `--deadline <epoch ms>`(서버 워커의 홉만 붙인다 — 이 시각 안에 못 끝날 일은 시작하지 않는다, `canStartWithin`) · `--concurrency N`(앞 절반을 동시에 몇 건, `DEFAULT_CONCURRENCY`).
  * 모르는 인자나 1 미만의 limit 은 throw — 오타로 전체를 돌리는 일이 없게.
  */
 export function parseArgs(argv) {
-  const args = { limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false, focusedOnly: false, requestedOnly: false, deadline: null };
+  const args = { limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false, focusedOnly: false, requestedOnly: false, deadline: null, concurrency: DEFAULT_CONCURRENCY };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--dry-run') { args.dryRun = true; continue; }
@@ -79,14 +94,14 @@ export function parseArgs(argv) {
     }
     let key;
     let value;
-    for (const [flag, k] of [['--limit', 'limit'], ['--max-per-blog', 'maxPerBlog']]) {
+    for (const [flag, k] of [['--limit', 'limit'], ['--max-per-blog', 'maxPerBlog'], ['--concurrency', 'concurrency']]) {
       if (arg === flag) { key = k; value = argv[++i]; }
       else if (arg.startsWith(`${flag}=`)) { key = k; value = arg.slice(flag.length + 1); }
     }
     if (!key) throw new Error(`알 수 없는 인자: ${arg}`);
-    const min = key === 'limit' ? 1 : 0;
+    const min = key === 'maxPerBlog' ? 0 : 1;
     if (!/^\d+$/.test(value ?? '') || Number(value) < min) {
-      throw new Error(`${key === 'limit' ? '--limit 은 1' : '--max-per-blog 은 0'} 이상의 정수여야 합니다: ${value ?? '(없음)'}`);
+      throw new Error(`${key === 'maxPerBlog' ? '--max-per-blog 은 0' : `--${key} 은 1`} 이상의 정수여야 합니다: ${value ?? '(없음)'}`);
     }
     args[key] = Number(value);
   }

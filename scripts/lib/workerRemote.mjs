@@ -29,6 +29,13 @@ import { runPipelineStep } from './workerSteps.mjs';
 
 /** 한 홉의 분석이 읽는 글 수 — 글당 ~30초(ADR-028 「맥락」) × 5 + 수집·반영·콜드 스타트 여유 < 300초(`maxDuration`). */
 export const HOP_ANALYZE_CAP = 5;
+
+/**
+ * 한 홉 안에서 동시에 띄우는 글 수(`--concurrency`, 분석의 앞 절반) — 로컬 기본(3)보다 낮게 둔다. 함수 인스턴스 하나에 `claude` 프로세스가
+ * 이만큼 함께 뜨고(하나에 수백 MB), 마지막 묶음이 거의 같이 끝나면 대조·기록이 줄지어 밀려 마감(`--deadline`) 추정이 덜 보수적이 된다.
+ * 올리려면 홉 로그의 `분석 끝` 시각을 먼저 보고, `HOP_ANALYZE_CAP` 은 따로 올린다.
+ */
+export const HOP_ANALYZE_CONCURRENCY = 2;
 /** 다음 홉을 부르려면 JWT 실효(exp − 30분)가 이만큼 남아야 한다 — 모자라면 그 홉의 단계 스크립트가 `createSupabase` 에서 거부된다. */
 export const HOP_BUDGET_S = 5 * 60;
 /**
@@ -223,13 +230,13 @@ export async function runHop(token, deps = {}) {
         return false;
       }
     };
-    // 마감은 서버 홉만 붙인다 — `planCycle` 의 argv 는 로컬 워커와 공유라 거기에 넣지 않고, 서버 홉이 단계를 부르는 자리에서 분석에만 얹는다.
+    // 마감과 동시성은 서버 홉만 붙인다 — `planCycle` 의 argv 는 로컬 워커와 공유라 거기에 넣지 않고, 서버 홉이 단계를 부르는 자리에서 분석에만 얹는다.
     const deadline = startedAt + HOP_DEADLINE_MS;
     const cycle = createWorkerCycle({
       resident: false,
       analyzeCap: HOP_ANALYZE_CAP,
       stopAfter: (step) => step.step === 'analyze',
-      runStep: (name, argv, hooks) => runStep(name, name === 'analyze' ? [...argv, '--deadline', String(deadline)] : argv, hooks),
+      runStep: (name, argv, hooks) => runStep(name, name === 'analyze' ? [...argv, '--deadline', String(deadline), '--concurrency', String(HOP_ANALYZE_CONCURRENCY)] : argv, hooks),
       // 서버가 곧 remote 라 `remoteBusy` 는 넣지 않는다 — 로컬과의 비킴은 `handleRun` 이 시작 전에 한 번 본다.
       readState: async () => {
         if (!(await ensureSession())) return null;

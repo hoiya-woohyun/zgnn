@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { HOP_ANALYZE_CAP, HOP_BUDGET_S, HOP_DEADLINE_MS, HOP_HEADER, HOP_STALE_MS, MAX_HOPS, bearerToken, handleRun, isBusy, runHop, shouldChain } from './workerRemote.mjs';
+import { HOP_ANALYZE_CAP, HOP_ANALYZE_CONCURRENCY, HOP_BUDGET_S, HOP_DEADLINE_MS, HOP_HEADER, HOP_STALE_MS, MAX_HOPS, bearerToken, handleRun, isBusy, runHop, shouldChain } from './workerRemote.mjs';
 
 const NOW = Date.parse('2026-10-08T03:00:00Z');
 const NOW_S = NOW / 1000;
@@ -7,7 +7,7 @@ const SKEW_S = 30 * 60; // supabaseClient 의 SESSION_EXP_SKEW_S
 const jwt = (exp) => ['h', Buffer.from(JSON.stringify({ exp })).toString('base64url'), 's'].join('.');
 const TOKEN = jwt(NOW_S + 2 * 3600);
 /** 서버 홉이 분석 단계를 부르는 모양 — 마감은 홉 시작(가짜 now) + `HOP_DEADLINE_MS` 의 epoch ms 다(docs/todo/20 T11). */
-const ANALYZE_LINE = `analyze --requested-only --limit ${HOP_ANALYZE_CAP} --deadline ${NOW + HOP_DEADLINE_MS}`;
+const ANALYZE_LINE = `analyze --requested-only --limit ${HOP_ANALYZE_CAP} --deadline ${NOW + HOP_DEADLINE_MS} --concurrency ${HOP_ANALYZE_CONCURRENCY}`;
 
 const deferred = () => {
   let resolve;
@@ -289,7 +289,7 @@ describe('runHop — 주입 → 한 바퀴 → 심장 idle → 되돌림 → 사
     const later = NOW + 123_456;
     const analyze = hopDeps({ states: [{ collectQueued: 1 }, { requestedPosts: 8 }, { requestedPosts: 3 }], now: later });
     await runHop(TOKEN, analyze.deps);
-    expect(analyze.order.filter((line) => line.includes('--deadline'))).toEqual([`analyze --requested-only --limit ${HOP_ANALYZE_CAP} --deadline ${later + HOP_DEADLINE_MS}`]);
+    expect(analyze.order.filter((line) => line.includes('--deadline'))).toEqual([`analyze --requested-only --limit ${HOP_ANALYZE_CAP} --deadline ${later + HOP_DEADLINE_MS} --concurrency ${HOP_ANALYZE_CONCURRENCY}`]);
     expect(analyze.order).toContain('collect --only-requests');
 
     const apply = hopDeps({ states: [{ approved: 2 }, { approved: 0 }] });

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import places from '../../src/data/places.json' with { type: 'json' };
 import {
   AUTO_APPROVE,
+  DEFAULT_CONCURRENCY,
   DEFAULT_LIMIT,
   DEFAULT_MAX_PER_BLOG,
   EDITED_NOTE,
@@ -59,6 +60,11 @@ const local = {
 };
 
 describe('parseArgs', () => {
+  it('--concurrency N — 1 이상만(0 이면 아무것도 안 띄운다)', () => {
+    expect(parseArgs(['--concurrency', '5']).concurrency).toBe(5);
+    expect(parseArgs(['--concurrency=1']).concurrency).toBe(1);
+    expect(() => parseArgs(['--concurrency', '0'])).toThrow('--concurrency 은 1 이상');
+  });
   it('--focused-only', () => {
     expect(parseArgs(['--focused-only', '--limit', '80']).focusedOnly).toBe(true);
   });
@@ -67,11 +73,11 @@ describe('parseArgs', () => {
     expect(parseArgs(['--limit', '10']).requestedOnly).toBe(false);
   });
   it('인자가 없으면 기본 limit · dry-run 아님', () => {
-    expect(parseArgs([])).toEqual({ limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false, focusedOnly: false, requestedOnly: false, deadline: null });
+    expect(parseArgs([])).toEqual({ limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false, focusedOnly: false, requestedOnly: false, deadline: null, concurrency: DEFAULT_CONCURRENCY });
   });
   it('--limit N 과 --limit=N 둘 다 받고, --dry-run 은 어디에 있어도 된다', () => {
-    expect(parseArgs(['--limit', '5', '--dry-run'])).toEqual({ limit: 5, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false, focusedOnly: false, requestedOnly: false, deadline: null });
-    expect(parseArgs(['--dry-run', '--limit=20'])).toEqual({ limit: 20, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false, focusedOnly: false, requestedOnly: false, deadline: null });
+    expect(parseArgs(['--limit', '5', '--dry-run'])).toEqual({ limit: 5, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false, focusedOnly: false, requestedOnly: false, deadline: null, concurrency: DEFAULT_CONCURRENCY });
+    expect(parseArgs(['--dry-run', '--limit=20'])).toEqual({ limit: 20, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false, focusedOnly: false, requestedOnly: false, deadline: null, concurrency: DEFAULT_CONCURRENCY });
     expect(parseArgs(['--no-geo']).noGeo).toBe(true);
     expect(parseArgs(['--no-verify']).noVerify).toBe(true);
     expect(parseArgs(['--no-propose']).noPropose).toBe(true);

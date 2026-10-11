@@ -44,8 +44,8 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import {
-  POST_ESTIMATE_MS,
   PROPOSE_ESTIMATE_MS,
+  analysisStartEstimate,
   blockFor,
   blockUntilLabel,
   blockWaivedBySource,
@@ -74,6 +74,7 @@ import {
   toMatchCandidate,
   toPostAnalysis,
 } from './analyze/analyzeCandidates.mjs';
+import { createAnalyzePrefetch } from './analyze/analyzePrefetch.mjs';
 import { createUsageMeter, extractPlaces, isFatal, isQuotaExhausted, isRetryable, MODEL, PROMPT_VERSION, runClaudeCli } from './analyze/extractPlaces.mjs';
 import { formatGeocodeSummary, geocodeAddress, newGeocodeReasons, pickGeocoded, shouldGeocode } from './analyze/naverGeocode.mjs';
 import { newPickReasons, pickNaverPlace, searchNaverPlace } from './analyze/naverLocal.mjs';
@@ -142,7 +143,7 @@ async function analyzeOrKeyStop(argv, args, hooks) {
 }
 
 async function analyze(argv, args, { onRateLimit, onDeadline, nonInteractive = false } = {}) {
-  const { limit, dryRun, dump, maxPerBlog, noGeo, noVerify, noPropose, noHomepage, focusedOnly, requestedOnly, deadline } = args;
+  const { limit, dryRun, dump, maxPerBlog, noGeo, noVerify, noPropose, noHomepage, focusedOnly, requestedOnly, deadline, concurrency } = args;
   // 이 프로세스의 누계라(`naverSearchApi.mjs`) 시작 값을 빼야 이 실행의 호출 수다 — 워커·once 는 한 프로세스에서 수집·분석을 여러 번 돈다.
   const naverCallsAtStart = readNaverCalls();
 
@@ -615,12 +616,54 @@ async function analyze(argv, args, { onRateLimit, onDeadline, nonInteractive = f
   // --dump 용. DB 에 들어갈 후보 행(extracted 그대로, 본문 없음)과 제외 목록 — 정규화 품질을 사람이 볼 유일한 창이다(로그에는 안 찍는다, 05).
   const dumpEntries = [];
 
+  /*
+   * 글의 앞 절반 — 그 글 하나만 읽는다(본문 · 추출 · 교차점검). `--concurrency` 건까지 동시에 떠 있고(`createAnalyzePrefetch`),
+   * 로그·통계는 여기서 남기지 않고 결과로 돌려준다 — 아래 루프가 글 순서대로 찍어야 `글 …` 줄 밑에 그 글의 줄이 모인다.
+   * 공유 상태는 `verifyAxisOff` 하나만 건드린다. 꺼질 때 이미 떠 있던 글은 한 번 더 부를 수 있다 — 몇 번 더 부를 뿐이라 둔다.
+   */
+  async function preparePost(post) {
+    if (!post.blog_id || !post.log_no) throw Object.assign(new Error('blog_id/log_no 가 비어 있어 본문 주소를 만들 수 없다'), { permanent: true });
+    const body = await fetchPostText({ blogId: post.blog_id, logNo: post.log_no });
+    // 컨테이너를 못 찾으면 '' 다. 비공개·삭제 글이거나 에디터 구조가 바뀐 것 — 빈 본문으로 모델을 부르면 토큰만 쓴다.
+    if (!body) throw Object.assign(new Error('본문 컨테이너를 찾지 못함(비공개·삭제 글이거나 에디터 구조가 바뀜)'), { permanent: true });
+
+    const places = await extractPlaces(runClaudeCli, post, body, meter);
+
+    /*
+     * 교차점검 — **후보가 될 것 중 동반 조건 문장이 없는 것**만 묶어 한 번 부른다. 제외될 장소(제주 아님·other·
+     * 동반 불가)를 넣지 않는 이유는 쿼터가 아니라 의미다: 버릴 것에 근거를 물어 봐야 아무 결정도 안 바뀐다.
+     * 실패는 이 글을 버리지 않는다(`verifyAxisOff`) — 판단이 없는 후보는 `verify: null`(미점검)로 남는다.
+     */
+    const verifyTargets = noVerify || verifyAxisOff ? [] : places.filter((p) => !exclusionReason(p) && needsDogCheck(p));
+    const names = verifyTargets.map((p) => p.name);
+    let verdicts = new Map();
+    let verifyError = null;
+    if (verifyTargets.length > 0) {
+      try {
+        verdicts = await verifyPlaces(runClaudeCli, post, body, names, verifyMeter);
+      } catch (e) {
+        if (isFatal(e)) throw e;
+        verifyAxisOff = true;
+        verifyError = e;
+      }
+    }
+    return { places, names, verdicts, verifyError };
+  }
+
+  // 서버 홉의 시간 예산 — 글을 **띄우는** 순간에 본다. 마감(`--deadline`) 안에 못 끝날 것 같으면 더 띄우지 않고, 띄우지 않은 글은
+  // 손대지 않아(analyzed_at · requested_at 그대로) 다음 홉이 집는다. 로컬은 마감이 없어 늘 통과한다(`canStartWithin`).
+  const prefetch = createAnalyzePrefetch(posts, preparePost, { concurrency, canStart: (ahead) => canStartWithin(Date.now(), deadline, analysisStartEstimate(ahead)) });
+  let verifyErrorLogged = false;
+  if (concurrency > 1) console.log(`글 ${concurrency}건씩 동시에 읽는다(본문 · 추출 · 교차점검) — 대조와 기록은 순서대로 하나씩`);
+
   for (const [index, post] of posts.entries()) {
-    // 서버 홉의 시간 예산 — 이 글을 시작해 마감(`--deadline`) 안에 끝나지 않을 것 같으면 여기서 끊는다. 남은 글은 손대지 않아(analyzed_at · requested_at 그대로) 다음 홉이 집는다.
-    // 로컬은 마감이 없어 늘 통과한다(`canStartWithin`). 끊어도 실패가 아니다 — 아래 `failedRun` 이 손댄 글이 있을 때만 "성공 0" 을 실패로 본다.
-    if (!canStartWithin(Date.now(), deadline, POST_ESTIMATE_MS)) {
-      console.log(`시간 예산 — 남은 글 ${posts.length - index}건은 다음 홉이 잇는다`);
-      onDeadline?.(posts.length - index); // 「지금 분석 N건」 요청이 이 수를 남은 건수에 더해 되돌린다(`workerCycle.runOne`) — 요청 글은 `requested_at` 이 남아 있어 따로 필요 없다
+    const prepared = await prefetch.take(index);
+    if (!prepared) {
+      // 끊어도 실패가 아니다 — 아래 `failedRun` 이 손댄 글이 있을 때만 "성공 0" 을 실패로 본다. 한도로 멈춘 뒤라면 위 catch 가 이미 알렸다.
+      if (prefetch.deadlineHit) {
+        console.log(`시간 예산 — 남은 글 ${posts.length - prefetch.launched}건은 다음 홉이 잇는다`);
+        onDeadline?.(posts.length - prefetch.launched); // 「지금 분석 N건」 요청이 이 수를 남은 건수에 더해 되돌린다(`workerCycle.runOne`) — 요청 글은 `requested_at` 이 남아 있어 따로 필요 없다
+      }
       break;
     }
     await run.tick(); // 60초에 한 번만 실제로 쓴다 — 죽으면 이 값이 멎어 화면이 "중단된 듯" 을 읽는다
@@ -628,38 +671,21 @@ async function analyze(argv, args, { onRateLimit, onDeadline, nonInteractive = f
     await run.progress({ done: index, total: posts.length, current: post.title ? post.title.slice(0, 20) : null });
     console.log(`글 ${post.url} (${post.title ?? '제목 없음'})`);
     try {
-      if (!post.blog_id || !post.log_no) throw Object.assign(new Error('blog_id/log_no 가 비어 있어 본문 주소를 만들 수 없다'), { permanent: true });
-      const body = await fetchPostText({ blogId: post.blog_id, logNo: post.log_no });
-      // 컨테이너를 못 찾으면 '' 다. 비공개·삭제 글이거나 에디터 구조가 바뀐 것 — 빈 본문으로 모델을 부르면 토큰만 쓴다.
-      if (!body) throw Object.assign(new Error('본문 컨테이너를 찾지 못함(비공개·삭제 글이거나 에디터 구조가 바뀜)'), { permanent: true });
-
-      const places = await extractPlaces(runClaudeCli, post, body, meter);
-
-      /*
-       * 교차점검 — **후보가 될 것 중 동반 조건 문장이 없는 것**만 묶어 한 번 부른다. 제외될 장소(제주 아님·other·
-       * 동반 불가)를 넣지 않는 이유는 쿼터가 아니라 의미다: 버릴 것에 근거를 물어 봐야 아무 결정도 안 바뀐다.
-       * 실패는 이 글을 버리지 않는다(`verifyAxisOff`) — 판단이 없는 후보는 `verify: null`(미점검)로 남는다.
-       */
-      const verifyTargets = noVerify || verifyAxisOff ? [] : places.filter((p) => !exclusionReason(p) && needsDogCheck(p));
-      let verdicts = new Map();
-      if (verifyTargets.length > 0) {
-        const names = verifyTargets.map((p) => p.name);
-        try {
-          verdicts = await verifyPlaces(runClaudeCli, post, body, names, verifyMeter);
-          stats.verify.checked += verdicts.size;
-          // 판단의 `why`·`quote` 는 본문에서 파생된 것이라 찍지 않는다(evidence 와 같은 규칙, 05). 이름과 표식만.
-          for (const [key, verdict] of verdicts) {
-            const label = verifyLabel(verdict);
-            if (label === '동반 근거 없음') stats.verify.noEvidence += 1;
-            if (label === '동반 불가 정황') stats.verify.notAllowed += 1;
-            if (label !== '동반 확인' && label !== '동반 표기만') console.log(`  교차점검 ${names.find((n) => normalizeName(n) === key) ?? key} — ${label}`);
-          }
-        } catch (e) {
-          if (isFatal(e)) throw e;
-          stats.verify.failed += verifyTargets.length;
-          verifyAxisOff = true;
-          console.error(`  교차점검 실패 — 이 실행 동안 패스를 내린다(후보는 미점검으로 남는다): ${e.message}`);
-        }
+      if (!prepared.ok) throw prepared.error;
+      const { places, names, verdicts, verifyError } = prepared.value;
+      if (verifyError) {
+        stats.verify.failed += names.length;
+        // 동시에 떠 있던 글은 꺼지기 전에 이미 불렀을 수 있다 — 패스를 내린다는 말은 한 번만.
+        console.error(verifyErrorLogged ? `  교차점검 실패(이미 내림): ${verifyError.message}` : `  교차점검 실패 — 이 실행 동안 패스를 내린다(후보는 미점검으로 남는다): ${verifyError.message}`);
+        verifyErrorLogged = true;
+      }
+      stats.verify.checked += verdicts.size;
+      // 판단의 `why`·`quote` 는 본문에서 파생된 것이라 찍지 않는다(evidence 와 같은 규칙, 05). 이름과 표식만.
+      for (const [key, verdict] of verdicts) {
+        const label = verifyLabel(verdict);
+        if (label === '동반 근거 없음') stats.verify.noEvidence += 1;
+        if (label === '동반 불가 정황') stats.verify.notAllowed += 1;
+        if (label !== '동반 확인' && label !== '동반 표기만') console.log(`  교차점검 ${names.find((n) => normalizeName(n) === key) ?? key} — ${label}`);
       }
 
       const rows = [];
@@ -811,16 +837,23 @@ async function analyze(argv, args, { onRateLimit, onDeadline, nonInteractive = f
         console.error('  이 실행의 나머지 글은 건너뛴다(같은 이유로 실패한다).');
         fatal = true;
         fatalError = e;
+        prefetch.stop();
         break;
       }
       // Claude 구독 한도(5시간 창)는 남은 글도 전부 같은 결과다 — 글마다 본문을 받고 claude 를 불러 헛돌지 않게 여기서 끊는다.
       // fatal 과 달리 이 글은 실패가 아니라 "아직" 이다: analyzed_at 이 비어 있어 리셋 뒤 다음 실행이 이어 간다.
+      // 동시에 떠 있던 글은 마저 받는다 — 이미 토큰을 쓴 결과라 버리면 다음 실행이 같은 글을 또 추출한다. 새로 띄우지만 않는다(`prefetch.stop`).
       if (isQuotaExhausted(e)) {
         stats.skipped += 1;
-        console.error(`  중단: ${e.message}`);
-        console.error('  Claude 구독 한도 — 이 실행의 나머지 글은 건너뛴다(리셋 뒤 다음 실행이 이어 간다).');
-        rateLimited = e;
-        break;
+        if (!rateLimited) {
+          console.error(`  중단: ${e.message}`);
+          console.error('  Claude 구독 한도 — 이 실행의 나머지 글은 건너뛴다(리셋 뒤 다음 실행이 이어 간다).');
+          rateLimited = e;
+          prefetch.stop();
+        } else {
+          console.error('  건너뜀: Claude 구독 한도');
+        }
+        continue;
       }
       if (isPermanentFailure(e)) {
         console.error(`  분석 불가(루프 끝에 닫는다): ${e.message}`);
@@ -835,6 +868,9 @@ async function analyze(argv, args, { onRateLimit, onDeadline, nonInteractive = f
       processed = index + 1;
     }
   }
+  // 루프를 끊은 뒤에도 떠 있는 `claude -p` 를 기다린다 — 안 그러면 실행 기록을 닫은 뒤에 자식 프로세스가 돌고, 서버에선 응답 뒤에 잘린다.
+  // 네이버 fatal(뒤 절반)로 끊겼으면 떠 있던 추출은 끝까지 돌고 버려진다(다음 실행이 다시 읽는다) — 최대 `--concurrency` − 1 회, 받아들인 값이다.
+  await prefetch.settle();
   // 막대의 마지막 값 — 5초 스로틀을 건너뛴다(안 그러면 "11/12" 에 멈춘 채 끝난다). 끊긴 실행은 손댄 글 수까지만.
   await run.progress({ done: processed, total: posts.length, current: null }, { force: true });
 
