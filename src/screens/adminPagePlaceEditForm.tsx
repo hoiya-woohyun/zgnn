@@ -20,12 +20,14 @@ import {
   type TPlaceEditPatch,
   renameRisksTwin,
 } from '../lib/adminPlaceEdit';
+import { patchPublicText } from '../lib/adminPublicText';
 import { naverMapSearchUrl, naverPlacePhotoUrl, parseNaverPlaceId } from '../lib/naverPlaceLink';
 import type { TPetBadge } from '../lib/petPolicy';
 import { cx } from '../utils/cx';
 import { AdminChangeList } from './adminChangeList';
 import { AdminFilterChip } from './adminFilterChip';
 import { AdminMarkedSpans } from './adminMarkedSpans';
+import { AdminPublicTextPreview } from './adminPublicTextPreview';
 import { EDIT_GRID, EditRow, INDOOR_OPTIONS, TEXTAREA, TriButtons } from './adminPagePlaceEditFormParts';
 import { ADMIN_PANEL_DIVIDER, ADMIN_POLICY_TONE } from './adminTable';
 
@@ -75,6 +77,8 @@ export function AdminPagePlaceEditForm({
   const changes = placeEditChanges(place, draft);
   const changedKeys = new Set(changes.map((change) => change.key));
   const preview = placeEditPreview(place, draft);
+  // 사이트에 나갈 문장의 전후 — 쓰기와 같은 patch 로 만든다. 원문 공개 체크는 patch 에 실리므로 켜고 끄면 raw ↔ derived 로 곧바로 바뀐다.
+  const publicText = patchPublicText(place, patch);
   // 검수 카드와 같은 칠하기(06 G) — 보정이 읽은 원문(`policyText`)에 다시 돌린다. 칠은 입력란이 아니라 미리보기 쪽 인용에.
   const correction = correctionView(preview.policyText, preview.dropped);
   const placeHref = place.naver_url || naverPlacePhotoUrl(place.naver_place_id ?? undefined);
@@ -328,6 +332,22 @@ export function AdminPagePlaceEditForm({
                 </div>
               ))}
             </div>
+          )}
+        </div>
+      </section>
+
+      {/* 사이트에 나갈 문장 — 배지 바로 밑, 같은 모양의 두 칸(21 S6). 검수 카드·사이트 비교와 같은 함수(`patchPublicText`)다. */}
+      <section className="grid gap-2 rounded-lg bg-secondary px-3 py-2 md:grid-cols-2">
+        <div>
+          <p className="mb-1 text-xs text-tertiary">사이트에 나갈 문장 — 지금</p>
+          <AdminPublicTextPreview preview={publicText.before} />
+        </div>
+        <div className="md:border-l md:border-secondary md:pl-3">
+          <p className="mb-1 text-xs font-semibold text-secondary">저장하면</p>
+          {problem ? (
+            <p className="text-xs text-tertiary">고칠 값의 문제를 먼저 풀면 보여요</p>
+          ) : (
+            <AdminPublicTextPreview preview={publicText.after} />
           )}
         </div>
       </section>

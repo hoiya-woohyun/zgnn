@@ -1,6 +1,8 @@
 'use client';
 
 import { Badge } from '../components/base/badges';
+import { siteTextVoice } from '../lib/adminPublicText';
+import type { TPlaceRow } from '../lib/adminCandidates';
 
 /**
  * 검수 화면의 **두 목소리** — 블로그에서 수집한 원문과 AI 가 정리한 값(2026-09-30).
@@ -28,6 +30,21 @@ export function AdminSourceChip({ source, suffix }: { source: TSource; suffix?: 
     <Badge type="color" size="sm" color={tone.badge}>
       {tone.label}
       {suffix ? ` · ${suffix}` : ''}
+    </Badge>
+  );
+}
+
+/**
+ * 사이트 값 칸의 목소리 칩 — 시드의 조건 원문은 가족 「짱구누나」 가 쓴 문장이고, 블로그 경로 행의 것은 블로거 문장이다.
+ * 칩을 출처 플래그(`pet_policy_text_public`)로 정하는 이유: `source` 는 기본값이 'notion' 이고 블로그 값으로 덮어써도 그대로라 칸 하나(원문 공개)가
+ * 정본이다 — 블로거 문장을 짱구누나 문장처럼 보이게 하지 않는다. 색은 purple — 위 제약(분홍·노랑·초록·파랑·indigo 금지, sky·gray 는 사용 중)을 피하는
+ * 정의된 유틸 색(`theme.css` 의 `--color-utility-purple-*`)이다.
+ */
+export function AdminSiteVoiceChip({ place }: { place: Pick<TPlaceRow, 'pet_policy_text_public'> }) {
+  if (siteTextVoice(place) === 'blog') return <AdminSourceChip source="blog" />;
+  return (
+    <Badge type="color" size="sm" color="purple">
+      짱구누나
     </Badge>
   );
 }

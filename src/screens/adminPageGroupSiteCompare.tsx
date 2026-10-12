@@ -7,12 +7,14 @@ import type { TCandidateGroup, TPlaceRow } from '../lib/adminCandidates';
 import { withProposal, type TProposal } from '../lib/adminProposal';
 import { EMPTY_VALUE, type TEditChange } from '../lib/adminEdit';
 import { SITE_OWNED_COLUMNS } from '../lib/adminLatest';
+import { overwritePublicText } from '../lib/adminPublicText';
 import { siteCompareRows, type TFieldVoice } from '../lib/adminSiteCompare';
 import { cx } from '../utils/cx';
-import { SOURCE_TONE } from './adminSource';
+import { AdminPublicTextPreview } from './adminPublicTextPreview';
+import { AdminSiteVoiceChip, SOURCE_TONE } from './adminSource';
 
 /**
- * 갱신·보강 묶음의 **사이트 비교 분석**(docs/todo/11 T1.3) — 항목 · 블로그 · 짱구누나 → 바뀔 값 · AI 제안 근거.
+ * 갱신·보강 묶음의 **사이트 비교 분석**(docs/todo/11 T1.3) — 항목 · 블로그 · 지금 사이트 → 바뀔 값 · AI 제안 근거.
  *
  * **한 줄이 한 칸의 변화다**(2026-10-04 v3). 그 전에는 `지금 사이트` 와 `AI 제안` 이 따로 선 칸이고 덮을 칸의 체크 목록은 또 다른 상자여서,
  * "무엇이 무엇으로 바뀌고 그중 무엇을 고르나" 를 세 자리를 오가며 맞춰야 했다(사용자 지적). 이제 지금 값 → 바뀔 값이 **한 칸에 화살표로** 서고,
@@ -22,8 +24,11 @@ import { SOURCE_TONE } from './adminSource';
  * 바뀌면 표 끝에 줄을 더 세운다 — 안 그러면 안 보인 채 덮인다. `overwrite` 가 없으면(덮어쓰기가 뜻이 없는 갈래) 체크 없이 읽기만 한다.
  * 글들이 말한 것은 **글마다 한 줄**(날짜 · 제목 · 값), 새 글이 위다. 같은 칸에 글들이 다른 말을 하면 줄 머리에 `글마다 달라요`.
  */
-/** 비교표 줄 → 제안 칸(조건 원문·판단은 한 제안이다). */
-const proposalFieldOf = (key: string) => (key === 'pet_policy' ? 'pet_policy_text' : key);
+/**
+ * 비교표 줄 → 제안 칸(조건 원문·판단·원문 공개는 한 제안이다 — 원문 공개 줄의 이유 칸이 비던 것, 21 S4 뒤).
+ * 이용 안내 줄(`pet_policy_guide`)은 자기 why 가 없으면 조건 원문의 why 로 떨어진다(아래 `why`).
+ */
+const proposalFieldOf = (key: string) => (key === 'pet_policy' || key === 'pet_policy_text_public' ? 'pet_policy_text' : key);
 
 /** 빈 칸이면 체크와 무관하게 채워지는 칸 — `mergeIntoExisting`(scripts/analyze/applyApproved.mjs)이 채우는 칸의 화면 키. */
 /** 사이트에 값이 있으면 기본 체크가 꺼지는 칸(`defaultOverwritePick`) — 꺼진 까닭을 그 줄이 말한다. */
@@ -89,6 +94,8 @@ export function AdminPageGroupSiteCompare({
   ];
   if (!lines.length) return null;
   const grid = proposal ? GRID_WITH_WHY : GRID_PLAIN;
+  // 사이트에 나갈 문장의 전후 — 체크를 따라 바뀐다. 쓰기(`overwriteWithLatest`)와 같은 patch 에서 만든다(미리보기와 쓰기가 갈리지 않게).
+  const text = overwritePublicText(place, lead.extracted, overwrite ? overwrite.picked : undefined);
   const blogChip = (
     <Badge type="color" size="sm" color={SOURCE_TONE.blog.badge}>
       블로그
@@ -111,12 +118,14 @@ export function AdminPageGroupSiteCompare({
       <div className={cx('hidden border-t border-secondary text-[0.6875rem] font-semibold text-tertiary md:grid', grid)}>
         <span className="px-3 py-1.5">항목</span>
         <span className={cx('flex items-center border-l px-3 py-1.5', SOURCE_TONE.blog.surface, SOURCE_TONE.blog.border)}>{blogChip}</span>
-        <span className="border-l border-secondary px-3 py-1.5">짱구누나 → 바뀔 값</span>
+        <span className="border-l border-secondary px-3 py-1.5">지금 사이트 → 바뀔 값</span>
         {proposal && <span className={cx('flex items-center px-3 py-1.5', AI_CELL)}>{whyChip}</span>}
       </div>
       <div className="divide-y divide-secondary border-t border-secondary">
         {lines.map((line) => {
-          const why = proposal?.fields[proposalFieldOf(line.key)]?.why;
+          const why =
+            proposal?.fields[proposalFieldOf(line.key)]?.why ??
+            (line.key === 'pet_policy_guide' ? proposal?.fields.pet_policy_text?.why : undefined);
           const picked = line.pickable && overwrite ? overwrite.picked.includes(line.key) : true;
           return (
             <div key={line.key} className={cx('grid', grid)}>
@@ -166,7 +175,13 @@ export function AdminPageGroupSiteCompare({
               </div>
               {/* 지금 값 → 바뀔 값. 전후 표기는 `AdminChangeList` 와 같다(취소선·화살표 — 색만으로 가르지 않는다). */}
               <div className="min-w-0 px-3 py-2 md:border-l md:border-secondary">
-                <span className="mb-1 block text-tertiary md:hidden">짱구누나 → 바뀔 값</span>
+                <span className="mb-1 block text-tertiary md:hidden">지금 사이트 → 바뀔 값</span>
+                {/* 이 원문이 누구 문장인지 — 가족(짱구누나)이 쓴 것과 블로거 문장은 같은 칸에 서도 다른 말이다(`siteTextVoice`). */}
+                {line.key === 'pet_policy_text' && (
+                  <span className="mb-1 block">
+                    <AdminSiteVoiceChip place={place} />
+                  </span>
+                )}
                 {line.after === null ? (
                   <p className="whitespace-pre-line text-secondary">
                     {line.before} <span className="text-quaternary">· 그대로</span>
@@ -209,6 +224,25 @@ export function AdminPageGroupSiteCompare({
             </div>
           );
         })}
+        {/* 체크 없는 줄 — 문장은 칸이 아니라 위 칸들(조건 원문·판단·원문 공개·이용 안내)에서 **만들어지는** 값이다. */}
+        <div className={cx('grid', grid)}>
+          <div className="px-3 py-2 font-semibold text-secondary">사이트 문장</div>
+          <div className={cx('min-w-0 px-3 py-2 text-quaternary md:border-l', SOURCE_TONE.blog.surface, SOURCE_TONE.blog.border)}>—</div>
+          <div className="min-w-0 space-y-2 px-3 py-2 md:border-l md:border-secondary">
+            <span className="mb-1 block text-tertiary md:hidden">지금 사이트 → 바뀔 값</span>
+            <div>
+              <p className="mb-0.5 font-semibold text-tertiary">지금{!text.changed && <span className="font-normal text-quaternary"> · 그대로</span>}</p>
+              <AdminPublicTextPreview preview={text.before} />
+            </div>
+            {text.changed && (
+              <div>
+                <p className="mb-0.5 font-semibold text-tertiary">덮으면 →</p>
+                <AdminPublicTextPreview preview={text.after} />
+              </div>
+            )}
+          </div>
+          {proposal && <div className={cx('min-w-0 px-3 py-2 text-quaternary', AI_CELL)}>—</div>}
+        </div>
       </div>
       {overwrite && <div className="flex flex-wrap items-center gap-2 border-t border-secondary px-3 py-2">{overwrite.footer}</div>}
     </div>

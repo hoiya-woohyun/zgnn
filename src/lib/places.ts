@@ -23,7 +23,11 @@ const environmentOf = (place: TPlace): TStayEnvironment | undefined =>
 // JSON 은 구조만 맞고 타입 리터럴(예: direction)까지는 좁혀지지 않아 한 번만 단언한다.
 const rawPlaces = placesJson as unknown as TPlace[];
 
-export const PLACES: TPlaceEntry[] = rawPlaces.map((place) => ({
+/**
+ * 장소 한 건 → 화면이 쓰는 항목. `/admin` 미리보기가 같은 길로 문장을 만든다(21 S6) — 여기를 우회해 정책을 다시 조립하면
+ * 미리보기와 사이트가 갈린다.
+ */
+export const toPlaceEntry = (place: TPlace): TPlaceEntry => ({
   ...place,
   // 블로그 경로의 장소는 AI 판단(petPolicy)이 정규식 결과를 덮는다. 시드는 petPolicy 가 없어 정규식 그대로(ADR-017).
   // 확인 기록(verifiedAt)도 여기서 얹는다 — 일반 허용 문장뿐인 곳의 판정(C9)이 그것을 본다. 종류(식당·카페냐)는 C12 가 본다.
@@ -32,7 +36,9 @@ export const PLACES: TPlaceEntry[] = rawPlaces.map((place) => ({
     place.type,
   ),
   environment: environmentOf(place),
-}));
+});
+
+export const PLACES: TPlaceEntry[] = rawPlaces.map(toPlaceEntry);
 
 export const PLACES_BY_ID = new Map(PLACES.map((place) => [place.id, place]));
 

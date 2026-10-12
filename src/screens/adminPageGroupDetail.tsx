@@ -6,6 +6,7 @@ import { addressView } from '../lib/adminAddress';
 import { factsLine, FACTS_EMPTY, type TCandidateGroup, type TPlaceRow, type TPolicyPreview } from '../lib/adminCandidates';
 import { correctionView } from '../lib/adminCorrection';
 import { aiEdits } from '../lib/adminEdit';
+import { newPlacePublicText, rowPublicText } from '../lib/adminPublicText';
 import { policySplit, typeMismatchFlags } from '../lib/adminPreview';
 import { deniedQuoteView, verifyView } from '../lib/adminVerify';
 import type { TBadgeTone, TPetBadge } from '../lib/petPolicy';
@@ -14,7 +15,8 @@ import type { TTextSpan } from '../lib/textSpans';
 import { cx } from '../utils/cx';
 import { AdminAddressLine } from './adminAddressLine';
 import { AdminChangeList } from './adminChangeList';
-import { AdminSourceChip, SOURCE_TONE } from './adminSource';
+import { AdminPublicTextPreview } from './adminPublicTextPreview';
+import { AdminSiteVoiceChip, AdminSourceChip, SOURCE_TONE } from './adminSource';
 import { AdminMarkedSpans } from './adminMarkedSpans';
 import { ADMIN_VERIFY_TEXT } from './adminTable';
 
@@ -22,7 +24,7 @@ type TAdminPageGroupDetailProps = {
   group: TCandidateGroup;
   preview: TPolicyPreview;
   /**
-   * 짝지은 장소의 지금 행. 있으면 표에 **짱구누나** 칸이 선다(블로그 원문 · 짱구누나 · AI 정리 — 아래 사이트 비교 분석과 같은 순서).
+   * 짝지은 장소의 지금 행. 있으면 표에 **지금 사이트** 칸이 선다(블로그 원문 · 지금 사이트 · AI 정리 — 아래 사이트 비교 분석과 같은 순서).
    * 신규 묶음에는 사이트에 아직 아무것도 없어 칸째로 안 그린다(늘 빈 칸이 된다).
    */
   place?: TPlaceRow;
@@ -30,9 +32,9 @@ type TAdminPageGroupDetailProps = {
 
 const GRID = 'md:grid-cols-[6rem_minmax(0,1fr)_minmax(0,1fr)]';
 const GRID_WITH_SITE = 'md:grid-cols-[6rem_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]';
-const SITE_LABEL = '짱구누나 · 지금 사이트';
+const SITE_LABEL = '지금 사이트';
 
-/** 짱구누나 칸의 값. 비었으면 빈 칸이라고 말한다 — 승인하면 채워지는 자리다. */
+/** 지금 사이트 칸의 값. 비었으면 빈 칸이라고 말한다 — 승인하면 채워지는 자리다. */
 const SiteText = ({ text }: { text: string | null | undefined }) =>
   text?.trim() ? <p className="whitespace-pre-line text-secondary">{text}</p> : <span className="text-quaternary">사이트에 없어요</span>;
 
@@ -94,7 +96,7 @@ function CompareRow({
   label: string;
   /** 원문 칸. **없으면 한 칸으로 합친다** — 소개·홈페이지는 블로그 원문이 따로 없어서 왼쪽이 늘 같은 안내문이었다. */
   source?: ReactNode;
-  /** 짱구누나 칸(짝 장소의 지금 값). `undefined` 면 칸이 없는 표다(신규 묶음) — 그때는 지금까지의 두 칸 그대로. */
+  /** 지금 사이트 칸(짝 장소의 지금 값). `undefined` 면 칸이 없는 표다(신규 묶음) — 그때는 지금까지의 두 칸 그대로. */
   site?: ReactNode;
   result: ReactNode;
   edited?: boolean;
@@ -106,7 +108,7 @@ function CompareRow({
   return (
     <div className={cx('grid', site !== undefined ? GRID_WITH_SITE : GRID)}>
       <div className="px-3 py-2 font-semibold text-secondary">{label}</div>
-      {/* 짱구누나 칸이 서는 표에서는 원문 없는 줄도 블로그 칸을 비워 둔다 — 칸을 합치면 짱구누나 칸이 줄마다 다른 자리에 선다. */}
+      {/* 지금 사이트 칸이 서는 표에서는 원문 없는 줄도 블로그 칸을 비워 둔다 — 칸을 합치면 지금 사이트 칸이 줄마다 다른 자리에 선다. */}
       {source === undefined && site !== undefined && (
         <div className={cx('min-w-0 px-3 py-2 text-quaternary max-md:hidden md:border-l', SOURCE_TONE.blog.surface, SOURCE_TONE.blog.border)}>—</div>
       )}
@@ -234,6 +236,12 @@ export function AdminPageGroupDetail({ group, preview, place }: TAdminPageGroupD
             }
             site={siteOf(
               <>
+                {/* 이 원문이 누구 문장인지 — 시드는 가족(짱구누나), 블로그 경로 행은 블로거(`siteTextVoice`). */}
+                {place && (
+                  <span className="mb-1 block">
+                    <AdminSiteVoiceChip place={place} />
+                  </span>
+                )}
                 <SiteText text={place?.pet_policy_text} />
                 {siteFacts && siteFacts !== FACTS_EMPTY && <p className="mt-1 text-tertiary">{siteFacts}</p>}
               </>,
@@ -277,6 +285,15 @@ export function AdminPageGroupDetail({ group, preview, place }: TAdminPageGroupD
                 </details>
               </div>
             }
+          />
+          {/*
+            * 사이트에 나갈 문장 — 공개 상세는 원문 대신 판단에서 만든 문장을 그린다(21 S6). 왼쪽은 지금 사이트의 문장, 오른쪽은 이 묶음을 **등록하면**
+            * 나갈 문장이다. 짝 장소가 있는 묶음에서 실제 바뀔 문장은 아래 사이트 비교가 말한다(체크를 따라 바뀐다) — 여기 오른쪽은 신규 등록 기준이다.
+            */}
+          <CompareRow
+            label="사이트 문장"
+            site={siteOf(place && <AdminPublicTextPreview preview={rowPublicText(place)} />)}
+            result={<AdminPublicTextPreview preview={newPlacePublicText(group.lead)} />}
           />
           <CompareRow
             label="주소"
