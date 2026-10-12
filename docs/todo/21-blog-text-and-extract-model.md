@@ -283,6 +283,12 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
   > 메모(S6 뒤, 2026-10-13): `/admin` 미리보기(`src/lib/adminPublicText.ts`)는 **런타임에** DB 행(원문이 있다) → `fromPlaceRow` → `toPlaceEntry`(`places.ts`) → `policyEvidence` 를 부른다.
   > 이 태스크가 `toPlaceEntry` 를 "JSON 에 미리 계산된 칸을 읽는" 모양으로 바꾸면 미리보기만 조용히 사이트와 다른 길이 된다 — 동치 테스트(`adminPublicText.test.ts`)는 같은 함수를 양쪽에서 불러 이것을 못 잡는다.
   > 그래서 원문 → 판정 입력을 만드는 **조립 함수 하나를 빌드(`pull-db`)와 `/admin` 이 함께 부르게** 둔다(행에는 원문이 있고 JSON 엔 없다 — 입력이 다를 뿐 조립은 하나).
+  > 메모(계획, 2026-10-13): **S7 커밋 뒤에 시작한다** — S7 이 `petPolicyPublic.ts`(`publicGuide` 가 원문 인자를 잃는다)·`adminPublicText.ts`·`placeDetailPage.tsx` 를 고치는 중이라 같은 파일이다.
+  > opus 계획(이 머신 `.omc/plans/2026-10-13-21-s8-plan.md`, gitignored · 383줄 — 파일별 변경·시그니처·테스트·커밋 넷): 조립 함수 `derivePlace(place)`(`src/lib/placeDerive.ts`, TS — `pnpm data` 가 이미
+  > `--experimental-strip-types` + `tsExtResolve.mjs` 로 앱 TS 를 부른다, `pull` 에 같은 한 줄) · 공개 84행은 바이트 그대로, 비공개 38행은 `petPolicyText`·`petPolicy`·`petPolicyGuide` 대신 `derived` 하나
+  > (원문 조각 `sources`·`tiers[].source`·`indoorGearText`·`feeText` 를 지운 정책 + 근거 칸 밑 한 줄) · 판정 스냅숏(122곳 × `DOG_PROFILES` 5 × `needsIndoor`, `quote` 는 빼고)을 **먼저 따로 커밋** ·
+  > JSON 은 원격 없이 `pull --offline` 으로 모양만 바꾼다 · 새 조용한 깨짐(규칙을 고쳐도 비공개 행은 다음 pull 까지 옛 값)은 gitignored 원문 캐시 + drift 테스트 + CLAUDE.md 한 줄 ·
+  > `seed-db`·`eval golden` 이 원문 없는 행을 읽는 입구를 막는다. **H6 은 S8 로 풀리지 않는다**(빌드가 여전히 anon 으로 원문을 읽는다). 계획 파일이 없으면(다른 머신) 이 메모로 다시 계획한다.
 
 ### S9. 게시된 블로그 행은 문장만 다시 쓴다 — 판단 고정(S7 뒤, 2026-10-13 결정)
 - [ ] `pnpm data rewrite`(진입점 `scripts/data.mjs`, 새 스크립트): 대상 = `places` 의 `status = 'published' and not pet_policy_text_public and pet_policy_guide is null` — 2026-10-13 실측 38곳 · 출처 글 46편.
