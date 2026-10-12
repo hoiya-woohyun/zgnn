@@ -1,0 +1,2195 @@
+## 04984b4a-a2b9-4e5e-87bd-ea5a58b02f16
+public false
+policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":true,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":true,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":false,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:추가요금 있음 · warn:전화 확인
+evidence {"lines":["반려견 요금이 따로 붙어요(금액은 적혀 있지 않아요)","가기 전에 전화로 동반 조건을 확인해 주세요"],"note":null}
+env {"standalone":true,"yard":null,"fencedYard":null,"stairs":null}
+small4 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+small4+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+medium12 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+medium12+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+two5and8 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+two5and8+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+small6none cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+small6none+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+
+## 0f4e7643-a9aa-4b0f-8725-548ba4e0c138
+public false
+policy {"indoor":"outdoorOnly","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:야외만
+evidence {"lines":["야외 자리에서만 같이 있을 수 있어요"],"note":null}
+env null
+small4 cond | C1:cond:야외 자리만 가능해요 |  | 
+small4+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+medium12 cond | C1:cond:야외 자리만 가능해요 |  | 
+medium12+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+large28 cond | C1:cond:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor hard | H6:hard:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 cond | C1:cond:야외 자리만 가능해요 |  | 
+two5and8+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+small6none cond | C1:cond:야외 자리만 가능해요 |  | 
+small6none+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+
+## 15054579-6cb5-4bdf-be99-ed3067d7a338
+public false
+policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":true,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":false,"weightLimitKg":10,"maxDogs":2,"tiers":[{"maxWeightKg":10,"weightInclusive":false,"maxDogs":2}],"outdoorFree":false,"unlimitedDogs":false,"feeLines":["1마리당 2만원"],"feeRules":[{"basis":"perDog","label":"1마리당 2만원","maxKg":null,"minKg":null,"fromDog":null,"perNight":false,"amountWon":20000}]}
+gear {"bag":false,"stroller":false}
+badges cond:1마리당 2만원 · cond:10kg 미만 · cond:최대 2마리
+evidence {"lines":["반려견 요금이 따로 있어요 — 1마리당 2만원","10kg 미만인 강아지만 같이 갈 수 있어요","최대 2마리까지 같이 갈 수 있어요"],"note":null}
+env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null}
+small4 ok | I1:info:두부는 2만원 | 두부는 2만원 | 
+small4+indoor ok | I1:info:두부는 2만원 | 두부는 2만원 | 
+medium12 hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
+medium12+indoor hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
+large28 hard | H1:hard:대장이(28kg)는 10kg 미만 조건을 넘어요 |  | 
+large28+indoor hard | H1:hard:대장이(28kg)는 10kg 미만 조건을 넘어요 |  | 
+two5and8 ok | I1:info:콩이와 팥이는 4만원 (1마리당 2만원) | 콩이와 팥이는 4만원 (1마리당 2만원) | 
+two5and8+indoor ok | I1:info:콩이와 팥이는 4만원 (1마리당 2만원) | 콩이와 팥이는 4만원 (1마리당 2만원) | 
+small6none ok | I1:info:초코는 2만원 | 초코는 2만원 | 
+small6none+indoor ok | I1:info:초코는 2만원 | 초코는 2만원 | 
+
+## 1716dc79-ce8f-46d0-8330-7d8d84df92e5
+public false
+policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":true,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:예방접종 필수
+evidence {"lines":["예방접종을 마친 강아지만 들어갈 수 있어요"],"note":"루프탑은 반려동물 이용 불가"}
+env null
+small4 cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+small4+indoor cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+medium12 cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+medium12+indoor cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+two5and8 cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+two5and8+indoor cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+small6none cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+small6none+indoor cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+
+## 19325760-7ec7-4720-9193-eb27eadd51f3
+public false
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":true,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요 · cond:소형견만
+evidence {"lines":["실내에서는 케이지에 넣어야 해요","소형견만 같이 갈 수 있어요"],"note":null}
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H3:hard:소형견만 가능해요 / H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H3:hard:소형견만 가능해요 / H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H3:hard:소형견만 가능해요 / H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H3:hard:소형견만 가능해요 / H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 2194b705-4445-4c84-89cc-f6d8c2977653
+public false
+policy {"indoor":"free","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK
+evidence {"lines":["실내에도 같이 들어갈 수 있어요"],"note":null}
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 278ddc10-ceae-8108-b4a7-dd006de52649
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence raw
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 278ddc10-ceae-810e-9b37-c2a83b442865
+public true
+policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"weightLimitKg":7,"maxDogs":2,"tiers":[{"maxWeightKg":7,"weightInclusive":true,"maxDogs":2}],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:7kg 이하 · cond:최대 2마리
+evidence raw
+env {"standalone":null,"yard":null,"fencedYard":null,"stairs":null}
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 hard | H1:hard:보리(12kg)는 7kg 이하 조건을 넘어요 |  | 
+medium12+indoor hard | H1:hard:보리(12kg)는 7kg 이하 조건을 넘어요 |  | 
+large28 hard | H1:hard:대장이(28kg)는 7kg 이하 조건을 넘어요 |  | 
+large28+indoor hard | H1:hard:대장이(28kg)는 7kg 이하 조건을 넘어요 |  | 
+two5and8 hard | H1:hard:팥이(8kg)는 7kg 이하 조건을 넘어요 |  | 
+two5and8+indoor hard | H1:hard:팥이(8kg)는 7kg 이하 조건을 넘어요 |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 278ddc10-ceae-8111-87db-fa748222c1da
+public true
+policy {"indoor":"free","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK
+evidence raw
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 278ddc10-ceae-8111-8e39-f36e18f37029
+public true
+policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"weightLimitKg":7,"maxDogs":2,"tiers":[{"maxWeightKg":7,"weightInclusive":false,"maxDogs":2}],"outdoorFree":false,"unlimitedDogs":false,"feeLines":["1마리당 1만원"]}
+gear {"bag":false,"stroller":false}
+badges cond:1마리당 1만원 · cond:7kg 미만 · cond:최대 2마리
+evidence raw
+env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null}
+small4 ok | I1:info:두부는 1만원 | 두부는 1만원 | 1박 기준인지는 적혀 있지 않아요
+small4+indoor ok | I1:info:두부는 1만원 | 두부는 1만원 | 1박 기준인지는 적혀 있지 않아요
+medium12 hard | H1:hard:보리(12kg)는 7kg 미만 조건을 넘어요 |  | 
+medium12+indoor hard | H1:hard:보리(12kg)는 7kg 미만 조건을 넘어요 |  | 
+large28 hard | H1:hard:대장이(28kg)는 7kg 미만 조건을 넘어요 |  | 
+large28+indoor hard | H1:hard:대장이(28kg)는 7kg 미만 조건을 넘어요 |  | 
+two5and8 hard | H1:hard:팥이(8kg)는 7kg 미만 조건을 넘어요 |  | 
+two5and8+indoor hard | H1:hard:팥이(8kg)는 7kg 미만 조건을 넘어요 |  | 
+small6none ok | I1:info:초코는 1만원 | 초코는 1만원 | 1박 기준인지는 적혀 있지 않아요
+small6none+indoor ok | I1:info:초코는 1만원 | 초코는 1만원 | 1박 기준인지는 적혀 있지 않아요
+
+## 278ddc10-ceae-8113-b966-c14a1aceaa2c
+public true
+policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"weightLimitKg":7,"maxDogs":1,"tiers":[{"maxWeightKg":7,"weightInclusive":false,"maxDogs":1}],"outdoorFree":false,"unlimitedDogs":false,"feeLines":["(2만원 추가)"]}
+gear {"bag":false,"stroller":false}
+badges cond:추가 2만원 · cond:7kg 미만 · cond:최대 1마리
+evidence raw
+env {"standalone":null,"yard":null,"fencedYard":null,"stairs":null}
+small4 ok | I1:info:적힌 요금 · 2만원 추가 | 적힌 요금 · 2만원 추가 | 1박 기준인지는 적혀 있지 않아요
+small4+indoor ok | I1:info:적힌 요금 · 2만원 추가 | 적힌 요금 · 2만원 추가 | 1박 기준인지는 적혀 있지 않아요
+medium12 hard | H1:hard:보리(12kg)는 7kg 미만 조건을 넘어요 |  | 
+medium12+indoor hard | H1:hard:보리(12kg)는 7kg 미만 조건을 넘어요 |  | 
+large28 hard | H1:hard:대장이(28kg)는 7kg 미만 조건을 넘어요 |  | 
+large28+indoor hard | H1:hard:대장이(28kg)는 7kg 미만 조건을 넘어요 |  | 
+two5and8 hard | H1:hard:팥이(8kg)는 7kg 미만 조건을 넘어요 |  | 
+two5and8+indoor hard | H1:hard:팥이(8kg)는 7kg 미만 조건을 넘어요 |  | 
+small6none ok | I1:info:적힌 요금 · 2만원 추가 | 적힌 요금 · 2만원 추가 | 1박 기준인지는 적혀 있지 않아요
+small6none+indoor ok | I1:info:적힌 요금 · 2만원 추가 | 적힌 요금 · 2만원 추가 | 1박 기준인지는 적혀 있지 않아요
+
+## 278ddc10-ceae-8115-b521-c7966bb294e4
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence raw
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 278ddc10-ceae-8117-9d64-c4ca29d14941
+public true
+policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"weightLimitKg":10,"maxDogs":2,"tiers":[{"maxWeightKg":10,"weightInclusive":false,"maxDogs":2}],"outdoorFree":false,"unlimitedDogs":false,"feeLines":["1마리당 1만원"]}
+gear {"bag":false,"stroller":false}
+badges cond:1마리당 1만원 · cond:10kg 미만 · cond:최대 2마리
+evidence raw
+env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null}
+small4 ok | I1:info:두부는 1만원 | 두부는 1만원 | 1박 기준인지는 적혀 있지 않아요
+small4+indoor ok | I1:info:두부는 1만원 | 두부는 1만원 | 1박 기준인지는 적혀 있지 않아요
+medium12 hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
+medium12+indoor hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
+large28 hard | H1:hard:대장이(28kg)는 10kg 미만 조건을 넘어요 |  | 
+large28+indoor hard | H1:hard:대장이(28kg)는 10kg 미만 조건을 넘어요 |  | 
+two5and8 ok | I1:info:콩이와 팥이는 2만원 (1마리당 1만원) | 콩이와 팥이는 2만원 (1마리당 1만원) | 1박 기준인지는 적혀 있지 않아요
+two5and8+indoor ok | I1:info:콩이와 팥이는 2만원 (1마리당 1만원) | 콩이와 팥이는 2만원 (1마리당 1만원) | 1박 기준인지는 적혀 있지 않아요
+small6none ok | I1:info:초코는 1만원 | 초코는 1만원 | 1박 기준인지는 적혀 있지 않아요
+small6none+indoor ok | I1:info:초코는 1만원 | 초코는 1만원 | 1박 기준인지는 적혀 있지 않아요
+
+## 278ddc10-ceae-8117-a75c-fea607fde7cd
+public true
+policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":true,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges warn:확인된 정보 없음
+evidence raw
+env {"standalone":null,"yard":null,"fencedYard":null,"stairs":null}
+small4 unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+small4+indoor unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+medium12 unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+medium12+indoor unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+large28 unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+large28+indoor unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+two5and8 unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+two5and8+indoor unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+small6none unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+small6none+indoor unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+
+## 278ddc10-ceae-8119-a62f-f337fcc12b9c
+public true
+policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"weightLimitKg":10,"maxDogs":2,"tiers":[{"maxWeightKg":10,"weightInclusive":false,"maxDogs":2}],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:10kg 미만 · cond:최대 2마리
+evidence raw
+env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null}
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
+medium12+indoor hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
+large28 hard | H1:hard:대장이(28kg)는 10kg 미만 조건을 넘어요 |  | 
+large28+indoor hard | H1:hard:대장이(28kg)는 10kg 미만 조건을 넘어요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 278ddc10-ceae-811d-8d1b-e3eb89f19cd1
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence raw
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 278ddc10-ceae-811f-bcee-d05a31480417
+public true
+policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":true,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"weightLimitKg":5,"maxDogs":1,"tiers":[{"maxWeightKg":5,"weightInclusive":true,"maxDogs":1}],"outdoorFree":false,"unlimitedDogs":false,"feeLines":["숙박일 관계없이 청소비 5만원 추가"]}
+gear {"bag":false,"stroller":false}
+badges cond:청소비 5만원 · cond:5kg 이하 · cond:최대 1마리 · warn:전화 확인
+evidence raw
+env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null}
+small4 cond | C6:cond:방문 전 전화 확인이 필요해요 / I1:info:적힌 요금 · 숙박일 관계없이 청소비 5만원 추가 | 적힌 요금 · 숙박일 관계없이 청소비 5만원 추가 | 
+small4+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 / I1:info:적힌 요금 · 숙박일 관계없이 청소비 5만원 추가 | 적힌 요금 · 숙박일 관계없이 청소비 5만원 추가 | 
+medium12 hard | H1:hard:보리(12kg)는 5kg 이하 조건을 넘어요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+medium12+indoor hard | H1:hard:보리(12kg)는 5kg 이하 조건을 넘어요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+large28 hard | H1:hard:대장이(28kg)는 5kg 이하 조건을 넘어요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+large28+indoor hard | H1:hard:대장이(28kg)는 5kg 이하 조건을 넘어요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+two5and8 hard | H1:hard:팥이(8kg)는 5kg 이하 조건을 넘어요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+two5and8+indoor hard | H1:hard:팥이(8kg)는 5kg 이하 조건을 넘어요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+small6none hard | H1:hard:초코(6kg)는 5kg 이하 조건을 넘어요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+small6none+indoor hard | H1:hard:초코(6kg)는 5kg 이하 조건을 넘어요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+
+## 278ddc10-ceae-8120-8b42-f09a0995a1ea
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence raw
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 278ddc10-ceae-8124-a2a5-f1ea72225ff7
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence raw
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 278ddc10-ceae-8127-af41-c13ca56b5ded
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence raw
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 278ddc10-ceae-8129-ad4a-febab76cac54
+public true
+policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"weightLimitKg":10,"maxDogs":1,"tiers":[{"maxWeightKg":10,"weightInclusive":false,"maxDogs":1}],"outdoorFree":false,"unlimitedDogs":false,"feeLines":["(1만원 추가)"]}
+gear {"bag":false,"stroller":false}
+badges cond:추가 1만원 · cond:10kg 미만 · cond:최대 1마리
+evidence raw
+env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null}
+small4 ok | I1:info:적힌 요금 · 1만원 추가 | 적힌 요금 · 1만원 추가 | 1박 기준인지는 적혀 있지 않아요
+small4+indoor ok | I1:info:적힌 요금 · 1만원 추가 | 적힌 요금 · 1만원 추가 | 1박 기준인지는 적혀 있지 않아요
+medium12 hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
+medium12+indoor hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
+large28 hard | H1:hard:대장이(28kg)는 10kg 미만 조건을 넘어요 |  | 
+large28+indoor hard | H1:hard:대장이(28kg)는 10kg 미만 조건을 넘어요 |  | 
+two5and8 hard | H2:hard:10kg 미만은 1마리까지예요 |  | 
+two5and8+indoor hard | H2:hard:10kg 미만은 1마리까지예요 |  | 
+small6none ok | I1:info:적힌 요금 · 1만원 추가 | 적힌 요금 · 1만원 추가 | 1박 기준인지는 적혀 있지 않아요
+small6none+indoor ok | I1:info:적힌 요금 · 1만원 추가 | 적힌 요금 · 1만원 추가 | 1박 기준인지는 적혀 있지 않아요
+
+## 278ddc10-ceae-8129-bea9-e09a45eb1d15
+public true
+policy {"indoor":"unknown","leash":false,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":false,"feeFree":true,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"tiers":[],"outdoorFree":false,"unlimitedDogs":true,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:추가요금 없음 · ok:대형견 OK
+evidence raw
+env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null}
+small4 ok | I1:info:두부는 추가 요금 없음 | 두부는 추가 요금 없음 | 
+small4+indoor ok | I1:info:두부는 추가 요금 없음 | 두부는 추가 요금 없음 | 
+medium12 ok | I1:info:보리는 추가 요금 없음 | 보리는 추가 요금 없음 | 
+medium12+indoor ok | I1:info:보리는 추가 요금 없음 | 보리는 추가 요금 없음 | 
+large28 ok | I1:info:대장이는 추가 요금 없음 | 대장이는 추가 요금 없음 | 
+large28+indoor ok | I1:info:대장이는 추가 요금 없음 | 대장이는 추가 요금 없음 | 
+two5and8 ok | I1:info:콩이와 팥이는 추가 요금 없음 | 콩이와 팥이는 추가 요금 없음 | 
+two5and8+indoor ok | I1:info:콩이와 팥이는 추가 요금 없음 | 콩이와 팥이는 추가 요금 없음 | 
+small6none ok | I1:info:초코는 추가 요금 없음 | 초코는 추가 요금 없음 | 
+small6none+indoor ok | I1:info:초코는 추가 요금 없음 | 초코는 추가 요금 없음 | 
+
+## 278ddc10-ceae-812c-8e31-d536b01d718d
+public true
+policy {"indoor":"free","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK
+evidence raw
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 278ddc10-ceae-812c-bbd2-ce9e137669b3
+public true
+policy {"indoor":"unknown","leash":false,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"maxDogs":2,"tiers":[{"maxDogs":2}],"outdoorFree":false,"unlimitedDogs":false,"feeLines":["1마리당 3만원"]}
+gear {"bag":false,"stroller":false}
+badges cond:1마리당 3만원 · ok:대형견 OK · cond:최대 2마리
+evidence raw
+env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null}
+small4 ok | I1:info:두부는 3만원 | 두부는 3만원 | 1박 기준인지는 적혀 있지 않아요
+small4+indoor ok | I1:info:두부는 3만원 | 두부는 3만원 | 1박 기준인지는 적혀 있지 않아요
+medium12 ok | I1:info:보리는 3만원 | 보리는 3만원 | 1박 기준인지는 적혀 있지 않아요
+medium12+indoor ok | I1:info:보리는 3만원 | 보리는 3만원 | 1박 기준인지는 적혀 있지 않아요
+large28 ok | I1:info:대장이는 3만원 | 대장이는 3만원 | 1박 기준인지는 적혀 있지 않아요
+large28+indoor ok | I1:info:대장이는 3만원 | 대장이는 3만원 | 1박 기준인지는 적혀 있지 않아요
+two5and8 ok | I1:info:콩이와 팥이는 6만원 (1마리당 3만원) | 콩이와 팥이는 6만원 (1마리당 3만원) | 1박 기준인지는 적혀 있지 않아요
+two5and8+indoor ok | I1:info:콩이와 팥이는 6만원 (1마리당 3만원) | 콩이와 팥이는 6만원 (1마리당 3만원) | 1박 기준인지는 적혀 있지 않아요
+small6none ok | I1:info:초코는 3만원 | 초코는 3만원 | 1박 기준인지는 적혀 있지 않아요
+small6none+indoor ok | I1:info:초코는 3만원 | 초코는 3만원 | 1박 기준인지는 적혀 있지 않아요
+
+## 278ddc10-ceae-8133-abd3-c9b353b0978c
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence raw
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 278ddc10-ceae-8134-92a1-d78e8a84ce65
+public true
+policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":true,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges warn:확인된 정보 없음
+evidence raw
+env {"standalone":null,"yard":null,"fencedYard":null,"stairs":null}
+small4 unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+small4+indoor unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+medium12 unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+medium12+indoor unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+large28 unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+large28+indoor unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+two5and8 unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+two5and8+indoor unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+small6none unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+small6none+indoor unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+
+## 278ddc10-ceae-813e-90cb-c49215c7c684
+public true
+policy {"indoor":"free","leash":false,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK · ok:대형견 OK
+evidence raw
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 ok |  |  | 
+large28+indoor ok |  |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 278ddc10-ceae-813e-aa39-f5c8b9031c79
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence raw
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 278ddc10-ceae-8141-8fc4-ecefdf377c2c
+public true
+policy {"indoor":"free","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK
+evidence raw
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 278ddc10-ceae-8143-8d89-c35e11883ead
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence raw
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 278ddc10-ceae-8145-8f1d-dbbdafaa67ec
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence raw
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 cond | C4:cond:실내는 케이지, 야외는 자유예요 |  | 
+medium12+indoor hard | C4:hard:실내는 케이지, 야외는 자유예요 |  | 
+large28 cond | H4:cond:실내는 케이지 필수라 대형견은 야외 자리만 가능해요 / C4:cond:실내는 케이지, 야외는 자유예요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 야외 자리만 가능해요 / C4:hard:실내는 케이지, 야외는 자유예요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none cond | C4:cond:실내는 케이지, 야외는 자유예요 |  | 
+small6none+indoor hard | C4:hard:실내는 케이지, 야외는 자유예요 |  | 
+
+## 278ddc10-ceae-8146-85e5-fd90929fb34c
+public true
+policy {"indoor":"outdoorOnly","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:야외만
+evidence raw
+env null
+small4 cond | C1:cond:야외 자리만 가능해요 |  | 
+small4+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+medium12 cond | C1:cond:야외 자리만 가능해요 |  | 
+medium12+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+large28 cond | C1:cond:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor hard | H6:hard:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 cond | C1:cond:야외 자리만 가능해요 |  | 
+two5and8+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+small6none cond | C1:cond:야외 자리만 가능해요 |  | 
+small6none+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+
+## 278ddc10-ceae-814b-8874-f910bda10a1c
+public true
+policy {"indoor":"unknown","leash":false,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":false,"feeFree":true,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"maxDogs":2,"tiers":[{"maxDogs":2}],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:추가요금 없음 · ok:대형견 OK · cond:최대 2마리
+evidence raw
+env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null}
+small4 ok | I1:info:두부는 추가 요금 없음 | 두부는 추가 요금 없음 | 
+small4+indoor ok | I1:info:두부는 추가 요금 없음 | 두부는 추가 요금 없음 | 
+medium12 ok | I1:info:보리는 추가 요금 없음 | 보리는 추가 요금 없음 | 
+medium12+indoor ok | I1:info:보리는 추가 요금 없음 | 보리는 추가 요금 없음 | 
+large28 ok | I1:info:대장이는 추가 요금 없음 | 대장이는 추가 요금 없음 | 
+large28+indoor ok | I1:info:대장이는 추가 요금 없음 | 대장이는 추가 요금 없음 | 
+two5and8 ok | I1:info:콩이와 팥이는 추가 요금 없음 | 콩이와 팥이는 추가 요금 없음 | 
+two5and8+indoor ok | I1:info:콩이와 팥이는 추가 요금 없음 | 콩이와 팥이는 추가 요금 없음 | 
+small6none ok | I1:info:초코는 추가 요금 없음 | 초코는 추가 요금 없음 | 
+small6none+indoor ok | I1:info:초코는 추가 요금 없음 | 초코는 추가 요금 없음 | 
+
+## 278ddc10-ceae-8150-9b14-c3de29aa3898
+public true
+policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"weightLimitKg":10,"maxDogs":2,"tiers":[{"maxWeightKg":10,"weightInclusive":true,"maxDogs":2}],"outdoorFree":false,"unlimitedDogs":false,"feeLines":["1마리당 5만원"]}
+gear {"bag":false,"stroller":false}
+badges cond:1마리당 5만원 · cond:10kg 이하 · cond:최대 2마리
+evidence raw
+env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null}
+small4 ok | I1:info:두부는 5만원 | 두부는 5만원 | 1박 기준인지는 적혀 있지 않아요
+small4+indoor ok | I1:info:두부는 5만원 | 두부는 5만원 | 1박 기준인지는 적혀 있지 않아요
+medium12 hard | H1:hard:보리(12kg)는 10kg 이하 조건을 넘어요 |  | 
+medium12+indoor hard | H1:hard:보리(12kg)는 10kg 이하 조건을 넘어요 |  | 
+large28 hard | H1:hard:대장이(28kg)는 10kg 이하 조건을 넘어요 |  | 
+large28+indoor hard | H1:hard:대장이(28kg)는 10kg 이하 조건을 넘어요 |  | 
+two5and8 ok | I1:info:콩이와 팥이는 10만원 (1마리당 5만원) | 콩이와 팥이는 10만원 (1마리당 5만원) | 1박 기준인지는 적혀 있지 않아요
+two5and8+indoor ok | I1:info:콩이와 팥이는 10만원 (1마리당 5만원) | 콩이와 팥이는 10만원 (1마리당 5만원) | 1박 기준인지는 적혀 있지 않아요
+small6none ok | I1:info:초코는 5만원 | 초코는 5만원 | 1박 기준인지는 적혀 있지 않아요
+small6none+indoor ok | I1:info:초코는 5만원 | 초코는 5만원 | 1박 기준인지는 적혀 있지 않아요
+
+## 278ddc10-ceae-8154-b98c-e740d70ee3e4
+public true
+policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":true,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":["1마리당 3만원"]}
+gear {"bag":false,"stroller":false}
+badges cond:1마리당 3만원 · cond:소형견만
+evidence raw
+env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null}
+small4 ok | I1:info:두부는 3만원 | 두부는 3만원 | 1박 기준인지는 적혀 있지 않아요
+small4+indoor ok | I1:info:두부는 3만원 | 두부는 3만원 | 1박 기준인지는 적혀 있지 않아요
+medium12 hard | H3:hard:소형견만 가능해요 |  | 
+medium12+indoor hard | H3:hard:소형견만 가능해요 |  | 
+large28 hard | H3:hard:소형견만 가능해요 |  | 
+large28+indoor hard | H3:hard:소형견만 가능해요 |  | 
+two5and8 ok | I1:info:콩이와 팥이는 6만원 (1마리당 3만원) | 콩이와 팥이는 6만원 (1마리당 3만원) | 1박 기준인지는 적혀 있지 않아요
+two5and8+indoor ok | I1:info:콩이와 팥이는 6만원 (1마리당 3만원) | 콩이와 팥이는 6만원 (1마리당 3만원) | 1박 기준인지는 적혀 있지 않아요
+small6none ok | I1:info:초코는 3만원 | 초코는 3만원 | 1박 기준인지는 적혀 있지 않아요
+small6none+indoor ok | I1:info:초코는 3만원 | 초코는 3만원 | 1박 기준인지는 적혀 있지 않아요
+
+## 278ddc10-ceae-8155-bfa9-c12d8a69b9c6
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence raw
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 278ddc10-ceae-8159-8727-dad69655676d
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence raw
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 278ddc10-ceae-815b-8c0b-dc86d14ce964
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence raw
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 278ddc10-ceae-8160-9d36-c27fe4e7bc54
+public true
+policy {"indoor":"free","leash":true,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK · cond:리드줄
+evidence raw
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 278ddc10-ceae-8161-b4ec-cc9781707615
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":true,"stroller":true}
+badges cond:가방·유모차 필요
+evidence raw
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 cond | C4:cond:실내는 케이지, 야외는 자유예요 |  | 
+medium12+indoor hard | C4:hard:실내는 케이지, 야외는 자유예요 |  | 
+large28 cond | H4:cond:실내는 케이지 필수라 대형견은 야외 자리만 가능해요 / C4:cond:실내는 케이지, 야외는 자유예요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 야외 자리만 가능해요 / C4:hard:실내는 케이지, 야외는 자유예요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none cond | C4:cond:실내는 케이지, 야외는 자유예요 |  | 
+small6none+indoor hard | C4:hard:실내는 케이지, 야외는 자유예요 |  | 
+
+## 278ddc10-ceae-8168-9bff-e49aa95facb0
+public true
+policy {"indoor":"free","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK
+evidence raw
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 278ddc10-ceae-8171-a585-e49734667b8a
+public true
+policy {"indoor":"free","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK
+evidence raw
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 278ddc10-ceae-8172-877d-e2e03c64acfc
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":true,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요 · ok:중형견 OK
+evidence raw
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 278ddc10-ceae-817e-a3a9-e105f0cfae13
+public true
+policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"weightLimitKg":15,"maxDogs":2,"tiers":[{"maxWeightKg":15,"weightInclusive":false,"maxDogs":2}],"outdoorFree":false,"unlimitedDogs":false,"feeLines":["1마리당 3만원"]}
+gear {"bag":false,"stroller":false}
+badges cond:1마리당 3만원 · cond:15kg 미만 · cond:최대 2마리
+evidence raw
+env {"standalone":null,"yard":null,"fencedYard":null,"stairs":null}
+small4 ok | I1:info:두부는 3만원 | 두부는 3만원 | 1박 기준인지는 적혀 있지 않아요
+small4+indoor ok | I1:info:두부는 3만원 | 두부는 3만원 | 1박 기준인지는 적혀 있지 않아요
+medium12 ok | I1:info:보리는 3만원 | 보리는 3만원 | 1박 기준인지는 적혀 있지 않아요
+medium12+indoor ok | I1:info:보리는 3만원 | 보리는 3만원 | 1박 기준인지는 적혀 있지 않아요
+large28 hard | H1:hard:대장이(28kg)는 15kg 미만 조건을 넘어요 |  | 
+large28+indoor hard | H1:hard:대장이(28kg)는 15kg 미만 조건을 넘어요 |  | 
+two5and8 ok | I1:info:콩이와 팥이는 6만원 (1마리당 3만원) | 콩이와 팥이는 6만원 (1마리당 3만원) | 1박 기준인지는 적혀 있지 않아요
+two5and8+indoor ok | I1:info:콩이와 팥이는 6만원 (1마리당 3만원) | 콩이와 팥이는 6만원 (1마리당 3만원) | 1박 기준인지는 적혀 있지 않아요
+small6none ok | I1:info:초코는 3만원 | 초코는 3만원 | 1박 기준인지는 적혀 있지 않아요
+small6none+indoor ok | I1:info:초코는 3만원 | 초코는 3만원 | 1박 기준인지는 적혀 있지 않아요
+
+## 278ddc10-ceae-8186-af44-f5be0a0174e8
+public true
+policy {"indoor":"free","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":true,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK · warn:전화 확인
+evidence raw
+env null
+small4 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+small4+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+medium12 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+medium12+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+two5and8 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+two5and8+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+small6none cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+small6none+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+
+## 278ddc10-ceae-818a-a4a2-cbe4e40a430b
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence raw
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 278ddc10-ceae-818c-9079-de7669613029
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence raw
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 278ddc10-ceae-8192-8c3e-f40ffc9b39e1
+public true
+policy {"indoor":"free","leash":true,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK · ok:대형견 OK · cond:리드줄
+evidence raw
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 ok |  |  | 
+large28+indoor ok |  |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 278ddc10-ceae-8192-be51-fe60cf4ee9be
+public true
+policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"weightLimitKg":15,"maxDogs":3,"tiers":[{"maxWeightKg":15,"weightInclusive":true,"maxDogs":3}],"outdoorFree":false,"unlimitedDogs":false,"feeLines":["1마리 이상 2만원 추가 (마리당)"]}
+gear {"bag":false,"stroller":false}
+badges cond:1마리당 2만원 · cond:15kg 이하 · cond:최대 3마리
+evidence raw
+env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null}
+small4 ok | I1:info:두부는 2만원 | 두부는 2만원 | 1박 기준인지는 적혀 있지 않아요
+small4+indoor ok | I1:info:두부는 2만원 | 두부는 2만원 | 1박 기준인지는 적혀 있지 않아요
+medium12 ok | I1:info:보리는 2만원 | 보리는 2만원 | 1박 기준인지는 적혀 있지 않아요
+medium12+indoor ok | I1:info:보리는 2만원 | 보리는 2만원 | 1박 기준인지는 적혀 있지 않아요
+large28 hard | H1:hard:대장이(28kg)는 15kg 이하 조건을 넘어요 |  | 
+large28+indoor hard | H1:hard:대장이(28kg)는 15kg 이하 조건을 넘어요 |  | 
+two5and8 ok | I1:info:콩이와 팥이는 4만원 (1마리당 2만원) | 콩이와 팥이는 4만원 (1마리당 2만원) | 1박 기준인지는 적혀 있지 않아요
+two5and8+indoor ok | I1:info:콩이와 팥이는 4만원 (1마리당 2만원) | 콩이와 팥이는 4만원 (1마리당 2만원) | 1박 기준인지는 적혀 있지 않아요
+small6none ok | I1:info:초코는 2만원 | 초코는 2만원 | 1박 기준인지는 적혀 있지 않아요
+small6none+indoor ok | I1:info:초코는 2만원 | 초코는 2만원 | 1박 기준인지는 적혀 있지 않아요
+
+## 278ddc10-ceae-8198-a263-dbec4a9f44ca
+public true
+policy {"indoor":"free","leash":true,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK · ok:대형견 OK · cond:리드줄
+evidence raw
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 ok |  |  | 
+large28+indoor ok |  |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 278ddc10-ceae-8198-aac4-f2cb97e365ec
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence raw
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 278ddc10-ceae-819c-bab9-dea5ccc91d1f
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence raw
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 278ddc10-ceae-81a0-b593-cfdadcc5fbac
+public true
+policy {"indoor":"free","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK
+evidence raw
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 278ddc10-ceae-81a3-bb70-e7a6cc040bf8
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요 · ok:대형견 OK
+evidence raw
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:케이지가 없어 실내는 어려워요 |  | 
+large28+indoor hard | H4:hard:케이지가 없어 실내는 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 278ddc10-ceae-81a5-bdc6-f899283c1a5b
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence raw
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 278ddc10-ceae-81a7-a6db-de90d073a673
+public true
+policy {"indoor":"free","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK
+evidence raw
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 278ddc10-ceae-81aa-801a-fb6184c3b397
+public true
+policy {"indoor":"outdoorOnly","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:야외만
+evidence raw
+env null
+small4 cond | C1:cond:야외 자리만 가능해요 |  | 
+small4+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+medium12 cond | C1:cond:야외 자리만 가능해요 |  | 
+medium12+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+large28 cond | C1:cond:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor hard | H6:hard:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 cond | C1:cond:야외 자리만 가능해요 |  | 
+two5and8+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+small6none cond | C1:cond:야외 자리만 가능해요 |  | 
+small6none+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+
+## 278ddc10-ceae-81b1-af5d-ca8dc858c6d7
+public true
+policy {"indoor":"unknown","leash":false,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":["1마리당 2만원"]}
+gear {"bag":false,"stroller":false}
+badges cond:1마리당 2만원 · ok:대형견 OK
+evidence raw
+env {"standalone":null,"yard":null,"fencedYard":null,"stairs":null}
+small4 ok | I1:info:두부는 2만원 | 두부는 2만원 | 1박 기준인지는 적혀 있지 않아요
+small4+indoor ok | I1:info:두부는 2만원 | 두부는 2만원 | 1박 기준인지는 적혀 있지 않아요
+medium12 ok | I1:info:보리는 2만원 | 보리는 2만원 | 1박 기준인지는 적혀 있지 않아요
+medium12+indoor ok | I1:info:보리는 2만원 | 보리는 2만원 | 1박 기준인지는 적혀 있지 않아요
+large28 ok | I1:info:대장이는 2만원 | 대장이는 2만원 | 1박 기준인지는 적혀 있지 않아요
+large28+indoor ok | I1:info:대장이는 2만원 | 대장이는 2만원 | 1박 기준인지는 적혀 있지 않아요
+two5and8 ok | I1:info:콩이와 팥이는 4만원 (1마리당 2만원) | 콩이와 팥이는 4만원 (1마리당 2만원) | 1박 기준인지는 적혀 있지 않아요
+two5and8+indoor ok | I1:info:콩이와 팥이는 4만원 (1마리당 2만원) | 콩이와 팥이는 4만원 (1마리당 2만원) | 1박 기준인지는 적혀 있지 않아요
+small6none ok | I1:info:초코는 2만원 | 초코는 2만원 | 1박 기준인지는 적혀 있지 않아요
+small6none+indoor ok | I1:info:초코는 2만원 | 초코는 2만원 | 1박 기준인지는 적혀 있지 않아요
+
+## 278ddc10-ceae-81b2-b145-f186771b8e67
+public true
+policy {"indoor":"free","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK
+evidence raw
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 278ddc10-ceae-81b7-a8cf-cd39afb7b8f7
+public true
+policy {"indoor":"free","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":true,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK · warn:전화 확인
+evidence raw
+env null
+small4 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+small4+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+medium12 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+medium12+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+two5and8 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+two5and8+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+small6none cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+small6none+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+
+## 278ddc10-ceae-81b9-8cfc-c1b0274892a7
+public true
+policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":["1마리당 3만원","(2마리 또는 10kg 이상 4만원)"]}
+gear {"bag":false,"stroller":false}
+badges cond:1마리당 3만원 · cond:2마리 또는 10kg 이상 4만원
+evidence raw
+env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null}
+small4 ok | I1:info:두부는 3만원 (1마리당 3만원) | 두부는 3만원 (1마리당 3만원) | 1박 기준인지는 적혀 있지 않아요
+small4+indoor ok | I1:info:두부는 3만원 (1마리당 3만원) | 두부는 3만원 (1마리당 3만원) | 1박 기준인지는 적혀 있지 않아요
+medium12 ok | I1:info:보리는 4만원 (2마리 또는 10kg 이상 4만원) | 보리는 4만원 (2마리 또는 10kg 이상 4만원) | 1박 기준인지는 적혀 있지 않아요
+medium12+indoor ok | I1:info:보리는 4만원 (2마리 또는 10kg 이상 4만원) | 보리는 4만원 (2마리 또는 10kg 이상 4만원) | 1박 기준인지는 적혀 있지 않아요
+large28 cond | C5:cond:10kg 이상 요금이 적혀 있어요. 28kg 도 되는지 확인해 주세요 / I1:info:받아 준다면 대장이는 4만원 (2마리 또는 10kg 이상 4만원) | 받아 준다면 대장이는 4만원 (2마리 또는 10kg 이상 4만원) | 1박 기준인지는 적혀 있지 않아요
+large28+indoor cond | C5:cond:10kg 이상 요금이 적혀 있어요. 28kg 도 되는지 확인해 주세요 / I1:info:받아 준다면 대장이는 4만원 (2마리 또는 10kg 이상 4만원) | 받아 준다면 대장이는 4만원 (2마리 또는 10kg 이상 4만원) | 1박 기준인지는 적혀 있지 않아요
+two5and8 ok | I1:info:콩이와 팥이는 4만~7만원 (1마리당 3만원 · 2마리 또는 10kg 이상 4만원) | 콩이와 팥이는 4만~7만원 (1마리당 3만원 · 2마리 또는 10kg 이상 4만원) | 1박 기준인지는 적혀 있지 않아요
+two5and8+indoor ok | I1:info:콩이와 팥이는 4만~7만원 (1마리당 3만원 · 2마리 또는 10kg 이상 4만원) | 콩이와 팥이는 4만~7만원 (1마리당 3만원 · 2마리 또는 10kg 이상 4만원) | 1박 기준인지는 적혀 있지 않아요
+small6none ok | I1:info:초코는 3만원 (1마리당 3만원) | 초코는 3만원 (1마리당 3만원) | 1박 기준인지는 적혀 있지 않아요
+small6none+indoor ok | I1:info:초코는 3만원 (1마리당 3만원) | 초코는 3만원 (1마리당 3만원) | 1박 기준인지는 적혀 있지 않아요
+
+## 278ddc10-ceae-81bd-800f-d915b9ecc8b9
+public true
+policy {"indoor":"unknown","leash":false,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":true,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:대형견 OK · warn:전화 확인
+evidence raw
+env {"standalone":true,"yard":null,"fencedYard":null,"stairs":null}
+small4 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+small4+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+medium12 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+medium12+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+large28 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+large28+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+two5and8 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+two5and8+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+small6none cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+small6none+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+
+## 278ddc10-ceae-81bd-97a1-f2b808341e6a
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence raw
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 278ddc10-ceae-81c0-8734-e6bd0061c289
+public true
+policy {"indoor":"free","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK
+evidence raw
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 278ddc10-ceae-81c8-8e9f-c37fb7419e5d
+public true
+policy {"indoor":"outdoorOnly","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:야외만
+evidence raw
+env null
+small4 cond | C1:cond:야외 자리만 가능해요 |  | 
+small4+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+medium12 cond | C1:cond:야외 자리만 가능해요 |  | 
+medium12+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+large28 cond | C1:cond:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor hard | H6:hard:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 cond | C1:cond:야외 자리만 가능해요 |  | 
+two5and8+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+small6none cond | C1:cond:야외 자리만 가능해요 |  | 
+small6none+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+
+## 278ddc10-ceae-81cc-acc2-d947cdc49681
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence raw
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 278ddc10-ceae-81ce-b287-fa0526ba0f13
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence raw
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 278ddc10-ceae-81d9-b584-fbbc031c91be
+public true
+policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"weightLimitKg":10,"maxDogs":2,"tiers":[{"maxWeightKg":10,"weightInclusive":false,"maxDogs":2}],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:10kg 미만 · cond:최대 2마리
+evidence raw
+env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null}
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
+medium12+indoor hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
+large28 hard | H1:hard:대장이(28kg)는 10kg 미만 조건을 넘어요 |  | 
+large28+indoor hard | H1:hard:대장이(28kg)는 10kg 미만 조건을 넘어요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 278ddc10-ceae-81e1-bc1c-e8d4fa3db693
+public true
+policy {"indoor":"free","leash":true,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK · cond:리드줄
+evidence raw
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 278ddc10-ceae-81e3-a299-fd3f2515be4f
+public true
+policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"maxDogs":2,"tiers":[{"maxDogs":2}],"outdoorFree":false,"unlimitedDogs":false,"feeLines":["1~5kg 1만원","6~10kg 1.5만원"]}
+gear {"bag":false,"stroller":false}
+badges cond:1~5kg 1만원 · cond:6~10kg 1.5만원 · cond:최대 2마리
+evidence raw
+env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null}
+small4 ok | I1:info:두부는 1만원 (1~5kg) | 두부는 1만원 (1~5kg) | 1박 기준인지는 적혀 있지 않아요
+small4+indoor ok | I1:info:두부는 1만원 (1~5kg) | 두부는 1만원 (1~5kg) | 1박 기준인지는 적혀 있지 않아요
+medium12 cond | C10:cond:10kg 초과 요금이 적혀 있지 않아요. 보리(12kg)도 되는지 확인해 주세요 |  | 
+medium12+indoor cond | C10:cond:10kg 초과 요금이 적혀 있지 않아요. 보리(12kg)도 되는지 확인해 주세요 |  | 
+large28 cond | C10:cond:10kg 초과 요금이 적혀 있지 않아요. 대장이(28kg)도 되는지 확인해 주세요 |  | 
+large28+indoor cond | C10:cond:10kg 초과 요금이 적혀 있지 않아요. 대장이(28kg)도 되는지 확인해 주세요 |  | 
+two5and8 ok | I1:info:콩이와 팥이는 2.5만원 (1~5kg 1만원 · 6~10kg 1.5만원) | 콩이와 팥이는 2.5만원 (1~5kg 1만원 · 6~10kg 1.5만원) | 1박 기준인지는 적혀 있지 않아요
+two5and8+indoor ok | I1:info:콩이와 팥이는 2.5만원 (1~5kg 1만원 · 6~10kg 1.5만원) | 콩이와 팥이는 2.5만원 (1~5kg 1만원 · 6~10kg 1.5만원) | 1박 기준인지는 적혀 있지 않아요
+small6none ok | I1:info:초코는 1.5만원 (6~10kg) | 초코는 1.5만원 (6~10kg) | 1박 기준인지는 적혀 있지 않아요
+small6none+indoor ok | I1:info:초코는 1.5만원 (6~10kg) | 초코는 1.5만원 (6~10kg) | 1박 기준인지는 적혀 있지 않아요
+
+## 278ddc10-ceae-81e4-bb35-dfdefdcdd40e
+public true
+policy {"indoor":"free","leash":true,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK · cond:리드줄
+evidence raw
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 278ddc10-ceae-81e6-9c7a-df5dc9458d79
+public true
+policy {"indoor":"free","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK
+evidence raw
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 278ddc10-ceae-81e7-98e2-e860a2daf60b
+public true
+policy {"indoor":"free","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK
+evidence raw
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 278ddc10-ceae-81e9-9b10-d8e8bfadf36e
+public true
+policy {"indoor":"free","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK
+evidence raw
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 278ddc10-ceae-81ec-8982-f66e2b6b2999
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence raw
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 278ddc10-ceae-81ed-9ff5-d3f7e4e1a263
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence raw
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 278ddc10-ceae-81f0-a3b3-ce47153f1ec1
+public true
+policy {"indoor":"free","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK
+evidence raw
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 278ddc10-ceae-81f7-95d9-ef29d3e794b2
+public true
+policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":true,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges warn:확인된 정보 없음
+evidence raw
+env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null}
+small4 unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+small4+indoor unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+medium12 unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+medium12+indoor unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+large28 unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+large28+indoor unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+two5and8 unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+two5and8+indoor unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+small6none unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+small6none+indoor unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+
+## 278ddc10-ceae-81f7-b483-d3d441d7dd0e
+public true
+policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":["1마리당 5만원"]}
+gear {"bag":false,"stroller":false}
+badges cond:1마리당 5만원
+evidence raw
+env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null}
+small4 ok | I1:info:두부는 5만원 | 두부는 5만원 | 1박 기준인지는 적혀 있지 않아요
+small4+indoor ok | I1:info:두부는 5만원 | 두부는 5만원 | 1박 기준인지는 적혀 있지 않아요
+medium12 ok | I1:info:보리는 5만원 | 보리는 5만원 | 1박 기준인지는 적혀 있지 않아요
+medium12+indoor ok | I1:info:보리는 5만원 | 보리는 5만원 | 1박 기준인지는 적혀 있지 않아요
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / I1:info:받아 준다면 대장이는 5만원 | 받아 준다면 대장이는 5만원 | 1박 기준인지는 적혀 있지 않아요
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / I1:info:받아 준다면 대장이는 5만원 | 받아 준다면 대장이는 5만원 | 1박 기준인지는 적혀 있지 않아요
+two5and8 ok | I1:info:콩이와 팥이는 10만원 (1마리당 5만원) | 콩이와 팥이는 10만원 (1마리당 5만원) | 1박 기준인지는 적혀 있지 않아요
+two5and8+indoor ok | I1:info:콩이와 팥이는 10만원 (1마리당 5만원) | 콩이와 팥이는 10만원 (1마리당 5만원) | 1박 기준인지는 적혀 있지 않아요
+small6none ok | I1:info:초코는 5만원 | 초코는 5만원 | 1박 기준인지는 적혀 있지 않아요
+small6none+indoor ok | I1:info:초코는 5만원 | 초코는 5만원 | 1박 기준인지는 적혀 있지 않아요
+
+## 278ddc10-ceae-81f7-bc38-f93a8ab75ec6
+public true
+policy {"indoor":"free","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK
+evidence raw
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 278ddc10-ceae-81f9-a98a-eef12e80e3a4
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence raw
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 278ddc10-ceae-81fb-9a7f-f431cda4dee1
+public true
+policy {"indoor":"free","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK
+evidence raw
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 278ddc10-ceae-81fe-abea-eac5bbdbf35f
+public true
+policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":true,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"weightLimitKg":20,"maxDogs":2,"tiers":[{"maxWeightKg":10,"weightInclusive":false,"maxDogs":2},{"maxWeightKg":20,"weightInclusive":false,"maxDogs":1}],"outdoorFree":false,"unlimitedDogs":false,"feeLines":["1마리당 1-2만원"]}
+gear {"bag":false,"stroller":false}
+badges cond:1마리당 1~2만원 · ok:중형견 OK · cond:20kg 미만 · cond:최대 2마리
+evidence raw
+env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null}
+small4 ok | I1:info:적힌 요금 · 1마리당 1-2만원 | 적힌 요금 · 1마리당 1-2만원 | 1박 기준인지는 적혀 있지 않아요
+small4+indoor ok | I1:info:적힌 요금 · 1마리당 1-2만원 | 적힌 요금 · 1마리당 1-2만원 | 1박 기준인지는 적혀 있지 않아요
+medium12 ok | I1:info:적힌 요금 · 1마리당 1-2만원 | 적힌 요금 · 1마리당 1-2만원 | 1박 기준인지는 적혀 있지 않아요
+medium12+indoor ok | I1:info:적힌 요금 · 1마리당 1-2만원 | 적힌 요금 · 1마리당 1-2만원 | 1박 기준인지는 적혀 있지 않아요
+large28 hard | H1:hard:대장이(28kg)는 20kg 미만 조건을 넘어요 |  | 
+large28+indoor hard | H1:hard:대장이(28kg)는 20kg 미만 조건을 넘어요 |  | 
+two5and8 ok | I1:info:적힌 요금 · 1마리당 1-2만원 | 적힌 요금 · 1마리당 1-2만원 | 1박 기준인지는 적혀 있지 않아요
+two5and8+indoor ok | I1:info:적힌 요금 · 1마리당 1-2만원 | 적힌 요금 · 1마리당 1-2만원 | 1박 기준인지는 적혀 있지 않아요
+small6none ok | I1:info:적힌 요금 · 1마리당 1-2만원 | 적힌 요금 · 1마리당 1-2만원 | 1박 기준인지는 적혀 있지 않아요
+small6none+indoor ok | I1:info:적힌 요금 · 1마리당 1-2만원 | 적힌 요금 · 1마리당 1-2만원 | 1박 기준인지는 적혀 있지 않아요
+
+## 278ddc10-ceae-81ff-9b0b-ddf30c1d5347
+public true
+policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":true,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges warn:확인된 정보 없음
+evidence raw
+env {"standalone":null,"yard":null,"fencedYard":null,"stairs":null}
+small4 unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+small4+indoor unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+medium12 unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+medium12+indoor unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+large28 unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+large28+indoor unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+two5and8 unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+two5and8+indoor unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+small6none unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+small6none+indoor unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
+
+## 27bddc10-ceae-8011-ac5d-fbf6364366c4
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence raw
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 27bddc10-ceae-802a-9feb-d9e02de8930f
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence raw
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 27bddc10-ceae-8045-a4ff-f79610004d2f
+public true
+policy {"indoor":"free","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK
+evidence raw
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 27bddc10-ceae-804a-a692-ecf5df7410fb
+public true
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence raw
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 27bddc10-ceae-8081-b9c2-f20b8d3ea045
+public true
+policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"weightLimitKg":10,"maxDogs":1,"tiers":[{"maxWeightKg":10,"weightInclusive":false,"maxDogs":1}],"outdoorFree":false,"unlimitedDogs":false,"feeLines":["(3만원 추가)"]}
+gear {"bag":false,"stroller":false}
+badges cond:추가 3만원 · cond:10kg 미만 · cond:최대 1마리
+evidence raw
+env {"standalone":true,"yard":null,"fencedYard":null,"stairs":null}
+small4 ok | I1:info:적힌 요금 · 3만원 추가 | 적힌 요금 · 3만원 추가 | 1박 기준인지는 적혀 있지 않아요
+small4+indoor ok | I1:info:적힌 요금 · 3만원 추가 | 적힌 요금 · 3만원 추가 | 1박 기준인지는 적혀 있지 않아요
+medium12 hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
+medium12+indoor hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
+large28 hard | H1:hard:대장이(28kg)는 10kg 미만 조건을 넘어요 |  | 
+large28+indoor hard | H1:hard:대장이(28kg)는 10kg 미만 조건을 넘어요 |  | 
+two5and8 hard | H2:hard:10kg 미만은 1마리까지예요 |  | 
+two5and8+indoor hard | H2:hard:10kg 미만은 1마리까지예요 |  | 
+small6none ok | I1:info:적힌 요금 · 3만원 추가 | 적힌 요금 · 3만원 추가 | 1박 기준인지는 적혀 있지 않아요
+small6none+indoor ok | I1:info:적힌 요금 · 3만원 추가 | 적힌 요금 · 3만원 추가 | 1박 기준인지는 적혀 있지 않아요
+
+## 27bddc10-ceae-80cc-a07e-d66a724b4a6a
+public true
+policy {"indoor":"free","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK
+evidence raw
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 318eba20-79ff-44a9-9a34-a53c28968051
+public false
+policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":true,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":false,"weightLimitKg":15,"maxDogs":2,"tiers":[{"maxWeightKg":15,"weightInclusive":true,"maxDogs":2}],"outdoorFree":false,"unlimitedDogs":false,"feeLines":["동반 2만원"],"feeRules":[{"basis":"flat","label":"동반 2만원","maxKg":null,"minKg":null,"fromDog":null,"perNight":false,"amountWon":20000}]}
+gear {"bag":false,"stroller":false}
+badges cond:동반 2만원 · cond:15kg 이하 · cond:최대 2마리
+evidence {"lines":["반려견 요금이 따로 있어요 — 동반 2만원","15kg 이하인 강아지만 같이 갈 수 있어요","최대 2마리까지 같이 갈 수 있어요"],"note":null}
+env {"standalone":true,"yard":true,"fencedYard":null,"stairs":false}
+small4 ok | I1:info:두부는 2만원 | 두부는 2만원 | 1박 기준인지는 적혀 있지 않아요
+small4+indoor ok | I1:info:두부는 2만원 | 두부는 2만원 | 1박 기준인지는 적혀 있지 않아요
+medium12 ok | I1:info:보리는 2만원 | 보리는 2만원 | 1박 기준인지는 적혀 있지 않아요
+medium12+indoor ok | I1:info:보리는 2만원 | 보리는 2만원 | 1박 기준인지는 적혀 있지 않아요
+large28 hard | H1:hard:대장이(28kg)는 15kg 이하 조건을 넘어요 |  | 
+large28+indoor hard | H1:hard:대장이(28kg)는 15kg 이하 조건을 넘어요 |  | 
+two5and8 ok | I1:info:콩이와 팥이는 2만원 (동반 2만원) | 콩이와 팥이는 2만원 (동반 2만원) | 1박 기준인지는 적혀 있지 않아요
+two5and8+indoor ok | I1:info:콩이와 팥이는 2만원 (동반 2만원) | 콩이와 팥이는 2만원 (동반 2만원) | 1박 기준인지는 적혀 있지 않아요
+small6none ok | I1:info:초코는 2만원 | 초코는 2만원 | 1박 기준인지는 적혀 있지 않아요
+small6none+indoor ok | I1:info:초코는 2만원 | 초코는 2만원 | 1박 기준인지는 적혀 있지 않아요
+
+## 3b9549a5-22dd-4832-9b95-7f9ffa45155c
+public false
+policy {"indoor":"outdoorOnly","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":true,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:야외만 · cond:예방접종 필수
+evidence {"lines":["야외 자리에서만 같이 있을 수 있어요","예방접종을 마친 강아지만 들어갈 수 있어요"],"note":null}
+env null
+small4 cond | C1:cond:야외 자리만 가능해요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+small4+indoor hard | H6:hard:야외 자리만 가능해요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+medium12 cond | C1:cond:야외 자리만 가능해요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+medium12+indoor hard | H6:hard:야외 자리만 가능해요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+large28 cond | C1:cond:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+large28+indoor hard | H6:hard:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+two5and8 cond | C1:cond:야외 자리만 가능해요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+two5and8+indoor hard | H6:hard:야외 자리만 가능해요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+small6none cond | C1:cond:야외 자리만 가능해요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+small6none+indoor hard | H6:hard:야외 자리만 가능해요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+
+## 3df5b54a-9ad0-4c86-bdab-fdf7f03e4a96
+public false
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":true,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요 · warn:전화 확인
+evidence {"lines":["실내에서는 케이지에 넣어야 해요","가기 전에 전화로 동반 조건을 확인해 주세요"],"note":null}
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+
+## 3f87c848-c268-47b6-b6a7-5e726dc5ca30
+public false
+policy {"indoor":"outdoorOnly","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:야외만
+evidence {"lines":["야외 자리에서만 같이 있을 수 있어요"],"note":null}
+env null
+small4 cond | C1:cond:야외 자리만 가능해요 |  | 
+small4+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+medium12 cond | C1:cond:야외 자리만 가능해요 |  | 
+medium12+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+large28 cond | C1:cond:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor hard | H6:hard:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 cond | C1:cond:야외 자리만 가능해요 |  | 
+two5and8+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+small6none cond | C1:cond:야외 자리만 가능해요 |  | 
+small6none+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+
+## 445583a6-8acf-4806-bab8-5412967d119b
+public false
+policy {"indoor":"outdoorOnly","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:야외만
+evidence {"lines":["야외 자리에서만 같이 있을 수 있어요"],"note":null}
+env null
+small4 cond | C1:cond:야외 자리만 가능해요 |  | 
+small4+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+medium12 cond | C1:cond:야외 자리만 가능해요 |  | 
+medium12+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+large28 cond | C1:cond:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor hard | H6:hard:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 cond | C1:cond:야외 자리만 가능해요 |  | 
+two5and8+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+small6none cond | C1:cond:야외 자리만 가능해요 |  | 
+small6none+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+
+## 4b0bfed1-d348-4b2c-86df-512eca1d525e
+public false
+policy {"indoor":"free","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":true,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK · ok:추가요금 없음
+evidence {"lines":["실내에도 같이 들어갈 수 있어요","반려견 추가 요금은 없어요"],"note":"잔디마당 안전문 상태에 따라 오프리쉬 가능 여부가 달라져요"}
+env null
+small4 ok | I1:info:두부는 추가 요금 없음 | 두부는 추가 요금 없음 | 
+small4+indoor ok | I1:info:두부는 추가 요금 없음 | 두부는 추가 요금 없음 | 
+medium12 ok | I1:info:보리는 추가 요금 없음 | 보리는 추가 요금 없음 | 
+medium12+indoor ok | I1:info:보리는 추가 요금 없음 | 보리는 추가 요금 없음 | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / I1:info:받아 준다면 대장이는 추가 요금 없음 | 받아 준다면 대장이는 추가 요금 없음 | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / I1:info:받아 준다면 대장이는 추가 요금 없음 | 받아 준다면 대장이는 추가 요금 없음 | 
+two5and8 ok | I1:info:콩이와 팥이는 추가 요금 없음 | 콩이와 팥이는 추가 요금 없음 | 
+two5and8+indoor ok | I1:info:콩이와 팥이는 추가 요금 없음 | 콩이와 팥이는 추가 요금 없음 | 
+small6none ok | I1:info:초코는 추가 요금 없음 | 초코는 추가 요금 없음 | 
+small6none+indoor ok | I1:info:초코는 추가 요금 없음 | 초코는 추가 요금 없음 | 
+
+## 4c51b4d2-4fa9-4b5c-8371-b89674f45363
+public false
+policy {"indoor":"free","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK
+evidence {"lines":["실내에도 같이 들어갈 수 있어요"],"note":null}
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 5545cdbc-5c9e-44fe-8f9a-e25efca03349
+public false
+policy {"indoor":"outdoorOnly","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:야외만
+evidence {"lines":["야외 자리에서만 같이 있을 수 있어요"],"note":null}
+env null
+small4 cond | C1:cond:야외 자리만 가능해요 |  | 
+small4+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+medium12 cond | C1:cond:야외 자리만 가능해요 |  | 
+medium12+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+large28 cond | C1:cond:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor hard | H6:hard:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 cond | C1:cond:야외 자리만 가능해요 |  | 
+two5and8+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+small6none cond | C1:cond:야외 자리만 가능해요 |  | 
+small6none+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+
+## 5c9a578a-508b-4d9a-93a3-45b44f1e7b19
+public false
+policy {"indoor":"free","leash":true,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK · cond:리드줄
+evidence {"lines":["실내에도 같이 들어갈 수 있어요","리드줄을 꼭 해 주세요"],"note":null}
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 6080f123-2a51-4442-a188-c68b24e626f3
+public false
+policy {"indoor":"outdoorOnly","leash":false,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:야외만 · ok:대형견 OK
+evidence {"lines":["야외 자리에서만 같이 있을 수 있어요","대형견도 같이 갈 수 있어요"],"note":null}
+env null
+small4 cond | C1:cond:야외 자리만 가능해요 |  | 
+small4+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+medium12 cond | C1:cond:야외 자리만 가능해요 |  | 
+medium12+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+large28 cond | C1:cond:야외 자리만 가능해요 |  | 
+large28+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+two5and8 cond | C1:cond:야외 자리만 가능해요 |  | 
+two5and8+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+small6none cond | C1:cond:야외 자리만 가능해요 |  | 
+small6none+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+
+## 679ba765-a890-460f-ab8e-797a803059c8
+public false
+policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":true,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:예방접종 필수
+evidence {"lines":["예방접종을 마친 강아지만 들어갈 수 있어요"],"note":"카페 강아지 순애에게 간식이나 먹을 것을 주면 안 돼요"}
+env null
+small4 cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+small4+indoor cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+medium12 cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+medium12+indoor cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+two5and8 cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+two5and8+indoor cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+small6none cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+small6none+indoor cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+
+## 720fcd87-e259-4c3f-8459-f000c30022d4
+public false
+policy {"indoor":"outdoorOnly","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:야외만
+evidence {"lines":["야외 자리에서만 같이 있을 수 있어요"],"note":null}
+env null
+small4 cond | C1:cond:야외 자리만 가능해요 |  | 
+small4+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+medium12 cond | C1:cond:야외 자리만 가능해요 |  | 
+medium12+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+large28 cond | C1:cond:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor hard | H6:hard:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 cond | C1:cond:야외 자리만 가능해요 |  | 
+two5and8+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+small6none cond | C1:cond:야외 자리만 가능해요 |  | 
+small6none+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+
+## 8827e114-cae7-4295-a16d-b56c5d6b4c0a
+public false
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence {"lines":["실내에서는 케이지에 넣어야 해요"],"note":null}
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## 889629d7-48f0-4587-a3cb-a5320d155775
+public false
+policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":true,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:예방접종 필수
+evidence {"lines":["예방접종을 마친 강아지만 들어갈 수 있어요"],"note":null}
+env null
+small4 cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+small4+indoor cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+medium12 cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+medium12+indoor cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+two5and8 cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+two5and8+indoor cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+small6none cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+small6none+indoor cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+
+## 8d86ab34-393a-43e0-8d30-2f3d70291b85
+public false
+policy {"indoor":"outdoorOnly","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:야외만
+evidence {"lines":["야외 자리에서만 같이 있을 수 있어요"],"note":null}
+env null
+small4 cond | C1:cond:야외 자리만 가능해요 |  | 
+small4+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+medium12 cond | C1:cond:야외 자리만 가능해요 |  | 
+medium12+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+large28 cond | C1:cond:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor hard | H6:hard:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 cond | C1:cond:야외 자리만 가능해요 |  | 
+two5and8+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+small6none cond | C1:cond:야외 자리만 가능해요 |  | 
+small6none+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+
+## 8fab8b22-9805-45cf-b44f-d59b56c8bed8
+public false
+policy {"indoor":"free","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK
+evidence {"lines":["실내에도 같이 들어갈 수 있어요"],"note":"마당에서는 다른 손님들과 협의되면 오프리쉬 가능"}
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 915a8358-92ec-4879-b851-ec4f20219378
+public false
+policy {"indoor":"free","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK
+evidence {"lines":["실내에도 같이 들어갈 수 있어요"],"note":"리쉬 또는 이동장 필수"}
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## 985f5ff3-6a5d-4c2e-a286-f47a49d01fe8
+public false
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":true,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":true,"stroller":false}
+badges cond:이동가방 필요 · warn:전화 확인
+evidence {"lines":["실내에서는 이동가방에 넣어야 해요","가기 전에 전화로 동반 조건을 확인해 주세요"],"note":"이동가방에 넣어 의자 위에 두고 지퍼는 열어둘 수 있었어요."}
+env null
+small4 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+small4+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+
+## abe294e2-faf9-4ceb-a5ed-00455c10bf36
+public false
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":true,"stroller":true}
+badges cond:가방·유모차 필요
+evidence {"lines":["실내에서는 이동가방이나 유모차가 있어야 해요"],"note":null}
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## aef2f05a-595b-4c42-85b5-e529a8147189
+public false
+policy {"indoor":"unknown","leash":false,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:대형견 OK
+evidence {"lines":["대형견도 같이 갈 수 있어요"],"note":null}
+env null
+small4 ok |  |  | 
+small4+indoor cond | C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+medium12 ok |  |  | 
+medium12+indoor cond | C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+large28 ok |  |  | 
+large28+indoor cond | C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor cond | C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+small6none ok |  |  | 
+small6none+indoor cond | C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+
+## bab2fbf3-caad-4b10-a849-e6505f51bdbe
+public false
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":true,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":true,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요 · cond:소형견만 · cond:예방접종 필수
+evidence {"lines":["실내에서는 케이지에 넣어야 해요","소형견만 같이 갈 수 있어요","예방접종을 마친 강아지만 들어갈 수 있어요"],"note":null}
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+medium12 hard | H3:hard:소형견만 가능해요 / H5:hard:케이지 동반시에만 가능해요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+medium12+indoor hard | H3:hard:소형견만 가능해요 / H5:hard:케이지 동반시에만 가능해요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+large28 hard | H3:hard:소형견만 가능해요 / H4:hard:실내는 케이지 필수라 대형견은 어려워요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+large28+indoor hard | H3:hard:소형견만 가능해요 / H4:hard:실내는 케이지 필수라 대형견은 어려워요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+
+## c50854aa-2a95-4e78-9c5c-e74f0ff988b6
+public false
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence {"lines":["실내에서는 케이지에 넣어야 해요"],"note":null}
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## cce905a8-315b-44df-ab37-6390906b8b9e
+public false
+policy {"indoor":"unknown","leash":true,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":true,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:추가요금 없음 · cond:리드줄
+evidence {"lines":["반려견 추가 요금은 없어요","리드줄을 꼭 해 주세요"],"note":"입구에서 나가면 바로 주차장이라 안전 대비가 필요해요."}
+env null
+small4 ok | I1:info:두부는 추가 요금 없음 | 두부는 추가 요금 없음 | 
+small4+indoor cond | C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 / I1:info:두부는 추가 요금 없음 | 두부는 추가 요금 없음 | 
+medium12 ok | I1:info:보리는 추가 요금 없음 | 보리는 추가 요금 없음 | 
+medium12+indoor cond | C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 / I1:info:보리는 추가 요금 없음 | 보리는 추가 요금 없음 | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / I1:info:받아 준다면 대장이는 추가 요금 없음 | 받아 준다면 대장이는 추가 요금 없음 | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 / I1:info:받아 준다면 대장이는 추가 요금 없음 | 받아 준다면 대장이는 추가 요금 없음 | 
+two5and8 ok | I1:info:콩이와 팥이는 추가 요금 없음 | 콩이와 팥이는 추가 요금 없음 | 
+two5and8+indoor cond | C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 / I1:info:콩이와 팥이는 추가 요금 없음 | 콩이와 팥이는 추가 요금 없음 | 
+small6none ok | I1:info:초코는 추가 요금 없음 | 초코는 추가 요금 없음 | 
+small6none+indoor cond | C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 / I1:info:초코는 추가 요금 없음 | 초코는 추가 요금 없음 | 
+
+## d6d3ee9a-c568-4c53-b358-825a9f535367
+public false
+policy {"indoor":"free","leash":true,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":true,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":false,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK · ok:대형견 OK · cond:리드줄 · warn:전화 확인
+evidence {"lines":["실내에도 같이 들어갈 수 있어요","대형견도 같이 갈 수 있어요","리드줄을 꼭 해 주세요","가기 전에 전화로 동반 조건을 확인해 주세요"],"note":null}
+env {"standalone":null,"yard":true,"fencedYard":true,"stairs":null}
+small4 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+small4+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+medium12 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+medium12+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+large28 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+large28+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+two5and8 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+two5and8+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+small6none cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+small6none+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+
+## e03bf309-3dc0-4d5e-999a-69ac0077b61e
+public false
+policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":true,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:예방접종 필수
+evidence {"lines":["예방접종을 마친 강아지만 들어갈 수 있어요"],"note":"야외 정원 좌석에서 취식할 때 새를 주의해야 해요."}
+env null
+small4 cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+small4+indoor cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+medium12 cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+medium12+indoor cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+two5and8 cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+two5and8+indoor cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+small6none cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+small6none+indoor cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+
+## e552ee96-81ae-4a4c-91f3-2536cafc54e4
+public false
+policy {"indoor":"outdoorOnly","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:야외만
+evidence {"lines":["야외 자리에서만 같이 있을 수 있어요"],"note":null}
+env null
+small4 cond | C1:cond:야외 자리만 가능해요 |  | 
+small4+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+medium12 cond | C1:cond:야외 자리만 가능해요 |  | 
+medium12+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+large28 cond | C1:cond:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor hard | H6:hard:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 cond | C1:cond:야외 자리만 가능해요 |  | 
+two5and8+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+small6none cond | C1:cond:야외 자리만 가능해요 |  | 
+small6none+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
+
+## e68ae390-0258-47f8-b319-03b715f1d90f
+public false
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":true,"stroller":false}
+badges cond:이동가방 필요
+evidence {"lines":["실내에서는 이동가방에 넣어야 해요"],"note":null}
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+
+## e99ff3f9-e68f-4dce-be26-ced7cb91c04f
+public false
+policy {"indoor":"free","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK
+evidence {"lines":["실내에도 같이 들어갈 수 있어요"],"note":null}
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## ebaaefd4-ee25-41ea-b5db-363d1ef848a8
+public false
+policy {"indoor":"free","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK
+evidence {"lines":["실내에도 같이 들어갈 수 있어요"],"note":"아기의자는 없어요."}
+env null
+small4 ok |  |  | 
+small4+indoor ok |  |  | 
+medium12 ok |  |  | 
+medium12+indoor ok |  |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor ok |  |  | 
+small6none ok |  |  | 
+small6none+indoor ok |  |  | 
+
+## f043bf86-3023-4a61-a35d-db4586258437
+public false
+policy {"indoor":"free","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":true,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":false,"weightLimitKg":13,"maxDogs":2,"tiers":[{"maxWeightKg":13,"weightInclusive":false,"maxDogs":2}],"outdoorFree":false,"unlimitedDogs":false,"feeLines":["1박당 2만원"],"feeRules":[{"basis":"perDog","label":"1박당 2만원","maxKg":null,"minKg":null,"fromDog":null,"perNight":true,"amountWon":20000}]}
+gear {"bag":false,"stroller":false}
+badges ok:실내 OK · cond:1박당 2만원 · cond:13kg 미만 · cond:최대 2마리
+evidence {"lines":["실내에도 같이 들어갈 수 있어요","반려견 요금이 따로 있어요 — 1박당 2만원","13kg 미만인 강아지만 같이 갈 수 있어요","최대 2마리까지 같이 갈 수 있어요"],"note":"강아지는 수영장 입수 불가, 화장실 욕조는 이용 가능"}
+env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null}
+small4 ok | I1:info:두부는 1박 2만원 | 두부는 1박 2만원 | 
+small4+indoor ok | I1:info:두부는 1박 2만원 | 두부는 1박 2만원 | 
+medium12 ok | I1:info:보리는 1박 2만원 | 보리는 1박 2만원 | 
+medium12+indoor ok | I1:info:보리는 1박 2만원 | 보리는 1박 2만원 | 
+large28 hard | H1:hard:대장이(28kg)는 13kg 미만 조건을 넘어요 |  | 
+large28+indoor hard | H1:hard:대장이(28kg)는 13kg 미만 조건을 넘어요 |  | 
+two5and8 ok | I1:info:콩이와 팥이는 1박 4만원 (1박당 2만원) | 콩이와 팥이는 1박 4만원 (1박당 2만원) | 
+two5and8+indoor ok | I1:info:콩이와 팥이는 1박 4만원 (1박당 2만원) | 콩이와 팥이는 1박 4만원 (1박당 2만원) | 
+small6none ok | I1:info:초코는 1박 2만원 | 초코는 1박 2만원 | 
+small6none+indoor ok | I1:info:초코는 1박 2만원 | 초코는 1박 2만원 | 
+
+## f1964983-6f15-4016-a77c-31c7b6f4f0d8
+public false
+policy {"indoor":"unknown","leash":true,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:리드줄
+evidence {"lines":["리드줄을 꼭 해 주세요"],"note":null}
+env null
+small4 ok |  |  | 
+small4+indoor cond | C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+medium12 ok |  |  | 
+medium12+indoor cond | C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
+large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+two5and8 ok |  |  | 
+two5and8+indoor cond | C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+small6none ok |  |  | 
+small6none+indoor cond | C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+
+## fe234621-6eb9-413e-a104-ae7419c17031
+public false
+policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+gear {"bag":false,"stroller":false}
+badges cond:케이지 필요
+evidence {"lines":["실내에서는 케이지에 넣어야 해요"],"note":null}
+env null
+small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
+medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
