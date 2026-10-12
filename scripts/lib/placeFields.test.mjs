@@ -75,13 +75,11 @@ describe('조건 원문 공개 플래그 · 이용 안내 (ADR-017 결정 13 D2,
     expect(keys.indexOf('petPolicyTextPublic')).toBe(keys.indexOf('petPolicyText') + 1);
   });
 
-  // 🧑 db push 전 원격엔 칸이 없다 — 마이그레이션의 시드 조건과 같은 값으로 넘어가야 push 전후 `pnpm data pull` 이 같다.
-  it('칸이 없는 원격(push 전)에서는 마이그레이션의 시드 조건으로 넘어간다', () => {
-    expect(fromPlaceRow(row).petPolicyTextPublic).toBe(true); // source notion · 판단 없음 = 시드
-    expect(fromPlaceRow({ ...row, source: 'blog' }).petPolicyTextPublic).toBeUndefined();
-    // 블로그 판단으로 덮인 시드 행 — 원문이 블로그 문장이다.
-    expect(fromPlaceRow({ ...row, pet_policy: { indoor: 'free' } }).petPolicyTextPublic).toBeUndefined();
-    // 칸이 생기면 칸이 이긴다(시드라도 운영자가 끈 행).
+  // 임시 fallback(`source === 'notion'` 이면 공개)은 🧑 H2 db push 뒤 걷었다(todo/21 S4.1) — 칸을 빠뜨린 입구가 시드처럼 보이면 안 된다.
+  it('칸이 없으면 숨김 — 시드 조건(notion · 판단 없음)이어도 source 로 짐작하지 않는다', () => {
+    expect(fromPlaceRow(row).petPolicyTextPublic).toBeUndefined();
+    expect(jsonKeys(fromPlaceRow(row))).not.toContain('petPolicyTextPublic');
+    // 시드라도 운영자가 끈 행.
     expect(fromPlaceRow({ ...row, pet_policy_text_public: false }).petPolicyTextPublic).toBeUndefined();
   });
 

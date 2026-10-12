@@ -1,6 +1,7 @@
 # 21. 블로그 문장이 사이트에 그대로 나가지 않게 · 추출 모델을 Sonnet 으로
 
-> 최종 수정: 2026-10-13 (v15: 🙋 H3·H4·백필 결정(사용자, 권고대로) — H3 넣는다(S7 에 확정) · H4 비운다(원격 update 는 권한 분류기가 막아 🧑 명령으로) · S9 신설(게시된 블로그 38곳은 판단을 고정한 채 문장만 다시 쓴다 — "백필 0회" 를 바꾼다) · 🧑 H7)
+> 최종 수정: 2026-10-13 (v16: S4.1 끝 — 임시 공개 짐작을 걷었다 · 채움 토스트가 칸 이름을 사람 말로 · 새 행이 안내 칸 키를 null 로라도 싣는다)
+> 이전 2026-10-13 (v15: 🙋 H3·H4·백필 결정(사용자, 권고대로) — H3 넣는다(S7 에 확정) · H4 비운다(원격 update 는 권한 분류기가 막아 🧑 명령으로) · S9 신설(게시된 블로그 38곳은 판단을 고정한 채 문장만 다시 쓴다 — "백필 0회" 를 바꾼다) · 🧑 H7)
 > 이전 2026-10-13 (v14: 🧑 H2 끝 — 원격 실측을 H2 메모에, S4.1 이 열렸다)
 > 이전 2026-10-13 (v13: S5 가 원문을 걷으며 드러난 판독 구멍 둘을 S5.1(`개모차`)·S5.2(근거 문장 밖의 가방)로 — 전엔 원문이 옆에서 메웠다)
 > 이전 2026-10-12 (v12: S5 끝 — 근거 칸은 `policyEvidence` 하나가 정한다(원문 공개면 원문, 아니면 템플릿 줄 + 안내/notes + 「원문 보기」). C7 은 고치지 않고 링크를 「원문 보기」 로 — 판정이 공개 플래그를 모르게. S6 을 「지금」 에)
@@ -191,12 +192,16 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
   > 그 밖: `OVERWRITE_PAIRS` 조건 짝 넷(원문·판단·원문 공개·이용 안내) · `adminLatest` 줄 「원문 공개」·「이용 안내」 · 안내만 change 이고 원문이 완화로 꺼졌으면 안내가 짝을 다시 켜지 않는다(`proposalPick`) ·
   > `guideOf` 는 `basis` 없는 안내를 없는 것으로 본다(S7 은 `{text, basis}` 를 함께 낸다) · `PROPOSE_PROMPT_VERSION` `6f96326f` → `a0be9600`(🧑 H1 전까지 서버 홉은 옛 프롬프트).
   > 체크박스는 칸이 있는 원격에서만 그려져 H2 전엔 화면 확인 거리가 없다 — S4.1 에서. 테스트: 왕복(제안 → `withProposal` → 덮어쓰기 → `fromPlaceRow` → `publicGuide` 문장 · 판단 칸 하나 고치면 `판단이 바뀌어 숨겼어요`).
-- [ ] **S4.1**(🧑 H2 뒤) `scripts/lib/placeFields.mjs` 의 임시 fallback(`row.pet_policy_text_public ?? (source === 'notion' && pet_policy == null)`)을 걷고 테스트(「칸이 없는 원격」)를 "칸이 없으면 숨김" 으로.
+- [x] **S4.1**(🧑 H2 뒤) `scripts/lib/placeFields.mjs` 의 임시 fallback(`row.pet_policy_text_public ?? (source === 'notion' && pet_policy == null)`)을 걷고 테스트(「칸이 없는 원격」)를 "칸이 없으면 숨김" 으로.
   - push 여부는 `pull` 로 못 가린다(fallback 이 같은 값을 낸다) — 원격 조회로: `information_schema.columns` 에 두 칸 · `count(*) filter (where pet_policy_text_public)` = 86.
   - 화면: Chrome 확장으로 `/admin` 등록 완료 → 시드 한 곳 `고치기` 에 「원문 공개」 체크가 켜진 채 서는지, 블로그 한 곳은 꺼진 채인지.
   - 같이(S4 executor 가 범위 밖으로 넘긴 것): `adminPage.tsx` 의 채움 토스트가 `patchKeys` 를 영문 키 그대로 잇는다 — H2 뒤엔 `pet_policy_text_public`·`pet_policy_guide` 가 운영자 화면에 영문으로 선다(라벨 표로) ·
     새 장소의 형제 후보가 `fillBlanks` 를 지날 때 메모리 행에 칸 키가 없어 안내가 조용히 빠질 수 있다(실패는 없다 — `'pet_policy_guide' in row` 가드가 메모리 행을 모른다).
   - 끝나면: 없음.
+  > 메모: 2026-10-13 끝. 원격 다시 실측(`select`): 공개 86(게시 84) · 블로그 false 38 · 안내 0 — 호출처(`pull-db` · 대조 corpus 셋)가 전부 `select('*')` 라 걷어도 시드가 숨지 않는다.
+  > 화면(Chrome, 7727 `/admin` 등록 완료 → `고치기`, 저장 안 함): 솔숲펜션(시드) 체크 켜짐 · 고바치(블로그) 꺼짐 「지금 값 · 숨김」.
+  > 토스트는 `filledColumnLabels`(`adminLatest.ts` — `COLUMNS` 를 빌리고 채우기 전용 칸(좌표 두 칸·`naver_url`·`homepage_name`·`review_url`·`status`)만 더한다, 모르는 키는 영문 그대로).
+  > 메모리 행 구멍은 `toNewPlaceRow` 한 곳에서 — 칸이 있으면 안내가 없어도 `pet_policy_guide: null` 키를 싣는다. `/admin`(`places.push`)과 CLI(`rowById`)가 같은 구멍이라 둘 다 닫혔다.
 
 ### S5. 공개 상세가 표시문을 그린다
 - [x] `src/screens/placeDetailPolicyText.tsx`(owner-prefix) — 공개면 원문 + 강조(지금 그대로), 아니면 `publicPolicyLines` + **`publicGuide` 가 낸 안내, 없으면 `publicNotes`** + 「블로그 글을 읽고 정리했어요 · 글 보기」(`reviewUrl`).

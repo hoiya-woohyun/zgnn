@@ -108,3 +108,25 @@ export function defaultOverwritePick(
   const kept = new Set<string>(place ? SITE_OWNED_COLUMNS.filter((key) => filled(place[key])) : []);
   return all.filter((key) => !policy.has(key) && !kept.has(key));
 }
+
+/**
+ * 빈 칸 채우기(`fillBlanks` → `patchKeys`)가 돌려준 **DB 칸 이름 → 사람 말**. 등록 토스트 「… 에 채웠어요 (주소, 좌표)」 가 쓴다.
+ * 표는 위 `COLUMNS` 를 빌리고, 덮어쓰기에는 없고 채우기에만 서는 칸(짝으로 따라오는 칸 · 게시 상태)만 여기 둔다.
+ * 모르는 키는 영문 그대로 둔다 — 새 칸이 생겼을 때 목록에서 조용히 빠지는 것보다 낫다. 같은 말은 한 번만(좌표 두 칸 → 한 번).
+ */
+const FILL_ONLY_LABEL: Record<string, string> = {
+  lat: '좌표',
+  lng: '좌표',
+  // 플레이스 id 를 채울 때 비어 있으면 함께 만든다 — 한 칸으로 읽힌다.
+  naver_url: '네이버 플레이스',
+  // 홈페이지 카드는 세 칸 한 벌(주소·이름·사진)이다.
+  homepage_name: '홈페이지',
+  review_url: '후기 링크',
+  // draft 를 올린 승인 — 칸을 채운 게 아니라 게시중으로 올렸다는 뜻이다(`fillBlanks`).
+  status: '게시 상태',
+};
+
+export function filledColumnLabels(keys: string[]): string[] {
+  const label = (key: string) => FILL_ONLY_LABEL[key] ?? COLUMNS.find((column) => column.key === key)?.label ?? key;
+  return [...new Set(keys.map(label))];
+}

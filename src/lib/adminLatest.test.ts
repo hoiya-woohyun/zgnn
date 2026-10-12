@@ -3,7 +3,7 @@
  * 어긋나면 운영자가 본 것과 다른 칸이 덮인다.
  */
 import { describe, expect, it } from 'vitest';
-import { defaultOverwritePick, latestPlan, toggleOverwritePick } from './adminLatest';
+import { defaultOverwritePick, filledColumnLabels, latestPlan, toggleOverwritePick } from './adminLatest';
 import { EMPTY_VALUE } from './adminEdit';
 import type { TCandidateExtracted, TPlaceRow } from './adminCandidates';
 
@@ -120,5 +120,28 @@ describe('원문 공개·이용 안내 — 조건 짝의 두 칸도 사람 말�
     const all = ['features', 'pet_policy_text', 'pet_policy', 'pet_policy_text_public', 'pet_policy_guide'];
     expect(defaultOverwritePick(all, { loosen: true })).toEqual(['features']);
     expect(toggleOverwritePick(all, [], 'pet_policy_guide')).toEqual(['pet_policy_text', 'pet_policy', 'pet_policy_text_public', 'pet_policy_guide']);
+  });
+});
+
+describe('filledColumnLabels — 채움 토스트의 칸 이름(21 S4.1)', () => {
+  it('조건 짝의 두 칸도 사람 말로 · 좌표 두 칸은 한 번 · 짝으로 따라오는 칸은 겹치지 않는다', () => {
+    expect(filledColumnLabels(['address', 'lat', 'lng', 'pet_policy_text', 'pet_policy', 'pet_policy_text_public', 'pet_policy_guide'])).toEqual([
+      '주소',
+      '좌표',
+      '조건 원문',
+      '동반 판단',
+      '원문 공개',
+      '이용 안내',
+    ]);
+    expect(filledColumnLabels(['naver_place_id', 'naver_url', 'homepage_url', 'homepage_name', 'homepage_image'])).toEqual([
+      '네이버 플레이스',
+      '홈페이지',
+      '홈페이지 사진',
+    ]);
+    expect(filledColumnLabels(['review_url', 'status'])).toEqual(['후기 링크', '게시 상태']);
+  });
+
+  it('모르는 키는 영문 그대로 — 새 칸이 목록에서 조용히 빠지지 않게', () => {
+    expect(filledColumnLabels(['features', 'some_new_column'])).toEqual(['소개', 'some_new_column']);
   });
 });

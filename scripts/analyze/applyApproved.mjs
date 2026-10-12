@@ -338,8 +338,10 @@ export function toNewPlaceRow(candidate, { id, environmentColumn = false, guideC
     ...homepageColumns(extracted),
     // 숙소 환경(10 F6) — 칸이 있는 원격에만, 숙소이고 값이 있을 때만.
     ...(environmentColumn && type === 'stay' && stayEnvironmentOf(extracted) ? { stay_environment: stayEnvironmentOf(extracted) } : {}),
-    // 이용 안내(docs/todo/21 S4) — 칸이 있는 원격에만, 후보에 있을 때만. 지문은 후보 것 그대로다(`guideOf`).
-    ...(guideColumn && guide ? { pet_policy_guide: guide } : {}),
+    // 이용 안내(docs/todo/21 S4) — 칸이 있는 원격에만. 지문은 후보 것 그대로다(`guideOf`). 없으면 **null 로라도 키를 싣는다**(DB 기본값과 같다):
+    // 호출자가 이 행을 메모리에 들고 형제 후보를 `mergeIntoExisting` 에 넘기는데, 키가 없으면 그쪽 칸 가드가 "칸 없는 원격" 으로 읽어
+    // 형제의 안내를 조용히 버린다(대표에 원문이 없고 형제가 원문·안내를 들고 온 묶음 — S4.1).
+    ...(guideColumn ? { pet_policy_guide: guide } : {}),
   };
 }
 

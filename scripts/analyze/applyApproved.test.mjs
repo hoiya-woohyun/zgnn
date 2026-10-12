@@ -467,13 +467,24 @@ describe('pet_policy_text_public · pet_policy_guide — 블로그 원문은 숨
     expect(row).not.toHaveProperty('pet_policy_text_public');
   });
 
-  it('신규 행 — 칸이 있으면 안내를 싣고 플래그는 싣지 않는다(DB 기본값 false = 숨김) · 원문이 없으면 안내도 없다', () => {
+  it('신규 행 — 칸이 있으면 안내를 싣고 플래그는 싣지 않는다(DB 기본값 false = 숨김) · 원문이 없으면 안내는 null', () => {
     const candidate = { id: 'c1', post_url: 'https://blog.naver.com/x/1', extracted: withGuide };
     const row = toNewPlaceRow(candidate, { id: 'n', guideColumn: true });
     expect(row.pet_policy_guide).toEqual(guide);
     expect(row).not.toHaveProperty('pet_policy_text_public');
-    expect(toNewPlaceRow({ ...candidate, extracted: { ...withGuide, petPolicyText: null } }, { id: 'n', guideColumn: true })).not.toHaveProperty('pet_policy_guide');
-    expect(toNewPlaceRow({ ...candidate, extracted }, { id: 'n', guideColumn: true })).not.toHaveProperty('pet_policy_guide');
+    // 키는 null 로라도 선다 — 메모리에 든 새 행이 "칸 있는 원격" 으로 읽혀야 한다(아래 형제 후보 테스트).
+    expect(toNewPlaceRow({ ...candidate, extracted: { ...withGuide, petPolicyText: null } }, { id: 'n', guideColumn: true })).toHaveProperty('pet_policy_guide', null);
+    expect(toNewPlaceRow({ ...candidate, extracted }, { id: 'n', guideColumn: true })).toHaveProperty('pet_policy_guide', null);
+  });
+
+  // 대표에 원문이 없어 새 행의 원문이 빈 채로 만들어지고, 같은 묶음의 형제가 원문·안내를 들고 온다(/admin approveGroup · CLI rowById 둘 다 메모리 행을 넘긴다).
+  it('새 행을 메모리에 든 채 형제 후보로 빈 칸을 채우면 안내도 함께 채워진다(21 S4.1)', () => {
+    const created = toNewPlaceRow({ id: 'c1', post_url: null, extracted: { ...extracted, petPolicyText: null } }, { id: 'n', guideColumn: true });
+    expect(created.pet_policy_text).toBe('');
+    const patch = mergeIntoExisting(created, withGuide);
+    expect(patch).toMatchObject({ pet_policy_text: extracted.petPolicyText, pet_policy_guide: guide });
+    // 플래그는 싣지 않는다 — 새 행은 DB 기본값 false 라 이미 숨김이다.
+    expect(patch).not.toHaveProperty('pet_policy_text_public');
   });
 
   it("only: ['pet_policy_guide'] 는 원문 짝 전부로 펼쳐진다", () => {

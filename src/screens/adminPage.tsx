@@ -60,6 +60,7 @@ import {
   type TArchiveReason,
 } from '../lib/adminPlaces';
 import { type TPlaceEditPatch, updatePlace } from '../lib/adminPlaceEdit';
+import { filledColumnLabels } from '../lib/adminLatest';
 import {
   countPosts,
   excludePosts,
@@ -1274,7 +1275,7 @@ export function AdminPage() {
             ? `등록했어요 · ${outcome.placeName}`
             : outcome.overwrittenKeys?.length
               ? `${outcome.placeName} 을 덮어썼어요 (${outcome.overwrittenKeys.length}칸)`
-              : `${outcome.placeName} 에 채웠어요${outcome.patchKeys.length ? ` (${outcome.patchKeys.join(', ')})` : ' — 채울 빈 칸은 없었어요'}`;
+              : `${outcome.placeName} 에 채웠어요${outcome.patchKeys.length ? ` (${filledColumnLabels(outcome.patchKeys).join(', ')})` : ' — 채울 빈 칸은 없었어요'}`;
         // 거짓말을 하지 않는 자리다. DB 에는 들어갔지만 정적 사이트는 다시 빌드돼야 보인다(ADR-015).
         // 그 빌드가 정말 걸렸는지는 머리글의 재빌드 줄이 말한다(`adminRebuild.ts`) — 이 문장만으로는 알 수 없었다.
         patchState(group.key, {

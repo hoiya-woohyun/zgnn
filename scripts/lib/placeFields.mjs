@@ -106,10 +106,9 @@ export function fromPlaceRow(row) {
     regionRaw: row.region_raw,
     features: row.features,
     petPolicyText: row.pet_policy_text,
-    // 칸이 원격에 생기기 전(🧑 H2 `db push` 전)에는 undefined — 그동안만 마이그레이션의 시드 조건(`source = 'notion'` 이고 판단 없음)으로
-    // 넘어간다. push 전후 `pnpm data pull` 결과가 같아야 해서 조건을 마이그레이션의 update 와 똑같이 둔다. S4 끝에서 지운다(docs/todo/21) —
-    // `source` 는 장기 신호가 못 된다: 기본값이 'notion' 이고 블로그 값으로 덮어써도 그대로다.
-    petPolicyTextPublic: row.pet_policy_text_public ?? (row.source === 'notion' && row.pet_policy == null),
+    // 칸 하나가 정본이다 — 칸이 없거나 false 면 숨김(`toPlace` 가 true 만 싣는다). `source` 로 대신 짐작하지 않는다:
+    // 기본값이 'notion' 이고 블로그 값으로 덮어써도 그대로라, 칸을 빠뜨린 입구가 블로그 원문을 시드처럼 내보내게 된다(docs/todo/21 S4.1).
+    petPolicyTextPublic: row.pet_policy_text_public,
     petPolicy: row.pet_policy,
     petPolicyGuide: row.pet_policy_guide,
     reviewUrl: row.review_url,
