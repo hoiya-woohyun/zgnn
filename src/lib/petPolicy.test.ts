@@ -578,6 +578,15 @@ describe('withPolicyFacts — AI 구조화 판단이 정규식 결과를 덮는�
     expect(p.sources.vaccineRequired).toBe('항체 검사 완료견만 입장 가능합니다');
   });
 
+  // 21 S5.3 — 실내만 근거 단어 없이 첫 줄로 떨어졌다. 인용·/admin 칠하기·가방 판독(indoorGearText)이 이 줄을 쓴다.
+  it('실내 근거 줄도 판단별 근거 단어로 고른다 — 열두달정원카페 케이지 · 터틀락 실내 자유', () => {
+    const plain = { ...facts, leash: false, weightLimitKg: null, maxDogs: null };
+    const cage = '애견동반 가능 카페.\n단 실내 입장의 경우 소형견+케이지+접종이력 강아지만 가능.';
+    expect(withPolicyFacts(parsePetPolicy(cage), { ...plain, indoor: 'cage' }, cage).sources.indoor).toBe('단 실내 입장의 경우 소형견+케이지+접종이력 강아지만 가능.');
+    const free = '반려동물 동반 가능\n카페 내부에도 반려동물 동반이 가능해요.';
+    expect(withPolicyFacts(parsePetPolicy(free), { ...plain, indoor: 'free' }, free).sources.indoor).toBe('카페 내부에도 반려동물 동반이 가능해요.');
+  });
+
   it('정규식은 예방접종 필수를 세우지 않는다 — AI 판단만 이 칸을 채운다(ADR-017 v6)', () => {
     expect(parsePetPolicy('예방접종 완료견만 입장 가능').vaccineRequired).toBe(false);
   });

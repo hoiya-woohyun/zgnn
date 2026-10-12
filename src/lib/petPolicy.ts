@@ -13,7 +13,7 @@
  */
 
 import { amountsInWon, normalizeFeeLines } from '../../scripts/lib/feeLine.mjs';
-import { correctPetPolicyFacts, feeLinesOf, VACCINE_GROUNDS, weekdaysIn } from '../../scripts/lib/petPolicyFacts.mjs';
+import { correctPetPolicyFacts, feeLinesOf, INDOOR_GROUNDS, VACCINE_GROUNDS, weekdaysIn } from '../../scripts/lib/petPolicyFacts.mjs';
 import type { TFeeRule, TPetPolicyFacts, TPlaceType, TWeekday } from '../types';
 
 export type TIndoorPolicy =
@@ -571,7 +571,8 @@ export const withPolicyFacts = (parsed: TPetPolicy, facts: TPetPolicyFacts | nul
     if (!on) return;
     sources[key] = (agrees ? parsed.sources[key] : undefined) ?? (re ? lineWith(re) : firstLine);
   };
-  keep('indoor', indoor !== 'unknown', parsed.indoor === indoor);
+  // 실내도 판단별 근거 단어로 줄을 고른다 — 빠져 있던 때는 첫 줄이 근거라 인용·칠하기·가방 판독(`indoorGearText`)이 엉뚱한 줄을 봤다(21 S5.3).
+  keep('indoor', indoor !== 'unknown', parsed.indoor === indoor, indoor === 'unknown' ? undefined : INDOOR_GROUNDS[indoor]);
   keep('leash', corrected.leash, parsed.leash, /리드|목줄|하네스/);
   keep('largeDogOk', largeDogOk, parsed.largeDogOk, /대형|제한|견종/);
   keep('largeDogNo', largeDogNo, parsed.largeDogNo, /대형/);

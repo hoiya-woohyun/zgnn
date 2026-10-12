@@ -61,6 +61,12 @@ export function weekdaysOrNull(value) {
 export const VACCINE_GROUNDS = GROUNDS.vaccineRequired;
 
 /**
+ * 실내 판단별 근거 단어 — 앱(`withPolicyFacts`)이 실내 근거 **줄**을 고를 때 쓴다(21 S5.3). 아래 보정이 이 말이 원문에 있어야 판단을 남기므로,
+ * 같은 말로 고르면 근거 줄이 늘 판단의 말을 담는다. 없던 때는 정규식이 실내 갈래를 못 읽은 곳마다 첫 줄("애견동반 가능 카페.")이 근거였다.
+ */
+export const INDOOR_GROUNDS = { free: GROUNDS.indoorFree, cage: GROUNDS.indoorCage, outdoorOnly: GROUNDS.indoorOutdoor };
+
+/**
  * 보정 한 줄이 **원문의 무엇과 대 봤는가**(06 G) — `/admin` 이 원문 인용에서 그 자리를 칠한다.
  *
  * `near` 는 원문에서 칠할 말이다. 근거 단어 판단(`GROUNDS` 키)은 그 단어 자체라 뺀 경우엔 원문에 **없다** — 칠할 것이 0개이고,
