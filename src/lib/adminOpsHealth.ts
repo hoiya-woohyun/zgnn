@@ -12,6 +12,7 @@
  */
 
 import { agoLabel, latestRebuildCall, QUEUE_STALL_MS, RESPONSE_WAIT_LIMIT_MS } from './adminRebuild';
+import { HAS_SERVER_WORKER, nextStepText } from './adminNextStep';
 import { REMOTE_WORKER_HOST } from './adminWorkerWake';
 import type { TOpsOverview, TOpsWorker, TPipelineRun, TRunScript, TWorkerPhase } from './adminOps';
 
@@ -46,7 +47,7 @@ export type TStageHealth = {
   second: string;
   /** 주의·실패일 때만 — 왜 노랗고 빨간가. 그대로 경고 띠의 문장이 된다 */
   reason: string | null;
-  /** 운영자가 터미널에서 할 일 한 줄(반영 칸의 `pnpm data apply` 등). 화면은 기록을 고치지 않고 명령만 적어 준다 */
+  /** 운영자가 할 일 **한 문장**(`nextStepText` — 서버 빌드는 `/admin` 의 버튼, 로컬·서버 길이 없는 일은 터미널). 화면은 "터미널에서" 를 덧붙이지 않고 그대로 싣는다 */
   hint?: string;
 };
 
@@ -113,7 +114,7 @@ function runningOrFailed(
   return undefined;
 }
 
-function collectStage(overview: TOpsOverview, nowMs: number): TStageHealth {
+function collectStage(overview: TOpsOverview, nowMs: number, remote: boolean): TStageHealth {
   const latest = overview.runsLatest.collect;
   const lastOk = overview.runsLastOk.collect;
   const fresh = numberIn(lastOk?.stats ?? null, 'new');
@@ -130,13 +131,13 @@ function collectStage(overview: TOpsOverview, nowMs: number): TStageHealth {
       state: 'warn',
       first,
       reason: days === null ? '수집이 한 번도 끝까지 돈 적이 없어요' : `수집이 ${days}일째 없어요`,
-      hint: 'pnpm data collect',
+      hint: nextStepText('collectStale', remote),
     };
   }
   return { ...base, state: 'ok', first, reason: null };
 }
 
-function analyzeStage(overview: TOpsOverview, nowMs: number): TStageHealth {
+function analyzeStage(overview: TOpsOverview, nowMs: number, remote: boolean): TStageHealth {
   const latest = overview.runsLatest.analyze;
   const lastOk = overview.runsLastOk.analyze;
   const { count, oldestFetchedAt } = overview.backlog;
@@ -147,7 +148,7 @@ function analyzeStage(overview: TOpsOverview, nowMs: number): TStageHealth {
   const first = lastOk ? agoLabel(finishedAt(lastOk), nowMs) : '성공 없음';
   const days = count > 0 ? daysSince(oldestFetchedAt, nowMs) : null;
   if (days !== null && days >= BACKLOG_STALE_DAYS) {
-    return { ...base, state: 'warn', first, reason: `분석 backlog ${count}건(${days}일째)`, hint: 'pnpm data analyze' };
+    return { ...base, state: 'warn', first, reason: `분석 backlog ${count}건(${days}일째)`, hint: nextStepText('backlog', remote) };
   }
   return { ...base, state: 'ok', first, reason: null };
 }
@@ -170,14 +171,16 @@ function reviewStage(overview: TOpsOverview, nowMs: number): TStageHealth {
  * 실패는 마지막 `apply` 가 `failed` 이거나 실패 건수가 있을 때 — status 만 보면 stats 가 null 인 크래시(`failed`)는 잡혀도
  * `partial` + 실패 건수는 놓치고, 실패 건수만 보면 크래시를 놓친다. 둘 다 본다.
  */
-function applyStage(overview: TOpsOverview, nowMs: number): TStageHealth {
+function applyStage(overview: TOpsOverview, nowMs: number, remote: boolean): TStageHealth {
   const latest = overview.runsLatest.apply;
   const lastOk = overview.runsLastOk.apply;
   const stranded = overview.stranded;
   const base = { key: 'apply' as const, label: '반영', second: `끊긴 ${stranded}` };
+  // 「서버에서 반영」 은 끊긴 후보가 있을 때만 머리글에 선다 — 없는데 실패한 반영에 그 버튼을 말하면 거짓말이다.
+  const applyHint = nextStepText(stranded > 0 ? 'stranded' : 'applyFailed', remote);
   if (latest) {
     const early = runningOrFailed(base, latest, nowMs);
-    if (early) return { ...early, hint: early.state === 'fail' ? 'pnpm data apply' : undefined };
+    if (early) return { ...early, hint: early.state === 'fail' ? applyHint : undefined };
     const failed = numberIn(latest.stats, 'failed');
     if (failed !== null && failed > 0) {
       return {
@@ -185,13 +188,13 @@ function applyStage(overview: TOpsOverview, nowMs: number): TStageHealth {
         state: 'fail',
         first: agoLabel(finishedAt(latest), nowMs),
         reason: `마지막 반영에서 ${failed}건이 실패했어요`,
-        hint: 'pnpm data apply',
+        hint: applyHint,
       };
     }
   }
   const first = lastOk ? agoLabel(finishedAt(lastOk), nowMs) : '터미널 반영 없음';
   if (stranded > 0) {
-    return { ...base, state: 'warn', first, reason: `반영 안 된 승인 ${stranded}건`, hint: 'pnpm data apply' };
+    return { ...base, state: 'warn', first, reason: `반영 안 된 승인 ${stranded}건`, hint: applyHint };
   }
   return { ...base, state: 'ok', first, reason: null };
 }
@@ -240,12 +243,12 @@ function rebuildStage(overview: TOpsOverview, nowMs: number): TStageHealth {
  * 다섯 칸 — 장치가 도는 순서. **7일 집계로 부른다**: 재빌드 칸의 둘째 수가 `funnel.rebuilds`(기간 집계)라
  * 흐름의 30일 토글을 그대로 받으면 그 칸이 말없이 30일 수가 된다(그래서 둘째 수에 `days` 를 같이 적는다).
  */
-export function stageHealth(overview: TOpsOverview, nowMs: number): TStageHealth[] {
+export function stageHealth(overview: TOpsOverview, nowMs: number, remote: boolean = HAS_SERVER_WORKER): TStageHealth[] {
   return [
-    collectStage(overview, nowMs),
-    analyzeStage(overview, nowMs),
+    collectStage(overview, nowMs, remote),
+    analyzeStage(overview, nowMs, remote),
     reviewStage(overview, nowMs),
-    applyStage(overview, nowMs),
+    applyStage(overview, nowMs, remote),
     rebuildStage(overview, nowMs),
   ];
 }

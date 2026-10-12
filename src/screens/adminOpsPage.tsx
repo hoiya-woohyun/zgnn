@@ -58,7 +58,7 @@ function AdminOpsPageSince({ at }: { at: number }) {
  * (docs/features/ops-dashboard.md · ADR-023 · todo/15 T3.4).
  *
  * 세션은 `/admin` 과 **같은 것**이다(`adminSession`·`adminSupabase`·`AdminPageLogin`) — 로그인 뒤 머무는 곳만 다르다.
- * 화면은 읽기만 한다. 기록을 고치는 버튼(중단된 행 닫기·재실행)은 없다 — 할 일은 터미널에 있고, 화면은 그 명령을 적어 줄 뿐이다.
+ * 화면은 읽기만 한다. 기록을 고치는 버튼(중단된 행 닫기·재실행)은 없다 — 할 일은 빌드별 문장(`nextStepText`)으로 적어 줄 뿐이다.
  */
 export function AdminOpsPage() {
   const [phase, setPhase] = useState<TPhase>('checking');
@@ -501,7 +501,7 @@ export function AdminOpsPage() {
           )}
         >
           {worst.reason}
-          {worst.hint ? <span className="ml-2 font-normal">— 터미널에서 {worst.hint}</span> : null}
+          {worst.hint ? <span className="ml-2 font-normal">— {worst.hint}</span> : null}
         </p>
       ) : null}
 

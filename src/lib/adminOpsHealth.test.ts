@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TOpsOverview, TOpsRebuildEntry, TOpsWorker, TPipelineRun } from './adminOps';
+import { nextStepText } from './adminNextStep';
 import { adminBandStage, remoteWorkerView, runState, stageHealth, stalledBefore, workerHealth, worstStage } from './adminOpsHealth';
 
 const NOW = Date.parse('2026-10-06T12:00:00.000Z');
@@ -131,7 +132,32 @@ describe('stageHealth', () => {
     const handEdited = run({ script: 'apply', status: 'ok', stats: { failed: '2' } });
     expect(stage(overview({ runsLatest: { apply: handEdited }, runsLastOk: { apply: handEdited } }), 'apply').state).toBe('ok');
 
-    expect(stage(overview({ stranded: 2 }), 'apply')).toMatchObject({ state: 'warn', hint: 'pnpm data apply' });
+    expect(stage(overview({ stranded: 2 }), 'apply')).toMatchObject({ state: 'warn', hint: nextStepText('stranded', false) });
+  });
+
+  it('판정 안내는 빌드별 — 분석 backlog·끊긴 반영은 갈리고, 수집·끊긴 후보 없는 실패 반영은 두 빌드 다 터미널', () => {
+    const hint = (o: TOpsOverview, key: string, remote: boolean) => stageHealth(o, NOW, remote).find((s) => s.key === key)!.hint;
+    const backlog = overview({
+      runsLatest: { analyze: run({ script: 'analyze' }) },
+      backlog: { count: 5, oldestFetchedAt: ago(3 * DAY) },
+    });
+    expect(hint(backlog, 'analyze', true)).toBe(nextStepText('backlog', true));
+    expect(hint(backlog, 'analyze', true)).not.toMatch(/pnpm|터미널/);
+    expect(hint(backlog, 'analyze', false)).toContain('pnpm data analyze');
+
+    const stranded = overview({ stranded: 2 });
+    expect(hint(stranded, 'apply', true)).toContain('「서버에서 반영」');
+    expect(hint(stranded, 'apply', true)).not.toMatch(/pnpm|터미널/);
+    expect(hint(stranded, 'apply', false)).toContain('pnpm data apply');
+
+    // 끊긴 후보가 없으면 「서버에서 반영」 버튼이 없다 — 서버 문장을 쓰지 않는다
+    const failedNoStranded = overview({ runsLatest: { apply: run({ script: 'apply', status: 'failed' }) } });
+    expect(hint(failedNoStranded, 'apply', true)).toBe(hint(failedNoStranded, 'apply', false));
+    expect(hint(failedNoStranded, 'apply', true)).toContain('pnpm data apply');
+
+    const staleCollect = overview({ runsLatest: { collect: run({ ended_at: ago(9 * DAY) }) }, runsLastOk: { collect: run({ ended_at: ago(9 * DAY) }) } });
+    expect(hint(staleCollect, 'collect', true)).toBe(hint(staleCollect, 'collect', false));
+    expect(hint(staleCollect, 'collect', true)).toContain('pnpm data collect');
   });
 
   it('재빌드 — 429 는 주의(BUG-011), 그 밖의 4xx 는 실패, 응답 없이 3분 넘으면 주의, skipped 는 건너뛴다', () => {

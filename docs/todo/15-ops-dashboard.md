@@ -1,6 +1,7 @@
 # 15. 운영 현황 화면 — 파이프라인이 돌고 있는지를 `/admin/ops` 에서 보고, 실패는 Slack 으로 받는다
 
-> 최종 수정: 2026-10-13 (v5: T8.1 끝 — 운영 현황의 지금 상태는 `/admin` 과 같은 한 줄(`opsLiveStatus` → `AdminLiveStatusLine`), 워커 칸·서버 한 줄을 걷었다)
+> 최종 수정: 2026-10-13 (v6: T8.2 끝 — 판정 안내·실행 기록 문장을 `nextStepText` 표로, 서버 빌드는 서버가 받아 가는 일에만 버튼을 말한다)
+> 이전: 2026-10-13 (v5: T8.1 끝 — 운영 현황의 지금 상태는 `/admin` 과 같은 한 줄(`opsLiveStatus` → `AdminLiveStatusLine`), 워커 칸·서버 한 줄을 걷었다)
 > 이전: 2026-10-11 (v4: **T8 「지금 `/admin` 구조에 맞춘다」** 신설 — 서버 워커(ADR-028)·`/admin` 머리글 실시간 한 줄(admin-review v72)·등록 어휘(v75) 뒤로 이 화면이 두 말을 한다. 결정: 지금 무엇이 도는지는 `/admin` 머리글(`liveStatus`) 하나, 이 화면은 기간에 걸친 건강·기록. todo/14 의 W261010.9·.27·.D3 과 .14 의 화면 쪽을 여기로)
 > 이전 2026-10-06 (v3: **T3 화면 구현** — `/admin/ops` 라우트·`adminOps`·`adminOpsHealth`·본체·다섯 칸·흐름·실행 기록·사용량·알림. 계획과 다르게 간 것 넷(429 는 주의 · 실행 칸 셋 모두 중단된 듯 · 승인·제외 막대 · 테스트 버튼 없음)을 아래에)
 > 이전 2026-10-06 (v2: T1.1·T1.2·T2 구현 — 마이그레이션 `20261006120000_pipeline_runs` 원격 적용·롤백 실측, 쓰기 스크립트 넷이 실행 기록을 남기고 요약 줄은 `src/lib/runSummary.ts` 하나. T1.3 은 T5·T6 와 함께로 미룸. T2 의 수용 기준 실측은 🧑 터미널 몫이라 아직. stats 표를 구현에 맞춰 고쳤다)
@@ -145,8 +146,12 @@ T3·T4 를 만든 뒤 `/admin` 이 셋 바뀌었다 — 서버 워커가 버튼 
   > 운영 현황은 머리글이 이미 `실시간 꺼짐 — 60초마다` 를 말해 `실시간` 표시도 넘기지 않는다. 판정은 순수 `opsLiveStatus(overview, { remote, nowMs })`(`workers` 키가 없으면 null — 모르는 것을 "워커 없음" 으로 말하지 않는다) ·
   > 테스트는 `liveStatus` 와 `toEqual` 로 대 `remote` 를 빼먹으면 깨진다. 잃는 신호 확인: `kill -9` 한 PC 워커가 돌던 실행은 `adminOpsHealth.ts` `runState`(심장 `HEARTBEAT_STALE_MS`) → `runningOrFailed` 가 분석·수집·반영 칸에 `중단된 듯` 으로 잡는다 —
   > 실행 없이 유휴로 죽은 PC 워커는 서버 빌드에선 말하지 않는다(의도). 화면은 Chrome 확장 미연결(운영 현황도 로그인이 필요하다)이라 못 봤다 — [21 S6.1](21-blog-text-and-extract-model.md) 줄에 같이 얹었다.
-- [ ] **T8.2 판정 안내를 빌드별로** — `adminOpsHealth.ts` 의 `hint` 가 명령 글자를 직접 갖지 않고 `TNextStep` 을 고른다(`adminNextStep.ts` 에 갈래를 더한다). 분석 backlog → `backlog`(서버 빌드: "검수 대기 칸의 분석 버튼"), 끊긴 반영 → 새 `stranded`(서버 빌드: "`/admin` 머리글의 「서버에서 반영」", 로컬: `pnpm data apply`), 수집 7일 → 터미널 그대로(키워드 전체 수집은 서버 길이 없다). 띠의 "— 터미널에서 {hint}" 와 칸의 `<code>` 는 문장 그대로 싣는다. 실행 기록의 "다시 돌릴 일은 터미널에서 해요" · 빈 기록 "다음 pnpm data collect 부터" 도 같은 표로. `adminNextStep.ts` 머리 주석의 "끊긴 반영은 서버를 깨우는 버튼이 없어" 는 v71 로 낡았다 — 같이 고친다.
+- [x] **T8.2 판정 안내를 빌드별로** — `adminOpsHealth.ts` 의 `hint` 가 명령 글자를 직접 갖지 않고 `TNextStep` 을 고른다(`adminNextStep.ts` 에 갈래를 더한다). 분석 backlog → `backlog`(서버 빌드: "검수 대기 칸의 분석 버튼"), 끊긴 반영 → 새 `stranded`(서버 빌드: "`/admin` 머리글의 「서버에서 반영」", 로컬: `pnpm data apply`), 수집 7일 → 터미널 그대로(키워드 전체 수집은 서버 길이 없다). 띠의 "— 터미널에서 {hint}" 와 칸의 `<code>` 는 문장 그대로 싣는다. 실행 기록의 "다시 돌릴 일은 터미널에서 해요" · 빈 기록 "다음 pnpm data collect 부터" 도 같은 표로. `adminNextStep.ts` 머리 주석의 "끊긴 반영은 서버를 깨우는 버튼이 없어" 는 v71 로 낡았다 — 같이 고친다.
   수용: `remote` 두 갈래 테스트(서버 빌드 문구에 `pnpm` 이 없다). `/admin` 띠의 `adminBandStage` 한 줄도 같은 문장을 받는다.
+  > 메모: 2026-10-13 끝. `hint` 는 `TNextStep` 이 아니라 `nextStepText` 가 채운 **문장**이다(판정 `stageHealth(overview, nowMs, remote = HAS_SERVER_WORKER)` — 칸 함수들은 `remote` 를 인자로 받아 테스트가 두 갈래를 본다).
+  > 띠는 `— {문장}`(화면이 "터미널에서" 를 덧붙이지 않는다), 칸은 고정폭 `<code>` 를 걷고 보통 글자(잘리면 칸 `title`). 새 갈래 다섯: `stranded`(서버: `/admin` 머리글 「서버에서 반영」 — `adminPage.tsx` 의 끊긴 반영 줄, `HAS_SERVER_WORKER` 일 때만 선다) ·
+  > `applyFailed`(끊긴 후보 없이 실패한 반영 — 그 버튼이 안 서므로 **두 빌드 다 터미널**, 명세의 "끊긴 반영 → stranded" 를 이 경계까지 좁혔다) · `collectStale`(두 빌드 터미널) · `rerun`(서버 문장도 터미널을 함께 말한다 — 키워드 전체 수집은 서버 길이 없다) · `noRuns`.
+  > `/admin` 띠(`adminBandStage`)는 같은 stage 를 고르지만 `hint` 를 그리지 않는다(전과 같다). 화면 눈 확인은 T8.1 과 같이 [21 S6.1](21-blog-text-and-extract-model.md) 줄.
 - [ ] **T8.3 기록이 안 오는 칸을 걷는다 · `등록`** — ① 실행 기록 칩 `승인`(approve·reject)을 뺀다 — 옛 2행은 `전체` 에서만 보인다. ② 검수 칸을 누르면 실행 기록을 거르지 않고 `/admin/?tab=candidates`(검수 대기)로 간다 — 그 칸은 사람 몫이라 볼 곳이 거기다(`STAGE_SCRIPTS.review` 정리). ③ 흐름의 `승인 · 제외` → `등록 · 제외`(세는 것은 그대로 — `/admin` 등록이 `merged` 와 `reviewed_at` 을 한 번에 쓰므로 수는 살아 있다). 반영 칸은 그대로 둔다(끊긴 반영은 여전히 생길 수 있다 · 이름은 D#9).
   수용: `adminOpsHealth`·`adminOps` 테스트에서 approve/reject 가 칸 판정에 쓰이지 않는다 · `grep -n "'승인'" src/screens/adminOps*` 0줄.
 - [ ] **T8.4 실행 기록 '더 보기' 가 앞 장을 버린다**([14 W261010.9](14-weekly-ux-eval.md)) — `loadMoreRuns` 가 첫 장 새로고침용 `mergeRuns`(덮는 구간의 옛 행을 버림)로 다음 장을 합친다. 다음 장은 **이어 붙이는** 순수 함수(같은 id 는 새 값, 순서는 `started_at desc`)로, 테스트 하나(30행 + 다음 장 2행 → 32행).

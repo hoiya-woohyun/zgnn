@@ -10,6 +10,7 @@ import {
   type TPipelineRun,
   type TRunScript,
 } from '../lib/adminOps';
+import { nextStepText } from '../lib/adminNextStep';
 import { runState, type TRunState } from '../lib/adminOpsHealth';
 import { agoLabel } from '../lib/adminRebuild';
 import { cx } from '../utils/cx';
@@ -124,7 +125,7 @@ function AdminOpsPageRunRow({
               </div>
             ))}
           </dl>
-          <p className="mt-2 text-quaternary">기록은 화면에서 고치지 않아요 — 다시 돌릴 일은 터미널에서 해요.</p>
+          <p className="mt-2 text-quaternary">기록은 화면에서 고치지 않아요 — {nextStepText('rerun')}.</p>
         </div>
       ) : null}
     </li>
@@ -136,7 +137,7 @@ function AdminOpsPageRunRow({
  *
  * 줄을 누르면 stats 전부·args·error·알림이 키-값으로 펼쳐진다. Slack 링크의 `?run=<id>` 로 들어오면 그 행이 펼친 채 맨 위에
  * 서고(`pinned` — 첫 장에 없을 수 있다) 그 자리로 스크롤된다. **손으로 상태를 바꾸는 버튼은 없다**(중단된 행 닫기·재실행) —
- * 기록을 화면이 고치기 시작하면 정본이 둘이 된다. 중단된 듯 행 아래에는 터미널에서 할 일을 한 줄 적는다.
+ * 기록을 화면이 고치기 시작하면 정본이 둘이 된다. 펼친 행 아래의 "다시 돌릴 일"·빈 기록 문장은 빌드별이다(`nextStepText`).
  */
 export function AdminOpsPageRunsTable({
   runs,
@@ -207,7 +208,7 @@ export function AdminOpsPageRunsTable({
       <div className="mt-3">
         {shown.length === 0 && !error ? (
           <p className="px-4 text-xs text-tertiary md:px-6">
-            {scripts || failedOnly ? '걸러 본 기록이 없어요.' : '아직 기록이 없어요 — 다음 pnpm data collect 부터 쌓여요.'}
+            {scripts || failedOnly ? '걸러 본 기록이 없어요.' : `아직 기록이 없어요 — ${nextStepText('noRuns')}.`}
           </p>
         ) : (
           <AdminTable grid={ADMIN_OPS_RUN_TRACKS} columns={['시각', '스크립트', '상태', '소요', '요약', '알림']}>

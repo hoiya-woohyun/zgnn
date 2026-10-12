@@ -75,7 +75,8 @@ export function AdminOpsPageStageStrip({
             {stage?.reason ? (
               <span className={cx('mt-1 line-clamp-2 text-xs font-semibold', REASON[state])}>
                 {stage.reason}
-                {stage.hint ? <code className="ml-1 font-normal">{stage.hint}</code> : null}
+                {/* 안내는 명령이 아니라 문장이다(서버 빌드는 버튼을 말한다 — `nextStepText`) — 고정폭으로 싣지 않는다. 잘리면 칸의 `title` 이 전부를 말한다. */}
+                {stage.hint ? <span className="ml-1 font-normal">{stage.hint}</span> : null}
               </span>
             ) : null}
           </>
