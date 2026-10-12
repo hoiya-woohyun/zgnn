@@ -517,3 +517,12 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
 ### [ ] T0.10 로컬 `vercel build --prod` 가 설치에서 멈춘다
 
 - 로컬 `vercel build --prod`(CLAUDE.md 가 말하는 배포 설정 검증)가 설치에서 멈춘다 — 로컬 pnpm 12.8 이 `package.json` 의 `pnpm.onlyBuiltDependencies` 를 안 읽어 `ERR_PNPM_IGNORED_BUILDS`(esbuild·unrs-resolver). `npm_config_strict_dep_builds=false` 로도 안 풀린다. Vercel 은 pnpm 10 이라 배포는 무관. 설정을 `pnpm-workspace.yaml`(`allowBuilds`)로 옮길지 — 출처: todo/20 T6
+
+### [ ] T0.11 사이트 번들에 남은 lookbehind 둘 — iOS 16.4 전 Safari 에서 청크째 죽는다
+
+- 근거: `feeLine.mjs` 머리 주석의 규칙(브라우저가 읽는 모듈엔 lookbehind 를 쓰지 않는다)을 안 지킨 곳이 둘 남았다 — 21 G1.3 에서 `CORRECTION_CUES` 의 셋을 걷으며 찾았다(2026-10-13).
+  `scripts/lib/stayEnvironment.mjs:23` `stairs` 의 **리터럴** `(?<!강아지\s?|반려견\s?|펫\s?)계단`(가변 길이) — `src/lib/places.ts` 가 import 해 모든 화면 청크에 든다(파싱 에러 = 하이드레이션 안 됨) ·
+  `src/lib/petPolicy.ts` `withPolicyFacts` 의 `new RegExp('(?<![\\d.])…kg 미만')`(런타임 — 무게 상한이 있는 곳을 그릴 때 SyntaxError).
+- 단계: 둘 다 앞 글자 캡처 어법으로(`(?:^|[^\d.])` · 계단은 앞 낱말을 캡처해 거르는 함수로). 다시 생기지 않게 테스트 하나 — 브라우저가 import 하는 `scripts/lib/*.mjs`·`src/lib/*.ts`(테스트 제외)의 소스에 `(?<!`·`(?<=` 가 없는지(주석 줄은 뺀다).
+- 수용: 그 테스트 초록 · `stayEnvironment.test.mjs` 의 계단 판독 그대로 · `pnpm build` 산출물(`out/_next/static/chunks`)에 `(?<!` 0건(grep).
+- 커밋: `fix(pwa) - 사이트 번들의 lookbehind 둘을 걷는다 — iOS 16.4 전 Safari`
