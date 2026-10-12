@@ -3,14 +3,14 @@
  *
  * 전에는 로컬 배지 · 서버 배지 · 요청 수 · 경고 띠(워커 없음) · 깨우기 실패 줄이 **열 때 한 번** 읽혀 따로 섰다. 서버 워커가 돌아도 화면은
  * 새로 고치기 전까지 "워커 없음" 이었고, 무엇이 언제 끝났는지는 운영 현황(`/admin/ops`)에 가야 보였다. 이 함수가 그 신호들을 한 줄로 고르고,
- * 화면(`adminPageLiveStatus.tsx`)은 Realtime(`subscribeOps`)으로 받은 행을 넣어 다시 부른다. 시각만으로 바뀌는 판정(멎은 듯·60초)이 있어
+ * 화면(`adminLiveStatusLine.tsx`)은 Realtime(`subscribeOps`)으로 받은 행을 넣어 다시 부른다. 시각만으로 바뀌는 판정(멎은 듯·60초)이 있어
  * 부르는 쪽이 15초마다 `nowMs` 를 바꿔 다시 부른다 — 이벤트만 기다리면 끝난 서버 워커가 영영 "도는 중" 이다.
  *
  * 고르는 순서: 도는 중(서버 → 로컬) > 사람 손이 필요한 로컬(로그인·한도) > 대기 중인 요청 > 쉬는 중.
  * 서버 워커는 요청이 있을 때만 잠깐 도는 일꾼이라 "없음" 이 고장이 아니다 — 서버가 받는 빌드에서는 PC 워커가 꺼져 있어도 주의를 띄우지 않는다.
  */
 
-import type { TOpsWorker, TPipelineRun, TRunScript } from './adminOps';
+import type { TOpsOverview, TOpsWorker, TPipelineRun, TRunScript } from './adminOps';
 import { type THealth, remoteWorkerView, runState, WORKER_PHASE_LABEL, workerHealth } from './adminOpsHealth';
 import { agoLabel } from './adminRebuild';
 
@@ -100,4 +100,17 @@ export function liveStatus({ workers, runsLatest, requestsQueued, remote, resume
     return { tone: local.tone, headline: local.state === 'none' ? 'PC 워커 꺼짐' : 'PC 워커 멎음', detail: join(local.hint, last?.text), ...none };
   }
   return { tone: last?.failed ? 'warn' : 'none', headline: '쉬는 중', detail: last?.text ?? null, ...none };
+}
+
+/**
+ * 운영 현황(`/admin/ops`)이 그리는 지금 상태 — `/admin` 머리글과 같은 `liveStatus` 에 **같은 `remote`** 를 넘긴다.
+ * 이 인자를 빼먹으면 서버 빌드의 운영 현황만 PC 워커 꺼짐을 노랗게 말해 두 화면이 반대로 말한다.
+ * `workers` 키가 없으면(마이그레이션 전 응답) null — 모르는 것을 "워커 없음" 으로 말하지 않는다.
+ */
+export function opsLiveStatus(
+  overview: Pick<TOpsOverview, 'workers' | 'runsLatest' | 'requestsQueued'>,
+  { remote, nowMs }: Pick<TLiveInput, 'remote' | 'nowMs'>,
+): TLiveStatus | null {
+  if (!overview.workers) return null;
+  return liveStatus({ workers: overview.workers, runsLatest: overview.runsLatest, requestsQueued: overview.requestsQueued, remote, nowMs });
 }

@@ -1,6 +1,7 @@
 # 15. 운영 현황 화면 — 파이프라인이 돌고 있는지를 `/admin/ops` 에서 보고, 실패는 Slack 으로 받는다
 
-> 최종 수정: 2026-10-11 (v4: **T8 「지금 `/admin` 구조에 맞춘다」** 신설 — 서버 워커(ADR-028)·`/admin` 머리글 실시간 한 줄(admin-review v72)·등록 어휘(v75) 뒤로 이 화면이 두 말을 한다. 결정: 지금 무엇이 도는지는 `/admin` 머리글(`liveStatus`) 하나, 이 화면은 기간에 걸친 건강·기록. todo/14 의 W261010.9·.27·.D3 과 .14 의 화면 쪽을 여기로)
+> 최종 수정: 2026-10-13 (v5: T8.1 끝 — 운영 현황의 지금 상태는 `/admin` 과 같은 한 줄(`opsLiveStatus` → `AdminLiveStatusLine`), 워커 칸·서버 한 줄을 걷었다)
+> 이전: 2026-10-11 (v4: **T8 「지금 `/admin` 구조에 맞춘다」** 신설 — 서버 워커(ADR-028)·`/admin` 머리글 실시간 한 줄(admin-review v72)·등록 어휘(v75) 뒤로 이 화면이 두 말을 한다. 결정: 지금 무엇이 도는지는 `/admin` 머리글(`liveStatus`) 하나, 이 화면은 기간에 걸친 건강·기록. todo/14 의 W261010.9·.27·.D3 과 .14 의 화면 쪽을 여기로)
 > 이전 2026-10-06 (v3: **T3 화면 구현** — `/admin/ops` 라우트·`adminOps`·`adminOpsHealth`·본체·다섯 칸·흐름·실행 기록·사용량·알림. 계획과 다르게 간 것 넷(429 는 주의 · 실행 칸 셋 모두 중단된 듯 · 승인·제외 막대 · 테스트 버튼 없음)을 아래에)
 > 이전 2026-10-06 (v2: T1.1·T1.2·T2 구현 — 마이그레이션 `20261006120000_pipeline_runs` 원격 적용·롤백 실측, 쓰기 스크립트 넷이 실행 기록을 남기고 요약 줄은 `src/lib/runSummary.ts` 하나. T1.3 은 T5·T6 와 함께로 미룸. T2 의 수용 기준 실측은 🧑 터미널 몫이라 아직. stats 표를 구현에 맞춰 고쳤다)
 > 이전 2026-10-06 (v1: 신설 — 설계·UI/UX·태스크. 코드 없음. 결정은 [ADR-023](../decisions/ADR-023-ops-dashboard-and-run-log.md), 화면은 [features/ops-dashboard.md](../features/ops-dashboard.md))
@@ -137,9 +138,13 @@ T3·T4 를 만든 뒤 `/admin` 이 셋 바뀌었다 — 서버 워커가 버튼 
 
 **범위 밖:** `반영` 이라는 이름(스크립트 단계 · 칸 이름 — [06 D#9](06-admin-review.md) 결정 뒤) · Slack(T5·T6) · `/admin` 쪽 터미널 문구 11곳([14 W261010.D6](14-weekly-ux-eval.md)).
 
-- [ ] **T8.1 워커 칸을 `liveStatus` 한 줄로** — `adminOpsPage.tsx` 의 `AdminOpsPageWorker` + 서버 한 줄(`remote`)을 지우고 `liveStatus({ workers, runsLatest, requestsQueued, remote: HAS_SERVER_WORKER, nowMs })` 를 그린다. 그리는 조각은 `AdminPageLiveStatus` 를 두 화면이 쓰게 되므로 소유자 접두어를 떼어 옮긴다(예: `adminLiveStatusLine.tsx`) — `운영 현황 →` 링크·`목록 새로 읽기`·깨우기 실패 줄은 `/admin` 이 넘길 때만 선다. `adminOpsPageWorker.tsx` 는 지운다. 잃는 것: 기기 이름 · `외 N대`(로컬 둘 이상일 때만 의미가 있다 — 문서에 한 줄).
+- [x] **T8.1 워커 칸을 `liveStatus` 한 줄로** — `adminOpsPage.tsx` 의 `AdminOpsPageWorker` + 서버 한 줄(`remote`)을 지우고 `liveStatus({ workers, runsLatest, requestsQueued, remote: HAS_SERVER_WORKER, nowMs })` 를 그린다. 그리는 조각은 `AdminPageLiveStatus` 를 두 화면이 쓰게 되므로 소유자 접두어를 떼어 옮긴다(예: `adminLiveStatusLine.tsx`) — `운영 현황 →` 링크·`목록 새로 읽기`·깨우기 실패 줄은 `/admin` 이 넘길 때만 선다. `adminOpsPageWorker.tsx` 는 지운다. 잃는 것: 기기 이름 · `외 N대`(로컬 둘 이상일 때만 의미가 있다 — 문서에 한 줄).
   수용: 같은 응답에 두 화면의 첫 줄이 같다(서버 도는 중 · 서버 빌드 + PC 꺼짐 = `쉬는 중` · PC 로그인 기다림). **일부러 잃는 신호 하나**: 서버 빌드에선 `liveStatus` 가 PC 워커의 꺼짐·멎음을 말하지 않는다(`!remote && …` 갈래) — 지금 이 화면의 빨간 `워커 멎음`(`kill -9` 한 PC 워커)이 사라진다. 돌던 실행은 분석 칸의 "중단된 듯" 이 대신 잡는다는 것을 확인하고 지운다. 판정은 같은 함수라 테스트는 `liveStatus` 의 기존 케이스로 충분하다 — 새 테스트는 ops 가 `remote` 를 넘기는지가 안 빠지게 하는 쪽이면 된다.
   검증: `pnpm test` · Chrome 으로 `/admin` 과 `/admin/ops` 를 나란히(서버 워커가 쉬는 때).
+  > 메모: 2026-10-13 끝. 그리는 조각은 `src/screens/adminLiveStatusLine.tsx`(`git mv` — 옛 `adminPageLiveStatus.tsx`), `/admin` 만의 것(`운영 현황 →`·`실시간` 표시·`목록 새로 읽기`·깨우기 실패·남은 일)은 넘길 때만 선다 —
+  > 운영 현황은 머리글이 이미 `실시간 꺼짐 — 60초마다` 를 말해 `실시간` 표시도 넘기지 않는다. 판정은 순수 `opsLiveStatus(overview, { remote, nowMs })`(`workers` 키가 없으면 null — 모르는 것을 "워커 없음" 으로 말하지 않는다) ·
+  > 테스트는 `liveStatus` 와 `toEqual` 로 대 `remote` 를 빼먹으면 깨진다. 잃는 신호 확인: `kill -9` 한 PC 워커가 돌던 실행은 `adminOpsHealth.ts` `runState`(심장 `HEARTBEAT_STALE_MS`) → `runningOrFailed` 가 분석·수집·반영 칸에 `중단된 듯` 으로 잡는다 —
+  > 실행 없이 유휴로 죽은 PC 워커는 서버 빌드에선 말하지 않는다(의도). 화면은 Chrome 확장 미연결(운영 현황도 로그인이 필요하다)이라 못 봤다 — [21 S6.1](21-blog-text-and-extract-model.md) 줄에 같이 얹었다.
 - [ ] **T8.2 판정 안내를 빌드별로** — `adminOpsHealth.ts` 의 `hint` 가 명령 글자를 직접 갖지 않고 `TNextStep` 을 고른다(`adminNextStep.ts` 에 갈래를 더한다). 분석 backlog → `backlog`(서버 빌드: "검수 대기 칸의 분석 버튼"), 끊긴 반영 → 새 `stranded`(서버 빌드: "`/admin` 머리글의 「서버에서 반영」", 로컬: `pnpm data apply`), 수집 7일 → 터미널 그대로(키워드 전체 수집은 서버 길이 없다). 띠의 "— 터미널에서 {hint}" 와 칸의 `<code>` 는 문장 그대로 싣는다. 실행 기록의 "다시 돌릴 일은 터미널에서 해요" · 빈 기록 "다음 pnpm data collect 부터" 도 같은 표로. `adminNextStep.ts` 머리 주석의 "끊긴 반영은 서버를 깨우는 버튼이 없어" 는 v71 로 낡았다 — 같이 고친다.
   수용: `remote` 두 갈래 테스트(서버 빌드 문구에 `pnpm` 이 없다). `/admin` 띠의 `adminBandStage` 한 줄도 같은 문장을 받는다.
 - [ ] **T8.3 기록이 안 오는 칸을 걷는다 · `등록`** — ① 실행 기록 칩 `승인`(approve·reject)을 뺀다 — 옛 2행은 `전체` 에서만 보인다. ② 검수 칸을 누르면 실행 기록을 거르지 않고 `/admin/?tab=candidates`(검수 대기)로 간다 — 그 칸은 사람 몫이라 볼 곳이 거기다(`STAGE_SCRIPTS.review` 정리). ③ 흐름의 `승인 · 제외` → `등록 · 제외`(세는 것은 그대로 — `/admin` 등록이 `merged` 와 `reviewed_at` 을 한 번에 쓰므로 수는 살아 있다). 반영 칸은 그대로 둔다(끊긴 반영은 여전히 생길 수 있다 · 이름은 D#9).

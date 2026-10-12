@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TOpsWorker, TPipelineRun } from './adminOps';
-import { lastRunText, liveStatus, type TLiveInput } from './adminLiveStatus';
+import { lastRunText, liveStatus, opsLiveStatus, type TLiveInput } from './adminLiveStatus';
 
 const NOW = Date.parse('2026-10-09T03:00:00Z');
 const ago = (sec: number) => new Date(NOW - sec * 1000).toISOString();
@@ -98,5 +98,40 @@ describe('lastRunText', () => {
 
   it('심장이 멎은 running 은 끝난 것으로 치고 "멈춘 듯"', () => {
     expect(lastRunText({ analyze: run({ heartbeat_at: ago(3600), started_at: ago(4000) }) }, NOW)?.text).toMatch(/멈춘 듯$/);
+  });
+});
+
+describe('opsLiveStatus — 운영 현황도 /admin 과 같은 줄', () => {
+  const overview = (over: Partial<Parameters<typeof opsLiveStatus>[0]>) => ({ workers: [], runsLatest: {}, requestsQueued: 0, ...over });
+
+  it('workers 키가 없으면(마이그레이션 전) 모르는 것이라 그리지 않는다', () => {
+    expect(opsLiveStatus(overview({ workers: undefined }), { remote: true, nowMs: NOW })).toBeNull();
+    expect(opsLiveStatus(overview({ workers: undefined }), { remote: false, nowMs: NOW })).toBeNull();
+  });
+
+  it('서버 빌드는 PC 워커가 없거나 꺼져 있어도 /admin 과 같이 쉬는 중 — remote 를 넘기지 않으면 깨진다', () => {
+    const stale = [worker({ last_seen_at: ago(3600) })];
+    for (const workers of [[], stale]) {
+      const ops = opsLiveStatus(overview({ workers }), { remote: true, nowMs: NOW });
+      expect(ops).toMatchObject({ tone: 'none', headline: '쉬는 중' });
+      expect(ops).toEqual(liveStatus(input({ workers, remote: true })));
+    }
+  });
+
+  it('로컬 빌드는 워커가 없거나 멎으면 지금처럼 경고', () => {
+    expect(opsLiveStatus(overview({}), { remote: false, nowMs: NOW })).toMatchObject({ tone: 'warn', headline: 'PC 워커 꺼짐' });
+    expect(opsLiveStatus(overview({ workers: [worker({ last_seen_at: ago(3600) })] }), { remote: false, nowMs: NOW })).toMatchObject({ headline: 'PC 워커 멎음' });
+  });
+
+  it('서버 워커가 도는 중이면 서버 워커 · …, 요청 대기와 진행이 붙는다', () => {
+    const ops = opsLiveStatus(
+      overview({
+        workers: [worker({ host: 'vercel', phase: 'analyze', run_id: 'r1' })],
+        runsLatest: { analyze: run({ progress: { done: 1, total: 4 } }) },
+        requestsQueued: 2,
+      }),
+      { remote: true, nowMs: NOW },
+    );
+    expect(ops).toMatchObject({ tone: 'ok', headline: '서버 워커 · 분석 중', detail: '요청 2건 대기', progress: { done: 1, total: 4 } });
   });
 });

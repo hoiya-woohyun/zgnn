@@ -132,7 +132,7 @@ import {
 import { cx } from '../utils/cx';
 import { useAdminInfiniteScroll } from './adminInfiniteScroll';
 import { AdminPageAnalyzeRequest } from './adminPageAnalyzeRequest';
-import { AdminPageLiveStatus } from './adminPageLiveStatus';
+import { AdminLiveStatusLine } from './adminLiveStatusLine';
 import { AdminPageBlocksPanel } from './adminPageBlocksPanel';
 import type { TAdminPageBlocksRowState } from './adminPageBlocksRow';
 import { AdminPageBulkBar } from './adminPageBulkBar';
@@ -682,7 +682,7 @@ export function AdminPage() {
   }, [applyReports, loadCounts, loadManaged, loadOpsStages, refreshRebuild, resetResume]);
 
   /**
-   * **실시간 줄**(`adminPageLiveStatus`) — 검수가 열려 있는 동안 워커 심장·실행 행·요청 표를 받는다(`/admin/ops` 와 같은 `subscribeOps`).
+   * **실시간 줄**(`adminLiveStatusLine`) — 검수가 열려 있는 동안 워커 심장·실행 행·요청 표를 받는다(`/admin/ops` 와 같은 `subscribeOps`).
    * 수집·분석·반영 실행이 **끝나면** 그 결과에 기대는 수만 다시 센다(건수·미분석·끊긴 반영). 후보 목록은 갈아 끼우지 않는다 —
    * 보던 줄·고른 줄이 흔들린다. 분석이 끝났으면 `목록 새로 읽기` 만 띄운다. 요청 표가 바뀌면 집계를 다시 읽어 `요청 N건 대기` 를 맞춘다.
    */
@@ -2019,9 +2019,10 @@ export function AdminPage() {
       </div>
       {/* 실시간 한 줄 — 로컬·서버 워커 배지, 요청 대기, 워커 없음·깨우기 실패 띠가 여기 하나로 모였다(`adminLiveStatus`). 집계를 못 읽었으면 안 그린다. */}
       {live ? (
-        <AdminPageLiveStatus
+        <AdminLiveStatusLine
           status={live}
           live={liveOn}
+          opsLink
           wakeLine={wakeLine}
           resume={resumeLine}
           onResume={wakeServerWorker}

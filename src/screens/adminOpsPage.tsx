@@ -6,18 +6,20 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '../components/base/button';
 import { PageHeader } from '../components/layout/pageHeader';
 import { fetchOpsOverview, fetchRun, fetchRuns, mergeRuns, RUNS_PAGE_SIZE, type TOpsOverview, type TPipelineRun, type TRunsQuery } from '../lib/adminOps';
-import { remoteWorkerView, STAGE_SCRIPTS, stageHealth, stalledBefore, type TStageKey, workerHealth, worstStage } from '../lib/adminOpsHealth';
+import { opsLiveStatus } from '../lib/adminLiveStatus';
+import { HAS_SERVER_WORKER } from '../lib/adminNextStep';
+import { STAGE_SCRIPTS, stageHealth, stalledBefore, type TStageKey, worstStage } from '../lib/adminOpsHealth';
 import { applyRunToOverview, runMatchesFilter, subscribeOps, type TOpsRealtimeStatus, upsertRun, upsertWorker } from '../lib/adminOpsRealtime';
 import { rebuildHeadline } from '../lib/adminRebuild';
 import { ADMIN_SESSION_KEY, clearAdminSession, readAdminSession, sessionProblem, type TAdminSession } from '../lib/adminSession';
 import { createAdminClient, isOperator } from '../lib/adminSupabase';
 import { cx } from '../utils/cx';
+import { AdminLiveStatusLine } from './adminLiveStatusLine';
 import { AdminOpsPageAlerts } from './adminOpsPageAlerts';
 import { AdminOpsPageFunnel, type TAdminOpsFunnelDays } from './adminOpsPageFunnel';
 import { AdminOpsPageRunsTable, sameScripts } from './adminOpsPageRunsTable';
 import { AdminOpsPageStageStrip } from './adminOpsPageStageStrip';
 import { AdminOpsPageUsage } from './adminOpsPageUsage';
-import { AdminOpsPageWorker } from './adminOpsPageWorker';
 import { AdminPageLogin } from './adminPageLogin';
 
 type TPhase = 'checking' | 'signedOut' | 'verifying' | 'loading' | 'ready' | 'notOperator' | 'error';
@@ -462,11 +464,8 @@ export function AdminOpsPage() {
   const stages = stageHealth(overview, nowMs);
   const worst = worstStage(stages);
   const rebuild = rebuildHeadline(overview.rebuildRecent, nowMs);
-  // 워커 키가 없으면(마이그레이션 전 응답) 칸을 그리지 않는다 — 모르는 것을 "워커 없음" 으로 말하지 않는다.
-  const worker = overview.workers ? workerHealth(overview.workers, nowMs) : null;
-  // 서버 워커(todo/20 T7) — 로컬 배지와 따로, 도는 동안만 한 줄.
-  const remote = overview.workers ? remoteWorkerView(overview.workers, nowMs) : null;
-  const workerRun = worker?.runId ? (Object.values(overview.runsLatest).find((row) => row?.id === worker.runId) ?? null) : null;
+  // 지금 상태는 `/admin` 머리글과 같은 한 줄(`liveStatus`) — 따로 판정하지 않는다. 워커 키가 없으면(마이그레이션 전 응답) null 이라 안 그린다.
+  const live = opsLiveStatus(overview, { remote: HAS_SERVER_WORKER, nowMs });
   const activeStage =
     (Object.keys(STAGE_SCRIPTS) as TStageKey[]).find((key) => STAGE_SCRIPTS[key] && sameScripts(STAGE_SCRIPTS[key], runFilter.scripts ?? null)) ?? null;
 
@@ -506,13 +505,7 @@ export function AdminOpsPage() {
         </p>
       ) : null}
 
-      {worker ? <AdminOpsPageWorker health={worker} run={workerRun} requestsQueued={overview.requestsQueued} nowMs={nowMs} /> : null}
-      {remote ? (
-        <p className="mt-2 flex items-center gap-1.5 px-4 text-sm font-semibold text-primary md:px-6">
-          <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-success-solid" />
-          {remote.label}
-        </p>
-      ) : null}
+      {live ? <AdminLiveStatusLine status={live} /> : null}
 
       <section className="mt-4" aria-label="파이프라인">
         <AdminOpsPageStageStrip stages={stages} active={activeStage} onSelect={selectStage} />
