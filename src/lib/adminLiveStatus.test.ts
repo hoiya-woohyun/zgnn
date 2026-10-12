@@ -71,6 +71,10 @@ describe('liveStatus', () => {
     expect(liveStatus(input({ requestsQueued: 2, remote: false }))).toMatchObject({ tone: 'warn', detail: '워커를 켜 주세요(터미널에서 pnpm data)' });
   });
 
+  it('이어 돌리기 줄이 서버의 남은 일을 말하면 "곧 받아요" 를 붙이지 않는다 — 사슬이 쉬었으면 거짓이다(T10)', () => {
+    expect(liveStatus(input({ requestsQueued: 1, resumeShown: true }))).toMatchObject({ headline: '요청 1건 대기', detail: null, tone: 'none' });
+  });
+
   it('쉬는 중이면 마지막 실행을 붙이고, 실패였으면 주의', () => {
     const ok = liveStatus(input({ runsLatest: { analyze: run({ status: 'ok', ended_at: ago(180) }) } }));
     expect(ok).toMatchObject({ tone: 'none', headline: '쉬는 중', detail: '분석 3분 전 끝' });

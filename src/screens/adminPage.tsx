@@ -99,8 +99,8 @@ import { fetchOpsOverview, type TOpsWorker, type TPipelineRun, type TRunScript }
 import { adminBandStage, stageHealth, type TStageHealth, workerHealth } from '../lib/adminOpsHealth';
 import { subscribeOps, upsertWorker } from '../lib/adminOpsRealtime';
 import { liveStatus } from '../lib/adminLiveStatus';
-import { wakeNotice, wakeRemoteWorker } from '../lib/adminWorkerWake';
 import { HAS_SERVER_WORKER, nextStepText } from '../lib/adminNextStep';
+import { useAdminPageWorkerResume } from './useAdminPageWorkerResume';
 import { fetchRebuildStatus, rebuildHeadline, type TRebuildHeadline } from '../lib/adminRebuild';
 import {
   allSelected as allKeysSelected,
@@ -472,15 +472,46 @@ export function AdminPage() {
   /** 서버 워커를 못 깨웠다는 한 줄(`wakeNotice`) — 요청은 남았다. 다음 깨우기가 성공하면 지운다. */
   const [wakeLine, setWakeLine] = useState<string | null>(null);
   const opsWorker = useMemo(() => (opsWorkers ? workerHealth(opsWorkers, liveNow) : null), [opsWorkers, liveNow]);
+
+  const clientRef = useRef<SupabaseClient | null>(null);
+  /**
+   * 요청을 DB 에 남긴 **뒤에** 서버 워커를 깨운다(`adminWorkerWake.ts`, todo/20 T7) — 기다리지 않는다(버튼 응답을 늦추지 않는다).
+   * 못 깨워도 요청은 그대로라 로컬 워커가 집는다 — 실패는 한 줄로만 말하고 요청을 실패로 바꾸지 않는다. 세션은 ref 로 읽어 콜백 deps 를 늘리지 않는다.
+   * 서버가 한 번에 20건까지 돌고 쉬면 남은 수가 줄었을 때만 이 화면이 다시 깨운다(T10 — `useAdminPageWorkerResume`).
+   */
+  const sessionRef = useRef<TAdminSession | null>(null);
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
+  const {
+    wake: wakeServerWorker,
+    refresh: refreshRemaining,
+    reset: resetResume,
+    notice: resumeLine,
+  } = useAdminPageWorkerResume({
+    clientRef,
+    sessionRef,
+    workers: opsWorkers,
+    runsLatest: opsRuns,
+    nowMs: liveNow,
+    active: phase === 'ready',
+    remote: HAS_SERVER_WORKER,
+    onWakeLine: setWakeLine,
+  });
   const live = useMemo(
     () =>
       opsWorkers
-        ? liveStatus({ workers: opsWorkers, runsLatest: opsRuns, requestsQueued: opsQueue?.requestsQueued, remote: HAS_SERVER_WORKER, nowMs: liveNow })
+        ? liveStatus({
+            workers: opsWorkers,
+            runsLatest: opsRuns,
+            requestsQueued: opsQueue?.requestsQueued,
+            remote: HAS_SERVER_WORKER,
+            resumeShown: resumeLine !== null,
+            nowMs: liveNow,
+          })
         : null,
-    [opsWorkers, opsRuns, opsQueue, liveNow],
+    [opsWorkers, opsRuns, opsQueue, liveNow, resumeLine],
   );
-
-  const clientRef = useRef<SupabaseClient | null>(null);
   /*
    * 장소 목록은 state 가 아니라 ref 다. `approveGroup` 이 이 배열을 **읽고 고친다** — 새 장소를 push 하고
    * 방금 채운 칸을 그 행에 반영한다. 다음 묶음의 재대조가 그것을 봐야 같은 가게가 두 번 생기지 않는다.
@@ -580,19 +611,10 @@ export function AdminPage() {
       setOpsWorkers(null);
       setOpsQueue(null);
     }
-  }, []);
+    // 서버의 남은 일(요청 글·저수지 요청의 남은 N)은 이 집계에 없다 — 따로 센다. 서버를 안 깨우는 빌드에선 줄이 안 서니 세지 않는다.
+    if (HAS_SERVER_WORKER) void refreshRemaining();
+  }, [refreshRemaining]);
 
-  /**
-   * 요청을 DB 에 남긴 **뒤에** 서버 워커를 깨운다(`adminWorkerWake.ts`, todo/20 T7) — 기다리지 않는다(버튼 응답을 늦추지 않는다).
-   * 못 깨워도 요청은 그대로라 로컬 워커가 집는다 — 실패는 한 줄로만 말하고 요청을 실패로 바꾸지 않는다. 세션은 ref 로 읽어 콜백 deps 를 늘리지 않는다.
-   */
-  const sessionRef = useRef<TAdminSession | null>(null);
-  useEffect(() => {
-    sessionRef.current = session;
-  }, [session]);
-  const wakeServerWorker = useCallback(() => {
-    void wakeRemoteWorker(sessionRef.current).then((result) => setWakeLine(wakeNotice(result)));
-  }, []);
 
   const start = useCallback(async (next: TAdminSession) => {
     setFatal(null);
@@ -616,6 +638,7 @@ export function AdminPage() {
     setOpsQueue(null);
     setFreshCandidates(false);
     setWakeLine(null);
+    resetResume();
     setPhase('verifying');
     const client = createAdminClient(next.accessToken);
     clientRef.current = client;
@@ -656,7 +679,7 @@ export function AdminPage() {
     } catch {
       setStranded(undefined);
     }
-  }, [applyReports, loadCounts, loadManaged, loadOpsStages, refreshRebuild]);
+  }, [applyReports, loadCounts, loadManaged, loadOpsStages, refreshRebuild, resetResume]);
 
   /**
    * **실시간 줄**(`adminPageLiveStatus`) — 검수가 열려 있는 동안 워커 심장·실행 행·요청 표를 받는다(`/admin/ops` 와 같은 `subscribeOps`).
@@ -2000,6 +2023,8 @@ export function AdminPage() {
           status={live}
           live={liveOn}
           wakeLine={wakeLine}
+          resume={resumeLine}
+          onResume={wakeServerWorker}
           onReload={freshCandidates && tab === 'candidates' ? () => void reloadPending() : null}
         />
       ) : wakeLine ? (

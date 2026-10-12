@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import type { TLiveStatus } from '../lib/adminLiveStatus';
 import type { THealth } from '../lib/adminOpsHealth';
+import type { TResumeNotice } from '../lib/adminWorkerResume';
 import { cx } from '../utils/cx';
 
 /** 상태점 — 운영 현황의 워커 칸(`adminOpsPageWorker`)과 같은 토큰. */
@@ -18,17 +19,24 @@ const DOT: Record<THealth, string> = {
  *
  * 오른쪽 끝의 `실시간` 은 Realtime 구독이 붙었는지다. 끊겼으면 흐린 `새로 고쳐야 보여요` — 이 줄이 멈춘 그림인지 사람이 알 수 있어야 한다.
  * 분석이 끝나 검수 대기에 새 후보가 생겼을 수 있으면 `목록 새로 읽기` 를 띄운다 — 저절로 갈아 끼우지 않는다(보던 줄·고른 줄이 흔들린다).
+ * 서버가 한 번에 20건까지 돌고 쉬면 밑에 "남은 N건" 한 줄(`resumeNotice`) — 끝난 것처럼 보이지 않게. 쉬는 중이면 `서버에서 이어 돌리기` 를 붙인다.
  */
 export function AdminPageLiveStatus({
   status,
   live,
   wakeLine,
+  resume = null,
+  onResume,
   onReload,
 }: {
   status: TLiveStatus;
   live: boolean;
   /** 서버 워커를 못 깨웠다는 한 줄(`wakeNotice`) — 요청은 남았다 */
   wakeLine: string | null;
+  /** 서버의 남은 일 한 줄(`useAdminPageWorkerResume`) */
+  resume?: TResumeNotice | null;
+  /** `서버에서 이어 돌리기` — 서버 워커를 한 번 깨우고 이어 돌리기를 켠다 */
+  onResume?: () => void;
   /** 있으면 `목록 새로 읽기` 를 띄운다 */
   onReload: (() => void) | null;
 }) {
@@ -64,6 +72,16 @@ export function AdminPageLiveStatus({
         </span>
       </p>
       {status.current ? <p className="mt-0.5 truncate pl-4 text-xs text-quaternary">{status.current}</p> : null}
+      {resume ? (
+        <p className={cx('mt-0.5 flex flex-wrap items-center gap-x-2 pl-4 text-xs', resume.warn ? 'font-semibold text-warning-primary' : 'text-tertiary')}>
+          {resume.text}
+          {resume.canResume && onResume ? (
+            <button type="button" className="font-semibold text-brand-secondary underline underline-offset-2" onClick={onResume}>
+              서버에서 이어 돌리기
+            </button>
+          ) : null}
+        </p>
+      ) : null}
       {wakeLine ? <p className="mt-0.5 pl-4 text-xs font-semibold text-warning-primary">{wakeLine}</p> : null}
     </div>
   );

@@ -33,6 +33,11 @@ export type TLiveInput = {
   requestsQueued: number | undefined;
   /** 이 빌드가 서버 워커를 깨우나(`HAS_SERVER_WORKER`) */
   remote: boolean;
+  /**
+   * 밑의 이어 돌리기 줄(`resumeNotice`)이 서버의 남은 일을 말하고 있나. 그러면 요청 대기 줄에 "서버 워커가 곧 받아요" 를 붙이지 않는다 —
+   * 사슬이 4홉 상한에서 쉬었거나 아무도 안 깨웠으면 그 말은 거짓이다(todo/20 T10).
+   */
+  resumeShown?: boolean;
   nowMs: number;
 };
 
@@ -68,7 +73,7 @@ export function lastRunText(runsLatest: TLiveInput['runsLatest'], nowMs: number)
 }
 
 /** 순수 — 위 순서대로 한 줄. */
-export function liveStatus({ workers, runsLatest, requestsQueued, remote, nowMs }: TLiveInput): TLiveStatus {
+export function liveStatus({ workers, runsLatest, requestsQueued, remote, resumeShown = false, nowMs }: TLiveInput): TLiveStatus {
   const queued = requestsQueued ? `요청 ${requestsQueued}건 대기` : null;
   const last = lastRunText(runsLatest, nowMs);
   const join = (...parts: (string | null | undefined)[]) => parts.filter(Boolean).join(' · ') || null;
@@ -87,8 +92,8 @@ export function liveStatus({ workers, runsLatest, requestsQueued, remote, nowMs 
     return { tone: 'warn', headline: `PC 워커 · ${local.label}`, detail: join(local.hint, queued), ...none };
   }
   if (queued) {
-    // 요청이 있는데 아무도 안 돈다 — 서버가 받는 빌드면 깨우는 사이(수 초)이거나 못 깨운 것(깨우기 실패 줄이 따로 말한다).
-    const who = remote ? '서버 워커가 곧 받아요' : local.state === 'alive' ? 'PC 워커가 곧 받아요' : '워커를 켜 주세요(터미널에서 pnpm data)';
+    // 요청이 있는데 아무도 안 돈다 — 서버가 받는 빌드면 깨우는 사이(수 초)이거나 못 깨운 것(깨우기 실패 줄이 따로 말한다), 또는 사슬이 쉰 것(이어 돌리기 줄이 말한다).
+    const who = remote ? (resumeShown ? null : '서버 워커가 곧 받아요') : local.state === 'alive' ? 'PC 워커가 곧 받아요' : '워커를 켜 주세요(터미널에서 pnpm data)';
     return { tone: remote || local.state === 'alive' ? 'none' : 'warn', headline: queued, detail: who, ...none };
   }
   if (!remote && (local.state === 'none' || local.state === 'stale')) {
