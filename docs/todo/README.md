@@ -135,6 +135,7 @@ flowchart LR
 | 18 | [18-home-restructure.md](18-home-restructure.md) | 계획만(2026-10-07) — T1~T5 전부 `[ ]`, 🙋 2(권고와 함께 「기다림」) | 홈의 축을 **종류별 디렉터리에서 사용자 상태(등록 전·등록·등록+저장)** 로 — 모수 표시 · 읍면 칩을 관광지 검색 칩으로(퍼시스트 필터 누수 M-5) · 저장+준비물을 「내 여행」 카드 하나로(동선 [16](16-trip-route-planner.md) 의 입구) · 등록 전엔 히어로가 곧 CTA. 지도는 홈에 띄우지 않는다 |
 | 19 | [19-area-cards.md](19-area-cards.md) | 승인 · 구현 전(2026-10-08) — T1~T6 `[ ]`(T6 라벨은 데이터 문턱 뒤) · 🧑 H.1 검수 숙소 먼저 · 🙋 1(애널리틱스) | 홈 「지역으로 찾기」 를 **6권역 카드**로 — 카드마다 홈 N 과 같은 셈(`countByLevel` ok+outdoor)으로 "묵을 곳 n · 카페 n", 누르면 둘러보기 권역(비퍼시스트)·숙소 탭·숨기기. 0칸은 분모·'저희가 모은' 으로 '모른다' 와 '어렵다' 를 가른다. '추천' 은 문턱을 넘은 칸에만. 근거는 [기획 토론](../reviews/2026-10-08-region-pick.md) |
 | 20 | [20-vercel-remote-worker.md](20-vercel-remote-worker.md) | 제안(2026-10-08) — T0 실측만 ✅(c39beaf), 🙋 ADR-028 채택 대기 | `/admin` 버튼이 운영자 JWT 로 별도 Vercel 프로젝트 `zgnn-worker` 를 불러 **PC 없이** 수집·분석 — 서버 장기 값은 Claude `setup-token`·네이버 키 둘, DB 쓰기는 요청의 JWT. 로컬 워커와 같은 큐를 원자적으로 나눠 집는다. 결정은 [ADR-028](../decisions/ADR-028-vercel-remote-worker.md) |
+| 21 | [21-blog-text-and-extract-model.md](21-blog-text-and-extract-model.md) | 계획(2026-10-12) — 사용자 결정 둘(B · Sonnet) 끝, 태스크 G1·M1·S1~S8 + 🧑 H1·H2·H5 · 🙋 H3·H4, 전부 `[ ]` | 조건 원문(블로거 문장 그대로 — 대조군)이 공개 상세·`places.json`·번들에 나가지 않게: 사이트는 **판단에서 만든 문장 + 가드 notes + 출처 링크**, 원문은 `pet_policy_text_public`(기본 숨김, 시드만 공개). 추출 모델은 Sonnet(교차점검·제안 Opus 고정), 원문 대조가 맞는 요금을 지우는 결함, 소개가 글의 틀을 옮기는 것(식약처 명단글 137건) |
 
 ## 이 계획이 서 있는 결정 — [ADR-015](../decisions/ADR-015-supabase-source-and-rebuild.md)
 
@@ -592,7 +593,7 @@ flowchart LR
 |---|---|---|
 | ~~02~~ | ~~검색 키워드 목록~~ **닫힘**(2026-09-28) — `scripts/collect/keywords.json` 의 6개로 확정 | 도메인 지식. "강아지 동반" vs "애견 동반" vs "반려견" 이 다른 글을 낸다 |
 | 03 | `matchPlace` 가중치·임계값(`WEIGHT`·`THRESHOLD`), **자동 승인을 켤지**(`AUTO_APPROVE`, 기본 off) | 기본안은 구현돼 있다. 틀리면 데이터가 조용히 썩는다. 86곳이라 사람 비용이 싸다 |
-| 03 | AI 모델 | 구독이라 비용 차이는 없고 한도 소모뿐. 기본 `claude-opus-5`, `ANALYZE_MODEL` 로 비교 |
+| 03 | AI 모델 — **결정됨**(2026-10-12): 추출 Sonnet · 교차점검·제안 Opus, 구현은 [21 M1](21-blog-text-and-extract-model.md) | 구독이라 비용 차이는 없고 한도 소모뿐. 근거는 21 「근거」 의 비교표 |
 | 04 | 승인마다 재빌드 vs 모아서 "반영" 한 번 | 빌드 횟수 = Vercel 무료 한도 소비 |
 | 02·05 | 수집 주기(스케줄이 없다 — 사용자가 돌릴 때만) · 7일 일시정지를 무엇으로 깨울지 | (c) 의 비용. 주 1회 `pnpm data:pull` 이면 충분하지만 그건 습관이지 코드가 아니다 |
 | 15 | 건강 판정 임계값(수집 7일 · backlog 2일 · 대기 7일 · 심장 10분) · Slack 을 언제 켤지 · pg_cron 을 켤지 | 수집 주기가 습관이라 "며칠이면 늦은가" 는 사용자 리듬이다. 알림은 받는 사람이 정한다 — 상세는 [15](15-ops-dashboard.md) 🙋 |
