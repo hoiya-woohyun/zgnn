@@ -1,6 +1,7 @@
 # 21. 블로그 문장이 사이트에 그대로 나가지 않게 · 추출 모델을 Sonnet 으로
 
-> 최종 수정: 2026-10-12 (v1: 신설 — 2026-10-12 세션의 실측 셋(블로그 문장 베낌 · Opus↔Sonnet 비교 · 원문 대조가 맞는 요금을 지움)과 사용자 결정 둘(B · Sonnet)을 태스크로)
+> 최종 수정: 2026-10-12 (v2: G1 끝 — BUG-018. 범위 밖으로 남긴 일랑일랑 기본 마릿수 근거를 G1.1 로)
+> 이전 2026-10-12 (v1: 신설 — 2026-10-12 세션의 실측 셋(블로그 문장 베낌 · Opus↔Sonnet 비교 · 원문 대조가 맞는 요금을 지움)과 사용자 결정 둘(B · Sonnet)을 태스크로)
 
 **한 줄:** 조건 원문(`petPolicyText`)은 블로그 문장을 **글자 그대로** 옮기도록 설계돼 있고(원문 대조의 대조군), 그 문장이 공개 상세 화면에 그대로 나간다.
 원문은 대조군으로만 남기고, 사이트에는 **판단(`petPolicy`)에서 만든 문장 + 가드를 거친 notes 한 줄 + 출처 글 링크**를 보인다(B).
@@ -71,7 +72,13 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
 ## 태스크
 
 ### G1. 원문 대조가 맞는 요금·마릿수를 지운다
-- [ ] `scripts/lib/petPolicyFacts.mjs`(`correctFeeRules` · `mentionsKg` · `mentionsDogs` · `amountsInWon`) + 테스트.
+- [x] `scripts/lib/petPolicyFacts.mjs`(`correctFeeRules` · `mentionsKg` · `mentionsDogs` · `amountsInWon`) + 테스트.
+  > 메모: 2026-10-12 고침 → [BUG-018](../bugs/BUG-018-fee-grounding-drops-correct-amounts.md). 실패 지점은 다섯 — 구간 하한(`mentionsKgFrom`, minKg 에만) · `N마리를 초과`(`mentionsDogsOver` + `shapeMatchesLabel`) · `4견`(`mentionsDogs`) ·
+  > `1만5천원` 을 5000 으로 읽음(`feeLine.mjs` 의 `AMOUNT_RE` — `petPolicyFacts` 밖) · `첫 1박` 을 1박마다로 읽어 `perNight: false` 거절(`shapeMatchesLabel`, 명세에 없던 것 — 두 모델 다 그렇게 냈다).
+  > 「끝나면」 판단: **재추출 안 함** — 원격 조회로 대기 후보 최대 6곳(요금 3 · `N견` 3), 게시된 곳 0. 요금 줄은 label 로 남아 틀린 말은 없고 계산만 빠진다. 「기다림」 줄을 만들지 않았다.
+- [ ] **G1.1** `기본 요금에는 … 반려견 1마리가 포함` 을 `기본 N마리` 와 같은 근거로(`mentionsBaseDogs`) — 일랑일랑 `추가 1마리 5,000원`(fromDog 2)이 두 모델 다 맞는데 여전히 계산에서 빠진다.
+  - 수용: `N마리(가) (기본) 포함` 이 fromDog N+1 의 근거. `1마리당` 은 여전히 아니다(마리당 요금). "추가 N마리" 자체를 근거로 넓히지 않는다 — 프롬프트 규칙("기본 마릿수를 본문이 말하지 않으면 null")을 대조가 통과시키게 된다.
+  - 파일: `scripts/lib/petPolicyFacts.mjs` + 테스트(재현 `data/raw/eval/model-compare/224406783458.*.json`).
   - 수용: 아래 원문·판단 쌍에서 금액·구간·`fromDog`·`maxDogs` 가 **남는다** — "1~5kg 1만원"(minKg 1·maxKg 5·10000) · "6~10kg 1.5만원" · "4마리를 초과할 경우 1견당 3,000원"(fromDog 5) · "최대 인원은 4인 4견"(maxDogs 4) · "첫 1박 기준 1만5천원"(15000, label 정규화 뒤 "1만5,000원" 도).
     지어낸 숫자는 여전히 지운다(원문에 없는 10kg 등 — BUG-009 테스트 그대로 초록).
   - **`FEE_EX` 전부를 label 을 원문 삼아 `correctPetPolicyFacts` 에 넣어 금액이 사는지** 계약 테스트(지금은 `dogFee.test.ts` 가 `sumByRules` 만 본다).

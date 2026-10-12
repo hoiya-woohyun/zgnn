@@ -14,13 +14,19 @@
 const KOREAN_COUNT = { 한: 1, 두: 2, 세: 3, 네: 4, 다섯: 5 };
 
 /**
- * 금액 토큰 — `2만원`·`1.5 만원`·`20,000원`·`5천원`. 앞에 숫자·소수점이 붙은 자리(15만원의 5만원)는 잡지 않는다.
+ * 금액 토큰 — `2만원`·`1.5 만원`·`20,000원`·`5천원`, 그리고 **만과 천을 섞은 한 금액**(`1만5천원`·`1만 5,000원`).
+ * 앞에 숫자·소수점이 붙은 자리(15만원의 5만원)는 잡지 않는다.
+ * 섞은 금액을 한 토큰으로 읽지 않으면 `만` 뒤에 `원` 이 없어 뒤쪽 `5천원` 만 잡혀 15000 이 5000 이 된다 — 원문 대조가 모델이 맞게 낸
+ * 15000 을 지어낸 금액으로 보고 지웠다(안녕감귤 "첫 1박 기준 1만5천원", BUG-018). `1만 2만원` 처럼 뒤가 다시 `만원` 이면 섞지 않는다.
  * lookbehind(`(?<!…)`) 대신 앞 글자를 캡처한다 — 이 모듈은 브라우저 번들에 들어가고, iOS 16.4 전 Safari 는 lookbehind
  * 정규식 리터럴에서 청크 전체가 파싱 에러로 죽는다(petPolicyFacts.mjs 의 `mentionsKg` 와 같은 어법).
  */
-const AMOUNT_RE = /(^|[^\d.,])(\d[\d,]*(?:\.\d+)?)\s*(만\s*원|천\s*원|원)/g;
+const AMOUNT_RE = /(^|[^\d.,])(\d[\d,]*(?:\.\d+)?(?:\s*만\s*\d[\d,]*(?=\s*(?:천\s*)?원))?)\s*(만\s*원|천\s*원|원)/g;
 
 const toWon = (num, unit) => {
+  // `1만5` + `천원` — 만 앞은 만 단위, 뒤는 단위(천원·원)를 그대로 따른다.
+  const [man, rest] = num.split(/\s*만\s*/);
+  if (rest !== undefined) return Math.round(Number(man.replace(/,/g, '')) * 10000) + toWon(rest, unit);
   const n = Number(num.replace(/,/g, ''));
   if (unit.startsWith('만')) return Math.round(n * 10000);
   if (unit.startsWith('천')) return Math.round(n * 1000);

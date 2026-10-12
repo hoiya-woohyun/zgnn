@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { normalizeFeeLines } from './feeLine.mjs';
 import { correctPetPolicyFacts, weekdaysIn, weekdaysOrNull } from './petPolicyFacts.mjs';
 
 /** 모델이 아무것도 안 읽은 판단. 각 테스트가 필요한 칸만 덮어쓴다. */
@@ -277,5 +278,92 @@ describe('correctPetPolicyFacts — 요금 구조(fees)는 줄과 계산 칸을 
     expect(weekdaysOrNull(['수', '수', '화요일', 3])).toEqual(['수']);
     expect(weekdaysOrNull([])).toBeNull();
     expect(weekdaysOrNull(undefined)).toBeNull();
+  });
+});
+
+/**
+ * 모델이 맞게 낸 요금·마릿수를 원문 대조가 지우던 것(BUG-018). 2026-10-12 모델 비교(Opus·Sonnet, 같은 프롬프트)의 **원응답 칸 그대로** —
+ * 손으로 다듬은 rule 로는 안 드러나는 갈래가 있다(두 모델 다 `첫 1박` 에 perNight false 를 냈다). 원문은 조건 줄만 옮긴다.
+ */
+describe('correctPetPolicyFacts — 모델이 맞게 낸 요금은 남긴다(BUG-018)', () => {
+  const rule = (over) => ({ label: '', amountWon: null, basis: 'perDog', minKg: null, maxKg: null, fromDog: null, perNight: false, ...over });
+  const calc = (fees) => fees.map((r) => [r.amountWon, r.minKg, r.maxKg, r.fromDog]);
+  /**
+   * 분석 시점(normalizePetPolicy)과 같은 순서 — 대조 → label 모양 맞추기 — 뒤에 앱이 읽을 때(withPolicyFacts) 한 번 더 대 본다.
+   * 두 번째 대조는 고칠 것이 없어야 한다: 정규화가 바꾼 label(`1만5천원` → `1.5만원`)을 앱이 지어낸 줄로 보면 같은 버그가 앱에서 난다.
+   */
+  const analyzeThenRead = (f, text) => {
+    const first = correctPetPolicyFacts(f, text);
+    const stored = { ...first.facts, fees: first.facts.fees.map((r) => ({ ...r, label: normalizeFeeLines([r.label])[0] })) };
+    const again = correctPetPolicyFacts(stored, text);
+    expect(again.corrections).toEqual([]);
+    return { corrections: first.corrections, facts: again.facts };
+  };
+
+  it('구간 요금표의 하한(`1~5kg` 의 1)도 원문 근거다 — 솔숲', () => {
+    const text = '반려동물동반 가능 (최대 2마리)\n1~5kg 1박에 1만원\n6~10kg 1박에 1.5만원';
+    const fees = [
+      rule({ label: '1~5kg 1박에 1만원', amountWon: 10000, minKg: 1, maxKg: 5, perNight: true }),
+      rule({ label: '6~10kg 1박에 1.5만원', amountWon: 15000, minKg: 6, maxKg: 10, perNight: true }),
+    ];
+    const r = analyzeThenRead(facts({ fees, maxDogs: 2 }), text);
+    expect(r.corrections).toEqual([]);
+    expect(calc(r.facts.fees)).toEqual([
+      [10000, 1, 5, null],
+      [15000, 6, 10, null],
+    ]);
+  });
+
+  it('구간 하한은 요금의 minKg 에서만 근거다 — 무게 상한·구간 상한으로는 받지 않는다', () => {
+    const text = '6~10kg 1박에 1.5만원';
+    expect(correctPetPolicyFacts(facts({ weightLimitKg: 6 }), text).facts.weightLimitKg).toBeNull();
+    const asMax = rule({ label: '6~10kg 1박에 1.5만원', amountWon: 15000, maxKg: 6, perNight: true });
+    expect(correctPetPolicyFacts(facts({ fees: [asMax] }), text).facts.fees[0].amountWon).toBeNull();
+  });
+
+  it('`N마리를 초과` 는 N+1째 마리부터다 — 아우아우(모델 label 과 정규화한 label 둘 다)', () => {
+    const text = '기본 대관료: 15,000원 (반려견 최대 4마리까지 입장료 기본 포함)\n추가 요금: 4마리를 초과할 경우 1견당 3,000원의 추가 요금이 발생합니다.';
+    for (const label of ['4마리 초과 추가 1견당 3,000원', '4마리 초과 1견당 3,000원']) {
+      const fees = [rule({ label: '기본 대관료 15,000원', amountWon: 15000, basis: 'flat' }), rule({ label, amountWon: 3000, fromDog: 5 })];
+      const r = analyzeThenRead(facts({ fees }), text);
+      expect(r.corrections).toEqual([]);
+      expect(calc(r.facts.fees)).toEqual([
+        [15000, null, null, null],
+        [3000, null, null, 5],
+      ]);
+    }
+  });
+
+  it('초과 수와 안 맞는 fromDog · 초과를 잃은 fromDog 는 여전히 뺀다', () => {
+    const text = '4마리를 초과할 경우 1견당 3,000원';
+    const wrongNth = rule({ label: '4마리 초과 1견당 3,000원', amountWon: 3000, fromDog: 6 });
+    const lostNth = rule({ label: '4마리 초과 1견당 3,000원', amountWon: 3000 });
+    expect(correctPetPolicyFacts(facts({ fees: [wrongNth, lostNth] }), text).facts.fees.map((r) => r.amountWon)).toEqual([null, null]);
+  });
+
+  it('숫자 뒤 `견` 은 마릿수다(`4인 4견`, 일랑일랑) — `1견당` 은 마리당 요금이라 아니다', () => {
+    expect(correctPetPolicyFacts(facts({ maxDogs: 4 }), '최대 인원은 4인 4견이고 반려견 추가 요금은 마리당 5,000원').facts.maxDogs).toBe(4);
+    expect(correctPetPolicyFacts(facts({ maxDogs: 1 }), '4마리를 초과할 경우 1견당 3,000원').facts.maxDogs).toBeNull();
+  });
+
+  it('`첫 1박` 은 1박마다가 아니고, `1만5천원` 은 15000 이다 — 안녕감귤(Opus·Sonnet)', () => {
+    const text = '애견 추가 요금은 첫 1박 기준 1만5천원이고, 연박 시 2박째부터는 1박당 1만원이 추가됩니다.';
+    const nightly = { label: '2박째부터 1박당 1만원', perNight: true };
+    const opus = [rule({ label: '첫 1박 1만5천원', amountWon: 15000, basis: 'flat' }), rule({ ...nightly, amountWon: 10000, basis: 'flat' })];
+    const sonnet = [rule({ label: '첫 1박 기준 1만5천원', amountWon: 15000 }), rule(nightly)];
+    expect(calc(analyzeThenRead(facts({ fees: opus }), text).facts.fees)).toEqual([
+      [15000, null, null, null],
+      [10000, null, null, null],
+    ]);
+    expect(analyzeThenRead(facts({ fees: sonnet }), text).facts.fees[0].amountWon).toBe(15000);
+    // 이 수정 전에 정규화돼 DB 에 있는 label 모양 — 앱이 다시 대 볼 때도 15000 이다
+    const stored = rule({ label: '첫 1박 기준 1만5,000원', amountWon: 15000 });
+    expect(correctPetPolicyFacts(facts({ fees: [stored] }), text).facts.fees[0].amountWon).toBe(15000);
+  });
+
+  it('`첫 1박` 요금에 1박마다(perNight)를 붙이면 뺀다 — 첫날 요금이 박마다 곱해진다', () => {
+    const text = '첫 1박 기준 1만5천원';
+    const r = correctPetPolicyFacts(facts({ fees: [rule({ label: '첫 1박 기준 1만5천원', amountWon: 15000, perNight: true })] }), text);
+    expect(r.facts.fees[0].amountWon).toBeNull();
   });
 });

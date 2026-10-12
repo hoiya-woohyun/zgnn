@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { feeChipForWeight, feeUnitNote, formatDogFee, formatWon } from './dogFee';
-import { parsePetPolicy, toPetBadges } from './petPolicy';
+import { parsePetPolicy, toPetBadges, withPolicyFacts } from './petPolicy';
 import { FEE_EX, SYSTEM_PROMPT } from '../../scripts/analyze/extractPlaces.mjs';
+import { correctPetPolicyFacts } from '../../scripts/lib/petPolicyFacts.mjs';
 import { judgeEligibility } from './eligibility';
 import { PLACES } from './places';
 import type { TPetPolicy } from './petPolicy';
-import type { TDogProfile, TFeeRule } from '../types';
+import type { TDogProfile, TFeeRule, TPetPolicyFacts } from '../types';
 
 const AKDONG: TDogProfile = { dogs: [{ name: '악동', weightKg: 4 }], carrier: 'bag' };
 const AKDONG_TOFU: TDogProfile = {
@@ -205,6 +206,20 @@ const policyWithRules = (rules: TFeeRule[], extra: Partial<TPetPolicy> = {}): TP
 
 const BIG: TDogProfile = { dogs: [{ name: '보리', weightKg: 25 }], carrier: 'none' };
 
+/** 모델이 아무것도 안 읽은 판단 — 요금 칸만 덮어써서 원문 대조(`correctPetPolicyFacts`·`withPolicyFacts`)에 넣는다. */
+const NO_FACTS: TPetPolicyFacts = {
+  indoor: 'unknown',
+  leash: false,
+  largeDogOk: null,
+  smallDogOnly: false,
+  callFirst: false,
+  feeFree: null,
+  feeText: null,
+  weightLimitKg: null,
+  maxDogs: null,
+  notes: null,
+};
+
 /**
  * **프롬프트 예시 계약.** 추출 프롬프트가 `fees` 의 예로 드는 구조(`FEE_EX`)가 앱의 계산(`sumByRules`)에서 뜻대로
  * 읽히는지 확인한다(ADR-017 v5). 특히 "칸으로 표현 못 하면 `amountWon: null`" — 이것이 무너지면 앱이 틀린 금액을
@@ -213,6 +228,19 @@ const BIG: TDogProfile = { dogs: [{ name: '보리', weightKg: 25 }], carrier: 'n
 describe('프롬프트 예시 계약 — FEE_EX 가 앱에서 읽히는가', () => {
   it('예시가 프롬프트 본문에 그대로 실려 있다', () => {
     for (const example of Object.values(FEE_EX)) expect(SYSTEM_PROMPT).toContain(JSON.stringify(example));
+  });
+
+  /**
+   * 예시가 **원문 대조를 거쳐도** 계산 칸을 지킨다 — label 을 원문 삼아 `correctPetPolicyFacts` 에 넣는다. 앱은 계산 전에 늘 대조를 거친다
+   * (`withPolicyFacts`). 이 계약이 없던 동안 `range`("1~5kg 1만원")가 대조에서 계산 칸을 잃었다 — 구간 하한 1 을 못 읽었다(BUG-018).
+   * 프롬프트가 가르친 모양을 대조가 지우면 모델이 맞게 낼수록 요금이 label 로만 남는다.
+   * `extraDog` 만 원문에 기본 마릿수를 붙인다: "기본 마릿수를 본문이 말하지 않으면 amountWon null" 이 프롬프트 규칙이라 label 만으로는 떨어지는 게 맞다.
+   */
+  it.each(Object.entries(FEE_EX))('원문 대조를 거쳐도 계산 칸이 남는다 — %s', (key, example) => {
+    const source = key === 'extraDog' ? `기본 1마리, ${example.label}` : example.label;
+    const { facts, corrections } = correctPetPolicyFacts({ ...NO_FACTS, fees: [example] }, source);
+    expect(corrections).toEqual([]);
+    expect(facts?.fees).toEqual([example]);
   });
 
   it('마리당 금액은 마릿수만큼 곱해진다', () => {
@@ -299,6 +327,25 @@ describe('프롬프트 예시 계약 — FEE_EX 가 앱에서 읽히는가', () 
   it('조건부 줄에 kg 절이 남아 있어 판정이 그것을 읽는다', () => {
     const reasons = judgeEligibility(BORI_AND_KONG, policyWithRules([FEE_EX.conditional])).reasons;
     expect(reasons.some((reason) => reason.text.includes('10kg 이상 요금'))).toBe(true);
+  });
+});
+
+/**
+ * 증상 쪽에서 본 BUG-018 — 원문 대조가 구간 하한(`1~5kg` 의 1)을 못 읽어 모델이 맞게 낸 구간표의 계산 칸을 지웠고,
+ * 앱은 "우리 강아지 기준 금액" 대신 label 만 늘어놓았다(`적힌 요금 · …`). 앱이 읽는 길(`withPolicyFacts`) 그대로 넣는다.
+ */
+describe('원문 대조를 거친 구간 요금표가 계산된다(BUG-018)', () => {
+  const text = '반려동물동반 가능 (최대 2마리)\n1~5kg 1박에 1만원\n6~10kg 1박에 1.5만원';
+  const fees: TFeeRule[] = [
+    { label: '1~5kg 1박에 1만원', amountWon: 10000, basis: 'perDog', minKg: 1, maxKg: 5, fromDog: null, perNight: true },
+    { label: '6~10kg 1박에 1.5만원', amountWon: 15000, basis: 'perDog', minKg: 6, maxKg: 10, fromDog: null, perNight: true },
+  ];
+  const policy = withPolicyFacts(parsePetPolicy(text), { ...NO_FACTS, maxDogs: 2, fees }, text);
+
+  it('솔숲 — 몸무게 구간마다 골라 1박 금액을 낸다', () => {
+    expect(policy.feeRules).toEqual(fees);
+    expect(formatDogFee(policy, AKDONG)).toBe('악동이는 1박 1만원 (1~5kg 1박에 1만원)');
+    expect(formatDogFee(policy, AKDONG_TOFU)).toBe('악동이와 두부는 1박 2.5만원 (1~5kg 1박에 1만원 · 6~10kg 1박에 1.5만원)');
   });
 });
 

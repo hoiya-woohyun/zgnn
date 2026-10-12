@@ -96,11 +96,29 @@ const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 /** 원문에 "N kg"(또는 킬로) 가 그대로 있는가. 10 이 "100kg" 이나 "1.5만원" 에 걸리지 않게 앞뒤 숫자를 막는다. */
 const mentionsKg = (text, n) => new RegExp(`(^|[^\\d.])${escapeRe(String(n))}\\s*(kg|㎏|킬로|키로)`, 'i').test(text);
 
+/**
+ * 요금 구간의 **하한** — `mentionsKg` 에 더해 구간 앞 숫자(`1~5kg` 의 1)를 인정한다. 그 숫자 뒤에는 `kg` 가 아니라 `~` 가 와서
+ * `mentionsKg` 로는 못 읽고, 모델이 맞게 낸 구간표가 계산에서 빠졌다(솔숲 · 프롬프트 예시 `FEE_EX.range` 까지, BUG-018).
+ * 요금의 `minKg` 에만 쓴다 — 무게 상한(`weightLimitKg`)이 `6~10kg 1.5만원` 의 6 을 근거로 받으면 6kg 넘는 강아지를 막는다.
+ */
+const mentionsKgFrom = (text, n) =>
+  mentionsKg(text, n) ||
+  new RegExp(`(^|[^\\d.])${escapeRe(String(n))}\\s*(kg|㎏|킬로|키로)?\\s*[~〜∼–-]\\s*\\d+(\\.\\d+)?\\s*(kg|㎏|킬로|키로)`, 'i').test(text);
+
 /** 마릿수 N 을 숫자·한글 수(`한`·`두`) 둘 다로 찾는 식의 원천. 한글 수가 없는 N 은 아무것도 안 걸리게(`(?!)`). */
 const countSource = (n) => `(?:${n}|${Object.keys(KOREAN_COUNT).filter((word) => KOREAN_COUNT[word] === n).join('|') || '(?!)'})`;
 
-/** 원문에 "N마리"(또는 "두 마리") 가 있는가. 숫자는 앞 숫자에 걸리지 않게(`12마리` 의 2) 막는다. */
-const mentionsDogs = (text, n) => new RegExp(`(?:^|\\D)${countSource(n)}\\s*마리`).test(text);
+/**
+ * 원문에 "N마리"(또는 "두 마리"·"4견") 가 있는가. 숫자는 앞 숫자에 걸리지 않게(`12마리` 의 2) 막는다.
+ * `견` 은 숫자 바로 뒤일 때만 마릿수다("4인 4견", 일랑일랑 — BUG-018). `1견당` 은 마리당 요금이라 마릿수가 아니다.
+ */
+const mentionsDogs = (text, n) => new RegExp(`(?:^|\\D)(?:${countSource(n)}\\s*마리|${n}\\s*견(?!\\s*당))`).test(text);
+
+/**
+ * 원문이 "N마리를 초과"(= N+1째 마리부터 요금)를 말하는가 — `4마리를 초과할 경우 1견당 3,000원` 의 `fromDog` 5(아우아우, BUG-018).
+ * 요금의 `fromDog` 근거로만 쓴다. 마릿수 상한(`maxDogs`)의 근거가 아니다 — 넘는 마리도 요금을 내고 받는다는 말이다.
+ */
+const mentionsDogsOver = (text, n) => new RegExp(`(?:^|\\D)${countSource(n)}\\s*마리\\s*(?:를|을)?\\s*(?:초과|넘)`).test(text);
 
 /**
  * 원문이 "기본 N마리"(= 요금에 N마리가 들어 있다)를 말하는가. `추가 1마리 3만원` 의 `fromDog` 는 기본 마릿수 + 1 이라
@@ -159,7 +177,8 @@ export function feeLinesOf(facts) {
  * 칸 하나라도 원문에 근거가 없으면 그 줄은 **계산에서만 빠진다**(`amountWon: null`, 경계 칸도 비운다). 줄 자체는 원문에서 왔으므로
  * 배지로는 남는다 — 틀린 것은 "우리 강아지 기준 N만원" 이라는 확정 문장이지 원문 줄이 아니다.
  * - 금액은 원문에도, **자기 label 에도** 있어야 한다. label 과 다른 금액이면 모델이 줄을 섞은 것이다.
- * - 몸무게 경계는 원문에 `N kg` 으로, 몇째 마리는 `N마리` 로 있어야 한다(`weightLimitKg`·`maxDogs` 와 같은 규칙).
+ * - 몸무게 경계는 원문에 `N kg` 으로(하한은 구간 앞 숫자 `1~5kg` 도), 몇째 마리는 `N마리` · `기본 N-1마리` · `N-1마리 초과` 로
+ *   있어야 한다. 상한·마릿수 판단(`weightLimitKg`·`maxDogs`)보다 넓은 것은 요금 칸에서만이다 — 구간 하한·초과는 제한이 아니다.
  *
  * @param {import('../../src/types').TFeeRule[]} fees
  * @param {string} text
@@ -174,11 +193,13 @@ function shapeMatchesLabel(rule, label) {
   const once = /청소|1회|총/.test(label);
   if (once && rule.basis === 'perDog') return false;
   if (/마리\s*당/.test(label) && rule.basis === 'flat') return false;
-  if (/박/.test(label) !== Boolean(rule.perNight)) return false;
-  // fromDog > 1 이면 label 이 몇째 마리인지 말해야 한다 — `N마리부터|째` 만이 아니라 `추가 1마리`(기본 마릿수를 넘는 마리)도 그렇다.
+  // `첫 1박 1만5천원` 은 첫날 한 번 붙는 요금이다 — `박` 이 있어도 1박마다가 아니다(안녕감귤, BUG-018).
+  const nightly = /박/.test(label) && !/첫\s*(\d+\s*)?박/.test(label);
+  if (nightly !== Boolean(rule.perNight)) return false;
+  // fromDog > 1 이면 label 이 몇째 마리인지 말해야 한다 — `N마리부터|째|초과` 만이 아니라 `추가 1마리`(기본 마릿수를 넘는 마리)도 그렇다.
   // 반대 방향은 넓히지 않는다: `추가 1마리` + fromDog null 은 "반려견 1마리 추가 시 2만원"(마리당 요금)이라 통과해야 하고,
   // `N마리부터` 가 label 에 있는데 fromDog 가 없으면 그 조건을 잃은 것이라 거절한다(docs/todo/13 §5.1).
-  const nth = /\d\s*마리\s*(부터|째)/.test(label);
+  const nth = /\d\s*마리\s*(부터|째|(를|을)?\s*(초과|넘))/.test(label);
   if (rule.fromDog != null && rule.fromDog > 1) return nth || EXTRA_DOG_RE.test(label);
   if (nth) return false;
   return true;
@@ -195,15 +216,16 @@ function correctFeeRules(fees, text, drop) {
       continue;
     }
     const next = { ...rule, label };
-    const bounds = [next.minKg, next.maxKg].filter((n) => n != null);
     const ungrounded =
       (next.amountWon != null && (!inText.has(next.amountWon) || !amountsInWon(label).includes(next.amountWon))) ||
       !shapeMatchesLabel(next, label) ||
-      bounds.some((n) => !mentionsKg(text, n)) ||
+      (next.minKg != null && !mentionsKgFrom(text, next.minKg)) ||
+      (next.maxKg != null && !mentionsKg(text, next.maxKg)) ||
       (next.fromDog != null &&
         next.fromDog > 1 &&
         !mentionsDogs(text, next.fromDog) &&
-        !mentionsBaseDogs(text, next.fromDog - 1));
+        !mentionsBaseDogs(text, next.fromDog - 1) &&
+        !mentionsDogsOver(text, next.fromDog - 1));
     if (ungrounded && next.amountWon != null) {
       drop(`요금 "${label}" 의 금액·조건이 원문과 맞지 않아 계산에서 뺐어요`, 'amount');
       Object.assign(next, { amountWon: null, minKg: null, maxKg: null, fromDog: null });
