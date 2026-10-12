@@ -37,7 +37,12 @@ description: 대기열(docs/todo/NOW.md)의 맨 위 일을 묻지 않고 이어�
    - 검증: 관련 테스트 + `pnpm tsc --noEmit -p .`, 화면이 바뀌면 Chrome 확장으로 한 번(Playwright 는 확장이 안 될 때만 — CLAUDE.md 「작성 규칙」).
    - **줄 지우기** — 커밋 직전에 `node .claude/skills/next/claim.mjs done`. 잠금 안에서 NOW.md 의 내 줄을 지우고 선점을 푼다
      (완료 기록은 명세와 git 에 있다 — NOW 에 쌓지 않는다). Edit 로 지우지 않는다 — 다른 세션이 같은 파일을 동시에 고친다.
-   - **커밋** — 경로를 지정해 `git add`(다른 세션의 변경을 섞지 않는다). 명세의 `[ ]` → `[x]` + `> 메모:` 한 줄, 그리고 `docs/todo/NOW.md` 를 같은 커밋에.
+   - **커밋** — **경로를 지정한 한 명령**으로: `git add <새 파일> && git commit -m "…" -- <경로…>`. pathspec 커밋은 인덱스에 올라 있는 다른 것을 싣지 않는다.
+     `git add` 해 두고 따로 `git commit` 하면 안 된다 — 인덱스는 작업 트리 하나에 하나라, 그 틈에 다른 세션의 `git commit` 이 내 스테이징까지 싣는다(08 T0.8 · `d3ecd38`).
+     pathspec 은 파일을 **통째로** 싣는다 — 같은 파일에 남의 hunk 가 있으면(`git diff <파일>` 로 먼저 본다) 개인 인덱스로, 역시 한 명령 체인으로:
+     `GIT_INDEX_FILE=<scratch>/idx git read-tree HEAD` → 내 hunk 만 담은 내용을 `git hash-object -w` 해 `update-index --cacheinfo` → 같은 `GIT_INDEX_FILE` 로 commit → 공유 인덱스는 `git reset -q -- <파일>`
+     (read-tree 와 commit 사이에 남의 커밋이 끼면 그 커밋을 되돌린 트리가 되므로 틈을 두지 않는다).
+     명세의 `[ ]` → `[x]` + `> 메모:` 한 줄, 그리고 `docs/todo/NOW.md` 를 같은 커밋에.
    - 사람을 기다리게 돼 못 끝내면 그 줄을 「기다림」 으로 옮기기 **전에** `claim.mjs release` 로 선점을 푼다.
 3. **발견 적기** — 하다가 찾은 버그·개선점은 고치지 말고(범위가 번진다) 「발견」 에 한 줄. 단 지금 일을 끝내려면 꼭 필요한 한 줄 수정은 그 커밋에.
 4. **다음으로 / 멈추기** — 아래 중 하나면 멈추고, 아니면 1 로(다시 `take` — 그사이 다른 세션이 다음 줄을 잡았을 수 있다).

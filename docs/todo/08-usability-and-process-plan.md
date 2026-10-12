@@ -460,10 +460,11 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
   4. ADR-016·ADR-010 은 이 태스크에서 하지 않는다(다음 태스크로 복제).
 - 커밋: `docs - ADR-008 머리를 지금의 결정으로 바꾸고 이력을 끝으로 옮긴다`
 
-### [ ] T0.8 `/next` 커밋이 세션끼리 섞이지 않게
+### [x] T0.8 `/next` 커밋이 세션끼리 섞이지 않게
 - 근거: 스킬은 "경로를 지정해 `git add`" 라 하는데 인덱스는 작업 트리 하나에 하나다 — add 와 commit 사이 틈에 다른 세션의 `git commit` 이 내 스테이징까지 싣는다(09 T6.9 의 대부분이 남의 `d3ecd38` 에 실렸고, 남의 hunk 가 섞인 파일은 그 세션이 덮어써 빠졌다 → `88fd0b2`).
 - 단계: `.claude/skills/next/SKILL.md` 의 커밋 줄을 `git add <새 파일> && git commit -- <경로>` **한 명령**으로(pathspec 커밋은 인덱스의 다른 것을 안 싣는다). 남의 hunk 가 섞인 파일은 `GIT_INDEX_FILE=<scratch>` 개인 인덱스(`read-tree HEAD` → `update-index --cacheinfo` → commit → 공유 인덱스는 `git reset -q -- <경로>`).
 - 커밋: `docs(next) - 커밋은 pathspec 한 명령으로 — 공유 인덱스에서 남의 커밋에 실리지 않게`
+> 메모: 2026-10-12 끝 — SKILL.md 「커밋」 단락. 개인 인덱스 갈래에 "read-tree 와 commit 사이에 틈을 두지 않는다"(그사이 남의 커밋이 끼면 그 커밋을 되돌린 트리가 된다)를 더했다. 이 세션의 커밋 셋(`f7af5c6` · `0d51068` · 이 커밋)이 그 모양이다.
 
 ### [x] T0.9 `pnpm lint` 가 `claim.mjs` 때문에 빨갛다
 - 근거: `.claude/skills/next/claim.mjs:44,84` 의 빈 `catch {}`(`no-empty`) 두 개로 exit 1 — src 는 깨끗한데 린트 전체가 실패라 진짜 실패가 묻힌다.
