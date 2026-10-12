@@ -33,7 +33,7 @@ const byWord = (re) => (text) => {
  * @type {Record<'indoor' | 'leash' | 'largeDogOk' | 'smallDogOnly' | 'callFirst' | 'vaccineRequired' | 'petDays' | 'feeFree' | 'fees' | 'weightLimitKg' | 'maxDogs', TPolicyTopicRule>}
  */
 export const POLICY_TOPICS = {
-  indoor: { label: '실내·야외', find: byWord(/실내|야외|실외|케이지|이동\s*가방|켄넬|유모차/) },
+  indoor: { label: '실내·야외', find: byWord(/실내|야외|실외|케이지|이동\s*가방|켄넬|유모차|개모차/) },
   leash: { label: '목줄', find: byWord(/목줄|리드\s*줄|하네스/) },
   largeDogOk: { label: '대형견', find: byWord(/대형견|중형견/) },
   smallDogOnly: { label: '소형견', find: byWord(/소형견/) },

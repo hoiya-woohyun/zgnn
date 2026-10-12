@@ -89,7 +89,8 @@ describe('countByArea — 권역 × 종류', () => {
       expect(reachRow(counts, 'stay')).toEqual([4, 1, 0, 1, 1, 3]);
       expect(reachRow(counts, 'cafe')).toEqual([7, 6, 4, 5, 10, 4]);
       // 남부 3 → 2: 중문보말칼국수가 운영자 수정(2026-10-12)으로 '소형견만' — 해피 12kg 가 못 간다. 판정 회귀가 아니라 데이터 보정.
-      expect(reachRow(counts, 'restaurant')).toEqual([3, 0, 2, 3, 1, 1]);
+      // 남부 2 → 3: 쇠소깍한끼 "개모차, 가방 출입 가능" 의 '개모차' 를 유모차로 읽는다(21 S5.1) — C3 이 더는 되묻지 않는다.
+      expect(reachRow(counts, 'restaurant')).toEqual([3, 0, 3, 3, 1, 1]);
     });
   });
 });

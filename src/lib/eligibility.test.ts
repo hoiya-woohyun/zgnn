@@ -167,6 +167,18 @@ describe('judgeEligibility — 리뷰 반영 경계', () => {
     expect(result.reasons.filter((r) => r.level === 'hard')).toHaveLength(1);
   });
 
+  it('쇠소깍한끼 "강아지는 개모차, 가방 출입 가능" — 유모차 강아지는 갈 수 있어요(21 S5.1)', () => {
+    const dog: TDogProfile = { dogs: [{ name: '두부', weightKg: 4 }], carrier: 'stroller' };
+    const result = judgeEligibility(dog, parsePetPolicy('강아지는 개모차, 가방 출입 가능\n개모차, 혹은 가방 지참시 출입가능!'));
+    expect(result.reasons.map((r) => r.rule)).not.toContain('C3');
+    expect(result.level).toBe('ok');
+  });
+
+  it("'개모차 불가' 도 유모차 허용으로 읽지 않는다", () => {
+    const dog: TDogProfile = { dogs: [{ name: '두부', weightKg: 4 }], carrier: 'stroller' };
+    expect(judgeEligibility(dog, parsePetPolicy('케이지 필수, 개모차는 불가.')).reasons.map((r) => r.rule)).toContain('C3');
+  });
+
   it("'유모차 불가' 는 유모차 허용으로 읽지 않는다", () => {
     const policy = { ...findPlace('모닥식탁').policy, sources: { indoor: '실내는 유모차 불가, 케이지 동반시 가능' } };
     const dog: TDogProfile = { dogs: [{ name: '두부', weightKg: 4 }], carrier: 'stroller' };
