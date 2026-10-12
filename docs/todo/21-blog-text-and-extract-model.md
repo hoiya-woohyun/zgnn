@@ -154,7 +154,7 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
   - **제안이 안내를 쓴다**(v6, 같은 `PROPOSE_PROMPT_VERSION` 변경 안에서): 제안 칸에 `pet_policy_guide` — 근거 글들을 읽고 **자기 말로** 1~2문장, 해요체, 판단 칸 주제 금지, 글쓴이의 추측을 단정으로 올리지 않는다.
     `basis` 는 제안 패스가 찍는다 = 승인 뒤 남을 판단(조건 원문이 change 면 제안 판단, keep 이면 사이트 판단)의 지문. `guardPublicText` 를 못 지나면 keep(`why` 에 이유). `withProposal` 이 옮긴다.
   - 수용: 테스트 — 시드 행을 블로그 원문으로 덮으면 false, 운영자가 체크하면 true. 임시 fallback(`source`) 제거. 덮어쓰기 뒤 `publicGuide` 가 문장을 낸다(지문 일치) · 덮은 뒤 판단을 고치면 null.
-  - 끝나면: S5 를 「지금」 에.
+  - 끝나면: S5 를 「지금」 에. S7 도 끝났으면 「기다림」 에 🧑 H1(워커 재배포 — 제안·추출 프롬프트 둘 다 번들에).
 
 ### S5. 공개 상세가 표시문을 그린다
 - [ ] `src/screens/placeDetailPolicyText.tsx`(owner-prefix) — 공개면 원문 + 강조(지금 그대로), 아니면 `publicPolicyLines` + **`publicGuide` 가 낸 안내, 없으면 `publicNotes`** + 「블로그 글을 읽고 정리했어요 · 글 보기」(`reviewUrl`).
@@ -181,7 +181,7 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
   - **petPolicyText**: 조건이 아닌 수다·편의시설 문장은 넣지 않는다(원문 그대로 원칙은 유지). H3 의 답이 "넣는다" 면 "동반이 된다는 말뿐이면 그 문장을 넣는다(판정 C9)".
   - 코드 가드: `normalizePlace` 에서 `visited === false` 면 features null(협재 목록글처럼 쓸 만한 소개도 비워진다 — 소개는 다녀온 글·13 §5.3 묶음 종합에서 온다). 빈 소개면 카드·지도 시트 줄과 OG·공유 문구를 그리지 않는다.
   - 수용: `extractPlaces.test.mjs` 프롬프트 계약 · 위 다섯 글(명단글 · 일랑일랑 · 스테이모루티 · PLANT827 · 버니하우스)을 `claude -p` 한 번씩(5회)으로 확인 — 자료는 `data/raw/eval/model-compare/*.body.txt`.
-  - `eval extract` 캐시가 무효가 된다. 끝나면: 「기다림」 에 🧑 H1(워커 배포) · 🧑 H5(시드 채점).
+  - `eval extract` 캐시가 무효가 된다. 끝나면: 「기다림」 에 🧑 H5(시드 채점) · S4 도 끝났으면 🧑 H1(워커 재배포), 아니면 H1 은 S4 의 「끝나면」 이 넣는다.
 
 ### S8. 번들·`places.json` 에서 비공개 원문 빼기
 - [ ] `pull-db` 가 판정 입력(정책·환경·`feeUnitNote`)을 미리 계산해 싣고, 공개가 아닌 행은 원문과 `sources` 를 JSON 에서 뺀다 → `places.json` 모양·`places.ts` 가 바뀐다. `withPolicyFacts`·`correctPetPolicyFacts` 가 런타임에 원문을 읽는 자리를 빌드로 옮긴다. 안내·notes 가드(`publicGuide`·`publicNotes` — 원문이 필요하다)도 빌드가 돌려 통과한 문장만 싣는다(v6).
@@ -193,6 +193,8 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
 - **H1 🧑 워커 배포** — M1·S7 이 끝난 뒤 한 번: `pnpm worker:build && cd worker && vercel deploy --prod`(배포라 허락 먼저 — 루트에서 `--cwd worker` 는 실패한다). 그 전까지 서버 홉은 옛 모델·옛 프롬프트로 뽑는다.
   > 메모: 2026-10-12 M1 뒤 **먼저 한 번** 배포했다(사용자, `dpl_J7tc2nKVrxUggHxvR5iCcoBquCHs`) — 번들의 추출 기본 `claude-sonnet-5-5` · 교차점검·제안 `claude-opus-5` 확인, 서버 추출도 Sonnet.
   > S7 이 프롬프트를 바꾸면 **한 번 더** 배포한다(그때까지 서버는 지금 프롬프트). 같은 배포에 20 T11 시간 마감(`d1d6a84`)도 실렸다.
+  > v6: **S4 의 제안 프롬프트도 번들에 실린다**(서버 홉의 analyze 단계가 제안 패스까지 돈다 — `workerRemote.mjs` → `analyze-candidates.mjs`). 둘째 배포는 **S4·S7 이 둘 다 끝난 뒤 한 번** —
+  > 한쪽만 끝났을 때 배포하면 서버는 안내 칸을 반만 쓴다(추출만 · 제안만). 어느 쪽이 나중에 끝나든 그 「끝나면」 이 이 줄을 「기다림」 에 넣는다.
 - **H2 🧑 `db push`** — S3 의 마이그레이션. 게시된 84행을 바꾸므로 재빌드가 한 번 걸린다.
 - **H3 🙋 "동반 가능" 한마디뿐인 글의 조건 원문** — 권고: **넣는다**. 판정 C9("조건이 적혀 있지 않아요, 가기 전에 확인해 주세요")가 바로 이 경우를 위해 있고 시드와 같은 모양이다. 지금은 Opus 후보의 48% 가 원문 null 이라 '정보 없음'. S7 이 답을 프롬프트에 싣는다.
 - **H4 🙋 식약처 명단글 대기 후보 137건의 소개** — 권고: **소개만 비운다**(후보 자체는 식약처 등록이라는 근거가 있어 남긴다). "해도 돼" 하면 Claude 가 `candidates.extracted.features` 를 null 로 update(원격 쓰기라 허락).
