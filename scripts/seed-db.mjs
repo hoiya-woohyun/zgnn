@@ -20,6 +20,9 @@ const placeRows = places.map((p, i) => ({
   region_raw: p.region.raw,
   features: p.features,
   pet_policy_text: p.petPolicyText,
+  // 스냅샷의 값을 그대로 옮긴다 — 지금 스냅샷엔 블로그 행도 있어서 '전부 시드 = 전부 공개' 로 두면 블로그 원문이 공개로 뒤집힌다.
+  // 칸이 생기기 전의 옛 스냅샷이면 전부 false(숨김) — 새는 쪽이 아니라 숨는 쪽으로 넘어진다(ADR-017 결정 13 D2).
+  pet_policy_text_public: p.petPolicyTextPublic === true,
   review_url: p.reviewUrl ?? null,
   naver_url: p.naverUrl ?? null,
   naver_place_id: p.naverPlaceId ?? null,

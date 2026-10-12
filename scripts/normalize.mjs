@@ -28,6 +28,8 @@ for (const [key, type] of Object.entries(TYPE)) {
       regionRaw: row['위치'],
       features: row['특징'],
       petPolicyText: type === 'stay' ? row['반려동물 요금 (1박)'] : row['반려동물 이용'],
+      // Notion 원본은 전부 시드 — 가족이 다녀와 쓴 문장이라 그대로 공개한다(ADR-017 결정 13 D3).
+      petPolicyTextPublic: true,
       reviewUrl: row['후기 포스트'],
       naverUrl: row['네이버 플레이스 바로가기'],
       naverPlaceId: geo.placeId,

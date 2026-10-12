@@ -1,6 +1,7 @@
 # 21. 블로그 문장이 사이트에 그대로 나가지 않게 · 추출 모델을 Sonnet 으로
 
-> 최종 수정: 2026-10-12 (v7: S2 끝 — 템플릿은 배지와 같은 `TPetPolicy` 에서, 지문은 저장된 판단 그대로. S3 를 NOW 「지금」 에)
+> 최종 수정: 2026-10-12 (v8: S3 끝 — 마이그레이션 `20261012120000`(원격 미적용, 🧑 H2) · JSON 은 공개일 때만 키 · fallback 은 마이그레이션 조건 그대로. S4 를 NOW 「지금」 에)
+> 이전 2026-10-12 (v7: S2 끝 — 템플릿은 배지와 같은 `TPetPolicy` 에서, 지문은 저장된 판단 그대로. S3 를 NOW 「지금」 에)
 > 이전 2026-10-12 (v6: D1 수정 — 템플릿 줄 밑에 **AI 가 자기 말로 쓴 안내 1~2문장**(판단 지문이 맞을 때만, 판단 칸 주제 금지). S2 에 가드·지문 `.mjs` · S3 에 안내 칸 · S4 제안이 안내를 씀 · S7 추출이 안내를 씀(S2 뒤) · S6 에 「짱구누나」 라벨. 근거에 담소요)
 > 이전 2026-10-12 (v5: H1 — M1 뒤 워커를 먼저 한 번 배포(서버 추출도 Sonnet), S7 뒤 한 번 더)
 > 이전 2026-10-12 (v4: S1 끝 — ADR-017 v9 결정 13 · ADR-002 v6)
@@ -145,12 +146,17 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
   > 운반 타입 `TPetPolicyGuide = { text, basis }` 는 `src/types.ts` 에 두었다(S3·S7 이 쓴다). 칸 짝은 둘로 잡힌다: 추출 스키마 `required` ↔ `POLICY_TOPICS`(테스트) · `POLICY_TOPICS` ↔ 템플릿(`satisfies` + "모든 칸이 줄을 만든다" 테스트).
 
 ### S3. `places.pet_policy_text_public` 칸
-- [ ] 마이그레이션 `supabase/migrations/2026101x_places_pet_policy_text_public.sql`: `add column pet_policy_text_public boolean not null default false` ·
+- [x] 마이그레이션 `supabase/migrations/2026101x_places_pet_policy_text_public.sql`: `add column pet_policy_text_public boolean not null default false` ·
   `add column pet_policy_guide jsonb`(`{text, basis}`, null = 안내 없음 — v6) + 시드 행 `update … set … = true where source = 'notion' and pet_policy is null`(먼저 `select` 로 그 집합이 84인지 — 블로그 값이 들어간 시드 행이 있으면 그 행은 false).
   GRANT 는 표 단위라 새 grant 없음 — [05](05-security.md) 에 한 줄 확인.
   - 코드: `scripts/lib/placeFields.mjs`(`fromPlaceRow`·`toPlace`) · `scripts/normalize.mjs` · `scripts/seed-db.mjs` · `src/types.ts`. push 전 원격에서는 `row.pet_policy_text_public ?? (row.source === 'notion')` 로 넘어간다(push 뒤 지운다 — S4 끝에서).
   - 수용: `pnpm data pull` 뒤 `git diff src/data` 가 칸 하나 더해진 것만.
   - 끝나면: 「기다림」 에 🧑 H2(`db push` + 재빌드 한 번). S4 를 「지금」 에.
+  > 메모: 2026-10-12 끝 — `20261012120000_places_pet_policy_public.sql`. 원격 실측(`select`): `source='notion' and pet_policy is null` = **86**(게시 84 + 내림 2) · 판단 붙은 시드 0 · 판단 없는 블로그 0.
+  > `begin; <마이그레이션>; select …; rollback;` 실측으로 블로그 38 false · 시드 86 true, 롤백 뒤 칸 없음 · `rebuild_log` 새 줄 없음. update 에 `and not pet_policy_text_public` 를 붙여 다시 돌려도 재빌드가 안 걸린다.
+  > fallback 은 명세의 `source === 'notion'` 이 아니라 **마이그레이션 조건 그대로**(`&& pet_policy == null`) — push 전후 `pull` 이 같게. JSON 은 **true 일 때만 키**(없으면 숨김 — 칸을 빠뜨린 입구가 새지 않는다).
+  > `seed-db` 는 스냅샷 값을 옮긴다(지금 스냅샷엔 블로그 38행도 있어 '전부 true' 면 뒤집힌다). 수용 `pnpm data pull`: 시드 84행에 `"petPolicyTextPublic": true` 한 줄씩 —
+  > 그 밖에 **중문보말칼국수**(10-12 04:37 `/admin` 수정: 소형견만·케이지·소개)가 스냅샷에 아직 없어 `areaGroups` 고정 수 1건이 바뀐다 → 스냅샷은 커밋하지 않았다(「발견」). S5 전에 `pull` 이 필요하다(지금 스냅샷엔 플래그가 없어 로컬에선 시드도 숨김).
 
 ### S4. 쓰기 경로가 플래그를 지킨다
 - [ ] 블로그 값으로 원문을 채우거나 덮으면 플래그를 false — `applyApproved.mjs:93·187·231(OVERWRITE_PAIRS 를 세 칸 짝으로)·289` · `src/lib/adminPlaceEdit.ts:190` · `/admin` 편집 폼(`adminPagePlaceEditForm.tsx`)에 「우리가 쓴 문장 — 그대로 내보내기」 체크박스.

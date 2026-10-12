@@ -125,8 +125,15 @@ export type TPlace = {
   region: TRegion;
   features: string;
   petPolicyText: string;
+  /**
+   * 조건 원문을 사이트에 그대로 보여도 되는가(`places.pet_policy_text_public`, ADR-017 결정 13 D2). 시드(가족이 쓴 문장)만 true —
+   * 블로그 원문은 블로거의 문장이라 대조군으로만 두고, 화면엔 판단에서 만든 문장(`petPolicyPublic.ts`)을 보인다. **키가 없으면 숨김**이다.
+   */
+  petPolicyTextPublic?: boolean;
   /** AI 가 판단한 구조화 조건(블로그 경로만). 원문은 petPolicyText 에 그대로 있다. */
   petPolicy?: TPetPolicyFacts;
+  /** AI 가 자기 말로 쓴 이용 안내(`places.pet_policy_guide`). 지문이 지금 판단(`petPolicy`)과 맞을 때만 화면에 나간다(`publicGuide`). */
+  petPolicyGuide?: TPetPolicyGuide;
   reviewUrl?: string;
   naverUrl?: string;
   naverPlaceId?: string;

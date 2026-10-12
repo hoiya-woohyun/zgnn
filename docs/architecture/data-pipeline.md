@@ -1,6 +1,7 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-10-12 (v62: **추출 모델 기본이 `claude-sonnet-5-5`**, 교차점검·제안은 `claude-opus-5` 고정 — 셋이 한 env(`ANALYZE_MODEL`)를 따라가던 연결을 끊었다, todo 21 M1)
+> 최종 수정: 2026-10-12 (v63: `places` 에 **조건 원문 공개 플래그**(`pet_policy_text_public`, 기본 숨김 · 시드만 true)와 **이용 안내**(`pet_policy_guide`) 두 칸 → `TPlace.petPolicyTextPublic`(true 일 때만 키)·`petPolicyGuide`, todo 21 S3)
+> 이전 2026-10-12 (v62: **추출 모델 기본이 `claude-sonnet-5-5`**, 교차점검·제안은 `claude-opus-5` 고정 — 셋이 한 env(`ANALYZE_MODEL`)를 따라가던 연결을 끊었다, todo 21 M1)
 > 이전 2026-10-11 (v61: **동시 읽기의 창이 느린 글 하나에 묶이지 않는다** — 띄우는 기준을 "받는 글 + N" 에서 "떠 있는 글 N 건 미만" 으로, 앞서 가는 거리는 `lookaheadFor`(N×3). 동시 6 이 장소 많은 글 하나를 2분 기다리는 동안 사실상 1 이었다)
 > 이전 2026-10-11 (v60: **글을 동시에 읽는다**(`--concurrency`, 로컬 3 · 서버 홉 2) — 본문·추출·교차점검만 겹치고 대조·기록은 글 순서대로 하나씩)
 > 이전 2026-10-08 (v59: **서버 워커**(ADR-028) — 「워커 한 바퀴」 밑에 `/admin` 버튼이 깨우는 홉. `pipeline_requests` 는 이제 원자적으로 집는다)
@@ -219,6 +220,12 @@ Postgres 테이블엔 원래 순서 개념이 없는데, 화면은 "종류별 �
 `parsePetPolicy()` 가 읽는다([pet-policy-and-eligibility.md](./pet-policy-and-eligibility.md)). 블로그에서 AI 가
 뽑아내는 조건도(todo/03) 같은 원칙 — **원문 문장으로** 넣는다. 파서 규칙을 고칠 때 데이터를 다시 만들 필요가
 없게 하기 위함이다.
+
+**원문을 저장하는 것과 사이트에 내보내는 것은 다른 칸이다**(ADR-017 결정 13, 마이그레이션 `20261012120000`). 블로그 원문은 블로거의 문장이라
+`places.pet_policy_text_public`(기본 false) 이 서야만 그대로 공개되고 — 시드 86행만 true — `TPlace.petPolicyTextPublic` 은 **true 일 때만 키가 실린다**
+(키가 없으면 숨김이라, 어느 입구가 칸을 빠뜨려도 새는 쪽이 아니라 숨는 쪽으로 넘어진다). `places.pet_policy_guide` 는 AI 가 자기 말로 쓴 안내
+`{ text, basis }` → `TPlace.petPolicyGuide`. 칸이 원격에 생기기 전엔 `fromPlaceRow` 가 마이그레이션의 시드 조건(`source = 'notion'` · 판단 없음)으로
+넘어가 push 전후 `pull` 결과가 같다(todo/21 S4 끝에서 지운다).
 
 읍면·방향(`TRegion`)·숙소 요금(`TStayPrice`) 변환 로직 자체는 그대로다. 다만 이제 그 함수는
 `scripts/lib/placeFields.mjs` 의 `parseRegion`·`parsePrice` 이고, 두 입구(Notion 재시드 / Supabase pull) 가

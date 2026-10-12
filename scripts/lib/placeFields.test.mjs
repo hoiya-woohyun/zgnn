@@ -57,9 +57,42 @@ describe('petPolicy(AI 구조화 판단) 통과', () => {
     // 없는 값은 undefined 라 JSON.stringify 가 떨어뜨린다(toPlace 의 규칙) — 직렬화 뒤의 키를 본다
     expect(Object.keys(JSON.parse(JSON.stringify(toPlace(base))))).not.toContain('petPolicy');
     const facts = { indoor: 'free', leash: false, largeDogOk: null, smallDogOnly: false, callFirst: false, feeFree: null, feeText: null, weightLimitKg: null, maxDogs: null, notes: null };
-    const keys = Object.keys(toPlace({ ...base, petPolicy: facts }));
+    // JSON 의 키 순서 — 블로그 행은 공개 플래그가 없어(false 는 키가 빠진다) 원문 바로 다음이 판단이다.
+    const keys = Object.keys(JSON.parse(JSON.stringify(toPlace({ ...base, petPolicy: facts }))));
     expect(keys.indexOf('petPolicy')).toBe(keys.indexOf('petPolicyText') + 1);
     expect(fromPlaceRow({ id: 'x', type: 'cafe', name: 'n', region_raw: '동쪽 (구좌읍)', features: '', pet_policy_text: 't', pet_policy: facts }).petPolicy).toEqual(facts);
+  });
+});
+
+describe('조건 원문 공개 플래그 · 이용 안내 (ADR-017 결정 13 D2, todo/21 S3)', () => {
+  const jsonKeys = (place) => Object.keys(JSON.parse(JSON.stringify(place)));
+
+  it('공개일 때만 키가 실린다 — 키가 없으면 숨김(쓰기 경로가 칸을 빠뜨려도 새지 않는다)', () => {
+    expect(fromPlaceRow({ ...row, pet_policy_text_public: true }).petPolicyTextPublic).toBe(true);
+    const hidden = fromPlaceRow({ ...row, pet_policy_text_public: false });
+    expect(jsonKeys(hidden)).not.toContain('petPolicyTextPublic');
+    const keys = jsonKeys(fromPlaceRow({ ...row, pet_policy_text_public: true }));
+    expect(keys.indexOf('petPolicyTextPublic')).toBe(keys.indexOf('petPolicyText') + 1);
+  });
+
+  // 🧑 db push 전 원격엔 칸이 없다 — 마이그레이션의 시드 조건과 같은 값으로 넘어가야 push 전후 `pnpm data pull` 이 같다.
+  it('칸이 없는 원격(push 전)에서는 마이그레이션의 시드 조건으로 넘어간다', () => {
+    expect(fromPlaceRow(row).petPolicyTextPublic).toBe(true); // source notion · 판단 없음 = 시드
+    expect(fromPlaceRow({ ...row, source: 'blog' }).petPolicyTextPublic).toBeUndefined();
+    // 블로그 판단으로 덮인 시드 행 — 원문이 블로그 문장이다.
+    expect(fromPlaceRow({ ...row, pet_policy: { indoor: 'free' } }).petPolicyTextPublic).toBeUndefined();
+    // 칸이 생기면 칸이 이긴다(시드라도 운영자가 끈 행).
+    expect(fromPlaceRow({ ...row, pet_policy_text_public: false }).petPolicyTextPublic).toBeUndefined();
+  });
+
+  it('안내는 그대로 실리고 판단 다음 자리 · 없으면 키가 빠진다', () => {
+    const guide = { text: '정원 산책로까지 같이 걸을 수 있어요', basis: '0123456789abcd' };
+    const facts = { indoor: 'outdoorOnly' };
+    const place = fromPlaceRow({ ...row, source: 'blog', pet_policy: facts, pet_policy_guide: guide });
+    expect(place.petPolicyGuide).toEqual(guide);
+    const keys = jsonKeys(place);
+    expect(keys.indexOf('petPolicyGuide')).toBe(keys.indexOf('petPolicy') + 1);
+    expect(jsonKeys(fromPlaceRow({ ...row, pet_policy_guide: null }))).not.toContain('petPolicyGuide');
   });
 });
 

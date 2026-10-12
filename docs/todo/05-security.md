@@ -1,6 +1,8 @@
 # 5. 보안 — 키 분리 · RLS · 웹훅 · 프리뷰 보호
 
-> 최종 수정: 2026-10-07 (v19: 운영자 세션이 쓰는 표 `pipeline_requests`·`workers`(로컬 워커, [ADR-024](../decisions/ADR-024-local-worker-and-db-queues.md)) — select/insert/update 만, anon 없음, 정책 셋 `is_operator()`. Realtime publication 은 RLS 를 지킨다. `progress.current`(글 제목 앞 20자)는 Slack 으로 보내지 않는다. 표 맨 아래 한 줄)
+> 최종 수정: 2026-10-12 (v20: 마이그레이션 `20261012120000_places_pet_policy_public`(원격 미적용) 은 `places` 에 칸 둘(`pet_policy_text_public` boolean · `pet_policy_guide` jsonb)을 얹을 뿐이라 **GRANT·정책 변화가 없다**
+> (테이블 단위 grant 그대로 — anon 은 published 행 select). 오히려 노출을 줄이는 칸이다: 블로그 원문의 공개 여부를 기본 숨김으로 가른다(ADR-017 결정 13). 원문 자체는 아직 anon select 에 있다 — 번들·JSON 에서 빼는 것은 todo/21 S8)
+> 이전 2026-10-07 (v19: 운영자 세션이 쓰는 표 `pipeline_requests`·`workers`(로컬 워커, [ADR-024](../decisions/ADR-024-local-worker-and-db-queues.md)) — select/insert/update 만, anon 없음, 정책 셋 `is_operator()`. Realtime publication 은 RLS 를 지킨다. `progress.current`(글 제목 앞 20자)는 Slack 으로 보내지 않는다. 표 맨 아래 한 줄)
 > 이전 2026-10-07 (v18: 운영자 세션이 쓰는 표 `collect_requests`(추가 수집 요청) — select/insert/update 만, anon 없음, 정책 셋 `is_operator()`. 검색어·가게 이름만 담고 네이버 키는 여전히 운영자 로컬뿐. 표 맨 아래 한 줄)
 > 이전 2026-10-06 (v17: 운영자 세션이 쓰는 표 `pipeline_runs`(실행 기록, [ADR-023](../decisions/ADR-023-ops-dashboard-and-run-log.md)) — select/insert/update 만, anon 없음. `error` 칸은 분류 문구만(장소명이 섞이는 원문은 콘솔에만). 표 맨 아래 한 줄)
 > 이전 2026-10-01 (v16: 비로그인 역할에 함수 하나 — `place_report_flags()`(security definer, 열린 폐업 제보가 있는 **게시 장소 id·종류만**, 내용·건수 없음). 표는 여전히 닫혀 있다)

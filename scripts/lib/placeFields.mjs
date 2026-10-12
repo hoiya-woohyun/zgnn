@@ -62,8 +62,13 @@ export function toPlace(f) {
     region: parseRegion(f.regionRaw),
     features: clean(f.features),
     petPolicyText: clean(f.petPolicyText),
+    // 조건 원문을 사이트에 그대로 내도 되는가(places.pet_policy_text_public, ADR-017 결정 13 D2) — 시드(가족이 쓴 문장)만 true.
+    // **true 일 때만** 키를 싣는다: 키가 없으면 숨김으로 읽히므로, 어느 입구가 칸을 빠뜨려도 블로그 원문이 새지 않는 쪽으로 넘어진다.
+    petPolicyTextPublic: f.petPolicyTextPublic === true ? true : undefined,
     // AI 구조화 판단(places.pet_policy jsonb). 시드는 null → undefined → 키가 빠져 JSON 바이트가 그대로다.
     petPolicy: f.petPolicy ?? undefined,
+    // AI 가 자기 말로 쓴 이용 안내 `{ text, basis }`(places.pet_policy_guide, ADR-017 v10). 그릴지는 화면이 지문으로 정한다(publicGuide).
+    petPolicyGuide: f.petPolicyGuide ?? undefined,
     reviewUrl: f.reviewUrl || undefined,
     naverUrl: f.naverUrl || undefined,
     naverPlaceId: f.naverPlaceId || undefined,
@@ -101,7 +106,12 @@ export function fromPlaceRow(row) {
     regionRaw: row.region_raw,
     features: row.features,
     petPolicyText: row.pet_policy_text,
+    // 칸이 원격에 생기기 전(🧑 H2 `db push` 전)에는 undefined — 그동안만 마이그레이션의 시드 조건(`source = 'notion'` 이고 판단 없음)으로
+    // 넘어간다. push 전후 `pnpm data pull` 결과가 같아야 해서 조건을 마이그레이션의 update 와 똑같이 둔다. S4 끝에서 지운다(docs/todo/21) —
+    // `source` 는 장기 신호가 못 된다: 기본값이 'notion' 이고 블로그 값으로 덮어써도 그대로다.
+    petPolicyTextPublic: row.pet_policy_text_public ?? (row.source === 'notion' && row.pet_policy == null),
     petPolicy: row.pet_policy,
+    petPolicyGuide: row.pet_policy_guide,
     reviewUrl: row.review_url,
     naverUrl: row.naver_url,
     naverPlaceId: row.naver_place_id,
