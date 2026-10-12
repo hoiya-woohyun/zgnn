@@ -43,7 +43,8 @@ description: 대기열(docs/todo/NOW.md)의 맨 위 일을 묻지 않고 이어�
      `GIT_INDEX_FILE=<scratch>/idx git read-tree HEAD` → 내 hunk 만 담은 내용을 `git hash-object -w` 해 `update-index --cacheinfo` → 같은 `GIT_INDEX_FILE` 로 commit → 공유 인덱스는 `git reset -q -- <파일>`
      (read-tree 와 commit 사이에 남의 커밋이 끼면 그 커밋을 되돌린 트리가 되므로 틈을 두지 않는다).
      명세의 `[ ]` → `[x]` + `> 메모:` 한 줄, 그리고 `docs/todo/NOW.md` 를 같은 커밋에.
-   - 사람을 기다리게 돼 못 끝내면 그 줄을 「기다림」 으로 옮기기 **전에** `claim.mjs release` 로 선점을 푼다.
+   - 사람을 기다리게 돼 못 끝내면 `claim.mjs park 🧑|🙋 "<이유 · 명령/권고>"` — 잠금 안에서 그 줄을 「기다림」 맨 위로 옮기고 선점을 푼다.
+     `release` 하고 Edit 로 옮기면 그 틈에 다른 세션의 `take` 가 막 풀린 그 줄을 받아 같은 벽에 부딪힌다. 줄은 남기고 손만 뗄 때만 `release`.
 3. **발견 적기** — 하다가 찾은 버그·개선점은 고치지 말고(범위가 번진다) 「발견」 에 한 줄. 단 지금 일을 끝내려면 꼭 필요한 한 줄 수정은 그 커밋에.
 4. **다음으로 / 멈추기** — 아래 중 하나면 멈추고, 아니면 1 로(다시 `take` — 그사이 다른 세션이 다음 줄을 잡았을 수 있다).
    - 이 세션에서 3개를 끝냈다 · `[컨텍스트 NNNk]` 알림을 받았다 · 다음 일이 사람을 기다린다 · `take` 가 `NONE` 이다.

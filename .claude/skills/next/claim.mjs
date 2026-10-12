@@ -11,7 +11,9 @@
 //
 //   node .claude/skills/next/claim.mjs take     → CLAIMED|RESUME <n>/<지금 수> <줄>  ·  없으면 NONE …
 //   node .claude/skills/next/claim.mjs done     → 내 줄을 NOW.md 「지금」 에서 지우고 선점을 푼다(잠금 안에서)
-//   node .claude/skills/next/claim.mjs release  → 줄은 남기고 선점만 푼다(사람을 기다리게 됐을 때 등)
+//   node .claude/skills/next/claim.mjs release  → 줄은 남기고 선점만 푼다
+//   node .claude/skills/next/claim.mjs park 🧑|🙋 <이유 · 명령/권고>
+//                                              → 사람을 기다리게 된 내 줄을 「기다림」 맨 위로 옮기고 선점을 푼다(잠금 안에서)
 //   node .claude/skills/next/claim.mjs list     → 지금 누가 무엇을 잡았나
 //
 // 테스트용: NEXT_CLAIM_OWNER 로 주인 pid 를, CLAUDE_PROJECT_DIR 로 루트를 바꿀 수 있다.
@@ -142,6 +144,29 @@ const result = withLock(() => {
     return `RELEASED ${mine}`;
   }
 
+  // release 뒤에 Edit 로 「기다림」 에 옮기면 그 틈에 다른 세션의 take 가 같은 줄(막 풀린 첫 줄)을 받아 같은 벽에 부딪힌다.
+  // 그래서 옮기기와 풀기를 한 잠금 안에서 한다.
+  if (command === 'park') {
+    if (!mine) {
+      save(claims);
+      return 'NOCLAIM 이 세션이 잡은 줄이 없다';
+    }
+    const args = process.argv.slice(3);
+    const kind = args[0] === '🙋' ? '🙋' : '🧑';
+    const why = (args[0] === '🙋' || args[0] === '🧑' ? args.slice(1) : args).join(' ').trim();
+    if (!why) throw new Error('park 에는 이유가 필요하다: park 🧑|🙋 <이유 · 명령/권고>');
+    const head = lines.findIndex((line) => /^## 기다림/.test(line));
+    if (head < 0) throw new Error('NOW.md 에 「기다림」 절이 없다');
+    const item = items.find((i) => i.title === mine);
+    // 「기다림」 은 「지금」 밑이라 먼저 넣고 나서 지운다 — 지우는 줄의 번호가 밀리지 않게.
+    lines.splice(head + 2, 0, `- ${kind} ${item.line.replace(/^- (\[.\] )?/, '')} · 막힘: ${why}`, '');
+    lines.splice(item.index, 1);
+    delete claims[mine];
+    save(claims);
+    writeFileSync(NOW, lines.join('\n'));
+    return `PARKED 「기다림」 으로 옮겼다: ${mine}`;
+  }
+
   if (command === 'list') {
     save(claims);
     const rows = items.map(
@@ -151,7 +176,7 @@ const result = withLock(() => {
     return rows.join('\n') || '「지금」 이 비었다';
   }
 
-  throw new Error(`모르는 명령: ${command} (take | done | release | list)`);
+  throw new Error(`모르는 명령: ${command} (take | done | release | park | list)`);
 });
 
 process.stdout.write(`${result}\n`);
