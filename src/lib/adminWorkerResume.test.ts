@@ -141,10 +141,13 @@ describe('afterWake', () => {
   it('받았으면(started·busy) 지금 센 수를 새 기준으로 무장한다', () => {
     expect(afterWake('busy', left({ requestedPosts: 3 }), NOW, 2)).toEqual({ kind: 'armed', baseline: left({ requestedPosts: 3 }), wokeAtMs: NOW, resumes: 2 });
   });
-  it('local 은 PC 워커가 받는다, 그 밖은 못 깨운 것 — 못 센 것도', () => {
+  it('받았는데 기준이 없으면 "못 깨웠다" 가 아니라 "못 셌다" 로 멈춘다', () => {
+    expect(afterWake('started', null, NOW, 0)).toEqual({ kind: 'stopped', why: 'uncounted' });
+  });
+  it('local 은 PC 워커가 받는다, 그 밖은 못 깨운 것', () => {
     expect(afterWake('local', left(), NOW, 0)).toEqual({ kind: 'stopped', why: 'local' });
     expect(afterWake('expiring', left(), NOW, 0)).toEqual({ kind: 'stopped', why: 'unwoken' });
-    expect(afterWake('started', null, NOW, 0)).toEqual({ kind: 'stopped', why: 'unwoken' });
+    expect(afterWake('failed', left(), NOW, 0)).toEqual({ kind: 'stopped', why: 'unwoken' });
   });
 });
 

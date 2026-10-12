@@ -87,7 +87,7 @@ export function localTakesOver(workers: readonly TOpsWorker[], nowMs: number): b
   });
 }
 
-export type TResumeStop = 'done' | 'local' | 'limit' | 'stuck' | 'cap' | 'unwoken';
+export type TResumeStop = 'done' | 'local' | 'limit' | 'stuck' | 'cap' | 'unwoken' | 'uncounted';
 
 /**
  * 이 화면의 이어 돌리기 상태. `off` — 이 화면에서 깨운 적 없다. `armed` — 깨웠고, 서버가 쉬면 남은 수를 직전(`baseline`)과 견준다.
@@ -128,10 +128,14 @@ export function resumeDecision({
   return { action: 'wake' };
 }
 
-/** 순수 — 깨우기 결과로 다음 상태. 서버가 받았으면(started·busy) 지금 센 수를 새 기준으로, 아니면 멈춘다(`wakeNotice` 가 왜인지 따로 말한다). */
+/**
+ * 순수 — 깨우기 결과로 다음 상태. 서버가 받았으면(started·busy) 센 수를 새 기준으로, 아니면 멈춘다(`wakeNotice` 가 왜인지 따로 말한다).
+ * 받았는데 기준이 없으면(세기 실패 · 전에 센 수도 없음) 견줄 것이 없어 멈춘다 — 서버는 돌았으니 "못 깨웠다" 가 아니라 "못 셌다" 다.
+ */
 export function afterWake(result: TWakeResult, remaining: TServerRemaining | null, wokeAtMs: number, resumes: number): TResumeState {
   if (result === 'local') return { kind: 'stopped', why: 'local' };
-  if ((result !== 'started' && result !== 'busy') || !remaining) return { kind: 'stopped', why: 'unwoken' };
+  if (result !== 'started' && result !== 'busy') return { kind: 'stopped', why: 'unwoken' };
+  if (!remaining) return { kind: 'stopped', why: 'uncounted' };
   return { kind: 'armed', baseline: remaining, wokeAtMs, resumes };
 }
 
@@ -148,6 +152,7 @@ const STOP_TEXT: Record<Exclude<TResumeStop, 'done' | 'local'>, string> = {
   stuck: '지난 깨우기 뒤 줄지 않아 멈췄어요(실패는 운영 현황에서) —',
   cap: `이 화면에서 ${RESUME_MAX}번 이어 깨웠어요 —`,
   unwoken: '서버 워커를 못 깨워 멈췄어요 —',
+  uncounted: '남은 일을 세지 못해 이어 깨우기를 멈췄어요 —',
 };
 
 /**

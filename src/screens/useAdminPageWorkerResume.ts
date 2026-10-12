@@ -43,6 +43,8 @@ export function useAdminPageWorkerResume({ clientRef, sessionRef, workers, runsL
   const [state, setState] = useState<TResumeState>({ kind: 'off' });
   const decidingRef = useRef(false);
   const generationRef = useRef(0);
+  /** 마지막으로 센 수 — 깨운 직후의 세기가 한 번 실패해도 이것을 기준으로 무장한다(그 사이 서버는 아직 글 하나도 못 끝냈다) */
+  const lastCountedRef = useRef<TServerRemaining | null>(null);
 
   /** 남은 일을 다시 센다. 못 세면 줄을 내린다(모르는 수를 말하지 않는다) — 이어 깨우기는 다음 박자에 다시 센다. */
   const refresh = useCallback(async (): Promise<TServerRemaining | null> => {
@@ -50,6 +52,7 @@ export function useAdminPageWorkerResume({ clientRef, sessionRef, workers, runsL
     if (!client) return null;
     try {
       const counted = await fetchServerRemaining(client);
+      lastCountedRef.current = counted;
       setRemaining(counted);
       return counted;
     } catch {
@@ -65,7 +68,7 @@ export function useAdminPageWorkerResume({ clientRef, sessionRef, workers, runsL
       const result = await wakeRemoteWorker(sessionRef.current);
       onWakeLine(wakeNotice(result));
       if (result === 'off') return;
-      const counted = result === 'started' || result === 'busy' ? await refresh() : null;
+      const counted = result === 'started' || result === 'busy' ? ((await refresh()) ?? lastCountedRef.current) : null;
       if (generation === generationRef.current) setState(afterWake(result, counted, wokeAtMs, resumes));
     },
     [onWakeLine, refresh, sessionRef],
@@ -78,6 +81,7 @@ export function useAdminPageWorkerResume({ clientRef, sessionRef, workers, runsL
   /** 다시 로그인하면 옛 무장을 버린다(`start`). */
   const reset = useCallback(() => {
     generationRef.current++;
+    lastCountedRef.current = null;
     setState({ kind: 'off' });
     setRemaining(null);
   }, []);
