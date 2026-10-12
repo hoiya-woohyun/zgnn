@@ -658,7 +658,9 @@ async function analyze(argv, args, { onRateLimit, onDeadline, nonInteractive = f
       try {
         verdicts = await verifyPlaces(runClaudeCli, post, body, names, verifyMeter);
       } catch (e) {
-        if (isFatal(e)) throw e;
+        // 다시 하면 될 실패(타임아웃·한도·429·5xx)는 이 글을 건너뛴다(analyzed_at 이 비어 다음 실행이 다시 읽는다). 패스를 내리면 그 실행의 남은 글이
+        // 전부 미점검 후보로 들어간다 — 2026-10-12 잠에서 깬 직후 타임아웃 하나로 한 배치 후보 266건 중 약 190건이 그렇게 들어갔다. 내리는 것은 다시 해도 같은 실패뿐.
+        if (isFatal(e) || isRetryable(e)) throw e;
         verifyAxisOff = true;
         verifyError = e;
       }
