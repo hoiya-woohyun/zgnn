@@ -70,6 +70,11 @@ describe('withProposal · proposalPick — 본 것과 덮이는 것이 같다', 
     expect(proposalPick(all, tight, place)).toEqual(['pet_policy_text', 'pet_policy']);
   });
 
+  it('실내 `cage` → `unknown`(모름이 아는 제약을 지움)도 완화다 — 글 하나면 꺼진 채(11 T4.1)', () => {
+    const one = proposal({ pet_policy_text: { action: 'change', value: '블로그 문장', petPolicy: { ...strict, indoor: 'unknown' }, basedOn: ['https://blog/a'], quote: 'q', why: null } });
+    expect(proposalPick(['pet_policy_text', 'pet_policy'], one, place)).toEqual([]);
+  });
+
   it('근거 글 둘이 같은 블로그거나 같은 제목 틀(며칠 안)이면 하나로 센다 — 완화는 꺼진 채 시작한다(2026-10-04)', () => {
     const loose = { ...strict, largeDogOk: true, weightLimitKg: null };
     const two = proposal({ pet_policy_text: { action: 'change', value: '대형견도 돼요', petPolicy: loose, basedOn: ['https://blog/a', 'https://blog/b'], quote: 'q', why: null } });

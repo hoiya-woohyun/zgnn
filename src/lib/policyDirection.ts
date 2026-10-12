@@ -43,10 +43,16 @@ const maxFee = (facts: TFacts): number | null => {
 /** 칸 → 방향 규칙. 칸 이름은 `TPetPolicyFacts` 의 키다. 요금 셋(`fees`·`feeLines`·`feeText`)은 한 규칙(가장 큰 금액)으로 본다. */
 export const DIRECTION_RULES: Record<keyof TPetPolicyFacts, (before: TFacts, after: TFacts) => TDirection> = {
   indoor: (b, a) => {
-    const rb = INDOOR_RANK[b?.indoor ?? ''];
-    const ra = INDOOR_RANK[a?.indoor ?? ''];
-    if (rb === undefined || ra === undefined || rb === ra) return 'neutral';
-    return ra > rb ? 'tighten' : 'loosen';
+    const before = b?.indoor ?? '';
+    const after = a?.indoor ?? '';
+    const known = (v: string) => v in INDOOR_RANK || v === 'unknown';
+    if (!known(before) || !known(after) || before === after) return 'neutral';
+    // 모름이 아는 제약을 지우면 완화 — 덮어쓰기에서 '실외만' 이 원문·판단에서 사라져도 기본 체크가 켜져 있었다(11 T4.1, 담소요).
+    // `free → unknown` 은 잃는 제약이 없어 중립이다.
+    if (after === 'unknown') return before === 'free' ? 'neutral' : 'loosen';
+    // 모름 → 아는 값은 값대로 — 제약이 생기면 강화, `free` 는 완화(C12 의 확인이 '가능' 이 된다 — 틀리면 손님이 거절당하는 쪽).
+    if (before === 'unknown') return after === 'free' ? 'loosen' : 'tighten';
+    return INDOOR_RANK[after] > INDOOR_RANK[before] ? 'tighten' : 'loosen';
   },
   leash: (b, a) => flag(b?.leash, a?.leash),
   // 대형견 가능이 참인 것이 "허용" 이라 방향이 반대다.

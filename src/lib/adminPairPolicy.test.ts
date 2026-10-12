@@ -51,6 +51,14 @@ describe('listPolicyCell — 목록 조건 칸은 올리면 나갈 조건(todo/1
     expect(out).toMatchObject({ fromSite: false, blogDiffers: false });
   });
 
+  /** 담소요 09-17 후보 모양 — 사이트는 '실외만', 글은 실내를 말하지 않는다. 덮으면 '실외만' 이 원문·판단에서 사라진다(11 T4.1). */
+  it('모름이 사이트의 `실외만` 을 지우는 글은 완화라 조건 칸이 꺼진 채 시작한다', () => {
+    const r = row({ petPolicyText: '10kg 미만 1마리, 동반 가능', petPolicy: strict });
+    const out = overwriteDefault(group(r), place({ pet_policy: { ...strict, indoor: 'outdoorOnly' } }));
+    expect(out.loosen).toBe(true);
+    expect(out.columns).not.toContain('pet_policy_text');
+  });
+
   it('글이 사이트와 같은 조건이면 표식이 없다 · 사이트 원문이 비면 올리기가 채우니 글 쪽이다 · 짝이 없으면 글 쪽', () => {
     const same = row({ petPolicyText: '10kg 미만 1마리 가능', petPolicy: strict });
     expect(listPolicyCell(group(same, 'fill'), previewFor(same.extracted), place())).toMatchObject({ blogDiffers: false });

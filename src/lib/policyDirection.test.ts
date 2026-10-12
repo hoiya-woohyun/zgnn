@@ -28,9 +28,22 @@ describe('policyDirection — 강화는 바로, 완화는 확인 뒤', () => {
     expect(policyDirection(base, { ...base, largeDogOk: false }).fields.largeDogOk).toBe('tighten');
     expect(policyDirection({ ...base, largeDogOk: false }, base).fields.largeDogOk).toBe('loosen');
     expect(policyDirection(base, { ...base, indoor: 'cage' }).fields.indoor).toBe('tighten');
-    expect(policyDirection(base, { ...base, indoor: 'unknown' }).fields.indoor).toBeUndefined();
     expect(policyDirection(base, { ...base, fees: [{ ...base.fees![0], label: '1마리당 3만원', amountWon: 30000 }] }).fields.fees).toBe('tighten');
     expect(policyDirection(base, { ...base, feeFree: true, fees: [] }).overall).toBe('loosen');
+  });
+  /** 모름(`unknown`)은 순위 밖이라 중립이던 것을 범위로 못 박는다(11 T4.1) — 덮어쓰기에서 모름이 '실외만' 을 지워도 기본 체크가 켜져 있었다(담소요). */
+  it('실내: 아는 제약 → 모름은 완화 · 자유 → 모름은 중립 · 모름 → 아는 값은 값대로', () => {
+    const indoor = (from: TPetPolicyFacts['indoor'], to: TPetPolicyFacts['indoor']) =>
+      policyDirection({ ...base, indoor: from }, { ...base, indoor: to }).fields.indoor;
+    expect(indoor('outdoorOnly', 'unknown')).toBe('loosen');
+    expect(indoor('cage', 'unknown')).toBe('loosen');
+    expect(indoor('free', 'unknown')).toBeUndefined();
+    expect(indoor('unknown', 'cage')).toBe('tighten');
+    expect(indoor('unknown', 'outdoorOnly')).toBe('tighten');
+    expect(indoor('unknown', 'free')).toBe('loosen');
+    // 네 값 밖(옛 행의 엉뚱한 문자열)은 어느 쪽이든 중립 그대로
+    expect(policyDirection({ ...base, indoor: 'x' as never }, { ...base, indoor: 'unknown' }).fields.indoor).toBeUndefined();
+    expect(policyDirection({ ...base, indoor: 'unknown' }, { ...base, indoor: 'x' as never }).fields.indoor).toBeUndefined();
   });
   it('완화가 하나라도 있으면 전체가 완화 · notes 는 중립 · 한쪽이 없으면 중립', () => {
     expect(policyDirection(base, { ...base, weightLimitKg: 10, maxDogs: 3 }).overall).toBe('loosen');

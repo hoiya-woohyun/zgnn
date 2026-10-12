@@ -65,7 +65,6 @@
 ## 지금 (위에서부터)
 
 - [ ] 공개 상세가 판단에서 만든 조건 문장을 그린다(시드는 원문 그대로) — [21 S5](21-blog-text-and-extract-model.md) · 먼저 `pnpm data pull` + `chore(data)` 스냅샷 커밋(플래그 84줄 · 중문보말칼국수 드리프트로 `areaGroups` 고정 수 1건) · 왜 지금: S2~S4 로 함수·칸·쓰기 경로가 섰는데 공개 상세는 아직 블로그 출처 38곳의 원문을 그대로 낸다 — 이 줄이 실제로 막는 자리 · 끝나면 S6 을 「지금」 에
-- [ ] 덮어쓰기에서 실내 `outdoorOnly → unknown` 을 완화로 — [11 T4.1](11-continuous-review-and-update-proposals.md) · 왜 지금: '실외만' 이 원문·판단에서 사라지는 덮어쓰기가 기본 체크로 켜진다(담소요 09-17 후보) — 데이터가 틀리는 쪽, 한 규칙
 - [ ] `pnpm lint` 가 `claim.mjs` 빈 catch 둘로 빨갛다 — [08 T0.9](08-usability-and-process-plan.md) · 왜 지금: 린트 전체가 실패라 진짜 실패가 묻힌다, 두 줄
 - [ ] `/next` 커밋을 pathspec 한 명령으로 — [08 T0.8](08-usability-and-process-plan.md) · 왜 지금: 세션 둘 이상이 돌 때마다 남의 커밋에 섞인다(d3ecd38), 스킬 한 단락
 - [ ] 🔒 서버 워커 홉에 시간 예산(다음 글 시작 전 경과 ~200초면 멈춤, 서버만) — [20 T11](20-vercel-remote-worker.md) · 왜 지금: 2026-10-10 홉 하나가 258초 — 300초를 넘으면 홉이 끊기고 잠금 틈을 밟는다 · 2026-10-10 22:20 구현 커밋 d1d6a84 — 남은 것: 워커 배포(사용자 허락) → `check.mjs --reset` → 실측(분석 끝 ≤ 4분 · 사슬 이어짐)
