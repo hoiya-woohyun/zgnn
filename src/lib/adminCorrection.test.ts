@@ -24,6 +24,22 @@ describe('correctionView — 숫자는 원문에 실제로 있는 숫자를 칠�
     expect(view.lines[0]).toMatchObject({ found: ['15만원', '1.5만원'], missing: null });
   });
 
+  /*
+   * 칠하기는 대조가 읽는 모양 그대로(21 G1.3) — 대조는 `1만5천원` 을 15000 으로 읽는데 칠하기가 `5천원` 만 가리키면,
+   * 운영자는 "원문은 5천원" 으로 읽는다. `4견` 은 대조가 마릿수로 받는데 칠하기가 못 보면 '원문에 없는 말' 로 적힌다.
+   */
+  it('만·천을 섞은 금액은 한 덩어리로 칠한다 — 1만5천원 · 1만 5,000원', () => {
+    expect(marked(viewOf({ feeLines: ['청소비 5만원'] }, '첫 1박 기준 1만5천원'))).toEqual(['1만5천원']);
+    expect(marked(viewOf({ feeLines: ['청소비 5만원'] }, '반려견 1만 5,000원 추가'))).toEqual(['1만 5,000원']);
+  });
+
+  it('숫자 바로 뒤 견은 마릿수로 칠한다 — 4인 4견 · 1견당 은 요금이라 아니다', () => {
+    const view = viewOf({ maxDogs: 2 }, '최대 인원은 4인 4견');
+    expect(marked(view)).toEqual(['4견']);
+    expect(view.lines[0]).toMatchObject({ found: ['4견'], missing: null });
+    expect(marked(viewOf({ maxDogs: 2 }, '4마리를 초과할 경우 1견당 3,000원'))).toEqual(['4마리']);
+  });
+
   it('원문에 숫자가 아예 없으면 칠하지 않고 없는 말을 적는다', () => {
     const view = viewOf({ maxDogs: 2 }, '강아지 동반 가능, 목줄 필수');
     expect(marked(view)).toEqual([]);

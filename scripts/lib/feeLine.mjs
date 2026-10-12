@@ -21,7 +21,14 @@ const KOREAN_COUNT = { 한: 1, 두: 2, 세: 3, 네: 4, 다섯: 5 };
  * lookbehind(`(?<!…)`) 대신 앞 글자를 캡처한다 — 이 모듈은 브라우저 번들에 들어가고, iOS 16.4 전 Safari 는 lookbehind
  * 정규식 리터럴에서 청크 전체가 파싱 에러로 죽는다(petPolicyFacts.mjs 의 `mentionsKg` 와 같은 어법).
  */
-const AMOUNT_RE = /(^|[^\d.,])(\d[\d,]*(?:\.\d+)?(?:\s*만\s*\d[\d,]*(?=\s*(?:천\s*)?원))?)\s*(만\s*원|천\s*원|원)/g;
+const AMOUNT_TOKEN = String.raw`(\d[\d,]*(?:\.\d+)?(?:\s*만\s*\d[\d,]*(?=\s*(?:천\s*)?원))?)\s*(만\s*원|천\s*원|원)`;
+const AMOUNT_RE = new RegExp(String.raw`(^|[^\d.,])${AMOUNT_TOKEN}`, 'g');
+
+/**
+ * `/admin` 원문 칠하기용(`CORRECTION_CUES.amount`) — **`AMOUNT_RE` 와 같은 토큰**이고 칠할 말은 `w` 그룹(앞 글자는 밖).
+ * 칠하기가 금액 식을 따로 적어 두었더니 `1만5천원` 에서 `5천원` 만 칠했다 — 대조는 15000 을 읽는데 화면은 5000 을 가리켰다(21 G1.3).
+ */
+export const AMOUNT_CUE = new RegExp(String.raw`(?:^|[^\d.,])(?<w>${AMOUNT_TOKEN})`);
 
 const toWon = (num, unit) => {
   // `1만5` + `천원` — 만 앞은 만 단위, 뒤는 단위(천원·원)를 그대로 따른다.

@@ -115,8 +115,9 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
   - 수용: `shapeMatchesLabel` 이 label 의 `\d\s*박\s*째` 를 칸에 없는 조건으로 보고 계산에서 뺀다. `첫 1박` · `1박당` 은 그대로. `petPolicyFacts.test.mjs` 의 안녕감귤 테스트에 둘째 줄 `null` 단언을 되살린다.
   > 메모: 2026-10-12 고침 → [BUG-018](../bugs/BUG-018-fee-grounding-drops-correct-amounts.md) v3. 줄 혼자 있는 테스트를 더했다. 저장분은 G1 과 달리 **코드만으로 돌아온다** — 지워진 값이 아니라 남은 값을 빼는 쪽이라 `withPolicyFacts` 가 읽을 때 뺀다.
   > 원격 조회로 `N박째` 가 든 곳은 대기 후보 1 · 게시 0. 「기다림」 줄 없음.
-- [ ] **G1.3** `/admin` 의 원문 칠하기(`CORRECTION_CUES` 의 `amount`·`dogs`)를 새 판독에 맞춘다 — `1만5천원` 에서 `5천원` 만 칠하고, `4견` 은 못 칠한다. 파일 주석이 "이 표 하나가 정본" 이라 한 표가 대조와 다른 말을 한다.
+- [x] **G1.3** `/admin` 의 원문 칠하기(`CORRECTION_CUES` 의 `amount`·`dogs`)를 새 판독에 맞춘다 — `1만5천원` 에서 `5천원` 만 칠하고, `4견` 은 못 칠한다. 파일 주석이 "이 표 하나가 정본" 이라 한 표가 대조와 다른 말을 한다.
   - 수용: `adminCorrection.test.ts` 에 `1만5천원` 한 덩어리 · `4견` 칠하기. 새 정규식에 lookbehind 리터럴을 더하지 않는다(`feeLine.mjs` 머리 주석).
+  > 메모(2026-10-13): 금액은 `feeLine.mjs` 가 `AMOUNT_RE` 의 토큰으로 만든 `AMOUNT_CUE` 를 표가 그대로 쓴다(따로 적지 않는다). 숫자 단서 셋(kg·dogs·amount)을 앞 글자 캡처 + `w` 그룹으로 — 있던 lookbehind 리터럴 셋도 걷혔다(이 모듈은 `petPolicy.ts` 를 거쳐 **사이트 번들**에도 들어간다). 칠하기(`matchesOf`)는 `d` 플래그로 `w` 구간만 칠한다(`/admin` 은 PC). 아래 수용 줄들(구간 하한 · `초과` · `4견` · `1만5천원` · FEE_EX 계약)은 G1 의 것이고 G1 에서 이미 끝났다(`dogFee.test.ts` 「프롬프트 예시 계약」). 화면 확인은 못 했다 — `/admin` 은 로그인이 필요하고 Chrome 확장이 연결돼 있지 않았다.
   - 수용: 아래 원문·판단 쌍에서 금액·구간·`fromDog`·`maxDogs` 가 **남는다** — "1~5kg 1만원"(minKg 1·maxKg 5·10000) · "6~10kg 1.5만원" · "4마리를 초과할 경우 1견당 3,000원"(fromDog 5) · "최대 인원은 4인 4견"(maxDogs 4) · "첫 1박 기준 1만5천원"(15000, label 정규화 뒤 "1만5,000원" 도).
     지어낸 숫자는 여전히 지운다(원문에 없는 10kg 등 — BUG-009 테스트 그대로 초록).
   - **`FEE_EX` 전부를 label 을 원문 삼아 `correctPetPolicyFacts` 에 넣어 금액이 사는지** 계약 테스트(지금은 `dogFee.test.ts` 가 `sumByRules` 만 본다).

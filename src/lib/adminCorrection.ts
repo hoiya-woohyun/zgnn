@@ -18,12 +18,17 @@ export type TCorrectionLine = {
 
 export type TCorrectionView = { spans: TTextSpan[]; lines: TCorrectionLine[] };
 
-/** 원문의 모든 자리 — `lastIndex` 가 남지 않게 매번 새로 만든다. */
+/**
+ * 원문의 모든 자리 — `lastIndex` 가 남지 않게 매번 새로 만든다. 식에 `w` 이름 그룹이 있으면 그 구간만 칠한다:
+ * 숫자 단서는 lookbehind 대신 앞 글자를 캡처하므로(`CORRECTION_CUES` 의 kg·dogs·amount) 매치 전체를 칠하면 앞 글자까지 칠해진다.
+ * 위치는 `d` 플래그(`indices`)로 받는다 — 이 화면(`/admin`)은 PC 전용이다.
+ */
 function matchesOf(text: string, pattern: RegExp): TTextRange[] {
-  const flags = pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`;
+  const flags = [...new Set(`${pattern.flags}gd`)].join('');
   return [...text.matchAll(new RegExp(pattern.source, flags))]
-    .filter((match) => match[0].length > 0)
-    .map((match) => ({ start: match.index, end: match.index + match[0].length }));
+    .map((match) => match.indices?.groups?.w ?? [match.index, match.index + match[0].length])
+    .filter(([start, end]) => end > start)
+    .map(([start, end]) => ({ start, end }));
 }
 
 export function correctionView(text: string | null | undefined, dropped: readonly TCorrectionDrop[]): TCorrectionView {

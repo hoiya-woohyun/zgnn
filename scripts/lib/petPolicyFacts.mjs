@@ -8,7 +8,7 @@
 //
 // 순수 모듈이다: 브라우저도 import 한다 — node 모듈을 넣지 말 것(placeFields.mjs 와 같은 규칙, ADR-018).
 
-import { amountsInWon, EXTRA_DOG_RE, normalizeFeeLines } from './feeLine.mjs';
+import { AMOUNT_CUE, amountsInWon, EXTRA_DOG_RE, normalizeFeeLines } from './feeLine.mjs';
 
 /** @typedef {import('../../src/types').TPetPolicyFacts} TPetPolicyFacts */
 
@@ -69,6 +69,9 @@ export const VACCINE_GROUNDS = GROUNDS.vaccineRequired;
  * 모순(소형견만 ↔ 대형견 가능 · 요금 ↔ 무료)은 근거가 원문에 있어 그 말이 칠해진다.
  *
  * 정규식은 이 표 하나가 정본이다 — 화면이 근거 단어를 따로 적으면 "뺀 이유" 와 "칠한 곳" 이 다른 규칙을 말한다.
+ * 숫자 셋은 **대조가 읽는 모양 그대로**다(21 G1.3): 금액은 `amountsInWon` 과 같은 토큰(`1만5천원` 한 덩어리), 마릿수는 `mentionsDogs` 처럼
+ * 숫자 바로 뒤 `견`(`4인 4견`)까지 — `1견당` 은 마리당 요금이라 빼고. 칠할 말은 `w` 그룹이고 앞 글자는 캡처한다(lookbehind 리터럴 금지 —
+ * 이 모듈은 사이트 번들에도 들어간다, feeLine.mjs 머리 주석). 칠하기(`adminCorrection.ts`)가 `w` 구간만 칠한다.
  * @type {Record<string, { near: RegExp, words: string }>}
  */
 export const CORRECTION_CUES = {
@@ -83,9 +86,9 @@ export const CORRECTION_CUES = {
   feeFree: { near: GROUNDS.feeFree, words: '무료·없음·0원' },
   vaccineRequired: { near: GROUNDS.vaccineRequired, words: '접종·백신' },
   petDays: { near: /[월화수목금토일]\s*요일/, words: '요일(수요일)' },
-  kg: { near: /(?<![\d.])\d+(?:\.\d+)?\s*(?:kg|㎏|킬로|키로)/i, words: '무게(kg)' },
-  dogs: { near: /(?<!\d)(?:\d+|한|두|세|네|다섯|여섯)\s*마리/, words: '마릿수(N마리)' },
-  amount: { near: /(?<![\d.,])\d[\d,]*(?:\.\d+)?\s*(?:만\s*원|천\s*원|원)/, words: '금액(원)' },
+  kg: { near: /(?:^|[^\d.])(?<w>\d+(?:\.\d+)?\s*(?:kg|㎏|킬로|키로))/i, words: '무게(kg)' },
+  dogs: { near: /(?:^|\D)(?<w>(?:\d+|한|두|세|네|다섯|여섯)\s*마리|\d+\s*견(?!\s*당))/, words: '마릿수(N마리)' },
+  amount: { near: AMOUNT_CUE, words: '금액(원)' },
 };
 
 /** @typedef {keyof typeof CORRECTION_CUES} TCorrectionCue */
