@@ -1,6 +1,7 @@
 # 21. 블로그 문장이 사이트에 그대로 나가지 않게 · 추출 모델을 Sonnet 으로
 
-> 최종 수정: 2026-10-12 (v8: S3 끝 — 마이그레이션 `20261012120000`(원격 미적용, 🧑 H2) · JSON 은 공개일 때만 키 · fallback 은 마이그레이션 조건 그대로. S4 를 NOW 「지금」 에)
+> 최종 수정: 2026-10-12 (v9: S4 끝 — 플래그는 원문 글자가 바뀔 때만 false · 안내만 다르면 안내 하나 · 제안 가드는 남을 원문으로. fallback 제거는 S4.1(H2 뒤). 「발견」 셋을 S5(먼저 스냅샷)·S7(안내 가드의 대조군)·H6(anon select)으로)
+> 이전 2026-10-12 (v8: S3 끝 — 마이그레이션 `20261012120000`(원격 미적용, 🧑 H2) · JSON 은 공개일 때만 키 · fallback 은 마이그레이션 조건 그대로. S4 를 NOW 「지금」 에)
 > 이전 2026-10-12 (v7: S2 끝 — 템플릿은 배지와 같은 `TPetPolicy` 에서, 지문은 저장된 판단 그대로. S3 를 NOW 「지금」 에)
 > 이전 2026-10-12 (v6: D1 수정 — 템플릿 줄 밑에 **AI 가 자기 말로 쓴 안내 1~2문장**(판단 지문이 맞을 때만, 판단 칸 주제 금지). S2 에 가드·지문 `.mjs` · S3 에 안내 칸 · S4 제안이 안내를 씀 · S7 추출이 안내를 씀(S2 뒤) · S6 에 「짱구누나」 라벨. 근거에 담소요)
 > 이전 2026-10-12 (v5: H1 — M1 뒤 워커를 먼저 한 번 배포(서버 추출도 Sonnet), S7 뒤 한 번 더)
@@ -159,7 +160,7 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
   > 그 밖에 **중문보말칼국수**(10-12 04:37 `/admin` 수정: 소형견만·케이지·소개)가 스냅샷에 아직 없어 `areaGroups` 고정 수 1건이 바뀐다 → 스냅샷은 커밋하지 않았다(「발견」). S5 전에 `pull` 이 필요하다(지금 스냅샷엔 플래그가 없어 로컬에선 시드도 숨김).
 
 ### S4. 쓰기 경로가 플래그를 지킨다
-- [ ] 블로그 값으로 원문을 채우거나 덮으면 플래그를 false — `applyApproved.mjs:93·187·231(OVERWRITE_PAIRS 를 세 칸 짝으로)·289` · `src/lib/adminPlaceEdit.ts:190` · `/admin` 편집 폼(`adminPagePlaceEditForm.tsx`)에 「우리가 쓴 문장 — 그대로 내보내기」 체크박스.
+- [x] 블로그 값으로 원문을 채우거나 덮으면 플래그를 false — `applyApproved.mjs:93·187·231(OVERWRITE_PAIRS 를 세 칸 짝으로)·289` · `src/lib/adminPlaceEdit.ts:190` · `/admin` 편집 폼(`adminPagePlaceEditForm.tsx`)에 「우리가 쓴 문장 — 그대로 내보내기」 체크박스.
   - `proposePlaces.mjs:75` 를 "근거 원문(사이트에 안 나감) — 원문 그대로" 로(`PROPOSE_PROMPT_VERSION` 이 바뀐다).
   - **안내 운반**(v6): 신규 승인은 후보의 `extracted.petPolicyGuide` 를 그대로 `pet_policy_guide` 로 · 덮어쓰기는 원문·판단과 **한 짝**(`OVERWRITE_PAIRS`)으로. 어디서도 지문을 다시 찍지 않는다(옮기기만 —
     승인 때 찍으면 운영자가 고친 판단의 지문이 낡은 안내에 붙는다). `/admin` 에서 판단만 고쳐도 안내는 지우지 않는다 — 지문이 어긋나 저절로 숨는다.
@@ -167,12 +168,24 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
     `basis` 는 제안 패스가 찍는다 = 승인 뒤 남을 판단(조건 원문이 change 면 제안 판단, keep 이면 사이트 판단)의 지문. `guardPublicText` 를 못 지나면 keep(`why` 에 이유). `withProposal` 이 옮긴다.
   - 수용: 테스트 — 시드 행을 블로그 원문으로 덮으면 false, 운영자가 체크하면 true. 임시 fallback(`source`) 제거. 덮어쓰기 뒤 `publicGuide` 가 문장을 낸다(지문 일치) · 덮은 뒤 판단을 고치면 null.
   - 끝나면: S5 를 「지금」 에. S7 도 끝났으면 「기다림」 에 🧑 H1(워커 재배포 — 제안·추출 프롬프트 둘 다 번들에).
+  > 메모: 2026-10-12 끝(임시 fallback 제거만 빼고 → S4.1). 명세와 다르게 간 것 넷: ① 플래그는 **원문 글자가 바뀔 때만** false — 판단만 바뀐 덮어쓰기에서 원문은 여전히 가족 문장이다.
+  > ② 원문·판단이 같고 안내 **문장**만 다르면 안내 하나만 덮는다(지문만 다른 안내는 덮지 않는다 — 전·후 목록이 문장만 보여 목록에 안 서는 칸이 patch 에 실린다). 후보에 안내가 없으면 그때는 지우지 않는다.
+  > ③ 빈 칸 채우기는 안내가 **있을 때만** 싣는다(null 을 쓰지 않는 원칙). ④ 제안 가드의 대조군은 **승인 뒤 남을 원문** — 런타임 `publicGuide` 와 같은 글이라 "제안 때 통과 → 화면에서 숨음" 이 없다(넓은 대조군은 S7 의 v8 발견).
+  > 그 밖: `OVERWRITE_PAIRS` 조건 짝 넷(원문·판단·원문 공개·이용 안내) · `adminLatest` 줄 「원문 공개」·「이용 안내」 · 안내만 change 이고 원문이 완화로 꺼졌으면 안내가 짝을 다시 켜지 않는다(`proposalPick`) ·
+  > `guideOf` 는 `basis` 없는 안내를 없는 것으로 본다(S7 은 `{text, basis}` 를 함께 낸다) · `PROPOSE_PROMPT_VERSION` `6f96326f` → `a0be9600`(🧑 H1 전까지 서버 홉은 옛 프롬프트).
+  > 체크박스는 칸이 있는 원격에서만 그려져 H2 전엔 화면 확인 거리가 없다 — S4.1 에서. 테스트: 왕복(제안 → `withProposal` → 덮어쓰기 → `fromPlaceRow` → `publicGuide` 문장 · 판단 칸 하나 고치면 `판단이 바뀌어 숨겼어요`).
+- [ ] **S4.1**(🧑 H2 뒤) `scripts/lib/placeFields.mjs` 의 임시 fallback(`row.pet_policy_text_public ?? (source === 'notion' && pet_policy == null)`)을 걷고 테스트(「칸이 없는 원격」)를 "칸이 없으면 숨김" 으로.
+  - push 여부는 `pull` 로 못 가린다(fallback 이 같은 값을 낸다) — 원격 조회로: `information_schema.columns` 에 두 칸 · `count(*) filter (where pet_policy_text_public)` = 86.
+  - 화면: Chrome 확장으로 `/admin` 등록 완료 → 시드 한 곳 `고치기` 에 「원문 공개」 체크가 켜진 채 서는지, 블로그 한 곳은 꺼진 채인지.
+  - 끝나면: 없음.
 
 ### S5. 공개 상세가 표시문을 그린다
 - [ ] `src/screens/placeDetailPolicyText.tsx`(owner-prefix) — 공개면 원문 + 강조(지금 그대로), 아니면 `publicPolicyLines` + **`publicGuide` 가 낸 안내, 없으면 `publicNotes`** + 「블로그 글을 읽고 정리했어요 · 글 보기」(`reviewUrl`).
   - `PetBadges sourceText` 에는 **표시문**을 넘긴다 — 원문을 넘기면 요금 칩이 "본문에 이미 있다" 로 숨는데 그 본문은 화면에 없다(테스트는 통과한다). 라벨 「원문」(`placeDetailEligibilityCard.tsx:124`) · C7 문구(`eligibility.ts:363`) · 판정 이유의 인용(`quote` = 원문 조각)이 화면에 나가는지 보고 비공개 행에선 숨긴다.
   - 원칙 주석 고치기: `petPolicy.ts:8-10` · `extractPlaces.mjs:17`.
   - 검증: Chrome 확장으로 일기초록(블로그) · 시드 한 곳. 문서: [pet-policy-and-eligibility](../architecture/pet-policy-and-eligibility.md) · ADR-017 상태 · CLAUDE.md 「조용히 깨지는 것들」 한 줄(새 칸을 더하면 템플릿에도).
+  - **먼저 스냅샷**(v8 발견): 커밋된 `src/data/places.json` 엔 공개 플래그가 없어 로컬에선 시드도 숨김으로 그려진다 → `pnpm data pull` 하고 `chore(data)` 로 따로 커밋.
+    그 pull 에는 중문보말칼국수(10-12 04:37 `/admin` 수정: 소형견만·케이지·소개)가 함께 들어와 `areaGroups.test.ts` 「콩 2.5kg + 해피 12kg · 유모차」 고정 수 1건이 바뀐다 — 같은 커밋에서 맞춘다.
   - 끝나면: S6 를 「지금」 에.
 
 ### S6. `/admin` 에 「사이트에 나갈 문장」 미리보기
@@ -194,11 +207,16 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
   - 코드 가드: `normalizePlace` 에서 `visited === false` 면 features null(협재 목록글처럼 쓸 만한 소개도 비워진다 — 소개는 다녀온 글·13 §5.3 묶음 종합에서 온다). 빈 소개면 카드·지도 시트 줄과 OG·공유 문구를 그리지 않는다.
   - 수용: `extractPlaces.test.mjs` 프롬프트 계약 · 위 다섯 글(명단글 · 일랑일랑 · 스테이모루티 · PLANT827 · 버니하우스)을 `claude -p` 한 번씩(5회)으로 확인 — 자료는 `data/raw/eval/model-compare/*.body.txt`.
   - `eval extract` 캐시가 무효가 된다. 끝나면: 「기다림」 에 🧑 H5(시드 채점) · S4 도 끝났으면 🧑 H1(워커 재배포), 아니면 H1 은 S4 의 「끝나면」 이 넣는다.
+  - **안내 가드의 대조군을 시점별로 정한다**(v8 발견, S2 뒤 실측): `publicGuide` 는 런타임에 조건 원문(`petPolicyText`) 하나에만 대 보는데, 안내는 정의상 판단 칸 밖(자리·분위기·절차)이라 재료가 **본문**에 있다.
+    원문 "실내 동반 가능, 소형견만" 에서 "마당에서 공놀이를 할 수 있어요"(없는 조건 — 마당) · "2층 창가 자리가 조용해요"(없는 숫자 2) · "대형 주차장이 있어…"(없는 조건 — 대형) 가 전부 숨는다.
+    거꾸로 본문을 베낀 안내는 베낌 검사가 못 본다. 이 절의 petPolicyText 규칙(수다·편의시설 문장을 빼라)이 들어가면 더 심해진다.
+    정할 것: 분석 시점(`normalizePlace`)은 **본문**으로 베낌·숫자·근거 검사, 런타임(`publicGuide`)은 지문·주제만(본문이 없다) — 그러면 S4 의 제안 가드(지금은 남을 원문으로 본다)도 같은 규칙으로 맞춘다.
 
 ### S8. 번들·`places.json` 에서 비공개 원문 빼기
 - [ ] `pull-db` 가 판정 입력(정책·환경·`feeUnitNote`)을 미리 계산해 싣고, 공개가 아닌 행은 원문과 `sources` 를 JSON 에서 뺀다 → `places.json` 모양·`places.ts` 가 바뀐다. `withPolicyFacts`·`correctPetPolicyFacts` 가 런타임에 원문을 읽는 자리를 빌드로 옮긴다. 안내·notes 가드(`publicGuide`·`publicNotes` — 원문이 필요하다)도 빌드가 돌려 통과한 문장만 싣는다(v6).
   - 수용: 빌드 산출물(`out/`)과 `src/data/places.json` 에 블로그 출처 행의 원문 문장이 없다(`grep` 으로 일기초록 문장). 판정 결과는 바뀌기 전과 같다(122곳 × 강아지 5마리 스냅숏 테스트).
   - git 이력의 옛 원문은 남는다 — 재작성은 하지 않는다(포크·클론에 이미 있고, 지우는 것은 앞으로의 노출).
+  - 끝나면: 🙋 H6 을 「기다림」 에.
 
 ## 사람(🧑)·결정(🙋)
 
@@ -210,4 +228,7 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
 - **H2 🧑 `db push`** — S3 의 마이그레이션. 게시된 84행을 바꾸므로 재빌드가 한 번 걸린다.
 - **H3 🙋 "동반 가능" 한마디뿐인 글의 조건 원문** — 권고: **넣는다**. 판정 C9("조건이 적혀 있지 않아요, 가기 전에 확인해 주세요")가 바로 이 경우를 위해 있고 시드와 같은 모양이다. 지금은 Opus 후보의 48% 가 원문 null 이라 '정보 없음'. S7 이 답을 프롬프트에 싣는다.
 - **H4 🙋 식약처 명단글 대기 후보 137건의 소개** — 권고: **소개만 비운다**(후보 자체는 식약처 등록이라는 근거가 있어 남긴다). "해도 돼" 하면 Claude 가 `candidates.extracted.features` 를 null 로 update(원격 쓰기라 허락).
+- **H6 🙋 블로그 원문을 anon select 에서도 닫을지**(v8 발견) — S8 은 번들·`places.json` 만 비운다. publishable 키가 번들에 있고 `places` 는 published 행 select 가 열려 있어(`20260922120000_narrow_grants.sql`)
+  원문(`pet_policy_text`)은 S8 뒤에도 PostgREST 로 읽힌다. 닫으려면 열 단위 grant 인데 `pnpm data pull`(빌드)이 같은 키로 원문을 읽어 판정 입력을 만든다 — 빌드가 원문 없이 돌게(판정 입력을 칸으로 미리 계산)
+  하는 것이 먼저다. 권고: **S8 뒤에 정한다** — 지금 더 큰 노출은 레포(PUBLIC)·번들이고, API 로 읽으려면 키를 찾아 직접 질의해야 한다. ADR-017 결정 13 D5 의 범위를 그때 적는다.
 - **H5 🧑 시드 정답 채점(두 모델)** — S7 뒤 새 프롬프트로: `ANALYZE_MODEL=claude-sonnet-5-5 pnpm data eval extract --limit 30` · `ANALYZE_MODEL=claude-opus-5 pnpm data eval extract --limit 30` → 각각 `pnpm data eval score`(report 파일이 프롬프트 버전 하나라 둘째 score 전에 첫 report 를 복사). 약 60회 — 구독 한도. 결과가 Sonnet 쪽 지어냄 증가면 M1 을 되돌린다.

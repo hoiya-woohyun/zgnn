@@ -50,6 +50,7 @@ describe('placeEditPatch — 안 고치면 쓰지 않는다', () => {
     ['홈페이지·확인 날짜 칸이 없는 원격', place({ address: '제주시 1', lat: 33.4, lng: 126.5 })],
     ['선택지 밖의 지역 표기', place({ region_raw: '남쪽 (서귀포시 월평로)' })],
     ['홈페이지 칸이 있는 원격', place({ homepage_url: 'https://a.kr', homepage_name: '에이', homepage_image: null, verified_at: null })],
+    ['원문 공개 칸이 있는 원격(시드)', place({ pet_policy_text: '대형견 가능', pet_policy_text_public: true, pet_policy_guide: null })],
   ])('%s', (_label, row) => {
     expect(placeEditPatch(row, placeEditDraft(row))).toBeNull();
     expect(placeEditChanges(row, placeEditDraft(row))).toEqual([]);
@@ -166,6 +167,37 @@ describe('placeEditPatch — 조건 원문과 판단은 짝', () => {
     const row = place();
     const draft = placeEditDraft(row);
     expect(placeEditPatch(row, { ...draft, policy: { ...draft.policy, leash: true } })).toBeNull();
+  });
+});
+
+describe('placeEditPatch — 원문 공개 체크(21 S4)', () => {
+  const seed = place({ pet_policy_text: '대형견 가능', pet_policy_text_public: false, pet_policy_guide: null });
+
+  it('켜면 patch 에 true · 안 바꾸면 키 없음 · 칸 없는 행은 켜도 키 없음', () => {
+    expect(placeEditPatch(seed, { ...placeEditDraft(seed), petPolicyTextPublic: true })).toEqual({ pet_policy_text_public: true });
+    expect(placeEditPatch(seed, { ...placeEditDraft(seed), features: '소개' })).not.toHaveProperty('pet_policy_text_public');
+    const plain = place({ pet_policy_text: '대형견 가능' });
+    expect(placeEditDraft(plain).petPolicyTextPublic).toBe(false);
+    expect(placeEditPatch(plain, { ...placeEditDraft(plain), petPolicyTextPublic: true })).toBeNull();
+  });
+
+  it('원문을 고쳐도 플래그는 저절로 바뀌지 않는다 · 판단을 고쳐도 안내 칸은 건드리지 않는다', () => {
+    const open = place({ pet_policy_text: '대형견 가능', pet_policy_text_public: true, pet_policy_guide: { text: '안내', basis: 'x' } });
+    const draft = placeEditDraft(open);
+    const patch = placeEditPatch(open, { ...draft, petPolicyText: '대형견 가능. 리드줄 필수', policy: { ...draft.policy, leash: true } });
+    expect(patch).not.toHaveProperty('pet_policy_text_public');
+    expect(patch).not.toHaveProperty('pet_policy_guide');
+  });
+
+  it('전·후 목록에 사람 말로 — 칸 없는 행에는 줄이 없다', () => {
+    const [change] = placeEditChanges(seed, { ...placeEditDraft(seed), petPolicyTextPublic: true });
+    expect(change).toMatchObject({ key: 'petPolicyTextPublic', label: '원문 공개', before: '숨김', after: '그대로 내보냄' });
+    const plain = place();
+    expect(placeEditChanges(plain, { ...placeEditDraft(plain), petPolicyTextPublic: true })).toEqual([]);
+  });
+
+  it('공개만 바꾼 저장은 확인 날짜를 찍지 않는다 — 사실 칸이 아니다', () => {
+    expect(patchVerifies({ pet_policy_text_public: true })).toBe(false);
   });
 });
 

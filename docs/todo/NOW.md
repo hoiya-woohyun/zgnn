@@ -1,6 +1,7 @@
 # 지금 할 일 — 대기열
 
-> 최종 수정: 2026-10-12 (v57: [21](21-blog-text-and-extract-model.md) v6 — 공개 조건 문장에 AI 가 자기 말로 쓴 안내를 더한다(사용자 2차 결정, ADR-017 v10). S2 줄에 가드·지문 `.mjs`, S7 줄에 안내 칸·S2 뒤. 「발견」 에 /admin 덮어쓰기 둘(실내 unknown 중립 · 대표 = confidence))
+> 최종 수정: 2026-10-12 (v58: 21 S2·S3·S4 끝 — S5 를 맨 위에, 🧑 H2(`db push`)를 「기다림」 에(push 뒤 S4.1). 「발견」 다섯을 명세로: 둘은 [11](11-continuous-review-and-update-proposals.md) T4.1·T4.2(T4.1 은 「지금」 G1.1 뒤), 셋은 21 S5(먼저 스냅샷)·S7(안내 가드의 대조군)·H6(anon select))
+> 이전 2026-10-12 (v57: [21](21-blog-text-and-extract-model.md) v6 — 공개 조건 문장에 AI 가 자기 말로 쓴 안내를 더한다(사용자 2차 결정, ADR-017 v10). S2 줄에 가드·지문 `.mjs`, S7 줄에 안내 칸·S2 뒤. 「발견」 에 /admin 덮어쓰기 둘(실내 unknown 중립 · 대표 = confidence))
 > 이전 2026-10-12 (v56: [21](21-blog-text-and-extract-model.md) 신설 — 블로그 문장이 공개 화면에 그대로 나가는 것(B) · 추출 모델 Sonnet · 원문 대조가 맞는 요금을 지움. 파일이 안 겹치는 G1·M1·S1·S2 를 「지금」 맨 위에(다음 단계는 각 태스크가 끝나며 넣는다), 🙋 둘을 「기다림」 맨 위에)
 > 이전 2026-10-11 (v55: 13 §5.3 D1 을 권고대로 (A) 묶음 종합으로 닫았다 — 「기다림」 🙋 를 걷고 A1~A3 를 「지금」 에, 서버 워커 줄 다음)
 > 이전 2026-10-11 (v54: 운영 현황을 지금 `/admin` 구조에 맞추는 15 T8 — 「지금」 끝에 T8.1~T8.5, 분석 칸 주의 기준 🙋 를 「기다림」 맨 위에)
@@ -63,9 +64,10 @@
 
 ## 지금 (위에서부터)
 
-- [ ] 쓰기 경로가 공개 플래그·안내를 지킨다(승인·덮어쓰기 `OVERWRITE_PAIRS` 세 칸 짝 · `/admin` 편집 「우리가 쓴 문장 — 그대로 내보내기」 · 제안 패스가 안내를 씀) — [21 S4](21-blog-text-and-extract-model.md) · 왜 지금: 칸(S3)이 섰다 — 시드를 블로그 원문으로 덮으면 플래그가 true 로 남아 블로거 문장이 공개된다 · 칸은 🧑 H2 전이면 원격에 없다 — 행에 칸이 있을 때만 싣는다(`stay_environment` 와 같은 가드), `fromPlaceRow` 의 fallback 제거는 H2 뒤 · 끝나면 S5 를 「지금」 에, S7 도 끝났으면 🧑 H1 을 「기다림」 에
+- [ ] 공개 상세가 판단에서 만든 조건 문장을 그린다(시드는 원문 그대로) — [21 S5](21-blog-text-and-extract-model.md) · 먼저 `pnpm data pull` + `chore(data)` 스냅샷 커밋(플래그 84줄 · 중문보말칼국수 드리프트로 `areaGroups` 고정 수 1건) · 왜 지금: S2~S4 로 함수·칸·쓰기 경로가 섰는데 공개 상세는 아직 블로그 출처 38곳의 원문을 그대로 낸다 — 이 줄이 실제로 막는 자리 · 끝나면 S6 을 「지금」 에
 - [ ] `N박째부터 1박당 1만원` 의 금액이 원문 대조를 통과한다 — [21 G1.2](21-blog-text-and-extract-model.md) · 왜 지금: 혼자 있으면 1박 손님에게 틀린 금액을 확정 문장으로 낸다(BUG-018 의 남은 갈래), 한 줄
 - [ ] 일랑일랑 `반려견 1마리가 포함` 을 기본 마릿수 근거로 — [21 G1.1](21-blog-text-and-extract-model.md) · 왜 지금: 두 모델이 맞게 낸 `추가 1마리 5,000원` 이 아직 계산에서 빠진다(BUG-018 의 남은 갈래), 한 함수
+- [ ] 덮어쓰기에서 실내 `outdoorOnly → unknown` 을 완화로 — [11 T4.1](11-continuous-review-and-update-proposals.md) · 왜 지금: '실외만' 이 원문·판단에서 사라지는 덮어쓰기가 기본 체크로 켜진다(담소요 09-17 후보) — 데이터가 틀리는 쪽, 한 규칙
 - [ ] `pnpm lint` 가 `claim.mjs` 빈 catch 둘로 빨갛다 — [08 T0.9](08-usability-and-process-plan.md) · 왜 지금: 린트 전체가 실패라 진짜 실패가 묻힌다, 두 줄
 - [ ] `/next` 커밋을 pathspec 한 명령으로 — [08 T0.8](08-usability-and-process-plan.md) · 왜 지금: 세션 둘 이상이 돌 때마다 남의 커밋에 섞인다(d3ecd38), 스킬 한 단락
 - [ ] 🔒 서버 워커 홉에 시간 예산(다음 글 시작 전 경과 ~200초면 멈춤, 서버만) — [20 T11](20-vercel-remote-worker.md) · 왜 지금: 2026-10-10 홉 하나가 258초 — 300초를 넘으면 홉이 끊기고 잠금 틈을 밟는다 · 2026-10-10 22:20 구현 커밋 d1d6a84 — 남은 것: 워커 배포(사용자 허락) → `check.mjs --reset` → 실측(분석 끝 ≤ 4분 · 사슬 이어짐)
@@ -82,7 +84,7 @@
 
 ## 기다림 (사람 손·결정)
 
-- 🧑 `places` 공개 플래그·안내 칸 마이그레이션 적용 — [21 H2](21-blog-text-and-extract-model.md) · 명령: `./node_modules/.bin/supabase db push --linked`(`20261012120000_places_pet_policy_public` — 시드 86행 update 라 재빌드가 한 번 걸린다) · 확인: Claude 가 `pnpm data pull` 로 시드 84행에 `"petPolicyTextPublic": true` 가 서는지 본다
+- 🧑 `places` 공개 플래그·안내 칸 마이그레이션 적용 — [21 H2](21-blog-text-and-extract-model.md) · 명령: `./node_modules/.bin/supabase db push --linked`(`20261012120000_places_pet_policy_public` — 시드 86행 update 라 재빌드가 한 번 걸린다) · 확인(Claude, 원격 조회): `information_schema.columns` 에 두 칸 · `count(*) filter (where pet_policy_text_public)` = 86 — `pull` 은 push 전후가 같아(fallback) 확인이 못 된다 · `updated_at` 86행이 push 시각으로 바뀌지만 읽는 코드 없음(2026-10-12 grep) · push 뒤 [21 S4.1](21-blog-text-and-extract-model.md)(임시 fallback 걷기·체크박스 화면 확인)을 「지금」 에
 - 🙋 "동반 가능" 한마디뿐인 글의 조건 원문을 비울지 넣을지 — [21 H3](21-blog-text-and-extract-model.md) · 권고: **넣는다** — 판정 C9("조건이 적혀 있지 않아요, 가기 전에 확인해 주세요")가 이 경우를 위해 있고 시드와 같은 모양. 지금은 Opus 후보의 48% 가 원문 null 이라 '정보 없음' 이고 모델·실행마다 갈린다. 21 S7 프롬프트가 이 답을 싣는다
 - 🙋 식약처 명단글 대기 후보 137건의 소개("식약처 현황에 … 올라 있는 ○○이에요") — [21 H4](21-blog-text-and-extract-model.md) · 권고: **소개만 비운다**(후보는 식약처 등록이라는 근거가 있어 남긴다) — "해도 돼" 하면 Claude 가 `candidates.extracted.features` 를 null 로 update
 
@@ -132,8 +134,3 @@
 ## 발견 (분류 전)
 
 <!-- /next 가 작업 중 찾은 것을 한 줄씩 — 출처: <커밋/파일>. 멈출 때 번호 문서로 옮긴다 -->
-- /admin 덮어쓰기에서 판단이 `outdoorOnly` → `unknown` 으로 바뀌어도 완화로 안 잡힌다 — `policyDirection.ts:48` 이 `unknown` 을 순위 밖(중립)으로 봐서 기본 체크가 켜진 채 '실외만' 이 원문·판단에서 사라진다(완화 가드·「전화로 확인해 주세요」 안 섬). 덮어쓰기는 "모름이 아는 제약을 지운다" — 출처: 2026-10-12 담소요 대기 묶음(09-17 후보) · `src/lib/policyDirection.ts`
-- 갱신 묶음의 대표 후보가 최신 글이 아니라 confidence 최대(`reviewCandidates.mjs:173`)라, 제안이 없을 때 「바뀔 값」 과 「최신 글(…)은」 한마디가 서로 다른 글에서 온다(담소요: 09-17 0.9 가 09-21 0.85 를 이김) — 출처: `scripts/analyze/reviewCandidates.mjs` · `src/lib/adminSiteCompare.ts`
-- 안내 가드의 대조군이 조건 원문(`petPolicyText`) 하나뿐이다 — 안내는 정의상 판단 칸 밖(자리·분위기·절차)이라 재료가 블로그 **본문**에 있는데, 런타임 `publicGuide` 는 원문에만 대 본다. 실측(원문 "실내 동반 가능, 소형견만"): "마당에서 공놀이를 할 수 있어요" → 원문에 없는 조건(마당) · "2층 창가 자리가 조용해요" → 없는 숫자(2) · "대형 주차장이 있어…" → 없는 조건(대형) — 셋 다 숨는다. 거꾸로 본문을 베낀 안내는 베낌 검사가 못 본다. S7 이 원문에서 수다·편의시설을 빼면 더 심해진다. 시점별 대조군을 S7 에서 정할 일(분석 시점 = 본문으로 베낌·숫자·근거, 런타임 = 지문·주제만?) — 출처: 6d927ba `scripts/lib/petPolicyGuide.mjs` · 21 S2/S7
-- 커밋된 스냅샷(`src/data/places.json`)이 DB 와 어긋난다 — 중문보말칼국수(10-12 04:37 `/admin` 수정: 소형견만·케이지·소개 한 줄)가 없다. `pnpm data pull` 하면 `areaGroups.test.ts` 「콩 2.5kg + 해피 12kg · 유모차」 고정 수 1건이 바뀐다 → `chore(data)` 스냅샷 갱신 + 고정 수 맞추기(H2 뒤 한 번에 하면 플래그 84줄도 같이 들어온다) — 출처: 21 S3 수용 실측
-- 블로그 원문(`pet_policy_text`)은 S8 뒤에도 **anon select 로 읽힌다** — publishable 키가 번들에 있고 `places` 는 published 행 select 가 열려 있다(`pull` 이 그 키로 원문을 읽는다). S8 은 번들·JSON 만 비운다. 막으려면 열 단위 grant + 빌드가 세션으로 읽기 같은 길이 필요 — ADR-017 결정 13 D5 의 범위를 정할 일 — 출처: 21 S3 · `20260922120000_narrow_grants.sql`

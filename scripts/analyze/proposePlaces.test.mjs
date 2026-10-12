@@ -10,6 +10,7 @@ import {
   sanitizeProposal,
 } from './proposePlaces.mjs';
 import { createUsageMeter } from './extractPlaces.mjs';
+import { policyFingerprint } from '../lib/petPolicyGuide.mjs';
 
 const place = {
   id: 'p1', name: '솔숲펜션', type: 'stay', pet_policy_text: '대형견 가능, 1마리당 2만원', pet_policy: null,
@@ -76,6 +77,64 @@ describe('sanitizeProposal — 지어내지 않는다', () => {
     const out = sanitizeProposal({ fields: [], conflicts: [] }, rows);
     expect(out.conflicts).toEqual([{ field: 'pet_policy_text', posts: ['https://blog/a', 'https://blog/b'] }]);
     expect(countConflicts([A])).toEqual([]);
+  });
+});
+
+/**
+ * 이용 안내(docs/todo/21 S4) — 지문(`basis`)은 이 패스만 찍는다. 남을 원문에 가드를 대 보고, 남을 판단의 지문을 붙인다.
+ * 근거 글·인용은 맞게 둔다 — keep 이 가드 때문인지(근거·인용 때문이 아닌지) `why` 로 확인한다.
+ */
+describe('sanitizeProposal — 이용 안내(21 S4)', () => {
+  const guideChange = (over) => ({
+    field: 'pet_policy_guide', action: 'change', value: '입구에 발 닦을 수건이 준비돼 있어요', basedOn: ['https://blog/a'], quote: '마당이 넓어요', why: '글이 준비물을 말한다', ...over,
+  });
+  const sitePolicy = { ...facts, weightLimitKg: null, leash: true };
+  const site = { ...place, pet_policy: sitePolicy };
+
+  it('원문이 change 면 지문은 제안 판단(원문에 대 본 것)의 것', () => {
+    const out = sanitizeProposal({ fields: [guideChange(), change()] }, rows, { place: site });
+    expect(out.fields.pet_policy_guide).toMatchObject({ action: 'change', value: '입구에 발 닦을 수건이 준비돼 있어요', basedOn: ['https://blog/a'] });
+    expect(out.fields.pet_policy_guide.basis).toBe(policyFingerprint(out.fields.pet_policy_text.petPolicy));
+  });
+
+  it('원문이 keep(또는 말 없음)이면 지문은 사이트 판단의 것', () => {
+    const out = sanitizeProposal({ fields: [guideChange()] }, rows, { place: site });
+    expect(out.fields.pet_policy_guide.basis).toBe(policyFingerprint(sitePolicy));
+    const kept = sanitizeProposal({ fields: [guideChange(), change({ action: 'keep' })] }, rows, { place: site });
+    expect(kept.fields.pet_policy_guide.basis).toBe(policyFingerprint(sitePolicy));
+  });
+
+  it('판단 주제를 말하면 keep — why 끝에 가드의 이유', () => {
+    const out = sanitizeProposal({ fields: [guideChange({ value: '주문할 때 예방접종 날짜를 물어봐요' })] }, rows, { place: site }).fields.pet_policy_guide;
+    expect(out.action).toBe('keep');
+    expect(out.basis).toBeUndefined();
+    expect(out.why).toContain('글이 준비물을 말한다 · 안내가 가드를 못 지나 그대로 둔다(');
+    expect(out.why).toContain('판단 칸이 말하는 주제예요(접종)');
+  });
+
+  it('남을 원문을 15자 넘게 옮기면 keep', () => {
+    const long = { ...site, pet_policy_text: '사장님께 미리 말씀드리면 안쪽 자리를 따로 내어 주세요' };
+    const out = sanitizeProposal({ fields: [guideChange({ value: '사장님께 미리 말씀드리면 안쪽 자리를 내어 줘요' })] }, rows, { place: long }).fields.pet_policy_guide;
+    expect(out.action).toBe('keep');
+    expect(out.why).toContain('원문을 그대로 옮겼어요');
+  });
+
+  it('근거·인용 검사는 그대로 먼저 · 글마다 다른 안내는 충돌로 세지 않는다', () => {
+    expect(sanitizeProposal({ fields: [guideChange({ quote: '지어낸 문장' })] }, rows, { place: site }).fields.pet_policy_guide.why).toContain('인용이 근거 글에 없어');
+    expect(countConflicts(rows).map((c) => c.field)).toEqual(['pet_policy_text']);
+  });
+
+  it('사이트 값에 안내는 문장만 싣는다(지문은 모델에게 뜻이 없다)', () => {
+    const prompt = buildProposePrompt({ ...place, pet_policy_guide: { text: '사이트 안내 문장', basis: 'abcdef0123' } }, rows);
+    expect(prompt).toContain('"pet_policy_guide": "사이트 안내 문장"');
+    expect(prompt).not.toContain('abcdef0123');
+    expect(buildProposePrompt(place, rows)).toContain('"pet_policy_guide": null');
+  });
+
+  it('proposeForPlace 는 장소 행을 넘겨 지문을 사이트 판단으로 찍는다', async () => {
+    const stdout = JSON.stringify({ type: 'result', subtype: 'success', is_error: false, structured_output: { summary: 's', fields: [guideChange()] } });
+    const out = await proposeForPlace(async () => stdout, site, rows, null);
+    expect(out.fields.pet_policy_guide.basis).toBe(policyFingerprint(sitePolicy));
   });
 });
 

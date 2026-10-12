@@ -50,6 +50,16 @@ const validGeo = (geo) =>
   geo != null && typeof geo.lat === 'number' && typeof geo.lng === 'number' && Number.isFinite(geo.lat) && Number.isFinite(geo.lng);
 
 /**
+ * 후보의 이용 안내(`extracted.petPolicyGuide` = `{ text, basis }`, docs/todo/21 S4·S7). 모양이 틀리면 없는 것으로 — Studio 로 고친 값도 여기를 지난다.
+ * **지문(`basis`)은 여기서 다시 찍지 않는다** — 옮기기만 한다. 반영 때 찍으면 운영자가 고친 판단의 지문이 그 판단을 모르고 쓴 안내에 붙는다.
+ */
+const guideOf = (extracted) => {
+  const guide = extracted?.petPolicyGuide;
+  const guideText = text(guide?.text);
+  return guideText && typeof guide.basis === 'string' && guide.basis ? { text: guideText, basis: guide.basis } : null;
+};
+
+/**
  * 기존 places 행의 빈 칸만 extracted 값으로 채우는 patch. 채울 게 없으면 null — 호출자는 update 자체를 건너뛴다
  * (빈 update 도 places_set_updated_at 트리거가 updated_at 을 건드린다).
  *
@@ -58,6 +68,8 @@ const validGeo = (geo) =>
  *   category 는 TExtractedPlace 에 없고 naverLocal(pickNaverPlace)이 한 단어("커피전문점")로 주는 값이라, 분석 단계가
  *   extracted 에 실어 줬을 때만 채운다 — 없으면 아무 일도 없다.
  *   pet_policy(AI 구조화 판단)는 **pet_policy_text 를 채울 때만 함께** 채운다 — 사람이 쓴 원문이 있는 곳에 다른 글의 판단을 얹지 않는다(ADR-017).
+ *   같은 자리에서 칸이 있는 행이면 pet_policy_text_public 을 false(블로그 문장이라 그대로 내지 않는다, ADR-017 결정 13)로,
+ *   pet_policy_guide 는 후보에 안내가 **있을 때만** 그 후보 것으로 — 빈 칸 채우기는 값을 쓰기만 하고 null 을 쓰지 않는다.
  *   review_url·stay_* 는 시드 86곳이 전부 차 있어 영향이 없고, 블로그 draft 끼리 보강될 때만 채워진다(2026-09-28 설계 검토 FF-2·FF-8).
  *   naver_place_id(+ 비어 있으면 naver_url) — **사람이 검수 화면에서 넣은 `naverPlaceId` 가 있을 때만**(2026-09-30, ADR-002 v2).
  *   이 id 가 있어야 상세에 '사진 보기' 가 생긴다.
@@ -93,6 +105,10 @@ export function mergeIntoExisting(existingRow, extracted, { postUrl = null } = {
   if (isBlank(existingRow.pet_policy_text) && petPolicyText) {
     patch.pet_policy_text = petPolicyText;
     if (extracted?.petPolicy && typeof extracted.petPolicy === 'object') patch.pet_policy = extracted.petPolicy;
+    // 두 칸은 원격에 있을 때만(마이그레이션 20261012120000 전엔 없다 — 없는 칸을 쓰면 PostgREST 가 update 를 통째로 거절한다).
+    if ('pet_policy_text_public' in existingRow && existingRow.pet_policy_text_public !== false) patch.pet_policy_text_public = false;
+    const guide = guideOf(extracted);
+    if (guide && 'pet_policy_guide' in existingRow) patch.pet_policy_guide = guide;
   }
 
   // 업종은 그 행의 종류와 맞을 때만 채운다(`placeCategory.mjs`) — 분석 전에 쌓인 후보는 네이버 값이 그대로다.
@@ -149,6 +165,9 @@ function stayEnvironmentOf(extracted) {
  * 규칙: **후보에 값이 있고 기존과 다른 칸만** 덮는다 — 후보가 비어 있는 칸은 지우지 않는다(비어 있음은 "새 판단" 이 아니라 "못 읽음" 이다).
  * 짝으로 움직이는 칸은 짝으로 덮는다: lat+lng · pet_policy_text+pet_policy(원문이 바뀌면 옛 판단은 옛 원문의 것이라 함께 바꾼다,
  * 후보에 판단이 없으면 null) · naver_place_id+naver_url · 홈페이지 세 칸. review_url·status·source·sort 는 건드리지 않는다.
+ * 조건 짝에는 칸이 있는 행이면 둘이 더 붙는다(docs/todo/21 S4) — 원문이 **바뀌면** pet_policy_text_public 을 false(블로그 문장),
+ * pet_policy_guide 는 후보 것(없으면 null — 옛 안내는 옛 원문·판단의 것이다). 원문·판단이 같고 안내 **문장**만 다르면 안내 하나만 덮는다
+ * (플래그는 그대로 — 시드의 가족 문장이 안내 하나 때문에 숨으면 안 된다). 그때도 후보에 안내가 없으면 지우지 않는다.
  *
  * `previous` 는 덮기 전 값이다 — 빈 칸만 채운 합치기는 "그 칸을 비우면" 되돌려지지만 덮어쓴 칸은 그렇게 안 된다.
  * 호출자가 `extracted.applied.overwritten` 에 남긴다.
@@ -184,9 +203,17 @@ export function overwriteWithLatest(existingRow, extracted, { only } = {}) {
 
   const petPolicyText = text(extracted?.petPolicyText);
   const petPolicy = extracted?.petPolicy && typeof extracted.petPolicy === 'object' ? extracted.petPolicy : null;
+  const guide = guideOf(extracted);
+  const guideColumn = 'pet_policy_guide' in existingRow;
   if (petPolicyText && (!same(existingRow.pet_policy_text, petPolicyText) || !same(existingRow.pet_policy, petPolicy))) {
     patch.pet_policy_text = petPolicyText;
     patch.pet_policy = petPolicy;
+    // 플래그는 원문의 출처를 말한다 — 원문 글자가 그대로면(판단만 바뀜) 그 문장은 여전히 가족이 쓴 것이라 건드리지 않는다.
+    if ('pet_policy_text_public' in existingRow && !same(existingRow.pet_policy_text, petPolicyText)) put('pet_policy_text_public', false);
+    if (guideColumn) put('pet_policy_guide', guide);
+  } else if (petPolicyText && guide && guideColumn && !same(existingRow.pet_policy_guide?.text, guide.text)) {
+    // 지문만 다른 안내는 덮지 않는다 — 전·후 목록(`adminLatest`)은 문장을 보여 주므로, 덮으면 목록에 안 서는 칸이 patch 에만 실린다.
+    patch.pet_policy_guide = guide;
   }
 
   const category = categoryForType(text(extracted?.category), patch.type ?? existingRow.type);
@@ -228,7 +255,8 @@ export function overwriteWithLatest(existingRow, extracted, { only } = {}) {
  * `geo` 는 화면이 좌표 한 줄(lat·lng)을 부르는 이름이다(`src/lib/adminLatest.ts`).
  */
 export const OVERWRITE_PAIRS = [
-  ['pet_policy_text', 'pet_policy'],
+  // 원문만 바꾸고 옛 플래그·옛 안내를 두면 그 둘이 다른 원문의 것이 된다(docs/todo/21 S4).
+  ['pet_policy_text', 'pet_policy', 'pet_policy_text_public', 'pet_policy_guide'],
   ['geo', 'lat', 'lng'],
   ['naver_place_id', 'naver_url'],
   ['homepage_url', 'homepage_name', 'homepage_image'],
@@ -254,10 +282,11 @@ export function expandOverwriteColumns(only) {
  * 읽을 수 있는 메시지로.
  *
  * @param {object} candidate  candidates 행 — { id, post_url, extracted, match_place_id, ... }
- * @param {{ id: string, environmentColumn?: boolean }} opts  새 행의 id. 호출자가 crypto.randomUUID() 로 만든다(dry-run 에서도 같은 코드가 돌게).
+ * @param {{ id: string, environmentColumn?: boolean, guideColumn?: boolean }} opts  새 행의 id. 호출자가 crypto.randomUUID() 로 만든다(dry-run 에서도 같은 코드가 돌게).
  *   `environmentColumn` — 원격 `places` 에 `stay_environment` 칸이 있나(마이그레이션 20261001160000). 없으면 그 칸을 싣지 않는다.
+ *   `guideColumn` — 원격에 `pet_policy_guide` 칸이 있나(마이그레이션 20261012120000). 같은 이유.
  */
-export function toNewPlaceRow(candidate, { id, environmentColumn = false }) {
+export function toNewPlaceRow(candidate, { id, environmentColumn = false, guideColumn = false }) {
   const extracted = candidate.extracted ?? {};
   const type = extracted.type;
   // permanent: 다음 실행에도 같다 — apply-approved.mjs 가 후보를 pending 으로 되돌리고 reviewer_note 에 사유를 남긴다(매 실행 빨갛게 되지 않게).
@@ -279,6 +308,8 @@ export function toNewPlaceRow(candidate, { id, environmentColumn = false }) {
   const geo = validGeo(extracted.geo) ? extracted.geo : null;
   const petPolicyText = text(extracted.petPolicyText);
   const placeId = placeIdOf(extracted);
+  // 안내는 판단과 같은 조건(원문이 있을 때)으로 — 판단이 null 로 떨어진 행에 그 판단을 두고 쓴 안내만 남지 않게.
+  const guide = petPolicyText ? guideOf(extracted) : null;
 
   return {
     id,
@@ -288,6 +319,7 @@ export function toNewPlaceRow(candidate, { id, environmentColumn = false }) {
     features: text(extracted.features) ?? '',
     pet_policy_text: petPolicyText ?? '',
     // AI 구조화 판단은 원문이 있을 때만 의미가 있다(ADR-017).
+    // pet_policy_text_public 은 싣지 않는다 — DB 기본값 false(숨김)가 블로그 원문의 자리다. 공개는 운영자가 /admin 에서 켠다.
     pet_policy: petPolicyText && extracted.petPolicy && typeof extracted.petPolicy === 'object' ? extracted.petPolicy : null,
     review_url: candidate.post_url ?? null,
     naver_url: placeId ? naverPlaceHomeUrl(placeId) : null,
@@ -306,6 +338,8 @@ export function toNewPlaceRow(candidate, { id, environmentColumn = false }) {
     ...homepageColumns(extracted),
     // 숙소 환경(10 F6) — 칸이 있는 원격에만, 숙소이고 값이 있을 때만.
     ...(environmentColumn && type === 'stay' && stayEnvironmentOf(extracted) ? { stay_environment: stayEnvironmentOf(extracted) } : {}),
+    // 이용 안내(docs/todo/21 S4) — 칸이 있는 원격에만, 후보에 있을 때만. 지문은 후보 것 그대로다(`guideOf`).
+    ...(guideColumn && guide ? { pet_policy_guide: guide } : {}),
   };
 }
 

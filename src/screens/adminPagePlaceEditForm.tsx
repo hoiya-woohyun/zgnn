@@ -79,6 +79,7 @@ export function AdminPagePlaceEditForm({
   const correction = correctionView(preview.policyText, preview.dropped);
   const placeHref = place.naver_url || naverPlacePhotoUrl(place.naver_place_id ?? undefined);
   const hasHomepage = 'homepage_url' in place;
+  const hasTextPublic = 'pet_policy_text_public' in place;
   /* 좌표도 플레이스 id 도 없는 장소의 이름을 바꿀 때만 경고한다(`renameRisksTwin`) — 그때만 옛 이름의 새 글이 쌍둥이로 올라올 수 있다. */
   const twinRisk = renameRisksTwin(place, draft);
 
@@ -231,6 +232,25 @@ export function AdminPagePlaceEditForm({
             )}
           </>,
         )}
+        {/*
+          * 원문 공개(ADR-017 결정 13) — 가족이 쓴 문장만 켠다. 원문을 고쳐도 저절로 바뀌지 않는다(누구의 문장인지는 고친 사람만 안다).
+          * 칸이 없는 원격(마이그레이션 20261012120000 전)에서는 줄을 세우지 않는다 — 쓰기에도 실리지 않는다(`placeEditPatch`).
+          */}
+        {hasTextPublic &&
+          row(
+            'petPolicyTextPublic',
+            '원문 공개',
+            <>
+              <Checkbox
+                size="sm"
+                label="우리가 쓴 문장 — 그대로 내보내기"
+                isSelected={draft.petPolicyTextPublic}
+                isDisabled={busy}
+                onChange={(petPolicyTextPublic) => set({ petPolicyTextPublic })}
+              />
+              <p className="mt-1 text-xs text-tertiary">블로그에서 옮긴 문장이면 끈 채로 둬요 — 블로거의 문장이라 사이트에 그대로 내지 않아요.</p>
+            </>,
+          )}
         {row(
           'indoor',
           '실내',

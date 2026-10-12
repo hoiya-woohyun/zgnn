@@ -10,7 +10,7 @@ import { expandOverwriteColumns, overwriteWithLatest } from '../../scripts/analy
 import { factsLine, TYPE_LABEL, type TCandidateExtracted, type TCandidateType, type TPlaceRow } from './adminCandidates';
 import { EMPTY_VALUE, type TEditChange } from './adminEdit';
 import { environmentPhrases } from './stayEnvironmentView';
-import type { TPetPolicyFacts, TStayEnvironment } from '../types';
+import type { TPetPolicyFacts, TPetPolicyGuide, TStayEnvironment } from '../types';
 
 /** 칸 → 표기. 순서가 곧 화면 순서다(고치기 폼과 같은 순서 — 이름 · 종류 · 주소 · … · 동반). */
 const COLUMNS: { key: string; label: string; show: (value: unknown) => string }[] = [
@@ -27,6 +27,10 @@ const COLUMNS: { key: string; label: string; show: (value: unknown) => string }[
   { key: 'features', label: '소개', show: (v) => str(v) },
   { key: 'pet_policy_text', label: '조건 원문', show: (v) => str(v) },
   { key: 'pet_policy', label: '동반 판단', show: (v) => factsLine(v as TPetPolicyFacts | null) ?? '(판단 없음)' },
+  // 조건 짝에 붙어 함께 덮이는 두 칸(docs/todo/21 S4) — 여기 없으면 목록에 안 보인 채 덮이고 칸 고르기에서 조용히 빠진다.
+  { key: 'pet_policy_text_public', label: '원문 공개', show: (v) => (v === true ? '그대로 내보냄' : '숨김') },
+  // 지문(`basis`)은 사람 말이 아니라 문장만 보인다 — 지문만 다른 안내는 덮기 규칙이 애초에 patch 에 싣지 않는다(`overwriteWithLatest`).
+  { key: 'pet_policy_guide', label: '이용 안내', show: (v) => str((v as TPetPolicyGuide | null)?.text) },
   { key: 'stay_price_text', label: '숙박 요금', show: (v) => str(v) },
   { key: 'stay_amenities_text', label: '숙소 시설', show: (v) => str(v) },
   // 숙소 환경 — patch 에 서는 칸은 전부 여기 있어야 한다. 없으면 목록에 안 보인 채 덮이고, 칸을 고르면(11 U7) 조용히 빠진다.
@@ -65,7 +69,7 @@ export function latestPlan(place: TPlaceRow, extracted: TCandidateExtracted, onl
 }
 
 /**
- * 칸 고르기의 체크 한 번 — 순수(11 T1.4). 짝 칸(조건 원문+판단 · 홈페이지 주소+사진)은 **한 체크**로 함께 켜지고 꺼진다 —
+ * 칸 고르기의 체크 한 번 — 순수(11 T1.4). 짝 칸(조건 원문+판단+원문 공개+이용 안내 · 홈페이지 주소+사진)은 **한 체크**로 함께 켜지고 꺼진다 —
  * 쓰기(`overwriteWithLatest` 의 `only`)가 어차피 짝으로 덮으므로, 화면이 반쪽만 켜진 모양을 보여 주면 본 것과 쓰는 것이 어긋난다.
  * @param all 이 묶음에서 바뀌는 칸(`latestPlan(...).changes` 의 key)
  * @param picked 지금 고른 칸. `undefined` 는 "아직 안 건드림" = 전부
@@ -88,7 +92,7 @@ const filled = (value: unknown) => value != null && String(value).trim() !== '';
 
 /**
  * 덮어쓰기의 **기본 체크**(11 U6·U7) — 순수. 사람이 체크를 건드리기 전에 켜져 있는 칸. 제안(`proposalPick`)이 없을 때 이 규칙이다.
- *  - 동반 조건이 **완화**로 바뀌면(`loosen`) 조건 짝(원문+판단)은 꺼진 채 시작한다 — 틀리면 손님이 거절당한다. 막지는 않는다(켜면 된다).
+ *  - 동반 조건이 **완화**로 바뀌면(`loosen`) 조건 짝(원문+판단+원문 공개+이용 안내)은 꺼진 채 시작한다 — 틀리면 손님이 거절당한다. 막지는 않는다(켜면 된다).
  *  - **사이트에 이미 값이 있는 이름·종류·소개는 꺼진 채 시작한다**(2026-10-04). 제안이 없는 묶음('확인' 묶음은 제안이 구조적으로 안 생긴다)에서
  *    "바뀌는 칸 전부" 가 기본이던 동안, 사이트의 좋은 소개("커피 맛집이지만 빵 맛집… 성산일출봉 뷰")가 후보의 빈약한 한 줄
  *    ("성산에 있는 카페예요. 반려견과 함께 들어갈 수 있어요.")로, 이름 "프릳츠" 가 "프릳츠 성산점" 으로 기본 덮어쓰기 됐다.

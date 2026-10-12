@@ -409,7 +409,12 @@ export async function approveGroup(
         // 승인 즉시 published — draft 로 넣으면 Studio 를 또 열어야 해 이 화면을 만든 이유가 사라진다(ADR-018).
         // `toNewPlaceRow` 도 이제 published 를 주지만 이 화면의 계약이라 여기서 한 번 더 못 박는다.
         created = {
-          ...(toNewPlaceRow(lead, { id: opts.newId(), environmentColumn: places.some((place) => 'stay_environment' in place) }) as unknown as TPlaceRow),
+          ...(toNewPlaceRow(lead, {
+            id: opts.newId(),
+            environmentColumn: places.some((place) => 'stay_environment' in place),
+            // 이용 안내 칸(마이그레이션 20261012120000) — 원격에 없으면 싣지 않는다(없는 칸을 실으면 insert 가 통째로 거절된다).
+            guideColumn: places.some((place) => 'pet_policy_guide' in place),
+          }) as unknown as TPlaceRow),
           status: 'published',
         };
       } catch (e) {

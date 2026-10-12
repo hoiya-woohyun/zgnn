@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { APPROVED_QUIET_MS, homepageColumns, mergeIntoExisting, overwriteWithLatest, settledApprovedFilter, toNewPlaceRow, toRecheckCandidate } from './applyApproved.mjs';
+import {
+  APPROVED_QUIET_MS,
+  expandOverwriteColumns,
+  homepageColumns,
+  mergeIntoExisting,
+  overwriteWithLatest,
+  settledApprovedFilter,
+  toNewPlaceRow,
+  toRecheckCandidate,
+} from './applyApproved.mjs';
 
 // places 행(snake_case) — 시드된 86곳 중 하나의 모양. 사람이 쓴 features·pet_policy_text 가 들어 있다.
 const solsup = {
@@ -407,5 +416,79 @@ describe('settledApprovedFilter — 막 승인된 행은 묵힌다(17 리뷰 18)
     const now = Date.parse('2026-10-07T03:00:00.000Z');
     expect(settledApprovedFilter(now)).toBe(`reviewed_at.is.null,reviewed_at.lt.2026-10-07T02:59:00.000Z`);
     expect(APPROVED_QUIET_MS).toBe(60_000);
+  });
+});
+
+/**
+ * 원문 공개 플래그·이용 안내(docs/todo/21 S4) — 블로그 문장으로 원문을 채우거나 덮으면 플래그는 false, 안내는 후보 것을 **옮기기만**.
+ * 원격에 칸이 없는 동안(마이그레이션 20261012120000 전)은 어느 쓰기에도 두 칸이 실리지 않아야 한다 — 실리면 쓰기가 통째로 거절된다.
+ */
+describe('pet_policy_text_public · pet_policy_guide — 블로그 원문은 숨김, 안내는 옮기기만(21 S4)', () => {
+  const guide = { text: '입구에 발 닦을 수건이 준비돼 있어요', basis: '00000000abcdef' };
+  const seed = { ...solsup, pet_policy: null, pet_policy_text_public: true, pet_policy_guide: null };
+  const withGuide = { ...extracted, petPolicyGuide: guide };
+
+  it('시드 행을 블로그 원문으로 덮으면 플래그 false + 후보의 안내 · previous 에 옛 플래그·옛 안내', () => {
+    const out = overwriteWithLatest(seed, withGuide);
+    expect(out.patch).toMatchObject({ pet_policy_text: extracted.petPolicyText, pet_policy: null, pet_policy_text_public: false, pet_policy_guide: guide });
+    expect(out.previous).toMatchObject({ pet_policy_text_public: true, pet_policy_guide: null });
+  });
+
+  it('원문이 바뀌는데 후보에 안내가 없으면 옛 안내를 null 로 — 옛 원문·판단의 것이다', () => {
+    const out = overwriteWithLatest({ ...seed, pet_policy_guide: guide }, extracted);
+    expect(out.patch.pet_policy_guide).toBeNull();
+    expect(out.previous.pet_policy_guide).toEqual(guide);
+  });
+
+  it('원문 글자가 그대로고 판단만 바뀌면 플래그는 건드리지 않는다(가족 문장은 그대로 가족 문장)', () => {
+    const facts = { indoor: 'outdoorOnly', leash: true };
+    const out = overwriteWithLatest({ ...seed, pet_policy_text: extracted.petPolicyText }, { ...extracted, petPolicy: facts, petPolicyGuide: guide }, { only: ['pet_policy'] });
+    expect(out.patch).toEqual({ pet_policy_text: extracted.petPolicyText, pet_policy: facts, pet_policy_guide: guide });
+  });
+
+  it('원문·판단이 같고 안내 문장만 다르면 patch 는 안내 하나 · 후보에 안내가 없거나 지문만 다르면 덮지 않는다', () => {
+    const same = { ...seed, pet_policy_text: extracted.petPolicyText, pet_policy: null };
+    const only = { only: ['pet_policy_guide'] };
+    expect(overwriteWithLatest(same, withGuide, only).patch).toEqual({ pet_policy_guide: guide });
+    expect(overwriteWithLatest({ ...same, pet_policy_guide: guide }, extracted, only)).toBeNull();
+    expect(overwriteWithLatest({ ...same, pet_policy_guide: { ...guide, basis: 'ffffffffffffff' } }, withGuide, only)).toBeNull();
+  });
+
+  it('칸이 없는 행(키 자체가 없음)은 patch·신규 행 어디에도 두 칸이 없다', () => {
+    const plain = { ...solsup, pet_policy: null };
+    const out = overwriteWithLatest(plain, withGuide);
+    expect(out.patch).not.toHaveProperty('pet_policy_text_public');
+    expect(out.patch).not.toHaveProperty('pet_policy_guide');
+    const merged = mergeIntoExisting({ ...plain, pet_policy_text: '' }, withGuide);
+    expect(merged).toEqual({ pet_policy_text: extracted.petPolicyText });
+    const candidate = { id: 'c1', post_url: 'https://blog.naver.com/x/1', extracted: withGuide };
+    const row = toNewPlaceRow(candidate, { id: 'n' });
+    expect(row).not.toHaveProperty('pet_policy_guide');
+    expect(row).not.toHaveProperty('pet_policy_text_public');
+  });
+
+  it('신규 행 — 칸이 있으면 안내를 싣고 플래그는 싣지 않는다(DB 기본값 false = 숨김) · 원문이 없으면 안내도 없다', () => {
+    const candidate = { id: 'c1', post_url: 'https://blog.naver.com/x/1', extracted: withGuide };
+    const row = toNewPlaceRow(candidate, { id: 'n', guideColumn: true });
+    expect(row.pet_policy_guide).toEqual(guide);
+    expect(row).not.toHaveProperty('pet_policy_text_public');
+    expect(toNewPlaceRow({ ...candidate, extracted: { ...withGuide, petPolicyText: null } }, { id: 'n', guideColumn: true })).not.toHaveProperty('pet_policy_guide');
+    expect(toNewPlaceRow({ ...candidate, extracted }, { id: 'n', guideColumn: true })).not.toHaveProperty('pet_policy_guide');
+  });
+
+  it("only: ['pet_policy_guide'] 는 원문 짝 전부로 펼쳐진다", () => {
+    expect([...expandOverwriteColumns(['pet_policy_guide'])]).toEqual(['pet_policy_guide', 'pet_policy_text', 'pet_policy', 'pet_policy_text_public']);
+    const out = overwriteWithLatest(seed, withGuide, { only: ['pet_policy_guide'] });
+    expect(Object.keys(out.patch).sort()).toEqual(['pet_policy', 'pet_policy_guide', 'pet_policy_text', 'pet_policy_text_public']);
+  });
+
+  it('mergeIntoExisting — 빈 원문을 채우면 플래그 false + 안내 · 후보에 안내가 없으면 안내 칸은 안 건드린다 · 원문이 차 있으면 둘 다 그대로', () => {
+    expect(mergeIntoExisting({ ...seed, pet_policy_text: '' }, withGuide)).toEqual({
+      pet_policy_text: extracted.petPolicyText,
+      pet_policy_text_public: false,
+      pet_policy_guide: guide,
+    });
+    expect(mergeIntoExisting({ ...seed, pet_policy_text: '', pet_policy_text_public: false }, extracted)).toEqual({ pet_policy_text: extracted.petPolicyText });
+    expect(mergeIntoExisting(seed, withGuide)).toBeNull();
   });
 });

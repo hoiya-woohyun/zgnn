@@ -11,11 +11,13 @@
 // **지어내지 않는다**(ADR-017 v2 · ADR-019 결정 8 과 같은 어법) — 모델의 출력은 `sanitizeProposal` 이 코드로 다시 거른다:
 // 근거 글이 없는 change · 인용이 그 글들의 값에 없는 change · 손댈 수 없는 칸은 `keep` 으로 되돌린다. 소개는 **덧붙일 한 문장**만.
 // 조건 원문을 바꾸자는 제안의 판단은 근거 글의 판단을 `correctPetPolicyFacts(판단, 제안 원문)` 에 통과시켜 붙인다.
+// 이용 안내(docs/todo/21 S4)는 공개 문장 가드(`guardPublicText`)를 지나야 하고, 판단 지문(`basis`)은 **이 패스만** 찍는다 — 승인 뒤 남을 판단의 것.
 // 충돌(`conflicts`)은 모델 값을 믿지 않고 코드가 센다.
 //
 // 실패는 **후보를 버리지 않는다** — 교차점검과 같은 정책이다. 제안이 없는 갱신 묶음은 화면이 `제안 없음` 으로 그린다(null 은 "안 봤다").
 import { createHash } from 'node:crypto';
 import { correctPetPolicyFacts } from '../lib/petPolicyFacts.mjs';
+import { guardPublicText, policyFingerprint } from '../lib/petPolicyGuide.mjs';
 import { classifyCliError, ClaudeCliError, ExtractionError } from './extractPlaces.mjs';
 import { quoteInBody } from './verifyPlaces.mjs';
 
@@ -29,8 +31,9 @@ export const PROPOSE_MODEL = resolveProposeModel();
 /**
  * 제안이 손댈 수 있는 칸(U4) — 덮어쓰기 칸 이름. 주소 · 좌표 · 이름 · 종류 · 네이버 id 는 **밖**이다
  * (주소 대조는 규칙이고 — ADR-019 결정 4·5 — 이름·종류·id 는 대조의 열쇠다). 조건 판단(`pet_policy`)은 원문과 짝이라 따로 묻지 않는다.
+ * 이용 안내(`pet_policy_guide`)는 묻는다 — 판단과 짝이지만 판단에서 나오지 않는 문장이라 누군가 써야 한다(docs/todo/21 S4).
  */
-export const PROPOSE_FIELDS = ['pet_policy_text', 'stay_price_text', 'stay_amenities_text', 'stay_environment', 'category', 'features'];
+export const PROPOSE_FIELDS = ['pet_policy_text', 'stay_price_text', 'stay_amenities_text', 'stay_environment', 'category', 'features', 'pet_policy_guide'];
 
 const NULLABLE_STRING = { anyOf: [{ type: 'string' }, { type: 'null' }] };
 
@@ -70,11 +73,14 @@ export const PROPOSE_SYSTEM_PROMPT = `당신은 반려견 동반 제주 가이�
 - "동반이 더 쉬워지는" 변화(불가→가능, 제한 해제, 요금 인하)는 틀리면 손님이 거절당합니다. 글 하나뿐이면 keep 하고 why 에 그 사실을 적으세요.
 
 ## 필드
-- field: pet_policy_text(동반 조건 원문) · stay_price_text(숙박 요금) · stay_amenities_text(숙소 시설) · stay_environment(독채·마당·계단) · category · features(소개).
+- field: pet_policy_text(동반 조건 원문) · stay_price_text(숙박 요금) · stay_amenities_text(숙소 시설) · stay_environment(독채·마당·계단) · category · features(소개) · pet_policy_guide(이용 안내).
 - action: keep 또는 change.
-- value: change 일 때 새 값(한국어). pet_policy_text 는 사이트에 그대로 나갈 조건 문장입니다 — 글들의 원문 표현을 살려 짧게.
+- value: change 일 때 새 값(한국어). pet_policy_text 는 판단의 근거 원문입니다(사이트에 그대로 나가지 않습니다) — 글들의 원문 표현 그대로 짧게.
   **features 는 다시 쓰지 마세요.** 사람이 쓴 소개입니다. 새 사실이 있을 때만 "덧붙일 한 문장" 을 value 로 주세요.
   stay_environment 는 value 를 null 로 두세요(근거 글의 값을 그대로 씁니다).
+  pet_policy_guide(이용 안내)는 사이트의 조건 줄 밑에 붙는 안내 1~2문장입니다. 글들을 읽고 **자기 말로**, 해요체로 쓰세요.
+  이용 절차·준비 팁·자리·분위기만 — 실내·야외·무게·마릿수·대형견·소형견·케이지·목줄·요금·접종·전화·요일은 쓰지 마세요(조건 칸이 말합니다).
+  글쓴이가 추측한 것을 단정하지 마세요. 원문 문장을 옮기지 마세요. 숫자는 글에 있는 것만. 쓸 것이 없으면 keep.
 - basedOn: change 의 근거가 된 글의 post_url 목록. **비어 있으면 그 change 는 버려집니다.**
 - quote: 근거가 된 문장 하나를 **주어진 값(원문·인용)에서 그대로** 옮기세요. 지어낸 문장이면 그 change 는 버려집니다.
 - why: 한국어 한 줄 — 사이트 값과 무엇이 다르고 왜 바꾸는지(또는 왜 그대로 두는지).
@@ -143,6 +149,8 @@ export function buildProposePrompt(placeRow, candidateRows) {
     stay_environment: placeRow.stay_environment ?? null,
     category: placeRow.category ?? null,
     features: placeRow.features ?? null,
+    // 문장만 — 지문(`basis`)은 모델에게 뜻이 없는 해시다.
+    pet_policy_guide: placeRow.pet_policy_guide?.text ?? null,
   };
   const posts = newestFirst(candidateRows).map((row) => {
     const x = row.extracted ?? {};
@@ -193,7 +201,7 @@ const groundsOf = (rows) =>
 export function countConflicts(candidateRows) {
   const out = [];
   for (const field of PROPOSE_FIELDS) {
-    if (field === 'features') continue; // 소개는 글마다 다른 것이 정상이다 — 충돌이 아니다
+    if (field === 'features' || field === 'pet_policy_guide') continue; // 소개·안내는 글마다(모델마다) 다른 것이 정상이다 — 충돌이 아니다
     const byValue = new Map();
     for (const row of candidateRows) {
       const value = CANDIDATE_VALUE[field](row.extracted ?? {});
@@ -213,16 +221,25 @@ export function countConflicts(candidateRows) {
  *  - `features` 의 change 는 `append`(덧붙일 한 문장)로 바뀐다 — 다시 쓰기는 없다.
  *  - `pet_policy_text` 의 change 에는 `petPolicy` 가 붙는다 — 근거 글 중 가장 새 글의 판단을 제안 원문에 대 본 것(`correctPetPolicyFacts`).
  *  - `stay_environment` 의 change 는 근거 글 중 가장 새 글의 값을 쓴다. 없으면 `keep`.
+ *  - `pet_policy_guide` 의 change 는 **조건 원문의 결정 뒤에** 본다 — 승인 뒤 남을 원문(원문 change 면 제안 값, 아니면 사이트 값)에
+ *    `guardPublicText`(판단 주제 포함)를 대 보고, 못 지나면 `keep`. 지나면 `basis` = 남을 판단(원문 change 면 제안 판단, 아니면 사이트 판단)의 지문.
+ *    이 패스가 지문을 찍는 유일한 자리다 — 반영·승인은 옮기기만 한다(그래야 운영자가 판단을 고친 뒤 안내가 저절로 숨는다).
  * 되돌린 change 는 `why` 끝에 이유를 남긴다(화면이 "왜 제안이 그대로인가" 를 말할 수 있게).
+ *
+ * @param {any} raw  모델의 structured_output
+ * @param {any[]} candidateRows  그 장소의 후보 행들
+ * @param {{ model?: string, now?: Date, place?: { pet_policy_text?: string | null, pet_policy?: object | null } | null }} [opts]
+ *   `place` — 제안을 받는 장소 행(지금 사이트 값). 안내의 가드·지문이 "승인 뒤 남을 원문·판단" 을 여기서 읽는다.
  */
-export function sanitizeProposal(raw, candidateRows, { model = PROPOSE_MODEL, now = new Date() } = {}) {
+export function sanitizeProposal(raw, candidateRows, { model = PROPOSE_MODEL, now = new Date(), place = null } = {}) {
   const urls = new Set(candidateRows.map((row) => row.post_url).filter(Boolean));
   const fields = {};
+  const kept = (why, reason) => ({ action: 'keep', value: null, basedOn: [], quote: null, why: reason ? `${why ?? ''}${why ? ' · ' : ''}${reason}` : why });
   for (const entry of Array.isArray(raw?.fields) ? raw.fields : []) {
     const field = entry?.field;
     if (!PROPOSE_FIELDS.includes(field) || fields[field]) continue;
     const why = text(entry.why);
-    const keep = (reason) => ({ action: 'keep', value: null, basedOn: [], quote: null, why: reason ? `${why ?? ''}${why ? ' · ' : ''}${reason}` : why });
+    const keep = (reason) => kept(why, reason);
     if (entry.action !== 'change') {
       fields[field] = keep(null);
       continue;
@@ -259,6 +276,19 @@ export function sanitizeProposal(raw, candidateRows, { model = PROPOSE_MODEL, no
     }
     fields[field] = out;
   }
+
+  // 안내는 조건 원문이 정해진 뒤에 — 무엇에 대 볼지(남을 원문)와 무엇의 지문인지(남을 판단)가 원문 결정에 달렸다.
+  const guide = fields.pet_policy_guide;
+  if (guide?.action === 'change') {
+    const policy = fields.pet_policy_text?.action === 'change' ? fields.pet_policy_text : null;
+    const rawText = policy ? policy.value : (place?.pet_policy_text ?? null);
+    const facts = policy ? policy.petPolicy : (place?.pet_policy ?? null);
+    const { ok, reasons } = guardPublicText(guide.value, rawText);
+    fields.pet_policy_guide = ok
+      ? { ...guide, basis: policyFingerprint(facts) }
+      : kept(guide.why, `안내가 가드를 못 지나 그대로 둔다(${reasons.join(' · ')})`);
+  }
+
   return {
     summary: text(raw?.summary),
     fields,
@@ -298,7 +328,8 @@ export async function proposeForPlace(run, placeRow, candidateRows, meter, opts 
     throw new ClaudeCliError('invalid_json', `제안 출력이 JSON 이 아님 (length=${stdout?.length ?? 0})`);
   }
   meter?.add(result?.usage);
-  return sanitizeProposal(parseProposal(result), candidateRows, opts);
+  // 안내의 가드·지문은 지금 사이트 값(남을 원문·판단)이 있어야 한다 — 부르는 쪽이 따로 넘기지 않아도 되게 여기서 싣는다.
+  return sanitizeProposal(parseProposal(result), candidateRows, { ...opts, place: placeRow });
 }
 
 /**

@@ -11,6 +11,7 @@
  * 숙소 두 칸)과 `places` 의 칸 규칙(NOT NULL·짝 칸·칸이 없는 원격)뿐이다.
  *
  * 고치지 않는 칸: `status`(내리기·되살리기의 몫) · `source` · `sort` · `review_url` · `stay_environment`(AI 판단 jsonb — 폼 칸이 없다) ·
+ * `pet_policy_guide`(AI 이용 안내 — 판단을 고치면 지문이 어긋나 저절로 숨는다, 지우거나 다시 찍지 않는다) ·
  * `archive_note`(게시 **상태**의 이력이라 고친 기록을 섞으면 내린 곳의 접힌 줄이 엉뚱한 말을 한다).
  */
 
@@ -35,7 +36,7 @@ import type { TPetBadge } from './petPolicy';
 import type { TPetPolicyFacts } from '../types';
 
 /**
- * 폼이 들고 있는 값 — 후보 초안 + 장소에만 있는 칸. **전부 문자열**이라는 규칙도 그대로다(`policy` 만 예외, 후보와 같다).
+ * 폼이 들고 있는 값 — 후보 초안 + 장소에만 있는 칸. **전부 문자열**이라는 규칙도 그대로다(`policy` 만 예외, 후보와 같다 — 장소 쪽은 체크 하나 `petPolicyTextPublic` 도).
  * `features` 는 후보 폼에선 'AI 요약' 이지만 여기서는 사이트의 **소개** 다(표기만 다르고 칸은 같다).
  */
 export type TPlaceEditDraft = TCandidateEditDraft & {
@@ -46,6 +47,11 @@ export type TPlaceEditDraft = TCandidateEditDraft & {
   /** 숙소일 때만 폼에 서고 쓰기에 실린다. */
   stayPriceText: string;
   stayAmenitiesText: string;
+  /**
+   * 조건 원문을 사이트에 그대로 내보내나(`pet_policy_text_public`, ADR-017 결정 13) — 가족이 쓴 문장만 켠다. **운영자가 정한다**:
+   * 원문을 고쳤다고 저절로 바뀌지 않는다(고친 원문이 누구의 문장인지는 고친 사람만 안다).
+   */
+  petPolicyTextPublic: boolean;
 };
 
 export function placeEditDraft(place: TPlaceRow): TPlaceEditDraft {
@@ -68,11 +74,15 @@ export function placeEditDraft(place: TPlaceRow): TPlaceEditDraft {
     policy: policyDraftFrom(place.pet_policy),
     stayPriceText: place.stay_price_text ?? '',
     stayAmenitiesText: place.stay_amenities_text ?? '',
+    petPolicyTextPublic: place.pet_policy_text_public === true,
   };
 }
 
 /** 원격에 홈페이지 세 칸이 있나(마이그레이션 `20260930120000`) — 없는 칸을 쓰면 update 전체가 실패한다. */
 const hasHomepageColumns = (place: TPlaceRow): boolean => 'homepage_url' in place;
+
+/** 원격에 원문 공개 칸이 있나(마이그레이션 `20261012120000`) — 같은 이유. 없으면 폼에 체크도 세우지 않는다. */
+const hasTextPublicColumn = (place: TPlaceRow): boolean => 'pet_policy_text_public' in place;
 
 /**
  * 저장할 수 없는 이유 한 줄 — 순수. 후보 고치기와 같은 검사(`editProblem`)에 장소의 칸 규칙을 더한다.
@@ -124,6 +134,7 @@ export type TPlaceEditPatch = Partial<
     | 'features'
     | 'pet_policy_text'
     | 'pet_policy'
+    | 'pet_policy_text_public'
     | 'stay_price_text'
     | 'stay_amenities_text'
   >
@@ -196,6 +207,10 @@ export function placeEditPatch(place: TPlaceRow, draft: TPlaceEditDraft): TPlace
       patch.pet_policy = pair.policy;
     }
   }
+  // 원문 공개는 체크만 본다 — 원문을 고쳐도 저절로 끄거나 켜지 않는다(초안 타입 주석).
+  if (hasTextPublicColumn(place) && draft.petPolicyTextPublic !== (place.pet_policy_text_public === true)) {
+    patch.pet_policy_text_public = draft.petPolicyTextPublic;
+  }
 
   if (draft.type === 'stay') {
     const price = orNull(draft.stayPriceText);
@@ -216,6 +231,7 @@ const EXTRA_FIELDS: Record<string, { label: string; read: (draft: TPlaceEditDraf
   category: { label: '카테고리', read: (d) => textOf(d.category) },
   stayPriceText: { label: '숙박 요금', read: (d) => textOf(d.stayPriceText) },
   stayAmenitiesText: { label: '숙소 시설', read: (d) => textOf(d.stayAmenitiesText) },
+  petPolicyTextPublic: { label: '원문 공개', read: (d) => (d.petPolicyTextPublic ? '그대로 내보냄' : '숨김') },
 };
 
 /**
@@ -237,7 +253,7 @@ export function placeFieldText(draft: TPlaceEditDraft, key: string): string {
 
 /**
  * 고치기 전·후 목록 — 순수. 칸 순서 = 폼의 칸 순서다(`adminEdit.ts` 의 `FIELDS` 와 같은 이유).
- * 쓰기(`placeEditPatch`)에 실리지 않는 칸은 목록에도 없다: 원격에 없는 홈페이지 칸 · 숙소가 아닌 종류의 숙소 칸.
+ * 쓰기(`placeEditPatch`)에 실리지 않는 칸은 목록에도 없다: 원격에 없는 홈페이지·원문 공개 칸 · 숙소가 아닌 종류의 숙소 칸.
  */
 export function placeEditChanges(place: TPlaceRow, draft: TPlaceEditDraft): TEditChange[] {
   const before = placeEditDraft(place);
@@ -258,6 +274,7 @@ export function placeEditChanges(place: TPlaceRow, draft: TPlaceEditDraft): TEdi
   for (const key of ['name', 'type', 'regionRaw', 'address', 'geo', 'naverPlace']) take(key);
   if (hasHomepageColumns(place)) for (const key of ['homepageUrl', 'homepageName', 'homepageImage']) take(key);
   for (const key of ['category', 'features', 'petPolicyText']) take(key);
+  if (hasTextPublicColumn(place)) take('petPolicyTextPublic');
   out.push(...[...base.values()].filter((change) => change.policy));
   if (draft.type === 'stay') for (const key of ['stayPriceText', 'stayAmenitiesText']) take(key);
   return out;

@@ -99,3 +99,26 @@ describe('defaultOverwritePick — 완화는 꺼진 채(11 U6)', () => {
     expect(defaultOverwritePick(keys, { loosen: true, place: { name: '', type: 'cafe', features: '소개' } })).toEqual(['name', 'address']);
   });
 });
+
+describe('원문 공개·이용 안내 — 조건 짝의 두 칸도 사람 말로(21 S4)', () => {
+  const guide = { text: '입구에 발 닦을 수건이 준비돼 있어요', basis: '00000000abcdef' };
+  const seed = { ...place, source: 'notion', pet_policy_text_public: true, pet_policy_guide: null } as TPlaceRow;
+
+  it('시드 원문을 덮으면 원문 공개가 숨김으로, 안내가 문장으로 선다 — patch 의 칸은 전부 목록에 있다', () => {
+    const plan = latestPlan(seed, extracted({ petPolicyText: '블로그 문장', petPolicyGuide: guide }));
+    expect(plan.changes.map((c) => [c.label, c.before, c.after])).toEqual([
+      ['조건 원문', '소형견만', '블로그 문장'],
+      ['원문 공개', '그대로 내보냄', '숨김'],
+      ['이용 안내', EMPTY_VALUE, guide.text],
+    ]);
+    // 판단은 둘 다 null 이라 patch 에 짝으로만 실리고 목록에는 서지 않는다(원문만 바뀐 짝 — 기존 규칙)
+    const keys = plan.changes.map((c) => c.key);
+    expect(Object.keys(plan.patch ?? {}).filter((key) => key !== 'pet_policy' && !keys.includes(key))).toEqual([]);
+  });
+
+  it('완화면 조건 짝 넷이 함께 꺼진 채 시작한다', () => {
+    const all = ['features', 'pet_policy_text', 'pet_policy', 'pet_policy_text_public', 'pet_policy_guide'];
+    expect(defaultOverwritePick(all, { loosen: true })).toEqual(['features']);
+    expect(toggleOverwritePick(all, [], 'pet_policy_guide')).toEqual(['pet_policy_text', 'pet_policy', 'pet_policy_text_public', 'pet_policy_guide']);
+  });
+});

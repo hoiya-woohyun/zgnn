@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { sanitizeProposal } from '../../scripts/analyze/proposePlaces.mjs';
+import { fromPlaceRow } from '../../scripts/lib/placeFields.mjs';
+import type { TPetPolicyFacts, TPlace } from '../types';
 import type { TCandidateRow, TPlaceRow } from './adminCandidates';
 import { latestPlan } from './adminLatest';
+import { placeEditDraft, placeEditPatch } from './adminPlaceEdit';
 import { liveProposal, proposalPick, proposalView, withProposal, type TProposal } from './adminProposal';
+import { publicGuide } from './petPolicyPublic';
 
 const strict = { indoor: 'cage', leash: true, largeDogOk: false, smallDogOnly: false, callFirst: false, feeFree: null, weightLimitKg: 10, maxDogs: null, notes: null } as const;
 const place = {
@@ -79,5 +84,78 @@ describe('withProposal · proposalPick — 본 것과 덮이는 것이 같다', 
     expect(proposalPick(all, two, place, sameFrame)).toEqual([]);
     const independent = [withPost('a', 'x', '구좌 바닷가 펜션 다녀온 후기'), withPost('b', 'y', '대형견이랑 묵은 숙소')];
     expect(proposalPick(all, two, place, independent)).toEqual(['pet_policy_text', 'pet_policy']);
+  });
+});
+
+describe('이용 안내 — 제안이 찍은 지문을 옮기기만(21 S4)', () => {
+  const guide = { text: '입구에 발 닦을 수건이 준비돼 있어요', basis: '00000000abcdef' };
+  const site = { ...place, pet_policy_text_public: true, pet_policy_guide: { text: '사이트 안내', basis: 'aaaaaaaaaaaaaa' } } as TPlaceRow;
+
+  it('change 면 { text, basis } · keep 이거나 말이 없으면 사이트 값(전·후 목록에 안 선다)', () => {
+    const changed = withProposal(row('a').extracted, proposal({ pet_policy_guide: { action: 'change', value: guide.text, basis: guide.basis, basedOn: ['https://blog/a'], quote: 'q', why: null } }), site);
+    expect(changed.petPolicyGuide).toEqual(guide);
+    const kept = withProposal(row('a').extracted, proposal({ pet_policy_guide: { action: 'keep', value: null, basedOn: [], quote: null, why: null } }), site);
+    expect(kept.petPolicyGuide).toEqual(site.pet_policy_guide);
+    expect(withProposal(row('a').extracted, proposal({}), { ...site, pet_policy_guide: undefined }).petPolicyGuide).toBeNull();
+    expect(latestPlan(site, kept).changes.map((c) => c.key)).not.toContain('pet_policy_guide');
+  });
+
+  it('안내만 change 면 기본 체크는 안내 하나 · 글 하나의 완화로 꺼 둔 원문 짝을 안내가 다시 켜지 않는다', () => {
+    const guideField = { action: 'change' as const, value: guide.text, basis: guide.basis, basedOn: ['https://blog/a'], quote: 'q', why: null };
+    expect(proposalPick(['pet_policy_guide', 'address'], proposal({ pet_policy_guide: guideField }), place)).toEqual(['pet_policy_guide']);
+    const loose = { ...strict, largeDogOk: true, weightLimitKg: null };
+    const both = proposal({
+      pet_policy_text: { action: 'change', value: '대형견도 돼요', petPolicy: loose, basedOn: ['https://blog/a'], quote: 'q', why: null },
+      pet_policy_guide: guideField,
+    });
+    expect(proposalPick(['pet_policy_text', 'pet_policy', 'pet_policy_text_public', 'pet_policy_guide', 'address'], both, place)).toEqual([]);
+  });
+});
+
+/**
+ * 수용 기준(docs/todo/21 S4) — 제안(sanitize) → `withProposal` → 덮어쓰기 patch 를 시드 행에 적용 → `fromPlaceRow` → `publicGuide` 가 **문장을 낸다**.
+ * 그 행의 판단을 운영자가 고치면(`placeEditPatch`) 안내는 지워지지 않고 지문이 어긋나 숨는다. 어디서도 지문을 다시 찍지 않는다는 것의 왕복 확인.
+ */
+describe('왕복 — 제안 → 덮어쓰기 → 공개 안내', () => {
+  const blogText = '반려동물 동반 ( 야외 )\n카페 뒤 정원에 산책로가 있어서 강아지랑 한 바퀴 돌았어요';
+  const facts: TPetPolicyFacts = {
+    indoor: 'outdoorOnly', leash: false, largeDogOk: null, smallDogOnly: false, callFirst: false, feeFree: null, weightLimitKg: null, maxDogs: null, notes: null,
+  };
+  const seed = { ...place, pet_policy_text: '대형견도 같이 들어갈 수 있어요', pet_policy: null, pet_policy_text_public: true, pet_policy_guide: null } as TPlaceRow;
+  const post = row('b', { petPolicyText: blogText, petPolicy: facts, evidence: ['카페 뒤 정원에 산책로가 있어서'] });
+  const raw = {
+    summary: '야외만 된다는 새 글',
+    fields: [
+      { field: 'pet_policy_guide', action: 'change', value: '정원 산책로까지 같이 걸을 수 있어요', basedOn: [post.post_url], quote: '카페 뒤 정원에 산책로가 있어서', why: '산책로 안내' },
+      { field: 'pet_policy_text', action: 'change', value: blogText, basedOn: [post.post_url], quote: '반려동물 동반 ( 야외 )', why: '야외만' },
+    ],
+  };
+
+  const applied = (): TPlaceRow => {
+    const sanitized = sanitizeProposal(raw, [post], { place: seed }) as unknown as TProposal;
+    const plan = latestPlan(seed, withProposal(post.extracted, sanitized, seed));
+    expect(plan.patch).toMatchObject({ pet_policy_text: blogText, pet_policy_text_public: false });
+    expect(plan.previous).toMatchObject({ pet_policy_text_public: true, pet_policy_guide: null });
+    return { ...seed, ...plan.patch } as TPlaceRow;
+  };
+  const shown = (row: TPlaceRow) => {
+    const site = fromPlaceRow(row) as TPlace;
+    return { site, guide: publicGuide(site.petPolicyGuide, site.petPolicy, site.petPolicyText) };
+  };
+
+  it('덮어쓴 행의 안내가 사이트에 나간다(지문 일치) · 원문은 숨김', () => {
+    const { site, guide } = shown(applied());
+    expect(guide).toEqual({ text: '정원 산책로까지 같이 걸을 수 있어요', reasons: [] });
+    expect(site.petPolicyTextPublic).toBeUndefined();
+  });
+
+  it('운영자가 판단 칸 하나를 고치면 안내는 그대로 두고 숨는다', () => {
+    const row = applied();
+    const draft = placeEditDraft(row);
+    const patch = placeEditPatch(row, { ...draft, policy: { ...draft.policy, leash: true } });
+    expect(patch).not.toHaveProperty('pet_policy_guide');
+    const edited = { ...row, ...patch } as TPlaceRow;
+    expect(edited.pet_policy_guide).toEqual(row.pet_policy_guide);
+    expect(shown(edited).guide).toEqual({ text: null, reasons: ['판단이 바뀌어 숨겼어요'] });
   });
 });

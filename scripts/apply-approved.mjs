@@ -82,6 +82,8 @@ export async function main(argv = process.argv.slice(2)) {
   const existing = placeRows.map(toMatchablePlace);
   // 숙소 환경 칸(마이그레이션 20261001160000)이 원격에 있나 — 없는 칸을 insert 에 실으면 쓰기가 통째로 거절된다.
   const environmentColumn = placeRows.some((row) => 'stay_environment' in row);
+  // 이용 안내 칸(마이그레이션 20261012120000)도 같은 이유로 — 원격에 생기기 전엔 신규 행에 싣지 않는다.
+  const guideColumn = placeRows.some((row) => 'pet_policy_guide' in row);
   const rowById = new Map(placeRows.map((row) => [row.id, row]));
 
   // 시작 기록은 사전 점검(후보·장소 읽기 · places 비어 있음) 뒤 — 그 앞의 exit(1) 은 돌지 않은 것이다.
@@ -158,7 +160,7 @@ export async function main(argv = process.argv.slice(2)) {
         placeId = target.id;
         kind = 'merged';
       } else {
-        const row = toNewPlaceRow(candidate, { id: randomUUID(), environmentColumn });
+        const row = toNewPlaceRow(candidate, { id: randomUUID(), environmentColumn, guideColumn });
         await write(`신규 ${row.name}(${row.id}) published 로 insert`, () => supabase.from('places').insert(row));
         // 같은 실행의 다음 후보가 이 새 장소와 대조되게 목록에도 넣는다(dry-run 도 같은 경로 — 무엇이 합쳐질지 미리 보인다).
         existing.push(toMatchablePlace(row));

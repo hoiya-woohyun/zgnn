@@ -17,7 +17,7 @@ import { parseRegion } from '../../scripts/lib/placeFields.mjs';
 import { feeLinesOf, type TCorrectionDrop } from '../../scripts/lib/petPolicyFacts.mjs';
 import { parsePetPolicy, toPetBadges, withPolicyFacts, type TPetBadge } from './petPolicy';
 import { PLACES } from './places';
-import type { TDirection, TPetPolicyFacts, TRegion, TStayEnvironment } from '../types';
+import type { TDirection, TPetPolicyFacts, TPetPolicyGuide, TRegion, TStayEnvironment } from '../types';
 
 export type TCandidateType = 'stay' | 'restaurant' | 'cafe' | 'other';
 export type TCandidateTier = 'auto' | 'ask' | 'new';
@@ -59,6 +59,8 @@ export type TCandidateExtracted = {
   addressEdited?: boolean;
   petPolicyText: string | null;
   petPolicy: TPetPolicyFacts | null;
+  /** AI 가 자기 말로 쓴 이용 안내(docs/todo/21 S7). 반영기가 `pet_policy_guide` 로 **옮기기만** 한다 — 지문(`basis`)을 다시 찍지 않는다. */
+  petPolicyGuide?: TPetPolicyGuide | null;
   features?: string | null;
   stayPriceText?: string | null;
   stayAmenitiesText?: string | null;
@@ -118,6 +120,12 @@ export type TPlaceRow = {
   features: string;
   pet_policy_text: string;
   pet_policy: TPetPolicyFacts | null;
+  /**
+   * 조건 원문을 사이트에 그대로 내도 되나(시드 = 가족이 쓴 문장만 true)와 AI 이용 안내(마이그레이션 `20261012120000`).
+   * 그 전의 원격에는 **칸 자체가 없다** — 그래서 선택이고, 쓰는 쪽은 `'pet_policy_guide' in row` 로 보고 나서만 쓴다(없는 칸을 쓰면 쓰기 전체가 실패한다).
+   */
+  pet_policy_text_public?: boolean;
+  pet_policy_guide?: TPetPolicyGuide | null;
   review_url: string | null;
   naver_url: string | null;
   naver_place_id: string | null;

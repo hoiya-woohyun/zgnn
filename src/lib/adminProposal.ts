@@ -22,6 +22,8 @@ export type TProposalField = {
   why: string | null;
   /** `pet_policy_text` 의 change 에만 — 근거 글의 판단을 제안 원문에 대 본 것. */
   petPolicy?: TPetPolicyFacts | null;
+  /** `pet_policy_guide` 의 change 에만 — 승인 뒤 남을 판단의 지문(`policyFingerprint`). 제안 패스가 찍고 여기서부터는 옮기기만 한다. */
+  basis?: string;
 };
 
 export type TProposal = {
@@ -65,7 +67,7 @@ const text = (v: unknown): string | null => (typeof v === 'string' && v.trim() ?
 
 /**
  * 제안을 얹은 extracted — 덮어쓰기의 '새 값'. 제안이 손댈 수 있는 칸(U4)은:
- *  - change → 제안 값(조건 원문이면 판단도 제안의 것)
+ *  - change → 제안 값(조건 원문이면 판단도 제안의 것, 이용 안내면 제안 패스가 찍은 지문과 함께)
  *  - append(소개) → 지금 소개 + 한 줄
  *  - keep 이거나 제안이 말하지 않은 칸 → **지금 사이트 값**(그래야 전·후 목록에 안 선다 — 제안이 "그대로" 라 한 칸을 대표 글의 값이 덮지 않게)
  * 제안 밖의 칸(이름·주소·좌표·네이버 id·홈페이지)은 대표 후보의 값 그대로다 — 전·후 목록에 서고, 기본 체크는 꺼져 있다(`proposalPick`).
@@ -76,10 +78,13 @@ export function withProposal(extracted: TCandidateExtracted, proposal: TProposal
   const pick = <T,>(key: string, site: T): T => (f[key]?.action === 'change' ? (f[key]!.value as T) : site);
   const policy = f.pet_policy_text;
   const features = f.features;
+  const guide = f.pet_policy_guide;
+  const guideText = guide?.action === 'change' ? text(guide.value) : null;
   return {
     ...extracted,
     petPolicyText: policy?.action === 'change' ? (text(policy.value) ?? place.pet_policy_text) : place.pet_policy_text,
     petPolicy: policy?.action === 'change' ? (policy.petPolicy ?? null) : place.pet_policy,
+    petPolicyGuide: guideText && guide?.basis ? { text: guideText, basis: guide.basis } : (place.pet_policy_guide ?? null),
     stayPriceText: pick('stay_price_text', place.stay_price_text),
     stayAmenitiesText: pick('stay_amenities_text', place.stay_amenities_text),
     stayEnvironment: pick<TStayEnvironment | null>('stay_environment', place.stay_environment ?? null),
@@ -88,9 +93,10 @@ export function withProposal(extracted: TCandidateExtracted, proposal: TProposal
   };
 }
 
-/** 제안 칸 → 덮어쓰기 칸(화면 키). 조건은 원문+판단 짝. 소개(append)는 기본 체크에 넣지 않는다(U4 — 기본 유지). */
+/** 제안 칸 → 덮어쓰기 칸(화면 키). 조건은 원문+판단 짝(원문 공개·이용 안내까지 — `OVERWRITE_PAIRS`). 소개(append)는 기본 체크에 넣지 않는다(U4 — 기본 유지). */
 const PROPOSAL_COLUMNS: Record<string, string[]> = {
   pet_policy_text: ['pet_policy_text', 'pet_policy'],
+  pet_policy_guide: ['pet_policy_guide'],
   stay_price_text: ['stay_price_text'],
   stay_amenities_text: ['stay_amenities_text'],
   stay_environment: ['stay_environment'],
@@ -111,6 +117,8 @@ export function proposalPick(all: string[], proposal: TProposal | null, place: T
   for (const [field, columns] of Object.entries(PROPOSAL_COLUMNS)) {
     const entry = proposal.fields[field];
     if (entry?.action !== 'change') continue;
+    // 원문도 change 면 안내는 원문 쪽 결정을 따른다 — 안내가 따로 켜지면 짝 펼치기가 완화로 꺼 둔 원문·판단까지 다시 켠다.
+    if (field === 'pet_policy_guide' && proposal.fields.pet_policy_text?.action === 'change') continue;
     if (field === 'pet_policy_text') {
       const loosen = policyDirection(place.pet_policy, entry.petPolicy ?? null).overall === 'loosen';
       const sources = rows ? independentPostsOf(rows, entry.basedOn) : new Set(entry.basedOn).size;
