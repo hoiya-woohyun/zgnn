@@ -63,7 +63,7 @@
 
 ## 지금 (위에서부터)
 
-- [ ] 공개 조건 문장 순수 함수 `publicPolicyLines`·`publicNotes` + 테스트 — [21 S2](21-blog-text-and-extract-model.md) · 가드·판단 지문은 `scripts/lib/petPolicyGuide.mjs`(안내가 판단 주제를 말하면 뺀다 · 지문 왕복 테스트) · 왜 지금: 블로그 출처 38곳의 조건 원문(블로거 문장)이 공개 상세에 그대로 나간다(레포도 PUBLIC) — 끝나면 S3 를 「지금」 에
+- [ ] `places` 에 공개 플래그·안내 칸(`pet_policy_text_public` · `pet_policy_guide`) 마이그레이션 + 읽는 쪽(`placeFields`·`normalize`·`seed-db`·`types`) — [21 S3](21-blog-text-and-extract-model.md) · 왜 지금: S2 함수(`publicPolicyLines`·`publicNotes`·`publicGuide`)가 섰고 S4~S6 이 이 두 칸을 읽는다 — 블로그 출처 38곳의 원문이 아직 공개 상세에 그대로 나간다 · 끝나면 🧑 H2(`db push`)를 「기다림」 에, S4 를 「지금」 에
 - [ ] `N박째부터 1박당 1만원` 의 금액이 원문 대조를 통과한다 — [21 G1.2](21-blog-text-and-extract-model.md) · 왜 지금: 혼자 있으면 1박 손님에게 틀린 금액을 확정 문장으로 낸다(BUG-018 의 남은 갈래), 한 줄
 - [ ] 일랑일랑 `반려견 1마리가 포함` 을 기본 마릿수 근거로 — [21 G1.1](21-blog-text-and-extract-model.md) · 왜 지금: 두 모델이 맞게 낸 `추가 1마리 5,000원` 이 아직 계산에서 빠진다(BUG-018 의 남은 갈래), 한 함수
 - [ ] `pnpm lint` 가 `claim.mjs` 빈 catch 둘로 빨갛다 — [08 T0.9](08-usability-and-process-plan.md) · 왜 지금: 린트 전체가 실패라 진짜 실패가 묻힌다, 두 줄

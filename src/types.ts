@@ -106,6 +106,12 @@ export type TPetPolicyFacts = {
   notes: string | null;
 };
 
+/**
+ * AI 가 원문을 읽고 **자기 말로** 쓴 이용 안내 1~2문장(ADR-017 결정 13 D1, v10) — 판단 칸이 말하지 않는 것(절차·준비 팁·자리·분위기)만.
+ * `basis` 는 쓴 시점 판단의 지문(`policyFingerprint`)이다. 지금 판단과 다르면 화면이 숨긴다(`publicGuide`) — 판단을 고치면 문장이 낡기 때문이다.
+ */
+export type TPetPolicyGuide = { text: string; basis: string };
+
 export type TPlaceHomepage = {
   url: string;
   name?: string;
