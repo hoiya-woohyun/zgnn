@@ -1,6 +1,7 @@
 # 21. 블로그 문장이 사이트에 그대로 나가지 않게 · 추출 모델을 Sonnet 으로
 
-> 최종 수정: 2026-10-12 (v3: M1 끝 — 추출 Sonnet · 교차점검·제안 Opus 고정. 서버 워커 env 에 `ANALYZE_MODEL` 없음)
+> 최종 수정: 2026-10-12 (v4: S1 끝 — ADR-017 v9 결정 13 · ADR-002 v6)
+> 이전 2026-10-12 (v3: M1 끝 — 추출 Sonnet · 교차점검·제안 Opus 고정. 서버 워커 env 에 `ANALYZE_MODEL` 없음)
 > 이전 2026-10-12 (v2: G1 끝 — BUG-018. 남은 갈래를 G1.1(일랑일랑 기본 마릿수) · G1.2(`N박째부터` 금액이 산다) · G1.3(`/admin` 칠하기가 새 판독과 어긋남) 으로)
 > 이전 2026-10-12 (v1: 신설 — 2026-10-12 세션의 실측 셋(블로그 문장 베낌 · Opus↔Sonnet 비교 · 원문 대조가 맞는 요금을 지움)과 사용자 결정 둘(B · Sonnet)을 태스크로)
 
@@ -102,9 +103,10 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
   > 🧑 H1 배포 뒤 서버도 Sonnet. `pnpm data eval extract|score` 의 기본 캐시 폴더도 `<프롬프트>-claude-sonnet-5-5` 로 바뀐다(Opus 짝은 `ANALYZE_MODEL=claude-opus-5`).
 
 ### S1. ADR-017 v9 — 원문은 대조군, 공개 문장은 판단에서
-- [ ] [ADR-017](../decisions/ADR-017-ai-structured-pet-policy.md) 에 결정 13 추가 + 결정 1(원문 = 표시용) 수정, 상태: 채택(2026-10-12 사용자). 위 「결정」 의 D1~D5 와 그 이유(템플릿은 판단과 갈릴 수 없다 · 기본 숨김 · 레포 PUBLIC). [ADR-002](../decisions/ADR-002-no-place-photos.md) 에 링크 한 줄("사진과 같은 이유로 블로그 문장도").
+- [x] [ADR-017](../decisions/ADR-017-ai-structured-pet-policy.md) 에 결정 13 추가 + 결정 1(원문 = 표시용) 수정, 상태: 채택(2026-10-12 사용자). 위 「결정」 의 D1~D5 와 그 이유(템플릿은 판단과 갈릴 수 없다 · 기본 숨김 · 레포 PUBLIC). [ADR-002](../decisions/ADR-002-no-place-photos.md) 에 링크 한 줄("사진과 같은 이유로 블로그 문장도").
   - 수용: ADR 만 읽고 S2~S8 의 이유가 서야 한다. 코드는 바꾸지 않는다.
   - 끝나면: 없음(S2 와 독립).
+  > 메모: 2026-10-12 ADR-017 v9(결정 13 = D1~D5 + 화면 자리·`/admin` 미리보기의 이유, 결정 1·결과 첫 줄 고침, 상태에 "결정 13 만 채택·구현 전") · ADR-002 v6 결과 한 줄.
 
 ### S2. 공개 조건 문장 순수 함수
 - [ ] `src/lib/petPolicyPublic.ts`(새 파일 — G1 의 `petPolicyFacts.mjs` 와 겹치지 않게) + 테스트.
