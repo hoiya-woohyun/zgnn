@@ -354,12 +354,25 @@ describe('correctPetPolicyFacts — 모델이 맞게 낸 요금은 남긴다(BUG
     const nightly = { label: '2박째부터 1박당 1만원', perNight: true };
     const opus = [rule({ label: '첫 1박 1만5천원', amountWon: 15000, basis: 'flat' }), rule({ ...nightly, amountWon: 10000, basis: 'flat' })];
     const sonnet = [rule({ label: '첫 1박 기준 1만5천원', amountWon: 15000 }), rule(nightly)];
-    // 첫 줄만 본다 — 둘째 줄 `2박째부터` 는 칸에 없는 조건이라 프롬프트상 null 이어야 하는데 지금 대조는 Opus 의 10000 을 남긴다(21 G1.2, 알려진 구멍).
-    expect(analyzeThenRead(facts({ fees: opus }), text).facts.fees[0].amountWon).toBe(15000);
-    expect(analyzeThenRead(facts({ fees: sonnet }), text).facts.fees[0].amountWon).toBe(15000);
+    // 둘째 줄 `2박째부터` 는 칸에 없는 조건이라 계산하지 않는다 — Opus 가 낸 10000 도 뺀다(21 G1.2). 줄은 label 로 남는다.
+    expect(analyzeThenRead(facts({ fees: opus }), text).facts.fees.map((r) => r.amountWon)).toEqual([15000, null]);
+    expect(analyzeThenRead(facts({ fees: sonnet }), text).facts.fees.map((r) => r.amountWon)).toEqual([15000, null]);
     // 이 수정 전에 정규화돼 DB 에 있는 label 모양 — 앱이 다시 대 볼 때도 15000 이다
     const stored = rule({ label: '첫 1박 기준 1만5,000원', amountWon: 15000 });
     expect(correctPetPolicyFacts(facts({ fees: [stored] }), text).facts.fees[0].amountWon).toBe(15000);
+  });
+
+  /** 안녕감귤은 `첫 1박` 줄과 함께라 앱이 '적힌 요금' 으로 물러났지만, 이 줄이 혼자면 1박 손님에게 "1박 1만원" 을 확정 문장으로 낸다. */
+  it('`N박째부터` 요금은 혼자 있어도 계산에서 뺀다 — `1박당` 만 있는 줄은 그대로', () => {
+    const text = '연박 시 2박째부터는 1박당 1만원이 추가됩니다. 소형견은 1박당 2만원입니다.';
+    const nth = rule({ label: '2박째부터 1박당 1만원', amountWon: 10000, basis: 'flat', perNight: true });
+    const plain = rule({ label: '1박당 2만원', amountWon: 20000, perNight: true });
+    const r = correctPetPolicyFacts(facts({ fees: [nth, plain] }), text);
+    expect(r.facts.fees.map((f) => [f.label, f.amountWon])).toEqual([
+      ['2박째부터 1박당 1만원', null],
+      ['1박당 2만원', 20000],
+    ]);
+    expect(r.dropped).toEqual([{ note: '요금 "2박째부터 1박당 1만원" 의 금액·조건이 원문과 맞지 않아 계산에서 뺐어요', cue: 'amount' }]);
   });
 
   it('`첫 1박` 요금에 1박마다(perNight)를 붙이면 뺀다 — 첫날 요금이 박마다 곱해진다', () => {

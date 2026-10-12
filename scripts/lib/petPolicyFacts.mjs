@@ -196,6 +196,9 @@ function shapeMatchesLabel(rule, label) {
   // `첫 1박 1만5천원` 은 첫날 한 번 붙는 요금이다 — `박` 이 있어도 1박마다가 아니다(안녕감귤, BUG-018).
   const nightly = /박/.test(label) && !/첫\s*(\d+\s*)?박/.test(label);
   if (nightly !== Boolean(rule.perNight)) return false;
+  // `2박째부터 1박당 1만원` 은 몇째 밤부터인지가 조건인데 칸(`perNight` 하나)에 그 자리가 없다 — 계산하면 1박 손님에게도
+  // "1박 1만원" 을 확정 문장으로 낸다(프롬프트상 null, Opus 만 10000 을 냈다 — 21 G1.2). `첫 1박` · `1박당` 은 째가 없어 그대로다.
+  if (/\d\s*박\s*째/.test(label)) return false;
   // fromDog > 1 이면 label 이 몇째 마리인지 말해야 한다 — `N마리부터|째|초과` 만이 아니라 `추가 1마리`(기본 마릿수를 넘는 마리)도 그렇다.
   // 반대 방향은 넓히지 않는다: `추가 1마리` + fromDog null 은 "반려견 1마리 추가 시 2만원"(마리당 요금)이라 통과해야 하고,
   // `N마리부터` 가 label 에 있는데 fromDog 가 없으면 그 조건을 잃은 것이라 거절한다(docs/todo/13 §5.1).
