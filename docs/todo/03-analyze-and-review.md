@@ -1,6 +1,7 @@
 # 3. AI 분석 → 사람이 링크 확인 → 승인
 
-> 최종 수정: 2026-10-04 (v24: 주소 대조 규칙이 `scripts/lib/addressMatch.mjs` 로 옮겨 분석도 쓴다(같은 자리의 신규 후보 묶기 · 기존 장소 '확인' — data-pipeline v42). 주소·AI 둘 다 지역을 못 정하면 이름의 지점 꼬리 지명으로 정한다(`regionFromBranchName`))
+> 최종 수정: 2026-10-12 (v25: 🙋 모델을 닫았다 — **추출 `claude-sonnet-5-5` · 교차점검·제안 `claude-opus-5` 고정**(사용자 결정, 근거는 [21 M1](21-blog-text-and-extract-model.md) 의 비교표). 교차점검·제안이 추출 모델을 따라가지 않는다)
+> 이전 2026-10-04 (v24: 주소 대조 규칙이 `scripts/lib/addressMatch.mjs` 로 옮겨 분석도 쓴다(같은 자리의 신규 후보 묶기 · 기존 장소 '확인' — data-pipeline v42). 주소·AI 둘 다 지역을 못 정하면 이름의 지점 꼬리 지명으로 정한다(`regionFromBranchName`))
 > 이전 2026-10-04 (v23: 🙋 「저수지를 어디서 멈출지」 를 닫았다 — **앞줄까지만**(`--focused-only`), 80건씩 반복 실행)
 > 이전 2026-10-04 (v22: 세 번째 30건 실측 · **실행 잠금**(동시 실행 두 개가 같은 글을 두 번 분석해 후보 2쌍이 겹쳤다) · 주제 글 단어 두 번째 묶음(비행기·항공·규정·입장료·고르는 법 등))
 > 이전 2026-10-03 (v21: 「2026-10-03 실측」 — 주제 글 뒤로를 넣은 뒤 두 번째 30건. 장소 없는 주제 글 27% → 11%)
@@ -81,7 +82,7 @@ flowchart LR
 `--limit 30` 씩 나누는 이유도 그것이다(3600 이던 시절엔 창이 30분이라 `DEFAULT_LIMIT`(50)이 다 들어간다고 장담할 수 없었다).
 중간에 세션이 죽으면 그 글부터 DB 쓰기가 실패해 건너뛰고(`analyzed_at` 안 찍힘) 다음 실행이 이어 간다. 옛 근거(Actions `timeout-minutes: 30`)는 워크플로와 함께 사라졌다.
 
-- [x] 모델 기본 `claude-opus-5`(`ANALYZE_MODEL` 로 덮음), 구조화 출력은 `--json-schema`(결과 JSON 의 `structured_output`).
+- [x] 모델 기본 `claude-sonnet-5-5`(2026-10-12 — [21 M1](21-blog-text-and-extract-model.md), 그 전엔 `claude-opus-5`. `ANALYZE_MODEL` 로 덮음), 구조화 출력은 `--json-schema`(결과 JSON 의 `structured_output`).
       사고(thinking)는 CLI 가 모델에 맞게 알아서 — 코드에 없다.
 - [x] 한 글 → 장소 **0~N개**. 여행기 하나에 카페 셋이 나온다. 스키마는 배열이다.
 - [x] 본문은 데스크톱 `PostView.naver`(`scripts/analyze/naverPostBody.mjs`). 에디터 세대가 셋이다 — SmartEditor ONE(`.se-main-container`) ·
@@ -97,7 +98,8 @@ flowchart LR
   - `type: 'other'` · `isJeju: false` 는 후보를 만들지 않고 `analyzed_at` 만 찍는다.
 - [x] 시스템 프롬프트는 고정 문자열(`--system-prompt`), 메타·본문은 stdin 으로 뒤에 → 호출 간 prefix 가 같다.
 - ~~Batches API~~ — 구독 경로엔 없다. 첫 1년치는 `--limit` 로 나눠 여러 번 돌린다(세션 한도).
-- 🙋 **모델**: 구독이라 글당 비용은 0 이고 차이는 한도 소모뿐. 기본 `claude-opus-5`. `ANALYZE_MODEL=claude-haiku-4-5` 로 바꿔 품질을 비교해 볼 수 있다.
+- ~~🙋 **모델**~~ **닫힘**(2026-10-12 사용자): 추출 `claude-sonnet-5-5` · 교차점검·제안 `claude-opus-5` 고정 — 같은 프롬프트 비교에서 '가능' 쪽 지어냄 Opus 2 · Sonnet 0, 글당 2.5~4배 빠름([21 M1](21-blog-text-and-extract-model.md)).
+  구독이라 글당 비용은 0 이고 차이는 한도 소모뿐. 되돌리려면 `ANALYZE_MODEL=claude-opus-5`, 교차점검·제안은 `VERIFY_MODEL`·`PROPOSE_MODEL` 로만 덮인다.
 - [x] 좌표·주소 보강은 **네이버 지역 검색**(`scripts/analyze/naverLocal.mjs`, `NAVER_CLIENT_ID`·`NAVER_CLIENT_SECRET` 선택 — 02 수집과 같은 키). `title` 이
       후보 이름과 **정규화 후 완전 일치**할 때만 채택한다 — 부분 일치(0.7)를 받으면 "고기부엌" 에 "협재고기부엌" 좌표가 실려 그대로
       `places` 에 쓰인다(리뷰에서 재현). 없으면 좌표를 비워 둔다(지어내지 않는다). 키가 401/403 이면 실행을 세운다 — 조용히 이름만으로

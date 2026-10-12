@@ -71,10 +71,10 @@ const withPlaces = (places) => fakeResult({ result: JSON.stringify({ places }), 
 const post = { title: '제주 동쪽 강아지 카페', keyword: '제주 강아지 동반 카페', url: 'https://blog.naver.com/dogjeju/223456789' };
 
 describe('resolveModel / MODEL', () => {
-  it('기본은 claude-opus-5, ANALYZE_MODEL 이 있으면 그것', () => {
-    expect(resolveModel({})).toBe('claude-opus-5');
-    expect(resolveModel({ ANALYZE_MODEL: 'claude-haiku-4-5' })).toBe('claude-haiku-4-5');
-    expect(resolveModel({ ANALYZE_MODEL: '' })).toBe('claude-opus-5');
+  it('기본은 claude-sonnet-5-5, ANALYZE_MODEL 이 있으면 그것(claude-opus-5 로 되돌릴 수 있다)', () => {
+    expect(resolveModel({})).toBe('claude-sonnet-5-5');
+    expect(resolveModel({ ANALYZE_MODEL: 'claude-opus-5' })).toBe('claude-opus-5');
+    expect(resolveModel({ ANALYZE_MODEL: '' })).toBe('claude-sonnet-5-5');
     expect(MODEL).toBe(resolveModel(process.env));
   });
 });

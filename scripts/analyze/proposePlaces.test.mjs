@@ -39,8 +39,10 @@ describe('buildProposePrompt — 구조값만, 새 글이 위', () => {
     expect(prompt({ petAllowedHere: 'unclear', dogWasThere: false, quote: null, why: null })).toContain('동반 근거 없음');
     expect(prompt(null)).toContain('미점검');
   });
-  it('인자는 고정값 · 모델은 PROPOSE_MODEL 로 덮인다', () => {
+  it('인자는 고정값 · 모델은 Opus 고정(ANALYZE_MODEL 을 따라가지 않는다) · PROPOSE_MODEL 로만 덮인다', () => {
     expect(buildProposeCliArgs()).toEqual(buildProposeCliArgs());
+    expect(resolveProposeModel({})).toBe('claude-opus-5');
+    expect(resolveProposeModel({ ANALYZE_MODEL: 'claude-sonnet-5-5' })).toBe('claude-opus-5');
     expect(resolveProposeModel({ PROPOSE_MODEL: 'x-model' })).toBe('x-model');
     expect(PROPOSE_PROMPT_VERSION).toMatch(/^[0-9a-f]{8}$/);
   });

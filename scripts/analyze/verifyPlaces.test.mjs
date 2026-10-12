@@ -76,9 +76,10 @@ describe('인자·프롬프트 — 호출마다 같아야 캐시 prefix 가 산�
     expect(prompt).toContain('2. 덕봉이네');
   });
 
-  it('VERIFY_MODEL 로 추출과 다른 모델을 쓸 수 있다', () => {
+  it('기본은 Opus 고정 — 추출 모델(ANALYZE_MODEL)을 따라가지 않고 VERIFY_MODEL 로만 덮인다', () => {
+    expect(resolveVerifyModel({})).toBe('claude-opus-5');
+    expect(resolveVerifyModel({ ANALYZE_MODEL: 'claude-sonnet-5-5' })).toBe('claude-opus-5');
     expect(resolveVerifyModel({ VERIFY_MODEL: 'claude-haiku-4-5' })).toBe('claude-haiku-4-5');
-    expect(resolveVerifyModel({ ANALYZE_MODEL: 'claude-sonnet-5-5' })).toBe('claude-sonnet-5-5');
   });
 });
 

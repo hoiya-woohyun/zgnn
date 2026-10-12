@@ -1,6 +1,7 @@
 # 21. 블로그 문장이 사이트에 그대로 나가지 않게 · 추출 모델을 Sonnet 으로
 
-> 최종 수정: 2026-10-12 (v2: G1 끝 — BUG-018. 남은 갈래를 G1.1(일랑일랑 기본 마릿수) · G1.2(`N박째부터` 금액이 산다) · G1.3(`/admin` 칠하기가 새 판독과 어긋남) 으로)
+> 최종 수정: 2026-10-12 (v3: M1 끝 — 추출 Sonnet · 교차점검·제안 Opus 고정. 서버 워커 env 에 `ANALYZE_MODEL` 없음)
+> 이전 2026-10-12 (v2: G1 끝 — BUG-018. 남은 갈래를 G1.1(일랑일랑 기본 마릿수) · G1.2(`N박째부터` 금액이 산다) · G1.3(`/admin` 칠하기가 새 판독과 어긋남) 으로)
 > 이전 2026-10-12 (v1: 신설 — 2026-10-12 세션의 실측 셋(블로그 문장 베낌 · Opus↔Sonnet 비교 · 원문 대조가 맞는 요금을 지움)과 사용자 결정 둘(B · Sonnet)을 태스크로)
 
 **한 줄:** 조건 원문(`petPolicyText`)은 블로그 문장을 **글자 그대로** 옮기도록 설계돼 있고(원문 대조의 대조군), 그 문장이 공개 상세 화면에 그대로 나간다.
@@ -92,11 +93,13 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
   - 끝나면: 「기다림」 🧑 "요금이 지워진 대기 후보 다시 대조" 가 필요한지 판단 — 저장된 후보는 이미 지워진 값이라 코드만으로는 안 돌아온다(앱이 `withPolicyFacts` 로 다시 대조해도 지워진 칸은 없다). 재추출 대상 수를 `select` 로 세어 적는다.
 
 ### M1. 추출 모델을 Sonnet 으로, 교차점검·제안은 Opus 고정
-- [ ] `scripts/analyze/extractPlaces.mjs:30` `resolveModel` 기본 `claude-sonnet-5-5` · `verifyPlaces.mjs:25` · `proposePlaces.mjs:23` 은 `env.X_MODEL || 'claude-opus-5'`(ANALYZE_MODEL 을 따라가지 않게) · 주석(`:29` "haiku 로 비교") · 테스트(`extractPlaces.test.mjs:74-77` 과 verify·propose 의 resolve 테스트).
+- [x] `scripts/analyze/extractPlaces.mjs:30` `resolveModel` 기본 `claude-sonnet-5-5` · `verifyPlaces.mjs:25` · `proposePlaces.mjs:23` 은 `env.X_MODEL || 'claude-opus-5'`(ANALYZE_MODEL 을 따라가지 않게) · 주석(`:29` "haiku 로 비교") · 테스트(`extractPlaces.test.mjs:74-77` 과 verify·propose 의 resolve 테스트).
   - 수용: `pnpm data analyze` 시작 줄(`analyze-candidates.mjs:233`)이 추출 sonnet · 교차점검 opus · 제안 opus 를 찍는다. `ANALYZE_MODEL=claude-opus-5` 로 되돌릴 수 있다.
   - 문서: [03](03-analyze-and-review.md) 의 모델 줄(:84 · 🙋 :100 닫기) · [README](README.md) 「🙋 사용자가 정할 것」 03 AI 모델 줄 닫기 · [data-pipeline](../architecture/data-pipeline.md) · [ADR-019](../decisions/ADR-019-ai-cross-check-and-address-rules.md) :85("기본은 추출과 같다" → Opus 고정) · [11](11-continuous-review-and-update-proposals.md) :121 · `.env.example` 예시.
   - 서버 워커: 번들에 실리므로 🧑 배포 전까지 서버는 Opus 로 뽑는다(후보 `meta.model` 이 섞인다 — 괜찮다). Vercel 프로젝트 env 에 `ANALYZE_MODEL` 이 있으면 지운다(`vercel env ls` 로 **이름만** 본다).
   - 끝나면: S7 줄을 NOW 「지금」 의 13 §5.3 A1 위에.
+  > 메모: 2026-10-12 끝. 시작 줄 첫 줄을 `추출 모델 …` 로 바꿔 셋(추출·교차점검·제안)이 이름으로 갈린다. 서버 워커 env 에 `ANALYZE_MODEL` 은 **없다**(`vercel env ls` 이름만 — 2026-10-12) → 지울 것 없음,
+  > 🧑 H1 배포 뒤 서버도 Sonnet. `pnpm data eval extract|score` 의 기본 캐시 폴더도 `<프롬프트>-claude-sonnet-5-5` 로 바뀐다(Opus 짝은 `ANALYZE_MODEL=claude-opus-5`).
 
 ### S1. ADR-017 v9 — 원문은 대조군, 공개 문장은 판단에서
 - [ ] [ADR-017](../decisions/ADR-017-ai-structured-pet-policy.md) 에 결정 13 추가 + 결정 1(원문 = 표시용) 수정, 상태: 채택(2026-10-12 사용자). 위 「결정」 의 D1~D5 와 그 이유(템플릿은 판단과 갈릴 수 없다 · 기본 숨김 · 레포 PUBLIC). [ADR-002](../decisions/ADR-002-no-place-photos.md) 에 링크 한 줄("사진과 같은 이유로 블로그 문장도").

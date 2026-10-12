@@ -16,12 +16,12 @@
 // 실패는 **후보를 버리지 않는다** — 교차점검과 같은 정책이다. 제안이 없는 갱신 묶음은 화면이 `제안 없음` 으로 그린다(null 은 "안 봤다").
 import { createHash } from 'node:crypto';
 import { correctPetPolicyFacts } from '../lib/petPolicyFacts.mjs';
-import { classifyCliError, ClaudeCliError, ExtractionError, resolveModel } from './extractPlaces.mjs';
+import { classifyCliError, ClaudeCliError, ExtractionError } from './extractPlaces.mjs';
 import { quoteInBody } from './verifyPlaces.mjs';
 
-/** `PROPOSE_MODEL` 로 따로 덮을 수 있다(`VERIFY_MODEL` 과 같은 꼴). 기본은 추출과 같은 모델. */
+/** 제안 모델 — 교차점검과 같이 **Opus 고정**(추출 모델 `ANALYZE_MODEL` 을 따라가지 않는다, docs/todo/21 M1). `PROPOSE_MODEL` 로만 덮는다. */
 export function resolveProposeModel(env = process.env) {
-  return env.PROPOSE_MODEL || resolveModel(env);
+  return env.PROPOSE_MODEL || 'claude-opus-5';
 }
 
 export const PROPOSE_MODEL = resolveProposeModel();

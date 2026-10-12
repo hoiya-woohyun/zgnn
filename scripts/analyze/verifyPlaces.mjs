@@ -16,14 +16,17 @@
 // 실패는 **글을 버리지 않는다.** 주소→좌표 축(`naverGeocode.mjs`)과 같은 정책이다: 이 패스는 표식을 더하기만
 // 하므로 죽으면 어제까지의 동작으로 돌아갈 뿐이다. 인증·CLI 없음(fatal)만 실행을 세운다.
 import { createHash } from 'node:crypto';
-import { classifyCliError, claudeChildEnv, ClaudeCliError, ExtractionError, resolveModel } from './extractPlaces.mjs';
+import { classifyCliError, claudeChildEnv, ClaudeCliError, ExtractionError } from './extractPlaces.mjs';
 import { normalizeName } from './matchPlace.mjs';
 
 export { claudeChildEnv };
 
-/** `VERIFY_MODEL` 로 따로 덮을 수 있다 — 추출보다 단순한 판단이라 값싼 모델로 비교해 볼 자리다(기본은 추출과 같은 모델). */
+/**
+ * 교차점검 모델 — **Opus 고정**이다. 추출 모델(`ANALYZE_MODEL`)을 따라가지 않는다: 추출을 Sonnet 으로 내린 비교(docs/todo/21)는
+ * 이 패스의 모델 차이를 재지 않았고, 이 판단 하나로 후보가 '동반 근거 없음' 으로 빠진다. `VERIFY_MODEL` 로만 덮는다.
+ */
 export function resolveVerifyModel(env = process.env) {
-  return env.VERIFY_MODEL || resolveModel(env);
+  return env.VERIFY_MODEL || 'claude-opus-5';
 }
 
 export const VERIFY_MODEL = resolveVerifyModel();

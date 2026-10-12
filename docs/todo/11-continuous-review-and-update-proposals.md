@@ -118,7 +118,7 @@ T5.1 의 "출처 글은 블랙리스트도 건너뛴다" 는 그대로 살린다
 - **출력**(`--json-schema`): 칸마다 `{ keep | change, value, basedOn: [post_url…], quote, why }` 와 전체 한 줄 `summary`, `conflicts: [{ field, posts }]`. **`basedOn` 이 빈 `change` 는 코드가 `keep` 으로 되돌린다**, `quote` 는 `quoteInBody`(`verifyPlaces.mjs` 에 이미 있다)로 그 글의 `evidence` 안에 있는지 대 보고 없으면 `keep` — ADR-017 v2 "지어내지 않는다" · ADR-019 결정 8 과 같은 어법.
 - **제안이 손댈 수 있는 칸**(U4): 조건 원문 + 판단(짝으로) · 요금(`fees`) · 숙박 요금 · 시설 · 숙소 환경 · 카테고리. **소개(`features`)는 "덧붙일 한 문장" 만** 제안하고 기본은 `keep` — 사람 글을 다시 쓰지 않는다(G6). **주소 · 좌표 · 이름 · 종류 · 네이버 id 는 제안 밖**이다 — 주소 대조는 규칙이고(ADR-019 결정 4·5) 이름·종류·id 는 대조의 열쇠다(features/admin-review v25).
 - **저장**: 그 장소 묶음의 **가장 새 글의 후보 행** `extracted.proposal` 에. 새 표를 만들지 않는다 — 후보는 (글, 가게) 한 쌍이고 제안은 "그 시점의 묶음" 에 대한 것이라, 다음 실행에서 같은 가게의 새 후보가 생기면 **다시 계산해 새 행에 싣고 옛 행의 `proposal` 은 `superseded: true`** 로 표시한다(지우지 않는다 — `candidates` 에 DELETE 없음, 옛 제안과 새 제안을 대 본다).
-- **끄는 스위치** `--no-propose`, 모델 `PROPOSE_MODEL`(교차점검의 `VERIFY_MODEL` 과 같은 꼴). 계량기도 따로(README v13 의 "무엇이 5시간 한도를 태웠나").
+- **끄는 스위치** `--no-propose`, 모델 `PROPOSE_MODEL`(교차점검의 `VERIFY_MODEL` 과 같은 꼴 — 기본 `claude-opus-5` 고정, 추출 모델을 따라가지 않는다. 2026-10-12 [21 M1](21-blog-text-and-extract-model.md)). 계량기도 따로(README v13 의 "무엇이 5시간 한도를 태웠나").
 - 화면은 **읽기만**. 제안이 없는 갱신 묶음(패스를 끈 실행 · 실패 · 패스 전의 후보)은 **`제안 없음`** 으로 그린다 — `verify` 의 null 과 같은 함정이다(CLAUDE.md "`null` 은 안 봤다"). 그때도 4-4 의 세 칸 중 둘(사이트 값 · 글들이 말한 것)은 그대로 보이고, `덮어쓰기` 의 기본값은 가장 새 글의 추출값이다.
 
 ### 4-4. 화면 — 갱신 묶음의 펼친 줄 (U7 · U8)

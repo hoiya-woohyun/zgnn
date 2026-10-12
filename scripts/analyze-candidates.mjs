@@ -231,7 +231,7 @@ async function analyze(argv, args, { onRateLimit, onDeadline, nonInteractive = f
   // Claude 인증은 env 로 검사하지 않는다 — 이 머신에 로그인된 `claude`(키체인)를 CLI 가 스스로 읽는다. 토큰 env 는 없다(ADR-016).
   // 안 돼 있으면 첫 글에서 ClaudeCliError(auth, fatal) 가 나와 루프가 끊긴다.
   // ANALYZE_MODEL 이 조용히 무시되는 일이 없게 실제로 쓰는 모델을 한 번 찍는다.
-  console.log(`모델 ${MODEL} · 프롬프트 ${PROMPT_VERSION} · 글 최대 ${limit}건 · 블로그당 최대 ${maxPerBlog || '무제한'}건`);
+  console.log(`추출 모델 ${MODEL} · 프롬프트 ${PROMPT_VERSION} · 글 최대 ${limit}건 · 블로그당 최대 ${maxPerBlog || '무제한'}건`);
   // 후보(extracted.meta)와 글(blog_posts.analysis)에 실린다 — 프롬프트를 고친 뒤 재분석 대상을 고르는 키.
   const meta = { model: MODEL, promptVersion: PROMPT_VERSION };
 

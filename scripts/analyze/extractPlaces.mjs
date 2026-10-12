@@ -26,9 +26,13 @@ import { correctPetPolicyFacts, weekdaysOrNull } from '../lib/petPolicyFacts.mjs
 import { correctStayEnvironment } from '../lib/stayEnvironment.mjs';
 import { formatUsageSummary } from '../../src/lib/runSummary.ts';
 
-/** ANALYZE_MODEL 로 덮어쓸 수 있다 — 첫 1년치 대량 처리 때 haiku 로 비교해 보려는 용도(docs/todo/03 의 모델 표). */
+/**
+ * 추출 모델 — 기본 Sonnet(2026-10-12 사용자 결정, docs/todo/21 M1). 같은 프롬프트 비교에서 '가능' 쪽 지어냄이 Opus 2 · Sonnet 0 이었고
+ * 판정은 같거나 더 보수적, 글당 2.5~4배 빨랐다. `ANALYZE_MODEL` 로 덮는다(`ANALYZE_MODEL=claude-opus-5` 로 되돌린다).
+ * 교차점검·제안 모델은 이것을 따라가지 않는다(`resolveVerifyModel`·`resolveProposeModel`).
+ */
 export function resolveModel(env = process.env) {
-  return env.ANALYZE_MODEL || 'claude-opus-5';
+  return env.ANALYZE_MODEL || 'claude-sonnet-5-5';
 }
 
 export const MODEL = resolveModel();
