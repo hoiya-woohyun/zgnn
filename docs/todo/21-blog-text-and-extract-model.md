@@ -177,6 +177,8 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
 - [ ] **S4.1**(🧑 H2 뒤) `scripts/lib/placeFields.mjs` 의 임시 fallback(`row.pet_policy_text_public ?? (source === 'notion' && pet_policy == null)`)을 걷고 테스트(「칸이 없는 원격」)를 "칸이 없으면 숨김" 으로.
   - push 여부는 `pull` 로 못 가린다(fallback 이 같은 값을 낸다) — 원격 조회로: `information_schema.columns` 에 두 칸 · `count(*) filter (where pet_policy_text_public)` = 86.
   - 화면: Chrome 확장으로 `/admin` 등록 완료 → 시드 한 곳 `고치기` 에 「원문 공개」 체크가 켜진 채 서는지, 블로그 한 곳은 꺼진 채인지.
+  - 같이(S4 executor 가 범위 밖으로 넘긴 것): `adminPage.tsx` 의 채움 토스트가 `patchKeys` 를 영문 키 그대로 잇는다 — H2 뒤엔 `pet_policy_text_public`·`pet_policy_guide` 가 운영자 화면에 영문으로 선다(라벨 표로) ·
+    새 장소의 형제 후보가 `fillBlanks` 를 지날 때 메모리 행에 칸 키가 없어 안내가 조용히 빠질 수 있다(실패는 없다 — `'pet_policy_guide' in row` 가드가 메모리 행을 모른다).
   - 끝나면: 없음.
 
 ### S5. 공개 상세가 표시문을 그린다
@@ -184,6 +186,7 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
   - `PetBadges sourceText` 에는 **표시문**을 넘긴다 — 원문을 넘기면 요금 칩이 "본문에 이미 있다" 로 숨는데 그 본문은 화면에 없다(테스트는 통과한다). 라벨 「원문」(`placeDetailEligibilityCard.tsx:124`) · C7 문구(`eligibility.ts:363`) · 판정 이유의 인용(`quote` = 원문 조각)이 화면에 나가는지 보고 비공개 행에선 숨긴다.
   - 원칙 주석 고치기: `petPolicy.ts:8-10` · `extractPlaces.mjs:17`.
   - 검증: Chrome 확장으로 일기초록(블로그) · 시드 한 곳. 문서: [pet-policy-and-eligibility](../architecture/pet-policy-and-eligibility.md) · ADR-017 상태 · CLAUDE.md 「조용히 깨지는 것들」 한 줄(새 칸을 더하면 템플릿에도).
+  - **🧑 H2 와 순서**: 어느 쪽이 먼저여도 해가 없다 — H2 가 먼저면 `/admin` 의 「원문 공개」 체크와 그 밑 안내 문구("블로거의 문장이라 사이트에 그대로 내지 않아요")가 서지만, 이 태스크 전까지는 문구가 사실이 아니다(상세는 아직 원문을 낸다).
   - **먼저 스냅샷**(v8 발견): 커밋된 `src/data/places.json` 엔 공개 플래그가 없어 로컬에선 시드도 숨김으로 그려진다 → `pnpm data pull` 하고 `chore(data)` 로 따로 커밋.
     그 pull 에는 중문보말칼국수(10-12 04:37 `/admin` 수정: 소형견만·케이지·소개)가 함께 들어와 `areaGroups.test.ts` 「콩 2.5kg + 해피 12kg · 유모차」 고정 수 1건이 바뀐다 — 같은 커밋에서 맞춘다.
   - 끝나면: S6 를 「지금」 에.
@@ -192,6 +195,7 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
 - [ ] 검수·편집·사이트 비교 화면에 같은 함수로 미리보기 + 「사이트에 안 나가는 notes·안내와 이유」(베낌 · 없는 숫자 · 판단 주제 · 판단이 바뀌어 숨음). 문서: [admin-review](../features/admin-review.md).
   - **사이트 값 칸 이름이 출처를 따른다**(v6, 담소요): `짱구누나 → 바뀔 값`(`adminPageGroupSiteCompare.tsx:114·169`) · `짱구누나 · 지금 사이트`(`adminPageGroupDetail.tsx:33`)는 출처를 안 보고 붙는다 —
     블로그에서 온 값(`source = 'blog'` 또는 `pet_policy_text_public = false`)을 「짱구누나」 로 부르면 블로거의 문장이 운영자의 문장처럼 보인다. 「지금 사이트」 + 출처 칩(시드 = 짱구누나 · 블로그).
+  - 사이트 비교(`adminPageGroupSiteCompare`)의 `proposalFieldOf` 가 「원문 공개」 줄을 조건 원문의 제안 이유와 잇지 않아 그 줄의 이유 칸이 빈다(S4 뒤) — 원문 짝의 why 를 같이 보이게.
   - 끝나면: S8 을 「지금」 에.
 
 ### S7. 프롬프트 묶음 — 소개·notes·과잉 추론·안내(M1 뒤, 같은 파일 · 안내 칸은 **S2 뒤**)
