@@ -193,6 +193,8 @@ describe('policyEvidence — 상세 근거 칸에 원문을 그리나, 판단에
   });
 
   // S5 수용의 기계판 — 지금 스냅샷의 비공개 행(블로그 출처) 어디서도 원문 15자 이음이 화면 글에 없다.
+  // `pnpm data pull` 뒤 깨지면 먼저 볼 것: 블로거가 우리 템플릿 문장과 글자가 같은 문장을 썼는가("예방접종을 마친 강아지만 들어갈 수 있어요").
+  // 그건 베낌이 아니다 — `areaGroups` 고정 수처럼 데이터가 바뀌어 깨지는 테스트다.
   it('스냅샷의 비공개 행은 원문 문장을 옮기지 않는다', () => {
     const squash = (s: string) => s.replace(/\s+/g, '');
     const hidden = PLACES.filter((place) => !place.petPolicyTextPublic);
