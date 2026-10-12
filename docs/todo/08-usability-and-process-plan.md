@@ -465,10 +465,11 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
 - 단계: `.claude/skills/next/SKILL.md` 의 커밋 줄을 `git add <새 파일> && git commit -- <경로>` **한 명령**으로(pathspec 커밋은 인덱스의 다른 것을 안 싣는다). 남의 hunk 가 섞인 파일은 `GIT_INDEX_FILE=<scratch>` 개인 인덱스(`read-tree HEAD` → `update-index --cacheinfo` → commit → 공유 인덱스는 `git reset -q -- <경로>`).
 - 커밋: `docs(next) - 커밋은 pathspec 한 명령으로 — 공유 인덱스에서 남의 커밋에 실리지 않게`
 
-### [ ] T0.9 `pnpm lint` 가 `claim.mjs` 때문에 빨갛다
+### [x] T0.9 `pnpm lint` 가 `claim.mjs` 때문에 빨갛다
 - 근거: `.claude/skills/next/claim.mjs:44,84` 의 빈 `catch {}`(`no-empty`) 두 개로 exit 1 — src 는 깨끗한데 린트 전체가 실패라 진짜 실패가 묻힌다.
 - 단계: 빈 catch 에 이유 주석 한 줄씩(잠금 해제 실패·파일 없음은 무시해도 되는 까닭). eslint 범위에서 `.claude/` 를 빼지는 않는다 — 훅·스킬 스크립트도 린트를 받는 편이 낫다.
 - 커밋: `chore(next) - claim.mjs 빈 catch 에 이유 — pnpm lint 를 초록으로`
+> 메모: 2026-10-12 끝 — 두 catch 에 이유 주석(잠금을 그사이 남이 치움 · 선점 기록 없음/깨짐은 빈 기록으로). `pnpm lint` exit 0. `.claude/` 는 린트 범위에 그대로.
 
 ---
 

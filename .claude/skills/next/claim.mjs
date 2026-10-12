@@ -41,7 +41,9 @@ const withLock = (fn) => {
       if (error.code !== 'EEXIST') throw error;
       try {
         if (Date.now() - statSync(LOCK).mtimeMs > STALE_LOCK_MS) rmdirSync(LOCK);
-      } catch {}
+      } catch {
+        // 그사이 주인이 잠금을 풀었거나 다른 세션이 먼저 치웠다 — 어느 쪽이든 다음 바퀴의 mkdir 이 다시 겨룬다.
+      }
       if (i > 500) throw new Error(`잠금을 얻지 못했다: ${LOCK}`);
       sleep(20);
     }
@@ -81,7 +83,9 @@ const liveClaims = (items) => {
   let claims = {};
   try {
     claims = JSON.parse(readFileSync(CLAIMS, 'utf8'));
-  } catch {}
+  } catch {
+    // 기록이 없다(첫 실행 · 사용자가 지워 선점을 손으로 풀었다)·깨졌다 — 빈 기록으로 시작한다. 잃는 것은 선점뿐이고 NOW.md 는 그대로다.
+  }
   const titles = new Set(items.map((item) => item.title));
   return Object.fromEntries(
     Object.entries(claims).filter(
