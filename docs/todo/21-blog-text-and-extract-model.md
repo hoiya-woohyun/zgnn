@@ -296,7 +296,7 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
   > `eval extract` 캐시는 새 프롬프트 폴더(`d7a6610e-…`)로 간다 → 🧑 H5. 서버 홉은 🧑 H1 전까지 옛 프롬프트.
 
 ### S8. 번들·`places.json` 에서 비공개 원문 빼기
-- [ ] `pull-db` 가 판정 입력(정책·환경·`feeUnitNote`)을 미리 계산해 싣고, 공개가 아닌 행은 원문과 `sources` 를 JSON 에서 뺀다 → `places.json` 모양·`places.ts` 가 바뀐다. `withPolicyFacts`·`correctPetPolicyFacts` 가 런타임에 원문을 읽는 자리를 빌드로 옮긴다. 안내·notes 가드(`publicGuide`·`publicNotes` — 원문이 필요하다)도 빌드가 돌려 통과한 문장만 싣는다(v6).
+- [ ] `pull-db` 가 판정 입력(정책·환경·`feeUnitNote`)을 미리 계산해 싣고, 공개가 아닌 행은 원문과 `sources` 를 JSON 에서 뺀다 → `places.json` 모양·`places.ts` 가 바뀐다. `withPolicyFacts`·`correctPetPolicyFacts` 가 런타임에 원문을 읽는 자리를 빌드로 옮긴다. notes 가드(`publicNotes` — 원문이 필요하다)도 빌드가 돌려 통과한 문장만 싣는다(v6). 안내(`publicGuide`)는 S7 뒤 원문 없이 지문·주제만 본다 — 런타임에 남겨도 된다.
   - 수용: 빌드 산출물(`out/`)과 `src/data/places.json` 에 블로그 출처 행의 원문 문장이 없다(`grep` 으로 일기초록 문장). 판정 결과는 바뀌기 전과 같다(122곳 × 강아지 5마리 스냅숏 테스트).
   - git 이력의 옛 원문은 남는다 — 재작성은 하지 않는다(포크·클론에 이미 있고, 지우는 것은 앞으로의 노출).
   - 끝나면: 🙋 H6 을 「기다림」 에.
