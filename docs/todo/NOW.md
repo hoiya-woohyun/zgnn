@@ -65,6 +65,7 @@
 - [ ] 추출 모델을 Sonnet 으로, 교차점검·제안은 Opus 고정 — [21 M1](21-blog-text-and-extract-model.md) · 왜 지금: 2026-10-12 비교에서 '가능' 쪽 지어냄 Opus 2 · Sonnet 0, 판정은 같거나 더 보수적, 2.5~4배 빠름(사용자 결정) — 끝나면 S7 을 13 §5.3 A1 위에
 - [ ] ADR-017 v9: 원문은 대조군, 공개 조건 문장은 판단에서(결정 13) — [21 S1](21-blog-text-and-extract-model.md) · 왜 지금: B 결정(2026-10-12)을 구현 전에 적는다, 문서만
 - [ ] 공개 조건 문장 순수 함수 `publicPolicyLines`·`publicNotes` + 테스트 — [21 S2](21-blog-text-and-extract-model.md) · 왜 지금: 블로그 출처 38곳의 조건 원문(블로거 문장)이 공개 상세에 그대로 나간다(레포도 PUBLIC) — 끝나면 S3 를 「지금」 에
+- [ ] `N박째부터 1박당 1만원` 의 금액이 원문 대조를 통과한다 — [21 G1.2](21-blog-text-and-extract-model.md) · 왜 지금: 혼자 있으면 1박 손님에게 틀린 금액을 확정 문장으로 낸다(BUG-018 의 남은 갈래), 한 줄
 - [ ] 일랑일랑 `반려견 1마리가 포함` 을 기본 마릿수 근거로 — [21 G1.1](21-blog-text-and-extract-model.md) · 왜 지금: 두 모델이 맞게 낸 `추가 1마리 5,000원` 이 아직 계산에서 빠진다(BUG-018 의 남은 갈래), 한 함수
 - [ ] `pnpm lint` 가 `claim.mjs` 빈 catch 둘로 빨갛다 — [08 T0.9](08-usability-and-process-plan.md) · 왜 지금: 린트 전체가 실패라 진짜 실패가 묻힌다, 두 줄
 - [ ] `/next` 커밋을 pathspec 한 명령으로 — [08 T0.8](08-usability-and-process-plan.md) · 왜 지금: 세션 둘 이상이 돌 때마다 남의 커밋에 섞인다(d3ecd38), 스킬 한 단락

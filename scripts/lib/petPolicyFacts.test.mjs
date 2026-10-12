@@ -334,11 +334,14 @@ describe('correctPetPolicyFacts — 모델이 맞게 낸 요금은 남긴다(BUG
     }
   });
 
-  it('초과 수와 안 맞는 fromDog · 초과를 잃은 fromDog 는 여전히 뺀다', () => {
+  /** 하나 어긋난 4가 모델이 실제로 낼 법한 틀림이다 — 원문의 `4마리` 가 fromDog 4 의 근거로도 잡혀 근거 검사로는 못 막는다. */
+  it('초과 수와 안 맞는 fromDog(하나 어긋난 4 포함) · 초과를 잃은 fromDog 는 여전히 뺀다', () => {
     const text = '4마리를 초과할 경우 1견당 3,000원';
+    const offByOne = rule({ label: '4마리 초과 1견당 3,000원', amountWon: 3000, fromDog: 4 });
     const wrongNth = rule({ label: '4마리 초과 1견당 3,000원', amountWon: 3000, fromDog: 6 });
     const lostNth = rule({ label: '4마리 초과 1견당 3,000원', amountWon: 3000 });
-    expect(correctPetPolicyFacts(facts({ fees: [wrongNth, lostNth] }), text).facts.fees.map((r) => r.amountWon)).toEqual([null, null]);
+    const fees = correctPetPolicyFacts(facts({ fees: [offByOne, wrongNth, lostNth] }), text).facts.fees;
+    expect(fees.map((r) => r.amountWon)).toEqual([null, null, null]);
   });
 
   it('숫자 뒤 `견` 은 마릿수다(`4인 4견`, 일랑일랑) — `1견당` 은 마리당 요금이라 아니다', () => {
@@ -351,10 +354,8 @@ describe('correctPetPolicyFacts — 모델이 맞게 낸 요금은 남긴다(BUG
     const nightly = { label: '2박째부터 1박당 1만원', perNight: true };
     const opus = [rule({ label: '첫 1박 1만5천원', amountWon: 15000, basis: 'flat' }), rule({ ...nightly, amountWon: 10000, basis: 'flat' })];
     const sonnet = [rule({ label: '첫 1박 기준 1만5천원', amountWon: 15000 }), rule(nightly)];
-    expect(calc(analyzeThenRead(facts({ fees: opus }), text).facts.fees)).toEqual([
-      [15000, null, null, null],
-      [10000, null, null, null],
-    ]);
+    // 첫 줄만 본다 — 둘째 줄 `2박째부터` 는 칸에 없는 조건이라 프롬프트상 null 이어야 하는데 지금 대조는 Opus 의 10000 을 남긴다(21 G1.2, 알려진 구멍).
+    expect(analyzeThenRead(facts({ fees: opus }), text).facts.fees[0].amountWon).toBe(15000);
     expect(analyzeThenRead(facts({ fees: sonnet }), text).facts.fees[0].amountWon).toBe(15000);
     // 이 수정 전에 정규화돼 DB 에 있는 label 모양 — 앱이 다시 대 볼 때도 15000 이다
     const stored = rule({ label: '첫 1박 기준 1만5,000원', amountWon: 15000 });

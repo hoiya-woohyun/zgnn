@@ -199,6 +199,10 @@ function shapeMatchesLabel(rule, label) {
   // fromDog > 1 이면 label 이 몇째 마리인지 말해야 한다 — `N마리부터|째|초과` 만이 아니라 `추가 1마리`(기본 마릿수를 넘는 마리)도 그렇다.
   // 반대 방향은 넓히지 않는다: `추가 1마리` + fromDog null 은 "반려견 1마리 추가 시 2만원"(마리당 요금)이라 통과해야 하고,
   // `N마리부터` 가 label 에 있는데 fromDog 가 없으면 그 조건을 잃은 것이라 거절한다(docs/todo/13 §5.1).
+  // `N마리 초과` 는 정확히 N+1째부터다 — 원문의 `N마리` 가 fromDog N 의 근거로도 잡혀서(`mentionsDogs`) 수는 여기서 맞춘다.
+  // 하나 어긋난 fromDog(4)가 통과하면 네 마리 데려온 사람에게 없는 요금을 확정 문장으로 낸다.
+  const over = label.match(/(\d+)\s*마리\s*(를|을)?\s*(초과|넘)/);
+  if (over && rule.fromDog !== Number(over[1]) + 1) return false;
   const nth = /\d\s*마리\s*(부터|째|(를|을)?\s*(초과|넘))/.test(label);
   if (rule.fromDog != null && rule.fromDog > 1) return nth || EXTRA_DOG_RE.test(label);
   if (nth) return false;
