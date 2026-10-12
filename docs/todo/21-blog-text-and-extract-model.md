@@ -280,6 +280,9 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
   - 수용: 빌드 산출물(`out/`)과 `src/data/places.json` 에 블로그 출처 행의 원문 문장이 없다(`grep` 으로 일기초록 문장). 판정 결과는 바뀌기 전과 같다(122곳 × 강아지 5마리 스냅숏 테스트).
   - git 이력의 옛 원문은 남는다 — 재작성은 하지 않는다(포크·클론에 이미 있고, 지우는 것은 앞으로의 노출).
   - 끝나면: 🙋 H6 을 「기다림」 에.
+  > 메모(S6 뒤, 2026-10-13): `/admin` 미리보기(`src/lib/adminPublicText.ts`)는 **런타임에** DB 행(원문이 있다) → `fromPlaceRow` → `toPlaceEntry`(`places.ts`) → `policyEvidence` 를 부른다.
+  > 이 태스크가 `toPlaceEntry` 를 "JSON 에 미리 계산된 칸을 읽는" 모양으로 바꾸면 미리보기만 조용히 사이트와 다른 길이 된다 — 동치 테스트(`adminPublicText.test.ts`)는 같은 함수를 양쪽에서 불러 이것을 못 잡는다.
+  > 그래서 원문 → 판정 입력을 만드는 **조립 함수 하나를 빌드(`pull-db`)와 `/admin` 이 함께 부르게** 둔다(행에는 원문이 있고 JSON 엔 없다 — 입력이 다를 뿐 조립은 하나).
 
 ### S9. 게시된 블로그 행은 문장만 다시 쓴다 — 판단 고정(S7 뒤, 2026-10-13 결정)
 - [ ] `pnpm data rewrite`(진입점 `scripts/data.mjs`, 새 스크립트): 대상 = `places` 의 `status = 'published' and not pet_policy_text_public and pet_policy_guide is null` — 2026-10-13 실측 38곳 · 출처 글 46편.
