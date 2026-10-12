@@ -10,7 +10,7 @@
 
 import { normalizeFeeLines } from '../../scripts/lib/feeLine.mjs';
 import { guardPublicText, POLICY_TOPICS, policyFingerprint } from '../../scripts/lib/petPolicyGuide.mjs';
-import type { TPetPolicyFacts, TPetPolicyGuide } from '../types';
+import type { TPetPolicyFacts, TPetPolicyGuide, TPlace } from '../types';
 import { BAG_ALLOWED, STROLLER_ALLOWED, type TPetPolicy } from './petPolicy';
 
 export type TPolicyTopic = keyof typeof POLICY_TOPICS;
@@ -117,3 +117,47 @@ export const publicGuide = (
   reasons.push(...guardPublicText(text, rawText).reasons);
   return reasons.length ? { text: null, reasons } : { text, reasons: [] };
 };
+
+/**
+ * 템플릿 줄이 하나도 안 나온 곳의 한 줄. `TEMPLATES` 는 **조건 칸**만 말해서 판정이 따로 세우는 상태 — 동반 불가(H1) · 못 읽음(C7) ·
+ * 일반 허용 문장뿐(C9) · 원문 없음(U1) — 에는 줄이 없다. 비워 두면 판정은 "어려움"·"확인" 인데 근거 칸이 텅 빈다.
+ * 못 읽음이 "원문" 을 가리키는 것은 판정 C7("원문을 확인해 주세요")과 같은 말을 하려는 것 — 원문은 밑의 「원문 보기」 링크다.
+ */
+const emptyLine = (policy: TPetPolicy): string => {
+  if (policy.notAllowed) return '반려견 동반이 안 된다고 적혀 있어요';
+  if (policy.unread) return '조건을 자동으로 정리하지 못했어요. 원문에서 확인해 주세요';
+  if (policy.noInfo) return '동반 조건이 적혀 있지 않아요';
+  return '반려견과 같이 갈 수 있다고만 적혀 있어요';
+};
+
+/**
+ * 상세 「반려동물 이용」 근거 칸에 무엇을 그리나(21 S5). 원문 공개(시드 — 가족이 쓴 문장)면 원문 그대로,
+ * 아니면 판단에서 만든 줄 + 안내(없으면 notes) 한 줄. **키가 없으면 숨김**이다(`TPlace.petPolicyTextPublic`).
+ */
+export type TPolicyEvidence =
+  | { kind: 'raw'; text: string }
+  | { kind: 'derived'; lines: string[]; note: string | null };
+
+type TEvidencePlace = Pick<TPlace, 'petPolicyText' | 'petPolicyTextPublic' | 'petPolicy' | 'petPolicyGuide'> & { policy: TPetPolicy };
+
+/**
+ * 인자가 셋으로 갈린다 — 템플릿은 배지와 같은 `policy`, 안내의 지문은 **저장된** `petPolicy`(대조를 다시 돌린 `policy` 를 넘기면 지문이 늘 어긋난다),
+ * 가드의 대조군은 원문.
+ */
+export const policyEvidence = (place: TEvidencePlace): TPolicyEvidence => {
+  if (place.petPolicyTextPublic === true) return { kind: 'raw', text: place.petPolicyText };
+  const lines = publicPolicyLines(place.policy).map((line) => line.text);
+  const guide = publicGuide(place.petPolicyGuide, place.petPolicy, place.petPolicyText).text;
+  return {
+    kind: 'derived',
+    lines: lines.length ? lines : [emptyLine(place.policy)],
+    note: guide ?? publicNotes(place.petPolicy?.notes, place.petPolicyText).text,
+  };
+};
+
+/**
+ * 화면에 실제로 나가는 글. 배지(`PetBadges sourceText`)는 이 글에 요금 줄이 이미 있으면 칩을 숨기는데, 원문을 넘기면
+ * **화면에 없는 글**을 보고 숨긴다 — 비공개 행에서 요금이 칩에도 문장에도 안 보이게 된다(테스트는 통과한다).
+ */
+export const evidenceText = (evidence: TPolicyEvidence): string =>
+  evidence.kind === 'raw' ? evidence.text : [...evidence.lines, evidence.note ?? ''].filter(Boolean).join('\n');

@@ -14,7 +14,8 @@
 //  - `--bare` 는 쓰지 않는다 — 키체인·OAuth 를 읽지 않아 구독 인증이 안 된다(ANTHROPIC_API_KEY 전용).
 //  - 구조화 출력은 --json-schema. 결과 JSON 의 structured_output 에 파싱된 객체가 온다(result 는 같은 내용의 문자열).
 //    stop_reason 은 'tool_use' 로 온다(CLI 가 내부적으로 도구 호출로 구현) — 그래서 subtype·is_error 로 성패를 본다.
-//  - petPolicyText 는 **원문 문장 그대로** 받고(표시용), 판정에 쓰는 구조화는 petPolicy 가 맡는다(ADR-017 — 앱은 그 값을 정본으로 쓴다).
+//  - petPolicyText 는 **원문 문장 그대로** 받고(대조군 — 원문 대조·`/admin` 검수. 공개 화면엔 그리지 않는다, 번들에서 빼는 것은 todo 21 S8), 판정에 쓰는 구조화는 petPolicy 가 맡는다
+//    (ADR-017 — 앱은 그 값을 정본으로 쓴다). 공개 상세는 판단에서 만든 문장을 그린다(ADR-017 결정 13).
 //  - 스키마는 모든 object 에 additionalProperties:false, optional 은 null 허용 anyOf + required 전부 명시.
 //    minimum/maximum·minLength 같은 제약은 API 가 거부하므로 confidence 0..1 은 코드에서 clamp 한다.
 //  - 응답 본문(모델 출력)·시크릿은 로그·에러 메시지에 싣지 않는다(docs/todo/05). CLI 의 **오류 문구**(is_error 일 때의 result:

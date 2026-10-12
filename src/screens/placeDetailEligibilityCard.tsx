@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { Button } from '../components/base/button';
 import { feeUnitNote } from '../lib/dogFee';
@@ -36,10 +36,19 @@ const DOT_CLASS: Record<TEligibilityLevel, string> = {
  * 등록은 이탈). 있으면 색 점 + 머리글 + 근거(심각도순, `useEligibility` 가 이미 정렬해 준다).
  * 요금 정보(`info` 레벨)는 판정 근거가 아니라 참고 정보라 아래에 작게 따로 둔다.
  *
- * **원문(`evidence`)은 따로 상자를 갖지 않고 이 면 안에 구분선으로 딸린다**(ADR-003 v15). 예전에는 판정·원문이
- * 같은 모양의 상자 둘로 쌓여 답과 근거가 같은 무게로 보였다. 강아지가 없으면 답이 없으므로 원문이 혼자 면을 갖는다.
+ * **근거(`evidence`)는 따로 상자를 갖지 않고 이 면 안에 구분선으로 딸린다**(ADR-003 v15). 예전에는 판정·원문이
+ * 같은 모양의 상자 둘로 쌓여 답과 근거가 같은 무게로 보였다. 강아지가 없으면 답이 없으므로 근거가 혼자 면을 갖는다.
+ * 근거의 이름표(`evidenceLabel`)는 원문을 그리는 곳만 「원문」 이다 — 블로그 출처는 원문 대신 정리한 문장을 그린다(21 S5).
  */
-export function PlaceDetailEligibilityCard({ place, evidence }: { place: TPlaceEntry; evidence: ReactNode }) {
+export function PlaceDetailEligibilityCard({
+  place,
+  evidenceLabel,
+  evidence,
+}: {
+  place: TPlaceEntry;
+  evidenceLabel: string;
+  evidence: ReactNode;
+}) {
   const dog = useDog();
   const eligibility = useEligibility(place);
   const needsIndoor = useAppStore((state) => state.needsIndoor);
@@ -124,55 +133,9 @@ export function PlaceDetailEligibilityCard({ place, evidence }: { place: TPlaceE
 
       {/* 근거 — 판정과 같은 면, 구분선 아래. 이름표가 있어야 판정의 "원문을 확인해 주세요"(C7)가 가리키는 곳이 보인다. */}
       <div className="border-t border-secondary p-4">
-        <p className="mb-2 text-xs font-semibold text-tertiary">원문</p>
+        <p className="mb-2 text-xs font-semibold text-tertiary">{evidenceLabel}</p>
         {evidence}
       </div>
     </div>
   );
-}
-
-/**
- * 원문 문단에서 판정 근거(`reason.quote`)와 일치하는 문장을 `<mark>` 로 강조한다.
- *
- * `quote` 는 `petPolicy.ts` 가 원문을 문장 단위로 쪼갠 조각 그대로라(트림만 적용, 구분자인
- * '.'·줄바꿈은 없음) 정규식 없이 `indexOf` 로 원문 안 위치를 그대로 찾을 수 있다 — 이스케이프
- * 걱정이 없다. 못 찾으면(예: 파서가 원문을 살짝 다르게 나눈 경우) 그 quote 는 그냥 건너뛰고
- * 강조 없이 원문을 있는 그대로 보여준다.
- */
-export function HighlightedPolicyText({ text, place }: { text: string; place: TPlaceEntry }) {
-  const eligibility = useEligibility(place);
-  if (!eligibility) return <>{text}</>;
-
-  const quotes = Array.from(
-    new Set(eligibility.reasons.map((reason) => reason.quote).filter((quote): quote is string => Boolean(quote))),
-  );
-  if (quotes.length === 0) return <>{text}</>;
-
-  // reasons 는 심각도순이므로 quotes 의 순서가 곧 우선순위다. 겹치는 구간은 더 센 근거가
-  // 차지하도록, 심각도순으로 하나씩 넣되 이미 잡힌 구간과 겹치면 버린다. 그 뒤 위치순 정렬.
-  const merged: { start: number; end: number; quote: string }[] = [];
-  for (const quote of quotes) {
-    const start = text.indexOf(quote);
-    if (start < 0) continue;
-    const end = start + quote.length;
-    if (merged.some((taken) => start < taken.end && end > taken.start)) continue;
-    merged.push({ start, end, quote });
-  }
-  merged.sort((a, b) => a.start - b.start);
-  if (merged.length === 0) return <>{text}</>;
-
-  const nodes: ReactNode[] = [];
-  let cursor = 0;
-  merged.forEach((range, index) => {
-    if (range.start > cursor) nodes.push(<Fragment key={`t${index}`}>{text.slice(cursor, range.start)}</Fragment>);
-    nodes.push(
-      <mark key={`m${index}`} className="rounded bg-brand-primary px-0.5 text-ink">
-        {text.slice(range.start, range.end)}
-      </mark>,
-    );
-    cursor = range.end;
-  });
-  if (cursor < text.length) nodes.push(<Fragment key="tail">{text.slice(cursor)}</Fragment>);
-
-  return <>{nodes}</>;
 }

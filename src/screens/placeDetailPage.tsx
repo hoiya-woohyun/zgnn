@@ -6,15 +6,15 @@ import { PlaceDetailFreshness } from './placeDetailFreshness';
 import { PlaceDetailHeader } from './placeDetailHeader';
 import { PlaceDetailGallery } from './placeDetailGallery';
 import { PlaceDetailHomepage } from './placeDetailHomepage';
-import { HighlightedPolicyText, PlaceDetailEligibilityCard } from './placeDetailEligibilityCard';
+import { PlaceDetailEligibilityCard } from './placeDetailEligibilityCard';
 import { PlaceDetailMiniMap } from './placeDetailMiniMap';
 import { PlaceDetailNearby } from './placeDetailNearby';
+import { PlaceDetailPolicyText, POLICY_EVIDENCE_LABEL } from './placeDetailPolicyText';
 import { PlaceDetailReport } from './placeDetailReport';
 import { PlaceItemsNote } from '../components/placeItemsNote';
-import { PetBadges } from '../components/petBadges';
 import { formatStayPrice, stayPriceSourceLine } from '../lib/format';
+import { policyEvidence } from '../lib/petPolicyPublic';
 import { getPlace } from '../lib/places';
-import { useDog } from '../store/useAppStore';
 import { environmentPhrases } from '../lib/stayEnvironmentView';
 import { CARD_SURFACE } from '../components/cardSurface';
 
@@ -23,10 +23,11 @@ import { CARD_SURFACE } from '../components/cardSurface';
  * 여기 notFound 는 실제로는 걸리지 않는다 — 타입을 좁히려고 둔다.
  */
 export function PlaceDetailPage({ id }: { id: string }) {
-  const dog = useDog();
   const place = getPlace(id);
   if (!place) notFound();
   const environment = environmentPhrases(place.environment);
+  // 원문을 그릴지, 판단에서 만든 문장을 그릴지(21 S5) — 근거 칸과 그 이름표가 같은 값을 본다.
+  const evidence = policyEvidence(place);
 
   return (
     <article>
@@ -37,7 +38,7 @@ export function PlaceDetailPage({ id }: { id: string }) {
       {place.images.length > 0 && <PlaceDetailGallery place={place} />}
 
       {/*
-        배지는 아래 '반려동물 이용' 카드에서 원문과 함께 한 번만 보여준다.
+        배지는 아래 '반려동물 이용' 카드에서 근거 문장과 함께 한 번만 보여준다.
         여기에도 같은 배지를 깔면 한 화면에 똑같은 줄이 두 번 나와서, 두 줄이 서로
         다른 것을 말하는 줄 알고 읽게 된다. 여기는 특징 문장만 남긴다(저장은 위 액션 줄).
       */}
@@ -48,22 +49,14 @@ export function PlaceDetailPage({ id }: { id: string }) {
       <section className="mt-6 px-4 md:px-6">
         <h2 className="text-lg font-bold text-primary">반려동물 이용</h2>
         <div className="mt-2">
-          {/* 우리 강아지 기준 판정이 먼저, 원문은 그 면 안에 딸린 근거로 — 사용자가 먼저 알고 싶은 건
-              "우리 강아지가 갈 수 있는가"다. 원문은 따로 상자를 갖지 않는다(ADR-003 v15). */}
+          {/* 우리 강아지 기준 판정이 먼저, 근거(원문 또는 정리한 조건)는 그 면 안에 딸린다 — 사용자가 먼저 알고 싶은 건
+              "우리 강아지가 갈 수 있는가"다. 근거는 따로 상자를 갖지 않는다(ADR-003 v15). */}
           <PlaceDetailEligibilityCard
             place={place}
+            evidenceLabel={POLICY_EVIDENCE_LABEL[evidence.kind]}
             evidence={
               <>
-                {/* 파서가 조건을 놓쳤을 수 있어, 구조화 배지와 원문을 함께 보여준다. */}
-                <PetBadges
-                  policy={place.policy}
-                  hideNoInfo={Boolean(dog)}
-                  sourceText={place.petPolicyText}
-                  className="mb-3"
-                />
-                <p className="whitespace-pre-line text-sm text-secondary">
-                  <HighlightedPolicyText text={place.petPolicyText} place={place} />
-                </p>
+                <PlaceDetailPolicyText place={place} evidence={evidence} />
                 {/* 확인 날짜가 있으면 그 달을, 없으면 예전 문장(10 F3). */}
                 <PlaceDetailFreshness place={place} />
               </>

@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { POLICY_TOPICS, policyFingerprint } from '../../scripts/lib/petPolicyGuide.mjs';
 import type { TPetPolicyFacts } from '../types';
 import { parsePetPolicy, toPetBadges, withPolicyFacts } from './petPolicy';
-import { publicGuide, publicNotes, publicPolicyLines } from './petPolicyPublic';
+import { PLACES } from './places';
+import { evidenceText, policyEvidence, publicGuide, publicNotes, publicPolicyLines } from './petPolicyPublic';
 
 /** 모델이 아무것도 안 읽은 판단(추출 스키마 모양). 각 테스트가 필요한 칸만 덮어쓴다. */
 const empty: TPetPolicyFacts = {
@@ -131,5 +132,79 @@ describe('publicGuide — 쓴 시점의 판단과 지금 판단이 같을 때만
   it('안내가 없으면 숨기되 이유는 없다', () => {
     expect(publicGuide(null, facts, raw)).toEqual({ text: null, reasons: [] });
     expect(publicGuide({ text: ' ', basis: policyFingerprint(facts) }, facts, raw)).toEqual({ text: null, reasons: [] });
+  });
+});
+
+describe('policyEvidence — 상세 근거 칸에 원문을 그리나, 판단에서 만든 문장을 그리나(21 S5)', () => {
+  const raw = '반려동물 동반 ( 야외 )\n카페 뒤 정원에 산책로가 있어서 강아지랑 한 바퀴 돌았어요';
+  const facts: TPetPolicyFacts = { ...empty, indoor: 'outdoorOnly', notes: '정원 산책로는 강아지랑 같이 돌 수 있어요' };
+  const placeOf = (over: Partial<Parameters<typeof policyEvidence>[0]> = {}) => ({
+    petPolicyText: raw,
+    petPolicy: facts,
+    policy: policyOf(raw, facts),
+    ...over,
+  });
+
+  it('원문 공개(시드)면 원문 그대로', () => {
+    expect(policyEvidence(placeOf({ petPolicyTextPublic: true }))).toEqual({ kind: 'raw', text: raw });
+  });
+
+  // 칸을 빠뜨린 입구(키 없음)가 새지 않는 쪽으로 넘어진다 — `false` 와 같다.
+  it('공개 키가 없으면 숨김 — 판단 줄과 notes', () => {
+    for (const petPolicyTextPublic of [undefined, false]) {
+      expect(policyEvidence(placeOf({ petPolicyTextPublic }))).toEqual({
+        kind: 'derived',
+        lines: ['야외 자리에서만 같이 있을 수 있어요'],
+        note: '정원 산책로는 강아지랑 같이 돌 수 있어요',
+      });
+    }
+  });
+
+  it('안내가 있으면 notes 대신 안내 — 판단이 바뀌면 notes 로 내려간다', () => {
+    const petPolicyGuide = { text: '정원 산책로까지 같이 걸을 수 있어요', basis: policyFingerprint(facts) };
+    expect(policyEvidence(placeOf({ petPolicyGuide }))).toMatchObject({ note: '정원 산책로까지 같이 걸을 수 있어요' });
+    // 운영자가 판단을 고쳤다(`/admin`) — 안내는 지문이 어긋나 숨고, 고친 판단의 notes 가 선다.
+    expect(policyEvidence(placeOf({ petPolicyGuide, petPolicy: { ...facts, leash: true } }))).toMatchObject({
+      note: '정원 산책로는 강아지랑 같이 돌 수 있어요',
+    });
+  });
+
+  it('템플릿 줄이 없는 곳은 빈 칸 대신 상태 한 줄', () => {
+    const generic = '애견동반 가능해요';
+    expect(policyEvidence({ petPolicyText: generic, policy: parsePetPolicy(generic) })).toMatchObject({
+      lines: ['반려견과 같이 갈 수 있다고만 적혀 있어요'],
+    });
+    const denied = '반려동물 동반 불가';
+    expect(policyEvidence({ petPolicyText: denied, policy: parsePetPolicy(denied) })).toMatchObject({
+      lines: ['반려견 동반이 안 된다고 적혀 있어요'],
+    });
+    // 아무 칸도 못 읽고 notes 만 남은 판단 — 판정 C7("원문을 확인해 주세요")과 같은 말.
+    const odd = '사장님께 여쭤보면 상황에 따라 다르대요';
+    const unread = { ...empty, notes: '상황에 따라 달라요' };
+    expect(policyEvidence({ petPolicyText: odd, petPolicy: unread, policy: policyOf(odd, unread) })).toMatchObject({
+      lines: ['조건을 자동으로 정리하지 못했어요. 원문에서 확인해 주세요'],
+    });
+  });
+
+  it('evidenceText — 화면에 나가는 글(배지가 요금 줄 중복을 대 보는 글)', () => {
+    expect(evidenceText({ kind: 'raw', text: raw })).toBe(raw);
+    expect(evidenceText({ kind: 'derived', lines: ['가', '나'], note: null })).toBe('가\n나');
+    expect(evidenceText({ kind: 'derived', lines: ['가'], note: '다' })).toBe('가\n다');
+  });
+
+  // S5 수용의 기계판 — 지금 스냅샷의 비공개 행(블로그 출처) 어디서도 원문 15자 이음이 화면 글에 없다.
+  it('스냅샷의 비공개 행은 원문 문장을 옮기지 않는다', () => {
+    const squash = (s: string) => s.replace(/\s+/g, '');
+    const hidden = PLACES.filter((place) => !place.petPolicyTextPublic);
+    expect(hidden.length).toBeGreaterThan(0);
+    for (const place of hidden) {
+      const evidence = policyEvidence(place);
+      expect(evidence.kind).toBe('derived');
+      const shown = squash(evidenceText(evidence));
+      const source = squash(place.petPolicyText);
+      for (let i = 0; i + 15 <= source.length; i += 1) {
+        expect(shown, `${place.name}: "${source.slice(i, i + 15)}"`).not.toContain(source.slice(i, i + 15));
+      }
+    }
   });
 });

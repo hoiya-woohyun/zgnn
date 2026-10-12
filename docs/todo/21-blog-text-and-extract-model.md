@@ -1,6 +1,7 @@
 # 21. 블로그 문장이 사이트에 그대로 나가지 않게 · 추출 모델을 Sonnet 으로
 
-> 최종 수정: 2026-10-12 (v11: G1.1 끝 — `N마리가 포함` 이 기본 마릿수 근거, Sonnet 의 숫자 없는 `추가 반려견 마리당` 도 산다)
+> 최종 수정: 2026-10-12 (v12: S5 끝 — 근거 칸은 `policyEvidence` 하나가 정한다(원문 공개면 원문, 아니면 템플릿 줄 + 안내/notes + 「원문 보기」). C7 은 고치지 않고 링크를 「원문 보기」 로 — 판정이 공개 플래그를 모르게. S6 을 「지금」 에)
+> 이전 2026-10-12 (v11: G1.1 끝 — `N마리가 포함` 이 기본 마릿수 근거, Sonnet 의 숫자 없는 `추가 반려견 마리당` 도 산다)
 > 이전 2026-10-12 (v10: G1.2 끝 — label 의 `N박째` 는 계산하지 않는다. 저장분은 앱이 다시 대조해 저절로 빠진다)
 > 이전 2026-10-12 (v9: S4 끝 — 플래그는 원문 글자가 바뀔 때만 false · 안내만 다르면 안내 하나 · 제안 가드는 남을 원문으로. fallback 제거는 S4.1(H2 뒤). 「발견」 셋을 S5(먼저 스냅샷)·S7(안내 가드의 대조군)·H6(anon select)으로)
 > 이전 2026-10-12 (v8: S3 끝 — 마이그레이션 `20261012120000`(원격 미적용, 🧑 H2) · JSON 은 공개일 때만 키 · fallback 은 마이그레이션 조건 그대로. S4 를 NOW 「지금」 에)
@@ -188,7 +189,7 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
   - 끝나면: 없음.
 
 ### S5. 공개 상세가 표시문을 그린다
-- [ ] `src/screens/placeDetailPolicyText.tsx`(owner-prefix) — 공개면 원문 + 강조(지금 그대로), 아니면 `publicPolicyLines` + **`publicGuide` 가 낸 안내, 없으면 `publicNotes`** + 「블로그 글을 읽고 정리했어요 · 글 보기」(`reviewUrl`).
+- [x] `src/screens/placeDetailPolicyText.tsx`(owner-prefix) — 공개면 원문 + 강조(지금 그대로), 아니면 `publicPolicyLines` + **`publicGuide` 가 낸 안내, 없으면 `publicNotes`** + 「블로그 글을 읽고 정리했어요 · 글 보기」(`reviewUrl`).
   - `PetBadges sourceText` 에는 **표시문**을 넘긴다 — 원문을 넘기면 요금 칩이 "본문에 이미 있다" 로 숨는데 그 본문은 화면에 없다(테스트는 통과한다). 라벨 「원문」(`placeDetailEligibilityCard.tsx:124`) · C7 문구(`eligibility.ts:363`) · 판정 이유의 인용(`quote` = 원문 조각)이 화면에 나가는지 보고 비공개 행에선 숨긴다.
   - 원칙 주석 고치기: `petPolicy.ts:8-10` · `extractPlaces.mjs:17`.
   - 검증: Chrome 확장으로 일기초록(블로그) · 시드 한 곳. 문서: [pet-policy-and-eligibility](../architecture/pet-policy-and-eligibility.md) · ADR-017 상태 · CLAUDE.md 「조용히 깨지는 것들」 한 줄(새 칸을 더하면 템플릿에도).
@@ -196,9 +197,15 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
   - **먼저 스냅샷**(v8 발견): 커밋된 `src/data/places.json` 엔 공개 플래그가 없어 로컬에선 시드도 숨김으로 그려진다 → `pnpm data pull` 하고 `chore(data)` 로 따로 커밋.
     그 pull 에는 중문보말칼국수(10-12 04:37 `/admin` 수정: 소형견만·케이지·소개)가 함께 들어와 `areaGroups.test.ts` 「콩 2.5kg + 해피 12kg · 유모차」 고정 수 1건이 바뀐다 — 같은 커밋에서 맞춘다.
   - 끝나면: S6 를 「지금」 에.
+  > 메모: 2026-10-12 끝 — 스냅샷 `9057f0e`(플래그 84 · 중문보말칼국수, `areaGroups` 콩+해피 식당 남부 3 → 2). 고르는 일은 순수 함수 `policyEvidence`·`evidenceText`(`petPolicyPublic.ts`)가 맡고 화면은 그리기만 —
+  > 근거 칸과 그 이름표(「원문」/「정리한 조건」)가 같은 값을 본다. 명세와 다르게 간 것: ① 링크는 「글 보기」 가 아니라 **「원문 보기」** — C7("원문을 확인해 주세요")·배지 `원문 확인 필요` 를 그대로 두고
+  > 그 "원문" 이 링크를 가리키게 했다(판정에 공개 플래그를 끌어들이면 목록·지도·홈까지 번진다). ② 템플릿 줄이 0개인 곳(동반 불가·못 읽음·일반 허용뿐)은 빈 칸 대신 상태 한 줄(`emptyLine`) —
+  > 지금 비공개 38곳은 전부 줄이 1개 이상이라 화면엔 안 드러난다. ③ `feeUnitNote` "1박 기준인지는 원문에 없어요" → "적혀 있지 않아요"(판포현·협재현 같은 비공개 숙소에도 선다).
+  > 인용(`quote`)은 `HighlightedPolicyText`(새 파일로 옮김)에서만 쓰여 비공개 행에선 저절로 안 나간다. 수용의 기계판: 스냅샷 비공개 행 전부의 화면 글에 원문 15자 이음이 없다(테스트).
+  > 안내 분기는 스냅샷에 안내가 0곳이라 단위 테스트로만(지문이 맞으면 안내 · 판단이 바뀌면 notes). 화면은 **Playwright** 로 봤다(Chrome 확장 미연결): 일기초록(강아지 있음·없음) · 판포현스테이(요금 칩이 문장에 있어 숨음) · 솔숲펜션(시드, 원문 그대로).
 
 ### S6. `/admin` 에 「사이트에 나갈 문장」 미리보기
-- [ ] 검수·편집·사이트 비교 화면에 같은 함수로 미리보기 + 「사이트에 안 나가는 notes·안내와 이유」(베낌 · 없는 숫자 · 판단 주제 · 판단이 바뀌어 숨음). 문서: [admin-review](../features/admin-review.md).
+- [ ] 검수·편집·사이트 비교 화면에 같은 함수로(`policyEvidence`·`evidenceText` — S5) 미리보기 + 「사이트에 안 나가는 notes·안내와 이유」(베낌 · 없는 숫자 · 판단 주제 · 판단이 바뀌어 숨음). 문서: [admin-review](../features/admin-review.md).
   - **사이트 값 칸 이름이 출처를 따른다**(v6, 담소요): `짱구누나 → 바뀔 값`(`adminPageGroupSiteCompare.tsx:114·169`) · `짱구누나 · 지금 사이트`(`adminPageGroupDetail.tsx:33`)는 출처를 안 보고 붙는다 —
     블로그에서 온 값(`source = 'blog'` 또는 `pet_policy_text_public = false`)을 「짱구누나」 로 부르면 블로거의 문장이 운영자의 문장처럼 보인다. 「지금 사이트」 + 출처 칩(시드 = 짱구누나 · 블로그).
   - 사이트 비교(`adminPageGroupSiteCompare`)의 `proposalFieldOf` 가 「원문 공개」 줄을 조건 원문의 제안 이유와 잇지 않아 그 줄의 이유 칸이 빈다(S4 뒤) — 원문 짝의 why 를 같이 보이게.

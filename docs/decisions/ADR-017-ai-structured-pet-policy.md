@@ -26,7 +26,7 @@
 > 분석 시점과 앱 두 곳), 정규식이 읽은 제한은 AI 의 허용이 풀지 못한다. 계기는 '대형견 불가' 가 판정에 닿게 한 것(BUG-009) — 그 순간부터
 > 모델이 추론으로 낸 부정이 곧 '어려움' 이 되므로 근거 확인이 필요해졌다)
 > 이전 (v1: 신설 — 첫 `data:analyze` 실측(글 50건 → 후보 160건)과 설계 검토에서 나온 결정)
-> 상태: 결정 · 구현됨 — 결정 13 만 채택(2026-10-12 사용자 · v10 D1·D2 수정 같은 날)·구현 전([todo 21](../todo/21-blog-text-and-extract-model.md) S2~S8). 구현된 것(`scripts/analyze/extractPlaces.mjs` 의 `petPolicy` · `places.pet_policy` · `src/lib/petPolicy.ts` 의 `withPolicyFacts` · `src/lib/dogFee.ts` 의 `sumByRules` · `pnpm data:review`).
+> 상태: 결정 · 구현됨 — 결정 13 만 채택(2026-10-12 사용자 · v10 D1·D2 수정 같은 날)·일부 구현: 공개 상세가 판단에서 만든 문장을 그린다(S2~S5, 2026-10-12). `/admin` 미리보기(S6)·추출의 안내 칸(S7)·번들에서 원문 빼기(S8)는 아직([todo 21](../todo/21-blog-text-and-extract-model.md)). 구현된 것(`scripts/analyze/extractPlaces.mjs` 의 `petPolicy` · `places.pet_policy` · `src/lib/petPolicy.ts` 의 `withPolicyFacts` · `src/lib/dogFee.ts` 의 `sumByRules` · `pnpm data:review`).
 
 ## 맥락
 

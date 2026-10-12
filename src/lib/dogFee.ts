@@ -314,5 +314,6 @@ export const feeUnitNote = (
   if (type !== 'stay' || !fee || fee.includes('추가 요금 없음')) return null;
   if (policy.feeRules?.some((rule) => rule.perNight)) return null;
   if (FEE_UNIT_RE.test([policyText, ...policy.feeLines].join(' '))) return null;
-  return '1박 기준인지는 원문에 없어요';
+  // '원문에' 라고 하지 않는다 — 블로그 출처 숙소는 원문을 화면에 내지 않는다(21 S5). 시드·블로그 둘 다에 맞는 말로.
+  return '1박 기준인지는 적혀 있지 않아요';
 };

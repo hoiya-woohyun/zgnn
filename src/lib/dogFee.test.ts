@@ -400,7 +400,7 @@ describe('feeChipForWeight — 카드의 요금 칩 하나를 우리 강아지 �
 });
 
 describe('feeUnitNote — 1박마다인지 원문이 말하지 않으면 상세가 한 줄 붙인다(08 T5.1)', () => {
-  const NOTE = '1박 기준인지는 원문에 없어요';
+  const NOTE = '1박 기준인지는 적혀 있지 않아요';
   const seed = (name: string) => {
     const place = PLACES.find((p) => p.name === name);
     if (!place) throw new Error(`시드에 없다: ${name}`);
