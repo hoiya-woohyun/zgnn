@@ -559,8 +559,9 @@ export const withPolicyFacts = (parsed: TPetPolicy, facts: TPetPolicyFacts | nul
   const maxDogs = corrected.maxDogs ?? undefined;
   const weightLimitKg = corrected.weightLimitKg ?? undefined;
   // AI 는 숫자만 준다 — 경계를 포함하는지는 원문이 말한다. 원문에 "N kg 미만" 이 있을 때만 제외, 아니면 '이하'(정규식 tier 와 같은 기본).
+  // 앞 숫자는 lookbehind 대신 앞 글자로 막는다 — 이 파일은 사이트 번들이고 iOS 16.4 전 Safari 는 lookbehind 를 못 읽는다(08 T0.11).
   const weightInclusive =
-    weightLimitKg === undefined ? undefined : !new RegExp(`(?<![\\d.])${String(weightLimitKg).replace('.', '\\.')}\\s*kg\\s*미만`, 'i').test(petPolicyText);
+    weightLimitKg === undefined ? undefined : !new RegExp(`(?:^|[^\\d.])${String(weightLimitKg).replace('.', '\\.')}\\s*kg\\s*미만`, 'i').test(petPolicyText);
 
   /*
    * 근거 문장: 정규식이 **같은 판단**을 짚은 문장이 있으면 그것을, 없으면 그 말이 든 줄을 쓴다.

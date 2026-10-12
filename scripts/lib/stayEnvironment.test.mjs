@@ -17,6 +17,12 @@ describe('parseStayEnvironment', () => {
     expect(parseStayEnvironment('단층 독채라 계단이 없어요').stairs).toBe(false);
   });
 
+  // 08 T0.11 — lookbehind 를 걷고 앞 낱말을 캡처해 거른다. 용품 계단과 건물 계단이 한 글에 같이 있어도 건물 계단을 놓치지 않는다.
+  it('용품 계단만 거른다 — 붙여 쓴 용품 · 건물 계단이 함께 있는 글', () => {
+    expect(parseStayEnvironment('반려견계단, 펫 계단 비치').stairs).toBeNull();
+    expect(parseStayEnvironment('강아지 계단 있어요. 2층 객실이라 계단을 올라가요').stairs).toBe(true);
+  });
+
   it('울타리는 마당 가까이 있어야 울타리 마당이고, 그러면 마당도 있다', () => {
     expect(parseStayEnvironment('펜스가 쳐진 잔디 마당')).toMatchObject({ fencedYard: true, yard: true });
     expect(parseStayEnvironment('주차장 울타리. 객실은 깔끔해요').fencedYard).toBeNull();

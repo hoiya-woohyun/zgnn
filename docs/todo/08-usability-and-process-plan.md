@@ -518,7 +518,7 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
 
 - 로컬 `vercel build --prod`(CLAUDE.md 가 말하는 배포 설정 검증)가 설치에서 멈춘다 — 로컬 pnpm 12.8 이 `package.json` 의 `pnpm.onlyBuiltDependencies` 를 안 읽어 `ERR_PNPM_IGNORED_BUILDS`(esbuild·unrs-resolver). `npm_config_strict_dep_builds=false` 로도 안 풀린다. Vercel 은 pnpm 10 이라 배포는 무관. 설정을 `pnpm-workspace.yaml`(`allowBuilds`)로 옮길지 — 출처: todo/20 T6
 
-### [ ] T0.11 사이트 번들에 남은 lookbehind 둘 — iOS 16.4 전 Safari 에서 청크째 죽는다
+### [x] T0.11 사이트 번들에 남은 lookbehind 둘 — iOS 16.4 전 Safari 에서 청크째 죽는다
 
 - 근거: `feeLine.mjs` 머리 주석의 규칙(브라우저가 읽는 모듈엔 lookbehind 를 쓰지 않는다)을 안 지킨 곳이 둘 남았다 — 21 G1.3 에서 `CORRECTION_CUES` 의 셋을 걷으며 찾았다(2026-10-13).
   `scripts/lib/stayEnvironment.mjs:23` `stairs` 의 **리터럴** `(?<!강아지\s?|반려견\s?|펫\s?)계단`(가변 길이) — `src/lib/places.ts` 가 import 해 모든 화면 청크에 든다(파싱 에러 = 하이드레이션 안 됨) ·
@@ -526,3 +526,7 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
 - 단계: 둘 다 앞 글자 캡처 어법으로(`(?:^|[^\d.])` · 계단은 앞 낱말을 캡처해 거르는 함수로). 다시 생기지 않게 테스트 하나 — 브라우저가 import 하는 `scripts/lib/*.mjs`·`src/lib/*.ts`(테스트 제외)의 소스에 `(?<!`·`(?<=` 가 없는지(주석 줄은 뺀다).
 - 수용: 그 테스트 초록 · `stayEnvironment.test.mjs` 의 계단 판독 그대로 · `pnpm build` 산출물(`out/_next/static/chunks`)에 `(?<!` 0건(grep).
 - 커밋: `fix(pwa) - 사이트 번들의 lookbehind 둘을 걷는다 — iOS 16.4 전 Safari`
+  > 메모(2026-10-13): 둘이 아니라 **셋** — `src/lib/adminAddress.ts` `addressDiffSpans` 의 번지 칠하기 `new RegExp('(?<![\\d-])…')`(런타임, `/admin`)도 같은 모양이라 함께 걷었다(앞 글자 캡처 → 시작 = index + 앞 글자 길이).
+  > 계단은 `(?:(강아지|반려견|펫)\s?)?계단` 을 전부 훑어 앞 낱말이 **없는** 계단이 하나라도 있으면 있다(`YES.stairs` 를 `{ test }` 객체로 — 부르는 곳 둘이 그대로). 실데이터 396글 옛 정규식 ↔ 새 함수 차이 0.
+  > 테스트 `src/lib/browserBundleRegex.test.ts`: `src/` 비테스트 파일에서 상대·`@/` import 를 따라 닿는 모든 모듈(`scripts/lib`·`scripts/analyze` 포함)의 주석 아닌 줄에 `(?<!`·`(?<=` 0 —
+  > 따라가기가 끊기면 빈 통과라 `scripts/lib` 셋에 닿는지도 단언한다. 빌드(HEAD 분리 worktree + 이 변경, 7727 dev 와 안 겹치게): exit 0 · `sw.js` · 청크 39개에 `(?<!`·`(?<=` 0 — 남은 `(?<` 8 은 이름 그룹(`(?<w>…)`).

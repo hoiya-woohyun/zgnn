@@ -256,8 +256,12 @@ export function addressDiffSpans(address: string, other: string): TAddressSpan[]
   }
   if (sameKind && differs('base')) ranges.push({ start: baseStart, end: baseEnd });
   if (sameKind && differs('number')) {
-    const numberMatch = new RegExp(`(?<![\\d-])${escapeRegExp(mine.number)}(?![\\d-])`).exec(address.slice(baseEnd));
-    if (numberMatch) ranges.push({ start: baseEnd + numberMatch.index, end: baseEnd + numberMatch.index + mine.number.length });
+    // 앞 글자는 lookbehind 대신 캡처한다(브라우저 번들 — iOS 16.4 전 Safari, 08 T0.11). 번지는 그 앞 글자 다음에서 시작한다.
+    const numberMatch = new RegExp(`(^|[^\\d-])${escapeRegExp(mine.number)}(?![\\d-])`).exec(address.slice(baseEnd));
+    if (numberMatch) {
+      const start = baseEnd + numberMatch.index + numberMatch[1].length;
+      ranges.push({ start, end: start + mine.number.length });
+    }
   }
   return spansOf(address, ranges);
 }
