@@ -1,13 +1,14 @@
 # 21. 블로그 문장이 사이트에 그대로 나가지 않게 · 추출 모델을 Sonnet 으로
 
-> 최종 수정: 2026-10-12 (v5: H1 — M1 뒤 워커를 먼저 한 번 배포(서버 추출도 Sonnet), S7 뒤 한 번 더)
+> 최종 수정: 2026-10-12 (v6: D1 수정 — 템플릿 줄 밑에 **AI 가 자기 말로 쓴 안내 1~2문장**(판단 지문이 맞을 때만, 판단 칸 주제 금지). S2 에 가드·지문 `.mjs` · S3 에 안내 칸 · S4 제안이 안내를 씀 · S7 추출이 안내를 씀(S2 뒤) · S6 에 「짱구누나」 라벨. 근거에 담소요)
+> 이전 2026-10-12 (v5: H1 — M1 뒤 워커를 먼저 한 번 배포(서버 추출도 Sonnet), S7 뒤 한 번 더)
 > 이전 2026-10-12 (v4: S1 끝 — ADR-017 v9 결정 13 · ADR-002 v6)
 > 이전 2026-10-12 (v3: M1 끝 — 추출 Sonnet · 교차점검·제안 Opus 고정. 서버 워커 env 에 `ANALYZE_MODEL` 없음)
 > 이전 2026-10-12 (v2: G1 끝 — BUG-018. 남은 갈래를 G1.1(일랑일랑 기본 마릿수) · G1.2(`N박째부터` 금액이 산다) · G1.3(`/admin` 칠하기가 새 판독과 어긋남) 으로)
 > 이전 2026-10-12 (v1: 신설 — 2026-10-12 세션의 실측 셋(블로그 문장 베낌 · Opus↔Sonnet 비교 · 원문 대조가 맞는 요금을 지움)과 사용자 결정 둘(B · Sonnet)을 태스크로)
 
 **한 줄:** 조건 원문(`petPolicyText`)은 블로그 문장을 **글자 그대로** 옮기도록 설계돼 있고(원문 대조의 대조군), 그 문장이 공개 상세 화면에 그대로 나간다.
-원문은 대조군으로만 남기고, 사이트에는 **판단(`petPolicy`)에서 만든 문장 + 가드를 거친 notes 한 줄 + 출처 글 링크**를 보인다(B).
+원문은 대조군으로만 남기고, 사이트에는 **판단(`petPolicy`)에서 만든 템플릿 줄 + AI 가 자기 말로 쓴 안내 1~2문장(없으면 가드를 거친 notes 한 줄) + 출처 글 링크**를 보인다(B, v6 에서 안내를 더함).
 같은 세션의 모델 비교로 추출은 Sonnet 으로 바꾸고(교차점검·제안은 Opus 고정), 비교 중에 찾은 모델과 무관한 결함(원문 대조가 맞는 요금을 지움)을 고친다.
 
 규약은 [15](15-ops-dashboard.md)·[20](20-vercel-remote-worker.md) 와 같다 — 한 태스크 = 한 커밋, 태스크마다 파일·수용 기준·검증. `🧑` 는 사용자 터미널 몫, `🙋` 는 사용자가 정할 것.
@@ -28,6 +29,9 @@
 - **식약처 명단글**(`mialove89` 글 5편 → 대기 후보 **137건**): 본문은 상호 나열뿐이라 소개가 전부 "식약처 반려동물 동반 가능 업소 현황에 … 올라 있는 ○○이에요". 소개 칸 지시에 "없으면 null" 출구가 없다. **Sonnet 도 똑같이 쓴다** — 모델이 아니라 프롬프트 문제.
 - 업주 블로그(`jejuangelhouse` 글 324편 → 후보 111건)는 소개가 거의 한 문장 — 베낌보다 업주 블로그 문제(13 §5.3 묶음 종합 · `singlePlaceBlogs`).
 - 예: 일기초록 — 사이트 값 "반려동물동반가능 / 접종정보만 있으면 동반가능" 은 `ysj-1017` 글 그대로, 사이트 비교 제안은 이를 `nury_life` 글(카페 입구 이용수칙을 옮겨 적은 것) 그대로로 바꾸자고 한다.
+- 예: 담소요(`e552ee96`, `source = 'blog'`) — `/admin` 사이트 비교의 「짱구누나 → 바뀔 값」 이 **양쪽 다 블로거 문장**이다. 왼쪽 "강아지는 실내는 안되는거 같더라구요" 는 10-01 글이 병합된 값,
+  오른쪽은 제안이 없을 때 대표 후보(confidence 최대 — 09-17 글 0.9 가 최신 09-21 글 0.85 를 이긴다)의 원문 그대로다. 제안이 있어도 `proposePlaces.mjs:75` "원문 표현을 살려" 라 원문 이어 붙이기다.
+  사용자가 이것을 "짱구누나 분석에 블로그 멘트가 그대로 들어간다" 로 읽었다 — 칸 이름이 출처를 안 본다(S6).
 - **레포가 PUBLIC 이다**(`gh repo view`). 블로그 출처로 게시된 38곳의 원문이 화면만이 아니라 git 의 `src/data/places.json` 과 클라이언트 번들에도 있다 — 화면에서만 빼면 절반(S8). git 이력은 재작성하지 않는 한 남는다.
 
 ### Opus ↔ Sonnet(같은 프롬프트 `25f0a64c`)
@@ -58,6 +62,12 @@
   - D3 시드 84곳 = 원문 그대로 공개(true). 가족이 쓴 문장이고 판단이 없어 정규식이 유일한 판독기다.
   - D4 features = 프롬프트 수정 + 목록글 가드(S7). 대량 재분석은 하지 않는다.
   - D5 번들·`places.json` 에서도 비공개 원문을 뺀다 — 마지막 단계(S8).
+- **D1·D2 수정 — 사용자 2026-10-12(2차)**: "어느 정도 멘트를 다듬어서 새롭게 만드는 것도 괜찮다" → 세 안(템플릿만 · 템플릿 + 다듬은 안내 · AI 가 문장 전체) 중 **템플릿 + 다듬은 안내**.
+  - 템플릿 줄은 그대로(판정 칸 → 판정과 갈릴 수 없다). 그 밑에 AI 가 원문을 읽고 **자기 말로** 쓴 안내 1~2문장 — 이용 절차·준비 팁·자리·분위기. 해요체, 추측을 단정으로 올리지 않는다.
+  - **안내는 판단 칸 주제를 말하지 않는다**(실내·야외 · 무게 · 마릿수 · 대형/소형견 · 케이지 · 목줄 · 요금 · 접종 · 전화 · 요일) — 말하면 배지와 문장이 갈린다. 사용자에게 보인 담소요 예시의
+    "주문할 때 예방접종 날짜를 물어봐요" 는 이 규칙으로 빠진다(그 제안의 판단은 `vaccineRequired: false` — 필요하면 판단을 고칠 일).
+  - (a)를 버린 이유(판단을 고치면 문장이 낡는다)는 **판단 지문**(`basis`)으로 막는다 — 쓴 시점의 판단을 정규화해 해시, `{text, basis}` 로 운반, 지금 판단과 다르면 숨는다.
+  - 저장은 `places.pet_policy_guide jsonb` 한 칸 더(D2). 백필 0회 — 게시된 블로그 38곳은 다시 분석될 때까지 템플릿 줄 + notes 로 보인다.
 - **추출 모델 = `claude-sonnet-5-5`**, 교차점검(`VERIFY_MODEL`)·제안(`PROPOSE_MODEL`)은 **`claude-opus-5` 고정**(지금은 둘 다 `ANALYZE_MODEL` 을 따라간다 — 이 연결을 끊는다). 근거는 위 표. README 「🙋 사용자가 정할 것」 의 03 AI 모델 줄을 닫는다.
 
 ## 순서와 의존
@@ -65,12 +75,13 @@
 ```
 G1 원문 대조 요금 ─────────────────────────────────────────────┐
 M1 모델 ──▶ S7 프롬프트 묶음(같은 파일) ──▶ 🧑 H1 워커 배포 ──▶ 🧑 H5 시드 채점(두 모델)
-S1 ADR ─┐
-S2 순수 함수 ──▶ S3 칸(🧑 H2 db push) ──▶ S4 쓰기 경로 ──▶ S5 공개 화면 ──▶ S6 /admin 미리보기 ──▶ S8 번들에서 빼기
+S1 ADR ─┐                                     ▲
+S2 순수 함수 ──┬──────────────────────────────┘ (안내 칸 — 지문·가드를 쓴다)
+              └──▶ S3 칸(🧑 H2 db push) ──▶ S4 쓰기 경로·제안 안내 ──▶ S5 공개 화면 ──▶ S6 /admin 미리보기 ──▶ S8 번들에서 빼기
 🙋 H3 "동반 가능" 한마디 ──▶ S7 에 싣는다 · 🙋 H4 명단글 137건 소개
 ```
 
-G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된다). S7 은 M1 과 같은 `extractPlaces.mjs` 라 M1 뒤. [13 §5.3 A1](13-ai-analysis-audit-2026-10-04.md)(묶음 종합 소개)의 프롬프트도 S7 의 소개 규칙을 따른다.
+G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된다 — S2 의 새 `.mjs` 는 G1.1·G1.2 의 `petPolicyFacts.mjs` 와 다른 파일). S7 은 M1 과 같은 `extractPlaces.mjs` 라 M1 뒤, 안내 칸이 S2 의 지문·가드를 부르므로 **S2 뒤**. [13 §5.3 A1](13-ai-analysis-audit-2026-10-04.md)(묶음 종합 소개)의 프롬프트도 S7 의 소개 규칙을 따른다.
 
 ## 태스크
 
@@ -110,14 +121,23 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
   > 메모: 2026-10-12 ADR-017 v9(결정 13 = D1~D5 + 화면 자리·`/admin` 미리보기의 이유, 결정 1·결과 첫 줄 고침, 상태에 "결정 13 만 채택·구현 전") · ADR-002 v6 결과 한 줄.
 
 ### S2. 공개 조건 문장 순수 함수
-- [ ] `src/lib/petPolicyPublic.ts`(새 파일 — G1 의 `petPolicyFacts.mjs` 와 겹치지 않게) + 테스트.
-  - `publicPolicyLines(policy)` — `TPetPolicy` 의 칸마다 해요체 한 줄(키 붙임). `readNothing` 과 같은 짝 규칙: 칸을 더하면 여기도 더하지 않으면 테스트가 깨지게(칸 목록을 한 곳에서).
-  - `publicNotes(notes, rawText)` — notes 를 가드에 통과시켜 남길지: 숫자가 원문에 없으면 뺀다 · `GROUNDS` 근거 단어(대형·케이지·접종…)가 원문에 없으면 뺀다 · 공백을 뺀 원문과 **15자 이상** 똑같이 이어지면 베낌으로 뺀다. 뺀 이유를 돌려준다(S6 미리보기용).
+- [ ] 파일 둘 + 테스트(v6 — 가드·지문은 분석 시점(스크립트)에도 돌아야 해서 `.mjs` 로 가른다. 스크립트는 TS 를 못 읽고, 레포 관례는 TS 가 `.mjs` 를 import 하는 쪽이다):
+  - **`scripts/lib/petPolicyGuide.mjs`**(새 파일 — G1.1·G1.2 가 고치는 `petPolicyFacts.mjs` 에 넣지 않는다, 파일 비겹침):
+    - `POLICY_TOPICS` — 판단 칸 ↔ 주제 낱말 표 **하나**(실내·야외·실외 · kg·무게 · 마리·견 · 대형·소형 · 케이지·이동가방·켄넬·유모차 · 목줄·리드줄 · 원·요금 · 접종 · 전화·문의 · 요일). 템플릿과 가드가 같이 읽는다.
+    - `guardPublicText(text, rawText)` → `{ ok, reasons }` — 공백을 뺀 원문과 **15자 이상** 같은 이음(베낌) · 원문에 없는 숫자 · `GROUNDS` 근거 단어가 원문에 없음 · (안내만) `POLICY_TOPICS` 낱말. 이유는 S6 미리보기용 한국어.
+    - `policyFingerprint(policy)` — 키 정렬 · null·undefined·빈 배열 제거 뒤 해시. 칸이 늘어도(새 칸은 null) 지문이 그대로, 그 밖의 차이는 숨김 쪽(안전한 쪽)으로 넘어진다.
+  - **`src/lib/petPolicyPublic.ts`**(새 파일):
+    - `publicPolicyLines(policy)` — 칸마다 해요체 한 줄(키 붙임). `readNothing` 과 같은 짝 규칙: 칸 목록은 `POLICY_TOPICS` 에서 — 칸을 더하고 템플릿을 빠뜨리면 테스트가 깨지게.
+    - `publicNotes(notes, rawText)` — 가드(주제 검사 없이)를 지난 notes 한 줄, 아니면 null + 이유.
+    - `publicGuide(guide, policy, rawText)` — `guide.basis === policyFingerprint(policy)` 이고 가드(주제 검사 포함)를 지나면 문장, 아니면 null + 이유(`판단이 바뀌어 숨김` · 베낌 · 없는 숫자 · 판단 주제).
   - 수용(예): 일기초록 판단 → "예방접종을 마친 강아지만 들어갈 수 있어요" 를 포함 · 원문 문장이 그대로 들어간 줄이 없다 · 템플릿 문장은 `correctPetPolicyFacts` 를 거친 판단에서만 나온다.
+    안내 "주문할 때 예방접종 날짜를 물어봐요" 는 판단 주제로 빠진다 · "정원 산책로까지 같이 걸을 수 있어요" 는 남는다 · 원문 15자를 베낀 안내는 빠진다 ·
+    **지문 왕복** — 후보 판단(`petDays: null` 이 있는 모양)의 지문 = `fromPlaceRow`/`toPlace` 를 거친 판단(`petDays` 가 없는 모양, 담소요 `places.json`)의 지문 · 판단 칸 하나를 바꾸면 지문이 바뀐다.
   - 끝나면: S3 줄을 「지금」 에.
 
 ### S3. `places.pet_policy_text_public` 칸
-- [ ] 마이그레이션 `supabase/migrations/2026101x_places_pet_policy_text_public.sql`: `add column pet_policy_text_public boolean not null default false` + 시드 행 `update … set … = true where source = 'notion' and pet_policy is null`(먼저 `select` 로 그 집합이 84인지 — 블로그 값이 들어간 시드 행이 있으면 그 행은 false).
+- [ ] 마이그레이션 `supabase/migrations/2026101x_places_pet_policy_text_public.sql`: `add column pet_policy_text_public boolean not null default false` ·
+  `add column pet_policy_guide jsonb`(`{text, basis}`, null = 안내 없음 — v6) + 시드 행 `update … set … = true where source = 'notion' and pet_policy is null`(먼저 `select` 로 그 집합이 84인지 — 블로그 값이 들어간 시드 행이 있으면 그 행은 false).
   GRANT 는 표 단위라 새 grant 없음 — [05](05-security.md) 에 한 줄 확인.
   - 코드: `scripts/lib/placeFields.mjs`(`fromPlaceRow`·`toPlace`) · `scripts/normalize.mjs` · `scripts/seed-db.mjs` · `src/types.ts`. push 전 원격에서는 `row.pet_policy_text_public ?? (row.source === 'notion')` 로 넘어간다(push 뒤 지운다 — S4 끝에서).
   - 수용: `pnpm data pull` 뒤 `git diff src/data` 가 칸 하나 더해진 것만.
@@ -126,22 +146,31 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
 ### S4. 쓰기 경로가 플래그를 지킨다
 - [ ] 블로그 값으로 원문을 채우거나 덮으면 플래그를 false — `applyApproved.mjs:93·187·231(OVERWRITE_PAIRS 를 세 칸 짝으로)·289` · `src/lib/adminPlaceEdit.ts:190` · `/admin` 편집 폼(`adminPagePlaceEditForm.tsx`)에 「우리가 쓴 문장 — 그대로 내보내기」 체크박스.
   - `proposePlaces.mjs:75` 를 "근거 원문(사이트에 안 나감) — 원문 그대로" 로(`PROPOSE_PROMPT_VERSION` 이 바뀐다).
-  - 수용: 테스트 — 시드 행을 블로그 원문으로 덮으면 false, 운영자가 체크하면 true. 임시 fallback(`source`) 제거.
+  - **안내 운반**(v6): 신규 승인은 후보의 `extracted.petPolicyGuide` 를 그대로 `pet_policy_guide` 로 · 덮어쓰기는 원문·판단과 **한 짝**(`OVERWRITE_PAIRS`)으로. 어디서도 지문을 다시 찍지 않는다(옮기기만 —
+    승인 때 찍으면 운영자가 고친 판단의 지문이 낡은 안내에 붙는다). `/admin` 에서 판단만 고쳐도 안내는 지우지 않는다 — 지문이 어긋나 저절로 숨는다.
+  - **제안이 안내를 쓴다**(v6, 같은 `PROPOSE_PROMPT_VERSION` 변경 안에서): 제안 칸에 `pet_policy_guide` — 근거 글들을 읽고 **자기 말로** 1~2문장, 해요체, 판단 칸 주제 금지, 글쓴이의 추측을 단정으로 올리지 않는다.
+    `basis` 는 제안 패스가 찍는다 = 승인 뒤 남을 판단(조건 원문이 change 면 제안 판단, keep 이면 사이트 판단)의 지문. `guardPublicText` 를 못 지나면 keep(`why` 에 이유). `withProposal` 이 옮긴다.
+  - 수용: 테스트 — 시드 행을 블로그 원문으로 덮으면 false, 운영자가 체크하면 true. 임시 fallback(`source`) 제거. 덮어쓰기 뒤 `publicGuide` 가 문장을 낸다(지문 일치) · 덮은 뒤 판단을 고치면 null.
   - 끝나면: S5 를 「지금」 에.
 
 ### S5. 공개 상세가 표시문을 그린다
-- [ ] `src/screens/placeDetailPolicyText.tsx`(owner-prefix) — 공개면 원문 + 강조(지금 그대로), 아니면 `publicPolicyLines` + 가드 통과 notes + 「블로그 글을 읽고 정리했어요 · 글 보기」(`reviewUrl`).
+- [ ] `src/screens/placeDetailPolicyText.tsx`(owner-prefix) — 공개면 원문 + 강조(지금 그대로), 아니면 `publicPolicyLines` + **`publicGuide` 가 낸 안내, 없으면 `publicNotes`** + 「블로그 글을 읽고 정리했어요 · 글 보기」(`reviewUrl`).
   - `PetBadges sourceText` 에는 **표시문**을 넘긴다 — 원문을 넘기면 요금 칩이 "본문에 이미 있다" 로 숨는데 그 본문은 화면에 없다(테스트는 통과한다). 라벨 「원문」(`placeDetailEligibilityCard.tsx:124`) · C7 문구(`eligibility.ts:363`) · 판정 이유의 인용(`quote` = 원문 조각)이 화면에 나가는지 보고 비공개 행에선 숨긴다.
   - 원칙 주석 고치기: `petPolicy.ts:8-10` · `extractPlaces.mjs:17`.
   - 검증: Chrome 확장으로 일기초록(블로그) · 시드 한 곳. 문서: [pet-policy-and-eligibility](../architecture/pet-policy-and-eligibility.md) · ADR-017 상태 · CLAUDE.md 「조용히 깨지는 것들」 한 줄(새 칸을 더하면 템플릿에도).
   - 끝나면: S6 를 「지금」 에.
 
 ### S6. `/admin` 에 「사이트에 나갈 문장」 미리보기
-- [ ] 검수·편집·사이트 비교 화면에 같은 함수로 미리보기 + 「사이트에 안 나가는 notes 와 이유」. 문서: [admin-review](../features/admin-review.md).
+- [ ] 검수·편집·사이트 비교 화면에 같은 함수로 미리보기 + 「사이트에 안 나가는 notes·안내와 이유」(베낌 · 없는 숫자 · 판단 주제 · 판단이 바뀌어 숨음). 문서: [admin-review](../features/admin-review.md).
+  - **사이트 값 칸 이름이 출처를 따른다**(v6, 담소요): `짱구누나 → 바뀔 값`(`adminPageGroupSiteCompare.tsx:114·169`) · `짱구누나 · 지금 사이트`(`adminPageGroupDetail.tsx:33`)는 출처를 안 보고 붙는다 —
+    블로그에서 온 값(`source = 'blog'` 또는 `pet_policy_text_public = false`)을 「짱구누나」 로 부르면 블로거의 문장이 운영자의 문장처럼 보인다. 「지금 사이트」 + 출처 칩(시드 = 짱구누나 · 블로그).
   - 끝나면: S8 을 「지금」 에.
 
-### S7. 프롬프트 묶음 — 소개·notes·과잉 추론(M1 뒤, 같은 파일)
+### S7. 프롬프트 묶음 — 소개·notes·과잉 추론·안내(M1 뒤, 같은 파일 · 안내 칸은 **S2 뒤**)
 - [ ] `scripts/analyze/extractPlaces.mjs` 시스템 프롬프트(한 번에 — `PROMPT_VERSION` 이 한 번만 바뀌게):
+  - **petPolicyGuide**(v6, 새 칸 — 스키마 `required`, 없으면 null): "판단 칸이 말하지 않는 이용 안내(절차·준비 팁·자리·분위기)를 **자기 말로** 1~2문장, 해요체. 실내·야외·무게·마릿수·대형견·케이지·목줄·요금·접종·전화·요일은
+    쓰지 않는다(판단 칸이 말한다). 글쓴이가 추측한 것을 단정으로 쓰지 않는다. 본문 문장을 옮기지 않는다. 없으면 null."
+    `normalizePlace` 가 `guardPublicText` 를 지난 것만 `{ text, basis: policyFingerprint(저장될 petPolicy) }` 로 싣는다(S2 함수). 계약 테스트에 **해요체**(근거 표: Sonnet 의 notes 는 해요체가 아니다).
   - **features**(`:258`): "본문에 그 가게를 설명하는 문장이 없으면 null. 글의 제목·출처·목록 이름(예: '식약처 현황에 올라 있는')을 소개로 쓰지 않는다. 본문 문장을 옮기지 말고 자기 말로."
   - **notes**: "반려견 이용 조건만(숙소 일반 규칙·쓰레기·화분 X) · 해요체 · 자기 말로 · 글쓴이가 하지 않은 일('못 들어가봤어요')을 금지 규칙으로 바꾸지 않는다."
   - **callFirst**: "반려견 동반 때문에 미리 연락하라는 말일 때만 — 영업시간·수영장·교통을 미리 물어보라는 권유는 아니다."
@@ -152,7 +181,7 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
   - `eval extract` 캐시가 무효가 된다. 끝나면: 「기다림」 에 🧑 H1(워커 배포) · 🧑 H5(시드 채점).
 
 ### S8. 번들·`places.json` 에서 비공개 원문 빼기
-- [ ] `pull-db` 가 판정 입력(정책·환경·`feeUnitNote`)을 미리 계산해 싣고, 공개가 아닌 행은 원문과 `sources` 를 JSON 에서 뺀다 → `places.json` 모양·`places.ts` 가 바뀐다. `withPolicyFacts`·`correctPetPolicyFacts` 가 런타임에 원문을 읽는 자리를 빌드로 옮긴다.
+- [ ] `pull-db` 가 판정 입력(정책·환경·`feeUnitNote`)을 미리 계산해 싣고, 공개가 아닌 행은 원문과 `sources` 를 JSON 에서 뺀다 → `places.json` 모양·`places.ts` 가 바뀐다. `withPolicyFacts`·`correctPetPolicyFacts` 가 런타임에 원문을 읽는 자리를 빌드로 옮긴다. 안내·notes 가드(`publicGuide`·`publicNotes` — 원문이 필요하다)도 빌드가 돌려 통과한 문장만 싣는다(v6).
   - 수용: 빌드 산출물(`out/`)과 `src/data/places.json` 에 블로그 출처 행의 원문 문장이 없다(`grep` 으로 일기초록 문장). 판정 결과는 바뀌기 전과 같다(122곳 × 강아지 5마리 스냅숏 테스트).
   - git 이력의 옛 원문은 남는다 — 재작성은 하지 않는다(포크·클론에 이미 있고, 지우는 것은 앞으로의 노출).
 
