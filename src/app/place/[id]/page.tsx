@@ -19,11 +19,13 @@ export async function generateMetadata({ params }: TPlaceRouteProps): Promise<Me
   if (!place) return {};
 
   const alt = `${TYPE_META[place.type].label} ${place.name}`;
+  // 소개가 없는 곳(21 S7)은 빈 설명을 싣지 않는다 — undefined 면 description 은 레이아웃 것을 물려받고 og:description 은 빠진다.
+  const description = place.features || undefined;
   return {
     title: place.name,
-    description: place.features,
+    description,
     // 레이아웃의 openGraph 를 통째로 대체한다 — 공통 칸에 이 장소의 카드를 얹는다.
-    openGraph: { ...siteOpenGraph(alt, place.id), title: place.name, description: place.features },
+    openGraph: { ...siteOpenGraph(alt, place.id), title: place.name, description },
   };
 }
 

@@ -9,7 +9,7 @@
  */
 
 import { normalizeFeeLines } from '../../scripts/lib/feeLine.mjs';
-import { guardPublicText, POLICY_TOPICS, policyFingerprint } from '../../scripts/lib/petPolicyGuide.mjs';
+import { guardPublicText, POLICY_TOPICS, policyFingerprint, topicReasons } from '../../scripts/lib/petPolicyGuide.mjs';
 import type { TPetPolicyFacts, TPetPolicyGuide, TPlace } from '../types';
 import { cageGear, type TPetPolicy } from './petPolicy';
 
@@ -102,18 +102,17 @@ export const publicNotes = (notes: string | null | undefined, rawText: string): 
 };
 
 /**
- * AI 가 쓴 이용 안내 — 쓴 시점의 판단(`basis`)이 **저장된 지금 판단**과 같고 가드(판단 주제 포함)를 지날 때만.
+ * AI 가 쓴 이용 안내 — 쓴 시점의 판단(`basis`)이 **저장된 지금 판단**과 같고 판단 주제를 말하지 않을 때만.
  * `facts` 는 저장된 값 그대로(`place.petPolicy`) 넘긴다 — 런타임 대조를 다시 돌린 값이 아니다(`policyFingerprint` 주석).
+ *
+ * 베낌·없는 숫자·없는 조건은 **여기서 보지 않는다**(21 S7) — 안내의 재료는 본문이고 앱에는 본문이 없다. 조건 원문에 대 보면
+ * "2층 창가 자리가 조용해요" 같은 멀쩡한 안내가 다 숨는다. 그 검사는 안내를 실을 때 본문에 대 보고 끝냈다(`storableGuide`).
  */
-export const publicGuide = (
-  guide: TPetPolicyGuide | null | undefined,
-  facts: TPetPolicyFacts | null | undefined,
-  rawText: string,
-): TPublicText => {
+export const publicGuide = (guide: TPetPolicyGuide | null | undefined, facts: TPetPolicyFacts | null | undefined): TPublicText => {
   const text = guide?.text?.trim();
   if (!guide || !text) return HIDDEN;
   const reasons = guide.basis === policyFingerprint(facts) ? [] : ['판단이 바뀌어 숨겼어요'];
-  reasons.push(...guardPublicText(text, rawText).reasons);
+  reasons.push(...topicReasons(text));
   return reasons.length ? { text: null, reasons } : { text, reasons: [] };
 };
 
@@ -141,12 +140,12 @@ type TEvidencePlace = Pick<TPlace, 'petPolicyText' | 'petPolicyTextPublic' | 'pe
 
 /**
  * 인자가 셋으로 갈린다 — 템플릿은 배지와 같은 `policy`, 안내의 지문은 **저장된** `petPolicy`(대조를 다시 돌린 `policy` 를 넘기면 지문이 늘 어긋난다),
- * 가드의 대조군은 원문.
+ * notes 가드의 대조군은 원문(안내는 원문에 대 보지 않는다 — `publicGuide`).
  */
 export const policyEvidence = (place: TEvidencePlace): TPolicyEvidence => {
   if (place.petPolicyTextPublic === true) return { kind: 'raw', text: place.petPolicyText };
   const lines = publicPolicyLines(place.policy).map((line) => line.text);
-  const guide = publicGuide(place.petPolicyGuide, place.petPolicy, place.petPolicyText).text;
+  const guide = publicGuide(place.petPolicyGuide, place.petPolicy).text;
   return {
     kind: 'derived',
     lines: lines.length ? lines : [emptyLine(place.policy)],

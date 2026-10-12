@@ -5,6 +5,7 @@ import {
   EXTRACT_SCHEMA,
   ExtractionError,
   MODEL,
+  PROMPT_GUIDE_TOPICS,
   PROMPT_POLICY_EXAMPLES,
   PROMPT_VERSION,
   SYSTEM_PROMPT,
@@ -22,7 +23,12 @@ import {
   WORKER_RUNTIME,
 } from './extractPlaces.mjs';
 import { parsePetPolicy } from '../../src/lib/petPolicy';
+import { publicGuide } from '../../src/lib/petPolicyPublic';
 import { correctPetPolicyFacts } from '../lib/petPolicyFacts.mjs';
+import { guardPublicText, POLICY_TOPICS, policyFingerprint } from '../lib/petPolicyGuide.mjs';
+import { fromPlaceRow } from '../lib/placeFields.mjs';
+import { toCandidateRow } from './analyzeCandidates.mjs';
+import { toNewPlaceRow } from './applyApproved.mjs';
 
 // 실제 claude 는 부르지 않는다. `claude -p --output-format json` 이 stdout 에 쓰는 result 객체 모양만 흉내 낸 가짜
 // (2026-09-21 CLI 2.1.278 실측: 성공이면 stop_reason 이 'tool_use', structured_output 에 파싱된 객체).
@@ -57,6 +63,7 @@ const goodPlace = {
   address: '제주 제주시 구좌읍 세화리 1',
   petPolicyText: '소형견만 실내 가능, 대형견은 테라스',
   petPolicy: null,
+  petPolicyGuide: null,
   features: '바다 보이는 카페',
   stayPriceText: null,
   stayAmenitiesText: null,
@@ -107,7 +114,7 @@ describe('EXTRACT_SCHEMA — 구조화 출력이 받아들이는 모양', () => 
 
   it('optional 은 anyOf string|null 이고 type 은 네 종류 enum, petAllowed 는 세 값', () => {
     const props = EXTRACT_SCHEMA.properties.places.items.properties;
-    for (const key of ['regionRaw', 'address', 'petPolicyText', 'features', 'stayPriceText', 'stayAmenitiesText']) {
+    for (const key of ['regionRaw', 'address', 'petPolicyText', 'petPolicyGuide', 'features', 'stayPriceText', 'stayAmenitiesText']) {
       expect(props[key]).toEqual({ anyOf: [{ type: 'string' }, { type: 'null' }] });
     }
     expect(props.type.enum).toEqual(['stay', 'restaurant', 'cafe', 'other']);
@@ -136,6 +143,67 @@ describe('프롬프트 규칙 — 종류·소개 문장', () => {
   it('features 는 동반 조건을 말하지 않는다 — 포크 소개문이 근거 없이 "실내에서 함께" 라고 해 C12 와 반대를 말했다(13 §5.2 P2)', () => {
     expect(SYSTEM_PROMPT).toContain('**동반 조건은 쓰지 않습니다**');
     expect(SYSTEM_PROMPT).not.toMatch(/강아지 편의\s*\(마당/);
+  });
+});
+
+/** 프롬프트에서 `from` 부터 `to` 앞까지 — 칸 하나의 지시만 떼어 본다. */
+const promptSection = (from, to) => {
+  const start = SYSTEM_PROMPT.indexOf(from);
+  const end = SYSTEM_PROMPT.indexOf(to, start + from.length);
+  expect(start, from).toBeGreaterThan(-1);
+  expect(end, to).toBeGreaterThan(start);
+  return SYSTEM_PROMPT.slice(start, end);
+};
+
+// 2026-10-12 모델 비교(docs/todo/21 「근거」)의 결함 여섯 갈래를 한 번에 고친 프롬프트(21 S7) — 문구가 빠지면 같은 결함이 돌아온다.
+describe('프롬프트 규칙 — 21 S7 묶음(소개·notes·과잉 추론·안내)', () => {
+  const notes = promptSection('    notes:', '- petPolicyGuide:');
+  const guide = promptSection('- petPolicyGuide:', '- features:');
+  const features = promptSection('- features:', '- stayPriceText:');
+
+  // 근거: Sonnet 의 notes 는 해요체가 아니었다("…다를 수 있음"). 공개 상세가 notes·안내를 그대로 그린다(publicNotes·publicGuide).
+  it('notes · 안내 · 소개는 해요체로 자기 말로 쓴다', () => {
+    for (const rule of [notes, guide, features]) {
+      expect(rule).toContain('해요체');
+      expect(rule).toContain('자기 말로');
+      expect(rule).toContain('본문 문장을 옮기지');
+    }
+  });
+
+  it('안내는 판단 칸 주제를 쓰지 않는다 — 금지 목록이 POLICY_TOPICS 를 다 덮는다(판단 칸을 더하면 프롬프트에도)', () => {
+    expect(guide).toContain(`${PROMPT_GUIDE_TOPICS} 는 쓰지 않습니다`);
+    for (const [key, { label, find }] of Object.entries(POLICY_TOPICS)) {
+      expect(find(PROMPT_GUIDE_TOPICS) ?? (PROMPT_GUIDE_TOPICS.includes(label) ? label : null), key).not.toBeNull();
+    }
+    expect(guide).toContain('단정으로 쓰지 않습니다');
+    expect(guide).toContain('쓸 것이 없으면 null');
+  });
+
+  // 식약처 명단글 137건의 소개가 전부 "식약처 현황에 … 올라 있는 ○○이에요" 였다 — 소개 칸에 null 출구가 없었다.
+  it('소개는 설명하는 문장이 없으면 null — 글의 제목·출처·목록 이름을 소개로 쓰지 않는다', () => {
+    expect(features).toContain('**본문에 그 가게가 어떤 곳인지 설명하는 문장이 없으면 null**');
+    expect(features).toContain('식약처 현황에 올라 있는');
+  });
+
+  // 버니하우스 notes 의 화분 물 주기·종량제 봉투 · PLANT827 "족욕장은 함께 이용할 수 없어요"(글쓴이가 안 들어간 것).
+  it('notes 는 반려견 이용 조건만 — 숙소 일반 규칙과, 하지 않은 일을 금지로 바꾼 규칙은 쓰지 않는다', () => {
+    expect(notes).toContain('**반려견 이용 조건**');
+    expect(notes).toContain('화분 물 주기');
+    expect(notes).toContain('"족욕장은 함께 이용할 수 없어요"');
+  });
+
+  // 일랑일랑(수영장·교통 "문의하는 편이 좋아요" → callFirst) · 스테이모루티("대형견 운동장이 나뉘어 있다" → largeDogOk).
+  it('callFirst 는 동반 때문에 연락할 때만 · largeDogOk 는 대형견이 들어가거나 묵을 수 있을 때만', () => {
+    expect(SYSTEM_PROMPT).toContain('callFirst: **반려견 동반 때문에**');
+    expect(SYSTEM_PROMPT).toContain('영업시간·수영장·교통·예약 상품을 미리 물어보라는 권유는 동반 조건이 아닙니다');
+    expect(SYSTEM_PROMPT).toContain('"대형견 운동장이 따로 있다" 는 시설 설명이지 허용이 아닙니다');
+  });
+
+  // H3(사용자 2026-10-13) — Opus 후보의 48% 가 "동반 가능" 한마디를 원문 null 로 냈다(→ 정보 없음). 넣으면 판정 C9 가 확인을 권한다.
+  it('조건 원문: 조건이 아닌 문장은 빼고, 동반이 된다는 말뿐이면 그 문장을 넣는다(H3)', () => {
+    expect(SYSTEM_PROMPT).toContain('**조건을 말하지 않는 문장은 넣지 않습니다**');
+    expect(SYSTEM_PROMPT).toContain('조건은 없고 동반이 된다는 말뿐이면("애견동반 가능해요") **그 문장을 넣습니다**');
+    expect(parsePetPolicy('애견동반 가능해요').noInfo).toBe(false);
   });
 });
 
@@ -698,5 +766,63 @@ describe('stayEnvironment — 숙소 환경(10 F6)', () => {
     expect(parsed.stayEnvironment).toEqual({ standalone: true, yard: true, fencedYard: null, stairs: null });
     const [cafe] = parseExtraction(withPlaces([{ ...stay, type: 'cafe' }])).places;
     expect(cafe.stayEnvironment).toBeNull();
+  });
+});
+
+describe('목록 글의 소개는 비운다(21 S7)', () => {
+  it('visited === false 면 features null — 방문 글·모양 밖 응답(visited 없음)은 그대로', () => {
+    const parse = (over) => parseExtraction(withPlaces([{ ...goodPlace, ...over }])).places[0];
+    expect(parse({ visited: false, features: '식약처 현황에 올라 있는 카페예요' }).features).toBeNull();
+    expect(parse({ visited: true }).features).toBe('바다 보이는 카페');
+    expect(parse({ visited: undefined }).features).toBe('바다 보이는 카페');
+  });
+});
+
+/**
+ * 이용 안내(21 S7) — 분석 시점 가드는 **본문**에 대 본다. 안내는 판단 칸 밖(자리·분위기·절차)이라 재료가 조건 원문이 아니라 본문에 있다:
+ * 조건 원문에만 대 보면 아래 "2층 창가 자리" 가 없는 숫자로 숨는다(v8 발견). 앱(`publicGuide`)은 지문·주제만 본다.
+ */
+describe('이용 안내 petPolicyGuide — 본문에 대 본 가드를 지난 것만 { text, basis }', () => {
+  const body = '사장님이 2층 창가 자리를 내어 주셔서 조용히 쉬었어요. 뒤쪽 마당에서 공놀이도 했고요.\n실내 동반 가능하고 소형견만 받는대요.';
+  const petPolicyText = '실내 동반 가능하고 소형견만 받는대요.';
+  const petPolicy = {
+    indoor: 'free', leash: false, largeDogOk: null, smallDogOnly: true, callFirst: false, vaccineRequired: false, petDays: null,
+    feeFree: null, fees: [], weightLimitKg: null, maxDogs: null, notes: null,
+  };
+  const raw = (petPolicyGuide, over = {}) => ({ ...goodPlace, petPolicyText, petPolicy, petPolicyGuide, ...over });
+  const parse = (place, text = body) => parseExtraction(withPlaces([place]), text).places[0];
+
+  it('본문에 있는 숫자·자리 말은 지난다 — basis 는 저장될(정규화된) 판단의 지문 · 앱도 그린다', () => {
+    const text = '2층 창가 자리가 조용해서 쉬기 좋아요. 마당에서 공놀이도 할 수 있어요.';
+    const p = parse(raw(text));
+    expect(p.petPolicyGuide).toEqual({ text, basis: policyFingerprint(p.petPolicy) });
+    expect(publicGuide(p.petPolicyGuide, p.petPolicy)).toEqual({ text, reasons: [] });
+    // 조건 원문에만 대 봤다면 숨었다 — 그래서 대조군이 본문이다.
+    expect(guardPublicText(text, petPolicyText).ok).toBe(false);
+  });
+
+  it('본문을 15자 넘게 옮기거나 · 판단 주제를 말하거나 · 본문에 없는 숫자면 싣지 않는다', () => {
+    expect(parse(raw('사장님이 2층 창가 자리를 내어 주셔서 좋아요')).petPolicyGuide).toBeNull();
+    expect(parse(raw('소형견이라면 편하게 쉴 수 있어요')).petPolicyGuide).toBeNull();
+    expect(parse(raw('3층 루프탑에서 바다가 보여요')).petPolicyGuide).toBeNull();
+  });
+
+  it('본문이 없거나(확인할 수 없다) · 조건 원문이 없거나 · 안내가 비면 null', () => {
+    const text = '2층 창가 자리가 조용해서 쉬기 좋아요.';
+    expect(parseExtraction(withPlaces([raw(text)])).places[0].petPolicyGuide).toBeNull();
+    expect(parse(raw(text, { petPolicyText: null })).petPolicyGuide).toBeNull();
+    expect(parse(raw('  ')).petPolicyGuide).toBeNull();
+    expect(parse(raw(null)).petPolicyGuide).toBeNull();
+  });
+
+  // 반영기가 판단을 다시 정규화하면 지문이 어긋나 모든 안내가 조용히 숨는다 — 이 왕복만이 그것을 잡는다.
+  it('왕복: 추출 → 후보 행 → 등록 행 → 사이트 장소 → publicGuide 가 문장을 낸다', () => {
+    const text = '2층 창가 자리가 조용해서 쉬기 좋아요.';
+    const extracted = parse(raw(text));
+    const candidate = toCandidateRow(post, { ...extracted, regionRaw: '동쪽 (구좌읍)' }, null, '동쪽 (구좌읍)', { match: null, confidence: 0, reason: '' });
+    const row = toNewPlaceRow({ ...candidate, id: 'c1' }, { id: 'p-new', guideColumn: true });
+    expect(row.pet_policy_guide).toEqual(extracted.petPolicyGuide);
+    const place = fromPlaceRow({ ...row, pet_policy_text_public: false });
+    expect(publicGuide(place.petPolicyGuide, place.petPolicy)).toEqual({ text, reasons: [] });
   });
 });

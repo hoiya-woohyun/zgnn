@@ -27,7 +27,7 @@ export type TPublicTextChange = { before: TPublicTextPreview; after: TPublicText
 
 const RAW_REASON = '원문을 그대로 내보내는 곳이라 안 나가요';
 
-/** 장소(앱 타입) → 사이트가 그릴 문장 + 안 나가는 안내·notes. 사이트의 `policyEvidence` 와 같은 인자를 쓴다(지문은 저장된 `petPolicy`, 가드 대조군은 원문). */
+/** 장소(앱 타입) → 사이트가 그릴 문장 + 안 나가는 안내·notes. 사이트의 `policyEvidence` 와 같은 인자를 쓴다(지문은 저장된 `petPolicy`, notes 가드 대조군은 원문). */
 export function publicTextPreview(place: TPlace): TPublicTextPreview {
   const entry = toPlaceEntry(place);
   const evidence = policyEvidence(entry);
@@ -41,7 +41,7 @@ export function publicTextPreview(place: TPlace): TPublicTextPreview {
     return { evidence, hidden };
   }
 
-  const guide = publicGuide(place.petPolicyGuide, place.petPolicy, place.petPolicyText);
+  const guide = publicGuide(place.petPolicyGuide, place.petPolicy);
   if (guideText && guide.text === null) hidden.push({ key: 'guide', label: '이용 안내', text: guideText, reasons: guide.reasons });
   if (notesText) {
     if (guide.text !== null) {

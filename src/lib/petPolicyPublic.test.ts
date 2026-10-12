@@ -120,28 +120,34 @@ describe('publicNotes — 가드를 지난 notes 한 줄', () => {
 });
 
 describe('publicGuide — 쓴 시점의 판단과 지금 판단이 같을 때만', () => {
-  const raw = '반려동물 동반 ( 야외 )\n카페 뒤 정원에 산책로가 있어서 강아지랑 한 바퀴 돌았어요';
   const facts: TPetPolicyFacts = { ...empty, indoor: 'outdoorOnly' };
   const guide = { text: '정원 산책로까지 같이 걸을 수 있어요', basis: policyFingerprint(facts) };
 
-  it('지문이 맞고 가드를 지나면 문장', () => {
-    expect(publicGuide(guide, facts, raw)).toEqual({ text: '정원 산책로까지 같이 걸을 수 있어요', reasons: [] });
+  it('지문이 맞고 판단 주제를 말하지 않으면 문장', () => {
+    expect(publicGuide(guide, facts)).toEqual({ text: '정원 산책로까지 같이 걸을 수 있어요', reasons: [] });
   });
 
   // 운영자가 `/admin` 에서 판단을 고쳤다 — 안내는 지우지 않아도 지문이 어긋나 저절로 숨는다(S4).
   it('판단이 바뀌면 숨는다', () => {
-    expect(publicGuide(guide, { ...facts, indoor: 'free' }, raw)).toEqual({ text: null, reasons: ['판단이 바뀌어 숨겼어요'] });
+    expect(publicGuide(guide, { ...facts, indoor: 'free' })).toEqual({ text: null, reasons: ['판단이 바뀌어 숨겼어요'] });
   });
 
   it('판단 주제를 말하는 안내는 지문이 맞아도 숨는다', () => {
-    const r = publicGuide({ text: '주문할 때 예방접종 날짜를 물어봐요', basis: policyFingerprint(facts) }, facts, raw);
+    const r = publicGuide({ text: '주문할 때 예방접종 날짜를 물어봐요', basis: policyFingerprint(facts) }, facts);
     expect(r.text).toBeNull();
     expect(r.reasons).toContain('판단 칸이 말하는 주제예요(접종)');
   });
 
+  // 21 S7 — 베낌·숫자·근거는 분석 시점에 **본문**에 대 보고 끝났다(`storableGuide`). 여기서 조건 원문에 다시 대 보면
+  // 본문에서 온 "2층 창가 자리" 가 없는 숫자로 숨는다 — 원문 "실내 동반 가능, 소형견만" 에는 2 가 없다.
+  it('런타임은 원문에 대 보지 않는다 — 본문에서 온 숫자·자리 말이 숨지 않는다', () => {
+    const r = publicGuide({ text: '2층 창가 자리가 조용해서 쉬기 좋아요', basis: policyFingerprint(facts) }, facts);
+    expect(r).toEqual({ text: '2층 창가 자리가 조용해서 쉬기 좋아요', reasons: [] });
+  });
+
   it('안내가 없으면 숨기되 이유는 없다', () => {
-    expect(publicGuide(null, facts, raw)).toEqual({ text: null, reasons: [] });
-    expect(publicGuide({ text: ' ', basis: policyFingerprint(facts) }, facts, raw)).toEqual({ text: null, reasons: [] });
+    expect(publicGuide(null, facts)).toEqual({ text: null, reasons: [] });
+    expect(publicGuide({ text: ' ', basis: policyFingerprint(facts) }, facts)).toEqual({ text: null, reasons: [] });
   });
 });
 

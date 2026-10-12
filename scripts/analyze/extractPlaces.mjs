@@ -24,6 +24,7 @@ import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { normalizeFeeLines } from '../lib/feeLine.mjs';
 import { correctPetPolicyFacts, weekdaysOrNull } from '../lib/petPolicyFacts.mjs';
+import { storableGuide } from '../lib/petPolicyGuide.mjs';
 import { correctStayEnvironment } from '../lib/stayEnvironment.mjs';
 import { formatUsageSummary } from '../../src/lib/runSummary.ts';
 
@@ -126,7 +127,7 @@ export const EXTRACT_SCHEMA = {
         type: 'object',
         additionalProperties: false,
         required: [
-          'name', 'type', 'regionRaw', 'address', 'petPolicyText', 'petPolicy', 'features', 'stayPriceText', 'stayAmenitiesText',
+          'name', 'type', 'regionRaw', 'address', 'petPolicyText', 'petPolicy', 'petPolicyGuide', 'features', 'stayPriceText', 'stayAmenitiesText',
           'stayEnvironment', 'isJeju', 'visited', 'petAllowed', 'evidence', 'confidence',
         ],
         properties: {
@@ -136,6 +137,9 @@ export const EXTRACT_SCHEMA = {
           address: NULLABLE_STRING,
           petPolicyText: NULLABLE_STRING,
           petPolicy: PET_POLICY_SCHEMA,
+          // 이용 안내(docs/todo/21 S7) — 판단 칸 밖(절차·준비 팁·자리·분위기)을 AI 가 자기 말로. 장소 칸이다: 판단(`petPolicy`) 안에 두면
+          // 판단 지문(`basis`)에 자기가 들어가고, `POLICY_TOPICS` ↔ 판단 `required` 짝(petPolicyGuide.test.mjs)이 깨진다.
+          petPolicyGuide: NULLABLE_STRING,
           features: NULLABLE_STRING,
           // 숙소만. 시드 26곳은 전부 있는데 블로그 신규 숙소는 이 두 칸이 비어 카드에 빈 굵은 줄·상세에 빈 '1박 요금' 이 그려졌다(2026-09-28 설계 검토).
           stayPriceText: NULLABLE_STRING,
@@ -199,6 +203,12 @@ export const FEE_EX = {
 
 const feeExample = (rule) => JSON.stringify(rule);
 
+/**
+ * 이용 안내(`petPolicyGuide`)가 말하면 안 되는 주제 — 판단 칸이 말한다(배지·템플릿 줄). 같은 주제를 안내도 말하면 운영자가 판단을 고친 순간 둘이 갈린다.
+ * 가드(`POLICY_TOPICS`, petPolicyGuide.mjs)가 같은 주제를 코드로 다시 거른다 — 칸을 더하면 둘 다(extractPlaces.test.mjs 가 짝을 본다).
+ */
+export const PROMPT_GUIDE_TOPICS = '실내·야외·케이지·이동가방·유모차·무게·마릿수·대형견·소형견·목줄·요금·접종·전화·요일';
+
 // 고정 문자열 — 날짜·ID 같은 가변 값을 절대 넣지 않는다(캐시 prefix). 바꾸면 PROMPT_VERSION 이 바뀐다.
 export const SYSTEM_PROMPT = `당신은 제주도 반려견 동반 여행 블로그 글에서 "강아지와 함께 갈 수 있는 장소" 와 그 이용 조건을 추출합니다.
 결과는 사람이 원문 링크를 열어 직접 확인한 뒤 앱 데이터에 반영됩니다. 지어내지 말고, 본문에 있는 것만 적으세요.
@@ -226,13 +236,17 @@ export const SYSTEM_PROMPT = `당신은 제주도 반려견 동반 여행 블로
   리드줄 · 추가 요금 · 예방접종 같은 조건 문장이 있으면 **하나도 빠뜨리지 말고 각각 한 줄씩** 넣습니다.
   예: ${PROMPT_POLICY_EXAMPLES.map((s) => `"${s}"`).join(', ')}.
   petPolicyText 안에서 무게·마릿수를 숫자로 바꾸거나 요약해 재구성하지 마세요(구조화는 petPolicy 가 맡습니다). 동반이 안 된다는 문장도 그대로 넣습니다.
-  조건 언급이 없으면 null.
+  **조건을 말하지 않는 문장은 넣지 않습니다** — 감상이나 시설·편의 설명("대형견 운동장이 따로 있어요" · 주차 · 물그릇 · 포토존)은 조건이 아닙니다.
+  조건은 없고 동반이 된다는 말뿐이면("애견동반 가능해요") **그 문장을 넣습니다** — 앱이 "조건이 적혀 있지 않으니 확인하라" 로 읽습니다.
+  반려견 동반 이야기가 아예 없으면 null.
 - petPolicy: petPolicyText 를 읽고 **당신이 판단한** 구조화 값. 본문에 근거가 있는 것만 채우고, 언급이 없으면 null 또는 "unknown" 입니다.
   petPolicyText 가 null 이면 petPolicy 도 null.
     indoor: 실내 자유 "free" · 실내는 케이지/이동가방/유모차가 있어야 함 "cage" · 야외(테라스·마당)만 "outdoorOnly" · 언급 없음 "unknown".
-    leash: 리드줄·목줄 착용 조건이 있으면 true. largeDogOk: 대형견 가능이 명시되면 true, **"대형견" 이 안 된다고 적혀 있으면** false, 언급 없으면 null.
+    leash: 리드줄·목줄 착용 조건이 있으면 true. largeDogOk: **대형견이 그곳에 들어가거나 묵을 수 있다**고 적혀 있으면 true,
+      **"대형견" 이 안 된다고 적혀 있으면** false, 언급 없으면 null. "대형견 운동장이 따로 있다" 는 시설 설명이지 허용이 아닙니다(null).
       몸무게 상한("10kg 이하")에서 대형견 불가를 추론하지 마세요 — 그건 weightLimitKg 가 말합니다.
-    smallDogOnly: 소형견만이면 true. callFirst: 방문·예약 전 전화나 문의가 필요하다고 하면 true.
+    smallDogOnly: 소형견만이면 true. callFirst: **반려견 동반 때문에** 방문·예약 전 전화나 문의가 필요하다고 하면 true.
+      영업시간·수영장·교통·예약 상품을 미리 물어보라는 권유는 동반 조건이 아닙니다(false).
     vaccineRequired: 예방접종(종합백신·광견병 등)을 마친 강아지만 받거나 접종 증명서·수첩을 보여 달라고 하면 true.
       "접종 권장"·"접종하고 오시면 좋아요" 처럼 권하기만 하거나 접종 언급이 없으면 false. 이 조건은 notes 에 다시 적지 않습니다.
     petDays: 반려동물 동반이 **특정 요일에만** 되면 그 요일들(예: "매주 수요일 반려동물 동반데이" → ["수"], 원문에 적힌 순서). 요일 제한이 없으면 null.
@@ -259,12 +273,19 @@ export const SYSTEM_PROMPT = `당신은 제주도 반려견 동반 여행 블로
       **숫자는 petPolicyText 에 적힌 숫자만** 씁니다. 요금 기준의 몸무게("19kg 이하 1마리당 2만원")는 **상한이 아닙니다** —
       그 무게를 넘는 강아지도 다른 요금으로 받는다는 뜻입니다. 그 숫자는 fees 의 minKg·maxKg 에만 씁니다.
       원문에 근거가 없는 판단은 앱이 빼고 봅니다(scripts/lib/petPolicyFacts.mjs) — 모르면 null 이 맞습니다.
-    notes: 위 칸에 없는 그 밖의 조건(큐알 방명록 · 매너벨트 등) 한 줄. 없으면 null.
+    notes: 위 칸에 없는 그 밖의 **반려견 이용 조건**(큐알 방명록 · 매너벨트 등) 한 줄. 해요체로, 본문 문장을 옮기지 말고 자기 말로 씁니다.
+      숙소 일반 규칙(쓰레기 분리 · 화분 물 주기 · 퇴실 정리)은 반려견 조건이 아닙니다. 글쓴이가 하지 않은 일("족욕장엔 못 들어가 봤어요")을
+      금지 규칙("족욕장은 함께 이용할 수 없어요")으로 바꾸지 마세요. 없으면 null.
+- petPolicyGuide: 판단 칸이 말하지 않는 **이용 안내** 1~2문장 — 이용 절차 · 준비하면 좋은 것 · 자리 · 분위기. 해요체로, 본문 문장을 옮기지 말고 **자기 말로** 씁니다.
+  ${PROMPT_GUIDE_TOPICS} 는 쓰지 않습니다 — petPolicy 가 말하는 주제라 안내가 다시 말하면 둘이 갈립니다.
+  숫자는 본문에 있는 것만 씁니다. 글쓴이가 짐작한 것("~인 것 같아요")을 단정으로 쓰지 않습니다. 쓸 것이 없으면 null, petPolicyText 가 null 이면 null.
 - features: 그 장소가 무엇인지 해요체 서술문 1~2문장, 120자 이내, 줄바꿈 없이. 첫 문장은 무엇을 파는/어떤 곳인지, 둘째 문장은 강아지 편의
   시설(마당·물그릇·펜스 등). **동반 조건은 쓰지 않습니다** — 실내에 함께 있을 수 있는지·대형견이 되는지·리드줄이 필요한지는
   petPolicy 가 말하고, 앱은 그 값으로 판정합니다. 소개가 "실내에서 함께 머물 수 있어요" 라고 하면 본문에 근거가 없어도 판정과 반대를
   말하게 됩니다. 좌석·공간은 "안쪽에 1인 좌석이 있어요" 처럼 강아지와 묶지 않고 씁니다. 문장의 주어는 장소이고 "~가 있어요 · ~를 줘요 · ~할 수 있어요" 같은 서술만 씁니다 — 독자에게 하는 명령·권유·당부
   ("~하세요", "~해 주세요", "추천해요")는 쓰지 않습니다. 블로거 1인칭 · 내돈내산 · 광고·협찬 표시도 쓰지 않습니다.
+  본문 문장을 옮기지 말고 자기 말로 씁니다. **본문에 그 가게가 어떤 곳인지 설명하는 문장이 없으면 null** 입니다 — 글의 제목 · 출처 · 목록 이름
+  ("식약처 현황에 올라 있는 ○○" · "애견동반 맛집 목록의 ○○")을 소개로 쓰지 마세요.
 - stayPriceText: type 이 "stay" 일 때만. 1박 요금을 본문 표기 그대로(예: "150,000원 ~ 200,000원"). 반려견 추가 요금은 여기가 아니라
   petPolicyText 에 넣습니다. 없으면 null.
 - stayAmenitiesText: type 이 "stay" 일 때만. 숙소가 갖춘 반려견 용품을 쉼표로 나열(예: "배변 패드, 식기, 강아지 계단"). 없으면 null.
@@ -414,21 +435,30 @@ function shapeFeeRule(raw) {
 }
 
 // 스키마가 형식을 보장하지만 가짜 응답·모델 변경에도 안전하게 — 빈 문자열은 null, evidence 는 string[], confidence 는 0..1.
-function normalizePlace(raw) {
+// bodyText 는 모델이 읽은 본문 — 이용 안내의 가드가 대 본다(없으면 안내를 싣지 않는다).
+function normalizePlace(raw, bodyText) {
   if (!raw || typeof raw !== 'object') return null;
   const name = emptyToNull(raw.name);
   if (!name) return null;
   const confidence = Number(raw.confidence);
   const type = TYPES.has(raw.type) ? raw.type : 'other';
   const petPolicyText = emptyToNull(raw.petPolicyText);
+  const petPolicy = normalizePetPolicy(raw.petPolicy, petPolicyText);
+  // 스키마 밖 응답(가짜·옛 결과)이면 방문으로 본다 — "목록 글" 표식은 모델이 확실히 false 라고 했을 때만.
+  const visited = raw.visited !== false;
   return {
     name,
     type,
     regionRaw: emptyToNull(raw.regionRaw),
     address: emptyToNull(raw.address),
     petPolicyText,
-    petPolicy: normalizePetPolicy(raw.petPolicy, petPolicyText),
-    features: emptyToNull(raw.features),
+    petPolicy,
+    // 이용 안내(21 S7) — 본문(+ 조건 원문)에 대 본 가드를 지난 것만 `{ text, basis }`, basis = 저장될 판단의 지문(`storableGuide`).
+    // 조건 원문이 없으면 안내도 없다 — 반영기도 그런 후보의 안내는 버린다(`applyApproved` 의 `guideOf`). 본문이 없으면 확인할 수 없어 싣지 않는다.
+    petPolicyGuide: petPolicyText && bodyText ? storableGuide(raw.petPolicyGuide, `${bodyText}\n${petPolicyText}`, petPolicy).guide : null,
+    // 목록·명단 글의 소개는 비운다(21 S7) — 이름만 나열한 글에서 쓴 소개는 글의 틀("식약처 현황에 올라 있는 ○○이에요")이다.
+    // 쓸 만한 소개도 같이 비워지지만, 소개는 다녀온 글(과 묶음 종합, 13 §5.3)에서 온다.
+    features: visited ? emptyToNull(raw.features) : null,
     // 숙소가 아닌데 모델이 채웠으면 버린다 — apply 도 stay 에만 싣지만, 후보 JSON 에 엉뚱한 값이 남아 사람을 헷갈리게 하지 않게.
     stayPriceText: type === 'stay' ? emptyToNull(raw.stayPriceText) : null,
     stayAmenitiesText: type === 'stay' ? emptyToNull(raw.stayAmenitiesText) : null,
@@ -441,8 +471,7 @@ function normalizePlace(raw) {
           )
         : null,
     isJeju: raw.isJeju === true,
-    // 스키마 밖 응답(가짜·옛 결과)이면 방문으로 본다 — "목록 글" 표식은 모델이 확실히 false 라고 했을 때만.
-    visited: raw.visited !== false,
+    visited,
     petAllowed: PET_ALLOWED.has(raw.petAllowed) ? raw.petAllowed : 'unknown',
     evidence: Array.isArray(raw.evidence) ? raw.evidence.map(emptyToNull).filter(Boolean) : [],
     confidence: Number.isFinite(confidence) ? Math.min(1, Math.max(0, confidence)) : 0,
@@ -497,8 +526,9 @@ export function classifyCliError(result) {
 /**
  * `claude -p --output-format json` 의 결과 객체 → { places }. is_error 또는 subtype≠success 면 classifyCliError 가 가른다 —
  * 그때는 structured_output 이 없다. 이름 없는 항목은 버린다(대조도 확인도 못 한다). 에러 메시지에 모델 출력(result 본문)은 싣지 않는다.
+ * bodyText — 모델에 넘긴 본문. 이용 안내의 가드가 대 본다(21 S7). 안 주면 안내는 전부 null.
  */
-export function parseExtraction(result) {
+export function parseExtraction(result, bodyText) {
   if (!result || result.type !== 'result') {
     throw new ExtractionError('not_result', `claude 출력이 result 객체가 아님 (type=${result?.type ?? typeof result})`);
   }
@@ -512,7 +542,7 @@ export function parseExtraction(result) {
     throw new ExtractionError('invalid_shape', '응답에 places 배열이 없음');
   }
 
-  return { places: parsed.places.map(normalizePlace).filter(Boolean) };
+  return { places: parsed.places.map((place) => normalizePlace(place, bodyText)).filter(Boolean) };
 }
 
 /**
@@ -606,7 +636,7 @@ export async function extractPlaces(run, post, bodyText, meter, { onResult } = {
   meter?.add(result?.usage);
   // 평가가 호출별 비용(total_cost_usd — 구독이라 실제로 내는 돈은 아니고 목록 단가 환산)을 캐시에 적으려고 받는다.
   onResult?.(result);
-  return parseExtraction(result).places;
+  return parseExtraction(result, bodyText).places;
 }
 
 /** 나중에 다시 부르면 될 가능성이 있는 실패인가 — 429·5xx·한도·타임아웃·프로세스 오류. 인증·내용 문제는 false. */

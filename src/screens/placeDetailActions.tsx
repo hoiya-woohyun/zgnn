@@ -45,7 +45,8 @@ export function PlaceDetailActions({ place }: { place: TPlaceEntry }) {
     if (method === 'share') {
       const text = shareTextFor(place.features, dog?.dogs.map((d) => d.name) ?? null, eligibility);
       // 사용자가 공유 시트를 닫아도 reject 된다 — 실패가 아니라 취소라 조용히 넘긴다.
-      void navigator.share({ title: `${place.name} | 강아지랑 제주`, text, url }).catch(() => undefined);
+      // 소개가 없고 강아지도 없으면 글이 비어(21 S7) 빈 text 를 싣지 않는다 — 제목·주소만 간다.
+      void navigator.share({ title: `${place.name} | 강아지랑 제주`, text: text || undefined, url }).catch(() => undefined);
       return;
     }
     if (method === 'copy') {

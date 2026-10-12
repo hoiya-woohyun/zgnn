@@ -145,7 +145,7 @@ describe('왕복 — 제안 → 덮어쓰기 → 공개 안내', () => {
   };
   const shown = (row: TPlaceRow) => {
     const site = fromPlaceRow(row) as TPlace;
-    return { site, guide: publicGuide(site.petPolicyGuide, site.petPolicy, site.petPolicyText) };
+    return { site, guide: publicGuide(site.petPolicyGuide, site.petPolicy) };
   };
 
   it('덮어쓴 행의 안내가 사이트에 나간다(지문 일치) · 원문은 숨김', () => {

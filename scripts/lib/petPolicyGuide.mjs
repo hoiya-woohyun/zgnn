@@ -1,8 +1,9 @@
 // 사이트에 나가는 **AI 문장**(notes · 이용 안내)의 가드와 판단 지문 — ADR-017 결정 13(D1, v10), docs/todo/21 S2.
 //
 // 공개 상세는 블로그 원문을 보이지 않는다. 판단 칸에서 만든 템플릿 줄(`src/lib/petPolicyPublic.ts`) 밑에 AI 가 자기 말로 쓴
-// 안내 1~2문장(없으면 notes 한 줄)을 붙이는데, 그 문장은 **분석 시점**(추출·제안 패스가 안내를 실을 때)과 **앱**(그릴 때) 두 곳에서
-// 같은 가드를 지나야 한다 — 스크립트는 TS 를 못 읽어서 `.mjs` 다(레포 관례는 TS 가 `.mjs` 를 import 하는 쪽).
+// 안내 1~2문장(없으면 notes 한 줄)을 붙이는데, 그 문장은 **분석 시점**(추출·제안 패스가 안내를 실을 때 — 본문에 대 보는 가드 전부,
+// `storableGuide`)과 **앱**(그릴 때 — 지문·주제만, `topicReasons`) 두 곳에서 가드를 지난다(21 S7) — 스크립트는 TS 를 못 읽어서 `.mjs` 다
+// (레포 관례는 TS 가 `.mjs` 를 import 하는 쪽).
 //
 // 순수 모듈이다: 브라우저도 import 한다 — node 모듈(`node:crypto` 포함)을 넣지 말 것. lookbehind 정규식 리터럴도 쓰지 않는다
 // (iOS 16.4 전 Safari 에서 청크째 죽는다, feeLine.mjs 머리 주석) — 앞 글자를 캡처하는 어법을 쓴다.
@@ -94,15 +95,31 @@ function unknownNumbers(text, raw) {
 }
 
 /**
- * 사이트에 나갈 AI 문장(notes·안내)이 원문 밖으로 나가지 않았는가. 이유는 한국어 한 줄씩 — `/admin` 미리보기(S6)가 그대로 보인다.
+ * 안내가 판단 칸의 주제를 말하는가 — 말하면 그 이유들(없으면 빈 배열). 런타임(`publicGuide`)은 이것과 지문만 본다:
+ * 베낌·숫자·근거는 쓴 시점의 글(본문)에 대 봐야 하는데 앱에는 본문이 없다(docs/todo/21 S7). 주제는 글 없이도 보고,
+ * `POLICY_TOPICS` 에 칸이 늘면 옛 안내도 다시 걸려야 해서 런타임에 한 번 더 본다.
+ * @param {string} text
+ * @returns {string[]}
+ */
+export function topicReasons(text) {
+  return Object.values(POLICY_TOPICS).flatMap(({ find }) => {
+    const word = find(text);
+    return word ? [`판단 칸이 말하는 주제예요(${word})`] : [];
+  });
+}
+
+/**
+ * 사이트에 나갈 AI 문장(notes·안내)이 대조군 밖으로 나가지 않았는가. 이유는 한국어 한 줄씩 — `/admin` 미리보기(S6)가 그대로 보인다.
  *
- * - **베낌**: 공백을 뺀 원문과 `COPY_RUN`(15)자 이상 같은 이음. 블로그 문장을 그대로 내보내지 않는 것이 이 가드의 이유다(레포 PUBLIC).
- * - **원문에 없는 숫자**: 숫자 하나가 판정을 바꾼다(`weightLimitKg: 10` 이 대형견을 막았다, BUG-009).
- * - **원문에 없는 조건**: 근거 단어(`GROUND_CUES`)를 말하는데 원문에 그 말이 없다.
+ * - **베낌**: 공백을 뺀 대조군과 `COPY_RUN`(15)자 이상 같은 이음. 블로그 문장을 그대로 내보내지 않는 것이 이 가드의 이유다(레포 PUBLIC).
+ * - **대조군에 없는 숫자**: 숫자 하나가 판정을 바꾼다(`weightLimitKg: 10` 이 대형견을 막았다, BUG-009).
+ * - **대조군에 없는 조건**: 근거 단어(`GROUND_CUES`)를 말하는데 대조군에 그 말이 없다.
  * - **판단 주제**(`topics`, 안내만): `POLICY_TOPICS` 를 말하면 배지와 갈릴 수 있다. notes 는 판단이 못 담은 조건을 적는 칸이라 이 검사를 안 한다.
  *
+ * 대조군은 시점마다 다르다(21 S7): notes(앱)는 조건 원문, 안내는 **분석 시점에 모델이 읽은 글**(`storableGuide`).
+ *
  * @param {string | null | undefined} text
- * @param {string | null | undefined} rawText 조건 원문(`petPolicyText`) — 대조군
+ * @param {string | null | undefined} rawText 대조군 — notes 는 조건 원문(`petPolicyText`), 안내는 본문(`storableGuide`)
  * @param {{ topics?: boolean }} [options] topics 기본 true(엄한 쪽) — notes 만 false 로 부른다
  * @returns {{ ok: boolean, reasons: string[] }}
  */
@@ -120,13 +137,30 @@ export function guardPublicText(text, rawText, { topics = true } = {}) {
     const { near, words } = CORRECTION_CUES[key];
     if (near.test(body) && !near.test(raw)) reasons.push(`원문에 없는 조건이에요(${words})`);
   }
-  if (topics) {
-    for (const { find } of Object.values(POLICY_TOPICS)) {
-      const word = find(body);
-      if (word) reasons.push(`판단 칸이 말하는 주제예요(${word})`);
-    }
-  }
+  if (topics) reasons.push(...topicReasons(body));
   return { ok: reasons.length === 0, reasons: [...new Set(reasons)] };
+}
+
+/**
+ * **분석 시점** — AI 가 쓴 안내를 실을지(추출 `normalizePlace` · 제안 `sanitizeProposal` · 다시 쓰기 S9 가 이 함수 하나를 쓴다).
+ * 대조군은 **그 모델이 읽은 글**이다 — 추출은 본문, 제안은 남을 원문 + 근거 글들의 원문·인용(AI 가 쓴 소개는 빼고).
+ * 안내는 정의상 판단 칸 밖(자리·분위기·절차)이라 재료가 조건 원문이 아니라 본문에 있다 — 조건 원문에 대 보면
+ * "2층 창가 자리가 조용해요"(없는 숫자 2) 같은 멀쩡한 안내가 다 빠지고, 본문을 베낀 안내는 못 본다(21 S7 v8 발견).
+ * 대조군이 없으면 싣지 않는다 — 확인하지 못한 문장이다.
+ *
+ * 통과하면 `{ text, basis }` — `basis` 는 **저장될 판단**의 지문이다(앱이 그 판단과 대 본다, `publicGuide`).
+ *
+ * @param {string | null | undefined} text  모델이 쓴 안내
+ * @param {string | null | undefined} corpus  모델이 읽은 글
+ * @param {import('../../src/types').TPetPolicyFacts | null | undefined} policy  안내와 함께 저장될 판단
+ * @returns {{ guide: import('../../src/types').TPetPolicyGuide | null, reasons: string[] }}
+ */
+export function storableGuide(text, corpus, policy) {
+  const body = String(text ?? '').trim();
+  if (!body) return { guide: null, reasons: [] };
+  if (!String(corpus ?? '').trim()) return { guide: null, reasons: ['대 볼 글이 없어요'] };
+  const { ok, reasons } = guardPublicText(body, corpus);
+  return ok ? { guide: { text: body, basis: policyFingerprint(policy) }, reasons: [] } : { guide: null, reasons };
 }
 
 /**

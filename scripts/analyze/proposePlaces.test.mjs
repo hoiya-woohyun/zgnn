@@ -119,6 +119,19 @@ describe('sanitizeProposal — 이용 안내(21 S4)', () => {
     expect(out.why).toContain('원문을 그대로 옮겼어요');
   });
 
+  // 21 S7 — 대조군은 이 모델이 읽은 값(남을 원문 + 근거 글들의 원문·인용). 남을 원문 "대형견 가능, 1마리당 2만원" 에는 '마당' 이 없다.
+  it('근거 글의 인용에 있는 말은 지난다 — 남을 원문에만 대 보지 않는다', () => {
+    const out = sanitizeProposal({ fields: [guideChange({ value: '마당이 넓어 공놀이하기 좋아요' })] }, rows, { place: site }).fields.pet_policy_guide;
+    expect(out).toMatchObject({ action: 'change', value: '마당이 넓어 공놀이하기 좋아요', basis: policyFingerprint(sitePolicy) });
+  });
+
+  it('근거 글의 소개(AI 가 쓴 문장)는 대조군이 아니다 — 소개에만 있는 숫자는 keep', () => {
+    const withFeatures = [row('https://blog/a', '2025-11-02', { petPolicyText: '대형견 가능해요', evidence: ['마당이 넓어요'], features: '창가 자리가 3곳 있어요' }), B];
+    const out = sanitizeProposal({ fields: [guideChange({ value: '창가 자리 3곳이 조용해요' })] }, withFeatures, { place: site }).fields.pet_policy_guide;
+    expect(out.action).toBe('keep');
+    expect(out.why).toContain('원문에 없는 숫자예요(3)');
+  });
+
   it('근거·인용 검사는 그대로 먼저 · 글마다 다른 안내는 충돌로 세지 않는다', () => {
     expect(sanitizeProposal({ fields: [guideChange({ quote: '지어낸 문장' })] }, rows, { place: site }).fields.pet_policy_guide.why).toContain('인용이 근거 글에 없어');
     expect(countConflicts(rows).map((c) => c.field)).toEqual(['pet_policy_text']);

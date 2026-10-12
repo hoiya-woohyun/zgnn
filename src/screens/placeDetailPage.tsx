@@ -42,9 +42,12 @@ export function PlaceDetailPage({ id }: { id: string }) {
         여기에도 같은 배지를 깔면 한 화면에 똑같은 줄이 두 번 나와서, 두 줄이 서로
         다른 것을 말하는 줄 알고 읽게 된다. 여기는 특징 문장만 남긴다(저장은 위 액션 줄).
       */}
-      <section className="px-4 pt-5 md:px-6">
-        <p className="text-sm text-secondary">{place.features}</p>
-      </section>
+      {/* 소개가 없는 곳(목록·명단 글에서 온 곳 — 21 S7)은 칸째 그리지 않는다. */}
+      {place.features && (
+        <section className="px-4 pt-5 md:px-6">
+          <p className="text-sm text-secondary">{place.features}</p>
+        </section>
+      )}
 
       <section className="mt-6 px-4 md:px-6">
         <h2 className="text-lg font-bold text-primary">반려동물 이용</h2>

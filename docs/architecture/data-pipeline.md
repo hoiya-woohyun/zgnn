@@ -1,6 +1,7 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-10-13 (v65: `fromPlaceRow` 의 임시 공개 짐작(`source = 'notion'`)을 걷었다 — 칸이 없으면 숨김 · 새 행은 `pet_policy_guide: null` 키를 싣는다(형제 후보의 안내가 빠지지 않게), todo 21 S4.1)
+> 최종 수정: 2026-10-13 (v66: **추출이 이용 안내를 쓰고 목록글 소개를 비운다** — 장소 칸 `petPolicyGuide` 는 본문에 대 본 가드를 지난 것만 `{ text, basis }` 로 후보에 실리고, `features` 는 설명이 없거나 목록글이면 null, 조건 원문은 조건 아닌 문장을 빼고 "동반 가능" 한마디는 넣는다. 프롬프트 `d7a6610e`, todo 21 S7)
+> 이전 2026-10-13 (v65: `fromPlaceRow` 의 임시 공개 짐작(`source = 'notion'`)을 걷었다 — 칸이 없으면 숨김 · 새 행은 `pet_policy_guide: null` 키를 싣는다(형제 후보의 안내가 빠지지 않게), todo 21 S4.1)
 > 이전 2026-10-12 (v64: 쓰는 길이 공개 플래그·안내를 지킨다 — 원문 글자가 바뀔 때만 공개를 끄고, 안내는 옮기기만(지문은 분석·제안 패스만), todo 21 S4)
 > 이전 2026-10-12 (v63: `places` 에 **조건 원문 공개 플래그**(`pet_policy_text_public`, 기본 숨김 · 시드만 true)와 **이용 안내**(`pet_policy_guide`) 두 칸 → `TPlace.petPolicyTextPublic`(true 일 때만 키)·`petPolicyGuide`, todo 21 S3)
 > 이전 2026-10-12 (v62: **추출 모델 기본이 `claude-sonnet-5-5`**, 교차점검·제안은 `claude-opus-5` 고정 — 셋이 한 env(`ANALYZE_MODEL`)를 따라가던 연결을 끊었다, todo 21 M1)
@@ -276,6 +277,12 @@ flowchart LR
   함께 뽑아 `places.pet_policy` 에 저장한다. 앱은 있으면 **판정을 그 값만으로** 정한다(`withPolicyFacts`, ADR-017 v5 — null 을 정규식으로 메우지 않는다). 정규식은 시드의 경로이자 검수의 대조군. 블로그 구어체 32건 중 20건을 정규식이 못 읽은 것이 계기다.
   **요금은 구조의 배열이다**(`fees`, ADR-017 결정 9) — 줄마다 표시용 `label` 과 계산용 칸(`amountWon`·`basis`·`minKg`/`maxKg`·`fromDog`·`perNight`).
   옛 후보·장소는 `feeText`(한 칸)나 `feeLines`(줄 목록)만 들고 있고 읽는 쪽이 `feeLinesOf` 로 합쳐 본다 — 소급 마이그레이션은 하지 않는다(요금 계산은 줄을 읽던 길로 물러난다).
+- **이용 안내·소개는 추출이 자기 말로 쓴다**(todo/21 S7 · [ADR-017](../decisions/ADR-017-ai-structured-pet-policy.md) 결정 13 v11). 장소 칸 `petPolicyGuide` — 판단 칸 밖의 절차·준비 팁·자리·분위기 1~2문장,
+  해요체, 판단 주제(실내·무게·요금·전화 …) 금지 — 는 `normalizePlace` 가 **본문**(+ 조건 원문)에 대 본 가드(`storableGuide` — 베낌·없는 숫자·없는 조건·판단 주제)를 지난 것만
+  `extracted.petPolicyGuide = { text, basis }` 로 싣는다(basis = 저장될 판단의 지문. 본문이 없거나 조건 원문이 없으면 null). 앱은 지문·주제만 다시 본다 — 앱엔 본문이 없다.
+  제안 패스의 안내도 같은 함수이고 대조군은 그 패스가 읽은 값(남을 원문 + 근거 글들의 원문·인용, AI 가 쓴 소개는 뺀다).
+  `features` 는 그 가게를 설명하는 문장이 없으면 null(글의 제목·출처·목록 이름을 소개로 쓰지 않는다)이고, 목록글(`visited: false`)이면 코드가 비운다 —
+  사이트는 빈 소개면 카드·지도 시트 줄·상세 칸·OG 설명·공유 글을 그리지 않는다. 조건 원문은 조건을 말하지 않는 문장(감상·시설 설명)을 빼고, 동반이 된다는 말뿐이면 그 문장을 넣는다(판정 C9).
 - **후보 0건의 "왜" 가 `blog_posts.analysis` 에 남는다** — `{ model, promptVersion, candidates, candidateNames, excluded:[{name,type,reason}], skip }`. 제외 이유는 넷:
   `notJeju` · `other`(관광지·운동장 — 이름은 남는다) · `notAllowed`(본문이 동반 불가라고 함, [BUG-008](../bugs/BUG-008-empty-pet-policy-judged-ok.md)) ·
   **`sameAsSite` · `stale` · `weak`**(이미 게시된 곳을 쓴 글 — 아래 「차이 게이트」. v29 전 실행은 셋을 합쳐 `alreadyHave` 로 남겼다). 본문 인용은 넣지 않는다.

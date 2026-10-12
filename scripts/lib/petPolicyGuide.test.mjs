@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { EXTRACT_SCHEMA } from '../analyze/extractPlaces.mjs';
 import { fromPlaceRow } from './placeFields.mjs';
-import { COPY_RUN, guardPublicText, POLICY_TOPICS, policyFingerprint } from './petPolicyGuide.mjs';
+import { COPY_RUN, guardPublicText, POLICY_TOPICS, policyFingerprint, storableGuide, topicReasons as runtimeTopicReasons } from './petPolicyGuide.mjs';
 
 const topicReasons = (r) => r.reasons.filter((reason) => reason.startsWith('판단 칸이 말하는 주제'));
 
@@ -163,5 +163,41 @@ describe('policyFingerprint — 같은 판단은 같은 지문', () => {
   it('판단이 없으면(null·undefined) 같은 지문 하나', () => {
     expect(policyFingerprint(null)).toBe(policyFingerprint(undefined));
     expect(policyFingerprint(null)).toMatch(/^[0-9a-f]{14}$/);
+  });
+});
+
+/**
+ * 분석 시점(21 S7) — 추출·제안·다시 쓰기가 이 함수 하나로 안내를 싣는다. 대조군은 그 모델이 읽은 글, basis 는 저장될 판단의 지문.
+ */
+describe('storableGuide — 모델이 읽은 글에 대 보고 { text, basis } 로', () => {
+  const policy = { indoor: 'free', leash: false, smallDogOnly: true, fees: [], notes: null };
+  const corpus = '사장님이 2층 창가 자리를 내어 주셨어요. 실내 동반 가능하고 소형견만 받아요.';
+
+  it('지나면 문장(앞뒤 공백 정리) + 판단 지문', () => {
+    expect(storableGuide('  2층 창가 자리가 조용해요 ', corpus, policy)).toEqual({
+      guide: { text: '2층 창가 자리가 조용해요', basis: policyFingerprint(policy) },
+      reasons: [],
+    });
+  });
+
+  it('못 지나면 null + 가드의 이유(판단 주제 검사 포함)', () => {
+    const r = storableGuide('소형견이라 조용히 쉬기 좋아요', corpus, policy);
+    expect(r.guide).toBeNull();
+    expect(r.reasons).toEqual(['판단 칸이 말하는 주제예요(소형견)']);
+  });
+
+  it('대 볼 글이 없으면 싣지 않는다 · 안내가 비면 이유 없이 null', () => {
+    expect(storableGuide('창가 자리가 조용해요', '', policy)).toEqual({ guide: null, reasons: ['대 볼 글이 없어요'] });
+    expect(storableGuide('창가 자리가 조용해요', null, policy)).toEqual({ guide: null, reasons: ['대 볼 글이 없어요'] });
+    expect(storableGuide(' ', corpus, policy)).toEqual({ guide: null, reasons: [] });
+  });
+});
+
+describe('topicReasons — 런타임이 보는 주제 검사', () => {
+  it('guardPublicText 의 주제 이유와 같다', () => {
+    const text = '주문할 때 예방접종 날짜를 물어봐요';
+    expect(runtimeTopicReasons(text)).toEqual(['판단 칸이 말하는 주제예요(접종)']);
+    expect(runtimeTopicReasons(text)).toEqual(topicReasons(guardPublicText(text, text)));
+    expect(runtimeTopicReasons('정원 산책로까지 같이 걸을 수 있어요')).toEqual([]);
   });
 });

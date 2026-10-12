@@ -88,7 +88,8 @@ export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEdit
         <p className="mt-3 text-sm font-bold text-primary">{formatStayPrice(place.stay.price)}</p>
       )}
 
-      <p className="clamp-2 mt-2 text-sm text-secondary">{place.features}</p>
+      {/* 소개가 없는 곳(목록·명단 글에서 온 곳 — 21 S7)은 빈 줄을 그리지 않는다. 빈 <p> 도 위 여백을 먹는다. */}
+      {place.features && <p className="clamp-2 mt-2 text-sm text-secondary">{place.features}</p>}
 
       {/* "두부는 1만원 (1~5kg)" — 이름까지 붙은 완성 문장(lib/dogFee.ts)이라 그대로 출력한다.
           상세의 info 근거와 같은 문자열이어야 한다(2026-09-15 디자인 리뷰 §1 "이름 넣은 요금 한 줄"). */}

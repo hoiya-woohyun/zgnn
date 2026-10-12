@@ -11,13 +11,14 @@
 // **지어내지 않는다**(ADR-017 v2 · ADR-019 결정 8 과 같은 어법) — 모델의 출력은 `sanitizeProposal` 이 코드로 다시 거른다:
 // 근거 글이 없는 change · 인용이 그 글들의 값에 없는 change · 손댈 수 없는 칸은 `keep` 으로 되돌린다. 소개는 **덧붙일 한 문장**만.
 // 조건 원문을 바꾸자는 제안의 판단은 근거 글의 판단을 `correctPetPolicyFacts(판단, 제안 원문)` 에 통과시켜 붙인다.
-// 이용 안내(docs/todo/21 S4)는 공개 문장 가드(`guardPublicText`)를 지나야 하고, 판단 지문(`basis`)은 **이 패스만** 찍는다 — 승인 뒤 남을 판단의 것.
+// 이용 안내(docs/todo/21 S4)는 분석 시점 가드(`storableGuide` — 추출과 같은 함수, 대조군은 이 모델이 읽은 값)를 지나야 하고,
+// 판단 지문(`basis`)은 **이 패스만** 찍는다 — 승인 뒤 남을 판단의 것.
 // 충돌(`conflicts`)은 모델 값을 믿지 않고 코드가 센다.
 //
 // 실패는 **후보를 버리지 않는다** — 교차점검과 같은 정책이다. 제안이 없는 갱신 묶음은 화면이 `제안 없음` 으로 그린다(null 은 "안 봤다").
 import { createHash } from 'node:crypto';
 import { correctPetPolicyFacts } from '../lib/petPolicyFacts.mjs';
-import { guardPublicText, policyFingerprint } from '../lib/petPolicyGuide.mjs';
+import { storableGuide } from '../lib/petPolicyGuide.mjs';
 import { classifyCliError, ClaudeCliError, ExtractionError } from './extractPlaces.mjs';
 import { quoteInBody } from './verifyPlaces.mjs';
 
@@ -194,6 +195,9 @@ const groundsOf = (rows) =>
     .filter((v) => typeof v === 'string')
     .join('\n');
 
+/** 안내 가드의 대조군에 드는 글 하나의 값 — 블로그에서 옮긴 것(조건 원문·인용)만. AI 가 쓴 소개는 뺀다(`sanitizeProposal`). */
+const guideGroundsOf = (row) => [row.extracted?.petPolicyText, ...(row.extracted?.evidence ?? [])];
+
 /**
  * 같은 칸에 글들이 다른 말을 하나 — **코드가 센다**(모델 값을 믿지 않는다). 빈 값은 "말 없음" 이라 세지 않는다.
  * @returns {{ field: string, posts: string[] }[]}
@@ -221,8 +225,10 @@ export function countConflicts(candidateRows) {
  *  - `features` 의 change 는 `append`(덧붙일 한 문장)로 바뀐다 — 다시 쓰기는 없다.
  *  - `pet_policy_text` 의 change 에는 `petPolicy` 가 붙는다 — 근거 글 중 가장 새 글의 판단을 제안 원문에 대 본 것(`correctPetPolicyFacts`).
  *  - `stay_environment` 의 change 는 근거 글 중 가장 새 글의 값을 쓴다. 없으면 `keep`.
- *  - `pet_policy_guide` 의 change 는 **조건 원문의 결정 뒤에** 본다 — 승인 뒤 남을 원문(원문 change 면 제안 값, 아니면 사이트 값)에
- *    `guardPublicText`(판단 주제 포함)를 대 보고, 못 지나면 `keep`. 지나면 `basis` = 남을 판단(원문 change 면 제안 판단, 아니면 사이트 판단)의 지문.
+ *  - `pet_policy_guide` 의 change 는 **조건 원문의 결정 뒤에** 본다 — `storableGuide`(추출과 같은 분석 시점 가드, 판단 주제 포함)에
+ *    **이 모델이 읽은 값**을 대 본다: 승인 뒤 남을 원문(원문 change 면 제안 값, 아니면 사이트 값) + 근거 글들의 조건 원문·인용(21 S7).
+ *    글들의 소개(`features`)는 뺀다 — AI 가 쓴 문장이라 AI 의 숫자를 "근거" 로 만들어 준다. 못 지나면 `keep`.
+ *    지나면 `basis` = 남을 판단(원문 change 면 제안 판단, 아니면 사이트 판단)의 지문.
  *    이 패스가 지문을 찍는 유일한 자리다 — 반영·승인은 옮기기만 한다(그래야 운영자가 판단을 고친 뒤 안내가 저절로 숨는다).
  * 되돌린 change 는 `why` 끝에 이유를 남긴다(화면이 "왜 제안이 그대로인가" 를 말할 수 있게).
  *
@@ -283,9 +289,12 @@ export function sanitizeProposal(raw, candidateRows, { model = PROPOSE_MODEL, no
     const policy = fields.pet_policy_text?.action === 'change' ? fields.pet_policy_text : null;
     const rawText = policy ? policy.value : (place?.pet_policy_text ?? null);
     const facts = policy ? policy.petPolicy : (place?.pet_policy ?? null);
-    const { ok, reasons } = guardPublicText(guide.value, rawText);
-    fields.pet_policy_guide = ok
-      ? { ...guide, basis: policyFingerprint(facts) }
+    const corpus = [rawText, ...candidateRows.filter((row) => guide.basedOn.includes(row.post_url)).flatMap(guideGroundsOf)]
+      .filter((v) => typeof v === 'string')
+      .join('\n');
+    const { guide: stored, reasons } = storableGuide(guide.value, corpus, facts);
+    fields.pet_policy_guide = stored
+      ? { ...guide, basis: stored.basis }
       : kept(guide.why, `안내가 가드를 못 지나 그대로 둔다(${reasons.join(' · ')})`);
   }
 

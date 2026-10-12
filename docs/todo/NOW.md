@@ -1,6 +1,7 @@
 # 지금 할 일 — 대기열
 
-> 최종 수정: 2026-10-13 (v68: 이 세션 셋(21 S6 · 15 T8.1 · T8.2) 끝 — 맨 위 둘(S8 · 13 §5.3 A1)은 S7 커밋 뒤 🔒 를 걷는다, 「발견」 없음)
+> 최종 수정: 2026-10-13 (v69: 21 S7 끝 — 맨 위 둘(S8 · 13 §5.3 A1)의 🔒 를 걷었다 · S9(게시 38곳 문장만 다시 쓰기)를 S8 다음에 · 「기다림」 맨 위에 🧑 21 H1(워커 둘째 배포)·H5(시드 채점), 「발견」 없음)
+> 이전 2026-10-13 (v68: 이 세션 셋(21 S6 · 15 T8.1 · T8.2) 끝 — 맨 위 둘(S8 · 13 §5.3 A1)은 S7 커밋 뒤 🔒 를 걷는다, 「발견」 없음)
 > 이전: 2026-10-13 (v67: 15 T8.1 끝 — 화면 눈 확인은 21 S6.1 줄에 같이(Chrome 미연결))
 > 이전: 2026-10-13 (v66: 13 §5.3 A1 에 🔒(S7 뒤 — 나눠 쓸 소개 지시를 S7 이 다시 쓰는 중) · A2·A3 줄은 걷었다(앞 태스크의 「끝나면」 이 넣는다 — [13](13-ai-analysis-audit-2026-10-04.md)))
 > 이전: 2026-10-13 (v65: S8 줄 제목 앞에 🔒(S7 커밋되면 걷는다) — `take` 가 조건을 몰라 S7 전에 S8 을 다시 내줬다)
@@ -75,15 +76,19 @@
 ## 지금 (위에서부터)
 
 - [ ] 🔒 서버 워커 홉에 시간 예산(다음 글 시작 전 경과 ~200초면 멈춤, 서버만) — [20 T11](20-vercel-remote-worker.md) · 왜 지금: 2026-10-10 홉 하나가 258초 — 300초를 넘으면 홉이 끊기고 잠금 틈을 밟는다 · 2026-10-10 22:20 구현 커밋 d1d6a84 — 남은 것: 워커 배포(사용자 허락) → `check.mjs --reset` → 실측(분석 끝 ≤ 4분 · 사슬 이어짐)
-- [ ] 추출 프롬프트 묶음 — 소개 null 출구(명단글) · notes 는 반려견 조건만 · callFirst·largeDogOk 과잉 추론 · 안내 칸 `petPolicyGuide`(자기 말로·해요체 — **S2 뒤**) — [21 S7](21-blog-text-and-extract-model.md) · 왜 지금: 식약처 명단글 137건의 소개가 글의 틀이고 지어낸 금지 규칙이 notes 에 든다(두 모델 같다 — 프롬프트 문제) · H3 = **넣는다**(2026-10-13) — `petPolicyText` 한 줄도 같이 · 끝나면 🧑 H1·H5 를 「기다림」 에, [21 S9](21-blog-text-and-extract-model.md)(게시 38곳 문장만 다시 쓰기)를 「지금」 에
-- [ ] 🔒(S7 커밋되면 이 자물쇠를 걷는다 · 같은 파일) 번들·`places.json` 에서 비공개 원문 빼기(판정 입력을 빌드에서 미리 계산 · 공개가 아닌 행은 원문·`sources` 를 JSON 에서 뺀다) — [21 S8](21-blog-text-and-extract-model.md) · 왜 지금: 화면(S5)·`/admin`(S6)은 끝났는데 레포가 PUBLIC 이라 블로그 38곳의 원문이 `src/data/places.json` 과 클라이언트 번들에 그대로 있다 — 화면에서만 빼면 절반 · **S7 커밋 뒤에 시작** — `take` 는 건너뛰기를 몰라 제목 앞 🔒 로 막아 뒀다. S7 을 끝내는 세션(또는 `git log` 에 `21 S7` 을 본 세션의 정리)이 🔒(…) 를 지운다 · 계획은 21 S8 메모(`.omc/plans/2026-10-13-21-s8-plan.md`)
-- [ ] 🔒(S7 커밋되면 이 자물쇠를 걷는다 · 소개 지시를 나눠 쓴다) AI 요약 묶음 종합 ① 함수·프롬프트·테스트(글 요약 N개 → 소개 + 충돌 + 문장별 출처) — [13 §5.3 A1](13-ai-analysis-audit-2026-10-04.md) · 왜 지금: 등록 소개가 대표 글 한 편의 말이라 나머지 글이 버려진다(엔젤하우스 58편 중 1편 · 친봉산장은 글마다 업태가 갈림) — 블로그 곳 첫 등록(🧑 검수 대기 130곳) 전에 있어야 소개를 다시 쓸 일이 없다
+- [ ] 번들·`places.json` 에서 비공개 원문 빼기(판정 입력을 빌드에서 미리 계산 · 공개가 아닌 행은 원문·`sources` 를 JSON 에서 뺀다) — [21 S8](21-blog-text-and-extract-model.md) · 왜 지금: 화면(S5)·`/admin`(S6)은 끝났는데 레포가 PUBLIC 이라 블로그 38곳의 원문이 `src/data/places.json` 과 클라이언트 번들에 그대로 있다 — 화면에서만 빼면 절반 · 계획은 21 S8 메모(`.omc/plans/2026-10-13-21-s8-plan.md`)
+- [ ] 게시된 블로그 행은 문장만 다시 쓰기 — 판단 고정, 안내·베낀 소개만(`pnpm data rewrite` 미리보기 → `--apply`) — [21 S9](21-blog-text-and-extract-model.md) · 왜 지금: S7 뒤로 새로 뽑는 곳만 안내가 생긴다 — 이미 게시된 블로그 38곳(출처 글 46편)은 템플릿 줄 + notes 로만 보이고 소개 일부는 본문 베낌이다 · 안내 지시·분석 시점 가드(`storableGuide`, 대조군 = 본문)를 S7 것 그대로 쓴다 · 끝나면 🧑 H7 을 「기다림」 에
+- [ ] AI 요약 묶음 종합 ① 함수·프롬프트·테스트(글 요약 N개 → 소개 + 충돌 + 문장별 출처) — [13 §5.3 A1](13-ai-analysis-audit-2026-10-04.md) · 왜 지금: 등록 소개가 대표 글 한 편의 말이라 나머지 글이 버려진다(엔젤하우스 58편 중 1편 · 친봉산장은 글마다 업태가 갈림) — 블로그 곳 첫 등록(🧑 검수 대기 130곳) 전에 있어야 소개를 다시 쓸 일이 없다
 - [ ] 운영 현황의 `승인` 칩 걷기 · 검수 칸은 `/admin` 검수 대기로 · `승인` → `등록` — [15 T8.3](15-ops-dashboard.md) · 왜 지금: `/admin` 등록은 실행 기록을 안 남겨 그 칩·칸이 늘 10-06 의 옛 2행이다
 - [ ] 운영 현황 실행 기록 '더 보기' 가 앞 장을 버린다 — [15 T8.4](15-ops-dashboard.md) · 왜 지금: 끝까지 내리면 최근 30행이 2행으로 바뀐다(14 W261010.9)
 - [ ] 운영 현황 폰 배치(다섯 칸 세로 · 상태점 범례) — [15 T8.5](15-ops-dashboard.md) · 왜 지금: 폰에서 검수·반영·재빌드 칸이 잘린다(14 W261010.27)
 - [ ] S6 화면을 눈으로(Chrome 확장 — 담소요 갱신 묶음 칩·`사이트 문장` · 솔숲펜션 고치기 「원문 공개」 끄기 · 폰 폭) — [21 S6.1](21-blog-text-and-extract-model.md) · 왜 지금: S6 은 확장이 연결되지 않아 서버 렌더 스모크로만 봤다 — 칩 색·밀도는 눈으로만 안다 · 같이: `/admin/ops` 첫 줄이 `/admin` 머리글과 같은 말인가([15 T8.1](15-ops-dashboard.md), 같은 이유로 못 봤다)
 
 ## 기다림 (사람 손·결정)
+
+- 🧑 서버 워커 둘째 배포(21 S4·S7 둘 다 끝 — 제안·추출 프롬프트가 함께 번들에 실린다) — [21 H1](21-blog-text-and-extract-model.md) · 배포라 허락 먼저 · 명령: `pnpm worker:build && cd worker && vercel deploy --prod`(루트에서 `--cwd worker` 는 실패한다) · 그 전까지 서버 홉은 옛 프롬프트(안내 칸 없음)로 뽑는다 · 확인: 서버가 뽑은 새 후보의 `extracted.meta.promptVersion` 이 `d7a6610e`
+
+- 🧑 시드 정답 채점(두 모델, 새 프롬프트 `d7a6610e`) — [21 H5](21-blog-text-and-extract-model.md) · 명령: `ANALYZE_MODEL=claude-sonnet-5-5 pnpm data eval extract --limit 30` → `pnpm data eval score` → report 파일을 복사해 두고(프롬프트 버전 하나라 덮인다) → `ANALYZE_MODEL=claude-opus-5 pnpm data eval extract --limit 30` → `pnpm data eval score` · 약 60회(구독 한도) · Sonnet 쪽 지어냄이 늘면 21 M1 을 되돌린다
 
 - 🧑 식약처 명단글 대기 후보 137건의 소개 비우기 — [21 H4](21-blog-text-and-extract-model.md) · 결정: **비운다**(사용자 2026-10-13) — Claude 의 원격 update 를 권한 분류기가 막았다 · 명령: `./node_modules/.bin/supabase db query --linked "update candidates set extracted = jsonb_set(extracted, '{features}', 'null'::jsonb) where status = 'pending' and post_url like '%mialove89%' and extracted->>'features' like '%식약처%'"` · 지금 값 백업 `data/raw/backup/2026-10-13-h4-mfds-features.json`(137행) · 확인(Claude, 원격 조회): 그 글들의 대기 후보 중 '식약처' 소개 0
 

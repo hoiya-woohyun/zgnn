@@ -68,7 +68,8 @@ export function MapPageSheetCard({ place }: TMapPageSheetCardProps) {
           </div>
         )}
 
-        <p className="clamp-2 mt-2.5 text-sm text-secondary">{place.features}</p>
+        {/* 소개가 없는 곳(21 S7)은 빈 줄을 그리지 않는다 — 빈 <p> 도 위 여백을 먹는다. */}
+        {place.features && <p className="clamp-2 mt-2.5 text-sm text-secondary">{place.features}</p>}
         <PetBadges policy={place.policy} limit={3} hideNoInfo={Boolean(eligibility)} weightKg={weightKg} dogCount={dogCount} className="mt-2.5" />
       </Link>
 
