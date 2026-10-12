@@ -15,7 +15,7 @@ import type { TCarrier, TDogProfile, TDogSize } from '../types';
 import { formatDogFee } from './dogFee';
 import { maxWeightKg } from './dogProfile';
 import { dogCallName, dogCallNames, josa, withJosa } from './korean';
-import { BAG_ALLOWED, STROLLER_ALLOWED } from './petPolicy';
+import { cageGear } from './petPolicy';
 import type { TPetPolicy, TPolicyTier } from './petPolicy';
 
 export type TEligibilityLevel = 'ok' | 'cond' | 'unknown' | 'hard';
@@ -211,7 +211,8 @@ const ruleOutdoorOnly: TRule = (_dog, policy, opts) => {
 const ruleBagAtCagePlace: TRule = (dog, policy) => {
   if (policy.indoor !== 'cage') return null;
   if (dog.carrier !== 'bag') return null;
-  if (policy.sources.indoor && BAG_ALLOWED.test(policy.sources.indoor)) return null;
+  // 근거 문장 + 다음 문장까지 본다 — 광복이네는 "실내에서 식사할 수 있었어요" 다음 문장이 "이동가방에 넣어" 다(21 S5.2).
+  if (cageGear(policy).bag) return null;
   return {
     level: 'cond',
     text: '케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요',
@@ -224,7 +225,7 @@ const ruleStrollerAtCagePlace: TRule = (dog, policy) => {
   if (policy.indoor !== 'cage') return null;
   if (dog.carrier !== 'stroller') return null;
   // 원문이 유모차를 허용으로 언급했다면 이미 된다. '유모차 불가' 처럼 부정이 붙은 문장은 허용이 아니다.
-  if (policy.sources.indoor && STROLLER_ALLOWED.test(policy.sources.indoor)) return null;
+  if (cageGear(policy).stroller) return null;
   return {
     level: 'cond',
     text: '케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요',

@@ -65,6 +65,11 @@ describe('publicPolicyLines — 판단에서 만든 조건 문장', () => {
     const gaemocha = policyOf('강아지는 개모차, 가방 출입 가능\n개모차, 혹은 가방 지참시 출입가능!', { indoor: 'cage' });
     expect(toPetBadges(gaemocha).map((b) => b.label)).toContain('가방·유모차 필요');
     expect(publicPolicyLines(gaemocha).map((l) => l.text)).toContain('실내에서는 이동가방이나 유모차가 있어야 해요');
+
+    // 광복이네(블로그) — 가방은 실내 근거 다음 문장에 있다. 정규식은 실내 갈래를 못 읽어 근거가 첫 줄이 되는 길(21 S5.2).
+    const gwangbok = policyOf('제가 방문했을 당시에는 짱아와 함께 실내에서 식사할 수 있었어요.\n짱아는 이동가방에 넣어 의자 위에 두었고요.', { indoor: 'cage' });
+    expect(toPetBadges(gwangbok).map((b) => b.label)).toContain('이동가방 필요');
+    expect(publicPolicyLines(gwangbok).map((l) => l.text)).toContain('실내에서는 이동가방에 넣어야 해요');
   });
 
   it('크기는 배지처럼 한 줄 — 대형견 불가가 소형견만보다 먼저', () => {

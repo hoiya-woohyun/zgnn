@@ -114,6 +114,13 @@ export type TPetPolicy = {
    * 정규식으로 읽던 길로 물러난다(시드 86곳 · 옛 후보 · 운영자가 요금 줄을 손으로 고친 곳). 있을 때는 늘 `feeLines` 와 줄 수가 같다.
    */
   feeRules?: TFeeRule[];
+  /**
+   * `indoor: 'cage'` 일 때 챙길 물건(가방·유모차)을 읽는 글 — 실내 근거 문장 + **바로 다음 문장**(21 S5.2). 다음 문장이 없으면 비운다(`cageGear` 가 근거 문장으로 물러난다).
+   * 광복이네 "…실내에서 식사할 수 있었어요. 짱아는 이동가방에 넣어 의자 위에 두었고요" 처럼 실내 근거와 수단이 두 문장으로 갈린다.
+   * 근거 문장(`sources.indoor`)을 늘리지 않고 칸을 따로 두는 이유: 그 문장은 이유의 인용(quote)이고 `/admin` 칠하기가 원문에서 그대로 찾는다.
+   * 원문 전체로 넓히지 않는 이유: 짐 가방을 말하는 글이 있고, 잘못 읽으면 지어낸 '갈 수 있어요'(C2·C3 이 물러난다)라 오탐이 더 비싸다.
+   */
+  indoorGearText?: string;
   /** 규칙별 근거 문장(원문 그대로). reasons.quote 의 재료 */
   sources: Partial<
     Record<
@@ -303,6 +310,19 @@ const findSource = (sentences: string[], patterns: RegExp[]): string | undefined
   sentences.find((s) => matchesAny(s, patterns));
 
 /**
+ * 실내 근거 문장 + 원문에서 그 바로 다음 문장(`indoorGearText`). 근거는 문장(`splitSentences`)일 수도 줄(`withPolicyFacts` 의 `firstLine`)일 수도 있어
+ * 원문에서 근거를 찾아 그 뒤를 다시 나눈다. 다음 문장이 없거나 근거가 원문에 없으면(운영자가 고친 원문) undefined.
+ * 줄바꿈으로 잇는 이유: 가방·유모차의 거절 가드(`[^.\n]{0,16}`)가 두 문장 사이를 넘지 않게.
+ */
+const indoorGearTextOf = (text: string, source: string | undefined): string | undefined => {
+  if (!source) return undefined;
+  const at = text.indexOf(source);
+  if (at < 0) return undefined;
+  const next = splitSentences(text.slice(at + source.length))[0];
+  return next ? `${source}\n${next}` : undefined;
+};
+
+/**
  * 계단식 무게·마릿수 조건(tiers). 문장 단위로 쪼개 무게 상한과 마릿수를 뽑고,
  * 같은 문장에 둘 다 있으면 한 tier 로 묶는다(오제 "1마리당 3만원. (최대 2마리 15kg 미만)").
  *
@@ -433,6 +453,7 @@ export const parsePetPolicy = (petPolicyText: string): TPetPolicy => {
     outdoorFree,
     unlimitedDogs,
     feeLines,
+    indoorGearText: indoor === 'cage' ? indoorGearTextOf(text, sources.indoor) : undefined,
     sources,
   };
   // "정보 없음 … 대형견도 동반 가능!!"(맘앤도그) — 조건이 한 줄이라도 읽혔으면 그 줄이 조건이다(14 W261006.3). 전엔 '확인된 정보가 없어요'
@@ -609,6 +630,8 @@ export const withPolicyFacts = (parsed: TPetPolicy, facts: TPetPolicyFacts | nul
     unlimitedDogs,
     unread,
     genericOnly,
+    // 근거 문장이 위에서 다시 정해졌다(정규식과 판단이 다르면 첫 줄) — 정규식 쪽 칸이 새지 않게 같은 근거로 다시 만든다.
+    indoorGearText: indoor === 'cage' ? indoorGearTextOf(petPolicyText, sources.indoor) : undefined,
     sources,
   };
 };
@@ -673,12 +696,22 @@ export const BAG_ALLOWED = /(가방|슬링)(?![^.\n]{0,16}(불가|안\s*(돼|됩
 export const STROLLER_ALLOWED = /(유모차|개모차)(?![^.\n]{0,16}불가)/;
 
 /**
+ * `indoor: 'cage'` 인 곳이 원문으로 받아 준다고 적은 수단. **판정 C2·C3 · 배지(`cageBadge`) · 템플릿(`cageLine`) 넷이 이 하나를 본다** —
+ * 한쪽만 넓히면 칩은 '케이지 필요' 인데 판정은 가방을 받는 식으로 한 화면이 두 말을 한다(S5.1·S5.2).
+ * 읽는 글은 근거 + 다음 문장(`indoorGearText`), 없으면 근거 문장 하나.
+ */
+export const cageGear = (policy: Pick<TPetPolicy, 'sources' | 'indoorGearText'>): { bag: boolean; stroller: boolean } => {
+  const text = policy.indoorGearText ?? policy.sources.indoor;
+  if (text === undefined) return { bag: false, stroller: false };
+  return { bag: BAG_ALLOWED.test(text), stroller: STROLLER_ALLOWED.test(text) };
+};
+
+/**
  * `indoor: 'cage'` 의 배지. 그 값은 "케이지·이동가방·유모차 중 하나" 라, 근거 문장이 가방·유모차를 직접 적었으면 그 말로 쓴다 —
  * 카페스누피 "실내에서는 유모차/이동 가방 필요" 에 '케이지 필요' 칩을 붙이면, 판정(C2·C3)은 가방을 받는데 칩은 케이지를 말한다(14 W261006.18).
  */
-const cageBadge = (source: string | undefined): TPetBadge => {
-  const bag = source !== undefined && BAG_ALLOWED.test(source);
-  const stroller = source !== undefined && STROLLER_ALLOWED.test(source);
+const cageBadge = (policy: Pick<TPetPolicy, 'sources' | 'indoorGearText'>): TPetBadge => {
+  const { bag, stroller } = cageGear(policy);
   const label = bag && stroller ? '가방·유모차 필요' : bag ? '이동가방 필요' : stroller ? '유모차 필요' : '케이지 필요';
   return { label, tone: 'cond', axis: 'gear' };
 };
@@ -687,7 +720,7 @@ const INDOOR_BADGE: Record<TIndoorPolicy, TPetBadge | null> = {
   free: { label: '실내 OK', tone: 'ok', axis: 'indoor' },
   // 이 하나만 축이 'gear' 다 — 실내 판단에서 나오지만 사람이 할 일은 "케이지·이동가방·유모차를 챙긴다" 다(`TBadgeAxis`).
   // 라벨은 근거 문장에 따라 바뀐다 — `toPetBadges` 가 `cageBadge` 로 만든다. 이 칸은 근거가 없을 때의 모양이다.
-  cage: cageBadge(undefined),
+  cage: cageBadge({ sources: {} }),
   outdoorOnly: { label: '야외만', tone: 'cond', axis: 'indoor' },
   // 숙소 원문에는 실내 언급이 거의 없다. 없는 정보를 배지로 만들지 않는다.
   unknown: null,
@@ -706,7 +739,7 @@ export const toPetBadges = (policy: TPetPolicy): TPetBadge[] => {
   // 동반 자체가 안 되는 곳은 다른 배지가 의미 없다 — 맨 앞에 하나.
   if (policy.notAllowed) badges.push({ label: '동반 불가', tone: 'warn', axis: 'notAllowed' });
 
-  const indoorBadge = policy.indoor === 'cage' ? cageBadge(policy.sources.indoor) : INDOOR_BADGE[policy.indoor];
+  const indoorBadge = policy.indoor === 'cage' ? cageBadge(policy) : INDOOR_BADGE[policy.indoor];
   if (indoorBadge) badges.push(indoorBadge);
 
   if (policy.feeFree) badges.push({ label: '추가요금 없음', tone: 'ok', axis: 'fee' });

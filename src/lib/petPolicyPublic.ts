@@ -11,7 +11,7 @@
 import { normalizeFeeLines } from '../../scripts/lib/feeLine.mjs';
 import { guardPublicText, POLICY_TOPICS, policyFingerprint } from '../../scripts/lib/petPolicyGuide.mjs';
 import type { TPetPolicyFacts, TPetPolicyGuide, TPlace } from '../types';
-import { BAG_ALLOWED, STROLLER_ALLOWED, type TPetPolicy } from './petPolicy';
+import { cageGear, type TPetPolicy } from './petPolicy';
 
 export type TPolicyTopic = keyof typeof POLICY_TOPICS;
 
@@ -22,12 +22,11 @@ export type TPublicLine = { key: TPolicyTopic; text: string };
 export type TPublicText = { text: string | null; reasons: string[] };
 
 /**
- * `indoor: 'cage'` 의 말 — 근거 문장이 가방·유모차를 직접 적었으면 그 말로. 배지(`cageBadge`)와 같은 식(`BAG_ALLOWED`·`STROLLER_ALLOWED`)을 봐야
+ * `indoor: 'cage'` 의 말 — 근거 문장(+ 다음 문장)이 가방·유모차를 직접 적었으면 그 말로. 배지(`cageBadge`)·판정 C2·C3 과 같은 `cageGear` 를 봐야
  * 칩은 "이동가방 필요" 인데 문장은 "케이지에 넣어야" 라고 말하는 일이 없다.
  */
-const cageLine = (source: string | undefined): string => {
-  const bag = source !== undefined && BAG_ALLOWED.test(source);
-  const stroller = source !== undefined && STROLLER_ALLOWED.test(source);
+const cageLine = (policy: TPetPolicy): string => {
+  const { bag, stroller } = cageGear(policy);
   if (bag && stroller) return '실내에서는 이동가방이나 유모차가 있어야 해요';
   if (bag) return '실내에서는 이동가방에 넣어야 해요';
   if (stroller) return '실내에서는 유모차에 태워야 해요';
@@ -44,7 +43,7 @@ const cageLine = (source: string | undefined): string => {
 const TEMPLATES = {
   indoor: (p) => {
     if (p.indoor === 'free') return '실내에도 같이 들어갈 수 있어요';
-    if (p.indoor === 'cage') return cageLine(p.sources.indoor);
+    if (p.indoor === 'cage') return cageLine(p);
     if (p.indoor === 'outdoorOnly') return '야외 자리에서만 같이 있을 수 있어요';
     // 실내 언급은 없고 '실외는 자유' 만 읽힌 곳(정규식 단서) — 배지는 없지만 판정(outdoorFree)이 쓰는 말이다.
     return p.outdoorFree ? '야외에서는 자유롭게 같이 있을 수 있어요' : null;

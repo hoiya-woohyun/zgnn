@@ -71,6 +71,22 @@ describe('judgeEligibility — C2 는 원문이 이동가방을 적었으면 물
       expect(judgeEligibility(TOFU, parsePetPolicy(text)).reasons.map((r) => r.rule)).toContain('C2');
     },
   );
+
+  /*
+   * 광복이네(블로그) — 실내 근거는 "…실내에서 식사할 수 있었어요" 이고 가방은 다음 문장 "짱아는 이동가방에 넣어 의자 위에 두었고요" 다(21 S5.2).
+   * 사이트가 싣는 길(AI 판단 + 원문 대조) 그대로 본다 — 근거를 고르는 곳이 `withPolicyFacts` 라 정규식만 대 보면 통과해도 사이트는 틀릴 수 있다.
+   */
+  it('광복이네 — 근거 다음 문장의 이동가방을 읽어 C2 가 물러난다(전화 확인 C6 은 원문 그대로 남는다)', () => {
+    const rules = judgeEligibility(TOFU, findPlace('광복이네').policy).reasons.map((r) => r.rule);
+    expect(rules).not.toContain('C2');
+    expect(rules).toContain('C6');
+  });
+
+  it('다음 문장의 거절도 허용이 아니다 · 그 다음 문장까지는 넓히지 않는다', () => {
+    expect(judgeEligibility(TOFU, parsePetPolicy('실내는 케이지 필수. 가방은 안 돼요.')).reasons.map((r) => r.rule)).toContain('C2');
+    expect(judgeEligibility(TOFU, parsePetPolicy('실내는 케이지 필수. 주차 가능. 이동가방도 돼요.')).reasons.map((r) => r.rule)).toContain('C2');
+    expect(judgeEligibility(TOFU, parsePetPolicy('실내는 케이지 필수. 이동가방도 괜찮아요.')).reasons.map((r) => r.rule)).not.toContain('C2');
+  });
 });
 
 describe('judgeEligibility — 케이지 필수 식당("케이지 동반시 가능.")', () => {
