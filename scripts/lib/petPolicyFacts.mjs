@@ -8,7 +8,7 @@
 //
 // 순수 모듈이다: 브라우저도 import 한다 — node 모듈을 넣지 말 것(placeFields.mjs 와 같은 규칙, ADR-018).
 
-import { amountsInWon, EXTRA_DOG_RE } from './feeLine.mjs';
+import { amountsInWon, EXTRA_DOG_RE, normalizeFeeLines } from './feeLine.mjs';
 
 /** @typedef {import('../../src/types').TPetPolicyFacts} TPetPolicyFacts */
 
@@ -123,8 +123,11 @@ const mentionsDogsOver = (text, n) => new RegExp(`(?:^|\\D)${countSource(n)}\\s*
 /**
  * 원문이 "기본 N마리"(= 요금에 N마리가 들어 있다)를 말하는가. `추가 1마리 3만원` 의 `fromDog` 는 기본 마릿수 + 1 이라
  * 원문에 그 숫자 자체는 없을 수 있다 — 기본 1마리 숙소는 `2마리` 를 말하지 않아도 된다.
+ * `기본 요금에는 … 반려견 1마리가 포함`(일랑일랑, 21 G1.1)처럼 `N마리(가) (기본) 포함` 도 같은 말이다. `마리` 와 `포함` 사이를 띄우지 않는다 —
+ * `1마리당 1만원(청소비 포함)` 이 기본 1마리로 읽힌다. `추가 N마리` 자체는 근거가 아니다(기본 마릿수를 말하지 않으면 null — 프롬프트 규칙).
  */
-const mentionsBaseDogs = (text, n) => new RegExp(`기본\\s*${countSource(n)}\\s*마리`).test(text);
+const mentionsBaseDogs = (text, n) =>
+  new RegExp(`기본\\s*${countSource(n)}\\s*마리|(?:^|\\D)${countSource(n)}\\s*마리\\s*(?:가|이)?\\s*(?:기본\\s*)?포함`).test(text);
 
 /** 쉼표·공백을 턴 문자열. 두 쪽을 같은 모양으로 놓고 대 보려고. */
 const flatten = (s) => s.replace(/,/g, '').replace(/\s+/g, '');
@@ -185,6 +188,13 @@ export function feeLinesOf(facts) {
  * @param {(note: string, cue: TCorrectionCue) => void} drop
  */
 /**
+ * label 이 `추가 N마리`(기본 마릿수를 넘는 마리)를 말하는가 — 정규화한 모양으로도 본다. 정규화는 숫자 없는 `마리당` 을 `1마리당` 으로 읽어
+ * `추가 반려견 마리당 5,000원`(Sonnet, 일랑일랑)을 `추가 1마리당 5,000원` 으로 저장한다. 날 label 만 보면 분석 때 거절한 줄을 앱이 다시
+ * 읽을 때는 받는다 — 두 때가 같은 말을 하게 한다(21 G1.1).
+ */
+const saysExtraDog = (label) => EXTRA_DOG_RE.test(label) || normalizeFeeLines([label]).some((line) => EXTRA_DOG_RE.test(line));
+
+/**
  * 계산 칸이 **자기 label 과 같은 말을 하는가**. 금액·경계는 숫자라 원문에 대 볼 수 있지만 `basis`·`perNight`·`fromDog` 는 말이라
  * label 의 단어로만 확인된다. 어긋난 채 두면 틀린 금액이 확정 문장이 된다 — `청소비 5만원` 이 `perDog` 면 2마리 "10만원",
  * `1박당 2만원` 이 `perNight: false` 면 "두부는 2만원"(1박이 빠진다).
@@ -207,7 +217,7 @@ function shapeMatchesLabel(rule, label) {
   const over = label.match(/(\d+)\s*마리\s*(를|을)?\s*(초과|넘)/);
   if (over && rule.fromDog !== Number(over[1]) + 1) return false;
   const nth = /\d\s*마리\s*(부터|째|(를|을)?\s*(초과|넘))/.test(label);
-  if (rule.fromDog != null && rule.fromDog > 1) return nth || EXTRA_DOG_RE.test(label);
+  if (rule.fromDog != null && rule.fromDog > 1) return nth || saysExtraDog(label);
   if (nth) return false;
   return true;
 }

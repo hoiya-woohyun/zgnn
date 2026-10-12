@@ -349,6 +349,23 @@ describe('correctPetPolicyFacts — 모델이 맞게 낸 요금은 남긴다(BUG
     expect(correctPetPolicyFacts(facts({ maxDogs: 1 }), '4마리를 초과할 경우 1견당 3,000원').facts.maxDogs).toBeNull();
   });
 
+  it('`반려견 1마리가 포함` 은 기본 1마리다 — 일랑일랑 `추가 1마리`(fromDog 2, Opus·Sonnet)', () => {
+    const text = '기본 요금에는 4인과 반려견 1마리가 포함되며, 성인은 2인을 넘길 수 없다고 안내돼 있어요.\n최대 인원은 4인 4견이고 반려견 추가 요금은 마리당 5,000원으로 표시돼 있습니다.';
+    // Sonnet 의 label 엔 숫자가 없다 — 정규화가 `추가 1마리당` 으로 바꾸는 줄을 분석 때도 같은 말로 읽어야 한다
+    for (const label of ['추가 1마리 5,000원', '추가 반려견 마리당 5,000원']) {
+      const r = analyzeThenRead(facts({ fees: [rule({ label, amountWon: 5000, fromDog: 2 })], maxDogs: 4 }), text);
+      expect(r.corrections).toEqual([]);
+      expect(calc(r.facts.fees)).toEqual([[5000, null, null, 2]]);
+    }
+  });
+
+  it('기본 마릿수를 말하지 않거나 `1마리당 … 포함` 이면 `추가 1마리` 의 fromDog 는 근거가 없다', () => {
+    const extra = rule({ label: '추가 1마리 5,000원', amountWon: 5000, fromDog: 2 });
+    for (const text of ['반려견 추가 요금은 마리당 5,000원', '추가 1마리 5,000원(청소비 1마리당 포함)', '1마리당 5,000원(청소비 포함), 추가 1마리 5,000원']) {
+      expect(correctPetPolicyFacts(facts({ fees: [extra] }), text).facts.fees[0].amountWon).toBeNull();
+    }
+  });
+
   it('`첫 1박` 은 1박마다가 아니고, `1만5천원` 은 15000 이다 — 안녕감귤(Opus·Sonnet)', () => {
     const text = '애견 추가 요금은 첫 1박 기준 1만5천원이고, 연박 시 2박째부터는 1박당 1만원이 추가됩니다.';
     const nightly = { label: '2박째부터 1박당 1만원', perNight: true };
