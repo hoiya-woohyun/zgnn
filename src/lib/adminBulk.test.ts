@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { bulkApproveJobs, bulkApproveNeedsLook, bulkTone, bulkApproveSummary, bulkApproveText, bulkLatestSummary, bulkLatestTargets, namesNote, stoppedNote, summarizeBulk, thinNewEvidence } from './adminBulk';
+import { materialsFingerprint } from '../../scripts/analyze/groupIntroMaterials.mjs';
 import type { TCandidateGroup, TPlaceRow } from './adminCandidates';
+import { groupIntroOf, type TGroupIntros } from './adminGroupIntro';
 
 const place = (id: string, over: Partial<TPlaceRow> = {}) =>
   ({ id, type: 'cafe', name: '카페', region_raw: '서쪽 (애월읍)', features: '옛 소개', pet_policy_text: '', pet_policy: null, address: null, lat: null, lng: null, status: 'published', ...over }) as unknown as TPlaceRow;
@@ -229,5 +231,64 @@ describe('thinNewEvidence · 일괄 올리기에서 근거 얇은 신규를 뺀�
     const noRegion = thin('a');
     (noRegion.lead.extracted as { regionRaw: string | null }).regionRaw = null;
     expect(bulkApproveSummary([noRegion], ['a'])).toMatchObject({ noRegion: 1, thin: 0 });
+  });
+});
+
+describe('일괄 올리기 — 소개 없이 올라가는 곳을 세고, 요약이 갈린 묶음은 건너뛴다(06 #17)', () => {
+  // 신규 묶음(`name:` 키)만 소개를 단다 — `chooseGroupIntro` 가 행들의 요약으로 소개를 정한다.
+  const row = (url: string, name: string, features: string | null) => ({
+    post_url: url,
+    match_place_id: null,
+    extracted: { name, type: 'cafe', regionRaw: '서쪽 (애월읍)', features, visited: true, petPolicyText: null, petPolicy: null, address: null, verify: { petAllowedHere: 'yes', dogWasThere: true } },
+  });
+  const fresh = (name: string, ...features: (string | null)[]) => {
+    const rows = features.map((f, i) => row(`https://blog.naver.com/x/${name}${i}`, name, f));
+    return { key: `name:${name}`, tier: 'new', lead: rows[0], rows } as unknown as TCandidateGroup;
+  };
+  const conflictRow = (g: TCandidateGroup): TGroupIntros =>
+    new Map([
+      [
+        g.key,
+        {
+          group_key: g.key,
+          fingerprint: materialsFingerprint(groupIntroOf(g).materials),
+          intro: null,
+          sentences: [],
+          conflict: { reason: '카페와 식당으로 갈려요', posts: [] },
+          reasons: [],
+        },
+      ],
+    ]);
+
+  it('규칙에 걸린 대체 소개 · 요약 없음은 "소개 없이 올라가는 N곳" 으로 이름과 함께 세고 주 버튼을 내린다', () => {
+    const groups = [fresh('소형견하우스', '소형견 전용 펜션이에요.'), fresh('빈소개', null), fresh('바다카페', '바다가 보이는 카페예요. 야외 테라스가 있어요.')];
+    const plan = bulkApproveSummary(groups, groups.map((g) => g.key));
+    expect(plan).toMatchObject({ ok: 3, noIntro: 2, names: { noIntro: ['소형견하우스', '빈소개'] } });
+    expect(bulkApproveNeedsLook(plan)).toBe(true);
+    expect(bulkApproveText(plan)).toBe(
+      '3곳 등록해요. 소개 없이 올라가는 2곳(소형견하우스 · 빈소개)도 있어요. 짝이 있으면 그 장소의 빈 칸만 채우고, 없으면 새 장소로 등록돼요.',
+    );
+    // 소개가 없어도 보낸다 — 한 줄과 같이 소개 없이 등록된다(세는 것이지 막는 것이 아니다).
+    expect(bulkApproveJobs(groups).map((g) => g.key)).toEqual(groups.map((g) => g.key));
+  });
+
+  it('요약이 갈린 묶음은 건너뛰고 보내지 않는다 — 저장된 줄의 지문이 지금 재료와 같을 때만(카드의 "요약이 갈려요" 와 같은 값)', () => {
+    const split = fresh('친봉산장', '산장 컨셉 카페예요.', '일반음식점으로 등록된 식당이에요.');
+    const ok = fresh('바다카페', '바다가 보이는 카페예요.');
+    const intros = conflictRow(split);
+    const plan = bulkApproveSummary([split, ok], [split.key, ok.key], [], intros);
+    expect(plan).toMatchObject({ conflict: 1, ok: 1, noIntro: 0 });
+    expect(bulkApproveNeedsLook(plan)).toBe(true);
+    expect(bulkApproveText(plan)).toBe(
+      '1곳 등록해요. 요약이 갈려 제외·재분석으로 가를 1곳은 건너뛰어요. 짝이 있으면 그 장소의 빈 칸만 채우고, 없으면 새 장소로 등록돼요.',
+    );
+    expect(bulkApproveJobs([split, ok], [], intros).map((g) => g.key)).toEqual([ok.key]);
+    // 저장된 줄이 없으면(종합 전) 갈림을 모른다 — 대표 요약으로 올라간다.
+    expect(bulkApproveSummary([split], [split.key])).toMatchObject({ conflict: 0, ok: 1 });
+  });
+
+  it('짝이 있는 묶음은 소개를 세지 않는다 — 그 장소의 빈 칸만 채워 사이트의 소개를 그대로 둔다', () => {
+    const paired = { ...group('place:p1', 'p1', '소형견 전용 펜션이에요.'), tier: 'auto' } as unknown as TCandidateGroup;
+    expect(bulkApproveSummary([paired], [paired.key], [place('p1')])).toMatchObject({ ok: 1, noIntro: 0 });
   });
 });

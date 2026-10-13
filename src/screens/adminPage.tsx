@@ -1594,8 +1594,8 @@ export function AdminPage() {
       const jobs =
         kind === 'latest'
           ? bulkLatestTargets(chosen, placesRef.current).eligible.map((entry) => ({ group: entry.group, choice: { mergeInto: entry.pairId, overwrite: true, overwriteColumns: entry.columns } }))
-          : // 근거 얇은 신규·동반 불가 정황·지역 없음·'확인' 짝은 보내지 않는다(todo/13 A3 · 14 W261010.1 · 06 #15) — 확인 문장이 "건너뛰어요" 라고 센 그 줄들이다(같은 판정 `bulkApproveSlot`).
-            bulkApproveJobs(chosen, placesRef.current).map((group) => ({ group, choice: {} }));
+          : // 근거 얇은 신규·동반 불가 정황·지역 없음·'확인' 짝·요약 갈림은 보내지 않는다(todo/13 A3 · 14 W261010.1 · 06 #15 · #17) — 확인 문장이 "건너뛰어요" 라고 센 그 줄들이다(같은 판정 `bulkApproveSlot`).
+            bulkApproveJobs(chosen, placesRef.current, groupIntrosRef.current).map((group) => ({ group, choice: {} }));
       bulkStopRef.current = false;
       setBulk({ busy: true, mode: kind, progress: { done: 0, total: jobs.length } });
       const done = new Set<string>();
@@ -2299,14 +2299,14 @@ export function AdminPage() {
           tone={bulk.tone}
           error={bulk.error}
           latestCount={selectedKeys.length ? bulkLatestTargets(groups.filter((group) => selectedSet.has(group.key)), placesView).eligible.length : 0}
-          approveNeedsLook={bulkApproveNeedsLook(bulkApproveSummary(groups, selectedKeys, placesView))}
+          approveNeedsLook={bulkApproveNeedsLook(bulkApproveSummary(groups, selectedKeys, placesView, groupIntros))}
           confirmText={
             bulk.mode === 'reanalyze' && selectedKeys.length
               ? reanalyzeSummary(planFor(selectedKeys))
               : bulk.mode === 'latest'
                 ? bulkLatestSummary(bulkLatestTargets(groups.filter((group) => selectedSet.has(group.key)), placesView))
                 : bulk.mode === 'approve'
-                  ? bulkApproveText(bulkApproveSummary(groups, selectedKeys, placesView))
+                  ? bulkApproveText(bulkApproveSummary(groups, selectedKeys, placesView, groupIntros))
                   : undefined
           }
           onToggleAll={(next) =>

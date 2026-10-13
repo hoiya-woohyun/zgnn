@@ -7,8 +7,10 @@
  * 여기는 그 분류와 결과 문장만 맡는 순수 함수다.
  */
 
+import { isIntroGroup } from '../../scripts/analyze/groupIntroMaterials.mjs';
 import { addressUnresolved } from './adminAddress';
 import { previewFor, regionUsable, type TCandidateGroup, type TPlaceRow } from './adminCandidates';
+import { groupIntroOf, type TGroupIntros } from './adminGroupIntro';
 import { overwriteDefault } from './adminPairPolicy';
 import { policyCell } from './adminPreview';
 import { verifyListedOnly, verifyNeedsLook, verifyView } from './adminVerify';
@@ -94,13 +96,23 @@ export type TBulkApprove = {
    * `decideTarget` 이 그 짝을 믿고 빈 칸을 채워, 같은 곳인지 묻지 않고 다른 가게에 합쳐질 수 있다. 한 줄의 「같은 곳이에요 — 빈 칸만 채우기」 가 그 물음이다.
    */
   ask: number;
+  /**
+   * 글별 요약이 갈린 신규 묶음(`chooseGroupIntro` 의 `conflict`, 13 §5.3 A3) — 일괄로는 **보내지 않는다**(06 #17). 운영자가 제외·재분석으로 가를 묶음이라
+   * 보내면 소개 없이 등록되고 갈린 글이 한 장소에 섞인다. 한 줄 등록은 그대로 된다.
+   */
+  conflict: number;
   /** 근거가 얇은 신규(`thinNewEvidence`) — 일괄로는 안 올리고 한 줄씩 보게 둔다(todo/13 A3). */
   thin: number;
-  /** 확인 문장에 이름을 적는 칸 — 근거 없이 **올라가는** 곳과 동반 불가 정황이라 **건너뛰는** 곳. 수만 보이면 어느 줄인지 다시 찾아야 한다. */
-  names: { noEvidence: string[]; denied: string[] };
+  /**
+   * 올라가는 줄(`ok` · `noEvidence`) 가운데 **소개 없이** 새 장소가 되는 수 — 칸이 아니라 그 두 칸에 겹쳐 센다(06 #17).
+   * 카드는 노랗게 `소개 없이 등록돼요` 를 말하지만 백 줄을 고른 사람은 확인 문장만 읽는다. 소개는 카드·등록과 같은 `groupIntroOf` 다.
+   */
+  noIntro: number;
+  /** 확인 문장에 이름을 적는 칸 — 근거 없이 · 소개 없이 **올라가는** 곳과 동반 불가 정황이라 **건너뛰는** 곳. 수만 보이면 어느 줄인지 다시 찾아야 한다. */
+  names: { noEvidence: string[]; denied: string[]; noIntro: string[] };
 };
 
-type TBulkSlot = Exclude<keyof TBulkApprove, 'names'>;
+type TBulkSlot = Exclude<keyof TBulkApprove, 'names' | 'noIntro'>;
 
 /** 이름 몇 개를 한 덩어리로 — 셋까지 적고 나머지는 수로. */
 export function namesNote(names: readonly string[], max = 3): string {
@@ -132,11 +144,12 @@ export function thinNewEvidence(group: TCandidateGroup): boolean {
 }
 
 /**
- * 한 줄이 일괄 올리기에서 어느 칸에 서나 — 우선순위: 동반 불가 정황 → 지역 → 주소 → 내린 곳 → 닮은 곳 → 근거 얇음 → 근거 없음 → 나머지.
+ * 한 줄이 일괄 올리기에서 어느 칸에 서나 — 우선순위: 동반 불가 정황 → 지역 → 주소 → 내린 곳 → 닮은 곳 → 요약 갈림 → 근거 얇음 → 근거 없음 → 나머지.
  * 동반 불가 정황이 맨 앞인 이유: 다른 이유로도 건너뛰는 줄이라도 확인 문장에 그 이름이 적혀야 한다(가장 비싼 오류다).
  * 집계(`bulkApproveSummary`)와 실제로 보낼 줄 고르기(`bulkApproveJobs`)가 **같은 함수**를 지나야 확인 문장이 말한 것과 올라간 것이 같다.
+ * `intros` 는 저장된 묶음 소개(`fetchGroupIntros`) — 카드·등록이 쓰는 그 값이라야 요약 갈림이 화면과 같다.
  */
-function bulkApproveSlot(group: TCandidateGroup, byId: Map<string, TPlaceRow>): TBulkSlot {
+function bulkApproveSlot(group: TCandidateGroup, byId: Map<string, TPlaceRow>, intros?: TGroupIntros): TBulkSlot {
   const extracted = group.lead.extracted;
   const pairId = group.lead.match_place_id;
   if (verifyView(extracted?.verify)?.state === 'denied') return 'denied';
@@ -146,37 +159,47 @@ function bulkApproveSlot(group: TCandidateGroup, byId: Map<string, TPlaceRow>): 
   // 짝이 있든 없든 — 예전엔 `!pairId` 만 보아, 분석이 늘 짝을 적어 두는 '확인' 줄(analyzeCandidates `match_place_id`)이 'ok' 로 가서 그대로 합쳐졌다(06 #15).
   // 묶음의 구간(`group.tier`)을 본다 — 한 줄의 물음(`adminPageGroupActions`)·기본 체크(`overwriteDefault`)와 같은 값이다.
   if (group.tier === 'ask') return 'ask';
+  if (groupIntroOf(group, intros).source === 'conflict') return 'conflict';
   if (thinNewEvidence(group)) return 'thin';
   if (verifyNeedsLook(extracted?.verify)) return 'noEvidence';
   return 'ok';
 }
 
 /** 확인 문장이 "건너뛰어요" 라 말하고 **보내지도 않는** 칸. */
-const SKIPPED_SLOTS: ReadonlySet<TBulkSlot> = new Set(['thin', 'denied', 'noRegion', 'ask']);
+const SKIPPED_SLOTS: ReadonlySet<TBulkSlot> = new Set(['thin', 'denied', 'noRegion', 'ask', 'conflict']);
 
 /**
- * 일괄 올리기가 실제로 `approveGroup` 에 보낼 묶음 — 근거 얇은 신규 · 동반 불가 정황 · 지역 없음 · '확인' 짝은 뺀다. 지역 없음을 보내면
+ * 일괄 올리기가 실제로 `approveGroup` 에 보낼 묶음 — 근거 얇은 신규 · 동반 불가 정황 · 지역 없음 · '확인' 짝 · 요약 갈림은 뺀다. 지역 없음을 보내면
  * `approveGroup` 이 `blocked` 로 돌려줘 결과 줄이 확인 문장의 "건너뛰어요" 를 '실패' 로 셌다(2026-10-10, todo/14 W261010.1).
  * 나머지 멈추는 줄(주소·내린 곳·닮은 곳)은 `approveGroup` 이 쓰기 전에 스스로 멈추고 그 줄에 패널을 세우므로 그대로 보낸다(그 패널이 다음 할 일이다).
  */
-export function bulkApproveJobs(groups: TCandidateGroup[], places: TPlaceRow[] = []): TCandidateGroup[] {
+export function bulkApproveJobs(groups: TCandidateGroup[], places: TPlaceRow[] = [], intros?: TGroupIntros): TCandidateGroup[] {
   const byId = new Map(places.map((place) => [place.id, place]));
-  return groups.filter((group) => !SKIPPED_SLOTS.has(bulkApproveSlot(group, byId)));
+  return groups.filter((group) => !SKIPPED_SLOTS.has(bulkApproveSlot(group, byId, intros)));
 }
 
 /**
  * 일괄 올리기 확인의 구성 — 고른 줄을 세어 무엇이 올라가고 무엇이 멈추나. `approveGroup` 의 가드(지역·주소·내린 곳)와 같은 판정을 쓴다.
- * 한 줄은 한 칸에만 센다(`bulkApproveSlot` 의 우선순위). `places` 는 짝이 내린 곳인지 보는 캐시다.
+ * 한 줄은 한 칸에만 센다(`bulkApproveSlot` 의 우선순위). `places` 는 짝이 내린 곳인지 보는 캐시, `intros` 는 저장된 묶음 소개다.
  */
-export function bulkApproveSummary(groups: TCandidateGroup[], selected: readonly string[], places: TPlaceRow[] = []): TBulkApprove {
+export function bulkApproveSummary(groups: TCandidateGroup[], selected: readonly string[], places: TPlaceRow[] = [], intros?: TGroupIntros): TBulkApprove {
   const wanted = new Set(selected);
   const byId = new Map(places.map((place) => [place.id, place]));
-  const out: TBulkApprove = { ok: 0, noEvidence: 0, denied: 0, addressUnresolved: 0, noRegion: 0, archivedTarget: 0, ask: 0, thin: 0, names: { noEvidence: [], denied: [] } };
+  const out: TBulkApprove = {
+    ok: 0, noEvidence: 0, denied: 0, addressUnresolved: 0, noRegion: 0, archivedTarget: 0, ask: 0, conflict: 0, thin: 0, noIntro: 0,
+    names: { noEvidence: [], denied: [], noIntro: [] },
+  };
   for (const group of groups) {
     if (!wanted.has(group.key)) continue;
-    const slot = bulkApproveSlot(group, byId);
+    const slot = bulkApproveSlot(group, byId, intros);
+    const name = group.lead.extracted?.name ?? '이름 없음';
     out[slot] += 1;
-    if (slot === 'noEvidence' || slot === 'denied') out.names[slot].push(group.lead.extracted?.name ?? '이름 없음');
+    if (slot === 'noEvidence' || slot === 'denied') out.names[slot].push(name);
+    // 새 장소가 될 묶음만 — 짝이 있는 묶음은 그 장소의 빈 칸만 채워 사이트의 소개를 그대로 둔다. 규칙에 걸린 대체값 · 요약 없음이 다 여기다.
+    if ((slot === 'ok' || slot === 'noEvidence') && isIntroGroup(group) && !groupIntroOf(group, intros).text) {
+      out.noIntro += 1;
+      out.names.noIntro.push(name);
+    }
   }
   return out;
 }
@@ -187,21 +210,23 @@ export function bulkApproveText(plan: TBulkApprove): string {
   const head = plan.noEvidence
     ? `${up}곳 등록해요 — 그중 근거 없음 ${plan.noEvidence}곳(${namesNote(plan.names.noEvidence)})도 그대로 등록돼요.`
     : `${up}곳 등록해요.`;
+  const noIntro = plan.noIntro ? ` 소개 없이 올라가는 ${plan.noIntro}곳(${namesNote(plan.names.noIntro)})도 있어요.` : '';
   const skipped = [
     plan.denied && `동반 불가 정황인 ${plan.denied}곳(${namesNote(plan.names.denied)})`,
     plan.noRegion && `지역이 없는 ${plan.noRegion}곳`,
     plan.addressUnresolved && `주소가 원글과 다른 ${plan.addressUnresolved}곳`,
     plan.archivedTarget && `짝이 내린 곳인 ${plan.archivedTarget}곳`,
     plan.ask && `같은 곳인지 한 줄씩 봐야 하는 ${plan.ask}곳`,
+    plan.conflict && `요약이 갈려 제외·재분석으로 가를 ${plan.conflict}곳`,
     plan.thin && `근거가 얇아 한 줄씩 봐야 하는 ${plan.thin}곳`,
   ].filter(Boolean);
   const rest = skipped.length ? ` ${skipped.join(' · ')}은 건너뛰어요.` : '';
-  return `${head}${rest} 짝이 있으면 그 장소의 빈 칸만 채우고, 없으면 새 장소로 등록돼요.`;
+  return `${head}${noIntro}${rest} 짝이 있으면 그 장소의 빈 칸만 채우고, 없으면 새 장소로 등록돼요.`;
 }
 
-/** 일괄 올리기 주 버튼을 내려야 하나 — 근거 없음이든 멈추는 줄이든 하나라도 있으면 핑크 한 번으로 보내지 않는다. */
+/** 일괄 올리기 주 버튼을 내려야 하나 — 근거 없음 · 소개 없음이든 멈추는 줄이든 하나라도 있으면 핑크 한 번으로 보내지 않는다. */
 export function bulkApproveNeedsLook(plan: TBulkApprove): boolean {
-  return plan.noEvidence + plan.denied + plan.addressUnresolved + plan.noRegion + plan.archivedTarget + plan.ask + plan.thin > 0;
+  return plan.noEvidence + plan.noIntro + plan.denied + plan.addressUnresolved + plan.noRegion + plan.archivedTarget + plan.ask + plan.conflict + plan.thin > 0;
 }
 
 export type TBulkTally = {
