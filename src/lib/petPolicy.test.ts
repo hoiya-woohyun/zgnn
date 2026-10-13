@@ -196,7 +196,7 @@ describe('toPetBadges', () => {
 
   it('사진이 없는 것이 기본이라 모든 장소가 최소 한 개의 배지를 갖는다', () => {
     const bare = PLACES.filter((place) => toPetBadges(place.policy).length === 0);
-    expect(bare.map((place) => `${place.name}: ${place.petPolicyText}`)).toEqual([]);
+    expect(bare.map((place) => place.name)).toEqual([]);
   });
 });
 
@@ -276,7 +276,7 @@ describe('실제 데이터', () => {
   it('시드의 식당과 카페는 모두 실내 동반 조건을 읽어낸다', () => {
     expect(SEED_PLACES).toHaveLength(84);
     const unread = SEED_PLACES.filter((p) => p.type !== 'stay' && p.policy.indoor === 'unknown');
-    expect(unread.map((p) => `${p.name}: ${p.petPolicyText}`)).toEqual([]);
+    expect(unread.map((p) => `${p.name}: ${p.publicPolicyText}`)).toEqual([]);
   });
 
   it('pull 한 장소 전부 파싱에 실패하지 않는다', () => {
@@ -327,7 +327,8 @@ describe('parsePetPolicy — 블로그에서 온 문장(2026-09-28 첫 pnpm data
   });
 
   it('시드 86곳에는 동반 불가로 읽히는 곳이 없다(회귀 가드)', () => {
-    expect(PLACES.filter((p) => parsePetPolicy(p.petPolicyText).notAllowed).map((p) => p.name)).toEqual([]);
+    // 원문이 화면 항목에 남는 것은 공개 행뿐이다(21 S8) — 시드가 그 집합이다.
+    expect(PLACES.filter((p) => p.publicPolicyText !== undefined && parsePetPolicy(p.publicPolicyText).notAllowed).map((p) => p.name)).toEqual([]);
   });
 });
 

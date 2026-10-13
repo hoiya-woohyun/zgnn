@@ -76,7 +76,7 @@ export function PlaceDetailEligibilityCard({
   const subset = dogSubsetWhatIf(dog, place.policy, eligibility, { needsIndoor });
   const infoReasons = eligibility.reasons.filter((r) => r.level === 'info');
   // 요금이 1박마다인지 원문이 말하지 않으면 한 줄 밑에 그렇다고 적는다(08 T5.1). 카드엔 붙이지 않는다 — 숙소 거의 전부라 소음이다.
-  const feeNote = feeUnitNote(place.type, place.petPolicyText, place.policy, eligibility.fee);
+  const feeNote = feeUnitNote(place.type, place.feeUnitStated, place.policy, eligibility.fee);
   /*
    * '실내 자리 필요' 는 식당·카페 목록에서만 보이는 전역 값이라, 켜 둔 걸 잊으면 판정이 이유 없이 달라진다(12 U0.3).
    * 그 값이 **등급을 바꾼 곳**에서만 말한다 — 등급이 같으면 소음이다. 끄면 이 화면과 목록·지도·홈이 함께 바뀐다.

@@ -5,12 +5,12 @@
  * 검수 카드는 원문과 칩만, 사이트 비교는 칸 값만 보여 줬다. 승인·덮어쓰기·고치기가 나갈 문장을 어떻게 바꾸는지 눌러 보기 전엔 몰랐다.
  *
  * 규칙 둘:
- * - **같은 함수로 만든다.** 행을 `fromPlaceRow`(`pull-db` 와 같은 변환) → `toPlaceEntry`(사이트와 같은 정책 조립) → `policyEvidence`
- *   로 지나므로 미리보기 = 사이트다. 여기서 정책을 다시 조립하면 둘이 갈린다.
+ * - **같은 함수로 만든다.** 행을 `fromPlaceRow`(`pull-db` 와 같은 변환) → `toPlaceEntry`(`placeDerive.ts` — 빌드가 비공개 행을 미리 계산하는
+ *   `derivePlace` 와 같은 조립) → `policyEvidence` 로 지나므로 미리보기 = 사이트다. 여기서 정책을 다시 조립하면 둘이 갈린다(21 S6·S8).
  * - **"뒤" 값은 쓰기 경로가 만든다.** 등록 뒤 행은 `toNewPlaceRow`, 덮은 뒤 행은 `latestPlan` 의 patch, 고친 뒤 행은 `placeEditPatch` 의
  *   patch 를 그대로 받는다. 손으로 조립하면 본 것과 쓴 것이 갈린다.
  *
- * 안 나가는 안내·notes 와 그 이유(`hidden`)는 `policyEvidence` 옆에서 같은 인자로 다시 모은다 — `policyEvidence` 는 이유를 버린다.
+ * 안 나가는 안내·notes 와 그 이유(`hidden`)는 조립이 쓰는 `policyNoteOf` 의 이유에서 모은다 — `policyEvidence` 는 이유를 버린다.
  */
 
 import { toNewPlaceRow } from '../../scripts/analyze/applyApproved.mjs';
@@ -18,8 +18,8 @@ import { fromPlaceRow } from '../../scripts/lib/placeFields.mjs';
 import type { TPlace } from '../types';
 import type { TCandidateExtracted, TCandidateRow, TPlaceRow } from './adminCandidates';
 import { latestPlan } from './adminLatest';
-import { policyEvidence, publicGuide, publicNotes, type TPolicyEvidence } from './petPolicyPublic';
-import { toPlaceEntry } from './places';
+import { policyEvidence, policyNoteOf, type TPolicyEvidence } from './petPolicyPublic';
+import { toPlaceEntry } from './placeDerive';
 
 export type TPublicTextHidden = { key: 'guide' | 'notes'; label: string; text: string; reasons: string[] };
 export type TPublicTextPreview = { evidence: TPolicyEvidence; hidden: TPublicTextHidden[] };
@@ -41,14 +41,13 @@ export function publicTextPreview(place: TPlace): TPublicTextPreview {
     return { evidence, hidden };
   }
 
-  const guide = publicGuide(place.petPolicyGuide, place.petPolicy);
+  const { guide, notes } = policyNoteOf(place);
   if (guideText && guide.text === null) hidden.push({ key: 'guide', label: '이용 안내', text: guideText, reasons: guide.reasons });
   if (notesText) {
     if (guide.text !== null) {
       hidden.push({ key: 'notes', label: '그 밖의 조건', text: notesText, reasons: ['이용 안내가 대신 나가요'] });
-    } else {
-      const notes = publicNotes(notesText, place.petPolicyText);
-      if (notes.text === null) hidden.push({ key: 'notes', label: '그 밖의 조건', text: notesText, reasons: notes.reasons });
+    } else if (notes.text === null) {
+      hidden.push({ key: 'notes', label: '그 밖의 조건', text: notesText, reasons: notes.reasons });
     }
   }
   return { evidence, hidden };

@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { POLICY_TOPICS, policyFingerprint } from '../../scripts/lib/petPolicyGuide.mjs';
-import type { TPetPolicyFacts } from '../types';
+import type { TPetPolicyFacts, TPlace } from '../types';
 import { parsePetPolicy, toPetBadges, withPolicyFacts } from './petPolicy';
+import { toPlaceEntry } from './placeDerive';
 import { PLACES } from './places';
-import { evidenceText, policyEvidence, publicGuide, publicNotes, publicPolicyLines } from './petPolicyPublic';
+import { evidenceText, policyEvidence, policyNoteOf, publicGuide, publicNotes, publicPolicyLines } from './petPolicyPublic';
 
 /** 모델이 아무것도 안 읽은 판단(추출 스키마 모양). 각 테스트가 필요한 칸만 덮어쓴다. */
 const empty: TPetPolicyFacts = {
@@ -154,12 +155,19 @@ describe('publicGuide — 쓴 시점의 판단과 지금 판단이 같을 때만
 describe('policyEvidence — 상세 근거 칸에 원문을 그리나, 판단에서 만든 문장을 그리나(21 S5)', () => {
   const raw = '반려동물 동반 ( 야외 )\n카페 뒤 정원에 산책로가 있어서 강아지랑 한 바퀴 돌았어요';
   const facts: TPetPolicyFacts = { ...empty, indoor: 'outdoorOnly', notes: '정원 산책로는 강아지랑 같이 돌 수 있어요' };
-  const placeOf = (over: Partial<Parameters<typeof policyEvidence>[0]> = {}) => ({
-    petPolicyText: raw,
-    petPolicy: facts,
-    policy: policyOf(raw, facts),
-    ...over,
-  });
+  // 화면 항목은 조립(`toPlaceEntry` → `derivePlace`)을 거친다 — 근거 칸 밑 한 줄은 거기서 고른다(21 S8).
+  const placeOf = (over: Partial<TPlace> = {}) =>
+    toPlaceEntry({
+      id: 'evidence-test',
+      type: 'cafe',
+      name: '테스트',
+      region: { direction: 'east', town: '구좌읍', raw: '구좌읍' },
+      features: '',
+      petPolicyText: raw,
+      petPolicy: facts,
+      images: [],
+      ...over,
+    } as TPlace);
 
   it('원문 공개(시드)면 원문 그대로', () => {
     expect(policyEvidence(placeOf({ petPolicyTextPublic: true }))).toEqual({ kind: 'raw', text: raw });
@@ -187,19 +195,32 @@ describe('policyEvidence — 상세 근거 칸에 원문을 그리나, 판단에
 
   it('템플릿 줄이 없는 곳은 빈 칸 대신 상태 한 줄', () => {
     const generic = '애견동반 가능해요';
-    expect(policyEvidence({ petPolicyText: generic, policy: parsePetPolicy(generic) })).toMatchObject({
+    expect(policyEvidence({ policy: parsePetPolicy(generic), policyNote: null })).toMatchObject({
       lines: ['반려견과 같이 갈 수 있다고만 적혀 있어요'],
     });
     const denied = '반려동물 동반 불가';
-    expect(policyEvidence({ petPolicyText: denied, policy: parsePetPolicy(denied) })).toMatchObject({
+    expect(policyEvidence({ policy: parsePetPolicy(denied), policyNote: null })).toMatchObject({
       lines: ['반려견 동반이 안 된다고 적혀 있어요'],
     });
     // 아무 칸도 못 읽고 notes 만 남은 판단 — 판정 C7("원문을 확인해 주세요")과 같은 말.
     const odd = '사장님께 여쭤보면 상황에 따라 다르대요';
     const unread = { ...empty, notes: '상황에 따라 달라요' };
-    expect(policyEvidence({ petPolicyText: odd, petPolicy: unread, policy: policyOf(odd, unread) })).toMatchObject({
+    expect(policyEvidence(placeOf({ petPolicyText: odd, petPolicy: unread }))).toMatchObject({
       lines: ['조건을 자동으로 정리하지 못했어요. 원문에서 확인해 주세요'],
     });
+  });
+
+  it('policyNoteOf — 안내 > notes, 숨은 쪽의 이유를 남긴다(/admin 미리보기가 쓴다)', () => {
+    const basis = policyFingerprint(facts);
+    const withGuide = policyNoteOf({ petPolicyText: raw, petPolicy: facts, petPolicyGuide: { text: '정원 산책로까지 같이 걸을 수 있어요', basis } });
+    expect(withGuide).toEqual({ guide: { text: '정원 산책로까지 같이 걸을 수 있어요', reasons: [] }, notes: { text: null, reasons: [] }, text: '정원 산책로까지 같이 걸을 수 있어요' });
+    const stale = policyNoteOf({ petPolicyText: raw, petPolicy: facts, petPolicyGuide: { text: '정원 산책로까지 같이 걸을 수 있어요', basis: 'x' } });
+    expect(stale.guide).toEqual({ text: null, reasons: ['판단이 바뀌어 숨겼어요'] });
+    expect(stale.text).toBe('정원 산책로는 강아지랑 같이 돌 수 있어요');
+    // notes 가 원문을 베꼈다 — 가드가 숨기고 이유를 남긴다.
+    const copied = policyNoteOf({ petPolicyText: raw, petPolicy: { ...facts, notes: '카페 뒤 정원에 산책로가 있어서 강아지랑 한 바퀴 돌았어요' } });
+    expect(copied.text).toBeNull();
+    expect(copied.notes.reasons.length).toBeGreaterThan(0);
   });
 
   it('evidenceText — 화면에 나가는 글(배지가 요금 줄 중복을 대 보는 글)', () => {
@@ -208,21 +229,14 @@ describe('policyEvidence — 상세 근거 칸에 원문을 그리나, 판단에
     expect(evidenceText({ kind: 'derived', lines: ['가'], note: '다' })).toBe('가\n다');
   });
 
-  // S5 수용의 기계판 — 지금 스냅샷의 비공개 행(블로그 출처) 어디서도 원문 15자 이음이 화면 글에 없다.
-  // `pnpm data pull` 뒤 깨지면 먼저 볼 것: 블로거가 우리 템플릿 문장과 글자가 같은 문장을 썼는가("예방접종을 마친 강아지만 들어갈 수 있어요").
-  // 그건 베낌이 아니다 — `areaGroups` 고정 수처럼 데이터가 바뀌어 깨지는 테스트다.
-  it('스냅샷의 비공개 행은 원문 문장을 옮기지 않는다', () => {
-    const squash = (s: string) => s.replace(/\s+/g, '');
+  // S5 수용의 원문 대조(비공개 행 화면 글에 원문 15자 이음 없음)는 `placeDerive.test.ts` 로 옮겼다 — 화면 항목엔 원문이 없고(21 S8),
+  // 원문은 gitignored 캐시(`data/raw/places-source.json`)에만 있다. 여기서는 비공개 행이 원문 칸으로 넘어지지 않는 것만 본다.
+  it('스냅샷의 비공개 행은 판단에서 만든 문장을 그린다', () => {
     const hidden = PLACES.filter((place) => !place.petPolicyTextPublic);
     expect(hidden.length).toBeGreaterThan(0);
     for (const place of hidden) {
-      const evidence = policyEvidence(place);
-      expect(evidence.kind).toBe('derived');
-      const shown = squash(evidenceText(evidence));
-      const source = squash(place.petPolicyText);
-      for (let i = 0; i + 15 <= source.length; i += 1) {
-        expect(shown, `${place.name}: "${source.slice(i, i + 15)}"`).not.toContain(source.slice(i, i + 15));
-      }
+      expect(policyEvidence(place).kind).toBe('derived');
+      expect(place.publicPolicyText).toBeUndefined();
     }
   });
 });

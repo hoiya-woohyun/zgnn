@@ -7,13 +7,24 @@
  * 판정 이유의 인용(`quote`)은 블로그 문장 그대로다. 공개 행의 근거 칸도 `raw` 한 단어로만 적는다.
  */
 
-import { DOG_PROFILES } from '../../scripts/analyze/evalExtract.mjs';
 import type { TDogProfile } from '../types';
 import { feeUnitNote } from './dogFee';
 import { judgeEligibility } from './eligibility';
 import { cageGear, toPetBadges } from './petPolicy';
 import { policyEvidence } from './petPolicyPublic';
 import type { TPlaceEntry } from './places';
+
+/**
+ * 강아지 다섯 — `scripts/analyze/evalExtract.mjs` 의 `DOG_PROFILES` 와 같은 값이다. import 하지 않는 이유: 이 파일은 `src/` 의 비테스트 모듈이라
+ * 사이트 번들 검사(`browserBundleRegex.test.ts`)의 대상이고, 그 모듈엔 브라우저가 못 읽는 정규식(lookbehind)이 있다.
+ */
+export const PROFILES: { id: string; dog: TDogProfile }[] = [
+  { id: 'small4', dog: { dogs: [{ name: '두부', weightKg: 4 }], carrier: 'bag' } },
+  { id: 'medium12', dog: { dogs: [{ name: '보리', weightKg: 12 }], carrier: 'none' } },
+  { id: 'large28', dog: { dogs: [{ name: '대장', weightKg: 28 }], carrier: 'none' } },
+  { id: 'two5and8', dog: { dogs: [{ name: '콩', weightKg: 5 }, { name: '팥', weightKg: 8 }], carrier: 'stroller' } },
+  { id: 'small6none', dog: { dogs: [{ name: '초코', weightKg: 6 }], carrier: 'none' } },
+];
 
 /** 원문에서 오는 칸 + 조립이 얹는 판독 칸(`indoorGear`) — 판정이 아니라 판정의 재료라 비교에서 뺀다. */
 const RAW_KEYS = new Set(['sources', 'indoorGearText', 'feeText', 'indoorGear']);
@@ -32,11 +43,11 @@ const evidenceLine = (entry: TPlaceEntry): string => {
 };
 
 const verdictLines = (entry: TPlaceEntry): string[] =>
-  DOG_PROFILES.flatMap(({ id, dog }) =>
+  PROFILES.flatMap(({ id, dog }) =>
     [false, true].map((needsIndoor) => {
-      const e = judgeEligibility(dog as TDogProfile, entry.policy, { needsIndoor });
+      const e = judgeEligibility(dog, entry.policy, { needsIndoor });
       const reasons = e.reasons.map((r) => `${r.rule}:${r.level}:${r.text}`).join(' / ');
-      const unit = feeUnitNote(entry.type, entry.petPolicyText, entry.policy, e.fee);
+      const unit = feeUnitNote(entry.type, entry.feeUnitStated, entry.policy, e.fee);
       return `${id}${needsIndoor ? '+indoor' : ''} ${e.level} | ${reasons} | ${e.fee ?? ''} | ${unit ?? ''}`;
     }),
   );

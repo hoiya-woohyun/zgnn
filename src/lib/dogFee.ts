@@ -294,6 +294,9 @@ export const formatDogFee = (policy: TPetPolicy, dog: TDogProfile): string | und
 /** 원문이 요금의 단위(1박마다 · 한 번)를 말하는 낱말. "숙박일 관계없이 청소비 5만원" 은 한 번이라는 말이다. */
 const FEE_UNIT_RE = /1\s*박|박\s*당|매\s*박|1\s*회|한\s*번|관계\s*없이/;
 
+/** 글이 요금의 단위를 말하나 — 조립(`derivePlace`)이 원문 + 요금 줄에 대 보고 `feeUnitStated` 로 싣는다(21 S8, 화면은 원문을 안 본다). */
+export const mentionsFeeUnit = (text: string): boolean => FEE_UNIT_RE.test(text);
+
 /**
  * 요금 한 줄 밑에 붙일 "단위를 모른다" 는 말(08 T5.1). 시드 숙소 16곳 중 15곳이 "1마리당 3만원" 처럼 1박마다인지
  * 한 번인지를 말하지 않는다 — 2박이면 두 배일 수 있는데 한 줄은 확정된 금액처럼 읽힌다.
@@ -307,13 +310,14 @@ const FEE_UNIT_RE = /1\s*박|박\s*당|매\s*박|1\s*회|한\s*번|관계\s*없�
  */
 export const feeUnitNote = (
   type: TPlaceType,
-  policyText: string,
-  policy: Pick<TPetPolicy, 'feeLines' | 'feeRules'>,
+  unitStated: boolean,
+  policy: Pick<TPetPolicy, 'feeRules'>,
   fee: string | undefined,
 ): string | null => {
   if (type !== 'stay' || !fee || fee.includes('추가 요금 없음')) return null;
   if (policy.feeRules?.some((rule) => rule.perNight)) return null;
-  if (FEE_UNIT_RE.test([policyText, ...policy.feeLines].join(' '))) return null;
+  // 원문 + 요금 줄이 단위를 말하는지는 조립이 읽어 둔다(`TPlaceEntry.feeUnitStated` — 화면은 원문을 안 본다, 21 S8).
+  if (unitStated) return null;
   // '원문에' 라고 하지 않는다 — 블로그 출처 숙소는 원문을 화면에 내지 않는다(21 S5). 시드·블로그 둘 다에 맞는 말로.
   return '1박 기준인지는 적혀 있지 않아요';
 };

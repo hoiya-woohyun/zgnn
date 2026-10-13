@@ -37,8 +37,8 @@ export type TPolicyTier = {
   weightInclusive?: boolean;
   /** 마릿수 상한. 없으면 이 tier 는 무게만 말한다 */
   maxDogs?: number;
-  /** 근거 문장(원문 그대로, trim 만 적용) */
-  source: string;
+  /** 근거 문장(원문 그대로, trim 만 적용). 블로그 출처 행은 `places.json` 에 미리 계산될 때 지워진다(21 S8 `redactDerived`) — 인용(quote)에만 쓴다 */
+  source?: string;
 };
 
 export type TPetPolicy = {
@@ -121,6 +121,12 @@ export type TPetPolicy = {
    * 원문 전체로 넓히지 않는 이유: 짐 가방을 말하는 글이 있고, 잘못 읽으면 지어낸 '갈 수 있어요'(C2·C3 이 물러난다)라 오탐이 더 비싸다.
    */
   indoorGearText?: string;
+  /**
+   * `cageGear` 의 답을 조립(`derivePlace`, 21 S8)이 미리 읽어 얹은 칸 — 있으면 `cageGear` 가 글을 다시 읽지 않는다. 블로그 출처 행은 근거 문장이
+   * `places.json` 에서 지워지므로(PUBLIC 레포) 이 칸 없이는 판정 C2·C3 이 가방·유모차를 못 본다. **조건이 아니라 판독 결과**라
+   * `readNothing`·`POLICY_TOPICS` 에 넣지 않는다.
+   */
+  indoorGear?: { bag: boolean; stroller: boolean };
   /** 규칙별 근거 문장(원문 그대로). reasons.quote 의 재료 */
   sources: Partial<
     Record<
@@ -474,7 +480,7 @@ export const parsePetPolicy = (petPolicyText: string): TPetPolicy => {
 
 /**
  * 판정·배지에 쓰일 조건이 하나도 없다. 새 필드를 TPetPolicy 에 더하면 **여기에도** 더한다 — 빠지면 읽은 원문이 '못 읽음' 이 된다.
- * 예외는 조건이 아니라 이 함수의 결과로 정해지는 칸(`unread`·`genericOnly`)과 장소에서 오는 칸(`verified`)이다.
+ * 예외는 조건이 아니라 이 함수의 결과로 정해지는 칸(`unread`·`genericOnly`)과 장소에서 오는 칸(`verified`), 판독 결과(`indoorGear`)다.
  */
 const readNothing = (p: TPetPolicy): boolean =>
   p.indoor === 'unknown' &&
@@ -700,9 +706,10 @@ export const STROLLER_ALLOWED = /(유모차|개모차)(?![^.\n]{0,16}불가)/;
 /**
  * `indoor: 'cage'` 인 곳이 원문으로 받아 준다고 적은 수단. **판정 C2·C3 · 배지(`cageBadge`) · 템플릿(`cageLine`) 넷이 이 하나를 본다** —
  * 한쪽만 넓히면 칩은 '케이지 필요' 인데 판정은 가방을 받는 식으로 한 화면이 두 말을 한다(S5.1·S5.2).
- * 읽는 글은 근거 + 다음 문장(`indoorGearText`), 없으면 근거 문장 하나.
+ * 읽는 글은 근거 + 다음 문장(`indoorGearText`), 없으면 근거 문장 하나. 조립이 미리 읽어 둔 답(`indoorGear`)이 있으면 그것이다 — 블로그 출처 행은 글이 지워져 있다(21 S8).
  */
-export const cageGear = (policy: Pick<TPetPolicy, 'sources' | 'indoorGearText'>): { bag: boolean; stroller: boolean } => {
+export const cageGear = (policy: Pick<TPetPolicy, 'sources' | 'indoorGearText' | 'indoorGear'>): { bag: boolean; stroller: boolean } => {
+  if (policy.indoorGear) return policy.indoorGear;
   const text = policy.indoorGearText ?? policy.sources.indoor;
   if (text === undefined) return { bag: false, stroller: false };
   return { bag: BAG_ALLOWED.test(text), stroller: STROLLER_ALLOWED.test(text) };
@@ -712,7 +719,7 @@ export const cageGear = (policy: Pick<TPetPolicy, 'sources' | 'indoorGearText'>)
  * `indoor: 'cage'` 의 배지. 그 값은 "케이지·이동가방·유모차 중 하나" 라, 근거 문장이 가방·유모차를 직접 적었으면 그 말로 쓴다 —
  * 카페스누피 "실내에서는 유모차/이동 가방 필요" 에 '케이지 필요' 칩을 붙이면, 판정(C2·C3)은 가방을 받는데 칩은 케이지를 말한다(14 W261006.18).
  */
-const cageBadge = (policy: Pick<TPetPolicy, 'sources' | 'indoorGearText'>): TPetBadge => {
+const cageBadge = (policy: Pick<TPetPolicy, 'sources' | 'indoorGearText' | 'indoorGear'>): TPetBadge => {
   const { bag, stroller } = cageGear(policy);
   const label = bag && stroller ? '가방·유모차 필요' : bag ? '이동가방 필요' : stroller ? '유모차 필요' : '케이지 필요';
   return { label, tone: 'cond', axis: 'gear' };

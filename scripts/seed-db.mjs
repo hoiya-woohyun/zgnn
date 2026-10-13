@@ -69,8 +69,11 @@ const { data: archivedRows, error: archivedError } = await supabase
 if (archivedError) throw archivedError;
 
 const archivedIds = new Set((archivedRows ?? []).map((row) => row.id));
-const seedRows = placeRows.filter((row) => !archivedIds.has(row.id));
-const skipped = placeRows.length - seedRows.length;
+// 블로그 출처(비공개) 행은 스냅샷에 원문이 없다(21 S8 — 판정 입력만 미리 계산돼 있다). 그대로 보내면 DB 의 원문(대조군)·판단이 null 로 덮인다 —
+// 원문은 DB 에만 있으므로 이 명령으로는 되살릴 수 없고, 건너뛴다. `sort` 는 위에서 원래 배열 위치로 붙였다(거른 뒤에 매기면 순서가 당겨진다).
+const precomputed = placeRows.filter((row) => typeof row.pet_policy_text !== 'string');
+const seedRows = placeRows.filter((row) => !archivedIds.has(row.id) && typeof row.pet_policy_text === 'string');
+const skipped = placeRows.filter((row) => archivedIds.has(row.id)).length;
 
 const { error: placesError } = await supabase.from('places').upsert(seedRows, { onConflict: 'id' });
 if (placesError) throw placesError;
@@ -80,5 +83,6 @@ if (itemsError) throw itemsError;
 
 console.log(
   `시드 완료: places ${seedRows.length} · items ${itemRows.length}` +
-    (skipped ? ` (내린 곳 ${skipped}곳은 건너뜀 — 되살리려면 /admin 에서)` : ''),
+    (skipped ? ` (내린 곳 ${skipped}곳은 건너뜀 — 되살리려면 /admin 에서)` : '') +
+    (precomputed.length ? ` · 건너뜀 ${precomputed.length}(원문은 DB 에만 — 스냅샷엔 없다)` : ''),
 );

@@ -264,7 +264,7 @@ describe('judgeEligibility — 어려움 판정에는 요금을 싣지 않는다
   it('28·17kg 두 마리 → hard · fee 없음 · 요금 info 근거 없음', () => {
     const place = findPlace('그리너리빌리지 펜션');
     const dog: TDogProfile = { dogs: [{ name: '대장', weightKg: 28 }, { name: '초코', weightKg: 17 }], carrier: 'none' };
-    const result = judgeEligibility(dog, parsePetPolicy(place.petPolicyText));
+    const result = judgeEligibility(dog, parsePetPolicy(place.publicPolicyText!));
     expect(result.level).toBe('hard');
     expect(result.fee).toBeUndefined();
     expect(result.reasons.some((r) => r.level === 'info' && r.text.includes('만원'))).toBe(false);
@@ -582,8 +582,8 @@ describe('judgeEligibility — 확인 기록 없는 일반 허용 문장(C9, tod
     expect(leash.genericOnly).toBe(false);
   });
 
-  // 시드만 못 박는다(AI 판단 `petPolicy` 가 없는 곳 — `places.ts` 의 구분). pull 한 블로그 장소에 C9 가 서는 것은 이 규칙이 하는 일이다.
-  const SEEDS = PLACES.filter((p) => !p.petPolicy);
+  // 시드만 못 박는다(원문 공개 행 — 화면 항목엔 AI 판단이 없어 그것으로 가를 수 없다, 21 S8). pull 한 블로그 장소에 C9 가 서는 것은 이 규칙이 하는 일이다.
+  const SEEDS = PLACES.filter((p) => p.petPolicyTextPublic === true);
 
   it('시드 86곳의 판정은 하나도 바뀌지 않는다 — 일반 허용 문장뿐인 시드가 없다', () => {
     expect(SEEDS.length).toBeGreaterThan(0);

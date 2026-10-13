@@ -58,8 +58,9 @@ const blogRow = (over: Partial<TPlaceRow> = {}): TPlaceRow =>
   }) as unknown as TPlaceRow;
 
 describe('publicTextPreview — 사이트와 같은 문장', () => {
-  it('시드 전부에서 evidence 가 사이트의 policyEvidence 와 같다', () => {
-    for (const place of placesJson as unknown as TPlace[]) {
+  // 비공개 행은 places.json 에 이미 계산돼 있어(21 S8) 같은 값끼리 견주게 된다 — 그쪽(/admin 길 ≡ 빌드 → 사이트 길)은 `placeDerive.test.ts` 가 합성 DB 행으로 본다.
+  it('원문 공개 행 전부에서 evidence 가 사이트의 policyEvidence 와 같다', () => {
+    for (const place of (placesJson as unknown as TPlace[]).filter((p) => p.petPolicyTextPublic === true)) {
       expect(publicTextPreview(place).evidence).toEqual(policyEvidence(PLACES_BY_ID.get(place.id)!));
     }
   });

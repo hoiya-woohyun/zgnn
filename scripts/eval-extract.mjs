@@ -76,7 +76,8 @@ async function cmdGolden(opts) {
     throw new Error('data/golden/seed-extract.json 이 이미 있다 — 얼린 정답이라 덮지 않는다(review 가 사라진다). 정말 다시 만들려면 --force');
   }
   const { parsePetPolicy } = await appFns();
-  const places = readJson(join(ROOT, 'src/data/places.json'));
+  // golden = 시드(원문 공개 행). 블로그 출처 행은 스냅샷에 원문이 없다(21 S8 — 판정 입력만 미리 계산돼 있다).
+  const places = readJson(join(ROOT, 'src/data/places.json')).filter((p) => p.petPolicyTextPublic === true);
   const entries = places.map((p) => buildGoldenEntry(p, parsePetPolicy));
   writeJson(GOLDEN_PATH, {
     about: '시드 장소의 사람 정답(AI 추출 평가용). 형식·보정(review) 방법은 docs/features/extraction-eval.md',

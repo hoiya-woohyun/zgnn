@@ -117,6 +117,19 @@ export const publicGuide = (guide: TPetPolicyGuide | null | undefined, facts: TP
 };
 
 /**
+ * 근거 칸 밑 AI 한 줄 — 안내가 나가면 안내, 아니면 notes(가드를 지난 것만). **"안내 > notes" 를 정하는 곳은 이 하나다** —
+ * 조립(`derivePlace`)은 `text` 만 싣고(빌드에서 비공개 행), `/admin` 미리보기는 `guide`·`notes` 의 이유를 쓴다.
+ * 안내의 지문은 **저장된** `petPolicy` 에 대고(대조를 다시 돌린 정책을 넘기면 지문이 늘 어긋난다), notes 가드의 대조군은 원문이다.
+ */
+export const policyNoteOf = (
+  place: Pick<TPlace, 'petPolicyText' | 'petPolicy' | 'petPolicyGuide'>,
+): { guide: TPublicText; notes: TPublicText; text: string | null } => {
+  const guide = publicGuide(place.petPolicyGuide, place.petPolicy);
+  const notes = guide.text !== null ? HIDDEN : publicNotes(place.petPolicy?.notes, place.petPolicyText ?? '');
+  return { guide, notes, text: guide.text ?? notes.text };
+};
+
+/**
  * 템플릿 줄이 하나도 안 나온 곳의 한 줄. `TEMPLATES` 는 **조건 칸**만 말해서 판정이 따로 세우는 상태 — 동반 불가(H1) · 못 읽음(C7) ·
  * 일반 허용 문장뿐(C9) · 원문 없음(U1) — 에는 줄이 없다. 비워 두면 판정은 "어려움"·"확인" 인데 근거 칸이 텅 빈다.
  * 못 읽음이 "원문" 을 가리키는 것은 판정 C7("원문을 확인해 주세요")과 같은 말을 하려는 것 — 원문은 밑의 「원문 보기」 링크다.
@@ -136,21 +149,16 @@ export type TPolicyEvidence =
   | { kind: 'raw'; text: string }
   | { kind: 'derived'; lines: string[]; note: string | null };
 
-type TEvidencePlace = Pick<TPlace, 'petPolicyText' | 'petPolicyTextPublic' | 'petPolicy' | 'petPolicyGuide'> & { policy: TPetPolicy };
+/** 근거 칸이 보는 것 — 화면 항목(`TPlaceEntry`)의 칸들이다. 원문은 공개 행의 `publicPolicyText` 뿐이다(21 S8). */
+type TEvidencePlace = { petPolicyTextPublic?: boolean; publicPolicyText?: string; policy: TPetPolicy; policyNote: string | null };
 
 /**
- * 인자가 셋으로 갈린다 — 템플릿은 배지와 같은 `policy`, 안내의 지문은 **저장된** `petPolicy`(대조를 다시 돌린 `policy` 를 넘기면 지문이 늘 어긋난다),
- * notes 가드의 대조군은 원문(안내는 원문에 대 보지 않는다 — `publicGuide`).
+ * 템플릿은 배지와 같은 `policy`, 그 밑 한 줄은 조립이 `policyNoteOf` 로 이미 고른 `policyNote`(안내의 지문·notes 가드는 원문·판단이 있는 곳에서 돈다).
  */
 export const policyEvidence = (place: TEvidencePlace): TPolicyEvidence => {
-  if (place.petPolicyTextPublic === true) return { kind: 'raw', text: place.petPolicyText };
+  if (place.petPolicyTextPublic === true) return { kind: 'raw', text: place.publicPolicyText ?? '' };
   const lines = publicPolicyLines(place.policy).map((line) => line.text);
-  const guide = publicGuide(place.petPolicyGuide, place.petPolicy).text;
-  return {
-    kind: 'derived',
-    lines: lines.length ? lines : [emptyLine(place.policy)],
-    note: guide ?? publicNotes(place.petPolicy?.notes, place.petPolicyText).text,
-  };
+  return { kind: 'derived', lines: lines.length ? lines : [emptyLine(place.policy)], note: place.policyNote };
 };
 
 /**

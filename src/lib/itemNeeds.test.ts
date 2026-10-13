@@ -20,7 +20,9 @@ const placeOf = (
   name: '테스트',
   region: { direction: 'east', town: '구좌읍', raw: '구좌읍' },
   features: '',
-  petPolicyText,
+  publicPolicyText: petPolicyText,
+  feeUnitStated: false,
+  policyNote: null,
   images: [],
   policy: parsePetPolicy(petPolicyText),
   ...(amenitiesText === undefined

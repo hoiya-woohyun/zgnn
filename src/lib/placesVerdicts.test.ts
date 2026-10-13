@@ -8,10 +8,15 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { DOG_PROFILES } from '../../scripts/analyze/evalExtract.mjs';
 import { PLACES } from './places';
-import { placesVerdictView } from './placesVerdictView';
+import { PROFILES, placesVerdictView } from './placesVerdictView';
 
 describe('판정 스냅숏(122곳)', () => {
+  it('강아지 다섯은 추출 평가(`DOG_PROFILES`)와 같다 — 번들 검사 때문에 import 대신 옮겨 적었다', () => {
+    expect(PROFILES).toEqual(DOG_PROFILES.map(({ id, dog }: { id: string; dog: unknown }) => ({ id, dog })));
+  });
+
   it('장소마다 정책·배지·근거 칸·판정이 얼린 값과 같다', async () => {
     const text = [...PLACES]
       .sort((a, b) => a.id.localeCompare(b.id))
