@@ -1,6 +1,7 @@
 # 21. 블로그 문장이 사이트에 그대로 나가지 않게 · 추출 모델을 Sonnet 으로
 
-> 최종 수정: 2026-10-13 (v19: S7 끝 — 프롬프트 묶음 `d7a6610e`(안내 칸 · 소개 null 출구 · notes 반려견 조건만·해요체 · callFirst·largeDogOk 좁힘 · H3) · 안내 가드는 쓸 때 본문, 보일 때 지문·주제만(`storableGuide` 하나를 추출·제안이 쓴다) · 빈 소개는 안 그린다. 다섯 글 실측 표 · 🧑 H1·H5 를 「기다림」, S9 를 「지금」 에)
+> 최종 수정: 2026-10-13 (v20: S9 끝 — `pnpm data rewrite`(미리보기 표 → `--apply` 는 그 patch 그대로, Claude 재호출 없음) · 안내·소개 지시를 상수로 나눠 쓴다 · 🧑 H7 을 「기다림」 에)
+> 이전 2026-10-13 (v19: S7 끝 — 프롬프트 묶음 `d7a6610e`(안내 칸 · 소개 null 출구 · notes 반려견 조건만·해요체 · callFirst·largeDogOk 좁힘 · H3) · 안내 가드는 쓸 때 본문, 보일 때 지문·주제만(`storableGuide` 하나를 추출·제안이 쓴다) · 빈 소개는 안 그린다. 다섯 글 실측 표 · 🧑 H1·H5 를 「기다림」, S9 를 「지금」 에)
 > 이전 2026-10-13 (v18: S6 끝 — `/admin` 세 화면에 「사이트에 나갈 문장」 미리보기(쓰기 경로가 "뒤" 를 만든다) · 사이트 값 칸 `지금 사이트` + 출처 칩은 원문 공개 칸으로. S8 을 「지금」 에)
 > 이전 2026-10-13 (v17: S5.3 끝 — AI 판단의 실내 근거 줄을 판단별 근거 단어로, 블로그 9곳 근거만 바뀌고 판정 0)
 > 이전 2026-10-13 (v16: S4.1 끝 — 임시 공개 짐작을 걷었다 · 채움 토스트가 칸 이름을 사람 말로 · 새 행이 안내 칸 키를 null 로라도 싣는다)
@@ -311,7 +312,7 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
   > `seed-db`·`eval golden` 이 원문 없는 행을 읽는 입구를 막는다. **H6 은 S8 로 풀리지 않는다**(빌드가 여전히 anon 으로 원문을 읽는다). 계획 파일이 없으면(다른 머신) 이 메모로 다시 계획한다.
 
 ### S9. 게시된 블로그 행은 문장만 다시 쓴다 — 판단 고정(S7 뒤, 2026-10-13 결정)
-- [ ] `pnpm data rewrite`(진입점 `scripts/data.mjs`, 새 스크립트): 대상 = `places` 의 `status = 'published' and not pet_policy_text_public and pet_policy_guide is null` — 2026-10-13 실측 38곳 · 출처 글 46편.
+- [x] `pnpm data rewrite`(진입점 `scripts/data.mjs`, 새 스크립트): 대상 = `places` 의 `status = 'published' and not pet_policy_text_public and pet_policy_guide is null` — 2026-10-13 실측 38곳 · 출처 글 46편.
   승인으로 새로 게시된 블로그 행도 다음 회차에 같은 조건으로 잡힌다(명령 하나가 백필과 이후 보충을 함께 한다).
   - 곳마다: `place_sources` 의 글을 `fetchPostText`(`scripts/analyze/naverPostBody.mjs`)로 다시 받는다 — 본문은 DB 에 없다(`blog_posts` 는 url·제목뿐), AI 0회.
     저장된 판단(`pet_policy`) + 본문을 `claude -p` **한 번**에 넘겨 안내·소개만 받는다. 판단 칸은 읽기만 한다 — 판정이 안 바뀌므로 재검수가 없다.
@@ -324,6 +325,14 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
     쓴 안내가 `publicGuide` 를 지난다(지문 일치 — 왕복). 단계 스크립트라 `process.exit` 를 부르지 않는다(CLAUDE.md).
   - [13 §5.3 A](13-ai-analysis-audit-2026-10-04.md)(묶음 종합 소개)와 소개 칸이 겹친다 — A3 가 먼저 들어오면 S9 는 안내만 쓰고 소개는 A 에 맡긴다.
   - 끝나면: 「기다림」 에 🧑 H7.
+  > 메모: 2026-10-13 끝 — 순수 `scripts/analyze/rewritePublished.mjs` + I/O `scripts/rewrite-published.mjs`(`pnpm data rewrite`, 서버 워커 표엔 안 넣었다). 안내·소개 지시는 `extractPlaces.mjs` 의
+  > `PROMPT_GUIDE_RULE`·`PROMPT_FEATURES_RULE` 상수 둘로 꺼냈다(추출 `PROMPT_VERSION` 은 `d7a6610e` 그대로 — 13 A1 도 소개 지시를 이 상수로 나눠 쓰면 된다). `copiedRun` 을 export.
+  > 명세 해석 셋: ① **`--apply` 는 Claude 를 다시 부르지 않는다** — 미리보기가 표(`.md`)와 함께 같은 이름 `.json`(patch + 전 소개)을 남기고 apply 는 그것을 그대로 쓴다.
+  > 다시 부르면 사람이 본 표와 다른 문장이 올라가고 한도도 두 배다. 쓰기 직전 행마다 대상 조건 · 소개가 그때와 같은가 · 판단 지문 = basis 를 보고(`applyCheck`), update 에도 `pet_policy_guide is null`·`features = 전 값` 을 건다.
+  > ② 새 소개의 가드는 안내와 같은 엄한 쪽(판단 주제 포함) — "야외 정원" 같은 소개도 빠지지만 그때는 지금 소개를 두는 것이라 나빠지지 않는다(표에 이유가 남는다).
+  > ③ 모델은 추출의 `MODEL`(Sonnet — S7 안내 실측과 같은 손). 프롬프트에 장소 이름·주소를 실어 목록글 안에서 그곳만 읽게 했다. `--limit N` 으로 나눠 돈다(구독 한도).
+  > 검증: `rewritePublished.test.mjs`(대상 조건 · patch 키 · 베낌 소개만 · 가드 · 왕복 `fromPlaceRow` → `publicGuide` · 가짜 supabase 로 미리보기 쓰기 0 → apply Claude 0회 · 판단 바뀐 행 건너뜀). 실제 실행은 🧑 H7.
+  > 전체 `pnpm test` 의 실패 2(`browserBundleRegex` ← `placesVerdictView.ts` 가 evalExtract 를 끌어옴 · `placeDerive.test.ts`)와 tsc 1(`placeDerive.test.ts`)은 다른 레인의 미커밋 파일이다.
 
 ## 사람(🧑)·결정(🙋)
 

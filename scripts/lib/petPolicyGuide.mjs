@@ -63,8 +63,11 @@ export const COPY_RUN = 15;
 
 const squash = (s) => s.replace(/\s+/g, '');
 
-/** 공백을 뺀 두 문자열이 `COPY_RUN` 자 이상 같은 이음을 갖는가 — 처음 찾은 이음, 없으면 null. 문장이 짧아 O(n·m) 로 충분하다. */
-function copiedRun(text, raw) {
+/**
+ * 공백을 뺀 두 문자열이 `COPY_RUN` 자 이상 같은 이음을 갖는가 — 처음 찾은 이음, 없으면 null. 문장이 짧아 O(n·m) 로 충분하다.
+ * 게시된 소개가 본문 베낌인지도 이것으로 가른다(다시 쓰기, docs/todo/21 S9).
+ */
+export function copiedRun(text, raw) {
   const a = squash(text);
   const b = squash(raw);
   for (let i = 0; i + COPY_RUN <= a.length; i++) {

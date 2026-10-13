@@ -77,7 +77,6 @@
 
 - [ ] 🔒 서버 워커 홉에 시간 예산(다음 글 시작 전 경과 ~200초면 멈춤, 서버만) — [20 T11](20-vercel-remote-worker.md) · 왜 지금: 2026-10-10 홉 하나가 258초 — 300초를 넘으면 홉이 끊기고 잠금 틈을 밟는다 · 2026-10-10 22:20 구현 커밋 d1d6a84 — 남은 것: 워커 배포(사용자 허락) → `check.mjs --reset` → 실측(분석 끝 ≤ 4분 · 사슬 이어짐)
 - [ ] 번들·`places.json` 에서 비공개 원문 빼기(판정 입력을 빌드에서 미리 계산 · 공개가 아닌 행은 원문·`sources` 를 JSON 에서 뺀다) — [21 S8](21-blog-text-and-extract-model.md) · 왜 지금: 화면(S5)·`/admin`(S6)은 끝났는데 레포가 PUBLIC 이라 블로그 38곳의 원문이 `src/data/places.json` 과 클라이언트 번들에 그대로 있다 — 화면에서만 빼면 절반 · 계획은 21 S8 메모(`.omc/plans/2026-10-13-21-s8-plan.md`)
-- [ ] 게시된 블로그 행은 문장만 다시 쓰기 — 판단 고정, 안내·베낀 소개만(`pnpm data rewrite` 미리보기 → `--apply`) — [21 S9](21-blog-text-and-extract-model.md) · 왜 지금: S7 뒤로 새로 뽑는 곳만 안내가 생긴다 — 이미 게시된 블로그 38곳(출처 글 46편)은 템플릿 줄 + notes 로만 보이고 소개 일부는 본문 베낌이다 · 안내 지시·분석 시점 가드(`storableGuide`, 대조군 = 본문)를 S7 것 그대로 쓴다 · 끝나면 🧑 H7 을 「기다림」 에
 - [ ] AI 요약 묶음 종합 ① 함수·프롬프트·테스트(글 요약 N개 → 소개 + 충돌 + 문장별 출처) — [13 §5.3 A1](13-ai-analysis-audit-2026-10-04.md) · 왜 지금: 등록 소개가 대표 글 한 편의 말이라 나머지 글이 버려진다(엔젤하우스 58편 중 1편 · 친봉산장은 글마다 업태가 갈림) — 블로그 곳 첫 등록(🧑 검수 대기 130곳) 전에 있어야 소개를 다시 쓸 일이 없다
 - [ ] 운영 현황의 `승인` 칩 걷기 · 검수 칸은 `/admin` 검수 대기로 · `승인` → `등록` — [15 T8.3](15-ops-dashboard.md) · 왜 지금: `/admin` 등록은 실행 기록을 안 남겨 그 칩·칸이 늘 10-06 의 옛 2행이다
 - [ ] 운영 현황 실행 기록 '더 보기' 가 앞 장을 버린다 — [15 T8.4](15-ops-dashboard.md) · 왜 지금: 끝까지 내리면 최근 30행이 2행으로 바뀐다(14 W261010.9)
@@ -85,6 +84,8 @@
 - [ ] S6 화면을 눈으로(Chrome 확장 — 담소요 갱신 묶음 칩·`사이트 문장` · 솔숲펜션 고치기 「원문 공개」 끄기 · 폰 폭) — [21 S6.1](21-blog-text-and-extract-model.md) · 왜 지금: S6 은 확장이 연결되지 않아 서버 렌더 스모크로만 봤다 — 칩 색·밀도는 눈으로만 안다 · 같이: `/admin/ops` 첫 줄이 `/admin` 머리글과 같은 말인가([15 T8.1](15-ops-dashboard.md), 같은 이유로 못 봤다)
 
 ## 기다림 (사람 손·결정)
+
+- 🧑 게시된 블로그 행 문장 다시 쓰기 실행 — [21 H7](21-blog-text-and-extract-model.md) · 명령: `pnpm data login` → `pnpm data rewrite`(미리보기 · 약 38회 `claude -p` — 구독 한도, `--limit N` 으로 나눠도 된다) → `data/raw/rewrite/<날짜>.md` 전·후 표를 Claude 와 함께 본다 → `pnpm data rewrite --apply`(그 표의 `.json` 그대로 원격 `places` 쓰기 · Claude 0회 · 재빌드 한 번) · 확인(Claude): `pet_policy_guide is not null` 행 수와 상세 화면 한 곳
 
 - 🧑 서버 워커 둘째 배포(21 S4·S7 둘 다 끝 — 제안·추출 프롬프트가 함께 번들에 실린다) — [21 H1](21-blog-text-and-extract-model.md) · 배포라 허락 먼저 · 명령: `pnpm worker:build && cd worker && vercel deploy --prod`(루트에서 `--cwd worker` 는 실패한다) · 그 전까지 서버 홉은 옛 프롬프트(안내 칸 없음)로 뽑는다 · 확인: 서버가 뽑은 새 후보의 `extracted.meta.promptVersion` 이 `d7a6610e`
 
@@ -139,3 +140,4 @@
 ## 발견 (분류 전)
 
 <!-- /next 가 작업 중 찾은 것을 한 줄씩 — 출처: <커밋/파일>. 멈출 때 번호 문서로 옮긴다 -->
+- `pnpm data rewrite` 는 안내가 가드에 걸린(또는 모델이 null 이라 한) 곳을 `pet_policy_guide` null 로 남겨 **회차마다 다시 Claude 를 부른다** — 시도 표식(예: 그 곳의 `basis`·프롬프트 버전을 기록해 판단·프롬프트가 같으면 건너뛰기)이 필요한지 H7 첫 회차 수를 보고 정한다 — 출처: `scripts/rewrite-published.mjs`

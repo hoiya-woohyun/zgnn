@@ -12,6 +12,8 @@ const STEPS = {
   login: () => import('./login.mjs'),
   logout: () => import('./logout.mjs'),
   pull: () => import('./pull-db.mjs'),
+  // 게시된 블로그 행의 안내·베낀 소개만 다시 쓴다(판단 고정, docs/todo/21 S9). 서버 워커 표(PIPELINE_STEPS)에는 넣지 않는다 — 사람이 표를 보고 --apply 한다.
+  rewrite: () => import('./rewrite-published.mjs'),
   // 수집·분석·반영은 서버 워커(ADR-028)와 같은 표 — `lib/workerSteps.mjs`.
   ...PIPELINE_STEPS,
   eval: async () => {
@@ -34,6 +36,7 @@ const USAGE = `사용법: pnpm data <하위 명령> [인자…]
   apply     승인된 후보를 places 에 반영한다(기존 장소는 빈 칸만 채움)             --dry-run
   once      워커의 한 바퀴 — 할 것만: 추가 수집 요청 → 요청 글 분석(requested_at) → 승인 반영. 없으면 "할 일 없음"   --dry-run(계획만)
   pull      src/data/*.json 을 DB 최신으로(Vercel 빌드가 부른다) — 결과가 비면 덮지 않고 멈춘다
+  rewrite   게시된 블로그 행의 이용 안내·베낀 소개만 다시 쓴다(판단 고정) — 미리보기(표 data/raw/rewrite/<날짜>.md) [--limit N] · --apply [파일](그 표의 patch 그대로, Claude 0회)
   logout    세션을 만료 전에 지운다
   eval      추출 정확도 — golden [--force] · extract [--limit N] [--only …] [--refresh] · score [--prompt 버전]
   coverage  원형 셋 × 6권역 × 종류의 갈 수 있는 곳 표 + 데이터 문턱(오프라인). 세션이 있으면 칸마다 검수 대기 신규 후보 수도

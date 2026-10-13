@@ -1,6 +1,7 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-10-13 (v66: **추출이 이용 안내를 쓰고 목록글 소개를 비운다** — 장소 칸 `petPolicyGuide` 는 본문에 대 본 가드를 지난 것만 `{ text, basis }` 로 후보에 실리고, `features` 는 설명이 없거나 목록글이면 null, 조건 원문은 조건 아닌 문장을 빼고 "동반 가능" 한마디는 넣는다. 프롬프트 `d7a6610e`, todo 21 S7)
+> 최종 수정: 2026-10-13 (v67: **`pnpm data rewrite`** — 게시된 블로그 행의 안내·베낀 소개만 다시 쓴다, 판단 고정 · 미리보기 표를 `--apply` 가 그대로 쓴다(Claude 재호출 없음), todo 21 S9)
+> 이전 2026-10-13 (v66: **추출이 이용 안내를 쓰고 목록글 소개를 비운다** — 장소 칸 `petPolicyGuide` 는 본문에 대 본 가드를 지난 것만 `{ text, basis }` 로 후보에 실리고, `features` 는 설명이 없거나 목록글이면 null, 조건 원문은 조건 아닌 문장을 빼고 "동반 가능" 한마디는 넣는다. 프롬프트 `d7a6610e`, todo 21 S7)
 > 이전 2026-10-13 (v65: `fromPlaceRow` 의 임시 공개 짐작(`source = 'notion'`)을 걷었다 — 칸이 없으면 숨김 · 새 행은 `pet_policy_guide: null` 키를 싣는다(형제 후보의 안내가 빠지지 않게), todo 21 S4.1)
 > 이전 2026-10-12 (v64: 쓰는 길이 공개 플래그·안내를 지킨다 — 원문 글자가 바뀔 때만 공개를 끄고, 안내는 옮기기만(지문은 분석·제안 패스만), todo 21 S4)
 > 이전 2026-10-12 (v63: `places` 에 **조건 원문 공개 플래그**(`pet_policy_text_public`, 기본 숨김 · 시드만 true)와 **이용 안내**(`pet_policy_guide`) 두 칸 → `TPlace.petPolicyTextPublic`(true 일 때만 키)·`petPolicyGuide`, todo 21 S3)
@@ -283,6 +284,10 @@ flowchart LR
   제안 패스의 안내도 같은 함수이고 대조군은 그 패스가 읽은 값(남을 원문 + 근거 글들의 원문·인용, AI 가 쓴 소개는 뺀다).
   `features` 는 그 가게를 설명하는 문장이 없으면 null(글의 제목·출처·목록 이름을 소개로 쓰지 않는다)이고, 목록글(`visited: false`)이면 코드가 비운다 —
   사이트는 빈 소개면 카드·지도 시트 줄·상세 칸·OG 설명·공유 글을 그리지 않는다. 조건 원문은 조건을 말하지 않는 문장(감상·시설 설명)을 빼고, 동반이 된다는 말뿐이면 그 문장을 넣는다(판정 C9).
+- **이미 게시된 블로그 행은 `pnpm data rewrite` 가 문장만 다시 쓴다**(todo/21 S9) — 판단은 고정. 대상은 `published` · 원문 비공개 · 안내 없음(승인으로 새로 게시된 행도 다음 회차에 같은 조건으로 잡힌다).
+  곳마다 출처 글 본문을 다시 받고(본문은 DB 에 없다) Claude 한 번 — 안내·소개 지시는 추출과 **같은 상수**(`PROMPT_GUIDE_RULE`·`PROMPT_FEATURES_RULE`), 가드도 같은 `storableGuide`, `basis` 는 **저장된** `pet_policy` 의 지문.
+  소개는 지금 값이 본문과 15자(`COPY_RUN`) 이상 같을 때만 바꾸고(운영자가 고친 소개는 남는다), 새 소개가 없거나 가드에 걸리면 그대로 둔다. 기본은 미리보기(`data/raw/rewrite/<날짜>.md` 전·후 표 + 같은 이름 `.json` patch),
+  `--apply` 는 그 `.json` 을 **그대로** 쓴다 — Claude 를 다시 부르면 사람이 본 표와 다른 문장이 올라간다. 쓰기 직전 행마다 대상 조건·소개·판단 지문이 미리보기 때와 같은지 보고 다르면 건너뛴다.
 - **후보 0건의 "왜" 가 `blog_posts.analysis` 에 남는다** — `{ model, promptVersion, candidates, candidateNames, excluded:[{name,type,reason}], skip }`. 제외 이유는 넷:
   `notJeju` · `other`(관광지·운동장 — 이름은 남는다) · `notAllowed`(본문이 동반 불가라고 함, [BUG-008](../bugs/BUG-008-empty-pet-policy-judged-ok.md)) ·
   **`sameAsSite` · `stale` · `weak`**(이미 게시된 곳을 쓴 글 — 아래 「차이 게이트」. v29 전 실행은 셋을 합쳐 `alreadyHave` 로 남겼다). 본문 인용은 넣지 않는다.
