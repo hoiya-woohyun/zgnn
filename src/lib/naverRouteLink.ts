@@ -51,12 +51,13 @@ export function splitStops<T extends TRouteStop>(
 }
 
 /**
- * 묶음 하나 → 웹 길찾기 주소. 칸 순서는 `{출발}/{도착}/{경유}/car` 로 **경유가 도착 뒤**다(한 곳짜리 `naverDirectionsUrl` 과 같은 꼴).
- * 경유가 없고 출발을 비우면 그 주소와 같은 문자열이다 — 테스트가 둘을 묶는다.
+ * 묶음 하나 → 웹 길찾기 주소. 칸 순서는 `{출발}/{도착}/{경유}/{이동수단}` 로 **경유가 도착 뒤**다(한 곳짜리 `naverDirectionsUrl` 과 같은 꼴).
+ * 이동수단은 **경유가 있을 때만 `car`** — 경유지는 자동차 길찾기에만 있다. 경유가 없으면 한 곳짜리와 같이 칸을 적지 않아(14 W261010.21),
+ * 출발을 비운 그 묶음은 `naverDirectionsUrl` 과 같은 문자열이다 — 테스트가 둘을 묶는다. 실기기 확인은 16 H.1.
  */
 export function routeUrl<T extends TRouteStop>({ start, via, goal }: TRouteLeg<T>): string {
   const point = (stop: TGeoStop) => naverDirectionsPoint(stop.name, stop.geo);
   const from = start ? point(start) : '-';
   const waypoints = via.length ? via.map(point).join(WAYPOINT_SEPARATOR) : '-';
-  return `https://map.naver.com/p/directions/${from}/${point(goal)}/${waypoints}/car`;
+  return `https://map.naver.com/p/directions/${from}/${point(goal)}/${waypoints}${via.length ? '/car' : ''}`;
 }

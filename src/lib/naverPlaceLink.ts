@@ -55,12 +55,14 @@ export function naverMapSearchUrl(name: string): string {
  * 알 수 없어 타임아웃 폴백이 필요하다. 웹 길찾기는 어디서나 열리고 폰에서는 네이버가 "앱으로 열기" 를 띄운다 — 우리가
  * 앱 유무를 판별하지 않는다. 좌표가 없는 곳(86곳 중 5곳)은 `undefined` 라 버튼이 서지 않는다.
  *
- * 주소 꼴은 `/p/directions/{출발}/{도착}/{경유}/car` — **경유가 도착 뒤에** 온다. 비우는 칸은 `-`, 지점은 `naverDirectionsPoint`.
- * 여러 곳은 `naverRouteLink.ts`.
+ * 주소 꼴은 `/p/directions/{출발}/{도착}/{경유}/{이동수단}` — **경유가 도착 뒤에** 온다. 비우는 칸은 `-`, 지점은 `naverDirectionsPoint`.
+ * **이동수단 칸은 적지 않는다** — `/car` 로 못 박으면 "대중교통은 네이버로 나가서 본다"(10 §6) 는 약속인데 나간 화면이 차로 열린다
+ * (14 W261010.21). 칸을 빼면 네이버가 고르는 기본 수단으로 열리고 거기서 탭으로 바꾼다. ⚠️ 네이버 웹이 수단 없는 주소를 받는지는
+ * **실기기 확인 전**이다(16 H.1) — 안 받으면 이 한 줄에 `/transit` 이나 `/walk` 를 붙인다. 여러 곳은 `naverRouteLink.ts`(경유는 차만 된다).
  */
 export function naverDirectionsUrl(place: { name: string; geo?: { lat: number; lng: number } }): string | undefined {
   if (!place.geo) return undefined;
-  return `https://map.naver.com/p/directions/-/${naverDirectionsPoint(place.name, place.geo)}/-/car`;
+  return `https://map.naver.com/p/directions/-/${naverDirectionsPoint(place.name, place.geo)}/-`;
 }
 
 /**

@@ -78,6 +78,6 @@ describe('routeUrl', () => {
     const [leg] = splitStops([{ name: ' 카페/바, 제주 ', geo: { lat: 33.1, lng: 126.2 } }]).legs;
     const url = routeUrl(leg);
     expect(url).toContain(encodeURIComponent('카페/바, 제주'));
-    expect(url.split('/')).toHaveLength('https://map.naver.com/p/directions/-/x/-/car'.split('/').length);
+    expect(url.split('/')).toHaveLength('https://map.naver.com/p/directions/-/x/-'.split('/').length);
   });
 });

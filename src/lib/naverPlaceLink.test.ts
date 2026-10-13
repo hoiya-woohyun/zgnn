@@ -54,8 +54,12 @@ describe('naverMapSearchUrl', () => {
 describe('naverDirectionsUrl', () => {
   it('출발지는 비우고 목적지를 경도,위도,이름 순으로 넣는다', () => {
     expect(naverDirectionsUrl({ name: ' 솔숲펜션 ', geo: { lat: 33.5111848, lng: 126.8488419 } })).toBe(
-      `https://map.naver.com/p/directions/-/126.8488419,33.5111848,${encodeURIComponent('솔숲펜션')}/-/car`,
+      `https://map.naver.com/p/directions/-/126.8488419,33.5111848,${encodeURIComponent('솔숲펜션')}/-`,
     );
+  });
+
+  it('이동수단을 적지 않는다 — 자동차로 못 박지 않는다(14 W261010.21)', () => {
+    expect(naverDirectionsUrl({ name: 'a', geo: { lat: 1, lng: 2 } })).not.toMatch(/\/(car|transit|walk)$/);
   });
 
   it('좌표가 없으면 주소도 없다 — 버튼이 서지 않는다', () => {
