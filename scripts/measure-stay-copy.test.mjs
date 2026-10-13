@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { measureStayCopy } from './measure-stay-copy.mjs';
 
 test('원문과 15자 이상 겹친 칸만 비율이 0 보다 크다', () => {
