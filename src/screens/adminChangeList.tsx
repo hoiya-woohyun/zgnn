@@ -18,6 +18,7 @@ export function AdminChangeList({
   changes,
   source,
   selectable,
+  badges,
 }: {
   title: string;
   changes: TEditChange[];
@@ -28,6 +29,11 @@ export function AdminChangeList({
    * 짝 칸을 함께 켜고 끄는 것은 부르는 쪽(`toggleOverwritePick`)의 일이다.
    */
   selectable?: { picked: string[]; onToggle: (key: string) => void; disabled?: boolean };
+  /**
+   * 칸이 아니라 **칸의 결과**로 바뀌는 사이트 배지(`placeEditBadgeShift`, todo/14 W261010.25) — 목록 끝 한 줄로 선다. 칸 수에는 세지 않는다.
+   * 원문 한 줄을 고치면 손대지 않은 배지가 함께 사라지는데, 그 변화가 미리보기 칩에만 있던 동안 저장 전 요약을 읽은 사람도 몰랐다.
+   */
+  badges?: { gone: string[]; added: string[] };
 }) {
   if (!changes.length) return null;
   return (
@@ -66,6 +72,25 @@ export function AdminChangeList({
             </dd>
           </div>
         ))}
+        {badges && (badges.gone.length > 0 || badges.added.length > 0) && (
+          <div className="grid gap-x-2 gap-y-0.5 border-t border-secondary pt-1 md:grid-cols-[7rem_minmax(0,1fr)]">
+            <dt className="font-semibold text-warning-primary">사이트 배지</dt>
+            <dd className="flex min-w-0 flex-wrap items-baseline gap-1.5">
+              {badges.gone.length > 0 && <del className="rounded bg-error-primary px-1.5 py-px text-error-primary">{badges.gone.join(' · ')}</del>}
+              {badges.gone.length > 0 && badges.added.length > 0 && (
+                <span aria-hidden="true" className="text-quaternary">
+                  →
+                </span>
+              )}
+              {badges.added.length > 0 && (
+                <ins className="rounded bg-success-primary px-1.5 py-px font-semibold text-success-primary no-underline">{badges.added.join(' · ')}</ins>
+              )}
+              {/* 한쪽뿐이면 화살표 대신 말로 — 빈 칸 표기('(비어 있음)')를 세우면 배지가 '비어 있음' 으로 바뀌는 것처럼 읽힌다. */}
+              {badges.added.length === 0 && <span className="text-warning-primary">사라져요</span>}
+              {badges.gone.length === 0 && <span className="text-tertiary">생겨요</span>}
+            </dd>
+          </div>
+        )}
       </dl>
     </div>
   );

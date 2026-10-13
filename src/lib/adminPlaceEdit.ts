@@ -303,6 +303,41 @@ export function placeEditPreview(
 }
 
 /**
+ * **고쳐도 사이트에 안 나가는 동반 칸** — 순수(todo/14 W261010.25). 칸 이름(`editChanges` 의 label)을 돌려준다.
+ *
+ * 사이트는 그릴 때마다 판단을 원문에 대 보고 근거 없는 값을 뺀다(`correctPetPolicyFacts`). 그래서 원문에 "10kg" 이 없는데
+ * 무게 상한에 10 을 적으면 **저장은 되는데 사이트에는 안 나간다** — 미리보기의 "원문에 없어서 사이트가 빼고 보는 것" 에만 조용히 서서,
+ * 운영자는 고친 줄 알고 저장했다(parttime-14). 저장 버튼 곁에서 그 칸을 이름으로 말하려고 여기서 센다.
+ *
+ * 운영자가 **만진 칸만** 본다 — 손대지 않은 옛 판단이 원래 빠져 있던 것은 이 저장의 일이 아니다.
+ * 보정이 낸 단서(`cue`)로 칸을 짚지 않고 **보정 전후의 칸 값**을 견준다: 단서와 칸은 1:1 이 아니다(모순 정리는 `smallDogOnly`
+ * 단서로 대형견 가능을, `amount` 단서로 추가 요금 없음을 뺀다). 원문이 비면 판단째 비우므로(`petPolicyPair`) 만진 칸이 전부다.
+ */
+export function placeEditIneffective(place: TPlaceRow, draft: TPlaceEditDraft): string[] {
+  const touched = editChanges(draft, placeEditDraft(place)).filter((change) => change.policy);
+  if (!touched.length) return [];
+  const pair = petPolicyPair(place, draft);
+  if (!pair.text) return touched.map((change) => change.label);
+  // 칸을 전부 비운 판단(`null`)은 뺄 것이 없다 — 비운 것 자체가 효과다.
+  if (!pair.policy) return [];
+  const kept = correctPetPolicyFacts(pair.policy, pair.text).facts;
+  const raw = { ...draft, policy: policyDraftFrom(pair.policy) };
+  const shown = { ...draft, policy: policyDraftFrom(kept) };
+  return touched.filter((change) => editFieldText(raw, change.key) !== editFieldText(shown, change.key)).map((change) => change.label);
+}
+
+/**
+ * 저장하면 **사라지고 생기는 사이트 배지** — 순수(todo/14 W261010.25). `placeEditPreview` 의 지금 · 저장하면(같은 `placeBadges` 길)을 이름으로 견준다.
+ * 원문 한 줄을 고치면 손대지 않은 배지('추가요금 없음 · 최대 2마리')가 근거를 잃어 함께 빠지고, '대형견 OK' 가 '중형견 OK' 로 내려간다 —
+ * 그 변화가 미리보기 칩에만 있고 저장 전 요약(바뀌는 칸 목록)에 없어 아무도 못 봤다(manager-43·44 · parttime-14b). 순서는 배지 순서 그대로다.
+ */
+export function placeEditBadgeShift(before: readonly TPetBadge[], after: readonly TPetBadge[]): { gone: string[]; added: string[] } {
+  const was = new Set(before.map((badge) => badge.label));
+  const now = new Set(after.map((badge) => badge.label));
+  return { gone: [...was].filter((label) => !now.has(label)), added: [...now].filter((label) => !was.has(label)) };
+}
+
+/**
  * **사실 칸** — 고치면 "이 장소의 조건을 이날 확인했다" 가 되는 칸(조건 원문·판단 · 주소·좌표 · 숙박 요금·시설).
  * 이름·소개·카테고리·홈페이지·플레이스만 고친 저장은 확인이 아니다: 확인 날짜는 사이트에 보이고 분석이 그보다 옛 글을 `stale` 로 거르므로,
  * 소개 오타를 고친 것으로 찍히면 손님에게 거짓말이 되고 조건이 바뀌었다는 글이 걸러진다.

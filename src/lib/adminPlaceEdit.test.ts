@@ -6,6 +6,8 @@ import {
   placeEditChanges,
   placeEditDraft,
   placeEditPatch,
+  placeEditBadgeShift,
+  placeEditIneffective,
   placeEditPreview,
   placeEditProblem,
   patchVerifies,
@@ -258,6 +260,59 @@ describe('placeEditPreview', () => {
     expect(preview.policyText).toBe('리드줄 착용 부탁드려요, 1층만 가능');
     expect(preview.dropped.map((d) => d.cue)).toContain('kg');
     expect(preview.corrections).toEqual(preview.dropped.map((d) => d.note));
+  });
+});
+
+describe('placeEditIneffective — 고쳐도 사이트에 안 나가는 동반 칸(todo/14 W261010.25)', () => {
+  const facts = { indoor: 'unknown', leash: false, largeDogOk: null, smallDogOnly: false, callFirst: false, feeFree: null, weightLimitKg: null, maxDogs: null, notes: null } as const;
+
+  it('원문에 근거 없는 값을 적은 칸을 이름으로 낸다 — 근거가 있으면 없다', () => {
+    const row = place({ pet_policy_text: '리드줄 착용 부탁드려요', pet_policy: { ...facts, leash: true } });
+    const draft = placeEditDraft(row);
+    expect(placeEditIneffective(row, { ...draft, policy: { ...draft.policy, weightLimitKg: '10' } })).toEqual(['무게 상한']);
+    expect(placeEditIneffective(row, { ...draft, petPolicyText: '리드줄 착용, 10kg 미만', policy: { ...draft.policy, weightLimitKg: '10' } })).toEqual([]);
+  });
+
+  it('손대지 않은 칸이 원래 빠져 있던 것은 세지 않는다 · 아무것도 안 만지면 빈 목록', () => {
+    // 옛 판단의 무게 상한 7 은 원문에 근거가 없다 — 사이트가 이미 빼고 보던 값이라 이 저장의 일이 아니다.
+    const row = place({ pet_policy_text: '리드줄 착용', pet_policy: { ...facts, leash: true, weightLimitKg: 7 } });
+    const draft = placeEditDraft(row);
+    expect(placeEditIneffective(row, draft)).toEqual([]);
+    expect(placeEditIneffective(row, { ...draft, policy: { ...draft.policy, callFirst: true } })).toEqual(['전화 확인']);
+  });
+
+  it('단서와 칸이 1:1 이 아니어도 잡는다 — 소형견만 + 대형견 가능의 모순은 대형견 칸이 빠진다', () => {
+    const row = place({ pet_policy_text: '소형견만 가능해요. 대형견 문의는 전화로', pet_policy: { ...facts, smallDogOnly: true } });
+    const draft = placeEditDraft(row);
+    expect(placeEditIneffective(row, { ...draft, policy: { ...draft.policy, largeDogOk: 'yes' } })).toEqual(['대형견']);
+  });
+
+  it('원문을 비우면 만진 동반 칸이 전부 안 나간다 · 칸을 다 비운 것은 효과다', () => {
+    const row = place({ pet_policy_text: '리드줄 착용', pet_policy: { ...facts, leash: true } });
+    const draft = placeEditDraft(row);
+    expect(placeEditIneffective(row, { ...draft, petPolicyText: '', policy: { ...draft.policy, maxDogs: '2' } })).toEqual(['마릿수 상한']);
+    expect(placeEditIneffective(row, { ...draft, policy: { ...draft.policy, leash: false } })).toEqual([]);
+  });
+});
+
+describe('placeEditBadgeShift — 저장하면 사라지고 생기는 배지(todo/14 W261010.25)', () => {
+  it('원문을 고치면 손대지 않은 배지가 함께 빠진다 — 미리보기와 같은 길(`placeEditPreview`)', () => {
+    const row = place({
+      type: 'stay',
+      pet_policy_text: '추가요금 없음, 최대 2마리, 대형견 가능',
+      pet_policy: { indoor: 'unknown', leash: false, largeDogOk: true, smallDogOnly: false, callFirst: false, feeFree: true, weightLimitKg: null, maxDogs: 2, notes: null },
+    });
+    const { before, after } = placeEditPreview(row, { ...placeEditDraft(row), petPolicyText: '반려견 동반 가능' });
+    const shift = placeEditBadgeShift(before, after);
+    expect(shift.gone).toEqual(expect.arrayContaining(['추가요금 없음', '대형견 OK']));
+    expect(shift.gone.some((label) => label.includes('2마리'))).toBe(true);
+    expect(shift.added).toEqual([]);
+  });
+
+  it('바뀐 배지는 사라진 쪽과 생긴 쪽 둘로 · 같으면 둘 다 비어 있다', () => {
+    const badge = (label: string) => ({ label, tone: 'ok' as const, axis: 'size' as const });
+    expect(placeEditBadgeShift([badge('실내 OK'), badge('대형견 OK')], [badge('실내 OK'), badge('중형견 OK')])).toEqual({ gone: ['대형견 OK'], added: ['중형견 OK'] });
+    expect(placeEditBadgeShift([badge('실내 OK')], [badge('실내 OK')])).toEqual({ gone: [], added: [] });
   });
 });
 

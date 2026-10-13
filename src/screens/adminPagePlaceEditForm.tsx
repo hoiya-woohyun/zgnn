@@ -11,8 +11,10 @@ import { correctionView } from '../lib/adminCorrection';
 import { EDITABLE_TYPES, type TPolicyDraft } from '../lib/adminEdit';
 import {
   placeCurrentText,
+  placeEditBadgeShift,
   placeEditChanges,
   placeEditDraft,
+  placeEditIneffective,
   placeEditPatch,
   placeEditPreview,
   placeEditProblem,
@@ -81,6 +83,12 @@ export function AdminPagePlaceEditForm({
   const publicText = patchPublicText(place, patch);
   // 검수 카드와 같은 칠하기(06 G) — 보정이 읽은 원문(`policyText`)에 다시 돌린다. 칠은 입력란이 아니라 미리보기 쪽 인용에.
   const correction = correctionView(preview.policyText, preview.dropped);
+  /*
+   * 저장 전에 말해야 하는 숨은 변화 둘(todo/14 W261010.25) — 둘 다 위 미리보기에는 이미 있었는데 저장 줄과 요약에 없어 못 봤다.
+   * 고쳤는데 원문에 근거가 없어 사이트에 안 나가는 칸은 저장 버튼 곁에서 이름으로, 저장하면 사라지거나 바뀌는 배지는 요약 끝 한 줄로.
+   */
+  const ineffective = placeEditIneffective(place, draft);
+  const badgeShift = placeEditBadgeShift(preview.before, preview.after);
   const placeHref = place.naver_url || naverPlacePhotoUrl(place.naver_place_id ?? undefined);
   const hasHomepage = 'homepage_url' in place;
   const hasTextPublic = 'pet_policy_text_public' in place;
@@ -352,7 +360,7 @@ export function AdminPagePlaceEditForm({
         </div>
       </section>
 
-      <AdminChangeList title="저장하면 바뀌는 것 — 지금 값 → 고칠 값" changes={changes} />
+      <AdminChangeList title="저장하면 바뀌는 것 — 지금 값 → 고칠 값" changes={changes} badges={badgeShift} />
 
       {twinRisk && (
         <p className="text-xs text-warning-primary">
@@ -364,6 +372,12 @@ export function AdminPagePlaceEditForm({
       {/* 저장 줄은 화면 아래에 붙는다(`md` 이상) — 후보 폼과 같은 이유(폼이 한 화면을 넘는다). 막는 이유도 같이 붙어 다닌다. */}
       <div className="flex flex-wrap items-center gap-2 border-t border-secondary bg-active py-2 md:sticky md:bottom-0">
         {problem && <p className="w-full text-xs text-error-primary">{problem}</p>}
+        {/* 막지 않는다 — 저장은 된다(판단에 값이 남는다). 다만 사이트는 그 칸을 빼고 보므로 "고쳤다" 로 읽고 닫지 않게 버튼 바로 위에서 말한다. */}
+        {!problem && patch && ineffective.length > 0 && (
+          <p className="w-full text-xs font-semibold text-warning-primary">
+            {ineffective.join(' · ')} — 원문에 근거가 없어 저장해도 사이트에 안 나가요. 원문에 그 말을 넣거나 칸을 되돌려 주세요.
+          </p>
+        )}
         <Button color="primary" size="sm" isDisabled={busy || !patch} isLoading={busy} onClick={() => patch && onSave(patch)}>
           {busy ? '저장하고 있어요…' : patch ? `${changes.length}칸 바꿔서 저장` : '저장'}
         </Button>
