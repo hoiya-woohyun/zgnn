@@ -183,6 +183,16 @@ export function mergeRuns(
   return [...byId.values()].sort((a, b) => (a.started_at < b.started_at ? 1 : a.started_at > b.started_at ? -1 : 0));
 }
 
+/**
+ * 다음 장(더 보기)을 든 목록 **뒤에 이어 붙인다** — `mergeRuns` 는 첫 장 새로고침용이라 덮는 구간 밖의 옛 행을 버리는데,
+ * 다음 장에 쓰면 앞 장을 버린다(todo/15 T8.4). 같은 id 는 새 값이 이기고(keyset 경계에서 겹칠 수 있다) 순서는 `started_at desc`. 순수.
+ */
+export function appendRuns(current: readonly TPipelineRun[], next: readonly TPipelineRun[]): TPipelineRun[] {
+  const byId = new Map(current.map((run) => [run.id, run]));
+  for (const run of next) byId.set(run.id, run);
+  return [...byId.values()].sort((a, b) => (a.started_at < b.started_at ? 1 : a.started_at > b.started_at ? -1 : 0));
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**

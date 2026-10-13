@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '../components/base/button';
 import { PageHeader } from '../components/layout/pageHeader';
-import { fetchOpsOverview, fetchRun, fetchRuns, mergeRuns, RUNS_PAGE_SIZE, type TOpsOverview, type TPipelineRun, type TRunsQuery } from '../lib/adminOps';
+import { appendRuns, fetchOpsOverview, fetchRun, fetchRuns, mergeRuns, RUNS_PAGE_SIZE, type TOpsOverview, type TPipelineRun, type TRunsQuery } from '../lib/adminOps';
 import { opsLiveStatus } from '../lib/adminLiveStatus';
 import { HAS_SERVER_WORKER } from '../lib/adminNextStep';
 import { STAGE_SCRIPTS, stageHealth, stalledBefore, type TStageKey, worstStage } from '../lib/adminOpsHealth';
@@ -327,7 +327,7 @@ export function AdminOpsPage() {
   }, [ensureSession]);
 
   /**
-   * 다음 장. 무한 스크롤 감시자는 커서·콜백이 바뀔 때마다 다시 걸려 같은 장을 두 번 부를 수 있다 — ref 로 막고, 합칠 때 id 로 한 번 더 거른다.
+   * 다음 장. 무한 스크롤 감시자는 커서·콜백이 바뀔 때마다 다시 걸려 같은 장을 두 번 부를 수 있다 — ref 로 막고, 합칠 때 id 로 한 번 더 거른다. 다음 장은 **이어 붙인다**(`appendRuns`) — 첫 장 새로고침용 `mergeRuns` 는 덮는 구간 밖의 앞 장을 버린다.
    */
   const loadMoreRuns = useCallback(async () => {
     const client = clientRef.current;
@@ -338,7 +338,7 @@ export function AdminOpsPage() {
     try {
       const page = await fetchRuns(client, queryOf(filterRef.current, Date.now(), last.started_at));
       if (seq !== runsSeqRef.current) return;
-      setRuns((current) => mergeRuns(current, page));
+      setRuns((current) => appendRuns(current, page));
       if (page.length < RUNS_PAGE_SIZE) setRunsDone(true);
     } catch (error) {
       if (seq === runsSeqRef.current) {

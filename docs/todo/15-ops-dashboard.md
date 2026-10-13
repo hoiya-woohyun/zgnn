@@ -1,6 +1,7 @@
 # 15. 운영 현황 화면 — 파이프라인이 돌고 있는지를 `/admin/ops` 에서 보고, 실패는 Slack 으로 받는다
 
-> 최종 수정: 2026-10-13 (v8: T8.5 끝 — 폰 다섯 칸 세로 · 범례 · `›` · `AdminFilterChip`)
+> 최종 수정: 2026-10-13 (v9: T8.4 끝 — 더 보기는 `appendRuns` 로 이어 붙인다)
+> 이전: 2026-10-13 (v8: T8.5 끝 — 폰 다섯 칸 세로 · 범례 · `›` · `AdminFilterChip`)
 > 이전: 2026-10-13 (v7: T8.3 끝 — 칩 `승인` 삭제 · 검수 칸은 `/admin` 링크 · `등록 · 제외`)
 > 이전: 2026-10-13 (v6: T8.2 끝 — 판정 안내·실행 기록 문장을 `nextStepText` 표로, 서버 빌드는 서버가 받아 가는 일에만 버튼을 말한다)
 > 이전: 2026-10-13 (v5: T8.1 끝 — 운영 현황의 지금 상태는 `/admin` 과 같은 한 줄(`opsLiveStatus` → `AdminLiveStatusLine`), 워커 칸·서버 한 줄을 걷었다)
@@ -157,7 +158,8 @@ T3·T4 를 만든 뒤 `/admin` 이 셋 바뀌었다 — 서버 워커가 버튼 
 - [x] **T8.3 기록이 안 오는 칸을 걷는다 · `등록`** — ① 실행 기록 칩 `승인`(approve·reject)을 뺀다 — 옛 2행은 `전체` 에서만 보인다. ② 검수 칸을 누르면 실행 기록을 거르지 않고 `/admin/?tab=candidates`(검수 대기)로 간다 — 그 칸은 사람 몫이라 볼 곳이 거기다(`STAGE_SCRIPTS.review` 정리). ③ 흐름의 `승인 · 제외` → `등록 · 제외`(세는 것은 그대로 — `/admin` 등록이 `merged` 와 `reviewed_at` 을 한 번에 쓰므로 수는 살아 있다). 반영 칸은 그대로 둔다(끊긴 반영은 여전히 생길 수 있다 · 이름은 D#9).
   수용: `adminOpsHealth`·`adminOps` 테스트에서 approve/reject 가 칸 판정에 쓰이지 않는다 · `grep -n "'승인'" src/screens/adminOps*` 0줄.
   > 메모: 2026-10-13 끝. `STAGE_SCRIPTS.review = null`(칸은 `next/link` — `AdminOpsPageStageStrip` 의 `REVIEW_HREF`, `selectStage` 는 null 이면 이미 건너뛴다) · 칩 `승인` 삭제 · 흐름 라벨·`title` `등록`. `TRunScript`·`runSummaryLine` 의 approve/reject 는 옛 행 표시용이라 그대로. 테스트: `STAGE_SCRIPTS` 에 approve/reject 가 없다. 화면 눈 확인은 메인 세션(Chrome) 몫.
-- [ ] **T8.4 실행 기록 '더 보기' 가 앞 장을 버린다**([14 W261010.9](14-weekly-ux-eval.md)) — `loadMoreRuns` 가 첫 장 새로고침용 `mergeRuns`(덮는 구간의 옛 행을 버림)로 다음 장을 합친다. 다음 장은 **이어 붙이는** 순수 함수(같은 id 는 새 값, 순서는 `started_at desc`)로, 테스트 하나(30행 + 다음 장 2행 → 32행).
+- [x] **T8.4 실행 기록 '더 보기' 가 앞 장을 버린다**([14 W261010.9](14-weekly-ux-eval.md)) — `loadMoreRuns` 가 첫 장 새로고침용 `mergeRuns`(덮는 구간의 옛 행을 버림)로 다음 장을 합친다. 다음 장은 **이어 붙이는** 순수 함수(같은 id 는 새 값, 순서는 `started_at desc`)로, 테스트 하나(30행 + 다음 장 2행 → 32행).
+  > 메모: 2026-10-13 끝. `adminOps.ts` `appendRuns(current, next)` — id 로 합치되 덮는 구간 개념이 없어 앞 장을 안 버린다. `loadMoreRuns` 만 이것을 쓰고 첫 장 새로고침은 `mergeRuns` 그대로. 테스트: 30 + 2 → 32, 겹친 id 는 새 값. 눈 확인(스크롤을 내려 더 보기)은 메인 세션 몫.
 - [x] **T8.5 폰 배치**([14 W261010.27](14-weekly-ux-eval.md)) — 다섯 칸은 폰에서 세로 다섯 줄(가로 스크롤을 걷는다 — 864px 중 390px 만 보여 검수·반영·재빌드가 잘렸다), 상태점 범례 한 줄(정상 · 주의 · 실패 · 기록 없음), 누를 수 있는 칸은 누를 수 있게 보이게(T8.3 뒤 검수 칸은 링크), 실행 기록 칩은 `/admin` 의 `AdminFilterChip` 과 같은 꼴. 위 「UI/UX 설계 요지」 의 "다섯 칸은 가로 스크롤" 을 같이 고친다.
   검증: Playwright 390×844 한 장(폰 에뮬레이션이라 Chrome 대신) · PC 1280 에서 다섯 칸이 그대로 한 줄.
   > 메모: 2026-10-13 끝. `AdminOpsPageStageStrip` — `flex-col md:flex-row md:overflow-x-auto`, 칸 `min-h-24 md:h-32`(폰은 이유 줄 길이만큼 자란다), 누를 수 있는 칸(걸러 보기·검수 링크)은 `ChevronRight`, 밑에 범례 `ul`. 칩은 `AdminFilterChip size="xs"`(자체 `chip()` 삭제). 자동 검증은 tsc·eslint 뿐 — **눈 확인은 메인 세션(Chrome, 폰 폭·1280)** 몫이고 `/admin/ops` 는 운영자 로그인이 필요하다.

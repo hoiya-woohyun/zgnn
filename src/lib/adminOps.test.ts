@@ -5,6 +5,7 @@ import {
   fetchRun,
   fetchRuns,
   flattenStats,
+  appendRuns,
   mergeRuns,
   RUN_COLUMNS,
   runAlertLabel,
@@ -161,6 +162,29 @@ describe('runSummaryLine — 터미널과 같은 문장', () => {
     expect(runSummaryLine({ script: 'collect', stats: { fetched: 3 } })).toBeNull();
     expect(runSummaryLine({ script: 'analyze', stats: { analyzed: 1, excluded: { notJeju: 1 } } })).toBeNull();
     expect(runSummaryLine({ script: 'apply', stats: [] as unknown as Record<string, unknown> })).toBeNull();
+  });
+});
+
+describe('appendRuns — 더 보기는 앞 장을 버리지 않고 이어 붙인다', () => {
+  const row = (id: string, startedAt: string, status: TPipelineRun['status'] = 'ok') =>
+    ({ id, started_at: startedAt, status }) as TPipelineRun;
+  const rows = (from: number, count: number) =>
+    Array.from({ length: count }, (_, i) => row(`r${from + i}`, `2026-10-${String(30 - (from + i)).padStart(2, '0')}`));
+
+  it('30행 + 다음 장 2행 → 32행(최신순 그대로)', () => {
+    const current = rows(0, 30);
+    const merged = appendRuns(current, rows(30, 2));
+    expect(merged).toHaveLength(32);
+    expect(merged.map((r) => r.id)).toEqual([...current, ...rows(30, 2)].map((r) => r.id));
+  });
+
+  it('겹친 id 는 새 값이 이긴다', () => {
+    const merged = appendRuns([row('a', '2026-10-05'), row('b', '2026-10-04')], [{ ...row('b', '2026-10-04'), status: 'failed' }, row('c', '2026-10-03')]);
+    expect(merged.map((r) => [r.id, r.status])).toEqual([
+      ['a', 'ok'],
+      ['b', 'failed'],
+      ['c', 'ok'],
+    ]);
   });
 });
 
