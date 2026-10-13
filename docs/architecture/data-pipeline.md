@@ -277,6 +277,7 @@ flowchart LR
   V -->|네이버 지역 검색: 이름 완전 일치만| G[좌표·주소·regionRaw]
   G -->|matchPlace vs places<br/>상태 무관 — archived·draft 포함<br/>게시된 짝은 차이 게이트 kindOf| C[(candidates<br/>pending · tier auto/ask/new<br/>kind new/fill/update/ask)]
   C -->|갱신이 생긴 장소마다 1회 · 루프 끝<br/>claude -p 셋째 패스 · 구조값만| PR[제안<br/>extracted.proposal]
+  C -->|신규 묶음 · 루프 끝 · 이번 실행 묶음·요약 바뀐 묶음만<br/>claude -p 넷째 패스 · 글별 요약 N개 → 소개 하나| GI[(group_intros<br/>묶음 키 · 지문)]
   C -->|사람: /admin · Studio<br/>묶음 · 정규식/AI/앱 판정 미리보기| A{approved?}
   A -->|approved → pnpm data apply| PL[(places<br/>빈 칸만 채움 · 신규는 published)]
   A -->|/admin 의 '맞아요' — 승인과 반영이 한 번| PP[(places<br/>빈 칸만 채움 · 신규는 published)]
@@ -530,6 +531,7 @@ PC 가 꺼져 있어도 돌게, `/admin` 의 세 버튼은 DB 에 흔적을 남�
 | `place_reports`(DB 표, `TPlace` 아님) | `place_id?`(제안만 null), `kind`, `note?`(≤200), `app_build?`, `status`(open·handled·dismissed), `handled_note?`, `handled_at?` | 사이트 상세의 **사용자 제보**(마이그레이션 `20261001130000`, 원격 미적용 — 🧑 `db push`). 비로그인은 열 단위 insert 만(select 없음), 운영자는 select·update, DELETE 없음. **재빌드 트리거에 안 걸려 있다**(의도) → [ADR-021](../decisions/ADR-021-place-reports.md) |
 | `openReportKinds?`(`TPlace` 끝 키) | `['closed'\|'replaced']` | 빌드 때 `pnpm data pull` 이 `place_report_flags()`(security definer — 비로그인 역할에게 표를 열지 않고 **장소 id·종류만**)로 얹는다. 있으면 상세가 "최근 확인" 을 그리지 않는다(ADR-021 R5). 맨 뒤 키라 없는 장소의 JSON 바이트는 그대로. 함수가 원격에 없으면 경고 한 줄 뒤 표식 없이 — 날짜 하나 숨기자고 배포를 멈추지 않는다 |
 | `stay.environment?`(`TStayInfo`) | `{ standalone, yard, fencedYard, stairs }` 칸마다 true·false·null | `places.stay_environment`(마이그레이션 `20261001160000`). AI 가 원문에서 읽고 근거 단어로 거른 값(`correctStayEnvironment`). 시드는 없다 — 앱이 소개·용품을 정규식으로 읽어 합친다(`TPlaceEntry.environment`). **판정에 안 들어간다**(선호, ADR-017 결정 12). 쓰는 쪽은 행에 칸이 있을 때만 싣는다 — 없는 칸을 쓰면 insert·update 가 통째로 거절된다 |
+| `group_intros`(DB 표, `TPlace` 아님) | `group_key`(PK, `name:<이름 키>`), `fingerprint`, `intro?`, `sentences`, `conflict?`, `reasons`, `model`, `prompt_version` | 검수 대기 **신규 묶음의 소개**(분석 넷째 패스, 마이그레이션 `20261013150000`, 원격 미적용 — 🧑 `db push`). 글별 요약 N개를 소개 하나로(`synthesizeGroupIntro.mjs`) — 문장마다 근거 글, 업태가 갈리면 `conflict`, 문장 검사에 걸리면 `intro` null + `reasons`. 대표 행이 아니라 **묶음 키**에 둔다(대표는 confidence 로 바뀐다). 다시 만드는 것은 재료 지문(`groupIntroMaterials.mjs` — 다녀온 글의 요약과 그 글)이 달라진 묶음만이고, 분석 끝에는 이번 실행 묶음·낡은 줄만, 밀린 묶음은 `pnpm data analyze --synth-only`. 표가 없으면 그 패스만 경고 한 줄로 건너뛴다 → [todo/13 §5.3](../todo/13-ai-analysis-audit-2026-10-04.md) |
 | `TMeta` | `author`, `sourceUrl`, `intro`, … | 화면 문구. 손으로 관리 |
 
 ## 관련 파일

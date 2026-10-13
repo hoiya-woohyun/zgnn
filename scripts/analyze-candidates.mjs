@@ -4,6 +4,7 @@
 // 판별·조립 규칙은 scripts/analyze/analyzeCandidates.mjs 의 순수 함수에 있고 여기는 I/O 와 순서뿐이다.
 //
 //  - **Claude 를 세 번 부른다.** 셋째(제안, `proposePlaces.mjs`)는 루프가 끝난 뒤 갱신 후보가 생긴 장소마다 한 번이다(`--no-propose`).
+//    그 뒤 넷째 「묶음 소개」(`groupIntroPass.mjs`, 13 §5.3 A2)가 신규 묶음의 글별 요약을 소개 하나로 — 이번 실행에 후보가 붙었거나 요약이 바뀐 묶음만(`--no-synth` · 밀린 것은 `--synth-only`).
 //    두 번째(교차점검)는 "동반 조건 문장이 없는" 후보에만, 글 하나당 한 번이다. 추출 패스는
 //    "반려견 동반 여행 블로그" 를 전제로 읽으므로 강아지를 두고 들른 일반 카페도 장소로 뽑는다 — 그 전제를 뒤집어
 //    다시 읽는 것이 두 번째 패스의 일이다(verifyPlaces.mjs 머리 주석). 끄려면 `--no-verify`.
@@ -83,6 +84,9 @@ import { fetchHomepageCard } from './analyze/homepageCard.mjs';
 import { fetchPostText } from './analyze/naverPostBody.mjs';
 import { needsDogCheck, resolveVerifyModel, verifyLabel, VERIFY_PROMPT_VERSION, verifyPlaces } from './analyze/verifyPlaces.mjs';
 import { PROPOSE_PROMPT_VERSION, proposalTargets, proposeForPlace, resolveProposeModel } from './analyze/proposePlaces.mjs';
+import { introGroupsOf, pickSynthTargets, runSynthPass, SYNTH_ESTIMATE_MS } from './analyze/groupIntroPass.mjs';
+import { SYNTH_PROMPT_VERSION } from './analyze/synthesizeGroupIntro.mjs';
+import { readGroupIntroFingerprints, saveGroupIntro } from './lib/groupIntroStore.mjs';
 import { toMatchablePlace } from './lib/placeFields.mjs';
 import { chunkForUrlFilter } from './lib/chunkForUrlFilter.mjs';
 import { selectAllPages } from './lib/selectAllPages.mjs';
@@ -101,6 +105,65 @@ import { isDirectRun } from './lib/isDirectRun.mjs';
 const keyStop = (exitCode) => Object.assign(new Error(`키 게이트 exit ${exitCode}`), { keyStopCode: exitCode });
 
 /**
+ * 넷째 패스 「묶음 소개」(docs/todo/13 §5.3 A2) — 신규 묶음의 글별 요약 N개를 소개 하나로(`synthesizeGroupIntro.mjs`), 결과는 표 `group_intros` 에.
+ * 고르기·부르기는 `groupIntroPass.mjs` 이고 여기는 I/O(저장된 지문 읽기 · pending 다시 읽기 · upsert)뿐이다.
+ *  - 표가 없으면(🧑 db push 전) 경고 한 줄로 건너뛴다. dry-run 만은 저장된 것 0 으로 세어 첫 회 호출 수를 미리 낸다(부르지 않는다).
+ *  - 묶음은 **이번 실행이 넣은 뒤의** pending 전부로 다시 묶는다 — /admin 과 같은 `groupCandidates` 라 키가 화면과 같다. dry-run 은 넣지 않았으니 이번 실행 행을 얹는다.
+ * @param {{ dryRun: boolean, backlog: boolean, runRows?: object[], deadline?: number | null, limit?: number | null, meter: object, tick?: () => Promise<void> }} opts
+ * @returns {Promise<{ stats: object | null, rateLimited: Error | null }>}  stats null = 건너뜀(표 없음 · 읽기 실패)
+ */
+async function synthesizeIntros(supabase, { dryRun, backlog, runRows = [], deadline = null, limit = null, meter, tick }) {
+  // 서버 홉 — 아래 읽기(pending 3천 행)·묶기(1~3초)는 마감 검사(`runSynthPass`) 앞이다. 제안이 마감 직전까지 돌 수 있어 여기서 한 번 먼저 본다
+  // (2026-10-10 홉이 300초에 잘려 실행 행이 running 으로 남았다). 건너뛴 이번 실행 묶음은 밀린 것이 된다(`--synth-only` 가 집는다).
+  if (!canStartWithin(Date.now(), deadline, SYNTH_ESTIMATE_MS)) {
+    console.log('시간 예산 — 묶음 소개를 건너뛴다(이번 실행 묶음은 --synth-only 가 만든다)');
+    return { stats: null, rateLimited: null };
+  }
+  const stored = await readGroupIntroFingerprints(supabase);
+  if (!stored && !dryRun) return { stats: null, rateLimited: null };
+  if (!stored) console.log('  [dry-run] group_intros 가 없으니 저장된 소개 0 으로 센다');
+  // 부를 것이 있을 수 없으면 읽지 않는다 — 저장된 줄이 없고(낡을 것이 없다) 밀린 것도 안 보고 이번 실행이 신규 후보를 안 넣었으면. push 뒤 첫 `--synth-only` 전의 실행이 다 이렇다.
+  if (!backlog && !stored?.size && !runRows.some((row) => !row.match_place_id)) {
+    console.log(`묶음 소개: 부를 묶음 0 — 저장된 소개가 없고 이번 실행에 신규 후보가 없다${dryRun ? '(dry-run)' : ''}`);
+    return { stats: { targets: 0, done: 0, conflict: 0, rejected: 0, failed: 0, left: 0, fresh: 0 }, rateLimited: null };
+  }
+  const { data, error } = await selectAllPages((from, to) =>
+    supabase.from('candidates').select('id, post_url, match_place_id, extracted').eq('status', 'pending').order('id').range(from, to),
+  );
+  if (error) {
+    console.warn(`⚠ 후보 다시 읽기 실패 — 묶음 소개를 건너뛴다: ${error.message}`);
+    return { stats: null, rateLimited: null };
+  }
+  const plan = pickSynthTargets(introGroupsOf(dryRun ? [...data, ...runRows] : data), stored ?? new Map(), {
+    touchedUrls: new Set(runRows.map((row) => row.post_url)),
+    backlog,
+  });
+  const count = (why) => plan.targets.filter((target) => target.why === why).length;
+  const whys = `이번 글 ${count('touched')} · 요약 바뀜 ${count('stale')}${backlog ? ` · 밀린 것 ${count('backlog')}` : ''}`;
+  const rest = ` · 그대로 ${plan.fresh}${plan.waiting ? ` · 밀린 ${plan.waiting}(--synth-only 가 만든다)` : ''}`;
+  const result = await runSynthPass({
+    targets: plan.targets,
+    run: runClaudeCli,
+    meter,
+    save: (row) => saveGroupIntro(supabase, row),
+    meta: { model: MODEL, promptVersion: SYNTH_PROMPT_VERSION },
+    deadline,
+    limit,
+    dryRun,
+    tick,
+  });
+  if (dryRun) {
+    const calls = limit != null ? Math.min(limit, plan.targets.length) : plan.targets.length;
+    console.log(`[dry-run] 묶음 소개: Claude ${calls}회를 부를 것(${whys})${rest} — 부르지 않고 셌다`);
+  } else {
+    const made = `만듦 ${result.done}(충돌 ${result.conflict} · 거부 ${result.rejected})`;
+    console.log(`묶음 소개: 부를 묶음 ${plan.targets.length}(${whys}) · ${made}${result.failed ? ` · 실패 ${result.failed}` : ''}${result.left ? ` · 남김 ${result.left}` : ''}${rest}`);
+  }
+  const stats = { targets: plan.targets.length, done: result.done, conflict: result.conflict, rejected: result.rejected, failed: result.failed, left: result.left, fresh: plan.fresh, waiting: plan.waiting };
+  return { stats, rateLimited: result.rateLimited };
+}
+
+/**
  * @param {string[]} argv
  * @param {{ onRateLimit?: (message: string) => void, onDeadline?: (left: number) => void, nonInteractive?: boolean }} [hooks]  상주 워커(`scripts/lib/workerCycle.mjs`)가 넘긴다 —
  *   `onRateLimit`: Claude 구독 한도를 알아듣는 길(exit code 만으로는 못 가른다) · `onDeadline`: 시간 예산(`--deadline`)이 글 루프를 끊었을 때 손대지 않은 글 수 ·
@@ -111,14 +174,16 @@ export async function main(argv = process.argv.slice(2), hooks = {}) {
   try {
     args = parseArgs(argv);
   } catch (e) {
-    console.error(`${e.message} — 사용법: pnpm data analyze [--limit N] [--max-per-blog N] [--requested-only] [--no-geo] [--no-verify] [--no-propose] [--no-homepage] [--focused-only] [--deadline epochMs] [--dry-run] [--dump[=경로]]`);
+    console.error(`${e.message} — 사용법: pnpm data analyze [--limit N] [--max-per-blog N] [--requested-only] [--no-geo] [--no-verify] [--no-propose] [--no-homepage] [--focused-only] [--deadline epochMs] [--no-synth] [--synth-only] [--synth-limit N] [--dry-run] [--dump[=경로]]`);
     return 1;
   }
-  console.log(args.dryRun ? '모드: dry-run — DB 에 쓰지 않는다(Claude 는 부른다)' : '모드: 분석 — candidates · blog_posts.analyzed_at 에 쓴다');
+  if (args.synthOnly) console.log(args.dryRun ? '모드: 묶음 소개만 · dry-run — 부를 수만 센다(Claude 도 DB 쓰기도 없다)' : '모드: 묶음 소개만 — group_intros 에 쓴다(글은 읽지 않는다)');
+  else console.log(args.dryRun ? '모드: dry-run — DB 에 쓰지 않는다(Claude 는 부른다 · 묶음 소개는 세기만)' : '모드: 분석 — candidates · blog_posts.analyzed_at 에 쓴다');
 
   // 한 번에 하나만(`runLock.mjs`) — 둘이 돌면 시작할 때 같은 미분석 글을 골라 같은 후보를 두 번 넣는다. 워크트리가 달라도 DB 는 하나라 잠금은 레포 밖(tmpdir)에 둔다.
-  // dry-run 은 쓰지 않으므로 잠그지 않는다.
-  if (args.dryRun) return analyzeOrKeyStop(argv, args, hooks);
+  // dry-run 은 쓰지 않으므로 잠그지 않는다. `--synth-only` 도 — 글을 고르지 않아 겹칠 것이 없고, 첫 회(355묶음)는 몇 시간이라 잠그면 그동안 워커의 분석이 매 바퀴 막힌다
+  // (같은 묶음을 둘이 동시에 부르면 호출 한 번이 더 들 뿐 — 같은 키로 덮는다).
+  if (args.dryRun || args.synthOnly) return analyzeOrKeyStop(argv, args, hooks);
   const lock = acquireRunLock(join(tmpdir(), 'zgnn-data-analyze.lock'));
   if (!lock.ok) {
     console.error(`다른 pnpm data analyze 가 이미 돌고 있다(pid ${lock.holder ?? '?'}) — 끝난 뒤 다시 실행. 같은 글을 두 번 분석해 후보가 겹친다.`);
@@ -145,7 +210,20 @@ async function analyzeOrKeyStop(argv, args, hooks) {
 }
 
 async function analyze(argv, args, { onRateLimit, onDeadline, nonInteractive = false } = {}) {
-  const { limit, dryRun, dump, maxPerBlog, noGeo, noVerify, noPropose, noHomepage, focusedOnly, requestedOnly, deadline, concurrency } = args;
+  const { limit, dryRun, dump, maxPerBlog, noGeo, noVerify, noPropose, noHomepage, focusedOnly, requestedOnly, deadline, concurrency, noSynth, synthOnly, synthLimit } = args;
+  /*
+   * `--synth-only` — 글을 읽지 않고 묶음 소개만, **밀린 묶음까지**(첫 회 실행 · 운영자가 글을 뺀 뒤). 네이버 키·글 고르기가 필요 없어 그 앞에서 갈린다.
+   * 실행 기록(`pipeline_runs`)은 남기지 않는다 — script 가 analyze 라 「분석 0건」 행이 운영 현황의 마지막 분석을 덮는다(`--requested-only` 의 빈 실행과 같은 이유).
+   * 그래서 이 길의 호출은 30일 사용량에 안 잡힌다 — 콘솔의 `종합` 계량기 줄이 그 몫이다.
+   */
+  if (synthOnly) {
+    console.log(`묶음 소개 모델 ${MODEL} · 프롬프트 ${SYNTH_PROMPT_VERSION}${synthLimit ? ` · 최대 ${synthLimit}회` : ''}`);
+    const synthMeter = createUsageMeter('종합');
+    const synth = await synthesizeIntros(createSupabase(), { dryRun, backlog: true, deadline, limit: synthLimit, meter: synthMeter });
+    if (synthMeter.totals().calls > 0) console.log(`  ${synthMeter.summary()}`);
+    if (synth.rateLimited) onRateLimit?.(synth.rateLimited.message);
+    return synth.stats && !synth.stats.failed ? 0 : 1;
+  }
   // 이 프로세스의 누계라(`naverSearchApi.mjs`) 시작 값을 빼야 이 실행의 호출 수다 — 워커·once 는 한 프로세스에서 수집·분석을 여러 번 돈다.
   const naverCallsAtStart = readNaverCalls();
 
@@ -260,6 +338,15 @@ async function analyze(argv, args, { onRateLimit, onDeadline, nonInteractive = f
   else console.log(`제안 모델 ${resolveProposeModel()} · 프롬프트 ${PROPOSE_PROMPT_VERSION} (갱신 후보가 생긴 장소에서만 돈다)`);
   /** 장소 id → 이번 실행에서 만든 갱신 후보 행들(글 날짜를 얹어). dry-run 은 DB 대신 이것으로 제안을 만든다. */
   const updatedPlaces = new Map();
+  /*
+   * 넷째 패스 「묶음 소개」(`synthesizeIntros`, docs/todo/13 §5.3 A2) — 제안 뒤에, 이번 실행에 후보가 붙은 신규 묶음과 요약이 바뀐 묶음만.
+   * 계량기를 따로 든다(교차점검·제안과 같은 이유). 밀린 묶음은 여기서 안 부른다 — `--synth-only` 의 일이다.
+   */
+  const synthMeter = createUsageMeter('종합');
+  if (noSynth) console.log('--no-synth — 묶음 소개 패스를 끈다');
+  else console.log(`묶음 소개 모델 ${MODEL} · 프롬프트 ${SYNTH_PROMPT_VERSION} (이번 실행에 후보가 붙은 신규 묶음 · 요약이 바뀐 묶음에서만 돈다)`);
+  /** 이번 실행이 넣은 후보 행들 — 묶음 소개가 "이번 실행 묶음" 을 가리는 데 쓴다. dry-run 은 DB 대신 이것을 pending 에 얹는다. */
+  const runRows = [];
 
   // 마이그레이션 20260928150000(blog_posts.analysis · places.pet_policy)이 적용됐는지 먼저 본다 — 없으면 첫 글의 쓰기에서 42703 으로 죽는데,
   // 그때까지 Claude 를 불러 한도만 쓴다. dry-run 도 같은 검사를 한다(실제 실행 전에 알아야 한다).
@@ -829,6 +916,7 @@ async function analyze(argv, args, { onRateLimit, onDeadline, nonInteractive = f
 
       dumpEntries.push({ post: { url: post.url, title: post.title, posted_at: post.posted_at }, candidates: rows, excluded });
       if (rows.length > 0) await write(`candidates ${rows.length}건 insert`, () => supabase.from('candidates').insert(rows));
+      runRows.push(...rows); // insert 가 실패하면 위에서 던져 여기 오지 않는다 — 넣은 행만 "이번 실행 묶음" 이 된다
       for (const row of rows) {
         if (row.extracted.match.kind !== 'update' || !row.match_place_id) continue;
         if (!updatedPlaces.has(row.match_place_id)) updatedPlaces.set(row.match_place_id, []);
@@ -967,12 +1055,25 @@ async function analyze(argv, args, { onRateLimit, onDeadline, nonInteractive = f
   }
 
   /*
+   * 묶음 소개 — 제안 뒤, 이번 실행에 후보가 붙은 신규 묶음과 요약이 바뀐 묶음만(`synthesizeIntros`). 서버 홉은 마감 안에서만(부르기 전마다 `canStartWithin`).
+   * 끊긴 실행(fatal · 한도)은 건너뛴다 — 한도면 같은 결과이고, fatal 은 실행이 이미 실패다. 이 패스의 실패는 실행 상태를 바꾸지 않는다(더하기만 하는 값).
+   */
+  // 이 패스가 한도에 닿으면 워커에 알린다(`onRateLimit`, 아래) — 다음 바퀴가 같은 한도에 또 부딪히지 않게. `rateLimited` 와 따로 두는 이유:
+  // 그 값은 실패한 실행의 error 칸 분류(`claudeLimit`)에도 쓰여, 글 쪽이 다른 이유로 실패한 실행을 한도 탓으로 적게 된다.
+  let synthLimited = null;
+  if (!noSynth && !fatal && !rateLimited) {
+    const synth = await synthesizeIntros(supabase, { dryRun, backlog: false, runRows, deadline, limit: synthLimit, meter: synthMeter, tick: () => run.tick() });
+    if (synth.stats) stats.synth = synth.stats;
+    synthLimited = synth.rateLimited;
+  }
+
+  /*
    * 콘솔 요약과 실행 기록의 stats 는 **같은 객체**다 — 화면(/admin/ops)이 이 stats 로 아래 줄을 글자까지 같게 다시 만든다(src/lib/runSummary.ts).
-   * 계량기는 패스별 합계를 싣는다(30일 사용량이 셋을 다 더한다 — 추출만 세면 교차점검·제안이 태운 한도가 빠진다).
+   * 계량기는 패스별 합계를 싣는다(30일 사용량이 넷을 다 더한다 — 추출만 세면 교차점검·제안·묶음 소개가 태운 한도가 빠진다).
    */
   const runStats = {
     ...stats,
-    meters: { extract: meter.totals(), verify: verifyMeter.totals(), propose: proposeMeter.totals() },
+    meters: { extract: meter.totals(), verify: verifyMeter.totals(), propose: proposeMeter.totals(), synth: synthMeter.totals() },
     geo: { ...naverStats, geocode: { ...geocodeStats } },
     homepage: { ...homepageStats },
     naverCalls: readNaverCalls() - naverCallsAtStart,
@@ -980,6 +1081,7 @@ async function analyze(argv, args, { onRateLimit, onDeadline, nonInteractive = f
   console.log(formatAnalyzeSummary(runStats, formatUsageSummary('추출', runStats.meters.extract), { dryRun }));
   if (verifyMeter.totals().calls > 0) console.log(`  ${verifyMeter.summary()}`);
   if (proposeMeter.totals().calls > 0) console.log(`  ${proposeMeter.summary()}`);
+  if (synthMeter.totals().calls > 0) console.log(`  ${synthMeter.summary()}`);
 
   // --dump: 후보·제외 목록을 로컬 JSON 으로. data/raw/ 는 .gitignore 라 레포에 남지 않는다. 본문은 없고 evidence(인용 1~3문장)는 DB 와 같은 것이다.
   if (dump !== null) {
@@ -1040,7 +1142,8 @@ async function analyze(argv, args, { onRateLimit, onDeadline, nonInteractive = f
   const failedReason =
     fatalError?.name === 'ClaudeCliError' && fatalError.code === 'auth' ? RUN_ERROR.claudeAuth : rateLimited && !fatal ? RUN_ERROR.claudeLimit : classifyRunError(fatalError);
   await run.end({ status: failedRun ? 'failed' : stats.skipped > 0 ? 'partial' : 'ok', stats: runStats, error: failedRun ? failedReason : null });
-  if (rateLimited) onRateLimit?.(rateLimited.message);
+  const limitHit = rateLimited ?? synthLimited;
+  if (limitHit) onRateLimit?.(limitHit.message);
   return failedRun ? 1 : 0;
 }
 

@@ -68,16 +68,24 @@ describe('parseArgs', () => {
   it('--focused-only', () => {
     expect(parseArgs(['--focused-only', '--limit', '80']).focusedOnly).toBe(true);
   });
+  it('묶음 소개 — --no-synth · --synth-only · --synth-limit N(1 이상, 없으면 null = 제한 없음)', () => {
+    expect(parseArgs(['--no-synth']).noSynth).toBe(true);
+    expect(parseArgs(['--synth-only', '--dry-run'])).toMatchObject({ synthOnly: true, dryRun: true, synthLimit: null });
+    expect(parseArgs(['--synth-limit', '30']).synthLimit).toBe(30);
+    expect(parseArgs(['--synth-limit=5']).synthLimit).toBe(5);
+    expect(() => parseArgs(['--synth-limit', '0'])).toThrow('--synth-limit 은 1 이상');
+    expect(() => parseArgs(['--synth-limit'])).toThrow('--synth-limit');
+  });
   it('--requested-only — 워커의 자동 분석(요청 글만)', () => {
     expect(parseArgs(['--requested-only'])).toMatchObject({ requestedOnly: true, limit: DEFAULT_LIMIT });
     expect(parseArgs(['--limit', '10']).requestedOnly).toBe(false);
   });
   it('인자가 없으면 기본 limit · dry-run 아님', () => {
-    expect(parseArgs([])).toEqual({ limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false, focusedOnly: false, requestedOnly: false, deadline: null, concurrency: DEFAULT_CONCURRENCY });
+    expect(parseArgs([])).toEqual({ limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false, focusedOnly: false, requestedOnly: false, deadline: null, concurrency: DEFAULT_CONCURRENCY, noSynth: false, synthOnly: false, synthLimit: null });
   });
   it('--limit N 과 --limit=N 둘 다 받고, --dry-run 은 어디에 있어도 된다', () => {
-    expect(parseArgs(['--limit', '5', '--dry-run'])).toEqual({ limit: 5, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false, focusedOnly: false, requestedOnly: false, deadline: null, concurrency: DEFAULT_CONCURRENCY });
-    expect(parseArgs(['--dry-run', '--limit=20'])).toEqual({ limit: 20, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false, focusedOnly: false, requestedOnly: false, deadline: null, concurrency: DEFAULT_CONCURRENCY });
+    expect(parseArgs(['--limit', '5', '--dry-run'])).toEqual({ limit: 5, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false, focusedOnly: false, requestedOnly: false, deadline: null, concurrency: DEFAULT_CONCURRENCY, noSynth: false, synthOnly: false, synthLimit: null });
+    expect(parseArgs(['--dry-run', '--limit=20'])).toEqual({ limit: 20, dryRun: true, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false, focusedOnly: false, requestedOnly: false, deadline: null, concurrency: DEFAULT_CONCURRENCY, noSynth: false, synthOnly: false, synthLimit: null });
     expect(parseArgs(['--no-geo']).noGeo).toBe(true);
     expect(parseArgs(['--no-verify']).noVerify).toBe(true);
     expect(parseArgs(['--no-propose']).noPropose).toBe(true);

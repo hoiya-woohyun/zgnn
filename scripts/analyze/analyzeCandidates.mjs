@@ -69,10 +69,12 @@ export const canStartWithin = (now, deadline, estimateMs) => deadline == null ||
  * `--dry-run` · `--limit N` · `--max-per-blog N` · `--no-geo` · `--no-verify`(교차점검 패스를 끈다 — Claude 호출이 글마다
  * 최대 한 번 더 늘어나므로 한도가 아까울 때) · `--no-propose`(셋째 패스 「제안」을 끈다 — 갱신 후보가 생긴 장소마다 한 번 더 부른다, docs/todo/11 U3) · `--no-homepage`(공식 홈페이지 카드를 읽지 않는다 — 업체 사이트에 요청이 나가지 않게) · `--dump[=경로]`(후보·제외 목록을 로컬 JSON 으로 — 정규화 품질을
  * 사람이 볼 유일한 창, 로그에는 여전히 본문 인용을 찍지 않는다) · `--deadline <epoch ms>`(서버 워커의 홉만 붙인다 — 이 시각 안에 못 끝날 일은 시작하지 않는다, `canStartWithin`) · `--concurrency N`(앞 절반을 동시에 몇 건, `DEFAULT_CONCURRENCY`).
+ * 넷째 패스 「묶음 소개」(docs/todo/13 §5.3 A2, `groupIntroPass.mjs`): `--no-synth`(끈다) · `--synth-only`(글을 읽지 않고 밀린 묶음까지 소개만 — 첫 회 실행·제외 뒤) ·
+ * `--synth-limit N`(이 실행에서 부를 상한 — 없으면 제한 없음, 기본 경로는 이번 실행 묶음과 낡은 줄뿐이라 실행 크기를 따른다).
  * 모르는 인자나 1 미만의 limit 은 throw — 오타로 전체를 돌리는 일이 없게.
  */
 export function parseArgs(argv) {
-  const args = { limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false, focusedOnly: false, requestedOnly: false, deadline: null, concurrency: DEFAULT_CONCURRENCY };
+  const args = { limit: DEFAULT_LIMIT, dryRun: false, dump: null, maxPerBlog: DEFAULT_MAX_PER_BLOG, noGeo: false, noVerify: false, noPropose: false, noHomepage: false, focusedOnly: false, requestedOnly: false, deadline: null, concurrency: DEFAULT_CONCURRENCY, noSynth: false, synthOnly: false, synthLimit: null };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--dry-run') { args.dryRun = true; continue; }
@@ -80,6 +82,8 @@ export function parseArgs(argv) {
     if (arg === '--no-verify') { args.noVerify = true; continue; }
     if (arg === '--no-propose') { args.noPropose = true; continue; }
     if (arg === '--no-homepage') { args.noHomepage = true; continue; }
+    if (arg === '--no-synth') { args.noSynth = true; continue; }
+    if (arg === '--synth-only') { args.synthOnly = true; continue; }
     // 앞줄(`isFocusedTitle` · 한 가게 블로그 아님)만 — 비면 뒤 무리로 넘어가지 않고 끝난다. 저수지를 앞줄에서 멈추는 결정(2026-10-04)의 손잡이.
     if (arg === '--focused-only') { args.focusedOnly = true; continue; }
     // 사람이 요청한 글(`requested_at`)만 — 상주 워커의 자동 분석(ADR-024 결정 4). 저수지는 읽지 않는다.
@@ -94,14 +98,15 @@ export function parseArgs(argv) {
     }
     let key;
     let value;
-    for (const [flag, k] of [['--limit', 'limit'], ['--max-per-blog', 'maxPerBlog'], ['--concurrency', 'concurrency']]) {
-      if (arg === flag) { key = k; value = argv[++i]; }
-      else if (arg.startsWith(`${flag}=`)) { key = k; value = arg.slice(flag.length + 1); }
+    let name;
+    for (const [flag, k] of [['--limit', 'limit'], ['--max-per-blog', 'maxPerBlog'], ['--concurrency', 'concurrency'], ['--synth-limit', 'synthLimit']]) {
+      if (arg === flag) { key = k; name = flag; value = argv[++i]; }
+      else if (arg.startsWith(`${flag}=`)) { key = k; name = flag; value = arg.slice(flag.length + 1); }
     }
     if (!key) throw new Error(`알 수 없는 인자: ${arg}`);
     const min = key === 'maxPerBlog' ? 0 : 1;
     if (!/^\d+$/.test(value ?? '') || Number(value) < min) {
-      throw new Error(`${key === 'maxPerBlog' ? '--max-per-blog 은 0' : `--${key} 은 1`} 이상의 정수여야 합니다: ${value ?? '(없음)'}`);
+      throw new Error(`${name} 은 ${min} 이상의 정수여야 합니다: ${value ?? '(없음)'}`);
     }
     args[key] = Number(value);
   }

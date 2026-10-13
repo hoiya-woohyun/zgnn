@@ -160,6 +160,8 @@ Free private 레포는 브랜치·환경 보호가 안 된다. 러너에 키가 
 - **로컬 워커 `pipeline_requests`·`workers`(2026-10-07, [ADR-024](ADR-024-local-worker-and-db-queues.md))** — 워커(`pnpm data`)도 **같은 운영자 세션**으로 붙는다. 세션이 만료되면 `login` 과 같은 숨김 입력으로 묻는다 — refresh token 을 두는 데몬은 없다.
   두 표는 `pipeline_runs` 와 같은 모양(authenticated select/insert/update, delete·anon 없음). Realtime(`supabase_realtime` 에 여섯 표)은 구독자의 RLS 를 적용하므로 publishable 키만으로는 아무 행도 오지 않는다 — 워커는 세션 토큰을 `realtime.setAuth` 로 넘긴다.
   마이그레이션 `20261007140000` 은 **원격 미적용** — 적용 뒤 같은 롤백 실측을 한다(파일 끝 주석에 SQL).
+- **묶음 소개 `group_intros`(2026-10-13, [todo/13 §5.3 A2](../todo/13-ai-analysis-audit-2026-10-04.md))** — 분석의 넷째 패스가 **같은 운영자 세션**으로 묶음 키마다 upsert 한다(로컬·서버 워커 둘 다 — 서버도 버튼을 누른 운영자 JWT). 모양은 `pipeline_runs` 그대로(authenticated select/insert/update · 정책 셋 `is_operator()` · delete·anon 없음). 새 키·새 출처 없음.
+  마이그레이션 `20261013150000` 은 **원격 미적용** — 표가 없으면 분석은 경고 한 줄로 그 패스만 건너뛴다(파일 끝 주석에 적용 뒤 확인 SQL).
 - **`pnpm login`·`pnpm logout` 은 pnpm 내장 명령**(npm 레지스트리 로그인)이라 package.json 의 `login` 스크립트를 가린다 — 그래서 `data:login`·`data:logout` 이다.
 
 ## 서버에 두는 장기 값 (v12, [ADR-028](ADR-028-vercel-remote-worker.md))

@@ -1,5 +1,5 @@
 // 검수 대기 **묶음**의 글별 요약(`features`) N개 → 묶음의 소개 하나(docs/todo/13 §5.3 A1). I/O 는 주입받은 run(claude -p 실행기) 뿐이고,
-// 어느 묶음을 언제 다시 만들고 어디에 두는지는 A2, 카드·등록에 쓰는 것은 A3 의 일이다.
+// 어느 묶음을 언제 다시 만들고 어디에 두는지는 A2(`groupIntroPass.mjs` · 표 `group_intros`), 카드·등록에 쓰는 것은 A3 의 일이다.
 //
 // 왜 있나 — 묶음의 'AI 요약' 과 등록 소개는 대표(confidence 가 가장 높은 후보) 한 편의 `features` 다. confidence 는 이용 조건이 분명한가의 점수라
 // 소개의 충실도와 무관하고, 나머지 글의 요약은 어디에도 안 쓰인다(이춘옥 — 셀프리필바·발렛파킹·충전스테이션이 글마다 흩어져 있다).
@@ -15,6 +15,7 @@
 import { createHash } from 'node:crypto';
 import { topicReasons } from '../lib/petPolicyGuide.mjs';
 import { classifyCliError, ClaudeCliError, ExtractionError, MODEL, PROMPT_FEATURES_RULE } from './extractPlaces.mjs';
+import { synthesisMaterials } from './groupIntroMaterials.mjs';
 
 /** 소개 상한 — 추출의 소개 지시(`PROMPT_FEATURES_RULE`)와 같은 값. */
 export const INTRO_MAX_SENTENCES = 2;
@@ -106,27 +107,8 @@ export function buildSynthesisCliArgs() {
 
 const text = (v) => (typeof v === 'string' && v.trim() ? v.trim() : null);
 
-/**
- * 묶음의 글들 → 모델에 보일 재료. 다녀온 글(`visited !== false`)의 요약만, 같은 요약은 하나로(글 id 를 모은다), 같은 글이 두 번 오면 앞의 것.
- * 순서는 편수 많은 것 → 문장 순이라 같은 입력이면 같은 번호가 나온다.
- * @param {readonly { id: string, features?: string | null, visited?: boolean | null }[]} posts
- * @returns {{ text: string, posts: string[] }[]}
- */
-export function synthesisMaterials(posts) {
-  const seen = new Set();
-  const byText = new Map();
-  for (const post of posts ?? []) {
-    const id = text(post?.id);
-    const features = text(post?.features);
-    if (!id || !features || post.visited === false || seen.has(id)) continue;
-    seen.add(id);
-    if (!byText.has(features)) byText.set(features, []);
-    byText.get(features).push(id);
-  }
-  return [...byText]
-    .map(([t, ids]) => ({ text: t, posts: ids.sort() }))
-    .sort((a, b) => b.posts.length - a.posts.length || a.text.localeCompare(b.text, 'ko'));
-}
+// 재료 고르기(`synthesisMaterials`)는 노드 모듈 없는 groupIntroMaterials.mjs 에 있다 — /admin(A3)이 같은 함수로 지문을 잰다. 여기서는 다시 내보내기만.
+export { synthesisMaterials };
 
 /** stdin 으로 넘길 user 프롬프트 — 장소 → 번호 붙인 요약들. 글 URL 은 싣지 않는다(모델은 번호로만 가리킨다). */
 export function buildSynthesisPrompt(group, materials) {
