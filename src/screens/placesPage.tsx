@@ -162,7 +162,8 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     hasDog: Boolean(dog),
     directions,
     petKeys,
-    sortLabel: sort !== 'none' ? (SORT_OPTIONS.find((option) => option.id === sort)?.label ?? '') : null,
+    // 가까운 순은 목록 위 칩이 켜짐을 말한다(14 W261010.18) — 켜진 조건 줄에 같은 말을 또 세우지 않는다.
+    sortLabel: sort !== 'none' && sort !== 'near' ? (SORT_OPTIONS.find((option) => option.id === sort)?.label ?? '') : null,
     hideHard,
     onlyReachable,
     query,
@@ -360,6 +361,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
               reachableReleaseCount={released.reachable}
               onClearOnlyReachable={clearOnlyReachable}
               areaCarried={areaCarried}
+              nearSort={{ pressed: sort === 'near', onToggle: () => void changeSort(sort === 'near' ? 'none' : 'near') }}
               onReleaseAreaCarried={() => {
                 setTown(null);
                 releaseAreaCarried(type);

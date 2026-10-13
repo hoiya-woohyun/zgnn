@@ -9,6 +9,7 @@ import { PlaceLinkList } from '../components/placeLinkList';
 import { EmptyState } from '../components/layout/emptyState';
 import { BottomSheet } from '../components/base/bottom-sheet';
 import { Button } from '../components/base/button';
+import { FilterChip } from '../components/filterChip';
 import { judgeEligibility, primaryReason } from '../lib/eligibility';
 import { carrierWhatIf, countByLevel, outdoorFallback, type TLevelCounts } from '../lib/eligibilityCounts';
 import { placesPageHardFold } from '../lib/placesPageHardFold';
@@ -80,6 +81,11 @@ type TPlacesPageResultsProps = {
   /** 동네 카드로 들어왔는데 따라온 읍면·방향·조건 칩 탓에 카드보다 적게 보이면(`areaCarriedRelease`, 19 T4.2). */
   areaCarried?: TAreaCarried | null;
   onReleaseAreaCarried?: () => void;
+  /**
+   * '가까운 순' 칩(14 W261010.18) — 시트 맨 아래 드롭다운에 있던 것을 목록 위로 꺼냈다. 본 화면만 준다(엿보기는 정렬을 갖지 않아 눌러도 아무 일 없는 꺼진 칩).
+   * 위치 권한이 없으면 정렬을 바꾸지 않고 이유만 말하는 것은 시트와 같다(`changeSort`).
+   */
+  nearSort?: { pressed: boolean; onToggle: () => void };
 };
 
 /**
@@ -115,6 +121,7 @@ export function PlacesPageResults({
   onClearOnlyReachable,
   areaCarried = null,
   onReleaseAreaCarried,
+  nearSort,
 }: TPlacesPageResultsProps) {
   const dog = useAppStore((state) => state.dog);
   const needsIndoor = useAppStore((state) => state.needsIndoor);
@@ -192,6 +199,14 @@ export function PlacesPageResults({
           </Button>
         )}
       </div>
+
+      {results.length > 0 && (
+        <div className="px-4 pt-2 md:px-6">
+          <FilterChip pressed={nearSort?.pressed ?? false} onClick={nearSort?.onToggle}>
+            가까운 순
+          </FilterChip>
+        </div>
+      )}
 
       <PlacesPageActiveChips chips={activeChips} />
 
