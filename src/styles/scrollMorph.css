@@ -228,18 +228,19 @@
   }
 }
 
+/* 커튼은 블록 밖으로 넘친 바깥 변을 기준점 삼아 안쪽 변만 움직인다 — 끝(좌우)·시작(위)이 0 이 아니라 넘친 몫이다(`homePageHero.tsx` 의 `topCurtain` 주석). */
 @keyframes morph-curtain-side {
   from {
     transform: scaleX(1);
   }
   to {
-    transform: scaleX(0);
+    transform: scaleX(var(--curtain-side-to, 0));
   }
 }
 
 @keyframes morph-curtain-top {
   from {
-    transform: scaleY(0);
+    transform: scaleY(var(--curtain-top-from, 0));
   }
   to {
     transform: scaleY(1);

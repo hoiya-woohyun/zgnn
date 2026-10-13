@@ -35,8 +35,12 @@ const PAW_SCALE_END = 6 / 9;
 /** 헤더에서 발바닥과 제목 사이 간격 = 줄어든 발바닥 폭의 1/3(6단 → 2단). --spacing 을 따로 재지 않으려고 폭에서 파생한다. */
 const PAW_GAP_RATIO = 1 / 3;
 
-/** 귀 조각이 카드 바깥으로 넘치는 폭(`corner` 주석). 커튼 폭(16px)보다 작기만 하면 된다. */
-const CORNER_BLEED = '2px';
+/**
+ * 귀 조각·커튼이 블록 변 바깥으로 넘치는 폭(`corner`·`sideCurtain`·`topCurtain` 주석). 커튼 폭(16px)·카드 위 여백(`pt-6`)보다 작기만 하면 된다.
+ * 블록 밖 좌우로 넘친 몫은 셸의 `overflow-x-clip` 이 자르고, 넓은 화면에선 본문 칸 바깥의 같은 크림 위다.
+ */
+const EDGE_BLEED_PX = 2;
+const EDGE_BLEED = `${EDGE_BLEED_PX}px`;
 
 const useBeforePaint = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
@@ -164,8 +168,12 @@ export function HomePageHero({ subtitle, reach, cta }: THomePageHeroProps) {
       pinnedTop = stickTop;
 
       // 면: 위 커튼이 다 내려왔을 때의 높이(= 붙었을 때 화면 위로 나간 부분)와, 좌우 커튼의 폭(= 카드의 좌우 여백).
-      block.style.setProperty('--clip-top', `${height - inset - bar}px`);
+      const clipTop = height - inset - bar;
+      block.style.setProperty('--clip-top', `${clipTop}px`);
       block.style.setProperty('--side', `${side}px`);
+      // 커튼은 바깥 변이 블록 밖 `EDGE_BLEED` 에 머물고 안쪽 변만 움직인다 — 배율의 끝(좌우)·시작(위)이 그 넘친 몫만큼이다.
+      block.style.setProperty('--curtain-side-to', String(EDGE_BLEED_PX / (side + EDGE_BLEED_PX)));
+      block.style.setProperty('--curtain-top-from', String(EDGE_BLEED_PX / (clipTop + EDGE_BLEED_PX)));
       // 발바닥: 헤더의 글자 줄 맨 앞(좌우 여백)으로. `origin-left` 라 왼쪽 변·세로 중심이 축소의 고정점이다.
       block.style.setProperty('--ptx', `${side - pawAt.x}px`);
       block.style.setProperty('--pty', `${barMid - (pawAt.y + paw.offsetHeight / 2)}px`);
@@ -217,18 +225,35 @@ export function HomePageHero({ subtitle, reach, cta }: THomePageHeroProps) {
   }, []);
 
   // 좌우 커튼: 카드 여백 폭에서 0 으로 걷힌다. 위 커튼: 0 에서 `--clip-top` 까지 내려온다(높이가 곧 그 값이라 배율만 바뀐다).
-  const sideCurtain = { transform: 'scaleX(calc(1 - var(--morph)))' } satisfies CSSProperties;
-  const topCurtain = { height: 'var(--clip-top, 0px)', transform: 'scaleY(var(--morph))' } satisfies CSSProperties;
+  // 커튼의 바깥 변은 전부 블록 밖 `EDGE_BLEED` 에 둔다. 커튼 변이 잉크 판의 변(= 블록 변)과 같은 줄에 서면, 그 변이 소수 픽셀일 때
+  // 두 층이 그 줄을 각자 반쯤 칠해 잉크가 한 줄 비쳤다 — 카드 좌우 여백의 짧은 가로선, 오른쪽 세로선, 접히기 시작하면 윗변 가로선
+  // (GPU 합성하는 Chrome 실측, 헤드리스에선 안 보인다, BUG-014 v2). 귀와 같은 이유다. 그래서 커튼은 넘친 바깥 변을 기준점 삼아 안쪽 변만 움직인다:
+  // 좌우는 `여백 + 넘침` 폭에서 `넘침` 폭으로(`--curtain-side-to`), 위는 `넘침` 높이에서 `--clip-top + 넘침` 높이로(`--curtain-top-from`).
+  // 안쪽 변의 자리는 예전과 같다 — 좌우 `여백 × (1 − morph)`, 위 `--clip-top × morph`. 다 접힌 뒤 남는 넘침 띠는 블록 밖이라 크림 위다.
+  // 좌우 커튼의 폭은 클래스(`w-4 md:w-6` = 카드 여백)에 바깥쪽 padding(넘침)을 더한 것이다(`box-content`) — JS 가 재기 전 첫 화면에도 여백이 맞는다.
+  const sideCurtain = (x: -1 | 1) =>
+    ({
+      top: `-${EDGE_BLEED}`,
+      bottom: `-${EDGE_BLEED}`,
+      [x < 0 ? 'left' : 'right']: `-${EDGE_BLEED}`,
+      [x < 0 ? 'paddingLeft' : 'paddingRight']: EDGE_BLEED,
+      transform: 'scaleX(calc(1 - (1 - var(--curtain-side-to, 0)) * var(--morph)))',
+    }) satisfies CSSProperties;
+  const topCurtain = {
+    top: `-${EDGE_BLEED}`,
+    height: `calc(var(--clip-top, 0px) + ${EDGE_BLEED})`,
+    transform: 'scaleY(calc(var(--curtain-top-from, 0) + (1 - var(--curtain-top-from, 0)) * var(--morph)))',
+  } satisfies CSSProperties;
   // 네 귀: 카드 모서리를 따라 옮겨 가며(좌우는 여백만큼 바깥으로, 위의 둘은 커튼과 같이 아래로) 16px → 0 으로 준다.
-  // 귀는 카드 바깥(커튼 위)으로 `CORNER_BLEED` 만큼 넘친다. 귀 네모의 변이 카드 변과 딱 겹치면 두 층의 안티앨리어싱이 겹쳐
+  // 귀는 카드 바깥(커튼 위)으로 `EDGE_BLEED` 만큼 넘친다. 귀 네모의 변이 카드 변과 딱 겹치면 두 층의 안티앨리어싱이 겹쳐
   // 잉크가 한 줄 비치고, 둥근 모서리 바깥에 네모 테두리가 옅게 남았다(실측). 축소 기준점은 넘친 만큼 안쪽 = 카드 모서리 그대로다.
   const corner = (x: -1 | 1, top: boolean) =>
     ({
-      width: `calc(var(--radius-2xl) + ${CORNER_BLEED})`,
-      height: `calc(var(--radius-2xl) + ${CORNER_BLEED})`,
-      [x < 0 ? 'marginLeft' : 'marginRight']: `-${CORNER_BLEED}`,
-      [top ? 'marginTop' : 'marginBottom']: `-${CORNER_BLEED}`,
-      transformOrigin: `${x < 0 ? CORNER_BLEED : `calc(100% - ${CORNER_BLEED})`} ${top ? CORNER_BLEED : `calc(100% - ${CORNER_BLEED})`}`,
+      width: `calc(var(--radius-2xl) + ${EDGE_BLEED})`,
+      height: `calc(var(--radius-2xl) + ${EDGE_BLEED})`,
+      [x < 0 ? 'marginLeft' : 'marginRight']: `-${EDGE_BLEED}`,
+      [top ? 'marginTop' : 'marginBottom']: `-${EDGE_BLEED}`,
+      transformOrigin: `${x < 0 ? EDGE_BLEED : `calc(100% - ${EDGE_BLEED})`} ${top ? EDGE_BLEED : `calc(100% - ${EDGE_BLEED})`}`,
       transform: `translate(calc(${x} * var(--side, 0px) * var(--morph)), calc(${top ? 'var(--clip-top, 0px)' : '0px'} * var(--morph))) scale(calc(1 - var(--morph)))`,
       // 귀는 모서리 바깥만 크림이다 — 원의 중심이 카드 안쪽 귀퉁이에 있다.
       background: `radial-gradient(circle at ${x < 0 ? 100 : 0}% ${top ? 100 : 0}%, transparent calc(var(--radius-2xl) - 0.5px), var(--color-bg-secondary) var(--radius-2xl))`,
@@ -266,9 +291,9 @@ export function HomePageHero({ subtitle, reach, cta }: THomePageHeroProps) {
           <div data-scroll-morph="tone-in" className="absolute inset-0 bg-secondary" style={toneIn} />
           {/* 헤더 밑줄은 크림 판과 따로 맨 끝에만 들어온다 — 같이 들어오면 아직 카드일 때 밑변에 테두리처럼 보였다(`morph-hero-rule`). */}
           <div data-scroll-morph="hero-rule" className="absolute inset-x-0 bottom-0 border-b border-secondary" style={{ opacity: 'var(--morph)' }} />
-          <div data-scroll-morph="curtain-side" className="absolute inset-y-0 left-0 w-4 origin-left bg-secondary md:w-6" style={sideCurtain} />
-          <div data-scroll-morph="curtain-side" className="absolute inset-y-0 right-0 w-4 origin-right bg-secondary md:w-6" style={sideCurtain} />
-          <div data-scroll-morph="curtain-top" className="absolute inset-x-0 top-0 origin-top bg-secondary" style={topCurtain} />
+          <div data-scroll-morph="curtain-side" className="absolute box-content w-4 origin-left bg-secondary md:w-6" style={sideCurtain(-1)} />
+          <div data-scroll-morph="curtain-side" className="absolute box-content w-4 origin-right bg-secondary md:w-6" style={sideCurtain(1)} />
+          <div data-scroll-morph="curtain-top" className="absolute inset-x-0 origin-top bg-secondary" style={topCurtain} />
           <div data-scroll-morph="corner-tl" className="absolute left-4 top-0 md:left-6" style={corner(-1, true)} />
           <div data-scroll-morph="corner-tr" className="absolute right-4 top-0 md:right-6" style={corner(1, true)} />
           <div data-scroll-morph="corner-bl" className="absolute bottom-0 left-4 md:left-6" style={corner(-1, false)} />
