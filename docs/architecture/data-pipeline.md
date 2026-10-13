@@ -1,6 +1,7 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-10-13 (v68: **`pull` 이 블로그 출처 행의 판정 입력을 미리 계산해 싣는다** — `places.json` 의 비공개 행은 원문·판단·안내 대신 `derived` 하나(`toSnapshotRow`, `src/lib/placeDerive.ts`). 원문을 포함한 전체 행은 gitignored 캐시 `data/raw/places-source.json` 에, `pnpm data pull --offline` 은 그 캐시로 다시 계산한다. `seed-db` 는 원문 없는 행을 건너뛴다, todo 21 S8)
+> 최종 수정: 2026-10-13 (v69: `group_intros` 를 읽는 자리 — 검수 대기 'AI 요약' · `/admin` 등록 · CLI `apply-approved.mjs` 가 `chooseGroupIntro` 하나로, 지문이 같을 때만(todo/13 §5.3 A3))
+> 이전 2026-10-13 (v68: **`pull` 이 블로그 출처 행의 판정 입력을 미리 계산해 싣는다** — `places.json` 의 비공개 행은 원문·판단·안내 대신 `derived` 하나(`toSnapshotRow`, `src/lib/placeDerive.ts`). 원문을 포함한 전체 행은 gitignored 캐시 `data/raw/places-source.json` 에, `pnpm data pull --offline` 은 그 캐시로 다시 계산한다. `seed-db` 는 원문 없는 행을 건너뛴다, todo 21 S8)
 > 이전 2026-10-13 (v67: **`pnpm data rewrite`** — 게시된 블로그 행의 안내·베낀 소개만 다시 쓴다, 판단 고정 · 미리보기 표를 `--apply` 가 그대로 쓴다(Claude 재호출 없음), todo 21 S9)
 > 이전 2026-10-13 (v66: **추출이 이용 안내를 쓰고 목록글 소개를 비운다** — 장소 칸 `petPolicyGuide` 는 본문에 대 본 가드를 지난 것만 `{ text, basis }` 로 후보에 실리고, `features` 는 설명이 없거나 목록글이면 null, 조건 원문은 조건 아닌 문장을 빼고 "동반 가능" 한마디는 넣는다. 프롬프트 `d7a6610e`, todo 21 S7)
 > 이전 2026-10-13 (v65: `fromPlaceRow` 의 임시 공개 짐작(`source = 'notion'`)을 걷었다 — 칸이 없으면 숨김 · 새 행은 `pet_policy_guide: null` 키를 싣는다(형제 후보의 안내가 빠지지 않게), todo 21 S4.1)
