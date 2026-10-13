@@ -64,7 +64,7 @@ export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEdit
     <>
       <div className="flex items-start gap-3">
         <PlaceThumb src={place.cover ?? place.images[0]} type={place.type} />
-        <div className={cx('min-w-0 flex-1', actions ? 'pr-26' : 'pr-10')}>
+        <div className={cx('min-w-0 flex-1', actions ? 'pr-26' : 'pr-11')}>
           <p className="text-md font-bold text-primary">{place.name}</p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             <TownChip town={place.region.town} type={place.type} />
@@ -126,10 +126,19 @@ export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEdit
           </Link>
         )}
 
-        {/* 연필과 하트 사이 8px — 붙어 있으면 연필을 노리다 하트를 눌러 저장(과 메모)이 풀렸다(14 W261010.3). 이름 줄 여백(`pr-26`)도 그만큼 넓다. */}
+        {/* 연필과 하트 사이 8px — 붙어 있으면 연필을 노리다 하트를 눌러 저장(과 메모)이 풀렸다(14 W261010.3). 이름 줄 여백(`pr-26`)도 그만큼 넓다.
+            하트의 누르는 칸은 보이는 44px 보다 넓다(`before:`) — 위·오른쪽은 카드 모서리까지, 아래는 이름 옆 빈 칸으로. 하트 둘레 4~26px 를
+            빗나가면 카드 링크라 상세가 열렸다(14 W261010.5). 왼쪽은 이름 줄 여백(`pr-11`)까지만, 연필이 있으면 넓히지 않는다(위의 8px 를 지킨다). */}
         <div className="absolute top-2 right-2 flex gap-2">
           {actions}
-          <SaveButton id={place.id} name={place.name} />
+          <SaveButton
+            id={place.id}
+            name={place.name}
+            className={cx(
+              'before:absolute before:-top-2 before:-right-2 before:-bottom-4 before:content-[""]',
+              actions ? 'before:left-0' : 'before:-left-2',
+            )}
+          />
         </div>
         {cornerAction && <div className="absolute right-4 bottom-4">{cornerAction}</div>}
       </div>
