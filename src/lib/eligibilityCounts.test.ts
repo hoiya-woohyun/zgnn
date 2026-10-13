@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { headlineFor, judgeEligibility } from './eligibility';
-import { carrierWhatIf, countByLevel, outdoorFallback, reachablePlaces, splitReachable } from './eligibilityCounts';
+import { carrierWhatIf, countByLevel, LEVEL_COUNT_LABEL, outdoorFallback, reachablePlaces, splitReachable } from './eligibilityCounts';
 import { parsePetPolicy } from './petPolicy';
 import { PLACE_TYPES, placesOfType } from './places';
 import type { TDogProfile } from '../types';
@@ -160,5 +160,18 @@ describe('outdoorFallback — 갈 수 있는 곳이 없을 때 야외 자리로 
 
   it('야외가 열린 곳이 없으면 null', () => {
     expect(outdoorFallback([{ policy: parsePetPolicy('케이지 동반시 가능.') }], BORI)).toBeNull();
+  });
+});
+
+describe('LEVEL_COUNT_LABEL', () => {
+  // 목록 머리(placesPageResults)가 이 표의 순서대로 칸을 늘어놓는다 — 홈 카드와 같은 이름·같은 순서.
+  it('이름과 순서가 홈 카드·목록 머리의 기준이다', () => {
+    expect(Object.entries(LEVEL_COUNT_LABEL)).toEqual([
+      ['ok', '가능'],
+      ['outdoor', '야외'],
+      ['cond', '확인 필요'],
+      ['unknown', '정보 없음'],
+      ['hard', '어려움'],
+    ]);
   });
 });

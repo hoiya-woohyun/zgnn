@@ -11,7 +11,13 @@ import { BottomSheet } from '../components/base/bottom-sheet';
 import { Button } from '../components/base/button';
 import { FilterChip } from '../components/filterChip';
 import { judgeEligibility, primaryReason } from '../lib/eligibility';
-import { carrierWhatIf, countByLevel, outdoorFallback, type TLevelCounts } from '../lib/eligibilityCounts';
+import {
+  carrierWhatIf,
+  countByLevel,
+  LEVEL_COUNT_LABEL,
+  outdoorFallback,
+  type TLevelCounts,
+} from '../lib/eligibilityCounts';
 import { placesPageHardFold } from '../lib/placesPageHardFold';
 import type { TAreaCarried } from '../lib/placesPageFilter';
 import { placesPageRepeatedReason } from '../lib/placesPageRepeatedReason';
@@ -21,18 +27,6 @@ import { TYPE_META, type TPlaceEntry } from '../lib/places';
 import { useAppStore } from '../store/useAppStore';
 import type { TPlaceType } from '../types';
 import { cx } from '../utils/cx';
-
-// 목록 머리의 레벨 이름. 홈 종류 카드("가능 3 · 확인 필요 3")와 같은 말을 쓴다 — 배지 문구
-// ("갈 수 있어요"…)를 그대로 늘어놓으면 한 줄에 안 들어간다. cond 를 '확인' 한 낱말로 줄이면
-// 상세의 "…에 확인했어요"(검증됨)와 반대 뜻의 같은 말이 된다 — '필요' 까지가 뜻이다.
-// '야외' 는 카드가 "야외 자리에서 갈 수 있어요" 인 곳(14 W261007.5) — 확인 필요에 세면 카드와 요약이 다른 말을 한다.
-const LEVEL_SHORT: [keyof TLevelCounts, string][] = [
-  ['ok', '가능'],
-  ['outdoor', '야외'],
-  ['cond', '확인 필요'],
-  ['unknown', '정보 없음'],
-  ['hard', '어려움'],
-];
 
 type TPlacesPageResultsProps = {
   type: TPlaceType;
@@ -130,7 +124,8 @@ export function PlacesPageResults({
   const levelSummary = useMemo(() => {
     if (!dog) return '';
     const counts = countByLevel(results, dog, { needsIndoor });
-    return LEVEL_SHORT.filter(([level]) => counts[level] > 0)
+    return (Object.entries(LEVEL_COUNT_LABEL) as [keyof TLevelCounts, string][])
+      .filter(([level]) => counts[level] > 0)
       .map(([level, label]) => ` · ${label} ${counts[level]}`)
       .join('');
   }, [results, dog, needsIndoor]);
