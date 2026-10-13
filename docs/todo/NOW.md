@@ -140,4 +140,3 @@
 ## 발견 (분류 전)
 
 <!-- /next 가 작업 중 찾은 것을 한 줄씩 — 출처: <커밋/파일>. 멈출 때 번호 문서로 옮긴다 -->
-- `pnpm data rewrite` 는 안내가 가드에 걸린(또는 모델이 null 이라 한) 곳을 `pet_policy_guide` null 로 남겨 **회차마다 다시 Claude 를 부른다** — 시도 표식(예: 그 곳의 `basis`·프롬프트 버전을 기록해 판단·프롬프트가 같으면 건너뛰기)이 필요한지 H7 첫 회차 수를 보고 정한다 — 출처: `scripts/rewrite-published.mjs`

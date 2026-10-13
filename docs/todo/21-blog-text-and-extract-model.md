@@ -337,6 +337,10 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
   > 검증: `rewritePublished.test.mjs`(대상 조건 · patch 키 · 베낌 소개만 · 가드 · 왕복 `fromPlaceRow` → `publicGuide` · 가짜 supabase 로 미리보기 쓰기 0 → apply Claude 0회 · 판단 바뀐 행 건너뜀). 실제 실행은 🧑 H7.
   > 전체 `pnpm test` 의 실패 2(`browserBundleRegex` ← `placesVerdictView.ts` 가 evalExtract 를 끌어옴 · `placeDerive.test.ts`)와 tsc 1(`placeDerive.test.ts`)은 다른 레인의 미커밋 파일이다.
 
+- [ ] **S9.1** 안내가 안 나온 곳을 회차마다 다시 부르지 않기(H7 뒤에 정한다) — `pnpm data rewrite` 는 안내가 가드에 걸린(또는 모델이 null 이라 한) 곳을 `pet_policy_guide` null 로 남겨
+  다음 반영 뒤 회차가 같은 곳에 `claude -p` 를 또 부른다. H7 첫 회차의 표에서 그런 곳이 몇인지 보고, 많으면 시도 표식(그 곳의 판단 지문 + `REWRITE_PROMPT_VERSION` 을 남겨 둘 다 같으면 건너뛰기 —
+  칸이 필요하면 🧑 `db push`)을 단다. 적으면 그대로 둔다(곳당 한 번 · 한도 안).
+
 ## 사람(🧑)·결정(🙋)
 
 - **H1 🧑 워커 배포** — M1·S7 이 끝난 뒤 한 번: `pnpm worker:build && cd worker && vercel deploy --prod`(배포라 허락 먼저 — 루트에서 `--cwd worker` 는 실패한다). 그 전까지 서버 홉은 옛 모델·옛 프롬프트로 뽑는다.
