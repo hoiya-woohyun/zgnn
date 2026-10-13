@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { carrierSummary, compareEligibility, dogSize, headlineFor, judgeEligibility, primaryReason, verdictFor } from './eligibility';
+import {
+  carrierSummary,
+  compareEligibility,
+  dogSize,
+  headlineFor,
+  judgeEligibility,
+  primaryReason,
+  verdictFor,
+  verdictHidesBadge,
+  type TReason,
+} from './eligibility';
 import { NO_INFO_BADGE_LABEL, parsePetPolicy, toPetBadges, withPolicyFacts, withVerifiedAt } from './petPolicy';
 import { PLACES } from './places';
 import golden from '../../data/golden/seed-extract.json';
@@ -478,6 +488,89 @@ describe('primaryReason — 목록 카드의 근거 한 줄', () => {
   it('unknown 이면 unknown 근거(U1)', () => {
     const reason = primaryReason(judgeEligibility(BIG, parsePetPolicy('정보 없음.')));
     expect(reason?.level).toBe('unknown');
+  });
+
+  it('"확인이 필요해요" 면 판정을 정한 근거 — 앞에 선 야외 자리(C1)가 아니라 그 뒤의 C5', () => {
+    const result = judgeEligibility(BIG, parsePetPolicy('야외좌석만 가능.'));
+    expect(result.reasons.filter((r) => r.level === 'cond').map((r) => r.rule)).toEqual(['C1', 'C5']);
+    expect(primaryReason(result)?.rule).toBe('C5');
+  });
+
+  it('"야외 자리에서 갈 수 있어요" 면 C1 은 머리글을 되풀이할 뿐이라 줄이 없다', () => {
+    expect(primaryReason(judgeEligibility(TOFU, parsePetPolicy('야외좌석만 가능.')))).toBeUndefined();
+  });
+
+  it('야외 자리 머리글이어도 H4·C4 는 왜 야외만인지 더 말해서 남는다(무거버거)', () => {
+    const small: TDogProfile = { dogs: [{ name: '두부', weightKg: 4 }], carrier: 'none' };
+    expect(primaryReason(judgeEligibility(small, findPlace('무거버거').policy))?.rule).toBe('C4');
+    expect(primaryReason(judgeEligibility(BIG, findPlace('무거버거').policy))?.rule).toBe('H4');
+  });
+});
+
+/**
+ * 카드(목록·지도 시트)가 그리는 것 — 판정 배지 · 이유 줄 · 원문 칩. 사용성 평가 10-13 이 짚은 실제 장소 그대로다(14 W261013.1).
+ * `drawn` 은 카드가 실제로 그린 이유 줄 — 목록 머리가 같은 문장을 말해 줄을 뺀 카드는 undefined 를 넘긴다(`hideReasonText`).
+ */
+describe('카드의 이유 줄과 칩이 판정과 같은 말을 한 번 한다(14 W261013.1)', () => {
+  const card = (dog: TDogProfile, name: string, drawn?: (reason: TReason | undefined) => TReason | undefined) => {
+    const { policy } = findPlace(name);
+    const e = judgeEligibility(dog, policy);
+    const primary = primaryReason(e);
+    const reason = drawn ? drawn(primary) : primary;
+    const chips = toPetBadges(policy).filter((badge) => !verdictHidesBadge(e, policy, reason)(badge)).map((badge) => badge.label);
+    return { level: e.level, headline: headlineFor(e), reason, chips };
+  };
+
+  it('웨스티하우스 × 콩 2.5kg·해피 12kg — 어려움 옆에 "✓ 중형견 OK" 도, "1마리까지" 와 반대인 "최대 2마리" 도 안 선다', () => {
+    const junhyuk: TDogProfile = { dogs: [{ name: '콩', weightKg: 2.5 }, { name: '해피', weightKg: 12 }], carrier: 'stroller' };
+    const { level, reason, chips } = card(junhyuk, '웨스티하우스');
+    expect(level).toBe('hard');
+    expect(reason?.text).toBe('20kg 미만은 1마리까지예요');
+    expect(chips).not.toContain('중형견 OK');
+    expect(chips).not.toContain('최대 2마리');
+    expect(chips).toContain('20kg 미만');
+  });
+
+  it('웨스티하우스 × 4kg 한 마리 — 갈 수 있으면 "✓ 중형견 OK" 는 그대로', () => {
+    const { level, chips } = card(TOFU, '웨스티하우스');
+    expect(level).toBe('ok');
+    expect(chips).toContain('중형견 OK');
+    expect(chips).toContain('최대 2마리');
+  });
+
+  it('무히어 × 모카 8kg — 이유 줄은 판정을 정한 예방접종, "야외만" 은 칩으로 한 번, "예방접종 필수" 칩은 줄과 같아 빠진다', () => {
+    const moka: TDogProfile = { dogs: [{ name: '모카', weightKg: 8 }], carrier: 'none' };
+    const { headline, reason, chips } = card(moka, '무히어');
+    expect(headline).toBe('확인이 필요해요');
+    expect(reason?.rule).toBe('C8');
+    expect(chips).toEqual(['야외만']);
+  });
+
+  it('정체불명 × 콩이 5kg 이동가방 — "확인이 필요해요" 옆에 "✓ 실내 OK" 가 안 서고, 전화 확인은 이유 줄 한 번', () => {
+    const youngja: TDogProfile = { dogs: [{ name: '콩이', weightKg: 5 }], carrier: 'bag' };
+    const { headline, reason, chips } = card(youngja, '정체불명');
+    expect(headline).toBe('확인이 필요해요');
+    expect(reason?.text).toBe('방문 전 전화 확인이 필요해요');
+    expect(chips).toEqual([]);
+  });
+
+  it('목록 머리가 이유를 말해 줄을 뺀 카드는 칩이 유일한 단서라 남긴다', () => {
+    const youngja: TDogProfile = { dogs: [{ name: '콩이', weightKg: 5 }], carrier: 'bag' };
+    expect(card(youngja, '정체불명', () => undefined).chips).toEqual(['전화 확인']);
+  });
+
+  it('야외 자리만 되는 곳(부부키친) — 머리글이 말하므로 이유 줄도 "야외만" 칩도 없다: 카드 한 장에 "야외" 가 한 번', () => {
+    const { headline, reason, chips } = card(TOFU, '부부키친');
+    expect(headline).toBe('야외 자리에서 갈 수 있어요');
+    expect(reason).toBeUndefined();
+    expect(chips).not.toContain('야외만');
+  });
+
+  it('야외 자리 머리글(무거버거 C4) — 이유 줄 "실내는 케이지 …" 와 같은 "케이지 필요" 칩은 빠진다', () => {
+    const small: TDogProfile = { dogs: [{ name: '두부', weightKg: 4 }], carrier: 'none' };
+    const { reason, chips } = card(small, '무거버거');
+    expect(reason?.rule).toBe('C4');
+    expect(chips).not.toContain('케이지 필요');
   });
 });
 

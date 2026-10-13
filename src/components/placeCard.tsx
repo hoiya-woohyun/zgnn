@@ -8,7 +8,7 @@ import { SavedNoteLine } from './savedNoteLine';
 import { TownChip } from './townChip';
 import { categoryLabel } from '../lib/category';
 import { distanceLabel } from '../lib/distanceSort';
-import { primaryReason } from '../lib/eligibility';
+import { primaryReason, verdictHidesBadge } from '../lib/eligibility';
 import { formatStayPrice } from '../lib/format';
 import { freshnessShortLabel } from '../lib/placeFreshness';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
@@ -55,7 +55,9 @@ type TPlaceCardProps = {
  */
 export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEditor, cornerAction, footer }: TPlaceCardProps) {
   const eligibility = useEligibility(place);
-  const reason = eligibility ? primaryReason(eligibility) : undefined;
+  const primary = eligibility ? primaryReason(eligibility) : undefined;
+  // 목록 머리가 같은 문장을 이미 말했으면 카드는 그 줄을 뺀다. 칩 거르기(`verdictHidesBadge`)도 **그린 줄**을 본다.
+  const reason = primary && primary.text !== hideReasonText ? primary : undefined;
   const weightKg = useDogMaxWeightKg();
   const dogCount = useDogCount();
   const verified = freshnessShortLabel(place, useToday());
@@ -96,9 +98,9 @@ export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEdit
       {eligibility?.fee && <p className="mt-1 text-sm text-secondary">{eligibility.fee}</p>}
 
       {/* 왜 "확인"·"어려움" 인지 한 줄 — 7곳을 다 눌러 봐야 알던 것을 목록에서 읽게(민준 N1).
-          카드 높이가 들쭉날쭉하지 않게 한 줄로 자른다. 상세의 첫 근거와 같은 문장이다.
+          카드 높이가 들쭉날쭉하지 않게 한 줄로 자른다. 판정을 정한 근거의 문장이다(`primaryReason`).
           목록 머리가 같은 문장을 이미 말했으면 빼서, 다른 이유를 가진 카드만 줄이 남게 한다. */}
-      {reason && reason.text !== hideReasonText && <p className="clamp-1 mt-1 text-xs text-tertiary">{reason.text}</p>}
+      {reason && <p className="clamp-1 mt-1 text-xs text-tertiary">{reason.text}</p>}
 
       <div className={cx('mt-3 flex flex-wrap items-center gap-1', cornerAction && 'min-h-9 pr-24')}>
         {eligibility && <EligibilityBadge eligibility={eligibility} />}
@@ -107,6 +109,8 @@ export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEdit
           // 오른쪽 알약이 배지 하나 몫을 차지한다 — 하나 덜 보여(나머지는 +N) 배지 줄이 두 줄로 꺾이지 않게.
           limit={(eligibility ? 2 : 3) - (cornerAction ? 1 : 0)}
           hideNoInfo={Boolean(eligibility)}
+          // 판정과 반대로 읽히는 ✓ 칩, 머리글·이유 줄이 이미 한 말을 뺀다(14 W261013.1) — 같은 말은 카드에 한 번.
+          hide={eligibility ? verdictHidesBadge(eligibility, place.policy, reason) : undefined}
           weightKg={weightKg}
           dogCount={dogCount}
           feeLine={eligibility?.fee}

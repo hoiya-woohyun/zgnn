@@ -693,6 +693,34 @@ export const NO_INFO_BADGE_LABEL = '확인된 정보 없음';
 export const UNREAD_BADGE_LABEL = '원문 확인 필요';
 
 /**
+ * 판정 근거 한 줄(`eligibility.ts` 의 규칙)과 같은 칸을 말하는 배지의 라벨. 카드가 이유 줄 옆에 같은 말을 또 세우지 않게 거르는 쪽
+ * (`verdictHidesBadge`)과 `toPetBadges` 가 같은 값을 본다 — 라벨을 두 곳에 글자로 적으면 한쪽만 바뀌어 거르기가 조용히 꺼진다.
+ */
+export const BADGE_LABEL = {
+  notAllowed: '동반 불가',
+  cage: '케이지 필요',
+  outdoorOnly: '야외만',
+  largeDogNo: '대형견 불가',
+  smallDogOnly: '소형견만',
+  vaccineRequired: '예방접종 필수',
+  callFirst: '전화 확인',
+} as const;
+
+/**
+ * 무게 상한 배지. '이하' 와 '미만' 을 같은 글자(`~7kg`)로 쓰면 경계에 선 강아지(7kg)에게 한 칩이 두 판정을 말한다(14 W261007.8).
+ * 경계는 상한을 정한 tier 의 것이다 — 판정(`eligibility.ts` 의 `fitsTierWeight`)이 같은 칸을 같은 기본값으로 읽는다.
+ */
+export const weightLimitBadgeLabel = (policy: Pick<TPetPolicy, 'weightLimitKg' | 'tiers'>): string | undefined => {
+  if (policy.weightLimitKg === undefined) return undefined;
+  const tier = policy.tiers.find((t) => t.maxWeightKg === policy.weightLimitKg);
+  return `${policy.weightLimitKg}kg ${tier?.weightInclusive ? '이하' : '미만'}`;
+};
+
+/** 마릿수 상한 배지. */
+export const maxDogsBadgeLabel = (policy: Pick<TPetPolicy, 'maxDogs'>): string | undefined =>
+  policy.maxDogs === undefined ? undefined : `최대 ${policy.maxDogs}마리`;
+
+/**
  * 원문이 이동가방(슬링백)을 허용으로 적었나 — 뒤 16자 안에 거절 말이 없을 때만. 여기서 잘못 읽으면 판정 C2 가 지어낸
  * '갈 수 있어요' 를 내므로 거절 말을 '실내 … 안 돼요' 만큼 넓힌다. 판정(C2)과 배지(`cageBadge`)가 같은 식을 본다.
  */
@@ -721,7 +749,7 @@ export const cageGear = (policy: Pick<TPetPolicy, 'sources' | 'indoorGearText' |
  */
 const cageBadge = (policy: Pick<TPetPolicy, 'sources' | 'indoorGearText' | 'indoorGear'>): TPetBadge => {
   const { bag, stroller } = cageGear(policy);
-  const label = bag && stroller ? '가방·유모차 필요' : bag ? '이동가방 필요' : stroller ? '유모차 필요' : '케이지 필요';
+  const label = bag && stroller ? '가방·유모차 필요' : bag ? '이동가방 필요' : stroller ? '유모차 필요' : BADGE_LABEL.cage;
   return { label, tone: 'cond', axis: 'gear' };
 };
 
@@ -730,13 +758,13 @@ const INDOOR_BADGE: Record<TIndoorPolicy, TPetBadge | null> = {
   // 이 하나만 축이 'gear' 다 — 실내 판단에서 나오지만 사람이 할 일은 "케이지·이동가방·유모차를 챙긴다" 다(`TBadgeAxis`).
   // 라벨은 근거 문장에 따라 바뀐다 — `toPetBadges` 가 `cageBadge` 로 만든다. 이 칸은 근거가 없을 때의 모양이다.
   cage: cageBadge({ sources: {} }),
-  outdoorOnly: { label: '야외만', tone: 'cond', axis: 'indoor' },
+  outdoorOnly: { label: BADGE_LABEL.outdoorOnly, tone: 'cond', axis: 'indoor' },
   // 숙소 원문에는 실내 언급이 거의 없다. 없는 정보를 배지로 만들지 않는다.
   unknown: null,
 };
 
 /** 요일 배지 라벨 — 하나면 "수요일만", 여럿이면 "수·토요일만". */
-const petDaysBadgeLabel = (days: TWeekday[]): string => `${days.join('·')}요일만`;
+export const petDaysBadgeLabel = (days: TWeekday[]): string => `${days.join('·')}요일만`;
 
 /**
  * 카드와 상세에서 같은 순서로 보이도록 여기서 순서를 고정한다.
@@ -746,7 +774,7 @@ export const toPetBadges = (policy: TPetPolicy): TPetBadge[] => {
   const badges: TPetBadge[] = [];
 
   // 동반 자체가 안 되는 곳은 다른 배지가 의미 없다 — 맨 앞에 하나.
-  if (policy.notAllowed) badges.push({ label: '동반 불가', tone: 'warn', axis: 'notAllowed' });
+  if (policy.notAllowed) badges.push({ label: BADGE_LABEL.notAllowed, tone: 'warn', axis: 'notAllowed' });
 
   const indoorBadge = policy.indoor === 'cage' ? cageBadge(policy) : INDOOR_BADGE[policy.indoor];
   if (indoorBadge) badges.push(indoorBadge);
@@ -773,30 +801,24 @@ export const toPetBadges = (policy: TPetPolicy): TPetBadge[] => {
   // 크기 조건은 하나만 보여준다. 큰 쪽이 되면 작은 쪽은 말할 필요가 없고,
   // '소형견만' 은 숫자 상한이 없는 숙소의 유일한 크기 단서라 맨 뒤에 둔다.
   // '대형견 불가' 가 크기 줄의 맨 앞이다 — 판정 H7 이 이것으로 어려움을 내므로, 배지가 없으면 목록에서 이유가 안 보인다.
-  if (policy.largeDogNo) badges.push({ label: '대형견 불가', tone: 'warn', axis: 'size' });
+  if (policy.largeDogNo) badges.push({ label: BADGE_LABEL.largeDogNo, tone: 'warn', axis: 'size' });
   else if (policy.largeDogOk) badges.push({ label: '대형견 OK', tone: 'ok', axis: 'size' });
   else if (policy.mediumDogOk) badges.push({ label: '중형견 OK', tone: 'ok', axis: 'size' });
-  else if (policy.smallDogOnly) badges.push({ label: '소형견만', tone: 'cond', axis: 'size' });
+  else if (policy.smallDogOnly) badges.push({ label: BADGE_LABEL.smallDogOnly, tone: 'cond', axis: 'size' });
 
-  // '이하' 와 '미만' 을 같은 글자(`~7kg`)로 쓰면 경계에 선 강아지(7kg)에게 한 칩이 두 판정을 말한다(14 W261007.8).
-  // 경계는 상한을 정한 tier 의 것이다 — 판정(`eligibility.ts` 의 `fitsTierWeight`)이 같은 칸을 같은 기본값으로 읽는다.
-  if (policy.weightLimitKg !== undefined) {
-    const tier = policy.tiers.find((t) => t.maxWeightKg === policy.weightLimitKg);
-    const bound = tier?.weightInclusive ? '이하' : '미만';
-    badges.push({ label: `${policy.weightLimitKg}kg ${bound}`, tone: 'cond', axis: 'limit' });
-  }
-  if (policy.maxDogs !== undefined) {
-    badges.push({ label: `최대 ${policy.maxDogs}마리`, tone: 'cond', axis: 'limit' });
-  }
+  const weightLimit = weightLimitBadgeLabel(policy);
+  if (weightLimit) badges.push({ label: weightLimit, tone: 'cond', axis: 'limit' });
+  const maxDogs = maxDogsBadgeLabel(policy);
+  if (maxDogs) badges.push({ label: maxDogs, tone: 'cond', axis: 'limit' });
   if (policy.leash) badges.push({ label: '리드줄', tone: 'cond', axis: 'gear' });
   // 챙길 물건이 아니라 강아지가 갖춰야 하는 조건이라 `limit` 축(→ `/admin` 의 동반 조건 열)이다.
-  if (policy.vaccineRequired) badges.push({ label: '예방접종 필수', tone: 'cond', axis: 'limit' });
+  if (policy.vaccineRequired) badges.push({ label: BADGE_LABEL.vaccineRequired, tone: 'cond', axis: 'limit' });
 
   // '정보 없음. (문의해보시면 가장 정확할 것 같아요)' 는 두 규칙에 다 걸린다.
   // 같은 말을 두 번 하지 않도록 '정보 없음' 이 있으면 '전화 확인' 은 생략한다.
   if (policy.noInfo) badges.push({ label: NO_INFO_BADGE_LABEL, tone: 'warn', axis: 'status' });
   else if (policy.unread) badges.push({ label: UNREAD_BADGE_LABEL, tone: 'warn', axis: 'status' });
-  else if (policy.callFirst) badges.push({ label: '전화 확인', tone: 'warn', axis: 'status' });
+  else if (policy.callFirst) badges.push({ label: BADGE_LABEL.callFirst, tone: 'warn', axis: 'status' });
 
   return badges;
 };

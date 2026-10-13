@@ -15,8 +15,8 @@ import type { TCarrier, TDogEntry, TDogProfile, TDogSize } from '../types';
 import { formatDogFee } from './dogFee';
 import { maxWeightKg } from './dogProfile';
 import { dogCallName, dogCallNames, josa, withJosa } from './korean';
-import { cageGear } from './petPolicy';
-import type { TPetPolicy, TPolicyTier } from './petPolicy';
+import { BADGE_LABEL, cageGear, maxDogsBadgeLabel, petDaysBadgeLabel, UNREAD_BADGE_LABEL, weightLimitBadgeLabel } from './petPolicy';
+import type { TPetBadge, TPetPolicy, TPolicyTier } from './petPolicy';
 
 export type TEligibilityLevel = 'ok' | 'cond' | 'unknown' | 'hard';
 /** 근거 한 줄의 심각도. 'ok' 는 근거가 아니라 결과라서 여기엔 없다 — 어떤 규칙도 'ok' 근거를 만들지 않는다. */
@@ -540,13 +540,66 @@ export const verdictFor = (dogNames: string[], e: TEligibility): string =>
 
 /**
  * 목록 카드에 한 줄로 보일 대표 근거 — 눌러 보지 않아도 왜 "확인"·"어려움" 인지 읽히게(민준 N1).
- * 최종 레벨과 같은 레벨의 첫 근거(근거는 이미 표시 순서로 정렬돼 있다). `ok` 면 말할 이유가 없다.
- * 요금(I1)은 카드가 이미 따로 한 줄 그리므로 고르지 않는다.
+ * **판정을 정한 근거**를 고른다(14 W261013.1). 보통은 최종 레벨과 같은 레벨의 첫 근거(표시 순서로 정렬돼 있다)지만 cond 는 갈린다:
+ * - 머리글이 "확인이 필요해요" 면 그 말을 정한 것은 야외 자리 규칙(C1·C4·H4)이 **아닌** 근거다 — 야외 자리 규칙뿐이었으면 머리글이
+ *   "야외 자리에서 갈 수 있어요" 였다. 무히어는 '야외 자리만 가능해요' 가 앞에 서서, 판정을 정한 예방접종은 상세에서야 보였다.
+ * - 머리글이 "야외 자리에서 갈 수 있어요" 면 C1('야외 자리만 가능해요')은 머리글을 되풀이할 뿐이라 고르지 않는다 — 카드 한 장에
+ *   '야외' 가 세 번이었다. H4·C4 는 왜 야외만인지('대형견이라'·'실내는 케이지') 더 말하므로 남는다.
+ * `ok` 면 말할 이유가 없다. 요금(I1)은 카드가 이미 따로 한 줄 그리므로 고르지 않는다.
  */
 export const primaryReason = (e: TEligibility): TReason | undefined => {
   if (e.level === 'ok') return undefined;
-  return e.reasons.find((r) => r.level === e.level);
+  const same = e.reasons.filter((r) => r.level === e.level);
+  if (e.level !== 'cond') return same[0];
+  if (isOutdoorSeatOnly(e)) return same.find((r) => r.rule !== 'C1');
+  return same.find((r) => r.rule === undefined || !OUTDOOR_SEAT_RULES.has(r.rule));
 };
+
+/**
+ * 이유 줄과 같은 칸을 말하는 원문 칩 — 규칙 ID → 그 규칙이 읽은 정책 칸의 배지 라벨(`toPetBadges` 와 같은 함수·상수로 만든다).
+ * 케이지 규칙은 **'케이지 필요' 일 때만** 겹친다: 원문이 가방·유모차를 적어 칩이 '이동가방 필요' 면 줄('케이지 동반시에만')이 안 한 말을 한다.
+ */
+const REASON_BADGE: Record<string, (policy: TPetPolicy) => string | undefined> = {
+  H0: () => BADGE_LABEL.notAllowed,
+  H1: weightLimitBadgeLabel,
+  // 같은 칸을 반대로 말한다 — '20kg 미만은 1마리까지예요' 옆의 '최대 2마리'(웨스티하우스, 10kg 미만이 2마리다).
+  H2: maxDogsBadgeLabel,
+  H3: () => BADGE_LABEL.smallDogOnly,
+  H7: () => BADGE_LABEL.largeDogNo,
+  H4: () => BADGE_LABEL.cage,
+  H5: () => BADGE_LABEL.cage,
+  H6: () => BADGE_LABEL.outdoorOnly,
+  C1: () => BADGE_LABEL.outdoorOnly,
+  C2: () => BADGE_LABEL.cage,
+  C3: () => BADGE_LABEL.cage,
+  C4: () => BADGE_LABEL.cage,
+  C6: () => BADGE_LABEL.callFirst,
+  C8: () => BADGE_LABEL.vaccineRequired,
+  C11: (policy) => (policy.petDays?.length ? petDaysBadgeLabel(policy.petDays) : undefined),
+  C7: () => UNREAD_BADGE_LABEL,
+};
+
+/**
+ * 판정 배지·이유 줄과 같은 줄에 서는 원문 칩 중 **카드(목록·지도 시트)에서 뺄 것**(14 W261013.1). 칩은 원문 속성이고 판정은 우리 강아지의
+ * 답인데, 한 카드에 나란히 서면 한 문장처럼 읽힌다 — 둘이 다른 말을 하면 판정을 못 믿고, 같은 말을 하면 카드가 같은 말을 두세 번 한다.
+ *
+ * - **받아 준다는 ✓ 칩(크기·실내)은 판정이 받아 줄 때만**(갈 수 있어요 · 야외 자리에서 갈 수 있어요). '이용하기 어려워요' 옆 '✓ 중형견 OK'
+ *   (웨스티하우스, 중형견은 1마리), '확인이 필요해요' 옆 '✓ 실내 OK'(정체불명)는 판정과 반대 말로 읽혔다. 요금 ✓ 는 받아 주는지와 무관해 남는다.
+ * - **머리글이 야외 자리를 말하면 '야외만' 을 뺀다.**
+ * - **이유 줄이 말한 칸의 칩을 뺀다**(`REASON_BADGE`). `shownReason` 은 `primaryReason` 이 아니라 **카드에 실제로 그린 줄**이다 —
+ *   목록 머리가 같은 이유를 한 번 말해 줄을 뺀 카드(`hideReasonText`)는 칩('케이지 필요')이 그 카드의 유일한 단서라 남긴다.
+ *
+ * 상세는 거르지 않는다 — 원문 칩 전부가 원문 위에 선다.
+ */
+export const verdictHidesBadge =
+  (e: TEligibility, policy: TPetPolicy, shownReason: TReason | undefined) =>
+  (badge: TPetBadge): boolean => {
+    const outdoorSeat = isOutdoorSeatOnly(e);
+    if (e.level !== 'ok' && !outdoorSeat && badge.tone === 'ok' && (badge.axis === 'size' || badge.axis === 'indoor')) return true;
+    if (outdoorSeat && badge.label === BADGE_LABEL.outdoorOnly) return true;
+    const said = shownReason?.rule === undefined ? undefined : REASON_BADGE[shownReason.rule]?.(policy);
+    return said !== undefined && badge.label === said;
+  };
 
 // 화면(폼)에서 이동 수단 4택을 그릴 때 쓰는 라벨·설명. 여기 두는 이유는 판정 규칙 문구와
 // 짝을 맞춰 관리하기 위해서다 — 규칙 문구가 바뀌면 이 설명도 같이 봐야 한다.

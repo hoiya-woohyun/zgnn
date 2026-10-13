@@ -9,7 +9,7 @@ import { SavedNoteLine } from '../components/savedNoteLine';
 import { TownChip } from '../components/townChip';
 import { Button } from '@/components/base/button';
 import { categoryLabel } from '../lib/category';
-import { primaryReason } from '../lib/eligibility';
+import { primaryReason, verdictHidesBadge } from '../lib/eligibility';
 import { naverDirectionsUrl } from '../lib/naverPlaceLink';
 import { freshnessShortLabel } from '../lib/placeFreshness';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
@@ -32,6 +32,7 @@ type TMapPageSheetCardProps = {
  */
 export function MapPageSheetCard({ place }: TMapPageSheetCardProps) {
   const eligibility = useEligibility(place);
+  const reason = eligibility ? primaryReason(eligibility) : undefined;
   const weightKg = useDogMaxWeightKg();
   const dogCount = useDogCount();
   const verified = freshnessShortLabel(place, useToday());
@@ -62,15 +63,22 @@ export function MapPageSheetCard({ place }: TMapPageSheetCardProps) {
           <div className="mt-2.5 flex items-center gap-2">
             <EligibilityBadge eligibility={eligibility} />
             {/* 목록 카드와 같은 대표 근거(`primaryReason`) — `reasons[0]` 이면 같은 장소를 두 화면이 다른 말로 설명한다(12 U1.7). */}
-            {primaryReason(eligibility) && (
-              <span className="truncate text-sm text-secondary">{primaryReason(eligibility)?.text}</span>
-            )}
+            {reason && <span className="truncate text-sm text-secondary">{reason.text}</span>}
           </div>
         )}
 
         {/* 소개가 없는 곳(21 S7)은 빈 줄을 그리지 않는다 — 빈 <p> 도 위 여백을 먹는다. */}
         {place.features && <p className="clamp-2 mt-2.5 text-sm text-secondary">{place.features}</p>}
-        <PetBadges policy={place.policy} limit={3} hideNoInfo={Boolean(eligibility)} weightKg={weightKg} dogCount={dogCount} className="mt-2.5" />
+        {/* 목록 카드와 같은 거르기 — 판정과 반대로 읽히는 ✓ 칩, 머리글·근거 줄이 이미 한 말은 뺀다(14 W261013.1). */}
+        <PetBadges
+          policy={place.policy}
+          limit={3}
+          hideNoInfo={Boolean(eligibility)}
+          hide={eligibility ? verdictHidesBadge(eligibility, place.policy, reason) : undefined}
+          weightKg={weightKg}
+          dogCount={dogCount}
+          className="mt-2.5"
+        />
       </Link>
 
       {/* 카드 본문 바깥에 둔다 — 자기도 링크라서 위 <Link> 안에 넣으면 a 안에 a 가 된다. */}

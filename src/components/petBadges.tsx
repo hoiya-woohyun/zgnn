@@ -2,7 +2,7 @@ import { Check } from '@untitledui/icons';
 import { Badge, BadgeWithIcon } from './base/badges';
 import type { BadgeColors } from './base/badge-types';
 import { feeChipForWeight } from '../lib/dogFee';
-import { isFeeBadgeRepeatedIn, NO_INFO_BADGE_LABEL, toPetBadges, type TBadgeTone, type TPetPolicy } from '../lib/petPolicy';
+import { isFeeBadgeRepeatedIn, NO_INFO_BADGE_LABEL, toPetBadges, type TBadgeTone, type TPetBadge, type TPetPolicy } from '../lib/petPolicy';
 
 /**
  * 파서가 매긴 톤을 Untitled UI 배지 색으로 옮긴다.
@@ -36,6 +36,11 @@ type TPetBadgesProps = {
    * "확인된 정보 없음" 을 나란히 두면 같은 말을 두 번 하는 셈이라 뺀다.
    */
   hideNoInfo?: boolean;
+  /**
+   * 판정 배지·이유 줄이 이미 말했거나 판정과 반대로 읽히는 칩을 뺀다(카드·지도 시트 — `verdictHidesBadge`). 뺀 칩은 `+N` 에 세지 않는다:
+   * 접어 둔 것이 아니라 카드가 말하지 않기로 한 것이다.
+   */
+  hide?: (badge: TPetBadge) => boolean;
   /** 이 배지 줄 바로 밑에 원문을 같이 보여 줄 때 넘긴다 — 원문에 그대로 적힌 요금 배지는 같은 말이라 뺀다. */
   sourceText?: string;
   /** 우리 강아지(가장 무거운 아이) 몸무게. 있으면 `limit` 자리의 요금 칩 하나를 그 구간 줄로 고른다(`feeChipForWeight`). */
@@ -51,8 +56,9 @@ type TPetBadgesProps = {
   className?: string;
 };
 
-export function PetBadges({ policy, limit, hideNoInfo = false, sourceText, weightKg, dogCount, feeLine, className = '' }: TPetBadgesProps) {
+export function PetBadges({ policy, limit, hideNoInfo = false, hide, sourceText, weightKg, dogCount, feeLine, className = '' }: TPetBadgesProps) {
   const all = toPetBadges(policy).filter((badge) => !(hideNoInfo && badge.label === NO_INFO_BADGE_LABEL))
+    .filter((badge) => !hide?.(badge))
     .filter((badge) => !(sourceText !== undefined && isFeeBadgeRepeatedIn(badge, sourceText)));
   /*
    * **자리가 정해진 곳에서는 요금 줄을 첫 줄만 세운다.** 요금은 기준마다 한 줄이라 개수 상한이 없고
