@@ -2,6 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 import { approveGroup, confirmSite, EDITED_NOTE, rejectGroup, saveEdit, setRegion, SITE_CONFIRMED_NOTE } from './adminApply';
 import type { TCandidateExtracted, TCandidateGroup, TCandidateRow, TPlaceRow } from './adminCandidates';
+import { groupIntroOf } from './adminGroupIntro';
+import { materialsFingerprint, synthesisMaterials } from '../../scripts/analyze/groupIntroMaterials.mjs';
 
 /*
  * 가짜 클라이언트 — supabase-js 의 체이너블 빌더 흉내만 낸다.
@@ -569,6 +571,36 @@ describe('approveGroup — 묶음의 나머지 글', () => {
       kind: 'merged',
       patchKeys: ['address'],
     });
+  });
+});
+
+describe('approveGroup — 새 장소의 소개는 묶음의 소개다(13 §5.3 A3)', () => {
+  const two = () => [
+    candidate({ id: 'cand-1', post_url: 'https://blog/1', extracted: extracted({ features: '드립커피를 내리는 카페예요.' }) }),
+    candidate({ id: 'cand-2', post_url: 'https://blog/2', extracted: extracted({ features: '마당에 강아지 놀이터가 있는 카페예요.', confidence: 0.5 }) }),
+  ];
+
+  it('지문이 맞는 저장 종합이 있으면 그 소개로 넣는다 — 카드가 보인 것과 같은 함수', async () => {
+    const rows = two();
+    const g = group(rows);
+    const fingerprint = materialsFingerprint(synthesisMaterials(rows.map((row) => ({ id: row.post_url ?? '', features: row.extracted.features, visited: true }))));
+    const intro = '드립커피를 내리고 마당에 강아지 놀이터가 있는 카페예요.';
+    const intros = new Map([[g.key, { group_key: g.key, fingerprint, intro, sentences: [{ text: intro, posts: ['https://blog/1', 'https://blog/2'] }], conflict: null, reasons: [] }]]);
+    const { calls, client } = createFakeClient();
+    await approveGroup(client, g, [], { ...OPTIONS, groupIntros: intros });
+    expect(calls[0].payload.features).toBe(intro);
+    expect(groupIntroOf(g, intros).text).toBe(intro);
+  });
+
+  it('소개가 규칙에 걸리면 빈 소개로 넣고, 형제 글의 요약이 그 빈 칸을 채우지 않는다', async () => {
+    const lead = candidate({ id: 'cand-1', post_url: 'https://blog/1', extracted: extracted({ features: '소형견 전용 카페예요.', visited: false }) });
+    const sibling = candidate({ id: 'cand-2', post_url: 'https://blog/2', extracted: extracted({ features: '소형견만 들어갈 수 있는 카페예요.', address: '제주시 구좌읍 3', confidence: 0.5 }) });
+    const { calls, client } = createFakeClient();
+    await approveGroup(client, group([lead, sibling]), [], OPTIONS);
+    expect(calls[0].payload.features).toBe('');
+    // 형제는 주소만 채운다 — 소개(features)는 묶음이 정한 빈 소개 그대로다.
+    expect(trace(calls)).toContain('places.update:address');
+    expect(calls.some((call) => call.table === 'places' && call.op === 'update' && 'features' in call.payload)).toBe(false);
   });
 });
 

@@ -20,12 +20,67 @@
 // 실행마다 `pipeline_runs` 에 한 행(scripts/lib/runLog.mjs, docs/todo/15 T2.4) — `--dry-run` 은 남기지 않는다. 기록이 안 돼도 반영은 그대로 돈다.
 import { randomUUID } from 'node:crypto';
 import { APPROVED_QUIET_MS, mergeIntoExisting, settledApprovedFilter, toNewPlaceRow, toRecheckCandidate } from './analyze/applyApproved.mjs';
+import { chooseGroupIntro } from './analyze/groupIntroMaterials.mjs';
 import { matchPlace, THRESHOLD } from './analyze/matchPlace.mjs';
+import { groupCandidates } from './analyze/reviewCandidates.mjs';
+import { isTableMissing } from './lib/collectRequests.mjs';
 import { toMatchablePlace } from './lib/placeFields.mjs';
+import { selectAllPages } from './lib/selectAllPages.mjs';
 import { beginRun, NO_RUN } from './lib/runLog.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
 import { formatApplySummary } from '../src/lib/runSummary.ts';
 import { isDirectRun } from './lib/isDirectRun.mjs';
+
+/**
+ * 승인 후보 → 그 묶음의 소개(13 §5.3 A3). /admin(`approveGroup`)과 **같은 함수**(`chooseGroupIntro`)·같은 묶음이어야 화면이 보인 소개와 여기서 넣는 소개가 같다.
+ * 묶음은 분석이 소개를 저장한 때처럼 다시 묶는다 — pending + 이번 승인 행(승인된 행도 그때는 pending 이었다), 분석과 같은 `id` 순서.
+ * 저장 종합은 지문이 지금 재료와 같을 때만 쓰고, 다르면 대체값(내용 규칙을 거친 다녀온 글 요약 · 대표 `features`)이다. 순수.
+ * @param {readonly object[]} rows  pending 후보 + 이번 승인 후보(`id` · `post_url` · `match_place_id` · `extracted`)
+ * @param {ReadonlyMap<string, object>} stored  묶음 키 → `group_intros` 줄
+ * @returns {(candidate: { id: string }) => ReturnType<typeof chooseGroupIntro> | null}
+ */
+export function introChooser(rows, stored) {
+  const byId = [...rows].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const groupOf = new Map();
+  for (const group of groupCandidates(byId)) for (const row of group.rows) groupOf.set(row.id, group);
+  return (candidate) => {
+    const group = groupOf.get(candidate.id);
+    return group ? chooseGroupIntro(group, stored.get(group.key) ?? null) : null;
+  };
+}
+
+/** 소개가 어디서 왔나 — 로그 한마디. 소개 문장은 블로그에서 파생된 말이라 찍지 않는다(05). */
+const introLabel = (intro) =>
+  intro.source === 'conflict'
+    ? '없음(요약이 갈림)'
+    : intro.dropped.length
+      ? `없음(규칙 ${intro.dropped.length}개)`
+      : !intro.text
+        ? '없음'
+        : { synth: '묶음 종합', summary: '다녀온 글 요약', lead: '대표 요약' }[intro.source];
+
+/**
+ * 새 장소가 될 수 있는 후보(짝 없음)가 있을 때만 읽는다 — `group_intros` 와 pending 전부. 표가 아직 없으면(🧑 `db push` 전) 한 줄 알리고 저장값 없이 간다.
+ * 그 밖의 읽기 실패는 던진다(후보·장소 읽기와 같다) — 삼키면 충돌 묶음이 대표 요약을 달고 들어간다.
+ */
+async function loadIntroChooser(supabase, candidates) {
+  if (!candidates.some((candidate) => !candidate.match_place_id)) return () => null;
+  const intros = await selectAllPages((from, to) =>
+    supabase.from('group_intros').select('group_key, fingerprint, intro, sentences, conflict, reasons').order('group_key').range(from, to),
+  );
+  let stored = new Map();
+  if (intros.error) {
+    if (!isTableMissing(intros.error)) throw new Error(`group_intros 조회 실패: ${intros.error.message}`);
+    console.log('묶음 소개 표(group_intros)가 아직 없다 — 새 장소의 소개는 대체값(규칙을 거친 다녀온 글 요약 · 대표 요약)');
+  } else {
+    stored = new Map(intros.data.map((row) => [row.group_key, row]));
+  }
+  const pending = await selectAllPages((from, to) =>
+    supabase.from('candidates').select('id, post_url, match_place_id, extracted').eq('status', 'pending').order('id').range(from, to),
+  );
+  if (pending.error) throw new Error(`pending 후보 조회 실패(묶음 소개): ${pending.error.message}`);
+  return introChooser([...pending.data, ...candidates], stored);
+}
 
 export async function main(argv = process.argv.slice(2)) {
   // 인자는 --dry-run 하나뿐. 모르는 인자(--dryrun 오타)로 실제 쓰기가 도는 일이 없게 거부한다(analyze 의 parseArgs 와 같은 원칙).
@@ -85,6 +140,10 @@ export async function main(argv = process.argv.slice(2)) {
   // 이용 안내 칸(마이그레이션 20261012120000)도 같은 이유로 — 원격에 생기기 전엔 신규 행에 싣지 않는다.
   const guideColumn = placeRows.some((row) => 'pet_policy_guide' in row);
   const rowById = new Map(placeRows.map((row) => [row.id, row]));
+  // 장소 대조(위 `existing` — 상태 무관 · `toMatchablePlace`)와는 따로 읽는다. 소개 출처만 바꾸고 대조 corpus 는 건드리지 않는다.
+  const introOf = await loadIntroChooser(supabase, candidates);
+  // 이 실행이 묶음의 소개로 만든 장소 — 같은 묶음의 다음 후보가 보강으로 올 때 빈 소개(충돌 · 규칙에 걸림)를 검사 없이 채우지 않게(`approveGroup` 과 같다).
+  const introDecided = new Set();
 
   // 시작 기록은 사전 점검(후보·장소 읽기 · places 비어 있음) 뒤 — 그 앞의 exit(1) 은 돌지 않은 것이다.
   const run = dryRun ? NO_RUN : await beginRun(supabase, { script: 'apply', args: null });
@@ -142,7 +201,8 @@ export async function main(argv = process.argv.slice(2)) {
           throw Object.assign(new Error(`${target.name}(${target.id}) 은 archived — 내린 곳에는 병합하지 않는다. 다시 연 가게면 /admin 에서 '되살려서 합치기'`), { permanent: true });
         }
 
-        const patch = mergeIntoExisting(target, candidate.extracted, { postUrl: candidate.post_url });
+        const source = introDecided.has(target.id) ? { ...candidate.extracted, features: null } : candidate.extracted;
+        const patch = mergeIntoExisting(target, source, { postUrl: candidate.post_url });
         if (patch) {
           patchKeys = Object.keys(patch);
           const geoTag = patch.lat !== undefined && candidate.extracted?.geoSource ? ` [geo:${candidate.extracted.geoSource}]` : '';
@@ -161,7 +221,13 @@ export async function main(argv = process.argv.slice(2)) {
         kind = 'merged';
       } else {
         const row = toNewPlaceRow(candidate, { id: randomUUID(), environmentColumn, guideColumn });
-        await write(`신규 ${row.name}(${row.id}) published 로 insert`, () => supabase.from('places').insert(row));
+        // 소개는 대표 한 편의 `features` 가 아니라 묶음의 소개다(13 §5.3 A3) — /admin 카드가 보인 것과 같은 함수.
+        const intro = introOf(candidate);
+        if (intro) {
+          row.features = intro.text ?? '';
+          introDecided.add(row.id);
+        }
+        await write(`신규 ${row.name}(${row.id}) published 로 insert${intro ? ` · 소개 ${introLabel(intro)}` : ''}`, () => supabase.from('places').insert(row));
         // 같은 실행의 다음 후보가 이 새 장소와 대조되게 목록에도 넣는다(dry-run 도 같은 경로 — 무엇이 합쳐질지 미리 보인다).
         existing.push(toMatchablePlace(row));
         rowById.set(row.id, row);

@@ -13,9 +13,8 @@
 // 재료는 다녀온 글의 요약뿐이다 — 목록글(`visited: false`)의 소개는 글의 틀이다(식약처 명단글 "… 일반음식점으로 등록된 곳이에요", docs/todo/21).
 // 같은 문장은 하나로 합치고 몇 편이 냈는지만 적는다(엔젤하우스는 수십 편이 같은 한 문장이다). 합친 뒤 재료가 하나면 부르지 않는다.
 import { createHash } from 'node:crypto';
-import { topicReasons } from '../lib/petPolicyGuide.mjs';
 import { classifyCliError, ClaudeCliError, ExtractionError, MODEL, PROMPT_FEATURES_RULE } from './extractPlaces.mjs';
-import { synthesisMaterials } from './groupIntroMaterials.mjs';
+import { introTextReasons, synthesisMaterials } from './groupIntroMaterials.mjs';
 
 /** 소개 상한 — 추출의 소개 지시(`PROMPT_FEATURES_RULE`)와 같은 값. */
 export const INTRO_MAX_SENTENCES = 2;
@@ -158,12 +157,6 @@ const stemOf = (word) => {
 const squash = (s) => s.replace(/\s+/g, '').toLowerCase();
 
 /**
- * 블로그·글쓴이 이야기, 1인칭, 독자에게 하는 말 — 소개 지시가 금하는 것을 코드로 한 번 더.
- * 엔젤하우스(펜션 자기 블로그)의 요약: "건강 정보를 연재해요" · "오름 산책 시리즈를 소개해요" · "소형견 전용 숙소로 소개돼요" — 장소가 아니라 글이 하는 말이다.
- */
-const VOICE_RE = /블로그|포스팅|연재|시리즈|소개(?:해|돼|되|하)|체험단|협찬|광고|원고료|내돈내산|저희|제가|하세요|해\s*주세요|추천해요/;
-
-/**
  * 문장 하나가 가리킨 요약 밖으로 나갔나 — 이유들(없으면 빈 배열).
  * 낱말은 줄기(조사·어미를 뗀 것)가 두 글자 이상이면 가리킨 요약 + 장소 이름 + 종류 이름 안에 있어야 한다. 한 글자 줄기("넓은"·"있어요")는 보지 않는다.
  * 숫자는 그대로 있어야 한다. 판단 칸의 주제(실내·소형견·요금 …)는 근거가 있어도 쓰지 않는다 — 소개가 동반 조건을 말하면 판정과 갈린다(§5.2 P2).
@@ -188,9 +181,8 @@ function sentenceReasons(sentence, materials, group) {
     const unknown = words.filter((w) => w.length >= 2 && !FREE_WORDS.has(w) && !corpus.includes(w));
     if (unknown.length) reasons.push(`가리킨 요약에 없는 말이에요(${unknown.join(', ')})`);
   }
-  reasons.push(...topicReasons(body));
-  const voice = body.match(VOICE_RE);
-  if (voice) reasons.push(`소개에 쓰지 않는 말이에요(${voice[0]})`);
+  // 내용 규칙(판단 칸 주제 · 블로그 이야기)은 종합을 거치지 않는 소개(A3 의 대체값)도 지나므로 groupIntroMaterials.mjs 에 한 벌로 둔다.
+  reasons.push(...introTextReasons(body));
   return reasons;
 }
 

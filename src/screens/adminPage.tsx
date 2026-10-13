@@ -49,6 +49,7 @@ import {
   type TPlaceRow,
   type TRejectReason,
 } from '../lib/adminCandidates';
+import { fetchGroupIntros, groupIntroOf, NO_GROUP_INTROS, type TGroupIntros } from '../lib/adminGroupIntro';
 import {
   fetchManagedPlaces,
   markPlaceVerified,
@@ -164,7 +165,7 @@ const PAGE_SIZE = 40;
 /**
  * 열 이름. '이름' 이 아니라 '장소' 인 것은 이 칸이 이름 하나가 아니라 **승인을 막거나 미루는 표식까지** 담아서다.
  *
- * `AI 요약` 은 `extracted.features` 다 — 승인되면 그대로 사이트의 소개 문구가 된다.
+ * `AI 요약` 은 등록하면 나갈 소개다(`groupIntroOf` — 신규 묶음은 묶음 종합, 없으면 대표 `features`, 13 §5.3 A3) — 승인되면 그대로 사이트의 소개 문구가 된다.
  * `강아지 요금`·`필요 장비` 는 `동반 조건` 으로 되돌렸다(2026-09-30 v2) — 21줄 중 2~3줄만 차는 열이었다(`adminTable.tsx`).
  */
 const COLUMNS = ['장소', '지역', '동반 조건', 'AI 요약', '종류'];
@@ -338,6 +339,12 @@ export function AdminPage() {
   const [notice, setNotice] = useState<string | undefined>(undefined);
   const [fatal, setFatal] = useState<string | null>(null);
   const [groups, setGroups] = useState<TCandidateGroup[]>([]);
+  /**
+   * 저장된 묶음 소개(13 §5.3 A3) — 목록과 **함께** 읽는다. 늦게 오면 그 사이 누른 등록은 대체값으로 나가는데 카드는 종합을 보인다.
+   * 쓰기(`approveGroup`)는 ref 를, 그리기(카드의 'AI 요약')는 state 를 읽는다 — 장소 목록(`placesRef` · `placesView`)과 같은 짝이다.
+   */
+  const [groupIntros, setGroupIntros] = useState<TGroupIntros>(NO_GROUP_INTROS);
+  const groupIntrosRef = useRef<TGroupIntros>(NO_GROUP_INTROS);
   /** 반영이 끊겨 `approved` 로 남은 후보 수. 셀 수 없었으면(조회 실패) undefined — 그때는 아무 말도 하지 않는다. */
   const [stranded, setStranded] = useState<number | undefined>(undefined);
   /** 끊긴 반영을 서버 워커에 맡긴 결과 한 줄(「서버에서 반영」)과 그때의 건수 — 줄이 다시 세어져 수가 바뀌면 그 말은 낡았으니 버튼으로 돌아간다. */
@@ -648,9 +655,11 @@ export function AdminPage() {
         return;
       }
       setPhase('loading');
-      const [rows, places] = await Promise.all([fetchPendingCandidates(client), fetchMatchablePlaces(client)]);
+      const [rows, places, intros] = await Promise.all([fetchPendingCandidates(client), fetchMatchablePlaces(client), fetchGroupIntros(client)]);
       placesRef.current = places;
       setPlacesView(places);
+      groupIntrosRef.current = intros;
+      setGroupIntros(intros);
       setGroups(groupPending(rows));
       setStates({});
       setSelected(EMPTY_SELECTION);
@@ -724,7 +733,11 @@ export function AdminPage() {
     if (!client) return;
     setFreshCandidates(false);
     try {
-      setGroups(groupPending(await fetchPendingCandidates(client)));
+      // 분석이 새 소개를 저장했을 수 있다 — 묶음과 소개를 같이 다시 읽는다(지문이 지금 묶음과 맞는지는 `groupIntroOf` 가 본다).
+      const [rows, intros] = await Promise.all([fetchPendingCandidates(client), fetchGroupIntros(client)]);
+      groupIntrosRef.current = intros;
+      setGroupIntros(intros);
+      setGroups(groupPending(rows));
     } catch {
       setFreshCandidates(true); // 못 읽었으면 단추를 되살린다 — 다시 누르면 된다
     }
@@ -1266,6 +1279,7 @@ export function AdminPage() {
           confirmedDifferent: choice?.confirmedDifferent,
           overwrite: choice?.overwrite,
           overwriteColumns: choice?.overwriteColumns,
+          groupIntros: groupIntrosRef.current,
         });
         if (outcome.kind === 'blocked') {
           patchState(group.key, { busy: undefined, error: outcome.reason });
@@ -1596,7 +1610,12 @@ export function AdminPage() {
           }
           setBulk((prev) => ({ ...prev, progress: { done: index, total: jobs.length } }));
           try {
-            const outcome = await approveGroup(client, group, placesRef.current, { nowIso: new Date().toISOString(), newId: newPlaceId, ...choice });
+            const outcome = await approveGroup(client, group, placesRef.current, {
+              nowIso: new Date().toISOString(),
+              newId: newPlaceId,
+              groupIntros: groupIntrosRef.current,
+              ...choice,
+            });
             if (outcome.kind === 'needsDecision') {
               tally.waiting += 1;
               patchState(group.key, { similar: outcome.similar, archived: undefined });
@@ -1722,9 +1741,10 @@ export function AdminPage() {
       groups.map((group) => {
         const preview = previewFor(group.lead.extracted);
         // 종류 엇갈림은 화면이 그때그때 본다(`typeMismatchFlags`) — CLI 표식(`groupFlags`)을 늘리지 않는다.
-        return { group, preview, view: adminFlagView([...flagsFor(group), ...preview.flags, ...typeMismatchFlags(group.lead.extracted)]) };
+        const view = adminFlagView([...flagsFor(group), ...preview.flags, ...typeMismatchFlags(group.lead.extracted)]);
+        return { group, preview, view, intro: groupIntroOf(group, groupIntros) };
       }),
-    [groups],
+    [groups, groupIntros],
   );
 
   /*
@@ -2336,13 +2356,14 @@ export function AdminPage() {
                   setSelected((prev) => (next ? selectKeys(prev, filteredKeys) : clearKeys(prev, filteredKeys))),
               }}
             >
-            {filtered.slice(0, shown).map(({ group, preview, view }) => {
+            {filtered.slice(0, shown).map(({ group, preview, view, intro }) => {
               const state = states[group.key] ?? {};
               return (
                 <AdminPageGroupCard
                   key={group.key}
                   group={group}
                   preview={preview}
+                  intro={intro}
                   view={view}
                   state={state}
                   expanded={expanded === group.key}

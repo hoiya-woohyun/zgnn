@@ -1,8 +1,30 @@
 // 묶음 소개(docs/todo/13 §5.3)의 **재료와 지문** — 노드 모듈을 쓰지 않는다. 분석(`groupIntroPass.mjs`)이 이것으로 다시 만들 묶음을 고르고,
 // /admin(A3)이 같은 함수로 저장된 소개가 지금 묶음의 것인지 가린다 — 두 쪽이 다른 식으로 재면 화면이 낡은 소개를 지금 것으로 보인다.
 // 그래서 `synthesizeGroupIntro.mjs`(node:crypto · claude 실행기를 부른다)에서 떼어 냈고, 그 파일은 여기의 `synthesisMaterials` 를 다시 내보낸다.
+// 소개의 **내용 규칙**(`introTextReasons`)과 어느 소개를 쓸지(`chooseGroupIntro`, A3)도 같은 이유로 여기 있다 — 카드·등록(/admin)과 CLI 반영이 한 함수를 지난다.
+import { topicReasons } from '../lib/petPolicyGuide.mjs';
 
 const text = (v) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+
+/**
+ * 블로그·글쓴이 이야기, 1인칭, 독자에게 하는 말 — 소개 지시가 금하는 것을 코드로 한 번 더.
+ * 엔젤하우스(펜션 자기 블로그)의 요약: "건강 정보를 연재해요" · "오름 산책 시리즈를 소개해요" · "소형견 전용 숙소로 소개돼요" — 장소가 아니라 글이 하는 말이다.
+ */
+export const INTRO_VOICE_RE = /블로그|포스팅|연재|시리즈|소개(?:해|돼|되|하)|체험단|협찬|광고|원고료|내돈내산|저희|제가|하세요|해\s*주세요|추천해요/;
+
+/**
+ * 소개 문장의 **내용** 규칙 — 판단 칸 주제(소형견·야외 …, 소개가 동반 조건을 말하면 판정과 갈린다)와 블로그 이야기. 이유들(없으면 빈 배열).
+ * 근거(가리킨 요약) 검사는 여기 없다 — 종합 문장(`synthesizeGroupIntro.mjs` 의 `sentenceReasons`)만 그것을 보고 이 규칙을 함께 부른다.
+ * 종합을 거치지 않는 소개(재료 하나 · 대표 `features` 대체값 — 옛 프롬프트로 쓴 요약이 남아 있다, 13 §5.3 A3)는 이 규칙만 지난다.
+ * @param {string} body
+ * @returns {string[]}
+ */
+export function introTextReasons(body) {
+  const reasons = [...topicReasons(body)];
+  const voice = body.match(INTRO_VOICE_RE);
+  if (voice) reasons.push(`소개에 쓰지 않는 말이에요(${voice[0]})`);
+  return reasons;
+}
 
 /**
  * 묶음의 글들 → 모델에 보일 재료. 다녀온 글(`visited !== false`)의 요약만, 같은 요약은 하나로(글 id 를 모은다), 같은 글이 두 번 오면 앞의 것.
@@ -67,4 +89,56 @@ export function materialsFingerprint(materials) {
   h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
   h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
   return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16).padStart(14, '0');
+}
+
+/**
+ * 묶음의 소개 — **사이트에 나갈 소개는 이 함수 하나가 정한다**(13 §5.3 A3). 카드의 'AI 요약' · 펼친 줄의 '소개' · 등록(`approveGroup`) ·
+ * CLI 반영(`apply-approved.mjs`)이 같은 묶음 · 같은 저장 줄로 이것을 부른다 — 갈리면 본 소개와 나간 소개가 다르다.
+ *
+ *  - 신규 묶음(`isIntroGroup`)만 대상이다. 기존 장소에 붙은 묶음은 대표 `features` 그대로다(빈 칸 채우기에만 쓰여 사람이 쓴 소개를 덮지 않는다).
+ *  - 재료가 둘 이상이고 저장된 줄의 지문이 **지금 재료의 지문과 같을 때만** 저장값을 쓴다 — 충돌이면 소개 없음(사람이 제외·재분석으로 가른다),
+ *    종합이면 그 소개. 지문이 다르거나 줄이 없으면(종합 전 · 새 글이 붙었다 · 요약이 바뀌었다) 대체값이다 — 낡은 종합을 지금 것으로 보이지 않는다.
+ *  - 대체값: 재료가 하나면 그 요약, 아니면 대표의 `features`. 대표가 목록글인데 다녀온 글의 요약이 있으면 가장 많이 나온 요약이다(목록글의 소개는 글의 틀, 21 S7).
+ *    대체값은 종합의 내용 규칙(`introTextReasons`)을 지나야 한다 — 걸리면 **소개 없음**(옛 프롬프트의 "소형견 전문"·"블로그로 소개해요" 가 그대로 나가는 것보다 낫다).
+ *
+ * @param {{ key?: string, lead?: { post_url?: string | null, extracted?: object }, rows?: readonly object[] } | null | undefined} group  `groupCandidates` 의 한 줄
+ * @param {{ fingerprint?: string, intro?: string | null, sentences?: { text: string, posts: string[] }[] | null, conflict?: { reason: string, posts: string[] } | null, reasons?: string[] | null } | null | undefined} stored
+ *   `group_intros` 의 그 묶음 줄(묶음 키로 찾은 것) — 없으면 null
+ * @returns {{
+ *   text: string | null, source: 'synth' | 'summary' | 'lead' | 'conflict',
+ *   sentences: { text: string, posts: string[] }[], conflict: { reason: string, posts: string[] } | null,
+ *   dropped: string[], droppedText: string | null,
+ *   synth: 'fresh' | 'rejected' | 'waiting' | null, synthReasons: string[], materials: { text: string, posts: string[] }[],
+ * }}
+ *   text — 사이트에 나갈 소개(없으면 null) · sentences — 문장마다 출처 글 주소 · dropped/droppedText — 대체값이 걸린 규칙과 그 글(그래서 text 가 null) ·
+ *   synth — 재료 둘 이상인 신규 묶음의 종합 상태(저장값 그대로 · 거부돼 대체값 · 아직 없어 대체값), 그 밖엔 null · synthReasons — 거부 이유(저장된 것)
+ */
+export function chooseGroupIntro(group, stored) {
+  const lead = group?.lead?.extracted ?? {};
+  const leadText = text(lead.features);
+  const leadPosts = group?.lead?.post_url ? [group.lead.post_url] : [];
+  const base = { conflict: null, dropped: [], droppedText: null, synth: null, synthReasons: [], materials: [] };
+  if (!isIntroGroup(group)) return { ...base, text: leadText, source: 'lead', sentences: leadText ? [{ text: leadText, posts: leadPosts }] : [] };
+
+  const materials = synthesisMaterials(groupIntroInput(group).posts);
+  let synth = null;
+  let synthReasons = [];
+  if (materials.length >= 2) {
+    const fresh = Boolean(stored) && stored.fingerprint === materialsFingerprint(materials);
+    synth = fresh ? 'fresh' : 'waiting';
+    if (fresh && stored.conflict) return { ...base, text: null, source: 'conflict', sentences: [], conflict: stored.conflict, synth, materials };
+    const intro = fresh ? text(stored.intro) : null;
+    if (intro) return { ...base, text: intro, source: 'synth', sentences: stored.sentences ?? [], synth, materials };
+    if (fresh) {
+      synth = 'rejected';
+      synthReasons = stored.reasons ?? [];
+    }
+  }
+  const useSummary = materials.length === 1 || (materials.length > 1 && lead.visited === false);
+  const pick = useSummary ? { text: materials[0].text, source: 'summary', posts: materials[0].posts } : { text: leadText, source: 'lead', posts: leadPosts };
+  const out = { ...base, source: pick.source, synth, synthReasons, materials };
+  if (!pick.text) return { ...out, text: null, sentences: [] };
+  const dropped = introTextReasons(pick.text);
+  if (dropped.length) return { ...out, text: null, sentences: [], dropped, droppedText: pick.text };
+  return { ...out, text: pick.text, sentences: [{ text: pick.text, posts: pick.posts }] };
 }

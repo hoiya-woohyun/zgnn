@@ -17,6 +17,7 @@ import {
 import type { TApplyOutcome, TSimilarPlace } from '../lib/adminApply';
 import type { TPetBadge } from '../lib/petPolicy';
 import { addressConflictOf, addressView, type TAddressChoice } from '../lib/adminAddress';
+import type { TGroupIntroView } from '../lib/adminGroupIntro';
 import { POLICY_STATE_WORD, type TAdminFlagView } from '../lib/adminPreview';
 import { verifyNeedsLook, verifyView } from '../lib/adminVerify';
 import { toggleOverwritePick } from '../lib/adminLatest';
@@ -69,6 +70,8 @@ export type TApproveChoice = {
 type TAdminPageGroupCardProps = {
   group: TCandidateGroup;
   preview: TPolicyPreview;
+  /** 등록하면 나갈 소개(13 §5.3 A3) — 페이지가 묶음마다 `groupIntroOf` 로 만든다. 'AI 요약' 칸 · 펼친 줄의 '소개' · 등록이 같은 값이다. */
+  intro: TGroupIntroView;
   view: TAdminFlagView;
   state: TAdminPageGroupState;
   expanded: boolean;
@@ -158,6 +161,7 @@ function PolicyCell({
 export function AdminPageGroupCard({
   group,
   preview,
+  intro,
   view,
   state,
   expanded,
@@ -432,10 +436,29 @@ export function AdminPageGroupCard({
           <PolicyCell items={policy.items} state={policy.state} message={policy.message} blogDiffers={listPolicy.blogDiffers} />
 
           {/*
-            * AI 요약 = `extracted.features`. 승인되면 **그대로 사이트의 소개 문구가 된다** — 여기서 읽는 것이 곧 사이트에 나갈 글이다.
-            * 자르지 않는다: 자르면 검수 중에 읽어야 할 문장을 펼치기 전에는 못 읽는다.
+            * AI 요약 = **등록하면 나갈 소개**(13 §5.3 A3 — `chooseGroupIntro`: 묶음 종합 · 없으면 다녀온 글 하나의 요약이나 대표 `features`, 규칙에 걸리면 소개 없음).
+            * 승인되면 그대로 사이트의 소개 문구가 된다 — 여기서 읽는 것이 곧 사이트에 나갈 글이다. 자르지 않는다: 자르면 펼치기 전에는 못 읽는다.
+            * 요약끼리 갈리면(충돌) 소개 없이 뱃지와 까닭 — 글별 요약은 펼친 줄의 '소개' 칸이 보인다.
             */}
-          <span className="block min-w-0 text-xs text-tertiary max-md:mt-0.5">{extracted.features || '요약이 없어요'}</span>
+          <span className="block min-w-0 text-xs text-tertiary max-md:mt-0.5">
+            {intro.source === 'conflict' && intro.conflict ? (
+              <>
+                <Badge type="color" size="sm" color="warning">
+                  요약이 갈려요
+                </Badge>
+                <span className="mt-0.5 block">{intro.conflict.reason}</span>
+              </>
+            ) : intro.text ? (
+              <>
+                {intro.text}
+                {intro.source === 'synth' && <span className="mt-0.5 block text-quaternary">요약 {intro.materials.length}개 종합</span>}
+              </>
+            ) : intro.dropped.length ? (
+              <span className="text-warning-primary">소개 없이 등록돼요 — {intro.dropped[0]}</span>
+            ) : (
+              '요약이 없어요'
+            )}
+          </span>
 
           <span className="flex items-start max-md:mt-1">
             <AdminTypeChip type={extracted.type} />
@@ -453,7 +476,7 @@ export function AdminPageGroupCard({
       {expanded && (
         <div className={cx(ADMIN_PANEL_DIVIDER, 'px-4 pt-3 pb-2 md:pl-14')}>
           <div className="space-y-3">
-            <AdminPageGroupDetail group={group} preview={preview} place={pairPlace} />
+            <AdminPageGroupDetail group={group} preview={preview} place={pairPlace} intro={intro} />
             {/*
               * 사이트 비교 분석은 **이 글을 어떻게 읽었나(위 표) 다음**이다. 덮어쓸 칸이 있으면 결정 줄이 체크·버튼과 함께 그리고(`AdminPageGroupActions`),
               * 여기는 덮어쓰기가 뜻이 없는 갈래(주소 고르기 · 지역 없음 · 바뀔 칸 없음)에서 읽기 전용으로만 선다. 신규 묶음에는 서지 않는다.

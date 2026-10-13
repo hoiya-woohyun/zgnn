@@ -5,6 +5,7 @@ import { Badge } from '../components/base/badges';
 import { addressView } from '../lib/adminAddress';
 import { factsLine, FACTS_EMPTY, type TCandidateGroup, type TPlaceRow, type TPolicyPreview } from '../lib/adminCandidates';
 import { correctionView } from '../lib/adminCorrection';
+import type { TGroupIntroView } from '../lib/adminGroupIntro';
 import { aiEdits } from '../lib/adminEdit';
 import { newPlacePublicText, rowPublicText } from '../lib/adminPublicText';
 import { policySplit, typeMismatchFlags } from '../lib/adminPreview';
@@ -18,6 +19,7 @@ import { AdminChangeList } from './adminChangeList';
 import { AdminPublicTextPreview } from './adminPublicTextPreview';
 import { AdminSiteVoiceChip, AdminSourceChip, SOURCE_TONE } from './adminSource';
 import { AdminMarkedSpans } from './adminMarkedSpans';
+import { AdminPageGroupDetailIntro } from './adminPageGroupDetailIntro';
 import { ADMIN_VERIFY_TEXT } from './adminTable';
 
 type TAdminPageGroupDetailProps = {
@@ -28,6 +30,8 @@ type TAdminPageGroupDetailProps = {
    * 신규 묶음에는 사이트에 아직 아무것도 없어 칸째로 안 그린다(늘 빈 칸이 된다).
    */
   place?: TPlaceRow;
+  /** 등록하면 나갈 소개(13 §5.3 A3 — `groupIntroOf`). 카드의 'AI 요약' 칸과 같은 값이다. */
+  intro: TGroupIntroView;
 };
 
 const GRID = 'md:grid-cols-[6rem_minmax(0,1fr)_minmax(0,1fr)]';
@@ -167,7 +171,7 @@ const squash = (text: string) => text.replace(/\s+/g, ' ').trim();
  * 동반 조건 줄의 나갈 값은 **결론이 먼저**다 — 사이트에 실제로 보일 칩. 그것을 만든 재료(기본 규칙 / AI)는 접어 두고,
  * 둘이 어긋날 때만 펼친 채로 연다. 어긋나는 자리가 곧 "정규화가 잘 됐는가" 의 실측이라서다(reviewCandidates.mjs:68-69).
  */
-export function AdminPageGroupDetail({ group, preview, place }: TAdminPageGroupDetailProps) {
+export function AdminPageGroupDetail({ group, preview, place, intro }: TAdminPageGroupDetailProps) {
   const extracted = group.lead.extracted;
   /*
    * 나갈 주소는 **어디서 온 주소인지**부터 말한다(`adminAddress.ts`). 예전에는 전부 '네이버 검색 결과' 로 적고 원글과
@@ -328,13 +332,15 @@ export function AdminPageGroupDetail({ group, preview, place }: TAdminPageGroupD
               </p>
             }
           />
-          {/* 소개·홈페이지는 블로그 원문이 없다 — 왼쪽이 늘 같은 안내문이던 줄이라 한 칸으로 합쳤다(다와풀빌라가 두 화면을 먹던 주된 이유). */}
+          {/*
+            * 소개·홈페이지는 블로그 원문이 없다 — 왼쪽이 늘 같은 안내문이던 줄이라 한 칸으로 합쳤다(다와풀빌라가 두 화면을 먹던 주된 이유).
+            * 소개는 대표 한 편이 아니라 **묶음의 소개**다(13 §5.3 A3) — 문장 ↔ 출처 글이 이 칸에 함께 선다.
+            */}
           <CompareRow
             label="소개"
             edited={editedKeys.has('features')}
             site={siteOf(<SiteText text={place?.features} />)}
-            // `??` 가 아니라 `||` 다(AI 는 '' 로도 준다).
-            result={<p className="whitespace-pre-line text-secondary">{extracted.features || '소개 문장이 없어요'}</p>}
+            result={<AdminPageGroupDetailIntro group={group} intro={intro} />}
           />
           {/* 숙소 환경(10 F6) — 숙소일 때만. 판정에는 안 쓰고 숙소 필터·상세의 한 줄로만 나간다. */}
           {extracted.type === 'stay' && (

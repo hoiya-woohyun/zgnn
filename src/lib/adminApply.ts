@@ -22,6 +22,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { mergeIntoExisting, overwriteWithLatest, toNewPlaceRow, toRecheckCandidate } from '../../scripts/analyze/applyApproved.mjs';
+import { isIntroGroup } from '../../scripts/analyze/groupIntroMaterials.mjs';
 import { matchPlace, THRESHOLD } from '../../scripts/analyze/matchPlace.mjs';
 import { toMatchablePlace } from '../../scripts/lib/placeFields.mjs';
 import {
@@ -33,6 +34,7 @@ import {
 } from './adminCandidates';
 import { addressConflictOf, type TAddressConflict } from './adminAddress';
 import type { TCandidateEdit } from './adminEdit';
+import { groupIntroOf, type TGroupIntros } from './adminGroupIntro';
 import { hasVerifiedColumn, markPlaceVerified, restorePlace } from './adminPlaces';
 import { liveProposal, withProposal } from './adminProposal';
 import { appendReviewerNote } from './adminSession';
@@ -110,6 +112,11 @@ export type TApplyOptions = {
    * 확인 없이 오면 `addressConflict` 로 멈춘다(`confirmedDifferent` 와 같은 모양의 가드).
    */
   addressConfirmed?: boolean;
+  /**
+   * 저장된 묶음 소개(`fetchGroupIntros`, 13 §5.3 A3) — 새 장소의 소개(`features`)를 카드가 보인 것과 **같은 함수**(`groupIntroOf`)로 정한다.
+   * 페이지가 목록과 함께 읽은 그 묶음을 넘긴다(여기서 다시 읽으면 본 소개와 나간 소개가 갈릴 수 있다). 없으면 저장값 없이 대체값만.
+   */
+  groupIntros?: TGroupIntros;
   nowIso: string;
   /** 새 장소 id. `places.id` 는 default 가 없어 우리가 정한다(보통 `crypto.randomUUID`). */
   newId: () => string;
@@ -415,6 +422,8 @@ export async function approveGroup(
             // 이용 안내 칸(마이그레이션 20261012120000) — 원격에 없으면 싣지 않는다(없는 칸을 실으면 insert 가 통째로 거절된다).
             guideColumn: places.some((place) => 'pet_policy_guide' in place),
           }) as unknown as TPlaceRow),
+          // 소개는 대표 한 편의 `features` 가 아니라 묶음의 소개다(13 §5.3 A3) — 카드의 'AI 요약' 칸과 같은 함수. 없으면(충돌 · 규칙에 걸림) 빈 소개.
+          features: groupIntroOf(group, opts.groupIntros).text ?? '',
           status: 'published',
         };
       } catch (e) {
@@ -440,9 +449,11 @@ export async function approveGroup(
     await markMerged(client, lead, { placeId, kind, patchKeys, at: opts.nowIso, ...(overwritten ? { overwritten } : {}) });
 
     // 같은 가게를 말하는 나머지 글들 — 대표가 정한 장소로 보강만 한다(새로 만들지 않는다).
+    // 신규 묶음으로 **방금 만든** 장소의 소개는 위에서 묶음이 정했다 — 빈 소개(충돌 · 규칙에 걸림)를 형제 글의 요약이 검사 없이 채우지 않게 그 칸을 뺀다.
+    const introDecided = kind === 'created' && isIntroGroup(group);
     for (const row of group.rows) {
       if (row.id === lead.id) continue;
-      const keys = await fillBlanks(client, target, row);
+      const keys = await fillBlanks(client, target, introDecided ? { ...row, extracted: { ...row.extracted, features: null } } : row);
       await linkSource(client, placeId, row.post_url);
       await markMerged(client, row, { placeId, kind: 'merged', patchKeys: keys, at: opts.nowIso });
     }
