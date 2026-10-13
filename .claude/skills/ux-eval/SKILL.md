@@ -44,7 +44,8 @@ SessionStart 훅(`.claude/hooks/uxEvalWeekly.mjs`)이 실행을 권한다. 몇 �
 
 ## 2. Playwright (메인, 레포 밖)
 
-`/tmp/ux-eval/node_modules/playwright` 가 없으면 `/tmp/ux-eval` 에서 `npm init -y && npm i playwright && npx playwright install chromium`.
+`/tmp/ux-eval` 에서 `node -e "import('playwright')"` 가 실패하면 `rm -rf node_modules package-lock.json` 뒤 `npm init -y && npm i playwright && npx playwright install chromium`.
+디렉터리가 있는지로 보지 않는다 — macOS 의 `/tmp` 정리가 오래 안 쓴 파일만 지워 `node_modules/playwright/` 껍데기만 남는다(2026-10-13, 지난 회차 스크린샷도 함께 지워졌다).
 `mkdir -p $RUN/shots` · `cp .claude/skills/ux-eval/ctx.mjs $RUN/`. `$RUN` 안의 스크립트는 위쪽 `/tmp/ux-eval/node_modules` 를 찾아 간다.
 
 `ctx.mjs` 의 `openApp({ device, desktop, statePath })` 가 평가자의 유일한 브라우저 입구다:
@@ -118,9 +119,7 @@ Playwright 규칙 끝에 "reduced-motion 은 `page.emulateMedia({ reducedMotion:
 
 7. **지난 회차와 비교** — `docs/reviews/ux-eval/` 의 가장 최근 `00-종합.md` 와 대 보고 각 지적에 `신규` / `반복(N회째)` / 지난번 지적 중 `해소됨` 을 단다.
    그 뒤에 같은 주 2회차가 있었으면(기록 디렉터리 없이 14 에만 있는 `## <날짜> 회차`) 그 절의 줄과 `반복 N회` 도 대 본다 — 그게 더 최근이다.
-   **2026-10-12 주 회차 한 번**: 홈이 사용자 상태(등록 전·등록·등록+저장)로 갈리게 바뀌었다([18](../../../docs/todo/18-home-restructure.md)) — 준혁 ⑨ 의 홈 세 장을
-   2026-10-06 회차의 홈과 대 보고 종합에 「홈 개편 전후」 절을 둔다(개편 전 스크린샷은 그 회차 `/tmp/ux-eval/2026-10-06/shots/`, 없으면 보고서 서술로). 끝나면 이 줄을 지운다.
-   **2026-10-12 주부터 두 회차**: 홈의 관광지 칩 줄이 6권역 카드 「{이름}랑 갈 동네」 로 바뀌었다([19](../../../docs/todo/19-area-cards.md)) — 종합에 「동네 카드」 절을 두고
+   **2026-10-12 주부터 두 회차**(첫 회차 2026-10-13 — 막힘 0 · 0칸 오독 0, 미달): 홈의 관광지 칩 줄이 6권역 카드 「{이름}랑 갈 동네」 로 바뀌었다([19](../../../docs/todo/19-area-cards.md)) — 종합에 「동네 카드」 절을 두고
    성호 ② · 하은 ② · 민지 ④⑥ · 준혁 ⑥ 이 카드를 거쳤나(거쳤으면 막혔나), 0칸 문장("저희가 모은 숙소 중엔 아직 …")을 어떻게 읽었나를 적는다.
    카드에서 막힌 평가자 ≥2, 또는 0칸을 "제주엔 갈 곳이 없다" 로 읽은 평가자 ≥2/6 이면 19 §4 정성 kill(관광지 칩으로 되돌림)을 NOW 「기다림」 🙋 로. 두 번째 회차가 끝나면 이 줄을 지운다.
 8. **기존 todo 와 대조** — 개선 제안마다 `docs/todo/07·08·10·11·12` 에 같은 태스크가 있으면 그 ID 를 적는다(새로 만들지 않는다).
