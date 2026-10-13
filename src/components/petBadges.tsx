@@ -48,9 +48,10 @@ type TPetBadgesProps = {
   /** 우리 강아지 마릿수. 캄 "2마리 또는 10kg 이상 4만원" 처럼 마릿수로도 갈리는 줄을 고를 때 쓴다. 없으면 한 마리로 본다. */
   dogCount?: number;
   /**
-   * 카드가 배지 줄 위에 세우는 우리 강아지 요금 한 줄(`eligibility.fee`). 고른 요금 칩이 그 줄에 그대로 들어 있으면 칩을 뺀다 —
-   * "두부는 3만원 (1마리당 3만원)" 밑에 `1마리당 3만원` 칩이 또 섰다(14 W261007.6). 다른 줄로 바꿔 세우지 않는다:
-   * 캄에서 칩이 기본 줄로 물러나면 한 카드가 4만원과 3만원을 같이 말한다(07 U5 후속).
+   * 카드가 배지 줄 위에 세우는 우리 강아지 요금 한 줄(`eligibility.fee`). 이 줄이 있으면 고른 요금 칩을 뺀다 — 줄이 그 요금을 이미 말했다:
+   * "두부는 3만원 (1마리당 3만원)" 밑에 `1마리당 3만원` 칩이 또 섰다(14 W261007.6). 글자 그대로 들어 있을 때만 빼던 동안은
+   * "두부는 1만원 (1~5kg)" 밑의 `1~5kg 1만원`, "1마리당 1-2만원" 밑의 `1마리당 1~2만원` 이 남아 카드가 요금을 두 번 말했다(14 W261013.4).
+   * 다른 줄로 바꿔 세우지 않는다: 캄에서 칩이 기본 줄로 물러나면 한 카드가 4만원과 3만원을 같이 말한다(07 U5 후속).
    */
   feeLine?: string;
   className?: string;
@@ -75,7 +76,7 @@ export function PetBadges({ policy, limit, hideNoInfo = false, hide, sourceText,
     firstFee >= 0 && weightKg !== undefined
       ? feeChipForWeight(all.filter((b) => b.axis === 'fee').map((b) => b.label), weightKg, dogCount)
       : all[firstFee]?.label;
-  const feeInLine = pickedFee != null && feeLine !== undefined && isFeeBadgeRepeatedIn({ label: pickedFee, axis: 'fee', tone: 'cond' }, feeLine);
+  const feeInLine = pickedFee != null && feeLine !== undefined;
   const feeLabel = feeInLine ? null : pickedFee;
   const badges = limit
     ? all.flatMap((badge, index) => {
@@ -88,7 +89,7 @@ export function PetBadges({ policy, limit, hideNoInfo = false, hide, sourceText,
 
   const shown = limit ? badges.slice(0, limit) : badges;
   // 접힌 수는 **거른 뒤가 아니라 전부**에서 센다 — 빼 둔 요금 줄이 `+N` 에 안 들어가면 "더 있다" 가 거짓이 된다.
-  // 요금 한 줄에 그대로 있어 뺀 칩은 숨긴 게 아니라 이미 보이는 것이라 `+N` 에서 뺀다.
+  // 요금 한 줄이 말해 뺀 칩은 숨긴 게 아니라 이미 보이는 것이라 `+N` 에서 뺀다.
   const hidden = all.length - shown.length - (limit && feeInLine ? 1 : 0);
 
   return (

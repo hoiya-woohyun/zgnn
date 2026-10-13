@@ -41,14 +41,26 @@ export const RAW_FEE_PREFIX = '적힌 요금 · ';
  */
 const COUNT_OR_KG_RE = /^(\d+)\s*마리\s*(?:이상\s*)?(?:또는|이거나)\s*(\d+(?:\.\d+)?)\s*kg\s*이상\s*(\d+(?:\.\d+)?)\s*만\s*원\s*(?:추가)?$/;
 
-/** 앞뒤 괄호·공백을 벗긴 원문 줄. "(2만원 추가)" → "2만원 추가". */
-const stripLine = (line: string): string => line.trim().replace(/^\(\s*/, '').replace(/\s*\)$/, '');
+/**
+ * 앞뒤 괄호·공백을 벗긴 원문 줄. "(2만원 추가)" → "2만원 추가". 금액 범위의 하이픈은 칩과 같은 물결로 — 한 카드에 줄 "1마리당 1-2만원" 과
+ * 칩 "1마리당 1~2만원" 이 같이 섰다(14 W261013.4, 칩 라벨은 `normalizeFeeLines` 가 같은 식으로 바꾼다). 줄 전체를 정규화하지는 않는다 —
+ * "숙박일 관계없이" 처럼 한 번이라는 말이 줄에서 사라진다.
+ */
+const stripLine = (line: string): string =>
+  line
+    .trim()
+    .replace(/^\(\s*/, '')
+    .replace(/\s*\)$/, '')
+    .replace(/(\d+(?:\.\d+)?)\s*[-–]\s*(\d+(?:\.\d+)?)\s*만\s*원/g, '$1~$2만원');
 
 /** 만원 단위 문자열 → 원. 소수(1.5만원)는 정수 원으로 올려 부동소수 합산 오차를 피한다. */
 const manwonToWon = (manwon: string): number => Math.round(Number(manwon) * 10000);
 
-/** 40000·70000 → "4만~7만원". 앞쪽의 '원' 은 뗀다. */
-const formatWonRange = (low: number, high: number): string => `${formatWon(low).replace(/원$/, '')}~${formatWon(high)}`;
+/**
+ * 두 마리 이상의 합계 앞말 — "2마리 합계". 이름만 붙은 금액("콩이와 해피는 2만원")은 합계인지 1마리당인지 안 읽혔다(14 W261013.4).
+ * 한 마리면 둘이 같은 말이라 붙이지 않는다.
+ */
+const totalOf = (n: number): string => `${n}마리 합계 `;
 
 /** 15000 → "1.5만원", 60000 → "6만원", 5000 → "5,000원". */
 export const formatWon = (won: number): string => {
@@ -91,7 +103,7 @@ const sumByWeightTiers = (policy: TPetPolicy, dog: TDogProfile, names: string): 
   }
   // 쓰인 구간만, feeLines 순서로 — 강아지 행 순서를 바꿔도 문구가 같아야 한다.
   const used = rangeLines.filter((line) => picked.includes(line)).map(stripLine);
-  return `${withJosa(names, '은/는')} ${formatWon(total)} (${used.join(' · ')})`;
+  return `${withJosa(names, '은/는')} ${totalOf(dog.dogs.length)}${formatWon(total)} (${used.join(' · ')})`;
 };
 
 /** "1마리당 3만원" × 마릿수. 마릿수 상한을 넘으면 그 요금이 우리에게 적용된다고 볼 수 없어 곱하지 않는다. */
@@ -103,16 +115,17 @@ const multiplyPerDog = (line: string, policy: TPetPolicy, dog: TDogProfile, name
   if (hasUnusedCondition(policy.feeLines, [line])) return undefined;
   const each = manwonToWon(m[1]);
   if (n === 1) return `${withJosa(names, '은/는')} ${formatWon(each)}`;
-  return `${withJosa(names, '은/는')} ${formatWon(each * n)} (1마리당 ${formatWon(each)})`;
+  return `${withJosa(names, '은/는')} ${totalOf(n)}${formatWon(each * n)} (1마리당 ${formatWon(each)})`;
 };
 
 /**
  * 캄(Kalm) "1마리당 3만원. (2마리 또는 10kg 이상 4만원)" — 기본 줄 하나와 **바꿔 붙는** 줄 하나. 둘째 줄은 마리당이 아니라
  * 그 조건일 때의 요금이다. 그래서 곱하지 않고 고른다:
  * - 한 마리가 kg 하한 이상 → 둘째 줄 금액 그대로(한 마리면 읽기가 하나뿐이다).
- * - **여러 마리**가 조건에 들면 → **범위**. "2마리에 4만원"(둘째 줄이 합계)과 "첫 마리 3만 + 둘째 4만 = 7만원"(기본 요금에
+ * - **여러 마리**가 조건에 들면 → **두 읽기**. "2마리에 4만원"(둘째 줄이 합계)과 "첫 마리 3만 + 둘째 4만 = 7만원"(기본 요금에
  *   더한다)이 둘 다 원문에 맞다 — 평가자 하나가 실제로 7만원으로 읽었다(14 W261007.6). 한쪽을 확정 문장으로 내면 다른 쪽
- *   보호자에게 틀린 숫자다. 그래서 "4만~7만원" 으로 둘 다 말한다.
+ *   보호자에게 틀린 숫자다. 그래서 "2마리 합계 4만원 또는 7만원" 으로 둘 다 말한다 — 범위("4만~7만원")는 그 사이 어딘가로 읽혀
+ *   갈래가 둘이라는 말을 못 했다(14 W261013.4).
  * - 아니면(조건 아래 한 마리) → 첫 줄 금액.
  * 줄이 정확히 이 둘이 아니거나, 마릿수가 조건 마릿수를 넘으면(3마리 — 원문이 말하지 않는다) 물러난다.
  */
@@ -130,11 +143,28 @@ const withAlternative = (policy: TPetPolicy, dog: TDogProfile, names: string): s
   if (n === count || dog.dogs.some((d) => d.weightKg >= Number(cond[2]))) {
     const altWon = manwonToWon(cond[3]);
     if (n === 1) return `${who} ${formatWon(altWon)} (${alt})`;
-    return `${who} ${formatWonRange(altWon, manwonToWon(each[1]) + altWon)} (${base} · ${alt})`;
+    return `${who} ${totalOf(n)}${formatWon(altWon)} 또는 ${formatWon(manwonToWon(each[1]) + altWon)} (${base} · ${alt})`;
   }
   if (n > 1) return undefined;
   return `${who} ${formatWon(manwonToWon(each[1]))} (${base})`;
 };
+
+/**
+ * 요금 구조 한 칸의 basis(마리마다 · 한 번)를 **화면에 나가는 label 이 말하나** — 두 마리 이상일 때만 묻는다(한 마리면 같은 금액이다).
+ * basis 는 모델이 둘 중 하나를 꼭 고르는 칸이라 본문이 말하지 않아도 채워진다: 선흘안 "1박당 2만 원 견추비" 가 perDog 로 와 두 마리에
+ * "1박 4만원" 이 됐고, 협재현 "애견동반 추가 요금 2만원" 은 flat 으로 와 두 마리에 이름 붙은 "2만원" 이 됐다 — 둘 다 원문에 근거가 없다(14 W261013.4).
+ * 정규식 경로가 같은 모양("(2만원 추가)")을 곱하지 않고 `적힌 요금` 으로 물러나는 것과 맞춘다 — AI 경로가 같은 모호함에 더 단정하지 않는다.
+ * - perDog: label 이 마리를 말하거나("1마리당"·"2마리부터"·"추가 1마리") 몸무게 구간에 붙은 줄이다(마리마다 그 몸무게로 고르는 요금 —
+ *   정규식 경로의 구간 합산 `sumByWeightTiers` 와 같은 읽기).
+ * - flat: label 이 한 번이라는 말을 한다(청소비 · 객실당 · 1회).
+ */
+const basisStated = (rule: TFeeRule): boolean =>
+  rule.basis === 'perDog'
+    ? /마리/.test(rule.label) || rule.minKg !== null || rule.maxKg !== null
+    : /청소|객실|1\s*회|한\s*번/.test(rule.label);
+
+/** 합계를 내지 않은 두 마리 이상의 요금 줄 끝말 — 이름 붙은 "2만원" 은 합계로 읽혔다(협재현, junhyuk-12b). */
+const BASIS_UNSTATED_NOTE = ' (합계인지 1마리당인지 적혀 있지 않아요)';
 
 /**
  * 요금 구조(`feeRules`, AI 가 뽑은 칸)로 계산한다 — 줄 모양을 정규식으로 읽지 않는다(ADR-017 v5).
@@ -147,6 +177,7 @@ const withAlternative = (policy: TPetPolicy, dog: TDogProfile, names: string): s
  *   `fromDog` 와 몸무게 조건이 섞이면 물러난다 — "몇째" 가 행 순서라 합계가 순서에 따라 달라진다.
  * - `flat`(청소비)은 조건이 맞으면 한 번 더한다.
  * - 1박마다 붙는 줄과 한 번 붙는 줄이 섞이면 박 수를 몰라 합칠 수 없다 — 물러난다.
+ * - **두 마리 이상인데 쓴 줄의 label 이 마리마다인지 한 번인지 말하지 않으면** 합치지 않고 그렇다고 말한다(`basisStated`).
  */
 const sumByRules = (rules: TFeeRule[], policy: TPetPolicy, dog: TDogProfile, names: string): string | undefined => {
   if (policy.maxDogs !== undefined && dog.dogs.length > policy.maxDogs) return undefined;
@@ -183,10 +214,14 @@ const sumByRules = (rules: TFeeRule[], policy: TPetPolicy, dog: TDogProfile, nam
   // 표기는 요금 표 순서로 — 강아지 행 순서를 바꿔도 문구가 같아야 한다.
   const shown = rules.filter((r) => used.has(r));
   if (new Set(shown.map((r) => r.perNight)).size > 1) return undefined;
+  // 이름도 금액도 붙이지 않는다 — 곱한 값도 안 곱한 값도 원문이 말하지 않은 합계다.
+  if (dog.dogs.length > 1 && shown.some((r) => !basisStated(r))) {
+    return `${RAW_FEE_PREFIX}${policy.feeLines.map(stripLine).join(' · ')}${BASIS_UNSTATED_NOTE}`;
+  }
   const who = withJosa(names, '은/는');
   const all = rules.map((r) => r.label).join(' · ');
   if (shown.length === 0) return `${who} 추가 요금 없음 (${all})`;
-  const amount = `${shown[0].perNight ? '1박 ' : ''}${formatWon(total)}`;
+  const amount = `${dog.dogs.length > 1 ? totalOf(dog.dogs.length) : ''}${shown[0].perNight ? '1박 ' : ''}${formatWon(total)}`;
   // 조건 없는 마리당 한 줄 × 한 마리는 괄호가 같은 말을 되풀이할 뿐이다("두부는 3만원 (1마리당 3만원)").
   const only = shown[0];
   const plain =
