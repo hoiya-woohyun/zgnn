@@ -83,7 +83,6 @@
 ## 지금 (위에서부터)
 
 - [ ] 🔒 서버 워커 홉에 시간 예산(다음 글 시작 전 경과 ~200초면 멈춤, 서버만) — [20 T11](20-vercel-remote-worker.md) · 왜 지금: 2026-10-10 홉 하나가 258초 — 300초를 넘으면 홉이 끊기고 잠금 틈을 밟는다 · 2026-10-10 22:20 구현 커밋 d1d6a84 — 남은 것: 워커 배포(사용자 허락) → `check.mjs --reset` → 실측(분석 끝 ≤ 4분 · 사슬 이어짐)
-- [ ] 추출이 요금 basis 를 근거 없이 고르지 않게 — [14 W261013.4a](14-weekly-ux-eval.md) · 왜 지금: 데이터 — 선흘안 "1박당 2만원" 이 perDog 로 와서 ×2 였다(앱은 6ba46c6 로 막았지만 추출값은 틀린 채) · `scripts/analyze/extractPlaces.mjs` 의 `FEE_EX.perNight` · `correctPetPolicyFacts`
 
 ## 기다림 (사람 손·결정)
 
@@ -95,9 +94,9 @@
 - 🙋 블로그 원문을 anon select 에서도 닫을지 — [21 H6](21-blog-text-and-extract-model.md) · S8 뒤에도 빌드가 anon 으로 원문을 읽어 계산하므로 열 grant 를 거두면 빌드가 못 돈다 · 권고: 보류(키를 찾아 직접 질의해야 닿고, 닫으려면 쓰기 경로가 계산 결과를 DB 칸에 저장해야 해 규칙을 바꿀 때마다 원격 쓰기가 생긴다)
 - 🧑 게시된 블로그 행 문장 다시 쓰기 실행 — [21 H7](21-blog-text-and-extract-model.md) · 명령: `pnpm data login` → `pnpm data rewrite`(미리보기 · 약 38회 `claude -p` — 구독 한도, `--limit N` 으로 나눠도 된다) → `data/raw/rewrite/<날짜>.md` 전·후 표를 Claude 와 함께 본다 → `pnpm data rewrite --apply`(그 표의 `.json` 그대로 원격 `places` 쓰기 · Claude 0회 · 재빌드 한 번) · 확인(Claude): `pet_policy_guide is not null` 행 수와 상세 화면 한 곳
 
-- 🧑 서버 워커 둘째 배포(21 S4·S7 둘 다 끝 — 제안·추출 프롬프트가 함께 번들에 실린다) — [21 H1](21-blog-text-and-extract-model.md) · 배포라 허락 먼저 · 명령: `pnpm worker:build && cd worker && vercel deploy --prod`(루트에서 `--cwd worker` 는 실패한다) · 그 전까지 서버 홉은 옛 프롬프트(안내 칸 없음)로 뽑는다 · 확인: 서버가 뽑은 새 후보의 `extracted.meta.promptVersion` 이 `d7a6610e`
+- 🧑 서버 워커 둘째 배포(21 S4·S7 둘 다 끝 — 제안·추출 프롬프트가 함께 번들에 실린다 · 추출 `ce2d9c10`, 14 W261013.4a 요금 예시까지) — [21 H1](21-blog-text-and-extract-model.md) · 배포라 허락 먼저 · 명령: `pnpm worker:build && cd worker && vercel deploy --prod`(루트에서 `--cwd worker` 는 실패한다) · 그 전까지 서버 홉은 옛 프롬프트(안내 칸 없음)로 뽑는다 · 확인: 서버가 뽑은 새 후보의 `extracted.meta.promptVersion` 이 `d7a6610e`
 
-- 🧑 시드 정답 채점(두 모델, 새 프롬프트 `d7a6610e`) — [21 H5](21-blog-text-and-extract-model.md) · 명령: `ANALYZE_MODEL=claude-sonnet-5-5 pnpm data eval extract --limit 30` → `pnpm data eval score` → report 파일을 복사해 두고(프롬프트 버전 하나라 덮인다) → `ANALYZE_MODEL=claude-opus-5 pnpm data eval extract --limit 30` → `pnpm data eval score` · 약 60회(구독 한도) · Sonnet 쪽 지어냄이 늘면 21 M1 을 되돌린다
+- 🧑 시드 정답 채점(두 모델, 새 프롬프트 `ce2d9c10` — 14 W261013.4a 가 `d7a6610e` 의 요금 예시를 고쳤다) — [21 H5](21-blog-text-and-extract-model.md) · 명령: `ANALYZE_MODEL=claude-sonnet-5-5 pnpm data eval extract --limit 30` → `pnpm data eval score` → report 파일을 복사해 두고(프롬프트 버전 하나라 덮인다) → `ANALYZE_MODEL=claude-opus-5 pnpm data eval extract --limit 30` → `pnpm data eval score` · 약 60회(구독 한도) · Sonnet 쪽 지어냄이 늘면 21 M1 을 되돌린다
 
 - 🧑 식약처 명단글 대기 후보 137건의 소개 비우기 — [21 H4](21-blog-text-and-extract-model.md) · 결정: **비운다**(사용자 2026-10-13) — Claude 의 원격 update 를 권한 분류기가 막았다 · 명령: `./node_modules/.bin/supabase db query --linked "update candidates set extracted = jsonb_set(extracted, '{features}', 'null'::jsonb) where status = 'pending' and post_url like '%mialove89%' and extracted->>'features' like '%식약처%'"` · 지금 값 백업 `data/raw/backup/2026-10-13-h4-mfds-features.json`(137행) · 확인(Claude, 원격 조회): 그 글들의 대기 후보 중 '식약처' 소개 0
 

@@ -305,19 +305,19 @@ describe('프롬프트 예시 계약 — FEE_EX 가 앱에서 읽히는가', () 
 
   it('1박마다 붙는 요금은 1박 기준으로 말하고, 한 번 붙는 요금과는 합치지 않는다', () => {
     expect(formatDogFee(policyWithRules([FEE_EX.perNight]), AKDONG)).toBe('악동이는 1박 2만원');
-    const perDogNight = { ...FEE_EX.perNight, label: '1마리당 1박 2만원' };
-    expect(formatDogFee(policyWithRules([perDogNight]), AKDONG_TOFU)).toBe('악동이와 두부는 2마리 합계 1박 4만원 (1마리당 1박 2만원)');
-    expect(formatDogFee(policyWithRules([FEE_EX.perNight, FEE_EX.cleaning]), AKDONG)).toBe('적힌 요금 · 1박당 2만원 · 청소비 5만원');
+    expect(formatDogFee(policyWithRules([FEE_EX.perNight]), AKDONG_TOFU)).toBe('악동이와 두부는 2마리 합계 1박 4만원 (1마리당 1박 2만원)');
+    expect(formatDogFee(policyWithRules([FEE_EX.perNight, FEE_EX.cleaning]), AKDONG)).toBe('적힌 요금 · 1마리당 1박 2만원 · 청소비 5만원');
   });
 
   /*
    * 14 W261013.4 — basis 는 모델이 꼭 고르는 칸이라 본문이 말하지 않아도 채워진다. 두 마리 이상이면 화면에 나가는 label 이 그것을 말할 때만 합친다.
    * 선흘안 "1박당 2만 원 견추비"(perDog) 는 두 마리에 "1박 4만원" 이, 협재현 "애견동반 추가 요금 2만원"(flat) 은 이름 붙은 "2만원" 이 됐다.
-   * 프롬프트 예시 `FEE_EX.perNight` 도 label "1박당 2만원" 에 perDog 라 두 마리면 합치지 않는다 — 예시를 고치는 것은 추출 쪽 일이다.
+   * 프롬프트 예시 `FEE_EX.perNight` 가 그 모양(label "1박당 2만원" + perDog)이었다 — 예시는 W261013.4a 에서 "1마리당 1박 2만원" 으로 고쳤고, 이미 뽑힌 값은 이 방어가 막는다.
    */
   it('두 마리 이상인데 label 이 마리마다인지 한 번인지 말하지 않으면 합치지 않고 그렇다고 말한다', () => {
     const NOTE = ' (합계인지 1마리당인지 적혀 있지 않아요)';
-    expect(formatDogFee(policyWithRules([FEE_EX.perNight]), AKDONG_TOFU)).toBe(`적힌 요금 · 1박당 2만원${NOTE}`);
+    const unstatedNight = { ...FEE_EX.perNight, label: '1박당 2만원' };
+    expect(formatDogFee(policyWithRules([unstatedNight]), AKDONG_TOFU)).toBe(`적힌 요금 · 1박당 2만원${NOTE}`);
     const flat = { ...FEE_EX.cleaning, label: '동반 2만원', amountWon: 20000 };
     expect(formatDogFee(policyWithRules([flat]), AKDONG)).toBe('악동이는 2만원');
     expect(formatDogFee(policyWithRules([flat]), AKDONG_TOFU)).toBe(`적힌 요금 · 동반 2만원${NOTE}`);

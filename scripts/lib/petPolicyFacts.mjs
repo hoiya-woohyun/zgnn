@@ -231,15 +231,30 @@ function shapeMatchesLabel(rule, label) {
   return true;
 }
 
+/**
+ * 요금이 마리마다라고 말하는 꼴 — `1마리당`·`마리당`·`한 마리당`·`마리마다`·`1견당`·`1두당`. 맨 `마리` 는 아니다: 선흘안 원문
+ * "최대 2마리까지 … 1박당 2만 원 견추비" 의 `2마리` 는 마릿수 한도지 요금이 마리마다라는 말이 아니다.
+ */
+const PER_DOG_RE = /마리\s*(?:당|마다|별|씩)|\d\s*[견두]\s*당/;
+/** label 에서 지울 마리당 말 — 앞의 수(`1`·`한`)까지. `PER_DOG_RE` 가 잡는 모양을 전부 지운다. */
+const PER_DOG_STRIP_RE = /(?:\d+|한)?\s*마리\s*(?:당|마다|별|씩)\s*|\d+\s*[견두]\s*당\s*/g;
+
 function correctFeeRules(fees, text, drop) {
   const out = [];
   const inText = new Set(amountsInWon(text));
   for (const rule of fees) {
-    const label = String(rule?.label ?? '').trim();
+    let label = String(rule?.label ?? '').trim();
     if (!label) continue;
     if (!feeTextGrounded(text, label)) {
       drop(`요금 문장 "${label}" 이 원문에 없어 뺐어요`, 'amount');
       continue;
+    }
+    // 앱은 label 이 마리를 말할 때만 두 마리를 합친다(`basisStated`, src/lib/dogFee.ts) — 원문에 없는 '1마리당' 이 label 에 붙으면
+    // 그 방어까지 속아 ×2 가 확정 문장이 된다(14 W261013.4a, 선흘안). 금액은 원문 그대로라 줄은 남기고 그 말만 지운다 — 계산에서 빼면
+    // 한 마리 "1박 2만원" 까지 잃고, 남긴 '1마리당' 칩은 사람이 곱하게 한다.
+    if (PER_DOG_RE.test(label) && !PER_DOG_RE.test(text)) {
+      drop(`요금 "${label}" 의 '마리당' 이 원문에 없어 뺐어요`, 'amount');
+      label = label.replace(PER_DOG_STRIP_RE, ' ').replace(/\s+/g, ' ').trim();
     }
     const next = { ...rule, label };
     const ungrounded =

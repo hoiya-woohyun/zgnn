@@ -392,6 +392,32 @@ describe('correctPetPolicyFacts — 모델이 맞게 낸 요금은 남긴다(BUG
     expect(r.dropped).toEqual([{ note: '요금 "2박째부터 1박당 1만원" 의 금액·조건이 원문과 맞지 않아 계산에서 뺐어요', cue: 'amount' }]);
   });
 
+  // 14 W261013.4a — 선흘안 원문 그대로. `2마리` 는 마릿수 한도라 마리당의 근거가 아니다.
+  const sunheulan = '13kg 미만 최대 2마리까지 가능하고 1박당 2만 원 견추비가 있어요.';
+
+  it('원문에 없는 `1마리당` 은 label 에서 지운다 — 금액은 그대로라 한 마리는 계산되고, 두 마리는 앱이 합치지 않는다', () => {
+    const made = rule({ label: '1마리당 1박 2만원', amountWon: 20000, perNight: true });
+    const r = correctPetPolicyFacts(facts({ fees: [made] }), sunheulan);
+    expect(r.facts.fees).toEqual([{ ...made, label: '1박 2만원' }]);
+    expect(r.dropped).toEqual([{ note: '요금 "1마리당 1박 2만원" 의 \'마리당\' 이 원문에 없어 뺐어요', cue: 'amount' }]);
+    // 두 번째 대조(앱 런타임)는 고칠 것이 없다
+    expect(correctPetPolicyFacts(r.facts, sunheulan).corrections).toEqual([]);
+  });
+
+  it('원문이 마리당을 말하면 label 의 마리당은 그대로 — `마리당`·`1견당` 표기도', () => {
+    for (const source of ['반려견 마리당 1박 2만 원이에요.', '1견당 1박 20,000원', '한 마리마다 1박 2만원씩 받아요.']) {
+      const made = rule({ label: '1마리당 1박 2만원', amountWon: 20000, perNight: true });
+      expect(correctPetPolicyFacts(facts({ fees: [made] }), source).facts.fees, source).toEqual([made]);
+    }
+  });
+
+  it('label 에 마리당이 없는 perDog 줄은 가드가 고치지 않는다 — 두 마리를 안 합치는 것은 앱의 몫(basisStated)', () => {
+    const stored = rule({ label: '1박당 2만원', amountWon: 20000, perNight: true });
+    const r = correctPetPolicyFacts(facts({ fees: [stored] }), sunheulan);
+    expect(r.facts.fees).toEqual([stored]);
+    expect(r.corrections).toEqual([]);
+  });
+
   it('`첫 1박` 요금에 1박마다(perNight)를 붙이면 뺀다 — 첫날 요금이 박마다 곱해진다', () => {
     const text = '첫 1박 기준 1만5천원';
     const r = correctPetPolicyFacts(facts({ fees: [rule({ label: '첫 1박 기준 1만5천원', amountWon: 15000, perNight: true })] }), text);
