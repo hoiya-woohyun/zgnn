@@ -1,6 +1,7 @@
 # 21. 블로그 문장이 사이트에 그대로 나가지 않게 · 추출 모델을 Sonnet 으로
 
-> 최종 수정: 2026-10-13 (v20: S9 끝 — `pnpm data rewrite`(미리보기 표 → `--apply` 는 그 patch 그대로, Claude 재호출 없음) · 안내·소개 지시를 상수로 나눠 쓴다 · 🧑 H7 을 「기다림」 에)
+> 최종 수정: 2026-10-13 (v21: S8 끝 — `derivePlace` 하나를 빌드·사이트·/admin 이 부른다 · `places.json` 비공개 38행은 원문·판단·안내 대신 `derived` · 원문 캐시 + `pull --offline` + drift 테스트 · 🙋 H6 을 「기다림」 에)
+> 이전 2026-10-13 (v20: S9 끝 — `pnpm data rewrite`(미리보기 표 → `--apply` 는 그 patch 그대로, Claude 재호출 없음) · 안내·소개 지시를 상수로 나눠 쓴다 · 🧑 H7 을 「기다림」 에)
 > 이전 2026-10-13 (v19: S7 끝 — 프롬프트 묶음 `d7a6610e`(안내 칸 · 소개 null 출구 · notes 반려견 조건만·해요체 · callFirst·largeDogOk 좁힘 · H3) · 안내 가드는 쓸 때 본문, 보일 때 지문·주제만(`storableGuide` 하나를 추출·제안이 쓴다) · 빈 소개는 안 그린다. 다섯 글 실측 표 · 🧑 H1·H5 를 「기다림」, S9 를 「지금」 에)
 > 이전 2026-10-13 (v18: S6 끝 — `/admin` 세 화면에 「사이트에 나갈 문장」 미리보기(쓰기 경로가 "뒤" 를 만든다) · 사이트 값 칸 `지금 사이트` + 출처 칩은 원문 공개 칸으로. S8 을 「지금」 에)
 > 이전 2026-10-13 (v17: S5.3 끝 — AI 판단의 실내 근거 줄을 판단별 근거 단어로, 블로그 9곳 근거만 바뀌고 판정 0)
@@ -297,7 +298,7 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
   > `eval extract` 캐시는 새 프롬프트 폴더(`d7a6610e-…`)로 간다 → 🧑 H5. 서버 홉은 🧑 H1 전까지 옛 프롬프트.
 
 ### S8. 번들·`places.json` 에서 비공개 원문 빼기
-- [ ] `pull-db` 가 판정 입력(정책·환경·`feeUnitNote`)을 미리 계산해 싣고, 공개가 아닌 행은 원문과 `sources` 를 JSON 에서 뺀다 → `places.json` 모양·`places.ts` 가 바뀐다. `withPolicyFacts`·`correctPetPolicyFacts` 가 런타임에 원문을 읽는 자리를 빌드로 옮긴다. notes 가드(`publicNotes` — 원문이 필요하다)도 빌드가 돌려 통과한 문장만 싣는다(v6). 안내(`publicGuide`)는 S7 뒤 원문 없이 지문·주제만 본다 — 런타임에 남겨도 된다.
+- [x] `pull-db` 가 판정 입력(정책·환경·`feeUnitNote`)을 미리 계산해 싣고, 공개가 아닌 행은 원문과 `sources` 를 JSON 에서 뺀다 → `places.json` 모양·`places.ts` 가 바뀐다. `withPolicyFacts`·`correctPetPolicyFacts` 가 런타임에 원문을 읽는 자리를 빌드로 옮긴다. notes 가드(`publicNotes` — 원문이 필요하다)도 빌드가 돌려 통과한 문장만 싣는다(v6). 안내(`publicGuide`)는 S7 뒤 원문 없이 지문·주제만 본다 — 런타임에 남겨도 된다.
   - 수용: 빌드 산출물(`out/`)과 `src/data/places.json` 에 블로그 출처 행의 원문 문장이 없다(`grep` 으로 일기초록 문장). 판정 결과는 바뀌기 전과 같다(122곳 × 강아지 5마리 스냅숏 테스트).
   - git 이력의 옛 원문은 남는다 — 재작성은 하지 않는다(포크·클론에 이미 있고, 지우는 것은 앞으로의 노출).
   - 끝나면: 🙋 H6 을 「기다림」 에.
@@ -310,6 +311,16 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
   > (원문 조각 `sources`·`tiers[].source`·`indoorGearText`·`feeText` 를 지운 정책 + 근거 칸 밑 한 줄) · 판정 스냅숏(122곳 × `DOG_PROFILES` 5 × `needsIndoor`, `quote` 는 빼고)을 **먼저 따로 커밋** ·
   > JSON 은 원격 없이 `pull --offline` 으로 모양만 바꾼다 · 새 조용한 깨짐(규칙을 고쳐도 비공개 행은 다음 pull 까지 옛 값)은 gitignored 원문 캐시 + drift 테스트 + CLAUDE.md 한 줄 ·
   > `seed-db`·`eval golden` 이 원문 없는 행을 읽는 입구를 막는다. **H6 은 S8 로 풀리지 않는다**(빌드가 여전히 anon 으로 원문을 읽는다). 계획 파일이 없으면(다른 머신) 이 메모로 다시 계획한다.
+  > 메모(끝, 2026-10-13 · 무인 레인): 커밋 셋 — `a08bd79` 판정 스냅숏(`src/lib/__snapshots__/placesVerdicts.txt`, 계획의 `.json` 대신 글 파일) · `97c7988` 코드 · 이 커밋 데이터·문서.
+  > 계획과 다르게 간 것: (1) 훅을 `scripts/data.mjs` 가 아니라 `pull-db` 의 main 안에서 건다 — 다른 레인이 그 파일을 고치던 중이었다(`pnpm data` 사용법 줄에 `--offline` 은 아직 없다, 「발견」).
+  > (2) `placesVerdictView.ts` 는 `DOG_PROFILES` 를 import 하지 않고 옮겨 적었다 — `src/` 비테스트 모듈이라 번들 정규식 검사가 `evalExtract.mjs` 의 lookbehind 를 잡았다. 같은지는 테스트가 본다.
+  > 실측: 스냅숏 바이트 그대로(커밋 2·3) · 공개 84행 바이트 그대로·순서 같음 · `places.json` 118,441 → 126,031B · 비공개 38행 원문의 공백 뺀 15자 이음이 새 `places.json`·스냅숏에 0건(`접종정보만 있으면` 0) ·
+  > 캐시가 있을 때 실데이터 38행에서 빌드 길 ≡ 런타임 길 ≡ `/admin` 길. 10자 이음은 6건 — `features`(소개, S7·S9 몫)와 가드를 지난 notes 의 말 바꿈뿐이다.
+  > 판단 없는 비공개 행(정규식 길)이 생기면 `feeLines` 가 원문 문장 그대로다(지금 0곳 — 38곳 전부 AI 판단). **사람이 할 것**: `pnpm build` 뒤 `out/` 유출 검사 · check-bundle(공유 트리라 레인이 빌드하지 않았다) ·
+  > main 합친 뒤 첫 프로덕션 빌드 로그의 `pull 완료 … 원문 숨김 N` 줄(Vercel 이 앱 TS 를 처음 부른다) · 상세 눈 확인(일기초록·광복이네·판포현스테이·솔숲펜션) — 무인 레인이라 못 했다. 온라인 `pnpm data pull` 도 안 돌렸다(원격 drift 를 무인으로 떠안지 않게).
+- [ ] S8.1 `check-bundle.mjs` 에 상시 유출 검사 — 캐시(`data/raw/places-source.json`)가 있을 때 비공개 원문 줄이 `out/` 에 없는지. 짧은 줄 오탐이 Vercel 배포를 막을 수 있어
+  S8 에선 일회성 검사만 했다 — 바늘 길이 문턱(15자?)과 경고/실패 정책을 먼저 정한다(Vercel 엔 캐시가 pull 뒤 생기므로 거기서도 돈다).
+- [ ] S8.2 `stay.amenitiesText`·`stay.price.text` 의 베낌 정도를 잰다 — 블로그에서 올 수 있고 S8 은 손대지 않았다(`features` 는 S7·S9 몫). 재 보고 크면 S9 처럼 다시 쓰거나 빼는 안을 세운다.
 
 ### S9. 게시된 블로그 행은 문장만 다시 쓴다 — 판단 고정(S7 뒤, 2026-10-13 결정)
 - [x] `pnpm data rewrite`(진입점 `scripts/data.mjs`, 새 스크립트): 대상 = `places` 의 `status = 'published' and not pet_policy_text_public and pet_policy_guide is null` — 2026-10-13 실측 38곳 · 출처 글 46편.
@@ -359,5 +370,8 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
 - **H6 🙋 블로그 원문을 anon select 에서도 닫을지**(v8 발견) — S8 은 번들·`places.json` 만 비운다. publishable 키가 번들에 있고 `places` 는 published 행 select 가 열려 있어(`20260922120000_narrow_grants.sql`)
   원문(`pet_policy_text`)은 S8 뒤에도 PostgREST 로 읽힌다. 닫으려면 열 단위 grant 인데 `pnpm data pull`(빌드)이 같은 키로 원문을 읽어 판정 입력을 만든다 — 빌드가 원문 없이 돌게(판정 입력을 칸으로 미리 계산)
   하는 것이 먼저다. 권고: **S8 뒤에 정한다** — 지금 더 큰 노출은 레포(PUBLIC)·번들이고, API 로 읽으려면 키를 찾아 직접 질의해야 한다. ADR-017 결정 13 D5 의 범위를 그때 적는다.
+  > 메모(S8 뒤, 2026-10-13): S8 은 빌드가 anon 으로 원문을 읽어 `derivePlace` 로 계산하는 모양이라 열 grant 를 거두는 순간 Vercel 빌드가 판정 입력을 못 만든다. 먼저 (a) 쓰기 경로(승인·고치기·덮어쓰기)가
+  > `toSnapshotRow` 결과를 DB 칸에 저장하고 빌드는 그 칸만 읽는다(판정 규칙이 바뀔 때마다 게시 행 전부를 다시 써야 한다) · (b) security definer 함수(DB 는 TS 판정을 못 돌려 결국 a) · (c) 빌드에 장기 키(ADR-016 과 충돌) 중 하나.
+  > 권고: **보류** — 키를 찾아 직접 질의해야 닿는 노출이고, (a) 는 규칙을 바꿀 때마다 원격 쓰기가 생긴다.
 - **H5 🧑 시드 정답 채점(두 모델)** — S7 뒤 새 프롬프트로: `ANALYZE_MODEL=claude-sonnet-5-5 pnpm data eval extract --limit 30` · `ANALYZE_MODEL=claude-opus-5 pnpm data eval extract --limit 30` → 각각 `pnpm data eval score`(report 파일이 프롬프트 버전 하나라 둘째 score 전에 첫 report 를 복사). 약 60회 — 구독 한도. 결과가 Sonnet 쪽 지어냄 증가면 M1 을 되돌린다.
 - **H7 🧑 S9 실행** — S9 뒤: `pnpm data login` → `pnpm data rewrite`(미리보기 · 약 38회 `claude -p` — 구독 한도) → 전·후 표를 Claude 와 함께 본다 → `pnpm data rewrite --apply`(원격 `places` 쓰기 · 재빌드 한 번). 확인(Claude): `pet_policy_guide is not null` 행 수와 상세 화면 한 곳.

@@ -1,6 +1,7 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-10-13 (v67: **`pnpm data rewrite`** — 게시된 블로그 행의 안내·베낀 소개만 다시 쓴다, 판단 고정 · 미리보기 표를 `--apply` 가 그대로 쓴다(Claude 재호출 없음), todo 21 S9)
+> 최종 수정: 2026-10-13 (v68: **`pull` 이 블로그 출처 행의 판정 입력을 미리 계산해 싣는다** — `places.json` 의 비공개 행은 원문·판단·안내 대신 `derived` 하나(`toSnapshotRow`, `src/lib/placeDerive.ts`). 원문을 포함한 전체 행은 gitignored 캐시 `data/raw/places-source.json` 에, `pnpm data pull --offline` 은 그 캐시로 다시 계산한다. `seed-db` 는 원문 없는 행을 건너뛴다, todo 21 S8)
+> 이전 2026-10-13 (v67: **`pnpm data rewrite`** — 게시된 블로그 행의 안내·베낀 소개만 다시 쓴다, 판단 고정 · 미리보기 표를 `--apply` 가 그대로 쓴다(Claude 재호출 없음), todo 21 S9)
 > 이전 2026-10-13 (v66: **추출이 이용 안내를 쓰고 목록글 소개를 비운다** — 장소 칸 `petPolicyGuide` 는 본문에 대 본 가드를 지난 것만 `{ text, basis }` 로 후보에 실리고, `features` 는 설명이 없거나 목록글이면 null, 조건 원문은 조건 아닌 문장을 빼고 "동반 가능" 한마디는 넣는다. 프롬프트 `d7a6610e`, todo 21 S7)
 > 이전 2026-10-13 (v65: `fromPlaceRow` 의 임시 공개 짐작(`source = 'notion'`)을 걷었다 — 칸이 없으면 숨김 · 새 행은 `pet_policy_guide: null` 키를 싣는다(형제 후보의 안내가 빠지지 않게), todo 21 S4.1)
 > 이전 2026-10-12 (v64: 쓰는 길이 공개 플래그·안내를 지킨다 — 원문 글자가 바뀔 때만 공개를 끄고, 안내는 옮기기만(지문은 분석·제안 패스만), todo 21 S4)
@@ -131,6 +132,18 @@ flowchart LR
   문턱 판정은 `src/lib/areaCoverage.ts`. 세션이 있을 때만 검수 대기 열(읽기만) — 없어도 멈추지 않는다
 - `scripts/pull-db.mjs`(`pnpm data pull`) 가 `status='published'` 인 `places`·`items` 를 읽어 `src/data/places.json`·
   `items.json` 을 다시 쓴다.
+- **블로그 출처(비공개) 행은 원문 대신 판정 입력을 싣는다**(todo 21 S8). 레포가 PUBLIC 이고 webpack 은 `places.json` 을 **통째로** 클라이언트 번들에
+  넣어서(배열 안 칸 단위 tree-shaking 은 없다), 화면에서만 숨기면 블로거 문장이 git 과 번들에 그대로 남는다. 그래서 `pull` 이 앱의 조립
+  `toSnapshotRow`(`src/lib/placeDerive.ts`)를 불러 원문 공개 행은 **바이트 그대로**, 비공개 행은 `petPolicyText`·`petPolicy`·`petPolicyGuide` 자리에
+  `derived`(근거 문장을 지운 정책 · 가방/유모차 판독 · 환경 · 요금 단위 · 근거 칸 밑 한 줄)를 쓴다. 앱 TS 를 node 에서 부르므로 `pull-db` 가 main 안에서
+  `tsExtResolve.mjs` 훅을 건다 — **Vercel 빌드가 앱 TS 를 부르는 유일한 자리**다.
+  - 쓰는 파일은 셋: `places.json` · `items.json` · 원문을 포함한 전체 행 캐시 `data/raw/places-source.json`(gitignored — `out/` 밖이라 서빙되지 않는다).
+  - **미리 계산은 낡는다**: 판정 규칙(`petPolicy.ts`·`petPolicyFacts.mjs`·notes 가드·`stayEnvironment.mjs`·`FEE_UNIT_RE`)을 고치면 시드는 바로 바뀌고
+    블로그 행은 다음 pull 까지 옛 값이다. `pnpm data pull --offline` 이 원격을 안 읽고 캐시로 다시 계산한다(원격 변경이 안 섞인다 — 캐시가 없으면 덮지 않고 exit 1).
+    캐시가 있으면 `placeDerive.test.ts` 의 drift 검사가 "다시 계산" 을 요구하고, 판정 스냅숏(`placesVerdicts.test.ts`)의 diff 로 효과를 본다. 프로덕션은 빌드마다 pull 하므로 늘 최신이다.
+  - `seed-db.mjs`(재해복구)는 원문 없는 행을 **건너뛴다** — 보내면 DB 의 원문(대조군)·판단이 null 로 덮인다. 블로그 행은 스냅샷으로 되살릴 수 없다(원문은 DB 에만).
+  - 판단이 없는 비공개 행(정규식 길)이 생기면 요금 줄(`feeLines`)이 원문 문장 그대로다 — 판정·배지가 쓰므로 지우지 못한다. 지금 비공개 38곳은 전부 AI 판단이 있다(요금 줄 = 20자 이내 label).
+  - 남는 노출: git 이력(재작성 안 함) · 이미 설치된 PWA 의 옛 청크 · anon select 의 `pet_policy_text`(H6 — 빌드가 여전히 anon 으로 원문을 읽어 계산하므로 S8 로 안 풀린다).
 - `src/data/*.json` 은 계속 **커밋**한다 — 키 없이도 `pnpm dev`·`pnpm test`·로컬 `pnpm build` 가 돌아야 해서다.
   **다만 4a 뒤로 이 스냅샷은 배포의 안전망이 아니다**: 배포 빌드는 `pnpm data pull` 로 시작하므로, Supabase 가 무료 티어 7일 비활성으로 잠들면
   `pnpm data pull` 이 exit 1 이고 **재배포가 막힌다**(이전 배포는 그대로 산다 — [todo/05](../todo/05-security.md)). 조용히 옛 데이터로 빌드되지 않게 한 것이 의도다.

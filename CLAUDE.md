@@ -11,7 +11,7 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
 |---|---|
 | 다음에 무엇을 하나·todo 이어 가기 | [docs/todo/NOW.md](docs/todo/NOW.md) · `/next`(`.claude/skills/next/SKILL.md`) · SessionStart 훅 `.claude/hooks/todoNow.mjs` — **대기열이 순서, 번호 문서가 명세**. 묻지 않고 맨 위부터. 세션 여럿이 동시에 돌므로 줄은 `node .claude/skills/next/claim.mjs take` 로 **선점**해서 고른다(친 순서대로 서로 다른 줄) |
 | 빌드·PWA·서비스워커가 안 됨 | [README.md](README.md#실행) → [docs/architecture/pwa-offline.md](docs/architecture/pwa-offline.md) |
-| 이용 조건 파싱·판정 로직 | [docs/architecture/pet-policy-and-eligibility.md](docs/architecture/pet-policy-and-eligibility.md) · `src/lib/petPolicy.ts` · `src/lib/eligibility.ts` |
+| 이용 조건 파싱·판정 로직 | [docs/architecture/pet-policy-and-eligibility.md](docs/architecture/pet-policy-and-eligibility.md) · `src/lib/petPolicy.ts` · `src/lib/eligibility.ts` · 원문 → 판정 입력 조립은 `src/lib/placeDerive.ts` 하나(블로그 행은 빌드가 미리 계산) |
 | 준비물·장소별 필요 물건 | [docs/features/checklist.md](docs/features/checklist.md) · [docs/decisions/ADR-009-trip-derived-checklist.md](docs/decisions/ADR-009-trip-derived-checklist.md) · `src/lib/itemNeeds.ts` — **탭은 장소를 모른다**(검색·보기 칩·체크만, 숫자는 `checklistProgress` 하나 — 장소 몫은 `PlaceItemsNote`, ADR-009 v4) · **날짜별 준비물은 하지 않는다**(ADR-009 v3.3) |
 | 라우팅·화면 셸·클라이언트 상태 | [docs/architecture/app-shell-and-state.md](docs/architecture/app-shell-and-state.md) · `src/store/useAppStore.ts` |
 | 화면 간 좌우 스와이프·스크롤 복원 | [docs/decisions/ADR-014-shell-owned-swipe-pager.md](docs/decisions/ADR-014-shell-owned-swipe-pager.md) · `src/components/layout/appShellSwipe.ts` · `src/lib/appScroll.ts` |
@@ -104,6 +104,10 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
 - **주소 표기 대조에 AI 를 붙이면 하나 있는 진짜 신호를 잃는다.** 두 주소(네이버 ↔ 원글)의 불일치 43쌍 중 39쌍이 `제주특별자치도`↔`제주`
   뿐이었고, 정말 다른 2쌍이 "검색이 동명의 다른 가게를 집었다" 는 유일한 신호다. 남은 갈래(지번↔도로명)는 조회해야 아는 것이라 모델이
   지어내고, 지어낸 '같다' 가 그 2쌍을 덮는다 — `scripts/lib/addressMatch.mjs` 의 `sameAddress` 가 `'unknown'` 을 돌려주는 것은 포기가 아니라 결정이다.
+- **블로그 출처 행의 판정 입력은 `places.json` 에 미리 계산돼 있다**(21 S8). 원문·판단·안내는 JSON 에 없고 `derived` 만 있다(레포가 PUBLIC 이고 webpack 은 JSON 을 통째로 번들에 넣는다).
+  판정 규칙(`petPolicy.ts`·`petPolicyFacts.mjs`·notes 가드·`stayEnvironment.mjs`·`FEE_UNIT_RE`)을 고치면 시드는 바로 바뀌고 블로그 행은 그대로다 — `pnpm data pull --offline`(원격 안 읽음, 캐시 `data/raw/places-source.json`)으로
+  다시 계산하고 판정 스냅숏(`placesVerdicts.test.ts`) diff 를 본다. 캐시가 있으면 drift 테스트가 잡고, 없는 worktree 에선 조용히 지나간다. 런타임은 원문을 읽지 않는다(`TPlaceEntry` 에 원문이 없다 — 공개 행은 `publicPolicyText`).
+  `places.json` 을 `toSnapshotRow`(`src/lib/placeDerive.ts`) 밖에서 쓰지 않는다(→ [data-pipeline](docs/architecture/data-pipeline.md) 「갱신 경로」).
 - **`TPetPolicy` 에 조건 필드를 더하면 `readNothing`(`petPolicy.ts`)에도 더한다.** 빠지면 그 조건만 읽힌 원문이
   `unread` 가 되어 판정 C7("원문을 확인해 주세요")로 떨어진다 — 시드 86곳엔 그런 원문이 없어 테스트는 통과한다.
   같은 이유로 AI 판단은 `correctPetPolicyFacts`(`scripts/lib/petPolicyFacts.mjs`)를 거쳐야 판정에 닿는다: 원문에 근거 없는

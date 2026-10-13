@@ -35,7 +35,7 @@ const USAGE = `사용법: pnpm data <하위 명령> [인자…]
   analyze   안 읽은 글을 Claude 로 읽어 장소 후보(candidates)를 만든다           --limit N · --requested-only · --dry-run · --no-geo · --no-verify · --no-homepage · --dump
   apply     승인된 후보를 places 에 반영한다(기존 장소는 빈 칸만 채움)             --dry-run
   once      워커의 한 바퀴 — 할 것만: 추가 수집 요청 → 요청 글 분석(requested_at) → 승인 반영. 없으면 "할 일 없음"   --dry-run(계획만)
-  pull      src/data/*.json 을 DB 최신으로(Vercel 빌드가 부른다) — 결과가 비면 덮지 않고 멈춘다
+  pull      src/data/*.json 을 DB 최신으로(Vercel 빌드가 부른다) — 결과가 비면 덮지 않고 멈춘다            --offline(원문 캐시로 places.json 만 다시 계산 — 원격 안 읽음, 판정 규칙을 고친 뒤)
   rewrite   게시된 블로그 행의 이용 안내·베낀 소개만 다시 쓴다(판단 고정) — 미리보기(표 data/raw/rewrite/<날짜>.md) [--limit N] · --apply [파일](그 표의 patch 그대로, Claude 0회)
   logout    세션을 만료 전에 지운다
   eval      추출 정확도 — golden [--force] · extract [--limit N] [--only …] [--refresh] · score [--prompt 버전]

@@ -228,3 +228,20 @@ describe.skipIf(!hasCache)('원문 캐시가 있을 때 — 실데이터 비공�
     }
   });
 });
+
+// 커밋된 places.json 의 모양(21 S8) — 블로그 출처 행이 원문을 싣고 들어오는 입구(옛 pull·손 편집)를 잡는다.
+describe('places.json 구조 — 원문은 공개 행에만', () => {
+  it.each((placesJson as unknown as Record<string, unknown>[]).map((row) => [row.name as string, row] as const))('%s', (_name, row) => {
+    if (row.petPolicyTextPublic === true) {
+      expect(typeof row.petPolicyText).toBe('string');
+      expect(row).not.toHaveProperty('derived');
+      return;
+    }
+    for (const key of ['petPolicyText', 'petPolicy', 'petPolicyGuide']) expect(row).not.toHaveProperty(key);
+    const { policy } = row.derived as { policy: Record<string, unknown> & { tiers: Record<string, unknown>[] } };
+    expect(policy.sources).toEqual({});
+    expect(policy).not.toHaveProperty('indoorGearText');
+    expect(policy).not.toHaveProperty('feeText');
+    expect(policy.tiers.filter((tier) => 'source' in tier)).toEqual([]);
+  });
+});
