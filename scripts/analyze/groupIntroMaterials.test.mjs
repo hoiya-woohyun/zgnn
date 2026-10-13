@@ -173,6 +173,19 @@ describe('chooseGroupIntro — 사이트에 나갈 소개를 한 함수가 정�
     expect(introTextReasons('실내에 강아지와 함께 앉을 수 있어요. 실내에 강아지와 함께 머물 수도 있어요.')).toEqual(['판단 칸이 말하는 주제예요(실내)']);
   });
 
+  // 13 §5.3 A5 — 원격 pending 신규 요약 그대로. 둘은 강아지 낱말이 없어 오프리쉬 자체가 문장을 묶는다.
+  it('오프리쉬는 목줄 칸의 말이다 — 강아지 낱말이 없어도 건다', () => {
+    for (const body of [
+      '강아지가 오프리쉬로 뛸 수 있는 넓은 잔디마당과 야외 바베큐 시설, 야외 자쿠지가 있어요.',
+      '오프리쉬가 되는 잔디마당과 배변 처리 봉투가 있어요.',
+      '오프리쉬 공간으로 소개하는 넓은 잔디마당과 바베큐 공간이 있어요.',
+      '옥상에서는 오프 리시도 돼요.',
+    ]) {
+      expect(introTextReasons(body).join(' '), body).toMatch(/판단 칸이 말하는 주제예요\(오프\s*리[쉬시]\)/);
+    }
+    expect(introTextReasons('오프라인 매장도 있어요.')).toEqual([]);
+  });
+
   it('대체값의 시설 묘사는 이제 소개로 나간다 — "야외 테라스" 대표 요약', () => {
     const out = chooseGroupIntro(group([row(blog('a/1'), '바다가 보이는 오션뷰 카페예요. 야외 테라스석과 넓은 전용 주차장이 있어요.')]), null);
     expect(out).toMatchObject({ text: '바다가 보이는 오션뷰 카페예요. 야외 테라스석과 넓은 전용 주차장이 있어요.', dropped: [] });

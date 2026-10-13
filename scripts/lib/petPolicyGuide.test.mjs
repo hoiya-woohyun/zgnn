@@ -49,6 +49,12 @@ describe('guardPublicText — 판단 주제', () => {
     expect(topicReasons(r)).toEqual(['판단 칸이 말하는 주제예요(야외)']);
   });
 
+  it('"오프리쉬로 뛰어놀 수 있어요" 는 목줄 주제로 빠진다(13 §5.3 A5)', () => {
+    const r = guardPublicText('잔디마당에서 오프리쉬로 뛰어놀 수 있어요', '잔디마당에서 오프리쉬로 뛰어놀았어요');
+    expect(topicReasons(r)).toEqual(['판단 칸이 말하는 주제예요(오프리쉬)']);
+    expect(runtimeTopicReasons('옥상은 오프리드 공간이에요')).toEqual(['판단 칸이 말하는 주제예요(오프리드)']);
+  });
+
   it('notes 는 주제 검사를 하지 않는다(topics: false)', () => {
     expect(guardPublicText('예방접종 증명서를 보여 줘야 해요', '접종 증명서 지참', { topics: false })).toEqual({ ok: true, reasons: [] });
   });
