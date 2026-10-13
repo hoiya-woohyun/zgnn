@@ -11,7 +11,7 @@
  * 없으면 규칙을 걸지 않는다 — 없는 정보를 "괜찮을 것" 으로 읽지 않는다.
  */
 
-import type { TCarrier, TDogProfile, TDogSize } from '../types';
+import type { TCarrier, TDogEntry, TDogProfile, TDogSize } from '../types';
 import { formatDogFee } from './dogFee';
 import { maxWeightKg } from './dogProfile';
 import { dogCallName, dogCallNames, josa, withJosa } from './korean';
@@ -57,13 +57,31 @@ const REASON_ORDER: Record<TReasonLevel, number> = { hard: 0, cond: 1, unknown: 
 const SIZE_BOUNDARY_SMALL = 10;
 const SIZE_BOUNDARY_MEDIUM = 25;
 
-export const dogSize = (dog: TDogProfile): TDogSize => {
-  if (dog.sizeOverride) return dog.sizeOverride;
-  const weight = maxWeightKg(dog);
-  if (weight < SIZE_BOUNDARY_SMALL) return 'small';
-  if (weight <= SIZE_BOUNDARY_MEDIUM) return 'medium';
+const sizeOfWeight = (weightKg: number): TDogSize => {
+  if (weightKg < SIZE_BOUNDARY_SMALL) return 'small';
+  if (weightKg <= SIZE_BOUNDARY_MEDIUM) return 'medium';
   return 'large';
 };
+
+export const dogSize = (dog: TDogProfile): TDogSize => dog.sizeOverride ?? sizeOfWeight(maxWeightKg(dog));
+
+/**
+ * 크기 규칙(H3·H7·H4·C5)에 **걸리는 아이만** — 판정은 가장 큰 아이 하나로 하지만, 말은 H1(무게 상한)처럼 누구 때문인지 한다(14 W261010.15).
+ * "소형견만 가능해요" 만으로는 셋을 데려온 보호자가 누구 얘기인지 몰랐다. 크기는 마리마다 몸무게로 본다.
+ * 빈 목록이면 문구는 예전 그대로다: 한 마리면 머리글이 이미 그 아이를 부르고, 크기 수정(`sizeOverride`)이 판정을 정해
+ * 몸무게로는 아무도 안 걸리면 누구를 부를지 모른다.
+ */
+const dogsOfSize = (dog: TDogProfile, test: (size: TDogSize) => boolean): TDogEntry[] =>
+  dog.dogs.length < 2 ? [] : dog.dogs.filter((entry) => test(sizeOfWeight(entry.weightKg)));
+
+/** "대장이(28kg)" — H1·C10 과 같은 꼴. */
+const dogLabel = (entry: TDogEntry): string => `${dogCallName(entry.name)}(${entry.weightKg}kg)`;
+
+/** "대장이(28kg)는" · "대장이(28kg)·태풍이(30kg) 모두" — 조사는 괄호가 아니라 이름 끝 받침을 따른다(H1 과 같다). */
+const dogsTopic = (entries: TDogEntry[]): string =>
+  entries.length === 1
+    ? `${dogLabel(entries[0])}${josa(dogCallName(entries[0].name), '은/는')}`
+    : `${entries.map(dogLabel).join('·')} 모두`;
 
 /** tier 의 무게 조건을 강아지가 만족하는지. 무게 조건이 없는 tier(마릿수만 말함)는 항상 만족한다. */
 const fitsTierWeight = (tier: TPolicyTier, weightKg: number): boolean => {
@@ -140,7 +158,9 @@ const ruleTooManyForWeight: TRule = (dog, policy) => {
 const ruleSmallOnly: TRule = (dog, policy) => {
   if (!policy.smallDogOnly) return null;
   if (dogSize(dog) === 'small') return null;
-  return { level: 'hard', text: '소형견만 가능해요', quote: policy.sources.smallDogOnly };
+  const over = dogsOfSize(dog, (size) => size !== 'small');
+  const text = over.length > 0 ? `${dogsTopic(over)} 소형견이 아니에요. 소형견만 가능해요` : '소형견만 가능해요';
+  return { level: 'hard', text, quote: policy.sources.smallDogOnly };
 };
 
 /**
@@ -151,7 +171,9 @@ const ruleSmallOnly: TRule = (dog, policy) => {
 const ruleLargeDogNo: TRule = (dog, policy) => {
   if (!policy.largeDogNo) return null;
   if (dogSize(dog) !== 'large') return null;
-  return { level: 'hard', text: '대형견은 어렵다고 적혀 있어요', quote: policy.sources.largeDogNo };
+  const large = dogsOfSize(dog, (size) => size === 'large');
+  const said = '대형견은 어렵다고 적혀 있어요';
+  return { level: 'hard', text: large.length > 0 ? `${dogsTopic(large)} 대형견이에요. ${said}` : said, quote: policy.sources.largeDogNo };
 };
 
 /**
@@ -161,19 +183,28 @@ const ruleLargeDogNo: TRule = (dog, policy) => {
  *
  * 원문이 대형견을 받는다고 적었으면(`largeDogOk`) 막는 것은 크기가 아니라 케이지다 — "대형견은 어려워요" 라고 하면
  * "(대형견도 환영)" 바로 옆에서 원문과 반대 말을 한다(신창해물라면와랑식탁, 14 W261007.3).
+ *
+ * 여러 마리면 대형견인 아이를 부른다(`dogsOfSize`) — 단, **이동가방·유모차가 있을 때만**. 이동 수단이 없으면 작은 아이도 실내에
+ * 못 드는데(H5 는 이 규칙에 물러나 있다) 큰 아이만 부르면 나머지는 되는 것처럼 읽힌다.
  */
 const ruleLargeNeedsCage: TRule = (dog, policy, opts) => {
   if (policy.indoor !== 'cage') return null;
   if (dogSize(dog) !== 'large') return null;
   if (dog.carrier === 'cage') return null;
-  const subject = policy.largeDogOk ? '케이지가 없어' : '실내는 케이지 필수라 대형견은';
+  const large = dog.carrier === 'none' ? [] : dogsOfSize(dog, (size) => size === 'large');
+  const named = large.length > 0 ? `${dogsTopic(large)} ${policy.largeDogOk ? '케이지가 없어' : '대형견이라'}` : undefined;
+  const subject = named ?? (policy.largeDogOk ? '케이지가 없어' : '실내는 케이지 필수라 대형견은');
   if (policy.outdoorFree) {
     const text = `${subject} 야외 자리만 가능해요`;
     return opts.needsIndoor
       ? { level: 'hard', text, quote: policy.sources.indoor }
       : { level: 'cond', text, quote: policy.sources.indoor };
   }
-  const text = policy.largeDogOk ? '케이지가 없어 실내는 어려워요' : '실내는 케이지 필수라 대형견은 어려워요';
+  const text = named
+    ? `${named} ${policy.largeDogOk ? '실내는 어려워요' : '실내는 케이지 필수예요'}`
+    : policy.largeDogOk
+      ? '케이지가 없어 실내는 어려워요'
+      : '실내는 케이지 필수라 대형견은 어려워요';
   return { level: 'hard', text, quote: policy.sources.indoor };
 };
 
@@ -318,16 +349,20 @@ const ruleLargeDogUnmentioned: TRule = (dog, policy) => {
   if (handledByH4) return null;
 
   const weight = maxWeightKg(dog);
+  // 여러 마리면 대형견인 아이 이름으로 묻는다 — C10 의 "보리(12kg)도 되는지" 와 같은 꼴(14 W261010.15).
+  const large = dogsOfSize(dog, (size) => size === 'large');
+  const who = large.length > 0 ? large.map(dogLabel).join('·') : undefined;
   const minKgLine = policy.feeLines.find((line) => FEE_MIN_KG_RE.test(line));
   if (minKgLine) {
     const n = Number((FEE_MIN_KG_RE.exec(minKgLine) as RegExpExecArray)[1]);
-    return { level: 'cond', text: `${n}kg 이상 요금이 적혀 있어요. ${weight}kg 도 되는지 확인해 주세요` };
+    return { level: 'cond', text: `${n}kg 이상 요금이 적혀 있어요. ${who ? `${who}도` : `${weight}kg 도`} 되는지 확인해 주세요` };
   }
   // 구간 요금표를 넘으면 C10 이 크기와 무관하게 "N kg 초과 요금" 으로 말한다 — 같은 말을 두 번 하지 않는다.
   const top = feeTableTopKg(policy);
   if (top !== undefined && weight > top) return null;
 
-  return { level: 'cond', text: '대형견 언급이 없어요. 확인해 주세요', quote: policy.sources.largeDogOk };
+  const text = who ? `대형견 언급이 없어요. ${who}도 되는지 확인해 주세요` : '대형견 언급이 없어요. 확인해 주세요';
+  return { level: 'cond', text, quote: policy.sources.largeDogOk };
 };
 
 /** C6: 방문 전 전화 확인이 필요하다고 적혀 있다. */

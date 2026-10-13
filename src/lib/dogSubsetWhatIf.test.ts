@@ -26,6 +26,16 @@ describe('dogSubsetWhatIf', () => {
     expect(whatIf(three, '2마리까지')?.names).toEqual(['솜', '구름']);
   });
 
+  it('카페의 "소형견만"(H3)도 — 소형견이 아닌 아이를 빼면 가는 조합(14 W261010.15)', () => {
+    const three: TDogProfile = {
+      dogs: [{ name: '보리', weightKg: 12 }, { name: '단풍', weightKg: 4 }, { name: '깜지', weightKg: 6 }],
+      carrier: 'none',
+    };
+    const result = whatIf(three, '소형견만 가능해요');
+    expect(result?.names).toEqual(['단풍', '깜지']);
+    expect(result?.eligibility.level).toBe('ok');
+  });
+
   it('어려움이 아니면 묻지 않는다 · 한 마리면 묻지 않는다 · 누구를 빼도 안 되면 null', () => {
     expect(whatIf(DAEJANG_CHOCO, '실내외 모두 가능.')).toBeNull();
     expect(whatIf({ dogs: [{ name: '대장', weightKg: 18 }], carrier: 'none' }, '10kg 이하')).toBeNull();

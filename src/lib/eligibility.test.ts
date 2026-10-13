@@ -503,6 +503,60 @@ describe('judgeEligibility — 대형견 불가(H7, todo/06 A-2)', () => {
   });
 });
 
+describe('judgeEligibility — 크기 규칙도 걸리는 아이만 부른다(14 W261010.15)', () => {
+  const THREE: TDogProfile = {
+    dogs: [{ name: '보리', weightKg: 12 }, { name: '단풍', weightKg: 4 }, { name: '깜지', weightKg: 6 }],
+    carrier: 'none',
+  };
+  const BIG_SMALL: TDogProfile = { dogs: [{ name: '대장', weightKg: 28 }, { name: '초코', weightKg: 6 }], carrier: 'none' };
+  const textOf = (dog: TDogProfile, text: string, rule: string) =>
+    judgeEligibility(dog, parsePetPolicy(text)).reasons.find((r) => r.rule === rule)?.text;
+
+  it('H3 — 소형견이 아닌 아이만, 둘 이상이면 "모두"', () => {
+    expect(textOf(THREE, '소형견만 가능해요', 'H3')).toBe('보리(12kg)는 소형견이 아니에요. 소형견만 가능해요');
+    const two: TDogProfile = { ...THREE, dogs: [...THREE.dogs, { name: '구름', weightKg: 15 }] };
+    expect(textOf(two, '소형견만 가능해요', 'H3')).toBe('보리(12kg)·구름이(15kg) 모두 소형견이 아니에요. 소형견만 가능해요');
+  });
+
+  it('H7 — 대형견인 아이만', () => {
+    expect(textOf(BIG_SMALL, '대형견은 어려워요', 'H7')).toBe('대장이(28kg)는 대형견이에요. 대형견은 어렵다고 적혀 있어요');
+  });
+
+  it('C5 — C10 처럼 "…도 되는지", 요금 하한 줄이 있어도', () => {
+    expect(textOf(BIG_SMALL, '1마리당 3만원.', 'C5')).toBe('대형견 언급이 없어요. 대장이(28kg)도 되는지 확인해 주세요');
+    expect(textOf(BIG_SMALL, '1마리당 3만원. 10kg 이상 4만원', 'C5')).toBe(
+      '10kg 이상 요금이 적혀 있어요. 대장이(28kg)도 되는지 확인해 주세요',
+    );
+  });
+
+  it('H4 — 이동가방이 있으면 대형견인 아이만 부른다', () => {
+    const bag: TDogProfile = { ...BIG_SMALL, carrier: 'bag' };
+    const policy = parsePetPolicy('실내는 케이지 필수');
+    expect(policy.indoor).toBe('cage');
+    expect(judgeEligibility(bag, policy).reasons.find((r) => r.rule === 'H4')?.text).toBe(
+      '대장이(28kg)는 대형견이라 실내는 케이지 필수예요',
+    );
+    const outdoor = { ...policy, outdoorFree: true };
+    expect(judgeEligibility(bag, outdoor).reasons.find((r) => r.rule === 'H4')?.text).toBe(
+      '대장이(28kg)는 대형견이라 야외 자리만 가능해요',
+    );
+    const largeOk = { ...policy, largeDogOk: true };
+    expect(judgeEligibility(bag, largeOk).reasons.find((r) => r.rule === 'H4')?.text).toBe('대장이(28kg)는 케이지가 없어 실내는 어려워요');
+  });
+
+  it('H4 — 이동 수단이 없으면 작은 아이도 실내에 못 들어 이름을 부르지 않는다', () => {
+    const policy = parsePetPolicy('실내는 케이지 필수');
+    expect(judgeEligibility(BIG_SMALL, policy).reasons.find((r) => r.rule === 'H4')?.text).toBe('실내는 케이지 필수라 대형견은 어려워요');
+  });
+
+  it('한 마리면 · 크기 수정이 판정을 정해 몸무게로는 아무도 안 걸리면 예전 문구 그대로', () => {
+    expect(textOf({ dogs: [{ name: '보리', weightKg: 12 }], carrier: 'none' }, '소형견만 가능해요', 'H3')).toBe('소형견만 가능해요');
+    const overridden: TDogProfile = { dogs: [{ name: '단비', weightKg: 8 }, { name: '솜', weightKg: 5 }], carrier: 'none', sizeOverride: 'medium' };
+    expect(textOf(overridden, '소형견만 가능해요', 'H3')).toBe('소형견만 가능해요');
+    expect(textOf({ ...overridden, sizeOverride: 'large' }, '대형견은 어려워요', 'H7')).toBe('대형견은 어렵다고 적혀 있어요');
+  });
+});
+
 describe('judgeEligibility — 원문은 있는데 아무도 못 읽음(C7, todo/06 A-1)', () => {
   it("못 읽은 원문은 '갈 수 있어요' 가 아니라 확인이 필요하다", () => {
     const policy = parsePetPolicy('사장님 강아지들이랑 같이 뛰어놀 수 있어요');
