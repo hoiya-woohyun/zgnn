@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import type { THealth, TStageHealth, TStageKey } from '../lib/adminOpsHealth';
 import { cx } from '../utils/cx';
 
@@ -26,6 +27,9 @@ const REASON: Record<THealth, string> = {
   fail: 'text-error-primary',
 };
 
+/** 검수 칸은 실행 기록이 아니라 사람 몫이라 볼 곳이 `/admin` 의 검수 대기다 — 누르면 거기로 간다(todo/15 T8.3). */
+const REVIEW_HREF = '/admin/?tab=candidates';
+
 /** 읽는 중에 자리를 잡는 이름 — `stageHealth` 의 순서와 같다. */
 const LOADING_LABELS = ['수집', '분석', '검수', '반영', '재빌드'] as const;
 
@@ -37,7 +41,7 @@ const LOADING_LABELS = ['수집', '분석', '검수', '반영', '재빌드'] as 
  * 넘치는 줄은 자른다(전부는 칸에 `title` 로).
  * 좁은 화면에서는 줄바꿈하지 않고 **가로로 민다**(칸 최소 폭 고정) — 다섯 칸이 두 줄로 접히면 "순서" 가 안 읽힌다.
  *
- * 칸을 누르면 ③ 실행 기록이 그 스크립트로 걸러진다(`STAGE_SCRIPTS`). 재빌드 칸은 `rebuild_log` 라 걸러 볼 실행 기록이 없어 누를 수 없다.
+ * 칸을 누르면 ③ 실행 기록이 그 스크립트로 걸러진다(`STAGE_SCRIPTS`). 재빌드 칸은 `rebuild_log` 라 걸러 볼 실행 기록이 없어 누를 수 없다. 검수 칸은 걸러 보지 않고 `/admin` 검수 대기로 보낸다(링크).
  * 검수 칸의 점은 **속이 빈 고리**다(○) — 사람 몫이라 장치의 상태와 같은 무게로 보이지 않게(features ① 표).
  */
 export function AdminOpsPageStageStrip({
@@ -57,7 +61,8 @@ export function AdminOpsPageStageStrip({
       {shown.map((stage, index) => {
         const key = stage?.key ?? (`loading-${index}` as const);
         const state: THealth = stage?.state ?? 'none';
-        const clickable = Boolean(stage && onSelect && stage.key !== 'rebuild');
+        const isReview = stage?.key === 'review';
+        const clickable = Boolean(stage && onSelect && stage.key !== 'rebuild' && !isReview);
         const body = (
           <>
             <span className="flex items-center gap-1.5 text-sm font-semibold text-primary">
@@ -90,7 +95,11 @@ export function AdminOpsPageStageStrip({
         const title = stage ? [stage.label, stage.first, stage.second, stage.reason, stage.hint].filter(Boolean).join(' · ') : undefined;
         return (
           <li key={key} className="min-w-40 flex-1">
-            {clickable ? (
+            {isReview ? (
+              <Link href={REVIEW_HREF} title={title} className={cx(card, 'hover:border-tertiary')}>
+                {body}
+              </Link>
+            ) : clickable ? (
               <button
                 type="button"
                 title={title}

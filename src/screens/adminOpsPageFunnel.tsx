@@ -15,7 +15,7 @@ function AdminOpsPageFunnelBar({
   value: number;
   max: number;
   tone?: 'flow' | 'pending';
-  /** 한 칸에 두 막대를 겹칠 때(승인·제외) */
+  /** 한 칸에 두 막대를 겹칠 때(등록·제외) */
   thin?: boolean;
 }) {
   if (value <= 0 || max <= 0) return null;
@@ -43,7 +43,7 @@ function AdminOpsPageFunnelCell({ label, value, max, tone }: { label: string; va
  * ② 흐름 — 기간(7일·30일) 안에서 **각 단계를 지난 건수**(features/ops-dashboard.md ②).
  *
  * 줄들은 서로의 부분집합이 **아니다**(이번 주 분석된 글이 지난주 수집된 글일 수 있다) — 그래서 위에서 아래로 줄어드는 깔때기로 읽히면
- * 거짓말이다. 비율은 **가장 큰 줄을 100%** 로 둔다. 승인·제외는 한 줄에 나란히. **지금 보류**만 기간 흐름이 아니라 지금 쌓인 것이라
+ * 거짓말이다. 비율은 **가장 큰 줄을 100%** 로 둔다. 등록·제외는 한 줄에 나란히. **지금 보류**만 기간 흐름이 아니라 지금 쌓인 것이라
  * 따로 떼고, 노랑(사람이 할 일)이며, 기간 토글의 영향을 받지 않는다(① 검수 칸의 대기 수와 같은 값).
  *
  * 차트 라이브러리를 들이지 않는다 — `div` 너비 하나다. 수는 막대 색이 아니라 글자 색으로(dataviz: 글자는 데이터 색을 입지 않는다).
@@ -97,16 +97,16 @@ export function AdminOpsPageFunnel({
         <AdminOpsPageFunnelCell label="분석" value={n(funnel?.analyzed)} max={max} />
         <AdminOpsPageFunnelCell label="후보" value={n(funnel?.candidates)} max={max} />
         {/*
-          * 승인·제외는 한 줄에 둘(features ②). 반쪽 칸 둘로 나누면 막대 칸이 절반 폭이 되어 **같은 수가 절반 길이**로 보인다 —
-          * 그래서 같은 막대 칸 안에 위(승인)·아래(제외)로 겹쳐 눈금을 다른 줄과 맞춘다. 어느 것이 어느 것인지는 색이 아니라 글자 순서가 말한다.
+          * 등록·제외는 한 줄에 둘(features ②). 반쪽 칸 둘로 나누면 막대 칸이 절반 폭이 되어 **같은 수가 절반 길이**로 보인다 —
+          * 그래서 같은 막대 칸 안에 위(등록)·아래(제외)로 겹쳐 눈금을 다른 줄과 맞춘다. 어느 것이 어느 것인지는 색이 아니라 글자 순서가 말한다.
           */}
         <div className="grid min-w-0 grid-cols-[4.5rem_3.5rem_minmax(0,1fr)] items-center gap-2">
-          <span className="truncate text-xs text-secondary">승인 · 제외</span>
+          <span className="truncate text-xs text-secondary">등록 · 제외</span>
           <span className="text-right text-xs font-semibold text-primary tabular-nums">
             {n(funnel?.approved).toLocaleString('ko-KR')} · {n(funnel?.rejected).toLocaleString('ko-KR')}
           </span>
           <span className="flex flex-col gap-0.5">
-            <span title={`승인 ${n(funnel?.approved)}`} className="min-h-1">
+            <span title={`등록 ${n(funnel?.approved)}`} className="min-h-1">
               <AdminOpsPageFunnelBar value={n(funnel?.approved)} max={max} thin />
             </span>
             <span title={`제외 ${n(funnel?.rejected)}`} className="min-h-1">

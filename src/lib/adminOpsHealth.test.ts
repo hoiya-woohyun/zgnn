@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TOpsOverview, TOpsRebuildEntry, TOpsWorker, TPipelineRun } from './adminOps';
 import { nextStepText } from './adminNextStep';
-import { adminBandStage, remoteWorkerView, runState, stageHealth, stalledBefore, workerHealth, worstStage } from './adminOpsHealth';
+import { adminBandStage, remoteWorkerView, runState, STAGE_SCRIPTS, stageHealth, stalledBefore, workerHealth, worstStage } from './adminOpsHealth';
 
 const NOW = Date.parse('2026-10-06T12:00:00.000Z');
 const ago = (ms: number) => new Date(NOW - ms).toISOString();
@@ -295,5 +295,13 @@ describe('remoteWorkerView', () => {
     expect(remoteWorkerView([server({ last_seen_at: ago(61_000) })], NOW)).toBeNull();
     expect(remoteWorkerView([{ ...server(), host: 'mac' }], NOW)).toBeNull();
     expect(remoteWorkerView([server({ last_seen_at: 'garbage' })], NOW)).toBeNull();
+  });
+});
+
+describe('STAGE_SCRIPTS — 걸러 볼 실행 기록이 있는 칸만', () => {
+  it('approve · reject 는 어느 칸의 판정·걸러 보기에도 쓰이지 않는다 (검수는 /admin 링크)', () => {
+    expect(STAGE_SCRIPTS.review).toBeNull();
+    expect(STAGE_SCRIPTS.rebuild).toBeNull();
+    expect(Object.values(STAGE_SCRIPTS).flatMap((scripts) => scripts ?? [])).toEqual(['collect', 'analyze', 'apply']);
   });
 });

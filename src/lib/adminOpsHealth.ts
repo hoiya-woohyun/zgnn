@@ -261,11 +261,14 @@ export function worstStage(stages: readonly TStageHealth[]): TStageHealth | null
   return stages.find((stage) => stage.state === 'fail') ?? stages.find((stage) => stage.state === 'warn') ?? null;
 }
 
-/** 칸을 눌렀을 때 실행 기록을 걸러 볼 스크립트. 재빌드는 `pipeline_runs` 가 아니라 `rebuild_log` 라 걸러 볼 것이 없다. */
+/**
+ * 칸을 눌렀을 때 실행 기록을 걸러 볼 스크립트. 재빌드는 `pipeline_runs` 가 아니라 `rebuild_log` 라 걸러 볼 것이 없다.
+ * 검수도 없다 — 사람 몫이라 실행 기록이 안 남고(`/admin` 등록·제외는 기록하지 않는다) 칸은 `/admin` 검수 대기 링크다.
+ */
 export const STAGE_SCRIPTS: Record<TStageKey, readonly TRunScript[] | null> = {
   collect: ['collect'],
   analyze: ['analyze'],
-  review: ['approve', 'reject'],
+  review: null,
   apply: ['apply'],
   rebuild: null,
 };
