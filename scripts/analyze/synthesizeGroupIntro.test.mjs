@@ -230,8 +230,20 @@ describe('엔젤하우스 — 블로그 운영 이야기는 소개가 아니다'
     const small = checkSynthesis({ conflict: null, sentences: [{ text: '애월에 있는 소형견 전문 애견펜션이에요.', summaries: [refOf(mats, '소형견 전문')] }] }, mats, angel);
     expect(small.intro).toBeNull();
     expect(small.reasons.join(' ')).toContain('소형견');
-    const pool = checkSynthesis({ conflict: null, sentences: [{ text: '애견 전문 펜션이에요. 야외 잔디마당이 있어요.', summaries: [agility] }] }, materials, angel);
-    expect(pool.reasons.join(' ')).toContain('야외');
+    // 같은 묶음의 다녀온 글(ohroselog/224389974603) — '야외' 가 강아지 전용과 한 문장이라 판단 칸 주제다(A4 뒤에도 걸린다).
+    const poolSummary = '애월 바다와 가까운 독채형 애견 전문 펜션이에요. 안전 펜스가 둘러싼 천연 잔디 운동장과 어질리티 기구, 강아지 전용 야외 수영장, 무료 음료·라면이 있는 공용 휴게실을 갖췄어요.';
+    const poolMats = synthesisMaterials([{ id: blog('ohroselog/224389974603'), visited: true, features: poolSummary }, ...angel.posts]);
+    const pool = checkSynthesis({ conflict: null, sentences: [{ text: '강아지 전용 야외 수영장이 있어요.', summaries: [refOf(poolMats, '강아지 전용 야외 수영장')] }] }, poolMats, angel);
+    expect(pool.intro).toBeNull();
+    expect(pool.reasons).toEqual(['판단 칸이 말하는 주제예요(야외)']);
+  });
+
+  it('강아지 없이 공간만 말하는 시설 묘사는 요약에 있으면 통과한다(A4) — "야외" 낱말만으로는 걸지 않는다', () => {
+    const lawn = '바다가 보이는 독채 펜션이에요. 넓은 야외 잔디마당과 바비큐장이 있어요.';
+    const mats = synthesisMaterials([{ id: blog('a/lawn'), visited: true, features: lawn }, ...angel.posts]);
+    const out = checkSynthesis({ conflict: null, sentences: [{ text: '넓은 야외 잔디마당과 바비큐장이 있어요.', summaries: [refOf(mats, '야외 잔디마당')] }] }, mats, angel);
+    expect(out.reasons).toEqual([]);
+    expect(out.intro).toBe('넓은 야외 잔디마당과 바비큐장이 있어요.');
   });
 });
 

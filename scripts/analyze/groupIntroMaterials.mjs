@@ -1,8 +1,8 @@
 // 묶음 소개(docs/todo/13 §5.3)의 **재료와 지문** — 노드 모듈을 쓰지 않는다. 분석(`groupIntroPass.mjs`)이 이것으로 다시 만들 묶음을 고르고,
 // /admin(A3)이 같은 함수로 저장된 소개가 지금 묶음의 것인지 가린다 — 두 쪽이 다른 식으로 재면 화면이 낡은 소개를 지금 것으로 보인다.
 // 그래서 `synthesizeGroupIntro.mjs`(node:crypto · claude 실행기를 부른다)에서 떼어 냈고, 그 파일은 여기의 `synthesisMaterials` 를 다시 내보낸다.
-// 소개의 **내용 규칙**(`introTextReasons`)과 어느 소개를 쓸지(`chooseGroupIntro`, A3)도 같은 이유로 여기 있다 — 카드·등록(/admin)과 CLI 반영이 한 함수를 지난다.
-import { topicReasons } from '../lib/petPolicyGuide.mjs';
+// 소개의 **내용 규칙**(`introTextReasons`, A4 에서 강아지와 묶인 문장으로 좁혔다)과 어느 소개를 쓸지(`chooseGroupIntro`, A3)도 같은 이유로 여기 있다 — 카드·등록(/admin)과 CLI 반영이 한 함수를 지난다.
+import { POLICY_TOPICS, topicReasons } from '../lib/petPolicyGuide.mjs';
 
 const text = (v) => (typeof v === 'string' && v.trim() ? v.trim() : null);
 
@@ -12,18 +12,48 @@ const text = (v) => (typeof v === 'string' && v.trim() ? v.trim() : null);
  */
 export const INTRO_VOICE_RE = /블로그|포스팅|연재|시리즈|소개(?:해|돼|되|하)|체험단|협찬|광고|원고료|내돈내산|저희|제가|하세요|해\s*주세요|추천해요/;
 
+/** 강아지 낱말 — 혼자서는 조건이 아니다("야외 테이블과 강아지 밥그릇이 있어요"). `카펫` 의 `펫` 은 빼고. */
+const DOG_WORD = '강아지|반려견|반려동물|애견|댕댕|멍멍|(?:^|[^카])펫';
+const DOG_RE = new RegExp(DOG_WORD);
+
 /**
- * 소개 문장의 **내용** 규칙 — 판단 칸 주제(소형견·야외 …, 소개가 동반 조건을 말하면 판정과 갈린다)와 블로그 이야기. 이유들(없으면 빈 배열).
+ * 그 자체로 동반 조건을 말하는 꼴 — 강아지 낱말이 없어도 그 문장은 강아지와 묶여 있다.
+ * 동반·입장·출입(입장료·출입문은 빼고) · 허락과 한정("불가" · "안 돼요" · "야외에서만" · "테라스만 이용") · 마릿수의 한도 ·
+ * "함께 머물/들어가요"(추출 소개 지시가 금하는 바로 그 문장) · 강아지에게만 쓰는 말(소형견·대형견·목줄·케이지·개모차·접종·kg·`4견`).
+ */
+const CONDITION_RE =
+  /동반|입장(?!료)|출입(?![문구])|불가|금지|허용|안\s*[돼되]|에서만|만\s*(?:가능|이용|입장|출입|돼|되|들어)|까지\s*(?:가능|입장|출입|돼|되|들어)|마리\s*(?:까지|이하|당|만)|함께\s*(?:머물|들어|입장|앉)|소형견|중형견|대형견|목줄|리드\s*줄|하네스|케이지|켄넬|이동\s*가방|개모차|접종|백신|\d\s*(?:kg|㎏|킬로|키로)|\d\s*견/i;
+
+/**
+ * 강아지 낱말과 한 문장에 오면 조건이 되는 말 — 가능·"수 있어요"·한정·요금. "주차가 가능해요" · "객실 전용 풀" 은 강아지가 없어 조건이 아니다.
+ * `전용`·`함께` 는 강아지 낱말에 붙어 있을 때만("강아지 전용 야외 수영장" · "강아지와 함께") — 떨어져 있으면 "객실 전용 … 반려견 용품" 을 잡는다.
+ * "반려견이 뛰어놀 수 있는 잔디마당과 … 야외 테라스" 처럼 시설 묘사도 일부 걸린다 — 실내를 말하는 같은 꼴("실내에 강아지가 뛰어놀 수 있어요")이 판정과 갈리므로 엄한 쪽에 둔다.
+ */
+const WITH_DOG_RE = new RegExp(
+  `가능|수\\s*[있없]|(?:${DOG_WORD})\\s*전용|(?:${DOG_WORD})(?:와|과|랑|이랑|하고|도)?\\s*함께|머물|제한|받(?:아|는|습)|까지|이하|미만|최대|요금|입장료`,
+);
+
+/** 문장이 강아지와 묶여 있나 — 묶인 문장의 판단 칸 주제만 소개에서 뺀다. 금액은 강아지 낱말과 한 문장이면 강아지 요금이다. */
+const boundToDog = (sentence) =>
+  CONDITION_RE.test(sentence) || (DOG_RE.test(sentence) && (WITH_DOG_RE.test(sentence) || POLICY_TOPICS.fees.find(sentence) !== null));
+
+/**
+ * 소개 문장의 **내용** 규칙 — 강아지와 묶인 문장의 판단 칸 주제(소개가 동반 조건을 말하면 판정과 갈린다)와 블로그 이야기. 이유들(없으면 빈 배열).
+ * 주제 낱말만으로는 걸지 않는다(13 §5.3 A4) — "야외 테라스가 있어요" · "실내가 넓어요" 는 공간 묘사이고, 추출 소개 지시도 공간을 "강아지와 묶지 않고" 쓰라고 한다.
+ * 낱말만 보던 때는 신규 묶음의 대체 소개 넷 중 하나가 이것으로 '소개 없이 등록' 이었다. 문장 단위다 — 첫 문장의 "애견 펜션" 이 둘째 문장의 "야외 잔디마당" 을 묶지 않는다.
+ * 안내 가드(`guardPublicText`)는 같은 `topicReasons` 를 낱말만으로 건다 — 안내는 판단 칸 밖의 말이라 그쪽은 일부러 엄하다.
  * 근거(가리킨 요약) 검사는 여기 없다 — 종합 문장(`synthesizeGroupIntro.mjs` 의 `sentenceReasons`)만 그것을 보고 이 규칙을 함께 부른다.
  * 종합을 거치지 않는 소개(재료 하나 · 대표 `features` 대체값 — 옛 프롬프트로 쓴 요약이 남아 있다, 13 §5.3 A3)는 이 규칙만 지난다.
  * @param {string} body
  * @returns {string[]}
  */
 export function introTextReasons(body) {
-  const reasons = [...topicReasons(body)];
+  // lookbehind 없이 나눈다 — 이 모듈은 브라우저(/admin)도 import 한다(petPolicyGuide.mjs 머리 주석). "1.5kg" 의 점은 뒤에 공백이 없어 안 나뉜다.
+  const sentences = body.split(/[.!?。]\s+|\n+/).filter((s) => s.trim());
+  const reasons = sentences.flatMap((s) => (boundToDog(s) ? topicReasons(s) : []));
   const voice = body.match(INTRO_VOICE_RE);
   if (voice) reasons.push(`소개에 쓰지 않는 말이에요(${voice[0]})`);
-  return reasons;
+  return [...new Set(reasons)];
 }
 
 /**
