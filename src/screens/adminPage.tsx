@@ -1861,10 +1861,15 @@ export function AdminPage() {
             <Button color="primary" size="sm" onClick={() => session && void start(session)}>
               다시 시도
             </Button>
-            <Button color="secondary" size="sm" onClick={signOut}>
-              로그아웃
-            </Button>
           </div>
+          {/* 로그아웃은 '다시 시도' 곁에 두지 않는다 — 8px 빗나간 손이 묻지도 않고 로그아웃된다(todo/14 W261010.4, 검수 화면 머리글과 같은 이유). */}
+          <p className="mt-4 text-xs text-tertiary">
+            계속 안 되면{' '}
+            <button type="button" onClick={signOut} className="underline underline-offset-2 hover:text-secondary">
+              로그아웃
+            </button>
+            하고 다시 로그인해 보세요.
+          </p>
         </div>
       </div>
     );
@@ -1968,15 +1973,20 @@ export function AdminPage() {
                 ))}
               </ul>
             </details>
-            <Button color="secondary" size="sm" onClick={signOut}>
-              로그아웃
-            </Button>
           </div>
         }
       />
       <div className="px-4 pt-1 text-xs text-tertiary md:px-6">
+        {/*
+          * 로그아웃은 계정 줄에 산다(todo/14 W261010.4) — 머리글에서 `?`(24px)와 8px 떨어져 있던 동안 `?` 를 10px 빗나간 손이
+          * 묻지도 않고 로그아웃됐다(parttime-41, 펼친 줄·체크가 다 날아간다). 묻는 단계를 그 자리에 두면 같은 자리에 확인이 뜨는 W261010.4 의
+          * 다른 반쪽이 된다 — 그래서 묻지 않고 **떼어 놓는다**. 이 줄에는 다른 누를 것이 없다.
+          */}
         <p>
-          {session.email} · {expiry} 지나면 다시 로그인해요
+          {session.email} · {expiry} 지나면 다시 로그인해요 ·{' '}
+          <button type="button" onClick={signOut} className="text-tertiary underline underline-offset-2 hover:text-secondary">
+            로그아웃
+          </button>
         </p>
         {/*
           * 재빌드가 **정말 걸렸는지** 를 말하는 줄(→ `adminRebuild.ts`). 정상(`ok`)은 회색 글씨다 — 초록은 매번 뜨는 줄에 쓰기에는 센 색이다.

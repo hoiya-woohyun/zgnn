@@ -446,10 +446,15 @@ export function AdminOpsPage() {
             <Button color="primary" size="sm" onClick={() => session && void start(session)}>
               다시 시도
             </Button>
-            <Button color="secondary" size="sm" onClick={() => resetToSignedOut()}>
-              로그아웃
-            </Button>
           </div>
+          {/* 로그아웃은 '다시 시도' 곁에 두지 않는다 — 8px 빗나간 손이 묻지도 않고 로그아웃된다(todo/14 W261010.4, 검수 화면 머리글과 같은 이유). */}
+          <p className="mt-4 text-xs text-tertiary">
+            계속 안 되면{' '}
+            <button type="button" onClick={() => resetToSignedOut()} className="underline underline-offset-2 hover:text-secondary">
+              로그아웃
+            </button>
+            하고 다시 로그인해 보세요.
+          </p>
         </div>
       </div>
     );

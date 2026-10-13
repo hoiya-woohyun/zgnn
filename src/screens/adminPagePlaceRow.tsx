@@ -56,6 +56,13 @@ export type TAdminPagePlaceState = {
  */
 const ROW_ACTION = 'shrink-0 whitespace-nowrap';
 
+/**
+ * 되살리기 확인이 뜬 뒤 이만큼은 확인을 눌러도 무시한다(todo/14 W261010.4). 둘 다 둔다 — 하나로는 모자라서다.
+ *  - **자리**: 확인은 원래 버튼과 다른 자리(줄 밑 패널, 글이 먼저)에 선다. 박자만으로는 "안 눌렸나?" 하고 1~2초 뒤 다시 누른 손(manager-51·73·74)을 못 막는다.
+ *  - **박자**: 폰에서는 액션 칸이 줄 맨 아래로 내려와 패널과 붙는다 — 폭마다 좌표를 장담할 수 없어, 빠른 두 번 누름은 박자로 한 겹 더 막는다.
+ */
+const RESTORE_ARM_MS = 700;
+
 type TAdminPagePlaceRowProps = {
   place: TPlaceRow;
   state: TAdminPagePlaceState;
@@ -137,8 +144,9 @@ export function AdminPagePlaceRow({
   onPlanReread,
   onReread,
 }: TAdminPagePlaceRowProps) {
-  /** '되살리기(게시중으로)' 를 눌러 한 번 더 묻는 중 — 되살리면 초안이었던 행도 게시가 된다. */
-  const [askingRestore, setAskingRestore] = useState(false);
+  /** '되살리기(게시중으로)' 를 누른 때(ms) — 한 번 더 묻는 중이다. 되살리면 초안이었던 행도 게시가 되고, 블랙리스트도 풀린다(`restoreAndLift`). */
+  const [askedRestoreAt, setAskedRestoreAt] = useState<number | null>(null);
+  const askingRestore = askedRestoreAt !== null;
   /** `다시 분석` 의 확인 단계 — 줄이 들고 있다(후보·글 쪽 `다시 읽기` 와 같은 꼴). 초안(`draft`)은 출처 글이 없어 버튼이 없다. */
   const [reread, setReread] = useState<TRereadStep | null>(null);
   const busy = state.busy;
@@ -174,6 +182,13 @@ export function AdminPagePlaceRow({
       다시 분석
     </Button>
   );
+
+  const confirmRestore = () => {
+    // 확인이 뜬 직후의 누름은 무시한다 — 두 번 누른 손의 둘째 누름이 그대로 확인이 되지 않게(`RESTORE_ARM_MS`).
+    if (askedRestoreAt !== null && Date.now() - askedRestoreAt < RESTORE_ARM_MS) return;
+    setAskedRestoreAt(null);
+    onRestore();
+  };
 
   const toggleFromRow = (event: MouseEvent<HTMLDivElement>) => {
     if ((event.target as HTMLElement).closest('a, button, input')) return;
@@ -289,45 +304,27 @@ export function AdminPagePlaceRow({
           */}
         <div className="flex items-center max-md:mt-2 md:justify-end">
           {state.archiving ? null : archived ? (
-              askingRestore || busy === 'restoring' ? (
-                <div className="flex flex-col gap-0.5 md:w-full md:items-end">
-                  {/*
-                    * 묻는 글은 열 폭을 **정하지 않고 따른다**(`w-0 min-w-full`) — 버튼 열이 `auto` 라, 이 한 줄이 글 길이만큼
-                    * 열을 넓히면 묻는 순간 표 전체의 열이 출렁인다. 폭은 버튼들이 정하고 글은 그 안에서 접힌다.
-                    */}
-                  <span className="text-xs break-keep text-tertiary md:w-0 md:min-w-full md:text-right">사이트에 다시 보여요. 되살릴까요?</span>
-                  <div className="flex items-center gap-2">
-                  <Button
-                    color="primary"
-                    size="sm"
-                    className={ROW_ACTION}
-                    isDisabled={Boolean(busy)}
-                    isLoading={busy === 'restoring'}
-                    onClick={() => {
-                      setAskingRestore(false);
-                      onRestore();
-                    }}
-                  >
-                    {busy === 'restoring' ? '되살리는 중…' : '되살리기'}
+              /*
+               * 되살리기의 확인은 이 칸에 띄우지 않는다(todo/14 W261010.4) — 같은 자리에 뜬 확인 '되살리기' 가 "안 눌렸나?" 하고 한 번 더 누른 손에
+               * 그대로 눌려, 동반 불가로 내린 펜션이 되살아나고 블랙리스트가 풀렸다. 확인은 줄 밑 패널(글이 먼저)이고, 묻는 동안 이 버튼은 아무것도 안 한다.
+               */
+              <div className="flex items-center gap-2">
+                {rereadButton}
+                {!blocksUnavailable && (
+                  <Button color="secondary" size="sm" className={ROW_ACTION} isDisabled={Boolean(busy)} onClick={onStartBlock}>
+                    블랙리스트
                   </Button>
-                  <Button color="secondary" size="sm" className={ROW_ACTION} isDisabled={Boolean(busy)} onClick={() => setAskingRestore(false)}>
-                    취소
-                  </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  {rereadButton}
-                  {!blocksUnavailable && (
-                    <Button color="secondary" size="sm" className={ROW_ACTION} isDisabled={Boolean(busy)} onClick={onStartBlock}>
-                      블랙리스트
-                    </Button>
-                  )}
-                  <Button color="secondary" size="sm" className={ROW_ACTION} isDisabled={Boolean(busy)} onClick={() => setAskingRestore(true)}>
-                    되살리기(게시중으로)
-                  </Button>
-                </div>
-              )
+                )}
+                <Button
+                  color="secondary"
+                  size="sm"
+                  className={ROW_ACTION}
+                  isDisabled={Boolean(busy) || askingRestore}
+                  onClick={() => setAskedRestoreAt(Date.now())}
+                >
+                  되살리기(게시중으로)
+                </Button>
+              </div>
             ) : (
               /*
                * 초안에 '올리기' 버튼을 두지 않는다. `restorePlace` 를 그대로 쓰면 두 가지가 조용히 틀린다 —
@@ -345,6 +342,26 @@ export function AdminPagePlaceRow({
           )}
         </div>
       </div>
+
+      {/*
+        * 되살리기 확인 — 원래 버튼(줄 끝 칸)과 다른 자리, 줄 밑 전체 폭이다. **글이 먼저**다: 폰에서는 액션 칸이 이 패널 바로 위라,
+        * 버튼이 첫 줄에 서면 같은 손가락 자리에 닿는다. 내린 이유를 다시 보여 주고(무엇을 되돌리는지 읽고 누르게), 블랙리스트가 함께 풀리는 것도 말한다.
+        */}
+      {archived && (askingRestore || busy === 'restoring') && (
+        <div className={cx(ADMIN_PANEL_DIVIDER, 'space-y-1.5 px-4 py-3 text-xs')}>
+          <p className="font-semibold text-secondary">되살릴까요? 다음 빌드부터 사이트에 다시 보여요.</p>
+          <p className="text-secondary">내린 이유: {why ?? '적힌 이유가 없어요'}</p>
+          {block && <p className="font-semibold text-warning-primary">블랙리스트({blockChipText(block, new Date())})도 함께 풀려요.</p>}
+          <div className="flex flex-wrap gap-2">
+            <Button color="primary" size="sm" isDisabled={Boolean(busy)} isLoading={busy === 'restoring'} onClick={confirmRestore}>
+              {busy === 'restoring' ? '되살리는 중…' : '되살리기'}
+            </Button>
+            <Button color="secondary" size="sm" isDisabled={Boolean(busy)} onClick={() => setAskedRestoreAt(null)}>
+              취소
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* 결과·오류는 열에 끼우지 않는다 — 줄 전체 폭을 쓰는 편이 읽힌다(그리드 밖이라 열도 흔들지 않는다). */}
       {state.done && <p className="px-4 pb-2 text-xs text-success-primary">{state.done}</p>}
