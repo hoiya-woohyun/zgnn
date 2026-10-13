@@ -11,12 +11,14 @@ import { ReportSheet } from '../components/reportSheet';
 import { AREAS, areaOf, countByArea, TOWN_TO_AREA, type TAreaId } from '../lib/areaGroups';
 import {
   AREA_CARD_TYPES,
+  areaEntryType,
   areaLabelGates,
   coverageDogOf,
   homePageAreaCardCounts,
   homePageAreaPicks,
   isAreaLabelCell,
   homePageAreaLandmarks,
+  landmarkEntryType,
   homePageAreaStayGap,
   nearestAreaWithStay,
 } from '../lib/homePageAreaCards';
@@ -67,6 +69,7 @@ export function HomePageAreaCards() {
   const dog = useDog();
   const needsIndoor = useAppStore((state) => state.needsIndoor);
   const enterArea = usePlacesPageAreaEntry();
+  const setTown = useAppStore((state) => state.setTown);
   const enterLandmark = usePlacesPageFilterStore((state) => state.enterLandmark);
   const [suggestOpen, setSuggestOpen] = useState(false);
 
@@ -75,9 +78,11 @@ export function HomePageAreaCards() {
   const labelOpen = dog ? LABEL_GATES[coverageDogOf(dog)] : false;
 
   // 관광지 칩은 예전처럼 검색어를 걸고 숙소로 간다. 권역은 푼다(`enterLandmark`) — '서부' 안에서 '중문' 을 찾는 꼴이 되지 않게.
+  // 결과가 있는 종류로 열고(0곳 숙소 탭이 아니라), 이전 방문의 읍면은 푼다 — 칩이 센 수와 열린 목록이 같게(14 W261010.10).
   const goToLandmark = (word: string) => {
     enterLandmark(word);
-    router.push('/places/stay');
+    setTown(null);
+    router.push(`/places/${landmarkEntryType(PLACES, word)}`);
   };
 
   return (
@@ -96,7 +101,7 @@ export function HomePageAreaCards() {
             <div key={id} className={cx(CARD_SURFACE, 'p-1.5')}>
               <button
                 type="button"
-                onClick={() => enterArea(id)}
+                onClick={() => enterArea(id, areaEntryType(card ? { stay: card.stay.reach, cafe: card.cafe.reach } : TOTALS_BY_CARD[id]))}
                 className="flex min-h-11 w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left transition-colors active:bg-tertiary"
               >
                 <span className="min-w-0 flex-1">

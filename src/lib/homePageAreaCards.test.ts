@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { AREAS, countByArea, type TAreaCounts } from './areaGroups';
 import { LANDMARKS } from './landmarks';
 import {
+  areaEntryType,
+  landmarkEntryType,
   AREA_CARD_TYPES,
   AREA_LABEL_PICKS,
   areaLabelGates,
@@ -18,6 +20,7 @@ import { COVERAGE_DOGS, coverageGates, type TCoverageDogId } from './areaCoverag
 import { judgeEligibility } from './eligibility';
 import { filterPlacesPage } from './placesPageFilter';
 import { sortByEligibility } from './sortByEligibility';
+import { matchesQuery } from './placeSearch';
 import { PLACES, placesOfType } from './places';
 import type { TDogProfile } from '../types';
 
@@ -138,5 +141,27 @@ describe("'{이름}랑 가기 좋은 곳' 라벨(19 T6)", () => {
         }
       }
     }
+  });
+});
+
+describe('카드·칩이 여는 종류 (14 W261010.10)', () => {
+  it('카드: 숙소가 있으면 숙소, 숙소가 0이고 카페만 있으면 카페, 둘 다 0이면 숙소', () => {
+    expect(areaEntryType({ stay: 2, cafe: 5 })).toBe('stay');
+    expect(areaEntryType({ stay: 0, cafe: 3 })).toBe('cafe');
+    expect(areaEntryType({ stay: 0, cafe: 0 })).toBe('stay');
+  });
+
+  it('칩: 열린 종류에는 늘 결과가 있다 — 모든 관광지 칩의 첫 말로 확인', () => {
+    for (const landmark of LANDMARKS) {
+      const word = landmark.aliases[0];
+      const total = PLACES.filter((place) => matchesQuery(place, word)).length;
+      if (total === 0) continue;
+      const type = landmarkEntryType(PLACES, word);
+      expect(PLACES.some((place) => place.type === type && matchesQuery(place, word))).toBe(true);
+    }
+  });
+
+  it('어디에도 없으면 숙소', () => {
+    expect(landmarkEntryType(PLACES, '없는동네이름zzz')).toBe('stay');
   });
 });

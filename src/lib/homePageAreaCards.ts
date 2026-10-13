@@ -24,6 +24,20 @@ export const AREA_CARD_TYPES = ['stay', 'cafe'] as const satisfies readonly TPla
 /** 모은 곳이 이 수 이하면 0칸을 '덜 모았다' 로 읽는다(19 T4). */
 export const AREA_THIN_DENOMINATOR = 2;
 
+/** 카드·칩이 둘러보기를 열 때 고르는 종류의 차례 — 결과가 있는 첫 종류. 식당은 카드 수에 안 세지만(19 §1) 칩 검색은 식당에서도 결과가 난다. */
+const ENTRY_TYPE_ORDER = ['stay', 'cafe', 'restaurant'] as const satisfies readonly TPlaceType[];
+
+/**
+ * 동네 카드를 눌러 열 종류(14 W261010.10). 카드가 센 수(묵을 곳·카페)가 있는 쪽 — 숙소가 0이고 카페만 있으면 카페 탭으로 연다.
+ * 둘 다 0이면 숙소(0곳 안내가 이유를 말한다). 숫자는 카드에 보이는 것과 같은 값을 받아야 한다.
+ */
+export const areaEntryType = (shown: { stay: number; cafe: number }): TPlaceType =>
+  shown.stay > 0 ? 'stay' : shown.cafe > 0 ? 'cafe' : 'stay';
+
+/** 관광지 칩을 눌러 열 종류(14 W261010.10) — 그 검색어에 결과가 있는 첫 종류(숙소 → 카페 → 식당). 어디에도 없으면 숙소. */
+export const landmarkEntryType = (places: readonly TPlaceEntry[], word: string): TPlaceType =>
+  ENTRY_TYPE_ORDER.find((type) => places.some((place) => place.type === type && matchesQuery(place, word))) ?? 'stay';
+
 const total = (counts: TLevelCounts) => Object.values(counts).reduce((sum, n) => sum + n, 0);
 const reach = (counts: TLevelCounts) => counts.ok + counts.outdoor;
 
