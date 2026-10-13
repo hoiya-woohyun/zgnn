@@ -15,6 +15,7 @@ import { townOf } from '../../scripts/analyze/matchPlace.mjs';
 import { canonicalRegionRaw, canonicalTown, regionFromBranchName } from '../../scripts/lib/jejuRegions.mjs';
 import { parseRegion } from '../../scripts/lib/placeFields.mjs';
 import { feeLinesOf, type TCorrectionDrop } from '../../scripts/lib/petPolicyFacts.mjs';
+import { selectAllPages } from '../../scripts/lib/selectAllPages.mjs';
 import { parsePetPolicy, toPetBadges, withPolicyFacts, type TPetBadge } from './petPolicy';
 import { PLACES } from './places';
 import type { TDirection, TPetPolicyFacts, TPetPolicyGuide, TRegion, TStayEnvironment } from '../types';
@@ -200,14 +201,22 @@ export type TPolicyPreview = {
  */
 export const CANDIDATE_SELECT = '*, blog_posts(title,posted_at,keyword,blog_id), places(id,name,status)';
 
+/**
+ * 검수 대기 전부 — **끝까지 읽는다**(06 #16). 예전엔 `created_at` 오름차순 `.limit(1000)` 이라 원격 pending 3,013행 중 오래된 1,000행만 읽었다
+ * (2026-10-13). 나머지 묶음이 화면에 안 섰고, 더 나쁜 것은 묶음 **키**가 분석과 갈린 것이다 — 같은 자리 합치기(`mergeSameSpotGroups`)는
+ * 행 사이를 사슬로 이어, 다리 노릇을 하는 행 하나가 잘리면 합친 키(원래 키 중 가장 앞)가 달라진다. 분석은 `selectAllPages` 로 끝까지 읽고
+ * 그 키로 `group_intros` 를 저장하므로(13 §5.3 A2), 탭·검수 순서·최신 N 처럼 **어떻게 자르든** 키가 갈릴 수 있다. 그래서 자르지 않는다.
+ *
+ * 정렬은 `id` — 분석(`analyze-candidates.mjs`)과 같다. `created_at` 은 한 번의 insert 묶음 안에서 같은 값이라 페이지 사이에 행이 겹치거나 빠진다
+ * (`selectAllPages` 는 정렬 키가 전순서여야 한다). 같은 순서라 묶음의 대표(confidence 동점)도 분석과 같다. 화면의 순서는 `groupCandidates` 가 다시 정한다.
+ *
+ * 무게(2026-10-13 실측): 3,013행 · 행 JSON 약 6MB(그중 `extracted` 5.2MB — 근거·교차점검·소개·판단이 고루 나눠 갖고 큰 칸 하나가 없다) · 요청 다섯 번(1,000행씩 넷 + 끝을 확인하는 빈 페이지).
+ * 열을 고르거나 `extracted->…` 로 쪼개지 않는다 — 화면이 거의 모든 칸을 쓰고, 쪼개면 새 칸이 화면에서 조용히 사라진다. 운영자가 PC 로 여는 한 화면이라 받아들인다.
+ */
 export async function fetchPendingCandidates(client: SupabaseClient): Promise<TCandidateRow[]> {
-  // 지금 규모(160건)는 supabase-js 기본 1000행 제한에 못 미친다 — 넘으면 range() 로 페이지네이션(apply-approved.mjs:49 와 같은 주석).
-  const { data, error } = await client
-    .from('candidates')
-    .select(CANDIDATE_SELECT)
-    .eq('status', 'pending')
-    .order('created_at', { ascending: true })
-    .limit(1000);
+  const { data, error } = await selectAllPages((from: number, to: number) =>
+    client.from('candidates').select(CANDIDATE_SELECT).eq('status', 'pending').order('id').range(from, to),
+  );
   if (error) throw new Error(`후보 조회: ${error.message}`);
   return (data ?? []) as unknown as TCandidateRow[];
 }

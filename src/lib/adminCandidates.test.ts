@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { REGION_OPTIONS, regionOptionsFor, updateGroupsByPlace } from './adminCandidates';
+import { fetchPendingCandidates, REGION_OPTIONS, regionOptionsFor, updateGroupsByPlace } from './adminCandidates';
 
 describe('regionOptionsFor — 주소의 읍·면을 맨 위로', () => {
   it('주소의 읍·면 선택지를 위로 올리고 나머지는 그대로 둔다', () => {
@@ -44,5 +44,30 @@ describe('updateGroupsByPlace — 등록 완료 줄의 검수 대기에 갱신 N
   it('갱신 묶음만 짝 장소로 센다', () => {
     const g = (kind: string, id: string | null) => ({ kind, lead: { match_place_id: id } }) as never;
     expect(updateGroupsByPlace([g('update', 'p1'), g('update', 'p1'), g('fill', 'p2'), g('update', null)])).toEqual({ p1: 2 });
+  });
+});
+
+describe('fetchPendingCandidates — 검수 대기를 끝까지 읽는다(06 #16)', () => {
+  /** PostgREST 처럼 한 번에 1,000행까지만 주는 가짜 — `.limit(1000)` 이던 때는 첫 페이지에서 멈췄다. */
+  const fakeClient = (total: number) => {
+    const calls: { order: string; from: number; to: number }[] = [];
+    const rows = Array.from({ length: total }, (_, i) => ({ id: String(i).padStart(5, '0') }));
+    const ordered = (order: string) => ({
+      range: (from: number, to: number) => {
+        calls.push({ order, from, to });
+        return Promise.resolve({ data: rows.slice(from, Math.min(to + 1, from + 1000)), error: null });
+      },
+    });
+    const client = { from: () => ({ select: () => ({ eq: () => ({ order: ordered }) }) }) };
+    return { client: client as unknown as Parameters<typeof fetchPendingCandidates>[0], calls };
+  };
+
+  it('1,000행을 넘어도 다 받고, 페이지는 id 순서로 넘긴다', async () => {
+    const { client, calls } = fakeClient(3013);
+    const rows = await fetchPendingCandidates(client);
+    expect(rows).toHaveLength(3013);
+    expect(new Set(rows.map((row) => row.id)).size).toBe(3013);
+    expect(calls.map((call) => call.from)).toEqual([0, 1000, 2000, 3000, 3013]);
+    expect(calls.every((call) => call.order === 'id')).toBe(true);
   });
 });

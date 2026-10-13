@@ -197,7 +197,7 @@ flowchart LR
 | 칸 | 개체 | 무엇을 하나 | 쓰는 것 |
 |---|---|---|---|
 | **수집 완료** | 글(`blog_posts`) | 전체·미분석·제외 건수와 다음 명령(`pnpm data analyze`), 미분석 글의 검색어별·달별 건수와 다음에 읽을 글 30건(v50), 글 목록·분석 제외·다시 읽기(v67, 아래 「수집 완료 칸」) | `blog_posts`(건수는 `head` count · 집계는 칸을 처음 열 때 `keyword, posted_at` 만) |
-| **검수 대기**(← 확인할 장소) | 후보 | 블로그에서 찾은 후보를 보고 올리거나 제외한다. 기본 칸 | `candidates` → `places` · `place_sources` |
+| **검수 대기**(← 확인할 장소) | 후보 | 블로그에서 찾은 후보를 보고 올리거나 제외한다. 기본 칸. pending 을 **끝까지** 읽는다(1,000행씩 `id` 순 — 자르면 같은 자리 합치기의 묶음 키가 분석과 갈린다, todo/06 #16) | `candidates` → `places` · `place_sources` |
 | **등록 완료**(← 올린 장소) | 장소 | 게시중·게시 대기를 **내리고**(소프트 삭제) 본다 | `places.status` · `places.archive_note` |
 | **등록 해제** | 장소 | 내린 곳(최근 해제 순)을 **되살린다** | 같은 `places` — 한 state 를 `status` 로 가른다 |
 | **블랙리스트** | `place_blocks` | 막고 있는 가게의 **목록 · 풀기 · 기간 바꾸기**(아래 「블랙리스트」) | `place_blocks.lifted_at` · `until`(표가 없으면 `미적용`) |
