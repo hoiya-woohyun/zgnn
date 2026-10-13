@@ -326,7 +326,9 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
   > 이유: 일반 문구("반려견동반가능…")가 공개 글과 우연히 겹쳐도 배포를 막으면 안 되고, 진짜 유출 방지는 `places.json` 에서 원문을 빼는 S8 이 한다 — 이 검사는 그 뒤 안전망이다. 실패로 올리는 건 아래 관찰이 며칠 깨끗할 때(오탐 0)만.
   > **Vercel 빌드엔 `data/raw/places-source.json` 이 없을 수 있다**(gitignored · pull 이 만든다 — `pull` 이 그 빌드에서 먼저 돌아야 캐시가 생긴다). 없으면 이 검사는 건너뛰어 조용하다 — 상시 검사는 사실상 로컬 `pnpm build` 에서 돈다. `CHECK_BUNDLE_OUT`·`CHECK_BUNDLE_SOURCE` env 는 테스트용 경로 덮어쓰기.
   > 코드: `scripts/lib/bundleLeak.mjs`(S8.2 가 같이 씀) · `scripts/check-bundle.test.mjs`(가짜 `out/`). 공유 트리의 `out/` 은 S8 전 빌드라 비공개 14곳 이상이 경고로 뜬다 — 새 `pnpm build` 뒤 0 이어야 한다(🧑 확인).
-- [ ] S8.2 `stay.amenitiesText`·`stay.price.text` 의 베낌 정도를 잰다 — 블로그에서 올 수 있고 S8 은 손대지 않았다(`features` 는 S7·S9 몫). 재 보고 크면 S9 처럼 다시 쓰거나 빼는 안을 세운다.
+- [x] S8.2 `stay.amenitiesText`·`stay.price.text` 의 베낌 정도를 잰다 — 블로그에서 올 수 있고 S8 은 손대지 않았다(`features` 는 S7·S9 몫). 재 보고 크면 S9 처럼 다시 쓰거나 빼는 안을 세운다.
+  > 메모(2026-10-13): `node scripts/measure-stay-copy.mjs [--with-features]` (읽기 전용 — 캐시 + `places.json` 만, `scripts/lib/bundleLeak.mjs` 의 15자 이음 기준). 결과: 블로그 출처(비공개) 숙소 5곳의 값 5칸(amenities 4 · price.text 1; 나머지는 빈 문자열) 중 15자 이상은 3칸, **원문(`petPolicyText`·`petPolicy`, `--with-features` 면 소개까지)과 15자 이상 겹친 칸 0**.
+  > 값은 "반려견 계단, 반려견용 식기, 방석" 같은 3~12자 명사 나열과 "주말 기준 1박 15만원 정도" 한 줄이라 베낌 위험이 작다 → **S8.3(다시 쓰기·빼기) 은 세우지 않는다.** 한계: 진짜 원문인 블로그 본문은 DB 에 없어(S9 메모) 본문과의 겹침은 못 쟀다 — 본문을 다시 받는 `pnpm data rewrite` 가 돌 때 같은 함수(`overlapRatio`)로 이 칸을 같이 재면 된다(🧑 아님, 필요해지면).
 
 ### S9. 게시된 블로그 행은 문장만 다시 쓴다 — 판단 고정(S7 뒤, 2026-10-13 결정)
 - [x] `pnpm data rewrite`(진입점 `scripts/data.mjs`, 새 스크립트): 대상 = `places` 의 `status = 'published' and not pet_policy_text_public and pet_policy_guide is null` — 2026-10-13 실측 38곳 · 출처 글 46편.
