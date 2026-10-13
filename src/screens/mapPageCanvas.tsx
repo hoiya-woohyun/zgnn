@@ -493,6 +493,12 @@ export function MapPageCanvas({
    * 이 앱은 오프라인으로도 쓰는 것이 전제라(ADR-001) 빈 화면 대신 목록으로 안내한다.
    */
   if (status === 'error') {
+    /*
+     * 지도에서 한 종류만 골랐으면(`places` 가 한 종류뿐) 목록도 그 종류로 연다 — 식당을 고르고 눌렀는데
+     * 숙소 목록이 열리던 것(14 W261010.16). 여러 종류가 섞였으면 첫 종류(숙소)가 기본이다.
+     */
+    const types = new Set(places.map((place) => place.type));
+    const listType: TPlaceType = types.size === 1 ? [...types][0] : 'stay';
     return (
       <div className="flex h-full w-full items-center justify-center bg-secondary p-4">
         <EmptyState
@@ -500,7 +506,7 @@ export function MapPageCanvas({
           title="지도는 인터넷이 필요해요"
           description="연결이 없어도 저장한 곳과 장소 목록은 그대로 볼 수 있어요."
           action={
-            <Button color="primary" size="lg" href="/places/stay/">
+            <Button color="primary" size="lg" href={`/places/${listType}/`}>
               장소 목록으로 보기
             </Button>
           }
