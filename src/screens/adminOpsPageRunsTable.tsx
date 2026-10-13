@@ -2,18 +2,12 @@
 
 import { ChevronDown } from '@untitledui/icons';
 import { useEffect } from 'react';
-import {
-  flattenStats,
-  runAlertLabel,
-  runDurationLabel,
-  runSummaryLine,
-  type TPipelineRun,
-  type TRunScript,
-} from '../lib/adminOps';
+import { flattenStats, runAlertLabel, runDurationLabel, runSummaryLine, type TPipelineRun, type TRunScript } from '../lib/adminOps';
 import { nextStepText } from '../lib/adminNextStep';
 import { runState, type TRunState } from '../lib/adminOpsHealth';
 import { agoLabel } from '../lib/adminRebuild';
 import { cx } from '../utils/cx';
+import { AdminFilterChip } from './adminFilterChip';
 import { useAdminInfiniteScroll } from './adminInfiniteScroll';
 import { ADMIN_PANEL_DIVIDER, ADMIN_ROW, ADMIN_ROW_CELLS, ADMIN_ROW_OPEN, AdminTable } from './adminTable';
 
@@ -24,15 +18,17 @@ import { ADMIN_PANEL_DIVIDER, ADMIN_ROW, ADMIN_ROW_CELLS, ADMIN_ROW_OPEN, AdminT
 const ADMIN_OPS_RUN_TRACKS = 'md:grid-cols-[6.5rem_5.5rem_7rem_6.5rem_minmax(0,1fr)_5.5rem]';
 
 /** 칩 — 스크립트 묶음. approve·reject 는 옛 `data:review`(ADR-024 로 지웠다)라 칩이 없다 — 옛 행은 `전체` 에서만 보인다. */
-export const ADMIN_OPS_SCRIPT_CHIPS: readonly { label: string; scripts: readonly TRunScript[] | null }[] = [
+export const ADMIN_OPS_SCRIPT_CHIPS: readonly {
+  label: string;
+  scripts: readonly TRunScript[] | null;
+}[] = [
   { label: '전체', scripts: null },
   { label: '수집', scripts: ['collect'] },
   { label: '분석', scripts: ['analyze'] },
   { label: '반영', scripts: ['apply'] },
 ];
 
-export const sameScripts = (a: readonly TRunScript[] | null, b: readonly TRunScript[] | null): boolean =>
-  (a ?? []).join(',') === (b ?? []).join(',');
+export const sameScripts = (a: readonly TRunScript[] | null, b: readonly TRunScript[] | null): boolean => (a ?? []).join(',') === (b ?? []).join(',');
 
 const STATE_LABEL: Record<TRunState, string> = {
   ok: '끝남',
@@ -73,12 +69,7 @@ function AdminOpsPageRunRow({
   const alert = runAlertLabel(run.alert);
   return (
     <li id={runRowId(run.id)} className={cx(ADMIN_ROW, expanded ? ADMIN_ROW_OPEN : 'hover:bg-primary_hover')}>
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={expanded}
-        className={cx('w-full px-4 py-2 text-left', ADMIN_ROW_CELLS)}
-      >
+      <button type="button" onClick={onToggle} aria-expanded={expanded} className={cx('w-full px-4 py-2 text-left', ADMIN_ROW_CELLS)}>
         <span className="flex items-center gap-1 text-xs text-secondary tabular-nums" title={kst(run.started_at)}>
           <ChevronDown aria-hidden="true" className={cx('size-3.5 shrink-0 text-fg-quaternary transition-transform', expanded && 'rotate-180')} />
           {agoLabel(run.started_at, nowMs)}
@@ -101,7 +92,8 @@ function AdminOpsPageRunRow({
 
       {state === 'stalled' ? (
         <p className="px-4 pb-2 text-xs text-error-primary">
-          심장이 {agoLabel(run.heartbeat_at ?? run.started_at, nowMs)} 멎었어요. 프로세스가 죽었으면 그냥 다시 돌리면 돼요(runLock 이 죽은 pid 의 잠금을 이어받아요). 살아 있는데 멎어 있으면 그 프로세스를 끊고 다시 돌려 주세요.
+          심장이 {agoLabel(run.heartbeat_at ?? run.started_at, nowMs)} 멎었어요. 프로세스가 죽었으면 그냥 다시 돌리면 돼요(runLock 이 죽은 pid 의 잠금을
+          이어받아요). 살아 있는데 멎어 있으면 그 프로세스를 끊고 다시 돌려 주세요.
         </p>
       ) : null}
 
@@ -176,32 +168,25 @@ export function AdminOpsPageRunsTable({
     return () => cancelAnimationFrame(frame);
   }, [pinnedId]);
 
-  const chip = (active: boolean) =>
-    cx(
-      'rounded-full border px-2.5 py-0.5 text-xs font-semibold',
-      active ? 'border-brand bg-brand-primary text-brand-secondary' : 'border-secondary text-tertiary hover:text-secondary',
-    );
-
   return (
     <section className="mt-8" aria-label="실행 기록">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 md:px-6">
         <h2 className="text-sm font-semibold text-primary">실행 기록</h2>
         <div className="flex flex-wrap gap-1" role="group" aria-label="스크립트">
           {ADMIN_OPS_SCRIPT_CHIPS.map((entry) => (
-            <button
+            <AdminFilterChip
               key={entry.label}
-              type="button"
-              aria-pressed={sameScripts(entry.scripts, scripts)}
+              size="xs"
+              pressed={sameScripts(entry.scripts, scripts)}
               onClick={() => onFilter({ scripts: entry.scripts, failedOnly })}
-              className={chip(sameScripts(entry.scripts, scripts))}
             >
               {entry.label}
-            </button>
+            </AdminFilterChip>
           ))}
         </div>
-        <button type="button" aria-pressed={failedOnly} onClick={() => onFilter({ scripts, failedOnly: !failedOnly })} className={chip(failedOnly)}>
+        <AdminFilterChip size="xs" pressed={failedOnly} onClick={() => onFilter({ scripts, failedOnly: !failedOnly })}>
           실패만
-        </button>
+        </AdminFilterChip>
       </div>
 
       <div className="mt-3">
