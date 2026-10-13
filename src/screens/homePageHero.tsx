@@ -69,8 +69,11 @@ type THomePageHeroProps = {
    *
    * 수는 누르는 줄이다(14 W261007.12) — `onOpen` 이 그 N곳을 시트로 펼친다. 옆의 `editHref` 는 등록 뒤 홈에 남는 강아지 고치기 입구다
    * (등록 전엔 히어로 전체가 등록 버튼이라 고칠 길이 보였는데, 등록하고 나면 설정까지 가야 했다).
+   *
+   * `note` 는 수 밑 한 줄 — "야외 자리만 되는 M곳 포함"(14 W261013.2). 야외 곳을 더한다는 말이 없어 히어로 67곳과 종류 카드 '가능' 합 54 를
+   * 다른 수로 읽었다. 버튼 안에 두어 스크린리더도 수와 함께 읽는다. 없으면(null) 줄째 없다.
    */
-  reach: { label: string; count: number; onOpen: () => void; editHref: string } | null;
+  reach: { label: string; count: number; note?: string | null; onOpen: () => void; editHref: string } | null;
   /**
    * 프로필이 없을 때 `reach` 자리에 서는 등록 버튼(18 T4). 둘 중 하나만 그린다 — 프로필이 있으면 `reach`, 없으면 `cta`.
    * 예전에는 히어로 **밑**에 핑크 면 카드로 따로 섰다. 첫 화면에 큰 덩어리가 둘(잉크 판 + 핑크 판)이라 히어로 위에 템플릿이
@@ -350,10 +353,13 @@ export function HomePageHero({ subtitle, reach, cta }: THomePageHeroProps) {
                   <button
                     type="button"
                     onClick={reach.onOpen}
-                    className="flex min-h-11 items-center gap-0.5 text-sm text-white/65 transition-colors hover:text-white/85"
+                    className="flex min-h-11 flex-col items-start justify-center text-left text-sm text-white/65 transition-colors hover:text-white/85"
                   >
-                    {reach.label}&nbsp;<strong className="text-lg font-bold text-brand-300">{reach.count}</strong>곳
-                    <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-white/65" />
+                    <span className="flex items-center gap-0.5">
+                      {reach.label}&nbsp;<strong className="text-lg font-bold text-brand-300">{reach.count}</strong>곳
+                      <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-white/65" />
+                    </span>
+                    {reach.note && <span className="text-xs">{reach.note}</span>}
                   </button>
                   <Link
                     href={reach.editHref}

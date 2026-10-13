@@ -1,8 +1,11 @@
+import { Fragment } from 'react';
 import Link from 'next/link';
 import { PLACE_TYPE_ICON } from '../components/icons/placeTypeIcon';
 import { TYPE_COLOR, TYPE_COLOR_DEEP, TYPE_META, countByType, typeTint } from '../lib/places';
 import type { TLevelCounts } from '../lib/eligibilityCounts';
+import { homeTypeCardCountsLabel, homeTypeCardSegments } from '../lib/homePageCounts';
 import type { TPlaceType } from '../types';
+import { cx } from '../utils/cx';
 
 type THomeTypeCardProps = {
   type: TPlaceType;
@@ -55,41 +58,33 @@ export function HomeTypeCard({ type, levelCounts }: THomeTypeCardProps) {
 
         {/* 프로필이 있으면 "가능 3 · 확인 필요 3" 을 글자로. 예전엔 ok+cond 합을 "7 / 26" 으로만 적어
             "7 이 뭐예요?" 가 나왔고, 스크린리더만 "갈 수 있는 곳" 이라 읽어 확인 필요까지 가능으로
-            부풀렸다(D 크리틱 #4). 보이는 말과 읽히는 말을 같게 둔다 — 목록 머리와도 같은 기준.
-            끝의 "/ 26곳" 은 모수 — 20kg 아이에게 26곳 중 7곳뿐이라는 사실이 수 둘만으로는 안 드러났다(18 T1).
-            "야외 N" 은 카드가 "야외 자리에서 갈 수 있어요" 인 곳 — 있을 때만(목록 머리와 같은 규칙, 14 W261007.5).
+            부풀렸다(D 크리틱 #4). 보이는 말과 읽히는 말을 같게 둔다 — 목록 머리와도 같은 이름·순서(`homeTypeCardSegments`).
+            앞의 "26곳 중" 은 모수 — 20kg 아이에게 26곳 중 7곳뿐이라는 사실이 수 둘만으로는 안 드러났다(18 T1).
+            정보 없음 · 어려움도 작게 센다(14 W261013.2) — 빼면 "가능 10 · 확인 필요 4 / 31곳" 이 17곳을 말하지 않아 합이 안 맞았다.
+            모수가 끝에 "/ 31곳" 으로 붙으면 마지막 칸의 분수("어려움 13 / 31")로도 읽혀 앞으로 옮겼다.
             **이름 밑 줄**에 둔다(14 W261007.10) — 오른쪽에 세우면 수 묶음이 폭을 먹어 390px 에서도 이름 칸이 50px,
             320px 에선 0px 이 돼 "식/당" 이 한 글자씩 내려왔다. 낱말 묶음(`whitespace-nowrap`) 사이에서만 꺾인다. */}
         {levelCounts && (
           <p
             className="mt-3 text-sm font-semibold text-secondary"
-            aria-label={`${countByType[type]}곳 중 가능 ${levelCounts.ok}${levelCounts.outdoor > 0 ? ` · 야외 ${levelCounts.outdoor}` : ''} · 확인 필요 ${levelCounts.cond}`}
+            aria-label={homeTypeCardCountsLabel(levelCounts, countByType[type])}
           >
-            <span className="whitespace-nowrap">
-              가능{' '}
-              <span className="text-lg font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>
-                {levelCounts.ok}
-              </span>
-              <span aria-hidden="true"> ·</span>
-            </span>{' '}
-            {levelCounts.outdoor > 0 && (
-              <>
-                <span className="whitespace-nowrap">
-                  야외{' '}
-                  <span className="text-lg font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>
-                    {levelCounts.outdoor}
-                  </span>
-                  <span aria-hidden="true"> ·</span>
+            <span className="whitespace-nowrap font-normal text-tertiary">{countByType[type]}곳 중</span>{' '}
+            {homeTypeCardSegments(levelCounts).map((segment, index, segments) => (
+              <Fragment key={segment.level}>
+                <span className={cx('whitespace-nowrap', !segment.strong && 'font-normal text-tertiary')}>
+                  {segment.label}{' '}
+                  {segment.strong ? (
+                    <span className="text-lg font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>
+                      {segment.count}
+                    </span>
+                  ) : (
+                    <span className="font-semibold text-secondary">{segment.count}</span>
+                  )}
+                  {index < segments.length - 1 && <span aria-hidden="true"> ·</span>}
                 </span>{' '}
-              </>
-            )}
-            <span className="whitespace-nowrap">
-              확인 필요{' '}
-              <span className="text-lg font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>
-                {levelCounts.cond}
-              </span>
-            </span>{' '}
-            <span className="whitespace-nowrap text-sm font-normal text-tertiary">/ {countByType[type]}곳</span>
+              </Fragment>
+            ))}
           </p>
         )}
       </Link>

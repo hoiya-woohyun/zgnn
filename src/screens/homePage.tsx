@@ -13,8 +13,9 @@ import { Button } from '../components/base/button';
 import { PawMark } from '../components/pawMark';
 import { PlaceLinkList } from '../components/placeLinkList';
 import { dogCallNames, withJosa } from '../lib/korean';
-import { META, PLACE_TYPES, placesOfType, SOURCE_LINE, TYPE_META, type TPlaceEntry } from '../lib/places';
-import { countByLevel, reachablePlaces, type TLevelCounts } from '../lib/eligibilityCounts';
+import { META, PLACE_TYPES, placesOfType, SOURCE_LINE, TYPE_META } from '../lib/places';
+import { countByLevel, type TLevelCounts } from '../lib/eligibilityCounts';
+import { homePageReach, homePageReachNote } from '../lib/homePageCounts';
 import { homePageRegisterPreview, homePageRegisterPreviewText } from '../lib/homePageRegisterPreview';
 import { useStoreHydrated } from '../providers/storeHydration';
 import { useAppStore, useDog } from '../store/useAppStore';
@@ -31,15 +32,12 @@ export function HomePage() {
     for (const type of PLACE_TYPES) counts[type] = countByLevel(placesOfType(type), dog, { needsIndoor });
     return counts;
   }, [dog, needsIndoor]);
-  // 히어로 "갈 수 있는 곳 N곳" 의 그 곳들(14 W261007.12). 수도 이 길이로 센다 — 수와 펼치는 곳이 한 함수(`reachablePlaces`)에서 나온다.
+  // 히어로 "갈 수 있는 곳 N곳" 의 그 곳들(14 W261007.12)과 그중 야외 자리만 되는 곳(W261013.2). 수 · "… 포함" · 시트의 줄 · '야외만' 표식이
+  // 전부 이 결과 하나(`homePageReach` — 종류마다 가능 · 야외를 한 번 가른다)에서 나온다. 화면에서 판정을 다시 부르지 않는다.
   // 종류 목록 + '어려운 곳 숨기기' 로 보내지 않는 것은 그 목록에 확인 필요·정보 없음이 남아 "44곳" 을 눌러 44곳이 아닌 화면을 보기 때문이다.
-  const reachByType = useMemo(() => {
-    if (!dog) return null;
-    const byType = {} as Record<TPlaceType, TPlaceEntry[]>;
-    for (const type of PLACE_TYPES) byType[type] = reachablePlaces(placesOfType(type), dog, { needsIndoor });
-    return byType;
-  }, [dog, needsIndoor]);
-  const reachCount = reachByType ? PLACE_TYPES.reduce((sum, type) => sum + reachByType[type].length, 0) : 0;
+  const reach = useMemo(() => (dog ? homePageReach(placesOfType, dog, { needsIndoor }) : null), [dog, needsIndoor]);
+  const reachCount = reach?.count ?? 0;
+  const reachNote = reach ? homePageReachNote(reach.outdoor) : null;
   const [reachOpen, setReachOpen] = useState(false);
   const dogNames = dog ? dogCallNames(dog.dogs.map((d) => d.name)) : '';
   // 등록 전 미리보기(14 C2610.2) — 예시 두 몸무게로 숙소를 세어 "아이마다 다르다" 를 숫자로. 데이터가 빌드 시점에 묶여 있어 한 번만 센다.
@@ -59,11 +57,13 @@ export function HomePage() {
       <HomePageHero
         subtitle={dog ? `${withJosa(dogNames, '이랑/랑')} 제주 어디 갈까요?` : '짱구누나의 반려견 동반 제주 가이드'}
         reach={
-          reachByType
+          reach
             ? {
                 label: `${withJosa(dogNames, '이/가')} 갈 수 있는 곳`,
                 // 야외 자리만 되는 곳도 센다(14 W261007.5) — 카드 머리글이 "야외 자리에서 갈 수 있어요" 라 '확인 필요' 와 달리 갈 수 있는 곳이다.
+                // 센다는 말은 수 밑에 한 줄로(W261013.2) — 종류 카드 '가능' 합과 수가 다른 이유다.
                 count: reachCount,
+                note: reachNote,
                 onOpen: () => setReachOpen(true),
                 editHref: '/dog',
               }
@@ -144,26 +144,34 @@ export function HomePage() {
       </footer>
 
       {/* 히어로 수의 그 곳들 — 둘러보기의 야외 차선·지도의 「지도에 없는 N곳」 과 같은 줄 목록, 종류별로 묶는다.
-          시트는 히어로(sticky·transform 블록) 밖에 둔다. 묶음마다 가능 먼저, 야외 뒤(`reachablePlaces`). */}
+          시트는 히어로(sticky·transform 블록) 밖에 둔다. 묶음마다 가능 먼저, 야외 뒤(`reachablePlaces` 와 같은 순서).
+          야외 자리만 되는 곳엔 줄마다 '야외만'(14 W261013.2) — 식당 2곳이 표식 없이 섞여 "가능" 으로 읽혔다(seongho-15). */}
       {/* 40곳이 넘는다 — 필터 시트와 같이 머리는 서 있고 줄만 넘어간다(`max-h-[80dvh]` + `min-h-0 flex-1`, placesPageFilterSheet 주석). */}
-      <BottomSheet isOpen={reachOpen && reachByType !== null} onOpenChange={setReachOpen} label="갈 수 있는 곳">
+      <BottomSheet isOpen={reachOpen && reach !== null} onOpenChange={setReachOpen} label="갈 수 있는 곳">
         <div className="flex max-h-[80dvh] flex-col">
           <p className="shrink-0 pr-8 text-md font-bold text-primary">
             {withJosa(dogNames, '이/가')} 갈 수 있는 {reachCount}곳
           </p>
+          {reachNote && (
+            <p className="mt-0.5 shrink-0 text-sm text-tertiary">{reachNote} — 그 곳엔 &lsquo;야외만&rsquo; 이라고 적었어요.</p>
+          )}
           {reachCount === 0 && (
             <p className="mt-0.5 shrink-0 text-sm text-tertiary">아직 없어요. 확인이 필요한 곳은 종류별 목록에서 볼 수 있어요.</p>
           )}
           <div className="mt-2 min-h-0 flex-1 overflow-y-auto">
-            {reachByType &&
-              PLACE_TYPES.filter((type) => reachByType[type].length > 0).map((type) => (
-                <section key={type} className="mt-2">
-                  <h3 className="text-sm font-semibold text-secondary">
-                    {TYPE_META[type].label} {reachByType[type].length}곳
-                  </h3>
-                  <PlaceLinkList places={reachByType[type]} />
-                </section>
-              ))}
+            {reach &&
+              PLACE_TYPES.map((type) => {
+                const { ok, outdoor } = reach.byType[type];
+                if (ok.length + outdoor.length === 0) return null;
+                return (
+                  <section key={type} className="mt-2">
+                    <h3 className="text-sm font-semibold text-secondary">
+                      {TYPE_META[type].label} {ok.length + outdoor.length}곳
+                    </h3>
+                    <PlaceLinkList places={[...ok, ...outdoor]} tagOf={(place) => (outdoor.includes(place) ? '야외만' : null)} />
+                  </section>
+                );
+              })}
           </div>
         </div>
       </BottomSheet>

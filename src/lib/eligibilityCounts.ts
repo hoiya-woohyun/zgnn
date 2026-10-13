@@ -63,6 +63,41 @@ export const reachablePlaces = <T extends { policy: TPetPolicy }>(
 };
 
 /**
+ * `reachablePlaces` 를 두 칸으로 — 판정 `ok` 와 야외 자리만 되는 곳(14 W261013.2).
+ *
+ * 홈 히어로가 "갈 수 있는 곳 N곳" 에 "야외 자리만 되는 M곳 포함" 을 붙이고, 그 시트가 야외 곳 줄에 '야외만' 을 단다.
+ * N · M · 표식이 **한 번 가른 결과**에서 나와야 한다 — 화면이 판정을 다시 부르면 `needsIndoor` 를 넘기는 자리 하나만 빠져도 둘이 갈린다.
+ * `[...ok, ...outdoor]` 는 `reachablePlaces` 와 같고, 두 길이는 `countByLevel` 의 `ok`·`outdoor` 와 같다(테스트가 못 박는다).
+ */
+export const splitReachable = <T extends { policy: TPetPolicy }>(
+  places: readonly T[],
+  dog: TDogProfile,
+  opts: { needsIndoor?: boolean } = {},
+): { ok: T[]; outdoor: T[] } => {
+  const ok: T[] = [];
+  const outdoor: T[] = [];
+  for (const place of places) {
+    const eligibility = judgeEligibility(dog, place.policy, opts);
+    if (!isReachable(eligibility)) continue;
+    (eligibility.level === 'ok' ? ok : outdoor).push(place);
+  }
+  return { ok, outdoor };
+};
+
+/**
+ * 세는 칸의 짧은 이름 — 목록 머리("26곳 · 가능 4 · 확인 필요 4 · …")와 홈 종류 카드가 같은 말을 쓴다(08 T2.2).
+ * 배지 문구("갈 수 있어요"…)를 늘어놓으면 한 줄에 안 들어간다. cond 를 '확인' 한 낱말로 줄이면 상세의 "…에 확인했어요"(검증됨)와
+ * 반대 뜻의 같은 말이 된다 — '필요' 까지가 뜻이다. '야외' 는 카드가 "야외 자리에서 갈 수 있어요" 인 곳(14 W261007.5).
+ */
+export const LEVEL_COUNT_LABEL: Record<keyof TLevelCounts, string> = {
+  ok: '가능',
+  outdoor: '야외',
+  cond: '확인 필요',
+  unknown: '정보 없음',
+  hard: '어려움',
+};
+
+/**
  * "이동가방이 있으면 N곳이 열린다" — 이동 수단 what-if(07 P2 → 08 T2.5).
  *
  * 이동 수단 없음(`none`) 프로필로 케이지 필수 식당을 보면 전부 "어려움 · 케이지 필요" 로 떠서,

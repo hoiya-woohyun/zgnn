@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { headlineFor, judgeEligibility } from './eligibility';
-import { carrierWhatIf, countByLevel, outdoorFallback, reachablePlaces } from './eligibilityCounts';
+import { carrierWhatIf, countByLevel, outdoorFallback, reachablePlaces, splitReachable } from './eligibilityCounts';
 import { parsePetPolicy } from './petPolicy';
 import { PLACE_TYPES, placesOfType } from './places';
 import type { TDogProfile } from '../types';
@@ -78,6 +78,31 @@ describe('reachablePlaces — 홈 "갈 수 있는 곳 N곳" 과 그 시트 (14 W
       const firstOutdoor = levels.indexOf('cond');
       expect(firstOutdoor === -1 || levels.lastIndexOf('ok') < firstOutdoor).toBe(true);
     }
+  });
+});
+
+describe('splitReachable — 히어로 N 의 가능 · 야외 두 칸 (14 W261013.2)', () => {
+  const DUBU: TDogProfile = { dogs: [{ name: '두부', weightKg: 7 }], carrier: 'none' };
+  const BORI: TDogProfile = { dogs: [{ name: '보리', weightKg: 30 }], carrier: 'none' };
+
+  it.each([
+    ['두부 7kg', DUBU, {}],
+    ['보리 30kg', BORI, {}],
+    ['보리 30kg · 실내 자리 필요', BORI, { needsIndoor: true }],
+  ])('%s — 이어 붙이면 reachablePlaces, 두 길이는 countByLevel 의 가능 · 야외', (_, dog, opts) => {
+    for (const type of PLACE_TYPES) {
+      const places = placesOfType(type);
+      const { ok, outdoor } = splitReachable(places, dog, opts);
+      const counts = countByLevel(places, dog, opts);
+      expect([...ok, ...outdoor]).toEqual(reachablePlaces(places, dog, opts));
+      expect([ok.length, outdoor.length]).toEqual([counts.ok, counts.outdoor]);
+    }
+  });
+
+  it('야외 칸의 곳은 전부 머리글이 "야외 자리에서 갈 수 있어요" 다 — 시트의 \'야외만\' 표식이 카드와 같은 말', () => {
+    const { outdoor } = splitReachable(placesOfType('restaurant'), BORI);
+    expect(outdoor.length).toBeGreaterThan(0);
+    for (const place of outdoor) expect(headlineFor(judgeEligibility(BORI, place.policy))).toBe('야외 자리에서 갈 수 있어요');
   });
 });
 
