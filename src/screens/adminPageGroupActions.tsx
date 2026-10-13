@@ -428,13 +428,21 @@ export function AdminPageGroupActions({
      * 기본 갈래 — 누르면 무슨 일이 되는지는 `title` 이 말한다. **갈래가 셋인 이유**는 `decideTarget` 이 셋이어서다:
      * 짝이 있으면 그리로 합치고, 짝이 없어도 `tier === 'new'` 면 재대조가 돌아 점수가 높으면 기존 장소로 합쳐진다.
      */
-    const approveTitle = pairId
-      ? matchedDraft
-        ? '빈 칸만 채우고 그 곳을 등록 완료로 되돌려요 · 되돌릴 수 없어요'
-        : '빈 칸만 채워요 · 합친 내용은 되돌릴 수 없어요'
-      : group.tier === 'new'
-        ? '같은 가게가 이미 있으면 거기 합쳐져요'
-        : "새 장소로 등록돼요 · 되돌릴 땐 '등록 완료' 에서 등록 해제해요";
+    /*
+     * 짝이 '확인'(같은 곳인지 아직 모른다)이면 합치기 버튼이 곧 그 물음의 답이다(06 #15). 덮어쓰기 표가 서도 이 버튼은 남는다 —
+     * 표는 체크가 전부 꺼진 채 시작해(`overwriteDefault`) 발치 버튼이 잠기므로, 같은 곳이지만 덮을 칸이 없는 경우 합칠 길이 없었다.
+     * 표의 덮어쓰기와 이름이 달라(빈 칸만 채우기 ↔ 체크한 N칸 덮어쓰기) "어느 쪽이 체크를 쓰나" 가 흐려지지 않는다. 짝 id 를 실어 보낸다(아래 주석과 같은 이유).
+     */
+    const unsure = group.tier === 'ask' && Boolean(pairId) && !matchedArchived;
+    const approveTitle = unsure
+      ? '같은 곳이 맞으면 그 장소의 빈 칸만 채워요 · 합친 내용은 되돌릴 수 없어요'
+      : pairId
+        ? matchedDraft
+          ? '빈 칸만 채우고 그 곳을 등록 완료로 되돌려요 · 되돌릴 수 없어요'
+          : '빈 칸만 채워요 · 합친 내용은 되돌릴 수 없어요'
+        : group.tier === 'new'
+          ? '같은 가게가 이미 있으면 거기 합쳐져요'
+          : "새 장소로 등록돼요 · 되돌릴 땐 '등록 완료' 에서 등록 해제해요";
     /*
      * 갱신 묶음의 둘째 결정(11 U8) — 글들과 사이트를 대 봤더니 사이트가 맞다. 반려가 아니라 **확인**이다:
      * 장소에 확인 날짜를 찍고(되돌릴 수 없다) 후보를 눕힌다. 블랙리스트는 건드리지 않는다 — 틀린 것은 가게가 아니라 글이다.
@@ -460,11 +468,21 @@ export function AdminPageGroupActions({
         isDisabled={off}
         isLoading={busy === 'approving'}
         title={approveTitle}
-        onClick={() => onApprove()}
+        onClick={() => (unsure && pairId ? onApprove({ mergeInto: pairId }) : onApprove())}
       >
-        {pairId ? '빈 칸만 채우기' : '등록하기'}
+        {unsure ? '같은 곳이에요 — 빈 칸만 채우기' : pairId ? '빈 칸만 채우기' : '등록하기'}
       </TipButton>
     );
+    const matchedLink =
+      matched?.status === 'published' ? (
+        <a className="text-brand-secondary underline" href={`/place/${matched.id}/`} target="_blank" rel="noopener noreferrer">
+          {matched.name}
+        </a>
+      ) : (
+        (matched?.name ?? '짝지은 장소')
+      );
+    const confidence = group.lead.extracted.match?.confidence;
+    const matchReason = group.lead.extracted.match?.reason;
     body = (
       <>
         {pairId || needsLook ? (
@@ -472,14 +490,8 @@ export function AdminPageGroupActions({
             title={
               pairId ? (
                 <>
-                  합칠 곳 ·{' '}
-                  {matched?.status === 'published' ? (
-                    <a className="text-brand-secondary underline" href={`/place/${matched.id}/`} target="_blank" rel="noopener noreferrer">
-                      {matched.name}
-                    </a>
-                  ) : (
-                    (matched?.name ?? '짝지은 장소')
-                  )}{' '}
+                  {/* 표가 서면 그 머리 띠가 같은 물음을 한다 — 여기서 또 묻지 않는다. */}
+                  {unsure && !hasTable ? '같은 곳이 맞나요?' : '합칠 곳'} · {matchedLink}{' '}
                   {matched && matched.status !== 'published' && (
                     <Badge type="color" size="sm" color={PLACE_STATUS_COLOR[matched.status]}>
                       {PLACE_STATUS_LABEL[matched.status]}
@@ -491,6 +503,12 @@ export function AdminPageGroupActions({
               )
             }
           >
+            {unsure && !hasTable && (
+              <p>
+                {[confidence != null && `닮은 정도 ${Math.round(confidence * 100)}%`, matchReason].filter(Boolean).join(' · ')}
+                {' — '}다른 곳이면 아래 「짝이 틀렸어요 — 새 장소로」 로 보내요.
+              </p>
+            )}
             {/* 병합 승인은 초안 대상을 **게시로 올린다**(`adminApply.ts`) — 버튼 앞에서 "사이트는 안 바뀐다" 로 읽히면 안 된다. */}
             {matchedDraft && <p>아직 사이트에 없는 곳이에요 — 합치면 함께 등록돼요.</p>}
             {matchedArchived && <p>짝이 내린 곳이에요 — 누르면 되살릴지 물어봐요.</p>}
@@ -501,8 +519,9 @@ export function AdminPageGroupActions({
         {/*
           * 표가 서면 `빈 칸만 채우기` 는 숨는다(2026-10-04) — 표에서 바꾸기 싫은 줄의 체크를 끄는 것이 같은 일이고, 승인 버튼이 둘이면
           * "어느 쪽이 체크를 쓰나" 가 다시 흐려진다. 표가 없는 묶음(바뀔 칸 없음 · 신규)에서는 이 버튼이 유일한 승인이라 남는다.
+          * **'확인' 짝은 예외**다(06 #15) — 위 `unsure` 주석.
           */}
-        {(needsLook || !hasTable) && (
+        {(needsLook || !hasTable || unsure) && (
           <Row>
             {/* 근거가 없으면 반려가 주 버튼이다 — 5곳이 핑크 한 번씩에 게시되던 자리(UI 스냅샷 피드백). */}
             {needsLook && (
@@ -510,7 +529,7 @@ export function AdminPageGroupActions({
                 제외
               </TipButton>
             )}
-            {!hasTable && approve}
+            {(!hasTable || unsure) && approve}
             {!hasTable && confirmSite}
           </Row>
         )}

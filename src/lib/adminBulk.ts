@@ -23,6 +23,11 @@ export type TBulkLatest = {
   noPair: number;
   /** 짝이 내린 곳 — 되살릴지는 한 줄에서 사람이 정한다. */
   archived: number;
+  /**
+   * 짝이 '확인'(같은 곳인지 아직 모른다)이다 — 같은 곳인지는 한 줄에서 사람이 본다(06 #15). 기본 체크가 전부 꺼지므로(`overwriteDefault`)
+   * 덮을 칸도 없는데, 예전엔 이 줄이 `offByDefault`("이름·소개처럼 사람이 켜야 하는 칸만") 로 새어 까닭이 틀렸다.
+   */
+  unsure: number;
   /** 새 분석이 지금 값과 같다 — 덮을 칸이 없다. */
   same: number;
   /** 바뀌는 칸은 있는데 기본으로 켜진 칸이 없다(이름·소개·완화된 조건뿐) — 덮으려면 한 줄에서 사람이 켠다. */
@@ -35,12 +40,13 @@ export type TBulkLatest = {
  */
 export function bulkLatestTargets(groups: TCandidateGroup[], places: TPlaceRow[]): TBulkLatest {
   const byId = new Map(places.map((place) => [place.id, place]));
-  const out: TBulkLatest = { eligible: [], noPair: 0, archived: 0, same: 0, offByDefault: 0 };
+  const out: TBulkLatest = { eligible: [], noPair: 0, archived: 0, unsure: 0, same: 0, offByDefault: 0 };
   for (const group of groups) {
     const pairId = group.lead.match_place_id;
     const place = pairId ? byId.get(pairId) : undefined;
     if (!pairId || !place) out.noPair += 1;
     else if (place.status === 'archived') out.archived += 1;
+    else if (group.tier === 'ask') out.unsure += 1;
     else {
       // 한 줄의 기본 체크(`adminPageGroupCard`)와 같은 함수 — 일괄이 더 공격적이면 "본 줄과 다른 것이 덮였다" 가 된다.
       const { plan, columns } = overwriteDefault(group, place);
@@ -59,6 +65,7 @@ export function bulkLatestSummary(plan: TBulkLatest): string {
   const skipped = [
     plan.noPair && `짝 없는 ${plan.noPair}곳`,
     plan.archived && `짝이 내린 곳인 ${plan.archived}곳`,
+    plan.unsure && `짝이 같은 곳인지 아직 모르는 ${plan.unsure}곳`,
     plan.same && `바뀔 칸이 없는 ${plan.same}곳`,
     plan.offByDefault && `이름·소개처럼 사람이 켜야 하는 칸만 바뀌는 ${plan.offByDefault}곳`,
   ].filter(Boolean);
@@ -82,7 +89,10 @@ export type TBulkApprove = {
   noRegion: number;
   /** 짝이 내린 곳이라 멈추는 줄. */
   archivedTarget: number;
-  /** 분석이 '닮은 곳, 확인 필요' 로 표시한 줄 — 올릴 때 고를 것을 띄울 수 있다. */
+  /**
+   * 분석이 '확인'(닮은 곳 — 같은 곳인지 사람이 정한다)으로 짝지은 줄 — 일괄로는 **보내지 않는다**(06 #15). 짝이 붙은 '확인' 줄을 보내면
+   * `decideTarget` 이 그 짝을 믿고 빈 칸을 채워, 같은 곳인지 묻지 않고 다른 가게에 합쳐질 수 있다. 한 줄의 「같은 곳이에요 — 빈 칸만 채우기」 가 그 물음이다.
+   */
   ask: number;
   /** 근거가 얇은 신규(`thinNewEvidence`) — 일괄로는 안 올리고 한 줄씩 보게 둔다(todo/13 A3). */
   thin: number;
@@ -133,17 +143,19 @@ function bulkApproveSlot(group: TCandidateGroup, byId: Map<string, TPlaceRow>): 
   if (!regionUsable(extracted?.regionRaw)) return 'noRegion';
   if (addressUnresolved(extracted)) return 'addressUnresolved';
   if (pairId && byId.get(pairId)?.status === 'archived') return 'archivedTarget';
-  if (!pairId && extracted?.match?.tier === 'ask') return 'ask';
+  // 짝이 있든 없든 — 예전엔 `!pairId` 만 보아, 분석이 늘 짝을 적어 두는 '확인' 줄(analyzeCandidates `match_place_id`)이 'ok' 로 가서 그대로 합쳐졌다(06 #15).
+  // 묶음의 구간(`group.tier`)을 본다 — 한 줄의 물음(`adminPageGroupActions`)·기본 체크(`overwriteDefault`)와 같은 값이다.
+  if (group.tier === 'ask') return 'ask';
   if (thinNewEvidence(group)) return 'thin';
   if (verifyNeedsLook(extracted?.verify)) return 'noEvidence';
   return 'ok';
 }
 
 /** 확인 문장이 "건너뛰어요" 라 말하고 **보내지도 않는** 칸. */
-const SKIPPED_SLOTS: ReadonlySet<TBulkSlot> = new Set(['thin', 'denied', 'noRegion']);
+const SKIPPED_SLOTS: ReadonlySet<TBulkSlot> = new Set(['thin', 'denied', 'noRegion', 'ask']);
 
 /**
- * 일괄 올리기가 실제로 `approveGroup` 에 보낼 묶음 — 근거 얇은 신규 · 동반 불가 정황 · 지역 없음은 뺀다. 지역 없음을 보내면
+ * 일괄 올리기가 실제로 `approveGroup` 에 보낼 묶음 — 근거 얇은 신규 · 동반 불가 정황 · 지역 없음 · '확인' 짝은 뺀다. 지역 없음을 보내면
  * `approveGroup` 이 `blocked` 로 돌려줘 결과 줄이 확인 문장의 "건너뛰어요" 를 '실패' 로 셌다(2026-10-10, todo/14 W261010.1).
  * 나머지 멈추는 줄(주소·내린 곳·닮은 곳)은 `approveGroup` 이 쓰기 전에 스스로 멈추고 그 줄에 패널을 세우므로 그대로 보낸다(그 패널이 다음 할 일이다).
  */
@@ -180,11 +192,11 @@ export function bulkApproveText(plan: TBulkApprove): string {
     plan.noRegion && `지역이 없는 ${plan.noRegion}곳`,
     plan.addressUnresolved && `주소가 원글과 다른 ${plan.addressUnresolved}곳`,
     plan.archivedTarget && `짝이 내린 곳인 ${plan.archivedTarget}곳`,
+    plan.ask && `같은 곳인지 한 줄씩 봐야 하는 ${plan.ask}곳`,
     plan.thin && `근거가 얇아 한 줄씩 봐야 하는 ${plan.thin}곳`,
   ].filter(Boolean);
-  const ask = plan.ask ? ` 닮은 곳 확인이 필요한 ${plan.ask}곳은 멈추고 그 줄에 고를 것을 띄울 수 있어요.` : '';
   const rest = skipped.length ? ` ${skipped.join(' · ')}은 건너뛰어요.` : '';
-  return `${head}${rest}${ask} 짝이 있으면 그 장소의 빈 칸만 채우고, 없으면 새 장소로 등록돼요.`;
+  return `${head}${rest} 짝이 있으면 그 장소의 빈 칸만 채우고, 없으면 새 장소로 등록돼요.`;
 }
 
 /** 일괄 올리기 주 버튼을 내려야 하나 — 근거 없음이든 멈추는 줄이든 하나라도 있으면 핑크 한 번으로 보내지 않는다. */

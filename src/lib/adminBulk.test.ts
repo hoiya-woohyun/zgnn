@@ -33,6 +33,31 @@ describe('bulkLatestTargets — 제안이 없으면 한 줄의 기본 체크와 
   });
 });
 
+describe("'확인' 짝은 일괄에서 같은 곳 물음 없이 합쳐지지 않는다(06 #15)", () => {
+  const askGroup = (key: string, pair: string | null) => ({ ...group(key, pair), tier: 'ask' }) as unknown as TCandidateGroup;
+
+  it('짝이 붙은 확인 줄은 ask 칸에 서고 보낼 줄에서 빠진다 — 주 버튼도 내린다', () => {
+    const groups = [askGroup('a', 'p1'), { ...group('b', null), tier: 'new' } as unknown as TCandidateGroup];
+    const plan = bulkApproveSummary(groups, ['a', 'b'], [place('p1')]);
+    expect(plan).toMatchObject({ ask: 1, ok: 1 });
+    expect(bulkApproveNeedsLook(plan)).toBe(true);
+    expect(bulkApproveJobs(groups, [place('p1')]).map((g) => g.key)).toEqual(['b']);
+    expect(bulkApproveText(plan)).toBe(
+      '1곳 등록해요. 같은 곳인지 한 줄씩 봐야 하는 1곳은 건너뛰어요. 짝이 있으면 그 장소의 빈 칸만 채우고, 없으면 새 장소로 등록돼요.',
+    );
+  });
+
+  it('최신본 덮어쓰기는 확인 짝을 제 까닭으로 센다 — 바뀌는 칸이 있어도 "사람이 켜야 하는 칸만" 이 아니다', () => {
+    const withAddress = {
+      ...askGroup('a', 'p1'),
+      lead: { match_place_id: 'p1', extracted: { ...group('a', 'p1').lead.extracted, address: '제주 제주시 애월읍 1' } },
+    } as unknown as TCandidateGroup;
+    const plan = bulkLatestTargets([withAddress, askGroup('b', 'p1')], [place('p1')]);
+    expect(plan).toMatchObject({ eligible: [], unsure: 2, offByDefault: 0, same: 0 });
+    expect(bulkLatestSummary(plan)).toBe('0곳의 기존 장소를 새 분석 값으로 덮어요 — 모두 0칸. 짝이 같은 곳인지 아직 모르는 2곳은 건너뛰어요.');
+  });
+});
+
 describe('bulkLatestTargets — 제안이 있으면 제안이 켠 칸만(11 U7)', () => {
   it('제안 칸만 columns 로 싣고 칸 수도 그것으로 센다', () => {
     const proposal = { summary: null, conflicts: [], at: '2026-10-02', fields: { category: { action: 'change', value: '애견카페', basedOn: ['u'], quote: 'q', why: null } } };

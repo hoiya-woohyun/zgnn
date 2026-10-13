@@ -130,7 +130,7 @@ export function AdminPageGroupSiteCompare({
             {matchReason}
           </p>
           <p className="mt-0.5 text-secondary">
-            아직 같은 곳인지 몰라 체크를 모두 꺼 뒀어요. 같은 곳이 맞으면 바꿀 칸을 체크하고, 다른 곳이면 체크하지 말고 아래에서 새 장소로 보내요.
+            아직 같은 곳인지 몰라 체크를 모두 꺼 뒀어요. 같은 곳이 맞으면 바꿀 칸을 체크해 덮어쓰거나, 덮을 칸이 없으면 아래에서 빈 칸만 채워요. 다른 곳이면 체크하지 말고 아래에서 새 장소로 보내요.
           </p>
         </div>
       )}
