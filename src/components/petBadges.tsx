@@ -37,7 +37,7 @@ type TPetBadgesProps = {
    */
   hideNoInfo?: boolean;
   /**
-   * 판정 배지·이유 줄이 이미 말했거나 판정과 반대로 읽히는 칩을 뺀다(카드·지도 시트 — `verdictHidesBadge`). 뺀 칩은 `+N` 에 세지 않는다:
+   * 판정 배지·이유 줄이 이미 말했거나 판정과 반대로 읽히는 칩을 뺀다(카드·지도 시트·근처 장소 — `verdictHidesBadge`). 뺀 칩은 `+N` 에 세지 않는다:
    * 접어 둔 것이 아니라 카드가 말하지 않기로 한 것이다.
    */
   hide?: (badge: TPetBadge) => boolean;

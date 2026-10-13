@@ -580,11 +580,13 @@ const REASON_BADGE: Record<string, (policy: TPetPolicy) => string | undefined> =
 };
 
 /**
- * 판정 배지·이유 줄과 같은 줄에 서는 원문 칩 중 **카드(목록·지도 시트)에서 뺄 것**(14 W261013.1). 칩은 원문 속성이고 판정은 우리 강아지의
+ * 판정 배지·이유 줄과 같은 줄에 서는 원문 칩 중 **카드(목록·지도 시트·상세의 근처 장소)에서 뺄 것**(14 W261013.1). 칩은 원문 속성이고 판정은 우리 강아지의
  * 답인데, 한 카드에 나란히 서면 한 문장처럼 읽힌다 — 둘이 다른 말을 하면 판정을 못 믿고, 같은 말을 하면 카드가 같은 말을 두세 번 한다.
  *
  * - **받아 준다는 ✓ 칩(크기·실내)은 판정이 받아 줄 때만**(갈 수 있어요 · 야외 자리에서 갈 수 있어요). '이용하기 어려워요' 옆 '✓ 중형견 OK'
  *   (웨스티하우스, 중형견은 1마리), '확인이 필요해요' 옆 '✓ 실내 OK'(정체불명)는 판정과 반대 말로 읽혔다. 요금 ✓ 는 받아 주는지와 무관해 남는다.
+ * - **어려움이면 요금 칩을 전부 뺀다**(14 W261013.1a) — 판정이 요금을 싣지 않는 것(`judgeEligibility`)과 같은 이유다: '이용하기 어려워요' 옆
+ *   '1마리당 1~2만원'(웨스티하우스 × 콩·해피)은 우리가 낼 돈으로 읽힌다. `feeLine` 이 없어 `PetBadges` 가 스스로는 못 거른다.
  * - **머리글이 야외 자리를 말하면 '야외만' 을 뺀다.**
  * - **이유 줄이 말한 칸의 칩을 뺀다**(`REASON_BADGE`). `shownReason` 은 `primaryReason` 이 아니라 **카드에 실제로 그린 줄**이다 —
  *   목록 머리가 같은 이유를 한 번 말해 줄을 뺀 카드(`hideReasonText`)는 칩('케이지 필요')이 그 카드의 유일한 단서라 남긴다.
@@ -596,6 +598,7 @@ export const verdictHidesBadge =
   (badge: TPetBadge): boolean => {
     const outdoorSeat = isOutdoorSeatOnly(e);
     if (e.level !== 'ok' && !outdoorSeat && badge.tone === 'ok' && (badge.axis === 'size' || badge.axis === 'indoor')) return true;
+    if (e.level === 'hard' && badge.axis === 'fee') return true;
     if (outdoorSeat && badge.label === BADGE_LABEL.outdoorOnly) return true;
     const said = shownReason?.rule === undefined ? undefined : REASON_BADGE[shownReason.rule]?.(policy);
     return said !== undefined && badge.label === said;

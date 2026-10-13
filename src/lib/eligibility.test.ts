@@ -572,6 +572,29 @@ describe('카드의 이유 줄과 칩이 판정과 같은 말을 한 번 한다(
     expect(reason?.rule).toBe('C4');
     expect(chips).not.toContain('케이지 필요');
   });
+
+  // 14 W261013.1a — 판정이 요금을 싣지 않는 곳(`fee` 없음)에서 칩이 혼자 요금을 말하지 않는다.
+  const junhyuk: TDogProfile = { dogs: [{ name: '콩', weightKg: 2.5 }, { name: '해피', weightKg: 12 }], carrier: 'stroller' };
+  const feeChips = (name: string) => toPetBadges(findPlace(name).policy).filter((b) => b.axis === 'fee').map((b) => b.label);
+
+  it('웨스티하우스 × 콩·해피 — 어려움이면 요금 칩("1마리당 1~2만원")이 안 선다, 판정도 요금을 안 싣는다', () => {
+    expect(feeChips('웨스티하우스').length).toBeGreaterThan(0);
+    const { level, chips } = card(junhyuk, '웨스티하우스');
+    expect(level).toBe('hard');
+    expect(judgeEligibility(junhyuk, findPlace('웨스티하우스').policy).fee).toBeUndefined();
+    for (const fee of feeChips('웨스티하우스')) expect(chips).not.toContain(fee);
+  });
+
+  it('웨스티하우스 × 4kg 한 마리 — 갈 수 있으면 요금 칩은 그대로', () => {
+    const { chips } = card(TOFU, '웨스티하우스');
+    for (const fee of feeChips('웨스티하우스')) expect(chips).toContain(fee);
+  });
+
+  it('근처 장소 카드(이유 줄 없음) — 어려움 웨스티하우스는 "✓ 중형견 OK" 도 요금도 없이 무게 칩이 맨 앞', () => {
+    const { chips } = card(junhyuk, '웨스티하우스', () => undefined);
+    expect(chips[0]).toBe('20kg 미만');
+    expect(chips).not.toContain('중형견 OK');
+  });
 });
 
 describe('judgeEligibility — 대형견 불가(H7, todo/06 A-2)', () => {
