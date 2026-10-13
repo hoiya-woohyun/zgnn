@@ -112,8 +112,8 @@ describe('stageHealth', () => {
   it('검수 — 가장 오래된 대기가 7일 넘으면 주의, 실패는 없다', () => {
     expect(stage(overview({ pending: { count: 31, oldestCreatedAt: ago(8 * DAY) } }), 'review')).toMatchObject({
       state: 'warn',
-      first: '대기 31',
-      second: '오래된 8일',
+      first: '후보 31행',
+      second: '오래된 8일 · 곳으로는 /admin',
     });
     expect(stage(overview({ pending: { count: 3, oldestCreatedAt: ago(1 * DAY) } }), 'review').state).toBe('ok');
   });

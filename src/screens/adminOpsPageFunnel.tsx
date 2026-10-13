@@ -121,7 +121,7 @@ export function AdminOpsPageFunnel({
         </div>
       </div>
       <p className="mt-2 text-xs text-quaternary">
-        줄마다 그 기간에 그 단계를 지난 수예요 — 서로의 일부가 아니라 막대는 가장 큰 줄 기준이에요. 지금 보류만 기간과 무관해요.
+        줄마다 그 기간에 그 단계를 지난 수예요 — 서로의 일부가 아니라 막대는 가장 큰 줄 기준이에요. 지금 보류만 기간과 무관하고, 후보 행 수라 /admin 검수 대기(곳으로 묶어 셈)보다 커요.
       </p>
     </section>
   );

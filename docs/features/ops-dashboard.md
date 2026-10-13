@@ -82,8 +82,8 @@
 | 줄 | 수집 | 분석 | 검수 | 반영 | 재빌드 |
 |---|---|---|---|---|---|
 | 상태점 + 이름 | ● | ● | ○(사람 몫이라 색을 약하게) | ● | ● |
-| **첫째 수**(마지막) | 마지막 ok 실행 상대 시각 | 마지막 ok 실행 또는 `돌고 있음(심장 N분 전)` | 대기 N건 | 마지막 ok 실행 | 마지막 `rebuild_log` 행의 상대 시각 · 응답 코드 |
-| **둘째 수**(쌓인 것) | 그 실행의 신규 N | 미분석 backlog N | 가장 오래된 pending 며칠 | approved 인데 merged 아님 N(= `countStrandedCandidates`) | 7일 훅 호출 수(서로 다른 `request_id`) |
+| **첫째 수**(마지막) | 마지막 ok 실행 상대 시각 | 마지막 ok 실행 또는 `돌고 있음(심장 N분 전)` | 후보 N행(`/admin` 검수 대기는 곳으로 묶어 세어 더 적다) | 마지막 ok 실행 | 마지막 `rebuild_log` 행의 상대 시각 · 응답 코드 |
+| **둘째 수**(쌓인 것) | 그 실행의 신규 N | 미분석 backlog N | 가장 오래된 pending 며칠 · 곳으로는 /admin | approved 인데 merged 아님 N(= `countStrandedCandidates`) | 7일 훅 호출 수(서로 다른 `request_id`) |
 | 판정 이유(주의·실패일 때만) | `수집이 N일째 없어요` | `분석 backlog N건(M일째)` / `분석이 중단된 듯해요 — 프로세스가 죽었으면 그냥 다시 돌리면 돼요` | `검수 N일째 대기` | `반영 안 된 승인 N건` / `마지막 반영에서 N건이 실패했어요` | `Deploy Hook 이 폐기된 듯해요(4xx)` · `재빌드가 한도(시간당 60번)에 걸렸어요` 등 |
 
 상태점은 넷이다 — **정상**(초록 `success`) · **주의**(노랑 `warning`) · **실패**(빨강 `error`) · **기록 없음**(회색, "아직 한 번도 안 돌았어요"). 판정 규칙은 `src/lib/adminOpsHealth.ts` 한 곳이 소유하고 단위 테스트가 붙는다. 재빌드 칸은 `rebuildHeadline()` 의 문장(`{tone, text}`)을 파싱하지 않고 `ops_overview.rebuildRecent` 의 행(`response_status`·`hook`·`requested_at`)을 직접 받는다 — 건너뛰기 규칙(`latestRebuildCall`)과 응답 대기 한도는 `adminRebuild.ts` 의 것을 그대로 쓰고, 머리글 한 줄은 그대로 `rebuildHeadline` 이 만든다. 칸을 누르면 ③ 실행 기록이 그 스크립트로 걸러진다(한 번 더 누르면 전체). **검수 칸은 걸러 보지 않고 `/admin/?tab=candidates`(검수 대기)로 가는 링크다** — 사람 몫이라 볼 곳이 거기고, `/admin` 등록·제외는 실행 기록을 남기지 않아(옛 `data:review` 의 approve·reject 2행이 10-06 이후 그대로) 걸러 봐도 언제나 그 옛 행만 나왔다. 재빌드 칸은 `rebuild_log` 라 걸러 볼 실행 기록이 없어 누를 수 없다. 띠에는 `worstStage` 하나 — 실패가 주의보다 먼저, 같은 무게면 장치 순서상 앞의 것.

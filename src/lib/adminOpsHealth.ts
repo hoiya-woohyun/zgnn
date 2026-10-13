@@ -153,13 +153,13 @@ function analyzeStage(overview: TOpsOverview, nowMs: number, remote: boolean): T
   return { ...base, state: 'ok', first, reason: null };
 }
 
-/** 검수는 사람 몫이라 실패가 없다. 비었으면 정상("비었어요"), 오래 묵었을 때만 주의. */
+/** 검수는 사람 몫이라 실패가 없다. 수는 후보 **행**이다 — `/admin` 검수 대기 탭은 같은 후보를 곳(묶음)으로 세어 더 적다(todo/15 T8.8). 비었으면 정상("비었어요"), 오래 묵었을 때만 주의. */
 function reviewStage(overview: TOpsOverview, nowMs: number): TStageHealth {
   const { count, oldestCreatedAt } = overview.pending;
-  const base = { key: 'review' as const, label: '검수', first: `대기 ${count}` };
+  const base = { key: 'review' as const, label: '검수', first: `후보 ${count.toLocaleString('ko-KR')}행` };
   if (count === 0) return { ...base, state: 'ok', second: '비었어요', reason: null };
   const days = daysSince(oldestCreatedAt, nowMs);
-  const second = days === null ? '' : `오래된 ${days}일`;
+  const second = days === null ? '곳으로는 /admin' : `오래된 ${days}일 · 곳으로는 /admin`;
   if (days !== null && days >= PENDING_STALE_DAYS) {
     return { ...base, state: 'warn', second, reason: `검수 ${days}일째 대기` };
   }
