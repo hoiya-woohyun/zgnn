@@ -721,6 +721,22 @@ export const maxDogsBadgeLabel = (policy: Pick<TPetPolicy, 'maxDogs'>): string |
   policy.maxDogs === undefined ? undefined : `최대 ${policy.maxDogs}마리`;
 
 /**
+ * 무게 구간마다 마릿수가 다른 곳의 구간들(무게 순) — 웨스티하우스 "10kg 미만 최대 2마리 · 20kg 미만 최대 1마리".
+ * 이런 곳을 무게 상한·마릿수 상한 두 칩('20kg 미만' · '최대 2마리')으로 접으면 '최대 2마리' 가 '20kg 미만은 1마리까지예요' 와
+ * 반대로 읽힌다(14 W261013.1b) — 구간마다 한 칩(`dogTierBadgeLabel`)으로 말한다. 구간이 하나거나 마릿수가 같으면 undefined(두 칩이 맞다).
+ */
+export const dogCountTiers = (policy: Pick<TPetPolicy, 'tiers'>): TPolicyTier[] | undefined => {
+  const weighted = policy.tiers.filter((t) => t.maxWeightKg !== undefined);
+  if (weighted.length < 2 || weighted.some((t) => t.maxDogs === undefined)) return undefined;
+  if (new Set(weighted.map((t) => t.maxDogs)).size < 2) return undefined;
+  return [...weighted].sort((a, b) => (a.maxWeightKg as number) - (b.maxWeightKg as number));
+};
+
+/** 구간 칩 — "20kg 미만 1마리". 경계 말('이하'·'미만')은 무게 상한 칩과 같은 tier 값이다. */
+export const dogTierBadgeLabel = (tier: TPolicyTier): string =>
+  `${tier.maxWeightKg}kg ${tier.weightInclusive ? '이하' : '미만'} ${tier.maxDogs}마리`;
+
+/**
  * 원문이 이동가방(슬링백)을 허용으로 적었나 — 뒤 16자 안에 거절 말이 없을 때만. 여기서 잘못 읽으면 판정 C2 가 지어낸
  * '갈 수 있어요' 를 내므로 거절 말을 '실내 … 안 돼요' 만큼 넓힌다. 판정(C2)과 배지(`cageBadge`)가 같은 식을 본다.
  */
@@ -806,10 +822,16 @@ export const toPetBadges = (policy: TPetPolicy): TPetBadge[] => {
   else if (policy.mediumDogOk) badges.push({ label: '중형견 OK', tone: 'ok', axis: 'size' });
   else if (policy.smallDogOnly) badges.push({ label: BADGE_LABEL.smallDogOnly, tone: 'cond', axis: 'size' });
 
-  const weightLimit = weightLimitBadgeLabel(policy);
-  if (weightLimit) badges.push({ label: weightLimit, tone: 'cond', axis: 'limit' });
-  const maxDogs = maxDogsBadgeLabel(policy);
-  if (maxDogs) badges.push({ label: maxDogs, tone: 'cond', axis: 'limit' });
+  // 구간마다 마릿수가 다르면 구간 칩으로(`dogCountTiers`) — 무게·마릿수 상한으로 접으면 두 칩이 서로 반대로 읽힌다.
+  const dogTiers = dogCountTiers(policy);
+  if (dogTiers) {
+    for (const tier of dogTiers) badges.push({ label: dogTierBadgeLabel(tier), tone: 'cond', axis: 'limit' });
+  } else {
+    const weightLimit = weightLimitBadgeLabel(policy);
+    if (weightLimit) badges.push({ label: weightLimit, tone: 'cond', axis: 'limit' });
+    const maxDogs = maxDogsBadgeLabel(policy);
+    if (maxDogs) badges.push({ label: maxDogs, tone: 'cond', axis: 'limit' });
+  }
   if (policy.leash) badges.push({ label: '리드줄', tone: 'cond', axis: 'gear' });
   // 챙길 물건이 아니라 강아지가 갖춰야 하는 조건이라 `limit` 축(→ `/admin` 의 동반 조건 열)이다.
   if (policy.vaccineRequired) badges.push({ label: BADGE_LABEL.vaccineRequired, tone: 'cond', axis: 'limit' });

@@ -11,7 +11,7 @@
 import { normalizeFeeLines } from '../../scripts/lib/feeLine.mjs';
 import { guardPublicText, POLICY_TOPICS, policyFingerprint, topicReasons } from '../../scripts/lib/petPolicyGuide.mjs';
 import type { TPetPolicyFacts, TPetPolicyGuide, TPlace } from '../types';
-import { cageGear, type TPetPolicy } from './petPolicy';
+import { cageGear, dogCountTiers, type TPetPolicy } from './petPolicy';
 
 export type TPolicyTopic = keyof typeof POLICY_TOPICS;
 
@@ -70,6 +70,12 @@ const TEMPLATES = {
     return `${p.weightLimitKg}kg ${tier?.weightInclusive ? '이하' : '미만'}인 강아지만 같이 갈 수 있어요`;
   },
   maxDogs: (p) => {
+    // 구간마다 마릿수가 다르면 배지처럼 구간마다 말한다 — '최대 2마리' 로 접으면 20kg 미만 1마리와 반대로 읽힌다(14 W261013.1b).
+    const tiers = dogCountTiers(p);
+    if (tiers) {
+      const parts = tiers.map((t) => `${t.maxWeightKg}kg ${t.weightInclusive ? '이하는' : '미만은'} ${t.maxDogs}마리`);
+      return `${parts.join(', ')}까지 같이 갈 수 있어요`;
+    }
     if (p.maxDogs !== undefined) return `최대 ${p.maxDogs}마리까지 같이 갈 수 있어요`;
     return p.unlimitedDogs ? '마릿수 제한은 없어요' : null;
   },

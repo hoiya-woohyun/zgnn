@@ -73,6 +73,15 @@ describe('publicPolicyLines — 판단에서 만든 조건 문장', () => {
     expect(publicPolicyLines(gwangbok).map((l) => l.text)).toContain('실내에서는 이동가방에 넣어야 해요');
   });
 
+  // 14 W261013.1b — 구간마다 마릿수가 다르면 칩도 문장도 구간마다. '최대 2마리까지' 는 20kg 미만 1마리와 반대로 읽힌다.
+  it('구간마다 마릿수가 다르면(웨스티하우스 모양) 마릿수 줄도 구간마다 — 칩과 같은 구간', () => {
+    const policy = parsePetPolicy('10kg 미만의 경우 최대 2마리 가능. 20kg 미만(중형견)의 경우 최대 1마리 가능.');
+    expect(toPetBadges(policy).map((b) => b.label)).toEqual(expect.arrayContaining(['10kg 미만 2마리', '20kg 미만 1마리']));
+    const lines = publicPolicyLines(policy).map((l) => l.text);
+    expect(lines).toContain('10kg 미만은 2마리, 20kg 미만은 1마리까지 같이 갈 수 있어요');
+    expect(lines.some((line) => line.includes('최대 2마리'))).toBe(false);
+  });
+
   it('크기는 배지처럼 한 줄 — 대형견 불가가 소형견만보다 먼저', () => {
     expect(textsOf('소형견만, 대형견은 불가해요', { smallDogOnly: true, largeDogOk: false })).toEqual(['대형견은 같이 갈 수 없어요']);
   });

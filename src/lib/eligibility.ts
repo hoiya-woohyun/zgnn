@@ -15,7 +15,16 @@ import type { TCarrier, TDogEntry, TDogProfile, TDogSize } from '../types';
 import { formatDogFee } from './dogFee';
 import { maxWeightKg } from './dogProfile';
 import { dogCallName, dogCallNames, josa, withJosa } from './korean';
-import { BADGE_LABEL, cageGear, maxDogsBadgeLabel, petDaysBadgeLabel, UNREAD_BADGE_LABEL, weightLimitBadgeLabel } from './petPolicy';
+import {
+  BADGE_LABEL,
+  cageGear,
+  dogCountTiers,
+  dogTierBadgeLabel,
+  maxDogsBadgeLabel,
+  petDaysBadgeLabel,
+  UNREAD_BADGE_LABEL,
+  weightLimitBadgeLabel,
+} from './petPolicy';
 import type { TPetBadge, TPetPolicy, TPolicyTier } from './petPolicy';
 
 export type TEligibilityLevel = 'ok' | 'cond' | 'unknown' | 'hard';
@@ -99,6 +108,12 @@ const weightBoundTopic = (tier: TPolicyTier): string | undefined => {
   return label === undefined ? undefined : `${label}${tier.weightInclusive ? '는' : '은'}`;
 };
 
+/** H2 문장 — "20kg 미만은 1마리까지예요". 카드 칩 거르기(`REASON_BADGE`)가 같은 함수로 이 줄이 어느 구간의 말인지 찾는다. */
+const tooManyText = (tier: TPolicyTier): string => {
+  const topic = weightBoundTopic(tier);
+  return topic ? `${topic} ${tier.maxDogs}마리까지예요` : `${tier.maxDogs}마리까지예요`;
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 규칙 테이블 — 순서 = 표시 순서(같은 레벨 안에서)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -149,9 +164,7 @@ const ruleTooManyForWeight: TRule = (dog, policy) => {
   if (selected.maxDogs === undefined) return null;
   if (selected.maxDogs >= dog.dogs.length) return null;
 
-  const topic = weightBoundTopic(selected);
-  const text = topic ? `${topic} ${selected.maxDogs}마리까지예요` : `${selected.maxDogs}마리까지예요`;
-  return { level: 'hard', text, quote: selected.source };
+  return { level: 'hard', text: tooManyText(selected), quote: selected.source };
 };
 
 /** H3: "소형견만" 인데 우리 강아지는 소형이 아니다. */
@@ -558,12 +571,22 @@ export const primaryReason = (e: TEligibility): TReason | undefined => {
 /**
  * 이유 줄과 같은 칸을 말하는 원문 칩 — 규칙 ID → 그 규칙이 읽은 정책 칸의 배지 라벨(`toPetBadges` 와 같은 함수·상수로 만든다).
  * 케이지 규칙은 **'케이지 필요' 일 때만** 겹친다: 원문이 가방·유모차를 적어 칩이 '이동가방 필요' 면 줄('케이지 동반시에만')이 안 한 말을 한다.
+ * 구간마다 마릿수가 다른 곳(`dogCountTiers`)은 무게·마릿수 칩 대신 구간 칩이라, H1 은 가장 넓은 구간 칩(H1 문장이 말하는 상한),
+ * H2 는 **그 줄이 말한 구간**의 칩이다 — 어느 구간인지는 강아지에 따라 갈려 같은 문장 함수(`tooManyText`)로 줄과 맞춰 찾는다.
  */
-const REASON_BADGE: Record<string, (policy: TPetPolicy) => string | undefined> = {
+const REASON_BADGE: Record<string, (policy: TPetPolicy, reason: TReason) => string | undefined> = {
   H0: () => BADGE_LABEL.notAllowed,
-  H1: weightLimitBadgeLabel,
-  // 같은 칸을 반대로 말한다 — '20kg 미만은 1마리까지예요' 옆의 '최대 2마리'(웨스티하우스, 10kg 미만이 2마리다).
-  H2: maxDogsBadgeLabel,
+  H1: (policy) => {
+    const tiers = dogCountTiers(policy);
+    return tiers ? dogTierBadgeLabel(tiers[tiers.length - 1]) : weightLimitBadgeLabel(policy);
+  },
+  // 접은 칩('최대 2마리')은 '20kg 미만은 1마리까지예요' 와 반대로 읽혔고(웨스티하우스), 구간 칩이면 같은 말('20kg 미만 1마리')이다.
+  H2: (policy, reason) => {
+    const tiers = dogCountTiers(policy);
+    if (!tiers) return maxDogsBadgeLabel(policy);
+    const tier = tiers.find((t) => tooManyText(t) === reason.text);
+    return tier && dogTierBadgeLabel(tier);
+  },
   H3: () => BADGE_LABEL.smallDogOnly,
   H7: () => BADGE_LABEL.largeDogNo,
   H4: () => BADGE_LABEL.cage,
@@ -600,7 +623,7 @@ export const verdictHidesBadge =
     if (e.level !== 'ok' && !outdoorSeat && badge.tone === 'ok' && (badge.axis === 'size' || badge.axis === 'indoor')) return true;
     if (e.level === 'hard' && badge.axis === 'fee') return true;
     if (outdoorSeat && badge.label === BADGE_LABEL.outdoorOnly) return true;
-    const said = shownReason?.rule === undefined ? undefined : REASON_BADGE[shownReason.rule]?.(policy);
+    const said = shownReason?.rule === undefined ? undefined : REASON_BADGE[shownReason.rule]?.(policy, shownReason);
     return said !== undefined && badge.label === said;
   };
 

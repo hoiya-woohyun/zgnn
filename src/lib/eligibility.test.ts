@@ -521,21 +521,30 @@ describe('카드의 이유 줄과 칩이 판정과 같은 말을 한 번 한다(
     return { level: e.level, headline: headlineFor(e), reason, chips };
   };
 
-  it('웨스티하우스 × 콩 2.5kg·해피 12kg — 어려움 옆에 "✓ 중형견 OK" 도, "1마리까지" 와 반대인 "최대 2마리" 도 안 선다', () => {
+  it('웨스티하우스 × 콩 2.5kg·해피 12kg — 어려움 옆에 "✓ 중형견 OK" 도, 이유 줄과 같은 구간 칩 "20kg 미만 1마리" 도 안 선다', () => {
     const junhyuk: TDogProfile = { dogs: [{ name: '콩', weightKg: 2.5 }, { name: '해피', weightKg: 12 }], carrier: 'stroller' };
     const { level, reason, chips } = card(junhyuk, '웨스티하우스');
     expect(level).toBe('hard');
     expect(reason?.text).toBe('20kg 미만은 1마리까지예요');
     expect(chips).not.toContain('중형견 OK');
-    expect(chips).not.toContain('최대 2마리');
-    expect(chips).toContain('20kg 미만');
+    expect(chips).not.toContain('20kg 미만 1마리');
+    // 다른 구간은 줄이 말하지 않은 말이라 남는다(14 W261013.1b — 접힌 '최대 2마리' 는 이제 없다).
+    expect(chips).toContain('10kg 미만 2마리');
   });
 
-  it('웨스티하우스 × 4kg 한 마리 — 갈 수 있으면 "✓ 중형견 OK" 는 그대로', () => {
+  it('웨스티하우스 × 4kg 한 마리 — 갈 수 있으면 "✓ 중형견 OK" 와 구간 칩 둘이 그대로', () => {
     const { level, chips } = card(TOFU, '웨스티하우스');
     expect(level).toBe('ok');
     expect(chips).toContain('중형견 OK');
-    expect(chips).toContain('최대 2마리');
+    expect(chips).toEqual(expect.arrayContaining(['10kg 미만 2마리', '20kg 미만 1마리']));
+  });
+
+  it('웨스티하우스 × 28kg — H1 "20kg 미만 조건을 넘어요" 옆엔 가장 넓은 구간 칩이 빠지고 좁은 구간은 남는다', () => {
+    const big: TDogProfile = { dogs: [{ name: '대장', weightKg: 28 }], carrier: 'none' };
+    const { reason, chips } = card(big, '웨스티하우스');
+    expect(reason?.rule).toBe('H1');
+    expect(chips).not.toContain('20kg 미만 1마리');
+    expect(chips).toContain('10kg 미만 2마리');
   });
 
   it('무히어 × 모카 8kg — 이유 줄은 판정을 정한 예방접종, "야외만" 은 칩으로 한 번, "예방접종 필수" 칩은 줄과 같아 빠진다', () => {
@@ -590,10 +599,9 @@ describe('카드의 이유 줄과 칩이 판정과 같은 말을 한 번 한다(
     for (const fee of feeChips('웨스티하우스')) expect(chips).toContain(fee);
   });
 
-  it('근처 장소 카드(이유 줄 없음) — 어려움 웨스티하우스는 "✓ 중형견 OK" 도 요금도 없이 무게 칩이 맨 앞', () => {
+  it('근처 장소 카드(이유 줄 없음) — 어려움 웨스티하우스는 "✓ 중형견 OK" 도 요금도 없이 구간 칩만', () => {
     const { chips } = card(junhyuk, '웨스티하우스', () => undefined);
-    expect(chips[0]).toBe('20kg 미만');
-    expect(chips).not.toContain('중형견 OK');
+    expect(chips).toEqual(['10kg 미만 2마리', '20kg 미만 1마리']);
   });
 });
 

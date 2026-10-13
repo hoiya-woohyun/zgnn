@@ -272,6 +272,29 @@ describe('실제 데이터', () => {
     expect(place?.policy.weightLimitKg).toBe(20);
   });
 
+  // 14 W261013.1b — '20kg 미만' · '최대 2마리' 로 접으면 '최대 2마리' 가 "20kg 미만은 1마리" 와 반대로 읽혔다(junhyuk-12c).
+  it('구간마다 마릿수가 다르면(웨스티하우스) 무게·마릿수 칩 대신 구간 칩을 무게 순으로', () => {
+    const place = PLACES.find((candidate) => candidate.name === '웨스티하우스');
+    const limits = toPetBadges(place!.policy).filter((b) => b.axis === 'limit').map((b) => b.label);
+    expect(limits).toEqual(['10kg 미만 2마리', '20kg 미만 1마리']);
+  });
+
+  it('구간이 하나거나 마릿수가 같으면 무게·마릿수 칩 둘 그대로', () => {
+    const limitsOf = (text: string) => toPetBadges(parsePetPolicy(text)).filter((b) => b.axis === 'limit').map((b) => b.label);
+    expect(limitsOf('13kg 미만 최대 2마리까지 가능')).toEqual(['13kg 미만', '최대 2마리']);
+    const sameCount = {
+      ...parsePetPolicy('정보 없음.'),
+      noInfo: false,
+      weightLimitKg: 10,
+      maxDogs: 2,
+      tiers: [
+        { maxWeightKg: 5, weightInclusive: false, maxDogs: 2 },
+        { maxWeightKg: 10, weightInclusive: false, maxDogs: 2 },
+      ],
+    };
+    expect(toPetBadges(sameCount).filter((b) => b.axis === 'limit').map((b) => b.label)).toEqual(['10kg 미만', '최대 2마리']);
+  });
+
 
   it('시드의 식당과 카페는 모두 실내 동반 조건을 읽어낸다', () => {
     expect(SEED_PLACES).toHaveLength(84);

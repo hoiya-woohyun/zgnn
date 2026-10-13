@@ -1478,7 +1478,7 @@ small6none+indoor ok |  |  |
 public true
 policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":true,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"weightLimitKg":20,"maxDogs":2,"tiers":[{"maxWeightKg":10,"weightInclusive":false,"maxDogs":2},{"maxWeightKg":20,"weightInclusive":false,"maxDogs":1}],"outdoorFree":false,"unlimitedDogs":false,"feeLines":["1마리당 1-2만원"]}
 gear {"bag":false,"stroller":false}
-badges cond:1마리당 1~2만원 · ok:중형견 OK · cond:20kg 미만 · cond:최대 2마리
+badges cond:1마리당 1~2만원 · ok:중형견 OK · cond:10kg 미만 2마리 · cond:20kg 미만 1마리
 evidence raw
 env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null}
 small4 ok | I1:info:적힌 요금 · 1마리당 1-2만원 | 적힌 요금 · 1마리당 1-2만원 | 1박 기준인지는 적혀 있지 않아요
