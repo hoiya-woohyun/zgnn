@@ -320,8 +320,12 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
   > 캐시가 있을 때 실데이터 38행에서 빌드 길 ≡ 런타임 길 ≡ `/admin` 길. 10자 이음은 6건 — `features`(소개, S7·S9 몫)와 가드를 지난 notes 의 말 바꿈뿐이다.
   > 판단 없는 비공개 행(정규식 길)이 생기면 `feeLines` 가 원문 문장 그대로다(지금 0곳 — 38곳 전부 AI 판단). **사람이 할 것**: `pnpm build` 뒤 `out/` 유출 검사 · check-bundle(공유 트리라 레인이 빌드하지 않았다) ·
   > main 합친 뒤 첫 프로덕션 빌드 로그의 `pull 완료 … 원문 숨김 N` 줄(Vercel 이 앱 TS 를 처음 부른다) · 상세 눈 확인(일기초록·광복이네·판포현스테이·솔숲펜션) — 무인 레인이라 못 했다. 온라인 `pnpm data pull` 도 안 돌렸다(원격 drift 를 무인으로 떠안지 않게).
-- [ ] S8.1 `check-bundle.mjs` 에 상시 유출 검사 — 캐시(`data/raw/places-source.json`)가 있을 때 비공개 원문 줄이 `out/` 에 없는지. 짧은 줄 오탐이 Vercel 배포를 막을 수 있어
+- [x] S8.1 `check-bundle.mjs` 에 상시 유출 검사 — 캐시(`data/raw/places-source.json`)가 있을 때 비공개 원문 줄이 `out/` 에 없는지. 짧은 줄 오탐이 Vercel 배포를 막을 수 있어
   S8 에선 일회성 검사만 했다 — 바늘 길이 문턱(15자?)과 경고/실패 정책을 먼저 정한다(Vercel 엔 캐시가 pull 뒤 생기므로 거기서도 돈다).
+  > 메모(2026-10-13): 정책 = 바늘은 비공개 행(`petPolicyTextPublic` 아님)의 `petPolicyText`·`petPolicy` 문자열을 줄·문장으로 쪼개 공백을 뺀 것, **15자 이상 이음**(S8 준비 커밋 `a08bd79` 와 같은 문턱) · **경고만, exit 0** · 캐시가 없으면 조용히 건너뜀.
+  > 이유: 일반 문구("반려견동반가능…")가 공개 글과 우연히 겹쳐도 배포를 막으면 안 되고, 진짜 유출 방지는 `places.json` 에서 원문을 빼는 S8 이 한다 — 이 검사는 그 뒤 안전망이다. 실패로 올리는 건 아래 관찰이 며칠 깨끗할 때(오탐 0)만.
+  > **Vercel 빌드엔 `data/raw/places-source.json` 이 없을 수 있다**(gitignored · pull 이 만든다 — `pull` 이 그 빌드에서 먼저 돌아야 캐시가 생긴다). 없으면 이 검사는 건너뛰어 조용하다 — 상시 검사는 사실상 로컬 `pnpm build` 에서 돈다. `CHECK_BUNDLE_OUT`·`CHECK_BUNDLE_SOURCE` env 는 테스트용 경로 덮어쓰기.
+  > 코드: `scripts/lib/bundleLeak.mjs`(S8.2 가 같이 씀) · `scripts/check-bundle.test.mjs`(가짜 `out/`). 공유 트리의 `out/` 은 S8 전 빌드라 비공개 14곳 이상이 경고로 뜬다 — 새 `pnpm build` 뒤 0 이어야 한다(🧑 확인).
 - [ ] S8.2 `stay.amenitiesText`·`stay.price.text` 의 베낌 정도를 잰다 — 블로그에서 올 수 있고 S8 은 손대지 않았다(`features` 는 S7·S9 몫). 재 보고 크면 S9 처럼 다시 쓰거나 빼는 안을 세운다.
 
 ### S9. 게시된 블로그 행은 문장만 다시 쓴다 — 판단 고정(S7 뒤, 2026-10-13 결정)

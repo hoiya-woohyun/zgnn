@@ -9,8 +9,10 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 import { PROJECT_REF } from './lib/supabasePublic.mjs';
+import { firstOverlap, privateNeedles, squash } from './lib/bundleLeak.mjs';
 
-const OUT_DIR = new URL('../out/', import.meta.url);
+const OUT_DIR = new URL(process.env.CHECK_BUNDLE_OUT ?? '../out/', import.meta.url);
+const SOURCE_CACHE = new URL(process.env.CHECK_BUNDLE_SOURCE ?? '../data/raw/places-source.json', import.meta.url);
 const TEXT_EXTENSIONS = new Set(['.html', '.js', '.css', '.json', '.txt', '.webmanifest', '.map']);
 
 // 각 패턴이 왜 시크릿 유출 신호인지 한 줄씩.
@@ -80,6 +82,32 @@ for (const fileUrl of files) {
       const context = content.slice(start, match.index) + mask(match[0]) + content.slice(match.index + match[0].length, end);
       console.error(`[${name}] ${fileUrl.pathname} — ${why}\n  …${context}…`);
     }
+  }
+}
+
+// 비공개 원문 유출 검사(21 S8.1) — 캐시(원문 포함 행, gitignored)가 있을 때만. 캐시가 없으면(Vercel 은 pull 뒤에야 생긴다) 조용히 건너뛴다.
+// **경고만** 한다(exit 0): 15자 이음이 일반 문구와 우연히 겹쳐도 배포를 막지 않는다. 시크릿 패턴과 달리 가림 수준이 "확인" 이라서다.
+// 새 원문 줄이 새어 나가는 일은 `places.json` 쪽에서 막고(S8 `derived`), 여기는 그 뒤에서 한 번 더 보는 안전망이다.
+let sourceRows = null;
+try {
+  sourceRows = JSON.parse(await readFile(SOURCE_CACHE, 'utf8'));
+} catch {
+  sourceRows = null;
+}
+if (Array.isArray(sourceRows)) {
+  const haystack = squash((await Promise.all(files.map((f) => readFile(f, 'utf8')))).join('\n'));
+  const warns = [];
+  for (const { name, segments } of privateNeedles(sourceRows)) {
+    for (const segment of segments) {
+      const hit = firstOverlap(segment, haystack);
+      if (hit) {
+        warns.push(`  - ${name}: "${hit}"`);
+        break;
+      }
+    }
+  }
+  if (warns.length > 0) {
+    console.warn(`번들 원문 경고(배포는 막지 않는다): 비공개 행 원문과 15자 이상 같은 구간이 out/ 에 있다 — ${warns.length}곳. 일반 문구 우연인지 확인해라.\n${warns.join('\n')}`);
   }
 }
 
