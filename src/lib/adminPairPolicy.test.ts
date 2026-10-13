@@ -17,8 +17,8 @@ const row = (extracted: Partial<TCandidateRow['extracted']> = {}): TCandidateRow
   extracted: { name: '소길스테이', type: 'stay', regionRaw: '서쪽 (애월읍)', address: '제주 제주시 애월읍 1', petPolicyText: '실내 OK, 대형견도 OK', petPolicy: loose, features: '사람이 쓴 소개', ...extracted },
   match_place_id: 'p1', match_confidence: 0.9, status: 'pending', reviewer_note: null, reviewed_at: null, created_at: '', blog_posts: null, places: null,
 });
-const group = (r: TCandidateRow, kind: TCandidateGroup['kind'] = 'update') =>
-  ({ key: 'g', kind, tier: 'auto', lead: r, rows: [r], posts: [r.post_url] }) as unknown as TCandidateGroup;
+const group = (r: TCandidateRow, kind: TCandidateGroup['kind'] = 'update', tier: TCandidateGroup['tier'] = 'auto') =>
+  ({ key: 'g', kind, tier, lead: r, rows: [r], posts: [r.post_url] }) as unknown as TCandidateGroup;
 const keep: TProposal = {
   summary: 's', conflicts: [], at: '2026-10-02T00:00:00Z', superseded: false,
   fields: { pet_policy_text: { action: 'keep', value: null, basedOn: [], quote: null, why: '사이트의 10kg 미만 1마리 조건 유지' } },
@@ -65,5 +65,33 @@ describe('listPolicyCell — 목록 조건 칸은 올리면 나갈 조건(todo/1
     const r = row();
     expect(listPolicyCell(group(r, 'fill'), previewFor(r.extracted), place({ pet_policy_text: '', pet_policy: null })).fromSite).toBe(false);
     expect(listPolicyCell(group(r, 'new'), previewFor(r.extracted), undefined).fromSite).toBe(false);
+  });
+});
+
+describe("overwriteDefault — 짝이 '확인' 이면 기본 체크가 전부 꺼진다(todo/14 W261010.26)", () => {
+  // 민속해안로 1 ↔ 7 모양 — 같은 곳인지 모르는 짝인데 주소·좌표·조건·카테고리가 다르다.
+  const other = row({ address: '제주 서귀포시 표선면 민속해안로 7', lat: 33.3, lng: 126.8, category: '카페', petPolicyText: '5kg 미만 1마리, 케이지 필수', petPolicy: { ...strict, indoor: 'cage', weightLimitKg: 5 } });
+
+  it('바뀌는 칸이 있어도 아무것도 켜지 않는다 — 같은 짝이 기존(auto)이면 켜지던 칸이다', () => {
+    const asked = overwriteDefault(group(other, 'ask', 'ask'), place());
+    expect(asked.plan.changes.length).toBeGreaterThan(0);
+    expect(asked.columns).toEqual([]);
+    expect(overwriteDefault(group(other, 'update', 'auto'), place()).columns).toContain('pet_policy_text');
+  });
+
+  it('제안이 칸을 켜도 확인 짝은 꺼진 채 — 제안은 같은 곳이라는 전제 위의 말이다', () => {
+    const change: TProposal = {
+      ...keep,
+      fields: { pet_policy_text: { action: 'change', value: '5kg 미만 1마리, 케이지 필수', basedOn: ['https://blog/a', 'https://blog/b'], quote: null, why: '두 글이 같은 말', petPolicy: { ...strict, indoor: 'cage', weightLimitKg: 5 } } },
+    };
+    const withChange = row({ ...other.extracted, proposal: change });
+    expect(overwriteDefault(group(withChange, 'update', 'auto'), place()).columns).toContain('pet_policy_text');
+    expect(overwriteDefault(group(withChange, 'ask', 'ask'), place()).columns).toEqual([]);
+  });
+
+  it('목록의 조건 칸은 사이트 쪽이다 — 올려도 조건이 안 바뀐다', () => {
+    const out = listPolicyCell(group(other, 'ask', 'ask'), previewFor(other.extracted), place());
+    expect(out.fromSite).toBe(true);
+    expect(labels(out.cell)).toContain('10kg 미만');
   });
 });

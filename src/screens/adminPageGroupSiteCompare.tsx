@@ -94,6 +94,13 @@ export function AdminPageGroupSiteCompare({
   ];
   if (!lines.length) return null;
   const grid = proposal ? GRID_WITH_WHY : GRID_PLAIN;
+  /**
+   * 짝이 '확인'(같은 곳인지 아직 모른다)이면 체크가 전부 꺼진 채 시작한다(`overwriteDefault`, todo/14 W261010.26) — 표 머리에서 그 물음을 **먼저** 한다.
+   * 무엇을 바꿀지 고르는 표가 "같은 곳이다" 를 깔고 서 있으면, 사람은 그 전제를 묻지 않고 칸만 훑는다(manager-13-01).
+   */
+  const unsure = Boolean(overwrite) && group.tier === 'ask';
+  const confidence = group.lead.extracted.match?.confidence;
+  const matchReason = group.lead.extracted.match?.reason;
   // 사이트에 나갈 문장의 전후 — 체크를 따라 바뀐다. 쓰기(`overwriteWithLatest`)와 같은 patch 에서 만든다(미리보기와 쓰기가 갈리지 않게).
   const text = overwritePublicText(place, lead.extracted, overwrite ? overwrite.picked : undefined);
   const blogChip = (
@@ -114,6 +121,19 @@ export function AdminPageGroupSiteCompare({
       </p>
       {/* 제안 한 줄 요약. 갱신 묶음인데 제안이 없으면 머리 칩(`제안 없음`)이 말한다 — 여기서 빈 자리를 초록으로 채우지 않는다. */}
       {proposal?.summary && <p className="px-3 pb-1.5 text-tertiary">제안: {proposal.summary}</p>}
+      {unsure && (
+        <div className="border-t border-secondary bg-warning-primary px-3 py-2 text-warning-primary">
+          <p className="font-semibold">같은 곳이 맞나요? · {place.name}</p>
+          <p className="mt-0.5">
+            {confidence != null && `닮은 정도 ${Math.round(confidence * 100)}%`}
+            {confidence != null && matchReason && ' · '}
+            {matchReason}
+          </p>
+          <p className="mt-0.5 text-secondary">
+            아직 같은 곳인지 몰라 체크를 모두 꺼 뒀어요. 같은 곳이 맞으면 바꿀 칸을 체크하고, 다른 곳이면 체크하지 말고 아래에서 새 장소로 보내요.
+          </p>
+        </div>
+      )}
       {overwrite?.note && <p className="px-3 pb-1.5 font-semibold text-warning-primary">{overwrite.note}</p>}
       <div className={cx('hidden border-t border-secondary text-[0.6875rem] font-semibold text-tertiary md:grid', grid)}>
         <span className="px-3 py-1.5">항목</span>
@@ -205,9 +225,11 @@ export function AdminPageGroupSiteCompare({
                       <p className="mt-1 text-tertiary">
                         {line.before === EMPTY_VALUE && FILLED_WHEN_BLANK.has(line.key)
                           ? '체크를 꺼도 빈 칸이라 채워져요'
-                          : SITE_OWNED_KEYS.has(line.key) && line.before !== EMPTY_VALUE
-                            ? '사이트 값이 있어 기본으로 꺼 뒀어요 — 바꾸려면 체크하세요'
-                            : '체크를 꺼서 안 바꿔요 — 지금 값 그대로'}
+                          : unsure
+                            ? '같은 곳인지 아직 몰라 꺼 뒀어요 — 같은 곳이면 체크하세요'
+                            : SITE_OWNED_KEYS.has(line.key) && line.before !== EMPTY_VALUE
+                              ? '사이트 값이 있어 기본으로 꺼 뒀어요 — 바꾸려면 체크하세요'
+                              : '체크를 꺼서 안 바꿔요 — 지금 값 그대로'}
                       </p>
                     )}
                   </>

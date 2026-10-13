@@ -98,6 +98,11 @@ describe('defaultOverwritePick — 완화는 꺼진 채(11 U6)', () => {
     expect(defaultOverwritePick(keys, { place: { name: '프릳츠', type: 'cafe', features: '  ' } })).toEqual(['address', 'features', 'pet_policy_text', 'pet_policy']);
     expect(defaultOverwritePick(keys, { loosen: true, place: { name: '', type: 'cafe', features: '소개' } })).toEqual(['name', 'address']);
   });
+  it("짝이 '확인'(같은 곳인지 미확정)이면 전부 꺼진 채 — 주소·좌표·조건이 다른 가게 값으로 기본 덮이던 것(todo/14 W261010.26)", () => {
+    const keys = ['address', 'geo', 'category', 'pet_policy_text', 'pet_policy'];
+    expect(defaultOverwritePick(keys, { tier: 'ask' })).toEqual([]);
+    expect(defaultOverwritePick(keys, { tier: 'auto' })).toEqual(keys);
+  });
 });
 
 describe('원문 공개·이용 안내 — 조건 짝의 두 칸도 사람 말로(21 S4)', () => {

@@ -7,7 +7,7 @@
  */
 
 import { expandOverwriteColumns, overwriteWithLatest } from '../../scripts/analyze/applyApproved.mjs';
-import { factsLine, TYPE_LABEL, type TCandidateExtracted, type TCandidateType, type TPlaceRow } from './adminCandidates';
+import { factsLine, TYPE_LABEL, type TCandidateExtracted, type TCandidateTier, type TCandidateType, type TPlaceRow } from './adminCandidates';
 import { EMPTY_VALUE, type TEditChange } from './adminEdit';
 import { environmentPhrases } from './stayEnvironmentView';
 import type { TPetPolicyFacts, TPetPolicyGuide, TStayEnvironment } from '../types';
@@ -98,12 +98,21 @@ const filled = (value: unknown) => value != null && String(value).trim() !== '';
  *    ("성산에 있는 카페예요. 반려견과 함께 들어갈 수 있어요.")로, 이름 "프릳츠" 가 "프릳츠 성산점" 으로 기본 덮어쓰기 됐다.
  *    그 칸들은 사람이 쓴 것이고 AI 요약은 글 한 편의 말이다 — 바꾸려면 사람이 켠다. 빈 칸을 채우는 것은 그대로 켠다.
  *  - 나머지(주소·좌표·조건·요금…)는 바뀌는 칸 전부(지금까지의 동작).
+ *  - **짝이 '확인'(`tier: 'ask'` — 같은 곳인지 아직 모른다)이면 전부 꺼진 채 시작한다**(2026-10-13, todo/14 W261010.26).
+ *    위 규칙들은 "같은 곳이다" 를 깔고 무엇을 바꿀지 고르는 것인데, '확인' 은 그 전제가 아직 없다 — 주소(민속해안로 1 → 7)·좌표·
+ *    조건 원문·동반 판단·카테고리 5칸이 기본 체크라 한 번 누르면 다른 가게의 값으로 덮였다(manager-13-01). 같은 곳이 맞으면 사람이 켠다.
  * @param place 짝 장소의 지금 값. 없으면(옛 호출) 이름·종류·소개 규칙을 건너뛴다.
+ * @param tier 짝 확신도. 없으면(옛 호출) 같은 곳으로 본다.
  */
 export function defaultOverwritePick(
   all: string[],
-  { loosen = false, place }: { loosen?: boolean; place?: Pick<TPlaceRow, (typeof SITE_OWNED_COLUMNS)[number]> } = {},
+  {
+    loosen = false,
+    place,
+    tier,
+  }: { loosen?: boolean; place?: Pick<TPlaceRow, (typeof SITE_OWNED_COLUMNS)[number]>; tier?: TCandidateTier } = {},
 ): string[] {
+  if (tier === 'ask') return [];
   const policy = loosen ? (expandOverwriteColumns(['pet_policy_text']) as Set<string>) : new Set<string>();
   const kept = new Set<string>(place ? SITE_OWNED_COLUMNS.filter((key) => filled(place[key])) : []);
   return all.filter((key) => !policy.has(key) && !kept.has(key));

@@ -23,6 +23,7 @@ export type TOverwriteDefault = {
 /**
  * 덮어쓰기의 기본 체크 — 제안이 있으면 제안이 켠 칸만(11 U7), 없으면 `defaultOverwritePick`(완화된 조건 · 사이트에 값이 있는 이름·종류·소개는 끈다).
  * '새 값' 은 제안을 지난 값이다(`withProposal`) — 쓰기(`approveGroup`)도 같은 함수를 지난다.
+ * 짝이 '확인'(같은 곳인지 미확정)이면 **제안보다 먼저** 전부 끈다(todo/14 W261010.26) — 제안은 같은 곳이라는 전제 위의 말이라 그 전제를 대신하지 못한다.
  */
 export function overwriteDefault(group: TCandidateGroup, place: TPlaceRow): TOverwriteDefault {
   const proposal = liveProposal(group.rows ?? []);
@@ -30,7 +31,8 @@ export function overwriteDefault(group: TCandidateGroup, place: TPlaceRow): TOve
   const plan = latestPlan(place, effective);
   const keys = plan.changes.map((change) => change.key);
   const loosen = policyDirection(place.pet_policy, effective.petPolicy).overall === 'loosen';
-  const columns = proposalPick(keys, proposal, place, group.rows) ?? defaultOverwritePick(keys, { loosen, place });
+  const columns =
+    (group.tier === 'ask' ? null : proposalPick(keys, proposal, place, group.rows)) ?? defaultOverwritePick(keys, { loosen, place, tier: group.tier });
   return { plan, columns, loosen };
 }
 
