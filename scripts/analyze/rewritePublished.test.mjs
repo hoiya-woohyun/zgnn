@@ -203,6 +203,40 @@ describe('pnpm data rewrite — 미리보기는 쓰지 않고, --apply 는 그 �
     }
   });
 
+  it('미리보기를 --limit 으로 나눠 돌면 처리한 곳은 건너뛰고 한 plan 에 합친다 · apply 뒤엔 새 회차', async () => {
+    const tables = {
+      places: [{ ...row }, { ...row, id: 'p4', name: '둘째 곳' }],
+      place_sources: [{ place_id: 'p1', post_url: posts[0].url }, { place_id: 'p4', post_url: posts[0].url }],
+      blog_posts: [{ url: posts[0].url, title: posts[0].title, blog_id: 'a', log_no: '1' }],
+    };
+    const supabase = fakeSupabase(tables);
+    const outDir = mkdtempSync(join(tmpdir(), 'rewrite-'));
+    const seen = [];
+    const run = async (_args, input) => (seen.push(input.match(/장소: (.+)/)[1]), cliResult(out));
+    const deps = { supabase, run, fetchPost: async () => body, outDir };
+    const restore = quiet();
+    try {
+      expect(await main(['--limit', '1'], { ...deps, now: new Date('2026-10-13T03:00:00Z') })).toBe(0);
+      // 날짜가 바뀌어도 반영 안 된 plan 을 이어 받는다.
+      expect(await main(['--limit', '1'], { ...deps, now: new Date('2026-10-14T03:00:00Z') })).toBe(0);
+      expect(seen).toEqual(['버니하우스', '둘째 곳']);
+      const plan = JSON.parse(readFileSync(join(outDir, '2026-10-13.json'), 'utf8'));
+      expect(plan.rows.map((r) => r.id)).toEqual(['p1', 'p4']);
+      expect(plan.entries.filter((e) => e.retry)).toEqual([]);
+
+      expect(await main(['--apply'], { ...deps })).toBe(0);
+      expect(JSON.parse(readFileSync(join(outDir, '2026-10-13.json'), 'utf8')).appliedAt).toBeTruthy();
+      // 반영된 plan 은 이어 받지 않는다 — 대상이 다시 생기면 새 회차.
+      tables.places.push({ ...row, id: 'p5', name: '셋째 곳' });
+      tables.place_sources.push({ place_id: 'p5', post_url: posts[0].url });
+      expect(await main([], { ...deps, now: new Date('2026-10-15T03:00:00Z') })).toBe(0);
+      expect(seen.at(-1)).toBe('셋째 곳');
+      expect(JSON.parse(readFileSync(join(outDir, '2026-10-15.json'), 'utf8')).rows.map((r) => r.id)).toEqual(['p5']);
+    } finally {
+      restore();
+    }
+  });
+
   it('미리보기 뒤 판단이 바뀐 행은 apply 가 건너뛴다', async () => {
     const tables = { places: [{ ...row }], place_sources: [], blog_posts: [] };
     const supabase = fakeSupabase(tables);

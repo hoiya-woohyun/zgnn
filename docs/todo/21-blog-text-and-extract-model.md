@@ -331,6 +331,9 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
   > 다시 부르면 사람이 본 표와 다른 문장이 올라가고 한도도 두 배다. 쓰기 직전 행마다 대상 조건 · 소개가 그때와 같은가 · 판단 지문 = basis 를 보고(`applyCheck`), update 에도 `pet_policy_guide is null`·`features = 전 값` 을 건다.
   > ② 새 소개의 가드는 안내와 같은 엄한 쪽(판단 주제 포함) — "야외 정원" 같은 소개도 빠지지만 그때는 지금 소개를 두는 것이라 나빠지지 않는다(표에 이유가 남는다).
   > ③ 모델은 추출의 `MODEL`(Sonnet — S7 안내 실측과 같은 손). 프롬프트에 장소 이름·주소를 실어 목록글 안에서 그곳만 읽게 했다. `--limit N` 으로 나눠 돈다(구독 한도).
+  > ④ 미리보기는 **나눠 돌 수 있다**(후속 커밋): 반영 안 된 같은 프롬프트의 plan 이 있으면 처리한 곳(patch · 가드에 걸림 · 할 것 없음 · 본문 없음)은 건너뛰고 나머지만 불러 그 plan 에 합친다 —
+  > 미리보기는 원격에 안 쓰니 대상 질의가 매번 같은 행을 준다(안 그러면 `--limit 10` 두 번이 같은 10곳을 두 번 부르고 표를 덮는다). `--limit` 에 밀린 곳·실패는 `retry` 라 다시 집힌다. `--apply` 가 plan 에 `appliedAt` 을 적어 닫는다.
+  > ADR-017 v12(백필 0회 → S9).
   > 검증: `rewritePublished.test.mjs`(대상 조건 · patch 키 · 베낌 소개만 · 가드 · 왕복 `fromPlaceRow` → `publicGuide` · 가짜 supabase 로 미리보기 쓰기 0 → apply Claude 0회 · 판단 바뀐 행 건너뜀). 실제 실행은 🧑 H7.
   > 전체 `pnpm test` 의 실패 2(`browserBundleRegex` ← `placesVerdictView.ts` 가 evalExtract 를 끌어옴 · `placeDerive.test.ts`)와 tsc 1(`placeDerive.test.ts`)은 다른 레인의 미커밋 파일이다.
 
