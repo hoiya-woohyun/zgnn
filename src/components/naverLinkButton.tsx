@@ -6,6 +6,8 @@ type TNaverLinkButtonProps = {
   href: string;
   children: ReactNode;
   className?: string;
+  /** 글자가 이미 '네이버' 를 말하면 끈다 — 'N' 은 평가에서 무엇인지 모르겠다는 말이 나왔다(14 W261010.20). 기본은 켠다. */
+  mark?: boolean;
 };
 
 /**
@@ -18,27 +20,30 @@ type TNaverLinkButtonProps = {
  * 투명 히트 영역이 지킨다(saveButton 과 같은 방식 — 하트는 작게, 누를 자리는 44px).
  * 폭은 글자만큼이다. 화면 폭을 꽉 채우면 판정 카드보다 무거워 보여서 뺐다.
  */
-export function NaverLinkButton({ href, children, className }: TNaverLinkButtonProps) {
+export function NaverLinkButton({ href, children, className, mark = true }: TNaverLinkButtonProps) {
   return (
     <a
       href={href}
       target="_blank"
       rel="noreferrer"
       className={cx(
-        'relative inline-flex h-9 items-center gap-1.5 rounded-lg bg-naver pr-3 pl-2 text-sm font-bold text-white',
+        'relative inline-flex h-9 items-center gap-1.5 rounded-lg bg-naver pr-3 text-sm font-bold text-white',
         'before:absolute before:inset-x-0 before:-inset-y-1 before:content-[""]',
         'transition duration-100 ease-linear hover:bg-naver-deep active:bg-naver-deep',
         'outline-naver focus-visible:outline-2 focus-visible:outline-offset-2',
+        mark ? 'pl-2' : 'pl-3',
         className,
       )}
     >
       {/* 네이버 N 표시. 글자 하나라 스크린리더에는 숨긴다 — 이름은 버튼 글자가 말한다. */}
-      <span
-        aria-hidden="true"
-        className="flex size-5 items-center justify-center rounded-sm bg-white text-xs leading-none font-black text-naver"
-      >
-        N
-      </span>
+      {mark && (
+        <span
+          aria-hidden="true"
+          className="flex size-5 items-center justify-center rounded-sm bg-white text-xs leading-none font-black text-naver"
+        >
+          N
+        </span>
+      )}
       {children}
     </a>
   );

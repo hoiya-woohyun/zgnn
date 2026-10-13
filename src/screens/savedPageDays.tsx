@@ -119,8 +119,8 @@ function SavedPageDay({ day, plan, places }: { day: TTripDay; plan: TTripPlan; p
       {legs.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-2">
           {legs.map((leg, index) => (
-            <NaverLinkButton key={leg.goal.id} href={routeUrl(leg)}>
-              {legs.length === 1 ? '이 날 길찾기' : `길찾기 ${index + 1}/${legs.length}`}
+            <NaverLinkButton key={leg.goal.id} href={routeUrl(leg)} mark={false}>
+              {legs.length === 1 ? '네이버 길찾기' : `네이버 길찾기 ${index + 1}/${legs.length}`}
             </NaverLinkButton>
           ))}
         </div>

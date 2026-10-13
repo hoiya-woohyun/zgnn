@@ -72,7 +72,7 @@ export function SavedPageCard({ place, order }: { place: TPlaceEntry; order?: TS
   const [editing, setEditing] = useState(false);
   // 열 때만 연필이 끄적인다(`styles/microMotion.css`). 닫을 때는 입력 칸이 사라지는 것으로 충분하다.
   const [scribble, replayScribble] = useReplay();
-  // 저장한 곳은 "갈 곳" 이다 — 카드마다 길찾기(현재 위치 → 여기)를 바로 준다. 좌표 없는 곳(5곳)은 알약이 없다.
+  // 저장한 곳은 "갈 곳" 이다 — 카드마다 길찾기(현재 위치 → 여기)를 바로 준다. 좌표 없는 곳(5곳)은 알약 대신 이유 한 줄.
   const directions = naverDirectionsUrl(place);
 
   return (
@@ -101,7 +101,16 @@ export function SavedPageCard({ place, order }: { place: TPlaceEntry; order?: TS
       noteEditor={saved && editing ? <SavedNoteForm id={place.id} name={place.name} onClose={() => setEditing(false)} /> : undefined}
       // 카드 밖 밑에 따로 서면 카드 사이 간격이 들쭉날쭉하고 어느 카드의 것인지 흐려졌다 — 배지 줄 끝, 카드 안에 둔다.
       footer={saved && <SavedPageCardDayFooter place={place} order={order} />}
-      cornerAction={directions && <NaverLinkButton href={directions}>길찾기</NaverLinkButton>}
+      cornerAction={
+        directions ? (
+          <NaverLinkButton href={directions} mark={false}>
+            네이버 길찾기
+          </NaverLinkButton>
+        ) : (
+          // 좌표 없는 곳(5곳)도 같은 자리를 채워 카드 모양을 맞춘다 — 버튼이 없으면 이유가 없어 빠진 것인지 알 수 없다(14 W261010.20).
+          <span className="inline-flex h-9 items-center text-xs text-tertiary">지도 좌표가 없어요</span>
+        )
+      }
     />
   );
 }
