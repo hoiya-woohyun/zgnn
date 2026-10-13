@@ -83,7 +83,6 @@
 ## 지금 (위에서부터)
 
 - [ ] 🔒 서버 워커 홉에 시간 예산(다음 글 시작 전 경과 ~200초면 멈춤, 서버만) — [20 T11](20-vercel-remote-worker.md) · 왜 지금: 2026-10-10 홉 하나가 258초 — 300초를 넘으면 홉이 끊기고 잠금 틈을 밟는다 · 2026-10-10 22:20 구현 커밋 d1d6a84 — 남은 것: 워커 배포(사용자 허락) → `check.mjs --reset` → 실측(분석 끝 ≤ 4분 · 사슬 이어짐)
-- [ ] 이유 줄 없는 어려움 카드는 판정을 정한 구간 칩을 앞에 — [14 W261013.1c](14-weekly-ux-eval.md) · 왜 지금: 판정 표현 — 근처 장소 카드가 '이용하기 어려워요 · 10kg 미만 2마리' 로 "2마리 된다는데 왜 어렵지" 로 읽힌다(웨스티하우스 × 콩·해피, 메인 Chrome 확인) · `placeDetailNearby` · `petBadges.tsx`
 - [ ] 목줄 주제에 '오프리쉬' 를 더한다 — [13 §5.3 A5](13-ai-analysis-audit-2026-10-04.md) · 왜 지금: 데이터 — 목줄 조건 소개가 등록 소개로 그대로 나간다, 🧑 첫 회 실행 전에 · `scripts/lib/petPolicyGuide.mjs` 의 `POLICY_TOPICS.leash`
 - [ ] 추출이 요금 basis 를 근거 없이 고르지 않게 — [14 W261013.4a](14-weekly-ux-eval.md) · 왜 지금: 데이터 — 선흘안 "1박당 2만원" 이 perDog 로 와서 ×2 였다(앱은 6ba46c6 로 막았지만 추출값은 틀린 채) · `scripts/analyze/extractPlaces.mjs` 의 `FEE_EX.perNight` · `correctPetPolicyFacts`
 

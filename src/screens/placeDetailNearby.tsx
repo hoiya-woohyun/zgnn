@@ -7,7 +7,7 @@ import { PetBadges } from '../components/petBadges';
 import { PlaceThumb } from '../components/placeThumb';
 import { TownChip } from '../components/townChip';
 import { pickNearby } from '../lib/distanceSort';
-import { verdictHidesBadge } from '../lib/eligibility';
+import { reasonBadgeLabel, verdictHidesBadge } from '../lib/eligibility';
 import { formatKm } from '../lib/format';
 import { dogCallNames, withJosa } from '../lib/korean';
 import { nearbyPlaces, TYPE_META, type TPlaceEntry } from '../lib/places';
@@ -95,12 +95,14 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
                   </div>
                   <div className="mt-1.5 flex flex-wrap items-center gap-1">
                     {eligibility && <EligibilityBadge eligibility={eligibility} />}
-                    {/* 판정 배지 옆 칩 하나도 목록 카드와 같은 거르기 — 어려움 옆 '✓ 중형견 OK'·요금이 서지 않게(14 W261013.1a). 이유 줄은 없다. */}
+                    {/* 판정 배지 옆 칩 하나도 목록 카드와 같은 거르기 — 어려움 옆 '✓ 중형견 OK'·요금이 서지 않게(14 W261013.1a). 이유 줄은 없다.
+                        그래서 판정 옆 한 자리는 이유로 읽힌다 — 판정을 정한 칩을 맨 앞에(14 W261013.1c), 거르기엔 넘기지 않는다(유일한 단서다). */}
                     <PetBadges
                       policy={other.policy}
                       limit={1}
                       hideNoInfo={Boolean(eligibility)}
                       hide={eligibility ? verdictHidesBadge(eligibility, other.policy, undefined) : undefined}
+                      lead={eligibility ? reasonBadgeLabel(eligibility, other.policy) : undefined}
                       weightKg={weightKg}
                       dogCount={dogCount}
                     />

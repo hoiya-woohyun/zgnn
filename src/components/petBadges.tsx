@@ -41,6 +41,11 @@ type TPetBadgesProps = {
    * 접어 둔 것이 아니라 카드가 말하지 않기로 한 것이다.
    */
   hide?: (badge: TPetBadge) => boolean;
+  /**
+   * 이 라벨의 칩을 맨 앞에 세운다 — 이유 줄이 없는 카드(근처 장소)에서 `limit` 자리를 판정을 정한 칩이 차지하게(`reasonBadgeLabel`, 14 W261013.1c).
+   * 이미 `hide` 로 빠졌거나 없는 라벨이면 아무것도 안 한다.
+   */
+  lead?: string;
   /** 이 배지 줄 바로 밑에 원문을 같이 보여 줄 때 넘긴다 — 원문에 그대로 적힌 요금 배지는 같은 말이라 뺀다. */
   sourceText?: string;
   /** 우리 강아지(가장 무거운 아이) 몸무게. 있으면 `limit` 자리의 요금 칩 하나를 그 구간 줄로 고른다(`feeChipForWeight`). */
@@ -57,7 +62,7 @@ type TPetBadgesProps = {
   className?: string;
 };
 
-export function PetBadges({ policy, limit, hideNoInfo = false, hide, sourceText, weightKg, dogCount, feeLine, className = '' }: TPetBadgesProps) {
+export function PetBadges({ policy, limit, hideNoInfo = false, hide, lead, sourceText, weightKg, dogCount, feeLine, className = '' }: TPetBadgesProps) {
   const all = toPetBadges(policy).filter((badge) => !(hideNoInfo && badge.label === NO_INFO_BADGE_LABEL))
     .filter((badge) => !hide?.(badge))
     .filter((badge) => !(sourceText !== undefined && isFeeBadgeRepeatedIn(badge, sourceText)));
@@ -78,13 +83,15 @@ export function PetBadges({ policy, limit, hideNoInfo = false, hide, sourceText,
       : all[firstFee]?.label;
   const feeInLine = pickedFee != null && feeLine !== undefined;
   const feeLabel = feeInLine ? null : pickedFee;
-  const badges = limit
+  const picked = limit
     ? all.flatMap((badge, index) => {
         if (badge.axis !== 'fee') return [badge];
         if (index !== firstFee || feeLabel === null || feeLabel === undefined) return [];
         return [{ ...badge, label: feeLabel }];
       })
     : all;
+  // 요금 줄을 고른 **뒤에** 옮긴다 — `firstFee` 는 `all` 의 자리라 먼저 옮기면 엉킨다. 순서만 바뀌므로 `+N` 은 그대로다.
+  const badges = lead === undefined ? picked : [...picked.filter((b) => b.label === lead), ...picked.filter((b) => b.label !== lead)];
   if (badges.length === 0) return null;
 
   const shown = limit ? badges.slice(0, limit) : badges;

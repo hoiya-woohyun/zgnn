@@ -6,6 +6,7 @@ import {
   headlineFor,
   judgeEligibility,
   primaryReason,
+  reasonBadgeLabel,
   verdictFor,
   verdictHidesBadge,
   type TReason,
@@ -602,6 +603,25 @@ describe('카드의 이유 줄과 칩이 판정과 같은 말을 한 번 한다(
   it('근처 장소 카드(이유 줄 없음) — 어려움 웨스티하우스는 "✓ 중형견 OK" 도 요금도 없이 구간 칩만', () => {
     const { chips } = card(junhyuk, '웨스티하우스', () => undefined);
     expect(chips).toEqual(['10kg 미만 2마리', '20kg 미만 1마리']);
+  });
+
+  // 14 W261013.1c — 이유 줄 없는 카드는 칩 한 자리가 이유로 읽힌다. 그 자리에 설 칩은 판정을 정한 근거와 같은 말이다.
+  const lead = (dog: TDogProfile, name: string) => {
+    const { policy } = findPlace(name);
+    return reasonBadgeLabel(judgeEligibility(dog, policy), policy);
+  };
+
+  it('웨스티하우스 × 콩·해피 — 맨 앞 칩은 판정을 정한 구간 "20kg 미만 1마리"(가장 낮은 구간 "10kg 미만 2마리" 가 아니다)', () => {
+    expect(lead(junhyuk, '웨스티하우스')).toBe('20kg 미만 1마리');
+  });
+
+  it('웨스티하우스 × 28kg — H1 도 그 문장이 말한 가장 넓은 구간 칩', () => {
+    expect(lead({ dogs: [{ name: '대장', weightKg: 28 }], carrier: 'none' }, '웨스티하우스')).toBe('20kg 미만 1마리');
+  });
+
+  it('갈 수 있으면 앞세울 칩이 없다 · 확인 필요(무히어 C8)는 그 근거 칩', () => {
+    expect(lead(TOFU, '웨스티하우스')).toBeUndefined();
+    expect(lead({ dogs: [{ name: '모카', weightKg: 8 }], carrier: 'none' }, '무히어')).toBe('예방접종 필수');
   });
 });
 

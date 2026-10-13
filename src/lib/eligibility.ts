@@ -602,6 +602,16 @@ const REASON_BADGE: Record<string, (policy: TPetPolicy, reason: TReason) => stri
   C7: () => UNREAD_BADGE_LABEL,
 };
 
+const reasonBadge = (policy: TPetPolicy, reason: TReason | undefined): string | undefined =>
+  reason?.rule === undefined ? undefined : REASON_BADGE[reason.rule]?.(policy, reason);
+
+/**
+ * 판정을 정한 근거(`primaryReason`)와 같은 말을 하는 원문 칩 — **이유 줄이 없는 카드(상세의 근처 장소)** 가 이 칩을 맨 앞에 세운다(14 W261013.1c).
+ * 칩 한 자리 옆 '이용하기 어려워요' 는 그 칩을 이유로 읽는다: 웨스티하우스 × 콩·해피가 '10kg 미만 2마리' 를 앞에 세워 "2마리 된다는데 왜 어렵지" 였다
+ * (판정은 '20kg 미만 1마리'). 이유 줄이 있는 카드는 줄이 그 말을 하므로 같은 칩을 오히려 뺀다(`verdictHidesBadge`) — 둘은 반대 방향이라 입력을 나눈다.
+ */
+export const reasonBadgeLabel = (e: TEligibility, policy: TPetPolicy): string | undefined => reasonBadge(policy, primaryReason(e));
+
 /**
  * 판정 배지·이유 줄과 같은 줄에 서는 원문 칩 중 **카드(목록·지도 시트·상세의 근처 장소)에서 뺄 것**(14 W261013.1). 칩은 원문 속성이고 판정은 우리 강아지의
  * 답인데, 한 카드에 나란히 서면 한 문장처럼 읽힌다 — 둘이 다른 말을 하면 판정을 못 믿고, 같은 말을 하면 카드가 같은 말을 두세 번 한다.
@@ -623,7 +633,7 @@ export const verdictHidesBadge =
     if (e.level !== 'ok' && !outdoorSeat && badge.tone === 'ok' && (badge.axis === 'size' || badge.axis === 'indoor')) return true;
     if (e.level === 'hard' && badge.axis === 'fee') return true;
     if (outdoorSeat && badge.label === BADGE_LABEL.outdoorOnly) return true;
-    const said = shownReason?.rule === undefined ? undefined : REASON_BADGE[shownReason.rule]?.(policy, shownReason);
+    const said = reasonBadge(policy, shownReason);
     return said !== undefined && badge.label === said;
   };
 
