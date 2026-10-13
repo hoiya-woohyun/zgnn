@@ -3,12 +3,12 @@
 import { type Ref, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { AlertTriangle } from '@untitledui/icons';
 import { Button } from '@/components/base/button';
-import { ELIGIBILITY_META } from '../components/eligibilityBadge';
 import { EmptyState } from '../components/layout/emptyState';
 import type { TEligibility } from '../lib/eligibility';
+import { mapPageCanvasMarkerLabel } from '../lib/mapPageCanvasMarkerLabel';
 import { loadNaverMaps, onNaverMapsAuthFailure } from '../lib/naverMap';
 import { pinIcon } from '../lib/naverMapPin';
-import { JEJU_CENTER, jejuZoomFor, MY_LOCATION_COLOR, PLACE_FOCUS_ZOOM, TYPE_META, type TPlaceEntry } from '../lib/places';
+import { JEJU_CENTER, jejuZoomFor, MY_LOCATION_COLOR, PLACE_FOCUS_ZOOM, type TPlaceEntry } from '../lib/places';
 import type { TGeo, TPlaceType } from '../types';
 
 /**
@@ -357,13 +357,9 @@ export function MapPageCanvas({
           zIndex: selected ? Z_SELECTED : saved ? Z_SAVED : 0,
         });
         const listener = maps.Event.addListener(marker, 'click', () => onSelect(place.id));
-        const level = eligibilityMap?.get(place.id)?.level;
-        if (level === 'hard') marker.getElement().style.opacity = MARKER_HARD_OPACITY;
-        const detachKeys = makeMarkerButton(
-          marker.getElement(),
-          [place.name, TYPE_META[place.type].label, level && ELIGIBILITY_META[level].label].filter(Boolean).join(', '),
-          () => onSelect(place.id),
-        );
+        const eligibility = eligibilityMap?.get(place.id);
+        if (eligibility?.level === 'hard') marker.getElement().style.opacity = MARKER_HARD_OPACITY;
+        const detachKeys = makeMarkerButton(marker.getElement(), mapPageCanvasMarkerLabel(place, eligibility), () => onSelect(place.id));
 
         markers.set(place.id, { marker, type: place.type, listener, detachKeys });
       }
