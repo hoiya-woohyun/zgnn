@@ -15,7 +15,8 @@ import { Input } from '../components/base/input';
 import { SEARCH_FIELD } from '../components/noAutofill';
 import { TYPE_META } from '../lib/places';
 import { comparePrice, resetFiltersLabel, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
-import { areaCarriedRelease, areaReleaseCount, filterPlacesPage, otherTypeHiddenMatches, otherTypeMatches, placesByTown, placesPageChips, reachableReleaseCount, townReleaseCount } from '../lib/placesPageFilter';
+import { countByLevel, levelCountParts } from '../lib/eligibilityCounts';
+import { areaCarriedRelease, areaReleaseCount, filterPlacesPage, hideHardCount, otherTypeHiddenMatches, otherTypeMatches, placesByTown, placesPageChips, reachableReleaseCount, townReleaseCount } from '../lib/placesPageFilter';
 import { sortByEligibility } from '../lib/sortByEligibility';
 import { distancesFrom, sortByDistance } from '../lib/distanceSort';
 import { LOCATE_NOTICE, locateMe } from '../lib/myLocation';
@@ -128,6 +129,16 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
         ? areaCarriedRelease({ type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap }, results.length)
         : null,
     [results.length, type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap],
+  );
+
+  // 판정 토글의 결과를 시트가 보이게(14 W261013.8) — '어려운 곳 숨기기' 가 숨길 수, 남는 곳의 판정 셈(목록 머리와 같은 셈).
+  const hardCount = useMemo(
+    () => hideHardCount({ type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap }),
+    [type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap],
+  );
+  const levelParts = useMemo(
+    () => (dog ? levelCountParts(countByLevel(results, dog, { needsIndoor })) : []),
+    [results, dog, needsIndoor],
   );
 
   const distances = useMemo(() => (sort === 'near' && origin ? distancesFrom(results, origin) : undefined), [origin, results, sort]);
@@ -267,6 +278,8 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
                         onToggleHideHard: toggleHideHard,
                         needsIndoor,
                         onToggleNeedsIndoor: () => setNeedsIndoor(!needsIndoor),
+                        hardCount,
+                        levelParts,
                       }
                     : null
                 }
@@ -304,6 +317,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
               onToggleHideHard={toggleHideHard}
               needsIndoor={needsIndoor}
               onToggleNeedsIndoor={() => setNeedsIndoor(!needsIndoor)}
+              hardCount={hardCount}
             />
           )}
         </div>

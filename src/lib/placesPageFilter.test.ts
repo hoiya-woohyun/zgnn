@@ -6,6 +6,7 @@ import {
   areaReleaseCount,
   filterPlacesPage,
   filtersOfPlaceType,
+  hideHardCount,
   otherTypeHiddenMatches,
   otherTypeMatches,
   placesByTown,
@@ -331,5 +332,28 @@ describe('0곳 안내가 숨긴 종류도 말한다(14 W261007.11b)', () => {
       }
     }
     expect(hiddenSeen).toBeGreaterThan(0);
+  });
+});
+
+describe('hideHardCount — 어려운 곳 숨기기 칩의 수(14 W261013.8)', () => {
+  const mapOf = (dog: TDogProfile) => new Map(PLACES.map((place) => [place.id, judgeEligibility(dog, place.policy)]));
+
+  it('강아지가 없으면 0', () => {
+    expect(hideHardCount({ ...base, type: 'restaurant' })).toBe(0);
+  });
+
+  it('켜든 끄든 같은 수 — 숨기는(숨길) 어려움 곳, 나머지 조건은 그대로', () => {
+    const eligibilityMap = mapOf({ dogs: [{ name: '보리', weightKg: 28 }], carrier: 'none' });
+    const conditions = { ...base, type: 'restaurant' as const, eligibilityMap };
+    const hard = filterPlacesPage(conditions).filter((place) => eligibilityMap.get(place.id)?.level === 'hard').length;
+    expect(hard).toBeGreaterThan(0);
+    expect(hideHardCount(conditions)).toBe(hard);
+    expect(hideHardCount({ ...conditions, hideHard: true })).toBe(hard);
+    expect(filterPlacesPage({ ...conditions, hideHard: true })).toHaveLength(filterPlacesPage(conditions).length - hard);
+  });
+
+  it("'갈 수 있는 곳만' 이 이미 어려움을 뺐으면 0 — 눌러도 바뀌는 것이 없다", () => {
+    const eligibilityMap = mapOf({ dogs: [{ name: '보리', weightKg: 28 }], carrier: 'none' });
+    expect(hideHardCount({ ...base, type: 'restaurant', onlyReachable: true, eligibilityMap })).toBe(0);
   });
 });

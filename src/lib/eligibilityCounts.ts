@@ -98,6 +98,16 @@ export const LEVEL_COUNT_LABEL: Record<keyof TLevelCounts, string> = {
 };
 
 /**
+ * 레벨 셈을 "가능 4" 조각들로 — 0 인 레벨은 뺀다("어려움 0" 은 읽을 거리가 아니다). 순서는 `LEVEL_COUNT_LABEL` 의 키 순서.
+ * 목록 머리("26곳 · 가능 4 · …")와 필터 시트 아래 줄(14 W261013.8)이 이 하나로 잇는다 — 시트는 '실내 자리 필요' 처럼
+ * 곳 수는 그대로 두고 판정만 바꾸는 토글의 결과를 여기서 보인다.
+ */
+export const levelCountParts = (counts: TLevelCounts): string[] =>
+  (Object.entries(LEVEL_COUNT_LABEL) as [keyof TLevelCounts, string][])
+    .filter(([level]) => counts[level] > 0)
+    .map(([level, label]) => `${label} ${counts[level]}`);
+
+/**
  * "이동가방이 있으면 N곳이 열린다" — 이동 수단 what-if(07 P2 → 08 T2.5).
  *
  * 이동 수단 없음(`none`) 프로필로 케이지 필수 식당을 보면 전부 "어려움 · 케이지 필요" 로 떠서,

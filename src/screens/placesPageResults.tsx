@@ -11,13 +11,7 @@ import { BottomSheet } from '../components/base/bottom-sheet';
 import { Button } from '../components/base/button';
 import { FilterChip } from '../components/filterChip';
 import { judgeEligibility, primaryReason } from '../lib/eligibility';
-import {
-  carrierWhatIf,
-  countByLevel,
-  LEVEL_COUNT_LABEL,
-  outdoorFallback,
-  type TLevelCounts,
-} from '../lib/eligibilityCounts';
+import { carrierWhatIf, countByLevel, levelCountParts, outdoorFallback } from '../lib/eligibilityCounts';
 import { placesPageHardFold } from '../lib/placesPageHardFold';
 import type { TAreaCarried } from '../lib/placesPageFilter';
 import { placesPageRepeatedReason } from '../lib/placesPageRepeatedReason';
@@ -123,10 +117,8 @@ export function PlacesPageResults({
   // 0 인 레벨은 빼서 줄을 짧게 둔다 — "어려움 0" 은 읽을 거리가 아니다.
   const levelSummary = useMemo(() => {
     if (!dog) return '';
-    const counts = countByLevel(results, dog, { needsIndoor });
-    return (Object.entries(LEVEL_COUNT_LABEL) as [keyof TLevelCounts, string][])
-      .filter(([level]) => counts[level] > 0)
-      .map(([level, label]) => ` · ${label} ${counts[level]}`)
+    return levelCountParts(countByLevel(results, dog, { needsIndoor }))
+      .map((part) => ` · ${part}`)
       .join('');
   }, [results, dog, needsIndoor]);
 

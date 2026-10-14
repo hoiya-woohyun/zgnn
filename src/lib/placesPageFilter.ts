@@ -104,6 +104,17 @@ export const areaReleaseCount = (conditions: TPlacesPageConditions): number =>
 export const reachableReleaseCount = (conditions: TPlacesPageConditions): number =>
   conditions.onlyReachable && conditions.eligibilityMap ? filterPlacesPage({ ...conditions, onlyReachable: false }).length : 0;
 
+/**
+ * '어려운 곳 숨기기' 가 지금 조건에서 숨기는(켜면 숨길) 곳 수(14 W261013.8). 나머지 조건은 그대로 센다 — 칩에 싣는 수다.
+ * 0 이면 그 칩은 이 목록에서 아무것도 바꾸지 않는다: 콩이(이동가방) 식당 47곳은 어려움이 없어 눌러도 "47곳 보기" 그대로라
+ * 고장으로 보였다. 판정 맵이 없으면(강아지 없음) 0.
+ */
+export const hideHardCount = (conditions: TPlacesPageConditions): number => {
+  const { eligibilityMap } = conditions;
+  if (!eligibilityMap) return 0;
+  return filterPlacesPage({ ...conditions, hideHard: false }).filter((place) => eligibilityMap.get(place.id)?.level === 'hard').length;
+};
+
 /** 동네 카드로 들어온 뒤 따라와 걸린 것 — 카드는 이것들 없이 셌다. */
 export type TAreaCarried = { count: number; town: string | null; directions: number; petKeys: number };
 

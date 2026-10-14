@@ -1,5 +1,6 @@
 import type { TFiltersVariant } from './placesPageFilters';
 import { FilterChip } from '../components/filterChip';
+import { cx } from '../utils/cx';
 import type { TPlaceType } from '../types';
 
 /*
@@ -17,6 +18,8 @@ type TPlacesPageEligibilityTogglesProps = {
   onToggleHideHard: () => void;
   needsIndoor: boolean;
   onToggleNeedsIndoor: () => void;
+  /** '어려운 곳 숨기기' 가 지금 조건에서 숨기는(켜면 숨길) 곳 수(`hideHardCount`). 칩 이름 뒤에 싣고, 0 이면 흐리게. */
+  hardCount: number;
 };
 
 /**
@@ -33,11 +36,19 @@ export function PlacesPageEligibilityToggles({
   onToggleHideHard,
   needsIndoor,
   onToggleNeedsIndoor,
+  hardCount,
 }: TPlacesPageEligibilityTogglesProps) {
   const buttons = (
     <>
-      <FilterChip pressed={hideHard} onClick={onToggleHideHard}>
-        어려운 곳 숨기기
+      {/* 숨기는 곳 수를 읍면 칩("구좌읍 9")처럼 이름 뒤에 — 어려움이 0곳인 목록에서 눌러도 "47곳 보기" 그대로라 고장으로 보였다(14 W261013.8).
+          0 이면 꺼진 칩을 흐리게 두되 누를 수는 있다 — 다른 종류로 넘어가면 다시 숨길 곳이 생기는 전역 스위치다. 흐림은 투명도가 아니라
+          한 단 옅은 글자·테두리 토큰이다(누를 수 있는 글자라 대비를 지킨다). 켜 둔 칩은 켜짐 모양 그대로 — 수 0 이 말한다. */}
+      <FilterChip
+        pressed={hideHard}
+        onClick={onToggleHideHard}
+        className={cx(hardCount === 0 && !hideHard && 'border-secondary text-tertiary')}
+      >
+        어려운 곳 숨기기 {hardCount}
       </FilterChip>
       {type !== 'stay' && (
         <FilterChip pressed={needsIndoor} onClick={onToggleNeedsIndoor}>

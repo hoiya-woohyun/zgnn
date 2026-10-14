@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { headlineFor, judgeEligibility } from './eligibility';
-import { carrierWhatIf, countByLevel, LEVEL_COUNT_LABEL, outdoorFallback, reachablePlaces, splitReachable } from './eligibilityCounts';
+import { carrierWhatIf, countByLevel, LEVEL_COUNT_LABEL, levelCountParts, outdoorFallback, reachablePlaces, splitReachable } from './eligibilityCounts';
 import { parsePetPolicy } from './petPolicy';
 import { PLACE_TYPES, placesOfType } from './places';
 import type { TDogProfile } from '../types';
@@ -173,5 +173,12 @@ describe('LEVEL_COUNT_LABEL', () => {
       ['unknown', '정보 없음'],
       ['hard', '어려움'],
     ]);
+  });
+});
+
+describe('levelCountParts', () => {
+  it('0 인 레벨은 빼고, 이름표 순서대로 "이름 수"', () => {
+    expect(levelCountParts({ ok: 20, outdoor: 7, cond: 0, unknown: 3, hard: 14 })).toEqual(['가능 20', '야외 7', '정보 없음 3', '어려움 14']);
+    expect(levelCountParts({ ok: 0, outdoor: 0, cond: 0, unknown: 0, hard: 0 })).toEqual([]);
   });
 });

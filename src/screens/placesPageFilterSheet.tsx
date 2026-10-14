@@ -26,6 +26,10 @@ type TPlacesPageFilterSheetProps = {
     onToggleHideHard: () => void;
     needsIndoor: boolean;
     onToggleNeedsIndoor: () => void;
+    /** '어려운 곳 숨기기' 가 숨기는(숨길) 곳 수. */
+    hardCount: number;
+    /** 남는 곳의 판정 셈("가능 20" 조각들, `levelCountParts`) — 하단 버튼 위 한 줄. */
+    levelParts: string[];
   } | null;
   /** 켜져 있는 필터 개수. 시트를 닫아 둔 채로도 필터가 걸려 있음을 알려야 한다. */
   activeCount: number;
@@ -128,6 +132,7 @@ export function PlacesPageFilterSheet({
                 onToggleHideHard={eligibility.onToggleHideHard}
                 needsIndoor={eligibility.needsIndoor}
                 onToggleNeedsIndoor={eligibility.onToggleNeedsIndoor}
+                hardCount={eligibility.hardCount}
               />
             )}
             <PlacesPageFilters
@@ -157,7 +162,19 @@ export function PlacesPageFilterSheet({
             "모두 지우기" 는 누르면 시트를 함께 닫는다. 닫지 않으면 조건이 0이 되면서 이 버튼이
             손가락 밑에서 사라지고, 시트만 그대로 남아 아무 일도 안 일어난 것처럼 보인다.
           */}
-          <div className="flex shrink-0 items-center gap-3 border-t border-secondary pt-3">
+          {/*
+            남는 곳의 판정 셈 — 목록 머리와 같은 조각(`levelCountParts`). '실내 자리 필요' 는 곳을 빼지 않고 판정만 바꿔서
+            버튼 수가 그대로였고 눌러도 아무 일이 없어 보였다(14 W261013.8). 수는 그대로여도 여기 "가능" 이 움직인다.
+          */}
+          {eligibility && eligibility.levelParts.length > 0 && (
+            <p className="shrink-0 border-t border-secondary pt-3 text-sm text-tertiary">{eligibility.levelParts.join(' · ')}</p>
+          )}
+          <div
+            className={cx(
+              'flex shrink-0 items-center gap-3',
+              eligibility && eligibility.levelParts.length > 0 ? 'pt-2' : 'border-t border-secondary pt-3',
+            )}
+          >
             {activeCount > 0 && (
               <Button
                 color="link-color"
