@@ -29,8 +29,8 @@ export function PlaceDetailActions({ place }: { place: TPlaceEntry }) {
   const { saved, toggle, burst } = useSaveToggle(place.id);
   const photoUrl = naverPlacePhotoUrl(place.naverPlaceId);
   /*
-   * 지도 칸은 **길찾기**가 먼저다 — 플레이스 페이지로 보내면 거기서 한 번 더 눌러야 길이 나온다. 좌표가 없는 곳(5곳)만
-   * 예전처럼 플레이스 페이지(`naverUrl`)로. 둘 다 없으면 칸이 없다.
+   * 지도 칸은 **길찾기**가 먼저다 — 플레이스 페이지로 보내면 거기서 한 번 더 눌러야 길이 나온다. 좌표가 없는 곳(122곳 중 3곳)만
+   * 예전처럼 플레이스 페이지(`naverUrl`)로 — 그 이유는 바로 위 머리의 주소 줄이 말한다(`placeDetailAddressNote`). 둘 다 없으면 칸이 없다.
    */
   const directionsUrl = naverDirectionsUrl(place);
 

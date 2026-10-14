@@ -11,6 +11,7 @@ import { reasonBadgeLabel, verdictHidesBadge } from '../lib/eligibility';
 import { formatKm } from '../lib/format';
 import { dogCallNames, withJosa } from '../lib/korean';
 import { nearbyPlaces, TYPE_META, type TPlaceEntry } from '../lib/places';
+import { PLACE_DETAIL_NEARBY_NO_GEO, placeDetailLocationOf } from '../lib/placeDetailLocation';
 import { useAppStore } from '../store/useAppStore';
 import { useDogCount, useDogMaxWeightKg, useEligibilityMap } from '../store/useDogEligibility';
 import type { TPlaceType } from '../types';
@@ -25,7 +26,7 @@ const NEARBY_FILTERS: { id: TNearbyFilter; label: string }[] = [
   { id: 'cafe', label: TYPE_META.cafe.label },
 ];
 
-/** 근처 장소. 좌표가 있는 장소만 계산되므로(nearbyPlaces), 아예 없으면 섹션째 숨긴다. */
+/** 근처 장소. 좌표가 있는 장소만 계산되므로(nearbyPlaces) 좌표가 없으면 이유 한 줄, 같은 섬에 다른 곳이 없으면 섹션째 숨긴다. */
 export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
   const [filter, setFilter] = useState<TNearbyFilter>('all');
   const [withHard, setWithHard] = useState(false);
@@ -53,6 +54,16 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
   const dogNames = dog ? dogCallNames(dog.dogs.map((entry) => entry.name)) : '';
   const filterLabel = NEARBY_FILTERS.find((option) => option.id === filter)?.label ?? '';
 
+  // 좌표가 없어 못 찾은 것은 이유를 말한다 — 그 숙소를 거점으로 주변 식당을 찾던 사람에게 말없이 빈 자리는 "근처에 없다" 로 읽힌다(14 W261013.7).
+  // 같은 섬에 다른 곳이 없어 빈 것(우도·추자)은 위치를 아는 것이라 이 말이 아니다 — 그건 아래에서 절째 뺀다.
+  if (placeDetailLocationOf(place) === 'noGeo') {
+    return (
+      <section className="mt-8 px-4 md:px-6">
+        <h2 className="text-lg font-bold text-primary">근처 장소</h2>
+        <p className="mt-2 text-sm text-tertiary">{PLACE_DETAIL_NEARBY_NO_GEO}</p>
+      </section>
+    );
+  }
   if (candidates.length === 0) return null;
 
   return (

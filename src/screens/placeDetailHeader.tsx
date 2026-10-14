@@ -13,6 +13,7 @@ import {
 } from '../components/layout/scrollDrivenMorph';
 import { categoryLabel } from '../lib/category';
 import { DIRECTION_LABEL, TYPE_COLOR_DEEP, TYPE_META, type TPlaceEntry } from '../lib/places';
+import { placeDetailAddressNote } from '../lib/placeDetailLocation';
 import { titleFlight } from '../lib/titleFlight';
 import { PlaceDetailAppBar } from './placeDetailAppBar';
 
@@ -43,6 +44,7 @@ const useBeforePaint = typeof window === 'undefined' ? useEffect : useLayoutEffe
  */
 export function PlaceDetailHeader({ place }: { place: TPlaceEntry }) {
   const Glyph = PLACE_TYPE_ICON[place.type];
+  const addressNote = placeDetailAddressNote(place);
   const headerRef = useRef<HTMLElement>(null);
   const rowRef = useRef<HTMLDivElement>(null);
   const thumbRef = useRef<HTMLDivElement>(null);
@@ -174,6 +176,8 @@ export function PlaceDetailHeader({ place }: { place: TPlaceEntry }) {
       </p>
 
       {place.address && <p className="mt-1 text-sm text-tertiary">{place.address}</p>}
+      {/* 주소·좌표가 비면 비었다고 말한다 — 좌표가 없으면 바로 밑 액션 줄이 '길찾기' 대신 '네이버 지도' 인 이유도 이 줄이(14 W261013.7). */}
+      {addressNote && <p className="mt-1 text-sm text-tertiary">{addressNote}</p>}
 
       {/* 저장 화면에 적은 내 메모 — 목록 카드와 같은 자리(이름 블록 바로 밑). 누르면 바로 고친다(10 F5.1). */}
       <PlaceDetailNote id={place.id} name={place.name} className="mt-3" />
