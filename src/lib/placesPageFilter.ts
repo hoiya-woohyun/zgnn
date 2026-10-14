@@ -170,6 +170,27 @@ export const otherTypeHiddenMatches = (
   );
 };
 
+export type TPlacesPageEmptySearch =
+  | { kind: 'otherType'; top: { type: TPlaceType; count: number }; rest: { type: TPlaceType; count: number }[] }
+  | { kind: 'notListed'; multiWord: boolean };
+
+/**
+ * 검색어만으로 0곳일 때 큰 안내가 무엇을 말할지(14 W261013.10) — 답이 있으면 답이 먼저다.
+ *
+ * 다른 종류에 맞는 곳이 있으면 그것이 안내의 주인이다(가장 많은 종류, 동수면 주어진 순서). 작은 링크 줄로 위에 두면 아래 큰 "맞는 곳이 없어요" 가
+ * 더 크게 읽혀 사용자가 답을 지나친다(하은 04). 어디에도 없으면 '우리 목록에 없다' 이고, 길은 알려 주기다.
+ * "띄어쓰기를 바꿔 보세요" 는 하지 않는다 — 검색은 양쪽 공백을 지우고 비교해(`placeSearch.squash`) 띄어쓰기가 결과를 바꾸지 않는다.
+ * "더 짧게" 는 단어가 둘 이상일 때만 의미가 있다: 모든 단어가 맞아야 나오므로 하나를 덜어야 풀린다.
+ */
+export const placesPageEmptySearch = (
+  query: string,
+  otherTypes: { type: TPlaceType; count: number }[],
+): TPlacesPageEmptySearch => {
+  if (otherTypes.length === 0) return { kind: 'notListed', multiWord: query.trim().split(/\s+/).filter(Boolean).length >= 2 };
+  const top = otherTypes.reduce((best, other) => (other.count > best.count ? other : best));
+  return { kind: 'otherType', top, rest: otherTypes.filter((other) => other !== top) };
+};
+
 export type TPlacesPageChip = { key: string; label: string };
 
 /**

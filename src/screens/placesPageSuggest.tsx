@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { ReportSheet } from '../components/reportSheet';
 import { TYPE_META } from '../lib/places';
 import type { TPlaceType } from '../types';
@@ -14,24 +13,35 @@ import type { TPlaceType } from '../types';
  *
  * 스와이프 엿보기(`placesPageSwipePeek`)가 그리는 목록(`PlacesPageResults`) 밖에 둔다 — 안에 두면 시트가 두 벌 생긴다.
  *
+ * 열림은 위(`placesPage`)가 쥔다 — 검색만으로 0곳일 때 빈 상태의 "알려 주기" 버튼(`PlacesPageResults.onSuggest`)도 같은 시트를 열어야 하는데,
+ * 시트를 결과 안에 두면 엿보기와 두 벌이 된다.
+ *
  * 방금 친 검색어를 한 줄 칸에 미리 채운다 — 찾다가 없어서 누른 사람이 같은 이름을 두 번 치지 않게(14 W261007.19).
  */
-export function PlacesPageSuggest({ type, query = '' }: { type: TPlaceType; query?: string }) {
-  const [open, setOpen] = useState(false);
-
+export function PlacesPageSuggest({
+  type,
+  query = '',
+  open,
+  onOpenChange,
+}: {
+  type: TPlaceType;
+  query?: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   return (
     <div className="mt-8 px-4 text-center md:px-6">
       <p className="text-sm text-tertiary">여기 없는 {TYPE_META[type].label}에서도 강아지와 함께했나요?</p>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => onOpenChange(true)}
         className="mt-1 inline-flex min-h-11 items-center px-2 text-sm font-semibold text-brand-secondary underline underline-offset-2"
       >
         여기도 갈 수 있어요 — 알려 주기
       </button>
       <ReportSheet
         isOpen={open}
-        onOpenChange={setOpen}
+        onOpenChange={onOpenChange}
         title="여기도 강아지랑 갈 수 있어요"
         lead="가게 이름과 동네를 적어 주세요. 운영자가 찾아보고 확인되면 올릴게요."
         placeId={null}

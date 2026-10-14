@@ -13,7 +13,7 @@ import { FilterChip } from '../components/filterChip';
 import { judgeEligibility, primaryReason } from '../lib/eligibility';
 import { carrierWhatIf, countByLevel, levelCountParts, outdoorFallback } from '../lib/eligibilityCounts';
 import { placesPageHardFold } from '../lib/placesPageHardFold';
-import type { TAreaCarried } from '../lib/placesPageFilter';
+import { placesPageEmptySearch, type TAreaCarried } from '../lib/placesPageFilter';
 import { placesPageRepeatedReason } from '../lib/placesPageRepeatedReason';
 import { areaTownsLabel, type TAreaId } from '../lib/areaGroups';
 import { josa, withJosa } from '../lib/korean';
@@ -44,6 +44,11 @@ type TPlacesPageResultsProps = {
   onResetFilters: () => void;
   /** 모바일 필터 시트를 연다. 빈 상태의 버튼이 쓴다 — md 부터는 조건 판이 펼쳐져 있어 버튼 자체를 숨긴다. */
   onOpenFilters: () => void;
+  /**
+   * 검색어만으로 0곳이고 어느 종류에도 없을 때의 "알려 주기" — 장소 제안 시트를 연다. 시트는 위(`placesPage`)가 한 벌만 쥔다.
+   * 선택인 이유: 스와이프 엿보기는 손가락 밑에서 보이기만 하는 복사본이라 아무것도 열지 않는다 — 안 주면 버튼을 그리지 않는다.
+   */
+  onSuggest?: () => void;
   /** 가까운 순일 때 장소 id → 거리(km). 카드가 "1.2km" 를 붙인다(10 F7). */
   distances?: Map<string, number>;
   /**
@@ -97,6 +102,7 @@ export function PlacesPageResults({
   activeChips,
   onResetFilters,
   onOpenFilters,
+  onSuggest,
   distances,
   otherTypes = [],
   hiddenOtherTypes = [],
@@ -162,6 +168,57 @@ export function PlacesPageResults({
 
   // 넓은 화면은 두 열(07 U10). lg 부터 — md 는 사이드바를 빼면 본문이 512px 이라 한 열 카드가 이미 그 폭이다.
   const listClass = 'space-y-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3 lg:space-y-0';
+
+  // 0곳 안내가 어느 갈래인지 한 번만 가른다 — 위의 "다른 종류" 링크 줄이 갈래에 따라 큰 안내로 옮겨 가서 두 곳이 같은 조건을 봐야 한다.
+  // 검색어만이어도 '숨김 조건으로 가려진 종류' 만 있으면 "목록에 없다" 고 말할 수 없다 — 그 가게는 있다. 이때는 generic 이 링크 줄을 그대로 둔다.
+  const searchOnly = Boolean(query) && activeFilterCount === 0 && !townHasNoPlaces;
+  const emptyKind =
+    town && !townHasNoPlaces && townReleaseCount > 0
+      ? 'town'
+      : reachableReleaseCount > 0
+        ? 'reachable'
+        : area && areaReleaseCount > 0
+          ? 'area'
+          : searchOnly && (otherTypes.length > 0 || hiddenOtherTypes.length === 0)
+            ? 'search'
+            : 'generic';
+  const emptySearch = emptyKind === 'search' ? placesPageEmptySearch(query, otherTypes) : null;
+
+  const renderOtherTypeRow = (other: { type: TPlaceType; count: number }) => (
+    <li key={other.type}>
+      <Link
+        href={`/places/${other.type}/`}
+        className="flex min-h-11 items-center justify-between rounded-xl border border-secondary bg-primary px-4 text-sm font-semibold text-brand-secondary hover:text-brand-secondary_hover"
+      >
+        {TYPE_META[other.type].label}에 {other.count}곳 있어요
+        <ChevronRight size={20} aria-hidden="true" className="shrink-0 text-quaternary" />
+      </Link>
+    </li>
+  );
+
+  // 숨김 조건에 가려진 종류의 줄(14 W261007.11b) — 링크 줄과 "답이 큰 안내" 아래 두 곳이 같은 줄을 쓴다.
+  const renderHiddenRows = () =>
+    hiddenOtherTypes.map((other) => (
+      <li key={other.type}>
+        <Link
+          href={`/places/${other.type}/`}
+          onClick={onReleaseHidden}
+          className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-secondary bg-primary px-4 py-2 text-sm font-semibold text-brand-secondary hover:text-brand-secondary_hover"
+        >
+          <span>
+            {TYPE_META[other.type].label}에 {other.count}곳 있어요
+            <span className="block text-xs font-normal text-tertiary">
+              {activeChips
+                .filter((chip) => chip.key === 'onlyReachable' || chip.key === 'hideHard')
+                .map((chip) => `'${chip.label}'`)
+                .join('·')}{' '}
+              을 풀면 보여요
+            </span>
+          </span>
+          <ChevronRight size={20} aria-hidden="true" className="shrink-0 text-quaternary" />
+        </Link>
+      </li>
+    ));
 
   const renderCard = (place: TPlaceEntry) => (
     <PlaceCard key={place.id} place={place} distanceKm={distances?.get(place.id)} hideReasonText={repeated?.text} />
@@ -308,44 +365,14 @@ export function PlacesPageResults({
             검색은 종류 탭 안에서만 돈다 — 다른 종류에 있으면 그쪽으로 가는 길을 맨 위에 둔다(14 W261006.6).
             "없어요" 보다 먼저 읽혀야 사용자가 그 가게가 없다고 결론 내리지 않는다. 검색어는 스토어에 있어 따라간다(07 U3).
           */}
-          {(otherTypes.length > 0 || hiddenOtherTypes.length > 0) && (
+          {emptyKind !== 'search' && (otherTypes.length > 0 || hiddenOtherTypes.length > 0) && (
             <ul className="mb-2 space-y-2">
-              {otherTypes.map((other) => (
-                <li key={other.type}>
-                  <Link
-                    href={`/places/${other.type}/`}
-                    className="flex min-h-11 items-center justify-between rounded-xl border border-secondary bg-primary px-4 text-sm font-semibold text-brand-secondary hover:text-brand-secondary_hover"
-                  >
-                    {TYPE_META[other.type].label}에 {other.count}곳 있어요
-                    <ChevronRight size={20} aria-hidden="true" className="shrink-0 text-quaternary" />
-                  </Link>
-                </li>
-              ))}
+              {otherTypes.map(renderOtherTypeRow)}
               {/*
                 숨김 조건에 가려진 종류도 말한다(14 W261007.11b) — 위 수는 넘어간 탭의 수라 '어려움' 인 가게는 빠지는데, 그러면 사용자는
                 그 가게가 없다고 읽는다. 무엇이 가렸는지 칩 이름 그대로 적고, 누르면 그것을 풀고 넘어가 같은 수를 본다.
               */}
-              {hiddenOtherTypes.map((other) => (
-                <li key={other.type}>
-                  <Link
-                    href={`/places/${other.type}/`}
-                    onClick={onReleaseHidden}
-                    className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-secondary bg-primary px-4 py-2 text-sm font-semibold text-brand-secondary hover:text-brand-secondary_hover"
-                  >
-                    <span>
-                      {TYPE_META[other.type].label}에 {other.count}곳 있어요
-                      <span className="block text-xs font-normal text-tertiary">
-                        {activeChips
-                          .filter((chip) => chip.key === 'onlyReachable' || chip.key === 'hideHard')
-                          .map((chip) => `'${chip.label}'`)
-                          .join('·')}{' '}
-                        을 풀면 보여요
-                      </span>
-                    </span>
-                    <ChevronRight size={20} aria-hidden="true" className="shrink-0 text-quaternary" />
-                  </Link>
-                </li>
-              ))}
+              {renderHiddenRows()}
             </ul>
           )}
           {/*
@@ -398,16 +425,53 @@ export function PlacesPageResults({
                 </Button>
               }
             />
-          ) : query && activeFilterCount === 0 && !townHasNoPlaces ? (
+          ) : emptySearch?.kind === 'otherType' ? (
+            /*
+              검색어만으로 0곳인데 다른 종류에 있으면 그 답이 큰 안내다(14 W261013.10) — 작은 링크 줄 밑에 큰 "맞는 곳이 없어요" 가 있으면
+              더 크게 읽혀 사용자가 답을 지나친다. 검색어는 스토어에 있어 탭을 따라간다(07 U3).
+            */
+            <>
+              <EmptyState
+                Icon={SearchMd}
+                title={`'${query}'${josa(query, '은/는')} ${TYPE_META[emptySearch.top.type].label}에 있어요`}
+                description={`${TYPE_META[type].label}에는 없어요. 검색어는 그대로 따라가요.`}
+                action={
+                  <Button color="primary" size="md" href={`/places/${emptySearch.top.type}/`}>
+                    {`${TYPE_META[emptySearch.top.type].label}에서 ${emptySearch.top.count}곳 보기`}
+                  </Button>
+                }
+              />
+              {(emptySearch.rest.length > 0 || hiddenOtherTypes.length > 0) && (
+                <ul className="mt-2 space-y-2">
+                  {emptySearch.rest.map(renderOtherTypeRow)}
+                  {renderHiddenRows()}
+                </ul>
+              )}
+            </>
+          ) : emptySearch ? (
+            /*
+              어느 종류에도 없으면 "없다" 가 아니라 '아직 우리 목록에 없다' 이고, 길은 알려 주기다(14 W261013.10). 띄어쓰기 안내는 하지 않는다 —
+              검색이 공백을 지우고 비교해 띄어쓰기는 결과를 바꾸지 않는다. "더 짧게" 는 단어가 둘 이상일 때뿐(모든 단어가 맞아야 나온다).
+            */
             <EmptyState
               Icon={SearchMd}
-              // 검색어가 탭을 따라오므로 어느 종류에서 없는지를 늘 적는다 — 바로 위 "식당에 1곳" 과도 말이 엇갈리지 않는다.
-              title={`${TYPE_META[type].label}에는 '${query}'${josa(query, '과/와')} 맞는 곳이 없어요`}
-              description="띄어쓰기를 바꾸거나 더 짧게 찾아보세요."
+              title={`'${query}'${josa(query, '은/는')} 아직 저희 목록에 없어요`}
+              description={
+                emptySearch.multiWord
+                  ? '단어를 하나만 남겨 찾아보세요 — 모든 단어가 맞아야 나와요. 그래도 없으면 알려 주세요.'
+                  : '알려 주시면 운영자가 찾아보고, 확인되면 올릴게요.'
+              }
               action={
-                <Button color="primary" size="md" onClick={onClearQuery}>
-                  검색 지우기
-                </Button>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  {onSuggest && (
+                    <Button color="primary" size="md" onClick={onSuggest}>
+                      알려 주기
+                    </Button>
+                  )}
+                  <Button color={onSuggest ? 'secondary' : 'primary'} size="md" onClick={onClearQuery}>
+                    검색 지우기
+                  </Button>
+                </div>
               }
             />
           ) : (

@@ -81,6 +81,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
    * *지우기만* 하면 글과 동작이 반대를 말한다. 종류를 바꾸면 `key={type}` 로 함께 리셋된다.
    */
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
+  const [suggestOpen, setSuggestOpen] = useState(false);
 
   // 다른 조건과 별개로 먼저 걸러 둔다 — 이 종류에 그 읍면 자체가 없으면(0곳) 전용 빈 상태를 보여줘야 한다.
   const byTown = useMemo(() => placesByTown(type, town), [type, town]);
@@ -361,6 +362,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
               onClearQuery={() => setQuery('')}
               onClearTown={() => setTown(null)}
               onOpenFilters={() => setIsFilterSheetOpen(true)}
+              onSuggest={() => setSuggestOpen(true)}
               distances={distances}
               otherTypes={otherTypes}
               hiddenOtherTypes={hiddenOtherTypes}
@@ -381,7 +383,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
                 releaseAreaCarried(type);
               }}
             />
-            <PlacesPageSuggest type={type} query={trimmedQuery} />
+            <PlacesPageSuggest type={type} query={trimmedQuery} open={suggestOpen} onOpenChange={setSuggestOpen} />
           </div>
         </div>
 

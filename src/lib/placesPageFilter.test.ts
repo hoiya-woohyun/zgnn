@@ -9,6 +9,7 @@ import {
   hideHardCount,
   otherTypeHiddenMatches,
   otherTypeMatches,
+  placesPageEmptySearch,
   placesByTown,
   placesPageChips,
   reachableReleaseCount,
@@ -355,5 +356,29 @@ describe('hideHardCount — 어려운 곳 숨기기 칩의 수(14 W261013.8)', (
   it("'갈 수 있는 곳만' 이 이미 어려움을 뺐으면 0 — 눌러도 바뀌는 것이 없다", () => {
     const eligibilityMap = mapOf({ dogs: [{ name: '보리', weightKg: 28 }], carrier: 'none' });
     expect(hideHardCount({ ...base, type: 'restaurant', onlyReachable: true, eligibilityMap })).toBe(0);
+  });
+});
+
+describe('placesPageEmptySearch — 검색만으로 0곳일 때 큰 안내(14 W261013.10)', () => {
+  it('가장 곳이 많은 다른 종류가 답이고, 나머지는 순서 그대로 남는다', () => {
+    const result = placesPageEmptySearch('함덕', [
+      { type: 'restaurant', count: 1 },
+      { type: 'cafe', count: 4 },
+    ]);
+    expect(result).toEqual({ kind: 'otherType', top: { type: 'cafe', count: 4 }, rest: [{ type: 'restaurant', count: 1 }] });
+  });
+
+  it('동수면 주어진 순서가 앞선 쪽이 답이다', () => {
+    const result = placesPageEmptySearch('함덕', [
+      { type: 'restaurant', count: 2 },
+      { type: 'cafe', count: 2 },
+    ]);
+    expect(result).toEqual({ kind: 'otherType', top: { type: 'restaurant', count: 2 }, rest: [{ type: 'cafe', count: 2 }] });
+  });
+
+  it('어디에도 없으면 목록에 없는 것 — 단어가 둘 이상일 때만 multiWord(앞뒤 공백은 단어가 아니다)', () => {
+    expect(placesPageEmptySearch('애월 테라로사', [])).toEqual({ kind: 'notListed', multiWord: true });
+    expect(placesPageEmptySearch('테라로사', [])).toEqual({ kind: 'notListed', multiWord: false });
+    expect(placesPageEmptySearch('  테라로사  ', [])).toEqual({ kind: 'notListed', multiWord: false });
   });
 });
