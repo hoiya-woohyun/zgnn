@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertTriangle, Heart, NavigationPointer01 } from '@untitledui/icons';
-import { MapPageCanvas, type TMapPageCanvasHandle } from './mapPageCanvas';
+import { MapPageCanvas, MARKER_HARD_OPACITY, type TMapPageCanvasHandle } from './mapPageCanvas';
 import { PlaceLinkList } from '../components/placeLinkList';
 import { MapPageSheetCard } from './mapPageSheet';
 import { useMapPageWideLayout } from './useMapPageWideLayout';
@@ -13,9 +13,10 @@ import { EmptyState } from '../components/layout/emptyState';
 import { EligibilityBadge } from '../components/eligibilityBadge';
 import { PlaceThumb } from '../components/placeThumb';
 import { TownChip } from '../components/townChip';
+import { dogCallNames } from '../lib/korean';
 import { LOCATE_MAP_NOT_READY, LOCATE_NOTICE, locateMe } from '../lib/myLocation';
 import { PLACES, PLACE_TYPES, TYPE_COLOR, TYPE_META } from '../lib/places';
-import { useSavedPlaces } from '../store/useAppStore';
+import { useAppStore, useSavedPlaces } from '../store/useAppStore';
 import { useEligibilityMap } from '../store/useDogEligibility';
 import { cx } from '../utils/cx';
 import type { TPlaceType } from '../types';
@@ -110,6 +111,17 @@ export function MapPage() {
 
   const withGeo = useMemo(() => filtered.filter((place) => place.geo), [filtered]);
   const missingGeo = useMemo(() => filtered.filter((place) => !place.geo), [filtered]);
+
+  /*
+   * 흐린 원의 뜻(14 W261013.12) — 종류 칩이 색만 말해 흐림은 범례에 없었다(haeun-41 · ux-expert-32).
+   * 지금 지도에 흐린 원이 하나라도 있을 때만 말한다 — 종류를 바꿔 다 사라졌는데 범례만 남으면 찾게 만든다.
+   */
+  const dog = useAppStore((state) => state.dog);
+  const dogNames = dog ? dogCallNames(dog.dogs.map((entry) => entry.name)) : '';
+  const hasHardOnMap = useMemo(
+    () => Boolean(eligibilityMap) && withGeo.some((place) => eligibilityMap?.get(place.id)?.level === 'hard'),
+    [withGeo, eligibilityMap],
+  );
   const selected = withGeo.find((place) => place.id === selectedId) ?? null;
   // 모바일에서 "지도에 없는 N곳" 을 누르면 그 N곳만 시트로 펼친다(14 ↪ 12 U1.7).
   const [missingOpen, setMissingOpen] = useState(false);
@@ -172,6 +184,8 @@ export function MapPage() {
       focus={focusPlace?.geo ?? null}
       // 저장 모드는 저장한 곳이 다 들어오게 — 들어올 때와 종류를 바꿀 때만. 하트를 빼서 줄어드는 것은 열쇠가 같아 안 움직인다.
       fitKey={savedOnly ? `saved:${types.join(',')}` : null}
+      // 저장한 곳은 몇 곳뿐이라 이름을 단다 — 셋을 하나씩 눌러 봐야 어느 곳인지 알았다. 전체 지도는 겹침이 많아 달지 않는다.
+      showNames={savedOnly}
     />
   );
 
@@ -349,12 +363,29 @@ export function MapPage() {
                 <button
                   type="button"
                   onClick={() => setMissingOpen(true)}
-                  className="pointer-events-auto -mt-2.5 flex min-h-11 items-center lg:hidden"
+                  className="pointer-events-auto -mt-2.5 flex min-h-11 shrink-0 items-center lg:hidden"
                 >
-                  <span className="rounded-md bg-primary/92 px-2 py-1 text-xs font-semibold text-brand-secondary shadow-sm backdrop-blur">
+                  <span className="rounded-md bg-primary/92 px-2 py-1 text-xs font-semibold whitespace-nowrap text-brand-secondary shadow-sm backdrop-blur">
                     지도에 없는 {missingGeo.length}곳
                   </span>
                 </button>
+              )}
+              {/*
+                흐림 범례. 누르는 것이 아니라 끌기를 먹지 않게 `pointer-events-none`(부모 그대로)이고, 줄을 새로 만들지 않고
+                이 줄에 앉는다 — 320px 에서는 줄이 아니라 알약 안 글자가 꺾인다(위 고정 줄을 키우지 않게, ux-expert-40).
+                견본은 지도의 흐린 원과 같은 모양(흰 테두리 + 같은 투명도) — 회색 점이면 '흐림' 과 이어지지 않는다.
+              */}
+              {hasHardOnMap && dogNames && (
+                <p className="-mt-2.5 flex min-h-11 min-w-0 items-center">
+                  <span className="flex min-w-0 items-center gap-1.5 rounded-md bg-primary/92 px-2 py-1 text-xs font-semibold break-keep text-secondary shadow-sm backdrop-blur">
+                    <span
+                      aria-hidden="true"
+                      className="size-3 shrink-0 rounded-full border-[1.5px] border-white"
+                      style={{ background: TYPE_COLOR[types[0]], opacity: MARKER_HARD_OPACITY }}
+                    />
+                    흐린 곳은 {dogNames}에게 어려워요
+                  </span>
+                </p>
               )}
               {/*
                 내 위치 버튼. 위쪽 오른편에 두는 이유는 **아래쪽이 이미 차 있어서다** — 좌하단은 로고·저작권,

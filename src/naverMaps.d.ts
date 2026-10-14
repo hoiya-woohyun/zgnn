@@ -134,11 +134,18 @@ declare namespace naver.maps {
     anchor?: Point;
   }
 
+  /** HTML 아이콘. 저장 모드의 이름표(`mapPageCanvas`)가 쓴다. `anchor` 의 원점은 `content` 의 좌상단이다. */
+  interface HtmlIcon {
+    content: string | HTMLElement;
+    size?: Size;
+    anchor?: Point;
+  }
+
   interface MarkerOptions {
     map?: Map | null;
     position: LatLng;
     /** 없으면 SDK 기본 마커가 쓰인다. 문자열 URL · ImageIcon · HtmlIcon · SymbolIcon 을 받는다. */
-    icon?: ImageIcon | string;
+    icon?: ImageIcon | HtmlIcon | string;
     /** 마커 엘리먼트의 title 속성(툴팁). */
     title?: string;
     clickable?: boolean;
