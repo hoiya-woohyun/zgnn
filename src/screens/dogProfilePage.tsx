@@ -2,15 +2,21 @@
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Button } from '../components/base/button';
-import { HintText } from '../components/base/hint-text';
 import { PageHeader } from '../components/layout/pageHeader';
 import { parentRouteOf } from '../lib/appRoutes';
 import { goBackInApp } from '../components/layout/appShellStack';
 import { STICKY_ACTION_BOTTOM } from '../components/layout/appShellSurface';
 import { showAppStatus, STATUS_UNDO_MS } from '../lib/appStatus';
-import { DOG_NAME_MAX_LENGTH, HEAVY_DOG_CONFIRM_KG, MAX_DOGS, dogProfileSavedMessage, heavyDogs } from '../lib/dogProfile';
+import {
+  DOG_NAME_MAX_LENGTH,
+  HEAVY_DOG_CONFIRM_KG,
+  MAX_DOGS,
+  dogProfileActionNote,
+  dogProfileSavedMessage,
+  heavyDogs,
+} from '../lib/dogProfile';
 import { dogProfileFormDirty, dogProfileFormOf, restorableDogProfileDraft, type TDogProfileDraft } from '../lib/dogProfileDraft';
-import { dogSize } from '../lib/eligibility';
+import { CARRIER_LABELS, dogSize } from '../lib/eligibility';
 import { useStoreHydrated } from '../providers/storeHydration';
 import { useAppStore, useDog } from '../store/useAppStore';
 import { DogProfileCarrierPicker } from './dogProfileCarrierPicker';
@@ -95,6 +101,8 @@ export function DogProfilePage() {
   const [submitErrors, setSubmitErrors] = useState<TDogRowError[] | null>(null);
   /** 저장을 눌렀을 때 몸무게가 너무 커 한 번 되물은 강아지들(12 U3.6). 입력을 고치면 사라진다. */
   const [heavyAsk, setHeavyAsk] = useState<TDogEntry[] | null>(null);
+  /** 폼을 떠날 때 남긴 입력으로 채웠다 — 저장된 값과 다르다는 것을 말해야 한다(14 W261013.5 · youngja-23). */
+  const [restored, setRestored] = useState(false);
 
   /**
    * 하이드레이션이 끝난 시점의 dog 로 폼을 한 번만 채운다. 이펙트 대신 "렌더 중 상태 조정"
@@ -105,7 +113,9 @@ export function DogProfilePage() {
   if (hydrated && seededFor === 'pending') {
     setSeededFor(dog);
     // 떠날 때 쓰다 만 것이 있으면 그것부터 — 기준 프로필이 그대로일 때만(`restorableDogProfileDraft`).
-    const form = restorableDogProfileDraft(leftDraft, dog) ?? dogProfileFormOf(dog);
+    const draft = restorableDogProfileDraft(leftDraft, dog);
+    const form = draft ?? dogProfileFormOf(dog);
+    setRestored(draft !== null);
     setRows(form.rows);
     setCarrier(form.carrier);
     setSizeOverride(form.sizeOverride);
@@ -128,6 +138,15 @@ export function DogProfilePage() {
   const rowErrors = submitErrors ?? rows.map(liveRowError);
   // 크기는 몸무게만 본다 — 이동 수단을 아직 안 골랐어도 크기 표시는 미룰 이유가 없다.
   const computedSize = validDogs.length > 0 ? dogSize({ dogs: validDogs, carrier: carrier ?? 'none' }) : undefined;
+  // 주 버튼 줄의 한 줄 — 막힌 것의 요약, 아니면 아직 안 고른 이동 수단(14 W261013.5).
+  const actionNote = dogProfileActionNote({
+    rowsFailed: Boolean(submitErrors?.some(hasRowError)),
+    carrierFailed: carrierError,
+    carrierChosen: carrier !== null,
+    carrierCount: Object.keys(CARRIER_LABELS).length,
+  });
+  // 되살린 입력이 아직 저장된 값과 다를 때만 — 이번에 들어와서 고친 것은 이 말의 대상이 아니다.
+  const showRestored = restored && dogProfileFormDirty({ rows, carrier, sizeOverride }, dog);
 
   const updateRows = (next: (prev: TDogRowDraft[]) => TDogRowDraft[]) => {
     setRows(next);
@@ -155,7 +174,11 @@ export function DogProfilePage() {
     if (carrier === null) {
       setCarrierError(true);
       // 행 에러가 함께 있으면 위쪽(행)이 먼저 눈에 들어오므로 포커스는 이동 수단만 없을 때 옮긴다.
-      if (!rowsInvalid) carrierFirstOptionRef.current?.focus();
+      // `focus()` 는 줄 뒤에 가려진 칸을 '보인다' 고 치고 스크롤하지 않는다 — 가운데로 직접 옮긴 뒤 포커스만(14 W261013.5).
+      if (!rowsInvalid) {
+        carrierFirstOptionRef.current?.scrollIntoView({ block: 'center' });
+        carrierFirstOptionRef.current?.focus({ preventScroll: true });
+      }
       return;
     }
     if (rowsInvalid) return;
@@ -187,6 +210,7 @@ export function DogProfilePage() {
     setCarrierError(false);
     setSizeOverride(form.sizeOverride);
     setSubmitErrors(null);
+    setRestored(false);
   };
 
   /*
@@ -223,6 +247,21 @@ export function DogProfilePage() {
           <p className="py-10 text-center text-sm text-tertiary">불러오는 중이에요…</p>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* 떠날 때 남긴 입력을 되살렸다 — 설정엔 저장된 값이 보여 "어느 게 맞나" 가 됐다(14 W261013.5 · youngja-23). */}
+            {showRestored && (
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm text-tertiary">저장하지 않은 입력이에요.</p>
+                <Button
+                  type="button"
+                  color="link-color"
+                  size="sm"
+                  className="min-h-11 shrink-0"
+                  onClick={() => seedForm(dog)}
+                >
+                  {dog ? '저장된 값으로' : '비우기'}
+                </Button>
+              </div>
+            )}
             <div>
               <DogProfileDogRows
                 values={rows}
@@ -233,7 +272,6 @@ export function DogProfilePage() {
                 onAdd={() => updateRows((prev) => (prev.length < MAX_DOGS ? [...prev, EMPTY_ROW] : prev))}
                 onRemove={(index) => updateRows((prev) => prev.filter((_, i) => i !== index))}
               />
-              {submitErrors?.some(hasRowError) && <HintText isInvalid>이름과 몸무게를 모두 채워 주세요</HintText>}
             </div>
 
             <DogProfileCarrierPicker
@@ -258,11 +296,26 @@ export function DogProfilePage() {
               가운데 지도 원이 버튼 가운데를 덮었다(누르면 지도로 넘어가 쓰던 입력이 사라졌다). `fixed` 가 아니라 `sticky` 다(ADR-014 —
               스와이프 중 `<main>` 의 transform). 폼의 **직속 자식**이어야 폼 높이만큼 따라다닌다. 몸무게 되묻기도 이 줄 안에 —
               중간에서 누른 사람에게 폼 끝의 카드는 안 보인다. '프로필 삭제' 는 줄 밖(주 버튼 바로 밑에 붙지 않게).
+              줄의 면은 탭바 윗선까지 내려온다(14 W261013.5) — 원이 솟는 띠만큼 비워 두었더니 그 틈으로 선택지가 비쳐 지나갔다.
+              버튼 자리는 그대로다: 띠는 줄 아래 여백(`pb-9` = 원 16 + 여유 8 + 줄 여백 12)이 된다. `data-sticky-action` 은
+              키보드 포커스가 줄 뒤로 숨지 않게 하는 스크롤 여백의 스위치다(globals.css).
             */}
             <div
+              data-sticky-action
               style={{ bottom: STICKY_ACTION_BOTTOM }}
-              className="z-10 space-y-3 max-md:sticky max-md:-mx-4 max-md:border-t max-md:border-secondary max-md:bg-secondary max-md:px-4 max-md:py-3"
+              className="z-10 space-y-3 max-md:sticky max-md:-mx-4 max-md:border-t max-md:border-secondary max-md:bg-secondary max-md:px-4 max-md:pt-3 max-md:pb-9"
             >
+              {/* 막혔으면 빠진 것의 요약(알림), 아니면 아직 안 고른 이동 수단 — 줄이 그 선택지를 덮어도 여기 말은 보인다. */}
+              {actionNote &&
+                (actionNote.failed ? (
+                  <p key="failed" role="alert" className="text-sm font-semibold text-error-primary">
+                    {actionNote.text}
+                  </p>
+                ) : (
+                  <p key="hint" className="text-sm text-tertiary">
+                    {actionNote.text}
+                  </p>
+                ))}
               {heavyAsk && (
                 <div role="alert" className={`${CARD_SURFACE} p-4`}>
                   <p className="text-sm font-semibold text-primary">

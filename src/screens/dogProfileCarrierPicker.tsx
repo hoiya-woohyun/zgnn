@@ -12,7 +12,7 @@ type TDogProfileCarrierPickerProps = {
   /** `null` = 아직 안 고름. 아무 것도 선택되지 않은 채로 그린다. */
   value: TCarrier | null;
   onChange: (carrier: TCarrier) => void;
-  /** 저장을 눌렀는데 안 골랐을 때 피커 아래에 보이는 한 줄. */
+  /** 저장을 눌렀는데 안 골랐을 때 질문 밑에 보이는 한 줄. */
   error?: string;
   /** 저장 실패 시 부모가 포커스를 옮길 첫 옵션. */
   firstOptionRef?: Ref<HTMLButtonElement>;
@@ -52,6 +52,12 @@ export function DogProfileCarrierPicker({ value, onChange, error, firstOptionRef
     >
       <Label>이동 수단</Label>
       <p className="mt-0.5 text-xs text-tertiary">외출할 때 무엇에 넣고 다니나요?</p>
+      {/* 오류는 질문 바로 밑 — 선택지 밑이면 폰에서 고정된 주 버튼 줄 뒤라 내려 보기 전엔 안 보였다(14 W261013.5 · ux-expert-07). */}
+      {error && (
+        <HintText id="carrier-error" isInvalid className="mt-1">
+          {error}
+        </HintText>
+      )}
       <div className="mt-1.5 space-y-2">
         {CARRIER_ORDER.map((carrier, index) => {
           const selected = value === carrier;
@@ -90,11 +96,6 @@ export function DogProfileCarrierPicker({ value, onChange, error, firstOptionRef
           );
         })}
       </div>
-      {error && (
-        <HintText id="carrier-error" isInvalid className="mt-1.5">
-          {error}
-        </HintText>
-      )}
     </div>
   );
 }

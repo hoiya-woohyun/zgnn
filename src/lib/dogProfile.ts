@@ -105,3 +105,30 @@ export const sanitizeDog = (value: unknown): TDogProfile | null => {
  */
 export const dogProfileSavedMessage = (dogs: TDogEntry[]): string =>
   `${dogCallNames(dogs.map((d) => d.name))} 기준으로 바꿨어요`;
+
+/**
+ * 주 버튼 줄(`/dog` 맨 아래 고정)에 서는 한 줄 — 아직 안 된 것(14 W261013.5). 줄은 늘 화면에 있으므로 여기 적은 말은
+ * 어디까지 내려와 있든 보인다. 그 칸들(이동 수단 선택지·그 오류)은 줄 뒤에 가려질 수 있다.
+ *
+ * - 저장을 눌러 막혔으면(`rowsFailed`·`carrierFailed`) 빠진 것을 모두 — **오류 요약**이다. 칸마다의 오류는 칸 밑에 그대로.
+ * - 누르기 전엔 이동 수단을 안 골랐을 때만 "N가지 중 하나" — 줄이 첫 선택지를 덮어 고를 게 있는 줄 모르고 누를 뻔했다(youngja-02).
+ *   이름·몸무게는 맨 위라 가려지지 않으므로 누르기 전엔 말하지 않는다.
+ * - 다 됐으면 `null`(줄이 버튼만큼만 남는다 — 고치기 화면은 늘 이쪽이다).
+ */
+export const dogProfileActionNote = ({
+  rowsFailed,
+  carrierFailed,
+  carrierChosen,
+  carrierCount,
+}: {
+  rowsFailed: boolean;
+  carrierFailed: boolean;
+  carrierChosen: boolean;
+  carrierCount: number;
+}): { text: string; failed: boolean } | null => {
+  if (rowsFailed && carrierFailed) return { text: '이름·몸무게를 확인하고 이동 수단을 골라 주세요', failed: true };
+  if (rowsFailed) return { text: '이름과 몸무게를 확인해 주세요', failed: true };
+  if (carrierFailed) return { text: '이동 수단을 골라 주세요', failed: true };
+  if (!carrierChosen) return { text: `이동 수단 ${carrierCount}가지 중 하나를 골라야 등록돼요`, failed: false };
+  return null;
+};

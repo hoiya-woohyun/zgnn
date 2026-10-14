@@ -76,6 +76,18 @@
     }
   }
 
+  /*
+    폰에서 주 버튼 줄이 화면 아래에 붙어 있는 동안(`data-sticky-action`, `/dog`) Tab 으로 옮긴 포커스가 그 줄 뒤에 숨지 않게
+    아래 스크롤 여백을 둔다(WCAG 2.4.11, 14 W261013.5) — 320px 폭 실측에서 첫 이동 수단 선택지가 줄 뒤에서 포커스를 받았다.
+    위 `html` 의 여백(탭바 + 원)을 이 화면에서만 줄 높이만큼 늘린다. 값은 탭바 + 줄 높이(버튼 44 + 위 12 + 아래 36 + 선 1 + 안내 한 줄)에 여유를 더한 것. 코드의 `focus()` 는 이 여백을 보지 않아
+    저장이 막혀 옮기는 포커스는 화면이 직접 가운데로 스크롤한다.
+  */
+  @media (width < 48rem) {
+    :root:has([data-sticky-action]) {
+      scroll-padding-bottom: calc(var(--tab-bar-h) + env(safe-area-inset-bottom, 0px) + 9rem);
+    }
+  }
+
   body {
     margin: 0;
     background-color: var(--color-bg-secondary);
