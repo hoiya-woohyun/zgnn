@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Check, CheckCircle } from '@untitledui/icons';
+import { ArrowRight, Check, CheckCircle, ChevronDown } from '@untitledui/icons';
 import { itemNeedsAt, shouldShowPlaceItems } from '../lib/itemNeeds';
 import { useStoreHydrated } from '../providers/storeHydration';
 import type { TPlaceEntry } from '../lib/places';
@@ -13,6 +13,11 @@ import { cx } from '../utils/cx';
 type TPlaceItemsNoteProps = {
   place: TPlaceEntry;
   className?: string;
+  /**
+   * 칩을 접은 채 시작한다 — 머리 줄(몇 가지 중 몇 챙김)만 보이고 누르면 펼친다. 지도 시트용(14 W261013.6): 마커 하나에
+   * 칩 7개가 시트의 대부분을 차지해 지도가 안 보였다. 상세는 펼친 채다 — 거기서는 이 절이 장소를 보는 이유 중 하나다.
+   */
+  folded?: boolean;
 };
 
 /**
@@ -33,13 +38,15 @@ type TPlaceItemsNoteProps = {
  * **localStorage 를 읽기 전에는 아무 말도 하지 않는다**(`useStoreHydrated`). 읽기 전에는 체크한 것이 하나도
  * 없어 보이므로, 그냥 그리면 다 챙긴 사람에게도 '아직' 이 떴다가 바뀐다 — 한 말을 무르는 쪽이라 보고 나서 말한다.
  */
-export function PlaceItemsNote({ place, className }: TPlaceItemsNoteProps) {
+export function PlaceItemsNote({ place, className, folded = false }: TPlaceItemsNoteProps) {
   const season = useAppStore((state) => state.season);
   const checkedItemIds = useAppStore((state) => state.checkedItemIds);
   const toggleChecked = useAppStore((state) => state.toggleChecked);
   const hydrated = useStoreHydrated();
   const level = useEligibility(place)?.level;
   const [touched, setTouched] = useState(false);
+  const [open, setOpen] = useState(!folded);
+  const chipsId = useId();
 
   const needs = useMemo(
     () => itemNeedsAt(place, season, checkedItemIds),
@@ -75,18 +82,40 @@ export function PlaceItemsNote({ place, className }: TPlaceItemsNoteProps) {
     );
   }
 
+  const title = (
+    <>
+      여기 필요한 준비물
+      <span className="ml-1.5 font-normal text-tertiary">
+        {checkedCount}/{toPackCount} 챙김
+      </span>
+    </>
+  );
+
   return (
     <section
       aria-label="여기 필요한 준비물"
-      className={cx('rounded-xl border border-secondary bg-primary p-3', className)}
+      // 접힌 동안은 머리 줄 하나(44px)라 위아래 여백을 뺀다 — 펼친 판과 같은 여백이면 접어도 70px 가까이 남는다.
+      className={cx('rounded-xl border border-secondary bg-primary px-3', open ? 'py-3' : 'py-0', className)}
     >
       <div className="flex items-center gap-2">
-        <p className="min-w-0 flex-1 text-sm font-semibold text-primary">
-          여기 필요한 준비물
-          <span className="ml-1.5 font-normal text-tertiary">
-            {checkedCount}/{toPackCount} 챙김
-          </span>
-        </p>
+        {/* 접을 수 있으면 머리 줄이 펼침 단추다 — 접힘·펼침 어느 쪽에서도 같은 단추라 누른 뒤 포커스가 제자리에 남는다. */}
+        {folded ? (
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls={chipsId}
+            onClick={() => setOpen((value) => !value)}
+            className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-1 text-left text-sm font-semibold text-primary"
+          >
+            <span className="min-w-0 flex-1">{title}</span>
+            <ChevronDown
+              aria-hidden="true"
+              className={cx('size-4 shrink-0 text-tertiary transition-transform', open && 'rotate-180')}
+            />
+          </button>
+        ) : (
+          <p className="min-w-0 flex-1 text-sm font-semibold text-primary">{title}</p>
+        )}
         <Link
           href="/checklist"
           className="-mr-1 flex min-h-11 shrink-0 items-center gap-1 rounded-lg px-1 text-sm font-semibold text-brand-secondary"
@@ -95,7 +124,7 @@ export function PlaceItemsNote({ place, className }: TPlaceItemsNoteProps) {
         </Link>
       </div>
 
-      <ul className="mt-1 flex flex-wrap gap-1.5">
+      <ul id={chipsId} hidden={!open} className="mt-1 flex flex-wrap gap-1.5">
         {needs.map(({ item, status }) => (
           <li key={item.id}>
             {status === 'provided' ? (

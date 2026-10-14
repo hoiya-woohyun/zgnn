@@ -65,6 +65,8 @@ export function MapPage() {
   const canvasRef = useRef<TMapPageCanvasHandle>(null);
   const [locating, setLocating] = useState(false);
   const [locateNotice, setLocateNotice] = useState<string | null>(null);
+  // 받은 좌표는 이 화면 state 에만 둔다(저장하지 않는다 — 둘러보기 '가까운 순' 과 같은 규칙). 고른 카드가 거리를 붙인다.
+  const [here, setHere] = useState<{ lat: number; lng: number } | null>(null);
 
   const handleLocate = async () => {
     if (locating) return;
@@ -73,6 +75,7 @@ export function MapPage() {
     const result = await locateMe();
     setLocating(false);
     if (result.kind === 'ok') {
+      setHere({ lat: result.lat, lng: result.lng });
       // 위치가 SDK 보다 먼저 올 수 있다(느린 연결 + 캐시된 위치). 조용히 넘기면 버튼이 먹통처럼 보인다.
       const moved = canvasRef.current?.showMyLocation(result.lat, result.lng) ?? false;
       if (!moved) setLocateNotice(LOCATE_MAP_NOT_READY);
@@ -234,7 +237,7 @@ export function MapPage() {
           {/* 고른 장소의 미니 카드. 데스크톱에서는 시트 대신 패널 아래에 붙인다. */}
           {selected && (
             <div className="max-h-[52%] overflow-y-auto border-t border-secondary p-3">
-              <MapPageSheetCard place={selected} />
+              <MapPageSheetCard place={selected} origin={here} />
             </div>
           )}
         </aside>
@@ -447,7 +450,7 @@ export function MapPage() {
           }}
           label={selected ? `${selected.name} 정보` : '장소 정보'}
         >
-          {selected && <MapPageSheetCard place={selected} />}
+          {selected && <MapPageSheetCard place={selected} origin={here} />}
         </BottomSheet>
       )}
       {!isWide && (

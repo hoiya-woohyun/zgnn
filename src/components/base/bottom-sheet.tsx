@@ -143,7 +143,9 @@ function BottomSheetPanel({ label, onDismiss, children }: { label: string; onDis
       // 바닥은 pb-sheet — p-4 의 바닥분과 홈 인디케이터(safe-area)를 합친 값이다(globals.css 주석).
       // 면은 바탕과 같은 크림이다(ADR-010 v4). 이 시트는 화면 아래 끝(SAB)에 닿는 면이라, 흰색이면
       // 탭바·바탕의 크림 사이에 흰 판이 끼어 가장자리 색이 갈린다. 안의 칩·입력칸이 흰색으로 떠 있다.
-      className="pb-sheet relative rounded-t-2xl border border-secondary bg-secondary p-4 pt-6 shadow-xl outline-hidden sm:rounded-2xl sm:pt-4"
+      // **화면보다 길어지지 않는다**(14 W261013.6) — 높이를 묶지 않았더니 긴 내용이 위로 넘쳐 iPhone SE 에서 장소 이름 위가 잘리고
+      // 닫기 X 가 화면 밖(y=−19)이었다. 판은 화면 안에 묶이고 안쪽만 스크롤된다 — 핸들·닫기는 판에 붙어 늘 보인다.
+      className="pb-sheet relative flex max-h-[calc(100dvh-1rem-env(safe-area-inset-top,0px))] flex-col rounded-t-2xl border border-secondary bg-secondary p-4 pt-6 shadow-xl outline-hidden sm:max-h-[calc(100dvh-3rem)] sm:rounded-2xl sm:pt-4"
     >
       {/*
         끌어내리는 핸들. 띠(h-1)만 보이지만 잡는 영역은 위쪽 28px 전체라 손가락이 빗나가도 잡힌다.
@@ -164,7 +166,12 @@ function BottomSheetPanel({ label, onDismiss, children }: { label: string; onDis
       >
         <XClose size={20} />
       </button>
-      {children}
+      {/*
+        스크롤은 여기서만. `min-h-0` 이 요점이다 — flex 자식은 기본 `min-height:auto` 라 내용보다 작아지지 않아 판을 묶어도 넘친다.
+        좌우로 판의 여백만큼 넓혔다가(-mx-4 px-4) 되돌리는 것은 포커스 링 때문이다 — 스크롤 상자는 가로도 잘라서 가장자리 칸의 링이 잘린다.
+        안에서 스스로 스크롤하는 시트(필터)는 내용이 판보다 작아 여기서는 스크롤이 생기지 않는다.
+      */}
+      <div className="-mx-4 -my-1 min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-1">{children}</div>
     </AriaDialog>
   );
 }

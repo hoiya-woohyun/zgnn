@@ -2,22 +2,24 @@ import Link from 'next/link';
 import { EligibilityBadge } from '../components/eligibilityBadge';
 import { NaverLinkButton } from '../components/naverLinkButton';
 import { PlaceItemsNote } from '../components/placeItemsNote';
-import { PetBadges } from '../components/petBadges';
 import { PlaceThumb } from '../components/placeThumb';
 import { SaveButton } from '../components/saveButton';
 import { SavedNoteLine } from '../components/savedNoteLine';
 import { TownChip } from '../components/townChip';
 import { Button } from '@/components/base/button';
 import { categoryLabel } from '../lib/category';
-import { primaryReason, verdictHidesBadge } from '../lib/eligibility';
+import { distanceLabel } from '../lib/distanceSort';
+import { primaryReason } from '../lib/eligibility';
 import { naverDirectionsUrl } from '../lib/naverPlaceLink';
 import { freshnessShortLabel } from '../lib/placeFreshness';
-import { TYPE_META, type TPlaceEntry } from '../lib/places';
+import { TYPE_META, distanceKm, type TPlaceEntry } from '../lib/places';
 import { useToday } from '../hooks/useToday';
-import { useDogCount, useDogMaxWeightKg, useEligibility } from '../store/useDogEligibility';
+import { useEligibility } from '../store/useDogEligibility';
 
 type TMapPageSheetCardProps = {
   place: TPlaceEntry;
+  /** '내 위치' 로 받은 좌표. 있으면 주소 줄 앞에 거리를 붙인다(둘러보기 '가까운 순' 카드와 같은 표기). 지도 화면 state 에만 있다. */
+  origin?: { lat: number; lng: number } | null;
 };
 
 /**
@@ -29,14 +31,20 @@ type TMapPageSheetCardProps = {
  *
  * 닫기 버튼은 여기 없다 — 시트 껍데기(BottomSheet)가 자기 닫기 버튼을 갖고 있고,
  * 데스크톱 패널에는 닫을 것이 없다.
+ *
+ * **훑어보는 카드다 — 판정·거리·주소·길찾기만**(14 W261013.6). 마커 하나에 시트가 화면 3/4~80% 를 덮었고 그 대부분이
+ * 준비물 칩 7개였다(도넛 카페에도 기저귀) — 지도를 보려고 연 것인데 지도가 안 보였다. 그래서 목록 카드와 일부러 갈린다:
+ * 소개 두 줄과 조건 칩은 상세의 몫으로 넘기고(대표 근거 한 줄 `primaryReason` 은 목록과 같은 말로 남긴다 — 12 U1.7),
+ * 목록 카드엔 없는 주소·거리를 더하고, 준비물은 머리 줄로 접는다. 데스크톱 패널도 같은 카드라 고른 카드가 패널 절반을 먹던 것이 함께 준다(ADR-008 v24).
  */
-export function MapPageSheetCard({ place }: TMapPageSheetCardProps) {
+export function MapPageSheetCard({ place, origin }: TMapPageSheetCardProps) {
   const eligibility = useEligibility(place);
   const reason = eligibility ? primaryReason(eligibility) : undefined;
-  const weightKg = useDogMaxWeightKg();
-  const dogCount = useDogCount();
   const verified = freshnessShortLabel(place, useToday());
   const directions = naverDirectionsUrl(place);
+  const distance = origin && place.geo ? distanceLabel(distanceKm(origin, place.geo)) : null;
+  // 주소가 없는 곳(8곳)은 비었다고 말한다 — 다른 카드엔 다 있는 줄이 말없이 빠지면 "여기만 왜" 가 된다(14 W261013.7).
+  const address = place.address || '주소는 아직 확인하지 못했어요';
 
   return (
     <div>
@@ -53,6 +61,10 @@ export function MapPageSheetCard({ place }: TMapPageSheetCardProps) {
                 {verified && ` · ${verified}`}
               </span>
             </div>
+            <p className="mt-1 truncate text-sm text-secondary">
+              {distance && <span className="font-semibold text-primary">{distance} · </span>}
+              {address}
+            </p>
           </div>
         </div>
 
@@ -66,23 +78,11 @@ export function MapPageSheetCard({ place }: TMapPageSheetCardProps) {
             {reason && <span className="truncate text-sm text-secondary">{reason.text}</span>}
           </div>
         )}
-
-        {/* 소개가 없는 곳(21 S7)은 빈 줄을 그리지 않는다 — 빈 <p> 도 위 여백을 먹는다. */}
-        {place.features && <p className="clamp-2 mt-2.5 text-sm text-secondary">{place.features}</p>}
-        {/* 목록 카드와 같은 거르기 — 판정과 반대로 읽히는 ✓ 칩, 머리글·근거 줄이 이미 한 말은 뺀다(14 W261013.1). */}
-        <PetBadges
-          policy={place.policy}
-          limit={3}
-          hideNoInfo={Boolean(eligibility)}
-          hide={eligibility ? verdictHidesBadge(eligibility, place.policy, reason) : undefined}
-          weightKg={weightKg}
-          dogCount={dogCount}
-          className="mt-2.5"
-        />
       </Link>
 
       {/* 카드 본문 바깥에 둔다 — 자기도 링크라서 위 <Link> 안에 넣으면 a 안에 a 가 된다. */}
-      <PlaceItemsNote place={place} className="mt-3" />
+      {/* 접어 둔다 — 머리 줄(몇 가지 중 몇 챙김)만. 마커를 바꾸면 접힘·누른 흔적이 다음 곳으로 새지 않게 장소마다 새로 단다. */}
+      <PlaceItemsNote key={place.id} place={place} folded className="mt-3" />
 
       {/* 지도에서 고른 곳은 "지금 여기로" 가 가장 잦은 동작(16 T1.5) — 저장 카드·상세와 같은 한 곳짜리 길찾기. 버튼 줄에 세 번째로 넣으면 좁아 따로 한 줄. */}
       {directions && (
