@@ -8,6 +8,7 @@ import {
   holdAppStatus,
   isAtStatusLink,
   releaseAppStatus,
+  shouldClearStatusOnRoute,
   statusDurationMs,
   showAppStatus,
   subscribeAppStatus,
@@ -145,5 +146,38 @@ describe('isAtStatusLink — 링크가 가리키는 화면에 와 있나', () =>
   it('이름이 앞만 같은 다른 화면은 아니다', () => {
     expect(isAtStatusLink('/savedx/', '/saved')).toBe(false);
     expect(isAtStatusLink('/map/', '/saved')).toBe(false);
+  });
+});
+
+describe('shouldClearStatusOnRoute — 화면이 바뀌면 그 화면의 알림을 걷는다(14 W261013.9)', () => {
+  const plain = { id: 1, text: '저장을 취소했어요', action: { label: '되돌리기', onPress: () => {} } };
+  const kept = { id: 2, text: '콩이를 등록했어요', keepOnNavigate: true as const };
+  const linked = { id: 3, text: '저장했어요', link: { href: '/saved', label: '저장한 곳 보기' } };
+
+  it('알림이 없으면 걷을 것도 없다', () => {
+    expect(shouldClearStatusOnRoute(null, { from: '/', to: '/dog/' })).toBe(false);
+  });
+
+  it('기본 알림은 경로가 바뀌면 걷힌다 — 목록에서 끈 하트의 되돌리기가 강아지 수정에 남지 않는다', () => {
+    expect(shouldClearStatusOnRoute(plain, { from: '/places/restaurant/', to: '/dog/' })).toBe(true);
+    expect(shouldClearStatusOnRoute(linked, { from: '/places/stay/', to: '/place/abc/' })).toBe(true);
+  });
+
+  it('둘러보기 종류 전환도 화면 이동이다', () => {
+    expect(shouldClearStatusOnRoute(plain, { from: '/places/cafe/', to: '/places/restaurant/' })).toBe(true);
+  });
+
+  it('끝 슬래시만 다르면 같은 화면이라 남는다', () => {
+    expect(shouldClearStatusOnRoute(plain, { from: '/dog', to: '/dog/' })).toBe(false);
+    expect(shouldClearStatusOnRoute(plain, { from: '/dog/', to: '/dog/' })).toBe(false);
+  });
+
+  it('keepOnNavigate 는 화면이 바뀌어도 남는다 — 프로필 저장 뒤 돌아간 화면', () => {
+    expect(shouldClearStatusOnRoute(kept, { from: '/dog/', to: '/place/abc/' })).toBe(false);
+  });
+
+  it('링크가 가리키는 화면에 와 있으면 이동이 없어도 걷는다', () => {
+    expect(shouldClearStatusOnRoute(linked, { from: '/saved/', to: '/saved/' })).toBe(true);
+    expect(shouldClearStatusOnRoute({ ...linked, keepOnNavigate: true }, { from: '/', to: '/saved/' })).toBe(true);
   });
 });

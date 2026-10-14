@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useSyncExternalStore } from 'react';
+import { useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -8,8 +8,8 @@ import {
   getAppStatus,
   getServerAppStatus,
   holdAppStatus,
-  isAtStatusLink,
   releaseAppStatus,
+  shouldClearStatusOnRoute,
   subscribeAppStatus,
 } from '../../lib/appStatus';
 
@@ -30,11 +30,17 @@ export function AppStatusToast() {
   const status = useSyncExternalStore(subscribeAppStatus, getAppStatus, getServerAppStatus);
   const pathname = usePathname();
 
-  // 링크가 가리키는 화면에 (링크가 아닌 길로) 와 있으면 걷는다 — 저장한 곳 위의 '저장한 곳 보기'. 다른 이동에는 알림이 그대로 남는다.
-  const linkHref = status?.link?.href;
-  useEffect(() => {
-    if (linkHref && isAtStatusLink(pathname, linkHref)) clearAppStatus();
-  }, [pathname, linkHref]);
+  /*
+   * 화면이 바뀌면 그 화면의 알림을 걷고, 링크가 가리키는 화면에 와 있으면 걷는다(`shouldClearStatusOnRoute`). 알림이 바뀔 때도 묻는다 —
+   * 저장한 곳에서 띄운 '저장한 곳 보기'. 그리기 전(layout)에 걷어야 새 화면에 옛 알림이 한 프레임도 비치지 않는다. 새 화면의 마운트
+   * effect 가 띄운 알림은 이보다 뒤(passive)라 걷히지 않는다.
+   */
+  const lastPathname = useRef(pathname);
+  useLayoutEffect(() => {
+    const from = lastPathname.current;
+    lastPathname.current = pathname;
+    if (shouldClearStatusOnRoute(status, { from, to: pathname })) clearAppStatus();
+  }, [pathname, status]);
 
   return (
     <div

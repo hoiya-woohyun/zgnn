@@ -9,6 +9,7 @@ import { showAppStatus } from '../../lib/appStatus';
  * **처음 설치는 알리지 않는다.** `clientsClaim` 이라 첫 방문에도 서비스워커가 화면을 맡으며 `controllerchange` 가 한 번 오는데,
  * 그때는 바뀐 것이 없다. 마운트 때 이미 맡은 서비스워커가 있었을 때만 "새" 버전이다.
  * 알림은 새로고침을 강요하지 않는다 — 폼을 쓰던 사람이 있다. 10초 동안 떠 있다.
+ * 화면이 아니라 앱에 대한 알림이라 화면을 옮겨도 남는다(`keepOnNavigate`).
  */
 export function AppShellUpdateNotice() {
   useEffect(() => {
@@ -20,6 +21,7 @@ export function AppShellUpdateNotice() {
       showAppStatus('새 정보가 있어요', {
         action: { label: '새로고침', onPress: () => window.location.reload() },
         durationMs: 10_000,
+        keepOnNavigate: true,
       });
     };
     container.addEventListener('controllerchange', onChange);

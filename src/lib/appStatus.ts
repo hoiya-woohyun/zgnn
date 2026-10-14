@@ -5,6 +5,10 @@
  * (셸의 `AppStatusToast`)이 서로 모르는 곳에 있고, 프로필 저장처럼 **띄운 직후 화면이 바뀌는**
  * 경우에도 메시지가 살아남아야 해서다 — 화면 안 state 였다면 이동과 함께 지워진다.
  *
+ * 그래도 **기본은 그 화면의 알림**이다 — 화면이 바뀌면 셸이 걷는다(`shouldClearStatusOnRoute`). 하트 해제의
+ * "저장을 취소했어요 · 되돌리기" 가 강아지 수정까지 따라와 '고치기' 를 덮자 "강아지 저장이 취소된 줄" 읽혔다(14 W261013.9).
+ * 이동 뒤에도 살아야 하는 알림만 `keepOnNavigate` 를 단다.
+ *
  * 그리는 자리는 반드시 `<main>` 밖이다(ADR-014). 스와이프 중 `<main>` 에 transform 이 걸리면
  * 그 안의 `fixed` 는 화면이 아니라 `<main>` 을 기준으로 삼아 자리가 어긋난다.
  *
@@ -26,6 +30,8 @@ export type TAppStatus = {
   text: string;
   link?: TAppStatusLink;
   action?: TAppStatusAction;
+  /** 화면이 바뀌어도 걷지 않는다 — `TShowOpts.keepOnNavigate`. */
+  keepOnNavigate?: true;
 };
 
 type TShowOpts = {
@@ -33,6 +39,11 @@ type TShowOpts = {
   action?: TAppStatusAction;
   /** 떠 있는 시간(ms). 링크가 있으면 누를 틈이 필요해 조금 더 길게 준다. */
   durationMs?: number;
+  /**
+   * 화면이 바뀌어도 남긴다. 띄우고 곧바로 화면을 옮기는 알림(프로필 저장 뒤 돌아가기)과 화면이 아니라 앱에 대한 알림(새 버전)만 —
+   * 나머지는 그 화면의 동작을 말하므로 다른 화면에 남으면 그 화면의 일로 읽힌다(14 W261013.9).
+   */
+  keepOnNavigate?: boolean;
 };
 
 /** 기본 노출 시간. 한 줄을 읽기에 충분하고, 다음 동작을 가릴 만큼 길지 않다. */
@@ -104,7 +115,13 @@ const armTimer = (id: number, ms: number) => {
 };
 
 export const showAppStatus = (text: string, opts: TShowOpts = {}): TAppStatus => {
-  const status: TAppStatus = { id: nextId++, text, ...(opts.link ? { link: opts.link } : {}), ...(opts.action ? { action: opts.action } : {}) };
+  const status: TAppStatus = {
+    id: nextId++,
+    text,
+    ...(opts.link ? { link: opts.link } : {}),
+    ...(opts.action ? { action: opts.action } : {}),
+    ...(opts.keepOnNavigate ? { keepOnNavigate: true } : {}),
+  };
   current = status;
   heldRemainingMs = null;
   emit();
@@ -145,14 +162,31 @@ export const createFirstTimesGate = (limit: number) => {
   };
 };
 
+/** 주소는 끝 슬래시 유무가 섞여 온다(`trailingSlash`) — 떼고 견준다. `/dog` 와 `/dog/` 는 같은 화면이다. */
+const trimPath = (path: string) => path.replace(/\/+$/, '') || '/';
+
 /**
  * 알림의 링크가 가리키는 화면에 이미 와 있는가. 그러면 셸이 알림을 걷는다 — '저장한 곳 보기' 가 저장한 곳 위에 남으면
- * 지금 화면으로 가라는 말이 된다(14 W261007.19). 알림을 일괄로 걷지 않는 것은 이동 뒤에도 살아야 하는 알림이 있어서다(프로필 저장).
- * 주소는 끝 슬래시 유무가 섞여 온다(`trailingSlash`) — 둘 다 떼고 견주고, 그 아래 경로(`/saved/x`)도 도착으로 친다.
+ * 지금 화면으로 가라는 말이 된다(14 W261007.19). 이동이 아니어도 걷는다 — 저장한 곳에서 띄운 '저장한 곳 보기' 도 같은 말이다.
+ * 그 아래 경로(`/saved/x`)도 도착으로 친다.
  */
 export const isAtStatusLink = (pathname: string, href: string): boolean => {
-  const trim = (path: string) => path.replace(/\/+$/, '') || '/';
-  const here = trim(pathname);
-  const target = trim(href.split(/[?#]/)[0]);
+  const here = trimPath(pathname);
+  const target = trimPath(href.split(/[?#]/)[0]);
   return here === target || here.startsWith(`${target}/`);
+};
+
+/**
+ * 주소가 `from` 에서 `to` 로 바뀐(또는 그대로인) 지금, 떠 있는 알림을 걷는가. 셸이 주소가 바뀔 때와 알림이 바뀔 때 묻는다.
+ *
+ * - 링크가 가리키는 화면에 와 있으면 걷는다(`isAtStatusLink`).
+ * - **화면이 바뀌었으면 걷는다** — 알림은 그 화면의 동작을 말한다. 다른 화면에 남으면 그 화면의 일로 읽히고(하트 해제 알림 →
+ *   강아지 수정에서 "강아지 저장이 취소된 줄"), 그 화면의 주 버튼을 덮는다(14 W261013.9). `keepOnNavigate` 만 남는다.
+ *   둘러보기의 종류 전환(`/places/cafe` → `/places/restaurant`)도 화면 이동이다 — 손가락에게 같은 동작이다(ADR-014).
+ *   쿼리만 바뀐 것은 이동이 아니다(셸은 경로만 넘긴다 — 공유받은 목록을 담고 `/saved/` 로 갈아 끼우는 것은 같은 화면).
+ */
+export const shouldClearStatusOnRoute = (status: TAppStatus | null, route: { from: string; to: string }): boolean => {
+  if (status === null) return false;
+  if (status.link && isAtStatusLink(route.to, status.link.href)) return true;
+  return !status.keepOnNavigate && trimPath(route.from) !== trimPath(route.to);
 };
