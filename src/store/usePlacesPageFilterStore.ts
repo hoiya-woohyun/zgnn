@@ -4,7 +4,7 @@ import type { TPetFilterKey } from '../lib/placeFilters';
 import type { TDirection, TPlaceType } from '../types';
 
 /**
- * 둘러보기의 검색어·방향·'어려운 곳 숨기기'·종류별 반려동물 조건 — 종류 탭을 넘겨도, 상세에 갔다 돌아와도 남는다(07 U3).
+ * 둘러보기의 검색어·방향·'어려운 곳 숨기기'·종류별 반려동물 조건·종류별 '어려움 N곳' 펼침 — 종류 탭을 넘겨도, 상세에 갔다 돌아와도 남는다(07 U3).
  *
  * **`persist` 를 붙이지 않는다.** `useAppStore` 는 통째로 localStorage 에 저장돼서(`zgnn-jeju`) 여기 두면 지난 방문의
  * 검색어가 다음 방문의 첫 화면을 걸러 버린다. 모듈 메모리라 SPA 안에서만 살고 새로고침하면 사라진다.
@@ -26,6 +26,13 @@ type TPlacesPageFilterState = {
   area: TAreaId | null;
   /** 조건 항목이 종류마다 달라서(숙소엔 환경 조건) 종류별로 따로 둔다 — 숙소 → 식당 → 숙소 로 돌아오면 숙소 칩이 그대로다. */
   petKeysByType: Record<TPlaceType, TPetFilterKey[]>;
+  /**
+   * 목록 끝 '어려움 N곳' 접힘을 펼쳐 뒀는가(14 W261013.13). 조건이 아니라 **보기 상태**라 칩·곳 수에 안 들어가고 `resetConditions` 도 안 푼다.
+   * 컴포넌트 상태였을 때는 상세에 갔다 오면(화면이 새로 마운트된다) 접혀, 펼쳐 둔 17곳 중 다음 집이 화면에 없었다 —
+   * 셸이 떠 둔 스냅샷(펼친 채)과 돌아온 목록(접힌 채)의 높이가 달라 기억한 스크롤 자리도 잘렸다.
+   * 종류별인 이유는 `petKeysByType` 와 같고, 엿보기도 같은 값을 읽어 손을 놓아도 모양이 같다(ADR-013).
+   */
+  hardOpenByType: Record<TPlaceType, boolean>;
   setQuery: (query: string) => void;
   clearQuery: () => void;
   /** 홈 관광지 칩의 진입 — 검색어를 바꾸고 권역은 푼다. */
@@ -40,6 +47,7 @@ type TPlacesPageFilterState = {
   toggleHideHard: () => void;
   setHideHard: (value: boolean) => void;
   togglePetKey: (type: TPlaceType, key: TPetFilterKey) => void;
+  toggleHardOpen: (type: TPlaceType) => void;
   /** 검색어는 두고 조건만 푼다 — 다른 종류의 칩까지(보이지 않는 조건이 남지 않게). */
   resetConditions: () => void;
 };
@@ -53,6 +61,7 @@ export const usePlacesPageFilterStore = create<TPlacesPageFilterState>()((set) =
   onlyReachable: false,
   area: null,
   petKeysByType: emptyPetKeys(),
+  hardOpenByType: { stay: false, restaurant: false, cafe: false },
   setQuery: (query) => set({ query }),
   clearQuery: () => set({ query: '' }),
   enterLandmark: (word) => set({ query: word, area: null, onlyReachable: false }),
@@ -74,5 +83,7 @@ export const usePlacesPageFilterStore = create<TPlacesPageFilterState>()((set) =
       const next = current.includes(key) ? current.filter((value) => value !== key) : [...current, key];
       return { petKeysByType: { ...state.petKeysByType, [type]: next } };
     }),
+  toggleHardOpen: (type) =>
+    set((state) => ({ hardOpenByType: { ...state.hardOpenByType, [type]: !state.hardOpenByType[type] } })),
   resetConditions: () => set({ directions: [], hideHard: false, petKeysByType: emptyPetKeys() }),
 }));

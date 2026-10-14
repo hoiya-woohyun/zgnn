@@ -35,7 +35,7 @@ import type { TDirection, TPlaceType } from '../types';
  */
 export function PlacesPage({ type }: { type: TPlaceType }) {
   /*
-   * 검색어·방향·'어려운 곳 숨기기'·종류별 반려동물 조건은 스토어(`usePlacesPageFilterStore`)에 살아 종류를 바꿔도 남는다(07 U3).
+   * 검색어·방향·'어려운 곳 숨기기'·종류별 반려동물 조건·종류별 '어려움 N곳' 펼침은 스토어(`usePlacesPageFilterStore`)에 살아 종류를 바꿔도 남는다(07 U3).
    * 정렬·기준점·시트 열림은 종류마다 처음부터다 — 가격순은 숙소에서만, 가까운 순은 위치를 받아야 의미가 있어서 따라오면
    * 칩과 숫자만 있고 아무 일도 안 하는 조건이 된다. 리셋을 useEffect 로 하면 이전 값이 한 프레임 먼저 그려지므로
    * key 로 그 로컬 상태를 통째로 새로 만든다 — 들어오는 애니메이션도 마운트마다 한 번이다.

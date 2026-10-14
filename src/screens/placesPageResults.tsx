@@ -19,6 +19,7 @@ import { areaTownsLabel, type TAreaId } from '../lib/areaGroups';
 import { josa, withJosa } from '../lib/korean';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
 import { useAppStore } from '../store/useAppStore';
+import { usePlacesPageFilterStore } from '../store/usePlacesPageFilterStore';
 import type { TPlaceType } from '../types';
 import { cx } from '../utils/cx';
 
@@ -156,7 +157,8 @@ export function PlacesPageResults({
   const [outdoorOpen, setOutdoorOpen] = useState(false);
 
   // 어려운 곳은 끝에 접는다(08 T5.3) — 프로필이 있을 때 기본 보기. 곳 수는 그대로 세고 카드만 접는다(`placesPageHardFold`).
-  // 열림은 이 마운트에만 — 종류를 바꾸면(`key={type}`) 다시 접히고, 엿보기는 늘 접힌 채라 손을 놓아도 모양이 같다.
+  // 열림은 종류별로 스토어에 산다(14 W261013.13) — 마운트에 두면 상세에 갔다 오는 순간 접혀 펼쳐 둔 다음 집이 화면에 없었다.
+  // 엿보기도 같은 `type` 으로 같은 값을 읽어 손을 놓아도 모양이 같다.
   const fold = useMemo(
     () =>
       dog
@@ -164,7 +166,8 @@ export function PlacesPageResults({
         : { shown: results, folded: [] },
     [results, dog, needsIndoor],
   );
-  const [hardOpen, setHardOpen] = useState(false);
+  const hardOpen = usePlacesPageFilterStore((state) => state.hardOpenByType[type]);
+  const toggleHardOpen = usePlacesPageFilterStore((state) => state.toggleHardOpen);
 
   // 넓은 화면은 두 열(07 U10). lg 부터 — md 는 사이드바를 빼면 본문이 512px 이라 한 열 카드가 이미 그 폭이다.
   const listClass = 'space-y-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3 lg:space-y-0';
@@ -340,7 +343,7 @@ export function PlacesPageResults({
               <button
                 type="button"
                 aria-expanded={hardOpen}
-                onClick={() => setHardOpen((open) => !open)}
+                onClick={() => toggleHardOpen(type)}
                 className="flex min-h-11 w-full items-center justify-center gap-1 rounded-xl border border-secondary text-sm font-semibold text-secondary hover:bg-tertiary"
               >
                 어려움 {fold.folded.length}곳 {hardOpen ? '접기' : '보기'}
