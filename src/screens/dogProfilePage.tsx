@@ -111,6 +111,8 @@ export function DogProfilePage() {
   const [heavyAsk, setHeavyAsk] = useState<TDogEntry[] | null>(null);
   /** 폼을 떠날 때 남긴 입력으로 채웠다 — 저장된 값과 다르다는 것을 말해야 한다(14 W261013.5 · youngja-23). */
   const [restored, setRestored] = useState(false);
+  /** 이 화면에서 방금 프로필을 지웠다 — 삭제 버튼 자리를 누를 수 없는 줄이 지킨다(아래 「프로필 삭제」 자리, 14 W261010.7d). */
+  const [deletedHere, setDeletedHere] = useState(false);
 
   /**
    * 하이드레이션이 끝난 시점의 dog 로 폼을 한 번만 채운다. 이펙트 대신 "렌더 중 상태 조정"
@@ -232,12 +234,14 @@ export function DogProfilePage() {
     const removed = dog;
     clearDog();
     seedForm(null);
+    setDeletedHere(true);
     showAppStatus('프로필을 지웠어요', {
       action: {
         label: '되돌리기',
         onPress: () => {
           setDog(removed);
           seedForm(removed);
+          setDeletedHere(false);
         },
       },
       durationMs: STATUS_UNDO_MS,
@@ -367,16 +371,23 @@ export function DogProfilePage() {
                 {dog ? '고치기' : '등록하기'}
               </Button>
             </div>
-            {dog && (
-              <Button
-                type="button"
-                color="secondary-destructive"
-                size="lg"
-                className="w-full"
-                onClick={handleDelete}
-              >
-                프로필 삭제
-              </Button>
+            {/*
+              '프로필 삭제' 는 주 버튼과 같은 크기로 바로 밑(26px)에 있었다 — 손이 떨려 두 번 눌리면 둘째가 '등록하기' 를 눌렀다
+              (14 W261010.7d · tremor-10). 맨 아래 버튼이 사라지면 문서가 짧아져 끝까지 내린 스크롤이 당겨지고, 바로 위 '등록하기' 가
+              그 자리로 내려온다(1280 실측: 옛 자리 세 지점이 전부 '등록하기'). 그래서 둘을 함께 한다 — **떼고 낮춘다**(조용한 글자 버튼,
+              데스크톱은 주 버튼과 64px — 지우면 이동 수단 안내 한 줄만큼 주 버튼 줄이 자라서 그보다 넓게), 그리고 **지운 뒤에도 자리를
+              지킨다**: 같은 높이(`h-11`)의 누를 수 없는 줄이 그 칸에 남아 문서 높이가 그대로다. 되돌리면 버튼이 돌아온다.
+            */}
+            {(dog || deletedHere) && (
+              <div className="flex justify-center md:pt-10">
+                {dog ? (
+                  <Button type="button" color="tertiary-destructive" size="md" className="h-11" onClick={handleDelete}>
+                    프로필 삭제
+                  </Button>
+                ) : (
+                  <p className="flex h-11 items-center text-sm text-tertiary">프로필을 지웠어요</p>
+                )}
+              </div>
             )}
           </form>
         )}
