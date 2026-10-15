@@ -5,23 +5,57 @@
  * 위치는 누를 때 한 번 받고(`myLocation.locateMe`) **저장하지도 보내지도 않는다** — 정렬에 쓰고 사라진다(ADR-012 대상 아님).
  */
 
-import { distanceKm } from './places';
+import { distanceKm, PLACES_BY_ID, type TPlaceEntry } from './places';
+import type { TPlaceType } from '../types';
 
 type TGeoLike = { geo?: { lat: number; lng: number } };
 
-/** 가까운 순. 좌표가 없는 곳은 **뒤로**(가격 정렬이 요금 모르는 곳을 뒤로 보내는 것과 같은 규칙), 그 안에서는 원래 순서. */
-export function sortByDistance<T extends TGeoLike>(list: readonly T[], origin: { lat: number; lng: number }): T[] {
+/**
+ * 가까운 순. 좌표가 없는 곳은 **뒤로**(가격 정렬이 요금 모르는 곳을 뒤로 보내는 것과 같은 규칙), 그 안에서는 원래 순서.
+ * `within` 에 안 드는 곳도 좌표 없는 곳처럼 뒤로 간다 — 기준이 장소일 때 배를 타야 닿는 다른 섬(`sameIsland`). 직선 5km 여도 다른 하루다.
+ */
+export function sortByDistance<T extends TGeoLike>(
+  list: readonly T[],
+  origin: { lat: number; lng: number },
+  within?: (item: T) => boolean,
+): T[] {
   return list
-    .map((item, index) => ({ item, index, km: item.geo ? distanceKm(origin, item.geo) : Number.POSITIVE_INFINITY }))
+    .map((item, index) => ({
+      item,
+      index,
+      km: item.geo && (within?.(item) ?? true) ? distanceKm(origin, item.geo) : Number.POSITIVE_INFINITY,
+    }))
     .sort((a, b) => a.km - b.km || a.index - b.index)
     .map(({ item }) => item);
 }
 
-/** 장소 id → 거리(km). 좌표가 없는 곳은 빠진다. */
-export function distancesFrom<T extends TGeoLike & { id: string }>(list: readonly T[], origin: { lat: number; lng: number }): Map<string, number> {
+/** 장소 id → 거리(km). 좌표가 없는 곳·`within` 에 안 드는 곳은 빠진다(카드에 km 가 안 붙는다 — 뒤로 간 까닭과 같다). */
+export function distancesFrom<T extends TGeoLike & { id: string }>(
+  list: readonly T[],
+  origin: { lat: number; lng: number },
+  within?: (item: T) => boolean,
+): Map<string, number> {
   const map = new Map<string, number>();
-  for (const item of list) if (item.geo) map.set(item.id, distanceKm(origin, item.geo));
+  for (const item of list) if (item.geo && (within?.(item) ?? true)) map.set(item.id, distanceKm(origin, item.geo));
   return map;
+}
+
+/**
+ * 상세 「근처 장소」 → 둘러보기 '○○에서 가까운 순'(14 W261013.14o). 숙소 근처 식당을 보려던 사람이 목록의 '가까운 순' 을 골랐다가
+ * "위치 권한이 꺼져 있어요" 에서 막혔다(seongho-28) — 기준이 내 위치뿐인데, 여행을 짜는 사람은 아직 제주에 없다.
+ *
+ * 기준 장소는 **주소(`?near=<id>`)에만** 산다. 정렬은 화면 state 라 식당 하나를 보고 돌아오면(목록이 새로 마운트된다) 풀리고,
+ * 스토어에 두면 다른 종류 탭·다음 방문까지 샌다 — 주소는 뒤로가기에 그대로 남고 다른 종류로 넘기면 저절로 빠진다.
+ */
+export const NEAR_PARAM = 'near';
+
+export const placesNearHref = (type: TPlaceType, placeId: string): string =>
+  `/places/${type}/?${NEAR_PARAM}=${encodeURIComponent(placeId)}`;
+
+/** 주소의 쿼리 → 기준 장소. 모르는 id·좌표 없는 곳이면 null — 그때는 평소 목록이다. */
+export function nearPlaceOf(search: string): TPlaceEntry | null {
+  const place = PLACES_BY_ID.get(new URLSearchParams(search).get(NEAR_PARAM) ?? '');
+  return place?.geo ? place : null;
 }
 
 /** 카드에 붙는 거리 — 1km 아래는 50m 단위, 그 위는 소수 한 자리(10km 부터는 정수). */

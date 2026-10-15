@@ -238,6 +238,9 @@ export const distanceKm = (
 const ISLAND_TOWNS: ReadonlySet<string> = new Set(['우도면', '추자면']);
 const islandOf = (place: TPlaceEntry): string => (ISLAND_TOWNS.has(place.region.town) ? place.region.town : '본섬');
 
+/** 배 없이 오가는 같은 섬인가 — 장소에서 잰 거리(근처 장소 · 둘러보기 '○○에서 가까운 순')가 다른 섬을 섞지 않게. */
+export const sameIsland = (a: TPlaceEntry, b: TPlaceEntry): boolean => islandOf(a) === islandOf(b);
+
 /** 좌표가 있는 장소 중 가까운 순으로 — 같은 섬 안에서만. 좌표가 없는 장소는 빈 배열을 돌려준다. */
 export const nearbyPlaces = (place: TPlaceEntry, limit = 3): { place: TPlaceEntry; km: number }[] => {
   const origin = place.geo;

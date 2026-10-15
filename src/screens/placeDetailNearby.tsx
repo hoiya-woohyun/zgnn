@@ -6,14 +6,15 @@ import { FilterChip } from '../components/filterChip';
 import { PetBadges } from '../components/petBadges';
 import { PlaceThumb } from '../components/placeThumb';
 import { TownChip } from '../components/townChip';
-import { pickNearby } from '../lib/distanceSort';
+import { pickNearby, placesNearHref } from '../lib/distanceSort';
 import { reasonBadgeLabel, verdictHidesBadge } from '../lib/eligibility';
 import { formatKm } from '../lib/format';
 import { dogCallNames, withJosa } from '../lib/korean';
-import { nearbyPlaces, TYPE_META, type TPlaceEntry } from '../lib/places';
+import { nearbyPlaces, PLACE_TYPES, TYPE_META, type TPlaceEntry } from '../lib/places';
 import { PLACE_DETAIL_NEARBY_NO_GEO, placeDetailLocationOf } from '../lib/placeDetailLocation';
 import { useAppStore } from '../store/useAppStore';
 import { useDogCount, useDogMaxWeightKg, useEligibilityMap } from '../store/useDogEligibility';
+import { usePlacesPageFilterStore } from '../store/usePlacesPageFilterStore';
 import type { TPlaceType } from '../types';
 import { CARD_SURFACE } from '../components/cardSurface';
 
@@ -35,9 +36,12 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
   const eligibilityMap = useEligibilityMap();
   const weightKg = useDogMaxWeightKg();
   const dogCount = useDogCount();
+  const enterNear = usePlacesPageFilterStore((state) => state.enterNear);
+  const setTown = useAppStore((state) => state.setTown);
 
-  // 종류로 걸러도 3곳을 채울 여유가 있게 넉넉히 가져온 뒤 고른다 — 순서는 거리 하나, 어려운 곳은 빼고 센다(`pickNearby`, 14 ↪ 12 U1.4).
-  const candidates = useMemo(() => nearbyPlaces(place, 20), [place]);
+  // 같은 섬 전부를 거리순으로 받고 종류로 거른 뒤 고른다 — 순서는 거리 하나, 어려운 곳은 빼고 센다(`pickNearby`, 14 ↪ 12 U1.4).
+  // 가까운 20곳에서 자르던 때는 종류 칩보다 자르기가 먼저라, 식당 상세 넷에서 '숙소' 칩이 30곳 중 2장만 그렸다(14 W261013.14o). 122곳이라 비용은 없다.
+  const candidates = useMemo(() => nearbyPlaces(place, Infinity), [place]);
 
   const { nearby, hiddenHard } = useMemo(() => {
     const filtered =
@@ -53,6 +57,12 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
 
   const dogNames = dog ? dogCallNames(dog.dogs.map((entry) => entry.name)) : '';
   const filterLabel = NEARBY_FILTERS.find((option) => option.id === filter)?.label ?? '';
+  // 카드 너머가 남은 종류만 '더 보기' 를 단다 — 우도처럼 같은 섬 곳이 다 보이면 목록으로 보낼 곳이 없다.
+  const moreTypes = (filter === 'all' ? PLACE_TYPES : [filter]).filter(
+    (moreType) =>
+      candidates.filter(({ place: other }) => other.type === moreType).length >
+      nearby.filter(({ place: other }) => other.type === moreType).length,
+  );
 
   // 좌표가 없어 못 찾은 것은 이유를 말한다 — 그 숙소를 거점으로 주변 식당을 찾던 사람에게 말없이 빈 자리는 "근처에 없다" 로 읽힌다(14 W261013.7).
   // 같은 섬에 다른 곳이 없어 빈 것(우도·추자)은 위치를 아는 것이라 이 말이 아니다 — 그건 아래에서 절째 뺀다.
@@ -138,6 +148,28 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
           <Button color="link-color" size="sm" className="min-h-11 shrink-0" onClick={() => setWithHard((on) => !on)}>
             {withHard ? '다시 빼기' : '함께 보기'}
           </Button>
+        </div>
+      )}
+
+      {/* 카드 너머는 목록으로 — 이 장소에서 잰 '가까운 순'(`?near=`). 숙소 근처 식당을 보려고 목록의 '가까운 순' 을 골랐다가
+          "위치 권한이 꺼져 있어요" 에서 막혔다(14 W261013.14o · seongho-28). 들어가며 다른 "어디"(검색어·권역·방향·읍면)는 푼다(`enterNear`). */}
+      {moreTypes.length > 0 && (
+        <div className="mt-1 flex flex-wrap items-center gap-x-4 px-4 md:px-6" data-ev="detail.nearMore">
+          {filter === 'all' && <span className="text-sm text-tertiary">가까운 순으로 더 보기</span>}
+          {moreTypes.map((moreType) => (
+            <Link
+              key={moreType}
+              href={placesNearHref(moreType, place.id)}
+              onClick={() => {
+                enterNear();
+                setTown(null);
+              }}
+              aria-label={`근처 ${TYPE_META[moreType].label} 더 보기`}
+              className="inline-flex min-h-11 items-center text-sm font-semibold text-brand-secondary hover:text-brand-secondary_hover"
+            >
+              {filter === 'all' ? TYPE_META[moreType].label : `근처 ${TYPE_META[moreType].label} 더 보기`}
+            </Link>
+          ))}
         </div>
       )}
     </section>

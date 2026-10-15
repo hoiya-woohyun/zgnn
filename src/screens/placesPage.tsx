@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { SearchMd } from '@untitledui/icons';
 import { PlacesPageEligibilityToggles } from './placesPageEligibilityToggles';
 import type { TActiveChip } from './placesPageActiveChips';
@@ -13,12 +13,12 @@ import { PlacesPageTypeTabs } from './placesPageTypeTabs';
 import { usePlaceTypeSwitch } from './placesPageTypeSwitch';
 import { Input } from '../components/base/input';
 import { SEARCH_FIELD } from '../components/noAutofill';
-import { TYPE_META } from '../lib/places';
+import { sameIsland, TYPE_META, type TPlaceEntry } from '../lib/places';
 import { comparePrice, resetFiltersLabel, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
 import { countByLevel, levelCountParts } from '../lib/eligibilityCounts';
 import { areaCarriedRelease, areaReleaseCount, filterPlacesPage, hideHardCount, onlyReachableCount, otherTypeHiddenMatches, otherTypeMatches, placesByTown, placesPageChips, reachableReleaseCount, townReleaseCount } from '../lib/placesPageFilter';
 import { sortByEligibility } from '../lib/sortByEligibility';
-import { distancesFrom, sortByDistance } from '../lib/distanceSort';
+import { distancesFrom, NEAR_PARAM, nearPlaceOf, sortByDistance } from '../lib/distanceSort';
 import { LOCATE_NOTICE, locateMe } from '../lib/myLocation';
 import { showAppStatus } from '../lib/appStatus';
 import { PlacesPageSuggest } from './placesPageSuggest';
@@ -28,6 +28,8 @@ import { usePlacesPageFilterStore } from '../store/usePlacesPageFilterStore';
 import { recordUiEvent } from '../lib/uiEventsSend';
 import { cx } from '../utils/cx';
 import type { TDirection, TPlaceType } from '../types';
+
+const useBeforePaint = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 /**
  * 종류는 라우트가 정해 준다(`app/places/[type]/page.tsx`).
@@ -76,6 +78,19 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
   const [sort, setSort] = useState<TPlaceSort>('none');
   /** 가까운 순의 기준점 — 고를 때 한 번 받는다. 저장하지 않는다(ADR-012 대상 아님). */
   const [origin, setOrigin] = useState<{ lat: number; lng: number } | null>(null);
+  /**
+   * 기준점이 내 위치가 아니라 **장소**일 때 그 장소(상세 「근처 장소」 의 '더 보기', `?near=`, 14 W261013.14o). 주소가 정본이고 여기는 그 읽은 값이다.
+   * 정적 HTML 은 쿼리를 모르고(`useSearchParams` 는 Suspense 경계를 요구한다 — `savedPage` 와 같은 까닭) 상세에서 돌아오면 새로 마운트되므로
+   * 마운트마다 주소에서 다시 읽는다. 칠하기 전에 읽어 정렬 전 목록이 한 번 그려졌다 바뀌지 않게.
+   */
+  const [nearPlace, setNearPlace] = useState<TPlaceEntry | null>(null);
+  useBeforePaint(() => {
+    const from = nearPlaceOf(window.location.search);
+    if (!from?.geo) return;
+    setNearPlace(from);
+    setOrigin(from.geo);
+    setSort('near');
+  }, []);
   // hideHard 는 강아지 프로필이 없으면 hard 판정 개념이 없어 애초에 토글이 보이지 않는다.
   /*
    * 모바일 필터 시트의 열림 상태. 시트 안이 아니라 여기에 두는 이유는 빈 상태의 버튼이
@@ -93,8 +108,8 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     // 걸러내기는 엿보기와 같은 함수다 — 정렬만 여기서 한다.
     let list = filterPlacesPage({ type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap });
     if (sort === 'near' && origin) {
-      // 가까운 순을 고르면 거리가 우선이다 — 가격 정렬과 같은 결정(B3). 좌표 없는 곳은 뒤로.
-      list = sortByDistance(list, origin);
+      // 가까운 순을 고르면 거리가 우선이다 — 가격 정렬과 같은 결정(B3). 좌표 없는 곳은 뒤로, 기준이 장소면 다른 섬도 뒤로(근처 장소와 같은 규칙).
+      list = sortByDistance(list, origin, nearPlace ? (place) => sameIsland(nearPlace, place) : undefined);
     } else if (type === 'stay' && (sort === 'asc' || sort === 'desc')) {
       // 가격 정렬을 고르면 가격이 우선이다(2026-09-15 리뷰 후속 B3 결정).
       list = [...list].sort(comparePrice(sort));
@@ -103,7 +118,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
       list = sortByEligibility(list, eligibilityMap, (place) => place.id);
     }
     return list;
-  }, [type, town, area, query, directions, petKeys, sort, origin, hideHard, onlyReachable, eligibilityMap]);
+  }, [type, town, area, query, directions, petKeys, sort, origin, nearPlace, hideHard, onlyReachable, eligibilityMap]);
 
   /*
    * 검색이 멈춘 뒤 결과 수 한 줄(ADR-029) — 검색어는 보내지 않는다. 글자마다 적지 않게 1.5초 조용할 때만, **검색어가 바뀌었을 때만**:
@@ -180,13 +195,30 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     [results, dog, needsIndoor],
   );
 
-  const distances = useMemo(() => (sort === 'near' && origin ? distancesFrom(results, origin) : undefined), [origin, results, sort]);
+  const distances = useMemo(() => {
+    if (sort !== 'near' || !origin) return undefined;
+    const map = distancesFrom(results, origin, nearPlace ? (place) => sameIsland(nearPlace, place) : undefined);
+    // 기준 장소 자신(숙소 상세 → 근처 숙소)은 0km 로 맨 위에 선다 — "50m" 를 붙이면 자기에게서 잰 거리가 된다. 칩이 이름을 말한다.
+    if (nearPlace) map.delete(nearPlace.id);
+    return map;
+  }, [origin, nearPlace, results, sort]);
 
   /*
    * 가까운 순은 고르는 순간 위치를 **한 번** 묻는다(10 F7). 거절·실패면 정렬을 바꾸지 않고 이유를 한 줄로 말한다 —
    * 거절한 사람에게 다시 묻지 않는다(브라우저가 이미 기억한다). 받은 좌표는 이 화면 state 에만 있고 저장하지 않는다.
    */
   const changeSort = async (next: TPlaceSort) => {
+    // 장소 기준은 들어올 때 한 번이다 — 다른 정렬로 바꾸면 놓고, 다시 '가까운 순' 을 누르면 내 위치를 묻는다.
+    // 주소에서도 지운다: 남겨 두면 상세를 보고 돌아올 때 마운트가 다시 읽어 고른 정렬을 되돌린다.
+    if (next !== 'near' && nearPlace) {
+      setNearPlace(null);
+      setOrigin(null);
+      const url = new URL(window.location.href);
+      url.searchParams.delete(NEAR_PARAM);
+      window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+      setSort(next);
+      return;
+    }
     if (next !== 'near' || origin) {
       setSort(next);
       return;
@@ -424,7 +456,11 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
               reachableReleaseCount={released.reachable}
               onClearOnlyReachable={clearOnlyReachable}
               areaCarried={areaCarried}
-              nearSort={{ pressed: sort === 'near', onToggle: () => void changeSort(sort === 'near' ? 'none' : 'near') }}
+              nearSort={{
+                pressed: sort === 'near',
+                onToggle: () => void changeSort(sort === 'near' ? 'none' : 'near'),
+                from: nearPlace?.name,
+              }}
               onCityDowntown={setTown}
               onReleaseAreaCarried={() => {
                 setTown(null);

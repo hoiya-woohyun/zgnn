@@ -80,8 +80,9 @@ type TPlacesPageResultsProps = {
   /**
    * '가까운 순' 칩(14 W261010.18) — 시트 맨 아래 드롭다운에 있던 것을 목록 위로 꺼냈다. 본 화면만 준다(엿보기는 정렬을 갖지 않아 눌러도 아무 일 없는 꺼진 칩).
    * 위치 권한이 없으면 정렬을 바꾸지 않고 이유만 말하는 것은 시트와 같다(`changeSort`).
+   * `from` 은 상세 「근처 장소」 로 들어온 기준 장소 이름(14 W261013.14o) — 칩이 "○○에서 가까운 순" 이라 말해야 카드의 km 를 내 위치에서 잰 값으로 읽지 않는다.
    */
-  nearSort?: { pressed: boolean; onToggle: () => void };
+  nearSort?: { pressed: boolean; onToggle: () => void; from?: string };
   /**
    * 시 이름 검색('서귀포')을 시내로 좁힌다 — 읍면 필터에 시내 태그('서귀포시')를 건다(14 W261010.30). 본 화면만 준다:
    * 엿보기는 같은 줄을 그리되 눌러도 아무 일 없다(`nearSort` 와 같은 까닭 — 줄이 있다 없다 하면 손을 놓는 순간 목록이 뛴다).
@@ -262,8 +263,17 @@ export function PlacesPageResults({
 
       {results.length > 0 && (
         <div className="px-4 pt-2 md:px-6">
-          <FilterChip pressed={nearSort?.pressed ?? false} onClick={nearSort?.onToggle}>
-            가까운 순
+          {/* 긴 이름("프레임스파빌 오션뷰펜션")이 320px 에서 넘치면 이름만 줄인다 — "에서 가까운 순" 이 잘리면 무엇을 하는 칩인지가 사라진다. */}
+          <FilterChip pressed={nearSort?.pressed ?? false} onClick={nearSort?.onToggle} className="max-w-full">
+            {nearSort?.from ? (
+              // 칩의 `gap-1` 이 이름과 '에서' 사이를 띄우지 않게 한 덩어리로 감싼다.
+              <span className="flex min-w-0">
+                <span className="truncate">{nearSort.from}</span>
+                <span className="shrink-0">에서 가까운 순</span>
+              </span>
+            ) : (
+              '가까운 순'
+            )}
           </FilterChip>
         </div>
       )}

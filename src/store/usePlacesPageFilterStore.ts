@@ -44,6 +44,12 @@ type TPlacesPageFilterState = {
   enterLandmark: (word: string) => void;
   /** 홈 동네 카드의 진입 — 권역 + '갈 수 있는 곳만'(카드가 센 집합, 강아지가 없으면 거르지 않는다), 검색어는 비운다. 숙소 탭으로 가는 것은 부르는 쪽(`usePlacesPageAreaEntry`). */
   enterArea: (area: TAreaId) => void;
+  /**
+   * 상세 「근처 장소」 의 '더 보기' 진입(14 W261013.14o) — '○○에서 가까운 순' 이 곧 "어디" 라 다른 "어디"(검색어·권역·방향)를 푼다.
+   * 남겨 두면 성산 숙소 기준으로 줄 세운 애월 식당이 된다. '갈 수 있는 곳만' 도 푼다 — 근처 카드는 어려움만 빼고 보여 줘서
+   * 따라온 그 값이 카드에 있던 '확인 필요' 곳을 목록에서 지운다. 강아지 조건 칩·'어려운 곳 숨기기' 는 둔다. 읍면은 부르는 쪽이 `setTown(null)`.
+   */
+  enterNear: () => void;
   clearArea: () => void;
   clearOnlyReachable: () => void;
   toggleOnlyReachable: () => void;
@@ -72,6 +78,7 @@ export const usePlacesPageFilterStore = create<TPlacesPageFilterState>()((set) =
   clearQuery: () => set({ query: '' }),
   enterLandmark: (word) => set({ query: word, area: null, onlyReachable: false }),
   enterArea: (area) => set({ area, onlyReachable: true, query: '' }),
+  enterNear: () => set({ query: '', area: null, directions: [], onlyReachable: false }),
   clearArea: () => set({ area: null }),
   clearOnlyReachable: () => set({ onlyReachable: false }),
   toggleOnlyReachable: () => set((state) => ({ onlyReachable: !state.onlyReachable })),
