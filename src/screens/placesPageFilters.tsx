@@ -137,12 +137,12 @@ export function PlacesPageFilters({
       {/*
         권역(홈 동네 카드)은 시트에 고르는 자리가 없어 시트 버튼 숫자에 안 들고 '모두 지우기' 도 안 푼다(19 T3 — 검색어와 같다).
         그런데 칩 이름이 읍면 목록("서부(애월·한림·한경)")이라 지운 뒤 남은 그 칩이 "안 지워진 읍면 필터" 로 읽혔다(14 W261010.33f · business-32).
-        읍면 수도 권역 안에서 세므로(W261010.33e — 권역 밖은 0) 그 까닭과 푸는 자리를 읍면 묶음에서 말한다. 펼친 판(bar)엔 설명 줄이 없다 — 지우기 버튼도 없다.
+        읍면을 고르면 권역을 대신해서(W261010.33i — 권역 밖 칩도 0 이 아니라 그 읍면의 수다) 그 일과 권역을 푸는 자리를 읍면 묶음에서 말한다. 펼친 판(bar)엔 설명 줄이 없다 — 지우기 버튼도 없다.
       */}
       <FilterGroup
         variant={variant}
         label="읍면"
-        hint={area ? `${areaTownsLabel(area)} 안에서 센 수예요. 권역은 목록 위 칩에서 따로 풀어요.` : undefined}
+        hint={area ? `읍면을 고르면 ${areaTownsLabel(area)} 대신 그 읍면만 봐요. 권역은 목록 위 칩에서 따로 풀어요.` : undefined}
       >
         {towns.map((candidate) => {
           const active = town === candidate;

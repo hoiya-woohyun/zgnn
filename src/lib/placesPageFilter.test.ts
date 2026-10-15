@@ -364,16 +364,17 @@ describe('townChipCounts — 읍면 칩 옆 수(14 W261010.33e)', () => {
     ['카페 · 두부 · 서부 권역 · 어려운 곳 숨기기', { ...base, type: 'cafe' as const, area: 'west' as const, hideHard: true, eligibilityMap: DUBU_MAP }],
   ] as const;
 
-  it.each(SETS)('%s — 칩의 수 = 그 칩을 눌렀을 때 남는 곳 수(다른 읍면이 안 골라져 있을 때)', (_, conditions) => {
+  it.each(SETS)('%s — 칩의 수 = 그 칩을 눌렀을 때 남는 곳 수(누르면 권역이 풀린다 — W261010.33i)', (_, conditions) => {
     const counts = townChipCounts(conditions);
     let total = 0;
     for (const town of townsOf(conditions.type)) {
-      const opened = filterPlacesPage({ ...conditions, town }).length;
+      // 화면의 `selectTown` 이 하는 일 그대로 — 읍면을 걸고 권역을 푼다.
+      const opened = filterPlacesPage({ ...conditions, town, area: null }).length;
       expect(counts.get(town) ?? 0, town).toBe(opened);
       total += opened;
     }
-    // 읍면 칩이 나누어 가진 수의 합 = 읍면을 안 고른 목록 수 — 빠지거나 겹치는 읍면이 없다.
-    expect(total).toBe(filterPlacesPage(conditions).length);
+    // 읍면 칩이 나누어 가진 수의 합 = 읍면·권역을 안 고른 목록 수 — 빠지거나 겹치는 읍면이 없다.
+    expect(total).toBe(filterPlacesPage({ ...conditions, area: null }).length);
     expect(total).toBeGreaterThan(0);
   });
 
@@ -409,14 +410,23 @@ describe('townChipCounts — 읍면 칩 옆 수(14 W261010.33e)', () => {
     expect(differs(stayCounts, townChipCounts({ ...stay, onlyReachable: true }))).toBe(true);
   });
 
-  it('권역 밖 읍면은 0 — 권역은 읍면 선택이 아니라서 빼지 않는다', () => {
-    const conditions = { ...base, type: 'stay' as const, area: 'west' as const };
-    const counts = townChipCounts(conditions);
+  it('권역이 걸려도 권역 밖 읍면은 0 이 아니다 — 읍면을 고르면 권역을 대신한다(W261010.33i, 예전엔 눌러서 0곳)', () => {
+    const free = { ...base, type: 'stay' as const, onlyReachable: true, eligibilityMap: BORI_MAP };
+    const counts = townChipCounts({ ...free, area: 'west' });
+    // 권역을 빼고 세므로 권역이 없을 때와 같은 칩 수다.
+    expect(counts).toEqual(townChipCounts(free));
+    let outsideSeen = 0;
     for (const town of townsOf('stay')) {
-      const inArea = areaOf({ region: { town } }) === 'west';
-      if (!inArea) expect(counts.get(town) ?? 0, town).toBe(0);
+      const count = counts.get(town) ?? 0;
+      if (areaOf({ region: { town } }) === 'west') {
+        // 권역 안 읍면은 권역을 지워도 같은 목록 — 그래서 `selectTown` 은 가리지 않고 권역을 지운다.
+        expect(count, town).toBe(filterPlacesPage({ ...free, area: 'west', town }).length);
+      } else if (count > 0) {
+        outsideSeen += 1;
+        expect(filterPlacesPage({ ...free, area: 'west', town }).length, `${town} 권역과 겹치면`).toBe(0);
+      }
     }
-    expect([...counts.values()].some((count) => count > 0)).toBe(true);
+    expect(outsideSeen).toBeGreaterThan(0);
   });
 });
 

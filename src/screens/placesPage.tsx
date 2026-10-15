@@ -279,6 +279,13 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     resetConditions();
   };
 
+  // 읍면을 고르면 권역을 대신한다(14 W261010.33i) — 권역 진입(`usePlacesPageAreaEntry`)이 읍면을 푸는 것과 짝. 둘 다 "어디" 라
+  // 겹치면 '서부' 안의 '구좌읍' 처럼 이유 없이 0곳이다. 권역 안 읍면이면 지워도 목록이 같아서 가리지 않고 지운다 — 칩 수(`townChipCounts`)도 권역을 빼고 센다.
+  const selectTown = (next: string | null) => {
+    setTown(next);
+    if (next !== null) clearArea();
+  };
+
   const enterAnimationClass = typeSwitch.enterFrom
     ? cx(
         'duration-300 ease-out animate-in fade-in motion-reduce:animate-none',
@@ -345,7 +352,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
                 directions={directions}
                 petKeys={petKeys}
                 sort={sort}
-                onSelectTown={setTown}
+                onSelectTown={selectTown}
                 onToggleDirection={toggleDirection}
                 onTogglePetKey={togglePetKey}
                 onChangeSort={(next) => void changeSort(next)}
@@ -388,7 +395,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
             directions={directions}
             petKeys={petKeys}
             sort={sort}
-            onSelectTown={setTown}
+            onSelectTown={selectTown}
             onToggleDirection={toggleDirection}
             onTogglePetKey={togglePetKey}
             onChangeSort={(next) => void changeSort(next)}
@@ -470,7 +477,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
                 onToggle: () => void changeSort(sort === 'near' ? 'none' : 'near'),
                 from: nearPlace?.name,
               }}
-              onCityDowntown={setTown}
+              onCityDowntown={selectTown}
               onReleaseAreaCarried={() => {
                 setTown(null);
                 releaseAreaCarried(type);

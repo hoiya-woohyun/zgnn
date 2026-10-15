@@ -16,7 +16,8 @@ import type { TDirection, TPlaceType } from '../types';
  *
  * 권역(`area`, 19 T3)이 여기 사는 이유도 같다 — 읍면(`town`, 퍼시스트)은 카페 탭·다음 방문까지 샜다(ux-expert M-5).
  * 홈 동네 카드는 `enterArea` 하나로 권역·'갈 수 있는 곳만' 을 함께 걸고 검색어를 비운다(카드가 센 수 = 열린 목록 수, 19 T4.1). 관광지 칩(검색어)과 권역은 서로를 지운다 —
- * 홈에서 들어오는 길 둘이 겹쳐 이유 없이 0곳이 되지 않게.
+ * 홈에서 들어오는 길 둘이 겹쳐 이유 없이 0곳이 되지 않게. 읍면과 권역도 서로를 지운다 — 스토어가 갈려 있어 부르는 쪽이 한다
+ * (권역 진입은 `usePlacesPageAreaEntry` 가 `setTown(null)`, 읍면 고르기는 둘러보기의 `selectTown` 이 `clearArea`, 14 W261010.33i).
  */
 type TPlacesPageFilterState = {
   query: string;
