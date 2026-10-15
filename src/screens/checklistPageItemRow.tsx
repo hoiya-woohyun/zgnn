@@ -90,7 +90,7 @@ export function ChecklistPageItemRow({ item, checked, onToggleChecked, onOpenDet
           className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-lg outline-none"
         >
           {({ isSelected, isFocusVisible }) => (
-            <CheckboxBase size="md" isSelected={isSelected} isFocusVisible={isFocusVisible} className="size-6" />
+            <CheckboxBase size="md" isSelected={isSelected} isFocusVisible={isFocusVisible} className="field-edge size-6" />
           )}
         </AriaCheckbox>
       </div>

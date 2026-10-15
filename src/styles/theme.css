@@ -410,6 +410,9 @@
 
     /* BORDER COLORS */
     --color-border-primary: var(--color-neutral-300);
+    /* 입력칸·체크박스의 테두리(14 W261013.14f) — 칸은 테두리로만 보이는 자리라 WCAG 1.4.11 의 3:1 이 걸린다. 흰 칸 4.53 · 크림 위 4.27
+       (border-primary 는 1.54). globals.css 가 그 칸에서만 ring-primary 를 이 값으로 돌린다 — 칩·버튼은 글자가 경계를 대신해 그대로 */
+    --color-border-field: var(--color-neutral-500);
     --color-border-secondary: var(--color-neutral-200);
     --color-border-secondary_alt: rgb(0 0 0 / 0.1);
     --color-border-tertiary: var(--color-neutral-100);
@@ -778,6 +781,7 @@
         --color-border-secondary: var(--color-neutral-800);
         --color-border-error_subtle: var(--color-red-500);
         --color-border-primary: var(--color-neutral-700);
+        --color-border-field: var(--color-neutral-500);
         --color-border-brand: var(--color-brand-400);
         --color-border-error: var(--color-red-400);
         --color-border-tertiary: var(--color-neutral-800);

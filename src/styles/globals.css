@@ -286,3 +286,18 @@
     --attribution-inset: env(safe-area-inset-bottom, 0px);
   }
 }
+
+/*
+  입력칸·체크박스의 테두리를 3:1 로(14 W261013.14f · WCAG 1.4.11) — 칸은 테두리로만 보이는 자리다. 토큰은 theme.css 의 `border-field`.
+  base 는 복사본이라 고치지 않고, 그 테두리 `ring-primary` 가 읽는 `--ring-color-primary` 를 **그 칸에서만** 바꾼다 — 포커스(`ring-brand`)·
+  오류(`ring-error*`)·체크됨(`ring-brand-solid`)은 다른 변수라 그대로다. 같은 `ring-primary` 를 쓰는 칩·버튼·Select 는 글자가 경계를 대신해서 손대지 않는다.
+  Input 은 래퍼의 고유 클래스(`group/input`)로 한 번에 잡는다 — 칸마다 달면 새 칸이 조용히 빠진다(이 이름은 `fieldEdge.test.ts` 가 지킨다).
+  체크박스는 쓰는 자리에서 `field-edge` 를 단다. 이름에 `ring-`·`border-` 를 붙이지 않는다 — `cx`(tailwind-merge)가 ring 색으로 읽어 앞의 포커스·체크됨 색을 지운다.
+*/
+.group\/input {
+  --ring-color-primary: var(--color-border-field);
+}
+
+@utility field-edge {
+  --ring-color-primary: var(--color-border-field);
+}
