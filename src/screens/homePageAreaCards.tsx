@@ -8,7 +8,7 @@ import { usePlacesPageAreaEntry } from './placesPageAreaEntry';
 import { CARD_SURFACE } from '../components/cardSurface';
 import { FilterChip } from '../components/filterChip';
 import { ReportSheet } from '../components/reportSheet';
-import { AREAS, areaOf, countByArea, TOWN_TO_AREA, type TAreaId } from '../lib/areaGroups';
+import { AREAS, areaOf, areaTownNames, countByArea, type TAreaId } from '../lib/areaGroups';
 import {
   AREA_CARD_TYPES,
   areaEntryType,
@@ -44,13 +44,6 @@ const TOTALS_BY_CARD = Object.fromEntries(
     },
   ]),
 ) as Record<TAreaId, Record<(typeof AREA_CARD_TYPES)[number], number>>;
-
-/** 권역 밑 줄 — 읍면 꼬리를 뗀 이름. 손으로 적으면 매핑과 갈린다. */
-const townsOf = (id: TAreaId) =>
-  Object.entries(TOWN_TO_AREA)
-    .filter(([, area]) => area === id)
-    .map(([town]) => town.replace(/(읍|면)$/, ''))
-    .join('·');
 
 const areaLabel = (id: TAreaId) => AREAS.find((area) => area.id === id)?.label ?? id;
 
@@ -109,7 +102,7 @@ export function HomePageAreaCards() {
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-baseline gap-x-1.5">
                     <span className="text-md font-bold text-primary">{label}</span>
-                    <span className="text-xs text-tertiary">{townsOf(id)}</span>
+                    <span className="text-xs text-tertiary">{areaTownNames(id)}</span>
                   </span>
                   <span className="mt-0.5 block text-sm text-secondary">
                     {card ? (

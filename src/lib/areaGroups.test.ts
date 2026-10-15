@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { AREAS, areaOf, areaTownsLabel, countByArea, LANDMARK_KEY_TO_AREA, TOWN_TO_AREA, type TAreaCounts } from './areaGroups';
+import {
+  AREAS,
+  areaOf,
+  areaTownNames,
+  areaTownsLabel,
+  countByArea,
+  LANDMARK_KEY_TO_AREA,
+  TOWN_TO_AREA,
+  type TAreaCounts,
+} from './areaGroups';
 import { countByLevel } from './eligibilityCounts';
 import { LANDMARKS_BY_AREA } from './landmarks';
 import { ALL_TOWNS, PLACE_TYPES, PLACES, placesOfType } from './places';
@@ -35,9 +44,11 @@ describe('두 매핑 — 읍면(셈)과 관광지 키(칩 배치)', () => {
     for (const { id } of AREAS) expect(used.has(id), id).toBe(true);
   });
 
-  it('권역 라벨은 매핑의 읍면에서 — 읍·면 꼬리만 뗀다', () => {
+  it('권역 라벨은 매핑의 읍면에서 — 읍·면 꼬리를 떼고, 시내 태그는 시 전체로 안 읽히게', () => {
     expect(areaTownsLabel('west')).toBe('서부(애월·한림·한경)');
-    expect(areaTownsLabel('south')).toBe('남부(서귀포시·남원)');
+    expect(areaTownsLabel('south')).toBe('남부(서귀포 시내·남원)');
+    expect(areaTownsLabel('north')).toBe('북부(조천·제주 시내)');
+    expect(areaTownNames('north')).toBe('조천·제주 시내');
   });
 
   it('모르는 읍면은 null', () => {
