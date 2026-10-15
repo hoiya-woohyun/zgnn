@@ -530,3 +530,11 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
   > 계단은 `(?:(강아지|반려견|펫)\s?)?계단` 을 전부 훑어 앞 낱말이 **없는** 계단이 하나라도 있으면 있다(`YES.stairs` 를 `{ test }` 객체로 — 부르는 곳 둘이 그대로). 실데이터 396글 옛 정규식 ↔ 새 함수 차이 0.
   > 테스트 `src/lib/browserBundleRegex.test.ts`: `src/` 비테스트 파일에서 상대·`@/` import 를 따라 닿는 모든 모듈(`scripts/lib`·`scripts/analyze` 포함)의 주석 아닌 줄에 `(?<!`·`(?<=` 0 —
   > 따라가기가 끊기면 빈 통과라 `scripts/lib` 셋에 닿는지도 단언한다. 빌드(HEAD 분리 worktree + 이 변경, 7727 dev 와 안 겹치게): exit 0 · `sw.js` · 청크 39개에 `(?<!`·`(?<=` 0 — 남은 `(?<` 8 은 이름 그룹(`(?<w>…)`).
+
+### [ ] T0.12 Cursor 세션에서 `claim.mjs` 선점이 곧장 풀린다
+
+- 근거(2026-10-15): Cursor 에이전트 셸엔 `CLAUDE_PID` 가 없어 주인이 `process.ppid` — 호출마다 새로 뜨고 끝나는 셸 — 로 적힌다. 다음 호출 때 그 pid 는 이미 죽어 있어
+  `take` 직후 `list` 에 🔒 이 없고, `done` 은 `NOCLAIM` 이다. 그 틈에 다른 세션의 `take` 가 같은 줄을 받을 수 있다(08 T0.8 이 막으려던 일). 이번엔 `NEXT_CLAIM_OWNER=<cursor-agent pid>` 로 피했다.
+- 단계: 주인을 정할 때 `CLAUDE_PID` 가 없으면 조상 프로세스에서 `claude`·`cursor-agent` 를 찾아 쓴다(`ps -o ppid=,command=` 를 거슬러) — 못 찾으면 지금처럼 ppid 에 경고 한 줄.
+  SKILL.md 「여러 세션에서 동시에」 의 "주인은 claude 프로세스" 문장에 Cursor 를 더한다.
+- 수용: Cursor 셸에서 `take` → 다른 Shell 호출의 `list` 에 `(나)` · `done` 이 그 줄을 지운다.
