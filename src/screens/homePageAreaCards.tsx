@@ -152,6 +152,7 @@ export function HomePageAreaCards() {
                       <button
                         type="button"
                         onClick={() => setSuggestOpen(true)}
+                        data-ev="home.suggest"
                         className="font-semibold text-brand-secondary underline underline-offset-2"
                       >
                         아는 곳이 있으면 알려 주세요

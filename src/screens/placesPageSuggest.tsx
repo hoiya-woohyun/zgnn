@@ -35,6 +35,7 @@ export function PlacesPageSuggest({
       <button
         type="button"
         onClick={() => onOpenChange(true)}
+        data-ev="places.suggest"
         className="mt-1 inline-flex min-h-11 items-center px-2 text-sm font-semibold text-brand-secondary underline underline-offset-2"
       >
         여기도 갈 수 있어요 — 알려 주기

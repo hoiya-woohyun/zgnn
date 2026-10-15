@@ -1,9 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronRight, Heart, LinkExternal01 } from '@untitledui/icons';
+import { ChevronRight, Heart, LinkExternal01, MarkerPin02 } from '@untitledui/icons';
 import { showAppStatus, STATUS_UNDO_MS } from '../lib/appStatus';
 import { AuthorAvatar } from '../components/authorAvatar';
+import { ReportSheet } from '../components/reportSheet';
 import { StickyMorphTitle } from '../components/layout/stickyMorphTitle';
 import { Section } from '../components/layout/section';
 import { dogWeightSummary } from '../lib/dogProfile';
@@ -64,6 +66,41 @@ function SettingsPageResetRows() {
 }
 
 /**
+ * 장소 알려 주기(14 W261010.29b) — 둘러보기 목록 맨 끝·0곳 화면에만 있던 입구를 여기에도 둔다. 긴 목록을 끝까지 내려야만
+ * 보이는 입구는 알려 주고 싶은 사람이 못 찾는다(tremor-34) — 설정은 "앱에 무언가 하는 곳" 을 찾을 때 여는 자리다.
+ * 시트는 둘러보기·홈 동네 카드와 같은 장소 제안(`suggest`)이다. 검색어가 없으니 미리 채울 글도 없다.
+ */
+function SettingsPageSuggest() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} className={`${CARD_CLASS} w-full text-left`} data-ev="settings.suggest">
+        <span
+          aria-hidden="true"
+          className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-primary text-brand-secondary"
+        >
+          <MarkerPin02 size={20} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-bold text-primary">장소 알려 주기</span>
+          <span className="block text-sm text-tertiary">여기 없는 곳에서도 강아지와 함께했나요?</span>
+        </span>
+      </button>
+      <ReportSheet
+        isOpen={open}
+        onOpenChange={setOpen}
+        title="여기도 강아지랑 갈 수 있어요"
+        lead="가게 이름과 동네를 적어 주세요. 운영자가 찾아보고 확인되면 올릴게요."
+        placeId={null}
+        kinds={['suggest']}
+        noteRequired
+        notePlaceholder="예: 카페 바당, 애월읍"
+      />
+    </>
+  );
+}
+
+/**
  * 설정 탭. 강아지 프로필·저장한 곳·자료 출처처럼 "장소를 고르는 일" 이 아닌 것들을 한곳에 모은다.
  *
  * 저장한 곳이 탭에서 여기 안으로 들어온 이유: 탭 다섯 자리 중 하나를 목록 하나가 차지하기엔
@@ -120,6 +157,10 @@ export function SettingsPage() {
             <ChevronRight size={20} aria-hidden="true" className="text-quaternary" />
           </span>
         </Link>
+      </Section>
+
+      <Section className="mt-4">
+        <SettingsPageSuggest />
       </Section>
 
       <Section title="다음 여행 준비" className="mt-8">

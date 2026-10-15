@@ -467,7 +467,7 @@ export function PlacesPageResults({
               action={
                 <div className="flex flex-wrap items-center justify-center gap-2">
                   {onSuggest && (
-                    <Button color="primary" size="md" onClick={onSuggest}>
+                    <Button color="primary" size="md" onClick={onSuggest} data-ev="places.emptySuggest">
                       알려 주기
                     </Button>
                   )}
