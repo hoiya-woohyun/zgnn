@@ -538,6 +538,7 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
 - 단계: 주인을 정할 때 `CLAUDE_PID` 가 없으면 조상 프로세스에서 `claude`·`cursor-agent` 를 찾아 쓴다(`ps -o ppid=,command=` 를 거슬러) — 못 찾으면 지금처럼 ppid 에 경고 한 줄.
   SKILL.md 「여러 세션에서 동시에」 의 "주인은 claude 프로세스" 문장에 Cursor 를 더한다.
 - 수용: Cursor 셸에서 `take` → 다른 Shell 호출의 `list` 에 `(나)` · `done` 이 그 줄을 지운다.
+  + Cursor 채팅 둘에서 `take` → **서로 다른 줄**(반대 방향의 실패 — 채팅 여럿이 `cursor-agent` 하나를 나눠 쓰면 주인 pid 가 같아 둘째가 첫째 줄을 `RESUME` 으로 받는다. 그러면 조상 대신 채팅마다 다른 값을 찾아야 한다).
 
 > 메모(2026-10-15): `resolveOwner` — `NEXT_CLAIM_OWNER` → `CLAUDE_PID` → 조상 중 가장 가까운 `claude`·`cursor-agent`(명령줄의 경로 조각까지 본다 — `node …/cursor-agent/…` 도 걸리고 `.claude/` 는 앞이 `.` 이라 안 걸린다, 32단) → 못 찾으면 ppid + stderr 경고. 실측(Claude Code 에서 `env -u CLAUDE_PID`): 다른 호출의 `list` 에 `pid 59224(나)`, `take` 는 `RESUME` · 고아 프로세스(부모 launchd)에서 경고 한 줄. **Cursor 셸에서는 아직 못 돌려 봤다** — 거기서 `list` 에 `(나)` 가 안 서면 `ps -o ppid=,command=` 로 cursor 쪽 명령줄을 보고 `AGENT_COMMAND` 를 넓힌다.
 > 같은 파일에서 하나 더(그날 「발견」): `park` 가 옮긴 줄 뒤에 빈 줄을 끼워 「기다림」 목록을 둘로 갈랐다 — 빈 줄은 절이 비어 있을 때만. 임시 NOW 두 벌(목록 있음·빈 절)로 확인.
