@@ -133,11 +133,14 @@ export function HomePage() {
       <footer className="mt-10 px-4 pb-8 text-sm text-tertiary md:px-6">
         <p>
           {SOURCE_LINE}{' '}
+          {/* 문장 안 링크라 WCAG 2.5.8 의 예외지만 바깥으로 나가는 링크치고 16px 높이는 작다고 두 번 걸렸다(ux-expert L-9 · designer-03, 14 W261010.33d).
+              줄 높이는 그대로 두고 투명 히트 영역만 위아래로 내민다(naverLinkButton 과 같은 방식) — 링크가 두 줄로 갈리면 영역의 기준 상자가 브라우저마다 달라 nowrap.
+              Chrome 실측 링크 77×17 · 누르는 자리 약 45px · 문단 줄 높이 21px 그대로(390 한 줄 · 320 두 줄). */}
           <a
             href={META.sourceUrl}
             target="_blank"
             rel="noreferrer"
-            className="font-semibold text-brand-secondary underline underline-offset-2"
+            className='relative font-semibold whitespace-nowrap text-brand-secondary underline underline-offset-2 before:absolute before:inset-x-0 before:-inset-y-3.5 before:content-[""]'
           >
             원본 노션 보기
           </a>
