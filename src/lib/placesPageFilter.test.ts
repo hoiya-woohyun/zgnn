@@ -15,9 +15,10 @@ import {
   placesByTown,
   placesPageChips,
   reachableReleaseCount,
+  townChipCounts,
   townReleaseCount,
 } from './placesPageFilter';
-import { PLACES, placesOfType } from './places';
+import { PLACES, placesOfType, topTowns } from './places';
 import type { TDogProfile, TPlaceType } from '../types';
 
 const base = { town: null, area: null, query: '', directions: [], petKeys: [], hideHard: false, onlyReachable: false, eligibilityMap: null } as const;
@@ -348,6 +349,74 @@ describe('0곳 안내가 숨긴 종류도 말한다(14 W261007.11b)', () => {
       }
     }
     expect(hiddenSeen).toBeGreaterThan(0);
+  });
+});
+
+describe('townChipCounts — 읍면 칩 옆 수(14 W261010.33e)', () => {
+  const mapOf = (dog: TDogProfile) => new Map(PLACES.map((place) => [place.id, judgeEligibility(dog, place.policy)]));
+  const BORI_MAP = mapOf({ dogs: [{ name: '보리', weightKg: 30 }], carrier: 'none' });
+  const DUBU_MAP = mapOf({ dogs: [{ name: '두부', weightKg: 3 }], carrier: 'bag' });
+  /** 칩 줄과 같은 읍면 — 그 종류에 장소가 있는 읍면 전부. */
+  const townsOf = (type: TPlaceType) => topTowns(type, Number.MAX_SAFE_INTEGER).map((entry) => entry.town);
+  const SETS = [
+    ['숙소 · 보리 · 갈 수 있는 곳만', { ...base, type: 'stay' as const, onlyReachable: true, eligibilityMap: BORI_MAP }],
+    ['식당 · 대형견 OK · 서쪽·동쪽', { ...base, type: 'restaurant' as const, petKeys: ['largeDog' as const], directions: ['west' as const, 'east' as const] }],
+    ['카페 · 두부 · 서부 권역 · 어려운 곳 숨기기', { ...base, type: 'cafe' as const, area: 'west' as const, hideHard: true, eligibilityMap: DUBU_MAP }],
+  ] as const;
+
+  it.each(SETS)('%s — 칩의 수 = 그 칩을 눌렀을 때 남는 곳 수(다른 읍면이 안 골라져 있을 때)', (_, conditions) => {
+    const counts = townChipCounts(conditions);
+    let total = 0;
+    for (const town of townsOf(conditions.type)) {
+      const opened = filterPlacesPage({ ...conditions, town }).length;
+      expect(counts.get(town) ?? 0, town).toBe(opened);
+      total += opened;
+    }
+    // 읍면 칩이 나누어 가진 수의 합 = 읍면을 안 고른 목록 수 — 빠지거나 겹치는 읍면이 없다.
+    expect(total).toBe(filterPlacesPage(conditions).length);
+    expect(total).toBeGreaterThan(0);
+  });
+
+  it.each(SETS)('%s — 읍면 하나를 고른 뒤에도 다른 칩 수가 0 으로 떨어지지 않는다', (_, conditions) => {
+    const released = townChipCounts(conditions);
+    const picked = [...released.entries()].find(([, count]) => count > 0)?.[0];
+    expect(picked).toBeDefined();
+    const withTown = townChipCounts({ ...conditions, town: picked! });
+    expect(withTown).toEqual(released);
+    expect([...withTown.entries()].filter(([town, count]) => town !== picked && count > 0).length).toBeGreaterThan(0);
+  });
+
+  it("'갈 수 있는 곳만' 을 켜면 칩 수가 따라 준다 — 종류 전체 수(`topTowns`)로 셌을 땐 \"구좌읍 9\" 를 눌러 1곳을 봤다(ferry-26)", () => {
+    const off = { ...base, type: 'stay' as const, eligibilityMap: BORI_MAP };
+    const offCounts = townChipCounts(off);
+    // 아무 조건이 없으면 종류 전체 수와 같다 — 예전 칩 수.
+    for (const { town, count } of topTowns('stay', Number.MAX_SAFE_INTEGER)) expect(offCounts.get(town), town).toBe(count);
+    const onCounts = townChipCounts({ ...off, onlyReachable: true });
+    const shrunk = [...offCounts.entries()].filter(([town, count]) => (onCounts.get(town) ?? 0) < count);
+    expect(shrunk.length).toBeGreaterThan(0);
+    // 옆 칩 '갈 수 있는 곳만 N' 과 한 술어 — 읍면 칩을 다 더하면 그 N 이다.
+    expect([...onCounts.values()].reduce((sum, count) => sum + count, 0)).toBe(onlyReachableCount(off));
+  });
+
+  it('종류 · 조건 칩 · 판정 토글을 바꾸면 칩 수가 바뀐다', () => {
+    const stay = { ...base, type: 'stay' as const, eligibilityMap: BORI_MAP };
+    const differs = (a: ReadonlyMap<string, number>, b: ReadonlyMap<string, number>) =>
+      [...new Set([...a.keys(), ...b.keys()])].some((town) => (a.get(town) ?? 0) !== (b.get(town) ?? 0));
+    const stayCounts = townChipCounts(stay);
+    expect(differs(stayCounts, townChipCounts({ ...stay, type: 'cafe' }))).toBe(true);
+    expect(differs(stayCounts, townChipCounts({ ...stay, petKeys: ['largeDog'] }))).toBe(true);
+    expect(differs(stayCounts, townChipCounts({ ...stay, hideHard: true }))).toBe(true);
+    expect(differs(stayCounts, townChipCounts({ ...stay, onlyReachable: true }))).toBe(true);
+  });
+
+  it('권역 밖 읍면은 0 — 권역은 읍면 선택이 아니라서 빼지 않는다', () => {
+    const conditions = { ...base, type: 'stay' as const, area: 'west' as const };
+    const counts = townChipCounts(conditions);
+    for (const town of townsOf('stay')) {
+      const inArea = areaOf({ region: { town } }) === 'west';
+      if (!inArea) expect(counts.get(town) ?? 0, town).toBe(0);
+    }
+    expect([...counts.values()].some((count) => count > 0)).toBe(true);
   });
 });
 

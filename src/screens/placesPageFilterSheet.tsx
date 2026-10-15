@@ -13,6 +13,8 @@ type TPlacesPageFilterSheetProps = {
   onOpenChange: (open: boolean) => void;
   type: TPlaceType;
   town: string | null;
+  /** 읍면 칩 옆 수(`townChipCounts`) — 읍면 선택만 뺀 지금 조건으로 센 패싯. */
+  townCounts: ReadonlyMap<string, number>;
   directions: TDirection[];
   petKeys: TPetFilterKey[];
   sort: TPlaceSort;
@@ -61,6 +63,7 @@ export function PlacesPageFilterSheet({
   onOpenChange,
   type,
   town,
+  townCounts,
   directions,
   petKeys,
   sort,
@@ -149,6 +152,7 @@ export function PlacesPageFilterSheet({
               variant="sheet"
               type={type}
               town={town}
+              townCounts={townCounts}
               directions={directions}
               petKeys={petKeys}
               sort={sort}

@@ -123,6 +123,20 @@ export const hideHardCount = (conditions: TPlacesPageConditions): number => {
 export const onlyReachableCount = (conditions: TPlacesPageConditions): number =>
   conditions.eligibilityMap ? filterPlacesPage({ ...conditions, onlyReachable: true }).length : 0;
 
+/**
+ * 읍면 칩 옆 수(14 W261010.33e) — 그 칩을 누르면 남는 곳 수. 지금 조건 **전부**(권역·검색어·방향·조건 칩·판정 토글)에서 읍면 선택 **하나만** 빼고
+ * 거른 목록을 읍면별로 센다(패싯). 예전엔 종류 전체를 셌다(`topTowns`) — '갈 수 있는 곳만' 을 켠 채 "구좌읍 9" 를 눌러 1곳을 봤다(ferry-26).
+ * 읍면까지 넣어 세면 하나 고른 순간 다른 칩이 전부 0 이 된다. 걸러 내기는 `filterPlacesPage` 그대로 — 옆 칩의 `onlyReachableCount` 와 한 술어다.
+ * 맵에 없는 읍면은 0곳이다.
+ */
+export const townChipCounts = (conditions: TPlacesPageConditions): ReadonlyMap<string, number> => {
+  const counts = new Map<string, number>();
+  for (const place of filterPlacesPage({ ...conditions, town: null })) {
+    counts.set(place.region.town, (counts.get(place.region.town) ?? 0) + 1);
+  }
+  return counts;
+};
+
 /** 동네 카드로 들어온 뒤 따라와 걸린 것 — 카드는 이것들 없이 셌다. */
 export type TAreaCarried = { count: number; town: string | null; directions: number; petKeys: number };
 

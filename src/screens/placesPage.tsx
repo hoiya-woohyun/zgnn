@@ -16,7 +16,7 @@ import { SEARCH_FIELD } from '../components/noAutofill';
 import { sameIsland, TYPE_META, type TPlaceEntry } from '../lib/places';
 import { comparePrice, resetFiltersLabel, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
 import { countByLevel, levelCountParts } from '../lib/eligibilityCounts';
-import { areaCarriedRelease, areaReleaseCount, filterPlacesPage, hideHardCount, onlyReachableCount, otherTypeHiddenMatches, otherTypeMatches, placesByTown, placesPageChips, reachableReleaseCount, townReleaseCount } from '../lib/placesPageFilter';
+import { areaCarriedRelease, areaReleaseCount, filterPlacesPage, hideHardCount, onlyReachableCount, otherTypeHiddenMatches, otherTypeMatches, placesByTown, placesPageChips, reachableReleaseCount, townChipCounts, townReleaseCount } from '../lib/placesPageFilter';
 import { sortByEligibility } from '../lib/sortByEligibility';
 import { distancesFrom, NEAR_PARAM, nearPlaceOf, sortByDistance } from '../lib/distanceSort';
 import { LOCATE_NOTICE, locateMe } from '../lib/myLocation';
@@ -190,6 +190,11 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     () => onlyReachableCount({ type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap }),
     [type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap],
   );
+  // 읍면 칩 옆 수(14 W261010.33e) — 읍면 선택만 뺀 지금 조건으로 센 패싯. 칩을 누르면 그 수가 남는다.
+  const townCounts = useMemo(
+    () => townChipCounts({ type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap }),
+    [type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap],
+  );
   const levelParts = useMemo(
     () => (dog ? levelCountParts(countByLevel(results, dog, { needsIndoor })) : []),
     [results, dog, needsIndoor],
@@ -335,6 +340,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
                 onOpenChange={setIsFilterSheetOpen}
                 type={type}
                 town={town}
+                townCounts={townCounts}
                 directions={directions}
                 petKeys={petKeys}
                 sort={sort}
@@ -376,6 +382,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
             variant="bar"
             type={type}
             town={town}
+            townCounts={townCounts}
             directions={directions}
             petKeys={petKeys}
             sort={sort}
