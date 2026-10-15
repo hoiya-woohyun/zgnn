@@ -9,7 +9,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type RefObject,
 } from 'react';
-import { canGoBackInApp, historyDepth, markReplacedNavigation } from '../../lib/appHistory';
+import { canGoBackInApp, historyDepth, locationSearch, markReplacedNavigation } from '../../lib/appHistory';
 import { normalizeRoute, parentRouteOf } from '../../lib/appRoutes';
 import { canStartStackBackAt, isStackRoute, stackTransitionOf, type TStackTransition } from '../../lib/stackTransition';
 import {
@@ -425,7 +425,7 @@ export function useAppShellStack({ pathname, mainRef, surfaceRef }: TAppShellSta
           router.back();
         } else {
           markReplacedNavigation();
-          router.replace(parentRouteOf(pathname));
+          router.replace(parentRouteOf(pathname, locationSearch()));
         }
       },
       () => undefined,

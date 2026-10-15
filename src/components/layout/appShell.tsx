@@ -12,7 +12,7 @@ import { AppShellPawPrints } from './appShellPawPrints';
 import { AppShellSwipePeek } from './appShellSwipePeek';
 import { AppShellUpdateNotice } from './appShellUpdateNotice';
 import { AppStatusToast } from './appStatusToast';
-import { keepTabsOffHistory, stampHistoryDepth } from '../../lib/appHistory';
+import { keepTabsOffHistory, locationSearch, stampHistoryDepth } from '../../lib/appHistory';
 import { isRootRoute, parentRouteOf } from '../../lib/appRoutes';
 import { arrivalScrollOf, rememberScroll } from '../../lib/appScroll';
 import { hasPawPrints } from '../../lib/pawTrail';
@@ -155,7 +155,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <main ref={mainRef} id="main-content" tabIndex={-1} {...surface} className={cx(surface.className, 'outline-hidden')}>
             {/* 시간이 지나면 강아지 발자국이 하나씩 찍힌다(이스터에그). 탭바의 메인 화면만 — 지도는 캔버스라 뺀다. 화면마다 새로 붙이고, 떠나면 지운다. */}
             {hasPawPrints(pathname) && <AppShellPawPrints key={pathname} route={pathname} />}
-            {showBack && <AppBar backTo={parentRouteOf(pathname)} />}
+            {showBack && <AppBar backTo={parentRouteOf(pathname, locationSearch())} />}
             {children}
           </main>
         </div>

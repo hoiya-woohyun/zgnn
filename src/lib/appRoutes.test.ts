@@ -54,6 +54,10 @@ describe('parentRouteOf — 되감을 화면이 없을 때 올라갈 곳', () =>
 
   it('저장한 곳·강아지 프로필은 설정으로 올라간다 — 설정 탭 안의 화면이라서', () => {
     expect(parentRouteOf('/saved')).toBe('/settings');
+    // 공유받은 목록(14 W261013.14a)은 남이 보낸 링크라 설정 밑이 아니다. 담고 나서 주소를 `/saved/` 로 고친 뒤엔 내 목록이다.
+    expect(parentRouteOf('/saved/', '?ids=a,b')).toBe('/');
+    expect(parentRouteOf('/saved/', '?from=x')).toBe('/settings');
+    expect(parentRouteOf('/dog', '?ids=a')).toBe('/settings');
     expect(parentRouteOf('/dog')).toBe('/settings');
     expect(parentRouteOf('/dog/')).toBe('/settings');
   });
@@ -103,6 +107,9 @@ describe('ownerRootOf — 하위 화면은 가장 가까운 history 의 탭 밑�
   it('들어온 길을 모르면(딥링크) 정해 둔 부모의 탭', () => {
     expect(ownerRootOf({ pathname: `/place/${cafeId}`, stamped: undefined, previous: null })).toBe('/places/cafe');
     expect(ownerRootOf({ pathname: '/dog/', stamped: undefined, previous: null })).toBe('/settings');
+    expect(ownerRootOf({ pathname: '/saved/', search: '?ids=a', stamped: undefined, previous: null })).toBe('/');
+    // 들어온 길이 있으면 그 길이 이긴다 — 쿼리는 정해 둔 부모만 바꾼다.
+    expect(ownerRootOf({ pathname: '/saved/', search: '?ids=a', stamped: undefined, previous: '/map' })).toBe('/map');
     expect(ownerRootOf({ pathname: '/something-new', stamped: undefined, previous: null })).toBe('/');
   });
 });

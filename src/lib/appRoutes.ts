@@ -133,9 +133,15 @@ export const canStartSwipeAt = (pathname: string, clientX: number, viewportWidth
  *
  * 여러 곳에서 들어오는 화면(저장한 곳은 홈 카드·지도·저장 알림에서도 열린다)이 실제로 어느 탭 밑에
  * 있는지는 여기가 아니라 **들어온 길**이 정한다(`ownerRootOf`). 여기는 그 길을 모를 때의 답이다.
+ *
+ * 공유받은 목록(`/saved/?ids=`, 07 P1)은 경로가 같아도 설정 밑이 아니라 홈이다 — 남이 보낸 링크로만 들어오고 내 저장도 아니다
+ * (14 W261013.14a: 친구가 연 화면에 '설정' 불). 그래서 쿼리(`search`)를 받는다. 정적 HTML 은 쿼리를 모르므로 첫 그림은 설정이고
+ * 하이드레이션 직후 history 에 새긴 값으로 옮긴다(새로고침과 같은 길, `useNavHighlightPath`).
  */
-export const parentRouteOf = (pathname: string): string => {
+export const parentRouteOf = (pathname: string, search = ''): string => {
   const path = normalizeRoute(pathname);
+
+  if (path === '/saved' && new URLSearchParams(search).has('ids')) return '/';
 
   if (path.startsWith('/place/')) {
     const place = getPlace(path.slice('/place/'.length));
@@ -161,10 +167,13 @@ export const parentRouteOf = (pathname: string): string => {
  */
 export const ownerRootOf = ({
   pathname,
+  search = '',
   stamped,
   previous,
 }: {
   pathname: string;
+  /** 주소의 쿼리(`location.search`). 정해 둔 부모가 쿼리로 갈리는 화면(공유받은 목록)만 본다. */
+  search?: string;
   /** 이 history 항목에 새겨 둔 값(`appHistory`). 처음 들어온 항목이면 없다. */
   stamped: unknown;
   /** 직전 화면의 탭. 문서의 첫 화면이면 null. */
@@ -174,5 +183,5 @@ export const ownerRootOf = ({
   if (isRootRoute(path)) return path;
   if (typeof stamped === 'string' && isRootRoute(stamped)) return normalizeRoute(stamped);
   if (previous !== null) return previous;
-  return normalizeRoute(parentRouteOf(path));
+  return normalizeRoute(parentRouteOf(path, search));
 };

@@ -85,7 +85,12 @@ export const stampHistoryDepth = (): number => {
   const previous = currentDepth;
   const depth = resolveDepth(state?.[DEPTH_KEY], previous, replaced);
   currentDepth = depth;
-  currentRoot = ownerRootOf({ pathname: window.location.pathname, stamped: state?.[ROOT_KEY], previous: currentRoot });
+  currentRoot = ownerRootOf({
+    pathname: window.location.pathname,
+    search: window.location.search,
+    stamped: state?.[ROOT_KEY],
+    previous: currentRoot,
+  });
   ownerStamp = { pathname: normalizeRoute(window.location.pathname), root: currentRoot };
 
   // 주소는 그대로 두고 state 만 덧쓴다. Next 가 심어 둔 `__NA` 를 함께 넘기므로
@@ -102,6 +107,9 @@ export const stampHistoryDepth = (): number => {
  */
 export const stampedOwnerRoot = (): unknown =>
   typeof window === 'undefined' ? undefined : (window.history.state as Record<string, unknown> | null)?.[ROOT_KEY];
+
+/** 지금 주소의 쿼리 — 정해 둔 부모(`parentRouteOf`)가 쿼리로 갈리는 화면 때문에 셸이 넘긴다. 서버(정적 내보내기)에선 빈 값. */
+export const locationSearch = (): string => (typeof window === 'undefined' ? '' : window.location.search);
 
 /**
  * 마지막으로 새긴 항목의 주소와 탭(`useSyncExternalStore` 의 스냅샷). 새로고침 직후 탭바가 정적 HTML 의 답을
