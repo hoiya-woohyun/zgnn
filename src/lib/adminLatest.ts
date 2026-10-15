@@ -9,7 +9,7 @@
 import { expandOverwriteColumns, overwriteWithLatest } from '../../scripts/analyze/applyApproved.mjs';
 import { factsLine, TYPE_LABEL, type TCandidateExtracted, type TCandidateTier, type TCandidateType, type TPlaceRow } from './adminCandidates';
 import { EMPTY_VALUE, type TEditChange } from './adminEdit';
-import { environmentPhrases } from './stayEnvironmentView';
+import { stayEnvironmentSummary } from './stayEnvironmentView';
 import type { TPetPolicyFacts, TPetPolicyGuide, TStayEnvironment } from '../types';
 
 /** 칸 → 표기. 순서가 곧 화면 순서다(고치기 폼과 같은 순서 — 이름 · 종류 · 주소 · … · 동반). */
@@ -34,7 +34,7 @@ const COLUMNS: { key: string; label: string; show: (value: unknown) => string }[
   { key: 'stay_price_text', label: '숙박 요금', show: (v) => str(v) },
   { key: 'stay_amenities_text', label: '숙소 시설', show: (v) => str(v) },
   // 숙소 환경 — patch 에 서는 칸은 전부 여기 있어야 한다. 없으면 목록에 안 보인 채 덮이고, 칸을 고르면(11 U7) 조용히 빠진다.
-  { key: 'stay_environment', label: '숙소 환경', show: (v) => environmentPhrases((v as TStayEnvironment | null) ?? undefined).join(' · ') || EMPTY_VALUE },
+  { key: 'stay_environment', label: '숙소 환경', show: (v) => stayEnvironmentSummary((v as TStayEnvironment | null) ?? undefined) || EMPTY_VALUE },
 ];
 
 const str = (v: unknown) => (v == null || String(v).trim() === '' ? EMPTY_VALUE : String(v));

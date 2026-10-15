@@ -12,7 +12,7 @@
 import { EMPTY_VALUE } from './adminEdit';
 import { factsLine, FACTS_EMPTY, type TCandidateExtracted, type TCandidateRow, type TPlaceRow } from './adminCandidates';
 import { LOOSEN_HINT, policyDirection } from './policyDirection';
-import { environmentPhrases } from './stayEnvironmentView';
+import { stayEnvironmentSummary } from './stayEnvironmentView';
 import type { TPetPolicyFacts, TStayEnvironment } from '../types';
 
 type TColumn = {
@@ -28,7 +28,7 @@ const facts = (v: TPetPolicyFacts | null | undefined): string | null => {
   const line = factsLine(v ?? null);
   return line && line !== FACTS_EMPTY ? line : null;
 };
-const environment = (v: TStayEnvironment | null | undefined): string | null => text(environmentPhrases(v ?? undefined).join(' · '));
+const environment = (v: TStayEnvironment | null | undefined): string | null => text(stayEnvironmentSummary(v ?? undefined));
 
 /** 순서가 곧 화면 순서다 — 조건이 먼저(갱신의 대부분이 거기서 난다). 칸 이름은 덮어쓰기 칸 이름이다(`overwriteWithLatest`). */
 export const SITE_COMPARE_COLUMNS: TColumn[] = [

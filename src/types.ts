@@ -31,6 +31,10 @@ export type TStayEnvironment = {
   yard: boolean | null;
   fencedYard: boolean | null;
   stairs: boolean | null;
+  /** 강아지가 객실 안에서 함께 지낸다(true) · 객실엔 못 들어가고 마당·테라스만(false). 크기로 갈리는 문장은 null — 판정의 몫. */
+  indoorRoom: boolean | null;
+  /** 침대·소파에 올라가도 된다(true) · 안 된다(false). "강아지 침대"(용품)는 아니다. */
+  furniture: boolean | null;
 };
 
 /**

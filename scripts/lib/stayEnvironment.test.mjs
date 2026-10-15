@@ -8,6 +8,8 @@ describe('parseStayEnvironment', () => {
       yard: true,
       fencedYard: null,
       stairs: null,
+      indoorRoom: null,
+      furniture: null,
     });
   });
 
@@ -27,6 +29,26 @@ describe('parseStayEnvironment', () => {
     expect(parseStayEnvironment('펜스가 쳐진 잔디 마당')).toMatchObject({ fencedYard: true, yard: true });
     expect(parseStayEnvironment('주차장 울타리. 객실은 깔끔해요').fencedYard).toBeNull();
   });
+
+  // 14 W261013.11 — 객실 조건. 크기로 갈리는 문장은 칸이 강아지를 몰라 읽지 않는다.
+  it('객실 안 · 마당만을 읽고, 크기로 갈리는 문장은 건너뛴다', () => {
+    expect(parseStayEnvironment('반려견 오프리쉬는 객실 내부와 펜스 운동장에서만 가능해요').indoorRoom).toBe(true);
+    expect(parseStayEnvironment('반려견과 함께 입실할 수 있어요').indoorRoom).toBe(true);
+    expect(parseStayEnvironment('반려견은 객실 입실 불가, 마당에서만 이용해 주세요').indoorRoom).toBe(false);
+    expect(parseStayEnvironment('테라스에서만 머물 수 있어요').indoorRoom).toBe(false);
+    expect(parseStayEnvironment('소형견에 한해 동반 입실 가능').indoorRoom).toBeNull();
+    expect(parseStayEnvironment('대형견은 마당에서만 이용 가능해요').indoorRoom).toBeNull();
+    expect(parseStayEnvironment('15시 입실, 11시 퇴실').indoorRoom).toBeNull();
+    expect(parseStayEnvironment('객실 내 흡연 금지').indoorRoom).toBeNull();
+  });
+
+  it('침대·소파 — 강아지 침대(용품)는 아니고, 불가능은 가능이 아니다', () => {
+    expect(parseStayEnvironment('침대 위에 올라가도 괜찮아요').furniture).toBe(true);
+    expect(parseStayEnvironment('침대와 소파는 올라가지 않게 해 주세요').furniture).toBe(false);
+    expect(parseStayEnvironment('침대에 올라가는 건 불가능해요').furniture).toBe(false);
+    expect(parseStayEnvironment('강아지 침대, 샴푸, 튜브 구비').furniture).toBeNull();
+    expect(parseStayEnvironment('강아지 침대 사용 가능').furniture).toBeNull();
+  });
 });
 
 describe('correctStayEnvironment', () => {
@@ -36,10 +58,19 @@ describe('correctStayEnvironment', () => {
       yard: true,
       fencedYard: null,
       stairs: null,
+      indoorRoom: null,
+      furniture: null,
     });
     expect(correctStayEnvironment({ stairs: false }, '모두 1층 객실')?.stairs).toBe(false);
     expect(correctStayEnvironment({ standalone: true }, '')).toBeNull();
     expect(correctStayEnvironment(null, '독채')).toBeNull();
+  });
+
+  it('객실 칸의 true 는 금지 문장으로 통과하지 않는다', () => {
+    expect(correctStayEnvironment({ furniture: true }, '침대에 올라가는 건 불가능해요')).toBeNull();
+    expect(correctStayEnvironment({ furniture: false }, '침대에 올라가는 건 불가능해요')?.furniture).toBe(false);
+    expect(correctStayEnvironment({ indoorRoom: false }, '대형견은 마당에서만 이용 가능해요')).toBeNull();
+    expect(correctStayEnvironment({ indoorRoom: true }, '반려견과 함께 입실')?.indoorRoom).toBe(true);
   });
 });
 
@@ -47,7 +78,7 @@ describe('mergeStayEnvironment', () => {
   it('칸마다 AI 가 말했으면 AI, 아니면 정규식', () => {
     expect(
       mergeStayEnvironment({ standalone: true, yard: null, fencedYard: null, stairs: true }, { standalone: null, yard: true, fencedYard: null, stairs: false }),
-    ).toEqual({ standalone: true, yard: true, fencedYard: null, stairs: false });
+    ).toMatchObject({ standalone: true, yard: true, fencedYard: null, stairs: false, indoorRoom: null });
     expect(isEnvironmentEmpty(mergeStayEnvironment(null, null))).toBe(true);
   });
 });

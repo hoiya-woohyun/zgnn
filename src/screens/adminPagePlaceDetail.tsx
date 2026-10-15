@@ -7,7 +7,7 @@ import type { TPlaceRow } from '../lib/adminCandidates';
 import { noteHistory, PLACE_STATUS_LABEL } from '../lib/adminPlaces';
 import { naverMapSearchUrl, naverPlacePhotoUrl } from '../lib/naverPlaceLink';
 import type { TPetBadge } from '../lib/petPolicy';
-import { environmentPhrases } from '../lib/stayEnvironmentView';
+import { stayEnvironmentSummary } from '../lib/stayEnvironmentView';
 import { cx } from '../utils/cx';
 import { ADMIN_PANEL_DIVIDER, ADMIN_POLICY_TONE } from './adminTable';
 
@@ -71,7 +71,7 @@ export function AdminPagePlaceDetail({
             {/* 칸이 있는 원격에서만(마이그레이션 20261001160000). 비어 있으면 사이트는 소개 문장을 정규식으로 읽는다. */}
             {'stay_environment' in place && (
               <Field label="숙소 환경">
-                {environmentPhrases(place.stay_environment ?? undefined).join(' · ') || (
+                {stayEnvironmentSummary(place.stay_environment ?? undefined) || (
                   <span className="text-quaternary">AI 판단 없음 — 사이트는 소개 문장에서 읽어요</span>
                 )}
               </Field>

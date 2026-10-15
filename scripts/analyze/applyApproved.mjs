@@ -10,6 +10,7 @@
 
 import { categoryForType } from '../lib/placeCategory.mjs';
 import { parseRegion } from '../lib/placeFields.mjs';
+import { STAY_ENVIRONMENT_KEYS } from '../lib/stayEnvironment.mjs';
 
 /** null · undefined · 공백뿐인 문자열을 "비어 있음" 으로 본다. 숫자(lat/lng)는 이 함수로 보지 않는다 — 0 은 값이다. */
 const isBlank = (v) => v == null || String(v).trim() === '';
@@ -146,11 +147,11 @@ export function mergeIntoExisting(existingRow, extracted, { postUrl = null } = {
 
 const PLACE_TYPES = new Set(['stay', 'restaurant', 'cafe']);
 
-/** 후보의 숙소 환경 — 칸 넷이 다 null 이면 없는 것으로(빈 판단을 칸에 쓰지 않는다). */
+/** 후보의 숙소 환경 — 칸이 다 null 이면 없는 것으로(빈 판단을 칸에 쓰지 않는다). */
 function stayEnvironmentOf(extracted) {
   const env = extracted?.stayEnvironment;
   if (!env || typeof env !== 'object') return null;
-  const picked = { standalone: env.standalone ?? null, yard: env.yard ?? null, fencedYard: env.fencedYard ?? null, stairs: env.stairs ?? null };
+  const picked = Object.fromEntries(STAY_ENVIRONMENT_KEYS.map((key) => [key, env[key] ?? null]));
   return Object.values(picked).some((value) => value !== null) ? picked : null;
 }
 

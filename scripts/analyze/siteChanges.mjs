@@ -16,6 +16,7 @@
 
 import { amountsInWon } from '../lib/feeLine.mjs';
 import { feeLinesOf } from '../lib/petPolicyFacts.mjs';
+import { STAY_ENVIRONMENT_KEYS } from '../lib/stayEnvironment.mjs';
 import { mergeIntoExisting, overwriteWithLatest } from './applyApproved.mjs';
 
 const isBlank = (v) => v == null || String(v).trim() === '';
@@ -58,7 +59,7 @@ export function petPolicyFactChanges(site, next) {
 /** 숙소 환경 — 둘 다 값이 있는 칸이 다를 때만(사이트가 빈 칸은 보강이다). */
 function environmentChanges(site, next) {
   if (!isObject(site) || !isObject(next)) return [];
-  return ['standalone', 'yard', 'fencedYard', 'stairs'].filter((key) => site[key] != null && next[key] != null && site[key] !== next[key]);
+  return STAY_ENVIRONMENT_KEYS.filter((key) => site[key] != null && next[key] != null && site[key] !== next[key]);
 }
 
 /**

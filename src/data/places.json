@@ -2241,7 +2241,9 @@
     "standalone": true,
     "yard": null,
     "fencedYard": null,
-    "stairs": null
+    "stairs": null,
+    "indoorRoom": null,
+    "furniture": null
    },
    "feeUnitStated": false,
    "policyNote": null
@@ -2385,7 +2387,9 @@
     "standalone": true,
     "yard": true,
     "fencedYard": null,
-    "stairs": null
+    "stairs": null,
+    "indoorRoom": null,
+    "furniture": null
    },
    "feeUnitStated": true,
    "policyNote": null
@@ -2625,7 +2629,9 @@
     "standalone": true,
     "yard": true,
     "fencedYard": null,
-    "stairs": false
+    "stairs": false,
+    "indoorRoom": null,
+    "furniture": null
    },
    "feeUnitStated": false,
    "policyNote": null
@@ -3795,7 +3801,9 @@
     "standalone": null,
     "yard": true,
     "fencedYard": true,
-    "stairs": null
+    "stairs": null,
+    "indoorRoom": true,
+    "furniture": null
    },
    "feeUnitStated": false,
    "policyNote": null
@@ -4138,7 +4146,9 @@
     "standalone": true,
     "yard": true,
     "fencedYard": null,
-    "stairs": null
+    "stairs": null,
+    "indoorRoom": null,
+    "furniture": null
    },
    "feeUnitStated": true,
    "policyNote": "강아지는 수영장 입수 불가, 화장실 욕조는 이용 가능"

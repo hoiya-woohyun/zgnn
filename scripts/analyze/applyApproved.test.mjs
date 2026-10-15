@@ -388,7 +388,7 @@ describe('overwriteWithLatest — 최신본으로 저장하기 (사람이 전·�
 });
 
 describe('stay_environment — 숙소 환경(10 F6)', () => {
-  const env = { standalone: true, yard: true, fencedYard: null, stairs: null };
+  const env = { standalone: true, yard: true, fencedYard: null, stairs: null, indoorRoom: null, furniture: false };
   const withEnv = { ...extracted, stayEnvironment: env };
 
   it('칸이 있는 행에만, 비어 있을 때만 채운다', () => {
@@ -401,7 +401,7 @@ describe('stay_environment — 숙소 환경(10 F6)', () => {
     const candidate = { id: 'c1', post_url: 'https://blog.naver.com/x/1', extracted: withEnv };
     expect('stay_environment' in toNewPlaceRow(candidate, { id: 'n' })).toBe(false);
     expect(toNewPlaceRow(candidate, { id: 'n', environmentColumn: true }).stay_environment).toEqual(env);
-    const empty = { ...candidate, extracted: { ...extracted, stayEnvironment: { standalone: null, yard: null, fencedYard: null, stairs: null } } };
+    const empty = { ...candidate, extracted: { ...extracted, stayEnvironment: { standalone: null, yard: null, fencedYard: null, stairs: null, indoorRoom: null, furniture: null } } };
     expect('stay_environment' in toNewPlaceRow(empty, { id: 'n', environmentColumn: true })).toBe(false);
   });
 

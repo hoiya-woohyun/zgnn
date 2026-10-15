@@ -25,7 +25,7 @@ import { createHash } from 'node:crypto';
 import { normalizeFeeLines } from '../lib/feeLine.mjs';
 import { correctPetPolicyFacts, weekdaysOrNull } from '../lib/petPolicyFacts.mjs';
 import { storableGuide } from '../lib/petPolicyGuide.mjs';
-import { correctStayEnvironment } from '../lib/stayEnvironment.mjs';
+import { correctStayEnvironment, STAY_ENVIRONMENT_KEYS } from '../lib/stayEnvironment.mjs';
 import { formatUsageSummary } from '../../src/lib/runSummary.ts';
 
 /**
@@ -104,13 +104,8 @@ const STAY_ENVIRONMENT_SCHEMA = {
     {
       type: 'object',
       additionalProperties: false,
-      required: ['standalone', 'yard', 'fencedYard', 'stairs'],
-      properties: {
-        standalone: NULLABLE_BOOLEAN,
-        yard: NULLABLE_BOOLEAN,
-        fencedYard: NULLABLE_BOOLEAN,
-        stairs: NULLABLE_BOOLEAN,
-      },
+      required: STAY_ENVIRONMENT_KEYS,
+      properties: Object.fromEntries(STAY_ENVIRONMENT_KEYS.map((key) => [key, NULLABLE_BOOLEAN])),
     },
     { type: 'null' },
   ],
@@ -303,7 +298,10 @@ export const SYSTEM_PROMPT = `당신은 제주도 반려견 동반 여행 블로
 - stayEnvironment: type 이 "stay" 일 때만. 숙소 건물·마당의 모양 — 본문에 적힌 것만 true/false, 언급이 없으면 null. 숙소가 아니면 null.
     standalone: 독채(한 팀만 쓰는 단독 건물)면 true. yard: 강아지가 쓸 수 있는 마당·잔디·정원이 있으면 true.
     fencedYard: 그 마당에 울타리·펜스가 있다고 적혀 있으면 true. stairs: 객실에 복층·다락·계단이 있으면 true, 단층·계단 없음이 적혀 있으면 false.
-    "강아지 계단"(용품)은 건물 계단이 아닙니다. 사진만 보고 추측하지 마세요 — 글에 문장이 있어야 합니다.
+    indoorRoom: 강아지가 객실 안에서 함께 지낸다고 적혀 있으면 true, 객실엔 못 들어가고 마당·테라스·별채에서만 지낸다고 적혀 있으면 false.
+    furniture: 침대·소파에 올라가도 된다고 적혀 있으면 true, 안 된다고 적혀 있으면 false.
+    indoorRoom·furniture 가 강아지 크기·몸무게로 갈리면("소형견만 객실 입실", "대형견은 마당만") null 로 두고 그 문장은 petPolicyText 에 넣으세요.
+    "강아지 계단"·"강아지 침대"(용품)는 건물 계단·침대가 아닙니다. 사진만 보고 추측하지 마세요 — 글에 문장이 있어야 합니다.
 - evidence: 본문에서 그대로 인용한 1~3문장. 사람이 링크를 열었을 때 어디를 보면 되는지 알려 주는 용도입니다.
   이용 조건 문장을 우선 인용하고, 글에 광고·협찬·원고료·체험단 표시가 있으면 그 문장도 evidence 에 넣으세요.
 - confidence: 0 에서 1 사이. 0.9 = 상호와 이용 조건이 본문에 명시 · 0.6 = 상호는 명시됐지만 조건은 추측이거나 없음 · 0.3 = 상호 자체가 불확실.

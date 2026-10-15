@@ -759,11 +759,11 @@ describe('stayEnvironment — 숙소 환경(10 F6)', () => {
     const stay = {
       ...goodPlace,
       type: 'stay',
-      features: '잔디 마당이 있는 독채예요.',
-      stayEnvironment: { standalone: true, yard: true, fencedYard: true, stairs: true },
+      features: '잔디 마당이 있는 독채예요. 반려견과 함께 입실해요.',
+      stayEnvironment: { standalone: true, yard: true, fencedYard: true, stairs: true, indoorRoom: true, furniture: true },
     };
     const [parsed] = parseExtraction(withPlaces([stay])).places;
-    expect(parsed.stayEnvironment).toEqual({ standalone: true, yard: true, fencedYard: null, stairs: null });
+    expect(parsed.stayEnvironment).toEqual({ standalone: true, yard: true, fencedYard: null, stairs: null, indoorRoom: true, furniture: null });
     const [cafe] = parseExtraction(withPlaces([{ ...stay, type: 'cafe' }])).places;
     expect(cafe.stayEnvironment).toBeNull();
   });

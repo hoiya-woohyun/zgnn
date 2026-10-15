@@ -4,7 +4,7 @@ policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,
 gear {"bag":false,"stroller":false}
 badges cond:추가요금 있음 · warn:전화 확인
 evidence {"lines":["반려견 요금이 따로 붙어요(금액은 적혀 있지 않아요)","가기 전에 전화로 동반 조건을 확인해 주세요"],"note":null}
-env {"standalone":true,"yard":null,"fencedYard":null,"stairs":null}
+env {"standalone":true,"yard":null,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
 small4+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
 medium12 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
@@ -40,7 +40,7 @@ policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,
 gear {"bag":false,"stroller":false}
 badges cond:1마리당 2만원 · cond:10kg 미만 · cond:최대 2마리
 evidence {"lines":["반려견 요금이 따로 있어요 — 1마리당 2만원","10kg 미만인 강아지만 같이 갈 수 있어요","최대 2마리까지 같이 갈 수 있어요"],"note":null}
-env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null}
+env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 ok | I1:info:두부는 2만원 | 두부는 2만원 | 
 small4+indoor ok | I1:info:두부는 2만원 | 두부는 2만원 | 
 medium12 hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
@@ -130,7 +130,7 @@ policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,
 gear {"bag":false,"stroller":false}
 badges cond:7kg 이하 · cond:최대 2마리
 evidence raw
-env {"standalone":null,"yard":null,"fencedYard":null,"stairs":null}
+env {"standalone":null,"yard":null,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
 medium12 hard | H1:hard:보리(12kg)는 7kg 이하 조건을 넘어요 |  | 
@@ -166,7 +166,7 @@ policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,
 gear {"bag":false,"stroller":false}
 badges cond:1마리당 1만원 · cond:7kg 미만 · cond:최대 2마리
 evidence raw
-env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null}
+env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 ok | I1:info:두부는 1만원 | 두부는 1만원 | 1박 기준인지는 적혀 있지 않아요
 small4+indoor ok | I1:info:두부는 1만원 | 두부는 1만원 | 1박 기준인지는 적혀 있지 않아요
 medium12 hard | H1:hard:보리(12kg)는 7kg 미만 조건을 넘어요 |  | 
@@ -184,7 +184,7 @@ policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,
 gear {"bag":false,"stroller":false}
 badges cond:추가 2만원 · cond:7kg 미만 · cond:최대 1마리
 evidence raw
-env {"standalone":null,"yard":null,"fencedYard":null,"stairs":null}
+env {"standalone":null,"yard":null,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 ok | I1:info:적힌 요금 · 2만원 추가 | 적힌 요금 · 2만원 추가 | 1박 기준인지는 적혀 있지 않아요
 small4+indoor ok | I1:info:적힌 요금 · 2만원 추가 | 적힌 요금 · 2만원 추가 | 1박 기준인지는 적혀 있지 않아요
 medium12 hard | H1:hard:보리(12kg)는 7kg 미만 조건을 넘어요 |  | 
@@ -220,7 +220,7 @@ policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,
 gear {"bag":false,"stroller":false}
 badges cond:1마리당 1만원 · cond:10kg 미만 · cond:최대 2마리
 evidence raw
-env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null}
+env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 ok | I1:info:두부는 1만원 | 두부는 1만원 | 1박 기준인지는 적혀 있지 않아요
 small4+indoor ok | I1:info:두부는 1만원 | 두부는 1만원 | 1박 기준인지는 적혀 있지 않아요
 medium12 hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
@@ -238,7 +238,7 @@ policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,
 gear {"bag":false,"stroller":false}
 badges warn:확인된 정보 없음
 evidence raw
-env {"standalone":null,"yard":null,"fencedYard":null,"stairs":null}
+env {"standalone":null,"yard":null,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
 small4+indoor unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
 medium12 unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
@@ -256,7 +256,7 @@ policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,
 gear {"bag":false,"stroller":false}
 badges cond:10kg 미만 · cond:최대 2마리
 evidence raw
-env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null}
+env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
 medium12 hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
@@ -292,7 +292,7 @@ policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,
 gear {"bag":false,"stroller":false}
 badges cond:청소비 5만원 · cond:5kg 이하 · cond:최대 1마리 · warn:전화 확인
 evidence raw
-env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null}
+env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 cond | C6:cond:방문 전 전화 확인이 필요해요 / I1:info:적힌 요금 · 숙박일 관계없이 청소비 5만원 추가 | 적힌 요금 · 숙박일 관계없이 청소비 5만원 추가 | 
 small4+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 / I1:info:적힌 요금 · 숙박일 관계없이 청소비 5만원 추가 | 적힌 요금 · 숙박일 관계없이 청소비 5만원 추가 | 
 medium12 hard | H1:hard:보리(12kg)는 5kg 이하 조건을 넘어요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
@@ -364,7 +364,7 @@ policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,
 gear {"bag":false,"stroller":false}
 badges cond:추가 1만원 · cond:10kg 미만 · cond:최대 1마리
 evidence raw
-env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null}
+env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 ok | I1:info:적힌 요금 · 1만원 추가 | 적힌 요금 · 1만원 추가 | 1박 기준인지는 적혀 있지 않아요
 small4+indoor ok | I1:info:적힌 요금 · 1만원 추가 | 적힌 요금 · 1만원 추가 | 1박 기준인지는 적혀 있지 않아요
 medium12 hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
@@ -382,7 +382,7 @@ policy {"indoor":"unknown","leash":false,"largeDogOk":true,"mediumDogOk":true,"s
 gear {"bag":false,"stroller":false}
 badges ok:추가요금 없음 · ok:대형견 OK
 evidence raw
-env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null}
+env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 ok | I1:info:두부는 추가 요금 없음 | 두부는 추가 요금 없음 | 
 small4+indoor ok | I1:info:두부는 추가 요금 없음 | 두부는 추가 요금 없음 | 
 medium12 ok | I1:info:보리는 추가 요금 없음 | 보리는 추가 요금 없음 | 
@@ -418,7 +418,7 @@ policy {"indoor":"unknown","leash":false,"largeDogOk":true,"mediumDogOk":true,"s
 gear {"bag":false,"stroller":false}
 badges cond:1마리당 3만원 · ok:대형견 OK · cond:최대 2마리
 evidence raw
-env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null}
+env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 ok | I1:info:두부는 3만원 | 두부는 3만원 | 1박 기준인지는 적혀 있지 않아요
 small4+indoor ok | I1:info:두부는 3만원 | 두부는 3만원 | 1박 기준인지는 적혀 있지 않아요
 medium12 ok | I1:info:보리는 3만원 | 보리는 3만원 | 1박 기준인지는 적혀 있지 않아요
@@ -454,7 +454,7 @@ policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,
 gear {"bag":false,"stroller":false}
 badges warn:확인된 정보 없음
 evidence raw
-env {"standalone":null,"yard":null,"fencedYard":null,"stairs":null}
+env {"standalone":null,"yard":null,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
 small4+indoor unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
 medium12 unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
@@ -580,7 +580,7 @@ policy {"indoor":"unknown","leash":false,"largeDogOk":true,"mediumDogOk":true,"s
 gear {"bag":false,"stroller":false}
 badges ok:추가요금 없음 · ok:대형견 OK · cond:최대 2마리
 evidence raw
-env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null}
+env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 ok | I1:info:두부는 추가 요금 없음 | 두부는 추가 요금 없음 | 
 small4+indoor ok | I1:info:두부는 추가 요금 없음 | 두부는 추가 요금 없음 | 
 medium12 ok | I1:info:보리는 추가 요금 없음 | 보리는 추가 요금 없음 | 
@@ -598,7 +598,7 @@ policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,
 gear {"bag":false,"stroller":false}
 badges cond:1마리당 5만원 · cond:10kg 이하 · cond:최대 2마리
 evidence raw
-env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null}
+env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 ok | I1:info:두부는 5만원 | 두부는 5만원 | 1박 기준인지는 적혀 있지 않아요
 small4+indoor ok | I1:info:두부는 5만원 | 두부는 5만원 | 1박 기준인지는 적혀 있지 않아요
 medium12 hard | H1:hard:보리(12kg)는 10kg 이하 조건을 넘어요 |  | 
@@ -616,7 +616,7 @@ policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,
 gear {"bag":false,"stroller":false}
 badges cond:1마리당 3만원 · cond:소형견만
 evidence raw
-env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null}
+env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 ok | I1:info:두부는 3만원 | 두부는 3만원 | 1박 기준인지는 적혀 있지 않아요
 small4+indoor ok | I1:info:두부는 3만원 | 두부는 3만원 | 1박 기준인지는 적혀 있지 않아요
 medium12 hard | H3:hard:소형견만 가능해요 |  | 
@@ -778,7 +778,7 @@ policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,
 gear {"bag":false,"stroller":false}
 badges cond:1마리당 3만원 · cond:15kg 미만 · cond:최대 2마리
 evidence raw
-env {"standalone":null,"yard":null,"fencedYard":null,"stairs":null}
+env {"standalone":null,"yard":null,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 ok | I1:info:두부는 3만원 | 두부는 3만원 | 1박 기준인지는 적혀 있지 않아요
 small4+indoor ok | I1:info:두부는 3만원 | 두부는 3만원 | 1박 기준인지는 적혀 있지 않아요
 medium12 ok | I1:info:보리는 3만원 | 보리는 3만원 | 1박 기준인지는 적혀 있지 않아요
@@ -868,7 +868,7 @@ policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,
 gear {"bag":false,"stroller":false}
 badges cond:1마리당 2만원 · cond:15kg 이하 · cond:최대 3마리
 evidence raw
-env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null}
+env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 ok | I1:info:두부는 2만원 | 두부는 2만원 | 1박 기준인지는 적혀 있지 않아요
 small4+indoor ok | I1:info:두부는 2만원 | 두부는 2만원 | 1박 기준인지는 적혀 있지 않아요
 medium12 ok | I1:info:보리는 2만원 | 보리는 2만원 | 1박 기준인지는 적혀 있지 않아요
@@ -1030,7 +1030,7 @@ policy {"indoor":"unknown","leash":false,"largeDogOk":true,"mediumDogOk":true,"s
 gear {"bag":false,"stroller":false}
 badges cond:1마리당 2만원 · ok:대형견 OK
 evidence raw
-env {"standalone":null,"yard":null,"fencedYard":null,"stairs":null}
+env {"standalone":null,"yard":null,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 ok | I1:info:두부는 2만원 | 두부는 2만원 | 1박 기준인지는 적혀 있지 않아요
 small4+indoor ok | I1:info:두부는 2만원 | 두부는 2만원 | 1박 기준인지는 적혀 있지 않아요
 medium12 ok | I1:info:보리는 2만원 | 보리는 2만원 | 1박 기준인지는 적혀 있지 않아요
@@ -1084,7 +1084,7 @@ policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,
 gear {"bag":false,"stroller":false}
 badges cond:1마리당 3만원 · cond:2마리 또는 10kg 이상 4만원
 evidence raw
-env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null}
+env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 ok | I1:info:두부는 3만원 (1마리당 3만원) | 두부는 3만원 (1마리당 3만원) | 1박 기준인지는 적혀 있지 않아요
 small4+indoor ok | I1:info:두부는 3만원 (1마리당 3만원) | 두부는 3만원 (1마리당 3만원) | 1박 기준인지는 적혀 있지 않아요
 medium12 ok | I1:info:보리는 4만원 (2마리 또는 10kg 이상 4만원) | 보리는 4만원 (2마리 또는 10kg 이상 4만원) | 1박 기준인지는 적혀 있지 않아요
@@ -1102,7 +1102,7 @@ policy {"indoor":"unknown","leash":false,"largeDogOk":true,"mediumDogOk":true,"s
 gear {"bag":false,"stroller":false}
 badges ok:대형견 OK · warn:전화 확인
 evidence raw
-env {"standalone":true,"yard":null,"fencedYard":null,"stairs":null}
+env {"standalone":true,"yard":null,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
 small4+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
 medium12 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
@@ -1210,7 +1210,7 @@ policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,
 gear {"bag":false,"stroller":false}
 badges cond:10kg 미만 · cond:최대 2마리
 evidence raw
-env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null}
+env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
 medium12 hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
@@ -1246,7 +1246,7 @@ policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,
 gear {"bag":false,"stroller":false}
 badges cond:1~5kg 1만원 · cond:6~10kg 1.5만원 · cond:최대 2마리
 evidence raw
-env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null}
+env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 ok | I1:info:두부는 1만원 (1~5kg) | 두부는 1만원 (1~5kg) | 1박 기준인지는 적혀 있지 않아요
 small4+indoor ok | I1:info:두부는 1만원 (1~5kg) | 두부는 1만원 (1~5kg) | 1박 기준인지는 적혀 있지 않아요
 medium12 cond | C10:cond:10kg 초과 요금이 적혀 있지 않아요. 보리(12kg)도 되는지 확인해 주세요 |  | 
@@ -1390,7 +1390,7 @@ policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,
 gear {"bag":false,"stroller":false}
 badges warn:확인된 정보 없음
 evidence raw
-env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null}
+env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
 small4+indoor unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
 medium12 unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
@@ -1408,7 +1408,7 @@ policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,
 gear {"bag":false,"stroller":false}
 badges cond:1마리당 5만원
 evidence raw
-env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null}
+env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 ok | I1:info:두부는 5만원 | 두부는 5만원 | 1박 기준인지는 적혀 있지 않아요
 small4+indoor ok | I1:info:두부는 5만원 | 두부는 5만원 | 1박 기준인지는 적혀 있지 않아요
 medium12 ok | I1:info:보리는 5만원 | 보리는 5만원 | 1박 기준인지는 적혀 있지 않아요
@@ -1480,7 +1480,7 @@ policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":true,"
 gear {"bag":false,"stroller":false}
 badges cond:1마리당 1~2만원 · ok:중형견 OK · cond:10kg 미만 2마리 · cond:20kg 미만 1마리
 evidence raw
-env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null}
+env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 ok | I1:info:적힌 요금 · 1마리당 1~2만원 | 적힌 요금 · 1마리당 1~2만원 | 1박 기준인지는 적혀 있지 않아요
 small4+indoor ok | I1:info:적힌 요금 · 1마리당 1~2만원 | 적힌 요금 · 1마리당 1~2만원 | 1박 기준인지는 적혀 있지 않아요
 medium12 ok | I1:info:적힌 요금 · 1마리당 1~2만원 | 적힌 요금 · 1마리당 1~2만원 | 1박 기준인지는 적혀 있지 않아요
@@ -1498,7 +1498,7 @@ policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,
 gear {"bag":false,"stroller":false}
 badges warn:확인된 정보 없음
 evidence raw
-env {"standalone":null,"yard":null,"fencedYard":null,"stairs":null}
+env {"standalone":null,"yard":null,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
 small4+indoor unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
 medium12 unknown | U1:unknown:동반 조건이 적혀 있지 않아요 |  | 
@@ -1588,7 +1588,7 @@ policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,
 gear {"bag":false,"stroller":false}
 badges cond:추가 3만원 · cond:10kg 미만 · cond:최대 1마리
 evidence raw
-env {"standalone":true,"yard":null,"fencedYard":null,"stairs":null}
+env {"standalone":true,"yard":null,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 ok | I1:info:적힌 요금 · 3만원 추가 | 적힌 요금 · 3만원 추가 | 1박 기준인지는 적혀 있지 않아요
 small4+indoor ok | I1:info:적힌 요금 · 3만원 추가 | 적힌 요금 · 3만원 추가 | 1박 기준인지는 적혀 있지 않아요
 medium12 hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
@@ -1624,7 +1624,7 @@ policy {"indoor":"unknown","leash":false,"largeDogOk":false,"mediumDogOk":false,
 gear {"bag":false,"stroller":false}
 badges cond:동반 2만원 · cond:15kg 이하 · cond:최대 2마리
 evidence {"lines":["반려견 요금이 따로 있어요 — 동반 2만원","15kg 이하인 강아지만 같이 갈 수 있어요","최대 2마리까지 같이 갈 수 있어요"],"note":null}
-env {"standalone":true,"yard":true,"fencedYard":null,"stairs":false}
+env {"standalone":true,"yard":true,"fencedYard":null,"stairs":false,"indoorRoom":null,"furniture":null}
 small4 ok | I1:info:두부는 2만원 | 두부는 2만원 | 1박 기준인지는 적혀 있지 않아요
 small4+indoor ok | I1:info:두부는 2만원 | 두부는 2만원 | 1박 기준인지는 적혀 있지 않아요
 medium12 ok | I1:info:보리는 2만원 | 보리는 2만원 | 1박 기준인지는 적혀 있지 않아요
@@ -2038,7 +2038,7 @@ policy {"indoor":"free","leash":true,"largeDogOk":true,"mediumDogOk":true,"small
 gear {"bag":false,"stroller":false}
 badges ok:실내 OK · ok:대형견 OK · cond:리드줄 · warn:전화 확인
 evidence {"lines":["실내에도 같이 들어갈 수 있어요","대형견도 같이 갈 수 있어요","리드줄을 꼭 해 주세요","가기 전에 전화로 동반 조건을 확인해 주세요"],"note":null}
-env {"standalone":null,"yard":true,"fencedYard":true,"stairs":null}
+env {"standalone":null,"yard":true,"fencedYard":true,"stairs":null,"indoorRoom":true,"furniture":null}
 small4 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
 small4+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
 medium12 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
@@ -2146,7 +2146,7 @@ policy {"indoor":"free","leash":false,"largeDogOk":false,"mediumDogOk":false,"sm
 gear {"bag":false,"stroller":false}
 badges ok:실내 OK · cond:1박당 2만원 · cond:13kg 미만 · cond:최대 2마리
 evidence {"lines":["실내에도 같이 들어갈 수 있어요","반려견 요금이 따로 있어요 — 1박당 2만원","13kg 미만인 강아지만 같이 갈 수 있어요","최대 2마리까지 같이 갈 수 있어요"],"note":"강아지는 수영장 입수 불가, 화장실 욕조는 이용 가능"}
-env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null}
+env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 ok | I1:info:두부는 1박 2만원 | 두부는 1박 2만원 | 
 small4+indoor ok | I1:info:두부는 1박 2만원 | 두부는 1박 2만원 | 
 medium12 ok | I1:info:보리는 1박 2만원 | 보리는 1박 2만원 | 

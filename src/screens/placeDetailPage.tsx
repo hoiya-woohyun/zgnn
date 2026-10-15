@@ -11,6 +11,7 @@ import { PlaceDetailMiniMap } from './placeDetailMiniMap';
 import { PlaceDetailNearby } from './placeDetailNearby';
 import { PlaceDetailPolicyText, POLICY_EVIDENCE_LABEL } from './placeDetailPolicyText';
 import { PlaceDetailReport } from './placeDetailReport';
+import { PlaceDetailRoomConditions } from './placeDetailRoomConditions';
 import { PlaceItemsNote } from '../components/placeItemsNote';
 import { formatStayPrice, stayPriceSourceLine } from '../lib/format';
 import { policyEvidence } from '../lib/petPolicyPublic';
@@ -60,6 +61,7 @@ export function PlaceDetailPage({ id }: { id: string }) {
             evidence={
               <>
                 <PlaceDetailPolicyText place={place} evidence={evidence} />
+                <PlaceDetailRoomConditions place={place} />
                 {/* 확인 날짜(있을 때만, 10 F3) + 모든 장소 공통의 AI 정리 안내. */}
                 <PlaceDetailFreshness place={place} />
               </>

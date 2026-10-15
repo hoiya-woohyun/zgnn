@@ -11,7 +11,7 @@ import { newPlacePublicText, rowPublicText } from '../lib/adminPublicText';
 import { policySplit, typeMismatchFlags } from '../lib/adminPreview';
 import { deniedQuoteView, verifyView } from '../lib/adminVerify';
 import type { TBadgeTone, TPetBadge } from '../lib/petPolicy';
-import { environmentPhrases } from '../lib/stayEnvironmentView';
+import { stayEnvironmentSummary } from '../lib/stayEnvironmentView';
 import type { TTextSpan } from '../lib/textSpans';
 import { cx } from '../utils/cx';
 import { AdminAddressLine } from './adminAddressLine';
@@ -346,10 +346,10 @@ export function AdminPageGroupDetail({ group, preview, place, intro }: TAdminPag
           {extracted.type === 'stay' && (
             <CompareRow
               label="숙소 환경"
-              site={siteOf(<SiteText text={environmentPhrases(place?.stay_environment ?? undefined).join(' · ')} />)}
+              site={siteOf(<SiteText text={stayEnvironmentSummary(place?.stay_environment ?? undefined)} />)}
               result={
                 <p className="text-secondary">
-                  {environmentPhrases(extracted.stayEnvironment ?? undefined).join(' · ') || '원글에 환경 문장이 없어요(사이트는 소개 문장에서 읽어요)'}
+                  {stayEnvironmentSummary(extracted.stayEnvironment ?? undefined) || '원글에 환경 문장이 없어요(사이트는 소개 문장에서 읽어요)'}
                 </p>
               }
             />
