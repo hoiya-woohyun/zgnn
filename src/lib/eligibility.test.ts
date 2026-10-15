@@ -124,6 +124,54 @@ describe('judgeEligibility — 케이지 필수 식당("케이지 동반시 가�
   });
 });
 
+describe('케이지 규칙은 원문이 적은 수단을 칩과 같은 이름으로 부른다(14 W261013.14g)', () => {
+  const small = (carrier: TDogProfile['carrier']): TDogProfile => ({ dogs: [{ name: '콩이', weightKg: 5 }], carrier });
+  const large = (carrier: TDogProfile['carrier']): TDogProfile => ({ dogs: [{ name: '보리', weightKg: 30 }], carrier });
+  const texts = (dog: TDogProfile, policy: ReturnType<typeof parsePetPolicy>) =>
+    judgeEligibility(dog, policy).reasons.map((r) => r.text);
+  const bagOnly = parsePetPolicy('실내는 이동가방 필수.');
+
+  it('원문이 케이지면 H5 는 "케이지가 필요하다고 적혀 있어요" — 케이지가 유일한 길이라고 단정하지 않는다(가방이면 C2 가 확인을 권한다)', () => {
+    const result = judgeEligibility(small('none'), parsePetPolicy('케이지 동반시 가능.'));
+    expect(result.level).toBe('hard');
+    expect(result.reasons.map((r) => r.text)).toEqual(['케이지가 필요하다고 적혀 있어요']);
+  });
+
+  it('카페스누피(유모차/이동 가방) × 이동 수단 없음 — C4 가 "실내는 케이지" 가 아니라 칩과 같은 말', () => {
+    const { policy } = findPlace('카페스누피');
+    const e = judgeEligibility(small('none'), policy);
+    expect(e.reasons.map((r) => r.text)).toContain('실내는 이동가방이나 유모차, 야외는 자유예요');
+    expect(toPetBadges(policy).map((b) => b.label)).toContain('이동가방·유모차 필요');
+  });
+
+  it('원문이 이동가방만 — H5·H4·C3 이 이동가방으로 부른다', () => {
+    expect(texts(small('none'), bagOnly)).toEqual(['이동가방이 필요하다고 적혀 있어요']);
+    expect(texts(large('none'), bagOnly)).toEqual(['실내는 이동가방 필수라 대형견은 어려워요']);
+    expect(texts(small('stroller'), bagOnly)).toEqual(['이동가방이라고 적혀 있어요. 유모차도 되는지 확인해 주세요']);
+  });
+
+  it('원문이 유모차만 — 이동가방 강아지의 C2 는 "유모차라고 적혀 있어요"', () => {
+    expect(texts(small('bag'), parsePetPolicy('실내는 유모차 필수.'))).toEqual([
+      '유모차라고 적혀 있어요. 이동가방도 되는지 확인해 주세요',
+    ]);
+  });
+
+  it('H4 의 "…이 없어" 는 이 아이에게 없는 것 — 가방 든 대형견에게 "이동가방이 없어" 라고 하지 않는다', () => {
+    const welcomesLarge = { ...bagOnly, largeDogOk: true };
+    expect(texts(large('none'), welcomesLarge)).toEqual(['이동가방이 없어 실내는 어려워요']);
+    const withBag = texts(large('bag'), welcomesLarge).join(' / ');
+    expect(withBag).toContain('케이지가 없어');
+    expect(withBag).not.toContain('이동가방이 없어');
+  });
+
+  it('이유 줄이 수단을 말하면 같은 이름의 칩은 카드에서 빠진다', () => {
+    const e = judgeEligibility(small('none'), bagOnly);
+    expect(reasonBadgeLabel(e, bagOnly)).toBe('이동가방 필요');
+    const chips = toPetBadges(bagOnly).filter((badge) => !verdictHidesBadge(e, bagOnly, primaryReason(e))(badge));
+    expect(chips.map((b) => b.label)).not.toContain('이동가방 필요');
+  });
+});
+
 describe('judgeEligibility — 이유끼리·원문과 다투지 않는다(14 W261007.3)', () => {
   const BORI: TDogProfile = { dogs: [{ name: '보리', weightKg: 30 }], carrier: 'none' };
 

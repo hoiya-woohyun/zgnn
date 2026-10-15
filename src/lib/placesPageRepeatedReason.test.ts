@@ -3,7 +3,7 @@ import { judgeEligibility, primaryReason } from './eligibility';
 import { placesOfType } from './places';
 import { placesPageRepeatedReason } from './placesPageRepeatedReason';
 
-const CAGE = '케이지 동반시에만 가능해요';
+const CAGE = '케이지가 필요하다고 적혀 있어요';
 
 describe('목록 카드의 같은 근거 문장 접기 (14 W261006.5)', () => {
   it('과반이 같은 문장이면 그 문장과 수', () => {

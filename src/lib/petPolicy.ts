@@ -760,14 +760,32 @@ export const cageGear = (policy: Pick<TPetPolicy, 'sources' | 'indoorGearText' |
 };
 
 /**
- * `indoor: 'cage'` 의 배지. 그 값은 "케이지·이동가방·유모차 중 하나" 라, 근거 문장이 가방·유모차를 직접 적었으면 그 말로 쓴다 —
- * 카페스누피 "실내에서는 유모차/이동 가방 필요" 에 '케이지 필요' 칩을 붙이면, 판정(C2·C3)은 가방을 받는데 칩은 케이지를 말한다(14 W261006.18).
+ * `indoor: 'cage'` 인 곳의 수단을 **부르는 말** — 원문이 가방·유모차를 적었으면 그 말, 아무것도 안 적었으면 '케이지'.
+ * 배지(`cageBadge`) · 판정 문장(H4·H5·C2·C3·C4)이 이 하나로 부르고, 템플릿(`cageLine`)은 수단마다 동사가 달라(넣어야·태워야) 같은 이름을
+ * 손으로 쓴다(14 W261013.14g) — 판정 줄만 늘 '케이지' 라서
+ * 카페스누피("실내에서는 유모차/이동 가방 필요")가 칩은 '가방·유모차 필요', 줄은 "실내는 케이지" 로 같은 조건을 두 이름으로 불렀다.
+ * 폼은 이동가방과 케이지를 다른 칸으로 두므로 다른 이름은 다른 조건으로 읽힌다.
  */
-const cageBadge = (policy: Pick<TPetPolicy, 'sources' | 'indoorGearText' | 'indoorGear'>): TPetBadge => {
+export const cageGearNoun = (policy: Pick<TPetPolicy, 'sources' | 'indoorGearText' | 'indoorGear'>): string => {
   const { bag, stroller } = cageGear(policy);
-  const label = bag && stroller ? '가방·유모차 필요' : bag ? '이동가방 필요' : stroller ? '유모차 필요' : BADGE_LABEL.cage;
-  return { label, tone: 'cond', axis: 'gear' };
+  return bag && stroller ? '이동가방이나 유모차' : bag ? '이동가방' : stroller ? '유모차' : '케이지';
 };
+
+/**
+ * `indoor: 'cage'` 의 배지 라벨. 그 값은 "케이지·이동가방·유모차 중 하나" 라, 근거 문장이 가방·유모차를 직접 적었으면 그 말로 쓴다 —
+ * 카페스누피 "실내에서는 유모차/이동 가방 필요" 에 '케이지 필요' 칩을 붙이면, 판정(C2·C3)은 가방을 받는데 칩은 케이지를 말한다(14 W261006.18).
+ * 둘 다면 칩 폭 때문에 '이나' 대신 가운뎃점이지만 이름은 같다('가방' 으로 줄이지 않는다 — 폼 칸 이름이 '이동가방').
+ */
+export const cageBadgeLabel = (policy: Pick<TPetPolicy, 'sources' | 'indoorGearText' | 'indoorGear'>): string => {
+  const { bag, stroller } = cageGear(policy);
+  return bag && stroller ? '이동가방·유모차 필요' : `${cageGearNoun(policy)} 필요`;
+};
+
+const cageBadge = (policy: Pick<TPetPolicy, 'sources' | 'indoorGearText' | 'indoorGear'>): TPetBadge => ({
+  label: cageBadgeLabel(policy),
+  tone: 'cond',
+  axis: 'gear',
+});
 
 const INDOOR_BADGE: Record<TIndoorPolicy, TPetBadge | null> = {
   free: { label: '실내 OK', tone: 'ok', axis: 'indoor' },

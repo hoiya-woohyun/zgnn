@@ -59,12 +59,12 @@ describe('publicPolicyLines — 판단에서 만든 조건 문장', () => {
     expect(publicPolicyLines(under).map((l) => l.text)).toContain('10kg 미만인 강아지만 같이 갈 수 있어요');
 
     const gear = policyOf('실내에서는 유모차/이동 가방 필요', { indoor: 'cage' });
-    expect(toPetBadges(gear).map((b) => b.label)).toContain('가방·유모차 필요');
+    expect(toPetBadges(gear).map((b) => b.label)).toContain('이동가방·유모차 필요');
     expect(publicPolicyLines(gear).map((l) => l.text)).toContain('실내에서는 이동가방이나 유모차가 있어야 해요');
 
     // 쇠소깍한끼(블로그) — '개모차' 도 유모차다. 원문이 화면에서 빠진 뒤로 이 줄이 유일한 문장이다(21 S5.1).
     const gaemocha = policyOf('강아지는 개모차, 가방 출입 가능\n개모차, 혹은 가방 지참시 출입가능!', { indoor: 'cage' });
-    expect(toPetBadges(gaemocha).map((b) => b.label)).toContain('가방·유모차 필요');
+    expect(toPetBadges(gaemocha).map((b) => b.label)).toContain('이동가방·유모차 필요');
     expect(publicPolicyLines(gaemocha).map((l) => l.text)).toContain('실내에서는 이동가방이나 유모차가 있어야 해요');
 
     // 광복이네(블로그) — 가방은 실내 근거 다음 문장에 있다. 정규식은 실내 갈래를 못 읽어 근거가 첫 줄이 되는 길(21 S5.2).

@@ -21,7 +21,7 @@ export const hasBatchim = (text: string): boolean => {
   return (code - HANGUL_START) % 28 !== 0;
 };
 
-export type TJosaPair = '은/는' | '이/가' | '을/를' | '과/와' | '이랑/랑' | '아/야';
+export type TJosaPair = '은/는' | '이/가' | '을/를' | '과/와' | '이랑/랑' | '아/야' | '이라고/라고';
 
 /** `word` 의 마지막 글자 받침 기준으로 조사만 고른다(받침 있으면 앞, 없으면 뒤). */
 export const josa = (word: string, pair: TJosaPair): string => {

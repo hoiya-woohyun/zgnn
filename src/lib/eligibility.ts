@@ -17,7 +17,9 @@ import { maxWeightKg } from './dogProfile';
 import { dogCallName, dogCallNames, josa, withJosa } from './korean';
 import {
   BADGE_LABEL,
+  cageBadgeLabel,
   cageGear,
+  cageGearNoun,
   dogCountTiers,
   dogTierBadgeLabel,
   maxDogsBadgeLabel,
@@ -215,14 +217,21 @@ const ruleLargeDogNo: TRule = (dog, policy) => {
  *
  * 여러 마리면 대형견인 아이를 부른다(`dogsOfSize`) — 단, **이동가방·유모차가 있을 때만**. 이동 수단이 없으면 작은 아이도 실내에
  * 못 드는데(H5 는 이 규칙에 물러나 있다) 큰 아이만 부르면 나머지는 되는 것처럼 읽힌다.
+ *
+ * 수단은 칩과 같은 이름(`cageGearNoun`)으로 부른다 — "가방·유모차 필요" 칩 옆에서 "실내는 케이지 필수" 는 다른 조건으로 읽혔다(14 W261013.14g).
+ * 단 "…이 없어" 는 **이 아이에게 없는 것**이라, 가방·유모차를 든 아이에겐 케이지다 — 원문이 가방을 받는 곳에서 가방 든 아이에게
+ * "이동가방이 없어" 는 거짓이다.
  */
 const ruleLargeNeedsCage: TRule = (dog, policy, opts) => {
   if (policy.indoor !== 'cage') return null;
   if (dogSize(dog) !== 'large') return null;
   if (dog.carrier === 'cage') return null;
+  const gear = cageGearNoun(policy);
+  const lacking = `${withJosa(dog.carrier === 'none' ? gear : '케이지', '이/가')} 없어`;
+  const required = `실내는 ${gear} 필수`;
   const large = dog.carrier === 'none' ? [] : dogsOfSize(dog, (size) => size === 'large');
-  const named = large.length > 0 ? `${dogsTopic(large)} ${policy.largeDogOk ? '케이지가 없어' : '대형견이라'}` : undefined;
-  const subject = named ?? (policy.largeDogOk ? '케이지가 없어' : '실내는 케이지 필수라 대형견은');
+  const named = large.length > 0 ? `${dogsTopic(large)} ${policy.largeDogOk ? lacking : '대형견이라'}` : undefined;
+  const subject = named ?? (policy.largeDogOk ? lacking : `${required}라 대형견은`);
   if (policy.outdoorFree) {
     const text = `${subject} 야외 자리만 가능해요`;
     return opts.needsIndoor
@@ -230,23 +239,27 @@ const ruleLargeNeedsCage: TRule = (dog, policy, opts) => {
       : { level: 'cond', text, quote: policy.sources.indoor };
   }
   const text = named
-    ? `${named} ${policy.largeDogOk ? '실내는 어려워요' : '실내는 케이지 필수예요'}`
+    ? `${named} ${policy.largeDogOk ? '실내는 어려워요' : `${required}예요`}`
     : policy.largeDogOk
-      ? '케이지가 없어 실내는 어려워요'
-      : '실내는 케이지 필수라 대형견은 어려워요';
+      ? `${lacking} 실내는 어려워요`
+      : `${required}라 대형견은 어려워요`;
   return { level: 'hard', text, quote: policy.sources.indoor };
 };
 
 /**
  * H5: 실내가 케이지 필수인데 아무 이동 수단도 없고, 야외 자리도 없다.
  * 대형견이면 H4 가 같은 문장을 근거로 이미 어려움을 냈으므로 같은 말을 반복하지 않는다.
+ *
+ * C2 처럼 **원문이 적은 것**으로 말한다(14 W261013.14g). 예전 "케이지 동반시에만 가능해요" 는 케이지가 유일한 길이라고 단정해,
+ * 목록 머리의 바로 아래 줄 "이동가방이 있으면 N곳이 '확인 필요' 로 바뀌어요" 와 싸웠다 — 원문이 '케이지' 라고 쓴 곳도 천 가방을
+ * 받는지는 모른다(그래서 C2 가 확인을 권한다).
  */
 const ruleNoCarrierNoOutdoor: TRule = (dog, policy) => {
   if (policy.indoor !== 'cage') return null;
   if (dog.carrier !== 'none') return null;
   if (policy.outdoorFree) return null; // ruleNoCarrierOutdoorFree(C4) 가 담당
   if (dogSize(dog) === 'large') return null; // ruleLargeNeedsCage(H4) 가 담당
-  return { level: 'hard', text: '케이지 동반시에만 가능해요', quote: policy.sources.indoor };
+  return { level: 'hard', text: `${withJosa(cageGearNoun(policy), '이/가')} 필요하다고 적혀 있어요`, quote: policy.sources.indoor };
 };
 
 /** H6: 야외 자리만 있는 곳인데 이번 여행은 실내 자리가 꼭 필요하다. */
@@ -273,9 +286,10 @@ const ruleBagAtCagePlace: TRule = (dog, policy) => {
   if (dog.carrier !== 'bag') return null;
   // 근거 문장 + 다음 문장까지 본다 — 광복이네는 "실내에서 식사할 수 있었어요" 다음 문장이 "이동가방에 넣어" 다(21 S5.2).
   if (cageGear(policy).bag) return null;
+  // 원문이 유모차만 적었으면 "유모차라고 적혀 있어요" — '케이지' 라고 하면 칩('유모차 필요')과 다른 조건이 된다(14 W261013.14g).
   return {
     level: 'cond',
-    text: '케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요',
+    text: `${withJosa(cageGearNoun(policy), '이라고/라고')} 적혀 있어요. 이동가방도 되는지 확인해 주세요`,
     quote: policy.sources.indoor,
   };
 };
@@ -288,17 +302,17 @@ const ruleStrollerAtCagePlace: TRule = (dog, policy) => {
   if (cageGear(policy).stroller) return null;
   return {
     level: 'cond',
-    text: '케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요',
+    text: `${withJosa(cageGearNoun(policy), '이라고/라고')} 적혀 있어요. 유모차도 되는지 확인해 주세요`,
     quote: policy.sources.indoor,
   };
 };
 
-/** C4: 케이지 필수인 곳에 아무 이동 수단도 없지만, 야외 자리는 자유롭다. */
+/** C4: 케이지 필수인 곳에 아무 이동 수단도 없지만, 야외 자리는 자유롭다. 수단은 칩과 같은 이름으로(카페스누피 "실내는 이동가방이나 유모차"). */
 const ruleNoCarrierOutdoorFree: TRule = (dog, policy, opts) => {
   if (policy.indoor !== 'cage') return null;
   if (dog.carrier !== 'none') return null;
   if (!policy.outdoorFree) return null; // ruleNoCarrierNoOutdoor(H5) 가 담당
-  const text = '실내는 케이지, 야외는 자유예요';
+  const text = `실내는 ${cageGearNoun(policy)}, 야외는 자유예요`;
   return opts.needsIndoor
     ? { level: 'hard', text, quote: policy.sources.indoor }
     : { level: 'cond', text, quote: policy.sources.indoor };
@@ -586,7 +600,8 @@ export const primaryReason = (e: TEligibility): TReason | undefined => {
 
 /**
  * 이유 줄과 같은 칸을 말하는 원문 칩 — 규칙 ID → 그 규칙이 읽은 정책 칸의 배지 라벨(`toPetBadges` 와 같은 함수·상수로 만든다).
- * 케이지 규칙은 **'케이지 필요' 일 때만** 겹친다: 원문이 가방·유모차를 적어 칩이 '이동가방 필요' 면 줄('케이지 동반시에만')이 안 한 말을 한다.
+ * 케이지 규칙(H4·H5·C2·C3·C4)은 칩과 줄이 같은 이름(`cageGearNoun`)으로 부르므로 그 장소의 수단 칩(`cageBadgeLabel` — '이동가방 필요' 등)과 겹친다.
+ * 예전엔 줄이 늘 '케이지' 라 '케이지 필요' 일 때만 겹쳤다(14 W261013.14g).
  * 구간마다 마릿수가 다른 곳(`dogCountTiers`)은 무게·마릿수 칩 대신 구간 칩이라, H1 은 가장 넓은 구간 칩(H1 문장이 말하는 상한),
  * H2 는 **그 줄이 말한 구간**의 칩이다 — 어느 구간인지는 강아지에 따라 갈려 같은 문장 함수(`tooManyText`)로 줄과 맞춰 찾는다.
  */
@@ -605,13 +620,13 @@ const REASON_BADGE: Record<string, (policy: TPetPolicy, reason: TReason) => stri
   },
   H3: () => BADGE_LABEL.smallDogOnly,
   H7: () => BADGE_LABEL.largeDogNo,
-  H4: () => BADGE_LABEL.cage,
-  H5: () => BADGE_LABEL.cage,
+  H4: cageBadgeLabel,
+  H5: cageBadgeLabel,
   H6: () => BADGE_LABEL.outdoorOnly,
   C1: () => BADGE_LABEL.outdoorOnly,
-  C2: () => BADGE_LABEL.cage,
-  C3: () => BADGE_LABEL.cage,
-  C4: () => BADGE_LABEL.cage,
+  C2: cageBadgeLabel,
+  C3: cageBadgeLabel,
+  C4: cageBadgeLabel,
   C6: () => BADGE_LABEL.callFirst,
   C8: () => BADGE_LABEL.vaccineRequired,
   C11: (policy) => (policy.petDays?.length ? petDaysBadgeLabel(policy.petDays) : undefined),

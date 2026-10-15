@@ -79,14 +79,14 @@ evidence {"lines":["실내에서는 케이지에 넣어야 해요","소형견만
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H3:hard:소형견만 가능해요 / H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H3:hard:소형견만 가능해요 / H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H3:hard:소형견만 가능해요 / H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H3:hard:소형견만 가능해요 / H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H3:hard:소형견만 가능해요 / H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H3:hard:소형견만 가능해요 / H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 2194b705-4445-4c84-89cc-f6d8c2977653
 public false
@@ -115,14 +115,14 @@ evidence raw
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 278ddc10-ceae-810e-9b37-c2a83b442865
 public true
@@ -205,14 +205,14 @@ evidence raw
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 278ddc10-ceae-8117-9d64-c4ca29d14941
 public true
@@ -277,14 +277,14 @@ evidence raw
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 278ddc10-ceae-811f-bcee-d05a31480417
 public true
@@ -313,14 +313,14 @@ evidence raw
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 278ddc10-ceae-8124-a2a5-f1ea72225ff7
 public true
@@ -331,14 +331,14 @@ evidence raw
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 278ddc10-ceae-8127-af41-c13ca56b5ded
 public true
@@ -349,14 +349,14 @@ evidence raw
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 278ddc10-ceae-8129-ad4a-febab76cac54
 public true
@@ -439,14 +439,14 @@ evidence raw
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 278ddc10-ceae-8134-92a1-d78e8a84ce65
 public true
@@ -493,14 +493,14 @@ evidence raw
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 278ddc10-ceae-8141-8fc4-ecefdf377c2c
 public true
@@ -529,14 +529,14 @@ evidence raw
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 278ddc10-ceae-8145-8f1d-dbbdafaa67ec
 public true
@@ -637,14 +637,14 @@ evidence raw
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 278ddc10-ceae-8159-8727-dad69655676d
 public true
@@ -655,14 +655,14 @@ evidence raw
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 278ddc10-ceae-815b-8c0b-dc86d14ce964
 public true
@@ -673,14 +673,14 @@ evidence raw
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 278ddc10-ceae-8160-9d36-c27fe4e7bc54
 public true
@@ -704,19 +704,19 @@ small6none+indoor ok |  |  |
 public true
 policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
 gear {"bag":true,"stroller":true}
-badges cond:가방·유모차 필요
+badges cond:이동가방·유모차 필요
 evidence raw
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 cond | C4:cond:실내는 케이지, 야외는 자유예요 |  | 
-medium12+indoor hard | C4:hard:실내는 케이지, 야외는 자유예요 |  | 
-large28 cond | H4:cond:실내는 케이지 필수라 대형견은 야외 자리만 가능해요 / C4:cond:실내는 케이지, 야외는 자유예요 |  | 
-large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 야외 자리만 가능해요 / C4:hard:실내는 케이지, 야외는 자유예요 |  | 
+medium12 cond | C4:cond:실내는 이동가방이나 유모차, 야외는 자유예요 |  | 
+medium12+indoor hard | C4:hard:실내는 이동가방이나 유모차, 야외는 자유예요 |  | 
+large28 cond | H4:cond:실내는 이동가방이나 유모차 필수라 대형견은 야외 자리만 가능해요 / C4:cond:실내는 이동가방이나 유모차, 야외는 자유예요 |  | 
+large28+indoor hard | H4:hard:실내는 이동가방이나 유모차 필수라 대형견은 야외 자리만 가능해요 / C4:hard:실내는 이동가방이나 유모차, 야외는 자유예요 |  | 
 two5and8 ok |  |  | 
 two5and8+indoor ok |  |  | 
-small6none cond | C4:cond:실내는 케이지, 야외는 자유예요 |  | 
-small6none+indoor hard | C4:hard:실내는 케이지, 야외는 자유예요 |  | 
+small6none cond | C4:cond:실내는 이동가방이나 유모차, 야외는 자유예요 |  | 
+small6none+indoor hard | C4:hard:실내는 이동가방이나 유모차, 야외는 자유예요 |  | 
 
 ## 278ddc10-ceae-8168-9bff-e49aa95facb0
 public true
@@ -763,14 +763,14 @@ evidence raw
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 278ddc10-ceae-817e-a3a9-e105f0cfae13
 public true
@@ -817,14 +817,14 @@ evidence raw
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 278ddc10-ceae-818c-9079-de7669613029
 public true
@@ -835,14 +835,14 @@ evidence raw
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 278ddc10-ceae-8192-8c3e-f40ffc9b39e1
 public true
@@ -907,14 +907,14 @@ evidence raw
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 278ddc10-ceae-819c-bab9-dea5ccc91d1f
 public true
@@ -925,14 +925,14 @@ evidence raw
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 278ddc10-ceae-81a0-b593-cfdadcc5fbac
 public true
@@ -961,14 +961,14 @@ evidence raw
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:케이지가 없어 실내는 어려워요 |  | 
 large28+indoor hard | H4:hard:케이지가 없어 실내는 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 278ddc10-ceae-81a5-bdc6-f899283c1a5b
 public true
@@ -979,14 +979,14 @@ evidence raw
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 278ddc10-ceae-81a7-a6db-de90d073a673
 public true
@@ -1123,14 +1123,14 @@ evidence raw
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 278ddc10-ceae-81c0-8734-e6bd0061c289
 public true
@@ -1177,14 +1177,14 @@ evidence raw
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 278ddc10-ceae-81ce-b287-fa0526ba0f13
 public true
@@ -1195,14 +1195,14 @@ evidence raw
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 278ddc10-ceae-81d9-b584-fbbc031c91be
 public true
@@ -1339,14 +1339,14 @@ evidence raw
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 278ddc10-ceae-81ed-9ff5-d3f7e4e1a263
 public true
@@ -1357,14 +1357,14 @@ evidence raw
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 278ddc10-ceae-81f0-a3b3-ce47153f1ec1
 public true
@@ -1447,14 +1447,14 @@ evidence raw
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 278ddc10-ceae-81fb-9a7f-f431cda4dee1
 public true
@@ -1519,14 +1519,14 @@ evidence raw
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 27bddc10-ceae-802a-9feb-d9e02de8930f
 public true
@@ -1537,14 +1537,14 @@ evidence raw
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 27bddc10-ceae-8045-a4ff-f79610004d2f
 public true
@@ -1573,14 +1573,14 @@ evidence raw
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 27bddc10-ceae-8081-b9c2-f20b8d3ea045
 public true
@@ -1663,14 +1663,14 @@ evidence {"lines":["실내에서는 케이지에 넣어야 해요","가기 전�
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
 
 ## 3f87c848-c268-47b6-b6a7-5e726dc5ca30
 public false
@@ -1843,14 +1843,14 @@ evidence {"lines":["실내에서는 케이지에 넣어야 해요"],"note":null}
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## 889629d7-48f0-4587-a3cb-a5320d155775
 public false
@@ -1933,32 +1933,32 @@ evidence {"lines":["실내에서는 이동가방에 넣어야 해요","가기 �
 env null
 small4 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
 small4+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
-large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
-large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
-two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
-two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+medium12 hard | H5:hard:이동가방이 필요하다고 적혀 있어요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+medium12+indoor hard | H5:hard:이동가방이 필요하다고 적혀 있어요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+large28 hard | H4:hard:실내는 이동가방 필수라 대형견은 어려워요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+large28+indoor hard | H4:hard:실내는 이동가방 필수라 대형견은 어려워요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+two5and8 cond | C3:cond:이동가방이라고 적혀 있어요. 유모차도 되는지 확인해 주세요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+two5and8+indoor cond | C3:cond:이동가방이라고 적혀 있어요. 유모차도 되는지 확인해 주세요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+small6none hard | H5:hard:이동가방이 필요하다고 적혀 있어요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+small6none+indoor hard | H5:hard:이동가방이 필요하다고 적혀 있어요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
 
 ## abe294e2-faf9-4ceb-a5ed-00455c10bf36
 public false
 policy {"indoor":"cage","leash":false,"largeDogOk":false,"mediumDogOk":false,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":false,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
 gear {"bag":true,"stroller":true}
-badges cond:가방·유모차 필요
+badges cond:이동가방·유모차 필요
 evidence {"lines":["실내에서는 이동가방이나 유모차가 있어야 해요"],"note":null}
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
-large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
+medium12 hard | H5:hard:이동가방이나 유모차가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:이동가방이나 유모차가 필요하다고 적혀 있어요 |  | 
+large28 hard | H4:hard:실내는 이동가방이나 유모차 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 이동가방이나 유모차 필수라 대형견은 어려워요 |  | 
 two5and8 ok |  |  | 
 two5and8+indoor ok |  |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:이동가방이나 유모차가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:이동가방이나 유모차가 필요하다고 적혀 있어요 |  | 
 
 ## aef2f05a-595b-4c42-85b5-e529a8147189
 public false
@@ -1987,14 +1987,14 @@ evidence {"lines":["실내에서는 케이지에 넣어야 해요","소형견만
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
-medium12 hard | H3:hard:소형견만 가능해요 / H5:hard:케이지 동반시에만 가능해요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
-medium12+indoor hard | H3:hard:소형견만 가능해요 / H5:hard:케이지 동반시에만 가능해요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+medium12 hard | H3:hard:소형견만 가능해요 / H5:hard:케이지가 필요하다고 적혀 있어요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+medium12+indoor hard | H3:hard:소형견만 가능해요 / H5:hard:케이지가 필요하다고 적혀 있어요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
 large28 hard | H3:hard:소형견만 가능해요 / H4:hard:실내는 케이지 필수라 대형견은 어려워요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
 large28+indoor hard | H3:hard:소형견만 가능해요 / H4:hard:실내는 케이지 필수라 대형견은 어려워요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
 
 ## c50854aa-2a95-4e78-9c5c-e74f0ff988b6
 public false
@@ -2005,14 +2005,14 @@ evidence {"lines":["실내에서는 케이지에 넣어야 해요"],"note":null}
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 
 ## cce905a8-315b-44df-ab37-6390906b8b9e
 public false
@@ -2095,14 +2095,14 @@ evidence {"lines":["실내에서는 이동가방에 넣어야 해요"],"note":nu
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
-large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
-two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:이동가방이 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:이동가방이 필요하다고 적혀 있어요 |  | 
+large28 hard | H4:hard:실내는 이동가방 필수라 대형견은 어려워요 |  | 
+large28+indoor hard | H4:hard:실내는 이동가방 필수라 대형견은 어려워요 |  | 
+two5and8 cond | C3:cond:이동가방이라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+two5and8+indoor cond | C3:cond:이동가방이라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
+small6none hard | H5:hard:이동가방이 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:이동가방이 필요하다고 적혀 있어요 |  | 
 
 ## e99ff3f9-e68f-4dce-be26-ced7cb91c04f
 public false
@@ -2185,11 +2185,11 @@ evidence {"lines":["실내에서는 케이지에 넣어야 해요"],"note":null}
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-medium12+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+medium12 hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+medium12+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
 large28 hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 어려워요 |  | 
 two5and8 cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
 two5and8+indoor cond | C3:cond:케이지라고 적혀 있어요. 유모차도 되는지 확인해 주세요 |  | 
-small6none hard | H5:hard:케이지 동반시에만 가능해요 |  | 
-small6none+indoor hard | H5:hard:케이지 동반시에만 가능해요 |  | 
+small6none hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
+small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |  | 
