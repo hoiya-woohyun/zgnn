@@ -26,6 +26,8 @@ export type TLandmark = {
  * 권역 이름은 묶음일 뿐 판정에 쓰지 않는다 — 읍·면 이름은 지역 태그가 이미 글자로 받으므로(애월 → 애월읍) 여기에 별칭으로 넣지 않는다.
  * 좌표는 OpenStreetMap(Nominatim) 조회값(2026-10-04). 1km 안에 붙은 곳은 하나로 합쳤다(협재·금능 · 탑동·동문시장 · 산방산·사계).
  * 반경: 해변 마을 1.5~2km, 관광단지·공항 2.5~3km. 크게 잡으면 "협재" 에 한림 시내가 섞인다.
+ * 사람이 줄여 부르는 이름(동문·섭지·산방·송악·용머리·이중섭·풍차)도 별칭에 넣는다(14 W261010.30) — 별칭은 단어 **전체**로만 맞아서(`landmarkOfWord`)
+ * '동문시장' 은 1곳인데 '동문' 은 0곳이었다. 짧은 꼴은 목록 **끝**에 붙인다 — 홈 동네 카드 칩이 `aliases[0]` 를 검색어로 쓴다.
  */
 export const LANDMARKS_BY_AREA = {
   애월: [
@@ -40,13 +42,13 @@ export const LANDMARKS_BY_AREA = {
       radiusKm: 2,
     },
   ],
-  한경: [{ name: '신창', aliases: ['신창', '신창풍차해안', '풍차해안'], center: { lat: 33.345, lng: 126.175 }, radiusKm: 2 }],
+  한경: [{ name: '신창', aliases: ['신창', '신창풍차해안', '풍차해안', '풍차'], center: { lat: 33.345, lng: 126.175 }, radiusKm: 2 }],
   대정: [
     { name: '모슬포', aliases: ['모슬포', '모슬포항'], center: { lat: 33.217, lng: 126.251 }, radiusKm: 2 },
-    { name: '송악산', aliases: ['송악산'], center: { lat: 33.1994, lng: 126.29 }, radiusKm: 1.5 },
+    { name: '송악산', aliases: ['송악산', '송악'], center: { lat: 33.1994, lng: 126.29 }, radiusKm: 1.5 },
   ],
   안덕: [
-    { name: '산방산·사계', aliases: ['산방산', '용머리해안', '사계', '사계해변'], center: { lat: 33.238, lng: 126.311 }, radiusKm: 2 },
+    { name: '산방산·사계', aliases: ['산방산', '용머리해안', '사계', '사계해변', '산방', '용머리'], center: { lat: 33.238, lng: 126.311 }, radiusKm: 2 },
     { name: '화순', aliases: ['화순', '화순금모래해변', '화순금모래해수욕장'], center: { lat: 33.2404, lng: 126.3332 }, radiusKm: 1.5 },
     { name: '오설록', aliases: ['오설록'], center: { lat: 33.3051, lng: 126.2898 }, radiusKm: 1.5 },
   ],
@@ -54,7 +56,7 @@ export const LANDMARKS_BY_AREA = {
     { name: '중문', aliases: ['중문', '중문관광단지', '대포주상절리', '주상절리'], center: { lat: 33.2496, lng: 126.412 }, radiusKm: 3 },
   ],
   서귀포: [
-    { name: '올레시장', aliases: ['올레시장', '매일올레시장', '이중섭거리', '천지연'], center: { lat: 33.2498, lng: 126.564 }, radiusKm: 1.5 },
+    { name: '올레시장', aliases: ['올레시장', '매일올레시장', '이중섭거리', '천지연', '이중섭'], center: { lat: 33.2498, lng: 126.564 }, radiusKm: 1.5 },
     { name: '법환', aliases: ['법환', '법환포구'], center: { lat: 33.2372, lng: 126.5161 }, radiusKm: 1.5 },
     { name: '쇠소깍', aliases: ['쇠소깍'], center: { lat: 33.2526, lng: 126.6235 }, radiusKm: 1.5 },
   ],
@@ -62,7 +64,7 @@ export const LANDMARKS_BY_AREA = {
   표선: [{ name: '성읍', aliases: ['성읍', '성읍민속마을'], center: { lat: 33.3869, lng: 126.8016 }, radiusKm: 1.5 }],
   성산: [
     { name: '성산일출봉', aliases: ['일출봉', '성산일출봉'], center: { lat: 33.4589, lng: 126.9408 }, radiusKm: 2 },
-    { name: '섭지코지', aliases: ['섭지코지'], center: { lat: 33.43, lng: 126.927 }, radiusKm: 1.5 },
+    { name: '섭지코지', aliases: ['섭지코지', '섭지'], center: { lat: 33.43, lng: 126.927 }, radiusKm: 1.5 },
   ],
   구좌: [
     { name: '김녕', aliases: ['김녕', '김녕해수욕장', '김녕해변'], center: { lat: 33.5565, lng: 126.76 }, radiusKm: 1.5 },
@@ -74,7 +76,7 @@ export const LANDMARKS_BY_AREA = {
   제주시: [
     { name: '제주공항', aliases: ['공항', '제주공항', '제주국제공항'], center: { lat: 33.5071, lng: 126.4916 }, radiusKm: 2.5 },
     { name: '이호테우', aliases: ['이호', '이호테우', '이호테우해변', '이호테우해수욕장'], center: { lat: 33.4963, lng: 126.4554 }, radiusKm: 1.5 },
-    { name: '원도심', aliases: ['원도심', '탑동', '동문시장'], center: { lat: 33.515, lng: 126.526 }, radiusKm: 1.5 },
+    { name: '원도심', aliases: ['원도심', '탑동', '동문시장', '동문'], center: { lat: 33.515, lng: 126.526 }, radiusKm: 1.5 },
     { name: '신제주', aliases: ['신제주', '노형', '연동'], center: { lat: 33.484, lng: 126.485 }, radiusKm: 2 },
     { name: '삼양', aliases: ['삼양', '삼양해수욕장', '삼양해변'], center: { lat: 33.5257, lng: 126.5869 }, radiusKm: 1.5 },
   ],

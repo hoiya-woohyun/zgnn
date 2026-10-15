@@ -423,6 +423,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
               onClearOnlyReachable={clearOnlyReachable}
               areaCarried={areaCarried}
               nearSort={{ pressed: sort === 'near', onToggle: () => void changeSort(sort === 'near' ? 'none' : 'near') }}
+              onCityDowntown={setTown}
               onReleaseAreaCarried={() => {
                 setTown(null);
                 releaseAreaCarried(type);

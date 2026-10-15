@@ -54,6 +54,50 @@ const CITY_TOWNS: ReadonlyMap<string, ReadonlySet<string>> = new Map([
   ['서귀포시', SEOGWIPO_CITY],
 ]);
 
+/** 시 이름 → 그 시의 **시내**(동 지역) 태그. 지역 태그가 읍·면 하나라 시내는 시 이름 그대로 붙어 있다(`서귀포시`·`제주시`). */
+const CITY_DOWNTOWN: ReadonlyMap<string, string> = new Map([
+  ['제주시', '제주시'],
+  ['서귀포', '서귀포시'],
+  ['서귀포시', '서귀포시'],
+]);
+
+export type TCityScope = {
+  /** 검색어에 있던 시 이름 그대로('서귀포'). */
+  word: string;
+  /** 시내의 지역 태그('서귀포시') — 읍면 필터에 그대로 건다. */
+  downtown: string;
+  downtownCount: number;
+  /** 시내가 아닌 소속 읍·면(성산읍·구좌읍…)의 곳 수. */
+  townCount: number;
+};
+
+/**
+ * 검색어의 시 이름이 결과에서 무엇을 덮었나(14 W261010.30) — 시내와 소속 읍·면을 따로 센다.
+ *
+ * 시 이름은 소속 읍·면까지 맞는다(위 `CITY_TOWNS`, W261006.9 — 서귀포 현지인은 성산·표선도 서귀포다). 그런데 여행자는 '서귀포'·'제주시' 를
+ * **시내**로 읽어서, 판정순 맨 위에 성산·구좌·우도가 오면 검색이 틀렸다고 본다(business-11 · backpacker-06). 둘 다 맞는 독해라 범위는 그대로 두고
+ * 화면이 무엇을 덮었는지 말한다 — 시내만 원하면 읍면 필터로 한 번에 좁힌다. 범위를 시내로 줄이면 현지인의 불만(카페 3곳)이 그대로 돌아온다.
+ * 정렬을 시내 먼저로 가르지 않는다: 판정순이 이 앱의 첫 번째 순서다.
+ *
+ * 결과에 소속 읍·면이 하나도 없으면 null — 시 이름이 시내 밖을 덮지 않았으니 말할 것이 없다. 시 이름이 둘이면 앞의 것.
+ */
+export function cityScopeOf(query: string, places: readonly Pick<TPlaceEntry, 'region'>[]): TCityScope | null {
+  const word = query
+    .toLowerCase()
+    .split(/\s+/)
+    .find((candidate) => CITY_DOWNTOWN.has(candidate));
+  if (word === undefined) return null;
+  const downtown = CITY_DOWNTOWN.get(word)!;
+  const towns = CITY_TOWNS.get(word)!;
+  let downtownCount = 0;
+  let townCount = 0;
+  for (const place of places) {
+    if (place.region.town === downtown) downtownCount += 1;
+    else if (towns.has(place.region.town)) townCount += 1;
+  }
+  return townCount > 0 ? { word, downtown, downtownCount, townCount } : null;
+}
+
 const squash = (text: string) => text.toLowerCase().replace(/\s+/g, '');
 
 export function matchesQuery(

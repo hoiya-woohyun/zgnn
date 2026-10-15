@@ -15,6 +15,7 @@ import { carrierWhatIf, countByLevel, levelCountParts, outdoorFallback } from '.
 import { placesPageHardFold } from '../lib/placesPageHardFold';
 import { placesPageEmptySearch, type TAreaCarried } from '../lib/placesPageFilter';
 import { placesPageRepeatedReason } from '../lib/placesPageRepeatedReason';
+import { cityScopeOf } from '../lib/placeSearch';
 import { areaTownsLabel, type TAreaId } from '../lib/areaGroups';
 import { josa, withJosa } from '../lib/korean';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
@@ -80,6 +81,11 @@ type TPlacesPageResultsProps = {
    * 위치 권한이 없으면 정렬을 바꾸지 않고 이유만 말하는 것은 시트와 같다(`changeSort`).
    */
   nearSort?: { pressed: boolean; onToggle: () => void };
+  /**
+   * 시 이름 검색('서귀포')을 시내로 좁힌다 — 읍면 필터에 시내 태그('서귀포시')를 건다(14 W261010.30). 본 화면만 준다:
+   * 엿보기는 같은 줄을 그리되 눌러도 아무 일 없다(`nearSort` 와 같은 까닭 — 줄이 있다 없다 하면 손을 놓는 순간 목록이 뛴다).
+   */
+  onCityDowntown?: (town: string) => void;
 };
 
 /**
@@ -117,6 +123,7 @@ export function PlacesPageResults({
   areaCarried = null,
   onReleaseAreaCarried,
   nearSort,
+  onCityDowntown,
 }: TPlacesPageResultsProps) {
   const dog = useAppStore((state) => state.dog);
   const needsIndoor = useAppStore((state) => state.needsIndoor);
@@ -187,6 +194,9 @@ export function PlacesPageResults({
             : 'generic';
   const emptySearch = emptyKind === 'search' ? placesPageEmptySearch(query, otherTypes) : null;
 
+  // 시 이름 검색이 시내 밖 읍면까지 덮었으면 그렇다고 말한다(14 W261010.30). 읍면 필터가 걸려 있으면 이미 좁힌 것이라 말하지 않는다.
+  const cityScope = useMemo(() => (town ? null : cityScopeOf(query, results)), [town, query, results]);
+
   const renderOtherTypeRow = (other: { type: TPlaceType; count: number }) => (
     <li key={other.type}>
       <Link
@@ -256,6 +266,24 @@ export function PlacesPageResults({
       )}
 
       <PlacesPageActiveChips chips={activeChips} />
+
+      {/* 시 이름은 소속 읍면까지 맞는다(W261006.9) — 여행자는 '서귀포' 를 시내로 읽어 맨 위의 성산을 틀린 결과로 본다(business-11).
+          범위는 두고 무엇을 덮었는지 말하며, 시내만 원하면 그 자리에서 읍면 필터로 좁힌다. 시내가 0곳이면 좁힐 것이 없어 버튼을 뺀다. */}
+      {results.length > 0 && cityScope && (
+        <p className="flex min-h-11 flex-wrap items-center gap-x-3 px-4 text-sm text-tertiary md:px-6">
+          {`'${cityScope.word}'${josa(cityScope.word, '은/는')} ${cityScope.downtown} 전체예요 · 시내 ${cityScope.downtownCount}곳 · 읍면 ${cityScope.townCount}곳`}
+          {cityScope.downtownCount > 0 && (
+            <button
+              type="button"
+              onClick={() => onCityDowntown?.(cityScope.downtown)}
+              data-ev="places.cityDowntown"
+              className="inline-flex min-h-11 items-center font-semibold text-brand-secondary hover:text-brand-secondary_hover"
+            >
+              시내만 보기
+            </button>
+          )}
+        </p>
+      )}
 
       {/* 동네 카드는 n곳이라 했는데 목록이 그보다 적으면 무엇이 걸렸는지 말하고 그 자리에서 푼다(19 T4.2) — 홈은 퍼시스트 읍면을
           몰래 바꾸지 않으므로(18 T2) 전에 걸어 둔 읍면·칩이 카드 진입을 따라온다. 0곳이면 아래 빈 상태가 같은 일을 한다. */}

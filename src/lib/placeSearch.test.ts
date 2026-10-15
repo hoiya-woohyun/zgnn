@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parsePetPolicy } from './petPolicy';
-import { matchesQuery } from './placeSearch';
+import { cityScopeOf, matchesQuery } from './placeSearch';
 import type { TPlaceEntry } from './places';
 import type { TPlaceType } from '../types';
 
@@ -100,5 +100,43 @@ describe('matchesQuery', () => {
       expect(matchesQuery(place({ geo: nearJungmun, category: '카레' }), '중문 카레')).toBe(true);
       expect(matchesQuery(place({ geo: nearJungmun }), '중문 카레')).toBe(false);
     });
+
+    it('"동문" — 줄인 이름도 반경으로 맞는다(14 W261010.30)', () => {
+      const nearDongmun = { lat: 33.512, lng: 126.527 }; // 원도심 중심에서 약 0.3km
+      expect(matchesQuery(place({ town: '제주시', geo: nearDongmun }), '동문')).toBe(true);
+      expect(matchesQuery(place({ town: '제주시', geo: nearDongmun }), '동문시장')).toBe(true);
+    });
+  });
+});
+
+describe('cityScopeOf — 시 이름이 결과에서 무엇을 덮었나(14 W261010.30)', () => {
+  const at = (town: string) => ({ region: { direction: 'west' as const, town, raw: '' } });
+
+  it('시내와 소속 읍·면을 따로 센다 — 시내 태그는 읍면 필터에 그대로 건다', () => {
+    expect(cityScopeOf('서귀포', [at('서귀포시'), at('성산읍'), at('대정읍')])).toEqual({
+      word: '서귀포',
+      downtown: '서귀포시',
+      downtownCount: 1,
+      townCount: 2,
+    });
+    expect(cityScopeOf('제주시 카페', [at('구좌읍'), at('우도면')])).toEqual({
+      word: '제주시',
+      downtown: '제주시',
+      downtownCount: 0,
+      townCount: 2,
+    });
+    expect(cityScopeOf('카페 서귀포시', [at('서귀포시'), at('표선면')])?.downtown).toBe('서귀포시');
+  });
+
+  it('소속 읍·면이 안 섞였으면 null — 말할 것이 없다', () => {
+    expect(cityScopeOf('서귀포', [at('서귀포시'), at('서귀포시')])).toBeNull();
+    expect(cityScopeOf('서귀포', [])).toBeNull();
+    // 다른 시의 읍·면(글자로 걸린 곳)은 이 시가 덮은 것이 아니다.
+    expect(cityScopeOf('서귀포', [at('서귀포시'), at('애월읍')])).toBeNull();
+  });
+
+  it('시 이름이 아니면 null — 읍·면 이름, 맨 "제주"', () => {
+    expect(cityScopeOf('애월', [at('애월읍')])).toBeNull();
+    expect(cityScopeOf('제주', [at('구좌읍'), at('제주시')])).toBeNull();
   });
 });

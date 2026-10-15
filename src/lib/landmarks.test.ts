@@ -40,6 +40,16 @@ describe('landmarkOfWord · isNearLandmark', () => {
     expect(landmarkOfWord('카페')).toBeNull();
   });
 
+  it('줄여 부르는 이름도 같은 랜드마크 — "동문시장" 은 1곳인데 "동문" 은 0곳이었다(14 W261010.30)', () => {
+    expect(landmarkOfWord('동문')?.name).toBe('원도심');
+    expect(landmarkOfWord('섭지')?.name).toBe('섭지코지');
+    expect(landmarkOfWord('산방')?.name).toBe('산방산·사계');
+    expect(landmarkOfWord('용머리')?.name).toBe('산방산·사계');
+    expect(landmarkOfWord('송악')?.name).toBe('송악산');
+    expect(landmarkOfWord('이중섭')?.name).toBe('올레시장');
+    expect(landmarkOfWord('풍차')?.name).toBe('신창');
+  });
+
   it('반경 경계 — 안쪽은 참, 바깥은 거짓, 좌표 없으면 거짓', () => {
     const hamdeok = landmarkOfWord('함덕')!;
     const north = (km: number) => ({ geo: { lat: hamdeok.center.lat + km / 111, lng: hamdeok.center.lng } });
