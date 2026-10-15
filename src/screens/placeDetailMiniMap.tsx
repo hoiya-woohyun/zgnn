@@ -15,7 +15,11 @@ import type { TGeo } from '../types';
  */
 const PRELOAD_MARGIN = '200px 0px';
 
-type TStatus = 'loading' | 'ready' | 'error';
+/**
+ * 'idle' 은 아직 부르지 않은 판(화면 밖) — 여기서 "불러오는 중" 을 그리면 스크롤 없이 전체 페이지를 찍은 사람에겐 멈춘 지도로 읽힌다
+ * (14 W261010.33n, ferry-20 과 같은 판독). 문구 없는 빈 판으로 두고, 'loading' 은 지도 자리가 화면 가까이 와서 SDK 를 부를 때 선다.
+ */
+type TStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 /**
  * 상세 화면의 "위치" 미니 지도. 그 장소 핀 하나를 가운데 두고, 누르면 지도 탭(`/map/?place=<id>`)으로 가서
@@ -34,7 +38,9 @@ export function PlaceDetailMiniMap({ place, geo }: { place: TPlaceEntry; geo: TG
   const containerRef = useRef<HTMLDivElement | null>(null);
   // IntersectionObserver 가 없는 브라우저는 기다릴 방법이 없으니 바로 부른다. 화면에 그리는 것과 무관한 값이라 하이드레이션이 어긋나지 않는다.
   const [visible, setVisible] = useState(() => typeof IntersectionObserver === 'undefined');
-  const [status, setStatus] = useState<TStatus>('loading');
+  // 첫 값은 서버(정적 HTML)와 같은 'idle' 이어야 한다 — `visible` 처럼 IntersectionObserver 유무로 정하면 서버엔 그것이 없어 HTML 과 첫 렌더가 갈린다.
+  // 그래서 IntersectionObserver 가 없는 브라우저는 'idle' 인 채로 지도를 부른다(빈 판 → 지도. 그런 브라우저는 거의 없다).
+  const [status, setStatus] = useState<TStatus>('idle');
 
   // 지도 자리가 화면 가까이 올 때까지 기다린다. 한 번 보이면 끝이다 — 다시 숨어도 지도를 걷지 않는다.
   useEffect(() => {
@@ -44,6 +50,7 @@ export function PlaceDetailMiniMap({ place, geo }: { place: TPlaceEntry; geo: TG
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting)) {
           setVisible(true);
+          setStatus('loading');
           observer.disconnect();
         }
       },
@@ -150,7 +157,7 @@ export function PlaceDetailMiniMap({ place, geo }: { place: TPlaceEntry; geo: TG
       ) : (
         <>
           <div key="map" ref={containerRef} className="h-full w-full" data-ev-ignore="" />
-          {status !== 'ready' && (
+          {status === 'loading' && (
             <p className="absolute inset-0 flex items-center justify-center text-sm text-tertiary">
               지도를 불러오는 중이에요
             </p>
