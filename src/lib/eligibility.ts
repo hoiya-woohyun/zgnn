@@ -639,8 +639,9 @@ export const verdictHidesBadge =
 
 // 화면(폼)에서 이동 수단 4택을 그릴 때 쓰는 라벨·설명. 여기 두는 이유는 판정 규칙 문구와
 // 짝을 맞춰 관리하기 위해서다 — 규칙 문구가 바뀌면 이 설명도 같이 봐야 한다.
+// '없어요' 설명은 몸무게를 모른 채 모든 크기에 뜬다 — "안고" 같은 크기에 기댄 말을 넣지 않는다(30kg 은 못 안는다, 14 W261013.14c).
 export const CARRIER_LABELS: Record<TCarrier, { label: string; hint: string }> = {
-  none: { label: '없어요', hint: '케이지·이동가방·유모차 없이 리드줄만 써요(걷거나 안고)' },
+  none: { label: '없어요', hint: '케이지·이동가방·유모차 없이 리드줄만 써요' },
   bag: { label: '이동가방·슬링백', hint: '천 가방이나 슬링백에 넣어 다녀요' },
   cage: { label: '케이지', hint: '딱딱한 이동장(하드 케이지)을 써요' },
   stroller: { label: '유모차', hint: '반려동물용 유모차를 밀고 다녀요' },
