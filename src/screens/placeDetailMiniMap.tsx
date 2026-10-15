@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Expand06 } from '@untitledui/icons';
 import { mapFailureCopy } from '../lib/mapFailureCopy';
-import { loadNaverMaps, onNaverMapsAuthFailure } from '../lib/naverMap';
+import { loadNaverMaps, onNaverMapsAuthFailure, watchNaverMapInit } from '../lib/naverMap';
 import { pinIcon } from '../lib/naverMapPin';
 import { PLACE_FOCUS_ZOOM, TYPE_META, type TPlaceEntry } from '../lib/places';
 import type { TGeo } from '../types';
@@ -62,6 +62,7 @@ export function PlaceDetailMiniMap({ place, geo }: { place: TPlaceEntry; geo: TG
     let cancelled = false;
     let map: naver.maps.Map | null = null;
     let marker: naver.maps.Marker | null = null;
+    let stopInitWatch: (() => void) | null = null;
 
     const unsubscribe = onNaverMapsAuthFailure(() => {
       if (!cancelled) setStatus('error');
@@ -97,7 +98,13 @@ export function PlaceDetailMiniMap({ place, geo }: { place: TPlaceEntry; geo: TG
           title: `${place.name} · ${TYPE_META[place.type].label}`,
           clickable: false,
         });
-        setStatus('ready');
+        /*
+         * 'ready' 는 지도가 일어선 뒤에(14 W261010.33g) — 만든 것만으로는 스타일·인증이 매달린 빈 판일 수 있다.
+         * 그동안 "불러오는 중" 이 남고, 제시간에 안 서면 실패 안내로 넘어간다.
+         */
+        stopInitWatch = watchNaverMapInit(maps, map, (ready) => {
+          if (!cancelled) setStatus(ready ? 'ready' : 'error');
+        });
       })
       .catch(() => {
         if (!cancelled) setStatus('error');
@@ -106,6 +113,8 @@ export function PlaceDetailMiniMap({ place, geo }: { place: TPlaceEntry; geo: TG
     return () => {
       cancelled = true;
       unsubscribe();
+      // 떠난 지도의 시간 초과가 다음 지도까지 실패로 보내지 않게 기다리기부터 끊는다.
+      stopInitWatch?.();
       // 지도보다 마커를 먼저 뗀다. 깨진 지도에서는 둘 다 던질 수 있어 각각 감싼다(mapPageCanvas 의 정리와 같다).
       try {
         marker?.setMap(null);
@@ -128,14 +137,19 @@ export function PlaceDetailMiniMap({ place, geo }: { place: TPlaceEntry; geo: TG
       ref={slotRef}
       className="relative isolate h-44 overflow-hidden rounded-2xl border border-secondary bg-secondary"
     >
+      {/*
+       * 두 갈래에 key 를 따로 준다 — 없으면 React 가 지도 컨테이너 div 를 안내 div 로 **재사용**해, SDK 가 그 안에 심은
+       * 핀·타일이 안내 위에 남는다(오프라인 실측: 핀이 "지도는 인터넷이 필요해요" 를 가렸고, 늦게 온 'init' 은 타일까지 덮었다).
+       * key 가 다르면 컨테이너는 문서에서 떨어져 SDK 가 그 뒤에 무엇을 그려도 안 보인다(14 W261010.33g).
+       */}
       {failure ? (
-        <div className="flex h-full flex-col items-center justify-center gap-1 px-4 text-center text-sm">
+        <div key="failure" className="flex h-full flex-col items-center justify-center gap-1 px-4 text-center text-sm">
           <p className="font-semibold text-secondary">{failure.title}</p>
           <p className="text-tertiary">{failure.description}</p>
         </div>
       ) : (
         <>
-          <div ref={containerRef} className="h-full w-full" data-ev-ignore="" />
+          <div key="map" ref={containerRef} className="h-full w-full" data-ev-ignore="" />
           {status !== 'ready' && (
             <p className="absolute inset-0 flex items-center justify-center text-sm text-tertiary">
               지도를 불러오는 중이에요

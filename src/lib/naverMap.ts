@@ -11,8 +11,8 @@
  *  2. 인증 실패를 **알려 준다**(`window.navermap_authFailure`). Kakao 는 통로가 없어 지도 자리가
  *     조용히 비었다. 아래 `notifyAuthFailure` 가 그걸 받아 화면의 폴백으로 넘긴다.
  *  3. 지도를 띄울 때 SDK 가 `oapi.map.naver.com/v3/auth?…&time=…&callback=…` 을 **런타임에** 부른다.
- *     `time` 이 매번 달라 URL 로 캐시할 수 없다 — 오프라인 동작은 이 호출의 실패를 SDK 가 어떻게
- *     다루느냐에 달려 있고, 아직 실측하지 않았다(docs/todo/naver-migration-research.md §3).
+ *     `time` 이 매번 달라 URL 로 캐시할 수 없다. 그 호출이 **실패하면** 약 1초 뒤 `navermap_authFailure` 가 오고,
+ *     **매달리면** 아무것도 안 온다(2026-10-15 headless 실측) — 그 갈래는 아래 시간 제한 둘이 닫는다.
  *
  * ── 출처 등록 (이걸 안 하면 코드가 맞아도 지도가 안 뜬다)
  * 클라이언트 아이디는 **출처(origin) 제한**으로 보호된다. NCP 콘솔의
@@ -83,9 +83,80 @@ function notifyAuthFailure() {
 }
 
 /**
+ * 시간 제한 둘(14 W261010.33g) — 응답도 오류도 없이 **매달리는** 갈래를 실패로 닫는다.
+ *
+ * 매달림은 두 자리에서 난다(2026-10-15 headless 실측, ADR-008 「오프라인」):
+ *  1. **SDK 스크립트 요청이 안 끝난다** — 배 위의 약한 신호처럼 연결은 있는데 오가지 않는 망. load 도 error 도 안 와
+ *     로더가 영영 안 정해지고, 상세 위치 칸이 "지도를 불러오는 중이에요" 에 멈춘다(ferry-20 이 본 화면).
+ *  2. **스크립트는 왔는데(서비스워커 사본) 지도가 일어서지 않는다** — 로더는 load 에서 이미 resolve 했고, 지도를 만든 뒤
+ *     스타일·인증 JSONP 가 매달리면 `'init'` 이 안 온다. 예전엔 만들자마자 'ready' 라 안내 없는 **빈 판**이 남았다.
+ *
+ * 그래서 하나는 로더에(스크립트를 붙인 때부터 — 매달린 다운로드까지 덮어야 1 이 잡힌다), 하나는 지도마다
+ * (`watchNaverMapInit`, 만든 때부터 `'init'` 까지) 건다. 로더 안에 "스크립트 load 뒤" 를 잴 자리는 없다 — load 에서 바로 resolve 한다.
+ *
+ * 숫자는 느린 연결이 **결국 성공할** 지도를 실패로 찍지 않을 만큼 넉넉하게 — 실패는 sticky 라(`stalled`) 짧으면 그 방문 내내 지도를 잃는다.
+ *  - SDK 30초: 본문이 gzip 93KB 다. 2G(EDGE, 약 50kbps)에서 전송 15초에 TLS 왕복을 더해도 들어오고, 느린 3G(약 400kbps)의 열 배가 넘는다.
+ *  - init 15초: 평소엔 만든 뒤 약 40ms 에 온다. 그 사이 요청은 스타일 JSON 셋과 인증 하나로 각각 수 KB 의 JSONP 라 SDK 보다 훨씬 작다.
+ */
+export const NAVER_SDK_TIMEOUT_MS = 30_000;
+export const NAVER_MAP_INIT_TIMEOUT_MS = 15_000;
+
+const STALLED_MESSAGE = '네이버 지도가 제시간에 오지 않았어요 — 연결이 매달려 있을 수 있어요.';
+
+/**
+ * 시간 제한에 한 번 걸렸다. `authFailed` 처럼 **새로고침 전까지 sticky** 다.
+ *  - 지도가 `'init'` 시간 초과여도 로더의 promise 는 이미 resolve 돼 있다. 이 깃발이 없으면 다음 마운트가 그 promise 로
+ *    지도를 또 만들고 또 기다려, 실패 안내가 서 있던 화면(지도 탭 → 상세)에 "불러오는 중" 이 다시 선다.
+ *  - 스크립트 시간 초과 뒤 늦게 온 error 가 `pending` 을 비워도 새 스크립트로 처음부터 다시 기다리지 않는다.
+ *  - 실패 안내(`mapFailureCopy`)는 다시 시도를 약속하지 않는다(14 W261010.33c). 늦게 온 성공을 받아 주면 그 말과 어긋난다.
+ */
+let stalled = false;
+
+/**
+ * 지도 하나가 **일어설 때까지**(`'init'`) 기다린다 — 시간 제한 ②.
+ *
+ * 제때 서면 `onSettle(true)`, `NAVER_MAP_INIT_TIMEOUT_MS` 안에 안 서면 `onSettle(false)` 를 **한 번만** 부른다.
+ * 늦게 온 `'init'` 은 버린다 — 화면은 이미 실패 안내로 넘어갔다. 시간 초과는 `stalled` 를 세워 다음 지도도 바로 실패로 보낸다.
+ *
+ * 화면이 'ready' 를 `new Map` 직후가 아니라 여기서 세우는 이유는 위 매달림 2 다. 숨은(`display:none`)·0 크기 컨테이너,
+ * 같은 방문의 두 번째 지도도 `'init'` 은 비동기로 온다(실측) — 그래도 놓쳤다면 `isReady` 가 덮는다.
+ *
+ * @returns 그만 기다리기 — 언마운트 cleanup 에서 부른다. 타이머와 리스너만 떼고 아무것도 알리지 않는다
+ *          (안 그러면 떠난 화면의 지도가 시간 초과를 내 다음 지도까지 sticky 실패로 보낸다).
+ */
+export function watchNaverMapInit(
+  maps: typeof naver.maps,
+  map: naver.maps.Map,
+  onSettle: (ready: boolean) => void,
+): () => void {
+  if (map.isReady) {
+    onSettle(true);
+    return () => {};
+  }
+  let done = false;
+  let listener: naver.maps.MapEventListener | null = null;
+  /** 한 번만 — 타이머와 리스너를 뗀 뒤 판정을 알린다. `null` 은 알리지 않고 그만 기다리기. 아래 둘이 선 뒤에만 불린다. */
+  const settle = (ready: boolean | null) => {
+    if (done) return;
+    done = true;
+    clearTimeout(timer);
+    try {
+      if (listener) maps.Event.removeListener(listener);
+    } catch {
+      // 깨진 지도다 — 못 떼도 `done` 이 늦은 'init' 을 버린다.
+    }
+    if (ready === false) stalled = true;
+    if (ready !== null) onSettle(ready);
+  };
+  const timer = setTimeout(() => settle(map.isReady), NAVER_MAP_INIT_TIMEOUT_MS);
+  listener = maps.Event.addListener(map, 'init', () => settle(true));
+  return () => settle(null);
+}
+
+/**
  * SDK 를 받아 `naver.maps` 를 돌려준다.
  *
- * 실패(오프라인 · 출처 미등록 · 스크립트 차단 · 키 없음)는 reject 로 알린다 — 지도 화면이
+ * 실패(오프라인 · 출처 미등록 · 스크립트 차단 · 키 없음 · `NAVER_SDK_TIMEOUT_MS` 안에 안 옴)는 reject 로 알린다 — 지도 화면이
  * 그 거부를 받아 지도 실패 안내(`mapFailureCopy` — 오프라인일 때만 인터넷을 탓한다)를 대신 그린다.
  */
 export function loadNaverMaps(): Promise<typeof naver.maps> {
@@ -105,6 +176,8 @@ export function loadNaverMaps(): Promise<typeof naver.maps> {
       new Error('네이버 지도 인증에 실패했어요 — 클라이언트 아이디와 등록된 웹 서비스 URL 을 확인해 주세요.'),
     );
   }
+  // 시간 제한에 걸린 적이 있으면 같은 이유로 바로 거부한다 — `pending` 이 resolve 됐거나(지도 init 초과) 비워졌어도(늦은 error).
+  if (stalled) return Promise.reject(new Error(STALLED_MESSAGE));
   if (pending) return pending;
 
   pending = new Promise<typeof naver.maps>((resolve, reject) => {
@@ -131,25 +204,35 @@ export function loadNaverMaps(): Promise<typeof naver.maps> {
      * 아직 resolve 전이면 거부로, 이미 resolve 됐으면 구독자에게 알린다.
      */
     let settled = false;
+    /*
+     * 시간 제한 ① — 스크립트를 붙이는(또는 이미 붙은 것에 귀를 대는) 지금부터 잰다. 다운로드까지 덮어야 매달린 요청이 잡힌다.
+     * 걸리면 sticky(`stalled`)로 거부하고, 늦게 온 load 는 `settled` 가 버린다. 스크립트는 떼지 않는다 — 늦게 와도 sticky 라 쓰이지 않는다.
+     */
+    const deadline = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      stalled = true;
+      reject(new Error(STALLED_MESSAGE));
+    }, NAVER_SDK_TIMEOUT_MS);
+
     window.navermap_authFailure = () => {
       notifyAuthFailure();
       if (!settled) {
         settled = true;
+        clearTimeout(deadline);
         reject(new Error('네이버 지도 인증에 실패했어요 — 클라이언트 아이디와 등록된 웹 서비스 URL 을 확인해 주세요.'));
       }
     };
 
     const onReady = () => {
-      const maps = window.naver?.maps;
-      if (!maps) {
-        if (!settled) {
-          settled = true;
-          reject(new Error('네이버 지도 SDK 를 읽었지만 초기화되지 않았어요.'));
-        }
-        return;
-      }
       if (settled) return;
       settled = true;
+      clearTimeout(deadline);
+      const maps = window.naver?.maps;
+      if (!maps) {
+        reject(new Error('네이버 지도 SDK 를 읽었지만 초기화되지 않았어요.'));
+        return;
+      }
       resolve(maps);
     };
 
@@ -165,6 +248,7 @@ export function loadNaverMaps(): Promise<typeof naver.maps> {
         script.remove();
         if (settled) return;
         settled = true;
+        clearTimeout(deadline);
         reject(new Error('네이버 지도 SDK 를 불러오지 못했어요.'));
       },
       { once: true },

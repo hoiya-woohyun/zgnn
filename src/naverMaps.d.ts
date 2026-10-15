@@ -119,6 +119,11 @@ declare namespace naver.maps {
     refresh(noEffect?: boolean): void;
     /** 모든 이벤트와 DOM 을 함께 걷어낸다. 언마운트에서 부른다. */
     destroy(): void;
+    /**
+     * 지도가 `'init'` 을 냈는지. 만든 직후엔 늘 false 이고(두 번째 지도도) 스타일을 받아 일어서면 true 다
+     * — 스크립트 load 와 달리 **이것이 "지도가 섰다" 다**(2026-10-15 실측, `watchNaverMapInit` 이 읽는다).
+     */
+    readonly isReady: boolean;
   }
 
   /** 이미지 아이콘. Kakao 의 `MarkerImage` 자리. */

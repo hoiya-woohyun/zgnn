@@ -7,7 +7,7 @@ import { EmptyState } from '../components/layout/emptyState';
 import type { TEligibility } from '../lib/eligibility';
 import { mapFailureCopy } from '../lib/mapFailureCopy';
 import { mapPageCanvasMarkerLabel } from '../lib/mapPageCanvasMarkerLabel';
-import { loadNaverMaps, onNaverMapsAuthFailure } from '../lib/naverMap';
+import { loadNaverMaps, onNaverMapsAuthFailure, watchNaverMapInit } from '../lib/naverMap';
 import { pinIcon } from '../lib/naverMapPin';
 import { JEJU_CENTER, jejuZoomFor, MY_LOCATION_COLOR, PLACE_FOCUS_ZOOM, type TPlaceEntry } from '../lib/places';
 import type { TGeo, TPlaceType } from '../types';
@@ -243,6 +243,7 @@ export function MapPageCanvas({
     let cancelled = false;
     // cleanup 에서 ref 를 다시 읽지 않도록 지금 붙잡아 둔다(useRef 가 만든 Map 은 재할당되지 않는다).
     const markers = markersRef.current;
+    let stopInitWatch: (() => void) | null = null;
 
     /*
      * 인증 실패는 스크립트 load 보다 **늦게** 온다 — SDK 가 지도를 만들며 `/v3/auth` 를 부르고
@@ -295,7 +296,13 @@ export function MapPageCanvas({
           mapDataControlOptions: { position: maps.Position.BOTTOM_LEFT },
         });
         mapRef.current = map;
-        setStatus('ready');
+        /*
+         * 'ready'(마커·초점·맞춤 effect 의 문)는 지도가 일어선 뒤에(14 W261010.33g). 서비스워커 사본으로 SDK 가 와도
+         * 스타일·인증이 매달리면 `'init'` 이 영영 안 와, 만들자마자 'ready' 면 안내 없는 빈 판이 남는다. 평소엔 약 40ms 늦어질 뿐이다.
+         */
+        stopInitWatch = watchNaverMapInit(maps, map, (ready) => {
+          if (!cancelled) setStatus(ready ? 'ready' : 'error');
+        });
 
         /*
          * 지도 높이가 100dvh 기준이라 첫 렌더 때 SDK 가 잰 크기와 실제 크기가 어긋난다.
@@ -322,6 +329,8 @@ export function MapPageCanvas({
     return () => {
       cancelled = true;
       unsubscribe();
+      // 떠난 지도의 시간 초과가 다음 지도까지 실패로 보내지 않게 기다리기부터 끊는다.
+      stopInitWatch?.();
       if (settleRef.current !== undefined) window.clearTimeout(settleRef.current);
       settleRef.current = undefined;
       // 지도를 파괴하기 전에 마커부터 비운다 — 이 cleanup 이 마커 effect 의 것보다 먼저 돈다.
