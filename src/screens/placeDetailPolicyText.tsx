@@ -8,7 +8,7 @@ import { useEligibility } from '../store/useDogEligibility';
 
 /**
  * 근거 칸의 이름표(판정 카드가 단다). 원문을 내지 않는 곳에 「원문」 을 달면 정리한 문장이 블로거의 말처럼 읽힌다.
- * 판정 C7 의 "원문을 확인해 주세요" 는 그때 밑의 「원문 보기」 링크를 가리킨다.
+ * 판정 C7 의 "원문을 확인해 주세요" 는 그때 밑의 「후기에서 원문 보기」 링크를 가리킨다.
  */
 export const POLICY_EVIDENCE_LABEL: Record<TPolicyEvidence['kind'], string> = { raw: '원문', derived: '정리한 조건' };
 
@@ -42,8 +42,10 @@ export function PlaceDetailPolicyText({ place, evidence }: { place: TPlaceEntry;
           {/* 출처 설명("블로그 글을 읽고 정리했어요")은 두지 않는다 — 모든 장소가 블로그에서 왔고, AI 정리 안내는 카드 맨 아래 공통 줄이 한다. */}
           {place.reviewUrl && (
             <p className="mt-1 flex">
+              {/* 액션 줄의 「후기」 와 같은 글이다 — 이름이 달라 다른 것으로 읽혔다(14 W261013.14m). 합치지 않는 이유: "원문" 은 C7·배지 `원문 확인 필요` 가
+                  가리키는 자리고, 「후기」 칸을 이 38곳에서만 빼면 액션 줄 칸 수가 장소마다 갈린다(14 W261010.6). */}
               <Button color="link-color" size="sm" className="min-h-11" href={place.reviewUrl} target="_blank" rel="noopener noreferrer">
-                원문 보기
+                후기에서 원문 보기
               </Button>
             </p>
           )}
