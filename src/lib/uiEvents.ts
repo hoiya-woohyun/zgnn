@@ -41,6 +41,10 @@ export const TARGET_MAX = 80;
 export const SEQ_MAX = 5000;
 export const T_MS_MAX = 86_400_000;
 export const N_MAX = 100_000;
+/** 한 번에 보낼 수 있는 줄 수 — 표의 트리거가 이보다 많으면 문 전체를 거절한다. 보내는 쪽(`uiEventsSend.ts`)은 25줄에서 비운다. */
+export const BATCH_MAX = 50;
+/** 표 크기 상한(150 MB) — 넘으면 트리거가 모든 insert 를 거절한다. 무료 500 MB 를 넘겨 프로젝트가 읽기 전용이 되지 않게. */
+export const SIZE_LIMIT_BYTES = 157_286_400;
 
 /** 이만큼 아무것도 안 적히면 다음 줄은 새 세션이다 — 아침에 연 탭을 저녁에 다시 보는 것은 같은 방문이 아니다. */
 export const SESSION_IDLE_MS = 30 * 60_000;

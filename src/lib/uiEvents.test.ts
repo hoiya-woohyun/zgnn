@@ -5,6 +5,7 @@ import {
   collectModeOf,
   coversViewport,
   isDragClick,
+  BATCH_MAX,
   linkTargetOf,
   N_MAX,
   rememberTap,
@@ -15,6 +16,7 @@ import {
   safeToken,
   SEQ_MAX,
   SESSION_IDLE_MS,
+  SIZE_LIMIT_BYTES,
   stopsSendingOn,
   T_MS_MAX,
   TARGET_MAX,
@@ -222,6 +224,8 @@ describe('마이그레이션과 같은 규칙', () => {
     expect(sql).toContain(`char_length(target) <= ${TARGET_MAX}`);
     expect(sql).toContain(`route ~ '^[${SAFE_TOKEN_CLASS}]+$'`);
     expect(sql).toContain(`target ~ '^[${SAFE_TOKEN_CLASS}]+$'`);
+    expect(sql).toContain(`from inserted) > ${BATCH_MAX} then`);
+    expect(sql).toContain(`select ${SIZE_LIMIT_BYTES.toString()}::bigint`);
   });
 });
 

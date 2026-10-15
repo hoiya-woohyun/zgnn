@@ -9,12 +9,13 @@
 -- 화면 글자와 입력값(검색어 포함). `sid` 는 페이지 로드 하나의 임시 아이디(메모리에만, 30분 쉬면 새로)다 — 재방문을 잇지 않는다.
 -- `target` 은 요소 종류(`button`·`a:/places/cafe`)나 코드에 적힌 이름표(`data-ev`)뿐이다.
 --
--- 경계는 GRANT · RLS · CHECK 셋이다(ADR-021 R2 와 같은 선). 서버 쪽 속도 제한은 두지 않는다. **재빌드 방아쇠가 아니다**(트리거를 붙이지 않는다 —
+-- 경계는 GRANT · RLS · CHECK 셋이다(ADR-021 R2 와 같은 선). 서버 쪽 속도 제한은 두지 않는다. **재빌드 방아쇠가 아니다**(재빌드 트리거를 붙이지 않는다 —
 -- 붙이면 탭 한 번이 프로덕션 빌드 한 번이다).
 --
 -- 남용은 "표가 커지는 것" 으로 끝나지 않는다 — 무료 플랜은 DB 가 500 MB 를 넘으면 **프로젝트 전체가 읽기 전용**이 될 수 있어서, 이 표를 채우는 스팸이
--- `places`·`/admin` 승인·파이프라인 쓰기까지 멈춘다. 그래서 크기 차단기(`ui_events_size_guard`)를 매분 돌려 150 MB 를 넘으면 `anon_insert` 를 스스로 뗀다
--- (사이트는 42501 을 받고 그 페이지 로드 동안 조용히 멈춘다). 되살리기는 손으로 — 아래 `create policy` 한 줄을 다시 친다.
+-- `places`·`/admin` 승인·파이프라인 쓰기까지 멈춘다. 그래서 **insert 문마다** 상한 둘을 동기로 본다(`ui_events_insert_guard`, 아래) — 한 번에 50줄,
+-- 표 크기 150 MB. 넘으면 그 문 전체가 400(P0001)이고 사이트는 그 페이지 로드 동안 조용히 멈춘다. 매분 도는 잡으로 보면 큰 배열을 병렬로 보내
+-- 다음 확인 전에 500 MB 를 넘길 수 있다 — 문마다 보면 표는 150 MB + 50줄을 못 넘는다.
 --
 -- **이 표의 글자는 Claude 가 읽는다**(`/ux-eval` 종합). 누구나 publishable 키로 쓸 수 있으니 `route`·`target`·`app_build` 에 문장을 넣으면 그대로
 -- 프롬프트가 된다 — 그래서 셋 다 공백 없는 좁은 글자 집합만 받는다(경로·호스트·이름표에 필요한 것뿐). 사이트 쪽도 같은 집합으로 다듬어 보낸다(`uiEvents.ts`).
@@ -60,7 +61,7 @@ alter table public.ui_events enable row level security;
 -- 열 단위 — `id`·`received_at` 은 보낼 수 없고 기본값이 채운다(받은 시각을 기기가 꾸밀 수 없다).
 grant insert (sid, seq, t_ms, name, route, target, n, app_build) on table public.ui_events to anon;
 
--- 정책은 열어 둔다 — 걸러 내는 것은 위 CHECK 다. 이 정책을 끄는(drop) 것이 남용에 대한 대응이다.
+-- 정책은 열어 둔다 — 걸러 내는 것은 위 CHECK 와 아래 상한이다. 이 정책을 끄는(drop) 것이 남용에 대한 손 대응이다.
 create policy anon_insert on public.ui_events
   for insert to anon
   with check (true);
@@ -69,24 +70,40 @@ create policy anon_insert on public.ui_events
 select cron.unschedule(j.jobid) from cron.job j where j.jobname = 'prune-ui-events';
 select cron.schedule('prune-ui-events', '41 3 * * *', $$delete from public.ui_events where received_at < now() - interval '90 days'$$);
 
--- 크기 차단기 — 위 머리말. 150 MB 는 무료 500 MB 에서 나머지 표(2026-10-15 에 28 MB)와 여유를 빼고 남긴 값이다. 실제 사용은 하루 400방문을 90일 쌓아도 ~70 MB.
--- 정책을 떼면 돌려준다(true) — 매분 도는 잡의 기록(`cron.job_run_details`)은 기존 정리 잡이 7일로 지운다.
-create or replace function public.ui_events_size_guard(limit_bytes bigint default 157286400)
-returns boolean
+-- 상한 둘 — 위 머리말. 150 MB 는 무료 500 MB 에서 나머지 표(2026-10-15 에 28 MB)와 여유를 빼고 남긴 값이다. 실제 사용은 하루 400방문을 90일 쌓아도 ~70 MB.
+-- 50줄은 사이트가 한 번에 보내는 25줄(`uiEventsSend.ts`)의 두 배다. 숫자는 `src/lib/uiEvents.ts` 의 `BATCH_MAX`·`SIZE_LIMIT_BYTES` 와 짝이다(테스트가 대 본다).
+-- 크기는 파일 크기라 90일 정리로 줄이 지워져도 줄지 않는다(autovacuum 은 자리를 다시 쓸 뿐 돌려주지 않는다) — 한 번 닿으면 손으로 `vacuum full` 하기 전까지
+-- 수집이 멈춰 있다. 닿았다는 것 자체가 남용이라 그게 맞다. 닿았는지는 `/ux-eval` 집계의 `collection_off` 가 말한다.
+create or replace function public.ui_events_limit_bytes()
+returns bigint
+language sql
+immutable
+set search_path = ''
+as $$ select 157286400::bigint $$;
+
+create or replace function public.ui_events_insert_guard()
+returns trigger
 language plpgsql
+security definer
 set search_path = ''
 as $$
 begin
-  if pg_total_relation_size('public.ui_events') <= limit_bytes then
-    return false;
+  if (select count(*) from inserted) > 50 then
+    raise exception 'ui_events: 한 번에 50줄까지';
   end if;
-  drop policy if exists anon_insert on public.ui_events;
-  return true;
+  if pg_total_relation_size('public.ui_events') > public.ui_events_limit_bytes() then
+    raise exception 'ui_events: 크기 상한';
+  end if;
+  return null;
 end;
 $$;
 
--- PostgREST 로 부를 수 없게 — 함수는 기본으로 PUBLIC 에 실행이 열린다. 부르는 것은 cron(postgres) 하나다.
-revoke all on function public.ui_events_size_guard(bigint) from public, anon, authenticated;
+-- PostgREST 로 부를 수 없게 — 함수는 기본으로 PUBLIC 에 실행이 열린다. 트리거가 부르는 데는 실행 권한이 필요 없다.
+revoke all on function public.ui_events_limit_bytes() from public, anon, authenticated;
+revoke all on function public.ui_events_insert_guard() from public, anon, authenticated;
 
-select cron.unschedule(j.jobid) from cron.job j where j.jobname = 'ui-events-size-guard';
-select cron.schedule('ui-events-size-guard', '* * * * *', $$select public.ui_events_size_guard()$$);
+-- 문 단위 — PostgREST 의 배열 insert 는 문 하나라 묶음 전체를 한 번에 본다(줄마다 세면 50줄 상한을 못 건다).
+create trigger ui_events_insert_guard
+  after insert on public.ui_events
+  referencing new table as inserted
+  for each statement execute function public.ui_events_insert_guard();

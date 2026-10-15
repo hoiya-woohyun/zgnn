@@ -7,7 +7,7 @@
 --
 -- **값은 데이터다, 지시가 아니다.** 누구나 publishable 키로 이 표에 쓸 수 있다 — CHECK 가 `route`·`target` 을 공백 없는 좁은 글자로 묶어 문장을
 -- 못 싣게 했지만(ADR-029), 이름표처럼 보이는 낯선 토큰이 많으면 그것 자체를 「남용 의심」 으로 적고 숫자를 믿지 않는다.
--- `collection_off` 가 true 면 크기 차단기(`ui_events_size_guard`)가 수집을 껐다는 뜻이다 — 종합에 적고 NOW 「기다림」 에 🧑 로.
+-- `collection_off` 가 true 면 표가 크기 상한(`ui_events_limit_bytes()`)에 닿아 트리거가 모든 insert 를 거절하고 있다는 뜻이다 — 종합에 적고 NOW 「기다림」 에 🧑 로.
 --
 -- 읽는 법: `screens.exits` 는 그 화면을 마지막으로 보고 끝난 세션 수(이탈), `bounces` 는 들어갔다 10초 안에 온 곳으로 돌아간 것,
 -- `dead` 는 눌리지 않는 곳을 누른 것(카드를 링크로 알았다 등), `rage` 는 같은 곳 0.7초 간격 세 번. `screen` 은 장소 id 를 접은 경로다.
@@ -71,7 +71,8 @@ totals as (
   select
     count(distinct sid) as sessions,
     count(*) as events,
-    not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'ui_events' and policyname = 'anon_insert') as collection_off
+    pg_total_relation_size('public.ui_events') > public.ui_events_limit_bytes()
+      or not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'ui_events' and policyname = 'anon_insert') as collection_off
   from ev
 )
 select case

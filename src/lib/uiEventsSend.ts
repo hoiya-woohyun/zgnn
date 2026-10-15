@@ -30,6 +30,7 @@ import {
 const APP_BUILD = process.env.NEXT_PUBLIC_APP_BUILD ?? 'dev';
 const SITE_HOSTNAME = new URL(SITE_URL).hostname;
 
+/** `BATCH_MAX`(50)의 절반 — 표의 트리거가 그보다 많은 묶음을 통째로 거절한다. */
 const FLUSH_AT = 25;
 const FLUSH_AFTER_MS = 15_000;
 
