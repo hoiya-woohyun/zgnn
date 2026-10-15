@@ -17,6 +17,24 @@ export const COMMIT_DISTANCE_RATIO = 0.3;
 export const COMMIT_VELOCITY = 0.3;
 /** 더 갈 곳이 없는 끝에서는 손가락의 이만큼만 따라간다(러버밴드). */
 export const EDGE_RESISTANCE = 0.3;
+/**
+ * 놓을 때 **제스처 전체**(닿은 자리 → 뗀 자리)의 가로가 세로의 이 배수는 돼야 넘어간다 — 약 18°(tan 18.4° = 1/3)보다 눕은 끌기만.
+ *
+ * 축 잠금(`AXIS_X_RATIO`, 약 30°)은 처음 10px 로 정하고 그대로 둔다 — 거기서 더 엄격하면 닿는 순간의 1~2px 떨림(10×4 = 2.5배)이
+ * 곧은 휙까지 죽인다. 대신 다 끈 뒤 전체 모양을 한 번 더 본다: 200×80(2.5배, 약 22°)처럼 비스듬히 올린 끌기는 잠겨서 목록이
+ * 옆으로 따라오다 **제자리로 돌아온다**(14 W261010.19 — 1.7배 문턱 뒤에도 식당 → 카페). 빠르게 튕겼어도 같다 — 비스듬한 휙이
+ * 사고의 대부분이다. 3배는 겪은 사고(2.5배·1.8배)와 여유를 두고, 엄지가 호를 그리며 조금 뜨는 곧은 휙(150×45 = 3.3배)은 남기는 값.
+ */
+export const COMMIT_AXIS_RATIO = 3;
+/**
+ * 무거운 넘김(`TSwipeRelease.heavy`)은 폭의 이만큼을 끌어야 넘어가고, 휙(플릭)으로는 넘어가지 않는다.
+ *
+ * 둘러보기 종류 끝(숙소·카페)에서 바깥 탭(홈·지도)으로 나가는 넘김이 그렇다(appShellSwipe). 같은 손짓이 둘러보기 안에서는
+ * 종류를, 끝에서는 **탭을** 바꾸므로 종류를 휙휙 넘기던 손이 끝에서 한 번 더 튕기면 홈·지도로 나갔다(14 W261010.19).
+ * 끝에서 나가려면 이웃 화면이 반을 넘게 들어올 때까지 끌어야 한다 — iOS 페이저의 절반과 같은 자리라 눈으로 보인다.
+ * 막지 않고 무겁게만 하는 이유: 막으면 카페 → 지도가 손가락으로는 안 되는 일방통행이 된다(ADR-014 결정 1).
+ */
+export const HEAVY_COMMIT_DISTANCE_RATIO = 0.5;
 
 export type TSwipeRelease = {
   /** 지금 페이지의 자리. */
@@ -29,7 +47,17 @@ export type TSwipeRelease = {
   velocity: number;
   /** 페이지 하나의 폭(px). */
   width: number;
+  /**
+   * 닿은 자리에서 뗀 자리까지(px) — 축을 정하는 데 쓴 처음 10px 까지 포함한 제스처 전체. 주면 그 모양이
+   * `COMMIT_AXIS_RATIO` 보다 비스듬할 때 넘기지 않는다. 안 주면 보지 않는다(하위 화면의 가장자리 뒤로가기).
+   */
+  travel?: { dx: number; dy: number };
+  /** 무거운 넘김 — 휙으로는 안 넘어가고 폭의 `HEAVY_COMMIT_DISTANCE_RATIO` 를 끌어야 넘어간다. 기본은 가벼운 넘김. */
+  heavy?: boolean;
 };
+
+/** 제스처 전체가 넘김으로 칠 만큼 누웠는가(`COMMIT_AXIS_RATIO`). 움직임이 없으면(0×0) 막지 않는다 — 거리 문턱이 따로 막는다. */
+export const isFlatTravel = (dx: number, dy: number): boolean => Math.abs(dx) >= Math.abs(dy) * COMMIT_AXIS_RATIO;
 
 /**
  * 손가락이 움직인 거리를 화면에 옮길 거리로 바꾼다.
@@ -48,13 +76,17 @@ export const resistedOffset = (dx: number, index: number, count: number): number
  *
  * 반환값은 0 ~ count-1 의 자리. 지금 자리를 돌려주면 제자리로 돌아간다는 뜻이다.
  * 이웃이 없는 방향(끝)으로는 절대 넘어가지 않는다.
+ *
+ * 묻는 순서가 곧 우선순위다: 비스듬한 제스처(`travel`) → 반대로 튕김 → 거리·휙. 비스듬하면 아무리 빠르고 멀어도 제자리다.
  */
-export const settleSwipe = ({ index, count, dx, velocity, width }: TSwipeRelease): number => {
+export const settleSwipe = ({ index, count, dx, velocity, width, travel, heavy = false }: TSwipeRelease): number => {
+  if (travel && !isFlatTravel(travel.dx, travel.dy)) return index;
   const flick = Math.abs(velocity) > COMMIT_VELOCITY;
-  const far = Math.abs(dx) > width * COMMIT_DISTANCE_RATIO;
+  const far = Math.abs(dx) > width * (heavy ? HEAVY_COMMIT_DISTANCE_RATIO : COMMIT_DISTANCE_RATIO);
   // 끌던 방향과 반대로 튕기며 놓으면 마음을 바꾼 것이다 — 멀리 갔어도 제자리.
   if (flick && Math.sign(velocity) !== Math.sign(dx)) return index;
-  if (!flick && !far) return index;
+  // 무거운 넘김은 휙만으로는 안 넘어간다 — 끌어서 문턱을 넘겨야 한다.
+  if (!far && (heavy || !flick)) return index;
   const next = dx < 0 ? index + 1 : index - 1;
   return Math.min(count - 1, Math.max(0, next));
 };
@@ -67,6 +99,7 @@ export const AXIS_SLOP_PX = 10;
  * 예전 기준은 `|dx| ≥ |dy|`(45°)라, 목록을 위로 올리다 손가락이 비스듬히 쓸리면 옆 종류로 넘어갔다(14 W261007.14 — 두 번 재현).
  * 세로 스크롤은 엄지가 호를 그려 30~45° 로 자주 기운다. 그 사이는 **세로로 친다**: 넘기려던 사람은 다시 쓸면 되지만,
  * 읽던 목록이 옆 화면으로 바뀌면 자리를 잃는다. 두 인식기(둘러보기 안 · 화면 사이)가 같은 함수로 정한다.
+ * 잠긴 뒤 놓을 때는 제스처 전체를 더 엄격한 `COMMIT_AXIS_RATIO`(3배)로 한 번 더 본다 — 이 값은 "손가락을 따라올지" 만 정한다.
  */
 export const AXIS_X_RATIO = 1.7;
 

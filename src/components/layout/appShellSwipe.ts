@@ -14,6 +14,7 @@ import {
   SWIPE_ROUTES,
   canStartSwipeAt,
   hasSwipeSurface,
+  isPlacesSwipeIndex,
   isWithinPlacesSwipe,
   normalizeRoute,
   swipeIndexOf,
@@ -71,6 +72,8 @@ export type TAppShellPeek = {
 
 type TGesture = {
   pointerId: number;
+  /** 손가락이 닿은 자리. `startX` 는 잠기는 순간 다시 적히므로 제스처 전체의 기울기(`travel`)는 이것으로 잰다. */
+  originX: number;
   startX: number;
   startY: number;
   /** pending: 아직 방향 모름 / x: 가로로 잠김 / off: 세로이거나 둘러보기 안이라 이 제스처는 포기 */
@@ -291,6 +294,7 @@ export function useAppShellSwipe(pathname: string) {
     if (event.target instanceof Element && event.target.closest('[role="dialog"]')) return;
     gesture.current = {
       pointerId: event.pointerId,
+      originX: event.clientX,
       startX: event.clientX,
       startY: event.clientY,
       axis: 'pending',
@@ -367,7 +371,14 @@ export function useAppShellSwipe(pathname: string) {
 
     const { dx, width } = current;
     const velocity = velocityOf(recentSamples(current.samples, event.timeStamp));
-    settle(settleSwipe({ index: slot, count: slots, dx, velocity, width }), { dx, velocity, width });
+    const travel = { dx: event.clientX - current.originX, dy: event.clientY - current.startY };
+    /*
+     * 둘러보기에서 셸이 가져가는 방향은 늘 바깥(숙소 → 홈 · 카페 → 지도)이다 — 안쪽은 화면 몫이라 칸이 없다.
+     * 같은 손짓이 한 칸 전까지는 종류를, 여기서는 탭을 바꾸므로 휙으로는 안 넘기고 절반을 끌어야 넘긴다(14 W261010.19).
+     * 홈·준비물 등 다른 탭에선 손짓의 뜻이 하나라 가벼운 그대로다.
+     */
+    const heavy = isPlacesSwipeIndex(index);
+    settle(settleSwipe({ index: slot, count: slots, dx, velocity, width, travel, heavy }), { dx, velocity, width });
   };
 
   const onPointerCancel = (event: ReactPointerEvent<HTMLDivElement>) => {

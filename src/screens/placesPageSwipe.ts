@@ -37,6 +37,8 @@ export type TPlacesPagePeek = {
 
 type TGesture = {
   pointerId: number;
+  /** 손가락이 닿은 자리. `startX` 는 잠기는 순간 다시 적히므로 제스처 전체의 기울기(`travel`)는 이것으로 잰다. */
+  originX: number;
   startX: number;
   startY: number;
   /** pending: 아직 방향 모름 / x: 가로로 잠김 / off: 세로라서 이 제스처는 포기 */
@@ -183,6 +185,7 @@ export function usePlacesPageSwipe(type: TPlaceType, headerRef: RefObject<HTMLEl
     const sample = { x: event.clientX, t: event.timeStamp };
     gesture.current = {
       pointerId: event.pointerId,
+      originX: event.clientX,
       startX: event.clientX,
       startY: event.clientY,
       axis: 'pending',
@@ -256,7 +259,9 @@ export function usePlacesPageSwipe(type: TPlaceType, headerRef: RefObject<HTMLEl
 
     const { dx, width } = current;
     const velocity = velocityOf(recentSamples(current.samples, event.timeStamp));
-    settle(settleSwipe({ index, count, dx, velocity, width }), { dx, velocity, width });
+    // 잠긴 뒤에도 세로로 흐른 만큼까지 본다 — 비스듬히 올린 끌기는 따라오다 제자리로(swipePager 의 COMMIT_AXIS_RATIO).
+    const travel = { dx: event.clientX - current.originX, dy: event.clientY - current.startY };
+    settle(settleSwipe({ index, count, dx, velocity, width, travel }), { dx, velocity, width });
   };
 
   const onPointerCancel = (event: ReactPointerEvent<HTMLDivElement>) => {
