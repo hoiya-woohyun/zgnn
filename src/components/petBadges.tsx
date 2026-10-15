@@ -114,7 +114,8 @@ export function PetBadges({ policy, limit, hideNoInfo = false, hide, lead, sourc
           )}
         </li>
       ))}
-      {hidden > 0 && <li className="text-xs font-semibold text-tertiary">+{hidden}</li>}
+      {/* '+N' 만으론 무엇을 접었는지 몰랐다(14 W261013.14l) — 칩이 서는 곳(카드·근처 장소)은 전부 상세로 가는 링크라 거기서 다 보인다. */}
+      {hidden > 0 && <li className="whitespace-nowrap text-xs font-semibold text-tertiary">조건 {hidden}개 더</li>}
     </ul>
   );
 }
