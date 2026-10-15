@@ -101,6 +101,13 @@ describe('dogProfileSavedMessage — 저장 뒤 돌아온 화면의 한 줄', ()
       ]),
     ).toBe('보리와 두부 기준으로 바꿨어요');
   });
+
+  it('갈 수 있는 곳 수가 바뀌면 전 → 후, 같으면 그대로, 처음 등록이면 지금 수만(14 W261010.33a)', () => {
+    const bori = [{ name: '보리', weightKg: 25 }];
+    expect(dogProfileSavedMessage(bori, { before: 10, after: 6 })).toBe('보리 기준으로 바꿨어요 · 갈 수 있는 곳 10 → 6곳');
+    expect(dogProfileSavedMessage(bori, { before: 44, after: 44 })).toBe('보리 기준으로 바꿨어요 · 갈 수 있는 곳은 그대로 44곳');
+    expect(dogProfileSavedMessage(bori, { before: null, after: 38 })).toBe('보리 기준으로 바꿨어요 · 갈 수 있는 곳 38곳');
+  });
 });
 
 describe('dogRowRemovedMessage — ✕ 로 한 마리를 뺐을 때(14 W261010.7a)', () => {

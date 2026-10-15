@@ -99,12 +99,21 @@ export const sanitizeDog = (value: unknown): TDogProfile | null => {
 };
 
 /**
- * 프로필을 저장하고 보던 화면으로 돌아왔을 때 뜨는 한 줄("보리 기준으로 바꿨어요").
+ * 프로필을 저장하고 보던 화면으로 돌아왔을 때 뜨는 한 줄("보리 기준으로 바꿨어요 · 갈 수 있는 곳 10 → 6곳").
  * 돌아온 화면의 판정이 방금 적은 강아지 기준이라는 것을 말한다 — 말없이 돌아오면 저장이 됐는지,
  * 판정이 바뀐 건지 알 수 없다. 이름은 상세 카드와 같은 애칭 규칙(`dogCallNames`).
+ *
+ * `reach` 는 홈 히어로 "갈 수 있는 곳 N곳" 의 저장 전·후 수다(14 W261010.33a) — "기준으로 바꿨어요" 만으로는 무엇이 바뀌었는지 몰라
+ * 홈으로 가서 숫자를 견줘야 했다(designer-20 · junhyuk-23 "숙소 가능 10 → 6곳"). 부르는 쪽이 히어로와 **같은 함수**(`homePageReach`)로
+ * 세야 홈 숫자와 갈리지 않는다. 처음 등록이면 전 수가 없다(`null`), 같으면 그대로라고 말한다 — 몸무게를 고쳤는데 말이 없으면 저장이 안 된 것으로 읽힌다.
  */
-export const dogProfileSavedMessage = (dogs: TDogEntry[]): string =>
-  `${dogCallNames(dogs.map((d) => d.name))} 기준으로 바꿨어요`;
+export const dogProfileSavedMessage = (dogs: TDogEntry[], reach?: { before: number | null; after: number }): string => {
+  const head = `${dogCallNames(dogs.map((d) => d.name))} 기준으로 바꿨어요`;
+  if (!reach) return head;
+  if (reach.before === null) return `${head} · 갈 수 있는 곳 ${reach.after}곳`;
+  if (reach.before === reach.after) return `${head} · 갈 수 있는 곳은 그대로 ${reach.after}곳`;
+  return `${head} · 갈 수 있는 곳 ${reach.before} → ${reach.after}곳`;
+};
 
 /**
  * 강아지 행을 ✕ 로 뺐을 때의 한 줄(14 W261010.7a). 폼 안의 일이라 아직 저장된 것은 없다 — 그래도 말없이 사라지면

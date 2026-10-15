@@ -25,6 +25,8 @@ import {
   type TDogProfileDraft,
 } from '../lib/dogProfileDraft';
 import { CARRIER_LABELS, dogSize } from '../lib/eligibility';
+import { homePageReach } from '../lib/homePageCounts';
+import { placesOfType } from '../lib/places';
 import { useStoreHydrated } from '../providers/storeHydration';
 import { useAppStore, useDog } from '../store/useAppStore';
 import { DogProfileCarrierPicker } from './dogProfileCarrierPicker';
@@ -199,7 +201,14 @@ export function DogProfilePage() {
       setHeavyAsk(heavyDogs(dogs));
       return;
     }
-    setDog({ dogs, carrier, sizeOverride });
+    const next: TDogProfile = { dogs, carrier, sizeOverride };
+    // 홈 히어로와 같은 셈으로 저장 전·후를 센다 — 알림의 "10 → 6곳" 이 돌아가서 보는 홈 숫자와 같아야 한다(14 W261010.33a).
+    const { needsIndoor } = useAppStore.getState();
+    const reach = {
+      before: dog ? homePageReach(placesOfType, dog, { needsIndoor }).count : null,
+      after: homePageReach(placesOfType, next, { needsIndoor }).count,
+    };
+    setDog(next);
 
     /*
      * 보던 화면으로 돌아간다(D3). 예전엔 무조건 홈으로 push 해서, 상세의 "등록하면…" 으로 온 사람이
@@ -207,7 +216,7 @@ export function DogProfilePage() {
      * 온 곳으로 가고, 딥링크로 폼에 바로 들어왔으면 되감을 곳이 없어 부모(설정)로 갈아 끼운다 —
      * 셸의 뒤로가기(`AppBar`)와 같은 규칙이다. 알림은 셸이 그리고, 화면이 바뀌면 걷히는 것이 기본이라 남기라고 단다.
      */
-    showAppStatus(dogProfileSavedMessage(dogs), { keepOnNavigate: true });
+    showAppStatus(dogProfileSavedMessage(dogs, reach), { keepOnNavigate: true });
     // 헤더의 뒤로가기와 같은 문 — 되감기 · 딥링크면 갈아 끼우기 · 한 장 걷는 그림까지 셸이 맡는다.
     goBackInApp(parentRouteOf('/dog'));
   };
