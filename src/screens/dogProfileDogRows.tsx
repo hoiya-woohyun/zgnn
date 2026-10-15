@@ -1,9 +1,11 @@
+import { useEffect, useRef } from 'react';
 import { Plus, XClose } from '@untitledui/icons';
 import { Input } from '../components/base/input';
 import { NO_AUTOFILL } from '../components/noAutofill';
 import { Label } from '../components/base/label';
 import { HintText } from '../components/base/hint-text';
 import { DOG_NAME_MAX_LENGTH, MAX_DOGS } from '../lib/dogProfile';
+import { dogRowFocusAfterRemove } from '../lib/dogProfileDraft';
 import { cx } from '../utils/cx';
 
 /** 입력 중인 한 마리. 문자열 그대로 들고 있다가 저장할 때 숫자로 바꾼다. */
@@ -13,6 +15,9 @@ export type TDogRowError = { name?: string; weightKg?: string };
 
 /** 입력칸의 id. 에러 문구 연결(`aria-describedby`)과 저장 실패 시 첫 오류로 포커스를 옮기는 데 같이 쓴다. */
 export const dogRowFieldId = (index: number, field: keyof TDogRowError) => `dog-row-${index}-${field}`;
+
+/** '한 마리 더' 버튼의 id — 마지막 행을 ✕ 로 뺀 뒤 포커스가 여기로 온다(`dogRowFocusAfterRemove`). */
+const DOG_ROWS_ADD_ID = 'dog-rows-add';
 
 type TDogProfileDogRowsProps = {
   values: TDogRowDraft[];
@@ -29,6 +34,27 @@ type TDogProfileDogRowsProps = {
  * "보리+콩은 6만원" 처럼 요금·호칭 문구가 어색해진다(ADR-005 v3).
  */
 export function DogProfileDogRows({ values, errors, onChange, onAdd, onRemove }: TDogProfileDogRowsProps) {
+  /*
+   * ✕ 로 뺀 뒤 포커스를 옮길 칸의 id(14 W261010.7b). 행이 다시 그려진 **뒤에** 옮긴다 — 누른 순간엔 옮길 칸이 아직 옛 행이다.
+   * 그냥 두면 마지막 행·두 마리 → 한 마리에선 포커스가 body 로 떨어지고, 가운데 행에선 `key={index}` 라 같은 자리 ✕ 가 다음 마리 것이 되어
+   * Enter 한 번 더에 그 마리가 빠졌다.
+   */
+  const focusAfterRemove = useRef<string | null>(null);
+  useEffect(() => {
+    if (focusAfterRemove.current === null) return;
+    document.getElementById(focusAfterRemove.current)?.focus();
+    focusAfterRemove.current = null;
+  }, [values]);
+
+  // 키보드로 누른 ✕ 만 옮긴다(`:focus-visible`) — 손가락으로 누른 뒤 이름 칸에 포커스를 주면 폰 키보드가 올라온다.
+  const removeRow = (index: number, button: HTMLButtonElement) => {
+    if (button.matches(':focus-visible')) {
+      const target = dogRowFocusAfterRemove(index, values.length);
+      focusAfterRemove.current = target === 'add' ? DOG_ROWS_ADD_ID : dogRowFieldId(target, 'name');
+    }
+    onRemove(index);
+  };
+
   return (
     <div>
       <Label>우리 강아지</Label>
@@ -120,7 +146,7 @@ export function DogProfileDogRows({ values, errors, onChange, onAdd, onRemove }:
                   </span>
                   <button
                     type="button"
-                    onClick={() => onRemove(index)}
+                    onClick={(event) => removeRow(index, event.currentTarget)}
                     aria-label={`${nth} 삭제`}
                     className="grid size-11 shrink-0 place-items-center rounded-lg text-fg-quaternary hover:bg-primary_hover hover:text-fg-quaternary_hover"
                   >
@@ -136,6 +162,7 @@ export function DogProfileDogRows({ values, errors, onChange, onAdd, onRemove }:
       {values.length < MAX_DOGS && (
         <button
           type="button"
+          id={DOG_ROWS_ADD_ID}
           onClick={onAdd}
           className={cx(
             'mt-2 flex h-11 items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-brand-secondary',

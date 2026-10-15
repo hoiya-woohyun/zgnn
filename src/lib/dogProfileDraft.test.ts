@@ -3,6 +3,7 @@ import {
   dogFormRowEmpty,
   dogProfileFormDirty,
   dogProfileFormOf,
+  dogRowFocusAfterRemove,
   restorableDogProfileDraft,
   restoreDogFormRow,
 } from './dogProfileDraft';
@@ -73,5 +74,17 @@ describe('restoreDogFormRow — ✕ 의 되돌리기(14 W261010.7a)', () => {
 
   it('되넣는 행 자신이 비었어도 다른 빈 행을 내준다', () => {
     expect(restoreDogFormRow([dubu, kong, empty], 0, empty)).toEqual([empty, dubu, kong]);
+  });
+});
+
+describe('dogRowFocusAfterRemove — ✕ 로 뺀 뒤 포커스(14 W261010.7b)', () => {
+  it('뒤에 행이 있었으면 한 칸 올라온 그 행의 이름 칸 — 같은 자리 ✕ 에 남아 Enter 한 번 더에 다음 마리가 빠지지 않게', () => {
+    expect(dogRowFocusAfterRemove(1, 3)).toBe(1);
+    expect(dogRowFocusAfterRemove(0, 2)).toBe(0);
+  });
+
+  it("마지막 행이었으면 '한 마리 더' — 두 마리 → 한 마리로 ✕ 열이 사라질 때도", () => {
+    expect(dogRowFocusAfterRemove(2, 3)).toBe('add');
+    expect(dogRowFocusAfterRemove(1, 2)).toBe('add');
   });
 });

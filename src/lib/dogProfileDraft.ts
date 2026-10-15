@@ -61,6 +61,16 @@ export function restoreDogFormRow(
   return null;
 }
 
+/**
+ * ✕ 로 `count` 행 중 `index` 행을 뺀 뒤 키보드 포커스가 갈 곳(14 W261010.7b) — 행 번호(그 행의 이름 칸)거나 `'add'`('한 마리 더').
+ * 누른 ✕ 가 사라지거나(마지막 행 · 두 마리 → 한 마리면 ✕ 열이 통째로) 같은 자리 ✕ 가 다음 마리 것이 되어(`key={index}`)
+ * Enter 한 번 더에 다음 마리가 빠졌다. **Tab 이 그 ✕ 다음에 가던 곳**으로 보낸다: 뒤에 행이 있었으면 한 칸 올라온 그 행의 이름 칸
+ * (낭독이 "2번째 강아지 이름, 콩" 이라 목록이 당겨진 것도 들린다), 마지막 행이었으면 바로 밑 '한 마리 더'(뺀 뒤엔 늘 있다 — 상한 아래).
+ */
+export function dogRowFocusAfterRemove(index: number, count: number): number | 'add' {
+  return index < count - 1 ? index : 'add';
+}
+
 /** 돌아왔을 때 되살릴 초안 — 기준 프로필이 떠날 때와 **같은 값**일 때만. 아니면 `null`(저장된 프로필로 채운다). */
 export function restorableDogProfileDraft(draft: TDogProfileDraft | null, current: TDogProfile | null): TDogProfileForm | null {
   if (!draft) return null;
