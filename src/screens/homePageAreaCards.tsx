@@ -86,8 +86,10 @@ export function HomePageAreaCards() {
   };
 
   return (
-    <section className="home-scroll-depth mt-8 px-4 md:px-6" data-ev="home.areas">
-      <h2 className="text-lg font-bold text-primary">{dog ? `${withJosa(dogNames, '이랑/랑')} 갈 동네` : '강아지랑 갈 동네'}</h2>
+    // `home-scroll-depth` 는 섹션이 아니라 제목·카드마다 — 카드 6장이면 섹션이 화면보다 길어, 섹션째 걸면 다 보이는 카드까지
+    // 줄어든 채로 남는다(관광지 칩 44 → 42.7px, 14 W261013.14e). 줄마다 붙이는 이유는 `homePage.tsx` 의 같은 주석.
+    <section className="mt-8 px-4 md:px-6" data-ev="home.areas">
+      <h2 className="home-scroll-depth text-lg font-bold text-primary">{dog ? `${withJosa(dogNames, '이랑/랑')} 갈 동네` : '강아지랑 갈 동네'}</h2>
       <div className="mt-3 space-y-3">
         {AREAS.map(({ id, label }) => {
           const card = counts ? homePageAreaCardCounts(counts, id) : null;
@@ -98,7 +100,7 @@ export function HomePageAreaCards() {
           const labeled = counts && dog ? AREA_CARD_TYPES.filter((type) => isAreaLabelCell(labelOpen, counts[id][type])) : [];
 
           return (
-            <div key={id} className={cx(CARD_SURFACE, 'p-1.5')}>
+            <div key={id} className={cx('home-scroll-depth', CARD_SURFACE, 'p-1.5')}>
               <button
                 type="button"
                 onClick={() => enterArea(id, areaEntryType(card ? { stay: card.stay.reach, cafe: card.cafe.reach } : TOTALS_BY_CARD[id]))}
