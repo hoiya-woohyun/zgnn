@@ -531,10 +531,13 @@ P0 두 줄은 서로 독립이다 — 어느 쪽부터 해도 된다. 권장: T1
   > 테스트 `src/lib/browserBundleRegex.test.ts`: `src/` 비테스트 파일에서 상대·`@/` import 를 따라 닿는 모든 모듈(`scripts/lib`·`scripts/analyze` 포함)의 주석 아닌 줄에 `(?<!`·`(?<=` 0 —
   > 따라가기가 끊기면 빈 통과라 `scripts/lib` 셋에 닿는지도 단언한다. 빌드(HEAD 분리 worktree + 이 변경, 7727 dev 와 안 겹치게): exit 0 · `sw.js` · 청크 39개에 `(?<!`·`(?<=` 0 — 남은 `(?<` 8 은 이름 그룹(`(?<w>…)`).
 
-### [ ] T0.12 Cursor 세션에서 `claim.mjs` 선점이 곧장 풀린다
+### [x] T0.12 Cursor 세션에서 `claim.mjs` 선점이 곧장 풀린다
 
 - 근거(2026-10-15): Cursor 에이전트 셸엔 `CLAUDE_PID` 가 없어 주인이 `process.ppid` — 호출마다 새로 뜨고 끝나는 셸 — 로 적힌다. 다음 호출 때 그 pid 는 이미 죽어 있어
   `take` 직후 `list` 에 🔒 이 없고, `done` 은 `NOCLAIM` 이다. 그 틈에 다른 세션의 `take` 가 같은 줄을 받을 수 있다(08 T0.8 이 막으려던 일). 이번엔 `NEXT_CLAIM_OWNER=<cursor-agent pid>` 로 피했다.
 - 단계: 주인을 정할 때 `CLAUDE_PID` 가 없으면 조상 프로세스에서 `claude`·`cursor-agent` 를 찾아 쓴다(`ps -o ppid=,command=` 를 거슬러) — 못 찾으면 지금처럼 ppid 에 경고 한 줄.
   SKILL.md 「여러 세션에서 동시에」 의 "주인은 claude 프로세스" 문장에 Cursor 를 더한다.
 - 수용: Cursor 셸에서 `take` → 다른 Shell 호출의 `list` 에 `(나)` · `done` 이 그 줄을 지운다.
+
+> 메모(2026-10-15): `resolveOwner` — `NEXT_CLAIM_OWNER` → `CLAUDE_PID` → 조상 중 가장 가까운 `claude`·`cursor-agent`(명령줄의 경로 조각까지 본다 — `node …/cursor-agent/…` 도 걸리고 `.claude/` 는 앞이 `.` 이라 안 걸린다, 32단) → 못 찾으면 ppid + stderr 경고. 실측(Claude Code 에서 `env -u CLAUDE_PID`): 다른 호출의 `list` 에 `pid 59224(나)`, `take` 는 `RESUME` · 고아 프로세스(부모 launchd)에서 경고 한 줄. **Cursor 셸에서는 아직 못 돌려 봤다** — 거기서 `list` 에 `(나)` 가 안 서면 `ps -o ppid=,command=` 로 cursor 쪽 명령줄을 보고 `AGENT_COMMAND` 를 넓힌다.
+> 같은 파일에서 하나 더(그날 「발견」): `park` 가 옮긴 줄 뒤에 빈 줄을 끼워 「기다림」 목록을 둘로 갈랐다 — 빈 줄은 절이 비어 있을 때만. 임시 NOW 두 벌(목록 있음·빈 절)로 확인.
