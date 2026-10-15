@@ -1,6 +1,7 @@
 # 지금 할 일 — 대기열
 
-> 최종 수정: 2026-10-15 (v83: 「기다림」 🧑 둘 끝 — `db push` 로 `group_intros`·`ui_events` 가 원격에 올라갔다. 확인: group_intros 0행·anon select 42501, ui_events 0행·트리거·정리 잡 · HTTP 모양 위반 묶음 400/23514(행 0)·anon 읽기 401/42501. 묶음 소개 첫 회 실행 줄은 그대로)
+> 최종 수정: 2026-10-15 (v83: 레인 셋 결과 — 20 T12 · 14 W261010.19 · .29b · .30 끝(7a25fd5·b5a49f7·001432d·f544424). 「발견」 넷을 명세로: 20 T12a(DNS 리바인딩) · 14 W261013.10a(1280 조건 판이 0곳 안내를 접힘 아래로 — 「지금」 끝에) · W261010.30a(시내 칩 이름) · W261010.7 줄에 설정 입구. 워커 둘째 배포 🧑 에 T12 가 함께 실린다)
+> 이전 2026-10-15 (v83: 「기다림」 🧑 둘 끝 — `db push` 로 `group_intros`·`ui_events` 가 원격에 올라갔다. 확인: group_intros 0행·anon select 42501, ui_events 0행·트리거·정리 잡 · HTTP 모양 위반 묶음 400/23514(행 0)·anon 읽기 401/42501. 묶음 소개 첫 회 실행 줄은 그대로)
 > 이전 2026-10-15 (v82: 「지금」 에 넷을 더해 레인 넷으로 병렬 — 20 T12 · 14 W261010.19 · .29b · .30(.29b·.30 은 0곳 화면이 겹쳐 한 레인)). D6 은 admin-review.md 에 다른 세션 미커밋 hunk 가 있어 메인이 뒤에)
 > 이전 2026-10-15 (v82: 「기다림」 에 🧑 실사용 이벤트 표 올리기(ADR-029 — `db push` 한 번에 `group_intros` 와 함께))
 > 이전 2026-10-15 (v81: 14 W261013.14c·.12a · 08 T0.12 끝(871a10a·33e346c·a6bcdea), .11a 는 숙소 재추출 뒤로 park(2b2c04c). 「지금」 이 🔒 하나뿐이라 14 에서 넷을 채웠다 — W261010.7a(새 하위 줄) · W261010.29 · W261013.14d(새 하위 줄) · W261007.19 남은 줄)
@@ -93,6 +94,7 @@
 - [ ] 🔒 서버 워커 홉에 시간 예산(다음 글 시작 전 경과 ~200초면 멈춤, 서버만) — [20 T11](20-vercel-remote-worker.md) · 왜 지금: 2026-10-10 홉 하나가 258초 — 300초를 넘으면 홉이 끊기고 잠금 틈을 밟는다 · 2026-10-10 22:20 구현 커밋 d1d6a84 — 남은 것: 워커 배포(사용자 허락) → `check.mjs --reset` → 실측(분석 끝 ≤ 4분 · 사슬 이어짐)
 - [ ] 대형견에게 기내용 가방·유모차가 준비물 맨 위 · 대형견 상세 준비물에 기저귀 — [14 W261010.31](14-weekly-ux-eval.md) · 왜 지금: 데이터 — 38kg 에게 맞지 않는 물건이 먼저 선다(ferry-50). 없는 품목(매너벨트·방석·배변패드)·직접 더하기는 이 줄 밖 — ADR-009 (이동가방은 `ITEM_NEEDS` 에 넣지 않는다)부터 본다
 - [ ] '프로필 삭제' 가 '고치기' 바로 밑 같은 크기 — [14 W261010.7](14-weekly-ux-eval.md) · 왜 지금: 되돌리기 — 두 번 눌림의 둘째가 올라온 '등록하기' 를 누른다(tremor-10 · business-31 · designer-19). 7a~7c 와 같은 화면(/dog), 설정의 '모두 풀기'·'저장 비우기' 갈래는 묶음에 남긴다
+- [ ] 0곳 안내가 1280 에서 접힘 아래로(펼친 조건 판 ~460px) — [14 W261013.10a](14-weekly-ux-eval.md) · 왜 지금: 다듬기 — 조건이 켜진 채 0곳이면 데스크톱 첫 화면에 답([알려 주기]·[다른 종류에서 보기])이 없다
 
 ## 기다림 (사람 손·결정)
 
@@ -105,7 +107,7 @@
 - 🙋 블로그 원문을 anon select 에서도 닫을지 — [21 H6](21-blog-text-and-extract-model.md) · S8 뒤에도 빌드가 anon 으로 원문을 읽어 계산하므로 열 grant 를 거두면 빌드가 못 돈다 · 권고: 보류(키를 찾아 직접 질의해야 닿고, 닫으려면 쓰기 경로가 계산 결과를 DB 칸에 저장해야 해 규칙을 바꿀 때마다 원격 쓰기가 생긴다)
 - 🧑 게시된 블로그 행 문장 다시 쓰기 실행 — [21 H7](21-blog-text-and-extract-model.md) · 명령: `pnpm data login` → `pnpm data rewrite`(미리보기 · 약 38회 `claude -p` — 구독 한도, `--limit N` 으로 나눠도 된다) → `data/raw/rewrite/<날짜>.md` 전·후 표를 Claude 와 함께 본다 → `pnpm data rewrite --apply`(그 표의 `.json` 그대로 원격 `places` 쓰기 · Claude 0회 · 재빌드 한 번) · 확인(Claude): `pet_policy_guide is not null` 행 수와 상세 화면 한 곳
 
-- 🧑 서버 워커 둘째 배포(21 S4·S7 둘 다 끝 — 제안·추출 프롬프트가 함께 번들에 실린다 · 추출 `ce2d9c10`, 14 W261013.4a 요금 예시까지) — [21 H1](21-blog-text-and-extract-model.md) · 배포라 허락 먼저 · 명령: `pnpm worker:build && cd worker && vercel deploy --prod`(루트에서 `--cwd worker` 는 실패한다) · 그 전까지 서버 홉은 옛 프롬프트(안내 칸 없음)로 뽑는다 · 확인: 서버가 뽑은 새 후보의 `extracted.meta.promptVersion` 이 `d7a6610e`
+- 🧑 서버 워커 둘째 배포(21 S4·S7 둘 다 끝 — 제안·추출 프롬프트가 함께 번들에 실린다 · 20 T12 홈페이지 카드 리다이렉트 검사(7a25fd5)도 · 추출 `ce2d9c10`, 14 W261013.4a 요금 예시까지) — [21 H1](21-blog-text-and-extract-model.md) · 배포라 허락 먼저 · 명령: `pnpm worker:build && cd worker && vercel deploy --prod`(루트에서 `--cwd worker` 는 실패한다) · 그 전까지 서버 홉은 옛 프롬프트(안내 칸 없음)로 뽑는다 · 확인: 서버가 뽑은 새 후보의 `extracted.meta.promptVersion` 이 `d7a6610e`
 
 - 🧑 시드 정답 채점(두 모델, 새 프롬프트 `ce2d9c10` — 14 W261013.4a 가 `d7a6610e` 의 요금 예시를 고쳤다) — [21 H5](21-blog-text-and-extract-model.md) · 명령: `ANALYZE_MODEL=claude-sonnet-5-5 pnpm data eval extract --limit 30` → `pnpm data eval score` → report 파일을 복사해 두고(프롬프트 버전 하나라 덮인다) → `ANALYZE_MODEL=claude-opus-5 pnpm data eval extract --limit 30` → `pnpm data eval score` · 약 60회(구독 한도) · Sonnet 쪽 지어냄이 늘면 21 M1 을 되돌린다
 

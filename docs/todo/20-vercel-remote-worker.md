@@ -162,6 +162,10 @@ T2~T4 는 서로 독립이라 아무 순서나 된다. T5 는 셋 모두에 기�
 - 단계: `redirect: 'manual'` 로 바꿔 홉마다 `Location` 을 같은 주소 검사(사설·링크로컬·메타데이터 대역 거부)에 통과시키고, 상한 몇 번. 테스트는 리다이렉트 응답을 흉내 낸 가짜 fetch
 > 메모(2026-10-15): `fetchHomepageCard` 가 `redirect: 'manual'` 로 직접 따라가며 매 홉(상한 `MAX_REDIRECTS`=5, 넘으면 throw)을 `homepageUrlOf` 에 건다 — 상대 Location 은 현재 주소로 푼다. 같은 주소 검사에는 사설·루프백·링크로컬(169.254 메타데이터)·CGNAT·IPv6 내부·점 없는/.local/.internal 이름을 거르는 `isInternalHost` 를 새로 넣었다(기존 검사는 호스트 목록뿐이라 내부 IP 를 안 막았다 — 시작 주소도 이제 막힌다). DNS 가 내부 IP 로 풀리는 이름(리바인딩)은 못 잡는다. 배포는 T11 워커 배포 때 함께.
 
+### T12a. [ ] 홈페이지 주소가 DNS 로 내부 IP 에 풀리는 경우(리바인딩)
+
+- T12 의 `isInternalHost` 는 호스트 **문자열**만 본다 — 공개 이름이 사설·메타데이터 IP 로 풀리면 통과한다. 막으려면 fetch 전에 `dns.lookup`(전부)으로 IP 를 같은 대역 검사에 걸고, 조회와 접속 사이 틈을 없애려면 그 IP 로 붙어야 한다(undici `connect` 의 lookup 갈아끼우기). 출처: T12 레인(7a25fd5) · 급하지 않다 — 카드는 og:image URL 하나만 읽고 본문은 상한까지만 받는다
+
 ### T13. [ ] 🙋 `next` 보안 패치 올리기
 
 - `pnpm audit --prod`: next 16.x 에 critical 1 · high 몇(SSRF 등) — 사이트는 정적 내보내기라 노출은 좁다. next ≥ 16.3.8 로 올릴지. 출처: 보안 리뷰(todo/20)
