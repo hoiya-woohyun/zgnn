@@ -5,6 +5,7 @@ import { DIRECTIONS, DIRECTION_LABEL, topTowns } from '../lib/places';
 import { envFiltersWithData, PET_FILTERS, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
 import { placesOfType } from '../lib/places';
 import type { TDirection, TPlaceType } from '../types';
+import { cx } from '../utils/cx';
 
 /**
  * 같은 조건을 두 자리에서 보여준다.
@@ -63,16 +64,19 @@ function FilterGroup({
   variant,
   label,
   hint,
+  className,
   children,
 }: {
   variant: TFiltersVariant;
   label: string;
   hint?: string;
+  /** bar 줄에만 — 옆에 다른 것(정렬)을 나란히 둘 때. */
+  className?: string;
   children: ReactNode;
 }) {
   if (variant === 'bar') {
     return (
-      <div className={SCROLL_ROW_CLASS} role="group" aria-label={label}>
+      <div className={cx(SCROLL_ROW_CLASS, className)} role="group" aria-label={label}>
         {children}
       </div>
     );
@@ -104,6 +108,15 @@ export function PlacesPageFilters({
   // 안 그러면 버튼은 "필터 1" 인데 시트에 끌 칩이 없다(12 U1.6). 읍면은 종류를 넘어 유지되는 값이다.
   const typeTowns = topTowns(type, Number.MAX_SAFE_INTEGER);
   const towns = town !== null && !typeTowns.some((entry) => entry.town === town) ? [{ town, count: 0 }, ...typeTowns] : typeTowns;
+  const directionGroup = (className?: string) => (
+    <FilterGroup variant={variant} label="방향" className={className}>
+      {DIRECTIONS.map((direction) => (
+        <FilterChip key={direction} pressed={directions.includes(direction)} onClick={() => onToggleDirection(direction)}>
+          {DIRECTION_LABEL[direction]}
+        </FilterChip>
+      ))}
+    </FilterGroup>
+  );
 
   return (
     <div className={variant === 'bar' ? 'space-y-2 pb-3' : 'space-y-5'}>
@@ -127,35 +140,29 @@ export function PlacesPageFilters({
         })}
       </FilterGroup>
 
-      <FilterGroup variant={variant} label="방향">
-        {DIRECTIONS.map((direction) => {
-          const active = directions.includes(direction);
-          return (
-            <FilterChip
-              key={direction}
-              pressed={active}
-              onClick={() => onToggleDirection(direction)}
-            >
-              {DIRECTION_LABEL[direction]}
-            </FilterChip>
-          );
-        })}
-      </FilterGroup>
-
       {/*
         가격 정렬은 조건 칩이 아니라서 가로 스크롤 줄에 묶이면 첫 화면 폭에서
-        스크롤해야만 보였다(P1). 조건 칩 줄과 분리한 자기 줄로 올려
-        스크롤 없이 바로 보이게 한다.
+        스크롤해야만 보였다(P1). 스크롤 줄 **밖**에 둔다 — 안에 넣으면 md 에서 밀려나거나 끝 마스크에 흐려진다.
+        가까운 순(10 F7)이 생겨 정렬은 모든 종류에 선다 — 가격 둘만 숙소에 남는다.
+
+        bar 는 lg 부터 방향 줄 오른쪽에 붙인다(14 W261013.10a). 셀렉트 하나가 47px 한 줄을 통째로 써서 펼친 판이 466px(숙소 522px)까지
+        자랐고, 1280×800 에서 0곳 안내의 버튼이 접힘 아래로 밀렸다. 방향은 칩 다섯이라 lg 본문(768px)에서 자리가 남는다.
+        md(본문 512px)는 나란히 두면 방향 칩이 스크롤로 밀려 제 줄 그대로.
       */}
-      {/* 가까운 순(10 F7)이 생겨 정렬은 모든 종류에 선다 — 가격 둘만 숙소에 남는다. */}
       {variant === 'bar' ? (
-        <div className="flex justify-end px-4 md:px-6">
-          <SortSelect type={type} sort={sort} onChangeSort={onChangeSort} />
+        <div className="lg:flex lg:items-center">
+          {directionGroup('lg:min-w-0 lg:flex-1')}
+          <div className="mt-2 flex shrink-0 justify-end px-4 md:px-6 lg:mt-0 lg:pl-0">
+            <SortSelect type={type} sort={sort} onChangeSort={onChangeSort} />
+          </div>
         </div>
       ) : (
-        <FilterGroup variant={variant} label="정렬">
-          <SortSelect type={type} sort={sort} onChangeSort={onChangeSort} />
-        </FilterGroup>
+        <>
+          {directionGroup()}
+          <FilterGroup variant={variant} label="정렬">
+            <SortSelect type={type} sort={sort} onChangeSort={onChangeSort} />
+          </FilterGroup>
+        </>
       )}
 
       {/*

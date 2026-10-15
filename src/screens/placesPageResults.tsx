@@ -193,6 +193,8 @@ export function PlacesPageResults({
             ? 'search'
             : 'generic';
   const emptySearch = emptyKind === 'search' ? placesPageEmptySearch(query, otherTypes) : null;
+  // 0곳에서 "다른 종류에 N곳" 링크 줄이 큰 안내보다 먼저 서는가 — 'search' 갈래는 그 답을 큰 안내로 옮겨 간다.
+  const otherTypeRowsFirst = emptyKind !== 'search' && (otherTypes.length > 0 || hiddenOtherTypes.length > 0);
 
   // 시 이름 검색이 시내 밖 읍면까지 덮었으면 그렇다고 말한다(14 W261010.30). 읍면 필터가 걸려 있으면 이미 좁힌 것이라 말하지 않는다.
   const cityScope = useMemo(() => (town ? null : cityScopeOf(query, results)), [town, query, results]);
@@ -265,7 +267,11 @@ export function PlacesPageResults({
         </div>
       )}
 
-      <PlacesPageActiveChips chips={activeChips} />
+      {/* 검색어만으로 0곳이면 큰 안내의 제목이 검색어를 이름으로 말하고 지우는 길(개수 줄 '검색 지우기')도 있어 검색어 칩은 세 번째 같은 말이다.
+          그 한 줄(~55px)이 1280×800 에서 안내의 버튼을 접힘 아래로 밀었다(14 W261013.10a). 권역처럼 다른 칩은 그대로 둔다. */}
+      <PlacesPageActiveChips
+        chips={results.length === 0 && emptyKind === 'search' ? activeChips.filter((chip) => chip.key !== 'query') : activeChips}
+      />
 
       {/* 시 이름은 소속 읍면까지 맞는다(W261006.9) — 여행자는 '서귀포' 를 시내로 읽어 맨 위의 성산을 틀린 결과로 본다(business-11).
           범위는 두고 무엇을 덮었는지 말하며, 시내만 원하면 그 자리에서 읍면 필터로 좁힌다. 시내가 0곳이면 좁힐 것이 없어 버튼을 뺀다. */}
@@ -391,12 +397,16 @@ export function PlacesPageResults({
           써 놓고 버튼이 읍면을 지우기만 하면 글과 동작이 반대를 말한다. 전부 지우는 길은
           위의 지우기 링크가 그대로 맡는다.
         */
-        <div className="px-4 pt-6 md:px-6">
+        /*
+          위 여백은 링크 줄이 먼저 설 때만 — 큰 안내가 바로 오면 EmptyState 자신의 py-10 이 그 몫이고, 둘을 겹친 64px 이
+          1280×800 에서 안내의 버튼을 접힘 아래로 미는 데 한몫했다(14 W261013.10a).
+        */
+        <div className={cx('px-4 md:px-6', otherTypeRowsFirst && 'pt-6')}>
           {/*
             검색은 종류 탭 안에서만 돈다 — 다른 종류에 있으면 그쪽으로 가는 길을 맨 위에 둔다(14 W261006.6).
             "없어요" 보다 먼저 읽혀야 사용자가 그 가게가 없다고 결론 내리지 않는다. 검색어는 스토어에 있어 따라간다(07 U3).
           */}
-          {emptyKind !== 'search' && (otherTypes.length > 0 || hiddenOtherTypes.length > 0) && (
+          {otherTypeRowsFirst && (
             <ul className="mb-2 space-y-2">
               {otherTypes.map(renderOtherTypeRow)}
               {/*
