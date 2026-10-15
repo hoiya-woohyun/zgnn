@@ -44,6 +44,12 @@ type TShowOpts = {
    * 나머지는 그 화면의 동작을 말하므로 다른 화면에 남으면 그 화면의 일로 읽힌다(14 W261013.9).
    */
   keepOnNavigate?: boolean;
+  /**
+   * 알림이 **되돌리기를 누르지 않고** 걷힐 때 한 번 — 시간이 다 됐거나, 다른 알림이 덮었거나, 화면이 바뀌어 셸이 걷었거나, 닫았거나.
+   * 되돌리기를 누르면(`pressAppStatusAction`) 부르지 않는다. 되돌릴 수 있는 동안 미뤄 둔 일(제보 보내기, 14 W261010.7g)을 이때 한다 —
+   * 알림은 hover·포커스 동안 멈추므로(`holdAppStatus`) 따로 타이머를 두면 '되돌리기' 가 보이는데 이미 한 때가 생긴다.
+   */
+  onDismiss?: () => void;
 };
 
 /** 기본 노출 시간. 한 줄을 읽기에 충분하고, 다음 동작을 가릴 만큼 길지 않다. */
@@ -73,10 +79,18 @@ let timer: ReturnType<typeof setTimeout> | null = null;
 /** 지금 알림이 사라질 시각(ms, `Date.now()` 기준). 멈춘 동안은 남은 시간을 `heldRemainingMs` 에 둔다. */
 let deadline = 0;
 let heldRemainingMs: number | null = null;
+/** 지금 알림의 `onDismiss`. 부르기 전에 비워 한 알림에 한 번만 간다. */
+let currentDismiss: (() => void) | null = null;
 const listeners = new Set<() => void>();
 
 const emit = () => {
   for (const listener of listeners) listener();
+};
+
+const dismissed = () => {
+  const onDismiss = currentDismiss;
+  currentDismiss = null;
+  onDismiss?.();
 };
 
 /** 지금 떠 있는 메시지. useSyncExternalStore 의 스냅샷 — 같은 값이면 같은 객체를 돌려준다. */
@@ -99,6 +113,20 @@ export const clearAppStatus = () => {
   if (current === null) return;
   current = null;
   emit();
+  dismissed();
+};
+
+/**
+ * 알림의 버튼(되돌리기)을 누른다 — 셸의 토스트가 부른다. 알림을 먼저 걷고(`onPress` 가 새 알림을 띄우면 그 알림이 남아야 한다)
+ * `onDismiss` 는 부르지 않는다: 걷는 순서 때문에 "걷혔다" 가 되돌리기보다 먼저 와도 미뤄 둔 일이 돌지 않게.
+ * 그 사이 다른 알림으로 바뀌었으면 아무것도 안 한다.
+ */
+export const pressAppStatusAction = (id: number) => {
+  if (current?.id !== id || !current.action) return;
+  const { onPress } = current.action;
+  currentDismiss = null;
+  clearAppStatus();
+  onPress();
 };
 
 const armTimer = (id: number, ms: number) => {
@@ -110,6 +138,7 @@ const armTimer = (id: number, ms: number) => {
     if (current?.id === id) {
       current = null;
       emit();
+      dismissed();
     }
   }, ms);
 };
@@ -122,10 +151,14 @@ export const showAppStatus = (text: string, opts: TShowOpts = {}): TAppStatus =>
     ...(opts.action ? { action: opts.action } : {}),
     ...(opts.keepOnNavigate ? { keepOnNavigate: true } : {}),
   };
+  // 갈아 끼우는 것도 앞 알림에겐 "걷힘" 이다 — 새 알림이 선 뒤에 부른다.
+  const replacedDismiss = currentDismiss;
+  currentDismiss = opts.onDismiss ?? null;
   current = status;
   heldRemainingMs = null;
   emit();
   armTimer(status.id, statusDurationMs(opts));
+  replacedDismiss?.();
   return status;
 };
 

@@ -15,8 +15,9 @@ import {
   reportSentText,
   reportTraceText,
   type TReportKind,
+  visitedLateFailureText,
 } from '../lib/placeReport';
-import { APP_BUILD, readReportRecord, rememberReport, sendPlaceReport } from '../lib/placeReportSend';
+import { APP_BUILD, forgetReport, readReportRecord, rememberReport, sendPlaceReportUndoable } from '../lib/placeReportSend';
 import type { TPlaceEntry } from '../lib/places';
 import { CARD_SURFACE } from '../components/cardSurface';
 
@@ -42,7 +43,8 @@ export function PlaceDetailReport({
   onVerdictOpenChange: (open: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [sendingVisit, setSendingVisit] = useState(false);
+  /** '그대로였어요' 를 누르고 되돌리기 창이 열려 있는 동안 — 두 번 눌림의 둘째가 쿨다운 알림으로 되돌리기를 덮지 않게 잠근다. */
+  const [visitPending, setVisitPending] = useState(false);
 
   /*
    * 보낸 흔적(14 W261007.19) — 보낸 것을 서버에서 다시 읽을 수 없어 이 기기의 하루 기록(`zgnn-reports`)이 전부다.
@@ -59,27 +61,41 @@ export function PlaceDetailReport({
   const trace = reportTraceText(sentKinds);
 
   /*
-   * 다녀왔어요(F2) — **한 번 누르면 바로 간다.** 고를 것도 적을 것도 없는 긍정 신호라 시트를 열면 아무도 안 누른다.
-   * 되돌리기는 없다(보낸 것을 읽을 수 없다) — 그래서 버튼 이름이 무엇을 보내는지 끝까지 말한다. 제보 시트 안의 한 종류로
+   * 다녀왔어요(F2) — **한 번 누르면 된다.** 고를 것도 적을 것도 없는 긍정 신호라 시트를 열면 아무도 안 누른다. 제보 시트 안의 한 종류로
    * 묻지 않은 것도 같은 이유다: "정보가 달라요" 를 연 사람에게 "그대로였어요" 는 반대말이다.
+   * 대신 **되돌릴 틈을 둔다**(14 W261010.7g) — 옆 '정보가 달라요' 를 노리다 누르면 틀린 확인 신호가 운영자에게 갔다(tremor-30 · ferry-57).
+   * 보낸 것은 읽지도 지우지도 못하므로 보내기를 되돌리기 알림이 걷힐 때로 미룬다(`sendPlaceReportUndoable`). 기록은 누르는 순간 남긴다 —
+   * 흔적 줄이 바로 서고, 되돌리거나 실패하면 걷는다. 오프라인은 "고마워요" 를 보이기 전에 거른다.
    */
-  const sendVisited = async () => {
+  const sendVisited = () => {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      showAppStatus(reportFailureText('offline'));
+      return;
+    }
     if (!canReportNow(readReportRecord(), place.id, 'visited_ok', Date.now())) {
       showAppStatus(REPORT_COOLDOWN_TEXT);
       return;
     }
     const built = buildReport({ placeId: place.id, kind: 'visited_ok', build: APP_BUILD });
     if (!built.ok) return;
-    setSendingVisit(true);
-    const result = await sendPlaceReport(built.row);
-    setSendingVisit(false);
-    if (!result.ok) {
-      showAppStatus(reportFailureText(result.reason));
-      return;
-    }
     rememberReport(place.id, 'visited_ok');
-    showAppStatus(reportSentText('visited_ok'));
     reread();
+    setVisitPending(true);
+    sendPlaceReportUndoable(built.row, {
+      text: reportSentText('visited_ok'),
+      onUndo: () => {
+        forgetReport(place.id, 'visited_ok');
+        reread();
+        setVisitPending(false);
+      },
+      onDone: (result) => {
+        setVisitPending(false);
+        if (result.ok) return;
+        forgetReport(place.id, 'visited_ok');
+        reread();
+        showAppStatus(visitedLateFailureText(result.reason));
+      },
+    });
   };
 
   return (
@@ -91,15 +107,15 @@ export function PlaceDetailReport({
         <p className="mt-1 text-sm text-tertiary">
           그대로였는지, 달랐는지 알려 주세요. 다음 사람이 헛걸음하지 않게 확인 날짜를 고치고 정보를 바로잡을게요.
         </p>
-        <div className="mt-3 flex flex-wrap gap-2">
+        {/* 두 버튼 사이 16px — 8px 일 때 한쪽을 노리다 다른 쪽을 눌렀다(14 W261010.7g). 줄이 접혀도 위아래로 같은 틈. */}
+        <div className="mt-3 flex flex-wrap gap-4">
           <Button
             size="md"
             color="secondary"
             iconLeading={CheckCircle}
             className="min-h-11"
-            isLoading={sendingVisit}
-            isDisabled={sendingVisit}
-            onClick={() => void sendVisited()}
+            isDisabled={visitPending}
+            onClick={sendVisited}
           >
             그대로였어요
           </Button>

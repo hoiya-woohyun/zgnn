@@ -12,6 +12,8 @@ import {
   reportKey,
   reportPromiseText,
   reportTraceText,
+  unrecordReport,
+  visitedLateFailureText,
 } from './placeReport';
 
 describe('recentReportKinds · reportTraceText — 보낸 뒤 상세의 흔적', () => {
@@ -102,6 +104,29 @@ describe('canReportNow · recordReport', () => {
   it('하루 지난 기록은 버린다', () => {
     const old = { [reportKey('p0', 'closed')]: now - REPORT_COOLDOWN_MS - 1 };
     expect(Object.keys(recordReport(old, 'p1', 'closed', now))).toEqual([reportKey('p1', 'closed')]);
+  });
+});
+
+describe('unrecordReport · visitedLateFailureText — 미뤄 보내는 그대로였어요(14 W261010.7g)', () => {
+  const now = 1_000_000_000_000;
+
+  it('되돌리면 그 장소·그 종류만 빠져 다시 보낼 수 있고 흔적도 사라진다', () => {
+    const record = recordReport(recordReport({}, 'p1', 'closed', now), 'p1', 'visited_ok', now);
+    const undone = unrecordReport(record, 'p1', 'visited_ok');
+    expect(canReportNow(undone, 'p1', 'visited_ok', now + 1)).toBe(true);
+    expect(recentReportKinds(undone, 'p1', now + 1)).toEqual(['closed']);
+    expect(record[reportKey('p1', 'visited_ok')]).toBe(now);
+  });
+
+  it('없는 기록을 되돌려도 그대로', () => {
+    const record = recordReport({}, 'p1', 'closed', now);
+    expect(unrecordReport(record, 'p2', 'visited_ok')).toEqual(record);
+  });
+
+  it('늦은 실패는 무엇을 못 보냈는지부터 말한다 — 그때 다른 화면에 있을 수 있다', () => {
+    expect(visitedLateFailureText('network')).toContain('그대로였어요');
+    expect(visitedLateFailureText('offline')).toContain('그대로였어요');
+    expect(visitedLateFailureText('unavailable')).toContain('그대로였어요');
   });
 });
 

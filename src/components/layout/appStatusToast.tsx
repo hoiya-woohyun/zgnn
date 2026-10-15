@@ -8,6 +8,7 @@ import {
   getAppStatus,
   getServerAppStatus,
   holdAppStatus,
+  pressAppStatusAction,
   releaseAppStatus,
   shouldClearStatusOnRoute,
   statusBottomAboveAction,
@@ -110,12 +111,8 @@ export function AppStatusToast() {
           {status.action && (
             <button
               type="button"
-              onClick={() => {
-                // 먼저 닫는다 — onPress 가 새 알림을 띄우면 그 알림이 남아야 한다.
-                const { onPress } = status.action!;
-                clearAppStatus();
-                onPress();
-              }}
+              // 먼저 닫고 누른다(onPress 가 새 알림을 띄우면 그 알림이 남아야 한다) — 그래도 `onDismiss` 는 안 간다(14 W261010.7g).
+              onClick={() => pressAppStatusAction(status.id)}
               className="-my-3 -mr-2 flex min-h-11 items-center px-2 whitespace-nowrap text-white underline underline-offset-4"
             >
               {status.action.label}

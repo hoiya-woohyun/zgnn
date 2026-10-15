@@ -132,6 +132,16 @@ export function recordReport(record: TReportRecord, placeId: string | null, kind
   return next;
 }
 
+/**
+ * 기록 하나를 걷는다 — 누르는 순간 남긴 '그대로였어요' 를 되돌렸거나 미뤄 보내다 실패했을 때(14 W261010.7g).
+ * 남겨 둔 채면 보내지도 않은 것이 흔적 줄에 서고 하루 동안 다시 못 보낸다.
+ */
+export function unrecordReport(record: TReportRecord, placeId: string | null, kind: TReportKind): TReportRecord {
+  const next = { ...record };
+  delete next[reportKey(placeId, kind)];
+  return next;
+}
+
 /** localStorage 에서 읽은 값을 믿지 않는다 — 모양이 틀리면 빈 기록(한도가 풀리는 쪽이 갇히는 쪽보다 낫다). */
 export function parseReportRecord(raw: string | null): TReportRecord {
   if (!raw) return {};
@@ -177,6 +187,16 @@ export function reportFailureText(reason: TReportSendFailure): string {
     default:
       return '보내지 못했어요. 잠시 뒤 다시 해 주세요';
   }
+}
+
+/**
+ * 미뤄 보낸 '그대로였어요' 가 실패했을 때(14 W261010.7g). 되돌리기 알림이 걷힌 뒤에 보내므로 그때는 다른 화면에 있을 수 있다 —
+ * 무엇을 못 보냈는지부터 말한다. 오프라인은 누르는 순간에 먼저 걸러 여기 오는 일이 드물다.
+ */
+export function visitedLateFailureText(reason: TReportSendFailure): string {
+  return reason === 'offline'
+    ? '인터넷이 끊겨 ‘그대로였어요’ 를 보내지 못했어요'
+    : '‘그대로였어요’ 를 보내지 못했어요. 잠시 뒤 다시 눌러 주세요';
 }
 
 export const REPORT_COOLDOWN_TEXT = '오늘은 이미 알려 주셨어요. 고마워요!';

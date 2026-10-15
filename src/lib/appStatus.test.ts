@@ -8,6 +8,7 @@ import {
   getAppStatus,
   holdAppStatus,
   isAtStatusLink,
+  pressAppStatusAction,
   releaseAppStatus,
   shouldClearStatusOnRoute,
   statusBottomAboveAction,
@@ -123,6 +124,82 @@ describe('showAppStatus — 되돌리기 버튼(12 U2.1)', () => {
     expect(getAppStatus()?.action?.label).toBe('되돌리기');
     getAppStatus()?.action?.onPress();
     expect(onPress).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('onDismiss — 되돌리기를 누르지 않고 걷혔을 때만(14 W261010.7g)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    clearAppStatus();
+  });
+  afterEach(() => {
+    clearAppStatus();
+    vi.useRealTimers();
+  });
+
+  const showUndoable = () => {
+    const onPress = vi.fn();
+    const onDismiss = vi.fn();
+    const status = showAppStatus('고마워요', { action: { label: '되돌리기', onPress }, durationMs: 10_000, onDismiss });
+    return { status, onPress, onDismiss };
+  };
+
+  it('시간이 다 되면 한 번', () => {
+    const { onDismiss } = showUndoable();
+    vi.advanceTimersByTime(9_999);
+    expect(onDismiss).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it('다른 알림이 덮으면 한 번 — 새 알림의 타이머가 다시 부르지 않는다', () => {
+    const { onDismiss } = showUndoable();
+    showAppStatus('링크를 복사했어요');
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(STATUS_DURATION_MS);
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it('걷히면(화면 이동·닫기 — clearAppStatus) 한 번, 두 번 걷어도 한 번', () => {
+    const { onDismiss } = showUndoable();
+    clearAppStatus();
+    clearAppStatus();
+    vi.advanceTimersByTime(10_000);
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it('되돌리기를 누르면 부르지 않는다 — 알림을 먼저 걷어도', () => {
+    const { status, onPress, onDismiss } = showUndoable();
+    pressAppStatusAction(status.id);
+    expect(getAppStatus()).toBeNull();
+    expect(onPress).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(10_000);
+    expect(onDismiss).not.toHaveBeenCalled();
+  });
+
+  it('되돌리기가 새 알림을 띄우면 그 알림이 남는다', () => {
+    const status = showAppStatus('지웠어요', { action: { label: '되돌리기', onPress: () => showAppStatus('되돌렸어요') } });
+    pressAppStatusAction(status.id);
+    expect(getAppStatus()?.text).toBe('되돌렸어요');
+  });
+
+  it('이미 다른 알림으로 바뀌었으면 누름을 무시한다', () => {
+    const { status, onPress } = showUndoable();
+    showAppStatus('링크를 복사했어요');
+    pressAppStatusAction(status.id);
+    expect(onPress).not.toHaveBeenCalled();
+    expect(getAppStatus()?.text).toBe('링크를 복사했어요');
+  });
+
+  it('멈춘 동안은 부르지 않고, 떼고 시간이 다 되면 한 번', () => {
+    const { onDismiss } = showUndoable();
+    vi.advanceTimersByTime(5_000);
+    holdAppStatus();
+    vi.advanceTimersByTime(60_000);
+    expect(onDismiss).not.toHaveBeenCalled();
+    releaseAppStatus();
+    vi.advanceTimersByTime(5_000);
+    expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 });
 

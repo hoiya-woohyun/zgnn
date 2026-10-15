@@ -12,7 +12,16 @@
  */
 
 import { PROJECT_URL, PUBLISHABLE_KEY } from '../../scripts/lib/supabasePublic.mjs';
-import { parseReportRecord, recordReport, type TReportInsert, type TReportKind, type TReportRecord, type TReportSendFailure } from './placeReport';
+import { clearAppStatus, showAppStatus, STATUS_UNDO_MS } from './appStatus';
+import {
+  parseReportRecord,
+  recordReport,
+  unrecordReport,
+  type TReportInsert,
+  type TReportKind,
+  type TReportRecord,
+  type TReportSendFailure,
+} from './placeReport';
 
 export const APP_BUILD = process.env.NEXT_PUBLIC_APP_BUILD ?? 'dev';
 
@@ -28,7 +37,10 @@ export function classifySendFailure(status: number, code?: string): TReportSendF
   return 'network';
 }
 
-export async function sendPlaceReport(row: TReportInsert): Promise<TReportSendResult> {
+/**
+ * `keepalive` — 탭을 닫거나 다른 앱으로 넘어가는 순간에 보낼 때(`sendPlaceReportUndoable`). 페이지가 내려가도 요청이 끝까지 간다.
+ */
+export async function sendPlaceReport(row: TReportInsert, { keepalive = false }: { keepalive?: boolean } = {}): Promise<TReportSendResult> {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return { ok: false, reason: 'offline' };
   let response: Response;
   try {
@@ -40,6 +52,7 @@ export async function sendPlaceReport(row: TReportInsert): Promise<TReportSendRe
         Prefer: 'return=minimal',
       },
       body: JSON.stringify(row),
+      ...(keepalive ? { keepalive: true } : {}),
     });
   } catch {
     return { ok: false, reason: typeof navigator !== 'undefined' && navigator.onLine === false ? 'offline' : 'network' };
@@ -70,5 +83,73 @@ export function rememberReport(placeId: string | null, kind: TReportKind, now: n
     localStorage.setItem(RECORD_KEY, JSON.stringify(recordReport(readReportRecord(), placeId, kind, now)));
   } catch {
     // 저장소를 못 쓰는 환경(사파리 시크릿 등) — 한도가 풀리는 쪽이라 그대로 둔다.
+  }
+}
+
+/** 남긴 기록 하나를 걷는다 — 되돌렸거나 미뤄 보내다 실패했을 때(`unrecordReport`). */
+export function forgetReport(placeId: string | null, kind: TReportKind): void {
+  try {
+    localStorage.setItem(RECORD_KEY, JSON.stringify(unrecordReport(readReportRecord(), placeId, kind)));
+  } catch {
+    // 저장소를 못 쓰는 환경 — 남긴 것도 없다.
+  }
+}
+
+type TUndoableSend = {
+  /** 되돌리기 알림의 문구 — 보낸 것처럼 말한다(되돌리지 않으면 곧 보낸다). */
+  text: string;
+  onUndo: () => void;
+  /** 보낸 뒤(성공·실패). 그때는 화면이 이미 바뀌었을 수 있다. */
+  onDone: (result: TReportSendResult) => void;
+  /** 테스트가 바꿔 끼운다. */
+  send?: typeof sendPlaceReport;
+};
+
+/**
+ * 되돌리기 알림이 걷힐 때 보낸다(14 W261010.7g). 보낸 제보는 다시 읽지도 지우지도 못해(insert 만) 되돌리기는 **아직 안 보냈을 때만** 된다 —
+ * 그래서 보내는 순간을 알림이 걷히는 순간으로 미룬다. 시간이 다 됐거나, 다른 알림이 덮었거나, 화면을 옮겨 셸이 걷었으면 보내고
+ * (`onDismiss`), 되돌리기를 눌렀으면 안 보낸다. 알림은 hover·포커스 동안 멈추니 되돌리기 가 보이는 동안은 늘 되돌릴 수 있다.
+ *
+ * 탭을 닫거나 다른 앱으로 넘어가면(`pagehide` · `visibilitychange` hidden — iOS 는 앱 전환기에서 닫을 때 pagehide 를 믿을 수 없다)
+ * 그 자리에서 `keepalive` 로 보내고 알림을 걷는다 — 돌아왔을 때 이미 보낸 것의 되돌리기 가 남지 않게. 어느 길로든 한 번만 보낸다.
+ */
+export function sendPlaceReportUndoable(row: TReportInsert, { text, onUndo, onDone, send = sendPlaceReport }: TUndoableSend): void {
+  let settled = false;
+  const listening = typeof window !== 'undefined' && typeof document !== 'undefined';
+
+  const stopListening = () => {
+    if (!listening) return;
+    window.removeEventListener('pagehide', leave);
+    document.removeEventListener('visibilitychange', leaveIfHidden);
+  };
+  const flush = (keepalive: boolean) => {
+    if (settled) return;
+    settled = true;
+    stopListening();
+    void send(row, { keepalive }).then(onDone);
+  };
+  function leave() {
+    flush(true);
+    clearAppStatus();
+  }
+  function leaveIfHidden() {
+    if (document.visibilityState === 'hidden') leave();
+  }
+
+  showAppStatus(text, {
+    action: {
+      label: '되돌리기',
+      onPress: () => {
+        settled = true;
+        stopListening();
+        onUndo();
+      },
+    },
+    durationMs: STATUS_UNDO_MS,
+    onDismiss: () => flush(false),
+  });
+  if (listening) {
+    window.addEventListener('pagehide', leave);
+    document.addEventListener('visibilitychange', leaveIfHidden);
   }
 }
