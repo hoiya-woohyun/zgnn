@@ -45,7 +45,8 @@ function SavedPageCardDayFooter({ place, order }: { place: TPlaceEntry; order?: 
         }}
         className={PILL}
       >
-        <option value="">미정</option>
+        {/* 닫힌 상자에 보이는 글자가 이것뿐이라 '미정' 만 두면 무엇을 고르는 칸인지 모른다(14 W261013.14k) — 고른 뒤엔 'N일차' 가 스스로 말한다. */}
+        <option value="">날짜 미정</option>
         {TRIP_DAYS.map((value) => (
           <option key={value} value={value}>
             {value}일차
