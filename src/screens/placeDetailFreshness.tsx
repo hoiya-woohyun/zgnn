@@ -2,23 +2,22 @@
 
 import { useToday } from '../hooks/useToday';
 import { freshnessOf } from '../lib/placeFreshness';
-import { TYPE_META, type TPlaceEntry } from '../lib/places';
+import type { TPlaceEntry } from '../lib/places';
 
 /**
- * 반려동물 이용 카드 맨 아래 한 줄 — "정보는 바뀔 수 있어요" 자리를 **확인 날짜**가 대신한다(docs/todo/10 F3).
- * 날짜가 없으면(확인 기록 없음 · 열린 폐업 제보) 예전 문장 그대로다.
+ * 반려동물 이용 카드 맨 아래 — 모든 상세(원문 공개·블로그 출처)가 같은 자리에 그리는 안내.
+ * - 확인 날짜(docs/todo/10 F3): 있을 때만 한 줄. 없으면(확인 기록 없음 · 열린 폐업 제보 · 조건 없음) 줄째 뺀다.
+ * - AI 정리 안내: **늘** 그린다. 데이터 전부가 블로그 후기를 AI 로 모아 정리한 것이라 장소마다 갈리지 않는다.
+ *   "방문 전 한 번 더 확인해 주세요" 는 이 줄에만 둔다 — 날짜 줄에도 붙이면 같은 부탁이 두 번 나온다.
  */
 export function PlaceDetailFreshness({ place }: { place: TPlaceEntry }) {
   const now = useToday();
   const freshness = freshnessOf(place, now);
-  const label = TYPE_META[place.type].label;
 
-  if (!freshness) {
-    return <p className="mt-3 text-xs text-tertiary">{label} 정보는 바뀔 수 있어요. 방문 전 한 번 더 확인해 주세요.</p>;
-  }
   return (
-    <p className="mt-3 text-xs text-tertiary">
-      {freshness.text}. {freshness.stale ? '방문 전 한 번 더 확인해 주세요.' : '그래도 바뀔 수 있으니 방문 전 한 번 더 확인해 주세요.'}
-    </p>
+    <div className="mt-3 space-y-0.5 text-xs text-tertiary">
+      {freshness && <p>{freshness.text}.</p>}
+      <p>AI 로 모아 정리한 정보라 정확하지 않을 수 있어요. 방문 전 한 번 더 확인해 주세요.</p>
+    </div>
   );
 }

@@ -39,14 +39,14 @@ export function PlaceDetailPolicyText({ place, evidence }: { place: TPlaceEntry;
             ))}
           </ul>
           {evidence.note && <p className="mt-2 text-sm text-secondary">{evidence.note}</p>}
-          <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-tertiary">
-            블로그 글을 읽고 정리했어요
-            {place.reviewUrl && (
+          {/* 출처 설명("블로그 글을 읽고 정리했어요")은 두지 않는다 — 모든 장소가 블로그에서 왔고, AI 정리 안내는 카드 맨 아래 공통 줄이 한다. */}
+          {place.reviewUrl && (
+            <p className="mt-1 flex">
               <Button color="link-color" size="sm" className="min-h-11" href={place.reviewUrl} target="_blank" rel="noopener noreferrer">
                 원문 보기
               </Button>
-            )}
-          </p>
+            </p>
+          )}
         </>
       )}
     </>

@@ -60,7 +60,7 @@ export function PlaceDetailPage({ id }: { id: string }) {
             evidence={
               <>
                 <PlaceDetailPolicyText place={place} evidence={evidence} />
-                {/* 확인 날짜가 있으면 그 달을, 없으면 예전 문장(10 F3). */}
+                {/* 확인 날짜(있을 때만, 10 F3) + 모든 장소 공통의 AI 정리 안내. */}
                 <PlaceDetailFreshness place={place} />
               </>
             }
