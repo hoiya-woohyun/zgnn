@@ -8,7 +8,7 @@ import {
 import { parsePetPolicy } from './petPolicy';
 import { ITEMS } from './places';
 import type { TPlaceEntry } from './places';
-import type { TPlaceType } from '../types';
+import type { TDogProfile, TPlaceType } from '../types';
 
 const placeOf = (
   type: TPlaceType,
@@ -31,8 +31,11 @@ const placeOf = (
 });
 
 const nameOf = (id: string) => ITEMS.find((item) => item.id === id)?.name;
-const namesAt = (place: TPlaceEntry, season: Parameters<typeof itemsNeededAt>[1] = null) =>
-  itemsNeededAt(place, season).map((item) => item.name);
+const namesAt = (
+  place: TPlaceEntry,
+  season: Parameters<typeof itemsNeededAt>[1] = null,
+  dog: TDogProfile | null = null,
+) => itemsNeededAt(place, season, dog).map((item) => item.name);
 
 describe('ITEM_NEEDS', () => {
   it('규칙의 itemName 이 전부 items.json 에 있다', () => {
@@ -76,6 +79,36 @@ describe('itemsNeededAt', () => {
     );
   });
 
+  describe('기저귀 — 대형견만이면 걸지 않는다(14 W261010.31a)', () => {
+    const free = placeOf('cafe', '실내외 모두 가능합니다.');
+    const dogOf = (...weights: number[]): TDogProfile => ({
+      dogs: weights.map((weightKg, index) => ({ name: `강아지${index}`, weightKg })),
+      carrier: 'none',
+    });
+
+    it('38kg 한 마리면 풀어놓는 카페에도 기저귀가 없다', () => {
+      expect(namesAt(free, null, dogOf(38))).not.toContain('기저귀');
+    });
+
+    it('소형·중형이면 그대로 — 25kg 은 아직 중형이다', () => {
+      expect(namesAt(free, null, dogOf(3))).toContain('기저귀');
+      expect(namesAt(free, null, dogOf(25))).toContain('기저귀');
+    });
+
+    it('3kg + 38kg 이면 그대로 — 3kg 아이에게는 필요하다', () => {
+      expect(namesAt(free, null, dogOf(3, 38))).toContain('기저귀');
+    });
+
+    it('강아지가 없으면 그대로', () => {
+      expect(namesAt(free, null, null)).toContain('기저귀');
+    });
+
+    it('크기 수정이 이긴다 — 판정과 같은 축', () => {
+      expect(namesAt(free, null, { ...dogOf(20), sizeOverride: 'large' })).not.toContain('기저귀');
+      expect(namesAt(free, null, { ...dogOf(30), sizeOverride: 'medium' })).toContain('기저귀');
+    });
+  });
+
   it('계절을 고르지 않으면 여름 항목은 나오지 않는다', () => {
     expect(namesAt(placeOf('stay'), null)).not.toContain('강아지 튜브');
     expect(namesAt(placeOf('stay'), '여름')).toContain('강아지 튜브');
@@ -84,13 +117,13 @@ describe('itemsNeededAt', () => {
 
 describe('itemNeedsAt', () => {
   const statusOf = (place: TPlaceEntry, checked: string[], name: string) =>
-    itemNeedsAt(place, null, checked).find((need) => need.item.name === name)?.status;
+    itemNeedsAt(place, null, checked, null).find((need) => need.item.name === name)?.status;
 
   it('필요한 것 전부를 돌려준다 — 챙긴 것도 빠지지 않는다', () => {
     const cafe = placeOf('cafe');
-    const first = itemsNeededAt(cafe, null)[0]!;
-    const needs = itemNeedsAt(cafe, null, [first.id]);
-    expect(needs.map((need) => need.item.id)).toEqual(itemsNeededAt(cafe, null).map((item) => item.id));
+    const first = itemsNeededAt(cafe, null, null)[0]!;
+    const needs = itemNeedsAt(cafe, null, [first.id], null);
+    expect(needs.map((need) => need.item.id)).toEqual(itemsNeededAt(cafe, null, null).map((item) => item.id));
     expect(needs.find((need) => need.item.id === first.id)?.status).toBe('checked');
     expect(nameOf(first.id)).toBeDefined();
   });

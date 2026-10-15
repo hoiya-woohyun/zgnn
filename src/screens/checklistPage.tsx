@@ -16,6 +16,7 @@ import {
   CHECKLIST_FILTER_LABEL,
   checklistProgress,
   filterChecklistItems,
+  orderItemsForDog,
   type TChecklistFilter,
 } from '../lib/checklist';
 import { useAppStore } from '../store/useAppStore';
@@ -38,13 +39,16 @@ const FILTERS: TChecklistFilter[] = ['all', 'unpacked', 'packed'];
 export function ChecklistPage() {
   const checkedItemIds = useAppStore((state) => state.checkedItemIds);
   const toggleChecked = useAppStore((state) => state.toggleChecked);
+  const dog = useAppStore((state) => state.dog);
 
   const progress = useMemo(() => checklistProgress(checkedItemIds), [checkedItemIds]);
+  // 세는 것(`progress`)은 강아지를 모르고, 줄 순서만 강아지를 본다 — 대형견만이면 기내용 가방·유모차가 맨 아래(`orderItemsForDog`).
+  const ordered = useMemo(() => orderItemsForDog(progress.items, dog), [progress.items, dog]);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<TChecklistFilter>('all');
   const shown = useMemo(
-    () => filterChecklistItems(progress.items, query, filter, checkedItemIds),
-    [progress.items, query, filter, checkedItemIds],
+    () => filterChecklistItems(ordered, query, filter, checkedItemIds),
+    [ordered, query, filter, checkedItemIds],
   );
 
   // 시트는 닫히는 애니메이션 동안에도 내용을 그려야 해서, 연 항목(`detailItem`)과 열림(`detailOpen`)을 따로 든다.

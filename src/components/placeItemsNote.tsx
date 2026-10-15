@@ -41,6 +41,7 @@ type TPlaceItemsNoteProps = {
 export function PlaceItemsNote({ place, className, folded = false }: TPlaceItemsNoteProps) {
   const season = useAppStore((state) => state.season);
   const checkedItemIds = useAppStore((state) => state.checkedItemIds);
+  const dog = useAppStore((state) => state.dog);
   const toggleChecked = useAppStore((state) => state.toggleChecked);
   const hydrated = useStoreHydrated();
   const level = useEligibility(place)?.level;
@@ -49,8 +50,8 @@ export function PlaceItemsNote({ place, className, folded = false }: TPlaceItems
   const chipsId = useId();
 
   const needs = useMemo(
-    () => itemNeedsAt(place, season, checkedItemIds),
-    [place, season, checkedItemIds],
+    () => itemNeedsAt(place, season, checkedItemIds, dog),
+    [place, season, checkedItemIds, dog],
   );
 
   if (!hydrated || needs.length === 0 || !shouldShowPlaceItems(level)) return null;

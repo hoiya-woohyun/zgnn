@@ -3,6 +3,7 @@ import {
   CARRY_BAG_ITEM_NAME,
   checklistProgress,
   filterChecklistItems,
+  orderItemsForDog,
   shouldAskCarrierBag,
   shouldOfferStroller,
   STROLLER_ITEM_NAME,
@@ -157,5 +158,38 @@ describe('shouldOfferStroller — 유모차 등록자에게 한 번에 챙기게
     expect(shouldOfferStroller(CARRY_BAG_ITEM_NAME, false, stroller)).toBe(false);
     expect(shouldOfferStroller(STROLLER_ITEM_NAME, false, { ...stroller, carrier: 'bag' })).toBe(false);
     expect(shouldOfferStroller(STROLLER_ITEM_NAME, false, null)).toBe(false);
+  });
+});
+
+describe('orderItemsForDog — 대형견만이면 기내용 가방·유모차를 맨 아래로(14 W261010.31a)', () => {
+  const names = (dog: TDogProfile | null) => orderItemsForDog(ITEMS, dog).map((item) => item.name);
+  const big: TDogProfile = { dogs: [{ name: '곰', weightKg: 38 }], carrier: 'none' };
+
+  it('지금 원본은 가방·유모차가 맨 위다 — 이 함수가 있는 이유', () => {
+    expect(ITEMS.slice(0, 2).map((item) => item.name)).toEqual([CARRY_BAG_ITEM_NAME, STROLLER_ITEM_NAME]);
+  });
+
+  it('38kg 한 마리면 둘이 맨 아래, 나머지는 원본 순서 그대로', () => {
+    const ordered = names(big);
+    expect(ordered.slice(-2)).toEqual([CARRY_BAG_ITEM_NAME, STROLLER_ITEM_NAME]);
+    const rest = ITEMS.map((item) => item.name).filter((name) => name !== CARRY_BAG_ITEM_NAME && name !== STROLLER_ITEM_NAME);
+    expect(ordered.slice(0, -2)).toEqual(rest);
+  });
+
+  it('순서만 바꾼다 — 빠지거나 늘지 않는다(분모는 checklistProgress 하나)', () => {
+    expect([...names(big)].sort()).toEqual(ITEMS.map((item) => item.name).sort());
+  });
+
+  it('유모차로 다닌다고 적었으면 유모차는 제자리', () => {
+    const ordered = names({ ...big, carrier: 'stroller' });
+    expect(ordered.at(-1)).toBe(CARRY_BAG_ITEM_NAME);
+    expect(ordered.indexOf(STROLLER_ITEM_NAME)).toBe(0);
+  });
+
+  it('작은 아이가 하나라도 있으면 · 강아지가 없으면 원본 그대로', () => {
+    const original = ITEMS.map((item) => item.name);
+    expect(names({ dogs: [{ name: '콩', weightKg: 3 }, { name: '곰', weightKg: 38 }], carrier: 'none' })).toEqual(original);
+    expect(names({ dogs: [{ name: '보리', weightKg: 25 }], carrier: 'none' })).toEqual(original);
+    expect(names(null)).toEqual(original);
   });
 });

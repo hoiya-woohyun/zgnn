@@ -75,6 +75,17 @@ const sizeOfWeight = (weightKg: number): TDogSize => {
 export const dogSize = (dog: TDogProfile): TDogSize => dog.sizeOverride ?? sizeOfWeight(maxWeightKg(dog));
 
 /**
+ * 모든 아이가 대형인가 — 준비물이 작은 아이 몫(기내용 가방·유모차·기저귀)을 뒤로 보내거나 빼는 기준(14 W261010.31a).
+ * `dogSize`(가장 무거운 아이)와 다르다: 3kg + 38kg 이면 판정은 대형으로 보지만 3kg 아이에게 가방·기저귀는 여전히 필요하다.
+ * 크기 수정(`sizeOverride`)이 있으면 그 말이 이긴다 — 판정과 같은 축. 강아지가 없으면 거짓(지금 그대로 보인다).
+ */
+export const allDogsLarge = (dog: TDogProfile | null): boolean => {
+  if (!dog || dog.dogs.length === 0) return false;
+  if (dog.sizeOverride) return dog.sizeOverride === 'large';
+  return dog.dogs.every((entry) => sizeOfWeight(entry.weightKg) === 'large');
+};
+
+/**
  * 크기 규칙(H3·H7·H4·C5)에 **걸리는 아이만** — 판정은 가장 큰 아이 하나로 하지만, 말은 H1(무게 상한)처럼 누구 때문인지 한다(14 W261010.15).
  * "소형견만 가능해요" 만으로는 셋을 데려온 보호자가 누구 얘기인지 몰랐다. 크기는 마리마다 몸무게로 본다.
  * 빈 목록이면 문구는 예전 그대로다: 한 마리면 머리글이 이미 그 아이를 부르고, 크기 수정(`sizeOverride`)이 판정을 정해

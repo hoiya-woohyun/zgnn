@@ -16,12 +16,13 @@
  *    "혹시 필요할지도" 로 경고를 만들면 경고 전체가 무시된다.
  */
 import { resolveProvidedItemIds } from './amenities';
+import { allDogsLarge } from './eligibility';
 import { ITEMS } from './places';
 import { visibleItems } from './seasonItems';
 import type { TEligibilityLevel } from './eligibility';
 import type { TPlaceEntry } from './places';
 import type { TSeasonFilter } from '../store/useAppStore';
-import type { TItem, TPlaceType } from '../types';
+import type { TDogProfile, TItem, TPlaceType } from '../types';
 
 const EVERYWHERE: TPlaceType[] = ['stay', 'restaurant', 'cafe'];
 /** 남의 가게 안에서 강아지를 데리고 앉아 있어야 하는 곳. */
@@ -30,8 +31,8 @@ const EATING_OUT: TPlaceType[] = ['restaurant', 'cafe'];
 type TItemNeed = {
   itemName: string;
   types: TPlaceType[];
-  /** 종류만으로는 안 갈리는 조건. 없으면 그 종류 전부에 걸린다. */
-  when?: (place: TPlaceEntry) => boolean;
+  /** 종류만으로는 안 갈리는 조건(장소 · 우리 강아지). 없으면 그 종류 전부에 걸린다. */
+  when?: (place: TPlaceEntry, dog: TDogProfile | null) => boolean;
 };
 
 export const ITEM_NEEDS: TItemNeed[] = [
@@ -50,10 +51,13 @@ export const ITEM_NEEDS: TItemNeed[] = [
   // "주인들이 밥 먹는 걸 기다려야 할 때"
   { itemName: '오래 씹을 수 있는 간식', types: EATING_OUT },
   // "자유롭게 내려놓고 풀어놓을 수 있는 곳이라면" — 가방에 넣어야 하는 곳에는 필요 없다.
+  // 원문은 '가방에 넣던 아이를 풀어 둘 때' 의 이야기라 대형견만이면 걸지 않는다 — 30·38kg 보호자 둘이
+  // "기저귀는 생각해 본 적 없다" 고 했다(14 W261010.31a). 작은 아이가 하나라도 있으면 그대로다.
   {
     itemName: '기저귀',
     types: EATING_OUT,
-    when: (place) => place.policy.indoor === 'free' || place.policy.outdoorFree,
+    when: (place, dog) =>
+      (place.policy.indoor === 'free' || place.policy.outdoorFree) && !allDogsLarge(dog),
   },
 
   // ── 숙소 ────────────────────────────────────────────────────────────────
@@ -74,19 +78,19 @@ const needsByItemId = new Map<string, TItemNeed>(
   }),
 );
 
-const isNeededAt = (item: TItem, place: TPlaceEntry): boolean => {
+const isNeededAt = (item: TItem, place: TPlaceEntry, dog: TDogProfile | null): boolean => {
   const need = needsByItemId.get(item.id);
   if (!need) return false;
   if (!need.types.includes(place.type)) return false;
-  return need.when ? need.when(place) : true;
+  return need.when ? need.when(place, dog) : true;
 };
 
 /**
  * 이 장소 하나에 필요한 준비물. 계절 필터를 먼저 통과시킨다 —
  * 홈·준비물 화면과 같은 기준이어야 세 화면이 다른 숫자를 보여주지 않는다.
  */
-export const itemsNeededAt = (place: TPlaceEntry, season: TSeasonFilter): TItem[] =>
-  visibleItems(season).filter((item) => isNeededAt(item, place));
+export const itemsNeededAt = (place: TPlaceEntry, season: TSeasonFilter, dog: TDogProfile | null): TItem[] =>
+  visibleItems(season).filter((item) => isNeededAt(item, place, dog));
 
 export type TPlaceItemStatus = 'checked' | 'provided' | 'missing';
 export type TPlaceItemNeed = { item: TItem; status: TPlaceItemStatus };
@@ -106,8 +110,9 @@ export const itemNeedsAt = (
   place: TPlaceEntry,
   season: TSeasonFilter,
   checkedItemIds: string[],
+  dog: TDogProfile | null,
 ): TPlaceItemNeed[] => {
-  const needed = itemsNeededAt(place, season);
+  const needed = itemsNeededAt(place, season, dog);
   const provided = resolveProvidedItemIds(place.stay?.amenitiesText, needed);
   return needed.map((item) => ({
     item,
