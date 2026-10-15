@@ -44,8 +44,6 @@ export const stayPriceSourceLine = (price: TStayPrice): string | null => {
   return asides.length > 0 ? asides.join(', ') : null;
 };
 
-export const formatKm = (km: number): string => (km < 1 ? `${Math.round(km * 1000)}m` : `${km.toFixed(1)}km`);
-
 /** 쿠팡 파트너스 링크와 네이버 링크를 버튼 문구로 구분한다. */
 export const linkLabel = (url: string): string => {
   if (url.includes('coupang')) return '쿠팡에서 보기';

@@ -60,6 +60,11 @@ describe('distanceLabel', () => {
     expect(distanceLabel(1.234)).toBe('1.2km');
     expect(distanceLabel(23.6)).toBe('24km');
   });
+
+  it('상세 근처 줄과 그 줄이 연 목록이 같은 숫자를 말한다 — 장소 기준도 반올림한다(14 W261013.14r)', () => {
+    expect(distanceLabel(0.243)).toBe('250m');
+    expect(distanceLabel(12.34)).toBe('12km');
+  });
 });
 
 describe('pickNearby', () => {

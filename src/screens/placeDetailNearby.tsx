@@ -6,9 +6,8 @@ import { FilterChip } from '../components/filterChip';
 import { PetBadges } from '../components/petBadges';
 import { PlaceThumb } from '../components/placeThumb';
 import { TownChip } from '../components/townChip';
-import { pickNearby, placesNearHref } from '../lib/distanceSort';
+import { distanceLabel, pickNearby, placesNearHref } from '../lib/distanceSort';
 import { reasonBadgeLabel, verdictHidesBadge } from '../lib/eligibility';
-import { formatKm } from '../lib/format';
 import { dogCallNames, withJosa } from '../lib/korean';
 import { nearbyPlaces, PLACE_TYPES, TYPE_META, type TPlaceEntry } from '../lib/places';
 import { PLACE_DETAIL_NEARBY_NO_GEO, placeDetailLocationOf } from '../lib/placeDetailLocation';
@@ -112,7 +111,7 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
                       <p className="clamp-2 text-sm font-bold text-primary">{other.name}</p>
-                      <span className="shrink-0 text-sm font-bold text-secondary">{formatKm(km)}</span>
+                      <span className="shrink-0 text-sm font-bold text-secondary">{distanceLabel(km)}</span>
                     </div>
                     <div className="mt-1.5 flex flex-wrap items-center gap-1">
                       <TownChip town={other.region.town} type={other.type} />

@@ -58,7 +58,11 @@ export function nearPlaceOf(search: string): TPlaceEntry | null {
   return place?.geo ? place : null;
 }
 
-/** 카드에 붙는 거리 — 1km 아래는 50m 단위, 그 위는 소수 한 자리(10km 부터는 정수). */
+/**
+ * 화면에 찍히는 거리는 전부 이것 하나 — 1km 아래는 50m 단위, 그 위는 소수 한 자리(10km 부터는 정수).
+ * 기준이 내 위치든 장소든 같은 반올림이다: 장소 좌표도 주소→좌표·건물 폭만큼 흔들리는 직선거리라 "243m" 는 정밀해 보일 뿐이고,
+ * 상세 「근처 장소」 만 따로 적던 시절엔 그 줄의 '더 보기' 로 연 목록이 같은 곳을 "250m" 로 말했다(14 W261013.14r).
+ */
 export function distanceLabel(km: number): string {
   if (km < 1) return `${Math.max(50, Math.round((km * 1000) / 50) * 50)}m`;
   if (km < 10) return `${km.toFixed(1)}km`;
