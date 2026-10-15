@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import { MessageAlertSquare } from '@untitledui/icons';
 import { Button } from '../components/base/button';
 import { feeUnitNote } from '../lib/dogFee';
 import { dogSubsetWhatIf } from '../lib/dogSubsetWhatIf';
@@ -44,10 +45,13 @@ export function PlaceDetailEligibilityCard({
   place,
   evidenceLabel,
   evidence,
+  onReportVerdict,
 }: {
   place: TPlaceEntry;
   evidenceLabel: string;
   evidence: ReactNode;
+  /** 카드 바로 밑 '판정이 틀렸어요' 를 누르면 — 판정이 있을 때만 그린다(14 W261010.29a). */
+  onReportVerdict?: () => void;
 }) {
   const dog = useDog();
   const eligibility = useEligibility(place);
@@ -84,58 +88,79 @@ export function PlaceDetailEligibilityCard({
   const indoorChanged = needsIndoorChangedLevel(dog, place.policy, eligibility, needsIndoor);
 
   return (
-    <div className={CARD_SURFACE}>
-      <div className="p-4">
-        {/*
-         * items-start + 점에 mt: 머리글이 두 줄로 접혀도 점은 첫 줄 글자 가운데에 남는다(줄 높이 7.5 의 가운데 − 점 2.5 의 반).
-         * 판정 문장은 상세에서 가장 큰 본문 글자다 — 절 제목(text-lg)·1박 요금(text-lg)보다 크다. 이 화면이 답하는 것이 이것이다.
-         */}
-        <div className="flex items-start gap-2">
-          <span aria-hidden="true" className={`mt-2.5 size-2.5 shrink-0 rounded-full ${DOT_CLASS[eligibility.level]}`} />
-          <p className="text-xl font-bold text-primary">
-            {verdictFor(dog.dogs.map((d) => d.name), eligibility)}
-          </p>
+    <>
+      <div className={CARD_SURFACE}>
+        <div className="p-4">
+          {/*
+           * items-start + 점에 mt: 머리글이 두 줄로 접혀도 점은 첫 줄 글자 가운데에 남는다(줄 높이 7.5 의 가운데 − 점 2.5 의 반).
+           * 판정 문장은 상세에서 가장 큰 본문 글자다 — 절 제목(text-lg)·1박 요금(text-lg)보다 크다. 이 화면이 답하는 것이 이것이다.
+           */}
+          <div className="flex items-start gap-2">
+            <span aria-hidden="true" className={`mt-2.5 size-2.5 shrink-0 rounded-full ${DOT_CLASS[eligibility.level]}`} />
+            <p className="text-xl font-bold text-primary">
+              {verdictFor(dog.dogs.map((d) => d.name), eligibility)}
+            </p>
+          </div>
+
+          {mainReasons.length > 0 && (
+            <ul className="mt-3 space-y-1.5">
+              {mainReasons.map((reason, index) => (
+                <li key={index} className="flex gap-1.5 text-sm text-secondary">
+                  <span aria-hidden="true" className="text-tertiary">
+                    ·
+                  </span>
+                  {reason.text}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {indoorChanged && (
+            <p className="mt-3 flex flex-wrap items-center gap-x-2 text-sm text-tertiary">
+              실내 자리 필요로 설정돼 있어요
+              <Button color="link-color" size="sm" className="min-h-11" onClick={() => setNeedsIndoor(false)}>
+                끄기
+              </Button>
+            </p>
+          )}
+
+          {subset && (
+            <p className="mt-3 rounded-xl bg-secondary px-3 py-2 text-sm text-secondary">
+              {dogCallNames(subset.names)}만 데려가면 {headlineFor(subset.eligibility)}
+            </p>
+          )}
+
+          {infoReasons.length > 0 && (
+            <p className="mt-2 text-sm text-tertiary">{infoReasons.map((reason) => reason.text).join(' · ')}</p>
+          )}
+          {feeNote && <p className="mt-0.5 text-xs text-tertiary">{feeNote}</p>}
         </div>
 
-        {mainReasons.length > 0 && (
-          <ul className="mt-3 space-y-1.5">
-            {mainReasons.map((reason, index) => (
-              <li key={index} className="flex gap-1.5 text-sm text-secondary">
-                <span aria-hidden="true" className="text-tertiary">
-                  ·
-                </span>
-                {reason.text}
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {indoorChanged && (
-          <p className="mt-3 flex flex-wrap items-center gap-x-2 text-sm text-tertiary">
-            실내 자리 필요로 설정돼 있어요
-            <Button color="link-color" size="sm" className="min-h-11" onClick={() => setNeedsIndoor(false)}>
-              끄기
-            </Button>
-          </p>
-        )}
-
-        {subset && (
-          <p className="mt-3 rounded-xl bg-secondary px-3 py-2 text-sm text-secondary">
-            {dogCallNames(subset.names)}만 데려가면 {headlineFor(subset.eligibility)}
-          </p>
-        )}
-
-        {infoReasons.length > 0 && (
-          <p className="mt-2 text-sm text-tertiary">{infoReasons.map((reason) => reason.text).join(' · ')}</p>
-        )}
-        {feeNote && <p className="mt-0.5 text-xs text-tertiary">{feeNote}</p>}
+        {/* 근거 — 판정과 같은 면, 구분선 아래. 이름표가 있어야 판정의 "원문을 확인해 주세요"(C7)가 가리키는 곳이 보인다. */}
+        <div className="border-t border-secondary p-4">
+          <p className="mb-2 text-xs font-semibold text-tertiary">{evidenceLabel}</p>
+          {evidence}
+        </div>
       </div>
-
-      {/* 근거 — 판정과 같은 면, 구분선 아래. 이름표가 있어야 판정의 "원문을 확인해 주세요"(C7)가 가리키는 곳이 보인다. */}
-      <div className="border-t border-secondary p-4">
-        <p className="mb-2 text-xs font-semibold text-tertiary">{evidenceLabel}</p>
-        {evidence}
-      </div>
-    </div>
+      {/*
+        판정이 틀렸다는 말은 판정을 읽는 **그 자리**에서 나온다(14 W261010.29a) — 상세 맨 아래 '다녀오셨나요?' 는 2018px 아래라
+        화가 났을 때 못 찾았다(ferry-13 · tremor). 등급은 가리지 않는다 — 틀린 '갈 수 있어요' 가 가장 비싸다(헛걸음).
+        카드 **밖**이다: 판정과 근거 사이에 끼우면 근거가 같은 면에 딸리는 짜임이 깨진다(ADR-003 v15). 조용한 회색 링크라
+        첫 화면의 말이 되지 않는다. 밑의 준비물 줄과는 16px 띄운다(상세 쪽 `mt-4`, 7a 의 교훈).
+      */}
+      {onReportVerdict && (
+        <div className="mt-1 flex justify-end">
+          <Button
+            color="link-gray"
+            size="sm"
+            iconLeading={MessageAlertSquare}
+            className="min-h-11 px-1"
+            onClick={onReportVerdict}
+          >
+            판정이 틀렸어요
+          </Button>
+        </div>
+      )}
+    </>
   );
 }

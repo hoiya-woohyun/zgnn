@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { notFound } from 'next/navigation';
 import { PlaceDetailActions } from './placeDetailActions';
 import { PlaceDetailFreshness } from './placeDetailFreshness';
@@ -24,6 +25,8 @@ import { CARD_SURFACE } from '../components/cardSurface';
  * 여기 notFound 는 실제로는 걸리지 않는다 — 타입을 좁히려고 둔다.
  */
 export function PlaceDetailPage({ id }: { id: string }) {
+  // 판정 카드 밑 '판정이 틀렸어요' 의 시트 — 시트와 흔적 한 줄은 맨 아래 제보 칸이 갖고, 여는 신호만 여기서 건넨다(14 W261010.29a).
+  const [verdictReportOpen, setVerdictReportOpen] = useState(false);
   const place = getPlace(id);
   if (!place) notFound();
   const environment = environmentPhrases(place.environment);
@@ -58,6 +61,7 @@ export function PlaceDetailPage({ id }: { id: string }) {
           <PlaceDetailEligibilityCard
             place={place}
             evidenceLabel={POLICY_EVIDENCE_LABEL[evidence.kind]}
+            onReportVerdict={() => setVerdictReportOpen(true)}
             evidence={
               <>
                 <PlaceDetailPolicyText place={place} evidence={evidence} />
@@ -69,7 +73,7 @@ export function PlaceDetailPage({ id }: { id: string }) {
           />
         </div>
 
-        <PlaceItemsNote place={place} className="mt-3" />
+        <PlaceItemsNote place={place} className="mt-4" />
       </section>
 
       {/* 블로그에서 들어온 신규 숙소는 요금·용품 원문이 비어 있을 수 있다 — 있는 항목만 그리고, 둘 다 없으면 절을 통째로 뺀다. */}
@@ -129,7 +133,7 @@ export function PlaceDetailPage({ id }: { id: string }) {
       <PlaceDetailNearby place={place} />
 
       {/* 제보는 다녀온 뒤의 동작이라 맨 아래(10 F1). 가기 전의 동작은 위 액션 줄이 맡는다. */}
-      <PlaceDetailReport place={place} />
+      <PlaceDetailReport place={place} verdictOpen={verdictReportOpen} onVerdictOpenChange={setVerdictReportOpen} />
 
       <div className="h-8" />
     </article>

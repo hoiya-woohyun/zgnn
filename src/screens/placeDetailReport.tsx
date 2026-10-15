@@ -20,13 +20,27 @@ import { APP_BUILD, readReportRecord, rememberReport, sendPlaceReport } from '..
 import type { TPlaceEntry } from '../lib/places';
 import { CARD_SURFACE } from '../components/cardSurface';
 
+/** '판정이 틀렸어요' 가 보내는 종류 — 하나뿐이라 시트가 고르는 줄을 그리지 않는다. 렌더마다 새 배열이 되지 않게 밖에 둔다. */
+const VERDICT_REPORT_KINDS = ['policy'] as const satisfies readonly TReportKind[];
+
 /**
  * 상세 맨 아래 "정보가 달라요" — 사용자 제보의 입구(docs/todo/10 F1, ADR-021).
  *
  * 자리를 맨 아래로 둔 것은 07 의 판단 그대로다: 제보는 **다녀온 뒤**의 동작이라 제목 밑 액션 줄(가기 전의 동작 — 저장·공유·네이버)과 섞지 않는다.
  * 디자인 트랙(10 §7)이 자리·문구를 다시 정하면 이 컴포넌트 하나만 옮기면 된다.
+ *
+ * 판정 카드 밑 '판정이 틀렸어요'(14 W261010.29a)의 시트도 여기 산다 — 어디서 보내든 이 칸의 흔적 한 줄이 같이 바뀌어야 해서다.
+ * 여는 신호(`verdictOpen`)만 상세가 내려 준다.
  */
-export function PlaceDetailReport({ place }: { place: TPlaceEntry }) {
+export function PlaceDetailReport({
+  place,
+  verdictOpen,
+  onVerdictOpenChange,
+}: {
+  place: TPlaceEntry;
+  verdictOpen: boolean;
+  onVerdictOpenChange: (open: boolean) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [sendingVisit, setSendingVisit] = useState(false);
 
@@ -104,6 +118,20 @@ export function PlaceDetailReport({ place }: { place: TPlaceEntry }) {
         placeId={place.id}
         kinds={PICKABLE_REPORT_KINDS}
         notePlaceholder="예: 9월부터 영업 안 해요 · 실내는 안 되고 테라스만 돼요"
+        onSent={reread}
+      />
+      {/*
+        종류는 '반려동물 조건이 달라요' 하나라 고르는 줄이 없다 — 판정이 틀렸다는 것은 조건을 잘못 읽었거나 조건이 바뀐 것이다.
+        새 종류를 만들지 않는다(표의 CHECK 와 짝이다). 시트는 종류를 처음 값으로 잡으므로 위 시트와 나눠 각자 고정한다.
+      */}
+      <ReportSheet
+        isOpen={verdictOpen}
+        onOpenChange={onVerdictOpenChange}
+        title="판정이 틀렸어요"
+        lead={`${place.name}에서 실제로는 어땠는지 알려 주세요.`}
+        placeId={place.id}
+        kinds={VERDICT_REPORT_KINDS}
+        notePlaceholder="예: 10kg 넘는다고 못 들어갔어요 · 실내도 괜찮았어요"
         onSent={reread}
       />
     </section>
