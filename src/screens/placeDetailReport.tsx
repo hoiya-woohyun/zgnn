@@ -126,7 +126,12 @@ export function PlaceDetailReport({
         {trace && <p className="mt-3 text-sm text-secondary">{trace}</p>}
       </div>
 
+      {/*
+        시트는 닫혀도 초안을 붙잡는다(14 W261010.7f) — 장소가 바뀌면 새 시트로(`key`). 안 그러면 A 에서 쓰다 만 "9월부터 영업 안 해요" 가
+        근처 장소 B 의 시트에 남아 B 의 폐업 제보로 갈 수 있다. 장소가 바뀌는 순간엔 시트가 닫혀 있어 다시 세워도 잃을 것이 없다.
+      */}
       <ReportSheet
+        key={`diff-${place.id}`}
         isOpen={open}
         onOpenChange={setOpen}
         title="정보가 달라요"
@@ -141,6 +146,7 @@ export function PlaceDetailReport({
         새 종류를 만들지 않는다(표의 CHECK 와 짝이다). 시트는 종류를 처음 값으로 잡으므로 위 시트와 나눠 각자 고정한다.
       */}
       <ReportSheet
+        key={`verdict-${place.id}`}
         isOpen={verdictOpen}
         onOpenChange={onVerdictOpenChange}
         title="판정이 틀렸어요"
