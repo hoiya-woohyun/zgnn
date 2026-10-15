@@ -48,13 +48,25 @@ export const dogCallName = (name: string): string => {
   return hasBatchim(trimmed) ? `${trimmed}이` : trimmed;
 };
 
+/** 이름 여럿을 한 덩어리로 — 둘은 앞 이름에 '과/와', 셋부터 쉼표. 부르는 이름·적은 이름이 같은 꼴을 쓴다. */
+const joinNames = (names: string[]): string => {
+  if (names.length <= 1) return names[0] ?? '';
+  if (names.length === 2) return `${withJosa(names[0], '과/와')} ${names[1]}`;
+  return names.join(', ');
+};
+
 /**
  * 여러 마리를 한 덩어리로 부른다: "악동이" / "악동이와 두부" / "악동이, 두부, 콩이".
  * 조사는 붙이지 않는다 — 호출부가 문맥에 맞는 조사(`은/는`, `이랑/랑`)를 `withJosa` 로 붙인다.
+ *
+ * **문장 안에서 강아지를 부르는 자리에만 쓴다**("단풍이랑 제주 어디 갈까요?" · "단풍이는 갈 수 있어요" · "단풍이에게 어려워요").
+ * 이름만 서는 자리(카드 제목·목록)와 방금 적은 이름을 되비추는 자리(`/dog` 폼의 알림)는 `dogNamesAsWritten` 이다 —
+ * 거기서 '단풍' 이 '단풍이' 로 보이면 적은 이름이 바뀐 것으로 읽힌다(14 W261010.33h, tremor-05c).
  */
-export const dogCallNames = (names: string[]): string => {
-  const called = names.map(dogCallName);
-  if (called.length <= 1) return called[0] ?? '';
-  if (called.length === 2) return `${withJosa(called[0], '과/와')} ${called[1]}`;
-  return called.join(', ');
-};
+export const dogCallNames = (names: string[]): string => joinNames(names.map(dogCallName));
+
+/**
+ * 보호자가 적은 이름 그대로 묶는다: "단풍" / "단풍과 깜지" / "보리, 단풍, 깜지". 묶는 꼴은 `dogCallNames` 와 같고 '이' 만 안 붙인다.
+ * 이름이 가리키는 말로 서는 자리(설정 카드 제목 · 저장 알림 "○○ 기준으로 바꿨어요")에 쓴다 — 부르는 말 자리는 `dogCallNames`.
+ */
+export const dogNamesAsWritten = (names: string[]): string => joinNames(names.map((name) => name.trim()));

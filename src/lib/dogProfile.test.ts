@@ -88,18 +88,25 @@ describe('sanitizeDog — 옛 모양 { name, weightsKg } 올려 변환', () => {
 });
 
 describe('dogProfileSavedMessage — 저장 뒤 돌아온 화면의 한 줄', () => {
-  it('한 마리는 애칭으로', () => {
+  it("이름은 적은 그대로 — 받침 있는 '단풍' 에 '이' 를 붙이지 않는다(14 W261010.33h)", () => {
     expect(dogProfileSavedMessage([{ name: '보리', weightKg: 5 }])).toBe('보리 기준으로 바꿨어요');
-    expect(dogProfileSavedMessage([{ name: '우현', weightKg: 5 }])).toBe('우현이 기준으로 바꿨어요');
+    expect(dogProfileSavedMessage([{ name: '단풍', weightKg: 5 }])).toBe('단풍 기준으로 바꿨어요');
   });
 
-  it('여러 마리는 함께 부른다', () => {
+  it('여러 마리는 한 덩어리로', () => {
     expect(
       dogProfileSavedMessage([
         { name: '보리', weightKg: 5 },
         { name: '두부', weightKg: 4 },
       ]),
     ).toBe('보리와 두부 기준으로 바꿨어요');
+    expect(
+      dogProfileSavedMessage([
+        { name: '보리', weightKg: 12 },
+        { name: '단풍', weightKg: 5 },
+        { name: '깜지', weightKg: 4 },
+      ]),
+    ).toBe('보리, 단풍, 깜지 기준으로 바꿨어요');
   });
 
   it('갈 수 있는 곳 수가 바뀌면 전 → 후, 같으면 그대로, 처음 등록이면 지금 수만(14 W261010.33a)', () => {

@@ -10,7 +10,7 @@ import { StickyMorphTitle } from '../components/layout/stickyMorphTitle';
 import { Section } from '../components/layout/section';
 import { dogWeightSummary } from '../lib/dogProfile';
 import { carrierSummary } from '../lib/eligibility';
-import { dogCallNames } from '../lib/korean';
+import { dogNamesAsWritten } from '../lib/korean';
 import { META, SOURCE_LINE } from '../lib/places';
 import { useAppStore, useDog, useSavedCount } from '../store/useAppStore';
 import { CARD_SURFACE } from '../components/cardSurface';
@@ -123,7 +123,8 @@ export function SettingsPage() {
         {dog ? (
           <Link href="/dog" className={CARD_CLASS}>
             <div className="min-w-0 flex-1">
-              <p className="text-md font-bold text-primary">{dogCallNames(dog.dogs.map((d) => d.name))}</p>
+              {/* 카드 제목은 이름만 서는 자리 — 적은 그대로('단풍'). 애칭('단풍이')은 문장 안에서 부를 때만(14 W261010.33h) */}
+              <p className="text-md font-bold text-primary">{dogNamesAsWritten(dog.dogs.map((d) => d.name))}</p>
               <p className="mt-0.5 text-sm text-tertiary">
                 {dogWeightSummary(dog)} · {carrierSummary(dog.carrier)}
               </p>

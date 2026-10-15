@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dogCallName, dogCallNames, hasBatchim, josa, withJosa } from './korean';
+import { dogCallName, dogCallNames, dogNamesAsWritten, hasBatchim, josa, withJosa } from './korean';
 
 describe('hasBatchim', () => {
   it('받침 있는 한글은 true, 없는 한글은 false', () => {
@@ -80,5 +80,24 @@ describe('dogCallNames — 여러 마리 묶기', () => {
 
   it('빈 배열이면 빈 문자열', () => {
     expect(dogCallNames([])).toBe('');
+  });
+});
+
+describe('dogNamesAsWritten — 이름만 서는 자리(14 W261010.33h)', () => {
+  it("적은 이름 그대로 — '단풍' 이 '단풍이' 가 되지 않는다", () => {
+    expect(dogNamesAsWritten(['단풍'])).toBe('단풍');
+    expect(dogNamesAsWritten(['악동이'])).toBe('악동이');
+    expect(dogNamesAsWritten(['  단풍 '])).toBe('단풍');
+  });
+
+  it('묶는 꼴은 dogCallNames 와 같다 — 둘은 과/와(적은 이름 받침 기준), 셋은 쉼표', () => {
+    expect(dogNamesAsWritten(['단풍', '깜지'])).toBe('단풍과 깜지');
+    expect(dogNamesAsWritten(['보리', '단풍'])).toBe('보리와 단풍');
+    expect(dogNamesAsWritten(['보리', '단풍', '깜지'])).toBe('보리, 단풍, 깜지');
+    expect(dogCallNames(['보리', '단풍', '깜지'])).toBe('보리, 단풍이, 깜지');
+  });
+
+  it('빈 배열이면 빈 문자열', () => {
+    expect(dogNamesAsWritten([])).toBe('');
   });
 });
