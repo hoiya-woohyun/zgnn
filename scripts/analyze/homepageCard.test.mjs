@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decodeHtml, fetchHomepageCard, homepageUrlOf, parseHomepageCard } from './homepageCard.mjs';
+import { decodeHtml, fetchHomepageCard, homepageUrlOf, isInternalHost, MAX_REDIRECTS, parseHomepageCard } from './homepageCard.mjs';
 
 describe('homepageUrlOf — 홈페이지라고 부를 수 있는 링크만', () => {
   it('업체 도메인은 받는다', () => {
@@ -106,6 +106,78 @@ describe('fetchHomepageCard', () => {
     const html = '<meta property="og:image" content="img/a.jpg">';
     const out = await fetchHomepageCard('http://solsup.com', async () => response(html, { url: 'https://www.solsup.com/home/' }));
     expect(out).toEqual({ url: 'https://www.solsup.com/home/', siteName: null, image: 'https://www.solsup.com/home/img/a.jpg' });
+  });
+});
+
+describe('내부 주소 거부 (20 T12)', () => {
+  it('사설·루프백·링크로컬·메타데이터 대역과 내부 이름은 홈페이지가 아니다', () => {
+    for (const link of [
+      'http://127.0.0.1/', 'http://localhost:3000/', 'http://10.0.0.5/', 'http://172.16.0.1/', 'http://172.31.255.1/', 'http://192.168.0.1/',
+      'http://169.254.169.254/latest/meta-data/', 'http://2130706433/', 'http://0x7f.1/', 'http://100.64.0.1/', 'http://0.0.0.0/',
+      'http://[::1]/', 'http://[fe80::1]/', 'http://[fd00::1]/', 'http://[::ffff:127.0.0.1]/', 'http://intranet/', 'http://db.internal/', 'http://printer.local/',
+    ]) {
+      expect(homepageUrlOf(link), link).toBeNull();
+    }
+  });
+
+  it('공인 주소는 받는다', () => {
+    expect(isInternalHost('172.32.0.1')).toBe(false);
+    expect(isInternalHost('8.8.8.8')).toBe(false);
+    expect(homepageUrlOf('https://www.solsup.com/')).not.toBeNull();
+  });
+});
+
+describe('fetchHomepageCard — 리다이렉트를 홉마다 검사', () => {
+  const redirect = (location, status = 302) => ({ ok: false, status, url: '', headers: new Headers({ location }) });
+  const page = (html = '<meta property="og:image" content="/a.jpg">') => ({
+    ok: true,
+    status: 200,
+    url: '',
+    headers: new Headers({ 'content-type': 'text/html' }),
+    arrayBuffer: async () => new TextEncoder().encode(html).buffer,
+  });
+  const script = (...responses) => {
+    const calls = [];
+    const fetchImpl = async (url, init) => {
+      calls.push({ url, redirect: init.redirect });
+      return responses[calls.length - 1];
+    };
+    return { calls, fetchImpl };
+  };
+
+  it('redirect: manual 로 부르고, 상대 Location 은 현재 주소 기준으로 풀어 따라간다', async () => {
+    const { calls, fetchImpl } = script(redirect('/home/'), page());
+    const out = await fetchHomepageCard('https://www.solsup.com/', fetchImpl);
+    expect(calls.map((c) => c.redirect)).toEqual(['manual', 'manual']);
+    expect(calls[1].url).toBe('https://www.solsup.com/home/');
+    expect(out.image).toBe('https://www.solsup.com/a.jpg');
+  });
+
+  it('중간 홉이 내부 주소로 가면 그 주소를 부르지 않고 null', async () => {
+    for (const location of ['http://169.254.169.254/latest/meta-data/', 'http://127.0.0.1:8080/', 'http://[::1]/', '//10.0.0.1/x']) {
+      const { calls, fetchImpl } = script(redirect(location), page());
+      expect(await fetchHomepageCard('https://www.solsup.com/', fetchImpl), location).toBeNull();
+      expect(calls).toHaveLength(1);
+    }
+  });
+
+  it('두 번째 홉에서 내부로 꺾어도 막는다', async () => {
+    const { calls, fetchImpl } = script(redirect('https://other.example.com/'), redirect('http://192.168.0.1/'), page());
+    expect(await fetchHomepageCard('https://www.solsup.com/', fetchImpl)).toBeNull();
+    expect(calls).toHaveLength(2);
+  });
+
+  it('시작 주소가 내부면 부르지도 않는다', async () => {
+    const { calls, fetchImpl } = script(page());
+    expect(await fetchHomepageCard('http://169.254.169.254/', fetchImpl)).toBeNull();
+    expect(calls).toHaveLength(0);
+  });
+
+  it('홉 상한을 넘으면 던진다 · Location 이 없어도 던진다', async () => {
+    const loop = Array.from({ length: MAX_REDIRECTS + 2 }, () => redirect('/again'));
+    await expect(fetchHomepageCard('https://www.solsup.com/', script(...loop).fetchImpl)).rejects.toThrow('번을 넘었어요');
+    const noLocation = { ok: false, status: 301, url: '', headers: new Headers() };
+    await expect(fetchHomepageCard('https://www.solsup.com/', script(noLocation).fetchImpl)).rejects.toThrow('Location');
   });
 });
 

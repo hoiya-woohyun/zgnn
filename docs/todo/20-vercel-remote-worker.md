@@ -156,10 +156,11 @@ T2~T4 는 서로 독립이라 아무 순서나 된다. T5 는 셋 모두에 기�
     그래서 분석이 끊을 때 손대지 않은 글 수를 `onDeadline` 훅으로 알리고(`onRateLimit` 과 같은 길), 바퀴(`workerCycle.runOne`)가 `step.remainder` 에 더해 `queued` 로 되돌린다(N ≤ 5 여도 되돌아온다).
 - 수용: 순수 부분(경과·예산으로 다음 글을 시작할지) 테스트 · 실측 — 장소 많은 글이 겹친 홉도 `분석 끝 — 성공 · ≤ 4분` 이고 사슬이 이어진다.
 
-### T12. [ ] 홈페이지 카드 fetch 의 리다이렉트를 매 단계 검사(서버 워커)
+### T12. [x] 홈페이지 카드 fetch 의 리다이렉트를 매 단계 검사(서버 워커)
 
 - 서버 워커에서 `homepageCard.mjs` 의 `fetch(…, { redirect: 'follow' })` 는 시작 URL 만 검사한다 — 같은 코드가 이제 Vercel 서버에서 돈다(리다이렉트로 내부 주소에 닿는 SSRF 면, 추정). 출처: 보안 리뷰(todo/20)
 - 단계: `redirect: 'manual'` 로 바꿔 홉마다 `Location` 을 같은 주소 검사(사설·링크로컬·메타데이터 대역 거부)에 통과시키고, 상한 몇 번. 테스트는 리다이렉트 응답을 흉내 낸 가짜 fetch
+> 메모(2026-10-15): `fetchHomepageCard` 가 `redirect: 'manual'` 로 직접 따라가며 매 홉(상한 `MAX_REDIRECTS`=5, 넘으면 throw)을 `homepageUrlOf` 에 건다 — 상대 Location 은 현재 주소로 푼다. 같은 주소 검사에는 사설·루프백·링크로컬(169.254 메타데이터)·CGNAT·IPv6 내부·점 없는/.local/.internal 이름을 거르는 `isInternalHost` 를 새로 넣었다(기존 검사는 호스트 목록뿐이라 내부 IP 를 안 막았다 — 시작 주소도 이제 막힌다). DNS 가 내부 IP 로 풀리는 이름(리바인딩)은 못 잡는다. 배포는 T11 워커 배포 때 함께.
 
 ### T13. [ ] 🙋 `next` 보안 패치 올리기
 

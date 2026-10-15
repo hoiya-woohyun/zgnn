@@ -24,6 +24,26 @@ export const NOT_HOMEPAGE_HOSTS = [
 /** 읽을 HTML 상한. 메타 태그는 `<head>` 에 있으니 앞부분이면 충분하다 — 큰 페이지를 끝까지 받지 않는다. */
 export const MAX_HTML_BYTES = 512 * 1024;
 
+/** 사이트 이름이 아니라 **내부 주소**를 가리키는 호스트인가 — 서버 워커(Vercel)에서도 도는 코드라 시작 주소·리다이렉트 매 홉에서 거른다(20 T12).
+ * `URL` 이 `0x7f.1` · `2130706433` 같은 꼴을 점 넷으로 정규화해 주므로 문자열 패턴이 아니라 그 결과를 본다. DNS 가 내부 IP 로 풀리는 이름(리바인딩)은 못 잡는다. */
+export function isInternalHost(hostname) {
+  const host = hostname.toLowerCase().replace(/\.$/, '');
+  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal')) return true;
+  const v4 = host.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  if (v4) {
+    const [a, b] = [Number(v4[1]), Number(v4[2])];
+    return (
+      a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || a >= 224
+    ); // 169.254 = 링크로컬(클라우드 메타데이터 169.254.169.254 포함) · 100.64/10 = CGNAT
+  }
+  if (host.startsWith('[')) {
+    const v6 = host.slice(1, -1);
+    // ::1 · :: · fc00::/7 · fe80::/10 · IPv4 매핑(::ffff:…) — 매핑은 안쪽 v4 를 풀어 다시 보지 않고 통째로 거부한다.
+    return v6 === '::1' || v6 === '::' || /^f[cd]/.test(v6) || /^fe[89ab]/.test(v6) || v6.startsWith('::ffff:');
+  }
+  return !host.includes('.'); // 점 없는 이름은 사내 단일 라벨 호스트다
+}
+
 const isHostIn = (host, list) => list.some((h) => host === h || host.endsWith(`.${h}`));
 
 /**
@@ -49,6 +69,7 @@ export function homepageUrlOf(link) {
     return null;
   }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+  if (isInternalHost(url.hostname)) return null;
   if (isHostIn(url.hostname.toLowerCase().replace(/^www\./, ''), NOT_HOMEPAGE_HOSTS)) return null;
   if (hasNumericId(url)) return null;
   return url.toString();
@@ -129,6 +150,9 @@ export function decodeHtml(bytes, contentType = '') {
   return '';
 }
 
+/** 리다이렉트를 따라갈 최대 횟수. 넘으면 던진다 — 루프나 끝없는 사슬을 끊는다. */
+export const MAX_REDIRECTS = 5;
+
 /** 응답 본문을 상한까지만 읽는다. content-length 를 믿지 않는다(없거나 틀린 서버가 흔하다). */
 async function readCapped(res) {
   if (!res.body?.getReader) return new Uint8Array(await res.arrayBuffer()).subarray(0, MAX_HTML_BYTES);
@@ -155,13 +179,32 @@ async function readCapped(res) {
 export async function fetchHomepageCard(link, fetchImpl = fetch) {
   const start = homepageUrlOf(link);
   if (!start) return null;
-  const res = await fetchImpl(start, {
-    redirect: 'follow',
-    headers: { Accept: 'text/html,application/xhtml+xml', 'User-Agent': 'Mozilla/5.0 (compatible; zgnn-link-preview)' },
-    signal: AbortSignal.timeout(10_000),
-  });
+  // `redirect: 'follow'` 는 시작 주소만 검사한 채 내부 주소(메타데이터 등)까지 따라간다 — 직접 따라가며 매 홉을 같은 검사에 건다.
+  let current = start;
+  let res;
+  for (let hop = 0; ; hop += 1) {
+    res = await fetchImpl(current, {
+      redirect: 'manual',
+      headers: { Accept: 'text/html,application/xhtml+xml', 'User-Agent': 'Mozilla/5.0 (compatible; zgnn-link-preview)' },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (res.status < 300 || res.status >= 400) break;
+    const location = res.headers.get('location');
+    await res.body?.cancel?.().catch(() => {});
+    if (!location) throw new Error(`홈페이지 리다이렉트에 Location 없음 status=${res.status}`);
+    if (hop >= MAX_REDIRECTS) throw new Error(`홈페이지 리다이렉트가 ${MAX_REDIRECTS}번을 넘었어요`);
+    let next;
+    try {
+      next = new URL(location, current).toString(); // 상대 Location 은 현재 주소 기준
+    } catch {
+      return null;
+    }
+    const allowed = homepageUrlOf(next);
+    if (!allowed) return null; // 내부 주소 · 홈페이지 목록 밖(인스타 등)으로 튕김
+    current = allowed;
+  }
   if (!res.ok) throw new Error(`홈페이지 응답 status=${res.status}`);
-  const finalUrl = homepageUrlOf(res.url || start);
+  const finalUrl = homepageUrlOf(res.url || current);
   if (!finalUrl) return null;
   const contentType = res.headers.get('content-type') ?? 'text/html';
   if (!/html/i.test(contentType)) return null;
