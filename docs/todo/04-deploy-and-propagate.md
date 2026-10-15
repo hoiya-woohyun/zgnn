@@ -1,6 +1,7 @@
 # 4. Vercel 배포 · 빌드 시 DB 읽기 · 승인되면 재빌드
 
-> 최종 수정: 2026-10-06 (v12: **재빌드를 뒤쪽에서 합친다**(`20261006130000_rebuild_coalesce.sql`, ADR-018 결정 9 v7) — 트리거는 `queued` 한 줄만,
+> 최종 수정: 2026-10-15 (v13: **4c 신설 — develop 올리기 · main 반영(코드 배포)**. 사용자 지시로 지금까지의 변경을 develop 에 커밋·push 하고 main 에 fast-forward 로 반영하는 한 줄(4c.1). main push 가 곧 Production 배포라 검증·남의 미완성 변경 가리기·ff 가 안 되면 멈춤을 절차에 넣었다)
+> 이전 2026-10-06 (v12: **재빌드를 뒤쪽에서 합친다**(`20261006130000_rebuild_coalesce.sql`, ADR-018 결정 9 v7) — 트리거는 `queued` 한 줄만,
 > pg_cron `flush-vercel-rebuild` 가 매분 60초 조용한 줄을 훅 **한 번**으로. 🙋 "승인 N건 = 빌드 N번" 이 닫혔다. 확인 절차에 `queued → sent` 를 더했다)
 > 이전 2026-10-01 (v11: `develop` 자동 Preview 도 다시 껐다 — 확인은 로컬에서, 미리보기가 필요할 때만 대시보드 **Create Deployment** 로
 > `develop` 을 손으로 띄운다. `main` 자동 배포는 그대로. 무료 플랜에서도 브랜치 고정 주소 `zgnn-git-<branch>-…vercel.app` 가 생기는 것은 확인했다
@@ -147,6 +148,31 @@ pg_cron 매분          ──▶  flush_vercel_rebuild()  ──▶  가장 최
 - Vercel 대시보드 "Redeploy" 나 `vercel deploy --prod` — 웹훅이 잘못돼도 반영할 길.
 - ~~Actions `workflow_dispatch` 로 "지금 수집·분석·재빌드" 한 번에~~ → 사용자 터미널에서 `pnpm data:collect && pnpm data:analyze && pnpm data:apply` 뒤 Redeploy(2026-09-22 (c)).
   Claude 는 세션이 있어도 `data:collect` 는 못 돌린다(네이버 키 입력 거부) — 나머지 둘은 사용자가 `pnpm data:login` 한 상태면 된다.
+
+## 4c. develop 올리기 · main 반영(코드 배포)
+
+코드가 사이트에 닿는 길은 **`main` push 하나**다 — `vercel.json` 의 `git.deploymentEnabled` 가 `main` 만 `true` 라 `develop` push 는
+빌드하지 않는다. Production 빌드는 `pnpm data pull && pnpm build` 라 그 순간의 원격 `places` 를 읽는다(4a). 세션 여럿이 같은 작업 트리(develop)에
+동시에 커밋하므로, 올릴 때 가장 쉽게 틀리는 것은 **남이 쓰다 만 변경을 함께 싣는 것**이다.
+
+- [ ] **4c.1 지금까지의 변경을 develop 에 커밋·push 하고 main 에 반영**(2026-10-15 사용자 지시 — 이 줄은 `git push` 와 `main` 반영 =
+      Production 배포까지 허락된 일이다. next 스킬의 "push 하지 않는다" 의 예외는 이 줄 하나다)
+  1. **남의 변경을 싣지 않는다.** `node .claude/skills/next/claim.mjs list` 로 선점 중인 세션을 보고, `git status` 의 커밋 안 된 변경은 주인을 가린다.
+     선점 중인 줄의 파일이면 그 세션 몫이라 두고(그 세션이 커밋한다), 주인 없는 변경(선점 없음 · 대응하는 명세 줄이 닫혀 있음)만 `git diff` 로 읽어
+     **한 일 = 한 커밋**으로 나눈다(`type(scope) - 한국어 요약`, 경로 지정 한 명령 — next 스킬 「커밋」, 남의 hunk 가 섞인 파일은 개인 인덱스).
+     무엇의 일부인지 모르겠거나 미완성으로 보이는 변경은 커밋하지 않고 보고에 남긴다. (2026-10-15 이 줄을 쓸 때도 `adminBulk*`·`adminUrlState`·
+     `adminPage`·`admin-review.md`·`eligibility.ts` 가 다른 세션의 진행 중 변경이었다.)
+  2. **검증** — `pnpm test` · `pnpm tsc --noEmit -p .` · `pnpm lint` · `pnpm build`(`--webpack` 이 살아 `out/sw.js` 가 생겼는지 — CLAUDE.md 「조용히 깨지는 것들」).
+     하나라도 빨가면 멈추고 보고한다 — main 은 곧 배포다.
+  3. **develop push** — `git fetch origin` 뒤 `git merge-base --is-ancestor origin/develop develop` 이 참이면 `git push origin develop`.
+     거짓이면 원격에만 있는 커밋을 **merge** 로 먼저 잇고(rebase 금지 — 다른 세션이 같은 develop 위에 커밋 중이다) 2 를 다시.
+  4. **main 반영은 fast-forward** — `git merge-base --is-ancestor origin/main develop` 이 참이면 `git push origin develop:main`.
+     2026-10-15 기준 main 은 develop 뒤 154커밋이고 갈라짐이 없다(최근 main 갱신도 ff). 거짓이면(main 에만 커밋이 있다 — 예전 squash 묶음 관례, `38be395`)
+     멈추고 보고한다 — 합치는 방식은 사람이 정한다. 로컬에서 `main` 을 체크아웃하지 않는다(같은 작업 트리를 다른 세션이 쓴다).
+  5. **배포 확인** — Vercel Production 배포가 Ready 인지(`vercel ls` · `vercel inspect` — 읽기만). 실패해도 이전 배포가 그대로 산다(4a) — 로그를 보고
+     원인을 보고한다. `pnpm data pull` 이 "places 0" 으로 멈췄으면 RLS·`PROJECT_REF` 다(CLAUDE.md). Ready 면 이번에 바뀐 화면 한두 곳(준비물 탭 · `/dog`)을
+     Chrome 으로 운영 주소에서 한 번 본다.
+  6. 끝나면 이 줄에 `> 메모:` 로 push 한 develop·main 의 해시와 배포 주소를 남긴다.
 
 ## 앱 코드 변경 — 사실상 없다
 
