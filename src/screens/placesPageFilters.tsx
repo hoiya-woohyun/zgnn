@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Select } from '../components/base/select';
 import { FilterChip } from '../components/filterChip';
+import { areaTownsLabel, type TAreaId } from '../lib/areaGroups';
 import { DIRECTIONS, DIRECTION_LABEL, topTowns } from '../lib/places';
 import { envFiltersWithData, PET_FILTERS, townFilterLabel, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
 import { placesOfType } from '../lib/places';
@@ -21,6 +22,8 @@ type TPlacesPageFiltersProps = {
   town: string | null;
   /** 읍면 칩 옆 수(`townChipCounts`) — 읍면 선택만 뺀 지금 조건으로 센 패싯. 없는 읍면은 0. */
   townCounts: ReadonlyMap<string, number>;
+  /** 홈 동네 카드가 건 권역. 시트에선 읍면 묶음 밑 한 줄로 말한다(14 W261010.33f). */
+  area: TAreaId | null;
   directions: TDirection[];
   petKeys: TPetFilterKey[];
   sort: TPlaceSort;
@@ -98,6 +101,7 @@ export function PlacesPageFilters({
   type,
   town,
   townCounts,
+  area,
   directions,
   petKeys,
   sort,
@@ -130,7 +134,16 @@ export function PlacesPageFilters({
         (2026-09-15 리뷰 P1 — "하나만 고치면: 읍면 한 번 고르면 숙소·식당·카페·지도 모두 유지").
         방향·반려동물 조건은 종류를 바꾸면 초기화되는 화면 로컬 상태다.
       */}
-      <FilterGroup variant={variant} label="읍면">
+      {/*
+        권역(홈 동네 카드)은 시트에 고르는 자리가 없어 시트 버튼 숫자에 안 들고 '모두 지우기' 도 안 푼다(19 T3 — 검색어와 같다).
+        그런데 칩 이름이 읍면 목록("서부(애월·한림·한경)")이라 지운 뒤 남은 그 칩이 "안 지워진 읍면 필터" 로 읽혔다(14 W261010.33f · business-32).
+        읍면 수도 권역 안에서 세므로(W261010.33e — 권역 밖은 0) 그 까닭과 푸는 자리를 읍면 묶음에서 말한다. 펼친 판(bar)엔 설명 줄이 없다 — 지우기 버튼도 없다.
+      */}
+      <FilterGroup
+        variant={variant}
+        label="읍면"
+        hint={area ? `${areaTownsLabel(area)} 안에서 센 수예요. 권역은 목록 위 칩에서 따로 풀어요.` : undefined}
+      >
         {towns.map((candidate) => {
           const active = town === candidate;
           const count = townCounts.get(candidate) ?? 0;

@@ -341,6 +341,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
                 type={type}
                 town={town}
                 townCounts={townCounts}
+                area={area}
                 directions={directions}
                 petKeys={petKeys}
                 sort={sort}
@@ -383,6 +384,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
             type={type}
             town={town}
             townCounts={townCounts}
+            area={area}
             directions={directions}
             petKeys={petKeys}
             sort={sort}

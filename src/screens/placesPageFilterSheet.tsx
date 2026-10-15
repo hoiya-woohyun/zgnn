@@ -4,6 +4,7 @@ import { PlacesPageFilters } from './placesPageFilters';
 import { BottomSheet } from '../components/base/bottom-sheet';
 import { Button } from '../components/base/button';
 import { cx } from '../utils/cx';
+import type { TAreaId } from '../lib/areaGroups';
 import type { TPetFilterKey, TPlaceSort } from '../lib/placeFilters';
 import type { TDirection, TPlaceType } from '../types';
 
@@ -15,6 +16,8 @@ type TPlacesPageFilterSheetProps = {
   town: string | null;
   /** 읍면 칩 옆 수(`townChipCounts`) — 읍면 선택만 뺀 지금 조건으로 센 패싯. */
   townCounts: ReadonlyMap<string, number>;
+  /** 홈 동네 카드가 건 권역 — 시트에 고르는 자리는 없고 읍면 묶음 밑 한 줄이 말한다(14 W261010.33f). */
+  area: TAreaId | null;
   directions: TDirection[];
   petKeys: TPetFilterKey[];
   sort: TPlaceSort;
@@ -64,6 +67,7 @@ export function PlacesPageFilterSheet({
   type,
   town,
   townCounts,
+  area,
   directions,
   petKeys,
   sort,
@@ -153,6 +157,7 @@ export function PlacesPageFilterSheet({
               type={type}
               town={town}
               townCounts={townCounts}
+              area={area}
               directions={directions}
               petKeys={petKeys}
               sort={sort}
