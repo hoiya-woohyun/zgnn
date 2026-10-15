@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from 'react';
 import { Button } from '../components/base/button';
 import { PageHeader } from '../components/layout/pageHeader';
 import { parentRouteOf } from '../lib/appRoutes';
@@ -224,14 +224,30 @@ export function DogProfilePage() {
   };
 
   /*
+   * 키보드로 지웠으면 빈 폼의 첫 이름 칸으로(14 W261010.7e) — 누른 '프로필 삭제' 가 "프로필을 지웠어요" 줄로 바뀌어 사라져
+   * 포커스가 body 로 떨어졌다. 토스트의 '되돌리기' 는 10초 뒤 걷혀 다시 body 가 되니 늘 있는 칸으로 간다(행 ✕ 의 7b 와 같은 결).
+   * 다시 그린 **뒤에** 옮긴다. 손가락으로 지웠으면 옮기지 않는다 — 이름 칸에 포커스를 주면 폰 키보드가 올라온다.
+   */
+  const focusAfterDelete = useRef(false);
+  useEffect(() => {
+    if (!deletedHere || !focusAfterDelete.current) return;
+    focusAfterDelete.current = false;
+    const field = document.getElementById(dogRowFieldId(0, 'name'));
+    // 맨 아래에서 맨 위 칸으로 — `focus()` 의 스크롤은 위에 붙은 헤더 밑으로 칸을 숨길 수 있어 가운데로 직접(14 W261013.5 와 같다).
+    field?.scrollIntoView({ block: 'center' });
+    field?.focus({ preventScroll: true });
+  }, [deletedHere]);
+
+  /*
    * 삭제는 버튼 한 번이라 **되돌리기**를 준다(12 U2.1). 알림은 셸 토스트다 — 화면 안 배너는 폼 맨 위라
    * 맨 아래 버튼을 누른 사람에게 안 보였고, 조건부로 끼워지는 `role="status"` 라 낭독도 불확실했다.
    * 지운 프로필은 이 클로저가 붙잡는다(저장하지 않는다). 알림은 이 화면의 것이라 화면을 떠나면 걷힌다(14 W261013.9) —
    * 되돌리기는 지운 그 자리에서만 준다.
    */
-  const handleDelete = () => {
+  const handleDelete = (button: HTMLButtonElement) => {
     if (!dog) return;
     const removed = dog;
+    focusAfterDelete.current = button.matches(':focus-visible');
     clearDog();
     seedForm(null);
     setDeletedHere(true);
@@ -381,7 +397,13 @@ export function DogProfilePage() {
             {(dog || deletedHere) && (
               <div className="flex justify-center md:pt-10">
                 {dog ? (
-                  <Button type="button" color="tertiary-destructive" size="md" className="h-11" onClick={handleDelete}>
+                  <Button
+                    type="button"
+                    color="tertiary-destructive"
+                    size="md"
+                    className="h-11"
+                    onClick={(event: MouseEvent<HTMLButtonElement>) => handleDelete(event.currentTarget)}
+                  >
                     프로필 삭제
                   </Button>
                 ) : (
