@@ -49,7 +49,8 @@ export function ActionTile({ icon: Icon, label, tone = 'neutral', href, onClick,
         <Icon key={iconMotion?.key} size={20} className={cx(tone === 'active' && 'fill-camellia', iconMotion?.className)} />
         {effect}
       </span>
-      <span className="text-xs font-semibold text-secondary">{label}</span>
+      {/* 가운데 정렬 — '네이버 플레이스' 는 칸 폭(320~390 에서 57~64px)을 넘어 공백에서 두 줄로 꺾인다(keep-all). */}
+      <span className="text-center text-xs font-semibold text-secondary">{label}</span>
     </>
   );
   const className =

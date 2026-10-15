@@ -192,7 +192,7 @@ export type TServeReadyMiss = 'notNew' | 'bulkSkip' | 'warning' | 'address' | 'i
  * 남에게 줄 답이 없고, 원글에서 온 주소는 원글과 같아도 확인한 게 없다(ADR-019 결정 5). 그래서 그 위에 다섯을 더 본다:
  * 경고 뱃지 0개(카드가 그리는 그 목록) · 상호 검색으로 확인된 주소와 좌표(`addressView` 의 `verified`) · 소개 · 낱개로 읽힌 조건(`policyCell` 의
  * `items` 이고 '원문 확인 필요' 가 없다 — '조건 미기재'·'문장 없음' 은 빠진다) · 독립 글 둘 이상이거나 '동반 확인'.
- * 네이버 플레이스 링크는 보지 않는다 — 빠지면 상세의 '사진 보기' 만 빈다(판정·지도는 그대로).
+ * 네이버 플레이스 링크는 보지 않는다 — 빠지면 상세의 '네이버 플레이스' 만 빈다(판정·지도는 그대로).
  * `addressUnresolved` 는 'ok' 칸이 먼저 거른다 — 주소 다름은 `bulkApproveSlot` 에서 'addressUnresolved' 다.
  */
 export function serveReadyMisses(

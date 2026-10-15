@@ -5,7 +5,7 @@ import { Button } from '../components/base/button';
 import { NaverLinkButton } from '../components/naverLinkButton';
 import type { TPlaceRow } from '../lib/adminCandidates';
 import { noteHistory, PLACE_STATUS_LABEL } from '../lib/adminPlaces';
-import { naverMapSearchUrl, naverPlacePhotoUrl } from '../lib/naverPlaceLink';
+import { naverMapSearchUrl, naverPlaceHomeUrl } from '../lib/naverPlaceLink';
 import type { TPetBadge } from '../lib/petPolicy';
 import { stayEnvironmentSummary } from '../lib/stayEnvironmentView';
 import { cx } from '../utils/cx';
@@ -34,7 +34,7 @@ export function AdminPagePlaceDetail({
   const history = noteHistory(place.archive_note);
   const hasGeo = place.lat != null && place.lng != null;
   /* 사이트 상세와 같은 우선순위 — 링크가 있으면 그것, 없으면 플레이스 id 로 만든 주소(`naverPlaceLink.ts`). */
-  const naverHref = place.naver_url || naverPlacePhotoUrl(place.naver_place_id ?? undefined);
+  const naverHref = place.naver_url || naverPlaceHomeUrl(place.naver_place_id ?? undefined);
 
   return (
     <div className={cx(ADMIN_PANEL_DIVIDER, 'px-4 py-3')}>

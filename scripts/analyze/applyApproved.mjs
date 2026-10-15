@@ -73,7 +73,7 @@ const guideOf = (extracted) => {
  *   pet_policy_guide 는 후보에 안내가 **있을 때만** 그 후보 것으로 — 빈 칸 채우기는 값을 쓰기만 하고 null 을 쓰지 않는다.
  *   review_url·stay_* 는 시드 86곳이 전부 차 있어 영향이 없고, 블로그 draft 끼리 보강될 때만 채워진다(2026-09-28 설계 검토 FF-2·FF-8).
  *   naver_place_id(+ 비어 있으면 naver_url) — **사람이 검수 화면에서 넣은 `naverPlaceId` 가 있을 때만**(2026-09-30, ADR-002 v2).
- *   이 id 가 있어야 상세에 '사진 보기' 가 생긴다.
+ *   이 id 가 있어야 상세에 '네이버 플레이스' 가 생긴다.
  *   homepage_url·homepage_name·homepage_image — 분석이 공식 홈페이지에서 읽은 카드. 세 칸을 한 벌로, homepage_url 이 빈 곳에만.
  * 건드리지 않는 칸: status · source · sort.
  *   naver_url 에는 naverLink 를 넣지 않는다. 벤더가 네이버로 바뀌어 이름은 맞아 보이지만, 지역 검색의 link 는 공식 문서상
@@ -119,7 +119,7 @@ export function mergeIntoExisting(existingRow, extracted, { postUrl = null } = {
   const reviewUrl = text(postUrl);
   if (isBlank(existingRow.review_url) && reviewUrl) patch.review_url = reviewUrl;
 
-  // id 와 주소는 **짝으로** 채운다 — id 만 있고 주소가 다른 가게를 가리키면 '지도에서 열기' 와 '사진 보기' 가 다른 가게로 간다.
+  // id 와 주소는 **짝으로** 채운다 — id 만 있고 주소가 다른 가게를 가리키면 '길찾기' 와 '네이버 플레이스' 가 다른 가게로 간다.
   // 그래서 주소는 id 를 채울 때만, 비어 있을 때만 만든다(사람이 넣은 단축 링크를 덮지 않는다).
   const placeId = placeIdOf(extracted);
   if (isBlank(existingRow.naver_place_id) && placeId) {

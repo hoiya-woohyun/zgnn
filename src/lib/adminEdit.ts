@@ -41,7 +41,7 @@ export type TCandidateEditDraft = {
   lng: string;
   /**
    * 네이버 플레이스 주소나 숫자 id — 붙여 넣은 **그대로**다. id 로 바꾸는 것은 `parseNaverPlaceId` 한 곳이다.
-   * 이 칸이 차야 상세에 '네이버 사진'·'네이버 지도' 가 생긴다(ADR-002 v2) — 블로그 후보는 AI 가 채우지 못한다.
+   * 이 칸이 차야 상세에 '네이버 플레이스' 가 생긴다(ADR-002 v2) — 블로그 후보는 AI 가 채우지 못한다.
    */
   naverPlace: string;
   /**

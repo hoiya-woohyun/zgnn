@@ -1,16 +1,28 @@
 /**
- * 네이버 플레이스의 **사진 탭** 주소. 사진은 가져오지 않고 그곳으로 보낸다(ADR-002 v2).
+ * 네이버 플레이스의 **홈 탭** 주소. 사진은 가져오지 않고 그곳으로 보낸다(ADR-002 v2) — 사진은 홈 맨 위와 사진 탭에 있다.
+ *
+ * 사진 탭(`/photo`)이 아니라 홈인 이유(ADR-002 v7): 전화·영업시간·메뉴가 홈에 있다. 앱엔 전화번호가 아직 없어
+ * 사용자가 번호를 찾으려고 '네이버 사진' 을 눌러야 했다(2026-10-13 평가 영자 — "사진 단추에 전화가 숨어 있는 줄 누가 아나").
+ * `/place/{id}` 는 네이버가 업종 경로(`/accommodation/`·`/restaurant/`)로 돌려준다 — 우리가 업종을 고를 필요가 없다.
  *
  * 왜 가져오지 않나 — 플레이스 사진은 업주·방문자가 올린 것이고 네이버가 받은 이용 허락은 네이버 서비스 안에서만이다.
  * 공식 API 로도 받을 수 없어 긁어야 하는데, 그건 약관(자동 수집 금지)에 걸린다. 링크는 둘 다 피한다.
  *
- * `naverUrl` 로 만들지 않는 이유 — 시드 86곳의 `naverUrl` 은 전부 `naver.me` 단축 링크라 경로를 붙일 수 없다.
+ * `naverUrl` 로 만들지 않는 이유 — 시드 84곳의 `naverUrl` 은 전부 `naver.me` 단축 링크라 어느 탭으로 풀리는지 정할 수 없다.
  * 숫자가 아닌 id 는 버린다: 잘못된 id 로 만든 주소는 네이버의 빈 화면으로 가고, 버튼이 없는 편이 낫다.
  */
-export function naverPlacePhotoUrl(naverPlaceId?: string): string | undefined {
+export function naverPlaceHomeUrl(naverPlaceId?: string): string | undefined {
   const id = naverPlaceId?.trim();
   if (!id || !/^\d+$/.test(id)) return undefined;
-  return `https://m.place.naver.com/place/${id}/photo`;
+  return `https://m.place.naver.com/place/${id}/home`;
+}
+
+/**
+ * 상세 액션 줄 '네이버 플레이스' 칸의 주소 — id 로 만든 홈이 먼저, 없으면 `naverUrl`(단축 링크라 탭은 못 고른다).
+ * 칸과 머리 주소 줄의 "네이버 플레이스로 이어 드려요"(`placeDetailAddressNote`)가 이 하나를 읽어야 칸이 없는데 말만 서지 않는다.
+ */
+export function naverPlaceUrlOf(place: { naverPlaceId?: string; naverUrl?: string }): string | undefined {
+  return naverPlaceHomeUrl(place.naverPlaceId) ?? place.naverUrl;
 }
 
 export type TNaverPlaceIdParse = { id: string | null } | { error: string };
@@ -20,7 +32,7 @@ export type TNaverPlaceIdParse = { id: string | null } | { error: string };
  *
  * 주소 꼴이 여럿이라(`m.place.naver.com/restaurant/{id}/home` · `pcmap.place.naver.com/…` · `map.naver.com/p/entry/place/{id}`)
  * 경로에서 **다섯 자리 이상 숫자 마디**를 찾는다. 호스트는 `naver.com` 으로 끝나야 한다 — 다른 사이트 주소의 숫자를 id 로 읽으면
- * 엉뚱한 가게의 사진 탭으로 보내고, `matchPlace` 는 그 id 로 **1.0 짝**을 낸다(`naverPlaceId 일치`).
+ * 엉뚱한 가게의 플레이스로 보내고, `matchPlace` 는 그 id 로 **1.0 짝**을 낸다(`naverPlaceId 일치`).
  *
  * `naver.me` 단축 링크는 받지 않는다. 풀려면 리다이렉트를 따라가야 하는데 브라우저에서는 CORS 로 막힌다 —
  * 링크를 열어 주소창의 주소를 붙여 넣게 한다. 빈 값은 `{ id: null }`(지우기)이다.

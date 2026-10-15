@@ -1,11 +1,11 @@
 'use client';
 
-import { Heart, Image01, Map01, MessageTextSquare01, NavigationPointer01, Share01 } from '@untitledui/icons';
+import { Heart, MarkerPin02, MessageTextSquare01, NavigationPointer01, Share01 } from '@untitledui/icons';
 import { ActionTile } from '../components/actionTile';
 import { NaverActionTile } from '../components/naverLinkButton';
 import { SaveBurst, saveHeartMotion, useSaveToggle } from '../components/saveButton';
 import { showAppStatus } from '../lib/appStatus';
-import { naverDirectionsUrl, naverPlacePhotoUrl } from '../lib/naverPlaceLink';
+import { naverDirectionsUrl, naverPlaceUrlOf } from '../lib/naverPlaceLink';
 import { shareMethodOf, shareTextFor } from '../lib/placeShare';
 import type { TPlaceEntry } from '../lib/places';
 import { useDog } from '../store/useAppStore';
@@ -18,21 +18,23 @@ import { useEligibility } from '../store/useDogEligibility';
  * 세 군데에 세 가지 모양으로 흩어져 있었다. 지도 앱 상세의 "저장·공유·길찾기" 줄처럼 제목 밑에 두면
  * 스크롤 없이 다 보이고, 숙소의 요금 절이 네이버 버튼을 화면 아래로 미는 일(2026-09-15 리뷰 §2③)도 사라진다.
  *
- * - 순서는 앱 안 동작(저장·공유) → 앱을 떠나는 것(네이버 지도·사진 → 후기). 초록 원은 네이버로 나가는 칸에만.
+ * - 순서는 앱 안 동작(저장·공유) → 앱을 떠나는 것(길찾기·네이버 플레이스 → 후기). 초록 원은 네이버로 나가는 칸에만.
  * - 데이터가 없는 칸은 **안 그린다**(자리를 비워 두지 않는다). 칸 폭은 남은 칸끼리 나눈다.
- * - 전화는 없다 — 전화번호 데이터가 아직 없다. 네이버 지도 칸이 그 역할을 대신한다.
+ * - 전화는 없다 — 전화번호 데이터가 아직 없다. 네이버 플레이스 칸(홈 탭에 전화가 있다)이 그 역할을 대신한다.
  * - 미니 지도·홈페이지 카드는 여기로 오지 않는다. 버튼이 아니라 내용이다.
  */
 export function PlaceDetailActions({ place }: { place: TPlaceEntry }) {
   const dog = useDog();
   const eligibility = useEligibility(place);
   const { saved, toggle, burst } = useSaveToggle(place.id);
-  const photoUrl = naverPlacePhotoUrl(place.naverPlaceId);
   /*
-   * 지도 칸은 **길찾기**가 먼저다 — 플레이스 페이지로 보내면 거기서 한 번 더 눌러야 길이 나온다. 좌표가 없는 곳(122곳 중 3곳)만
-   * 예전처럼 플레이스 페이지(`naverUrl`)로 — 그 이유는 바로 위 머리의 주소 줄이 말한다(`placeDetailAddressNote`). 둘 다 없으면 칸이 없다.
+   * 네이버 칸은 둘 — **길찾기**와 **플레이스 홈**. 지도 칸이 길찾기인 이유: 플레이스로 보내면 거기서 한 번 더 눌러야 길이 나온다.
+   * 플레이스 칸은 사진·전화·영업시간이 다 있는 홈 탭이다(ADR-002 v7 — 예전 '네이버 사진' 은 사진 탭이라 번호를 찾는 사람이 사진을 눌렀다).
+   * 주소는 id 로 만든 홈이 먼저, id 가 없으면 `naverUrl`. 좌표가 없는 곳(122곳 중 3곳)은 길찾기 칸이 없다 — 그 이유는 머리의 주소 줄이
+   * 말한다(`placeDetailAddressNote`). 예전엔 그 자리에 '네이버 지도'(`naverUrl`)를 세웠는데 플레이스 칸과 같은 가게 페이지라 합쳤다.
    */
   const directionsUrl = naverDirectionsUrl(place);
+  const placeUrl = naverPlaceUrlOf(place);
 
   /*
    * 공유 칸은 **늘 그린다**(지수 ⑤ — 카톡 인앱·데스크톱엔 Web Share 가 없어 버튼이 아예 없었다).
@@ -74,12 +76,8 @@ export function PlaceDetailActions({ place }: { place: TPlaceEntry }) {
         data-ev="detail.save"
       />
       <ActionTile icon={Share01} label="공유" onClick={share} aria-label={`${place.name} 공유하기`} data-ev="detail.share" />
-      {directionsUrl ? (
-        <NaverActionTile href={directionsUrl} icon={NavigationPointer01} label="길찾기" />
-      ) : (
-        place.naverUrl && <NaverActionTile href={place.naverUrl} icon={Map01} label="네이버 지도" />
-      )}
-      {photoUrl && <NaverActionTile href={photoUrl} icon={Image01} label="네이버 사진" />}
+      {directionsUrl && <NaverActionTile href={directionsUrl} icon={NavigationPointer01} label="길찾기" />}
+      {placeUrl && <NaverActionTile href={placeUrl} icon={MarkerPin02} label="네이버 플레이스" />}
       {place.reviewUrl && <ActionTile href={place.reviewUrl} icon={MessageTextSquare01} label="후기" />}
     </div>
   );

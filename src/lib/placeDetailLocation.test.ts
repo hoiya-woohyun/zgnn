@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PLACES } from './places';
-import { naverDirectionsUrl } from './naverPlaceLink';
+import { naverDirectionsUrl, naverPlaceUrlOf } from './naverPlaceLink';
 import { placeDetailAddressNote, placeDetailLocationOf } from './placeDetailLocation';
 
 const byName = (name: string) => {
@@ -22,13 +22,13 @@ describe('placeDetailLocationOf', () => {
     expect(placeDetailAddressNote(place)).toBe('주소는 아직 확인하지 못했어요 · 위치는 아래 지도에서 볼 수 있어요');
   });
 
-  it('좌표가 없으면 길찾기 대신 네이버 지도인 이유를 같은 줄에서 말한다(요호르기 스테이)', () => {
+  it('좌표가 없으면 길찾기 대신 네이버 플레이스인 이유를 같은 줄에서 말한다(요호르기 스테이)', () => {
     const place = byName('요호르기 스테이');
     expect(placeDetailLocationOf(place)).toBe('noGeo');
-    expect(placeDetailAddressNote(place)).toBe('주소와 위치를 아직 확인하지 못해 길찾기 대신 네이버 지도로 이어 드려요');
+    expect(placeDetailAddressNote(place)).toBe('주소와 위치를 아직 확인하지 못해 길찾기 대신 네이버 플레이스로 이어 드려요');
   });
 
-  it('네이버 칸이 서지 않으면 네이버 지도를 말하지 않는다', () => {
+  it('네이버 플레이스 칸이 서지 않으면 네이버 플레이스를 말하지 않는다', () => {
     expect(placeDetailAddressNote({ address: undefined, geo: undefined, naverUrl: undefined })).toBe(
       '주소와 위치를 아직 확인하지 못했어요',
     );
@@ -36,14 +36,21 @@ describe('placeDetailLocationOf', () => {
 
   it('주소는 있고 좌표만 없으면 주소 줄은 그대로 두고 지도 위치만 모른다고 한다', () => {
     expect(
-      placeDetailAddressNote({ address: '제주 제주시 구좌읍 1', geo: undefined, naverUrl: 'https://m.place.naver.com/place/1' }),
-    ).toBe('지도 위치를 아직 확인하지 못해 길찾기 대신 네이버 지도로 이어 드려요');
+      placeDetailAddressNote({ address: '제주 제주시 구좌읍 1', geo: undefined, naverPlaceId: '1268585477' }),
+    ).toBe('지도 위치를 아직 확인하지 못해 길찾기 대신 네이버 플레이스로 이어 드려요');
   });
 
-  // 액션 줄은 `naverDirectionsUrl` 로 '길찾기'·'네이버 지도' 를 가른다 — 이 줄이 말하는 이유와 칸이 같은 축이어야 한다.
+  // 액션 줄은 `naverDirectionsUrl` 로 '길찾기' 칸을 세운다 — 이 줄이 말하는 이유와 칸이 같은 축이어야 한다.
   it('모든 장소에서 noGeo ⇔ 길찾기 칸이 없다', () => {
     for (const place of PLACES) {
       expect(placeDetailLocationOf(place) === 'noGeo', place.name).toBe(naverDirectionsUrl(place) === undefined);
+    }
+  });
+
+  // 문장이 '네이버 플레이스로' 를 말하는 곳 ⇔ 액션 줄에 그 칸이 선다 — 둘 다 `naverPlaceUrlOf` 를 읽는다.
+  it('좌표 없는 곳에서 "네이버 플레이스로" 를 말하면 그 칸의 주소가 있다', () => {
+    for (const place of PLACES.filter((entry) => placeDetailLocationOf(entry) === 'noGeo')) {
+      expect(placeDetailAddressNote(place)?.includes('네이버 플레이스로'), place.name).toBe(naverPlaceUrlOf(place) !== undefined);
     }
   });
 });

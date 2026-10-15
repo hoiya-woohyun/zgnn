@@ -23,7 +23,7 @@ import {
   renameRisksTwin,
 } from '../lib/adminPlaceEdit';
 import { patchPublicText } from '../lib/adminPublicText';
-import { naverMapSearchUrl, naverPlacePhotoUrl, parseNaverPlaceId } from '../lib/naverPlaceLink';
+import { naverMapSearchUrl, naverPlaceHomeUrl, parseNaverPlaceId } from '../lib/naverPlaceLink';
 import type { TPetBadge } from '../lib/petPolicy';
 import { cx } from '../utils/cx';
 import { AdminChangeList } from './adminChangeList';
@@ -89,7 +89,7 @@ export function AdminPagePlaceEditForm({
    */
   const ineffective = placeEditIneffective(place, draft);
   const badgeShift = placeEditBadgeShift(preview.before, preview.after);
-  const placeHref = place.naver_url || naverPlacePhotoUrl(place.naver_place_id ?? undefined);
+  const placeHref = place.naver_url || naverPlaceHomeUrl(place.naver_place_id ?? undefined);
   const hasHomepage = 'homepage_url' in place;
   const hasTextPublic = 'pet_policy_text_public' in place;
   /* 좌표도 플레이스 id 도 없는 장소의 이름을 바꿀 때만 경고한다(`renameRisksTwin`) — 그때만 옛 이름의 새 글이 쌍둥이로 올라올 수 있다. */
@@ -204,7 +204,7 @@ export function AdminPagePlaceEditForm({
             value={draft.naverPlace}
             onChange={(value) => set({ naverPlace: value })}
             isInvalid={'error' in parseNaverPlaceId(draft.naverPlace)}
-            hint="넣으면 링크가 그 플레이스 홈으로 바뀌고 상세에 '네이버 사진' 이 생겨요. 지우면 링크도 같이 지워져요"
+            hint="넣으면 링크가 그 플레이스 홈으로 바뀌고 상세에 '네이버 플레이스' 가 생겨요. 지우면 링크도 같이 지워져요"
             isDisabled={busy}
           />,
         )}
