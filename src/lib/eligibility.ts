@@ -74,16 +74,21 @@ const sizeOfWeight = (weightKg: number): TDogSize => {
 
 export const dogSize = (dog: TDogProfile): TDogSize => dog.sizeOverride ?? sizeOfWeight(maxWeightKg(dog));
 
+const SIZE_RANK: Record<TDogSize, number> = { small: 0, medium: 1, large: 2 };
+
 /**
- * 모든 아이가 대형인가 — 준비물이 작은 아이 몫(기내용 가방·유모차·기저귀)을 뒤로 보내거나 빼는 기준(14 W261010.31a).
+ * 모든 아이가 `min` 크기 이상인가 — 준비물이 작은 아이 몫(기내용 가방·유모차·기저귀)을 뒤로 보내거나 빼는 기준(14 W261010.31a·.31b).
  * `dogSize`(가장 무거운 아이)와 다르다: 3kg + 38kg 이면 판정은 대형으로 보지만 3kg 아이에게 가방·기저귀는 여전히 필요하다.
  * 크기 수정(`sizeOverride`)이 있으면 그 말이 이긴다 — 판정과 같은 축. 강아지가 없으면 거짓(지금 그대로 보인다).
+ * 축은 하나고 문턱은 물건마다 다르다 — 기내용 가방은 중형부터(`checklist.ts` 의 `orderItemsForDog`), 유모차·기저귀는 대형만.
  */
-export const allDogsLarge = (dog: TDogProfile | null): boolean => {
+export const allDogsAtLeast = (dog: TDogProfile | null, min: TDogSize): boolean => {
   if (!dog || dog.dogs.length === 0) return false;
-  if (dog.sizeOverride) return dog.sizeOverride === 'large';
-  return dog.dogs.every((entry) => sizeOfWeight(entry.weightKg) === 'large');
+  if (dog.sizeOverride) return SIZE_RANK[dog.sizeOverride] >= SIZE_RANK[min];
+  return dog.dogs.every((entry) => SIZE_RANK[sizeOfWeight(entry.weightKg)] >= SIZE_RANK[min]);
 };
+
+export const allDogsLarge = (dog: TDogProfile | null): boolean => allDogsAtLeast(dog, 'large');
 
 /**
  * 크기 규칙(H3·H7·H4·C5)에 **걸리는 아이만** — 판정은 가장 큰 아이 하나로 하지만, 말은 H1(무게 상한)처럼 누구 때문인지 한다(14 W261010.15).

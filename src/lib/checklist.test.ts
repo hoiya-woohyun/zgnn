@@ -189,7 +189,35 @@ describe('orderItemsForDog — 대형견만이면 기내용 가방·유모차를
   it('작은 아이가 하나라도 있으면 · 강아지가 없으면 원본 그대로', () => {
     const original = ITEMS.map((item) => item.name);
     expect(names({ dogs: [{ name: '콩', weightKg: 3 }, { name: '곰', weightKg: 38 }], carrier: 'none' })).toEqual(original);
-    expect(names({ dogs: [{ name: '보리', weightKg: 25 }], carrier: 'none' })).toEqual(original);
     expect(names(null)).toEqual(original);
+  });
+});
+
+describe('orderItemsForDog — 중형견이면 기내용 가방만 맨 아래로(14 W261010.31b)', () => {
+  const names = (dog: TDogProfile | null) => orderItemsForDog(ITEMS, dog).map((item) => item.name);
+  const one = (weightKg: number): TDogProfile => ({ dogs: [{ name: '보리', weightKg }], carrier: 'none' });
+  const original = ITEMS.map((item) => item.name);
+
+  it('25kg(중형) 한 마리면 가방만 맨 아래, 유모차는 제자리 — 중형도 유모차를 탄다', () => {
+    const ordered = names(one(25));
+    expect(ordered.at(-1)).toBe(CARRY_BAG_ITEM_NAME);
+    expect(ordered.indexOf(STROLLER_ITEM_NAME)).toBe(0);
+    expect([...ordered].sort()).toEqual([...original].sort());
+  });
+
+  it('경계 — 10kg 은 중형이라 내려가고, 9.9kg 은 그대로', () => {
+    expect(names(one(10)).at(-1)).toBe(CARRY_BAG_ITEM_NAME);
+    expect(names(one(9.9))).toEqual(original);
+  });
+
+  it('마리마다 잰다 — 3kg+12kg 은 그대로, 12kg+38kg 은 가방만(모두 대형은 아니다)', () => {
+    expect(names({ dogs: [{ name: '콩', weightKg: 3 }, { name: '보리', weightKg: 12 }], carrier: 'none' })).toEqual(original);
+    const mixed = names({ dogs: [{ name: '보리', weightKg: 12 }, { name: '곰', weightKg: 38 }], carrier: 'none' });
+    expect(mixed.at(-1)).toBe(CARRY_BAG_ITEM_NAME);
+    expect(mixed.indexOf(STROLLER_ITEM_NAME)).toBe(0);
+  });
+
+  it('크기 수정이 이긴다 — 12kg 이어도 소형이라고 고쳤으면 그대로', () => {
+    expect(names({ ...one(12), sizeOverride: 'small' })).toEqual(original);
   });
 });

@@ -1,4 +1,4 @@
-import { allDogsLarge } from './eligibility';
+import { allDogsAtLeast, allDogsLarge } from './eligibility';
 import { ITEMS } from './places';
 import { visibleItems } from './seasonItems';
 import type { TDogProfile, TItem } from '../types';
@@ -117,15 +117,22 @@ export const shouldOfferStroller = (itemName: string, checked: boolean, dog: TDo
   !checked && itemName === STROLLER_ITEM_NAME && dog?.carrier === 'stroller';
 
 /**
- * 탭의 줄 순서 — 대형견만 있으면 기내용 가방·유모차를 맨 아래로(14 W261010.31a). 원본 순서는 소형견 보호자(짱구누나)의 짐이라
- * 비행기 가방이 맨 위인데, 38kg 보호자에겐 맞지 않는 물건 둘이 목록을 연다(ferry-50).
+ * 탭의 줄 순서 — 작은 아이 몫을 맨 아래로(14 W261010.31a·.31b). 원본 순서는 소형견 보호자(짱구누나)의 짐이라
+ * 비행기 가방이 맨 위인데, 큰 아이 보호자에겐 맞지 않는 물건이 목록을 연다(ferry-50).
+ *
+ * 문턱은 물건마다 다르다. **기내용 가방은 모든 아이가 중형(10kg) 이상이면** — 국내선 기내 반입은 운반용기 포함 5~7kg 이라
+ * 10kg 아이는 어느 항공사에서도 가방에 못 탄다(위탁은 가방이 아니라 켄넬). **유모차는 모든 아이가 대형일 때만** — 중형도 탄다.
+ * 유모차로 다닌다고 적었으면 유모차는 제자리다 — 그 줄에서 챙겼는지 묻는다(`shouldOfferStroller`).
+ * 작은 아이가 하나라도 있으면(`allDogsAtLeast` — 마리마다 잰다) 원본 그대로.
  *
  * **순서만 바꾼다.** 숨기면 분모(`checklistProgress`)가 강아지마다 갈리고 검색으로도 못 찾는다(ADR-009 v4 가 계절 칩을 뺀 이유).
- * 프로필에서 오는 순서라 체크해도 줄이 손 밑에서 움직이지 않는다. 유모차로 다닌다고 적었으면 유모차는 제자리다 —
- * 그 줄에서 챙겼는지 묻는다(`shouldOfferStroller`). 작은 아이가 하나라도 있으면(`allDogsLarge`) 원본 그대로.
+ * 프로필에서 오는 순서라 체크해도 줄이 손 밑에서 움직이지 않는다.
  */
 export const orderItemsForDog = (items: TItem[], dog: TDogProfile | null): TItem[] => {
-  if (!allDogsLarge(dog)) return items;
-  const later = new Set([CARRY_BAG_ITEM_NAME, ...(dog?.carrier === 'stroller' ? [] : [STROLLER_ITEM_NAME])]);
+  const later = new Set([
+    ...(allDogsAtLeast(dog, 'medium') ? [CARRY_BAG_ITEM_NAME] : []),
+    ...(allDogsLarge(dog) && dog?.carrier !== 'stroller' ? [STROLLER_ITEM_NAME] : []),
+  ]);
+  if (later.size === 0) return items;
   return [...items.filter((item) => !later.has(item.name)), ...items.filter((item) => later.has(item.name))];
 };
