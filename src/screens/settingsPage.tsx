@@ -18,13 +18,15 @@ import { CARD_SURFACE } from '../components/cardSurface';
 const CARD_CLASS =
   `flex items-center gap-3 ${CARD_SURFACE} px-4 py-4 transition-colors hover:bg-secondary`;
 
-const RESET_ROW_CLASS =
-  'flex min-h-11 w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold text-primary transition-colors hover:bg-secondary disabled:cursor-default disabled:text-quaternary disabled:hover:bg-transparent';
+const RESET_ROW_CLASS = `flex min-h-11 w-full items-center justify-between gap-3 ${CARD_SURFACE} px-4 py-3 text-left text-sm font-semibold text-error-primary transition-colors hover:bg-error-primary disabled:cursor-default disabled:text-quaternary disabled:hover:bg-primary`;
 
 /**
  * 비우기 두 줄(12 U2.6) — 다음 여행 때 준비물 15개를 하나씩 풀거나 하트를 하나씩 끄지 않게.
  * 확인 창 대신 **되돌리기**다(셸 토스트, 프로필 삭제와 같은 어법) — 확인 창은 매번 한 번 더 누르게 하고, 실수는 되돌리기가 더 잘 막는다.
  * 지운 값은 이 클로저만 붙잡는다. 비울 것이 없으면 줄을 끈다.
+ *
+ * 두 줄은 **따로 선 카드 둘, 사이 16px**이고 글자는 경고색이다(14 W261010.7h — 6/6 이 "한 판에 붙어 하나를 노리다 옆을 누른다 · 지우는 줄인지 모르겠다").
+ * 판 전체를 빨갛게 칠하지는 않는다 — 되돌릴 수 있는 동작이라 글자색 하나로 "지운다" 만 말한다. 비울 것이 없으면 회색.
  */
 function SettingsPageResetRows() {
   const checkedCount = useAppStore((state) => state.checkedItemIds.length);
@@ -52,7 +54,7 @@ function SettingsPageResetRows() {
   };
 
   return (
-    <div className={`divide-y divide-secondary overflow-hidden ${CARD_SURFACE}`}>
+    <div className="flex flex-col gap-4">
       <button type="button" className={RESET_ROW_CLASS} onClick={handleClearChecked} disabled={checkedCount === 0}>
         준비물 체크 모두 풀기
         <span className="font-normal text-tertiary">{checkedCount}개</span>
