@@ -15,7 +15,7 @@ import { PlaceLinkList } from '../components/placeLinkList';
 import { dogCallNames, withJosa } from '../lib/korean';
 import { META, PLACE_TYPES, placesOfType, SOURCE_LINE, TYPE_META } from '../lib/places';
 import { countByLevel, type TLevelCounts } from '../lib/eligibilityCounts';
-import { homePageReach, homePageReachNote } from '../lib/homePageCounts';
+import { homePageIndoorNote, homePageReach, homePageReachNote } from '../lib/homePageCounts';
 import { homePageRegisterPreview, homePageRegisterPreviewText } from '../lib/homePageRegisterPreview';
 import { useStoreHydrated } from '../providers/storeHydration';
 import { useAppStore, useDog } from '../store/useAppStore';
@@ -37,7 +37,13 @@ export function HomePage() {
   // 종류 목록 + '어려운 곳 숨기기' 로 보내지 않는 것은 그 목록에 확인 필요·정보 없음이 남아 "44곳" 을 눌러 44곳이 아닌 화면을 보기 때문이다.
   const reach = useMemo(() => (dog ? homePageReach(placesOfType, dog, { needsIndoor }) : null), [dog, needsIndoor]);
   const reachCount = reach?.count ?? 0;
-  const reachNote = reach ? homePageReachNote(reach.outdoor) : null;
+  const outdoorNote = reach ? homePageReachNote(reach.outdoor) : null;
+  // '실내 자리 필요' 는 둘러보기 필터에서 켜는 퍼시스트 전역 값이라 홈 수 전체를 말없이 바꿨다(14 W261010.22). 켜져 있을 때만 끈 수를 한 번 더 센다.
+  const setNeedsIndoor = useAppStore((state) => state.setNeedsIndoor);
+  const reachIfOff = useMemo(() => (dog && needsIndoor ? homePageReach(placesOfType, dog).count : null), [dog, needsIndoor]);
+  const indoorNote = reachIfOff === null ? null : homePageIndoorNote(needsIndoor, reachCount, reachIfOff);
+  // 켜면 야외 곳은 0 이라 둘이 함께 서는 일은 없지만(테스트가 묶는다), 규칙이 바뀌어도 한쪽이 말없이 가려지지 않게 잇는다.
+  const reachNote = [indoorNote, outdoorNote].filter(Boolean).join(' · ') || null;
   const [reachOpen, setReachOpen] = useState(false);
   const dogNames = dog ? dogCallNames(dog.dogs.map((d) => d.name)) : '';
   // 등록 전 미리보기(14 C2610.2) — 예시 두 몸무게로 숙소를 세어 "아이마다 다르다" 를 숫자로. 데이터가 빌드 시점에 묶여 있어 한 번만 센다.
@@ -152,8 +158,17 @@ export function HomePage() {
           <p className="shrink-0 pr-8 text-md font-bold text-primary">
             {withJosa(dogNames, '이/가')} 갈 수 있는 {reachCount}곳
           </p>
-          {reachNote && (
-            <p className="mt-0.5 shrink-0 text-sm text-tertiary">{reachNote} — 그 곳엔 &lsquo;야외만&rsquo; 이라고 적었어요.</p>
+          {/* 끄는 자리는 시트 머리 — 히어로의 덧말은 수 버튼 안이라 버튼을 겹칠 수 없다. 상세 판정 카드의 '끄기' 와 같은 모양(`placeDetailEligibilityCard`). */}
+          {indoorNote && (
+            <p className="mt-0.5 flex shrink-0 flex-wrap items-center gap-x-2 text-sm text-tertiary">
+              {indoorNote}
+              <Button color="link-color" size="sm" className="min-h-11" onClick={() => setNeedsIndoor(false)}>
+                끄기
+              </Button>
+            </p>
+          )}
+          {outdoorNote && (
+            <p className="mt-0.5 shrink-0 text-sm text-tertiary">{outdoorNote} — 그 곳엔 &lsquo;야외만&rsquo; 이라고 적었어요.</p>
           )}
           {reachCount === 0 && (
             <p className="mt-0.5 shrink-0 text-sm text-tertiary">아직 없어요. 확인이 필요한 곳은 종류별 목록에서 볼 수 있어요.</p>

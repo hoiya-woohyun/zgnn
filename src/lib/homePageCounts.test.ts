@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { countByLevel, reachablePlaces } from './eligibilityCounts';
-import { homePageReach, homePageReachNote, homeTypeCardCountsLabel, homeTypeCardSegments } from './homePageCounts';
+import {
+  homePageIndoorNote,
+  homePageReach,
+  homePageReachNote,
+  homeTypeCardCountsLabel,
+  homeTypeCardSegments,
+} from './homePageCounts';
 import { countByType, PLACE_TYPES, placesOfType } from './places';
 import type { TDogProfile } from '../types';
 
@@ -42,6 +48,33 @@ describe('homePageReachNote', () => {
   it('야외 곳이 있으면 "… 포함", 없으면 null', () => {
     expect(homePageReachNote(13)).toBe('야외 자리만 되는 13곳 포함');
     expect(homePageReachNote(0)).toBeNull();
+  });
+});
+
+describe('homePageIndoorNote — 히어로 수가 실내 자리 필요로 센 수라는 말 (14 W261010.22)', () => {
+  it('꺼져 있으면 null, 켜져 있으면 기준을 말하고 끄면 수가 달라질 때만 그 수를 붙인다', () => {
+    expect(homePageIndoorNote(false, 71, 71)).toBeNull();
+    expect(homePageIndoorNote(true, 57, 71)).toBe('‘실내 자리 필요’ 기준 · 끄면 71곳');
+    expect(homePageIndoorNote(true, 12, 12)).toBe('‘실내 자리 필요’ 기준');
+  });
+
+  // 실내 자리 필요는 판정을 조이기만 한다(C1 → H6 · C4·H4 의 야외 → 어려움 · C12 확인) — 켰는데 수가 늘면 "끄면 N곳" 이 거꾸로 읽힌다.
+  it.each([
+    ['두부 7kg', DUBU],
+    ['보리 30kg', BORI],
+  ] as const)('%s — 켠 수는 끈 수를 넘지 않는다', (_, dog) => {
+    const on = homePageReach(placesOfType, dog, { needsIndoor: true });
+    const off = homePageReach(placesOfType, dog);
+    expect(on.count).toBeLessThanOrEqual(off.count);
+    // 켜면 야외 곳은 0 — 히어로의 두 덧말(실내 기준 · 야외 포함)이 한꺼번에 서지 않는다.
+    expect(on.outdoor).toBe(0);
+  });
+
+  it('보리 30kg 는 켜면 수가 줄어 "끄면 N곳" 이 붙는다', () => {
+    const on = homePageReach(placesOfType, BORI, { needsIndoor: true }).count;
+    const off = homePageReach(placesOfType, BORI).count;
+    expect(on).toBeLessThan(off);
+    expect(homePageIndoorNote(true, on, off)).toBe(`‘실내 자리 필요’ 기준 · 끄면 ${off}곳`);
   });
 });
 

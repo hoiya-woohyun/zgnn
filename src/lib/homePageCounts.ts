@@ -33,9 +33,21 @@ export const homePageReach = <T extends { policy: TPetPolicy }>(
   return { byType, count, outdoor };
 };
 
-/** 히어로·시트 머리의 덧말. 야외 곳이 없으면 null — "0곳 포함" 은 읽을 거리가 아니다(실내 자리 필요를 켜면 늘 0 이다). */
+/** 히어로·시트 머리의 덧말. 야외 곳이 없으면 null — "0곳 포함" 은 읽을 거리가 아니다(실내 자리 필요를 켜면 늘 0 이다 — 그때는 `homePageIndoorNote` 가 선다). */
 export const homePageReachNote = (outdoor: number): string | null =>
   outdoor > 0 ? `야외 자리만 되는 ${outdoor}곳 포함` : null;
+
+/**
+ * '실내 자리 필요'(`needsIndoor`)로 센 수라는 말(14 W261010.22). 꺼져 있으면 null.
+ *
+ * 그 값은 퍼시스트 전역이고 칩은 둘러보기 필터 시트에만 있다 — 한 번 켜고 잊으면 홈 "갈 수 있는 곳" 이 71 → 57 로 이유 없이 줄었다.
+ * `countIfOff` 는 같은 강아지를 `needsIndoor` 없이 센 히어로 수다. 그 수가 지금과 다를 때만 "끄면 N곳" 을 붙인다 — 같으면 끄든 말든
+ * 이 강아지의 답은 같아 읽을 거리가 아니다(상세의 `needsIndoorChangedLevel` 이 등급이 바뀐 때만 말하는 것과 같은 어법).
+ */
+export const homePageIndoorNote = (needsIndoor: boolean, count: number, countIfOff: number): string | null => {
+  if (!needsIndoor) return null;
+  return countIfOff === count ? '‘실내 자리 필요’ 기준' : `‘실내 자리 필요’ 기준 · 끄면 ${countIfOff}곳`;
+};
 
 export type THomeTypeCardSegment = { level: keyof TLevelCounts; label: string; count: number; strong: boolean };
 
