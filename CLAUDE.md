@@ -115,6 +115,9 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
   숫자 하나(`weightLimitKg: 10`)가 대형견을 '어려움' 으로 보낸다(→ [BUG-009](docs/bugs/BUG-009-unread-and-denied-policy-judged-ok.md)).
   **공개 템플릿에도 더한다**(`POLICY_TOPICS` · `petPolicyPublic.ts` 의 `TEMPLATES`) — 블로그 출처 상세는 원문을 안 내고 템플릿 줄만 그 조건을 말한다.
   `POLICY_TOPICS` 에 빠지면 그 조건은 배지·판정엔 서는데 문장에서만 조용히 사라진다(짝은 추출 스키마 `required` ↔ `POLICY_TOPICS` ↔ 추출 프롬프트의 안내 금지 주제 `PROMPT_GUIDE_TOPICS` 만 테스트가 잡는다, ADR-017 결정 13).
+- **실사용 이벤트의 상수와 마이그레이션 CHECK 는 짝이다**(`src/lib/uiEvents.ts` ↔ `20261015120000_ui_events.sql`). 한쪽만 바꾸면 그 줄이 든 묶음 전체가 400 이고,
+  보내는 쪽은 4xx 에서 그 페이지 로드 동안 멈춘다 — 사이트·빌드는 멀쩡하고 수집만 사라진다. `uiEvents.test.ts` 가 마이그레이션 파일을 읽어 대 본다.
+  `route`·`target` 의 좁은 글자 집합은 **넓히지 않는다** — 그 칸을 `/ux-eval` 에서 Claude 가 읽어서, 공백이 들어가면 누구나 문장을 넣을 수 있다(→ [ADR-029](docs/decisions/ADR-029-ui-events.md) 결정 10).
 - **서버 워커 사슬은 4홉까지다**(`MAX_HOPS`, `scripts/lib/workerRemote.mjs`). Vercel 이 함수의 자기 호출을 4번째에서 508(루프 감지)로 끊는다 — 상한을 올리면 홉마다 초록인데
   5홉째에서 멈추고, `/admin` 의 서버 배지가 사라져 다 끝난 것처럼 보인다. 남은 일은 `queued` 로 조용히 남는다(→ [BUG-016](docs/bugs/BUG-016-worker-chain-508-loop-detected.md)).
 - **단계 스크립트(collect·analyze·apply)에서 `process.exit` 를 부르지 않는다** — exit code 를 돌려준다. 로컬 상주 워커와 서버 워커가 같은 프로세스에서 `main()` 을 부르므로

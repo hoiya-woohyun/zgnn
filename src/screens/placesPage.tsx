@@ -105,13 +105,36 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     return list;
   }, [type, town, area, query, directions, petKeys, sort, origin, hideHard, onlyReachable, eligibilityMap]);
 
-  // 검색이 멈춘 뒤 결과 수 한 줄(ADR-029) — 검색어는 보내지 않는다. 글자마다 적지 않게 1.5초 조용할 때만.
+  /*
+   * 검색이 멈춘 뒤 결과 수 한 줄(ADR-029) — 검색어는 보내지 않는다. 글자마다 적지 않게 1.5초 조용할 때만, **검색어가 바뀌었을 때만**:
+   * 조건 칩·종류를 바꿔 수가 달라지거나 이 화면에 돌아온 것(저장된 검색어)은 새 검색이 아니다. 1.5초 안에 결과를 눌러 떠나면 떠날 때 적는다 —
+   * 안 그러면 결과가 있는 검색만 빠져서 '0건' 비율이 부풀어 보인다.
+   */
   const resultCount = results.length;
+  const settledQuery = useRef(query);
+  const pendingSearch = useRef<{ n: number; pathname: string } | null>(null);
   useEffect(() => {
-    if (!query.trim()) return;
-    const settle = setTimeout(() => recordUiEvent('search', { n: resultCount }), 1500);
+    if (!query.trim()) {
+      settledQuery.current = '';
+      pendingSearch.current = null;
+      return;
+    }
+    if (query === settledQuery.current) return;
+    pendingSearch.current = { n: resultCount, pathname: window.location.pathname };
+    const settle = setTimeout(() => {
+      settledQuery.current = query;
+      pendingSearch.current = null;
+      recordUiEvent('search', { n: resultCount });
+    }, 1500);
     return () => clearTimeout(settle);
   }, [query, resultCount]);
+  useEffect(
+    () => () => {
+      const pending = pendingSearch.current;
+      if (pending) recordUiEvent('search', pending);
+    },
+    [],
+  );
 
   // 결과가 있어도 센다 — "다른 종류에도 있어요 · 식당 1곳"(14 W261007.11). 검색어가 없으면 바로 빈 배열이다.
   // 넘어간 탭과 같은 조건으로 센다(W261007.11a) — 그 탭의 조건 칩까지라 종류별 칩을 통째로 넘긴다.

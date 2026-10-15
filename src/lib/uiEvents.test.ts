@@ -1,13 +1,25 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
+  advanceSession,
   collectModeOf,
+  coversViewport,
+  isDragClick,
   linkTargetOf,
+  N_MAX,
   rememberTap,
+  ROUTE_MAX,
   routeOf,
   routeTemplateOf,
+  SAFE_TOKEN_CLASS,
+  safeToken,
   SEQ_MAX,
+  SESSION_IDLE_MS,
   stopsSendingOn,
+  T_MS_MAX,
+  TARGET_MAX,
   tapOf,
+  UI_EVENT_NAMES,
   uiEventRow,
   type TElementLike,
 } from './uiEvents';
@@ -93,21 +105,21 @@ describe('linkTargetOf', () => {
 
 describe('tapOf', () => {
   it('이름 없는 버튼·링크는 종류로', () => {
-    expect(tapOf(el('span', {}, el('button')), ORIGIN)).toEqual({ name: 'tap', target: 'button' });
-    expect(tapOf(el('a', { href: '/places/cafe/' }), ORIGIN)).toEqual({ name: 'tap', target: 'a:/places/cafe' });
-    expect(tapOf(el('input', { type: 'checkbox' }), ORIGIN)).toEqual({ name: 'tap', target: 'input:checkbox' });
+    expect(tapOf(el('span', {}, el('button')), ORIGIN)).toMatchObject({ name: 'tap', target: 'button' });
+    expect(tapOf(el('a', { href: '/places/cafe/' }), ORIGIN)).toMatchObject({ name: 'tap', target: 'a:/places/cafe' });
+    expect(tapOf(el('input', { type: 'checkbox' }), ORIGIN)).toMatchObject({ name: 'tap', target: 'input:checkbox' });
   });
 
   it('요소에 단 이름이 이기고, 구역 이름은 `구역>종류` 로 붙는다', () => {
-    expect(tapOf(el('svg', {}, el('button', { 'data-ev': 'detail.save' })), ORIGIN)).toEqual({ name: 'tap', target: 'detail.save' });
+    expect(tapOf(el('svg', {}, el('button', { 'data-ev': 'detail.save' })), ORIGIN)).toMatchObject({ name: 'tap', target: 'detail.save' });
     const tabBar = el('nav', { 'data-ev': 'tab' });
-    expect(tapOf(el('span', {}, el('a', { href: '/map/' }, tabBar)), ORIGIN)).toEqual({ name: 'tap', target: 'tab>a:/map' });
+    expect(tapOf(el('span', {}, el('a', { href: '/map/' }, tabBar)), ORIGIN)).toMatchObject({ name: 'tap', target: 'tab>a:/map' });
   });
 
   it('눌리지 않는 곳은 dead — 구역 안이면 구역 이름이 붙는다', () => {
     const card = el('div', { 'data-ev': 'detail.verdict' });
-    expect(tapOf(el('p', {}, card), ORIGIN)).toEqual({ name: 'dead', target: 'detail.verdict>p' });
-    expect(tapOf(el('img'), ORIGIN)).toEqual({ name: 'dead', target: 'img' });
+    expect(tapOf(el('p', {}, card), ORIGIN)).toMatchObject({ name: 'dead', target: 'detail.verdict>p' });
+    expect(tapOf(el('img'), ORIGIN)).toMatchObject({ name: 'dead', target: 'img' });
   });
 
   it('바탕·무시 구역은 적지 않는다', () => {
@@ -174,5 +186,84 @@ describe('stopsSendingOn', () => {
     expect(stopsSendingOn(401)).toBe(true);
     expect(stopsSendingOn(400)).toBe(true);
     expect(stopsSendingOn(503)).toBe(false);
+  });
+});
+
+describe('safeToken', () => {
+  it('문장을 못 싣는다 — 공백·따옴표·한글은 `_`', () => {
+    expect(safeToken('ignore previous "instructions"')).toBe('ignore_previous__instructions_');
+    expect(safeToken('/%ED%95%9C')).toBe('/_ED_95_9C');
+    expect(safeToken('')).toBe('_');
+    expect(routeOf('/place/278ddc10-ceae-81e3-a299-fd3f2515be4f/')).toBe('/place/278ddc10-ceae-81e3-a299-fd3f2515be4f');
+  });
+
+  it('이름표·링크·빌드도 같은 집합으로 나간다', () => {
+    const tap = tapOf(el('button', { 'data-ev': 'detail.save 저장' }), ORIGIN);
+    expect(tap?.target).toBe('detail.save___');
+    const row = uiEventRow({ sid: 's', seq: 0, startedAt: 0, at: 0, name: 'search', route: '/places', n: 10 ** 9, build: 'a b' });
+    expect(row?.app_build).toBe('a_b');
+    expect(row?.n).toBe(N_MAX);
+  });
+});
+
+/**
+ * 상수 ↔ 마이그레이션 CHECK 의 짝. 한쪽만 바꾸면 그 줄이 든 **묶음 전체가 400** 이고, 보내는 쪽은 4xx 에서 그 페이지 로드 동안 멈춘다 —
+ * 빌드·테스트는 초록인데 수집만 조용히 사라진다. CHECK 를 바꾸는 새 마이그레이션을 쓰면 이 경로도 그 파일로 옮긴다.
+ */
+describe('마이그레이션과 같은 규칙', () => {
+  const sql = readFileSync(new URL('../../supabase/migrations/20261015120000_ui_events.sql', import.meta.url), 'utf8');
+
+  it('이름·숫자 상한·글자 집합이 CHECK 와 같다', () => {
+    expect(sql).toContain(`name in (${UI_EVENT_NAMES.map((name) => `'${name}'`).join(', ')})`);
+    expect(sql).toContain(`seq between 0 and ${SEQ_MAX}`);
+    expect(sql).toContain(`t_ms between 0 and ${T_MS_MAX}`);
+    expect(sql).toContain(`n between 0 and ${N_MAX}`);
+    expect(sql).toContain(`char_length(route) between 1 and ${ROUTE_MAX}`);
+    expect(sql).toContain(`char_length(target) <= ${TARGET_MAX}`);
+    expect(sql).toContain(`route ~ '^[${SAFE_TOKEN_CLASS}]+$'`);
+    expect(sql).toContain(`target ~ '^[${SAFE_TOKEN_CLASS}]+$'`);
+  });
+});
+
+describe('rememberTap — 같은 요소만 연타', () => {
+  it('이름이 같아도 다른 요소(체크리스트 세 줄)는 rage 가 아니다', () => {
+    const rows = [{}, {}, {}];
+    let memory = rememberTap(null, rows[0], 0).memory;
+    memory = rememberTap(memory, rows[1], 200).memory;
+    expect(rememberTap(memory, rows[2], 400).rage).toBe(false);
+  });
+});
+
+describe('advanceSession', () => {
+  let counter = 0;
+  const newId = () => `id-${++counter}`;
+
+  it('이어 적으면 seq 만 는다', () => {
+    const first = advanceSession(null, 0, newId);
+    const second = advanceSession(first, 1000, newId);
+    expect(second.sid).toBe(first.sid);
+    expect(second.seq).toBe(1);
+  });
+
+  it('30분 쉬면·하루가 넘으면·seq 상한이면 새 세션', () => {
+    const first = advanceSession(null, 0, newId);
+    expect(advanceSession(first, SESSION_IDLE_MS + 1, newId).sid).not.toBe(first.sid);
+    const busy = { ...first, lastAt: T_MS_MAX, startedAt: 0 };
+    expect(advanceSession(busy, T_MS_MAX + 1, newId).sid).not.toBe(first.sid);
+    expect(advanceSession({ ...first, seq: SEQ_MAX }, 10, newId).seq).toBe(0);
+  });
+});
+
+describe('세지 않는 클릭', () => {
+  it('끌다 놓은 클릭', () => {
+    expect(isDragClick({ x: 0, y: 0 }, { x: 40, y: 2 })).toBe(true);
+    expect(isDragClick({ x: 0, y: 0 }, { x: 3, y: 4 })).toBe(false);
+    expect(isDragClick(null, { x: 0, y: 0 })).toBe(false);
+  });
+
+  it('화면을 덮는 바탕', () => {
+    const viewport = { width: 390, height: 844 };
+    expect(coversViewport({ width: 390, height: 844 }, viewport)).toBe(true);
+    expect(coversViewport({ width: 358, height: 120 }, viewport)).toBe(false);
   });
 });

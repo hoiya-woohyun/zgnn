@@ -22,7 +22,7 @@ export type TUiEventName = (typeof UI_EVENT_NAMES)[number];
  * 하나라도 다르면 묶음 전체가 PGRST102 로 거절된다.
  */
 export type TUiEventRow = {
-  /** 탭 하나의 임시 아이디(sessionStorage). 탭을 닫으면 사라진다 — 재방문을 잇지 않는 것이 결정이다(ADR-029 결정 2). */
+  /** 페이지 로드 하나의 임시 아이디(메모리에만). 30분 쉬면 새로 — 재방문을 잇지 않는 것이 결정이다(ADR-029 결정 2). */
   sid: string;
   seq: number;
   /** 그 탭에서 처음 적은 때부터 흐른 ms. 받은 시각(`received_at`)은 묶어 보낸 때라 순서·간격은 이것으로 본다. */
@@ -40,6 +40,37 @@ export const ROUTE_MAX = 120;
 export const TARGET_MAX = 80;
 export const SEQ_MAX = 5000;
 export const T_MS_MAX = 86_400_000;
+export const N_MAX = 100_000;
+
+/** 이만큼 아무것도 안 적히면 다음 줄은 새 세션이다 — 아침에 연 탭을 저녁에 다시 보는 것은 같은 방문이 아니다. */
+export const SESSION_IDLE_MS = 30 * 60_000;
+
+export type TUiSession = { sid: string; startedAt: number; lastAt: number; seq: number };
+
+/**
+ * 다음 줄의 세션. **저장소에 두지 않는다**(sessionStorage 는 폰에선 며칠을 살고, 세션 복원·탭 복제가 같은 아이디와 같은 `seq` 를 두 탭에 나눠 준다 —
+ * 집계의 앞뒤 화면이 두 탭을 섞는다). 페이지 로드 하나 · 30분 쉼 · 하루(`t_ms` 상한) · `seq` 상한 중 먼저 닿는 것에서 끊는다.
+ */
+export function advanceSession(previous: TUiSession | null, now: number, newId: () => string): TUiSession {
+  if (
+    !previous ||
+    now - previous.lastAt > SESSION_IDLE_MS ||
+    now - previous.startedAt > T_MS_MAX ||
+    previous.seq >= SEQ_MAX
+  ) {
+    return { sid: newId(), startedAt: now, lastAt: now, seq: 0 };
+  }
+  return { ...previous, lastAt: now, seq: previous.seq + 1 };
+}
+
+/**
+ * 경로·이름표·빌드에 허락하는 글자 — 마이그레이션의 `*_chars` CHECK 와 같은 집합이다. **이 표의 글자는 Claude 가 읽는다**(`/ux-eval` 종합) —
+ * 누구나 publishable 키로 쓸 수 있는 표라, 공백·따옴표가 들어가면 문장이 되고 문장은 프롬프트가 된다. 밖의 글자는 `_` 로 바꿔 보낸다
+ * (안 바꾸면 그 줄이 든 묶음 전체가 400 이다 — 퍼센트 인코딩된 한글 경로 같은 것).
+ */
+export const SAFE_TOKEN_CLASS = 'A-Za-z0-9_./:>-';
+const UNSAFE = new RegExp(`[^${SAFE_TOKEN_CLASS}]`, 'g');
+export const safeToken = (value: string): string => value.replace(UNSAFE, '_') || '_';
 
 /** `send` 운영 표로 보낸다 · `log` 콘솔에만(확인용) · `null` 안 모은다. */
 export type TCollectMode = 'send' | 'log' | null;
@@ -75,7 +106,7 @@ export function collectModeOf({
 /** 경로 한 칸 — 끝 슬래시를 뗀다(`trailingSlash: true` 라 같은 화면이 두 이름으로 갈린다). 쿼리는 애초에 안 받는다. */
 export const routeOf = (pathname: string): string => {
   const trimmed = pathname.replace(/\/+$/, '');
-  return (trimmed || '/').slice(0, ROUTE_MAX);
+  return safeToken(trimmed || '/').slice(0, ROUTE_MAX);
 };
 
 /** 장소마다 갈리는 칸을 접는다 — 탭 이름이 장소 수만큼 흩어지면 "무엇을 눌렀나" 를 셀 수 없다. 화면 경로(`route`)는 접지 않는다. */
@@ -87,11 +118,11 @@ export function linkTargetOf(href: string, origin: string): string {
   try {
     url = new URL(href, origin);
   } catch {
-    return '?';
+    return 'bad-href';
   }
   if (url.protocol === 'tel:') return 'tel';
   if (url.protocol === 'mailto:') return 'mail';
-  if (url.origin !== origin) return url.hostname;
+  if (url.origin !== origin) return safeToken(url.hostname);
   return routeTemplateOf(routeOf(url.pathname));
 }
 
@@ -127,7 +158,7 @@ export const INTERACTIVE_SELECTOR = [
 /** 바탕을 누른 것 — 빈자리를 눌러 키보드를 내리는 손짓이라 dead 로 세지 않는다. */
 const BACKGROUND_TAGS = new Set(['html', 'body', 'main']);
 
-const clip = (value: string) => value.slice(0, TARGET_MAX);
+const clip = (value: string) => safeToken(value).slice(0, TARGET_MAX);
 
 function kindOf(el: TElementLike, origin: string): string {
   const tag = el.tagName.toLowerCase();
@@ -136,7 +167,8 @@ function kindOf(el: TElementLike, origin: string): string {
   return el.getAttribute('role') ?? tag;
 }
 
-export type TTap = { name: 'tap' | 'dead'; target: string };
+/** `node` 는 연타를 가르는 데만 쓴다 — 같은 이름(`label`·`card>button`)의 **다른** 요소를 빠르게 누른 것은 연타가 아니다. */
+export type TTap = { name: 'tap' | 'dead'; target: string; node: TElementLike };
 
 /** 탭 하나를 이름으로. `null` 은 적지 않는다(무시 구역 · 바탕). */
 export function tapOf(el: TElementLike | null, origin: string): TTap | null {
@@ -144,12 +176,13 @@ export function tapOf(el: TElementLike | null, origin: string): TTap | null {
   const interactive = el.closest(INTERACTIVE_SELECTOR);
   if (!interactive && BACKGROUND_TAGS.has(el.tagName.toLowerCase())) return null;
 
+  const node = interactive ?? el;
   const own = interactive?.getAttribute('data-ev');
-  if (own) return { name: 'tap', target: clip(own) };
+  if (own) return { name: 'tap', target: clip(own), node };
 
   const base = interactive ? kindOf(interactive, origin) : el.tagName.toLowerCase();
-  const zone = (interactive ?? el).closest('[data-ev]')?.getAttribute('data-ev');
-  return { name: interactive ? 'tap' : 'dead', target: clip(zone ? `${zone}>${base}` : base) };
+  const zone = node.closest('[data-ev]')?.getAttribute('data-ev');
+  return { name: interactive ? 'tap' : 'dead', target: clip(zone ? `${zone}>${base}` : base), node };
 }
 
 /** 3번째 탭이 이 간격 안에 같은 곳에 오면 rage 다. */
@@ -161,18 +194,34 @@ export const RAGE_TAPS = 3;
  */
 export const ECHO_MS = 40;
 
-export type TTapMemory = { at: number; target: string; burst: number } | null;
+export type TTapMemory = { at: number; node: unknown; burst: number } | null;
 
+/** 연타는 **같은 요소**를 몰아 누른 것이다 — 이름만 같으면 체크리스트 세 줄을 빠르게 체크한 것도 rage 가 된다. */
 export function rememberTap(
   previous: TTapMemory,
-  target: string,
+  node: unknown,
   at: number,
 ): { memory: TTapMemory; echo: boolean; rage: boolean } {
   if (previous && at - previous.at < ECHO_MS) return { memory: previous, echo: true, rage: false };
-  const burst = previous && previous.target === target && at - previous.at <= RAGE_GAP_MS ? previous.burst + 1 : 1;
+  const burst = previous && previous.node === node && at - previous.at <= RAGE_GAP_MS ? previous.burst + 1 : 1;
   // 한 번 몰아친 것은 rage 한 줄 — 네 번째·다섯 번째 탭이 줄을 더 세우지 않는다.
-  return { memory: { at, target, burst }, echo: false, rage: burst === RAGE_TAPS };
+  return { memory: { at, node, burst }, echo: false, rage: burst === RAGE_TAPS };
 }
+
+/**
+ * 끌다 놓은 클릭인가 — 화면 페이저는 끌기 뒤의 클릭을 React capture 에서 멈추지만(`appShellSwipe` 등의 `onClickCapture`), 문서 capture 는 그보다 먼저 본다.
+ * 그래서 누른 자리와 뗀 자리가 이만큼 벌어진 클릭은 탭으로 세지 않는다(터치는 브라우저가 이미 안 보내고, 마우스 끌기가 남는다).
+ */
+export const DRAG_SLOP_PX = 10;
+export const isDragClick = (down: { x: number; y: number } | null, up: { x: number; y: number }): boolean =>
+  down !== null && Math.hypot(up.x - down.x, up.y - down.y) > DRAG_SLOP_PX;
+
+/**
+ * 화면을 덮는 바탕인가 — 하단 시트·모달의 어두운 바탕, 고르기 칸의 밑장을 누르면 닫힌다. 닫히는 동안 그 바탕이 아직 DOM 에 있어
+ * 눌리지 않는 `div` 로 잡히는데, 그건 "버튼인 줄 알고 눌렀다" 가 아니라 닫는 손짓이다. 눌리지 않는 요소일 때만 묻는다.
+ */
+export const coversViewport = (rect: { width: number; height: number }, viewport: { width: number; height: number }): boolean =>
+  rect.width >= viewport.width * 0.9 && rect.height >= viewport.height * 0.6;
 
 /**
  * 보내기가 이 상태로 실패하면 이 페이지 로드 동안은 더 보내지 않는다 — 표가 아직 없다(404 · db push 전) · 정책을 껐다(401/403) ·
@@ -209,7 +258,7 @@ export function uiEventRow({
     name,
     route: routeOf(route),
     target: target === null ? null : clip(target),
-    n: n === null ? null : Math.max(0, Math.round(n)),
-    app_build: build.slice(0, 40),
+    n: n === null ? null : Math.min(Math.max(0, Math.round(n)), N_MAX),
+    app_build: build.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 40) || 'dev',
   };
 }
