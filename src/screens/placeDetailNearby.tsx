@@ -97,36 +97,38 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
           <p className="mt-3 px-4 text-sm text-tertiary md:px-6">근처에 {withJosa(filterLabel, '이/가')} 없어요.</p>
         )
       ) : (
-        <ul className="no-scrollbar mt-3 flex gap-2.5 overflow-x-auto px-4 pb-1 md:px-6">
+        // 세로 줄이다 — 많아야 3곳(`pickNearby`)인데 176px 카드를 옆으로 세우면 390px 폰에서 셋째가 2px, 375px 에선 0px 라
+        // 밀 수 있다는 것조차 안 보였다(14 W261013.14p · youngja-06-s3). 줄 셋이 카드 셋보다 낮고, 셸의 좌우 끌기와도 안 겹친다.
+        <ul className={`mx-4 mt-3 divide-y divide-secondary overflow-hidden md:mx-6 ${CARD_SURFACE}`}>
           {nearby.map(({ place: other, km }) => {
             const eligibility = eligibilityMap?.get(other.id);
             return (
-              <li key={other.id} className="w-44 shrink-0">
+              <li key={other.id}>
                 <Link
                   href={`/place/${other.id}`}
-                  className={`flex h-full flex-col ${CARD_SURFACE} p-3 transition-colors hover:bg-secondary`}
+                  className="flex min-h-11 items-start gap-3 p-3 transition-colors hover:bg-secondary"
                 >
-                  <div className="flex items-center justify-between">
-                    <PlaceThumb src={other.cover ?? other.images[0]} type={other.type} variant="compact" />
-                    <span className="text-sm font-bold text-secondary">{formatKm(km)}</span>
-                  </div>
-                  <p className="clamp-2 mt-2 text-sm font-bold text-primary">{other.name}</p>
-                  <div className="mt-2 flex flex-wrap items-center gap-1">
-                    <TownChip town={other.region.town} type={other.type} />
-                  </div>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                    {eligibility && <EligibilityBadge eligibility={eligibility} />}
-                    {/* 판정 배지 옆 칩 하나도 목록 카드와 같은 거르기 — 어려움 옆 '✓ 중형견 OK'·요금이 서지 않게(14 W261013.1a). 이유 줄은 없다.
-                        그래서 판정 옆 한 자리는 이유로 읽힌다 — 판정을 정한 칩을 맨 앞에(14 W261013.1c), 거르기엔 넘기지 않는다(유일한 단서다). */}
-                    <PetBadges
-                      policy={other.policy}
-                      limit={1}
-                      hideNoInfo={Boolean(eligibility)}
-                      hide={eligibility ? verdictHidesBadge(eligibility, other.policy, undefined) : undefined}
-                      lead={eligibility ? reasonBadgeLabel(eligibility, other.policy) : undefined}
-                      weightKg={weightKg}
-                      dogCount={dogCount}
-                    />
+                  <PlaceThumb src={other.cover ?? other.images[0]} type={other.type} variant="compact" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="clamp-2 text-sm font-bold text-primary">{other.name}</p>
+                      <span className="shrink-0 text-sm font-bold text-secondary">{formatKm(km)}</span>
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                      <TownChip town={other.region.town} type={other.type} />
+                      {eligibility && <EligibilityBadge eligibility={eligibility} />}
+                      {/* 판정 배지 옆 칩 하나도 목록 카드와 같은 거르기 — 어려움 옆 '✓ 중형견 OK'·요금이 서지 않게(14 W261013.1a). 이유 줄은 없다.
+                          그래서 판정 옆 한 자리는 이유로 읽힌다 — 판정을 정한 칩을 맨 앞에(14 W261013.1c), 거르기엔 넘기지 않는다(유일한 단서다). */}
+                      <PetBadges
+                        policy={other.policy}
+                        limit={1}
+                        hideNoInfo={Boolean(eligibility)}
+                        hide={eligibility ? verdictHidesBadge(eligibility, other.policy, undefined) : undefined}
+                        lead={eligibility ? reasonBadgeLabel(eligibility, other.policy) : undefined}
+                        weightKg={weightKg}
+                        dogCount={dogCount}
+                      />
+                    </div>
                   </div>
                 </Link>
               </li>
