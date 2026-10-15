@@ -32,7 +32,7 @@ import { addressUnresolved, type TAddressChoice } from '../lib/adminAddress';
 import { prepareReanalyze, reanalyzePlan, reanalyzeSummary } from '../lib/adminReanalyze';
 import { collectView, fetchCollectRequests, requestCollect, type TCollectRequestsLoad } from '../lib/adminCollectRequest';
 import { requestAnalyze, requestApply, type TAnalyzeLimit } from '../lib/adminRequests';
-import { bulkApproveJobs, bulkApproveNeedsLook, bulkApproveSummary, bulkApproveText, bulkLatestSummary, bulkLatestTargets, bulkTone, stoppedNote, summarizeBulk, type TBulkTally, type TBulkTone } from '../lib/adminBulk';
+import { bulkApproveJobs, bulkApproveNeedsLook, bulkApproveSummary, bulkApproveText, bulkLatestSummary, bulkLatestTargets, bulkTone, serveReadyMisses, stoppedNote, summarizeBulk, type TBulkTally, type TBulkTone } from '../lib/adminBulk';
 import {
   countStrandedCandidates,
   fetchMatchablePlaces,
@@ -230,7 +230,7 @@ type TBulkMode = 'reject' | 'reanalyze' | 'approve' | 'latest';
  * `종류 엇갈림`(2026-10-04)은 막지는 않지만 그대로 올리면 종류 칩·지도 색이 틀린다(`typeMismatchFlags`).
  */
 
-const WARN_MATCH: Record<Exclude<TWarnFilter, 'all' | 'any' | 'waiting' | 'failed'>, (card: { group: TCandidateGroup; view: { badges: { key: string }[] } }) => boolean> = {
+const WARN_MATCH: Record<Exclude<TWarnFilter, 'all' | 'ready' | 'any' | 'waiting' | 'failed'>, (card: { group: TCandidateGroup; view: { badges: { key: string }[] } }) => boolean> = {
   region: (card) => card.view.badges.some((badge) => badge.key === '지역 없음'),
   address: (card) => addressUnresolved(card.group.lead.extracted),
   noBasis: (card) => verifyNeedsLook(card.group.lead.extracted.verify),
@@ -248,6 +248,11 @@ const BULK_MATCH: Record<'waiting' | 'failed', (state: TAdminPageGroupState | un
 
 const WARN_FILTERS: { key: TWarnFilter; label: string; hint?: string }[] = [
   { key: 'all', label: '전체' },
+  {
+    key: 'ready',
+    label: '바로 내보내도 되는 것',
+    hint: '신규 중 경고 없음 · 주소 확인됨 · 소개 있음 · 조건이 읽힘 · 독립 글 2편 이상(또는 동반 확인) — 일괄 등록에 그대로 넘겨도 되는 곳',
+  },
   { key: 'any', label: '경고 있는 것', hint: '아래 중 하나라도 걸린 곳' },
   { key: 'region', label: '지역 없음', hint: '지역을 골라야 등록할 수 있어요' },
   { key: 'address', label: '주소 다름', hint: '원글 주소와 검색 주소 중 하나를 골라야 등록할 수 있어요' },
@@ -257,13 +262,19 @@ const WARN_FILTERS: { key: TWarnFilter; label: string; hint?: string }[] = [
   { key: 'failed', label: '실패', hint: '방금 쓰기가 실패한 줄 — 이유는 줄에 적혀 있어요' },
 ];
 
-const warnMatches = (filter: TWarnFilter, card: { group: TCandidateGroup; view: { badges: { key: string }[] } }, state?: TAdminPageGroupState): boolean =>
+const warnMatches = (
+  filter: TWarnFilter,
+  card: { group: TCandidateGroup; view: { badges: { key: string }[] }; ready: boolean },
+  state?: TAdminPageGroupState,
+): boolean =>
   filter === 'all' ||
-  (filter === 'any'
-    ? Object.values(WARN_MATCH).some((match) => match(card))
-    : filter === 'waiting' || filter === 'failed'
-      ? BULK_MATCH[filter](state)
-      : WARN_MATCH[filter](card));
+  (filter === 'ready'
+    ? card.ready
+    : filter === 'any'
+      ? Object.values(WARN_MATCH).some((match) => match(card))
+      : filter === 'waiting' || filter === 'failed'
+        ? BULK_MATCH[filter](state)
+        : WARN_MATCH[filter](card));
 
 const POLICY_FILTERS: { key: TPolicyFilter; label: string; hint?: string }[] = [
   { key: 'all', label: '전체' },
@@ -1742,9 +1753,12 @@ export function AdminPage() {
         const preview = previewFor(group.lead.extracted);
         // 종류 엇갈림은 화면이 그때그때 본다(`typeMismatchFlags`) — CLI 표식(`groupFlags`)을 늘리지 않는다.
         const view = adminFlagView([...flagsFor(group), ...preview.flags, ...typeMismatchFlags(group.lead.extracted)]);
-        return { group, preview, view, intro: groupIntroOf(group, groupIntros) };
+        const intro = groupIntroOf(group, groupIntros);
+        // 「바로 내보내도 되는 것」 — 카드가 그리는 경고·소개 그대로 판정한다(같은 줄을 두 기준으로 보지 않게).
+        const ready = serveReadyMisses({ group, badges: view.badges, introText: intro.text }, placesView, groupIntros).length === 0;
+        return { group, preview, view, intro, ready };
       }),
-    [groups, groupIntros],
+    [groups, groupIntros, placesView],
   );
 
   /*

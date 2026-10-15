@@ -8,12 +8,13 @@
  */
 
 import { isIntroGroup } from '../../scripts/analyze/groupIntroMaterials.mjs';
-import { addressUnresolved } from './adminAddress';
+import { addressUnresolved, addressView } from './adminAddress';
 import { previewFor, regionUsable, type TCandidateGroup, type TPlaceRow } from './adminCandidates';
 import { groupIntroOf, type TGroupIntros } from './adminGroupIntro';
 import { overwriteDefault } from './adminPairPolicy';
 import { policyCell } from './adminPreview';
 import { verifyListedOnly, verifyNeedsLook, verifyView } from './adminVerify';
+import { UNREAD_BADGE_LABEL } from './petPolicy';
 
 export type TBulkLatest = {
   /**
@@ -176,6 +177,43 @@ const SKIPPED_SLOTS: ReadonlySet<TBulkSlot> = new Set(['thin', 'denied', 'noRegi
 export function bulkApproveJobs(groups: TCandidateGroup[], places: TPlaceRow[] = [], intros?: TGroupIntros): TCandidateGroup[] {
   const byId = new Map(places.map((place) => [place.id, place]));
   return groups.filter((group) => !SKIPPED_SLOTS.has(bulkApproveSlot(group, byId, intros)));
+}
+
+/** 「바로 내보내도 되는 것」 이 근거로 치는 독립 글 수. 교차점검이 '동반 확인' 이면 한 편이어도 된다. */
+export const SERVE_READY_MIN_POSTS = 2;
+
+/** 바로 내보내기에 모자란 것 — 신규가 아님 · 일괄이 건너뛰거나 멈추는 줄 · 경고 뱃지 · 주소 미확인 · 소개 없음 · 조건 못 읽음 · 근거 글 부족. */
+export type TServeReadyMiss = 'notNew' | 'bulkSkip' | 'warning' | 'address' | 'intro' | 'policy' | 'evidence';
+
+/**
+ * 「바로 내보내도 되는 것」(2026-10-14 사용자 결정) — 신규 묶음이 **사람이 더 볼 것 없이** 남에게 내보낼 만한가. 빈 배열이면 그렇다.
+ *
+ * 일괄 올리기의 칸(`bulkApproveSlot`)은 "보내도 되나" 까지만 가른다. 거기서 'ok' 여도 조건을 못 읽은 곳은 사이트에 '확인이 필요해요' 로 나가
+ * 남에게 줄 답이 없고, 원글에서 온 주소는 원글과 같아도 확인한 게 없다(ADR-019 결정 5). 그래서 그 위에 다섯을 더 본다:
+ * 경고 뱃지 0개(카드가 그리는 그 목록) · 상호 검색으로 확인된 주소와 좌표(`addressView` 의 `verified`) · 소개 · 낱개로 읽힌 조건(`policyCell` 의
+ * `items` 이고 '원문 확인 필요' 가 없다 — '조건 미기재'·'문장 없음' 은 빠진다) · 독립 글 둘 이상이거나 '동반 확인'.
+ * 네이버 플레이스 링크는 보지 않는다 — 빠지면 상세의 '사진 보기' 만 빈다(판정·지도는 그대로).
+ * `addressUnresolved` 는 'ok' 칸이 먼저 거른다 — 주소 다름은 `bulkApproveSlot` 에서 'addressUnresolved' 다.
+ */
+export function serveReadyMisses(
+  card: { group: TCandidateGroup; badges: readonly unknown[]; introText: string | null | undefined },
+  places: TPlaceRow[] = [],
+  intros?: TGroupIntros,
+): TServeReadyMiss[] {
+  const { group } = card;
+  const extracted = group.lead.extracted;
+  const cell = policyCell(previewFor(extracted), extracted.petPolicyText);
+  const independent = group.independentPosts ?? group.posts?.length ?? 1;
+  const checks: [TServeReadyMiss, boolean][] = [
+    ['notNew', group.kind === 'new'],
+    ['bulkSkip', bulkApproveSlot(group, new Map(places.map((place) => [place.id, place])), intros) === 'ok'],
+    ['warning', card.badges.length === 0],
+    ['address', addressView(extracted).verified && Boolean(extracted.geo)],
+    ['intro', Boolean(card.introText?.trim())],
+    ['policy', cell.state === 'items' && !cell.items.some((item) => item.label === UNREAD_BADGE_LABEL)],
+    ['evidence', independent >= SERVE_READY_MIN_POSTS || verifyView(extracted.verify)?.state === 'confirmed'],
+  ];
+  return checks.filter(([, ok]) => !ok).map(([miss]) => miss);
 }
 
 /**

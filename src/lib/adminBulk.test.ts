@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bulkApproveJobs, bulkApproveNeedsLook, bulkTone, bulkApproveSummary, bulkApproveText, bulkLatestSummary, bulkLatestTargets, namesNote, stoppedNote, summarizeBulk, thinNewEvidence } from './adminBulk';
+import { bulkApproveJobs, bulkApproveNeedsLook, bulkTone, bulkApproveSummary, bulkApproveText, bulkLatestSummary, bulkLatestTargets, namesNote, serveReadyMisses, stoppedNote, summarizeBulk, thinNewEvidence } from './adminBulk';
 import { materialsFingerprint } from '../../scripts/analyze/groupIntroMaterials.mjs';
 import type { TCandidateGroup, TPlaceRow } from './adminCandidates';
 import { groupIntroOf, type TGroupIntros } from './adminGroupIntro';
@@ -290,5 +290,62 @@ describe('일괄 올리기 — 소개 없이 올라가는 곳을 세고, 요약�
   it('짝이 있는 묶음은 소개를 세지 않는다 — 그 장소의 빈 칸만 채워 사이트의 소개를 그대로 둔다', () => {
     const paired = { ...group('place:p1', 'p1', '소형견 전용 펜션이에요.'), tier: 'auto' } as unknown as TCandidateGroup;
     expect(bulkApproveSummary([paired], [paired.key], [place('p1')])).toMatchObject({ ok: 1, noIntro: 0 });
+  });
+});
+
+describe('serveReadyMisses — 「바로 내보내도 되는 것」 은 사람이 더 볼 것이 없는 신규만(2026-10-14)', () => {
+  const ready = (over: Record<string, unknown> = {}, groupOver: Record<string, unknown> = {}) => {
+    const base = group('a', null);
+    return {
+      ...base,
+      kind: 'new',
+      tier: 'new',
+      posts: ['u1', 'u2'],
+      independentPosts: 2,
+      lead: {
+        ...base.lead,
+        extracted: {
+          ...base.lead.extracted,
+          petPolicyText: '애견동반 가능, 리드줄 필수',
+          address: '제주특별자치도 제주시 애월읍 1',
+          geoSource: 'local',
+          geo: { lat: 33.46, lng: 126.31 },
+          verify: null,
+          ...over,
+        },
+      },
+      ...groupOver,
+    } as unknown as TCandidateGroup;
+  };
+  const card = (g: TCandidateGroup, badges: unknown[] = [], introText: string | null = '바다가 보이는 카페예요.') => ({ group: g, badges, introText });
+
+  it('조건이 읽히고 · 상호 검색 주소 · 소개 · 독립 글 둘이면 모자란 것이 없다', () => {
+    expect(serveReadyMisses(card(ready()))).toEqual([]);
+  });
+
+  it("조건 미기재·문장 없음은 일괄로는 올라가도 '확인이 필요해요' 로 나가서 빠진다", () => {
+    expect(serveReadyMisses(card(ready({ petPolicyText: '애견동반 가능해요' })))).toEqual(['policy']);
+    expect(serveReadyMisses(card(ready({ petPolicyText: null })))).toEqual(['policy']);
+  });
+
+  it('원글에서 온 주소·좌표 없음은 확인한 주소가 아니다', () => {
+    expect(serveReadyMisses(card(ready({ geoSource: 'geocode' })))).toEqual(['address']);
+    expect(serveReadyMisses(card(ready({ geo: null })))).toEqual(['address']);
+  });
+
+  it("독립 글이 한 편이면 근거가 모자라다 — 교차점검 '동반 확인' 이면 한 편이어도 된다", () => {
+    expect(serveReadyMisses(card(ready({}, { posts: ['u1'], independentPosts: 1 })))).toEqual(['evidence']);
+    expect(serveReadyMisses(card(ready({ verify: { petAllowedHere: 'yes', dogWasThere: true } }, { posts: ['u1'], independentPosts: 1 })))).toEqual([]);
+  });
+
+  it('카드의 경고 뱃지 · 소개 없음을 그대로 센다', () => {
+    expect(serveReadyMisses(card(ready(), [{ key: '목록글' }]))).toEqual(['warning']);
+    expect(serveReadyMisses(card(ready(), [], null))).toEqual(['intro']);
+  });
+
+  it('일괄이 건너뛰는 줄(동반 불가 정황)과 짝이 있는 묶음은 대상이 아니다', () => {
+    expect(serveReadyMisses(card(ready({ verify: { petAllowedHere: 'no', dogWasThere: false } })))).toContain('bulkSkip');
+    const paired = { ...ready({}, { kind: 'fill', tier: 'auto' }), lead: { ...ready().lead, match_place_id: 'p1' } } as unknown as TCandidateGroup;
+    expect(serveReadyMisses(card(paired), [place('p1')])).toContain('notNew');
   });
 });
