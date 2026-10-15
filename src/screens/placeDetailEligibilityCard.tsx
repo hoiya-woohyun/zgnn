@@ -89,7 +89,7 @@ export function PlaceDetailEligibilityCard({
 
   return (
     <>
-      <div className={CARD_SURFACE}>
+      <div className={CARD_SURFACE} data-ev="detail.verdict">
         <div className="p-4">
           {/*
            * items-start + 점에 mt: 머리글이 두 줄로 접혀도 점은 첫 줄 글자 가운데에 남는다(줄 높이 7.5 의 가운데 − 점 2.5 의 반).

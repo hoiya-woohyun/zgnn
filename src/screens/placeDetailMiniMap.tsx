@@ -130,7 +130,7 @@ export function PlaceDetailMiniMap({ place, geo }: { place: TPlaceEntry; geo: TG
         </p>
       ) : (
         <>
-          <div ref={containerRef} className="h-full w-full" />
+          <div ref={containerRef} className="h-full w-full" data-ev-ignore="" />
           {status !== 'ready' && (
             <p className="absolute inset-0 flex items-center justify-center text-sm text-tertiary">
               지도를 불러오는 중이에요

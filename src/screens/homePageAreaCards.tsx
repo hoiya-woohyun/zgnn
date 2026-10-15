@@ -86,7 +86,7 @@ export function HomePageAreaCards() {
   };
 
   return (
-    <section className="home-scroll-depth mt-8 px-4 md:px-6">
+    <section className="home-scroll-depth mt-8 px-4 md:px-6" data-ev="home.areas">
       <h2 className="text-lg font-bold text-primary">{dog ? `${withJosa(dogNames, '이랑/랑')} 갈 동네` : '강아지랑 갈 동네'}</h2>
       <div className="mt-3 space-y-3">
         {AREAS.map(({ id, label }) => {

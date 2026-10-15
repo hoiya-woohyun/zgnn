@@ -8,6 +8,7 @@ import { AppTabBar } from './appTabBar';
 import { mainSurfaceProps, surfaceKindOf } from './appShellSurface';
 import { useAppShellStack } from './appShellStack';
 import { useAppShellSwipe } from './appShellSwipe';
+import { useAppShellUiEvents } from './appShellUiEvents';
 import { AppShellPawPrints } from './appShellPawPrints';
 import { AppShellSwipePeek } from './appShellSwipePeek';
 import { AppShellUpdateNotice } from './appShellUpdateNotice';
@@ -80,6 +81,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // 하위 화면으로 들어가고 나오는 그림(쌓기·걷기). 탭 화면끼리의 페이저와 같은 `<main>` 을 쓴다 — 순서는 아래 이펙트.
   const stack = useAppShellStack({ pathname, mainRef, surfaceRef });
   const { arrive } = stack;
+  // 실사용 이벤트(ADR-029) — 이동과 탭을 셸 한 곳에서 듣는다.
+  useAppShellUiEvents(pathname);
 
   /** 지금 화면에서 마지막으로 본 세로 위치. 경로가 바뀔 때 이 값을 그 화면의 몫으로 적는다. */
   const lastScrollY = useRef(0);

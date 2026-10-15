@@ -162,6 +162,7 @@ export function AppBar({ backTo, title, actions }: TAppBarProps) {
           type="button"
           onClick={goBack}
           aria-label="뒤로 가기"
+          data-ev="appbar.back"
           className="grid size-11 shrink-0 place-items-center rounded-full text-secondary transition-colors hover:bg-tertiary active:bg-tertiary"
         >
           <ArrowLeft size={24} />

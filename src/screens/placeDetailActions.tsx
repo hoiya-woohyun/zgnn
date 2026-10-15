@@ -60,7 +60,7 @@ export function PlaceDetailActions({ place }: { place: TPlaceEntry }) {
   };
 
   return (
-    <div role="group" aria-label={`${place.name}에서 할 수 있는 일`} className="mt-4 grid max-w-lg auto-cols-fr grid-flow-col gap-1 px-4 md:px-6">
+    <div role="group" aria-label={`${place.name}에서 할 수 있는 일`} data-ev="detail.actions" className="mt-4 grid max-w-lg auto-cols-fr grid-flow-col gap-1 px-4 md:px-6">
       {/* 이름표는 `${name} 저장` 으로 고정하고 상태는 aria-pressed 만 말한다(SaveButton 과 같은 D9). */}
       <ActionTile
         icon={Heart}
@@ -71,8 +71,9 @@ export function PlaceDetailActions({ place }: { place: TPlaceEntry }) {
         effect={<SaveBurst burst={burst} />}
         aria-label={`${place.name} 저장`}
         aria-pressed={saved}
+        data-ev="detail.save"
       />
-      <ActionTile icon={Share01} label="공유" onClick={share} aria-label={`${place.name} 공유하기`} />
+      <ActionTile icon={Share01} label="공유" onClick={share} aria-label={`${place.name} 공유하기`} data-ev="detail.share" />
       {directionsUrl ? (
         <NaverActionTile href={directionsUrl} icon={NavigationPointer01} label="길찾기" />
       ) : (

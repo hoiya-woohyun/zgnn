@@ -83,7 +83,7 @@ export function PlaceDetailReport({
   };
 
   return (
-    <section className="mt-8 px-4 md:px-6" aria-labelledby="place-report-title">
+    <section className="mt-8 px-4 md:px-6" aria-labelledby="place-report-title" data-ev="detail.report">
       <div className={`${CARD_SURFACE} p-4`}>
         <h2 id="place-report-title" className="text-md font-bold text-primary">
           다녀오셨나요?

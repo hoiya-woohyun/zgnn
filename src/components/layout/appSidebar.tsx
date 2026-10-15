@@ -25,7 +25,7 @@ export function AppSidebar() {
         </span>
       </Link>
 
-      <nav aria-label="주요 화면" className="flex-1 px-3">
+      <nav aria-label="주요 화면" data-ev="side" className="flex-1 px-3">
         <ul className="flex flex-col gap-1">
           {NAV_ITEMS.map((item) => {
             const active = isNavActive(item, highlightPath);

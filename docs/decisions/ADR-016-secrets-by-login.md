@@ -1,6 +1,7 @@
 # ADR-016 — 시크릿은 저장하지 않는다: 운영자가 로그인하고, 스크립트는 그 짧은 세션으로 붙는다
 
-> 최종 수정: 2026-10-08 (v12: 「서버에 두는 장기 값」 절 — [ADR-028](ADR-028-vercel-remote-worker.md) 서버 워커(Vercel `zgnn-worker`)에 `CLAUDE_CODE_OAUTH_TOKEN`·네이버 검색 키 둘만 둔다. Supabase 장기 키는 여전히 어디에도 없다 — 서버의 DB 쓰기는 버튼을 누른 운영자의 JWT 다)
+> 최종 수정: 2026-10-15 (v13: 비로그인 역할이 쓰는 표가 둘이 됐다 — `ui_events`([ADR-029](ADR-029-ui-events.md)). 같은 publishable 키·같은 호스트라 번들에 새로 실리는 값은 없고, 경계는 제보와 같은 열 단위 insert · select 없음이다. 읽는 것은 운영자 CLI 뿐)
+> 이전 2026-10-08 (v12: 「서버에 두는 장기 값」 절 — [ADR-028](ADR-028-vercel-remote-worker.md) 서버 워커(Vercel `zgnn-worker`)에 `CLAUDE_CODE_OAUTH_TOKEN`·네이버 검색 키 둘만 둔다. Supabase 장기 키는 여전히 어디에도 없다 — 서버의 DB 쓰기는 버튼을 누른 운영자의 JWT 다)
 > 이전 2026-10-07 (v11: 운영자 세션이 쓰는 표가 둘 늘었다 — `pipeline_requests`(지금 돌려 줘 요청)·`workers`(로컬 워커 심장, [ADR-024](ADR-024-local-worker-and-db-queues.md), 마이그레이션 `20261007140000`, 원격 미적용). 모양은 `pipeline_runs` 그대로(select/insert/update · 정책 셋 `is_operator()` · delete·anon 없음). Realtime publication 에 표 여섯 — 구독은 RLS 를 지켜 publishable 키만으론 행이 안 온다. 새 키·새 출처 없음)
 > 이전 2026-10-06 (v10: 운영자 세션이 쓰는 표가 하나 늘었다 — `pipeline_runs`(실행 기록, [ADR-023](ADR-023-ops-dashboard-and-run-log.md), 마이그레이션 `20261006120000`). authenticated 에 select/insert/update(delete 없음) + 정책 셋 `is_operator()`, anon 은 아무것도 없다. 집계 rpc `ops_overview()` 는 definer · 첫 줄 운영자 확인 · anon/PUBLIC execute 회수, Vault 는 **이름만** 본다. 새 키·새 출처 없음)
 > 이전 2026-10-05 (v9: **네이버 키는 사용자 홈의 파일 `~/.zgnn-naver.env` 에서도 읽는다**(`scripts/lib/naverEnvFile.mjs`) — env 가 비어 있을 때만, 이름 넷(`NAVER_CLIENT_ID`·`_SECRET`·`NAVER_MAP_CLIENT_ID`·`_SECRET`)만.

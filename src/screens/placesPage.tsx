@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { SearchMd } from '@untitledui/icons';
 import { PlacesPageEligibilityToggles } from './placesPageEligibilityToggles';
 import type { TActiveChip } from './placesPageActiveChips';
@@ -25,6 +25,7 @@ import { PlacesPageSuggest } from './placesPageSuggest';
 import { useAppStore, useDog } from '../store/useAppStore';
 import { useEligibilityMap } from '../store/useDogEligibility';
 import { usePlacesPageFilterStore } from '../store/usePlacesPageFilterStore';
+import { recordUiEvent } from '../lib/uiEventsSend';
 import { cx } from '../utils/cx';
 import type { TDirection, TPlaceType } from '../types';
 
@@ -103,6 +104,14 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     }
     return list;
   }, [type, town, area, query, directions, petKeys, sort, origin, hideHard, onlyReachable, eligibilityMap]);
+
+  // 검색이 멈춘 뒤 결과 수 한 줄(ADR-029) — 검색어는 보내지 않는다. 글자마다 적지 않게 1.5초 조용할 때만.
+  const resultCount = results.length;
+  useEffect(() => {
+    if (!query.trim()) return;
+    const settle = setTimeout(() => recordUiEvent('search', { n: resultCount }), 1500);
+    return () => clearTimeout(settle);
+  }, [query, resultCount]);
 
   // 결과가 있어도 센다 — "다른 종류에도 있어요 · 식당 1곳"(14 W261007.11). 검색어가 없으면 바로 빈 배열이다.
   // 넘어간 탭과 같은 조건으로 센다(W261007.11a) — 그 탭의 조건 칩까지라 종류별 칩을 통째로 넘긴다.

@@ -1,6 +1,7 @@
 # 프로젝트 아키텍처 인덱스
 
-> 최종 수정: 2026-10-08 (v25: ADR 표에 ADR-028 — 서버 워커(Vercel `zgnn-worker`), 레포에 `worker/`)
+> 최종 수정: 2026-10-15 (v26: ADR 표에 ADR-029 — 실사용 이벤트를 `ui_events` 에 insert 만. 「런타임 fetch 없음」 의 예외에 쓰기 둘(제보·이벤트)을 적었다)
+> 이전 2026-10-08 (v25: ADR 표에 ADR-028 — 서버 워커(Vercel `zgnn-worker`), 레포에 `worker/`)
 > 이전 2026-10-08 (v24: ADR 표에 ADR-027 — 지역은 추천이 아니라 판정 개수로(홈 6권역 카드, [features/area-cards](./features/area-cards.md)))
 > 이전 2026-10-06 (v23: 라우트 표에 **숨은 운영 현황 화면 `/admin/ops`** 한 줄 — `/admin` 의 세션·밀도를 그대로 받는다([todo/15](./todo/15-ops-dashboard.md) T3.1))
 > 이전 2026-10-06 (v22: ADR 표에 [ADR-023](./decisions/ADR-023-ops-dashboard-and-run-log.md)(제안) · features 표에 [ops-dashboard.md](./features/ops-dashboard.md)(제안) 한 줄씩)
@@ -76,6 +77,7 @@ Notion 공개 페이지 ──(scripts, 무인증 API)──▶ data/jejudo-noti
 
 - 사용자가 보는 화면은 런타임에 아무것도 fetch 하지 않는다. 장소 86곳(숙소 26·식당 34·카페 26), 준비물 15가지 — 승인한 장소가 들어오면 86 을 넘는다.
   **예외는 `/admin` 하나**다: 운영자 검수 화면이 publishable 키로 `candidates`·`places` 를 직접 읽고 쓴다(→ [ADR-018](./decisions/ADR-018-in-app-admin-review.md)).
+  사용자 화면의 **쓰기**는 둘 — 장소 제보([ADR-021](./decisions/ADR-021-place-reports.md))와 실사용 이벤트([ADR-029](./decisions/ADR-029-ui-events.md)) — 둘 다 insert 만, 읽기 없음이다.
 - 원본을 Supabase 로 옮기고 블로그 수집·AI 분석·승인·자동 재빌드를 붙이는 계획은 [todo/](./todo/README.md), 결정은 [ADR-015](./decisions/ADR-015-supabase-source-and-rebuild.md) — 스키마·시드·`data:pull`·수집 코드가 있고, **배포 전환(4a)도 끝났다**: `vercel.json` 의 `buildCommand` 가 `pnpm data:pull && pnpm build` 라 배포마다 DB 를 읽는다(위 다이어그램의 Notion 경로는 1회 시드 이력이다). 남은 것은 승인이 저절로 재배포를 일으키는 웹훅(4b).
 - 좌표는 81곳, 도로명주소는 76곳에 있다. 없는 곳은 지도에서 빠지고 "좌표 없는 N곳 제외" 로 알린다.
 
@@ -223,6 +225,7 @@ data/                         # Notion 추출본(커밋) · raw/(무시)
 | [ADR-026](./decisions/ADR-026-route-ours-navigation-naver.md) | 하루 동선은 **경로는 우리, 운전 안내는 네이버** — 저장한 곳에 날짜 라벨을 얹고 직선거리로 순서를 제안한 뒤, 네이버 지도 **웹** 길찾기 주소(경유 5 + 도착, 넘치면 이어지는 묶음)로 넘긴다. Directions API·서버·키 없음, 앱 스킴(`nmap://`)은 앱 유무 판별이 필요해 쓰지 않는다. 판정은 반려동물 조건까지(영업시간 없음) |
 | [ADR-027](./decisions/ADR-027-areas-by-verdict-count.md) | 지역은 **추천이 아니라 판정 개수**로 — 홈 6권역 카드가 "묵을 곳 n · 카페 n"(히어로와 같은 셈, 눌러 연 목록도 같은 술어)을 말하고, 0칸은 "저희가 아직 덜 모았다"·"m곳 중 0곳" 으로 '모른다' 와 '어렵다' 를 가른다. 식당은 머리 숫자에서 빼고, '추천' 라벨은 데이터 문턱을 넘은 칸에만. 경유 카페·일자 자동 추천·새 동네 화면은 버렸다 |
 | [ADR-028](./decisions/ADR-028-vercel-remote-worker.md) | 수집·분석을 **버튼이 깨우는 Vercel 함수**에서도 돌린다(별도 프로젝트 `zgnn-worker`, 레포의 `worker/` — 사이트는 정적 그대로). 권한은 버튼을 누른 운영자의 JWT, 서버 장기 값은 Claude `setup-token`·네이버 키 둘. 한 호출은 로컬 `once` 와 같은 한 바퀴를 분석 하나·글 5건까지 돌고 같은 JWT 로 자기를 다시 부른다. 로컬 워커와는 `workers` 심장으로 비킨다. cron·자동 실행은 없다 |
+| [ADR-029](./decisions/ADR-029-ui-events.md) | **실사용 이벤트**는 우리 Supabase `ui_events` 에 비로그인 insert 만(제보와 같은 선) — 외부 분석 도구 없음. 셸이 모든 탭을 요소 종류로 거칠게 받고(`dead` 를 잡으려면 필요하다) 이름은 `data-ev` 단 소수에만. 탭 단위 임시 아이디, 화면 글자·검색어는 안 받는다. 운영 주소에서만, 90일 보관, `/ux-eval` 은 집계 한 줄만 메인이 읽는다 (원격 미적용) |
 
 ## 버그 기록
 

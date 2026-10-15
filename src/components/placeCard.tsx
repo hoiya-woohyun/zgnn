@@ -120,7 +120,7 @@ export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEdit
   );
 
   return (
-    <li>
+    <li data-ev="card">
       <div className="relative">
         {noteEditor ? (
           <div className={`${CARD_SURFACE} p-4`}>{body}</div>

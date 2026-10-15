@@ -21,6 +21,8 @@ type TActionTileProps = {
   effect?: ReactNode;
   'aria-label'?: string;
   'aria-pressed'?: boolean;
+  /** 실사용 이벤트의 이름표(ADR-029) — 없으면 버튼·링크 종류로 적힌다. */
+  'data-ev'?: string;
 };
 
 const CIRCLE_TONE: Record<TActionTileTone, string> = {

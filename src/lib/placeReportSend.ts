@@ -1,5 +1,5 @@
 /**
- * 사용자 제보를 **보내는** 얇은 모듈 — 사이트가 런타임에 Supabase 에 쓰는 유일한 자리(ADR-021 R1).
+ * 사용자 제보를 **보내는** 얇은 모듈 — 사이트가 런타임에 Supabase 에 쓰는 두 자리 중 하나(ADR-021 R1 · 다른 하나는 실사용 이벤트 `uiEventsSend.ts`, ADR-029).
  *
  * supabase-js 를 쓰지 않는다. 필요한 것은 POST 한 번이고, 라이브러리를 끌어오면 GoTrue 클라이언트가 같이 와서
  * 사용자 화면에 인증 저장소(localStorage)가 생긴다. `/admin` 의 클라이언트(`adminSupabase.ts`)도 재사용하지 않는다 —

@@ -108,6 +108,7 @@ export function AppTabBar({ onNavigate }: TAppTabBarProps) {
 
   return (
     <nav
+      data-ev="tab"
       aria-label="주요 화면"
       // 배경은 **바탕과 같은 크림, 불투명**이다(ADR-010 v4 — 가장자리 면은 바탕색). 흰색이면
       // 홈 인디케이터 자리(pb-safe)만 흰 띠가 되어 위쪽 상태바 자리(크림)와 짝이 안 맞는다.
