@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { AREAS, areaOf, countByArea } from './areaGroups';
 import { judgeEligibility } from './eligibility';
+import { reachablePlaces } from './eligibilityCounts';
 import {
   areaCarriedRelease,
   areaReleaseCount,
   filterPlacesPage,
   filtersOfPlaceType,
   hideHardCount,
+  onlyReachableCount,
   otherTypeHiddenMatches,
   otherTypeMatches,
   placesPageEmptySearch,
@@ -172,11 +174,24 @@ describe("'갈 수 있는 곳만'(19 T4.1)", () => {
     expect(placesPageChips({ ...chipBase, hasDog: false, onlyReachable: true }).chips).toEqual([]);
   });
 
-  it('칩은 권역 바로 뒤, 시트 버튼 숫자(activeFilterCount)에는 안 센다', () => {
+  it('칩은 권역 바로 뒤, 시트에 칩이 있어 시트 버튼 숫자(activeFilterCount)에 센다(14 W261013.14d)', () => {
     const chipBase = { type: 'stay' as const, town: null, needsIndoor: false, hasDog: true, directions: [], petKeys: [], hideHard: false, query: '' };
-    const result = placesPageChips({ ...chipBase, area: 'west', onlyReachable: true });
-    expect(result.chips.map((chip) => chip.key)).toEqual(['area', 'onlyReachable']);
-    expect(result.activeFilterCount).toBe(0);
+    const result = placesPageChips({ ...chipBase, area: 'west', onlyReachable: true, hideHard: true });
+    expect(result.chips.map((chip) => chip.key)).toEqual(['area', 'onlyReachable', 'hideHard']);
+    expect(result.activeFilterCount).toBe(2);
+    expect(placesPageChips({ ...chipBase, onlyReachable: true }).activeFilterCount).toBe(1);
+  });
+
+  it('시트 칩의 수는 켜면 남는 곳 — 켜든 끄든 같고, 홈 히어로처럼 가능 + 야외를 센다(14 W261013.14d)', () => {
+    const eligibilityMap = mapOf(BORI);
+    const conditions = { ...base, type: 'stay' as const, eligibilityMap };
+    // 홈 히어로 시트가 펼치는 곳(`reachablePlaces`) 중 숙소 — 시트 칩과 히어로가 한 술어다.
+    const reachable = reachablePlaces(placesOfType('stay'), BORI).length;
+    expect(reachable).toBeGreaterThan(0);
+    expect(reachable).toBeLessThan(placesOfType('stay').length);
+    expect(onlyReachableCount(conditions)).toBe(reachable);
+    expect(onlyReachableCount({ ...conditions, onlyReachable: true })).toBe(reachable);
+    expect(onlyReachableCount({ ...conditions, eligibilityMap: null })).toBe(0);
   });
 
   it('0곳이면 이 조건 하나만 푼 수를 센다 — 꺼져 있거나 맵이 없으면 0', () => {

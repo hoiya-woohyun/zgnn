@@ -35,7 +35,7 @@ export type TPlacesPageConditions = {
   hideHard: boolean;
   /**
    * '갈 수 있는 곳만'(19 T4.1) — 가능 + 야외 자리(`isReachable`). 홈 동네 카드가 권역과 함께 건다: 카드 "묵을 곳 n" 이 그 셈이라
-   * `hideHard`(어려움만 뺀다)로는 확인·정보 없음이 남아 "1곳" 을 눌러 2곳을 봤다. 시트에는 없다(권역처럼 칩으로만 푼다).
+   * `hideHard`(어려움만 뺀다)로는 확인·정보 없음이 남아 "1곳" 을 눌러 2곳을 봤다. 필터 시트에도 같은 값의 칩이 있다(14 W261013.14d).
    */
   onlyReachable: boolean;
   /** 강아지가 없으면 null — 그때 hideHard·onlyReachable 은 걸러 내지 않는다. */
@@ -114,6 +114,14 @@ export const hideHardCount = (conditions: TPlacesPageConditions): number => {
   if (!eligibilityMap) return 0;
   return filterPlacesPage({ ...conditions, hideHard: false }).filter((place) => eligibilityMap.get(place.id)?.level === 'hard').length;
 };
+
+/**
+ * '갈 수 있는 곳만' 을 켜면(켜 두었으면) 남는 곳 수(14 W261013.14d) — 시트 칩 "갈 수 있는 곳만 4" 의 수. 옆 '어려운 곳 숨기기' 와 달리
+ * 숨기는 수가 아니라 **남는** 수다: "~만 N" 은 그 N곳으로 읽히고, 홈 히어로("갈 수 있는 곳 N")도 같은 술어(`isReachable`)로 남는 쪽을 센다.
+ * 나머지 조건은 그대로 센다. 판정 맵이 없으면(강아지 없음) 0.
+ */
+export const onlyReachableCount = (conditions: TPlacesPageConditions): number =>
+  conditions.eligibilityMap ? filterPlacesPage({ ...conditions, onlyReachable: true }).length : 0;
 
 /** 동네 카드로 들어온 뒤 따라와 걸린 것 — 카드는 이것들 없이 셌다. */
 export type TAreaCarried = { count: number; town: string | null; directions: number; petKeys: number };
@@ -195,8 +203,9 @@ export type TPlacesPageChip = { key: string; label: string };
 
 /**
  * 켜진 조건을 이름으로. 순서는 권역 → 따라오는 것(읍면·실내) → 방향 → 반려동물 → 정렬 → 어려운 곳 숨김 → 검색어.
- * `activeFilterCount` 는 **검색어·권역·'갈 수 있는 곳만' 을 뺀** 칩 수다 — 검색어는 검색창에 보이고 뒤의 둘은 시트에 고르는 자리가 없다(홈 동네 카드만 건다, 19 T3·T4.1).
- * 접힌 시트 버튼의 숫자는 시트 안에서 끌 수 있는 것의 수여야 한다. 권역은 맨 앞 — 목록 전체의 테두리라 먼저 읽혀야 한다.
+ * `activeFilterCount` 는 **검색어·권역을 뺀** 칩 수다 — 검색어는 검색창에 보이고 권역은 시트에 고르는 자리가 없다(홈 동네 카드만 건다, 19 T3).
+ * 접힌 시트 버튼의 숫자는 시트 안에서 끌 수 있는 것의 수여야 한다. '갈 수 있는 곳만' 은 시트에 칩이 생겨(14 W261013.14d) 센다 — 자리는 권역 바로 뒤 그대로
+ * (카드가 둘을 함께 건다). 권역은 맨 앞 — 목록 전체의 테두리라 먼저 읽혀야 한다.
  * `sortLabel` 은 본 화면만 준다(정렬은 종류를 바꾸면 리셋되므로 엿보기엔 늘 없다).
  */
 export const placesPageChips = ({
@@ -229,11 +238,12 @@ export const placesPageChips = ({
     ...(sortLabel !== null ? [{ key: 'sort', label: sortLabel }] : []),
     ...(hasDog && hideHard ? [{ key: 'hideHard', label: '어려운 곳 숨김' }] : []),
   ];
+  const reachableChips: TPlacesPageChip[] = hasDog && onlyReachable ? [{ key: 'onlyReachable', label: '갈 수 있는 곳만' }] : [];
   const chips = [
     ...(area ? [{ key: 'area', label: areaTownsLabel(area) }] : []),
-    ...(hasDog && onlyReachable ? [{ key: 'onlyReachable', label: '갈 수 있는 곳만' }] : []),
+    ...reachableChips,
     ...conditionChips,
     ...(trimmedQuery ? [{ key: 'query', label: `"${trimmedQuery}"` }] : []),
   ];
-  return { chips, activeFilterCount: conditionChips.length, hasFilters: chips.length > 0 };
+  return { chips, activeFilterCount: reachableChips.length + conditionChips.length, hasFilters: chips.length > 0 };
 };

@@ -14,6 +14,13 @@ type TPlacesPageEligibilityTogglesProps = {
   /** `bar`: 목록 위 고정 영역. `sheet`: 모바일 필터 시트 안(이름표를 달고 다른 조건과 같은 간격). */
   variant: TFiltersVariant;
   type: TPlaceType;
+  /** '갈 수 있는 곳만'(14 W261013.14d) — 홈 동네 카드가 거는 것과 같은 스토어 값이라 카드로 들어오면 눌린 채로 보인다. */
+  onlyReachable: boolean;
+  onToggleOnlyReachable: () => void;
+  /** 켜면 남는 곳 수(`onlyReachableCount`) — 옆 칩과 달리 숨기는 수가 아니라 남는 수다("~만 4" 는 그 4곳으로 읽힌다). */
+  reachableCount: number;
+  /** 지금 목록 수. 끈 채로 `reachableCount` 와 같으면 켜도 바뀌는 것이 없어 흐리게 둔다. */
+  resultCount: number;
   hideHard: boolean;
   onToggleHideHard: () => void;
   needsIndoor: boolean;
@@ -23,7 +30,7 @@ type TPlacesPageEligibilityTogglesProps = {
 };
 
 /**
- * 판정 관련 토글 두 개. 우리 강아지 프로필이 있을 때만 렌더된다(placesPage.tsx 가 호출을
+ * 판정 관련 토글 — '갈 수 있는 곳만' · '어려운 곳 숨기기' · '실내 자리 필요'. 우리 강아지 프로필이 있을 때만 렌더된다(placesPage.tsx 가 호출을
  * `dog` 로 감싼다) — 프로필이 없으면 "이용하기 어려워요"(hard)라는 개념 자체가 없고, 이 토글이 보이는 것만으로도
  * v0 화면과 달라지기 때문이다.
  *
@@ -32,6 +39,10 @@ type TPlacesPageEligibilityTogglesProps = {
 export function PlacesPageEligibilityToggles({
   variant,
   type,
+  onlyReachable,
+  onToggleOnlyReachable,
+  reachableCount,
+  resultCount,
   hideHard,
   onToggleHideHard,
   needsIndoor,
@@ -40,6 +51,16 @@ export function PlacesPageEligibilityToggles({
 }: TPlacesPageEligibilityTogglesProps) {
   const buttons = (
     <>
+      {/* '갈 수 있는 곳만' 이 맨 앞 — 가능 + 야외 자리(홈 히어로 "갈 수 있는 곳 N" 과 같은 술어)만 남긴다. '어려운 곳 숨기기' 는
+          확인 필요·정보 없음을 남겨 대형견 보호자가 4곳만 볼 길이 홈 히어로 숫자뿐이었다(14 W261013.14d · seongho-06).
+          켜도 바뀌는 것이 없으면(다 갈 수 있는 목록) 옆 칩과 같은 토큰으로 흐리게 둔다. */}
+      <FilterChip
+        pressed={onlyReachable}
+        onClick={onToggleOnlyReachable}
+        className={cx(reachableCount === resultCount && !onlyReachable && 'border-secondary text-tertiary')}
+      >
+        갈 수 있는 곳만 {reachableCount}
+      </FilterChip>
       {/* 숨기는 곳 수를 읍면 칩("구좌읍 9")처럼 이름 뒤에 — 어려움이 0곳인 목록에서 눌러도 "47곳 보기" 그대로라 고장으로 보였다(14 W261013.8).
           0 이면 꺼진 칩을 흐리게 두되 누를 수는 있다 — 다른 종류로 넘어가면 다시 숨길 곳이 생기는 전역 스위치다. 흐림은 투명도가 아니라
           한 단 옅은 글자·테두리 토큰이다(누를 수 있는 글자라 대비를 지킨다). 켜 둔 칩은 켜짐 모양 그대로 — 수 0 이 말한다. */}

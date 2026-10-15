@@ -20,7 +20,10 @@ type TPlacesPageFilterState = {
   query: string;
   directions: TDirection[];
   hideHard: boolean;
-  /** '갈 수 있는 곳만'(19 T4.1) — 동네 카드가 권역과 함께 건다. 권역처럼 시트에 자리가 없고 칩으로만 푼다. */
+  /**
+   * '갈 수 있는 곳만'(19 T4.1) — 동네 카드가 권역과 함께 걸고, 필터 시트의 '우리 강아지 기준' 에서도 켜고 끈다(14 W261013.14d — 4곳만 보는 길이
+   * 홈 히어로 숫자뿐이었다). 한 값이라 카드로 들어오면 시트의 칩이 눌린 채로 보인다. 권역과 달리 시트 버튼 숫자에 들고 '모두 지우기' 가 푼다.
+   */
   onlyReachable: boolean;
   /** 6권역. 시트에는 없고 검색 줄 밑 한 줄로만 보인다(`PlacesPageAreaLine`). */
   area: TAreaId | null;
@@ -41,6 +44,7 @@ type TPlacesPageFilterState = {
   enterArea: (area: TAreaId) => void;
   clearArea: () => void;
   clearOnlyReachable: () => void;
+  toggleOnlyReachable: () => void;
   /** 동네 카드 진입에 따라온 방향·이 종류의 조건 칩을 푼다(19 T4.2). 읍면은 퍼시스트라 부르는 쪽이 `setTown(null)` 을 함께 부른다. */
   releaseAreaCarried: (type: TPlaceType) => void;
   toggleDirection: (direction: TDirection) => void;
@@ -48,7 +52,7 @@ type TPlacesPageFilterState = {
   setHideHard: (value: boolean) => void;
   togglePetKey: (type: TPlaceType, key: TPetFilterKey) => void;
   toggleHardOpen: (type: TPlaceType) => void;
-  /** 검색어는 두고 조건만 푼다 — 다른 종류의 칩까지(보이지 않는 조건이 남지 않게). */
+  /** 검색어·권역은 두고 시트의 조건만 푼다 — 다른 종류의 칩까지(보이지 않는 조건이 남지 않게). */
   resetConditions: () => void;
 };
 
@@ -68,6 +72,7 @@ export const usePlacesPageFilterStore = create<TPlacesPageFilterState>()((set) =
   enterArea: (area) => set({ area, onlyReachable: true, query: '' }),
   clearArea: () => set({ area: null }),
   clearOnlyReachable: () => set({ onlyReachable: false }),
+  toggleOnlyReachable: () => set((state) => ({ onlyReachable: !state.onlyReachable })),
   releaseAreaCarried: (type) => set((state) => ({ directions: [], petKeysByType: { ...state.petKeysByType, [type]: [] } })),
   toggleDirection: (direction) =>
     set((state) => ({
@@ -85,5 +90,5 @@ export const usePlacesPageFilterStore = create<TPlacesPageFilterState>()((set) =
     }),
   toggleHardOpen: (type) =>
     set((state) => ({ hardOpenByType: { ...state.hardOpenByType, [type]: !state.hardOpenByType[type] } })),
-  resetConditions: () => set({ directions: [], hideHard: false, petKeysByType: emptyPetKeys() }),
+  resetConditions: () => set({ directions: [], hideHard: false, onlyReachable: false, petKeysByType: emptyPetKeys() }),
 }));

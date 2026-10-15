@@ -16,7 +16,7 @@ import { SEARCH_FIELD } from '../components/noAutofill';
 import { TYPE_META } from '../lib/places';
 import { comparePrice, resetFiltersLabel, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
 import { countByLevel, levelCountParts } from '../lib/eligibilityCounts';
-import { areaCarriedRelease, areaReleaseCount, filterPlacesPage, hideHardCount, otherTypeHiddenMatches, otherTypeMatches, placesByTown, placesPageChips, reachableReleaseCount, townReleaseCount } from '../lib/placesPageFilter';
+import { areaCarriedRelease, areaReleaseCount, filterPlacesPage, hideHardCount, onlyReachableCount, otherTypeHiddenMatches, otherTypeMatches, placesByTown, placesPageChips, reachableReleaseCount, townReleaseCount } from '../lib/placesPageFilter';
 import { sortByEligibility } from '../lib/sortByEligibility';
 import { distancesFrom, sortByDistance } from '../lib/distanceSort';
 import { LOCATE_NOTICE, locateMe } from '../lib/myLocation';
@@ -70,6 +70,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
   const area = usePlacesPageFilterStore((state) => state.area);
   const clearArea = usePlacesPageFilterStore((state) => state.clearArea);
   const clearOnlyReachable = usePlacesPageFilterStore((state) => state.clearOnlyReachable);
+  const toggleOnlyReachable = usePlacesPageFilterStore((state) => state.toggleOnlyReachable);
   const releaseAreaCarried = usePlacesPageFilterStore((state) => state.releaseAreaCarried);
   const [sort, setSort] = useState<TPlaceSort>('none');
   /** 가까운 순의 기준점 — 고를 때 한 번 받는다. 저장하지 않는다(ADR-012 대상 아님). */
@@ -137,6 +138,11 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     () => hideHardCount({ type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap }),
     [type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap],
   );
+  // '갈 수 있는 곳만' 을 켜면 남는 곳 수(14 W261013.14d) — 홈 히어로("갈 수 있는 곳 N")와 같은 술어.
+  const reachableCount = useMemo(
+    () => onlyReachableCount({ type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap }),
+    [type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap],
+  );
   const levelParts = useMemo(
     () => (dog ? levelCountParts(countByLevel(results, dog, { needsIndoor })) : []),
     [results, dog, needsIndoor],
@@ -196,11 +202,11 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     if (type !== 'stay') setNeedsIndoor(false);
   };
 
-  // 목록 위 지우기 링크는 시트에 없는 것(검색어·권역·갈 수 있는 곳만)까지 지운다 — 칩 줄에 보이는 것을 전부 지우는 것이 그 링크의 말이다.
+  // 목록 위 지우기 링크는 시트에 없는 것(검색어·권역)까지 지운다 — 칩 줄에 보이는 것을 전부 지우는 것이 그 링크의 말이다.
+  // '갈 수 있는 곳만' 은 시트에 칩이 생겨(14 W261013.14d) `resetConditions` 가 푼다.
   const resetFilters = () => {
     setQuery('');
     clearArea();
-    clearOnlyReachable();
     resetConditions();
   };
 
@@ -275,6 +281,9 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
                 eligibility={
                   dog
                     ? {
+                        onlyReachable,
+                        onToggleOnlyReachable: toggleOnlyReachable,
+                        reachableCount,
                         hideHard,
                         onToggleHideHard: toggleHideHard,
                         needsIndoor,
@@ -314,6 +323,10 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
             <PlacesPageEligibilityToggles
               variant="bar"
               type={type}
+              onlyReachable={onlyReachable}
+              onToggleOnlyReachable={toggleOnlyReachable}
+              reachableCount={reachableCount}
+              resultCount={results.length}
               hideHard={hideHard}
               onToggleHideHard={toggleHideHard}
               needsIndoor={needsIndoor}

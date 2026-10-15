@@ -22,6 +22,11 @@ type TPlacesPageFilterSheetProps = {
   onChangeSort: (sort: TPlaceSort) => void;
   /** 우리 강아지 기준 토글은 프로필이 있을 때만 있다. 없으면 이 값이 null 이다. */
   eligibility: {
+    /** '갈 수 있는 곳만'(14 W261013.14d) — 홈 동네 카드가 거는 것과 같은 스토어 값. */
+    onlyReachable: boolean;
+    onToggleOnlyReachable: () => void;
+    /** 켜면 남는 곳 수(`onlyReachableCount`). */
+    reachableCount: number;
     hideHard: boolean;
     onToggleHideHard: () => void;
     needsIndoor: boolean;
@@ -123,11 +128,16 @@ export function PlacesPageFilterSheet({
             )}
           >
             {/* 우리 강아지 기준이 **맨 위**다(14 W261006.13) — 맨 아래에선 시트 높이에 따라 반쯤 잘려, 대형견 보호자의
-                핵심 스위치("어려운 곳 숨기기")가 스크롤해야 보였다. 읍면·조건 칩은 그 아래에서 좁힌다. */}
+                핵심 스위치("어려운 곳 숨기기")가 스크롤해야 보였다. 읍면·조건 칩은 그 아래에서 좁힌다.
+                '갈 수 있는 곳만' 도 여기 있다(14 W261013.14d) — 없을 때는 4곳만 보는 길이 홈 히어로 숫자뿐이었다. */}
             {eligibility && (
               <PlacesPageEligibilityToggles
                 variant="sheet"
                 type={type}
+                onlyReachable={eligibility.onlyReachable}
+                onToggleOnlyReachable={eligibility.onToggleOnlyReachable}
+                reachableCount={eligibility.reachableCount}
+                resultCount={resultCount}
                 hideHard={eligibility.hideHard}
                 onToggleHideHard={eligibility.onToggleHideHard}
                 needsIndoor={eligibility.needsIndoor}
