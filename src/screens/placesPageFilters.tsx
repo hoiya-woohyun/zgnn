@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Select } from '../components/base/select';
 import { FilterChip } from '../components/filterChip';
 import { DIRECTIONS, DIRECTION_LABEL, topTowns } from '../lib/places';
-import { envFiltersWithData, PET_FILTERS, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
+import { envFiltersWithData, PET_FILTERS, townFilterLabel, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
 import { placesOfType } from '../lib/places';
 import type { TDirection, TPlaceType } from '../types';
 import { cx } from '../utils/cx';
@@ -134,7 +134,7 @@ export function PlacesPageFilters({
               pressed={active}
               onClick={() => onSelectTown(active ? null : candidate)}
             >
-              {candidate} {count}
+              {townFilterLabel(candidate)} {count}
             </FilterChip>
           );
         })}

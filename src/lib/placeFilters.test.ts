@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parsePetPolicy } from './petPolicy';
-import { PET_FILTERS, carriedFilterChips, resetFiltersLabel } from './placeFilters';
+import { PET_FILTERS, carriedFilterChips, resetFiltersLabel, townFilterLabel } from './placeFilters';
 
 const filter = (key: string, text: string) =>
   PET_FILTERS.stay.find((f) => f.key === key)!.test(parsePetPolicy(text));
@@ -23,6 +23,18 @@ describe('resetFiltersLabel — 지우는 것을 그대로 말한다', () => {
   });
 });
 
+describe('townFilterLabel — 필터로 건 읍면의 이름(14 W261010.30a)', () => {
+  it('시내(동 지역) 태그는 시 전체로 읽히지 않게 "시내" 를 붙인다', () => {
+    expect(townFilterLabel('제주시')).toBe('제주시 시내');
+    expect(townFilterLabel('서귀포시')).toBe('서귀포시 시내');
+  });
+
+  it('읍·면은 그대로', () => {
+    expect(townFilterLabel('구좌읍')).toBe('구좌읍');
+    expect(townFilterLabel('우도면')).toBe('우도면');
+  });
+});
+
 describe('carriedFilterChips — 종류를 바꿔도 따라오는 칩', () => {
   const base = { town: null, needsIndoor: false, hasDog: true, type: 'cafe' } as const;
 
@@ -35,6 +47,10 @@ describe('carriedFilterChips — 종류를 바꿔도 따라오는 칩', () => {
       { key: 'town', label: '애월읍' },
       { key: 'indoor', label: '실내 자리 필요' },
     ]);
+  });
+
+  it('시내 태그의 켜진 칩도 "제주시 시내" — 시내만 보기 뒤 시 전체로 읽히지 않는다', () => {
+    expect(carriedFilterChips({ ...base, town: '제주시' })).toEqual([{ key: 'town', label: '제주시 시내' }]);
   });
 
   it('프로필이 없거나 숙소 탭이면 실내 칩은 없다 — 보이지 않는 값은 칩으로 말하지 않는다', () => {

@@ -16,6 +16,7 @@ import { placesPageHardFold } from '../lib/placesPageHardFold';
 import { placesPageEmptySearch, type TAreaCarried } from '../lib/placesPageFilter';
 import { placesPageRepeatedReason } from '../lib/placesPageRepeatedReason';
 import { cityScopeOf } from '../lib/placeSearch';
+import { townFilterLabel } from '../lib/placeFilters';
 import { areaTownsLabel, type TAreaId } from '../lib/areaGroups';
 import { josa, withJosa } from '../lib/korean';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
@@ -296,7 +297,7 @@ export function PlacesPageResults({
       {results.length > 0 && areaCarried && (
         <p className="flex flex-wrap items-center gap-x-3 px-4 text-sm text-tertiary md:px-6">
           {`동네 카드는 ${areaCarried.count}곳인데 ${withJosa(
-            [areaCarried.town, areaCarried.directions > 0 && '방향', areaCarried.petKeys > 0 && `조건 ${areaCarried.petKeys}개`]
+            [areaCarried.town && townFilterLabel(areaCarried.town), areaCarried.directions > 0 && '방향', areaCarried.petKeys > 0 && `조건 ${areaCarried.petKeys}개`]
               .filter(Boolean)
               .join(' · '),
             '이/가',
@@ -428,11 +429,11 @@ export function PlacesPageResults({
           {town && !townHasNoPlaces && townReleaseCount > 0 ? (
             <EmptyState
               Icon={SearchMd}
-              title={`${town}에는 맞는 ${withJosa(TYPE_META[type].label, '이/가')} 없어요`}
+              title={`${townFilterLabel(town)}에는 맞는 ${withJosa(TYPE_META[type].label, '이/가')} 없어요`}
               description={`읍면을 풀면 ${townReleaseCount}곳이 있어요.`}
               action={
                 <Button color="primary" size="md" onClick={onClearTown}>
-                  {`${town} 풀고 ${townReleaseCount}곳 보기`}
+                  {`${townFilterLabel(town)} 풀고 ${townReleaseCount}곳 보기`}
                 </Button>
               }
             />
@@ -520,7 +521,7 @@ export function PlacesPageResults({
               Icon={SearchMd}
               title={
                 townHasNoPlaces
-                  ? `${town}엔 ${withJosa(TYPE_META[type].label, '이/가')} 없어요`
+                  ? `${townFilterLabel(town ?? '')}엔 ${withJosa(TYPE_META[type].label, '이/가')} 없어요`
                   : `${TYPE_META[type].label}에는 필터에 맞는 곳이 없어요`
               }
               description={

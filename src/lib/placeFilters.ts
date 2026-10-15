@@ -89,7 +89,15 @@ export const resetFiltersLabel = (hasQuery: boolean, conditionCount: number): st
 };
 
 /**
- * 종류를 바꿔도 **따라오는** 조건 — 스토어에 사는 읍면과 '실내 자리 필요'(화면 state 인 방향·조건·정렬은 `key={type}` 로 리셋된다).
+ * 읍면 **필터**로 건 이름(14 W261010.30a). 지역 태그는 읍·면 하나라 시내(동 지역)는 시 이름 그대로 붙어 있다(`제주시`·`서귀포시`).
+ * 그대로 칩에 쓰면 '시내만 보기' 로 좁힌 칩이 '제주시' 라 다시 시 전체로 읽힌다 — 시 이름 **검색**은 소속 읍면까지 덮어서(W261010.30)
+ * 같은 글자가 화면 한 곳에서 두 범위를 말한다. 그래서 범위를 말하는 자리(시트 칩·켜진 칩·0곳 안내)만 '제주시 시내' 로 부른다.
+ * 카드의 위치 칩(`TownChip`)은 그대로 — 그 곳이 제주시에 있다는 말은 맞다. 태그 값은 바꾸지 않는다(스토어·검색·권역이 그 값을 쓴다).
+ */
+export const townFilterLabel = (town: string): string => (town.endsWith('시') ? `${town} 시내` : town);
+
+/**
+ * 종류를 바꿔도 **따라오는** 조건 —스토어에 사는 읍면과 '실내 자리 필요'(화면 state 인 방향·조건·정렬은 `key={type}` 로 리셋된다).
  * 본 화면의 칩 줄과 스와이프 엿보기가 **같은 함수**로 칩을 만든다 — 따로 만들었더니 엿보기가 '실내 자리 필요' 를 빼먹어
  * 손을 놓는 순간 칩 줄이 튀어나왔다(12 U3.6). 숙소 탭은 실내 조건을 세지도 보이지도 않는다(12 U0.3).
  */
@@ -101,7 +109,7 @@ export const carriedFilterChips = (state: {
   hasDog: boolean;
   type: TPlaceType;
 }): TCarriedChip[] => [
-  ...(state.town !== null ? [{ key: 'town' as const, label: state.town }] : []),
+  ...(state.town !== null ? [{ key: 'town' as const, label: townFilterLabel(state.town) }] : []),
   ...(state.hasDog && state.type !== 'stay' && state.needsIndoor
     ? [{ key: 'indoor' as const, label: '실내 자리 필요' }]
     : []),
