@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { dogProfileFormDirty, dogProfileFormOf, restorableDogProfileDraft } from './dogProfileDraft';
+import {
+  dogFormRowEmpty,
+  dogProfileFormDirty,
+  dogProfileFormOf,
+  restorableDogProfileDraft,
+  restoreDogFormRow,
+} from './dogProfileDraft';
 import type { TDogProfile } from '../types';
 
 const profile: TDogProfile = { dogs: [{ name: '두부', weightKg: 7 }], carrier: 'bag' };
@@ -30,5 +36,42 @@ describe('restorableDogProfileDraft', () => {
   it('그 사이 프로필이 바뀌었으면(지움 등) 되살리지 않는다', () => {
     expect(restorableDogProfileDraft({ form, base: profile }, null)).toBeNull();
     expect(restorableDogProfileDraft(null, profile)).toBeNull();
+  });
+});
+
+describe('dogFormRowEmpty — 빼도 잃을 게 없는 행', () => {
+  it('이름·몸무게 둘 다 비었을 때만(공백만 있어도 빈 것)', () => {
+    expect(dogFormRowEmpty({ name: '', weightKg: '' })).toBe(true);
+    expect(dogFormRowEmpty({ name: '  ', weightKg: ' ' })).toBe(true);
+    expect(dogFormRowEmpty({ name: '두부', weightKg: '' })).toBe(false);
+    expect(dogFormRowEmpty({ name: '', weightKg: '7' })).toBe(false);
+  });
+});
+
+describe('restoreDogFormRow — ✕ 의 되돌리기(14 W261010.7a)', () => {
+  const dubu = { name: '두부', weightKg: '7' };
+  const bori = { name: '보리', weightKg: '5' };
+  const kong = { name: '콩', weightKg: '3' };
+  const empty = { name: '', weightKg: '' };
+
+  it('뺀 자리에 그대로 되넣는다 — 가운데·맨 앞', () => {
+    expect(restoreDogFormRow([dubu, kong], 1, bori)).toEqual([dubu, bori, kong]);
+    expect(restoreDogFormRow([bori, kong], 0, dubu)).toEqual([dubu, bori, kong]);
+  });
+
+  it('그 사이 행이 줄었으면 끝에 붙인다', () => {
+    expect(restoreDogFormRow([dubu], 2, kong)).toEqual([dubu, kong]);
+  });
+
+  it('빼고 나서 빈 행을 더했으면 그 빈 행을 내주고 제자리에 — 상한을 넘기지 않는다', () => {
+    expect(restoreDogFormRow([dubu, kong, empty], 1, bori)).toEqual([dubu, bori, kong]);
+  });
+
+  it('빈 행도 없이 꽉 찼으면 되넣지 않는다(넘긴 채 저장하면 다음에 프로필이 통째로 비워진다)', () => {
+    expect(restoreDogFormRow([dubu, kong, { name: '모카', weightKg: '4' }], 1, bori)).toBeNull();
+  });
+
+  it('되넣는 행 자신이 비었어도 다른 빈 행을 내준다', () => {
+    expect(restoreDogFormRow([dubu, kong, empty], 0, empty)).toEqual([empty, dubu, kong]);
   });
 });

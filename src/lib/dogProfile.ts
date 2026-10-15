@@ -6,7 +6,7 @@
  */
 
 import type { TCarrier, TDogEntry, TDogProfile, TDogSize } from '../types';
-import { dogCallNames } from './korean';
+import { dogCallNames, withJosa } from './korean';
 
 export const MAX_DOGS = 3;
 export const DOG_NAME_MAX_LENGTH = 12;
@@ -105,6 +105,15 @@ export const sanitizeDog = (value: unknown): TDogProfile | null => {
  */
 export const dogProfileSavedMessage = (dogs: TDogEntry[]): string =>
   `${dogCallNames(dogs.map((d) => d.name))} 기준으로 바꿨어요`;
+
+/**
+ * 강아지 행을 ✕ 로 뺐을 때의 한 줄(14 W261010.7a). 폼 안의 일이라 아직 저장된 것은 없다 — 그래도 말없이 사라지면
+ * 손이 떨려 잘못 누른 사람은 한 마리가 빠진 줄 모르고 '고치기' 까지 누른다(tremor-04b). 이름을 아직 안 적었으면 몇 번째인지로.
+ */
+export const dogRowRemovedMessage = (name: string, index: number): string => {
+  const trimmed = name.trim();
+  return `${trimmed ? withJosa(trimmed, '을/를') : `${index + 1}번째 강아지를`} 뺐어요`;
+};
 
 /**
  * 주 버튼 줄(`/dog` 맨 아래 고정)에 서는 한 줄 — 아직 안 된 것(14 W261013.5). 줄은 늘 화면에 있으므로 여기 적은 말은

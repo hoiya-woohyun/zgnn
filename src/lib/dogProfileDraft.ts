@@ -10,6 +10,7 @@
  */
 
 import type { TCarrier, TDogProfile, TDogSize } from '../types';
+import { MAX_DOGS } from './dogProfile';
 
 export type TDogProfileFormRow = { name: string; weightKg: string };
 
@@ -33,6 +34,31 @@ export function dogProfileFormDirty(form: TDogProfileForm, base: TDogProfile | n
   if (form.carrier !== seed.carrier || form.sizeOverride !== seed.sizeOverride) return true;
   if (form.rows.length !== seed.rows.length) return true;
   return form.rows.some((row, index) => row.name !== seed.rows[index].name || row.weightKg !== seed.rows[index].weightKg);
+}
+
+/** 이름도 몸무게도 비어 있는 행 — 빼도 잃는 것이 없어 되돌리기를 띄우지 않는다(14 W261010.7a). */
+export function dogFormRowEmpty(row: TDogProfileFormRow): boolean {
+  return row.name.trim() === '' && row.weightKg.trim() === '';
+}
+
+/**
+ * ✕ 로 뺀 행을 되돌리기로 제자리(`index`)에 되넣는다(14 W261010.7a). 그 사이 행이 줄었으면 끝에 붙인다.
+ * 마릿수 상한(`MAX_DOGS`)은 넘기지 않는다 — 넘긴 채 저장하면 다음에 읽을 때 `sanitizeDog` 가 프로필을 **통째로** 비운다.
+ * 빼고 나서 '한 마리 더' 로 빈 행을 더했으면(잘못 뺀 걸 알고 다시 쓰려던 자리) 그 빈 행을 내주고 되넣는다.
+ * 빈 행도 없으면 `null` — 되넣지 않는다.
+ */
+export function restoreDogFormRow(
+  rows: TDogProfileFormRow[],
+  index: number,
+  row: TDogProfileFormRow,
+): TDogProfileFormRow[] | null {
+  const at = Math.min(index, rows.length);
+  const next = [...rows.slice(0, at), row, ...rows.slice(at)];
+  if (next.length <= MAX_DOGS) return next;
+  for (let i = next.length - 1; i >= 0; i -= 1) {
+    if (i !== at && dogFormRowEmpty(next[i])) return next.filter((_, j) => j !== i);
+  }
+  return null;
 }
 
 /** 돌아왔을 때 되살릴 초안 — 기준 프로필이 떠날 때와 **같은 값**일 때만. 아니면 `null`(저장된 프로필로 채운다). */

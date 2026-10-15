@@ -13,9 +13,17 @@ import {
   MAX_DOGS,
   dogProfileActionNote,
   dogProfileSavedMessage,
+  dogRowRemovedMessage,
   heavyDogs,
 } from '../lib/dogProfile';
-import { dogProfileFormDirty, dogProfileFormOf, restorableDogProfileDraft, type TDogProfileDraft } from '../lib/dogProfileDraft';
+import {
+  dogFormRowEmpty,
+  dogProfileFormDirty,
+  dogProfileFormOf,
+  restorableDogProfileDraft,
+  restoreDogFormRow,
+  type TDogProfileDraft,
+} from '../lib/dogProfileDraft';
 import { CARRIER_LABELS, dogSize } from '../lib/eligibility';
 import { useStoreHydrated } from '../providers/storeHydration';
 import { useAppStore, useDog } from '../store/useAppStore';
@@ -236,6 +244,24 @@ export function DogProfilePage() {
     });
   };
 
+  /*
+   * 행의 ✕ 도 버튼 한 번이라 같은 되돌리기를 준다(14 W261010.7a) — 몸무게 칸 옆이라 손이 떨려 빗나가면 한 마리가
+   * 말없이 사라졌다(tremor-04b). 폼 안의 일이라 되돌리면 폼만 돌아온다. 빈 행은 잃을 게 없어 알리지 않는다.
+   */
+  const handleRemoveRow = (index: number) => {
+    const removed = rows[index];
+    updateRows((prev) => prev.filter((_, i) => i !== index));
+    if (!removed || dogFormRowEmpty(removed)) return;
+    showAppStatus(dogRowRemovedMessage(removed.name, index), {
+      action: {
+        label: '되돌리기',
+        // 그 사이 고친 입력이 있을 수 있어 그때의 행에 되넣는다 — 뺄 때 잡아 둔 `rows` 로 덮지 않는다.
+        onPress: () => updateRows((prev) => restoreDogFormRow(prev, index, removed) ?? prev),
+      },
+      durationMs: STATUS_UNDO_MS,
+    });
+  };
+
   return (
     <div>
       <PageHeader
@@ -271,7 +297,7 @@ export function DogProfilePage() {
                   updateRows((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)))
                 }
                 onAdd={() => updateRows((prev) => (prev.length < MAX_DOGS ? [...prev, EMPTY_ROW] : prev))}
-                onRemove={(index) => updateRows((prev) => prev.filter((_, i) => i !== index))}
+                onRemove={handleRemoveRow}
               />
             </div>
 

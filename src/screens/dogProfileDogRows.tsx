@@ -37,7 +37,7 @@ export function DogProfileDogRows({ values, errors, onChange, onAdd, onRemove }:
           const error = errors[index] ?? {};
           const nth = `${index + 1}번째 강아지`;
           return (
-            <div key={index} className="flex items-start gap-2">
+            <div key={index} className="flex items-start gap-4">
               <div className="grid flex-1 grid-cols-[3fr_2fr] gap-2">
                 <div>
                   {/* 보이는 라벨 "이름" + aria-label 의 몇 번째 — 읽히는 이름은 "1번째 강아지 이름" 이다
@@ -110,8 +110,11 @@ export function DogProfileDogRows({ values, errors, onChange, onAdd, onRemove }:
               </div>
               {values.length > 1 && (
                 /* 칸마다 라벨이 위에 붙어, 그냥 두면 ✕ 가 입력 칸이 아니라 라벨 줄에 맞춰 선다.
-                   라벨과 같은 글자 크기의 빈 줄 + 같은 간격(gap-1.5)을 받쳐 입력 칸 높이에 맞춘다. */
-                <div className="flex shrink-0 flex-col gap-1.5">
+                   라벨과 같은 글자 크기의 빈 줄 + 같은 간격(gap-1.5)을 받쳐 입력 칸 높이에 맞춘다.
+                   몸무게 칸과는 16px 띄우고(gap-4) 44px 히트 영역은 오른쪽 여백으로 내민다(-mr-3) — 8px 옆이던 때
+                   몸무게 칸 끝을 누르려다 2px 빗나가 한 마리가 지워졌다(14 W261010.7a · tremor-04b). 내민 만큼
+                   아이콘(가운데 20px)의 오른쪽 끝이 본문 끝선에 맞고, 입력 칸 폭은 오히려 4px 넓어진다. */
+                <div className="-mr-3 flex shrink-0 flex-col gap-1.5">
                   <span aria-hidden="true" className="invisible text-sm">
                     ✕
                   </span>

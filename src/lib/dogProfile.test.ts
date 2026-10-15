@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { HEAVY_DOG_CONFIRM_KG, dogProfileActionNote, dogProfileSavedMessage, dogWeightSummary, heavyDogs, radioIndexAfterKey, sanitizeDog } from './dogProfile';
+import {
+  HEAVY_DOG_CONFIRM_KG,
+  dogProfileActionNote,
+  dogProfileSavedMessage,
+  dogRowRemovedMessage,
+  dogWeightSummary,
+  heavyDogs,
+  radioIndexAfterKey,
+  sanitizeDog,
+} from './dogProfile';
 
 describe('dogWeightSummary', () => {
   it('한 마리면 몸무게만 — "1마리 · 최대" 를 쓰지 않는다', () => {
@@ -91,6 +100,19 @@ describe('dogProfileSavedMessage — 저장 뒤 돌아온 화면의 한 줄', ()
         { name: '두부', weightKg: 4 },
       ]),
     ).toBe('보리와 두부 기준으로 바꿨어요');
+  });
+});
+
+describe('dogRowRemovedMessage — ✕ 로 한 마리를 뺐을 때(14 W261010.7a)', () => {
+  it('이름이 있으면 이름에 받침 맞춰 조사를 붙인다', () => {
+    expect(dogRowRemovedMessage('두부', 0)).toBe('두부를 뺐어요');
+    expect(dogRowRemovedMessage('콩', 1)).toBe('콩을 뺐어요');
+    expect(dogRowRemovedMessage('Coco', 1)).toBe('Coco를 뺐어요');
+  });
+
+  it('앞뒤 공백은 떼고, 이름이 비었으면 몇 번째인지로 부른다', () => {
+    expect(dogRowRemovedMessage('  보리 ', 0)).toBe('보리를 뺐어요');
+    expect(dogRowRemovedMessage('   ', 1)).toBe('2번째 강아지를 뺐어요');
   });
 });
 
