@@ -32,7 +32,10 @@ type TReportSheetProps = {
   notePlaceholder: string;
   /** 한 줄이 꼭 있어야 하나(장소 제안 — 가게 이름). */
   noteRequired?: boolean;
-  /** 열 때마다 한 줄 칸에 미리 채울 글(둘러보기의 방금 검색어). 시트는 닫혀도 마운트돼 있어 첫 값만으로는 다시 열 때 안 채워진다. */
+  /**
+   * 열 때마다 한 줄 칸에 미리 채울 글(둘러보기의 방금 검색어). 시트는 닫혀도 마운트돼 있어 첫 값만으로는 다시 열 때 안 채워진다.
+   * 사용자가 고쳐 둔 초안이 있으면 채우지 않는다.
+   */
   initialNote?: string;
   /** 보내고 기록까지 남긴 뒤 — 상세가 흔적 한 줄을 다시 그린다. */
   onSent?: () => void;
@@ -56,23 +59,39 @@ export function ReportSheet({
   initialNote = '',
   onSent,
 }: TReportSheetProps) {
-  const [kind, setKind] = useState<TReportKind | null>(kinds.length === 1 ? kinds[0] : null);
+  const firstKind = kinds.length === 1 ? kinds[0] : null;
+  const [kind, setKind] = useState<TReportKind | null>(firstKind);
   const [note, setNote] = useState('');
   // 열리는 순간 미리 채운다 — effect 가 아니라 렌더 중 이전 값과 견주는 꼴(닫힌 사이에 바뀐 검색어도 열 때 반영된다).
+  // 손댄 초안은 덮지 않는다(14 W261010.7f) — 비었거나 지난번에 채운 그대로일 때만 이번 검색어로 바꾼다.
+  const [prefilled, setPrefilled] = useState('');
   const [wasOpen, setWasOpen] = useState(isOpen);
   if (isOpen !== wasOpen) {
     setWasOpen(isOpen);
-    if (isOpen && initialNote !== '') setNote(initialNote);
+    if (isOpen && (note === '' || note === prefilled)) {
+      setNote(initialNote);
+      setPrefilled(initialNote);
+    }
   }
   const [sending, setSending] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const noteId = useId();
 
+  /**
+   * 바깥 탭·Esc·끌어 내리기·닫기 버튼 — **고른 종류와 쓴 글은 남긴다**(14 W261010.7f, tremor-35 가 바깥을 건드려 쓴 글을 잃었다).
+   * 시트는 닫혀도 마운트돼 있어 다시 열면 그대로다. 묻는 창을 띄우지 않는 것은 한 번 더 누르게 하는 것보다 잃지 않는 쪽이 싸서다.
+   */
   const close = () => {
     onOpenChange(false);
-    setKind(kinds.length === 1 ? kinds[0] : null);
-    setNote('');
     setProblem(null);
+  };
+
+  /** 보냈으면 비운다 — 다음에 여는 것은 새 제보다. */
+  const closeSent = () => {
+    close();
+    setKind(firstKind);
+    setNote('');
+    setPrefilled('');
   };
 
   const submit = async () => {
@@ -101,7 +120,7 @@ export function ReportSheet({
     rememberReport(placeId, kind);
     showAppStatus(reportSentText(kind));
     onSent?.();
-    close();
+    closeSent();
   };
 
   const length = [...note].length;
