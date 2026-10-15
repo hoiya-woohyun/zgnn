@@ -5,6 +5,7 @@ import { AlertTriangle } from '@untitledui/icons';
 import { Button } from '@/components/base/button';
 import { EmptyState } from '../components/layout/emptyState';
 import type { TEligibility } from '../lib/eligibility';
+import { mapFailureCopy } from '../lib/mapFailureCopy';
 import { mapPageCanvasMarkerLabel } from '../lib/mapPageCanvasMarkerLabel';
 import { loadNaverMaps, onNaverMapsAuthFailure } from '../lib/naverMap';
 import { pinIcon } from '../lib/naverMapPin';
@@ -560,12 +561,14 @@ export function MapPageCanvas({
      */
     const types = new Set(places.map((place) => place.type));
     const listType: TPlaceType = types.size === 1 ? [...types][0] : 'stay';
+    // 상세 미니 지도와 같은 말 — 오프라인일 때만 인터넷을 탓한다(14 W261010.33c). 'error' 는 클라이언트에서만 서므로 navigator 가 있다.
+    const copy = mapFailureCopy(navigator.onLine);
     return (
       <div className="flex h-full w-full items-center justify-center bg-secondary p-4">
         <EmptyState
           Icon={AlertTriangle}
-          title="지도는 인터넷이 필요해요"
-          description="연결이 없어도 저장한 곳과 장소 목록은 그대로 볼 수 있어요."
+          title={copy.title}
+          description={copy.description}
           action={
             <Button color="primary" size="lg" href={`/places/${listType}/`}>
               장소 목록으로 보기

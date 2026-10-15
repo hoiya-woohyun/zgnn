@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Expand06 } from '@untitledui/icons';
+import { mapFailureCopy } from '../lib/mapFailureCopy';
 import { loadNaverMaps, onNaverMapsAuthFailure } from '../lib/naverMap';
 import { pinIcon } from '../lib/naverMapPin';
 import { PLACE_FOCUS_ZOOM, TYPE_META, type TPlaceEntry } from '../lib/places';
@@ -119,15 +120,19 @@ export function PlaceDetailMiniMap({ place, geo }: { place: TPlaceEntry; geo: TG
     };
   }, [visible, geo.lat, geo.lng, place.type, place.name]);
 
+  // 지도 탭과 같은 말(14 W261010.33c) — 'error' 는 마운트 뒤 effect 에서만 서므로 정적 HTML 에선 navigator 를 읽지 않는다.
+  const failure = status === 'error' ? mapFailureCopy(navigator.onLine) : null;
+
   return (
     <div
       ref={slotRef}
       className="relative isolate h-44 overflow-hidden rounded-2xl border border-secondary bg-secondary"
     >
-      {status === 'error' ? (
-        <p className="flex h-full items-center justify-center px-4 text-center text-sm text-tertiary">
-          지도를 불러오지 못했어요. 인터넷 연결을 확인해 주세요.
-        </p>
+      {failure ? (
+        <div className="flex h-full flex-col items-center justify-center gap-1 px-4 text-center text-sm">
+          <p className="font-semibold text-secondary">{failure.title}</p>
+          <p className="text-tertiary">{failure.description}</p>
+        </div>
       ) : (
         <>
           <div ref={containerRef} className="h-full w-full" data-ev-ignore="" />

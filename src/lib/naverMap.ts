@@ -86,7 +86,7 @@ function notifyAuthFailure() {
  * SDK 를 받아 `naver.maps` 를 돌려준다.
  *
  * 실패(오프라인 · 출처 미등록 · 스크립트 차단 · 키 없음)는 reject 로 알린다 — 지도 화면이
- * 그 거부를 받아 "지도는 인터넷이 필요해요" 안내를 대신 그린다.
+ * 그 거부를 받아 지도 실패 안내(`mapFailureCopy` — 오프라인일 때만 인터넷을 탓한다)를 대신 그린다.
  */
 export function loadNaverMaps(): Promise<typeof naver.maps> {
   /*
