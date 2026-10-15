@@ -86,7 +86,7 @@ export function PlaceDetailPage({ id }: { id: string }) {
                 <dt className="text-xs text-tertiary">1박 요금</dt>
                 <dd className="mt-0.5 text-lg font-bold text-primary">{formatStayPrice(place.stay.price)}</dd>
                 {stayPriceSourceLine(place.stay.price) !== null && (
-                  <dd className="mt-1 whitespace-pre-line text-sm text-tertiary">{place.stay.price.text}</dd>
+                  <dd className="mt-1 whitespace-pre-line text-sm text-tertiary">{stayPriceSourceLine(place.stay.price)}</dd>
                 )}
               </div>
             )}
