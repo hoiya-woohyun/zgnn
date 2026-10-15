@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { headlineFor, judgeEligibility } from './eligibility';
-import { carrierWhatIf, countByLevel, LEVEL_COUNT_LABEL, levelCountParts, outdoorFallback, reachablePlaces, splitReachable } from './eligibilityCounts';
+import { carrierWhatIf, carrierWhatIfText, countByLevel, LEVEL_COUNT_LABEL, levelCountParts, outdoorFallback, reachablePlaces, splitReachable } from './eligibilityCounts';
 import { parsePetPolicy } from './petPolicy';
 import { PLACE_TYPES, placesOfType } from './places';
 import type { TDogProfile } from '../types';
@@ -111,7 +111,33 @@ describe('carrierWhatIf — 이동가방이 있으면 몇 곳이 열리나', () 
   const cageOnly = [parsePetPolicy('케이지 동반시 가능.'), parsePetPolicy('실내는 케이지 필수.')].map((policy) => ({ policy }));
 
   it('이동 수단 없음 + 케이지 필수 식당들 → 가방이면 어려움에서 벗어난다', () => {
-    expect(carrierWhatIf(cageOnly, TOFU_NONE)).toEqual({ carrier: 'bag', opened: 2 });
+    expect(carrierWhatIf(cageOnly, TOFU_NONE)).toEqual({
+      carrier: 'bag',
+      opened: 2,
+      counts: { ok: 0, outdoor: 0, cond: 2, unknown: 0, hard: 0 },
+    });
+  });
+
+  it("원문이 이동가방을 적은 곳은 '가능', 전화 확인이 남는 곳은 '확인 필요' 로 센다 — 전엔 다 '확인 필요' 였다(14 W261013.14h)", () => {
+    const places = [
+      parsePetPolicy('케이지 동반시 가능.'), // 가방이면 C2 → 확인 필요
+      parsePetPolicy('실내는 이동가방 필수.'), // 가방이면 가능
+      parsePetPolicy('실내는 이동가방 필수. 방문 전 전화 문의 필수.'), // 가방이어도 C6 → 확인 필요
+    ].map((policy) => ({ policy }));
+    const whatIf = carrierWhatIf(places, TOFU_NONE);
+    expect(whatIf?.counts).toEqual({ ok: 1, outdoor: 0, cond: 2, unknown: 0, hard: 0 });
+    expect(carrierWhatIfText(whatIf!)).toBe('이동가방이 있으면 1곳은 ‘가능’, 2곳은 ‘확인 필요’ 로 바뀌어요');
+  });
+
+  it('칸이 하나면 예전 말 그대로 — "N곳이 ‘확인 필요’ 로", \'가능\' 만이면 "으로"', () => {
+    expect(carrierWhatIfText(carrierWhatIf(cageOnly, TOFU_NONE)!)).toBe('이동가방이 있으면 2곳이 ‘확인 필요’ 로 바뀌어요');
+    const bagOnly = [{ policy: parsePetPolicy('실내는 이동가방 필수.') }];
+    expect(carrierWhatIfText(carrierWhatIf(bagOnly, TOFU_NONE)!)).toBe('이동가방이 있으면 1곳이 ‘가능’ 으로 바뀌어요');
+  });
+
+  it('실제 식당 — 칸별 합이 벗어난 수와 같다', () => {
+    const whatIf = carrierWhatIf(placesOfType('restaurant'), TOFU_NONE)!;
+    expect(Object.values(whatIf.counts).reduce((a, b) => a + b, 0)).toBe(whatIf.opened);
   });
 
   it('실제 식당 목록에서도 0 보다 크다', () => {

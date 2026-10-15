@@ -1,5 +1,6 @@
 import type { TCarrier, TDogProfile } from '../types';
 import { isOutdoorSeatOnly, judgeEligibility, type TEligibility, type TEligibilityLevel } from './eligibility';
+import { josa } from './korean';
 import type { TPetPolicy } from './petPolicy';
 
 /**
@@ -116,20 +117,42 @@ export const levelCountParts = (counts: TLevelCounts): string[] =>
  * 화면은 이 수로 안내 한 줄과 프로필로 가는 길만 보인다.
  *
  * 대형견은 가방이어도 H4(케이지 필수 + 대형견)가 그대로라 0 이 나온다 — 그때는 안내하지 않는다(null).
+ *
+ * 벗어난 곳을 **새 판정 칸별로**(`counts`, `countByLevel` 과 같은 가름) 센다(14 W261013.14h). 전엔 수 하나를 "'확인 필요' 로 바뀌어요" 라고 해서,
+ * 원문이 이동가방을 적은 곳(라스또르따스 — 가방이면 '갈 수 있어요')까지 '확인 필요' 로 셌다. 원문이 '케이지' 라고 쓴 곳만 가방이면 확인(C2)이다.
  */
 export const carrierWhatIf = (
   places: readonly { policy: TPetPolicy }[],
   dog: TDogProfile,
   opts: { needsIndoor?: boolean } = {},
-): { carrier: TCarrier; opened: number } | null => {
+): { carrier: TCarrier; opened: number; counts: TLevelCounts } | null => {
   if (dog.carrier !== 'none') return null;
   const withBag: TDogProfile = { ...dog, carrier: 'bag' };
+  const counts: TLevelCounts = { ok: 0, outdoor: 0, cond: 0, unknown: 0, hard: 0 };
   let opened = 0;
   for (const place of places) {
     if (judgeEligibility(dog, place.policy, opts).level !== 'hard') continue;
-    if (judgeEligibility(withBag, place.policy, opts).level !== 'hard') opened++;
+    const after = judgeEligibility(withBag, place.policy, opts);
+    if (after.level === 'hard') continue;
+    counts[isOutdoorSeatOnly(after) ? 'outdoor' : after.level]++;
+    opened++;
   }
-  return opened > 0 ? { carrier: 'bag', opened } : null;
+  return opened > 0 ? { carrier: 'bag', opened, counts } : null;
+};
+
+/**
+ * what-if 한 줄 — "이동가방이 있으면 33곳이 ‘확인 필요’ 로 바뀌어요", 칸이 둘 이상이면 "2곳은 ‘가능’, 33곳은 ‘확인 필요’ 로 바뀌어요".
+ * 칸 이름은 바로 위 목록 머리("가능 5 · … · 어려움 35")와 같은 `LEVEL_COUNT_LABEL` 이라, 가방으로 바꾼 뒤 머리 숫자가 어디로 옮겨 가는지 같은 말로 읽힌다.
+ */
+export const carrierWhatIfText = (whatIf: { counts: TLevelCounts }): string => {
+  const parts = (Object.keys(LEVEL_COUNT_LABEL) as (keyof TLevelCounts)[])
+    .filter((level) => level !== 'hard' && whatIf.counts[level] > 0)
+    .map((level) => ({ count: whatIf.counts[level], label: LEVEL_COUNT_LABEL[level] }));
+  const last = parts.at(-1);
+  if (!last) return '';
+  const subject = parts.length === 1 ? '이' : '은';
+  const listed = parts.map(({ count, label }) => `${count}곳${subject} ‘${label}’`).join(', ');
+  return `이동가방이 있으면 ${listed} ${josa(last.label, '으로/로')} 바뀌어요`;
 };
 
 /**

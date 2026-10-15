@@ -21,11 +21,18 @@ export const hasBatchim = (text: string): boolean => {
   return (code - HANGUL_START) % 28 !== 0;
 };
 
-export type TJosaPair = '은/는' | '이/가' | '을/를' | '과/와' | '이랑/랑' | '아/야' | '이라고/라고';
+export type TJosaPair = '은/는' | '이/가' | '을/를' | '과/와' | '이랑/랑' | '아/야' | '이라고/라고' | '으로/로';
+
+/** 받침 ㄹ(종성 번호 8) — '으로/로' 만 ㄹ 받침 뒤에서 '로' 다(서울로·물로). */
+const endsWithRieul = (text: string): boolean => {
+  const code = text.at(-1)?.codePointAt(0);
+  return code !== undefined && code >= HANGUL_START && code <= HANGUL_END && (code - HANGUL_START) % 28 === 8;
+};
 
 /** `word` 의 마지막 글자 받침 기준으로 조사만 고른다(받침 있으면 앞, 없으면 뒤). */
 export const josa = (word: string, pair: TJosaPair): string => {
   const [withBatchim, withoutBatchim] = pair.split('/');
+  if (pair === '으로/로' && endsWithRieul(word)) return withoutBatchim;
   return hasBatchim(word) ? withBatchim : withoutBatchim;
 };
 

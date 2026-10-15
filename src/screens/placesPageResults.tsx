@@ -11,7 +11,7 @@ import { BottomSheet } from '../components/base/bottom-sheet';
 import { Button } from '../components/base/button';
 import { FilterChip } from '../components/filterChip';
 import { judgeEligibility, primaryReason } from '../lib/eligibility';
-import { carrierWhatIf, countByLevel, levelCountParts, outdoorFallback } from '../lib/eligibilityCounts';
+import { carrierWhatIf, carrierWhatIfText, countByLevel, levelCountParts, outdoorFallback } from '../lib/eligibilityCounts';
 import { placesPageHardFold } from '../lib/placesPageHardFold';
 import { placesPageEmptySearch, type TAreaCarried } from '../lib/placesPageFilter';
 import { placesPageRepeatedReason } from '../lib/placesPageRepeatedReason';
@@ -357,7 +357,7 @@ export function PlacesPageResults({
           )}
           {whatIf && (
             <div>
-              이동가방이 있으면 {whatIf.opened}곳이 &lsquo;확인 필요&rsquo; 로 바뀌어요
+              {carrierWhatIfText(whatIf)}
               <Link
                 href="/dog"
                 className="flex min-h-11 items-center font-semibold text-brand-secondary hover:text-brand-secondary_hover"

@@ -49,6 +49,14 @@ describe('josa / withJosa — 입력 단어의 받침 기준', () => {
     expect(josa('두부', '을/를')).toBe('를');
     expect(withJosa('콩', '아/야')).toBe('콩아');
   });
+
+  it("'으로/로' 는 ㄹ 받침 뒤에서도 '로'", () => {
+    expect(withJosa('가능', '으로/로')).toBe('가능으로');
+    expect(withJosa('확인 필요', '으로/로')).toBe('확인 필요로');
+    expect(withJosa('서울', '으로/로')).toBe('서울로');
+    expect(withJosa('케이지', '이라고/라고')).toBe('케이지라고');
+    expect(withJosa('이동가방', '이라고/라고')).toBe('이동가방이라고');
+  });
 });
 
 describe('dogCallNames — 여러 마리 묶기', () => {
