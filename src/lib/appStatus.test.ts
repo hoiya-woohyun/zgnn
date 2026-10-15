@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  STATUS_ABOVE_ACTION_GAP_PX,
   STATUS_DURATION_MS,
   STATUS_INTERACTIVE_MIN_MS,
   clearAppStatus,
@@ -9,6 +10,7 @@ import {
   isAtStatusLink,
   releaseAppStatus,
   shouldClearStatusOnRoute,
+  statusBottomAboveAction,
   statusDurationMs,
   showAppStatus,
   subscribeAppStatus,
@@ -179,5 +181,20 @@ describe('shouldClearStatusOnRoute — 화면이 바뀌면 그 화면의 알림�
   it('링크가 가리키는 화면에 와 있으면 이동이 없어도 걷는다', () => {
     expect(shouldClearStatusOnRoute(linked, { from: '/saved/', to: '/saved/' })).toBe(true);
     expect(shouldClearStatusOnRoute({ ...linked, keepOnNavigate: true }, { from: '/', to: '/saved/' })).toBe(true);
+  });
+});
+
+describe('statusBottomAboveAction — 주 버튼 줄 위로 비켜 서기(14 W261010.7c)', () => {
+  it('줄이 화면 안이면 줄의 윗선 위 틈만큼 띄운다', () => {
+    // 390×844 실측: 줄 윗선 690 → 알림 밑변이 682 에 선다
+    expect(statusBottomAboveAction(844, 690)).toBe(844 - 690 + STATUS_ABOVE_ACTION_GAP_PX);
+    expect(statusBottomAboveAction(844, 689.6)).toBe(162);
+  });
+
+  it('줄이 화면 밖(아래·위)이면 기본 자리', () => {
+    expect(statusBottomAboveAction(844, 844)).toBeNull();
+    expect(statusBottomAboveAction(844, 900)).toBeNull();
+    expect(statusBottomAboveAction(844, 0)).toBeNull();
+    expect(statusBottomAboveAction(844, -20)).toBeNull();
   });
 });

@@ -190,3 +190,15 @@ export const shouldClearStatusOnRoute = (status: TAppStatus | null, route: { fro
   if (status.link && isAtStatusLink(route.to, status.link.href)) return true;
   return !status.keepOnNavigate && trimPath(route.from) !== trimPath(route.to);
 };
+
+/** 알림과 그 밑 주 버튼 줄 사이의 틈(px). */
+export const STATUS_ABOVE_ACTION_GAP_PX = 8;
+
+/**
+ * 폰에서 화면 아래에 붙는 주 버튼 줄(`data-sticky-action`, `/dog`)이 보이면 알림의 `bottom`(px) — 줄의 윗선 바로 위(14 W261010.7c).
+ * 기본 자리(탭바 + 28px)는 줄의 버튼과 겹쳐, 한 마리를 빼고 곧장 '고치기' 를 누른 손가락이 '되돌리기' 에 맞았다(390px: 버튼 70% 지점).
+ * 줄 높이는 안내 한 줄·몸무게 되묻기로 바뀌고, 폼이 짧거나 끝까지 내리면 줄이 붙지 않고 더 위에 서므로 고정값이 아니라 윗선을 잰다.
+ * 줄이 화면 밖이면 `null`(기본 자리).
+ */
+export const statusBottomAboveAction = (viewportHeight: number, actionTop: number): number | null =>
+  actionTop > 0 && actionTop < viewportHeight ? Math.round(viewportHeight - actionTop + STATUS_ABOVE_ACTION_GAP_PX) : null;
