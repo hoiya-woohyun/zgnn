@@ -214,7 +214,7 @@
 - [x] **A2 저장 칸 · 다시 만드는 때 · 부르는 자리** — 대표 후보의 `extracted` 에 얹지 않는다(대표는 confidence 가 바뀌면 다른 행이 된다). 묶음의 행들이 같은 값을 보거나 짝 장소 id · 이름 키로 찾는 자리를 정하고, 마이그레이션이 필요하면 🧑 `db push` 를 「기다림」 에.
   다시 만드는 것은 새 글이 붙었거나 재분석으로 요약이 바뀐 묶음만(입력 요약들의 지문으로 가린다). 분석 끝에 부르되 로컬·서버 워커 둘 다 — 서버는 홉 마감([20 T11](20-vercel-remote-worker.md) `--deadline`) 안에서만, 못 하면 다음 홉. `--dry-run` 이 호출 수를 먼저 센다.
   끝나면: A3 를 「지금」 에.
-  > 메모(2026-10-13): 표 `group_intros`(마이그레이션 `20261013150000_group_intros.sql`, **원격 미적용 — 🧑 `db push`**) — 열쇠는 묶음 키(`groupCandidates` 의 key, 대표와 무관), 대상은 신규 묶음(`name:`)만.
+  > 메모(2026-10-13): 표 `group_intros`(마이그레이션 `20261013150000_group_intros.sql`, **원격 적용 2026-10-15** — 0행·anon select 42501 확인) — 열쇠는 묶음 키(`groupCandidates` 의 key, 대표와 무관), 대상은 신규 묶음(`name:`)만.
   칸: `fingerprint` · `intro` · `sentences`(문장마다 글 주소) · `conflict` · `reasons` · `model` · `prompt_version`. authenticated select/insert/update + `is_operator()` 정책 셋, delete·anon 없음(ADR-016 · 05 표에 한 줄).
   재료·지문은 노드 모듈 없는 `scripts/analyze/groupIntroMaterials.mjs`(cyrb53 · 해시 전에 코드 단위로 다시 세운다 — localeCompare 가 브라우저와 갈려도 같은 값) — A3 가 브라우저에서 같은 값을 잰다(`synthesizeGroupIntro.mjs` 는 `synthesisMaterials` 를 다시 내보낸다).
   지문은 다녀온 글의 요약과 그 글 주소뿐 — 목록글이 붙거나 대표가 바뀌어도 안 부르고, 프롬프트 버전도 안 넣는다(`prompt_version` 칸이 따로 말한다 — 프롬프트를 고쳐도 저절로 다시 만들지 않는다).
