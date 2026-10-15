@@ -119,7 +119,7 @@ export function PlacesPageFilters({
   );
 
   return (
-    <div className={variant === 'bar' ? 'space-y-2 pb-3' : 'space-y-5'}>
+    <div className={variant === 'bar' ? 'space-y-2' : 'space-y-5'}>
       {/*
         읍면은 검색어·타입 탭을 넘어 유지되는 유일한 조건이라(스토어 `town`) 맨 위에 둔다
         (2026-09-15 리뷰 P1 — "하나만 고치면: 읍면 한 번 고르면 숙소·식당·카페·지도 모두 유지").

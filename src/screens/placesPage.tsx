@@ -271,7 +271,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
           크림이고 **불투명**이다(v4) — 흰색이면 이 화면에서만 상태바 자리가 흰 띠가 되고, 반투명이면
           밑을 지나는 카드 글씨가 상태바 뒤로 흐리게 비친다. */}
       <div ref={headerRef} className="sticky top-0 z-30 border-b border-secondary bg-secondary">
-        <div className="bleed-top-4 px-4 pb-3 md:px-6">
+        <div className="bleed-top-4 px-4 pb-3 md:px-6 md:pb-2">
           <h1 className="sr-only">{TYPE_META[type].label} 둘러보기</h1>
 
           <PlacesPageTypeTabs
@@ -336,8 +336,10 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
         {/*
           펼친 조건 판. `hidden` 은 display:none 이라 모바일에서는 탭 순서·스크린리더에서도
           함께 빠진다 — 시트 안의 같은 조건과 둘 다 읽히지 않는다.
+          간격은 판이 갖는다 — 줄 사이 8px, 맨 아래 12px. 아래 여백을 조건 묶음이 갖고 있을 땐 강아지 줄이 그 뒤에 붙어
+          머리 경계선에 닿았다(14 W261013.10c). 위는 검색 줄의 `md:pb-2` 라 줄 사이와 같은 8px.
         */}
-        <div className="hidden md:block">
+        <div className="hidden space-y-2 pb-3 md:block">
           <PlacesPageFilters
             variant="bar"
             type={type}
