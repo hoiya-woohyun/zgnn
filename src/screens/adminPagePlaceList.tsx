@@ -1,7 +1,7 @@
 'use client';
 
 import { SearchLg } from '@untitledui/icons';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { Input } from '../components/base/input';
 import { SEARCH_FIELD } from '../components/noAutofill';
 import { Select } from '../components/base/select';
@@ -17,7 +17,7 @@ import {
 } from '../lib/adminPlaces';
 import type { TPlaceEditPatch } from '../lib/adminPlaceEdit';
 import type { TBlockChoice, TPlaceBlock } from '../lib/adminBlocks';
-import type { TReportRow, TVisitedTally } from '../lib/adminReports';
+import { countReportedPlaces, type TReportRow, type TVisitedTally } from '../lib/adminReports';
 import { AdminFilterChip } from './adminFilterChip';
 import { useAdminInfiniteScroll } from './adminInfiniteScroll';
 import type { TPlaceRereadPlan } from '../lib/adminPosts';
@@ -97,6 +97,15 @@ type TAdminPagePlaceListProps = {
   onGoToBlocks?: () => void;
   /** 장소 id → 처리할 사용자 제보. 표가 없으면 빈 객체. */
   reports: Record<string, TReportRow[]>;
+  /**
+   * `제보 있는 곳` 을 바깥이 든다(등록 완료 칸 — 머리글의 `제보 있는 곳 보기` 가 켠다). 안 주면 이 칸이 스스로 든다(등록 해제 칸).
+   */
+  reportedOnly?: boolean;
+  onReportedOnlyChange?: (next: boolean) => void;
+  /** 열린 장소 제안 수 — `제보 있는 곳` 칩에 함께 적고, 0 이 아니면 제보 있는 곳이 없어도 칩이 선다. */
+  suggestionCount?: number;
+  /** `제보 있는 곳` 을 켰을 때 목록 위에 서는 것(장소 제안 목록, 14 W261010.13). */
+  reportedOnlyHeader?: ReactNode;
   onHandleReports: (place: TPlaceRow, ids: string[], status: 'handled' | 'dismissed', note: string) => void;
   /** 장소 id → 검수 대기의 갱신 묶음 수(11 T3.2). */
   updates?: Record<string, number>;
@@ -123,6 +132,10 @@ export function AdminPagePlaceList({
   onSetBlock,
   onGoToBlocks,
   reports,
+  reportedOnly: reportedOnlyProp,
+  onReportedOnlyChange,
+  suggestionCount = 0,
+  reportedOnlyHeader,
   onHandleReports,
   updates,
   visited,
@@ -132,8 +145,10 @@ export function AdminPagePlaceList({
   onPlanReread,
   onReread,
 }: TAdminPagePlaceListProps) {
-  /** "제보 있는 곳" 만 보기 — 10 T1.4 의 걸러 보기. */
-  const [reportedOnly, setReportedOnly] = useState(false);
+  /** "제보 있는 곳" 만 보기 — 10 T1.4 의 걸러 보기. 바깥이 들면 그 값(`reportedOnlyProp`), 아니면 이 칸의 것. */
+  const [ownReportedOnly, setOwnReportedOnly] = useState(false);
+  const reportedOnly = reportedOnlyProp ?? ownReportedOnly;
+  const setReportedOnly = onReportedOnlyChange ?? setOwnReportedOnly;
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<TStatusFilter>('all');
   const [typeFilter, setTypeFilter] = useState<TTypeFilter>('all');
@@ -164,7 +179,8 @@ export function AdminPagePlaceList({
     [gapFilter, reportedOnly, reports, searched, typeFilter],
   );
   const counts = useMemo(() => countPlacesByStatus(visible), [visible]);
-  const reportedCount = inMode.filter((place) => (reports[place.id]?.length ?? 0) > 0).length;
+  // 머리글의 `제보 있는 곳 N곳` 과 같은 함수로 센다(`reportInbox`) — 둘이 따로 세던 동안 머리글 9 · 칩 6 이었다(14 W261010.13).
+  const reportedCount = countReportedPlaces(reports, places, archivedMode);
   const inStatus = (place: TPlaceRow) => status === 'all' || place.status === status;
   const baseType = searched.filter((place) => inStatus(place) && gapMatches(gapFilter, place));
   const baseGap = searched.filter((place) => inStatus(place) && (typeFilter === 'all' || place.type === typeFilter));
@@ -229,21 +245,24 @@ export function AdminPagePlaceList({
         })}
         </div>
         )}
-        {reportedCount > 0 || reportedOnly ? (
+        {reportedCount > 0 || suggestionCount > 0 || reportedOnly ? (
           <AdminFilterChip
             pressed={reportedOnly}
             onClick={() => {
               clearDone();
-              setReportedOnly((prev) => !prev);
+              setReportedOnly(!reportedOnly);
               setShown(PAGE_SIZE);
             }}
           >
             제보 있는 곳 {reportedCount}
+            {suggestionCount > 0 ? ` · 제안 ${suggestionCount}` : ''}
           </AdminFilterChip>
         ) : null}
       </div>
 
       {notice ? <p className="mt-2 px-4 text-xs text-success-primary md:px-6">{notice}</p> : null}
+
+      {reportedOnly ? reportedOnlyHeader : null}
 
       {/* 후보 칸과 같은 드롭다운 — 종류와 빠진 정보. 상태 칩은 자주 오가는 축이라 칩으로 남긴다. */}
       <div className="mt-2 flex flex-wrap items-end gap-2 px-4 md:px-6">
@@ -284,7 +303,9 @@ export function AdminPagePlaceList({
             ? '찾는 장소가 없어요.'
             : archivedMode && inMode.length === 0
               ? '등록 해제한 장소가 없어요.'
-              : '걸러 보기에 맞는 장소가 없어요.'}
+              : reportedOnly && reportedCount === 0
+                ? '열린 제보가 있는 곳은 없어요.'
+                : '걸러 보기에 맞는 장소가 없어요.'}
         </p>
       ) : (
         <>

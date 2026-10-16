@@ -9,6 +9,8 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isBlocksUnavailable } from './adminBlocks';
+import type { TPlaceRow } from './adminCandidates';
+import { COLLECT_REQUESTS_UNAVAILABLE_TEXT, collectRequestKey, collectRequestQuery } from './adminCollectRequest';
 import type { TReportKind } from './placeReport';
 
 export type TReportStatus = 'open' | 'handled' | 'dismissed';
@@ -60,18 +62,65 @@ export function openReportsByPlace(rows: readonly TReportRow[]): Record<string, 
 export const openSuggestions = (rows: readonly TReportRow[]): TReportRow[] =>
   rows.filter((row) => row.kind === 'suggest' && row.status === 'open').sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
 
-/** 머리글의 "열린 제보 N · 오늘 M" — 순수. 오늘은 `now` 의 현지 날짜 기준. */
-export function reportHeadline(rows: readonly TReportRow[], now: Date): { open: number; today: number } {
-  const day = (iso: string) => new Date(iso).toLocaleDateString('sv-SE');
-  const today = now.toLocaleDateString('sv-SE');
-  let open = 0;
-  let todayCount = 0;
-  for (const row of rows) {
-    if (needsHandling(row)) open += 1;
-    if (day(row.created_at) === today) todayCount += 1;
-  }
-  return { open, today: todayCount };
+/** 칸 하나(등록 완료 = 내리지 않은 곳 · 등록 해제 = 내린 곳)에서 제보가 열린 곳의 수 — 그 칸의 `제보 있는 곳` 칩이 남기는 줄 수다. 순수. */
+export function countReportedPlaces(
+  byPlace: Readonly<Record<string, readonly TReportRow[]>>,
+  places: readonly Pick<TPlaceRow, 'id' | 'status'>[],
+  archived: boolean,
+): number {
+  return places.filter((place) => (place.status === 'archived') === archived && (byPlace[place.id]?.length ?? 0) > 0).length;
 }
+
+/**
+ * 머리글의 "열린 제보" — **가서 보는 곳과 같은 단위로** 센다(14 W261010.13). 순수. 오늘은 `now` 의 현지 날짜 기준.
+ *
+ * 예전 한 숫자(`needsHandling` 의 건수)는 장소 제안까지 셌고(제안도 열린 미처리다), 머리글이 보내는 `제보 있는 곳` 칩은 **곳**을 셌다 —
+ * "열린 제보 9건" 을 보고 가면 칩은 6, 나머지 3(제안)은 다른 칸 맨 아래였다. 그래서 칩과 같은 함수(`countReportedPlaces`)로 곳을 세고,
+ * 제안은 따로 센다(같은 칩을 켜면 목록 위에 선다). 내린 곳에 남은 제보는 그 칸 칩의 몫이라 따로 센다 — 내릴 때 함께 닫히므로 보통 0 이다.
+ */
+export type TReportInbox = {
+  /** 등록 완료 칸에서 제보가 열린 곳(곳) — 그 칸 `제보 있는 곳` 칩의 숫자. */
+  places: number;
+  /** 그 곳들에 열린 제보(건). 한 곳에 둘이면 곳보다 크다. */
+  reports: number;
+  /** 등록 해제 칸에서 제보가 열린 곳(곳). */
+  archivedPlaces: number;
+  /** 열린 장소 제안(건). */
+  suggestions: number;
+  /** 오늘 들어온 것 — 종류·상태 불문(다녀왔어요·제안 포함). 처리할 일이 아니라 들어오는 속도다. */
+  today: number;
+};
+
+export function reportInbox(rows: readonly TReportRow[], places: readonly Pick<TPlaceRow, 'id' | 'status'>[], now: Date): TReportInbox {
+  const byPlace = openReportsByPlace(rows);
+  /* 목록에 없는 장소 id(목록을 아직 못 읽었다)는 등록 완료 칸 몫으로 센다 — 제보는 게시중인 곳에만 들어온다(정책 `with check`). */
+  const known = new Set(places.map((place) => place.id));
+  const unknown = Object.keys(byPlace)
+    .filter((id) => !known.has(id))
+    .map((id) => ({ id, status: 'published' as const }));
+  const all = [...places, ...unknown];
+  const today = now.toLocaleDateString('sv-SE');
+  return {
+    places: countReportedPlaces(byPlace, all, false),
+    reports: all.filter((place) => place.status !== 'archived').reduce((sum, place) => sum + (byPlace[place.id]?.length ?? 0), 0),
+    archivedPlaces: countReportedPlaces(byPlace, all, true),
+    suggestions: openSuggestions(rows).length,
+    today: rows.filter((row) => reportDay(row.created_at) === today).length,
+  };
+}
+
+/** 머리글 한 줄 — 0 인 갈래는 말하지 않는다. 할 일이 없고 오늘 들어온 것도 없으면 `null`. 순수. */
+export function reportInboxText(inbox: TReportInbox): string | null {
+  const parts: string[] = [];
+  if (inbox.places > 0) parts.push(inbox.reports > inbox.places ? `열린 제보 ${inbox.places}곳(${inbox.reports}건)` : `열린 제보 ${inbox.places}곳`);
+  if (inbox.suggestions > 0) parts.push(`장소 제안 ${inbox.suggestions}건`);
+  if (inbox.archivedPlaces > 0) parts.push(`등록 해제 칸에 열린 제보 ${inbox.archivedPlaces}곳`);
+  if (inbox.today > 0) parts.push(`오늘 들어온 것 ${inbox.today}건`);
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
+
+/** 머리글이 `등록 완료 칸에서 보기` 로 보낼 것이 있나 — 등록 완료 칸의 제보나 제안. */
+export const inboxHasWork = (inbox: TReportInbox): boolean => inbox.places > 0 || inbox.suggestions > 0;
 
 /** 폐업으로 읽히는 종류 — 이것이 열려 있으면 등록 해제 폼을 `폐업` 으로 열고, 사이트는 확인일을 그리지 않는다(R5). */
 export const CLOSURE_KINDS: readonly TReportKind[] = ['closed', 'replaced'];
@@ -169,6 +218,21 @@ export function suggestionSearchName(note: string | null): string {
   const text = (note ?? '').trim();
   const head = text.split(/[,—·]|\s-\s/)[0].trim();
   return head || text;
+}
+
+/**
+ * 제안의 이름으로 블로그를 찾게 한다 — 검수 대기의 `추가 수집` 과 **같은 표**(`collect_requests`)에 후보 없이(`candidate_id` 는 비어도 된다) 한 줄.
+ * 예전 안내("그 이름으로 수집해요 — pnpm data collect")는 실행 수단이 없는 말이었다: 수집 스크립트는 이름을 인자로 받지 않는다(14 W261010.13).
+ * 찾고 읽는 쪽은 추가 수집과 같다 — 워커가 그 검색어로 글을 담고 다음 분석이 맨 앞에서 읽어, 동반 근거가 있으면 검수 대기에 후보로 선다.
+ * 같은 이름이 이미 대기 중이면(유일 인덱스 23505) 실패가 아니다.
+ */
+export async function requestSuggestionCollect(client: SupabaseClient, name: string): Promise<'queued' | 'alreadyQueued'> {
+  const { error } = await client
+    .from('collect_requests')
+    .insert({ query: collectRequestQuery(name), name, name_key: collectRequestKey(name) });
+  if (error?.code === '23505') return 'alreadyQueued';
+  if (error) throw new Error(isBlocksUnavailable(error) ? COLLECT_REQUESTS_UNAVAILABLE_TEXT : `수집 요청: ${error.message}`);
+  return 'queued';
 }
 
 /**

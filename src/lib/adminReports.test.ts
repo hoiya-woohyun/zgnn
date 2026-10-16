@@ -6,7 +6,11 @@ import {
   needsHandling,
   openReportsByPlace,
   openSuggestions,
-  reportHeadline,
+  countReportedPlaces,
+  inboxHasWork,
+  reportInbox,
+  reportInboxText,
+  requestSuggestionCollect,
   setReportStatus,
   type TReportRow,
   suggestionSearchName,
@@ -57,15 +61,84 @@ describe('openReportsByPlace · needsHandling', () => {
   });
 });
 
-describe('reportHeadline', () => {
-  it('처리할 것과 오늘 들어온 것을 센다', () => {
-    const now = new Date('2026-10-01T12:00:00');
+describe('reportInbox — 머리글 숫자 = 가서 보는 곳의 숫자(14 W261010.13)', () => {
+  // 기본 제보(10-01)와 다른 날 — 오늘 들어온 것이 섞이지 않게. 오늘 칸은 셋째 경우가 따로 본다.
+  const now = new Date('2026-10-05T12:00:00');
+  const places = [
+    { id: 'p1', status: 'published' as const },
+    { id: 'p2', status: 'published' as const },
+    { id: 'p3', status: 'archived' as const },
+  ];
+
+  it('한 곳에 둘이면 곳은 하나, 건은 둘 — 곳은 칩과 같은 함수로 센다', () => {
+    const rows = [report({ id: 'a' }), report({ id: 'b', kind: 'address' }), report({ id: 'c', place_id: 'p2', kind: 'policy' })];
+    const inbox = reportInbox(rows, places, now);
+    expect(inbox).toMatchObject({ places: 2, reports: 3, archivedPlaces: 0, suggestions: 0 });
+    expect(inbox.places).toBe(countReportedPlaces(openReportsByPlace(rows), places, false));
+    expect(reportInboxText(inbox)).toBe('열린 제보 2곳(3건)');
+  });
+
+  it('제안은 곳에 섞지 않고 따로 센다 — 예전 한 숫자가 9(제보 6 + 제안 3)였다', () => {
     const rows = [
-      report({ created_at: new Date('2026-10-01T09:00:00').toISOString() }),
-      report({ kind: 'visited_ok', created_at: new Date('2026-10-01T10:00:00').toISOString() }),
-      report({ created_at: new Date('2026-09-28T10:00:00').toISOString() }),
+      ...Array.from({ length: 6 }, (_, i) => report({ id: `r${i}`, place_id: `q${i}` })),
+      ...Array.from({ length: 3 }, (_, i) => report({ id: `s${i}`, kind: 'suggest', place_id: null, note: `카페 ${i}` })),
     ];
-    expect(reportHeadline(rows, now)).toEqual({ open: 2, today: 2 });
+    const listed = Array.from({ length: 6 }, (_, i) => ({ id: `q${i}`, status: 'published' as const }));
+    const inbox = reportInbox(rows, listed, now);
+    expect(inbox).toMatchObject({ places: 6, reports: 6, suggestions: 3 });
+    expect(reportInboxText(inbox)).toBe('열린 제보 6곳 · 장소 제안 3건');
+    expect(inboxHasWork(inbox)).toBe(true);
+  });
+
+  it('다녀왔어요·닫힌 것은 할 일이 아니다 — 오늘 들어온 것으로만 말한다', () => {
+    const rows = [
+      report({ id: 'v', kind: 'visited_ok', created_at: new Date('2026-10-05T09:00:00').toISOString() }),
+      report({ id: 'h', status: 'handled', created_at: new Date('2026-09-28T10:00:00').toISOString() }),
+    ];
+    const inbox = reportInbox(rows, places, now);
+    expect(inbox).toEqual({ places: 0, reports: 0, archivedPlaces: 0, suggestions: 0, today: 1 });
+    expect(inboxHasWork(inbox)).toBe(false);
+    expect(reportInboxText(inbox)).toBe('오늘 들어온 것 1건');
+    expect(reportInboxText(reportInbox([], places, now))).toBeNull();
+  });
+
+  it('내린 곳에 남은 제보는 등록 해제 칸 몫 — 등록 완료 칸으로 보내는 숫자에 넣지 않는다', () => {
+    const rows = [report({ id: 'a', place_id: 'p3' }), report({ id: 'b', place_id: 'p1' })];
+    const inbox = reportInbox(rows, places, now);
+    expect(inbox).toMatchObject({ places: 1, reports: 1, archivedPlaces: 1 });
+    expect(countReportedPlaces(openReportsByPlace(rows), places, true)).toBe(1);
+    expect(reportInboxText(inbox)).toBe('열린 제보 1곳 · 등록 해제 칸에 열린 제보 1곳');
+  });
+
+  it('목록을 아직 못 읽었으면 등록 완료 칸 몫으로 센다 — 제보는 게시중인 곳에만 들어온다', () => {
+    expect(reportInbox([report({ id: 'a', place_id: 'zz' })], [], now)).toMatchObject({ places: 1, reports: 1 });
+  });
+});
+
+describe('requestSuggestionCollect', () => {
+  const insertClient = (error: { code?: string; message: string } | null) => {
+    const calls: { table: string; row: Record<string, unknown> }[] = [];
+    const client = {
+      from: (table: string) => ({
+        insert: (row: Record<string, unknown>) => {
+          calls.push({ table, row });
+          return Promise.resolve({ error });
+        },
+      }),
+    } as unknown as SupabaseClient;
+    return { calls, client };
+  };
+
+  it('추가 수집과 같은 표에 후보 없이 한 줄 — 검색어·이름 키는 추가 수집과 같은 함수', async () => {
+    const { calls, client } = insertClient(null);
+    await expect(requestSuggestionCollect(client, '카페 바당')).resolves.toBe('queued');
+    expect(calls).toEqual([{ table: 'collect_requests', row: { query: '제주 카페 바당', name: '카페 바당', name_key: expect.any(String) } }]);
+    expect(calls[0].row).not.toHaveProperty('candidate_id');
+  });
+
+  it('이미 대기 중(23505)은 실패가 아니다 · 다른 오류는 던진다', async () => {
+    await expect(requestSuggestionCollect(insertClient({ code: '23505', message: 'dup' }).client, '바당')).resolves.toBe('alreadyQueued');
+    await expect(requestSuggestionCollect(insertClient({ code: '42501', message: 'denied' }).client, '바당')).rejects.toThrow('수집 요청');
   });
 });
 

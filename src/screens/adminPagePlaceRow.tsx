@@ -24,6 +24,7 @@ import { AdminPagePlaceDetail } from './adminPagePlaceDetail';
 import { AdminPagePlaceEditForm } from './adminPagePlaceEditForm';
 import { AdminPagePlaceReports } from './adminPagePlaceReports';
 import { VISITED_MIN_COUNT, VISITED_WINDOW_DAYS, type TReportRow, type TVisitedTally } from '../lib/adminReports';
+import { REPORT_KIND_SHORT } from '../lib/placeReport';
 import { ADMIN_PANEL_DIVIDER, ADMIN_POLICY_TONE, ADMIN_ROW, ADMIN_ROW_CELLS, ADMIN_ROW_OPEN } from './adminTable';
 import { AdminTypeChip } from './adminTypeChip';
 
@@ -272,6 +273,16 @@ export function AdminPagePlaceRow({
           {(why || place.status === 'draft') && (
             <span className="basis-full text-xs text-tertiary">
               {why ?? '아직 사이트에 안 나간 곳이에요 — ‘검수 대기’ 에서 이 가게의 후보를 등록하면 사이트에 나가요.'}
+            </span>
+          )}
+          {/*
+            * 가장 최근 제보 한 줄(14 W261010.13) — `제보 있는 곳` 으로 남긴 줄을 하나씩 펼쳐야 무슨 말인지 알았다(parttime: 6곳을 차례로 펼침).
+            * 접힌 줄에서 읽고 고를 수 있게 종류 + 한 줄만, 길면 자른다. 전부(날짜·배포·처리 버튼)는 펼친 판의 제보 목록이다.
+            */}
+          {reports.length > 0 && (
+            <span className="basis-full truncate text-xs text-secondary" title={reports[0].note ?? undefined}>
+              <span className="font-medium text-error-primary">{REPORT_KIND_SHORT[reports[0].kind]}</span> ·{' '}
+              {reports[0].note ?? '한 줄 없이 보냈어요'}
             </span>
           )}
         </div>

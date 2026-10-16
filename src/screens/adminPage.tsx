@@ -86,7 +86,10 @@ import {
   openReportsByPlace,
   policyReportCounts,
   openSuggestions,
-  reportHeadline,
+  inboxHasWork,
+  reportInbox,
+  reportInboxText,
+  requestSuggestionCollect,
   setReportStatus,
   type TReportRow,
   type TReportsLoad,
@@ -451,8 +454,14 @@ export function AdminPage() {
     [managed, reports],
   );
   const suggestions = useMemo(() => (reports?.kind === 'ok' ? openSuggestions(reports.rows) : NO_SUGGESTIONS), [reports]);
-  const [suggestionBusy, setSuggestionBusy] = useState<string | undefined>(undefined);
+  /** 지금 쓰는 제안 — 닫기(`close`)인지 이름으로 수집 요청(`collect`)인지까지(버튼 하나만 돌게). */
+  const [suggestionBusy, setSuggestionBusy] = useState<{ id: string; what: 'close' | 'collect' } | undefined>(undefined);
   const [suggestionError, setSuggestionError] = useState<string | undefined>(undefined);
+  /**
+   * 등록 완료 칸의 `제보 있는 곳` — 머리글의 `등록 완료 칸에서 보기` 가 켜야 해서 여기서 든다(14 W261010.13). 켜면 제보 있는 곳만 남고 그 위에 제안이 선다.
+   * 등록 해제 칸의 같은 칩은 그 칸이 스스로 든다(머리글이 그리로 보내지 않는다).
+   */
+  const [reportedOnly, setReportedOnly] = useState(false);
   const patchReportRows = useCallback((updated: TReportRow[]) => {
     if (updated.length === 0) return;
     const rows = mergeReportRows(reportRowsRef.current, updated);
@@ -1130,7 +1139,7 @@ export function AdminPage() {
     async (row: TReportRow, status: 'handled' | 'dismissed') => {
       const client = clientRef.current;
       if (!client) return;
-      setSuggestionBusy(row.id);
+      setSuggestionBusy({ id: row.id, what: 'close' });
       setSuggestionError(undefined);
       try {
         patchReportRows(await setReportStatus(client, [row.id], status, undefined, new Date().toISOString()));
@@ -1141,6 +1150,29 @@ export function AdminPage() {
       }
     },
     [patchReportRows],
+  );
+
+  /**
+   * 제안의 이름으로 수집을 요청한다(14 W261010.13) — 검수 대기의 `추가 수집` 과 같은 표·같은 워커. 제안은 닫지 않는다:
+   * 요청 줄("찾을 차례예요" → 찾은 글 수)이 이 줄에 서야 운영자가 결과를 보고 `찾아봤어요` 를 누른다. 후보·장소를 바꾸지 않아 `beginWrite` 밖이다.
+   */
+  const collectSuggestion = useCallback(
+    async (name: string, rowId: string) => {
+      const client = clientRef.current;
+      if (!client) return;
+      setSuggestionBusy({ id: rowId, what: 'collect' });
+      setSuggestionError(undefined);
+      try {
+        await requestSuggestionCollect(client, name);
+        setCollectRequests(await fetchCollectRequests(client));
+        wakeServerWorker();
+      } catch (error) {
+        setSuggestionError(messageOf(error, '수집을 요청하지 못했어요.'));
+      } finally {
+        setSuggestionBusy(undefined);
+      }
+    },
+    [wakeServerWorker],
   );
 
   /** 등록 해제 칸에서 블랙리스트를 넣고·바꾸고·푼다(09 T1.4 단계 4). `places` 는 안 바뀌므로 재빌드와 무관하다. */
@@ -1971,7 +2003,8 @@ export function AdminPage() {
       <p className="px-4 pt-6 text-sm text-tertiary md:px-6">장소를 불러오고 있어요</p>
     ) : null;
 
-  const reportLine = reports?.kind === 'ok' ? reportHeadline(reports.rows, new Date()) : undefined;
+  const inbox = reports?.kind === 'ok' ? reportInbox(reports.rows, managed ?? [], new Date()) : undefined;
+  const inboxLine = inbox ? reportInboxText(inbox) : null;
 
   const opsBand = opsStages ? adminBandStage(opsStages, { rebuildWarn: rebuild?.tone === 'warn', strandedShown: Boolean(stranded) }) : null;
 
@@ -2023,9 +2056,28 @@ export function AdminPage() {
         {/* 사용자 제보(ADR-021 R2 — "쌓이면 머리글에 보인다"). 표가 없으면 미적용, 0건이면 말하지 않는다. */}
         {reports?.kind === 'unavailable' ? (
           <p className="mt-0.5">사용자 제보 표가 아직 적용되지 않았어요 — DB 마이그레이션이 적용되면 여기 보여요.</p>
-        ) : reportLine && (reportLine.open > 0 || reportLine.today > 0) ? (
-          <p className={cx('mt-0.5', reportLine.open > 0 && 'text-warning-primary')}>
-            열린 제보 {reportLine.open}건 · 오늘 들어온 것 {reportLine.today}건 — 등록 완료 칸의 ‘제보 있는 곳’ 에서 봐요
+        ) : inbox && inboxLine ? (
+          /*
+           * 숫자는 가서 보는 곳과 같은 단위다(`reportInbox`, 14 W261010.13) — `제보 있는 곳 N곳` 은 그 칩의 숫자, 제안은 그 칩을 켜면 목록 위에 선다.
+           * 말로 보내지 않고 누르면 데려간다: 칸을 바꾸고 칩을 켠다.
+           */
+          <p className={cx('mt-0.5', inboxHasWork(inbox) && 'text-warning-primary')}>
+            {inboxLine}
+            {inboxHasWork(inbox) ? (
+              <>
+                {' '}·{' '}
+                <button
+                  type="button"
+                  className="font-semibold underline underline-offset-2"
+                  onClick={() => {
+                    setReportedOnly(true);
+                    setTab('places');
+                  }}
+                >
+                  등록 완료 칸에서 보기
+                </button>
+              </>
+            ) : null}
           </p>
         ) : null}
         {stranded ? (
@@ -2140,8 +2192,6 @@ export function AdminPage() {
           onPlanReread={planPostReread}
           onReread={rereadPosts}
         />
-        <AdminPageSuggestions suggestions={suggestions} busyId={suggestionBusy} onClose={(row, status) => void closeSuggestion(row, status)} />
-        {suggestionError ? <p className="mt-2 px-4 text-xs text-error-primary md:px-6">{suggestionError}</p> : null}
       </div>
       <div hidden={tab !== 'blocks'}>
         <AdminPageBlocksPanel
@@ -2168,6 +2218,22 @@ export function AdminPage() {
             onSetBlock={(place, choice) => void changePlaceBlock(place, choice)}
             onGoToBlocks={() => setTab('blocks')}
             reports={reportsByPlace}
+            reportedOnly={reportedOnly}
+            onReportedOnlyChange={setReportedOnly}
+            suggestionCount={suggestions.length}
+            reportedOnlyHeader={
+              /* 장소 제안은 장소가 없는 제보라 줄이 없다 — 제보 있는 곳을 켜면 그 목록 위에 선다(14 W261010.13, 예전엔 수집 완료 칸 맨 아래). */
+              <>
+                <AdminPageSuggestions
+                  suggestions={suggestions}
+                  busy={suggestionBusy}
+                  collect={collectRequests}
+                  onCollect={(name, row) => void collectSuggestion(name, row.id)}
+                  onClose={(row, status) => void closeSuggestion(row, status)}
+                />
+                {suggestionError ? <p className="mt-2 px-4 text-xs text-error-primary md:px-6">{suggestionError}</p> : null}
+              </>
+            }
             updates={updatesByPlace}
             onHandleReports={(place, ids, status, note) => void handleReports(place, ids, status, note)}
             visited={visitedByPlace}
