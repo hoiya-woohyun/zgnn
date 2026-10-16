@@ -35,16 +35,28 @@ export function judgeSwPrecache(sw) {
   ];
 }
 
-// appSansExt.css 의 unicode-range 들(= Core 에 없는 글자)을 [시작, 끝] 쌍으로.
+// appSansExt.css 의 unicode-range **선언마다**(= @font-face 굵기마다) [시작, 끝] 쌍 목록.
+// Core/Ext 경계를 읽는 곳은 이 함수 하나다 — 빌드 경고(check-bundle)와 로컬 실패(src/styles/appSansExt.test.ts)가
+// 각자 파싱하던 동안 둘이 다른 글자를 말할 수 있었다(14 W261010.33t). CSS 의 `U+` 는 대소문자를 가리지 않는다.
+/** @param {string} css @returns {Array<Array<[number, number]>>} */
+export function extRangeBlocks(css) {
+  return [...css.matchAll(/unicode-range:\s*([^;]+);/g)].map(([, value]) =>
+    value.split(',').flatMap((part) => {
+      const m = /U\+([0-9A-F]+)(?:-([0-9A-F]+))?/i.exec(part);
+      return m ? [/** @type {[number, number]} */ ([parseInt(m[1], 16), parseInt(m[2] ?? m[1], 16)])] : [];
+    }),
+  );
+}
+
+// 굵기를 가리지 않고 합친 범위(= Core 에 없는 글자).
+/** @param {string} css @returns {Array<[number, number]>} */
 export function extRanges(css) {
-  const ranges = [];
-  for (const line of css.matchAll(/unicode-range:\s*([^;]+);/g)) {
-    for (const part of line[1].split(',')) {
-      const m = /U\+([0-9A-Fa-f]+)(?:-([0-9A-Fa-f]+))?/.exec(part);
-      if (m) ranges.push([parseInt(m[1], 16), parseInt(m[2] ?? m[1], 16)]);
-    }
-  }
-  return ranges;
+  return extRangeBlocks(css).flat();
+}
+
+/** @param {number} cp @param {Array<[number, number]>} ranges */
+export function inRanges(cp, ranges) {
+  return ranges.some(([a, b]) => cp >= a && cp <= b);
 }
 
 // 데이터 글자 중 Ext 범위에 드는(= Core 밖) 글자들. 범위가 하나도 없으면 null(읽지 못함).
@@ -53,7 +65,7 @@ export function glyphsOutsideCore(text, ranges) {
   const found = new Set();
   for (const ch of text) {
     const cp = ch.codePointAt(0);
-    if (cp >= 0xac00 && ranges.some(([a, b]) => cp >= a && cp <= b)) found.add(ch);
+    if (cp >= 0xac00 && inRanges(cp, ranges)) found.add(ch);
   }
   return [...found];
 }

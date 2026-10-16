@@ -1,6 +1,7 @@
 # PWA · 서비스워커 · 오프라인
 
-> 최종 수정: 2026-10-16 (v14: **그 한 줄을 빌드가 지킨다** — `check-bundle.mjs` 가 `out/sw.js` 의 `/_next/static/` 프리캐시 revision 이 전부 null 인지 대 보고 아니면 실패. 데이터 글자가 Core 밖으로 나가면 경고만(14 W261010.33o))
+> 최종 수정: 2026-10-16 (v15: 글꼴 Core/Ext 경계를 한 파서가 읽는다 — 로컬 테스트(`appSansExt.test.ts`)가 check-bundle 의 `extRangeBlocks`·`inRanges` 를 가져다 쓴다(14 W261010.33t))
+> 이전 2026-10-16 (v14: **그 한 줄을 빌드가 지킨다** — `check-bundle.mjs` 가 `out/sw.js` 의 `/_next/static/` 프리캐시 revision 이 전부 null 인지 대 보고 아니면 실패. 데이터 글자가 Core 밖으로 나가면 경고만(14 W261010.33o))
 > 이전 2026-10-16 (v13: **본문 글꼴을 두 조각으로, `_next/static/` 엔 revision 없이** — 첫 방문이 글꼴을 두 번(프리로드 + 서비스워커 `cache: 'reload'`) 받아 2.46MB 였다. Core 만 프리로드하고 Ext 는 unicode-range, 둘 다 프리캐시(ADR-006 v7 · 14 W261010.33m))
 > 이전 2026-10-07 (v12: **관례 경로 아이콘** — `public/favicon.ico`·`apple-touch-icon.png` 를 `pnpm icons` 가 함께 만든다. 링크를 안 읽는 클라이언트의 404 잡음만 없앤다, 프리캐시엔 안 넣는다([todo/08](../todo/08-usability-and-process-plan.md) T5.9))
 > 이전 2026-10-07 (v11: **인앱 브라우저에선 침묵 대신 바깥 브라우저로 여는 길** — 카카오톡은 `kakaotalk://web/openExternal` 한 줄, 다른 앱은 ··· 메뉴 두 단계(`installGuideKind` 의 `inApp`, 07 U9 후속))
@@ -116,7 +117,7 @@ null) — 페이지가 프리로드로 받은 글꼴을 서비스워커가 설�
 
 이 한 줄이 지워져도 빌드·테스트는 초록이라 `scripts/check-bundle.mjs`(`pnpm build` 의 뒤 절반)가 `out/sw.js` 를 대 본다: `/_next/static/` 프리캐시 항목의 revision 이 **전부 null** 이어야 하고, 항목이 1건 이상이며 그중 `.woff2` 가 1건 이상이어야 한다 — sw.js 는 minify 돼 있어 serwist 출력 모양이 바뀌어 정규식이 0건을 집으면 "전부 null" 이 그냥 참이 되기 때문이다(그땐 "못 읽었다" 로 실패). 판정은 `scripts/lib/bundleSwPrecache.mjs`.
 
-**글꼴 Core 밖 데이터 글자는 로컬과 배포가 다르게 반응한다.** Vercel 빌드는 `pnpm data pull && pnpm build` 로 데이터를 새로 받으므로, 커밋된 글꼴 분할(`appSansExt.css`)이 낡아도 배포는 막히지 않는다 — `check-bundle.mjs` 가 `src/data/*.json` 의 한글이 Ext 범위에 드는지 세어 **경고 한 줄만** 낸다(그 글자가 나오는 화면이 Ext 를 받아 무거워질 뿐 깨지지 않는다). 로컬은 반대로 `src/styles/appSansExt.test.ts` 가 커밋된 데이터를 읽어 빨개진다 — 의도다(`pnpm data pull` 로 상용 밖 글자가 들어오면 `python3 scripts/split-fonts.py` 로 다시 쪼개 woff2·CSS 를 같은 커밋에 싣는다고 실패 문구가 말한다). 경계 판정은 두 곳(테스트와 check-bundle)이 각자 `unicode-range` 를 읽는다.
+**글꼴 Core 밖 데이터 글자는 로컬과 배포가 다르게 반응한다.** Vercel 빌드는 `pnpm data pull && pnpm build` 로 데이터를 새로 받으므로, 커밋된 글꼴 분할(`appSansExt.css`)이 낡아도 배포는 막히지 않는다 — `check-bundle.mjs` 가 `src/data/*.json` 의 한글이 Ext 범위에 드는지 세어 **경고 한 줄만** 낸다(그 글자가 나오는 화면이 Ext 를 받아 무거워질 뿐 깨지지 않는다). 로컬은 반대로 `src/styles/appSansExt.test.ts` 가 커밋된 데이터를 읽어 빨개진다 — 의도다(`pnpm data pull` 로 상용 밖 글자가 들어오면 `python3 scripts/split-fonts.py` 로 다시 쪼개 woff2·CSS 를 같은 커밋에 싣는다고 실패 문구가 말한다). 경계는 한 곳이 읽는다 — `scripts/lib/bundleSwPrecache.mjs` 의 `extRangeBlocks`(굵기마다)·`inRanges` 를 테스트와 check-bundle 이 함께 쓴다(v15). 각자 파싱하던 동안 둘이 다른 글자를 말할 수 있었다.
 
 원본은 굵기당 766KB 라 서브셋해서 쓴다. 다시 만들 일이 생기면:
 

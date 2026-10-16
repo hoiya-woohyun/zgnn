@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'vitest';
-import { extRanges, glyphsOutsideCore, judgeSwPrecache, readStaticPrecache } from './lib/bundleSwPrecache.mjs';
+import { extRangeBlocks, extRanges, glyphsOutsideCore, inRanges, judgeSwPrecache, readStaticPrecache } from './lib/bundleSwPrecache.mjs';
 import { firstOverlap, overlapRatio, privateNeedles, squash } from './lib/bundleLeak.mjs';
 
 const rows = [
@@ -57,6 +57,17 @@ test('글꼴: Core 밖(Ext 범위) 한글만 센다', () => {
   assert.deepEqual(glyphsOutsideCore('강아지 똠 abc', [[0xb620, 0xb620]]), ['똠']);
   assert.deepEqual(glyphsOutsideCore('강아지', ranges), []);
   assert.equal(glyphsOutsideCore('강아지', []), null);
+});
+
+test('글꼴: 경계는 굵기(선언)마다 읽고, U+ 대소문자를 가리지 않는다 — 로컬 테스트도 이 파서를 쓴다', () => {
+  const css = 'a{unicode-range: U+AC02-AC03, U+B620;} b{unicode-range: u+ac02-ac03,u+b620;}';
+  assert.deepEqual(extRangeBlocks(css), [
+    [[0xac02, 0xac03], [0xb620, 0xb620]],
+    [[0xac02, 0xac03], [0xb620, 0xb620]],
+  ]);
+  assert.equal(extRanges(css).length, 4);
+  assert.equal(inRanges(0xb620, extRangeBlocks(css)[0]), true);
+  assert.equal(inRanges(0xac01, extRangeBlocks(css)[0]), false);
 });
 
 function run(out, cache) {

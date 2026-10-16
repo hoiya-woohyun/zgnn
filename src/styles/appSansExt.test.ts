@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { extRangeBlocks, inRanges } from '../../scripts/lib/bundleSwPrecache.mjs';
 
 /**
  * 본문 글꼴은 Core(layout.tsx 의 next/font, 프리로드)와 Ext(appSansExt.css, unicode-range) 두 조각이다(ADR-006 v7).
@@ -10,16 +11,9 @@ const read = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf
 
 const css = read('./appSansExt.css');
 
-const extRanges = [...css.matchAll(/unicode-range:\s*([^;]+);/g)].map(([, value]) =>
-  value.split(',').map((part) => {
-    const [from, to = from] = part.trim().replace(/^U\+/i, '').split('-');
-    return [parseInt(from, 16), parseInt(to, 16)] as const;
-  }),
-);
-const inExt = (char: string) => {
-  const cp = char.codePointAt(0)!;
-  return extRanges[0].some(([from, to]) => cp >= from && cp <= to);
-};
+/** 경계는 빌드 경고(`check-bundle.mjs`)와 **같은 파서**로 읽는다 — 각자 읽으면 둘이 다른 글자를 말한다(14 W261010.33t). */
+const extRanges = extRangeBlocks(css);
+const inExt = (char: string) => inRanges(char.codePointAt(0)!, extRanges[0]);
 
 /** KS X 1001 의 한글 2,350자 — EUC-KR 의 B0A1~C8FE 칸을 풀어 얻는다. */
 const ksx1001 = (() => {
