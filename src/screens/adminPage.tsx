@@ -133,6 +133,7 @@ import {
 import { cx } from '../utils/cx';
 import { useAdminInfiniteScroll } from './adminInfiniteScroll';
 import { AdminPageAnalyzeRequest } from './adminPageAnalyzeRequest';
+import { AdminPageHelp } from './adminPageHelp';
 import { AdminLiveStatusLine } from './adminLiveStatusLine';
 import { AdminPageBlocksPanel } from './adminPageBlocksPanel';
 import type { TAdminPageBlocksRowState } from './adminPageBlocksRow';
@@ -213,7 +214,6 @@ const HELP_LINES = [
   `${POLICY_STATE_WORD.noLimit}: "동반 가능" 문장은 있는데 크기·실내·요금 같은 조건이 안 적혀 있어요 — 등록하면 사이트엔 '확인이 필요해요' 로 나가요.`,
   `${UNREAD_BADGE_LABEL}(칩): 조건 문장은 있는데 판정 규칙이 못 읽었어요 — 사이트에도 "원문을 확인해 주세요" 로 나가요.`,
 ];
-const HELP = HELP_LINES.join('\n');
 
 type TBulkMode = 'reject' | 'reanalyze' | 'approve' | 'latest';
 
@@ -1981,7 +1981,7 @@ export function AdminPage() {
     <div className="pb-8">
       {/*
         * 제목은 **탭마다** 다르다(2026-09-30 v2) — '올린 장소' 칸에서도 '장소 검수' 라 적혀 지금 어느 칸인지를 제목이 말하지 못했다.
-        * 설명문(여기서 바꾼 것은 빌드 뒤에 보인다 등)은 `?` 하나로 모았다(`HELP`).
+        * 설명문(여기서 바꾼 것은 빌드 뒤에 보인다 등)은 `?` 하나로 모았다(`HELP_LINES`).
         */}
       <PageHeader
         title={TAB_HEADER[tab].title}
@@ -1990,23 +1990,9 @@ export function AdminPage() {
           <div className="flex items-center gap-2">
             {/*
               * `?` 는 **누르면 열린다**(2026-10-06, todo/13 T4.5) — `title` 툴팁만이던 동안 폰·태블릿에서는 볼 길이 없었다.
-              * 레포에 이미 쓰는 `<details>`(비교표의 '어떻게 읽었는지 보기')로 연다 — 팝오버 부품을 들이지 않는다. 마우스에는 `title` 도 남긴다.
-              * 펼친 목록은 떠 있는 카드라 흰 바탕(`bg-primary`)이다(크롬이 아니다 — ADR-010 v4).
+              * `<details>` 로 열던 것을 팝오버로 바꿨다(14 W261010.8) — 바깥 탭으로 안 닫혔고 폰에서 왼쪽 화면 밖으로 나갔다(`AdminPageHelp`).
               */}
-            <details className="relative">
-              <summary
-                title={HELP}
-                aria-label="도움말"
-                className="flex size-6 cursor-pointer list-none items-center justify-center rounded-full border border-secondary text-xs text-tertiary [&::-webkit-details-marker]:hidden"
-              >
-                ?
-              </summary>
-              <ul className="absolute right-0 z-20 mt-2 w-80 max-w-[calc(100vw-2rem)] space-y-1.5 rounded-lg border border-secondary bg-primary p-3 text-xs text-secondary shadow-lg">
-                {HELP_LINES.map((line) => (
-                  <li key={line}>{line}</li>
-                ))}
-              </ul>
-            </details>
+            <AdminPageHelp lines={HELP_LINES} />
           </div>
         }
       />

@@ -35,7 +35,12 @@ export function AdminPageSuggestions({ suggestions, busyId, onClose }: TAdminPag
           const busy = busyId === row.id;
           return (
             <li key={row.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-xs">
-              <span className="min-w-0 flex-1 text-secondary">{name}</span>
+              {/*
+                * 이름 칸은 **0 이 아닌 최소 폭**(`min-w-48`)을 갖는다. `min-w-0 flex-1` 이던 동안 기준 폭이 0 이라 `flex-wrap` 이 버튼을
+                * 다음 줄로 넘길 일이 없었고, 폰에서는 버튼 넷이 남긴 몇 px 에 문장이 한 글자씩 꺾였다(14 W261010.8 · parttime-17).
+                * 사용자가 쓴 한 줄이라 공백 없는 주소도 온다 — `break-words` 로 칸 안에서 끊는다.
+                */}
+              <span className="min-w-48 flex-1 break-words text-secondary">{name}</span>
               <span className="text-quaternary">{reportDay(row.created_at)}</span>
               <NaverLinkButton href={naverMapSearchUrl(suggestionSearchName(name))}>네이버에서 찾기</NaverLinkButton>
               <Button color="secondary" size="sm" isDisabled={Boolean(busyId)} isLoading={busy} onClick={() => onClose(row, 'handled')}>

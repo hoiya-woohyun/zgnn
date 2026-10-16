@@ -231,8 +231,10 @@ export function AdminPageGroupCard({
   // 끝난 묶음은 초록 한 줄로 접힌다. 3초 뒤 목록에서 사라지므로 그 사이의 확인용이다.
   if (state.done) {
     // 고르기 칸만큼 비워 두고 시작한다 — 안 그러면 끝난 줄만 왼쪽으로 튀어나와 표가 어긋난 것처럼 보인다.
+    // `ADMIN_ROW` 를 안 거치므로 트랙 전체를 손으로 잡는다 — 빠지면 subgrid 의 첫 트랙(고르기 칸 2.5rem)에 갇혀
+    // 결과 문장이 한 글자씩 꺾인다(14 W261010.8). `ADMIN_ROW` 를 쓰면 두 자식이 각자 한 줄 폭이 돼 들여쓰기가 깨진다.
     return (
-      <li className="flex bg-success-primary">
+      <li className="flex bg-success-primary md:col-span-full">
         <span className={ADMIN_LEAD_CELL} />
         <span className="min-w-0 flex-1 px-4 py-2 text-xs text-success-primary">{state.done}</span>
       </li>
