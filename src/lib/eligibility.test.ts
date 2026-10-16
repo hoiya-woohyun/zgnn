@@ -443,6 +443,79 @@ describe('judgeEligibility — H1 근거에 한도를 넘는 강아지 이름을
   });
 });
 
+describe('judgeEligibility — 몸무게가 무게 상한 바로 밑이면 그렇다고 말한다(I2, 14 W261010.33r)', () => {
+  const dogs = (...weights: number[]): TDogProfile => ({
+    dogs: weights.map((weightKg, i) => ({ name: ['보리', '콩'][i], weightKg })),
+    carrier: 'none',
+  });
+  const near = (dog: TDogProfile, name: string) => judgeEligibility(dog, findPlace(name).policy).reasons.find((r) => r.rule === 'I2');
+  const card = (dog: TDogProfile, name: string) => {
+    const { policy } = findPlace(name);
+    const e = judgeEligibility(dog, policy);
+    const reason = primaryReason(e);
+    const chips = toPetBadges(policy).filter((badge) => !verdictHidesBadge(e, policy, reason)(badge)).map((badge) => badge.label);
+    return { e, reason, chips, lead: reasonBadgeLabel(e, policy) };
+  };
+
+  it('선흘안(13kg 미만) × 12.5kg — 판정은 그대로 갈 수 있어요, 카드 이유 줄이 남은 무게를 말하고 같은 말인 칩은 빠진다', () => {
+    const { e, reason, chips, lead } = card(dogs(12.5), '선흘안');
+    expect(e.level).toBe('ok');
+    expect(reason).toMatchObject({ rule: 'I2', level: 'info', text: '보리(12.5kg)는 13kg 미만 조건까지 0.5kg 남았어요' });
+    expect(chips).not.toContain('13kg 미만');
+    // 이유 줄이 없는 카드(근처 장소)는 같은 칩을 앞에 세운다.
+    expect(lead).toBe('13kg 미만');
+  });
+
+  it('문턱은 1kg — 끝값(12kg)은 들고 11.9kg 는 빠진다', () => {
+    expect(near(dogs(12), '선흘안')?.text).toBe('보리(12kg)는 13kg 미만 조건까지 1kg 남았어요');
+    expect(near(dogs(11.9), '선흘안')).toBeUndefined();
+  });
+
+  it('작은 개 제한은 한도의 10% — 5kg 이하에 4.5kg 는 들고 4.4kg 는 빠진다, 한도와 같으면 여유가 없다', () => {
+    expect(near(dogs(4.5), '그리너리빌리지 펜션')?.text).toBe('보리(4.5kg)는 5kg 이하 조건까지 0.5kg 남았어요');
+    expect(near(dogs(4.4), '그리너리빌리지 펜션')).toBeUndefined();
+    expect(near(dogs(5), '그리너리빌리지 펜션')?.text).toBe('보리(5kg)는 5kg 이하 조건까지 여유가 없어요');
+  });
+
+  it('남은 무게는 소수 한 자리 — 10 − 9.7 을 0.3000000000000007 로 쓰지 않는다', () => {
+    const e = judgeEligibility(dogs(9.7), parsePetPolicy('10kg 미만 2마리까지 가능.'));
+    expect(e.reasons.find((r) => r.rule === 'I2')?.text).toBe('보리(9.7kg)는 10kg 미만 조건까지 0.3kg 남았어요');
+  });
+
+  it('웨스티하우스 — 경계는 우리를 받아 주는 구간이다: 9.5kg 한 마리는 20kg 구간이라 멀고, 두 마리면 10kg 구간이라 바로 밑', () => {
+    expect(near(dogs(9.5), '웨스티하우스')).toBeUndefined();
+    const { e, reason, chips } = card(dogs(9.5, 3), '웨스티하우스');
+    expect(e.level).toBe('ok');
+    expect(reason?.text).toBe('보리(9.5kg)는 10kg 미만 조건까지 0.5kg 남았어요');
+    // 줄이 말한 구간의 칩만 빠진다 — '20kg 미만 1마리' 는 다른 구간이라 남는다.
+    expect(chips).not.toContain('10kg 미만 2마리');
+    expect(chips).toContain('20kg 미만 1마리');
+  });
+
+  it('여러 마리면 가장 무거운 아이만 부른다', () => {
+    const text = near(dogs(12.5, 12.2), '선흘안')?.text;
+    expect(text).toBe('보리(12.5kg)는 13kg 미만 조건까지 0.5kg 남았어요');
+    expect(text).not.toContain('콩');
+  });
+
+  it('확인이 필요한 곳은 판정을 정한 근거가 카드 줄이고, 몸무게 줄은 상세 근거 목록에 함께 선다', () => {
+    const e = judgeEligibility(dogs(4.5), findPlace('그리너리빌리지 펜션').policy);
+    expect(e.level).toBe('cond');
+    expect(primaryReason(e)?.rule).toBe('C6');
+    expect(e.reasons.map((r) => r.rule)).toEqual(['C6', 'I2', 'I1']);
+  });
+
+  it('어려움이면 싣지 않는다 — 못 간다는 곳에 남은 무게는 소음이다', () => {
+    const e = judgeEligibility(dogs(12.5), parsePetPolicy('13kg 미만 2마리까지 가능. 실내는 케이지 필수.'));
+    expect(e.level).toBe('hard');
+    expect(e.reasons.some((r) => r.rule === 'I2')).toBe(false);
+  });
+
+  it('무게 상한이 없는 곳에는 걸지 않는다', () => {
+    expect(judgeEligibility(dogs(12.5), parsePetPolicy('1마리당 1만원.')).reasons.some((r) => r.rule === 'I2')).toBe(false);
+  });
+});
+
 describe('headlineFor — 머리글은 근거가 같은 말을 할 때 근거를 따른다', () => {
   it('C1 단독이면 "야외 자리에서 갈 수 있어요" — 요금 info 는 세지 않는다', () => {
     const result = judgeEligibility(TOFU, parsePetPolicy('야외좌석만 가능.\n1마리당 1만원.'));

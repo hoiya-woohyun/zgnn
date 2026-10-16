@@ -132,6 +132,20 @@ const tooManyText = (tier: TPolicyTier): string => {
   return topic ? `${topic} ${tier.maxDogs}마리까지예요` : `${tier.maxDogs}마리까지예요`;
 };
 
+/**
+ * 무게 상한까지 이만큼 남았으면 "바로 밑" 이다(I2). 1kg 이되 한도의 10% 를 넘지 않는다 — 작은 개 제한에서 1kg 는 큰 몫이라
+ * ('5kg 이하' 에 4kg 은 20% 여유다) 0.5kg 로 준다: 5kg → 0.5 · 7kg → 0.7 · 10kg 부터 1. 끝값은 바로 밑에 든다(13kg 미만에 12kg).
+ */
+const NEAR_LIMIT_KG = 1;
+const NEAR_LIMIT_RATIO = 0.1;
+const nearLimitMarginKg = (limitKg: number): number => Math.min(NEAR_LIMIT_KG, limitKg * NEAR_LIMIT_RATIO);
+
+/** I2 문장의 경계 부분 — "13kg 미만 조건". 칩 거르기(`REASON_BADGE`)가 같은 함수로 이 줄이 어느 구간의 말인지 찾는다(H2 의 `tooManyText` 와 같은 짝). */
+const nearLimitBound = (tier: TPolicyTier): string => `${weightBoundLabel(tier)} 조건`;
+
+/** 그 줄이 이 구간을 말하나 — 앞 공백까지 맞춰 '13kg 미만 조건' 안의 '3kg 미만 조건' 을 집지 않는다. */
+const saysNearLimitBound = (text: string, tier: TPolicyTier): boolean => text.includes(` ${nearLimitBound(tier)}`);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 규칙 테이블 — 순서 = 표시 순서(같은 레벨 안에서)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -183,6 +197,31 @@ const ruleTooManyForWeight: TRule = (dog, policy) => {
   if (selected.maxDogs >= dog.dogs.length) return null;
 
   return { level: 'hard', text: tooManyText(selected), quote: selected.source };
+};
+
+/**
+ * I2: 몸무게가 무게 상한 바로 밑이다(14 W261010.33r). '13kg 미만' 곳에 12.5kg 가 '갈 수 있어요' 뿐이면 털·체중계 차이로 현장에서
+ * 걸릴 수 있다는 것을 모른다. 판정은 원문 기준 그대로다 — 경계 안이면 갈 수 있다. 그래서 레벨은 info 라 등급을 바꾸지 않는다.
+ *
+ * 경계는 **우리를 받아 주는 구간** 중 가장 넓은 것이다 — 무게도 마릿수도 맞는 구간. 웨스티하우스(10kg 미만 2마리 · 20kg 미만 1마리)에서
+ * 9.5kg 한 마리는 20kg 구간이 받아 주니 경계가 멀고, 9.5kg 가 낀 두 마리는 10kg 구간뿐이라 0.5kg 남았다. 무게 조건 없는 구간이 받아 주면
+ * 무게는 경계가 아니다. 받아 주는 구간이 없으면 H1·H2 가 이미 어려움으로 말했다.
+ * 판정처럼 가장 무거운 아이 하나로 본다 — 그 아이가 넘으면 다 같이 못 간다. 이름도 그 아이만(H1 과 같은 꼴).
+ */
+const ruleNearWeightLimit: TRule = (dog, policy) => {
+  const weight = maxWeightKg(dog);
+  const admitting = policy.tiers.filter(
+    (t) => fitsTierWeight(t, weight) && (t.maxDogs === undefined || t.maxDogs >= dog.dogs.length),
+  );
+  if (admitting.length === 0 || admitting.some((t) => t.maxWeightKg === undefined)) return null;
+  const tier = admitting.reduce((a, b) => ((b.maxWeightKg as number) > (a.maxWeightKg as number) ? b : a));
+  const limit = tier.maxWeightKg as number;
+  // 10 − 9.7 은 0.3000000000000007 이다 — 소수 한 자리로.
+  const left = Math.round((limit - weight) * 10) / 10;
+  if (left > nearLimitMarginKg(limit)) return null;
+  const heaviest = dog.dogs.find((d) => d.weightKg === weight) as TDogEntry;
+  const tail = left === 0 ? '까지 여유가 없어요' : `까지 ${left}kg 남았어요`;
+  return { level: 'info', text: `${dogsTopic([heaviest])} ${nearLimitBound(tier)}${tail}`, quote: tier.source };
 };
 
 /** H3: "소형견만" 인데 우리 강아지는 소형이 아니다. */
@@ -493,6 +532,7 @@ const RULES: [string, TRule][] = [
   ['C7', ruleUnread],
   ['C9', ruleGenericUnverified],
   ['U1', ruleNoInfo],
+  ['I2', ruleNearWeightLimit],
 ];
 
 /**
@@ -507,16 +547,19 @@ export const judgeEligibility = (
   policy: TPetPolicy,
   opts: TJudgeOpts = {},
 ): TEligibility => {
-  const reasons = RULES.flatMap(([id, rule]): TReason[] => {
+  const judged = RULES.flatMap(([id, rule]): TReason[] => {
     const reason = rule(dog, policy, opts);
     return reason ? [{ ...reason, rule: id }] : [];
   });
 
   let level: TEligibilityLevel;
-  if (reasons.some((r) => r.level === 'hard')) level = 'hard';
+  if (judged.some((r) => r.level === 'hard')) level = 'hard';
   else if (policy.noInfo) level = 'unknown';
-  else if (reasons.some((r) => r.level === 'cond')) level = 'cond';
+  else if (judged.some((r) => r.level === 'cond')) level = 'cond';
   else level = 'ok';
+
+  // 어려움이면 참고 줄(info — 몸무게 문턱 I2)도 싣지 않는다. 못 간다는 곳에서 "13kg 까지 0.5kg 남았어요" 는 소음이다(요금과 같은 이유, 아래).
+  const reasons = level === 'hard' ? judged.filter((r) => r.level !== 'info') : judged;
 
   // 요금은 이름까지 붙은 완성 문장(`dogFee.ts`)이라 카드·상세가 같은 줄을 그대로 보여준다.
   // **어려움이면 요금을 싣지 않는다**(`fee` 도, 요금 info 근거도) — 못 간다는 곳 밑에 "대장이와
@@ -588,10 +631,11 @@ export const verdictFor = (dogNames: string[], e: TEligibility): string =>
  *   "야외 자리에서 갈 수 있어요" 였다. 무히어는 '야외 자리만 가능해요' 가 앞에 서서, 판정을 정한 예방접종은 상세에서야 보였다.
  * - 머리글이 "야외 자리에서 갈 수 있어요" 면 C1('야외 자리만 가능해요')은 머리글을 되풀이할 뿐이라 고르지 않는다 — 카드 한 장에
  *   '야외' 가 세 번이었다. H4·C4 는 왜 야외만인지('대형견이라'·'실내는 케이지') 더 말하므로 남는다.
- * `ok` 면 말할 이유가 없다. 요금(I1)은 카드가 이미 따로 한 줄 그리므로 고르지 않는다.
+ * `ok` 면 판정을 정한 근거가 없다 — 몸무게가 무게 상한 바로 밑이면(I2) 그 줄만 고른다. 상세가 같은 줄을 근거 목록에 세우므로
+ * 카드·지도 시트·상세가 같은 말을 한다(14 W261010.33r). 요금(I1)은 카드가 이미 따로 한 줄 그리므로 고르지 않는다.
  */
 export const primaryReason = (e: TEligibility): TReason | undefined => {
-  if (e.level === 'ok') return undefined;
+  if (e.level === 'ok') return e.reasons.find((r) => r.rule === 'I2');
   const same = e.reasons.filter((r) => r.level === e.level);
   if (e.level !== 'cond') return same[0];
   if (isOutdoorSeatOnly(e)) return same.find((r) => r.rule !== 'C1');
@@ -631,6 +675,15 @@ const REASON_BADGE: Record<string, (policy: TPetPolicy, reason: TReason) => stri
   C8: () => BADGE_LABEL.vaccineRequired,
   C11: (policy) => (policy.petDays?.length ? petDaysBadgeLabel(policy.petDays) : undefined),
   C7: () => UNREAD_BADGE_LABEL,
+  // 몸무게 문턱 줄은 무게 상한 칩('13kg 미만')과 같은 말이다. 구간 칩이면 그 줄이 말한 구간의 칩(H2 와 같은 찾기).
+  I2: (policy, reason) => {
+    const tiers = dogCountTiers(policy);
+    const tier = (tiers ?? policy.tiers.filter((t) => t.maxWeightKg === policy.weightLimitKg)).find((t) =>
+      saysNearLimitBound(reason.text, t),
+    );
+    if (!tier) return undefined;
+    return tiers ? dogTierBadgeLabel(tier) : weightLimitBadgeLabel(policy);
+  },
 };
 
 const reasonBadge = (policy: TPetPolicy, reason: TReason | undefined): string | undefined =>

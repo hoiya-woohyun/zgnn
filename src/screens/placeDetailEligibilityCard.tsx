@@ -35,7 +35,7 @@ const DOT_CLASS: Record<TEligibilityLevel, string> = {
  *
  * 강아지가 없으면 강제 등록 없이 조용한 배너 한 줄만(2026-09-15 리뷰 §1② — 첫 진입 강제
  * 등록은 이탈). 있으면 색 점 + 머리글 + 근거(심각도순, `useEligibility` 가 이미 정렬해 준다).
- * 요금 정보(`info` 레벨)는 판정 근거가 아니라 참고 정보라 아래에 작게 따로 둔다.
+ * 요금(`I1`)은 판정 근거가 아니라 참고 정보라 아래에 작게 따로 둔다. 같은 info 라도 몸무게 문턱(`I2`)은 근거 목록에 선다.
  *
  * **근거(`evidence`)는 따로 상자를 갖지 않고 이 면 안에 구분선으로 딸린다**(ADR-003 v15). 예전에는 판정·원문이
  * 같은 모양의 상자 둘로 쌓여 답과 근거가 같은 무게로 보였다. 강아지가 없으면 답이 없으므로 근거가 혼자 면을 갖는다.
@@ -75,10 +75,11 @@ export function PlaceDetailEligibilityCard({
     );
   }
 
-  const mainReasons = eligibility.reasons.filter((r) => r.level !== 'info' && r.rule !== 'U1');
+  // 몸무게 문턱(I2)은 info 지만 근거 목록에 선다 — 카드·지도 시트의 이유 줄(`primaryReason`)과 같은 말이다(14 W261010.33r).
+  const mainReasons = eligibility.reasons.filter((r) => r.rule !== 'I1' && r.rule !== 'U1');
   // 다두 what-if(10 F11) — 어려움일 때만, 가장 많이 데려갈 수 있는 조합 하나. 판정을 다시 돌릴 뿐 규칙을 새로 쓰지 않는다.
   const subset = dogSubsetWhatIf(dog, place.policy, eligibility, { needsIndoor });
-  const infoReasons = eligibility.reasons.filter((r) => r.level === 'info');
+  const infoReasons = eligibility.reasons.filter((r) => r.rule === 'I1');
   // 요금이 1박마다인지 원문이 말하지 않으면 한 줄 밑에 그렇다고 적는다(08 T5.1). 카드엔 붙이지 않는다 — 숙소 거의 전부라 소음이다.
   const feeNote = feeUnitNote(place.type, place.feeUnitStated, place.policy, eligibility.fee);
   /*
