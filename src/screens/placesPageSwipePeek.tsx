@@ -3,7 +3,7 @@
 import { useMemo, type RefObject } from 'react';
 import { PlacesPageResults } from './placesPageResults';
 import { resetFiltersLabel } from '../lib/placeFilters';
-import { areaCarriedRelease, areaReleaseCount, filterPlacesPage, otherTypeHiddenMatches, otherTypeMatches, placesByTown, placesPageChips, reachableReleaseCount, townReleaseCount } from '../lib/placesPageFilter';
+import { areaCarriedRelease, areaReleaseCount, filterPlacesPage, otherTypeHiddenMatches, otherTypeMatches, placesByTown, placesPageChips, reachableReleaseCount, singleConditionReleases, townReleaseCount } from '../lib/placesPageFilter';
 import { sortByEligibility } from '../lib/sortByEligibility';
 import { useAppStore, useDog } from '../store/useAppStore';
 import { useEligibilityMap } from '../store/useDogEligibility';
@@ -36,7 +36,8 @@ const noop = () => undefined;
 export function PlacesPageSwipePeek({ ref, type, side, top, height }: TPlacesPageSwipePeekProps) {
   const town = useAppStore((state) => state.town);
   const needsIndoor = useAppStore((state) => state.needsIndoor);
-  const hasDog = Boolean(useDog());
+  const dog = useDog();
+  const hasDog = Boolean(dog);
   const eligibilityMap = useEligibilityMap();
   const query = usePlacesPageFilterStore((state) => state.query);
   const directions = usePlacesPageFilterStore((state) => state.directions);
@@ -66,10 +67,15 @@ export function PlacesPageSwipePeek({ ref, type, side, top, height }: TPlacesPag
     [results.length, type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap, petKeysByType],
   );
   const released = useMemo(() => {
-    if (results.length > 0) return { town: 0, area: 0, reachable: 0 };
+    if (results.length > 0) return { town: 0, area: 0, reachable: 0, conditions: [] };
     const conditions = { type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap };
-    return { town: townReleaseCount(conditions), area: areaReleaseCount(conditions), reachable: reachableReleaseCount(conditions) };
-  }, [results.length, type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap]);
+    return {
+      town: townReleaseCount(conditions),
+      area: areaReleaseCount(conditions),
+      reachable: reachableReleaseCount(conditions),
+      conditions: singleConditionReleases(conditions, { dog, needsIndoor }),
+    };
+  }, [results.length, type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap, dog, needsIndoor]);
   // 0곳이 아니어도 카드보다 적으면 — 동네 카드 진입에 따라온 읍면·방향·조건 칩(19 T4.2). 0곳이면 위 빈 상태 몫이다.
   const areaCarried = useMemo(
     () =>
@@ -123,6 +129,7 @@ export function PlacesPageSwipePeek({ ref, type, side, top, height }: TPlacesPag
         onClearArea={noop}
         reachableReleaseCount={released.reachable}
         onClearOnlyReachable={noop}
+        conditionReleases={released.conditions}
         areaCarried={areaCarried}
         onReleaseAreaCarried={noop}
       />

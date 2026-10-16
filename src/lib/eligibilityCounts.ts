@@ -33,6 +33,16 @@ export const countByLevel = (
 };
 
 /**
+ * 장소마다의 판정(id → 판정) — 둘러보기 걸러 내기(`filterPlacesPage`)가 읽는 맵. 화면의 맵(`useEligibilityMap`)과 0곳 안내의
+ * '실내 자리 필요' 풀기 셈(`singleConditionReleases`, 그 값 없이 다시 판정)이 **같은 호출**로 만든다 — 두 벌이면 버튼의 "N곳" 과 눌러 본 목록이 갈린다.
+ */
+export const eligibilityMapOf = (
+  places: readonly { id: string; policy: TPetPolicy }[],
+  dog: TDogProfile,
+  opts: { needsIndoor?: boolean } = {},
+): Map<string, TEligibility> => new Map(places.map((place) => [place.id, judgeEligibility(dog, place.policy, opts)]));
+
+/**
  * 판정 하나가 "갈 수 있는 곳" 인가 — `ok` 또는 야외 자리만 되는 곳. `countByLevel` 의 `ok + outdoor` 칸과 같은 말이다.
  * `reachablePlaces`(히어로 시트)와 둘러보기의 '갈 수 있는 곳만'(`filterPlacesPage`, 19 T4.1)이 이 술어 하나를 쓴다 —
  * 두 벌이면 카드 "묵을 곳 1" 을 눌러 2곳을 본다.

@@ -4,8 +4,8 @@ import { DIRECTION_LABEL, PLACE_TYPES, placesOfType, type TPlaceEntry } from './
 import { PET_FILTERS, carriedFilterChips, envFiltersWithData, type TPetFilter, type TPetFilterKey } from './placeFilters';
 import { matchesQuery } from './placeSearch';
 import type { TEligibility } from './eligibility';
-import { isReachable } from './eligibilityCounts';
-import type { TDirection, TPlaceType } from '../types';
+import { eligibilityMapOf, isReachable } from './eligibilityCounts';
+import type { TDirection, TDogProfile, TPlaceType } from '../types';
 
 /**
  * 둘러보기 목록·칩을 만드는 순수 함수 — 본 화면(`placesPage`)과 스와이프 엿보기(`placesPageSwipePeek`)가 **같은 함수**를 부른다.
@@ -103,6 +103,49 @@ export const areaReleaseCount = (conditions: TPlacesPageConditions): number =>
  */
 export const reachableReleaseCount = (conditions: TPlacesPageConditions): number =>
   conditions.onlyReachable && conditions.eligibilityMap ? filterPlacesPage({ ...conditions, onlyReachable: false }).length : 0;
+
+/** 0곳 안내의 "조건 하나만 풀면" 한 칸 — `key` 는 칩 키(`placesPageChips`)다. */
+export type TConditionRelease = { key: string; count: number };
+
+/**
+ * 0곳일 때 켜진 조건을 **하나씩** 풀면 몇 곳인가(14 W261010.33s, ferry-28 "야외면 N곳"). 읍면·권역·'갈 수 있는 곳만' 은 각자 갈래가 먼저 말하고
+ * (`townReleaseCount` 등 — 그 셋이 답이면 이 함수의 수와 같다), 이것은 셋 다 답이 아닐 때 남는 "필터에 맞는 곳이 없어요" 의 다음 길이다.
+ * 키가 칩 키라 화면은 그 칩의 이름·지우기를 그대로 쓴다 — 버튼이 칩 ✕ 와 같은 일을 해야 "N곳" 을 누르고 N곳을 본다.
+ * 셈은 그 하나를 뺀 `filterPlacesPage` 다 — 목록과 같은 술어(따로 세면 카드 n ↔ 목록 수가 갈린다, ADR-027).
+ *
+ * - **'실내 자리 필요'** 는 걸러 내기가 아니라 판정을 바꾼다(야외 전용이 어려움이 된다) — 그 값 없이 다시 판정한 맵(`eligibilityMapOf`, 화면의 맵과 같은 호출)으로 센다.
+ *   숨김 조건이 꺼져 있으면 목록이 그대로라 0 이 되어 빠진다.
+ * - **'어려운 곳 숨김' 은 세지 않는다** — 그것만 풀면 새로 보이는 곳은 전부 '이용하기 어려워요' 다. 갈 곳이 아니라 못 가는 곳을 보여 주는 길이다.
+ * - 정렬은 걸러 내지 않는다.
+ *
+ * 0곳이 되는 풀기는 뺀다. 많은 순, 같으면 칩 순서.
+ */
+export const singleConditionReleases = (
+  conditions: TPlacesPageConditions,
+  judging: { dog: TDogProfile | null; needsIndoor: boolean },
+): TConditionRelease[] => {
+  const { type, town, area, query, directions, petKeys, onlyReachable, eligibilityMap } = conditions;
+  const count = (released: Partial<TPlacesPageConditions>) => filterPlacesPage({ ...conditions, ...released }).length;
+  const releases: TConditionRelease[] = [
+    ...(area ? [{ key: 'area', count: count({ area: null }) }] : []),
+    ...(onlyReachable && eligibilityMap ? [{ key: 'onlyReachable', count: count({ onlyReachable: false }) }] : []),
+    ...(town !== null ? [{ key: 'town', count: count({ town: null }) }] : []),
+    // 칩이 서는 조건과 같다(`carriedFilterChips` — 숙소엔 '실내 자리 필요' 칩이 없다).
+    ...(judging.needsIndoor && judging.dog && type !== 'stay'
+      ? [{ key: 'indoor', count: count({ eligibilityMap: eligibilityMapOf(placesOfType(type), judging.dog) }) }]
+      : []),
+    ...directions.map((direction) => ({
+      key: `dir-${direction}`,
+      count: count({ directions: directions.filter((other) => other !== direction) }),
+    })),
+    ...filtersOfPlaceType(type)
+      .filter((filter) => petKeys.includes(filter.key))
+      .map((filter) => ({ key: `pet-${filter.key}`, count: count({ petKeys: petKeys.filter((key) => key !== filter.key) }) })),
+    ...(query.trim() ? [{ key: 'query', count: count({ query: '' }) }] : []),
+  ];
+  // Array#sort 는 안정 정렬이라 같은 수면 칩 순서 그대로다.
+  return releases.filter((release) => release.count > 0).sort((a, b) => b.count - a.count);
+};
 
 /**
  * '어려운 곳 숨기기' 가 지금 조건에서 숨기는(켜면 숨길) 곳 수(14 W261013.8). 나머지 조건은 그대로 센다 — 칩에 싣는 수다.

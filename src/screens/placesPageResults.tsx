@@ -13,7 +13,7 @@ import { FilterChip } from '../components/filterChip';
 import { judgeEligibility, primaryReason } from '../lib/eligibility';
 import { carrierWhatIf, carrierWhatIfText, countByLevel, levelCountParts, outdoorFallback } from '../lib/eligibilityCounts';
 import { placesPageHardFold } from '../lib/placesPageHardFold';
-import { placesPageEmptySearch, type TAreaCarried } from '../lib/placesPageFilter';
+import { placesPageEmptySearch, type TAreaCarried, type TConditionRelease } from '../lib/placesPageFilter';
 import { placesPageRepeatedReason } from '../lib/placesPageRepeatedReason';
 import { cityScopeOf } from '../lib/placeSearch';
 import { townFilterLabel } from '../lib/placeFilters';
@@ -74,6 +74,11 @@ type TPlacesPageResultsProps = {
   /** 0곳일 때 '갈 수 있는 곳만' 을 풀면 몇 곳인가(`reachableReleaseCount`, 19 T4.1). */
   reachableReleaseCount?: number;
   onClearOnlyReachable?: () => void;
+  /**
+   * 0곳일 때 켜진 조건을 하나씩 풀면 몇 곳인가(`singleConditionReleases`, 14 W261010.33s) — 많은 순. 위 셋(읍면·'갈 수 있는 곳만'·권역)이
+   * 답이 아닐 때 범용 안내가 앞의 둘을 버튼으로 세운다. 지우기는 같은 키의 칩(`activeChips`)의 것이다.
+   */
+  conditionReleases?: TConditionRelease[];
   /** 동네 카드로 들어왔는데 따라온 읍면·방향·조건 칩 탓에 카드보다 적게 보이면(`areaCarriedRelease`, 19 T4.2). */
   areaCarried?: TAreaCarried | null;
   onReleaseAreaCarried?: () => void;
@@ -122,6 +127,7 @@ export function PlacesPageResults({
   onClearArea,
   reachableReleaseCount = 0,
   onClearOnlyReachable,
+  conditionReleases = [],
   areaCarried = null,
   onReleaseAreaCarried,
   nearSort,
@@ -201,6 +207,13 @@ export function PlacesPageResults({
             ? 'search'
             : 'generic';
   const emptySearch = emptyKind === 'search' ? placesPageEmptySearch(query, otherTypes) : null;
+  // 범용 0곳 안내의 다음 길 — 조건 하나만 풀면 되는 앞의 둘(14 W261010.33s). 버튼은 그 칩의 ✕ 와 같은 일을 한다(같은 키의 `onRemove`).
+  const releaseActions = conditionReleases
+    .flatMap((release) => {
+      const chip = activeChips.find((candidate) => candidate.key === release.key);
+      return chip ? [{ ...release, chip }] : [];
+    })
+    .slice(0, 2);
   // 0곳에서 "다른 종류에 N곳" 링크 줄이 큰 안내보다 먼저 서는가 — 'search' 갈래는 그 답을 큰 안내로 옮겨 간다.
   const otherTypeRowsFirst = emptyKind !== 'search' && (otherTypes.length > 0 || hiddenOtherTypes.length > 0);
 
@@ -541,7 +554,11 @@ export function PlacesPageResults({
                   : `${TYPE_META[type].label}에는 필터에 맞는 곳이 없어요`
               }
               description={
-                townHasNoPlaces ? '읍면을 풀거나 필터에서 다른 읍면을 골라 보세요.' : '검색어나 필터를 바꿔 보세요.'
+                townHasNoPlaces
+                  ? '읍면을 풀거나 필터에서 다른 읍면을 골라 보세요.'
+                  : releaseActions.length > 0
+                    ? '조건 하나만 풀어도 있어요.'
+                    : '검색어나 필터를 바꿔 보세요.'
               }
               action={
                 townHasNoPlaces ? (
@@ -549,6 +566,27 @@ export function PlacesPageResults({
                   <Button color="primary" size="md" onClick={onClearTown}>
                     읍면 풀기
                   </Button>
+                ) : releaseActions.length > 0 ? (
+                  /*
+                    "필터를 바꿔 보세요" 만으로는 무엇을 풀어야 하는지 몰랐다(ferry-28 — 경쟁 펫패스는 대체 장소를 낸다). 하나만 풀어도 되는 조건을
+                    수와 함께 — 앞의 둘만, 많은 순. '어려운 곳 숨김' 은 후보가 아니다(풀면 못 가는 곳만 나온다, `singleConditionReleases`).
+                    시트를 여는 '필터 바꾸기' 는 뺀다 — 버튼이 셋이면 폰에서 안내가 버튼 더미가 되고, 시트는 위 필터 버튼이 그대로 연다.
+                  */
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    {releaseActions.map((release, index) => (
+                      <Button
+                        key={release.key}
+                        color={index === 0 ? 'primary' : 'secondary'}
+                        size="md"
+                        onClick={release.chip.onRemove}
+                        data-ev="places.emptyRelease"
+                      >
+                        {release.key === 'query'
+                          ? `검색어 지우고 ${release.count}곳 보기`
+                          : `${release.chip.label} 풀고 ${release.count}곳 보기`}
+                      </Button>
+                    ))}
+                  </div>
                 ) : (
                   <Button color="primary" size="md" className="md:hidden" onClick={onOpenFilters}>
                     필터 바꾸기

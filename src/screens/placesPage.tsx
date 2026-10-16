@@ -16,7 +16,7 @@ import { SEARCH_FIELD } from '../components/noAutofill';
 import { sameIsland, TYPE_META, type TPlaceEntry } from '../lib/places';
 import { comparePrice, resetFiltersLabel, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
 import { countByLevel, levelCountParts } from '../lib/eligibilityCounts';
-import { areaCarriedRelease, areaReleaseCount, filterPlacesPage, hideHardCount, onlyReachableCount, otherTypeHiddenMatches, otherTypeMatches, placesByTown, placesPageChips, reachableReleaseCount, townChipCounts, townReleaseCount } from '../lib/placesPageFilter';
+import { areaCarriedRelease, areaReleaseCount, filterPlacesPage, hideHardCount, onlyReachableCount, otherTypeHiddenMatches, otherTypeMatches, placesByTown, placesPageChips, reachableReleaseCount, singleConditionReleases, townChipCounts, townReleaseCount } from '../lib/placesPageFilter';
 import { sortByEligibility } from '../lib/sortByEligibility';
 import { distancesFrom, NEAR_PARAM, nearPlaceOf, sortByDistance } from '../lib/distanceSort';
 import { LOCATE_NOTICE, locateMe } from '../lib/myLocation';
@@ -165,12 +165,17 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
         : otherTypeHiddenMatches({ type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap }, petKeysByType),
     [results.length, type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap, petKeysByType],
   );
-  // 같은 이유로 0곳일 때만 — 읍면 하나(18 T2.1)·권역 하나(19 T3)가 원인인지.
+  // 같은 이유로 0곳일 때만 — 읍면 하나(18 T2.1)·권역 하나(19 T3)가 원인인지, 아니면 어느 조건 하나를 풀면 되는지(14 W261010.33s).
   const released = useMemo(() => {
-    if (results.length > 0) return { town: 0, area: 0, reachable: 0 };
+    if (results.length > 0) return { town: 0, area: 0, reachable: 0, conditions: [] };
     const conditions = { type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap };
-    return { town: townReleaseCount(conditions), area: areaReleaseCount(conditions), reachable: reachableReleaseCount(conditions) };
-  }, [results.length, type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap]);
+    return {
+      town: townReleaseCount(conditions),
+      area: areaReleaseCount(conditions),
+      reachable: reachableReleaseCount(conditions),
+      conditions: singleConditionReleases(conditions, { dog, needsIndoor }),
+    };
+  }, [results.length, type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap, dog, needsIndoor]);
   // 0곳이 아니어도 카드보다 적으면 — 동네 카드 진입에 따라온 읍면·방향·조건 칩(19 T4.2). 0곳이면 위 빈 상태 몫이다.
   const areaCarried = useMemo(
     () =>
@@ -471,6 +476,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
               onClearArea={clearArea}
               reachableReleaseCount={released.reachable}
               onClearOnlyReachable={clearOnlyReachable}
+              conditionReleases={released.conditions}
               areaCarried={areaCarried}
               nearSort={{
                 pressed: sort === 'near',

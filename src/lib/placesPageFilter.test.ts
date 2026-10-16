@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { AREAS, areaOf, countByArea } from './areaGroups';
 import { judgeEligibility } from './eligibility';
-import { reachablePlaces } from './eligibilityCounts';
+import { eligibilityMapOf, reachablePlaces } from './eligibilityCounts';
 import {
   areaCarriedRelease,
   areaReleaseCount,
@@ -15,6 +15,7 @@ import {
   placesByTown,
   placesPageChips,
   reachableReleaseCount,
+  singleConditionReleases,
   townChipCounts,
   townReleaseCount,
 } from './placesPageFilter';
@@ -474,5 +475,65 @@ describe('placesPageEmptySearch — 검색만으로 0곳일 때 큰 안내(14 W2
     expect(placesPageEmptySearch('애월 테라로사', [])).toEqual({ kind: 'notListed', multiWord: true });
     expect(placesPageEmptySearch('테라로사', [])).toEqual({ kind: 'notListed', multiWord: false });
     expect(placesPageEmptySearch('  테라로사  ', [])).toEqual({ kind: 'notListed', multiWord: false });
+  });
+});
+
+describe('singleConditionReleases — 0곳일 때 조건 하나만 풀면 몇 곳(14 W261010.33s)', () => {
+  const BIG: TDogProfile = { dogs: [{ name: '대장', weightKg: 28 }], carrier: 'none' };
+  const noJudging = { dog: null, needsIndoor: false };
+
+  it('숙소 대형견 OK + 계단 없음 = 0곳 — 칩마다 그 하나를 뺀 목록 수, 많은 순', () => {
+    const conditions = { ...base, type: 'stay' as const, petKeys: ['largeDog', 'noStairs'] as const };
+    expect(filterPlacesPage(conditions)).toHaveLength(0);
+    const releases = singleConditionReleases(conditions, noJudging);
+    expect(releases.map((r) => r.key).sort()).toEqual(['pet-largeDog', 'pet-noStairs']);
+    for (const release of releases) {
+      const key = release.key.slice('pet-'.length);
+      expect(release.count).toBe(filterPlacesPage({ ...conditions, petKeys: conditions.petKeys.filter((k) => k !== key) }).length);
+    }
+    expect(releases.map((r) => r.count)).toEqual([...releases.map((r) => r.count)].sort((a, b) => b - a));
+  });
+
+  it("키는 칩 키(placesPageChips)와 같다 — 화면이 그 칩의 지우기를 그대로 쓴다", () => {
+    const conditions = { ...base, type: 'stay' as const, petKeys: ['largeDog', 'noStairs'] as const, directions: ['east'] as const };
+    const { chips } = placesPageChips({ ...conditions, needsIndoor: false, hasDog: false });
+    const chipKeys = new Set(chips.map((chip) => chip.key));
+    for (const release of singleConditionReleases(conditions, noJudging)) expect(chipKeys.has(release.key)).toBe(true);
+  });
+
+  it("'실내 자리 필요' 는 그 값 없이 다시 판정한 맵으로 센다 — 화면의 맵과 같은 호출(eligibilityMapOf)", () => {
+    const eligibilityMap = eligibilityMapOf(PLACES, BIG, { needsIndoor: true });
+    const conditions = { ...base, type: 'restaurant' as const, directions: ['east'] as const, onlyReachable: true, eligibilityMap };
+    expect(filterPlacesPage(conditions)).toHaveLength(0);
+    const indoor = singleConditionReleases(conditions, { dog: BIG, needsIndoor: true }).find((r) => r.key === 'indoor');
+    const expected = filterPlacesPage({ ...conditions, eligibilityMap: eligibilityMapOf(PLACES, BIG) }).length;
+    expect(expected).toBeGreaterThan(0);
+    expect(indoor?.count).toBe(expected);
+    // 칩이 없는 곳(숙소)·강아지 없음이면 세지 않는다.
+    expect(singleConditionReleases({ ...conditions, type: 'stay' }, { dog: BIG, needsIndoor: true }).some((r) => r.key === 'indoor')).toBe(false);
+    expect(singleConditionReleases(conditions, { dog: null, needsIndoor: true }).some((r) => r.key === 'indoor')).toBe(false);
+  });
+
+  it("'어려운 곳 숨김' 은 후보가 아니다 — 그것만 풀면 새로 보이는 곳은 전부 '이용하기 어려워요' 다", () => {
+    const eligibilityMap = eligibilityMapOf(PLACES, BIG, { needsIndoor: true });
+    const conditions = { ...base, type: 'restaurant' as const, directions: ['udo'] as const, hideHard: true, eligibilityMap };
+    expect(filterPlacesPage(conditions)).toHaveLength(0);
+    const unhidden = filterPlacesPage({ ...conditions, hideHard: false });
+    expect(unhidden.length).toBeGreaterThan(0);
+    expect(unhidden.every((place) => eligibilityMap.get(place.id)?.level === 'hard')).toBe(true);
+    expect(singleConditionReleases(conditions, { dog: BIG, needsIndoor: true }).map((r) => r.key)).not.toContain('hideHard');
+  });
+
+  it('검색어도 하나의 조건이다 · 0곳이 되는 풀기는 뺀다 · 아무것도 안 켰으면 빈 배열', () => {
+    const conditions = { ...base, type: 'stay' as const, query: '중문', petKeys: ['multiDog'] as const };
+    expect(filterPlacesPage(conditions)).toHaveLength(0);
+    const releases = singleConditionReleases(conditions, noJudging);
+    expect(releases.find((r) => r.key === 'query')?.count).toBe(filterPlacesPage({ ...conditions, query: '' }).length);
+    // '동쪽' 을 더하면 그것만 풀어도 중문 × 2마리 이상 = 0곳이라 그 풀기는 빠지고, 검색어를 지우는 길만 남는다.
+    const east = singleConditionReleases({ ...conditions, directions: ['east'] }, noJudging);
+    expect(east.every((r) => r.count > 0)).toBe(true);
+    expect(east.map((r) => r.key)).not.toContain('dir-east');
+    expect(east.map((r) => r.key)).toContain('query');
+    expect(singleConditionReleases({ ...base, type: 'stay' }, noJudging)).toEqual([]);
   });
 });

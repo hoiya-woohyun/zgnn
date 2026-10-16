@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { maxWeightKg } from '../lib/dogProfile';
 import { judgeEligibility, type TEligibility } from '../lib/eligibility';
+import { eligibilityMapOf } from '../lib/eligibilityCounts';
 import { PLACES, type TPlaceEntry } from '../lib/places';
 import { useAppStore } from './useAppStore';
 
@@ -26,14 +27,7 @@ export const useEligibility = (place: TPlaceEntry): TEligibility | null => {
 export const useEligibilityMap = (): Map<string, TEligibility> | null => {
   const dog = useAppStore((state) => state.dog);
   const needsIndoor = useAppStore((state) => state.needsIndoor);
-  return useMemo(() => {
-    if (!dog) return null;
-    const map = new Map<string, TEligibility>();
-    for (const place of PLACES) {
-      map.set(place.id, judgeEligibility(dog, place.policy, { needsIndoor }));
-    }
-    return map;
-  }, [dog, needsIndoor]);
+  return useMemo(() => (dog ? eligibilityMapOf(PLACES, dog, { needsIndoor }) : null), [dog, needsIndoor]);
 };
 
 /** 가장 무거운 아이의 몸무게 — 카드·지도 시트가 요금 칩 하나를 고르는 데 쓴다(`PetBadges` 의 `weightKg`). 강아지가 없으면 undefined. */
