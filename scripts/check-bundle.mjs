@@ -10,9 +10,12 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 import { PROJECT_REF } from './lib/supabasePublic.mjs';
 import { firstOverlap, privateNeedles, squash } from './lib/bundleLeak.mjs';
+import { extRanges, glyphsOutsideCore, judgeSwPrecache } from './lib/bundleSwPrecache.mjs';
 
 const OUT_DIR = new URL(process.env.CHECK_BUNDLE_OUT ?? '../out/', import.meta.url);
 const SOURCE_CACHE = new URL(process.env.CHECK_BUNDLE_SOURCE ?? '../data/raw/places-source.json', import.meta.url);
+const DATA_DIR = new URL(process.env.CHECK_BUNDLE_DATA ?? '../src/data/', import.meta.url);
+const EXT_CSS = new URL(process.env.CHECK_BUNDLE_EXT_CSS ?? '../src/styles/appSansExt.css', import.meta.url);
 const TEXT_EXTENSIONS = new Set(['.html', '.js', '.css', '.json', '.txt', '.webmanifest', '.map']);
 
 // 각 패턴이 왜 시크릿 유출 신호인지 한 줄씩.
@@ -109,6 +112,33 @@ if (Array.isArray(sourceRows)) {
   if (warns.length > 0) {
     console.warn(`번들 원문 경고(배포는 막지 않는다): 비공개 행 원문과 15자 이상 같은 구간이 out/ 에 있다 — ${warns.length}곳. 일반 문구 우연인지 확인해라.\n${warns.join('\n')}`);
   }
+}
+
+// 서비스워커 프리캐시 지킴이(14 W261010.33o) — /_next/static/ 항목의 revision 이 전부 null 이어야 한다(next.config.mjs 의 dontCacheBustURLsMatching).
+// 목록을 못 읽은 것도 실패다(sw.js 가 minify 돼 있어 정규식이 0건을 집으면 "전부 null" 이 그냥 참이 된다).
+let swProblems = [];
+try {
+  swProblems = judgeSwPrecache(await readFile(new URL('sw.js', OUT_DIR), 'utf8'));
+} catch {
+  swProblems = ['out/sw.js 를 읽지 못했다 — PWA 빌드(--webpack)가 sw.js 를 만들었는지 봐라.'];
+}
+for (const problem of swProblems) console.error(`[sw-precache] ${problem}`);
+if (swProblems.length > 0) leaked = true;
+
+// 글꼴 Core 밖 데이터 글자 경고(배포는 막지 않는다) — Vercel 빌드는 `pnpm data pull` 로 데이터를 새로 받아, 커밋된 글꼴 분할이 낡을 수 있다.
+// 깨지지 않고 그 글자가 나오는 화면이 Ext 를 받아 무거워질 뿐이다. 로컬은 appSansExt.test.ts 가 같은 일을 실패로 잡는다(고칠 명령은 거기 문구).
+try {
+  const ranges = extRanges(await readFile(EXT_CSS, 'utf8'));
+  const jsons = (await readdir(DATA_DIR)).filter((n) => n.endsWith('.json'));
+  const text = (await Promise.all(jsons.map((n) => readFile(new URL(n, DATA_DIR), 'utf8')))).join('\n');
+  const outside = glyphsOutsideCore(text, ranges);
+  if (outside === null) {
+    console.warn('글꼴 경고(배포는 막지 않는다): appSansExt.css 에서 unicode-range 를 못 읽었다 — 데이터 글자 검사를 건너뛴다.');
+  } else if (outside.length > 0) {
+    console.warn(`글꼴 경고(배포는 막지 않는다): 데이터에 Core 글꼴 밖 한글이 ${outside.length}자 있다(${outside.slice(0, 10).join('')}) — 그 글자가 나오는 화면은 Ext 글꼴을 받는다. 고치려면 python3 scripts/split-fonts.py 로 다시 쪼개 woff2·CSS 를 함께 커밋해라.`);
+  }
+} catch {
+  // 데이터 폴더·CSS 가 없는 환경(테스트 등)은 조용히 건너뛴다.
 }
 
 if (leaked) {

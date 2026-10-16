@@ -59,6 +59,7 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
 - **`pnpm build` 의 `--webpack` 은 필수.** `@serwist/next` 가 webpack 플러그인이라, 빼면
   빌드는 통과하지만 `sw.js` 가 안 만들어져 PWA 가 조용히 사라진다. `dev` 의 `--turbopack`
   명시도 필수(webpack 설정만 있으면 Next 16 이 빌드를 멈춘다).
+- **`next.config.mjs` 의 `dontCacheBustURLsMatching: /^\/_next\/+static\//` 를 지우지 않는다.** 빌드·테스트는 초록인데 서비스워커가 첫 방문에 해시 이름 글꼴을 `cache: 'reload'` 로 한 번 더 받는다(첫 방문 글꼴 1.2 → 2.4MB). `scripts/check-bundle.mjs` 가 `out/sw.js` 의 `/_next/static/` revision 이 전부 null 인지 대 보고 아니면 `pnpm build` 를 멈춘다(→ [pwa-offline](docs/architecture/pwa-offline.md)).
 - **네이버 지도는 출처(origin)를 NCP 콘솔에 등록해야 뜬다.** 클라이언트 아이디가 맞아도
   Application → Maps → **Web 서비스 URL** 에 주소가 없으면 인증이 거부되고, 콘솔에서
   **Dynamic Map 이 체크돼 있지 않으면** 429(Quota Exceed)가 난다. Kakao 와 달리 실패를
