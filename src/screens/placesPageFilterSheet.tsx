@@ -1,5 +1,7 @@
+import { useRef } from 'react';
 import { FilterLines } from '@untitledui/icons';
 import { PlacesPageEligibilityToggles } from './placesPageEligibilityToggles';
+import { usePlacesPageFilterSheetPull } from './placesPageFilterSheetPull';
 import { PlacesPageFilters } from './placesPageFilters';
 import { BottomSheet } from '../components/base/bottom-sheet';
 import { Button } from '../components/base/button';
@@ -80,6 +82,10 @@ export function PlacesPageFilterSheet({
   resultCount,
   onReset,
 }: TPlacesPageFilterSheetProps) {
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  // 손잡이 띠만이 아니라 본문을 끌어내려도 닫힌다 — 조건 줄이 맨 위일 때만(14 W261010.33k, placesPageFilterSheetPull).
+  const pullRef = usePlacesPageFilterSheetPull(scrollerRef, () => onOpenChange(false));
+
   return (
     <>
       <Button
@@ -119,11 +125,12 @@ export function PlacesPageFilterSheet({
           `flex-1 min-h-0` 이 요점이다. flex 자식은 기본 `min-height:auto` 라 내용보다 작아지지
           않는데, 그러면 아무리 바깥을 묶어도 스크롤이 안 생기고 밖으로 삐져나간다.
         */}
-        <div className="flex max-h-[80dvh] flex-col">
+        <div ref={pullRef} className="flex max-h-[80dvh] flex-col">
           {/* 닫기 버튼(오른쪽 위)과 겹치지 않게 제목 줄만 오른쪽을 비운다. */}
           <h2 className="shrink-0 pt-2 pr-10 text-md font-bold text-primary">필터</h2>
 
           <div
+            ref={scrollerRef}
             className={cx(
               'mt-4 min-h-0 flex-1 space-y-5 overflow-y-auto',
               // 스크롤 줄 끝을 살짝 흐려 "아래 더 있다" 를 알린다 — 가로 조건 줄이 쓰는
