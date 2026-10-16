@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { Button } from '../components/base/button';
 import { Input } from '../components/base/input';
 import { NO_AUTOFILL } from '../components/noAutofill';
-import { CLOSURE_KINDS, reportDay, type TReportRow } from '../lib/adminReports';
+import { CLOSURE_KINDS, reportBuildText, reportDay, type TReportRow } from '../lib/adminReports';
+import { APP_BUILD } from '../lib/placeReportSend';
 import { REPORT_KIND_SHORT } from '../lib/placeReport';
 import { cx } from '../utils/cx';
 import { ADMIN_PANEL_DIVIDER } from './adminTable';
@@ -35,22 +36,27 @@ export function AdminPagePlaceReports({ reports, busy, canArchive, onHandle, onA
     <div className={cx(ADMIN_PANEL_DIVIDER, 'px-4 py-3')}>
       <p className="text-xs font-semibold text-secondary">사용자 제보 {reports.length}건</p>
       <ul className="mt-1.5 flex flex-col gap-1 text-xs">
-        {reports.map((report) => (
-          <li key={report.id} className="flex flex-wrap items-baseline gap-x-2">
-            <span
-              className={cx(
-                'rounded px-1.5 py-px font-medium',
-                CLOSURE_KINDS.includes(report.kind) ? 'bg-error-primary text-error-primary' : 'bg-secondary text-secondary',
-              )}
-            >
-              {REPORT_KIND_SHORT[report.kind]}
-            </span>
-            <span className="text-secondary">{report.note ?? '(한 줄 없음)'}</span>
-            <span className="text-quaternary">
-              {reportDay(report.created_at)} · 배포 {report.app_build ?? '?'}
-            </span>
-          </li>
-        ))}
+        {reports.map((report) => {
+          const from = reportBuildText(report.app_build, APP_BUILD);
+          return (
+            <li key={report.id} className="flex flex-wrap items-baseline gap-x-2">
+              <span
+                className={cx(
+                  'rounded px-1.5 py-px font-medium',
+                  CLOSURE_KINDS.includes(report.kind) ? 'bg-error-primary text-error-primary' : 'bg-secondary text-secondary',
+                )}
+              >
+                {REPORT_KIND_SHORT[report.kind]}
+              </span>
+              <span className="text-secondary">{report.note ?? '(한 줄 없음)'}</span>
+              {/* 해시(`app_build`)는 운영자 말이 아니다 — 지금/예전 사이트로 말하고, 해시는 마우스를 올렸을 때만(개발자가 커밋을 찾을 때). */}
+              <span className="text-quaternary" title={report.app_build ? `앱 버전 ${report.app_build}` : undefined}>
+                {reportDay(report.created_at)}
+                {from ? ` · ${from}` : ''}
+              </span>
+            </li>
+          );
+        })}
       </ul>
 
       <div className="mt-2 max-w-md">

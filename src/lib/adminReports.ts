@@ -171,6 +171,16 @@ export function mergeReportRows(rows: readonly TReportRow[], updated: readonly T
   return rows.map((row) => byId.get(row.id) ?? row);
 }
 
+/**
+ * 제보가 **어느 사이트에서** 왔나를 운영자 말로 — 순수(14 W261010.14 "운영자 말"). `배포 dda522e` 는 커밋 해시라 운영자가 읽을 수 없었다.
+ * 운영자가 알아야 하는 것은 하나다: 지금 나가 있는 사이트를 보고 한 말인가, 그 전 사이트를 보고 한 말인가(그 뒤 고쳤으면 무시해도 된다).
+ * `/admin` 은 같은 배포에서 돌므로 `current`(이 화면의 빌드)와 같으면 지금 사이트다. 값이 없으면(옛 보내기) 말하지 않는다.
+ */
+export function reportBuildText(appBuild: string | null, current: string): string | null {
+  if (!appBuild) return null;
+  return appBuild === current ? '지금 사이트를 보고 보냄' : '예전 사이트를 보고 보냄 — 그 뒤 고친 것일 수 있어요';
+}
+
 /** 제보 한 줄의 날짜 — `2026-10-01`. */
 export const reportDay = (iso: string): string => new Date(iso).toLocaleDateString('sv-SE');
 

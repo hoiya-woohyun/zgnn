@@ -10,6 +10,7 @@ import {
   inboxHasWork,
   reportInbox,
   reportInboxText,
+  reportBuildText,
   requestSuggestionCollect,
   setReportStatus,
   type TReportRow,
@@ -112,6 +113,15 @@ describe('reportInbox — 머리글 숫자 = 가서 보는 곳의 숫자(14 W261
 
   it('목록을 아직 못 읽었으면 등록 완료 칸 몫으로 센다 — 제보는 게시중인 곳에만 들어온다', () => {
     expect(reportInbox([report({ id: 'a', place_id: 'zz' })], [], now)).toMatchObject({ places: 1, reports: 1 });
+  });
+});
+
+describe('reportBuildText — 해시가 아니라 지금/예전 사이트(14 W261010.14)', () => {
+  it('이 화면과 같은 빌드면 지금 사이트, 다르면 예전 사이트, 없으면 말하지 않는다', () => {
+    expect(reportBuildText('abc1234', 'abc1234')).toBe('지금 사이트를 보고 보냄');
+    expect(reportBuildText('dda522e', 'abc1234')).toBe('예전 사이트를 보고 보냄 — 그 뒤 고친 것일 수 있어요');
+    expect(reportBuildText(null, 'abc1234')).toBeNull();
+    expect(reportBuildText('dda522e', 'abc1234')).not.toContain('dda522e');
   });
 });
 

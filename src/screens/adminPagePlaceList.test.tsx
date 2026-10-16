@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { TPlaceRow } from '../lib/adminCandidates';
 import type { TReportRow } from '../lib/adminReports';
 import { AdminPagePlaceList } from './adminPagePlaceList';
+import { AdminPagePlaceReports } from './adminPagePlaceReports';
 import { AdminPagePlaceRow } from './adminPagePlaceRow';
 
 const place = (patch: Partial<TPlaceRow> = {}): TPlaceRow => ({
@@ -189,5 +190,17 @@ describe('AdminPagePlaceList — 결과·폼이 제자리에(14 W261010.28)', ()
     );
     expect(html.split('등록 해제하지 못했어요 — 테스트').length - 1).toBe(1);
     expect(html.indexOf('등록 해제하지 못했어요 — 테스트')).toBeLessThan(html.indexOf('제주시 구좌읍 어딘가 1'));
+  });
+});
+
+describe('AdminPagePlaceReports — 운영자 말(14 W261010.14)', () => {
+  it('제보 줄에 커밋 해시를 글자로 내지 않는다 — 해시는 title 에만', () => {
+    const html = renderToStaticMarkup(
+      <AdminPagePlaceReports reports={[report({ app_build: 'dda522e' }), report({ id: 'r9', app_build: null })]} busy={false} canArchive onHandle={noop} onArchive={noop} />,
+    );
+    expect(html).not.toContain('배포 dda522e');
+    expect(html).not.toContain('배포 ?');
+    expect(html).toContain('title="앱 버전 dda522e"');
+    expect(html).toMatch(/>[^<]*예전 사이트를 보고 보냄/);
   });
 });
