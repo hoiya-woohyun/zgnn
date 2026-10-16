@@ -11,6 +11,7 @@ import {
   placeBadges,
   placeGaps,
   sortManagedPlaces,
+  withMovedPlaces,
 } from './adminPlaces';
 import { hasVerifiedColumn, markPlaceVerified, seedVerifyTargets } from './adminPlaces';
 import type { TPlaceRow } from './adminCandidates';
@@ -70,6 +71,29 @@ describe('sortManagedPlaces', () => {
     const rows = [place({ id: 'b', name: '나' }), place({ id: 'a', name: '가' })];
     sortManagedPlaces(rows);
     expect(rows.map((row) => row.id)).toEqual(['b', 'a']);
+  });
+});
+
+describe('withMovedPlaces — 옮긴 줄은 원래 칸의 원래 자리에(14 W261010.28)', () => {
+  it('등록 완료 칸: 내리기 전 행으로 이름 순서 자리에 끼운다', () => {
+    const rows = [place({ id: 'a', name: '가카페' }), place({ id: 'c', name: '다카페' })];
+    const before = place({ id: 'b', name: '나카페' });
+    expect(withMovedPlaces(rows, [before]).map((row) => row.id)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('등록 해제 칸: 되살리기 전 행의 내린 시각으로 — 되살리면 트리거가 그 시각을 비운다', () => {
+    const rows = [
+      place({ id: 'new', status: 'archived', archived_at: '2026-10-03T00:00:00.000Z' }),
+      place({ id: 'old', status: 'archived', archived_at: '2026-10-01T00:00:00.000Z' }),
+    ];
+    const before = place({ id: 'mid', status: 'archived', archived_at: '2026-10-02T00:00:00.000Z' });
+    expect(withMovedPlaces(rows, [before]).map((row) => row.id)).toEqual(['new', 'mid', 'old']);
+  });
+
+  it('이미 이 칸에 돌아온 줄은 다시 끼우지 않는다 · 옮긴 것이 없으면 그대로', () => {
+    const rows = [place({ id: 'a', name: '가' })];
+    expect(withMovedPlaces(rows, [place({ id: 'a', name: '가' })]).map((row) => row.id)).toEqual(['a']);
+    expect(withMovedPlaces(rows, [])).toEqual(rows);
   });
 });
 

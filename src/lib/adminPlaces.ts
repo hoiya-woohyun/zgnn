@@ -84,6 +84,19 @@ export function sortManagedPlaces(rows: TPlaceRow[]): TPlaceRow[] {
   });
 }
 
+/**
+ * 방금 다른 칸으로 옮긴 줄(내림 ⇄ 되살림)을 **원래 칸의 원래 자리**에 끼운다 — 순수(14 W261010.28).
+ *
+ * 내리면 줄이 등록 해제 칸으로 옮겨 가, 내린 사람이 보던 자리에는 아무것도 남지 않고 결과는 목록 맨 위 한 줄뿐이었다(parttime-11 — 아래쪽 줄을 내리면 못 본다).
+ * 그래서 원래 칸이 그 자리에 결과 한 줄을 남긴다. 자리는 **옮기기 전의 행**(`moved` — 상태·내린 시각이 바뀌기 전)으로 이 정렬을 다시 돌려 정한다:
+ * 되살리면 트리거가 `archived_at` 을 비워 지금 행으로는 원래 자리를 못 찾는다. 이미 이 칸에 돌아와 있는 id(옮겼다가 되돌림)는 끼우지 않는다.
+ */
+export function withMovedPlaces(rows: readonly TPlaceRow[], moved: readonly TPlaceRow[]): TPlaceRow[] {
+  const present = new Set(rows.map((row) => row.id));
+  const extra = moved.filter((row) => !present.has(row.id));
+  return extra.length === 0 ? [...rows] : sortManagedPlaces([...rows, ...extra]);
+}
+
 /** 검색 비교용 — 소문자, 공백 제거. 띄어쓰기가 데이터와 다른 것("카페 살레" vs "카페살레")이 가장 흔한 실패다. */
 const searchKey = (value: string): string => value.toLowerCase().replace(/\s+/g, '');
 

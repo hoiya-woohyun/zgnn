@@ -14,6 +14,7 @@ import {
   placeGaps,
   type TArchiveReason,
   type TPlaceGap,
+  withMovedPlaces,
 } from '../lib/adminPlaces';
 import type { TPlaceEditPatch } from '../lib/adminPlaceEdit';
 import type { TBlockChoice, TPlaceBlock } from '../lib/adminBlocks';
@@ -22,7 +23,7 @@ import { AdminFilterChip } from './adminFilterChip';
 import { useAdminInfiniteScroll } from './adminInfiniteScroll';
 import type { TPlaceRereadPlan } from '../lib/adminPosts';
 import { AdminPagePlaceRow, type TAdminPagePlaceState } from './adminPagePlaceRow';
-import { ADMIN_PLACE_TRACKS, AdminTable } from './adminTable';
+import { ADMIN_PLACE_TRACKS, ADMIN_ROW, AdminTable } from './adminTable';
 
 /**
  * '등록 완료' · '등록 해제' 칸 — 이미 올린 장소를 **내리고 되살린다**(소프트 삭제). 두 칸은 같은 개체(`places`)를 `status` 로 가른 것이라
@@ -95,6 +96,8 @@ type TAdminPagePlaceListProps = {
   onSetBlock: (place: TPlaceRow, choice: TBlockChoice) => void;
   /** 블랙리스트 칸으로 간다(등록 해제 칸의 칩 옆). */
   onGoToBlocks?: () => void;
+  /** 다른 칸(등록 완료 ⇄ 등록 해제)으로 간다 — 방금 옮긴 줄이 남긴 결과 한 줄의 `…에서 보기`. */
+  onGoToOther?: () => void;
   /** 장소 id → 처리할 사용자 제보. 표가 없으면 빈 객체. */
   reports: Record<string, TReportRow[]>;
   /**
@@ -131,6 +134,7 @@ export function AdminPagePlaceList({
   blocks,
   onSetBlock,
   onGoToBlocks,
+  onGoToOther,
   reports,
   reportedOnly: reportedOnlyProp,
   onReportedOnlyChange,
@@ -190,11 +194,26 @@ export function AdminPagePlaceList({
     [status, visible],
   );
 
+  /*
+   * 방금 다른 칸으로 옮긴 줄은 **원래 자리에 결과 한 줄**로 남는다(14 W261010.28) — 결과가 목록 맨 위에만 서던 동안 아래쪽 줄을 내린 사람은 못 봤다.
+   * 옮기기 전의 행(`movedFrom`)으로 자리를 잡고(`withMovedPlaces`), 줄 수·칩 숫자에는 넣지 않는다(`filtered` 만 센다). 검색어·걸러 보기를 바꾸면 `done` 과 같이 치워진다.
+   */
+  const movedRows = useMemo(
+    () =>
+      places.flatMap((place) => {
+        const before = states[place.id]?.movedFrom;
+        return before && (before.status === 'archived') === archivedMode && (place.status === 'archived') !== archivedMode ? [before] : [];
+      }),
+    [archivedMode, places, states],
+  );
+  const movedIds = useMemo(() => new Set(movedRows.map((row) => row.id)), [movedRows]);
+  const listed = useMemo(() => withMovedPlaces(filtered, movedRows), [filtered, movedRows]);
+
   // 검색어·구간을 바꾸면 '더 보기' 도 처음으로 — 같은 사건의 두 결과라 여기서 함께 바꾼다(후보 칸과 같은 어법).
   // 끝난 줄의 초록 한 줄도 같이 치운다.
   const clearDone = onClearDone;
   const showMore = useCallback(() => setShown((prev) => prev + PAGE_SIZE), []);
-  const setSentinel = useAdminInfiniteScroll(filtered.length > shown, shown, showMore);
+  const setSentinel = useAdminInfiniteScroll(listed.length > shown, shown, showMore);
 
   const pickStatus = (next: TStatusFilter) => {
     clearDone();
@@ -297,7 +316,7 @@ export function AdminPagePlaceList({
         )}
       </div>
 
-      {filtered.length === 0 ? (
+      {listed.length === 0 ? (
         <p className="px-4 pt-6 text-sm text-tertiary md:px-6">
           {query
             ? '찾는 장소가 없어요.'
@@ -311,7 +330,22 @@ export function AdminPagePlaceList({
         <>
           <div className="mt-3">
             <AdminTable grid={ADMIN_PLACE_TRACKS} columns={COLUMNS}>
-            {filtered.slice(0, shown).map((place) => (
+            {listed.slice(0, shown).map((place) =>
+              movedIds.has(place.id) ? (
+                <li key={place.id} className={ADMIN_ROW}>
+                  <p className="flex flex-wrap items-center gap-x-2 gap-y-1 px-4 py-2 text-xs">
+                    <span className="font-semibold text-primary">{place.name}</span>
+                    <span className="text-success-primary">
+                      {states[place.id]?.done ?? (archivedMode ? '되살렸어요' : '내렸어요')} · {archivedMode ? '등록 완료' : '등록 해제'} 칸으로 옮겼어요
+                    </span>
+                    {onGoToOther && (
+                      <button type="button" onClick={onGoToOther} className="text-tertiary underline underline-offset-2 hover:text-secondary">
+                        {archivedMode ? '등록 완료' : '등록 해제'} 칸에서 보기
+                      </button>
+                    )}
+                  </p>
+                </li>
+              ) : (
               <AdminPagePlaceRow
                 key={place.id}
                 place={place}
@@ -342,7 +376,8 @@ export function AdminPagePlaceList({
                 onPlanReread={() => onPlanReread(place)}
                 onReread={onReread}
               />
-            ))}
+              ),
+            )}
             </AdminTable>
           </div>
 
@@ -351,7 +386,7 @@ export function AdminPagePlaceList({
             * 화면에서 사라지면, 걸러 보기를 켠 목록이 끝난 것인지 아직 그리는 중인지 구분할 자리가 없다.
             */}
           <div ref={setSentinel} className="px-4 pt-3 text-xs text-tertiary md:px-6">
-            {filtered.length > shown
+            {listed.length > shown
               ? `${filtered.length}곳 중 ${shown}곳 · 스크롤하면 더 보여요`
               : `${filtered.length}곳을 모두 봤어요`}
           </div>

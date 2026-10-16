@@ -41,6 +41,11 @@ export type TAdminPagePlaceState = {
   pickingBlock?: boolean;
   /** 펼친 상세에서 '고치기' 를 눌러 고치기 폼이 상세 자리에 열려 있다. */
   editing?: boolean;
+  /**
+   * 방금 다른 칸으로 옮겼다(등록 해제 ⇄ 되살리기) — **옮기기 전의 행**. 원래 칸이 이것으로 그 자리에 결과 한 줄을 남긴다(`withMovedPlaces`, 14 W261010.28).
+   * `done` 과 같이 검색어·걸러 보기를 바꾸면 치운다.
+   */
+  movedFrom?: TPlaceRow;
 };
 
 /**
@@ -355,6 +360,23 @@ export function AdminPagePlaceRow({
       </div>
 
       {/*
+        * 등록 해제 사유 폼은 **줄 머리 바로 밑**이다(14 W261010.28). 펼친 판(상세·제보·다녀왔어요·다시 분석) 뒤에 열리던 동안 펼친 줄에서
+        * `등록 해제` 를 누르면 폼이 화면 밖 아래에 열려, 아래 줄의 폼으로 읽혔다(manager-46 — 어느 줄의 폼인지 모르면 그것이 곧 다른 가게를 내리는 길이다).
+        * 제보 판의 `등록 해제… (폐업)` 처럼 아래에서 열면 폼이 화면 위로 비켜 있을 수 있어, 폼이 열릴 때 제 자리를 화면 안으로 당긴다.
+        */}
+      {state.archiving && (
+        <AdminPagePlaceArchiveForm
+          wasDraft={place.status === 'draft'}
+          busy={busy === 'archiving'}
+          initialReason={state.archiveReason}
+          onCancel={onCancelArchive}
+          onSubmit={onArchive}
+        />
+      )}
+      {/* 해제가 실패하면 폼은 열린 채 남는다 — 오류도 폼 밑에(아래 공용 오류 줄은 펼친 판 뒤라 화면 밖일 수 있다). */}
+      {state.archiving && state.error && <p className="px-4 pb-2 text-xs text-error-primary">{state.error}</p>}
+
+      {/*
         * 되살리기 확인 — 원래 버튼(줄 끝 칸)과 다른 자리, 줄 밑 전체 폭이다. **글이 먼저**다: 폰에서는 액션 칸이 이 패널 바로 위라,
         * 버튼이 첫 줄에 서면 같은 손가락 자리에 닿는다. 내린 이유를 다시 보여 주고(무엇을 되돌리는지 읽고 누르게), 블랙리스트가 함께 풀리는 것도 말한다.
         */}
@@ -415,7 +437,7 @@ export function AdminPagePlaceRow({
           )}
         </div>
       )}
-      {state.error && <p className="px-4 pb-2 text-xs text-error-primary">{state.error}</p>}
+      {state.error && !state.archiving && <p className="px-4 pb-2 text-xs text-error-primary">{state.error}</p>}
 
       {/* 다시 분석의 확인 단계 — 누르면 바로 쓰지 않는다. 출처 글이 0이면(Notion 시드) 쓸 수 있는 버튼 없이 이유만 말한다. */}
       {reread && !reread.busy && (reread.plan || reread.done || reread.error) && (
@@ -444,16 +466,6 @@ export function AdminPagePlaceRow({
             </Button>
           </div>
         </div>
-      )}
-
-      {state.archiving && (
-        <AdminPagePlaceArchiveForm
-          wasDraft={place.status === 'draft'}
-          busy={busy === 'archiving'}
-          initialReason={state.archiveReason}
-          onCancel={onCancelArchive}
-          onSubmit={onArchive}
-        />
       )}
 
       {/*

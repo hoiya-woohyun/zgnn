@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '../components/base/button';
 import { Input } from '../components/base/input';
 import { NO_AUTOFILL } from '../components/noAutofill';
@@ -31,6 +31,18 @@ export function AdminPagePlaceArchiveForm({ wasDraft, busy, initialReason, onCan
   const [note, setNote] = useState('');
   const [block, setBlock] = useState<TBlockChoice>(defaultBlockFor(initialReason));
   const [blockTouched, setBlockTouched] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  /*
+   * 열리는 순간 폼을 화면 안으로(14 W261010.28) — 폼은 줄 머리 바로 밑에 서지만, 제보 판의 `등록 해제… (폐업)` 처럼 펼친 판 아래에서 열면
+   * 화면 위로 비켜 있다. `nearest` 라 이미 보이면 움직이지 않는다. 포커스도 옮겨 키보드·스크린리더가 "왜 등록 해제하나요?" 에서 시작한다.
+   */
+  useEffect(() => {
+    const box = boxRef.current;
+    if (!box) return;
+    box.scrollIntoView?.({ block: 'nearest' });
+    box.focus({ preventScroll: true });
+  }, []);
 
   const pickReason = (candidate: TArchiveReason) => {
     setReason(candidate);
@@ -38,7 +50,7 @@ export function AdminPagePlaceArchiveForm({ wasDraft, busy, initialReason, onCan
   };
 
   return (
-    <div className={cx(ADMIN_PANEL_DIVIDER, 'px-4 py-3')}>
+    <div ref={boxRef} tabIndex={-1} role="group" aria-label="등록 해제 사유" className={cx(ADMIN_PANEL_DIVIDER, 'px-4 py-3 outline-none')}>
       <p className="text-xs font-semibold text-secondary">왜 등록 해제하나요?</p>
       <div className="mt-2 flex flex-wrap gap-2">
         {ARCHIVE_REASONS.map((candidate) => (

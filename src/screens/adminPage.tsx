@@ -142,7 +142,7 @@ import { AdminPageBlocksPanel } from './adminPageBlocksPanel';
 import type { TAdminPageBlocksRowState } from './adminPageBlocksRow';
 import { AdminPageBulkBar } from './adminPageBulkBar';
 import { AdminPageGroupCard, type TAdminPageGroupState, type TApproveChoice } from './adminPageGroupCard';
-import { AdminPageLogin } from './adminPageLogin';
+import { AdminPageLogin, WRITE_BLOCKED_BY_EXPIRY } from './adminPageLogin';
 import { AdminPagePlaceList } from './adminPagePlaceList';
 import type { TAdminPagePlaceState } from './adminPagePlaceRow';
 import { AdminPagePostsPanel } from './adminPagePostsPanel';
@@ -409,7 +409,11 @@ export function AdminPage() {
   const [managedError, setManagedError] = useState<string | null>(null);
   const [placeStates, setPlaceStates] = useState<Record<string, TAdminPagePlaceState>>({});
   /** 방금 장소를 내리거나 되살렸다는 한 줄 — 줄이 다른 탭으로 옮겨 가므로 두 장소 탭에 같이 선다. */
-  const [placeNotice, setPlaceNotice] = useState<string | undefined>(undefined);
+  /**
+   * 방금 한 일의 한 줄 — **옮겨 간 칸**(`mode`)의 목록 위에만 선다. 옮겨 온 칸은 그 줄이 있던 자리에 결과 한 줄을 남기므로(`movedFrom`, 14 W261010.28)
+   * 같은 말을 맨 위에 또 하지 않는다.
+   */
+  const [placeNotice, setPlaceNotice] = useState<{ text: string; mode: 'active' | 'archived' } | undefined>(undefined);
   const [postCounts, setPostCounts] = useState<TPostCounts | undefined>(undefined);
   const [postError, setPostError] = useState<string | undefined>(undefined);
   /**
@@ -846,7 +850,11 @@ export function AdminPage() {
   const beginWrite = useCallback(
     (report: (message: string) => void): boolean => {
       if (sessionProblem(session, Math.floor(Date.now() / 1000)) !== 'none') {
-        resetToSignedOut('로그인이 만료됐어요. 다시 로그인해 주세요.');
+        /*
+         * **무엇이 안 됐는지**를 말한다(14 W261010.28) — "만료됐어요" 만으로는 방금 누른 '올리기' 가 올라갔는지 알 수 없었다(manager-68).
+         * 이 자리는 쓰기 **전**이라 정말로 아무것도 안 바뀌었다. 다시 로그인하면 목록을 처음부터 읽으므로 펼친 줄로 데려간다고는 약속하지 않는다.
+         */
+        resetToSignedOut(WRITE_BLOCKED_BY_EXPIRY);
         return false;
       }
       if (writingRef.current) {
@@ -1033,7 +1041,7 @@ export function AdminPage() {
   const clearPlaceDone = useCallback(() => {
     setPlaceNotice(undefined);
     setPlaceStates((prev) =>
-      Object.fromEntries(Object.entries(prev).map(([id, state]) => [id, { ...state, done: undefined }])),
+      Object.fromEntries(Object.entries(prev).map(([id, state]) => [id, { ...state, done: undefined, movedFrom: undefined }])),
     );
   }, []);
 
@@ -1068,8 +1076,12 @@ export function AdminPage() {
         // 한 state 에서 `status` 만 바뀐다 — 줄은 지워지지 않고 다른 칸(등록 완료 ⇄ 등록 해제)으로 옮겨 간다.
         setManaged((prev) => (prev ? sortManagedPlaces(prev.map((row) => (row.id === updated.id ? updated : row))) : prev));
         applyPlaceChange(updated);
-        patchPlaceState(place.id, { busy: undefined, archiving: false, archiveReason: undefined, done });
-        setPlaceNotice(`${place.name} — ${done} · ${kind === 'archive' ? '등록 해제' : '등록 완료'} 칸으로 옮겼어요`);
+        // `place` 는 바꾸기 **전** 행이다 — 원래 칸이 그것으로 원래 자리에 결과 한 줄을 남긴다(`withMovedPlaces`).
+        patchPlaceState(place.id, { busy: undefined, archiving: false, archiveReason: undefined, done, movedFrom: place });
+        setPlaceNotice({
+          text: `${place.name} — ${done} · ${kind === 'archive' ? '등록 해제' : '등록 완료'} 칸으로 옮겼어요`,
+          mode: kind === 'archive' ? 'archived' : 'active',
+        });
         await loadCounts(client);
         afterWrite();
       } catch (error) {
@@ -2070,6 +2082,8 @@ export function AdminPage() {
                   type="button"
                   className="font-semibold underline underline-offset-2"
                   onClick={() => {
+                    // 칩을 누른 것과 같은 일이라 끝난 줄의 결과 한 줄도 같이 치운다(목록의 `clearDone`).
+                    clearPlaceDone();
                     setReportedOnly(true);
                     setTab('places');
                   }}
@@ -2211,12 +2225,13 @@ export function AdminPage() {
             mode="active"
             places={managed ?? []}
             states={placeStates}
-            notice={placeNotice}
+            notice={placeNotice?.mode === 'active' ? placeNotice.text : undefined}
             patchState={patchPlaceState}
             onChange={(place, kind, reason, note, block) => void changePlace(place, kind, reason, note, block)}
             blocks={placeBlocks}
             onSetBlock={(place, choice) => void changePlaceBlock(place, choice)}
             onGoToBlocks={() => setTab('blocks')}
+            onGoToOther={() => setTab('archived')}
             reports={reportsByPlace}
             reportedOnly={reportedOnly}
             onReportedOnlyChange={setReportedOnly}
@@ -2251,12 +2266,13 @@ export function AdminPage() {
             mode="archived"
             places={managed ?? []}
             states={placeStates}
-            notice={placeNotice}
+            notice={placeNotice?.mode === 'archived' ? placeNotice.text : undefined}
             patchState={patchPlaceState}
             onChange={(place, kind, reason, note, block) => void changePlace(place, kind, reason, note, block)}
             blocks={placeBlocks}
             onSetBlock={(place, choice) => void changePlaceBlock(place, choice)}
             onGoToBlocks={() => setTab('blocks')}
+            onGoToOther={() => setTab('places')}
             reports={reportsByPlace}
             updates={updatesByPlace}
             onHandleReports={(place, ids, status, note) => void handleReports(place, ids, status, note)}
