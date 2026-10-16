@@ -72,10 +72,14 @@ export function MapPageSheetCard({ place, origin }: TMapPageSheetCardProps) {
         <SavedNoteLine id={place.id} className="mt-2.5" />
 
         {eligibility && (
-          <div className="mt-2.5 flex items-center gap-2">
+          <div className="mt-2.5">
             <EligibilityBadge eligibility={eligibility} />
-            {/* 목록 카드와 같은 대표 근거(`primaryReason`) — `reasons[0]` 이면 같은 장소를 두 화면이 다른 말로 설명한다(12 U1.7). */}
-            {reason && <span className="truncate text-sm text-secondary">{reason.text}</span>}
+            {/*
+              목록 카드와 같은 대표 근거(`primaryReason`) — `reasons[0]` 이면 같은 장소를 두 화면이 다른 말로 설명한다(12 U1.7).
+              배지 옆 한 줄(`truncate`)이 아니라 **배지 밑 줄 + 두 줄까지**(14 W261010.33u): 320px 에서 배지 옆 칸이 좁아
+              "두부(12.5kg)는 13kg 미만까지 0…." 는 숫자가, "…이동가방도 되는지 확인해 주세요" 는 할 일이 잘려 나갔다.
+            */}
+            {reason && <p className="clamp-2 mt-1.5 text-sm text-secondary">{reason.text}</p>}
           </div>
         )}
       </Link>
