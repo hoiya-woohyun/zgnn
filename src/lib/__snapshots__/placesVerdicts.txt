@@ -2149,8 +2149,8 @@ evidence {"lines":["실내에도 같이 들어갈 수 있어요","반려견 요�
 env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 ok | I1:info:두부는 1박 2만원 | 두부는 1박 2만원 | 
 small4+indoor ok | I1:info:두부는 1박 2만원 | 두부는 1박 2만원 | 
-medium12 ok | I2:info:보리(12kg)는 13kg 미만 조건까지 1kg 남았어요 / I1:info:보리는 1박 2만원 | 보리는 1박 2만원 | 
-medium12+indoor ok | I2:info:보리(12kg)는 13kg 미만 조건까지 1kg 남았어요 / I1:info:보리는 1박 2만원 | 보리는 1박 2만원 | 
+medium12 ok | I2:info:보리(12kg)는 13kg 미만까지 1kg 남았어요 / I1:info:보리는 1박 2만원 | 보리는 1박 2만원 | 
+medium12+indoor ok | I2:info:보리(12kg)는 13kg 미만까지 1kg 남았어요 / I1:info:보리는 1박 2만원 | 보리는 1박 2만원 | 
 large28 hard | H1:hard:대장이(28kg)는 13kg 미만 조건을 넘어요 |  | 
 large28+indoor hard | H1:hard:대장이(28kg)는 13kg 미만 조건을 넘어요 |  | 
 two5and8 ok | I1:info:적힌 요금 · 1박당 2만원 (합계인지 1마리당인지 적혀 있지 않아요) | 적힌 요금 · 1박당 2만원 (합계인지 1마리당인지 적혀 있지 않아요) | 

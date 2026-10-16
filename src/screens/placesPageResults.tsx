@@ -149,10 +149,16 @@ export function PlacesPageResults({
   // 카드 대부분이 같은 근거 문장이면 머리가 한 번 말하고 카드는 그 줄을 뺀다(14 W261006.5) —
   // 식당 34곳 중 29곳이 "케이지라고 적혀 있어요. …" 를 되풀이해 목록이 걸러 주는 게 없어 보였다.
   // 카드와 같은 판정(`useEligibility` 와 같은 needsIndoor)에서 문장을 뽑아야 숨김이 정확히 맞는다.
+  // 몸무게 문턱 줄(I2)은 '갈 수 있어요' 카드의 참고 줄이라 세지 않는다 — 머리가 "N곳은 같은 이유예요" 라고 하면 막힌 이유로 읽힌다(14 W261010.33r).
   const repeated = useMemo(
     () =>
       dog
-        ? placesPageRepeatedReason(results.map((place) => primaryReason(judgeEligibility(dog, place.policy, { needsIndoor }))?.text))
+        ? placesPageRepeatedReason(
+            results.map((place) => {
+              const reason = primaryReason(judgeEligibility(dog, place.policy, { needsIndoor }));
+              return reason?.rule === 'I2' ? undefined : reason?.text;
+            }),
+          )
         : null,
     [results, dog, needsIndoor],
   );

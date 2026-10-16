@@ -140,10 +140,13 @@ const NEAR_LIMIT_KG = 1;
 const NEAR_LIMIT_RATIO = 0.1;
 const nearLimitMarginKg = (limitKg: number): number => Math.min(NEAR_LIMIT_KG, limitKg * NEAR_LIMIT_RATIO);
 
-/** I2 문장의 경계 부분 — "13kg 미만 조건". 칩 거르기(`REASON_BADGE`)가 같은 함수로 이 줄이 어느 구간의 말인지 찾는다(H2 의 `tooManyText` 와 같은 짝). */
-const nearLimitBound = (tier: TPolicyTier): string => `${weightBoundLabel(tier)} 조건`;
+/**
+ * I2 문장의 경계 부분 — "13kg 미만까지". 칩 거르기(`REASON_BADGE`)가 같은 함수로 이 줄이 어느 구간의 말인지 찾는다(H2 의 `tooManyText` 와 같은 짝).
+ * H1 처럼 "…조건까지" 라고 하지 않는 것은 길이 때문이다 — 지도 시트는 판정 배지 옆 한 줄이라 390px 에서 "0.5kg 남…" 으로 잘렸다. 숫자가 이 줄의 요점이다.
+ */
+const nearLimitBound = (tier: TPolicyTier): string => `${weightBoundLabel(tier)}까지`;
 
-/** 그 줄이 이 구간을 말하나 — 앞 공백까지 맞춰 '13kg 미만 조건' 안의 '3kg 미만 조건' 을 집지 않는다. */
+/** 그 줄이 이 구간을 말하나 — 앞 공백까지 맞춰 '13kg 미만까지' 안의 '3kg 미만까지' 를 집지 않는다. */
 const saysNearLimitBound = (text: string, tier: TPolicyTier): boolean => text.includes(` ${nearLimitBound(tier)}`);
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -220,8 +223,8 @@ const ruleNearWeightLimit: TRule = (dog, policy) => {
   const left = Math.round((limit - weight) * 10) / 10;
   if (left > nearLimitMarginKg(limit)) return null;
   const heaviest = dog.dogs.find((d) => d.weightKg === weight) as TDogEntry;
-  const tail = left === 0 ? '까지 여유가 없어요' : `까지 ${left}kg 남았어요`;
-  return { level: 'info', text: `${dogsTopic([heaviest])} ${nearLimitBound(tier)}${tail}`, quote: tier.source };
+  const tail = left === 0 ? '여유가 없어요' : `${left}kg 남았어요`;
+  return { level: 'info', text: `${dogsTopic([heaviest])} ${nearLimitBound(tier)} ${tail}`, quote: tier.source };
 };
 
 /** H3: "소형견만" 인데 우리 강아지는 소형이 아니다. */
@@ -558,7 +561,7 @@ export const judgeEligibility = (
   else if (judged.some((r) => r.level === 'cond')) level = 'cond';
   else level = 'ok';
 
-  // 어려움이면 참고 줄(info — 몸무게 문턱 I2)도 싣지 않는다. 못 간다는 곳에서 "13kg 까지 0.5kg 남았어요" 는 소음이다(요금과 같은 이유, 아래).
+  // 어려움이면 참고 줄(info — 몸무게 문턱 I2)도 싣지 않는다. 못 간다는 곳에서 "13kg 미만까지 0.5kg 남았어요" 는 소음이다(요금과 같은 이유, 아래).
   const reasons = level === 'hard' ? judged.filter((r) => r.level !== 'info') : judged;
 
   // 요금은 이름까지 붙은 완성 문장(`dogFee.ts`)이라 카드·상세가 같은 줄을 그대로 보여준다.
