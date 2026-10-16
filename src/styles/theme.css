@@ -2,7 +2,7 @@
     /*
      * FONT FAMILY
      *
-     * 1순위는 Pretendard 서브셋(`--font-app`, app/layout.tsx 의 next/font/local 이 정의).
+     * 1순위는 Pretendard 서브셋(`--font-app` — Core 는 app/layout.tsx 의 next/font/local(`--font-app-core`), 뒤에 Ext 를 잇는 조립은 `appSansExt.css`).
      * 뒤의 시스템 스택은 폰트가 아직 안 왔거나(display: swap) 서브셋 밖 글자(한자 등)일 때
      * 받아 주는 자리다 — 지우면 그 순간 글자가 깨지므로 남겨 둔다.
      */
