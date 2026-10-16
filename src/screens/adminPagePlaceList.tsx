@@ -101,7 +101,7 @@ type TAdminPagePlaceListProps = {
   /** 장소 id → 처리할 사용자 제보. 표가 없으면 빈 객체. */
   reports: Record<string, TReportRow[]>;
   /**
-   * `제보 있는 곳` 을 바깥이 든다(등록 완료 칸 — 머리글의 `제보 있는 곳 보기` 가 켠다). 안 주면 이 칸이 스스로 든다(등록 해제 칸).
+   * `제보 있는 곳` 을 바깥이 든다(등록 완료 칸 — 머리글의 `등록 완료 칸에서 보기` 가 켠다). 안 주면 이 칸이 스스로 든다(등록 해제 칸).
    */
   reportedOnly?: boolean;
   onReportedOnlyChange?: (next: boolean) => void;
