@@ -116,6 +116,9 @@ export type TConditionRelease = { key: string; count: number };
  * - **'실내 자리 필요'** 는 걸러 내기가 아니라 판정을 바꾼다(야외 전용이 어려움이 된다) — 그 값 없이 다시 판정한 맵(`eligibilityMapOf`, 화면의 맵과 같은 호출)으로 센다.
  *   숨김 조건이 꺼져 있으면 목록이 그대로라 0 이 되어 빠진다.
  * - **'어려운 곳 숨김' 은 세지 않는다** — 그것만 풀면 새로 보이는 곳은 전부 '이용하기 어려워요' 다. 갈 곳이 아니라 못 가는 곳을 보여 주는 길이다.
+ * - 같은 이유로 **풀어서 나오는 곳이 이 강아지에게 전부 어려움이면 그 풀기도 내놓지 않는다** — 대형견 × 숙소 '대형견 OK' + '계단 없음' 에서
+ *   '대형견 OK' 를 풀면 계단 없는 1곳이 '이용하기 어려워요' 였다(눌러 보면 접힌 어려움 한 칸뿐). 수는 그대로 목록 술어로 센다 — 버튼을 고를 뿐이다.
+ *   판정은 풀고 난 뒤의 맵으로 본다('실내 자리 필요' 풀기는 그 값 없는 맵).
  * - 정렬은 걸러 내지 않는다.
  *
  * 0곳이 되는 풀기는 뺀다. 많은 순, 같으면 칩 순서.
@@ -125,7 +128,12 @@ export const singleConditionReleases = (
   judging: { dog: TDogProfile | null; needsIndoor: boolean },
 ): TConditionRelease[] => {
   const { type, town, area, query, directions, petKeys, onlyReachable, eligibilityMap } = conditions;
-  const count = (released: Partial<TPlacesPageConditions>) => filterPlacesPage({ ...conditions, ...released }).length;
+  // 수와 함께 "갈 곳이 하나라도 있나" — 판정이 없으면(강아지 없음) 따지지 않는다.
+  const count = (released: Partial<TPlacesPageConditions>) => {
+    const list = filterPlacesPage({ ...conditions, ...released });
+    const map = released.eligibilityMap ?? eligibilityMap;
+    return map && list.length > 0 && list.every((place) => map.get(place.id)?.level === 'hard') ? 0 : list.length;
+  };
   const releases: TConditionRelease[] = [
     ...(area ? [{ key: 'area', count: count({ area: null }) }] : []),
     ...(onlyReachable && eligibilityMap ? [{ key: 'onlyReachable', count: count({ onlyReachable: false }) }] : []),

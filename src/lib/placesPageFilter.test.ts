@@ -524,6 +524,20 @@ describe('singleConditionReleases — 0곳일 때 조건 하나만 풀면 몇 �
     expect(singleConditionReleases(conditions, { dog: BIG, needsIndoor: true }).map((r) => r.key)).not.toContain('hideHard');
   });
 
+  it('풀어서 나오는 곳이 이 강아지에게 전부 어려움이면 그 풀기는 내놓지 않는다 — 대형견 × 숙소 대형견 OK + 계단 없음', () => {
+    const eligibilityMap = eligibilityMapOf(PLACES, BIG);
+    const conditions = { ...base, type: 'stay' as const, petKeys: ['largeDog', 'noStairs'] as const, eligibilityMap };
+    expect(filterPlacesPage(conditions)).toHaveLength(0);
+    const stairFree = filterPlacesPage({ ...conditions, petKeys: ['noStairs'] });
+    expect(stairFree.length).toBeGreaterThan(0);
+    expect(stairFree.every((place) => eligibilityMap.get(place.id)?.level === 'hard')).toBe(true);
+    const releases = singleConditionReleases(conditions, { dog: BIG, needsIndoor: false });
+    expect(releases.map((r) => r.key)).toEqual(['pet-noStairs']);
+    expect(releases[0].count).toBe(filterPlacesPage({ ...conditions, petKeys: ['largeDog'] }).length);
+    // 강아지가 없으면 판정이 없어 따지지 않는다 — 둘 다 선다.
+    expect(singleConditionReleases({ ...conditions, eligibilityMap: null }, noJudging).map((r) => r.key).sort()).toEqual(['pet-largeDog', 'pet-noStairs']);
+  });
+
   it('검색어도 하나의 조건이다 · 0곳이 되는 풀기는 뺀다 · 아무것도 안 켰으면 빈 배열', () => {
     const conditions = { ...base, type: 'stay' as const, query: '중문', petKeys: ['multiDog'] as const };
     expect(filterPlacesPage(conditions)).toHaveLength(0);
