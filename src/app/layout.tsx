@@ -7,7 +7,6 @@ import { SITE_URL } from '@/lib/siteIndex';
 import { RouteProvider } from '@/providers/routerProvider';
 import { StoreHydration } from '@/providers/storeHydration';
 import '@/styles/globals.css';
-import '@/styles/appSansExt.css';
 
 /**
  * 본문 글꼴 — Pretendard(SIL OFL 1.1)를 서브셋한 파생본. 파일·글꼴 이름이 `Zgnn Sans` 인 것은
@@ -28,7 +27,7 @@ import '@/styles/appSansExt.css';
  *
  * 다만 받는 것은 두 조각이다(ADR-006 v7). 여기서 프리로드하는 **Core** 는 상용 2,350자(KS X 1001)와
  * 데이터에 나오는 글자·라틴·문장부호로 굵기당 약 185KB 이고, 나머지 8,821자는 **Ext** 로 떼어
- * `styles/appSansExt.css` 가 unicode-range 로 건다 — 그 글자가 화면에 나올 때만 받는다. 둘을 `--font-app` 이
+ * `styles/appSansExt.css`(globals.css 가 @import)가 unicode-range 로 건다 — 그 글자가 화면에 나올 때만 받는다. 둘을 `--font-app` 이
  * 잇기 때문에 여기 변수 이름은 `--font-app-core` 다. 조각은 `scripts/split-fonts.py` 가 정본(`ZgnnSans-*.woff2`,
  * 링크 미리보기 이미지도 이것을 읽는다)에서 만든다. 통째로 프리로드하던 때는 첫 화면이 글꼴만 1.2MB 를 받았다.
  *

@@ -4,6 +4,8 @@
 @import './scrollMorph.css';
 @import './appTabBar.css';
 @import './microMotion.css';
+/* 본문 글꼴 Ext 조각(생성 파일). layout.tsx 에서 따로 import 하면 렌더를 막는 stylesheet 가 하나 더 생긴다(ADR-006 v9). */
+@import './appSansExt.css';
 
 @plugin "tailwindcss-react-aria-components";
 @plugin "tailwindcss-animate";

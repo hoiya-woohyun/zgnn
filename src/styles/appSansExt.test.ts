@@ -70,4 +70,9 @@ describe('본문 글꼴 두 조각 — Core 와 Ext 의 경계', () => {
     expect(css).toMatch(/--font-app:\s*var\(--font-app-core\),\s*'Zgnn Sans Ext';/);
     expect(css).toContain("font-family: 'Zgnn Sans Ext';");
   });
+
+  it('Ext CSS 는 globals.css 가 @import 한다 — layout.tsx 가 따로 import 하면 렌더를 막는 stylesheet 가 하나 더 생긴다', () => {
+    expect(read('./globals.css')).toContain("@import './appSansExt.css';");
+    expect(read('../app/layout.tsx')).not.toMatch(/^import\s+['"]@\/styles\/appSansExt\.css['"]/m);
+  });
 });
