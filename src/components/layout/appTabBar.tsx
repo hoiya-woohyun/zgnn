@@ -168,7 +168,9 @@ export function AppTabBar({ onNavigate }: TAppTabBarProps) {
                 draggable={false}
                 className={cx(
                   // 위에만 6px — `--tab-bar-h` 가 늘린 만큼이다(globals.css). 솟은 원은 윗선 기준이라 영향이 없다.
-                  'relative flex h-full flex-col items-center justify-center gap-0.5 pt-[6px] text-xs font-semibold',
+                  // 글자는 `text-sm`(14px) — 12px 는 큰 글씨가 필요한 사람에게 작았다(14 W261010.33l). 아이콘 24 + 2 + 줄 21 = 47 이
+                  // 58 − 6 안에 들어 높이는 그대로다. 가장 긴 '둘러보기' 는 320px 폭 칸 64px 에 47.5px(한 자 1em 로 쳐도 56px).
+                  'relative flex h-full flex-col items-center justify-center gap-0.5 pt-[6px] text-sm font-semibold',
                   active ? 'text-brand-secondary' : 'text-tertiary',
                 )}
               >
