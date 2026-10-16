@@ -215,17 +215,24 @@ describe('suggestionPrefillName — 고쳐서 요청한 이름으로 다시 선�
   });
 
   it('한 줄에 든 이름으로 요청했으면 그 이름 — 새로고침 뒤에도 요청 줄이 다시 선다', () => {
-    expect(suggestionPrefillName(sentence, [{ name: '카페 바당' }])).toBe('카페 바당');
+    expect(suggestionPrefillName(sentence, [{ name: '카페 바당', candidate_id: null }])).toBe('카페 바당');
     // 가장 긴 것 — 짧은 이름이 우연히 들어 있는 것보다 운영자가 고른 것이다.
-    expect(suggestionPrefillName(sentence, [{ name: '바당' }, { name: '카페 바당' }])).toBe('카페 바당');
+    expect(suggestionPrefillName(sentence, [{ name: '바당', candidate_id: null }, { name: '카페 바당', candidate_id: null }])).toBe('카페 바당');
     // 공백이 달라도 같은 이름이다.
-    expect(suggestionPrefillName('애월  바닷가 카페   바당 돼요', [{ name: '카페 바당' }])).toBe('카페 바당');
+    expect(suggestionPrefillName('애월  바닷가 카페   바당 돼요', [{ name: '카페 바당', candidate_id: null }])).toBe('카페 바당');
   });
 
   it('처음 이름에 요청이 있으면 그대로 · 한 줄에 없는 이름 · 한 글자 이름은 고르지 않는다', () => {
-    expect(suggestionPrefillName('카페 바당, 애월읍 — 애월', [{ name: '카페 바당' }, { name: '애월읍' }])).toBe('카페 바당');
-    expect(suggestionPrefillName(sentence, [{ name: '숨도' }])).toBe(sentence);
-    expect(suggestionPrefillName(sentence, [{ name: '카' }])).toBe(sentence);
+    expect(suggestionPrefillName('카페 바당, 애월읍 — 애월', [{ name: '카페 바당', candidate_id: null }, { name: '애월읍', candidate_id: null }])).toBe('카페 바당');
+    expect(suggestionPrefillName(sentence, [{ name: '숨도', candidate_id: null }])).toBe(sentence);
+    expect(suggestionPrefillName(sentence, [{ name: '카', candidate_id: null }])).toBe(sentence);
+  });
+
+  it('검수 대기 카드의 추가 수집(후보 있음) 이름은 한 줄에 들어 있어도 고르지 않는다 — 다른 가게의 요청 줄이 서지 않게', () => {
+    const near = '숨도 근처 바닷가 카페 강아지 돼요';
+    expect(suggestionPrefillName(near, [{ name: '숨도', candidate_id: 'cand-1' }])).toBe(near);
+    // 처음 이름과 같은 가게면 누가 요청했든 그 이름이다.
+    expect(suggestionPrefillName('숨도, 애월', [{ name: '숨도', candidate_id: 'cand-1' }])).toBe('숨도');
   });
 });
 

@@ -247,14 +247,19 @@ export function suggestionSearchName(note: string | null): string {
  * 고친 이름은 화면에만 산다. 요청 결과는 워커가 돈 뒤(몇 분~몇 시간)에야 오므로 그 사이 새로고침하면 칸이 다시 문장으로 채워지고,
  * 요청 줄("찾을 차례예요")은 고친 이름 키에 붙어 있어 사라진다 — 운영자는 같은 제안을 문장으로 또 요청하게 된다. 그래서 요청 이름이
  * 한 줄 안에 그대로 들어 있으면 그것을 다시 고른다(가장 긴 것 — 짧은 이름이 우연히 들어 있는 것보다 운영자가 고른 것일 가능성이 크다).
+ *
+ * 그 대조는 **제안에서 넣은 요청**(`candidate_id` 없음)만 본다. 검수 대기 카드의 `추가 수집` 도 같은 목록에 있어, "숨도 근처 바닷가 카페" 같은 한 줄이
+ * 숨도의 요청을 집으면 칸이 `숨도` 가 되고 그 줄에 숨도의 "찾을 차례예요" 가 서서 이미 요청한 제안처럼 보였을 것이다. 처음 이름과 키가 같은지는
+ * 전부를 본다 — 그 이름은 한 줄 자체에서 나온 것이라 누가 요청했든 같은 가게다.
  */
-export function suggestionPrefillName(note: string | null, requests: readonly Pick<TCollectRequest, 'name'>[]): string {
+export function suggestionPrefillName(note: string | null, requests: readonly Pick<TCollectRequest, 'name' | 'candidate_id'>[]): string {
   const base = suggestionSearchName(note);
   const baseKey = collectRequestKey(base);
   if (requests.some((request) => collectRequestKey(request.name) === baseKey)) return base;
   const text = (note ?? '').replace(/\s+/g, ' ');
   let picked = '';
   for (const request of requests) {
+    if (request.candidate_id) continue;
     const name = request.name.replace(/\s+/g, ' ').trim();
     if (name.length >= 2 && name.length > picked.length && text.includes(name)) picked = name;
   }

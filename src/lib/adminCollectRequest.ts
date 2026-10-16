@@ -19,6 +19,8 @@ export type TCollectRequest = {
   /** 요청한 이름 그대로(화면용). 장소 제안은 운영자가 고친 이름이라 이것으로 그 제안 줄을 다시 찾는다(`suggestionPrefillName`). */
   name: string;
   name_key: string;
+  /** 검수 대기 카드의 `추가 수집` 이면 그 후보, 장소 제안의 `이 이름으로 수집` 이면 비어 있다. */
+  candidate_id: string | null;
   status: 'queued' | 'done';
   requested_at: string;
   done_at: string | null;
@@ -80,7 +82,7 @@ export function collectRequestLine(request: TCollectRequest | undefined): string
   return `${when}추가 수집 · 글 ${found}건 중 ${request.unread}건이 아직 분석 전이에요 — 다음 분석이 먼저 읽어요`;
 }
 
-const REQUEST_COLUMNS = 'id, query, name, name_key, status, requested_at, done_at, found, to_read, post_urls';
+const REQUEST_COLUMNS = 'id, query, name, name_key, candidate_id, status, requested_at, done_at, found, to_read, post_urls';
 
 /** `in('url', …)` 한 번에 싣는 url 수 — 블로그 url 은 개당 50자 안팎이라 100개가 6KB 쯤이다(scripts/lib/chunkForUrlFilter.mjs 의 예산). */
 const URL_CHUNK = 100;

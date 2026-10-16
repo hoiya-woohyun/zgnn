@@ -22,6 +22,7 @@ const request = (patch: Partial<TCollectRequest> = {}): TCollectRequest => ({
   query: '제주 카페 바당',
   name: '카페 바당',
   name_key: collectRequestKey('카페 바당'),
+  candidate_id: null,
   status: 'queued',
   requested_at: '2026-10-02T00:00:00.000Z',
   done_at: null,
