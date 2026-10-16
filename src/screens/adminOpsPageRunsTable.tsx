@@ -2,7 +2,7 @@
 
 import { ChevronDown } from '@untitledui/icons';
 import { useEffect } from 'react';
-import { flattenStats, runAlertLabel, runDurationLabel, runSummaryLine, type TPipelineRun, type TRunScript } from '../lib/adminOps';
+import { flattenStats, laterSuccessAt, runAlertLabel, runDurationLabel, runSummaryLine, type TOpsOverview, type TPipelineRun, type TRunScript } from '../lib/adminOps';
 import { nextStepText } from '../lib/adminNextStep';
 import { runState, type TRunState } from '../lib/adminOpsHealth';
 import { agoLabel } from '../lib/adminRebuild';
@@ -57,8 +57,10 @@ function AdminOpsPageRunRow({
   expanded,
   onToggle,
   pinned,
+  lastOk,
 }: {
   run: TPipelineRun;
+  lastOk: TOpsOverview['runsLastOk'];
   nowMs: number;
   expanded: boolean;
   onToggle: () => void;
@@ -67,6 +69,8 @@ function AdminOpsPageRunRow({
   const state = runState(run, nowMs);
   const summary = runSummaryLine(run);
   const alert = runAlertLabel(run.alert);
+  // 실패·중단 줄에는 그 뒤 같은 단계가 다시 성공했는지 한 마디 — 안 그러면 며칠 전 실패가 아직 안 고쳐진 것처럼 읽힌다.
+  const recovered = laterSuccessAt(run, lastOk);
   return (
     <li id={runRowId(run.id)} className={cx(ADMIN_ROW, expanded ? ADMIN_ROW_OPEN : 'hover:bg-primary_hover')}>
       <button type="button" onClick={onToggle} aria-expanded={expanded} className={cx('w-full px-4 py-2 text-left', ADMIN_ROW_CELLS)}>
@@ -86,14 +90,15 @@ function AdminOpsPageRunRow({
         <span className="hidden text-xs whitespace-nowrap text-tertiary tabular-nums md:block">{runDurationLabel(run, nowMs)}</span>
         <span className={cx('mt-1 block text-xs md:mt-0', summary ? 'text-secondary' : run.error ? 'text-error-primary' : 'text-quaternary')}>
           {summary ?? run.error ?? (state === 'running' ? '도는 중이에요' : '요약할 수가 없어요')}
+          {recovered ? <span className="ml-1 font-semibold text-success-primary">· 이후 성공({agoLabel(recovered, nowMs)})</span> : null}
         </span>
         <span className={cx('hidden text-xs md:block', alert === 'Slack 실패' ? 'text-error-primary' : 'text-tertiary')}>{alert}</span>
       </button>
 
       {state === 'stalled' ? (
         <p className="px-4 pb-2 text-xs text-error-primary">
-          심장이 {agoLabel(run.heartbeat_at ?? run.started_at, nowMs)} 멎었어요. 프로세스가 죽었으면 그냥 다시 돌리면 돼요(runLock 이 죽은 pid 의 잠금을
-          이어받아요). 살아 있는데 멎어 있으면 그 프로세스를 끊고 다시 돌려 주세요.
+          워커의 생존 신호(심장)가 {agoLabel(run.heartbeat_at ?? run.started_at, nowMs)} 끊겼어요. 프로그램이 죽었으면 그냥 다시 돌리면 돼요(죽은 실행의 잠금은 새 실행이
+          이어받아요). 살아 있는데 멎어 있으면 그 프로그램을 끊고 다시 돌려 주세요.
         </p>
       ) : null}
 
@@ -105,10 +110,10 @@ function AdminOpsPageRunRow({
               ['끝', run.ended_at ? kst(run.ended_at) : '—'],
               ['소요', runDurationLabel(run, nowMs)],
               ['심장', run.heartbeat_at ? kst(run.heartbeat_at) : '—'],
-              ['args', run.args === null || run.args === undefined ? '—' : JSON.stringify(run.args)],
-              ['error', run.error ?? '—'],
-              ...flattenStats(run.stats).map(([key, value]) => [`stats.${key}`, value]),
-              ...flattenStats(run.alert).map(([key, value]) => [`alert.${key}`, value]),
+              ['실행 옵션', run.args === null || run.args === undefined ? '—' : JSON.stringify(run.args)],
+              ['오류', run.error ?? '—'],
+              ...flattenStats(run.stats).map(([key, value]) => [`집계 ${key}`, value]),
+              ...flattenStats(run.alert).map(([key, value]) => [`알림 ${key}`, value]),
             ].map(([key, value]) => (
               <div key={key} className="contents">
                 <dt className="text-quaternary">{key}</dt>
@@ -134,6 +139,7 @@ export function AdminOpsPageRunsTable({
   runs,
   pinned,
   nowMs,
+  lastOk,
   scripts,
   failedOnly,
   onFilter,
@@ -147,6 +153,8 @@ export function AdminOpsPageRunsTable({
   /** `?run=` 로 연 행. 목록에 이미 있으면 거기서 펼치고, 없으면 맨 위에 하나 더 세운다 */
   pinned: TPipelineRun | null;
   nowMs: number;
+  /** 단계별 마지막 성공 — 실패 줄에 "이후 성공" 을 말하려고 */
+  lastOk: TOpsOverview['runsLastOk'];
   scripts: readonly TRunScript[] | null;
   failedOnly: boolean;
   onFilter: (next: { scripts: readonly TRunScript[] | null; failedOnly: boolean }) => void;
@@ -200,6 +208,7 @@ export function AdminOpsPageRunsTable({
               <AdminOpsPageRunRow
                 key={run.id}
                 run={run}
+                lastOk={lastOk}
                 nowMs={nowMs}
                 pinned={run.id === pinnedId}
                 expanded={expandedId === run.id}

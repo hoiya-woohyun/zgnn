@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TOpsOverview, TOpsRebuildEntry, TOpsWorker, TPipelineRun } from './adminOps';
 import { nextStepText } from './adminNextStep';
-import { adminBandStage, remoteWorkerView, runState, STAGE_SCRIPTS, stageHealth, stalledBefore, workerHealth, worstStage } from './adminOpsHealth';
+import { adminBandStage, BACKLOG_STALE_DAYS, COLLECT_STALE_DAYS, PENDING_STALE_DAYS, remoteWorkerView, runState, STAGE_SCRIPTS, stageCriteria, stageHealth, stalledBefore, workerHealth, worstStage } from './adminOpsHealth';
 
 const NOW = Date.parse('2026-10-06T12:00:00.000Z');
 const ago = (ms: number) => new Date(NOW - ms).toISOString();
@@ -303,5 +303,23 @@ describe('STAGE_SCRIPTS — 걸러 볼 실행 기록이 있는 칸만', () => {
     expect(STAGE_SCRIPTS.review).toBeNull();
     expect(STAGE_SCRIPTS.rebuild).toBeNull();
     expect(Object.values(STAGE_SCRIPTS).flatMap((scripts) => scripts ?? [])).toEqual(['collect', 'analyze', 'apply']);
+  });
+});
+
+describe('stageCriteria — 정상의 기준을 판정 상수에서 끌어 쓴다', () => {
+  it('다섯 칸 순서 그대로, 일수는 판정이 쓰는 상수와 같다', () => {
+    const criteria = stageCriteria();
+    expect(criteria.map((entry) => entry.key)).toEqual(stageHealth(overview(), NOW).map((entry) => entry.key));
+    expect(criteria[0].text).toContain(`${COLLECT_STALE_DAYS}일`);
+    expect(criteria[1].text).toContain(`${BACKLOG_STALE_DAYS}일`);
+    expect(criteria[2].text).toContain(`${PENDING_STALE_DAYS}일`);
+  });
+});
+
+describe('재빌드 칸 첫째 수 — HTTP 코드를 운영자 말로', () => {
+  it('2xx 는 접수됨, 그 밖은 응답 N', () => {
+    const first = (status: number) => stage(overview({ rebuildRecent: [rebuild({ response_status: status })] }), 'rebuild').first;
+    expect(first(201)).toBe('2분 전 · 접수됨');
+    expect(first(429)).toBe('2분 전 · 응답 429');
   });
 });

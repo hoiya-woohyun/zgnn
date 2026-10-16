@@ -5,6 +5,7 @@ import {
   fetchRun,
   fetchRuns,
   flattenStats,
+  laterSuccessAt,
   appendRuns,
   mergeRuns,
   RUN_COLUMNS,
@@ -243,5 +244,26 @@ describe('runAlertLabel', () => {
     expect(runAlertLabel({ state: 'sent', requestId: 1, responseStatus: 200 })).toBe('Slack');
     expect(runAlertLabel({ state: 'sent', requestId: 1, responseStatus: 404 })).toBe('Slack 실패');
     expect(runAlertLabel({ state: 'error', note: 'x' })).toBe('Slack 실패');
+  });
+});
+
+describe('laterSuccessAt — 실패 줄에 "이후 성공"', () => {
+  const at = (iso: string) => iso;
+  const base = { script: 'collect' as const, started_at: at('2026-10-10T00:00:00Z') };
+  const ok = (startedAt: string, patch: Partial<TPipelineRun> = {}) =>
+    ({ id: 'ok', script: 'collect', status: 'ok', started_at: startedAt, ended_at: '2026-10-12T00:05:00Z', heartbeat_at: null, args: null, stats: null, error: null, alert: null, ...patch }) as TPipelineRun;
+
+  it('더 늦은 성공이 있으면 그 끝난 시각', () => {
+    expect(laterSuccessAt({ ...base, status: 'failed' }, { collect: ok('2026-10-12T00:00:00Z') })).toBe('2026-10-12T00:05:00Z');
+  });
+  it('성공이 더 이르거나 없거나 일부 실패면 null', () => {
+    expect(laterSuccessAt({ ...base, status: 'failed' }, { collect: ok('2026-10-09T00:00:00Z') })).toBeNull();
+    expect(laterSuccessAt({ ...base, status: 'failed' }, {})).toBeNull();
+    expect(laterSuccessAt({ ...base, status: 'failed' }, { collect: ok('2026-10-12T00:00:00Z', { status: 'partial' }) })).toBeNull();
+  });
+  it('성공·진행 중인 행에는 말하지 않는다, 다른 단계 성공은 세지 않는다', () => {
+    expect(laterSuccessAt({ ...base, status: 'ok' }, { collect: ok('2026-10-12T00:00:00Z') })).toBeNull();
+    expect(laterSuccessAt({ ...base, status: 'running' }, { collect: ok('2026-10-12T00:00:00Z') })).toBeNull();
+    expect(laterSuccessAt({ ...base, status: 'failed' }, { analyze: ok('2026-10-12T00:00:00Z', { script: 'analyze' }) })).toBeNull();
   });
 });

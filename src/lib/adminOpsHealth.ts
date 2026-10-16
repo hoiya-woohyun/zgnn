@@ -230,7 +230,8 @@ function rebuildStage(overview: TOpsOverview, nowMs: number): TStageHealth {
       ? { ...base, state: 'warn', first: `${ago} · 응답 없음`, reason: '재빌드 응답을 못 받았어요 — Vercel 배포 목록을 확인해 주세요' }
       : { ...base, state: 'ok', first: `${ago} · 응답 기다림`, reason: null };
   }
-  const first = `${ago} · ${status}`;
+  // 숫자(201)는 운영자 말이 아니다 — 2xx 는 "Vercel 이 빌드를 받았다" 한 뜻이라 "접수됨". 그 밖의 코드는 구별이 필요해 "응답 N" 으로 남긴다.
+  const first = `${ago} · ${status >= 200 && status < 300 ? '접수됨' : `응답 ${status}`}`;
   if (status >= 200 && status < 300) return { ...base, state: 'ok', first, reason: null };
   if (status === 429) return { ...base, state: 'warn', first, reason: '재빌드가 한도(시간당 60번)에 걸렸어요 — 훅은 그대로예요' };
   // 5xx 는 Vercel 쪽 오류다 — "폐기" 라고 말하면 운영자가 멀쩡한 훅을 회전한다(429 와 같은 종류의 오독, BUG-011). 상태는 실패 그대로.
@@ -238,6 +239,31 @@ function rebuildStage(overview: TOpsOverview, nowMs: number): TStageHealth {
   if (status >= 400) return { ...base, state: 'fail', first, reason: `Deploy Hook 이 폐기된 듯해요(${status})` };
   return { ...base, state: 'warn', first, reason: `재빌드 응답이 예상과 달라요(${status})` };
 }
+
+/**
+ * "정상" 의 기준 — 칸마다 한 줄(todo/15 T8.6 · 14 W261010.14). 점이 노랗기 전까지 무엇이 정상인지 화면이 말하지 않아 "수집 7시간 전" 이 괜찮은 건지 알 수 없었다.
+ * 숫자는 판정이 쓰는 상수에서 그대로 끌어 쓴다 — 문장과 판정이 따로 늙지 않게. (분석 칸의 주의 기준 자체를 바꾸는 일은 🙋 T8.6 이라 지금 문턱을 말로만 드러낸다.)
+ */
+export function stageCriteria(): { key: TStageKey; label: string; text: string }[] {
+  return [
+    { key: 'collect', label: '수집', text: `마지막 성공이 ${COLLECT_STALE_DAYS}일 안이면 정상이에요. 몇 시간 전이든 며칠 전이든 그 안이면 괜찮아요.` },
+    {
+      key: 'analyze',
+      label: '분석',
+      text: `실행이 실패하지 않았고, 아직 안 읽은 글 중 가장 오래된 것이 ${BACKLOG_STALE_DAYS}일 안이면 정상이에요. 일부러 읽지 않고 쌓아 두는 글(저수지)도 세기 때문에 서버 워커를 쓰면 노랗게 보일 수 있어요.`,
+    },
+    { key: 'review', label: '검수', text: `후보가 없거나 가장 오래된 것이 ${PENDING_STALE_DAYS}일 안이면 정상이에요. 사람이 하는 일이라 실패는 없어요.` },
+    { key: 'apply', label: '반영', text: '승인했는데 사이트 자료에 아직 안 들어간 후보(끊긴 승인)가 0건이고 마지막 반영이 실패하지 않았으면 정상이에요. 기록이 없는 것도 정상이에요.' },
+    { key: 'rebuild', label: '재빌드', text: '마지막 요청을 Vercel 이 받았으면(접수됨) 정상이에요. 사이트에는 1~2분 뒤에 보여요.' },
+  ];
+}
+
+/** 워커 낱말의 뜻 — 「쉬는 중」 이 고장인지 몰라서 물었다(parttime-33b). 용어는 ADR-028 「용어」. */
+export const WORKER_TERM_EXPLAIN: readonly { term: string; text: string }[] = [
+  { term: '쉬는 중', text: '할 일이 없어 기다리는 정상 상태예요. 요청(분석 버튼 등)이 오면 깨어나요.' },
+  { term: '워커', text: '수집·분석·반영을 대신 돌리는 프로그램이에요. 서버에서 도는 것(서버 워커)과 내 PC 에서 도는 것(PC 워커)이 있어요.' },
+  { term: '심장', text: '워커가 살아 있다고 알리는 신호예요. 오래 멎었으면 프로그램이 죽은 거예요.' },
+];
 
 /**
  * 다섯 칸 — 장치가 도는 순서. **7일 집계로 부른다**: 재빌드 칸의 둘째 수가 `funnel.rebuilds`(기간 집계)라

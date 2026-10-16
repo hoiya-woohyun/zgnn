@@ -2,7 +2,7 @@
 
 import { ChevronRight } from '@untitledui/icons';
 import Link from 'next/link';
-import type { THealth, TStageHealth, TStageKey } from '../lib/adminOpsHealth';
+import { stageCriteria, WORKER_TERM_EXPLAIN, type THealth, type TStageHealth, type TStageKey } from '../lib/adminOpsHealth';
 import { cx } from '../utils/cx';
 
 /** 상태점 — 칠한 점이라 `*-solid`. 원시 색값은 쓰지 않는다(CLAUDE.md 「색은 시맨틱 토큰으로만」). */
@@ -141,6 +141,24 @@ export function AdminOpsPageStageStrip({
           </li>
         ))}
       </ul>
+      {/* 점이 노랗기 전까지 무엇이 정상인지 — 숫자는 판정이 쓰는 상수에서 온다(`stageCriteria`). */}
+      <details className="mt-2 px-4 text-xs text-tertiary md:px-6">
+        <summary className="cursor-pointer text-secondary">무엇이 정상인가요?</summary>
+        <dl className="mt-1.5 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-1">
+          {stageCriteria().map((entry) => (
+            <div key={entry.key} className="contents">
+              <dt className="font-semibold text-secondary">{entry.label}</dt>
+              <dd>{entry.text}</dd>
+            </div>
+          ))}
+          {WORKER_TERM_EXPLAIN.map((entry) => (
+            <div key={entry.term} className="contents">
+              <dt className="font-semibold text-secondary">{entry.term}</dt>
+              <dd>{entry.text}</dd>
+            </div>
+          ))}
+        </dl>
+      </details>
     </>
   );
 }

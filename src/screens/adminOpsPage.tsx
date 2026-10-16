@@ -530,6 +530,7 @@ export function AdminOpsPage() {
         runs={runs}
         pinned={pinnedRun}
         nowMs={nowMs}
+        lastOk={overview.runsLastOk}
         scripts={runFilter.scripts ?? null}
         failedOnly={runFilter.failedOnly}
         onFilter={(next) => void changeRunFilter(next)}

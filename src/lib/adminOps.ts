@@ -305,3 +305,20 @@ export function runAlertLabel(alert: TRunAlert | null): '—' | 'Slack' | 'Slack
   const status = alert.responseStatus;
   return typeof status === 'number' && (status < 200 || status >= 300) ? 'Slack 실패' : 'Slack';
 }
+
+/**
+ * 실패한 실행 뒤에 **같은 단계가 다시 성공했나** — 있으면 그 성공이 끝난 시각, 없으면 null. 실패 줄이 "아직 안 고쳐졌다" 로 읽히지 않게(14 W261010.14).
+ * 마지막 성공(`runsLastOk`)과만 견준다: 그 단계의 더 늦은 성공이 있으면 마지막 성공도 그 뒤다. 일부 실패(partial)는 성공으로 치지 않는다.
+ */
+export function laterSuccessAt(
+  run: Pick<TPipelineRun, 'script' | 'status' | 'started_at'>,
+  runsLastOk: TOpsOverview['runsLastOk'],
+): string | null {
+  if (run.status === 'ok' || run.status === 'running') return null;
+  const ok = runsLastOk[run.script];
+  if (!ok || ok.status !== 'ok') return null;
+  const startedAt = Date.parse(run.started_at);
+  const okStartedAt = Date.parse(ok.started_at);
+  if (Number.isNaN(startedAt) || Number.isNaN(okStartedAt) || okStartedAt <= startedAt) return null;
+  return ok.ended_at ?? ok.started_at;
+}

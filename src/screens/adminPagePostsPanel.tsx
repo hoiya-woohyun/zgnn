@@ -502,7 +502,7 @@ export function AdminPagePostsPanel({ counts, error, backlog, seedTargets, onSee
             <section aria-label="다음에 읽을 글" className="pt-2">
               <p className="text-xs font-semibold text-secondary">
                 다음에 읽을 글 {backlog.data.next.length}건{' '}
-                <span className="font-normal text-tertiary">— 대략 · 블로그당 상한은 터미널이 정해요</span>
+                <span className="font-normal text-tertiary">— 대략 · 블로그당 상한은 분석 프로그램이 정해요</span>
               </p>
               {backlog.data.next.length === 0 ? (
                 <p className="mt-1 text-xs text-tertiary">제목이 한 가게 후기로 보이는 미분석 글이 없어요 — 분석은 나머지 글을 최신순으로 읽어요.</p>
