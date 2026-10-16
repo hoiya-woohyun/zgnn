@@ -24,7 +24,7 @@ type TAdminPagePlaceReportsProps = {
  * 폐업·다른 가게 제보에는 `등록 해제…` 가 선다. **여기서 내리지 않는다** — 줄의 등록 해제 폼을 `폐업` 을 미리 고른 채 연다(블랙리스트 영구가 기본).
  * 해제가 끝나면 그 장소의 열린 제보는 쓰는 쪽(`adminPage`)이 함께 닫는다. 두 번째 내리기 버튼이 생기면 한쪽만 `place_blocks` 를 쓴다(R4).
  *
- * 고친 것은 이 판 밖에서 한다(주소는 위 `주소·좌표 고치기`, 조건은 후보 재분석). 이 판은 "고쳤다" 를 적는 자리다.
+ * 고친 것은 이 판 밖에서 한다(펼친 상세 맨 위 `고치기` — 주소·좌표·조건 등). 이 판은 "고쳤다" 를 적는 자리다.
  */
 export function AdminPagePlaceReports({ reports, busy, canArchive, onHandle, onArchive }: TAdminPagePlaceReportsProps) {
   const [note, setNote] = useState('');
