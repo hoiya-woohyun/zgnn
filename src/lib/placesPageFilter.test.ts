@@ -9,6 +9,7 @@ import {
   filtersOfPlaceType,
   hideHardCount,
   onlyReachableCount,
+  otherSeatTypeMatches,
   otherTypeHiddenMatches,
   otherTypeMatches,
   placesPageEmptySearch,
@@ -549,5 +550,34 @@ describe('singleConditionReleases — 0곳일 때 조건 하나만 풀면 몇 �
     expect(east.map((r) => r.key)).not.toContain('dir-east');
     expect(east.map((r) => r.key)).toContain('query');
     expect(singleConditionReleases({ ...base, type: 'stay' }, noJudging)).toEqual([]);
+  });
+});
+
+describe('otherSeatTypeMatches — 검색어 없이 0곳인 식당·카페의 대신(14 W261010.33v)', () => {
+  const BIG: TDogProfile = { dogs: [{ name: '대장', weightKg: 28 }], carrier: 'none' };
+  const noKeys = { stay: [], restaurant: [], cafe: [] } as const;
+
+  it('식당 동쪽 × 갈 수 있는 곳만 × 실내 자리 필요(28kg) = 0곳 — 카페 수는 넘어간 탭의 목록 수', () => {
+    const eligibilityMap = eligibilityMapOf(PLACES, BIG, { needsIndoor: true });
+    const conditions = { ...base, type: 'restaurant' as const, directions: ['east'] as const, onlyReachable: true, eligibilityMap };
+    expect(filterPlacesPage(conditions)).toHaveLength(0);
+    const matches = otherSeatTypeMatches(conditions, noKeys);
+    const cafe = filterPlacesPage({ ...conditions, type: 'cafe' }).length;
+    expect(matches).toEqual(cafe > 0 ? [{ type: 'cafe', count: cafe }] : []);
+  });
+
+  it('넘어간 탭의 조건 칩이 걸린다 — 이 종류에만 있는 칩은 따라가지 않는다', () => {
+    const conditions = { ...base, type: 'cafe' as const, directions: ['east'] as const };
+    const largeDog = otherSeatTypeMatches(conditions, { ...noKeys, restaurant: ['largeDog'] });
+    const all = otherSeatTypeMatches(conditions, noKeys);
+    expect(largeDog[0]?.count ?? 0).toBe(filterPlacesPage({ ...conditions, type: 'restaurant', petKeys: ['largeDog'] }).length);
+    expect(all[0]?.count).toBe(filterPlacesPage({ ...conditions, type: 'restaurant' }).length);
+  });
+
+  it('숙소는 대신할 종류가 없고, 검색어가 있으면 otherTypeMatches 몫이라 빈 배열', () => {
+    expect(otherSeatTypeMatches({ ...base, type: 'stay', directions: ['east'] }, noKeys)).toEqual([]);
+    expect(otherSeatTypeMatches({ ...base, type: 'restaurant', query: '함덕' }, noKeys)).toEqual([]);
+    // 숙소는 대신 목록에 들지 않는다.
+    expect(otherSeatTypeMatches({ ...base, type: 'cafe' }, noKeys).map((m) => m.type)).toEqual(['restaurant']);
   });
 });

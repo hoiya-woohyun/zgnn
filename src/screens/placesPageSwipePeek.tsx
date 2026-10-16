@@ -3,7 +3,7 @@
 import { useMemo, type RefObject } from 'react';
 import { PlacesPageResults } from './placesPageResults';
 import { resetFiltersLabel } from '../lib/placeFilters';
-import { areaCarriedRelease, areaReleaseCount, filterPlacesPage, otherTypeHiddenMatches, otherTypeMatches, placesByTown, placesPageChips, reachableReleaseCount, singleConditionReleases, townReleaseCount } from '../lib/placesPageFilter';
+import { areaCarriedRelease, areaReleaseCount, filterPlacesPage, otherSeatTypeMatches, otherTypeHiddenMatches, otherTypeMatches, placesByTown, placesPageChips, reachableReleaseCount, singleConditionReleases, townReleaseCount } from '../lib/placesPageFilter';
 import { sortByEligibility } from '../lib/sortByEligibility';
 import { useAppStore, useDog } from '../store/useAppStore';
 import { useEligibilityMap } from '../store/useDogEligibility';
@@ -64,6 +64,13 @@ export function PlacesPageSwipePeek({ ref, type, side, top, height }: TPlacesPag
       results.length > 0
         ? []
         : otherTypeHiddenMatches({ type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap }, petKeysByType),
+    [results.length, type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap, petKeysByType],
+  );
+  const seatOtherTypes = useMemo(
+    () =>
+      results.length > 0
+        ? []
+        : otherSeatTypeMatches({ type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap }, petKeysByType),
     [results.length, type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap, petKeysByType],
   );
   const released = useMemo(() => {
@@ -130,6 +137,7 @@ export function PlacesPageSwipePeek({ ref, type, side, top, height }: TPlacesPag
         reachableReleaseCount={released.reachable}
         onClearOnlyReachable={noop}
         conditionReleases={released.conditions}
+        seatOtherTypes={seatOtherTypes}
         areaCarried={areaCarried}
         onReleaseAreaCarried={noop}
       />

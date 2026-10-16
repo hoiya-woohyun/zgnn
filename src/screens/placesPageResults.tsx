@@ -79,6 +79,8 @@ type TPlacesPageResultsProps = {
    * 답이 아닐 때 범용 안내가 앞의 둘을 버튼으로 세운다. 지우기는 같은 키의 칩(`activeChips`)의 것이다.
    */
   conditionReleases?: TConditionRelease[];
+  /** 검색어 없이 0곳인 식당·카페에서 다른 자리 종류의 수(`otherSeatTypeMatches`, 14 W261010.33v) — 0곳 안내 밑에 "카페에 N곳 있어요" 줄로. */
+  seatOtherTypes?: { type: TPlaceType; count: number }[];
   /** 동네 카드로 들어왔는데 따라온 읍면·방향·조건 칩 탓에 카드보다 적게 보이면(`areaCarriedRelease`, 19 T4.2). */
   areaCarried?: TAreaCarried | null;
   onReleaseAreaCarried?: () => void;
@@ -128,6 +130,7 @@ export function PlacesPageResults({
   reachableReleaseCount = 0,
   onClearOnlyReachable,
   conditionReleases = [],
+  seatOtherTypes = [],
   areaCarried = null,
   onReleaseAreaCarried,
   nearSort,
@@ -595,6 +598,11 @@ export function PlacesPageResults({
               }
             />
           )}
+          {/*
+            검색어 없이 0곳인 식당·카페면 대신이 되는 종류의 수(14 W261010.33v, ferry-28) — 어느 갈래든 큰 안내 밑에. 이 종류 안의 길(위 버튼)이 먼저이고,
+            옆 종류는 그다음 길이다. 검색어가 있으면 이 배열은 비고 위의 링크 줄(`otherTypes`)이 말한다.
+          */}
+          {seatOtherTypes.length > 0 && <ul className="mt-2 space-y-2">{seatOtherTypes.map(renderOtherTypeRow)}</ul>}
         </div>
       )}
 

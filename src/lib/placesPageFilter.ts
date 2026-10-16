@@ -246,6 +246,24 @@ export const otherTypeHiddenMatches = (
   );
 };
 
+/**
+ * 검색어 없이 0곳인 식당·카페에서 **다른 자리 종류**(카페·식당)에 몇 곳인가(14 W261010.33v, ferry-28 "카페엔 실내 대형견 OK N곳" — 경쟁 펫패스의 대체 장소).
+ * 검색어가 있으면 `otherTypeMatches` 가 이미 말한다(찾던 그 가게가 다른 종류에 있다). 검색어 없이 0곳인 것은 조건이 막은 것이라, 대신이 되는 종류만 말한다 —
+ * 식당과 카페는 서로의 대신이 되고(둘 다 앉는 자리다, 판정의 `seating`), 숙소는 대신할 종류가 없다("식당에 30곳" 은 묵을 곳을 찾는 사람의 답이 아니다).
+ *
+ * 셈은 `otherTypeMatches` 와 같은 규칙이다 — 넘어간 탭의 `filterPlacesPage` 그대로(방향·읍면·권역·판정 토글은 따라가고 조건 칩은 그 종류의 것).
+ * 그래서 줄은 "같은 조건으로" 라고 하지 않는다: 이 종류에만 있는 칩('케이지 없이 OK' 등)은 넘어가지 않는다. 줄의 수는 눌러 넘어가 보는 수다(W261007.11a).
+ */
+export const otherSeatTypeMatches = (
+  conditions: Omit<TPlacesPageConditions, 'petKeys'>,
+  petKeysByType: Readonly<Record<TPlaceType, readonly TPetFilterKey[]>>,
+): { type: TPlaceType; count: number }[] => {
+  if (conditions.query.trim() || conditions.type === 'stay') return [];
+  return PLACE_TYPES.filter((other) => other !== conditions.type && other !== 'stay')
+    .map((other) => ({ type: other, count: filterPlacesPage({ ...conditions, type: other, petKeys: petKeysByType[other] }).length }))
+    .filter((match) => match.count > 0);
+};
+
 export type TPlacesPageEmptySearch =
   | { kind: 'otherType'; top: { type: TPlaceType; count: number }; rest: { type: TPlaceType; count: number }[] }
   | { kind: 'notListed'; multiWord: boolean };

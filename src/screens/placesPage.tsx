@@ -16,7 +16,7 @@ import { SEARCH_FIELD } from '../components/noAutofill';
 import { sameIsland, TYPE_META, type TPlaceEntry } from '../lib/places';
 import { comparePrice, resetFiltersLabel, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
 import { countByLevel, levelCountParts } from '../lib/eligibilityCounts';
-import { areaCarriedRelease, areaReleaseCount, filterPlacesPage, hideHardCount, onlyReachableCount, otherTypeHiddenMatches, otherTypeMatches, placesByTown, placesPageChips, reachableReleaseCount, singleConditionReleases, townChipCounts, townReleaseCount } from '../lib/placesPageFilter';
+import { areaCarriedRelease, areaReleaseCount, filterPlacesPage, hideHardCount, onlyReachableCount, otherSeatTypeMatches, otherTypeHiddenMatches, otherTypeMatches, placesByTown, placesPageChips, reachableReleaseCount, singleConditionReleases, townChipCounts, townReleaseCount } from '../lib/placesPageFilter';
 import { sortByEligibility } from '../lib/sortByEligibility';
 import { distancesFrom, NEAR_PARAM, nearPlaceOf, sortByDistance } from '../lib/distanceSort';
 import { LOCATE_NOTICE, locateMe } from '../lib/myLocation';
@@ -163,6 +163,14 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
       results.length > 0
         ? []
         : otherTypeHiddenMatches({ type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap }, petKeysByType),
+    [results.length, type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap, petKeysByType],
+  );
+  // 검색어 없이 0곳인 식당·카페 — 대신이 되는 종류에 몇 곳인지(14 W261010.33v). 넘어간 탭과 같은 조건으로 센다(위 `otherTypes` 와 같은 규칙).
+  const seatOtherTypes = useMemo(
+    () =>
+      results.length > 0
+        ? []
+        : otherSeatTypeMatches({ type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap }, petKeysByType),
     [results.length, type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap, petKeysByType],
   );
   // 같은 이유로 0곳일 때만 — 읍면 하나(18 T2.1)·권역 하나(19 T3)가 원인인지, 아니면 어느 조건 하나를 풀면 되는지(14 W261010.33s).
@@ -477,6 +485,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
               reachableReleaseCount={released.reachable}
               onClearOnlyReachable={clearOnlyReachable}
               conditionReleases={released.conditions}
+              seatOtherTypes={seatOtherTypes}
               areaCarried={areaCarried}
               nearSort={{
                 pressed: sort === 'near',
