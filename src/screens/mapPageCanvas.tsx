@@ -7,8 +7,14 @@ import { EmptyState } from '../components/layout/emptyState';
 import type { TEligibility } from '../lib/eligibility';
 import { mapFailureCopy } from '../lib/mapFailureCopy';
 import { mapPageCanvasMarkerLabel } from '../lib/mapPageCanvasMarkerLabel';
+import { mapPageMarkerClusterIcon, mapPageMarkerIcon } from '../lib/mapPageMarkerIcon';
+import {
+  mapPageMarkerClusterLabel,
+  mapPageMarkerClusterSummary,
+  mapPageMarkerClusterZoom,
+  mapPageMarkerLayout,
+} from '../lib/mapPageMarkerLayout';
 import { loadNaverMaps, onNaverMapsAuthFailure, watchNaverMapInit } from '../lib/naverMap';
-import { pinIcon } from '../lib/naverMapPin';
 import { JEJU_CENTER, jejuZoomFor, MY_LOCATION_COLOR, PLACE_FOCUS_ZOOM, type TPlaceEntry } from '../lib/places';
 import type { TGeo, TPlaceType } from '../types';
 
@@ -23,6 +29,8 @@ export const MARKER_HARD_OPACITY = '0.45';
 
 /** 저장한 곳은 겹쳤을 때 위로 올린다 — 모아 보려고 저장했는데 남의 핀 밑에 깔리면 안 된다. */
 const Z_SAVED = 500;
+/** 묶음 원은 서로·마커와 겹치지 않게 세므로 층이 거의 상관없다 — 고른 핀(묶음에서 꺼낸다)만 그 위에 온다. */
+const Z_CLUSTER = 600;
 const Z_SELECTED = 1000;
 
 /** 내 위치 점의 크기(px). 후광까지 포함한 캔버스이고, 가운데가 좌표다. */
@@ -41,7 +49,8 @@ const MY_LOCATION_ZOOM = 14;
  * 저장 모드의 이름표(14 W261013.12) — 저장 핀 셋에 이름이 없어 어느 곳인지 하나씩 눌러 봐야 했다(minji-22 · junhyuk-24b).
  * 원 **밑 가운데**에 단다: 오른쪽에 달면 섬 동쪽 끝(성산)의 저장 곳 이름이 390px 화면 밖으로 잘린다.
  * 원(중심에서 12.5)보다 3.5 아래에서 시작하고, 폭은 상한까지 늘다가 말줄임이다.
- * **저장 모드에서만** 단다 — 전체 지도는 북·동 해안에서 중심 36px 안에 겹치는 쌍이 156개라 이름표가 이웃 핀의 탭을 가로챈다.
+ * **저장 모드에서만** 단다 — 묶기(`mapPageMarkerLayout`)는 원끼리 36px 간격만 지켜 주고, 폭 112px 이름표는 그 간격의
+ * 이웃 원을 덮어 탭을 가로챈다. 저장한 곳은 몇 곳뿐이고 범위를 맞춰 펼쳐 보여 주므로 거기서만.
  */
 const NAME_LABEL_TOP = 16;
 const NAME_LABEL_HEIGHT = 20;
@@ -104,20 +113,37 @@ function myLocationIcon(maps: typeof naver.maps): naver.maps.ImageIcon {
 type TMarkerEntry = {
   marker: naver.maps.Marker;
   type: TPlaceType;
+  /** 묶기가 화면 픽셀로 바꿔 세는 좌표. */
+  position: naver.maps.LatLng;
+  /** 판정이 '어려움' 인가 — 흐림, 그리고 묶음이 모두 어려운지 셀 때. */
+  hard: boolean;
+  /** 최대 확대의 고리가 그림을 옮긴 픽셀(평소 0). */
+  offset: { dx: number; dy: number };
+  /** 지금 걸린 아이콘(선택·저장·옮김) — 같으면 `setIcon` 을 건너뛴다. HTML 아이콘이라 바꿀 때마다 SDK 가 DOM 을 새로 만든다. */
+  iconKey: string;
   listener: naver.maps.MapEventListener;
   /** 키보드 리스너를 뗀다. SDK 밖에서 마커 요소에 직접 건 것이라 `removeListener` 가 모른다. */
   detachKeys: () => void;
   /** 저장 모드의 이름표와 그 클릭 리스너. 마커와 같은 엔트리에 둬야 `clearMarkers` 의 두 길(재생성·지도 파괴 전)이 함께 뗀다. */
-  label: { marker: naver.maps.Marker; listener: naver.maps.MapEventListener } | null;
+  label: { marker: naver.maps.Marker; listener: naver.maps.MapEventListener; content: HTMLElement } | null;
+};
+
+/** 묶음 원 하나. 다시 셀 때마다 통째로 떼고 새로 만든다(마커 수가 이 정도면 차분보다 안전하다). */
+type TClusterEntry = {
+  marker: naver.maps.Marker;
+  ids: string[];
+  listener: naver.maps.MapEventListener;
+  detachKeys: () => void;
 };
 
 /**
  * 마커 요소를 버튼으로 읽히게 한다(14 W261006.11) — SDK 는 `title` 붙은 div 하나라 스크린리더가 지나치고
  * 키보드로는 닿지 않았다. 이름엔 판정까지 넣는다: 흐린 핀(어려움)은 눈으로만 구분됐다.
  *
- * 히트 영역은 28px 그대로 둔다(44px 로 넓히지 않았다). 북·동 해안에서 중심 36px 안에 겹치는 쌍이 156개라,
- * 보이지 않는 여백을 넓히면 위에 깔린 핀의 여백이 **아래 핀의 보이는 몸통**을 덮어 누른 것과 다른 곳이 열린다.
- * 넓히는 것은 겹침(클러스터)을 푼 뒤의 일이다.
+ * 히트 영역은 44px 다 — 그림(28px)을 44px 투명 상자로 감쌌다(`mapPageMarkerIcon`). 그렇게 넓혀도 되는 것은 묶기 덕이다:
+ * 묶기 전엔 중심 36px 안에 겹치는 쌍이 많아(390px 첫 화면에서도) 위에 깔린 원의 여백이 **아래 원의 보이는 몸통**을 덮어
+ * 누른 것과 다른 곳이 열렸다. 묶은 뒤엔 보이는 것끼리 36px(= 44/2 + 28/2) 이상 떨어져 여백이 이웃 몸통에 닿지 않는다.
+ * 묶음 원도 같은 함수로 버튼이 된다.
  */
 function makeMarkerButton(element: HTMLElement, label: string, onActivate: () => void): () => void {
   element.setAttribute('role', 'button');
@@ -171,6 +197,151 @@ function clearMarkers(markers: Map<string, TMarkerEntry>) {
   markers.clear();
 }
 
+/** 묶음 원을 뗀다. `clearMarkers` 와 같은 이유로 엔트리마다 감싸고, 지도를 파괴하기 **전에** 불러야 한다. */
+function clearClusters(clusters: TClusterEntry[]) {
+  const maps = window.naver?.maps;
+  for (const entry of clusters) {
+    try {
+      if (maps) maps.Event.removeListener(entry.listener);
+    } catch {
+      // 리스너를 못 떼어도 마커는 떼어 본다.
+    }
+    entry.detachKeys();
+    try {
+      entry.marker.setMap(null);
+    } catch {
+      // 지도가 이미 깨졌다는 뜻.
+    }
+  }
+  clusters.length = 0;
+}
+
+/** 선택·저장·고리 옮김이 바뀐 마커에만 아이콘을 다시 건다. */
+function applyMarkerIcon(maps: typeof naver.maps, entry: TMarkerEntry, selected: boolean, saved: boolean) {
+  const key = `${selected}:${saved}:${entry.offset.dx}:${entry.offset.dy}`;
+  if (entry.iconKey === key) return;
+  entry.iconKey = key;
+  entry.marker.setIcon(mapPageMarkerIcon(maps, entry.type, selected, saved, entry.offset));
+}
+
+/** 키보드로 묶음을 연 뒤 — 그 줌보다 깊이 다시 셌을 때 무리의 첫 곳(혼자 섰으면 그 마커, 아니면 그것이 든 묶음)으로 포커스. */
+type TFocusAfter = { ids: string[]; fromZoom: number };
+
+type TLayoutInput = {
+  map: naver.maps.Map;
+  maps: typeof naver.maps;
+  markers: Map<string, TMarkerEntry>;
+  clusters: TClusterEntry[];
+  selectedId: string | null;
+  savedIds: ReadonlySet<string>;
+  focusAfter: { current: TFocusAfter | null };
+  /** SDK 가 던졌을 때 — 폴백으로 넘긴다. 묶음 클릭은 SDK 이벤트라 effect 의 try 밖이다. */
+  onBroken: () => void;
+};
+
+/**
+ * 묶음을 누르면 — 그 무리가 다 들어오되 다 갈라지는 데서 멈추는 줌(`mapPageMarkerClusterZoom`)으로 날아간다.
+ * 확대가 끝나면 'idle' 이 다시 센다.
+ */
+function zoomIntoCluster({ map, maps, markers, onBroken }: TLayoutInput, ids: string[]) {
+  try {
+    const projection = map.getProjection();
+    const members = ids.flatMap((id) => {
+      const entry = markers.get(id);
+      return entry ? [{ id, position: entry.position }] : [];
+    });
+    if (members.length === 0) return;
+    const lats = members.map((member) => member.position.lat());
+    const lngs = members.map((member) => member.position.lng());
+    const fit = map.getFitZoomAndCenter(
+      new maps.LatLngBounds(
+        new maps.LatLng(Math.min(...lats), Math.min(...lngs)),
+        new maps.LatLng(Math.max(...lats), Math.max(...lngs)),
+      ),
+      FIT_MARGIN,
+    );
+    const zoom = mapPageMarkerClusterZoom({
+      points: members.map(({ id, position }) => {
+        const { x, y } = projection.fromCoordToOffset(position);
+        return { id, x, y };
+      }),
+      zoom: map.getZoom(),
+      maxZoom: map.getMaxZoom(),
+      fitZoom: fit.zoom,
+    });
+    map.morph(fit.center, zoom);
+  } catch {
+    onBroken();
+  }
+}
+
+/**
+ * 마커를 묶고 편다(14 W261006.11) — 지금 줌의 화면 픽셀로 세어(`mapPageMarkerLayout`) 묶음에 든 마커는 숨기고
+ * (`setVisible(false)` 는 `display:none` 이라 Tab 에서도 빠진다) 묶음 원은 통째로 다시 만든다.
+ * 묶는 대상은 지금 지도에 올라간 마커뿐이다 — 종류 칩·저장 모드가 거른 뒤의 목록이다.
+ *
+ * 돌려주는 값은 센 줌 — 'idle' 은 줌이 같으면 다시 세지 않는다(끌기만 해서는 점 사이 거리가 그대로다).
+ */
+function layoutMarkers(input: TLayoutInput): number {
+  const { map, maps, markers, clusters, selectedId, savedIds, focusAfter } = input;
+  clearClusters(clusters);
+  const projection = map.getProjection();
+  const zoom = map.getZoom();
+  const points = [...markers].map(([id, entry]) => {
+    const { x, y } = projection.fromCoordToOffset(entry.position);
+    return { id, x, y };
+  });
+  const layout = mapPageMarkerLayout(points, { pinnedId: selectedId, spread: zoom >= map.getMaxZoom() });
+
+  const hidden = new Set(layout.clusters.flatMap((cluster) => cluster.ids));
+  for (const [id, entry] of markers) {
+    entry.marker.setVisible(!hidden.has(id));
+    entry.label?.marker.setVisible(!hidden.has(id));
+  }
+  for (const { id, dx, dy } of layout.singles) {
+    const entry = markers.get(id);
+    if (!entry || (entry.offset.dx === dx && entry.offset.dy === dy)) continue;
+    entry.offset = { dx, dy };
+    applyMarkerIcon(maps, entry, id === selectedId, savedIds.has(id));
+    entry.label?.marker.setIcon({ content: entry.label.content, anchor: new maps.Point(-dx, -dy) });
+  }
+  for (const { ids, x, y } of layout.clusters) {
+    const summary = mapPageMarkerClusterSummary(
+      ids.map((id) => {
+        const entry = markers.get(id) as TMarkerEntry;
+        return { type: entry.type, saved: savedIds.has(id), hard: entry.hard };
+      }),
+    );
+    const marker = new maps.Marker({
+      map,
+      position: projection.fromOffsetToCoord(new maps.Point(x, y)),
+      icon: mapPageMarkerClusterIcon(maps, summary),
+      clickable: true,
+      zIndex: Z_CLUSTER,
+    });
+    // 모두 어려운 묶음만 흐린다 — 하나라도 갈 수 있는 곳이 들어 있으면 흐리지 않는다.
+    if (summary.allHard) marker.getElement().style.opacity = MARKER_HARD_OPACITY;
+    const listener = maps.Event.addListener(marker, 'click', () => zoomIntoCluster(input, ids));
+    const detachKeys = makeMarkerButton(marker.getElement(), mapPageMarkerClusterLabel(summary), () => {
+      focusAfter.current = { ids, fromZoom: zoom };
+      zoomIntoCluster(input, ids);
+    });
+    clusters.push({ marker, ids, listener, detachKeys });
+  }
+
+  // 키보드로 연 묶음이면 갈라진 자리로 포커스를 데려간다 — 누른 원이 사라지면 포커스가 body 로 떨어진다.
+  const pending = focusAfter.current;
+  if (pending && zoom > pending.fromZoom) {
+    focusAfter.current = null;
+    const [first] = pending.ids;
+    const element = hidden.has(first)
+      ? clusters.find((cluster) => cluster.ids.includes(first))?.marker.getElement()
+      : markers.get(first)?.marker.getElement();
+    element?.focus({ preventScroll: true });
+  }
+  return zoom;
+}
+
 /** `MapPage` 가 내 위치 버튼에서 부른다. 지도가 아직 없거나 깨졌으면 false 를 돌려준다. */
 export type TMapPageCanvasHandle = {
   showMyLocation: (lat: number, lng: number) => boolean;
@@ -221,6 +392,14 @@ export function MapPageCanvas({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<naver.maps.Map | null>(null);
   const markersRef = useRef(new Map<string, TMarkerEntry>());
+  /** 지금 지도에 선 묶음 원들. 마커 effect·선택 effect·'idle' 이 다시 셀 때마다 갈아 끼운다. */
+  const clustersRef = useRef<TClusterEntry[]>([]);
+  /** 마지막으로 묶음을 센 줌 — 'idle' 이 이것과 같으면(끌기만 했으면) 다시 세지 않는다. */
+  const laidOutZoomRef = useRef<number | null>(null);
+  const focusAfterRef = useRef<TFocusAfter | null>(null);
+  /** 'idle' 리스너가 읽는 지금의 선택·저장 — 리스너는 지도가 설 때 한 번 걸어 props 를 직접 못 본다. 선택 effect 가 적는다. */
+  const selectedRef = useRef(selectedId);
+  const savedRef = useRef(savedIds);
   /** 내 위치 점. 처음 누를 때 만들고, 다시 누르면 자리만 옮긴다. */
   const myLocationRef = useRef<naver.maps.Marker | null>(null);
   /*
@@ -241,8 +420,9 @@ export function MapPageCanvas({
   // 지도 만들기. SDK 는 한 번만 받고, 이 화면을 다시 열면 캐시된 결과를 쓴다.
   useEffect(() => {
     let cancelled = false;
-    // cleanup 에서 ref 를 다시 읽지 않도록 지금 붙잡아 둔다(useRef 가 만든 Map 은 재할당되지 않는다).
+    // cleanup 에서 ref 를 다시 읽지 않도록 지금 붙잡아 둔다(useRef 가 만든 Map·배열은 재할당되지 않는다).
     const markers = markersRef.current;
+    const clusters = clustersRef.current;
     let stopInitWatch: (() => void) | null = null;
 
     /*
@@ -333,8 +513,9 @@ export function MapPageCanvas({
       stopInitWatch?.();
       if (settleRef.current !== undefined) window.clearTimeout(settleRef.current);
       settleRef.current = undefined;
-      // 지도를 파괴하기 전에 마커부터 비운다 — 이 cleanup 이 마커 effect 의 것보다 먼저 돈다.
+      // 지도를 파괴하기 전에 마커부터 비운다 — 이 cleanup 이 마커 effect 의 것보다 먼저 돈다. 묶음 원도 같다.
       clearMarkers(markers);
+      clearClusters(clusters);
       // 내 위치 점도 같은 이유로 지도보다 먼저 뗀다.
       try {
         myLocationRef.current?.setMap(null);
@@ -394,7 +575,9 @@ export function MapPageCanvas({
     if (status !== 'ready' || !map || !maps) return;
 
     const markers = markersRef.current;
+    const clusters = clustersRef.current;
     clearMarkers(markers);
+    clearClusters(clusters);
 
     /*
      * 마커 만들기를 try 로 감싼다 — **인증이 거부된 지도 위에서 `setMap` 이 터진다.**
@@ -409,10 +592,11 @@ export function MapPageCanvas({
         const selected = place.id === selectedId;
         const saved = savedIds.has(place.id);
 
+        const position = new maps.LatLng(place.geo.lat, place.geo.lng);
         const marker = new maps.Marker({
           map,
-          position: new maps.LatLng(place.geo.lat, place.geo.lng),
-          icon: pinIcon(maps, place.type, selected, saved),
+          position,
+          icon: mapPageMarkerIcon(maps, place.type, selected, saved),
           clickable: true,
           zIndex: selected ? Z_SELECTED : saved ? Z_SAVED : 0,
         });
@@ -425,47 +609,160 @@ export function MapPageCanvas({
         // 이름을 누르는 손이 많아 이름표도 그 곳을 연다. 흐림도 원과 같이 — 이름만 진하면 어려운 곳이 다시 눈에 띈다.
         let label: TMarkerEntry['label'] = null;
         if (showNames) {
+          const content = nameLabelContent(place.name);
           const labelMarker = new maps.Marker({
             map,
-            position: new maps.LatLng(place.geo.lat, place.geo.lng),
-            icon: { content: nameLabelContent(place.name), anchor: new maps.Point(0, 0) },
+            position,
+            icon: { content, anchor: new maps.Point(0, 0) },
             clickable: true,
             zIndex: Z_NAME_LABEL,
           });
           if (hard) labelMarker.getElement().style.opacity = MARKER_HARD_OPACITY;
-          label = { marker: labelMarker, listener: maps.Event.addListener(labelMarker, 'click', () => onSelect(place.id)) };
+          label = { marker: labelMarker, listener: maps.Event.addListener(labelMarker, 'click', () => onSelect(place.id)), content };
         }
 
-        markers.set(place.id, { marker, type: place.type, listener, detachKeys, label });
+        markers.set(place.id, {
+          marker,
+          type: place.type,
+          position,
+          hard,
+          offset: { dx: 0, dy: 0 },
+          iconKey: `${selected}:${saved}:0:0`,
+          listener,
+          detachKeys,
+          label,
+        });
       }
+      laidOutZoomRef.current = layoutMarkers({
+        map,
+        maps,
+        markers,
+        clusters,
+        selectedId,
+        savedIds,
+        focusAfter: focusAfterRef,
+        onBroken: () => queueMicrotask(() => setStatus('error')),
+      });
     } catch {
       clearMarkers(markers);
+      clearClusters(clusters);
       queueMicrotask(() => setStatus('error'));
     }
 
-    return () => clearMarkers(markers);
+    return () => {
+      clearMarkers(markers);
+      clearClusters(clusters);
+    };
     // selectedId·savedIds 는 일부러 뺀다 — 선택이 옮겨 가거나 하트 하나를 누를 때마다 핀 86개를 다시 만들 이유가
     // 없다. 처음 그릴 때의 값만 읽고, 바뀐 뒤에는 아래 effect 가 핀 이미지와 쌓임 순서만 바꾼다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [places, eligibilityMap, onSelect, status, showNames]);
 
-  // 선택·저장 표시. 마커를 다시 만들지 않고 핀 이미지와 쌓임 순서만 바꾼다.
+  /*
+   * 선택·저장 표시. 마커를 다시 만들지 않고 핀 이미지와 쌓임 순서만 바꾼다. 그리고 다시 센다 — 고른 곳은 묶음에서 꺼내고
+   * (줌을 물려 고른 곳이 무리에 들어가도 핀이 보이게), 하트를 누르면 묶음 원의 하트 배지가 따라온다.
+   */
   useEffect(() => {
+    const map = mapRef.current;
     const maps = window.naver?.maps;
+    selectedRef.current = selectedId;
+    savedRef.current = savedIds;
     if (!maps) return;
     try {
       for (const [id, entry] of markersRef.current) {
         const selected = id === selectedId;
         const saved = savedIds.has(id);
-        entry.marker.setIcon(pinIcon(maps, entry.type, selected, saved));
+        applyMarkerIcon(maps, entry, selected, saved);
         entry.marker.setZIndex(selected ? Z_SELECTED : saved ? Z_SAVED : 0);
       }
+      if (status === 'ready' && map)
+        laidOutZoomRef.current = layoutMarkers({
+          map,
+          maps,
+          markers: markersRef.current,
+          clusters: clustersRef.current,
+          selectedId,
+          savedIds,
+          focusAfter: focusAfterRef,
+          onBroken: () => queueMicrotask(() => setStatus('error')),
+        });
     } catch {
       // 위 effect 와 같은 이유 — 깨진 지도 위에서 SDK 가 던진다. 화면을 깨뜨리지 않는다.
       // effect 본문에서 곧바로 setState 하면 렌더가 연쇄되므로 한 틱 미룬다.
       queueMicrotask(() => setStatus('error'));
     }
   }, [selectedId, places, eligibilityMap, savedIds, status]);
+
+  /*
+   * 줌이 바뀌면 다시 센다 — 확대·축소가 **끝난 뒤**('idle')에. 손가락으로 벌리는 동안은 묶음이 그대로 커졌다 작아지고,
+   * 놓으면 한 번에 갈라진다. 'zoom_changed' 는 애니메이션 도중에도 와서 쓰지 않는다. 끌기만 했으면(줌이 같으면) 건너뛴다.
+   */
+  useEffect(() => {
+    const map = mapRef.current;
+    const maps = window.naver?.maps;
+    if (status !== 'ready' || !map || !maps) return;
+    const listener = maps.Event.addListener(map, 'idle', () => {
+      try {
+        if (map.getZoom() === laidOutZoomRef.current) return;
+        laidOutZoomRef.current = layoutMarkers({
+          map,
+          maps,
+          markers: markersRef.current,
+          clusters: clustersRef.current,
+          selectedId: selectedRef.current,
+          savedIds: savedRef.current,
+          focusAfter: focusAfterRef,
+          onBroken: () => queueMicrotask(() => setStatus('error')),
+        });
+      } catch {
+        // SDK 이벤트 안이라 어떤 effect 의 try 도 덮지 못한다 — 깨진 지도다, 폴백으로.
+        queueMicrotask(() => setStatus('error'));
+      }
+    });
+    return () => {
+      // 언마운트면 지도 effect 의 cleanup 이 먼저 돌아 지도가 이미 파괴됐다 — 떼는 쪽도 던질 수 있다.
+      try {
+        maps.Event.removeListener(listener);
+      } catch {
+        // 지도와 함께 이미 사라졌다.
+      }
+    };
+  }, [status]);
+
+  /*
+   * Tab 이 화면 밖 마커에 닿으면 — 브라우저는 그 마커를 보이려고 지도 칸(`overflow:hidden`)을 **스크롤**한다. 지도는 그걸 모르고
+   * 타일·마커가 통째로 밀린 채 남았다(2026-10-16 headless 실측 scrollTop 1796, 마커를 버튼으로 만든 v22 부터). 스크롤은 되돌리고
+   * 대신 지도를 그 마커로 옮긴다(줌은 그대로). 스크롤 이벤트는 한 박자 늦게 오므로 focusin 에서 먼저 되돌린다.
+   */
+  useEffect(() => {
+    const map = mapRef.current;
+    const container = containerRef.current;
+    if (status !== 'ready' || !map || !container) return;
+    const unscroll = () => {
+      if (container.scrollTop !== 0) container.scrollTop = 0;
+      if (container.scrollLeft !== 0) container.scrollLeft = 0;
+    };
+    const bringIntoView = (event: FocusEvent) => {
+      unscroll();
+      const target = event.target;
+      const entry = [...markersRef.current.values(), ...clustersRef.current].find((item) => item.marker.getElement() === target);
+      if (!entry || !(target instanceof HTMLElement)) return;
+      const rect = target.getBoundingClientRect();
+      const view = container.getBoundingClientRect();
+      if (rect.left >= view.left && rect.right <= view.right && rect.top >= view.top && rect.bottom <= view.bottom) return;
+      try {
+        map.panTo(entry.marker.getPosition());
+      } catch {
+        queueMicrotask(() => setStatus('error'));
+      }
+    };
+    container.addEventListener('focusin', bringIntoView);
+    container.addEventListener('scroll', unscroll);
+    return () => {
+      container.removeEventListener('focusin', bringIntoView);
+      container.removeEventListener('scroll', unscroll);
+    };
+  }, [status]);
 
   /*
    * 지도를 만든 뒤에 `focus` 가 바뀐 경우(지도 화면에 머문 채 주소의 `?place=` 만 바뀜). 만들 때 맞춘

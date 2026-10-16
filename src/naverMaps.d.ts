@@ -2,7 +2,7 @@
  * 네이버 지도 SDK(NCP Maps JavaScript API v3)의 최소 타입.
  *
  * `@types/navermaps` 를 받아 쓸 수도 있지만, 이 앱이 실제로 만지는 면은
- * 지도 1개 · Marker · Event 셋뿐이라 의존성을 하나 더 늘리는 대신 쓰는 만큼만 손으로 적었다.
+ * 지도 1개 · Marker · Event · 투영(마커 묶기의 화면 픽셀) 정도라 의존성을 하나 더 늘리는 대신 쓰는 만큼만 손으로 적었다.
  * SDK 를 더 쓰게 되면 여기에 더한다.
  *
  * `export` 가 없어야 전역 선언으로 읽힌다 — import/export 를 하나라도 넣으면
@@ -30,10 +30,23 @@ declare namespace naver.maps {
 
   class Size {
     constructor(width: number, height: number);
+    readonly width: number;
+    readonly height: number;
   }
 
   class Point {
     constructor(x: number, y: number);
+    readonly x: number;
+    readonly y: number;
+  }
+
+  /**
+   * 위경도 ↔ 지금 줌의 세계 픽셀. 256 타일 메르카토르와 같은 값이다(2026-10-16 실측 — 줌 10 에서 경도 0.1° = 72.8px).
+   * 같은 줌이면 두 점의 픽셀 거리가 지도를 끌어도 그대로라, 마커 묶기는 줌이 바뀔 때만 다시 센다(`mapPageMarkerLayout`).
+   */
+  interface Projection {
+    fromCoordToOffset(coord: LatLng): Point;
+    fromOffsetToCoord(offset: Point): LatLng;
   }
 
   /**
@@ -110,8 +123,15 @@ declare namespace naver.maps {
      * 따로 부르면 두 번 튄다. `zoom` 을 빼면 지금 줌을 유지한다.
      */
     morph(coord: LatLng, zoom?: number): void;
+    /** 줌은 두고 그 자리로 부드럽게 옮긴다. 화면 밖 마커에 Tab 으로 닿았을 때 그 마커를 데려온다(`mapPageCanvas`). */
+    panTo(coord: LatLng): void;
     /** 범위가 다 들어오는 중심·줌으로 옮긴다. 핀이 가까이 모이면 끝까지 확대하므로 부른 뒤 줌을 눌러 준다. */
     fitBounds(bounds: LatLngBounds, margin?: Margin): void;
+    /** `fitBounds` 가 갈 자리를 옮기지 않고 계산만 한다. 묶음을 누를 때 줌을 깎은 뒤 `morph` 하려고 쓴다. */
+    getFitZoomAndCenter(bounds: LatLngBounds, margin?: Margin): { zoom: number; center: LatLng };
+    getProjection(): Projection;
+    /** 기본 21(2026-10-16 실측). 여기서도 겹친 마커는 묶지 않고 고리로 편다. */
+    getMaxZoom(): number;
     /**
      * 컨테이너 크기를 바꾼 뒤 부른다. Kakao 의 `relayout()` 자리 — 네이버엔 `relayout` 이 없다.
      * @param noEffect 페이드 인 효과를 건너뛸지(기본 false)
@@ -139,7 +159,10 @@ declare namespace naver.maps {
     anchor?: Point;
   }
 
-  /** HTML 아이콘. 저장 모드의 이름표(`mapPageCanvas`)가 쓴다. `anchor` 의 원점은 `content` 의 좌상단이다. */
+  /**
+   * HTML 아이콘. 지도 화면의 마커·묶음 원(`mapPageMarkerIcon`)과 저장 모드의 이름표가 쓴다. `anchor` 의 원점은 `content` 의 좌상단이다.
+   * 이미지 아이콘과 달리 SDK 가 바깥 div 의 크기를 박지 않아(`overflow:visible`) 내용 상자 전체가 누르는 자리다.
+   */
   interface HtmlIcon {
     content: string | HTMLElement;
     size?: Size;
@@ -162,9 +185,12 @@ declare namespace naver.maps {
   class Marker {
     constructor(options: MarkerOptions);
     setMap(map: Map | null): void;
-    setIcon(icon: ImageIcon | string): void;
+    setIcon(icon: ImageIcon | HtmlIcon | string): void;
+    /** 끄면 바깥 div 가 `display:none` 이라 Tab 에서도 빠진다(실측). 묶음에 든 마커를 이걸로 숨긴다. */
+    setVisible(visible: boolean): void;
     setZIndex(zIndex: number): void;
     setPosition(position: LatLng): void;
+    getPosition(): LatLng;
     /** 마커의 바깥 div. `setIcon` 은 안쪽 그림만 바꾸고 이 요소는 그대로 둔다 — 여기 단 속성이 남는다. */
     getElement(): HTMLElement;
   }
