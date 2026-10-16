@@ -211,8 +211,14 @@ export function AdminPageGroupActions({
    * 덮어쓰기는 빈 칸 채우기를 **포함한다**(`approveGroup` 이 덮은 뒤 `fillBlanks` 를 돈다) — 발치 한마디가 그 말이다.
    */
   const hasTable = Boolean(latestAvailable && latest && latest.changes.length && pairPlace);
-  const overwrite = (choice: TApproveChoice, keep?: ReactNode) =>
-    latestAvailable && latest && latest.changes.length && pairPlace ? (
+  /** `ask` — 근거 없음이면 덮어쓰기도 한 번 더 묻는다(`ApproveAfterAsk`). */
+  const overwrite = (choice: TApproveChoice, keep?: ReactNode, ask = false) => {
+    if (!(latestAvailable && latest && latest.changes.length && pairPlace)) return null;
+    const label = overwritePick.length ? `체크한 ${overwritePick.length}칸 덮어쓰기` : '덮을 칸을 체크하세요';
+    const title = '기존 장소의 체크한 칸을 새 분석 값으로 바꿔요 · 되돌릴 수 없어요';
+    const run = () =>
+      onApprove({ ...choice, overwrite: true, overwriteColumns: overwritePick.length === latest.changes.length ? undefined : overwritePick });
+    return (
       <AdminPageGroupSiteCompare
         group={group}
         place={pairPlace}
@@ -225,25 +231,21 @@ export function AdminPageGroupActions({
           note: overwriteNote,
           footer: (
             <>
-              <TipButton
-                color="secondary"
-                size="sm"
-                isDisabled={off || overwritePick.length === 0}
-                isLoading={busy === 'approving'}
-                title="기존 장소의 체크한 칸을 새 분석 값으로 바꿔요 · 되돌릴 수 없어요"
-                onClick={() =>
-                  onApprove({ ...choice, overwrite: true, overwriteColumns: overwritePick.length === latest.changes.length ? undefined : overwritePick })
-                }
-              >
-                {overwritePick.length ? `체크한 ${overwritePick.length}칸 덮어쓰기` : '덮을 칸을 체크하세요'}
-              </TipButton>
+              {ask ? (
+                <ApproveAfterAsk busy={busy} label={label} title={title} isDisabled={overwritePick.length === 0} onApprove={run} />
+              ) : (
+                <TipButton color="secondary" size="sm" isDisabled={off || overwritePick.length === 0} isLoading={busy === 'approving'} title={title} onClick={run}>
+                  {label}
+                </TipButton>
+              )}
               {keep}
               <span className="text-tertiary">덮어쓰면 빈 칸도 함께 채워요</span>
             </>
           ),
         }}
       />
-    ) : null;
+    );
+  };
 
   /*
    * 제외 · 재분석 · 추가 수집 — 모든 갈래 끝에 같은 순서로 선다(`올리지 않기`). 추가 수집은 "지금은 안 올리고 근거를 더 모은다" 라 여기 선다. **고치기는 없다**(2026-10-04): 검수 대기는 AI 분석대로 올릴지만
@@ -529,7 +531,7 @@ export function AdminPageGroupActions({
             {pairId && needsLook && <p>교차점검이 강아지를 데려간 근거를 못 찾았어요.</p>}
           </Situation>
         ) : null}
-        {overwrite({ mergeInto: pairId }, confirmSite)}
+        {overwrite({ mergeInto: pairId }, confirmSite, needsLook)}
         {/*
           * 표가 서면 `빈 칸만 채우기` 는 숨는다(2026-10-04) — 표에서 바꾸기 싫은 줄의 체크를 끄는 것이 같은 일이고, 승인 버튼이 둘이면
           * "어느 쪽이 체크를 쓰나" 가 다시 흐려진다. 표가 없는 묶음(바뀔 칸 없음 · 신규)에서는 이 버튼이 유일한 승인이라 남는다.
@@ -579,16 +581,20 @@ function Status({ state }: { state: TAdminPageGroupState }) {
 /**
  * 근거 없음 갈래의 올리기(14 W261010.28 · manager-18). 한 번 누르면 확인 한 줄이 서고, 거기서 다시 눌러야 올린다 —
  * 교차점검이 근거를 못 찾았다는 줄에서 흰 버튼 한 번에 게시되던 자리다. 막지는 않는다(ADR-018 결정 11 — 근거 없음은 "본문에서 못 찾았다" 다).
+ * 기본 갈래의 올리기 두 자리(빈 칸 채우기 · 표 발치의 덮어쓰기)가 다 이것을 쓴다 — 하나만 감싸면 표가 서는 갱신 후보에서 그대로 샌다.
  */
 function ApproveAfterAsk({
   busy,
   label,
   title,
+  isDisabled = false,
   onApprove,
 }: {
   busy: TAdminPageGroupState['busy'];
   label: string;
   title: string;
+  /** 바쁜 것 말고 더 막는 까닭(덮어쓰기 표에서 체크한 칸이 0). */
+  isDisabled?: boolean;
   onApprove: () => void;
 }) {
   const [asking, setAsking] = useState(false);
@@ -608,7 +614,7 @@ function ApproveAfterAsk({
     );
   }
   return (
-    <TipButton color="secondary" size="sm" isDisabled={Boolean(busy)} title={title} onClick={() => setAsking(true)}>
+    <TipButton color="secondary" size="sm" isDisabled={Boolean(busy) || isDisabled} title={title} onClick={() => setAsking(true)}>
       {label}
     </TipButton>
   );
