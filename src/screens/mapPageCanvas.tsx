@@ -132,6 +132,8 @@ type TMarkerEntry = {
 type TClusterEntry = {
   marker: naver.maps.Marker;
   ids: string[];
+  /** 모두 '어려움' 이라 흐린 원인가. */
+  allHard: boolean;
   listener: naver.maps.MapEventListener;
   detachKeys: () => void;
 };
@@ -237,6 +239,8 @@ type TLayoutInput = {
   focusAfter: { current: TFocusAfter | null };
   /** SDK 가 던졌을 때 — 폴백으로 넘긴다. 묶음 클릭은 SDK 이벤트라 effect 의 try 밖이다. */
   onBroken: () => void;
+  /** 센 결과 흐린 것(혼자 선 '어려움' 원 · 모두 어려운 묶음)이 하나라도 그려졌는가 — 화면의 흐림 범례가 이것을 따른다. */
+  onDimShown: (shown: boolean) => void;
 };
 
 /**
@@ -326,8 +330,11 @@ function layoutMarkers(input: TLayoutInput): number {
       focusAfter.current = { ids, fromZoom: zoom };
       zoomIntoCluster(input, ids);
     });
-    clusters.push({ marker, ids, listener, detachKeys });
+    clusters.push({ marker, ids, listener, detachKeys, allHard: summary.allHard });
   }
+  input.onDimShown(
+    layout.singles.some(({ id }) => markers.get(id)?.hard) || clusters.some((cluster) => cluster.allHard),
+  );
 
   // 키보드로 연 묶음이면 갈라진 자리로 포커스를 데려간다 — 누른 원이 사라지면 포커스가 body 로 떨어진다.
   const pending = focusAfter.current;
@@ -370,6 +377,11 @@ type TMapPageCanvasProps = {
   fitKey?: string | null;
   /** 원 밑에 이름표를 단다(저장 모드). 범위를 맞출 때 여백도 이름표 몫만큼 넓힌다. */
   showNames?: boolean;
+  /**
+   * 흐린 것(혼자 선 '어려움' 원 · 모두 어려운 묶음)이 지금 그려졌는지 — 다시 셀 때마다 부른다. 흐림 범례가 따른다:
+   * 묶은 뒤엔 어려운 곳이 있어도 모두 섞인 묶음(안 흐림) 속이면 흐린 것이 하나도 없다(14 W261006.11, 6kg 줌 10 실측).
+   */
+  onDimShownChange?: (shown: boolean) => void;
 };
 
 /**
@@ -388,6 +400,7 @@ export function MapPageCanvas({
   focus = null,
   fitKey = null,
   showNames = false,
+  onDimShownChange,
 }: TMapPageCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<naver.maps.Map | null>(null);
@@ -400,6 +413,8 @@ export function MapPageCanvas({
   /** 'idle' 리스너가 읽는 지금의 선택·저장 — 리스너는 지도가 설 때 한 번 걸어 props 를 직접 못 본다. 선택 effect 가 적는다. */
   const selectedRef = useRef(selectedId);
   const savedRef = useRef(savedIds);
+  /** 흐림 범례 알림 — 'idle' 리스너도 부르므로 ref 로 든다. 아래 effect 가 다른 effect 들보다 먼저 적는다. */
+  const onDimShownRef = useRef(onDimShownChange);
   /** 내 위치 점. 처음 누를 때 만들고, 다시 누르면 자리만 옮긴다. */
   const myLocationRef = useRef<naver.maps.Marker | null>(null);
   /*
@@ -416,6 +431,15 @@ export function MapPageCanvas({
    */
   const focusRef = useRef(focus);
   const appliedFocusRef = useRef<TGeo | null>(null);
+
+  useEffect(() => {
+    onDimShownRef.current = onDimShownChange;
+  }, [onDimShownChange]);
+
+  // 지도가 깨지면 흐린 것도 없다 — 폴백 위에 범례가 남지 않게.
+  useEffect(() => {
+    if (status === 'error') onDimShownRef.current?.(false);
+  }, [status]);
 
   // 지도 만들기. SDK 는 한 번만 받고, 이 화면을 다시 열면 캐시된 결과를 쓴다.
   useEffect(() => {
@@ -642,6 +666,7 @@ export function MapPageCanvas({
         savedIds,
         focusAfter: focusAfterRef,
         onBroken: () => queueMicrotask(() => setStatus('error')),
+        onDimShown: (shown) => onDimShownRef.current?.(shown),
       });
     } catch {
       clearMarkers(markers);
@@ -685,6 +710,7 @@ export function MapPageCanvas({
           savedIds,
           focusAfter: focusAfterRef,
           onBroken: () => queueMicrotask(() => setStatus('error')),
+          onDimShown: (shown) => onDimShownRef.current?.(shown),
         });
     } catch {
       // 위 effect 와 같은 이유 — 깨진 지도 위에서 SDK 가 던진다. 화면을 깨뜨리지 않는다.
@@ -713,6 +739,7 @@ export function MapPageCanvas({
           savedIds: savedRef.current,
           focusAfter: focusAfterRef,
           onBroken: () => queueMicrotask(() => setStatus('error')),
+          onDimShown: (shown) => onDimShownRef.current?.(shown),
         });
       } catch {
         // SDK 이벤트 안이라 어떤 effect 의 try 도 덮지 못한다 — 깨진 지도다, 폴백으로.

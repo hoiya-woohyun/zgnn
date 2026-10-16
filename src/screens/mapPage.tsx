@@ -115,13 +115,12 @@ export function MapPage() {
   /*
    * 흐린 원의 뜻(14 W261013.12) — 종류 칩이 색만 말해 흐림은 범례에 없었다(haeun-41 · ux-expert-32).
    * 지금 지도에 흐린 원이 하나라도 있을 때만 말한다 — 종류를 바꿔 다 사라졌는데 범례만 남으면 찾게 만든다.
+   * 셈은 캔버스가 한다(`onDimShownChange`): 마커를 묶은 뒤로는 어려운 곳이 목록에 있어도 모두 섞인 묶음(안 흐림) 속이면
+   * 흐린 것이 하나도 안 그려진다 — 목록으로 세면 6kg 강아지·줌 10 에서 흐린 것 0 인데 범례만 떴다(14 W261006.11).
    */
   const dog = useAppStore((state) => state.dog);
   const dogNames = dog ? dogCallNames(dog.dogs.map((entry) => entry.name)) : '';
-  const hasHardOnMap = useMemo(
-    () => Boolean(eligibilityMap) && withGeo.some((place) => eligibilityMap?.get(place.id)?.level === 'hard'),
-    [withGeo, eligibilityMap],
-  );
+  const [dimShown, setDimShown] = useState(false);
   const selected = withGeo.find((place) => place.id === selectedId) ?? null;
   // 모바일에서 "지도에 없는 N곳" 을 누르면 그 N곳만 시트로 펼친다(14 ↪ 12 U1.7).
   const [missingOpen, setMissingOpen] = useState(false);
@@ -186,6 +185,7 @@ export function MapPage() {
       fitKey={savedOnly ? `saved:${types.join(',')}` : null}
       // 저장한 곳은 몇 곳뿐이라 이름을 단다 — 셋을 하나씩 눌러 봐야 어느 곳인지 알았다. 전체 지도는 겹침이 많아 달지 않는다.
       showNames={savedOnly}
+      onDimShownChange={setDimShown}
     />
   );
 
@@ -375,7 +375,7 @@ export function MapPage() {
                 이 줄에 앉는다 — 320px 에서는 줄이 아니라 알약 안 글자가 꺾인다(위 고정 줄을 키우지 않게, ux-expert-40).
                 견본은 지도의 흐린 원과 같은 모양(흰 테두리 + 같은 투명도) — 회색 점이면 '흐림' 과 이어지지 않는다.
               */}
-              {hasHardOnMap && dogNames && (
+              {dimShown && dogNames && (
                 <p className="-mt-2.5 flex min-h-11 min-w-0 items-center">
                   <span className="flex min-w-0 items-center gap-1.5 rounded-md bg-primary/92 px-2 py-1 text-xs font-semibold break-keep text-secondary shadow-sm backdrop-blur">
                     <span
