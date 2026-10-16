@@ -1,11 +1,12 @@
 import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from 'react';
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { XClose } from '@untitledui/icons';
 import {
   Dialog as AriaDialog,
   Modal as AriaModal,
   ModalOverlay as AriaModalOverlay,
 } from 'react-aria-components';
+import { attachBottomSheetBodyPull, dismissesSheetPull, type TSheetDrag } from '@/lib/bottomSheetPull';
 import { cx } from '@/utils/cx';
 
 type TBottomSheetProps = {
@@ -14,61 +15,92 @@ type TBottomSheetProps = {
   /** 스크린리더가 읽을 시트 이름. 시각적으로는 내용이 제목을 대신한다. */
   label: string;
   children: ReactNode;
+  /**
+   * 손잡이 띠만이 아니라 **본문을 끌어내려도** 닫는다(기본 꺼짐, 14 W261010.33k·.33p). 닿은 곳 위로 내려간 스크롤이 없을 때만
+   * 잡아 안쪽 스크롤과 다투지 않는다 — 규칙과 문턱은 `lib/bottomSheetPull`. 지금은 둘러보기 필터 시트만 켠다.
+   */
+  pullFromBody?: boolean;
 };
 
-/** 이만큼 끌어내리면 닫는다. 이보다 짧아도 빠르게 튕기면(px/ms) 닫는다. */
-const DISMISS_DISTANCE_PX = 96;
-const DISMISS_VELOCITY = 0.6;
+type TSample = Parameters<TSheetDrag['begin']>[0];
 
 /**
  * 손가락으로 시트를 끌어내려 닫기.
  *
- * 잡는 곳은 시트 위쪽의 핸들 띠뿐이다. 시트 전체를 잡게 하면 안쪽 목록(overflow-y-auto)의
+ * 늘 잡히는 곳은 시트 위쪽의 핸들 띠다. 시트 전체를 잡게 하면 안쪽 목록(overflow-y-auto)의
  * 스크롤과 싸운다 — touch-action 은 조상 쪽이 막으면 자식이 되살릴 수 없어서, 시트에 `none` 을
  * 걸면 안의 목록이 안 넘어가고, 안 걸면 브라우저가 스크롤 제스처로 가져가며 pointercancel 을 보낸다.
  * 핸들 띠에만 `touch-action: none` 을 걸면 둘이 안 겹친다. 마우스는 제외 — 데스크톱에서는
  * 가운데 대화상자라 끌어내리는 동작이 어색하다.
  *
+ * 본문 끌기(`pullFromBody`)는 터치 이벤트로 따로 받아 첫 움직임에 정한다 — 언제 잡는지·닫는 문턱은
+ * `lib/bottomSheetPull`(판정이 순수 함수라 테스트가 붙는다). 두 길 모두 아래 같은 상태(begin·follow·finish)로 판을 움직인다.
+ *
  * 끌리는 동안의 이동은 AriaModal 이 아니라 AriaDialog 에 건다. AriaModal 의 닫힘 애니메이션
  * (slide-out-to-bottom)이 keyframe 이라 인라인 transform 을 덮어써서, 같은 요소에 걸면 놓는 순간
  * 위로 튀었다가 내려간다.
  */
-const useBottomSheetDrag = (onDismiss: () => void) => {
+const useBottomSheetDrag = (onDismiss: () => void, pullFromBody = false) => {
   const [offsetY, setOffsetY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const start = useRef<{ y: number; t: number } | null>(null);
+  const start = useRef<TSample | null>(null);
   // 속도는 마지막 두 move 사이로 잰다 — pointerup 은 마지막 move 와 같은 자리라 그걸로 재면 늘 0 이다.
-  const samples = useRef<{ prev: { y: number; t: number }; last: { y: number; t: number } } | null>(null);
+  const samples = useRef<{ prev: TSample; last: TSample } | null>(null);
+  // 본문 끌기는 한 번 붙인 리스너가 부른다 — 부르는 쪽이 렌더마다 새로 만드는 onDismiss 는 최신 것을 ref 로 읽는다.
+  const onDismissRef = useRef(onDismiss);
+  useEffect(() => {
+    onDismissRef.current = onDismiss;
+  });
 
-  const onPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
-    if (event.pointerType !== 'touch') return;
-    start.current = { y: event.clientY, t: event.timeStamp };
-    samples.current = { prev: start.current, last: start.current };
-    event.currentTarget.setPointerCapture(event.pointerId);
+  const begin = useCallback((at: TSample) => {
+    start.current = at;
+    samples.current = { prev: at, last: at };
     setIsDragging(true);
-  };
+  }, []);
 
-  const onPointerMove = (event: ReactPointerEvent<HTMLElement>) => {
+  const follow = useCallback((at: TSample) => {
     if (!start.current || !samples.current) return;
-    samples.current = { prev: samples.current.last, last: { y: event.clientY, t: event.timeStamp } };
-    setOffsetY(Math.max(0, event.clientY - start.current.y));
-  };
+    samples.current = { prev: samples.current.last, last: at };
+    setOffsetY(Math.max(0, at.y - start.current.y));
+  }, []);
 
-  const onPointerEnd = (event: ReactPointerEvent<HTMLElement>) => {
+  const finish = useCallback((endY: number, canDismiss: boolean) => {
     if (!start.current || !samples.current) return;
-    const distance = Math.max(0, event.clientY - start.current.y);
+    const distance = Math.max(0, endY - start.current.y);
     const { prev, last } = samples.current;
     const velocity = (last.y - prev.y) / Math.max(1, last.t - prev.t);
     start.current = null;
     samples.current = null;
     setIsDragging(false);
 
-    if (distance > DISMISS_DISTANCE_PX || velocity > DISMISS_VELOCITY) {
-      onDismiss();
+    if (canDismiss && dismissesSheetPull(distance, velocity)) {
+      onDismissRef.current();
       return;
     }
     setOffsetY(0);
+  }, []);
+
+  const onPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
+    if (event.pointerType !== 'touch') return;
+    begin({ y: event.clientY, t: event.timeStamp });
+    event.currentTarget.setPointerCapture(event.pointerId);
   };
+
+  const onPointerMove = (event: ReactPointerEvent<HTMLElement>) => follow({ y: event.clientY, t: event.timeStamp });
+
+  const onPointerEnd = (event: ReactPointerEvent<HTMLElement>) => finish(event.clientY, true);
+
+  /**
+   * 본문 칸에 거는 ref. effect 가 아니라 콜백 ref 다 — 시트 내용은 열릴 때 마운트되고 닫힘 애니메이션 뒤에 내려가므로
+   * 그 수명에 붙었다 떨어져야 한다(React 19 의 ref 정리 함수가 뗀다). 의존값이 다 안정적이라 끄는 도중 다시 붙지 않는다.
+   */
+  const attachBody = useCallback(
+    (content: HTMLElement | null) => {
+      if (!content || !pullFromBody) return;
+      return attachBottomSheetBodyPull(content, { begin, follow, finish });
+    },
+    [pullFromBody, begin, follow, finish],
+  );
 
   const style: CSSProperties = {
     transform: offsetY ? `translateY(${offsetY}px)` : undefined,
@@ -79,6 +111,7 @@ const useBottomSheetDrag = (onDismiss: () => void) => {
   return {
     style,
     handleProps: { onPointerDown, onPointerMove, onPointerUp: onPointerEnd, onPointerCancel: onPointerEnd },
+    attachBody,
   };
 };
 
@@ -90,7 +123,7 @@ const useBottomSheetDrag = (onDismiss: () => void) => {
  * 같은 react-aria-components 프리미티브 위에 따로 만들었다.
  * react-aria 가 포커스 트랩·Esc 닫기·바깥 클릭·스크롤 잠금을 맡는다.
  */
-export function BottomSheet({ isOpen, onOpenChange, label, children }: TBottomSheetProps) {
+export function BottomSheet({ isOpen, onOpenChange, label, children, pullFromBody = false }: TBottomSheetProps) {
   return (
     <AriaModalOverlay
       isOpen={isOpen}
@@ -119,7 +152,7 @@ export function BottomSheet({ isOpen, onOpenChange, label, children }: TBottomSh
           )
         }
       >
-        <BottomSheetPanel label={label} onDismiss={() => onOpenChange(false)}>
+        <BottomSheetPanel label={label} onDismiss={() => onOpenChange(false)} pullFromBody={pullFromBody}>
           {children}
         </BottomSheetPanel>
       </AriaModal>
@@ -131,14 +164,24 @@ export function BottomSheet({ isOpen, onOpenChange, label, children }: TBottomSh
  * 시트 본체. 끌어내린 위치 상태를 여기 두는 이유 — 닫히면 AriaModal 이 이 컴포넌트를 내리므로
  * 다음에 열 때 제자리(0)에서 시작한다. 바깥 BottomSheet 에 두면 닫힐 때 되돌리는 effect 가 필요하다.
  */
-function BottomSheetPanel({ label, onDismiss, children }: { label: string; onDismiss: () => void; children: ReactNode }) {
-  const drag = useBottomSheetDrag(onDismiss);
+function BottomSheetPanel({
+  label,
+  onDismiss,
+  pullFromBody,
+  children,
+}: {
+  label: string;
+  onDismiss: () => void;
+  pullFromBody?: boolean;
+  children: ReactNode;
+}) {
+  const { style, handleProps, attachBody } = useBottomSheetDrag(onDismiss, pullFromBody);
 
   return (
     <AriaDialog
       aria-label={label}
       aria-modal="true"
-      style={drag.style}
+      style={style}
       // 모바일은 위쪽 핸들 띠(h-7) 밑으로 내용이 들어가지 않게 pt-6. 데스크톱은 핸들이 없다.
       // 바닥은 pb-sheet — p-4 의 바닥분과 홈 인디케이터(safe-area)를 합친 값이다(globals.css 주석).
       // 면은 바탕과 같은 크림이다(ADR-010 v4). 이 시트는 화면 아래 끝(SAB)에 닿는 면이라, 흰색이면
@@ -153,7 +196,7 @@ function BottomSheetPanel({ label, onDismiss, children }: { label: string; onDis
       */}
       <div
         aria-hidden="true"
-        {...drag.handleProps}
+        {...handleProps}
         className="absolute inset-x-0 top-0 flex h-7 cursor-grab touch-none items-center justify-center sm:hidden"
       >
         <span className="h-1 w-10 rounded-full bg-quaternary" />
@@ -170,8 +213,11 @@ function BottomSheetPanel({ label, onDismiss, children }: { label: string; onDis
         스크롤은 여기서만. `min-h-0` 이 요점이다 — flex 자식은 기본 `min-height:auto` 라 내용보다 작아지지 않아 판을 묶어도 넘친다.
         좌우로 판의 여백만큼 넓혔다가(-mx-4 px-4) 되돌리는 것은 포커스 링 때문이다 — 스크롤 상자는 가로도 잘라서 가장자리 칸의 링이 잘린다.
         안에서 스스로 스크롤하는 시트(필터)는 내용이 판보다 작아 여기서는 스크롤이 생기지 않는다.
+        본문 끌기(`pullFromBody`)도 여기에 붙는다 — 손잡이·닫기 단추는 이 칸 밖이라 두 끌기가 한 손가락에 겹치지 않는다.
       */}
-      <div className="-mx-4 -my-1 min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-1">{children}</div>
+      <div ref={attachBody} className="-mx-4 -my-1 min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-1">
+        {children}
+      </div>
     </AriaDialog>
   );
 }

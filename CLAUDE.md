@@ -125,8 +125,11 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
   exit 한 줄이 로컬은 워커를, 서버는 함수 인스턴스를 끝낸다. 서버에선 응답이 이미 202 라 아무도 모른다 — 요청 줄은 10분 뒤 다시 집히고 심장은 그 자리에 멈춘다(→ [ADR-028](docs/decisions/ADR-028-vercel-remote-worker.md)).
 - **첫 프레임에 "저장 0" 으로 보이는 것은 의도**다(`skipHydration`). 정적 HTML 이라
   localStorage 를 마운트 뒤에 읽는다 — 버그로 보고 고치지 않는다.
-- **`src/components/base/` 는 Untitled UI 복사본**이라 직접 고치지 않는다(eslint 도 이
-  폴더만 꺼 뒀다). 고쳐야 하면 감싸는 컴포넌트를 만든다.
+- **`src/components/base/` 는 Untitled UI 복사본**이라 직접 고치지 않는다(eslint 는 이 폴더에서
+  `no-empty-object-type` 한 규칙만 끈다 — react-hooks 규칙은 그대로 돈다). 고쳐야 하면 감싸는 컴포넌트를 만든다.
+  **예외는 `bottom-sheet.tsx` 하나** — 복사본이 아니라 이 앱이 react-aria 위에 만든 시트라 직접 고친다. 끌기는 그 파일의
+  선택 prop(`pullFromBody`)으로 더하고 판정·닫는 문턱은 `src/lib/bottomSheetPull.ts` 한 곳이다 — 감싸는 쪽에서 판을 끌면
+  문턱을 옮겨 적게 되어 한쪽만 고치면 조용히 갈린다(14 W261010.33p).
 - **크기는 `--spacing` 한 축으로만 커진다**(ADR-006). 브레이크포인트마다 `globals.css` 의
   `--spacing` 만 4 → 4.25px(768px 부터 한 단) 로 바뀌고 모든 크기 토큰이 파생된다. 자리마다 `md:text-lg` 를
   손으로 붙이지 않는다 — 아무것도 안 해도 따라오는 게 요점이다. 모바일 값은 44px 터치
