@@ -7,13 +7,13 @@ import {
   openReportsByPlace,
   openSuggestions,
   countReportedPlaces,
-  inboxHasWork,
+  inboxDestination,
   reportInbox,
   reportInboxText,
   reportBuildText,
-  requestSuggestionCollect,
   setReportStatus,
   type TReportRow,
+  suggestionPrefillName,
   suggestionSearchName,
   visitedTallyByPlace,
 } from './adminReports';
@@ -88,7 +88,7 @@ describe('reportInbox — 머리글 숫자 = 가서 보는 곳의 숫자(14 W261
     const inbox = reportInbox(rows, listed, now);
     expect(inbox).toMatchObject({ places: 6, reports: 6, suggestions: 3 });
     expect(reportInboxText(inbox)).toBe('열린 제보 6곳 · 장소 제안 3건');
-    expect(inboxHasWork(inbox)).toBe(true);
+    expect(inboxDestination(inbox)).toBe('places');
   });
 
   it('다녀왔어요·닫힌 것은 할 일이 아니다 — 오늘 들어온 것으로만 말한다', () => {
@@ -98,7 +98,7 @@ describe('reportInbox — 머리글 숫자 = 가서 보는 곳의 숫자(14 W261
     ];
     const inbox = reportInbox(rows, places, now);
     expect(inbox).toEqual({ places: 0, reports: 0, archivedPlaces: 0, suggestions: 0, today: 1 });
-    expect(inboxHasWork(inbox)).toBe(false);
+    expect(inboxDestination(inbox)).toBeNull();
     expect(reportInboxText(inbox)).toBe('오늘 들어온 것 1건');
     expect(reportInboxText(reportInbox([], places, now))).toBeNull();
   });
@@ -109,6 +109,16 @@ describe('reportInbox — 머리글 숫자 = 가서 보는 곳의 숫자(14 W261
     expect(inbox).toMatchObject({ places: 1, reports: 1, archivedPlaces: 1 });
     expect(countReportedPlaces(openReportsByPlace(rows), places, true)).toBe(1);
     expect(reportInboxText(inbox)).toBe('열린 제보 1곳 · 등록 해제 칸에 열린 제보 1곳');
+    // 둘 다면 등록 완료 칸으로 — 그 칸을 다 처리하면 다음은 등록 해제 칸이다.
+    expect(inboxDestination(inbox)).toBe('places');
+  });
+
+  it('등록 해제 칸에만 남으면 그 칸으로 보낸다 — 말만 하고 데려가지 않던 자리(14 W261010.13a ③)', () => {
+    const inbox = reportInbox([report({ id: 'a', place_id: 'p3' })], places, now);
+    expect(inbox).toMatchObject({ places: 0, suggestions: 0, archivedPlaces: 1 });
+    expect(inboxDestination(inbox)).toBe('archived');
+    // 제안이 있으면 등록 완료 칸이 먼저다(제안은 그 칸의 칩을 켜면 선다).
+    expect(inboxDestination({ ...inbox, suggestions: 1 })).toBe('places');
   });
 
   it('목록을 아직 못 읽었으면 등록 완료 칸 몫으로 센다 — 제보는 게시중인 곳에만 들어온다', () => {
@@ -122,33 +132,6 @@ describe('reportBuildText — 해시가 아니라 지금/예전 사이트(14 W26
     expect(reportBuildText('dda522e', 'abc1234')).toBe('예전 사이트를 보고 보냄 — 그 뒤 고친 것일 수 있어요');
     expect(reportBuildText(null, 'abc1234')).toBeNull();
     expect(reportBuildText('dda522e', 'abc1234')).not.toContain('dda522e');
-  });
-});
-
-describe('requestSuggestionCollect', () => {
-  const insertClient = (error: { code?: string; message: string } | null) => {
-    const calls: { table: string; row: Record<string, unknown> }[] = [];
-    const client = {
-      from: (table: string) => ({
-        insert: (row: Record<string, unknown>) => {
-          calls.push({ table, row });
-          return Promise.resolve({ error });
-        },
-      }),
-    } as unknown as SupabaseClient;
-    return { calls, client };
-  };
-
-  it('추가 수집과 같은 표에 후보 없이 한 줄 — 검색어·이름 키는 추가 수집과 같은 함수', async () => {
-    const { calls, client } = insertClient(null);
-    await expect(requestSuggestionCollect(client, '카페 바당')).resolves.toBe('queued');
-    expect(calls).toEqual([{ table: 'collect_requests', row: { query: '제주 카페 바당', name: '카페 바당', name_key: expect.any(String) } }]);
-    expect(calls[0].row).not.toHaveProperty('candidate_id');
-  });
-
-  it('이미 대기 중(23505)은 실패가 아니다 · 다른 오류는 던진다', async () => {
-    await expect(requestSuggestionCollect(insertClient({ code: '23505', message: 'dup' }).client, '바당')).resolves.toBe('alreadyQueued');
-    await expect(requestSuggestionCollect(insertClient({ code: '42501', message: 'denied' }).client, '바당')).rejects.toThrow('수집 요청');
   });
 });
 
@@ -220,6 +203,29 @@ describe('suggestionSearchName', () => {
     expect(suggestionSearchName('돌하르방 식당 - 한림')).toBe('돌하르방 식당');
     expect(suggestionSearchName('  숨도  ')).toBe('숨도');
     expect(suggestionSearchName(null)).toBe('');
+  });
+});
+
+describe('suggestionPrefillName — 고쳐서 요청한 이름으로 다시 선다(14 W261010.13a ④)', () => {
+  const sentence = '애월 바닷가 카페 바당 강아지 데려갈 수 있어요';
+
+  it('요청이 없으면 첫 구분자 앞 — 문장이면 한 줄 통째(그래서 화면에 고칠 칸이 있다)', () => {
+    expect(suggestionPrefillName('카페 바당, 애월읍', [])).toBe('카페 바당');
+    expect(suggestionPrefillName(sentence, [])).toBe(sentence);
+  });
+
+  it('한 줄에 든 이름으로 요청했으면 그 이름 — 새로고침 뒤에도 요청 줄이 다시 선다', () => {
+    expect(suggestionPrefillName(sentence, [{ name: '카페 바당' }])).toBe('카페 바당');
+    // 가장 긴 것 — 짧은 이름이 우연히 들어 있는 것보다 운영자가 고른 것이다.
+    expect(suggestionPrefillName(sentence, [{ name: '바당' }, { name: '카페 바당' }])).toBe('카페 바당');
+    // 공백이 달라도 같은 이름이다.
+    expect(suggestionPrefillName('애월  바닷가 카페   바당 돼요', [{ name: '카페 바당' }])).toBe('카페 바당');
+  });
+
+  it('처음 이름에 요청이 있으면 그대로 · 한 줄에 없는 이름 · 한 글자 이름은 고르지 않는다', () => {
+    expect(suggestionPrefillName('카페 바당, 애월읍 — 애월', [{ name: '카페 바당' }, { name: '애월읍' }])).toBe('카페 바당');
+    expect(suggestionPrefillName(sentence, [{ name: '숨도' }])).toBe(sentence);
+    expect(suggestionPrefillName(sentence, [{ name: '카' }])).toBe(sentence);
   });
 });
 

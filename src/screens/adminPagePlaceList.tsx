@@ -12,6 +12,7 @@ import {
   PLACE_GAP_LABEL,
   PLACE_STATUS_LABEL,
   placeGaps,
+  shownPlaceCount,
   type TArchiveReason,
   type TPlaceGap,
   withMovedPlaces,
@@ -101,7 +102,7 @@ type TAdminPagePlaceListProps = {
   /** 장소 id → 처리할 사용자 제보. 표가 없으면 빈 객체. */
   reports: Record<string, TReportRow[]>;
   /**
-   * `제보 있는 곳` 을 바깥이 든다(등록 완료 칸 — 머리글의 `등록 완료 칸에서 보기` 가 켠다). 안 주면 이 칸이 스스로 든다(등록 해제 칸).
+   * `제보 있는 곳` 을 바깥이 든다 — 머리글의 `…칸에서 보기` 가 켜고 다시 로그인하면 끈다(`adminPage`, 두 칸 모두). 안 주면 이 칸이 스스로 든다.
    */
   reportedOnly?: boolean;
   onReportedOnlyChange?: (next: boolean) => void;
@@ -208,6 +209,7 @@ export function AdminPagePlaceList({
   );
   const movedIds = useMemo(() => new Set(movedRows.map((row) => row.id)), [movedRows]);
   const listed = useMemo(() => withMovedPlaces(filtered, movedRows), [filtered, movedRows]);
+  const shownCount = shownPlaceCount(listed, shown, movedIds);
 
   // 검색어·구간을 바꾸면 '더 보기' 도 처음으로 — 같은 사건의 두 결과라 여기서 함께 바꾼다(후보 칸과 같은 어법).
   // 끝난 줄의 초록 한 줄도 같이 치운다.
@@ -386,8 +388,8 @@ export function AdminPagePlaceList({
             * 화면에서 사라지면, 걸러 보기를 켠 목록이 끝난 것인지 아직 그리는 중인지 구분할 자리가 없다.
             */}
           <div ref={setSentinel} className="px-4 pt-3 text-xs text-tertiary md:px-6">
-            {listed.length > shown
-              ? `${filtered.length}곳 중 ${shown}곳 · 스크롤하면 더 보여요`
+            {shownCount < filtered.length
+              ? `${filtered.length}곳 중 ${shownCount}곳 · 스크롤하면 더 보여요`
               : `${filtered.length}곳을 모두 봤어요`}
           </div>
         </>

@@ -1,9 +1,20 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
-import { collectRequestKey, collectRequestLine, collectRequestQuery, collectView, latestRequestByName, withUnread, type TCollectRequest } from './adminCollectRequest';
+import {
+  collectRequestKey,
+  collectRequestLine,
+  collectRequestQuery,
+  collectView,
+  latestRequestByName,
+  requestCollect,
+  withUnread,
+  type TCollectRequest,
+} from './adminCollectRequest';
 
 const request = (patch: Partial<TCollectRequest>): TCollectRequest => ({
   id: 'r1',
   query: '제주 카페살레',
+  name: '카페살레',
   name_key: '카페살레',
   status: 'done',
   requested_at: '2026-10-01T00:00:00Z',
@@ -93,5 +104,41 @@ describe('collectView — 묶음의 다른 이름 키', () => {
     ]);
     expect(view?.queued).toBe(true);
     expect(view?.query).toBe('제주 심바 카레 애월점');
+  });
+});
+
+describe('requestCollect — 추가 수집과 장소 제안이 같은 길(14 W261010.13a ⑥)', () => {
+  /** insert → select → single 사슬만 흉내 낸다. 넣은 행을 그대로 돌려준다. */
+  const insertClient = (error: { code?: string; message: string } | null) => {
+    const calls: { table: string; row: Record<string, unknown> }[] = [];
+    const client = {
+      from: (table: string) => ({
+        insert: (row: Record<string, unknown>) => {
+          calls.push({ table, row });
+          return { select: () => ({ single: () => Promise.resolve(error ? { data: null, error } : { data: request(row as Partial<TCollectRequest>), error: null }) }) };
+        },
+      }),
+    } as unknown as SupabaseClient;
+    return { calls, client };
+  };
+
+  it('후보가 있으면 candidate_id 를 함께 · 없으면(장소 제안) 칸을 아예 빼고 넣는다 — 검색어·이름 키는 같은 함수', async () => {
+    const withCandidate = insertClient(null);
+    await requestCollect(withCandidate.client, { name: '카페 바당', candidateId: 'c9' });
+    expect(withCandidate.calls).toEqual([
+      { table: 'collect_requests', row: { query: '제주 카페 바당', name: '카페 바당', name_key: collectRequestKey('카페 바당'), candidate_id: 'c9' } },
+    ]);
+
+    const suggestion = insertClient(null);
+    const made = await requestCollect(suggestion.client, { name: '카페 바당' });
+    expect(suggestion.calls[0].row).toEqual({ query: '제주 카페 바당', name: '카페 바당', name_key: collectRequestKey('카페 바당') });
+    expect(suggestion.calls[0].row).not.toHaveProperty('candidate_id');
+    // 넣은 행을 돌려받는다 — 화면이 다시 읽지 않고 곧바로 "찾을 차례예요" 를 그린다.
+    expect(made).toMatchObject({ name_key: collectRequestKey('카페 바당') });
+  });
+
+  it('이미 대기 중(23505)은 실패가 아니다 · 다른 오류는 던진다', async () => {
+    await expect(requestCollect(insertClient({ code: '23505', message: 'dup' }).client, { name: '바당' })).resolves.toBe('alreadyQueued');
+    await expect(requestCollect(insertClient({ code: '42501', message: 'denied' }).client, { name: '바당' })).rejects.toThrow('수집 요청: denied');
   });
 });

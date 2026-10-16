@@ -119,6 +119,27 @@ describe('AdminPagePlaceList — 결과·폼이 제자리에(14 W261010.28)', ()
     expect(html).toContain('전체 2');
   });
 
+  it('결과 한 줄이 끝에 끼어도 "N곳 중 M곳" 은 장소 줄만 센다(14 W261010.13a ⑤)', () => {
+    // 한 번에 40줄. 장소 40곳 + 맨 끝 결과 한 줄 — 예전에는 "40곳 중 40곳 · 스크롤하면 더 보여요" 라고 했다.
+    const forty = Array.from({ length: 40 }, (_, i) => place({ id: `p${i}`, name: `가게${String(i).padStart(2, '0')}` }));
+    const before = place({ id: 'moved', name: '힣펜션' });
+    const html = render({
+      reports: {},
+      places: [...forty, { ...before, status: 'archived', archived_at: '2026-10-16T00:00:00.000Z' }],
+      states: { moved: { done: '내렸어요', movedFrom: before } },
+    });
+    expect(html).toContain('40곳을 모두 봤어요');
+    expect(html).not.toContain('스크롤하면 더 보여요');
+
+    // 장소가 더 있으면 M 은 그린 장소 줄 수 — 가운데 낀 결과 줄은 빼고 센다.
+    const more = render({
+      reports: {},
+      places: [...forty, place({ id: 'p40', name: '가게40' }), { ...before, name: '가게05a', status: 'archived', archived_at: '2026-10-16T00:00:00.000Z' }],
+      states: { moved: { done: '내렸어요', movedFrom: { ...before, name: '가게05a' } } },
+    });
+    expect(more).toContain('41곳 중 39곳 · 스크롤하면 더 보여요');
+  });
+
   it('옮긴 칸(등록 해제)에는 결과 한 줄이 아니라 줄 그대로 선다', () => {
     const before = place({ id: 'place-0', name: '나무펜션' });
     const html = render({

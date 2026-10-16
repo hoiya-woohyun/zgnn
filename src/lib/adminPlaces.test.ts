@@ -11,6 +11,7 @@ import {
   placeBadges,
   placeGaps,
   sortManagedPlaces,
+  shownPlaceCount,
   withMovedPlaces,
 } from './adminPlaces';
 import { hasVerifiedColumn, markPlaceVerified, seedVerifyTargets } from './adminPlaces';
@@ -94,6 +95,28 @@ describe('withMovedPlaces — 옮긴 줄은 원래 칸의 원래 자리에(14 W2
     const rows = [place({ id: 'a', name: '가' })];
     expect(withMovedPlaces(rows, [place({ id: 'a', name: '가' })]).map((row) => row.id)).toEqual(['a']);
     expect(withMovedPlaces(rows, [])).toEqual(rows);
+  });
+});
+
+describe('shownPlaceCount — "N곳 중 M곳" 의 M 은 장소 줄만(14 W261010.13a ⑤)', () => {
+  const ids = (...list: string[]) => list.map((id) => ({ id }));
+  const moved = new Set(['m']);
+
+  it('결과 줄이 맨 끝이면 — 다 그렸는데 그린 줄 수(3)가 아니라 장소 2곳', () => {
+    expect(shownPlaceCount(ids('a', 'b', 'm'), 3, moved)).toBe(2);
+    // 끝의 결과 줄만 아직 안 그렸어도 장소는 다 봤다 — "더 보여요" 가 아니다.
+    expect(shownPlaceCount(ids('a', 'b', 'm'), 2, moved)).toBe(2);
+  });
+
+  it('결과 줄이 가운데면 그린 줄 중 하나를 빼고 센다', () => {
+    expect(shownPlaceCount(ids('a', 'm', 'b', 'c'), 3, moved)).toBe(2);
+    expect(shownPlaceCount(ids('a', 'm', 'b', 'c'), 4, moved)).toBe(3);
+  });
+
+  it('결과 줄이 그린 줄 경계 바로 뒤면 그대로 · 결과 줄이 없으면 그린 줄 수 그대로', () => {
+    expect(shownPlaceCount(ids('a', 'b', 'm', 'c'), 2, moved)).toBe(2);
+    expect(shownPlaceCount(ids('a', 'b', 'c'), 2, new Set())).toBe(2);
+    expect(shownPlaceCount(ids('a'), 40, new Set())).toBe(1);
   });
 });
 

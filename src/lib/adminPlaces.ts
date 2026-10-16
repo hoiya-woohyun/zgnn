@@ -97,6 +97,15 @@ export function withMovedPlaces(rows: readonly TPlaceRow[], moved: readonly TPla
   return extra.length === 0 ? [...rows] : sortManagedPlaces([...rows, ...extra]);
 }
 
+/**
+ * 목록 끝 "N곳 중 M곳" 의 M — 그린 줄(앞에서 `shown` 줄) 가운데 **장소 줄**만 센다. 순수(14 W261010.13a ⑤).
+ * 결과 한 줄(`withMovedPlaces` 가 끼운 것)은 N(걸러 본 장소)에 들지 않는데 그린 줄 수에는 들어, 끼는 순간 M 이 하나 어긋났다 —
+ * 끝에서는 다 본 목록을 두고 "40곳 중 40곳 · 스크롤하면 더 보여요" 라고 했다. 더 그릴지는 이것과 따로 그린 줄 수로 정한다(결과 줄도 결국 그려져야 한다).
+ */
+export function shownPlaceCount(listed: readonly Pick<TPlaceRow, 'id'>[], shown: number, movedIds: ReadonlySet<string>): number {
+  return listed.slice(0, shown).filter((row) => !movedIds.has(row.id)).length;
+}
+
 /** 검색 비교용 — 소문자, 공백 제거. 띄어쓰기가 데이터와 다른 것("카페 살레" vs "카페살레")이 가장 흔한 실패다. */
 const searchKey = (value: string): string => value.toLowerCase().replace(/\s+/g, '');
 

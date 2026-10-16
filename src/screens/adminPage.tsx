@@ -86,10 +86,9 @@ import {
   openReportsByPlace,
   policyReportCounts,
   openSuggestions,
-  inboxHasWork,
+  inboxDestination,
   reportInbox,
   reportInboxText,
-  requestSuggestionCollect,
   setReportStatus,
   type TReportRow,
   type TReportsLoad,
@@ -462,10 +461,12 @@ export function AdminPage() {
   const [suggestionBusy, setSuggestionBusy] = useState<{ id: string; what: 'close' | 'collect' } | undefined>(undefined);
   const [suggestionError, setSuggestionError] = useState<string | undefined>(undefined);
   /**
-   * 등록 완료 칸의 `제보 있는 곳` — 머리글의 `등록 완료 칸에서 보기` 가 켜야 해서 여기서 든다(14 W261010.13). 켜면 제보 있는 곳만 남고 그 위에 제안이 선다.
-   * 등록 해제 칸의 같은 칩은 그 칸이 스스로 든다(머리글이 그리로 보내지 않는다).
+   * 두 장소 칸의 `제보 있는 곳` — 머리글의 `…칸에서 보기` 가 켜야 해서 여기서 든다(14 W261010.13). 켜면 제보 있는 곳만 남고, 등록 완료 칸에서는 그 위에 제안이 선다.
+   * 등록 해제 칸 것도 여기 있는 이유: 내린 곳에만 제보가 남으면 머리글이 그 칸으로 보낸다(`inboxDestination`, 14 W261010.13a ③).
+   * 둘 다 다시 로그인하면 끈다(`start`) — 지난 세션의 걸러 보기가 켜진 채 남으면 목록이 왜 줄었는지 말할 자리가 없다.
    */
   const [reportedOnly, setReportedOnly] = useState(false);
+  const [archivedReportedOnly, setArchivedReportedOnly] = useState(false);
   const patchReportRows = useCallback((updated: TReportRow[]) => {
     if (updated.length === 0) return;
     const rows = mergeReportRows(reportRowsRef.current, updated);
@@ -653,6 +654,12 @@ export function AdminPage() {
     setManagedError(null);
     setPlaceStates({});
     setPlaceNotice(undefined);
+    // 다시 로그인하면 지난 세션이 켜 둔 칩·제안 줄의 오류·요청 목록도 버린다(14 W261010.13a ①) — 줄 상태(위 둘)만 비우던 동안 '제보 있는 곳' 이 켜진 채 남았다.
+    setReportedOnly(false);
+    setArchivedReportedOnly(false);
+    setSuggestionBusy(undefined);
+    setSuggestionError(undefined);
+    setCollectRequests(undefined);
     setPostCounts(undefined);
     setPostError(undefined);
     setBacklog(undefined);
@@ -1165,8 +1172,8 @@ export function AdminPage() {
   );
 
   /**
-   * 제안의 이름으로 수집을 요청한다(14 W261010.13) — 검수 대기의 `추가 수집` 과 같은 표·같은 워커. 제안은 닫지 않는다:
-   * 요청 줄("찾을 차례예요" → 찾은 글 수)이 이 줄에 서야 운영자가 결과를 보고 `찾아봤어요` 를 누른다. 후보·장소를 바꾸지 않아 `beginWrite` 밖이다.
+   * 제안의 이름으로 수집을 요청한다(14 W261010.13) — 검수 대기의 `추가 수집` 과 같은 표·같은 워커·**같은 함수**(`requestCollect`, 후보 없이).
+   * 제안은 닫지 않는다: 요청 줄("찾을 차례예요" → 찾은 글 수)이 이 줄에 서야 운영자가 결과를 보고 `찾아봤어요` 를 누른다. 후보·장소를 바꾸지 않아 `beginWrite` 밖이다.
    */
   const collectSuggestion = useCallback(
     async (name: string, rowId: string) => {
@@ -1175,8 +1182,9 @@ export function AdminPage() {
       setSuggestionBusy({ id: rowId, what: 'collect' });
       setSuggestionError(undefined);
       try {
-        await requestSuggestionCollect(client, name);
-        setCollectRequests(await fetchCollectRequests(client));
+        const made = await requestCollect(client, { name });
+        if (made === 'alreadyQueued') setCollectRequests(await fetchCollectRequests(client));
+        else setCollectRequests((prev) => (prev?.kind === 'ok' ? { kind: 'ok', byName: { ...prev.byName, [made.name_key]: made } } : prev));
         wakeServerWorker();
       } catch (error) {
         setSuggestionError(messageOf(error, '수집을 요청하지 못했어요.'));
@@ -2015,8 +2023,27 @@ export function AdminPage() {
       <p className="px-4 pt-6 text-sm text-tertiary md:px-6">장소를 불러오고 있어요</p>
     ) : null;
 
+  /*
+   * 장소 제안(장소가 없는 제보)은 줄이 없어 `제보 있는 곳` 을 켜면 목록 위에 선다(14 W261010.13). 목록(`managed`)과 무관한 것이라
+   * 목록을 못 읽었거나 읽는 중이어도 그 자리 밑에 선다(14 W261010.13a ②) — 목록 안에만 두던 동안 머리글 "장소 제안 3건 · 등록 완료 칸에서 보기" 를
+   * 따라가면 오류와 `다시 시도` 뿐이라 제안을 볼 곳이 없었다(예전엔 수집 완료 칸에 따로 섰다).
+   */
+  const suggestionsBlock = (
+    <>
+      <AdminPageSuggestions
+        suggestions={suggestions}
+        busy={suggestionBusy}
+        collect={collectRequests}
+        onCollect={(name, row) => void collectSuggestion(name, row.id)}
+        onClose={(row, status) => void closeSuggestion(row, status)}
+      />
+      {suggestionError ? <p className="mt-2 px-4 text-xs text-error-primary md:px-6">{suggestionError}</p> : null}
+    </>
+  );
+
   const inbox = reports?.kind === 'ok' ? reportInbox(reports.rows, managed ?? [], new Date()) : undefined;
   const inboxLine = inbox ? reportInboxText(inbox) : null;
+  const inboxGoTo = inbox ? inboxDestination(inbox) : null;
 
   const opsBand = opsStages ? adminBandStage(opsStages, { rebuildWarn: rebuild?.tone === 'warn', strandedShown: Boolean(stranded) }) : null;
 
@@ -2073,9 +2100,9 @@ export function AdminPage() {
            * 숫자는 가서 보는 곳과 같은 단위다(`reportInbox`, 14 W261010.13) — `제보 있는 곳 N곳` 은 그 칩의 숫자, 제안은 그 칩을 켜면 목록 위에 선다.
            * 말로 보내지 않고 누르면 데려간다: 칸을 바꾸고 칩을 켠다.
            */
-          <p className={cx('mt-0.5', inboxHasWork(inbox) && 'text-warning-primary')}>
+          <p className={cx('mt-0.5', inboxGoTo && 'text-warning-primary')}>
             {inboxLine}
-            {inboxHasWork(inbox) ? (
+            {inboxGoTo ? (
               <>
                 {' '}·{' '}
                 <button
@@ -2084,11 +2111,12 @@ export function AdminPage() {
                   onClick={() => {
                     // 칩을 누른 것과 같은 일이라 끝난 줄의 결과 한 줄도 같이 치운다(목록의 `clearDone`).
                     clearPlaceDone();
-                    setReportedOnly(true);
-                    setTab('places');
+                    if (inboxGoTo === 'archived') setArchivedReportedOnly(true);
+                    else setReportedOnly(true);
+                    setTab(inboxGoTo);
                   }}
                 >
-                  등록 완료 칸에서 보기
+                  {inboxGoTo === 'archived' ? '등록 해제' : '등록 완료'} 칸에서 보기
                 </button>
               </>
             ) : null}
@@ -2220,7 +2248,12 @@ export function AdminPage() {
         />
       </div>
       <div hidden={tab !== 'places'}>
-        {placeTabFallback ?? (
+        {placeTabFallback ? (
+          <>
+            {placeTabFallback}
+            {reportedOnly ? suggestionsBlock : null}
+          </>
+        ) : (
           <AdminPagePlaceList
             mode="active"
             places={managed ?? []}
@@ -2236,19 +2269,7 @@ export function AdminPage() {
             reportedOnly={reportedOnly}
             onReportedOnlyChange={setReportedOnly}
             suggestionCount={suggestions.length}
-            reportedOnlyHeader={
-              /* 장소 제안은 장소가 없는 제보라 줄이 없다 — 제보 있는 곳을 켜면 그 목록 위에 선다(14 W261010.13, 예전엔 수집 완료 칸 맨 아래). */
-              <>
-                <AdminPageSuggestions
-                  suggestions={suggestions}
-                  busy={suggestionBusy}
-                  collect={collectRequests}
-                  onCollect={(name, row) => void collectSuggestion(name, row.id)}
-                  onClose={(row, status) => void closeSuggestion(row, status)}
-                />
-                {suggestionError ? <p className="mt-2 px-4 text-xs text-error-primary md:px-6">{suggestionError}</p> : null}
-              </>
-            }
+            reportedOnlyHeader={suggestionsBlock}
             updates={updatesByPlace}
             onHandleReports={(place, ids, status, note) => void handleReports(place, ids, status, note)}
             visited={visitedByPlace}
@@ -2274,6 +2295,8 @@ export function AdminPage() {
             onGoToBlocks={() => setTab('blocks')}
             onGoToOther={() => setTab('places')}
             reports={reportsByPlace}
+            reportedOnly={archivedReportedOnly}
+            onReportedOnlyChange={setArchivedReportedOnly}
             updates={updatesByPlace}
             onHandleReports={(place, ids, status, note) => void handleReports(place, ids, status, note)}
             visited={visitedByPlace}

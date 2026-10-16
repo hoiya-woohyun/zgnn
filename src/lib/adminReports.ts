@@ -10,7 +10,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isBlocksUnavailable } from './adminBlocks';
 import type { TPlaceRow } from './adminCandidates';
-import { COLLECT_REQUESTS_UNAVAILABLE_TEXT, collectRequestKey, collectRequestQuery } from './adminCollectRequest';
+import { collectRequestKey, type TCollectRequest } from './adminCollectRequest';
 import type { TReportKind } from './placeReport';
 
 export type TReportStatus = 'open' | 'handled' | 'dismissed';
@@ -119,8 +119,15 @@ export function reportInboxText(inbox: TReportInbox): string | null {
   return parts.length > 0 ? parts.join(' · ') : null;
 }
 
-/** 머리글이 `등록 완료 칸에서 보기` 로 보낼 것이 있나 — 등록 완료 칸의 제보나 제안. */
-export const inboxHasWork = (inbox: TReportInbox): boolean => inbox.places > 0 || inbox.suggestions > 0;
+/**
+ * 머리글이 **어느 칸으로** 보내나 — 처리할 것이 남은 칸, 둘 다면 등록 완료 칸(제보·제안이 사는 곳). 없으면 `null`. 순수.
+ * 경고 색과 `…칸에서 보기` 버튼은 이 값 하나로 선다. 등록 완료 칸만 보던 동안 내린 곳에만 제보가 남으면(내릴 때 닫기가 실패했다)
+ * 머리글이 "등록 해제 칸에 열린 제보 1곳" 을 회색 글씨로 말만 하고 데려가지 않았다(14 W261010.13a ③).
+ */
+export function inboxDestination(inbox: TReportInbox): 'places' | 'archived' | null {
+  if (inbox.places > 0 || inbox.suggestions > 0) return 'places';
+  return inbox.archivedPlaces > 0 ? 'archived' : null;
+}
 
 /** 폐업으로 읽히는 종류 — 이것이 열려 있으면 등록 해제 폼을 `폐업` 으로 열고, 사이트는 확인일을 그리지 않는다(R5). */
 export const CLOSURE_KINDS: readonly TReportKind[] = ['closed', 'replaced'];
@@ -223,7 +230,11 @@ export function visitedTallyByPlace(
   return tally;
 }
 
-/** 제안 한 줄에서 검색할 이름 — 첫 구분자(쉼표·대시·가운뎃점) 앞. "카페 바당, 애월읍 — 테라스…" → "카페 바당". 순수. */
+/**
+ * 제안 한 줄에서 검색할 이름의 **처음 값** — 첫 구분자(쉼표·대시·가운뎃점) 앞. "카페 바당, 애월읍 — 테라스…" → "카페 바당". 순수.
+ * 문장으로 온 제안("애월 바닷가 카페 바당 강아지 돼요")은 구분자가 없어 한 줄이 통째로 나온다 — 규칙을 키우지 않고 화면이 그 값을 고칠 칸으로 보인다
+ * (`AdminPageSuggestions`, 14 W261010.13a ④). 이름은 사람이 읽어야 고를 수 있다.
+ */
 export function suggestionSearchName(note: string | null): string {
   const text = (note ?? '').trim();
   const head = text.split(/[,—·]|\s-\s/)[0].trim();
@@ -231,18 +242,23 @@ export function suggestionSearchName(note: string | null): string {
 }
 
 /**
- * 제안의 이름으로 블로그를 찾게 한다 — 검수 대기의 `추가 수집` 과 **같은 표**(`collect_requests`)에 후보 없이(`candidate_id` 는 비어도 된다) 한 줄.
- * 예전 안내("그 이름으로 수집해요 — pnpm data collect")는 실행 수단이 없는 말이었다: 수집 스크립트는 이름을 인자로 받지 않는다(14 W261010.13).
- * 찾고 읽는 쪽은 추가 수집과 같다 — 워커가 그 검색어로 글을 담고 다음 분석이 맨 앞에서 읽어, 동반 근거가 있으면 검수 대기에 후보로 선다.
- * 같은 이름이 이미 대기 중이면(유일 인덱스 23505) 실패가 아니다.
+ * 제안 줄의 이름 칸에 **처음 채울 값** — 그 한 줄에 든 이름으로 이미 수집을 요청했으면 그 이름, 아니면 `suggestionSearchName`. 순수.
+ *
+ * 고친 이름은 화면에만 산다. 요청 결과는 워커가 돈 뒤(몇 분~몇 시간)에야 오므로 그 사이 새로고침하면 칸이 다시 문장으로 채워지고,
+ * 요청 줄("찾을 차례예요")은 고친 이름 키에 붙어 있어 사라진다 — 운영자는 같은 제안을 문장으로 또 요청하게 된다. 그래서 요청 이름이
+ * 한 줄 안에 그대로 들어 있으면 그것을 다시 고른다(가장 긴 것 — 짧은 이름이 우연히 들어 있는 것보다 운영자가 고른 것일 가능성이 크다).
  */
-export async function requestSuggestionCollect(client: SupabaseClient, name: string): Promise<'queued' | 'alreadyQueued'> {
-  const { error } = await client
-    .from('collect_requests')
-    .insert({ query: collectRequestQuery(name), name, name_key: collectRequestKey(name) });
-  if (error?.code === '23505') return 'alreadyQueued';
-  if (error) throw new Error(isBlocksUnavailable(error) ? COLLECT_REQUESTS_UNAVAILABLE_TEXT : `수집 요청: ${error.message}`);
-  return 'queued';
+export function suggestionPrefillName(note: string | null, requests: readonly Pick<TCollectRequest, 'name'>[]): string {
+  const base = suggestionSearchName(note);
+  const baseKey = collectRequestKey(base);
+  if (requests.some((request) => collectRequestKey(request.name) === baseKey)) return base;
+  const text = (note ?? '').replace(/\s+/g, ' ');
+  let picked = '';
+  for (const request of requests) {
+    const name = request.name.replace(/\s+/g, ' ').trim();
+    if (name.length >= 2 && name.length > picked.length && text.includes(name)) picked = name;
+  }
+  return picked || base;
 }
 
 /**

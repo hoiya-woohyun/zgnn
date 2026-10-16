@@ -20,6 +20,7 @@ const suggestion = (patch: Partial<TReportRow> = {}): TReportRow => ({
 const request = (patch: Partial<TCollectRequest> = {}): TCollectRequest => ({
   id: 'c1',
   query: '제주 카페 바당',
+  name: '카페 바당',
   name_key: collectRequestKey('카페 바당'),
   status: 'queued',
   requested_at: '2026-10-02T00:00:00.000Z',
@@ -64,5 +65,33 @@ describe('AdminPageSuggestions — 이름으로 수집에 실행 수단(14 W2610
     const off = render({ kind: 'unavailable' });
     expect(off).toMatch(/<button[^>]*disabled=""[^>]*>(?:(?!<\/button>).)*이 이름으로 수집/);
     expect(off).toContain('추가 수집 표가 아직 적용되지 않았어요');
+  });
+});
+
+describe('AdminPageSuggestions — 찾을 이름을 고칠 칸(14 W261010.13a ④)', () => {
+  const sentence = '애월 바닷가 카페 바당 강아지 데려갈 수 있어요';
+  const renderRow = (note: string, collect: TCollectRequestsLoad | undefined) =>
+    renderToStaticMarkup(<AdminPageSuggestions suggestions={[suggestion({ note })]} collect={collect} onCollect={noop} onClose={noop} />);
+
+  it('칸은 첫 구분자 앞으로 미리 채운다 — 자동완성은 끈다(BUG-012)', () => {
+    const html = render({ kind: 'ok', byName: {} });
+    expect(html).toMatch(/<input[^>]*aria-label="찾을 이름"[^>]*>/);
+    expect(html).toMatch(/<input[^>]*value="카페 바당"[^>]*>/);
+    expect(html).toMatch(/<input[^>]*name="search_nofill"[^>]*>/);
+  });
+
+  it('문장으로 온 제안은 한 줄 통째로 채워 고치게 한다', () => {
+    const html = renderRow(sentence, { kind: 'ok', byName: {} });
+    expect(html).toContain(`value="${sentence}"`);
+    expect(html).toContain(COLLECT_BUTTON);
+  });
+
+  it('고쳐서 요청한 이름이 있으면 그 이름으로 다시 채우고 그 요청 줄을 세운다 — 네이버 검색도 같은 이름', () => {
+    const html = renderRow(sentence, { kind: 'ok', byName: { [collectRequestKey('카페 바당')]: request() } });
+    expect(html).toMatch(/<input[^>]*value="카페 바당"[^>]*>/);
+    expect(html).toContain('&#x27;제주 카페 바당&#x27; 로 찾을 차례예요');
+    expect(html).not.toContain(COLLECT_BUTTON);
+    expect(html).toContain(encodeURIComponent('카페 바당'));
+    expect(html).not.toContain(encodeURIComponent(sentence));
   });
 });

@@ -16,6 +16,8 @@ import { nextStepText } from './adminNextStep';
 export type TCollectRequest = {
   id: string;
   query: string;
+  /** 요청한 이름 그대로(화면용). 장소 제안은 운영자가 고친 이름이라 이것으로 그 제안 줄을 다시 찾는다(`suggestionPrefillName`). */
+  name: string;
   name_key: string;
   status: 'queued' | 'done';
   requested_at: string;
@@ -78,7 +80,7 @@ export function collectRequestLine(request: TCollectRequest | undefined): string
   return `${when}추가 수집 · 글 ${found}건 중 ${request.unread}건이 아직 분석 전이에요 — 다음 분석이 먼저 읽어요`;
 }
 
-const REQUEST_COLUMNS = 'id, query, name_key, status, requested_at, done_at, found, to_read, post_urls';
+const REQUEST_COLUMNS = 'id, query, name, name_key, status, requested_at, done_at, found, to_read, post_urls';
 
 /** `in('url', …)` 한 번에 싣는 url 수 — 블로그 url 은 개당 50자 안팎이라 100개가 6KB 쯤이다(scripts/lib/chunkForUrlFilter.mjs 의 예산). */
 const URL_CHUNK = 100;
@@ -114,16 +116,19 @@ export async function fetchCollectRequests(client: SupabaseClient, now: Date = n
 /**
  * 요청 한 줄. 이미 대기 중이면(유일 인덱스 23505) 실패가 아니다 — 같은 가게는 한 번만 찾으면 된다.
  * 넣은 행은 `.select()` 로 돌려받는다(운영자는 select 권한이 있다) — 화면이 곧바로 "찾을 차례예요" 를 그리는 바탕이다.
+ *
+ * 부르는 곳은 둘이다 — 검수 대기 카드의 `추가 수집`(`candidateId` 있음)과 장소 제안의 `이 이름으로 수집`(후보가 없다 — 사용자 한 줄뿐이다).
+ * 후보가 없으면 칸을 아예 빼서 넣는다(`candidate_id` 는 비어도 된다). 둘이 따로 넣던 동안 검색어·이름 키·23505 처리를 두 벌 적었다(14 W261010.13a ⑥).
  */
 export async function requestCollect(
   client: SupabaseClient,
-  input: { name: string; nameKey?: string; candidateId: string },
+  input: { name: string; nameKey?: string; candidateId?: string },
 ): Promise<TCollectRequest | 'alreadyQueued'> {
   const row = {
     query: collectRequestQuery(input.name),
     name: input.name,
     name_key: collectRequestKey(input.name, input.nameKey),
-    candidate_id: input.candidateId,
+    ...(input.candidateId ? { candidate_id: input.candidateId } : {}),
   };
   const { data, error } = await client
     .from('collect_requests')
@@ -131,7 +136,7 @@ export async function requestCollect(
     .select(REQUEST_COLUMNS)
     .single();
   if (error?.code === '23505') return 'alreadyQueued';
-  if (error) throw new Error(isBlocksUnavailable(error) ? COLLECT_REQUESTS_UNAVAILABLE_TEXT : `추가 수집 요청: ${error.message}`);
+  if (error) throw new Error(isBlocksUnavailable(error) ? COLLECT_REQUESTS_UNAVAILABLE_TEXT : `수집 요청: ${error.message}`);
   return data as TCollectRequest;
 }
 
