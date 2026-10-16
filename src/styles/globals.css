@@ -294,9 +294,18 @@
   base 는 복사본이라 고치지 않고, 그 테두리 `ring-primary` 가 읽는 `--ring-color-primary` 를 **그 칸에서만** 바꾼다 — 포커스(`ring-brand`)·
   오류(`ring-error*`)·체크됨(`ring-brand-solid`)은 다른 변수라 그대로다. 같은 `ring-primary` 를 쓰는 칩·버튼·Select 는 글자가 경계를 대신해서 손대지 않는다.
   Input 은 래퍼의 고유 클래스(`group/input`)로 한 번에 잡는다 — 칸마다 달면 새 칸이 조용히 빠진다(이 이름은 `fieldEdge.test.ts` 가 지킨다).
-  체크박스는 쓰는 자리에서 `field-edge` 를 단다. 이름에 `ring-`·`border-` 를 붙이지 않는다 — `cx`(tailwind-merge)가 ring 색으로 읽어 앞의 포커스·체크됨 색을 지운다.
+  라벨 달린 base `Checkbox`(검수 화면의 체크박스 전부)도 규칙 하나로 잡는다(14 W261013.14j) — 그 `Checkbox` 는 className 을 바깥 `<label>` 에만 받고
+  테두리를 그리는 안쪽 상자(`CheckboxBase`)에는 넘기지 않아 자리마다 달 수가 없었다. 변수는 상속되므로 라벨에 걸면 상자가 받는다.
+  잡는 것은 react-aria 체크박스의 라벨(`data-rac` + 안의 `input[type=checkbox]`, 스위치는 빼고) — 그 마크업 모양은 `fieldEdge.test.ts` 가 지킨다.
+  `CheckboxBase` 만 직접 쓰는 자리(라벨이 없거나 직접 짠 것)는 쓰는 자리에서 `field-edge` 를 단다.
+  이름에 `ring-`·`border-` 를 붙이지 않는다 — `cx`(tailwind-merge)가 ring 색으로 읽어 앞의 포커스·체크됨 색을 지운다.
+  두 규칙을 선택자 목록으로 합치지 않는다 — `:has()` 를 모르는 브라우저는 목록 전체를 버려 Input 규칙까지 죽는다.
 */
 .group\/input {
+  --ring-color-primary: var(--color-border-field);
+}
+
+label[data-rac]:has(input[type='checkbox']:not([role='switch'])) {
   --ring-color-primary: var(--color-border-field);
 }
 
