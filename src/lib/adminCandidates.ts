@@ -456,3 +456,54 @@ export function updateGroupsByPlace(groups: readonly Pick<TCandidateGroup, 'kind
   }
   return out;
 }
+
+/**
+ * 펼친 줄의 승인 버튼 하나 — 이름과 싣는 짝(14 W261010.11). 결정 줄(`AdminPageGroupActions`)과 붙는 동작 줄
+ * (`AdminPageGroupCardActionBar`)이 같은 값을 읽는다: 두 자리의 라벨이나 `mergeInto` 가 갈리면 같은 줄에서 같은 이름의 버튼이 다른 곳에 합친다.
+ *
+ * 짝이 '확인'(같은 곳인지 아직 모른다)이면 버튼이 곧 그 물음의 답이다(06 #15) — 짝 id 를 실어 보낸다. 안 실으면 그 사이 다른 줄의 승인이
+ * 캐시를 바꿔 다른 장소로 합쳐진다. 짝이 내린 곳이면 '확인' 이 아니다 — 누르면 되살릴지 묻는 갈래로 간다.
+ */
+export type TGroupApprove = { label: string; unsure: boolean; mergeInto?: string };
+
+export function groupApproveAction(input: { tier: TCandidateTier; pairId: string | null; matchedArchived: boolean }): TGroupApprove {
+  const unsure = input.tier === 'ask' && Boolean(input.pairId) && !input.matchedArchived;
+  if (unsure && input.pairId) return { label: '같은 곳이에요 — 빈 칸만 채우기', unsure, mergeInto: input.pairId };
+  return { label: input.pairId ? '빈 칸만 채우기' : '등록하기', unsure };
+}
+
+/**
+ * 붙는 동작 줄의 주 칸(14 W261010.11) — **바로 올리기**이거나 **결정 줄로 내려가기** 둘 중 하나다.
+ *
+ * 바로 올리는 것은 결정 줄에서도 버튼 하나로 끝나는 갈래뿐이다. 나머지는 결정 줄이 무엇을 고를지 먼저 말하는 갈래라(내린 곳 · 닮은 곳 ·
+ * 주소 둘 · 지역 없음 · 덮을 칸 · 열린 제외 폼·재분석 확인) 줄 이름만 보고 누르게 두면 그 말을 건너뛴다. **근거 없음도 내려가기다** —
+ * 결정 줄의 승인은 그 갈래에서 한 번 더 묻는데(W261010.28), 붙는 줄이 바로 올리면 그 확인을 비켜 가는 문이 된다.
+ */
+export type TGroupQuickAction = { kind: 'approve'; approve: TGroupApprove } | { kind: 'jump'; label: string };
+
+export function groupQuickAction(input: {
+  rejecting?: boolean;
+  reanalyzing?: boolean;
+  archived: boolean;
+  similar: boolean;
+  addressPick: boolean;
+  regionOk: boolean;
+  needsLook: boolean;
+  /** 결정 줄에 덮어쓰기 표가 선다(`AdminPageGroupActions` 의 `hasTable`) — 그때 승인은 표 발치의 '체크한 N칸 덮어쓰기' 다. */
+  hasTable: boolean;
+  tier: TCandidateTier;
+  pairId: string | null;
+  matchedArchived: boolean;
+}): TGroupQuickAction {
+  if (input.rejecting) return { kind: 'jump', label: '제외 사유 고르기' };
+  if (input.reanalyzing) return { kind: 'jump', label: '재분석 확인' };
+  if (input.archived) return { kind: 'jump', label: '내린 곳이에요 — 골라 주세요' };
+  if (input.similar) return { kind: 'jump', label: '같은 가게일까요? — 골라 주세요' };
+  if (input.addressPick) return { kind: 'jump', label: '주소 고르기' };
+  if (!input.regionOk) return { kind: 'jump', label: '지역 고르기' };
+  if (input.needsLook) return { kind: 'jump', label: '근거 없음 — 결정 보기' };
+  const approve = groupApproveAction(input);
+  // '확인' 짝은 표가 서도 승인 버튼이 남는다(결정 줄의 `unsure` 주석) — 표 없이 같은 곳이라고 답하는 길이다.
+  if (input.hasTable && !approve.unsure) return { kind: 'jump', label: '덮어쓸 칸 고르기' };
+  return { kind: 'approve', approve };
+}

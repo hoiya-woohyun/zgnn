@@ -63,7 +63,9 @@ const CONFIRM: Record<Exclude<TBulkMode, 'reject'>, { title: (n: number) => stri
  *
  * - `덮어쓰기` 는 고른 것 중 덮을 수 있는 게 있을 때만 선다 — 지금 `기존` 후보가 0건이라 늘 꺼져 있던 버튼이다.
  * - **표 위에 붙는다**(sticky). `fixed` 가 아니라 `sticky` 다 — `<main>` 안의 `fixed` 는 스와이프 중에 어긋난다(CLAUDE.md).
- *   `/admin` 에는 셸의 뒤로가기 줄이 없으므로(`appShell` 의 `bare`) 맨 위에 붙는다.
+ *   `/admin` 에는 셸의 뒤로가기 줄이 없으므로(`appShell` 의 `bare`) 맨 위에 붙는다. **폰에서도 고른 동안은 붙는다**(14 W261010.11) —
+ *   넓은 화면에서만 붙던 동안 폰에서 목록 아래쪽 줄을 고르면 이 줄이 2,357px 위에 있었다. 고르기 전의 폰 줄은 '전부 고르기' 하나라 붙지 않는다
+ *   (화면을 먹을 까닭이 없다). **위인 이유**: 바닥은 펼친 줄의 동작 줄 자리다(`AdminPageGroupCardActionBar`) — 둘 다 `bottom-0` 이면 겹친다.
  * - **확인은 하나씩만 열린다**(`mode`). 반려는 사유 폼, 나머지는 무엇이 일어나는지 한 문장 + 버튼.
  * - **결과 한 줄은 목록이 비어도·고른 것이 없어도 남는다** — 전부 처리한 직후 이 줄까지 사라지면 방금 한 일이 됐는지 말해 주는 것이 없다.
  *
@@ -100,6 +102,7 @@ export function AdminPageBulkBar({
     <div
       className={cx(
         'z-10 mt-3 border-y border-secondary px-4 py-2 md:sticky md:top-0 md:px-6',
+        active && 'sticky top-0',
         // 고른 것이 있으면 줄 자체가 달라 보여야 한다 — 아래 표에서 눈을 뗀 사이에 골라 둔 것을 잊는 자리다.
         active ? 'bg-brand-primary' : 'bg-secondary',
         // 고른 것도 할 말도 없으면 넓은 화면에서는 사라진다(좁은 화면은 전부 고르기가 여기 있어 남는다).

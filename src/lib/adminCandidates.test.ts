@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { fetchPendingCandidates, REGION_OPTIONS, regionOptionsFor, updateGroupsByPlace } from './adminCandidates';
+import {
+  fetchPendingCandidates,
+  groupApproveAction,
+  groupQuickAction,
+  REGION_OPTIONS,
+  regionOptionsFor,
+  updateGroupsByPlace,
+} from './adminCandidates';
 
 describe('regionOptionsFor — 주소의 읍·면을 맨 위로', () => {
   it('주소의 읍·면 선택지를 위로 올리고 나머지는 그대로 둔다', () => {
@@ -69,5 +76,53 @@ describe('fetchPendingCandidates — 검수 대기를 끝까지 읽는다(06 #16
     expect(new Set(rows.map((row) => row.id)).size).toBe(3013);
     expect(calls.map((call) => call.from)).toEqual([0, 1000, 2000, 3000, 3013]);
     expect(calls.every((call) => call.order === 'id')).toBe(true);
+  });
+});
+
+describe('groupQuickAction — 펼친 줄에 붙는 동작 줄의 주 칸(14 W261010.11)', () => {
+  /** 평범한 신규 후보 — 결정 줄에서도 버튼 하나로 끝난다. */
+  const base = {
+    archived: false,
+    similar: false,
+    addressPick: false,
+    regionOk: true,
+    needsLook: false,
+    hasTable: false,
+    tier: 'new' as const,
+    pairId: null,
+    matchedArchived: false,
+  };
+
+  it('버튼 하나로 끝나는 갈래만 바로 올린다 — 이름·짝은 결정 줄과 같은 함수에서', () => {
+    expect(groupQuickAction(base)).toEqual({ kind: 'approve', approve: { label: '등록하기', unsure: false } });
+    expect(groupQuickAction({ ...base, tier: 'auto', pairId: 'p1' })).toEqual({
+      kind: 'approve',
+      approve: { label: '빈 칸만 채우기', unsure: false },
+    });
+    // '확인' 짝은 짝 id 를 싣는다 — 안 실으면 다른 줄의 승인이 바꾼 캐시로 다른 곳에 합쳐진다
+    const unsure = { kind: 'approve', approve: { label: '같은 곳이에요 — 빈 칸만 채우기', unsure: true, mergeInto: 'p1' } };
+    expect(groupQuickAction({ ...base, tier: 'ask', pairId: 'p1' })).toEqual(unsure);
+    // 표가 서도 '확인' 짝의 승인은 남는다(결정 줄의 `unsure`)
+    expect(groupQuickAction({ ...base, tier: 'ask', pairId: 'p1', hasTable: true })).toEqual(unsure);
+  });
+
+  it('결정 줄이 먼저 말하는 갈래는 내려가기다', () => {
+    const jump = (patch: Partial<Parameters<typeof groupQuickAction>[0]>) => groupQuickAction({ ...base, ...patch }).kind;
+    expect(jump({ archived: true })).toBe('jump');
+    expect(jump({ similar: true })).toBe('jump');
+    expect(jump({ addressPick: true })).toBe('jump');
+    expect(jump({ regionOk: false })).toBe('jump');
+    expect(jump({ tier: 'auto', pairId: 'p1', hasTable: true })).toBe('jump');
+    expect(jump({ rejecting: true })).toBe('jump');
+    expect(jump({ reanalyzing: true })).toBe('jump');
+  });
+
+  it('근거 없음은 바로 올리지 않는다 — 결정 줄의 확인을 비켜 가는 문이 되지 않게(W261010.28)', () => {
+    expect(groupQuickAction({ ...base, needsLook: true })).toEqual({ kind: 'jump', label: '근거 없음 — 결정 보기' });
+    expect(groupQuickAction({ ...base, needsLook: true, tier: 'ask', pairId: 'p1' }).kind).toBe('jump');
+  });
+
+  it('짝이 내린 곳이면 \'확인\' 이 아니다 — 누르면 되살릴지 묻는 갈래로 간다', () => {
+    expect(groupApproveAction({ tier: 'ask', pairId: 'p1', matchedArchived: true })).toEqual({ label: '빈 칸만 채우기', unsure: false });
   });
 });

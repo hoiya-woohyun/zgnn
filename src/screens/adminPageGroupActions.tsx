@@ -7,7 +7,14 @@ import { Select } from '../components/base/select';
 import { addressDiffSpans, type TAddressChoice } from '../lib/adminAddress';
 import type { TBlockChoice } from '../lib/adminBlocks';
 import { COLLECT_REQUESTS_UNAVAILABLE_TEXT } from '../lib/adminCollectRequest';
-import { regionOptionsFor, UPDATE_REJECT_REASONS, type TCandidateGroup, type TPlaceRow, type TRejectReason } from '../lib/adminCandidates';
+import {
+  groupApproveAction,
+  regionOptionsFor,
+  UPDATE_REJECT_REASONS,
+  type TCandidateGroup,
+  type TPlaceRow,
+  type TRejectReason,
+} from '../lib/adminCandidates';
 import type { TLatestPlan } from '../lib/adminLatest';
 import { HAS_SERVER_WORKER, nextStepText } from '../lib/adminNextStep';
 import { lastNoteLine, noteLineText, PLACE_STATUS_COLOR, PLACE_STATUS_LABEL } from '../lib/adminPlaces';
@@ -17,7 +24,8 @@ import type { TAdminPageGroupState, TApproveChoice } from './adminPageGroupCard'
 import { AdminPageGroupSiteCompare } from './adminPageGroupSiteCompare';
 import { AdminPageRejectForm } from './adminPageRejectForm';
 
-const BUSY_LABEL: Record<NonNullable<TAdminPageGroupState['busy']>, string> = {
+/** 도는 동안의 한 줄. 붙는 동작 줄(`AdminPageGroupCardActionBar`)도 읽는다 — 결정 줄이 화면 밖일 때 누른 자리에서 보이게. */
+export const BUSY_LABEL: Record<NonNullable<TAdminPageGroupState['busy']>, string> = {
   approving: '등록하고 있어요…',
   rejecting: '제외하고 있어요…',
   savingRegion: '저장하고 있어요…',
@@ -69,7 +77,9 @@ const Row = ({ children }: { children: ReactNode }) => <div className="flex flex
  *
  * **색이 곧 기본값이다.** 주 버튼(핑크)은 한 줄에 하나이고 상황이 그것을 옮긴다:
  * - `주소 다름` → 올리기가 **없다.** 어느 주소가 맞는지 고르기 전에는 못 올린다(`leadProblem` 도 막는다 — 일괄 올리기 경로).
- * - 교차점검 `동반 근거 없음`·`동반 불가 정황` → 주 버튼이 **반려**, 올리기는 회색으로 내려간다.
+ * - 교차점검 `동반 근거 없음`·`동반 불가 정황` → 주 버튼이 **제외**(아랫줄), 올리기는 회색으로 내려가고 한 번 더 묻는다.
+ *   **자리는 안 바꾼다**(14 W261010.28 · manager-18) — 첫 칸은 어느 갈래에서나 올리기다. 예전에는 그 칸에 핑크 '제외' 가 서서
+ *   손에 익은 자리가 반대 뜻이 됐고, 밀려난 흰 '등록하기' 는 근거가 없다는 줄에서 확인 없이 게시했다.
  * - 짝이 내린 곳 · 닮은 곳 → 그 갈래의 결정(되살려서 합치기 · 같은 곳이에요)이 주 버튼이다.
  *
  * 갈래와 각 버튼이 싣는 `TApproveChoice`(= 안전장치)는 레일 시절과 같다 — 모양만 바뀌었다.
@@ -238,13 +248,19 @@ export function AdminPageGroupActions({
   /*
    * 제외 · 재분석 · 추가 수집 — 모든 갈래 끝에 같은 순서로 선다(`올리지 않기`). 추가 수집은 "지금은 안 올리고 근거를 더 모은다" 라 여기 선다. **고치기는 없다**(2026-10-04): 검수 대기는 AI 분석대로 올릴지만
    * 정하고, AI 가 틀렸으면 안 올리거나 다시 분석한다. 값 수정은 등록 완료의 장소 고치기에서 한다.
-   * `rejectPrimary` 면 반려는 앞쪽 주 버튼으로 나갔으니 여기서 빠진다.
+   * `rejectPrimary`(근거 없음)면 제외가 **이 자리에서** 주 버튼이 된다 — 윗줄 첫 칸으로 끌어올리지 않는다(W261010.28).
    */
   const tail = (rejectPrimary = false, escape?: ReactNode) => (
     <>
       <Row>
         <span className="text-xs text-tertiary">등록하지 않기</span>
-        {!rejectPrimary && tertiary('제외', onStartReject)}
+        {rejectPrimary ? (
+          <TipButton color="primary" size="sm" isDisabled={off} onClick={onStartReject}>
+            제외
+          </TipButton>
+        ) : (
+          tertiary('제외', onStartReject)
+        )}
         {tertiary('재분석', onStartReanalyze, {
           isDisabled: !group.lead.post_url,
           title: group.lead.post_url ? '이 글을 수집 완료로 되돌려요(지우지 않아요)' : '글 링크가 없어 다시 읽을 수 없어요',
@@ -433,7 +449,8 @@ export function AdminPageGroupActions({
      * 표는 체크가 전부 꺼진 채 시작해(`overwriteDefault`) 발치 버튼이 잠기므로, 같은 곳이지만 덮을 칸이 없는 경우 합칠 길이 없었다.
      * 표의 덮어쓰기와 이름이 달라(빈 칸만 채우기 ↔ 체크한 N칸 덮어쓰기) "어느 쪽이 체크를 쓰나" 가 흐려지지 않는다. 짝 id 를 실어 보낸다(아래 주석과 같은 이유).
      */
-    const unsure = group.tier === 'ask' && Boolean(pairId) && !matchedArchived;
+    const approveAction = groupApproveAction({ tier: group.tier, pairId, matchedArchived });
+    const unsure = approveAction.unsure;
     const approveTitle = unsure
       ? '같은 곳이 맞으면 그 장소의 빈 칸만 채워요 · 합친 내용은 되돌릴 수 없어요'
       : pairId
@@ -461,16 +478,13 @@ export function AdminPageGroupActions({
           {hasTable ? '바꾸지 않기 — 사이트가 맞아요' : '사이트가 맞아요'}
         </TipButton>
       ) : null;
-    const approve = (
-      <TipButton
-        color={needsLook ? 'secondary' : 'primary'}
-        size="sm"
-        isDisabled={off}
-        isLoading={busy === 'approving'}
-        title={approveTitle}
-        onClick={() => (unsure && pairId ? onApprove({ mergeInto: pairId }) : onApprove())}
-      >
-        {unsure ? '같은 곳이에요 — 빈 칸만 채우기' : pairId ? '빈 칸만 채우기' : '등록하기'}
+    // 이름과 싣는 짝은 붙는 동작 줄과 같은 함수에서 온다(`groupApproveAction`) — 두 자리가 갈리면 같은 이름의 버튼이 다른 곳에 합친다.
+    const approveChoice = approveAction.mergeInto ? { mergeInto: approveAction.mergeInto } : undefined;
+    const approve = needsLook ? (
+      <ApproveAfterAsk busy={busy} label={approveAction.label} title={approveTitle} onApprove={() => onApprove(approveChoice)} />
+    ) : (
+      <TipButton color="primary" size="sm" isDisabled={off} isLoading={busy === 'approving'} title={approveTitle} onClick={() => onApprove(approveChoice)}>
+        {approveAction.label}
       </TipButton>
     );
     const matchedLink =
@@ -521,15 +535,13 @@ export function AdminPageGroupActions({
           * "어느 쪽이 체크를 쓰나" 가 다시 흐려진다. 표가 없는 묶음(바뀔 칸 없음 · 신규)에서는 이 버튼이 유일한 승인이라 남는다.
           * **'확인' 짝은 예외**다(06 #15) — 위 `unsure` 주석.
           */}
-        {(needsLook || !hasTable || unsure) && (
+        {/*
+          * 근거가 없으면 핑크는 아랫줄의 '제외' 로 가고(5곳이 핑크 한 번씩에 게시되던 자리 — UI 스냅샷 피드백) 이 줄의 올리기는 흰 버튼 + 한 번 더 묻기다.
+          * 제외를 이 줄 첫 칸으로 끌어올리지 않는다 — 그 칸은 어느 갈래에서나 올리기다(W261010.28).
+          */}
+        {(!hasTable || unsure) && (
           <Row>
-            {/* 근거가 없으면 반려가 주 버튼이다 — 5곳이 핑크 한 번씩에 게시되던 자리(UI 스냅샷 피드백). */}
-            {needsLook && (
-              <TipButton color="primary" size="sm" isDisabled={off} onClick={onStartReject}>
-                제외
-              </TipButton>
-            )}
-            {(!hasTable || unsure) && approve}
+            {approve}
             {!hasTable && confirmSite}
           </Row>
         )}
@@ -561,6 +573,44 @@ function Status({ state }: { state: TAdminPageGroupState }) {
       {state.busy && <p className="text-xs text-tertiary">{BUSY_LABEL[state.busy]}</p>}
       {state.error && <p className="text-xs text-error-primary">{state.error}</p>}
     </>
+  );
+}
+
+/**
+ * 근거 없음 갈래의 올리기(14 W261010.28 · manager-18). 한 번 누르면 확인 한 줄이 서고, 거기서 다시 눌러야 올린다 —
+ * 교차점검이 근거를 못 찾았다는 줄에서 흰 버튼 한 번에 게시되던 자리다. 막지는 않는다(ADR-018 결정 11 — 근거 없음은 "본문에서 못 찾았다" 다).
+ */
+function ApproveAfterAsk({
+  busy,
+  label,
+  title,
+  onApprove,
+}: {
+  busy: TAdminPageGroupState['busy'];
+  label: string;
+  title: string;
+  onApprove: () => void;
+}) {
+  const [asking, setAsking] = useState(false);
+  if (asking) {
+    return (
+      <div className="basis-full space-y-1.5 border-t border-secondary pt-2">
+        <Situation title="근거 없이 등록할까요?">누르면 다음 빌드에 사이트에 반영돼요.</Situation>
+        <Row>
+          <TipButton color="secondary" size="sm" isDisabled={Boolean(busy)} isLoading={busy === 'approving'} title={title} onClick={onApprove}>
+            네, {label}
+          </TipButton>
+          <TipButton color="secondary" size="sm" isDisabled={Boolean(busy)} onClick={() => setAsking(false)}>
+            취소
+          </TipButton>
+        </Row>
+      </div>
+    );
+  }
+  return (
+    <TipButton color="secondary" size="sm" isDisabled={Boolean(busy)} title={title} onClick={() => setAsking(true)}>
+      {label}
+    </TipButton>
   );
 }
 

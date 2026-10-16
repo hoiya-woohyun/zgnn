@@ -1,11 +1,12 @@
 'use client';
 
-import type { ComponentProps } from 'react';
+import { useRef, type ComponentProps } from 'react';
 import { ChevronDown } from '@untitledui/icons';
 import { Badge } from '../components/base/badges';
 import { Checkbox } from '../components/base/checkbox';
 import type { TBlockChoice } from '../lib/adminBlocks';
 import {
+  groupQuickAction,
   regionUsable,
   KIND_LABEL,
   TIER_LABEL,
@@ -30,6 +31,7 @@ import { AdminPageGroupDetail } from './adminPageGroupDetail';
 import { AdminPageGroupSiteCompare } from './adminPageGroupSiteCompare';
 import { AdminTypeChip } from './adminTypeChip';
 import { AdminPageGroupActions } from './adminPageGroupActions';
+import { AdminPageGroupCardActionBar } from './adminPageGroupCardActionBar';
 import { AdminSourceChip } from './adminSource';
 import { ADMIN_LEAD_CELL, ADMIN_PANEL_DIVIDER, ADMIN_POLICY_TONE, ADMIN_ROW, ADMIN_ROW_CELLS, ADMIN_ROW_FAILED, ADMIN_ROW_OPEN, ADMIN_ROW_WAITING, ADMIN_VERIFY_TEXT } from './adminTable';
 
@@ -186,6 +188,9 @@ export function AdminPageGroupCard({
   collect,
   onRequestCollect,
 }: TAdminPageGroupCardProps) {
+  /** 줄 전체 · 결정 줄 — 붙는 동작 줄이 접은 뒤 이 줄로, 내려가기·제외로 결정 줄로 데려간다(14 W261010.11). 아래의 `done` 갈래보다 먼저 선다(훅 순서). */
+  const rowRef = useRef<HTMLLIElement>(null);
+  const decisionRef = useRef<HTMLElement>(null);
   const extracted = group.lead.extracted;
   /** 접힌 줄의 사람 말 한 조각(09 T6.6) — 나머지 칸이 전부 AI 값이라 이것 없이는 매 줄을 펼친다. 펼치면 근거 목록이 말하므로 접힌 동안만. */
   const quote = expanded ? null : groupQuote(group);
@@ -267,6 +272,40 @@ export function AdminPageGroupCard({
   const addressPick = conflict ? { blog: conflict.sourceAddress, search: conflict.address } : null;
   /** 쓰기 전에 멈춰 사람이 고를 차례인 줄 — `similar`(닮은 곳)·`archived`(내린 곳) 둘 다 같은 종류의 상태다. */
   const waiting = Boolean(state.similar || state.archived);
+  /** 결정 줄에 덮어쓰기 표가 서나 — `AdminPageGroupActions` 의 `hasTable` 과 같은 조건이다. */
+  const hasTable = Boolean(latestAvailable && latest && latest.changes.length && pairPlace);
+  /** 붙는 동작 줄의 주 칸 — 바로 올리기 또는 결정 줄로 내려가기(`groupQuickAction`). 펼쳤을 때만 쓴다. */
+  const quick = groupQuickAction({
+    rejecting: state.rejecting,
+    reanalyzing: state.reanalyzing,
+    archived: Boolean(state.archived),
+    similar: Boolean(state.similar),
+    addressPick: Boolean(addressPick),
+    regionOk,
+    needsLook,
+    hasTable,
+    tier: group.tier,
+    pairId,
+    matchedArchived,
+  });
+  const scrollBehavior = (): ScrollBehavior =>
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+  /**
+   * 결정 줄로 데려간다 — 붙는 줄의 내려가기, 그리고 제외(폼이 결정 줄 자리에서 열린다 — 화면 밖 아래에서 열리면 누른 것이 안 된 것처럼 보인다).
+   * 포커스도 옮긴다: 키보드로 눌렀으면 다음 Tab 이 결정 줄의 버튼부터 간다. 상태가 바뀐 뒤의 모양으로 재야 해서 한 프레임 뒤다.
+   */
+  const revealDecision = () =>
+    requestAnimationFrame(() => {
+      const section = decisionRef.current;
+      if (!section) return;
+      section.scrollIntoView({ block: 'start', behavior: scrollBehavior() });
+      section.focus({ preventScroll: true });
+    });
+  /** 접기 — 패널 바닥(1,400px 아래)에서 접으면 접힌 줄은 화면 위로 사라지고 남의 줄 한가운데 떨어진다. 접힌 그 줄을 데려온다. */
+  const collapse = () => {
+    onToggle();
+    requestAnimationFrame(() => rowRef.current?.scrollIntoView({ block: 'nearest' }));
+  };
 
   return (
     /*
@@ -275,8 +314,11 @@ export function AdminPageGroupCard({
      * 어느 줄의 패널인지 눈으로 정하지 못하면 그것이 곧 다른 가게를 올리는 길이다.
      */
     <li
+      ref={rowRef}
       className={cx(
         ADMIN_ROW,
+        // 접은 뒤 데려올 때 위에 붙은 일괄 줄(`AdminPageBulkBar`) 밑에 숨지 않게.
+        'scroll-mt-24',
         expanded ? ADMIN_ROW_OPEN : 'hover:bg-primary_hover',
         // 접힌 채로도 멈춘 줄은 줄기색으로 찾힌다 — 일괄이 141줄 중 셋을 세워 두면 그 셋을 한 줄씩 펼쳐 찾던 자리(todo/09 T6.4).
         !expanded && waiting && ADMIN_ROW_WAITING,
@@ -476,7 +518,7 @@ export function AdminPageGroupCard({
         * 값 수정은 등록 완료의 장소 고치기(`adminPagePlaceEditForm`)에서 한다. 주소 고르기·지역 고르기는 결정의 일부라 남는다.
         */}
       {expanded && (
-        <div className={cx(ADMIN_PANEL_DIVIDER, 'px-4 pt-3 pb-2 md:pl-14')}>
+        <div className={cx(ADMIN_PANEL_DIVIDER, 'px-4 pt-3 md:pl-14')}>
           <div className="space-y-3">
             <AdminPageGroupDetail group={group} preview={preview} place={pairPlace} intro={intro} />
             {/*
@@ -488,7 +530,8 @@ export function AdminPageGroupCard({
             )}
           </div>
           <div className="mt-3 border-t border-secondary pt-3">
-            <section aria-label="이 장소 결정">
+            {/* 붙는 동작 줄이 이리로 데려와 포커스를 준다(`revealDecision`) — 위 여백은 위에 붙은 일괄 줄 몫이다. */}
+            <section ref={decisionRef} aria-label="이 장소 결정" tabIndex={-1} className="scroll-mt-24 outline-hidden">
               <AdminPageGroupActions
                 group={group}
                 state={state}
@@ -519,15 +562,25 @@ export function AdminPageGroupCard({
                 onRequestCollect={onRequestCollect}
               />
             </section>
-            <button
-              type="button"
-              onClick={onToggle}
-              className="mx-auto mt-3 flex items-center gap-1 py-1.5 text-xs text-tertiary hover:text-secondary"
-            >
-              <ChevronDown aria-hidden="true" className="size-3.5 rotate-180" />
-              여기까지 · 접기
-            </button>
           </div>
+          {/*
+            * 옛 '여기까지 · 접기' 자리 — 패널이 화면 밖으로 이어지는 동안 바닥에 붙어 이름·올리기·제외·접기를 든다(14 W261010.11).
+            * 패널의 **직속 자식**이어야 한다: sticky 는 부모 상자 안에서만 붙으므로, 결정 줄 상자 안에 두면 그 높이 안에서만 붙는다.
+            */}
+          <AdminPageGroupCardActionBar
+            name={extracted.name || '(이름 없음)'}
+            quick={quick}
+            state={state}
+            rejectPrimary={needsLook}
+            decisionRef={decisionRef}
+            onApprove={() => quick.kind === 'approve' && onApprove(quick.approve.mergeInto ? { mergeInto: quick.approve.mergeInto } : undefined)}
+            onReject={() => {
+              onStartReject();
+              revealDecision();
+            }}
+            onJump={revealDecision}
+            onCollapse={collapse}
+          />
         </div>
       )}
 
