@@ -118,6 +118,14 @@ const withSerwist = withSerwistInit({
   swDest: 'public/sw.js',
   disable: process.env.NODE_ENV === 'development',
   additionalPrecacheEntries,
+  /*
+   * `_next/static/` 은 파일명(또는 빌드 id 경로)에 내용 해시가 있어 같은 주소면 같은 내용이다 — revision 을 붙이지 않는다.
+   * 붙어 있으면 serwist 가 그 항목을 `cache: 'reload'` 로 받아 HTTP 캐시를 건너뛴다. next/font 가 내보내는 글꼴이
+   * 그랬다(JS 청크는 webpack 이 immutable 로 표시해 이미 null) — 페이지가 프리로드로 받은 woff2 를 서비스워커가 설치하며
+   * **한 번 더** 받아, 첫 방문의 글꼴 전송이 두 배였다(1.2MB × 2, 14 W261010.33m 실측). 슬래시 둘은 serwist/next 가
+   * 나중에 고치는 `/_next//static/media` 꼴까지 받으려는 것이다(이 변환이 그 보정보다 먼저 돈다).
+   */
+  dontCacheBustURLsMatching: /^\/_next\/+static\//,
   reloadOnOnline: false,
 });
 

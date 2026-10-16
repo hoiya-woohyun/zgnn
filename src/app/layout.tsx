@@ -7,6 +7,7 @@ import { SITE_URL } from '@/lib/siteIndex';
 import { RouteProvider } from '@/providers/routerProvider';
 import { StoreHydration } from '@/providers/storeHydration';
 import '@/styles/globals.css';
+import '@/styles/appSansExt.css';
 
 /**
  * 본문 글꼴 — Pretendard(SIL OFL 1.1)를 서브셋한 파생본. 파일·글꼴 이름이 `Zgnn Sans` 인 것은
@@ -21,9 +22,15 @@ import '@/styles/globals.css';
  * (비행기 모드·제주 산간에서 열어보는 앱이다) 외부 도메인에 기대면 그때 글꼴이 시스템 폰트로
  * 떨어진다. 외부 요청이 0건이면 CSP·추적 문제도 같이 사라진다.
  *
- * 한글 완성형 11,172자 + 라틴 + 문장부호로 서브셋해 굵기당 약 620KB 다(재생성 절차는
- * docs/architecture/pwa-offline.md). 완성형 전체를 넣은 것은 강아지 이름처럼 **사용자가 직접 치는
- * 글자**가 있기 때문이다 — 상용 2350자로 줄이면 "똠", "쀼" 같은 이름에서 그 글자만 시스템 폰트로 튄다.
+ * 한글 완성형 11,172자 + 라틴 + 문장부호를 싣는다(재생성 절차는 docs/architecture/pwa-offline.md).
+ * 완성형 전체를 넣은 것은 강아지 이름처럼 **사용자가 직접 치는 글자**가 있기 때문이다 — 상용 2350자로
+ * 줄이면 "똠" 같은 이름에서 그 글자만 시스템 폰트로 튄다.
+ *
+ * 다만 받는 것은 두 조각이다(ADR-006 v7). 여기서 프리로드하는 **Core** 는 상용 2,350자(KS X 1001)와
+ * 데이터에 나오는 글자·라틴·문장부호로 굵기당 약 185KB 이고, 나머지 8,821자는 **Ext** 로 떼어
+ * `styles/appSansExt.css` 가 unicode-range 로 건다 — 그 글자가 화면에 나올 때만 받는다. 둘을 `--font-app` 이
+ * 잇기 때문에 여기 변수 이름은 `--font-app-core` 다. 조각은 `scripts/split-fonts.py` 가 정본(`ZgnnSans-*.woff2`,
+ * 링크 미리보기 이미지도 이것을 읽는다)에서 만든다. 통째로 프리로드하던 때는 첫 화면이 글꼴만 1.2MB 를 받았다.
  *
  * 굵기는 400·600 둘이다. font-medium(500)은 400 에, font-bold(700)는 CSS 폰트 매칭 규칙상 600 에
  * 붙는다 — 700 을 따로 싣지 않은 것은 용량(+620KB)과, 굵은 글씨가 과하게 무거워 크게 읽히던 것을 함께
@@ -31,10 +38,10 @@ import '@/styles/globals.css';
  */
 const appSans = localFont({
   src: [
-    { path: './fonts/ZgnnSans-Regular.woff2', weight: '400', style: 'normal' },
-    { path: './fonts/ZgnnSans-SemiBold.woff2', weight: '600', style: 'normal' },
+    { path: './fonts/ZgnnSans-Regular-Core.woff2', weight: '400', style: 'normal' },
+    { path: './fonts/ZgnnSans-SemiBold-Core.woff2', weight: '600', style: 'normal' },
   ],
-  variable: '--font-app',
+  variable: '--font-app-core',
   display: 'swap',
 });
 

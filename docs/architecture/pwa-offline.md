@@ -1,6 +1,7 @@
 # PWA · 서비스워커 · 오프라인
 
-> 최종 수정: 2026-10-07 (v12: **관례 경로 아이콘** — `public/favicon.ico`·`apple-touch-icon.png` 를 `pnpm icons` 가 함께 만든다. 링크를 안 읽는 클라이언트의 404 잡음만 없앤다, 프리캐시엔 안 넣는다([todo/08](../todo/08-usability-and-process-plan.md) T5.9))
+> 최종 수정: 2026-10-16 (v13: **본문 글꼴을 두 조각으로, `_next/static/` 엔 revision 없이** — 첫 방문이 글꼴을 두 번(프리로드 + 서비스워커 `cache: 'reload'`) 받아 2.46MB 였다. Core 만 프리로드하고 Ext 는 unicode-range, 둘 다 프리캐시(ADR-006 v7 · 14 W261010.33m))
+> 이전 2026-10-07 (v12: **관례 경로 아이콘** — `public/favicon.ico`·`apple-touch-icon.png` 를 `pnpm icons` 가 함께 만든다. 링크를 안 읽는 클라이언트의 404 잡음만 없앤다, 프리캐시엔 안 넣는다([todo/08](../todo/08-usability-and-process-plan.md) T5.9))
 > 이전 2026-10-07 (v11: **인앱 브라우저에선 침묵 대신 바깥 브라우저로 여는 길** — 카카오톡은 `kakaotalk://web/openExternal` 한 줄, 다른 앱은 ··· 메뉴 두 단계(`installGuideKind` 의 `inApp`, 07 U9 후속))
 > 이전 2026-10-07 (v10: **설치 안내** — 두 번째 방문부터 홈 하단 한 줄. 설치 신호가 있으면 설치 창, iOS 는 공유 → 홈 화면에 추가 두 단계, 인앱 브라우저·신호 없는 Android 는 아무 말도 안 한다([todo/07](../todo/07-product-and-ux.md) U9))
 > 이전 2026-10-02 (v9: **새 버전 알림과 청크 복구** — `controllerchange` 에 "새 정보가 있어요 · 새로고침"(첫 설치 제외), 동적 청크를 못 받으면 배포당 한 번만 새로고침([todo/12](../todo/12-ux-audit-2026-10-02.md) U2.4))
@@ -101,6 +102,17 @@ iOS 홈 화면 앱은 며칠씩 열려 있다. 그리고 그 세션에서 처음
 인식해 **프리캐시 목록에 자동으로 넣는다**(`additionalPrecacheEntries` 에 손으로 적을 필요 없다.
 아이콘·이미지와 다른 점 — 그쪽은 `public/` 이라 직접 넣어야 한다).
 
+**받는 것은 두 조각이다**(ADR-006 v7). 정본 `ZgnnSans-{Regular,SemiBold}.woff2`(완성형 전부)를 `scripts/split-fonts.py` 가
+**Core**(상용 2,350자 + 데이터에 나오는 글자 + 라틴, 굵기당 약 180KB — `next/font` 가 프리로드)와 **Ext**(나머지 8,821자, 약 460KB —
+`src/styles/appSansExt.css` 의 `unicode-range`)로 쪼갠다. 브라우저는 Ext 범위의 글자가 화면에 나올 때만 Ext 를 받고, 서비스워커는
+둘 다 프리캐시하므로 오프라인에서 처음 친 "똠" 도 같은 글꼴로 뜬다(2026-10-16 headless 실측: 설치 뒤 오프라인 `/settings/` 에서
+Ext 로 그림). 정본은 배포되지 않는다 — 링크 미리보기 이미지(아래)와 쪼개기의 입력으로만 쓴다.
+
+**`_next/static/` 항목엔 revision 을 붙이지 않는다**(`next.config.mjs` 의 `dontCacheBustURLsMatching`). 붙어 있으면 serwist 가 그 항목을
+`cache: 'reload'` 로 받아 HTTP 캐시를 건너뛴다. next/font 가 내보내는 woff2 가 그랬다(JS 청크는 webpack 이 immutable 로 표시해 이미
+null) — 페이지가 프리로드로 받은 글꼴을 서비스워커가 설치하며 한 번 더 받아, 첫 방문 글꼴 전송이 1.2MB × 2 였다. 파일명이 내용
+해시(또는 빌드 id 경로)라 revision 없이도 같은 주소면 같은 내용이다.
+
 원본은 굵기당 766KB 라 서브셋해서 쓴다. 다시 만들 일이 생기면:
 
 ```bash
@@ -121,16 +133,20 @@ for r in f['name'].names:
     elif r.nameID in (3,6): r.string=f'ZgnnSans-{w}'
 f['name'].setName('Subset of Pretendard 1.3.9 (Hangul syllables + Latin), renamed per the SIL OFL Reserved Font Name clause.',10,3,1,0x409)
 f.flavor='woff2'; f.save(f'src/app/fonts/ZgnnSans-{w}.woff2')" Regular
+
+# 4) 두 조각으로 — Core/Ext woff2 와 Ext 의 unicode-range(src/styles/appSansExt.css).
+#    데이터에 KS X 1001 밖 글자가 새로 생겨 src/styles/appSansExt.test.ts 가 실패할 때도 이것만 다시 돌린다.
+python3 scripts/split-fonts.py
 ```
 
-링크 미리보기 이미지(`app/og/[file]/route.ts`)도 이 woff2 두 개를 빌드 때 풀어서(`wawoff2` — satori 가 woff2 를 못 읽는다) 쓰므로, 서브셋을 다시 만들면 미리보기 글자도 따라온다.
+링크 미리보기 이미지(`app/og/[file]/route.ts`)는 정본 woff2 두 개를 빌드 때 풀어서(`wawoff2` — satori 가 woff2 를 못 읽는다) 쓰므로, 서브셋을 다시 만들면 미리보기 글자도 따라온다.
 
-굵기당 약 620KB 가 나온다(힌팅을 빼도 거의 안 준다 — 용량은 윤곽 자체다). 한글 완성형(U+AC00-D7A3) 11,172자를
+정본은 굵기당 약 620KB 다(힌팅을 빼도 거의 안 준다 — 용량은 윤곽 자체다). 쪼개면 Core 약 180KB + Ext 약 460KB. 한글 완성형(U+AC00-D7A3) 11,172자를
 통째로 넣는 이유와 굵기를 400·600 둘로 제한한 이유는 ADR-006 에 있다.
 
 ## 확인 방법
 
-`pnpm build && pnpm preview` 로 `out/` 을 띄우고, DevTools → Application 에서 `sw.js` 등록과 프리캐시 개수(최근 150개)를 본다.
+`pnpm build && pnpm preview` 로 `out/` 을 띄우고, DevTools → Application 에서 `sw.js` 등록과 프리캐시 개수(2026-10-16 빌드 207개)를 본다.
 `pnpm dev` 에서는 서비스워커가 없으므로 오프라인 동작은 반드시 빌드본으로 본다.
 
 ## 관련 파일
