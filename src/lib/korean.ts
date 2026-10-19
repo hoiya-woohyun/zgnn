@@ -21,7 +21,7 @@ export const hasBatchim = (text: string): boolean => {
   return (code - HANGUL_START) % 28 !== 0;
 };
 
-export type TJosaPair = '은/는' | '이/가' | '을/를' | '과/와' | '이랑/랑' | '아/야' | '이라고/라고' | '으로/로';
+export type TJosaPair = '은/는' | '이/가' | '을/를' | '과/와' | '이랑/랑' | '아/야' | '이라고/라고' | '으로/로' | '이나/나';
 
 /** 받침 ㄹ(종성 번호 8) — '으로/로' 만 ㄹ 받침 뒤에서 '로' 다(서울로·물로). */
 const endsWithRieul = (text: string): boolean => {
@@ -64,6 +64,15 @@ const joinNames = (names: string[]): string => {
  * 거기서 '단풍' 이 '단풍이' 로 보이면 적은 이름이 바뀐 것으로 읽힌다(14 W261010.33h, tremor-05c).
  */
 export const dogCallNames = (names: string[]): string => joinNames(names.map(dogCallName));
+
+/**
+ * 여러 마리를 '또는' 으로 부른다: "콩이나 해피" / "단비, 솜이, 구름이". 다두 what-if 의 "… 중 한 마리만" 앞(`dogSubsetLead`).
+ * 둘은 앞 이름에 '이나/나' — 받침은 애칭을 붙인 뒤에 본다(콩 → 콩이 → '나').
+ */
+export const dogCallNamesOr = (names: string[]): string => {
+  const called = names.map(dogCallName);
+  return called.length === 2 ? `${withJosa(called[0], '이나/나')} ${called[1]}` : called.join(', ');
+};
 
 /**
  * 보호자가 적은 이름 그대로 묶는다: "단풍" / "단풍과 깜지" / "보리, 단풍, 깜지". 묶는 꼴은 `dogCallNames` 와 같고 '이' 만 안 붙인다.

@@ -3,9 +3,8 @@ import Link from 'next/link';
 import { MessageAlertSquare } from '@untitledui/icons';
 import { Button } from '../components/base/button';
 import { feeUnitNote } from '../lib/dogFee';
-import { dogSubsetWhatIf } from '../lib/dogSubsetWhatIf';
+import { dogSubsetLead, dogSubsetWhatIf } from '../lib/dogSubsetWhatIf';
 import { headlineFor, verdictFor, type TEligibilityLevel } from '../lib/eligibility';
-import { dogCallNames } from '../lib/korean';
 import { needsIndoorChangedLevel } from '../lib/needsIndoorWhatIf';
 import type { TPlaceEntry } from '../lib/places';
 import { useAppStore, useDog } from '../store/useAppStore';
@@ -77,7 +76,7 @@ export function PlaceDetailEligibilityCard({
 
   // 몸무게 문턱(I2)은 info 지만 근거 목록에 선다 — 카드·지도 시트의 이유 줄(`primaryReason`)과 같은 말이다(14 W261010.33r).
   const mainReasons = eligibility.reasons.filter((r) => r.rule !== 'I1' && r.rule !== 'U1');
-  // 다두 what-if(10 F11) — 어려움일 때만, 가장 많이 데려갈 수 있는 조합 하나. 판정을 다시 돌릴 뿐 규칙을 새로 쓰지 않는다.
+  // 다두 what-if(10 F11) — 어려움일 때만, 가장 많이 데려갈 수 있는 조합(누구로도 되면 "… 중 한 마리만", 14 W261019.9). 판정을 다시 돌릴 뿐 규칙을 새로 쓰지 않는다.
   const subset = dogSubsetWhatIf(dog, place.policy, eligibility, { needsIndoor });
   const infoReasons = eligibility.reasons.filter((r) => r.rule === 'I1');
   // 요금이 1박마다인지 원문이 말하지 않으면 한 줄 밑에 그렇다고 적는다(08 T5.1). 카드엔 붙이지 않는다 — 숙소 거의 전부라 소음이다.
@@ -127,7 +126,7 @@ export function PlaceDetailEligibilityCard({
 
           {subset && (
             <p className="mt-3 rounded-xl bg-secondary px-3 py-2 text-sm text-secondary">
-              {dogCallNames(subset.names)}만 데려가면 {headlineFor(subset.eligibility)}
+              {dogSubsetLead(subset, dog.dogs.map((d) => d.name))} {headlineFor(subset.eligibility)}
             </p>
           )}
 
