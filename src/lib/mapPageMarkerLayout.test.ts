@@ -8,6 +8,7 @@ import {
   mapPageMarkerClusterSummary,
   mapPageMarkerClusterZoom,
   mapPageMarkerLayout,
+  mapPageMarkerTabOrder,
   type TMarkerLayout,
   type TMarkerPoint,
 } from './mapPageMarkerLayout';
@@ -148,6 +149,28 @@ describe('mapPageMarkerLayout — 묶은 뒤엔 여백이 이웃의 몸통을 �
     };
     expect(at('left')).toBeCloseTo(100 - MARKER_GAP / 2, 6);
     expect(at('right')).toBeCloseTo(100 + MARKER_GAP / 2, 6);
+  });
+});
+
+describe('mapPageMarkerTabOrder — 지도 안 Tab 은 읽는 순서로(14 W261006.11a)', () => {
+  const p = (id: string, x: number, y: number): TMarkerPoint => ({ id, x, y });
+
+  it('위 → 아래, 한 줄 안에서는 왼쪽 → 오른쪽 — 넣은 순서(만든 순서)와 무관하다', () => {
+    const points = [p('남서', 10, 300), p('북동', 400, 20), p('묶음', 200, 160), p('북서', 15, 30)];
+    expect(mapPageMarkerTabOrder(points)).toEqual(['북서', '북동', '묶음', '남서']);
+  });
+
+  it('줄은 그 줄 첫 점에서 히트 높이(44) 안 — 칸 경계 양쪽의 2px 차이는 한 줄이다', () => {
+    // 고정 칸(44 의 배수)이면 43 과 45 가 다른 칸이라 오른쪽(43)이 먼저 왔을 것이다.
+    expect(mapPageMarkerTabOrder([p('오른쪽', 300, 43), p('왼쪽', 20, 45)])).toEqual(['왼쪽', '오른쪽']);
+    // 첫 점에서 44 이상 내려가면 다음 줄이다 — 줄이 끝없이 이어 붙지 않는다.
+    expect(mapPageMarkerTabOrder([p('a', 300, 0), p('b', 200, 30), p('c', 10, 60)])).toEqual(['b', 'a', 'c']);
+  });
+
+  it('빈 목록 · 한 점 · 같은 자리', () => {
+    expect(mapPageMarkerTabOrder([])).toEqual([]);
+    expect(mapPageMarkerTabOrder([p('a', 5, 5)])).toEqual(['a']);
+    expect(mapPageMarkerTabOrder([p('b', 5, 5), p('a', 5, 5)])).toHaveLength(2);
   });
 });
 

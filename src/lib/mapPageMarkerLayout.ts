@@ -127,6 +127,26 @@ export function mapPageMarkerLayout(
 }
 
 /**
+ * 지도 안 **Tab 순서** — 읽는 순서(위 → 아래, 한 줄 안에서는 왼쪽 → 오른쪽)로 id 를 늘어놓는다. 순수(14 W261006.11a).
+ *
+ * Tab 은 DOM 순서를 따르고 SDK 는 마커를 **만든 순서**로 꽂는다 — 혼자 선 원은 장소 목록 순, 묶음 원은 셀 때마다 새로 만들어 맨 뒤라
+ * 키보드는 섬을 이리저리 뛰다가 묶음을 마지막에 몰아 들렀다. 화면은 이 순서로 요소를 다시 꽂는다(`mapPageCanvas`).
+ * 줄은 위에서부터 그 줄 첫 점의 y 에서 `rowHeight`(히트 영역 높이) 안에 드는 것끼리다 — 고정 칸으로 자르면 칸 경계 양쪽의 2px 차이 두 점이 다른 줄이 된다.
+ */
+export function mapPageMarkerTabOrder(points: readonly TMarkerPoint[], rowHeight: number = MARKER_HIT): string[] {
+  const byY = [...points].sort((a, b) => a.y - b.y || a.x - b.x);
+  const order: string[] = [];
+  for (let start = 0; start < byY.length; ) {
+    const top = byY[start].y;
+    let end = start;
+    while (end < byY.length && byY[end].y - top < rowHeight) end++;
+    order.push(...byY.slice(start, end).sort((a, b) => a.x - b.x).map((point) => point.id));
+    start = end;
+  }
+  return order;
+}
+
+/**
  * 묶음을 누르면 갈 줌. 둘 중 **낮은 쪽**:
  *
  * - `fitZoom` — 무리가 다 들어오는 줌(SDK 의 `getFitZoomAndCenter`, 칩 줄 여백 포함).

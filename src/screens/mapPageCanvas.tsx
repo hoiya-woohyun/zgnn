@@ -13,6 +13,7 @@ import {
   mapPageMarkerClusterSummary,
   mapPageMarkerClusterZoom,
   mapPageMarkerLayout,
+  mapPageMarkerTabOrder,
 } from '../lib/mapPageMarkerLayout';
 import { loadNaverMaps, onNaverMapsAuthFailure, watchNaverMapInit } from '../lib/naverMap';
 import { JEJU_CENTER, jejuZoomFor, MY_LOCATION_COLOR, PLACE_FOCUS_ZOOM, type TPlaceEntry } from '../lib/places';
@@ -32,6 +33,8 @@ const Z_SAVED = 500;
 /** 묶음 원은 서로·마커와 겹치지 않게 세므로 층이 거의 상관없다 — 고른 핀(묶음에서 꺼낸다)만 그 위에 온다. */
 const Z_CLUSTER = 600;
 const Z_SELECTED = 1000;
+/** Tab 순서를 셀 때 묶음 원의 열쇠 앞머리 — 장소 id 와 겹치지 않는다(장소 id 에 콜론이 없다). */
+const CLUSTER_KEY = 'cluster:';
 
 /** 내 위치 점의 크기(px). 후광까지 포함한 캔버스이고, 가운데가 좌표다. */
 const MY_LOCATION_SIZE = 28;
@@ -159,6 +162,25 @@ function makeMarkerButton(element: HTMLElement, label: string, onActivate: () =>
   };
   element.addEventListener('keydown', onKeyDown);
   return () => element.removeEventListener('keydown', onKeyDown);
+}
+
+/**
+ * 마커 요소를 주어진 순서(`mapPageMarkerTabOrder` — 읽는 순서)로 DOM 에 다시 꽂는다(14 W261006.11a). Tab 은 DOM 순서를 따르는데
+ * SDK 는 만든 순서로 꽂아, 키보드가 섬을 이리저리 뛰고 묶음은 맨 뒤에 몰렸다. 그림은 left/top 과 z-index 로 서므로 순서를 바꿔도
+ * 안 움직인다(같은 z-index 끼리의 겹침 순서만 바뀌는데, 묶은 뒤엔 보이는 것끼리 겹치지 않는다).
+ *
+ * 모두 한 판(SDK 의 오버레이 칸) 안에 있을 때만 한다 — 아니면 손대지 않는다. 이미 그 순서면 건드리지 않는다.
+ * 옮기기는 떼었다 붙이기라 포커스가 풀린다 — 든 요소였으면 되돌린다(스크롤 없이).
+ */
+function reorderMarkersForTab(elements: HTMLElement[]) {
+  const parent = elements[0]?.parentElement;
+  if (!parent || elements.some((element) => element.parentElement !== parent)) return;
+  const wanted = new Set<Element>(elements);
+  const current = [...parent.children].filter((child) => wanted.has(child));
+  if (current.every((child, index) => child === elements[index])) return;
+  const active = document.activeElement;
+  for (const element of elements) parent.appendChild(element);
+  if (active instanceof HTMLElement && wanted.has(active) && document.activeElement !== active) active.focus({ preventScroll: true });
 }
 
 /**
@@ -334,6 +356,24 @@ function layoutMarkers(input: TLayoutInput): number {
   }
   input.onDimShown(
     layout.singles.some(({ id }) => markers.get(id)?.hard) || clusters.some((cluster) => cluster.allHard),
+  );
+
+  // Tab 을 화면 순서로(14 W261006.11a) — 보이는 것(혼자 선 원 · 묶음 원)만 센다. 묶음은 `clusters` 에 배치 순서대로 들어갔다.
+  const pointOf = new Map(points.map((point) => [point.id, point]));
+  const tabPoints = [
+    ...layout.singles.flatMap(({ id, dx, dy }) => {
+      const point = pointOf.get(id);
+      return point ? [{ id, x: point.x + dx, y: point.y + dy }] : [];
+    }),
+    ...layout.clusters.map(({ x, y }, index) => ({ id: `${CLUSTER_KEY}${index}`, x, y })),
+  ];
+  reorderMarkersForTab(
+    mapPageMarkerTabOrder(tabPoints).flatMap((key) => {
+      const element = key.startsWith(CLUSTER_KEY)
+        ? clusters[Number(key.slice(CLUSTER_KEY.length))]?.marker.getElement()
+        : markers.get(key)?.marker.getElement();
+      return element ? [element] : [];
+    }),
   );
 
   // 키보드로 연 묶음이면 갈라진 자리로 포커스를 데려간다 — 누른 원이 사라지면 포커스가 body 로 떨어진다.
@@ -776,7 +816,14 @@ export function MapPageCanvas({
       if (!entry || !(target instanceof HTMLElement)) return;
       const rect = target.getBoundingClientRect();
       const view = container.getBoundingClientRect();
-      if (rect.left >= view.left && rect.right <= view.right && rect.top >= view.top && rect.bottom <= view.bottom) return;
+      const inside = rect.left >= view.left && rect.right <= view.right && rect.top >= view.top && rect.bottom <= view.bottom;
+      /*
+       * 칸 안이어도 **가운데가 남에게 덮였으면** 화면 밖과 같다(14 W261006.11a) — 지도 위에 뜬 칩 줄(위 88px 안팎)·고른 곳 시트·내 위치 버튼 밑에
+       * 깔린 마커는 칸 안이라 "보인다" 로 쳐서 안 옮겼고, 포커스 테두리가 칩 뒤에 숨었다. 가운데 점에서 맨 위에 맞는 것이 이 마커(또는 그 안)인지 본다 —
+       * 칩 줄의 빈 오른쪽처럼 `pointer-events: none` 인 자리는 맞지 않으니 덮인 것으로 치지 않는다(실제로 보인다).
+       */
+      const hit = inside ? document.elementFromPoint((rect.left + rect.right) / 2, (rect.top + rect.bottom) / 2) : null;
+      if (hit && target.contains(hit)) return;
       try {
         map.panTo(entry.marker.getPosition());
       } catch {
