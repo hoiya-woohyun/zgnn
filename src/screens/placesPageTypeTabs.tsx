@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, type RefObject } from 'react';
+import { useEffect, useRef, type MouseEvent, type RefObject } from 'react';
 import Link from 'next/link';
 import { PLACE_TYPES, TYPE_META } from '../lib/places';
+import { markPillFocus, takePillFocus } from '../lib/placesPageTypePillFocus';
 import { cx } from '../utils/cx';
 import type { TPlaceType } from '../types';
 
@@ -37,8 +38,27 @@ type TPlacesPageTypeTabsProps = {
  * 상태를 하나 더 두어 "왔던 자리로 그렸다가 옮기는" 방법도 되지만, 그건 이펙트가 곧바로
  * 리렌더를 부르는 모양이라 이 레포의 린트가 막는다(react-hooks/set-state-in-effect).
  * 애초에 **애니메이션은 리액트가 알아야 할 상태가 아니다** — 중간 좌표는 화면에만 있으면 된다.
+ *
+ * **알약을 눌러 온 전환만** 새로 고른 알약에 포커스를 둔다. 줄이 통째로 새로 마운트돼 누른 링크가 포커스와 함께 사라지는데,
+ * 그냥 두면 셸이 h1 에 둔다(appShellFocus) — 탭 패턴에서는 고른 탭에 남는 쪽이 자연스럽다. 누르는 쪽이 표식을 남기고
+ * (lib/placesPageTypePillFocus) 새 마운트가 그것을 읽으므로 스와이프·탭바·딥링크로 온 마운트는 셸의 몫 그대로다.
+ * 셸의 포커스 effect 는 부모라 이 effect 뒤에 돌고, 화면이 먼저 옮겼으면 비킨다. 링은 `:focus-visible` 휴리스틱이 정한다
+ * (키보드로 눌렀을 때만 그려진다).
  */
 export function PlacesPageTypeTabs({ type, fromIndex, toIndex, pillRef }: TPlacesPageTypeTabsProps) {
+  const navRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!takePillFocus(type)) return;
+    navRef.current?.querySelector<HTMLElement>('a[aria-current="page"]')?.focus({ preventScroll: true });
+  }, [type]);
+
+  const markOnActivate = (candidate: (typeof PLACE_TYPES)[number]) => (event: MouseEvent) => {
+    // 새 탭·창으로 여는 클릭(수정키·가운데 버튼)은 이 화면을 떠나지 않는다.
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (candidate !== type) markPillFocus(candidate);
+  };
+
   useEffect(() => {
     const pill = pillRef.current;
     // 첫 진입(fromIndex === toIndex)이면 움직일 거리가 없다 — 이유 없이 흔들지 않는다.
@@ -63,7 +83,7 @@ export function PlacesPageTypeTabs({ type, fromIndex, toIndex, pillRef }: TPlace
       54px 로 바로 밑 검색창(44px)보다 두꺼웠고, 상단 줄 전체가 139px 로 "크다" 는 인상을 줬다. 여백을 2px 로 줄이고 알약을 40px 로
       보이게 하되, 링크는 음수 여백으로 그 여백까지 덮어 44px 로 눌린다(CLAUDE.md 의 44px 터치 기준).
     */
-    <nav aria-label="장소 종류" className="relative rounded-lg border border-secondary bg-primary p-0.5">
+    <nav ref={navRef} aria-label="장소 종류" className="relative rounded-lg border border-secondary bg-primary p-0.5">
       {/*
         절대 위치의 기준은 nav 의 padding box 라, `left-0.5`·`inset-y-0.5` 이 곧 내용 영역의
         가장자리이고 `100% - (좌우 패딩)` 을 종류 수로 나눈 값이 탭 하나의 폭과 정확히 같다.
@@ -92,6 +112,7 @@ export function PlacesPageTypeTabs({ type, fromIndex, toIndex, pillRef }: TPlace
               <Link
                 href={`/places/${candidate}`}
                 aria-current={active ? 'page' : undefined}
+                onClick={markOnActivate(candidate)}
                 className={cx(
                   // 44px 로 눌리되 자리는 40px 만 차지한다 — 위아래 2px 는 nav 의 안쪽 여백 위로 겹친다.
                   'flex h-11 -my-0.5 items-center justify-center rounded-md text-sm font-semibold transition-colors',
