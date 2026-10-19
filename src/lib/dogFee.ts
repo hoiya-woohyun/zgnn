@@ -28,12 +28,23 @@ const PER_DOG_RE = /^\(?\s*1\s*마리\s*당\s*(\d+(?:\.\d+)?)\s*만\s*원\s*(?:�
  * 줄에 붙여 준다(`petPolicy.ts` 의 `PER_DOG_NOTE_AFTER`). 붙지 않은 "1마리 이상 2만원 추가" 는 정액인지 마리당인지 모른다.
  */
 const PER_DOG_NOTED_RE = /^1\s*마리\s*이상\s*(\d+(?:\.\d+)?)\s*만\s*원\s*(?:추가)?\s*\(\s*마리\s*당\s*\)$/;
+/**
+ * 금액만 있는 줄 — "(2만원 추가)" · "5만원". 마리마다인지 한 번인지 말하지 않아 두 마리면 곱하지 못하지만, **한 마리면 둘이 같은 돈**이다
+ * (구조 경로 `sumByRules` 가 한 마리에 `basisStated` 를 묻지 않는 것과 같은 읽기, 14 W261019.17). 청소비처럼 낱말이 붙은 줄은 걸리지 않는다.
+ */
+const AMOUNT_ONLY_RE = /^\(?\s*(\d+(?:\.\d+)?)\s*만\s*원\s*(?:추가)?\s*\)?$/;
 
 /**
  * 곱하지 못한 줄 앞에 붙는 말. 예전엔 "원문 요금" 이었다 — '원문' 은 우리 쪽 말이라 사용자에게 무엇인지 안 읽혔다(14 W261007.6).
  * 이름이 붙지 않는 것이 "우리 강아지 기준이 아니다" 를 말한다.
  */
 export const RAW_FEE_PREFIX = '적힌 요금 · ';
+
+/**
+ * 합계를 내지 않은 두 마리 이상의 요금 줄 끝말 — 이름 붙은 "2만원" 은 합계로 읽혔다(협재현, junhyuk-12b).
+ * 캄의 "2마리 … 4만원" 도 같은 말로 물러난다(`withAlternative`) — 같은 모호함에 같은 말.
+ */
+const BASIS_UNSTATED_NOTE = ' (합계인지 1마리당인지 적혀 있지 않아요)';
 
 /**
  * 마릿수·몸무게 중 하나만 맞아도 바뀌는 요금 — "(2마리 또는 10kg 이상 4만원)". 마리당 줄 옆에서만 쓴다(`withAlternative`).
@@ -122,11 +133,11 @@ const multiplyPerDog = (line: string, policy: TPetPolicy, dog: TDogProfile, name
  * 캄(Kalm) "1마리당 3만원. (2마리 또는 10kg 이상 4만원)" — 기본 줄 하나와 **바꿔 붙는** 줄 하나. 둘째 줄은 마리당이 아니라
  * 그 조건일 때의 요금이다. 그래서 곱하지 않고 고른다:
  * - 한 마리가 kg 하한 이상 → 둘째 줄 금액 그대로(한 마리면 읽기가 하나뿐이다).
- * - **여러 마리**가 조건에 들면 → **두 읽기**. "2마리에 4만원"(둘째 줄이 합계)과 "첫 마리 3만 + 둘째 4만 = 7만원"(기본 요금에
- *   더한다)이 둘 다 원문에 맞다 — 평가자 하나가 실제로 7만원으로 읽었다(14 W261007.6). 한쪽을 확정 문장으로 내면 다른 쪽
- *   보호자에게 틀린 숫자다. 그래서 "2마리 합계 4만원 또는 7만원" 으로 둘 다 말한다 — 범위("4만~7만원")는 그 사이 어딘가로 읽혀
- *   갈래가 둘이라는 말을 못 했다(14 W261013.4).
- * - 아니면(조건 아래 한 마리) → 첫 줄 금액.
+ * - **여러 마리**가 조건에 들면 → 금액을 내지 않고 줄 그대로 + "합계인지 1마리당인지 적혀 있지 않아요". 읽기가 하나가 아니다 —
+ *   "2마리에 4만원"(둘째 줄이 합계) · "첫 마리 3만 + 둘째 4만 = 7만원"(14 W261007.6) · "마리당 4만원 = 8만원"(14 W261019.17, junhyuk-08).
+ *   읽기를 늘어놓는 것은 두 번 실패했다: 범위("4만~7만원")는 그 사이 어딘가로 읽혔고(14 W261013.4), "4만원 또는 7만원" 은 왜 둘인지
+ *   말하지 않는 데다 세 번째 읽기(8만원)가 빠져 있었다. 구조 경로가 같은 모호함에 하는 말(`BASIS_UNSTATED_NOTE`)로 맞춘다.
+ * - 아니면(조건 아래 한 마리) → 첫 줄 금액. 괄호는 붙이지 않는다 — "두부는 3만원 (1마리당 3만원)" 은 같은 말의 되풀이다.
  * 줄이 정확히 이 둘이 아니거나, 마릿수가 조건 마릿수를 넘으면(3마리 — 원문이 말하지 않는다) 물러난다.
  */
 const withAlternative = (policy: TPetPolicy, dog: TDogProfile, names: string): string | undefined => {
@@ -143,10 +154,24 @@ const withAlternative = (policy: TPetPolicy, dog: TDogProfile, names: string): s
   if (n === count || dog.dogs.some((d) => d.weightKg >= Number(cond[2]))) {
     const altWon = manwonToWon(cond[3]);
     if (n === 1) return `${who} ${formatWon(altWon)} (${alt})`;
-    return `${who} ${totalOf(n)}${formatWon(altWon)} 또는 ${formatWon(manwonToWon(each[1]) + altWon)} (${base} · ${alt})`;
+    // 이름도 금액도 붙이지 않는다 — 어느 합계도 원문이 말하지 않았다.
+    return `${RAW_FEE_PREFIX}${base} · ${alt}${BASIS_UNSTATED_NOTE}`;
   }
   if (n > 1) return undefined;
-  return `${who} ${formatWon(manwonToWon(each[1]))} (${base})`;
+  return `${who} ${formatWon(manwonToWon(each[1]))}`;
+};
+
+/**
+ * 한 마리 × 금액만 있는 줄 → "두부는 2만원". 프레임스파빌·소길스테이·제주하도("1마리만 가능. (2만원 추가)")가 두부에게
+ * "적힌 요금 · 2만원 추가" 였다 — 같은 모양이 구조 경로로 오면 "두부는 2만원" 이라, 한 목록에 두 꼴이 섞였다(14 W261019.17).
+ * 다른 줄에 마릿수·무게 조건이 남아 있으면 물러난다(`hasUnusedCondition`).
+ */
+const oneDogAmount = (line: string, policy: TPetPolicy, dog: TDogProfile, names: string): string | undefined => {
+  const m = AMOUNT_ONLY_RE.exec(line);
+  if (!m || dog.dogs.length !== 1) return undefined;
+  if (policy.maxDogs !== undefined && policy.maxDogs < 1) return undefined;
+  if (hasUnusedCondition(policy.feeLines, [line])) return undefined;
+  return `${withJosa(names, '은/는')} ${formatWon(manwonToWon(m[1]))}`;
 };
 
 /**
@@ -162,9 +187,6 @@ const basisStated = (rule: TFeeRule): boolean =>
   rule.basis === 'perDog'
     ? /마리/.test(rule.label) || rule.minKg !== null || rule.maxKg !== null
     : /청소|객실|1\s*회|한\s*번/.test(rule.label);
-
-/** 합계를 내지 않은 두 마리 이상의 요금 줄 끝말 — 이름 붙은 "2만원" 은 합계로 읽혔다(협재현, junhyuk-12b). */
-const BASIS_UNSTATED_NOTE = ' (합계인지 1마리당인지 적혀 있지 않아요)';
 
 /**
  * 요금 구조(`feeRules`, AI 가 뽑은 칸)로 계산한다 — 줄 모양을 정규식으로 읽지 않는다(ADR-017 v5).
@@ -314,7 +336,7 @@ export const formatDogFee = (policy: TPetPolicy, dog: TDogProfile): string | und
     policy.feeLines.find((l) => !RANGE_RE.test(l));
   if (!line) return undefined;
 
-  const multiplied = multiplyPerDog(line, policy, dog, names);
+  const multiplied = multiplyPerDog(line, policy, dog, names) ?? oneDogAmount(line, policy, dog, names);
   if (multiplied) return multiplied;
 
   // 곱하지 않을 때: 다른 줄에 조건이 걸려 있으면 한 줄만 보여줘도 반쪽 정보라 그 줄들도 함께 보여준다.

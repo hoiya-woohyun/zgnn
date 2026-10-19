@@ -517,9 +517,9 @@ describe('withPolicyFacts — AI 구조화 판단이 정규식 결과를 덮는�
     const legacy = { ...facts, indoor: 'unknown' as const, leash: false, weightLimitKg: null, maxDogs: null, feeText: '1마리당 3만원' };
     const p = withPolicyFacts(parsePetPolicy(text), legacy, text);
     expect(p.feeLines).toEqual(['1마리당 3만원', '(2마리 또는 10kg 이상 4만원)']);
-    // 2마리 5·6kg — 남은 줄이 없으면 "6만원" 이라고 확정한다(원문은 4만원). 남아 있으면 그 줄을 골라 4만원.
+    // 2마리 5·6kg — 남은 줄이 없으면 "6만원" 이라고 확정한다(원문은 4만원). 남아 있으면 그 줄이 곱셈을 막아 합계를 내지 않는다.
     const fee = formatDogFee(p, { dogs: [{ name: '악동이', weightKg: 5 }, { name: '두부', weightKg: 6 }], carrier: 'none' });
-    expect(fee).toBe('악동이와 두부는 2마리 합계 4만원 또는 7만원 (1마리당 3만원 · 2마리 또는 10kg 이상 4만원)');
+    expect(fee).toBe('적힌 요금 · 1마리당 3만원 · 2마리 또는 10kg 이상 4만원 (합계인지 1마리당인지 적혀 있지 않아요)');
   });
 
   /** 옛 후보의 구간 요금표: `feeText` 는 첫 구간뿐이라, 둘째 구간을 정규식에서 되찾아야 합산이 산다. */
