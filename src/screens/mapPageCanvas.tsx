@@ -30,10 +30,12 @@ import type { TGeo, TPlaceType } from '../types';
  */
 export const MARKER_HARD_OPACITY = '0.45';
 
-/** 저장한 곳은 겹쳤을 때 위로 올린다 — 모아 보려고 저장했는데 남의 핀 밑에 깔리면 안 된다. */
 /** 고른 핀을 시트 위로 올릴 때 시트 윗변과 핀 사이에 두는 틈(px). */
 const REVEAL_MARGIN = 12;
+/** 확대가 끝난('idle') 뒤에도 마커가 아직 0×0 이면 더 기다리는 프레임 수 — 마커는 'idle' 보다 한두 프레임 늦게 다시 선다(headless 실측). */
+const REVEAL_RETRY_FRAMES = 10;
 
+/** 저장한 곳은 겹쳤을 때 위로 올린다 — 모아 보려고 저장했는데 남의 핀 밑에 깔리면 안 된다. */
 const Z_SAVED = 500;
 /** 묶음 원은 서로·마커와 겹치지 않게 세므로 층이 거의 상관없다 — 고른 핀(묶음에서 꺼낸다)만 그 위에 온다. */
 const Z_CLUSTER = 600;
@@ -812,16 +814,46 @@ export function MapPageCanvas({
    * 고른 핀이 시트 밑에 가려지면 지도를 밀어 시트 위로 올린다(14 W261019.14a, haeun-11a) — 무엇을 골랐는지 안 보였다.
    * 이미 보이면 안 민다(`mapPageRevealPin` 이 0). 줌은 그대로, 핀 자리는 마커 요소의 화면 좌표로 잰다. 시트가 올라오며 높이가
    * 바뀌어도(`coveredBottom`) 다시 본다. 선택 effect 가 아이콘을 바꾼 뒤에 재도록 한 프레임 미룬다.
+   *
+   * **확대가 도는 동안엔 재지 않는다**(14 W261019.14b). 그동안 SDK 는 마커를 0×0 으로 숨겨, 재면 dy 0 으로 끝나고 확대가 끝난 핀이
+   * 시트 밑에 남았다(headless: 휠 확대 도중에 고르면 핀 밑끝 776 · 띠 549). 0×0 이면 지도가 멈출 때('idle')를 한 번 기다렸다 다시 잰다.
+   * 늘 'idle' 을 기다리지는 않는다 — 평소엔 지도가 이미 서 있고, `panBy` 는 같은 틱에 'idle' 을 내서 걸어 둔 채 밀면 민 뒤를 또 잰다.
    */
   useEffect(() => {
     const map = mapRef.current;
     const maps = window.naver?.maps;
     const container = containerRef.current;
     if (status !== 'ready' || !map || !maps || !container || !selectedId || coveredBottom <= 0) return;
-    const frame = window.requestAnimationFrame(() => {
+    let frame = 0;
+    let idle: naver.maps.MapEventListener | null = null;
+    let afterIdle = false;
+    let retries = 0;
+    const stopWaiting = () => {
+      if (!idle) return;
+      try {
+        maps.Event.removeListener(idle);
+      } catch {
+        // 지도와 함께 이미 사라졌다.
+      }
+      idle = null;
+    };
+    const reveal = () => {
       const element = markersRef.current.get(selectedId)?.marker.getElement();
       if (!element) return;
       const pin = element.getBoundingClientRect();
+      if (pin.height === 0) {
+        if (!afterIdle && !idle) {
+          idle = maps.Event.addListener(map, 'idle', () => {
+            stopWaiting();
+            afterIdle = true;
+            frame = window.requestAnimationFrame(reveal);
+          });
+        } else if (afterIdle && retries < REVEAL_RETRY_FRAMES) {
+          retries += 1;
+          frame = window.requestAnimationFrame(reveal);
+        }
+        return;
+      }
       const view = container.getBoundingClientRect();
       const dy = mapPageRevealPin({
         mapTop: view.top,
@@ -839,8 +871,12 @@ export function MapPageCanvas({
       } catch {
         setStatus('error');
       }
-    });
-    return () => window.cancelAnimationFrame(frame);
+    };
+    frame = window.requestAnimationFrame(reveal);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      stopWaiting();
+    };
   }, [selectedId, coveredBottom, status]);
 
   /*
@@ -871,6 +907,13 @@ export function MapPageCanvas({
        */
       const hit = inside ? document.elementFromPoint((rect.left + rect.right) / 2, (rect.top + rect.bottom) / 2) : null;
       if (hit && target.contains(hit)) return;
+      /*
+       * 덮은 것이 지도 화면(`<main>`) 밖이면 옮기지 않는다 — 고른 곳 시트의 모달 오버레이(body 포털)다(14 W261019.14b). 마커를 누르면
+       * 선택 effect 가 마커를 다시 꽂으며(`reorderMarkersForTab`) 포커스를 되돌리는데, 그때 막 열린 오버레이가 핀 가운데를 덮어 "가려짐" 으로
+       * 읽혔다 — 고를 때마다 약 1초짜리 `panTo` 가 핀을 지도 한가운데로 끌고 갔다(관성처럼 보인 움직임). 시트가 덮는 것은 위 reveal 의 몫이고,
+       * 모달이 열린 동안 마커엔 Tab 이 닿지 않는다.
+       */
+      if (hit && !(container.closest('main') ?? document.body).contains(hit)) return;
       try {
         map.panTo(entry.marker.getPosition());
       } catch {
