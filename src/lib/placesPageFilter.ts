@@ -61,7 +61,7 @@ export const placesPageSortLabel = (sort: TPlaceSort, { hasDog, nearFrom }: { ha
   return sort === 'asc' ? '가격 낮은 순' : '가격 높은 순';
 };
 
-/** 카드에 'N월 확인' 이 붙는 곳인가 — 카드와 같은 함수(`freshnessShortLabel` 이 이것을 본다). 오래됐는지는 묻지 않는다(오래돼도 꼬리표는 선다). */
+/** 카드에 'YYYY년 N월 확인' 이 붙는 곳인가 — 카드와 같은 함수(`freshnessShortLabel` 이 이것을 본다). 오래됐는지는 묻지 않는다(오래돼도 꼬리표는 선다). */
 const isVerified = (place: TPlaceEntry): boolean => freshnessOf(place, null) !== null;
 
 /**
