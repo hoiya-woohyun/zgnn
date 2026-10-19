@@ -13,10 +13,10 @@ import { FilterChip } from '../components/filterChip';
 import { judgeEligibility, primaryReason } from '../lib/eligibility';
 import { carrierWhatIf, carrierWhatIfText, countByLevel, levelCountParts, outdoorFallback } from '../lib/eligibilityCounts';
 import { placesPageHardFold } from '../lib/placesPageHardFold';
-import { placesPageEmptySearch, type TAreaCarried, type TConditionRelease } from '../lib/placesPageFilter';
+import { placesPageEmptySearch, placesPageSortLabel, placesPageSortOptions, type TAreaCarried, type TConditionRelease } from '../lib/placesPageFilter';
 import { placesPageRepeatedReason } from '../lib/placesPageRepeatedReason';
 import { cityScopeOf, landmarkOfQuery } from '../lib/placeSearch';
-import { townFilterLabel } from '../lib/placeFilters';
+import { townFilterLabel, type TPlaceSort } from '../lib/placeFilters';
 import { areaTownsLabel, type TAreaId } from '../lib/areaGroups';
 import { josa, withJosa } from '../lib/korean';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
@@ -24,6 +24,7 @@ import { useAppStore } from '../store/useAppStore';
 import { usePlacesPageFilterStore } from '../store/usePlacesPageFilterStore';
 import type { TPlaceType } from '../types';
 import { cx } from '../utils/cx';
+import { SCROLL_ROW_CLASS } from './placesPageFilters';
 
 type TPlacesPageResultsProps = {
   type: TPlaceType;
@@ -89,12 +90,13 @@ type TPlacesPageResultsProps = {
   areaCarried?: TAreaCarried | null;
   onReleaseAreaCarried?: () => void;
   /**
-   * '가까운 순' 칩(14 W261010.18) — 시트 맨 아래 드롭다운에 있던 것을 목록 위로 꺼냈다. 본 화면만 준다(엿보기는 정렬을 갖지 않아 눌러도 아무 일 없는 꺼진 칩).
-   * 위치 권한이 없으면 정렬을 바꾸지 않고 이유만 말하는 것은 시트와 같다(`changeSort`).
+   * 목록 위 정렬 줄(모바일, 14 W261019.13) — 지금 순서가 눌린 칩이고 다른 순서를 누르면 바꾼다. 예전엔 '가까운 순' 칩 하나뿐이라(14 W261010.18)
+   * 목록이 거리순이 아닌데도 그 칩이 지금 상태인지 누르라는 버튼인지 몰랐다(haeun-02). 본 화면만 준다 — 엿보기는 정렬을 갖지 않아 기본 순서가 눌린 줄을
+   * 그리고(새로 마운트된 목록이 그 모양이다) 눌러도 아무 일 없다. 위치 권한이 없으면 정렬을 바꾸지 않고 이유만 말한다(`changeSort`).
    * `from` 은 상세 「근처 장소」 로 들어온 기준 장소 이름(14 W261013.14o) — 칩이 "○○에서 가까운 순" 이라 말해야 카드의 km 를 내 위치에서 잰 값으로 읽지 않는다.
-   * 없고 검색어에 관광지·동 낱말이 있으면 그 낱말이 기준이다("중문에서 가까운 순", 14 W261019.11) — 검색어에서 읽으므로 엿보기도 같은 칩을 그린다.
+   * 없고 검색어에 관광지·동 낱말이 있으면 그 낱말이 기준이다("중문에서 가까운 순", 14 W261019.11) — 검색어에서 읽으므로 엿보기도 같은 이름을 그린다.
    */
-  nearSort?: { pressed: boolean; onToggle: () => void; from?: string };
+  sortControl?: { sort: TPlaceSort; onChange: (sort: TPlaceSort) => void; from?: string };
   /**
    * 시 이름 검색('서귀포')을 시내로 좁힌다 — 읍면 필터에 시내 태그('서귀포시')를 건다(14 W261010.30). 본 화면만 준다:
    * 엿보기는 같은 줄을 그리되 눌러도 아무 일 없다(`nearSort` 와 같은 까닭 — 줄이 있다 없다 하면 손을 놓는 순간 목록이 뛴다).
@@ -140,7 +142,7 @@ export function PlacesPageResults({
   seatOtherTypes = [],
   areaCarried = null,
   onReleaseAreaCarried,
-  nearSort,
+  sortControl,
   onCityDowntown,
 }: TPlacesPageResultsProps) {
   const dog = useAppStore((state) => state.dog);
@@ -230,7 +232,8 @@ export function PlacesPageResults({
   // 시 이름 검색이 시내 밖 읍면까지 덮었으면 그렇다고 말한다(14 W261010.30). 읍면 필터가 걸려 있으면 이미 좁힌 것이라 말하지 않는다.
   const cityScope = useMemo(() => (town ? null : cityScopeOf(query, results)), [town, query, results]);
   // '가까운 순' 의 기준 이름 — 들어온 장소가 먼저, 없으면 검색어의 관광지·동 낱말(14 W261019.11). 기준점은 화면(`placesPage`)이 같은 차례로 고른다.
-  const nearFrom = nearSort?.from ?? landmarkOfQuery(query)?.word;
+  const nearFrom = sortControl?.from ?? landmarkOfQuery(query)?.word;
+  const sort = sortControl?.sort ?? 'none';
 
   const renderOtherTypeRow = (other: { type: TPlaceType; count: number }) => (
     <li key={other.type}>
@@ -292,20 +295,34 @@ export function PlacesPageResults({
         )}
       </div>
 
+      {/*
+        정렬은 화면 폭마다 한 자리다(14 W261019.13) — md 부터는 펼친 판의 셀렉트가 같은 이름으로 말하므로 이 줄은 모바일만. 시트에는 정렬이 없다.
+        이름이 기준을 말한다('기본순' 대신 "갈 수 있는 곳 먼저"·"확인한 곳 먼저", `placesPageSortLabel`). 숙소는 가격 둘까지 넷이라 줄이 옆으로 밀린다.
+      */}
       {results.length > 0 && (
-        <div className="px-4 pt-2 md:px-6">
-          {/* 긴 이름("프레임스파빌 오션뷰펜션")이 320px 에서 넘치면 이름만 줄인다 — "에서 가까운 순" 이 잘리면 무엇을 하는 칩인지가 사라진다. */}
-          <FilterChip pressed={nearSort?.pressed ?? false} onClick={nearSort?.onToggle} className="max-w-full">
-            {nearFrom ? (
-              // 칩의 `gap-1` 이 이름과 '에서' 사이를 띄우지 않게 한 덩어리로 감싼다.
-              <span className="flex min-w-0">
-                <span className="truncate">{nearFrom}</span>
-                <span className="shrink-0">에서 가까운 순</span>
-              </span>
-            ) : (
-              '가까운 순'
-            )}
-          </FilterChip>
+        <div className={cx(SCROLL_ROW_CLASS, 'pt-2 md:hidden')} role="group" aria-label="정렬">
+          <span className="shrink-0 text-sm text-tertiary" aria-hidden="true">
+            정렬
+          </span>
+          {placesPageSortOptions(type).map((option) => (
+            <FilterChip
+              key={option}
+              pressed={sort === option}
+              onClick={() => sortControl?.onChange(option)}
+              className={option === 'near' ? 'max-w-full' : undefined}
+            >
+              {option === 'near' && nearFrom ? (
+                /* 긴 이름("프레임스파빌 오션뷰펜션")이 320px 에서 넘치면 이름만 줄인다 — "에서 가까운 순" 이 잘리면 무엇을 하는 칩인지가 사라진다.
+                   칩의 `gap-1` 이 이름과 '에서' 사이를 띄우지 않게 한 덩어리로 감싼다. */
+                <span className="flex min-w-0">
+                  <span className="truncate">{nearFrom}</span>
+                  <span className="shrink-0">에서 가까운 순</span>
+                </span>
+              ) : (
+                placesPageSortLabel(option, { hasDog: Boolean(dog), nearFrom })
+              )}
+            </FilterChip>
+          ))}
         </div>
       )}
 

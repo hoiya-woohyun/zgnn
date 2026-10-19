@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { SearchMd } from '@untitledui/icons';
 import { PlacesPageEligibilityToggles } from './placesPageEligibilityToggles';
 import type { TActiveChip } from './placesPageActiveChips';
-import { PlacesPageFilters, SORT_OPTIONS } from './placesPageFilters';
+import { PlacesPageFilters } from './placesPageFilters';
 import { PlacesPageFilterSheet } from './placesPageFilterSheet';
 import { PlacesPageResults } from './placesPageResults';
 import { usePlacesPageSwipe } from './placesPageSwipe';
@@ -285,8 +285,6 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     hasDog: Boolean(dog),
     directions,
     petKeys,
-    // 가까운 순은 목록 위 칩이 켜짐을 말한다(14 W261010.18) — 켜진 조건 줄에 같은 말을 또 세우지 않는다.
-    sortLabel: shownSort !== 'none' && shownSort !== 'near' ? (SORT_OPTIONS.find((option) => option.id === shownSort)?.label ?? '') : null,
     hideHard,
     onlyReachable,
     query,
@@ -336,7 +334,6 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     else if (key === 'onlyReachable') clearOnlyReachable();
     else if (key === 'town') setTown(null);
     else if (key === 'indoor') setNeedsIndoor(false);
-    else if (key === 'sort') setSort('none');
     else if (key === 'hideHard') setHideHard(false);
     else if (key === 'query') setQuery('');
     else if (key.startsWith('dir-')) toggleDirection(key.slice(4) as TDirection);
@@ -435,6 +432,8 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
             onToggleDirection={toggleDirection}
             onTogglePetKey={togglePetKey}
             onChangeSort={(next) => void changeSort(next)}
+            hasDog={Boolean(dog)}
+            nearFrom={nearPlace?.name ?? queryLandmark?.word}
           />
 
           {dog && (
@@ -512,11 +511,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
               conditionReleases={released.conditions}
               seatOtherTypes={seatOtherTypes}
               areaCarried={areaCarried}
-              nearSort={{
-                pressed: shownSort === 'near',
-                onToggle: () => void changeSort(shownSort === 'near' ? 'none' : 'near'),
-                from: nearPlace?.name,
-              }}
+              sortControl={{ sort: shownSort, onChange: (next) => void changeSort(next), from: nearPlace?.name }}
               onCityDowntown={selectTown}
               onReleaseAreaCarried={() => {
                 setTown(null);

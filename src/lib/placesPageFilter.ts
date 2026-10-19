@@ -1,7 +1,8 @@
 import { areaOf, areaTownsLabel, type TAreaId } from './areaGroups';
 import { AREA_CARD_TYPES } from './homePageAreaCards';
 import { DIRECTION_LABEL, PLACE_TYPES, distanceKm, placesOfType, type TPlaceEntry } from './places';
-import { PET_FILTERS, carriedFilterChips, envFiltersWithData, type TPetFilter, type TPetFilterKey } from './placeFilters';
+import { PET_FILTERS, carriedFilterChips, envFiltersWithData, type TPetFilter, type TPetFilterKey, type TPlaceSort } from './placeFilters';
+import { freshnessOf } from './placeFreshness';
 import { landmarkOfQuery, matchesQuery, queryWords } from './placeSearch';
 import type { TEligibility } from './eligibility';
 import { eligibilityMapOf, isReachable } from './eligibilityCounts';
@@ -43,8 +44,33 @@ export type TPlacesPageConditions = {
 };
 
 /**
+ * 이 종류의 정렬 칸(14 W261019.13) — 가격 둘은 숙소만(식당·카페엔 요금 칸이 없다), 가까운 순은 모든 종류(10 F7).
+ * 목록 위 정렬 줄(모바일)과 넓은 화면의 셀렉트가 같은 목록을 본다.
+ */
+export const placesPageSortOptions = (type: TPlaceType): TPlaceSort[] =>
+  type === 'stay' ? ['none', 'near', 'asc', 'desc'] : ['none', 'near'];
+
+/**
+ * 정렬 이름(14 W261019.13) — 정렬이 보이는 모든 자리가 이것 하나를 부른다. '기본순' 은 무슨 기준인지 말하지 않았다(ux-expert-04 — 확인월 붙은 곳이 앞이었다).
+ * 기본 순서는 강아지가 있으면 판정순이고 없으면 확인한 곳 먼저(`filterPlacesPage` 가 세운다)라 둘을 그 이름으로 부른다.
+ * '가까운 순' 은 기준이 장소·관광지면 그 이름을 앞에 붙인다(14 W261013.14o · W261019.11) — 카드의 km 를 내 위치에서 잰 값으로 읽지 않게.
+ */
+export const placesPageSortLabel = (sort: TPlaceSort, { hasDog, nearFrom }: { hasDog: boolean; nearFrom?: string }): string => {
+  if (sort === 'none') return hasDog ? '갈 수 있는 곳 먼저' : '확인한 곳 먼저';
+  if (sort === 'near') return nearFrom ? `${nearFrom}에서 가까운 순` : '가까운 순';
+  return sort === 'asc' ? '가격 낮은 순' : '가격 높은 순';
+};
+
+/** 카드에 'N월 확인' 이 붙는 곳인가 — 카드와 같은 함수(`freshnessShortLabel` 이 이것을 본다). 오래됐는지는 묻지 않는다(오래돼도 꼬리표는 선다). */
+const isVerified = (place: TPlaceEntry): boolean => freshnessOf(place, null) !== null;
+
+/**
  * 정렬 전의 걸러진 목록. 순서는 읍면 → 권역 → 검색어 → 방향 → 반려동물·환경 조건 → 어려운 곳 숨기기 → 갈 수 있는 곳만.
  * 정렬은 호출하는 쪽 몫이다 — 가까운 순·가격순은 화면 로컬 상태(`sort`·`origin`)라 엿보기는 갖지 않는다.
+ *
+ * 단 **강아지가 없을 때의 기본 순서(확인한 곳 먼저)는 여기서 세운다**(14 W261019.13) — 정렬 이름이 그렇게 말하므로 데이터 순서(시드가 앞, 블로그 행이 뒤)라는
+ * 우연에 맡기지 않는다: 나중에 확인한 블로그 행(중문보말칼국수)이 확인 안 된 곳 뒤에 있었다. 엿보기도 이 함수라 손을 놓아도 줄이 같다.
+ * 강아지가 있으면 판정순(`sortByEligibility`)이 기본이라 데이터 순서 그대로 둔다 — 홈 동네 카드가 고른 곳(`homePageAreaPicks`)과 같은 순서여야 한다.
  *
  * "실내 자리 필요"(needsIndoor)는 판정(`judgeEligibility` opts)이 야외 전용 장소를 어려움으로 밀어 올리므로
  * hideHard 가 그 결과를 거른다 — 여기서 policy.indoor 를 다시 보지 않는다(판정 로직 중복 방지).
@@ -75,7 +101,7 @@ export const filterPlacesPage = ({
     const eligibility = eligibilityMap.get(place.id);
     return eligibility !== undefined && isReachable(eligibility);
   });
-  return list;
+  return eligibilityMap ? list : [...list.filter(isVerified), ...list.filter((place) => !isVerified(place))];
 };
 
 /**
@@ -324,11 +350,11 @@ const queryChipLabel = (query: string): string => {
 };
 
 /**
- * 켜진 조건을 이름으로. 순서는 권역 → 따라오는 것(읍면·실내) → 방향 → 반려동물 → 정렬 → 어려운 곳 숨김 → 검색어.
+ * 켜진 조건을 이름으로. 순서는 권역 → 따라오는 것(읍면·실내) → 방향 → 반려동물 → 어려운 곳 숨김 → 검색어.
  * `activeFilterCount` 는 **검색어·권역을 뺀** 칩 수다 — 검색어는 검색창에 보이고 권역은 시트에 고르는 자리가 없다(홈 동네 카드만 건다, 19 T3).
  * 접힌 시트 버튼의 숫자는 시트 안에서 끌 수 있는 것의 수여야 한다. '갈 수 있는 곳만' 은 시트에 칩이 생겨(14 W261013.14d) 센다 — 자리는 권역 바로 뒤 그대로
  * (카드가 둘을 함께 건다). 권역은 맨 앞 — 목록 전체의 테두리라 먼저 읽혀야 한다.
- * `sortLabel` 은 본 화면만 준다(정렬은 종류를 바꾸면 리셋되므로 엿보기엔 늘 없다).
+ * 정렬은 칩이 아니다(14 W261019.13) — 목록 위 정렬 줄·넓은 화면의 셀렉트가 지금 순서를 이름으로 말하고, 시트엔 정렬이 없어 버튼 숫자에도 안 든다.
  */
 export const placesPageChips = ({
   type,
@@ -338,7 +364,6 @@ export const placesPageChips = ({
   hasDog,
   directions,
   petKeys,
-  sortLabel = null,
   hideHard,
   onlyReachable = false,
   query,
@@ -347,7 +372,6 @@ export const placesPageChips = ({
   onlyReachable?: boolean;
   needsIndoor: boolean;
   hasDog: boolean;
-  sortLabel?: string | null;
   query: string;
 }): { chips: TPlacesPageChip[]; activeFilterCount: number; hasFilters: boolean } => {
   const trimmedQuery = query.trim();
@@ -357,7 +381,6 @@ export const placesPageChips = ({
     ...filtersOfPlaceType(type)
       .filter((filter) => petKeys.includes(filter.key))
       .map((filter) => ({ key: `pet-${filter.key}`, label: filter.label })),
-    ...(sortLabel !== null ? [{ key: 'sort', label: sortLabel }] : []),
     ...(hasDog && hideHard ? [{ key: 'hideHard', label: '어려운 곳 숨김' }] : []),
   ];
   const reachableChips: TPlacesPageChip[] = hasDog && onlyReachable ? [{ key: 'onlyReachable', label: '갈 수 있는 곳만' }] : [];

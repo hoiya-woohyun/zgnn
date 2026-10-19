@@ -16,12 +16,15 @@ import {
   placesPageEmptySearch,
   placesByTown,
   placesPageChips,
+  placesPageSortLabel,
+  placesPageSortOptions,
   reachableReleaseCount,
   singleConditionReleases,
   townChipCounts,
   townReleaseCount,
 } from './placesPageFilter';
 import { landmarkOfWord } from './landmarks';
+import { freshnessOf } from './placeFreshness';
 import { matchesQuery } from './placeSearch';
 import { PLACES, distanceKm, placesOfType, topTowns } from './places';
 import type { TDogProfile, TPlaceType } from '../types';
@@ -109,7 +112,9 @@ describe('권역(19 T3)', () => {
   it('권역은 그 권역 읍면의 곳만 남긴다', () => {
     const found = filterPlacesPage({ ...base, type: 'stay', area: 'west' });
     expect(found.length).toBeGreaterThan(0);
-    expect(found).toEqual(placesOfType('stay').filter((place) => areaOf(place) === 'west'));
+    // 집합만 본다 — 강아지가 없을 때의 순서는 '확인한 곳 먼저'(아래 「정렬 이름·칸」).
+    const ids = (list: { id: string }[]) => list.map((place) => place.id).sort();
+    expect(ids(found)).toEqual(ids(placesOfType('stay').filter((place) => areaOf(place) === 'west')));
   });
 
   it('권역이 없으면 0, 서부 × 중문 = 0곳이면 권역만 풀면 중문 반경의 수', () => {
@@ -153,11 +158,11 @@ describe('placesPageChips', () => {
     expect(placesPageChips(chipBase)).toEqual({ chips: [], activeFilterCount: 0, hasFilters: false });
   });
 
-  it('순서는 읍면 → 방향 → 정렬 → 숨김 → 검색어, 개수에는 검색어가 빠진다', () => {
-    const result = placesPageChips({ ...chipBase, town: '애월읍', directions: ['east'], sortLabel: '가까운 순', hideHard: true, query: ' 카레 ' });
-    expect(result.chips.map((chip) => chip.key)).toEqual(['town', 'dir-east', 'sort', 'hideHard', 'query']);
+  it('순서는 읍면 → 방향 → 숨김 → 검색어, 개수에는 검색어가 빠진다 · 정렬은 칩이 아니다(14 W261019.13)', () => {
+    const result = placesPageChips({ ...chipBase, town: '애월읍', directions: ['east'], hideHard: true, query: ' 카레 ' });
+    expect(result.chips.map((chip) => chip.key)).toEqual(['town', 'dir-east', 'hideHard', 'query']);
     expect(result.chips.at(-1)?.label).toBe('"카레"');
-    expect(result.activeFilterCount).toBe(4);
+    expect(result.activeFilterCount).toBe(3);
     expect(result.hasFilters).toBe(true);
   });
 
@@ -654,5 +659,44 @@ describe('landmarkNearby — 관광지·동 검색이 0곳일 때 그 중심에�
   it('관광지 낱말이 없으면 빈 배열', () => {
     expect(landmarkNearby({ ...base, type: 'cafe', query: '카레' })).toEqual([]);
     expect(landmarkNearby({ ...base, type: 'cafe', query: '' })).toEqual([]);
+  });
+});
+
+describe('정렬 이름·칸(14 W261019.13)', () => {
+  it("'기본순' 대신 기준을 이름으로 — 강아지가 있으면 판정순, 없으면 확인한 곳 먼저", () => {
+    expect(placesPageSortLabel('none', { hasDog: true })).toBe('갈 수 있는 곳 먼저');
+    expect(placesPageSortLabel('none', { hasDog: false })).toBe('확인한 곳 먼저');
+  });
+
+  it("'가까운 순' 은 기준이 장소·관광지면 그 이름을 앞에", () => {
+    expect(placesPageSortLabel('near', { hasDog: true })).toBe('가까운 순');
+    expect(placesPageSortLabel('near', { hasDog: false, nearFrom: '중문' })).toBe('중문에서 가까운 순');
+    expect(placesPageSortLabel('asc', { hasDog: true })).toBe('가격 낮은 순');
+    expect(placesPageSortLabel('desc', { hasDog: false })).toBe('가격 높은 순');
+  });
+
+  it('가격 둘은 숙소만', () => {
+    expect(placesPageSortOptions('stay')).toEqual(['none', 'near', 'asc', 'desc']);
+    expect(placesPageSortOptions('restaurant')).toEqual(['none', 'near']);
+    expect(placesPageSortOptions('cafe')).toEqual(['none', 'near']);
+  });
+
+  it("강아지가 없으면 기본 순서는 정말 '확인한 곳 먼저' — 카드에 'N월 확인' 이 붙는 곳이 앞, 그 안은 데이터 순서", () => {
+    const verified = (place: Parameters<typeof freshnessOf>[0]) => freshnessOf(place, null) !== null;
+    for (const type of TYPES) {
+      const list = filterPlacesPage({ ...base, type });
+      const firstUnverified = list.findIndex((place) => !verified(place));
+      if (firstUnverified >= 0) expect(list.slice(firstUnverified).some(verified), type).toBe(false);
+      const order = (places: { id: string }[]) => places.map((place) => place.id);
+      expect(order(list.filter(verified)), type).toEqual(order(placesOfType(type).filter(verified)));
+      expect(order(list.filter((place) => !verified(place))), type).toEqual(order(placesOfType(type).filter((place) => !verified(place))));
+    }
+  });
+
+  it('강아지가 있으면 걸러 낸 목록은 데이터 순서 그대로다 — 판정순이 그 위에서 돈다(홈 카드가 고른 곳과 같은 순서)', () => {
+    const eligibilityMap = new Map(PLACES.map((place) => [place.id, judgeEligibility({ dogs: [{ name: '두부', weightKg: 3 }], carrier: 'bag' }, place.policy)]));
+    for (const type of TYPES) {
+      expect(filterPlacesPage({ ...base, type, eligibilityMap }).map((place) => place.id)).toEqual(placesOfType(type).map((place) => place.id));
+    }
   });
 });

@@ -4,6 +4,7 @@ import { FilterChip } from '../components/filterChip';
 import { areaTownsLabel, type TAreaId } from '../lib/areaGroups';
 import { DIRECTIONS, DIRECTION_LABEL, topTowns } from '../lib/places';
 import { envFiltersWithData, PET_FILTERS, townFilterLabel, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
+import { placesPageSortLabel, placesPageSortOptions } from '../lib/placesPageFilter';
 import { placesOfType } from '../lib/places';
 import type { TDirection, TPlaceType } from '../types';
 import { cx } from '../utils/cx';
@@ -31,18 +32,11 @@ type TPlacesPageFiltersProps = {
   onToggleDirection: (direction: TDirection) => void;
   onTogglePetKey: (key: TPetFilterKey) => void;
   onChangeSort: (sort: TPlaceSort) => void;
+  /** 정렬 이름(`placesPageSortLabel`)에 — 기본 순서의 이름이 강아지 유무로 갈린다. 펼친 판(bar)만 정렬을 그린다. */
+  hasDog?: boolean;
+  /** '가까운 순' 의 기준 이름(들어온 장소·검색어의 관광지). */
+  nearFrom?: string;
 };
-
-export const SORT_OPTIONS: { id: TPlaceSort; label: string }[] = [
-  { id: 'none', label: '기본순' },
-  { id: 'near', label: '가까운 순' },
-  { id: 'asc', label: '가격 낮은순' },
-  { id: 'desc', label: '가격 높은순' },
-];
-
-/** 가격 정렬은 숙소만 — 식당·카페에는 요금 칸이 없다. 가까운 순은 모든 종류(10 F7). */
-const sortOptionsFor = (type: TPlaceType) =>
-  type === 'stay' ? SORT_OPTIONS : SORT_OPTIONS.filter((option) => option.id === 'none' || option.id === 'near');
 
 /** 숙소에서 고를 수 있는 환경 조건 — 데이터는 빌드 때 고정이라 한 번만 센다. */
 const STAY_ENV_FILTERS = envFiltersWithData(placesOfType('stay'));
@@ -55,7 +49,7 @@ const STAY_ENV_FILTERS = envFiltersWithData(placesOfType('stay'));
  * lg 부터는 줄을 바꾼다(07 U10) — 넓은 화면에서 칩을 옆으로 밀어 찾게 할 이유가 없다. md 는 사이드바를 빼면
  * 본문이 512px 이라 읍면 10개가 세 줄이 되고, 이 줄은 sticky 머리 안이라 그만큼 목록을 가린다 — 그래서 md 는 스크롤 그대로.
  */
-const SCROLL_ROW_CLASS =
+export const SCROLL_ROW_CLASS =
   'no-scrollbar flex items-center gap-2 overflow-x-auto px-4 pr-8 md:px-6 md:pr-10 ' +
   '[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] ' +
   '[-webkit-mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] ' +
@@ -109,6 +103,8 @@ export function PlacesPageFilters({
   onToggleDirection,
   onTogglePetKey,
   onChangeSort,
+  hasDog = false,
+  nearFrom,
 }: TPlacesPageFiltersProps) {
   // 이 종류에 실제로 장소가 있는 읍면만 보여준다 — 0곳인 읍면 칩을 눌러 빈 목록을 만들 이유가 없다.
   // 단 **이미 골라 둔 읍면**이 이 종류에 없으면(숙소에서 고른 '서귀포' → 식당) 맨 앞에 `0` 칩을 켜진 채로 끼운다 —
@@ -173,16 +169,12 @@ export function PlacesPageFilters({
         <div className="lg:flex lg:items-center">
           {directionGroup('lg:min-w-0 lg:flex-1')}
           <div className="mt-2 flex shrink-0 justify-end px-4 md:px-6 lg:mt-0 lg:pl-0">
-            <SortSelect type={type} sort={sort} onChangeSort={onChangeSort} />
+            <SortSelect type={type} sort={sort} onChangeSort={onChangeSort} hasDog={hasDog} nearFrom={nearFrom} />
           </div>
         </div>
       ) : (
-        <>
-          {directionGroup()}
-          <FilterGroup variant={variant} label="정렬">
-            <SortSelect type={type} sort={sort} onChangeSort={onChangeSort} />
-          </FilterGroup>
-        </>
+        /* 시트엔 정렬이 없다(14 W261019.13) — 모바일은 목록 위 정렬 줄 하나가 지금 순서를 말하고 바꾼다. 두 곳이면 "정렬이 두 군데" 였다(minji-09). */
+        directionGroup()
       )}
 
       {/*
@@ -230,11 +222,16 @@ function SortSelect({
   type,
   sort,
   onChangeSort,
+  hasDog,
+  nearFrom,
 }: {
   type: TPlaceType;
   sort: TPlaceSort;
   onChangeSort: (sort: TPlaceSort) => void;
+  hasDog: boolean;
+  nearFrom?: string;
 }) {
+  // 이름이 기준을 말해 '기본순'(w-36)보다 길다 — "중문에서 가까운 순" 이 들어가는 폭. 더 긴 장소 이름은 셀렉트가 줄인다.
   return (
     <Select
       aria-label="정렬"
@@ -243,11 +240,11 @@ function SortSelect({
       onSelectionChange={(key) => {
         if (key) onChangeSort(key as TPlaceSort);
       }}
-      className="w-36"
+      className="w-48"
     >
-      {sortOptionsFor(type).map((option) => (
-        <Select.Item key={option.id} id={option.id}>
-          {option.label}
+      {placesPageSortOptions(type).map((id) => (
+        <Select.Item key={id} id={id}>
+          {placesPageSortLabel(id, { hasDog, nearFrom })}
         </Select.Item>
       ))}
     </Select>
