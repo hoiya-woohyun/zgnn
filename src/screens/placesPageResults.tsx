@@ -60,7 +60,7 @@ type TPlacesPageResultsProps = {
   /** 가까운 순일 때 장소 id → 거리(km). 카드가 "1.2km" 를 붙인다(10 F7). */
   distances?: Map<string, number>;
   /**
-   * 같은 검색어가 맞는 다른 종류(`otherTypeMatches`). 0곳이면 빈 상태 맨 위에 큰 안내로, 결과가 있으면 머리 밑 한 줄로(14 W261007.11).
+   * 같은 검색어가 맞는 다른 종류(`otherTypeMatches`). 0곳이면 빈 상태 맨 위에 큰 안내로, 결과가 있으면 목록 끝 한 줄로(14 W261007.11 · W261019.11a).
    * 엿보기도 같은 검색어로 센다.
    */
   otherTypes?: { type: TPlaceType; count: number }[];
@@ -228,6 +228,15 @@ export function PlacesPageResults({
     .slice(0, 2);
   // 0곳에서 "다른 종류에 N곳" 링크 줄이 큰 안내보다 먼저 서는가 — 'search' 갈래는 그 답을 큰 안내로 옮겨 간다.
   const otherTypeRowsFirst = emptyKind !== 'search' && (otherTypes.length > 0 || hiddenOtherTypes.length > 0);
+  /*
+   * 켜진 조건 줄에 세우는 칩 — 평범한 검색어 칩(`"서귀포"`)은 빼고 반경을 말하는 것(`notInHeader`, `"중문" · 3km 안`)만 남긴다(14 W261019.11a).
+   * 검색어는 바로 위 검색창이 늘 보여 주고 개수 줄의 '검색 지우기' 가 지운다 — 그 칩은 세 번째 같은 말이었고, 결과 첫 화면에 한 줄(52px)을 더 세워
+   * 첫 카드를 바닥으로 밀었다(haeun-22a). 검색어만으로 0곳(`search` 갈래)이면 큰 안내 제목이 검색어·반경을 이름으로 말해 그것도 뺀다(W261013.10a).
+   * 화면에서만 거른다 — 0곳 안내의 버튼(`releaseActions`)·숨김 줄이 같은 키의 칩을 `activeChips` 에서 찾는다.
+   */
+  const rowChips = activeChips.filter(
+    (chip) => chip.key !== 'query' || (chip.notInHeader && !(results.length === 0 && emptyKind === 'search')),
+  );
 
   // 시 이름 검색이 시내 밖 읍면까지 덮었으면 그렇다고 말한다(14 W261010.30). 읍면 필터가 걸려 있으면 이미 좁힌 것이라 말하지 않는다.
   const cityScope = useMemo(() => (town ? null : cityScopeOf(query, results)), [town, query, results]);
@@ -326,11 +335,7 @@ export function PlacesPageResults({
         </div>
       )}
 
-      {/* 검색어만으로 0곳이면 큰 안내의 제목이 검색어를 이름으로 말하고 지우는 길(개수 줄 '검색 지우기')도 있어 검색어 칩은 세 번째 같은 말이다.
-          그 한 줄(~55px)이 1280×800 에서 안내의 버튼을 접힘 아래로 밀었다(14 W261013.10a). 권역처럼 다른 칩은 그대로 둔다. */}
-      <PlacesPageActiveChips
-        chips={results.length === 0 && emptyKind === 'search' ? activeChips.filter((chip) => chip.key !== 'query') : activeChips}
-      />
+      <PlacesPageActiveChips chips={rowChips} />
 
       {/* 시 이름은 소속 읍면까지 맞는다(W261006.9) — 여행자는 '서귀포' 를 시내로 읽어 맨 위의 성산을 틀린 결과로 본다(business-11).
           범위는 두고 무엇을 덮었는지 말하며, 시내만 원하면 그 자리에서 읍면 필터로 좁힌다. 시내가 0곳이면 좁힐 것이 없어 버튼을 뺀다. */}
@@ -367,24 +372,6 @@ export function PlacesPageResults({
           >
             풀고 {areaCarried.count}곳 보기
           </button>
-        </p>
-      )}
-
-      {/* 결과가 있어도 같은 검색어가 다른 종류에 맞으면 그 수를 말한다(14 W261007.11) — 검색은 탭 안에서만 돌아서 '함덕' 을 친 사람은
-          식당·카페에도 있는 줄 모른다. 0곳일 때의 큰 안내(아래 빈 상태)와 달리 목록을 밀어내지 않게 한 줄로. */}
-      {results.length > 0 && otherTypes.length > 0 && (
-        <p className="flex flex-wrap items-center gap-x-3 px-4 text-sm text-tertiary md:px-6">
-          다른 종류에도 있어요
-          {otherTypes.map((other) => (
-            <Link
-              key={other.type}
-              href={`/places/${other.type}/`}
-              className="inline-flex min-h-11 items-center gap-0.5 font-semibold text-brand-secondary hover:text-brand-secondary_hover"
-            >
-              {TYPE_META[other.type].label} {other.count}곳
-              <ChevronRight size={16} aria-hidden="true" className="shrink-0" />
-            </Link>
-          ))}
         </p>
       )}
 
@@ -448,6 +435,27 @@ export function PlacesPageResults({
               </button>
               {hardOpen && <ul className={cx('mt-3', listClass)}>{fold.folded.map(renderCard)}</ul>}
             </div>
+          )}
+          {/*
+            결과가 있어도 같은 검색어가 다른 종류에 맞으면 그 수를 말한다(14 W261007.11) — 검색은 탭 안에서만 돌아서 '함덕' 을 친 사람은
+            식당·카페에도 있는 줄 모른다. 자리는 **목록 끝**이다(14 W261019.11a) — 머리 밑에 두었더니 개수·정렬·켜진 조건·시내 안내·이유 상자와 쌓여
+            '서귀포' 식당의 첫 카드가 320px 에서 탭바에 걸렸다(haeun-22a). 이 탭을 다 본 뒤가 옆 종류를 볼 때이고, 목록이 짧으면 끝도 가깝다.
+            0곳일 때의 큰 안내(아래 빈 상태)는 그대로 맨 위다 — 그때는 그것이 답이다.
+          */}
+          {otherTypes.length > 0 && (
+            <p className="mt-3 flex flex-wrap items-center gap-x-3 px-4 text-sm text-tertiary md:px-6">
+              다른 종류에도 있어요
+              {otherTypes.map((other) => (
+                <Link
+                  key={other.type}
+                  href={`/places/${other.type}/`}
+                  className="inline-flex min-h-11 items-center gap-0.5 font-semibold text-brand-secondary hover:text-brand-secondary_hover"
+                >
+                  {TYPE_META[other.type].label} {other.count}곳
+                  <ChevronRight size={16} aria-hidden="true" className="shrink-0" />
+                </Link>
+              ))}
+            </p>
           )}
         </>
       ) : (
