@@ -83,9 +83,22 @@ export function PlacesPageEligibilityToggles({
     return (
       <section role="group" aria-label="우리 강아지 기준">
         <h3 className="text-sm font-semibold text-secondary">우리 강아지 기준</h3>
-        {/* '실내 자리 필요' 는 곳을 빼지 않고 판정을 바꾼다 — 아래 '실내 동반 OK'(원문으로 거름)와 이름이 비슷해 축이 섞였다(14 W261007.7). */}
+        {/*
+          '실내 자리 필요' 는 곳을 빼지 않고 판정을 바꾼다 — 아래 '실내 동반 OK'(원문으로 거름)와 이름이 비슷해 축이 섞였다(14 W261007.7).
+          그 설명을 "곳을 빼지 않고, 실내 자리 기준으로 다시 판정해요" 라는 방식으로 적었더니 세 번 읽어도 무엇이 바뀌는지 몰랐다(14 W261019.1) —
+          그래서 **결과**를 말한다: 바뀌는 이름은 바로 밑 판정 셈 줄의 이름('야외' 가 사라지고 '어려움' · C12 의 '확인 필요' 가 는다)과 같다.
+          둘째 줄은 "실내까지 같이 갈 곳" 을 찾는 길 — 켠 채 '가능' 으로 남는 곳은 원문이 실내를 받고 이 아이의 이동 수단으로 들 수 있는 곳뿐이다
+          (식당·카페 91곳 × 수단 넷 실측 어긋남 0). '실내 동반 OK' 는 강아지를 안 보고 원문으로만 남겨, 수단 없는 아이에게 '어려움' 인 케이지 필수 곳도 남는다.
+        */}
         {type !== 'stay' && (
-          <p className="mt-0.5 text-sm text-tertiary">&lsquo;실내 자리 필요&rsquo; 는 곳을 빼지 않고, 실내 자리 기준으로 다시 판정해요.</p>
+          <>
+            <p className="mt-0.5 text-sm text-tertiary">
+              켜면 야외 자리만 되는 곳은 ‘어려움’, 실내 얘기가 없는 곳은 ‘확인 필요’가 돼요. 앱 전체에 남아요.
+            </p>
+            <p className="mt-0.5 text-sm text-tertiary">
+              실내까지 같이 갈 곳만 보려면 ‘갈 수 있는 곳만’도 켜요. 아래 ‘실내 동반 OK’는 강아지와 상관없이 걸러요.
+            </p>
+          </>
         )}
         <div className="mt-2 flex flex-wrap gap-2">{buttons}</div>
       </section>
