@@ -393,11 +393,9 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
                 area={area}
                 directions={directions}
                 petKeys={petKeys}
-                sort={shownSort}
                 onSelectTown={selectTown}
                 onToggleDirection={toggleDirection}
                 onTogglePetKey={togglePetKey}
-                onChangeSort={(next) => void changeSort(next)}
                 eligibility={
                   dog
                     ? {

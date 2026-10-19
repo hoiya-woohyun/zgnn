@@ -17,8 +17,11 @@ import { cx } from '../utils/cx';
  */
 export type TFiltersVariant = 'bar' | 'sheet';
 
+/**
+ * 정렬은 펼친 판(bar)만 받는다 — 시트엔 정렬이 없다(14 W261019.13, 모바일은 목록 위 정렬 줄). variant 로 타입을 갈라
+ * 시트는 쓰지 않는 정렬 값을 넘길 수 없고, 펼친 판은 빠뜨리면 tsc 가 막는다(14 W261019.13c) — optional 로 두면 md 셀렉트가 조용히 죽는다.
+ */
 type TPlacesPageFiltersProps = {
-  variant: TFiltersVariant;
   type: TPlaceType;
   town: string | null;
   /** 읍면 칩 옆 수(`townChipCounts`) — 읍면 선택만 뺀 지금 조건으로 센 패싯. 없는 읍면은 0. */
@@ -27,16 +30,21 @@ type TPlacesPageFiltersProps = {
   area: TAreaId | null;
   directions: TDirection[];
   petKeys: TPetFilterKey[];
-  sort: TPlaceSort;
   onSelectTown: (town: string | null) => void;
   onToggleDirection: (direction: TDirection) => void;
   onTogglePetKey: (key: TPetFilterKey) => void;
-  onChangeSort: (sort: TPlaceSort) => void;
-  /** 정렬 이름(`placesPageSortLabel`)에 — 기본 순서의 이름이 강아지 유무로 갈린다. 펼친 판(bar)만 정렬을 그린다. */
-  hasDog?: boolean;
-  /** '가까운 순' 의 기준 이름(들어온 장소·검색어의 관광지). */
-  nearFrom?: string;
-};
+} & (
+  | {
+      variant: 'bar';
+      sort: TPlaceSort;
+      onChangeSort: (sort: TPlaceSort) => void;
+      /** 정렬 이름(`placesPageSortLabel`)에 — 기본 순서의 이름이 강아지 유무로 갈린다. */
+      hasDog: boolean;
+      /** '가까운 순' 의 기준 이름(들어온 장소·검색어의 관광지). */
+      nearFrom?: string;
+    }
+  | { variant: 'sheet' }
+);
 
 /** 숙소에서 고를 수 있는 환경 조건 — 데이터는 빌드 때 고정이라 한 번만 센다. */
 const STAY_ENV_FILTERS = envFiltersWithData(placesOfType('stay'));
@@ -90,22 +98,9 @@ function FilterGroup({
   );
 }
 
-export function PlacesPageFilters({
-  variant,
-  type,
-  town,
-  townCounts,
-  area,
-  directions,
-  petKeys,
-  sort,
-  onSelectTown,
-  onToggleDirection,
-  onTogglePetKey,
-  onChangeSort,
-  hasDog = false,
-  nearFrom,
-}: TPlacesPageFiltersProps) {
+export function PlacesPageFilters(props: TPlacesPageFiltersProps) {
+  // 정렬 칸은 variant 를 좁힌 뒤에만 읽는다(아래 bar 갈래) — 시트 쪽 타입엔 그 칸이 없다.
+  const { variant, type, town, townCounts, area, directions, petKeys, onSelectTown, onToggleDirection, onTogglePetKey } = props;
   // 이 종류에 실제로 장소가 있는 읍면만 보여준다 — 0곳인 읍면 칩을 눌러 빈 목록을 만들 이유가 없다.
   // 단 **이미 골라 둔 읍면**이 이 종류에 없으면(숙소에서 고른 '서귀포' → 식당) 맨 앞에 `0` 칩을 켜진 채로 끼운다 —
   // 안 그러면 버튼은 "필터 1" 인데 시트에 끌 칩이 없다(12 U1.6). 읍면은 종류를 넘어 유지되는 값이다.
@@ -165,11 +160,17 @@ export function PlacesPageFilters({
         자랐고, 1280×800 에서 0곳 안내의 버튼이 접힘 아래로 밀렸다. 방향은 칩 다섯이라 lg 본문(768px)에서 자리가 남는다.
         md(본문 512px)는 나란히 두면 방향 칩이 스크롤로 밀려 제 줄 그대로.
       */}
-      {variant === 'bar' ? (
+      {props.variant === 'bar' ? (
         <div className="lg:flex lg:items-center">
           {directionGroup('lg:min-w-0 lg:flex-1')}
           <div className="mt-2 flex shrink-0 justify-end px-4 md:px-6 lg:mt-0 lg:pl-0">
-            <SortSelect type={type} sort={sort} onChangeSort={onChangeSort} hasDog={hasDog} nearFrom={nearFrom} />
+            <SortSelect
+              type={type}
+              sort={props.sort}
+              onChangeSort={props.onChangeSort}
+              hasDog={props.hasDog}
+              nearFrom={props.nearFrom}
+            />
           </div>
         </div>
       ) : (

@@ -5,7 +5,7 @@ import { BottomSheet } from '../components/base/bottom-sheet';
 import { Button } from '../components/base/button';
 import { cx } from '../utils/cx';
 import type { TAreaId } from '../lib/areaGroups';
-import type { TPetFilterKey, TPlaceSort } from '../lib/placeFilters';
+import type { TPetFilterKey } from '../lib/placeFilters';
 import type { TDirection, TPlaceType } from '../types';
 
 type TPlacesPageFilterSheetProps = {
@@ -20,11 +20,9 @@ type TPlacesPageFilterSheetProps = {
   area: TAreaId | null;
   directions: TDirection[];
   petKeys: TPetFilterKey[];
-  sort: TPlaceSort;
   onSelectTown: (town: string | null) => void;
   onToggleDirection: (direction: TDirection) => void;
   onTogglePetKey: (key: TPetFilterKey) => void;
-  onChangeSort: (sort: TPlaceSort) => void;
   /** 우리 강아지 기준 토글은 프로필이 있을 때만 있다. 없으면 이 값이 null 이다. */
   eligibility: {
     /** '갈 수 있는 곳만'(14 W261013.14d) — 홈 동네 카드가 거는 것과 같은 스토어 값. */
@@ -52,9 +50,10 @@ type TPlacesPageFilterSheetProps = {
 /**
  * 모바일 필터 시트.
  *
- * 조건이 다섯 줄(읍면·방향·정렬·반려동물·판정)이라 고정 영역이 첫 화면의 절반을 먹고
- * 정작 목록은 두어 장만 보였다. 모바일에서는 그 다섯 줄을 이 시트로 접고 버튼 하나만 남긴다.
+ * 조건이 여러 줄(판정·읍면·방향·원문 조건, 숙소는 환경까지)이라 고정 영역이 첫 화면의 절반을 먹고
+ * 정작 목록은 두어 장만 보였다. 모바일에서는 그 줄들을 이 시트로 접고 버튼 하나만 남긴다.
  * 데스크톱은 세로가 넉넉해 접을 이유가 없으므로 지금처럼 펼쳐 둔다(placesPage 가 가른다).
+ * 정렬은 여기 없다 — 모바일은 목록 위 정렬 줄이 지금 순서를 말하고 바꾼다(14 W261019.13).
  *
  * "적용" 버튼을 두지 않고 누르는 즉시 반영한다 — 읍면은 이미 스토어에 바로 쓰이고
  * 종류를 바꾸면 조건이 통째로 리셋되는 구조라(placesPage 의 `key={type}`), 초안 상태를
@@ -70,11 +69,9 @@ export function PlacesPageFilterSheet({
   area,
   directions,
   petKeys,
-  sort,
   onSelectTown,
   onToggleDirection,
   onTogglePetKey,
-  onChangeSort,
   eligibility,
   activeCount,
   resultCount,
@@ -161,11 +158,9 @@ export function PlacesPageFilterSheet({
               area={area}
               directions={directions}
               petKeys={petKeys}
-              sort={sort}
               onSelectTown={onSelectTown}
               onToggleDirection={onToggleDirection}
               onTogglePetKey={onTogglePetKey}
-              onChangeSort={onChangeSort}
             />
           </div>
 
