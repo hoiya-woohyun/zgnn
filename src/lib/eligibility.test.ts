@@ -471,10 +471,18 @@ describe('judgeEligibility — 몸무게가 무게 상한 바로 밑이면 그�
     expect(near(dogs(11.9), '선흘안')).toBeUndefined();
   });
 
-  it('작은 개 제한은 한도의 10% — 5kg 이하에 4.5kg 는 들고 4.4kg 는 빠진다, 한도와 같으면 여유가 없다', () => {
+  it('작은 개 제한은 한도의 10% — 5kg 이하에 4.5kg 는 들고 4.4kg 는 빠진다', () => {
     expect(near(dogs(4.5), '그리너리빌리지 펜션')?.text).toBe('보리(4.5kg)는 5kg 이하까지 0.5kg 남았어요');
     expect(near(dogs(4.4), '그리너리빌리지 펜션')).toBeUndefined();
-    expect(near(dogs(5), '그리너리빌리지 펜션')?.text).toBe('보리(5kg)는 5kg 이하까지 여유가 없어요');
+  });
+
+  it('한도와 같으면 판정과 같은 방향으로 — "여유가 없어요" 는 \'갈 수 있어요\' 옆에서 거절로 읽혔다(14 W261019.10), 같은 말인 칩은 그래도 빠진다', () => {
+    expect(near(dogs(5), '그리너리빌리지 펜션')?.text).toBe('보리(5kg)는 5kg 이하에 딱 맞아요. 늘면 어려워요');
+    const { e, reason, chips, lead } = card(dogs(7), '스테이다랑쉬');
+    expect(e.level).toBe('ok');
+    expect(reason?.text).toBe('보리(7kg)는 7kg 이하에 딱 맞아요. 늘면 어려워요');
+    expect(lead).toBe('7kg 이하');
+    expect(chips).not.toContain('7kg 이하');
   });
 
   it('남은 무게는 소수 한 자리 — 10 − 9.7 을 0.3000000000000007 로 쓰지 않는다', () => {

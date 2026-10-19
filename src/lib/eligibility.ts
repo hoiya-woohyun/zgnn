@@ -141,13 +141,24 @@ const NEAR_LIMIT_RATIO = 0.1;
 const nearLimitMarginKg = (limitKg: number): number => Math.min(NEAR_LIMIT_KG, limitKg * NEAR_LIMIT_RATIO);
 
 /**
- * I2 문장의 경계 부분 — "13kg 미만까지". 칩 거르기(`REASON_BADGE`)가 같은 함수로 이 줄이 어느 구간의 말인지 찾는다(H2 의 `tooManyText` 와 같은 짝).
- * H1 처럼 "…조건까지" 라고 하지 않는 것은 길이 때문이다 — 지도 시트는 판정 배지 옆 한 줄이라 390px 에서 "0.5kg 남…" 으로 잘렸다. 숫자가 이 줄의 요점이다.
+ * I2 문장 — "보리(12.5kg)는 13kg 미만까지 0.5kg 남았어요" · 한도와 같으면 "두부(7kg)는 7kg 이하에 딱 맞아요. 늘면 어려워요".
+ * 0kg 을 "…이하까지 여유가 없어요" 라고 하면 '갈 수 있어요' 바로 옆에서 거절로 읽혔다(14 W261019.10) — 판정과 같은 방향(들어간다)을 앞에, 위험을 뒤에.
+ * "몸무게가 늘면" 이 아니라 "늘면" 인 것은 카드 이유 줄(`clamp-1`)이 320px 에서 그 길이부터 잘려서다 — 무엇이 느는지는 앞의 "(7kg)" 이 말한다.
+ * H1 처럼 "…조건까지" 라고 하지 않는 것도 길이 때문이다 — 숫자가 이 줄의 요점이다.
  */
-const nearLimitBound = (tier: TPolicyTier): string => `${weightBoundLabel(tier)}까지`;
+const nearLimitText = (subject: string, tier: TPolicyTier, left: number): string =>
+  left === 0
+    ? `${subject} ${weightBoundLabel(tier)}에 딱 맞아요. 늘면 어려워요`
+    : `${subject} ${weightBoundLabel(tier)}까지 ${left}kg 남았어요`;
 
-/** 그 줄이 이 구간을 말하나 — 앞 공백까지 맞춰 '13kg 미만까지' 안의 '3kg 미만까지' 를 집지 않는다. */
-const saysNearLimitBound = (text: string, tier: TPolicyTier): boolean => text.includes(` ${nearLimitBound(tier)}`);
+/**
+ * 그 줄이 이 구간을 말하나 — 칩 거르기(`REASON_BADGE`)가 이것으로 I2 줄이 어느 구간의 말인지 찾는다(H2 의 `tooManyText` 와 같은 짝).
+ * 경계 말('13kg 미만')까지만 맞춘다 — 뒤 조사(까지·에)는 남은 무게로 갈린다. 앞 공백까지 맞춰 '13kg 미만' 안의 '3kg 미만' 을 집지 않는다.
+ */
+const saysNearLimitBound = (text: string, tier: TPolicyTier): boolean => {
+  const label = weightBoundLabel(tier);
+  return label !== undefined && text.includes(` ${label}`);
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 규칙 테이블 — 순서 = 표시 순서(같은 레벨 안에서)
@@ -223,8 +234,7 @@ const ruleNearWeightLimit: TRule = (dog, policy) => {
   const left = Math.round((limit - weight) * 10) / 10;
   if (left > nearLimitMarginKg(limit)) return null;
   const heaviest = dog.dogs.find((d) => d.weightKg === weight) as TDogEntry;
-  const tail = left === 0 ? '여유가 없어요' : `${left}kg 남았어요`;
-  return { level: 'info', text: `${dogsTopic([heaviest])} ${nearLimitBound(tier)} ${tail}`, quote: tier.source };
+  return { level: 'info', text: nearLimitText(dogsTopic([heaviest]), tier, left), quote: tier.source };
 };
 
 /** H3: "소형견만" 인데 우리 강아지는 소형이 아니다. */
