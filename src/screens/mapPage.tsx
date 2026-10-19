@@ -149,6 +149,8 @@ export function MapPage() {
 
   // 캔버스는 이 참조가 바뀌면 마커를 전부 다시 만든다 — 렌더마다 새 함수를 넘기지 않는다.
   const handleSelect = useCallback((id: string) => setSelectedId(id), []);
+  // 모바일 시트가 지도를 덮는 높이 — 고른 핀이 그 밑에 깔리면 캔버스가 밀어 올린다(14 W261019.14a). 넓은 화면엔 시트가 없어 늘 0.
+  const [sheetHeight, setSheetHeight] = useState(0);
 
   const registerItem = useCallback((id: string, node: HTMLLIElement | null) => {
     if (node) itemRefs.current.set(id, node);
@@ -186,6 +188,7 @@ export function MapPage() {
       // 저장한 곳은 몇 곳뿐이라 이름을 단다 — 셋을 하나씩 눌러 봐야 어느 곳인지 알았다. 전체 지도는 겹침이 많아 달지 않는다.
       showNames={savedOnly}
       onDimShownChange={setDimShown}
+      coveredBottom={isWide ? 0 : sheetHeight}
     />
   );
 
@@ -485,7 +488,7 @@ export function MapPage() {
           }}
           label={selected ? `${selected.name} 정보` : '장소 정보'}
         >
-          {selected && <MapPageSheetCard place={selected} origin={here} />}
+          {selected && <MapPageSheetCard place={selected} origin={here} onSheetHeight={setSheetHeight} />}
         </BottomSheet>
       )}
       {!isWide && (

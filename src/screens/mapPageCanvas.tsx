@@ -16,7 +16,8 @@ import {
   mapPageMarkerTabOrder,
 } from '../lib/mapPageMarkerLayout';
 import { loadNaverMaps, onNaverMapsAuthFailure, watchNaverMapInit } from '../lib/naverMap';
-import { mapPageFirstView } from '../lib/mapPageFirstView';
+import { CHIP_ROW_HEIGHT, mapPageFirstView } from '../lib/mapPageFirstView';
+import { mapPageRevealPin } from '../lib/mapPageRevealPin';
 import { MY_LOCATION_COLOR, PLACE_FOCUS_ZOOM, type TPlaceEntry } from '../lib/places';
 import type { TGeo, TPlaceType } from '../types';
 
@@ -30,6 +31,9 @@ import type { TGeo, TPlaceType } from '../types';
 export const MARKER_HARD_OPACITY = '0.45';
 
 /** 저장한 곳은 겹쳤을 때 위로 올린다 — 모아 보려고 저장했는데 남의 핀 밑에 깔리면 안 된다. */
+/** 고른 핀을 시트 위로 올릴 때 시트 윗변과 핀 사이에 두는 틈(px). */
+const REVEAL_MARGIN = 12;
+
 const Z_SAVED = 500;
 /** 묶음 원은 서로·마커와 겹치지 않게 세므로 층이 거의 상관없다 — 고른 핀(묶음에서 꺼낸다)만 그 위에 온다. */
 const Z_CLUSTER = 600;
@@ -423,6 +427,11 @@ type TMapPageCanvasProps = {
    * 묶은 뒤엔 어려운 곳이 있어도 모두 섞인 묶음(안 흐림) 속이면 흐린 것이 하나도 없다(14 W261006.11, 6kg 줌 10 실측).
    */
   onDimShownChange?: (shown: boolean) => void;
+  /**
+   * 화면 아래에서 지도를 덮고 있는 시트의 높이(px, 없으면 0 — 넓은 화면은 시트가 옆 패널이라 늘 0). 고른 핀이 그 밑에
+   * 깔리면 보이는 자리로 지도를 민다(14 W261019.14a).
+   */
+  coveredBottom?: number;
 };
 
 /**
@@ -442,6 +451,7 @@ export function MapPageCanvas({
   fitKey = null,
   showNames = false,
   onDimShownChange,
+  coveredBottom = 0,
 }: TMapPageCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<naver.maps.Map | null>(null);
@@ -797,6 +807,41 @@ export function MapPageCanvas({
       }
     };
   }, [status]);
+
+  /*
+   * 고른 핀이 시트 밑에 가려지면 지도를 밀어 시트 위로 올린다(14 W261019.14a, haeun-11a) — 무엇을 골랐는지 안 보였다.
+   * 이미 보이면 안 민다(`mapPageRevealPin` 이 0). 줌은 그대로, 핀 자리는 마커 요소의 화면 좌표로 잰다. 시트가 올라오며 높이가
+   * 바뀌어도(`coveredBottom`) 다시 본다. 선택 effect 가 아이콘을 바꾼 뒤에 재도록 한 프레임 미룬다.
+   */
+  useEffect(() => {
+    const map = mapRef.current;
+    const maps = window.naver?.maps;
+    const container = containerRef.current;
+    if (status !== 'ready' || !map || !maps || !container || !selectedId || coveredBottom <= 0) return;
+    const frame = window.requestAnimationFrame(() => {
+      const element = markersRef.current.get(selectedId)?.marker.getElement();
+      if (!element) return;
+      const pin = element.getBoundingClientRect();
+      const view = container.getBoundingClientRect();
+      const dy = mapPageRevealPin({
+        mapTop: view.top,
+        mapBottom: view.bottom,
+        topInset: CHIP_ROW_HEIGHT,
+        sheetHeight: coveredBottom,
+        viewportBottom: window.innerHeight,
+        pinTop: pin.top,
+        pinBottom: pin.bottom,
+        margin: REVEAL_MARGIN,
+      });
+      if (dy === 0) return;
+      try {
+        map.panBy(new maps.Point(0, dy));
+      } catch {
+        setStatus('error');
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [selectedId, coveredBottom, status]);
 
   /*
    * Tab 이 화면 밖 마커에 닿으면 — 브라우저는 그 마커를 보이려고 지도 칸(`overflow:hidden`)을 **스크롤**한다. 지도는 그걸 모르고

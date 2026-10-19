@@ -125,6 +125,8 @@ declare namespace naver.maps {
     morph(coord: LatLng, zoom?: number): void;
     /** 줌은 두고 그 자리로 부드럽게 옮긴다. 화면 밖 마커에 Tab 으로 닿았을 때 그 마커를 데려온다(`mapPageCanvas`). */
     panTo(coord: LatLng): void;
+    /** 줌은 두고 화면 기준 px 만큼 옮긴다 — y 가 양수면 지도 내용이 위로 올라간다(고른 핀을 시트 위로 꺼낼 때, `mapPageCanvas`). */
+    panBy(offset: Point): void;
     /** 범위가 다 들어오는 중심·줌으로 옮긴다. 핀이 가까이 모이면 끝까지 확대하므로 부른 뒤 줌을 눌러 준다. */
     fitBounds(bounds: LatLngBounds, margin?: Margin): void;
     /** `fitBounds` 가 갈 자리를 옮기지 않고 계산만 한다. 묶음을 누를 때 줌을 깎은 뒤 `morph` 하려고 쓴다. */

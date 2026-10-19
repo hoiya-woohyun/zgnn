@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { EligibilityBadge } from '../components/eligibilityBadge';
 import { NaverLinkButton } from '../components/naverLinkButton';
@@ -20,6 +21,11 @@ type TMapPageSheetCardProps = {
   place: TPlaceEntry;
   /** '내 위치' 로 받은 좌표. 있으면 주소 줄 앞에 거리를 붙인다(둘러보기 '가까운 순' 카드와 같은 표기). 지도 화면 state 에만 있다. */
   origin?: { lat: number; lng: number } | null;
+  /**
+   * 이 카드를 품은 시트(`role="dialog"`)의 높이를 알린다 — 지도가 고른 핀을 시트 밑에서 꺼내려고 쓴다(14 W261019.14a).
+   * 시트는 포털이라 지도 화면이 직접 못 잰다. 카드가 사라지면 0. 높이는 레이아웃 높이라 올라오는 애니메이션에 흔들리지 않는다.
+   */
+  onSheetHeight?: (height: number) => void;
 };
 
 /**
@@ -37,7 +43,21 @@ type TMapPageSheetCardProps = {
  * 소개 두 줄과 조건 칩은 상세의 몫으로 넘기고(대표 근거 한 줄 `primaryReason` 은 목록과 같은 말로 남긴다 — 12 U1.7),
  * 목록 카드엔 없는 주소·거리를 더하고, 준비물은 머리 줄로 접는다. 데스크톱 패널도 같은 카드라 고른 카드가 패널 절반을 먹던 것이 함께 준다(ADR-008 v24).
  */
-export function MapPageSheetCard({ place, origin }: TMapPageSheetCardProps) {
+export function MapPageSheetCard({ place, origin, onSheetHeight }: TMapPageSheetCardProps) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const dialog = rootRef.current?.closest('[role="dialog"]');
+    if (!onSheetHeight || !(dialog instanceof HTMLElement)) return;
+    const report = () => onSheetHeight(dialog.offsetHeight);
+    report();
+    const observer = new ResizeObserver(report);
+    observer.observe(dialog);
+    return () => {
+      observer.disconnect();
+      onSheetHeight(0);
+    };
+  }, [onSheetHeight]);
+
   const eligibility = useEligibility(place);
   const reason = eligibility ? primaryReason(eligibility) : undefined;
   const verified = freshnessShortLabel(place, useToday());
@@ -47,7 +67,7 @@ export function MapPageSheetCard({ place, origin }: TMapPageSheetCardProps) {
   const address = place.address || '주소는 아직 확인하지 못했어요';
 
   return (
-    <div>
+    <div ref={rootRef}>
       <Link href={`/place/${place.id}`} className="block">
         <div className="flex items-start gap-3">
           <PlaceThumb src={place.cover ?? place.images[0]} type={place.type} />

@@ -17,7 +17,7 @@ const JEJU_WEST = 126.15;
 const JEJU_EAST = 126.98;
 
 /** 지도 위에 뜬 칩 줄(저장·종류 칩 + "지도에 없는 N곳") 높이(px) — 저장 모드 맞춤 여백(`FIT_MARGIN.top`)과 같다. */
-const CHIP_ROW_HEIGHT = 88;
+export const CHIP_ROW_HEIGHT = 88;
 /** 아래 저작권·축척 줄(px). 탭바는 지도 칸 밖이라 더하지 않는다. */
 const ATTRIBUTION_HEIGHT = 28;
 /** 좌우·위아래 최소 숨 쉴 틈(px). */
