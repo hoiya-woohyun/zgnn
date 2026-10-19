@@ -116,6 +116,12 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
    */
   const queryLandmark = useMemo(() => landmarkOfQuery(query), [query]);
   const nearOrigin = nearPlace?.geo ?? queryLandmark?.landmark.center ?? origin;
+  /*
+   * 기준이 사라지면 정렬도 **놓는다**(렌더 중 상태 조정 — `dogProfilePage` 와 같은 패턴). 보이는 모양만 기본으로 두면 값은 'near' 로 남아,
+   * 나중에 다른 관광지('성산')를 치는 순간 누르지 않은 '성산에서 가까운 순' 이 눌린 채 살아난다. 지우기 링크가 정렬을 안 건드리게 되며(14 W261019.13a)
+   * 그 길이 드러났다 — 전에는 링크가 정렬을 함께 되돌려 가려졌을 뿐, 검색창에서 글자를 지울 때도 같았다.
+   */
+  if (sort === 'near' && !nearOrigin) setSort('none');
   const shownSort: TPlaceSort = sort === 'near' && !nearOrigin ? 'none' : sort;
 
   const results = useMemo(() => {
@@ -294,12 +300,15 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
    * 시트 안의 "모두 지우기" 는 검색어를 건드리지 않는다 — 검색창은 시트 밖에 그대로
    * 보이는데 여기서 같이 지우면 시트를 닫고 나서야 글자가 사라진 걸 알게 된다.
    * 목록 위의 지우기 링크("필터·검색·모두 지우기")는 검색창 옆에 있어 무엇이 지워졌는지 바로 보이므로 검색어까지 지운다.
+   *
+   * **정렬은 둘 다 건드리지 않는다**(14 W261019.13a). 정렬은 시트에 없고(W261019.13) 칩 수에도 안 들어, 시트 버튼이 보이지 않는 것을
+   * 바꾸는 꼴이었다 — 숙소를 '가격 낮은 순' 으로 보다가 시트에서 조건을 지우면 순서가 말없이 돌아갔다. 지우기 링크도 같다: 문구가
+   * 필터·검색을 지운다고 말하고, 정렬만 남았을 땐 링크가 서지도 않으며, 지금 순서는 링크 바로 밑 정렬 줄에 눌린 채 보인다.
    */
   const resetConditions = () => {
     setTown(null);
     // 방향·조건·숨기기는 다른 종류 것까지 푼다 — 이 탭에서 "모두 지우기" 를 눌렀는데 옆 탭에 안 보이는 조건이 남으면 안 된다.
     resetStoredConditions();
-    setSort('none');
     // activeFilterCount 가 세는 것은 여기서 전부 풀어야 한다 — 숫자는 1 인데 눌러도 안 바뀌면 고장으로 보인다.
     // 숙소 탭은 세지도 보이지도 않으므로 건드리지 않는다 — 보이지 않는 전역 값을 몰래 끄면 식당·카페 판정이 말없이 바뀐다(12 U0.3).
     if (type !== 'stay') setNeedsIndoor(false);

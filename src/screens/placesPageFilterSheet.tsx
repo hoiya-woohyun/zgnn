@@ -45,7 +45,7 @@ type TPlacesPageFilterSheetProps = {
   activeCount: number;
   /** 지금 조건(검색어 포함)으로 목록에 남는 곳 수 — 하단 "N곳 보기" 버튼에 싣는다. */
   resultCount: number;
-  /** 시트 안 필터만 푼다(검색어는 그대로). 누르면 시트도 함께 닫힌다. */
+  /** 시트 안 필터만 푼다(검색어·정렬은 그대로 — 둘 다 시트 밖에 보인다, 14 W261019.13a). 누르면 시트도 함께 닫힌다. */
   onReset: () => void;
 };
 
