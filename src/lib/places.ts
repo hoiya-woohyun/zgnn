@@ -267,7 +267,7 @@ export const JEJU_CENTER: [number, number] = [33.38, 126.55];
  *
  * 지도가 시야를 코드로 옮기는 것은 이 첫 한 번뿐이다 — 그 뒤는 사용자가 끌고 확대한다.
  */
-export const JEJU_ZOOM = 9;
+export const JEJU_ZOOM = 10;
 
 /**
  * 장소 한 곳을 가리킬 때의 확대 수준 — 상세 화면의 미니 지도와 `/map/?place=<id>` 로 들어온 첫 화면.

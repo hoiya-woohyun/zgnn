@@ -1,30 +1,34 @@
 import { describe, expect, it } from 'vitest';
-import { mapPageFirstView } from './mapPageFirstView';
+import { FIRST_VIEW_STEP_IN, mapPageFirstView } from './mapPageFirstView';
 import { JEJU_ZOOM } from './places';
 
 /*
  * 이 숫자는 빌드·타입이 못 잡는 자리다 — 네이버 zoom 은 클수록 확대라 부호를 뒤집어도 전부 통과하고 화면에서만 드러난다.
- * 그래서 폰 두 폭(390×786 · 320×~510)과 데스크톱 값을 못 박는다(ADR-008 v35).
+ * 그래서 폰 두 폭(390×786 · 320×~510)과 데스크톱 값을 못 박는다(ADR-008 v12 · v36 — 섬이 다 드는 줌 9·10 에서 한 단계 당긴 10·11).
  */
 describe('mapPageFirstView', () => {
-  it('폰에서는 섬이 다 드는 9 — 동서 끝(한경·성산·우도)이 잘리지 않는다', () => {
-    expect(mapPageFirstView(390, 786).zoom).toBe(9);
-    expect(mapPageFirstView(320, 510).zoom).toBe(9);
-    expect(mapPageFirstView(430, 850).zoom).toBe(9);
+  it('v12 의 한 단계 당김을 지킨다 — 사용자가 고른 값이라 바꾸려면 이 테스트도 함께', () => {
+    expect(FIRST_VIEW_STEP_IN).toBe(1);
   });
 
-  it('데스크톱 지도 칸(좌측 패널을 뺀 폭)에서는 한 단계 더 가까운 10', () => {
-    expect(mapPageFirstView(832, 800).zoom).toBe(10);
+  it('폰에서는 10 — 섬이 다 드는 9 에서 한 단계 당겼다', () => {
+    expect(mapPageFirstView(390, 786).zoom).toBe(10);
+    expect(mapPageFirstView(320, 510).zoom).toBe(10);
+    expect(mapPageFirstView(430, 850).zoom).toBe(10);
   });
 
-  it('고른 줌에서 섬 경도 폭은 보이는 폭 안에 들고, 한 단계 더 당기면 넘친다', () => {
+  it('데스크톱 지도 칸(좌측 패널을 뺀 폭)에서는 11', () => {
+    expect(mapPageFirstView(832, 800).zoom).toBe(11);
+  });
+
+  it('당기기 전 줌에서 섬 경도 폭은 보이는 폭 안에 들고, 한 단계 더 당기면 넘친다', () => {
     for (const [w, h] of [[320, 510], [390, 786], [832, 800], [1440, 900]]) {
-      const { zoom } = mapPageFirstView(w, h);
-      const pxPerLon = (256 * 2 ** zoom) / 360;
+      const fitZoom = mapPageFirstView(w, h).zoom - FIRST_VIEW_STEP_IN;
+      const pxPerLon = (256 * 2 ** fitZoom) / 360;
       expect(0.83 * pxPerLon, `${w}`).toBeLessThanOrEqual(w);
       const heightFits = (z: number) => 0.45 * ((256 * 2 ** z) / 360) * 1.2 <= h - 88 - 28;
       const widthFits = (z: number) => 0.83 * ((256 * 2 ** z) / 360) <= w - 16;
-      expect(widthFits(zoom + 1) && heightFits(zoom + 1), `${w}`).toBe(false);
+      expect(widthFits(fitZoom + 1) && heightFits(fitZoom + 1), `${w}`).toBe(false);
     }
   });
 

@@ -520,7 +520,7 @@ export function MapPageCanvas({
           center: initialFocus
             ? new maps.LatLng(initialFocus.lat, initialFocus.lng)
             : new maps.LatLng(firstView.center[0], firstView.center[1]),
-          // 섬 경계를 칸의 보이는 자리에 맞춘다 — 모바일 390px 는 9, 데스크톱 830px 는 10(ADR-008 v35).
+          // 섬이 칸의 보이는 자리에 드는 줌에서 한 단계 당긴다 — 모바일 390px 는 10, 데스크톱 830px 는 11(ADR-008 v12 · v36).
           zoom: initialFocus ? PLACE_FOCUS_ZOOM : firstView.zoom,
           /*
            * 로고·저작권 표시는 끄지 않는다 — Maps 서비스 이용약관 제7조 ⑩.

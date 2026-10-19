@@ -1,8 +1,8 @@
 /**
- * 지도 첫 화면 — 섬 경계를 지도 칸의 **보이는 자리**(위 칩 줄·아래 저작권 줄을 뺀 나머지)에 맞춘다.
+ * 지도 첫 화면 — 섬 경계를 지도 칸의 **보이는 자리**(위 칩 줄·아래 저작권 줄을 뺀 나머지)에 견준다.
  *
  * 네이버 `zoom` 은 **정수이고 클수록 확대**다(2026-10-19 실측: `zoom: 9.5` → `getZoom()` 10, `fitBounds` 도 정수).
- * 그래서 "맞춘다" 는 것은 섬이 드는 **가장 큰** 정수 줌을 고르는 일이고, 중심은 섬 한가운데가 보이는 자리의
+ * 그래서 섬이 드는 **가장 큰** 정수 줌을 구하고 거기서 `FIRST_VIEW_STEP_IN` 만큼 당기며, 중심은 섬 한가운데가 보이는 자리의
  * 한가운데에 오도록 지도 중심을 위로 밀어 준다(지도 칸 전체의 중심이 아니라).
  *
  * 경계는 장소 좌표 분포가 아니라 **고정된 섬 경계**다 — 데이터가 늘어도 첫 화면이 흔들리지 않는다.
@@ -22,6 +22,13 @@ const CHIP_ROW_HEIGHT = 88;
 const ATTRIBUTION_HEIGHT = 28;
 /** 좌우·위아래 최소 숨 쉴 틈(px). */
 const EDGE = 8;
+
+/**
+ * 섬이 다 드는 줌에서 한 단계 더 당긴다(ADR-008 v12 · v36) — 사용자가 "지도가 너무 멀다" 고 해 **동서 끝이 잘리는 것을 알고** 고른 값이다.
+ * 주간 평가(14 W261019.8)는 반대로 "끝이 다 보이게" 를 권했고, 정수 줌이라 둘은 같이 못 간다 — 사용자가 고를 때까지 v12 를 지킨다.
+ * 0 으로 바꾸면 폰 9 · 데스크톱 10(섬 전체), 테스트의 숫자도 함께.
+ */
+export const FIRST_VIEW_STEP_IN = 1;
 
 const MIN_ZOOM = 6;
 const MAX_ZOOM = 21;
@@ -54,10 +61,11 @@ export function mapPageFirstView(widthPx: number, heightPx: number): TMapFirstVi
 
   const lonSpan = (JEJU_EAST - JEJU_WEST) / 360; // 세계 폭에 대한 비율
   const latSpan = mercatorY(JEJU_SOUTH) - mercatorY(JEJU_NORTH);
-  // 줌 z 에서 세계는 256·2^z px — 섬이 보이는 자리에 드는 가장 큰 정수 z.
+  // 줌 z 에서 세계는 256·2^z px — 섬이 보이는 자리에 드는 가장 큰 정수 z, 거기서 FIRST_VIEW_STEP_IN 만큼 당긴다.
   const fitLon = Math.log2(visibleWidth / (TILE * lonSpan));
   const fitLat = Math.log2(visibleHeight / (TILE * latSpan));
-  const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.floor(Math.min(fitLon, fitLat))));
+  const fitZoom = Math.floor(Math.min(fitLon, fitLat));
+  const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, fitZoom + FIRST_VIEW_STEP_IN));
 
   // 보이는 자리의 한가운데가 지도 칸 한가운데보다 (위 − 아래)/2 만큼 아래다 — 섬 중심을 거기에 두려면 지도 중심은 그만큼 북쪽.
   const world = TILE * 2 ** zoom;
