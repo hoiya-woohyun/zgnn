@@ -42,6 +42,8 @@ export type TRebuildEntry = {
 export type TRebuildHeadline = {
   tone: 'ok' | 'waiting' | 'warn' | 'none';
   text: string;
+  /** 디버깅용 원값(Deploy Hook · Vault 이름 · cron 잡 · HTTP 상태). 본문은 운영자 말로만 쓰고 이것은 접힌 상세로 — 없으면 펼칠 것이 없다 */
+  detail?: string;
 };
 
 /**
@@ -69,6 +71,15 @@ export const BUILD_SETTLE_MS = 10 * 60 * 1000;
  * 이것을 따로 말하지 않으면 `rebuild_log` 를 만든 이유(조용히 아무 일도 안 일어남)가 cron 자리에서 되살아난다.
  */
 export const QUEUE_STALL_MS = 5 * 60 * 1000;
+
+/*
+ * 본문에서 걷어낸 내부 용어의 원값 — 디버깅은 이 이름으로 한다(운영 현황의 재빌드 칸도 같은 것을 쓴다).
+ * 문장이 한 곳에서 나오게 둔다: 머리글·운영 현황·칸 사유가 따로 늙지 않게.
+ */
+export const REBUILD_STALL_DETAIL = 'Supabase 의 cron.job 에 flush-vercel-rebuild 잡이 있는지 · cron.job_run_details 에 매분 실패 기록이 없는지';
+export const REBUILD_MISSING_DETAIL = 'Vault 의 vercel_deploy_hook(Deploy Hook 주소)이 비어 있거나 없어요';
+export const REBUILD_LIMIT_DETAIL = 'Vercel Deploy Hook 은 프로젝트당 시간당 60번까지 · 응답 429 · 훅 폐기가 아니에요';
+export const REBUILD_REVOKED_DETAIL = 'Deploy Hook 이 폐기된 듯해요 · 새 주소를 Vault 의 vercel_deploy_hook 에 넣어 주세요';
 
 export async function fetchRebuildStatus(client: SupabaseClient, n = 5): Promise<TRebuildEntry[]> {
   const { data, error } = await client.rpc('rebuild_status', { n });
@@ -134,7 +145,8 @@ export function rebuildHeadline(entries: TRebuildEntry[], nowMs: number): TRebui
     return nowMs - Date.parse(latest.requested_at) > QUEUE_STALL_MS
       ? {
           tone: 'warn',
-          text: `${subject}이 아직 사이트에 반영되지 않았어요(${ago}) — 재빌드 예약이 안 돌고 있어요. Supabase 의 cron.job 에 flush-vercel-rebuild 잡이 있는지, 있으면 cron.job_run_details 에서 매분 실패하고 있지 않은지 확인해 주세요. 바꾼 것은 DB 에 남아 있어요.`,
+          text: `${subject}이 아직 사이트에 반영되지 않았어요(${ago}) — 재빌드 예약이 안 돌고 있어요. Supabase 에서 예약 작업이 켜져 있는지, 매분 실패하고 있지 않은지 확인해 주세요. 바꾼 것은 DB 에 남아 있어요.`,
+          detail: REBUILD_STALL_DETAIL,
         }
       : {
           tone: 'waiting',
@@ -145,7 +157,8 @@ export function rebuildHeadline(entries: TRebuildEntry[], nowMs: number): TRebui
   if (latest.hook === 'missing') {
     return {
       tone: 'warn',
-      text: `${subject}이 사이트에 반영되지 않아요(${ago}) — 재빌드를 부를 주소가 없어요(Vault 의 vercel_deploy_hook). 바꾼 것은 DB 에 남아 있어요.`,
+      text: `${subject}이 사이트에 반영되지 않아요(${ago}) — 재빌드를 부를 연결 주소가 저장돼 있지 않아요. 바꾼 것은 DB 에 남아 있어요.`,
+      detail: REBUILD_MISSING_DETAIL,
     };
   }
 
@@ -181,12 +194,14 @@ export function rebuildHeadline(entries: TRebuildEntry[], nowMs: number): TRebui
   if (status === 429) {
     return {
       tone: 'warn',
-      text: `${subject}이 아직 사이트에 반영되지 않았어요(${ago} · 429) — 한 시간에 재빌드를 60번 넘게 불러 Vercel 이 이번 호출을 거절했어요. 훅은 그대로예요. 다음에 성공하는 재빌드가 이것까지 같이 반영해요 — 한 시간 뒤에도 안 걸리면 게시 중인 장소 하나를 다시 저장해 주세요.`,
+      text: `${subject}이 아직 사이트에 반영되지 않았어요(${ago} · 429) — 한 시간에 재빌드를 60번 넘게 불러 Vercel 이 이번 호출을 거절했어요. 연결 주소는 그대로예요. 다음에 성공하는 재빌드가 이것까지 같이 반영해요 — 한 시간 뒤에도 안 걸리면 게시 중인 장소 하나를 다시 저장해 주세요.`,
+      detail: REBUILD_LIMIT_DETAIL,
     };
   }
 
   return {
     tone: 'warn',
-    text: `${subject}이 아직 사이트에 반영되지 않았어요(${ago} · ${status}) — Vercel 이 재빌드를 거절했어요. Deploy Hook 이 폐기된 것 같아요. 새 주소를 Vault 의 vercel_deploy_hook 에 넣어 주세요.`,
+    text: `${subject}이 아직 사이트에 반영되지 않았어요(${ago} · ${status}) — Vercel 이 재빌드를 거절했어요. 재빌드 연결 주소가 폐기된 것 같아요. 새 주소를 넣어 주세요.`,
+    detail: `응답 ${status} · ${REBUILD_REVOKED_DETAIL}`,
   };
 }

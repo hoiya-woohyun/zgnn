@@ -179,7 +179,9 @@ describe('stageHealth', () => {
     expect(at([rebuild({ ...queued, requested_at: ago(4 * MIN) })])).toMatchObject({ state: 'ok', reason: null });
     const stalled = at([rebuild({ ...queued, requested_at: ago(6 * MIN) })]);
     expect(stalled.state).toBe('warn');
-    expect(stalled.reason).toContain('flush-vercel-rebuild');
+    expect(stalled.reason).not.toMatch(/cron|flush-vercel-rebuild/);
+    expect(stalled.detail).toContain('flush-vercel-rebuild');
+    expect(stalled.detail).toContain('cron.job_run_details');
   });
 });
 
@@ -321,5 +323,32 @@ describe('재빌드 칸 첫째 수 — HTTP 코드를 운영자 말로', () => {
     const first = (status: number) => stage(overview({ rebuildRecent: [rebuild({ response_status: status })] }), 'rebuild').first;
     expect(first(201)).toBe('2분 전 · 접수됨');
     expect(first(429)).toBe('2분 전 · 응답 429');
+  });
+});
+
+describe('재빌드 칸 사유 — 내부 용어는 본문이 아니라 상세(detail)에', () => {
+  const rebuildStageOf = (entries: TOpsRebuildEntry[]) => stage(overview({ rebuildRecent: entries }), 'rebuild');
+  const INTERNAL = /Deploy Hook|Vault|vercel_deploy_hook|cron\.job/;
+
+  it('주소 없음 · 4xx · 429 모두 본문에 내부 용어가 없고 원값은 detail 에 남는다', () => {
+    const missing = rebuildStageOf([rebuild({ hook: 'missing', response_status: null })]);
+    expect(missing.reason).not.toMatch(INTERNAL);
+    expect(missing.detail).toContain('vercel_deploy_hook');
+
+    const revoked = rebuildStageOf([rebuild({ response_status: 410 })]);
+    expect(revoked.state).toBe('fail');
+    expect(revoked.reason).toContain('폐기된 듯해요(410)');
+    expect(revoked.reason).not.toMatch(INTERNAL);
+    expect(revoked.detail).toContain('Deploy Hook');
+
+    const limited = rebuildStageOf([rebuild({ response_status: 429 })]);
+    expect(limited.state).toBe('warn');
+    expect(limited.reason).not.toMatch(INTERNAL);
+    expect(limited.detail).toContain('60번');
+  });
+
+  it('정상·5xx 에는 상세가 없다', () => {
+    expect(rebuildStageOf([rebuild({ response_status: 201 })]).detail).toBeUndefined();
+    expect(rebuildStageOf([rebuild({ response_status: 502 })]).detail).toBeUndefined();
   });
 });

@@ -493,21 +493,36 @@ export function AdminOpsPage() {
       <div className="px-4 pt-1 text-xs md:px-6">
         {/* `/admin` 머리글과 같은 줄(`rebuildHeadline`). 경고면 이 줄도 노랗다 — 여기는 탭 줄이 없어 띠로 옮기지 않는다. */}
         <p className={cx('min-h-4', rebuild.tone === 'warn' ? 'text-warning-primary' : 'text-tertiary')}>{rebuild.text}</p>
+        {/* 본문에서 걷어낸 내부 용어(Deploy Hook · Vault · cron 잡 · 응답 코드)는 여기 접어 둔다 — 디버깅은 이 이름으로 한다. */}
+        {rebuild.detail ? (
+          <details className={rebuild.tone === 'warn' ? 'text-warning-primary' : 'text-tertiary'}>
+            <summary className="cursor-pointer">원래 값 보기</summary>
+            <p className="mt-0.5">{rebuild.detail}</p>
+          </details>
+        ) : null}
         {refreshError ? <p className="mt-0.5 text-error-primary">다시 읽지 못했어요 — 아래는 앞서 읽은 값이에요({refreshError})</p> : null}
       </div>
 
       {/* 주의가 있을 때만, **가장 심한 하나만**(features ①). 첫날(회색)은 띠가 없다. */}
       {worst ? (
-        <p
+        <div
           role="alert"
           className={cx(
             'mt-3 px-4 py-2 text-xs font-semibold md:px-6',
             worst.state === 'fail' ? 'bg-error-primary text-error-primary' : 'bg-warning-primary text-warning-primary',
           )}
         >
-          {worst.reason}
-          {worst.hint ? <span className="ml-2 font-normal">— {worst.hint}</span> : null}
-        </p>
+          <p>
+            {worst.reason}
+            {worst.hint ? <span className="ml-2 font-normal">— {worst.hint}</span> : null}
+          </p>
+          {worst.detail ? (
+            <details className="mt-1 font-normal">
+              <summary className="cursor-pointer">원래 값 보기</summary>
+              <p className="mt-0.5">{worst.detail}</p>
+            </details>
+          ) : null}
+        </div>
       ) : null}
 
       {live ? <AdminLiveStatusLine status={live} /> : null}

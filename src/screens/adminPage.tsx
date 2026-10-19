@@ -2166,9 +2166,12 @@ export function AdminPage() {
         * 머리글 셋째 줄의 주황 글씨로는 며칠을 못 보고 지나갔다(2026-10-02 부터의 429). 문구는 `rebuildHeadline` 이 만든 그대로다.
         */}
       {rebuild?.tone === 'warn' ? (
-        <p role="alert" className="mt-3 bg-warning-primary px-4 py-2 text-xs font-semibold text-warning-primary md:px-6">
-          {rebuild.text}
-        </p>
+        <div role="alert" className="mt-3 bg-warning-primary px-4 py-2 text-xs font-semibold text-warning-primary md:px-6">
+          <p>{rebuild.text}</p>
+          {rebuild.detail ? (
+            <details className="mt-1 font-normal"><summary className="cursor-pointer">원래 값 보기</summary><p className="mt-0.5">{rebuild.detail}</p></details>
+          ) : null}
+        </div>
       ) : null}
       {/*
         * 운영 현황의 가장 심한 칸 하나(todo/15 T4.2). 재빌드 줄이 이미 있으면 그 줄이 먼저고, 이 줄은 **검수 화면이 아직 말하지 않은 것**만이다

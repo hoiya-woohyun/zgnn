@@ -47,7 +47,9 @@ describe('rebuildHeadline', () => {
     expect(headline.tone).toBe('warn');
     // 결과가 앞, 원인이 뒤다 — 운영자가 읽는 것은 "내가 한 일이 어떻게 됐나" 지 훅의 상태가 아니다.
     expect(headline.text).toContain('사이트에 반영되지 않아요');
-    expect(headline.text).toContain('vercel_deploy_hook');
+    // 본문은 운영자 말, 원값은 접힌 상세로.
+    expect(headline.text).not.toMatch(/vercel_deploy_hook|Vault|Deploy Hook/);
+    expect(headline.detail).toContain('vercel_deploy_hook');
   });
 
   /**
@@ -99,7 +101,10 @@ describe('rebuildHeadline', () => {
     const headline = rebuildHeadline([entry({ response_status: 404 })], NOW);
     expect(headline.tone).toBe('warn');
     expect(headline.text).toContain('404');
-    expect(headline.text).toContain('vercel_deploy_hook');
+    expect(headline.text).toContain('폐기된 것 같아요');
+    expect(headline.text).not.toMatch(/vercel_deploy_hook|Vault|Deploy Hook/);
+    expect(headline.detail).toContain('vercel_deploy_hook');
+    expect(headline.detail).toContain('응답 404');
   });
 
   /*
@@ -113,6 +118,9 @@ describe('rebuildHeadline', () => {
     expect(headline.text).toContain('60번');
     expect(headline.text).not.toContain('vercel_deploy_hook');
     expect(headline.text).not.toContain('폐기');
+    expect(headline.text).not.toMatch(/Vault|Deploy Hook|훅/);
+    expect(headline.detail).toContain('Deploy Hook');
+    expect(headline.detail).not.toContain('vercel_deploy_hook');
   });
 
   /** 응답이 아직 안 온 것은 고장이 아니라 대기다(실측 4.7초). 둘을 다른 말로 보여 준다. */
@@ -172,7 +180,9 @@ describe('rebuildHeadline', () => {
     );
     expect(headline.tone).toBe('warn');
     expect(headline.text).toContain('재빌드 예약이 안 돌고 있어요');
-    expect(headline.text).toContain('cron.job');
+    expect(headline.text).not.toMatch(/cron|Vault|flush-vercel-rebuild/);
+    expect(headline.detail).toContain('cron.job');
+    expect(headline.detail).toContain('flush-vercel-rebuild');
     // 응답 대기 3분(RESPONSE_WAIT_LIMIT_MS)과 섞이지 않는다 — 아직 보내지도 않았다.
     expect(headline.text).not.toContain('응답');
   });

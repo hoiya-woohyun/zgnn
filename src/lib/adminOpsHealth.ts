@@ -11,7 +11,16 @@
  *    일부러 가른 것을 다시 합쳐 운영자가 멀쩡한 훅을 회전한다. 429 는 주의, 그 밖의 4xx·5xx 만 실패다.
  */
 
-import { agoLabel, latestRebuildCall, QUEUE_STALL_MS, RESPONSE_WAIT_LIMIT_MS } from './adminRebuild';
+import {
+  agoLabel,
+  latestRebuildCall,
+  QUEUE_STALL_MS,
+  REBUILD_LIMIT_DETAIL,
+  REBUILD_MISSING_DETAIL,
+  REBUILD_REVOKED_DETAIL,
+  REBUILD_STALL_DETAIL,
+  RESPONSE_WAIT_LIMIT_MS,
+} from './adminRebuild';
 import { HAS_SERVER_WORKER, nextStepText } from './adminNextStep';
 import { REMOTE_WORKER_HOST } from './adminWorkerWake';
 import type { TOpsOverview, TOpsWorker, TPipelineRun, TRunScript, TWorkerPhase } from './adminOps';
@@ -49,6 +58,8 @@ export type TStageHealth = {
   reason: string | null;
   /** 운영자가 할 일 **한 문장**(`nextStepText` — 서버 빌드는 `/admin` 의 버튼, 로컬·서버 길이 없는 일은 터미널). 화면은 "터미널에서" 를 덧붙이지 않고 그대로 싣는다 */
   hint?: string;
+  /** 사유의 디버깅용 원값(Deploy Hook · Vault · cron 이름·응답 코드) — 화면은 접힌 상세로만 싣는다. 본문 `reason` 에는 내부 용어를 쓰지 않는다 */
+  detail?: string;
 };
 
 /** 화면이 보는 실행 상태 — 저장된 `status` 에 `stalled`(중단된 듯)를 더한 것. */
@@ -215,11 +226,11 @@ function rebuildStage(overview: TOpsOverview, nowMs: number): TStageHealth {
   // 줄을 섰다 — 아래 "응답 null" 갈래로 흘리면 3분에 "응답 없음" 이 떠 머리글(5분에 cron 경고)과 다른 말을 한다.
   if (latest.hook === 'queued') {
     return nowMs - Date.parse(latest.requested_at) > QUEUE_STALL_MS
-      ? { ...base, state: 'warn', first: `${ago} · 대기`, reason: '재빌드 예약이 안 돌고 있어요 — cron.job 의 flush-vercel-rebuild 와 cron.job_run_details 의 실패를 확인해 주세요' }
+      ? { ...base, state: 'warn', first: `${ago} · 대기`, reason: '재빌드 예약이 안 돌고 있어요 — Supabase 의 예약 작업이 켜져 있는지, 매분 실패하고 있지 않은지 확인해 주세요', detail: REBUILD_STALL_DETAIL }
       : { ...base, state: 'ok', first: `${ago} · 대기`, reason: null };
   }
   if (latest.hook === 'missing') {
-    return { ...base, state: 'warn', first: ago, reason: '재빌드를 부를 주소가 없어요(Vault 의 vercel_deploy_hook)' };
+    return { ...base, state: 'warn', first: ago, reason: '재빌드를 부를 연결 주소가 저장돼 있지 않아요', detail: REBUILD_MISSING_DETAIL };
   }
   if (latest.hook === 'error') return { ...base, state: 'warn', first: ago, reason: '재빌드를 부르다 실패했어요' };
 
@@ -233,10 +244,10 @@ function rebuildStage(overview: TOpsOverview, nowMs: number): TStageHealth {
   // 숫자(201)는 운영자 말이 아니다 — 2xx 는 "Vercel 이 빌드를 받았다" 한 뜻이라 "접수됨". 그 밖의 코드는 구별이 필요해 "응답 N" 으로 남긴다.
   const first = `${ago} · ${status >= 200 && status < 300 ? '접수됨' : `응답 ${status}`}`;
   if (status >= 200 && status < 300) return { ...base, state: 'ok', first, reason: null };
-  if (status === 429) return { ...base, state: 'warn', first, reason: '재빌드가 한도(시간당 60번)에 걸렸어요 — 훅은 그대로예요' };
+  if (status === 429) return { ...base, state: 'warn', first, reason: '재빌드가 한도(시간당 60번)에 걸렸어요 — 연결 주소는 그대로예요', detail: REBUILD_LIMIT_DETAIL };
   // 5xx 는 Vercel 쪽 오류다 — "폐기" 라고 말하면 운영자가 멀쩡한 훅을 회전한다(429 와 같은 종류의 오독, BUG-011). 상태는 실패 그대로.
   if (status >= 500) return { ...base, state: 'fail', first, reason: `Vercel 쪽 오류예요(${status}) — 잠시 뒤 다시 확인해 주세요` };
-  if (status >= 400) return { ...base, state: 'fail', first, reason: `Deploy Hook 이 폐기된 듯해요(${status})` };
+  if (status >= 400) return { ...base, state: 'fail', first, reason: `재빌드 연결 주소가 폐기된 듯해요(${status})`, detail: REBUILD_REVOKED_DETAIL };
   return { ...base, state: 'warn', first, reason: `재빌드 응답이 예상과 달라요(${status})` };
 }
 
