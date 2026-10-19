@@ -13,6 +13,7 @@ import { EmptyState } from '../components/layout/emptyState';
 import { EligibilityBadge } from '../components/eligibilityBadge';
 import { PlaceThumb } from '../components/placeThumb';
 import { TownChip } from '../components/townChip';
+import { normalizeRoute } from '../lib/appRoutes';
 import { dogCallNames } from '../lib/korean';
 import { LOCATE_MAP_NOT_READY, LOCATE_NOTICE, locateMe } from '../lib/myLocation';
 import { PLACES, PLACE_TYPES, TYPE_COLOR, TYPE_META } from '../lib/places';
@@ -52,11 +53,20 @@ export function MapPage() {
     [focusParam],
   );
   const [selectedId, setSelectedId] = useState<string | null>(focusPlace?.id ?? null);
+  /*
+   * 지도가 날아갈 자리. 주소의 `?place=` 를 그대로 넘기지 않는다 — 고른 곳을 이 화면이 주소에 남기므로(아래 effect) 그대로 넘기면 핀을
+   * 누를 때마다 지도가 그 자리로 확대해 날아가고, 저장 모드의 맞춤도 막힌다. 마운트 때(미니 지도 · 돌아옴 · 새로고침)와 화면 밖에서 주소가 바뀔 때만.
+   */
+  const [focusGeo, setFocusGeo] = useState(focusPlace?.geo ?? null);
   // 지도 화면에 머문 채 `?place=` 만 바뀌면 그 장소로 선택을 옮긴다. 렌더 중에 맞추는 이유는 아래 `lastWithGeo` 와 같다.
+  // 고른 곳과 같으면 이 화면이 남긴 주소가 되돌아온 것이라 아무것도 안 한다.
   const [lastFocusParam, setLastFocusParam] = useState(focusParam);
   if (lastFocusParam !== focusParam) {
     setLastFocusParam(focusParam);
-    if (focusPlace) setSelectedId(focusPlace.id);
+    if (focusPlace && focusPlace.id !== selectedId) {
+      setSelectedId(focusPlace.id);
+      setFocusGeo(focusPlace.geo ?? null);
+    }
   }
 
   /*
@@ -147,6 +157,25 @@ export function MapPage() {
     itemRefs.current.get(selectedId)?.scrollIntoView({ block: 'nearest' });
   }, [selectedId]);
 
+  /*
+   * 고른 곳을 주소에 남긴다(`?place=`, 14 W261019.15b). 시트 카드로 상세에 갔다가 뒤로 오면 이 화면은 새로 마운트되는데 선택이 state 에만
+   * 있어 시트가 닫힌 채였다 — 키보드·스크린리더가 돌아올 자리(시트 안 카드 링크)가 없어 셸이 h1 '지도' 에 두었다. 주소에 있으면 위 첫 state 가
+   * 되살리고 셸(`appShellFocus`)이 그 카드 링크를 찾는다. 시야는 캔버스가 history 에 따로 적는다(`mapPageViewMemo`).
+   *
+   * 고르기·닫기·종류 칩이 지운 선택·데스크톱 패널이 모두 이 한 곳을 지난다. 저장 칩이 주소를 `/map/?saved=1` 로 갈아 끼우면 다시 붙인다(deps).
+   * 쌓지 않고 갈아 끼운다 — 핀마다 뒤로가기가 한 칸씩 늘면 안 된다. `router.replace` 가 아니라 네이티브 replaceState 인 이유: 고르기는 이동이 아니다.
+   * Next 는 이 호출을 받아 주소·`useSearchParams` 만 맞추고(문서화된 길), 깊이·탭 새김은 `keepTabsOffHistory` 가 잇는다(`carryHistoryStamp`).
+   */
+  useEffect(() => {
+    if (normalizeRoute(window.location.pathname) !== '/map') return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('place') === selectedId) return;
+    if (selectedId) url.searchParams.set('place', selectedId);
+    else if (url.searchParams.has('place')) url.searchParams.delete('place');
+    else return;
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+  }, [selectedId, savedOnly]);
+
   // 캔버스는 이 참조가 바뀌면 마커를 전부 다시 만든다 — 렌더마다 새 함수를 넘기지 않는다.
   const handleSelect = useCallback((id: string) => setSelectedId(id), []);
   // 모바일 시트가 지도를 덮는 높이 — 고른 핀이 그 밑에 깔리면 캔버스가 밀어 올린다(14 W261019.14a). 넓은 화면엔 시트가 없어 늘 0.
@@ -182,7 +211,7 @@ export function MapPage() {
       onSelect={handleSelect}
       eligibilityMap={eligibilityMap}
       savedIds={savedIds}
-      focus={focusPlace?.geo ?? null}
+      focus={focusGeo}
       // 저장 모드는 저장한 곳이 다 들어오게 — 들어올 때와 종류를 바꿀 때만. 하트를 빼서 줄어드는 것은 열쇠가 같아 안 움직인다.
       fitKey={savedOnly ? `saved:${types.join(',')}` : null}
       // 저장한 곳은 몇 곳뿐이라 이름을 단다 — 셋을 하나씩 눌러 봐야 어느 곳인지 알았다. 전체 지도는 겹침이 많아 달지 않는다.

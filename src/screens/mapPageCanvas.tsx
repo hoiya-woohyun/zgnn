@@ -18,6 +18,8 @@ import {
 import { loadNaverMaps, onNaverMapsAuthFailure, watchNaverMapInit } from '../lib/naverMap';
 import { CHIP_ROW_HEIGHT, mapPageFirstView } from '../lib/mapPageFirstView';
 import { mapPageRevealPin } from '../lib/mapPageRevealPin';
+import { mapPageViewMemoOf, withMapPageViewMemo } from '../lib/mapPageViewMemo';
+import { normalizeRoute } from '../lib/appRoutes';
 import { MY_LOCATION_COLOR, PLACE_FOCUS_ZOOM, type TPlaceEntry } from '../lib/places';
 import type { TGeo, TPlaceType } from '../types';
 
@@ -413,7 +415,8 @@ type TMapPageCanvasProps = {
   savedIds: ReadonlySet<string>;
   /**
    * 첫 화면을 이 좌표에 맞춘다(`/map/?place=<id>` — 상세 화면의 미니 지도에서 넘어올 때).
-   * 없으면 섬 전체가 드는 줌으로 연다. 지도를 만든 뒤에 바뀌면 그 자리로 옮긴다.
+   * 없으면 섬 전체가 드는 줌으로 연다. 지도를 만든 뒤에 바뀌면 그 자리로 옮긴다. 핀을 고를 때 화면이 주소에 남기는 `?place=` 는
+   * 여기로 넘어오지 않는다(`MapPage`) — 넘어오면 고를 때마다 그 자리로 확대해 날아간다. 떠날 때의 시야가 history 에 있으면 그쪽이 먼저다.
    */
   focus?: TGeo | null;
   /**
@@ -484,6 +487,12 @@ export function MapPageCanvas({
    */
   const focusRef = useRef(focus);
   const appliedFocusRef = useRef<TGeo | null>(null);
+  /*
+   * `fitKey` 를 맞춘 열쇠(아래 맞춤 effect). 떠날 때의 시야로 되살려 열면(`mapPageViewMemo`) 마운트 때의 열쇠를 이미 맞춘 것으로 친다 —
+   * 안 그러면 저장 모드에서 상세에 갔다 올 때 저장한 곳 전체로 다시 맞춰 보던 자리를 잃는다. 마운트 때 값은 `fitKeyAtMountRef` 가 붙잡는다.
+   */
+  const appliedFitKeyRef = useRef<string | null>(null);
+  const fitKeyAtMountRef = useRef(fitKey);
 
   useEffect(() => {
     onDimShownRef.current = onDimShownChange;
@@ -526,14 +535,19 @@ export function MapPageCanvas({
          */
         const initialFocus = focusRef.current;
         appliedFocusRef.current = initialFocus;
+        // 상세에 갔다가 뒤로 온 것이면 떠날 때의 시야로 연다(아래 떠남 effect 가 이 history 항목에 적어 둔 것) — 고른 곳(`focus`)보다 먼저다.
+        const remembered = mapPageViewMemoOf(window.history.state);
+        if (remembered) appliedFitKeyRef.current = fitKeyAtMountRef.current;
         const firstView = mapPageFirstView(containerRef.current.clientWidth, containerRef.current.clientHeight);
         const map = new maps.Map(containerRef.current, {
           // 장소 하나를 가리키며 들어왔으면 그 자리에서 연다 — 섬 전체를 먼저 그렸다가 날아가지 않게.
-          center: initialFocus
-            ? new maps.LatLng(initialFocus.lat, initialFocus.lng)
-            : new maps.LatLng(firstView.center[0], firstView.center[1]),
+          center: remembered
+            ? new maps.LatLng(remembered.lat, remembered.lng)
+            : initialFocus
+              ? new maps.LatLng(initialFocus.lat, initialFocus.lng)
+              : new maps.LatLng(firstView.center[0], firstView.center[1]),
           // 섬이 칸의 보이는 자리에 드는 줌에서 한 단계 당긴다 — 모바일 390px 는 10, 데스크톱 830px 는 11(ADR-008 v12 · v36).
-          zoom: initialFocus ? PLACE_FOCUS_ZOOM : firstView.zoom,
+          zoom: remembered ? remembered.zoom : initialFocus ? PLACE_FOCUS_ZOOM : firstView.zoom,
           /*
            * 로고·저작권 표시는 끄지 않는다 — Maps 서비스 이용약관 제7조 ⑩.
            *
@@ -929,6 +943,30 @@ export function MapPageCanvas({
   }, [status]);
 
   /*
+   * 떠남 — 링크를 누르면 지금 시야를 이 history 항목에 적는다(`mapPageViewMemo`, 14 W261019.15b). 시트 카드로 상세에 갔다가 뒤로 오면
+   * 지도 화면은 새로 마운트되고, 고른 곳은 주소(`?place=`)가 되살리는데 시야는 없어 고른 곳으로 확대해 열렸다(미니 지도에서 온 것과 같은 화면).
+   * 위 지도 effect 가 적힌 시야로 연다. 'idle' 마다가 아니라 떠날 때 한 번 적는다 — 브라우저는 짧은 사이의 replaceState 를 수로 막는다(Safari 는 던진다).
+   * click capture 라 Next 가 새 항목을 쌓기 전, 아직 지도의 항목일 때 적힌다. 탭바처럼 갈아 끼우는 링크면 그 항목과 함께 버려진다.
+   */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (status !== 'ready' || !map) return;
+    const remember = (event: MouseEvent) => {
+      if (!(event.target instanceof Element) || !event.target.closest('a[href]')) return;
+      if (normalizeRoute(window.location.pathname) !== '/map') return;
+      try {
+        const center = map.getCenter();
+        const view = { lat: center.lat(), lng: center.lng(), zoom: map.getZoom() };
+        window.history.replaceState(withMapPageViewMemo(window.history.state, view), '');
+      } catch {
+        // 깨진 지도거나 history 가 막혔다 — 돌아오면 고른 곳으로 열 뿐이다.
+      }
+    };
+    document.addEventListener('click', remember, true);
+    return () => document.removeEventListener('click', remember, true);
+  }, [status]);
+
+  /*
    * 지도를 만든 뒤에 `focus` 가 바뀐 경우(지도 화면에 머문 채 주소의 `?place=` 만 바뀜). 만들 때 맞춘
    * 좌표와 같으면 건너뛴다. `focus` 가 사라지는 것(저장 칩이 주소를 `/map/` 으로 바꿀 때)은 시야를
    * 되돌릴 이유가 아니다 — 사용자가 보던 자리를 그대로 둔다.
@@ -955,7 +993,6 @@ export function MapPageCanvas({
    * 읽히므로(`skipHydration`) 첫 렌더엔 0곳이고, 그때 열쇠를 써 버리면 정작 저장한 곳이 들어왔을 때 안 맞춘다.
    * `?place=` 로 한 곳을 가리키며 들어왔으면 그쪽이 더 구체적인 뜻이라 맞추지 않는다.
    */
-  const appliedFitKeyRef = useRef<string | null>(null);
   useEffect(() => {
     const map = mapRef.current;
     const maps = window.naver?.maps;

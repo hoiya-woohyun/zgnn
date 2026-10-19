@@ -144,6 +144,37 @@ describe('focusArrivalTargetOf — 도착한 화면에서 포커스를 어디에
     expect(focusArrivalTargetOf(scene({ focusLost: false }))).toEqual({ kind: 'none' });
   });
 
+  describe('연 링크가 <main> 밖 층(지도 시트)에 있을 때 — 14 W261019.15b', () => {
+    const sheet = { opener: { path: '/place/b', nth: 1 }, links: ['/place/b', '/place/b'] };
+
+    it('층(dialog)이 열리며 스스로 포커스를 가져갔어도 그 안의 연 링크로 — 같은 곳 두 링크 중 누른 번째', () => {
+      expect(focusArrivalTargetOf(scene({ ...sheet, hasHeading: false, focusMoved: true, focusHoldsOpener: true, focusLost: false }))).toEqual({
+        kind: 'opener',
+        index: 1,
+      });
+    });
+
+    it('연 링크를 품지 않은 곳으로 옮겨졌으면 여전히 비킨다', () => {
+      expect(focusArrivalTargetOf(scene({ ...sheet, focusMoved: true, focusHoldsOpener: false }))).toEqual({ kind: 'none' });
+    });
+
+    it('셸이 h1 에 둔 뒤 층이 늦게 뜨면 그 링크로 옮긴다', () => {
+      expect(focusArrivalTargetOf(scene({ ...sheet, headingPlaced: true, focusLost: false }))).toEqual({ kind: 'opener', index: 1 });
+      // h1 이 inert 가 되며 body 로 떨어졌다가 dialog 가 가져간 프레임도 같다.
+      expect(focusArrivalTargetOf(scene({ ...sheet, headingPlaced: true, focusMoved: true, focusHoldsOpener: true, focusLost: false }))).toEqual({
+        kind: 'opener',
+        index: 1,
+      });
+    });
+
+    it('h1 에 둔 뒤 아직 안 떴으면 기다리고, 그사이 누가 옮겼거나 끝까지 안 뜨면 그만', () => {
+      const late = { opener: sheet.opener, links: ['/'], headingPlaced: true, focusLost: false };
+      expect(focusArrivalTargetOf(scene(late))).toEqual({ kind: 'wait' });
+      expect(focusArrivalTargetOf(scene({ ...late, focusMoved: true }))).toEqual({ kind: 'none' });
+      expect(focusArrivalTargetOf(scene({ ...late, lastTry: true }))).toEqual({ kind: 'none' });
+    });
+  });
+
   it('화면이 덜 그려졌으면 기다리고, 끝내 h1 이 없으면 본문으로', () => {
     expect(focusArrivalTargetOf(scene({ links: [], hasHeading: false, opener: { path: '/place/a', nth: 0 } }))).toEqual({ kind: 'wait' });
     expect(focusArrivalTargetOf(scene({ links: [], hasHeading: false }))).toEqual({ kind: 'wait' });

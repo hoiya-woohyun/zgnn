@@ -8,6 +8,7 @@ import {
   linkPathOf,
   noteFocusArrival,
   nthOfLink,
+  openerIndexOf,
   type TFocusOpener,
 } from '../../lib/appShellFocusTarget';
 
@@ -21,7 +22,18 @@ const WATCH_FRAMES = 30;
 const isShown = (element: Element) =>
   element.getClientRects().length > 0 && !element.closest('[aria-hidden="true"], [inert]');
 
-const shownLinksIn = (main: HTMLElement) => [...main.querySelectorAll<HTMLAnchorElement>('a[href]')].filter(isShown);
+/**
+ * `<main>` 밖이어도 연 링크로 적고 돌아와 다시 찾는 층의 표지. 지도 시트의 카드(`mapPageSheet`)가 단다 — 시트는 react-aria 가 body 로
+ * 포털해 `<main>` 밖이다(14 W261019.15b). 표지를 단 곳만 보는 이유: `<main>` 밖은 탭바·토스트·업데이트 알림처럼 화면을 넘어 사는 것이라,
+ * 아무 곳이나 뒤지면 화면의 카드가 아닌 것을 "연 링크" 로 적는다.
+ */
+const FOCUS_RETURN_LAYER = '[data-focus-return]';
+
+/** 화면의 보이는 링크 — `<main>` 안, 그다음 `<main>` 밖 표지 층. 적을 때와 찾을 때가 같은 목록이어야 몇 번째가 맞는다. */
+const shownLinksIn = (main: HTMLElement) => {
+  const layers = [...document.querySelectorAll<HTMLElement>(FOCUS_RETURN_LAYER)].filter((layer) => !main.contains(layer));
+  return [main, ...layers].flatMap((root) => [...root.querySelectorAll<HTMLAnchorElement>('a[href]')]).filter(isShown);
+};
 
 /** 화면의 제목. 지도는 폭마다 h1 이 하나씩 숨어 있어 보이는 것을 고른다. */
 const headingIn = (main: HTMLElement) => [...main.querySelectorAll<HTMLElement>('h1')].find(isShown) ?? null;
@@ -81,7 +93,8 @@ export function useAppShellFocus({ pathname, mainRef }: { pathname: string; main
       if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       const main = mainRef.current;
       const anchor = event.target instanceof Element ? event.target.closest('a[href]') : null;
-      if (!main || !(anchor instanceof HTMLAnchorElement) || !main.contains(anchor)) return;
+      if (!main || !(anchor instanceof HTMLAnchorElement)) return;
+      if (!main.contains(anchor) && !anchor.closest(FOCUS_RETURN_LAYER)) return;
       if ((anchor.target && anchor.target !== '_self') || anchor.hasAttribute('download')) return;
       const links = shownLinksIn(main);
       const index = links.indexOf(anchor);
@@ -133,6 +146,8 @@ export function useAppShellFocus({ pathname, mainRef }: { pathname: string; main
     let tries = 0;
     /** 포커스를 둔 요소. 둔 뒤에도 몇 프레임 지켜본다 — 아래 `attempt` 참고. */
     let placed: HTMLElement | null = null;
+    /** 둔 것이 h1 인가 — 연 링크가 `<main>` 밖 층(지도 시트)에 늦게 뜨면 그리로 옮긴다. */
+    let placedHeading = false;
     const attempt = () => {
       const main = mainRef.current;
       if (!main) return;
@@ -145,27 +160,48 @@ export function useAppShellFocus({ pathname, mainRef }: { pathname: string; main
        * 자리표시 머리를 다음 렌더에 새 h1 로 바꿔 단다(`appBar` 의 `swapWatch` 와 같은 사정). 그때만 다시 정한다. 그 사이 누가
        * 포커스를 옮겼으면(Tab) 그대로 둔다.
        */
-      if (placed === null || (!placed.isConnected && focusLost)) {
+      const replaced = placed !== null && !placed.isConnected && focusLost;
+      /*
+       * 연 링크가 지도 시트 안이면 시트가 화면보다 늦게 뜰 수 있다(저장 목록을 마운트 뒤에 읽는 저장 모드). 그때 셸은 이미 h1 '지도' 에
+       * 두었고, 시트가 열리면 react-aria 가 `<main>` 을 숨겨 그 h1 이 포커스를 잃는다 — 지켜보는 동안 연 링크가 뜨면 옮긴다(14 W261019.15b).
+       */
+      const awaitingOpener = placedHeading && arrival.opener !== null && !replaced;
+      if (placed === null || replaced || awaitingOpener) {
         const links = arrival.opener ? shownLinksIn(main) : [];
+        const paths = links.map(pathOf);
+        const openerIndex = arrival.opener ? openerIndexOf(paths, arrival.opener) : -1;
         const heading = headingIn(main);
         const target = focusArrivalTargetOf({
           opener: arrival.opener,
-          links: links.map(pathOf),
+          links: paths,
           hasHeading: heading !== null,
           // 다시 정할 때는 이미 둔 뒤라 "화면이 옮겼나" 를 묻지 않는다 — 떨어뜨린 것은 화면이 아니라 노드 교체다.
-          focusMoved: placed === null && active !== arrival.activeAtArrival,
+          // 늦은 연 링크를 기다리는 동안은 셸이 둔 h1 에서 누가 옮겼나를 본다.
+          focusMoved:
+            placed === null ? active !== arrival.activeAtArrival : awaitingOpener && !focusLost && active !== placed,
+          // `<main>` 밖 층(시트 dialog)이 열리며 스스로 가져간 포커스 — 그 층 안에 연 링크가 있으면 양보받는다.
+          focusHoldsOpener:
+            openerIndex >= 0 &&
+            !main.contains(links[openerIndex]) &&
+            !focusLost &&
+            active !== null &&
+            active.contains(links[openerIndex]),
+          headingPlaced: awaitingOpener,
           focusLost,
           lastTry,
         });
         if (target.kind === 'none') return;
         if (target.kind === 'opener') {
           placed = links[target.index];
+          placedHeading = false;
           placed.focus({ preventScroll: true });
         } else if (target.kind === 'heading' && heading) {
           placed = heading;
+          placedHeading = true;
           focusHeading(heading);
         } else if (target.kind === 'main') {
           placed = main;
+          placedHeading = false;
           main.focus({ preventScroll: true });
         }
       }

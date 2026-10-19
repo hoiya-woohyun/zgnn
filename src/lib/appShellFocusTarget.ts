@@ -104,8 +104,15 @@ export type TFocusArrivalScene = {
   links: readonly (string | null)[];
   /** 보이는 h1 이 있나 — 없으면 화면이 아직 안 그려졌을 수 있다. */
   hasHeading: boolean;
-  /** 도착한 뒤 화면이 스스로 포커스를 옮겼나(도착 순간의 포커스와 다르다). */
+  /** 도착한 뒤 화면이 스스로 포커스를 옮겼나(도착 순간의 포커스와 다르다). 셸이 이미 h1 에 두었으면 그 h1 에서 옮겼나. */
   focusMoved: boolean;
+  /**
+   * 포커스를 쥔 요소가 연 링크를 품고 있나 — 연 링크가 든 층(지도 시트, react-aria dialog)이 열리며 **스스로** 포커스를 가져간 경우다.
+   * 그것은 화면이 고른 자리가 아니라 층의 기본값이라, 그 안의 연 링크로 옮겨도 빼앗는 것이 아니다.
+   */
+  focusHoldsOpener?: boolean;
+  /** 셸이 이미 h1 에 두었다 — 연 링크가 `<main>` 밖 층에 늦게 뜨는지만 지켜본다. */
+  headingPlaced?: boolean;
   /** 포커스가 `body` 에 떨어져 있나. */
   focusLost: boolean;
   /** 더 기다리지 않는다 — 이번에 못 정하면 그만둔다. */
@@ -121,15 +128,20 @@ export type TFocusArrivalTarget =
   | { kind: 'wait' }
   | { kind: 'none' };
 
-/** 도착한 화면에서 포커스를 어디에 둘까. 위 파일 머리의 세 규칙. */
+/**
+ * 도착한 화면에서 포커스를 어디에 둘까. 위 파일 머리의 세 규칙.
+ *
+ * 연 링크가 `<main>` 밖 층에 있으면(지도 시트 — 고른 곳이 주소로 되살아나 시트가 다시 열린다, 14 W261019.15b) 그 층은 화면보다 늦게 뜨거나
+ * 뜨면서 dialog 자신에게 포커스를 둔다. 둘 다 "화면이 옮겼다" 로 읽으면 h1 '지도' 나 시트 껍데기에 남는다 — 그래서 그 둘만 연 링크에 양보한다.
+ */
 export const focusArrivalTargetOf = (scene: TFocusArrivalScene): TFocusArrivalTarget => {
+  const index = scene.opener ? openerIndexOf(scene.links, scene.opener) : -1;
+  // 뒤로 가기 버튼처럼 화면을 넘어 살아남은 요소에 포커스가 있어도 연 링크가 먼저다 — 돌아온 사람이 찾는 것은 그 카드다.
+  if (index >= 0 && (!scene.focusMoved || scene.focusHoldsOpener)) return { kind: 'opener', index };
+  // 셸이 이미 h1 에 두었다 — 연 링크가 늦게 뜨기만 기다린다. 그사이 누가 옮겼으면(Tab) 그만.
+  if (scene.headingPlaced) return scene.focusMoved || scene.lastTry ? { kind: 'none' } : { kind: 'wait' };
   if (scene.focusMoved) return { kind: 'none' };
-  if (scene.opener) {
-    const index = openerIndexOf(scene.links, scene.opener);
-    // 뒤로 가기 버튼처럼 화면을 넘어 살아남은 요소에 포커스가 있어도 연 링크가 먼저다 — 돌아온 사람이 찾는 것은 그 카드다.
-    if (index >= 0) return { kind: 'opener', index };
-    if (!scene.hasHeading && !scene.lastTry) return { kind: 'wait' };
-  }
+  if (scene.opener && !scene.hasHeading && !scene.lastTry) return { kind: 'wait' };
   if (!scene.focusLost) return { kind: 'none' };
   if (scene.hasHeading) return { kind: 'heading' };
   return scene.lastTry ? { kind: 'main' } : { kind: 'wait' };

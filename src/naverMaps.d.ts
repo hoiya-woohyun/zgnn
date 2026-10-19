@@ -116,6 +116,8 @@ declare namespace naver.maps {
   class Map {
     constructor(container: HTMLElement | string, options: MapOptions);
     setCenter(latlng: LatLng): void;
+    /** 지금 중심. 상세로 떠날 때 시야를 history 에 적는다(`mapPageViewMemo`). */
+    getCenter(): LatLng;
     getZoom(): number;
     setZoom(zoom: number): void;
     /**

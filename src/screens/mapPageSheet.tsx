@@ -67,7 +67,11 @@ export function MapPageSheetCard({ place, origin, onSheetHeight }: TMapPageSheet
   const address = place.address || '주소는 아직 확인하지 못했어요';
 
   return (
-    <div ref={rootRef}>
+    /*
+     * `data-focus-return` — 셸이 이 안의 링크도 "연 링크" 로 적고 돌아와 다시 찾는다(`appShellFocus`, 14 W261019.15b). 모바일 시트는 body 로
+     * 포털해 `<main>` 밖이라, 표지가 없으면 상세에서 뒤로 온 포커스가 h1 '지도' 로 갔다. 데스크톱 패널(`<main>` 안)에선 아무 일도 안 한다.
+     */
+    <div ref={rootRef} data-focus-return="">
       <Link href={`/place/${place.id}`} className="block">
         <div className="flex items-start gap-3">
           <PlaceThumb src={place.cover ?? place.images[0]} type={place.type} />
