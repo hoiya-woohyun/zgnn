@@ -3,7 +3,7 @@
 import { useMemo, type RefObject } from 'react';
 import { PlacesPageResults } from './placesPageResults';
 import { resetFiltersLabel } from '../lib/placeFilters';
-import { areaCarriedRelease, areaReleaseCount, filterPlacesPage, otherSeatTypeMatches, otherTypeHiddenMatches, otherTypeMatches, placesByTown, placesPageChips, reachableReleaseCount, singleConditionReleases, townReleaseCount } from '../lib/placesPageFilter';
+import { areaCarriedRelease, areaReleaseCount, filterPlacesPage, landmarkNearby, otherSeatTypeMatches, otherTypeHiddenMatches, otherTypeMatches, placesByTown, placesPageChips, reachableReleaseCount, singleConditionReleases, townReleaseCount } from '../lib/placesPageFilter';
 import { sortByEligibility } from '../lib/sortByEligibility';
 import { useAppStore, useDog } from '../store/useAppStore';
 import { useEligibilityMap } from '../store/useDogEligibility';
@@ -91,6 +91,15 @@ export function PlacesPageSwipePeek({ ref, type, side, top, height }: TPlacesPag
         : null,
     [results.length, type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap],
   );
+  // 관광지·동 검색이 0곳이면 그 중심에서 가까운 곳 — 본 화면과 같은 함수·같은 조건(14 W261019.11b). 빠지면 엿보기엔 안내만 있다가
+  // 손을 놓는 순간 카드 세 장이 툭 나타난다. 관광지 낱말이 없으면 함수가 빈 배열을 준다.
+  const nearbyLandmark = useMemo(
+    () =>
+      results.length > 0
+        ? []
+        : landmarkNearby({ type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap }),
+    [results.length, type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap],
+  );
 
   const { chips, activeFilterCount, hasFilters } = placesPageChips({
     type,
@@ -127,6 +136,7 @@ export function PlacesPageSwipePeek({ ref, type, side, top, height }: TPlacesPag
         activeChips={chips.map((chip) => ({ ...chip, onRemove: noop }))}
         onResetFilters={noop}
         onOpenFilters={noop}
+        landmarkNearby={nearbyLandmark}
         otherTypes={otherTypes}
         hiddenOtherTypes={hiddenOtherTypes}
         onReleaseHidden={noop}
