@@ -177,7 +177,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     () => otherTypeMatches({ type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap }, petKeysByType),
     [type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap, petKeysByType],
   );
-  // 0곳일 때만 — 숨김 조건에 가려 위 수에서 빠진 다른 종류(14 W261007.11b). 결과가 있으면 머리 밑 한 줄은 넘어간 탭의 수만 말한다.
+  // 0곳일 때만 — 숨김 조건에 가려 위 수에서 빠진 다른 종류(14 W261007.11b). 결과가 있으면 목록 끝 한 줄(W261019.11a)은 넘어간 탭의 수만 말한다.
   const hiddenOtherTypes = useMemo(
     () =>
       results.length > 0
