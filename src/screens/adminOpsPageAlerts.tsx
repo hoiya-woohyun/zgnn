@@ -14,8 +14,15 @@ export function AdminOpsPageAlerts({ slackConfigured }: { slackConfigured: boole
       <p className="mt-2 text-xs text-secondary">
         {slackConfigured
           ? 'Slack 웹훅 있음 — 실패한 실행이 Slack 으로 가요. 보낸 결과는 실행 기록의 알림 열에 남아요.'
-          : 'Slack 알림이 꺼져 있어요 — 켜려면 docs/todo/15 의 T5(Slack 트리거 · Vault 의 slack_webhook_url). 알림 없이도 이 화면은 전부 동작해요.'}
+          : 'Slack 알림이 꺼져 있어요 — 아직 Slack 연결이 준비되지 않았어요. 알림 없이도 이 화면은 전부 동작해요.'}
       </p>
+      {/* 본문에서 걷어낸 내부 용어(태스크 번호 · Vault 키 이름)는 접어 둔다 — 켜는 사람이 이 이름으로 찾는다(14 W261010.14b · 재빌드 띠와 같은 모양). */}
+      {slackConfigured ? null : (
+        <details className="mt-1 text-xs text-secondary">
+          <summary className="cursor-pointer">원래 값 보기</summary>
+          <p className="mt-0.5">켜려면 docs/todo/15 의 T5(Slack 트리거) — Vault 의 slack_webhook_url 에 웹훅 주소를 넣어요.</p>
+        </details>
+      )}
     </section>
   );
 }
