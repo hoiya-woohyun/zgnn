@@ -1,18 +1,16 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { SearchMd } from '@untitledui/icons';
 import { PlacesPageEligibilityToggles } from './placesPageEligibilityToggles';
 import type { TActiveChip } from './placesPageActiveChips';
 import { PlacesPageFilters } from './placesPageFilters';
 import { PlacesPageFilterSheet } from './placesPageFilterSheet';
 import { PlacesPageResults } from './placesPageResults';
+import { PlacesPageSearchField } from './placesPageSearchField';
 import { usePlacesPageSwipe } from './placesPageSwipe';
 import { PlacesPageSwipePeek } from './placesPageSwipePeek';
 import { PlacesPageTypeTabs } from './placesPageTypeTabs';
 import { usePlaceTypeSwitch } from './placesPageTypeSwitch';
-import { Input } from '../components/base/input';
-import { SEARCH_FIELD } from '../components/noAutofill';
 import { sameIsland, TYPE_META, type TPlaceEntry } from '../lib/places';
 import { comparePrice, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
 import { countByLevel, levelCountParts } from '../lib/eligibilityCounts';
@@ -368,19 +366,8 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
           />
 
           <div className="mt-3 flex items-center gap-2">
-            <Input
-              aria-label="장소 검색"
-              {...SEARCH_FIELD}
-              icon={SearchMd}
-              placeholder="이름·특징·읍면 검색"
-              value={query}
-              onChange={setQuery}
-              className="min-w-0 flex-1"
-              /* Input 의 기본 md 프리셋은 py-2 + text-md 라 input 자체가 40px 다.
-                 wrapperClassName="h-11" 로 겉박스만 44px 로 키우면 위아래 2px 가 탭해도 포커스가
-                 안 잡히는 죽은 띠로 남는다(측정으로 확인). lg 프리셋은 py-2.5 라 input 자체가 44px 다. */
-              size="lg"
-            />
+            {/* 검색어만 지우는 ✕ 가 칸 안에 있다(14 W261019.11e) — 켜진 조건 줄엔 평범한 검색어 칩이 없다(W261019.11a). */}
+            <PlacesPageSearchField query={query} onChange={setQuery} className="min-w-0 flex-1" />
 
             {/* 조건은 모바일에서만 접는다 — 아래 펼친 판이 md 부터 대신 나온다. */}
             <div className="md:hidden">
