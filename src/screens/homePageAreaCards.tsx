@@ -173,7 +173,7 @@ export function HomePageAreaCards() {
               )}
 
               {landmarks.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 px-1 pb-1" role="group" aria-label={`${label} 관광지 근처 찾기`}>
+                <div className="flex flex-wrap gap-x-1.5 gap-y-2 px-1 pb-1" role="group" aria-label={`${label} 관광지 근처 찾기`}>
                   {landmarks.map(({ landmark }) => (
                     <FilterChip
                       key={landmark.name}

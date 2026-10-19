@@ -14,8 +14,6 @@ type TPlacesPageFilterSheetProps = {
   onOpenChange: (open: boolean) => void;
   type: TPlaceType;
   town: string | null;
-  /** 읍면 칩 옆 수(`townChipCounts`) — 읍면 선택만 뺀 지금 조건으로 센 패싯. */
-  townCounts: ReadonlyMap<string, number>;
   /** 홈 동네 카드가 건 권역 — 시트에 고르는 자리는 없고 읍면 묶음 밑 한 줄이 말한다(14 W261010.33f). */
   area: TAreaId | null;
   directions: TDirection[];
@@ -28,14 +26,10 @@ type TPlacesPageFilterSheetProps = {
     /** '갈 수 있는 곳만'(14 W261013.14d) — 홈 동네 카드가 거는 것과 같은 스토어 값. */
     onlyReachable: boolean;
     onToggleOnlyReachable: () => void;
-    /** 켜면 남는 곳 수(`onlyReachableCount`). */
-    reachableCount: number;
     hideHard: boolean;
     onToggleHideHard: () => void;
     needsIndoor: boolean;
     onToggleNeedsIndoor: () => void;
-    /** '어려운 곳 숨기기' 가 숨기는(숨길) 곳 수. */
-    hardCount: number;
     /** 남는 곳의 판정 셈("가능 20" 조각들, `levelCountParts`) — 하단 버튼 위 한 줄. */
     levelParts: string[];
   } | null;
@@ -65,7 +59,6 @@ export function PlacesPageFilterSheet({
   onOpenChange,
   type,
   town,
-  townCounts,
   area,
   directions,
   petKeys,
@@ -141,20 +134,16 @@ export function PlacesPageFilterSheet({
                 type={type}
                 onlyReachable={eligibility.onlyReachable}
                 onToggleOnlyReachable={eligibility.onToggleOnlyReachable}
-                reachableCount={eligibility.reachableCount}
-                resultCount={resultCount}
                 hideHard={eligibility.hideHard}
                 onToggleHideHard={eligibility.onToggleHideHard}
                 needsIndoor={eligibility.needsIndoor}
                 onToggleNeedsIndoor={eligibility.onToggleNeedsIndoor}
-                hardCount={eligibility.hardCount}
               />
             )}
             <PlacesPageFilters
               variant="sheet"
               type={type}
               town={town}
-              townCounts={townCounts}
               area={area}
               directions={directions}
               petKeys={petKeys}

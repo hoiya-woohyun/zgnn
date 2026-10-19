@@ -183,42 +183,6 @@ export const singleConditionReleases = (
   return releases.filter((release) => release.count > 0).sort((a, b) => b.count - a.count);
 };
 
-/**
- * '어려운 곳 숨기기' 가 지금 조건에서 숨기는(켜면 숨길) 곳 수(14 W261013.8). 나머지 조건은 그대로 센다 — 칩에 싣는 수다.
- * 0 이면 그 칩은 이 목록에서 아무것도 바꾸지 않는다: 콩이(이동가방) 식당 47곳은 어려움이 없어 눌러도 "47곳 보기" 그대로라
- * 고장으로 보였다. 판정 맵이 없으면(강아지 없음) 0.
- */
-export const hideHardCount = (conditions: TPlacesPageConditions): number => {
-  const { eligibilityMap } = conditions;
-  if (!eligibilityMap) return 0;
-  return filterPlacesPage({ ...conditions, hideHard: false }).filter((place) => eligibilityMap.get(place.id)?.level === 'hard').length;
-};
-
-/**
- * '갈 수 있는 곳만' 을 켜면(켜 두었으면) 남는 곳 수(14 W261013.14d) — 시트 칩 "갈 수 있는 곳만 4" 의 수. 옆 '어려운 곳 숨기기' 와 달리
- * 숨기는 수가 아니라 **남는** 수다: "~만 N" 은 그 N곳으로 읽히고, 홈 히어로("갈 수 있는 곳 N")도 같은 술어(`isReachable`)로 남는 쪽을 센다.
- * 나머지 조건은 그대로 센다. 판정 맵이 없으면(강아지 없음) 0.
- */
-export const onlyReachableCount = (conditions: TPlacesPageConditions): number =>
-  conditions.eligibilityMap ? filterPlacesPage({ ...conditions, onlyReachable: true }).length : 0;
-
-/**
- * 읍면 칩 옆 수(14 W261010.33e) — 그 칩을 누르면 남는 곳 수. 지금 조건(검색어·방향·조건 칩·판정 토글)에서 읍면 선택을 빼고
- * 거른 목록을 읍면별로 센다(패싯). 예전엔 종류 전체를 셌다(`topTowns`) — '갈 수 있는 곳만' 을 켠 채 "구좌읍 9" 를 눌러 1곳을 봤다(ferry-26).
- * 읍면까지 넣어 세면 하나 고른 순간 다른 칩이 전부 0 이 된다. 걸러 내기는 `filterPlacesPage` 그대로 — 옆 칩의 `onlyReachableCount` 와 한 술어다.
- *
- * **권역도 뺀다**(W261010.33i) — 읍면을 고르면 권역을 대신하므로(화면의 `selectTown`, 권역 진입이 읍면을 푸는 것과 짝) 누른 뒤엔 권역이 없다.
- * 권역 안 읍면은 빼나 안 빼나 같은 수이고, 권역 밖 읍면은 눌러서 0곳이던 칩이 그 읍면의 수가 된다. 그래서 권역이 걸려 있으면 칩을 다 더한 수가 지금 목록보다 크다.
- * 맵에 없는 읍면은 0곳이다.
- */
-export const townChipCounts = (conditions: TPlacesPageConditions): ReadonlyMap<string, number> => {
-  const counts = new Map<string, number>();
-  for (const place of filterPlacesPage({ ...conditions, town: null, area: null })) {
-    counts.set(place.region.town, (counts.get(place.region.town) ?? 0) + 1);
-  }
-  return counts;
-};
-
 /** 동네 카드로 들어온 뒤 따라와 걸린 것 — 카드는 이것들 없이 셌다. */
 export type TAreaCarried = { count: number; town: string | null; directions: number; petKeys: number };
 

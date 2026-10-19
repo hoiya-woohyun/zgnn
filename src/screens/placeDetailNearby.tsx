@@ -80,7 +80,7 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
       <h2 className="px-4 text-lg font-bold text-primary md:px-6">근처 장소</h2>
 
       <div
-        className="no-scrollbar mt-2 flex gap-2 overflow-x-auto px-4 md:px-6"
+        className="no-scrollbar mt-1 flex min-h-11 items-center gap-2 overflow-x-auto px-4 md:px-6"
         role="group"
         aria-label="근처 장소 종류"
       >

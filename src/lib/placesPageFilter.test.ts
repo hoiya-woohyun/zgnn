@@ -7,9 +7,7 @@ import {
   areaReleaseCount,
   filterPlacesPage,
   filtersOfPlaceType,
-  hideHardCount,
   landmarkNearby,
-  onlyReachableCount,
   otherSeatTypeMatches,
   otherTypeHiddenMatches,
   otherTypeMatches,
@@ -22,14 +20,13 @@ import {
   placesPageSortOptions,
   reachableReleaseCount,
   singleConditionReleases,
-  townChipCounts,
   townReleaseCount,
 } from './placesPageFilter';
 import { landmarkOfWord } from './landmarks';
 import { freshnessOf } from './placeFreshness';
 import { matchesQuery } from './placeSearch';
 import { comparePrice } from './placeFilters';
-import { PLACES, distanceKm, placesOfType, sameIsland, topTowns } from './places';
+import { PLACES, distanceKm, placesOfType, sameIsland } from './places';
 import { sortByDistance } from './distanceSort';
 import { sortByEligibility } from './sortByEligibility';
 import type { TDogProfile, TPlaceType } from '../types';
@@ -261,16 +258,16 @@ describe("'갈 수 있는 곳만'(19 T4.1)", () => {
     expect(placesPageChips({ ...chipBase, onlyReachable: true }).activeFilterCount).toBe(1);
   });
 
-  it('시트 칩의 수는 켜면 남는 곳 — 켜든 끄든 같고, 홈 히어로처럼 가능 + 야외를 센다(14 W261013.14d)', () => {
+  it('켜면 남는 곳은 홈 히어로처럼 가능 + 야외(14 W261013.14d)', () => {
     const eligibilityMap = mapOf(BORI);
-    const conditions = { ...base, type: 'stay' as const, eligibilityMap };
-    // 홈 히어로 시트가 펼치는 곳(`reachablePlaces`) 중 숙소 — 시트 칩과 히어로가 한 술어다.
+    const conditions = { ...base, type: 'stay' as const, eligibilityMap, onlyReachable: true };
+    // 홈 히어로 시트가 펼치는 곳(`reachablePlaces`) 중 숙소 — 시트의 '갈 수 있는 곳만' 과 히어로가 한 술어다.
     const reachable = reachablePlaces(placesOfType('stay'), BORI).length;
     expect(reachable).toBeGreaterThan(0);
     expect(reachable).toBeLessThan(placesOfType('stay').length);
-    expect(onlyReachableCount(conditions)).toBe(reachable);
-    expect(onlyReachableCount({ ...conditions, onlyReachable: true })).toBe(reachable);
-    expect(onlyReachableCount({ ...conditions, eligibilityMap: null })).toBe(0);
+    expect(filterPlacesPage(conditions)).toHaveLength(reachable);
+    // 강아지가 없으면 걸러 내지 않는다.
+    expect(filterPlacesPage({ ...conditions, eligibilityMap: null })).toHaveLength(placesOfType('stay').length);
   });
 
   it('0곳이면 이 조건 하나만 푼 수를 센다 — 꺼져 있거나 맵이 없으면 0', () => {
@@ -427,107 +424,6 @@ describe('0곳 안내가 숨긴 종류도 말한다(14 W261007.11b)', () => {
       }
     }
     expect(hiddenSeen).toBeGreaterThan(0);
-  });
-});
-
-describe('townChipCounts — 읍면 칩 옆 수(14 W261010.33e)', () => {
-  const mapOf = (dog: TDogProfile) => new Map(PLACES.map((place) => [place.id, judgeEligibility(dog, place.policy)]));
-  const BORI_MAP = mapOf({ dogs: [{ name: '보리', weightKg: 30 }], carrier: 'none' });
-  const DUBU_MAP = mapOf({ dogs: [{ name: '두부', weightKg: 3 }], carrier: 'bag' });
-  /** 칩 줄과 같은 읍면 — 그 종류에 장소가 있는 읍면 전부. */
-  const townsOf = (type: TPlaceType) => topTowns(type, Number.MAX_SAFE_INTEGER).map((entry) => entry.town);
-  const SETS = [
-    ['숙소 · 보리 · 갈 수 있는 곳만', { ...base, type: 'stay' as const, onlyReachable: true, eligibilityMap: BORI_MAP }],
-    ['식당 · 대형견 OK · 서쪽·동쪽', { ...base, type: 'restaurant' as const, petKeys: ['largeDog' as const], directions: ['west' as const, 'east' as const] }],
-    ['카페 · 두부 · 서부 권역 · 어려운 곳 숨기기', { ...base, type: 'cafe' as const, area: 'west' as const, hideHard: true, eligibilityMap: DUBU_MAP }],
-  ] as const;
-
-  it.each(SETS)('%s — 칩의 수 = 그 칩을 눌렀을 때 남는 곳 수(누르면 권역이 풀린다 — W261010.33i)', (_, conditions) => {
-    const counts = townChipCounts(conditions);
-    let total = 0;
-    for (const town of townsOf(conditions.type)) {
-      // 화면의 `selectTown` 이 하는 일 그대로 — 읍면을 걸고 권역을 푼다.
-      const opened = filterPlacesPage({ ...conditions, town, area: null }).length;
-      expect(counts.get(town) ?? 0, town).toBe(opened);
-      total += opened;
-    }
-    // 읍면 칩이 나누어 가진 수의 합 = 읍면·권역을 안 고른 목록 수 — 빠지거나 겹치는 읍면이 없다.
-    expect(total).toBe(filterPlacesPage({ ...conditions, area: null }).length);
-    expect(total).toBeGreaterThan(0);
-  });
-
-  it.each(SETS)('%s — 읍면 하나를 고른 뒤에도 다른 칩 수가 0 으로 떨어지지 않는다', (_, conditions) => {
-    const released = townChipCounts(conditions);
-    const picked = [...released.entries()].find(([, count]) => count > 0)?.[0];
-    expect(picked).toBeDefined();
-    const withTown = townChipCounts({ ...conditions, town: picked! });
-    expect(withTown).toEqual(released);
-    expect([...withTown.entries()].filter(([town, count]) => town !== picked && count > 0).length).toBeGreaterThan(0);
-  });
-
-  it("'갈 수 있는 곳만' 을 켜면 칩 수가 따라 준다 — 종류 전체 수(`topTowns`)로 셌을 땐 \"구좌읍 9\" 를 눌러 1곳을 봤다(ferry-26)", () => {
-    const off = { ...base, type: 'stay' as const, eligibilityMap: BORI_MAP };
-    const offCounts = townChipCounts(off);
-    // 아무 조건이 없으면 종류 전체 수와 같다 — 예전 칩 수.
-    for (const { town, count } of topTowns('stay', Number.MAX_SAFE_INTEGER)) expect(offCounts.get(town), town).toBe(count);
-    const onCounts = townChipCounts({ ...off, onlyReachable: true });
-    const shrunk = [...offCounts.entries()].filter(([town, count]) => (onCounts.get(town) ?? 0) < count);
-    expect(shrunk.length).toBeGreaterThan(0);
-    // 옆 칩 '갈 수 있는 곳만 N' 과 한 술어 — 읍면 칩을 다 더하면 그 N 이다.
-    expect([...onCounts.values()].reduce((sum, count) => sum + count, 0)).toBe(onlyReachableCount(off));
-  });
-
-  it('종류 · 조건 칩 · 판정 토글을 바꾸면 칩 수가 바뀐다', () => {
-    const stay = { ...base, type: 'stay' as const, eligibilityMap: BORI_MAP };
-    const differs = (a: ReadonlyMap<string, number>, b: ReadonlyMap<string, number>) =>
-      [...new Set([...a.keys(), ...b.keys()])].some((town) => (a.get(town) ?? 0) !== (b.get(town) ?? 0));
-    const stayCounts = townChipCounts(stay);
-    expect(differs(stayCounts, townChipCounts({ ...stay, type: 'cafe' }))).toBe(true);
-    expect(differs(stayCounts, townChipCounts({ ...stay, petKeys: ['largeDog'] }))).toBe(true);
-    expect(differs(stayCounts, townChipCounts({ ...stay, hideHard: true }))).toBe(true);
-    expect(differs(stayCounts, townChipCounts({ ...stay, onlyReachable: true }))).toBe(true);
-  });
-
-  it('권역이 걸려도 권역 밖 읍면은 0 이 아니다 — 읍면을 고르면 권역을 대신한다(W261010.33i, 예전엔 눌러서 0곳)', () => {
-    const free = { ...base, type: 'stay' as const, onlyReachable: true, eligibilityMap: BORI_MAP };
-    const counts = townChipCounts({ ...free, area: 'west' });
-    // 권역을 빼고 세므로 권역이 없을 때와 같은 칩 수다.
-    expect(counts).toEqual(townChipCounts(free));
-    let outsideSeen = 0;
-    for (const town of townsOf('stay')) {
-      const count = counts.get(town) ?? 0;
-      if (areaOf({ region: { town } }) === 'west') {
-        // 권역 안 읍면은 권역을 지워도 같은 목록 — 그래서 `selectTown` 은 가리지 않고 권역을 지운다.
-        expect(count, town).toBe(filterPlacesPage({ ...free, area: 'west', town }).length);
-      } else if (count > 0) {
-        outsideSeen += 1;
-        expect(filterPlacesPage({ ...free, area: 'west', town }).length, `${town} 권역과 겹치면`).toBe(0);
-      }
-    }
-    expect(outsideSeen).toBeGreaterThan(0);
-  });
-});
-
-describe('hideHardCount — 어려운 곳 숨기기 칩의 수(14 W261013.8)', () => {
-  const mapOf = (dog: TDogProfile) => new Map(PLACES.map((place) => [place.id, judgeEligibility(dog, place.policy)]));
-
-  it('강아지가 없으면 0', () => {
-    expect(hideHardCount({ ...base, type: 'restaurant' })).toBe(0);
-  });
-
-  it('켜든 끄든 같은 수 — 숨기는(숨길) 어려움 곳, 나머지 조건은 그대로', () => {
-    const eligibilityMap = mapOf({ dogs: [{ name: '보리', weightKg: 28 }], carrier: 'none' });
-    const conditions = { ...base, type: 'restaurant' as const, eligibilityMap };
-    const hard = filterPlacesPage(conditions).filter((place) => eligibilityMap.get(place.id)?.level === 'hard').length;
-    expect(hard).toBeGreaterThan(0);
-    expect(hideHardCount(conditions)).toBe(hard);
-    expect(hideHardCount({ ...conditions, hideHard: true })).toBe(hard);
-    expect(filterPlacesPage({ ...conditions, hideHard: true })).toHaveLength(filterPlacesPage(conditions).length - hard);
-  });
-
-  it("'갈 수 있는 곳만' 이 이미 어려움을 뺐으면 0 — 눌러도 바뀌는 것이 없다", () => {
-    const eligibilityMap = mapOf({ dogs: [{ name: '보리', weightKg: 28 }], carrier: 'none' });
-    expect(hideHardCount({ ...base, type: 'restaurant', onlyReachable: true, eligibilityMap })).toBe(0);
   });
 });
 

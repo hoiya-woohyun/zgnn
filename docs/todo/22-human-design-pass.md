@@ -28,7 +28,8 @@
 
 ### 묶음 A·B — 둘러보기 머리와 필터 (레인 F)
 
-- [ ] **D-5 공용 칩** — `FilterChip`: 보이는 h-9 + 히트 44(`before:`) · px-3.5 · `rounded-full` · 14/400 · 꺼짐 투명 + 1px `border-primary` + `text-secondary` · 눌림 `bg-tertiary` · 켜짐 `bg-brand-primary` + `border-brand` + `text-brand-secondary` 600. 칩 안 숫자 없음.
+- [x] **D-5 공용 칩** — `FilterChip`: 보이는 h-9 + 히트 44(`before:`) · px-3.5 · `rounded-full` · 14/400 · 꺼짐 투명 + 1px `border-primary` + `text-secondary` · 눌림 `bg-tertiary` · 켜짐 `bg-brand-primary` + `border-brand` + `text-brand-secondary` 600. 칩 안 숫자 없음.
+    > 메모(2026-10-20): `filterChip.tsx` — 굵기 400 → 600 으로 폭이 흔들리지 않게 보이지 않는 굵은 사본으로 폭을 미리 잡는다(`aria-hidden`). 가로 스크롤 줄은 44px 로(`overflow-x-auto` 가 세로도 잘라 `before:` 4px 가 안 눌렸다 — 근처 장소 줄·`SCROLL_ROW_CLASS`), 홈 관광지 칩 줄은 줄 간격 8px(히트가 겹치지 않게). 숫자: 읍면 칩·'갈 수 있는 곳만'·'어려운 곳 숨기기' 의 수와 그 옅은 칩을 걷고 셈 함수 셋(`townChipCounts`·`onlyReachableCount`·`hideHardCount`)과 테스트를 지웠다 — 남는 곳 수는 목록 머리·시트 결과 버튼. 관리 화면은 `AdminFilterChip`(base Button)이라 이 부품이 아니다.
 - [ ] **D-1 종류 밑줄 탭** — 흰 상자·틴트 알약을 걷고 크림 위 전폭 탭 줄(h-11, 칸 같은 폭, md 부터 칸 상한 w-30 · 왼쪽 정렬), 밑 1px `border-secondary`. 글자 16/600 고정(켜짐 `text-primary` · 꺼짐 `text-tertiary`).
   표시는 같은 `pillRef` span 을 2px 잉크(`bg-primary-solid`) 밑줄로 — 브랜드가 아닌 이유: 이 화면은 탭바·지도 버튼·'갈 수 있어요' 가 이미 핑크다.
 - [ ] **D-2 칩 줄** — 검색칸은 전폭(옆 '필터' 버튼을 내린다, `shadow-xs` 뺌). 그 밑 한 줄 가로 스크롤: [필터(슬라이더 아이콘, 켜면 '필터 3' — 채움·흰 원 배지 없음)] [정렬 ▾] [갈 수 있는 곳만] [켠 조건 ✕…] [초기화].

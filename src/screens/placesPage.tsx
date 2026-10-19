@@ -14,14 +14,12 @@ import { usePlaceTypeSwitch } from './placesPageTypeSwitch';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
 import type { TPetFilterKey, TPlaceSort } from '../lib/placeFilters';
 import { countByLevel, levelCountParts } from '../lib/eligibilityCounts';
-import { hideHardCount, onlyReachableCount, townChipCounts } from '../lib/placesPageFilter';
 import { landmarkOfQuery } from '../lib/placeSearch';
 import { NEAR_PARAM, nearPlaceOf } from '../lib/distanceSort';
 import { LOCATE_NOTICE, locateMe } from '../lib/myLocation';
 import { showAppStatus } from '../lib/appStatus';
 import { PlacesPageSuggest } from './placesPageSuggest';
 import { useAppStore, useDog } from '../store/useAppStore';
-import { useEligibilityMap } from '../store/useDogEligibility';
 import { usePlacesPageFilterStore } from '../store/usePlacesPageFilterStore';
 import { recordUiEvent } from '../lib/uiEventsSend';
 import { cx } from '../utils/cx';
@@ -53,7 +51,6 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
   const town = useAppStore((state) => state.town);
   const setTown = useAppStore((state) => state.setTown);
   const dog = useDog();
-  const eligibilityMap = useEligibilityMap();
   const needsIndoor = useAppStore((state) => state.needsIndoor);
   const setNeedsIndoor = useAppStore((state) => state.setNeedsIndoor);
   const query = usePlacesPageFilterStore((state) => state.query);
@@ -155,21 +152,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     [],
   );
 
-  // 판정 토글의 결과를 시트가 보이게(14 W261013.8) — '어려운 곳 숨기기' 가 숨길 수, 남는 곳의 판정 셈(목록 머리와 같은 셈).
-  const hardCount = useMemo(
-    () => hideHardCount({ type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap }),
-    [type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap],
-  );
-  // '갈 수 있는 곳만' 을 켜면 남는 곳 수(14 W261013.14d) — 홈 히어로("갈 수 있는 곳 N")와 같은 술어.
-  const reachableCount = useMemo(
-    () => onlyReachableCount({ type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap }),
-    [type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap],
-  );
-  // 읍면 칩 옆 수(14 W261010.33e) — 읍면 선택만 뺀 지금 조건으로 센 패싯. 칩을 누르면 그 수가 남는다.
-  const townCounts = useMemo(
-    () => townChipCounts({ type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap }),
-    [type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap],
-  );
+  // 남는 곳의 판정 셈(목록 머리와 같은 셈) — 판정만 바꾸는 '실내 자리 필요' 의 결과를 시트가 보이게(14 W261013.8).
   const levelParts = useMemo(
     () => (dog ? levelCountParts(countByLevel(view.results, dog, { needsIndoor })) : []),
     [view.results, dog, needsIndoor],
@@ -286,7 +269,6 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
                 onOpenChange={setIsFilterSheetOpen}
                 type={type}
                 town={town}
-                townCounts={townCounts}
                 area={area}
                 directions={directions}
                 petKeys={petKeys}
@@ -298,12 +280,10 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
                     ? {
                         onlyReachable,
                         onToggleOnlyReachable: toggleOnlyReachable,
-                        reachableCount,
                         hideHard,
                         onToggleHideHard: toggleHideHard,
                         needsIndoor,
                         onToggleNeedsIndoor: () => setNeedsIndoor(!needsIndoor),
-                        hardCount,
                         levelParts,
                       }
                     : null
@@ -327,7 +307,6 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
             variant="bar"
             type={type}
             town={town}
-            townCounts={townCounts}
             area={area}
             directions={directions}
             petKeys={petKeys}
@@ -346,13 +325,10 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
               type={type}
               onlyReachable={onlyReachable}
               onToggleOnlyReachable={toggleOnlyReachable}
-              reachableCount={reachableCount}
-              resultCount={view.results.length}
               hideHard={hideHard}
               onToggleHideHard={toggleHideHard}
               needsIndoor={needsIndoor}
               onToggleNeedsIndoor={() => setNeedsIndoor(!needsIndoor)}
-              hardCount={hardCount}
             />
           )}
         </div>

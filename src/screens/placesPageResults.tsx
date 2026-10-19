@@ -282,7 +282,7 @@ export function PlacesPageResults({
         이름이 기준을 말한다('기본순' 대신 "갈 수 있는 곳 먼저"·"확인한 곳 먼저", `placesPageSortLabel`). 숙소는 가격 둘까지 넷이라 줄이 옆으로 밀린다.
       */}
       {results.length > 0 && (
-        <div className={cx(SCROLL_ROW_CLASS, 'pt-2 md:hidden')} role="group" aria-label="정렬">
+        <div className={cx(SCROLL_ROW_CLASS, 'mt-1 md:hidden')} role="group" aria-label="정렬">
           <span className="shrink-0 text-sm text-tertiary" aria-hidden="true">
             정렬
           </span>

@@ -24,8 +24,6 @@ export type TFiltersVariant = 'bar' | 'sheet';
 type TPlacesPageFiltersProps = {
   type: TPlaceType;
   town: string | null;
-  /** 읍면 칩 옆 수(`townChipCounts`) — 읍면 선택만 뺀 지금 조건으로 센 패싯. 없는 읍면은 0. */
-  townCounts: ReadonlyMap<string, number>;
   /** 홈 동네 카드가 건 권역. 시트에선 읍면 묶음 밑 한 줄로 말한다(14 W261010.33f). */
   area: TAreaId | null;
   directions: TDirection[];
@@ -54,11 +52,14 @@ const STAY_ENV_FILTERS = envFiltersWithData(placesOfType('stay'));
  * 마스크가 마지막 칩까지 가리면 안 되므로, 마스크가 시작되는 지점보다
  * 넓게 오른쪽 padding 을 잡아 마지막 칩은 항상 마스크 밖(완전 불투명)에 있게 한다.
  *
+ * 줄 높이는 44px(`min-h-11`) — 칩은 36px 로 보이고 위아래 4px 를 `before:` 로 넓혀 누르는데(22 D-5), `overflow-x-auto` 는 세로도 잘라서
+ * 줄이 칩 높이면 그 4px 가 안 눌린다.
+ *
  * lg 부터는 줄을 바꾼다(07 U10) — 넓은 화면에서 칩을 옆으로 밀어 찾게 할 이유가 없다. md 는 사이드바를 빼면
  * 본문이 512px 이라 읍면 10개가 세 줄이 되고, 이 줄은 sticky 머리 안이라 그만큼 목록을 가린다 — 그래서 md 는 스크롤 그대로.
  */
 export const SCROLL_ROW_CLASS =
-  'no-scrollbar flex items-center gap-2 overflow-x-auto px-4 pr-8 md:px-6 md:pr-10 ' +
+  'no-scrollbar flex min-h-11 items-center gap-2 overflow-x-auto px-4 pr-8 md:px-6 md:pr-10 ' +
   '[mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] ' +
   '[-webkit-mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] ' +
   'lg:flex-wrap lg:overflow-x-visible lg:pr-6 lg:[mask-image:none] lg:[-webkit-mask-image:none]';
@@ -100,12 +101,12 @@ function FilterGroup({
 
 export function PlacesPageFilters(props: TPlacesPageFiltersProps) {
   // 정렬 칸은 variant 를 좁힌 뒤에만 읽는다(아래 bar 갈래) — 시트 쪽 타입엔 그 칸이 없다.
-  const { variant, type, town, townCounts, area, directions, petKeys, onSelectTown, onToggleDirection, onTogglePetKey } = props;
+  const { variant, type, town, area, directions, petKeys, onSelectTown, onToggleDirection, onTogglePetKey } = props;
   // 이 종류에 실제로 장소가 있는 읍면만 보여준다 — 0곳인 읍면 칩을 눌러 빈 목록을 만들 이유가 없다.
   // 단 **이미 골라 둔 읍면**이 이 종류에 없으면(숙소에서 고른 '서귀포' → 식당) 맨 앞에 `0` 칩을 켜진 채로 끼운다 —
   // 안 그러면 버튼은 "필터 1" 인데 시트에 끌 칩이 없다(12 U1.6). 읍면은 종류를 넘어 유지되는 값이다.
-  // 칩의 **줄과 순서**는 종류 전체로 정하고 옆 수만 지금 조건을 따른다(14 W261010.33e) — 수로 다시 줄 세우거나 0 칩을 빼면
-  // 다른 조건을 누를 때마다 칩이 손가락 밑에서 자리를 바꾼다. 0 이 된 칩은 '어려운 곳 숨기기 0' 처럼 한 단 옅은 토큰으로 둔다.
+  // 칩의 **줄과 순서**는 종류 전체로 정한다(14 W261010.33e) — 지금 조건으로 다시 줄 세우거나 빼면 다른 조건을 누를 때마다 칩이 손가락 밑에서
+  // 자리를 바꾼다. 칩 옆 수는 없다(22 D-5) — 남는 곳 수는 목록 머리가 말한다.
   const typeTowns = topTowns(type, Number.MAX_SAFE_INTEGER).map((entry) => entry.town);
   const towns = town !== null && !typeTowns.includes(town) ? [town, ...typeTowns] : typeTowns;
   const directionGroup = (className?: string) => (
@@ -137,15 +138,9 @@ export function PlacesPageFilters(props: TPlacesPageFiltersProps) {
       >
         {towns.map((candidate) => {
           const active = town === candidate;
-          const count = townCounts.get(candidate) ?? 0;
           return (
-            <FilterChip
-              key={candidate}
-              pressed={active}
-              onClick={() => onSelectTown(active ? null : candidate)}
-              className={cx(count === 0 && !active && 'border-secondary text-tertiary')}
-            >
-              {townFilterLabel(candidate)} {count}
+            <FilterChip key={candidate} pressed={active} onClick={() => onSelectTown(active ? null : candidate)}>
+              {townFilterLabel(candidate)}
             </FilterChip>
           );
         })}
