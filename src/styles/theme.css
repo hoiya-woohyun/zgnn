@@ -985,9 +985,9 @@
   --color-camellia: var(--color-brand-600);
   --color-camellia-wash: var(--color-brand-50);
 
-  /* 네이버 공식 초록(브랜드 가이드 #03C75A). 네이버로 나가는 링크(지도·플레이스)에만 쓴다 —
-     "여기서 네이버로 넘어간다" 는 신호라 앱 팔레트에 맞추지 않는다. 다른 초록(카페)과 섞어 쓰지 않는다.
-     deep 은 눌림 표시용. 쓰는 곳은 components/naverLinkButton.tsx 하나다. */
+  /* 네이버 공식 초록(브랜드 가이드 #03C75A). **지금 쓰는 곳이 없다** — 네이버로 나가는 버튼(components/naverLinkButton.tsx)은
+     2026-10-19 에 중립 테두리가 됐다(ADR-003 v19: 떠남의 신호는 색이 아니라 글자의 앱 이름). 앱 아이콘처럼 네이버 표지 자체가
+     필요해지면 이 값을 쓴다. 다른 초록(카페)과 섞어 쓰지 않는다. deep 은 눌림 표시용. */
   --color-naver: #03c75a;
   --color-naver-deep: #02b350;
 }

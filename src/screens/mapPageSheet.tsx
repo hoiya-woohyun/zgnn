@@ -1,3 +1,4 @@
+import { NavigationPointer01 } from '@untitledui/icons';
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { EligibilityBadge } from '../components/eligibilityBadge';
@@ -112,10 +113,14 @@ export function MapPageSheetCard({ place, origin, onSheetHeight }: TMapPageSheet
       {/* 접어 둔다 — 머리 줄(몇 가지 중 몇 챙김)만. 마커를 바꾸면 접힘·누른 흔적이 다음 곳으로 새지 않게 장소마다 새로 단다. */}
       <PlaceItemsNote key={place.id} place={place} folded className="mt-3" />
 
-      {/* 지도에서 고른 곳은 "지금 여기로" 가 가장 잦은 동작(16 T1.5) — 저장 카드·상세와 같은 한 곳짜리 길찾기. 버튼 줄에 세 번째로 넣으면 좁아 따로 한 줄. */}
+      {/*
+        지도에서 고른 곳은 "지금 여기로" 가 가장 잦은 동작(16 T1.5) — 저장 카드·상세와 같은 한 곳짜리 길찾기. 버튼 줄에 세 번째로 넣으면 좁아 따로 한 줄.
+        L 전폭 중립 테두리(22 D-14) — 밑의 '자세히 보기'(주 버튼)와 같은 높이·폭이라 두 줄이 한 덩어리로 읽힌다. 글자 폭 S 는 줄 왼쪽에 떠 있었다.
+        D-14 의 나머지([길찾기][자세히 보기] 한 줄 · 저장을 머리 하트로)는 하지 않았다 — 머리 오른쪽은 시트 닫기 자리이고, 시트 높이가 핀 꺼내기(14a·14b)에 물린다.
+      */}
       {directions && (
-        <NaverLinkButton href={directions} className="mt-3">
-          길찾기
+        <NaverLinkButton href={directions} size="lg" icon={NavigationPointer01} className="mt-3 w-full">
+          네이버 길찾기
         </NaverLinkButton>
       )}
 

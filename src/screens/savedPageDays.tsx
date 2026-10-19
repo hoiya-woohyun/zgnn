@@ -1,5 +1,6 @@
 'use client';
 
+import { NavigationPointer01 } from '@untitledui/icons';
 import { Fragment, useState } from 'react';
 import { NaverLinkButton } from '../components/naverLinkButton';
 import { Button } from '../components/base/button';
@@ -17,7 +18,7 @@ import { SavedPageDayAlternatives, SavedPageDayVerdict, useSavedPageDayVerdict }
 
 /**
  * 저장 화면의 「날짜별」 보기(16 T1.4, 임시안) — 1~4일차 중 곳이 있는 날마다 한 묶음, 끝에 미정.
- * 하루의 순서·시작점은 `lib/tripDayView.ts` 가 정한다. 길찾기는 순서대로 묶음(`splitStops`)마다 알약 하나.
+ * 하루의 순서·시작점은 `lib/tripDayView.ts` 가 정한다. 길찾기는 순서대로 묶음(`splitStops`)마다 버튼 하나, 하루 머리에.
  */
 export function SavedPageDays({ places }: { places: readonly TPlaceEntry[] }) {
   const savedIds = useAppStore((state) => state.savedIds);
@@ -91,16 +92,33 @@ function SavedPageDay({ day, plan, places }: { day: TTripDay; plan: TTripPlan; p
       </h2>
       <SavedPageDayVerdict verdict={verdict} />
       <p className="mt-1 text-sm text-tertiary">{startLabel}</p>
+      {/* md 버튼은 41px(py-2.5 + 줄 21) — 44px 바닥만 깐다. lg 로 올리면 글자가 16px 이 되어 출발 줄보다 커진다. */}
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        <Button color="secondary" size="md" onClick={locate} isLoading={locating}>
+        <Button color="secondary" size="md" onClick={locate} isLoading={locating} className="min-h-11">
           내 위치에서
         </Button>
         {plan.order[day] && (
-          <Button color="secondary" size="md" onClick={() => resetTripDayOrder(day)}>
+          <Button color="secondary" size="md" onClick={() => resetTripDayOrder(day)} className="min-h-11">
             순서 다시 제안
           </Button>
         )}
       </div>
+      {/*
+        하루 경로는 **묶음 머리, 출발 줄 바로 밑**이다(22 D-13). 묶음 끝에 두던 동안 마지막 카드의 버튼으로 읽혔고, 출발을 고르는 칸
+        ('제주국제공항에서 출발' · '내 위치에서')과 그 출발로 여는 버튼이 카드 목록을 사이에 두고 갈려 있었다.
+        여러 묶음이면 번호(1/2)를 단 전폭 버튼을 쌓는다 — 경유 수는 버튼 안 조용한 글자로.
+      */}
+      {legs.length > 0 && (
+        <div className="mt-2 flex flex-col gap-2">
+          {legs.map((leg, index) => (
+            <NaverLinkButton key={leg.goal.id} href={routeUrl(leg)} size="lg" icon={NavigationPointer01} className="w-full">
+              {legs.length === 1 ? '네이버 길찾기' : `네이버 길찾기 ${index + 1}/${legs.length}`}
+              {leg.via.length > 0 && <span className="text-sm font-normal text-quaternary">{leg.via.length}곳 경유</span>}
+            </NaverLinkButton>
+          ))}
+        </div>
+      )}
+      {missing.length > 0 && <p className="mt-2 text-sm text-tertiary">지도에 없는 {missing.length}곳은 길찾기에서 빠져요</p>}
       <ul className="mt-3 space-y-3">
         {stops.map((place, index) => (
           <Fragment key={place.id}>
@@ -116,16 +134,6 @@ function SavedPageDay({ day, plan, places }: { day: TTripDay; plan: TTripPlan; p
           </Fragment>
         ))}
       </ul>
-      {legs.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {legs.map((leg, index) => (
-            <NaverLinkButton key={leg.goal.id} href={routeUrl(leg)} mark={false}>
-              {legs.length === 1 ? '네이버 길찾기' : `네이버 길찾기 ${index + 1}/${legs.length}`}
-            </NaverLinkButton>
-          ))}
-        </div>
-      )}
-      {missing.length > 0 && <p className="mt-2 text-sm text-tertiary">지도에 없는 {missing.length}곳은 길찾기에서 빠져요</p>}
     </section>
   );
 }

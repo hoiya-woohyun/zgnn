@@ -34,8 +34,9 @@ type TPlaceCardProps = {
    */
   noteEditor?: ReactNode;
   /**
-   * 카드 **안** 오른쪽 아래, 배지 줄 끝에 서는 것(저장 화면의 길찾기 알약). 카드가 링크라 그 안에 링크를 넣을 수 없어
-   * 하트처럼 카드 위에 겹쳐 세우고, 배지 줄은 그만큼 오른쪽을 비우고 알약 높이(h-9)를 바닥으로 갖는다 — 배지와 알약이 한 줄에 선다.
+   * 카드 **안** 오른쪽 아래, 배지 줄 끝에 서는 것(저장 화면의 길찾기 S 버튼). 카드가 링크라 그 안에 링크를 넣을 수 없어
+   * 하트처럼 카드 위에 겹쳐 세우고, 배지 줄은 그만큼 오른쪽을 비우고 버튼 높이(h-8)를 바닥으로 갖는다 — 배지와 버튼이 한 줄에 선다.
+   * 비우는 폭(`pr-25`)은 '네이버 길찾기' S 버튼(아이콘 없이 390 에서 96px) + 배지 간격 4px 다 — 버튼이 넓어지면 이 값도 같이 올린다.
    */
   cornerAction?: ReactNode;
   /** 카드 **밖** 바로 밑 한 줄(저장 화면의 날짜 고르기·순서 버튼). 카드는 링크라 그 안에 컨트롤을 못 넣는다. */
@@ -102,11 +103,11 @@ export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEdit
           목록 머리가 같은 문장을 이미 말했으면 빼서, 다른 이유를 가진 카드만 줄이 남게 한다. */}
       {reason && <p className="clamp-1 mt-1 text-xs text-tertiary">{reason.text}</p>}
 
-      <div className={cx('mt-3 flex flex-wrap items-center gap-1', cornerAction && 'min-h-9 pr-24')}>
+      <div className={cx('mt-3 flex flex-wrap items-center gap-1', cornerAction && 'min-h-8 pr-25')}>
         {eligibility && <EligibilityBadge eligibility={eligibility} />}
         <PetBadges
           policy={place.policy}
-          // 오른쪽 알약이 배지 하나 몫을 차지한다 — 하나 덜 보여(나머지는 +N) 배지 줄이 두 줄로 꺾이지 않게.
+          // 오른쪽 버튼이 배지 하나 몫을 차지한다 — 하나 덜 보여(나머지는 +N) 배지 줄이 두 줄로 꺾이지 않게.
           limit={(eligibility ? 2 : 3) - (cornerAction ? 1 : 0)}
           hideNoInfo={Boolean(eligibility)}
           // 판정과 반대로 읽히는 ✓ 칩, 머리글·이유 줄이 이미 한 말을 뺀다(14 W261013.1) — 같은 말은 카드에 한 번.

@@ -2,7 +2,6 @@
 
 import { Heart, MarkerPin02, MessageTextSquare01, NavigationPointer01, SearchLg, Share01 } from '@untitledui/icons';
 import { ActionTile } from '../components/actionTile';
-import { NaverActionTile } from '../components/naverLinkButton';
 import { SaveBurst, saveHeartMotion, useSaveToggle } from '../components/saveButton';
 import { showAppStatus } from '../lib/appStatus';
 import { naverDirectionsUrl, naverPlaceFindUrl, naverPlaceUrlOf } from '../lib/naverPlaceLink';
@@ -18,7 +17,9 @@ import { useEligibility } from '../store/useDogEligibility';
  * 세 군데에 세 가지 모양으로 흩어져 있었다. 지도 앱 상세의 "저장·공유·길찾기" 줄처럼 제목 밑에 두면
  * 스크롤 없이 다 보이고, 숙소의 요금 절이 네이버 버튼을 화면 아래로 미는 일(2026-09-15 리뷰 §2③)도 사라진다.
  *
- * - 순서는 앱 안 동작(저장·공유) → 앱을 떠나는 것(길찾기·네이버 플레이스 → 후기). 초록 원은 네이버로 나가는 칸에만.
+ * - 순서는 앱 안 동작(저장·공유) → 앱을 떠나는 것(길찾기·네이버 플레이스 → 후기). 원은 다섯 다 같은 모양이고(저장 켜짐만 채운 하트),
+ *   떠나는 칸은 이름 밑 둘째 줄이 목적지를 말한다('네이버 지도' · '네이버' · '블로그'). 예전엔 네이버 칸만 초록 원이었는데 색 하나에 기대
+ *   "무슨 초록인가" 를 읽게 했다 — 실서비스는 떠남을 색이 아니라 앱 이름으로 말한다(22 D-15).
  * - 데이터가 없는 칸은 **안 그린다**(자리를 비워 두지 않는다). 칸 폭은 남은 칸끼리 나눈다.
  * - 전화는 없다 — 전화번호 데이터가 아직 없다. 네이버 플레이스 칸(홈 탭에 전화가 있다)이 그 역할을 대신한다.
  * - 미니 지도·홈페이지 카드는 여기로 오지 않는다. 버튼이 아니라 내용이다.
@@ -76,13 +77,15 @@ export function PlaceDetailActions({ place }: { place: TPlaceEntry }) {
         data-ev="detail.save"
       />
       <ActionTile icon={Share01} label="공유" onClick={share} aria-label={`${place.name} 공유하기`} data-ev="detail.share" />
-      {directionsUrl && <NaverActionTile href={directionsUrl} icon={NavigationPointer01} label="길찾기" />}
+      {directionsUrl && <ActionTile href={directionsUrl} icon={NavigationPointer01} label="길찾기" destination="네이버 지도" />}
+      {/* 가게 페이지가 없는 곳(38곳)은 검색으로 간다 — 가게 페이지가 아니라서 이름이 '플레이스' 가 아니라 '찾기'. 이름은 한 줄이어야 해 '네이버' 는 둘째 줄로. */}
       {placeUrl ? (
-        <NaverActionTile href={placeUrl} icon={MarkerPin02} label="네이버 플레이스" />
+        <ActionTile href={placeUrl} icon={MarkerPin02} label="플레이스" destination="네이버" />
       ) : (
-        <NaverActionTile href={naverPlaceFindUrl(place)} icon={SearchLg} label="네이버에서 찾기" />
+        <ActionTile href={naverPlaceFindUrl(place)} icon={SearchLg} label="찾기" destination="네이버" />
       )}
-      {place.reviewUrl && <ActionTile href={place.reviewUrl} icon={MessageTextSquare01} label="후기" />}
+      {/* 후기는 전부 네이버 블로그 글이다(122곳) — 목적지는 앱 이름이 아니라 글의 종류로 말한다. */}
+      {place.reviewUrl && <ActionTile href={place.reviewUrl} icon={MessageTextSquare01} label="후기" destination="블로그" />}
     </div>
   );
 }

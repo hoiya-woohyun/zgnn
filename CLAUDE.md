@@ -140,8 +140,10 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
   → [ADR-018 결정 10](docs/decisions/ADR-018-in-app-admin-review.md).
 - **색은 시맨틱 토큰으로만** (`bg-primary` · `text-secondary` · `bg-brand-solid`).
   원시 색값은 `theme.css` 에만 둔다.
-  **네이버(지도·플레이스)로 나가는 버튼은 `src/components/naverLinkButton.tsx` 하나로** 만든다 — 네이버 공식 초록(`bg-naver`)·작은 알약·44px 히트 영역이
-  거기 들어 있다. 상세의 저장·공유·네이버·후기는 제목 밑 **액션 줄 하나**(`placeDetailActions.tsx`)에 모여 있다 — 새 동작도 여기 칸으로 더한다. `Button color="primary"` 로 새로 만들면 핑크 주 버튼과 구분이 안 된다(→ ADR-003 v13).
+  **네이버(지도·플레이스)로 나가는 버튼은 `src/components/naverLinkButton.tsx` 하나로** 만든다 — **중립 테두리**(흰 면 · 회색 1px · 회색 글자)이고
+  앱을 떠난다는 신호는 색이 아니라 **글자의 앱 이름**('네이버 길찾기' · '네이버 플레이스')이다(초록 채움·N 상자·↗ 없음). 크기는 둘 — `lg`(h-11, 덩어리에 하나뿐인 자리 · 폭은 부르는 쪽)
+  · `sm`(보이는 h-8 + 히트 44, 카드처럼 반복되는 자리). 브랜드 채움은 화면의 주 행동 하나 몫이라 네이버 버튼에 쓰지 않는다. 상세의 저장·공유·길찾기·플레이스·후기는 제목 밑
+  **액션 줄 하나**(`placeDetailActions.tsx`)에 같은 원 다섯으로 모여 있고, 앱 밖으로 가는 칸은 둘째 줄이 목적지를 말한다(`ActionTile` 의 `destination`) — 새 동작도 여기 칸으로 더한다(→ ADR-003 v19).
 - **장소 사진은 없는 것이 기본 디자인**이다(저작권 문제로 전량 제거, 86곳 모두 `cover` 없음).
   사진 자리는 종류별 색 + 아이콘이 대신한다 → [ADR-002](docs/decisions/ADR-002-no-place-photos.md).
 

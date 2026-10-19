@@ -1,58 +1,56 @@
-import type { ReactNode } from 'react';
-import { ActionTile, type TActionTileIcon } from './actionTile';
+import type { FC, ReactNode, SVGProps } from 'react';
 import { cx } from '../utils/cx';
+
+type TNaverLinkButtonIcon = FC<SVGProps<SVGSVGElement> & { size?: number }>;
 
 type TNaverLinkButtonProps = {
   href: string;
   children: ReactNode;
+  /**
+   * lg: 한 덩어리에 버튼이 이것 하나인 자리(하루 경로 · 지도 시트) — h-11, 폭은 부르는 쪽이 정한다(전폭·flex-1).
+   * sm: 목록 카드처럼 여럿 반복되는 자리 — 보이는 높이는 h-8, 누를 자리는 44px.
+   */
+  size?: 'lg' | 'sm';
+  /** 길찾기는 `NavigationPointer01`(상세 액션 줄의 길찾기 칸과 같은 화살표), 가게 페이지는 `MarkerPin02`. */
+  icon?: TNaverLinkButtonIcon;
   className?: string;
-  /** 글자가 이미 '네이버' 를 말하면 끈다 — 'N' 은 평가에서 무엇인지 모르겠다는 말이 나왔다(14 W261010.20). 기본은 켠다. */
-  mark?: boolean;
 };
 
+const SIZE = {
+  lg: { root: 'h-11 gap-1.5 px-4 text-md', icon: 18, iconClass: 'text-fg-secondary' },
+  // 히트 영역은 위아래로 6px 씩 내민 투명 `before:` 다(32 + 12 = 44) — 줄 높이를 늘리면 카드 배지 줄이 같이 높아진다.
+  sm: {
+    root: 'h-8 gap-1 px-2.5 text-sm before:absolute before:inset-x-0 before:-inset-y-1.5 before:content-[""]',
+    icon: 14,
+    iconClass: 'text-fg-quaternary',
+  },
+} as const;
+
 /**
- * 네이버(지도·플레이스)로 나가는 링크 버튼. 네이버로 가는 버튼은 전부 이 파일의 것을 쓴다(액션 줄 칸은 아래 `NaverActionTile`).
+ * 네이버(지도·플레이스)로 나가는 링크 버튼. 네이버로 가는 버튼은 전부 이것을 쓴다(상세 액션 줄은 `ActionTile` 의 목적지 줄).
  *
- * 색은 앱 팔레트가 아니라 **네이버 공식 초록**(`bg-naver`)이다 — 앱의 핑크 주 버튼과 모양이 같으면
- * "앱 안에서 뭔가 한다" 로 읽히는데, 누르면 앱을 떠난다. 초록 + N 표시가 그 신호다.
- *
- * 크기는 **보이는 것만 작다**: 알약 높이는 `h-9` 이고, 44px 터치 기준은 `before:` 로 넓힌
- * 투명 히트 영역이 지킨다(saveButton 과 같은 방식 — 하트는 작게, 누를 자리는 44px).
- * 폭은 글자만큼이다. 화면 폭을 꽉 채우면 판정 카드보다 무거워 보여서 뺐다.
+ * **중립 테두리다**(흰 면 · 회색 1px · 회색 글자, 22 D-11). 예전엔 네이버 공식 초록 면 + 흰 N 상자였는데, 저장 카드마다 서는 초록이
+ * 화면에서 가장 센 색이 되어 판정 배지·주 버튼보다 앞에 읽혔다(사용자: "AI 같다"). 실서비스 레퍼런스(docs/reviews/design-audit/2026-10-19-references.md)는
+ * 지도 회사가 아니면 목록 카드에 길찾기를 두지 않거나 회색 글자·테두리로 두고, 상세는 중립 테두리 버튼이다 — 브랜드 채움은 예약 같은 주 행동 하나 몫.
+ * **앱을 떠난다는 신호는 색이 아니라 글자의 앱 이름**이다('네이버 길찾기' · '네이버 플레이스' · '네이버에서 찾기'). ↗ 는 붙이지 않는다(레퍼런스 0곳).
  */
-export function NaverLinkButton({ href, children, className, mark = true }: TNaverLinkButtonProps) {
+export function NaverLinkButton({ href, children, size = 'sm', icon: Icon, className }: TNaverLinkButtonProps) {
+  const sized = SIZE[size];
   return (
     <a
       href={href}
       target="_blank"
       rel="noreferrer"
       className={cx(
-        'relative inline-flex h-9 items-center gap-1.5 rounded-lg bg-naver pr-3 text-sm font-bold text-white',
-        'before:absolute before:inset-x-0 before:-inset-y-1 before:content-[""]',
-        'transition duration-100 ease-linear hover:bg-naver-deep active:bg-naver-deep',
-        'outline-naver focus-visible:outline-2 focus-visible:outline-offset-2',
-        mark ? 'pl-2' : 'pl-3',
+        'relative inline-flex shrink-0 items-center justify-center rounded-lg border border-primary bg-primary font-semibold whitespace-nowrap text-secondary',
+        'transition duration-100 ease-linear hover:bg-primary_hover active:bg-tertiary',
+        'outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2',
+        sized.root,
         className,
       )}
     >
-      {/* 네이버 N 표시. 글자 하나라 스크린리더에는 숨긴다 — 이름은 버튼 글자가 말한다. */}
-      {mark && (
-        <span
-          aria-hidden="true"
-          className="flex size-5 items-center justify-center rounded-sm bg-white text-xs leading-none font-black text-naver"
-        >
-          N
-        </span>
-      )}
+      {Icon && <Icon size={sized.icon} aria-hidden="true" className={cx('shrink-0', sized.iconClass)} />}
       {children}
     </a>
   );
-}
-
-/**
- * 액션 줄(상세 맨 위)에 서는 네이버 링크. 알약 대신 초록 원 + 아이콘 + 이름으로, 옆 칸(저장·공유)과 모양을 맞춘다.
- * 초록이 "앱을 떠난다" 는 신호인 것은 알약과 같다 — 이름에 '네이버' 를 넣어 글자로도 말한다(ADR-003 v14).
- */
-export function NaverActionTile({ href, icon, label }: { href: string; icon: TActionTileIcon; label: string }) {
-  return <ActionTile href={href} icon={icon} label={label} tone="naver" />;
 }
