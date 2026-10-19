@@ -154,6 +154,18 @@ describe('placesPageChips', () => {
     expect(label('서귀포 시내')).toBe('"서귀포 시내"');
   });
 
+  it('머리에 같은 말이 없는 칩만 notInHeader — 권역, 반경을 말하는 검색어(lg 에서도 남는다, 14 W261019.11c)', () => {
+    const marked = (query: string, area: 'west' | null = null) =>
+      placesPageChips({ ...chipBase, area, directions: ['east'], hideHard: true, query })
+        .chips.filter((chip) => chip.notInHeader)
+        .map((chip) => chip.key);
+    expect(marked('중문')).toEqual(['query']);
+    expect(marked('중문 카페', 'west')).toEqual(['area', 'query']);
+    // 검색창이 그대로 말하는 검색어·판에 눌린 채 보이는 조건은 표지가 없다.
+    expect(marked('서귀포')).toEqual([]);
+    expect(marked('카레', 'west')).toEqual(['area']);
+  });
+
   it('조건이 없으면 비어 있다', () => {
     expect(placesPageChips(chipBase)).toEqual({ chips: [], activeFilterCount: 0, hasFilters: false });
   });

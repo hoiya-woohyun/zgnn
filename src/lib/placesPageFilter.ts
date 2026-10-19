@@ -342,17 +342,26 @@ export const landmarkNearby = (conditions: TPlacesPageConditions, limit = 3): { 
     .slice(0, limit);
 };
 
-export type TPlacesPageChip = { key: string; label: string };
+export type TPlacesPageChip = {
+  key: string;
+  label: string;
+  /**
+   * 넓은 화면 머리(검색창·펼친 판)에 같은 말이 없다 — 켜진 조건 줄이 lg 에서도 이 칩을 남긴다(`PlacesPageActiveChips`).
+   * 권역은 머리에 고르는 자리가 없고(19 T3), 관광지 검색어 칩은 검색창에 없는 반경을 말한다(14 W261019.11c — `"중문" · 3km 안` 이
+   * 데스크톱에서만 사라져 서울앵무새가 왜 나왔는지가 다시 안 보였다). 나머지 칩은 같은 말이 머리에 이미 있다.
+   */
+  notInHeader?: true;
+};
 
 /**
  * 검색어 칩 — 관광지·동 낱말이 있으면 반경을 함께(`"중문" · 3km 안`, 14 W261019.11). '중문' 결과의 서울앵무새는 이름·설명에 중문이 없어
  * 왜 나왔는지 몰랐다 — 반경으로 걸린 곳이다. 낱말이 여럿이면 어느 낱말의 반경인지 적는다(`"중문 카페" · 중문 3km 안`).
  */
-const queryChipLabel = (query: string): string => {
+const queryChip = (query: string): TPlacesPageChip => {
   const found = landmarkOfQuery(query);
-  if (!found) return `"${query}"`;
+  if (!found) return { key: 'query', label: `"${query}"` };
   const which = queryWords(query).length > 1 ? `${found.word} ` : '';
-  return `"${query}" · ${which}${found.landmark.radiusKm}km 안`;
+  return { key: 'query', label: `"${query}" · ${which}${found.landmark.radiusKm}km 안`, notInHeader: true };
 };
 
 /**
@@ -390,11 +399,11 @@ export const placesPageChips = ({
     ...(hasDog && hideHard ? [{ key: 'hideHard', label: '어려운 곳 숨김' }] : []),
   ];
   const reachableChips: TPlacesPageChip[] = hasDog && onlyReachable ? [{ key: 'onlyReachable', label: '갈 수 있는 곳만' }] : [];
-  const chips = [
-    ...(area ? [{ key: 'area', label: areaTownsLabel(area) }] : []),
+  const chips: TPlacesPageChip[] = [
+    ...(area ? [{ key: 'area', label: areaTownsLabel(area), notInHeader: true as const }] : []),
     ...reachableChips,
     ...conditionChips,
-    ...(trimmedQuery ? [{ key: 'query', label: queryChipLabel(trimmedQuery) }] : []),
+    ...(trimmedQuery ? [queryChip(trimmedQuery)] : []),
   ];
   return { chips, activeFilterCount: reachableChips.length + conditionChips.length, hasFilters: chips.length > 0 };
 };
