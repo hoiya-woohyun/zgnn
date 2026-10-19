@@ -154,6 +154,8 @@ export function PlaceDetailReport({
           const kinds = recentReportKinds(readReportRecord(), place.id, Date.now());
           setSentKinds(kinds);
           setSentAnnounce(reportTraceText(kinds) ?? '');
+          // 읽힌 뒤 비운다 — 남겨 두면 훑을 때 흔적 줄과 두 번 읽히고, 판정 시트로 보낸 뒤엔 묵은 글이 된다(그쪽은 알림이 읽는다).
+          window.setTimeout(() => setSentAnnounce(''), 1500);
         }}
       />
       {/*
