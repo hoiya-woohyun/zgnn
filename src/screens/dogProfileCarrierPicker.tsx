@@ -1,7 +1,6 @@
 import type { KeyboardEvent, Ref } from 'react';
 import { radioIndexAfterKey } from '../lib/dogProfile';
 import { CARRIER_LABELS } from '../lib/eligibility';
-import { HintText } from '../components/base/hint-text';
 import { Label } from '../components/base/label';
 import { cx } from '../utils/cx';
 import type { TCarrier } from '../types';
@@ -12,9 +11,7 @@ type TDogProfileCarrierPickerProps = {
   /** `null` = 아직 안 고름. 아무 것도 선택되지 않은 채로 그린다. */
   value: TCarrier | null;
   onChange: (carrier: TCarrier) => void;
-  /** 저장을 눌렀는데 안 골랐을 때 질문 밑에 보이는 한 줄. */
-  error?: string;
-  /** 저장 실패 시 부모가 포커스를 옮길 첫 옵션. */
+  /** 안 고르고 주 버튼("이동 수단 고르기")을 누르면 부모가 포커스를 옮길 첫 옵션. 오류 줄은 없다 — 막는 일이 없다(14 W261019.7). */
   firstOptionRef?: Ref<HTMLButtonElement>;
 };
 
@@ -29,7 +26,7 @@ type TDogProfileCarrierPickerProps = {
  *
  * 기본 선택이 없다(`value === null`) — 부모가 저장 전에 묻는다(`dogProfilePage.tsx`).
  */
-export function DogProfileCarrierPicker({ value, onChange, error, firstOptionRef }: TDogProfileCarrierPickerProps) {
+export function DogProfileCarrierPicker({ value, onChange, firstOptionRef }: TDogProfileCarrierPickerProps) {
   // 직접 만든 radio 라 화살표 이동이 없다 — 방향 키로 고르고 포커스도 따라가게 한다(12 U3.6).
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]'));
@@ -43,21 +40,9 @@ export function DogProfileCarrierPicker({ value, onChange, error, firstOptionRef
   };
 
   return (
-    <div
-      role="radiogroup"
-      onKeyDown={handleKeyDown}
-      aria-label="이동 수단"
-      aria-invalid={error ? true : undefined}
-      aria-describedby={error ? 'carrier-error' : undefined}
-    >
+    <div role="radiogroup" onKeyDown={handleKeyDown} aria-label="이동 수단">
       <Label>이동 수단</Label>
       <p className="mt-0.5 text-xs text-tertiary">외출할 때 무엇에 넣고 다니나요?</p>
-      {/* 오류는 질문 바로 밑 — 선택지 밑이면 폰에서 고정된 주 버튼 줄 뒤라 내려 보기 전엔 안 보였다(14 W261013.5 · ux-expert-07). */}
-      {error && (
-        <HintText id="carrier-error" isInvalid className="mt-1">
-          {error}
-        </HintText>
-      )}
       <div className="mt-1.5 space-y-2">
         {CARRIER_ORDER.map((carrier, index) => {
           const selected = value === carrier;

@@ -13,6 +13,7 @@ import {
   MAX_DOGS,
   dogProfileActionNote,
   dogProfileSavedMessage,
+  dogProfileSubmitLabel,
   dogRowRemovedMessage,
   heavyDogs,
 } from '../lib/dogProfile';
@@ -104,7 +105,6 @@ export function DogProfilePage() {
    * 하나로 결판난다. `null` 은 폼 안에만 산다(저장 타입 `TDogProfile.carrier` 는 그대로).
    */
   const [carrier, setCarrier] = useState<TCarrier | null>(null);
-  const [carrierError, setCarrierError] = useState(false);
   const carrierFirstOptionRef = useRef<HTMLButtonElement>(null);
   const [sizeOverride, setSizeOverride] = useState<TDogSize | undefined>(undefined);
   /** 저장을 눌렀을 때 잡힌 행 에러. 입력을 고치면 `liveRowError` 가 대신한다. */
@@ -153,7 +153,6 @@ export function DogProfilePage() {
   // 주 버튼 줄의 한 줄 — 막힌 것의 요약, 아니면 아직 안 고른 이동 수단(14 W261013.5).
   const actionNote = dogProfileActionNote({
     rowsFailed: Boolean(submitErrors?.some(hasRowError)),
-    carrierFailed: carrierError,
     carrierChosen: carrier !== null,
     carrierCount: Object.keys(CARRIER_LABELS).length,
   });
@@ -173,27 +172,24 @@ export function DogProfilePage() {
 
   /** `heavyConfirmed` — 이상하리만큼 큰 몸무게를 되물었고 "맞아요" 를 눌렀다. */
   const save = (heavyConfirmed: boolean) => {
+    // 이동 수단을 안 골랐으면 주 버튼이 "이동 수단 고르기" 다(`dogProfileSubmitLabel`) — 그 말대로 첫 선택지로 데려간다.
+    // 검사도 빨간 글씨도 없다: 적힌 대로 했을 뿐인 사람을 혼내지 않는다(14 W261019.7). 이름 칸의 Enter 도 같은 길이다.
+    // `focus()` 는 줄 뒤에 가려진 칸을 '보인다' 고 치고 스크롤하지 않는다 — 가운데로 직접 옮긴 뒤 포커스만(14 W261013.5).
+    if (carrier === null) {
+      carrierFirstOptionRef.current?.scrollIntoView({ block: 'center' });
+      carrierFirstOptionRef.current?.focus({ preventScroll: true });
+      return;
+    }
 
     const errors = rows.map(submitRowError);
-    const rowsInvalid = errors.some(hasRowError);
-    if (rowsInvalid) {
+    if (errors.some(hasRowError)) {
       setSubmitErrors(errors);
       // 포커스가 저장 버튼에 남으면 오류가 어디인지 모른다 — 첫 오류 칸(위에서 아래로, 이름 → 몸무게)으로 옮긴다.
       const index = errors.findIndex(hasRowError);
       const field = errors[index].name ? 'name' : 'weightKg';
       document.getElementById(dogRowFieldId(index, field))?.focus();
-    }
-    if (carrier === null) {
-      setCarrierError(true);
-      // 행 에러가 함께 있으면 위쪽(행)이 먼저 눈에 들어오므로 포커스는 이동 수단만 없을 때 옮긴다.
-      // `focus()` 는 줄 뒤에 가려진 칸을 '보인다' 고 치고 스크롤하지 않는다 — 가운데로 직접 옮긴 뒤 포커스만(14 W261013.5).
-      if (!rowsInvalid) {
-        carrierFirstOptionRef.current?.scrollIntoView({ block: 'center' });
-        carrierFirstOptionRef.current?.focus({ preventScroll: true });
-      }
       return;
     }
-    if (rowsInvalid) return;
 
     const dogs = parseValidDogs(rows);
     // 형식은 맞지만 "7.0" → "70" 같은 오타일 수 있다 — 막지 않고 한 번만 묻는다.
@@ -226,7 +222,6 @@ export function DogProfilePage() {
     const form = dogProfileFormOf(profile);
     setRows(form.rows);
     setCarrier(form.carrier);
-    setCarrierError(false);
     setSizeOverride(form.sizeOverride);
     setSubmitErrors(null);
     setRestored(false);
@@ -331,15 +326,7 @@ export function DogProfilePage() {
               />
             </div>
 
-            <DogProfileCarrierPicker
-              value={carrier}
-              onChange={(next) => {
-                setCarrier(next);
-                setCarrierError(false);
-              }}
-              error={carrierError ? '외출할 때 어떻게 데리고 다니는지 골라 주세요' : undefined}
-              firstOptionRef={carrierFirstOptionRef}
-            />
+            <DogProfileCarrierPicker value={carrier} onChange={setCarrier} firstOptionRef={carrierFirstOptionRef} />
 
             <DogProfileSizeOverride
               computedSize={computedSize}
@@ -393,8 +380,9 @@ export function DogProfilePage() {
                 </div>
               )}
               {/* 화면 제목과 같은 동사 — `저장` 은 장소 저장(하트)의 낱말이라 핵심 명사가 둘로 갈렸다(디자인 리뷰 §10). */}
+              {/* 이동 수단을 안 골랐으면 "이동 수단 고르기" — 누르면 그 칸으로 간다(`save`). submit 그대로 둔다: 폼에 submit 버튼이 없으면 Enter 가 브라우저 규칙에 맡겨진다. */}
               <Button type="submit" size="lg" className="w-full">
-                {dog ? '고치기' : '등록하기'}
+                {dogProfileSubmitLabel({ editing: Boolean(dog), carrierChosen: carrier !== null })}
               </Button>
             </div>
             {/*

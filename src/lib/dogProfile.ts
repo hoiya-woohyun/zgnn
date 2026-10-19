@@ -127,28 +127,36 @@ export const dogRowRemovedMessage = (name: string, index: number): string => {
 };
 
 /**
+ * 주 버튼의 말 — 이동 수단을 안 골랐으면 "이동 수단 고르기" 이고 누르면 그 칸으로 데려간다(`dogProfilePage` 의 `save`, 14 W261019.7).
+ * '등록하기' 라 적힌 진한 버튼이 눌러도 등록이 안 되고 빨간 글씨를 냈다 — 폰에서 이동 수단이 폴드 아래라 이름·몸무게만 넣고
+ * 누른 것이 2/6(youngja-05 · minji-04, 줄의 회색 안내는 읽히지 않았다). 적힌 말과 누르면 일어나는 일이 같아야 한다.
+ * 이동 수단을 고르면 지금까지의 말이다 — 고치기 화면은 저장된 값으로 채워져 늘 이쪽이다.
+ */
+export const dogProfileSubmitLabel = ({ editing, carrierChosen }: { editing: boolean; carrierChosen: boolean }): string => {
+  if (!carrierChosen) return '이동 수단 고르기';
+  return editing ? '고치기' : '등록하기';
+};
+
+/**
  * 주 버튼 줄(`/dog` 맨 아래 고정)에 서는 한 줄 — 아직 안 된 것(14 W261013.5). 줄은 늘 화면에 있으므로 여기 적은 말은
  * 어디까지 내려와 있든 보인다. 그 칸들(이동 수단 선택지·그 오류)은 줄 뒤에 가려질 수 있다.
  *
- * - 저장을 눌러 막혔으면(`rowsFailed`·`carrierFailed`) 빠진 것을 모두 — **오류 요약**이다. 칸마다의 오류는 칸 밑에 그대로.
- * - 누르기 전엔 이동 수단을 안 골랐을 때만 "N가지 중 하나" — 줄이 첫 선택지를 덮어 고를 게 있는 줄 모르고 누를 뻔했다(youngja-02).
- *   이름·몸무게는 맨 위라 가려지지 않으므로 누르기 전엔 말하지 않는다.
+ * - 저장을 눌러 막혔으면(`rowsFailed`) — **오류 요약**이다. 칸마다의 오류는 칸 밑에 그대로.
+ *   이동 수단은 막히는 일이 없다: 안 골랐으면 버튼이 "이동 수단 고르기" 라 누르면 그 칸으로 갈 뿐이다(`dogProfileSubmitLabel`, 14 W261019.7).
+ * - 누르기 전엔 이동 수단을 안 골랐을 때만 "N가지 중 하나" — 버튼 말의 까닭(고르면 등록된다)이다. 줄이 첫 선택지를 덮어 고를 게 있는 줄
+ *   모르고 누를 뻔했다(youngja-02). 이름·몸무게는 맨 위라 가려지지 않으므로 누르기 전엔 말하지 않는다.
  * - 다 됐으면 `null`(줄이 버튼만큼만 남는다 — 고치기 화면은 늘 이쪽이다).
  */
 export const dogProfileActionNote = ({
   rowsFailed,
-  carrierFailed,
   carrierChosen,
   carrierCount,
 }: {
   rowsFailed: boolean;
-  carrierFailed: boolean;
   carrierChosen: boolean;
   carrierCount: number;
 }): { text: string; failed: boolean } | null => {
-  if (rowsFailed && carrierFailed) return { text: '이름·몸무게를 확인하고 이동 수단을 골라 주세요', failed: true };
   if (rowsFailed) return { text: '이름과 몸무게를 확인해 주세요', failed: true };
-  if (carrierFailed) return { text: '이동 수단을 골라 주세요', failed: true };
   if (!carrierChosen) return { text: `이동 수단 ${carrierCount}가지 중 하나를 골라야 등록돼요`, failed: false };
   return null;
 };

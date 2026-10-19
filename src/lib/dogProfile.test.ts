@@ -3,6 +3,7 @@ import {
   HEAVY_DOG_CONFIRM_KG,
   dogProfileActionNote,
   dogProfileSavedMessage,
+  dogProfileSubmitLabel,
   dogRowRemovedMessage,
   dogWeightSummary,
   heavyDogs,
@@ -160,22 +161,33 @@ describe('radioIndexAfterKey — 라디오 화살표 이동', () => {
 });
 
 describe('dogProfileActionNote — 주 버튼 줄의 한 줄(14 W261013.5)', () => {
-  const base = { rowsFailed: false, carrierFailed: false, carrierChosen: false, carrierCount: 4 };
+  const base = { rowsFailed: false, carrierChosen: false, carrierCount: 4 };
 
   it('누르기 전엔 이동 수단을 안 골랐을 때만, 몇 가지인지 말한다 — 오류가 아니다', () => {
     expect(dogProfileActionNote(base)).toEqual({ text: '이동 수단 4가지 중 하나를 골라야 등록돼요', failed: false });
     expect(dogProfileActionNote({ ...base, carrierChosen: true })).toBeNull();
   });
 
-  it('막혔으면 빠진 것을 모두 — 고친 것은 빠진다', () => {
-    expect(dogProfileActionNote({ ...base, rowsFailed: true, carrierFailed: true })).toEqual({
-      text: '이름·몸무게를 확인하고 이동 수단을 골라 주세요',
-      failed: true,
-    });
+  it('이름·몸무게로 막혔으면 오류 요약 — 이동 수단은 막히는 일이 없다(14 W261019.7)', () => {
     expect(dogProfileActionNote({ ...base, rowsFailed: true, carrierChosen: true })).toEqual({
       text: '이름과 몸무게를 확인해 주세요',
       failed: true,
     });
-    expect(dogProfileActionNote({ ...base, carrierFailed: true })).toEqual({ text: '이동 수단을 골라 주세요', failed: true });
   });
 });
+
+describe('dogProfileSubmitLabel — 적힌 말과 누르면 일어나는 일이 같다(14 W261019.7)', () => {
+  it('이동 수단을 안 골랐으면 그 칸으로 가는 버튼 — 처음 등록 · 지운 뒤 빈 폼 · 되살린 입력 모두', () => {
+    expect(dogProfileSubmitLabel({ editing: false, carrierChosen: false })).toBe('이동 수단 고르기');
+  });
+
+  it('고르면 지금까지의 말', () => {
+    expect(dogProfileSubmitLabel({ editing: false, carrierChosen: true })).toBe('등록하기');
+    expect(dogProfileSubmitLabel({ editing: true, carrierChosen: true })).toBe('고치기');
+  });
+
+  it('고치기 화면이어도 이동 수단이 비면 고르기가 먼저다', () => {
+    expect(dogProfileSubmitLabel({ editing: true, carrierChosen: false })).toBe('이동 수단 고르기');
+  });
+});
+
