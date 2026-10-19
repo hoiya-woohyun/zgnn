@@ -1,7 +1,7 @@
 import type { TCarrier, TDogProfile } from '../types';
 import { isOutdoorSeatOnly, judgeEligibility, type TEligibility, type TEligibilityLevel } from './eligibility';
 import { josa } from './korean';
-import type { TPetPolicy } from './petPolicy';
+import { cageGearNoun, type TPetPolicy } from './petPolicy';
 
 /**
  * 판정 레벨별 곳 수 — `outdoor` 는 세는 칸이지 판정 레벨이 아니다(판정은 여전히 `cond`).
@@ -130,31 +130,42 @@ export const levelCountParts = (counts: TLevelCounts): string[] =>
  *
  * 벗어난 곳을 **새 판정 칸별로**(`counts`, `countByLevel` 과 같은 가름) 센다(14 W261013.14h). 전엔 수 하나를 "'확인 필요' 로 바뀌어요" 라고 해서,
  * 원문이 이동가방을 적은 곳(라스또르따스 — 가방이면 '갈 수 있어요')까지 '확인 필요' 로 셌다. 원문이 '케이지' 라고 쓴 곳만 가방이면 확인(C2)이다.
+ *
+ * 모수(`hard` — 지금 어려움인 곳 수, 목록 머리 "어려움 N" 과 같은 수)도 함께 낸다(14 W261019.3). 바로 위 "32곳은 같은 이유예요"(케이지 문장만 센 수)
+ * 밑에서 "2곳은 ‘가능’, 33곳은 ‘확인 필요’" 는 합 35 라 같은 무리를 다르게 센 것으로 읽혔다 — 수를 억지로 맞추지 않고 무리의 이름을 붙인다.
+ * `cageAsk` 는 가방이면 C2 가 되는 곳 중 원문이 '케이지' 인 곳 수 — 이유는 '케이지' 인데 고칠 것이 '이동가방' 인 까닭을 그때만 말한다
+ * (원문이 유모차만 적었으면 C2 도 "유모차라고 적혀 있어요" 라 '케이지' 라고 부르면 다른 조건이 된다).
  */
 export const carrierWhatIf = (
   places: readonly { policy: TPetPolicy }[],
   dog: TDogProfile,
   opts: { needsIndoor?: boolean } = {},
-): { carrier: TCarrier; opened: number; counts: TLevelCounts } | null => {
+): { carrier: TCarrier; hard: number; opened: number; counts: TLevelCounts; cageAsk: number } | null => {
   if (dog.carrier !== 'none') return null;
   const withBag: TDogProfile = { ...dog, carrier: 'bag' };
   const counts: TLevelCounts = { ok: 0, outdoor: 0, cond: 0, unknown: 0, hard: 0 };
+  let hard = 0;
   let opened = 0;
+  let cageAsk = 0;
   for (const place of places) {
     if (judgeEligibility(dog, place.policy, opts).level !== 'hard') continue;
+    hard++;
     const after = judgeEligibility(withBag, place.policy, opts);
     if (after.level === 'hard') continue;
     counts[isOutdoorSeatOnly(after) ? 'outdoor' : after.level]++;
     opened++;
+    if (after.reasons.some((r) => r.rule === 'C2') && cageGearNoun(place.policy) === '케이지') cageAsk++;
   }
-  return opened > 0 ? { carrier: 'bag', opened, counts } : null;
+  return opened > 0 ? { carrier: 'bag', hard, opened, counts, cageAsk } : null;
 };
 
 /**
- * what-if 한 줄 — "이동가방이 있으면 33곳이 ‘확인 필요’ 로 바뀌어요", 칸이 둘 이상이면 "2곳은 ‘가능’, 33곳은 ‘확인 필요’ 로 바뀌어요".
+ * what-if 한 줄 — "어려움 35곳 중 이동가방이 있으면 33곳이 ‘확인 필요’ 로 바뀌어요", 칸이 둘 이상이면 "… 2곳은 ‘가능’, 33곳은 ‘확인 필요’ 로 바뀌어요".
  * 칸 이름은 바로 위 목록 머리("가능 5 · … · 어려움 35")와 같은 `LEVEL_COUNT_LABEL` 이라, 가방으로 바꾼 뒤 머리 숫자가 어디로 옮겨 가는지 같은 말로 읽힌다.
+ * 앞의 "어려움 N곳 중" 은 그 무리가 머리의 "어려움 N" 이라는 것 — 위 "M곳은 같은 이유예요" 와 다른 수인 까닭이 읽힌다(14 W261019.3).
+ * 원문이 '케이지' 인 곳이 '확인 필요' 로 가면 뒤에 한 문장 — C2 가 확인을 권하는 이유(원문이 '케이지' 라고 쓴 곳도 천 가방을 받는지는 모른다)와 같은 말이다.
  */
-export const carrierWhatIfText = (whatIf: { counts: TLevelCounts }): string => {
+export const carrierWhatIfText = (whatIf: { hard: number; counts: TLevelCounts; cageAsk: number }): string => {
   const parts = (Object.keys(LEVEL_COUNT_LABEL) as (keyof TLevelCounts)[])
     .filter((level) => level !== 'hard' && whatIf.counts[level] > 0)
     .map((level) => ({ count: whatIf.counts[level], label: LEVEL_COUNT_LABEL[level] }));
@@ -162,7 +173,8 @@ export const carrierWhatIfText = (whatIf: { counts: TLevelCounts }): string => {
   if (!last) return '';
   const subject = parts.length === 1 ? '이' : '은';
   const listed = parts.map(({ count, label }) => `${count}곳${subject} ‘${label}’`).join(', ');
-  return `이동가방이 있으면 ${listed} ${josa(last.label, '으로/로')} 바뀌어요`;
+  const why = whatIf.cageAsk > 0 ? '. 케이지라고 적힌 곳이 가방도 받는지는 물어봐야 알아요' : '';
+  return `어려움 ${whatIf.hard}곳 중 이동가방이 있으면 ${listed} ${josa(last.label, '으로/로')} 바뀌어요${why}`;
 };
 
 /**

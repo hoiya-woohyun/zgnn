@@ -113,8 +113,10 @@ describe('carrierWhatIf — 이동가방이 있으면 몇 곳이 열리나', () 
   it('이동 수단 없음 + 케이지 필수 식당들 → 가방이면 어려움에서 벗어난다', () => {
     expect(carrierWhatIf(cageOnly, TOFU_NONE)).toEqual({
       carrier: 'bag',
+      hard: 2,
       opened: 2,
       counts: { ok: 0, outdoor: 0, cond: 2, unknown: 0, hard: 0 },
+      cageAsk: 2,
     });
   });
 
@@ -126,18 +128,39 @@ describe('carrierWhatIf — 이동가방이 있으면 몇 곳이 열리나', () 
     ].map((policy) => ({ policy }));
     const whatIf = carrierWhatIf(places, TOFU_NONE);
     expect(whatIf?.counts).toEqual({ ok: 1, outdoor: 0, cond: 2, unknown: 0, hard: 0 });
-    expect(carrierWhatIfText(whatIf!)).toBe('이동가방이 있으면 1곳은 ‘가능’, 2곳은 ‘확인 필요’ 로 바뀌어요');
+    expect(carrierWhatIfText(whatIf!)).toBe(
+      '어려움 3곳 중 이동가방이 있으면 1곳은 ‘가능’, 2곳은 ‘확인 필요’ 로 바뀌어요. 케이지라고 적힌 곳이 가방도 받는지는 물어봐야 알아요',
+    );
   });
 
-  it('칸이 하나면 예전 말 그대로 — "N곳이 ‘확인 필요’ 로", \'가능\' 만이면 "으로"', () => {
-    expect(carrierWhatIfText(carrierWhatIf(cageOnly, TOFU_NONE)!)).toBe('이동가방이 있으면 2곳이 ‘확인 필요’ 로 바뀌어요');
+  it('칸이 하나면 "N곳이 ‘확인 필요’ 로", \'가능\' 만이면 "으로" — 원문이 이동가방이면 케이지 문장은 안 붙는다', () => {
+    expect(carrierWhatIfText(carrierWhatIf(cageOnly, TOFU_NONE)!)).toBe(
+      '어려움 2곳 중 이동가방이 있으면 2곳이 ‘확인 필요’ 로 바뀌어요. 케이지라고 적힌 곳이 가방도 받는지는 물어봐야 알아요',
+    );
     const bagOnly = [{ policy: parsePetPolicy('실내는 이동가방 필수.') }];
-    expect(carrierWhatIfText(carrierWhatIf(bagOnly, TOFU_NONE)!)).toBe('이동가방이 있으면 1곳이 ‘가능’ 으로 바뀌어요');
+    expect(carrierWhatIfText(carrierWhatIf(bagOnly, TOFU_NONE)!)).toBe('어려움 1곳 중 이동가방이 있으면 1곳이 ‘가능’ 으로 바뀌어요');
+  });
+
+  it("원문이 유모차만 적었으면 C2 여도 '케이지' 라고 부르지 않는다(14 W261019.3)", () => {
+    const strollerOnly = [{ policy: parsePetPolicy('실내는 유모차 필수.') }];
+    const whatIf = carrierWhatIf(strollerOnly, TOFU_NONE)!;
+    expect(whatIf.counts.cond).toBe(1);
+    expect(whatIf.cageAsk).toBe(0);
+    expect(carrierWhatIfText(whatIf)).toBe('어려움 1곳 중 이동가방이 있으면 1곳이 ‘확인 필요’ 로 바뀌어요');
   });
 
   it('실제 식당 — 칸별 합이 벗어난 수와 같다', () => {
     const whatIf = carrierWhatIf(placesOfType('restaurant'), TOFU_NONE)!;
     expect(Object.values(whatIf.counts).reduce((a, b) => a + b, 0)).toBe(whatIf.opened);
+  });
+
+  // 문장의 "어려움 N곳 중" 은 목록 머리의 "어려움 N" 과 같은 무리여야 한다 — 따로 세면 한쪽만 고쳐도 테스트가 통과하고 두 수가 갈린다(14 W261019.3).
+  it.each([false, true])('실제 식당 — 모수가 목록 머리의 어려움 수와 같다(needsIndoor %s)', (needsIndoor) => {
+    const restaurants = placesOfType('restaurant');
+    const whatIf = carrierWhatIf(restaurants, TOFU_NONE, { needsIndoor })!;
+    const { hard } = countByLevel(restaurants, TOFU_NONE, { needsIndoor });
+    expect(whatIf.hard).toBe(hard);
+    expect(carrierWhatIfText(whatIf).startsWith(`어려움 ${hard}곳 중 `)).toBe(true);
   });
 
   it('실제 식당 목록에서도 0 보다 크다', () => {
