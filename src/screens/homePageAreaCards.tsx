@@ -65,6 +65,8 @@ export function HomePageAreaCards() {
   const setTown = useAppStore((state) => state.setTown);
   const enterLandmark = usePlacesPageFilterStore((state) => state.enterLandmark);
   const [suggestOpen, setSuggestOpen] = useState(false);
+  /** 알려 준 뒤엔 링크 말이 '한 곳 더' 로(14 W261019.16, haeun-18b). 이름은 옮기지 않는다 — 시트가 권역을 몰라 다른 권역 카드에 남의 이름이 선다. */
+  const [suggestSent, setSuggestSent] = useState(false);
 
   const counts = useMemo(() => (dog ? countByArea(PLACES, dog, { needsIndoor }) : null), [dog, needsIndoor]);
   const dogNames = dog ? dogCallNames(dog.dogs.map((d) => d.name)) : '';
@@ -150,7 +152,7 @@ export function HomePageAreaCards() {
                         data-ev="home.suggest"
                         className="font-semibold text-brand-secondary underline underline-offset-2"
                       >
-                        아는 곳이 있으면 알려 주세요
+                        {suggestSent ? '고마워요! 한 곳 더 알려 주세요' : '아는 곳이 있으면 알려 주세요'}
                       </button>
                     </p>
                   ) : (
@@ -199,6 +201,7 @@ export function HomePageAreaCards() {
         kinds={['suggest']}
         noteRequired
         notePlaceholder="예: 펜션 바당, 표선면"
+        onSent={() => setSuggestSent(true)}
       />
     </section>
   );

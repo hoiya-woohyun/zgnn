@@ -99,6 +99,11 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
    */
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
   const [suggestOpen, setSuggestOpen] = useState(false);
+  /**
+   * 이 화면에서 마지막으로 알려 준 곳과 그때의 검색어(14 W261019.16) — 목록 끝이 "알려 주셨어요" 로, 같은 검색어의 0곳 안내가 '알려 주기' 를
+   * 거둔다(haeun-18b). 기록에 남기지 않는 것은 제안에 하루 한도가 없어서다 — 화면을 떠나면 다시 처음 꼴이다.
+   */
+  const [suggested, setSuggested] = useState<{ query: string; name: string } | null>(null);
 
   // 다른 조건과 별개로 먼저 걸러 둔다 — 이 종류에 그 읍면 자체가 없으면(0곳) 전용 빈 상태를 보여줘야 한다.
   const byTown = useMemo(() => placesByTown(type, town), [type, town]);
@@ -471,6 +476,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
               onClearTown={() => setTown(null)}
               onOpenFilters={() => setIsFilterSheetOpen(true)}
               onSuggest={() => setSuggestOpen(true)}
+              suggestSent={suggested !== null && suggested.query === trimmedQuery}
               distances={distances}
               otherTypes={otherTypes}
               hiddenOtherTypes={hiddenOtherTypes}
@@ -498,7 +504,14 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
                 releaseAreaCarried(type);
               }}
             />
-            <PlacesPageSuggest type={type} query={trimmedQuery} open={suggestOpen} onOpenChange={setSuggestOpen} />
+            <PlacesPageSuggest
+              type={type}
+              query={trimmedQuery}
+              open={suggestOpen}
+              onOpenChange={setSuggestOpen}
+              sentName={suggested?.name}
+              onSent={(name) => setSuggested({ query: trimmedQuery, name })}
+            />
           </div>
         </div>
 

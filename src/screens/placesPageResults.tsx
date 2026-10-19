@@ -52,6 +52,8 @@ type TPlacesPageResultsProps = {
    * 선택인 이유: 스와이프 엿보기는 손가락 밑에서 보이기만 하는 복사본이라 아무것도 열지 않는다 — 안 주면 버튼을 그리지 않는다.
    */
   onSuggest?: () => void;
+  /** 지금 검색어로 이미 알려 줬나(14 W261019.16) — 그렇다면 0곳 안내가 '알려 주기' 를 거두고 보냈다고 말한다. */
+  suggestSent?: boolean;
   /** 가까운 순일 때 장소 id → 거리(km). 카드가 "1.2km" 를 붙인다(10 F7). */
   distances?: Map<string, number>;
   /**
@@ -119,6 +121,7 @@ export function PlacesPageResults({
   onResetFilters,
   onOpenFilters,
   onSuggest,
+  suggestSent = false,
   distances,
   otherTypes = [],
   hiddenOtherTypes = [],
@@ -531,18 +534,21 @@ export function PlacesPageResults({
               Icon={SearchMd}
               title={`'${query}'${josa(query, '은/는')} 아직 저희 목록에 없어요`}
               description={
-                emptySearch.multiWord
-                  ? '단어를 하나만 남겨 찾아보세요 — 모든 단어가 맞아야 나와요. 그래도 없으면 알려 주세요.'
-                  : '알려 주시면 운영자가 찾아보고, 확인되면 올릴게요.'
+                suggestSent
+                  ? '알려 주셔서 고마워요. 운영자가 찾아보고, 확인되면 올릴게요.'
+                  : emptySearch.multiWord
+                    ? '단어를 하나만 남겨 찾아보세요 — 모든 단어가 맞아야 나와요. 그래도 없으면 알려 주세요.'
+                    : '알려 주시면 운영자가 찾아보고, 확인되면 올릴게요.'
               }
               action={
                 <div className="flex flex-wrap items-center justify-center gap-2">
-                  {onSuggest && (
+                  {/* 보낸 뒤에도 같은 버튼이면 보냈는지 헷갈려 또 누른다(haeun-18b) — 거두고, 한 곳 더는 목록 끝(`PlacesPageSuggest`)이 받는다. */}
+                  {onSuggest && !suggestSent && (
                     <Button color="primary" size="md" onClick={onSuggest} data-ev="places.emptySuggest">
                       알려 주기
                     </Button>
                   )}
-                  <Button color={onSuggest ? 'secondary' : 'primary'} size="md" onClick={onClearQuery}>
+                  <Button color={onSuggest && !suggestSent ? 'secondary' : 'primary'} size="md" onClick={onClearQuery}>
                     검색 지우기
                   </Button>
                 </div>

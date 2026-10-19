@@ -42,6 +42,27 @@ export const REPORT_KIND_SHORT: Record<TReportKind, string> = {
 
 export const REPORT_NOTE_MAX = 200;
 
+/**
+ * '판정이 틀렸어요' 에서 고르는 이유(14 W261019.16) — 빈 채로 가던 판정 제보에 무엇이 틀렸는지를 싣는다(seongho-13·29).
+ * 표에 칸을 더하지 않는다: `kind` 는 CHECK 와, 열 단위 grant 는 네 칸과 짝이라 칸을 더하면 마이그레이션이 먼저다.
+ * 그래서 고른 말을 한 줄(note) **앞머리**에 붙여 보낸다(`buildReport`) — 운영자는 note 를 그대로 읽으니 접힌 줄에서도 먼저 보인다.
+ * 말은 **사용자가 겪은 일**로만 짓는다 — "더 엄격했어요" 처럼 우리 판정에 견준 말은 판정 결과를 싣는 셈이고(머리 주석의 선),
+ * 운영자는 그 사람의 판정을 모르니 읽을 수도 없다.
+ */
+export const VERDICT_REASONS = ['denied', 'admitted', 'fee', 'other'] as const;
+
+export type TVerdictReason = (typeof VERDICT_REASONS)[number];
+
+export const VERDICT_REASON_LABEL: Record<TVerdictReason, string> = {
+  denied: '못 들어갔어요',
+  admitted: '들어갈 수 있었어요',
+  fee: '요금이 달랐어요',
+  other: '그 밖에 달랐어요',
+};
+
+/** 이유를 고르는 시트의 한 줄 한도 — 앞머리(`이유 · `)를 붙여도 표의 200자 안에 들게. 테스트가 가장 긴 앞머리로 대 본다. */
+export const REASON_NOTE_MAX = 180;
+
 /** 표의 `app_build` CHECK(≤ 40자)와 같은 한도. */
 const BUILD_MAX = 40;
 
@@ -58,6 +79,8 @@ export type TReportDraft = {
   kind: TReportKind;
   note?: string;
   build?: string;
+  /** '판정이 틀렸어요' 에서 고른 이유 — 한 줄 앞머리로 붙는다. */
+  reason?: TVerdictReason;
 };
 
 export type TBuildReportResult = { ok: true; row: TReportInsert } | { ok: false; problem: string };
@@ -65,22 +88,27 @@ export type TBuildReportResult = { ok: true; row: TReportInsert } | { ok: false;
 /**
  * 초안 → 넣을 행. 표의 CHECK 를 **보내기 전에** 같은 말로 걸러 낸다 — 서버의 23514 는 사용자에게 읽을 수 없는 말이다.
  * 한 줄은 앞뒤 공백을 걷고 비면 null. 길면 자르지 않고 막는다(잘린 말은 다른 말이 된다).
+ * 이유가 있으면 한 줄 앞에 붙인다(`못 들어갔어요 · 10kg 넘는다고…`) — 한도는 붙이기 전 글로 `REASON_NOTE_MAX` 라 붙여도 표 CHECK 안이다.
+ * '그 밖에' 는 한 줄이 있어야 한다 — 없으면 "그 밖에 달랐어요" 한 마디라 빈 제보와 같다.
  */
-export function buildReport({ placeId, kind, note, build }: TReportDraft): TBuildReportResult {
+export function buildReport({ placeId, kind, note, build, reason }: TReportDraft): TBuildReportResult {
   if (!(REPORT_KINDS as readonly string[]).includes(kind)) return { ok: false, problem: '무엇이 다른지 하나 골라 주세요.' };
   const text = (note ?? '').trim();
-  if ([...text].length > REPORT_NOTE_MAX) return { ok: false, problem: `${REPORT_NOTE_MAX}자까지 적을 수 있어요.` };
+  const max = reason ? REASON_NOTE_MAX : REPORT_NOTE_MAX;
+  if ([...text].length > max) return { ok: false, problem: `${max}자까지 적을 수 있어요.` };
   if (kind === 'suggest') {
     if (text === '') return { ok: false, problem: '가게 이름을 적어 주세요.' };
   } else if (!placeId) {
     return { ok: false, problem: '어느 곳인지 알 수 없어요.' };
   }
+  if (reason === 'other' && text === '') return { ok: false, problem: '무엇이 달랐는지 한 줄 적어 주세요.' };
+  const body = reason ? [VERDICT_REASON_LABEL[reason], text].filter(Boolean).join(' · ') : text;
   return {
     ok: true,
     row: {
       place_id: kind === 'suggest' ? null : placeId,
       kind,
-      note: text === '' ? null : text,
+      note: body === '' ? null : body,
       app_build: (build && build.trim().slice(0, BUILD_MAX)) || 'dev',
     },
   };
@@ -122,6 +150,19 @@ export function recentReportKinds(record: TReportRecord, placeId: string, now: n
 export function reportTraceText(kinds: readonly TReportKind[]): string | null {
   if (kinds.length === 0) return null;
   return `알려 주셨어요 — ${kinds.map((kind) => `‘${REPORT_KIND_LABEL[kind]}’`).join(' · ')}. 운영자가 확인할게요.`;
+}
+
+/** 제안 흔적에 옮기는 가게 이름 글자 수 — 한 줄(200자)을 통째로 옮기면 입구 한 줄이 문단이 된다. */
+const SUGGEST_TRACE_MAX = 30;
+
+/**
+ * 장소 제안을 보낸 뒤 입구에 남는 한 줄(14 W261019.16 — 토스트가 걷히면 화면이 보내기 전과 같아 또 누를 것 같았다, haeun-18b).
+ * 제안은 하루 한도가 없어(`canReportNow`) 기록에서 다시 꺼내지 않는다 — 흔적은 그 화면이 들고 있는 동안뿐이다. 긴 글은 앞만 옮긴다.
+ */
+export function suggestTraceText(name: string): string {
+  const chars = [...name.trim()];
+  const shown = chars.length > SUGGEST_TRACE_MAX ? `${chars.slice(0, SUGGEST_TRACE_MAX).join('')}…` : chars.join('');
+  return `알려 주셨어요 — ‘${shown}’. 확인되면 올라가요.`;
 }
 
 /** 보낸 뒤의 기록 — 하루가 지난 것은 버린다(기록이 끝없이 자라지 않게). */

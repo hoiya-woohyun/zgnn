@@ -11,8 +11,12 @@ import {
   recentReportKinds,
   reportKey,
   reportPromiseText,
+  REASON_NOTE_MAX,
   reportTraceText,
+  suggestTraceText,
   unrecordReport,
+  VERDICT_REASON_LABEL,
+  VERDICT_REASONS,
   visitedLateFailureText,
 } from './placeReport';
 
@@ -82,6 +86,55 @@ describe('buildReport', () => {
   it('배포 식별자는 40자까지', () => {
     const result = buildReport({ placeId: 'p1', kind: 'other', build: 'x'.repeat(60) });
     expect(result.ok && result.row.app_build.length).toBe(40);
+  });
+});
+
+describe('buildReport · 판정 제보의 이유(14 W261019.16)', () => {
+  it('고른 이유가 한 줄 앞머리로 붙는다 — 한 줄이 없으면 이유만', () => {
+    expect(buildReport({ placeId: 'p1', kind: 'policy', reason: 'denied', note: ' 10kg 넘으면 안 된대요 ' })).toMatchObject({
+      ok: true,
+      row: { kind: 'policy', note: '못 들어갔어요 · 10kg 넘으면 안 된대요' },
+    });
+    expect(buildReport({ placeId: 'p1', kind: 'policy', reason: 'fee', note: '  ' })).toMatchObject({
+      ok: true,
+      row: { note: '요금이 달랐어요' },
+    });
+  });
+
+  it("'그 밖에' 는 한 줄이 있어야 한다 — 없으면 빈 제보와 같다", () => {
+    expect(buildReport({ placeId: 'p1', kind: 'policy', reason: 'other', note: ' ' }).ok).toBe(false);
+    expect(buildReport({ placeId: 'p1', kind: 'policy', reason: 'other', note: '주차장만 돼요' })).toMatchObject({
+      ok: true,
+      row: { note: '그 밖에 달랐어요 · 주차장만 돼요' },
+    });
+  });
+
+  it('한 줄 한도는 이유를 붙이기 전 글로 세고, 가장 긴 앞머리를 붙여도 표의 200자 안이다', () => {
+    const longest = Math.max(...VERDICT_REASONS.map((reason) => [...`${VERDICT_REASON_LABEL[reason]} · `].length));
+    expect(REASON_NOTE_MAX + longest).toBeLessThanOrEqual(200);
+    for (const reason of VERDICT_REASONS) {
+      const full = buildReport({ placeId: 'p1', kind: 'policy', reason, note: '가'.repeat(REASON_NOTE_MAX) });
+      expect(full.ok && [...(full.row.note ?? '')].length).toBeLessThanOrEqual(200);
+      expect(buildReport({ placeId: 'p1', kind: 'policy', reason, note: '가'.repeat(REASON_NOTE_MAX + 1) })).toEqual({
+        ok: false,
+        problem: `${REASON_NOTE_MAX}자까지 적을 수 있어요.`,
+      });
+    }
+  });
+
+  it('이유를 고르지 않는 시트는 그대로 200자', () => {
+    expect(buildReport({ placeId: 'p1', kind: 'policy', note: '가'.repeat(200) })).toMatchObject({ ok: true, row: { note: '가'.repeat(200) } });
+  });
+});
+
+describe('suggestTraceText — 장소 제안을 보낸 뒤 입구의 한 줄(14 W261019.16)', () => {
+  it('보낸 이름을 옮긴다', () => {
+    expect(suggestTraceText(' 카페 바당, 애월읍 ')).toBe('알려 주셨어요 — ‘카페 바당, 애월읍’. 확인되면 올라가요.');
+  });
+
+  it('긴 글은 앞 30자만', () => {
+    expect(suggestTraceText('가'.repeat(31))).toBe(`알려 주셨어요 — ‘${'가'.repeat(30)}…’. 확인되면 올라가요.`);
+    expect(suggestTraceText('가'.repeat(30))).toBe(`알려 주셨어요 — ‘${'가'.repeat(30)}’. 확인되면 올라가요.`);
   });
 });
 

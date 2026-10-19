@@ -9,6 +9,7 @@ import { ReportSheet } from '../components/reportSheet';
 import { StickyMorphTitle } from '../components/layout/stickyMorphTitle';
 import { Section } from '../components/layout/section';
 import { dogWeightSummary } from '../lib/dogProfile';
+import { suggestTraceText } from '../lib/placeReport';
 import { carrierSummary } from '../lib/eligibility';
 import { dogNamesAsWritten } from '../lib/korean';
 import { META, SOURCE_LINE } from '../lib/places';
@@ -71,9 +72,11 @@ function SettingsPageResetRows() {
  * 장소 알려 주기(14 W261010.29b) — 둘러보기 목록 맨 끝·0곳 화면에만 있던 입구를 여기에도 둔다. 긴 목록을 끝까지 내려야만
  * 보이는 입구는 알려 주고 싶은 사람이 못 찾는다(tremor-34) — 설정은 "앱에 무언가 하는 곳" 을 찾을 때 여는 자리다.
  * 시트는 둘러보기·홈 동네 카드와 같은 장소 제안(`suggest`)이다. 검색어가 없으니 미리 채울 글도 없다.
+ * 보낸 뒤엔 둘째 줄이 "알려 주셨어요 — ‘…’" 로 바뀐다(14 W261019.16, haeun-18b — 그대로면 보냈는지 헷갈려 또 누른다).
  */
 function SettingsPageSuggest() {
   const [open, setOpen] = useState(false);
+  const [sentName, setSentName] = useState<string | null>(null);
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} className={`${CARD_CLASS} w-full text-left`} data-ev="settings.suggest">
@@ -85,7 +88,9 @@ function SettingsPageSuggest() {
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-bold text-primary">장소 알려 주기</span>
-          <span className="block text-sm text-tertiary">여기 없는 곳에서도 강아지와 함께했나요?</span>
+          <span className="block text-sm text-tertiary">
+            {sentName ? suggestTraceText(sentName) : '여기 없는 곳에서도 강아지와 함께했나요?'}
+          </span>
         </span>
       </button>
       <ReportSheet
@@ -97,6 +102,7 @@ function SettingsPageSuggest() {
         kinds={['suggest']}
         noteRequired
         notePlaceholder="예: 카페 바당, 애월읍"
+        onSent={(row) => setSentName(row.note ?? '')}
       />
     </>
   );

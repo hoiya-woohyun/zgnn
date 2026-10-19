@@ -15,6 +15,7 @@ import {
   reportSentText,
   reportTraceText,
   type TReportKind,
+  VERDICT_REASONS,
   visitedLateFailureText,
 } from '../lib/placeReport';
 import { APP_BUILD, forgetReport, readReportRecord, rememberReport, sendPlaceReportUndoable } from '../lib/placeReportSend';
@@ -59,6 +60,11 @@ export function PlaceDetailReport({
     setSentKinds(recentReportKinds(readReportRecord(), place.id, Date.now()));
   }, [place.id]);
   const trace = reportTraceText(sentKinds);
+  /*
+   * '정보가 달라요' 를 보낸 순간의 읽어 주기 — 그 시트는 화면 아래 알림을 띄우지 않는다(같은 말의 알림이 바로 위 흔적 줄을 덮었다, haeun-17b).
+   * 흔적 줄 자체를 라이브 영역으로 두면 마운트 뒤 기록을 읽어 채울 때도 읽어 버려서, 보낸 때만 채우는 숨은 줄을 따로 둔다.
+   */
+  const [sentAnnounce, setSentAnnounce] = useState('');
 
   /*
    * 다녀왔어요(F2) — **한 번 누르면 된다.** 고를 것도 적을 것도 없는 긍정 신호라 시트를 열면 아무도 안 누른다. 제보 시트 안의 한 종류로
@@ -124,6 +130,9 @@ export function PlaceDetailReport({
           </Button>
         </div>
         {trace && <p className="mt-3 text-sm text-secondary">{trace}</p>}
+        <p role="status" className="sr-only">
+          {sentAnnounce}
+        </p>
       </div>
 
       {/*
@@ -139,21 +148,30 @@ export function PlaceDetailReport({
         placeId={place.id}
         kinds={PICKABLE_REPORT_KINDS}
         notePlaceholder="예: 9월부터 영업 안 해요 · 실내는 안 되고 테라스만 돼요"
-        onSent={reread}
+        toastOnSent={false}
+        onSent={() => {
+          // 읽어 주는 말은 흔적 문구 그대로 — 종류가 쌓일 때마다 글이 바뀌어야 두 번째 제보도 읽힌다(같은 글이면 라이브 영역이 조용하다).
+          const kinds = recentReportKinds(readReportRecord(), place.id, Date.now());
+          setSentKinds(kinds);
+          setSentAnnounce(reportTraceText(kinds) ?? '');
+        }}
       />
       {/*
-        종류는 '반려동물 조건이 달라요' 하나라 고르는 줄이 없다 — 판정이 틀렸다는 것은 조건을 잘못 읽었거나 조건이 바뀐 것이다.
+        종류는 '반려동물 조건이 달라요' 하나라 종류를 고르는 줄은 없다 — 판정이 틀렸다는 것은 조건을 잘못 읽었거나 조건이 바뀐 것이다.
         새 종류를 만들지 않는다(표의 CHECK 와 짝이다). 시트는 종류를 처음 값으로 잡으므로 위 시트와 나눠 각자 고정한다.
+        대신 **무엇이 틀렸는지 하나를 꼭 고른다**(14 W261019.16) — 빈 채로 가던 제보는 운영자가 무엇을 볼지 몰랐다(seongho-13·29).
+        알림은 그대로 띄운다 — 이 시트는 판정 카드 밑에서 열려 흔적 줄(맨 아래 카드)이 화면 밖이다.
       */}
       <ReportSheet
         key={`verdict-${place.id}`}
         isOpen={verdictOpen}
         onOpenChange={onVerdictOpenChange}
         title="판정이 틀렸어요"
-        lead={`${place.name}에서 실제로는 어땠는지 알려 주세요.`}
+        lead={`${place.name}에서 실제로는 어땠는지 골라 주세요.`}
         placeId={place.id}
         kinds={VERDICT_REPORT_KINDS}
-        notePlaceholder="예: 10kg 넘는다고 못 들어갔어요 · 실내도 괜찮았어요"
+        reasons={VERDICT_REASONS}
+        notePlaceholder="예: 10kg 넘으면 안 된대요 · 실내 자리도 괜찮았어요"
         onSent={reread}
       />
     </section>
