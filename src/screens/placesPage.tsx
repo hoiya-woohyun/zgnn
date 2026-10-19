@@ -2,22 +2,21 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { PlacesPageEligibilityToggles } from './placesPageEligibilityToggles';
-import type { TActiveChip } from './placesPageActiveChips';
 import { PlacesPageFilters } from './placesPageFilters';
 import { PlacesPageFilterSheet } from './placesPageFilterSheet';
 import { PlacesPageResults } from './placesPageResults';
+import { usePlacesPageResultsView } from './placesPageResultsView';
 import { PlacesPageSearchField } from './placesPageSearchField';
 import { usePlacesPageSwipe } from './placesPageSwipe';
 import { PlacesPageSwipePeek } from './placesPageSwipePeek';
 import { PlacesPageTypeTabs } from './placesPageTypeTabs';
 import { usePlaceTypeSwitch } from './placesPageTypeSwitch';
-import { sameIsland, TYPE_META, type TPlaceEntry } from '../lib/places';
-import { comparePrice, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
+import { TYPE_META, type TPlaceEntry } from '../lib/places';
+import type { TPetFilterKey, TPlaceSort } from '../lib/placeFilters';
 import { countByLevel, levelCountParts } from '../lib/eligibilityCounts';
-import { areaCarriedRelease, areaReleaseCount, filterPlacesPage, hideHardCount, landmarkNearby, onlyReachableCount, otherSeatTypeMatches, otherTypeHiddenMatches, otherTypeMatches, placesByTown, placesPageChips, reachableReleaseCount, singleConditionReleases, townChipCounts, townReleaseCount } from '../lib/placesPageFilter';
+import { hideHardCount, onlyReachableCount, townChipCounts } from '../lib/placesPageFilter';
 import { landmarkOfQuery } from '../lib/placeSearch';
-import { sortByEligibility } from '../lib/sortByEligibility';
-import { distancesFrom, NEAR_PARAM, nearPlaceOf, sortByDistance } from '../lib/distanceSort';
+import { NEAR_PARAM, nearPlaceOf } from '../lib/distanceSort';
 import { LOCATE_NOTICE, locateMe } from '../lib/myLocation';
 import { showAppStatus } from '../lib/appStatus';
 import { PlacesPageSuggest } from './placesPageSuggest';
@@ -104,13 +103,9 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
    */
   const [suggested, setSuggested] = useState<{ query: string; name: string } | null>(null);
 
-  // 다른 조건과 별개로 먼저 걸러 둔다 — 이 종류에 그 읍면 자체가 없으면(0곳) 전용 빈 상태를 보여줘야 한다.
-  const byTown = useMemo(() => placesByTown(type, town), [type, town]);
-  const townHasNoPlaces = town !== null && byTown.length === 0;
-
   /*
    * '가까운 순' 의 기준점 — 들어온 장소(`?near=`) → 검색어의 관광지·동(14 W261019.11, '중문' 이면 중문 중심이라 위치를 묻지 않는다) → 내 위치(누를 때 받는다).
-   * 칩 이름(`PlacesPageResults` 의 `nearFrom`)도 같은 차례다. 검색어를 지워 기준이 사라지면 정렬도 기본으로 보인다 — 눌린 칩에 기준이 없는 때가 없게.
+   * 칩 이름(`placesPageResultsView` 의 `nearFrom`)도 같은 차례다. 검색어를 지워 기준이 사라지면 정렬도 기본으로 보인다 — 눌린 칩에 기준이 없는 때가 없게.
    */
   const queryLandmark = useMemo(() => landmarkOfQuery(query), [query]);
   const nearOrigin = nearPlace?.geo ?? queryLandmark?.landmark.center ?? origin;
@@ -122,28 +117,19 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
   if (sort === 'near' && !nearOrigin) setSort('none');
   const shownSort: TPlaceSort = sort === 'near' && !nearOrigin ? 'none' : sort;
 
-  const results = useMemo(() => {
-    // 걸러내기는 엿보기와 같은 함수다 — 정렬만 여기서 한다.
-    let list = filterPlacesPage({ type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap });
-    if (shownSort === 'near' && nearOrigin) {
-      // 가까운 순을 고르면 거리가 우선이다 — 가격 정렬과 같은 결정(B3). 좌표 없는 곳은 뒤로, 기준이 장소면 다른 섬도 뒤로(근처 장소와 같은 규칙).
-      list = sortByDistance(list, nearOrigin, nearPlace ? (place) => sameIsland(nearPlace, place) : undefined);
-    } else if (type === 'stay' && (shownSort === 'asc' || shownSort === 'desc')) {
-      // 가격 정렬을 고르면 가격이 우선이다(2026-09-15 리뷰 후속 B3 결정).
-      list = [...list].sort(comparePrice(shownSort));
-    } else if (eligibilityMap) {
-      // 프로필이 있으면 기본 정렬은 ok → cond → unknown → hard(갈 수 있어요 → 확인이 필요해요 → 정보가 없어요 → 이용하기 어려워요).
-      list = sortByEligibility(list, eligibilityMap, (place) => place.id);
-    }
-    return list;
-  }, [type, town, area, query, directions, petKeys, shownSort, nearOrigin, nearPlace, hideHard, onlyReachable, eligibilityMap]);
+  /*
+   * 본문(`PlacesPageResults`)이 그리는 값 전부 — 목록과 순서·켜진 조건 칩·0곳 갈래·가까운 곳을 한 함수(`placesPageResultsView`)가 낸다(14 W261019.11g).
+   * 엿보기(`placesPageSwipePeek`)도 같은 훅을 순서 없이 불러 손을 놓는 순간 목록·줄이 튀지 않는다. 시트 버튼 숫자(`activeFilterCount`)도 같은 값이라
+   * "필터 3" 인데 칩이 둘이라 셋째를 찾아 시트를 뒤지는 일이 없다.
+   */
+  const view = usePlacesPageResultsView(type, { sort: shownSort, origin: nearOrigin, nearPlace });
 
   /*
    * 검색이 멈춘 뒤 결과 수 한 줄(ADR-029) — 검색어는 보내지 않는다. 글자마다 적지 않게 1.5초 조용할 때만, **검색어가 바뀌었을 때만**:
    * 조건 칩·종류를 바꿔 수가 달라지거나 이 화면에 돌아온 것(저장된 검색어)은 새 검색이 아니다. 1.5초 안에 결과를 눌러 떠나면 떠날 때 적는다 —
    * 안 그러면 결과가 있는 검색만 빠져서 '0건' 비율이 부풀어 보인다.
    */
-  const resultCount = results.length;
+  const resultCount = view.results.length;
   const settledQuery = useRef(query);
   const pendingSearch = useRef<{ n: number; pathname: string } | null>(null);
   useEffect(() => {
@@ -169,48 +155,6 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     [],
   );
 
-  // 결과가 있어도 센다 — "다른 종류에도 있어요 · 식당 1곳"(14 W261007.11). 검색어가 없으면 바로 빈 배열이다.
-  // 넘어간 탭과 같은 조건으로 센다(W261007.11a) — 그 탭의 조건 칩까지라 종류별 칩을 통째로 넘긴다.
-  const otherTypes = useMemo(
-    () => otherTypeMatches({ type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap }, petKeysByType),
-    [type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap, petKeysByType],
-  );
-  // 0곳일 때만 — 숨김 조건에 가려 위 수에서 빠진 다른 종류(14 W261007.11b). 결과가 있으면 목록 끝 한 줄(W261019.11a)은 넘어간 탭의 수만 말한다.
-  const hiddenOtherTypes = useMemo(
-    () =>
-      results.length > 0
-        ? []
-        : otherTypeHiddenMatches({ type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap }, petKeysByType),
-    [results.length, type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap, petKeysByType],
-  );
-  // 검색어 없이 0곳인 식당·카페 — 대신이 되는 종류에 몇 곳인지(14 W261010.33v). 넘어간 탭과 같은 조건으로 센다(위 `otherTypes` 와 같은 규칙).
-  const seatOtherTypes = useMemo(
-    () =>
-      results.length > 0
-        ? []
-        : otherSeatTypeMatches({ type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap }, petKeysByType),
-    [results.length, type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap, petKeysByType],
-  );
-  // 같은 이유로 0곳일 때만 — 읍면 하나(18 T2.1)·권역 하나(19 T3)가 원인인지, 아니면 어느 조건 하나를 풀면 되는지(14 W261010.33s).
-  const released = useMemo(() => {
-    if (results.length > 0) return { town: 0, area: 0, reachable: 0, conditions: [] };
-    const conditions = { type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap };
-    return {
-      town: townReleaseCount(conditions),
-      area: areaReleaseCount(conditions),
-      reachable: reachableReleaseCount(conditions),
-      conditions: singleConditionReleases(conditions, { dog, needsIndoor }),
-    };
-  }, [results.length, type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap, dog, needsIndoor]);
-  // 0곳이 아니어도 카드보다 적으면 — 동네 카드 진입에 따라온 읍면·방향·조건 칩(19 T4.2). 0곳이면 위 빈 상태 몫이다.
-  const areaCarried = useMemo(
-    () =>
-      results.length > 0
-        ? areaCarriedRelease({ type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap }, results.length)
-        : null,
-    [results.length, type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap],
-  );
-
   // 판정 토글의 결과를 시트가 보이게(14 W261013.8) — '어려운 곳 숨기기' 가 숨길 수, 남는 곳의 판정 셈(목록 머리와 같은 셈).
   const hardCount = useMemo(
     () => hideHardCount({ type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap }),
@@ -227,25 +171,8 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     [type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap],
   );
   const levelParts = useMemo(
-    () => (dog ? levelCountParts(countByLevel(results, dog, { needsIndoor })) : []),
-    [results, dog, needsIndoor],
-  );
-
-  const distances = useMemo(() => {
-    if (shownSort !== 'near' || !nearOrigin) return undefined;
-    const map = distancesFrom(results, nearOrigin, nearPlace ? (place) => sameIsland(nearPlace, place) : undefined);
-    // 기준 장소 자신(숙소 상세 → 근처 숙소)은 0km 로 맨 위에 선다 — "50m" 를 붙이면 자기에게서 잰 거리가 된다. 칩이 이름을 말한다.
-    if (nearPlace) map.delete(nearPlace.id);
-    return map;
-  }, [nearOrigin, nearPlace, results, shownSort]);
-
-  // 관광지·동 검색이 0곳일 때 그 중심에서 가까운 곳(14 W261019.11) — 0곳 안내가 '목록에 없다' 대신 이것을 낸다.
-  const nearbyLandmark = useMemo(
-    () =>
-      results.length > 0 || !queryLandmark
-        ? []
-        : landmarkNearby({ type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap }),
-    [results.length, queryLandmark, type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap],
+    () => (dog ? levelCountParts(countByLevel(view.results, dog, { needsIndoor })) : []),
+    [view.results, dog, needsIndoor],
   );
 
   /*
@@ -278,22 +205,6 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
   };
 
   const trimmedQuery = query.trim();
-  // 켜진 조건을 이름으로(T2.4). 칩·개수·지우기 링크 문구가 한 함수에서 나온다 — 엿보기(`placesPageSwipePeek`)도 같은 함수라
-  // 손을 놓는 순간 줄이 튀지 않고, 버튼엔 "필터 3" 인데 칩이 둘이라 셋째를 찾아 시트를 뒤지는 일도 없다.
-  // 개수는 검색어를 뺀다 — 검색창은 시트 밖에 그대로 보이므로 더하면 버튼 숫자가 시트 안의 켜진 조건 수와 어긋난다.
-  const { chips, activeFilterCount, hasFilters, resetLabel } = placesPageChips({
-    type,
-    town,
-    area,
-    needsIndoor,
-    hasDog: Boolean(dog),
-    directions,
-    petKeys,
-    hideHard,
-    onlyReachable,
-    query,
-  });
-
   /*
    * 시트 안의 "모두 지우기" 는 검색어를 건드리지 않는다 — 검색창은 시트 밖에 그대로
    * 보이는데 여기서 같이 지우면 시트를 닫고 나서야 글자가 사라진 걸 알게 된다.
@@ -346,7 +257,6 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     else if (key.startsWith('dir-')) toggleDirection(key.slice(4) as TDirection);
     else if (key.startsWith('pet-')) togglePetKey(key.slice(4) as TPetFilterKey);
   };
-  const activeChips: TActiveChip[] = chips.map((chip) => ({ ...chip, onRemove: () => removeChip(chip.key) }));
 
   return (
     <div>
@@ -398,8 +308,8 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
                       }
                     : null
                 }
-                activeCount={activeFilterCount}
-                resultCount={results.length}
+                activeCount={view.activeFilterCount}
+                resultCount={view.results.length}
                 onReset={resetConditions}
               />
             </div>
@@ -427,7 +337,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
             onTogglePetKey={togglePetKey}
             onChangeSort={(next) => void changeSort(next)}
             hasDog={Boolean(dog)}
-            nearFrom={nearPlace?.name ?? queryLandmark?.word}
+            nearFrom={view.nearFrom}
           />
 
           {dog && (
@@ -437,7 +347,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
               onlyReachable={onlyReachable}
               onToggleOnlyReachable={toggleOnlyReachable}
               reachableCount={reachableCount}
-              resultCount={results.length}
+              resultCount={view.results.length}
               hideHard={hideHard}
               onToggleHideHard={toggleHideHard}
               needsIndoor={needsIndoor}
@@ -473,44 +383,28 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
         <div ref={currentRef}>
           <div className={enterAnimationClass}>
             <PlacesPageResults
-              type={type}
-              town={town}
-              results={results}
-              townHasNoPlaces={townHasNoPlaces}
-              hasFilters={hasFilters}
-              resetLabel={resetLabel}
-              query={trimmedQuery}
-              activeFilterCount={activeFilterCount}
-              activeChips={activeChips}
-              onResetFilters={resetFilters}
-              onClearQuery={() => setQuery('')}
-              onClearTown={() => setTown(null)}
-              onOpenFilters={() => setIsFilterSheetOpen(true)}
-              onSuggest={() => setSuggestOpen(true)}
+              view={view}
+              actions={{
+                onResetFilters: resetFilters,
+                onClearQuery: () => setQuery(''),
+                onClearTown: () => setTown(null),
+                onOpenFilters: () => setIsFilterSheetOpen(true),
+                onSuggest: () => setSuggestOpen(true),
+                onReleaseHidden: () => {
+                  setHideHard(false);
+                  clearOnlyReachable();
+                },
+                onClearArea: clearArea,
+                onClearOnlyReachable: clearOnlyReachable,
+                onReleaseAreaCarried: () => {
+                  setTown(null);
+                  releaseAreaCarried(type);
+                },
+                onChangeSort: (next) => void changeSort(next),
+                onCityDowntown: selectTown,
+                onRemoveChip: removeChip,
+              }}
               suggestSent={suggested !== null && suggested.query === trimmedQuery}
-              landmarkNearby={nearbyLandmark}
-              distances={distances}
-              otherTypes={otherTypes}
-              hiddenOtherTypes={hiddenOtherTypes}
-              onReleaseHidden={() => {
-                setHideHard(false);
-                clearOnlyReachable();
-              }}
-              townReleaseCount={released.town}
-              area={area}
-              areaReleaseCount={released.area}
-              onClearArea={clearArea}
-              reachableReleaseCount={released.reachable}
-              onClearOnlyReachable={clearOnlyReachable}
-              conditionReleases={released.conditions}
-              seatOtherTypes={seatOtherTypes}
-              areaCarried={areaCarried}
-              sortControl={{ sort: shownSort, onChange: (next) => void changeSort(next), from: nearPlace?.name }}
-              onCityDowntown={selectTown}
-              onReleaseAreaCarried={() => {
-                setTown(null);
-                releaseAreaCarried(type);
-              }}
             />
             <PlacesPageSuggest
               type={type}

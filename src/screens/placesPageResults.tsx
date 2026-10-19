@@ -13,11 +13,11 @@ import { FilterChip } from '../components/filterChip';
 import { judgeEligibility, primaryReason } from '../lib/eligibility';
 import { carrierWhatIf, carrierWhatIfText, countByLevel, levelCountParts, outdoorFallback } from '../lib/eligibilityCounts';
 import { placesPageHardFold } from '../lib/placesPageHardFold';
-import { placesPageEmptySearch, placesPageSortLabel, placesPageSortOptions, type TAreaCarried, type TConditionRelease } from '../lib/placesPageFilter';
+import { placesPageEmptySearch, placesPageSortLabel, placesPageSortOptions, type TPlacesPageResultsView } from '../lib/placesPageFilter';
 import { placesPageRepeatedReason } from '../lib/placesPageRepeatedReason';
-import { cityScopeOf, landmarkOfQuery } from '../lib/placeSearch';
+import { cityScopeOf } from '../lib/placeSearch';
 import { townFilterLabel, type TPlaceSort } from '../lib/placeFilters';
-import { areaTownsLabel, type TAreaId } from '../lib/areaGroups';
+import { areaTownsLabel } from '../lib/areaGroups';
 import { josa, withJosa } from '../lib/korean';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
 import { useAppStore } from '../store/useAppStore';
@@ -26,82 +26,48 @@ import type { TPlaceType } from '../types';
 import { cx } from '../utils/cx';
 import { SCROLL_ROW_CLASS } from './placesPageFilters';
 
-type TPlacesPageResultsProps = {
-  type: TPlaceType;
-  town: string | null;
-  results: TPlaceEntry[];
-  /** 이 종류에 그 읍면 자체가 없다(조건과 무관하게 0곳). 전용 빈 상태를 보여준다. */
-  townHasNoPlaces: boolean;
-  hasFilters: boolean;
-  /** 지우기 링크 문구(`placesPageChips` 의 `resetLabel`) — 검색어만이면 "검색 지우기", 검색어와 권역·조건이 함께면 "모두 지우기". */
-  resetLabel: string;
-  /** 다듬은 검색어. 빈 상태가 "검색 탓인가 필터 탓인가" 를 가르는 데 쓴다. */
-  query: string;
-  /** 켜진 조건 수(검색어 제외). 0 이면 시트에는 꺼 볼 것이 없다. */
-  activeFilterCount: number;
+/**
+ * 본문 위에서 누르는 것 — 본 화면은 실제로 하고 스와이프 엿보기는 아무것도 안 하는 함수를 넘긴다(`inert` 라 눌리지도 않는다).
+ * **전부 필수다** — 하나라도 선택이면 엿보기가 안 넘긴 그 버튼만 안 그려져 손을 놓는 순간 줄이 튄다(14 W261019.11g — 0곳 안내의 '알려 주기' 가 그랬다).
+ */
+export type TPlacesPageResultsActions = {
+  /** 개수 줄 지우기 링크(`resetLabel`) — 칩 줄에 보이는 것을 검색어·권역까지 다 지운다. */
+  onResetFilters: () => void;
   /** 검색어만 지운다 — 검색만으로 0곳일 때 빈 상태의 버튼. */
   onClearQuery: () => void;
   /** 읍면만 푼다 — 이 종류에 그 읍면이 아예 없을 때 빈 상태의 버튼(12 U1.6). */
   onClearTown: () => void;
-  /** 켜진 조건 칩 줄. 비어 있으면 줄을 그리지 않는다. */
-  activeChips: TActiveChip[];
-  onResetFilters: () => void;
   /** 모바일 필터 시트를 연다. 빈 상태의 버튼이 쓴다 — md 부터는 조건 판이 펼쳐져 있어 버튼 자체를 숨긴다. */
   onOpenFilters: () => void;
-  /**
-   * 검색어만으로 0곳이고 어느 종류에도 없을 때의 "알려 주기" — 장소 제안 시트를 연다. 시트는 위(`placesPage`)가 한 벌만 쥔다.
-   * 선택인 이유: 스와이프 엿보기는 손가락 밑에서 보이기만 하는 복사본이라 아무것도 열지 않는다 — 안 주면 버튼을 그리지 않는다.
-   */
-  onSuggest?: () => void;
-  /** 지금 검색어로 이미 알려 줬나(14 W261019.16) — 그렇다면 0곳 안내가 '알려 주기' 를 거두고 보냈다고 말한다. */
-  suggestSent?: boolean;
-  /** 관광지·동 검색이 0곳일 때 그 중심에서 가까운 곳(`landmarkNearby`, 14 W261019.11). 0곳 안내 밑에 거리와 함께. */
-  landmarkNearby?: { place: TPlaceEntry; km: number }[];
-  /** 가까운 순일 때 장소 id → 거리(km). 카드가 "1.2km" 를 붙인다(10 F7). */
-  distances?: Map<string, number>;
-  /**
-   * 같은 검색어가 맞는 다른 종류(`otherTypeMatches`). 0곳이면 빈 상태 맨 위에 큰 안내로, 결과가 있으면 목록 끝 한 줄로(14 W261007.11 · W261019.11a).
-   * 엿보기도 같은 검색어로 센다.
-   */
-  otherTypes?: { type: TPlaceType; count: number }[];
-  /** 0곳일 때, 숨김 조건만 풀면 맞는 곳이 있는 다른 종류(`otherTypeHiddenMatches`, 14 W261007.11b). `otherTypes` 와 겹치지 않는다. */
-  hiddenOtherTypes?: { type: TPlaceType; count: number }[];
+  /** 검색어만으로 0곳일 때의 "알려 주기" — 장소 제안 시트를 연다. 시트는 위(`placesPage`)가 한 벌만 쥔다. */
+  onSuggest: () => void;
   /** '어려운 곳 숨기기'·'갈 수 있는 곳만' 을 함께 푼다 — 숨긴 종류로 넘어가는 링크가 넘어가기 전에 부른다. */
-  onReleaseHidden?: () => void;
-  /** 0곳일 때 읍면만 풀면 몇 곳인가(`townReleaseCount`, 18 T2.1). 0 이면 읍면 탓이 아니다. */
-  townReleaseCount?: number;
-  /** 홈 동네 카드가 건 권역(19 T3). */
-  area?: TAreaId | null;
-  /** 0곳일 때 권역만 풀면 몇 곳인가(`areaReleaseCount`). 0 이면 권역 탓이 아니다. */
-  areaReleaseCount?: number;
+  onReleaseHidden: () => void;
   /** 권역만 푼다 — 권역 탓으로 0곳일 때 빈 상태의 버튼. */
-  onClearArea?: () => void;
-  /** 0곳일 때 '갈 수 있는 곳만' 을 풀면 몇 곳인가(`reachableReleaseCount`, 19 T4.1). */
-  reachableReleaseCount?: number;
-  onClearOnlyReachable?: () => void;
-  /**
-   * 0곳일 때 켜진 조건을 하나씩 풀면 몇 곳인가(`singleConditionReleases`, 14 W261010.33s) — 많은 순. 위 셋(읍면·'갈 수 있는 곳만'·권역)이
-   * 답이 아닐 때 범용 안내가 앞의 둘을 버튼으로 세운다. 지우기는 같은 키의 칩(`activeChips`)의 것이다.
-   */
-  conditionReleases?: TConditionRelease[];
-  /** 검색어 없이 0곳인 식당·카페에서 다른 자리 종류의 수(`otherSeatTypeMatches`, 14 W261010.33v) — 0곳 안내 밑에 "카페에 N곳 있어요" 줄로. */
-  seatOtherTypes?: { type: TPlaceType; count: number }[];
-  /** 동네 카드로 들어왔는데 따라온 읍면·방향·조건 칩 탓에 카드보다 적게 보이면(`areaCarriedRelease`, 19 T4.2). */
-  areaCarried?: TAreaCarried | null;
-  onReleaseAreaCarried?: () => void;
+  onClearArea: () => void;
+  onClearOnlyReachable: () => void;
+  /** 동네 카드 진입에 따라온 읍면·방향·조건 칩을 푼다(19 T4.2). */
+  onReleaseAreaCarried: () => void;
   /**
    * 목록 위 정렬 줄(모바일, 14 W261019.13) — 지금 순서가 눌린 칩이고 다른 순서를 누르면 바꾼다. 예전엔 '가까운 순' 칩 하나뿐이라(14 W261010.18)
-   * 목록이 거리순이 아닌데도 그 칩이 지금 상태인지 누르라는 버튼인지 몰랐다(haeun-02). 본 화면만 준다 — 엿보기는 정렬을 갖지 않아 기본 순서가 눌린 줄을
-   * 그리고(새로 마운트된 목록이 그 모양이다) 눌러도 아무 일 없다. 위치 권한이 없으면 정렬을 바꾸지 않고 이유만 말한다(`changeSort`).
-   * `from` 은 상세 「근처 장소」 로 들어온 기준 장소 이름(14 W261013.14o) — 칩이 "○○에서 가까운 순" 이라 말해야 카드의 km 를 내 위치에서 잰 값으로 읽지 않는다.
-   * 없고 검색어에 관광지·동 낱말이 있으면 그 낱말이 기준이다("중문에서 가까운 순", 14 W261019.11) — 검색어에서 읽으므로 엿보기도 같은 이름을 그린다.
+   * 목록이 거리순이 아닌데도 그 칩이 지금 상태인지 누르라는 버튼인지 몰랐다(haeun-02). 위치 권한이 없으면 정렬을 바꾸지 않고 이유만 말한다(`changeSort`).
    */
-  sortControl?: { sort: TPlaceSort; onChange: (sort: TPlaceSort) => void; from?: string };
+  onChangeSort: (sort: TPlaceSort) => void;
+  /** 시 이름 검색('서귀포')을 시내로 좁힌다 — 읍면 필터에 시내 태그('서귀포시')를 건다(14 W261010.30). */
+  onCityDowntown: (town: string) => void;
+  /** 켜진 조건 칩의 ✕ — 0곳 안내의 "조건 하나만 풀면" 버튼도 같은 키로 이것을 부른다. */
+  onRemoveChip: (key: string) => void;
+};
+
+type TPlacesPageResultsProps = {
+  /** 무엇을 그리나 — `placesPageResultsView` 가 한 번에 낸다. 그리는 값을 더할 땐 그 함수에 더한다(본 화면·엿보기가 같이 받는다). */
+  view: TPlacesPageResultsView;
+  actions: TPlacesPageResultsActions;
   /**
-   * 시 이름 검색('서귀포')을 시내로 좁힌다 — 읍면 필터에 시내 태그('서귀포시')를 건다(14 W261010.30). 본 화면만 준다:
-   * 엿보기는 같은 줄을 그리되 눌러도 아무 일 없다(`nearSort` 와 같은 까닭 — 줄이 있다 없다 하면 손을 놓는 순간 목록이 뛴다).
+   * 지금 검색어로 이미 알려 줬나(14 W261019.16) — 그렇다면 0곳 안내가 '알려 주기' 를 거두고 보냈다고 말한다.
+   * 본 화면 state 라 엿보기는 주지 않는다 — `key={type}` 로 새로 마운트된 화면도 처음엔 안 보낸 상태다.
    */
-  onCityDowntown?: (town: string) => void;
+  suggestSent?: boolean;
 };
 
 /**
@@ -109,42 +75,52 @@ type TPlacesPageResultsProps = {
  *
  * 화면 상태를 갖지 않고 결과만 받아 그린다. 스와이프의 엿보기(placesPageSwipePeek)가 이웃
  * 종류의 본문을 같은 모양으로 그려야 해서 placesPage 에서 떼어 냈다 — 둘이 다르면 손가락을
- * 놓고 새 화면이 뜨는 순간 모양이 바뀐다.
+ * 놓고 새 화면이 뜨는 순간 모양이 바뀐다. 그리는 값은 `view` 한 덩어리로 받는다 — 값마다 prop 으로 받을 땐
+ * 본 화면이 새 값을 넘길 때마다 엿보기가 그 prop 을 빠뜨렸다(12 U3.6 '실내 자리 필요' 칩 · 14 W261019.11b 가까운 곳).
  */
 export function PlacesPageResults({
-  type,
-  town,
-  results,
-  townHasNoPlaces,
-  hasFilters,
-  resetLabel,
-  query,
-  activeFilterCount,
-  onClearQuery,
-  onClearTown,
-  activeChips,
-  onResetFilters,
-  onOpenFilters,
-  onSuggest,
+  view: {
+    type,
+    town,
+    area,
+    query,
+    results,
+    townHasNoPlaces,
+    chips,
+    activeFilterCount,
+    hasFilters,
+    resetLabel,
+    sort,
+    nearFrom,
+    distances,
+    landmarkNearby,
+    otherTypes,
+    hiddenOtherTypes,
+    seatOtherTypes,
+    townReleaseCount,
+    areaReleaseCount,
+    reachableReleaseCount,
+    conditionReleases,
+    areaCarried,
+  },
+  actions: {
+    onResetFilters,
+    onClearQuery,
+    onClearTown,
+    onOpenFilters,
+    onSuggest,
+    onReleaseHidden,
+    onClearArea,
+    onClearOnlyReachable,
+    onReleaseAreaCarried,
+    onChangeSort,
+    onCityDowntown,
+    onRemoveChip,
+  },
   suggestSent = false,
-  landmarkNearby = [],
-  distances,
-  otherTypes = [],
-  hiddenOtherTypes = [],
-  onReleaseHidden,
-  townReleaseCount = 0,
-  area = null,
-  areaReleaseCount = 0,
-  onClearArea,
-  reachableReleaseCount = 0,
-  onClearOnlyReachable,
-  conditionReleases = [],
-  seatOtherTypes = [],
-  areaCarried = null,
-  onReleaseAreaCarried,
-  sortControl,
-  onCityDowntown,
 }: TPlacesPageResultsProps) {
+  // 칩 ✕ 와 0곳 안내의 "풀면 N곳" 버튼이 같은 키로 같은 일을 한다(`releaseActions`).
+  const activeChips: TActiveChip[] = chips.map((chip) => ({ ...chip, onRemove: () => onRemoveChip(chip.key) }));
   const dog = useAppStore((state) => state.dog);
   const needsIndoor = useAppStore((state) => state.needsIndoor);
   // 홈 카드와 같은 함수로 센다(T2.2). 엿보기도 이 컴포넌트를 쓰므로 두 화면의 수가 저절로 같다.
@@ -240,9 +216,6 @@ export function PlacesPageResults({
 
   // 시 이름 검색이 시내 밖 읍면까지 덮었으면 그렇다고 말한다(14 W261010.30). 읍면 필터가 걸려 있으면 이미 좁힌 것이라 말하지 않는다.
   const cityScope = useMemo(() => (town ? null : cityScopeOf(query, results)), [town, query, results]);
-  // '가까운 순' 의 기준 이름 — 들어온 장소가 먼저, 없으면 검색어의 관광지·동 낱말(14 W261019.11). 기준점은 화면(`placesPage`)이 같은 차례로 고른다.
-  const nearFrom = sortControl?.from ?? landmarkOfQuery(query)?.word;
-  const sort = sortControl?.sort ?? 'none';
 
   const renderOtherTypeRow = (other: { type: TPlaceType; count: number }) => (
     <li key={other.type}>
@@ -317,7 +290,7 @@ export function PlacesPageResults({
             <FilterChip
               key={option}
               pressed={sort === option}
-              onClick={() => sortControl?.onChange(option)}
+              onClick={() => onChangeSort(option)}
               className={option === 'near' ? 'max-w-full' : undefined}
             >
               {option === 'near' && nearFrom ? (
@@ -345,7 +318,7 @@ export function PlacesPageResults({
           {cityScope.downtownCount > 0 && (
             <button
               type="button"
-              onClick={() => onCityDowntown?.(cityScope.downtown)}
+              onClick={() => onCityDowntown(cityScope.downtown)}
               data-ev="places.cityDowntown"
               className="inline-flex min-h-11 items-center font-semibold text-brand-secondary hover:text-brand-secondary_hover"
             >
@@ -579,7 +552,7 @@ export function PlacesPageResults({
                 }
                 action={
                   <div className="flex flex-wrap items-center justify-center gap-2">
-                    {onSuggest && !suggestSent && (
+                    {!suggestSent && (
                       <Button color="secondary" size="md" onClick={onSuggest} data-ev="places.emptySuggest">
                         알려 주기
                       </Button>
@@ -621,12 +594,12 @@ export function PlacesPageResults({
               action={
                 <div className="flex flex-wrap items-center justify-center gap-2">
                   {/* 보낸 뒤에도 같은 버튼이면 보냈는지 헷갈려 또 누른다(haeun-18b) — 거두고, 한 곳 더는 목록 끝(`PlacesPageSuggest`)이 받는다. */}
-                  {onSuggest && !suggestSent && (
+                  {!suggestSent && (
                     <Button color="primary" size="md" onClick={onSuggest} data-ev="places.emptySuggest">
                       알려 주기
                     </Button>
                   )}
-                  <Button color={onSuggest && !suggestSent ? 'secondary' : 'primary'} size="md" onClick={onClearQuery}>
+                  <Button color={suggestSent ? 'primary' : 'secondary'} size="md" onClick={onClearQuery}>
                     검색 지우기
                   </Button>
                 </div>

@@ -1,12 +1,8 @@
 'use client';
 
-import { useMemo, type RefObject } from 'react';
-import { PlacesPageResults } from './placesPageResults';
-import { areaCarriedRelease, areaReleaseCount, filterPlacesPage, landmarkNearby, otherSeatTypeMatches, otherTypeHiddenMatches, otherTypeMatches, placesByTown, placesPageChips, reachableReleaseCount, singleConditionReleases, townReleaseCount } from '../lib/placesPageFilter';
-import { sortByEligibility } from '../lib/sortByEligibility';
-import { useAppStore, useDog } from '../store/useAppStore';
-import { useEligibilityMap } from '../store/useDogEligibility';
-import { usePlacesPageFilterStore } from '../store/usePlacesPageFilterStore';
+import type { RefObject } from 'react';
+import { PlacesPageResults, type TPlacesPageResultsActions } from './placesPageResults';
+import { usePlacesPageResultsView } from './placesPageResultsView';
 import type { TPlaceType } from '../types';
 
 type TPlacesPageSwipePeekProps = {
@@ -21,97 +17,36 @@ type TPlacesPageSwipePeekProps = {
 
 const noop = () => undefined;
 
+/** 그리기만 하고 아무것도 안 한다 — 타입이 전부 필수라 본문에 버튼이 늘면 여기 한 칸을 더하라고 tsc 가 막는다. */
+const PEEK_ACTIONS: TPlacesPageResultsActions = {
+  onResetFilters: noop,
+  onClearQuery: noop,
+  onClearTown: noop,
+  onOpenFilters: noop,
+  onSuggest: noop,
+  onReleaseHidden: noop,
+  onClearArea: noop,
+  onClearOnlyReachable: noop,
+  onReleaseAreaCarried: noop,
+  onChangeSort: noop,
+  onCityDowntown: noop,
+  onRemoveChip: noop,
+};
+
 /**
  * 스와이프 중에 옆에서 따라 들어오는 이웃 종류의 본문.
  *
  * **새 화면이 마운트됐을 때와 같은 모습이어야 한다** — 검색어·방향·'어려운 곳 숨기기'·그 종류의 반려동물 조건·'어려움 N곳' 펼침(본문이 직접 읽는다)은
  * 스토어(`usePlacesPageFilterStore`)에서, 읍면·'실내 자리 필요'·강아지 판정은 `useAppStore` 에서 따라오고
- * 정렬만 종류를 바꾸면 리셋된다(그래서 여기는 늘 기본 정렬). 목록과 칩은 placesPage 와 **같은 함수**
- * (`filterPlacesPage`·`placesPageChips`)로 만든다 — 따로 계산하면 손을 놓는 순간 목록이 튄다(ADR-013 v4).
+ * 정렬만 종류를 바꾸면 리셋된다(그래서 여기는 순서를 넘기지 않아 늘 기본 순서). 본문 값은 placesPage 와 **같은 훅**
+ * (`usePlacesPageResultsView` — 목록·칩·0곳 갈래·가까운 곳을 한 번에)으로 받아 통째로 넘긴다 — 값마다 따로 넘길 땐 새 값이 생길 때마다
+ * 여기서 빠져 손을 놓는 순간 목록이 튀었다(ADR-013 v4 · v7).
  *
  * 보여주기만 한다(`inert`) — 손가락이 지나가는 동안 카드 링크가 눌리거나 포커스가 옮겨가면 안 된다.
  * 높이를 화면에 맞춰 잘라 두어 문서 높이를 늘리지 않는다.
  */
 export function PlacesPageSwipePeek({ ref, type, side, top, height }: TPlacesPageSwipePeekProps) {
-  const town = useAppStore((state) => state.town);
-  const needsIndoor = useAppStore((state) => state.needsIndoor);
-  const dog = useDog();
-  const hasDog = Boolean(dog);
-  const eligibilityMap = useEligibilityMap();
-  const query = usePlacesPageFilterStore((state) => state.query);
-  const directions = usePlacesPageFilterStore((state) => state.directions);
-  const hideHard = usePlacesPageFilterStore((state) => state.hideHard);
-  const onlyReachable = usePlacesPageFilterStore((state) => state.onlyReachable);
-  const petKeysByType = usePlacesPageFilterStore((state) => state.petKeysByType);
-  const petKeys = petKeysByType[type];
-  const area = usePlacesPageFilterStore((state) => state.area);
-
-  const byTown = useMemo(() => placesByTown(type, town), [type, town]);
-
-  const results = useMemo(() => {
-    const filtered = filterPlacesPage({ type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap });
-    return eligibilityMap ? sortByEligibility(filtered, eligibilityMap, (place) => place.id) : filtered;
-  }, [type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap]);
-
-  // 본 화면과 같이 결과가 있어도 센다 — 엿보기도 같은 줄을 그려야 손을 놓아도 안 튄다.
-  const otherTypes = useMemo(
-    () => otherTypeMatches({ type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap }, petKeysByType),
-    [type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap, petKeysByType],
-  );
-  const hiddenOtherTypes = useMemo(
-    () =>
-      results.length > 0
-        ? []
-        : otherTypeHiddenMatches({ type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap }, petKeysByType),
-    [results.length, type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap, petKeysByType],
-  );
-  const seatOtherTypes = useMemo(
-    () =>
-      results.length > 0
-        ? []
-        : otherSeatTypeMatches({ type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap }, petKeysByType),
-    [results.length, type, town, area, query, directions, hideHard, onlyReachable, eligibilityMap, petKeysByType],
-  );
-  const released = useMemo(() => {
-    if (results.length > 0) return { town: 0, area: 0, reachable: 0, conditions: [] };
-    const conditions = { type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap };
-    return {
-      town: townReleaseCount(conditions),
-      area: areaReleaseCount(conditions),
-      reachable: reachableReleaseCount(conditions),
-      conditions: singleConditionReleases(conditions, { dog, needsIndoor }),
-    };
-  }, [results.length, type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap, dog, needsIndoor]);
-  // 0곳이 아니어도 카드보다 적으면 — 동네 카드 진입에 따라온 읍면·방향·조건 칩(19 T4.2). 0곳이면 위 빈 상태 몫이다.
-  const areaCarried = useMemo(
-    () =>
-      results.length > 0
-        ? areaCarriedRelease({ type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap }, results.length)
-        : null,
-    [results.length, type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap],
-  );
-  // 관광지·동 검색이 0곳이면 그 중심에서 가까운 곳 — 본 화면과 같은 함수·같은 조건(14 W261019.11b). 빠지면 엿보기엔 안내만 있다가
-  // 손을 놓는 순간 카드 세 장이 툭 나타난다. 관광지 낱말이 없으면 함수가 빈 배열을 준다.
-  const nearbyLandmark = useMemo(
-    () =>
-      results.length > 0
-        ? []
-        : landmarkNearby({ type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap }),
-    [results.length, type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap],
-  );
-
-  const { chips, activeFilterCount, hasFilters, resetLabel } = placesPageChips({
-    type,
-    town,
-    area,
-    needsIndoor,
-    hasDog,
-    directions,
-    petKeys,
-    hideHard,
-    onlyReachable,
-    query,
-  });
+  const view = usePlacesPageResultsView(type);
 
   return (
     <div
@@ -121,35 +56,7 @@ export function PlacesPageSwipePeek({ ref, type, side, top, height }: TPlacesPag
       className="pointer-events-none absolute inset-x-0 overflow-hidden"
       style={{ top, height, transform: `translateX(${side === 'left' ? -100 : 100}%)` }}
     >
-      <PlacesPageResults
-        type={type}
-        town={town}
-        results={results}
-        townHasNoPlaces={town !== null && byTown.length === 0}
-        hasFilters={hasFilters}
-        resetLabel={resetLabel}
-        query={query.trim()}
-        activeFilterCount={activeFilterCount}
-        onClearQuery={noop}
-        onClearTown={noop}
-        activeChips={chips.map((chip) => ({ ...chip, onRemove: noop }))}
-        onResetFilters={noop}
-        onOpenFilters={noop}
-        landmarkNearby={nearbyLandmark}
-        otherTypes={otherTypes}
-        hiddenOtherTypes={hiddenOtherTypes}
-        onReleaseHidden={noop}
-        townReleaseCount={released.town}
-        area={area}
-        areaReleaseCount={released.area}
-        onClearArea={noop}
-        reachableReleaseCount={released.reachable}
-        onClearOnlyReachable={noop}
-        conditionReleases={released.conditions}
-        seatOtherTypes={seatOtherTypes}
-        areaCarried={areaCarried}
-        onReleaseAreaCarried={noop}
-      />
+      <PlacesPageResults view={view} actions={PEEK_ACTIONS} />
     </div>
   );
 }

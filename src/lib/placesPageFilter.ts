@@ -1,9 +1,11 @@
 import { areaOf, areaTownsLabel, type TAreaId } from './areaGroups';
 import { AREA_CARD_TYPES } from './homePageAreaCards';
-import { DIRECTION_LABEL, PLACE_TYPES, distanceKm, placesOfType, type TPlaceEntry } from './places';
-import { PET_FILTERS, carriedFilterChips, envFiltersWithData, resetFiltersLabel, type TPetFilter, type TPetFilterKey, type TPlaceSort } from './placeFilters';
+import { DIRECTION_LABEL, PLACE_TYPES, distanceKm, placesOfType, sameIsland, type TPlaceEntry } from './places';
+import { PET_FILTERS, carriedFilterChips, comparePrice, envFiltersWithData, resetFiltersLabel, type TPetFilter, type TPetFilterKey, type TPlaceSort } from './placeFilters';
 import { freshnessOf } from './placeFreshness';
 import { isTypeWord, landmarkOfQuery, matchesQuery, queryWords } from './placeSearch';
+import { distancesFrom, sortByDistance } from './distanceSort';
+import { sortByEligibility } from './sortByEligibility';
 import type { TEligibility } from './eligibility';
 import { eligibilityMapOf, isReachable } from './eligibilityCounts';
 import type { TDirection, TDogProfile, TPlaceType } from '../types';
@@ -415,5 +417,132 @@ export const placesPageChips = ({
     activeFilterCount,
     hasFilters: chips.length > 0,
     resetLabel: resetFiltersLabel(trimmedQuery.length > 0, (area ? 1 : 0) + activeFilterCount),
+  };
+};
+
+/** 목록의 순서 — 화면 로컬 상태(정렬·기준점)라 종류를 바꾸면 리셋된다. 엿보기는 늘 기본(`PLACES_PAGE_DEFAULT_ORDER`)이다. */
+export type TPlacesPageOrder = {
+  sort: TPlaceSort;
+  /** '가까운 순' 의 기준점 — 들어온 장소 → 검색어의 관광지·동 → 내 위치 차례로 화면이 고른 것. 없으면 가까운 순은 기본 순서로 보인다. */
+  origin: { lat: number; lng: number } | null;
+  /** 상세 「근처 장소」 로 들어온 기준 장소(`?near=`, 14 W261013.14o) — 다른 섬을 뒤로 보내고, 칩이 그 이름을 말한다. */
+  nearPlace: TPlaceEntry | null;
+};
+
+export const PLACES_PAGE_DEFAULT_ORDER: TPlacesPageOrder = { sort: 'none', origin: null, nearPlace: null };
+
+type TTypeCount = { type: TPlaceType; count: number };
+
+/**
+ * 둘러보기 본문(`PlacesPageResults`)이 그리는 값 전부 — 시트·펼친 판만 쓰는 수(`hideHardCount` 등)는 넣지 않는다.
+ * 콜백은 여기 없다: 본 화면은 실제로 하고 엿보기는 아무것도 안 해서 본래 다르다.
+ */
+export type TPlacesPageResultsView = {
+  type: TPlaceType;
+  town: string | null;
+  area: TAreaId | null;
+  /** 다듬은 검색어. 빈 상태가 "검색 탓인가 필터 탓인가" 를 가르는 데 쓴다. */
+  query: string;
+  /** 걸러 내고 순서까지 세운 목록. */
+  results: TPlaceEntry[];
+  /** 이 종류에 그 읍면 자체가 없다(조건과 무관하게 0곳) — 전용 빈 상태(12 U1.6). */
+  townHasNoPlaces: boolean;
+  /** 켜진 조건 칩·시트 버튼 숫자·개수 줄 지우기 링크 문구(`placesPageChips`). */
+  chips: TPlacesPageChip[];
+  activeFilterCount: number;
+  hasFilters: boolean;
+  resetLabel: string;
+  /** 보이는 정렬 — '가까운 순' 인데 기준점이 없으면 기본. */
+  sort: TPlaceSort;
+  /** '가까운 순' 칩 앞에 붙는 기준 이름 — 들어온 장소, 없으면 검색어의 관광지·동 낱말(14 W261019.11). */
+  nearFrom: string | undefined;
+  /** 가까운 순일 때 장소 id → 거리(km). 카드가 "1.2km" 를 붙인다(10 F7). */
+  distances: Map<string, number> | undefined;
+  /** 같은 검색어가 맞는 다른 종류(`otherTypeMatches`) — 0곳이면 큰 안내, 결과가 있으면 목록 끝 한 줄(14 W261007.11 · W261019.11a). */
+  otherTypes: TTypeCount[];
+  /** 이하 0곳일 때만 — 결과가 있으면 비거나 0이다. 관광지·동 검색의 그 중심에서 가까운 곳(`landmarkNearby`, 14 W261019.11). */
+  landmarkNearby: { place: TPlaceEntry; km: number }[];
+  /** 숨김 조건만 풀면 맞는 곳이 있는 다른 종류(`otherTypeHiddenMatches`, 14 W261007.11b) — `otherTypes` 와 겹치지 않는다. */
+  hiddenOtherTypes: TTypeCount[];
+  /** 검색어 없이 0곳인 식당·카페에서 다른 자리 종류의 수(`otherSeatTypeMatches`, 14 W261010.33v). */
+  seatOtherTypes: TTypeCount[];
+  /** 읍면(18 T2.1)·권역(19 T3)·'갈 수 있는 곳만'(19 T4.1) 하나만 풀면 몇 곳인가 — 0 이면 그 탓이 아니다. */
+  townReleaseCount: number;
+  areaReleaseCount: number;
+  reachableReleaseCount: number;
+  /** 켜진 조건을 하나씩 풀면 몇 곳인가(`singleConditionReleases`, 14 W261010.33s) — 많은 순, 키는 칩 키. */
+  conditionReleases: TConditionRelease[];
+  /** 결과가 있는데 카드보다 적을 때만(19 T4.2) — 0곳이면 빈 상태 몫이다. */
+  areaCarried: TAreaCarried | null;
+};
+
+/**
+ * 종류 하나의 둘러보기 본문 값을 **한 번에** 낸다(14 W261019.11g) — 본 화면과 스와이프 엿보기가 이것 하나를 부르고 결과를 통째로 `PlacesPageResults` 에 넘긴다.
+ *
+ * 걸러 내는 함수는 전부터 같았는데 엿보기가 두 번 어긋났다 — '실내 자리 필요' 칩(12 U3.6)과 관광지 0곳의 가까운 곳(14 W261019.11b) 둘 다
+ * 본 화면이 새 값을 셈해 prop 으로 넘길 때 엿보기가 그 prop 을 안 넘긴 것이다. 값을 여기서 함께 내면 새 값은 한 곳에만 더하고 두 화면이 같이 받는다.
+ *
+ * 순서는 걸러진 목록(`filterPlacesPage`)에서 바로 세운다 — 가까운 순(좌표 없는 곳·다른 섬은 원래 자리)·가격순(안정 정렬)은 동점일 때 들어온 순서를 지키므로,
+ * 판정순으로 한 번 세운 것을 다시 정렬하면 동점 순서가 조용히 바뀐다. 0곳 갈래들은 순서와 무관하다(수만 본다).
+ */
+export const placesPageResultsView = (
+  {
+    petKeysByType,
+    dog,
+    needsIndoor,
+    ...rest
+  }: Omit<TPlacesPageConditions, 'petKeys'> & {
+    petKeysByType: Readonly<Record<TPlaceType, readonly TPetFilterKey[]>>;
+    dog: TDogProfile | null;
+    needsIndoor: boolean;
+  },
+  { sort, origin, nearPlace }: TPlacesPageOrder = PLACES_PAGE_DEFAULT_ORDER,
+): TPlacesPageResultsView => {
+  const conditions: TPlacesPageConditions = { ...rest, petKeys: petKeysByType[rest.type] };
+  const { type, town, area, query, eligibilityMap } = conditions;
+  const filtered = filterPlacesPage(conditions);
+
+  const nearOrigin = sort === 'near' ? origin : null;
+  const within = nearPlace ? (place: TPlaceEntry) => sameIsland(nearPlace, place) : undefined;
+  let results = filtered;
+  let distances: Map<string, number> | undefined;
+  if (nearOrigin) {
+    // 가까운 순을 고르면 거리가 우선이다 — 가격 정렬과 같은 결정(B3). 좌표 없는 곳은 뒤로, 기준이 장소면 다른 섬도 뒤로(근처 장소와 같은 규칙).
+    results = sortByDistance(filtered, nearOrigin, within);
+    distances = distancesFrom(results, nearOrigin, within);
+    // 기준 장소 자신(숙소 상세 → 근처 숙소)은 0km 로 맨 위에 선다 — "50m" 를 붙이면 자기에게서 잰 거리가 된다. 칩이 이름을 말한다.
+    if (nearPlace) distances.delete(nearPlace.id);
+  } else if (type === 'stay' && (sort === 'asc' || sort === 'desc')) {
+    // 가격 정렬을 고르면 가격이 우선이다(2026-09-15 리뷰 후속 B3 결정).
+    results = [...filtered].sort(comparePrice(sort));
+  } else if (eligibilityMap) {
+    // 프로필이 있으면 기본 정렬은 ok → cond → unknown → hard(갈 수 있어요 → 확인이 필요해요 → 정보가 없어요 → 이용하기 어려워요).
+    results = sortByEligibility(filtered, eligibilityMap, (place) => place.id);
+  }
+
+  // 다른 종류는 넘어간 탭의 조건 칩으로 센다(14 W261007.11a) — 그래서 이 종류의 칩(`petKeys`) 없는 조건에 종류별 칩을 통째로 넘긴다.
+  const acrossTypes = rest;
+  const empty = results.length === 0;
+  return {
+    type,
+    town,
+    area,
+    query: query.trim(),
+    results,
+    townHasNoPlaces: town !== null && placesByTown(type, town).length === 0,
+    ...placesPageChips({ ...conditions, needsIndoor, hasDog: Boolean(dog) }),
+    sort: sort === 'near' && !origin ? 'none' : sort,
+    nearFrom: nearPlace?.name ?? landmarkOfQuery(query)?.word,
+    distances,
+    landmarkNearby: empty ? landmarkNearby(conditions) : [],
+    // 결과가 있어도 센다 — "다른 종류에도 있어요 · 식당 1곳"(14 W261007.11). 검색어가 없으면 빈 배열이다.
+    otherTypes: otherTypeMatches(acrossTypes, petKeysByType),
+    hiddenOtherTypes: empty ? otherTypeHiddenMatches(acrossTypes, petKeysByType) : [],
+    seatOtherTypes: empty ? otherSeatTypeMatches(acrossTypes, petKeysByType) : [],
+    townReleaseCount: empty ? townReleaseCount(conditions) : 0,
+    areaReleaseCount: empty ? areaReleaseCount(conditions) : 0,
+    reachableReleaseCount: empty ? reachableReleaseCount(conditions) : 0,
+    conditionReleases: empty ? singleConditionReleases(conditions, { dog, needsIndoor }) : [],
+    areaCarried: empty ? null : areaCarriedRelease(conditions, results.length),
   };
 };

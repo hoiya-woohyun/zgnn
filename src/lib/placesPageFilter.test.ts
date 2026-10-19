@@ -13,9 +13,11 @@ import {
   otherSeatTypeMatches,
   otherTypeHiddenMatches,
   otherTypeMatches,
+  PLACES_PAGE_DEFAULT_ORDER,
   placesPageEmptySearch,
   placesByTown,
   placesPageChips,
+  placesPageResultsView,
   placesPageSortLabel,
   placesPageSortOptions,
   reachableReleaseCount,
@@ -26,7 +28,10 @@ import {
 import { landmarkOfWord } from './landmarks';
 import { freshnessOf } from './placeFreshness';
 import { matchesQuery } from './placeSearch';
-import { PLACES, distanceKm, placesOfType, topTowns } from './places';
+import { comparePrice } from './placeFilters';
+import { PLACES, distanceKm, placesOfType, sameIsland, topTowns } from './places';
+import { sortByDistance } from './distanceSort';
+import { sortByEligibility } from './sortByEligibility';
 import type { TDogProfile, TPlaceType } from '../types';
 
 const base = { town: null, area: null, query: '', directions: [], petKeys: [], hideHard: false, onlyReachable: false, eligibilityMap: null } as const;
@@ -732,5 +737,151 @@ describe('정렬 이름·칸(14 W261019.13)', () => {
     for (const type of TYPES) {
       expect(filterPlacesPage({ ...base, type, eligibilityMap }).map((place) => place.id)).toEqual(placesOfType(type).map((place) => place.id));
     }
+  });
+});
+
+describe('placesPageResultsView — 본 화면·엿보기가 받는 본문 값 한 벌(14 W261019.11g)', () => {
+  const DUBU: TDogProfile = { dogs: [{ name: '두부', weightKg: 3 }], carrier: 'bag' };
+  const BORI: TDogProfile = { dogs: [{ name: '보리', weightKg: 30 }], carrier: 'none' };
+  const NO_KEYS = { stay: [], restaurant: [], cafe: [] } as const;
+  type TInput = Parameters<typeof placesPageResultsView>[0];
+  type TOrder = NonNullable<Parameters<typeof placesPageResultsView>[1]>;
+
+  const inputOf = (type: TPlaceType, dog: TDogProfile | null, needsIndoor: boolean, extra: Partial<TInput> = {}): TInput => ({
+    type,
+    town: null,
+    area: null,
+    query: '',
+    directions: [],
+    hideHard: false,
+    onlyReachable: false,
+    petKeysByType: NO_KEYS,
+    dog,
+    needsIndoor,
+    eligibilityMap: dog ? eligibilityMapOf(PLACES, dog, { needsIndoor }) : null,
+    ...extra,
+  });
+
+  /** 묶기 전 본 화면(`placesPage`)이 값마다 따로 부르던 그대로 — 새 함수가 이것과 같아야 동작이 안 바뀐다. */
+  const separately = (input: TInput, { sort, origin, nearPlace }: TOrder) => {
+    const { petKeysByType, dog, needsIndoor, ...rest } = input;
+    const conditions = { ...rest, petKeys: petKeysByType[rest.type] };
+    let results = filterPlacesPage(conditions);
+    const within = nearPlace ? (place: (typeof results)[number]) => sameIsland(nearPlace, place) : undefined;
+    if (sort === 'near' && origin) results = sortByDistance(results, origin, within);
+    else if (rest.type === 'stay' && (sort === 'asc' || sort === 'desc')) results = [...results].sort(comparePrice(sort));
+    else if (rest.eligibilityMap) results = sortByEligibility(results, rest.eligibilityMap, (place) => place.id);
+    const empty = results.length === 0;
+    return {
+      results: results.map((place) => place.id),
+      townHasNoPlaces: rest.town !== null && placesByTown(rest.type, rest.town).length === 0,
+      ...placesPageChips({ ...conditions, needsIndoor, hasDog: Boolean(dog) }),
+      landmarkNearby: empty ? landmarkNearby(conditions).map(({ place, km }) => [place.id, km]) : [],
+      otherTypes: otherTypeMatches(rest, petKeysByType),
+      hiddenOtherTypes: empty ? otherTypeHiddenMatches(rest, petKeysByType) : [],
+      seatOtherTypes: empty ? otherSeatTypeMatches(rest, petKeysByType) : [],
+      townReleaseCount: empty ? townReleaseCount(conditions) : 0,
+      areaReleaseCount: empty ? areaReleaseCount(conditions) : 0,
+      reachableReleaseCount: empty ? reachableReleaseCount(conditions) : 0,
+      conditionReleases: empty ? singleConditionReleases(conditions, { dog, needsIndoor }) : [],
+      areaCarried: empty ? null : areaCarriedRelease(conditions, results.length),
+    };
+  };
+
+  const viewOf = (input: TInput, order?: TOrder) => {
+    const view = placesPageResultsView(input, order);
+    return {
+      results: view.results.map((place) => place.id),
+      townHasNoPlaces: view.townHasNoPlaces,
+      chips: view.chips,
+      activeFilterCount: view.activeFilterCount,
+      hasFilters: view.hasFilters,
+      resetLabel: view.resetLabel,
+      landmarkNearby: view.landmarkNearby.map(({ place, km }) => [place.id, km]),
+      otherTypes: view.otherTypes,
+      hiddenOtherTypes: view.hiddenOtherTypes,
+      seatOtherTypes: view.seatOtherTypes,
+      townReleaseCount: view.townReleaseCount,
+      areaReleaseCount: view.areaReleaseCount,
+      reachableReleaseCount: view.reachableReleaseCount,
+      conditionReleases: view.conditionReleases,
+      areaCarried: view.areaCarried,
+    };
+  };
+
+  it('따로 부르던 값과 같다 — 종류 × 강아지 × 검색어 × 조건 묶음', () => {
+    const conditionSets: Partial<TInput>[] = [
+      {},
+      { area: 'west', onlyReachable: true },
+      { area: 'west', query: '애월' },
+      { town: '애월읍', directions: ['east'] },
+      { town: '우도면', hideHard: true },
+      { hideHard: true, onlyReachable: true, petKeysByType: { stay: ['largeDog'], restaurant: ['indoor'], cafe: ['noCage'] } },
+    ];
+    const queries = ['', '서귀포', '법환', '법환 카레', '중문', '없는가게이름'];
+    let empties = 0;
+    for (const type of TYPES) {
+      for (const [dog, needsIndoor] of [[null, false], [DUBU, false], [BORI, true]] as const) {
+        for (const set of conditionSets) {
+          for (const query of set.query !== undefined ? [set.query] : queries) {
+            const input = inputOf(type, dog, needsIndoor, { ...set, query });
+            const expected = separately(input, PLACES_PAGE_DEFAULT_ORDER);
+            if (expected.results.length === 0) empties++;
+            expect(viewOf(input), `${type} ${dog?.dogs[0].name ?? '없음'} ${JSON.stringify(set)} '${query}'`).toEqual(expected);
+          }
+        }
+      }
+    }
+    // 0곳 갈래도 실제로 돌았다(빈 경우가 없으면 위 비교는 0곳 값을 안 본 것이다).
+    expect(empties).toBeGreaterThan(20);
+  });
+
+  it('엿보기(순서 없이 부른다) = 기본 순서의 본 화면 — 정렬만 종류를 바꾸면 리셋된다', () => {
+    for (const type of TYPES) {
+      const input = inputOf(type, BORI, false, { query: '서귀포' });
+      expect(placesPageResultsView(input)).toEqual(placesPageResultsView(input, PLACES_PAGE_DEFAULT_ORDER));
+      expect(placesPageResultsView(input).sort).toBe('none');
+      expect(placesPageResultsView(input).distances).toBeUndefined();
+    }
+  });
+
+  it('가까운 순은 걸러진 목록에서 바로 거리로 세운다 — 따로 부르던 것과 같은 순서·거리', () => {
+    const origin = landmarkOfWord('중문')!.center;
+    for (const type of TYPES) {
+      const input = inputOf(type, BORI, false);
+      const order: TOrder = { sort: 'near', origin, nearPlace: null };
+      expect(viewOf(input, order)).toEqual(separately(input, order));
+      const view = placesPageResultsView(input, order);
+      expect(view.sort).toBe('near');
+      expect(view.distances?.size).toBe(view.results.filter((place) => place.geo).length);
+    }
+  });
+
+  it("기준점이 없는 '가까운 순' 은 기본 순서로 보인다", () => {
+    const input = inputOf('cafe', DUBU, false);
+    const view = placesPageResultsView(input, { sort: 'near', origin: null, nearPlace: null });
+    expect(view.sort).toBe('none');
+    expect(view.distances).toBeUndefined();
+    expect(view.results).toEqual(placesPageResultsView(input).results);
+  });
+
+  it('가격순은 숙소만 — 식당·카페는 판정순 그대로', () => {
+    for (const sort of ['asc', 'desc'] as const) {
+      const stay = inputOf('stay', DUBU, false);
+      expect(viewOf(stay, { sort, origin: null, nearPlace: null })).toEqual(separately(stay, { sort, origin: null, nearPlace: null }));
+      const cafe = inputOf('cafe', DUBU, false);
+      expect(placesPageResultsView(cafe, { sort, origin: null, nearPlace: null }).results).toEqual(placesPageResultsView(cafe).results);
+    }
+  });
+
+  it('기준이 장소면 그 이름이 칩에 붙고 자기 자신엔 거리를 안 붙인다, 아니면 검색어의 관광지 낱말', () => {
+    const nearPlace = placesOfType('stay').find((place) => place.geo)!;
+    const input = inputOf('stay', null, false);
+    const view = placesPageResultsView(input, { sort: 'near', origin: nearPlace.geo!, nearPlace });
+    expect(view.nearFrom).toBe(nearPlace.name);
+    expect(view.results[0].id).toBe(nearPlace.id);
+    expect(view.distances?.has(nearPlace.id)).toBe(false);
+    expect(placesPageResultsView(inputOf('cafe', null, false, { query: '중문 카페' })).nearFrom).toBe('중문');
+    expect(placesPageResultsView(inputOf('cafe', null, false, { query: '서귀포' })).nearFrom).toBeUndefined();
   });
 });
