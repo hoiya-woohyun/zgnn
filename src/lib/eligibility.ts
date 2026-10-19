@@ -237,6 +237,28 @@ const ruleNearWeightLimit: TRule = (dog, policy) => {
   return { level: 'info', text: nearLimitText(dogsTopic([heaviest]), tier, left), quote: tier.source };
 };
 
+/** 요금이 크기·몸무게로 갈린다고 적혀 있다("10kg 이상 4만원" · "중형견 2만원" · 무게 구간 요금 구조) — 원문이 크기를 말한 것이다(I3). */
+const FEE_SIZE_RE = /kg|대형|중형|소형/;
+const feeMentionsSize = (policy: TPetPolicy): boolean =>
+  (policy.feeRules?.some((r) => r.minKg !== null || r.maxKg !== null) ?? false) ||
+  policy.feeLines.some((line) => FEE_SIZE_RE.test(line));
+
+/**
+ * I3: 중형견(10~25kg)인데 원문이 크기에 대해 아무 말도 안 했다(14 W261019.5). 오늘당근("실내외 모두 가능" 뿐)에 25kg 이 '갈 수 있어요' 뿐이라
+ * 크기 언급이 없다는 것을 몰랐다. 판정은 그대로다(info) — 카페·식당의 "모두 가능" 은 보통 크기와 무관하고, 확인 필요로 내리면 근거 없이 수를 깎는다.
+ * 대형(25kg 초과)은 C5 가 확인 필요로 이미 말하고, 소형은 크기로 막히는 일이 드물다 — 그래서 중형만이다.
+ * 원문을 못 읽은 곳(`unread`, C7)·조건이 없는 곳(`noInfo`, U1)은 뺀다 — 읽지 못했는데 "적혀 있지 않다" 고 하면 틀린 말이다.
+ * 카드 이유 줄(`primaryReason`)은 아니다 — 크기를 말하지 않은 곳이 많아(122곳 중 12kg 기준 51곳) 같은 줄이 수십 장에 붙는다. 상세 근거 목록에만 선다.
+ */
+const ruleSizeUnmentioned: TRule = (dog, policy) => {
+  if (dogSize(dog) !== 'medium') return null;
+  if (policy.noInfo || policy.unread) return null;
+  if (policy.largeDogOk || policy.mediumDogOk || policy.largeDogNo || policy.smallDogOnly) return null;
+  if (policy.weightLimitKg !== undefined || policy.tiers.some((t) => t.maxWeightKg !== undefined)) return null;
+  if (feeMentionsSize(policy)) return null;
+  return { level: 'info', text: '크기 제한은 적혀 있지 않아요' };
+};
+
 /** H3: "소형견만" 인데 우리 강아지는 소형이 아니다. */
 const ruleSmallOnly: TRule = (dog, policy) => {
   if (!policy.smallDogOnly) return null;
@@ -546,6 +568,7 @@ const RULES: [string, TRule][] = [
   ['C9', ruleGenericUnverified],
   ['U1', ruleNoInfo],
   ['I2', ruleNearWeightLimit],
+  ['I3', ruleSizeUnmentioned],
 ];
 
 /**

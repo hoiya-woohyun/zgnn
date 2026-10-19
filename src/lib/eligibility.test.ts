@@ -996,3 +996,42 @@ describe('judgeEligibility — 실내 조건을 모르는 식당·카페에 실�
     expect(hit).toEqual([]);
   });
 });
+
+describe('judgeEligibility — 중형견에게 크기 언급이 없는 곳을 말한다(I3, 14 W261019.5)', () => {
+  const dog = (weightKg: number): TDogProfile => ({ dogs: [{ name: '보리', weightKg }], carrier: 'none' });
+  const sizeLine = (weightKg: number, policy: ReturnType<typeof parsePetPolicy>) =>
+    judgeEligibility(dog(weightKg), policy).reasons.find((r) => r.rule === 'I3');
+
+  it('오늘당근("실내외 모두 가능" 뿐) × 12kg — 판정은 그대로 갈 수 있어요, 상세 근거에만 한 줄이고 카드 이유 줄은 없다', () => {
+    const e = judgeEligibility(dog(12), findPlace('오늘당근').policy);
+    expect(e.level).toBe('ok');
+    expect(e.reasons.find((r) => r.rule === 'I3')).toMatchObject({ level: 'info', text: '크기 제한은 적혀 있지 않아요' });
+    expect(primaryReason(e)).toBeUndefined();
+  });
+
+  it('경계 — 25kg 은 중형이라 이 줄, 26kg 은 대형이라 C5(확인 필요)가 말한다, 9kg 은 소형이라 없다', () => {
+    const { policy } = findPlace('오늘당근');
+    expect(sizeLine(25, policy)).toBeDefined();
+    const large = judgeEligibility(dog(26), policy);
+    expect(large.level).toBe('cond');
+    expect(large.reasons.map((r) => r.rule)).toEqual(['C5']);
+    expect(sizeLine(9, policy)).toBeUndefined();
+  });
+
+  it('원문이 크기를 말했으면 없다 — 중형·대형 OK · 대형 불가 · 무게 상한 · kg 요금', () => {
+    expect(sizeLine(12, parsePetPolicy('중형견까지 동반 가능해요.'))).toBeUndefined();
+    expect(sizeLine(12, parsePetPolicy('대형견도 동반 가능해요.'))).toBeUndefined();
+    expect(sizeLine(12, parsePetPolicy('대형견은 동반이 어려워요.'))).toBeUndefined();
+    expect(sizeLine(12, findPlace('선흘안').policy)).toBeUndefined();
+    expect(sizeLine(12, findPlace('캄 : Kalm').policy)).toBeUndefined();
+  });
+
+  it('원문을 못 읽었거나 조건이 없으면 없다 — 읽지 못했는데 "적혀 있지 않다" 고 하면 틀린 말이다', () => {
+    const unread = parsePetPolicy('ㅁㄴㅇㄹ 반려견');
+    expect(unread.unread).toBe(true);
+    expect(sizeLine(12, unread)).toBeUndefined();
+    const noInfo = parsePetPolicy('');
+    expect(noInfo.noInfo).toBe(true);
+    expect(sizeLine(12, noInfo)).toBeUndefined();
+  });
+});

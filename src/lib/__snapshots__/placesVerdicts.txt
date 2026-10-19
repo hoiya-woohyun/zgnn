@@ -7,8 +7,8 @@ evidence {"lines":["반려견 요금이 따로 붙어요(금액은 적혀 있지
 env {"standalone":true,"yard":null,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
 small4+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
-medium12 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
-medium12+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+medium12 cond | C6:cond:방문 전 전화 확인이 필요해요 / I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 / I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
 two5and8 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
@@ -25,7 +25,7 @@ evidence {"lines":["야외 자리에서만 같이 있을 수 있어요"],"note":
 env null
 small4 cond | C1:cond:야외 자리만 가능해요 |  | 
 small4+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
-medium12 cond | C1:cond:야외 자리만 가능해요 |  | 
+medium12 cond | C1:cond:야외 자리만 가능해요 / I3:info:크기 제한은 적혀 있지 않아요 |  | 
 medium12+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
 large28 cond | C1:cond:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor hard | H6:hard:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
@@ -61,8 +61,8 @@ evidence {"lines":["예방접종을 마친 강아지만 들어갈 수 있어요"
 env null
 small4 cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
 small4+indoor cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
-medium12 cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
-medium12+indoor cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+medium12 cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 / I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
 two5and8 cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
@@ -97,8 +97,8 @@ evidence {"lines":["실내에도 같이 들어갈 수 있어요"],"note":null}
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 two5and8 ok |  |  | 
@@ -151,8 +151,8 @@ evidence raw
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 two5and8 ok |  |  | 
@@ -403,8 +403,8 @@ evidence raw
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 two5and8 ok |  |  | 
@@ -511,8 +511,8 @@ evidence raw
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 two5and8 ok |  |  | 
@@ -547,7 +547,7 @@ evidence raw
 env null
 small4 cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
 small4+indoor cond | C2:cond:케이지라고 적혀 있어요. 이동가방도 되는지 확인해 주세요 |  | 
-medium12 cond | C4:cond:실내는 케이지, 야외는 자유예요 |  | 
+medium12 cond | C4:cond:실내는 케이지, 야외는 자유예요 / I3:info:크기 제한은 적혀 있지 않아요 |  | 
 medium12+indoor hard | C4:hard:실내는 케이지, 야외는 자유예요 |  | 
 large28 cond | H4:cond:실내는 케이지 필수라 대형견은 야외 자리만 가능해요 / C4:cond:실내는 케이지, 야외는 자유예요 |  | 
 large28+indoor hard | H4:hard:실내는 케이지 필수라 대형견은 야외 자리만 가능해요 / C4:hard:실내는 케이지, 야외는 자유예요 |  | 
@@ -565,7 +565,7 @@ evidence raw
 env null
 small4 cond | C1:cond:야외 자리만 가능해요 |  | 
 small4+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
-medium12 cond | C1:cond:야외 자리만 가능해요 |  | 
+medium12 cond | C1:cond:야외 자리만 가능해요 / I3:info:크기 제한은 적혀 있지 않아요 |  | 
 medium12+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
 large28 cond | C1:cond:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor hard | H6:hard:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
@@ -691,8 +691,8 @@ evidence raw
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 two5and8 ok |  |  | 
@@ -709,7 +709,7 @@ evidence raw
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 cond | C4:cond:실내는 이동가방이나 유모차, 야외는 자유예요 |  | 
+medium12 cond | C4:cond:실내는 이동가방이나 유모차, 야외는 자유예요 / I3:info:크기 제한은 적혀 있지 않아요 |  | 
 medium12+indoor hard | C4:hard:실내는 이동가방이나 유모차, 야외는 자유예요 |  | 
 large28 cond | H4:cond:실내는 이동가방이나 유모차 필수라 대형견은 야외 자리만 가능해요 / C4:cond:실내는 이동가방이나 유모차, 야외는 자유예요 |  | 
 large28+indoor hard | H4:hard:실내는 이동가방이나 유모차 필수라 대형견은 야외 자리만 가능해요 / C4:hard:실내는 이동가방이나 유모차, 야외는 자유예요 |  | 
@@ -727,8 +727,8 @@ evidence raw
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 two5and8 ok |  |  | 
@@ -745,8 +745,8 @@ evidence raw
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 two5and8 ok |  |  | 
@@ -799,8 +799,8 @@ evidence raw
 env null
 small4 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
 small4+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
-medium12 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
-medium12+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+medium12 cond | C6:cond:방문 전 전화 확인이 필요해요 / I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 / I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
 two5and8 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
@@ -943,8 +943,8 @@ evidence raw
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 two5and8 ok |  |  | 
@@ -997,8 +997,8 @@ evidence raw
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 two5and8 ok |  |  | 
@@ -1015,7 +1015,7 @@ evidence raw
 env null
 small4 cond | C1:cond:야외 자리만 가능해요 |  | 
 small4+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
-medium12 cond | C1:cond:야외 자리만 가능해요 |  | 
+medium12 cond | C1:cond:야외 자리만 가능해요 / I3:info:크기 제한은 적혀 있지 않아요 |  | 
 medium12+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
 large28 cond | C1:cond:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor hard | H6:hard:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
@@ -1051,8 +1051,8 @@ evidence raw
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 two5and8 ok |  |  | 
@@ -1069,8 +1069,8 @@ evidence raw
 env null
 small4 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
 small4+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
-medium12 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
-medium12+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
+medium12 cond | C6:cond:방문 전 전화 확인이 필요해요 / I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor cond | C6:cond:방문 전 전화 확인이 필요해요 / I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
 two5and8 cond | C6:cond:방문 전 전화 확인이 필요해요 |  | 
@@ -1141,8 +1141,8 @@ evidence raw
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 two5and8 ok |  |  | 
@@ -1159,7 +1159,7 @@ evidence raw
 env null
 small4 cond | C1:cond:야외 자리만 가능해요 |  | 
 small4+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
-medium12 cond | C1:cond:야외 자리만 가능해요 |  | 
+medium12 cond | C1:cond:야외 자리만 가능해요 / I3:info:크기 제한은 적혀 있지 않아요 |  | 
 medium12+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
 large28 cond | C1:cond:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor hard | H6:hard:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
@@ -1231,8 +1231,8 @@ evidence raw
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 two5and8 ok |  |  | 
@@ -1267,8 +1267,8 @@ evidence raw
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 two5and8 ok |  |  | 
@@ -1285,8 +1285,8 @@ evidence raw
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 two5and8 ok |  |  | 
@@ -1303,8 +1303,8 @@ evidence raw
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 two5and8 ok |  |  | 
@@ -1321,8 +1321,8 @@ evidence raw
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 two5and8 ok |  |  | 
@@ -1375,8 +1375,8 @@ evidence raw
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 two5and8 ok |  |  | 
@@ -1411,8 +1411,8 @@ evidence raw
 env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 ok | I1:info:두부는 5만원 | 두부는 5만원 | 1박 기준인지는 적혀 있지 않아요
 small4+indoor ok | I1:info:두부는 5만원 | 두부는 5만원 | 1박 기준인지는 적혀 있지 않아요
-medium12 ok | I1:info:보리는 5만원 | 보리는 5만원 | 1박 기준인지는 적혀 있지 않아요
-medium12+indoor ok | I1:info:보리는 5만원 | 보리는 5만원 | 1박 기준인지는 적혀 있지 않아요
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 / I1:info:보리는 5만원 | 보리는 5만원 | 1박 기준인지는 적혀 있지 않아요
+medium12+indoor ok | I3:info:크기 제한은 적혀 있지 않아요 / I1:info:보리는 5만원 | 보리는 5만원 | 1박 기준인지는 적혀 있지 않아요
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / I1:info:받아 준다면 대장이는 5만원 | 받아 준다면 대장이는 5만원 | 1박 기준인지는 적혀 있지 않아요
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / I1:info:받아 준다면 대장이는 5만원 | 받아 준다면 대장이는 5만원 | 1박 기준인지는 적혀 있지 않아요
 two5and8 ok | I1:info:콩이와 팥이는 2마리 합계 10만원 (1마리당 5만원) | 콩이와 팥이는 2마리 합계 10만원 (1마리당 5만원) | 1박 기준인지는 적혀 있지 않아요
@@ -1429,8 +1429,8 @@ evidence raw
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 two5and8 ok |  |  | 
@@ -1465,8 +1465,8 @@ evidence raw
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 two5and8 ok |  |  | 
@@ -1555,8 +1555,8 @@ evidence raw
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 two5and8 ok |  |  | 
@@ -1609,8 +1609,8 @@ evidence raw
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 two5and8 ok |  |  | 
@@ -1645,7 +1645,7 @@ evidence {"lines":["야외 자리에서만 같이 있을 수 있어요","예방�
 env null
 small4 cond | C1:cond:야외 자리만 가능해요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
 small4+indoor hard | H6:hard:야외 자리만 가능해요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
-medium12 cond | C1:cond:야외 자리만 가능해요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
+medium12 cond | C1:cond:야외 자리만 가능해요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / I3:info:크기 제한은 적혀 있지 않아요 |  | 
 medium12+indoor hard | H6:hard:야외 자리만 가능해요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
 large28 cond | C1:cond:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
 large28+indoor hard | H6:hard:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
@@ -1681,7 +1681,7 @@ evidence {"lines":["야외 자리에서만 같이 있을 수 있어요"],"note":
 env null
 small4 cond | C1:cond:야외 자리만 가능해요 |  | 
 small4+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
-medium12 cond | C1:cond:야외 자리만 가능해요 |  | 
+medium12 cond | C1:cond:야외 자리만 가능해요 / I3:info:크기 제한은 적혀 있지 않아요 |  | 
 medium12+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
 large28 cond | C1:cond:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor hard | H6:hard:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
@@ -1699,7 +1699,7 @@ evidence {"lines":["야외 자리에서만 같이 있을 수 있어요"],"note":
 env null
 small4 cond | C1:cond:야외 자리만 가능해요 |  | 
 small4+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
-medium12 cond | C1:cond:야외 자리만 가능해요 |  | 
+medium12 cond | C1:cond:야외 자리만 가능해요 / I3:info:크기 제한은 적혀 있지 않아요 |  | 
 medium12+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
 large28 cond | C1:cond:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor hard | H6:hard:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
@@ -1717,8 +1717,8 @@ evidence {"lines":["실내에도 같이 들어갈 수 있어요","반려견 추�
 env null
 small4 ok | I1:info:두부는 추가 요금 없음 | 두부는 추가 요금 없음 | 
 small4+indoor ok | I1:info:두부는 추가 요금 없음 | 두부는 추가 요금 없음 | 
-medium12 ok | I1:info:보리는 추가 요금 없음 | 보리는 추가 요금 없음 | 
-medium12+indoor ok | I1:info:보리는 추가 요금 없음 | 보리는 추가 요금 없음 | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 / I1:info:보리는 추가 요금 없음 | 보리는 추가 요금 없음 | 
+medium12+indoor ok | I3:info:크기 제한은 적혀 있지 않아요 / I1:info:보리는 추가 요금 없음 | 보리는 추가 요금 없음 | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / I1:info:받아 준다면 대장이는 추가 요금 없음 | 받아 준다면 대장이는 추가 요금 없음 | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / I1:info:받아 준다면 대장이는 추가 요금 없음 | 받아 준다면 대장이는 추가 요금 없음 | 
 two5and8 ok | I1:info:콩이와 팥이는 추가 요금 없음 | 콩이와 팥이는 추가 요금 없음 | 
@@ -1735,8 +1735,8 @@ evidence {"lines":["실내에도 같이 들어갈 수 있어요"],"note":null}
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 two5and8 ok |  |  | 
@@ -1753,7 +1753,7 @@ evidence {"lines":["야외 자리에서만 같이 있을 수 있어요"],"note":
 env null
 small4 cond | C1:cond:야외 자리만 가능해요 |  | 
 small4+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
-medium12 cond | C1:cond:야외 자리만 가능해요 |  | 
+medium12 cond | C1:cond:야외 자리만 가능해요 / I3:info:크기 제한은 적혀 있지 않아요 |  | 
 medium12+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
 large28 cond | C1:cond:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor hard | H6:hard:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
@@ -1771,8 +1771,8 @@ evidence {"lines":["실내에도 같이 들어갈 수 있어요","리드줄을 �
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 two5and8 ok |  |  | 
@@ -1807,8 +1807,8 @@ evidence {"lines":["예방접종을 마친 강아지만 들어갈 수 있어요"
 env null
 small4 cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
 small4+indoor cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
-medium12 cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
-medium12+indoor cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+medium12 cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 / I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
 two5and8 cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
@@ -1825,7 +1825,7 @@ evidence {"lines":["야외 자리에서만 같이 있을 수 있어요"],"note":
 env null
 small4 cond | C1:cond:야외 자리만 가능해요 |  | 
 small4+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
-medium12 cond | C1:cond:야외 자리만 가능해요 |  | 
+medium12 cond | C1:cond:야외 자리만 가능해요 / I3:info:크기 제한은 적혀 있지 않아요 |  | 
 medium12+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
 large28 cond | C1:cond:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor hard | H6:hard:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
@@ -1861,8 +1861,8 @@ evidence {"lines":["예방접종을 마친 강아지만 들어갈 수 있어요"
 env null
 small4 cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
 small4+indoor cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
-medium12 cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
-medium12+indoor cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+medium12 cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 / I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
 two5and8 cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
@@ -1879,7 +1879,7 @@ evidence {"lines":["야외 자리에서만 같이 있을 수 있어요"],"note":
 env null
 small4 cond | C1:cond:야외 자리만 가능해요 |  | 
 small4+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
-medium12 cond | C1:cond:야외 자리만 가능해요 |  | 
+medium12 cond | C1:cond:야외 자리만 가능해요 / I3:info:크기 제한은 적혀 있지 않아요 |  | 
 medium12+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
 large28 cond | C1:cond:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor hard | H6:hard:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
@@ -1897,8 +1897,8 @@ evidence {"lines":["실내에도 같이 들어갈 수 있어요"],"note":"마당
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 two5and8 ok |  |  | 
@@ -1915,8 +1915,8 @@ evidence {"lines":["실내에도 같이 들어갈 수 있어요"],"note":"리쉬
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 two5and8 ok |  |  | 
@@ -2023,8 +2023,8 @@ evidence {"lines":["반려견 추가 요금은 없어요","리드줄을 꼭 해 
 env null
 small4 ok | I1:info:두부는 추가 요금 없음 | 두부는 추가 요금 없음 | 
 small4+indoor cond | C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 / I1:info:두부는 추가 요금 없음 | 두부는 추가 요금 없음 | 
-medium12 ok | I1:info:보리는 추가 요금 없음 | 보리는 추가 요금 없음 | 
-medium12+indoor cond | C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 / I1:info:보리는 추가 요금 없음 | 보리는 추가 요금 없음 | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 / I1:info:보리는 추가 요금 없음 | 보리는 추가 요금 없음 | 
+medium12+indoor cond | C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 / I3:info:크기 제한은 적혀 있지 않아요 / I1:info:보리는 추가 요금 없음 | 보리는 추가 요금 없음 | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / I1:info:받아 준다면 대장이는 추가 요금 없음 | 받아 준다면 대장이는 추가 요금 없음 | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 / I1:info:받아 준다면 대장이는 추가 요금 없음 | 받아 준다면 대장이는 추가 요금 없음 | 
 two5and8 ok | I1:info:콩이와 팥이는 추가 요금 없음 | 콩이와 팥이는 추가 요금 없음 | 
@@ -2059,8 +2059,8 @@ evidence {"lines":["예방접종을 마친 강아지만 들어갈 수 있어요"
 env null
 small4 cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
 small4+indoor cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
-medium12 cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
-medium12+indoor cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+medium12 cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 / I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
 two5and8 cond | C8:cond:예방접종을 마친 강아지만 들어갈 수 있어요. 접종 증명을 챙겨 주세요 |  | 
@@ -2077,7 +2077,7 @@ evidence {"lines":["야외 자리에서만 같이 있을 수 있어요"],"note":
 env null
 small4 cond | C1:cond:야외 자리만 가능해요 |  | 
 small4+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
-medium12 cond | C1:cond:야외 자리만 가능해요 |  | 
+medium12 cond | C1:cond:야외 자리만 가능해요 / I3:info:크기 제한은 적혀 있지 않아요 |  | 
 medium12+indoor hard | H6:hard:야외 자리만 가능해요 |  | 
 large28 cond | C1:cond:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor hard | H6:hard:야외 자리만 가능해요 / C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
@@ -2113,8 +2113,8 @@ evidence {"lines":["실내에도 같이 들어갈 수 있어요"],"note":null}
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 two5and8 ok |  |  | 
@@ -2131,8 +2131,8 @@ evidence {"lines":["실내에도 같이 들어갈 수 있어요"],"note":"아기
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 two5and8 ok |  |  | 
@@ -2167,8 +2167,8 @@ evidence {"lines":["리드줄을 꼭 해 주세요"],"note":null}
 env null
 small4 ok |  |  | 
 small4+indoor cond | C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
-medium12 ok |  |  | 
-medium12+indoor cond | C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
+medium12 ok | I3:info:크기 제한은 적혀 있지 않아요 |  | 
+medium12+indoor cond | C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 / I3:info:크기 제한은 적혀 있지 않아요 |  | 
 large28 cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 |  | 
 large28+indoor cond | C5:cond:대형견 언급이 없어요. 확인해 주세요 / C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
 two5and8 ok |  |  | 
