@@ -16,7 +16,8 @@ import {
   mapPageMarkerTabOrder,
 } from '../lib/mapPageMarkerLayout';
 import { loadNaverMaps, onNaverMapsAuthFailure, watchNaverMapInit } from '../lib/naverMap';
-import { JEJU_CENTER, jejuZoomFor, MY_LOCATION_COLOR, PLACE_FOCUS_ZOOM, type TPlaceEntry } from '../lib/places';
+import { mapPageFirstView } from '../lib/mapPageFirstView';
+import { MY_LOCATION_COLOR, PLACE_FOCUS_ZOOM, type TPlaceEntry } from '../lib/places';
 import type { TGeo, TPlaceType } from '../types';
 
 /**
@@ -513,13 +514,14 @@ export function MapPageCanvas({
          */
         const initialFocus = focusRef.current;
         appliedFocusRef.current = initialFocus;
+        const firstView = mapPageFirstView(containerRef.current.clientWidth, containerRef.current.clientHeight);
         const map = new maps.Map(containerRef.current, {
           // 장소 하나를 가리키며 들어왔으면 그 자리에서 연다 — 섬 전체를 먼저 그렸다가 날아가지 않게.
           center: initialFocus
             ? new maps.LatLng(initialFocus.lat, initialFocus.lng)
-            : new maps.LatLng(JEJU_CENTER[0], JEJU_CENTER[1]),
-          // 컨테이너 폭에서 계산한다 — 모바일 390px 는 10, 데스크톱 830px 는 11 이 된다.
-          zoom: initialFocus ? PLACE_FOCUS_ZOOM : jejuZoomFor(containerRef.current.clientWidth),
+            : new maps.LatLng(firstView.center[0], firstView.center[1]),
+          // 섬 경계를 칸의 보이는 자리에 맞춘다 — 모바일 390px 는 9, 데스크톱 830px 는 10(ADR-008 v35).
+          zoom: initialFocus ? PLACE_FOCUS_ZOOM : firstView.zoom,
           /*
            * 로고·저작권 표시는 끄지 않는다 — Maps 서비스 이용약관 제7조 ⑩.
            *

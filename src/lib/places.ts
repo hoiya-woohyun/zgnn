@@ -255,7 +255,7 @@ export const nearbyPlaces = (place: TPlaceEntry, limit = 3): { place: TPlaceEntr
 export const JEJU_CENTER: [number, number] = [33.38, 126.55];
 
 /**
- * 폭을 못 잴 때 쓰는 첫 화면 확대 수준(모바일 390px 에서 `jejuZoomFor` 가 내는 값과 같다).
+ * 폭을 못 잴 때 쓰는 첫 화면 확대 수준(모바일 390px 에서 `mapPageFirstView` 가 내는 값과 같다).
  *
  * **이 값의 방향은 두 번 뒤집혔다.** leaflet 의 `zoom`(클수록 확대) → Kakao 의 `level`(작을수록
  * 확대) → 네이버의 `zoom`(다시 **클수록 확대**, 기본 11). 그래서 직전의 `JEJU_LEVEL = 10` 에서
@@ -263,11 +263,11 @@ export const JEJU_CENTER: [number, number] = [33.38, 126.55];
  * 틀리면 화면에서만 드러난다.
  *
  * 한 단계 차이가 "섬이 꽉 찬다" 와 "절반만 잘린다" 다. 그래서 상수 하나로 박지 않고
- * 지도 컨테이너 폭에서 계산한다 — `jejuZoomFor` 를 볼 것.
+ * 지도 칸 폭·높이에서 계산한다 — `mapPageFirstView`(`mapPageFirstView.ts`)를 볼 것.
  *
  * 지도가 시야를 코드로 옮기는 것은 이 첫 한 번뿐이다 — 그 뒤는 사용자가 끌고 확대한다.
  */
-export const JEJU_ZOOM = 10;
+export const JEJU_ZOOM = 9;
 
 /**
  * 장소 한 곳을 가리킬 때의 확대 수준 — 상세 화면의 미니 지도와 `/map/?place=<id>` 로 들어온 첫 화면.
@@ -275,35 +275,3 @@ export const JEJU_ZOOM = 10;
  * 방향은 네이버 `zoom` 그대로 **클수록 확대**다(위 `JEJU_ZOOM` 주석).
  */
 export const PLACE_FOCUS_ZOOM = 14;
-
-/** 제주 본섬의 경도 폭(126.15~126.98). 추자도·우도까지는 아니고 "섬이 화면에 든다" 의 기준. */
-const JEJU_LON_SPAN = 0.83;
-
-/**
- * 섬 전체가 드는 줌에서 **한 단계 더 당긴다**(2026-09-28, 사용자 요청 — "지도가 너무 멀리 있다").
- *
- * 제주는 가로로 길어서(경도 0.83° × 위도 약 0.35°) 가로를 맞추면 세로 폰 화면의 위아래 절반 이상이
- * 바다다. 한 단계 당기면 보이는 경도가 섬 폭의 약 65%(390px 기준 0.54°)라 **동서 끝(한림·성산)은
- * 첫 화면에서 잘린다** — 알고 고른 것이다. 가운데(제주시~중문)가 읽히는 쪽이 첫 화면으로 낫고,
- * 끝은 끌면 나온다.
- */
-const FIRST_VIEW_STEP_IN = 1;
-
-/**
- * 지도를 처음 열 때의 확대 수준 — 섬 전체가 드는 줌 + `FIRST_VIEW_STEP_IN`.
- *
- * "섬 전체가 드는 줌" 은 이렇게 구한다. 타일 한 장(256px)이 경도 `360/2^zoom` 을 덮으므로
- * 폭 W px 에 보이는 경도는 `360/2^zoom × W/256` 이고, 그것이 `JEJU_LON_SPAN` 이상이어야 섬이 안
- * 잘린다 → `zoom ≤ log2(360 × W / (256 × span))`. 여기에 한 단계를 더해 모바일 390px → 10,
- * 데스크톱(좌측 패널을 뺀 830px) → 11 이 된다.
- *
- * 상수 하나를 쓰지 않는 이유: 모바일에 맞춘 값은 데스크톱에서 한 단계 멀고, 데스크톱 값은
- * 모바일에서 한 단계 가깝다 — 폭이 두 배면 맞는 줌이 한 단계 다르다.
- * 이 계산은 지도를 만들 때 **한 번만** 돈다 — 창 크기를 따라다니지 않는다.
- */
-export function jejuZoomFor(widthPx: number): number {
-  if (!Number.isFinite(widthPx) || widthPx <= 0) return JEJU_ZOOM;
-  const fitIsland = Math.floor(Math.log2((360 * widthPx) / (256 * JEJU_LON_SPAN)));
-  // 네이버 zoom 범위(6~21) 안으로. 아주 좁거나 넓은 컨테이너에서 벗어나지 않게.
-  return Math.min(21, Math.max(6, fitIsland + FIRST_VIEW_STEP_IN));
-}
