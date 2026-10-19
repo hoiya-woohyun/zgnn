@@ -1,11 +1,11 @@
 'use client';
 
-import { Heart, MarkerPin02, MessageTextSquare01, NavigationPointer01, Share01 } from '@untitledui/icons';
+import { Heart, MarkerPin02, MessageTextSquare01, NavigationPointer01, SearchLg, Share01 } from '@untitledui/icons';
 import { ActionTile } from '../components/actionTile';
 import { NaverActionTile } from '../components/naverLinkButton';
 import { SaveBurst, saveHeartMotion, useSaveToggle } from '../components/saveButton';
 import { showAppStatus } from '../lib/appStatus';
-import { naverDirectionsUrl, naverPlaceUrlOf } from '../lib/naverPlaceLink';
+import { naverDirectionsUrl, naverPlaceFindUrl, naverPlaceUrlOf } from '../lib/naverPlaceLink';
 import { shareMethodOf, shareTextFor } from '../lib/placeShare';
 import type { TPlaceEntry } from '../lib/places';
 import { useDog } from '../store/useAppStore';
@@ -30,7 +30,7 @@ export function PlaceDetailActions({ place }: { place: TPlaceEntry }) {
   /*
    * 네이버 칸은 둘 — **길찾기**와 **플레이스 홈**. 지도 칸이 길찾기인 이유: 플레이스로 보내면 거기서 한 번 더 눌러야 길이 나온다.
    * 플레이스 칸은 사진·전화·영업시간이 다 있는 홈 탭이다(ADR-002 v7 — 예전 '네이버 사진' 은 사진 탭이라 번호를 찾는 사람이 사진을 눌렀다).
-   * 주소는 id 로 만든 홈이 먼저, id 가 없으면 `naverUrl`. 좌표가 없는 곳(122곳 중 3곳)은 길찾기 칸이 없다 — 그 이유는 머리의 주소 줄이
+   * 주소는 id 로 만든 홈이 먼저, id 가 없으면 `naverUrl`, 그것도 없으면(38곳) 칸째 비우지 않고 '네이버에서 찾기'(`naverPlaceFindUrl` — 가게 페이지가 아니라 검색이라 이름이 다르다). 좌표가 없는 곳(122곳 중 3곳)은 길찾기 칸이 없다 — 그 이유는 머리의 주소 줄이
    * 말한다(`placeDetailAddressNote`). 예전엔 그 자리에 '네이버 지도'(`naverUrl`)를 세웠는데 플레이스 칸과 같은 가게 페이지라 합쳤다.
    */
   const directionsUrl = naverDirectionsUrl(place);
@@ -77,7 +77,11 @@ export function PlaceDetailActions({ place }: { place: TPlaceEntry }) {
       />
       <ActionTile icon={Share01} label="공유" onClick={share} aria-label={`${place.name} 공유하기`} data-ev="detail.share" />
       {directionsUrl && <NaverActionTile href={directionsUrl} icon={NavigationPointer01} label="길찾기" />}
-      {placeUrl && <NaverActionTile href={placeUrl} icon={MarkerPin02} label="네이버 플레이스" />}
+      {placeUrl ? (
+        <NaverActionTile href={placeUrl} icon={MarkerPin02} label="네이버 플레이스" />
+      ) : (
+        <NaverActionTile href={naverPlaceFindUrl(place)} icon={SearchLg} label="네이버에서 찾기" />
+      )}
       {place.reviewUrl && <ActionTile href={place.reviewUrl} icon={MessageTextSquare01} label="후기" />}
     </div>
   );

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { naverMapSearchUrl, naverPlaceHomeUrl, parseNaverPlaceId, naverDirectionsUrl } from './naverPlaceLink';
+import { naverMapSearchUrl, naverPlaceFindUrl, naverPlaceHomeUrl, parseNaverPlaceId, naverDirectionsUrl } from './naverPlaceLink';
 
 describe('naverPlaceHomeUrl', () => {
   it('플레이스 id 로 홈 탭 주소를 만든다', () => {
@@ -48,6 +48,24 @@ describe('parseNaverPlaceId', () => {
 describe('naverMapSearchUrl', () => {
   it('제주를 붙여 검색한다', () => {
     expect(naverMapSearchUrl(' 솔숲펜션 ')).toBe(`https://map.naver.com/p/search/${encodeURIComponent('제주 솔숲펜션')}`);
+  });
+});
+
+describe('naverPlaceFindUrl', () => {
+  const q = (text: string) => `https://map.naver.com/p/search/${encodeURIComponent(text)}`;
+
+  it('주소의 읍·면을 이름 앞에 붙인다', () => {
+    expect(naverPlaceFindUrl({ name: ' 바람 ', address: '제주 제주시 구좌읍 월정1길 46-9' })).toBe(q('구좌읍 바람'));
+  });
+
+  it('읍·면이 없으면 시를 붙인다', () => {
+    expect(naverPlaceFindUrl({ name: '포크 ', address: '제주 제주시 연동 1' })).toBe(q('제주시 포크'));
+    expect(naverPlaceFindUrl({ name: '드림회센터', address: '제주 서귀포시 중정로61번길 14' })).toBe(q('서귀포시 드림회센터'));
+  });
+
+  it('주소가 없으면 제주만 붙이고, 이름에 이미 있으면 다시 붙이지 않는다', () => {
+    expect(naverPlaceFindUrl({ name: '솔옆수' })).toBe(q('제주 솔옆수'));
+    expect(naverPlaceFindUrl({ name: '제주 부티아 독채 펜션', address: '제주 제주시 구좌읍 종달동길 84' })).toBe(q('구좌읍 제주 부티아 독채 펜션'));
   });
 });
 

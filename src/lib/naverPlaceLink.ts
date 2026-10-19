@@ -25,6 +25,21 @@ export function naverPlaceUrlOf(place: { naverPlaceId?: string; naverUrl?: strin
   return naverPlaceHomeUrl(place.naverPlaceId) ?? place.naverUrl;
 }
 
+/**
+ * 플레이스 id·URL 이 없는 곳(블로그 출처 38곳)의 '네이버에서 찾기' 주소 — 네이버 **지도 검색**이라 가게 페이지가 아니라 검색 결과로 열린다.
+ * 그래서 칸 이름이 '네이버 플레이스'(정확한 가게 페이지 · `naverPlaceUrlOf`)와 다르다. 전화·영업시간이 네이버 너머에만 있어 칸째 비우지 않는다(14 W261019.2).
+ *
+ * 검색어는 `{읍·면 또는 시} {이름}` — 38곳 중 '바람'·'포크'·'구둠'·'솔옆수' 처럼 짧거나 흔한 이름은 이름만으론 동명 가게가 섞인다.
+ * 주소에서 읍·면(없으면 제주시·서귀포시) 하나만 붙인다: 도로명·번지까지 넣으면 표기가 달라 검색이 비는 일이 잦다(`naverMapSearchUrl` 와 같은 이유).
+ * 이름에 이미 그 지역어가 들어 있으면 다시 붙이지 않는다. 운영 화면의 `naverMapSearchUrl` 은 그대로 둔다.
+ */
+export function naverPlaceFindUrl(place: { name: string; address?: string }): string {
+  const name = place.name.trim();
+  const region = place.address?.match(/\S+[읍면](?=\s|$)/)?.[0] ?? place.address?.match(/(제주시|서귀포시)(?=\s|$)/)?.[0] ?? '제주';
+  const query = name.includes(region) ? name : `${region} ${name}`;
+  return `https://map.naver.com/p/search/${encodeURIComponent(query)}`;
+}
+
 export type TNaverPlaceIdParse = { id: string | null } | { error: string };
 
 /**

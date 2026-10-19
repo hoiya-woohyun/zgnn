@@ -28,9 +28,9 @@ describe('placeDetailLocationOf', () => {
     expect(placeDetailAddressNote(place)).toBe('주소와 위치를 아직 확인하지 못해 길찾기 대신 네이버 플레이스로 이어 드려요');
   });
 
-  it('네이버 플레이스 칸이 서지 않으면 네이버 플레이스를 말하지 않는다', () => {
+  it('네이버 플레이스 주소가 없으면 네이버 플레이스 대신 찾기로 이어 준다', () => {
     expect(placeDetailAddressNote({ address: undefined, geo: undefined, naverUrl: undefined })).toBe(
-      '주소와 위치를 아직 확인하지 못했어요',
+      '주소와 위치를 아직 확인하지 못해 길찾기 대신 네이버에서 찾도록 이어 드려요',
     );
   });
 
