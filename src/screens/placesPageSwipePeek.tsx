@@ -2,7 +2,6 @@
 
 import { useMemo, type RefObject } from 'react';
 import { PlacesPageResults } from './placesPageResults';
-import { resetFiltersLabel } from '../lib/placeFilters';
 import { areaCarriedRelease, areaReleaseCount, filterPlacesPage, landmarkNearby, otherSeatTypeMatches, otherTypeHiddenMatches, otherTypeMatches, placesByTown, placesPageChips, reachableReleaseCount, singleConditionReleases, townReleaseCount } from '../lib/placesPageFilter';
 import { sortByEligibility } from '../lib/sortByEligibility';
 import { useAppStore, useDog } from '../store/useAppStore';
@@ -101,7 +100,7 @@ export function PlacesPageSwipePeek({ ref, type, side, top, height }: TPlacesPag
     [results.length, type, town, area, query, directions, petKeys, hideHard, onlyReachable, eligibilityMap],
   );
 
-  const { chips, activeFilterCount, hasFilters } = placesPageChips({
+  const { chips, activeFilterCount, hasFilters, resetLabel } = placesPageChips({
     type,
     town,
     area,
@@ -128,7 +127,7 @@ export function PlacesPageSwipePeek({ ref, type, side, top, height }: TPlacesPag
         results={results}
         townHasNoPlaces={town !== null && byTown.length === 0}
         hasFilters={hasFilters}
-        resetLabel={resetFiltersLabel(query.trim().length > 0, activeFilterCount)}
+        resetLabel={resetLabel}
         query={query.trim()}
         activeFilterCount={activeFilterCount}
         onClearQuery={noop}

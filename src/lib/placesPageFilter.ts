@@ -1,7 +1,7 @@
 import { areaOf, areaTownsLabel, type TAreaId } from './areaGroups';
 import { AREA_CARD_TYPES } from './homePageAreaCards';
 import { DIRECTION_LABEL, PLACE_TYPES, distanceKm, placesOfType, type TPlaceEntry } from './places';
-import { PET_FILTERS, carriedFilterChips, envFiltersWithData, type TPetFilter, type TPetFilterKey, type TPlaceSort } from './placeFilters';
+import { PET_FILTERS, carriedFilterChips, envFiltersWithData, resetFiltersLabel, type TPetFilter, type TPetFilterKey, type TPlaceSort } from './placeFilters';
 import { freshnessOf } from './placeFreshness';
 import { isTypeWord, landmarkOfQuery, matchesQuery, queryWords } from './placeSearch';
 import type { TEligibility } from './eligibility';
@@ -370,6 +370,10 @@ const queryChip = (query: string): TPlacesPageChip => {
  * 접힌 시트 버튼의 숫자는 시트 안에서 끌 수 있는 것의 수여야 한다. '갈 수 있는 곳만' 은 시트에 칩이 생겨(14 W261013.14d) 센다 — 자리는 권역 바로 뒤 그대로
  * (카드가 둘을 함께 건다). 권역은 맨 앞 — 목록 전체의 테두리라 먼저 읽혀야 한다.
  * 정렬은 칩이 아니다(14 W261019.13) — 목록 위 정렬 줄·넓은 화면의 셀렉트가 지금 순서를 이름으로 말하고, 시트엔 정렬이 없어 버튼 숫자에도 안 든다.
+ *
+ * `resetLabel` 은 개수 줄 지우기 링크의 문구다. 링크는 칩 줄의 것을 **권역까지** 다 지우므로(`placesPage` 의 `resetFilters`) 권역도 센다 —
+ * 시트 버튼 숫자(`activeFilterCount`)로 고르면 강아지 없이 권역 + 검색어일 때 '검색 지우기' 가 권역까지 풀었다(14 W261019.11f).
+ * 본 화면·엿보기가 이 값을 그대로 받는다 — 각자 세면 한쪽만 고쳐져 손을 놓는 순간 문구가 바뀐다.
  */
 export const placesPageChips = ({
   type,
@@ -388,7 +392,7 @@ export const placesPageChips = ({
   needsIndoor: boolean;
   hasDog: boolean;
   query: string;
-}): { chips: TPlacesPageChip[]; activeFilterCount: number; hasFilters: boolean } => {
+}): { chips: TPlacesPageChip[]; activeFilterCount: number; hasFilters: boolean; resetLabel: string } => {
   const trimmedQuery = query.trim();
   const conditionChips: TPlacesPageChip[] = [
     ...carriedFilterChips({ town, needsIndoor, hasDog, type }),
@@ -405,5 +409,11 @@ export const placesPageChips = ({
     ...conditionChips,
     ...(trimmedQuery ? [queryChip(trimmedQuery)] : []),
   ];
-  return { chips, activeFilterCount: reachableChips.length + conditionChips.length, hasFilters: chips.length > 0 };
+  const activeFilterCount = reachableChips.length + conditionChips.length;
+  return {
+    chips,
+    activeFilterCount,
+    hasFilters: chips.length > 0,
+    resetLabel: resetFiltersLabel(trimmedQuery.length > 0, (area ? 1 : 0) + activeFilterCount),
+  };
 };

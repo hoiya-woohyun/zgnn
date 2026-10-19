@@ -14,7 +14,7 @@ import { usePlaceTypeSwitch } from './placesPageTypeSwitch';
 import { Input } from '../components/base/input';
 import { SEARCH_FIELD } from '../components/noAutofill';
 import { sameIsland, TYPE_META, type TPlaceEntry } from '../lib/places';
-import { comparePrice, resetFiltersLabel, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
+import { comparePrice, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
 import { countByLevel, levelCountParts } from '../lib/eligibilityCounts';
 import { areaCarriedRelease, areaReleaseCount, filterPlacesPage, hideHardCount, landmarkNearby, onlyReachableCount, otherSeatTypeMatches, otherTypeHiddenMatches, otherTypeMatches, placesByTown, placesPageChips, reachableReleaseCount, singleConditionReleases, townChipCounts, townReleaseCount } from '../lib/placesPageFilter';
 import { landmarkOfQuery } from '../lib/placeSearch';
@@ -283,7 +283,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
   // 켜진 조건을 이름으로(T2.4). 칩·개수·지우기 링크 문구가 한 함수에서 나온다 — 엿보기(`placesPageSwipePeek`)도 같은 함수라
   // 손을 놓는 순간 줄이 튀지 않고, 버튼엔 "필터 3" 인데 칩이 둘이라 셋째를 찾아 시트를 뒤지는 일도 없다.
   // 개수는 검색어를 뺀다 — 검색창은 시트 밖에 그대로 보이므로 더하면 버튼 숫자가 시트 안의 켜진 조건 수와 어긋난다.
-  const { chips, activeFilterCount, hasFilters } = placesPageChips({
+  const { chips, activeFilterCount, hasFilters, resetLabel } = placesPageChips({
     type,
     town,
     area,
@@ -491,7 +491,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
               results={results}
               townHasNoPlaces={townHasNoPlaces}
               hasFilters={hasFilters}
-              resetLabel={resetFiltersLabel(trimmedQuery.length > 0, activeFilterCount)}
+              resetLabel={resetLabel}
               query={trimmedQuery}
               activeFilterCount={activeFilterCount}
               activeChips={activeChips}

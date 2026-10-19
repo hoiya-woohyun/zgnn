@@ -81,6 +81,7 @@ export const comparePrice =
 /**
  * 목록 머리의 지우기 링크 문구. 지우는 것을 그대로 말한다(D12) — 검색어만 있는데 "필터 지우기" 라고
  * 쓰면 필터가 걸린 줄 알고 시트를 연다. 둘 다 있으면 둘 다 지운다는 뜻으로 "모두".
+ * `conditionCount` 는 링크가 검색어 말고 함께 푸는 것의 수 — 권역까지다(시트 버튼 숫자가 아니다, 14 W261019.11f). 부르는 곳은 `placesPageChips` 하나.
  */
 export const resetFiltersLabel = (hasQuery: boolean, conditionCount: number): string => {
   if (hasQuery && conditionCount > 0) return '모두 지우기';

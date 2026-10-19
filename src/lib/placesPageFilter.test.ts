@@ -167,7 +167,7 @@ describe('placesPageChips', () => {
   });
 
   it('조건이 없으면 비어 있다', () => {
-    expect(placesPageChips(chipBase)).toEqual({ chips: [], activeFilterCount: 0, hasFilters: false });
+    expect(placesPageChips(chipBase)).toEqual({ chips: [], activeFilterCount: 0, hasFilters: false, resetLabel: '필터 지우기' });
   });
 
   it('순서는 읍면 → 방향 → 숨김 → 검색어, 개수에는 검색어가 빠진다 · 정렬은 칩이 아니다(14 W261019.13)', () => {
@@ -176,6 +176,19 @@ describe('placesPageChips', () => {
     expect(result.chips.at(-1)?.label).toBe('"카레"');
     expect(result.activeFilterCount).toBe(3);
     expect(result.hasFilters).toBe(true);
+  });
+
+  it("지우기 링크 문구는 링크가 푸는 것을 다 센다 — 권역까지, 시트 버튼 숫자는 그대로(14 W261019.11f)", () => {
+    const noDog = { ...chipBase, hasDog: false };
+    // 재현: 강아지 없이 서부 카드 → '애월' — 링크가 '검색 지우기' 인데 권역까지 풀었다.
+    expect(placesPageChips({ ...noDog, area: 'west', query: '애월' })).toMatchObject({ activeFilterCount: 0, resetLabel: '모두 지우기' });
+    expect(placesPageChips({ ...noDog, area: 'west' }).resetLabel).toBe('필터 지우기');
+    expect(placesPageChips({ ...noDog, query: '카레' }).resetLabel).toBe('검색 지우기');
+    expect(placesPageChips({ ...noDog, query: '중문' }).resetLabel).toBe('검색 지우기');
+    expect(placesPageChips({ ...chipBase, area: 'west', onlyReachable: true, query: '애월' })).toMatchObject({
+      activeFilterCount: 1,
+      resetLabel: '모두 지우기',
+    });
   });
 
   it('강아지가 없으면 숨김 칩을 안 그린다 · 검색어만이면 개수 0 에 hasFilters', () => {

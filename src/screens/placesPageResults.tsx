@@ -33,7 +33,7 @@ type TPlacesPageResultsProps = {
   /** 이 종류에 그 읍면 자체가 없다(조건과 무관하게 0곳). 전용 빈 상태를 보여준다. */
   townHasNoPlaces: boolean;
   hasFilters: boolean;
-  /** 지우기 링크 문구(`resetFiltersLabel`) — 검색어만이면 "검색 지우기", 둘 다면 "모두 지우기". */
+  /** 지우기 링크 문구(`placesPageChips` 의 `resetLabel`) — 검색어만이면 "검색 지우기", 검색어와 권역·조건이 함께면 "모두 지우기". */
   resetLabel: string;
   /** 다듬은 검색어. 빈 상태가 "검색 탓인가 필터 탓인가" 를 가르는 데 쓴다. */
   query: string;
