@@ -11,6 +11,7 @@ import {
 } from './areaGroups';
 import { countByLevel } from './eligibilityCounts';
 import { LANDMARKS_BY_AREA } from './landmarks';
+import { matchesQuery } from './placeSearch';
 import { ALL_TOWNS, PLACE_TYPES, PLACES, placesOfType } from './places';
 import type { TDogProfile, TPlaceType } from '../types';
 
@@ -49,6 +50,21 @@ describe('두 매핑 — 읍면(셈)과 관광지 키(칩 배치)', () => {
     expect(areaTownsLabel('south')).toBe('남부(서귀포 시내·남원)');
     expect(areaTownsLabel('north')).toBe('북부(조천·제주 시내)');
     expect(areaTownNames('north')).toBe('조천·제주 시내');
+  });
+
+  it("라벨에 적은 이름으로 찾으면 그 읍면의 곳이 다 나오고, '… 시내' 는 시내 태그 그 집합이다(14 W261019.11)", () => {
+    for (const { id } of AREAS) {
+      const towns = Object.keys(TOWN_TO_AREA).filter((town) => TOWN_TO_AREA[town] === id);
+      const names = areaTownNames(id).split('·');
+      expect(names, id).toHaveLength(towns.length);
+      towns.forEach((town, index) => {
+        const name = names[index];
+        const inTown = PLACES.filter((place) => place.region.town === town).map((place) => place.id);
+        const found = new Set(PLACES.filter((place) => matchesQuery(place, name)).map((place) => place.id));
+        expect(inTown.filter((placeId) => !found.has(placeId)), `${name} ↔ ${town}`).toEqual([]);
+        if (name.endsWith(' 시내')) expect([...found].sort(), name).toEqual([...inTown].sort());
+      });
+    }
   });
 
   it('모르는 읍면은 null', () => {

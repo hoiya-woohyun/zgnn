@@ -21,9 +21,10 @@
  * 시 이름("서귀포"·"제주시")은 그 시에 속한 읍·면까지 맞는다(14 W261006.9). 지역 태그는 읍·면 하나라 시 이름은 **동 지역**
  * 태그(`서귀포시`·`제주시`)에만 글자로 걸렸다 — 성산·표선·대정이 '서귀포' 검색에서 빠졌다. 맨 '제주' 는 넣지 않는다:
  * 섬 전체라 그 단어로 시를 고르는 사람은 없고, 이름·특징의 '제주' 를 찾는 검색이 시 하나로 좁아진다.
+ * 시 이름 뒤에 '시내' 를 붙이면('서귀포 시내'·'제주 시내') 시내 태그 하나만이다(14 W261019.11, `DOWNTOWN_OF_WORD`).
  */
 
-import { isNearLandmark, landmarkOfWord } from './landmarks';
+import { isNearLandmark, landmarkOfWord, type TLandmark } from './landmarks';
 import { toPetBadges, type TPetPolicy } from './petPolicy';
 import { PLACE_TYPES, TYPE_META, type TPlaceEntry } from './places';
 import type { TPlaceType } from '../types';
@@ -61,6 +62,42 @@ const CITY_DOWNTOWN: ReadonlyMap<string, string> = new Map([
   ['서귀포시', '서귀포시'],
 ]);
 
+/**
+ * '서귀포 시내'·'제주 시내' — 시내 태그 하나를 고르는 구절(14 W261019.11). 홈 동네 카드가 "남부(서귀포 시내·남원)" 라 쓰고(`areaTownNames`)
+ * 좁힌 읍면 칩이 '제주시 시내' 라 부르는데(`townFilterLabel`), 낱말로 나누면 '서귀포'(시 전체)와 '시내'(어디에도 없는 글자)라 0곳이었다.
+ * 시 이름 뒤의 '시내' 를 붙여 한 낱말로 읽고(`queryWords`), 그 낱말은 **태그로만** 맞는다 — '시내만 보기' 와 같은 집합이다.
+ * 맨 '제주' 는 시가 아니지만(위 `CITY_TOWNS`) '제주 시내' 는 앱이 쓰는 말이라 받는다. 키는 붙여 쓴 꼴이다.
+ */
+const DOWNTOWN_OF_WORD: ReadonlyMap<string, string> = new Map([
+  ['서귀포시내', '서귀포시'],
+  ['서귀포시시내', '서귀포시'],
+  ['제주시내', '제주시'],
+  ['제주시시내', '제주시'],
+]);
+
+/** 검색어 → 낱말(소문자). 시 이름 다음의 '시내' 는 앞 낱말에 붙인다(`DOWNTOWN_OF_WORD`). */
+export function queryWords(query: string): string[] {
+  const words: string[] = [];
+  for (const word of query.toLowerCase().split(/\s+/).filter(Boolean)) {
+    const joined = `${words.at(-1) ?? ''}${word}`;
+    if (word === '시내' && DOWNTOWN_OF_WORD.has(joined)) words[words.length - 1] = joined;
+    else words.push(word);
+  }
+  return words;
+}
+
+/**
+ * 검색어의 관광지 낱말 — 앞의 것 하나. 둘러보기 '가까운 순' 의 기준점이 되고(위치 권한을 묻지 않는다) 검색어 칩이 반경을 말한다(14 W261019.11).
+ * '중문' 결과의 서울앵무새는 설명에 중문이 없어 왜 나왔는지 몰랐다 — 반경으로 걸린 곳이다.
+ */
+export function landmarkOfQuery(query: string): { word: string; landmark: TLandmark } | null {
+  for (const word of queryWords(query)) {
+    const landmark = landmarkOfWord(word);
+    if (landmark) return { word, landmark };
+  }
+  return null;
+}
+
 export type TCityScope = {
   /** 검색어에 있던 시 이름 그대로('서귀포'). */
   word: string;
@@ -82,10 +119,8 @@ export type TCityScope = {
  * 결과에 소속 읍·면이 하나도 없으면 null — 시 이름이 시내 밖을 덮지 않았으니 말할 것이 없다. 시 이름이 둘이면 앞의 것.
  */
 export function cityScopeOf(query: string, places: readonly Pick<TPlaceEntry, 'region'>[]): TCityScope | null {
-  const word = query
-    .toLowerCase()
-    .split(/\s+/)
-    .find((candidate) => CITY_DOWNTOWN.has(candidate));
+  // '서귀포 시내' 는 한 낱말(`서귀포시내`)이라 여기 안 걸린다 — 시내만 덮었으니 말할 것이 없다.
+  const word = queryWords(query).find((candidate) => CITY_DOWNTOWN.has(candidate));
   if (word === undefined) return null;
   const downtown = CITY_DOWNTOWN.get(word)!;
   const towns = CITY_TOWNS.get(word)!;
@@ -104,7 +139,7 @@ export function matchesQuery(
   place: Pick<TPlaceEntry, 'type' | 'name' | 'features' | 'region' | 'category' | 'geo' | 'policy'>,
   query: string,
 ): boolean {
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const words = queryWords(query);
   if (words.length === 0) return true;
   const haystack = squash(
     [place.name, place.features, place.region.town, place.category ?? '', chipTextOf(place.policy)].join(' '),
@@ -112,6 +147,8 @@ export function matchesQuery(
   return words.every((word) => {
     const type = TYPE_OF_WORD.get(word);
     if (type) return place.type === type;
+    const downtown = DOWNTOWN_OF_WORD.get(word);
+    if (downtown) return place.region.town === downtown;
     if (haystack.includes(word)) return true;
     if (CITY_TOWNS.get(word)?.has(place.region.town)) return true;
     const landmark = landmarkOfWord(word);

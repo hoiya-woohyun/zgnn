@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parsePetPolicy } from './petPolicy';
-import { cityScopeOf, matchesQuery } from './placeSearch';
+import { cityScopeOf, landmarkOfQuery, matchesQuery, queryWords } from './placeSearch';
 import type { TPlaceEntry } from './places';
 import type { TPlaceType } from '../types';
 
@@ -72,6 +72,21 @@ describe('matchesQuery', () => {
     expect(matchesQuery(place({ town: '표선면' }), '제주시')).toBe(false);
   });
 
+  it("'서귀포 시내'·'제주 시내' — 시내 태그 하나만, 글자로는 찾지 않는다(14 W261019.11)", () => {
+    for (const query of ['서귀포 시내', '서귀포시 시내', '서귀포시내', '서귀포  시내 카페']) {
+      expect(matchesQuery(place({ town: '서귀포시' }), query), query).toBe(true);
+      expect(matchesQuery(place({ town: '성산읍' }), query), query).toBe(false);
+    }
+    for (const query of ['제주 시내', '제주시 시내', '제주시내']) {
+      expect(matchesQuery(place({ town: '제주시' }), query), query).toBe(true);
+      expect(matchesQuery(place({ town: '애월읍' }), query), query).toBe(false);
+    }
+    // 이름·설명에 그 말이 있어도 시내 밖이면 아니다 — '시내만 보기' 와 같은 집합이어야 한다.
+    expect(matchesQuery(place({ town: '남원읍', features: '서귀포 시내에서 10분' }), '서귀포 시내')).toBe(false);
+    // 시 이름 없이 '시내' 만이면 글자다.
+    expect(matchesQuery(place({ town: '서귀포시' }), '시내')).toBe(false);
+  });
+
   it('맨 "제주" 는 시를 고르지 않는다 — 섬 전체라 글자로만 찾는다', () => {
     expect(matchesQuery(place({ town: '성산읍', name: '오늘도제주' }), '제주')).toBe(true);
     expect(matchesQuery(place({ town: '애월읍', name: '어느 곳' }), '제주')).toBe(false);
@@ -135,8 +150,30 @@ describe('cityScopeOf — 시 이름이 결과에서 무엇을 덮었나(14 W261
     expect(cityScopeOf('서귀포', [at('서귀포시'), at('애월읍')])).toBeNull();
   });
 
+  it("'서귀포 시내' 는 시내만 덮었으니 null", () => {
+    expect(cityScopeOf('서귀포 시내', [at('서귀포시'), at('성산읍')])).toBeNull();
+  });
+
   it('시 이름이 아니면 null — 읍·면 이름, 맨 "제주"', () => {
     expect(cityScopeOf('애월', [at('애월읍')])).toBeNull();
     expect(cityScopeOf('제주', [at('구좌읍'), at('제주시')])).toBeNull();
+  });
+});
+
+describe('queryWords · landmarkOfQuery(14 W261019.11)', () => {
+  it("시 이름 다음의 '시내' 는 앞 낱말에 붙는다", () => {
+    expect(queryWords('서귀포 시내 카페')).toEqual(['서귀포시내', '카페']);
+    expect(queryWords(' 제주시  시내 ')).toEqual(['제주시시내']);
+    expect(queryWords('애월 시내')).toEqual(['애월', '시내']);
+    expect(queryWords('시내')).toEqual(['시내']);
+    expect(queryWords('')).toEqual([]);
+  });
+
+  it('검색어의 첫 관광지·동 낱말 — 동 이름(강정)도 같은 표다', () => {
+    expect(landmarkOfQuery('중문 카페')).toMatchObject({ word: '중문', landmark: { name: '중문' } });
+    expect(landmarkOfQuery('카페 협재')?.landmark.name).toBe('협재·금능');
+    expect(landmarkOfQuery('강정')?.landmark.radiusKm).toBe(1.5);
+    expect(landmarkOfQuery('카레')).toBeNull();
+    expect(landmarkOfQuery('서귀포 시내')).toBeNull();
   });
 });

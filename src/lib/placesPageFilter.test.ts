@@ -8,6 +8,7 @@ import {
   filterPlacesPage,
   filtersOfPlaceType,
   hideHardCount,
+  landmarkNearby,
   onlyReachableCount,
   otherSeatTypeMatches,
   otherTypeHiddenMatches,
@@ -20,7 +21,9 @@ import {
   townChipCounts,
   townReleaseCount,
 } from './placesPageFilter';
-import { PLACES, placesOfType, topTowns } from './places';
+import { landmarkOfWord } from './landmarks';
+import { matchesQuery } from './placeSearch';
+import { PLACES, distanceKm, placesOfType, topTowns } from './places';
 import type { TDogProfile, TPlaceType } from '../types';
 
 const base = { town: null, area: null, query: '', directions: [], petKeys: [], hideHard: false, onlyReachable: false, eligibilityMap: null } as const;
@@ -39,6 +42,21 @@ describe('filterPlacesPage', () => {
       expect(found.length).toBeLessThanOrEqual(placesOfType(type).length);
     }
     expect(filterPlacesPage({ ...base, type: 'restaurant', query }).length).toBeGreaterThan(0);
+  });
+
+  it("'서귀포 시내'·'제주 시내' 는 '시내만 보기'(읍면 = 시내 태그)와 같은 집합이다(14 W261019.11)", () => {
+    const ids = (list: { id: string }[]) => list.map((place) => place.id);
+    for (const type of TYPES) {
+      const seogwipo = ids(filterPlacesPage({ ...base, type, town: '서귀포시' }));
+      const jeju = ids(filterPlacesPage({ ...base, type, town: '제주시' }));
+      for (const query of ['서귀포 시내', '서귀포시 시내', '서귀포시내']) {
+        expect(ids(filterPlacesPage({ ...base, type, query })), `${type} ${query}`).toEqual(seogwipo);
+      }
+      for (const query of ['제주 시내', '제주시 시내', '제주시내']) {
+        expect(ids(filterPlacesPage({ ...base, type, query })), `${type} ${query}`).toEqual(jeju);
+      }
+    }
+    expect(filterPlacesPage({ ...base, type: 'restaurant', query: '서귀포 시내' }).length).toBeGreaterThan(0);
   });
 
   it('방향은 그 방향 장소만 남긴다', () => {
@@ -122,6 +140,15 @@ describe('placesPageChips', () => {
     expect(placesPageChips({ ...chipBase, area: 'west' }).hasFilters).toBe(true);
   });
 
+  it("관광지·동 낱말이면 검색어 칩이 반경을 말한다 — '중문' 의 서울앵무새가 왜 나왔는지(14 W261019.11)", () => {
+    const label = (query: string) => placesPageChips({ ...chipBase, query }).chips.at(-1)?.label;
+    expect(label('중문')).toBe('"중문" · 3km 안');
+    expect(label(' 중문 카페 ')).toBe('"중문 카페" · 중문 3km 안');
+    expect(label('법환')).toBe('"법환" · 1.5km 안');
+    expect(label('카레')).toBe('"카레"');
+    expect(label('서귀포 시내')).toBe('"서귀포 시내"');
+  });
+
   it('조건이 없으면 비어 있다', () => {
     expect(placesPageChips(chipBase)).toEqual({ chips: [], activeFilterCount: 0, hasFilters: false });
   });
@@ -161,6 +188,20 @@ describe("'갈 수 있는 곳만'(19 T4.1)", () => {
         const opened = filterPlacesPage({ ...base, type, area: id, onlyReachable: true, eligibilityMap });
         expect(opened, `${id}/${type}`).toHaveLength(counts[id][type].ok + counts[id][type].outdoor);
       }
+    }
+  });
+
+  // 카드가 권역 밑에 적는 말("남부(서귀포 시내·남원)")로 찾으면 그 칸이 나온다(14 W261019.11) — '서귀포 시내' 로 찾은 목록 + 남원읍 = 카드 n.
+  it.each([
+    ['두부', DUBU],
+    ['보리', BORI],
+  ] as const)("%s — 남부 카드 n = '서귀포 시내' 로 찾은 목록 + 남원읍 목록(갈 수 있는 곳만)", (_, dog) => {
+    const counts = countByArea(PLACES, dog);
+    const eligibilityMap = mapOf(dog);
+    for (const type of ['stay', 'cafe'] as const) {
+      const searched = filterPlacesPage({ ...base, type, query: '서귀포 시내', onlyReachable: true, eligibilityMap });
+      const namwon = filterPlacesPage({ ...base, type, town: '남원읍', onlyReachable: true, eligibilityMap });
+      expect(searched.length + namwon.length, type).toBe(counts.south[type].ok + counts.south[type].outdoor);
     }
   });
 
@@ -477,6 +518,15 @@ describe('placesPageEmptySearch — 검색만으로 0곳일 때 큰 안내(14 W2
     expect(placesPageEmptySearch('테라로사', [])).toEqual({ kind: 'notListed', multiWord: false });
     expect(placesPageEmptySearch('  테라로사  ', [])).toEqual({ kind: 'notListed', multiWord: false });
   });
+
+  it("관광지·동 낱말이면 '목록에 없다' 가 아니다 — '법환' 은 가게가 아니라 동네다(14 W261019.11)", () => {
+    expect(placesPageEmptySearch('법환', [])).toEqual({ kind: 'landmark', word: '법환', radiusKm: 1.5 });
+    expect(placesPageEmptySearch('강정 카레', [])).toEqual({ kind: 'landmark', word: '강정', radiusKm: 1.5 });
+    // 다른 종류에 있으면 그 답이 먼저다.
+    expect(placesPageEmptySearch('법환', [{ type: 'cafe', count: 1 }])).toMatchObject({ kind: 'otherType' });
+    // '서귀포 시내' 는 한 낱말이라 단어 둘이 아니다.
+    expect(placesPageEmptySearch('서귀포 시내', [])).toEqual({ kind: 'notListed', multiWord: false });
+  });
 });
 
 describe('singleConditionReleases — 0곳일 때 조건 하나만 풀면 몇 곳(14 W261010.33s)', () => {
@@ -579,5 +629,30 @@ describe('otherSeatTypeMatches — 검색어 없이 0곳인 식당·카페의 �
     expect(otherSeatTypeMatches({ ...base, type: 'restaurant', query: '함덕' }, noKeys)).toEqual([]);
     // 숙소는 대신 목록에 들지 않는다.
     expect(otherSeatTypeMatches({ ...base, type: 'cafe' }, noKeys).map((m) => m.type)).toEqual(['restaurant']);
+  });
+});
+
+describe('landmarkNearby — 관광지·동 검색이 0곳일 때 그 중심에서 가까운 곳(14 W261019.11)', () => {
+  it("'법환' — 거리순 세 곳, 좌표 있는 곳만, 그 종류만", () => {
+    const center = landmarkOfWord('법환')!.center;
+    for (const type of TYPES) {
+      const nearby = landmarkNearby({ ...base, type, query: '법환' });
+      expect(nearby.length, type).toBeGreaterThan(0);
+      expect(nearby.length).toBeLessThanOrEqual(3);
+      expect(nearby.every(({ place }) => place.type === type && place.geo)).toBe(true);
+      expect(nearby.map(({ km }) => km)).toEqual([...nearby.map(({ km }) => km)].sort((a, b) => a - b));
+      for (const { place, km } of nearby) expect(km).toBeCloseTo(distanceKm(center, place.geo!), 6);
+    }
+  });
+
+  it('관광지 낱말만 빼고 나머지 낱말은 그대로 건다 — "법환 카레" 면 법환에서 가까운 카레', () => {
+    const nearby = landmarkNearby({ ...base, type: 'restaurant', query: '법환 카레' });
+    expect(nearby.every(({ place }) => matchesQuery(place, '카레'))).toBe(true);
+    expect(nearby.length).toBeLessThanOrEqual(placesOfType('restaurant').filter((place) => matchesQuery(place, '카레')).length);
+  });
+
+  it('관광지 낱말이 없으면 빈 배열', () => {
+    expect(landmarkNearby({ ...base, type: 'cafe', query: '카레' })).toEqual([]);
+    expect(landmarkNearby({ ...base, type: 'cafe', query: '' })).toEqual([]);
   });
 });

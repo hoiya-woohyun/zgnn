@@ -28,6 +28,8 @@ export type TLandmark = {
  * 반경: 해변 마을 1.5~2km, 관광단지·공항 2.5~3km. 크게 잡으면 "협재" 에 한림 시내가 섞인다.
  * 사람이 줄여 부르는 이름(동문·섭지·산방·송악·용머리·이중섭·풍차)도 별칭에 넣는다(14 W261010.30) — 별칭은 단어 **전체**로만 맞아서(`landmarkOfWord`)
  * '동문시장' 은 1곳인데 '동문' 은 0곳이었다. 짧은 꼴은 목록 **끝**에 붙인다 — 홈 동네 카드 칩이 `aliases[0]` 를 검색어로 쓴다.
+ * 시내의 동 이름(법환·강정·노형·연동)도 같은 길이다 — 태그가 아니라 반경(ADR-022 v10). 반경 안이 0곳이어도 둘러보기 빈 상태가
+ * "가게를 알려 주세요" 가 아니라 그 동에서 가까운 곳을 낸다(`placesPageEmptySearch` 의 `landmark`).
  */
 export const LANDMARKS_BY_AREA = {
   애월: [
@@ -58,6 +60,8 @@ export const LANDMARKS_BY_AREA = {
   서귀포: [
     { name: '올레시장', aliases: ['올레시장', '매일올레시장', '이중섭거리', '천지연', '이중섭'], center: { lat: 33.2498, lng: 126.564 }, radiusKm: 1.5 },
     { name: '법환', aliases: ['법환', '법환포구'], center: { lat: 33.2372, lng: 126.5161 }, radiusKm: 1.5 },
+    // 동 이름(14 W261019.11) — 서귀포 현지인이 '법환' 다음에 친 말. 좌표는 OSM 의 동 중심(place=quarter, 2026-10-19).
+    { name: '강정', aliases: ['강정', '강정포구'], center: { lat: 33.2469, lng: 126.4893 }, radiusKm: 1.5 },
     { name: '쇠소깍', aliases: ['쇠소깍'], center: { lat: 33.2526, lng: 126.6235 }, radiusKm: 1.5 },
   ],
   남원: [{ name: '위미', aliases: ['위미', '위미항'], center: { lat: 33.2726, lng: 126.6603 }, radiusKm: 2 }],

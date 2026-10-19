@@ -1,8 +1,8 @@
 import { areaOf, areaTownsLabel, type TAreaId } from './areaGroups';
 import { AREA_CARD_TYPES } from './homePageAreaCards';
-import { DIRECTION_LABEL, PLACE_TYPES, placesOfType, type TPlaceEntry } from './places';
+import { DIRECTION_LABEL, PLACE_TYPES, distanceKm, placesOfType, type TPlaceEntry } from './places';
 import { PET_FILTERS, carriedFilterChips, envFiltersWithData, type TPetFilter, type TPetFilterKey } from './placeFilters';
-import { matchesQuery } from './placeSearch';
+import { landmarkOfQuery, matchesQuery, queryWords } from './placeSearch';
 import type { TEligibility } from './eligibility';
 import { eligibilityMapOf, isReachable } from './eligibilityCounts';
 import type { TDirection, TDogProfile, TPlaceType } from '../types';
@@ -266,6 +266,7 @@ export const otherSeatTypeMatches = (
 
 export type TPlacesPageEmptySearch =
   | { kind: 'otherType'; top: { type: TPlaceType; count: number }; rest: { type: TPlaceType; count: number }[] }
+  | { kind: 'landmark'; word: string; radiusKm: number }
   | { kind: 'notListed'; multiWord: boolean };
 
 /**
@@ -275,17 +276,52 @@ export type TPlacesPageEmptySearch =
  * 더 크게 읽혀 사용자가 답을 지나친다(하은 04). 어디에도 없으면 '우리 목록에 없다' 이고, 길은 알려 주기다.
  * "띄어쓰기를 바꿔 보세요" 는 하지 않는다 — 검색은 양쪽 공백을 지우고 비교해(`placeSearch.squash`) 띄어쓰기가 결과를 바꾸지 않는다.
  * "더 짧게" 는 단어가 둘 이상일 때만 의미가 있다: 모든 단어가 맞아야 나오므로 하나를 덜어야 풀린다.
+ *
+ * 검색어에 관광지·동 이름이 있으면 '목록에 없다' 가 아니다(14 W261019.11) — '법환' 은 가게 이름이 아니라 동네라, "가게를 알려 주세요" 는
+ * 엉뚱한 답이었다(haeun). 그 반경 안에 모은 곳이 아직 없다고 말하고, 길은 그 자리에서 가까운 곳이다(`landmarkNearby`).
  */
 export const placesPageEmptySearch = (
   query: string,
   otherTypes: { type: TPlaceType; count: number }[],
 ): TPlacesPageEmptySearch => {
-  if (otherTypes.length === 0) return { kind: 'notListed', multiWord: query.trim().split(/\s+/).filter(Boolean).length >= 2 };
+  if (otherTypes.length === 0) {
+    const found = landmarkOfQuery(query);
+    if (found) return { kind: 'landmark', word: found.word, radiusKm: found.landmark.radiusKm };
+    return { kind: 'notListed', multiWord: queryWords(query).length >= 2 };
+  }
   const top = otherTypes.reduce((best, other) => (other.count > best.count ? other : best));
   return { kind: 'otherType', top, rest: otherTypes.filter((other) => other !== top) };
 };
 
+/**
+ * 관광지·동 검색이 0곳일 때 그 중심에서 가까운 곳(14 W261019.11) — `법환` 반경(1.5km) 안은 0곳이지만 4.5km 에 식당이 있다.
+ * 걸러 내기는 관광지 낱말만 뺀 `filterPlacesPage` 다(나머지 낱말·조건은 그대로 — '법환 카레' 면 법환에서 가까운 카레). 좌표 없는 곳은 거리를 몰라 뺀다.
+ * 카드에 km 가 찍히므로 순서는 거리 하나다(`pickNearby` 와 같은 까닭). 관광지 낱말이 없으면 빈 배열.
+ */
+export const landmarkNearby = (conditions: TPlacesPageConditions, limit = 3): { place: TPlaceEntry; km: number }[] => {
+  const found = landmarkOfQuery(conditions.query);
+  if (!found) return [];
+  const query = queryWords(conditions.query)
+    .filter((word) => word !== found.word)
+    .join(' ');
+  return filterPlacesPage({ ...conditions, query })
+    .flatMap((place) => (place.geo ? [{ place, km: distanceKm(found.landmark.center, place.geo) }] : []))
+    .sort((a, b) => a.km - b.km)
+    .slice(0, limit);
+};
+
 export type TPlacesPageChip = { key: string; label: string };
+
+/**
+ * 검색어 칩 — 관광지·동 낱말이 있으면 반경을 함께(`"중문" · 3km 안`, 14 W261019.11). '중문' 결과의 서울앵무새는 이름·설명에 중문이 없어
+ * 왜 나왔는지 몰랐다 — 반경으로 걸린 곳이다. 낱말이 여럿이면 어느 낱말의 반경인지 적는다(`"중문 카페" · 중문 3km 안`).
+ */
+const queryChipLabel = (query: string): string => {
+  const found = landmarkOfQuery(query);
+  if (!found) return `"${query}"`;
+  const which = queryWords(query).length > 1 ? `${found.word} ` : '';
+  return `"${query}" · ${which}${found.landmark.radiusKm}km 안`;
+};
 
 /**
  * 켜진 조건을 이름으로. 순서는 권역 → 따라오는 것(읍면·실내) → 방향 → 반려동물 → 정렬 → 어려운 곳 숨김 → 검색어.
@@ -329,7 +365,7 @@ export const placesPageChips = ({
     ...(area ? [{ key: 'area', label: areaTownsLabel(area) }] : []),
     ...reachableChips,
     ...conditionChips,
-    ...(trimmedQuery ? [{ key: 'query', label: `"${trimmedQuery}"` }] : []),
+    ...(trimmedQuery ? [{ key: 'query', label: queryChipLabel(trimmedQuery) }] : []),
   ];
   return { chips, activeFilterCount: reachableChips.length + conditionChips.length, hasFilters: chips.length > 0 };
 };

@@ -15,7 +15,7 @@ import { carrierWhatIf, carrierWhatIfText, countByLevel, levelCountParts, outdoo
 import { placesPageHardFold } from '../lib/placesPageHardFold';
 import { placesPageEmptySearch, type TAreaCarried, type TConditionRelease } from '../lib/placesPageFilter';
 import { placesPageRepeatedReason } from '../lib/placesPageRepeatedReason';
-import { cityScopeOf } from '../lib/placeSearch';
+import { cityScopeOf, landmarkOfQuery } from '../lib/placeSearch';
 import { townFilterLabel } from '../lib/placeFilters';
 import { areaTownsLabel, type TAreaId } from '../lib/areaGroups';
 import { josa, withJosa } from '../lib/korean';
@@ -54,6 +54,8 @@ type TPlacesPageResultsProps = {
   onSuggest?: () => void;
   /** 지금 검색어로 이미 알려 줬나(14 W261019.16) — 그렇다면 0곳 안내가 '알려 주기' 를 거두고 보냈다고 말한다. */
   suggestSent?: boolean;
+  /** 관광지·동 검색이 0곳일 때 그 중심에서 가까운 곳(`landmarkNearby`, 14 W261019.11). 0곳 안내 밑에 거리와 함께. */
+  landmarkNearby?: { place: TPlaceEntry; km: number }[];
   /** 가까운 순일 때 장소 id → 거리(km). 카드가 "1.2km" 를 붙인다(10 F7). */
   distances?: Map<string, number>;
   /**
@@ -90,6 +92,7 @@ type TPlacesPageResultsProps = {
    * '가까운 순' 칩(14 W261010.18) — 시트 맨 아래 드롭다운에 있던 것을 목록 위로 꺼냈다. 본 화면만 준다(엿보기는 정렬을 갖지 않아 눌러도 아무 일 없는 꺼진 칩).
    * 위치 권한이 없으면 정렬을 바꾸지 않고 이유만 말하는 것은 시트와 같다(`changeSort`).
    * `from` 은 상세 「근처 장소」 로 들어온 기준 장소 이름(14 W261013.14o) — 칩이 "○○에서 가까운 순" 이라 말해야 카드의 km 를 내 위치에서 잰 값으로 읽지 않는다.
+   * 없고 검색어에 관광지·동 낱말이 있으면 그 낱말이 기준이다("중문에서 가까운 순", 14 W261019.11) — 검색어에서 읽으므로 엿보기도 같은 칩을 그린다.
    */
   nearSort?: { pressed: boolean; onToggle: () => void; from?: string };
   /**
@@ -122,6 +125,7 @@ export function PlacesPageResults({
   onOpenFilters,
   onSuggest,
   suggestSent = false,
+  landmarkNearby = [],
   distances,
   otherTypes = [],
   hiddenOtherTypes = [],
@@ -225,6 +229,8 @@ export function PlacesPageResults({
 
   // 시 이름 검색이 시내 밖 읍면까지 덮었으면 그렇다고 말한다(14 W261010.30). 읍면 필터가 걸려 있으면 이미 좁힌 것이라 말하지 않는다.
   const cityScope = useMemo(() => (town ? null : cityScopeOf(query, results)), [town, query, results]);
+  // '가까운 순' 의 기준 이름 — 들어온 장소가 먼저, 없으면 검색어의 관광지·동 낱말(14 W261019.11). 기준점은 화면(`placesPage`)이 같은 차례로 고른다.
+  const nearFrom = nearSort?.from ?? landmarkOfQuery(query)?.word;
 
   const renderOtherTypeRow = (other: { type: TPlaceType; count: number }) => (
     <li key={other.type}>
@@ -290,10 +296,10 @@ export function PlacesPageResults({
         <div className="px-4 pt-2 md:px-6">
           {/* 긴 이름("프레임스파빌 오션뷰펜션")이 320px 에서 넘치면 이름만 줄인다 — "에서 가까운 순" 이 잘리면 무엇을 하는 칩인지가 사라진다. */}
           <FilterChip pressed={nearSort?.pressed ?? false} onClick={nearSort?.onToggle} className="max-w-full">
-            {nearSort?.from ? (
+            {nearFrom ? (
               // 칩의 `gap-1` 이 이름과 '에서' 사이를 띄우지 않게 한 덩어리로 감싼다.
               <span className="flex min-w-0">
-                <span className="truncate">{nearSort.from}</span>
+                <span className="truncate">{nearFrom}</span>
                 <span className="shrink-0">에서 가까운 순</span>
               </span>
             ) : (
@@ -523,6 +529,48 @@ export function PlacesPageResults({
                   {emptySearch.rest.map(renderOtherTypeRow)}
                   {renderHiddenRows()}
                 </ul>
+              )}
+            </>
+          ) : emptySearch?.kind === 'landmark' ? (
+            /*
+              관광지·동 이름이면 '목록에 없다' 가 아니라 그 반경 안에 아직 덜 모았다는 말이고(14 W261019.11 — '법환' 에 "가게를 알려 주세요" 는
+              동네를 가게로 읽은 답이었다), 길은 그 자리에서 가까운 곳이다. 카드의 km 는 제목이 말하는 그 낱말에서 잰 거리다(거리순이다).
+            */
+            <>
+              <EmptyState
+                Icon={SearchMd}
+                title={`${emptySearch.word} ${emptySearch.radiusKm}km 안엔 저희가 모은 ${withJosa(TYPE_META[type].label, '이/가')} 아직 없어요`}
+                description={
+                  suggestSent
+                    ? '알려 주셔서 고마워요. 운영자가 찾아보고, 확인되면 올릴게요.'
+                    : landmarkNearby.length > 0
+                      ? '조금 더 먼 곳을 가까운 순으로 보여 드려요. 아는 곳이 있으면 알려 주세요.'
+                      : '아는 곳이 있으면 알려 주세요. 운영자가 찾아보고, 확인되면 올릴게요.'
+                }
+                action={
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    {onSuggest && !suggestSent && (
+                      <Button color="secondary" size="md" onClick={onSuggest} data-ev="places.emptySuggest">
+                        알려 주기
+                      </Button>
+                    )}
+                    <Button color="secondary" size="md" onClick={onClearQuery}>
+                      검색 지우기
+                    </Button>
+                  </div>
+                }
+              />
+              {landmarkNearby.length > 0 && (
+                <section aria-labelledby="places-landmark-nearby">
+                  <h2 id="places-landmark-nearby" className="text-sm font-semibold text-secondary">
+                    {emptySearch.word}에서 가까운 {TYPE_META[type].label}
+                  </h2>
+                  <ul className={cx('mt-2', listClass)}>
+                    {landmarkNearby.map(({ place, km }) => (
+                      <PlaceCard key={place.id} place={place} distanceKm={km} />
+                    ))}
+                  </ul>
+                </section>
               )}
             </>
           ) : emptySearch ? (
