@@ -11,7 +11,6 @@ import {
   writeMorphMode,
   writeMorphRange,
 } from '../components/layout/scrollDrivenMorph';
-import { canGoBackInApp } from '../lib/appHistory';
 import { categoryLabel } from '../lib/category';
 import { DIRECTION_LABEL, TYPE_COLOR_DEEP, TYPE_META, type TPlaceEntry } from '../lib/places';
 import { placeDetailAddressNote } from '../lib/placeDetailLocation';
@@ -42,6 +41,10 @@ const useBeforePaint = typeof window === 'undefined' ? useEffect : useLayoutEffe
  * - 지원하지 않는 브라우저는 줄이 헤더에 닿는 순간 한 번에 옮겨 간다(`snap`, `scrollDrivenMorph.ts`).
  *
  * 이 이름이 폭과 무관하게 이 화면의 유일한 h1 이다. 헤더의 복사본은 `aria-hidden` 이다.
+ *
+ * 앱 안에서 들어오면 포커스가 이 h1 에 온다 — 셸이 둔다(`appShellFocus`, 화면이 바뀌어 포커스를 잃으면 그 화면의 h1).
+ * 여기서 직접 하지 않는 이유: 근처 상세에서 **뒤로** 오면 h1 이 아니라 방금 누른 근처 카드로 돌아가야 하는데, 이 화면은 들어온 것인지
+ * 돌아온 것인지 모른다(14 W261019.15a). `tabIndex={-1}`·`outline-hidden` 은 그대로 둔다 — 코드로 받는 자리다.
  */
 export function PlaceDetailHeader({ place }: { place: TPlaceEntry }) {
   const Glyph = PLACE_TYPE_ICON[place.type];
@@ -52,15 +55,6 @@ export function PlaceDetailHeader({ place }: { place: TPlaceEntry }) {
   const titleRef = useRef<HTMLHeadingElement>(null);
   /** 헤더 쪽 도착점. 포털이라 헤더가 자리를 적은 뒤에야 생긴다 — ref 콜백으로 받아 그때 잰다. */
   const [bar, setBar] = useState<HTMLDivElement | null>(null);
-
-  /*
-    앱 안에서 쌓여 들어왔으면 읽기 위치를 장소 이름에 둔다 — 카드에서 Enter 로 들어오면 포커스가 body 에 남아 다음 Tab 이
-    뒤로 가기였다(14 W261013.14b, WCAG 2.4.3). 딥링크 첫 화면은 그대로 둔다(첫 Tab 은 건너뛰기 링크). 셸의 깊이 새기기는
-    layout effect 라 이 effect 보다 먼저 돈다 — 그래서 여기서 읽는 깊이가 이 화면의 것이다. 스크롤은 셸이 정한 자리를 지킨다.
-  */
-  useEffect(() => {
-    if (canGoBackInApp()) titleRef.current?.focus({ preventScroll: true });
-  }, [place.id]);
 
   useBeforePaint(() => {
     const header = headerRef.current;

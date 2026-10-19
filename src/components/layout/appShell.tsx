@@ -6,6 +6,7 @@ import { AppBar } from './appBar';
 import { AppSidebar } from './appSidebar';
 import { AppTabBar } from './appTabBar';
 import { mainSurfaceProps, surfaceKindOf } from './appShellSurface';
+import { useAppShellFocus } from './appShellFocus';
 import { useAppShellStack } from './appShellStack';
 import { useAppShellSwipe } from './appShellSwipe';
 import { useAppShellUiEvents } from './appShellUiEvents';
@@ -62,6 +63,11 @@ keepTabsOffHistory();
  *
  * 자리는 스크롤 이벤트로 ref 에 받아 둔다. 경로가 바뀐 **뒤에** `window.scrollY` 를 읽으면
  * 이미 늦어서(이동 중에 0 이 되어 있을 수 있다) 떠날 때의 자리를 잃는다.
+ *
+ * ## 포커스도 셸이 둔다
+ *
+ * 화면을 갈아 끼우면 포커스를 쥐고 있던 카드·버튼이 함께 사라져 body 로 떨어진다. 스크롤과 같은 이야기라 같은 자리에서 —
+ * 뒤로 오면 방금 연 링크로, 잃었으면 그 화면의 h1 으로(`appShellFocus`). 화면은 아무것도 하지 않는다.
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -81,6 +87,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // 하위 화면으로 들어가고 나오는 그림(쌓기·걷기). 탭 화면끼리의 페이저와 같은 `<main>` 을 쓴다 — 순서는 아래 이펙트.
   const stack = useAppShellStack({ pathname, mainRef, surfaceRef });
   const { arrive } = stack;
+  // 화면이 바뀐 뒤의 포커스 — 뒤로 오면 방금 연 링크로, 잃었으면 그 화면의 h1 으로. 옮기는 것은 화면들의 effect 뒤다.
+  const { arrive: arriveFocus } = useAppShellFocus({ pathname, mainRef });
   // 실사용 이벤트(ADR-029) — 이동과 탭을 셸 한 곳에서 듣는다.
   useAppShellUiEvents(pathname);
 
@@ -97,7 +105,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useLayoutEffect(() => {
     const from = previousPath.current;
-    if (from !== pathname) {
+    const moved = from !== pathname;
+    if (moved) {
       rememberScroll(from, lastScrollY.current);
       previousPath.current = pathname;
     }
@@ -115,12 +124,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     // 하위 화면이면 덮거나 걷는다. `finish` 와 스크롤 복원 **뒤**여야 한다 — `finish` 는 `<main>` 의 transform 을 지우고,
     // 걷히는 그림의 밑장(`<main>`)은 이미 제자리에 내려앉아 있어야 한다.
     arrive(from, depthDelta);
+    // 깊이를 새긴 뒤라야 돌아온 것인지 안다. 문서의 첫 화면(`moved` 아님)은 건너뛴다 — 첫 Tab 은 건너뛰기 링크다.
+    if (moved) arriveFocus(from, depthDelta);
 
     if (target === 0 || window.scrollY === target) return;
     // 도착한 화면이 아직 그만큼 길지 않으면 브라우저가 잘라 버린다 — 다음 프레임에 한 번만 더.
     const retry = requestAnimationFrame(() => window.scrollTo(0, target));
     return () => cancelAnimationFrame(retry);
-  }, [pathname, finish, arrive]);
+  }, [pathname, finish, arrive, arriveFocus]);
 
   return (
     <div className="min-h-dvh bg-secondary" data-no-tab-bar={bare || undefined}>
