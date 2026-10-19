@@ -11,6 +11,7 @@ import {
   hasPawPrints,
   nextPawStep,
   pawPrintNear,
+  pawReachPx,
   pawPrintPosition,
   pawPrintsOf,
   pawLifetimeMs,
@@ -54,6 +55,16 @@ describe('pawTrail', () => {
     expect(startPawWalk(AREA, sequence(0), free)!.x).toBeLessThanOrEqual(14);
     expect(startPawWalk(AREA, sequence(0.5), free)!.x).toBeGreaterThanOrEqual(386);
     expect(startPawWalk(AREA, sequence(0.9), free)!.y).toBeGreaterThanOrEqual(736);
+  });
+
+  it('찍어도 되는지 물을 때 그 강아지 발의 반지름을 함께 넘긴다 — 한 점이 아니라 발 넓이가 빈 바탕이어야 한다', () => {
+    const asked: number[] = [];
+    const print = startPawWalk(AREA, fixed(0.5), (_x, _y, reach) => (asked.push(reach), true))!;
+    expect(asked).toEqual([pawReachPx(print.kind)]);
+    expect(pawReachPx('big')).toBeGreaterThan(pawReachPx('puppy'));
+    const nextAsked: number[] = [];
+    nextPawStep(print, AREA, fixed(0.5), (_x, _y, reach) => (nextAsked.push(reach), true));
+    expect(nextAsked.every((reach) => reach === pawReachPx(print.kind))).toBe(true);
   });
 
   it('빈 곳을 끝내 못 찾으면 이번엔 출발하지 않는다', () => {

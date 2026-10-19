@@ -10,8 +10,9 @@ import { isRootRoute, normalizeRoute } from './appRoutes';
  * 한 화면에는 **30개까지**만 보인다(`stampPawPrint` — 넘으면 가장 오래된 것부터 흐린다). 찍힌 발자국은 마리 단위 수명(`pawLifetimeMs`, 8~14초)이
  * 다하면 꼬리부터 차례로, 또는 누르면 천천히 흐려져 사라진다.
  *
- * 발자국은 30% 옅은 색이라 **글·카드 위에는 얹혀도 된다.** 다만 누르는 칸(버튼·입력칸)과 아이콘 위는 피한다 — 찍기 전에 그 자리에 찍어도 되는지
- * 묻는다(`isFree` — 화면이 DOM 으로 판단해 넘긴다). 안 되면 출발점을 다시 뽑고, 걷다가 닿으면 몸을 돌리거나 멈춘다.
+ * 발자국은 **글자·카드·버튼·아이콘이 없는 빈 바탕에만** 찍힌다(14 W261019.12 — 글 위를 지나면 "화면에 뭐가 묻은 줄 알고 닦았다"). 찍기 전에 그 자리에
+ * 찍어도 되는지 묻는다(`isFree` — 화면이 DOM 으로 판단해 넘긴다, 발자국 넓이 전체를 본다). 안 되면 출발점을 다시 뽑고, 걷다가 닿으면 몸을 돌리거나 멈춘다.
+ * 모바일은 좌우 여백이 16px 라 큰 발은 못 들어간다 — 그 화면에선 작은 발만 찍히거나 이번 마리를 쉬는 것이 맞다(얼룩보다 낫다).
  *
  * 기억은 **그 화면에 있는 동안만**이다 — 다른 화면(하위 화면 포함)에 다녀오면 깨끗하다(떠날 때 셸이 `clearPawPrints`). 화면별로 나눠 두는 것은
  * 떠나는 화면과 도착한 화면의 층이 잠깐 함께 있기 때문이다.
@@ -31,6 +32,8 @@ export const PAW_KINDS: Record<TPawKind, { size: number; stridePx: number; sprea
   big: { size: 5.5, stridePx: 34, spreadPx: 6, weight: 0.2 },
   slim: { size: 4, stridePx: 30, spreadPx: 3, weight: 0.2 },
 };
+/** 발자국 반지름(px) — `size` 는 `--spacing` 배수이고 그 값은 4~4.25px 라 넓은 쪽으로 잡는다. 글자를 안 건드리게 약간 넉넉히. */
+export const pawReachPx = (kind: TPawKind) => (PAW_KINDS[kind].size * 4.25) / 2;
 const PAW_KIND_ORDER = Object.keys(PAW_KINDS) as TPawKind[];
 
 /**
@@ -55,8 +58,11 @@ export type TPawStep = Omit<TPawPrint, 'seq' | 'fadeAt' | 'fading'>;
 export type TPawArea = { left: number; right: number; top: number; bottom: number };
 
 export type TRandom = () => number;
-/** 그 자리(층 기준 px)에 찍어도 되는가 — 버튼·입력칸·아이콘 위거나 화면 밖(탭바)이면 false. 글·카드는 true. */
-export type TIsFree = (x: number, y: number) => boolean;
+/**
+ * 그 자리(층 기준 px)에 찍어도 되는가 — `reachPx`(발자국 반지름) 안이 **글자·카드·버튼·아이콘 하나 없는 빈 바탕**일 때만 true. 화면 밖(탭바)도 false.
+ * 한 점이 아니라 발자국이 차지하는 넓이를 묻는다 — 가운데 점만 보면 가장자리가 글자·카드 모서리에 걸쳐 "화면에 뭐가 묻은" 것처럼 보인다.
+ */
+export type TIsFree = (x: number, y: number, reachPx: number) => boolean;
 
 /** 한 걸음에 틀 수 있는 각도 — 가장자리를 따라 걸으니 덜 꺾는다. 보폭·발 사이는 강아지마다(`PAW_KINDS`). */
 const TURN_DEG = 14;
@@ -121,7 +127,7 @@ export function startPawWalk(area: TPawArea, rand: TRandom, isFree: TIsFree): TP
           : { x: between(rand, area.left, area.right), y: between(rand, area.bottom - BOTTOM_BAND_PX, area.bottom), heading: along(rand() < 0.5 ? 90 : 270) };
     const print: TPawStep = { ...start, foot: rand() < 0.5 ? -1 : 1, kind: pickPawKind(rand) };
     const at = pawPrintPosition(print);
-    if (isFree(at.x, at.y)) return print;
+    if (isFree(at.x, at.y, pawReachPx(print.kind))) return print;
   }
   return null;
 }
@@ -145,7 +151,7 @@ export function nextPawStep(prev: TPawStep, area: TPawArea, rand: TRandom, isFre
       kind,
     };
     const at = pawPrintPosition(print);
-    return insideOf(area, print.x, print.y) && isFree(at.x, at.y) ? print : null;
+    return insideOf(area, print.x, print.y) && isFree(at.x, at.y, pawReachPx(kind)) ? print : null;
   };
   const heading = prev.heading + between(rand, -TURN_DEG, TURN_DEG);
   const side = rand() < 0.5 ? 1 : -1;
