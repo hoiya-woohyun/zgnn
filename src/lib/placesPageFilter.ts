@@ -3,7 +3,7 @@ import { AREA_CARD_TYPES } from './homePageAreaCards';
 import { DIRECTION_LABEL, PLACE_TYPES, distanceKm, placesOfType, type TPlaceEntry } from './places';
 import { PET_FILTERS, carriedFilterChips, envFiltersWithData, type TPetFilter, type TPetFilterKey, type TPlaceSort } from './placeFilters';
 import { freshnessOf } from './placeFreshness';
-import { landmarkOfQuery, matchesQuery, queryWords } from './placeSearch';
+import { isTypeWord, landmarkOfQuery, matchesQuery, queryWords } from './placeSearch';
 import type { TEligibility } from './eligibility';
 import { eligibilityMapOf, isReachable } from './eligibilityCounts';
 import type { TDirection, TDogProfile, TPlaceType } from '../types';
@@ -292,7 +292,7 @@ export const otherSeatTypeMatches = (
 
 export type TPlacesPageEmptySearch =
   | { kind: 'otherType'; top: { type: TPlaceType; count: number }; rest: { type: TPlaceType; count: number }[] }
-  | { kind: 'landmark'; word: string; radiusKm: number }
+  | { kind: 'landmark'; word: string; radiusKm: number; rest: string }
   | { kind: 'notListed'; multiWord: boolean };
 
 /**
@@ -305,6 +305,7 @@ export type TPlacesPageEmptySearch =
  *
  * 검색어에 관광지·동 이름이 있으면 '목록에 없다' 가 아니다(14 W261019.11) — '법환' 은 가게 이름이 아니라 동네라, "가게를 알려 주세요" 는
  * 엉뚱한 답이었다(haeun). 그 반경 안에 모은 곳이 아직 없다고 말하고, 길은 그 자리에서 가까운 곳이다(`landmarkNearby`).
+ * 다른 낱말이 있으면(`rest`) 없는 것은 그 낱말이다 — '중문 카레' 의 중문엔 식당이 있다. 종류 이름은 탭을 고르는 말이라 `rest` 에 넣지 않는다.
  */
 export const placesPageEmptySearch = (
   query: string,
@@ -312,7 +313,12 @@ export const placesPageEmptySearch = (
 ): TPlacesPageEmptySearch => {
   if (otherTypes.length === 0) {
     const found = landmarkOfQuery(query);
-    if (found) return { kind: 'landmark', word: found.word, radiusKm: found.landmark.radiusKm };
+    if (found) {
+      const rest = queryWords(query)
+        .filter((word) => word !== found.word && !isTypeWord(word))
+        .join(' ');
+      return { kind: 'landmark', word: found.word, radiusKm: found.landmark.radiusKm, rest };
+    }
     return { kind: 'notListed', multiWord: queryWords(query).length >= 2 };
   }
   const top = otherTypes.reduce((best, other) => (other.count > best.count ? other : best));

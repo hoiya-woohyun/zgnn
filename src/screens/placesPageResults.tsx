@@ -552,11 +552,16 @@ export function PlacesPageResults({
             /*
               관광지·동 이름이면 '목록에 없다' 가 아니라 그 반경 안에 아직 덜 모았다는 말이고(14 W261019.11 — '법환' 에 "가게를 알려 주세요" 는
               동네를 가게로 읽은 답이었다), 길은 그 자리에서 가까운 곳이다. 카드의 km 는 제목이 말하는 그 낱말에서 잰 거리다(거리순이다).
+              다른 낱말이 있으면 없는 것은 그 낱말이다 — '중문 카레' 에 "중문엔 식당이 없어요" 는 거짓이다(형제도식당 0.9km).
             */
             <>
               <EmptyState
                 Icon={SearchMd}
-                title={`${emptySearch.word} ${emptySearch.radiusKm}km 안엔 저희가 모은 ${withJosa(TYPE_META[type].label, '이/가')} 아직 없어요`}
+                title={
+                  emptySearch.rest
+                    ? `${emptySearch.word} ${emptySearch.radiusKm}km 안엔 '${emptySearch.rest}'에 맞는 ${withJosa(TYPE_META[type].label, '이/가')} 아직 없어요`
+                    : `${emptySearch.word} ${emptySearch.radiusKm}km 안엔 저희가 모은 ${withJosa(TYPE_META[type].label, '이/가')} 아직 없어요`
+                }
                 description={
                   suggestSent
                     ? '알려 주셔서 고마워요. 운영자가 찾아보고, 확인되면 올릴게요.'
@@ -580,7 +585,7 @@ export function PlacesPageResults({
               {landmarkNearby.length > 0 && (
                 <section aria-labelledby="places-landmark-nearby">
                   <h2 id="places-landmark-nearby" className="text-sm font-semibold text-secondary">
-                    {emptySearch.word}에서 가까운 {TYPE_META[type].label}
+                    {emptySearch.word}에서 가까운 {emptySearch.rest ? `'${emptySearch.rest}'` : TYPE_META[type].label}
                   </h2>
                   <ul className={cx('mt-2', listClass)}>
                     {landmarkNearby.map(({ place, km }) => (

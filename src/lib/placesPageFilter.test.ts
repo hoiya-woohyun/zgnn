@@ -525,8 +525,10 @@ describe('placesPageEmptySearch — 검색만으로 0곳일 때 큰 안내(14 W2
   });
 
   it("관광지·동 낱말이면 '목록에 없다' 가 아니다 — '법환' 은 가게가 아니라 동네다(14 W261019.11)", () => {
-    expect(placesPageEmptySearch('법환', [])).toEqual({ kind: 'landmark', word: '법환', radiusKm: 1.5 });
-    expect(placesPageEmptySearch('강정 카레', [])).toEqual({ kind: 'landmark', word: '강정', radiusKm: 1.5 });
+    expect(placesPageEmptySearch('법환', [])).toEqual({ kind: 'landmark', word: '법환', radiusKm: 1.5, rest: '' });
+    // 다른 낱말이 있으면 없는 것은 그 낱말이다 — 종류 이름은 빼고.
+    expect(placesPageEmptySearch('강정 카레', [])).toEqual({ kind: 'landmark', word: '강정', radiusKm: 1.5, rest: '카레' });
+    expect(placesPageEmptySearch('법환 카페', [])).toMatchObject({ kind: 'landmark', rest: '' });
     // 다른 종류에 있으면 그 답이 먼저다.
     expect(placesPageEmptySearch('법환', [{ type: 'cafe', count: 1 }])).toMatchObject({ kind: 'otherType' });
     // '서귀포 시내' 는 한 낱말이라 단어 둘이 아니다.
@@ -654,6 +656,13 @@ describe('landmarkNearby — 관광지·동 검색이 0곳일 때 그 중심에�
     const nearby = landmarkNearby({ ...base, type: 'restaurant', query: '법환 카레' });
     expect(nearby.every(({ place }) => matchesQuery(place, '카레'))).toBe(true);
     expect(nearby.length).toBeLessThanOrEqual(placesOfType('restaurant').filter((place) => matchesQuery(place, '카레')).length);
+  });
+
+  it("'중문 카레' — 중문 반경엔 식당이 있다, 0곳인 것은 '카레' 다(안내가 그 낱말을 말한다)", () => {
+    const conditions = { ...base, type: 'restaurant' as const };
+    expect(filterPlacesPage({ ...conditions, query: '중문' }).length).toBeGreaterThan(0);
+    expect(filterPlacesPage({ ...conditions, query: '중문 카레' })).toHaveLength(0);
+    expect(placesPageEmptySearch('중문 카레', [])).toMatchObject({ kind: 'landmark', word: '중문', rest: '카레' });
   });
 
   it('관광지 낱말이 없으면 빈 배열', () => {

@@ -32,6 +32,9 @@ import type { TPlaceType } from '../types';
 /** 종류 이름 → 종류. 탭 이름과 같은 말이어야 하므로 `TYPE_META` 에서 만든다. */
 const TYPE_OF_WORD: ReadonlyMap<string, TPlaceType> = new Map(PLACE_TYPES.map((type) => [TYPE_META[type].label, type]));
 
+/** 낱말이 종류 이름(카페·식당·숙소)인가 — 그 낱말은 글자가 아니라 탭을 고르는 말이다. */
+export const isTypeWord = (word: string): boolean => TYPE_OF_WORD.has(word);
+
 /** 정책 객체는 장소마다 한 번 만들어지고 검색은 글자마다 돈다 — 칩 글자는 정책마다 한 번만 만든다. */
 const chipTextCache = new WeakMap<TPetPolicy, string>();
 const chipTextOf = (policy: TPetPolicy): string => {
