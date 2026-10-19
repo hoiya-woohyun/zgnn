@@ -18,6 +18,7 @@ import {
 } from '../lib/adminPlaces';
 import type { TPlaceRow } from '../lib/adminCandidates';
 import type { TPlaceEditPatch } from '../lib/adminPlaceEdit';
+import { reviewLinkProblem, type TReviewLinkCheck } from '../lib/adminReviewLinks';
 import { cx } from '../utils/cx';
 import { AdminPagePlaceArchiveForm } from './adminPagePlaceArchiveForm';
 import { AdminPagePlaceDetail } from './adminPagePlaceDetail';
@@ -95,6 +96,8 @@ type TAdminPagePlaceRowProps = {
   onArchiveFromReport: () => void;
   /** 다녀왔어요 집계(마지막 확인 뒤·30일 안). 없으면 undefined. */
   visited?: TVisitedTally;
+  /** `pnpm data links` 가 남긴 이 장소의 후기 주소 점검(14 W261019.4). 지금 후기 주소와 같고 삭제·비공개일 때만 줄에 말한다. */
+  reviewLink?: TReviewLinkCheck;
   onApplyVisited: () => void;
   onRestore: () => void;
   onStartEdit: () => void;
@@ -146,6 +149,7 @@ export function AdminPagePlaceRow({
   onHandleReports,
   onArchiveFromReport,
   visited,
+  reviewLink,
   onApplyVisited,
   onPlanReread,
   onReread,
@@ -158,6 +162,7 @@ export function AdminPagePlaceRow({
   const busy = state.busy;
   const archived = place.status === 'archived';
   const why = archived ? noteLineText(lastNoteLine(place.archive_note)) : undefined;
+  const reviewProblem = reviewLinkProblem(reviewLink, place.review_url);
   const badges = placeBadges(place);
   /* 내린 곳의 빠진 정보는 조용히 둔다 — 사이트에 없는 곳이라 고칠 까닭이 없고, 뜨면 되살리기를 찾는 눈을 가린다. */
   const gaps = archived ? [] : placeGaps(place);
@@ -288,6 +293,12 @@ export function AdminPagePlaceRow({
             <span className="basis-full truncate text-xs text-secondary" title={reports[0].note ?? undefined}>
               <span className="font-medium text-error-primary">{REPORT_KIND_SHORT[reports[0].kind]}</span> ·{' '}
               {reports[0].note ?? '한 줄 없이 보냈어요'}
+            </span>
+          )}
+          {/* 후기 글이 지워졌거나 비공개로 바뀐 곳(14 W261019.4) — 운영자가 출처를 갈아 끼울 곳. 점검한 주소가 지금 것과 같을 때만. */}
+          {reviewProblem && (
+            <span className="basis-full truncate text-xs text-error-primary" title={reviewProblem}>
+              {reviewProblem}
             </span>
           )}
         </div>

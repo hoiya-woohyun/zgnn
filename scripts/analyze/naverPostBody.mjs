@@ -5,7 +5,8 @@
 //  - `blog.naver.com/{blogId}/{logNo}` 는 2.8KB iframe 껍데기라 본문이 없다.
 //  - `blog.naver.com/PostView.naver?blogId=&logNo=` 는 세 세대 에디터 모두 본문을 준다(User-Agent 없이도).
 //    SmartEditor ONE(2019~) `.se-main-container` · SmartEditor 3(2016~2018) `.__se_component_area` ·
-//    구 에디터 `#postViewArea`. 없는 글은 404.
+//    구 에디터 `#postViewArea`. 삭제된 글은 200 + alert 껍데기(357B) 또는 404, 비공개 글은 200 + alert 로 와서
+//    둘 다 컨테이너가 없으니 extractPostText 가 ''다(2026-10-19 실측, check-review-links.mjs).
 //  - `m.blog.naver.com/PostView.naver` 도 본문을 주지만 구 에디터 글이 `#postViewArea` 가 아니라 `#viewTypeSelector` 로
 //    오고, docs/todo/02 가 이미 데스크톱 주소를 적어 뒀다. 페이지가 45% 가벼운 것 말고는 얻는 게 없다.
 //

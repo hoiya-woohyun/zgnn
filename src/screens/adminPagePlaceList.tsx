@@ -20,6 +20,7 @@ import {
 import type { TPlaceEditPatch } from '../lib/adminPlaceEdit';
 import type { TBlockChoice, TPlaceBlock } from '../lib/adminBlocks';
 import { countReportedPlaces, type TReportRow, type TVisitedTally } from '../lib/adminReports';
+import { reviewLinkProblem, type TReviewLinkCheck } from '../lib/adminReviewLinks';
 import { AdminFilterChip } from './adminFilterChip';
 import { useAdminInfiniteScroll } from './adminInfiniteScroll';
 import type { TPlaceRereadPlan } from '../lib/adminPosts';
@@ -115,6 +116,8 @@ type TAdminPagePlaceListProps = {
   updates?: Record<string, number>;
   /** 장소 id → 다녀왔어요 집계. */
   visited: Record<string, TVisitedTally>;
+  /** 장소 id → 후기 주소 점검 결과(`pnpm data links`, 14 W261019.4). 표가 없거나 못 읽었으면 비어 있다. */
+  reviewLinks?: ReadonlyMap<string, TReviewLinkCheck>;
   onApplyVisited: (place: TPlaceRow, ids: string[]) => void;
   /** 장소 고치기(쓰기는 `adminPage` 의 `savePlace`). 등록 해제 칸의 줄에는 버튼이 서지 않는다. */
   onSavePlace: (place: TPlaceRow, patch: TPlaceEditPatch) => void;
@@ -144,6 +147,7 @@ export function AdminPagePlaceList({
   onHandleReports,
   updates,
   visited,
+  reviewLinks,
   onApplyVisited,
   onSavePlace,
   onClearDone,
@@ -154,6 +158,8 @@ export function AdminPagePlaceList({
   const [ownReportedOnly, setOwnReportedOnly] = useState(false);
   const reportedOnly = reportedOnlyProp ?? ownReportedOnly;
   const setReportedOnly = onReportedOnlyChange ?? setOwnReportedOnly;
+  /** "후기 못 읽는 곳" 만 보기(14 W261019.4) — `제보 있는 곳` 과 같이 켜지 않는다(서로를 켜면 꺼진다). */
+  const [reviewProblemOnly, setReviewProblemOnly] = useState(false);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<TStatusFilter>('all');
   const [typeFilter, setTypeFilter] = useState<TTypeFilter>('all');
@@ -168,6 +174,12 @@ export function AdminPagePlaceList({
     [archivedMode, places],
   );
 
+  const hasReviewProblem = useCallback(
+    (place: TPlaceRow) => reviewLinkProblem(reviewLinks?.get(place.id), place.review_url) !== null,
+    [reviewLinks],
+  );
+  const reviewProblemCount = useMemo(() => inMode.filter(hasReviewProblem).length, [hasReviewProblem, inMode]);
+
   /*
    * 칩 숫자는 **검색·종류·빠진 정보를 건 결과 기준**이다 — `전체 89 · 게시중 3` 처럼 숫자끼리 모순되지 않게 `all` 도 같은 집합을 센다.
    * 드롭다운 둘의 숫자는 **자기 축만 뺀** 집합에서 센다(후보 칸의 걸러 보기와 같은 어법) — 고른 값의 숫자가 곧 보이는 줄 수가 되게.
@@ -179,9 +191,10 @@ export function AdminPagePlaceList({
         (place) =>
           (typeFilter === 'all' || place.type === typeFilter) &&
           gapMatches(gapFilter, place) &&
-          (!reportedOnly || (reports[place.id]?.length ?? 0) > 0),
+          (!reportedOnly || (reports[place.id]?.length ?? 0) > 0) &&
+          (!reviewProblemOnly || hasReviewProblem(place)),
       ),
-    [gapFilter, reportedOnly, reports, searched, typeFilter],
+    [gapFilter, hasReviewProblem, reportedOnly, reports, reviewProblemOnly, searched, typeFilter],
   );
   const counts = useMemo(() => countPlacesByStatus(visible), [visible]);
   // 머리글의 `제보 있는 곳 N곳` 과 같은 함수로 센다(`reportInbox`) — 둘이 따로 세던 동안 머리글 9 · 칩 6 이었다(14 W261010.13).
@@ -271,12 +284,26 @@ export function AdminPagePlaceList({
             pressed={reportedOnly}
             onClick={() => {
               clearDone();
+              setReviewProblemOnly(false);
               setReportedOnly(!reportedOnly);
               setShown(PAGE_SIZE);
             }}
           >
             제보 있는 곳 {reportedCount}
             {suggestionCount > 0 ? ` · 제안 ${suggestionCount}` : ''}
+          </AdminFilterChip>
+        ) : null}
+        {reviewProblemCount > 0 || reviewProblemOnly ? (
+          <AdminFilterChip
+            pressed={reviewProblemOnly}
+            onClick={() => {
+              clearDone();
+              setReportedOnly(false);
+              setReviewProblemOnly(!reviewProblemOnly);
+              setShown(PAGE_SIZE);
+            }}
+          >
+            후기 못 읽는 곳 {reviewProblemCount}
           </AdminFilterChip>
         ) : null}
       </div>
@@ -326,6 +353,8 @@ export function AdminPagePlaceList({
               ? '등록 해제한 장소가 없어요.'
               : reportedOnly && reportedCount === 0
                 ? '열린 제보가 있는 곳은 없어요.'
+                : reviewProblemOnly && reviewProblemCount === 0
+                  ? '후기 글을 못 읽는 곳은 없어요.'
                 : '걸러 보기에 맞는 장소가 없어요.'}
         </p>
       ) : (
@@ -352,6 +381,7 @@ export function AdminPagePlaceList({
                 key={place.id}
                 place={place}
                 state={states[place.id] ?? {}}
+                reviewLink={reviewLinks?.get(place.id)}
                 expanded={expanded === place.id}
                 onToggle={() => setExpanded((prev) => (prev === place.id ? null : place.id))}
                 onStartArchive={() => patchState(place.id, { archiving: true, error: undefined, done: undefined })}

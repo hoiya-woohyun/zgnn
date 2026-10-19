@@ -49,6 +49,7 @@ import {
   type TPlaceRow,
   type TRejectReason,
 } from '../lib/adminCandidates';
+import { fetchReviewLinkChecks, type TReviewLinkCheck } from '../lib/adminReviewLinks';
 import { fetchGroupIntros, groupIntroOf, NO_GROUP_INTROS, type TGroupIntros } from '../lib/adminGroupIntro';
 import {
   fetchManagedPlaces,
@@ -438,6 +439,8 @@ export function AdminPage() {
   /** 사용자 제보(ADR-021). undefined = 아직 못 읽었다. 쓰기 콜백이 최신 행을 보도록 ref 로도 든다. */
   const [reports, setReports] = useState<TReportsLoad | undefined>(undefined);
   const reportRowsRef = useRef<TReportRow[]>([]);
+  /** 후기 주소 점검(`pnpm data links`, 14 W261019.4). 못 읽으면 비어 있다 — 경고가 안 설 뿐 검수는 그대로. */
+  const [reviewLinks, setReviewLinks] = useState<ReadonlyMap<string, TReviewLinkCheck>>(new Map());
   const applyReports = useCallback((next: TReportsLoad | undefined) => {
     reportRowsRef.current = next?.kind === 'ok' ? next.rows : [];
     setReports(next);
@@ -624,6 +627,12 @@ export function AdminPage() {
     setBlocks(await fetchBlocks(client));
     setCollectRequests(await fetchCollectRequests(client));
     applyReports(await fetchReports(client));
+    try {
+      setReviewLinks(await fetchReviewLinkChecks(client));
+    } catch (error) {
+      console.warn(messageOf(error, '후기 주소 점검을 불러오지 못했어요.'));
+      setReviewLinks(new Map());
+    }
   }, [applyReports]);
 
   /**
@@ -2276,6 +2285,7 @@ export function AdminPage() {
             updates={updatesByPlace}
             onHandleReports={(place, ids, status, note) => void handleReports(place, ids, status, note)}
             visited={visitedByPlace}
+            reviewLinks={reviewLinks}
             onApplyVisited={(place, ids) => void applyVisited(place, ids)}
             onSavePlace={(place, patch) => void savePlace(place, patch)}
             onClearDone={clearPlaceDone}
@@ -2303,6 +2313,7 @@ export function AdminPage() {
             updates={updatesByPlace}
             onHandleReports={(place, ids, status, note) => void handleReports(place, ids, status, note)}
             visited={visitedByPlace}
+            reviewLinks={reviewLinks}
             onApplyVisited={(place, ids) => void applyVisited(place, ids)}
             onSavePlace={(place, patch) => void savePlace(place, patch)}
             onClearDone={clearPlaceDone}

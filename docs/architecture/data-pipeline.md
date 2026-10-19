@@ -1,6 +1,7 @@
 # 데이터 파이프라인 — Supabase → src/data
 
-> 최종 수정: 2026-10-15 (v70: `stay.environment` 칸 여섯 — 객실 조건 `indoorRoom`·`furniture` 를 더했다(같은 jsonb, 마이그레이션 없음 · 14 W261013.11))
+> 최종 수정: 2026-10-19 (v71: **`pnpm data links`** — 게시된 곳의 후기 글(`review_url`)이 아직 읽히는지 점검해 `review_link_checks` 에 남긴다. 운영자 터미널 명령, 워커 밖(14 W261019.4))
+> 이전 2026-10-15 (v70: `stay.environment` 칸 여섯 — 객실 조건 `indoorRoom`·`furniture` 를 더했다(같은 jsonb, 마이그레이션 없음 · 14 W261013.11))
 > 이전 2026-10-13 (v69: `group_intros` 를 읽는 자리 — 검수 대기 'AI 요약' · `/admin` 등록 · CLI `apply-approved.mjs` 가 `chooseGroupIntro` 하나로, 지문이 같을 때만(todo/13 §5.3 A3))
 > 이전 2026-10-13 (v68: **`pull` 이 블로그 출처 행의 판정 입력을 미리 계산해 싣는다** — `places.json` 의 비공개 행은 원문·판단·안내 대신 `derived` 하나(`toSnapshotRow`, `src/lib/placeDerive.ts`). 원문을 포함한 전체 행은 gitignored 캐시 `data/raw/places-source.json` 에, `pnpm data pull --offline` 은 그 캐시로 다시 계산한다. `seed-db` 는 원문 없는 행을 건너뛴다, todo 21 S8)
 > 이전 2026-10-13 (v67: **`pnpm data rewrite`** — 게시된 블로그 행의 안내·베낀 소개만 다시 쓴다, 판단 고정 · 미리보기 표를 `--apply` 가 그대로 쓴다(Claude 재호출 없음), todo 21 S9)
@@ -301,6 +302,7 @@ flowchart LR
   `features` 는 그 가게를 설명하는 문장이 없으면 null(글의 제목·출처·목록 이름을 소개로 쓰지 않는다)이고, 목록글(`visited: false`)이면 코드가 비운다 —
   사이트는 빈 소개면 카드·지도 시트 줄·상세 칸·OG 설명·공유 글을 그리지 않는다. 조건 원문은 조건을 말하지 않는 문장(감상·시설 설명)을 빼고, 동반이 된다는 말뿐이면 그 문장을 넣는다(판정 C9).
 - **이미 게시된 블로그 행은 `pnpm data rewrite` 가 문장만 다시 쓴다**(todo/21 S9) — 판단은 고정. 대상은 `published` · 원문 비공개 · 안내 없음(승인으로 새로 게시된 행도 다음 회차에 같은 조건으로 잡힌다).
+- **게시된 곳의 후기 글이 아직 있는지는 `pnpm data links` 가 본다**(14 W261019.4) — 운영자 로컬 터미널 명령이고 서버 워커·`once` 에 넣지 않는다. 장소마다 `PostView.naver` 를 요청당 300ms 간격으로 읽고(429 면 멈춘다), 결과를 `review_link_checks`(장소당 한 줄, `url` 은 점검한 주소)에 upsert 한다 — `places` 에 쓰면 재빌드가 걸리므로 별도 표다. 세션 필요(`pnpm data login`), `--dry-run` 은 읽기만. `/admin` 이 삭제·비공개(`gone`)만 줄에 띄운다([admin-review](../features/admin-review.md)).
   곳마다 출처 글 본문을 다시 받고(본문은 DB 에 없다) Claude 한 번 — 안내·소개 지시는 추출과 **같은 상수**(`PROMPT_GUIDE_RULE`·`PROMPT_FEATURES_RULE`), 가드도 같은 `storableGuide`, `basis` 는 **저장된** `pet_policy` 의 지문.
   소개는 지금 값이 본문과 15자(`COPY_RUN`) 이상 같을 때만 바꾸고(운영자가 고친 소개는 남는다), 새 소개가 없거나 가드에 걸리면 그대로 둔다. 기본은 미리보기(`data/raw/rewrite/<날짜>.md` 전·후 표 + 같은 이름 `.json` patch),
   `--apply` 는 그 `.json` 을 **그대로** 쓴다 — Claude 를 다시 부르면 사람이 본 표와 다른 문장이 올라간다. 쓰기 직전 행마다 대상 조건·소개·판단 지문이 미리보기 때와 같은지 보고 다르면 건너뛴다.
