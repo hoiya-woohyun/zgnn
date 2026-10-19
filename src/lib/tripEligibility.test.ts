@@ -45,17 +45,17 @@ describe('tripEligibility', () => {
 
   it('"이 날은 초코만" — 어려운 곳을 다 풀어 주는 조합', () => {
     const result = tripEligibility(DAEJANG_CHOCO, day('15kg 이하 2마리까지', '실내외 모두 가능.'));
-    expect(result?.subset).toEqual({ names: ['초코'], level: 'ok' });
+    expect(result?.subset).toEqual({ names: ['초코'], ties: [['초코']], level: 'ok' });
   });
 
   it('조합의 판정은 하루 전체의 가장 나쁜 곳', () => {
     const result = tripEligibility(DAEJANG_CHOCO, day('15kg 이하 2마리까지', '야외 테라스만 가능'));
-    expect(result?.subset).toEqual({ names: ['초코'], level: 'cond' });
+    expect(result?.subset).toEqual({ names: ['초코'], ties: [['초코']], level: 'cond' });
   });
 
   it('원래 정보가 없는 곳은 조합을 막지 않는다', () => {
     const result = tripEligibility(DAEJANG_CHOCO, day('15kg 이하 2마리까지', ''));
-    expect(result?.subset).toEqual({ names: ['초코'], level: 'unknown' });
+    expect(result?.subset).toEqual({ names: ['초코'], ties: [['초코']], level: 'unknown' });
   });
 
   it('한 곳이라도 누구를 빼도 안 되면 조합이 없다', () => {
@@ -76,6 +76,10 @@ describe('tripEligibility', () => {
     const places = day('2마리까지');
     const single = dogSubsetWhatIf(three, places[0].policy, judgeEligibility(three, places[0].policy));
     expect(single?.names).toEqual(['솜', '구름']);
-    expect(tripEligibility(three, places)?.subset).toEqual({ names: single?.names, level: single?.eligibility.level });
+    expect(tripEligibility(three, places)?.subset).toEqual({
+      names: single?.names,
+      ties: single?.ties,
+      level: single?.eligibility.level,
+    });
   });
 });

@@ -7,10 +7,13 @@
  *    "확인이 필요해요" 로 세면 한 화면에서 카드와 머리가 반대를 말한다(5a22852 가 장소 하나에서 막은 것).
  *  - 조합(`subset`)의 level 이 'unknown' 이면 실패가 아니다 — 어려운 곳은 다 풀렸고 원래 정보가 없던 곳이 남았을 뿐(T2.1 메모).
  *    그래서 조합 문장은 "다 갈 수 있어요" 와 "어려운 곳은 없어요" 둘뿐이다.
+ *  - 조합의 앞은 상세 what-if 와 같은 `dogSubsetLead` — 누구 한 마리로도 되면 "콩이나 해피 중 한 마리만 데려가면"(14 W261019.9a).
+ *    상세는 그렇게 말하는데 하루 줄만 "해피만" 이면 같은 오독("콩은 안 되는 줄")이 이 화면에 남는다.
  *  - 어려울 때 주어는 **데려가는 아이 전부**다. 빠지는 아이를 탓하지 않는다 — 마릿수 규칙이면 어느 한 아이 탓이 아니다.
  *    누구를 두고 가면 되는지는 조합 문장이 말한다.
  */
 
+import { dogSubsetLead } from './dogSubsetWhatIf';
 import { isOutdoorSeatOnly, type TEligibilityLevel } from './eligibility';
 import { dogCallNames, withJosa } from './korean';
 import type { TPetPolicy } from './petPolicy';
@@ -65,7 +68,7 @@ export function tripDayVerdict(
   }
 
   const subsetLine = trip.subset
-    ? `이 날은 ${dogCallNames(trip.subset.names)}만 데려가면 ${trip.subset.level === 'ok' ? '다 갈 수 있어요' : '어려운 곳은 없어요'}`
+    ? `이 날은 ${dogSubsetLead(trip.subset, dog.dogs.map((entry) => entry.name))} ${trip.subset.level === 'ok' ? '다 갈 수 있어요' : '어려운 곳은 없어요'}`
     : null;
 
   return { level: trip.level, headline, subsetLine, hardIds: hard.map((entry) => entry.id) };

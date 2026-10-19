@@ -30,8 +30,11 @@ export type TTripPlaceReasons = {
 export type TTripEligibility = {
   level: TEligibilityLevel;
   reasons: TTripPlaceReasons[];
-  /** 어려운 곳을 다 풀어 주는 조합. 없거나 묻지 않을 때(어려운 곳 없음 · 한 마리) `null`. */
-  subset: { names: string[]; level: TEligibilityLevel } | null;
+  /**
+   * 어려운 곳을 다 풀어 주는 조합. 없거나 묻지 않을 때(어려운 곳 없음 · 한 마리) `null`.
+   * `ties` 는 수·판정이 같은 조합 전부(`bestDogSubset`) — 문장은 `dogSubsetLead` 가 상세와 같은 말로 만든다(14 W261019.9a).
+   */
+  subset: { names: string[]; ties: string[][]; level: TEligibilityLevel } | null;
 };
 
 const worstOf = (levels: readonly TEligibilityLevel[]): TEligibilityLevel =>
@@ -71,5 +74,5 @@ export function tripEligibility(
         })
       : null;
 
-  return { level, reasons, subset: subset && { names: subset.names, level: subset.result.level } };
+  return { level, reasons, subset: subset && { names: subset.names, ties: subset.ties, level: subset.result.level } };
 }

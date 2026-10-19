@@ -56,6 +56,32 @@ describe('tripDayVerdict — 하루 머리 한 줄(16 T2.3)', () => {
     expect(tripDayVerdict(DAEJANG_CHOCO, day(LIMIT, NO_INFO))?.subsetLine).toBe('이 날은 초코만 데려가면 어려운 곳은 없어요');
   });
 
+  describe('누구로도 되면 상세와 같은 말 — "콩이나 해피 중 한 마리만"(14 W261019.9a)', () => {
+    const KONG_HAPPY: TDogProfile = { dogs: [{ name: '콩', weightKg: 2.5 }, { name: '해피', weightKg: 12 }], carrier: 'none' };
+    // 웨스티하우스 원문 그대로 — 콩은 10kg 구간, 해피는 20kg 구간이 받고 둘이 같이는 안 된다.
+    const WESTIE = '10kg 미만의 경우 최대 2마리 가능. 20kg 미만(중형견)의 경우 최대 1마리 가능.';
+
+    it('웨스티하우스 × 콩·해피 — "해피만" 이 아니다', () => {
+      expect(tripDayVerdict(KONG_HAPPY, day(WESTIE, OK))?.subsetLine).toBe(
+        '이 날은 콩이나 해피 중 한 마리만 데려가면 다 갈 수 있어요',
+      );
+    });
+
+    it('세 마리 중 누구 한 마리만 빼도 되면 빠지는 쪽으로', () => {
+      const three: TDogProfile = {
+        dogs: [{ name: '단비', weightKg: 5 }, { name: '솜', weightKg: 7 }, { name: '구름', weightKg: 6 }],
+        carrier: 'none',
+      };
+      expect(tripDayVerdict(three, day('2마리까지', OK))?.subsetLine).toBe(
+        '이 날은 단비, 솜이, 구름이 중 한 마리만 두고 가면 다 갈 수 있어요',
+      );
+    });
+
+    it('묶음은 하루 전체로 센다 — 다른 곳이 해피를 막으면 "콩이만"', () => {
+      expect(tripDayVerdict(KONG_HAPPY, day(WESTIE, '5kg 이하'))?.subsetLine).toBe('이 날은 콩이만 데려가면 다 갈 수 있어요');
+    });
+  });
+
   it('한 마리면 조합을 묻지 않는다', () => {
     const verdict = tripDayVerdict({ dogs: [{ name: '대장', weightKg: 18 }], carrier: 'none' }, day(LIMIT));
     expect(verdict?.headline).toBe('대장이는 가게1에 가기 어려워요');
