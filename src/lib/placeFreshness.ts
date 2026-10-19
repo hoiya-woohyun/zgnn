@@ -53,13 +53,13 @@ export function freshnessOf(place: TFreshnessInput, now: number | null): TFreshn
 }
 
 /**
- * 목록 카드·지도 시트의 짧은 꼬리표 — "9월 확인"(경쟁 비교 C2610.3: 신뢰가 차별점인데 상세에 들어가야 보였다).
- * 올해 것이면 달만, 아니면 해까지 붙인다 — 해가 바뀌었는데 "9월 확인" 이면 작년 9월이 올해 것으로 읽힌다.
- * 지금을 모르면(정적 HTML) 해까지 붙인 쪽이 안전하다. 그리지 않는 경우는 `freshnessOf` 와 같다.
+ * 목록 카드·지도 시트의 짧은 꼬리표 — "2026년 9월 확인"(경쟁 비교 C2610.3: 신뢰가 차별점인데 상세에 들어가야 보였다).
+ * **해를 항상 붙인다** — 예전엔 올해 것이면 달만("9월 확인")이었는데 "9월에 가라는 건지" 로 읽혔다(seongho-08 · youngja, 14 W261019.18a).
+ * 상세의 "2026년 9월에 확인했어요" 와 같은 말이라 지금(`now`)을 볼 일이 없다 — 인자는 호출부(카드·시트)와 호환되게 남긴다.
+ * 그리지 않는 경우는 `freshnessOf` 와 같다.
  */
-export function freshnessShortLabel(place: TFreshnessInput, now: number | null): string | null {
-  if (!freshnessOf(place, now) || !place.verifiedAt) return null;
-  const [year, month] = place.verifiedAt.split('-').map(Number);
-  const thisYear = now === null ? null : new Date(now + 9 * 60 * 60 * 1000).getUTCFullYear();
-  return year === thisYear ? `${month}월 확인` : `${year}년 ${month}월 확인`;
+export function freshnessShortLabel(place: TFreshnessInput, now?: number | null): string | null {
+  if (!freshnessOf(place, now ?? null) || !place.verifiedAt) return null;
+  const label = monthLabel(place.verifiedAt);
+  return label ? `${label} 확인` : null;
 }
