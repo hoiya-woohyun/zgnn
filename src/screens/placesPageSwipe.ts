@@ -12,6 +12,7 @@ import {
 import { arriveBySwipe } from './placesPageTypeSwitch';
 import { isWithinPlacesSwipe, swipeIndexOf } from '../lib/appRoutes';
 import { rememberScroll } from '../lib/appScroll';
+import { eventStartsInHorizontalScroller } from '../lib/horizontalScroller';
 import { PLACE_TYPES } from '../lib/places';
 import {
   BACK_SWIPE_EDGE_PX,
@@ -185,6 +186,9 @@ export function usePlacesPageSwipe(type: TPlaceType, headerRef: RefObject<HTMLEl
     swiped.current = false;
     if (event.pointerType !== 'touch' || settling.current || gesture.current) return;
     if (event.clientX < BACK_SWIPE_EDGE_PX) return;
+    // 가로 스크롤 줄에서 시작한 손짓은 그 줄의 것이다 — 셸 인식기와 같은 규칙(22 A·B review R-10, `lib/horizontalScroller`). 지금 무대 안엔 그런 줄이 없지만
+    // 본문에 생기면(md 의 줄이 모바일로 내려오는 등) 종류가 넘어가지 않게 같은 문을 둔다.
+    if (eventStartsInHorizontalScroller(event.target, event.currentTarget)) return;
     const sample = { x: event.clientX, t: event.timeStamp };
     gesture.current = {
       pointerId: event.pointerId,

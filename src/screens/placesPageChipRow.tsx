@@ -1,6 +1,6 @@
 'use client';
 
-import type { ComponentProps } from 'react';
+import { useRef, type ComponentProps } from 'react';
 import { ChevronDown, RefreshCw01, Sliders02, XClose } from '@untitledui/icons';
 import { FilterChip } from '../components/filterChip';
 import type { TActiveChip } from './placesPageActiveChips';
@@ -58,8 +58,10 @@ export function PlacesPageChipRow({
   onReset,
   className,
 }: TPlacesPageChipRowProps) {
+  const rowRef = useRef<HTMLDivElement>(null);
+
   return (
-    <div className={cx(SCROLL_ROW_CLASS, className)} role="group" aria-label="필터와 정렬">
+    <div ref={rowRef} className={cx(SCROLL_ROW_CLASS, className)} role="group" aria-label="필터와 정렬">
       <FilterChip
         pressed={activeFilterCount > 0}
         toggle={false}
@@ -103,7 +105,11 @@ export function PlacesPageChipRow({
           type="button"
           aria-label="필터 초기화"
           data-ev="places.reset"
-          onClick={onReset}
+          onClick={() => {
+            onReset();
+            // 줄을 처음으로 — 끝(초기화 자리)까지 밀어 둔 채 칩이 줄면 '필터' 가 왼쪽 끝에 잘린 채 남았다(22 A·B review R-9).
+            if (rowRef.current) rowRef.current.scrollLeft = 0;
+          }}
           className="inline-flex h-11 shrink-0 items-center gap-1 px-1 text-sm text-tertiary hover:text-secondary active:text-secondary"
         >
           <RefreshCw01 aria-hidden="true" className="size-3.5 text-fg-quaternary" />

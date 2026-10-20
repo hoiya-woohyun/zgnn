@@ -21,6 +21,7 @@ import {
   takesHorizontalPan,
 } from '../../lib/appRoutes';
 import { rememberScroll } from '../../lib/appScroll';
+import { eventStartsInHorizontalScroller } from '../../lib/horizontalScroller';
 import { PLACE_TYPES } from '../../lib/places';
 import {
   BACK_SWIPE_EDGE_PX,
@@ -292,6 +293,12 @@ export function useAppShellSwipe(pathname: string) {
      * (둘러보기 안의 인식기는 무대가 헤더 바깥이라 시트 이벤트를 아예 못 본다.)
      */
     if (event.target instanceof Element && event.target.closest('[role="dialog"]')) return;
+    /*
+     * 가로로 스크롤되는 줄(둘러보기 칩 줄 · md 조건 판 줄 · 지도 종류 칩 줄)에서 시작한 손짓도 그 줄의 것이다 — 끝까지 밀린 뒤에도(22 A·B review R-10).
+     * 안 거르면 둘러보기 끝 칸(숙소 → 홈 · 카페 → 지도)에서 칩을 훑던 손가락이 화면을 끌었다: 잠그는 순간 세로 스크롤을 막는 touchmove 가
+     * 그 줄의 가로 스크롤까지 막아, 카페에서 왼쪽으로 60px 밀자 줄은 0 그대로 화면이 −48 따라오고 지도로 넘어갔다. 판정은 `lib/horizontalScroller`.
+     */
+    if (eventStartsInHorizontalScroller(event.target, event.currentTarget)) return;
     gesture.current = {
       pointerId: event.pointerId,
       originX: event.clientX,
