@@ -175,8 +175,8 @@ describe('placesPageChips', () => {
   it('순서는 시트의 차례(숨김 → 실내 → 방향 → 읍면 → 원문 조건) → 검색어, 개수에는 검색어가 빠진다 · 정렬은 칩이 아니다(22 D-4 · 14 W261019.13)', () => {
     const result = placesPageChips({ ...chipBase, town: '애월읍', directions: ['east'], hideHard: true, query: ' 카레 ' });
     expect(result.chips.map((chip) => chip.key)).toEqual(['hideHard', 'dir-east', 'town', 'query']);
-    const all = placesPageChips({ ...chipBase, town: '애월읍', needsIndoor: true, directions: ['west'], petKeys: ['largeDog'], hideHard: true, onlyReachable: true });
-    expect(all.chips.map((chip) => chip.key)).toEqual(['onlyReachable', 'hideHard', 'indoor', 'dir-west', 'town', 'pet-largeDog']);
+    const all = placesPageChips({ ...chipBase, town: '애월읍', needsIndoor: true, directions: ['west'], petKeys: ['largeDog'], hideHard: true });
+    expect(all.chips.map((chip) => chip.key)).toEqual(['hideHard', 'indoor', 'dir-west', 'town', 'pet-largeDog']);
     expect(result.chips.at(-1)?.label).toBe('"카레"');
     expect(result.activeFilterCount).toBe(3);
     expect(result.hasFilters).toBe(true);
@@ -254,9 +254,14 @@ describe("'갈 수 있는 곳만'(19 T4.1)", () => {
 
   it('칩은 권역 바로 뒤, 시트에 칩이 있어 시트 버튼 숫자(activeFilterCount)에 센다(14 W261013.14d)', () => {
     const chipBase = { type: 'stay' as const, town: null, needsIndoor: false, hasDog: true, directions: [], petKeys: [], hideHard: false, query: '' };
-    const result = placesPageChips({ ...chipBase, area: 'west', onlyReachable: true, hideHard: true });
-    expect(result.chips.map((chip) => chip.key)).toEqual(['area', 'onlyReachable', 'hideHard']);
-    expect(result.activeFilterCount).toBe(2);
+    const result = placesPageChips({ ...chipBase, area: 'west', onlyReachable: true });
+    expect(result.chips.map((chip) => chip.key)).toEqual(['area', 'onlyReachable']);
+    expect(result.activeFilterCount).toBe(1);
+    // 둘 다 켜져 있으면(카드 진입 + 남은 숨김) 숨김은 '갈 수 있는 곳만' 안이라 칩도 수도 하나다 — 시트 세그먼트가 하나만 말하듯(22 D-6).
+    const both = placesPageChips({ ...chipBase, area: 'west', onlyReachable: true, hideHard: true });
+    expect(both.chips.map((chip) => chip.key)).toEqual(['area', 'onlyReachable']);
+    expect(both.activeFilterCount).toBe(1);
+    expect(placesPageChips({ ...chipBase, hideHard: true }).chips).toEqual([{ key: 'hideHard', label: '어려운 곳 빼고' }]);
     expect(placesPageChips({ ...chipBase, onlyReachable: true }).activeFilterCount).toBe(1);
   });
 
@@ -500,7 +505,7 @@ describe('singleConditionReleases — 0곳일 때 조건 하나만 풀면 몇 �
     expect(singleConditionReleases(conditions, { dog: null, needsIndoor: true }).some((r) => r.key === 'indoor')).toBe(false);
   });
 
-  it("'어려운 곳 숨김' 은 후보가 아니다 — 그것만 풀면 새로 보이는 곳은 전부 '이용하기 어려워요' 다", () => {
+  it("'어려운 곳 빼고' 는 후보가 아니다 — 그것만 풀면 새로 보이는 곳은 전부 '이용하기 어려워요' 다", () => {
     const eligibilityMap = eligibilityMapOf(PLACES, BIG, { needsIndoor: true });
     const conditions = { ...base, type: 'restaurant' as const, directions: ['udo'] as const, hideHard: true, eligibilityMap };
     expect(filterPlacesPage(conditions)).toHaveLength(0);

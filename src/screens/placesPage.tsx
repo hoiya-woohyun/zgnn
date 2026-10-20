@@ -18,6 +18,8 @@ import type { TPetFilterKey, TPlaceSort } from '../lib/placeFilters';
 import { placesPageSortLabel } from '../lib/placesPageFilter';
 import { countByLevel, levelCountParts } from '../lib/eligibilityCounts';
 import { landmarkOfQuery } from '../lib/placeSearch';
+import { placesPageDogStepFlags, placesPageDogStepOf, type TPlacesPageDogStep } from '../lib/placesPageDogStep';
+import { dogNamesAsWritten } from '../lib/korean';
 import { NEAR_PARAM, nearPlaceOf } from '../lib/distanceSort';
 import { LOCATE_NOTICE, locateMe } from '../lib/myLocation';
 import { showAppStatus } from '../lib/appStatus';
@@ -235,6 +237,13 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
 
   const togglePetKey = (key: TPetFilterKey) => togglePetKeyOfType(type, key);
 
+  // 시트의 강아지 기준 세그먼트(22 D-6) — 고른 단계가 남기는 플래그는 하나뿐이다(`placesPageDogStepFlags`). 걸러 내기는 그대로 두 플래그.
+  const setDogStep = (step: TPlacesPageDogStep) => {
+    const next = placesPageDogStepFlags(step);
+    setHideHard(next.hideHard);
+    if (next.onlyReachable !== onlyReachable) toggleOnlyReachable();
+  };
+
   const removeChip = (key: string) => {
     if (key === 'area') clearArea();
     else if (key === 'onlyReachable') clearOnlyReachable();
@@ -312,10 +321,10 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
                 eligibility={
                   dog
                     ? {
-                        onlyReachable,
-                        onToggleOnlyReachable: toggleOnlyReachable,
-                        hideHard,
-                        onToggleHideHard: toggleHideHard,
+                        // 한 마리면 이름으로('두부 기준'), 여럿이면 묶어 부른다 — 이름이 가리키는 말로 서는 자리라 적은 이름 그대로(`dogNamesAsWritten`).
+                        title: dog.dogs.length === 1 ? `${dogNamesAsWritten([dog.dogs[0].name])} 기준` : '우리 강아지 기준',
+                        step: placesPageDogStepOf({ onlyReachable, hideHard }),
+                        onChangeStep: setDogStep,
                         needsIndoor,
                         onToggleNeedsIndoor: () => setNeedsIndoor(!needsIndoor),
                         levelParts,
@@ -352,7 +361,6 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
 
           {dog && (
             <PlacesPageEligibilityToggles
-              variant="bar"
               type={type}
               onlyReachable={onlyReachable}
               onToggleOnlyReachable={toggleOnlyReachable}

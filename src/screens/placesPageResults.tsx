@@ -589,7 +589,7 @@ export function PlacesPageResults({
                 ) : releaseActions.length > 0 ? (
                   /*
                     "필터를 바꿔 보세요" 만으로는 무엇을 풀어야 하는지 몰랐다(ferry-28 — 경쟁 펫패스는 대체 장소를 낸다). 하나만 풀어도 되는 조건을
-                    수와 함께 — 앞의 둘만, 많은 순. '어려운 곳 숨김' 은 후보가 아니다(풀면 못 가는 곳만 나온다, `singleConditionReleases`).
+                    수와 함께 — 앞의 둘만, 많은 순. '어려운 곳 빼고' 는 후보가 아니다(풀면 못 가는 곳만 나온다, `singleConditionReleases`).
                     시트를 여는 '필터 바꾸기' 는 뺀다 — 버튼이 셋이면 폰에서 안내가 버튼 더미가 되고, 시트는 위 필터 버튼이 그대로 연다.
                   */
                   <div className="flex flex-wrap items-center justify-center gap-2">

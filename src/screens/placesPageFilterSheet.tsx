@@ -1,9 +1,10 @@
-import { PlacesPageEligibilityToggles } from './placesPageEligibilityToggles';
+import { PlacesPageFilterSheetDog } from './placesPageFilterSheetDog';
 import { PlacesPageFilters } from './placesPageFilters';
 import { BottomSheet } from '../components/base/bottom-sheet';
 import { Button } from '../components/base/button';
 import { cx } from '../utils/cx';
 import type { TAreaId } from '../lib/areaGroups';
+import type { TPlacesPageDogStep } from '../lib/placesPageDogStep';
 import type { TPetFilterKey } from '../lib/placeFilters';
 import type { TDirection, TPlaceType } from '../types';
 
@@ -20,13 +21,13 @@ type TPlacesPageFilterSheetProps = {
   onSelectTown: (town: string | null) => void;
   onToggleDirection: (direction: TDirection) => void;
   onTogglePetKey: (key: TPetFilterKey) => void;
-  /** 우리 강아지 기준 토글은 프로필이 있을 때만 있다. 없으면 이 값이 null 이다. */
+  /** 강아지 기준은 프로필이 있을 때만 있다. 없으면 이 값이 null 이다. */
   eligibility: {
-    /** '갈 수 있는 곳만'(14 W261013.14d) — 홈 동네 카드가 거는 것과 같은 스토어 값. */
-    onlyReachable: boolean;
-    onToggleOnlyReachable: () => void;
-    hideHard: boolean;
-    onToggleHideHard: () => void;
+    /** 섹션 제목 — '두부 기준' · 여럿이면 '우리 강아지 기준'. */
+    title: string;
+    /** 전부 · 어려운 곳 빼고 · 갈 수 있는 곳만(22 D-6) — '갈 수 있는 곳만' 은 홈 동네 카드가 거는 것과 같은 스토어 값(14 W261013.14d). */
+    step: TPlacesPageDogStep;
+    onChangeStep: (step: TPlacesPageDogStep) => void;
     needsIndoor: boolean;
     onToggleNeedsIndoor: () => void;
     /** 남는 곳의 판정 셈("가능 20" 조각들, `levelCountParts`) — 하단 버튼 위 한 줄. */
@@ -104,13 +105,11 @@ export function PlacesPageFilterSheet({
                 핵심 스위치("어려운 곳 숨기기")가 스크롤해야 보였다. 읍면·조건 칩은 그 아래에서 좁힌다.
                 '갈 수 있는 곳만' 도 여기 있다(14 W261013.14d) — 없을 때는 4곳만 보는 길이 홈 히어로 숫자뿐이었다. */}
             {eligibility && (
-              <PlacesPageEligibilityToggles
-                variant="sheet"
+              <PlacesPageFilterSheetDog
                 type={type}
-                onlyReachable={eligibility.onlyReachable}
-                onToggleOnlyReachable={eligibility.onToggleOnlyReachable}
-                hideHard={eligibility.hideHard}
-                onToggleHideHard={eligibility.onToggleHideHard}
+                title={eligibility.title}
+                step={eligibility.step}
+                onChangeStep={eligibility.onChangeStep}
                 needsIndoor={eligibility.needsIndoor}
                 onToggleNeedsIndoor={eligibility.onToggleNeedsIndoor}
               />
