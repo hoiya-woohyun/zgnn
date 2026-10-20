@@ -81,8 +81,10 @@ export function PlacesPageFilterSheetRegion({ type, town, area, directions, onSe
                 <span
                   aria-hidden="true"
                   className={cx(
-                    'grid size-4.5 shrink-0 place-items-center rounded-full border bg-primary',
-                    isSelected ? 'border-brand' : 'border-primary',
+                    'grid size-4.5 shrink-0 place-items-center rounded-full bg-primary ring-1 ring-inset',
+                    // 꺼진 원은 테두리가 곧 그 칸이라 3:1 이 걸린다 — `ring-primary`(크림 위 1.45)를 `field-edge` 가 `border-field` 로 돌린다
+                    // (ADR-003 v16, 체크박스와 같은 값·같은 장치 — 테두리 토큰 중엔 그 값이 없다).
+                    isSelected ? 'ring-brand' : 'field-edge ring-primary',
                   )}
                 >
                   {isSelected && <span className="size-2 rounded-full bg-brand-solid" />}
