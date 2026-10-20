@@ -66,9 +66,9 @@ export const LANDMARK_KEY_TO_AREA: Readonly<Record<keyof typeof LANDMARKS_BY_ARE
 /**
  * 권역 목록에 적는 읍면 이름 — 읍·면 꼬리를 뗀다. 시내(동 지역) 태그는 시 이름 그대로라(`제주시`·`서귀포시`) '제주 시내' 로 부른다 —
  * "북부(조천·제주시)" 는 시 전체로 읽혀 애월·성산까지 그 권역에 든 것처럼 읽혔다(14 W261010.30b). 읍면 필터 칩의 `townFilterLabel`
- * ('제주시 시내')과 같은 축인데, 여기는 꼬리를 뗀 짧은 이름들 사이라 '시' 도 뗀다.
+ * ('제주시 시내')과 같은 축인데, 여기는 꼬리를 뗀 짧은 이름들 사이라 '시' 도 뗀다. 필터 시트의 읍면 칸(3열, 22 D-7)도 이 이름이다 — 320px 칸에 '서귀포시 시내' 가 안 든다.
  */
-const areaTownName = (town: string): string =>
+export const areaTownName = (town: string): string =>
   town.endsWith('시') ? `${town.slice(0, -1)} 시내` : town.replace(/(읍|면)$/, '');
 
 /** 권역의 읍면 — "애월·한림·한경". 매핑에서 읽는다(손으로 적으면 매핑과 갈린다). 홈 동네 카드가 권역 이름 밑에 쓴다. */

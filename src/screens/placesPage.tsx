@@ -16,8 +16,8 @@ import { usePlaceTypeSwitch } from './placesPageTypeSwitch';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
 import type { TPetFilterKey, TPlaceSort } from '../lib/placeFilters';
 import { placesPageSortLabel } from '../lib/placesPageFilter';
-import { countByLevel, levelCountParts } from '../lib/eligibilityCounts';
 import { landmarkOfQuery } from '../lib/placeSearch';
+import { placesPageTownInDirections } from '../lib/placesPageTownGrid';
 import { placesPageDogStepFlags, placesPageDogStepOf, type TPlacesPageDogStep } from '../lib/placesPageDogStep';
 import { dogNamesAsWritten } from '../lib/korean';
 import { NEAR_PARAM, nearPlaceOf } from '../lib/distanceSort';
@@ -61,7 +61,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
   const query = usePlacesPageFilterStore((state) => state.query);
   const setQuery = usePlacesPageFilterStore((state) => state.setQuery);
   const directions = usePlacesPageFilterStore((state) => state.directions);
-  const toggleDirection = usePlacesPageFilterStore((state) => state.toggleDirection);
+  const toggleStoredDirection = usePlacesPageFilterStore((state) => state.toggleDirection);
   const petKeysByType = usePlacesPageFilterStore((state) => state.petKeysByType);
   const petKeys = petKeysByType[type];
   const togglePetKeyOfType = usePlacesPageFilterStore((state) => state.togglePetKey);
@@ -159,11 +159,6 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     [],
   );
 
-  // 남는 곳의 판정 셈(목록 머리와 같은 셈) — 판정만 바꾸는 '실내 자리 필요' 의 결과를 시트가 보이게(14 W261013.8).
-  const levelParts = useMemo(
-    () => (dog ? levelCountParts(countByLevel(view.results, dog, { needsIndoor })) : []),
-    [view.results, dog, needsIndoor],
-  );
 
   /*
    * 가까운 순은 고르는 순간 위치를 **한 번** 묻는다(10 F7). 거절·실패면 정렬을 바꾸지 않고 이유를 한 줄로 말한다 —
@@ -236,6 +231,17 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     : undefined;
 
   const togglePetKey = (key: TPetFilterKey) => togglePetKeyOfType(type, key);
+
+  /*
+   * 방향을 바꿔 고른 읍면이 그 밖이 되면 읍면을 푼다(22 D-7) — 시트의 읍면 칸은 고른 방향의 읍면만 세우므로, 두면 칸에서 사라진 읍면이
+   * 숨은 조건으로 남아 '동쪽 + 애월' 처럼 0곳이다. 읍면은 퍼시스트이고 지도·근처 장소와 나눠 쓰는 값이라(스토어 `town`) 렌더나 effect 가 아니라
+   * 사람이 방향을 누른 이 자리에서만 푼다 — 지도에서 고른 읍면이 방향과 어긋난 채 들어와도 몰래 지우지 않는다(칸에 그대로 선다).
+   */
+  const toggleDirection = (direction: TDirection) => {
+    const next = directions.includes(direction) ? directions.filter((entry) => entry !== direction) : [...directions, direction];
+    toggleStoredDirection(direction);
+    if (town !== null && !placesPageTownInDirections(town, next)) setTown(null);
+  };
 
   // 시트의 강아지 기준 세그먼트(22 D-6) — 고른 단계가 남기는 플래그는 하나뿐이다(`placesPageDogStepFlags`). 걸러 내기는 그대로 두 플래그.
   const setDogStep = (step: TPlacesPageDogStep) => {
@@ -327,7 +333,6 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
                         onChangeStep: setDogStep,
                         needsIndoor,
                         onToggleNeedsIndoor: () => setNeedsIndoor(!needsIndoor),
-                        levelParts,
                       }
                     : null
                 }
@@ -344,10 +349,8 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
         */}
         <div className="hidden space-y-2 pb-3 md:block">
           <PlacesPageFilters
-            variant="bar"
             type={type}
             town={town}
-            area={area}
             directions={directions}
             petKeys={petKeys}
             sort={shownSort}
