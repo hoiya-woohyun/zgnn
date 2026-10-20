@@ -22,7 +22,7 @@ import {
   sameMapPageMarkerShown,
   type TMapPageMarkerShown,
 } from '../lib/mapPageMarkerVerdict';
-import { SHEET_FOCUS_RETURN_TIMEOUT_MS, mapPageSheetFocusReturnStep } from '../lib/mapPageSheetFocusReturn';
+import { SHEET_FOCUS_RETURN_TIMEOUT_MS, sheetFocusReturnStep } from '../lib/sheetFocusReturn';
 import { LOCATE_MAP_NOT_READY, LOCATE_NOTICE, locateMe } from '../lib/myLocation';
 import { PLACES, PLACE_TYPES, TYPE_COLOR, TYPE_META } from '../lib/places';
 import { useAppStore, useSavedPlaces } from '../store/useAppStore';
@@ -198,7 +198,7 @@ export function MapPage() {
 
   /*
    * 모바일 시트를 닫으면(Esc · X · 바깥 · 끌어내리기 — 모두 `onOpenChange(false)`) 포커스를 방금 고른 마커로(14 W261019.15d).
-   * 주소로 되살린 시트는 react-aria 가 돌려보낼 자리가 body 라 다음 Tab 이 문서 맨 처음부터였다 — 판단은 `mapPageSheetFocusReturn`.
+   * 주소로 되살린 시트는 react-aria 가 돌려보낼 자리가 body 라 다음 Tab 이 문서 맨 처음부터였다 — 판단은 `lib/sheetFocusReturn`.
    * 닫힘 애니메이션 동안은 포커스가 시트 안이라 프레임마다 지켜보다 body 로 떨어지는 순간 둔다. 핀을 눌러 연 시트는 react-aria 가
    * 같은 마커로 돌려보내므로 결과가 같다(먼저 둔 쪽이 이기고, 다른 쪽은 이미 둔 포커스를 건드리지 않는다).
    */
@@ -213,7 +213,7 @@ export function MapPage() {
     const until = performance.now() + SHEET_FOCUS_RETURN_TIMEOUT_MS;
     const watch = () => {
       const active = document.activeElement;
-      const step = mapPageSheetFocusReturnStep(active, document.body, Boolean(active?.closest('[role="dialog"]')));
+      const step = sheetFocusReturnStep(active, document.body, Boolean(active?.closest('[role="dialog"]')));
       if (step === 'return') canvasRef.current?.focusPlace(closedId);
       else if (step === 'wait' && performance.now() < until) focusReturnFrameRef.current = requestAnimationFrame(watch);
     };

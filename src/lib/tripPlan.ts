@@ -79,6 +79,17 @@ export function withDayOrder(plan: TTripPlan, day: TTripDay, ids: readonly strin
   return { days: plan.days, order };
 }
 
+/**
+ * 끌어 놓은 결과 — 한 곳을 `day` 로 옮기고(`null` = 미정), 그 날 순서를 **놓인 그대로**(`dayIds`, 옮긴 곳 포함) 손 순서로 정한다.
+ * 손으로 자리를 정했으니 그 자리가 순서다 — 제안이던 날도 이때부터 손 순서다("순서 다시 제안" 으로 돌아간다).
+ * 자리를 정하지 않는 옮기기(시트에서 날만 고르기)는 이것이 아니라 `withTripDay` 다 — 그때는 제안이 자리를 정한다.
+ * 떠난 날은 `withTripDay` 대로 손 순서에서만 빠진다. 미정은 순서가 없어 `dayIds` 를 보지 않는다.
+ */
+export function withTripDrop(plan: TTripPlan, id: string, day: TTripDay | null, dayIds: readonly string[]): TTripPlan {
+  const moved = withTripDay(plan, id, day);
+  return day === null ? moved : withDayOrder(moved, day, dayIds);
+}
+
 /** "순서 다시 제안" — 그 날의 손 순서를 지워 제안으로 돌린다. */
 export function withoutDayOrder(plan: TTripPlan, day: TTripDay): TTripPlan {
   if (!plan.order[day]) return plan;

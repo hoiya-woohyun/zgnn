@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Heart, MarkerPin01, Share01 } from '@untitledui/icons';
+import { CalendarDate, Heart, MarkerPin01, Share01 } from '@untitledui/icons';
 import { Button } from '../components/base/button';
 import { PageHeader } from '../components/layout/pageHeader';
 import { EmptyState } from '../components/layout/emptyState';
@@ -27,6 +27,7 @@ export function SavedPage() {
   const unlisted = useUnlistedSavedCount();
   const hydrated = useStoreHydrated();
   const router = useRouter();
+  const hasPlan = useAppStore((state) => Object.keys(state.tripDays).length > 0);
 
   // 보기 전환(16 T1.4) — 화면 state 로만. 처음 하이드레이션이 끝났을 때 한 번 정한다(라벨이 하나라도 있으면 날짜별).
   // 계속 파생하면 종류별에서 첫 라벨을 다는 순간 화면이 날짜별로 뒤집힌다.
@@ -136,6 +137,18 @@ export function SavedPage() {
               </button>
             ))}
           </div>
+
+          {/*
+            날짜·순서는 한 화면에서 끌어 놓아 정한다(`/saved/plan`). 처음 오는 사람은 종류별로 들어오므로(라벨이 없으면 `view` 가 종류별)
+            아직 아무 날도 안 정했으면 두 보기 모두에, 정한 뒤엔 날짜별에만 — 종류별을 고른 사람에게 일정 버튼이 늘 붙어 있을 이유는 없다.
+          */}
+          {(view === 'day' || !hasPlan) && (
+            <div className="px-4 pt-3 md:px-6">
+              <Button color="secondary" size="lg" iconLeading={CalendarDate} href="/saved/plan/" className="w-full" data-ev="saved-plan">
+                {hasPlan ? '날짜·순서 바꾸기' : '날짜별로 정리하기'}
+              </Button>
+            </div>
+          )}
 
           {view === 'day' ? <SavedPageDays places={listed} /> : <SavedPageGroups places={listed} withNotes />}
         </>

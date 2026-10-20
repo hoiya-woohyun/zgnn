@@ -10,15 +10,16 @@ import { routeUrl, splitStops } from '../lib/naverRouteLink';
 import type { TPlaceEntry } from '../lib/places';
 import { TRIP_DAYS, type TTripDay, type TTripPlan } from '../lib/tripPlan';
 import { JEJU_AIRPORT } from '../lib/tripRoute';
-import { JEJU_AIRPORT_NAME, movedStop, tripDayStart, tripDayStops } from '../lib/tripDayView';
+import { JEJU_AIRPORT_NAME, tripDayStart, tripDayStops } from '../lib/tripDayView';
 import type { TGeo } from '../types';
 import { useAppStore } from '../store/useAppStore';
 import { SavedPageCard } from './savedPageCard';
 import { SavedPageDayAlternatives, SavedPageDayVerdict, useSavedPageDayVerdict } from './savedPageDayVerdict';
 
 /**
- * 저장 화면의 「날짜별」 보기(16 T1.4, 임시안) — 1~4일차 중 곳이 있는 날마다 한 묶음, 끝에 미정.
+ * 저장 화면의 「날짜별」 보기(16 T1.4) — 1~4일차 중 곳이 있는 날마다 한 묶음, 끝에 미정.
  * 하루의 순서·시작점은 `lib/tripDayView.ts` 가 정한다. 길찾기는 순서대로 묶음(`splitStops`)마다 버튼 하나, 하루 머리에.
+ * 여기는 **읽는 자리**다 — 날짜·순서를 바꾸는 것은 「날짜별로 정리」(`/saved/plan`, 끌어 놓기)에서만 한다. 남은 동작은 출발점('내 위치에서')뿐이다.
  */
 export function SavedPageDays({ places }: { places: readonly TPlaceEntry[] }) {
   const savedIds = useAppStore((state) => state.savedIds);
@@ -50,15 +51,12 @@ export function SavedPageDays({ places }: { places: readonly TPlaceEntry[] }) {
 }
 
 function SavedPageDay({ day, plan, places }: { day: TTripDay; plan: TTripPlan; places: readonly TPlaceEntry[] }) {
-  const setTripDayOrder = useAppStore((state) => state.setTripDayOrder);
-  const resetTripDayOrder = useAppStore((state) => state.resetTripDayOrder);
   // 내 위치는 이번 화면 동안만 들고 있는다 — 저장하지 않는다(16 P3).
   const [here, setHere] = useState<TGeo | null>(null);
   const [locating, setLocating] = useState(false);
 
   const start = tripDayStart(plan, places, day);
   const stops = tripDayStops(plan, places, day, here ?? undefined);
-  const ids = stops.map((stop) => stop.id);
   // 묶음 판정(16 T2.3) — 손 순서든 제안이든 화면에 보이는 그 순서로 판정한다.
   const verdict = useSavedPageDayVerdict(stops);
   const routeStart = here
@@ -97,11 +95,6 @@ function SavedPageDay({ day, plan, places }: { day: TTripDay; plan: TTripPlan; p
         <Button color="secondary" size="md" onClick={locate} isLoading={locating} className="min-h-11">
           내 위치에서
         </Button>
-        {plan.order[day] && (
-          <Button color="secondary" size="md" onClick={() => resetTripDayOrder(day)} className="min-h-11">
-            순서 다시 제안
-          </Button>
-        )}
       </div>
       {/*
         하루 경로는 **묶음 머리, 출발 줄 바로 밑**이다(22 D-13). 묶음 끝에 두던 동안 마지막 카드의 버튼으로 읽혔고, 출발을 고르는 칸
@@ -122,16 +115,9 @@ function SavedPageDay({ day, plan, places }: { day: TTripDay; plan: TTripPlan; p
       {missing.length > 0 && <p className="mt-2 text-sm text-tertiary">지도에 없는 {missing.length}곳은 길찾기에서 빠져요</p>}
       {/* 머리 → 첫 카드는 카드 사이(12px)보다 넓게 — 같으면 머리 끝의 길찾기가 다시 카드 쪽으로 읽힌다(22 review R-2). */}
       <ul className="mt-5 space-y-3">
-        {stops.map((place, index) => (
+        {stops.map((place) => (
           <Fragment key={place.id}>
-            <SavedPageCard
-              place={place}
-              order={{
-                position: index + 1,
-                count: stops.length,
-                onMove: (delta) => setTripDayOrder(day, movedStop(ids, place.id, delta)),
-              }}
-            />
+            <SavedPageCard place={place} />
             {verdict?.hardIds.includes(place.id) && <SavedPageDayAlternatives blocked={place} stops={stops} />}
           </Fragment>
         ))}

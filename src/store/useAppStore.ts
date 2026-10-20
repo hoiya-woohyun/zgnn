@@ -10,6 +10,7 @@ import {
   withDayOrder,
   withoutDayOrder,
   withTripDay,
+  withTripDrop,
   type TTripDay,
   type TTripDays,
   type TTripOrder,
@@ -56,6 +57,11 @@ type TAppState = {
   /** 저장한 곳의 날을 바꾼다(`null` = 미정). 저장하지 않은 곳에는 달지 않는다. */
   setTripDay: (id: string, day: TTripDay | null) => void;
   setTripDayOrder: (day: TTripDay, ids: readonly string[]) => void;
+  /**
+   * 끌어 놓은 결과를 한 번에(`withTripDrop`) — 날과 그 날 순서를 따로 두 번 쓰면 사이 렌더에서 카드가 제안 자리에 섰다가 놓인 자리로 튄다.
+   * `dayIds` 는 놓인 날의 순서(옮긴 곳 포함), 미정이면 보지 않는다.
+   */
+  dropTripPlace: (id: string, day: TTripDay | null, dayIds: readonly string[]) => void;
   /** "순서 다시 제안" — 그 날의 손 순서를 지운다. */
   resetTripDayOrder: (day: TTripDay) => void;
   toggleChecked: (id: string) => void;
@@ -170,6 +176,12 @@ export const useAppStore = create<TAppState>()(
         }),
       setTripDayOrder: (day, ids) =>
         set((state) => ({ tripOrder: withDayOrder({ days: state.tripDays, order: state.tripOrder }, day, ids).order })),
+      dropTripPlace: (id, day, dayIds) =>
+        set((state) => {
+          if (!state.savedIds.includes(id)) return {};
+          const trip = withTripDrop({ days: state.tripDays, order: state.tripOrder }, id, day, dayIds);
+          return { tripDays: trip.days, tripOrder: trip.order };
+        }),
       resetTripDayOrder: (day) =>
         set((state) => ({ tripOrder: withoutDayOrder({ days: state.tripDays, order: state.tripOrder }, day).order })),
       toggleChecked: (id) => set((state) => ({ checkedItemIds: toggle(state.checkedItemIds, id) })),

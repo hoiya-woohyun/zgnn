@@ -7,6 +7,7 @@ import {
   withDayOrder,
   withoutDayOrder,
   withTripDay,
+  withTripDrop,
   type TTripPlan,
 } from './tripPlan';
 
@@ -77,6 +78,30 @@ describe('손 순서 정하기·지우기', () => {
     const ordered: TTripPlan = { days: plan.days, order: { 1: ['b', 'a'], 2: ['c'] } };
     expect(withoutDayOrder(ordered, 1).order).toEqual({ 2: ['c'] });
     expect(withoutDayOrder(plan, 1)).toBe(plan);
+  });
+});
+
+describe('withTripDrop — 끌어 놓은 결과', () => {
+  const plan: TTripPlan = { days: { a: 1, b: 1, c: 2 }, order: { 2: ['c'] } };
+
+  it('다른 날로 놓으면 그 날 순서가 놓인 그대로 손 순서가 되고, 떠난 날이 제안이었으면 제안 그대로', () => {
+    expect(withTripDrop(plan, 'a', 2, ['a', 'c'])).toEqual({ days: { a: 2, b: 1, c: 2 }, order: { 2: ['a', 'c'] } });
+  });
+
+  it('제안이던 날로 놓아도 놓인 자리가 순서다', () => {
+    expect(withTripDrop(plan, 'c', 1, ['b', 'c', 'a'])).toEqual({ days: { a: 1, b: 1, c: 1 }, order: { 1: ['b', 'c', 'a'] } });
+  });
+
+  it('같은 날 안에서 놓으면 순서만 바뀐다', () => {
+    expect(withTripDrop(plan, 'b', 1, ['b', 'a'])).toEqual({ days: plan.days, order: { 1: ['b', 'a'], 2: ['c'] } });
+  });
+
+  it('미정으로 놓으면 라벨과 떠난 날 손 순서에서 빠지고 순서는 보지 않는다', () => {
+    expect(withTripDrop(plan, 'c', null, ['x', 'c'])).toEqual({ days: { a: 1, b: 1 }, order: {} });
+  });
+
+  it('놓인 목록에 그 날이 아닌 id 가 끼어 있으면 버린다 — 화면 초안이 낡아도 다른 날 곳이 섞이지 않게', () => {
+    expect(withTripDrop(plan, 'a', 2, ['b', 'a', 'c']).order).toEqual({ 2: ['a', 'c'] });
   });
 });
 

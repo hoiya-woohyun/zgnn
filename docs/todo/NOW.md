@@ -125,6 +125,7 @@
 
 ## 기다림 (사람 손·결정)
 
+- 🧑 「날짜별로 정리」 끌어 놓기 iOS 실기기 — [ADR-030](../decisions/ADR-030-trip-plan-drag-page.md) · 명령: 배포 뒤 iPhone 홈 화면 PWA 에서 저장한 곳 → 「날짜별로 정리하기」 → 손잡이를 누르자마자 끌리는지(길게 누르기 없이) · 화면 아래·위 끝으로 끌면 목록이 따라 스크롤되는지 · 미정 → 1일차 맨 앞에 놓이는지 · 줄 이름 쪽을 누르면 시트가 뜨는지. 헤드리스 Chromium(CDP 터치 320·390)과 데스크톱 Chrome 만 쟀다
 - 🧑 셸 포커스 iOS Safari·VoiceOver 실기기 — [14 W261019.15a](14-weekly-ux-eval.md) · 명령: 배포 뒤 iPhone Safari 에서 VoiceOver 를 켜고 둘러보기 카드 → 상세 → 뒤로 = 커서가 그 카드에 오는지 · 탭바를 누를 때마다 커서가 h1 으로 튀지 않는지(Safari 는 탭해도 링크에 포커스가 안 가 셸이 "잃었다" 로 읽을 수 있다 — headless Chromium 만 쟀다) · 지도: 핀 → 시트 카드 → 상세 → 뒤로 = 시트가 다시 열리고 커서가 그 카드에(.15b — react-aria dialog 자동 포커스는 VoiceOver 에서 늦게 올 수 있다) · 종류 알약 탭 → 커서가 새 알약에(.15c)
 - 🙋 주 행동 색 — 핑크 채움 그대로 vs 잉크로 옮기고 핑크는 이 앱의 숫자·상태(갈 수 있어요 판정 · 장소 수 · 저장 하트)에 — [감도 레퍼런스 §4](../reviews/design-audit/2026-10-20-tone-references.md) · 권고: 「지금」 의 결과 버튼 propose 두 갈래를 화면으로 보고 정한다 — 레퍼런스 넷(지그재그·에이블리·29CM·오늘의집) 모두 잉크지만 브랜드 첫인상을 바꾸는 일이다
 - 🙋 지도 첫 화면 줌 — 9(섬 전체가 든다 · 섬이 작다) vs 10(v12 · 동서 끝이 잘린다) — [14 W261019.8](14-weekly-ux-eval.md) · [ADR-008 v36](../decisions/ADR-008-map-provider.md) · 권고: 10(v12) 유지 — 09-28 "지도가 너무 멀다" 로 직접 고른 값이고 평가는 시뮬레이션 2/6. 9 로 가려면 `src/lib/mapPageFirstView.ts` 의 `FIRST_VIEW_STEP_IN` 을 0 으로(테스트 숫자 함께)

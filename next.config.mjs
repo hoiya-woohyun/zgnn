@@ -74,6 +74,7 @@ const routes = [
   '/checklist/',
   '/settings/',
   '/saved/',
+  '/saved/plan/',
   '/dog/',
   '/places/stay/',
   '/places/restaurant/',

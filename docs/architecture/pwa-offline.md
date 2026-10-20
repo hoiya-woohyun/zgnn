@@ -1,6 +1,7 @@
 # PWA · 서비스워커 · 오프라인
 
-> 최종 수정: 2026-10-16 (v15: 글꼴 Core/Ext 경계를 한 파서가 읽는다 — 로컬 테스트(`appSansExt.test.ts`)가 check-bundle 의 `extRangeBlocks`·`inRanges` 를 가져다 쓴다(14 W261010.33t))
+> 최종 수정: 2026-10-20 (v16: 프리캐시 화면에 `/saved/plan/`(날짜별로 정리, ADR-030) — 라우트 96개. 손으로 적는 목록이라 빠뜨려도 빌드는 초록이고 그 화면만 오프라인에서 404 였다 → `lib/precacheRoutes.test.ts` 가 `src/app` 의 정적 화면과 대 본다(일부러 뺀 것: `/admin`·`/admin/ops`·`/places`))
+> 이전 2026-10-16 (v15: 글꼴 Core/Ext 경계를 한 파서가 읽는다 — 로컬 테스트(`appSansExt.test.ts`)가 check-bundle 의 `extRangeBlocks`·`inRanges` 를 가져다 쓴다(14 W261010.33t))
 > 이전 2026-10-16 (v14: **그 한 줄을 빌드가 지킨다** — `check-bundle.mjs` 가 `out/sw.js` 의 `/_next/static/` 프리캐시 revision 이 전부 null 인지 대 보고 아니면 실패. 데이터 글자가 Core 밖으로 나가면 경고만(14 W261010.33o))
 > 이전 2026-10-16 (v13: **본문 글꼴을 두 조각으로, `_next/static/` 엔 revision 없이** — 첫 방문이 글꼴을 두 번(프리로드 + 서비스워커 `cache: 'reload'`) 받아 2.46MB 였다. Core 만 프리로드하고 Ext 는 unicode-range, 둘 다 프리캐시(ADR-006 v7 · 14 W261010.33m))
 > 이전 2026-10-07 (v12: **관례 경로 아이콘** — `public/favicon.ico`·`apple-touch-icon.png` 를 `pnpm icons` 가 함께 만든다. 링크를 안 읽는 클라이언트의 404 잡음만 없앤다, 프리캐시엔 안 넣는다([todo/08](../todo/08-usability-and-process-plan.md) T5.9))
@@ -36,7 +37,7 @@ next.config.mjs: additionalPrecacheEntries (라우트 HTML 93개 + 매니페스�
 ## 프리캐시 목록을 직접 만드는 이유
 
 정적 내보내기의 HTML 은 webpack 자산이 아니라 컴파일 뒤 따로 쓰인다. 그냥 두면 매니페스트에 JS·CSS 만 들어오고 화면 주소가 하나도 안 들어온다.
-그래서 `next.config.mjs` 가 `places.json` 에서 라우트 95개(홈·지도·준비물·설정·저장·강아지 등록·종류 3·장소 86)를 만들어 `additionalPrecacheEntries` 로 넣는다.
+그래서 `next.config.mjs` 가 `places.json` 에서 라우트 96개(홈·지도·준비물·설정·저장·날짜별로 정리·강아지 등록·종류 3·장소 86)를 만들어 `additionalPrecacheEntries` 로 넣는다.
 
 - **주의**: `additionalPrecacheEntries` 를 주면 플러그인은 `public/` 을 훑는 자기 동작을 **건너뛴다**. 둘은 더해지지 않는다. 그래서 `public/icons/`·`public/images/`(작성자 초상)·404·매니페스트도 직접 넣는다. `public/` 에 디렉터리를 새로 만들면 `next.config.mjs` 의 `publicEntries` 목록에도 더해야 한다 — 빼먹으면 온라인에선 보이고 오프라인에서만 조용히 빠진다.
 - **`/admin/` 은 이 목록에 일부러 없다.** 운영자 검수 화면은 DB 를 읽어야 성립하므로 오프라인에 의미가 없고, 넣으면 비행기에서 빈 화면이 뜬다.

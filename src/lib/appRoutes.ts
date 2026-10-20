@@ -149,6 +149,8 @@ export const parentRouteOf = (pathname: string, search = ''): string => {
   }
 
   if (path === '/dog' || path === '/saved') return '/settings';
+  // 「날짜별로 정리」 는 저장한 곳 안의 화면이다 — 부모가 탭이 아닌 유일한 화면이라, 탭이 필요한 쪽(`ownerRootOf`)은 한 칸 더 올라간다.
+  if (path === '/saved/plan') return '/saved';
 
   return '/';
 };
@@ -183,5 +185,8 @@ export const ownerRootOf = ({
   if (isRootRoute(path)) return path;
   if (typeof stamped === 'string' && isRootRoute(stamped)) return normalizeRoute(stamped);
   if (previous !== null) return previous;
-  return normalizeRoute(parentRouteOf(path, search));
+  // 정해 둔 부모가 하위 화면일 수 있다(`/saved/plan` → `/saved`) — 탭이 나올 때까지 올라간다. 부모를 모르는 경로는 홈이라 몇 칸이면 끝난다.
+  let parent = normalizeRoute(parentRouteOf(path, search));
+  for (let hops = 0; !isRootRoute(parent) && hops < 4; hops += 1) parent = normalizeRoute(parentRouteOf(parent));
+  return isRootRoute(parent) ? parent : '/';
 };

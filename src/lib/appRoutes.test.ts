@@ -52,6 +52,10 @@ describe('parentRouteOf — 되감을 화면이 없을 때 올라갈 곳', () =>
     expect(parentRouteOf('/place/없는id')).toBe('/places/stay');
   });
 
+  it('「날짜별로 정리」 는 저장한 곳으로 올라간다 — 부모가 탭이 아닌 화면', () => {
+    expect(parentRouteOf('/saved/plan/')).toBe('/saved');
+  });
+
   it('저장한 곳·강아지 프로필은 설정으로 올라간다 — 설정 탭 안의 화면이라서', () => {
     expect(parentRouteOf('/saved')).toBe('/settings');
     // 공유받은 목록(14 W261013.14a)은 남이 보낸 링크라 설정 밑이 아니다. 담고 나서 주소를 `/saved/` 로 고친 뒤엔 내 목록이다.
@@ -111,6 +115,12 @@ describe('ownerRootOf — 하위 화면은 가장 가까운 history 의 탭 밑�
     // 들어온 길이 있으면 그 길이 이긴다 — 쿼리는 정해 둔 부모만 바꾼다.
     expect(ownerRootOf({ pathname: '/saved/', search: '?ids=a', stamped: undefined, previous: '/map' })).toBe('/map');
     expect(ownerRootOf({ pathname: '/something-new', stamped: undefined, previous: null })).toBe('/');
+  });
+
+  it('정해 둔 부모가 하위 화면이면 탭이 나올 때까지 올라간다 — 날짜별로 정리 → 저장한 곳 → 설정', () => {
+    expect(ownerRootOf({ pathname: '/saved/plan/', stamped: undefined, previous: null })).toBe('/settings');
+    // 홈 카드에서 연 저장한 곳에서 들어왔으면 그 길(홈)이 이긴다.
+    expect(ownerRootOf({ pathname: '/saved/plan/', stamped: undefined, previous: '/' })).toBe('/');
   });
 });
 
