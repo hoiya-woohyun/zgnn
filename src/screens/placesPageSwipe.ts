@@ -167,9 +167,12 @@ export function usePlacesPageSwipe(type: TPlaceType, headerRef: RefObject<HTMLEl
           return;
         }
         for (const animation of animations) animation.cancel();
-        for (const ref of [currentRef, leftRef, rightRef, pillRef]) {
+        for (const ref of [currentRef, leftRef, rightRef]) {
           if (ref.current) ref.current.style.transform = '';
         }
+        // 밑줄은 React 가 도착점(`translateX(index×100%)`)을 인라인으로 적어 둔 요소라 비우면 첫 칸(숙소)으로 간다 — 제자리 값을 다시 적는다.
+        // 리렌더는 같은 값이라 React 가 다시 적어 주지 않는다(식당·카페에서 끌다 되돌리면 표시가 숙소에 가 있었다, 22 D-1 에서 실측).
+        if (pillRef.current) pillRef.current.style.transform = `translateX(${index * 100}%)`;
         setPeek(null);
         settling.current = false;
       },
