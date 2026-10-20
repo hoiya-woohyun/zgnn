@@ -78,11 +78,12 @@ export function PlaceDetailActions({ place }: { place: TPlaceEntry }) {
       />
       <ActionTile icon={Share01} label="공유" onClick={share} aria-label={`${place.name} 공유하기`} data-ev="detail.share" />
       {directionsUrl && <ActionTile href={directionsUrl} icon={NavigationPointer01} label="길찾기" destination="네이버 지도" />}
-      {/* 가게 페이지가 없는 곳(38곳)은 검색으로 간다 — 가게 페이지가 아니라서 이름이 '플레이스' 가 아니라 '찾기'. 이름은 한 줄이어야 해 '네이버' 는 둘째 줄로. */}
+      {/* 가게 페이지가 없는 곳(38곳)은 검색으로 간다 — 가게 페이지가 아니라서 이름이 '플레이스' 가 아니라 '검색'. '찾기' 였을 땐 옆 칸 '길찾기' 와
+          "찾기" 를 나눠 가져 같은 동작이 두 번 든 것처럼 읽혔다(22 review R-4). 둘째 줄은 실제로 열리는 곳(네이버 지도 검색). */}
       {placeUrl ? (
         <ActionTile href={placeUrl} icon={MarkerPin02} label="플레이스" destination="네이버" />
       ) : (
-        <ActionTile href={naverPlaceFindUrl(place)} icon={SearchLg} label="찾기" destination="네이버" />
+        <ActionTile href={naverPlaceFindUrl(place)} icon={SearchLg} label="검색" destination="네이버 지도" />
       )}
       {/* 후기는 전부 네이버 블로그 글이다(122곳) — 목적지는 앱 이름이 아니라 글의 종류로 말한다. */}
       {place.reviewUrl && <ActionTile href={place.reviewUrl} icon={MessageTextSquare01} label="후기" destination="블로그" />}

@@ -18,9 +18,10 @@ type TNaverLinkButtonProps = {
 
 const SIZE = {
   lg: { root: 'h-11 gap-1.5 px-4 text-md', icon: 18, iconClass: 'text-fg-secondary' },
-  // 히트 영역은 위아래로 6px 씩 내민 투명 `before:` 다(32 + 12 = 44) — 줄 높이를 늘리면 카드 배지 줄이 같이 높아진다.
+  // 히트 영역은 위아래로 7px 씩 내민 투명 `before:` 다 — 줄 높이를 늘리면 카드 배지 줄이 같이 높아진다.
+  // 6px 이 아닌 이유: 절대 위치는 테두리 **안쪽**(패딩 박스 30px)을 기준으로 잡혀 6px 이면 42px 였다(22 review R-1). (44 − 30) / 2 = 7.
   sm: {
-    root: 'h-8 gap-1 px-2.5 text-sm before:absolute before:inset-x-0 before:-inset-y-1.5 before:content-[""]',
+    root: 'h-8 gap-1 px-2.5 text-sm before:absolute before:inset-x-0 before:-inset-y-1.75 before:content-[""]',
     icon: 14,
     iconClass: 'text-fg-quaternary',
   },

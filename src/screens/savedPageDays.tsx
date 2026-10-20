@@ -106,20 +106,22 @@ function SavedPageDay({ day, plan, places }: { day: TTripDay; plan: TTripPlan; p
       {/*
         하루 경로는 **묶음 머리, 출발 줄 바로 밑**이다(22 D-13). 묶음 끝에 두던 동안 마지막 카드의 버튼으로 읽혔고, 출발을 고르는 칸
         ('제주국제공항에서 출발' · '내 위치에서')과 그 출발로 여는 버튼이 카드 목록을 사이에 두고 갈려 있었다.
-        여러 묶음이면 번호(1/2)를 단 전폭 버튼을 쌓는다 — 경유 수는 버튼 안 조용한 글자로.
+        여러 묶음이면 번호(1/2)를 단 전폭 버튼을 쌓는다 — 그 묶음이 들르는 곳 수는 버튼 안 조용한 글자로.
+        '경유' 수(도착지를 뺀 수)로 적으면 머리의 '2곳' 옆에 '1곳 경유' 가 서서 한 곳이 빠진 줄 안다(22 review R-5) — 도착지까지 센다.
       */}
       {legs.length > 0 && (
         <div className="mt-2 flex flex-col gap-2">
           {legs.map((leg, index) => (
             <NaverLinkButton key={leg.goal.id} href={routeUrl(leg)} size="lg" icon={NavigationPointer01} className="w-full">
               {legs.length === 1 ? '네이버 길찾기' : `네이버 길찾기 ${index + 1}/${legs.length}`}
-              {leg.via.length > 0 && <span className="text-sm font-normal text-quaternary">{leg.via.length}곳 경유</span>}
+              {leg.via.length > 0 && <span className="text-sm font-normal text-quaternary">{leg.via.length + 1}곳 순서대로</span>}
             </NaverLinkButton>
           ))}
         </div>
       )}
       {missing.length > 0 && <p className="mt-2 text-sm text-tertiary">지도에 없는 {missing.length}곳은 길찾기에서 빠져요</p>}
-      <ul className="mt-3 space-y-3">
+      {/* 머리 → 첫 카드는 카드 사이(12px)보다 넓게 — 같으면 머리 끝의 길찾기가 다시 카드 쪽으로 읽힌다(22 review R-2). */}
+      <ul className="mt-5 space-y-3">
         {stops.map((place, index) => (
           <Fragment key={place.id}>
             <SavedPageCard
