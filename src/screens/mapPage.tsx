@@ -15,6 +15,13 @@ import { PlaceThumb } from '../components/placeThumb';
 import { TownChip } from '../components/townChip';
 import { normalizeRoute } from '../lib/appRoutes';
 import { dogCallNames } from '../lib/korean';
+import {
+  MAP_PAGE_MARKER_NOTHING_SHOWN,
+  MARKER_DOT_COLOR,
+  mapPageMarkerLegendLines,
+  sameMapPageMarkerShown,
+  type TMapPageMarkerShown,
+} from '../lib/mapPageMarkerVerdict';
 import { LOCATE_MAP_NOT_READY, LOCATE_NOTICE, locateMe } from '../lib/myLocation';
 import { PLACES, PLACE_TYPES, TYPE_COLOR, TYPE_META } from '../lib/places';
 import { useAppStore, useSavedPlaces } from '../store/useAppStore';
@@ -30,7 +37,7 @@ export function MapPage() {
   const savedIds = useMemo(() => new Set(savedPlaces.map((place) => place.id)), [savedPlaces]);
   const isWide = useMapPageWideLayout();
 
-  // 판정은 마커 흐리기(hard)와 배지(시트·데스크톱 패널 목록)에만 쓴다 — 지도에서 거르지는 않는다.
+  // 판정은 마커 표시(어려움은 흐림 · 확인 필요·야외만·정보 없음은 점)와 배지(시트·데스크톱 패널 목록)에만 쓴다 — 지도에서 거르지는 않는다.
   const eligibilityMap = useEligibilityMap();
 
   /*
@@ -125,13 +132,22 @@ export function MapPage() {
   /*
    * 흐린 원의 뜻(14 W261013.12) — 종류 칩이 색만 말해 흐림은 범례에 없었다(haeun-41 · ux-expert-32).
    * 지금 지도에 흐린 원이 하나라도 있을 때만 말한다 — 종류를 바꿔 다 사라졌는데 범례만 남으면 찾게 만든다.
-   * 셈은 캔버스가 한다(`onDimShownChange`): 마커를 묶은 뒤로는 어려운 곳이 목록에 있어도 모두 섞인 묶음(안 흐림) 속이면
+   * 셈은 캔버스가 한다(`onMarkerShownChange`): 마커를 묶은 뒤로는 어려운 곳이 목록에 있어도 모두 섞인 묶음(안 흐림) 속이면
    * 흐린 것이 하나도 안 그려진다 — 목록으로 세면 6kg 강아지·줌 10 에서 흐린 것 0 인데 범례만 떴다(14 W261006.11).
    */
   const dog = useAppStore((state) => state.dog);
   const dogNames = dog ? dogCallNames(dog.dogs.map((entry) => entry.name)) : '';
-  const [dimShown, setDimShown] = useState(false);
-  const selected = withGeo.find((place) => place.id === selectedId) ?? null;
+  /*
+   * 점(확인 필요·야외만 · 정보 없음, 14 W261019.14f)도 같은 셈을 따른다 — 캔버스가 다시 셀 때마다 알리고, 같은 값이면 그대로 둔다.
+   * 섬 전체 화면은 대부분 묶음이라 흐림·점이 하나도 안 그려진다: 그때는 "확대하면 …" 한 줄(`mapPageMarkerLegendLines`).
+   */
+  const [markerShown, setMarkerShown] = useState<TMapPageMarkerShown>(MAP_PAGE_MARKER_NOTHING_SHOWN);
+  const handleMarkerShown = useCallback(
+    (next: TMapPageMarkerShown) => setMarkerShown((prev) => (sameMapPageMarkerShown(prev, next) ? prev : next)),
+    [],
+  );
+  const legendLines = mapPageMarkerLegendLines(markerShown, dogNames);
+  const selected =withGeo.find((place) => place.id === selectedId) ?? null;
   // 모바일에서 "지도에 없는 N곳" 을 누르면 그 N곳만 시트로 펼친다(14 ↪ 12 U1.7).
   const [missingOpen, setMissingOpen] = useState(false);
 
@@ -216,7 +232,7 @@ export function MapPage() {
       fitKey={savedOnly ? `saved:${types.join(',')}` : null}
       // 저장한 곳은 몇 곳뿐이라 이름을 단다 — 셋을 하나씩 눌러 봐야 어느 곳인지 알았다. 전체 지도는 겹침이 많아 달지 않는다.
       showNames={savedOnly}
-      onDimShownChange={setDimShown}
+      onMarkerShownChange={handleMarkerShown}
       coveredBottom={isWide ? 0 : sheetHeight}
     />
   );
@@ -401,19 +417,39 @@ export function MapPage() {
                 </button>
               )}
               {/*
-                흐림 범례. 누르는 것이 아니라 끌기를 먹지 않게 `pointer-events-none`(부모 그대로)이고, 줄을 새로 만들지 않고
+                판정 범례 — 그려진 표시마다 한 줄(흐림 · 점), 표시가 전부 묶음 속이면 "확대하면 …" 한 줄(14 W261019.14f).
+                누르는 것이 아니라 끌기를 먹지 않게 `pointer-events-none`(부모 그대로)이고, 줄을 새로 만들지 않고
                 이 줄에 앉는다 — 320px 에서는 줄이 아니라 알약 안 글자가 꺾인다(위 고정 줄을 키우지 않게, ux-expert-40).
-                견본은 지도의 흐린 원과 같은 모양(흰 테두리 + 같은 투명도) — 회색 점이면 '흐림' 과 이어지지 않는다.
+                견본은 지도의 원과 같은 모양 — 흐림은 흰 테두리 + 같은 투명도(회색 점이면 '흐림' 과 이어지지 않는다),
+                점은 원 오른쪽 아래에 같은 색 점. 점 줄은 주황 견본 하나다: 회색 점(정보 없음)도 "조건을 봐야" 하는 같은 뜻이다.
               */}
-              {dimShown && dogNames && (
+              {legendLines.length > 0 && (
                 <p className="-mt-2.5 flex min-h-11 min-w-0 items-center">
-                  <span className="flex min-w-0 items-center gap-1.5 rounded-md bg-primary/92 px-2 py-1 text-xs font-semibold break-keep text-secondary shadow-sm backdrop-blur">
-                    <span
-                      aria-hidden="true"
-                      className="size-3 shrink-0 rounded-full border-[1.5px] border-white"
-                      style={{ background: TYPE_COLOR[types[0]], opacity: MARKER_HARD_OPACITY }}
-                    />
-                    흐린 곳은 {dogNames}에게 어려워요
+                  <span className="flex min-w-0 flex-col gap-0.5 rounded-md bg-primary/92 px-2 py-1 text-xs font-semibold break-keep text-secondary shadow-sm backdrop-blur">
+                    {legendLines.map((line) => (
+                      <span key={line.kind} className="flex min-w-0 items-center gap-1.5">
+                        {line.kind === 'dim' && (
+                          <span
+                            aria-hidden="true"
+                            className="size-3 shrink-0 rounded-full border-[1.5px] border-white"
+                            style={{ background: TYPE_COLOR[types[0]], opacity: MARKER_HARD_OPACITY }}
+                          />
+                        )}
+                        {line.kind === 'dot' && (
+                          <span
+                            aria-hidden="true"
+                            className="relative size-3 shrink-0 rounded-full border-[1.5px] border-white"
+                            style={{ background: TYPE_COLOR[types[0]] }}
+                          >
+                            <span
+                              className="absolute -right-1 -bottom-1 size-2 rounded-full border border-white"
+                              style={{ background: MARKER_DOT_COLOR.cond }}
+                            />
+                          </span>
+                        )}
+                        {line.text}
+                      </span>
+                    ))}
                   </span>
                 </p>
               )}

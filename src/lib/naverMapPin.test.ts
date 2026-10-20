@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { MARKER_DOT_COLOR } from './mapPageMarkerVerdict';
 import { pinIcon } from './naverMapPin';
 import { PLACE_TYPES } from './places';
 import { PLACE_TYPE_GLYPH } from './placeTypeGlyph';
@@ -41,6 +42,32 @@ describe('pinIcon', () => {
 
     const pin = pinIcon(maps, 'cafe', true, false);
     expect(pin.anchor).toEqual({ x: 16, y: 48 });
+  });
+
+  it('판정 점은 원 오른쪽 아래에 그 색으로 — 캔버스·앵커는 그대로이고 열쇠가 갈라져 다른 판정의 그림이 안 돌아온다', () => {
+    for (const saved of [false, true]) {
+      const plain = pinIcon(maps, 'restaurant', false, saved);
+      for (const dot of ['cond', 'unknown'] as const) {
+        const icon = pinIcon(maps, 'restaurant', false, saved, dot);
+        expect(icon).not.toBe(plain);
+        expect(icon.size).toEqual(plain.size);
+        expect(icon.anchor).toEqual(plain.anchor);
+        const [, cx, cy, r] = /<circle cx="([\d.]+)" cy="([\d.]+)" r="([\d.]+)" fill="(#[0-9a-f]{6})"[^>]*\/><\/svg>$/.exec(svgOf(icon)) ?? [];
+        expect(svgOf(icon)).toContain(`fill="${MARKER_DOT_COLOR[dot]}"`);
+        const anchor = icon.anchor as naver.maps.Point;
+        // 원 중심의 오른쪽 아래, 테두리까지 캔버스 안
+        expect(Number(cx)).toBeGreaterThan(anchor.x);
+        expect(Number(cy)).toBeGreaterThan(anchor.y);
+        const size = icon.size as naver.maps.Size;
+        expect(Number(cx) + Number(r) + 0.75).toBeLessThanOrEqual(size.width);
+        expect(Number(cy) + Number(r) + 0.75).toBeLessThanOrEqual(size.height);
+      }
+    }
+  });
+
+  it('고른 핀은 점을 달지 않는다 — 시트가 판정을 글로 말한다', () => {
+    expect(pinIcon(maps, 'cafe', true, false, 'cond')).toBe(pinIcon(maps, 'cafe', true, false));
+    expect(svgOf(pinIcon(maps, 'cafe', true, false, 'cond'))).not.toContain(MARKER_DOT_COLOR.cond);
   });
 
   it('다른 종류의 그림은 섞이지 않는다', () => {

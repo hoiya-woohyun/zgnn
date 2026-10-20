@@ -64,7 +64,7 @@ describe('mapPageMarkerIcon — 원은 44px 상자, 고른 핀은 그림 크기'
 
   it('고리의 자리 옮김은 앵커만 반대로 민다', () => {
     const plain = anchorOf(mapPageMarkerIcon(maps, 'stay', false, false));
-    const moved = anchorOf(mapPageMarkerIcon(maps, 'stay', false, false, { dx: 18, dy: -5 }));
+    const moved = anchorOf(mapPageMarkerIcon(maps, 'stay', false, false, null, { dx: 18, dy: -5 }));
     expect([moved.x, moved.y]).toEqual([plain.x - 18, plain.y + 5]);
   });
 });

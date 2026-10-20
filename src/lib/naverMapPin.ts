@@ -1,3 +1,4 @@
+import { MARKER_DOT_COLOR, type TMapPageMarkerDot } from './mapPageMarkerVerdict';
 import { SAVED_MARKER_COLOR, TYPE_COLOR } from './places';
 import { PLACE_TYPE_GLYPH } from './placeTypeGlyph';
 import type { TPlaceType } from '../types';
@@ -87,13 +88,25 @@ function heartBadgeSvg(cx: number, cy: number): string {
   );
 }
 
+/**
+ * 판정 점(`mapPageMarkerVerdict`, 14 W261019.14f) — 원의 **오른쪽 아래** 45° 테두리 위. 오른쪽 위는 저장 하트 몫이다.
+ * 중심을 원 중심에서 (8.5, 8.5) 에 두면 거리 12 로 흰 테두리(11.5~12.5) 위에 앉고, 반지름 4 + 흰 테두리 반(0.75)이 28 캔버스 안
+ * (14 + 8.5 + 4.75 = 27.25)에 들어 캔버스를 넓히지 않는다 — 앵커(원 중심)도 그대로다. 종류 아이콘(중심 ±7)과도 안 겹친다.
+ */
+const DOT_OFFSET = 8.5;
+const DOT_RADIUS = 4;
+
+function verdictDotSvg(cx: number, cy: number, dot: TMapPageMarkerDot): string {
+  return `<circle cx="${cx + DOT_OFFSET}" cy="${cy + DOT_OFFSET}" r="${DOT_RADIUS}" fill="${MARKER_DOT_COLOR[dot]}" stroke="#fff" stroke-width="1.5"/>`;
+}
+
 const dataUri = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 
 /**
  * 원 마커 SVG. 외부 이미지를 받지 않아 오프라인에서도 그려진다(런타임 외부 요청을 늘리지 않는다).
  * 그림자는 필터 대신 살짝 내린 반투명 원 하나다 — 마커 수십 개에 SVG 필터를 걸면 지도를 끌 때 무겁다.
  */
-function circleSvg(type: TPlaceType, saved: boolean): { url: string; size: number; cy: number } {
+function circleSvg(type: TPlaceType, saved: boolean, dot: TMapPageMarkerDot | null): { url: string; size: number; cy: number } {
   const size = saved ? SAVED_CIRCLE : CIRCLE;
   const cy = CIRCLE_CENTER + (saved ? SAVED_CIRCLE_SHIFT_Y : 0);
   const cx = CIRCLE_CENTER;
@@ -103,6 +116,7 @@ function circleSvg(type: TPlaceType, saved: boolean): { url: string; size: numbe
     `<circle cx="${cx}" cy="${cy}" r="${CIRCLE_RADIUS}" fill="${TYPE_COLOR[type]}" stroke="#fff" stroke-width="2"/>` +
     glyphSvg(type, cx, cy, 0.58) +
     (saved ? heartBadgeSvg(cx + 9.5, cy - 9.5) : '') +
+    (dot ? verdictDotSvg(cx, cy, dot) : '') +
     `</svg>`;
   return { url: dataUri(svg), size, cy };
 }
@@ -124,19 +138,24 @@ function pinSvg(type: TPlaceType, saved: boolean, width: number, height: number)
 }
 
 /**
- * 아이콘은 종류 × 선택여부 × 저장여부 12가지뿐이라 한 번 만들어 두고 계속 쓴다.
- * 선택을 옮길 때마다 새 객체를 만들면 SDK 가 이미지를 다시 물어본다.
+ * 아이콘은 종류 × 선택여부 × 저장여부 × 판정 점 스무 가지 남짓이라 한 번 만들어 두고 계속 쓴다.
+ * 선택을 옮길 때마다 새 객체를 만들면 SDK 가 이미지를 다시 물어본다. **열쇠에 점이 빠지면 다른 판정의 그림이 돌아온다.**
  */
 const PIN_ICONS = new Map<string, naver.maps.ImageIcon>();
 
-/** 마커 아이콘. 고른 곳(`selected`)이면 핀, 아니면 원이다. */
+/**
+ * 마커 아이콘. 고른 곳(`selected`)이면 핀, 아니면 원이다.
+ * `dot` 은 원에만 단다 — 고른 핀은 시트(넓은 화면은 옆 패널 카드)가 판정을 글로 말하고, 상세의 미니 지도는 판정을 넘기지 않는다.
+ */
 export function pinIcon(
   maps: typeof naver.maps,
   type: TPlaceType,
   selected: boolean,
   saved: boolean,
+  dot: TMapPageMarkerDot | null = null,
 ): naver.maps.ImageIcon {
-  const key = `${type}:${selected}:${saved}`;
+  const circleDot = selected ? null : dot;
+  const key = `${type}:${selected}:${saved}:${circleDot}`;
   const cached = PIN_ICONS.get(key);
   if (cached) return cached;
 
@@ -155,7 +174,7 @@ export function pinIcon(
       anchor: new maps.Point((PIN_VIEWBOX.width / 2) * scale, height),
     };
   } else {
-    const { url, size, cy } = circleSvg(type, saved);
+    const { url, size, cy } = circleSvg(type, saved, circleDot);
     icon = {
       url,
       size: new maps.Size(size, size),

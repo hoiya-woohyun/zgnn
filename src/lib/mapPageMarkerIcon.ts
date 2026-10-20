@@ -1,4 +1,5 @@
 import { MARKER_HIT, mapPageMarkerClusterSize, type TClusterSummary } from './mapPageMarkerLayout';
+import type { TMapPageMarkerDot } from './mapPageMarkerVerdict';
 import { pinIcon } from './naverMapPin';
 import { SAVED_MARKER_COLOR, TYPE_COLOR } from './places';
 import type { TPlaceType } from '../types';
@@ -8,7 +9,7 @@ import type { TPlaceType } from '../types';
  * 상세의 미니 지도는 누를 수 없는 그림이라 이 파일을 거치지 않는다.
  */
 
-/** 종류 × 선택 × 저장 12가지. 내용 문자열은 마커마다 SDK 가 DOM 으로 만들므로 나눠 써도 된다. */
+/** 종류 × 선택 × 저장 × 판정 점. 내용 문자열은 마커마다 SDK 가 DOM 으로 만들므로 나눠 써도 된다. */
 const HIT_ICONS = new Map<string, { content: string; anchorX: number; anchorY: number }>();
 
 /**
@@ -22,6 +23,7 @@ const HIT_ICONS = new Map<string, { content: string; anchorX: number; anchorY: n
  * - 셋 다 HTML 아이콘이다 — 이미지 ↔ HTML 을 `setIcon` 으로 오가면 이미지 쪽이 박은 크기·`overflow:hidden` 이 남을 수 있다.
  * - `<img draggable="false">` — 없으면 데스크톱에서 마커 위를 끌 때 지도 대신 그림이 끌려 나온다.
  *
+ * `dot` 은 판정 점(`mapPageMarkerVerdict`) — 원에만 그려진다(`pinIcon`).
  * `offset` 은 최대 확대의 고리(`mapPageMarkerLayout` 의 `spread`)가 그림을 옮기는 픽셀이다 — 좌표는 그대로, 앵커만 민다.
  */
 export function mapPageMarkerIcon(
@@ -29,12 +31,13 @@ export function mapPageMarkerIcon(
   type: TPlaceType,
   selected: boolean,
   saved: boolean,
+  dot: TMapPageMarkerDot | null = null,
   offset: { dx: number; dy: number } = { dx: 0, dy: 0 },
 ): naver.maps.HtmlIcon {
-  const key = `${type}:${selected}:${saved}`;
+  const key = `${type}:${selected}:${saved}:${dot}`;
   let base = HIT_ICONS.get(key);
   if (!base) {
-    const image = pinIcon(maps, type, selected, saved);
+    const image = pinIcon(maps, type, selected, saved, dot);
     const { width, height } = image.size as naver.maps.Size;
     const { x: anchorX, y: anchorY } = image.anchor as naver.maps.Point;
     const boxWidth = selected ? width : Math.max(MARKER_HIT, width);

@@ -9,6 +9,12 @@ import { mapFailureCopy } from '../lib/mapFailureCopy';
 import { mapPageCanvasMarkerLabel } from '../lib/mapPageCanvasMarkerLabel';
 import { mapPageMarkerClusterIcon, mapPageMarkerIcon } from '../lib/mapPageMarkerIcon';
 import {
+  MAP_PAGE_MARKER_NOTHING_SHOWN,
+  mapPageMarkerDot,
+  type TMapPageMarkerDot,
+  type TMapPageMarkerShown,
+} from '../lib/mapPageMarkerVerdict';
+import {
   mapPageMarkerClusterLabel,
   mapPageMarkerClusterSummary,
   mapPageMarkerClusterZoom,
@@ -24,7 +30,8 @@ import { MY_LOCATION_COLOR, PLACE_FOCUS_ZOOM, type TPlaceEntry } from '../lib/pl
 import type { TGeo, TPlaceType } from '../types';
 
 /**
- * 판정이 'hard' 인 곳. 숨기지 않고 "갈 수는 있지만 눈에 덜 띄게" 흐린다.
+ * 판정이 'hard' 인 곳. 숨기지 않고 "갈 수는 있지만 눈에 덜 띄게" 흐린다. 확인 필요·야외만·정보 없음은 흐리지 않고
+ * 원에 점을 단다(`mapPageMarkerVerdict`) — 판정 표시가 둘이고, 범례는 둘 다 그려진 것을 센다.
  *
  * **마커 바깥 요소에 직접 건다 — 네이버 `Marker` 에는 `opacity` 옵션도 `setOpacity` 도 없다.** 옵션으로 넘기면
  * 조용히 버려지고 핀은 1.0 으로 그려진다(2026-10-08 실측, 14 W261007.1). Kakao 시절의 옵션을 그대로 옮겨 적어
@@ -129,6 +136,8 @@ type TMarkerEntry = {
   position: naver.maps.LatLng;
   /** 판정이 '어려움' 인가 — 흐림, 그리고 묶음이 모두 어려운지 셀 때. */
   hard: boolean;
+  /** 원 오른쪽 아래의 판정 점(확인 필요·야외만 · 정보 없음). 판정이 바뀌면 마커를 통째로 다시 만들어 엔트리 동안 그대로다. */
+  dot: TMapPageMarkerDot | null;
   /** 최대 확대의 고리가 그림을 옮긴 픽셀(평소 0). */
   offset: { dx: number; dy: number };
   /** 지금 걸린 아이콘(선택·저장·옮김) — 같으면 `setIcon` 을 건너뛴다. HTML 아이콘이라 바꿀 때마다 SDK 가 DOM 을 새로 만든다. */
@@ -254,7 +263,7 @@ function applyMarkerIcon(maps: typeof naver.maps, entry: TMarkerEntry, selected:
   const key = `${selected}:${saved}:${entry.offset.dx}:${entry.offset.dy}`;
   if (entry.iconKey === key) return;
   entry.iconKey = key;
-  entry.marker.setIcon(mapPageMarkerIcon(maps, entry.type, selected, saved, entry.offset));
+  entry.marker.setIcon(mapPageMarkerIcon(maps, entry.type, selected, saved, entry.dot, entry.offset));
 }
 
 /** 키보드로 묶음을 연 뒤 — 그 줌보다 깊이 다시 셌을 때 무리의 첫 곳(혼자 섰으면 그 마커, 아니면 그것이 든 묶음)으로 포커스. */
@@ -270,8 +279,8 @@ type TLayoutInput = {
   focusAfter: { current: TFocusAfter | null };
   /** SDK 가 던졌을 때 — 폴백으로 넘긴다. 묶음 클릭은 SDK 이벤트라 effect 의 try 밖이다. */
   onBroken: () => void;
-  /** 센 결과 흐린 것(혼자 선 '어려움' 원 · 모두 어려운 묶음)이 하나라도 그려졌는가 — 화면의 흐림 범례가 이것을 따른다. */
-  onDimShown: (shown: boolean) => void;
+  /** 센 결과 그려진 판정 표시(흐림 · 점 · 묶음 속에 숨은 것) — 화면의 범례가 이것을 따른다. */
+  onShown: (shown: TMapPageMarkerShown) => void;
 };
 
 /**
@@ -363,9 +372,17 @@ function layoutMarkers(input: TLayoutInput): number {
     });
     clusters.push({ marker, ids, listener, detachKeys, allHard: summary.allHard });
   }
-  input.onDimShown(
-    layout.singles.some(({ id }) => markers.get(id)?.hard) || clusters.some((cluster) => cluster.allHard),
-  );
+  // 고른 핀은 점을 달지 않으므로(`pinIcon`) 점으로 세지 않는다. 묶음 속은 흐림·점이 될 곳이 하나라도 있으면 "숨어 있다".
+  input.onShown({
+    dim: layout.singles.some(({ id }) => markers.get(id)?.hard) || clusters.some((cluster) => cluster.allHard),
+    dot: layout.singles.some(({ id }) => id !== selectedId && markers.get(id)?.dot),
+    hidden: clusters.some((cluster) =>
+      cluster.ids.some((id) => {
+        const entry = markers.get(id);
+        return entry?.hard || entry?.dot;
+      }),
+    ),
+  });
 
   // Tab 을 화면 순서로(14 W261006.11a) — 보이는 것(혼자 선 원 · 묶음 원)만 센다. 묶음은 `clusters` 에 배치 순서대로 들어갔다.
   const pointOf = new Map(points.map((point) => [point.id, point]));
@@ -428,10 +445,11 @@ type TMapPageCanvasProps = {
   /** 원 밑에 이름표를 단다(저장 모드). 범위를 맞출 때 여백도 이름표 몫만큼 넓힌다. */
   showNames?: boolean;
   /**
-   * 흐린 것(혼자 선 '어려움' 원 · 모두 어려운 묶음)이 지금 그려졌는지 — 다시 셀 때마다 부른다. 흐림 범례가 따른다:
-   * 묶은 뒤엔 어려운 곳이 있어도 모두 섞인 묶음(안 흐림) 속이면 흐린 것이 하나도 없다(14 W261006.11, 6kg 줌 10 실측).
+   * 지금 그려진 판정 표시 — 흐린 것(혼자 선 '어려움' 원 · 모두 어려운 묶음) · 점이 붙은 원 · 묶음 속에 숨은 것. 다시 셀 때마다 부른다
+   * (같은 값이어도 — 거르는 것은 받는 쪽). 범례가 따른다: 묶은 뒤엔 어려운 곳이 있어도 모두 섞인 묶음(안 흐림) 속이면 흐린 것이
+   * 하나도 없다(14 W261006.11, 6kg 줌 10 실측).
    */
-  onDimShownChange?: (shown: boolean) => void;
+  onMarkerShownChange?: (shown: TMapPageMarkerShown) => void;
   /**
    * 화면 아래에서 지도를 덮고 있는 시트의 높이(px, 없으면 0 — 넓은 화면은 시트가 옆 패널이라 늘 0). 고른 핀이 그 밑에
    * 깔리면 보이는 자리로 지도를 민다(14 W261019.14a).
@@ -455,7 +473,7 @@ export function MapPageCanvas({
   focus = null,
   fitKey = null,
   showNames = false,
-  onDimShownChange,
+  onMarkerShownChange,
   coveredBottom = 0,
 }: TMapPageCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -469,8 +487,8 @@ export function MapPageCanvas({
   /** 'idle' 리스너가 읽는 지금의 선택·저장 — 리스너는 지도가 설 때 한 번 걸어 props 를 직접 못 본다. 선택 effect 가 적는다. */
   const selectedRef = useRef(selectedId);
   const savedRef = useRef(savedIds);
-  /** 흐림 범례 알림 — 'idle' 리스너도 부르므로 ref 로 든다. 아래 effect 가 다른 effect 들보다 먼저 적는다. */
-  const onDimShownRef = useRef(onDimShownChange);
+  /** 범례 알림 — 'idle' 리스너도 부르므로 ref 로 든다. 아래 effect 가 다른 effect 들보다 먼저 적는다. */
+  const onMarkerShownRef = useRef(onMarkerShownChange);
   /** 내 위치 점. 처음 누를 때 만들고, 다시 누르면 자리만 옮긴다. */
   const myLocationRef = useRef<naver.maps.Marker | null>(null);
   /*
@@ -495,12 +513,12 @@ export function MapPageCanvas({
   const fitKeyAtMountRef = useRef(fitKey);
 
   useEffect(() => {
-    onDimShownRef.current = onDimShownChange;
-  }, [onDimShownChange]);
+    onMarkerShownRef.current = onMarkerShownChange;
+  }, [onMarkerShownChange]);
 
-  // 지도가 깨지면 흐린 것도 없다 — 폴백 위에 범례가 남지 않게.
+  // 지도가 깨지면 그려진 것도 없다 — 폴백 위에 범례가 남지 않게.
   useEffect(() => {
-    if (status === 'error') onDimShownRef.current?.(false);
+    if (status === 'error') onMarkerShownRef.current?.(MAP_PAGE_MARKER_NOTHING_SHOWN);
   }, [status]);
 
   // 지도 만들기. SDK 는 한 번만 받고, 이 화면을 다시 열면 캐시된 결과를 쓴다.
@@ -685,16 +703,17 @@ export function MapPageCanvas({
         const saved = savedIds.has(place.id);
 
         const position = new maps.LatLng(place.geo.lat, place.geo.lng);
+        const eligibility = eligibilityMap?.get(place.id);
+        const hard = eligibility?.level === 'hard';
+        const dot = mapPageMarkerDot(eligibility);
         const marker = new maps.Marker({
           map,
           position,
-          icon: mapPageMarkerIcon(maps, place.type, selected, saved),
+          icon: mapPageMarkerIcon(maps, place.type, selected, saved, dot),
           clickable: true,
           zIndex: selected ? Z_SELECTED : saved ? Z_SAVED : 0,
         });
         const listener = maps.Event.addListener(marker, 'click', () => onSelect(place.id));
-        const eligibility = eligibilityMap?.get(place.id);
-        const hard = eligibility?.level === 'hard';
         if (hard) marker.getElement().style.opacity = MARKER_HARD_OPACITY;
         const detachKeys = makeMarkerButton(marker.getElement(), mapPageCanvasMarkerLabel(place, eligibility), () => onSelect(place.id));
 
@@ -718,6 +737,7 @@ export function MapPageCanvas({
           type: place.type,
           position,
           hard,
+          dot,
           offset: { dx: 0, dy: 0 },
           iconKey: `${selected}:${saved}:0:0`,
           listener,
@@ -734,7 +754,7 @@ export function MapPageCanvas({
         savedIds,
         focusAfter: focusAfterRef,
         onBroken: () => queueMicrotask(() => setStatus('error')),
-        onDimShown: (shown) => onDimShownRef.current?.(shown),
+        onShown: (shown) => onMarkerShownRef.current?.(shown),
       });
     } catch {
       clearMarkers(markers);
@@ -778,7 +798,7 @@ export function MapPageCanvas({
           savedIds,
           focusAfter: focusAfterRef,
           onBroken: () => queueMicrotask(() => setStatus('error')),
-          onDimShown: (shown) => onDimShownRef.current?.(shown),
+          onShown: (shown) => onMarkerShownRef.current?.(shown),
         });
     } catch {
       // 위 effect 와 같은 이유 — 깨진 지도 위에서 SDK 가 던진다. 화면을 깨뜨리지 않는다.
@@ -807,7 +827,7 @@ export function MapPageCanvas({
           savedIds: savedRef.current,
           focusAfter: focusAfterRef,
           onBroken: () => queueMicrotask(() => setStatus('error')),
-          onDimShown: (shown) => onDimShownRef.current?.(shown),
+          onShown: (shown) => onMarkerShownRef.current?.(shown),
         });
       } catch {
         // SDK 이벤트 안이라 어떤 effect 의 try 도 덮지 못한다 — 깨진 지도다, 폴백으로.
