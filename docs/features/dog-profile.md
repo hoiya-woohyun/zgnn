@@ -105,7 +105,7 @@ export const compareEligibility: (a: TEligibilityLevel, b: TEligibilityLevel) =>
 
 규칙표는 [architecture/pet-policy-and-eligibility.md §3](../architecture/pet-policy-and-eligibility.md#3-판정--구현됨) 에 있다. 첫 매치가 아니라 **전부 평가해 가장 센 레벨**을 채택하고, `reasons` 는 심각도순으로 정렬된다.
 
-요금 문구는 `src/lib/dogFee.ts` 의 `formatDogFee(policy, dog)` — `TEligibility.fee` 와 info 근거에 같은 문자열이 들어가고 카드는 그대로 출력한다(예전엔 카드가 이름을 따로 붙였다). 이름이 들어가는 문장은 `src/lib/korean.ts`(`dogCallNames`·`withJosa`)를 거친다. **애칭('단풍' → '단풍이')은 조사가 붙어 문장 안에서 강아지를 부르는 자리에만** 쓴다 — 홈 인사·히어로("단풍이랑 제주 어디 갈까요?")·동네 카드·판정 머리글·요금·"○○만 데려가면"·지도 흐림 범례·근처 장소. 이름만 서는 자리(설정 카드 제목)와 폼에 적은 이름을 되비추는 알림은 적은 그대로(`dogNamesAsWritten`)다(14 W261010.33h).
+요금 문구는 `src/lib/dogFee.ts` 의 `formatDogFee(policy, dog)` — `TEligibility.fee` 와 info 근거에 같은 문자열이 들어가고 카드는 그대로 출력한다(예전엔 카드가 이름을 따로 붙였다). 이름이 들어가는 문장은 `src/lib/korean.ts`(`dogCallNames`·`withJosa`)를 거친다. **애칭('단풍' → '단풍이')은 조사가 붙어 문장 안에서 강아지를 부르는 자리에만** 쓴다 — 홈 인사·히어로("단풍이랑 제주 어디 갈까요?")·동네 카드·판정 머리글·요금·"○○만 데려가면"·지도 판정 범례(흐림 줄 · "확대하면 ○○가 …")·근처 장소. 이름만 서는 자리(설정 카드 제목)와 폼에 적은 이름을 되비추는 알림은 적은 그대로(`dogNamesAsWritten`)다(14 W261010.33h).
 
 테스트(`eligibility.test.ts`)는 프로필 3종(두부 4kg·이동가방 / 보리+콩 28kg+17kg·이동 수단 없음 / 콩 17kg·케이지)에 대해 실제 장소(웨스티하우스·모닥식탁·무거버거·맘앤도그·솔숲펜션)의 기대 판정을 적고, 보리+콩 프로필로 86곳 전체를 집계해 디자인 리뷰의 사람 판단(가능 9·조건부 30·어려움 42·정보 없음 5) ±5 안에 들어오는지 확인한다(구현 결과: 7·32·42·5 — 전부 ±5 안).
 
