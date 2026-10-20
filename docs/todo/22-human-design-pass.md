@@ -76,6 +76,10 @@
 **뒤집는 결정이 걸린 것** — 사용자가 "사람 손 형태로 레이아웃 규칙을 고친다" 고 방향을 정했으므로 권고대로 가되, 커밋에서 그 ADR 에 새 판을 쌓는다:
 A-3 은 [ADR-002](../decisions/ADR-002-no-place-photos.md)("사진 자리는 종류별 색 + 아이콘") · A-10 은 판정 배지 4단계 색([pet-policy-and-eligibility](../architecture/pet-policy-and-eligibility.md)) · A-7 탭바 가운데 지도 원 · A-8·A-24 는 [home-header](../features/home-header.md) · A-21 은 [ADR-008](../decisions/ADR-008-map-provider.md)(묶음 원).
 
+**감도 레퍼런스와 갈리는 것**([2026-10-20 감도](../reviews/design-audit/2026-10-20-tone-references.md) §4): ① 켠 칩 — ADR-003 v21 의 옅은 브랜드 + 600 ↔ 감도의 짙은 단색 채움 + 흰 글자
+(직접 2 + 2차 1 · 문법 레퍼런스는 브랜드 테두리 + 틴트) — 칩을 다시 만질 때 `propose` 가 두 갈래로 쓴다. ② 🙋 주 행동 색 — 레퍼런스 넷이 주 버튼을 잉크로, 브랜드색을
+숫자·상태 신호로 쓴다. A-6(화면당 `bg-brand-solid` 1개)보다 한 발 더 가는 브랜드 결정이라 사용자 몫(NOW 「기다림」). 그 밖의 규칙(A-1·2·5·11·12·25 의 버튼·칩)은 감도와도 맞는다.
+
 ### G1 공용 바닥 — 버튼 평면 · 반경 3단 (먼저, 다른 묶음의 전제)
 
 - [ ] **G1 A-11 · A-25** — 버튼은 평면: 채움·테두리 모두 그림자 0(base `Button` 의 inset 고리 + 아래 −2px + 바깥 그림자 묶음 — `base/` 는 못 고치니 `theme.css` 의 skeumorphic 그림자 토큰이나 감싸는 쪽에서), 테두리 버튼 = `bg-primary` + 1px `border-primary`, 눌림 `bg-tertiary`.
