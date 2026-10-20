@@ -326,8 +326,9 @@ export type TPlacesPageChip = {
 const queryChip = (query: string): TPlacesPageChip => {
   const found = landmarkOfQuery(query);
   if (!found) return { key: 'query', label: `"${query}"` };
-  const which = queryWords(query).length > 1 ? `${found.word} ` : '';
-  return { key: 'query', label: `"${query}" · ${which}${found.landmark.radiusKm}km 안`, notInHeader: true };
+  // 반경 칩은 따옴표 없이 '한담 1.5km 안'(22 A·B review R-5) — 따옴표로 감싼 검색어를 칩에 되풀이하면 검색칸의 글자를 한 번 더 적은 것으로 읽혔다.
+  // 검색어는 바로 위 검색칸에 있고, 칩은 그 낱말의 반경만 말한다(낱말이 여럿이어도 반경을 건 낱말 하나 — '중문 카페' 면 '중문 3km 안').
+  return { key: 'query', label: `${found.word} ${found.landmark.radiusKm}km 안`, notInHeader: true };
 };
 
 /**
@@ -337,7 +338,7 @@ const queryChip = (query: string): TPlacesPageChip => {
  * (카드가 둘을 함께 건다). 권역은 맨 앞 — 목록 전체의 테두리라 먼저 읽혀야 한다.
  * 정렬은 칩이 아니다(14 W261019.13) — 목록 위 정렬 줄·넓은 화면의 셀렉트가 지금 순서를 이름으로 말하고, 시트엔 정렬이 없어 버튼 숫자에도 안 든다.
  *
- * `resetLabel` 은 개수 줄 지우기 링크의 문구다. 링크는 칩 줄의 것을 **권역까지** 다 지우므로(`placesPage` 의 `resetFilters`) 권역도 센다 —
+ * `resetLabel` 은 개수 줄 지우기 링크(md 부터)의 문구다. 링크는 칩 줄의 것을 **권역까지** 다 지우므로(`placesPage` 의 `resetFilters`) 권역도 센다 —
  * 시트 버튼 숫자(`activeFilterCount`)로 고르면 강아지 없이 권역 + 검색어일 때 '검색 지우기' 가 권역까지 풀었다(14 W261019.11f).
  * 본 화면·엿보기가 이 값을 그대로 받는다 — 각자 세면 한쪽만 고쳐져 손을 놓는 순간 문구가 바뀐다.
  */
@@ -358,7 +359,7 @@ export const placesPageChips = ({
   needsIndoor: boolean;
   hasDog: boolean;
   query: string;
-}): { chips: TPlacesPageChip[]; activeFilterCount: number; hasFilters: boolean; resetLabel: string } => {
+}): { chips: TPlacesPageChip[]; activeFilterCount: number; resetCount: number; hasFilters: boolean; resetLabel: string } => {
   const trimmedQuery = query.trim();
   const carried = carriedFilterChips({ town, needsIndoor, hasDog, type });
   // 시트의 차례 그대로 — 강아지 기준(숨김 → 실내) → 지역(방향 → 읍면) → 원문 조건·숙소 환경(22 D-4). 모바일은 이 칩들이 검색창 밑 한 줄에 선다.
@@ -381,11 +382,15 @@ export const placesPageChips = ({
     ...(trimmedQuery ? [queryChip(trimmedQuery)] : []),
   ];
   const activeFilterCount = reachableChips.length + conditionChips.length;
+  // 초기화가 푸는 조건 수 — '실내 자리 필요' 는 몸무게 같은 **설정**이라(앱 전체 판정 입력, 22 A·B review R-2) 어느 초기화도 끄지 않는다. 그 칩은 제 ✕ 로만 끈다.
+  const resetCount = activeFilterCount - (carried.some((chip) => chip.key === 'indoor') ? 1 : 0);
   return {
     chips,
     activeFilterCount,
-    hasFilters: chips.length > 0,
-    resetLabel: resetFiltersLabel(trimmedQuery.length > 0, (area ? 1 : 0) + activeFilterCount),
+    resetCount,
+    // 지우기 링크를 세우는가 — 누르면 바뀌는 것이 있을 때만(실내 자리 필요 하나뿐이면 링크가 아무것도 못 지운다).
+    hasFilters: trimmedQuery.length > 0 || area !== null || resetCount > 0,
+    resetLabel: resetFiltersLabel(trimmedQuery.length > 0, (area ? 1 : 0) + resetCount),
   };
 };
 
@@ -419,6 +424,8 @@ export type TPlacesPageResultsView = {
   /** 켜진 조건 칩·시트 버튼 숫자·개수 줄 지우기 링크 문구(`placesPageChips`). */
   chips: TPlacesPageChip[];
   activeFilterCount: number;
+  /** 초기화가 푸는 조건 수 — `activeFilterCount` 에서 '실내 자리 필요'(설정)를 뺀 것. 0 이면 초기화가 서지(켜지지) 않는다. */
+  resetCount: number;
   hasFilters: boolean;
   resetLabel: string;
   /** 보이는 정렬 — '가까운 순' 인데 기준점이 없으면 기본. */

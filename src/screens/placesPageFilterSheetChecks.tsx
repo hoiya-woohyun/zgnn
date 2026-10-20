@@ -19,7 +19,7 @@ type TPlacesPageFilterSheetChecksProps = {
  * 필터 시트의 2열 체크박스 섹션(22 D-8) — 원문에 적힌 조건 · 숙소 환경.
  *
  * 여럿을 고르면 **모두 맞는 곳**만 남는다(AND). 알약 칩을 줄바꿈으로 늘어놓으면 "하나 고르기" 인지 "여럿 다" 인지 모양이 말하지 않았다 —
- * 체크박스는 그 말을 모양으로 한다(실서비스도 긴 목록은 체크박스). 칸 44px · 상자 20px(`CheckboxBase` md — base 는 감싸서 쓴다).
+ * 체크박스는 그 말을 모양으로 한다(실서비스도 긴 목록은 체크박스). 칸 44px · 상자 20px(`CheckboxBase` md — base 는 감싸서 쓴다) · 글자 14px(시트의 고르는 글자는 다 14px).
  */
 export function PlacesPageFilterSheetChecks({ title, hint, filters, petKeys, onToggle }: TPlacesPageFilterSheetChecksProps) {
   const titleId = useId();
@@ -46,7 +46,7 @@ export function PlacesPageFilterSheetChecks({ title, hint, filters, petKeys, onT
             {({ isSelected, isFocusVisible }) => (
               <>
                 <CheckboxBase size="md" isSelected={isSelected} isFocusVisible={isFocusVisible} className="rounded-sm" />
-                <span className={cx('truncate text-md', isSelected ? 'text-primary' : 'text-secondary')}>{filter.label}</span>
+                <span className={cx('truncate text-sm', isSelected ? 'text-primary' : 'text-secondary')}>{filter.label}</span>
               </>
             )}
           </AriaCheckbox>

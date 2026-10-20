@@ -250,16 +250,11 @@ export function PlacesPageResults({
   return (
     <>
       <div className="flex items-center justify-between px-4 pt-4 md:px-6">
-        <div>
-          <p className="text-sm text-tertiary">
-            {results.length}곳{levelSummary}
-          </p>
-          {/* 조건을 여러 개 겹쳐 0~1곳만 남았을 때 "왜 이렇게 적지" 하고 이탈하지 않도록
-              조건을 하나 풀어보라고 먼저 알려준다(2026-09-15 리뷰 §1 — 세 필터 켜면 0~1곳 안내 없음). */}
-          {activeFilterCount > 0 && results.length === 1 && (
-            <p className="mt-0.5 text-xs text-tertiary">필터를 하나 풀어 보면 더 볼 수 있어요.</p>
-          )}
-        </div>
+        {/* 1곳일 때 붙던 '필터를 하나 풀어 보면 더 볼 수 있어요.' 는 걷었다(22 A·B review R-3) — 결과 수에 따라 첫 카드가 20px 오르내렸다.
+            0곳은 아래 빈 상태가 풀 길을 말한다. */}
+        <p className="text-sm text-tertiary">
+          {results.length}곳{levelSummary}
+        </p>
         {/* 모바일은 검색칸 밑 칩 줄 끝 '초기화' 가 같은 일을 한다(22 D-4) — 여기 링크는 칩 줄이 없는 md 부터. */}
         {hasFilters && (
           <Button color="link-color" size="sm" className="hidden min-h-11 md:inline-flex" onClick={onResetFilters}>

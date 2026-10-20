@@ -149,9 +149,10 @@ describe('placesPageChips', () => {
 
   it("관광지·동 낱말이면 검색어 칩이 반경을 말한다 — '중문' 의 서울앵무새가 왜 나왔는지(14 W261019.11)", () => {
     const label = (query: string) => placesPageChips({ ...chipBase, query }).chips.at(-1)?.label;
-    expect(label('중문')).toBe('"중문" · 3km 안');
-    expect(label(' 중문 카페 ')).toBe('"중문 카페" · 중문 3km 안');
-    expect(label('법환')).toBe('"법환" · 1.5km 안');
+    // 반경 칩은 따옴표 없이(22 A·B review R-5) — 검색어는 검색칸에 있고 칩은 반경을 건 낱말 하나를 말한다.
+    expect(label('중문')).toBe('중문 3km 안');
+    expect(label(' 중문 카페 ')).toBe('중문 3km 안');
+    expect(label('법환')).toBe('법환 1.5km 안');
     expect(label('카레')).toBe('"카레"');
     expect(label('서귀포 시내')).toBe('"서귀포 시내"');
   });
@@ -169,7 +170,7 @@ describe('placesPageChips', () => {
   });
 
   it('조건이 없으면 비어 있다', () => {
-    expect(placesPageChips(chipBase)).toEqual({ chips: [], activeFilterCount: 0, hasFilters: false, resetLabel: '필터 지우기' });
+    expect(placesPageChips(chipBase)).toEqual({ chips: [], activeFilterCount: 0, resetCount: 0, hasFilters: false, resetLabel: '필터 지우기' });
   });
 
   it('순서는 시트의 차례(숨김 → 실내 → 방향 → 읍면 → 원문 조건) → 검색어, 개수에는 검색어가 빠진다 · 정렬은 칩이 아니다(22 D-4 · 14 W261019.13)', () => {
@@ -193,6 +194,16 @@ describe('placesPageChips', () => {
       activeFilterCount: 1,
       resetLabel: '모두 지우기',
     });
+  });
+
+  it("'실내 자리 필요' 는 설정이라 초기화가 세지 않는다 — 그것뿐이면 지우기 링크·초기화가 서지 않고 칩·필터 수엔 남는다(22 A·B review R-2)", () => {
+    const indoorOnly = placesPageChips({ ...chipBase, needsIndoor: true });
+    expect(indoorOnly.chips.map((chip) => chip.key)).toEqual(['indoor']);
+    expect(indoorOnly).toMatchObject({ activeFilterCount: 1, resetCount: 0, hasFilters: false });
+    const withDir = placesPageChips({ ...chipBase, needsIndoor: true, directions: ['east'] });
+    expect(withDir).toMatchObject({ activeFilterCount: 2, resetCount: 1, hasFilters: true, resetLabel: '필터 지우기' });
+    // 숙소는 실내 칩이 없다 — 빼지 않는다.
+    expect(placesPageChips({ ...chipBase, type: 'stay', needsIndoor: true, directions: ['east'] })).toMatchObject({ activeFilterCount: 1, resetCount: 1 });
   });
 
   it('강아지가 없으면 숨김 칩을 안 그린다 · 검색어만이면 개수 0 에 hasFilters', () => {
@@ -698,6 +709,7 @@ describe('placesPageResultsView — 본 화면·엿보기가 받는 본문 값 �
       townHasNoPlaces: view.townHasNoPlaces,
       chips: view.chips,
       activeFilterCount: view.activeFilterCount,
+      resetCount: view.resetCount,
       hasFilters: view.hasFilters,
       resetLabel: view.resetLabel,
       landmarkNearby: view.landmarkNearby.map(({ place, km }) => [place.id, km]),

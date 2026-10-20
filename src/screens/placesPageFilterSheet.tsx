@@ -33,8 +33,8 @@ type TPlacesPageFilterSheetProps = {
     needsIndoor: boolean;
     onToggleNeedsIndoor: () => void;
   } | null;
-  /** 켜져 있는 필터 개수 — 0 이면 푸터 '초기화' 가 흐리다. 닫아 둔 채의 숫자는 칩 줄의 필터 칩이 말한다(`placesPageChipRow`). */
-  activeCount: number;
+  /** 초기화가 푸는 조건 수(`resetCount` — '실내 자리 필요' 는 설정이라 안 센다) — 0 이면 푸터 '초기화' 가 흐리다. 닫아 둔 채의 숫자는 칩 줄의 필터 칩이 말한다. */
+  resetCount: number;
   /** 지금 조건(검색어 포함)으로 목록에 남는 곳 수 — 하단 "N곳 보기" 버튼에 싣는다. 0 이면 버튼이 눌리지 않는다. */
   resultCount: number;
   /** 시트 안 필터만 푼다(검색어·정렬은 그대로 — 둘 다 시트 밖에 보인다, 14 W261019.13a). 시트는 열린 채다. */
@@ -69,7 +69,7 @@ export function PlacesPageFilterSheet({
   onToggleDirection,
   onTogglePetKey,
   eligibility,
-  activeCount,
+  resetCount,
   resultCount,
   onReset,
 }: TPlacesPageFilterSheetProps) {
@@ -147,20 +147,21 @@ export function PlacesPageFilterSheet({
 
             '초기화' 는 시트를 닫지 않는다 — 전엔 '모두 지우기' 가 조건이 0 이 되며 손가락 밑에서 사라져 닫기까지 했는데, 이제는 그 자리에 흐린 채 남는다
             (`aria-disabled` — `disabled` 면 누른 단추가 포커스를 잃는다). 검색어·정렬·권역은 건드리지 않는다(시트 밖에 보인다, 14 W261019.13a).
+            '실내 자리 필요' 도 끄지 않는다 — 필터가 아니라 설정이다(22 A·B review R-2). 그래서 그것만 켜져 있으면 초기화는 흐리다.
 
             스크롤 줄 **밖**(세로 flex 의 마지막 칸)이라 늘 같은 자리다 — `fixed` 가 아니라 시트 안의 자리다(스와이프 중 어긋남, ADR-014).
           */}
           <div className="-mx-4 flex shrink-0 items-center gap-3 border-t border-secondary px-4 pt-3">
             <button
               type="button"
-              aria-disabled={activeCount === 0}
+              aria-disabled={resetCount === 0}
               data-ev="places.sheetReset"
               onClick={() => {
-                if (activeCount > 0) onReset();
+                if (resetCount > 0) onReset();
               }}
               className={cx(
                 'inline-flex h-12 w-24 shrink-0 items-center justify-center gap-1 rounded-lg border text-md font-semibold',
-                activeCount > 0
+                resetCount > 0
                   ? 'cursor-pointer border-primary text-secondary hover:bg-tertiary active:bg-tertiary'
                   : 'cursor-default border-secondary text-quaternary',
               )}

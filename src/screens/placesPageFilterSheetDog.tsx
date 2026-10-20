@@ -23,8 +23,9 @@ type TPlacesPageFilterSheetDogProps = {
  * '갈 수 있는 곳만' · '어려운 곳 숨기기' 두 칩은 한 축이었다 — 둘 다 켠 상태는 '갈 수 있는 곳만' 과 같은 목록이라 쓸모없는 조합이 칩 둘로 보였다.
  * 그래서 세 단계 세그먼트 하나로 고른다(`lib/placesPageDogStep` — 걸러 내기는 그대로 두 플래그다). 제목이 강아지 이름이라 이 기준이 누구의 것인지 말한다.
  *
- * '실내 자리 필요' 는 다른 축이다 — 곳을 빼지 않고 판정을 바꾼다(야외 자리만 되는 곳이 어려움이 된다). 켜고 끄는 불리언이라 스위치 줄(식당·카페만 —
- * 숙소 판정엔 실내외 구분이 없다). 설명 두 줄(14 W261019.1 — 방식이 아니라 결과를 말한다)은 그대로 스위치에 딸린다.
+ * '실내 자리 필요' 는 다른 축이다 — 곳을 빼지 않고 판정을 바꾸는 **설정**이다(몸무게처럼 앱 전체 판정 입력, 22 A·B review R-2). 그래서 필터 칩이 아니라 스위치 줄이고
+ * (식당·카페만 — 숙소 판정엔 실내외 구분이 없다) 어느 초기화도 끄지 않는다. 설명은 한 줄, 결과만 말한다(14 W261019.1 — 방식을 적으면 못 읽었다).
+ * 다른 조건을 가리키는 문장('갈 수 있는 곳만도 골라요' · '실내 동반 OK 는 …')은 걷었다 — 설정 밑에서 필터 사용법을 말하면 둘이 한 축으로 읽힌다.
  */
 export function PlacesPageFilterSheetDog({ type, title, step, onChangeStep, needsIndoor, onToggleNeedsIndoor }: TPlacesPageFilterSheetDogProps) {
   const indoorHintId = useId();
@@ -44,7 +45,7 @@ export function PlacesPageFilterSheetDog({ type, title, step, onChangeStep, need
           >
             {({ isSelected, isFocusVisible }) => (
               <>
-                <span className="text-md text-primary">실내 자리 필요</span>
+                <span className="text-sm text-primary">실내 자리 필요</span>
                 <span
                   aria-hidden="true"
                   className={cx(
@@ -63,15 +64,10 @@ export function PlacesPageFilterSheetDog({ type, title, step, onChangeStep, need
               </>
             )}
           </AriaSwitch>
-          {/*
-            결과를 말한다 — 바뀌는 이름은 목록 머리 판정 셈 줄의 이름('야외' 가 사라지고 '어려움' · C12 의 '확인 필요' 가 는다)과 같다(14 W261019.1).
-            둘째 줄은 "실내까지 같이 갈 곳" 을 찾는 길 — 켠 채 '가능' 으로 남는 곳은 원문이 실내를 받고 이 아이의 이동 수단으로 들 수 있는 곳뿐이다.
-            '실내 동반 OK' 는 강아지를 안 보고 원문으로만 남겨, 수단 없는 아이에게 '어려움' 인 케이지 필수 곳도 남는다.
-          */}
-          <div id={indoorHintId} className="space-y-0.5 text-sm text-tertiary">
-            <p>켜면 야외 자리만 되는 곳은 ‘어려움’, 실내 얘기가 없는 곳은 ‘확인 필요’가 돼요. 앱 전체에 남아요.</p>
-            <p>실내까지 같이 갈 곳만 보려면 위에서 ‘갈 수 있는 곳만’을 골라요. 아래 ‘실내 동반 OK’는 강아지와 상관없이 걸러요.</p>
-          </div>
+          {/* 한 줄(390 에서 줄바꿈 없음). '어디서나' 가 이 값이 앱 전체에 남는다는 것을 대신한다 — 지도·상세·저장한 곳 판정도 이 값을 본다. */}
+          <p id={indoorHintId} className="text-sm text-tertiary">
+            야외만 되는 곳은 어디서나 어려움으로 봐요
+          </p>
         </>
       )}
     </section>

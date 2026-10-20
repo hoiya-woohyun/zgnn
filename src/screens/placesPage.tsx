@@ -193,7 +193,8 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
   /*
    * 시트 안의 "모두 지우기" 는 검색어를 건드리지 않는다 — 검색창은 시트 밖에 그대로
    * 보이는데 여기서 같이 지우면 시트를 닫고 나서야 글자가 사라진 걸 알게 된다.
-   * 칩 줄 끝 '초기화'(모바일, 22 D-4 — md 부터는 목록 위 지우기 링크 "필터·검색·모두 지우기")는 검색칸 바로 밑이라 무엇이 지워졌는지 바로 보이므로 검색어까지 지운다.
+   * md 부터의 개수 줄 지우기 링크("필터·검색·모두 지우기")는 검색창 옆이라 무엇이 지워졌는지 바로 보이므로 검색어까지 지운다. 모바일 칩 줄 끝 '초기화' 는
+   * 그 줄에 보이는 것(권역·조건)만 푼다 — 검색어는 검색칸 ✕ 가 지운다(22 A·B review c).
    *
    * **정렬은 둘 다 건드리지 않는다**(14 W261019.13a). 정렬은 시트에 없고(W261019.13) 칩 수에도 안 들어, 시트 버튼이 보이지 않는 것을
    * 바꾸는 꼴이었다 — 숙소를 '가격 낮은 순' 으로 보다가 시트에서 조건을 지우면 순서가 말없이 돌아갔다. 지우기 링크도 같다: 문구가
@@ -203,12 +204,17 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     setTown(null);
     // 방향·조건·숨기기는 다른 종류 것까지 푼다 — 이 탭에서 "모두 지우기" 를 눌렀는데 옆 탭에 안 보이는 조건이 남으면 안 된다.
     resetStoredConditions();
-    // activeFilterCount 가 세는 것은 여기서 전부 풀어야 한다 — 숫자는 1 인데 눌러도 안 바뀌면 고장으로 보인다.
-    // 숙소 탭은 세지도 보이지도 않으므로 건드리지 않는다 — 보이지 않는 전역 값을 몰래 끄면 식당·카페 판정이 말없이 바뀐다(12 U0.3).
-    if (type !== 'stay') setNeedsIndoor(false);
+    // '실내 자리 필요'(`needsIndoor`)는 끄지 않는다 — 필터가 아니라 몸무게 같은 **설정**이다(앱 전체 판정 입력, 22 A·B review R-2). 그 칩의 ✕ 로만 끈다.
+    // 그래서 초기화가 서고 켜지는 기준은 `resetCount`(실내를 뺀 수)다 — 실내 하나뿐인데 초기화가 서면 눌러도 안 바뀌어 고장으로 보인다.
   };
 
-  // 칩 줄의 '초기화'(md 는 목록 위 지우기 링크)는 시트에 없는 것(검색어·권역)까지 지운다 — 칩 줄에 보이는 것을 전부 지우는 것이 그 말이다(14 W261019.11f).
+  // 칩 줄의 '초기화'(모바일) — **그 줄에 보이는 것만** 푼다: 권역·조건(22 A·B review c). 검색어는 바로 위 검색칸의 ✕ 가 지운다.
+  const resetRowFilters = () => {
+    clearArea();
+    resetConditions();
+  };
+
+  // md 부터의 개수 줄 지우기 링크는 시트에 없는 것(검색어·권역)까지 지운다 — 그 화면엔 칩 줄이 없다. 문구는 `resetLabel`(14 W261019.11f).
   // '갈 수 있는 곳만' 은 시트에 칩이 생겨(14 W261013.14d) `resetConditions` 가 푼다.
   const resetFilters = () => {
     setQuery('');
@@ -300,9 +306,8 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
           onOpenFilters={() => setIsFilterSheetOpen(true)}
           isSortOpen={isSortSheetOpen}
           onOpenSort={() => setIsSortSheetOpen(true)}
-          showReset={area !== null || view.activeFilterCount > 0}
-          resetLabel={view.resetLabel}
-          onReset={resetFilters}
+          showReset={area !== null || view.resetCount > 0}
+          onReset={resetRowFilters}
         />
         <PlacesPageSortSheet
           isOpen={isSortSheetOpen}
@@ -336,7 +341,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
                       }
                     : null
                 }
-                activeCount={view.activeFilterCount}
+                resetCount={view.resetCount}
                 resultCount={view.results.length}
                 onReset={resetConditions}
               />

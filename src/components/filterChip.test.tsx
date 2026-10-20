@@ -21,10 +21,11 @@ describe('FilterChip', () => {
     expect(html).not.toContain('bg-brand-primary');
   });
 
-  it('보이는 것은 36px, 누르는 것은 위아래 4px 를 더한 44px', () => {
+  it('보이는 것은 36px, 누르는 것은 테두리 안쪽(34px)에서 위아래 5px 를 더한 44px — 4px 면 42px 였다(22 A·B review R-1)', () => {
     const html = renderToStaticMarkup(<FilterChip pressed={false}>a</FilterChip>);
     expect(html).toContain('h-9');
-    expect(html).toContain('before:-inset-y-1');
+    expect(html).toContain('border ');
+    expect(html).toContain('before:-inset-y-1.25');
     expect(html).toContain('rounded-full');
   });
 

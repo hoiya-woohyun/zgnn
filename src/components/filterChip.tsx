@@ -19,9 +19,10 @@ type TFilterChipProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'type' | '
 /**
  * 필터 칩 하나 — 둘러보기 칩 줄·시트·근처 장소·홈 관광지 칩이 이것을 쓴다(22 D-5).
  *
- * **보이는 것은 36px(`h-9`), 누르는 것은 44px** — `before:` 가 위아래 4px 씩 넓힌다(ADR-006 의 44px 터치 기준). 44px 알약이
+ * **보이는 것은 36px(`h-9`), 누르는 것은 44px** — `before:` 가 위아래 5px 씩 넓힌다(ADR-006 의 44px 터치 기준). 절대 위치의 기준은 테두리 **안쪽**
+ * 패딩 박스(36 − 테두리 2 = 34px)라 4px 이면 42px 였다(22 A·B review R-1 — 네이버 버튼 `sm` 과 같은 함정, f33656d). 44px 알약이
  * 줄줄이 서면 칩 더미가 화면을 먹고 "AI 가 찍어 낸" 모양이 됐다(22 · 실서비스 4/4 가 h34~40). 그래서 칩을 가로 스크롤 줄에 둘 때는
- * 줄을 44px(`min-h-11 items-center`)로 잡는다 — `overflow-x-auto` 는 세로도 잘라서 넓힌 4px 가 줄 밖에서 안 눌린다.
+ * 줄을 44px(`min-h-11 items-center`)로 잡는다 — `overflow-x-auto` 는 세로도 잘라서 넓힌 자리가 줄 밖에서 안 눌린다.
  *
  * 꺼짐은 **면 없이 테두리만**(크림 위에 투명) · 글자 400. 켜짐은 옅은 브랜드 면 + 브랜드 테두리 + 600 — 브랜드 단색 채움은 쓰지 않는다
  * (실서비스 0/4, 진한 면은 지도 오버레이 위에서만 — ADR-003 "켜짐은 한 가지 언어로"). 눌림은 `bg-tertiary` — 크림 시트 위에서
@@ -46,7 +47,7 @@ export function FilterChip({
       aria-pressed={toggle ? pressed : undefined}
       className={cx(
         'relative inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1 whitespace-nowrap rounded-full border px-3.5 text-sm transition-colors',
-        'before:absolute before:inset-x-0 before:-inset-y-1 before:content-[""]',
+        'before:absolute before:inset-x-0 before:-inset-y-1.25 before:content-[""]',
         'focus-visible:outline-2 focus-visible:outline-offset-2 outline-focus-ring',
         pressed
           ? 'border-brand bg-brand-primary text-brand-secondary'

@@ -50,7 +50,8 @@ export function PlacesPageFilterSheetRegion({ type, town, area, directions, onSe
         </p>
       )}
 
-      <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="방향">
+      {/* 줄 간격 10px — 칩의 44px 히트(보이는 36 + 위아래 4)가 줄 사이에서 맞닿지 않게. 8px 면 경계가 반 픽셀 차로 다음 줄 칩에 넘어갔다(320 실측). */}
+      <div className="mt-3 flex flex-wrap gap-x-2 gap-y-2.5" role="group" aria-label="방향">
         {DIRECTIONS.map((direction) => (
           <FilterChip key={direction} pressed={directions.includes(direction)} onClick={() => onToggleDirection(direction)}>
             {DIRECTION_LABEL[direction]}
