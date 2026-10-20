@@ -9,14 +9,13 @@ import { PlaceLinkList } from '../components/placeLinkList';
 import { EmptyState } from '../components/layout/emptyState';
 import { BottomSheet } from '../components/base/bottom-sheet';
 import { Button } from '../components/base/button';
-import { FilterChip } from '../components/filterChip';
 import { judgeEligibility, primaryReason } from '../lib/eligibility';
 import { carrierWhatIf, carrierWhatIfText, countByLevel, levelCountParts, outdoorFallback } from '../lib/eligibilityCounts';
 import { placesPageHardFold } from '../lib/placesPageHardFold';
-import { placesPageEmptySearch, placesPageSortLabel, placesPageSortOptions, type TPlacesPageResultsView } from '../lib/placesPageFilter';
+import { placesPageEmptySearch, type TPlacesPageResultsView } from '../lib/placesPageFilter';
 import { placesPageRepeatedReason } from '../lib/placesPageRepeatedReason';
 import { cityScopeOf } from '../lib/placeSearch';
-import { townFilterLabel, type TPlaceSort } from '../lib/placeFilters';
+import { townFilterLabel } from '../lib/placeFilters';
 import { areaTownsLabel } from '../lib/areaGroups';
 import { josa, withJosa } from '../lib/korean';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
@@ -24,14 +23,13 @@ import { useAppStore } from '../store/useAppStore';
 import { usePlacesPageFilterStore } from '../store/usePlacesPageFilterStore';
 import type { TPlaceType } from '../types';
 import { cx } from '../utils/cx';
-import { SCROLL_ROW_CLASS } from './placesPageFilters';
 
 /**
  * 본문 위에서 누르는 것 — 본 화면은 실제로 하고 스와이프 엿보기는 아무것도 안 하는 함수를 넘긴다(`inert` 라 눌리지도 않는다).
  * **전부 필수다** — 하나라도 선택이면 엿보기가 안 넘긴 그 버튼만 안 그려져 손을 놓는 순간 줄이 튄다(14 W261019.11g — 0곳 안내의 '알려 주기' 가 그랬다).
  */
 export type TPlacesPageResultsActions = {
-  /** 개수 줄 지우기 링크(`resetLabel`) — 칩 줄에 보이는 것을 검색어·권역까지 다 지운다. */
+  /** 개수 줄 지우기 링크(`resetLabel`, md 부터 — 모바일은 칩 줄 '초기화') — 칩 줄에 보이는 것을 검색어·권역까지 다 지운다. */
   onResetFilters: () => void;
   /** 검색어만 지운다 — 검색만으로 0곳일 때 빈 상태의 버튼. */
   onClearQuery: () => void;
@@ -48,11 +46,6 @@ export type TPlacesPageResultsActions = {
   onClearOnlyReachable: () => void;
   /** 동네 카드 진입에 따라온 읍면·방향·조건 칩을 푼다(19 T4.2). */
   onReleaseAreaCarried: () => void;
-  /**
-   * 목록 위 정렬 줄(모바일, 14 W261019.13) — 지금 순서가 눌린 칩이고 다른 순서를 누르면 바꾼다. 예전엔 '가까운 순' 칩 하나뿐이라(14 W261010.18)
-   * 목록이 거리순이 아닌데도 그 칩이 지금 상태인지 누르라는 버튼인지 몰랐다(haeun-02). 위치 권한이 없으면 정렬을 바꾸지 않고 이유만 말한다(`changeSort`).
-   */
-  onChangeSort: (sort: TPlaceSort) => void;
   /** 시 이름 검색('서귀포')을 시내로 좁힌다 — 읍면 필터에 시내 태그('서귀포시')를 건다(14 W261010.30). */
   onCityDowntown: (town: string) => void;
   /** 켜진 조건 칩의 ✕ — 0곳 안내의 "조건 하나만 풀면" 버튼도 같은 키로 이것을 부른다. */
@@ -90,8 +83,6 @@ export function PlacesPageResults({
     activeFilterCount,
     hasFilters,
     resetLabel,
-    sort,
-    nearFrom,
     distances,
     landmarkNearby,
     otherTypes,
@@ -113,7 +104,6 @@ export function PlacesPageResults({
     onClearArea,
     onClearOnlyReachable,
     onReleaseAreaCarried,
-    onChangeSort,
     onCityDowntown,
     onRemoveChip,
   },
@@ -270,43 +260,13 @@ export function PlacesPageResults({
             <p className="mt-0.5 text-xs text-tertiary">필터를 하나 풀어 보면 더 볼 수 있어요.</p>
           )}
         </div>
+        {/* 모바일은 검색칸 밑 칩 줄 끝 '초기화' 가 같은 일을 한다(22 D-4) — 여기 링크는 칩 줄이 없는 md 부터. */}
         {hasFilters && (
-          <Button color="link-color" size="sm" className="min-h-11" onClick={onResetFilters}>
+          <Button color="link-color" size="sm" className="hidden min-h-11 md:inline-flex" onClick={onResetFilters}>
             {resetLabel}
           </Button>
         )}
       </div>
-
-      {/*
-        정렬은 화면 폭마다 한 자리다(14 W261019.13) — md 부터는 펼친 판의 셀렉트가 같은 이름으로 말하므로 이 줄은 모바일만. 시트에는 정렬이 없다.
-        이름이 기준을 말한다('기본순' 대신 "갈 수 있는 곳 먼저"·"확인한 곳 먼저", `placesPageSortLabel`). 숙소는 가격 둘까지 넷이라 줄이 옆으로 밀린다.
-      */}
-      {results.length > 0 && (
-        <div className={cx(SCROLL_ROW_CLASS, 'mt-1 md:hidden')} role="group" aria-label="정렬">
-          <span className="shrink-0 text-sm text-tertiary" aria-hidden="true">
-            정렬
-          </span>
-          {placesPageSortOptions(type).map((option) => (
-            <FilterChip
-              key={option}
-              pressed={sort === option}
-              onClick={() => onChangeSort(option)}
-              className={option === 'near' ? 'max-w-full' : undefined}
-            >
-              {option === 'near' && nearFrom ? (
-                /* 긴 이름("프레임스파빌 오션뷰펜션")이 320px 에서 넘치면 이름만 줄인다 — "에서 가까운 순" 이 잘리면 무엇을 하는 칩인지가 사라진다.
-                   칩의 `gap-1` 이 이름과 '에서' 사이를 띄우지 않게 한 덩어리로 감싼다. */
-                <span className="flex min-w-0">
-                  <span className="truncate">{nearFrom}</span>
-                  <span className="shrink-0">에서 가까운 순</span>
-                </span>
-              ) : (
-                placesPageSortLabel(option, { hasDog: Boolean(dog), nearFrom })
-              )}
-            </FilterChip>
-          ))}
-        </div>
-      )}
 
       <PlacesPageActiveChips chips={rowChips} />
 

@@ -28,7 +28,6 @@ const PEEK_ACTIONS: TPlacesPageResultsActions = {
   onClearArea: noop,
   onClearOnlyReachable: noop,
   onReleaseAreaCarried: noop,
-  onChangeSort: noop,
   onCityDowntown: noop,
   onRemoveChip: noop,
 };

@@ -1,18 +1,21 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { PlacesPageChipRow } from './placesPageChipRow';
 import { PlacesPageEligibilityToggles } from './placesPageEligibilityToggles';
 import { PlacesPageFilters } from './placesPageFilters';
 import { PlacesPageFilterSheet } from './placesPageFilterSheet';
 import { PlacesPageResults } from './placesPageResults';
 import { usePlacesPageResultsView } from './placesPageResultsView';
 import { PlacesPageSearchField } from './placesPageSearchField';
+import { PlacesPageSortSheet } from './placesPageSortSheet';
 import { usePlacesPageSwipe } from './placesPageSwipe';
 import { PlacesPageSwipePeek } from './placesPageSwipePeek';
 import { PlacesPageTypeTabs } from './placesPageTypeTabs';
 import { usePlaceTypeSwitch } from './placesPageTypeSwitch';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
 import type { TPetFilterKey, TPlaceSort } from '../lib/placeFilters';
+import { placesPageSortLabel } from '../lib/placesPageFilter';
 import { countByLevel, levelCountParts } from '../lib/eligibilityCounts';
 import { landmarkOfQuery } from '../lib/placeSearch';
 import { NEAR_PARAM, nearPlaceOf } from '../lib/distanceSort';
@@ -93,6 +96,8 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
    * *지우기만* 하면 글과 동작이 반대를 말한다. 종류를 바꾸면 `key={type}` 로 함께 리셋된다.
    */
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
+  // 정렬 시트(모바일 칩 줄의 '정렬 ▾', 22 D-3). 종류를 바꾸면 정렬과 함께 처음부터다(`key={type}`).
+  const [isSortSheetOpen, setIsSortSheetOpen] = useState(false);
   const [suggestOpen, setSuggestOpen] = useState(false);
   /**
    * 이 화면에서 마지막으로 알려 준 곳과 그때의 검색어(14 W261019.16) — 목록 끝이 "알려 주셨어요" 로, 같은 검색어의 0곳 안내가 '알려 주기' 를
@@ -191,11 +196,11 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
   /*
    * 시트 안의 "모두 지우기" 는 검색어를 건드리지 않는다 — 검색창은 시트 밖에 그대로
    * 보이는데 여기서 같이 지우면 시트를 닫고 나서야 글자가 사라진 걸 알게 된다.
-   * 목록 위의 지우기 링크("필터·검색·모두 지우기")는 검색창 옆에 있어 무엇이 지워졌는지 바로 보이므로 검색어까지 지운다.
+   * 칩 줄 끝 '초기화'(모바일, 22 D-4 — md 부터는 목록 위 지우기 링크 "필터·검색·모두 지우기")는 검색칸 바로 밑이라 무엇이 지워졌는지 바로 보이므로 검색어까지 지운다.
    *
    * **정렬은 둘 다 건드리지 않는다**(14 W261019.13a). 정렬은 시트에 없고(W261019.13) 칩 수에도 안 들어, 시트 버튼이 보이지 않는 것을
    * 바꾸는 꼴이었다 — 숙소를 '가격 낮은 순' 으로 보다가 시트에서 조건을 지우면 순서가 말없이 돌아갔다. 지우기 링크도 같다: 문구가
-   * 필터·검색을 지운다고 말하고, 정렬만 남았을 땐 링크가 서지도 않으며, 지금 순서는 링크 바로 밑 정렬 줄에 눌린 채 보인다.
+   * 필터·검색을 지운다고 말하고, 정렬만 남았을 땐 링크가 서지도 않으며, 지금 순서는 바로 옆 '정렬 ▾' 칩(모바일)·셀렉트(md)가 말한다.
    */
   const resetConditions = () => {
     setTown(null);
@@ -206,7 +211,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     if (type !== 'stay') setNeedsIndoor(false);
   };
 
-  // 목록 위 지우기 링크는 시트에 없는 것(검색어·권역)까지 지운다 — 칩 줄에 보이는 것을 전부 지우는 것이 그 링크의 말이다.
+  // 칩 줄의 '초기화'(md 는 목록 위 지우기 링크)는 시트에 없는 것(검색어·권역)까지 지운다 — 칩 줄에 보이는 것을 전부 지우는 것이 그 말이다(14 W261019.11f).
   // '갈 수 있는 곳만' 은 시트에 칩이 생겨(14 W261013.14d) `resetConditions` 가 푼다.
   const resetFilters = () => {
     setQuery('');
@@ -241,6 +246,14 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     else if (key.startsWith('pet-')) togglePetKey(key.slice(4) as TPetFilterKey);
   };
 
+  /*
+   * 검색칸 밑 칩 줄(모바일)의 켠 조건 — 평범한 검색어 칩은 빼고 반경을 말하는 것(`"중문" · 3km 안`)만 남긴다(14 W261019.11a — 검색어는 바로 위 검색칸이 말한다).
+   * md 부터는 줄이 없고 본문의 켜진 조건 줄(`PlacesPageActiveChips`)이 그대로 선다 — 그 줄은 0곳 안내의 "풀면 N곳" 버튼과 같은 키를 쓴다.
+   */
+  const rowChips = view.chips
+    .filter((chip) => chip.key !== 'query' || chip.notInHeader)
+    .map((chip) => ({ ...chip, onRemove: () => removeChip(chip.key) }));
+
   return (
     <div>
       {/* 상태바 인셋 위로 번져(bleed-top-4) 자기 블러 배경이 그 자리를 덮으므로 top-safe 가
@@ -248,7 +261,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
           크림이고 **불투명**이다(v4) — 흰색이면 이 화면에서만 상태바 자리가 흰 띠가 되고, 반투명이면
           밑을 지나는 카드 글씨가 상태바 뒤로 흐리게 비친다. */}
       <div ref={headerRef} className="sticky top-0 z-30 border-b border-secondary bg-secondary">
-        <div className="bleed-top-4 px-4 pb-3 md:px-6 md:pb-2">
+        <div className="bleed-top-4 px-4 pb-1 md:px-6 md:pb-2">
           <h1 className="sr-only">{TYPE_META[type].label} 둘러보기</h1>
 
           <PlacesPageTypeTabs
@@ -258,12 +271,33 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
             pillRef={pillRef}
           />
 
-          <div className="mt-3 flex items-center gap-2">
-            {/* 검색어만 지우는 ✕ 가 칸 안에 있다(14 W261019.11e) — 켜진 조건 줄엔 평범한 검색어 칩이 없다(W261019.11a). */}
-            <PlacesPageSearchField query={query} onChange={setQuery} className="min-w-0 flex-1" />
+          {/* 검색칸은 전폭이다(22 D-2) — '필터' 는 밑 칩 줄 맨 앞으로 내려갔다. 검색어만 지우는 ✕ 가 칸 안에 있다(14 W261019.11e). */}
+          <PlacesPageSearchField query={query} onChange={setQuery} className="mt-3" />
+        </div>
 
-            {/* 조건은 모바일에서만 접는다 — 아래 펼친 판이 md 부터 대신 나온다. */}
-            <div className="md:hidden">
+        {/* 조건은 모바일에서만 접는다 — 아래 펼친 판이 md 부터 대신 나온다. 줄 높이 44px 라 머리 높이가 켠 조건 수와 상관없다. */}
+        <PlacesPageChipRow
+          className="mb-1 md:hidden"
+          activeFilterCount={view.activeFilterCount}
+          chips={rowChips}
+          sortLabel={placesPageSortLabel(shownSort, { hasDog: Boolean(dog), nearFrom: view.nearFrom })}
+          isFilterOpen={isFilterSheetOpen}
+          onOpenFilters={() => setIsFilterSheetOpen(true)}
+          isSortOpen={isSortSheetOpen}
+          onOpenSort={() => setIsSortSheetOpen(true)}
+          showReset={area !== null || view.activeFilterCount > 0}
+          resetLabel={view.resetLabel}
+          onReset={resetFilters}
+        />
+        <PlacesPageSortSheet
+          isOpen={isSortSheetOpen}
+          onOpenChange={setIsSortSheetOpen}
+          type={type}
+          sort={shownSort}
+          hasDog={Boolean(dog)}
+          nearFrom={view.nearFrom}
+          onChangeSort={(next) => void changeSort(next)}
+        />
               <PlacesPageFilterSheet
                 isOpen={isFilterSheetOpen}
                 onOpenChange={setIsFilterSheetOpen}
@@ -292,9 +326,6 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
                 resultCount={view.results.length}
                 onReset={resetConditions}
               />
-            </div>
-          </div>
-        </div>
 
         {/*
           펼친 조건 판. `hidden` 은 display:none 이라 모바일에서는 탭 순서·스크린리더에서도
@@ -376,7 +407,6 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
                   setTown(null);
                   releaseAreaCarried(type);
                 },
-                onChangeSort: (next) => void changeSort(next),
                 onCityDowntown: selectTown,
                 onRemoveChip: removeChip,
               }}

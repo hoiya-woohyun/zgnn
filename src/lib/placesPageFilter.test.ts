@@ -172,9 +172,11 @@ describe('placesPageChips', () => {
     expect(placesPageChips(chipBase)).toEqual({ chips: [], activeFilterCount: 0, hasFilters: false, resetLabel: '필터 지우기' });
   });
 
-  it('순서는 읍면 → 방향 → 숨김 → 검색어, 개수에는 검색어가 빠진다 · 정렬은 칩이 아니다(14 W261019.13)', () => {
+  it('순서는 시트의 차례(숨김 → 실내 → 방향 → 읍면 → 원문 조건) → 검색어, 개수에는 검색어가 빠진다 · 정렬은 칩이 아니다(22 D-4 · 14 W261019.13)', () => {
     const result = placesPageChips({ ...chipBase, town: '애월읍', directions: ['east'], hideHard: true, query: ' 카레 ' });
-    expect(result.chips.map((chip) => chip.key)).toEqual(['town', 'dir-east', 'hideHard', 'query']);
+    expect(result.chips.map((chip) => chip.key)).toEqual(['hideHard', 'dir-east', 'town', 'query']);
+    const all = placesPageChips({ ...chipBase, town: '애월읍', needsIndoor: true, directions: ['west'], petKeys: ['largeDog'], hideHard: true, onlyReachable: true });
+    expect(all.chips.map((chip) => chip.key)).toEqual(['onlyReachable', 'hideHard', 'indoor', 'dir-west', 'town', 'pet-largeDog']);
     expect(result.chips.at(-1)?.label).toBe('"카레"');
     expect(result.activeFilterCount).toBe(3);
     expect(result.hasFilters).toBe(true);

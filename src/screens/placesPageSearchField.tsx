@@ -36,6 +36,8 @@ export function PlacesPageSearchField({ query, onChange, className }: TPlacesPag
            wrapperClassName="h-11" 로 겉박스만 44px 로 키우면 위아래 2px 가 탭해도 포커스가
            안 잡히는 죽은 띠로 남는다(측정으로 확인). lg 프리셋은 py-2.5 라 input 자체가 44px 다. */
         size="lg"
+        /* 그림자 없이 테두리만(22 D-2) — 크림 머리 위 검색칸이 떠 있는 카드처럼 보이지 않게. base 는 복사본이라 겉박스 클래스로 덮는다. */
+        wrapperClassName="shadow-none"
         /* 글자가 ✕ 밑으로 들어가지 않게 ✕ 칸만큼 비운다 — 늘 비우면 320px 에서 자리표시 글자가 잘린다. */
         inputClassName={hasQuery ? 'pr-11' : undefined}
       />

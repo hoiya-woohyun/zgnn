@@ -15,6 +15,9 @@ export type TActiveChip = TPlacesPageChip & {
  * 조건 판이 시트 안에 접혀 있어 "카페 1곳" 의 이유가 버튼의 숫자 하나뿐이었다(D4). 켜진 것을
  * 목록 바로 위에 이름으로 보이고, ✕ 로 그것만 끄게 한다. 켜진 게 없으면 줄 자체를 그리지 않는다.
  *
+ * **모바일엔 없다**(22 D-4) — 같은 칩이 검색칸 밑 칩 줄(`placesPageChipRow`)에 한 줄로 선다. 여기서 줄바꿈으로 쌓이면 조건 수만큼 첫 카드가 내려갔다.
+ * 이 줄은 칩 줄이 없는 md 부터다.
+ *
  * lg 부터는 머리에 같은 말이 없는 칩(`notInHeader` — 권역, 관광지 검색어의 반경)만 남긴다(14 W261013.10b) — D4 의 까닭(판이 접혀 있다)이
  * 거기선 없고, 같은 말을 한 줄 더 세운 것이 1280×800 에서 0곳 안내의 버튼을 접힘 아래로 밀었다. 나머지는 lg 머리에 이미 있다: 읍면·방향·조건·판정은
  * 줄바꿈한 판에 눌린 채, 검색어는 검색창. 그러나 `"중문" · 3km 안` 의 반경은 검색창에 없어 데스크톱에서만 "왜 나왔는지" 가 사라졌다(14 W261019.11c).
@@ -28,7 +31,7 @@ export function PlacesPageActiveChips({ chips }: { chips: TActiveChip[] }) {
   const rowAtLg = chips.some((chip) => chip.notInHeader);
 
   return (
-    <ul className={cx('flex flex-wrap gap-2 px-4 pt-2 md:px-6', !rowAtLg && 'lg:hidden')} aria-label="켜진 조건">
+    <ul className={cx('hidden flex-wrap gap-2 px-4 pt-2 md:flex md:px-6', !rowAtLg && 'lg:hidden')} aria-label="켜진 조건">
       {chips.map((chip) => (
         <li key={chip.key} className={chip.notInHeader ? undefined : 'lg:hidden'}>
           <FilterChip

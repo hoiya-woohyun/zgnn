@@ -331,7 +331,7 @@ const queryChip = (query: string): TPlacesPageChip => {
 };
 
 /**
- * 켜진 조건을 이름으로. 순서는 권역 → 따라오는 것(읍면·실내) → 방향 → 반려동물 → 어려운 곳 숨김 → 검색어.
+ * 켜진 조건을 이름으로. 순서는 권역 → '갈 수 있는 곳만' → 어려운 곳 숨김 → 실내 → 방향 → 읍면 → 원문 조건·환경 → 검색어 — 시트의 차례다(22 D-4).
  * `activeFilterCount` 는 **검색어·권역을 뺀** 칩 수다 — 검색어는 검색창에 보이고 권역은 시트에 고르는 자리가 없다(홈 동네 카드만 건다, 19 T3).
  * 접힌 시트 버튼의 숫자는 시트 안에서 끌 수 있는 것의 수여야 한다. '갈 수 있는 곳만' 은 시트에 칩이 생겨(14 W261013.14d) 센다 — 자리는 권역 바로 뒤 그대로
  * (카드가 둘을 함께 건다). 권역은 맨 앞 — 목록 전체의 테두리라 먼저 읽혀야 한다.
@@ -360,13 +360,16 @@ export const placesPageChips = ({
   query: string;
 }): { chips: TPlacesPageChip[]; activeFilterCount: number; hasFilters: boolean; resetLabel: string } => {
   const trimmedQuery = query.trim();
+  const carried = carriedFilterChips({ town, needsIndoor, hasDog, type });
+  // 시트의 차례 그대로 — 강아지 기준(숨김 → 실내) → 지역(방향 → 읍면) → 원문 조건·숙소 환경(22 D-4). 모바일은 이 칩들이 검색창 밑 한 줄에 선다.
   const conditionChips: TPlacesPageChip[] = [
-    ...carriedFilterChips({ town, needsIndoor, hasDog, type }),
+    ...(hasDog && hideHard ? [{ key: 'hideHard', label: '어려운 곳 숨김' }] : []),
+    ...carried.filter((chip) => chip.key === 'indoor'),
     ...directions.map((direction) => ({ key: `dir-${direction}`, label: DIRECTION_LABEL[direction] })),
+    ...carried.filter((chip) => chip.key === 'town'),
     ...filtersOfPlaceType(type)
       .filter((filter) => petKeys.includes(filter.key))
       .map((filter) => ({ key: `pet-${filter.key}`, label: filter.label })),
-    ...(hasDog && hideHard ? [{ key: 'hideHard', label: '어려운 곳 숨김' }] : []),
   ];
   const reachableChips: TPlacesPageChip[] = hasDog && onlyReachable ? [{ key: 'onlyReachable', label: '갈 수 있는 곳만' }] : [];
   const chips: TPlacesPageChip[] = [

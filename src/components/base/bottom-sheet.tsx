@@ -14,6 +14,11 @@ type TBottomSheetProps = {
   onOpenChange: (isOpen: boolean) => void;
   /** 스크린리더가 읽을 시트 이름. 시각적으로는 내용이 제목을 대신한다. */
   label: string;
+  /**
+   * 보이는 제목(선택, 22 D-3·D-9). 주면 닫기 단추와 같은 줄(위 8px · 44px 줄 · 18px/700)에 선다 — 스크롤 칸 **밖**이라
+   * 내용이 내려가도 남고, 닫기 단추와 가운데가 맞는다. 내용 안에 제목을 두면 판의 위 여백만큼 닫기보다 16px 아래에 섰다.
+   */
+  title?: string;
   children: ReactNode;
   /**
    * 손잡이 띠만이 아니라 **본문을 끌어내려도** 닫는다(기본 꺼짐, 14 W261010.33k·.33p). 닿은 곳 위로 내려간 스크롤이 없을 때만
@@ -123,7 +128,7 @@ const useBottomSheetDrag = (onDismiss: () => void, pullFromBody = false) => {
  * 같은 react-aria-components 프리미티브 위에 따로 만들었다.
  * react-aria 가 포커스 트랩·Esc 닫기·바깥 클릭·스크롤 잠금을 맡는다.
  */
-export function BottomSheet({ isOpen, onOpenChange, label, children, pullFromBody = false }: TBottomSheetProps) {
+export function BottomSheet({ isOpen, onOpenChange, label, title, children, pullFromBody = false }: TBottomSheetProps) {
   return (
     <AriaModalOverlay
       isOpen={isOpen}
@@ -152,7 +157,7 @@ export function BottomSheet({ isOpen, onOpenChange, label, children, pullFromBod
           )
         }
       >
-        <BottomSheetPanel label={label} onDismiss={() => onOpenChange(false)} pullFromBody={pullFromBody}>
+        <BottomSheetPanel label={label} title={title} onDismiss={() => onOpenChange(false)} pullFromBody={pullFromBody}>
           {children}
         </BottomSheetPanel>
       </AriaModal>
@@ -166,11 +171,13 @@ export function BottomSheet({ isOpen, onOpenChange, label, children, pullFromBod
  */
 function BottomSheetPanel({
   label,
+  title,
   onDismiss,
   pullFromBody,
   children,
 }: {
   label: string;
+  title?: string;
   onDismiss: () => void;
   pullFromBody?: boolean;
   children: ReactNode;
@@ -209,6 +216,10 @@ function BottomSheetPanel({
       >
         <XClose size={20} />
       </button>
+      {/* 판의 위 여백(모바일 24 · sm 16)을 거슬러 닫기 단추와 같은 줄(top 8 · 44px)에 — 가운데가 맞는다. */}
+      {title && (
+        <h2 className="-mt-4 flex h-11 shrink-0 items-center pr-10 text-lg font-bold text-primary sm:-mt-2">{title}</h2>
+      )}
       {/*
         스크롤은 여기서만. `min-h-0` 이 요점이다 — flex 자식은 기본 `min-height:auto` 라 내용보다 작아지지 않아 판을 묶어도 넘친다.
         좌우로 판의 여백만큼 넓혔다가(-mx-4 px-4) 되돌리는 것은 포커스 링 때문이다 — 스크롤 상자는 가로도 잘라서 가장자리 칸의 링이 잘린다.

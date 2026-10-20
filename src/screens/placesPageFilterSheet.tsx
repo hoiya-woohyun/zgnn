@@ -1,4 +1,3 @@
-import { FilterLines } from '@untitledui/icons';
 import { PlacesPageEligibilityToggles } from './placesPageEligibilityToggles';
 import { PlacesPageFilters } from './placesPageFilters';
 import { BottomSheet } from '../components/base/bottom-sheet';
@@ -33,7 +32,7 @@ type TPlacesPageFilterSheetProps = {
     /** 남는 곳의 판정 셈("가능 20" 조각들, `levelCountParts`) — 하단 버튼 위 한 줄. */
     levelParts: string[];
   } | null;
-  /** 켜져 있는 필터 개수. 시트를 닫아 둔 채로도 필터가 걸려 있음을 알려야 한다. */
+  /** 켜져 있는 필터 개수 — '모두 지우기' 를 세울지. 닫아 둔 채의 숫자는 칩 줄의 필터 칩이 말한다(`placesPageChipRow`). */
   activeCount: number;
   /** 지금 조건(검색어 포함)으로 목록에 남는 곳 수 — 하단 "N곳 보기" 버튼에 싣는다. */
   resultCount: number;
@@ -45,9 +44,9 @@ type TPlacesPageFilterSheetProps = {
  * 모바일 필터 시트.
  *
  * 조건이 여러 줄(판정·읍면·방향·원문 조건, 숙소는 환경까지)이라 고정 영역이 첫 화면의 절반을 먹고
- * 정작 목록은 두어 장만 보였다. 모바일에서는 그 줄들을 이 시트로 접고 버튼 하나만 남긴다.
+ * 정작 목록은 두어 장만 보였다. 모바일에서는 그 줄들을 이 시트로 접고, 여는 것은 검색칸 밑 칩 줄의 '필터' 칩이다(22 D-2).
  * 데스크톱은 세로가 넉넉해 접을 이유가 없으므로 지금처럼 펼쳐 둔다(placesPage 가 가른다).
- * 정렬은 여기 없다 — 모바일은 목록 위 정렬 줄이 지금 순서를 말하고 바꾼다(14 W261019.13).
+ * 정렬은 여기 없다 — 모바일은 칩 줄의 '정렬 ▾' 칩이 지금 순서를 말하고 정렬 시트를 연다(22 D-3).
  *
  * "적용" 버튼을 두지 않고 누르는 즉시 반영한다 — 읍면은 이미 스토어에 바로 쓰이고
  * 종류를 바꾸면 조건이 통째로 리셋되는 구조라(placesPage 의 `key={type}`), 초안 상태를
@@ -72,30 +71,6 @@ export function PlacesPageFilterSheet({
 }: TPlacesPageFilterSheetProps) {
   return (
     <>
-      <Button
-        size="lg"
-        color={activeCount > 0 ? 'primary' : 'secondary'}
-        iconLeading={FilterLines}
-        className="h-11 shrink-0"
-        aria-haspopup="dialog"
-        aria-expanded={isOpen}
-        onClick={() => onOpenChange(true)}
-      >
-        필터
-        {/* "필터1" 로 붙어 읽혔다 — 띄어 쓰고(스크린리더도 "필터 1") 숫자를 칩처럼 떼어 둔다. */}
-        {activeCount > 0 && ' '}
-        {activeCount > 0 && (
-          <span
-            className={cx(
-              'ml-1 inline-block min-w-5 rounded-full px-1 text-center text-xs leading-5 font-bold',
-              'bg-primary text-brand-secondary',
-            )}
-          >
-            {activeCount}
-          </span>
-        )}
-      </Button>
-
       {/* 손잡이 띠만이 아니라 본문을 끌어내려도 닫힌다 — 조건 줄이 맨 위일 때만(14 W261010.33k, base 의 `pullFromBody`). */}
       <BottomSheet isOpen={isOpen} onOpenChange={onOpenChange} label="필터 고르기" pullFromBody>
         {/*
