@@ -418,6 +418,11 @@ function layoutMarkers(input: TLayoutInput): number {
 /** `MapPage` 가 내 위치 버튼에서 부른다. 지도가 아직 없거나 깨졌으면 false 를 돌려준다. */
 export type TMapPageCanvasHandle = {
   showMyLocation: (lat: number, lng: number) => boolean;
+  /**
+   * 그 장소의 마커에 포커스 — 묶음 속이면 그 묶음 원에(14 W261019.15d, 시트를 닫은 뒤). 마커가 없거나(종류 칩이 걸렀다) 지도가 아직이면 false.
+   * 화면 밖·덮인 마커면 focusin 의 `bringIntoView` 가 데려온다(v34).
+   */
+  focusPlace: (id: string) => boolean;
 };
 
 type TMapPageCanvasProps = {
@@ -1071,6 +1076,15 @@ export function MapPageCanvas({
           queueMicrotask(() => setStatus('error'));
           return false;
         }
+      },
+      focusPlace(id) {
+        if (status !== 'ready') return false;
+        // 묶음에 든 마커는 `display:none` 이라 포커스를 못 받는다 — 그 무리의 원이 대신 받는다(키보드로 묶음을 연 뒤와 같은 규칙).
+        const cluster = clustersRef.current.find((entry) => entry.ids.includes(id));
+        const element = cluster ? cluster.marker.getElement() : markersRef.current.get(id)?.marker.getElement();
+        if (!element?.isConnected) return false;
+        element.focus({ preventScroll: true });
+        return element.ownerDocument.activeElement === element;
       },
     }),
     [status],
