@@ -64,6 +64,8 @@ NOW.md 를 각자 읽고 "맨 위" 를 고르면 읽기와 잡기 사이의 틈�
 - 다른 세션이 cross-session 메시지로 "N번을 맡았다" 고 알려 와도 정본은 `claim.mjs list` 다.
 - **한 세션에서 레인 여럿으로**("병렬로"·"N개 동시에")는 [PARALLEL.md](PARALLEL.md) — 메인이 일마다 `sleep` pid 로 미리 다 잡고, 레인은 `done` 과
   `lane-commit.mjs`(개인 인덱스 + HEAD 비교 교체 커밋 · 문서는 저널)만 쓴다. 레인 수는 파일이 안 겹치는 묶음의 수다.
+- **계속 돌리기**("자동으로 계속"·"감독 모드")는 [/next-auto](../next-auto/SKILL.md) — 메인은 감독만 하고, 레인이 끝나는 대로 `auto.mjs pick` 이 파일 안 겹치는 다음 줄을 고른다.
+  멈춤은 "멈춰"·`touch .claude/next-auto/STOP`·컨텍스트 알림·한도에서 부드럽게(달리는 레인은 커밋까지).
 
 ## 하지 않는 것
 

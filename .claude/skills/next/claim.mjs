@@ -10,6 +10,8 @@
 // 선점 기록은 git 밖(`.claude/next-claims.json`, .gitignore)이라 커밋에 섞이지 않는다.
 //
 //   node .claude/skills/next/claim.mjs take     → CLAIMED|RESUME <n>/<지금 수> <줄>  ·  없으면 NONE …
+//   node .claude/skills/next/claim.mjs take <제목 앞부분>
+//                                              → 그 줄만 — CLAIMED · TAKEN(남이 잡음·🔒) · NOTFOUND (/next-auto 감독용)
 //   node .claude/skills/next/claim.mjs done     → 내 줄을 NOW.md 「지금」 에서 지우고 선점을 푼다(잠금 안에서)
 //   node .claude/skills/next/claim.mjs release  → 줄은 남기고 선점만 푼다
 //   node .claude/skills/next/claim.mjs park 🧑|🙋 <이유 · 명령/권고>
@@ -148,6 +150,17 @@ const result = withLock(() => {
     if (mine) {
       save(claims);
       return `RESUME ${position(mine)} ${items.find((item) => item.title === mine).line}`;
+    }
+    // 감독(/next-auto)은 파일이 안 겹치는 줄을 골라 제목으로 잡는다 — 그 줄만 본다. 남이 잡았거나 🔒 면 내주지 않는다.
+    const want = process.argv.slice(3).join(' ').trim();
+    if (want) {
+      const item = items.find((i) => i.title === want) ?? items.find((i) => i.title.startsWith(want));
+      save(claims);
+      if (!item) return `NOTFOUND ${want}`;
+      if (claims[item.title] || item.title.startsWith('🔒')) return `TAKEN ${item.title}`;
+      claims[item.title] = { pid: owner, at: Date.now() };
+      save(claims);
+      return `CLAIMED ${position(item.title)} ${item.line}`;
     }
     // 제목이 `🔒` 로 시작하면 사람이나 다른 세션이 손으로 잡아 둔 줄이다 — 레지스트리에 없어도 내주지 않는다.
     const free = items.find((item) => !claims[item.title] && !item.title.startsWith('🔒'));

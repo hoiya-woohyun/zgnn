@@ -8,6 +8,8 @@
 //           HEAD 판에 저널만 다시 적용해 싣고, 작업 트리에도 적용한다(이미 적용됐으면 건너뜀).
 //           new 가 old 를 품는 덧붙이기도 된다(new 가 이미 있으면 적용된 것으로 본다). new 가 "" 이면 지우기.
 // --drop-now : NOW.md 「지금」 에서 그 제목으로 시작하는 `- [ ] ` 줄을 HEAD 판에서 지운다(claim.mjs done 이 작업 트리 쪽을 지운다).
+// --park-now : claim.mjs park 가 작업 트리에서 한 옮김(「지금」 → 「기다림」 맨 위)을 HEAD 판에도 한다 — 옮겨진 줄은 작업 트리에서 그대로 가져온다.
+//              안 그러면 park 가 작업 트리에만 남아, 남의 NOW.md 경로 커밋이 실어 갈 때까지 HEAD 는 그 줄을 「지금」 에 둔다.
 //
 // 커밋은 개인 인덱스(read-tree HEAD) → write-tree → commit-tree → `update-ref HEAD 새 옛`(비교 교체). HEAD 가 움직였으면 다시.
 // 끝나면 공유 인덱스의 그 경로를 HEAD 로 맞춘다(git reset -q -- 경로) — 안 그러면 남의 맨 `git commit` 이 내 변경을 되돌린다.
@@ -29,8 +31,9 @@ const msgFile = opt('--msg');
 const files = (opt('--files') ?? '').split(',').map((s) => s.trim()).filter(Boolean);
 const edits = opt('--edits') ? JSON.parse(readFileSync(opt('--edits'), 'utf8')) : [];
 const dropNow = opt('--drop-now');
+const parkNow = opt('--park-now');
 if (!msgFile) {
-  console.error('usage: lane-commit.mjs --msg <file> [--files a,b] [--edits edits.json] [--drop-now "<제목>"]');
+  console.error('usage: lane-commit.mjs --msg <file> [--files a,b] [--edits edits.json] [--drop-now "<제목>" | --park-now "<제목>"]');
   process.exit(64);
 }
 for (const e of edits) {
@@ -60,6 +63,22 @@ const dropNowLine = (content) => {
   const idx = lines.findIndex((l) => l.startsWith('- [ ] ') && l.slice(6).replace(/^🔒\s*/, '').startsWith(dropNow));
   if (idx < 0) return [content, 'already'];
   lines.splice(idx, 1);
+  return [lines.join('\n'), 'applied'];
+};
+
+/** claim.mjs park 와 같은 자리(「기다림」 머리 + 2)에 같은 줄을 — 그 줄은 park 가 이미 쓴 작업 트리에서 찾는다. */
+const parkNowLine = (content) => {
+  const parked = readFileSync(join(ROOT, NOW_PATH), 'utf8')
+    .split('\n')
+    .find((l) => /^- (🧑|🙋) /.test(l) && l.replace(/^- (🧑|🙋) (\[.\] )?/, '').replace(/^🔒\s*/, '').startsWith(parkNow));
+  if (!parked) throw new Error(`작업 트리 「기다림」 에 "${parkNow}" 로 시작하는 park 줄이 없다 — claim.mjs park 를 먼저`);
+  if (content.includes(parked)) return [content, 'already'];
+  const lines = content.split('\n');
+  const now = lines.findIndex((l) => l.startsWith('- [ ] ') && l.slice(6).replace(/^🔒\s*/, '').startsWith(parkNow));
+  if (now >= 0) lines.splice(now, 1);
+  const head = lines.findIndex((l) => /^## 기다림/.test(l));
+  if (head < 0) throw new Error('HEAD 의 NOW.md 에 「기다림」 절이 없다');
+  lines.splice(head + 2, 0, ...(lines[head + 2]?.startsWith('- ') ? [parked] : [parked, '']));
   return [lines.join('\n'), 'applied'];
 };
 
@@ -99,7 +118,7 @@ try {
     }
     const byFile = new Map();
     for (const e of edits) byFile.set(e.file, [...(byFile.get(e.file) ?? []), e]);
-    if (dropNow && !byFile.has(NOW_PATH)) byFile.set(NOW_PATH, []);
+    if ((dropNow || parkNow) && !byFile.has(NOW_PATH)) byFile.set(NOW_PATH, []);
     for (const [file, list] of byFile) {
       let content;
       try {
@@ -113,6 +132,7 @@ try {
         [content, st] = dropNowLine(content);
         if (st === 'already') console.error(`경고: HEAD 의 NOW.md 에 "${dropNow}" 줄이 없다(이미 지워짐?)`);
       }
+      if (file === NOW_PATH && parkNow) [content] = parkNowLine(content);
       const sha = git(['hash-object', '-w', '--stdin'], { input: content }).trim();
       git(['update-index', '--add', '--cacheinfo', `100644,${sha},${file}`], { env });
     }
@@ -158,7 +178,7 @@ try {
       }
       if (changed) writeFileSync(abs, content);
     }
-    const paths = [...new Set([...files, ...edits.map((e) => e.file), ...(dropNow ? [NOW_PATH] : [])])];
+    const paths = [...new Set([...files, ...edits.map((e) => e.file), ...(dropNow || parkNow ? [NOW_PATH] : [])])];
     if (paths.length) git(['reset', '-q', '--', ...paths]);
     console.log(`COMMITTED ${result.commit.slice(0, 7)} (부모 ${result.head.slice(0, 7)})`);
     console.log(git(['show', '--stat', '--format=%s', result.commit]).split('\n').slice(0, 30).join('\n'));
