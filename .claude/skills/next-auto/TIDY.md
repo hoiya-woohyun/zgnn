@@ -16,4 +16,4 @@
 4. 새로 넣은 「지금」 줄의 발자국을 알면 `node $A foot --title … --files …`(정찰과 같은 규칙 — SCOUT.md). 모르면 두면 감독이 정찰을 띄운다.
 5. NOW.md 머리에 `> 최종 수정: <오늘> (v<다음>: /next-auto 정리 — 발견 n → 명세, 「지금」 +n, 기다림 +n)` 을 그 파일의 꼴대로 쌓고, 한 커밋으로:
    `lane-commit.mjs --msg <scratch>/msg.txt --edits <scratch>/journal.json` (메시지 `docs(todo) - /next-auto 정리: …` + Co-Authored-By 줄).
-6. `node $A report <id> DONE <해시> "<발견 n → 명세 · 지금 +n · 기다림 +n>"` → 마지막 메시지 한 줄 `RESULT DONE <해시> <같은 한 줄>`.
+6. `node $A report <id> DONE <해시> "<발견 n → 명세 · 지금 +n · 기다림 +n>"` → 마지막 메시지 한 줄 `RESULT <id> DONE <해시> <같은 한 줄>`.

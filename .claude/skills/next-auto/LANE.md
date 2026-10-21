@@ -10,7 +10,8 @@
    다른 줄이 `CLAIMED` 로 오면 선점을 잃은 것이다 → 같은 접두로 `release` → `node $A report <pid> BLOCKED - "선점을 잃었다"` → 끝.
 2. **명세** — 줄의 링크에서 그 태스크 절만 읽는다. 기준은 /next [SKILL.md](../next/SKILL.md) 2 「한 일 하기」 와 같다(명세가 낡았으면 `> 메모:` 로 사실을 적고 닫는다).
    `me` 가 "2회차 이상" 이라고 하면 발자국 파일에 이미 있는 diff 는 **이전 회차의 너**다 — `git diff HEAD -- <파일>` 로 보고 이어 간다.
-3. **발자국** — `me` 의 발자국 파일은 이미 네 것이다. 그 밖의 파일(코드·테스트·머리 줄을 쌓을 ADR/features 문서)을 **고치기 전에**
+3. **발자국** — `me` 의 발자국(코드·테스트)은 이미 네 것이다. 그 밖의 파일 — 특히 **머리 줄(`> 최종 수정`)을 쌓을 ADR·features·architecture 문서**는
+   고르는 단계에서 빠져 있어 먼저 잡는 레인이 주인이다 — 을 **고치기 전에**
    `NEXT_CLAIM_OWNER=<pid> node $A lease <pid> <파일…>`:
    - `OK` → 고친다.
    - `CONFLICT <파일> <다른 pid>` → 다른 레인 것. 고치지 않는다. 그 파일 없이 끝낼 수 없으면 `report <pid> BLOCKED - "<왜>" --wait <다른 pid>` 로 끝낸다
@@ -35,7 +36,7 @@
    - **막혔다**(3 의 CONFLICT·DIRTY · 선점 잃음): 커밋하지 않는다. 발견만 있으면 발견만 lane-commit(`--drop-now`·`--park-now` 없이).
 7. **보고** — 세부를 `.claude/next-auto/reports/<pid>.md` 에(원인 · 무엇을 고쳤나 · 검증 수치 · 화면 확인 · 발견 · 막힘). 그다음
    `NEXT_CLAIM_OWNER=<pid> node $A report <pid> <DONE|PARKED|BLOCKED> <해시|-> "<한 줄>" [--wait <pid>] [--unseen "<볼 것>"]`
-   → 마지막 메시지 한 줄: `RESULT <상태> <해시|-> <한 줄>`. **report 를 빼먹으면 감독은 실패로 보고 같은 줄을 다시 띄운다.**
+   → 마지막 메시지 한 줄: `RESULT <pid> <상태> <해시|-> <한 줄>`. **report 를 빼먹으면 감독은 실패로 보고 같은 줄을 다시 띄운다.**
 
 ## 하지 않는 것
 

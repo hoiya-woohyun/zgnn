@@ -651,7 +651,9 @@ const foot = (state, argv) => {
   const matches = items.filter((i) => i.title === title);
   const item = matches[0] ?? (items.filter((i) => i.title.startsWith(title)).length === 1 ? items.find((i) => i.title.startsWith(title)) : null);
   if (!item) throw new Error(`「지금」 에 그 제목이 없거나 여럿과 맞는다: ${title}`);
-  const list = (files ?? '').split(',').map(normPath).filter((f) => f && !journalOnly(f));
+  // 문서는 고를 때의 발자국에 넣지 않는다 — 화면 일은 거의 다 같은 문서(app-shell-and-state·ADR-008)에 머리 줄을 쌓아,
+  // 넣으면 서로 다른 화면 일끼리도 하나씩만 돈다. 문서의 주인은 레인이 고칠 때 먼저 lease 한 쪽이고, 진 쪽은 「발견」 의 "v 메모" 로 넘긴다.
+  const list = (files ?? '').split(',').map(normPath).filter((f) => f && !journalOnly(f) && !f.startsWith('docs/'));
   if (!skip && !list.length) throw new Error('--files(고칠 파일) 또는 --skip(뺄 이유) 중 하나는 있어야 한다');
   state.foot[item.title] = { files: list, solo, model: model === 'opus' ? 'opus' : undefined, skip, at: Date.now() };
   return `FOOT ${item.title} ← ${list.join(', ') || '-'}${solo ? ' · 혼자' : ''}${model === 'opus' ? ' · opus' : ''}${skip ? ` · 뺌: ${skip}` : ''}`;

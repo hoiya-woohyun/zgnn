@@ -38,8 +38,9 @@ A=.claude/skills/next-auto/auto.mjs   # 아래에서 node $A … 는 이 경로
    | `FULL` · `WAIT` · `DRAIN` | 한 줄(`⏳ 레인 n개 · <답> — 멈추려면 "멈춰"`) 출력하고 턴을 끝낸다 |
    | `STOP <이유>` | 4 로 |
 
-3. **알림을 받으면** — 그 Agent 의 이름(`lane-<pid>` 면 `<pid>`, 아니면 `<id>`)으로 `node $A reap <id>`.
-   Agent 가 **오류로 끝났으면**(한도·중단·크래시) `--failed "<오류 첫 줄>"` 을 붙인다 — 한도 문구면 스크립트가 바로 멈춤으로 돌린다.
+3. **알림을 받으면** — 결과의 `RESULT <id> …` 줄에서 `<id>`(레인은 pid, 정찰·정리는 `scout-…`·`tidy-…`)를 읽어 `node $A reap <id>`.
+   RESULT 줄 없이 **오류로 끝났으면**(한도·중단·크래시) 띄울 때의 이름·설명(`lane-<pid>` · `<id>`)으로 id 를 정하고 `--failed "<오류 첫 줄>"` 을 붙인다 —
+   한도 문구면 스크립트가 바로 멈춤으로 돌린다. 어느 레인인지 모르겠으면 `node $A status` 의 🏃 줄과 맞춘다.
    출력 한 줄(✅ · ⏸ · ↩️ · ❌ · 🧭)을 그대로 보이고 2 로. 레인의 긴 설명을 다시 묻지 않는다 — 세부는 `.claude/next-auto/reports/<id>.md` 에 있다.
 4. **끝** — `node $A summary` 를 보고로(커밋 해시 · 기다림으로 간 것 · 쥔 채 남은 것과 커밋 안 된 편집 · 👀 화면 확인 필요 · 자동에서 뺀 것) → `node $A cleanup` →
    끝 줄은 멈춘 이유에 따라 `→ 다시 돌리려면 /next-auto` 또는 `→ /clear 후 /next-auto 로 이어 갑니다`.
@@ -49,7 +50,7 @@ A=.claude/skills/next-auto/auto.mjs   # 아래에서 node $A … 는 이 경로
 ```
 너는 /next-auto 레인이다 — pid <pid>, 줄 「<제목>」.
 먼저 `node .claude/skills/next-auto/auto.mjs me <pid>` 를 실행하고, 그 안내대로 .claude/skills/next-auto/LANE.md 를 읽고 따른다.
-마지막 메시지는 한 줄: `RESULT <DONE|PARKED|BLOCKED> <해시|-> <한 줄>`.
+마지막 메시지는 한 줄: `RESULT <pid> <DONE|PARKED|BLOCKED> <해시|-> <한 줄>`.
 ```
 
 ## 멈춤 지점
@@ -64,7 +65,8 @@ A=.claude/skills/next-auto/auto.mjs   # 아래에서 node $A … 는 이 경로
 | `[컨텍스트 NNNk]` 주입을 받음 | `node $A stop "컨텍스트"` → DRAIN 뒤 끝 줄 `→ /clear 후 /next-auto` (잡힌 줄은 RESUME 으로 이어진다) |
 | 레인이 한도로 끝남(`reap --failed`) | 스크립트가 멈춤으로 돌린다 — 정리 레인도 건너뛴다(같은 벽) |
 | 대기열 바닥 · 남은 줄이 전부 🔒·뺌·남의 편집 | `pick` 이 `STOP` |
-| 안전 상한(한 실행 레인 30개) · 예산(`--max`·`--hours`, `budgetStop`) | `pick` 이 DRAIN → STOP |
+| 안전 상한(한 실행 레인 30개) | `pick` 이 DRAIN → STOP |
+| 예산 `--max`·`--hours`·연속 실패 | **`auto.mjs` 의 `budgetStop` 을 채운 뒤부터 걸린다** — 비어 있는 동안은 값을 받아 적기만 한다 |
 
 **당장 멈춰야 하면**(하드 멈춤): TaskStop 으로 레인을 끊고 `node $A reap <id> --failed "사용자 중단"` → `node $A stop "사용자"`.
 커밋 전 편집이 작업 트리에 남는다 — **되돌리지 않는다**(공유 트리라 남의 것과 섞여 있다). 선점은 sleep pid 가 쥔 채 남아 다음 `/next-auto` 가 그 줄을 RESUME 한다.
