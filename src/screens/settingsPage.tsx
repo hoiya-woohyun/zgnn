@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Heart, MarkerPin02, User01 } from '@untitledui/icons';
+import { Heart, MarkerPin02, Plus } from '@untitledui/icons';
 import { showAppStatus, STATUS_UNDO_MS } from '../lib/appStatus';
 import { AuthorAvatar } from '../components/authorAvatar';
 import { ReportSheet } from '../components/reportSheet';
@@ -13,7 +13,7 @@ import { carrierSummary } from '../lib/eligibility';
 import { dogNamesAsWritten } from '../lib/korean';
 import { META, SOURCE_LINE } from '../lib/places';
 import { useAppStore, useDog, useSavedCount } from '../store/useAppStore';
-import { GroupList } from '../components/groupList';
+import { GroupList, GroupListBand } from '../components/groupList';
 import { GroupListRow } from '../components/groupListRow';
 
 /**
@@ -21,8 +21,8 @@ import { GroupListRow } from '../components/groupListRow';
  * 확인 창 대신 **되돌리기**다(셸 토스트, 프로필 삭제와 같은 어법) — 확인 창은 매번 한 번 더 누르게 하고, 실수는 되돌리기가 더 잘 막는다.
  * 지운 값은 이 클로저만 붙잡는다. 비울 것이 없으면 줄을 끈다.
  *
- * 두 줄은 그룹 리스트 한 면의 두 행이고(22 G2.0 · 행마다 카드를 걷었다), 글자는 경고색이다(14 W261010.7h — "지우는 줄인지 모르겠다").
- * 한 면에 붙었어도 행 높이 48 에 구분선이 있어 옆 행을 잘못 누르지 않는다. 비울 것이 없으면 회색 + aria-disabled.
+ * 두 줄은 그룹 리스트의 두 행이고(22 G2.0 · G2.0a — 카드도 면도 없이 크림 위 구분선), 글자는 경고색이다(14 W261010.7h — "지우는 줄인지 모르겠다").
+ * 붙어 있어도 행 높이 52 에 구분선이 있어 옆 행을 잘못 누르지 않는다. 비울 것이 없으면 회색 + aria-disabled.
  */
 function SettingsPageResetRows() {
   const checkedCount = useAppStore((state) => state.checkedItemIds.length);
@@ -50,7 +50,7 @@ function SettingsPageResetRows() {
   };
 
   return (
-    <GroupList>
+    <GroupList title="다음 여행 준비">
       <GroupListRow
         title="준비물 체크 모두 풀기"
         value={`${checkedCount}개`}
@@ -76,13 +76,14 @@ function SettingsPageResetRows() {
  * 보이는 입구는 알려 주고 싶은 사람이 못 찾는다(tremor-34) — 설정은 "앱에 무언가 하는 곳" 을 찾을 때 여는 자리다.
  * 시트는 둘러보기·홈 동네 카드와 같은 장소 제안(`suggest`)이다. 검색어가 없으니 미리 채울 글도 없다.
  * 보낸 뒤엔 둘째 줄이 "알려 주셨어요 — ‘…’" 로 바뀐다(14 W261019.16, haeun-18b — 그대로면 보냈는지 헷갈려 또 누른다).
+ * 머리 없이 혼자 서던 줄을 '정보' 그룹의 한 행으로 넣었다(22 G2.0a) — 행 하나짜리 묶음이 띠 둘 사이에 떠 있지 않게.
+ * 시트는 닫혀 있으면 그리지 않으므로(react-aria 오버레이) 그룹의 구분선 사이에 끼지 않는다.
  */
 function SettingsPageSuggest() {
   const [open, setOpen] = useState(false);
   const [sentName, setSentName] = useState<string | null>(null);
   return (
     <>
-      <GroupList>
         <GroupListRow
           icon={<MarkerPin02 size={20} />}
           title="장소 알려 주기"
@@ -91,7 +92,6 @@ function SettingsPageSuggest() {
           onPress={() => setOpen(true)}
           dataEv="settings.suggest"
         />
-      </GroupList>
       <ReportSheet
         isOpen={open}
         onOpenChange={setOpen}
@@ -104,6 +104,19 @@ function SettingsPageSuggest() {
         onSent={(row) => setSentName(row.note ?? '')}
       />
     </>
+  );
+}
+
+/**
+ * '우리 강아지' 행의 앞 그림 — 이름 첫 글자 원 32(22 G2.0a · B-17). 사람 실루엣 아이콘이 강아지 자리에 서 있었다.
+ * 등록 전이면 같은 원에 + — 누르면 등록이라는 뜻. 글자는 14/600 하나(단계를 늘리지 않는다).
+ */
+function SettingsPageDogInitial({ name }: { name: string }) {
+  const initial = [...name.trim()][0] ?? '';
+  return (
+    <span className="flex size-8 items-center justify-center rounded-full bg-tertiary text-sm font-semibold text-secondary">
+      {initial || <Plus size={16} aria-hidden="true" />}
+    </span>
   );
 }
 
@@ -123,13 +136,14 @@ export function SettingsPage() {
       {/* 준비물과 같은 제목 줄 — 올라가다 상단에 붙어 헤더로 접힌다(StickyMorphTitle). 설정은 짧아 요약·진행 막대는 없다. */}
       <StickyMorphTitle title="설정" />
 
-      <Section title="우리 강아지" className="mt-6">
-        <GroupList>
+      {/* 면 없는 그룹 넷, 사이는 8px 띠(22 G2.0a · design-audit B-17). 띠는 화면 폭 전체라 그룹의 좌우 여백 밖에 둔다. */}
+      <Section className="mt-2">
+        <GroupList title="우리 강아지">
           {dog ? (
             // 제목은 이름만 서는 자리 — 적은 그대로('단풍'). 애칭('단풍이')은 문장 안에서 부를 때만(14 W261010.33h)
             <GroupListRow
               href="/dog"
-              icon={<User01 size={20} />}
+              icon={<SettingsPageDogInitial name={dog.dogs[0]?.name ?? ''} />}
               title={dogNamesAsWritten(dog.dogs.map((d) => d.name))}
               subtitle={`${dogWeightSummary(dog)} · ${carrierSummary(dog.carrier)}`}
               value="수정"
@@ -137,39 +151,39 @@ export function SettingsPage() {
           ) : (
             <GroupListRow
               href="/dog"
-              icon={<User01 size={20} />}
+              icon={<SettingsPageDogInitial name="" />}
               title="우리 강아지 등록하기"
               subtitle="등록하면 갈 수 있는 곳을 바로 보여드려요"
             />
           )}
         </GroupList>
       </Section>
+      <GroupListBand className="mt-3" />
 
-      <Section title="내 여행" className="mt-8">
+      <Section>
         {/* `/saved` 는 설정 밑의 화면이다(`parentRouteOf`). 홈 카드·지도에서도 열리고, 그때는 들어온 탭에 불이 들어온다(`ownerRootOf`). */}
-        <GroupList>
+        <GroupList title="내 여행">
           <GroupListRow href="/saved" icon={<Heart size={20} />} title="저장한 곳" value={`${savedCount}곳`} />
         </GroupList>
       </Section>
+      <GroupListBand className="mt-3" />
 
-      <Section className="mt-8">
-        <SettingsPageSuggest />
-      </Section>
-
-      <Section title="다음 여행 준비" className="mt-8">
+      <Section>
         <SettingsPageResetRows />
       </Section>
+      <GroupListBand className="mt-3" />
 
-      <Section title="정보" className="mt-8">
-        <GroupList>
+      <Section>
+        <GroupList title="정보">
           <GroupListRow
             icon={<AuthorAvatar className="size-5" />}
             title={META.author}
             subtitle={SOURCE_LINE}
           />
+          <SettingsPageSuggest />
           <GroupListRow externalHref={META.sourceUrl} title="원본 노션 보기" trail="external" />
         </GroupList>
-        <p className="mt-3 px-1 text-sm text-tertiary">방문 전 영업시간과 동반 조건을 한 번 더 확인해 주세요.</p>
+        <p className="mt-3 pb-4 text-sm text-tertiary">방문 전 영업시간과 동반 조건을 한 번 더 확인해 주세요.</p>
       </Section>
     </div>
   );

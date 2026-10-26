@@ -6,7 +6,8 @@ import { checklistProgress, type TChecklistProgress } from '../lib/checklist';
 import { useStoreHydrated } from '../providers/storeHydration';
 import { useAppStore, useSavedPlaces } from '../store/useAppStore';
 
-const ROW_LINK = 'flex min-h-11 min-w-0 flex-1 items-center gap-3 px-4 py-3.5 transition-colors hover:bg-secondary';
+// 면 없이 크림 위 행(22 G2.0a) — 설정의 `GroupListRow` · 홈 종류 행과 같은 눌림 판(-mx-2 · r8 · bg-tertiary).
+const ROW_LINK = 'flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-3.5 transition-colors hover:bg-tertiary active:bg-tertiary';
 
 /**
  * 저장 줄 밑에 이름을 다는 상한. "저장한 곳 1" 숫자만으론 무엇을 저장했는지 보려고 한 번 더 눌렀다(14 W261013.14n · junhyuk-17).
@@ -18,7 +19,7 @@ const NAMED_SAVED_MAX = 2;
 const SAVED_NAME_SEPARATOR = ' · ';
 
 /**
- * 홈의 「내 여행」 — 저장한 곳과 준비물을 카드 하나로(18 T3 · H1).
+ * 홈의 「내 여행」 — 저장한 곳과 준비물을 한 묶음으로(18 T3 · H1). 면은 없다 — 크림 위 두 줄 + 구분선(22 G2.0a).
  *
  * 여행 준비를 한 입구로 — 예전엔 「여행 준비물」 과 저장 카드가 따로 섰고 동선(16)이 오면 넷째 섹션이 될 참이었다.
  * 준비물 숫자는 내 짐만 센다(ADR-009 v4) — 저장한 숙소 몫(· 숙소 N)은 탭에서 빠지며 여기서도 뺐다.
@@ -58,10 +59,12 @@ function HomePageTripCardRows({
   progress: TChecklistProgress;
 }) {
   return (
-    <GroupList className="mt-3">
+    <GroupList className="mt-1">
       {/* 지도 링크는 저장 줄 링크 **바깥의 형제**다 — 안에 넣으면 a 안에 a 가 된다.
-          테두리 버튼이면 아래 준비물 줄의 `>` 와 모양이 갈려, 같은 `>` 를 끝에 단 글자 링크로 둔다 — px-4 라 두 셰브론이 한 세로선에 선다. */}
-      <div className="flex items-stretch">
+          테두리 버튼이면 아래 준비물 줄의 `>` 와 모양이 갈려, 같은 `>` 를 끝에 단 글자 링크로 둔다 — 둘 다 px-2 라 두 셰브론이 한 세로선에 선다. */}
+      {/* 바깥 div 가 구분선을, 안쪽이 눌림 판(-mx-2)을 — 판에 선을 그으면 둥근 모서리를 따라 휜다(`GroupListRow` 와 같은 짜임). */}
+      <div>
+      <div className="-mx-2 flex items-stretch">
         <Link href="/saved" className={ROW_LINK}>
           <Heart aria-hidden="true" size={20} className="shrink-0 fill-camellia text-camellia" />
           <span className="flex min-w-0 flex-1 flex-col">
@@ -74,7 +77,7 @@ function HomePageTripCardRows({
         {savedCount > 0 && (
           <Link
             href="/map/?saved=1"
-            className="flex min-h-11 shrink-0 items-center gap-1 px-4 text-sm font-semibold text-brand-secondary transition-colors hover:bg-secondary"
+            className="flex min-h-11 shrink-0 items-center gap-1 rounded-lg px-2 text-sm font-semibold text-brand-secondary transition-colors hover:bg-tertiary active:bg-tertiary"
           >
             <Map01 aria-hidden="true" size={18} className="shrink-0" />
             지도
@@ -82,14 +85,17 @@ function HomePageTripCardRows({
           </Link>
         )}
       </div>
+      </div>
 
-      <Link href="/checklist" className={ROW_LINK}>
+      <div>
+      <Link href="/checklist" className={`-mx-2 ${ROW_LINK}`}>
         <CheckDone01 aria-hidden="true" size={20} className="shrink-0 text-fg-brand-secondary" />
         <span className="flex-1 text-md text-primary">
           준비물 <span className="font-bold">{progress.packed}</span>/{progress.total} 챙김
         </span>
         <ChevronRight aria-hidden="true" size={18} className="shrink-0 text-fg-quaternary" />
       </Link>
+      </div>
 
       {/* 16 T1.4 가 오면 셋째 줄 "1일차 3곳 · 2일차 2곳"(→ /saved 하루 보기)이 여기 들어온다. 지금은 그리지 않는다. */}
     </GroupList>

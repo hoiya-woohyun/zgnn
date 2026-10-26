@@ -171,7 +171,9 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
   하위 화면 헤더가 전부 그렇다. **흰색(`bg-primary`)은 떠 있는 카드에만** 쓴다 — 크롬을 흰색으로 칠하면 SAT·SAB 가
   스크롤 위치마다 크림/흰색으로 갈린다. 상단 크롬은 불투명(반투명이면 밑의 카드가 상태바 뒤로 비친다), 본문과는 선으로 가른다.
   하단 시트(`base/bottom-sheet`)도 크림이다 — 그 위에서 눌림 표시는 `primary_hover`(크림과 같은 값)가 아니라 `bg-tertiary`.
-- **흰 면은 `CARD_SURFACE`(`src/components/cardSurface.ts`), 빈 상태는 `EmptyState`**(ADR-003 v15). 상자 클래스를 글자로 다시 적지 않는다.
+- **목록은 면 없이 크림 위 행 + 1px `border-secondary` 구분선, 묶음 사이는 8px `bg-tertiary` 띠**(`GroupList` · `GroupListRow` · `GroupListBand`, ADR-003 v25). 흰 면은 상세 판정·지도·떠 있는 시트에만 —
+  같은 종류의 행을 둥근 흰 카드로 감싸지 않는다("둥근 네모 카드 구성" 이 AI 가 만든 화면의 단서였다, design-audit B-17). 행 눌림은 `bg-tertiary`, 구분선은 눌림 판(-mx-2 · r8)이 아니라 바깥 틀에.
+  남은 흰 면은 `CARD_SURFACE`(`src/components/cardSurface.ts`), 빈 상태는 `EmptyState`(ADR-003 v15). 상자 클래스를 글자로 다시 적지 않는다.
   면은 답(상세 판정)과 다루는 덩어리(누르는 카드·체크/입력 판)에만 — 근거는 같은 면 안 구분선으로 딸리고, 빈 상태는 면 없이 크림 위에 선다(지도 위만 `floating`).
 - **버튼은 평면**(그림자 0 — base `Button` 은 `theme.css` 의 skeuomorphic 토큰을 비워 둔다, 테두리 버튼 눌림 `bg-tertiary`). **반경은 세 단** — 칩·알약 `rounded-full` /
   버튼·입력·작은 탭 대상·면 안의 작은 판 `rounded-lg`(8) / 면 `rounded-2xl`(16). `rounded-xl`·`rounded-md`·`rounded` 를 새로 쓰지 않는다(예외: 체크박스 상자 · `<mark>`) → ADR-003 v23.
