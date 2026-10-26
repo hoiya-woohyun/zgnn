@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, ChevronRight, SearchMd } from '@untitledui/icons';
+import { ChevronDown, ChevronRight } from '@untitledui/icons';
 import { PlacesPageActiveChips, type TActiveChip } from './placesPageActiveChips';
 import { PlaceCard } from '../components/placeCard';
 import { PlaceLinkList } from '../components/placeLinkList';
@@ -37,8 +37,6 @@ export type TPlacesPageResultsActions = {
   onClearTown: () => void;
   /** 모바일 필터 시트를 연다. 빈 상태의 버튼이 쓴다 — md 부터는 조건 판이 펼쳐져 있어 버튼 자체를 숨긴다. */
   onOpenFilters: () => void;
-  /** 검색어만으로 0곳일 때의 "알려 주기" — 장소 제안 시트를 연다. 시트는 위(`placesPage`)가 한 벌만 쥔다. */
-  onSuggest: () => void;
   /** '어려운 곳 숨기기'·'갈 수 있는 곳만' 을 함께 푼다 — 숨긴 종류로 넘어가는 링크가 넘어가기 전에 부른다. */
   onReleaseHidden: () => void;
   /** 권역만 푼다 — 권역 탓으로 0곳일 때 빈 상태의 버튼. */
@@ -57,7 +55,7 @@ type TPlacesPageResultsProps = {
   view: TPlacesPageResultsView;
   actions: TPlacesPageResultsActions;
   /**
-   * 지금 검색어로 이미 알려 줬나(14 W261019.16) — 그렇다면 0곳 안내가 '알려 주기' 를 거두고 보냈다고 말한다.
+   * 지금 검색어로 이미 알려 줬나(14 W261019.16) — 그렇다면 0곳 안내가 보냈다고 말한다.
    * 본 화면 state 라 엿보기는 주지 않는다 — `key={type}` 로 새로 마운트된 화면도 처음엔 안 보낸 상태다.
    */
   suggestSent?: boolean;
@@ -99,7 +97,6 @@ export function PlacesPageResults({
     onClearQuery,
     onClearTown,
     onOpenFilters,
-    onSuggest,
     onReleaseHidden,
     onClearArea,
     onClearOnlyReachable,
@@ -393,10 +390,10 @@ export function PlacesPageResults({
           위의 지우기 링크가 그대로 맡는다.
         */
         /*
-          위 여백은 링크 줄이 먼저 설 때만 — 큰 안내가 바로 오면 EmptyState 자신의 py-10 이 그 몫이고, 둘을 겹친 64px 이
-          1280×800 에서 안내의 버튼을 접힘 아래로 미는 데 한몫했다(14 W261013.10a).
+          위 여백 24px 은 이 래퍼가 맡는다 — EmptyState 는 세로 여백이 없어 링크 줄이 먼저 서든 큰 안내가 바로 오든 목록이 있던
+          자리 맨 위에서 같은 간격으로 시작한다(예전엔 EmptyState 의 py-10 과 겹친 64px 이 버튼을 접힘 아래로 밀었다, 14 W261013.10a).
         */
-        <div className={cx('px-4 md:px-6', otherTypeRowsFirst && 'pt-6')}>
+        <div className="px-4 pt-6 md:px-6">
           {/*
             검색은 종류 탭 안에서만 돈다 — 다른 종류에 있으면 그쪽으로 가는 길을 맨 위에 둔다(14 W261006.6).
             "없어요" 보다 먼저 읽혀야 사용자가 그 가게가 없다고 결론 내리지 않는다. 검색어는 스토어에 있어 따라간다(07 U3).
@@ -422,14 +419,8 @@ export function PlacesPageResults({
           */}
           {town && !townHasNoPlaces && townReleaseCount > 0 ? (
             <EmptyState
-              Icon={SearchMd}
               title={`${townFilterLabel(town)}에는 맞는 ${withJosa(TYPE_META[type].label, '이/가')} 없어요`}
-              description={`읍면을 풀면 ${townReleaseCount}곳이 있어요.`}
-              action={
-                <Button color="primary" size="md" onClick={onClearTown}>
-                  {`${townFilterLabel(town)} 풀고 ${townReleaseCount}곳 보기`}
-                </Button>
-              }
+              action={{ label: `${townFilterLabel(town)} 풀고 ${townReleaseCount}곳 보기`, onClick: onClearTown }}
             />
           ) : reachableReleaseCount > 0 ? (
             /*
@@ -437,14 +428,8 @@ export function PlacesPageResults({
               방금 고른 동네를 잃고, 그 동네엔 확인·정보 없음 곳이 남아 있다. "없어요" 가 아니라 '확인된 곳' 이 없다고 말한다(19 §1).
             */
             <EmptyState
-              Icon={SearchMd}
               title={`갈 수 있다고 확인된 ${withJosa(TYPE_META[type].label, '은/는')} 아직 없어요`}
-              description={`'갈 수 있는 곳만' 을 풀면 ${reachableReleaseCount}곳이 있어요.`}
-              action={
-                <Button color="primary" size="md" onClick={onClearOnlyReachable}>
-                  {`풀고 ${reachableReleaseCount}곳 보기`}
-                </Button>
-              }
+              action={{ label: `'갈 수 있는 곳만' 풀고 ${reachableReleaseCount}곳 보기`, onClick: onClearOnlyReachable }}
             />
           ) : area && areaReleaseCount > 0 ? (
             /*
@@ -452,14 +437,8 @@ export function PlacesPageResults({
               읍면 갈래를 먼저 본다: 읍면은 퍼시스트라 사용자가 건 줄 모르고, 권역은 방금 카드로 건 것이다.
             */
             <EmptyState
-              Icon={SearchMd}
               title={`${areaTownsLabel(area)}에는 맞는 ${withJosa(TYPE_META[type].label, '이/가')} 없어요`}
-              description={`권역을 풀면 ${areaReleaseCount}곳이 있어요.`}
-              action={
-                <Button color="primary" size="md" onClick={onClearArea}>
-                  {`권역 풀고 ${areaReleaseCount}곳 보기`}
-                </Button>
-              }
+              action={{ label: `권역 풀고 ${areaReleaseCount}곳 보기`, onClick: onClearArea }}
             />
           ) : emptySearch?.kind === 'otherType' ? (
             /*
@@ -468,14 +447,12 @@ export function PlacesPageResults({
             */
             <>
               <EmptyState
-                Icon={SearchMd}
                 title={`'${query}'${josa(query, '은/는')} ${TYPE_META[emptySearch.top.type].label}에 있어요`}
                 description={`${TYPE_META[type].label}에는 없어요. 검색어는 그대로 따라가요.`}
-                action={
-                  <Button color="primary" size="md" href={`/places/${emptySearch.top.type}/`}>
-                    {`${TYPE_META[emptySearch.top.type].label}에서 ${emptySearch.top.count}곳 보기`}
-                  </Button>
-                }
+                action={{
+                  label: `${TYPE_META[emptySearch.top.type].label}에서 ${emptySearch.top.count}곳 보기`,
+                  href: `/places/${emptySearch.top.type}/`,
+                }}
               />
               {(emptySearch.rest.length > 0 || hiddenOtherTypes.length > 0) && (
                 <ul className="mt-2 space-y-2">
@@ -492,7 +469,6 @@ export function PlacesPageResults({
             */
             <>
               <EmptyState
-                Icon={SearchMd}
                 title={
                   emptySearch.rest
                     ? `${emptySearch.word} ${emptySearch.radiusKm}km 안엔 '${emptySearch.rest}'에 맞는 ${withJosa(TYPE_META[type].label, '이/가')} 아직 없어요`
@@ -505,18 +481,7 @@ export function PlacesPageResults({
                       ? '조금 더 먼 곳을 가까운 순으로 보여 드려요. 아는 곳이 있으면 알려 주세요.'
                       : '아는 곳이 있으면 알려 주세요. 운영자가 찾아보고, 확인되면 올릴게요.'
                 }
-                action={
-                  <div className="flex flex-wrap items-center justify-center gap-2">
-                    {!suggestSent && (
-                      <Button color="secondary" size="md" onClick={onSuggest} data-ev="places.emptySuggest">
-                        알려 주기
-                      </Button>
-                    )}
-                    <Button color="secondary" size="md" onClick={onClearQuery}>
-                      검색 지우기
-                    </Button>
-                  </div>
-                }
+                action={{ label: '검색 지우기', onClick: onClearQuery }}
               />
               {landmarkNearby.length > 0 && (
                 <section aria-labelledby="places-landmark-nearby">
@@ -533,11 +498,10 @@ export function PlacesPageResults({
             </>
           ) : emptySearch ? (
             /*
-              어느 종류에도 없으면 "없다" 가 아니라 '아직 우리 목록에 없다' 이고, 길은 알려 주기다(14 W261013.10). 띄어쓰기 안내는 하지 않는다 —
+              어느 종류에도 없으면 "없다" 가 아니라 '아직 우리 목록에 없다' 이고, 알려 주기는 아래 목록 끝(`PlacesPageSuggest`)이 한 번만 받는다(14 W261013.10). 띄어쓰기 안내는 하지 않는다 —
               검색이 공백을 지우고 비교해 띄어쓰기는 결과를 바꾸지 않는다. "더 짧게" 는 단어가 둘 이상일 때뿐(모든 단어가 맞아야 나온다).
             */
             <EmptyState
-              Icon={SearchMd}
               title={`'${query}'${josa(query, '은/는')} 아직 저희 목록에 없어요`}
               description={
                 suggestSent
@@ -546,67 +510,37 @@ export function PlacesPageResults({
                     ? '단어를 하나만 남겨 찾아보세요 — 모든 단어가 맞아야 나와요. 그래도 없으면 알려 주세요.'
                     : '알려 주시면 운영자가 찾아보고, 확인되면 올릴게요.'
               }
-              action={
-                <div className="flex flex-wrap items-center justify-center gap-2">
-                  {/* 보낸 뒤에도 같은 버튼이면 보냈는지 헷갈려 또 누른다(haeun-18b) — 거두고, 한 곳 더는 목록 끝(`PlacesPageSuggest`)이 받는다. */}
-                  {!suggestSent && (
-                    <Button color="primary" size="md" onClick={onSuggest} data-ev="places.emptySuggest">
-                      알려 주기
-                    </Button>
-                  )}
-                  <Button color={suggestSent ? 'primary' : 'secondary'} size="md" onClick={onClearQuery}>
-                    검색 지우기
-                  </Button>
-                </div>
-              }
+              action={{ label: '검색 지우기', onClick: onClearQuery }}
             />
           ) : (
             <EmptyState
-              Icon={SearchMd}
               title={
                 townHasNoPlaces
                   ? `${townFilterLabel(town ?? '')}엔 ${withJosa(TYPE_META[type].label, '이/가')} 없어요`
                   : `${TYPE_META[type].label}에는 필터에 맞는 곳이 없어요`
               }
               description={
-                townHasNoPlaces
-                  ? '읍면을 풀거나 필터에서 다른 읍면을 골라 보세요.'
-                  : releaseActions.length > 0
-                    ? '조건 하나만 풀어도 있어요.'
-                    : '검색어나 필터를 바꿔 보세요.'
+                townHasNoPlaces ? '읍면을 풀거나 필터에서 다른 읍면을 골라 보세요.' : releaseActions.length > 0 ? undefined : '검색어나 필터를 바꿔 보세요.'
               }
               action={
-                townHasNoPlaces ? (
-                  // 이 종류에 없는 읍면은 시트에서 다른 칩을 고르기 전엔 안 풀린다 — 바로 푸는 것이 할 일이다(12 U1.6).
-                  <Button color="primary" size="md" onClick={onClearTown}>
-                    읍면 풀기
-                  </Button>
-                ) : releaseActions.length > 0 ? (
-                  /*
-                    "필터를 바꿔 보세요" 만으로는 무엇을 풀어야 하는지 몰랐다(ferry-28 — 경쟁 펫패스는 대체 장소를 낸다). 하나만 풀어도 되는 조건을
-                    수와 함께 — 앞의 둘만, 많은 순. '어려운 곳 빼고' 는 후보가 아니다(풀면 못 가는 곳만 나온다, `singleConditionReleases`).
-                    시트를 여는 '필터 바꾸기' 는 뺀다 — 버튼이 셋이면 폰에서 안내가 버튼 더미가 되고, 시트는 위 필터 버튼이 그대로 연다.
-                  */
-                  <div className="flex flex-wrap items-center justify-center gap-2">
-                    {releaseActions.map((release, index) => (
-                      <Button
-                        key={release.key}
-                        color={index === 0 ? 'primary' : 'secondary'}
-                        size="md"
-                        onClick={release.chip.onRemove}
-                        data-ev="places.emptyRelease"
-                      >
-                        {release.key === 'query'
-                          ? `검색어 지우고 ${release.count}곳 보기`
-                          : `${release.chip.label} 풀고 ${release.count}곳 보기`}
-                      </Button>
-                    ))}
-                  </div>
-                ) : (
-                  <Button color="primary" size="md" className="md:hidden" onClick={onOpenFilters}>
-                    필터 바꾸기
-                  </Button>
-                )
+                townHasNoPlaces
+                  ? // 이 종류에 없는 읍면은 시트에서 다른 칩을 고르기 전엔 안 풀린다 — 바로 푸는 것이 할 일이다(12 U1.6).
+                    { label: '읍면 풀기', onClick: onClearTown }
+                  : releaseActions[0]
+                    ? /*
+                        "필터를 바꿔 보세요" 만으로는 무엇을 풀어야 하는지 몰랐다(ferry-28 — 경쟁 펫패스는 대체 장소를 낸다). 하나만 풀어도 되는 조건 중
+                        가장 많이 나오는 하나를 수와 함께. '어려운 곳 빼고' 는 후보가 아니다(풀면 못 가는 곳만 나온다, `singleConditionReleases`).
+                        행동은 자리마다 하나 — 시트를 여는 '필터 바꾸기' 는 위 필터 버튼이 그대로 연다.
+                      */
+                      {
+                        label:
+                          releaseActions[0].key === 'query'
+                            ? `검색어 지우고 ${releaseActions[0].count}곳 보기`
+                            : `${releaseActions[0].chip.label} 풀고 ${releaseActions[0].count}곳 보기`,
+                        onClick: releaseActions[0].chip.onRemove,
+                        ev: 'places.emptyRelease',
+                      }
+                    : { label: '필터 바꾸기', onClick: onOpenFilters, className: 'md:hidden' }
               }
             />
           )}

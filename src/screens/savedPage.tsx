@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CalendarDate, Heart, MarkerPin01, Share01 } from '@untitledui/icons';
+import { CalendarDate, MarkerPin01, Share01 } from '@untitledui/icons';
 import { Button } from '../components/base/button';
 import { PageHeader } from '../components/layout/pageHeader';
 import { EmptyState } from '../components/layout/emptyState';
@@ -96,14 +96,8 @@ export function SavedPage() {
       {listed.length === 0 ? (
         <div className="px-4 pt-6 md:px-6">
           <EmptyState
-            Icon={Heart}
-            title="하트를 눌러 모아보세요"
-            description="저장한 곳은 지도에서 한 번에 확인할 수 있어요."
-            action={
-              <Button color="primary" size="lg" href="/places/stay/">
-                장소 둘러보기
-              </Button>
-            }
+            title="하트를 누른 곳이 여기 모여요"
+            action={{ label: '둘러보기', href: '/places/stay/' }}
           />
         </div>
       ) : (

@@ -4,7 +4,6 @@ import { useMemo, useState } from 'react';
 import { SearchMd } from '@untitledui/icons';
 import { ChecklistPageItemRow } from './checklistPageItemRow';
 import { ChecklistPageItemSheet } from './checklistPageItemSheet';
-import { Button } from '../components/base/button';
 import { Input } from '../components/base/input';
 import { EmptyState } from '../components/layout/emptyState';
 import { StickyMorphTitle } from '../components/layout/stickyMorphTitle';
@@ -163,20 +162,12 @@ export function ChecklistPage() {
         <div className="mt-4 px-4 md:px-6">
           {trimmedQuery ? (
             <EmptyState
-              Icon={SearchMd}
               title={`'${trimmedQuery}'에 맞는 준비물이 없어요`}
               description={filter === 'all' ? undefined : `${CHECKLIST_FILTER_LABEL[filter]} 안에서 찾았어요.`}
-              action={
-                <Button color="secondary" size="md" onClick={() => setQuery('')}>
-                  검색 지우기
-                </Button>
-              }
+              action={{ label: '검색 지우기', onClick: () => setQuery('') }}
             />
           ) : (
-            <EmptyState
-              Icon={SearchMd}
-              title={filter === 'packed' ? '아직 챙긴 준비물이 없어요' : '다 챙겼어요'}
-            />
+            <EmptyState title={filter === 'packed' ? '아직 챙긴 준비물이 없어요' : '다 챙겼어요'} />
           )}
         </div>
       )}

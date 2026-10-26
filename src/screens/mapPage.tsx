@@ -2,13 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AlertTriangle, Heart, Target02 } from '@untitledui/icons';
+import { Heart, Target02 } from '@untitledui/icons';
 import { MapPageCanvas, MARKER_HARD_OPACITY, type TMapPageCanvasHandle } from './mapPageCanvas';
 import { PlaceLinkList } from '../components/placeLinkList';
 import { MapPageSheetCard } from './mapPageSheet';
 import { useMapPageWideLayout } from './useMapPageWideLayout';
 import { BottomSheet } from '@/components/base/bottom-sheet';
-import { Button } from '@/components/base/button';
 import { EmptyState } from '../components/layout/emptyState';
 import { PlaceThumb } from '../components/placeThumb';
 import { VerdictText } from '../components/verdictLine';
@@ -518,14 +517,9 @@ export function MapPage() {
               <div className="pointer-events-auto">
                 <EmptyState
                   floating
-                  Icon={Heart}
                   title="저장한 곳이 아직 없어요"
                   description="마음에 드는 곳의 하트를 누르면 여기에 모여요."
-                  action={
-                    <Button color="primary" size="lg" href="/places/stay/">
-                      장소 둘러보기
-                    </Button>
-                  }
+                  action={{ label: '장소 둘러보기', href: '/places/stay/' }}
                 />
               </div>
             </div>
@@ -538,19 +532,13 @@ export function MapPage() {
                 {savedOnly && types.length === PLACE_TYPES.length ? (
                   <EmptyState
                     floating
-                    Icon={AlertTriangle}
                     title="저장한 곳은 지도에 위치가 없어요"
                     description="저장한 곳 목록에서 볼 수 있어요."
-                    action={
-                      <Button color="primary" size="lg" href="/saved">
-                        저장한 곳 보기
-                      </Button>
-                    }
+                    action={{ label: '저장한 곳 보기', href: '/saved' }}
                   />
                 ) : (
                   <EmptyState
                     floating
-                    Icon={AlertTriangle}
                     title="켜 둔 종류에 표시할 곳이 없어요"
                     description="위에서 다른 종류를 눌러 보세요."
                   />

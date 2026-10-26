@@ -23,7 +23,6 @@ const PEEK_ACTIONS: TPlacesPageResultsActions = {
   onClearQuery: noop,
   onClearTown: noop,
   onOpenFilters: noop,
-  onSuggest: noop,
   onReleaseHidden: noop,
   onClearArea: noop,
   onClearOnlyReachable: noop,

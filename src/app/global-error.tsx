@@ -1,7 +1,5 @@
 'use client';
 
-import { AlertCircle } from '@untitledui/icons';
-import { Button } from '@/components/base/button';
 import { EmptyState } from '@/components/layout/emptyState';
 import '@/styles/globals.css';
 
@@ -20,16 +18,11 @@ export default function GlobalError() {
     <html lang="ko">
       <body>
         <title>문제가 생겼어요 | 강아지랑 제주</title>
-        <div className="px-4 pt-20 md:px-6">
+        <div className="px-4 pt-6 md:px-6">
           <EmptyState
-            Icon={AlertCircle}
             title="문제가 생겼어요"
             description="화면을 그리다 멈췄어요. 새로고침하면 대부분 다시 열려요."
-            action={
-              <Button color="primary" size="lg" onClick={() => window.location.reload()}>
-                새로고침
-              </Button>
-            }
+            action={{ label: '새로고침', onClick: () => window.location.reload() }}
           />
         </div>
       </body>

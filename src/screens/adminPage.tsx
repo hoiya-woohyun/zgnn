@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckDone01, SearchLg } from '@untitledui/icons';
+import { SearchLg } from '@untitledui/icons';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -2448,7 +2448,6 @@ export function AdminPage() {
       {groups.length === 0 ? (
         <div className="px-4 pt-6 md:px-6">
           <EmptyState
-            Icon={CheckDone01}
             title="검수할 후보가 없어요"
             description="새 블로그 글을 분석하면 여기 쌓여요 — 지금은 기다리면 돼요."
           />

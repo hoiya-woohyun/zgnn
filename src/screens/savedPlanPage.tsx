@@ -19,7 +19,6 @@ import {
   type UniqueIdentifier,
 } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
-import { Heart } from '@untitledui/icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '../components/base/button';
@@ -219,14 +218,9 @@ export function SavedPlanPage() {
         <PageHeader title={TITLE} />
         <div className="px-4 pt-6 md:px-6">
           <EmptyState
-            Icon={Heart}
             title="저장한 곳이 아직 없어요"
             description="하트를 눌러 모은 곳을 여기서 날짜별로 나눠요."
-            action={
-              <Button color="primary" size="lg" href="/places/stay/">
-                장소 둘러보기
-              </Button>
-            }
+            action={{ label: '둘러보기', href: '/places/stay/' }}
           />
         </div>
       </div>

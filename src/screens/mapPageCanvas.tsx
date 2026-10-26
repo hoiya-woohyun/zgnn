@@ -1,8 +1,6 @@
 'use client';
 
 import { type Ref, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { AlertTriangle } from '@untitledui/icons';
-import { Button } from '@/components/base/button';
 import { EmptyState } from '../components/layout/emptyState';
 import type { TEligibility } from '../lib/eligibility';
 import { mapFailureCopy } from '../lib/mapFailureCopy';
@@ -1106,16 +1104,11 @@ export function MapPageCanvas({
     // 상세 미니 지도와 같은 말 — 오프라인일 때만 인터넷을 탓한다(14 W261010.33c). 'error' 는 클라이언트에서만 서므로 navigator 가 있다.
     const copy = mapFailureCopy(navigator.onLine);
     return (
-      <div className="flex h-full w-full items-center justify-center bg-secondary p-4">
+      <div className="h-full w-full bg-secondary px-4 pt-6 md:px-6">
         <EmptyState
-          Icon={AlertTriangle}
           title={copy.title}
           description={copy.description}
-          action={
-            <Button color="primary" size="lg" href={`/places/${listType}/`}>
-              장소 목록으로 보기
-            </Button>
-          }
+          action={{ label: '장소 목록으로 보기', href: `/places/${listType}/` }}
         />
       </div>
     );

@@ -1,6 +1,5 @@
 'use client';
 
-import { SearchLg } from '@untitledui/icons';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '../components/base/button';
 import { Checkbox } from '../components/base/checkbox';
@@ -392,7 +391,6 @@ function AdminPagePostsList({
         <p className="text-xs text-tertiary">글 목록을 읽고 있어요</p>
       ) : rows.length === 0 ? (
         <EmptyState
-          Icon={SearchLg}
           title={filter === 'excluded' ? '분석에서 뺀 글이 없어요' : filter === 'analyzed' ? '분석된 글이 없어요' : '미분석 글이 없어요'}
           description={filter === 'excluded' ? '광고·목록 글은 줄의 분석 제외로 빼요.' : '새 글은 터미널에서 pnpm data collect 로 모아요.'}
         />

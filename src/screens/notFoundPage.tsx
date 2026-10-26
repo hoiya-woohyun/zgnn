@@ -1,8 +1,6 @@
 'use client';
 
 import { useSyncExternalStore } from 'react';
-import { SearchMd, WifiOff } from '@untitledui/icons';
-import { Button } from '../components/base/button';
 import { EmptyState } from '../components/layout/emptyState';
 
 const subscribeOnline = (listener: () => void) => {
@@ -27,42 +25,22 @@ export function NotFoundPage() {
 
   if (!online) {
     return (
-      <div className="px-4 pt-20 md:px-6">
+      <div className="px-4 pt-6 md:px-6">
         <EmptyState
-          Icon={WifiOff}
           title="오프라인이라 열 수 없어요"
           description="이 화면은 아직 받아 두지 않았어요. 연결되면 다시 시도해 주세요."
-          action={
-            <div className="flex gap-2">
-              <Button color="primary" size="lg" onClick={() => window.location.reload()}>
-                다시 시도
-              </Button>
-              <Button color="secondary" size="lg" href="/">
-                홈으로
-              </Button>
-            </div>
-          }
+          action={{ label: '다시 시도', onClick: () => window.location.reload() }}
         />
       </div>
     );
   }
 
   return (
-    <div className="px-4 pt-20 md:px-6">
+    <div className="px-4 pt-6 md:px-6">
       <EmptyState
-        Icon={SearchMd}
         title="찾는 화면이 없어요"
         description="주소가 바뀌었거나 없어진 곳일 수 있어요."
-        action={
-          <div className="flex gap-2">
-            <Button color="primary" size="lg" href="/">
-              홈으로
-            </Button>
-            <Button color="secondary" size="lg" href="/places/stay">
-              둘러보기로
-            </Button>
-          </div>
-        }
+        action={{ label: '홈으로', href: '/' }}
       />
     </div>
   );

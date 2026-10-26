@@ -412,7 +412,6 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
                 onClearQuery: () => setQuery(''),
                 onClearTown: () => setTown(null),
                 onOpenFilters: () => setIsFilterSheetOpen(true),
-                onSuggest: () => setSuggestOpen(true),
                 onReleaseHidden: () => {
                   setHideHard(false);
                   clearOnlyReachable();

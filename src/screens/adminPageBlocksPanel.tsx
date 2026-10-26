@@ -1,6 +1,5 @@
 'use client';
 
-import { SlashCircle01 } from '@untitledui/icons';
 import { EmptyState } from '../components/layout/emptyState';
 import type { TBlockChoice, TBlockRow, TBlocksLoad } from '../lib/adminBlocks';
 import { AdminPageBlocksRow, type TAdminPageBlocksRowState } from './adminPageBlocksRow';
@@ -49,7 +48,6 @@ export function AdminPageBlocksPanel({ load, states, notice, goToPlace, onLift, 
         {noticeLine}
         <div className="px-4 pt-6 md:px-6">
           <EmptyState
-            Icon={SlashCircle01}
             title="막고 있는 가게가 없어요"
             description="검수 대기에서 제외하거나 등록 해제할 때 기간을 고르면 여기 쌓여요."
           />
