@@ -26,7 +26,7 @@ export function SavedPageDayVerdict({ verdict }: { verdict: TTripDayVerdict | nu
   if (!verdict) return null;
   return (
     <div className="mt-2">
-      <p className="text-sm font-bold text-primary">{verdict.headline}</p>
+      <p className="text-sm font-semibold text-primary">{verdict.headline}</p>
       {verdict.subsetLine && <p className="mt-0.5 text-sm text-secondary">{verdict.subsetLine}</p>}
     </div>
   );
@@ -42,15 +42,15 @@ export function SavedPageDayAlternatives({ blocked, stops }: { blocked: TPlaceEn
   if (alternatives.length === 0) return null;
   return (
     <li className="flex flex-wrap items-center gap-1.5 px-1">
-      <span className="text-sm font-bold text-secondary">대신</span>
+      <span className="text-sm text-tertiary">대신</span>
       {alternatives.map(({ place, km }) => (
         <Link
           key={place.id}
           href={`/place/${place.id}`}
-          className="flex h-11 items-center gap-1 rounded-full bg-primary px-3 text-sm font-bold text-primary shadow-xs transition-colors hover:bg-tertiary"
+          className="flex h-11 items-center gap-1 rounded-full bg-primary px-3 text-sm text-primary shadow-xs transition-colors hover:bg-tertiary"
         >
           {place.name}
-          <span className="font-semibold text-tertiary">{distanceLabel(km)}</span>
+          <span className="text-tertiary">{distanceLabel(km)}</span>
         </Link>
       ))}
     </li>

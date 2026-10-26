@@ -238,7 +238,7 @@ export function SavedPlanPage() {
 
   return (
     <div className="pb-6">
-      <PageHeader title={TITLE} description="오른쪽 손잡이를 끌어 날짜와 순서를 정해요. 줄을 누르면 날짜를 바로 고를 수 있어요." />
+      <PageHeader title={TITLE} />
       <DndContext
         sensors={sensors}
         collisionDetection={collision}

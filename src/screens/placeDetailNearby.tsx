@@ -67,7 +67,7 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
   if (placeDetailLocationOf(place) === 'noGeo') {
     return (
       <section className="mt-8 px-4 md:px-6">
-        <h2 className="text-lg font-bold text-primary">근처 장소</h2>
+        <h2 className="text-md font-bold text-primary">근처 장소</h2>
         <p className="mt-2 text-sm text-tertiary">{PLACE_DETAIL_NEARBY_NO_GEO}</p>
       </section>
     );
@@ -76,7 +76,7 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
 
   return (
     <section className="mt-8">
-      <h2 className="px-4 text-lg font-bold text-primary md:px-6">근처 장소</h2>
+      <h2 className="px-4 text-md font-bold text-primary md:px-6">근처 장소</h2>
 
       <div
         className="no-scrollbar mt-1 flex min-h-11 items-center gap-2 overflow-x-auto px-4 md:px-6"
@@ -109,8 +109,8 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
                   <PlaceThumb src={other.cover ?? other.images[0]} type={other.type} variant="compact" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="clamp-2 text-sm font-bold text-primary">{other.name}</p>
-                      <span className="shrink-0 text-sm font-bold text-secondary">{distanceLabel(km)}</span>
+                      <p className="clamp-2 text-md font-semibold text-primary">{other.name}</p>
+                      <span className="shrink-0 text-sm text-secondary">{distanceLabel(km)}</span>
                     </div>
                     <p className="mt-0.5 truncate text-sm text-tertiary">{placeMetaLine(other)}</p>
                     {/* 판정 옆 조건도 목록 카드와 같은 거르기 — 어려움 옆 '중형견 OK'·요금이 서지 않게(14 W261013.1a). 이유 줄은 없다.

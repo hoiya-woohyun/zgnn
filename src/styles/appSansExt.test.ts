@@ -4,7 +4,7 @@ import { extRangeBlocks, inRanges } from '../../scripts/lib/bundleSwPrecache.mjs
 
 /**
  * 본문 글꼴은 Core(layout.tsx 의 next/font, 프리로드)와 Ext(appSansExt.css, unicode-range) 두 조각이다(ADR-006 v7).
- * 조각을 잘못 나눠도 빌드·화면은 멀쩡하다 — 데이터 글자가 Ext 범위에 들면 그 화면이 Ext 를 통째로(굵기당 약 460KB) 받고,
+ * 조각을 잘못 나눠도 빌드·화면은 멀쩡하다 — 데이터 글자가 Ext 범위에 들면 그 화면이 Ext 를 통째로(약 910KB) 받고,
  * `--font-app-core` 이름이 어긋나면 `--font-app` 이 무효가 되어 글꼴 전체가 시스템 폰트로 떨어진다. 그 짝을 여기서 지킨다.
  */
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8');
@@ -28,9 +28,10 @@ const ksx1001 = (() => {
 const HANGUL = /[가-힣]/g;
 
 describe('본문 글꼴 두 조각 — Core 와 Ext 의 경계', () => {
-  it('Ext 두 굵기가 같은 범위를 건다', () => {
-    expect(extRanges).toHaveLength(2);
-    expect(extRanges[1]).toEqual(extRanges[0]);
+  it('Ext 는 변수 글꼴 한 face 가 굵기 축 400–700 을 다 맡는다(ADR-006 v10) — Core 도 같은 범위다', () => {
+    expect(extRanges).toHaveLength(1);
+    expect(css).toContain('font-weight: 400 700;');
+    expect(read('../app/layout.tsx')).toContain("weight: '400 700'");
   });
 
   it('Ext 범위에 상용 2,350자가 하나도 없다 — 흔한 글자가 Ext 를 받게 하지 않는다', () => {
@@ -54,7 +55,7 @@ describe('본문 글꼴 두 조각 — Core 와 Ext 의 경계', () => {
 
   it('@font-face 가 가리키는 woff2 가 있다', () => {
     const urls = [...css.matchAll(/url\('([^']+)'\)/g)].map(([, url]) => url);
-    expect(urls).toHaveLength(2);
+    expect(urls).toHaveLength(1);
     for (const url of urls) expect(existsSync(new URL(url, import.meta.url))).toBe(true);
   });
 

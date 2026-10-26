@@ -76,11 +76,11 @@ export function MapPageSheetCard({ place, origin, onSheetHeight }: TMapPageSheet
         <div className="flex items-start gap-3">
           <PlaceThumb src={place.cover ?? place.images[0]} type={place.type} />
           <div className="min-w-0 flex-1 pr-8">
-            <p className="text-md font-bold text-primary">{place.name}</p>
+            <p className="text-md font-semibold text-primary">{place.name}</p>
             {/* 목록 카드와 같은 메타 한 줄(22 G3.0) — 거리는 밑 주소 줄이 말한다. */}
             <p className="mt-1 truncate text-sm text-tertiary">{placeMetaLine(place, { verified })}</p>
             <p className="mt-1 truncate text-sm text-secondary">
-              {distance && <span className="font-semibold text-primary">{distance} · </span>}
+              {distance && <span className="text-primary">{distance} · </span>}
               {address}
             </p>
           </div>

@@ -41,8 +41,8 @@ export function DogProfileCarrierPicker({ value, onChange, firstOptionRef }: TDo
 
   return (
     <div role="radiogroup" onKeyDown={handleKeyDown} aria-label="이동 수단">
-      <Label>이동 수단</Label>
-      <p className="mt-0.5 text-xs text-tertiary">외출할 때 무엇에 넣고 다니나요?</p>
+      <Label className="text-md font-bold text-primary">이동 수단</Label>
+      <p className="mt-0.5 text-sm text-tertiary">외출할 때 무엇에 넣고 다니나요?</p>
       <div className="mt-1.5 space-y-2">
         {CARRIER_ORDER.map((carrier, index) => {
           const selected = value === carrier;
@@ -72,10 +72,10 @@ export function DogProfileCarrierPicker({ value, onChange, firstOptionRef }: TDo
                 {selected && <span className="size-2.5 rounded-full bg-brand-solid" />}
               </span>
               <span>
-                <span className={cx('block text-sm font-semibold', selected ? 'text-brand-secondary' : 'text-primary')}>
+                <span className={cx('block text-md', selected ? 'text-brand-secondary' : 'text-primary')}>
                   {label}
                 </span>
-                <span className="block text-xs text-tertiary">{hint}</span>
+                <span className="block text-sm text-tertiary">{hint}</span>
               </span>
             </button>
           );

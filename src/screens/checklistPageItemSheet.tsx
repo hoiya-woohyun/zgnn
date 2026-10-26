@@ -43,7 +43,7 @@ export function ChecklistPageItemSheet({ item, isOpen, onOpenChange }: TChecklis
         </h2>
 
         <div className="mt-3 min-h-0 flex-1 overflow-y-auto pb-2">
-          {item.reason && <p className="text-sm text-secondary">{item.reason}</p>}
+          {item.reason && <p className="text-md text-secondary">{item.reason}</p>}
 
           {variants.length > 0 && (
             // 갈래는 버튼을 나란히 두지 않고 줄로 세운다. 나란히 두면 둘 중 하나를 "고르는"
@@ -62,8 +62,8 @@ export function ChecklistPageItemSheet({ item, isOpen, onOpenChange }: TChecklis
                     rel="noreferrer"
                     className="flex min-h-11 items-center gap-2 px-3 py-2 transition-colors hover:bg-secondary"
                   >
-                    <span className="min-w-0 flex-1 text-sm font-semibold text-primary">{variant.label}</span>
-                    <span className="shrink-0 text-xs text-brand-secondary">{linkLabel(variant.linkUrl)}</span>
+                    <span className="min-w-0 flex-1 text-md text-primary">{variant.label}</span>
+                    <span className="shrink-0 text-sm text-brand-secondary">{linkLabel(variant.linkUrl)}</span>
                     <LinkExternal01 aria-hidden="true" className="size-4 shrink-0 text-fg-brand-secondary" />
                   </a>
                 </li>

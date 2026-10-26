@@ -64,7 +64,7 @@ export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEdit
       <div className="flex items-start gap-3">
         <PlaceThumb src={place.cover ?? place.images[0]} type={place.type} />
         <div className={cx('min-w-0 flex-1', actions ? 'pr-26' : 'pr-11')}>
-          <p className="text-md font-bold text-primary">{place.name}</p>
+          <p className="text-md font-semibold text-primary">{place.name}</p>
           {/* 메타는 색 없는 글자 한 줄 — 읍면 칩이 혼자 한 줄을 먹어 두세 줄로 깨졌다(22 G3.0 · A-16). 확인 날짜도 이 줄 끝(14 C2610.3). */}
           <p className="mt-1 truncate text-sm text-tertiary">{placeMetaLine(place, { distanceKm, verified })}</p>
         </div>
@@ -77,7 +77,7 @@ export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEdit
       {place.stay && place.stay.price.text !== '' && (
         // brand-700 은 CTA 색이라 26개 숙소 가격이 전부 그 색이면 "눌러야 할 것"과
         // "읽을 것"이 섞인다(2026-09-15 디자인 리뷰 ①) — 본문 색 + bold 로 내린다.
-        <p className="mt-3 text-sm font-bold text-primary">{formatStayPrice(place.stay.price)}</p>
+        <p className="mt-3 text-md font-bold text-primary">{formatStayPrice(place.stay.price)}</p>
       )}
 
       {/* 소개가 없는 곳(목록·명단 글에서 온 곳 — 21 S7)은 빈 줄을 그리지 않는다. 빈 <p> 도 위 여백을 먹는다. */}
@@ -90,7 +90,7 @@ export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEdit
       {/* 왜 "확인"·"어려움" 인지 한 줄 — 7곳을 다 눌러 봐야 알던 것을 목록에서 읽게(민준 N1).
           카드 높이가 들쭉날쭉하지 않게 한 줄로 자른다. 판정을 정한 근거의 문장이다(`primaryReason`).
           목록 머리가 같은 문장을 이미 말했으면 빼서, 다른 이유를 가진 카드만 줄이 남게 한다. */}
-      {reason && <p className="clamp-1 mt-1 text-xs text-tertiary">{reason.text}</p>}
+      {reason && <p className="clamp-1 mt-1 text-sm text-tertiary">{reason.text}</p>}
 
       {/* 판정 줄 — 판정 글자 + 원문 조건 글자 한 줄(22 G3.0). 조건은 판정과 반대로 읽히거나 머리글·이유 줄이 이미 한 말을 뺀다(14 W261013.1). */}
       <VerdictLine

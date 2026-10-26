@@ -84,7 +84,7 @@ export function HomePageAreaCards() {
     // `home-scroll-depth` 는 섹션이 아니라 제목·카드마다 — 카드 6장이면 섹션이 화면보다 길어, 섹션째 걸면 다 보이는 카드까지
     // 줄어든 채로 남는다(관광지 칩 44 → 42.7px, 14 W261013.14e). 줄마다 붙이는 이유는 `homePage.tsx` 의 같은 주석.
     <section className="mt-8 px-4 md:px-6" data-ev="home.areas">
-      <h2 className="home-scroll-depth text-lg font-bold text-primary">{dog ? `${withJosa(dogNames, '이랑/랑')} 갈 동네` : '강아지랑 갈 동네'}</h2>
+      <h2 className="home-scroll-depth text-md font-bold text-primary">{dog ? `${withJosa(dogNames, '이랑/랑')} 갈 동네` : '강아지랑 갈 동네'}</h2>
       <div className="mt-3 space-y-3">
         {AREAS.map(({ id, label }) => {
           const card = counts ? homePageAreaCardCounts(counts, id) : null;
@@ -103,14 +103,14 @@ export function HomePageAreaCards() {
               >
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-baseline gap-x-1.5">
-                    <span className="text-md font-bold text-primary">{label}</span>
-                    <span className="text-xs text-tertiary">{areaTownNames(id)}</span>
+                    <span className="text-md font-semibold text-primary">{label}</span>
+                    <span className="text-sm text-tertiary">{areaTownNames(id)}</span>
                   </span>
                   <span className="mt-0.5 block text-sm text-secondary">
                     {card ? (
                       <>
-                        묵을 곳 <strong className="font-bold text-primary">{card.stay.reach}</strong> · 카페{' '}
-                        <strong className="font-bold text-primary">{card.cafe.reach}</strong>
+                        묵을 곳 <strong className="text-md font-bold text-primary">{card.stay.reach}</strong> · 카페{' '}
+                        <strong className="text-md font-bold text-primary">{card.cafe.reach}</strong>
                       </>
                     ) : (
                       `숙소 ${TOTALS_BY_CARD[id].stay} · 카페 ${TOTALS_BY_CARD[id].cafe}`
@@ -122,7 +122,7 @@ export function HomePageAreaCards() {
 
               {labeled.map((type) => (
                 <div key={type} className="px-2.5 pb-1">
-                  <p className="text-xs font-semibold text-brand-secondary">
+                  <p className="text-sm text-brand-secondary">
                     {withJosa(dogNames, '이랑/랑')} {LABEL_TAIL[type]}
                   </p>
                   {/* 이름만 — 소개문은 띄우지 않는다. 카드 안에서 소개가 판정과 다른 말을 할 자리를 만들지 않는다(13 §5.2 P2). */}
@@ -131,7 +131,7 @@ export function HomePageAreaCards() {
                       <li key={place.id}>
                         <Link
                           href={`/place/${place.id}`}
-                          className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline-offset-2 hover:underline"
+                          className="inline-flex min-h-11 items-center text-sm text-secondary underline-offset-2 hover:underline"
                         >
                           {place.name}
                         </Link>

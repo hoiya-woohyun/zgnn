@@ -42,16 +42,16 @@ export function HomeTypeCard({ type, levelCounts }: THomeTypeCardProps) {
           </span>
 
           <div className="min-w-0 flex-1">
-            <p className="text-lg font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>
+            <p className="text-md font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>
               {meta.label}
             </p>
             <p className="text-sm text-secondary">{meta.blurb}</p>
           </div>
 
           {!levelCounts && (
-            <p className="text-xl font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>
+            <p className="text-md font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>
               {countByType[type]}
-              <span className="text-sm font-semibold">곳</span>
+              <span className="text-sm font-normal">곳</span>
             </p>
           )}
         </div>
@@ -66,20 +66,20 @@ export function HomeTypeCard({ type, levelCounts }: THomeTypeCardProps) {
             320px 에선 0px 이 돼 "식/당" 이 한 글자씩 내려왔다. 낱말 묶음(`whitespace-nowrap`) 사이에서만 꺾인다. */}
         {levelCounts && (
           <p
-            className="mt-3 text-sm font-semibold text-secondary"
+            className="mt-3 text-sm text-secondary"
             aria-label={homeTypeCardCountsLabel(levelCounts, countByType[type])}
           >
-            <span className="whitespace-nowrap font-normal text-tertiary">{countByType[type]}곳 중</span>{' '}
+            <span className="whitespace-nowrap text-tertiary">{countByType[type]}곳 중</span>{' '}
             {homeTypeCardSegments(levelCounts).map((segment, index, segments) => (
               <Fragment key={segment.level}>
-                <span className={cx('whitespace-nowrap', !segment.strong && 'font-normal text-tertiary')}>
+                <span className={cx('whitespace-nowrap', !segment.strong && 'text-tertiary')}>
                   {segment.label}{' '}
                   {segment.strong ? (
-                    <span className="text-lg font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>
+                    <span className="text-md font-bold" style={{ color: TYPE_COLOR_DEEP[type] }}>
                       {segment.count}
                     </span>
                   ) : (
-                    <span className="font-semibold text-secondary">{segment.count}</span>
+                    <span className="text-secondary">{segment.count}</span>
                   )}
                   {index < segments.length - 1 && <span aria-hidden="true"> ·</span>}
                 </span>{' '}

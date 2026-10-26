@@ -173,7 +173,7 @@ export function PlaceDetailHeader({ place }: { place: TPlaceEntry }) {
       </div>
 
       <p className="mt-2 flex flex-wrap items-center gap-1.5 text-sm text-secondary">
-        <span className="font-semibold" style={{ color: TYPE_COLOR_DEEP[place.type] }}>
+        <span style={{ color: TYPE_COLOR_DEEP[place.type] }}>
           {DIRECTION_LABEL[place.region.direction]} {place.region.town}
         </span>
         <span className="h-3 w-px bg-quaternary" aria-hidden="true" />

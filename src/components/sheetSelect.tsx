@@ -80,7 +80,7 @@ export function SheetSelect({ label, value, onChange, sections, noneLabel, class
       {sections.map((section, index) =>
         section.title ? (
           <AriaListBoxSection key={section.title} id={section.title}>
-            <AriaHeader className="px-3 pt-2 pb-1 text-xs font-semibold text-tertiary">{section.title}</AriaHeader>
+            <AriaHeader className="px-3 pt-2 pb-1 text-sm text-tertiary">{section.title}</AriaHeader>
             {section.options.map((option) => (
               <Select.Item key={option.id} id={option.id} supportingText={option.supportingText}>
                 {option.label}
@@ -165,7 +165,7 @@ function SheetPicker({ label, value, onChange, sections, noneLabel, className }:
           {sections.map((section, index) => (
             <AriaListBoxSection key={section.title ?? index} id={section.title ?? `section-${index}`}>
               {section.title && (
-                <AriaHeader className="px-3 pt-4 pb-1 text-xs font-semibold text-tertiary">{section.title}</AriaHeader>
+                <AriaHeader className="px-3 pt-4 pb-1 text-sm text-tertiary">{section.title}</AriaHeader>
               )}
               {section.options.map((option) => (
                 <SheetRow key={option.id} id={option.id} label={option.label} supportingText={option.supportingText} />

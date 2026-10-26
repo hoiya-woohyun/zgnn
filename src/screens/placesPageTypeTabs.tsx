@@ -103,8 +103,8 @@ export function PlacesPageTypeTabs({ type, fromIndex, toIndex, pillRef }: TPlace
                   aria-current={active ? 'page' : undefined}
                   onClick={markOnActivate(candidate)}
                   className={cx(
-                    'flex h-11 items-center justify-center text-md font-semibold transition-colors active:bg-tertiary focus-visible:-outline-offset-2',
-                    active ? 'text-primary' : 'text-tertiary hover:text-secondary',
+                    'flex h-11 items-center justify-center text-md transition-colors active:bg-tertiary focus-visible:-outline-offset-2',
+                    active ? 'font-semibold text-primary' : 'text-tertiary hover:text-secondary',
                   )}
                 >
                   {TYPE_META[candidate].label}

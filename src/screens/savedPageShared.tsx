@@ -46,7 +46,8 @@ export function SavedPageShared({ shared, onDone }: TSavedPageSharedProps) {
     <div>
       <PageHeader
         title="공유받은 목록"
-        description={places.length > 0 ? `${places.length}곳을 보내 왔어요` : '보내 온 곳을 지금은 안내하지 않아요'}
+        count={places.length > 0 ? places.length : undefined}
+        description={places.length > 0 ? undefined : '보내 온 곳을 지금은 안내하지 않아요'}
       />
 
       {shared.unknownCount > 0 && places.length > 0 && (

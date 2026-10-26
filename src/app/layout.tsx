@@ -31,15 +31,13 @@ import '@/styles/globals.css';
  * 잇기 때문에 여기 변수 이름은 `--font-app-core` 다. 조각은 `scripts/split-fonts.py` 가 정본(`ZgnnSans-*.woff2`,
  * 링크 미리보기 이미지도 이것을 읽는다)에서 만든다. 통째로 프리로드하던 때는 첫 화면이 글꼴만 1.2MB 를 받았다.
  *
- * 굵기는 400·600 둘이다. font-medium(500)은 400 에, font-bold(700)는 CSS 폰트 매칭 규칙상 600 에
- * 붙는다 — 700 을 따로 싣지 않은 것은 용량(+620KB)과, 굵은 글씨가 과하게 무거워 크게 읽히던 것을 함께
- * 줄이기 위해서다.
+ * 글꼴은 **변수 글꼴 한 파일**이다(굵기 축 400–700, ADR-006 v10). 글자 단계표가 굵기 세 단(400·600·700)을 쓰는데,
+ * 고정 굵기 400·600 두 파일이던 때는 700 이 CSS 매칭 규칙상 600 글꼴로 그려져 '머리' 와 '이름' 이 화면에서 같은 굵기였다.
+ * 고정 700 을 한 벌 더 싣는 것(+620KB)보다 변수 글꼴이 오히려 작다 — Core 가 두 굵기 합 373KB → 329KB.
+ * 링크 미리보기(`app/og`)는 satori 가 변수 글꼴을 못 읽어 고정 굵기 정본(Regular·SemiBold)을 그대로 쓴다.
  */
 const appSans = localFont({
-  src: [
-    { path: './fonts/ZgnnSans-Regular-Core.woff2', weight: '400', style: 'normal' },
-    { path: './fonts/ZgnnSans-SemiBold-Core.woff2', weight: '600', style: 'normal' },
-  ],
+  src: [{ path: './fonts/ZgnnSans-Variable-Core.woff2', weight: '400 700', style: 'normal' }],
   variable: '--font-app-core',
   display: 'swap',
 });

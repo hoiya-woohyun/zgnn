@@ -49,12 +49,12 @@ export function PlaceDetailPage({ id }: { id: string }) {
       {/* 소개가 없는 곳(목록·명단 글에서 온 곳 — 21 S7)은 칸째 그리지 않는다. */}
       {place.features && (
         <section className="px-4 pt-5 md:px-6">
-          <p className="text-sm text-secondary">{place.features}</p>
+          <p className="text-md text-secondary">{place.features}</p>
         </section>
       )}
 
       <section className="mt-6 px-4 md:px-6">
-        <h2 className="text-lg font-bold text-primary">반려동물 이용</h2>
+        <h2 className="text-md font-bold text-primary">반려동물 이용</h2>
         <div className="mt-2">
           {/* 우리 강아지 기준 판정이 먼저, 근거(원문 또는 정리한 조건)는 그 면 안에 딸린다 — 사용자가 먼저 알고 싶은 건
               "우리 강아지가 갈 수 있는가"다. 근거는 따로 상자를 갖지 않는다(ADR-003 v15). */}
@@ -79,12 +79,12 @@ export function PlaceDetailPage({ id }: { id: string }) {
       {/* 블로그에서 들어온 신규 숙소는 요금·용품 원문이 비어 있을 수 있다 — 있는 항목만 그리고, 둘 다 없으면 절을 통째로 뺀다. */}
       {place.stay && (place.stay.price.text !== '' || place.stay.amenitiesText !== '' || environment.length > 0) && (
         <section className="mt-6 px-4 md:px-6">
-          <h2 className="text-lg font-bold text-primary">숙박 요금과 용품</h2>
+          <h2 className="text-md font-bold text-primary">숙박 요금과 용품</h2>
           <dl className={`mt-2 divide-y divide-secondary ${CARD_SURFACE}`}>
             {place.stay.price.text !== '' && (
               <div className="p-4">
-                <dt className="text-xs text-tertiary">1박 요금</dt>
-                <dd className="mt-0.5 text-lg font-bold text-primary">{formatStayPrice(place.stay.price)}</dd>
+                <dt className="text-sm text-tertiary">1박 요금</dt>
+                <dd className="mt-0.5 text-xl font-bold text-primary">{formatStayPrice(place.stay.price)}</dd>
                 {stayPriceSourceLine(place.stay.price) !== null && (
                   <dd className="mt-1 whitespace-pre-line text-sm text-tertiary">{stayPriceSourceLine(place.stay.price)}</dd>
                 )}
@@ -92,15 +92,15 @@ export function PlaceDetailPage({ id }: { id: string }) {
             )}
             {place.stay.amenitiesText !== '' && (
               <div className="p-4">
-                <dt className="text-xs text-tertiary">반려동물 용품</dt>
-                <dd className="mt-0.5 text-sm text-secondary">{place.stay.amenitiesText}</dd>
+                <dt className="text-sm text-tertiary">반려동물 용품</dt>
+                <dd className="mt-0.5 text-md text-secondary">{place.stay.amenitiesText}</dd>
               </div>
             )}
             {/* 숙소 환경(10 F6) — 판정이 아니라 선호라 이용 카드가 아닌 이 절에 둔다. 아는 것만 말한다. */}
             {environment.length > 0 && (
               <div className="p-4">
-                <dt className="text-xs text-tertiary">숙소 환경</dt>
-                <dd className="mt-0.5 text-sm text-secondary">{environment.join(' · ')}</dd>
+                <dt className="text-sm text-tertiary">숙소 환경</dt>
+                <dd className="mt-0.5 text-md text-secondary">{environment.join(' · ')}</dd>
               </div>
             )}
           </dl>
@@ -110,7 +110,7 @@ export function PlaceDetailPage({ id }: { id: string }) {
       {/* 공식 홈페이지가 있을 때만(분석이 네이버 지역 검색의 link 에서 찾은 업체 사이트). 사진은 그 사이트의 것이다 — ADR-002 v2. */}
       {place.homepage && (
         <section className="mt-6 px-4 md:px-6">
-          <h2 className="text-lg font-bold text-primary">공식 홈페이지</h2>
+          <h2 className="text-md font-bold text-primary">공식 홈페이지</h2>
           <div className="mt-2">
             <PlaceDetailHomepage homepage={place.homepage} />
           </div>
@@ -123,7 +123,7 @@ export function PlaceDetailPage({ id }: { id: string }) {
       */}
       {place.geo && (
         <section className="mt-8 px-4 md:px-6">
-          <h2 className="text-lg font-bold text-primary">위치</h2>
+          <h2 className="text-md font-bold text-primary">위치</h2>
           <div className="mt-2">
             <PlaceDetailMiniMap place={place} geo={place.geo} />
           </div>

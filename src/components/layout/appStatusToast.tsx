@@ -96,14 +96,14 @@ export function AppStatusToast() {
           onPointerLeave={(e) => e.pointerType === 'mouse' && releaseAppStatus()}
           onFocus={holdAppStatus}
           onBlur={releaseAppStatus}
-          className="pointer-events-auto flex max-w-md items-center gap-3 rounded-2xl bg-primary-solid px-4 py-3 text-sm font-semibold text-white shadow-lg"
+          className="pointer-events-auto flex max-w-md items-center gap-3 rounded-2xl bg-primary-solid px-4 py-3 text-sm text-white shadow-lg"
         >
           <span>{status.text}</span>
           {status.link && (
             <Link
               href={status.link.href}
               onClick={clearAppStatus}
-              className="-my-3 -mr-2 flex min-h-11 items-center px-2 whitespace-nowrap text-white underline underline-offset-4"
+              className="-my-3 -mr-2 flex min-h-11 items-center px-2 font-semibold whitespace-nowrap text-white underline underline-offset-4"
             >
               {status.link.label} ›
             </Link>
@@ -113,7 +113,7 @@ export function AppStatusToast() {
               type="button"
               // 먼저 닫고 누른다(onPress 가 새 알림을 띄우면 그 알림이 남아야 한다) — 그래도 `onDismiss` 는 안 간다(14 W261010.7g).
               onClick={() => pressAppStatusAction(status.id)}
-              className="-my-3 -mr-2 flex min-h-11 items-center px-2 whitespace-nowrap text-white underline underline-offset-4"
+              className="-my-3 -mr-2 flex min-h-11 items-center px-2 font-semibold whitespace-nowrap text-white underline underline-offset-4"
             >
               {status.action.label}
             </button>

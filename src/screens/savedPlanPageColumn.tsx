@@ -34,7 +34,7 @@ export function SavedPlanPageColumn({ column, ids, placeById, manual, onReset, o
   return (
     <section aria-labelledby={headingId} className="mt-6 px-4 md:px-6">
       <div className="flex min-h-11 items-center gap-3">
-        <h2 id={headingId} className="min-w-0 flex-1 text-lg font-bold text-primary">
+        <h2 id={headingId} className="min-w-0 flex-1 text-md font-bold text-primary">
           {day === null ? '날짜 미정' : `${day}일차`}
           <span className="ml-1.5 text-md font-normal text-tertiary">{places.length}곳</span>
         </h2>

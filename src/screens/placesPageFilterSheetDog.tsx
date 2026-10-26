@@ -45,7 +45,7 @@ export function PlacesPageFilterSheetDog({ type, title, step, onChangeStep, need
           >
             {({ isSelected, isFocusVisible }) => (
               <>
-                <span className="text-sm text-primary">실내 자리 필요</span>
+                <span className="text-md text-primary">실내 자리 필요</span>
                 <span
                   aria-hidden="true"
                   className={cx(

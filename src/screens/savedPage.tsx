@@ -84,10 +84,7 @@ export function SavedPage() {
 
   return (
     <div>
-      <PageHeader
-        title="저장한 곳"
-        description={saved.length > 0 ? `${saved.length}곳을 모아뒀어요` : '아직 저장한 곳이 없어요'}
-      />
+      <PageHeader title="저장한 곳" count={saved.length > 0 ? saved.length : undefined} />
 
       {/* 운영자가 내린 곳은 하트를 지우지 않고 감춘다 — 되살리면 메모와 함께 돌아온다(12 U2.3). */}
       {unlisted > 0 && (
@@ -129,8 +126,8 @@ export function SavedPage() {
                 aria-pressed={(view ?? 'type') === value}
                 onClick={() => setView(value)}
                 className={cx(
-                  'h-11 flex-1 rounded-full text-sm font-bold transition-colors',
-                  (view ?? 'type') === value ? 'bg-primary text-primary shadow-xs' : 'text-tertiary',
+                  'h-11 flex-1 rounded-full text-sm transition-colors',
+                  (view ?? 'type') === value ? 'bg-primary font-semibold text-primary shadow-xs' : 'text-tertiary',
                 )}
               >
                 {value === 'type' ? '종류별' : '날짜별'}

@@ -272,13 +272,13 @@ export function MapPage() {
         {/* 데스크톱 2단 — 좌측 결과 패널. lg 미만에서는 지도만 보인다. */}
         <aside className="hidden w-[360px] shrink-0 flex-col border-r border-secondary bg-primary lg:flex">
           <div className="border-b border-secondary px-4 py-3">
-            <p aria-hidden="true" className="text-lg font-bold text-primary">지도</p>
+            <p aria-hidden="true" className="text-xl font-bold text-primary">지도</p>
             <p className="mt-0.5 text-sm text-tertiary">
               {savedOnly ? `저장한 곳 중 ${withGeo.length}곳 표시 중` : `${withGeo.length}곳 표시 중`}
             </p>
             {missingGeo.length > 0 && (
               <div className="mt-2">
-                <p className="text-xs text-tertiary">지도에 위치가 없는 {missingGeo.length}곳</p>
+                <p className="text-sm text-tertiary">지도에 위치가 없는 {missingGeo.length}곳</p>
                 <PlaceLinkList places={missingGeo} eligibilityMap={eligibilityMap} />
               </div>
             )}
@@ -301,7 +301,7 @@ export function MapPage() {
                   >
                     <PlaceThumb src={place.cover ?? place.images[0]} type={place.type} variant="compact" />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-bold text-primary">
+                      <span className="block truncate text-md font-semibold text-primary">
                         {place.name}
                       </span>
                       {/*
@@ -309,7 +309,7 @@ export function MapPage() {
                         줄을 따로 쓰지 않고 메타 뒤에 붙인다: 장소를 고르면 아래 카드가 패널의 절반을 가져가 목록 칸이
                         한 줄 남짓만 남는다(1280×800). 넘치면 메타 글자가 말줄임으로 줄고 판정은 줄지 않는다.
                       */}
-                      <span className="mt-1 flex min-w-0 items-baseline gap-1.5 text-xs text-tertiary">
+                      <span className="mt-1 flex min-w-0 items-baseline gap-1.5 text-sm text-tertiary">
                         <span className="min-w-0 truncate">{placeMetaLine(place)}</span>
                         {eligibility && <VerdictText eligibility={eligibility} className="shrink-0" />}
                       </span>
@@ -374,7 +374,7 @@ export function MapPage() {
                   type="button"
                   onClick={toggleSavedOnly}
                   aria-pressed={savedOnly}
-                  className={cx(CHIP_BUTTON, 'px-3.5', savedOnly ? 'text-primary' : 'text-tertiary')}
+                  className={cx(CHIP_BUTTON, 'px-3.5', savedOnly ? 'font-semibold text-primary' : 'text-tertiary')}
                 >
                   <Heart
                     size={14}
@@ -397,7 +397,7 @@ export function MapPage() {
                       className={cx(
                         CHIP_BUTTON,
                         'px-2.5 first:pl-3.5 last:pr-3.5',
-                        active ? 'text-primary' : 'text-tertiary',
+                        active ? 'font-semibold text-primary' : 'text-tertiary',
                       )}
                     >
                       {/*
@@ -435,7 +435,7 @@ export function MapPage() {
                   onClick={() => setMissingOpen(true)}
                   className="pointer-events-auto -mt-2.5 flex min-h-11 shrink-0 items-center lg:hidden"
                 >
-                  <span className="rounded-lg bg-primary/92 px-2 py-1 text-xs font-semibold whitespace-nowrap text-brand-secondary shadow-sm backdrop-blur">
+                  <span className="rounded-lg bg-primary/92 px-2 py-1 text-sm font-semibold whitespace-nowrap text-brand-secondary shadow-sm backdrop-blur">
                     지도에 없는 {missingGeo.length}곳
                   </span>
                 </button>
@@ -449,7 +449,7 @@ export function MapPage() {
               */}
               {legendLines.length > 0 && (
                 <p className="-mt-2.5 flex min-h-11 min-w-0 items-center">
-                  <span className="flex min-w-0 flex-col gap-0.5 rounded-lg bg-primary/92 px-2 py-1 text-xs font-semibold break-keep text-secondary shadow-sm backdrop-blur">
+                  <span className="flex min-w-0 flex-col gap-0.5 rounded-lg bg-primary/92 px-2 py-1 text-xs break-keep text-secondary shadow-sm backdrop-blur">
                     {legendLines.map((line) => (
                       <span key={line.kind} className="flex min-w-0 items-center gap-1.5">
                         {line.kind === 'dim' && (
@@ -590,7 +590,7 @@ export function MapPage() {
 }
 
 const CHIP_BUTTON =
-  'relative flex h-11 shrink-0 items-center gap-1.5 text-sm font-semibold transition-colors hover:text-primary';
+  'relative flex h-11 shrink-0 items-center gap-1.5 text-sm transition-colors hover:text-primary';
 
 /** 지도 칩 알약 — 판은 버튼 높이(44px)보다 위아래 4px 안쪽에 그려, 보이는 크기만 줄이고 히트 영역은 그대로 둔다. */
 function MapPageChipPill({ children }: { children: React.ReactNode }) {

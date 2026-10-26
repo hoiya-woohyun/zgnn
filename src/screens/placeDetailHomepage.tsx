@@ -46,7 +46,7 @@ export function PlaceDetailHomepage({ homepage }: { homepage: TPlaceHomepage }) 
       <div className="flex items-center gap-3 p-4">
         <div className="min-w-0 flex-1">
           {/* 이름이 없으면 도메인을 두 번 적지 않는다 — 윗줄은 할 일, 아랫줄은 어디인지. */}
-          <p className="truncate text-sm font-semibold text-primary">{homepage.name ?? '홈페이지 가기'}</p>
+          <p className="truncate text-md font-semibold text-primary">{homepage.name ?? '홈페이지 가기'}</p>
           <p className="mt-0.5 truncate text-xs text-tertiary">
             {showImage ? `사진·정보 출처 ${host}` : host}
           </p>

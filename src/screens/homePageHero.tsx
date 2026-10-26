@@ -26,8 +26,8 @@ const PAW_TRAIL = [22, 33, 44, 55, 66, 77, 88].map((left, index) => ({
   turn: index % 2 ? 78 : 102,
 }));
 
-/** 히어로 제목 → 헤더 제목의 크기 비. `display-sm`(7.5단) → `md`(4단). 둘 다 --spacing 배수라 브레이크포인트와 무관하다. */
-const TITLE_SCALE_END = 4 / 7.5;
+/** 히어로 제목 → 헤더 제목의 크기 비. `xl`(5단) → `md`(4단). 둘 다 --spacing 배수라 브레이크포인트와 무관하다. `display-sm`(7.5단)이던 때는 4/7.5 였다(22 G5 단계표). */
+const TITLE_SCALE_END = 4 / 5;
 
 /** 발바닥 → 헤더 아이콘의 크기 비. `h-9`(9단) → 6단 — 헤더 제목(`md`) 글자 높이에 맞춘 크기다. */
 const PAW_SCALE_END = 6 / 9;
@@ -331,7 +331,7 @@ export function HomePageHero({ subtitle, reach, cta }: THomePageHeroProps) {
             <h1
               ref={titleRef}
               data-scroll-morph="hero-title"
-              className="relative mt-3 w-max origin-left text-display-sm font-bold will-change-transform"
+              className="relative mt-3 w-max origin-left text-xl font-bold will-change-transform"
               style={{
                 transform: `translate(calc(var(--tx, 0px) * var(--morph)), calc(var(--ty, 0px) * var(--morph))) scale(calc(1 - ${1 - TITLE_SCALE_END} * var(--morph)))`,
               }}
@@ -358,10 +358,10 @@ export function HomePageHero({ subtitle, reach, cta }: THomePageHeroProps) {
                     className="flex min-h-11 flex-col items-start justify-center text-left text-sm text-white/65 transition-colors hover:text-white/85"
                   >
                     <span className="flex items-center gap-0.5">
-                      {reach.label}&nbsp;<strong className="text-lg font-bold text-brand-300">{reach.count}</strong>곳
+                      {reach.label}&nbsp;<strong className="text-md font-bold text-brand-300">{reach.count}</strong>곳
                       <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-white/65" />
                     </span>
-                    {reach.note && <span className="text-xs">{reach.note}</span>}
+                    {reach.note && <span className="text-sm">{reach.note}</span>}
                   </button>
                   <Link
                     href={reach.editHref}
@@ -380,7 +380,7 @@ export function HomePageHero({ subtitle, reach, cta }: THomePageHeroProps) {
                   >
                     <PawMark className="h-6 w-6 shrink-0 text-white" />
                     <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-bold text-white">{cta.title}</span>
+                      <span className="block text-md font-semibold text-white">{cta.title}</span>
                       <span className="mt-0.5 block text-sm text-white">{cta.body}</span>
                     </span>
                     <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-white/85" />

@@ -72,7 +72,7 @@ export function PlacesPageFilterSheetRegion({ type, town, area, directions, onSe
             className={({ isSelected, isFocusVisible }) =>
               cx(
                 'flex h-11 min-w-0 cursor-pointer items-center gap-2 rounded-lg text-sm select-none',
-                isSelected ? 'font-semibold text-primary' : 'text-secondary',
+                isSelected ? 'text-primary' : 'text-secondary',
                 isFocusVisible && 'outline-2 outline-offset-2 outline-focus-ring',
               )
             }

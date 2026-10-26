@@ -89,13 +89,19 @@ export function ChecklistPage() {
       <StickyMorphTitle title="여행 준비물" trailing={trailing} percent={percent} />
 
       <div className="px-4 md:px-6">
-        <p className="text-sm text-tertiary">
-          {progress.total}가지 중 {progress.packed}가지 챙겼어요
-        </p>
         {/* 막대를 감싸는 상자 — 다 챙긴 순간의 발바닥(PARADE)이 막대 밖으로 뛰어오르게 `overflow-hidden` 바깥에 선다.
-            진행률은 위 문장이 이미 말하므로 막대는 장식이다(aria-hidden). */}
-        <div className="relative mt-2">
-          <div aria-hidden="true" className="h-1.5 overflow-hidden rounded-full bg-tertiary">
+            제목 밑 '14가지 중 0가지 챙겼어요' 는 이 막대와 같은 말이라 걷었다(B-4, ADR-006 v10) — 진행률은 막대 하나가 말하고,
+            스크린리더에는 막대가 progressbar 로 같은 문장을 읽힌다. 접힌 헤더의 '0/14 챙김' 은 장식이다. */}
+        <div className="relative mt-1">
+          <div
+            role="progressbar"
+            aria-label="챙긴 준비물"
+            aria-valuemin={0}
+            aria-valuemax={progress.total}
+            aria-valuenow={progress.packed}
+            aria-valuetext={`${progress.total}가지 중 ${progress.packed}가지 챙겼어요`}
+            className="h-1.5 overflow-hidden rounded-full bg-tertiary"
+          >
             <div
               className="h-full rounded-full bg-brand-solid transition-[width] duration-300 ease-out"
               style={{ width: `${percent}%` }}
@@ -139,9 +145,9 @@ export function ChecklistPage() {
                 onClick={() => setFilter(value)}
                 aria-pressed={active}
                 className={cx(
-                  'h-11 cursor-pointer rounded-full px-4 text-sm font-semibold transition-colors',
+                  'h-11 cursor-pointer rounded-full px-4 text-sm transition-colors',
                   'outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2',
-                  active ? 'bg-brand-primary text-brand-secondary' : 'bg-tertiary text-secondary hover:bg-quaternary',
+                  active ? 'bg-brand-primary font-semibold text-brand-secondary' : 'bg-tertiary text-secondary hover:bg-quaternary',
                 )}
               >
                 {CHECKLIST_FILTER_LABEL[value]}
@@ -177,9 +183,9 @@ export function ChecklistPage() {
 
       {/* 짱구누나의 글 — 맨 위에 있을 땐 목록을 화면 아래로 밀었다. 다 훑고 난 자리에서 읽히게 끝에 둔다. */}
       <footer className="mt-10 space-y-3 px-4 pb-8 md:px-6">
-        <h2 className="text-sm font-bold text-secondary">{META.author}의 한마디</h2>
-        <p className="text-sm whitespace-pre-line text-tertiary">{META.itemsIntro}</p>
-        <p className="text-sm text-tertiary">{META.itemsAdvice}</p>
+        <h2 className="text-md font-bold text-primary">{META.author}의 한마디</h2>
+        <p className="text-md whitespace-pre-line text-secondary">{META.itemsIntro}</p>
+        <p className="text-md text-secondary">{META.itemsAdvice}</p>
       </footer>
 
       <ChecklistPageItemSheet item={detailItem} isOpen={detailOpen} onOpenChange={setDetailOpen} />

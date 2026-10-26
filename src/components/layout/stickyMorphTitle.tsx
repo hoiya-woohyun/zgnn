@@ -12,9 +12,9 @@ import { morphModeOf, offsetInScroller, writeMorphMode, writeMorphRange } from '
  * 한 번에 미끄러져 내려오는 켜고 끄기이고, 이쪽은 **본문의 제목 그 자체**가 헤더가 된다(애플 제품
  * 페이지의 로컬 내비와 같은 인상). 그래서:
  *
- * - **진입했을 때는 지금과 같은 모습이다.** 큰 제목(`display-xs`)이 본문 첫 줄 자리에 있다.
+ * - **진입했을 때는 지금과 같은 모습이다.** 큰 제목(`xl`, 20px)이 본문 첫 줄 자리에 있다.
  * - **스크롤하면 그대로 올라간다.** 이 줄은 흐름 안의 `sticky` 라 상태바에 닿기 전까지는 본문과 같이 움직인다.
- * - **상태바에 닿으면 붙고, 거기서부터 스크롤한 거리만큼 접힌다**(`--morph` 0 → 1). 글자는 `display-xs` → `md`
+ * - **상태바에 닿으면 붙고, 거기서부터 스크롤한 거리만큼 접힌다**(`--morph` 0 → 1). 글자는 `xl` → `md`
  *   크기로 줄고, 밑줄·오른쪽 요약·진행 막대가 같은 비율로 나타난다.
  * - **시간이 아니라 위치의 함수다.** 되돌아 스크롤하면 같은 길을 정확히 되짚는다 — 애니메이션을 "재생" 하지
  *   않으므로 방향을 바꿔도 끊기거나 튀지 않는다. 같은 이유로 `motion-reduce` 에서도 그대로 둔다: 손가락이
@@ -46,10 +46,10 @@ import { morphModeOf, offsetInScroller, writeMorphMode, writeMorphRange } from '
 const BAR_HEIGHT = 'calc(var(--spacing) * 14)';
 
 /**
- * 큰 제목 → 헤더 제목의 크기 비. `display-xs`(6단) → `md`(4단). 둘 다 `--spacing` 의 배수라 브레이크포인트가
- * 바뀌어도 비는 같다(ADR-006) — 그래서 상수로 둬도 된다.
+ * 큰 제목 → 헤더 제목의 크기 비. `xl`(5단) → `md`(4단). 둘 다 `--spacing` 의 배수라 브레이크포인트가
+ * 바뀌어도 비는 같다(ADR-006) — 그래서 상수로 둬도 된다. 제목이 24(6단)이던 때는 4/6 이었다(ADR-006 v10 단계표).
  */
-const TITLE_SCALE_END = 4 / 6;
+const TITLE_SCALE_END = 4 / 5;
 
 /** 서버에서는 `useLayoutEffect` 가 경고만 낸다(모든 화면을 빌드 때 그린다). 브라우저에서만 그리기 전에 끼어든다. */
 const useBeforePaint = typeof window === 'undefined' ? useEffect : useLayoutEffect;
@@ -146,8 +146,8 @@ export function StickyMorphTitle({ title, trailing, percent }: TStickyMorphTitle
         <div className="relative mx-auto flex items-end gap-3 px-4 pb-1 md:px-6" style={{ height: BAR_HEIGHT }}>
           <h1
             data-scroll-morph="title"
-            className="min-w-0 flex-1 origin-left truncate text-display-xs font-bold text-primary will-change-transform"
-            // 바닥(1단 띄움)의 제목 중심 → 줄의 가운데까지 2단. translate 를 scale 앞에 적어야 이동 거리가 줄어든 크기에 안 곱해진다.
+            className="min-w-0 flex-1 origin-left truncate text-xl leading-8 font-bold text-primary will-change-transform"
+            // 줄 높이는 8단으로 둔다(`xl` 기본 7.5단) — 바닥(1단 띄움)의 제목 중심 → 줄의 가운데가 2단이라 scrollMorph.css 의 키프레임과 맞는다. translate 를 scale 앞에 적어야 이동 거리가 줄어든 크기에 안 곱해진다.
             style={{
               transform: `translateY(calc(var(--spacing) * -2 * var(--morph))) scale(calc(1 - ${1 - TITLE_SCALE_END} * var(--morph)))`,
             }}

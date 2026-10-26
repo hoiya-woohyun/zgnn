@@ -122,7 +122,6 @@ export function SettingsPage() {
     <div>
       {/* 준비물과 같은 제목 줄 — 올라가다 상단에 붙어 헤더로 접힌다(StickyMorphTitle). 설정은 짧아 요약·진행 막대는 없다. */}
       <StickyMorphTitle title="설정" />
-      <p className="px-4 text-sm text-tertiary md:px-6">우리 강아지, 저장한 곳, 자료 출처</p>
 
       <Section title="우리 강아지" className="mt-6">
         <GroupList>

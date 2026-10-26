@@ -23,6 +23,9 @@ const TONE_COLOR: Record<TBadgeTone, BadgeColors> = {
   warn: 'orange',
 };
 
+/** 조건은 '보조' 단(14/400, ADR-006 v10) — base Badge 의 12/500 을 덮는다(base 는 고치지 않는다). */
+const BADGE_TEXT = 'text-sm font-normal';
+
 type TPetBadgesProps = {
   policy: TPetPolicy;
   /** 판정이 같은 화면에 있을 때 켠다 — 판정이 이미 "정보가 없어요" 라고 말한다. */
@@ -45,11 +48,11 @@ export function PetBadges({ policy, hideNoInfo = false, sourceText, className = 
       {shown.map((badge) => (
         <li key={badge.label}>
           {badge.tone === 'ok' ? (
-            <BadgeWithIcon type="color" size="sm" color={TONE_COLOR.ok} iconLeading={Check}>
+            <BadgeWithIcon type="color" size="sm" color={TONE_COLOR.ok} iconLeading={Check} className={BADGE_TEXT}>
               {badge.label}
             </BadgeWithIcon>
           ) : (
-            <Badge type="color" size="sm" color={TONE_COLOR[badge.tone]}>
+            <Badge type="color" size="sm" color={TONE_COLOR[badge.tone]} className={BADGE_TEXT}>
               {badge.label}
             </Badge>
           )}

@@ -45,8 +45,8 @@ export function DogProfileSizeOverride({ computedSize, value, onChange, multiDog
         {/* "크기 수정 — 자동 계산: 소형견" 은 만드는 사람의 말이었다(D12). 지금 값이 먼저, 어떻게
             정했는지는 괄호로, 할 수 있는 일은 끝에 "바꾸기" 로. 직접 고른 값이 있으면 그것이 지금
             값이다 — 몸무게로 정한 값을 계속 보이면 고친 게 안 먹은 것처럼 읽힌다. */}
-        <span className="text-sm">
-          <span className="font-semibold text-primary">
+        <span className="text-md">
+          <span className="text-primary">
             크기: {shownSize ? SIZE_LABEL[shownSize] : '몸무게를 입력하면 정해져요'}
           </span>
           {shownSize && (

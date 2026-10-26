@@ -218,7 +218,7 @@ function BottomSheetPanel({
       </button>
       {/* 판의 위 여백(모바일 24 · sm 16)을 거슬러 닫기 단추와 같은 줄(top 8 · 44px)에 — 가운데가 맞는다. */}
       {title && (
-        <h2 className="-mt-4 flex h-11 shrink-0 items-center pr-10 text-lg font-bold text-primary sm:-mt-2">{title}</h2>
+        <h2 className="-mt-4 flex h-11 shrink-0 items-center pr-10 text-md font-bold text-primary sm:-mt-2">{title}</h2>
       )}
       {/*
         스크롤은 여기서만. `min-h-0` 이 요점이다 — flex 자식은 기본 `min-height:auto` 라 내용보다 작아지지 않아 판을 묶어도 넘친다.

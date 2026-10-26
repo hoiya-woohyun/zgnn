@@ -74,7 +74,7 @@ function ReportSheetOption({ selected, label, onPress }: { selected: boolean; la
       >
         {selected && <span className="size-2.5 rounded-full bg-brand-solid" />}
       </span>
-      <span className={cx('text-sm font-semibold', selected ? 'text-brand-secondary' : 'text-primary')}>{label}</span>
+      <span className={cx('text-md', selected ? 'text-brand-secondary' : 'text-primary')}>{label}</span>
     </button>
   );
 }
@@ -216,10 +216,10 @@ export function ReportSheet({
               글자 수는 라벨 줄 오른쪽 — 칸 밑에 두면 입력 중에 스크롤 칸·키보드 아래로 잘렸다(haeun-17a). 칸이 보이면 그 위 줄도 보인다.
             */}
             <div className="flex items-baseline justify-between gap-3">
-              <label htmlFor={noteId} className="text-sm font-semibold text-secondary">
+              <label htmlFor={noteId} className="text-sm text-secondary">
                 {noteRequired ? '가게 이름과 동네' : '한 줄 더 (선택)'}
               </label>
-              <span className={cx('shrink-0 text-xs tabular-nums', length > noteMax ? 'text-error-primary' : 'text-tertiary')}>
+              <span className={cx('shrink-0 text-sm tabular-nums', length > noteMax ? 'text-error-primary' : 'text-tertiary')}>
                 {length}/{noteMax}
               </span>
             </div>

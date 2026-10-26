@@ -34,7 +34,7 @@ function InstallRowHead({ icon, title, body }: { icon: ReactNode; title: string;
         {icon}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold text-primary">{title}</span>
+        <span className="block text-md text-primary">{title}</span>
         <span className="block text-sm text-tertiary">{body}</span>
       </span>
     </>

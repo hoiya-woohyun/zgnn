@@ -55,7 +55,7 @@ export function ActionTile({ icon: Icon, label, tone = 'neutral', destination, h
         {effect}
       </span>
       <span className="flex flex-col items-center text-center">
-        <span className="text-sm font-medium text-secondary">{label}</span>
+        <span className="text-sm text-secondary">{label}</span>
         {/* 빈 줄도 같은 줄 높이로 세운다(aria-hidden — 읽을 것이 없다). 목적지가 칸 폭(320 에서 약 54px)을 넘으면 공백에서 꺾인다(keep-all). */}
         <span aria-hidden={destination ? undefined : true} className="min-h-4.5 text-xs text-quaternary">
           {destination}

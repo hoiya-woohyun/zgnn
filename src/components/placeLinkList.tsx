@@ -38,9 +38,9 @@ export function PlaceLinkList({ places, tagOf, eligibilityMap }: TPlaceLinkListP
           <li key={place.id}>
             <Link href={`/place/${place.id}`} className="flex min-h-11 items-center gap-2 py-2">
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold text-primary">{place.name}</span>
+                <span className="block truncate text-md font-semibold text-primary">{place.name}</span>
                 {/* 메타·표식·판정이 한 줄 — 줄을 꺾지 않고 메타 글자가 줄어든다. 지도 패널 머리 칸이라 줄이 높아지면 아래 목록이 그만큼 밀린다. */}
-                <span className="mt-0.5 flex min-w-0 items-baseline gap-1.5 text-xs text-tertiary">
+                <span className="mt-0.5 flex min-w-0 items-baseline gap-1.5 text-sm text-tertiary">
                   <span className="min-w-0 truncate">{placeMetaLine(place)}</span>
                   {tag && <span className="shrink-0">· {tag}</span>}
                   {eligibility && <VerdictText eligibility={eligibility} className="shrink-0" />}

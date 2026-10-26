@@ -4,7 +4,7 @@ import { CheckDone01, ChevronRight, Heart, Map01 } from '@untitledui/icons';
 import { GroupList } from '../components/groupList';
 import { checklistProgress, type TChecklistProgress } from '../lib/checklist';
 import { useStoreHydrated } from '../providers/storeHydration';
-import { useAppStore, useDog, useSavedPlaces } from '../store/useAppStore';
+import { useAppStore, useSavedPlaces } from '../store/useAppStore';
 
 const ROW_LINK = 'flex min-h-11 min-w-0 flex-1 items-center gap-3 px-4 py-3.5 transition-colors hover:bg-secondary';
 
@@ -24,12 +24,11 @@ const SAVED_NAME_SEPARATOR = ' · ';
  * 준비물 숫자는 내 짐만 센다(ADR-009 v4) — 저장한 숙소 몫(· 숙소 N)은 탭에서 빠지며 여기서도 뺐다.
  *
  * - 저장했거나 하나라도 챙겼으면 카드(두 줄). 숫자는 `/saved`·`/checklist` 머리와 같은 함수(`useSavedPlaces`·`checklistProgress`)로 센다.
- * - 아무것도 없으면 등록한 사람에게만 크림 위 한 줄(ADR-003 v15 — 빈 상태는 면 없이). 등록 전엔 히어로·CTA 가 할 일이다.
+ * - 아무것도 없으면 섹션째 그리지 않는다 — '하트를 눌러 모아 두세요' 같은 사용 안내는 화면이 할 말이 아니다(22 G5 · B-4). 빈 섹션은 숨긴다.
  * - 저장값을 읽기 전엔 그리지 않는다(`skipHydration`) — 한 줄로 먼저 그렸다가 카드로 바뀌면 아래가 통째로 밀린다.
  */
 export function HomePageTripCard() {
   const hydrated = useStoreHydrated();
-  const dog = useDog();
   const savedPlaces = useSavedPlaces();
   const checkedItemIds = useAppStore((state) => state.checkedItemIds);
   const progress = useMemo(() => checklistProgress(checkedItemIds), [checkedItemIds]);
@@ -39,17 +38,12 @@ export function HomePageTripCard() {
 
   if (!hydrated) return null;
 
-  const empty = savedCount === 0 && progress.packed === 0;
-  if (empty && !dog) return null;
+  if (savedCount === 0 && progress.packed === 0) return null;
 
   return (
     <section className="mt-8 px-4 md:px-6">
-      <h2 className="text-lg font-bold text-primary">내 여행</h2>
-      {empty ? (
-        <p className="mt-2 text-sm text-tertiary">마음에 드는 곳의 하트를 눌러 모아 두세요</p>
-      ) : (
-        <HomePageTripCardRows savedCount={savedCount} savedNames={savedNames} progress={progress} />
-      )}
+      <h2 className="text-md font-bold text-primary">내 여행</h2>
+      <HomePageTripCardRows savedCount={savedCount} savedNames={savedNames} progress={progress} />
     </section>
   );
 }
@@ -71,12 +65,11 @@ function HomePageTripCardRows({
         <Link href="/saved" className={ROW_LINK}>
           <Heart aria-hidden="true" size={20} className="shrink-0 fill-camellia text-camellia" />
           <span className="flex min-w-0 flex-1 flex-col">
-            <span className="text-sm font-semibold text-primary">
+            <span className="text-md text-primary">
               저장한 곳 <span className="font-bold">{savedCount}</span>
             </span>
             {savedNames && <span className="line-clamp-2 text-sm text-tertiary">{savedNames}</span>}
           </span>
-          {savedCount === 0 && <span className="text-sm text-tertiary">하트로 모아 두세요</span>}
         </Link>
         {savedCount > 0 && (
           <Link
@@ -92,7 +85,7 @@ function HomePageTripCardRows({
 
       <Link href="/checklist" className={ROW_LINK}>
         <CheckDone01 aria-hidden="true" size={20} className="shrink-0 text-fg-brand-secondary" />
-        <span className="flex-1 text-sm font-semibold text-primary">
+        <span className="flex-1 text-md text-primary">
           준비물 <span className="font-bold">{progress.packed}</span>/{progress.total} 챙김
         </span>
         <ChevronRight aria-hidden="true" size={18} className="shrink-0 text-fg-quaternary" />

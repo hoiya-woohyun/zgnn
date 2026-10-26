@@ -57,7 +57,7 @@ export function DogProfileDogRows({ values, errors, onChange, onAdd, onRemove }:
 
   return (
     <div>
-      <Label>우리 강아지</Label>
+      <Label className="text-md font-bold text-primary">우리 강아지</Label>
       <div className="mt-1.5 space-y-3">
         {values.map((value, index) => {
           const error = errors[index] ?? {};
@@ -71,6 +71,8 @@ export function DogProfileDogRows({ values, errors, onChange, onAdd, onRemove }:
                   <Input
                     label="이름"
                     {...NO_AUTOFILL}
+                    /* base Label 의 500 을 칸 라벨에서만 400 으로(글자 단계표 — base 는 고치지 않는다) */
+                    className="**:data-label:font-normal"
                     aria-label={nth}
                     placeholder="예: 두부"
                     value={value.name}
@@ -101,6 +103,7 @@ export function DogProfileDogRows({ values, errors, onChange, onAdd, onRemove }:
                     <Input
                       label="몸무게"
                       {...NO_AUTOFILL}
+                      className="**:data-label:font-normal"
                       aria-label={nth}
                       type="number"
                       inputMode="decimal"

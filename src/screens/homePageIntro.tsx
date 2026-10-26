@@ -53,7 +53,7 @@ export function HomePageIntro({ variant }: THomePageIntroProps) {
         className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left transition-colors hover:bg-secondary"
       >
         <AuthorAvatar className="size-9" />
-        <span className="min-w-0 flex-1 text-sm font-semibold text-primary">{META.author}의 인사</span>
+        <span className="min-w-0 flex-1 text-md text-primary">{META.author}의 인사</span>
         <ChevronDown
           size={20}
           aria-hidden="true"

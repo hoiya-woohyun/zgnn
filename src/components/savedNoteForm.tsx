@@ -59,7 +59,7 @@ export function SavedNoteForm({ id, name, onClose, className }: TSavedNoteFormPr
         <span
           id={`saved-note-count-${id}`}
           className={cx(
-            'pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs tabular-nums',
+            'pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-sm tabular-nums',
             count > SAVED_NOTE_MAX ? 'text-error-primary' : 'text-quaternary',
           )}
         >

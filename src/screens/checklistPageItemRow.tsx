@@ -73,14 +73,14 @@ export function ChecklistPageItemRow({ item, checked, onToggleChecked, onOpenDet
           </span>
           <span
             className={cx(
-              'min-w-0 flex-1 truncate text-sm font-semibold',
+              'min-w-0 flex-1 truncate text-md',
               checked ? 'text-tertiary line-through' : 'text-primary',
             )}
           >
             {item.name}
             {/* 공백 글자가 있어야 접근 이름이 "방한용품 겨울" 로 갈라 읽힌다(margin 은 이름에 안 든다 — 14 W261019.15g). */}
             {seasonTag && ' '}
-            {seasonTag && <span className="ml-1.5 text-xs font-medium text-tertiary">{seasonTag}</span>}
+            {seasonTag && <span className="ml-1.5 text-sm text-tertiary">{seasonTag}</span>}
           </span>
           <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-fg-quaternary" />
         </button>

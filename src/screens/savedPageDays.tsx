@@ -38,7 +38,7 @@ export function SavedPageDays({ places }: { places: readonly TPlaceEntry[] }) {
       )}
       {undecided.length > 0 && (
         <section className="mt-7 px-4 md:px-6">
-          <h2 className="text-lg font-bold text-primary">미정 {undecided.length}곳</h2>
+          <h2 className="text-md font-bold text-primary">미정 {undecided.length}곳</h2>
           <ul className="mt-3 space-y-3">
             {undecided.map((place) => (
               <SavedPageCard key={place.id} place={place} />
@@ -85,7 +85,7 @@ function SavedPageDay({ day, plan, places }: { day: TTripDay; plan: TTripPlan; p
 
   return (
     <section className="mt-7 px-4 md:px-6">
-      <h2 className="text-lg font-bold text-primary">
+      <h2 className="text-md font-bold text-primary">
         {day}일차 · {stops.length}곳
       </h2>
       <SavedPageDayVerdict verdict={verdict} />

@@ -36,7 +36,7 @@ export function SavedPlanPageRowFace({ place, onOpenMove, handleProps, handleRef
     <>
       <PlaceThumb src={place.cover ?? place.images[0]} type={place.type} variant="compact" />
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-md font-bold text-primary">{place.name}</span>
+        <span className="block truncate text-md font-semibold text-primary">{place.name}</span>
         <span className="block truncate text-sm text-tertiary">
           {place.region.town} · {TYPE_META[place.type].label}
         </span>

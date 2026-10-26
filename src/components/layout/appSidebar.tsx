@@ -21,7 +21,7 @@ export function AppSidebar() {
         <img src="/icons/icon-192.png" alt="" aria-hidden="true" className="size-10 rounded-lg" />
         <span className="flex flex-col">
           <span className="text-md font-bold text-primary">강아지랑 제주</span>
-          <span className="text-xs text-tertiary">반려견 동반 여행 가이드</span>
+          <span className="text-sm text-tertiary">반려견 동반 여행 가이드</span>
         </span>
       </Link>
 
@@ -35,9 +35,9 @@ export function AppSidebar() {
                   href={navHref(item, pathname)}
                   aria-current={active ? 'page' : undefined}
                   className={cx(
-                    'flex h-11 items-center gap-3 rounded-lg px-3 text-md font-semibold transition-colors',
+                    'flex h-11 items-center gap-3 rounded-lg px-3 text-md transition-colors',
                     active
-                      ? 'bg-brand-primary text-brand-secondary'
+                      ? 'bg-brand-primary font-semibold text-brand-secondary'
                       : 'text-secondary hover:bg-tertiary',
                   )}
                 >

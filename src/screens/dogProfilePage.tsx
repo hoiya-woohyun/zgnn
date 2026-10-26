@@ -289,10 +289,7 @@ export function DogProfilePage() {
 
   return (
     <div>
-      <PageHeader
-        title={dog ? '강아지 프로필 수정' : '우리 강아지 등록'}
-        description="한 번 등록하면 목록·지도·상세가 우리 강아지 기준으로 보여요."
-      />
+      <PageHeader title={dog ? '강아지 프로필 수정' : '우리 강아지 등록'} />
 
       <div className="px-4 pt-4 pb-10 md:px-6">
         {!hydrated ? (
@@ -352,7 +349,7 @@ export function DogProfilePage() {
               {/* 막혔으면 빠진 것의 요약(알림), 아니면 아직 안 고른 이동 수단 — 줄이 그 선택지를 덮어도 여기 말은 보인다. */}
               {actionNote &&
                 (actionNote.failed ? (
-                  <p key="failed" role="alert" className="text-sm font-semibold text-error-primary">
+                  <p key="failed" role="alert" className="text-sm text-error-primary">
                     {actionNote.text}
                   </p>
                 ) : (
@@ -362,7 +359,7 @@ export function DogProfilePage() {
                 ))}
               {heavyAsk && (
                 <div role="alert" className={`${CARD_SURFACE} p-4`}>
-                  <p className="text-sm font-semibold text-primary">
+                  <p className="text-md text-primary">
                     {/* 조사를 붙이지 않는다 — 끝 글자가 'kg' 라 `withJosa` 가 받침을 못 읽어 "60kg가" 가 된다. */}
                     {heavyAsk.map((d) => `${d.name} ${d.weightKg}kg`).join(' · ')}, 맞나요?
                   </p>

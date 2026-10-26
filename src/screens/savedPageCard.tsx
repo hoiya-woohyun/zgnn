@@ -62,7 +62,7 @@ export function SavedPageCard({ place }: { place: TPlaceEntry }) {
           </NaverLinkButton>
         ) : (
           // 좌표 없는 곳(5곳)도 같은 자리를 채워 카드 모양을 맞춘다 — 버튼이 없으면 이유가 없어 빠진 것인지 알 수 없다(14 W261010.20).
-          <span className="inline-flex h-8 items-center text-xs text-tertiary">지도 좌표가 없어요</span>
+          <span className="inline-flex h-8 items-center text-sm text-tertiary">지도 좌표가 없어요</span>
         )
       }
     />

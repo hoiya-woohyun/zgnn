@@ -25,7 +25,7 @@ export function SavedPageGroups({ places, withNotes }: TSavedPageGroupsProps) {
       <section key={type} className="mt-7 px-4 md:px-6">
         {/* 그룹 제목은 Section 컴포넌트를 못 쓴다 — title 이 문자열만 받아
             아이콘을 함께 넣을 수 없어서 같은 스타일을 여기서 직접 맞췄다. */}
-        <h2 className="flex items-center gap-2 text-lg font-bold text-primary">
+        <h2 className="flex items-center gap-2 text-md font-bold text-primary">
           <span
             aria-hidden="true"
             className="grid size-7 shrink-0 place-items-center rounded-lg"

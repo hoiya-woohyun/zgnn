@@ -230,7 +230,7 @@ export function PlacesPageResults({
         >
           <span>
             {TYPE_META[other.type].label}에 {other.count}곳 있어요
-            <span className="block text-xs font-normal text-tertiary">
+            <span className="block text-sm font-normal text-tertiary">
               {activeChips
                 .filter((chip) => chip.key === 'onlyReachable' || chip.key === 'hideHard')
                 .map((chip) => `'${chip.label}'`)
@@ -520,7 +520,7 @@ export function PlacesPageResults({
               />
               {landmarkNearby.length > 0 && (
                 <section aria-labelledby="places-landmark-nearby">
-                  <h2 id="places-landmark-nearby" className="text-sm font-semibold text-secondary">
+                  <h2 id="places-landmark-nearby" className="text-md font-bold text-primary">
                     {emptySearch.word}에서 가까운 {emptySearch.rest ? `'${emptySearch.rest}'` : TYPE_META[type].label}
                   </h2>
                   <ul className={cx('mt-2', listClass)}>

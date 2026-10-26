@@ -28,17 +28,17 @@ export function PlaceDetailPolicyText({ place, evidence }: { place: TPlaceEntry;
       {/* 파서가 조건을 놓쳤을 수 있어, 구조화 배지와 문장을 함께 보여준다. */}
       <PetBadges policy={place.policy} hideNoInfo={Boolean(dog)} sourceText={evidenceText(evidence)} className="mb-3" />
       {evidence.kind === 'raw' ? (
-        <p className="whitespace-pre-line text-sm text-secondary">
+        <p className="whitespace-pre-line text-md text-secondary">
           <HighlightedPolicyText text={evidence.text} place={place} />
         </p>
       ) : (
         <>
-          <ul className="space-y-1 text-sm text-secondary">
+          <ul className="space-y-1 text-md text-secondary">
             {evidence.lines.map((line) => (
               <li key={line}>{line}</li>
             ))}
           </ul>
-          {evidence.note && <p className="mt-2 text-sm text-secondary">{evidence.note}</p>}
+          {evidence.note && <p className="mt-2 text-md text-secondary">{evidence.note}</p>}
           {/* 출처 설명("블로그 글을 읽고 정리했어요")은 두지 않는다 — 모든 장소가 블로그에서 왔고, AI 정리 안내는 카드 맨 아래 공통 줄이 한다. */}
           {place.reviewUrl && (
             <p className="mt-1 flex">

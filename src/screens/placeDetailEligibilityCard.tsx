@@ -79,7 +79,7 @@ export function PlaceDetailEligibilityCard({
       <div className={CARD_SURFACE} data-ev="detail.verdict">
         <div className="p-4">
           {/*
-           * 판정 문장은 상세에서 가장 큰 본문 글자다 — 절 제목(text-lg)·1박 요금(text-lg)보다 크다. 이 화면이 답하는 것이 이것이다.
+           * 판정 문장은 상세에서 가장 큰 본문 글자다 — 절 제목(text-md)보다 크고 1박 요금(text-xl)과 같은 단이다. 이 화면이 답하는 것이 이것이다.
            * 앞의 레벨 색 점을 걷고 문장을 판정 글자색으로 칠한다 — 목록·근처·지도와 같은 색 표(`VERDICT_TEXT_CLASS`, 22 G3.0).
            * 야외 자리만 되는 곳은 '갈 수 있어요' 색이다(목록의 '갈 수 있어요 · 야외 자리만').
            */}
@@ -118,12 +118,12 @@ export function PlaceDetailEligibilityCard({
           {infoReasons.length > 0 && (
             <p className="mt-2 text-sm text-tertiary">{infoReasons.map((reason) => reason.text).join(' · ')}</p>
           )}
-          {feeNote && <p className="mt-0.5 text-xs text-tertiary">{feeNote}</p>}
+          {feeNote && <p className="mt-0.5 text-sm text-tertiary">{feeNote}</p>}
         </div>
 
         {/* 근거 — 판정과 같은 면, 구분선 아래. 이름표가 있어야 판정의 "원문을 확인해 주세요"(C7)가 가리키는 곳이 보인다. */}
         <div className="border-t border-secondary p-4">
-          <p className="mb-2 text-xs font-semibold text-tertiary">{evidenceLabel}</p>
+          <p className="mb-2 text-xs text-tertiary">{evidenceLabel}</p>
           {evidence}
         </div>
       </div>

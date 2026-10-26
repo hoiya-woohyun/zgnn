@@ -1,8 +1,8 @@
 # 본문 글꼴(Zgnn Sans)을 두 조각으로 쪼갠다 — 화면이 거의 모든 글자를 쓰는 Core 와, 받을 일이 드문 Ext.
 # 실행: python3 scripts/split-fonts.py   (fonttools·brotli 필요: pip install fonttools brotli)
-#   입력  src/app/fonts/ZgnnSans-{Regular,SemiBold}.woff2  — 완성형 11,172자 정본(재생성은 docs/architecture/pwa-offline.md)
+#   입력  src/app/fonts/ZgnnSans-Variable.woff2           — 완성형 11,172자 정본, 굵기 축 400–700(재생성은 docs/architecture/pwa-offline.md)
 #         src/data/*.json                                  — 화면에 나오는 데이터(KS X 1001 밖 음절이 있으면 Core 로 올린다)
-#   출력  src/app/fonts/ZgnnSans-{Regular,SemiBold}-{Core,Ext}.woff2
+#   출력  src/app/fonts/ZgnnSans-Variable-{Core,Ext}.woff2
 #         src/styles/appSansExt.css                        — Ext 의 @font-face(unicode-range)와 --font-app 조립
 # 결과는 커밋해 두고, 정본 woff2 를 다시 만들었거나 appSansExt.test.ts 가 "데이터 글자가 Ext 에 있다" 고 할 때만 다시 실행한다.
 #
@@ -19,7 +19,9 @@ from fontTools.ttLib import TTFont
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 FONTS = ROOT / 'src/app/fonts'
 CSS = ROOT / 'src/styles/appSansExt.css'
-WEIGHTS = {'Regular': 400, 'SemiBold': 600}
+# 화면 글꼴은 변수 글꼴 하나(굵기 축 400–700, ADR-006 v10). 값은 @font-face 의 font-weight — 범위라 한 파일이 세 단(400·600·700)을 다 그린다.
+# 고정 굵기 정본(Regular·SemiBold)은 링크 미리보기(satori — 변수 글꼴을 못 읽는다)만 쓰고 쪼개지 않는다.
+WEIGHTS = {'Variable': '400 700'}
 HANGUL = range(0xAC00, 0xD7A4)
 
 

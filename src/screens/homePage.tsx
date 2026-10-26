@@ -105,7 +105,7 @@ export function HomePage() {
       )}
 
       <section className="mt-8 px-4 md:px-6">
-        <h2 className="text-lg font-bold text-primary">어디로 갈까요</h2>
+        <h2 className="text-md font-bold text-primary">어디로 갈까요</h2>
         <div className="mt-3 space-y-3">
           {PLACE_TYPES.map((type) => (
             <div key={type} className="home-scroll-depth">
@@ -183,7 +183,7 @@ export function HomePage() {
                 if (ok.length + outdoor.length === 0) return null;
                 return (
                   <section key={type} className="mt-2">
-                    <h3 className="text-sm font-semibold text-secondary">
+                    <h3 className="text-sm text-secondary">
                       {TYPE_META[type].label} {ok.length + outdoor.length}곳
                     </h3>
                     <PlaceLinkList places={[...ok, ...outdoor]} tagOf={(place) => (outdoor.includes(place) ? '야외만' : null)} />
