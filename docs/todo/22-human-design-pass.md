@@ -131,6 +131,7 @@ A-3 은 [ADR-002](../decisions/ADR-002-no-place-photos.md)("사진 자리는 종
   > 2026-10-26 B 회차([audit 2회차](../reviews/design-audit/2026-10-26.md)): B-21 이 같은 지적(저장 0곳 — 위 부제와 같은 말을 한 번 더). 스펙 그대로.
   > 메모(2026-10-26 구현): `EmptyState` 를 왼쪽 글자 + 글자 버튼 하나로(아이콘 prop 삭제, 행동은 객체 하나 — ADR-003 v26). 둘러보기 0곳 갈래 일곱은 행동 하나씩(필터 0곳은 `releaseActions[0]` 만), 검색 0곳의 '알려 주기' 는 걷어 목록 끝 한 번만. 버튼과 같은 말의 설명 줄은 삭제. 저장 빈 화면의 제목 밑 회색 줄은 G5(c39a65f)가 이미 걷었다. 준비물·지도·admin·global-error 도 같은 부품이라 함께 바뀐다. `/design-audit review` 전이라 `[ ]` 그대로.
 - [ ] **G4a 목록 끝 제보 줄** — `PlacesPageSuggest` 가 가운데 정렬 + 밑줄이라 0곳일 때 바로 위 왼쪽 정렬 빈 상태(G4)와 결이 갈린다. 같은 왼쪽 글자 버튼(text-sm 600 `text-brand-secondary`, 44 히트)으로 — 출처: 레인 G4 발견(headless 390폭).
+  > 메모(2026-10-26 구현): `PlacesPageSuggest` 를 `text-left` + `EmptyState` 와 같은 글자 버튼(밑줄·px-2 삭제, hover `brand-secondary_hover`)으로. 7727 dev 무응답이라 화면은 못 봤다. `/design-audit review` 전이라 `[ ]` 그대로.
 
 ### G5 섹션 머리 — 굵기 3단 · 설명 줄 · 리듬 (A-12 · A-13 · A-14)
 

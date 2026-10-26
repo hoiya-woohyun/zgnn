@@ -18,6 +18,8 @@ import type { TPlaceType } from '../types';
  * 열림은 위(`placesPage`)가 쥔다 — 시트를 결과 안에 두면 엿보기와 두 벌이 된다. 0곳 빈 상태에는 '알려 주기' 버튼이 없다(빈 상태의 행동은 하나 —
  * 제보는 목록 끝의 이 자리가 한 번만 맡는다).
  *
+ * 모양은 빈 상태(`EmptyState`)와 같다 — 왼쪽 정렬 글자 + 글자 버튼(text-sm 600, 44 히트, 밑줄 없음). 0곳일 때 바로 위 빈 상태와 결이 갈리지 않게(22 G4a).
+ *
  * 방금 친 검색어를 한 줄 칸에 미리 채운다 — 찾다가 없어서 누른 사람이 같은 이름을 두 번 치지 않게(14 W261007.19).
  *
  * 보낸 뒤에는 이 자리가 "알려 주셨어요 — ‘…’" 와 '한 곳 더 알려 주기' 로 바뀐다(14 W261019.16) — 토스트가 걷히면 화면이 보내기 전과 같아
@@ -40,7 +42,7 @@ export function PlacesPageSuggest({
   onSent?: (name: string) => void;
 }) {
   return (
-    <div className="mt-8 px-4 text-center md:px-6">
+    <div className="mt-8 px-4 text-left md:px-6">
       <p className="text-sm text-tertiary">
         {sentName ? suggestTraceText(sentName) : `여기 없는 ${TYPE_META[type].label}에서도 강아지와 함께했나요?`}
       </p>
@@ -48,7 +50,7 @@ export function PlacesPageSuggest({
         type="button"
         onClick={() => onOpenChange(true)}
         data-ev="places.suggest"
-        className="mt-1 inline-flex min-h-11 items-center px-2 text-sm font-semibold text-brand-secondary underline underline-offset-2"
+        className="inline-flex min-h-11 items-center text-sm font-semibold text-brand-secondary hover:text-brand-secondary_hover"
       >
         {sentName ? '한 곳 더 알려 주기' : '여기도 갈 수 있어요 — 알려 주기'}
       </button>
