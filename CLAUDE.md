@@ -146,7 +146,7 @@ Tailwind v4 + Untitled UI · zustand persist · 네이버 지도(NCP Maps v3). �
   · `sm`(보이는 h-8 + 히트 44, 카드처럼 반복되는 자리). 브랜드 채움은 화면의 주 행동 하나 몫이라 네이버 버튼에 쓰지 않는다. 상세의 저장·공유·길찾기·플레이스·후기는 제목 밑
   **액션 줄 하나**(`placeDetailActions.tsx`)에 같은 원 다섯으로 모여 있고, 앱 밖으로 가는 칸은 둘째 줄이 목적지를 말한다(`ActionTile` 의 `destination`) — 새 동작도 여기 칸으로 더한다(→ ADR-003 v19).
 - **장소 사진은 없는 것이 기본 디자인**이다(저작권 문제로 전량 제거, 86곳 모두 `cover` 없음).
-  사진 자리는 종류별 색 + 아이콘이 대신한다 → [ADR-002](docs/decisions/ADR-002-no-place-photos.md).
+  목록 행(`PlaceCard`)은 사진 자리도 색 상자도 없이 글자만이다(이름+하트 / 판정 줄 / 메타 / 가격, 소개 문단 없음 — ADR-002 v9). 상세 머리만 아직 종류 색 + 아이콘 → [ADR-002](docs/decisions/ADR-002-no-place-photos.md).
 
 ## 작성 규칙
 

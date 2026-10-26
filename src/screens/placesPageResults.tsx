@@ -165,8 +165,9 @@ export function PlacesPageResults({
   const hardOpen = usePlacesPageFilterStore((state) => state.hardOpenByType[type]);
   const toggleHardOpen = usePlacesPageFilterStore((state) => state.toggleHardOpen);
 
-  // 넓은 화면은 두 열(07 U10). lg 부터 — md 는 사이드바를 빼면 본문이 512px 이라 한 열 카드가 이미 그 폭이다.
-  const listClass = 'space-y-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3 lg:space-y-0';
+  // 면 없는 행 목록 — 구분선은 목록이 긋는다(22 G3.1). 넓은 화면의 두 열(07 U10)은 걷었다: 카드는 두 열이 면으로 갈렸지만
+  // 행은 크림 위 글자라 두 열이면 옆 행과 한 줄로 이어 읽히고, 행 높이가 112–132 로 줄어 한 열로도 한 화면에 충분히 든다.
+  const listClass = 'divide-y divide-secondary';
 
   // 0곳 안내가 어느 갈래인지 한 번만 가른다 — 위의 "다른 종류" 링크 줄이 갈래에 따라 큰 안내로 옮겨 가서 두 곳이 같은 조건을 봐야 한다.
   // 검색어만이어도 '숨김 조건으로 가려진 종류' 만 있으면 "목록에 없다" 고 말할 수 없다 — 그 가게는 있다. 이때는 generic 이 링크 줄을 그대로 둔다.
@@ -341,7 +342,7 @@ export function PlacesPageResults({
 
       {results.length > 0 ? (
         <>
-          <ul className={cx('mt-3 px-4 md:px-6', listClass)}>{fold.shown.map(renderCard)}</ul>
+          <ul className={cx('mt-1 px-4 md:px-6', listClass)}>{fold.shown.map(renderCard)}</ul>
           {fold.folded.length > 0 && (
             <div className="mt-3 px-4 md:px-6">
               {/* 이름은 머리 줄의 "어려움 N" 과 같은 말 — 접힌 것이 그 N곳이라는 게 읽혀야 한다. */}
@@ -358,7 +359,7 @@ export function PlacesPageResults({
                   className={cx('shrink-0 text-quaternary transition-transform motion-reduce:transition-none', hardOpen && 'rotate-180')}
                 />
               </button>
-              {hardOpen && <ul className={cx('mt-3', listClass)}>{fold.folded.map(renderCard)}</ul>}
+              {hardOpen && <ul className={listClass}>{fold.folded.map(renderCard)}</ul>}
             </div>
           )}
           {/*
@@ -488,7 +489,7 @@ export function PlacesPageResults({
                   <h2 id="places-landmark-nearby" className="text-md font-bold text-primary">
                     {emptySearch.word}에서 가까운 {emptySearch.rest ? `'${emptySearch.rest}'` : TYPE_META[type].label}
                   </h2>
-                  <ul className={cx('mt-2', listClass)}>
+                  <ul className={cx('mt-1', listClass)}>
                     {landmarkNearby.map(({ place, km }) => (
                       <PlaceCard key={place.id} place={place} distanceKm={km} />
                     ))}
