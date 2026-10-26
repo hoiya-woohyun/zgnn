@@ -233,7 +233,7 @@ export function ReportSheet({
               }}
               rows={noteRequired ? 2 : 3}
               placeholder={notePlaceholder}
-              className="mt-1.5 block w-full resize-none rounded-xl border border-secondary bg-primary px-3 py-2 text-md text-primary placeholder:text-placeholder focus:border-brand focus:outline-none"
+              className="mt-1.5 block w-full resize-none rounded-lg border border-secondary bg-primary px-3 py-2 text-md text-primary placeholder:text-placeholder focus:border-brand focus:outline-none"
             />
           </div>
 

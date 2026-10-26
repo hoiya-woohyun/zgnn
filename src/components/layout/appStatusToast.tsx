@@ -96,7 +96,7 @@ export function AppStatusToast() {
           onPointerLeave={(e) => e.pointerType === 'mouse' && releaseAppStatus()}
           onFocus={holdAppStatus}
           onBlur={releaseAppStatus}
-          className="pointer-events-auto flex max-w-md items-center gap-3 rounded-xl bg-primary-solid px-4 py-3 text-sm font-semibold text-white shadow-lg"
+          className="pointer-events-auto flex max-w-md items-center gap-3 rounded-2xl bg-primary-solid px-4 py-3 text-sm font-semibold text-white shadow-lg"
         >
           <span>{status.text}</span>
           {status.link && (

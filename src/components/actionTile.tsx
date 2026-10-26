@@ -64,7 +64,7 @@ export function ActionTile({ icon: Icon, label, tone = 'neutral', destination, h
     </>
   );
   const className =
-    'group flex min-w-0 flex-col items-center gap-1.5 rounded-xl py-1 outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2';
+    'group flex min-w-0 flex-col items-center gap-1.5 rounded-lg py-1 outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2';
 
   if (href) {
     return (

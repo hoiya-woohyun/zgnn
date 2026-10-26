@@ -309,6 +309,15 @@ label[data-rac]:has(input[type='checkbox']:not([role='switch'])) {
   --ring-color-primary: var(--color-border-field);
 }
 
+/*
+  테두리 버튼의 눌림은 `bg-tertiary` 다(22 G1 · A-11) — base `Button` 의 secondary 는 hover 만 `primary_hover` 로 주는데,
+  그 값은 크림과 같아 흰 버튼을 눌러도 거의 안 보인다(ADR-003 v23). base 는 복사본이라 react-aria 가 붙이는 `data-pressed` 로 여기서 잡는다
+  (`naverLinkButton` · `filterChip` 은 자기 클래스로 같은 `active:bg-tertiary` 를 이미 쓴다).
+*/
+[data-rac].bg-primary.ring-primary[data-pressed] {
+  background-color: var(--color-bg-tertiary);
+}
+
 @utility field-edge {
   --ring-color-primary: var(--color-border-field);
 }

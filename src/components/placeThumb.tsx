@@ -57,7 +57,7 @@ export function PlaceThumb({ src, type, variant = 'primary', className = '' }: T
         loading="lazy"
         width={px}
         height={px}
-        className={cx('shrink-0 rounded-xl object-cover', tile, className)}
+        className={cx('shrink-0 rounded-lg object-cover', tile, className)}
       />
     );
   }
@@ -65,7 +65,7 @@ export function PlaceThumb({ src, type, variant = 'primary', className = '' }: T
   return (
     <span
       aria-hidden="true"
-      className={cx('grid shrink-0 place-items-center rounded-xl', tile, className)}
+      className={cx('grid shrink-0 place-items-center rounded-lg', tile, className)}
       style={{ background: typeTint(type, 14), color: TYPE_COLOR[type] }}
     >
       <Icon className={icon} />

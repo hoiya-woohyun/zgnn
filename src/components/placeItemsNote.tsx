@@ -68,7 +68,7 @@ export function PlaceItemsNote({ place, className, folded = false }: TPlaceItems
         href="/checklist"
         className={cx(
           // 놓이는 곳(상세 본문·지도 시트)이 크림이라 흰 판으로 띄운다 — 크림이면 바탕에 녹아 줄이 안 보인다.
-          'flex min-h-11 items-center gap-2 rounded-xl border border-secondary bg-primary px-3 text-sm text-secondary transition-colors hover:bg-primary_hover',
+          'flex min-h-11 items-center gap-2 rounded-2xl border border-secondary bg-primary px-3 text-sm text-secondary transition-colors hover:bg-primary_hover',
           className,
         )}
       >
@@ -96,7 +96,7 @@ export function PlaceItemsNote({ place, className, folded = false }: TPlaceItems
     <section
       aria-label="여기 필요한 준비물"
       // 접힌 동안은 머리 줄 하나(44px)라 위아래 여백을 뺀다 — 펼친 판과 같은 여백이면 접어도 70px 가까이 남는다.
-      className={cx('rounded-xl border border-secondary bg-primary px-3', open ? 'py-3' : 'py-0', className)}
+      className={cx('rounded-2xl border border-secondary bg-primary px-3', open ? 'py-3' : 'py-0', className)}
     >
       <div className="flex items-center gap-2">
         {/* 접을 수 있으면 머리 줄이 펼침 단추다 — 접힘·펼침 어느 쪽에서도 같은 단추라 누른 뒤 포커스가 제자리에 남는다. */}

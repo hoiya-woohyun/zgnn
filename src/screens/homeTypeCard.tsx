@@ -35,7 +35,7 @@ export function HomeTypeCard({ type, levelCounts }: THomeTypeCardProps) {
         <div className="flex items-center gap-3">
           <span
             aria-hidden="true"
-            className="grid size-12 shrink-0 place-items-center rounded-xl bg-primary/80"
+            className="grid size-12 shrink-0 place-items-center rounded-lg bg-primary/80"
             style={{ color: TYPE_COLOR[type] }}
           >
             <Icon size={24} />

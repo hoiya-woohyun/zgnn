@@ -99,7 +99,7 @@ export function HomePageAreaCards() {
               <button
                 type="button"
                 onClick={() => enterArea(id, areaEntryType(card ? { stay: card.stay.reach, cafe: card.cafe.reach } : TOTALS_BY_CARD[id]))}
-                className="flex min-h-11 w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left transition-colors active:bg-tertiary"
+                className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors active:bg-tertiary"
               >
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-baseline gap-x-1.5">

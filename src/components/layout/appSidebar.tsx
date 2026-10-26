@@ -18,7 +18,7 @@ export function AppSidebar() {
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-secondary bg-secondary md:flex">
       <Link href="/" className="flex items-center gap-3 px-5 py-6">
-        <img src="/icons/icon-192.png" alt="" aria-hidden="true" className="size-10 rounded-xl" />
+        <img src="/icons/icon-192.png" alt="" aria-hidden="true" className="size-10 rounded-lg" />
         <span className="flex flex-col">
           <span className="text-md font-bold text-primary">강아지랑 제주</span>
           <span className="text-xs text-tertiary">반려견 동반 여행 가이드</span>

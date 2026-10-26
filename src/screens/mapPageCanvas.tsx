@@ -100,7 +100,7 @@ function nameLabelContent(name: string): HTMLElement {
   const label = document.createElement('span');
   label.textContent = name;
   // 떠 있는 판이라 흰 면(ADR-010 v4) — 지도 위 칩·'지도에 없는 N곳' 과 같은 반투명 흰색. 크기는 마커처럼 px 고정(ADR-006 의 축 밖).
-  label.className = 'truncate rounded-md border border-secondary bg-primary/92 font-semibold text-primary shadow-sm';
+  label.className = 'truncate rounded-lg border border-secondary bg-primary/92 font-semibold text-primary shadow-sm';
   label.style.cssText =
     `position:absolute;left:0;top:${NAME_LABEL_TOP}px;transform:translateX(-50%);` +
     `max-width:${NAME_LABEL_MAX_WIDTH}px;height:${NAME_LABEL_HEIGHT}px;padding:0 6px;font-size:12px;line-height:18px;cursor:pointer`;

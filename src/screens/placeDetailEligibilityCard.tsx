@@ -125,7 +125,7 @@ export function PlaceDetailEligibilityCard({
           )}
 
           {subset && (
-            <p className="mt-3 rounded-xl bg-secondary px-3 py-2 text-sm text-secondary">
+            <p className="mt-3 rounded-lg bg-secondary px-3 py-2 text-sm text-secondary">
               {dogSubsetLead(subset, dog.dogs.map((d) => d.name))} {headlineFor(subset.eligibility)}
             </p>
           )}

@@ -211,7 +211,7 @@ export function PlacesPageResults({
     <li key={other.type}>
       <Link
         href={`/places/${other.type}/`}
-        className="flex min-h-11 items-center justify-between rounded-xl border border-secondary bg-primary px-4 text-sm font-semibold text-brand-secondary hover:text-brand-secondary_hover"
+        className="flex min-h-11 items-center justify-between rounded-2xl border border-secondary bg-primary px-4 text-sm font-semibold text-brand-secondary hover:text-brand-secondary_hover"
       >
         {TYPE_META[other.type].label}에 {other.count}곳 있어요
         <ChevronRight size={20} aria-hidden="true" className="shrink-0 text-quaternary" />
@@ -226,7 +226,7 @@ export function PlacesPageResults({
         <Link
           href={`/places/${other.type}/`}
           onClick={onReleaseHidden}
-          className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-secondary bg-primary px-4 py-2 text-sm font-semibold text-brand-secondary hover:text-brand-secondary_hover"
+          className="flex min-h-11 items-center justify-between gap-3 rounded-2xl border border-secondary bg-primary px-4 py-2 text-sm font-semibold text-brand-secondary hover:text-brand-secondary_hover"
         >
           <span>
             {TYPE_META[other.type].label}에 {other.count}곳 있어요
@@ -308,7 +308,7 @@ export function PlacesPageResults({
       {(repeated || outdoor || whatIf) && (
         <div
           // 마지막 줄이 44px 링크·버튼이면 그 높이가 아래 여백을 대신한다.
-          className={`mx-4 mt-3 space-y-1 rounded-xl border border-secondary bg-primary px-3 pt-2 text-sm text-secondary md:mx-6 ${whatIf || outdoor ? '' : 'pb-2'}`}
+          className={`mx-4 mt-3 space-y-1 rounded-2xl border border-secondary bg-primary px-3 pt-2 text-sm text-secondary md:mx-6 ${whatIf || outdoor ? '' : 'pb-2'}`}
         >
           {repeated && (
             <p>
@@ -352,7 +352,7 @@ export function PlacesPageResults({
                 type="button"
                 aria-expanded={hardOpen}
                 onClick={() => toggleHardOpen(type)}
-                className="flex min-h-11 w-full items-center justify-center gap-1 rounded-xl border border-secondary text-sm font-semibold text-secondary hover:bg-tertiary"
+                className="flex min-h-11 w-full items-center justify-center gap-1 border-t border-secondary text-sm font-semibold text-secondary hover:bg-tertiary active:bg-tertiary"
               >
                 어려움 {fold.folded.length}곳 {hardOpen ? '접기' : '보기'}
                 <ChevronDown

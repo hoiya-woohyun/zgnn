@@ -45,7 +45,7 @@ function InstallRowHead({ icon, title, body }: { icon: ReactNode; title: string;
 function InstallStep({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
     <li className="flex items-center gap-3">
-      <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-xl bg-secondary text-fg-secondary">
+      <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-lg bg-secondary text-fg-secondary">
         {icon}
       </span>
       <span>{children}</span>

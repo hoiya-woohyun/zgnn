@@ -139,7 +139,7 @@ export function ChecklistPage() {
                 onClick={() => setFilter(value)}
                 aria-pressed={active}
                 className={cx(
-                  'h-11 cursor-pointer rounded-xl px-4 text-sm font-semibold transition-colors',
+                  'h-11 cursor-pointer rounded-full px-4 text-sm font-semibold transition-colors',
                   'outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2',
                   active ? 'bg-brand-primary text-brand-secondary' : 'bg-tertiary text-secondary hover:bg-quaternary',
                 )}

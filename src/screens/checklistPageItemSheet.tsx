@@ -50,7 +50,7 @@ export function ChecklistPageItemSheet({ item, isOpen, onOpenChange }: TChecklis
             // 것처럼 보이는데, 실제로는 우리 강아지에 해당하는 한 줄만 보면 되는 목록이다.
             <ul
               className={cx(
-                'divide-y divide-secondary overflow-hidden rounded-xl border border-secondary',
+                'divide-y divide-secondary overflow-hidden rounded-2xl border border-secondary',
                 item.reason ? 'mt-4' : 'mt-0',
               )}
             >

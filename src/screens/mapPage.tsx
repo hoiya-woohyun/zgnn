@@ -295,7 +295,7 @@ export function MapPage() {
                     onClick={() => setSelectedId(place.id)}
                     aria-pressed={active}
                     className={cx(
-                      'flex w-full items-start gap-3 rounded-xl p-2.5 text-left transition-colors',
+                      'flex w-full items-start gap-3 rounded-lg p-2.5 text-left transition-colors',
                       active ? 'bg-brand-primary' : 'hover:bg-secondary',
                     )}
                   >
@@ -437,7 +437,7 @@ export function MapPage() {
                   onClick={() => setMissingOpen(true)}
                   className="pointer-events-auto -mt-2.5 flex min-h-11 shrink-0 items-center lg:hidden"
                 >
-                  <span className="rounded-md bg-primary/92 px-2 py-1 text-xs font-semibold whitespace-nowrap text-brand-secondary shadow-sm backdrop-blur">
+                  <span className="rounded-lg bg-primary/92 px-2 py-1 text-xs font-semibold whitespace-nowrap text-brand-secondary shadow-sm backdrop-blur">
                     지도에 없는 {missingGeo.length}곳
                   </span>
                 </button>
@@ -451,7 +451,7 @@ export function MapPage() {
               */}
               {legendLines.length > 0 && (
                 <p className="-mt-2.5 flex min-h-11 min-w-0 items-center">
-                  <span className="flex min-w-0 flex-col gap-0.5 rounded-md bg-primary/92 px-2 py-1 text-xs font-semibold break-keep text-secondary shadow-sm backdrop-blur">
+                  <span className="flex min-w-0 flex-col gap-0.5 rounded-lg bg-primary/92 px-2 py-1 text-xs font-semibold break-keep text-secondary shadow-sm backdrop-blur">
                     {legendLines.map((line) => (
                       <span key={line.kind} className="flex min-w-0 items-center gap-1.5">
                         {line.kind === 'dim' && (
@@ -501,7 +501,7 @@ export function MapPage() {
             {/* 스크린 리더가 새 안내를 읽도록 틀은 늘 둔다 — 안내가 생길 때 틀째 끼우면 읽지 않는다. */}
             <div role="status" aria-live="polite" className="px-3">
               {locateNotice && (
-                <p className="pointer-events-auto ml-auto w-fit max-w-sm rounded-xl border border-secondary bg-primary/95 px-3.5 py-2.5 text-sm text-secondary shadow-sm backdrop-blur">
+                <p className="pointer-events-auto ml-auto w-fit max-w-sm rounded-2xl border border-secondary bg-primary/95 px-3.5 py-2.5 text-sm text-secondary shadow-sm backdrop-blur">
                   {locateNotice}
                 </p>
               )}

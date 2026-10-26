@@ -103,7 +103,7 @@ export function ChecklistPageItemRow({ item, checked, onToggleChecked, onOpenDet
       */}
       {/* 프로필 → 준비물은 묻기만 한다(`shouldOfferStroller`) — 조용히 챙김으로 세면 안 챙긴 것을 챙긴 것처럼 말한다(07 U6). 체크하면 사라진다. */}
       {offerStroller && (
-        <div className="mx-2 mb-2 flex items-center gap-2 rounded-xl bg-secondary p-3" role="group" aria-label="유모차 챙기기">
+        <div className="mx-2 mb-2 flex items-center gap-2 rounded-lg bg-secondary p-3" role="group" aria-label="유모차 챙기기">
           <p className="min-w-0 flex-1 text-sm text-secondary">유모차로 다닌다고 적어 두셨어요. 챙기셨나요?</p>
           <Button size="sm" color="secondary" className="h-11 shrink-0" onClick={handleToggleChecked}>
             챙겼어요
@@ -112,7 +112,7 @@ export function ChecklistPageItemRow({ item, checked, onToggleChecked, onOpenDet
       )}
 
       {askCarrier && (
-        <div className="mx-2 mb-2 rounded-xl bg-secondary p-3" role="group" aria-label="이동 수단 바꾸기">
+        <div className="mx-2 mb-2 rounded-lg bg-secondary p-3" role="group" aria-label="이동 수단 바꾸기">
           <p className="text-sm text-secondary">우리 강아지 이동 수단도 &lsquo;이동가방&rsquo; 으로 바꿀까요?</p>
           <div className="mt-2 flex gap-2">
             <Button size="sm" color="primary" className="h-11" onClick={acceptCarrier}>

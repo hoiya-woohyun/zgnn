@@ -84,6 +84,7 @@ A-3 은 [ADR-002](../decisions/ADR-002-no-place-photos.md)("사진 자리는 종
 
 - [ ] **G1 A-11 · A-25** — 버튼은 평면: 채움·테두리 모두 그림자 0(base `Button` 의 inset 고리 + 아래 −2px + 바깥 그림자 묶음 — `base/` 는 못 고치니 `theme.css` 의 skeumorphic 그림자 토큰이나 감싸는 쪽에서), 테두리 버튼 = `bg-primary` + 1px `border-primary`, 눌림 `bg-tertiary`.
   반경 3단 — 칩·알약 full / 버튼·입력·작은 탭 대상 r8 / 면(카드·그룹 리스트·시트 위 모서리) r16. r12·r6·r4 를 걷는다('어려움 35곳 보기' 토글은 면 없는 행, A-25). CLAUDE.md 에 두 규칙 한 줄씩.
+    > 메모(2026-10-26): 구현은 끝 — `theme.css` skeuomorphic 토큰 비움 + `globals.css` 테두리 버튼 `data-pressed` → `bg-tertiary` · 사용자 화면 r12/r6 → r8·r16·full 28곳(19파일) · '어려움 N곳 보기' 는 위 구분선 행. headless 7727 390폭: `/` `/dog` `/checklist` `/saved` 의 버튼 box-shadow 전부 투명, 반경 값은 full·8·16 셋(체크박스 6 예외). §3 규칙대로 `/design-audit review` 통과 전이라 [ ] 로 둔다(NOW 「발견」). 예외·규칙은 ADR-003 v23 · CLAUDE.md.
 
 ### G2 그룹 리스트 — "같은 종류 행이 둘 이상이면 면 한 장 + 구분선" (A-1 · A-2)
 

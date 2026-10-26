@@ -376,7 +376,7 @@ export function HomePageHero({ subtitle, reach, cta }: THomePageHeroProps) {
                 cta && (
                   <Link
                     href={cta.href}
-                    className="mt-5 flex items-center gap-3 rounded-xl bg-brand-solid px-4 py-3.5 transition-colors hover:bg-brand-solid_hover"
+                    className="mt-5 flex items-center gap-3 rounded-lg bg-brand-solid px-4 py-3.5 transition-colors hover:bg-brand-solid_hover"
                   >
                     <PawMark className="h-6 w-6 shrink-0 text-white" />
                     <span className="min-w-0 flex-1">
