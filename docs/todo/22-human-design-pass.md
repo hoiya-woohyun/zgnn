@@ -1,6 +1,7 @@
 # 22. 사람 손 디자인 패스 — 화면에서 AI 티를 걷는다
 
-> 최종 수정: 2026-10-20 (v3: §2 review 기록 — 묶음 C 2회차 통과(f33656d), 묶음 A·B 3회차 통과(e51984b → 8a8933c, R-10 칩 줄 끌기를 셸이 가로채던 것). R-11 머리 위 가로 끌기를 §3 넘어온 것에)
+> 최종 수정: 2026-10-26 (v4: /next-auto 정리 — G1 메모 둘(review 는 NOW 「지금」 · 운영자 화면 반경은 밖), G3.0a 확인일 짧게 · G3.0b slate 주석을 레인 발견에서)
+> 이전 2026-10-20 (v3: §2 review 기록 — 묶음 C 2회차 통과(f33656d), 묶음 A·B 3회차 통과(e51984b → 8a8933c, R-10 칩 줄 끌기를 셸이 가로채던 것). R-11 머리 위 가로 끌기를 §3 넘어온 것에)
 > 이전 2026-10-20 (v2: §3 전 화면 audit 첫 회차(A-1~A-29) 를 묶음 G1~G7 로 — 공용 바닥(버튼 평면·반경 3단) → 그룹 리스트 → 판정 글자·메타 한 줄 → 빈 상태 → 섹션 머리 → 브랜드·탭바·히어로 → 화면 단위. review 에서 넘어온 D-10 · R-4 · 실내 자리 /dog 도. G1·G2.0·G3.0·G4 를 NOW 「지금」 에)
 > 이전 2026-10-19 (v1: 신설 — 사용자 지적 셋(둘러보기 종류 알약 · 필터 칩 더미 · 카드마다 초록 `네이버 길찾기`)에 [실서비스 레퍼런스](../reviews/design-audit/2026-10-19-references.md)를 모으고,
 > `/design-audit` 페르소나 propose 회차(D-1~D-16)를 태스크로 잘랐다. 이어서 전 화면 audit 회차를 이 문서 §3 에 붙인다)
@@ -84,7 +85,8 @@ A-3 은 [ADR-002](../decisions/ADR-002-no-place-photos.md)("사진 자리는 종
 
 - [ ] **G1 A-11 · A-25** — 버튼은 평면: 채움·테두리 모두 그림자 0(base `Button` 의 inset 고리 + 아래 −2px + 바깥 그림자 묶음 — `base/` 는 못 고치니 `theme.css` 의 skeumorphic 그림자 토큰이나 감싸는 쪽에서), 테두리 버튼 = `bg-primary` + 1px `border-primary`, 눌림 `bg-tertiary`.
   반경 3단 — 칩·알약 full / 버튼·입력·작은 탭 대상 r8 / 면(카드·그룹 리스트·시트 위 모서리) r16. r12·r6·r4 를 걷는다('어려움 35곳 보기' 토글은 면 없는 행, A-25). CLAUDE.md 에 두 규칙 한 줄씩.
-    > 메모(2026-10-26): 구현은 끝 — `theme.css` skeuomorphic 토큰 비움 + `globals.css` 테두리 버튼 `data-pressed` → `bg-tertiary` · 사용자 화면 r12/r6 → r8·r16·full 28곳(19파일) · '어려움 N곳 보기' 는 위 구분선 행. headless 7727 390폭: `/` `/dog` `/checklist` `/saved` 의 버튼 box-shadow 전부 투명, 반경 값은 full·8·16 셋(체크박스 6 예외). §3 규칙대로 `/design-audit review` 통과 전이라 [ ] 로 둔다(NOW 「발견」). 예외·규칙은 ADR-003 v23 · CLAUDE.md.
+    > 메모(2026-10-26): 구현은 끝 — `theme.css` skeuomorphic 토큰 비움 + `globals.css` 테두리 버튼 `data-pressed` → `bg-tertiary` · 사용자 화면 r12/r6 → r8·r16·full 28곳(19파일) · '어려움 N곳 보기' 는 위 구분선 행. headless 7727 390폭: `/` `/dog` `/checklist` `/saved` 의 버튼 box-shadow 전부 투명, 반경 값은 full·8·16 셋(체크박스 6 예외). §3 규칙대로 `/design-audit review` 통과 전이라 [ ] 로 둔다(NOW 「지금」 — G2.0 · G3.0 과 한 회차). 예외·규칙은 ADR-003 v23 · CLAUDE.md.
+    > 메모(2026-10-26, 정리): review 때 둘러보기 목록(`/places/<종류>`)의 '어려움 N곳 보기' 구분선 행·다른 종류 줄 r16 을 꼭 본다 — 레인이 7727 에서 그 경로를 못 열었다. 운영자 화면(`src/screens/admin*`)의 rounded-xl·rounded-md 는 3단 밖에 둔다(권고로 닫음 — `/admin` 은 PC 밀도 예외, ADR-018 결정 10 과 같은 결. 사용자 화면이 아니라 AI 티 감별 대상도 아니다).
 
 ### G2 그룹 리스트 — "같은 종류 행이 둘 이상이면 면 한 장 + 구분선" (A-1 · A-2)
 
@@ -102,6 +104,8 @@ A-3 은 [ADR-002](../decisions/ADR-002-no-place-photos.md)("사진 자리는 종
   > 메모(2026-10-20): **지도 판정 점도 같이 본다**(ADR-008 v40 · `lib/mapPageMarkerVerdict`) — 지도 원은 확인 필요·야외만에 주황 점, 정보 없음에 회색 점을 단다. 그 색의 근거가 "목록 배지의 앞 점" 이라, 이 태스크가 점을 걷고 야외만을 '갈 수 있어요' 쪽으로 옮기면 지도는 야외만을 확인 필요와 계속 묶어 목록과 다른 말을 한다(테스트는 통과한다). 옮길 때 점에서 야외만을 빼거나 색을 바꾸고, 점 색 테스트의 기준(theme.css 값)도 새 판정 글자색에 맞춘다.
   한 줄에 면 있는 요소 최대 1개 — 조건·읍면은 글자('펜션 · 구좌읍 · 10월 확인', 색 없음), 넘치면 '외 1개'(A-4), 메타는 말줄임 한 줄(A-16). 목록·근처·저장·지도 시트·상세가 한 부품.
   > 메모(2026-10-26): 구현 — 판정 글자 `VerdictText`/판정 줄 `VerdictLine`(`components/verdictLine.tsx`, 표·조건 고르기는 `lib/verdictLine.ts`) · 메타 `lib/placeMetaLine.ts` 를 목록 카드·저장·근처·지도 시트·지도 패널·줄 목록이 쓴다. `eligibilityBadge.tsx`·`townChip.tsx` 삭제. 상세 판정 카드는 점을 걷고 문장을 판정 글자색으로(G7.1 전 최소). 지도 점은 야외만에서 빠지고 색이 글자색(ADR-008 v44). 상세 원문 위 칩(`PetBadges`)은 G7.1 몫이라 남겼다. /design-audit review 전이라 `[ ]` 그대로.
+- [ ] **G3.0a 확인일 짧게 A-16** — 목록 메타 줄의 확인일이 'YYYY년 N월 확인'(`freshnessShortLabel` → `monthLabel`)이라 메타가 말줄임에 먼저 걸린다. 올해(`now` 기준)면 'N월 확인', 해가 다르면 연도를 붙인다. `now` 가 null(정적 첫 프레임)이면 연도 붙인 그대로. 상세·필터 설명(`placesPageFilter.ts` 의 'YYYY년 N월 확인' 주석)과 갈리지 않게 함수 하나에서 — 출처: 레인 G3.0 발견(`src/lib/placeMetaLine.ts`).
+- [ ] **G3.0b slate 주석** — `theme.css` 의 slate(잉크 '어려움') 덮어쓰기 주석이 지운 `eligibilityBadge` 를 가리킨다. 사용자 화면에서 slate 를 쓰는 곳(`utility-slate` 사슬 · `base/badges` 포함)이 없으면 덮어쓰기째 걷고, 있으면 주석만 고친다 — 출처: 레인 G3.0 발견(`src/styles/theme.css:199`).
 - [ ] **G3.1 둘러보기 카드 높이 A-15 · 아이콘 상자 A-3** — 카드 226 → 140 이하(이름+하트 / 메타 / 판정 줄 / 가격, 소개는 1줄 말줄임). 아이콘은 상자 없이 — 한 종류 목록(둘러보기 탭 안)에선 빼고 섞인 목록(근처·저장·지도)만 이름 앞 16px 종류색 선 아이콘, 상세 제목 옆 상자 삭제. **ADR-002 뒤집음** — 사진 흉내도 색 상자도 없이 글자를 가장자리에 붙인다.
 
 ### G4 빈 상태 (A-5 · AB review R-8)
