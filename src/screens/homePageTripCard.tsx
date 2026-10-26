@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import Link from 'next/link';
 import { CheckDone01, ChevronRight, Heart, Map01 } from '@untitledui/icons';
-import { CARD_SURFACE } from '../components/cardSurface';
+import { GroupList } from '../components/groupList';
 import { checklistProgress, type TChecklistProgress } from '../lib/checklist';
 import { useStoreHydrated } from '../providers/storeHydration';
 import { useAppStore, useDog, useSavedPlaces } from '../store/useAppStore';
@@ -64,7 +64,7 @@ function HomePageTripCardRows({
   progress: TChecklistProgress;
 }) {
   return (
-    <div className={`mt-3 divide-y divide-secondary overflow-hidden ${CARD_SURFACE}`}>
+    <GroupList className="mt-3">
       {/* 지도 링크는 저장 줄 링크 **바깥의 형제**다 — 안에 넣으면 a 안에 a 가 된다.
           테두리 버튼이면 아래 준비물 줄의 `>` 와 모양이 갈려, 같은 `>` 를 끝에 단 글자 링크로 둔다 — px-4 라 두 셰브론이 한 세로선에 선다. */}
       <div className="flex items-stretch">
@@ -99,6 +99,6 @@ function HomePageTripCardRows({
       </Link>
 
       {/* 16 T1.4 가 오면 셋째 줄 "1일차 3곳 · 2일차 2곳"(→ /saved 하루 보기)이 여기 들어온다. 지금은 그리지 않는다. */}
-    </div>
+    </GroupList>
   );
 }

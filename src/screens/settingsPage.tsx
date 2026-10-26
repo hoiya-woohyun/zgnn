@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
-import { ChevronRight, Heart, LinkExternal01, MarkerPin02 } from '@untitledui/icons';
+import { Heart, MarkerPin02, User01 } from '@untitledui/icons';
 import { showAppStatus, STATUS_UNDO_MS } from '../lib/appStatus';
 import { AuthorAvatar } from '../components/authorAvatar';
 import { ReportSheet } from '../components/reportSheet';
@@ -14,20 +13,16 @@ import { carrierSummary } from '../lib/eligibility';
 import { dogNamesAsWritten } from '../lib/korean';
 import { META, SOURCE_LINE } from '../lib/places';
 import { useAppStore, useDog, useSavedCount } from '../store/useAppStore';
-import { CARD_SURFACE } from '../components/cardSurface';
-
-const CARD_CLASS =
-  `flex items-center gap-3 ${CARD_SURFACE} px-4 py-4 transition-colors hover:bg-secondary`;
-
-const RESET_ROW_CLASS = `flex min-h-11 w-full items-center justify-between gap-3 ${CARD_SURFACE} px-4 py-3 text-left text-sm font-semibold text-error-primary transition-colors hover:bg-error-primary disabled:cursor-default disabled:text-quaternary disabled:hover:bg-primary`;
+import { GroupList } from '../components/groupList';
+import { GroupListRow } from '../components/groupListRow';
 
 /**
  * 비우기 두 줄(12 U2.6) — 다음 여행 때 준비물 15개를 하나씩 풀거나 하트를 하나씩 끄지 않게.
  * 확인 창 대신 **되돌리기**다(셸 토스트, 프로필 삭제와 같은 어법) — 확인 창은 매번 한 번 더 누르게 하고, 실수는 되돌리기가 더 잘 막는다.
  * 지운 값은 이 클로저만 붙잡는다. 비울 것이 없으면 줄을 끈다.
  *
- * 두 줄은 **따로 선 카드 둘, 사이 16px**이고 글자는 경고색이다(14 W261010.7h — 6/6 이 "한 판에 붙어 하나를 노리다 옆을 누른다 · 지우는 줄인지 모르겠다").
- * 판 전체를 빨갛게 칠하지는 않는다 — 되돌릴 수 있는 동작이라 글자색 하나로 "지운다" 만 말한다. 비울 것이 없으면 회색.
+ * 두 줄은 그룹 리스트 한 면의 두 행이고(22 G2.0 · 행마다 카드를 걷었다), 글자는 경고색이다(14 W261010.7h — "지우는 줄인지 모르겠다").
+ * 한 면에 붙었어도 행 높이 48 에 구분선이 있어 옆 행을 잘못 누르지 않는다. 비울 것이 없으면 회색 + aria-disabled.
  */
 function SettingsPageResetRows() {
   const checkedCount = useAppStore((state) => state.checkedItemIds.length);
@@ -55,16 +50,24 @@ function SettingsPageResetRows() {
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <button type="button" className={RESET_ROW_CLASS} onClick={handleClearChecked} disabled={checkedCount === 0}>
-        준비물 체크 모두 풀기
-        <span className="font-normal text-tertiary">{checkedCount}개</span>
-      </button>
-      <button type="button" className={RESET_ROW_CLASS} onClick={handleClearSaved} disabled={savedCount === 0}>
-        저장 비우기
-        <span className="font-normal text-tertiary">{savedCount}곳</span>
-      </button>
-    </div>
+    <GroupList>
+      <GroupListRow
+        title="준비물 체크 모두 풀기"
+        value={`${checkedCount}개`}
+        trail="none"
+        tone="danger"
+        inactive={checkedCount === 0}
+        onPress={handleClearChecked}
+      />
+      <GroupListRow
+        title="저장 비우기"
+        value={`${savedCount}곳`}
+        trail="none"
+        tone="danger"
+        inactive={savedCount === 0}
+        onPress={handleClearSaved}
+      />
+    </GroupList>
   );
 }
 
@@ -79,20 +82,16 @@ function SettingsPageSuggest() {
   const [sentName, setSentName] = useState<string | null>(null);
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className={`${CARD_CLASS} w-full text-left`} data-ev="settings.suggest">
-        <span
-          aria-hidden="true"
-          className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-primary text-brand-secondary"
-        >
-          <MarkerPin02 size={20} />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-sm font-bold text-primary">장소 알려 주기</span>
-          <span className="block text-sm text-tertiary">
-            {sentName ? suggestTraceText(sentName) : '여기 없는 곳에서도 강아지와 함께했나요?'}
-          </span>
-        </span>
-      </button>
+      <GroupList>
+        <GroupListRow
+          icon={<MarkerPin02 size={20} />}
+          title="장소 알려 주기"
+          subtitle={sentName ? suggestTraceText(sentName) : '여기 없는 곳에서도 강아지와 함께했나요?'}
+          trail="none"
+          onPress={() => setOpen(true)}
+          dataEv="settings.suggest"
+        />
+      </GroupList>
       <ReportSheet
         isOpen={open}
         onOpenChange={setOpen}
@@ -126,49 +125,35 @@ export function SettingsPage() {
       <p className="px-4 text-sm text-tertiary md:px-6">우리 강아지, 저장한 곳, 자료 출처</p>
 
       <Section title="우리 강아지" className="mt-6">
-        {dog ? (
-          <Link href="/dog" className={CARD_CLASS}>
-            <div className="min-w-0 flex-1">
-              {/* 카드 제목은 이름만 서는 자리 — 적은 그대로('단풍'). 애칭('단풍이')은 문장 안에서 부를 때만(14 W261010.33h) */}
-              <p className="text-md font-bold text-primary">{dogNamesAsWritten(dog.dogs.map((d) => d.name))}</p>
-              <p className="mt-0.5 text-sm text-tertiary">
-                {dogWeightSummary(dog)} · {carrierSummary(dog.carrier)}
-              </p>
-            </div>
-            <span className="flex shrink-0 items-center gap-0.5 text-sm font-semibold text-brand-secondary">
-              수정
-              <ChevronRight size={16} aria-hidden="true" />
-            </span>
-          </Link>
-        ) : (
-          <Link href="/dog" className={CARD_CLASS}>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold text-primary">우리 강아지 등록하기</p>
-              <p className="text-sm text-tertiary">등록하면 갈 수 있는 곳을 바로 보여드려요</p>
-            </div>
-            <ChevronRight size={20} aria-hidden="true" className="shrink-0 text-quaternary" />
-          </Link>
-        )}
+        <GroupList>
+          {dog ? (
+            // 제목은 이름만 서는 자리 — 적은 그대로('단풍'). 애칭('단풍이')은 문장 안에서 부를 때만(14 W261010.33h)
+            <GroupListRow
+              href="/dog"
+              icon={<User01 size={20} />}
+              title={dogNamesAsWritten(dog.dogs.map((d) => d.name))}
+              subtitle={`${dogWeightSummary(dog)} · ${carrierSummary(dog.carrier)}`}
+              value="수정"
+            />
+          ) : (
+            <GroupListRow
+              href="/dog"
+              icon={<User01 size={20} />}
+              title="우리 강아지 등록하기"
+              subtitle="등록하면 갈 수 있는 곳을 바로 보여드려요"
+            />
+          )}
+        </GroupList>
       </Section>
 
-      <Section className="mt-4">
+      <Section title="내 여행" className="mt-8">
         {/* `/saved` 는 설정 밑의 화면이다(`parentRouteOf`). 홈 카드·지도에서도 열리고, 그때는 들어온 탭에 불이 들어온다(`ownerRootOf`). */}
-        <Link href="/saved" className={CARD_CLASS}>
-          <span
-            aria-hidden="true"
-            className="grid size-10 shrink-0 place-items-center rounded-full bg-camellia-wash text-camellia"
-          >
-            <Heart size={20} className="fill-camellia" />
-          </span>
-          <p className="min-w-0 flex-1 text-sm font-bold text-primary">저장한 곳</p>
-          <span className="flex shrink-0 items-center gap-1 text-sm text-tertiary">
-            {savedCount}곳
-            <ChevronRight size={20} aria-hidden="true" className="text-quaternary" />
-          </span>
-        </Link>
+        <GroupList>
+          <GroupListRow href="/saved" icon={<Heart size={20} />} title="저장한 곳" value={`${savedCount}곳`} />
+        </GroupList>
       </Section>
 
-      <Section className="mt-4">
+      <Section className="mt-8">
         <SettingsPageSuggest />
       </Section>
 
@@ -177,24 +162,14 @@ export function SettingsPage() {
       </Section>
 
       <Section title="정보" className="mt-8">
-        <div className={`${CARD_SURFACE} px-4 py-4`}>
-          <div className="flex items-center gap-3">
-            <AuthorAvatar className="size-10" />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold text-primary">{META.author}</p>
-              <p className="text-sm text-tertiary">{SOURCE_LINE}</p>
-            </div>
-          </div>
-          <a
-            href={META.sourceUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-3 flex min-h-11 items-center justify-between gap-2 rounded-lg bg-secondary px-4 text-sm font-semibold text-brand-secondary transition-colors hover:bg-tertiary"
-          >
-            원본 노션 보기
-            <LinkExternal01 size={16} aria-hidden="true" />
-          </a>
-        </div>
+        <GroupList>
+          <GroupListRow
+            icon={<AuthorAvatar className="size-5" />}
+            title={META.author}
+            subtitle={SOURCE_LINE}
+          />
+          <GroupListRow externalHref={META.sourceUrl} title="원본 노션 보기" trail="external" />
+        </GroupList>
         <p className="mt-3 px-1 text-sm text-tertiary">방문 전 영업시간과 동반 조건을 한 번 더 확인해 주세요.</p>
       </Section>
     </div>
