@@ -60,7 +60,8 @@ const Z_MY_LOCATION = 2000;
 
 /**
  * 내 위치로 옮길 때의 줌. 동네 하나(보이는 경도 약 0.03°, 3km 안팎)가 드는 단계다 — "여기서 가까운 곳"
- * 을 보려고 누르는 버튼이라서다. 사용자가 이미 더 당겨 보고 있으면 그대로 둔다.
+ * 을 보려고 누르는 버튼이라서다. **이미 더 당겨 보고 있어도 이 단계로 맞춘다** — 500m 축척까지 들어간 채
+ * 눌렀더니 카페 1곳만 보였다(14 W261019.14d). 더 멀리서 보고 있으면 이 단계까지만 들어온다.
  */
 const MY_LOCATION_ZOOM = 14;
 
@@ -1069,7 +1070,7 @@ export function MapPageCanvas({
               clickable: false,
               zIndex: Z_MY_LOCATION,
             });
-          map.morph(position, Math.max(map.getZoom(), MY_LOCATION_ZOOM));
+          map.morph(position, MY_LOCATION_ZOOM);
           return true;
         } catch {
           // 마커 effect 와 같은 이유 — 깨진 지도 위에서 SDK 가 던진다. 폴백으로 넘긴다.

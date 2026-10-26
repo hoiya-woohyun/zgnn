@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AlertTriangle, Heart, NavigationPointer01 } from '@untitledui/icons';
+import { AlertTriangle, Heart, Target02 } from '@untitledui/icons';
 import { MapPageCanvas, MARKER_HARD_OPACITY, type TMapPageCanvasHandle } from './mapPageCanvas';
 import { PlaceLinkList } from '../components/placeLinkList';
 import { MapPageSheetCard } from './mapPageSheet';
@@ -490,7 +490,7 @@ export function MapPage() {
                 aria-busy={locating}
                 className="pointer-events-auto ml-auto flex size-11 shrink-0 items-center justify-center rounded-full border border-secondary bg-primary/92 text-secondary shadow-sm backdrop-blur transition-colors hover:text-primary"
               >
-                <NavigationPointer01
+                <Target02
                   size={20}
                   aria-hidden="true"
                   className={cx(locating && 'animate-pulse text-brand-secondary')}
