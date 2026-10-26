@@ -106,7 +106,8 @@ export function HomePage() {
 
       <section className="mt-8 px-4 md:px-6">
         <h2 className="text-md font-bold text-primary">어디로 갈까요</h2>
-        <div className="mt-3 space-y-3">
+        {/* 면 없는 행 셋 — 사이는 선 하나(22 G2.3 · 면 0). */}
+        <div className="mt-1 divide-y divide-secondary">
           {PLACE_TYPES.map((type) => (
             <div key={type} className="home-scroll-depth">
               <HomeTypeCard type={type} levelCounts={levelCountsByType?.[type]} />

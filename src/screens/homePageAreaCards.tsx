@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronRight } from '@untitledui/icons';
 import { usePlacesPageAreaEntry } from './placesPageAreaEntry';
-import { CARD_SURFACE } from '../components/cardSurface';
 import { FilterChip } from '../components/filterChip';
+import { PLACE_TYPE_ICON } from '../components/icons/placeTypeIcon';
 import { ReportSheet } from '../components/reportSheet';
 import { AREAS, areaOf, areaTownNames, countByArea, type TAreaId } from '../lib/areaGroups';
 import {
@@ -23,14 +23,13 @@ import {
   nearestAreaWithStay,
 } from '../lib/homePageAreaCards';
 import { dogCallNames, withJosa } from '../lib/korean';
-import { PLACES } from '../lib/places';
+import { PLACES, TYPE_COLOR } from '../lib/places';
 import { useAppStore, useDog } from '../store/useAppStore';
 import { usePlacesPageFilterStore } from '../store/usePlacesPageFilterStore';
-import { cx } from '../utils/cx';
 
 // 라벨 문턱(19 §4)도 빌드 시점 데이터로 한 번 — `pnpm data coverage` 와 같은 함수다. 문턱 전 원형(지금은 대형견)엔 라벨이 없다(ADR-027 결정 3).
 const LABEL_GATES = areaLabelGates(PLACES);
-/** 라벨 머리 — 숙소는 '묵기', 카페는 '가기'. */
+/** 라벨 머리 — 숙소는 '묵기', 카페는 '가기'. 화면엔 종류 아이콘이 서고 이 말은 스크린리더가 읽는다. */
 const LABEL_TAIL = { stay: '묵기 좋은 곳', cafe: '가기 좋은 카페' } as const;
 // 빌드 시점 데이터라 한 번만 센다 — 0곳 관광지 칩은 여기서 빠진다(14 W261007.9).
 const LANDMARKS_BY_CARD = homePageAreaLandmarks(PLACES);
@@ -85,7 +84,8 @@ export function HomePageAreaCards() {
     // 줄어든 채로 남는다(관광지 칩 44 → 42.7px, 14 W261013.14e). 줄마다 붙이는 이유는 `homePage.tsx` 의 같은 주석.
     <section className="mt-8 px-4 md:px-6" data-ev="home.areas">
       <h2 className="home-scroll-depth text-md font-bold text-primary">{dog ? `${withJosa(dogNames, '이랑/랑')} 갈 동네` : '강아지랑 갈 동네'}</h2>
-      <div className="mt-3 space-y-3">
+      {/* 면 없는 동네 행 — 사이는 선 하나(22 G2.3 · 면 0). 흰 카드 6장은 audit B-6 이 "둥근 네모" 로 짚었다. */}
+      <div className="mt-1 divide-y divide-secondary">
         {AREAS.map(({ id, label }) => {
           const card = counts ? homePageAreaCardCounts(counts, id) : null;
           const gap = card ? homePageAreaStayGap(card) : null;
@@ -95,11 +95,11 @@ export function HomePageAreaCards() {
           const labeled = counts && dog ? AREA_CARD_TYPES.filter((type) => isAreaLabelCell(labelOpen, counts[id][type])) : [];
 
           return (
-            <div key={id} className={cx('home-scroll-depth', CARD_SURFACE, 'p-1.5')}>
+            <div key={id} className="home-scroll-depth py-2">
               <button
                 type="button"
                 onClick={() => enterArea(id, areaEntryType(card ? { stay: card.stay.reach, cafe: card.cafe.reach } : TOTALS_BY_CARD[id]))}
-                className="flex min-h-11 w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors active:bg-tertiary"
+                className="-mx-2 flex min-h-11 w-[calc(100%+1rem)] items-center gap-2 rounded-lg px-2 py-2 text-left transition-colors active:bg-tertiary"
               >
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-baseline gap-x-1.5">
@@ -120,29 +120,32 @@ export function HomePageAreaCards() {
                 <ChevronRight size={20} aria-hidden="true" className="shrink-0 text-quaternary" />
               </button>
 
-              {labeled.map((type) => (
-                <div key={type} className="px-2.5 pb-1">
-                  <p className="text-sm text-brand-secondary">
-                    {withJosa(dogNames, '이랑/랑')} {LABEL_TAIL[type]}
-                  </p>
-                  {/* 이름만 — 소개문은 띄우지 않는다. 카드 안에서 소개가 판정과 다른 말을 할 자리를 만들지 않는다(13 §5.2 P2). */}
-                  <ul className="flex flex-wrap gap-x-3">
-                    {homePageAreaPicks(PLACES, dog!, id, type, { needsIndoor }).map((place) => (
-                      <li key={place.id}>
-                        <Link
-                          href={`/place/${place.id}`}
-                          className="inline-flex min-h-11 items-center text-sm text-secondary underline-offset-2 hover:underline"
-                        >
-                          {place.name}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
+              {/* '두부랑 묵기 좋은 곳' 글귀 대신 종류 아이콘 하나 — 글을 안 읽어도 숙소 줄·카페 줄이 갈린다(지도 핀과 같은 그림·색).
+                  문장은 목록 이름(aria-label)으로 남겨 스크린리더는 그대로 듣는다. */}
+              {labeled.map((type) => {
+                const TypeIcon = PLACE_TYPE_ICON[type];
+                return (
+                  <div key={type} className="flex items-start gap-2">
+                    <TypeIcon size={16} aria-hidden="true" className="mt-3.5 shrink-0" style={{ color: TYPE_COLOR[type] }} />
+                    {/* 이름만 — 소개문은 띄우지 않는다. 카드 안에서 소개가 판정과 다른 말을 할 자리를 만들지 않는다(13 §5.2 P2). */}
+                    <ul className="flex min-w-0 flex-wrap gap-x-3" aria-label={`${withJosa(dogNames, '이랑/랑')} ${LABEL_TAIL[type]}`}>
+                      {homePageAreaPicks(PLACES, dog!, id, type, { needsIndoor }).map((place) => (
+                        <li key={place.id}>
+                          <Link
+                            href={`/place/${place.id}`}
+                            className="inline-flex min-h-11 items-center text-sm text-secondary underline-offset-2 hover:underline"
+                          >
+                            {place.name}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
 
               {gap && (
-                <div className="px-2.5 pb-2 text-sm text-tertiary">
+                <div className="pb-2 text-sm text-tertiary">
                   {gap.kind === 'thin' ? (
                     <p>
                       저희가 모은 숙소 중엔 아직 {withJosa(dogNames, '이랑/랑')} 묵을 곳이 없어요.{' '}
@@ -173,7 +176,7 @@ export function HomePageAreaCards() {
               )}
 
               {landmarks.length > 0 && (
-                <div className="flex flex-wrap gap-x-1.5 gap-y-2.5 px-1 pb-1" role="group" aria-label={`${label} 관광지 근처 찾기`}>
+                <div className="flex flex-wrap gap-x-1.5 gap-y-2.5 pt-1 pb-2" role="group" aria-label={`${label} 관광지 근처 찾기`}>
                   {landmarks.map(({ landmark }) => (
                     <FilterChip
                       key={landmark.name}
