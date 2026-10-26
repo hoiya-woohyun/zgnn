@@ -265,13 +265,14 @@ export function MapPage() {
   return (
     // 모바일에는 하단 탭바가 있어 그만큼 빼고, 탭바가 사라지는 md 이상에서는 화면을 꽉 채운다.
     <div className="relative h-[calc(100dvh-var(--tab-bar-h)-env(safe-area-inset-bottom,0px))] overflow-hidden md:h-dvh">
-      {/* 제목은 lg 패널에만 보인다 — 모바일에서도 화면 이름은 낭독돼야 한다(12 U1.7). */}
-      <h1 className="sr-only lg:hidden">지도</h1>
+      {/* h1 은 화면 크기와 무관하게 이 하나다 — 모바일에서도 화면 이름은 낭독돼야 한다(12 U1.7). lg 패널 제목은 눈에만 보이는 글자(`aria-hidden`)라
+          h1 이 둘로 세지지 않는다(14 W261019.15f). */}
+      <h1 className="sr-only">지도</h1>
       <div className="flex h-full">
         {/* 데스크톱 2단 — 좌측 결과 패널. lg 미만에서는 지도만 보인다. */}
         <aside className="hidden w-[360px] shrink-0 flex-col border-r border-secondary bg-primary lg:flex">
           <div className="border-b border-secondary px-4 py-3">
-            <h1 className="text-lg font-bold text-primary">지도</h1>
+            <p aria-hidden="true" className="text-lg font-bold text-primary">지도</p>
             <p className="mt-0.5 text-sm text-tertiary">
               {savedOnly ? `저장한 곳 중 ${withGeo.length}곳 표시 중` : `${withGeo.length}곳 표시 중`}
             </p>

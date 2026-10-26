@@ -176,7 +176,7 @@ export const BadgeWithDot = <T extends BadgeTypes>(props: BadgeWithDotProps<T>) 
 
     return (
         <span className={cx(colors.common, sizes[type][size], colors.styles[color].root, className)}>
-            <Dot className={colors.styles[color].addon} size="sm" />
+            <Dot className={colors.styles[color].addon} size="sm" aria-hidden="true" />
             {children}
         </span>
     );
