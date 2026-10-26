@@ -1,20 +1,19 @@
 import { NavigationPointer01 } from '@untitledui/icons';
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { EligibilityBadge } from '../components/eligibilityBadge';
 import { NaverLinkButton } from '../components/naverLinkButton';
 import { PlaceItemsNote } from '../components/placeItemsNote';
 import { PlaceThumb } from '../components/placeThumb';
 import { SaveButton } from '../components/saveButton';
 import { SavedNoteLine } from '../components/savedNoteLine';
-import { TownChip } from '../components/townChip';
+import { VerdictText } from '../components/verdictLine';
 import { Button } from '@/components/base/button';
-import { categoryLabel } from '../lib/category';
 import { distanceLabel } from '../lib/distanceSort';
 import { primaryReason } from '../lib/eligibility';
 import { naverDirectionsUrl } from '../lib/naverPlaceLink';
 import { freshnessShortLabel } from '../lib/placeFreshness';
-import { TYPE_META, distanceKm, type TPlaceEntry } from '../lib/places';
+import { placeMetaLine } from '../lib/placeMetaLine';
+import { distanceKm, type TPlaceEntry } from '../lib/places';
 import { useToday } from '../hooks/useToday';
 import { useEligibility } from '../store/useDogEligibility';
 
@@ -78,14 +77,8 @@ export function MapPageSheetCard({ place, origin, onSheetHeight }: TMapPageSheet
           <PlaceThumb src={place.cover ?? place.images[0]} type={place.type} />
           <div className="min-w-0 flex-1 pr-8">
             <p className="text-md font-bold text-primary">{place.name}</p>
-            <div className="mt-1 flex flex-wrap items-center gap-1.5">
-              <TownChip town={place.region.town} type={place.type} />
-              <span className="text-sm text-tertiary">
-                {categoryLabel(place.category, TYPE_META[place.type].label, place.type)}
-                {/* 목록 카드와 같은 자리·같은 말(14 C2610.3). */}
-                {verified && ` · ${verified}`}
-              </span>
-            </div>
+            {/* 목록 카드와 같은 메타 한 줄(22 G3.0) — 거리는 밑 주소 줄이 말한다. */}
+            <p className="mt-1 truncate text-sm text-tertiary">{placeMetaLine(place, { verified })}</p>
             <p className="mt-1 truncate text-sm text-secondary">
               {distance && <span className="font-semibold text-primary">{distance} · </span>}
               {address}
@@ -98,10 +91,12 @@ export function MapPageSheetCard({ place, origin, onSheetHeight }: TMapPageSheet
 
         {eligibility && (
           <div className="mt-2.5">
-            <EligibilityBadge eligibility={eligibility} />
+            <p className="text-sm">
+              <VerdictText eligibility={eligibility} />
+            </p>
             {/*
               목록 카드와 같은 대표 근거(`primaryReason`) — `reasons[0]` 이면 같은 장소를 두 화면이 다른 말로 설명한다(12 U1.7).
-              배지 옆 한 줄(`truncate`)이 아니라 **배지 밑 줄 + 두 줄까지**(14 W261010.33u): 320px 에서 배지 옆 칸이 좁아
+              판정 옆 한 줄(`truncate`)이 아니라 **판정 밑 줄 + 두 줄까지**(14 W261010.33u): 320px 에서 판정 옆 칸이 좁아
               "두부(12.5kg)는 13kg 미만까지 0…." 는 숫자가, "…이동가방도 되는지 확인해 주세요" 는 할 일이 잘려 나갔다.
             */}
             {reason && <p className="clamp-2 mt-1.5 text-sm text-secondary">{reason.text}</p>}

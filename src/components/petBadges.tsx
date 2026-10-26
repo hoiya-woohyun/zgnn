@@ -1,8 +1,8 @@
 import { Check } from '@untitledui/icons';
 import { Badge, BadgeWithIcon } from './base/badges';
 import type { BadgeColors } from './base/badge-types';
-import { feeChipForWeight } from '../lib/dogFee';
-import { isFeeBadgeRepeatedIn, NO_INFO_BADGE_LABEL, toPetBadges, type TBadgeTone, type TPetBadge, type TPetPolicy } from '../lib/petPolicy';
+import type { TBadgeTone, TPetPolicy } from '../lib/petPolicy';
+import { cardConditions } from '../lib/verdictLine';
 
 /**
  * 파서가 매긴 톤을 Untitled UI 배지 색으로 옮긴다.
@@ -12,14 +12,10 @@ import { isFeeBadgeRepeatedIn, NO_INFO_BADGE_LABEL, toPetBadges, type TBadgeTone
  * 묻혔기 때문이다(2026-09-15 디자인 리뷰 P2). 제약은 맞았지만 해법이 팔레트 밖으로 나가는
  * 것이었고, Tailwind 기본 indigo 는 H 277°·채도 0.240 으로 앱에서 가장 진한 색이라
  * "확인 필요" 라는 부가 정보가 주 버튼(브랜드, 0.205)보다 시선을 먼저 끄는 위계 역전이 났다.
- *
- * 이제 앰버로 돌아오되 theme.css 에서 채도를 0.110 까지 눌러 뒀다 — 원래 충돌은 채도 높은
- * 앰버끼리의 일이었고, 작은 칩과 큰 파스텔 워시는 형태가 달라 같은 색상대라도 부딪히지 않는다.
- * 판정 배지의 cond("확인이 필요해요")와 같은 앰버를 쓰는 것도 의도다: 이 앱에서 앰버는 언제나 "주의" 를 뜻한다.
+ * 이제 앰버로 돌아오되 theme.css 에서 채도를 0.110 까지 눌러 뒀다.
  *
  * ok 는 brand 핑크였다가 **gray + 체크 아이콘**으로 내렸다 — "실내 OK" 가 판정 "갈 수 있어요" 와 같은
- * 핑크 알약이라 원문 속성이 판정처럼 읽혔다(D1). brand 핑크는 판정 ok 전용으로 남긴다(ADR-003).
- * 같은 gray 인 cond 와는 체크 아이콘이 가른다.
+ * 핑크 알약이라 원문 속성이 판정처럼 읽혔다(D1). 같은 gray 인 cond 와는 체크 아이콘이 가른다.
  */
 const TONE_COLOR: Record<TBadgeTone, BadgeColors> = {
   ok: 'gray',
@@ -29,75 +25,20 @@ const TONE_COLOR: Record<TBadgeTone, BadgeColors> = {
 
 type TPetBadgesProps = {
   policy: TPetPolicy;
-  /** 카드에서는 앞에서부터 몇 개만 보여준다. 나머지는 +N 으로 접는다. */
-  limit?: number;
-  /**
-   * 같은 줄에 판정 배지가 있을 때 켠다. 판정이 이미 "정보가 없어요" 라고 말하므로 원문 배지
-   * "확인된 정보 없음" 을 나란히 두면 같은 말을 두 번 하는 셈이라 뺀다.
-   */
+  /** 판정이 같은 화면에 있을 때 켠다 — 판정이 이미 "정보가 없어요" 라고 말한다. */
   hideNoInfo?: boolean;
-  /**
-   * 판정 배지·이유 줄이 이미 말했거나 판정과 반대로 읽히는 칩을 뺀다(카드·지도 시트·근처 장소 — `verdictHidesBadge`). 뺀 칩은 `+N` 에 세지 않는다:
-   * 접어 둔 것이 아니라 카드가 말하지 않기로 한 것이다.
-   */
-  hide?: (badge: TPetBadge) => boolean;
-  /**
-   * 이 라벨의 칩을 맨 앞에 세운다 — 이유 줄이 없는 카드(근처 장소)에서 `limit` 자리를 판정을 정한 칩이 차지하게(`reasonBadgeLabel`, 14 W261013.1c).
-   * 이미 `hide` 로 빠졌거나 없는 라벨이면 아무것도 안 한다.
-   */
-  lead?: string;
-  /** 이 배지 줄 바로 밑에 원문을 같이 보여 줄 때 넘긴다 — 원문에 그대로 적힌 요금 배지는 같은 말이라 뺀다. */
+  /** 이 칩 줄 바로 밑에 원문을 같이 보여 줄 때 넘긴다 — 원문에 그대로 적힌 요금 칩은 같은 말이라 뺀다. */
   sourceText?: string;
-  /** 우리 강아지(가장 무거운 아이) 몸무게. 있으면 `limit` 자리의 요금 칩 하나를 그 구간 줄로 고른다(`feeChipForWeight`). */
-  weightKg?: number;
-  /** 우리 강아지 마릿수. 캄 "2마리 또는 10kg 이상 4만원" 처럼 마릿수로도 갈리는 줄을 고를 때 쓴다. 없으면 한 마리로 본다. */
-  dogCount?: number;
-  /**
-   * 카드가 배지 줄 위에 세우는 우리 강아지 요금 한 줄(`eligibility.fee`). 이 줄이 있으면 고른 요금 칩을 뺀다 — 줄이 그 요금을 이미 말했다:
-   * "두부는 3만원 (1마리당 3만원)" 밑에 `1마리당 3만원` 칩이 또 섰다(14 W261007.6). 글자 그대로 들어 있을 때만 빼던 동안은
-   * "두부는 1만원 (1~5kg)" 밑의 `1~5kg 1만원`, "1마리당 1-2만원" 밑의 `1마리당 1~2만원` 이 남아 카드가 요금을 두 번 말했다(14 W261013.4).
-   * 다른 줄로 바꿔 세우지 않는다: 캄에서 칩이 기본 줄로 물러나면 한 카드가 4만원과 3만원을 같이 말한다(07 U5 후속).
-   */
-  feeLine?: string;
   className?: string;
 };
 
-export function PetBadges({ policy, limit, hideNoInfo = false, hide, lead, sourceText, weightKg, dogCount, feeLine, className = '' }: TPetBadgesProps) {
-  const all = toPetBadges(policy).filter((badge) => !(hideNoInfo && badge.label === NO_INFO_BADGE_LABEL))
-    .filter((badge) => !hide?.(badge))
-    .filter((badge) => !(sourceText !== undefined && isFeeBadgeRepeatedIn(badge, sourceText)));
-  /*
-   * **자리가 정해진 곳에서는 요금 줄을 첫 줄만 세운다.** 요금은 기준마다 한 줄이라 개수 상한이 없고
-   * (`1마리당 3만원`·`청소비 5만원`·`주말 5만원`…), `toPetBadges` 의 순서에서 크기·무게·확인 필요보다 **앞**에 있다.
-   * 그대로 자르면 요금 두세 줄이 예산을 다 먹어 `대형견 불가`·`원문 확인 필요` 같은 **경고가 `+N` 뒤로 숨는다** —
-   * 카드에서 먼저 보여야 하는 것은 정반대다. 상세(`limit` 없음)는 전부 보여 준다: 그 화면엔 자리가 있고,
-   * 우리 강아지 기준 금액도 따로 한 줄로 나온다(`dogFee.ts`).
-   *
-   * 숨긴 요금 줄은 `+N` 에 들어간다 — 접힌 수가 실제와 달라지면 "더 있다" 는 신호가 거짓이 된다.
-   */
-  const firstFee = all.findIndex((b) => b.axis === 'fee');
-  // 프로필이 있으면 그 하나는 첫 줄이 아니라 **우리 강아지 구간**이다(07 U5) — 20kg 아이에게 "1~5kg 1만원" 을 세우지 않는다.
-  const pickedFee =
-    firstFee >= 0 && weightKg !== undefined
-      ? feeChipForWeight(all.filter((b) => b.axis === 'fee').map((b) => b.label), weightKg, dogCount)
-      : all[firstFee]?.label;
-  const feeInLine = pickedFee != null && feeLine !== undefined;
-  const feeLabel = feeInLine ? null : pickedFee;
-  const picked = limit
-    ? all.flatMap((badge, index) => {
-        if (badge.axis !== 'fee') return [badge];
-        if (index !== firstFee || feeLabel === null || feeLabel === undefined) return [];
-        return [{ ...badge, label: feeLabel }];
-      })
-    : all;
-  // 요금 줄을 고른 **뒤에** 옮긴다 — `firstFee` 는 `all` 의 자리라 먼저 옮기면 엉킨다. 순서만 바뀌므로 `+N` 은 그대로다.
-  const badges = lead === undefined ? picked : [...picked.filter((b) => b.label === lead), ...picked.filter((b) => b.label !== lead)];
-  if (badges.length === 0) return null;
-
-  const shown = limit ? badges.slice(0, limit) : badges;
-  // 접힌 수는 **거른 뒤가 아니라 전부**에서 센다 — 빼 둔 요금 줄이 `+N` 에 안 들어가면 "더 있다" 가 거짓이 된다.
-  // 요금 한 줄이 말해 뺀 칩은 숨긴 게 아니라 이미 보이는 것이라 `+N` 에서 뺀다.
-  const hidden = all.length - shown.length - (limit && feeInLine ? 1 : 0);
+/**
+ * 상세 원문 위의 조건 칩 — 전부 보여 준다. **카드에서는 칩을 쓰지 않는다**: 목록·근처·지도 시트는 판정 줄 글자(`VerdictLine`)로 말한다
+ * (22 G3.0 · 디자인 감사 A-4). 무엇을 보일지는 둘이 같은 함수(`cardConditions`)로 고른다. 상세 칩 정리는 22 G7.1 몫이다.
+ */
+export function PetBadges({ policy, hideNoInfo = false, sourceText, className = '' }: TPetBadgesProps) {
+  const { shown } = cardConditions({ policy, hideNoInfo, sourceText });
+  if (shown.length === 0) return null;
 
   return (
     <ul className={`flex flex-wrap items-center gap-1 ${className}`}>
@@ -114,8 +55,6 @@ export function PetBadges({ policy, limit, hideNoInfo = false, hide, lead, sourc
           )}
         </li>
       ))}
-      {/* '+N' 만으론 무엇을 접었는지 몰랐다(14 W261013.14l) — 칩이 서는 곳(카드·근처 장소)은 전부 상세로 가는 링크라 거기서 다 보인다. */}
-      {hidden > 0 && <li className="whitespace-nowrap text-xs font-semibold text-tertiary">조건 {hidden}개 더</li>}
     </ul>
   );
 }

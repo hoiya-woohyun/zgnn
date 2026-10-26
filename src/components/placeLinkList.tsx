@@ -1,20 +1,18 @@
 import Link from 'next/link';
-import { Badge } from './base/badges';
-import { EligibilityBadge } from './eligibilityBadge';
-import { TownChip } from './townChip';
-import { categoryLabel } from '../lib/category';
+import { VerdictText } from './verdictLine';
 import type { TEligibility } from '../lib/eligibility';
-import { TYPE_META, type TPlaceEntry } from '../lib/places';
+import { placeMetaLine } from '../lib/placeMetaLine';
+import type { TPlaceEntry } from '../lib/places';
 
 type TPlaceLinkListProps = {
   places: TPlaceEntry[];
   /**
    * 줄 끝에 붙일 짧은 표식(없으면 null). 한 목록 안에서 성격이 다른 곳이 섞일 때만 넘긴다 — 홈 히어로 시트의 '야외만'(14 W261013.2).
-   * 색은 판정 `cond` 배지와 같은 앰버다(야외만이라는 조건이 남아 있다, `ELIGIBILITY_META`). 안 넘기면 예전 줄 그대로다.
+   * 조건이라 색 없는 글자다(판정 줄의 '갈 수 있어요 · 야외 자리만' 과 같은 말, 22 G3.0). 안 넘기면 예전 줄 그대로다.
    */
   tagOf?: (place: TPlaceEntry) => string | null;
   /**
-   * 넘기면 줄 끝에 판정 배지(목록·지도 시트와 같은 `EligibilityBadge`). 판정이 섞여 있는 목록만 넘긴다 — 지도의 '지도에 위치가 없는 N곳'
+   * 넘기면 줄 끝에 판정 글자(목록·지도 시트와 같은 `VerdictText`). 판정이 섞여 있는 목록만 넘긴다 — 지도의 '지도에 위치가 없는 N곳'
    * (14 W261007.19: 옆 패널 줄엔 배지가 있는데 맨 위 이 줄에만 없었다). 둘러보기 야외 차선·홈 히어로는 전부 같은 판정이라 넘기지 않는다.
    * 강아지가 없으면 null 이 와서 예전 줄 그대로다.
    */
@@ -41,18 +39,11 @@ export function PlaceLinkList({ places, tagOf, eligibilityMap }: TPlaceLinkListP
             <Link href={`/place/${place.id}`} className="flex min-h-11 items-center gap-2 py-2">
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-semibold text-primary">{place.name}</span>
-                <span className="mt-0.5 flex items-center gap-1.5">
-                  <TownChip town={place.region.town} type={place.type} />
-                  <span className="truncate text-xs text-tertiary">
-                    {categoryLabel(place.category, TYPE_META[place.type].label, place.type)}
-                  </span>
-                  {tag && (
-                    <Badge type="color" size="sm" color="orange" className="shrink-0">
-                      {tag}
-                    </Badge>
-                  )}
-                  {/* 줄을 꺾지 않는다 — 넘치면 종류 글자가 줄어든다. 지도 패널 머리 칸이라 줄이 높아지면 아래 목록이 그만큼 밀린다. */}
-                  {eligibility && <EligibilityBadge eligibility={eligibility} className="shrink-0" />}
+                {/* 메타·표식·판정이 한 줄 — 줄을 꺾지 않고 메타 글자가 줄어든다. 지도 패널 머리 칸이라 줄이 높아지면 아래 목록이 그만큼 밀린다. */}
+                <span className="mt-0.5 flex min-w-0 items-baseline gap-1.5 text-xs text-tertiary">
+                  <span className="min-w-0 truncate">{placeMetaLine(place)}</span>
+                  {tag && <span className="shrink-0">· {tag}</span>}
+                  {eligibility && <VerdictText eligibility={eligibility} className="shrink-0" />}
                 </span>
               </span>
               <span className="shrink-0 text-sm text-tertiary" aria-hidden="true">

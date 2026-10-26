@@ -15,9 +15,9 @@ const judged = (level: TEligibility['level'], rule?: string): TEligibility => ({
 });
 
 describe('mapPageMarkerDot — 판정 → 원 오른쪽 아래 점', () => {
-  it("'확인 필요' 와 '야외 자리만'(C1) 은 같은 주황 점 — 목록 배지가 같은 색으로 묶는 둘이다", () => {
+  it("'확인 필요' 는 주황 점, '야외 자리만'(C1) 은 점이 없다 — 목록이 '갈 수 있어요 · 야외 자리만' 이라고 말한다(22 G3.0)", () => {
     expect(mapPageMarkerDot(judged('cond', 'C6'))).toBe('cond');
-    expect(mapPageMarkerDot(judged('cond', 'C1'))).toBe('cond');
+    expect(mapPageMarkerDot(judged('cond', 'C1'))).toBeNull();
   });
 
   it('정보 없음은 회색 점', () => {
@@ -30,10 +30,16 @@ describe('mapPageMarkerDot — 판정 → 원 오른쪽 아래 점', () => {
     expect(mapPageMarkerDot(undefined)).toBeNull();
   });
 
-  it('점 색은 목록 판정 배지의 앞 점과 같은 값이다(theme.css 와 대 본다 — data URI 라 hex 를 한 번 더 적었다)', () => {
+  it('점 색은 목록 판정 글자색과 같은 값이다(theme.css 토큰 사슬을 따라간다 — data URI 라 hex 를 한 번 더 적었다)', () => {
     const theme = readFileSync(new URL('../styles/theme.css', import.meta.url), 'utf8');
-    expect(theme).toContain(`--color-orange-500: ${MARKER_DOT_COLOR.cond};`);
-    expect(theme).toContain(`--color-neutral-500: ${MARKER_DOT_COLOR.unknown};`);
+    // 첫 선언(밝은 테마)만 본다 — 어두운 테마 덮어쓰기는 뒤에 있다.
+    const valueOf = (name: string): string => {
+      const value = theme.match(new RegExp(`${name}:\\s*([^;]+);`))?.[1].trim() ?? '';
+      const ref = value.match(/^var\((--[\w-]+)\)$/)?.[1];
+      return ref ? valueOf(ref) : value;
+    };
+    expect(valueOf('--color-text-warning-primary')).toBe(MARKER_DOT_COLOR.cond);
+    expect(valueOf('--color-text-tertiary')).toBe(MARKER_DOT_COLOR.unknown);
   });
 });
 

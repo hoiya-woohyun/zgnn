@@ -1,17 +1,14 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { EligibilityBadge } from './eligibilityBadge';
-import { PetBadges } from './petBadges';
 import { PlaceThumb } from './placeThumb';
 import { SaveButton } from './saveButton';
 import { SavedNoteLine } from './savedNoteLine';
-import { TownChip } from './townChip';
-import { categoryLabel } from '../lib/category';
-import { distanceLabel } from '../lib/distanceSort';
+import { VerdictLine } from './verdictLine';
 import { primaryReason, verdictHidesBadge } from '../lib/eligibility';
 import { formatStayPrice } from '../lib/format';
 import { freshnessShortLabel } from '../lib/placeFreshness';
-import { TYPE_META, type TPlaceEntry } from '../lib/places';
+import { placeMetaLine } from '../lib/placeMetaLine';
+import type { TPlaceEntry } from '../lib/places';
 import { useToday } from '../hooks/useToday';
 import { useDogCount, useDogMaxWeightKg, useEligibility } from '../store/useDogEligibility';
 import { CARD_SURFACE } from './cardSurface';
@@ -23,7 +20,7 @@ type TPlaceCardProps = {
   distanceKm?: number;
   /**
    * 목록 머리가 이미 한 번 말한 근거 문장(`placesPageRepeatedReason`). 이 카드의 근거가 그 문장과 같으면 줄을 뺀다 —
-   * 식당 34곳 중 29곳이 같은 문장을 되풀이했다(14 W261006.5). 판정 배지와 원문 칩("케이지 필요")은 그대로 남는다.
+   * 식당 34곳 중 29곳이 같은 문장을 되풀이했다(14 W261006.5). 판정 글자와 원문 조건("케이지 필요")은 그대로 남는다.
    */
   hideReasonText?: string;
   /** 하트 **왼쪽**에 함께 서는 버튼(저장 화면의 메모 연필). 이름 줄 오른쪽 여백이 그만큼 넓어진다. */
@@ -34,9 +31,9 @@ type TPlaceCardProps = {
    */
   noteEditor?: ReactNode;
   /**
-   * 카드 **안** 오른쪽 아래, 배지 줄 끝에 서는 것(저장 화면의 길찾기 S 버튼). 카드가 링크라 그 안에 링크를 넣을 수 없어
-   * 하트처럼 카드 위에 겹쳐 세우고, 배지 줄은 그만큼 오른쪽을 비우고 버튼 높이(h-8)를 바닥으로 갖는다 — 배지와 버튼이 한 줄에 선다.
-   * 비우는 폭(`pr-25`)은 '네이버 길찾기' S 버튼(아이콘 없이 390 에서 96px) + 배지 간격 4px 다 — 버튼이 넓어지면 이 값도 같이 올린다.
+   * 카드 **안** 오른쪽 아래, 판정 줄 끝에 서는 것(저장 화면의 길찾기 S 버튼). 카드가 링크라 그 안에 링크를 넣을 수 없어
+   * 하트처럼 카드 위에 겹쳐 세우고, 판정 줄은 그만큼 오른쪽을 비우고 버튼 높이(h-8)를 바닥으로 갖는다 — 판정 줄과 버튼이 한 줄에 선다.
+   * 비우는 폭(`pr-25`)은 '네이버 길찾기' S 버튼(아이콘 없이 390 에서 96px) + 간격 4px 다 — 버튼이 넓어지면 이 값도 같이 올린다.
    */
   cornerAction?: ReactNode;
   /** 카드 **밖** 바로 밑 한 줄(저장 화면의 날짜 고르기·순서 버튼). 카드는 링크라 그 안에 컨트롤을 못 넣는다. */
@@ -47,12 +44,11 @@ type TPlaceCardProps = {
  * 목록 카드.
  *
  * 장소 사진이 없는 것이 기본 상태라 이름과 특징 문장이 카드를 이끌고, 타입 색 타일과
- * 읍면 칩이 종류·위치를 알려준다. 반려동물 조건은 앞 세 개만 배지로 보여준다 —
+ * 메타 한 줄('펜션 · 구좌읍 · 10월 확인')이 종류·위치를 알려준다. 반려동물 조건은 앞 몇 개만 판정 줄에 글자로 —
  * 전부 늘어놓으면 카드마다 높이가 크게 달라져 목록을 훑기 어려워진다.
  *
- * 우리 강아지 프로필이 있으면(`useEligibility`) 판정 배지를 배지 줄 맨 앞에 얹고, 파서 배지는
- * 그만큼 줄여 카드 높이(총 배지 개수)를 그대로 유지한다. 프로필이 없으면 이 훅은 null 을
- * 돌려주므로 카드는 지금과 완전히 같은 모습이다.
+ * 우리 강아지 프로필이 있으면(`useEligibility`) 판정 글자를 판정 줄 맨 앞에 얹고, 조건은 그만큼 줄인다.
+ * 프로필이 없으면 이 훅은 null 을 돌려주므로 조건 글자만 선다.
  */
 export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEditor, cornerAction, footer }: TPlaceCardProps) {
   const eligibility = useEligibility(place);
@@ -69,15 +65,8 @@ export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEdit
         <PlaceThumb src={place.cover ?? place.images[0]} type={place.type} />
         <div className={cx('min-w-0 flex-1', actions ? 'pr-26' : 'pr-11')}>
           <p className="text-md font-bold text-primary">{place.name}</p>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            <TownChip town={place.region.town} type={place.type} />
-            <span className="text-sm text-tertiary">
-              {categoryLabel(place.category, TYPE_META[place.type].label, place.type)}
-              {distanceKm !== undefined && ` · ${distanceLabel(distanceKm)}`}
-              {/* 확인 날짜는 상세에만 있었다 — 신뢰가 우리 차별점인데 들어가야 보였다(14 C2610.3). 한 단어로 종류 줄 끝에. */}
-              {verified && ` · ${verified}`}
-            </span>
-          </div>
+          {/* 메타는 색 없는 글자 한 줄 — 읍면 칩이 혼자 한 줄을 먹어 두세 줄로 깨졌다(22 G3.0 · A-16). 확인 날짜도 이 줄 끝(14 C2610.3). */}
+          <p className="mt-1 truncate text-sm text-tertiary">{placeMetaLine(place, { distanceKm, verified })}</p>
         </div>
       </div>
 
@@ -103,20 +92,18 @@ export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEdit
           목록 머리가 같은 문장을 이미 말했으면 빼서, 다른 이유를 가진 카드만 줄이 남게 한다. */}
       {reason && <p className="clamp-1 mt-1 text-xs text-tertiary">{reason.text}</p>}
 
-      <div className={cx('mt-3 flex flex-wrap items-center gap-1', cornerAction && 'min-h-8 pr-25')}>
-        {eligibility && <EligibilityBadge eligibility={eligibility} />}
-        <PetBadges
-          policy={place.policy}
-          // 오른쪽 버튼이 배지 하나 몫을 차지한다 — 하나 덜 보여(나머지는 +N) 배지 줄이 두 줄로 꺾이지 않게.
-          limit={(eligibility ? 2 : 3) - (cornerAction ? 1 : 0)}
-          hideNoInfo={Boolean(eligibility)}
-          // 판정과 반대로 읽히는 ✓ 칩, 머리글·이유 줄이 이미 한 말을 뺀다(14 W261013.1) — 같은 말은 카드에 한 번.
-          hide={eligibility ? verdictHidesBadge(eligibility, place.policy, reason) : undefined}
-          weightKg={weightKg}
-          dogCount={dogCount}
-          feeLine={eligibility?.fee}
-        />
-      </div>
+      {/* 판정 줄 — 판정 글자 + 원문 조건 글자 한 줄(22 G3.0). 조건은 판정과 반대로 읽히거나 머리글·이유 줄이 이미 한 말을 뺀다(14 W261013.1). */}
+      <VerdictLine
+        eligibility={eligibility}
+        policy={place.policy}
+        // 오른쪽 버튼이 줄 끝을 차지한다 — 조건 하나를 덜 보여(나머지는 '외 N개') 말줄임이 조건을 먹지 않게.
+        limit={(eligibility ? 2 : 3) - (cornerAction ? 1 : 0)}
+        hide={eligibility ? verdictHidesBadge(eligibility, place.policy, reason) : undefined}
+        weightKg={weightKg}
+        dogCount={dogCount}
+        feeLine={eligibility?.fee}
+        className={cx('mt-3', cornerAction && 'min-h-8 items-center pr-25')}
+      />
     </>
   );
 

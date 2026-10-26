@@ -10,9 +10,8 @@ import { useMapPageWideLayout } from './useMapPageWideLayout';
 import { BottomSheet } from '@/components/base/bottom-sheet';
 import { Button } from '@/components/base/button';
 import { EmptyState } from '../components/layout/emptyState';
-import { EligibilityBadge } from '../components/eligibilityBadge';
 import { PlaceThumb } from '../components/placeThumb';
-import { TownChip } from '../components/townChip';
+import { VerdictText } from '../components/verdictLine';
 import { normalizeRoute } from '../lib/appRoutes';
 import { dogCallNames } from '../lib/korean';
 import {
@@ -24,6 +23,7 @@ import {
 } from '../lib/mapPageMarkerVerdict';
 import { SHEET_FOCUS_RETURN_TIMEOUT_MS, sheetFocusReturnStep } from '../lib/sheetFocusReturn';
 import { LOCATE_MAP_NOT_READY, LOCATE_NOTICE, locateMe } from '../lib/myLocation';
+import { placeMetaLine } from '../lib/placeMetaLine';
 import { PLACES, PLACE_TYPES, TYPE_COLOR, TYPE_META } from '../lib/places';
 import { useAppStore, useSavedPlaces } from '../store/useAppStore';
 import { useEligibilityMap } from '../store/useDogEligibility';
@@ -305,15 +305,13 @@ export function MapPage() {
                         {place.name}
                       </span>
                       {/*
-                        판정 배지는 목록 탭·지도 시트와 같은 것(14 W261007.19) — 2단이 된 큰 화면에서만 판정이 안 보였다.
-                        줄을 따로 쓰지 않고 동네 칩 뒤에 붙인다: 장소를 고르면 아래 카드가 패널의 절반을 가져가 목록 칸이
-                        한 줄 남짓만 남는데(1280×800), 줄이 71→101px 로 높아지면 고른 줄조차 잘린다. 패널 폭이 고정(360px)이라
-                        "야외 자리에서 갈 수 있어요" 도 한 줄에 들어간다(119곳 실측) — 넘치면 꺾일 뿐 잘리지는 않는다.
+                        판정 글자는 목록 탭·지도 시트와 같은 것(14 W261007.19 · 22 G3.0) — 2단이 된 큰 화면에서만 판정이 안 보였다.
+                        줄을 따로 쓰지 않고 메타 뒤에 붙인다: 장소를 고르면 아래 카드가 패널의 절반을 가져가 목록 칸이
+                        한 줄 남짓만 남는다(1280×800). 넘치면 메타 글자가 말줄임으로 줄고 판정은 줄지 않는다.
                       */}
-                      <span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1">
-                        <TownChip town={place.region.town} type={place.type} />
-                        <span className="text-xs text-tertiary">{TYPE_META[place.type].label}</span>
-                        {eligibility && <EligibilityBadge eligibility={eligibility} />}
+                      <span className="mt-1 flex min-w-0 items-baseline gap-1.5 text-xs text-tertiary">
+                        <span className="min-w-0 truncate">{placeMetaLine(place)}</span>
+                        {eligibility && <VerdictText eligibility={eligibility} className="shrink-0" />}
                       </span>
                     </span>
                   </button>

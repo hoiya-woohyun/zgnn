@@ -4,26 +4,13 @@ import { MessageAlertSquare } from '@untitledui/icons';
 import { Button } from '../components/base/button';
 import { feeUnitNote } from '../lib/dogFee';
 import { dogSubsetLead, dogSubsetWhatIf } from '../lib/dogSubsetWhatIf';
-import { headlineFor, verdictFor, type TEligibilityLevel } from '../lib/eligibility';
+import { headlineFor, verdictFor } from '../lib/eligibility';
 import { needsIndoorChangedLevel } from '../lib/needsIndoorWhatIf';
 import type { TPlaceEntry } from '../lib/places';
 import { useAppStore, useDog } from '../store/useAppStore';
+import { verdictTone, VERDICT_TEXT_CLASS } from '../lib/verdictLine';
 import { useEligibility } from '../store/useDogEligibility';
 import { CARD_SURFACE } from '../components/cardSurface';
-
-/**
- * 머리글 앞의 레벨 색 점. 배지(`EligibilityBadge`)를 쓰지 않는 이유: 배지 라벨이 문장이 되면서
- * ("이용하기 어려워요") 바로 옆 머리글("악동이는 이용하기 어려워요")과 같은 말을 두 번 하게 됐고,
- * 360px 에서는 머리글이 접혀 두 줄까지 차지했다. 색은 배지와 같은 계열을 쓴다 — 목록에서 본
- * 배지 색이 상세에서도 같은 뜻으로 읽혀야 한다(brand=ok · orange=cond · neutral=unknown · slate=hard).
- * 점은 장식이라 aria-hidden — 레벨은 머리글 문장이 이미 말한다.
- */
-const DOT_CLASS: Record<TEligibilityLevel, string> = {
-  ok: 'bg-utility-brand-500',
-  cond: 'bg-utility-orange-500',
-  unknown: 'bg-utility-neutral-400',
-  hard: 'bg-utility-slate-600',
-};
 
 /**
  * 상세 화면의 판정 카드. 원문 카드("반려동물 이용") 바로 위에 얹는다.
@@ -33,7 +20,7 @@ const DOT_CLASS: Record<TEligibilityLevel, string> = {
  * unknown 의 U1 근거("동반 조건이 적혀 있지 않아요")는 머리글과 같은 말이라 목록에서 뺀다.
  *
  * 강아지가 없으면 강제 등록 없이 조용한 배너 한 줄만(2026-09-15 리뷰 §1② — 첫 진입 강제
- * 등록은 이탈). 있으면 색 점 + 머리글 + 근거(심각도순, `useEligibility` 가 이미 정렬해 준다).
+ * 등록은 이탈). 있으면 판정 글자색 머리글 + 근거(심각도순, `useEligibility` 가 이미 정렬해 준다).
  * 요금(`I1`)은 판정 근거가 아니라 참고 정보라 아래에 작게 따로 둔다. 같은 info 라도 몸무게 문턱(`I2`)은 근거 목록에 선다.
  *
  * **근거(`evidence`)는 따로 상자를 갖지 않고 이 면 안에 구분선으로 딸린다**(ADR-003 v15). 예전에는 판정·원문이
@@ -92,15 +79,13 @@ export function PlaceDetailEligibilityCard({
       <div className={CARD_SURFACE} data-ev="detail.verdict">
         <div className="p-4">
           {/*
-           * items-start + 점에 mt: 머리글이 두 줄로 접혀도 점은 첫 줄 글자 가운데에 남는다(줄 높이 7.5 의 가운데 − 점 2.5 의 반).
            * 판정 문장은 상세에서 가장 큰 본문 글자다 — 절 제목(text-lg)·1박 요금(text-lg)보다 크다. 이 화면이 답하는 것이 이것이다.
+           * 앞의 레벨 색 점을 걷고 문장을 판정 글자색으로 칠한다 — 목록·근처·지도와 같은 색 표(`VERDICT_TEXT_CLASS`, 22 G3.0).
+           * 야외 자리만 되는 곳은 '갈 수 있어요' 색이다(목록의 '갈 수 있어요 · 야외 자리만').
            */}
-          <div className="flex items-start gap-2">
-            <span aria-hidden="true" className={`mt-2.5 size-2.5 shrink-0 rounded-full ${DOT_CLASS[eligibility.level]}`} />
-            <p className="text-xl font-bold text-primary">
-              {verdictFor(dog.dogs.map((d) => d.name), eligibility)}
-            </p>
-          </div>
+          <p className={`text-xl font-bold ${VERDICT_TEXT_CLASS[verdictTone(eligibility)]}`}>
+            {verdictFor(dog.dogs.map((d) => d.name), eligibility)}
+          </p>
 
           {mainReasons.length > 0 && (
             <ul className="mt-3 space-y-1.5">

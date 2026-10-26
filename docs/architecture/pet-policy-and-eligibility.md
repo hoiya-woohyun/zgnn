@@ -1,6 +1,7 @@
 # 반려동물 이용 조건 파서와 "우리 강아지 갈 수 있나" 판정
 
-> 최종 수정: 2026-10-20 (v77: **'실내 자리 필요' 는 설정이다**(22 A·B review R-2) — 몸무게처럼 앱 전체 판정 입력이라 필터 시트에 스위치로 서도 **초기화(칩 줄·시트 푸터)가 끄지 않는다**(제 칩 ✕ 로만). 설명은 한 줄 '야외만 되는 곳은 어디서나 어려움으로 봐요' — 다른 조건을 가리키는 둘째 줄('갈 수 있는 곳만' 을 골라요 · '실내 동반 OK' 는 …)은 걷었다(설정 밑에서 필터 사용법을 말하면 둘이 한 축으로 읽힌다). 판정은 그대로)
+> 최종 수정: 2026-10-26 (v78: **카드의 판정은 글자 한 줄**(22 G3.0) — 판정 배지·원문 칩·읍면 칩을 걷고 '갈 수 있어요 · 최대 2마리 · 1만원 외 1개'(`VerdictLine`) + 메타 글자 한 줄(`placeMetaLine`). 야외만은 '갈 수 있어요 · 야외 자리만'(판정 `cond` 는 그대로 — 표시만 갈 수 있는 쪽, 셈 `isReachable` 과 같은 말). 조건 고르기(요금 한 줄 · 외 N개)는 `cardConditions` 하나를 카드와 상세 칩이 같이 쓴다)
+> 이전 2026-10-20 (v77: **'실내 자리 필요' 는 설정이다**(22 A·B review R-2) — 몸무게처럼 앱 전체 판정 입력이라 필터 시트에 스위치로 서도 **초기화(칩 줄·시트 푸터)가 끄지 않는다**(제 칩 ✕ 로만). 설명은 한 줄 '야외만 되는 곳은 어디서나 어려움으로 봐요' — 다른 조건을 가리키는 둘째 줄('갈 수 있는 곳만' 을 골라요 · '실내 동반 OK' 는 …)은 걷었다(설정 밑에서 필터 사용법을 말하면 둘이 한 축으로 읽힌다). 판정은 그대로)
 > 이전 2026-10-20 (v76: **원문 조건은 2열 체크박스, 설명은 한 줄**(22 D-8) — 시트 '원문에 적힌 조건' 의 설명 두 문장을 '글에 적힌 곳만 남아요' 한 줄로(축이 판정과 다르다는 것은 섹션 이름 + 이 줄이 말한다). 판정 셈 줄(시트 버튼 위)은 걷었다(D-9) — '실내 자리 필요' 의 결과는 스위치 밑 설명 두 줄이 말로 대신한다. 판정은 그대로)
 > 이전 2026-10-20 (v75: **강아지 기준은 한 축 세 단계**(22 D-6) — 필터 시트의 '갈 수 있는 곳만' · '어려운 곳 숨기기' 두 칩(둘 다 켠 상태는 '갈 수 있는 곳만' 과 같은 목록이라 쓸모없는 조합)을 세그먼트 [전부][어려운 곳 빼고][갈 수 있는 곳만] 하나로(`lib/placesPageDogStep` · 공용 `SegmentedControl`). 걸러 내기는 그대로 두 플래그 — 둘 다 켜져 있으면 더 좁은 '갈 수 있는 곳만' 으로 읽고, 고르면 하나만 남는다. 켠 조건 칩도 그때 숨김을 따로 세우지 않는다. 제목은 강아지 이름('두부 기준'), '실내 자리 필요' 는 스위치 줄 + 설명 두 줄(둘째 줄 '켜요' → '골라요'). 판정은 그대로)
 > 이전 2026-10-20 (v74: **판정 토글 칩에 수를 싣지 않는다**(22 D-5) — '어려운 곳 숨기기 N'(숨기는 수, `hideHardCount`)·'갈 수 있는 곳만 N' 을 걷었다. 옵션마다 개수는 실서비스 0/4, 남는 곳 수는 시트 결과 버튼 한 곳. 판정은 그대로)
@@ -322,8 +323,8 @@ carrier 에 따라 H5/C2/C3/C4 는 배타적이다(정확히 한 갈래만 걸�
 
 ### 화면 반영 (구현됨)
 
-- 목록·지도 카드: 판정 배지 하나를 종류 색 옆에. 정렬은 ok → 야외 → cond → unknown → hard — 야외는 레벨이 아니라 cond 안의 앞자리다(`isOutdoorSeatOnly`, 요약 칸과 같은 순서). 배지 라벨은 문장형("갈 수 있어요 / 확인이 필요해요 / 정보가 없어요 / 이용하기 어려워요"). 판정 배지가 있는 줄에서는 원문 배지 "확인된 정보 없음" 을 뺀다(`PetBadges hideNoInfo`) — 같은 말을 두 번 하지 않기 위해
-  (`src/lib/sortByEligibility.ts`, `src/components/eligibilityBadge.tsx`).
+- 목록·지도 카드: 판정 글자 하나를 판정 줄 맨 앞에(v78 — 배지였다). 정렬은 ok → 야외 → cond → unknown → hard — 야외는 레벨이 아니라 cond 안의 앞자리다(`isOutdoorSeatOnly`, 요약 칸과 같은 순서). 배지 라벨은 문장형("갈 수 있어요 / 확인이 필요해요 / 정보가 없어요 / 이용하기 어려워요"). 판정 배지가 있는 줄에서는 원문 배지 "확인된 정보 없음" 을 뺀다(`PetBadges hideNoInfo`) — 같은 말을 두 번 하지 않기 위해
+  (`src/lib/sortByEligibility.ts`, `src/lib/verdictLine.ts`, `src/components/verdictLine.tsx`).
 - 상세: 판정 + 근거 문구(`reasons[].quote`)를 판정 카드로, 그 아래 원문 카드에서 강조
   (`src/screens/placeDetailEligibilityCard.tsx`).
   **근거 칸이 원문을 그리는 것은 원문 공개(`petPolicyTextPublic`, 시드)인 곳만이다**(v49, ADR-017 결정 13) — 블로그 출처는 원문이 블로거의 문장이라 그 자리에
@@ -425,6 +426,6 @@ v14 의 잔여 병합 그대로다 — AI 목록을 앞에 세우고 파서 줄�
 - 판정: `src/lib/eligibility.ts`, `src/lib/eligibility.test.ts`, `src/lib/eligibilityCounts.ts`(+test — 레벨별 수·이동 수단 what-if)
 - 요금·호칭: `src/lib/dogFee.ts`(+test), `src/lib/korean.ts`(+test)
 - 프로필: `src/types.ts`(`TDogProfile`·`TDogEntry`), `src/lib/dogProfile.ts`(`sanitizeDog` 옛 모양 변환, `maxWeightKg`), `src/store/useAppStore.ts`, `src/store/useDogEligibility.ts`, `src/screens/dogProfilePage.tsx`, [features/dog-profile.md](../features/dog-profile.md)
-- 화면 반영: `src/components/eligibilityBadge.tsx`, `src/lib/sortByEligibility.ts`,
+- 화면 반영: `src/components/verdictLine.tsx`(+ `src/lib/verdictLine.ts`), `src/lib/sortByEligibility.ts`,
   `src/screens/{placeDetailEligibilityCard,placesPageEligibilityToggles,homePage,mapPage,mapPageSheet,placeDetailNearby}.tsx`,
   `src/components/placeCard.tsx`

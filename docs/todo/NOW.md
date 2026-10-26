@@ -112,7 +112,6 @@
 ## 지금 (위에서부터)
 
 - [ ] 🔒 서버 워커 홉에 시간 예산(다음 글 시작 전 경과 ~200초면 멈춤, 서버만) — [20 T11](20-vercel-remote-worker.md) · 왜 지금: 2026-10-10 홉 하나가 258초 — 300초를 넘으면 홉이 끊기고 잠금 틈을 밟는다 · 2026-10-10 22:20 구현 커밋 d1d6a84 — 남은 것: 워커 배포(사용자 허락) → `check.mjs --reset` → 실측(분석 끝 ≤ 4분 · 사슬 이어짐)
-- [ ] 판정은 글자색 넷 · 목록 메타는 글자 한 줄 — [22 G3.0](22-human-design-pass.md) · 왜 지금: 배지 수프 · '야외만' 과 '확인 필요' 가 같은 색(A-4·A-10, 심각도 1·2) — 목록·근처·저장·지도 시트·상세가 한 부품
 - [ ] 빈 상태는 왼쪽 글자 두 줄 + 푸는 행동 하나 — [22 G4](22-human-design-pass.md) · 왜 지금: 가운데 빈 상태 공식(A-5, 심각도 1) — 네 화면이 한 부품
 - [ ] 결과 버튼 하나(둘러보기 필터 시트 'N곳 보기')를 잉크 / 핑크 두 갈래로 `/design-audit propose` — [22 §3](22-human-design-pass.md) · [감도 레퍼런스 §4](../reviews/design-audit/2026-10-20-tone-references.md) · 왜 지금: 🙋 주 행동 색을 고를 재료 — 두 갈래 스펙과 화면을 사용자에게 보인다(정하기 전엔 규칙으로 올리지 않는다)
 
@@ -187,5 +186,7 @@
 ## 발견 (분류 전)
 
 <!-- /next 가 작업 중 찾은 것을 한 줄씩 — 출처: <커밋/파일>. 멈출 때 번호 문서로 옮긴다 -->
+- 목록 메타의 확인일을 '9월 확인'(연도 없이)으로 — 지금 `freshnessShortLabel` 이 연도를 붙일 때가 있다(A-16 대안). `placeFreshness.ts` 몫이라 G3.0 에서 안 건드림 — 출처: src/lib/placeMetaLine.ts
+- theme.css 의 slate(잉크 '어려움') 주석이 지운 `eligibilityBadge` 를 가리킨다 — 쓰는 곳이 없으면 slate 덮어쓰기째 정리 — 출처: src/styles/theme.css:199
 - 22 G1(버튼 평면·반경 3단) `/design-audit review` 받기 — 통과하면 22 G1 을 [x] 로. 둘러보기 목록(`/places/<종류>`)은 7727 이 응답하지 않아 headless 로 못 봤다('어려움 N곳 보기' 구분선 행·다른 종류 줄 r16) — 출처: src/screens/placesPageResults.tsx
 - 운영자 화면(`src/screens/admin*`)의 rounded-xl·rounded-md 는 22 G1 반경 3단 밖에 두었다 — 맞출지 정하기 — 출처: ADR-003 v23
