@@ -6,7 +6,7 @@ import { Expand06 } from '@untitledui/icons';
 import { mapFailureCopy } from '../lib/mapFailureCopy';
 import { loadNaverMaps, onNaverMapsAuthFailure, watchNaverMapInit } from '../lib/naverMap';
 import { pinIcon } from '../lib/naverMapPin';
-import { PLACE_FOCUS_ZOOM, TYPE_META, type TPlaceEntry } from '../lib/places';
+import { TYPE_META, type TPlaceEntry } from '../lib/places';
 import type { TGeo } from '../types';
 
 /**
@@ -14,6 +14,12 @@ import type { TGeo } from '../types';
  * 너무 크게 잡으면 "안 보고 나간 방문" 도 지도를 만들어 이 파일이 늦게 부르는 이유가 사라진다.
  */
 const PRELOAD_MARGIN = '200px 0px';
+
+/**
+ * 미니 지도의 확대 수준(클수록 확대 — `JEJU_ZOOM` 주석). 지도 탭이 장소를 가리킬 때의 `PLACE_FOCUS_ZOOM`(14)은 쓰지 않는다 —
+ * 176px 높이 판에선 그 단계가 길과 바로 옆 가게 이름만 보여, 이 장소가 어느 동네인지 가늠하는 읍·면 이름이 안 보였다(14 W261019.14e).
+ */
+const MINI_MAP_ZOOM = 12;
 
 /**
  * 'idle' 은 아직 부르지 않은 판(화면 밖) — 여기서 "불러오는 중" 을 그리면 스크롤 없이 전체 페이지를 찍은 사람에겐 멈춘 지도로 읽힌다
@@ -81,7 +87,7 @@ export function PlaceDetailMiniMap({ place, geo }: { place: TPlaceEntry; geo: TG
         const center = new maps.LatLng(geo.lat, geo.lng);
         map = new maps.Map(containerRef.current, {
           center,
-          zoom: PLACE_FOCUS_ZOOM,
+          zoom: MINI_MAP_ZOOM,
           draggable: false,
           pinchZoom: false,
           scrollWheel: false,
