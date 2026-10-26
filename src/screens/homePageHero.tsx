@@ -336,11 +336,12 @@ export function HomePageHero({ subtitle, reach, cta }: THomePageHeroProps) {
                 transform: `translate(calc(var(--tx, 0px) * var(--morph)), calc(var(--ty, 0px) * var(--morph))) scale(calc(1 - ${1 - TITLE_SCALE_END} * var(--morph)))`,
               }}
             >
-              {/* 흰 글자 → 본문색 글자. 읽히는 것은 앞 벌 하나다 — 뒷 벌은 같은 글자의 색 복사본이라 aria-hidden. */}
-              <span data-scroll-morph="tone-out" className="block text-white" style={toneOut}>
+              {/* 흰 글자 → 본문색 글자. 읽히는 것은 뒷 벌(본문색) 하나다 — 흰 글자는 다 접히면 `visibility: hidden` 이라 트리에서 빠져
+                  h1 이름이 빈 값이 됐다(14 W261019.15e). 본문색 벌은 투명도만 오르내려 숨지 않으므로 이름이 늘 남는다. */}
+              <span aria-hidden="true" data-scroll-morph="tone-out" className="block text-white" style={toneOut}>
                 강아지랑 제주
               </span>
-              <span aria-hidden="true" data-scroll-morph="tone-in" className="absolute inset-0 text-primary" style={toneIn}>
+              <span data-scroll-morph="tone-in" className="absolute inset-0 text-primary" style={toneIn}>
                 강아지랑 제주
               </span>
             </h1>
