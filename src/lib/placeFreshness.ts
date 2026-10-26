@@ -52,14 +52,22 @@ export function freshnessOf(place: TFreshnessInput, now: number | null): TFreshn
     : { text: `${label}에 확인했어요`, stale };
 }
 
+/** 지금(`now`)의 해 — 한국 날짜 기준(`verifiedAt` 도 KST 날짜라 UTC 로 보면 연말·연초에 하루가 어긋난다). */
+function yearOf(now: number): number {
+  return new Date(now + 9 * 60 * 60 * 1000).getUTCFullYear();
+}
+
 /**
- * 목록 카드·지도 시트의 짧은 꼬리표 — "2026년 9월 확인"(경쟁 비교 C2610.3: 신뢰가 차별점인데 상세에 들어가야 보였다).
- * **해를 항상 붙인다** — 예전엔 올해 것이면 달만("9월 확인")이었는데 "9월에 가라는 건지" 로 읽혔다(seongho-08 · youngja, 14 W261019.18a).
- * 상세의 "2026년 9월에 확인했어요" 와 같은 말이라 지금(`now`)을 볼 일이 없다 — 인자는 호출부(카드·시트)와 호환되게 남긴다.
+ * 목록 카드·지도 시트의 짧은 꼬리표 — "9월 확인"(경쟁 비교 C2610.3: 신뢰가 차별점인데 상세에 들어가야 보였다).
+ * **올해 것이면 달만, 해가 다르면 해를 붙인다**("2025년 12월 확인"). 지금(`now`)을 모르면(정적 첫 프레임) 해를 붙인다 — 올해인지 모르는데 해를 빼면 거짓이 될 수 있다.
+ * 해를 항상 붙이던 때가 있었다(14 W261019.18a — "9월에 가라는 건지" 로 읽혔다). 22 G3.0a 가 메타 한 줄이 말줄임에 먼저 걸리는 것(A-16)을 이유로 되돌렸다:
+ * 올해 것은 해가 군더더기이고, 연도 없는 달이 "가라는 달" 로 읽히는지는 다음 /ux-eval 에서 본다. 상세의 "2026년 9월에 확인했어요" 는 그대로다.
  * 그리지 않는 경우는 `freshnessOf` 와 같다.
  */
 export function freshnessShortLabel(place: TFreshnessInput, now?: number | null): string | null {
   if (!freshnessOf(place, now ?? null) || !place.verifiedAt) return null;
   const label = monthLabel(place.verifiedAt);
-  return label ? `${label} 확인` : null;
+  if (!label) return null;
+  const sameYear = now != null && Number(place.verifiedAt.slice(0, 4)) === yearOf(now);
+  return `${sameYear ? label.replace(/^\d{4}년 /, '') : label} 확인`;
 }

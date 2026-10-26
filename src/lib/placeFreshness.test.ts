@@ -45,10 +45,20 @@ describe('monthLabel', () => {
 });
 
 describe('freshnessShortLabel', () => {
-  it('해를 항상 붙인다 — 올해 것도 "9월 확인" 이 아니라 "2026년 9월 확인"', () => {
-    expect(freshnessShortLabel({ verifiedAt: '2026-09-28' }, now)).toBe('2026년 9월 확인');
+  it('올해 것은 달만, 해가 다르면 해를 붙인다', () => {
+    expect(freshnessShortLabel({ verifiedAt: '2026-09-28' }, now)).toBe('9월 확인');
     expect(freshnessShortLabel({ verifiedAt: '2025-12-20' }, now)).toBe('2025년 12월 확인');
+  });
+
+  it('지금을 모르면(정적 첫 프레임) 해를 붙인다', () => {
     expect(freshnessShortLabel({ verifiedAt: '2026-09-28' }, null)).toBe('2026년 9월 확인');
+    expect(freshnessShortLabel({ verifiedAt: '2026-09-28' })).toBe('2026년 9월 확인');
+  });
+
+  it('해는 한국 날짜로 센다 — UTC 12/31 은 이미 KST 1/1', () => {
+    const newYearKst = new Date('2027-01-01T00:30:00+09:00').getTime();
+    expect(freshnessShortLabel({ verifiedAt: '2026-12-20' }, newYearKst)).toBe('2026년 12월 확인');
+    expect(freshnessShortLabel({ verifiedAt: '2027-01-01' }, newYearKst)).toBe('1월 확인');
   });
 
   it('상세가 날짜를 안 그리는 곳은 여기서도 안 그린다', () => {
