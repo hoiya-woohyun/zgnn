@@ -322,8 +322,8 @@ export function MapPage() {
             })}
           </ul>
 
-          {/* 고른 장소의 미니 카드. 데스크톱에서는 시트 대신 패널 아래에 붙인다. */}
-          {selected && (
+          {/* 고른 장소의 미니 카드. 데스크톱에서는 시트 대신 패널 아래에 붙인다. 모바일에선 이 패널이 display:none 이라 `isWide` 로 갈라 시트 카드가 둘 마운트되지 않게 한다(14 W261019.14c). */}
+          {isWide && selected && (
             <div className="max-h-[52%] overflow-y-auto border-t border-secondary p-3">
               <MapPageSheetCard place={selected} origin={here} />
             </div>
