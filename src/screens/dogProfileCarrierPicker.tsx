@@ -66,7 +66,7 @@ export function DogProfileCarrierPicker({ value, onChange, firstOptionRef }: TDo
                 aria-hidden="true"
                 className={cx(
                   'grid size-5 shrink-0 place-items-center rounded-full border-2',
-                  selected ? 'border-brand-solid' : 'border-secondary',
+                  selected ? 'border-brand-solid' : 'border-field',
                 )}
               >
                 {selected && <span className="size-2.5 rounded-full bg-brand-solid" />}

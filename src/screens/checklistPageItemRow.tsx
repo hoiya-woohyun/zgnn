@@ -78,6 +78,8 @@ export function ChecklistPageItemRow({ item, checked, onToggleChecked, onOpenDet
             )}
           >
             {item.name}
+            {/* 공백 글자가 있어야 접근 이름이 "방한용품 겨울" 로 갈라 읽힌다(margin 은 이름에 안 든다 — 14 W261019.15g). */}
+            {seasonTag && ' '}
             {seasonTag && <span className="ml-1.5 text-xs font-medium text-tertiary">{seasonTag}</span>}
           </span>
           <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-fg-quaternary" />
