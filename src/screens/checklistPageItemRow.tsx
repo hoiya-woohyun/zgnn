@@ -20,11 +20,11 @@ type TChecklistPageItemRowProps = {
 };
 
 /**
- * 준비물 한 줄 — 이름을 누르면 시트(`ChecklistPageItemSheet`), 오른쪽 상자를 누르면 챙김(ADR-009 v4).
+ * 준비물 한 줄 — 줄 본체(이모지·이름·상자)를 누르면 챙김, 오른쪽 › 를 누르면 시트(`ChecklistPageItemSheet`, ADR-009 v4.3).
  *
- * 14 W261006.8 은 줄 본체를 체크로 줬다(이름을 누르면 펼쳐져서, 체크하려던 사람이 이유를 펼치고 있었다).
- * v4 에서 그 반대가 됐다 — 탭이 "물건을 찾아 갖고 있는지 표시하는 곳" 이 되며 줄이 펼침 없이 한 줄이 됐고,
- * 체크는 할 일 목록의 관례대로 오른쪽 끝 상자 하나(44px)에 둔다. 이름을 누르면 무엇인지·어디서 사는지가 뜬다.
+ * 14 W261006.8 은 줄 본체를 체크로 줬고, v4 가 이름을 시트로 뒤집었다. 그러자 4/6 평가자가 체크하려다 시트를 열었고
+ * (장소 화면의 칩은 누르면 체크라 둘이 반대로 움직였다) 14 W261010.17 에서 다시 본체 = 체크로 돌렸다.
+ * 시트는 지우지 않고 › 한 칸(44px)에 둔다 — 이유·사는 곳을 찾는 사람은 적고 체크하는 사람이 많다.
  *
  * 계절 물건(튜브·방한용품)은 늘 보인다 — 계절로 거르면 검색한 물건이 안 나온다. 대신 이름 옆에 계절을 단다.
  */
@@ -61,40 +61,44 @@ export function ChecklistPageItemRow({ item, checked, onToggleChecked, onOpenDet
   return (
     <li className={CARD_SURFACE}>
       <div className="flex items-center gap-1 p-1">
-        <button
-          type="button"
-          onClick={onOpenDetail}
-          aria-haspopup="dialog"
-          className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-lg px-3 text-left outline-focus-ring transition-colors hover:bg-secondary focus-visible:outline-2"
-        >
-          {/* item.emoji 는 데이터 콘텐츠라 장식용 이모지 금지 규칙의 예외로 그대로 보여준다. */}
-          <span key={hop} className={cx('text-xl', hop > 0 && 'motion-hop')} aria-hidden="true">
-            {item.emoji}
-          </span>
-          <span
-            className={cx(
-              'min-w-0 flex-1 truncate text-md',
-              checked ? 'text-tertiary line-through' : 'text-primary',
-            )}
-          >
-            {item.name}
-            {/* 공백 글자가 있어야 접근 이름이 "방한용품 겨울" 로 갈라 읽힌다(margin 은 이름에 안 든다 — 14 W261019.15g). */}
-            {seasonTag && ' '}
-            {seasonTag && <span className="ml-1.5 text-sm text-tertiary">{seasonTag}</span>}
-          </span>
-          <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-fg-quaternary" />
-        </button>
-
+        {/* 줄 본체가 체크다(14 W261010.17) — 장소 화면의 칩과 같은 쪽. 이유·사는 곳 시트는 오른쪽 › 칸에만 있다. */}
         <AriaCheckbox
           aria-label={`${item.name} 챙김`}
           isSelected={checked}
           onChange={handleToggleChecked}
-          className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-lg outline-none"
+          className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-lg px-3 text-left outline-focus-ring transition-colors hover:bg-secondary focus-visible:outline-2"
         >
           {({ isSelected, isFocusVisible }) => (
-            <CheckboxBase size="md" isSelected={isSelected} isFocusVisible={isFocusVisible} className="field-edge size-6" />
+            <>
+              {/* item.emoji 는 데이터 콘텐츠라 장식용 이모지 금지 규칙의 예외로 그대로 보여준다. */}
+              <span key={hop} className={cx('text-xl', hop > 0 && 'motion-hop')} aria-hidden="true">
+                {item.emoji}
+              </span>
+              <span
+                className={cx(
+                  'min-w-0 flex-1 truncate text-md',
+                  checked ? 'text-tertiary line-through' : 'text-primary',
+                )}
+              >
+                {item.name}
+                {/* 공백 글자가 있어야 접근 이름이 "방한용품 겨울" 로 갈라 읽힌다(margin 은 이름에 안 든다 — 14 W261019.15g). */}
+                {seasonTag && ' '}
+                {seasonTag && <span className="ml-1.5 text-sm text-tertiary">{seasonTag}</span>}
+              </span>
+              <CheckboxBase size="md" isSelected={isSelected} isFocusVisible={isFocusVisible} className="field-edge size-6" />
+            </>
           )}
         </AriaCheckbox>
+
+        <button
+          type="button"
+          onClick={onOpenDetail}
+          aria-haspopup="dialog"
+          aria-label={`${item.name} 이유와 사는 곳`}
+          className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-lg outline-focus-ring transition-colors hover:bg-secondary focus-visible:outline-2"
+        >
+          <ChevronRight aria-hidden="true" className="size-4 text-fg-quaternary" />
+        </button>
       </div>
 
       {/*
