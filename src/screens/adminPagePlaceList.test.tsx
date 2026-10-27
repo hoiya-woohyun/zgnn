@@ -171,6 +171,7 @@ describe('AdminPagePlaceList — 결과·폼이 제자리에(14 W261010.28)', ()
         onArchiveFromReport={noop}
         onApplyVisited={noop}
         onRestore={noop}
+        onPublish={noop}
         onStartEdit={noop}
         onCancelEdit={noop}
         onSave={noop}
@@ -202,6 +203,7 @@ describe('AdminPagePlaceList — 결과·폼이 제자리에(14 W261010.28)', ()
         onArchiveFromReport={noop}
         onApplyVisited={noop}
         onRestore={noop}
+        onPublish={noop}
         onStartEdit={noop}
         onCancelEdit={noop}
         onSave={noop}

@@ -14,7 +14,7 @@ import {
   shownPlaceCount,
   withMovedPlaces,
 } from './adminPlaces';
-import { hasVerifiedColumn, markPlaceVerified, seedVerifyTargets } from './adminPlaces';
+import { publishDraft, publishDraftProblem, hasVerifiedColumn, markPlaceVerified, seedVerifyTargets } from './adminPlaces';
 import type { TPlaceRow } from './adminCandidates';
 
 const place = (patch: Partial<TPlaceRow> = {}): TPlaceRow => ({
@@ -321,6 +321,40 @@ describe('markPlaceVerified · 확인 날짜', () => {
     expect(await markPlaceVerified(client, { id: 'p1', verified_at: null }, '2026-10-01T00:00:00.000Z')).toBe('2026-10-01T00:00:00.000Z');
     expect(writes).toEqual([{ verified_at: '2026-10-01T00:00:00.000Z' }]);
     expect(hasVerifiedColumn([{ id: 'a' }, { id: 'b', verified_at: null }])).toBe(true);
+  });
+});
+
+describe('publishDraft — 초안 게시', () => {
+  const fake = () => {
+    const writes: Record<string, unknown>[] = [];
+    const client = {
+      from: () => ({
+        update: (payload: Record<string, unknown>) => {
+          writes.push(payload);
+          return { eq: () => ({ select: () => ({ single: () => Promise.resolve({ data: { ...payload }, error: null }) }) }) };
+        },
+      }),
+    } as unknown as import('@supabase/supabase-js').SupabaseClient;
+    return { writes, client };
+  };
+  const now = '2026-10-27T01:00:00.000Z';
+
+  it('게시중으로 올리고 기록에는 되살림이 아니라 게시 한 줄', async () => {
+    const { writes, client } = fake();
+    await publishDraft(client, place({ status: 'draft' }), { nowIso: now });
+    expect(writes).toEqual([{ status: 'published', archive_note: '[admin 2026-10-27] 게시' }]);
+  });
+
+  it('지역을 못 읽으면 쓰지 않고 던진다', async () => {
+    const { writes, client } = fake();
+    await expect(publishDraft(client, place({ status: 'draft', region_raw: '' }), { nowIso: now })).rejects.toThrow('지역');
+    await expect(publishDraft(client, place({ status: 'draft', region_raw: '동쪽 구좌읍' }), { nowIso: now })).rejects.toThrow('지역');
+    expect(writes).toEqual([]);
+  });
+
+  it('초안이 아니면 막는다', () => {
+    expect(publishDraftProblem(place({ status: 'published' }))).toContain('게시 대기');
+    expect(publishDraftProblem(place({ status: 'draft' }))).toBeUndefined();
   });
 });
 

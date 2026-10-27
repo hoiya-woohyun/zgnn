@@ -16,7 +16,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { chunkForUrlFilter } from '../../scripts/lib/chunkForUrlFilter.mjs';
 import { appendReviewerNote } from './adminSession';
-import type { TPlaceRow, TPlaceStatus } from './adminCandidates';
+import { regionUsable, type TPlaceRow, type TPlaceStatus } from './adminCandidates';
 import { parsePetPolicy, toPetBadges, withPolicyFacts, type TPetBadge } from './petPolicy';
 
 /**
@@ -201,13 +201,14 @@ export function noteHistory(note: string | null | undefined): string[] {
  * 태그가 `[admin]` 인 것은 `reviewer_note` 와 같은 어법이다(CLI 가 쓰면 `[data:apply]`).
  */
 export function archiveNoteLine(
-  kind: 'archive' | 'restore',
+  kind: 'archive' | 'restore' | 'publish',
   dayIso: string,
   reason?: TArchiveReason,
   note?: string,
 ): string {
   const memo = note && note.trim() ? ` — ${note.trim()}` : '';
   if (kind === 'restore') return `[admin ${dayIso}] 되살림${memo}`;
+  if (kind === 'publish') return `[admin ${dayIso}] 게시${memo}`;
   return `[admin ${dayIso}] 내림 · ${reason ?? '기타'}${memo}`;
 }
 
@@ -276,7 +277,7 @@ async function setPlaceStatus(
     .single();
   if (error)
     throw new Error(
-      `${status === 'archived' ? '등록 해제하지' : '되살리지'} 못했어요 — 다시 눌러 보고, 안 되면 로그아웃하고 다시 로그인해 주세요. (${error.message})`,
+      `${status === 'archived' ? '등록 해제하지' : line.includes('] 게시') ? '게시하지' : '되살리지'} 못했어요 — 다시 눌러 보고, 안 되면 로그아웃하고 다시 로그인해 주세요. (${error.message})`,
     );
   return (data ?? { ...place, status, archive_note }) as TPlaceRow;
 }
@@ -297,6 +298,33 @@ export function restorePlace(
   { nowIso, note }: TPlaceStatusChange,
 ): Promise<TPlaceRow> {
   return setPlaceStatus(client, place, 'published', archiveNoteLine('restore', dayOf(nowIso), undefined, note));
+}
+
+/**
+ * 초안(`게시 대기`)을 게시할 수 없는 까닭 — 순수. 없으면 `undefined`(14 W261010.D7).
+ * 지역 형식 검사는 게시로 가는 다른 두 길(`leadProblem`·`applyApproved.mjs`)과 **같은 `regionUsable`** 이다. 스키마는 `region_raw text not null` 뿐이라
+ * 비어 있거나 괄호가 빠진 지역도 통과하는데, 그대로 게시하면 상세 머리가 '기타' 가 되고 읍·면 칩에서 빠진다.
+ * 막힌 뒤의 길은 막다른 곳이 아니다 — 펼친 줄의 `고치기`(v45)가 지역을 고친다.
+ */
+export function publishDraftProblem(place: Pick<TPlaceRow, 'status' | 'region_raw'>): string | undefined {
+  if (place.status !== 'draft') return '게시 대기 상태인 장소만 게시할 수 있어요.';
+  if (!regionUsable(place.region_raw)) return '지역이 비어 있거나 읽을 수 없어요 — 줄을 펼쳐 고치기에서 지역을 먼저 골라 주세요.';
+  return undefined;
+}
+
+/**
+ * 초안을 게시한다 — `published` 로 올리고 기록에는 `되살림` 이 아니라 `게시` 한 줄을 쌓는다
+ * (내린 적 없는 행에 `되살림` 이 남으면 나중 이력이 `되살림 / 내림 / 되살림` 으로 읽힌다). 지역 검사를 못 지나면 쓰지 않고 던진다.
+ * 사이트에는 다음 빌드부터 보인다(재빌드 트리거는 `published` 가 끼는 변경에 선다).
+ */
+export function publishDraft(
+  client: SupabaseClient,
+  place: TPlaceRow,
+  { nowIso, note }: TPlaceStatusChange,
+): Promise<TPlaceRow> {
+  const problem = publishDraftProblem(place);
+  if (problem) return Promise.reject(new Error(problem));
+  return setPlaceStatus(client, place, 'published', archiveNoteLine('publish', dayOf(nowIso), undefined, note));
 }
 
 /** 원격 `places` 에 `verified_at` 칸이 있나 — `select('*')` 로 읽은 행에 키가 있으면 있다(마이그레이션 `20261001140000`). */

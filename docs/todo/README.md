@@ -289,7 +289,7 @@ flowchart LR
           112번을 계획하지 말고 **30건 배치가 신규 장소를 더 못 만들기 시작하는 곳에서 멈춘다**(86곳 + 제주의 유한한 동반 가능 가게 = 포화가 먼저 온다).
           쪼개는 이유는 세션 창(11.5시간)이 아니라 **구독 5시간 한도**이고, 그 한도는 이 대화와 공유된다.
           🙋 `ANALYZE_MODEL`(기본 `claude-opus-5` vs `claude-haiku-4-5`)은 **첫 5건 출력 품질을 보고** 정한다 — 지금 추측하지 않는다(03 의 🙋 모델)
-[사용자]  pnpm data:review → approve/reject → [Claude] pnpm data:apply --dry-run → [사용자] pnpm data:apply → pnpm data:review status (published 대기 draft) → Studio 에서 published
+[사용자]  pnpm data:review → approve/reject → [Claude] pnpm data:apply --dry-run → [사용자] pnpm data:apply → pnpm data:review status (published 대기 draft) → /admin 등록 완료 칸에서 게시
 [사용자]  후보 20건쯤 검수한 뒤 → AUTO_APPROVE·THRESHOLD·WEIGHT · reviewPriority(검수 순서) 결정(🙋 03)
 [사용자]  Supabase 대시보드 어드바이저 한 번 확인((b) 검증의 마지막 항목)
 [사용자]  **4b: Vercel Deploy Hook 발급 → Supabase Studio 의 Database Webhook 에 그 URL. ← 이제 크리티컬 패스다.**

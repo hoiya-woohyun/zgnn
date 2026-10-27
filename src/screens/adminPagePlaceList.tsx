@@ -92,7 +92,7 @@ type TAdminPagePlaceListProps = {
   /** 방금 한 일의 한 줄(두 칸에 같이 선다 — 줄이 다른 칸으로 옮겨 가므로 "아무 일도 안 났다" 로 보이지 않게). */
   notice?: string;
   patchState: (id: string, patch: Partial<TAdminPagePlaceState>) => void;
-  onChange: (place: TPlaceRow, kind: 'archive' | 'restore', reason?: TArchiveReason, note?: string, block?: TBlockChoice) => void;
+  onChange: (place: TPlaceRow, kind: 'archive' | 'restore' | 'publish', reason?: TArchiveReason, note?: string, block?: TBlockChoice) => void;
   /** 장소 id → 열린 블랙리스트. `undefined` 면 표가 없거나 못 읽었다(칩을 안 그린다). */
   blocks?: Record<string, TPlaceBlock>;
   onSetBlock: (place: TPlaceRow, choice: TBlockChoice) => void;
@@ -402,6 +402,7 @@ export function AdminPagePlaceList({
                   patchState(place.id, { archiving: true, archiveReason: '폐업', error: undefined, done: undefined })
                 }
                 onRestore={() => onChange(place, 'restore')}
+                onPublish={() => onChange(place, 'publish')}
                 onStartEdit={() => patchState(place.id, { editing: true, error: undefined, done: undefined })}
                 onCancelEdit={() => patchState(place.id, { editing: false })}
                 onSave={(patch) => onSavePlace(place, patch)}

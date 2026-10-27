@@ -15,6 +15,7 @@ import {
   placeBadges,
   placeGaps,
   type TArchiveReason,
+  publishDraftProblem,
 } from '../lib/adminPlaces';
 import type { TPlaceRow } from '../lib/adminCandidates';
 import type { TPlaceEditPatch } from '../lib/adminPlaceEdit';
@@ -31,7 +32,7 @@ import { AdminTypeChip } from './adminTypeChip';
 
 /** 장소 한 줄의 화면 상태. 소유자는 `adminPagePlaceList` 고 여기는 받아서 그린다(묶음 카드와 같은 모양). */
 export type TAdminPagePlaceState = {
-  busy?: 'archiving' | 'restoring' | 'saving' | 'blocking' | 'reports';
+  busy?: 'archiving' | 'restoring' | 'publishing' | 'saving' | 'blocking' | 'reports';
   done?: string;
   error?: string;
   /** '내리기' 를 눌러 사유를 고르는 중. */
@@ -100,6 +101,8 @@ type TAdminPagePlaceRowProps = {
   reviewLink?: TReviewLinkCheck;
   onApplyVisited: () => void;
   onRestore: () => void;
+  /** 초안(`게시 대기`)을 `게시중` 으로 — 지역 검사는 `publishDraftProblem` 이 한다. */
+  onPublish: () => void;
   onStartEdit: () => void;
   onCancelEdit: () => void;
   onSave: (patch: TPlaceEditPatch) => void;
@@ -135,6 +138,7 @@ export function AdminPagePlaceRow({
   onCancelArchive,
   onArchive,
   onRestore,
+  onPublish,
   onStartEdit,
   onCancelEdit,
   onSave,
@@ -162,6 +166,7 @@ export function AdminPagePlaceRow({
   const busy = state.busy;
   const archived = place.status === 'archived';
   const why = archived ? noteLineText(lastNoteLine(place.archive_note)) : undefined;
+  const publishProblem = place.status === 'draft' ? publishDraftProblem(place) : undefined;
   const reviewProblem = reviewLinkProblem(reviewLink, place.review_url);
   const badges = placeBadges(place);
   /* 내린 곳의 빠진 정보는 조용히 둔다 — 사이트에 없는 곳이라 고칠 까닭이 없고, 뜨면 되살리기를 찾는 눈을 가린다. */
@@ -282,7 +287,7 @@ export function AdminPagePlaceRow({
           )}
           {(why || place.status === 'draft') && (
             <span className="basis-full text-xs text-tertiary">
-              {why ?? '아직 사이트에 안 나간 곳이에요 — ‘검수 대기’ 에서 이 가게의 후보를 등록하면 사이트에 나가요.'}
+              {why ?? publishProblem ?? '아직 사이트에 안 나간 곳이에요 — ‘게시’ 를 누르면 다음 빌드부터 사이트에 나가요.'}
             </span>
           )}
           {/*
@@ -354,14 +359,24 @@ export function AdminPagePlaceRow({
               </div>
             ) : (
               /*
-               * 초안에 '올리기' 버튼을 두지 않는다. `restorePlace` 를 그대로 쓰면 두 가지가 조용히 틀린다 —
-               * 지역 형식 검사(`leadProblem` 의 `regionUsable`)를 건너뛰어 Studio 에서 만든 행이 '기타' 로 게시되고,
-               * `archive_note` 에 내린 적 없는 행의 `되살림` 이 적힌다. 제대로 막으면 이 칸에는 지역을 고칠 자리가
-               * 없어 막다른 패널이 된다 — 초안을 올리는 길은 '확인할 장소' 의 승인이다(→ docs/todo/06 「열린 것」 F).
+               * 초안의 `게시` — `restorePlace` 를 재활용하지 않고 `publishDraft` 로 올린다(지역 검사 + 기록은 `게시` 한 줄, `되살림` 아님).
+               * 지역을 못 읽으면 버튼이 막히고 까닭이 title 에 선다 — 길은 펼쳐서 고치기(지역)다(→ docs/todo/06 F).
                */
               /* 회색 테두리(`ROW_ACTION` 의 기준 2) — 되돌릴 수 없는 순간(사유를 고른 뒤의 확인 버튼)만 빨강이다. */
               <div className="flex items-center gap-2">
                 {rereadButton}
+                {place.status === 'draft' && (
+                  <Button
+                    color="secondary"
+                    size="sm"
+                    className={ROW_ACTION}
+                    isDisabled={Boolean(busy) || Boolean(publishProblem)}
+                    isLoading={busy === 'publishing'}
+                    onClick={onPublish}
+                  >
+                    게시
+                  </Button>
+                )}
                 <Button color="secondary" size="sm" className={ROW_ACTION} isDisabled={Boolean(busy)} onClick={onStartArchive}>
                   등록 해제
                 </Button>

@@ -55,6 +55,7 @@ import {
   fetchManagedPlaces,
   markPlaceVerified,
   matchesGroupQuery,
+  publishDraft,
   SEED_VERIFIED_AT,
   seedVerifyTargets,
   sortManagedPlaces,
@@ -1067,11 +1068,11 @@ export function AdminPage() {
    * 잠금(`writingRef`)은 후보 쓰기와 같은 것 하나다 — 둘 다 `placesRef` 를 보는데 하나는 그것을 고친다.
    */
   const changePlace = useCallback(
-    async (place: TPlaceRow, kind: 'archive' | 'restore', reason?: TArchiveReason, note?: string, block: TBlockChoice = 'none') => {
+    async (place: TPlaceRow, kind: 'archive' | 'restore' | 'publish', reason?: TArchiveReason, note?: string, block: TBlockChoice = 'none') => {
       const client = clientRef.current;
       if (!client) return;
       if (!beginWrite((message) => patchPlaceState(place.id, { error: message }))) return;
-      patchPlaceState(place.id, { busy: kind === 'archive' ? 'archiving' : 'restoring', error: undefined });
+      patchPlaceState(place.id, { busy: kind === 'archive' ? 'archiving' : kind === 'publish' ? 'publishing' : 'restoring', error: undefined });
       try {
         let updated: TPlaceRow;
         let done: string;
@@ -1082,6 +1083,9 @@ export function AdminPage() {
           patchReportRows(await closeReportsForArchived(client, reportRowsRef.current, place.id, new Date().toISOString()));
           /* `place.status` 는 바꾸기 **전** 상태다 — 초안은 애초에 사이트에 없었으므로 "사라져요" 가 거짓이 된다. */
           done = archiveOutcomeText(place.status === 'draft', outcome);
+        } else if (kind === 'publish') {
+          updated = await publishDraft(client, place, { nowIso: new Date().toISOString() });
+          done = '게시했어요 · 다음 빌드부터 사이트에 보여요';
         } else {
           const outcome = await restoreAndLift(client, place);
           updated = outcome.place;
@@ -1093,9 +1097,9 @@ export function AdminPage() {
         setManaged((prev) => (prev ? sortManagedPlaces(prev.map((row) => (row.id === updated.id ? updated : row))) : prev));
         applyPlaceChange(updated);
         // `place` 는 바꾸기 **전** 행이다 — 원래 칸이 그것으로 원래 자리에 결과 한 줄을 남긴다(`withMovedPlaces`).
-        patchPlaceState(place.id, { busy: undefined, archiving: false, archiveReason: undefined, done, movedFrom: place });
+        patchPlaceState(place.id, { busy: undefined, archiving: false, archiveReason: undefined, done, movedFrom: kind === 'publish' ? undefined : place });
         setPlaceNotice({
-          text: `${place.name} — ${done} · ${kind === 'archive' ? '등록 해제' : '등록 완료'} 칸으로 옮겼어요`,
+          text: kind === 'publish' ? `${place.name} — ${done}` : `${place.name} — ${done} · ${kind === 'archive' ? '등록 해제' : '등록 완료'} 칸으로 옮겼어요`,
           mode: kind === 'archive' ? 'archived' : 'active',
         });
         await loadCounts(client);

@@ -160,7 +160,7 @@ export function formatApplySummary(stats: TApplyStats, { dryRun }: { dryRun?: bo
   const draft = stats.draftWaiting;
   return (
     `${prefix}반영 ${stats.applied}건 (보강 ${stats.patched}${stats.patchedPublished ? ` — published ${stats.patchedPublished}` : ''} · 신규 ${stats.inserted} · 실패 ${stats.failed}${stats.revertedToPending ? ` · pending 되돌림 ${stats.revertedToPending}` : ''})` +
-    ` · published 대기 draft ${draft ?? '?'}곳${(draft ?? 0) > 0 ? ' — Studio 에서 status 를 올려야 화면에 뜬다' : ''}`
+    ` · published 대기 draft ${draft ?? '?'}곳${(draft ?? 0) > 0 ? ' — /admin 등록 완료 칸에서 게시해야 화면에 뜬다' : ''}`
   );
 }
 
