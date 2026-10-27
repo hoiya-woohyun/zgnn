@@ -15,6 +15,7 @@ import {
   reportTraceText,
   suggestTraceText,
   unrecordReport,
+  verdictReasonOfNote,
   VERDICT_REASON_LABEL,
   VERDICT_REASONS,
   visitedLateFailureText,
@@ -36,6 +37,23 @@ describe('recentReportKinds · reportTraceText — 보낸 뒤 상세의 흔적',
   it('고를 때 본 말로 한 줄, 없으면 null', () => {
     expect(reportTraceText(['closed'])).toBe('알려 주셨어요 — ‘문을 닫았어요(폐업·휴업)’. 운영자가 확인할게요.');
     expect(reportTraceText([])).toBeNull();
+  });
+
+  it("'판정이 틀렸어요' 로 보낸 policy 는 고른 이유와 함께 그 창구의 말로 — 다른 종류는 그대로", () => {
+    expect(reportTraceText(['policy'], 'denied')).toBe('알려 주셨어요 — ‘판정이 틀렸어요’(못 들어갔어요). 운영자가 확인할게요.');
+    expect(reportTraceText(['closed', 'policy'], 'fee')).toContain('‘문을 닫았어요(폐업·휴업)’ · ‘판정이 틀렸어요’(요금이 달랐어요)');
+    expect(reportTraceText(['policy'], null)).toBe('알려 주셨어요 — ‘반려동물 조건이 달라요’. 운영자가 확인할게요.');
+    expect(reportTraceText(['closed'], 'denied')).not.toContain('판정이 틀렸어요');
+  });
+
+  it('보낸 행의 앞머리에서 이유를 되읽는다 — buildReport 의 거울', () => {
+    for (const reason of VERDICT_REASONS) {
+      const built = buildReport({ placeId: 'p1', kind: 'policy', note: reason === 'other' ? '메모' : '', reason });
+      expect(built.ok && verdictReasonOfNote(built.row.note)).toBe(reason);
+    }
+    expect(verdictReasonOfNote('못 들어갔어요 · 10kg')).toBe('denied');
+    expect(verdictReasonOfNote('9월에 닫음')).toBeNull();
+    expect(verdictReasonOfNote(null)).toBeNull();
   });
 });
 

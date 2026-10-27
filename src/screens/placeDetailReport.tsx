@@ -15,7 +15,9 @@ import {
   reportSentText,
   reportTraceText,
   type TReportKind,
+  type TVerdictReason,
   VERDICT_REASONS,
+  verdictReasonOfNote,
   visitedLateFailureText,
 } from '../lib/placeReport';
 import { APP_BUILD, forgetReport, readReportRecord, rememberReport, sendPlaceReportUndoable } from '../lib/placeReportSend';
@@ -59,7 +61,12 @@ export function PlaceDetailReport({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSentKinds(recentReportKinds(readReportRecord(), place.id, Date.now()));
   }, [place.id]);
-  const trace = reportTraceText(sentKinds);
+  /*
+   * '판정이 틀렸어요' 로 보낸 이유 — 기록은 시각뿐이라 보낸 직후 시트가 돌려준 행에서 꺼내 이 화면이 들고 있는다(다시 열면 사라지고 종류 말로 돌아간다).
+   * 장소가 바뀌면 이 컴포넌트가 새로 서므로(상세가 `key` 로) 다른 장소로 새지 않는다.
+   */
+  const [verdictReason, setVerdictReason] = useState<TVerdictReason | null>(null);
+  const trace = reportTraceText(sentKinds, verdictReason);
   /*
    * '정보가 달라요' 를 보낸 순간의 읽어 주기 — 그 시트는 화면 아래 알림을 띄우지 않는다(같은 말의 알림이 바로 위 흔적 줄을 덮었다, haeun-17b).
    * 흔적 줄 자체를 라이브 영역으로 두면 마운트 뒤 기록을 읽어 채울 때도 읽어 버려서, 보낸 때만 채우는 숨은 줄을 따로 둔다.
@@ -153,6 +160,8 @@ export function PlaceDetailReport({
           // 읽어 주는 말은 흔적 문구 그대로 — 종류가 쌓일 때마다 글이 바뀌어야 두 번째 제보도 읽힌다(같은 글이면 라이브 영역이 조용하다).
           const kinds = recentReportKinds(readReportRecord(), place.id, Date.now());
           setSentKinds(kinds);
+          // '정보가 달라요' 로 보낸 policy 는 이유가 없다 — 앞서 판정 시트로 보낸 이유를 이 제보의 것으로 옮기지 않는다.
+          setVerdictReason(null);
           setSentAnnounce(reportTraceText(kinds) ?? '');
           // 읽힌 뒤 비운다 — 남겨 두면 훑을 때 흔적 줄과 두 번 읽히고, 판정 시트로 보낸 뒤엔 묵은 글이 된다(그쪽은 알림이 읽는다).
           window.setTimeout(() => setSentAnnounce(''), 1500);
@@ -174,7 +183,10 @@ export function PlaceDetailReport({
         kinds={VERDICT_REPORT_KINDS}
         reasons={VERDICT_REASONS}
         notePlaceholder="예: 10kg 넘으면 안 된대요 · 실내 자리도 괜찮았어요"
-        onSent={reread}
+        onSent={(row) => {
+          setVerdictReason(verdictReasonOfNote(row.note));
+          reread();
+        }}
       />
     </section>
   );

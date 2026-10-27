@@ -144,12 +144,28 @@ export function recentReportKinds(record: TReportRecord, placeId: string, now: n
 }
 
 /**
+ * 보낸 행의 한 줄 앞머리에서 '판정이 틀렸어요' 의 이유를 되읽는다(`buildReport` 가 `이유 · 한 줄` 로 붙인 것의 거울).
+ * 기록(`zgnn-reports`)은 시각만 들고 있어 이유가 없다 — 보낸 직후 시트가 돌려준 행에서만 꺼낸다.
+ */
+export function verdictReasonOfNote(note: string | null): TVerdictReason | null {
+  if (!note) return null;
+  return VERDICT_REASONS.find((reason) => note === VERDICT_REASON_LABEL[reason] || note.startsWith(`${VERDICT_REASON_LABEL[reason]} · `)) ?? null;
+}
+
+/**
  * 상세 제보 칸의 흔적 한 줄(14 W261007.19 — 보낸 뒤 토스트가 사라지면 아무 일도 없었던 것처럼 보였다).
  * "오늘" 이라 쓰지 않는다 — 기록은 24시간 창이라 어젯밤에 보낸 것도 들어 있다. 종류는 고를 때 본 말 그대로 옮긴다.
+ * '판정이 틀렸어요' 로 보낸 `policy` 는 두 창구가 한 종류를 나눠 쓰므로(14 W261027.3) 이유를 알면 그 창구의 말로 옮긴다 —
+ * 안 그러면 '못 들어갔어요' 를 골랐는데 흔적은 고르지 않은 '반려동물 조건이 달라요' 를 말한다. 이유를 모르면(다시 열었을 때) 종류 말 그대로.
  */
-export function reportTraceText(kinds: readonly TReportKind[]): string | null {
+export function reportTraceText(kinds: readonly TReportKind[], verdictReason?: TVerdictReason | null): string | null {
   if (kinds.length === 0) return null;
-  return `알려 주셨어요 — ${kinds.map((kind) => `‘${REPORT_KIND_LABEL[kind]}’`).join(' · ')}. 운영자가 확인할게요.`;
+  const names = kinds.map((kind) =>
+    kind === 'policy' && verdictReason
+      ? `‘판정이 틀렸어요’(${VERDICT_REASON_LABEL[verdictReason]})`
+      : `‘${REPORT_KIND_LABEL[kind]}’`,
+  );
+  return `알려 주셨어요 — ${names.join(' · ')}. 운영자가 확인할게요.`;
 }
 
 /** 제안 흔적에 옮기는 가게 이름 글자 수 — 한 줄(200자)을 통째로 옮기면 입구 한 줄이 문단이 된다. */
