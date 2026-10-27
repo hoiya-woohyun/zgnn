@@ -5,7 +5,7 @@ import { FilterChip } from '../components/filterChip';
 import { PlaceTypeMark } from '../components/placeTypeMark';
 import { VerdictLine } from '../components/verdictLine';
 import { distanceLabel, pickNearby, placesNearHref } from '../lib/distanceSort';
-import { reasonBadgeLabel, verdictHidesBadge } from '../lib/eligibility';
+import { verdictHidesBadge, verdictLeadBadges } from '../lib/eligibility';
 import { dogCallNames, withJosa } from '../lib/korean';
 import { nearbyPlaces, PLACE_TYPES, TYPE_META, type TPlaceEntry } from '../lib/places';
 import { PLACE_DETAIL_NEARBY_NO_GEO, placeDetailLocationOf } from '../lib/placeDetailLocation';
@@ -100,6 +100,7 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
         <ul className={`mx-4 mt-3 divide-y divide-secondary overflow-hidden md:mx-6 ${CARD_SURFACE}`}>
           {nearby.map(({ place: other, km }) => {
             const eligibility = eligibilityMap?.get(other.id);
+            const lead = eligibility ? verdictLeadBadges(eligibility, other.policy) : undefined;
             return (
               <li key={other.id}>
                 <Link
@@ -116,13 +117,14 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
                     </div>
                     <p className="mt-0.5 truncate text-sm text-tertiary">{placeMetaLine(other)}</p>
                     {/* 판정 옆 조건도 목록 카드와 같은 거르기 — 어려움 옆 '중형견 OK'·요금이 서지 않게(14 W261013.1a). 이유 줄은 없다.
-                        그래서 판정 옆 한 자리는 이유로 읽힌다 — 판정을 정한 조건을 맨 앞에(14 W261013.1c), 거르기엔 넘기지 않는다(유일한 단서다). */}
+                        그래서 판정 옆 칩은 이유로 읽힌다 — 판정을 정한 조건을 맨 앞에(14 W261013.1c), 거르기엔 넘기지 않는다(유일한 단서다).
+                        목록 카드와 같은 `verdictLeadBadges`(14 W261027.1a) — 어려움 근거가 둘이면(무게 + 마릿수) 둘 다 앞서고, 앞선 칩은 `limit` 자리를 늘려 접히지 않는다. */}
                     <VerdictLine
                       eligibility={eligibility}
                       policy={other.policy}
-                      limit={1}
+                      limit={Math.max(1, lead?.length ?? 0)}
                       hide={eligibility ? verdictHidesBadge(eligibility, other.policy, undefined) : undefined}
-                      lead={eligibility ? reasonBadgeLabel(eligibility, other.policy) : undefined}
+                      lead={lead}
                       weightKg={weightKg}
                       dogCount={dogCount}
                       className="mt-0.5"
