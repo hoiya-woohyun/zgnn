@@ -42,3 +42,33 @@ export function AppBarSlot({ children }: { children: ReactNode }) {
   );
   return target ? createPortal(children, target) : null;
 }
+
+/*
+ * 오른쪽 **버튼 자리**. 제목 자리와 달리 읽는 사람이 누를 수 있으므로 `aria-hidden` 이 아니다 — 화면이 보이지 않는 동안
+ * (상세: 본문 제목이 아직 헤더로 오기 전)은 스스로 `visibility: hidden` 으로 눌림·포커스를 막는다(`scrollMorph.css` 의 `hand-off-action`).
+ */
+let actionsSlot: HTMLElement | null = null;
+const actionsListeners = new Set<() => void>();
+
+/** `AppBar` 가 버튼 자리 요소에 ref 로 건다. 떠날 때 null 로 불린다. */
+export function registerAppBarActionsSlot(el: HTMLElement | null) {
+  actionsSlot = el;
+  actionsListeners.forEach((listener) => listener());
+}
+
+const subscribeActions = (listener: () => void) => {
+  actionsListeners.add(listener);
+  return () => {
+    actionsListeners.delete(listener);
+  };
+};
+
+/** 하위 화면 헤더 오른쪽에 화면이 자기 버튼을 그린다(상세: 저장·공유). 셸이 뒤로가기·덮개·스크롤을 그대로 맡는다. */
+export function AppBarActionsSlot({ children }: { children: ReactNode }) {
+  const target = useSyncExternalStore(
+    subscribeActions,
+    () => actionsSlot,
+    () => null,
+  );
+  return target ? createPortal(children, target) : null;
+}

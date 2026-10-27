@@ -3,7 +3,7 @@ import { ArrowLeft } from '@untitledui/icons';
 import { usePathname } from 'next/navigation';
 import { barRevealRange } from '../../lib/stickyMorph';
 import { cx } from '../../utils/cx';
-import { registerAppBarSlot } from './appBarSlot';
+import { registerAppBarActionsSlot, registerAppBarSlot } from './appBarSlot';
 import { goBackInApp } from './appShellStack';
 import { morphModeOf, offsetInScroller, writeMorphMode, writeMorphRange } from './scrollDrivenMorph';
 
@@ -190,6 +190,8 @@ export function AppBar({ backTo, title, actions }: TAppBarProps) {
             </p>
           </div>
         </div>
+        {/* 화면이 채우는 버튼 자리(`AppBarActionsSlot`) — 비면 접힌다. 제목 칸 밖이라 잘리지 않고, 뒤로가기와 같은 44px 로 누른다. */}
+        <div ref={registerAppBarActionsSlot} data-app-bar-actions-slot className="flex shrink-0 items-center empty:hidden" />
         {actions && <div className="ml-auto flex shrink-0 items-center gap-1 pr-1">{actions}</div>}
       </div>
     </header>

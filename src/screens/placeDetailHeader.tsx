@@ -16,6 +16,7 @@ import { TYPE_COLOR_DEEP, TYPE_META, type TPlaceEntry } from '../lib/places';
 import { placeDetailAddressNote } from '../lib/placeDetailLocation';
 import { titleFlight } from '../lib/titleFlight';
 import { PlaceDetailAppBar } from './placeDetailAppBar';
+import { PlaceDetailAppBarActions } from './placeDetailAppBarActions';
 
 const useBeforePaint = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
@@ -55,6 +56,8 @@ export function PlaceDetailHeader({ place }: { place: TPlaceEntry }) {
   const titleRef = useRef<HTMLHeadingElement>(null);
   /** 헤더 쪽 도착점. 포털이라 헤더가 자리를 적은 뒤에야 생긴다 — ref 콜백으로 받아 그때 잰다. */
   const [bar, setBar] = useState<HTMLDivElement | null>(null);
+  /** 헤더 오른쪽 저장·공유 상자(`placeDetailAppBarActions`). 제목과 같은 구간을 받아 같이 나타난다 — 없어도(자리가 비어도) 제목 날기는 그대로다. */
+  const [barActions, setBarActions] = useState<HTMLDivElement | null>(null);
 
   useBeforePaint(() => {
     const header = headerRef.current;
@@ -66,6 +69,7 @@ export function PlaceDetailHeader({ place }: { place: TPlaceEntry }) {
     if (!header || !row || !thumb || !title || !bar || !icon || !barTitle) return;
 
     const mode = morphModeOf();
+    const morphed = barActions ? [header, bar, barActions] : [header, bar];
     let rowTop = 0;
     let rowCenter = 0;
     let barBottom = 0;
@@ -95,7 +99,7 @@ export function PlaceDetailHeader({ place }: { place: TPlaceEntry }) {
         barTitleLeft: barTitleRect.left,
         barTitleFontSize: parseFloat(getComputedStyle(barTitle).fontSize),
       });
-      for (const el of [header, bar]) {
+      for (const el of morphed) {
         if (mode === 'scroll') writeMorphRange(el, flight.range);
       }
       header.style.setProperty('--thumb-tx', `${flight.thumb.tx}px`);
@@ -111,13 +115,14 @@ export function PlaceDetailHeader({ place }: { place: TPlaceEntry }) {
       const morph = rowTop - window.scrollY <= barBottom ? 1 : 0;
       if (morph === last) return;
       last = morph;
-      header.style.setProperty('--morph', String(morph));
-      bar.style.setProperty('--morph', String(morph));
+      for (const el of morphed) el.style.setProperty('--morph', String(morph));
+      // 눌림·포커스를 막는 `visibility` 가 snap 에서는 이 표시를 본다(scrollMorph.css `hand-off-action`).
+      barActions?.toggleAttribute('data-morphed', morph === 1);
     };
 
     measure();
     onScroll();
-    const clearModes = [writeMorphMode(header, mode), writeMorphMode(bar, mode)];
+    const clearModes = morphed.map((el) => writeMorphMode(el, mode));
     const resize = new ResizeObserver(() => {
       measure();
       last = -1;
@@ -132,11 +137,12 @@ export function PlaceDetailHeader({ place }: { place: TPlaceEntry }) {
       window.removeEventListener('resize', measure);
       clearModes.forEach((clear) => clear());
     };
-  }, [bar, place.id]);
+  }, [bar, barActions, place.id]);
 
   return (
     <header ref={headerRef} className="relative px-4 pt-2 md:px-6 md:pt-4" style={{ ['--morph' as string]: 0 }}>
       <PlaceDetailAppBar place={place} ref={setBar} />
+      <PlaceDetailAppBarActions place={place} ref={setBarActions} />
 
       <div ref={rowRef} className="pointer-events-none relative z-[31] flex items-center gap-3">
         <div

@@ -44,6 +44,13 @@
   transform: none !important;
   opacity: 1 !important;
 }
+/* snap: `--morph` 가 0 이면 숨기고(눌림·포커스 포함) 1 이 되면 보인다 — 인라인 opacity 와 짝. 헤더(placeDetailHeader)가 막대에 `data-morphed` 를 적는다. */
+[data-morph='snap'] [data-scroll-morph='hand-off-action'] {
+  visibility: hidden;
+}
+[data-morph='snap'][data-morphed] [data-scroll-morph='hand-off-action'] {
+  visibility: visible;
+}
 @media (prefers-reduced-motion: reduce) {
   [data-morph='snap'] [data-scroll-morph] {
     transition-duration: 0ms;
@@ -85,6 +92,10 @@
   }
   [data-morph='scroll'] [data-scroll-morph='hand-off-in'] {
     animation-name: morph-hand-off-in;
+  }
+  /* 헤더로 옮겨 온 뒤에야 보이고 눌린다 — 투명만으론 눌림이 남아, 맨 위에서 빗나간 탭이 저장을 켠다. */
+  [data-morph='scroll'] [data-scroll-morph='hand-off-action'] {
+    animation-name: morph-hand-off-action;
   }
 
   /* ── HomePageHero ── */
@@ -183,6 +194,18 @@
   }
   100% {
     opacity: 0;
+  }
+}
+
+@keyframes morph-hand-off-action {
+  0%,
+  85% {
+    opacity: 0;
+    visibility: hidden;
+  }
+  100% {
+    opacity: 1;
+    visibility: visible;
   }
 }
 

@@ -15,6 +15,7 @@ export type TPlaceDetailAppBarTargets = { icon: HTMLElement; title: HTMLElement;
  * 그래서 이 줄은 **움직이지 않고 투명도만** 바뀐다 — 본문 쪽이 여기를 겨냥해 날아오므로 자리가 고정이어야 한다.
  *
  * - **아이콘은 타일 없이 글리프만**, 종류 색으로. 날아오는 타일의 글리프가 이 크기까지 줄고, 도착하면 색 판만 빠진다.
+ * - **오른쪽 요약은 md 부터** — 폰에서는 그 오른쪽에 저장·공유 두 버튼(`placeDetailAppBarActions`, 44px 둘)이 서서 이름이 먼저 잘린다. 동네·종류는 본문 제목 밑에 있다.
  * - **동네는 읍면까지만**(방위 `동쪽` 은 뺀다) — 헤더에서는 두루뭉술한 쪽이 빨리 읽힌다. 정확한 주소는 본문에 있다.
  * - 이름이 길면 이름이 줄고 오른쪽은 그대로다 — 오른쪽이 짧고 고정된 말이라 잘리면 뜻이 사라진다.
  */
@@ -35,7 +36,7 @@ export function PlaceDetailAppBar({ place, ref }: { place: TPlaceEntry; ref: Ref
         >
           {place.name}
         </span>
-        <span data-scroll-morph="title-trailing" className="shrink-0 pr-3 text-sm text-tertiary" style={{ opacity: 'var(--morph)' }}>
+        <span data-scroll-morph="title-trailing" className="hidden shrink-0 pr-3 text-sm text-tertiary md:inline" style={{ opacity: 'var(--morph)' }}>
           {place.region.town} · {categoryLabel(place.category, TYPE_META[place.type].label, place.type)}
         </span>
       </div>

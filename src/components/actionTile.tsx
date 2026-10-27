@@ -17,6 +17,11 @@ type TActionTileProps = {
   destination?: string;
   /** 있으면 새 창 링크, 없으면 버튼. */
   href?: string;
+  /**
+   * 이 가게엔 없는 동작(좌표가 없어 길찾기 불가 등) — **칸을 지우지 않고** 같은 자리에 흐리게 세운다. 칸 수가 장소마다 4·5 로 갈리면
+   * 같은 동작의 자리가 바뀐다(14 W261010.6). 둘째 줄이 이유를 말한다(`destination`).
+   */
+  disabled?: boolean;
   onClick?: () => void;
   /**
    * 누른 순간의 모션(저장 하트 — `SaveButton` 의 `saveHeartMotion`). key 가 바뀌면 아이콘이 새로 붙어 한 번 움직인다.
@@ -42,13 +47,13 @@ const ICON_TONE: Record<TActionTileTone, string> = {
  * 나가는 칸만 초록 원이었는데, 흰 아이콘 대비가 기준 미달이었고(ADR-003 v13) "초록 = 앱을 떠난다" 는 따로 배워야 하는 규칙이었다.
  * 이름은 **글자로 끝까지 말한다** — 아이콘만으로는 어디로 가는지 모르고, 앱 밖으로 가는 칸은 둘째 줄이 목적지를 말한다(ADR-003 v19).
  */
-export function ActionTile({ icon: Icon, label, tone = 'neutral', destination, href, onClick, iconMotion, effect, ...aria }: TActionTileProps) {
+export function ActionTile({ icon: Icon, label, tone = 'neutral', destination, href, disabled, onClick, iconMotion, effect, ...aria }: TActionTileProps) {
   const body = (
     <>
       <span
         className={cx(
           'relative grid size-11 place-items-center rounded-full border border-secondary bg-primary transition duration-100 ease-linear',
-          'group-hover:bg-secondary group-active:bg-tertiary',
+          'group-enabled:group-hover:bg-secondary group-enabled:group-active:bg-tertiary',
         )}
       >
         <Icon key={iconMotion?.key} size={20} className={cx(ICON_TONE[tone], iconMotion?.className)} />
@@ -66,6 +71,13 @@ export function ActionTile({ icon: Icon, label, tone = 'neutral', destination, h
   const className =
     'group flex min-w-0 flex-col items-center gap-1.5 rounded-lg py-1 outline-focus-ring focus-visible:outline-2 focus-visible:outline-offset-2';
 
+  if (disabled) {
+    return (
+      <button type="button" disabled className={cx(className, 'opacity-50')} {...aria}>
+        {body}
+      </button>
+    );
+  }
   if (href) {
     return (
       <a href={href} target="_blank" rel="noreferrer" className={className} {...aria}>

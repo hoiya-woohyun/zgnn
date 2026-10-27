@@ -3,12 +3,9 @@
 import { Heart, MarkerPin02, MessageTextSquare01, NavigationPointer01, SearchLg, Share01 } from '@untitledui/icons';
 import { ActionTile } from '../components/actionTile';
 import { SaveBurst, saveHeartMotion, useSaveToggle } from '../components/saveButton';
-import { showAppStatus } from '../lib/appStatus';
 import { naverDirectionsUrl, naverPlaceFindUrl, naverPlaceUrlOf } from '../lib/naverPlaceLink';
-import { shareMethodOf, shareTextFor } from '../lib/placeShare';
 import type { TPlaceEntry } from '../lib/places';
-import { useDog } from '../store/useAppStore';
-import { useEligibility } from '../store/useDogEligibility';
+import { usePlaceShare } from './placeDetailShare';
 
 /**
  * 상세 제목 바로 밑의 액션 줄 — 이 가게로 **할 수 있는 일**을 한 줄에 모은다.
@@ -20,13 +17,13 @@ import { useEligibility } from '../store/useDogEligibility';
  * - 순서는 앱 안 동작(저장·공유) → 앱을 떠나는 것(길찾기·네이버 플레이스 → 후기). 원은 다섯 다 같은 모양이고(저장 켜짐만 채운 하트),
  *   떠나는 칸은 이름 밑 둘째 줄이 목적지를 말한다('네이버 지도' · '네이버' · '블로그'). 예전엔 네이버 칸만 초록 원이었는데 색 하나에 기대
  *   "무슨 초록인가" 를 읽게 했다 — 실서비스는 떠남을 색이 아니라 앱 이름으로 말한다(22 D-15).
- * - 데이터가 없는 칸은 **안 그린다**(자리를 비워 두지 않는다). 칸 폭은 남은 칸끼리 나눈다.
+ * - **칸은 다섯으로 고정**이다. 데이터가 없는 칸(좌표 없는 곳의 길찾기 · 후기 주소가 없는 곳)은 지우지 않고 같은 자리에 흐리게 세운다 —
+ *   칸 수가 갈리면 같은 동작의 자리가 장소마다 바뀌어 눌러 둔 손이 빗나간다(14 W261010.6). 이유는 둘째 줄이 말한다.
+ * - 이 줄이 스크롤로 사라진 뒤에도 저장·공유는 붙는 헤더 오른쪽에 남는다(`placeDetailAppBarActions`).
  * - 전화는 없다 — 전화번호 데이터가 아직 없다. 네이버 플레이스 칸(홈 탭에 전화가 있다)이 그 역할을 대신한다.
  * - 미니 지도·홈페이지 카드는 여기로 오지 않는다. 버튼이 아니라 내용이다.
  */
 export function PlaceDetailActions({ place }: { place: TPlaceEntry }) {
-  const dog = useDog();
-  const eligibility = useEligibility(place);
   const { saved, toggle, burst } = useSaveToggle(place.id);
   /*
    * 네이버 칸은 둘 — **길찾기**와 **플레이스 홈**. 지도 칸이 길찾기인 이유: 플레이스로 보내면 거기서 한 번 더 눌러야 길이 나온다.
@@ -37,30 +34,8 @@ export function PlaceDetailActions({ place }: { place: TPlaceEntry }) {
   const directionsUrl = naverDirectionsUrl(place);
   const placeUrl = naverPlaceUrlOf(place);
 
-  /*
-   * 공유 칸은 **늘 그린다**(지수 ⑤ — 카톡 인앱·데스크톱엔 Web Share 가 없어 버튼이 아예 없었다).
-   * 화면은 빌드 때 미리 그려지므로 렌더 중에 navigator 를 보면 하이드레이션이 어긋난다. 그래서
-   * 칸의 존재는 서버·클라가 같고(항상 있음), 공유냐 복사냐는 누른 순간에만 가른다.
-   */
-  const share = () => {
-    const url = window.location.href;
-    const method = shareMethodOf(navigator);
-    if (method === 'share') {
-      const text = shareTextFor(place.features, dog?.dogs.map((d) => d.name) ?? null, eligibility);
-      // 사용자가 공유 시트를 닫아도 reject 된다 — 실패가 아니라 취소라 조용히 넘긴다.
-      // 소개가 없고 강아지도 없으면 글이 비어(21 S7) 빈 text 를 싣지 않는다 — 제목·주소만 간다.
-      void navigator.share({ title: `${place.name} | 강아지랑 제주`, text: text || undefined, url }).catch(() => undefined);
-      return;
-    }
-    if (method === 'copy') {
-      navigator.clipboard.writeText(url).then(
-        () => showAppStatus('링크를 복사했어요'),
-        () => showAppStatus('링크를 복사하지 못했어요. 주소창의 주소를 보내 주세요'),
-      );
-      return;
-    }
-    showAppStatus('이 브라우저에서는 공유할 수 없어요. 주소창의 주소를 보내 주세요');
-  };
+  // 공유 동작은 붙는 헤더의 공유 버튼과 같은 함수다(`placeDetailShare`) — 칸은 늘 그리고 공유냐 복사냐는 누른 순간에만 가른다.
+  const share = usePlaceShare(place);
 
   return (
     <div role="group" aria-label={`${place.name}에서 할 수 있는 일`} data-ev="detail.actions" className="mt-4 grid max-w-lg auto-cols-fr grid-flow-col gap-1 px-4 md:px-6">
@@ -77,7 +52,12 @@ export function PlaceDetailActions({ place }: { place: TPlaceEntry }) {
         data-ev="detail.save"
       />
       <ActionTile icon={Share01} label="공유" onClick={share} aria-label={`${place.name} 공유하기`} data-ev="detail.share" />
-      {directionsUrl && <ActionTile href={directionsUrl} icon={NavigationPointer01} label="길찾기" destination="네이버 지도" />}
+      {/* 좌표가 없는 곳(122곳 중 3곳)도 칸은 선다 — 칸 수가 4·5 로 갈리면 같은 동작의 자리가 장소마다 바뀐다(14 W261010.6). 이유는 머리의 주소 줄이 말한다. */}
+      {directionsUrl ? (
+        <ActionTile href={directionsUrl} icon={NavigationPointer01} label="길찾기" destination="네이버 지도" />
+      ) : (
+        <ActionTile disabled icon={NavigationPointer01} label="길찾기" destination="좌표 없음" />
+      )}
       {/* 가게 페이지가 없는 곳(38곳)은 검색으로 간다 — 가게 페이지가 아니라서 이름이 '플레이스' 가 아니라 '검색'. '찾기' 였을 땐 옆 칸 '길찾기' 와
           "찾기" 를 나눠 가져 같은 동작이 두 번 든 것처럼 읽혔다(22 review R-4). 둘째 줄은 실제로 열리는 곳(네이버 지도 검색). */}
       {placeUrl ? (
@@ -86,7 +66,11 @@ export function PlaceDetailActions({ place }: { place: TPlaceEntry }) {
         <ActionTile href={naverPlaceFindUrl(place)} icon={SearchLg} label="검색" destination="네이버 지도" />
       )}
       {/* 후기는 전부 네이버 블로그 글이다(122곳) — 목적지는 앱 이름이 아니라 글의 종류로 말한다. */}
-      {place.reviewUrl && <ActionTile href={place.reviewUrl} icon={MessageTextSquare01} label="후기" destination="블로그" />}
+      {place.reviewUrl ? (
+        <ActionTile href={place.reviewUrl} icon={MessageTextSquare01} label="후기" destination="블로그" />
+      ) : (
+        <ActionTile disabled icon={MessageTextSquare01} label="후기" destination="없어요" />
+      )}
     </div>
   );
 }
