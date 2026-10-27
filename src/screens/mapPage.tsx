@@ -275,49 +275,56 @@ export function MapPage() {
             <p className="mt-0.5 text-sm text-tertiary">
               {savedOnly ? `저장한 곳 중 ${withGeo.length}곳 표시 중` : `${withGeo.length}곳 표시 중`}
             </p>
-            {missingGeo.length > 0 && (
-              <div className="mt-2">
-                <p className="text-sm text-tertiary">지도에 위치가 없는 {missingGeo.length}곳</p>
-                <PlaceLinkList places={missingGeo} eligibilityMap={eligibilityMap} />
-              </div>
-            )}
           </div>
 
-          <ul className="flex-1 overflow-y-auto p-2">
-            {withGeo.map((place) => {
-              const active = place.id === selectedId;
-              const eligibility = eligibilityMap?.get(place.id);
-              return (
-                <li key={place.id} ref={(node) => registerItem(place.id, node)}>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedId(place.id)}
-                    aria-pressed={active}
-                    className={cx(
-                      'flex w-full items-start gap-3 rounded-lg p-2.5 text-left transition-colors',
-                      active ? 'bg-brand-primary' : 'hover:bg-secondary',
-                    )}
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-center gap-1.5 text-md font-semibold text-primary">
-                        <PlaceTypeMark type={place.type} />
-                        <span className="min-w-0 truncate">{place.name}</span>
+          {/* 머리는 제목·개수만 고정이고, '지도에 위치가 없는 N곳' 은 아래 행들과 함께 스크롤된다(22 R27.3). 행이 이름 → 판정 → 메타 세 줄이 되자
+              고정 머리의 그 3곳이 280px 를 차지해, 장소를 고르면(카드가 패널 절반) 목록 칸이 반 줄(49px)만 남았다(1280×800). */}
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {missingGeo.length > 0 && (
+              <div className="border-b border-secondary px-4 py-3">
+                <p className="text-sm text-tertiary">지도에 위치가 없는 {missingGeo.length}곳</p>
+                <PlaceLinkList places={missingGeo} eligibilityMap={eligibilityMap} typeMark />
+              </div>
+            )}
+
+            <ul className="p-2">
+              {withGeo.map((place) => {
+                const active = place.id === selectedId;
+                const eligibility = eligibilityMap?.get(place.id);
+                return (
+                  <li key={place.id} ref={(node) => registerItem(place.id, node)}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedId(place.id)}
+                      aria-pressed={active}
+                      className={cx(
+                        'flex w-full items-start gap-3 rounded-lg p-2.5 text-left transition-colors',
+                        active ? 'bg-brand-primary' : 'hover:bg-secondary',
+                      )}
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-1.5 text-md font-semibold text-primary">
+                          <PlaceTypeMark type={place.type} />
+                          <span className="min-w-0 truncate">{place.name}</span>
+                        </span>
+                        {/*
+                          판정 글자는 목록 탭·지도 시트와 같은 것(14 W261007.19 · 22 G3.0) — 2단이 된 큰 화면에서만 판정이 안 보였다.
+                          줄 순서도 목록 행과 같다 — 이름 → 판정 → 메타(22 R27.3 · design-audit D-4). 메타 뒤에 판정을 붙이던 한 줄은
+                          '펜션 · 구좌읍 갈 수 있어요' 로 읽혀 판정이 메타의 일부처럼 보였다. 행이 한 줄 높아진 값은 위 머리를 스크롤로 넘겨 갚는다.
+                        */}
+                        {eligibility && (
+                          <span className="mt-0.5 block text-sm">
+                            <VerdictText eligibility={eligibility} />
+                          </span>
+                        )}
+                        <span className="mt-0.5 block truncate text-sm text-tertiary">{placeMetaLine(place)}</span>
                       </span>
-                      {/*
-                        판정 글자는 목록 탭·지도 시트와 같은 것(14 W261007.19 · 22 G3.0) — 2단이 된 큰 화면에서만 판정이 안 보였다.
-                        줄을 따로 쓰지 않고 메타 뒤에 붙인다: 장소를 고르면 아래 카드가 패널의 절반을 가져가 목록 칸이
-                        한 줄 남짓만 남는다(1280×800). 넘치면 메타 글자가 말줄임으로 줄고 판정은 줄지 않는다.
-                      */}
-                      <span className="mt-1 flex min-w-0 items-baseline gap-1.5 text-sm text-tertiary">
-                        <span className="min-w-0 truncate">{placeMetaLine(place)}</span>
-                        {eligibility && <VerdictText eligibility={eligibility} className="shrink-0" />}
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
 
           {/* 고른 장소의 미니 카드. 데스크톱에서는 시트 대신 패널 아래에 붙인다. 모바일에선 이 패널이 display:none 이라 `isWide` 로 갈라 시트 카드가 둘 마운트되지 않게 한다(14 W261019.14c). */}
           {isWide && selected && (
@@ -570,7 +577,7 @@ export function MapPage() {
         <BottomSheet isOpen={missingOpen && missingGeo.length > 0} onOpenChange={setMissingOpen} label="지도에 없는 곳">
           <p className="pr-8 text-md font-bold text-primary">지도에 위치가 없는 {missingGeo.length}곳</p>
           <p className="mt-0.5 text-sm text-tertiary">좌표를 아직 못 찾아 마커로 못 그렸어요.</p>
-          <PlaceLinkList places={missingGeo} eligibilityMap={eligibilityMap} />
+          <PlaceLinkList places={missingGeo} eligibilityMap={eligibilityMap} typeMark />
         </BottomSheet>
       )}
     </div>

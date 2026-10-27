@@ -79,19 +79,14 @@ export function MapPageSheetCard({ place, origin, onSheetHeight }: TMapPageSheet
             <PlaceTypeMark type={place.type} className="mt-1" />
             <span className="min-w-0">{place.name}</span>
           </p>
-          {/* 목록 카드와 같은 메타 한 줄(22 G3.0) — 거리는 밑 주소 줄이 말한다. */}
-          <p className="mt-1 truncate text-sm text-tertiary">{placeMetaLine(place, { verified })}</p>
-          <p className="mt-1 truncate text-sm text-secondary">
-            {distance && <span className="text-primary">{distance} · </span>}
-            {address}
-          </p>
         </div>
 
-        {/* 목록 카드와 같은 자리의 내 메모(저장 화면에서 적은 것). */}
-        <SavedNoteLine id={place.id} className="mt-2.5" />
+        {/* 목록 카드와 같은 자리의 내 메모(저장 화면에서 적은 것) — 이름 바로 밑. */}
+        <SavedNoteLine id={place.id} className="mt-2" />
 
+        {/* 줄 순서는 목록 행과 같다 — 이름 → 판정 → (이유) → 메타 → 주소(22 R27.3 · design-audit D-4). 시트만 판정이 메타·주소 밑 넷째 줄이었다. */}
         {eligibility && (
-          <div className="mt-2.5">
+          <div className="mt-1">
             <p className="text-sm">
               <VerdictText eligibility={eligibility} />
             </p>
@@ -100,9 +95,16 @@ export function MapPageSheetCard({ place, origin, onSheetHeight }: TMapPageSheet
               판정 옆 한 줄(`truncate`)이 아니라 **판정 밑 줄 + 두 줄까지**(14 W261010.33u): 320px 에서 판정 옆 칸이 좁아
               "두부(12.5kg)는 13kg 미만까지 0…." 는 숫자가, "…이동가방도 되는지 확인해 주세요" 는 할 일이 잘려 나갔다.
             */}
-            {reason && <p className="clamp-2 mt-1.5 text-sm text-secondary">{reason.text}</p>}
+            {reason && <p className="clamp-2 mt-0.5 text-sm text-secondary">{reason.text}</p>}
           </div>
         )}
+
+        {/* 목록 카드와 같은 메타 한 줄(22 G3.0) — 거리는 밑 주소 줄이 말한다. 주소는 목록 카드에 없는 시트 몫이라 맨 끝. */}
+        <p className="mt-1 truncate text-sm text-tertiary">{placeMetaLine(place, { verified })}</p>
+        <p className="mt-0.5 truncate text-sm text-secondary">
+          {distance && <span className="text-primary">{distance} · </span>}
+          {address}
+        </p>
       </Link>
 
       {/* 카드 본문 바깥에 둔다 — 자기도 링크라서 위 <Link> 안에 넣으면 a 안에 a 가 된다. */}

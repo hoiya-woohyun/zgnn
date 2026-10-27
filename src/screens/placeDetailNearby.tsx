@@ -115,8 +115,8 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
                       </p>
                       <span className="shrink-0 text-sm text-secondary">{distanceLabel(km)}</span>
                     </div>
-                    <p className="mt-0.5 truncate text-sm text-tertiary">{placeMetaLine(other)}</p>
-                    {/* 판정 옆 조건도 목록 카드와 같은 거르기 — 어려움 옆 '중형견 OK'·요금이 서지 않게(14 W261013.1a). 이유 줄은 없다.
+                    {/* 줄 순서는 목록 행과 같다 — 이름(+ 거리) → 판정 줄 → 메타(22 R27.3 · design-audit D-4). 근처만 메타가 판정보다 먼저였다.
+                        판정 옆 조건도 목록 카드와 같은 거르기 — 어려움 옆 '중형견 OK'·요금이 서지 않게(14 W261013.1a). 이유 줄은 없다.
                         그래서 판정 옆 칩은 이유로 읽힌다 — 판정을 정한 조건을 맨 앞에(14 W261013.1c), 거르기엔 넘기지 않는다(유일한 단서다).
                         목록 카드와 같은 `verdictLeadBadges`(14 W261027.1a) — 어려움 근거가 둘이면(무게 + 마릿수) 둘 다 앞서고, 앞선 칩은 `limit` 자리를 늘려 접히지 않는다. */}
                     <VerdictLine
@@ -129,6 +129,7 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
                       dogCount={dogCount}
                       className="mt-0.5"
                     />
+                    <p className="mt-0.5 truncate text-sm text-tertiary">{placeMetaLine(other)}</p>
                   </div>
                 </Link>
               </li>
