@@ -24,6 +24,8 @@ import { isTabSwitch, normalizeRoute, ownerRootOf } from './appRoutes';
 const DEPTH_KEY = 'zgnnDepth';
 /** 이 항목이 어느 탭 화면 밑에 쌓여 있나(`ownerRootOf`). 뒤로가기로 돌아온 화면이 제 탭에 불을 다시 켜는 근거다. */
 const ROOT_KEY = 'zgnnRoot';
+/** 이 탭 화면 항목 **밑이 홈**이다 — 비 iOS 에서 홈을 떠날 때 남긴 한 칸(`tabSwitchHistoryOf`). 탭끼리 갈아 끼워도 따라간다. */
+const HOME_BELOW_KEY = 'zgnnHomeBelow';
 
 /** 지금 보고 있는 history 항목의 깊이. 문서를 새로 불러오면 null 부터 다시 센다. */
 let currentDepth: number | null = null;
@@ -38,6 +40,9 @@ const ownerListeners = new Set<() => void>();
 
 /** 다음 stamp 는 새 항목이 아니라 같은 항목을 덮어쓴 것이라는 표시. */
 let replacedPending = false;
+
+/** 홈 위의 탭 항목을 걷으려고 건 `history.back()` — 그 popstate 는 장부 정리라 아무도 그리지 않는다(`keepTabsOffHistory`). */
+let rewindPending = false;
 
 /**
  * 새로 들어온 항목의 깊이를 정한다. window 를 건드리지 않는 순수 함수다.
@@ -142,7 +147,47 @@ export const carryHistoryStamp = (current: unknown, next: unknown, samePath: boo
 };
 
 /**
+ * iPhone·iPad 인가 — 가장자리 뒤로가기(Safari)가 있거나 하드웨어 뒤로가 없는 쪽. iPadOS 는 데스크톱 Safari 로 자신을 소개해 터치로 가른다.
+ * 홈 한 칸(`tabSwitchHistoryOf`)과 브라우저가 이미 그린 뒤로가기(`appShellStack`)가 같은 답을 쓴다.
+ */
+export const isIOS = () =>
+  typeof navigator !== 'undefined' &&
+  (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
+/**
+ * 탭 화면 → 다른 탭 화면 이동을 history 에 어떻게 남기나. window 를 모르는 순수 함수다(ADR-025 결정 7).
+ *
+ *   - `replace` — 갈아 끼운다. 탭 뒤에 탭이 쌓이지 않는다(탭 사이를 뒤로가기로 되짚지 않는다).
+ *   - `push` — 홈에서 떠날 때만, 홈 한 칸을 밑에 남긴다. 안드로이드의 '시작 목적지' 다 — 어느 탭에서든 뒤로 = 홈, 홈에서 뒤로 = 앱 밖.
+ *     홈 '식당' 카드·가운데 지도 버튼 다음 폰 뒤로가기가 빈 화면(앱 밖)이었다(14 W261019.6, 반복 4회).
+ *   - `rewind` — 홈 위의 탭에서 홈으로. 갈아 끼우면 홈 위에 홈이 쌓여 뒤로가기 한 번이 아무 일도 안 하므로, 밑의 홈으로 되감는다.
+ *
+ * **iOS 는 늘 `replace`**(`keepHomeBelow` false). Safari 의 가장자리 뒤로가기가 그 한 칸으로 걷히면 같은 화면의 같은 방향 끌기가
+ * 탭 페이저(왼쪽 이웃 탭)와 두 뜻이 되고, 홈 화면 앱엔 하드웨어 뒤로가 없어 남길 까닭도 없다.
+ */
+export type TTabSwitchHistory = 'replace' | 'push' | 'rewind';
+
+export const tabSwitchHistoryOf = ({
+  from,
+  to,
+  homeBelow,
+  keepHomeBelow,
+}: {
+  from: string;
+  to: string;
+  /** 떠나는 항목 밑이 홈인가(`HOME_BELOW_KEY`). */
+  homeBelow: boolean;
+  keepHomeBelow: boolean;
+}): TTabSwitchHistory => {
+  if (!keepHomeBelow) return 'replace';
+  if (normalizeRoute(from) === '/') return 'push';
+  if (normalizeRoute(to) === '/' && homeBelow) return 'rewind';
+  return 'replace';
+};
+
+/**
  * 탭 화면끼리의 이동은 history 를 **쌓지 않고 갈아 끼운다**(`isTabSwitch`). 문서를 불러올 때 한 번 부른다.
+ * 예외 하나 — 비 iOS 에서 홈을 떠날 때는 홈 한 칸을 밑에 남긴다(`tabSwitchHistoryOf`).
  *
  * 탭바·사이드바·좌우 스와이프·종류 알약·화면 안의 링크(홈의 "지도에서 보기" 등)가 전부 탭 사이를 옮기는데, 그 길마다
  * `replace` 를 챙기게 두면 새 링크 하나가 잊는 날 탭 뒤에 탭이 쌓인다. 그래서 길 하나하나가 아니라 **history 가 쌓이는
@@ -162,17 +207,42 @@ export const keepTabsOffHistory = () => {
 
   const nativePush = history.pushState.bind(history);
   const nativeReplace = history.replaceState.bind(history);
+  const keepHomeBelow = !isIOS();
   history.pushState = (data: unknown, unused: string, url?: string | URL | null) => {
     if (url != null) {
       const to = new URL(url, window.location.href);
       if (to.origin === window.location.origin && isTabSwitch(window.location.pathname, to.pathname)) {
+        const homeBelow = (history.state as Record<string, unknown> | null)?.[HOME_BELOW_KEY] === true;
+        const move = tabSwitchHistoryOf({ from: window.location.pathname, to: to.pathname, homeBelow, keepHomeBelow });
+        if (move === 'push') {
+          nativePush({ ...(data as Record<string, unknown> | null), [HOME_BELOW_KEY]: true }, unused, url);
+          return;
+        }
         markReplacedNavigation();
-        nativeReplace(data, unused, url);
+        // 갈아 끼우는 탭 항목도 밑은 그대로 홈이다 — 표식을 잇는다(Next 의 새 state 엔 우리 값이 없다).
+        nativeReplace(homeBelow && move === 'replace' ? { ...(data as Record<string, unknown> | null), [HOME_BELOW_KEY]: true } : data, unused, url);
+        if (move === 'rewind') {
+          // Next 가 이미 홈을 그렸고 주소·state 도 홈으로 갈아 끼웠다. 남은 것은 밑의 같은 홈으로 한 칸 되감아 위 칸을 앞으로 가기 쪽으로 보내는 일뿐 —
+          // 그 popstate 는 아래 리스너가 삼킨다. Next 를 거쳐 홈 → 홈 이동을 한 번 더 일으키지 않는 것이 요점이다.
+          rewindPending = true;
+          history.back();
+        }
         return;
       }
     }
     nativePush(data, unused, url);
   };
+  // 셸·Next 보다 먼저(모듈 최상단 · capture) 듣는다. 되감기는 같은 주소라 셸의 layout effect 가 다시 새기지 않으므로 여기서 새긴다.
+  window.addEventListener(
+    'popstate',
+    (event) => {
+      if (!rewindPending) return;
+      rewindPending = false;
+      event.stopImmediatePropagation();
+      stampHistoryDepth();
+    },
+    true,
+  );
   // 같은 경로의 replace 가 새긴 값을 지우지 않게(`carryHistoryStamp`). 우리 자신의 새기기는 `url` 없이 부르므로 그대로 지난다.
   history.replaceState = (data: unknown, unused: string, url?: string | URL | null) => {
     const samePath =

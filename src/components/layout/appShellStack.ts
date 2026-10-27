@@ -9,7 +9,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type RefObject,
 } from 'react';
-import { canGoBackInApp, historyDepth, locationSearch, markReplacedNavigation } from '../../lib/appHistory';
+import { canGoBackInApp, historyDepth, isIOS, locationSearch, markReplacedNavigation } from '../../lib/appHistory';
 import { normalizeRoute, parentRouteOf } from '../../lib/appRoutes';
 import { canStartStackBackAt, isStackRoute, stackTransitionOf, type TStackTransition } from '../../lib/stackTransition';
 import {
@@ -61,9 +61,6 @@ type TBackGesture = {
   sheet: HTMLElement | null;
   dim: HTMLElement | null;
 };
-
-const isIOS = () =>
-  /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
 const isStandalone = () =>
   window.matchMedia('(display-mode: standalone)').matches ||

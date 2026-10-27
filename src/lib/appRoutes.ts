@@ -14,6 +14,7 @@
  *
  * 탭 화면은 **맨 위**(스택의 바닥)다. 하위 화면은 들어올 수 있는 탭 화면 밑에 쌓이고(`parentRouteOf` ·
  * `ownerRootOf`), 탭 화면끼리는 history 를 쌓지 않는다(`isTabSwitch`) — 그래서 탭 화면 뒤에는 되돌아갈 탭이 없다.
+ * 예외는 홈 한 칸(비 iOS) — 홈에서 떠난 탭 밑에만 홈이 남는다(`appHistory` 의 `tabSwitchHistoryOf`).
  */
 import { PLACE_TYPES, getPlace } from './places';
 import { BACK_SWIPE_EDGE_PX } from './swipePager';
@@ -63,6 +64,7 @@ export const isRootRoute = (pathname: string): boolean => ROOT_ROUTES.has(normal
 
 /**
  * 탭 화면에서 **다른** 탭 화면으로 옮기는가 — 이 이동은 history 를 쌓지 않는다(`appHistory` 의 `keepTabsOffHistory`).
+ * 비 iOS 에서 홈을 떠날 때만 홈 한 칸을 밑에 남긴다(`tabSwitchHistoryOf`).
  *
  * 탭 화면은 맨 위(스택의 바닥)라 그 뒤에 되돌아갈 앱 안 화면이 없어야 한다. 쌓아 두면 iOS Safari 의 가장자리 뒤로가기가
  * 직전 탭으로 걷히는데, 같은 화면에서 같은 방향(오른쪽)으로 끄는 손가락이 탭 페이저(ADR-014)에선 "왼쪽 이웃 탭" 이다 —
