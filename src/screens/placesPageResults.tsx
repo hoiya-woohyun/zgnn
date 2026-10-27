@@ -430,7 +430,11 @@ export function PlacesPageResults({
               방금 고른 동네를 잃고, 그 동네엔 확인·정보 없음 곳이 남아 있다. "없어요" 가 아니라 '확인된 곳' 이 없다고 말한다(19 §1).
             */
             <EmptyState
-              title={`갈 수 있다고 확인된 ${withJosa(TYPE_META[type].label, '은/는')} 아직 없어요`}
+              title={
+                query.trim()
+                  ? `'${query.trim()}' 중 갈 수 있는 곳은 아직 없어요`
+                  : `갈 수 있다고 확인된 ${withJosa(TYPE_META[type].label, '은/는')} 아직 없어요`
+              }
               action={{ label: `'갈 수 있는 곳만' 풀고 ${reachableReleaseCount}곳 보기`, onClick: onClearOnlyReachable }}
             />
           ) : area && areaReleaseCount > 0 ? (
@@ -510,7 +514,7 @@ export function PlacesPageResults({
                   ? '알려 주셔서 고마워요. 운영자가 찾아보고, 확인되면 올릴게요.'
                   : emptySearch.multiWord
                     ? '단어를 하나만 남겨 찾아보세요 — 모든 단어가 맞아야 나와요. 그래도 없으면 알려 주세요.'
-                    : '알려 주시면 운영자가 찾아보고, 확인되면 올릴게요.'
+                    : '이름 일부나 읍·면 이름으로 찾아보세요.'
               }
               action={{ label: '검색 지우기', onClick: onClearQuery }}
             />

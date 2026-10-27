@@ -156,6 +156,17 @@ export const parentRouteOf = (pathname: string, search = ''): string => {
 };
 
 /**
+ * 앱에 있는 주소인가 — 탭 화면과 하위 화면(`parentRouteOf` 가 아는 것들) 그리고 `/places`·`/admin`.
+ * 아니면 없는 주소(404)다: 탭바가 홈에 불을 켜면 "지금 홈에 있다" 로 읽혀서(`ownerRootOf` 는 모르는 경로를 홈으로 올린다) 불을 끈다.
+ */
+export const isKnownRoute = (pathname: string): boolean => {
+  const path = normalizeRoute(pathname);
+  if (isRootRoute(path)) return true;
+  if (path === '/dog' || path === '/saved' || path === '/saved/plan' || path === '/places') return true;
+  return path.startsWith('/place/') || path === '/admin' || path.startsWith('/admin/');
+};
+
+/**
  * 이 화면이 **어느 탭 화면 밑에 쌓여 있나** — 탭바·사이드바가 불을 켤 자리(탭 화면 주소 하나).
  *
  *   - 탭 화면이면 자기 자신. 탭 화면은 맨 위(스택의 바닥)다.

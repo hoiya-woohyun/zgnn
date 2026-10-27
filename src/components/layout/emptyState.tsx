@@ -3,7 +3,7 @@ import { cx } from '../../utils/cx';
 import { CARD_SURFACE } from '../cardSurface';
 
 const ACTION_CLASS =
-  'inline-flex min-h-11 items-center text-sm font-semibold text-brand-secondary hover:text-brand-secondary_hover';
+  'inline-flex min-h-11 min-w-11 items-center text-sm font-semibold text-brand-secondary hover:text-brand-secondary_hover';
 
 export type TEmptyStateAction = {
   label: string;

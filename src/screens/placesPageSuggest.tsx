@@ -52,7 +52,7 @@ export function PlacesPageSuggest({
         data-ev="places.suggest"
         className="inline-flex min-h-11 items-center text-sm font-semibold text-brand-secondary hover:text-brand-secondary_hover"
       >
-        {sentName ? '한 곳 더 알려 주기' : '여기도 갈 수 있어요 — 알려 주기'}
+        {sentName ? '한 곳 더 알려 주기' : '갈 수 있는 곳 알려 주기'}
       </button>
       <ReportSheet
         isOpen={open}

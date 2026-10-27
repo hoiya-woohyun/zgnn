@@ -6,6 +6,7 @@ import {
   isRootRoute,
   isTabSwitch,
   isWithinPlacesSwipe,
+  isKnownRoute,
   ownerRootOf,
   parentRouteOf,
   swipeIndexOf,
@@ -225,5 +226,17 @@ describe('hasSwipeSurface · takesHorizontalPan', () => {
     expect(takesHorizontalPan('/checklist')).toBe(true);
     expect(hasSwipeSurface(`/place/${cafeId}`)).toBe(false);
     expect(takesHorizontalPan(`/place/${cafeId}`)).toBe(false);
+  });
+});
+
+describe('isKnownRoute — 없는 주소는 탭바에 불을 켜지 않는다', () => {
+  it('탭 화면·하위 화면·운영자 화면은 안다', () => {
+    for (const path of ['/', '/places/cafe/', '/map', '/dog', '/saved/plan', '/place/abc', '/admin/ops', '/settings']) {
+      expect(isKnownRoute(path)).toBe(true);
+    }
+  });
+  it('그 밖은 모른다', () => {
+    expect(isKnownRoute('/nope')).toBe(false);
+    expect(isKnownRoute('/places/spa')).toBe(false);
   });
 });
