@@ -301,12 +301,13 @@ export function PlacesPageResults({
         </p>
       )}
 
-      {/* 목록 전체에 대한 말은 한 상자에 모은다 — 같은 이유(케이지)와 그 출구(이동가방 what-if)가
-          따로 쌓이면 같은 이야기를 두 번 한다. 곳 수를 앞세워 문장이 빠진 카드가 어느 쪽인지 읽히게 한다. */}
+      {/* 목록 전체에 대한 말은 한 덩어리에 모은다 — 같은 이유(케이지)와 그 출구(이동가방 what-if)가
+          따로 쌓이면 같은 이야기를 두 번 한다. 곳 수를 앞세워 문장이 빠진 카드가 어느 쪽인지 읽히게 한다.
+          면 없이 크림 위 글자 + 아래 1px 구분선이다(22 R27.6 · D-8) — 흰 r16 상자가 첫 카드보다 먼저 눈에 걸렸다. */}
       {(repeated || outdoor || whatIf) && (
         <div
           // 마지막 줄이 44px 링크·버튼이면 그 높이가 아래 여백을 대신한다.
-          className={`mx-4 mt-3 space-y-1 rounded-2xl border border-secondary bg-primary px-3 pt-2 text-sm text-secondary md:mx-6 ${whatIf || outdoor ? '' : 'pb-2'}`}
+          className={`mx-4 mt-3 space-y-1 border-b border-secondary pt-3 text-sm text-secondary md:mx-6 ${whatIf || outdoor ? '' : 'pb-3'}`}
         >
           {repeated && (
             <p>
