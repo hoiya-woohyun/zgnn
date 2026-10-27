@@ -591,7 +591,7 @@ export function AdminPage() {
     } catch {
       /*
        * 읽지 못한 것을 **말한다.** 아무 말도 안 하면(undefined) 이 줄이 고치려던 침묵이 그대로 돌아온다 —
-       * "재빌드가 안 걸렸다" 와 "진단기가 없다/고장났다" 가 다시 같은 얼굴이 된다.
+       * "재빌드가 안 시작됐다" 와 "진단기가 없다/고장났다" 가 다시 같은 얼굴이 된다.
        * 지금 가장 흔한 원인이 그것이다: 마이그레이션이 아직 원격에 적용되지 않으면 이 RPC 자체가 없다.
        */
       setRebuild({ tone: 'none', text: '사이트에 올라갔는지 지금은 확인할 수 없어요 — 검수는 계속해도 돼요.' });
@@ -1311,7 +1311,7 @@ export function AdminPage() {
         setManaged((prev) => (prev ? prev.map((row) => (row.id === updated.id ? updated : row)) : prev));
         applyPlaceChange(updated);
         const done =
-          place.status === 'published' ? '고쳤어요 · 다음 빌드부터 사이트에 반영돼요' : '고쳤어요';
+          place.status === 'published' ? '고쳤어요 · 다음 빌드부터 사이트가 갱신돼요' : '고쳤어요';
         patchPlaceState(place.id, { busy: undefined, editing: false, done });
         afterWrite();
       } catch (error) {
@@ -2090,7 +2090,7 @@ export function AdminPage() {
           </button>
         </p>
         {/*
-          * 재빌드가 **정말 걸렸는지** 를 말하는 줄(→ `adminRebuild.ts`). 정상(`ok`)은 회색 글씨다 — 초록은 매번 뜨는 줄에 쓰기에는 센 색이다.
+          * 재빌드가 **정말 시작됐는지** 를 말하는 줄(→ `adminRebuild.ts`). 정상(`ok`)은 회색 글씨다 — 초록은 매번 뜨는 줄에 쓰기에는 센 색이다.
           * **자리를 먼저 잡는다**(2026-10-06, todo/13 T4.1): 이 줄은 목록보다 늦게 읽혀서, 없던 줄이 생기며 탭 줄과 표를 한 줄 아래로 밀었다 —
           * 누르려던 자리가 움직인다. 그래서 읽는 중에도 같은 높이로 서고(흐린 한 마디), 실패(`warn`)일 때는 이 자리를 비워 둔 채 탭 줄 위 띠로 말한다.
           */}

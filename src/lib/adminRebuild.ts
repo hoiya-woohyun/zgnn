@@ -56,7 +56,7 @@ export type TRebuildHeadline = {
 export const RESPONSE_WAIT_LIMIT_MS = 3 * 60 * 1000;
 
 /**
- * 2xx 를 받은 뒤 이만큼 지나면 "1~2분 뒤 보여요" 가 아니라 "반영됐어요" 로 말한다.
+ * 2xx 를 받은 뒤 이만큼 지나면 "1~2분 뒤 보여요" 가 아니라 "갱신됐어요" 로 말한다.
  * 하루 지난 기록에 "1~2분 뒤" 를 붙이던 자리다 — 미래형 문장이 과거 사건에 붙어 지금도 기다려야 하는 것처럼 읽혔다.
  * 10분은 Vercel 빌드(실측 1~2분)에 넉넉한 여유를 둔 값이다. 빌드 결과 자체는 여기서 알 수 없다(훅의 응답은 "접수" 까지다).
  */
@@ -104,7 +104,7 @@ export function agoLabel(fromIso: string, nowMs: number): string {
  *
  * `skipped` 를 건너뛰고 보는 이유: 초안을 고치거나 내린 곳을 또 고치면 빌드를 부르지 않는 것이 정상이고
  * (마이그레이션의 1번), 그 행이 맨 위에 있다고 머리글이 "빌드 안 불렀어요" 로 바뀌면 방금 올린 장소가
- * 반영 중인지를 가려 버린다. 건너뛴 기록은 진단용으로 표에 남아 있다.
+ * 갱신 중인지를 가려 버린다. 건너뛴 기록은 진단용으로 표에 남아 있다.
  *
  * 4xx·5xx 를 따로 말하는 것이 이 함수의 요점이다 — **훅이 폐기되면 그 코드로만 드러난다.** 단 429 는 한도라 따로 가른다.
  */
@@ -145,7 +145,7 @@ export function rebuildHeadline(entries: TRebuildEntry[], nowMs: number): TRebui
     return nowMs - Date.parse(latest.requested_at) > QUEUE_STALL_MS
       ? {
           tone: 'warn',
-          text: `${subject}이 아직 사이트에 반영되지 않았어요(${ago}) — 재빌드 예약이 안 돌고 있어요. Supabase 에서 예약 작업이 켜져 있는지, 매분 실패하고 있지 않은지 확인해 주세요. 바꾼 것은 DB 에 남아 있어요.`,
+          text: `${subject}이 아직 사이트에서 갱신되지 않았어요(${ago}) — 재빌드 예약이 안 돌고 있어요. Supabase 에서 예약 작업이 켜져 있는지, 매분 실패하고 있지 않은지 확인해 주세요. 바꾼 것은 DB 에 남아 있어요.`,
           detail: REBUILD_STALL_DETAIL,
         }
       : {
@@ -157,7 +157,7 @@ export function rebuildHeadline(entries: TRebuildEntry[], nowMs: number): TRebui
   if (latest.hook === 'missing') {
     return {
       tone: 'warn',
-      text: `${subject}이 사이트에 반영되지 않아요(${ago}) — 재빌드를 부를 연결 주소가 저장돼 있지 않아요. 바꾼 것은 DB 에 남아 있어요.`,
+      text: `${subject}이 사이트에서 갱신되지 않아요(${ago}) — 재빌드를 부를 연결 주소가 저장돼 있지 않아요. 바꾼 것은 DB 에 남아 있어요.`,
       detail: REBUILD_MISSING_DETAIL,
     };
   }
@@ -173,7 +173,7 @@ export function rebuildHeadline(entries: TRebuildEntry[], nowMs: number): TRebui
     return stale
       ? {
           tone: 'warn',
-          text: `${subject}이 사이트에 반영됐는지 알 수 없어요(${ago}) — 재빌드를 보냈는데 응답을 못 받았어요. Vercel 배포 목록을 확인해 주세요.`,
+          text: `${subject}이 사이트가 갱신됐는지 알 수 없어요(${ago}) — 재빌드를 보냈는데 응답을 못 받았어요. Vercel 배포 목록을 확인해 주세요.`,
         }
       : { tone: 'waiting', text: `재빌드를 보냈어요(${whenOf(latest, ago)}) · 응답을 기다리고 있어요` };
   }
@@ -181,27 +181,27 @@ export function rebuildHeadline(entries: TRebuildEntry[], nowMs: number): TRebui
   if (status >= 200 && status < 300) {
     /* HTTP 코드는 적지 않는다 — 2xx 는 운영자에게 뜻이 없다. 코드는 실패(4xx·5xx) 문장에만 싣는다(훅 폐기의 유일한 신호다). */
     return nowMs - Date.parse(latest.requested_at) > BUILD_SETTLE_MS
-      ? { tone: 'ok', text: `사이트에 반영됐어요 · 마지막 재빌드 ${whenOf(latest, ago)}` }
-      : { tone: 'ok', text: `재빌드가 걸렸어요(${whenOf(latest, ago)}) — 1~2분 뒤 사이트에 보여요` };
+      ? { tone: 'ok', text: `사이트가 갱신됐어요 · 마지막 재빌드 ${whenOf(latest, ago)}` }
+      : { tone: 'ok', text: `재빌드를 시작했어요(${whenOf(latest, ago)}) — 1~2분 뒤 사이트에 보여요` };
   }
 
   /*
    * 429 는 폐기가 아니라 **한도**다 — Deploy Hook 은 프로젝트당 시간당 60번(Vercel 문서 「Limits」). 트리거가 행마다 한 번씩 부르던 때는
    * 일괄 승인·일괄 고치기 한 번에 닿았다(2026-10-02 실측: 같은 분에 6건 전부 429, 10-06 엔 같은 훅이 201). 지금은 cron 이 묶어 부르므로
    * 분당 한 번이 상한이지만, 쉬엄쉬엄 한 시간 내내 고치면 여전히 닿을 수 있다. 이것을 "훅 폐기" 로 말하면
-   * 운영자가 멀쩡한 훅을 회전한다(BUG-011). 빌드는 DB 전체를 읽으므로 **다음 성공한 호출 하나**가 거절된 변경까지 같이 반영한다.
+   * 운영자가 멀쩡한 훅을 회전한다(BUG-011). 빌드는 DB 전체를 읽으므로 **다음 성공한 호출 하나**가 거절된 변경까지 같이 갱신한다.
    */
   if (status === 429) {
     return {
       tone: 'warn',
-      text: `${subject}이 아직 사이트에 반영되지 않았어요(${ago} · 429) — 한 시간에 재빌드를 60번 넘게 불러 Vercel 이 이번 호출을 거절했어요. 연결 주소는 그대로예요. 다음에 성공하는 재빌드가 이것까지 같이 반영해요 — 한 시간 뒤에도 안 걸리면 게시 중인 장소 하나를 다시 저장해 주세요.`,
+      text: `${subject}이 아직 사이트에서 갱신되지 않았어요(${ago} · 429) — 한 시간에 재빌드를 60번 넘게 불러 Vercel 이 이번 호출을 거절했어요. 연결 주소는 그대로예요. 다음에 성공하는 재빌드가 이것까지 같이 갱신해요 — 한 시간 뒤에도 재빌드가 시작되지 않으면 게시 중인 장소 하나를 다시 저장해 주세요.`,
       detail: REBUILD_LIMIT_DETAIL,
     };
   }
 
   return {
     tone: 'warn',
-    text: `${subject}이 아직 사이트에 반영되지 않았어요(${ago} · ${status}) — Vercel 이 재빌드를 거절했어요. 재빌드 연결 주소가 폐기된 것 같아요. 새 주소를 넣어 주세요.`,
+    text: `${subject}이 아직 사이트에서 갱신되지 않았어요(${ago} · ${status}) — Vercel 이 재빌드를 거절했어요. 재빌드 연결 주소가 폐기된 것 같아요. 새 주소를 넣어 주세요.`,
     detail: `응답 ${status} · ${REBUILD_REVOKED_DETAIL}`,
   };
 }

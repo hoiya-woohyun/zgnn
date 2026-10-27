@@ -601,7 +601,7 @@ function ApproveAfterAsk({
   if (asking) {
     return (
       <div className="basis-full space-y-1.5 border-t border-secondary pt-2">
-        <Situation title="근거 없이 등록할까요?">누르면 다음 빌드에 사이트에 반영돼요.</Situation>
+        <Situation title="근거 없이 등록할까요?">누르면 다음 빌드에 사이트가 갱신돼요.</Situation>
         <Row>
           <TipButton color="secondary" size="sm" isDisabled={Boolean(busy)} isLoading={busy === 'approving'} title={title} onClick={onApprove}>
             네, {label}

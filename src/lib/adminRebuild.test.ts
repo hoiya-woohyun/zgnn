@@ -46,7 +46,7 @@ describe('rebuildHeadline', () => {
     const headline = rebuildHeadline([entry({ hook: 'missing', response_status: null, note: 'Vault 에 …' })], NOW);
     expect(headline.tone).toBe('warn');
     // 결과가 앞, 원인이 뒤다 — 운영자가 읽는 것은 "내가 한 일이 어떻게 됐나" 지 훅의 상태가 아니다.
-    expect(headline.text).toContain('사이트에 반영되지 않아요');
+    expect(headline.text).toContain('사이트에서 갱신되지 않아요');
     // 본문은 운영자 말, 원값은 접힌 상세로.
     expect(headline.text).not.toMatch(/vercel_deploy_hook|Vault|Deploy Hook/);
     expect(headline.detail).toContain('vercel_deploy_hook');
@@ -81,16 +81,16 @@ describe('rebuildHeadline', () => {
 
   it('2xx 면 걸렸다고 말한다', () => {
     const headline = rebuildHeadline([entry({ response_status: 201 })], NOW);
-    expect(headline).toEqual({ tone: 'ok', text: '재빌드가 걸렸어요(2분 전) — 1~2분 뒤 사이트에 보여요' });
+    expect(headline).toEqual({ tone: 'ok', text: '재빌드를 시작했어요(2분 전) — 1~2분 뒤 사이트에 보여요' });
   });
 
   /** 하루 지난 기록에 "1~2분 뒤" 를 붙이면 지금도 기다려야 하는 것처럼 읽힌다. */
-  it('2xx 뒤 충분히 지났으면 반영됐다고 과거로 말한다', () => {
+  it('2xx 뒤 충분히 지났으면 갱신됐다고 과거로 말한다', () => {
     const headline = rebuildHeadline(
       [entry({ response_status: 201, requested_at: new Date(NOW - 24 * 60 * 60 * 1000).toISOString() })],
       NOW,
     );
-    expect(headline).toEqual({ tone: 'ok', text: '사이트에 반영됐어요 · 마지막 재빌드 1일 전' });
+    expect(headline).toEqual({ tone: 'ok', text: '사이트가 갱신됐어요 · 마지막 재빌드 1일 전' });
   });
 
   /*
@@ -139,7 +139,7 @@ describe('rebuildHeadline', () => {
 
   /*
    * `skipped` 를 건너뛰는 이유: 초안을 고치면 빌드를 부르지 않는 것이 정상이고, 그 행이 맨 위에 있다고
-   * 머리글이 바뀌면 방금 올린 장소가 반영 중인지를 가려 버린다.
+   * 머리글이 바뀌면 방금 올린 장소가 갱신 중인지를 가려 버린다.
    */
   it('건너뛴 기록은 넘기고 그 앞의 실제 호출을 말한다', () => {
     const headline = rebuildHeadline(
@@ -150,7 +150,7 @@ describe('rebuildHeadline', () => {
       NOW,
     );
     expect(headline.tone).toBe('ok');
-    expect(headline.text).toContain('재빌드가 걸렸어요');
+    expect(headline.text).toContain('재빌드를 시작했어요');
   });
 
   it('건너뛴 기록만 있으면 왜 안 불렀는지 말한다', () => {
@@ -195,10 +195,10 @@ describe('rebuildHeadline', () => {
     expect(headline.tone).toBe('waiting');
   });
 
-  /** 36곳을 묶은 한 호출이 마지막 장소 하나로만 읽히면 나머지 35곳이 반영됐는지 운영자가 알 수 없다. */
+  /** 36곳을 묶은 한 호출이 마지막 장소 하나로만 읽히면 나머지 35곳이 갱신됐는지 운영자가 알 수 없다. */
   it('여러 곳을 묶은 호출은 수로 말한다 — 마지막 이름 하나로 말하지 않는다', () => {
     const ok = rebuildHeadline([entry({ response_status: 201, place_count: 36 })], NOW);
-    expect(ok).toEqual({ tone: 'ok', text: '재빌드가 걸렸어요(2분 전 · 36곳 묶어 한 번) — 1~2분 뒤 사이트에 보여요' });
+    expect(ok).toEqual({ tone: 'ok', text: '재빌드를 시작했어요(2분 전 · 36곳 묶어 한 번) — 1~2분 뒤 사이트에 보여요' });
 
     const rejected = rebuildHeadline([entry({ response_status: 404, place_count: 36, place_status: 'archived' })], NOW);
     expect(rejected.text).toContain('바꾼 36곳');

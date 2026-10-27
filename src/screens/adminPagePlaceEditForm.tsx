@@ -388,7 +388,7 @@ export function AdminPagePlaceEditForm({
         {!problem && !patch && (
           <span className="text-xs text-tertiary">{changes.length ? '저장해도 사이트 값이 바뀌지 않아요' : '아직 바꾼 칸이 없어요'}</span>
         )}
-        {patch && place.status === 'published' && <span className="text-xs text-tertiary">저장하면 다음 빌드부터 사이트에 반영돼요.</span>}
+        {patch && place.status === 'published' && <span className="text-xs text-tertiary">저장하면 다음 빌드부터 사이트가 갱신돼요.</span>}
       </div>
     </div>
   );
