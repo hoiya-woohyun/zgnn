@@ -49,10 +49,13 @@ export function PlacesPageFilterSheetRegion({ type, town, area, areas, onSelectT
         </p>
       )}
 
-      {/* 줄 간격 10px — 칩의 44px 히트(보이는 36 + 위아래 4)가 줄 사이에서 맞닿지 않게. 8px 면 경계가 반 픽셀 차로 다음 줄 칩에 넘어갔다(320 실측). */}
-      <div className="mt-3 flex flex-wrap gap-x-2 gap-y-2.5" role="group" aria-label="권역">
+      {/*
+        3열 두 줄 — 칩 여섯이 flex-wrap 이면 390 에서 5+1 로 떨어져 '북부' 하나가 외톨이 줄이 됐다(22 R-4a). 밑 읍면 3열 칸과 같은 자라 320 에서도 안 갈린다.
+        줄 간격 10px — 칩의 44px 히트(보이는 36 + 위아래 4)가 줄 사이에서 맞닿지 않게. 8px 면 경계가 반 픽셀 차로 다음 줄 칩에 넘어갔다(320 실측).
+      */}
+      <div className="mt-3 grid grid-cols-3 gap-x-2 gap-y-2.5" role="group" aria-label="권역">
         {AREAS.map(({ id, label }) => (
-          <FilterChip key={id} pressed={areas.includes(id)} onClick={() => onToggleAreaChip(id)}>
+          <FilterChip key={id} className="w-full" pressed={areas.includes(id)} onClick={() => onToggleAreaChip(id)}>
             {label}
           </FilterChip>
         ))}
