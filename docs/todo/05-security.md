@@ -1,6 +1,7 @@
 # 5. 보안 — 키 분리 · RLS · 웹훅 · 프리뷰 보호
 
-> 최종 수정: 2026-10-15 (v21: 마이그레이션 `20261015120000_ui_events`(원격 미적용) — **비로그인 역할이 쓰는 두 번째 표**. 열 단위 insert 만, select 는 누구에게도 없음(운영자 CLI 만 읽는다), CHECK 가 이름·길이·모양을, pg_cron 이 90일 보관을. 재빌드 트리거 없음([ADR-029](../decisions/ADR-029-ui-events.md)). **이 표의 글자는 Claude 가 읽으므로** `route`·`target`·`app_build` 를 공백 없는 좁은 글자 집합으로 CHECK(프롬프트 인젝션), **insert 문마다 트리거**가 한 번에 50줄·표 150 MB 를 넘는 문을 통째로 거절한다(무료 500 MB 초과 = 프로젝트 읽기 전용 위험 — 매분 cron 이던 v2 는 큰 배열 병렬로 앞지를 수 있었다). 롤백 실측으로 anon select·`received_at` 지정·상한 함수 rpc 거부, 문장 거절, 51줄·상한 초과 거절, 25줄 통과를 확인. 표 맨 아래 한 줄)
+> 최종 수정: 2026-10-27 (v22: 7일 일시정지 대책을 사용자가 권고대로 닫았다 — 주 1회 collect 습관 + 못 돌린 주는 Claude 가 pull, 잡은 만들지 않는다)
+> 이전 2026-10-15 (v21: 마이그레이션 `20261015120000_ui_events`(원격 미적용) — **비로그인 역할이 쓰는 두 번째 표**. 열 단위 insert 만, select 는 누구에게도 없음(운영자 CLI 만 읽는다), CHECK 가 이름·길이·모양을, pg_cron 이 90일 보관을. 재빌드 트리거 없음([ADR-029](../decisions/ADR-029-ui-events.md)). **이 표의 글자는 Claude 가 읽으므로** `route`·`target`·`app_build` 를 공백 없는 좁은 글자 집합으로 CHECK(프롬프트 인젝션), **insert 문마다 트리거**가 한 번에 50줄·표 150 MB 를 넘는 문을 통째로 거절한다(무료 500 MB 초과 = 프로젝트 읽기 전용 위험 — 매분 cron 이던 v2 는 큰 배열 병렬로 앞지를 수 있었다). 롤백 실측으로 anon select·`received_at` 지정·상한 함수 rpc 거부, 문장 거절, 51줄·상한 초과 거절, 25줄 통과를 확인. 표 맨 아래 한 줄)
 > 이전 2026-10-12 (v20: 마이그레이션 `20261012120000_places_pet_policy_public`(원격 미적용) 은 `places` 에 칸 둘(`pet_policy_text_public` boolean · `pet_policy_guide` jsonb)을 얹을 뿐이라 **GRANT·정책 변화가 없다**
 > (테이블 단위 grant 그대로 — anon 은 published 행 select). 오히려 노출을 줄이는 칸이다: 블로그 원문의 공개 여부를 기본 숨김으로 가른다(ADR-017 결정 13). 원문 자체는 아직 anon select 에 있다 — 번들·JSON 에서 빼는 것은 todo/21 S8)
 > 이전 2026-10-07 (v19: 운영자 세션이 쓰는 표 `pipeline_requests`·`workers`(로컬 워커, [ADR-024](../decisions/ADR-024-local-worker-and-db-queues.md)) — select/insert/update 만, anon 없음, 정책 셋 `is_operator()`. Realtime publication 은 RLS 를 지킨다. `progress.current`(글 제목 앞 20자)는 Slack 으로 보내지 않는다. 표 맨 아래 한 줄)
@@ -106,9 +107,10 @@
 - [ ] Studio 접근은 Supabase 계정 로그인 = 사실상 관리자 인증. 2FA 켠다.
 - ~~`service_role` 키 회전 → 새 secret 키 발급 → `gh secret set`~~ — (c) 로 쓰는 곳이 **0**. 회전이 아니라 **퇴역**시켰다(2026-09-22 (3): Migrate → Rotate → legacy API keys disable → Revoke).
       새 secret key 는 만들지 않는다. 옛 값이 에이전트 대화 기록에 실렸을 수 있었던 노출은 키 자체가 죽어 닫혔다. GitHub 에 남아 있던 죽은 이름 2개도 지웠다 — **0개**(2026-09-22 (5), 00).
-- [ ] **무료 티어 7일 일시정지 — 이제 깨우는 잡이 없다**(2026-09-22 (c) 의 비직관적 비용). 옛 Actions 는 화·금마다 DB 를 건드려 이걸 매번 깨웠다. 지금 DB 를 건드리는 것은
+- [x] **무료 티어 7일 일시정지 — 이제 깨우는 잡이 없다**(2026-09-22 (c) 의 비직관적 비용). 옛 Actions 는 화·금마다 DB 를 건드려 이걸 매번 깨웠다. 지금 DB 를 건드리는 것은
       사용자의 `pnpm data:*` 와 Vercel 빌드의 `data:pull`(push 가 있을 때만)뿐이다 — **둘 다 7일 없으면 잠들고, 그러면 다음 배포의 `data:pull` 이 실패해 재배포가 막힌다.**
       이전 배포는 산다. 복구는 대시보드 Restore. 주 1회 `pnpm data:pull`(anon, 세션 불필요 — Claude 도 된다)이나 push 하나면 깨어 있다.
+  > 결정(사용자 2026-10-27): 주 1회 `pnpm data collect` 를 습관으로(`pipeline_runs` 에 남아 `/admin/ops` 가 "언제 돌렸나" 를 보여 준다) · 그 주에 못 돌리면 Claude 가 `pnpm data pull`(anon)로 깨운다. 깨우는 잡은 만들지 않는다
 
 ## Vercel
 

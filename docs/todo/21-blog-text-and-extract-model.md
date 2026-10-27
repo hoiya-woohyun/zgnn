@@ -1,6 +1,7 @@
 # 21. 블로그 문장이 사이트에 그대로 나가지 않게 · 추출 모델을 Sonnet 으로
 
-> 최종 수정: 2026-10-13 (v23: S6.1 · S8.1 · S8.2 끝)
+> 최종 수정: 2026-10-27 (v24: H6 을 사용자가 권고대로 **보류**로 닫았다)
+> 이전 2026-10-13 (v23: S6.1 · S8.1 · S8.2 끝)
 > 이전 2026-10-13 (v22: S6.1 끝 — Chrome 으로 `/admin` 세 화면을 봤다, 고칠 것 없음)
 > 이전 2026-10-13 (v21: S8 끝 — `derivePlace` 하나를 빌드·사이트·/admin 이 부른다 · `places.json` 비공개 38행은 원문·판단·안내 대신 `derived` · 원문 캐시 + `pull --offline` + drift 테스트 · 🙋 H6 을 「기다림」 에)
 > 이전 2026-10-13 (v20: S9 끝 — `pnpm data rewrite`(미리보기 표 → `--apply` 는 그 patch 그대로, Claude 재호출 없음) · 안내·소개 지시를 상수로 나눠 쓴다 · 🧑 H7 을 「기다림」 에)
@@ -377,11 +378,12 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
   > 메모: 2026-10-13 사용자 — **비운다**. 대상 실측: 대기 `mialove89` 글 3편 · 137건 전부 '식약처' 소개(그 밖의 대기 후보에 '식약처' 소개 0). 워커는 `status=approved` 갱신에만 깨어 이 update 에 반응하지 않는다(`workerRealtime.mjs`).
   > 지금 값은 `data/raw/backup/2026-10-13-h4-mfds-features.json`(137행, gitignored)에 떠 두었다. Claude 의 원격 update 는 권한 분류기가 막아 🧑 명령으로 넘겼다:
   > `./node_modules/.bin/supabase db query --linked "update candidates set extracted = jsonb_set(extracted, '{features}', 'null'::jsonb) where status = 'pending' and post_url like '%mialove89%' and extracted->>'features' like '%식약처%'"` — 확인(Claude, 원격 조회): 그 글들의 대기 후보 중 '식약처' 소개 0.
-- **H6 🙋 블로그 원문을 anon select 에서도 닫을지**(v8 발견) — S8 은 번들·`places.json` 만 비운다. publishable 키가 번들에 있고 `places` 는 published 행 select 가 열려 있어(`20260922120000_narrow_grants.sql`)
+- **H6 (보류 — 사용자 2026-10-27) 블로그 원문을 anon select 에서도 닫을지**(v8 발견) — S8 은 번들·`places.json` 만 비운다. publishable 키가 번들에 있고 `places` 는 published 행 select 가 열려 있어(`20260922120000_narrow_grants.sql`)
   원문(`pet_policy_text`)은 S8 뒤에도 PostgREST 로 읽힌다. 닫으려면 열 단위 grant 인데 `pnpm data pull`(빌드)이 같은 키로 원문을 읽어 판정 입력을 만든다 — 빌드가 원문 없이 돌게(판정 입력을 칸으로 미리 계산)
   하는 것이 먼저다. 권고: **S8 뒤에 정한다** — 지금 더 큰 노출은 레포(PUBLIC)·번들이고, API 로 읽으려면 키를 찾아 직접 질의해야 한다. ADR-017 결정 13 D5 의 범위를 그때 적는다.
   > 메모(S8 뒤, 2026-10-13): S8 은 빌드가 anon 으로 원문을 읽어 `derivePlace` 로 계산하는 모양이라 열 grant 를 거두는 순간 Vercel 빌드가 판정 입력을 못 만든다. 먼저 (a) 쓰기 경로(승인·고치기·덮어쓰기)가
   > `toSnapshotRow` 결과를 DB 칸에 저장하고 빌드는 그 칸만 읽는다(판정 규칙이 바뀔 때마다 게시 행 전부를 다시 써야 한다) · (b) security definer 함수(DB 는 TS 판정을 못 돌려 결국 a) · (c) 빌드에 장기 키(ADR-016 과 충돌) 중 하나.
+  > 결정(사용자 2026-10-27): **보류**(권고대로) — 키를 찾아 직접 질의해야 닿고, 닫으려면 쓰기 경로가 판정 입력을 DB 칸에 저장해야 해 판정 규칙을 바꿀 때마다 원격 쓰기가 생긴다. 다시 열 조건: (a) 가 다른 이유로 들어오는 날
   > 권고: **보류** — 키를 찾아 직접 질의해야 닿는 노출이고, (a) 는 규칙을 바꿀 때마다 원격 쓰기가 생긴다.
 - **H5 🧑 시드 정답 채점(두 모델)** — S7 뒤 새 프롬프트로: `ANALYZE_MODEL=claude-sonnet-5-5 pnpm data eval extract --limit 30` · `ANALYZE_MODEL=claude-opus-5 pnpm data eval extract --limit 30` → 각각 `pnpm data eval score`(report 파일이 프롬프트 버전 하나라 둘째 score 전에 첫 report 를 복사). 약 60회 — 구독 한도. 결과가 Sonnet 쪽 지어냄 증가면 M1 을 되돌린다.
 - **H7 🧑 S9 실행** — S9 뒤: `pnpm data login` → `pnpm data rewrite`(미리보기 · 약 38회 `claude -p` — 구독 한도) → 전·후 표를 Claude 와 함께 본다 → `pnpm data rewrite --apply`(원격 `places` 쓰기 · 재빌드 한 번). 확인(Claude): `pet_policy_guide is not null` 행 수와 상세 화면 한 곳.
