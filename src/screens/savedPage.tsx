@@ -112,21 +112,26 @@ export function SavedPage() {
             </Button>
           </div>
 
-          <div role="group" aria-label="보기" className="mx-4 mt-4 flex gap-1 rounded-full bg-secondary p-1 md:mx-6">
-            {(['type', 'day'] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                aria-pressed={(view ?? 'type') === value}
-                onClick={() => setView(value)}
-                className={cx(
-                  'h-11 flex-1 rounded-full text-sm transition-colors',
-                  (view ?? 'type') === value ? 'bg-primary font-semibold text-primary shadow-xs' : 'text-tertiary',
-                )}
-              >
-                {value === 'type' ? '종류별' : '날짜별'}
-              </button>
-            ))}
+          {/* 보기 전환 — 글자 탭 둘 + 켜진 쪽 2px 밑줄(둘러보기 종류 탭과 같은 문법, 22 R27.1 D-1). 면·그림자 없이 크림 위. 줄은 화면 끝까지. */}
+          <div role="group" aria-label="보기" className="mt-4 flex border-b border-secondary">
+            {(['type', 'day'] as const).map((value) => {
+              const active = (view ?? 'type') === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setView(value)}
+                  className={cx(
+                    'relative h-11 flex-1 text-sm transition-colors active:bg-tertiary',
+                    active ? 'font-semibold text-primary' : 'text-tertiary hover:text-secondary',
+                  )}
+                >
+                  {value === 'type' ? '종류별' : '날짜별'}
+                  {active && <span aria-hidden="true" className="absolute inset-x-0 -bottom-px h-0.5 bg-primary-solid" />}
+                </button>
+              );
+            })}
           </div>
 
           {/*

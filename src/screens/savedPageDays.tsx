@@ -41,7 +41,7 @@ export function SavedPageDays({ places }: { places: readonly TPlaceEntry[] }) {
           <h2 className="text-md font-bold text-primary">미정 {undecided.length}곳</h2>
           <ul className="mt-3 space-y-3">
             {undecided.map((place) => (
-              <SavedPageCard key={place.id} place={place} />
+              <SavedPageCard key={place.id} place={place} typeMark />
             ))}
           </ul>
         </section>
@@ -117,7 +117,7 @@ function SavedPageDay({ day, plan, places }: { day: TTripDay; plan: TTripPlan; p
       <ul className="mt-5 space-y-3">
         {stops.map((place) => (
           <Fragment key={place.id}>
-            <SavedPageCard place={place} />
+            <SavedPageCard place={place} typeMark />
             {verdict?.hardIds.includes(place.id) && <SavedPageDayAlternatives blocked={place} stops={stops} />}
           </Fragment>
         ))}

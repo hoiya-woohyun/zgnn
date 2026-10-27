@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { PlaceTypeMark } from './placeTypeMark';
 import { SaveButton } from './saveButton';
 import { SavedNoteLine } from './savedNoteLine';
 import { VerdictLine } from './verdictLine';
@@ -28,11 +29,8 @@ type TPlaceCardProps = {
    * 상세로 가는 것이 된다(a 안의 input 도 HTML 위반). 닫히면 다시 링크다.
    */
   noteEditor?: ReactNode;
-  /**
-   * 행 **안** 오른쪽 아래, 마지막 줄(가격 또는 메타) 끝에 서는 것(저장 화면의 길찾기 S 버튼). 행이 링크라 그 안에 링크를 넣을 수 없어
-   * 하트처럼 행 위에 겹쳐 세우고, 마지막 줄은 그만큼 오른쪽을 비우고 버튼 높이(h-8)를 바닥으로 갖는다.
-   */
-  cornerAction?: ReactNode;
+  /** 이름 앞에 종류 아이콘(16px)을 세운다. 종류가 섞이는 목록(저장 화면 날짜별)에서만 — 종류 탭 안 목록은 탭이 종류를 말한다(ADR-002 v9). */
+  typeMark?: boolean;
   /** 행 **밖** 바로 밑 한 줄. 행은 링크라 그 안에 컨트롤을 못 넣는다. */
   footer?: ReactNode;
 };
@@ -48,7 +46,7 @@ type TPlaceCardProps = {
  * 우리 강아지 프로필이 있으면(`useEligibility`) 판정 글자를 판정 줄 맨 앞에 얹고, 조건은 그만큼 줄인다.
  * 프로필이 없으면 이 훅은 null 을 돌려주므로 조건 글자만 선다.
  */
-export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEditor, cornerAction, footer }: TPlaceCardProps) {
+export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEditor, typeMark, footer }: TPlaceCardProps) {
   const eligibility = useEligibility(place);
   // 목록 머리가 같은 문장을 이미 말했으면 행은 그 줄을 뺀다. 조건 거르기(`verdictHidesBadge`)도 **그린 줄**을 본다.
   const reasons = eligibility ? cardReasons(eligibility).filter((r) => r.text !== hideReasonText) : [];
@@ -57,13 +55,12 @@ export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEdit
   const verified = freshnessShortLabel(place, useToday());
   // 블로그에서 들어온 신규 숙소는 요금 원문이 비어 있을 수 있다 — 빈 굵은 줄을 그리지 않는다.
   const price = place.stay && place.stay.price.text !== '' ? formatStayPrice(place.stay.price) : undefined;
-  // 오른쪽 아래 버튼(저장 화면의 길찾기)은 행의 마지막 줄과 한 줄에 선다 — 그 줄이 버튼 폭(`pr-25`)과 높이(h-8)를 비운다.
-  // 비우는 폭은 '네이버 길찾기' S 버튼(아이콘 없이 390 에서 96px) + 간격 4px 다 — 버튼이 넓어지면 이 값도 같이 올린다.
-  const cornerRoom = cornerAction ? 'flex min-h-8 items-center pr-25' : undefined;
-
   const body = (
     <>
-      <p className={cx('text-md font-semibold text-primary', actions ? 'pr-22' : 'pr-9')}>{place.name}</p>
+      <p className={cx('text-md font-semibold text-primary', actions ? 'pr-22' : 'pr-9', typeMark && 'flex items-center gap-1.5')}>
+        {typeMark && <PlaceTypeMark type={place.type} />}
+        <span className="min-w-0">{place.name}</span>
+      </p>
 
       {/* 내 메모는 이름 바로 밑 — 이 장소에 대한 내 표시라 판정보다 먼저. 저장 화면만이 아니라 행이 보이는 모든 자리에. */}
       {noteEditor ? <div className="mt-2">{noteEditor}</div> : <SavedNoteLine id={place.id} className="mt-2" />}
@@ -91,12 +88,12 @@ export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEdit
       ))}
 
       {/* 메타는 색 없는 글자 한 줄 — 확인 날짜도 이 줄 끝(14 C2610.3 · 22 G3.0a). */}
-      <p className={cx('mt-0.5 truncate text-sm text-tertiary', !price && cornerRoom)}>
+      <p className={'mt-0.5 truncate text-sm text-tertiary'}>
         <span className="min-w-0 truncate">{placeMetaLine(place, { distanceKm, verified })}</span>
       </p>
 
       {/* brand-700 은 CTA 색이라 26개 숙소 가격이 전부 그 색이면 "눌러야 할 것"과 "읽을 것"이 섞인다(2026-09-15 디자인 리뷰 ①) — 본문 색 + bold. */}
-      {price && <p className={cx('mt-1 text-md font-bold text-primary', cornerRoom)}>{price}</p>}
+      {price && <p className="mt-1 text-md font-bold text-primary">{price}</p>}
     </>
   );
 
@@ -128,7 +125,6 @@ export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEdit
             )}
           />
         </div>
-        {cornerAction && <div className="absolute right-0 bottom-4">{cornerAction}</div>}
       </div>
       {footer}
     </li>
