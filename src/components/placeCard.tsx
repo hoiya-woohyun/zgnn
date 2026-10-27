@@ -92,8 +92,9 @@ export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEdit
         <span className="min-w-0 truncate">{placeMetaLine(place, { distanceKm, verified })}</span>
       </p>
 
-      {/* brand-700 은 CTA 색이라 26개 숙소 가격이 전부 그 색이면 "눌러야 할 것"과 "읽을 것"이 섞인다(2026-09-15 디자인 리뷰 ①) — 본문 색 + bold. */}
-      {price && <p className="mt-1 text-md leading-5 font-bold text-primary">{price}</p>}
+      {/* brand-700 은 CTA 색이라 26개 숙소 가격이 전부 그 색이면 "눌러야 할 것"과 "읽을 것"이 섞인다(2026-09-15 디자인 리뷰 ①) — 본문 색.
+          굵지 않다: 행에서 굵은 자리는 이름·판정 단어 둘까지다(ADR-006 v11). 가격은 16 `text-primary` 라 14 회색 메타와 크기·색으로 갈린다. */}
+      {price && <p className="mt-1 text-md leading-5 text-primary">{price}</p>}
     </>
   );
 
