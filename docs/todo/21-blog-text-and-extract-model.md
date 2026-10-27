@@ -141,6 +141,7 @@ G1 · M1 · S1 · S2 는 파일이 겹치지 않는다(동시에 집어도 된�
   - 끝나면: S7 줄을 NOW 「지금」 의 13 §5.3 A1 위에.
   > 메모: 2026-10-12 끝. 시작 줄 첫 줄을 `추출 모델 …` 로 바꿔 셋(추출·교차점검·제안)이 이름으로 갈린다. 서버 워커 env 에 `ANALYZE_MODEL` 은 **없다**(`vercel env ls` 이름만 — 2026-10-12) → 지울 것 없음,
   > 🧑 H1 배포 뒤 서버도 Sonnet. `pnpm data eval extract|score` 의 기본 캐시 폴더도 `<프롬프트>-claude-sonnet-5-5` 로 바뀐다(Opus 짝은 `ANALYZE_MODEL=claude-opus-5`).
+  > 메모(2026-10-27): H1 끝 — 20 T11 배포(`zgnn-worker-jjyt881x8`)가 지금 소스로 번들을 다시 만들어 S4·S7 프롬프트·Sonnet 추출·T12 리다이렉트 검사가 함께 나갔다. 확인(서버가 뽑은 새 후보의 `extracted.meta.promptVersion` 이 로컬과 같은지)은 T11 실측 때 함께.
 
 ### S1. ADR-017 v9 — 원문은 대조군, 공개 문장은 판단에서
 - [x] [ADR-017](../decisions/ADR-017-ai-structured-pet-policy.md) 에 결정 13 추가 + 결정 1(원문 = 표시용) 수정, 상태: 채택(2026-10-12 사용자). 위 「결정」 의 D1~D5 와 그 이유(템플릿은 판단과 갈릴 수 없다 · 기본 숨김 · 레포 PUBLIC). [ADR-002](../decisions/ADR-002-no-place-photos.md) 에 링크 한 줄("사진과 같은 이유로 블로그 문장도").
