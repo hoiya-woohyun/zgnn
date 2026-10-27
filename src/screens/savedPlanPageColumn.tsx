@@ -57,7 +57,7 @@ export function SavedPlanPageColumn({ column, ids, placeById, manual, onReset, o
         <ul
           ref={setNodeRef}
           className={cx(
-            'mt-2 flex flex-col gap-2 rounded-2xl transition-colors',
+            'mt-1 flex flex-col rounded-lg transition-colors',
             places.length === 0 && 'border border-dashed',
             places.length === 0 && (isOver ? 'border-brand bg-brand-primary' : 'border-primary'),
           )}
@@ -66,7 +66,7 @@ export function SavedPlanPageColumn({ column, ids, placeById, manual, onReset, o
             <SavedPlanPageRow key={place.id} place={place} onOpenMove={() => onOpenMove(place)} />
           ))}
           {places.length === 0 && (
-            <li aria-hidden="true" className="grid h-15 place-items-center text-sm text-tertiary">
+            <li aria-hidden="true" className="grid h-10.5 place-items-center text-sm text-quaternary">
               여기로 끌어 놓기
             </li>
           )}

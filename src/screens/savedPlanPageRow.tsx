@@ -4,7 +4,6 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { DotsGrid } from '@untitledui/icons';
 import type { ComponentPropsWithoutRef, Ref } from 'react';
-import { CARD_SURFACE } from '../components/cardSurface';
 import { PlaceTypeMark } from '../components/placeTypeMark';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
 import { cx } from '../utils/cx';
@@ -13,7 +12,7 @@ import { cx } from '../utils/cx';
  * 「날짜별로 정리」 의 줄 한 칸 — 저장 카드(`SavedPageCard`)를 줄인 것이 아니라 **옮기기 전용**이다.
  *
  * 카드 그대로(배지·메모·길찾기, 한 장 ~150px)면 열 곳만 돼도 1일차에서 4일차까지 화면 서너 장을 끌고 내려가야 한다 — 그래서 이름·읍면·종류만 남겨
- * 한 줄 ~64px 로 줄였다. 끄는 것은 **오른쪽 손잡이**뿐이다: 줄 전체를 끌게 하면 목록을 스크롤하려던 손가락이 줄을 집는다. 손잡이에만
+ * 한 줄 52px 로 줄였다. 끄는 것은 **오른쪽 손잡이**뿐이다: 줄 전체를 끌게 하면 목록을 스크롤하려던 손가락이 줄을 집는다. 손잡이에만
  * `touch-action: none` 을 줘 누르자마자 끌린다(길게 누르기 없음). 본문 왼쪽 0~48px 는 셸의 뒤로 끌기 띠라 손잡이를 거기 두지 않는다(ADR-025).
  *
  * 줄의 나머지(이름 쪽)를 누르면 날을 고르는 시트가 열린다 — 끌기를 못 쓰는 사람의 길(WCAG 2.5.7)이자, 4일차 곳을 1일차로 보낼 때 끄는 것보다 빠른 길.
@@ -46,7 +45,7 @@ export function SavedPlanPageRowFace({ place, onOpenMove, handleProps, handleRef
     </>
   );
   return (
-    <div className={cx(CARD_SURFACE, 'flex items-center gap-1 py-2 pr-1 pl-3', lifted && 'shadow-lg')}>
+    <div className={cx('flex items-center gap-1 py-1 pr-1', lifted && 'rounded-lg border border-secondary bg-primary pl-3')}>
       {onOpenMove ? (
         <button
           type="button"
@@ -92,7 +91,7 @@ export function SavedPlanPageRow({ place, onOpenMove }: { place: TPlaceEntry; on
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform), transition }}
-      className={cx(isDragging && 'opacity-40')}
+      className={cx('border-b border-secondary last:border-b-0', isDragging && 'opacity-40')}
     >
       <SavedPlanPageRowFace place={place} onOpenMove={onOpenMove} handleRef={setActivatorNodeRef} handleProps={{ ...attributes, ...listeners }} />
     </li>

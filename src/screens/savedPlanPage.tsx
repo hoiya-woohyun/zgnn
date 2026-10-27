@@ -46,6 +46,8 @@ import { SavedPlanPageMoveSheet } from './savedPlanPageMoveSheet';
 import { SavedPlanPageRowFace } from './savedPlanPageRow';
 
 const TITLE = '날짜별로 정리';
+/** 그리는 순서 — 날짜 미정을 맨 위로(끌 곳이 먼저 보여야 한다). 칸을 찾는 순서(`PLAN_COLUMNS`)와는 별개다. */
+const DISPLAY_COLUMNS: readonly TPlanColumn[] = ['undecided', ...PLAN_COLUMNS.filter((column) => column !== 'undecided')];
 
 const columnLabel = (column: TPlanColumn) => {
   const day = dayOfColumn(column);
@@ -245,7 +247,7 @@ export function SavedPlanPage() {
           screenReaderInstructions: { draggable: '스페이스나 엔터로 집고, 화살표로 옮긴 뒤 다시 스페이스나 엔터로 놓아요. 그만두려면 Esc.' },
         }}
       >
-        {PLAN_COLUMNS.map((column) => {
+        {DISPLAY_COLUMNS.map((column) => {
           const day = dayOfColumn(column);
           return (
             <SavedPlanPageColumn
