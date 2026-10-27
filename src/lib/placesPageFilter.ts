@@ -1,6 +1,6 @@
-import { areaOf, areaTownsLabel, type TAreaId } from './areaGroups';
+import { areaLabel, areaOf, areaTownsLabel, type TAreaId } from './areaGroups';
 import { AREA_CARD_TYPES } from './homePageAreaCards';
-import { DIRECTION_LABEL, PLACE_TYPES, distanceKm, placesOfType, sameIsland, type TPlaceEntry } from './places';
+import { PLACE_TYPES, distanceKm, placesOfType, sameIsland, type TPlaceEntry } from './places';
 import { PET_FILTERS, carriedFilterChips, comparePrice, envFiltersWithData, resetFiltersLabel, type TPetFilter, type TPetFilterKey, type TPlaceSort } from './placeFilters';
 import { freshnessOf } from './placeFreshness';
 import { isTypeWord, landmarkOfQuery, matchesQuery, queryWords } from './placeSearch';
@@ -8,7 +8,7 @@ import { distancesFrom, sortByDistance } from './distanceSort';
 import { sortByEligibility } from './sortByEligibility';
 import type { TEligibility } from './eligibility';
 import { eligibilityMapOf, isReachable } from './eligibilityCounts';
-import type { TDirection, TDogProfile, TPlaceType } from '../types';
+import type { TDogProfile, TPlaceType } from '../types';
 
 /**
  * 둘러보기 목록·칩을 만드는 순수 함수 — 본 화면(`placesPage`)과 스와이프 엿보기(`placesPageSwipePeek`)가 **같은 함수**를 부른다.
@@ -32,7 +32,7 @@ export type TPlacesPageConditions = {
   /** 6권역(19 T3) — 홈 동네 카드가 건다. **비퍼시스트**라 새로고침하면 풀린다(읍면과 다르다). */
   area: TAreaId | null;
   query: string;
-  directions: readonly TDirection[];
+  areas: readonly TAreaId[];
   /** **이 종류의** 반려동물·환경 조건 키. */
   petKeys: readonly TPetFilterKey[];
   hideHard: boolean;
@@ -82,7 +82,7 @@ export const filterPlacesPage = ({
   town,
   area,
   query,
-  directions,
+  areas,
   petKeys,
   hideHard,
   onlyReachable,
@@ -93,7 +93,10 @@ export const filterPlacesPage = ({
   if (area) list = list.filter((place) => areaOf(place) === area);
 
   if (query.trim()) list = list.filter((place) => matchesQuery(place, query));
-  if (directions.length > 0) list = list.filter((place) => directions.includes(place.region.direction));
+  if (areas.length > 0) list = list.filter((place) => {
+    const placeArea = areaOf(place);
+    return placeArea !== null && areas.includes(placeArea);
+  });
 
   const activeTests = filtersOfPlaceType(type).filter((filter) => petKeys.includes(filter.key));
   if (activeTests.length > 0) list = list.filter((place) => activeTests.every((filter) => filter.test(place.policy, place)));
@@ -155,7 +158,7 @@ export const singleConditionReleases = (
   conditions: TPlacesPageConditions,
   judging: { dog: TDogProfile | null; needsIndoor: boolean },
 ): TConditionRelease[] => {
-  const { type, town, area, query, directions, petKeys, onlyReachable, eligibilityMap } = conditions;
+  const { type, town, area, query, areas, petKeys, onlyReachable, eligibilityMap } = conditions;
   // 수와 함께 "갈 곳이 하나라도 있나" — 판정이 없으면(강아지 없음) 따지지 않는다.
   const count = (released: Partial<TPlacesPageConditions>) => {
     const list = filterPlacesPage({ ...conditions, ...released });
@@ -170,9 +173,9 @@ export const singleConditionReleases = (
     ...(judging.needsIndoor && judging.dog && type !== 'stay'
       ? [{ key: 'indoor', count: count({ eligibilityMap: eligibilityMapOf(placesOfType(type), judging.dog) }) }]
       : []),
-    ...directions.map((direction) => ({
-      key: `dir-${direction}`,
-      count: count({ directions: directions.filter((other) => other !== direction) }),
+    ...areas.map((chosen) => ({
+      key: `areas-${chosen}`,
+      count: count({ areas: areas.filter((other) => other !== chosen) }),
     })),
     ...filtersOfPlaceType(type)
       .filter((filter) => petKeys.includes(filter.key))
@@ -184,7 +187,7 @@ export const singleConditionReleases = (
 };
 
 /** 동네 카드로 들어온 뒤 따라와 걸린 것 — 카드는 이것들 없이 셌다. */
-export type TAreaCarried = { count: number; town: string | null; directions: number; petKeys: number };
+export type TAreaCarried = { count: number; town: string | null; areas: number; petKeys: number };
 
 /**
  * 동네 카드로 들어왔는데(권역 + '갈 수 있는 곳만') **0곳은 아니지만 카드보다 적게** 보일 때, 따라온 읍면·방향·조건 칩을 풀면
@@ -193,13 +196,13 @@ export type TAreaCarried = { count: number; town: string | null; directions: num
  * '실내 자리 필요' 는 카드도 같은 판정으로 세므로 원인이 아니다. 풀어도 늘지 않거나 카드가 세지 않는 종류(식당)면 null.
  */
 export const areaCarriedRelease = (conditions: TPlacesPageConditions, shown: number): TAreaCarried | null => {
-  const { area, onlyReachable, eligibilityMap, town, directions, petKeys } = conditions;
+  const { area, onlyReachable, eligibilityMap, town, areas, petKeys } = conditions;
   if (!area || !onlyReachable || !eligibilityMap) return null;
   // 권역·'갈 수 있는 곳만' 은 탭을 따라오지만 카드는 식당을 세지 않는다 — 카드에 없는 수를 카드 탓으로 말하지 않는다.
   if (!(AREA_CARD_TYPES as readonly TPlaceType[]).includes(conditions.type)) return null;
-  if (town === null && directions.length === 0 && petKeys.length === 0) return null;
-  const count = filterPlacesPage({ ...conditions, town: null, directions: [], petKeys: [] }).length;
-  return count > shown ? { count, town, directions: directions.length, petKeys: petKeys.length } : null;
+  if (town === null && areas.length === 0 && petKeys.length === 0) return null;
+  const count = filterPlacesPage({ ...conditions, town: null, areas: [], petKeys: [] }).length;
+  return count > shown ? { count, town, areas: areas.length, petKeys: petKeys.length } : null;
 };
 
 /**
@@ -348,12 +351,12 @@ export const placesPageChips = ({
   area = null,
   needsIndoor,
   hasDog,
-  directions,
+  areas,
   petKeys,
   hideHard,
   onlyReachable = false,
   query,
-}: Pick<TPlacesPageConditions, 'type' | 'town' | 'directions' | 'petKeys' | 'hideHard'> & {
+}: Pick<TPlacesPageConditions, 'type' | 'town' | 'areas' | 'petKeys' | 'hideHard'> & {
   area?: TAreaId | null;
   onlyReachable?: boolean;
   needsIndoor: boolean;
@@ -368,7 +371,7 @@ export const placesPageChips = ({
     // 이름은 세그먼트의 칸 이름과 같다('어려운 곳 빼고').
     ...(hasDog && hideHard && !onlyReachable ? [{ key: 'hideHard', label: '어려운 곳 빼고' }] : []),
     ...carried.filter((chip) => chip.key === 'indoor'),
-    ...directions.map((direction) => ({ key: `dir-${direction}`, label: DIRECTION_LABEL[direction] })),
+    ...areas.map((chosen) => ({ key: `areas-${chosen}`, label: areaLabel(chosen) })),
     ...carried.filter((chip) => chip.key === 'town'),
     ...filtersOfPlaceType(type)
       .filter((filter) => petKeys.includes(filter.key))

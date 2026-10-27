@@ -1,7 +1,7 @@
 import placesJson from '../data/places.json';
 import itemsJson from '../data/items.json';
 import metaJson from '../data/meta.json';
-import type { TDirection, TItem, TMeta, TPlaceType } from '../types';
+import type { TItem, TMeta, TPlaceType } from '../types';
 import { toPlaceEntry, type TPlaceEntry, type TPlaceSnapshotRow } from './placeDerive';
 
 /**
@@ -199,18 +199,6 @@ export const TOWN_OPTIONS: string[] = [...ALL_TOWNS].sort((a, b) => a.localeComp
 
 export const isPlaceType = (value: string | undefined): value is TPlaceType =>
   value === 'stay' || value === 'restaurant' || value === 'cafe';
-
-export const DIRECTION_LABEL: Record<TDirection, string> = {
-  east: '동쪽',
-  west: '서쪽',
-  south: '남쪽',
-  north: '북쪽',
-  udo: '우도',
-  unknown: '기타',
-};
-
-/** 필터에 노출할 방향. 데이터에 실제로 존재하는 것만 쓴다. */
-export const DIRECTIONS: TDirection[] = ['east', 'west', 'south', 'north', 'udo'];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 거리

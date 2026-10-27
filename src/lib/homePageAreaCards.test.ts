@@ -134,7 +134,7 @@ describe("'{이름}랑 가기 좋은 곳' 라벨(19 T6)", () => {
       for (const { id } of AREAS) {
         for (const type of AREA_CARD_TYPES) {
           const opened = filterPlacesPage({
-            type, town: null, area: id, query: '', directions: [], petKeys: [], hideHard: false, onlyReachable: true, eligibilityMap: map,
+            type, town: null, area: id, query: '', areas: [], petKeys: [], hideHard: false, onlyReachable: true, eligibilityMap: map,
           });
           const top = sortByEligibility(opened, map, (place) => place.id).slice(0, AREA_LABEL_PICKS);
           expect(homePageAreaPicks(PLACES, DUBU, id, type, opts).map((p) => p.id), `${id}/${type}`).toEqual(top.map((p) => p.id));

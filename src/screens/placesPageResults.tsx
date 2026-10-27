@@ -286,7 +286,7 @@ export function PlacesPageResults({
       {results.length > 0 && areaCarried && (
         <p className="flex flex-wrap items-center gap-x-3 px-4 text-sm text-tertiary md:px-6">
           {`동네 카드는 ${areaCarried.count}곳인데 ${withJosa(
-            [areaCarried.town && townFilterLabel(areaCarried.town), areaCarried.directions > 0 && '방향', areaCarried.petKeys > 0 && `조건 ${areaCarried.petKeys}개`]
+            [areaCarried.town && townFilterLabel(areaCarried.town), areaCarried.areas > 0 && '권역', areaCarried.petKeys > 0 && `조건 ${areaCarried.petKeys}개`]
               .filter(Boolean)
               .join(' · '),
             '이/가',

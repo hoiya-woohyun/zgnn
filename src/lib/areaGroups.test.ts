@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   AREAS,
+  areaLabel,
   areaOf,
   areaTownNames,
   areaTownsLabel,
@@ -119,5 +120,12 @@ describe('countByArea — 권역 × 종류', () => {
       // 남부 2 → 3: 쇠소깍한끼 "개모차, 가방 출입 가능" 의 '개모차' 를 유모차로 읽는다(21 S5.1) — C3 이 더는 되묻지 않는다.
       expect(reachRow(counts, 'restaurant')).toEqual([3, 0, 3, 3, 1, 1]);
     });
+  });
+});
+
+describe('areaLabel — 보이는 지역 말은 6권역 하나(14 W261027.4)', () => {
+  it('조천읍은 노션 방향(동쪽)이 아니라 홈 카드와 같은 북부다', () => {
+    expect(areaLabel(TOWN_TO_AREA['조천읍'])).toBe('북부');
+    expect(AREAS.map((area) => areaLabel(area.id))).toEqual(AREAS.map((area) => area.label));
   });
 });

@@ -17,18 +17,19 @@ import { TYPE_META, type TPlaceEntry } from '../lib/places';
 import type { TPetFilterKey, TPlaceSort } from '../lib/placeFilters';
 import { placesPageSortLabel } from '../lib/placesPageFilter';
 import { landmarkOfQuery } from '../lib/placeSearch';
-import { placesPageTownInDirections } from '../lib/placesPageTownGrid';
+import { placesPageTownInAreas } from '../lib/placesPageTownGrid';
 import { placesPageDogStepFlags, placesPageDogStepOf, type TPlacesPageDogStep } from '../lib/placesPageDogStep';
 import { dogNamesAsWritten } from '../lib/korean';
 import { NEAR_PARAM, nearPlaceOf } from '../lib/distanceSort';
 import { LOCATE_NOTICE, locateMe } from '../lib/myLocation';
+import type { TAreaId } from '../lib/areaGroups';
 import { showAppStatus } from '../lib/appStatus';
 import { PlacesPageSuggest } from './placesPageSuggest';
 import { useAppStore, useDog } from '../store/useAppStore';
 import { usePlacesPageFilterStore } from '../store/usePlacesPageFilterStore';
 import { recordUiEvent } from '../lib/uiEventsSend';
 import { cx } from '../utils/cx';
-import type { TDirection, TPlaceType } from '../types';
+import type { TPlaceType } from '../types';
 
 const useBeforePaint = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
@@ -39,7 +40,7 @@ const useBeforePaint = typeof window === 'undefined' ? useEffect : useLayoutEffe
  */
 export function PlacesPage({ type }: { type: TPlaceType }) {
   /*
-   * 검색어·방향·'어려운 곳 숨기기'·종류별 반려동물 조건·종류별 '어려움 N곳' 펼침은 스토어(`usePlacesPageFilterStore`)에 살아 종류를 바꿔도 남는다(07 U3).
+   * 검색어·권역 칩·'어려운 곳 숨기기'·종류별 반려동물 조건·종류별 '어려움 N곳' 펼침은 스토어(`usePlacesPageFilterStore`)에 살아 종류를 바꿔도 남는다(07 U3).
    * 정렬·기준점·시트 열림은 종류마다 처음부터다 — 가격순은 숙소에서만, 가까운 순은 위치를 받아야 의미가 있어서 따라오면
    * 칩과 숫자만 있고 아무 일도 안 하는 조건이 된다. 리셋을 useEffect 로 하면 이전 값이 한 프레임 먼저 그려지므로
    * key 로 그 로컬 상태를 통째로 새로 만든다 — 들어오는 애니메이션도 마운트마다 한 번이다.
@@ -60,8 +61,8 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
   const setNeedsIndoor = useAppStore((state) => state.setNeedsIndoor);
   const query = usePlacesPageFilterStore((state) => state.query);
   const setQuery = usePlacesPageFilterStore((state) => state.setQuery);
-  const directions = usePlacesPageFilterStore((state) => state.directions);
-  const toggleStoredDirection = usePlacesPageFilterStore((state) => state.toggleDirection);
+  const areas = usePlacesPageFilterStore((state) => state.areas);
+  const toggleStoredAreaChip = usePlacesPageFilterStore((state) => state.toggleAreaChip);
   const petKeysByType = usePlacesPageFilterStore((state) => state.petKeysByType);
   const petKeys = petKeysByType[type];
   const togglePetKeyOfType = usePlacesPageFilterStore((state) => state.togglePetKey);
@@ -202,7 +203,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
    */
   const resetConditions = () => {
     setTown(null);
-    // 방향·조건·숨기기는 다른 종류 것까지 푼다 — 이 탭에서 "모두 지우기" 를 눌렀는데 옆 탭에 안 보이는 조건이 남으면 안 된다.
+    // 권역 칩·조건·숨기기는 다른 종류 것까지 푼다 — 이 탭에서 "모두 지우기" 를 눌렀는데 옆 탭에 안 보이는 조건이 남으면 안 된다.
     resetStoredConditions();
     // '실내 자리 필요'(`needsIndoor`)는 끄지 않는다 — 필터가 아니라 몸무게 같은 **설정**이다(앱 전체 판정 입력, 22 A·B review R-2). 그 칩의 ✕ 로만 끈다.
     // 그래서 초기화가 서고 켜지는 기준은 `resetCount`(실내를 뺀 수)다 — 실내 하나뿐인데 초기화가 서면 눌러도 안 바뀌어 고장으로 보인다.
@@ -239,14 +240,16 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
   const togglePetKey = (key: TPetFilterKey) => togglePetKeyOfType(type, key);
 
   /*
-   * 방향을 바꿔 고른 읍면이 그 밖이 되면 읍면을 푼다(22 D-7) — 시트의 읍면 칸은 고른 방향의 읍면만 세우므로, 두면 칸에서 사라진 읍면이
-   * 숨은 조건으로 남아 '동쪽 + 애월' 처럼 0곳이다. 읍면은 퍼시스트이고 지도·근처 장소와 나눠 쓰는 값이라(스토어 `town`) 렌더나 effect 가 아니라
-   * 사람이 방향을 누른 이 자리에서만 푼다 — 지도에서 고른 읍면이 방향과 어긋난 채 들어와도 몰래 지우지 않는다(칸에 그대로 선다).
+   * 권역을 바꿔 고른 읍면이 그 밖이 되면 읍면을 푼다(22 D-7) — 시트의 읍면 칸은 고른 권역의 읍면만 세우므로, 두면 칸에서 사라진 읍면이
+   * 숨은 조건으로 남아 '동부 + 애월' 처럼 0곳이다. 읍면은 퍼시스트이고 지도·근처 장소와 나눠 쓰는 값이라(스토어 `town`) 렌더나 effect 가 아니라
+   * 사람이 권역을 누른 이 자리에서만 푼다 — 지도에서 고른 읍면이 권역과 어긋난 채 들어와도 몰래 지우지 않는다(칸에 그대로 선다).
    */
-  const toggleDirection = (direction: TDirection) => {
-    const next = directions.includes(direction) ? directions.filter((entry) => entry !== direction) : [...directions, direction];
-    toggleStoredDirection(direction);
-    if (town !== null && !placesPageTownInDirections(town, next)) setTown(null);
+  const toggleAreaChip = (area: TAreaId) => {
+    const next = areas.includes(area) ? areas.filter((entry) => entry !== area) : [...areas, area];
+    toggleStoredAreaChip(area);
+    // 홈 동네 카드가 건 권역(`area`)과 AND 로 겹쳐 이유 없이 0곳이 되지 않게 — 읍면을 고를 때와 같이 권역 진입을 푼다.
+    clearArea();
+    if (town !== null && !placesPageTownInAreas(town, next)) setTown(null);
   };
 
   // 시트의 강아지 기준 세그먼트(22 D-6) — 고른 단계가 남기는 플래그는 하나뿐이다(`placesPageDogStepFlags`). 걸러 내기는 그대로 두 플래그.
@@ -263,7 +266,7 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
     else if (key === 'indoor') setNeedsIndoor(false);
     else if (key === 'hideHard') setHideHard(false);
     else if (key === 'query') setQuery('');
-    else if (key.startsWith('dir-')) toggleDirection(key.slice(4) as TDirection);
+    else if (key.startsWith('areas-')) toggleAreaChip(key.slice(6) as TAreaId);
     else if (key.startsWith('pet-')) togglePetKey(key.slice(4) as TPetFilterKey);
   };
 
@@ -324,10 +327,10 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
                 type={type}
                 town={town}
                 area={area}
-                directions={directions}
+                areas={areas}
                 petKeys={petKeys}
                 onSelectTown={selectTown}
-                onToggleDirection={toggleDirection}
+                onToggleAreaChip={toggleAreaChip}
                 onTogglePetKey={togglePetKey}
                 eligibility={
                   dog
@@ -356,11 +359,11 @@ function PlacesPageOfType({ type }: { type: TPlaceType }) {
           <PlacesPageFilters
             type={type}
             town={town}
-            directions={directions}
+            areas={areas}
             petKeys={petKeys}
             sort={shownSort}
             onSelectTown={selectTown}
-            onToggleDirection={toggleDirection}
+            onToggleAreaChip={toggleAreaChip}
             onTogglePetKey={togglePetKey}
             onChangeSort={(next) => void changeSort(next)}
             hasDog={Boolean(dog)}

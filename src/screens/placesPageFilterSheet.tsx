@@ -8,7 +8,7 @@ import type { TAreaId } from '../lib/areaGroups';
 import type { TPlacesPageDogStep } from '../lib/placesPageDogStep';
 import { PET_FILTERS, envFiltersWithData, type TPetFilterKey } from '../lib/placeFilters';
 import { placesOfType } from '../lib/places';
-import type { TDirection, TPlaceType } from '../types';
+import type { TPlaceType } from '../types';
 
 type TPlacesPageFilterSheetProps = {
   /** 열림 상태는 placesPage 가 가진다 — 목록의 빈 상태 버튼도 이 시트를 열어야 해서다. */
@@ -18,10 +18,10 @@ type TPlacesPageFilterSheetProps = {
   town: string | null;
   /** 홈 동네 카드가 건 권역 — 시트에 고르는 자리는 없고 읍면 묶음 밑 한 줄이 말한다(14 W261010.33f). */
   area: TAreaId | null;
-  directions: TDirection[];
+  areas: TAreaId[];
   petKeys: TPetFilterKey[];
   onSelectTown: (town: string | null) => void;
-  onToggleDirection: (direction: TDirection) => void;
+  onToggleAreaChip: (area: TAreaId) => void;
   onTogglePetKey: (key: TPetFilterKey) => void;
   /** 강아지 기준은 프로필이 있을 때만 있다. 없으면 이 값이 null 이다. */
   eligibility: {
@@ -44,7 +44,7 @@ type TPlacesPageFilterSheetProps = {
 /**
  * 모바일 필터 시트.
  *
- * 조건이 여러 줄(판정·읍면·방향·원문 조건, 숙소는 환경까지)이라 고정 영역이 첫 화면의 절반을 먹고
+ * 조건이 여러 줄(판정·권역·읍면·원문 조건, 숙소는 환경까지)이라 고정 영역이 첫 화면의 절반을 먹고
  * 정작 목록은 두어 장만 보였다. 모바일에서는 그 줄들을 이 시트로 접고, 여는 것은 검색칸 밑 칩 줄의 '필터' 칩이다(22 D-2).
  * 데스크톱은 세로가 넉넉해 접을 이유가 없으므로 지금처럼 펼쳐 둔다(placesPage 가 가른다).
  * 정렬은 여기 없다 — 모바일은 칩 줄의 '정렬 ▾' 칩이 지금 순서를 말하고 정렬 시트를 연다(22 D-3).
@@ -63,10 +63,10 @@ export function PlacesPageFilterSheet({
   type,
   town,
   area,
-  directions,
+  areas,
   petKeys,
   onSelectTown,
-  onToggleDirection,
+  onToggleAreaChip,
   onTogglePetKey,
   eligibility,
   resetCount,
@@ -111,9 +111,9 @@ export function PlacesPageFilterSheet({
                 type={type}
                 town={town}
                 area={area}
-                directions={directions}
+                areas={areas}
                 onSelectTown={onSelectTown}
-                onToggleDirection={onToggleDirection}
+                onToggleAreaChip={onToggleAreaChip}
               />
             </div>
             {/*

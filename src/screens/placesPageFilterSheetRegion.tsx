@@ -3,11 +3,10 @@
 import { useId } from 'react';
 import { Radio as AriaRadio, RadioGroup as AriaRadioGroup } from 'react-aria-components';
 import { FilterChip } from '../components/filterChip';
-import { areaTownName, areaTownsLabel, type TAreaId } from '../lib/areaGroups';
-import { DIRECTIONS, DIRECTION_LABEL } from '../lib/places';
+import { AREAS, areaTownName, areaTownsLabel, type TAreaId } from '../lib/areaGroups';
 import { placesPageTownGrid } from '../lib/placesPageTownGrid';
 import { cx } from '../utils/cx';
-import type { TDirection, TPlaceType } from '../types';
+import type { TPlaceType } from '../types';
 
 /** react-aria 라디오 값은 빈 문자열을 못 쓴다 — '전체'(읍면 없음, `null`)를 이 키로. */
 const ALL_TOWNS_KEY = '__all__';
@@ -17,22 +16,22 @@ type TPlacesPageFilterSheetRegionProps = {
   town: string | null;
   /** 홈 동네 카드가 건 권역 — 시트에 고르는 자리는 없고 한 줄이 말한다(14 W261010.33f). */
   area: TAreaId | null;
-  directions: TDirection[];
+  areas: TAreaId[];
   onSelectTown: (town: string | null) => void;
-  /** 방향을 켜고 끈다 — 고른 읍면이 새 방향 밖이 되면 부르는 쪽이 읍면을 푼다(`placesPageTownInDirections`). */
-  onToggleDirection: (direction: TDirection) => void;
+  /** 권역을 켜고 끈다 — 고른 읍면이 새 권역 밖이 되면 부르는 쪽이 읍면을 푼다(`placesPageTownInAreas`). */
+  onToggleAreaChip: (area: TAreaId) => void;
 };
 
 /**
- * 필터 시트의 '지역'(22 D-7) — 윗단 방향 칩(여럿), 아랫단 읍면 3열 라디오(하나, 첫 칸 '전체').
+ * 필터 시트의 '지역'(22 D-7) — 윗단 권역 칩(여럿, 홈 6권역 하나 — 14 W261027.4), 아랫단 읍면 3열 라디오(하나, 첫 칸 '전체').
  *
- * 전엔 '읍면'(개수순 칩, 하나) · '방향'(칩, 여럿) 두 묶음이 따로 서서 둘이 AND 라는 것이 안 읽혔고 '동쪽 + 애월' 이 0곳으로 열려 있었다.
- * 한 섹션으로 묶어 방향이 읍면 칸을 거르게 한다 — 방향을 고르면 그 방향의 읍면 칸만 남고, 고른 읍면이 밖이 되면 풀린다(부르는 쪽).
+ * 전엔 '읍면'(개수순 칩, 하나) · '방향'(동·서·남·북 칩, 여럿) 두 묶음이 따로 서서 둘이 AND 라는 것이 안 읽혔고 '동쪽 + 애월' 이 0곳으로 열려 있었다.
+ * 한 섹션으로 묶어 권역이 읍면 칸을 거르게 한다 — 권역을 고르면 그 권역의 읍면 칸만 남고, 고른 읍면이 밖이 되면 풀린다(부르는 쪽).
  * 칸은 지도 차례로 고정이다(`placesPageTownGrid`) — 개수순이면 종류마다 칸 자리가 바뀐다. 칸 이름은 짧은 이름(권역 줄과 같은 '애월'·'제주 시내').
  * 고르는 즉시 반영된다(라디오 화살표도) — 시트는 열린 채 결과 버튼 수가 따라 움직인다.
  */
-export function PlacesPageFilterSheetRegion({ type, town, area, directions, onSelectTown, onToggleDirection }: TPlacesPageFilterSheetRegionProps) {
-  const towns = placesPageTownGrid({ type, directions, town });
+export function PlacesPageFilterSheetRegion({ type, town, area, areas, onSelectTown, onToggleAreaChip }: TPlacesPageFilterSheetRegionProps) {
+  const towns = placesPageTownGrid({ type, areas, town });
   const titleId = useId();
 
   return (
@@ -51,10 +50,10 @@ export function PlacesPageFilterSheetRegion({ type, town, area, directions, onSe
       )}
 
       {/* 줄 간격 10px — 칩의 44px 히트(보이는 36 + 위아래 4)가 줄 사이에서 맞닿지 않게. 8px 면 경계가 반 픽셀 차로 다음 줄 칩에 넘어갔다(320 실측). */}
-      <div className="mt-3 flex flex-wrap gap-x-2 gap-y-2.5" role="group" aria-label="방향">
-        {DIRECTIONS.map((direction) => (
-          <FilterChip key={direction} pressed={directions.includes(direction)} onClick={() => onToggleDirection(direction)}>
-            {DIRECTION_LABEL[direction]}
+      <div className="mt-3 flex flex-wrap gap-x-2 gap-y-2.5" role="group" aria-label="권역">
+        {AREAS.map(({ id, label }) => (
+          <FilterChip key={id} pressed={areas.includes(id)} onClick={() => onToggleAreaChip(id)}>
+            {label}
           </FilterChip>
         ))}
       </div>

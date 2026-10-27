@@ -26,6 +26,9 @@ export const AREAS: readonly { id: TAreaId; label: string }[] = [
   { id: 'north', label: '북부' },
 ];
 
+/** 권역 이름 — "북부". 보이는 지역 말은 이 하나다(필터 칩·상세 머리·홈 카드, 14 W261027.4). */
+export const areaLabel = (id: TAreaId): string => AREAS.find((area) => area.id === id)?.label ?? id;
+
 /** 읍면 → 권역. 셈이 쓴다. 키는 데이터의 `region.town` 표기 그대로다. */
 export const TOWN_TO_AREA: Readonly<Record<string, TAreaId>> = {
   애월읍: 'west',
@@ -80,7 +83,7 @@ export const areaTownNames = (id: TAreaId): string =>
 
 /** 권역 이름 + 읍면 — "서부(애월·한림·한경)". 둘러보기 칩·0곳 안내와 `pnpm data coverage` 가 쓴다. */
 export const areaTownsLabel = (id: TAreaId): string =>
-  `${AREAS.find((area) => area.id === id)?.label ?? id}(${areaTownNames(id)})`;
+  `${areaLabel(id)}(${areaTownNames(id)})`;
 
 /** 장소의 권역. 매핑에 없는 읍면이면 null — 셈에서 빠진다(테스트가 그런 읍면이 없음을 지킨다). */
 export const areaOf = (place: { region: { town: string } }): TAreaId | null => TOWN_TO_AREA[place.region.town] ?? null;

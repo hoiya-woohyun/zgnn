@@ -10,8 +10,9 @@ import {
   writeMorphMode,
   writeMorphRange,
 } from '../components/layout/scrollDrivenMorph';
+import { areaLabel, areaOf } from '../lib/areaGroups';
 import { categoryLabel } from '../lib/category';
-import { DIRECTION_LABEL, TYPE_COLOR_DEEP, TYPE_META, type TPlaceEntry } from '../lib/places';
+import { TYPE_COLOR_DEEP, TYPE_META, type TPlaceEntry } from '../lib/places';
 import { placeDetailAddressNote } from '../lib/placeDetailLocation';
 import { titleFlight } from '../lib/titleFlight';
 import { PlaceDetailAppBar } from './placeDetailAppBar';
@@ -44,6 +45,8 @@ const useBeforePaint = typeof window === 'undefined' ? useEffect : useLayoutEffe
  * 돌아온 것인지 모른다(14 W261019.15a). `tabIndex={-1}`·`outline-hidden` 은 그대로 둔다 — 코드로 받는 자리다.
  */
 export function PlaceDetailHeader({ place }: { place: TPlaceEntry }) {
+  // 지역 말은 홈 6권역 하나다(14 W261027.4) — 노션 방향(`region.direction`)은 조천을 동쪽이라 불러 홈의 북부와 갈렸다.
+  const placeArea = areaOf(place);
   const Glyph = PLACE_TYPE_ICON[place.type];
   const addressNote = placeDetailAddressNote(place);
   const headerRef = useRef<HTMLElement>(null);
@@ -166,7 +169,7 @@ export function PlaceDetailHeader({ place }: { place: TPlaceEntry }) {
 
       <p className="mt-2 flex flex-wrap items-center gap-1.5 text-sm text-secondary">
         <span style={{ color: TYPE_COLOR_DEEP[place.type] }}>
-          {DIRECTION_LABEL[place.region.direction]} {place.region.town}
+          {placeArea ? `${areaLabel(placeArea)} · ${place.region.town}` : place.region.town}
         </span>
         <span className="h-3 w-px bg-quaternary" aria-hidden="true" />
         <span>{categoryLabel(place.category, TYPE_META[place.type].label, place.type)}</span>

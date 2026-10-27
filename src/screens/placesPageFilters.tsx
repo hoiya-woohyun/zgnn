@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react';
 import { Select } from '../components/base/select';
 import { FilterChip } from '../components/filterChip';
-import { DIRECTIONS, DIRECTION_LABEL, topTowns } from '../lib/places';
+import { AREAS, type TAreaId } from '../lib/areaGroups';
+import { topTowns } from '../lib/places';
 import { envFiltersWithData, PET_FILTERS, townFilterLabel, type TPetFilterKey, type TPlaceSort } from '../lib/placeFilters';
 import { placesPageSortLabel, placesPageSortOptions } from '../lib/placesPageFilter';
 import { placesOfType } from '../lib/places';
-import type { TDirection, TPlaceType } from '../types';
+import type { TPlaceType } from '../types';
 import { cx } from '../utils/cx';
 
 /**
@@ -16,10 +17,10 @@ import { cx } from '../utils/cx';
 type TPlacesPageFiltersProps = {
   type: TPlaceType;
   town: string | null;
-  directions: TDirection[];
+  areas: TAreaId[];
   petKeys: TPetFilterKey[];
   onSelectTown: (town: string | null) => void;
-  onToggleDirection: (direction: TDirection) => void;
+  onToggleAreaChip: (area: TAreaId) => void;
   onTogglePetKey: (key: TPetFilterKey) => void;
   sort: TPlaceSort;
   onChangeSort: (sort: TPlaceSort) => void;
@@ -61,10 +62,10 @@ function FilterGroup({ label, className, children }: { label: string; className?
 export function PlacesPageFilters({
   type,
   town,
-  directions,
+  areas,
   petKeys,
   onSelectTown,
-  onToggleDirection,
+  onToggleAreaChip,
   onTogglePetKey,
   sort,
   onChangeSort,
@@ -78,11 +79,11 @@ export function PlacesPageFilters({
   // 자리를 바꾼다. 칩 옆 수는 없다(22 D-5) — 남는 곳 수는 목록 머리가 말한다.
   const typeTowns = topTowns(type, Number.MAX_SAFE_INTEGER).map((entry) => entry.town);
   const towns = town !== null && !typeTowns.includes(town) ? [town, ...typeTowns] : typeTowns;
-  const directionGroup = (className?: string) => (
-    <FilterGroup label="방향" className={className}>
-      {DIRECTIONS.map((direction) => (
-        <FilterChip key={direction} pressed={directions.includes(direction)} onClick={() => onToggleDirection(direction)}>
-          {DIRECTION_LABEL[direction]}
+  const areaGroup = (className?: string) => (
+    <FilterGroup label="권역" className={className}>
+      {AREAS.map(({ id, label }) => (
+        <FilterChip key={id} pressed={areas.includes(id)} onClick={() => onToggleAreaChip(id)}>
+          {label}
         </FilterChip>
       ))}
     </FilterGroup>
@@ -93,7 +94,7 @@ export function PlacesPageFilters({
       {/*
         읍면은 검색어·타입 탭을 넘어 유지되는 유일한 조건이라(스토어 `town`) 맨 위에 둔다
         (2026-09-15 리뷰 P1 — "하나만 고치면: 읍면 한 번 고르면 숙소·식당·카페·지도 모두 유지").
-        방향·반려동물 조건은 종류를 바꾸면 초기화되는 화면 로컬 상태다.
+        권역·반려동물 조건은 종류를 바꾸면 초기화되는 화면 로컬 상태다.
       */}
       {/* 권역(홈 동네 카드) 설명 줄은 시트에만 있다(14 W261010.33f) — 판엔 설명 줄이 없다. */}
       <FilterGroup label="읍면">
@@ -112,12 +113,12 @@ export function PlacesPageFilters({
         스크롤해야만 보였다(P1). 스크롤 줄 **밖**에 둔다 — 안에 넣으면 md 에서 밀려나거나 끝 마스크에 흐려진다.
         가까운 순(10 F7)이 생겨 정렬은 모든 종류에 선다 — 가격 둘만 숙소에 남는다.
 
-        bar 는 lg 부터 방향 줄 오른쪽에 붙인다(14 W261013.10a). 셀렉트 하나가 47px 한 줄을 통째로 써서 펼친 판이 466px(숙소 522px)까지
-        자랐고, 1280×800 에서 0곳 안내의 버튼이 접힘 아래로 밀렸다. 방향은 칩 다섯이라 lg 본문(768px)에서 자리가 남는다.
-        md(본문 512px)는 나란히 두면 방향 칩이 스크롤로 밀려 제 줄 그대로.
+        bar 는 lg 부터 권역 줄 오른쪽에 붙인다(14 W261013.10a). 셀렉트 하나가 47px 한 줄을 통째로 써서 펼친 판이 466px(숙소 522px)까지
+        자랐고, 1280×800 에서 0곳 안내의 버튼이 접힘 아래로 밀렸다. 권역은 칩 여섯이라 lg 본문(768px)에서 자리가 남는다.
+        md(본문 512px)는 나란히 두면 권역 칩이 스크롤로 밀려 제 줄 그대로.
       */}
       <div className="lg:flex lg:items-center">
-        {directionGroup('lg:min-w-0 lg:flex-1')}
+        {areaGroup('lg:min-w-0 lg:flex-1')}
         <div className="mt-2 flex shrink-0 justify-end px-4 md:px-6 lg:mt-0 lg:pl-0">
           <SortSelect type={type} sort={sort} onChangeSort={onChangeSort} hasDog={hasDog} nearFrom={nearFrom} />
         </div>

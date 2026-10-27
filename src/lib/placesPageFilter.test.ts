@@ -31,7 +31,7 @@ import { sortByDistance } from './distanceSort';
 import { sortByEligibility } from './sortByEligibility';
 import type { TDogProfile, TPlaceType } from '../types';
 
-const base = { town: null, area: null, query: '', directions: [], petKeys: [], hideHard: false, onlyReachable: false, eligibilityMap: null } as const;
+const base = { town: null, area: null, query: '', areas: [], petKeys: [], hideHard: false, onlyReachable: false, eligibilityMap: null } as const;
 const TYPES: TPlaceType[] = ['stay', 'restaurant', 'cafe'];
 
 describe('filterPlacesPage', () => {
@@ -64,10 +64,10 @@ describe('filterPlacesPage', () => {
     expect(filterPlacesPage({ ...base, type: 'restaurant', query: '서귀포 시내' }).length).toBeGreaterThan(0);
   });
 
-  it('방향은 그 방향 장소만 남긴다', () => {
-    const found = filterPlacesPage({ ...base, type: 'restaurant', directions: ['east'] });
+  it('권역 칩은 그 권역 장소만 남긴다', () => {
+    const found = filterPlacesPage({ ...base, type: 'restaurant', areas: ['east'] });
     expect(found.length).toBeGreaterThan(0);
-    expect(found.every((place) => place.region.direction === 'east')).toBe(true);
+    expect(found.every((place) => areaOf(place) === 'east')).toBe(true);
   });
 
   it('반려동물 조건은 그 종류의 조건 키만 건다 — 다른 종류의 키는 무시한다', () => {
@@ -106,7 +106,7 @@ describe('townReleaseCount', () => {
     expect(released).toBeGreaterThan(0);
     expect(townReleaseCount(conditions)).toBe(released);
     // 방향은 풀지 않는다 — 중문(남쪽)에 '동쪽' 을 겹치면 읍면을 풀어도 0곳이다.
-    expect(townReleaseCount({ ...conditions, directions: ['east'] })).toBe(0);
+    expect(townReleaseCount({ ...conditions, areas: ['east'] })).toBe(0);
   });
 });
 
@@ -137,7 +137,7 @@ describe('권역(19 T3)', () => {
 });
 
 describe('placesPageChips', () => {
-  const chipBase = { type: 'restaurant' as const, town: null, needsIndoor: false, hasDog: true, directions: [], petKeys: [], hideHard: false, query: '' };
+  const chipBase = { type: 'restaurant' as const, town: null, needsIndoor: false, hasDog: true, areas: [], petKeys: [], hideHard: false, query: '' };
 
   it('권역은 맨 앞 칩이고 시트 버튼 숫자(activeFilterCount)에 안 든다', () => {
     const result = placesPageChips({ ...chipBase, area: 'west', hideHard: true, query: '카레' });
@@ -159,7 +159,7 @@ describe('placesPageChips', () => {
 
   it('머리에 같은 말이 없는 칩만 notInHeader — 권역, 반경을 말하는 검색어(lg 에서도 남는다, 14 W261019.11c)', () => {
     const marked = (query: string, area: 'west' | null = null) =>
-      placesPageChips({ ...chipBase, area, directions: ['east'], hideHard: true, query })
+      placesPageChips({ ...chipBase, area, areas: ['east'], hideHard: true, query })
         .chips.filter((chip) => chip.notInHeader)
         .map((chip) => chip.key);
     expect(marked('중문')).toEqual(['query']);
@@ -173,11 +173,11 @@ describe('placesPageChips', () => {
     expect(placesPageChips(chipBase)).toEqual({ chips: [], activeFilterCount: 0, resetCount: 0, hasFilters: false, resetLabel: '필터 지우기' });
   });
 
-  it('순서는 시트의 차례(숨김 → 실내 → 방향 → 읍면 → 원문 조건) → 검색어, 개수에는 검색어가 빠진다 · 정렬은 칩이 아니다(22 D-4 · 14 W261019.13)', () => {
-    const result = placesPageChips({ ...chipBase, town: '애월읍', directions: ['east'], hideHard: true, query: ' 카레 ' });
-    expect(result.chips.map((chip) => chip.key)).toEqual(['hideHard', 'dir-east', 'town', 'query']);
-    const all = placesPageChips({ ...chipBase, town: '애월읍', needsIndoor: true, directions: ['west'], petKeys: ['largeDog'], hideHard: true });
-    expect(all.chips.map((chip) => chip.key)).toEqual(['hideHard', 'indoor', 'dir-west', 'town', 'pet-largeDog']);
+  it('순서는 시트의 차례(숨김 → 실내 → 권역 → 읍면 → 원문 조건) → 검색어, 개수에는 검색어가 빠진다 · 정렬은 칩이 아니다(22 D-4 · 14 W261019.13)', () => {
+    const result = placesPageChips({ ...chipBase, town: '애월읍', areas: ['east'], hideHard: true, query: ' 카레 ' });
+    expect(result.chips.map((chip) => chip.key)).toEqual(['hideHard', 'areas-east', 'town', 'query']);
+    const all = placesPageChips({ ...chipBase, town: '애월읍', needsIndoor: true, areas: ['west'], petKeys: ['largeDog'], hideHard: true });
+    expect(all.chips.map((chip) => chip.key)).toEqual(['hideHard', 'indoor', 'areas-west', 'town', 'pet-largeDog']);
     expect(result.chips.at(-1)?.label).toBe('"카레"');
     expect(result.activeFilterCount).toBe(3);
     expect(result.hasFilters).toBe(true);
@@ -200,10 +200,10 @@ describe('placesPageChips', () => {
     const indoorOnly = placesPageChips({ ...chipBase, needsIndoor: true });
     expect(indoorOnly.chips.map((chip) => chip.key)).toEqual(['indoor']);
     expect(indoorOnly).toMatchObject({ activeFilterCount: 1, resetCount: 0, hasFilters: false });
-    const withDir = placesPageChips({ ...chipBase, needsIndoor: true, directions: ['east'] });
+    const withDir = placesPageChips({ ...chipBase, needsIndoor: true, areas: ['east'] });
     expect(withDir).toMatchObject({ activeFilterCount: 2, resetCount: 1, hasFilters: true, resetLabel: '필터 지우기' });
     // 숙소는 실내 칩이 없다 — 빼지 않는다.
-    expect(placesPageChips({ ...chipBase, type: 'stay', needsIndoor: true, directions: ['east'] })).toMatchObject({ activeFilterCount: 1, resetCount: 1 });
+    expect(placesPageChips({ ...chipBase, type: 'stay', needsIndoor: true, areas: ['east'] })).toMatchObject({ activeFilterCount: 1, resetCount: 1 });
   });
 
   it('강아지가 없으면 숨김 칩을 안 그린다 · 검색어만이면 개수 0 에 hasFilters', () => {
@@ -259,12 +259,12 @@ describe("'갈 수 있는 곳만'(19 T4.1)", () => {
 
   it('판정 맵이 없으면(강아지 없음) 거르지 않고 칩도 없다', () => {
     expect(filterPlacesPage({ ...base, type: 'cafe', onlyReachable: true })).toHaveLength(placesOfType('cafe').length);
-    const chipBase = { type: 'cafe' as const, town: null, needsIndoor: false, directions: [], petKeys: [], hideHard: false, query: '' };
+    const chipBase = { type: 'cafe' as const, town: null, needsIndoor: false, areas: [], petKeys: [], hideHard: false, query: '' };
     expect(placesPageChips({ ...chipBase, hasDog: false, onlyReachable: true }).chips).toEqual([]);
   });
 
   it('칩은 권역 바로 뒤, 시트에 칩이 있어 시트 버튼 숫자(activeFilterCount)에 센다(14 W261013.14d)', () => {
-    const chipBase = { type: 'stay' as const, town: null, needsIndoor: false, hasDog: true, directions: [], petKeys: [], hideHard: false, query: '' };
+    const chipBase = { type: 'stay' as const, town: null, needsIndoor: false, hasDog: true, areas: [], petKeys: [], hideHard: false, query: '' };
     const result = placesPageChips({ ...chipBase, area: 'west', onlyReachable: true });
     expect(result.chips.map((chip) => chip.key)).toEqual(['area', 'onlyReachable']);
     expect(result.activeFilterCount).toBe(1);
@@ -315,7 +315,7 @@ describe('카드 진입에 따라온 읍면·방향·조건 칩(19 T4.2)', () =>
     const conditions = { ...entered, area: id, town: towns[0] };
     const shown = filterPlacesPage(conditions).length;
     expect(shown).toBeLessThan(card);
-    expect(areaCarriedRelease(conditions, shown)).toEqual({ count: card, town: towns[0], directions: 0, petKeys: 0 });
+    expect(areaCarriedRelease(conditions, shown)).toEqual({ count: card, town: towns[0], areas: 0, petKeys: 0 });
   });
 
   it('따라온 것이 없거나 · 카드 진입이 아니거나 · 풀어도 같으면 null', () => {
@@ -324,11 +324,10 @@ describe('카드 진입에 따라온 읍면·방향·조건 칩(19 T4.2)', () =>
     expect(areaCarriedRelease({ ...entered, area: id, town: towns[0], onlyReachable: false }, 0)).toBeNull();
     expect(areaCarriedRelease({ ...entered, area: null, town: towns[0] }, 0)).toBeNull();
     expect(areaCarriedRelease({ ...entered, area: id, town: towns[0], eligibilityMap: null }, 0)).toBeNull();
-    // 권역 안 방향을 고르면(그 권역 곳이 전부 그 방향) 줄지 않는다 — 원인이 아니라 말하지 않는다.
-    const direction = opened[0].region.direction;
-    const sameDirection = { ...entered, area: id, directions: [direction] };
-    const shown = filterPlacesPage(sameDirection).length;
-    if (shown === opened.length) expect(areaCarriedRelease(sameDirection, shown)).toBeNull();
+    // 같은 권역 칩을 고르면(그 권역 곳이 전부 그 권역) 줄지 않는다 — 원인이 아니라 말하지 않는다.
+    const sameArea = { ...entered, area: id, areas: [id] };
+    const shown = filterPlacesPage(sameArea).length;
+    if (shown === opened.length) expect(areaCarriedRelease(sameArea, shown)).toBeNull();
   });
 
   it('식당 탭이면 null — 권역은 탭을 따라오지만 카드는 식당을 세지 않는다', () => {
@@ -400,9 +399,9 @@ describe('다른 종류에도 있어요 — 줄의 n = 눌러 넘어간 탭의 �
     const [stayKey] = filtersOfPlaceType('stay');
     expect(otherTypeMatches({ ...stayTab, query }, { ...noKeys, stay: [stayKey.key] })).toEqual(otherTypeMatches({ ...stayTab, query }, noKeys));
 
-    const east = otherTypeMatches({ ...stayTab, query, directions: ['east'] }, noKeys);
+    const east = otherTypeMatches({ ...stayTab, query, areas: ['east'] }, noKeys);
     for (const other of ['restaurant', 'cafe'] as const) {
-      expect(countOf(east, other)).toBe(filterPlacesPage({ ...base, type: other, query, directions: ['east'] }).length);
+      expect(countOf(east, other)).toBe(filterPlacesPage({ ...base, type: other, query, areas: ['east'] }).length);
     }
     expect(countOf(east, 'cafe')).toBeLessThan(cafes);
   });
@@ -497,7 +496,7 @@ describe('singleConditionReleases — 0곳일 때 조건 하나만 풀면 몇 �
   });
 
   it("키는 칩 키(placesPageChips)와 같다 — 화면이 그 칩의 지우기를 그대로 쓴다", () => {
-    const conditions = { ...base, type: 'stay' as const, petKeys: ['largeDog', 'noStairs'] as const, directions: ['east'] as const };
+    const conditions = { ...base, type: 'stay' as const, petKeys: ['largeDog', 'noStairs'] as const, areas: ['east'] as const };
     const { chips } = placesPageChips({ ...conditions, needsIndoor: false, hasDog: false });
     const chipKeys = new Set(chips.map((chip) => chip.key));
     for (const release of singleConditionReleases(conditions, noJudging)) expect(chipKeys.has(release.key)).toBe(true);
@@ -505,7 +504,7 @@ describe('singleConditionReleases — 0곳일 때 조건 하나만 풀면 몇 �
 
   it("'실내 자리 필요' 는 그 값 없이 다시 판정한 맵으로 센다 — 화면의 맵과 같은 호출(eligibilityMapOf)", () => {
     const eligibilityMap = eligibilityMapOf(PLACES, BIG, { needsIndoor: true });
-    const conditions = { ...base, type: 'restaurant' as const, directions: ['east'] as const, onlyReachable: true, eligibilityMap };
+    const conditions = { ...base, type: 'restaurant' as const, areas: ['southeast'] as const, onlyReachable: true, eligibilityMap };
     expect(filterPlacesPage(conditions)).toHaveLength(0);
     const indoor = singleConditionReleases(conditions, { dog: BIG, needsIndoor: true }).find((r) => r.key === 'indoor');
     const expected = filterPlacesPage({ ...conditions, eligibilityMap: eligibilityMapOf(PLACES, BIG) }).length;
@@ -518,7 +517,7 @@ describe('singleConditionReleases — 0곳일 때 조건 하나만 풀면 몇 �
 
   it("'어려운 곳 빼고' 는 후보가 아니다 — 그것만 풀면 새로 보이는 곳은 전부 '이용하기 어려워요' 다", () => {
     const eligibilityMap = eligibilityMapOf(PLACES, BIG, { needsIndoor: true });
-    const conditions = { ...base, type: 'restaurant' as const, directions: ['udo'] as const, hideHard: true, eligibilityMap };
+    const conditions = { ...base, type: 'restaurant' as const, town: '우도면', hideHard: true, eligibilityMap };
     expect(filterPlacesPage(conditions)).toHaveLength(0);
     const unhidden = filterPlacesPage({ ...conditions, hideHard: false });
     expect(unhidden.length).toBeGreaterThan(0);
@@ -546,9 +545,9 @@ describe('singleConditionReleases — 0곳일 때 조건 하나만 풀면 몇 �
     const releases = singleConditionReleases(conditions, noJudging);
     expect(releases.find((r) => r.key === 'query')?.count).toBe(filterPlacesPage({ ...conditions, query: '' }).length);
     // '동쪽' 을 더하면 그것만 풀어도 중문 × 2마리 이상 = 0곳이라 그 풀기는 빠지고, 검색어를 지우는 길만 남는다.
-    const east = singleConditionReleases({ ...conditions, directions: ['east'] }, noJudging);
+    const east = singleConditionReleases({ ...conditions, areas: ['east'] }, noJudging);
     expect(east.every((r) => r.count > 0)).toBe(true);
-    expect(east.map((r) => r.key)).not.toContain('dir-east');
+    expect(east.map((r) => r.key)).not.toContain('areas-east');
     expect(east.map((r) => r.key)).toContain('query');
     expect(singleConditionReleases({ ...base, type: 'stay' }, noJudging)).toEqual([]);
   });
@@ -560,7 +559,7 @@ describe('otherSeatTypeMatches — 검색어 없이 0곳인 식당·카페의 �
 
   it('식당 동쪽 × 갈 수 있는 곳만 × 실내 자리 필요(28kg) = 0곳 — 카페 수는 넘어간 탭의 목록 수', () => {
     const eligibilityMap = eligibilityMapOf(PLACES, BIG, { needsIndoor: true });
-    const conditions = { ...base, type: 'restaurant' as const, directions: ['east'] as const, onlyReachable: true, eligibilityMap };
+    const conditions = { ...base, type: 'restaurant' as const, areas: ['east'] as const, onlyReachable: true, eligibilityMap };
     expect(filterPlacesPage(conditions)).toHaveLength(0);
     const matches = otherSeatTypeMatches(conditions, noKeys);
     const cafe = filterPlacesPage({ ...conditions, type: 'cafe' }).length;
@@ -568,7 +567,7 @@ describe('otherSeatTypeMatches — 검색어 없이 0곳인 식당·카페의 �
   });
 
   it('넘어간 탭의 조건 칩이 걸린다 — 이 종류에만 있는 칩은 따라가지 않는다', () => {
-    const conditions = { ...base, type: 'cafe' as const, directions: ['east'] as const };
+    const conditions = { ...base, type: 'cafe' as const, areas: ['east'] as const };
     const largeDog = otherSeatTypeMatches(conditions, { ...noKeys, restaurant: ['largeDog'] });
     const all = otherSeatTypeMatches(conditions, noKeys);
     expect(largeDog[0]?.count ?? 0).toBe(filterPlacesPage({ ...conditions, type: 'restaurant', petKeys: ['largeDog'] }).length);
@@ -576,7 +575,7 @@ describe('otherSeatTypeMatches — 검색어 없이 0곳인 식당·카페의 �
   });
 
   it('숙소는 대신할 종류가 없고, 검색어가 있으면 otherTypeMatches 몫이라 빈 배열', () => {
-    expect(otherSeatTypeMatches({ ...base, type: 'stay', directions: ['east'] }, noKeys)).toEqual([]);
+    expect(otherSeatTypeMatches({ ...base, type: 'stay', areas: ['east'] }, noKeys)).toEqual([]);
     expect(otherSeatTypeMatches({ ...base, type: 'restaurant', query: '함덕' }, noKeys)).toEqual([]);
     // 숙소는 대신 목록에 들지 않는다.
     expect(otherSeatTypeMatches({ ...base, type: 'cafe' }, noKeys).map((m) => m.type)).toEqual(['restaurant']);
@@ -666,7 +665,7 @@ describe('placesPageResultsView — 본 화면·엿보기가 받는 본문 값 �
     town: null,
     area: null,
     query: '',
-    directions: [],
+    areas: [],
     hideHard: false,
     onlyReachable: false,
     petKeysByType: NO_KEYS,
@@ -729,7 +728,7 @@ describe('placesPageResultsView — 본 화면·엿보기가 받는 본문 값 �
       {},
       { area: 'west', onlyReachable: true },
       { area: 'west', query: '애월' },
-      { town: '애월읍', directions: ['east'] },
+      { town: '애월읍', areas: ['east'] },
       { town: '우도면', hideHard: true },
       { hideHard: true, onlyReachable: true, petKeysByType: { stay: ['largeDog'], restaurant: ['indoor'], cafe: ['noCage'] } },
     ];

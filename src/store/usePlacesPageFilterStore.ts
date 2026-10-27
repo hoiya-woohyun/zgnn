@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { TAreaId } from '../lib/areaGroups';
 import type { TPetFilterKey } from '../lib/placeFilters';
-import type { TDirection, TPlaceType } from '../types';
+import type { TPlaceType } from '../types';
 
 /**
  * 둘러보기의 검색어·방향·'어려운 곳 숨기기'·종류별 반려동물 조건·종류별 '어려움 N곳' 펼침 — 종류 탭을 넘겨도, 상세에 갔다 돌아와도 남는다(07 U3).
@@ -21,7 +21,7 @@ import type { TDirection, TPlaceType } from '../types';
  */
 type TPlacesPageFilterState = {
   query: string;
-  directions: TDirection[];
+  areas: TAreaId[];
   hideHard: boolean;
   /**
    * '갈 수 있는 곳만'(19 T4.1) — 동네 카드가 권역과 함께 걸고, 필터 시트의 '우리 강아지 기준' 에서도 켜고 끈다(14 W261013.14d — 4곳만 보는 길이
@@ -56,7 +56,7 @@ type TPlacesPageFilterState = {
   toggleOnlyReachable: () => void;
   /** 동네 카드 진입에 따라온 방향·이 종류의 조건 칩을 푼다(19 T4.2). 읍면은 퍼시스트라 부르는 쪽이 `setTown(null)` 을 함께 부른다. */
   releaseAreaCarried: (type: TPlaceType) => void;
-  toggleDirection: (direction: TDirection) => void;
+  toggleAreaChip: (area: TAreaId) => void;
   toggleHideHard: () => void;
   setHideHard: (value: boolean) => void;
   togglePetKey: (type: TPlaceType, key: TPetFilterKey) => void;
@@ -69,7 +69,7 @@ const emptyPetKeys = (): Record<TPlaceType, TPetFilterKey[]> => ({ stay: [], res
 
 export const usePlacesPageFilterStore = create<TPlacesPageFilterState>()((set) => ({
   query: '',
-  directions: [],
+  areas: [],
   hideHard: false,
   onlyReachable: false,
   area: null,
@@ -79,16 +79,16 @@ export const usePlacesPageFilterStore = create<TPlacesPageFilterState>()((set) =
   clearQuery: () => set({ query: '' }),
   enterLandmark: (word) => set({ query: word, area: null, onlyReachable: false }),
   enterArea: (area) => set({ area, onlyReachable: true, query: '' }),
-  enterNear: () => set({ query: '', area: null, directions: [], onlyReachable: false }),
+  enterNear: () => set({ query: '', area: null, areas: [], onlyReachable: false }),
   clearArea: () => set({ area: null }),
   clearOnlyReachable: () => set({ onlyReachable: false }),
   toggleOnlyReachable: () => set((state) => ({ onlyReachable: !state.onlyReachable })),
-  releaseAreaCarried: (type) => set((state) => ({ directions: [], petKeysByType: { ...state.petKeysByType, [type]: [] } })),
-  toggleDirection: (direction) =>
+  releaseAreaCarried: (type) => set((state) => ({ areas: [], petKeysByType: { ...state.petKeysByType, [type]: [] } })),
+  toggleAreaChip: (chosen) =>
     set((state) => ({
-      directions: state.directions.includes(direction)
-        ? state.directions.filter((value) => value !== direction)
-        : [...state.directions, direction],
+      areas: state.areas.includes(chosen)
+        ? state.areas.filter((value) => value !== chosen)
+        : [...state.areas, chosen],
     })),
   toggleHideHard: () => set((state) => ({ hideHard: !state.hideHard })),
   setHideHard: (hideHard) => set({ hideHard }),
@@ -100,5 +100,5 @@ export const usePlacesPageFilterStore = create<TPlacesPageFilterState>()((set) =
     }),
   toggleHardOpen: (type) =>
     set((state) => ({ hardOpenByType: { ...state.hardOpenByType, [type]: !state.hardOpenByType[type] } })),
-  resetConditions: () => set({ directions: [], hideHard: false, onlyReachable: false, petKeysByType: emptyPetKeys() }),
+  resetConditions: () => set({ areas: [], hideHard: false, onlyReachable: false, petKeysByType: emptyPetKeys() }),
 }));
