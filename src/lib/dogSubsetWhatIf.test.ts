@@ -78,6 +78,17 @@ describe('dogSubsetWhatIf', () => {
       expect(dogSubsetWhatIf(DAEJANG_28, policy, current)).toBeNull();
     });
 
+    it('수가 같으면 야외 자리만을 일반 확인 필요보다 앞에 — 묶음에도 같은 급만(14 W261010.15a)', () => {
+      // 대장(28kg)은 혼자여도 C5 가 남아 일반 확인 필요, 초코(6kg)는 야외 자리만 — 둘이 같이는 1마리 상한이라 어려움.
+      const policy = parsePetPolicy('야외 테라스만 가능. 1마리까지');
+      const current = judgeEligibility(DAEJANG_28, policy);
+      expect(current.level).toBe('hard');
+      const result = dogSubsetWhatIf(DAEJANG_28, policy, current);
+      expect(result?.names).toEqual(['초코']);
+      expect(result?.ties).toEqual([['초코']]);
+      expect(result && isOutdoorSeatOnly(result.eligibility)).toBe(true);
+    });
+
     it('갈 수 있어요·정보 없음이면 묻지 않는다', () => {
       const ok = parsePetPolicy('소형견·중형견·대형견 모두 가능');
       expect(dogSubsetWhatIf(DAEJANG_28, ok, { level: 'ok', reasons: [] })).toBeNull();

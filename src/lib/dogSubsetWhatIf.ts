@@ -33,6 +33,10 @@ export type TDogSubsetWhatIf = {
 
 const LEVEL_RANK = { ok: 0, cond: 1, unknown: 2, hard: 3 } as const;
 
+/** 단계를 반으로 쪼갠 순위 — 야외 자리만(`isOutdoorSeatOnly`)은 일반 확인 필요보다 앞이다("야외 자리에서 갈 수 있어요" 가 한쪽에만 참일 수 있다, 14 W261010.15a). */
+const eligibilityRank = (e: TEligibility): number =>
+  LEVEL_RANK[e.level] * 2 + (e.level === 'cond' && !isOutdoorSeatOnly(e) ? 1 : 0);
+
 /** 비지 않은 진부분집합 — 마리 순서를 지킨다. */
 const properSubsets = <T>(items: readonly T[]): T[][] => {
   const subsets: T[][] = [];
@@ -44,31 +48,32 @@ const properSubsets = <T>(items: readonly T[]): T[][] => {
 
 /**
  * 비지 않은 진부분집합 중 **가장 많이 데려가는 조합** — 같은 수면 판정이 나은 쪽, 그다음 무거운 쪽.
+ * `rank`(작을수록 낫다)는 판정 단계를 더 잘게 나눌 때 — 기본은 `level` 만이다. 묶음 `ties` 도 같은 `rank` 만 모은다.
  * `judge` 가 그 조합의 판정을 내고, 받아들일 수 없는 조합이면 `null`. 장소 하나(`dogSubsetWhatIf`)와
  * 하루 묶음(`tripEligibility`)이 무엇을 "된다" 로 치는지만 다르고 고르는 규칙은 같다.
  */
 export function bestDogSubset<R extends { level: TEligibilityLevel }>(
   dog: TDogProfile,
   judge: (subset: TDogProfile) => R | null,
+  rank: (result: R) => number = (result) => LEVEL_RANK[result.level],
 ): { names: string[]; result: R; ties: string[][] } | null {
   let best: { names: string[]; result: R; weight: number } | null = null;
-  const accepted: { names: string[]; level: TEligibilityLevel }[] = [];
+  const accepted: { names: string[]; rank: number }[] = [];
   for (const dogs of properSubsets(dog.dogs)) {
     const result = judge({ dogs, carrier: dog.carrier });
     if (!result) continue;
-    accepted.push({ names: dogs.map((entry) => entry.name), level: result.level });
+    accepted.push({ names: dogs.map((entry) => entry.name), rank: rank(result) });
     const weight = dogs.reduce((sum, entry) => sum + entry.weightKg, 0);
     const better =
       !best ||
       dogs.length > best.names.length ||
       (dogs.length === best.names.length &&
-        (LEVEL_RANK[result.level] < LEVEL_RANK[best.result.level] ||
-          (LEVEL_RANK[result.level] === LEVEL_RANK[best.result.level] && weight > best.weight)));
+        (rank(result) < rank(best.result) || (rank(result) === rank(best.result) && weight > best.weight)));
     if (better) best = { names: dogs.map((entry) => entry.name), result, weight };
   }
   if (!best) return null;
   const { names, result } = best;
-  const ties = accepted.filter((c) => c.names.length === names.length && c.level === result.level).map((c) => c.names);
+  const ties = accepted.filter((c) => c.names.length === names.length && c.rank === rank(result)).map((c) => c.names);
   return { names, result, ties };
 }
 
@@ -95,7 +100,7 @@ export function dogSubsetWhatIf(
   const best = bestDogSubset(dog, (subset) => {
     const eligibility = judgeEligibility(subset, policy, opts);
     return accepts(eligibility) ? eligibility : null;
-  });
+  }, eligibilityRank);
   return best ? { names: best.names, ties: best.ties, eligibility: best.result } : null;
 }
 
