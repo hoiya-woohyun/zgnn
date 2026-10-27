@@ -86,28 +86,28 @@ describe('homeTypeCardSegments — 종류 카드 수 줄 (14 W261013.2)', () => 
     }
   });
 
-  it('가능 · 확인 필요는 0 이어도, 야외 · 정보 없음 · 어려움은 1 이상일 때만 — 목록 머리와 같은 순서', () => {
+  it('갈 수 있어요 · 확인 필요는 0 이어도, 정보 없음 · 어려움은 1 이상일 때만 — 목록 머리와 같은 순서(야외는 갈 수 있어요에 든다)', () => {
     expect(homeTypeCardSegments({ ok: 0, outdoor: 0, cond: 0, unknown: 0, hard: 0 }).map((s) => s.label)).toEqual([
-      '가능',
+      '갈 수 있어요',
       '확인 필요',
     ]);
     expect(homeTypeCardSegments({ ok: 10, outdoor: 2, cond: 4, unknown: 4, hard: 13 }).map((s) => s.label)).toEqual([
-      '가능',
-      '야외',
+      '갈 수 있어요',
       '확인 필요',
       '정보 없음',
       '어려움',
     ]);
   });
 
-  it('굵게 세우는 것은 가능 · 야외 · 확인 필요 — 나머지는 합을 맞추는 칸', () => {
+  it('굵게 세우는 것은 갈 수 있어요 · 확인 필요 — 나머지는 합을 맞추는 칸, 야외는 갈 수 있어요에 합쳐진다', () => {
     const segments = homeTypeCardSegments({ ok: 1, outdoor: 1, cond: 1, unknown: 1, hard: 1 });
-    expect(segments.filter((s) => s.strong).map((s) => s.level)).toEqual(['ok', 'outdoor', 'cond']);
+    expect(segments.filter((s) => s.strong).map((s) => s.level)).toEqual(['ok', 'cond']);
+    expect(segments[0].count).toBe(2);
   });
 
   it('읽히는 말은 보이는 글자와 같다 — 분모가 앞', () => {
     expect(homeTypeCardCountsLabel({ ok: 10, outdoor: 0, cond: 4, unknown: 4, hard: 13 }, 31)).toBe(
-      '31곳 중 가능 10 · 확인 필요 4 · 정보 없음 4 · 어려움 13',
+      '31곳 중 갈 수 있어요 10 · 확인 필요 4 · 정보 없음 4 · 어려움 13',
     );
   });
 });

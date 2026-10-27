@@ -1,4 +1,4 @@
-import { LEVEL_COUNT_LABEL, splitReachable, type TLevelCounts } from './eligibilityCounts';
+import { foldOutdoor, LEVEL_COUNT_LABEL, splitReachable, type TLevelCounts } from './eligibilityCounts';
 import { PLACE_TYPES } from './places';
 import type { TPetPolicy } from './petPolicy';
 import type { TDogProfile, TPlaceType } from '../types';
@@ -54,29 +54,30 @@ export type THomeTypeCardSegment = { level: keyof TLevelCounts; label: string; c
 /**
  * 종류 카드 수 줄의 칸들 — 목록 머리와 같은 이름(`LEVEL_COUNT_LABEL`), 같은 순서.
  *
- * - 가능 · 확인 필요는 0 이어도 선다 — "가능 0" 이 그 아이의 답이다. 야외는 1 이상일 때만(W261007.5).
+ * - 갈 수 있어요 · 확인 필요는 0 이어도 선다 — "갈 수 있어요 0" 이 그 아이의 답이다. 야외 자리만 되는 곳은 따로 세지 않고 갈 수 있어요에 든다
+ *   (행 배지가 같은 말이다 — 22 R27.4 · D-5. 전엔 '야외' 칸이 따로 서서 머리 "가능 5 · 야외 6" 인데 행은 11곳이 '갈 수 있어요' 였다).
  * - 정보 없음 · 어려움도 센다(14 W261013.2) — 빼면 "31곳 · 가능 10 · 확인 필요 4" 가 나머지 17곳을 말하지 않아 합이 안 맞았다
  *   (junhyuk-05 · minji-19). 목록 머리처럼 0 이면 뺀다. 굵게 세우지 않는다(`strong: false`) — 카드의 답은 가능 쪽이다.
  *
  * 칸의 합은 언제나 `countByLevel` 의 합(= 그 종류 곳 수)이다.
  */
 export const homeTypeCardSegments = (counts: TLevelCounts): THomeTypeCardSegment[] => {
+  const folded = foldOutdoor(counts);
   const segment = (level: keyof TLevelCounts, strong: boolean): THomeTypeCardSegment => ({
     level,
     label: LEVEL_COUNT_LABEL[level],
-    count: counts[level],
+    count: folded[level],
     strong,
   });
   return [
     segment('ok', true),
-    ...(counts.outdoor > 0 ? [segment('outdoor', true)] : []),
     segment('cond', true),
-    ...(counts.unknown > 0 ? [segment('unknown', false)] : []),
-    ...(counts.hard > 0 ? [segment('hard', false)] : []),
+    ...(folded.unknown > 0 ? [segment('unknown', false)] : []),
+    ...(folded.hard > 0 ? [segment('hard', false)] : []),
   ];
 };
 
-/** 종류 카드 수 줄이 읽히는 말 — 보이는 글자와 같다("31곳 중 가능 10 · 확인 필요 4 · 정보 없음 4 · 어려움 13"). 점(·)은 화면에선 aria-hidden 이다. */
+/** 종류 카드 수 줄이 읽히는 말 — 보이는 글자와 같다("31곳 중 갈 수 있어요 10 · 확인 필요 4 · 정보 없음 4 · 어려움 13"). 점(·)은 화면에선 aria-hidden 이다. */
 export const homeTypeCardCountsLabel = (counts: TLevelCounts, total: number): string =>
   `${total}곳 중 ${homeTypeCardSegments(counts)
     .map((segment) => `${segment.label} ${segment.count}`)

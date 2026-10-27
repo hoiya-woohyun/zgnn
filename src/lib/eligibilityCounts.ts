@@ -96,12 +96,12 @@ export const splitReachable = <T extends { policy: TPetPolicy }>(
 };
 
 /**
- * 세는 칸의 짧은 이름 — 목록 머리("26곳 · 가능 4 · 확인 필요 4 · …")와 홈 종류 카드가 같은 말을 쓴다(08 T2.2).
+ * 세는 칸의 짧은 이름 — 목록 머리("26곳 · 갈 수 있어요 4 · 확인 필요 4 · …")와 홈 종류 카드가 같은 말을 쓴다(08 T2.2).
  * 배지 문구("갈 수 있어요"…)를 늘어놓으면 한 줄에 안 들어간다. cond 를 '확인' 한 낱말로 줄이면 상세의 "…에 확인했어요"(검증됨)와
  * 반대 뜻의 같은 말이 된다 — '필요' 까지가 뜻이다. '야외' 는 카드가 "야외 자리에서 갈 수 있어요" 인 곳(14 W261007.5).
  */
 export const LEVEL_COUNT_LABEL: Record<keyof TLevelCounts, string> = {
-  ok: '가능',
+  ok: '갈 수 있어요',
   outdoor: '야외',
   cond: '확인 필요',
   unknown: '정보 없음',
@@ -109,14 +109,23 @@ export const LEVEL_COUNT_LABEL: Record<keyof TLevelCounts, string> = {
 };
 
 /**
- * 레벨 셈을 "가능 4" 조각들로 — 0 인 레벨은 뺀다("어려움 0" 은 읽을 거리가 아니다). 순서는 `LEVEL_COUNT_LABEL` 의 키 순서.
+ * 야외 칸을 `ok` 에 합친 셈 — 사람에게 보이는 넷(갈 수 있어요 · 확인 필요 · 정보 없음 · 어려움)은 행의 배지와 같은 말이다.
+ * 행은 야외 자리만 되는 곳도 '갈 수 있어요' 라고 하므로, 머리가 '야외' 를 따로 세면 "가능 5 · 야외 6" 인데 행은 11곳이 '갈 수 있어요' 가 된다
+ * (22 R27.4 · D-5). 홈 종류 줄 · 목록 머리 · what-if 문장이 이 하나로 넷을 만든다 — `ok` 가 곧 `isReachable` 의 수(ADR-027)다.
+ */
+export const foldOutdoor = (counts: TLevelCounts): TLevelCounts => ({ ...counts, ok: counts.ok + counts.outdoor, outdoor: 0 });
+
+/**
+ * 레벨 셈을 "갈 수 있어요 4" 조각들로 — 0 인 레벨은 뺀다("어려움 0" 은 읽을 거리가 아니다). 순서는 `LEVEL_COUNT_LABEL` 의 키 순서.
  * 목록 머리("26곳 · 가능 4 · …")와 필터 시트 아래 줄(14 W261013.8)이 이 하나로 잇는다 — 시트는 '실내 자리 필요' 처럼
  * 곳 수는 그대로 두고 판정만 바꾸는 토글의 결과를 여기서 보인다.
  */
-export const levelCountParts = (counts: TLevelCounts): string[] =>
-  (Object.entries(LEVEL_COUNT_LABEL) as [keyof TLevelCounts, string][])
-    .filter(([level]) => counts[level] > 0)
-    .map(([level, label]) => `${label} ${counts[level]}`);
+export const levelCountParts = (counts: TLevelCounts): string[] => {
+  const folded = foldOutdoor(counts);
+  return (Object.entries(LEVEL_COUNT_LABEL) as [keyof TLevelCounts, string][])
+    .filter(([level]) => folded[level] > 0)
+    .map(([level, label]) => `${label} ${folded[level]}`);
+};
 
 /**
  * "이동가방이 있으면 N곳이 열린다" — 이동 수단 what-if(07 P2 → 08 T2.5).
@@ -166,9 +175,10 @@ export const carrierWhatIf = (
  * 원문이 '케이지' 인 곳이 '확인 필요' 로 가면 뒤에 한 문장 — C2 가 확인을 권하는 이유(원문이 '케이지' 라고 쓴 곳도 천 가방을 받는지는 모른다)와 같은 말이다.
  */
 export const carrierWhatIfText = (whatIf: { hard: number; counts: TLevelCounts; cageAsk: number }): string => {
+  const folded = foldOutdoor(whatIf.counts);
   const parts = (Object.keys(LEVEL_COUNT_LABEL) as (keyof TLevelCounts)[])
-    .filter((level) => level !== 'hard' && whatIf.counts[level] > 0)
-    .map((level) => ({ count: whatIf.counts[level], label: LEVEL_COUNT_LABEL[level] }));
+    .filter((level) => level !== 'hard' && folded[level] > 0)
+    .map((level) => ({ count: folded[level], label: LEVEL_COUNT_LABEL[level] }));
   const last = parts.at(-1);
   if (!last) return '';
   const subject = parts.length === 1 ? '이' : '은';

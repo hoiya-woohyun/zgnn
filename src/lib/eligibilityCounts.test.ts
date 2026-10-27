@@ -129,7 +129,7 @@ describe('carrierWhatIf — 이동가방이 있으면 몇 곳이 열리나', () 
     const whatIf = carrierWhatIf(places, TOFU_NONE);
     expect(whatIf?.counts).toEqual({ ok: 1, outdoor: 0, cond: 2, unknown: 0, hard: 0 });
     expect(carrierWhatIfText(whatIf!)).toBe(
-      '어려움 3곳 중 이동가방이 있으면 1곳은 ‘가능’, 2곳은 ‘확인 필요’ 로 바뀌어요. 케이지라고 적힌 곳이 가방도 받는지는 물어봐야 알아요',
+      '어려움 3곳 중 이동가방이 있으면 1곳은 ‘갈 수 있어요’, 2곳은 ‘확인 필요’ 로 바뀌어요. 케이지라고 적힌 곳이 가방도 받는지는 물어봐야 알아요',
     );
   });
 
@@ -138,7 +138,7 @@ describe('carrierWhatIf — 이동가방이 있으면 몇 곳이 열리나', () 
       '어려움 2곳 중 이동가방이 있으면 2곳이 ‘확인 필요’ 로 바뀌어요. 케이지라고 적힌 곳이 가방도 받는지는 물어봐야 알아요',
     );
     const bagOnly = [{ policy: parsePetPolicy('실내는 이동가방 필수.') }];
-    expect(carrierWhatIfText(carrierWhatIf(bagOnly, TOFU_NONE)!)).toBe('어려움 1곳 중 이동가방이 있으면 1곳이 ‘가능’ 으로 바뀌어요');
+    expect(carrierWhatIfText(carrierWhatIf(bagOnly, TOFU_NONE)!)).toBe('어려움 1곳 중 이동가방이 있으면 1곳이 ‘갈 수 있어요’ 로 바뀌어요');
   });
 
   it("원문이 유모차만 적었으면 C2 여도 '케이지' 라고 부르지 않는다(14 W261019.3)", () => {
@@ -216,7 +216,7 @@ describe('LEVEL_COUNT_LABEL', () => {
   // 목록 머리(placesPageResults)가 이 표의 순서대로 칸을 늘어놓는다 — 홈 카드와 같은 이름·같은 순서.
   it('이름과 순서가 홈 카드·목록 머리의 기준이다', () => {
     expect(Object.entries(LEVEL_COUNT_LABEL)).toEqual([
-      ['ok', '가능'],
+      ['ok', '갈 수 있어요'],
       ['outdoor', '야외'],
       ['cond', '확인 필요'],
       ['unknown', '정보 없음'],
@@ -226,8 +226,13 @@ describe('LEVEL_COUNT_LABEL', () => {
 });
 
 describe('levelCountParts', () => {
+  // 22 R27.4 · D-5 — 야외 자리만 되는 곳은 행 배지가 '갈 수 있어요' 라 머리도 따로 세지 않는다.
+  it('야외 칸은 갈 수 있어요에 합쳐 넷으로만 센다', () => {
+    expect(levelCountParts({ ok: 5, outdoor: 6, cond: 1, unknown: 0, hard: 35 })).toEqual(['갈 수 있어요 11', '확인 필요 1', '어려움 35']);
+  });
+
   it('0 인 레벨은 빼고, 이름표 순서대로 "이름 수"', () => {
-    expect(levelCountParts({ ok: 20, outdoor: 7, cond: 0, unknown: 3, hard: 14 })).toEqual(['가능 20', '야외 7', '정보 없음 3', '어려움 14']);
+    expect(levelCountParts({ ok: 20, outdoor: 7, cond: 0, unknown: 3, hard: 14 })).toEqual(['갈 수 있어요 27', '정보 없음 3', '어려움 14']);
     expect(levelCountParts({ ok: 0, outdoor: 0, cond: 0, unknown: 0, hard: 0 })).toEqual([]);
   });
 });
