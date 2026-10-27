@@ -43,8 +43,11 @@ export type TCardConditionsInput = {
    * 접어 둔 것이 아니라 카드가 말하지 않기로 한 것이다.
    */
   hide?: (badge: TPetBadge) => boolean;
-  /** 이 라벨의 칩을 맨 앞에 세운다 — 이유 줄이 없는 카드(근처 장소)에서 `limit` 자리를 판정을 정한 칩이 차지하게(14 W261013.1c). */
-  lead?: string;
+  /**
+   * 이 라벨의 칩을 맨 앞에(여럿이면 그 순서로) 세운다 — 판정 옆 `limit` 자리를 판정을 정한 칩이 차지하게. 이유 줄이 없는 근처 장소(14 W261013.1c)와
+   * 어려움·확인 필요 목록 카드(`verdictLeadBadges`, 14 W261027.1)가 쓴다.
+   */
+  lead?: string | readonly string[];
   /** 원문을 바로 밑에 같이 보여 줄 때 — 원문에 그대로 적힌 요금 칩은 같은 말이라 뺀다. */
   sourceText?: string;
   /** 우리 강아지(가장 무거운 아이) 몸무게. 있으면 `limit` 자리의 요금 칩 하나를 그 구간 줄로 고른다(`feeChipForWeight`). */
@@ -96,7 +99,11 @@ export function cardConditions({
       })
     : all;
   // 요금 줄을 고른 **뒤에** 옮긴다 — `firstFee` 는 `all` 의 자리라 먼저 옮기면 엉킨다. 순서만 바뀌므로 `hidden` 은 그대로다.
-  const badges = lead === undefined ? picked : [...picked.filter((b) => b.label === lead), ...picked.filter((b) => b.label !== lead)];
+  const leads = lead === undefined ? [] : typeof lead === 'string' ? [lead] : lead;
+  const badges = [
+    ...leads.flatMap((label) => picked.filter((b) => b.label === label)),
+    ...picked.filter((b) => !leads.includes(b.label)),
+  ];
   const shown = limit ? badges.slice(0, limit) : badges;
   // 접힌 수는 거른 뒤가 아니라 전부에서 센다. 요금 한 줄이 말해 뺀 칩은 숨긴 게 아니라 이미 보이는 것이라 뺀다.
   const hidden = Math.max(0, all.length - shown.length - (limit && feeInLine ? 1 : 0));

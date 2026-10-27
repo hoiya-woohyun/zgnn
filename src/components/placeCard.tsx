@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { SaveButton } from './saveButton';
 import { SavedNoteLine } from './savedNoteLine';
 import { VerdictLine } from './verdictLine';
-import { primaryReason, verdictHidesBadge } from '../lib/eligibility';
+import { cardReasons, verdictHidesBadge, verdictLeadBadges } from '../lib/eligibility';
 import { formatStayPrice } from '../lib/format';
 import { freshnessShortLabel } from '../lib/placeFreshness';
 import { placeMetaLine } from '../lib/placeMetaLine';
@@ -50,9 +50,8 @@ type TPlaceCardProps = {
  */
 export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEditor, cornerAction, footer }: TPlaceCardProps) {
   const eligibility = useEligibility(place);
-  const primary = eligibility ? primaryReason(eligibility) : undefined;
   // 목록 머리가 같은 문장을 이미 말했으면 행은 그 줄을 뺀다. 조건 거르기(`verdictHidesBadge`)도 **그린 줄**을 본다.
-  const reason = primary && primary.text !== hideReasonText ? primary : undefined;
+  const reasons = eligibility ? cardReasons(eligibility).filter((r) => r.text !== hideReasonText) : [];
   const weightKg = useDogMaxWeightKg();
   const dogCount = useDogCount();
   const verified = freshnessShortLabel(place, useToday());
@@ -69,20 +68,27 @@ export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEdit
       {/* 내 메모는 이름 바로 밑 — 이 장소에 대한 내 표시라 판정보다 먼저. 저장 화면만이 아니라 행이 보이는 모든 자리에. */}
       {noteEditor ? <div className="mt-2">{noteEditor}</div> : <SavedNoteLine id={place.id} className="mt-2" />}
 
-      {/* 판정 줄 — 판정 글자 + 원문 조건 글자 한 줄(22 G3.0). 조건은 판정과 반대로 읽히거나 머리글·이유 줄이 이미 한 말을 뺀다(14 W261013.1). */}
+      {/* 판정 줄 — 판정 글자 + 원문 조건 글자 한 줄(22 G3.0). 조건은 판정과 반대로 읽히는 것을 빼고(14 W261013.1),
+          어려움·확인 필요면 이유 줄과 같은 조건이 판정 바로 옆에 먼저 선다 — 그 자리의 칩은 이유로 읽힌다(14 W261027.1). */}
       <VerdictLine
         eligibility={eligibility}
         policy={place.policy}
         limit={eligibility ? 2 : 3}
-        hide={eligibility ? verdictHidesBadge(eligibility, place.policy, reason) : undefined}
+        hide={eligibility ? verdictHidesBadge(eligibility, place.policy, reasons[0]) : undefined}
+        lead={eligibility ? verdictLeadBadges(eligibility, place.policy) : undefined}
         weightKg={weightKg}
         dogCount={dogCount}
         className="mt-1"
       />
 
-      {/* 왜 "확인"·"어려움" 인지 한 줄 — 7곳을 다 눌러 봐야 알던 것을 목록에서 읽게(민준 N1). 판정을 정한 근거의 문장이다(`primaryReason`).
-          목록 머리가 같은 문장을 이미 말했으면 빼서, 다른 이유를 가진 행만 줄이 남게 한다. */}
-      {reason && <p className="clamp-1 mt-0.5 text-sm text-tertiary">{reason.text}</p>}
+      {/* 왜 "확인"·"어려움" 인지 — 7곳을 다 눌러 봐야 알던 것을 목록에서 읽게(민준 N1). 판정을 정한 근거의 문장이다(`cardReasons`) —
+          보통 한 줄, 어려움 근거가 둘이면 두 줄(무게도 마릿수도 넘는다, 14 W261027.1). 목록 머리가 같은 문장을 이미 말했으면 빼서,
+          다른 이유를 가진 행만 줄이 남게 한다. */}
+      {reasons.map((r) => (
+        <p key={r.text} className="clamp-1 mt-0.5 text-sm text-tertiary">
+          {r.text}
+        </p>
+      ))}
 
       {/* 메타는 색 없는 글자 한 줄 — 확인 날짜도 이 줄 끝(14 C2610.3 · 22 G3.0a). */}
       <p className={cx('mt-0.5 truncate text-sm text-tertiary', !price && cornerRoom)}>

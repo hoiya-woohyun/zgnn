@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  cardReasons,
   carrierSummary,
   compareEligibility,
   dogSize,
@@ -9,6 +10,7 @@ import {
   reasonBadgeLabel,
   verdictFor,
   verdictHidesBadge,
+  verdictLeadBadges,
   type TReason,
 } from './eligibility';
 import { NO_INFO_BADGE_LABEL, parsePetPolicy, toPetBadges, withPolicyFacts, withVerifiedAt } from './petPolicy';
@@ -164,11 +166,12 @@ describe('케이지 규칙은 원문이 적은 수단을 칩과 같은 이름으
     expect(withBag).not.toContain('이동가방이 없어');
   });
 
-  it('이유 줄이 수단을 말하면 같은 이름의 칩은 카드에서 빠진다', () => {
+  it('이유 줄이 수단을 말하면 같은 이름의 칩이 판정 옆 첫 자리에 선다(14 W261027.1 — 예전엔 빠졌다)', () => {
     const e = judgeEligibility(small('none'), bagOnly);
     expect(reasonBadgeLabel(e, bagOnly)).toBe('이동가방 필요');
+    expect(verdictLeadBadges(e, bagOnly)).toEqual(['이동가방 필요']);
     const chips = toPetBadges(bagOnly).filter((badge) => !verdictHidesBadge(e, bagOnly, primaryReason(e))(badge));
-    expect(chips.map((b) => b.label)).not.toContain('이동가방 필요');
+    expect(chips.map((b) => b.label)).toContain('이동가방 필요');
   });
 });
 
@@ -648,17 +651,18 @@ describe('카드의 이유 줄과 칩이 판정과 같은 말을 한 번 한다(
     const primary = primaryReason(e);
     const reason = drawn ? drawn(primary) : primary;
     const chips = toPetBadges(policy).filter((badge) => !verdictHidesBadge(e, policy, reason)(badge)).map((badge) => badge.label);
-    return { level: e.level, headline: headlineFor(e), reason, chips };
+    return { level: e.level, headline: headlineFor(e), reason, chips, lead: verdictLeadBadges(e, policy) };
   };
 
-  it('웨스티하우스 × 콩 2.5kg·해피 12kg — 어려움 옆에 "✓ 중형견 OK" 도, 이유 줄과 같은 구간 칩 "20kg 미만 1마리" 도 안 선다', () => {
+  it('웨스티하우스 × 콩 2.5kg·해피 12kg — 어려움 옆에 "✓ 중형견 OK" 는 안 서고, 이유 줄과 같은 구간 칩 "20kg 미만 1마리" 가 맨 앞이다', () => {
     const junhyuk: TDogProfile = { dogs: [{ name: '콩', weightKg: 2.5 }, { name: '해피', weightKg: 12 }], carrier: 'stroller' };
-    const { level, reason, chips } = card(junhyuk, '웨스티하우스');
+    const { level, reason, chips, lead } = card(junhyuk, '웨스티하우스');
     expect(level).toBe('hard');
     expect(reason?.text).toBe('20kg 미만은 1마리까지예요');
     expect(chips).not.toContain('중형견 OK');
-    expect(chips).not.toContain('20kg 미만 1마리');
-    // 다른 구간은 줄이 말하지 않은 말이라 남는다(14 W261013.1b — 접힌 '최대 2마리' 는 이제 없다).
+    // 14 W261027.1 — 예전엔 줄과 같은 말이라 뺐더니 남은 '10kg 미만 2마리' 가 판정 옆에서 이유로 읽혔다(성호·준혁).
+    expect(lead).toEqual(['20kg 미만 1마리']);
+    // 다른 구간은 뒤에 남는다(14 W261013.1b — 접힌 '최대 2마리' 는 이제 없다).
     expect(chips).toContain('10kg 미만 2마리');
   });
 
@@ -669,28 +673,30 @@ describe('카드의 이유 줄과 칩이 판정과 같은 말을 한 번 한다(
     expect(chips).toEqual(expect.arrayContaining(['10kg 미만 2마리', '20kg 미만 1마리']));
   });
 
-  it('웨스티하우스 × 28kg — H1 "20kg 미만 조건을 넘어요" 옆엔 가장 넓은 구간 칩이 빠지고 좁은 구간은 남는다', () => {
+  it('웨스티하우스 × 28kg — H1 "20kg 미만 조건을 넘어요" 옆엔 가장 넓은 구간 칩이 맨 앞, 좁은 구간은 뒤', () => {
     const big: TDogProfile = { dogs: [{ name: '대장', weightKg: 28 }], carrier: 'none' };
-    const { reason, chips } = card(big, '웨스티하우스');
+    const { reason, chips, lead } = card(big, '웨스티하우스');
     expect(reason?.rule).toBe('H1');
-    expect(chips).not.toContain('20kg 미만 1마리');
-    expect(chips).toContain('10kg 미만 2마리');
+    expect(lead).toEqual(['20kg 미만 1마리']);
+    expect(chips).toEqual(expect.arrayContaining(['20kg 미만 1마리', '10kg 미만 2마리']));
   });
 
-  it('무히어 × 모카 8kg — 이유 줄은 판정을 정한 예방접종, "야외만" 은 칩으로 한 번, "예방접종 필수" 칩은 줄과 같아 빠진다', () => {
+  it('무히어 × 모카 8kg — 이유 줄은 판정을 정한 예방접종, 판정 옆 첫 칩도 "예방접종 필수"(14 W261027.1), "야외만" 은 그 뒤', () => {
     const moka: TDogProfile = { dogs: [{ name: '모카', weightKg: 8 }], carrier: 'none' };
-    const { headline, reason, chips } = card(moka, '무히어');
+    const { headline, reason, chips, lead } = card(moka, '무히어');
     expect(headline).toBe('확인이 필요해요');
     expect(reason?.rule).toBe('C8');
-    expect(chips).toEqual(['야외만']);
+    expect(lead).toEqual(['예방접종 필수']);
+    expect(chips).toEqual(expect.arrayContaining(['야외만', '예방접종 필수']));
   });
 
-  it('정체불명 × 콩이 5kg 이동가방 — "확인이 필요해요" 옆에 "✓ 실내 OK" 가 안 서고, 전화 확인은 이유 줄 한 번', () => {
+  it('정체불명 × 콩이 5kg 이동가방 — "확인이 필요해요" 옆에 "✓ 실내 OK" 가 안 서고, 판정 옆은 이유 줄과 같은 "전화 확인"', () => {
     const youngja: TDogProfile = { dogs: [{ name: '콩이', weightKg: 5 }], carrier: 'bag' };
-    const { headline, reason, chips } = card(youngja, '정체불명');
+    const { headline, reason, chips, lead } = card(youngja, '정체불명');
     expect(headline).toBe('확인이 필요해요');
     expect(reason?.text).toBe('방문 전 전화 확인이 필요해요');
-    expect(chips).toEqual([]);
+    expect(chips).toEqual(['전화 확인']);
+    expect(lead).toEqual(['전화 확인']);
   });
 
   it('목록 머리가 이유를 말해 줄을 뺀 카드는 칩이 유일한 단서라 남긴다', () => {
@@ -751,6 +757,50 @@ describe('카드의 이유 줄과 칩이 판정과 같은 말을 한 번 한다(
   it('갈 수 있으면 앞세울 칩이 없다 · 확인 필요(무히어 C8)는 그 근거 칩', () => {
     expect(lead(TOFU, '웨스티하우스')).toBeUndefined();
     expect(lead({ dogs: [{ name: '모카', weightKg: 8 }], carrier: 'none' }, '무히어')).toBe('예방접종 필수');
+  });
+});
+
+describe('어려움 카드 첫 줄 칩이 그 판정의 이유를 말한다(14 W261027.1)', () => {
+  const junhyuk: TDogProfile = { dogs: [{ name: '콩이', weightKg: 2.5 }, { name: '해피', weightKg: 12 }], carrier: 'stroller' };
+  const view = (dog: TDogProfile, name: string) => {
+    const { policy } = findPlace(name);
+    const e = judgeEligibility(dog, policy);
+    return { e, lead: verdictLeadBadges(e, policy), lines: cardReasons(e).map((r) => r.text) };
+  };
+
+  it('그리너리빌리지(5kg 이하 · 최대 1마리) × 두부 7kg — 판정 옆 첫 칩은 이유 줄의 "5kg 이하"(예전엔 "최대 1마리" 가 이유로 읽혔다)', () => {
+    const { e, lead, lines } = view({ dogs: [{ name: '두부', weightKg: 7 }], carrier: 'none' }, '그리너리빌리지 펜션');
+    expect(e.level).toBe('hard');
+    expect(lines).toEqual(['두부(7kg)는 5kg 이하 조건을 넘어요']);
+    expect(lead).toEqual(['5kg 이하']);
+  });
+
+  it('프레임스파빌(7kg 미만 1마리) × 콩이·해피 — 무게로도 마릿수로도 못 간다: 이유가 둘(H1 · H2), 칩도 그 둘이 그 순서로', () => {
+    const { e, lead, lines } = view(junhyuk, '프레임스파빌 오션뷰펜션');
+    expect(e.reasons.filter((r) => r.level === 'hard').map((r) => r.rule)).toEqual(['H1', 'H2']);
+    expect(lines).toEqual(['해피(12kg)는 7kg 미만 조건을 넘어요', '7kg 미만은 1마리까지예요']);
+    expect(lead).toEqual(['7kg 미만', '최대 1마리']);
+  });
+
+  it('무게로 못 들어가도 마릿수가 맞으면 H2 는 서지 않는다 — 한 마리 보리 30kg 은 무게 이유 하나', () => {
+    const { e, lines } = view({ dogs: [{ name: '보리', weightKg: 30 }], carrier: 'none' }, '프레임스파빌 오션뷰펜션');
+    expect(e.reasons.map((r) => r.rule)).not.toContain('H2');
+    expect(lines).toEqual(['보리(30kg)는 7kg 미만 조건을 넘어요']);
+  });
+
+  it('구간마다 마릿수가 다른 곳(웨스티하우스)은 가장 느슨한 구간 기준 — 30kg 두 마리는 2마리 구간이 있어 무게 이유 하나', () => {
+    const { e } = view({ dogs: [{ name: '보리', weightKg: 30 }, { name: '콩', weightKg: 3 }], carrier: 'none' }, '웨스티하우스');
+    expect(e.reasons.map((r) => r.rule)).not.toContain('H2');
+    const three = view({ dogs: [{ name: '보리', weightKg: 30 }, { name: '콩', weightKg: 3 }, { name: '팥', weightKg: 3 }], carrier: 'none' }, '웨스티하우스');
+    expect(three.lines).toEqual(['보리(30kg)는 20kg 미만 조건을 넘어요', '10kg 미만은 2마리까지예요']);
+    expect(three.lead).toEqual(['20kg 미만 1마리', '10kg 미만 2마리']);
+  });
+
+  it('확인 필요의 이유 줄은 판정을 정한 근거 하나, 갈 수 있어요·야외 자리만은 앞세울 칩이 없다', () => {
+    const moka = view({ dogs: [{ name: '모카', weightKg: 8 }], carrier: 'none' }, '무히어');
+    expect(moka.lines).toHaveLength(1);
+    expect(view(TOFU, '웨스티하우스').lead).toEqual([]);
+    expect(view(TOFU, '부부키친').lead).toEqual([]);
   });
 });
 

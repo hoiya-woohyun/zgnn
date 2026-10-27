@@ -79,3 +79,16 @@ describe('cardConditions — 판정 옆 조건 몇 개 · 외 N개', () => {
     expect(hidden).toBe(0);
   });
 });
+
+describe('cardConditions — lead 여럿은 그 순서로 맨 앞(14 W261027.1)', () => {
+  it('"7kg 미만 1마리" 곳 — lead 두 칩이 순서대로 서고 나머지는 외 N개', () => {
+    const policy = parsePetPolicy('7kg 미만 최대 1마리 가능. 추가 1만원. 방문 전 전화 확인');
+    const labels = toPetBadges(policy).map((b) => b.label);
+    expect(labels).toEqual(expect.arrayContaining(['7kg 미만', '최대 1마리']));
+    const { shown, hidden } = cardConditions({ policy, limit: 2, lead: ['7kg 미만', '최대 1마리'] });
+    expect(shown.map((b) => b.label)).toEqual(['7kg 미만', '최대 1마리']);
+    expect(hidden).toBe(labels.length - 2);
+    // 한 칸짜리(근처 장소)도 그대로 받는다.
+    expect(cardConditions({ policy, limit: 2, lead: '최대 1마리' }).shown[0].label).toBe('최대 1마리');
+  });
+});

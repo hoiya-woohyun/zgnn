@@ -191,8 +191,8 @@ medium12 hard | H1:hard:보리(12kg)는 7kg 미만 조건을 넘어요 |  |
 medium12+indoor hard | H1:hard:보리(12kg)는 7kg 미만 조건을 넘어요 |  | 
 large28 hard | H1:hard:대장이(28kg)는 7kg 미만 조건을 넘어요 |  | 
 large28+indoor hard | H1:hard:대장이(28kg)는 7kg 미만 조건을 넘어요 |  | 
-two5and8 hard | H1:hard:팥이(8kg)는 7kg 미만 조건을 넘어요 |  | 
-two5and8+indoor hard | H1:hard:팥이(8kg)는 7kg 미만 조건을 넘어요 |  | 
+two5and8 hard | H1:hard:팥이(8kg)는 7kg 미만 조건을 넘어요 / H2:hard:7kg 미만은 1마리까지예요 |  | 
+two5and8+indoor hard | H1:hard:팥이(8kg)는 7kg 미만 조건을 넘어요 / H2:hard:7kg 미만은 1마리까지예요 |  | 
 small6none ok | I1:info:초코는 2만원 | 초코는 2만원 | 1박 기준인지는 적혀 있지 않아요
 small6none+indoor ok | I1:info:초코는 2만원 | 초코는 2만원 | 1박 기준인지는 적혀 있지 않아요
 
@@ -299,8 +299,8 @@ medium12 hard | H1:hard:보리(12kg)는 5kg 이하 조건을 넘어요 / C6:cond
 medium12+indoor hard | H1:hard:보리(12kg)는 5kg 이하 조건을 넘어요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
 large28 hard | H1:hard:대장이(28kg)는 5kg 이하 조건을 넘어요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
 large28+indoor hard | H1:hard:대장이(28kg)는 5kg 이하 조건을 넘어요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
-two5and8 hard | H1:hard:팥이(8kg)는 5kg 이하 조건을 넘어요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
-two5and8+indoor hard | H1:hard:팥이(8kg)는 5kg 이하 조건을 넘어요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+two5and8 hard | H1:hard:팥이(8kg)는 5kg 이하 조건을 넘어요 / H2:hard:5kg 이하는 1마리까지예요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
+two5and8+indoor hard | H1:hard:팥이(8kg)는 5kg 이하 조건을 넘어요 / H2:hard:5kg 이하는 1마리까지예요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
 small6none hard | H1:hard:초코(6kg)는 5kg 이하 조건을 넘어요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
 small6none+indoor hard | H1:hard:초코(6kg)는 5kg 이하 조건을 넘어요 / C6:cond:방문 전 전화 확인이 필요해요 |  | 
 

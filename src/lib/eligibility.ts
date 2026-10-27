@@ -200,13 +200,18 @@ const ruleWeightOverLimit: TRule = (dog, policy) => {
  * 무게가 맞는 tier 가 여럿이면(계단식이 아니라 서로 다른 문장으로 나온 경우) 마릿수 상한이
  * 가장 큰(가장 느슨한) tier 를 기준으로 삼는다 — 근거 없이 불리하게 해석하지 않는다.
  * 마릿수 상한이 없는 tier(무게만 말하는 tier)는 마릿수 제한이 없는 것으로 본다.
+ *
+ * 무게로 들어가는 칸이 없으면(H1) **어느 칸도 우리 마릿수를 안 받을 때만** 같이 말한다(14 W261027.1) — '7kg 미만 1마리' 곳에서
+ * 콩이·해피(12kg)는 무게로도 마릿수로도 못 가는데, 근거가 무게 하나라 두 마리라서도 안 된다는 것이 안 보였다. 기준은 마릿수 상한이
+ * 가장 큰 칸이다 — 무게와 상관없이 마릿수만으로도 넘을 때만 선다.
  */
 const ruleTooManyForWeight: TRule = (dog, policy) => {
   const weight = maxWeightKg(dog);
   const fitting = policy.tiers.filter((t) => fitsTierWeight(t, weight));
-  if (fitting.length === 0) return null; // 이 경우는 ruleWeightOverLimit(H1) 이 담당
+  const candidates = fitting.length > 0 ? fitting : policy.tiers;
+  if (candidates.length === 0) return null;
 
-  const selected = fitting.reduce((a, b) => ((b.maxDogs ?? Infinity) > (a.maxDogs ?? Infinity) ? b : a));
+  const selected = candidates.reduce((a, b) => ((b.maxDogs ?? Infinity) > (a.maxDogs ?? Infinity) ? b : a));
   if (selected.maxDogs === undefined) return null;
   if (selected.maxDogs >= dog.dogs.length) return null;
 
@@ -733,6 +738,32 @@ const reasonBadge = (policy: TPetPolicy, reason: TReason | undefined): string | 
 export const reasonBadgeLabel = (e: TEligibility, policy: TPetPolicy): string | undefined => reasonBadge(policy, primaryReason(e));
 
 /**
+ * 목록 카드의 이유 줄들 — 보통은 판정을 정한 근거 하나(`primaryReason`)지만 **어려움이면 어려움 근거 전부**다(14 W261027.1).
+ * 어려움 근거는 하나하나가 따로 막는다: '해피(12kg)는 7kg 미만 조건을 넘어요' 하나만 서면 두 마리라서도 안 된다는 것이 안 보여
+ * "해피만 두고 가면 되나" 로 읽혔다. 확인 필요의 다른 근거는 막는 것이 아니라 물어볼 것이라 상세에 맡긴다.
+ */
+export const cardReasons = (e: TEligibility): TReason[] => {
+  if (e.level === 'hard') return e.reasons.filter((r) => r.level === 'hard');
+  const primary = primaryReason(e);
+  return primary ? [primary] : [];
+};
+
+/** 판정 옆 첫 자리를 판정을 정한 조건이 차지하는가 — 어려움 · 확인 필요(야외 자리만 되는 곳은 판정이 '갈 수 있어요' 쪽이라 아니다). */
+const verdictLeadsWithReason = (e: TEligibility): boolean =>
+  e.level === 'hard' || (e.level === 'cond' && !isOutdoorSeatOnly(e));
+
+/**
+ * 카드 판정 글자 바로 옆에 앞세울 원문 칩 — 이유 줄(`cardReasons`)과 같은 조건, 이유 줄 순서대로(14 W261027.1).
+ * '이용하기 어려워요 · 최대 1마리' 옆 "두부(7kg)는 5kg 이하 조건을 넘어요" 는 칩을 이유로 읽게 했다 — 판정 옆 한 자리는 이유 자리다.
+ * 그래서 이유 줄과 같은 말을 하는 칩을 빼던 것(W261013.1)을 어려움·확인 필요에선 거꾸로 앞에 세운다. 그 밖의 조건은 뒤로 밀려 '외 N개' 로 접힌다.
+ */
+export const verdictLeadBadges = (e: TEligibility, policy: TPetPolicy): string[] => {
+  if (!verdictLeadsWithReason(e)) return [];
+  const labels = cardReasons(e).map((r) => reasonBadge(policy, r));
+  return [...new Set(labels.filter((label): label is string => label !== undefined))];
+};
+
+/**
  * 판정 배지·이유 줄과 같은 줄에 서는 원문 칩 중 **카드(목록·지도 시트·상세의 근처 장소)에서 뺄 것**(14 W261013.1). 칩은 원문 속성이고 판정은 우리 강아지의
  * 답인데, 한 카드에 나란히 서면 한 문장처럼 읽힌다 — 둘이 다른 말을 하면 판정을 못 믿고, 같은 말을 하면 카드가 같은 말을 두세 번 한다.
  *
@@ -741,8 +772,9 @@ export const reasonBadgeLabel = (e: TEligibility, policy: TPetPolicy): string | 
  * - **어려움이면 요금 칩을 전부 뺀다**(14 W261013.1a) — 판정이 요금을 싣지 않는 것(`judgeEligibility`)과 같은 이유다: '이용하기 어려워요' 옆
  *   '1마리당 1~2만원'(웨스티하우스 × 콩·해피)은 우리가 낼 돈으로 읽힌다. `feeLine` 이 없어 `PetBadges` 가 스스로는 못 거른다.
  * - **머리글이 야외 자리를 말하면 '야외만' 을 뺀다.**
- * - **이유 줄이 말한 칸의 칩을 뺀다**(`REASON_BADGE`). `shownReason` 은 `primaryReason` 이 아니라 **카드에 실제로 그린 줄**이다 —
- *   목록 머리가 같은 이유를 한 번 말해 줄을 뺀 카드(`hideReasonText`)는 칩('케이지 필요')이 그 카드의 유일한 단서라 남긴다.
+ * - **판정이 '갈 수 있어요' 쪽이면(갈 수 있어요 · 야외 자리만 · I2) 이유 줄이 말한 칸의 칩을 뺀다**(`REASON_BADGE`). `shownReason` 은 `primaryReason` 이 아니라
+ *   **카드에 실제로 그린 줄**이다 — 목록 머리가 같은 이유를 한 번 말해 줄을 뺀 카드(`hideReasonText`)는 칩이 그 카드의 유일한 단서라 남긴다.
+ *   어려움·확인 필요는 빼지 않는다 — 그 칩이 판정 옆 첫 자리에 선다(`verdictLeadBadges`, 14 W261027.1). 빼면 남은 다른 조건이 그 자리에서 이유로 읽혔다.
  *
  * 상세는 거르지 않는다 — 원문 칩 전부가 원문 위에 선다.
  */
@@ -753,6 +785,7 @@ export const verdictHidesBadge =
     if (e.level !== 'ok' && !outdoorSeat && badge.tone === 'ok' && (badge.axis === 'size' || badge.axis === 'indoor')) return true;
     if (e.level === 'hard' && badge.axis === 'fee') return true;
     if (outdoorSeat && badge.label === BADGE_LABEL.outdoorOnly) return true;
+    if (verdictLeadsWithReason(e)) return false;
     const said = reasonBadge(policy, shownReason);
     return said !== undefined && badge.label === said;
   };
