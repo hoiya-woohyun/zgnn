@@ -33,7 +33,7 @@ export function VerdictLine({ eligibility, className, ...input }: TVerdictLinePr
   if (!eligibility && shown.length === 0) return null;
   const conditions = shown.map((badge) => badge.label).join(' · ');
   return (
-    <p className={cx('flex min-w-0 items-baseline text-sm text-tertiary', className)}>
+    <p className={cx('flex min-w-0 items-baseline text-sm leading-5 text-tertiary', className)}>
       {eligibility && <VerdictText eligibility={eligibility} className="shrink-0" />}
       {conditions && (
         <span className="min-w-0 truncate">

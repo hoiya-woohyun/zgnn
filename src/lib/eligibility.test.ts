@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  cardReasonLines,
   cardReasons,
   carrierSummary,
   compareEligibility,
@@ -1141,5 +1142,26 @@ describe("judgeEligibility — '갈 수 있어요' 에도 우리 강아지 기�
     expect(cage.level).toBe('cond');
     expect(cage.reasons.some((r) => r.rule === 'I4')).toBe(false);
     expect(basis(dog(30), parsePetPolicy(''))).toBeUndefined();
+  });
+});
+
+describe('카드 이유 줄은 판정 줄이 한 말을 되풀이하지 않는다(22 R27.5 · D-7)', () => {
+  const dog: TDogProfile = { dogs: [{ name: '두부', weightKg: 7 }], carrier: 'none' };
+  const ofText = (text: string) => parsePetPolicy(text);
+
+  it('확인 필요(C6 전화 확인)·정보 없음(U1)은 이유 줄이 없다 — 판정 줄이 이미 말했다', () => {
+    const call = judgeEligibility(dog, { ...ofText('반려견 동반 가능'), callFirst: true });
+    expect(cardReasons(call).map((r) => r.rule)).toContain('C6');
+    expect(cardReasonLines(call).map((r) => r.rule)).not.toContain('C6');
+    const none = judgeEligibility(dog, ofText(''));
+    expect(cardReasons(none).map((r) => r.rule)).toContain('U1');
+    expect(cardReasonLines(none)).toEqual([]);
+  });
+
+  it('어려움의 이유는 판정에 없는 정보라 남는다', () => {
+    const { policy } = findPlace('그리너리빌리지 펜션');
+    const hard = judgeEligibility(dog, policy);
+    expect(hard.level).toBe('hard');
+    expect(cardReasonLines(hard)).toEqual(cardReasons(hard));
   });
 });

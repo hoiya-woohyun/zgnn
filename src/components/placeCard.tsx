@@ -4,7 +4,7 @@ import { PlaceTypeMark } from './placeTypeMark';
 import { SaveButton } from './saveButton';
 import { SavedNoteLine } from './savedNoteLine';
 import { VerdictLine } from './verdictLine';
-import { cardReasons, verdictHidesBadge, verdictLeadBadges } from '../lib/eligibility';
+import { cardReasonLines, verdictHidesBadge, verdictLeadBadges } from '../lib/eligibility';
 import { formatStayPrice } from '../lib/format';
 import { freshnessShortLabel } from '../lib/placeFreshness';
 import { placeMetaLine } from '../lib/placeMetaLine';
@@ -49,7 +49,7 @@ type TPlaceCardProps = {
 export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEditor, typeMark, footer }: TPlaceCardProps) {
   const eligibility = useEligibility(place);
   // 목록 머리가 같은 문장을 이미 말했으면 행은 그 줄을 뺀다. 조건 거르기(`verdictHidesBadge`)도 **그린 줄**을 본다.
-  const reasons = eligibility ? cardReasons(eligibility).filter((r) => r.text !== hideReasonText) : [];
+  const reasons = eligibility ? cardReasonLines(eligibility).filter((r) => r.text !== hideReasonText) : [];
   const weightKg = useDogMaxWeightKg();
   const dogCount = useDogCount();
   const verified = freshnessShortLabel(place, useToday());
@@ -57,7 +57,7 @@ export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEdit
   const price = place.stay && place.stay.price.text !== '' ? formatStayPrice(place.stay.price) : undefined;
   const body = (
     <>
-      <p className={cx('text-md font-semibold text-primary', actions ? 'pr-22' : 'pr-9', typeMark && 'flex items-center gap-1.5')}>
+      <p className={cx('text-md leading-5.5 font-semibold text-primary', actions ? 'pr-22' : 'pr-9', typeMark && 'flex items-center gap-1.5')}>
         {typeMark && <PlaceTypeMark type={place.type} />}
         <span className="min-w-0">{place.name}</span>
       </p>
@@ -82,23 +82,23 @@ export function PlaceCard({ place, distanceKm, hideReasonText, actions, noteEdit
           보통 한 줄, 어려움 근거가 둘이면 두 줄(무게도 마릿수도 넘는다, 14 W261027.1). 목록 머리가 같은 문장을 이미 말했으면 빼서,
           다른 이유를 가진 행만 줄이 남게 한다. */}
       {reasons.map((r) => (
-        <p key={r.text} className="clamp-1 mt-0.5 text-sm text-tertiary">
+        <p key={r.text} className="clamp-1 text-sm leading-5 text-tertiary">
           {r.text}
         </p>
       ))}
 
       {/* 메타는 색 없는 글자 한 줄 — 확인 날짜도 이 줄 끝(14 C2610.3 · 22 G3.0a). */}
-      <p className={'mt-0.5 truncate text-sm text-tertiary'}>
+      <p className="truncate text-sm leading-5 text-tertiary">
         <span className="min-w-0 truncate">{placeMetaLine(place, { distanceKm, verified })}</span>
       </p>
 
       {/* brand-700 은 CTA 색이라 26개 숙소 가격이 전부 그 색이면 "눌러야 할 것"과 "읽을 것"이 섞인다(2026-09-15 디자인 리뷰 ①) — 본문 색 + bold. */}
-      {price && <p className="mt-1 text-md font-bold text-primary">{price}</p>}
+      {price && <p className="mt-1 text-md leading-5 font-bold text-primary">{price}</p>}
     </>
   );
 
   // 눌림 판은 좌우 8px 밖으로 나가고(-mx-2 · r8) 구분선은 판이 아니라 목록이 긋는다 — 판에 그으면 r8 모서리를 따라 선 끝이 휜다(22 G2.0a).
-  const rowClass = '-mx-2 block rounded-lg px-2 py-4';
+  const rowClass = '-mx-2 block rounded-lg px-2 py-3.5';
   return (
     <li data-ev="card">
       <div className="relative">

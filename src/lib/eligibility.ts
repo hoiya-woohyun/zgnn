@@ -811,6 +811,16 @@ export const cardReasons = (e: TEligibility): TReason[] => {
   return primary ? [primary] : [];
 };
 
+/**
+ * 카드 이유 줄로 그릴 것 — `cardReasons` 에서 **판정 줄이 이미 한 말을 되풀이하는 줄**을 뺀다(22 R27.5 · D-7).
+ * C6 "방문 전 전화 확인이 필요해요" 는 판정 옆 첫 칩 '전화 확인'(`verdictLeadBadges`)의 풀어쓴 말이고,
+ * U1 "동반 조건이 적혀 있지 않아요" 는 판정 글자 '확인된 정보가 없어요' 의 풀어쓴 말이다 — 한 행이 같은 말을 두 줄로 했다.
+ * 판정과 다른 정보를 더하는 줄(어려움의 '5kg 이하 조건을 넘어요' · 확인 필요의 '야외 자리만 돼요' 꼴)은 남는다.
+ * 지도 시트·상세의 근거 목록은 `cardReasons`/`reasons` 를 그대로 쓴다 — 거기선 줄이 판정 글자 옆이 아니다.
+ */
+export const cardReasonLines = (e: TEligibility): TReason[] =>
+  cardReasons(e).filter((r) => r.rule !== 'C6' && r.rule !== 'U1');
+
 /** 판정 옆 첫 자리를 판정을 정한 조건이 차지하는가 — 어려움 · 확인 필요(야외 자리만 되는 곳은 판정이 '갈 수 있어요' 쪽이라 아니다). */
 const verdictLeadsWithReason = (e: TEligibility): boolean =>
   e.level === 'hard' || (e.level === 'cond' && !isOutdoorSeatOnly(e));
