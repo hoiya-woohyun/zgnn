@@ -117,9 +117,6 @@ export function PlaceDetailReport({
         <h2 id="place-report-title" className="text-md font-bold text-primary">
           다녀오셨나요?
         </h2>
-        <p className="mt-1 text-sm text-tertiary">
-          그대로였는지, 달랐는지 알려 주세요.
-        </p>
         {/* 두 버튼 사이 16px — 8px 일 때 한쪽을 노리다 다른 쪽을 눌렀다(14 W261010.7g). 줄이 접혀도 위아래로 같은 틈. */}
         <div className="mt-3 flex flex-wrap gap-4">
           <Button

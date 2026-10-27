@@ -40,9 +40,8 @@ export function DogProfileCarrierPicker({ value, onChange, firstOptionRef }: TDo
   };
 
   return (
-    <div role="radiogroup" onKeyDown={handleKeyDown} aria-label="이동 수단">
-      <Label className="text-md font-bold text-primary">이동 수단</Label>
-      <p className="mt-0.5 text-sm text-tertiary">외출할 때 무엇에 넣고 다니나요?</p>
+    <div role="radiogroup" onKeyDown={handleKeyDown} aria-label="외출할 때 넣는 것">
+      <Label className="text-md font-bold text-primary">외출할 때 넣는 것</Label>
       <div className="mt-1.5 space-y-2">
         {CARRIER_ORDER.map((carrier, index) => {
           const selected = value === carrier;
