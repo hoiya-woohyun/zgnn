@@ -1,9 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Heart, MarkerPin02, Plus } from '@untitledui/icons';
+import { Heart, Plus } from '@untitledui/icons';
 import { showAppStatus, STATUS_UNDO_MS } from '../lib/appStatus';
-import { AuthorAvatar } from '../components/authorAvatar';
 import { ReportSheet } from '../components/reportSheet';
 import { StickyMorphTitle } from '../components/layout/stickyMorphTitle';
 import { Section } from '../components/layout/section';
@@ -76,7 +75,7 @@ function SettingsPageResetRows() {
  * 보이는 입구는 알려 주고 싶은 사람이 못 찾는다(tremor-34) — 설정은 "앱에 무언가 하는 곳" 을 찾을 때 여는 자리다.
  * 시트는 둘러보기·홈 동네 카드와 같은 장소 제안(`suggest`)이다. 검색어가 없으니 미리 채울 글도 없다.
  * 보낸 뒤엔 둘째 줄이 "알려 주셨어요 — ‘…’" 로 바뀐다(14 W261019.16, haeun-18b — 그대로면 보냈는지 헷갈려 또 누른다).
- * 머리 없이 혼자 서던 줄을 '정보' 그룹의 한 행으로 넣었다(22 G2.0a) — 행 하나짜리 묶음이 띠 둘 사이에 떠 있지 않게.
+ * 정보 그룹 세 줄은 앞 칸 없이 모두 x16 에서 시작한다(22 R27.2 · D-2). 머리 없이 혼자 서던 줄을 '정보' 그룹의 한 행으로 넣었다(22 G2.0a) — 행 하나짜리 묶음이 띠 둘 사이에 떠 있지 않게.
  * 시트는 닫혀 있으면 그리지 않으므로(react-aria 오버레이) 그룹의 구분선 사이에 끼지 않는다.
  */
 function SettingsPageSuggest() {
@@ -85,7 +84,6 @@ function SettingsPageSuggest() {
   return (
     <>
         <GroupListRow
-          icon={<MarkerPin02 size={20} />}
           title="장소 알려 주기"
           subtitle={sentName ? suggestTraceText(sentName) : '여기 없는 곳에서도 강아지와 함께했나요?'}
           trail="none"
@@ -175,11 +173,7 @@ export function SettingsPage() {
 
       <Section>
         <GroupList title="정보">
-          <GroupListRow
-            icon={<AuthorAvatar className="size-5" />}
-            title={META.author}
-            subtitle={SOURCE_LINE}
-          />
+          <GroupListRow title={META.author} subtitle={SOURCE_LINE} />
           <SettingsPageSuggest />
           <GroupListRow externalHref={META.sourceUrl} title="원본 노션 보기" trail="external" />
         </GroupList>

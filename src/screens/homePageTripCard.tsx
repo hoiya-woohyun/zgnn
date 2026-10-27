@@ -66,7 +66,7 @@ function HomePageTripCardRows({
       <div>
       <div className="-mx-2 flex items-stretch">
         <Link href="/saved" className={ROW_LINK}>
-          <Heart aria-hidden="true" size={20} className="shrink-0 fill-camellia text-camellia" />
+          <Heart aria-hidden="true" size={20} className="shrink-0 text-fg-tertiary" />
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="text-md text-primary">
               저장한 곳 <span className="font-bold">{savedCount}</span>
@@ -89,7 +89,7 @@ function HomePageTripCardRows({
 
       <div>
       <Link href="/checklist" className={`-mx-2 ${ROW_LINK}`}>
-        <CheckDone01 aria-hidden="true" size={20} className="shrink-0 text-fg-brand-secondary" />
+        <CheckDone01 aria-hidden="true" size={20} className="shrink-0 text-fg-tertiary" />
         <span className="flex-1 text-md text-primary">
           준비물 <span className="font-bold">{progress.packed}</span>/{progress.total} 챙김
         </span>
