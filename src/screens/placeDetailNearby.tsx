@@ -7,14 +7,13 @@ import { VerdictLine } from '../components/verdictLine';
 import { distanceLabel, pickNearby, placesNearHref } from '../lib/distanceSort';
 import { verdictHidesBadge, verdictLeadBadges } from '../lib/eligibility';
 import { dogCallNames, withJosa } from '../lib/korean';
-import { nearbyPlaces, PLACE_TYPES, TYPE_META, type TPlaceEntry } from '../lib/places';
+import { nearbyPlaces, TYPE_META, type TPlaceEntry } from '../lib/places';
 import { PLACE_DETAIL_NEARBY_NO_GEO, placeDetailLocationOf } from '../lib/placeDetailLocation';
 import { placeMetaLine } from '../lib/placeMetaLine';
 import { useAppStore } from '../store/useAppStore';
 import { useDogCount, useDogMaxWeightKg, useEligibilityMap } from '../store/useDogEligibility';
 import { usePlacesPageFilterStore } from '../store/usePlacesPageFilterStore';
 import type { TPlaceType } from '../types';
-import { CARD_SURFACE } from '../components/cardSurface';
 
 type TNearbyFilter = 'all' | TPlaceType;
 
@@ -55,12 +54,11 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
 
   const dogNames = dog ? dogCallNames(dog.dogs.map((entry) => entry.name)) : '';
   const filterLabel = NEARBY_FILTERS.find((option) => option.id === filter)?.label ?? '';
-  // 카드 너머가 남은 종류만 '더 보기' 를 단다 — 우도처럼 같은 섬 곳이 다 보이면 목록으로 보낼 곳이 없다.
-  const moreTypes = (filter === 'all' ? PLACE_TYPES : [filter]).filter(
-    (moreType) =>
-      candidates.filter(({ place: other }) => other.type === moreType).length >
-      nearby.filter(({ place: other }) => other.type === moreType).length,
-  );
+  // 카드 너머가 남은 종류만 '더 보기' 를 단다 — 우도처럼 같은 섬 곳이 다 보이면 목록으로 보낼 곳이 없다. '전체' 에선 달지 않는다(종류 칩을 켜면 목록 끝에 선다).
+  const hasMore =
+    filter !== 'all' &&
+    candidates.filter(({ place: other }) => other.type === filter).length >
+      nearby.filter(({ place: other }) => other.type === filter).length;
 
   // 좌표가 없어 못 찾은 것은 이유를 말한다 — 그 숙소를 거점으로 주변 식당을 찾던 사람에게 말없이 빈 자리는 "근처에 없다" 로 읽힌다(14 W261013.7).
   // 같은 섬에 다른 곳이 없어 빈 것(우도·추자)은 위치를 아는 것이라 이 말이 아니다 — 그건 아래에서 절째 뺀다.
@@ -97,7 +95,7 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
       ) : (
         // 세로 줄이다 — 많아야 3곳(`pickNearby`)인데 176px 카드를 옆으로 세우면 390px 폰에서 셋째가 2px, 375px 에선 0px 라
         // 밀 수 있다는 것조차 안 보였다(14 W261013.14p · youngja-06-s3). 줄 셋이 카드 셋보다 낮고, 셸의 좌우 끌기와도 안 겹친다.
-        <ul className={`mx-4 mt-3 divide-y divide-secondary overflow-hidden md:mx-6 ${CARD_SURFACE}`}>
+        <ul className="mx-4 mt-3 divide-y divide-secondary border-y border-secondary md:mx-6">
           {nearby.map(({ place: other, km }) => {
             const eligibility = eligibilityMap?.get(other.id);
             const lead = eligibility ? verdictLeadBadges(eligibility, other.policy) : undefined;
@@ -105,7 +103,7 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
               <li key={other.id}>
                 <Link
                   href={`/place/${other.id}`}
-                  className="flex min-h-11 items-start gap-3 p-3 transition-colors hover:bg-secondary"
+                  className="flex min-h-11 items-start gap-3 py-3 transition-colors hover:bg-tertiary"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
@@ -155,25 +153,22 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
       )}
 
       {/* 카드 너머는 목록으로 — 이 장소에서 잰 '가까운 순'(`?near=`). 숙소 근처 식당을 보려고 목록의 '가까운 순' 을 골랐다가
-          "위치 권한이 꺼져 있어요" 에서 막혔다(14 W261013.14o · seongho-28). 들어가며 다른 "어디"(검색어·권역·방향·읍면)는 푼다(`enterNear`). */}
-      {moreTypes.length > 0 && (
-        <div className="mt-1 flex flex-wrap items-center gap-x-4 px-4 md:px-6" data-ev="detail.nearMore">
-          {filter === 'all' && <span className="text-sm text-tertiary">가까운 순으로 더 보기</span>}
-          {moreTypes.map((moreType) => (
-            <Link
-              key={moreType}
-              href={placesNearHref(moreType, place.id)}
-              onClick={() => {
-                enterNear();
-                setTown(null);
-              }}
-              aria-label={`근처 ${TYPE_META[moreType].label} 더 보기`}
-              className="inline-flex min-h-11 items-center text-sm font-semibold text-brand-secondary hover:text-brand-secondary_hover"
-            >
-              {filter === 'all' ? TYPE_META[moreType].label : `근처 ${TYPE_META[moreType].label} 더 보기`}
-            </Link>
-          ))}
-        </div>
+          "위치 권한이 꺼져 있어요" 에서 막혔다(14 W261013.14o · seongho-28). 들어가며 다른 "어디"(검색어·권역·방향·읍면)는 푼다(`enterNear`).
+          종류 링크는 칩 줄과 합쳤다 — '숙소·식당·카페' 글자 링크 셋은 폭 23.7 이라 가로 히트가 모자랐다(22 R27.7 · D-16). 종류 칩을 켜면 목록 끝에 한 줄(전폭 44). */}
+      {filter !== 'all' && hasMore && (
+        <Link
+          href={placesNearHref(filter, place.id)}
+          onClick={() => {
+            enterNear();
+            setTown(null);
+          }}
+          data-ev="detail.nearMore"
+          aria-label={`근처 ${TYPE_META[filter].label} 더 보기`}
+          className="mx-4 flex min-h-11 items-center justify-between text-sm font-semibold text-brand-secondary hover:text-brand-secondary_hover md:mx-6"
+        >
+          {TYPE_META[filter].label} 더 보기
+          <span aria-hidden="true">›</span>
+        </Link>
       )}
     </section>
   );
