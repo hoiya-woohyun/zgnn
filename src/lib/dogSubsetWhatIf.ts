@@ -5,7 +5,10 @@
  * 그래서 무게·마릿수·크기·요금 규칙이 바뀌어도 이 함수는 따라간다.
  *
  * 설계(08 P3 T5.7 과 묶어 본 것):
- * - **어려움일 때만** 묻는다. 확인이 필요한 곳(cond)에서 "한 마리만 가면 확인 없이 돼요" 는 판정을 뒤집는 말이 아니라 소음이다.
+ * - **어려움**이면 갈 수 있는 조합(확인 필요까지)을 묻는다. **확인 필요(cond)** 면 조합의 답이 **더 나을 때만** — 갈 수 있어요(ok)나
+ *   야외 자리에서 갈 수 있어요(`isOutdoorSeatOnly`)일 때 한 줄(14 W261010.15 → NOW 2026-10-27). 대장(28kg)·초코(6kg)가 "대형견 언급이 없는" 곳(C5)이면
+ *   초코만 가면 확인할 것이 없는데 "확인이 필요해요" 뿐이었다(C5 47곳 중 40곳). 누구를 빼도 남는 조건(전화·접종·이동 수단)이면 조합도 cond 라
+ *   저절로 안 선다 — 처음 설계가 cond 를 "소음" 으로 뺀 까닭은 그 경우였다. 이미 야외 자리만이면 ok 조합만 더 낫다.
  * - **가장 많이 데려갈 수 있는 조합**을 고른다(두고 갈 아이가 적은 쪽). 같은 수면 판정이 나은 쪽, 그다음 무거운 쪽(덜 놀랍다).
  *   그런데 수도 판정도 같은 조합이 여럿이면 하나만 부르지 않는다(`ties` · `dogSubsetLead`) — 웨스티하우스에 콩(2.5kg)·해피(12kg)는
  *   누구 한 마리만 가도 되는데 "해피만 데려가면" 이라 해 "콩은 안 되는 줄 알았다"(14 W261019.9). 판정이 다른 조합은 묶지 않는다 —
@@ -15,7 +18,7 @@
  * - 3마리까지라 부분집합은 많아야 6개다 — 목록 전체에 돌려도 싸지만, 화면은 상세 한 곳에서만 부른다.
  */
 
-import { judgeEligibility, type TEligibility, type TEligibilityLevel } from './eligibility';
+import { isOutdoorSeatOnly, judgeEligibility, type TEligibility, type TEligibilityLevel } from './eligibility';
 import { dogCallNames, dogCallNamesOr } from './korean';
 import type { TPetPolicy } from './petPolicy';
 import type { TDogProfile } from '../types';
@@ -69,16 +72,29 @@ export function bestDogSubset<R extends { level: TEligibilityLevel }>(
   return { names, result, ties };
 }
 
+/**
+ * 지금 판정에서 어떤 조합의 답을 "된다" 로 치나 — 어려움이면 갈 수 있거나 확인이 필요한 조합, 확인 필요면 그보다 나은 답
+ * (갈 수 있어요 · 야외 자리만), 야외 자리만이면 갈 수 있어요만. 그 밖(갈 수 있어요 · 정보 없음)은 묻지 않는다.
+ */
+const acceptsFor = (current: TEligibility): ((e: TEligibility) => boolean) | null => {
+  if (current.level === 'hard') return (e) => e.level === 'ok' || e.level === 'cond';
+  if (current.level !== 'cond') return null;
+  if (isOutdoorSeatOnly(current)) return (e) => e.level === 'ok';
+  return (e) => e.level === 'ok' || isOutdoorSeatOnly(e);
+};
+
 export function dogSubsetWhatIf(
   dog: TDogProfile,
   policy: TPetPolicy,
   current: TEligibility,
   opts: { needsIndoor?: boolean } = {},
 ): TDogSubsetWhatIf | null {
-  if (current.level !== 'hard' || dog.dogs.length < 2) return null;
+  if (dog.dogs.length < 2) return null;
+  const accepts = acceptsFor(current);
+  if (!accepts) return null;
   const best = bestDogSubset(dog, (subset) => {
     const eligibility = judgeEligibility(subset, policy, opts);
-    return eligibility.level === 'hard' || eligibility.level === 'unknown' ? null : eligibility;
+    return accepts(eligibility) ? eligibility : null;
   });
   return best ? { names: best.names, ties: best.ties, eligibility: best.result } : null;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { judgeEligibility } from './eligibility';
+import { headlineFor, isOutdoorSeatOnly, judgeEligibility } from './eligibility';
 import { dogSubsetLead, dogSubsetWhatIf } from './dogSubsetWhatIf';
 import { parsePetPolicy } from './petPolicy';
 import type { TDogProfile } from '../types';
@@ -40,6 +40,49 @@ describe('dogSubsetWhatIf', () => {
     expect(whatIf(DAEJANG_CHOCO, '실내외 모두 가능.')).toBeNull();
     expect(whatIf({ dogs: [{ name: '대장', weightKg: 18 }], carrier: 'none' }, '10kg 이하')).toBeNull();
     expect(whatIf(DAEJANG_CHOCO, '5kg 이하')).toBeNull();
+  });
+
+  describe('확인 필요(cond)면 조합의 답이 더 나을 때만(NOW 2026-10-27 · 14 W261010.15)', () => {
+    const DAEJANG_28: TDogProfile = { dogs: [{ name: '대장', weightKg: 28 }, { name: '초코', weightKg: 6 }], carrier: 'none' };
+
+    it('대형견 언급이 없는 곳(C5) — 대형견을 빼면 갈 수 있어요', () => {
+      const policy = parsePetPolicy('실내 동반 가능. 리드줄 착용해 주세요');
+      const current = judgeEligibility(DAEJANG_28, policy);
+      expect(current.reasons.map((r) => r.rule)).toEqual(['C5']);
+      const result = dogSubsetWhatIf(DAEJANG_28, policy, current);
+      expect(result?.names).toEqual(['초코']);
+      expect(result?.eligibility.level).toBe('ok');
+    });
+
+    it('야외 자리만이 남으면 "초코만 데려가면 야외 자리에서 갈 수 있어요" — 대장이 끼면 C5 까지라 확인 필요다', () => {
+      const policy = parsePetPolicy('야외 테라스만 가능');
+      const current = judgeEligibility(DAEJANG_28, policy);
+      expect(isOutdoorSeatOnly(current)).toBe(false);
+      const result = dogSubsetWhatIf(DAEJANG_28, policy, current);
+      expect(result?.names).toEqual(['초코']);
+      expect(result && headlineFor(result.eligibility)).toBe('야외 자리에서 갈 수 있어요');
+    });
+
+    it('이미 야외 자리만이면 갈 수 있어요 조합만 더 낫다', () => {
+      const small: TDogProfile = { dogs: [{ name: '콩', weightKg: 3 }, { name: '초코', weightKg: 6 }], carrier: 'none' };
+      const policy = parsePetPolicy('야외 테라스만 가능');
+      const current = judgeEligibility(small, policy);
+      expect(isOutdoorSeatOnly(current)).toBe(true);
+      expect(dogSubsetWhatIf(small, policy, current)).toBeNull();
+    });
+
+    it('누구를 빼도 남는 조건(전화 확인)이면 조합도 확인 필요라 서지 않는다', () => {
+      const policy = parsePetPolicy('반려견 동반 가능. 방문 전 전화 문의 부탁드려요');
+      const current = judgeEligibility(DAEJANG_28, policy);
+      expect(current.level).toBe('cond');
+      expect(dogSubsetWhatIf(DAEJANG_28, policy, current)).toBeNull();
+    });
+
+    it('갈 수 있어요·정보 없음이면 묻지 않는다', () => {
+      const ok = parsePetPolicy('소형견·중형견·대형견 모두 가능');
+      expect(dogSubsetWhatIf(DAEJANG_28, ok, { level: 'ok', reasons: [] })).toBeNull();
+      expect(dogSubsetWhatIf(DAEJANG_28, ok, { level: 'unknown', reasons: [] })).toBeNull();
+    });
   });
 
   it('크기 수정은 부분집합에 가져가지 않는다', () => {
