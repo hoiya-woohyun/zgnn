@@ -6,9 +6,8 @@ import type { TPlaceEntry } from '../lib/places';
  * 지금 데이터에는 사진이 없어서 화면에 나오지 않지만, 나중에 직접 찍은 사진을
  * places.json 에 넣으면 바로 동작하도록 남겨 둔 경로다.
  *
- * PlaceThumb 은 사진을 장식으로 다뤄 alt="" 로 감춘다(카드에서는 링크 이름이 이미 있어서).
- * 여기 사진은 장식이 아니라 그 자체가 콘텐츠라 PlaceThumb 을 쓰지 않고 각 사진에 고유한
- * alt 를 직접 단다.
+ * 목록 행에는 사진 자리가 없다(ADR-002 v9). 여기 사진은 장식이 아니라 그 자체가 콘텐츠라
+ * 각 사진에 고유한 alt 를 직접 단다.
  */
 export function PlaceDetailGallery({ place }: { place: TPlaceEntry }) {
   const photos = place.images;

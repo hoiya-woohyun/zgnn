@@ -5,7 +5,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { DotsGrid } from '@untitledui/icons';
 import type { ComponentPropsWithoutRef, Ref } from 'react';
 import { CARD_SURFACE } from '../components/cardSurface';
-import { PlaceThumb } from '../components/placeThumb';
+import { PlaceTypeMark } from '../components/placeTypeMark';
 import { TYPE_META, type TPlaceEntry } from '../lib/places';
 import { cx } from '../utils/cx';
 
@@ -34,9 +34,11 @@ type TSavedPlanPageRowFaceProps = {
 export function SavedPlanPageRowFace({ place, onOpenMove, handleProps, handleRef, lifted = false }: TSavedPlanPageRowFaceProps) {
   const label = (
     <>
-      <PlaceThumb src={place.cover ?? place.images[0]} type={place.type} variant="compact" />
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-md font-semibold text-primary">{place.name}</span>
+        <span className="flex items-center gap-1.5 text-md font-semibold text-primary">
+          <PlaceTypeMark type={place.type} />
+          <span className="min-w-0 truncate">{place.name}</span>
+        </span>
         <span className="block truncate text-sm text-tertiary">
           {place.region.town} · {TYPE_META[place.type].label}
         </span>

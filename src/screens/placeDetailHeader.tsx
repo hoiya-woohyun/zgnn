@@ -2,7 +2,6 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { PLACE_TYPE_ICON } from '../components/icons/placeTypeIcon';
-import { PLACE_THUMB, PlaceThumb } from '../components/placeThumb';
 import { PlaceDetailNote } from './placeDetailNote';
 import { TYPE_COLOR } from '../lib/places';
 import {
@@ -25,16 +24,14 @@ const useBeforePaint = typeof window === 'undefined' ? useEffect : useLayoutEffe
  * **색 판을 깔지 않는다**(ADR-010 v4). 예전에는 종류 색의 파스텔 워시 판 위에 이름을 올렸는데,
  * 하위 화면 중 이 화면만 본문이 색 면으로 시작해 헤더(크림) 바로 밑에 다른 색 덩어리가 끼어
  * 있었다 — 끝까지 깔면 가로 경계가, 라운드 판으로 띄우면 "뭔가 올라와 있는" 덩어리가 됐다.
- * 지금은 `/saved`·`/dog` 의 PageHeader 처럼 크림 위에 글자만 두고, 종류는 **목록 카드와 같은
- * 썸네일 타일**(PlaceThumb)로 말한다 — 목록에서 누른 카드의 그 아이콘이 상세 맨 위에 그대로
- * 있어 이어져 보인다. 종류 색은 타일과 읍면 글씨에만 남는다.
+ * 지금은 `/saved`·`/dog` 의 PageHeader 처럼 크림 위에 글자만 두고, 종류는 상호명 왼쪽의
+ * **종류색 선 아이콘 하나**(색 상자 없음, 22 G3.1b)로 말한다. 종류 색은 아이콘과 읍면 글씨에만 남는다.
  *
- * **타일은 상호명 왼쪽에 한 줄로 선다**(목록 카드와 같은 배치). 그리고 이 줄이 **스크롤을 따라 헤더 안의 제자리로 날아 들어간다** —
+ * **아이콘은 상호명 왼쪽에 한 줄로 선다.** 그리고 이 줄이 **스크롤을 따라 헤더 안의 제자리로 날아 들어간다** —
  * 홈 헤더(잉크 카드 → 헤더)와 같은 약속이다: 진입하면 지금 모습, 스크롤한 만큼 옮겨 가고, 되돌리면 같은 길로 풀린다.
- * - 줄은 본문과 같이 스크롤되므로 세로는 저절로 맞는다. 줄의 세로 중심이 헤더 가운데에 닿는 스크롤까지, 타일·상호명이 각각
+ * - 줄은 본문과 같이 스크롤되므로 세로는 저절로 맞는다. 줄의 세로 중심이 헤더 가운데에 닿는 스크롤까지, 아이콘·상호명이 각각
  *   헤더의 아이콘·상호명 자리로 **가로로 옮겨 가며 준다**(`lib/titleFlight.ts`).
- * - **타일은 절반까지 색 판이 빠지고 크기도 다 준다** — 그 뒤로는 종류 글리프만 날아간다. 판이 끝까지 남으면 40px 판이 뒤로가기
- *   화살표 옆을 스치며 지나갔다. 판 위에 같은 글리프를 한 벌 겹쳐 두고 판(`PlaceThumb`)만 투명하게 한다 — 글리프는 끊기지 않는다.
+ * - 아이콘은 헤더 아이콘과 같은 20px 라 크기는 그대로고 자리만 옮겨 간다(예전엔 44px 색 판이 절반까지 빠지며 줄었다).
  * - 도착하는 순간(마지막 15%) 헤더 속 같은 자리의 복사본(`placeDetailAppBar`)과 겹쳐 바뀐다. 오른쪽 `구좌읍 · 펜션` 은 절반부터 나타난다.
  * - 줄은 헤더(`z-30`)보다 **위에** 그린다 — 밑이면 헤더에 닿는 순간 가려져 날아 들어가는 것이 안 보인다. 손은 받지 않는다
  *   (`pointer-events-none`) — 옮겨 가는 동안 뒤로가기 버튼 위를 지난다.
@@ -149,13 +146,8 @@ export function PlaceDetailHeader({ place }: { place: TPlaceEntry }) {
             opacity: 'calc(1 - var(--morph))',
           }}
         >
-          {/* 판은 절반까지 빠진다. 위에 겹친 글리프는 판 안의 글리프와 같은 크기·색·자리라, 판이 빠져도 아이콘은 그대로 날아간다. */}
-          <div data-scroll-morph="tile-out" style={{ opacity: 'calc(1 - var(--morph))' }}>
-            <PlaceThumb type={place.type} />
-          </div>
-          <span aria-hidden="true" className="absolute inset-0 grid place-items-center" style={{ color: TYPE_COLOR[place.type] }}>
-            <Glyph className={PLACE_THUMB.primary.icon} />
-          </span>
+          {/* 색 상자 없이 종류 글리프만 — 헤더 아이콘(size-5)과 같은 크기라 날아가는 동안 크기가 변하지 않고 자리만 옮긴다(22 G3.1b). */}
+          <Glyph aria-hidden="true" className="block size-5" style={{ color: TYPE_COLOR[place.type] }} />
         </div>
         <h1
           ref={titleRef}

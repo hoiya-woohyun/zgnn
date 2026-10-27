@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { NaverLinkButton } from '../components/naverLinkButton';
 import { PlaceItemsNote } from '../components/placeItemsNote';
-import { PlaceThumb } from '../components/placeThumb';
+import { PlaceTypeMark } from '../components/placeTypeMark';
 import { SaveButton } from '../components/saveButton';
 import { SavedNoteLine } from '../components/savedNoteLine';
 import { VerdictText } from '../components/verdictLine';
@@ -73,17 +73,18 @@ export function MapPageSheetCard({ place, origin, onSheetHeight }: TMapPageSheet
      */
     <div ref={rootRef} data-focus-return="">
       <Link href={`/place/${place.id}`} className="block">
-        <div className="flex items-start gap-3">
-          <PlaceThumb src={place.cover ?? place.images[0]} type={place.type} />
-          <div className="min-w-0 flex-1 pr-8">
-            <p className="text-md font-semibold text-primary">{place.name}</p>
-            {/* 목록 카드와 같은 메타 한 줄(22 G3.0) — 거리는 밑 주소 줄이 말한다. */}
-            <p className="mt-1 truncate text-sm text-tertiary">{placeMetaLine(place, { verified })}</p>
-            <p className="mt-1 truncate text-sm text-secondary">
-              {distance && <span className="text-primary">{distance} · </span>}
-              {address}
-            </p>
-          </div>
+        <div className="min-w-0 pr-8">
+          {/* 종류는 이름 앞 16px 선 아이콘 하나(22 G3.1b) — 44px 색 상자는 걷었다. */}
+          <p className="flex items-start gap-1.5 text-md font-semibold text-primary">
+            <PlaceTypeMark type={place.type} className="mt-1" />
+            <span className="min-w-0">{place.name}</span>
+          </p>
+          {/* 목록 카드와 같은 메타 한 줄(22 G3.0) — 거리는 밑 주소 줄이 말한다. */}
+          <p className="mt-1 truncate text-sm text-tertiary">{placeMetaLine(place, { verified })}</p>
+          <p className="mt-1 truncate text-sm text-secondary">
+            {distance && <span className="text-primary">{distance} · </span>}
+            {address}
+          </p>
         </div>
 
         {/* 목록 카드와 같은 자리의 내 메모(저장 화면에서 적은 것). */}

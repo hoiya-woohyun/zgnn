@@ -9,7 +9,7 @@ import { MapPageSheetCard } from './mapPageSheet';
 import { useMapPageWideLayout } from './useMapPageWideLayout';
 import { BottomSheet } from '@/components/base/bottom-sheet';
 import { EmptyState } from '../components/layout/emptyState';
-import { PlaceThumb } from '../components/placeThumb';
+import { PlaceTypeMark } from '../components/placeTypeMark';
 import { VerdictText } from '../components/verdictLine';
 import { normalizeRoute } from '../lib/appRoutes';
 import { dogCallNames } from '../lib/korean';
@@ -298,10 +298,10 @@ export function MapPage() {
                       active ? 'bg-brand-primary' : 'hover:bg-secondary',
                     )}
                   >
-                    <PlaceThumb src={place.cover ?? place.images[0]} type={place.type} variant="compact" />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-md font-semibold text-primary">
-                        {place.name}
+                      <span className="flex items-center gap-1.5 text-md font-semibold text-primary">
+                        <PlaceTypeMark type={place.type} />
+                        <span className="min-w-0 truncate">{place.name}</span>
                       </span>
                       {/*
                         판정 글자는 목록 탭·지도 시트와 같은 것(14 W261007.19 · 22 G3.0) — 2단이 된 큰 화면에서만 판정이 안 보였다.

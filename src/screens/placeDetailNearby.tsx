@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '../components/base/button';
 import { FilterChip } from '../components/filterChip';
-import { PlaceThumb } from '../components/placeThumb';
+import { PlaceTypeMark } from '../components/placeTypeMark';
 import { VerdictLine } from '../components/verdictLine';
 import { distanceLabel, pickNearby, placesNearHref } from '../lib/distanceSort';
 import { reasonBadgeLabel, verdictHidesBadge } from '../lib/eligibility';
@@ -106,10 +106,12 @@ export function PlaceDetailNearby({ place }: { place: TPlaceEntry }) {
                   href={`/place/${other.id}`}
                   className="flex min-h-11 items-start gap-3 p-3 transition-colors hover:bg-secondary"
                 >
-                  <PlaceThumb src={other.cover ?? other.images[0]} type={other.type} variant="compact" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="clamp-2 text-md font-semibold text-primary">{other.name}</p>
+                      <p className="flex min-w-0 items-start gap-1.5 text-md font-semibold text-primary">
+                        <PlaceTypeMark type={other.type} className="mt-1" />
+                        <span className="clamp-2 min-w-0">{other.name}</span>
+                      </p>
                       <span className="shrink-0 text-sm text-secondary">{distanceLabel(km)}</span>
                     </div>
                     <p className="mt-0.5 truncate text-sm text-tertiary">{placeMetaLine(other)}</p>

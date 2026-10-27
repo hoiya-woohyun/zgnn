@@ -171,7 +171,7 @@ src/
 │   ├── layout/               # AppShell · AppBar · 사이드바 · 탭바 · PageHeader · Section · EmptyState
 │   ├── icons/                # 숙소·식당·카페 아이콘 3종
 │   ├── foundations/          # Untitled UI 부속 아이콘(dot-icon)
-│   └── *.tsx                 # placeCard · placeThumb · petBadges · eligibilityBadge · saveButton · seasonChips · townChip · missingItemsNote
+│   └── *.tsx                 # placeCard · placeTypeMark · petBadges · eligibilityBadge · saveButton · seasonChips · townChip · missingItemsNote
 ├── lib/                      # 순수 로직. petPolicy · eligibility · dogFee · korean · dogProfile · sortByEligibility · placeFilters
 │                             #            checklist · itemNeeds · amenities · places · category · format · appHistory · appRoutes
 │                             #            admin{Session,Supabase,Candidates,Apply} — /admin 전용(순수 로직은 scripts/ 모듈을 import)
