@@ -127,6 +127,12 @@ export type TPetPolicy = {
    * `readNothing`·`POLICY_TOPICS` 에 넣지 않는다.
    */
   indoorGear?: { bag: boolean; stroller: boolean };
+  /**
+   * 대형견 허용(`largeDogOk`)을 원문이 **무엇으로** 말했나(`largeDogOkBasis`) — `indoorGear` 처럼 조립(`derivePlace`)이 미리 읽어 얹는 판독 결과다.
+   * 판정 I4 가 "몸무게 제한이 없다고 적혀 있어요" 와 "견종 제한이 없다고 적혀 있어 …되는 것으로 읽었어요" 를 이 칸으로 가른다(14 W261027.2).
+   * 블로그 출처 행은 근거 문장이 지워지므로 이 칸 없이는 말이 갈린다(빌드 길 ≡ 런타임 길). 조건이 아니라 `readNothing`·`POLICY_TOPICS` 에 넣지 않는다.
+   */
+  largeDogOkBy?: TLargeDogOkBy;
   /** 규칙별 근거 문장(원문 그대로). reasons.quote 의 재료 */
   sources: Partial<
     Record<
@@ -746,6 +752,28 @@ export const BAG_ALLOWED = /(가방|슬링)(?![^.\n]{0,16}(불가|안\s*(돼|됩
  * '개모차'(구어)도 유모차다 — 빠지면 "개모차, 가방 출입 가능" 이 '이동가방 필요' 로만 읽혀 유모차 강아지에게 C3 이 원문이 허락한 것을 되묻는다(21 S5.1).
  */
 export const STROLLER_ALLOWED = /(유모차|개모차)(?![^.\n]{0,16}불가)/;
+
+/** 대형견 허용의 근거 꼴 — 몸무게·크기 제한 없음 · "대형견 가능" · 견종 제한 없음 · 모든 견종. 앞의 둘은 크기를 적은 그대로, 뒤의 둘은 우리가 크기로 옮겨 읽은 것이다. */
+export type TLargeDogOkBy = 'weightFree' | 'sizeFree' | 'largeSaid' | 'breedFree' | 'allBreeds';
+
+const LARGE_OK_BY: [TLargeDogOkBy, RegExp][] = [
+  ['weightFree', /무게\s*제한[^.\n]{0,6}없/],
+  ['sizeFree', /(크기|사이즈)\s*제한[^.\n]{0,6}없/],
+  ['largeSaid', new RegExp(String.raw`대형견${NOT_DENIED}[^.\n]{0,16}(가능|환영|입장)`)],
+  ['breedFree', /견종\s*제한[^.\n]*없/],
+  ['allBreeds', /모든\s*견종/],
+];
+
+/**
+ * 대형견 허용을 원문이 무엇으로 말했나. 조립이 얹은 칸(`largeDogOkBy`)이 있으면 그것, 없으면 근거 문장에서 읽는다.
+ * 근거 문장이 어느 꼴도 아니면(AI 판단의 근거 줄은 '제한' 이 든 아무 줄일 수 있다) undefined — 판정 I4 는 그때 단정하지 않는다.
+ */
+export const largeDogOkBasis = (policy: Pick<TPetPolicy, 'largeDogOk' | 'sources' | 'largeDogOkBy'>): TLargeDogOkBy | undefined => {
+  if (!policy.largeDogOk) return undefined;
+  if (policy.largeDogOkBy) return policy.largeDogOkBy;
+  const source = policy.sources.largeDogOk;
+  return source === undefined ? undefined : LARGE_OK_BY.find(([, re]) => re.test(source))?.[0];
+};
 
 /**
  * `indoor: 'cage'` 인 곳이 원문으로 받아 준다고 적은 수단. **판정 C2·C3 · 배지(`cageBadge`) · 템플릿(`cageLine`) 넷이 이 하나를 본다** —

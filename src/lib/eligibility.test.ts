@@ -1085,3 +1085,61 @@ describe('judgeEligibility — 중형견에게 크기 언급이 없는 곳을 �
     expect(sizeLine(12, noInfo)).toBeUndefined();
   });
 });
+
+describe("judgeEligibility — '갈 수 있어요' 에도 우리 강아지 기준 크기 근거(I4, 14 W261027.2)", () => {
+  const dog = (...weights: number[]): TDogProfile => ({
+    dogs: weights.map((weightKg, i) => ({ name: ['보리', '두부', '콩이'][i], weightKg })),
+    carrier: 'none',
+  });
+  const basis = (profile: TDogProfile, policy: ReturnType<typeof parsePetPolicy>) =>
+    judgeEligibility(profile, policy).reasons.find((r) => r.rule === 'I4');
+
+  it('백화stay × 30kg — 견종으로 읽은 것은 옮겨 읽었다고 말하고, 근거 문장을 인용한다. 카드 이유 줄은 아니다', () => {
+    const { policy } = findPlace('백화stay');
+    const e = judgeEligibility(dog(30), policy);
+    expect(e.level).toBe('ok');
+    expect(e.reasons.find((r) => r.rule === 'I4')).toMatchObject({
+      level: 'info',
+      text: '견종 제한이 없다고 적혀 있어 보리(30kg)도 되는 것으로 읽었어요',
+      quote: policy.sources.largeDogOk,
+    });
+    expect(primaryReason(e)).toBeUndefined();
+  });
+
+  it('원문이 크기를 직접 말했으면 적힌 그대로 — 몸무게 제한 없음 · 대형견 가능', () => {
+    expect(basis(dog(30), parsePetPolicy('몸무게 제한 없음.'))?.text).toBe('몸무게 제한이 없다고 적혀 있어요 · 보리(30kg)도 돼요');
+    expect(basis(dog(30), parsePetPolicy('대형견도 동반 가능해요.'))?.text).toBe('대형견도 된다고 적혀 있어요 · 보리(30kg)도 돼요');
+  });
+
+  it('근거 문장이 지워진 행(블로그 출처)은 조립이 얹은 칸(`largeDogOkBy`)으로 말하고, 그 칸도 없으면 단정하지 않는다', () => {
+    const policy = { ...parsePetPolicy('견종 제한 없음.'), sources: {} };
+    expect(basis(dog(30), policy)?.text).toBe('대형견도 받는 것으로 읽었어요 · 보리(30kg)도 돼요');
+    expect(basis(dog(30), { ...policy, largeDogOkBy: 'breedFree' as const })?.text).toBe('견종 제한이 없다고 적혀 있어 보리(30kg)도 되는 것으로 읽었어요');
+  });
+
+  it('여러 마리면 크기가 문제 되는 아이만 부르고, 소형 아이 하나면 대형견 허용을 말하지 않는다', () => {
+    const policy = parsePetPolicy('대형견도 동반 가능해요.');
+    expect(basis(dog(28, 4), policy)?.text).toBe('대형견도 된다고 적혀 있어요 · 보리(28kg)도 돼요');
+    expect(basis(dog(4), policy)).toBeUndefined();
+  });
+
+  it('무게 구간이 받아 주면 그 구간 — 바로 밑이면 I2 가 말해 이 줄은 없다', () => {
+    const policy = parsePetPolicy('7kg 미만 2마리까지 가능.');
+    expect(basis(dog(5), policy)?.text).toBe('보리(5kg)는 7kg 미만 조건 안이에요');
+    expect(basis(dog(5, 3), policy)?.text).toBe('보리(5kg)·두부(3kg) 모두 7kg 미만 조건 안이에요');
+    const near = judgeEligibility(dog(6.5), policy);
+    expect(near.reasons.map((r) => r.rule)).toContain('I2');
+    expect(near.reasons.some((r) => r.rule === 'I4')).toBe(false);
+  });
+
+  it('소형견만 × 소형 아이', () => {
+    expect(basis(dog(4), parsePetPolicy('소형견만 동반 가능해요.'))?.text).toBe('소형견만 된다고 적혀 있어요 · 보리(4kg)는 소형견이에요');
+  });
+
+  it("'갈 수 있어요' 가 아니면 없다 — 대형견 OK 인데 케이지가 없어 야외 자리만 · 조건 없음", () => {
+    const cage = judgeEligibility(dog(30), parsePetPolicy('대형견도 동반 가능. 실내는 케이지 필수, 실외는 자유.'));
+    expect(cage.level).toBe('cond');
+    expect(cage.reasons.some((r) => r.rule === 'I4')).toBe(false);
+    expect(basis(dog(30), parsePetPolicy(''))).toBeUndefined();
+  });
+});

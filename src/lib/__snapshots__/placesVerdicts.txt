@@ -41,16 +41,16 @@ gear {"bag":false,"stroller":false}
 badges cond:1마리당 2만원 · cond:10kg 미만 · cond:최대 2마리
 evidence {"lines":["반려견 요금이 따로 있어요 — 1마리당 2만원","10kg 미만인 강아지만 같이 갈 수 있어요","최대 2마리까지 같이 갈 수 있어요"],"note":null}
 env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
-small4 ok | I1:info:두부는 2만원 | 두부는 2만원 | 
-small4+indoor ok | I1:info:두부는 2만원 | 두부는 2만원 | 
+small4 ok | I4:info:두부(4kg)는 10kg 미만 조건 안이에요 / I1:info:두부는 2만원 | 두부는 2만원 | 
+small4+indoor ok | I4:info:두부(4kg)는 10kg 미만 조건 안이에요 / I1:info:두부는 2만원 | 두부는 2만원 | 
 medium12 hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
 medium12+indoor hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
 large28 hard | H1:hard:대장이(28kg)는 10kg 미만 조건을 넘어요 |  | 
 large28+indoor hard | H1:hard:대장이(28kg)는 10kg 미만 조건을 넘어요 |  | 
-two5and8 ok | I1:info:콩이와 팥이는 2마리 합계 4만원 (1마리당 2만원) | 콩이와 팥이는 2마리 합계 4만원 (1마리당 2만원) | 
-two5and8+indoor ok | I1:info:콩이와 팥이는 2마리 합계 4만원 (1마리당 2만원) | 콩이와 팥이는 2마리 합계 4만원 (1마리당 2만원) | 
-small6none ok | I1:info:초코는 2만원 | 초코는 2만원 | 
-small6none+indoor ok | I1:info:초코는 2만원 | 초코는 2만원 | 
+two5and8 ok | I4:info:콩이(5kg)·팥이(8kg) 모두 10kg 미만 조건 안이에요 / I1:info:콩이와 팥이는 2마리 합계 4만원 (1마리당 2만원) | 콩이와 팥이는 2마리 합계 4만원 (1마리당 2만원) | 
+two5and8+indoor ok | I4:info:콩이(5kg)·팥이(8kg) 모두 10kg 미만 조건 안이에요 / I1:info:콩이와 팥이는 2마리 합계 4만원 (1마리당 2만원) | 콩이와 팥이는 2마리 합계 4만원 (1마리당 2만원) | 
+small6none ok | I4:info:초코(6kg)는 10kg 미만 조건 안이에요 / I1:info:초코는 2만원 | 초코는 2만원 | 
+small6none+indoor ok | I4:info:초코(6kg)는 10kg 미만 조건 안이에요 / I1:info:초코는 2만원 | 초코는 2만원 | 
 
 ## 1716dc79-ce8f-46d0-8330-7d8d84df92e5
 public false
@@ -131,16 +131,16 @@ gear {"bag":false,"stroller":false}
 badges cond:7kg 이하 · cond:최대 2마리
 evidence raw
 env {"standalone":null,"yard":null,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
-small4 ok |  |  | 
-small4+indoor ok |  |  | 
+small4 ok | I4:info:두부(4kg)는 7kg 이하 조건 안이에요 |  | 
+small4+indoor ok | I4:info:두부(4kg)는 7kg 이하 조건 안이에요 |  | 
 medium12 hard | H1:hard:보리(12kg)는 7kg 이하 조건을 넘어요 |  | 
 medium12+indoor hard | H1:hard:보리(12kg)는 7kg 이하 조건을 넘어요 |  | 
 large28 hard | H1:hard:대장이(28kg)는 7kg 이하 조건을 넘어요 |  | 
 large28+indoor hard | H1:hard:대장이(28kg)는 7kg 이하 조건을 넘어요 |  | 
 two5and8 hard | H1:hard:팥이(8kg)는 7kg 이하 조건을 넘어요 |  | 
 two5and8+indoor hard | H1:hard:팥이(8kg)는 7kg 이하 조건을 넘어요 |  | 
-small6none ok |  |  | 
-small6none+indoor ok |  |  | 
+small6none ok | I4:info:초코(6kg)는 7kg 이하 조건 안이에요 |  | 
+small6none+indoor ok | I4:info:초코(6kg)는 7kg 이하 조건 안이에요 |  | 
 
 ## 278ddc10-ceae-8111-87db-fa748222c1da
 public true
@@ -167,16 +167,16 @@ gear {"bag":false,"stroller":false}
 badges cond:1마리당 1만원 · cond:7kg 미만 · cond:최대 2마리
 evidence raw
 env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
-small4 ok | I1:info:두부는 1만원 | 두부는 1만원 | 1박 기준인지는 적혀 있지 않아요
-small4+indoor ok | I1:info:두부는 1만원 | 두부는 1만원 | 1박 기준인지는 적혀 있지 않아요
+small4 ok | I4:info:두부(4kg)는 7kg 미만 조건 안이에요 / I1:info:두부는 1만원 | 두부는 1만원 | 1박 기준인지는 적혀 있지 않아요
+small4+indoor ok | I4:info:두부(4kg)는 7kg 미만 조건 안이에요 / I1:info:두부는 1만원 | 두부는 1만원 | 1박 기준인지는 적혀 있지 않아요
 medium12 hard | H1:hard:보리(12kg)는 7kg 미만 조건을 넘어요 |  | 
 medium12+indoor hard | H1:hard:보리(12kg)는 7kg 미만 조건을 넘어요 |  | 
 large28 hard | H1:hard:대장이(28kg)는 7kg 미만 조건을 넘어요 |  | 
 large28+indoor hard | H1:hard:대장이(28kg)는 7kg 미만 조건을 넘어요 |  | 
 two5and8 hard | H1:hard:팥이(8kg)는 7kg 미만 조건을 넘어요 |  | 
 two5and8+indoor hard | H1:hard:팥이(8kg)는 7kg 미만 조건을 넘어요 |  | 
-small6none ok | I1:info:초코는 1만원 | 초코는 1만원 | 1박 기준인지는 적혀 있지 않아요
-small6none+indoor ok | I1:info:초코는 1만원 | 초코는 1만원 | 1박 기준인지는 적혀 있지 않아요
+small6none ok | I4:info:초코(6kg)는 7kg 미만 조건 안이에요 / I1:info:초코는 1만원 | 초코는 1만원 | 1박 기준인지는 적혀 있지 않아요
+small6none+indoor ok | I4:info:초코(6kg)는 7kg 미만 조건 안이에요 / I1:info:초코는 1만원 | 초코는 1만원 | 1박 기준인지는 적혀 있지 않아요
 
 ## 278ddc10-ceae-8113-b966-c14a1aceaa2c
 public true
@@ -185,16 +185,16 @@ gear {"bag":false,"stroller":false}
 badges cond:추가 2만원 · cond:7kg 미만 · cond:최대 1마리
 evidence raw
 env {"standalone":null,"yard":null,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
-small4 ok | I1:info:두부는 2만원 | 두부는 2만원 | 1박 기준인지는 적혀 있지 않아요
-small4+indoor ok | I1:info:두부는 2만원 | 두부는 2만원 | 1박 기준인지는 적혀 있지 않아요
+small4 ok | I4:info:두부(4kg)는 7kg 미만 조건 안이에요 / I1:info:두부는 2만원 | 두부는 2만원 | 1박 기준인지는 적혀 있지 않아요
+small4+indoor ok | I4:info:두부(4kg)는 7kg 미만 조건 안이에요 / I1:info:두부는 2만원 | 두부는 2만원 | 1박 기준인지는 적혀 있지 않아요
 medium12 hard | H1:hard:보리(12kg)는 7kg 미만 조건을 넘어요 |  | 
 medium12+indoor hard | H1:hard:보리(12kg)는 7kg 미만 조건을 넘어요 |  | 
 large28 hard | H1:hard:대장이(28kg)는 7kg 미만 조건을 넘어요 |  | 
 large28+indoor hard | H1:hard:대장이(28kg)는 7kg 미만 조건을 넘어요 |  | 
 two5and8 hard | H1:hard:팥이(8kg)는 7kg 미만 조건을 넘어요 / H2:hard:7kg 미만은 1마리까지예요 |  | 
 two5and8+indoor hard | H1:hard:팥이(8kg)는 7kg 미만 조건을 넘어요 / H2:hard:7kg 미만은 1마리까지예요 |  | 
-small6none ok | I1:info:초코는 2만원 | 초코는 2만원 | 1박 기준인지는 적혀 있지 않아요
-small6none+indoor ok | I1:info:초코는 2만원 | 초코는 2만원 | 1박 기준인지는 적혀 있지 않아요
+small6none ok | I4:info:초코(6kg)는 7kg 미만 조건 안이에요 / I1:info:초코는 2만원 | 초코는 2만원 | 1박 기준인지는 적혀 있지 않아요
+small6none+indoor ok | I4:info:초코(6kg)는 7kg 미만 조건 안이에요 / I1:info:초코는 2만원 | 초코는 2만원 | 1박 기준인지는 적혀 있지 않아요
 
 ## 278ddc10-ceae-8115-b521-c7966bb294e4
 public true
@@ -221,16 +221,16 @@ gear {"bag":false,"stroller":false}
 badges cond:1마리당 1만원 · cond:10kg 미만 · cond:최대 2마리
 evidence raw
 env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
-small4 ok | I1:info:두부는 1만원 | 두부는 1만원 | 1박 기준인지는 적혀 있지 않아요
-small4+indoor ok | I1:info:두부는 1만원 | 두부는 1만원 | 1박 기준인지는 적혀 있지 않아요
+small4 ok | I4:info:두부(4kg)는 10kg 미만 조건 안이에요 / I1:info:두부는 1만원 | 두부는 1만원 | 1박 기준인지는 적혀 있지 않아요
+small4+indoor ok | I4:info:두부(4kg)는 10kg 미만 조건 안이에요 / I1:info:두부는 1만원 | 두부는 1만원 | 1박 기준인지는 적혀 있지 않아요
 medium12 hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
 medium12+indoor hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
 large28 hard | H1:hard:대장이(28kg)는 10kg 미만 조건을 넘어요 |  | 
 large28+indoor hard | H1:hard:대장이(28kg)는 10kg 미만 조건을 넘어요 |  | 
-two5and8 ok | I1:info:콩이와 팥이는 2마리 합계 2만원 (1마리당 1만원) | 콩이와 팥이는 2마리 합계 2만원 (1마리당 1만원) | 1박 기준인지는 적혀 있지 않아요
-two5and8+indoor ok | I1:info:콩이와 팥이는 2마리 합계 2만원 (1마리당 1만원) | 콩이와 팥이는 2마리 합계 2만원 (1마리당 1만원) | 1박 기준인지는 적혀 있지 않아요
-small6none ok | I1:info:초코는 1만원 | 초코는 1만원 | 1박 기준인지는 적혀 있지 않아요
-small6none+indoor ok | I1:info:초코는 1만원 | 초코는 1만원 | 1박 기준인지는 적혀 있지 않아요
+two5and8 ok | I4:info:콩이(5kg)·팥이(8kg) 모두 10kg 미만 조건 안이에요 / I1:info:콩이와 팥이는 2마리 합계 2만원 (1마리당 1만원) | 콩이와 팥이는 2마리 합계 2만원 (1마리당 1만원) | 1박 기준인지는 적혀 있지 않아요
+two5and8+indoor ok | I4:info:콩이(5kg)·팥이(8kg) 모두 10kg 미만 조건 안이에요 / I1:info:콩이와 팥이는 2마리 합계 2만원 (1마리당 1만원) | 콩이와 팥이는 2마리 합계 2만원 (1마리당 1만원) | 1박 기준인지는 적혀 있지 않아요
+small6none ok | I4:info:초코(6kg)는 10kg 미만 조건 안이에요 / I1:info:초코는 1만원 | 초코는 1만원 | 1박 기준인지는 적혀 있지 않아요
+small6none+indoor ok | I4:info:초코(6kg)는 10kg 미만 조건 안이에요 / I1:info:초코는 1만원 | 초코는 1만원 | 1박 기준인지는 적혀 있지 않아요
 
 ## 278ddc10-ceae-8117-a75c-fea607fde7cd
 public true
@@ -257,16 +257,16 @@ gear {"bag":false,"stroller":false}
 badges cond:10kg 미만 · cond:최대 2마리
 evidence raw
 env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
-small4 ok |  |  | 
-small4+indoor ok |  |  | 
+small4 ok | I4:info:두부(4kg)는 10kg 미만 조건 안이에요 |  | 
+small4+indoor ok | I4:info:두부(4kg)는 10kg 미만 조건 안이에요 |  | 
 medium12 hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
 medium12+indoor hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
 large28 hard | H1:hard:대장이(28kg)는 10kg 미만 조건을 넘어요 |  | 
 large28+indoor hard | H1:hard:대장이(28kg)는 10kg 미만 조건을 넘어요 |  | 
-two5and8 ok |  |  | 
-two5and8+indoor ok |  |  | 
-small6none ok |  |  | 
-small6none+indoor ok |  |  | 
+two5and8 ok | I4:info:콩이(5kg)·팥이(8kg) 모두 10kg 미만 조건 안이에요 |  | 
+two5and8+indoor ok | I4:info:콩이(5kg)·팥이(8kg) 모두 10kg 미만 조건 안이에요 |  | 
+small6none ok | I4:info:초코(6kg)는 10kg 미만 조건 안이에요 |  | 
+small6none+indoor ok | I4:info:초코(6kg)는 10kg 미만 조건 안이에요 |  | 
 
 ## 278ddc10-ceae-811d-8d1b-e3eb89f19cd1
 public true
@@ -365,30 +365,30 @@ gear {"bag":false,"stroller":false}
 badges cond:추가 1만원 · cond:10kg 미만 · cond:최대 1마리
 evidence raw
 env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
-small4 ok | I1:info:두부는 1만원 | 두부는 1만원 | 1박 기준인지는 적혀 있지 않아요
-small4+indoor ok | I1:info:두부는 1만원 | 두부는 1만원 | 1박 기준인지는 적혀 있지 않아요
+small4 ok | I4:info:두부(4kg)는 10kg 미만 조건 안이에요 / I1:info:두부는 1만원 | 두부는 1만원 | 1박 기준인지는 적혀 있지 않아요
+small4+indoor ok | I4:info:두부(4kg)는 10kg 미만 조건 안이에요 / I1:info:두부는 1만원 | 두부는 1만원 | 1박 기준인지는 적혀 있지 않아요
 medium12 hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
 medium12+indoor hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
 large28 hard | H1:hard:대장이(28kg)는 10kg 미만 조건을 넘어요 |  | 
 large28+indoor hard | H1:hard:대장이(28kg)는 10kg 미만 조건을 넘어요 |  | 
 two5and8 hard | H2:hard:10kg 미만은 1마리까지예요 |  | 
 two5and8+indoor hard | H2:hard:10kg 미만은 1마리까지예요 |  | 
-small6none ok | I1:info:초코는 1만원 | 초코는 1만원 | 1박 기준인지는 적혀 있지 않아요
-small6none+indoor ok | I1:info:초코는 1만원 | 초코는 1만원 | 1박 기준인지는 적혀 있지 않아요
+small6none ok | I4:info:초코(6kg)는 10kg 미만 조건 안이에요 / I1:info:초코는 1만원 | 초코는 1만원 | 1박 기준인지는 적혀 있지 않아요
+small6none+indoor ok | I4:info:초코(6kg)는 10kg 미만 조건 안이에요 / I1:info:초코는 1만원 | 초코는 1만원 | 1박 기준인지는 적혀 있지 않아요
 
 ## 278ddc10-ceae-8129-bea9-e09a45eb1d15
 public true
-policy {"indoor":"unknown","leash":false,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":false,"feeFree":true,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"tiers":[],"outdoorFree":false,"unlimitedDogs":true,"feeLines":[]}
+policy {"indoor":"unknown","leash":false,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":false,"feeFree":true,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"tiers":[],"outdoorFree":false,"unlimitedDogs":true,"feeLines":[],"largeDogOkBy":"breedFree"}
 gear {"bag":false,"stroller":false}
 badges ok:추가요금 없음 · ok:대형견 OK
 evidence raw
 env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 ok | I1:info:두부는 추가 요금 없음 | 두부는 추가 요금 없음 | 
 small4+indoor ok | I1:info:두부는 추가 요금 없음 | 두부는 추가 요금 없음 | 
-medium12 ok | I1:info:보리는 추가 요금 없음 | 보리는 추가 요금 없음 | 
-medium12+indoor ok | I1:info:보리는 추가 요금 없음 | 보리는 추가 요금 없음 | 
-large28 ok | I1:info:대장이는 추가 요금 없음 | 대장이는 추가 요금 없음 | 
-large28+indoor ok | I1:info:대장이는 추가 요금 없음 | 대장이는 추가 요금 없음 | 
+medium12 ok | I4:info:견종 제한이 없다고 적혀 있어 보리(12kg)도 되는 것으로 읽었어요 / I1:info:보리는 추가 요금 없음 | 보리는 추가 요금 없음 | 
+medium12+indoor ok | I4:info:견종 제한이 없다고 적혀 있어 보리(12kg)도 되는 것으로 읽었어요 / I1:info:보리는 추가 요금 없음 | 보리는 추가 요금 없음 | 
+large28 ok | I4:info:견종 제한이 없다고 적혀 있어 대장이(28kg)도 되는 것으로 읽었어요 / I1:info:대장이는 추가 요금 없음 | 대장이는 추가 요금 없음 | 
+large28+indoor ok | I4:info:견종 제한이 없다고 적혀 있어 대장이(28kg)도 되는 것으로 읽었어요 / I1:info:대장이는 추가 요금 없음 | 대장이는 추가 요금 없음 | 
 two5and8 ok | I1:info:콩이와 팥이는 추가 요금 없음 | 콩이와 팥이는 추가 요금 없음 | 
 two5and8+indoor ok | I1:info:콩이와 팥이는 추가 요금 없음 | 콩이와 팥이는 추가 요금 없음 | 
 small6none ok | I1:info:초코는 추가 요금 없음 | 초코는 추가 요금 없음 | 
@@ -414,17 +414,17 @@ small6none+indoor ok |  |  |
 
 ## 278ddc10-ceae-812c-bbd2-ce9e137669b3
 public true
-policy {"indoor":"unknown","leash":false,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"maxDogs":2,"tiers":[{"maxDogs":2}],"outdoorFree":false,"unlimitedDogs":false,"feeLines":["1마리당 3만원"]}
+policy {"indoor":"unknown","leash":false,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"maxDogs":2,"tiers":[{"maxDogs":2}],"outdoorFree":false,"unlimitedDogs":false,"feeLines":["1마리당 3만원"],"largeDogOkBy":"weightFree"}
 gear {"bag":false,"stroller":false}
 badges cond:1마리당 3만원 · ok:대형견 OK · cond:최대 2마리
 evidence raw
 env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 ok | I1:info:두부는 3만원 | 두부는 3만원 | 1박 기준인지는 적혀 있지 않아요
 small4+indoor ok | I1:info:두부는 3만원 | 두부는 3만원 | 1박 기준인지는 적혀 있지 않아요
-medium12 ok | I1:info:보리는 3만원 | 보리는 3만원 | 1박 기준인지는 적혀 있지 않아요
-medium12+indoor ok | I1:info:보리는 3만원 | 보리는 3만원 | 1박 기준인지는 적혀 있지 않아요
-large28 ok | I1:info:대장이는 3만원 | 대장이는 3만원 | 1박 기준인지는 적혀 있지 않아요
-large28+indoor ok | I1:info:대장이는 3만원 | 대장이는 3만원 | 1박 기준인지는 적혀 있지 않아요
+medium12 ok | I4:info:몸무게 제한이 없다고 적혀 있어요 · 보리(12kg)도 돼요 / I1:info:보리는 3만원 | 보리는 3만원 | 1박 기준인지는 적혀 있지 않아요
+medium12+indoor ok | I4:info:몸무게 제한이 없다고 적혀 있어요 · 보리(12kg)도 돼요 / I1:info:보리는 3만원 | 보리는 3만원 | 1박 기준인지는 적혀 있지 않아요
+large28 ok | I4:info:몸무게 제한이 없다고 적혀 있어요 · 대장이(28kg)도 돼요 / I1:info:대장이는 3만원 | 대장이는 3만원 | 1박 기준인지는 적혀 있지 않아요
+large28+indoor ok | I4:info:몸무게 제한이 없다고 적혀 있어요 · 대장이(28kg)도 돼요 / I1:info:대장이는 3만원 | 대장이는 3만원 | 1박 기준인지는 적혀 있지 않아요
 two5and8 ok | I1:info:콩이와 팥이는 2마리 합계 6만원 (1마리당 3만원) | 콩이와 팥이는 2마리 합계 6만원 (1마리당 3만원) | 1박 기준인지는 적혀 있지 않아요
 two5and8+indoor ok | I1:info:콩이와 팥이는 2마리 합계 6만원 (1마리당 3만원) | 콩이와 팥이는 2마리 합계 6만원 (1마리당 3만원) | 1박 기준인지는 적혀 있지 않아요
 small6none ok | I1:info:초코는 3만원 | 초코는 3만원 | 1박 기준인지는 적혀 있지 않아요
@@ -468,17 +468,17 @@ small6none+indoor unknown | U1:unknown:동반 조건이 적혀 있지 않아요 
 
 ## 278ddc10-ceae-813e-90cb-c49215c7c684
 public true
-policy {"indoor":"free","leash":false,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+policy {"indoor":"free","leash":false,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[],"largeDogOkBy":"largeSaid"}
 gear {"bag":false,"stroller":false}
 badges ok:실내 OK · ok:대형견 OK
 evidence raw
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
-large28 ok |  |  | 
-large28+indoor ok |  |  | 
+medium12 ok | I4:info:대형견도 된다고 적혀 있어요 · 보리(12kg)도 돼요 |  | 
+medium12+indoor ok | I4:info:대형견도 된다고 적혀 있어요 · 보리(12kg)도 돼요 |  | 
+large28 ok | I4:info:대형견도 된다고 적혀 있어요 · 대장이(28kg)도 돼요 |  | 
+large28+indoor ok | I4:info:대형견도 된다고 적혀 있어요 · 대장이(28kg)도 돼요 |  | 
 two5and8 ok |  |  | 
 two5and8+indoor ok |  |  | 
 small6none ok |  |  | 
@@ -576,17 +576,17 @@ small6none+indoor hard | H6:hard:야외 자리만 가능해요 |  |
 
 ## 278ddc10-ceae-814b-8874-f910bda10a1c
 public true
-policy {"indoor":"unknown","leash":false,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":false,"feeFree":true,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"maxDogs":2,"tiers":[{"maxDogs":2}],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+policy {"indoor":"unknown","leash":false,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":false,"feeFree":true,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"maxDogs":2,"tiers":[{"maxDogs":2}],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[],"largeDogOkBy":"largeSaid"}
 gear {"bag":false,"stroller":false}
 badges ok:추가요금 없음 · ok:대형견 OK · cond:최대 2마리
 evidence raw
 env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 ok | I1:info:두부는 추가 요금 없음 | 두부는 추가 요금 없음 | 
 small4+indoor ok | I1:info:두부는 추가 요금 없음 | 두부는 추가 요금 없음 | 
-medium12 ok | I1:info:보리는 추가 요금 없음 | 보리는 추가 요금 없음 | 
-medium12+indoor ok | I1:info:보리는 추가 요금 없음 | 보리는 추가 요금 없음 | 
-large28 ok | I1:info:대장이는 추가 요금 없음 | 대장이는 추가 요금 없음 | 
-large28+indoor ok | I1:info:대장이는 추가 요금 없음 | 대장이는 추가 요금 없음 | 
+medium12 ok | I4:info:대형견도 된다고 적혀 있어요 · 보리(12kg)도 돼요 / I1:info:보리는 추가 요금 없음 | 보리는 추가 요금 없음 | 
+medium12+indoor ok | I4:info:대형견도 된다고 적혀 있어요 · 보리(12kg)도 돼요 / I1:info:보리는 추가 요금 없음 | 보리는 추가 요금 없음 | 
+large28 ok | I4:info:대형견도 된다고 적혀 있어요 · 대장이(28kg)도 돼요 / I1:info:대장이는 추가 요금 없음 | 대장이는 추가 요금 없음 | 
+large28+indoor ok | I4:info:대형견도 된다고 적혀 있어요 · 대장이(28kg)도 돼요 / I1:info:대장이는 추가 요금 없음 | 대장이는 추가 요금 없음 | 
 two5and8 ok | I1:info:콩이와 팥이는 추가 요금 없음 | 콩이와 팥이는 추가 요금 없음 | 
 two5and8+indoor ok | I1:info:콩이와 팥이는 추가 요금 없음 | 콩이와 팥이는 추가 요금 없음 | 
 small6none ok | I1:info:초코는 추가 요금 없음 | 초코는 추가 요금 없음 | 
@@ -599,16 +599,16 @@ gear {"bag":false,"stroller":false}
 badges cond:1마리당 5만원 · cond:10kg 이하 · cond:최대 2마리
 evidence raw
 env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
-small4 ok | I1:info:두부는 5만원 | 두부는 5만원 | 1박 기준인지는 적혀 있지 않아요
-small4+indoor ok | I1:info:두부는 5만원 | 두부는 5만원 | 1박 기준인지는 적혀 있지 않아요
+small4 ok | I4:info:두부(4kg)는 10kg 이하 조건 안이에요 / I1:info:두부는 5만원 | 두부는 5만원 | 1박 기준인지는 적혀 있지 않아요
+small4+indoor ok | I4:info:두부(4kg)는 10kg 이하 조건 안이에요 / I1:info:두부는 5만원 | 두부는 5만원 | 1박 기준인지는 적혀 있지 않아요
 medium12 hard | H1:hard:보리(12kg)는 10kg 이하 조건을 넘어요 |  | 
 medium12+indoor hard | H1:hard:보리(12kg)는 10kg 이하 조건을 넘어요 |  | 
 large28 hard | H1:hard:대장이(28kg)는 10kg 이하 조건을 넘어요 |  | 
 large28+indoor hard | H1:hard:대장이(28kg)는 10kg 이하 조건을 넘어요 |  | 
-two5and8 ok | I1:info:콩이와 팥이는 2마리 합계 10만원 (1마리당 5만원) | 콩이와 팥이는 2마리 합계 10만원 (1마리당 5만원) | 1박 기준인지는 적혀 있지 않아요
-two5and8+indoor ok | I1:info:콩이와 팥이는 2마리 합계 10만원 (1마리당 5만원) | 콩이와 팥이는 2마리 합계 10만원 (1마리당 5만원) | 1박 기준인지는 적혀 있지 않아요
-small6none ok | I1:info:초코는 5만원 | 초코는 5만원 | 1박 기준인지는 적혀 있지 않아요
-small6none+indoor ok | I1:info:초코는 5만원 | 초코는 5만원 | 1박 기준인지는 적혀 있지 않아요
+two5and8 ok | I4:info:콩이(5kg)·팥이(8kg) 모두 10kg 이하 조건 안이에요 / I1:info:콩이와 팥이는 2마리 합계 10만원 (1마리당 5만원) | 콩이와 팥이는 2마리 합계 10만원 (1마리당 5만원) | 1박 기준인지는 적혀 있지 않아요
+two5and8+indoor ok | I4:info:콩이(5kg)·팥이(8kg) 모두 10kg 이하 조건 안이에요 / I1:info:콩이와 팥이는 2마리 합계 10만원 (1마리당 5만원) | 콩이와 팥이는 2마리 합계 10만원 (1마리당 5만원) | 1박 기준인지는 적혀 있지 않아요
+small6none ok | I4:info:초코(6kg)는 10kg 이하 조건 안이에요 / I1:info:초코는 5만원 | 초코는 5만원 | 1박 기준인지는 적혀 있지 않아요
+small6none+indoor ok | I4:info:초코(6kg)는 10kg 이하 조건 안이에요 / I1:info:초코는 5만원 | 초코는 5만원 | 1박 기준인지는 적혀 있지 않아요
 
 ## 278ddc10-ceae-8154-b98c-e740d70ee3e4
 public true
@@ -617,16 +617,16 @@ gear {"bag":false,"stroller":false}
 badges cond:1마리당 3만원 · cond:소형견만
 evidence raw
 env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
-small4 ok | I1:info:두부는 3만원 | 두부는 3만원 | 1박 기준인지는 적혀 있지 않아요
-small4+indoor ok | I1:info:두부는 3만원 | 두부는 3만원 | 1박 기준인지는 적혀 있지 않아요
+small4 ok | I4:info:소형견만 된다고 적혀 있어요 · 두부(4kg)는 소형견이에요 / I1:info:두부는 3만원 | 두부는 3만원 | 1박 기준인지는 적혀 있지 않아요
+small4+indoor ok | I4:info:소형견만 된다고 적혀 있어요 · 두부(4kg)는 소형견이에요 / I1:info:두부는 3만원 | 두부는 3만원 | 1박 기준인지는 적혀 있지 않아요
 medium12 hard | H3:hard:소형견만 가능해요 |  | 
 medium12+indoor hard | H3:hard:소형견만 가능해요 |  | 
 large28 hard | H3:hard:소형견만 가능해요 |  | 
 large28+indoor hard | H3:hard:소형견만 가능해요 |  | 
-two5and8 ok | I1:info:콩이와 팥이는 2마리 합계 6만원 (1마리당 3만원) | 콩이와 팥이는 2마리 합계 6만원 (1마리당 3만원) | 1박 기준인지는 적혀 있지 않아요
-two5and8+indoor ok | I1:info:콩이와 팥이는 2마리 합계 6만원 (1마리당 3만원) | 콩이와 팥이는 2마리 합계 6만원 (1마리당 3만원) | 1박 기준인지는 적혀 있지 않아요
-small6none ok | I1:info:초코는 3만원 | 초코는 3만원 | 1박 기준인지는 적혀 있지 않아요
-small6none+indoor ok | I1:info:초코는 3만원 | 초코는 3만원 | 1박 기준인지는 적혀 있지 않아요
+two5and8 ok | I4:info:소형견만 된다고 적혀 있어요 · 콩이(5kg)·팥이(8kg) 모두 소형견이에요 / I1:info:콩이와 팥이는 2마리 합계 6만원 (1마리당 3만원) | 콩이와 팥이는 2마리 합계 6만원 (1마리당 3만원) | 1박 기준인지는 적혀 있지 않아요
+two5and8+indoor ok | I4:info:소형견만 된다고 적혀 있어요 · 콩이(5kg)·팥이(8kg) 모두 소형견이에요 / I1:info:콩이와 팥이는 2마리 합계 6만원 (1마리당 3만원) | 콩이와 팥이는 2마리 합계 6만원 (1마리당 3만원) | 1박 기준인지는 적혀 있지 않아요
+small6none ok | I4:info:소형견만 된다고 적혀 있어요 · 초코(6kg)는 소형견이에요 / I1:info:초코는 3만원 | 초코는 3만원 | 1박 기준인지는 적혀 있지 않아요
+small6none+indoor ok | I4:info:소형견만 된다고 적혀 있어요 · 초코(6kg)는 소형견이에요 / I1:info:초코는 3만원 | 초코는 3만원 | 1박 기준인지는 적혀 있지 않아요
 
 ## 278ddc10-ceae-8155-bfa9-c12d8a69b9c6
 public true
@@ -779,16 +779,16 @@ gear {"bag":false,"stroller":false}
 badges cond:1마리당 3만원 · cond:15kg 미만 · cond:최대 2마리
 evidence raw
 env {"standalone":null,"yard":null,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
-small4 ok | I1:info:두부는 3만원 | 두부는 3만원 | 1박 기준인지는 적혀 있지 않아요
-small4+indoor ok | I1:info:두부는 3만원 | 두부는 3만원 | 1박 기준인지는 적혀 있지 않아요
-medium12 ok | I1:info:보리는 3만원 | 보리는 3만원 | 1박 기준인지는 적혀 있지 않아요
-medium12+indoor ok | I1:info:보리는 3만원 | 보리는 3만원 | 1박 기준인지는 적혀 있지 않아요
+small4 ok | I4:info:두부(4kg)는 15kg 미만 조건 안이에요 / I1:info:두부는 3만원 | 두부는 3만원 | 1박 기준인지는 적혀 있지 않아요
+small4+indoor ok | I4:info:두부(4kg)는 15kg 미만 조건 안이에요 / I1:info:두부는 3만원 | 두부는 3만원 | 1박 기준인지는 적혀 있지 않아요
+medium12 ok | I4:info:보리(12kg)는 15kg 미만 조건 안이에요 / I1:info:보리는 3만원 | 보리는 3만원 | 1박 기준인지는 적혀 있지 않아요
+medium12+indoor ok | I4:info:보리(12kg)는 15kg 미만 조건 안이에요 / I1:info:보리는 3만원 | 보리는 3만원 | 1박 기준인지는 적혀 있지 않아요
 large28 hard | H1:hard:대장이(28kg)는 15kg 미만 조건을 넘어요 |  | 
 large28+indoor hard | H1:hard:대장이(28kg)는 15kg 미만 조건을 넘어요 |  | 
-two5and8 ok | I1:info:콩이와 팥이는 2마리 합계 6만원 (1마리당 3만원) | 콩이와 팥이는 2마리 합계 6만원 (1마리당 3만원) | 1박 기준인지는 적혀 있지 않아요
-two5and8+indoor ok | I1:info:콩이와 팥이는 2마리 합계 6만원 (1마리당 3만원) | 콩이와 팥이는 2마리 합계 6만원 (1마리당 3만원) | 1박 기준인지는 적혀 있지 않아요
-small6none ok | I1:info:초코는 3만원 | 초코는 3만원 | 1박 기준인지는 적혀 있지 않아요
-small6none+indoor ok | I1:info:초코는 3만원 | 초코는 3만원 | 1박 기준인지는 적혀 있지 않아요
+two5and8 ok | I4:info:콩이(5kg)·팥이(8kg) 모두 15kg 미만 조건 안이에요 / I1:info:콩이와 팥이는 2마리 합계 6만원 (1마리당 3만원) | 콩이와 팥이는 2마리 합계 6만원 (1마리당 3만원) | 1박 기준인지는 적혀 있지 않아요
+two5and8+indoor ok | I4:info:콩이(5kg)·팥이(8kg) 모두 15kg 미만 조건 안이에요 / I1:info:콩이와 팥이는 2마리 합계 6만원 (1마리당 3만원) | 콩이와 팥이는 2마리 합계 6만원 (1마리당 3만원) | 1박 기준인지는 적혀 있지 않아요
+small6none ok | I4:info:초코(6kg)는 15kg 미만 조건 안이에요 / I1:info:초코는 3만원 | 초코는 3만원 | 1박 기준인지는 적혀 있지 않아요
+small6none+indoor ok | I4:info:초코(6kg)는 15kg 미만 조건 안이에요 / I1:info:초코는 3만원 | 초코는 3만원 | 1박 기준인지는 적혀 있지 않아요
 
 ## 278ddc10-ceae-8186-af44-f5be0a0174e8
 public true
@@ -846,17 +846,17 @@ small6none+indoor hard | H5:hard:케이지가 필요하다고 적혀 있어요 |
 
 ## 278ddc10-ceae-8192-8c3e-f40ffc9b39e1
 public true
-policy {"indoor":"free","leash":true,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+policy {"indoor":"free","leash":true,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[],"largeDogOkBy":"largeSaid"}
 gear {"bag":false,"stroller":false}
 badges ok:실내 OK · ok:대형견 OK · cond:리드줄
 evidence raw
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
-large28 ok |  |  | 
-large28+indoor ok |  |  | 
+medium12 ok | I4:info:대형견도 된다고 적혀 있어요 · 보리(12kg)도 돼요 |  | 
+medium12+indoor ok | I4:info:대형견도 된다고 적혀 있어요 · 보리(12kg)도 돼요 |  | 
+large28 ok | I4:info:대형견도 된다고 적혀 있어요 · 대장이(28kg)도 돼요 |  | 
+large28+indoor ok | I4:info:대형견도 된다고 적혀 있어요 · 대장이(28kg)도 돼요 |  | 
 two5and8 ok |  |  | 
 two5and8+indoor ok |  |  | 
 small6none ok |  |  | 
@@ -869,30 +869,30 @@ gear {"bag":false,"stroller":false}
 badges cond:1마리당 2만원 · cond:15kg 이하 · cond:최대 3마리
 evidence raw
 env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
-small4 ok | I1:info:두부는 2만원 | 두부는 2만원 | 1박 기준인지는 적혀 있지 않아요
-small4+indoor ok | I1:info:두부는 2만원 | 두부는 2만원 | 1박 기준인지는 적혀 있지 않아요
-medium12 ok | I1:info:보리는 2만원 | 보리는 2만원 | 1박 기준인지는 적혀 있지 않아요
-medium12+indoor ok | I1:info:보리는 2만원 | 보리는 2만원 | 1박 기준인지는 적혀 있지 않아요
+small4 ok | I4:info:두부(4kg)는 15kg 이하 조건 안이에요 / I1:info:두부는 2만원 | 두부는 2만원 | 1박 기준인지는 적혀 있지 않아요
+small4+indoor ok | I4:info:두부(4kg)는 15kg 이하 조건 안이에요 / I1:info:두부는 2만원 | 두부는 2만원 | 1박 기준인지는 적혀 있지 않아요
+medium12 ok | I4:info:보리(12kg)는 15kg 이하 조건 안이에요 / I1:info:보리는 2만원 | 보리는 2만원 | 1박 기준인지는 적혀 있지 않아요
+medium12+indoor ok | I4:info:보리(12kg)는 15kg 이하 조건 안이에요 / I1:info:보리는 2만원 | 보리는 2만원 | 1박 기준인지는 적혀 있지 않아요
 large28 hard | H1:hard:대장이(28kg)는 15kg 이하 조건을 넘어요 |  | 
 large28+indoor hard | H1:hard:대장이(28kg)는 15kg 이하 조건을 넘어요 |  | 
-two5and8 ok | I1:info:콩이와 팥이는 2마리 합계 4만원 (1마리당 2만원) | 콩이와 팥이는 2마리 합계 4만원 (1마리당 2만원) | 1박 기준인지는 적혀 있지 않아요
-two5and8+indoor ok | I1:info:콩이와 팥이는 2마리 합계 4만원 (1마리당 2만원) | 콩이와 팥이는 2마리 합계 4만원 (1마리당 2만원) | 1박 기준인지는 적혀 있지 않아요
-small6none ok | I1:info:초코는 2만원 | 초코는 2만원 | 1박 기준인지는 적혀 있지 않아요
-small6none+indoor ok | I1:info:초코는 2만원 | 초코는 2만원 | 1박 기준인지는 적혀 있지 않아요
+two5and8 ok | I4:info:콩이(5kg)·팥이(8kg) 모두 15kg 이하 조건 안이에요 / I1:info:콩이와 팥이는 2마리 합계 4만원 (1마리당 2만원) | 콩이와 팥이는 2마리 합계 4만원 (1마리당 2만원) | 1박 기준인지는 적혀 있지 않아요
+two5and8+indoor ok | I4:info:콩이(5kg)·팥이(8kg) 모두 15kg 이하 조건 안이에요 / I1:info:콩이와 팥이는 2마리 합계 4만원 (1마리당 2만원) | 콩이와 팥이는 2마리 합계 4만원 (1마리당 2만원) | 1박 기준인지는 적혀 있지 않아요
+small6none ok | I4:info:초코(6kg)는 15kg 이하 조건 안이에요 / I1:info:초코는 2만원 | 초코는 2만원 | 1박 기준인지는 적혀 있지 않아요
+small6none+indoor ok | I4:info:초코(6kg)는 15kg 이하 조건 안이에요 / I1:info:초코는 2만원 | 초코는 2만원 | 1박 기준인지는 적혀 있지 않아요
 
 ## 278ddc10-ceae-8198-a263-dbec4a9f44ca
 public true
-policy {"indoor":"free","leash":true,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[]}
+policy {"indoor":"free","leash":true,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":true,"unlimitedDogs":false,"feeLines":[],"largeDogOkBy":"largeSaid"}
 gear {"bag":false,"stroller":false}
 badges ok:실내 OK · ok:대형견 OK · cond:리드줄
 evidence raw
 env null
 small4 ok |  |  | 
 small4+indoor ok |  |  | 
-medium12 ok |  |  | 
-medium12+indoor ok |  |  | 
-large28 ok |  |  | 
-large28+indoor ok |  |  | 
+medium12 ok | I4:info:대형견도 된다고 적혀 있어요 · 보리(12kg)도 돼요 |  | 
+medium12+indoor ok | I4:info:대형견도 된다고 적혀 있어요 · 보리(12kg)도 돼요 |  | 
+large28 ok | I4:info:대형견도 된다고 적혀 있어요 · 대장이(28kg)도 돼요 |  | 
+large28+indoor ok | I4:info:대형견도 된다고 적혀 있어요 · 대장이(28kg)도 돼요 |  | 
 two5and8 ok |  |  | 
 two5and8+indoor ok |  |  | 
 small6none ok |  |  | 
@@ -954,7 +954,7 @@ small6none+indoor ok |  |  |
 
 ## 278ddc10-ceae-81a3-bb70-e7a6cc040bf8
 public true
-policy {"indoor":"cage","leash":false,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+policy {"indoor":"cage","leash":false,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":true,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[],"largeDogOkBy":"largeSaid"}
 gear {"bag":false,"stroller":false}
 badges cond:케이지 필요 · ok:대형견 OK
 evidence raw
@@ -1026,17 +1026,17 @@ small6none+indoor hard | H6:hard:야외 자리만 가능해요 |  |
 
 ## 278ddc10-ceae-81b1-af5d-ca8dc858c6d7
 public true
-policy {"indoor":"unknown","leash":false,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":["1마리당 2만원"]}
+policy {"indoor":"unknown","leash":false,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":false,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":["1마리당 2만원"],"largeDogOkBy":"weightFree"}
 gear {"bag":false,"stroller":false}
 badges cond:1마리당 2만원 · ok:대형견 OK
 evidence raw
 env {"standalone":null,"yard":null,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
 small4 ok | I1:info:두부는 2만원 | 두부는 2만원 | 1박 기준인지는 적혀 있지 않아요
 small4+indoor ok | I1:info:두부는 2만원 | 두부는 2만원 | 1박 기준인지는 적혀 있지 않아요
-medium12 ok | I1:info:보리는 2만원 | 보리는 2만원 | 1박 기준인지는 적혀 있지 않아요
-medium12+indoor ok | I1:info:보리는 2만원 | 보리는 2만원 | 1박 기준인지는 적혀 있지 않아요
-large28 ok | I1:info:대장이는 2만원 | 대장이는 2만원 | 1박 기준인지는 적혀 있지 않아요
-large28+indoor ok | I1:info:대장이는 2만원 | 대장이는 2만원 | 1박 기준인지는 적혀 있지 않아요
+medium12 ok | I4:info:몸무게 제한이 없다고 적혀 있어요 · 보리(12kg)도 돼요 / I1:info:보리는 2만원 | 보리는 2만원 | 1박 기준인지는 적혀 있지 않아요
+medium12+indoor ok | I4:info:몸무게 제한이 없다고 적혀 있어요 · 보리(12kg)도 돼요 / I1:info:보리는 2만원 | 보리는 2만원 | 1박 기준인지는 적혀 있지 않아요
+large28 ok | I4:info:몸무게 제한이 없다고 적혀 있어요 · 대장이(28kg)도 돼요 / I1:info:대장이는 2만원 | 대장이는 2만원 | 1박 기준인지는 적혀 있지 않아요
+large28+indoor ok | I4:info:몸무게 제한이 없다고 적혀 있어요 · 대장이(28kg)도 돼요 / I1:info:대장이는 2만원 | 대장이는 2만원 | 1박 기준인지는 적혀 있지 않아요
 two5and8 ok | I1:info:콩이와 팥이는 2마리 합계 4만원 (1마리당 2만원) | 콩이와 팥이는 2마리 합계 4만원 (1마리당 2만원) | 1박 기준인지는 적혀 있지 않아요
 two5and8+indoor ok | I1:info:콩이와 팥이는 2마리 합계 4만원 (1마리당 2만원) | 콩이와 팥이는 2마리 합계 4만원 (1마리당 2만원) | 1박 기준인지는 적혀 있지 않아요
 small6none ok | I1:info:초코는 2만원 | 초코는 2만원 | 1박 기준인지는 적혀 있지 않아요
@@ -1098,7 +1098,7 @@ small6none+indoor ok | I1:info:초코는 3만원 | 초코는 3만원 | 1박 기�
 
 ## 278ddc10-ceae-81bd-800f-d915b9ecc8b9
 public true
-policy {"indoor":"unknown","leash":false,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":true,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[]}
+policy {"indoor":"unknown","leash":false,"largeDogOk":true,"mediumDogOk":true,"smallDogOnly":false,"callFirst":true,"feeFree":false,"noInfo":false,"notAllowed":false,"largeDogNo":false,"feeCharged":false,"vaccineRequired":false,"unread":false,"genericOnly":false,"verified":true,"seating":false,"tiers":[],"outdoorFree":false,"unlimitedDogs":false,"feeLines":[],"largeDogOkBy":"largeSaid"}
 gear {"bag":false,"stroller":false}
 badges ok:대형견 OK · warn:전화 확인
 evidence raw
@@ -1211,16 +1211,16 @@ gear {"bag":false,"stroller":false}
 badges cond:10kg 미만 · cond:최대 2마리
 evidence raw
 env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
-small4 ok |  |  | 
-small4+indoor ok |  |  | 
+small4 ok | I4:info:두부(4kg)는 10kg 미만 조건 안이에요 |  | 
+small4+indoor ok | I4:info:두부(4kg)는 10kg 미만 조건 안이에요 |  | 
 medium12 hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
 medium12+indoor hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
 large28 hard | H1:hard:대장이(28kg)는 10kg 미만 조건을 넘어요 |  | 
 large28+indoor hard | H1:hard:대장이(28kg)는 10kg 미만 조건을 넘어요 |  | 
-two5and8 ok |  |  | 
-two5and8+indoor ok |  |  | 
-small6none ok |  |  | 
-small6none+indoor ok |  |  | 
+two5and8 ok | I4:info:콩이(5kg)·팥이(8kg) 모두 10kg 미만 조건 안이에요 |  | 
+two5and8+indoor ok | I4:info:콩이(5kg)·팥이(8kg) 모두 10kg 미만 조건 안이에요 |  | 
+small6none ok | I4:info:초코(6kg)는 10kg 미만 조건 안이에요 |  | 
+small6none+indoor ok | I4:info:초코(6kg)는 10kg 미만 조건 안이에요 |  | 
 
 ## 278ddc10-ceae-81e1-bc1c-e8d4fa3db693
 public true
@@ -1481,16 +1481,16 @@ gear {"bag":false,"stroller":false}
 badges cond:1마리당 1~2만원 · ok:중형견 OK · cond:10kg 미만 2마리 · cond:20kg 미만 1마리
 evidence raw
 env {"standalone":null,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
-small4 ok | I1:info:적힌 요금 · 1마리당 1~2만원 | 적힌 요금 · 1마리당 1~2만원 | 1박 기준인지는 적혀 있지 않아요
-small4+indoor ok | I1:info:적힌 요금 · 1마리당 1~2만원 | 적힌 요금 · 1마리당 1~2만원 | 1박 기준인지는 적혀 있지 않아요
-medium12 ok | I1:info:적힌 요금 · 1마리당 1~2만원 | 적힌 요금 · 1마리당 1~2만원 | 1박 기준인지는 적혀 있지 않아요
-medium12+indoor ok | I1:info:적힌 요금 · 1마리당 1~2만원 | 적힌 요금 · 1마리당 1~2만원 | 1박 기준인지는 적혀 있지 않아요
+small4 ok | I4:info:두부(4kg)는 20kg 미만 조건 안이에요 / I1:info:적힌 요금 · 1마리당 1~2만원 | 적힌 요금 · 1마리당 1~2만원 | 1박 기준인지는 적혀 있지 않아요
+small4+indoor ok | I4:info:두부(4kg)는 20kg 미만 조건 안이에요 / I1:info:적힌 요금 · 1마리당 1~2만원 | 적힌 요금 · 1마리당 1~2만원 | 1박 기준인지는 적혀 있지 않아요
+medium12 ok | I4:info:보리(12kg)는 20kg 미만 조건 안이에요 / I1:info:적힌 요금 · 1마리당 1~2만원 | 적힌 요금 · 1마리당 1~2만원 | 1박 기준인지는 적혀 있지 않아요
+medium12+indoor ok | I4:info:보리(12kg)는 20kg 미만 조건 안이에요 / I1:info:적힌 요금 · 1마리당 1~2만원 | 적힌 요금 · 1마리당 1~2만원 | 1박 기준인지는 적혀 있지 않아요
 large28 hard | H1:hard:대장이(28kg)는 20kg 미만 조건을 넘어요 |  | 
 large28+indoor hard | H1:hard:대장이(28kg)는 20kg 미만 조건을 넘어요 |  | 
-two5and8 ok | I1:info:적힌 요금 · 1마리당 1~2만원 | 적힌 요금 · 1마리당 1~2만원 | 1박 기준인지는 적혀 있지 않아요
-two5and8+indoor ok | I1:info:적힌 요금 · 1마리당 1~2만원 | 적힌 요금 · 1마리당 1~2만원 | 1박 기준인지는 적혀 있지 않아요
-small6none ok | I1:info:적힌 요금 · 1마리당 1~2만원 | 적힌 요금 · 1마리당 1~2만원 | 1박 기준인지는 적혀 있지 않아요
-small6none+indoor ok | I1:info:적힌 요금 · 1마리당 1~2만원 | 적힌 요금 · 1마리당 1~2만원 | 1박 기준인지는 적혀 있지 않아요
+two5and8 ok | I4:info:콩이(5kg)·팥이(8kg) 모두 10kg 미만 조건 안이에요 / I1:info:적힌 요금 · 1마리당 1~2만원 | 적힌 요금 · 1마리당 1~2만원 | 1박 기준인지는 적혀 있지 않아요
+two5and8+indoor ok | I4:info:콩이(5kg)·팥이(8kg) 모두 10kg 미만 조건 안이에요 / I1:info:적힌 요금 · 1마리당 1~2만원 | 적힌 요금 · 1마리당 1~2만원 | 1박 기준인지는 적혀 있지 않아요
+small6none ok | I4:info:초코(6kg)는 20kg 미만 조건 안이에요 / I1:info:적힌 요금 · 1마리당 1~2만원 | 적힌 요금 · 1마리당 1~2만원 | 1박 기준인지는 적혀 있지 않아요
+small6none+indoor ok | I4:info:초코(6kg)는 20kg 미만 조건 안이에요 / I1:info:적힌 요금 · 1마리당 1~2만원 | 적힌 요금 · 1마리당 1~2만원 | 1박 기준인지는 적혀 있지 않아요
 
 ## 278ddc10-ceae-81ff-9b0b-ddf30c1d5347
 public true
@@ -1589,16 +1589,16 @@ gear {"bag":false,"stroller":false}
 badges cond:추가 3만원 · cond:10kg 미만 · cond:최대 1마리
 evidence raw
 env {"standalone":true,"yard":null,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
-small4 ok | I1:info:두부는 3만원 | 두부는 3만원 | 1박 기준인지는 적혀 있지 않아요
-small4+indoor ok | I1:info:두부는 3만원 | 두부는 3만원 | 1박 기준인지는 적혀 있지 않아요
+small4 ok | I4:info:두부(4kg)는 10kg 미만 조건 안이에요 / I1:info:두부는 3만원 | 두부는 3만원 | 1박 기준인지는 적혀 있지 않아요
+small4+indoor ok | I4:info:두부(4kg)는 10kg 미만 조건 안이에요 / I1:info:두부는 3만원 | 두부는 3만원 | 1박 기준인지는 적혀 있지 않아요
 medium12 hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
 medium12+indoor hard | H1:hard:보리(12kg)는 10kg 미만 조건을 넘어요 |  | 
 large28 hard | H1:hard:대장이(28kg)는 10kg 미만 조건을 넘어요 |  | 
 large28+indoor hard | H1:hard:대장이(28kg)는 10kg 미만 조건을 넘어요 |  | 
 two5and8 hard | H2:hard:10kg 미만은 1마리까지예요 |  | 
 two5and8+indoor hard | H2:hard:10kg 미만은 1마리까지예요 |  | 
-small6none ok | I1:info:초코는 3만원 | 초코는 3만원 | 1박 기준인지는 적혀 있지 않아요
-small6none+indoor ok | I1:info:초코는 3만원 | 초코는 3만원 | 1박 기준인지는 적혀 있지 않아요
+small6none ok | I4:info:초코(6kg)는 10kg 미만 조건 안이에요 / I1:info:초코는 3만원 | 초코는 3만원 | 1박 기준인지는 적혀 있지 않아요
+small6none+indoor ok | I4:info:초코(6kg)는 10kg 미만 조건 안이에요 / I1:info:초코는 3만원 | 초코는 3만원 | 1박 기준인지는 적혀 있지 않아요
 
 ## 27bddc10-ceae-80cc-a07e-d66a724b4a6a
 public true
@@ -1625,16 +1625,16 @@ gear {"bag":false,"stroller":false}
 badges cond:동반 2만원 · cond:15kg 이하 · cond:최대 2마리
 evidence {"lines":["반려견 요금이 따로 있어요 — 동반 2만원","15kg 이하인 강아지만 같이 갈 수 있어요","최대 2마리까지 같이 갈 수 있어요"],"note":null}
 env {"standalone":true,"yard":true,"fencedYard":null,"stairs":false,"indoorRoom":null,"furniture":null}
-small4 ok | I1:info:두부는 2만원 | 두부는 2만원 | 1박 기준인지는 적혀 있지 않아요
-small4+indoor ok | I1:info:두부는 2만원 | 두부는 2만원 | 1박 기준인지는 적혀 있지 않아요
-medium12 ok | I1:info:보리는 2만원 | 보리는 2만원 | 1박 기준인지는 적혀 있지 않아요
-medium12+indoor ok | I1:info:보리는 2만원 | 보리는 2만원 | 1박 기준인지는 적혀 있지 않아요
+small4 ok | I4:info:두부(4kg)는 15kg 이하 조건 안이에요 / I1:info:두부는 2만원 | 두부는 2만원 | 1박 기준인지는 적혀 있지 않아요
+small4+indoor ok | I4:info:두부(4kg)는 15kg 이하 조건 안이에요 / I1:info:두부는 2만원 | 두부는 2만원 | 1박 기준인지는 적혀 있지 않아요
+medium12 ok | I4:info:보리(12kg)는 15kg 이하 조건 안이에요 / I1:info:보리는 2만원 | 보리는 2만원 | 1박 기준인지는 적혀 있지 않아요
+medium12+indoor ok | I4:info:보리(12kg)는 15kg 이하 조건 안이에요 / I1:info:보리는 2만원 | 보리는 2만원 | 1박 기준인지는 적혀 있지 않아요
 large28 hard | H1:hard:대장이(28kg)는 15kg 이하 조건을 넘어요 |  | 
 large28+indoor hard | H1:hard:대장이(28kg)는 15kg 이하 조건을 넘어요 |  | 
-two5and8 ok | I1:info:적힌 요금 · 동반 2만원 (합계인지 1마리당인지 적혀 있지 않아요) | 적힌 요금 · 동반 2만원 (합계인지 1마리당인지 적혀 있지 않아요) | 1박 기준인지는 적혀 있지 않아요
-two5and8+indoor ok | I1:info:적힌 요금 · 동반 2만원 (합계인지 1마리당인지 적혀 있지 않아요) | 적힌 요금 · 동반 2만원 (합계인지 1마리당인지 적혀 있지 않아요) | 1박 기준인지는 적혀 있지 않아요
-small6none ok | I1:info:초코는 2만원 | 초코는 2만원 | 1박 기준인지는 적혀 있지 않아요
-small6none+indoor ok | I1:info:초코는 2만원 | 초코는 2만원 | 1박 기준인지는 적혀 있지 않아요
+two5and8 ok | I4:info:콩이(5kg)·팥이(8kg) 모두 15kg 이하 조건 안이에요 / I1:info:적힌 요금 · 동반 2만원 (합계인지 1마리당인지 적혀 있지 않아요) | 적힌 요금 · 동반 2만원 (합계인지 1마리당인지 적혀 있지 않아요) | 1박 기준인지는 적혀 있지 않아요
+two5and8+indoor ok | I4:info:콩이(5kg)·팥이(8kg) 모두 15kg 이하 조건 안이에요 / I1:info:적힌 요금 · 동반 2만원 (합계인지 1마리당인지 적혀 있지 않아요) | 적힌 요금 · 동반 2만원 (합계인지 1마리당인지 적혀 있지 않아요) | 1박 기준인지는 적혀 있지 않아요
+small6none ok | I4:info:초코(6kg)는 15kg 이하 조건 안이에요 / I1:info:초코는 2만원 | 초코는 2만원 | 1박 기준인지는 적혀 있지 않아요
+small6none+indoor ok | I4:info:초코(6kg)는 15kg 이하 조건 안이에요 / I1:info:초코는 2만원 | 초코는 2만원 | 1박 기준인지는 적혀 있지 않아요
 
 ## 3b9549a5-22dd-4832-9b95-7f9ffa45155c
 public false
@@ -1969,9 +1969,9 @@ evidence {"lines":["대형견도 같이 갈 수 있어요"],"note":null}
 env null
 small4 ok |  |  | 
 small4+indoor cond | C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
-medium12 ok |  |  | 
+medium12 ok | I4:info:대형견도 받는 것으로 읽었어요 · 보리(12kg)도 돼요 |  | 
 medium12+indoor cond | C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
-large28 ok |  |  | 
+large28 ok | I4:info:대형견도 받는 것으로 읽었어요 · 대장이(28kg)도 돼요 |  | 
 large28+indoor cond | C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
 two5and8 ok |  |  | 
 two5and8+indoor cond | C12:cond:실내 동반은 적혀 있지 않아요. 확인해 주세요 |  | 
@@ -2147,16 +2147,16 @@ gear {"bag":false,"stroller":false}
 badges ok:실내 OK · cond:1박당 2만원 · cond:13kg 미만 · cond:최대 2마리
 evidence {"lines":["실내에도 같이 들어갈 수 있어요","반려견 요금이 따로 있어요 — 1박당 2만원","13kg 미만인 강아지만 같이 갈 수 있어요","최대 2마리까지 같이 갈 수 있어요"],"note":"강아지는 수영장 입수 불가, 화장실 욕조는 이용 가능"}
 env {"standalone":true,"yard":true,"fencedYard":null,"stairs":null,"indoorRoom":null,"furniture":null}
-small4 ok | I1:info:두부는 1박 2만원 | 두부는 1박 2만원 | 
-small4+indoor ok | I1:info:두부는 1박 2만원 | 두부는 1박 2만원 | 
+small4 ok | I4:info:두부(4kg)는 13kg 미만 조건 안이에요 / I1:info:두부는 1박 2만원 | 두부는 1박 2만원 | 
+small4+indoor ok | I4:info:두부(4kg)는 13kg 미만 조건 안이에요 / I1:info:두부는 1박 2만원 | 두부는 1박 2만원 | 
 medium12 ok | I2:info:보리(12kg)는 13kg 미만까지 1kg 남았어요 / I1:info:보리는 1박 2만원 | 보리는 1박 2만원 | 
 medium12+indoor ok | I2:info:보리(12kg)는 13kg 미만까지 1kg 남았어요 / I1:info:보리는 1박 2만원 | 보리는 1박 2만원 | 
 large28 hard | H1:hard:대장이(28kg)는 13kg 미만 조건을 넘어요 |  | 
 large28+indoor hard | H1:hard:대장이(28kg)는 13kg 미만 조건을 넘어요 |  | 
-two5and8 ok | I1:info:적힌 요금 · 1박당 2만원 (합계인지 1마리당인지 적혀 있지 않아요) | 적힌 요금 · 1박당 2만원 (합계인지 1마리당인지 적혀 있지 않아요) | 
-two5and8+indoor ok | I1:info:적힌 요금 · 1박당 2만원 (합계인지 1마리당인지 적혀 있지 않아요) | 적힌 요금 · 1박당 2만원 (합계인지 1마리당인지 적혀 있지 않아요) | 
-small6none ok | I1:info:초코는 1박 2만원 | 초코는 1박 2만원 | 
-small6none+indoor ok | I1:info:초코는 1박 2만원 | 초코는 1박 2만원 | 
+two5and8 ok | I4:info:콩이(5kg)·팥이(8kg) 모두 13kg 미만 조건 안이에요 / I1:info:적힌 요금 · 1박당 2만원 (합계인지 1마리당인지 적혀 있지 않아요) | 적힌 요금 · 1박당 2만원 (합계인지 1마리당인지 적혀 있지 않아요) | 
+two5and8+indoor ok | I4:info:콩이(5kg)·팥이(8kg) 모두 13kg 미만 조건 안이에요 / I1:info:적힌 요금 · 1박당 2만원 (합계인지 1마리당인지 적혀 있지 않아요) | 적힌 요금 · 1박당 2만원 (합계인지 1마리당인지 적혀 있지 않아요) | 
+small6none ok | I4:info:초코(6kg)는 13kg 미만 조건 안이에요 / I1:info:초코는 1박 2만원 | 초코는 1박 2만원 | 
+small6none+indoor ok | I4:info:초코(6kg)는 13kg 미만 조건 안이에요 / I1:info:초코는 1박 2만원 | 초코는 1박 2만원 | 
 
 ## f1964983-6f15-4016-a77c-31c7b6f4f0d8
 public false

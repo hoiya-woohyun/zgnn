@@ -23,11 +23,12 @@ import {
   dogCountTiers,
   dogTierBadgeLabel,
   maxDogsBadgeLabel,
+  largeDogOkBasis,
   petDaysBadgeLabel,
   UNREAD_BADGE_LABEL,
   weightLimitBadgeLabel,
 } from './petPolicy';
-import type { TPetBadge, TPetPolicy, TPolicyTier } from './petPolicy';
+import type { TLargeDogOkBy, TPetBadge, TPetPolicy, TPolicyTier } from './petPolicy';
 
 export type TEligibilityLevel = 'ok' | 'cond' | 'unknown' | 'hard';
 /** 근거 한 줄의 심각도. 'ok' 는 근거가 아니라 결과라서 여기엔 없다 — 어떤 규칙도 'ok' 근거를 만들지 않는다. */
@@ -262,6 +263,63 @@ const ruleSizeUnmentioned: TRule = (dog, policy) => {
   if (policy.weightLimitKg !== undefined || policy.tiers.some((t) => t.maxWeightKg !== undefined)) return null;
   if (feeMentionsSize(policy)) return null;
   return { level: 'info', text: '크기 제한은 적혀 있지 않아요' };
+};
+
+/** "보리(30kg)" · "보리(30kg)·태풍이(28kg)" — "…도 돼요" 앞에 붙는 꼴(I4). */
+const dogsLabel = (entries: TDogEntry[]): string => entries.map(dogLabel).join('·');
+
+/**
+ * 대형견 허용을 어느 말로 옮길지(I4). 무게·크기 제한 없음 · "대형견 가능" 은 적힌 그대로, 견종으로 읽었으면 옮겨 읽었다고 드러낸다.
+ * 근거 꼴을 모르면(`largeDogOkBasis` 가 undefined) 단정하지 않는다.
+ */
+const LARGE_OK_TEXT: Record<TLargeDogOkBy | 'unknown', (who: string) => string> = {
+  weightFree: (who) => `몸무게 제한이 없다고 적혀 있어요 · ${who}도 돼요`,
+  sizeFree: (who) => `크기 제한이 없다고 적혀 있어요 · ${who}도 돼요`,
+  largeSaid: (who) => `대형견도 된다고 적혀 있어요 · ${who}도 돼요`,
+  breedFree: (who) => `견종 제한이 없다고 적혀 있어 ${who}도 되는 것으로 읽었어요`,
+  allBreeds: (who) => `모든 견종이 된다고 적혀 있어 ${who}도 되는 것으로 읽었어요`,
+  unknown: (who) => `대형견도 받는 것으로 읽었어요 · ${who}도 돼요`,
+};
+
+/**
+ * I4: '갈 수 있어요' 의 **우리 강아지 기준 근거**(14 W261027.2). 어려움은 "보리(30kg)는 7kg 미만 조건을 넘어요" 인데 가능은 요금 한 줄뿐이라,
+ * 백화stay "견종 제한, 견수 제한 없음." 이 '✓ 대형견 OK' + '갈 수 있어요' 로 서도 왜 되는지 안 보였다(seongho-16a·16b). 규칙은 그대로 — 무엇을 근거로 읽었나만 말한다.
+ * 크기·무게 축 하나다(판정이 크기로 갈리는 곳). 고르는 순서는 원문이 더 좁게 말한 쪽부터:
+ * - 무게 구간이 받아 준다 → "두부(5kg)는 7kg 미만 조건 안이에요" (받아 주는 칸은 I2 와 같은 고르기 — 바로 밑이면 I2 가 이미 말해 `judgeEligibility` 가 이 줄을 뺀다)
+ * - 대형견 허용 · 중형·대형 아이 → 근거 문장이 말한 꼴대로(`largeDogOkBasis` — 블로그 출처 행은 근거 문장이 지워져 조립이 미리 읽은 칸으로). 견종으로 읽었으면 "…되는 것으로 읽었어요" 로 옮겨 읽은 것을 드러낸다
+ * - 중형견 허용 · 중형 아이 → "중형견도 된다고 적혀 있어요 · 콩이(12kg)도 돼요"
+ * - 소형견만 · 소형 아이 → "소형견만 된다고 적혀 있어요 · 두부(5kg)는 소형견이에요"
+ * 소형 아이에게 대형견 허용을 말하지 않는다 — 그 아이의 근거가 아니다. **최종 판정이 ok 일 때만** 남는다(`judgeEligibility`) — 확인 필요·어려움 옆의
+ * "보리도 돼요" 는 그 판정과 싸운다(대형견 OK 인데 케이지가 없어 실내는 어려운 곳). 상세 근거 목록에만 선다 — 카드 이유 줄이 아니다(`primaryReason`).
+ */
+const ruleSizeBasis: TRule = (dog, policy) => {
+  if (policy.noInfo || policy.unread) return null;
+  const weight = maxWeightKg(dog);
+  const admitting = policy.tiers.filter(
+    (t) => fitsTierWeight(t, weight) && (t.maxDogs === undefined || t.maxDogs >= dog.dogs.length),
+  );
+  if (admitting.length > 0 && admitting.every((t) => t.maxWeightKg !== undefined)) {
+    const tier = admitting.reduce((a, b) => ((b.maxWeightKg as number) > (a.maxWeightKg as number) ? b : a));
+    return { level: 'info', text: `${dogsTopic(dog.dogs)} ${weightBoundLabel(tier)} 조건 안이에요`, quote: tier.source };
+  }
+  const size = dogSize(dog);
+  // 크기가 문제 되는 아이만 부른다. 크기 수정(`sizeOverride`)이 판정을 정해 몸무게로는 아무도 안 걸리면 다 부른다.
+  const sized = (test: (s: TDogSize) => boolean) => {
+    const hit = dog.dogs.filter((entry) => test(sizeOfWeight(entry.weightKg)));
+    return dogsLabel(hit.length > 0 ? hit : dog.dogs);
+  };
+  if (policy.largeDogOk && size !== 'small') {
+    const text = LARGE_OK_TEXT[largeDogOkBasis(policy) ?? 'unknown'](sized((s) => s !== 'small'));
+    return { level: 'info', text, quote: policy.sources.largeDogOk };
+  }
+  if (policy.mediumDogOk && size === 'medium') {
+    // 중형견 허용은 정규식 '중형견 … 가능' 에서만 온다(AI 판단엔 칸이 없다) — 늘 적힌 말이다.
+    return { level: 'info', text: `중형견도 된다고 적혀 있어요 · ${sized((s) => s === 'medium')}도 돼요`, quote: policy.sources.mediumDogOk };
+  }
+  if (policy.smallDogOnly && size === 'small') {
+    return { level: 'info', text: `소형견만 된다고 적혀 있어요 · ${dogsTopic(dog.dogs)} 소형견이에요`, quote: policy.sources.smallDogOnly };
+  }
+  return null;
 };
 
 /** H3: "소형견만" 인데 우리 강아지는 소형이 아니다. */
@@ -574,6 +632,7 @@ const RULES: [string, TRule][] = [
   ['U1', ruleNoInfo],
   ['I2', ruleNearWeightLimit],
   ['I3', ruleSizeUnmentioned],
+  ['I4', ruleSizeBasis],
 ];
 
 /**
@@ -600,7 +659,11 @@ export const judgeEligibility = (
   else level = 'ok';
 
   // 어려움이면 참고 줄(info — 몸무게 문턱 I2)도 싣지 않는다. 못 간다는 곳에서 "13kg 미만까지 0.5kg 남았어요" 는 소음이다(요금과 같은 이유, 아래).
-  const reasons = level === 'hard' ? judged.filter((r) => r.level !== 'info') : judged;
+  // 크기 근거(I4)는 '갈 수 있어요' 의 근거라 그 판정일 때만 — 확인 필요 옆 "보리도 돼요" 는 판정과 싸운다. 몸무게 문턱(I2)이 이미 같은 구간을 말했으면 뺀다.
+  const nearLimit = judged.some((r) => r.rule === 'I2');
+  const reasons = judged.filter(
+    (r) => !(level === 'hard' && r.level === 'info') && !(r.rule === 'I4' && (level !== 'ok' || nearLimit)),
+  );
 
   // 요금은 이름까지 붙은 완성 문장(`dogFee.ts`)이라 카드·상세가 같은 줄을 그대로 보여준다.
   // **어려움이면 요금을 싣지 않는다**(`fee` 도, 요금 info 근거도) — 못 간다는 곳 밑에 "대장이와

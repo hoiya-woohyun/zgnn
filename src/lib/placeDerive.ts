@@ -15,7 +15,7 @@
 import { mergeStayEnvironment, parseStayEnvironment } from '../../scripts/lib/stayEnvironment.mjs';
 import type { TPlace, TStayEnvironment } from '../types';
 import { mentionsFeeUnit } from './dogFee';
-import { cageGear, parsePetPolicy, withPlaceType, withPolicyFacts, withVerifiedAt, type TPetPolicy } from './petPolicy';
+import { cageGear, largeDogOkBasis, parsePetPolicy, withPlaceType, withPolicyFacts, withVerifiedAt, type TPetPolicy } from './petPolicy';
 import { policyNoteOf } from './petPolicyPublic';
 
 /** 원문을 읽어야 나오는 것 전부. */
@@ -62,7 +62,9 @@ export function derivePlace(place: TPlace): TPlaceDerived {
   const text = place.petPolicyText ?? '';
   const parsed = withPolicyFacts(parsePetPolicy(text), place.petPolicy, text);
   // 가방·유모차는 근거 문장을 읽어야 안다 — 그 문장은 비공개 행에서 지워지므로 답을 칸으로 얹는다(판정 C2·C3·배지·템플릿이 이 칸을 먼저 본다).
-  const policy: TPetPolicy = { ...parsed, indoorGear: cageGear(parsed) };
+  // 대형견 허용의 근거 꼴(판정 I4 의 말)도 같은 이유로 칸에 — 꼴을 모르면 칸을 두지 않는다.
+  const largeDogOkBy = largeDogOkBasis(parsed);
+  const policy: TPetPolicy = { ...parsed, indoorGear: cageGear(parsed), ...(largeDogOkBy && { largeDogOkBy }) };
   return {
     policy,
     environment: environmentOf(place),
