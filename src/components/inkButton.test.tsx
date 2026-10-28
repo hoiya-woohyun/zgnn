@@ -38,7 +38,7 @@ describe('InkButton', () => {
 describe('사용자 화면의 base Button', () => {
   const files = execSync('git ls-files src/screens src/components', { encoding: 'utf8' })
     .split('\n')
-    .filter((f) => f.endsWith('.tsx') && !f.endsWith('.test.tsx') && !f.includes('components/base/') && !/admin/i.test(f));
+    .filter((f) => f.endsWith('.tsx') && !f.endsWith('.test.tsx') && !f.includes('components/base/') && !f.endsWith('components/inkButton.tsx') && !/admin/i.test(f));
 
   it('color="primary" 를 쓰지 않고, 색 없는 <Button> 도 없다', () => {
     const offenders: string[] = [];

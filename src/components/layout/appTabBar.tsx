@@ -13,7 +13,6 @@ const normalize = (pathname: string) => pathname.replace(/\/+$/, '') || '/';
  * 모바일 하단 탭바. 데스크톱(md 이상)에서는 사이드바가 대신하므로 숨는다.
  *
  * 높이는 `--tab-bar-h`(globals.css) 하나다 — 지도 상자·스와이프 대역·본문 아래 여백이 같은 변수를 본다.
- * 가운데 원이 솟는 높이(`RISE_PX`)를 바꾸면 `appShellSurface.ts` 의 CONTENT_BOTTOM_SPACE 와 고정 주 버튼 줄의 아래 여백(`dogProfilePage` 의 `pb-9`)도 같이 바꾼다.
  *
  * **이미 있는 탭을 다시 누르면 맨 위로 부드럽게 돌아간다** — 네이티브 탭바의 관례다.
  * 조건으로 "불이 들어와 있나" 를 쓰면 안 된다. 하위 화면(상세 등)에서도 들어온 탭에 불이 들어와 있으므로,
@@ -32,28 +31,14 @@ const normalize = (pathname: string) => pathname.replace(/\/+$/, '') || '/';
  * **탭바는 손가락으로 화면을 넘길 때도 움직이지 않는다**(ADR-014) — 화면들을 담는 틀이지
  * 화면이 아니다. 스와이프로 옮겨도 여기 하이라이트는 `isActive` 가 새 주소로 다시 계산한다.
  *
- * **가운데 한 칸(`prominent`, 지도)은 솟은 원형 버튼이다.** 다섯 칸이 같은 모양이면 밋밋하고, 여행 중
- * 가장 자주 여는 화면이 어느 것인지도 안 보인다. 원은 탭바 윗선 위로 `RISE_PX` 만큼만 살짝 솟고, `border-t` 선은
- * 원을 만나면 **원의 가장자리를 타고 넘는다** — 원과 같은 크기의 테두리만 있는 원 하나를 위에 겹치고, 바 위로
- * 솟은 부분만 남도록 잘라 낸다(`overflow-hidden`). 원 둘레에 크림 띠를 두르지 않는다 — 선이 분홍 가장자리에
- * 바로 붙어야 "선이 원을 넘는다" 로 읽힌다(띠를 두르면 원이 구멍에 떠 있는 것처럼 보였다).
- * 라벨은 없다 — 지도 모양 아이콘 하나로 충분하고, 원 밑에 글자가 서면 원이 솟을 자리가 없다(`aria-label` 로만 남긴다).
- * 솟은 만큼은 본문 위에 떠 있어 `appShellSurface` 의 아래 여백이 그만큼 더 크다.
- * 원은 늘 브랜드색이고 불이 들어왔는지는 말하지 않는다 — 원의 색을 바꾸면 "지도에 있을 때만 버튼이 있다" 로 읽힌다.
+ * **다섯 칸은 같은 폭·같은 꼴이다**(22 G6.1) — 솟은 원 없이 24px 선 아이콘 + 라벨이고, 켜진 칸만 핑크 글자·아이콘(상태 신호)이다.
+ * 가운데 지도 칸도 다른 칸과 같다 — 솟은 원이 모든 화면에서 카드·네이버 버튼을 가렸다(audit A-7 · B-1). 지도에 있을 때는 그 칸에 불이 들어온다.
  *
  * **눌림 효과는 없고, 불이 들어오는 순간에만 아이콘이 움직인다.** 탭은 버튼이지 그림이 아니라 길게 누를 때 뜨는
  * 링크 시트·끌기 고스트를 끄고(`styles/appTabBar.css`), 대신 비활성 → 활성으로 **바뀐** 칸의 아이콘 하나만 제 모양대로
  * 한 번 움직인다(`item.motion`). 처음 그릴 때 이미 활성인 칸은 가만히 있다 — 누가 누른 게 아니다. 활성 칸은
  * 주소에서 계산하므로 탭을 눌러서든 스와이프로든 같은 모션이 난다. 클래스는 animationend 에 떼어 다음에 또 움직인다.
  */
-
-/**
- * 원의 지름과 탭바 윗선 위로 솟는 높이(px). 반(26px)을 내놓으니 너무 튀어 보여 16px 로 들였다.
- * 탭바 높이(`--tab-bar-h`)처럼 픽셀로 못 박는다 — 선이 원을 넘는 자리는 1px 단위로 맞아야 해서 `--spacing` 축에
- * 태우면 테두리 덮개와 원이 서로 어긋난다(탭바는 768px 미만에만 있어 축이 커질 일도 없다).
- */
-const CIRCLE_PX = 52;
-const RISE_PX = 16;
 
 type TAppTabBarProps = {
   /** 목적지로 미끄러뜨릴 수 있으면 맡아서 true — 그러면 링크의 기본 이동을 막는다. */
@@ -121,44 +106,6 @@ export function AppTabBar({ onNavigate }: TAppTabBarProps) {
         {NAV_ITEMS.map((item) => {
           const active = isNavActive(item, highlightPath);
           const href = navHref(item, pathname);
-          if (item.prominent) {
-            return (
-              <li key={item.to} className="relative flex-1">
-                <Link
-                  href={href}
-                  onClick={(event) => handleTabClick(event, href)}
-                  aria-current={active ? 'page' : undefined}
-                  aria-label={item.label}
-                  draggable={false}
-                  className="relative flex h-full justify-center"
-                >
-                  <span
-                    aria-hidden
-                    style={{ top: -RISE_PX, width: CIRCLE_PX, height: CIRCLE_PX }}
-                    className="absolute flex items-center justify-center rounded-full bg-brand-solid text-primary_on-brand shadow-lg"
-                  >
-                    <item.Icon
-                      size={26}
-                      {...iconMotionProps(item.to, item.motion)}
-                      className={cx(popTo === item.to && 'tab-icon-pop')}
-                    />
-                  </span>
-                  {/* 선이 원을 타고 넘는 부분 — 분홍 **바깥**에 1px 붙는 테두리(`box-content`)를 솟은 높이만큼만 보인다(그 밑은 바 안이라 선이 없어야 한다). */}
-                  <span
-                    aria-hidden
-                    style={{ top: -RISE_PX - 1, height: RISE_PX + 1, width: CIRCLE_PX + 2 }}
-                    className="pointer-events-none absolute overflow-hidden"
-                  >
-                    <span
-                      style={{ width: CIRCLE_PX, height: CIRCLE_PX }}
-                      className="box-content block rounded-full border border-secondary"
-                    />
-                  </span>
-                </Link>
-              </li>
-            );
-          }
-
           return (
             <li key={item.to} className="flex-1">
               <Link
@@ -167,7 +114,7 @@ export function AppTabBar({ onNavigate }: TAppTabBarProps) {
                 aria-current={active ? 'page' : undefined}
                 draggable={false}
                 className={cx(
-                  // 위에만 6px — `--tab-bar-h` 가 늘린 만큼이다(globals.css). 솟은 원은 윗선 기준이라 영향이 없다.
+                  // 위에만 6px — `--tab-bar-h` 가 늘린 만큼이다(globals.css).
                   // 글자는 `text-sm`(14px) — 12px 는 큰 글씨가 필요한 사람에게 작았다(14 W261010.33l). 아이콘 24 + 2 + 줄 21 = 47 이
                   // 58 − 6 안에 들어 높이는 그대로다. 가장 긴 '둘러보기' 는 320px 폭 칸 64px 에 47.5px(한 자 1em 로 쳐도 56px).
                   // 굵기는 켜짐 600 / 꺼짐 400 — 넷이 다 600 이면 굵기가 아무것도 가리키지 않는다(22 G5).

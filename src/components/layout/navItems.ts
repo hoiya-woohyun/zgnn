@@ -20,11 +20,6 @@ export type TNavItem = {
   hrefFor?: (pathname: string) => string;
   /** 탭바에서 비활성 → 활성이 되는 순간의 아이콘 모션(사이드바는 안 움직인다). */
   motion: TTabMotion;
-  /**
-   * 탭바 **가운데의 솟은 원형 버튼**으로 그린다 — 하나뿐이어야 한다(둘이면 가운데가 없다).
-   * 사이드바는 이 표시를 무시한다(세로 목록엔 '가운데' 가 없다).
-   */
-  prominent?: boolean;
 };
 
 /** 항목이 지금 가리킬 주소. 탭바·사이드바가 같은 답을 쓴다. */
@@ -48,9 +43,9 @@ export const NAV_ITEMS: TNavItem[] = [
     // 보던 종류로 돌아간다(12 U1.5) — 카페 목록에서 누르면 숙소로 넘어가지 않고 맨 위로, 지도에서 누르면 보던 카페로.
     hrefFor: (path) => placesTabHref(path),
   },
-  // 다섯 자리의 **가운데**이고 솟은 원형 버튼이다 — 여행 중 가장 자주 여는 화면을 엄지 바로 위에 둔다.
+  // 다섯 자리의 **가운데**다 — 여행 중 가장 자주 여는 화면을 엄지 바로 위에 둔다(다른 칸과 같은 꼴).
   // 순서를 바꾸면 `lib/appRoutes.ts` 의 `SWIPE_ROUTES` 도 같이 바꾼다(손가락 순서와 눈 순서가 같아야 한다).
-  { to: '/map', label: '지도', Icon: Map01, motion: 'tilt', isActive: (path) => path.startsWith('/map'), prominent: true },
+  { to: '/map', label: '지도', Icon: Map01, motion: 'tilt', isActive: (path) => path.startsWith('/map') },
   {
     to: '/checklist',
     label: '준비물',

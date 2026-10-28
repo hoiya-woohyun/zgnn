@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Map01 } from '@untitledui/icons';
 import { HomePageAreaCards } from './homePageAreaCards';
 import { HomePageHero } from './homePageHero';
 import { HomePageInstall } from './homePageInstall';
@@ -10,7 +9,6 @@ import { HomePageTripCard } from './homePageTripCard';
 import { HomeTypeCard } from './homeTypeCard';
 import { BottomSheet } from '../components/base/bottom-sheet';
 import { Button } from '../components/base/button';
-import { InkButton } from '../components/inkButton';
 import { PawMark } from '../components/pawMark';
 import { PlaceLinkList } from '../components/placeLinkList';
 import { dogCallNames, withJosa } from '../lib/korean';
@@ -115,10 +113,6 @@ export function HomePage() {
             </div>
           ))}
         </div>
-
-        <InkButton size="lg" iconLeading={Map01} href="/map/" className="home-scroll-depth mt-3 w-full">
-          지도로 보기
-        </InkButton>
       </section>
 
       <HomePageAreaCards />

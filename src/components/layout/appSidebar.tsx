@@ -37,7 +37,7 @@ export function AppSidebar() {
                   className={cx(
                     'flex h-11 items-center gap-3 rounded-lg px-3 text-md transition-colors',
                     active
-                      ? 'bg-brand-primary font-semibold text-brand-secondary'
+                      ? 'font-semibold text-brand-secondary'
                       : 'text-secondary hover:bg-tertiary',
                   )}
                 >
