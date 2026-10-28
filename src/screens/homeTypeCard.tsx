@@ -32,11 +32,8 @@ export function HomeTypeCard({ type, levelCounts }: THomeTypeCardProps) {
         <Icon size={24} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: TYPE_COLOR[type] }} />
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-baseline gap-2">
-            <p className="text-md font-semibold text-primary">{meta.label}</p>
-            {/* 프로필이 없을 때만 소개 한 줄 — 있으면 밑의 수 줄이 그 자리를 받는다. */}
-            {!levelCounts && <p className="min-w-0 truncate text-sm text-tertiary">{meta.blurb}</p>}
-          </div>
+          {/* 소개 한 줄(`TYPE_META.blurb`)은 홈에서 뺐다(18 §4) — 프로필이 있으면 밑의 수 줄이 그 자리를 받고, 없으면 이름만 선다. */}
+          <p className="text-md font-semibold text-primary">{meta.label}</p>
 
         {/* 프로필이 있으면 "가능 3 · 확인 필요 3" 을 글자로. 예전엔 ok+cond 합을 "7 / 26" 으로만 적어
             "7 이 뭐예요?" 가 나왔고, 스크린리더만 "갈 수 있는 곳" 이라 읽어 확인 필요까지 가능으로
