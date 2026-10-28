@@ -106,6 +106,11 @@ export type TOpsOverview = {
   workers?: TOpsWorker[];
   /** `pipeline_requests` 의 queued 수. 위와 같이 적용 전엔 없다 */
   requestsQueued?: number;
+  /**
+   * 가장 오래된 **분석 요청** 시각 — 안 읽은 요청 글(`requested_at`)과 queued 「지금 분석」 요청 중 더 오래된 것(마이그레이션 `20261028130000`).
+   * 분석 칸의 주의 기준이다(todo/15 T8.6). `null` 은 요청이 없다, **`undefined` 는 그 마이그레이션 전 원격이라 모른다** — 둘을 합치지 않는다.
+   */
+  oldestRequestAt?: string | null;
 };
 
 export type TWorkerPhase = 'idle' | 'collect' | 'analyze' | 'apply' | 'login-needed' | 'rate-limited';

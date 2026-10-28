@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { nextStepText, type TNextStep } from './adminNextStep';
 
-const STEPS: TNextStep[] = ['reread', 'backlog', 'collectQueued', 'stranded'];
+const STEPS: TNextStep[] = ['reread', 'backlog', 'requestStale', 'collectQueued', 'stranded'];
 /** 서버가 받아 가는 길이 없어 두 빌드가 같은 터미널 문장을 말하는 갈래 */
 const TERMINAL_ONLY: TNextStep[] = ['applyFailed', 'collectStale'];
 
@@ -34,6 +34,12 @@ describe('nextStepText', () => {
   it('끊긴 반영의 서버 문장은 /admin 머리글의 버튼 이름을 그대로 적는다', () => {
     expect(nextStepText('stranded', true)).toContain('「서버에서 반영」');
     expect(nextStepText('stranded', false)).toContain('pnpm data apply');
+  });
+
+  it('요청이 안 읽힌 갈래는 분석 버튼을 다시 말하지 않는다 — 또 누르면 안 읽힐 요청이 한 줄 더 쌓인다', () => {
+    expect(nextStepText('requestStale', true)).toContain('「서버에서 이어 돌리기」');
+    expect(nextStepText('requestStale', true)).not.toContain('분석 버튼');
+    expect(nextStepText('requestStale', false)).toContain('pnpm data 를 켜면');
   });
 
   it('기본값은 빌드의 깨우기 주소를 따른다 — 테스트 환경엔 주소가 없다', () => {

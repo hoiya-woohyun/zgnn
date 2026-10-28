@@ -31,8 +31,12 @@ import type { TOpsOverview, TOpsWorker, TPipelineRun, TRunScript, TWorkerPhase }
  */
 /** 마지막 성공한 수집이 이보다 오래되면 주의. 주 1회 수집 기준 */
 export const COLLECT_STALE_DAYS = 7;
-/** 가장 오래된 미분석 글이 이보다 오래되면 주의 */
-export const BACKLOG_STALE_DAYS = 2;
+/**
+ * 가장 오래된 **분석 요청**(요청 글·「지금 분석」 요청, `oldestRequestAt`)이 이보다 오래 안 읽혔으면 주의(todo/15 T8.6 — 사용자 결정 2026-10-27).
+ * 미분석 글 전체(저수지)의 나이는 보지 않는다 — 저수지는 일부러 안 읽는 글이라(ADR-024 결정 4) 그걸 세면 서버 워커 운영에선 칸이 늘 노랗다.
+ * 2시간: 요청은 화면이 곧바로 서버를 깨우고 한 번에 20건 · 사슬 몇 분이라, 그만큼 남아 있으면 깨우기가 끊겼거나 받을 워커가 없다.
+ */
+export const REQUEST_STALE_HOURS = 2;
 /** 가장 오래된 검수 대기가 이보다 오래되면 주의 */
 export const PENDING_STALE_DAYS = 7;
 /**
@@ -41,7 +45,8 @@ export const PENDING_STALE_DAYS = 7;
  */
 export const HEARTBEAT_STALE_MS = 10 * 60 * 1000;
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
 
 export type THealth = 'ok' | 'warn' | 'fail' | 'none';
 export type TStageKey = 'collect' | 'analyze' | 'review' | 'apply' | 'rebuild';
@@ -151,15 +156,18 @@ function collectStage(overview: TOpsOverview, nowMs: number, remote: boolean): T
 function analyzeStage(overview: TOpsOverview, nowMs: number, remote: boolean): TStageHealth {
   const latest = overview.runsLatest.analyze;
   const lastOk = overview.runsLastOk.analyze;
-  const { count, oldestFetchedAt } = overview.backlog;
-  const base = { key: 'analyze' as const, label: '분석', second: `${count}건 미분석` };
+  // 둘째 줄은 정보뿐이다 — 저수지가 얼마나 크든 오래됐든 색을 바꾸지 않는다(T8.6).
+  const base = { key: 'analyze' as const, label: '분석', second: `${overview.backlog.count}건 미분석` };
   if (!latest) return { ...base, state: 'none', first: '기록 없음', reason: null };
   const early = runningOrFailed(base, latest, nowMs);
   if (early) return early;
   const first = lastOk ? agoLabel(finishedAt(lastOk), nowMs) : '성공 없음';
-  const days = count > 0 ? daysSince(oldestFetchedAt, nowMs) : null;
-  if (days !== null && days >= BACKLOG_STALE_DAYS) {
-    return { ...base, state: 'warn', first, reason: `분석 backlog ${count}건(${days}일째)`, hint: nextStepText('backlog', remote) };
+  // `undefined` 는 마이그레이션 `20261028130000` 전의 원격 — 요청 나이를 모르니 시간 기준 주의를 띄우지 않는다(옛 저수지 2일 규칙으로 돌아가지 않는다:
+  // 사용자가 버린 동작이고, 「무엇이 정상인가요?」 문장과 색이 서로 다른 말을 한다). 멈춘 요청은 `/admin` 머리글의 "요청 N건 대기" 가 그래도 말한다.
+  const requestedAt = overview.oldestRequestAt;
+  const at = requestedAt ? Date.parse(requestedAt) : Number.NaN;
+  if (requestedAt && !Number.isNaN(at) && nowMs - at >= REQUEST_STALE_HOURS * HOUR_MS) {
+    return { ...base, state: 'warn', first, reason: `요청한 글이 안 읽혔어요(${agoLabel(requestedAt, nowMs)} 요청)`, hint: nextStepText('requestStale', remote) };
   }
   return { ...base, state: 'ok', first, reason: null };
 }
@@ -253,7 +261,7 @@ function rebuildStage(overview: TOpsOverview, nowMs: number): TStageHealth {
 
 /**
  * "정상" 의 기준 — 칸마다 한 줄(todo/15 T8.6 · 14 W261010.14). 점이 노랗기 전까지 무엇이 정상인지 화면이 말하지 않아 "수집 7시간 전" 이 괜찮은 건지 알 수 없었다.
- * 숫자는 판정이 쓰는 상수에서 그대로 끌어 쓴다 — 문장과 판정이 따로 늙지 않게. (분석 칸의 주의 기준 자체를 바꾸는 일은 🙋 T8.6 이라 지금 문턱을 말로만 드러낸다.)
+ * 숫자는 판정이 쓰는 상수에서 그대로 끌어 쓴다 — 문장과 판정이 따로 늙지 않게.
  */
 export function stageCriteria(): { key: TStageKey; label: string; text: string }[] {
   return [
@@ -261,7 +269,7 @@ export function stageCriteria(): { key: TStageKey; label: string; text: string }
     {
       key: 'analyze',
       label: '분석',
-      text: `실행이 실패하지 않았고, 아직 안 읽은 글 중 가장 오래된 것이 ${BACKLOG_STALE_DAYS}일 안이면 정상이에요. 일부러 읽지 않고 쌓아 두는 글(저수지)도 세기 때문에 서버 워커를 쓰면 노랗게 보일 수 있어요.`,
+      text: `실행이 실패하지 않았고, 읽어 달라고 요청한 글(재분석·추가 수집·분석 버튼)이 ${REQUEST_STALE_HOURS}시간 안에 읽히면 정상이에요. 일부러 쌓아 두는 글(저수지)은 아무리 많고 오래돼도 주의가 아니에요 — 둘째 줄에 수만 보여요.`,
     },
     { key: 'review', label: '검수', text: `후보가 없거나 가장 오래된 것이 ${PENDING_STALE_DAYS}일 안이면 정상이에요. 사람이 하는 일이라 실패는 없어요.` },
     { key: 'apply', label: '반영', text: '승인했는데 사이트 자료에 아직 안 들어간 후보(끊긴 승인)가 0건이고 마지막 반영이 실패하지 않았으면 정상이에요. 기록이 없는 것도 정상이에요.' },

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TOpsOverview, TOpsRebuildEntry, TOpsWorker, TPipelineRun } from './adminOps';
 import { nextStepText } from './adminNextStep';
-import { adminBandStage, BACKLOG_STALE_DAYS, COLLECT_STALE_DAYS, PENDING_STALE_DAYS, remoteWorkerView, runState, STAGE_SCRIPTS, stageCriteria, stageHealth, stalledBefore, workerHealth, worstStage } from './adminOpsHealth';
+import { adminBandStage, COLLECT_STALE_DAYS, PENDING_STALE_DAYS, REQUEST_STALE_HOURS, remoteWorkerView, runState, STAGE_SCRIPTS, stageCriteria, stageHealth, stalledBefore, workerHealth, worstStage } from './adminOpsHealth';
 
 const NOW = Date.parse('2026-10-06T12:00:00.000Z');
 const ago = (ms: number) => new Date(NOW - ms).toISOString();
@@ -96,17 +96,46 @@ describe('stageHealth', () => {
     });
   });
 
-  it('분석 — running + 심장 11분 전은 실패(중단된 듯), backlog 가 2일 넘게 쌓이면 주의', () => {
+  it('분석 — running + 심장 11분 전은 실패(중단된 듯)', () => {
     const dead = run({ script: 'analyze', status: 'running', heartbeat_at: ago(11 * MIN) });
     expect(stage(overview({ runsLatest: { analyze: dead } }), 'analyze').state).toBe('fail');
 
     const alive = run({ script: 'analyze', status: 'running', heartbeat_at: ago(3 * MIN) });
     expect(stage(overview({ runsLatest: { analyze: alive } }), 'analyze')).toMatchObject({ state: 'ok', first: '돌고 있음(심장 3분 전)' });
 
+  });
+
+  describe('분석 주의는 요청한 글의 나이로(T8.6) — 저수지는 둘째 줄 정보뿐', () => {
     const done = run({ script: 'analyze' });
-    expect(
-      stage(overview({ runsLatest: { analyze: done }, runsLastOk: { analyze: done }, backlog: { count: 47, oldestFetchedAt: ago(5 * DAY) } }), 'analyze'),
-    ).toMatchObject({ state: 'warn', reason: '분석 backlog 47건(5일째)' });
+    const analyzed = (patch: Partial<TOpsOverview>) =>
+      stage(overview({ runsLatest: { analyze: done }, runsLastOk: { analyze: done }, backlog: { count: 3013, oldestFetchedAt: ago(20 * DAY) }, ...patch }), 'analyze');
+
+    it('요청이 2시간 넘게 안 읽혔으면 주의 — 이유에 요청 시각, 안내는 이어 돌리기', () => {
+      expect(analyzed({ oldestRequestAt: ago(REQUEST_STALE_HOURS * 60 * MIN + MIN) })).toMatchObject({
+        state: 'warn',
+        second: '3013건 미분석',
+        reason: '요청한 글이 안 읽혔어요(2시간 전 요청)',
+        hint: nextStepText('requestStale', false),
+      });
+      expect(analyzed({ oldestRequestAt: ago(20 * DAY) }).reason).toBe('요청한 글이 안 읽혔어요(20일 전 요청)');
+    });
+
+    it('2시간 안의 요청은 정상 — 깨운 서버가 읽는 중일 수 있다', () => {
+      expect(analyzed({ oldestRequestAt: ago(REQUEST_STALE_HOURS * 60 * MIN - MIN) })).toMatchObject({ state: 'ok', reason: null });
+    });
+
+    it('요청이 없으면(null) 저수지가 3013건 · 20일이어도 정상', () => {
+      expect(analyzed({ oldestRequestAt: null })).toMatchObject({ state: 'ok', second: '3013건 미분석', reason: null });
+    });
+
+    it('칸이 없는 원격(undefined)은 모른다 — 옛 저수지 규칙으로 돌아가지 않고 정상, 실패는 그대로 실패', () => {
+      expect(analyzed({})).toMatchObject({ state: 'ok', reason: null });
+      expect(analyzed({ runsLatest: { analyze: run({ script: 'analyze', status: 'failed' }) } }).state).toBe('fail');
+    });
+
+    it('시각을 못 읽으면 주의를 지어내지 않는다', () => {
+      expect(analyzed({ oldestRequestAt: 'not-a-date' }).state).toBe('ok');
+    });
   });
 
   it('검수 — 가장 오래된 대기가 7일 넘으면 주의, 실패는 없다', () => {
@@ -135,15 +164,15 @@ describe('stageHealth', () => {
     expect(stage(overview({ stranded: 2 }), 'apply')).toMatchObject({ state: 'warn', hint: nextStepText('stranded', false) });
   });
 
-  it('판정 안내는 빌드별 — 분석 backlog·끊긴 반영은 갈리고, 수집·끊긴 후보 없는 실패 반영은 두 빌드 다 터미널', () => {
+  it('판정 안내는 빌드별 — 안 읽힌 요청·끊긴 반영은 갈리고, 수집·끊긴 후보 없는 실패 반영은 두 빌드 다 터미널', () => {
     const hint = (o: TOpsOverview, key: string, remote: boolean) => stageHealth(o, NOW, remote).find((s) => s.key === key)!.hint;
-    const backlog = overview({
+    const stale = overview({
       runsLatest: { analyze: run({ script: 'analyze' }) },
-      backlog: { count: 5, oldestFetchedAt: ago(3 * DAY) },
+      oldestRequestAt: ago(3 * DAY),
     });
-    expect(hint(backlog, 'analyze', true)).toBe(nextStepText('backlog', true));
-    expect(hint(backlog, 'analyze', true)).not.toMatch(/pnpm|터미널/);
-    expect(hint(backlog, 'analyze', false)).toContain('pnpm data analyze');
+    expect(hint(stale, 'analyze', true)).toBe(nextStepText('requestStale', true));
+    expect(hint(stale, 'analyze', true)).not.toMatch(/pnpm|터미널/);
+    expect(hint(stale, 'analyze', false)).toContain('pnpm data');
 
     const stranded = overview({ stranded: 2 });
     expect(hint(stranded, 'apply', true)).toContain('「서버에서 반영」');
@@ -313,7 +342,8 @@ describe('stageCriteria — 정상의 기준을 판정 상수에서 끌어 쓴�
     const criteria = stageCriteria();
     expect(criteria.map((entry) => entry.key)).toEqual(stageHealth(overview(), NOW).map((entry) => entry.key));
     expect(criteria[0].text).toContain(`${COLLECT_STALE_DAYS}일`);
-    expect(criteria[1].text).toContain(`${BACKLOG_STALE_DAYS}일`);
+    expect(criteria[1].text).toContain(`${REQUEST_STALE_HOURS}시간`);
+    expect(criteria[1].text).toContain('저수지');
     expect(criteria[2].text).toContain(`${PENDING_STALE_DAYS}일`);
   });
 });
