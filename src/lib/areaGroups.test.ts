@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   AREAS,
+  DEST,
   areaLabel,
   areaOf,
   areaTownNames,
@@ -127,5 +128,11 @@ describe('areaLabel — 보이는 지역 말은 6권역 하나(14 W261027.4)', (
   it('조천읍은 노션 방향(동쪽)이 아니라 홈 카드와 같은 북부다', () => {
     expect(areaLabel(TOWN_TO_AREA['조천읍'])).toBe('북부');
     expect(AREAS.map((area) => areaLabel(area.id))).toEqual(AREAS.map((area) => area.label));
+  });
+});
+
+describe('DEST', () => {
+  it('지금 앱의 여행지는 제주 하나다', () => {
+    expect(DEST).toEqual({ id: 'jeju', label: '제주' });
   });
 });

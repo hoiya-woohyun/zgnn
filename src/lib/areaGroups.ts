@@ -14,6 +14,9 @@ import type { LANDMARKS_BY_AREA } from './landmarks';
 import type { TPetPolicy } from './petPolicy';
 import type { TDogProfile, TPlaceType } from '../types';
 
+/** 지금 앱이 다루는 여행지(지역) 하나 — 홈 동네 섹션 머리가 적는다. 지역이 늘면 `DESTS` 표의 첫 칸이 될 자리(19 §7.2). 화면에 '제주' 를 직접 적지 않는다. */
+export const DEST = { id: 'jeju', label: '제주' } as const;
+
 export type TAreaId = 'west' | 'southwest' | 'south' | 'southeast' | 'east' | 'north';
 
 /** 서쪽부터 시계 방향 — 관광지 키·수집 키워드와 같은 순서다. 이름은 임시안(19 T4 에서 "서부(애월·협재)" 처럼 정한다). */

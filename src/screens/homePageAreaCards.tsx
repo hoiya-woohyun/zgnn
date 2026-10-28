@@ -8,7 +8,7 @@ import { usePlacesPageAreaEntry } from './placesPageAreaEntry';
 import { FilterChip } from '../components/filterChip';
 import { PLACE_TYPE_ICON } from '../components/icons/placeTypeIcon';
 import { ReportSheet } from '../components/reportSheet';
-import { AREAS, areaOf, areaTownNames, countByArea, type TAreaId } from '../lib/areaGroups';
+import { AREAS, DEST, areaOf, areaTownNames, countByArea, type TAreaId } from '../lib/areaGroups';
 import {
   AREA_CARD_TYPES,
   areaEntryType,
@@ -84,8 +84,10 @@ export function HomePageAreaCards() {
     // 줄어든 채로 남는다(관광지 칩 44 → 42.7px, 14 W261013.14e). 줄마다 붙이는 이유는 `homePage.tsx` 의 같은 주석.
     <section className="mt-8 px-4 md:px-6" data-ev="home.areas">
       <h2 className="home-scroll-depth text-md font-bold text-primary">{dog ? `${withJosa(dogNames, '이랑/랑')} 갈 동네` : '강아지랑 갈 동네'}</h2>
+      {/* 여행지 머리 — 목록 묶음 머리(`GroupList` title)와 같은 꼴. 700 머리를 h2 밑에 하나 더 쌓지 않는다(19 T7.1). */}
+      <p className="home-scroll-depth mt-1 text-sm font-semibold text-tertiary">{DEST.label}</p>
       {/* 면 없는 동네 행 — 사이는 선 하나(22 G2.3 · 면 0). 흰 카드 6장은 audit B-6 이 "둥근 네모" 로 짚었다. */}
-      <div className="mt-1 divide-y divide-secondary">
+      <div className="divide-y divide-secondary">
         {AREAS.map(({ id, label }) => {
           const card = counts ? homePageAreaCardCounts(counts, id) : null;
           const gap = card ? homePageAreaStayGap(card) : null;
