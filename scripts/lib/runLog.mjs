@@ -11,16 +11,9 @@
 // ⚠️ `error` 칸에는 **분류 문구만**(RUN_ERROR) 적는다. 원문은 콘솔에만 남긴다 — PostgREST 오류의 details 에는 `Key (…)=(값)` 꼴로
 //   장소명이 들어올 수 있고, 이 칸은 나중에 Slack 트리거(T5)가 읽는다. 그래도 넘어온 문자열에서 URL 모양은 지운다(이중 안전).
 import { randomUUID } from 'node:crypto';
+import { RUN_ERROR } from './runErrors.mjs';
 
-/** `error` 칸에 들어갈 수 있는 문구 전부(docs/todo/15 T2.1). 던지는 자리가 `runError` 로 붙이고 `classifyRunError` 가 꺼낸다. */
-export const RUN_ERROR = Object.freeze({
-  claudeAuth: 'Claude 인증 실패',
-  naver429: '네이버 검색 429',
-  claudeLimit: 'Claude 한도',
-  dbWrite: 'DB 쓰기 실패',
-  sigint: '중단(SIGINT)',
-  unknown: '알 수 없음',
-});
+export { RUN_ERROR };
 
 const KNOWN_ERRORS = new Set(Object.values(RUN_ERROR));
 
@@ -63,8 +56,48 @@ export function setRunListener(fn) {
 }
 
 /**
+ * 심장이 이만큼 멎은 `running` 행은 끝난 것이다. 화면의 "중단된 듯"(10분, `HEARTBEAT_STALE_MS`)보다 넉넉히 잡는다 —
+ * 닫는 것은 표시가 아니라 기록을 고치는 일이라, 긴 호출 하나에 걸려 심장을 놓친 산 실행을 닫으면 안 된다. 심장은 60초에 한 번이다.
+ */
+export const LOST_AFTER_MS = 30 * 60 * 1000;
+
+/**
+ * 끝 기록(`end`) 없이 죽은 실행을 닫는다 — 서버 함수가 시간 제한에 잘렸거나 `kill -9`·노트북 덮개처럼 신호 없이 끝난 것.
+ * 그대로 두면 그 행은 영원히 `running` 이라 운영 현황에 "중단된 듯" 이 쌓이고, 무엇이 언제 끝났는지 읽을 수 없다(2026-10 원격에 9건).
+ * `ended_at` 은 마지막 심장 — 그때가 살아 있던 마지막 시각이다. 진행(`progress`)은 그대로 두어 화면이 "5/5 다 하고 기록만 끊김" 과
+ * "12/40 에서 끊김" 을 가른다(`src/lib/runOutcome.ts`). 새 실행이 설 때마다 부르므로 따로 도는 청소 작업이 없다.
+ * 실패는 삼킨다(fail-soft) — 기록 정리가 본업을 막지 않는다. 닫은 수를 돌려준다.
+ */
+export async function closeLostRuns(client, { now = Date.now, exceptId = null } = {}) {
+  try {
+    const before = new Date(now() - LOST_AFTER_MS).toISOString();
+    const { data, error } = await client
+      .from('pipeline_runs')
+      .select('id, heartbeat_at')
+      .eq('status', 'running')
+      .lt('heartbeat_at', before)
+      .limit(50);
+    if (error || !Array.isArray(data)) return 0;
+    let closed = 0;
+    for (const row of data) {
+      if (row.id === exceptId) continue;
+      // status 를 다시 건다 — 고르는 사이 그 실행이 스스로 닫혔으면 덮지 않는다.
+      const { error: updateError, count } = await client
+        .from('pipeline_runs')
+        .update({ status: 'failed', error: RUN_ERROR.lost, ended_at: row.heartbeat_at }, { count: 'exact' })
+        .eq('id', row.id)
+        .eq('status', 'running');
+      if (!updateError && count) closed += 1;
+    }
+    return closed;
+  } catch {
+    return 0;
+  }
+}
+
+/**
  * @param {import('@supabase/supabase-js').SupabaseClient} client  운영자 세션 클라이언트(createSupabase)
- * @param {{ script: 'collect'|'analyze'|'apply'|'approve'|'reject', args?: object|null }} run
+ * @param {{ script:'collect'|'analyze'|'apply'|'approve'|'reject', args?: object|null }} run
  * @param {{ now?: () => number, warn?: (line: string) => void }} [deps]  시계·경고 출력(테스트 주입용)
  * @returns {Promise<{ id: string|null, tick: () => Promise<void>, progress: (p: { done: number, total: number, current?: string|null }) => Promise<void>, end: (r: { status: 'ok'|'partial'|'failed', stats?: object|null, error?: string|null }) => Promise<void> }>}
  */
@@ -80,6 +113,8 @@ export async function beginRun(client, { script, args = null }, { now = Date.now
     warn(`⚠️ 실행 기록 못 남김: ${reasonOf(e)}`);
     return NO_RUN;
   }
+  const closed = await closeLostRuns(client, { now, exceptId: id });
+  if (closed > 0) warn(`ℹ️ 끝 기록 없이 멎은 실행 ${closed}건을 "${RUN_ERROR.lost}" 로 닫았어요`);
   let lastBeat = now();
   let lastProgress = -Infinity;
   let latestProgress = null; // 스로틀에 걸려 안 써진 값도 쥔다 — `end` 가 마지막 값을 함께 쓴다

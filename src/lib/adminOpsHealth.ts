@@ -24,6 +24,10 @@ import {
 import { HAS_SERVER_WORKER, nextStepText } from './adminNextStep';
 import { REMOTE_WORKER_HOST } from './adminWorkerWake';
 import type { TOpsOverview, TOpsWorker, TPipelineRun, TRunScript, TWorkerPhase } from './adminOps';
+import { HEARTBEAT_STALE_MS, heartbeatOf, runOutcome, runState, type TRunState } from './runOutcome';
+
+// 실행 한 줄의 판정은 `runOutcome.ts` 가 소유한다 — 예전 이름으로 읽던 곳(실행 표·테스트)을 위해 그대로 내보낸다.
+export { HEARTBEAT_STALE_MS, runState, type TRunState };
 
 /*
  * 임계값(todo/15 🙋 — 권장안 그대로). "며칠이면 늦은 건가" 는 운영자의 수집 리듬이라 바뀔 수 있다 — 바꾸면 여기 한 곳.
@@ -39,12 +43,6 @@ export const COLLECT_STALE_DAYS = 7;
 export const REQUEST_STALE_HOURS = 2;
 /** 가장 오래된 검수 대기가 이보다 오래되면 주의 */
 export const PENDING_STALE_DAYS = 7;
-/**
- * `running` 인데 심장이 이보다 오래 멎었으면 중단된 듯. `runLog.tick()` 이 60초에 한 번 찍으므로 열 번을 놓친 것이다.
- * 글 하나 분석이 이보다 길게 걸리는 일은 없다(Claude 호출 하나가 수십 초).
- */
-export const HEARTBEAT_STALE_MS = 10 * 60 * 1000;
-
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 
@@ -66,18 +64,6 @@ export type TStageHealth = {
   /** 사유의 디버깅용 원값(Deploy Hook · Vault · cron 이름·응답 코드) — 화면은 접힌 상세로만 싣는다. 본문 `reason` 에는 내부 용어를 쓰지 않는다 */
   detail?: string;
 };
-
-/** 화면이 보는 실행 상태 — 저장된 `status` 에 `stalled`(중단된 듯)를 더한 것. */
-export type TRunState = 'ok' | 'partial' | 'failed' | 'running' | 'stalled';
-
-/** 심장 — 찍힌 적이 없으면(옛 행·손으로 넣은 행) 시작 시각을 본다. null 을 "멎지 않았다" 로 읽으면 함정 그대로다. */
-const heartbeatOf = (run: Pick<TPipelineRun, 'heartbeat_at' | 'started_at'>): string => run.heartbeat_at ?? run.started_at;
-
-export function runState(run: Pick<TPipelineRun, 'status' | 'heartbeat_at' | 'started_at'>, nowMs: number): TRunState {
-  if (run.status !== 'running') return run.status;
-  const beat = Date.parse(heartbeatOf(run));
-  return Number.isNaN(beat) || nowMs - beat > HEARTBEAT_STALE_MS ? 'stalled' : 'running';
-}
 
 /** "실패만" 걸러 보기의 중단된 듯 기준 시각(`fetchRuns` 의 `failedOnly.stalledBefore`). `runState` 와 같은 임계값이다. */
 export const stalledBefore = (nowMs: number): string => new Date(nowMs - HEARTBEAT_STALE_MS).toISOString();
@@ -101,33 +87,41 @@ const finishedAt = (run: TPipelineRun): string => run.ended_at ?? run.started_at
 const RUNNING_FIRST = (run: TPipelineRun, nowMs: number): string => `돌고 있음(심장 ${agoLabel(heartbeatOf(run), nowMs)})`;
 
 /**
- * 스크립트 칸(수집·분석·반영) 공통 — 마지막 실행이 지금 돌고 있거나 중단됐거나 실패했으면 그것이 먼저다.
- * 그 밖이면 undefined 를 돌려주고 칸마다의 규칙으로 넘어간다.
+ * 스크립트 칸(수집·분석·반영) 공통 — 마지막 실행이 지금 돌고 있거나, 중간에 끊겼거나, 한도로 멈췄거나, 실패했으면 그것이 먼저다.
+ * 그 밖이면 undefined 를 돌려주고 칸마다의 규칙으로 넘어간다. 판정은 `runOutcome` 하나 — 사람이 멈춘 것(Ctrl+C)과 일은 다 하고 끝 기록만
+ * 못 남긴 것은 **실패가 아니라** 여기서 걸리지 않는다(칸의 첫 줄만 `endedFirst` 가 그 사실로 바꾼다). 예전엔 둘 다 빨강이었다.
  */
 function runningOrFailed(
   base: Pick<TStageHealth, 'key' | 'label' | 'second'>,
   latest: TPipelineRun,
   nowMs: number,
 ): TStageHealth | undefined {
-  const state = runState(latest, nowMs);
-  if (state === 'stalled') {
-    return {
-      ...base,
-      state: 'fail',
-      first: `중단된 듯(심장 ${agoLabel(heartbeatOf(latest), nowMs)})`,
-      reason: `${base.label}이 중단된 듯해요 — 프로세스가 죽었으면 그냥 다시 돌리면 돼요`,
-    };
+  const outcome = runOutcome(latest, nowMs);
+  const ago = agoLabel(outcome.at, nowMs);
+  const at = outcome.where ? `${outcome.where}에서 ` : '';
+  switch (outcome.kind) {
+    case 'running':
+      return { ...base, state: 'ok', first: RUNNING_FIRST(latest, nowMs), reason: null };
+    case 'lost':
+      return {
+        ...base,
+        state: 'fail',
+        first: `${outcome.label} · ${ago}`,
+        reason: `마지막 ${base.label}이 ${at || '중간에 '}끊겼어요(끝 기록 없이 멎음) — 프로그램이 죽었으면 그냥 다시 돌리면 돼요`,
+      };
+    case 'limit':
+      return { ...base, state: 'warn', first: `${outcome.label} · ${ago}`, reason: `마지막 ${base.label}이 ${at}Claude 한도로 멈췄어요 — 리셋 뒤 다시 돌리면 남은 것부터 이어요` };
+    case 'failed':
+      return { ...base, state: 'fail', first: `실패 · ${ago}`, reason: `마지막 ${base.label}이 ${at}실패했어요${latest.error ? `(${latest.error})` : ''}` };
+    default:
+      return undefined;
   }
-  if (state === 'running') return { ...base, state: 'ok', first: RUNNING_FIRST(latest, nowMs), reason: null };
-  if (state === 'failed') {
-    return {
-      ...base,
-      state: 'fail',
-      first: `실패 · ${agoLabel(finishedAt(latest), nowMs)}`,
-      reason: `마지막 ${base.label}이 실패했어요${latest.error ? `(${latest.error})` : ''}`,
-    };
-  }
-  return undefined;
+}
+
+/** 실패는 아니지만 "마지막에 무슨 일이 있었나" 를 첫 줄이 말해야 하는 끝 — 없으면 null(칸의 규칙대로 마지막 성공 시각). */
+function endedFirst(latest: TPipelineRun, nowMs: number): string | null {
+  const outcome = runOutcome(latest, nowMs);
+  return outcome.kind === 'stopped' || outcome.kind === 'unclosed' ? `${outcome.label} · ${agoLabel(outcome.at, nowMs)}` : null;
 }
 
 function collectStage(overview: TOpsOverview, nowMs: number, remote: boolean): TStageHealth {
@@ -138,9 +132,10 @@ function collectStage(overview: TOpsOverview, nowMs: number, remote: boolean): T
   if (!latest) return { ...base, state: 'none', first: '기록 없음', reason: null };
   const early = runningOrFailed(base, latest, nowMs);
   if (early) return early;
-  // 마지막 **성공**을 본다(`runsLastOk`) — 마지막 실행이 아니라. 지금은 실패가 위에서 먼저 걸리지만, 갈래가 늘면 이 차이가 드러난다.
+  // 마지막 **성공**을 본다(`runsLastOk`) — 마지막 실행이 아니라. 사람이 멈춘 실행(Ctrl+C)은 위에서 걸리지 않고 여기로 오므로,
+  // 첫 줄은 "사람이 멈춤 · 20일 전" 이고 색·사유는 마지막 성공으로부터의 날 수가 정한다.
   const days = daysSince(lastOk ? finishedAt(lastOk) : null, nowMs);
-  const first = lastOk ? agoLabel(finishedAt(lastOk), nowMs) : '성공 없음';
+  const first = endedFirst(latest, nowMs) ?? (lastOk ? agoLabel(finishedAt(lastOk), nowMs) : '성공 없음');
   if (days === null || days >= COLLECT_STALE_DAYS) {
     return {
       ...base,
@@ -161,7 +156,7 @@ function analyzeStage(overview: TOpsOverview, nowMs: number, remote: boolean): T
   if (!latest) return { ...base, state: 'none', first: '기록 없음', reason: null };
   const early = runningOrFailed(base, latest, nowMs);
   if (early) return early;
-  const first = lastOk ? agoLabel(finishedAt(lastOk), nowMs) : '성공 없음';
+  const first = endedFirst(latest, nowMs) ?? (lastOk ? agoLabel(finishedAt(lastOk), nowMs) : '성공 없음');
   // `undefined` 는 마이그레이션 `20261028130000` 전의 원격 — 요청 나이를 모르니 시간 기준 주의를 띄우지 않는다(옛 저수지 2일 규칙으로 돌아가지 않는다:
   // 사용자가 버린 동작이고, 「무엇이 정상인가요?」 문장과 색이 서로 다른 말을 한다). 멈춘 요청은 `/admin` 머리글의 "요청 N건 대기" 가 그래도 말한다.
   const requestedAt = overview.oldestRequestAt;

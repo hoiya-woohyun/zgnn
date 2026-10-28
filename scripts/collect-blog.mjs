@@ -193,8 +193,12 @@ export async function main(argv = process.argv.slice(2), { nonInteractive = fals
         (requests.length ? ` · 추가 수집 ${requests.length}건(각 ${REQUEST_DISPLAY}건 한 페이지)` : ''),
     );
 
+    // 진행 — 검색어 하나 + 추가 수집 하나가 한 칸, 마지막 저장이 한 칸. 운영 현황이 "12/53 에서 사람이 멈춤" 처럼 어디서 멈췄는지 말하는 근거다(`runOutcome`).
+    // 저장을 칸으로 세는 이유: 글은 끝의 upsert 에서 한 번에 저장되므로 검색만 다 돈 수집은 아무것도 안 남겼다 — 그걸 "다 했다(n/n)" 로 보이면 안 된다.
+    const steps = keywords.length + requests.length + 1;
     for (const [index, keyword] of keywords.entries()) {
       console.log(`[${index + 1}/${keywords.length}] ${keyword}`);
+      await run.progress({ done: index, total: steps, current: `검색어 ${keyword}` });
       const keywordStartedAt = Date.now();
       let kept = 0;
       // 'cap' 은 이제 **닿지 않는 초기값**이다 — 마지막 페이지에서 stopReason 이 반드시 값을 준다(아래). 그래도 남겨 둔다:
@@ -239,6 +243,7 @@ export async function main(argv = process.argv.slice(2), { nonInteractive = fals
     const requestRows = new Map();
     for (const [index, request] of requests.entries()) {
       await run.tick();
+      await run.progress({ done: keywords.length + index, total: steps, current: `추가 수집 ${request.query}` });
       let items;
       try {
         ({ items } = await searchBlog(request.query, 1, REQUEST_DISPLAY));
@@ -258,6 +263,8 @@ export async function main(argv = process.argv.slice(2), { nonInteractive = fals
       console.log(`[추가 ${index + 1}/${requests.length}] ${request.query} → ${tally.rows.length}건(받은 ${items?.length ?? 0})`);
       await sleep(REQUEST_DELAY_MS);
     }
+    // 검색은 다 돌았다 — 남은 한 칸은 저장. 스로틀에 걸려 막대가 한참 앞에 멈춘 채 저장으로 넘어가지 않게(runLog.progress 의 force).
+    await run.progress({ done: steps - 1, total: steps, current: '저장 중' }, { force: true });
 
     const beforeDedupe = collected.length;
     collected = dedupeByUrl(collected);

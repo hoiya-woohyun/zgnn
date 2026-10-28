@@ -1,6 +1,7 @@
 # ADR-023 — 파이프라인이 돌고 있는지는 스크립트가 남긴 실행 기록(`pipeline_runs`)으로 보고, 화면은 `/admin/ops`, 알림은 DB 가 Slack 으로 보낸다
 
-> 최종 수정: 2026-10-07 (v2: 「하지 않은 것」 의 **Realtime 구독을 번복** — 로컬 워커([ADR-024](ADR-024-local-worker-and-db-queues.md))가 생기면서 `/admin/ops` 는 "열 때 보는 화면" 에서 "도는 동안 보는 화면" 이 됐다. `workers` · `pipeline_runs` 둘만 구독, 60초 폴링은 안전망으로 남는다. 나머지 결정은 그대로)
+> 최종 수정: 2026-10-28 (v3: 결정 1 보완 — **심장이 멎은 행은 다음 실행이 닫는다.** 화면은 여전히 기록을 고치지 않지만, 끝 기록 없이 죽은 실행(서버 함수 시간 제한·`kill -9`)이 영원히 `running` 으로 남아 원격에 9건이 쌓였다. `beginRun` 이 30분 넘게 멎은 `running` 을 `failed` + `기록 없이 끝남` 으로 닫는다. 그리고 `status` 넷만으로는 Ctrl+C·한도·크래시가 같은 "실패" 라 화면은 `error` 분류 문구 + `progress` 로 끝을 가른다(`src/lib/runOutcome.ts`, [ops-dashboard](../features/ops-dashboard.md) v15))
+> 이전 2026-10-07 (v2: 「하지 않은 것」 의 **Realtime 구독을 번복** — 로컬 워커([ADR-024](ADR-024-local-worker-and-db-queues.md))가 생기면서 `/admin/ops` 는 "열 때 보는 화면" 에서 "도는 동안 보는 화면" 이 됐다. `workers` · `pipeline_runs` 둘만 구독, 60초 폴링은 안전망으로 남는다. 나머지 결정은 그대로)
 > 이전 2026-10-06 (v1: 제안 — 설계만. 구현은 [docs/todo/15](../todo/15-ops-dashboard.md) 가 추적한다)
 > 상태: **제안**. 코드에 대응물이 없다. 결정 1~6 전부 권장안이고(6 은 "보류" 라는 결정) 🙋 는 [todo/15](../todo/15-ops-dashboard.md) 「사용자가 정할 것」 에 모았다.
 
@@ -18,7 +19,7 @@
 
 ## 결정
 
-1. **정본은 Supabase 표 `pipeline_runs` 한 장이다.** 쓰기 스크립트(`collect-blog` · `analyze-candidates` · `apply-approved` · `review-candidates approve/reject`)가 **시작할 때 한 행을 넣고 끝날 때 그 행을 갱신한다**(`status: running → ok | partial | failed`, `stats` jsonb = 지금 콘솔에 찍는 요약 줄의 구조화, `error` 는 메시지 한 줄). 긴 `analyze` 는 글 N건마다 `heartbeat_at` 을 찍는다 — 프로세스가 죽으면 "running 인데 심장이 멎은" 행으로 드러난다. Slack 도 로그 파일도 정본이 아니다 — Slack 은 질의할 수 없고, 로그 파일은 브라우저가 못 읽는다.
+1. **정본은 Supabase 표 `pipeline_runs` 한 장이다.** 쓰기 스크립트(`collect-blog` · `analyze-candidates` · `apply-approved` · `review-candidates approve/reject`)가 **시작할 때 한 행을 넣고 끝날 때 그 행을 갱신한다**(`status: running → ok | partial | failed`, `stats` jsonb = 지금 콘솔에 찍는 요약 줄의 구조화, `error` 는 메시지 한 줄). 긴 `analyze` 는 글 N건마다 `heartbeat_at` 을 찍는다 — 프로세스가 죽으면 "running 인데 심장이 멎은" 행으로 드러난다. 30분 넘게 멎은 행은 다음 실행이 `기록 없이 끝남` 으로 닫는다(v3 — 진행은 남겨 어디서 끊겼는지 읽힌다). Slack 도 로그 파일도 정본이 아니다 — Slack 은 질의할 수 없고, 로그 파일은 브라우저가 못 읽는다.
 2. **기록은 실패해도 작업을 막지 않는다**(fail-soft). `pipeline_runs` insert 가 실패하면 경고 한 줄을 찍고 스크립트는 그대로 돈다. 관측 장치가 본업을 멈추게 하지 않는다. 단 `pull-db` 는 기록하지 않는다 — anon 으로 붙는 읽기 전용이고 Vercel 빌드 안에서 돈다. 그 실행은 `rebuild_log` 가 이미 보여 준다.
 3. **화면은 `/admin/ops`** — `/admin` 의 하위 경로다. 같은 로그인 세션(localStorage `zgnn.admin.session`), 같은 wide·bare 레이아웃(`appShellSurface` 의 `startsWith('/admin')`), 같은 밀도 고정(`data-admin-dense`)을 **아무것도 더 안 하고** 받는다. 형제 경로 `/ops` 로 두면 뒤로가기와 reading 폭이 붙어 셸을 또 고쳐야 한다. 화면 본체는 `adminPage.tsx`(1843줄)에 **더하지 않고** `adminOpsPage.tsx` 로 따로 둔다 — `/admin` 은 "후보를 올리는 자리", `/admin/ops` 는 "장치가 도는지 보는 자리" 라 보는 사람의 질문이 다르다. 둘은 머리글 링크 하나로 오간다.
 4. **건강 판정은 저장하지 않고 화면에서 계산한다.** "수집이 7일 넘게 안 돌았다", "approved 인데 반영 안 된 후보가 있다" 는 `pipeline_runs` 와 기존 표에서 **그때 도출**한다(`src/lib/adminOpsHealth.ts`, 순수 함수 + 단위 테스트). 임계값은 코드 상수다 — 저장하면 두 곳이 어긋난다. 집계 수치(기간별 깔때기)는 rpc `ops_overview(days)` 하나가 SQL 로 센다 — 브라우저에서 표 셋을 따로 세면 왕복 여덟 번이고, `data:review status` 와 같은 수를 두 번 구현하게 된다. CLI `status` 는 나중에 이 rpc 의 얇은 출력기가 된다.

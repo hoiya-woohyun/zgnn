@@ -13,6 +13,7 @@ import type { TOpsWorker, TPipelineRun } from './adminOps';
 import { REMOTE_WORKER_FRESH_MS } from './adminOpsHealth';
 import { onlyUnanalyzed } from './adminPosts';
 import { REMOTE_WORKER_HOST, type TWakeResult } from './adminWorkerWake';
+import { RUN_ERROR } from '../../scripts/lib/runErrors.mjs';
 
 /**
  * 깨우기 한 번이 읽는 글의 상한 — `scripts/lib/workerRemote.mjs` 의 `MAX_HOPS`(4) × `HOP_ANALYZE_CAP`(5). 앱은 scripts 를 import 하지 않아 값을 한 번 더 적는다.
@@ -26,8 +27,8 @@ export const RESUME_MAX = 4;
  * 이 시간이 없으면 행이 안 바뀐 채 "깨운 뒤 쉬는 중" 을 영영 기다린다.
  */
 export const WAKE_PICKUP_MS = 2 * 60 * 1000;
-/** `scripts/lib/runLog.mjs` 의 `RUN_ERROR.claudeLimit` 과 같은 문구 — 실행 행의 `error` 칸은 분류 문구만 담는다. */
-export const CLAUDE_LIMIT_ERROR = 'Claude 한도';
+/** 실행 행의 `error` 칸은 분류 문구만 담는다 — 정본은 `scripts/lib/runErrors.mjs`(화면과 스크립트가 같은 값을 읽는다). */
+export const CLAUDE_LIMIT_ERROR = RUN_ERROR.claudeLimit;
 
 /** 서버가 맡을 남은 일. 글 수 둘과 추가 수집 하나 — 요청 **줄 수**가 아니다(「저수지 30건」 은 홉이 돌아도 줄은 1이고 `args.limit` 만 줄어든다). */
 export type TServerRemaining = {

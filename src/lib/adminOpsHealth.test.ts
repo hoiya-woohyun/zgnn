@@ -6,7 +6,8 @@ import { adminBandStage, COLLECT_STALE_DAYS, PENDING_STALE_DAYS, REQUEST_STALE_H
 const NOW = Date.parse('2026-10-06T12:00:00.000Z');
 const ago = (ms: number) => new Date(NOW - ms).toISOString();
 const MIN = 60_000;
-const DAY = 24 * 60 * MIN;
+const HOUR = 60 * MIN;
+const DAY = 24 * HOUR;
 
 const run = (patch: Partial<TPipelineRun> = {}): TPipelineRun => ({
   id: 'r1',
@@ -94,6 +95,32 @@ describe('stageHealth', () => {
       state: 'fail',
       reason: '마지막 수집이 실패했어요(네이버 검색 429)',
     });
+  });
+
+  it('수집 — 사람이 멈춘 것(Ctrl+C)은 실패가 아니다: 첫 줄이 그렇게 말하고, 색은 마지막 성공의 나이가 정한다', () => {
+    // 2026-10-07 의 중단(SIGINT) 이 20일 동안 빨간 "마지막 수집이 실패했어요" 로 섰다
+    const okOld = run({ ended_at: ago(9 * DAY), stats: { new: 12 } });
+    const okNew = run({ ended_at: ago(1 * DAY), stats: { new: 3 } });
+    const stopped = run({ status: 'failed', error: '중단(SIGINT)', ended_at: ago(2 * HOUR), progress: { done: 12, total: 53 } });
+    expect(stage(overview({ runsLatest: { collect: stopped }, runsLastOk: { collect: okOld } }), 'collect')).toMatchObject({
+      state: 'warn',
+      first: '사람이 멈춤 · 2시간 전',
+      reason: '수집이 9일째 없어요',
+    });
+    expect(stage(overview({ runsLatest: { collect: stopped }, runsLastOk: { collect: okNew } }), 'collect')).toMatchObject({ state: 'ok', first: '사람이 멈춤 · 2시간 전' });
+  });
+
+  it('분석 — 한도로 멈춘 것은 주의, 기록 없이 끊긴 것은 어디서 끊겼는지와 함께 실패', () => {
+    const limit = run({ script: 'analyze', status: 'failed', error: 'Claude 한도', ended_at: ago(HOUR), progress: { done: 32, total: 275 } });
+    expect(stage(overview({ runsLatest: { analyze: limit } }), 'analyze')).toMatchObject({
+      state: 'warn',
+      reason: '마지막 분석이 32/275에서 Claude 한도로 멈췄어요 — 리셋 뒤 다시 돌리면 남은 것부터 이어요',
+    });
+    const lost = run({ script: 'analyze', status: 'failed', error: '기록 없이 끝남', ended_at: ago(DAY), heartbeat_at: ago(DAY), progress: { done: 12, total: 40 } });
+    expect(stage(overview({ runsLatest: { analyze: lost } }), 'analyze')).toMatchObject({ state: 'fail', first: '중간에 끊김 · 1일 전' });
+    // 진행이 끝까지 찬 채 끝 기록만 없는 것은 다시 돌릴 일이 없다 — 실패로 세우지 않는다
+    const unclosed = run({ script: 'analyze', status: 'running', heartbeat_at: ago(DAY), progress: { done: 5, total: 5 } });
+    expect(stage(overview({ runsLatest: { analyze: unclosed } }), 'analyze')).toMatchObject({ state: 'ok', first: '끝 무렵 멈춤 · 1일 전' });
   });
 
   it('분석 — running + 심장 11분 전은 실패(중단된 듯)', () => {

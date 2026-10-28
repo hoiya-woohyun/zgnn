@@ -507,7 +507,7 @@ export function AdminPage() {
    * 같은 응답의 미분석 글 수와 대기 중인 요청 수(todo/17 T6) — 「저수지 N건 분석」 라벨과 머리글 `요청 N건 대기`.
    * 요청을 넣은 뒤엔 로컬로 +1 하지 않고 `loadOpsStages` 를 다시 부른다(워커 상태까지 한 번에 맞는다). 못 읽었으면 null.
    */
-  const [opsQueue, setOpsQueue] = useState<{ backlog: number; requestsQueued?: number } | null>(null);
+  const [opsQueue, setOpsQueue] = useState<{ backlog: number; requestsQueued?: number; oldestRequestAt?: string | null } | null>(null);
   /** 서버 워커를 못 깨웠다는 한 줄(`wakeNotice`) — 요청은 남았다. 다음 깨우기가 성공하면 지운다. */
   const [wakeLine, setWakeLine] = useState<string | null>(null);
   const opsWorker = useMemo(() => (opsWorkers ? workerHealth(opsWorkers, liveNow) : null), [opsWorkers, liveNow]);
@@ -544,6 +544,7 @@ export function AdminPage() {
             workers: opsWorkers,
             runsLatest: opsRuns,
             requestsQueued: opsQueue?.requestsQueued,
+            oldestRequestAt: opsQueue?.oldestRequestAt,
             remote: HAS_SERVER_WORKER,
             resumeShown: resumeLine !== null,
             nowMs: liveNow,
@@ -649,7 +650,7 @@ export function AdminPage() {
       setOpsStages(stageHealth(overview, Date.now()));
       setOpsWorkers(overview.workers ?? null);
       setOpsRuns(overview.runsLatest);
-      setOpsQueue({ backlog: overview.backlog.count, requestsQueued: overview.requestsQueued });
+      setOpsQueue({ backlog: overview.backlog.count, requestsQueued: overview.requestsQueued, oldestRequestAt: overview.oldestRequestAt });
       setLiveNow(Date.now());
     } catch {
       setOpsStages(null);

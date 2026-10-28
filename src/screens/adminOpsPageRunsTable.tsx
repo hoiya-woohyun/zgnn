@@ -4,8 +4,9 @@ import { ChevronDown } from '@untitledui/icons';
 import { useEffect } from 'react';
 import { flattenStats, laterSuccessAt, runAlertLabel, runDurationLabel, runSummaryLine, type TOpsOverview, type TPipelineRun, type TRunScript } from '../lib/adminOps';
 import { nextStepText } from '../lib/adminNextStep';
-import { runState, type TRunState } from '../lib/adminOpsHealth';
+import { runState } from '../lib/adminOpsHealth';
 import { agoLabel } from '../lib/adminRebuild';
+import { runOutcome, type TRunOutcomeKind } from '../lib/runOutcome';
 import { cx } from '../utils/cx';
 import { AdminFilterChip } from './adminFilterChip';
 import { useAdminInfiniteScroll } from './adminInfiniteScroll';
@@ -30,21 +31,19 @@ export const ADMIN_OPS_SCRIPT_CHIPS: readonly {
 
 export const sameScripts = (a: readonly TRunScript[] | null, b: readonly TRunScript[] | null): boolean => (a ?? []).join(',') === (b ?? []).join(',');
 
-const STATE_LABEL: Record<TRunState, string> = {
-  ok: '끝남',
-  partial: '일부 실패',
-  failed: '실패',
-  running: '돌고 있음',
-  stalled: '중단된 듯',
-};
-
-/** 상태점 — ① 다섯 칸과 같은 토큰. 돌고 있음은 정상(초록)이다. */
-const STATE_DOT: Record<TRunState, string> = {
-  ok: 'bg-success-solid',
+/**
+ * 상태점 — ① 다섯 칸과 같은 토큰. 글자는 `runOutcome` 의 라벨(사람이 멈춤 · 한도로 멈춤 · 중간에 끊김 …)이다 — 저장된 status 넷으로는
+ * Ctrl+C 와 크래시가 같은 "실패" 였다. 사람이 멈춘 것과 끝 무렵 기록 없이 멈춘 것은 회색이다(다음 실행이 남은 일을 잇는다).
+ */
+const OUTCOME_DOT: Record<TRunOutcomeKind, string> = {
   running: 'bg-success-solid',
+  ok: 'bg-success-solid',
+  unclosed: 'bg-quaternary',
   partial: 'bg-warning-solid',
+  limit: 'bg-warning-solid',
+  stopped: 'bg-quaternary',
   failed: 'bg-error-solid',
-  stalled: 'bg-error-solid',
+  lost: 'bg-error-solid',
 };
 
 const kst = (iso: string) => new Date(iso).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
@@ -67,6 +66,7 @@ function AdminOpsPageRunRow({
   pinned: boolean;
 }) {
   const state = runState(run, nowMs);
+  const outcome = runOutcome(run, nowMs);
   const summary = runSummaryLine(run);
   const alert = runAlertLabel(run.alert);
   // 실패·중단 줄에는 그 뒤 같은 단계가 다시 성공했는지 한 마디 — 안 그러면 며칠 전 실패가 아직 안 고쳐진 것처럼 읽힌다.
@@ -84,22 +84,29 @@ function AdminOpsPageRunRow({
           <span className="rounded bg-secondary px-1.5 text-xs font-semibold text-tertiary">{run.script}</span>
         </span>
         <span className="ml-2 inline-flex items-center gap-1.5 text-xs text-secondary md:ml-0">
-          <span aria-hidden="true" className={cx('size-2 shrink-0 rounded-full', STATE_DOT[state])} />
-          {STATE_LABEL[state]}
+          <span aria-hidden="true" className={cx('size-2 shrink-0 rounded-full', OUTCOME_DOT[outcome.kind])} />
+          {outcome.label}
         </span>
         <span className="hidden text-xs whitespace-nowrap text-tertiary tabular-nums md:block">{runDurationLabel(run, nowMs)}</span>
-        <span className={cx('mt-1 block text-xs md:mt-0', summary ? 'text-secondary' : run.error ? 'text-error-primary' : 'text-quaternary')}>
-          {summary ?? run.error ?? (state === 'running' ? '도는 중이에요' : '요약할 수가 없어요')}
+        <span className={cx('mt-1 block text-xs md:mt-0', summary ? 'text-secondary' : outcome.tone === 'fail' ? 'text-error-primary' : 'text-tertiary')}>
+          {/* 요약이 없는 줄(죽었거나 멈춘 실행)은 어디까지 왔고 왜 끝났는지 — 분류 문구("중단(SIGINT)")를 그대로 내지 않는다 */}
+          {summary ?? (state === 'running' ? '도는 중이에요' : outcome.text)}
           {recovered ? <span className="ml-1 font-semibold text-success-primary">· 이후 성공({agoLabel(recovered, nowMs)})</span> : null}
         </span>
         <span className={cx('hidden text-xs md:block', alert === 'Slack 실패' ? 'text-error-primary' : 'text-tertiary')}>{alert}</span>
       </button>
 
       {state === 'stalled' ? (
-        <p className="px-4 pb-2 text-xs text-error-primary">
-          워커의 생존 신호(심장)가 {agoLabel(run.heartbeat_at ?? run.started_at, nowMs)} 끊겼어요. 프로그램이 죽었으면 그냥 다시 돌리면 돼요(죽은 실행의 잠금은 새 실행이
-          이어받아요). 살아 있는데 멎어 있으면 그 프로그램을 끊고 다시 돌려 주세요.
-        </p>
+        outcome.kind === 'unclosed' ? (
+          <p className="px-4 pb-2 text-xs text-tertiary">
+            {outcome.text}({agoLabel(outcome.at, nowMs)}) — 진행은 끝까지 찼으니 다시 돌릴 일은 없어요. 다음 실행이 서면 이 줄을 닫아요.
+          </p>
+        ) : (
+          <p className="px-4 pb-2 text-xs text-error-primary">
+            {outcome.text} — 생존 신호(심장)가 {agoLabel(outcome.at, nowMs)} 끊겼어요. 프로그램이 죽었으면 그냥 다시 돌리면 돼요(죽은 실행의 잠금은 새 실행이
+            이어받고, 이 줄은 30분 뒤 다음 실행이 「중간에 끊김」 으로 닫아요). 살아 있는데 멎어 있으면 그 프로그램을 끊고 다시 돌려 주세요.
+          </p>
+        )
       ) : null}
 
       {expanded ? (

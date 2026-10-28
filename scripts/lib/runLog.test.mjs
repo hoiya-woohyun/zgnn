@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { argFlags, beginRun, classifyRunError, NO_RUN, PROGRESS_MS, RUN_ERROR, setRunListener } from './runLog.mjs';
+import { argFlags, beginRun, classifyRunError, closeLostRuns, LOST_AFTER_MS, NO_RUN, PROGRESS_MS, RUN_ERROR, setRunListener } from './runLog.mjs';
 
 /**
  * supabase-js 의 `from(t).insert(row)` · `from(t).update(patch, opts).eq(col, v)` 모양만 흉내 낸다.
@@ -231,5 +231,65 @@ describe('classifyRunError · argFlags', () => {
   it('플래그 이름만 남기고 값은 버린다', () => {
     expect(argFlags(['--limit', '30', '--dump=data/raw/x.json', '--no-geo', '--limit', '5'])).toEqual(['--limit', '--dump', '--no-geo']);
     expect(argFlags(['approve', 'abc123', '--note', '폐업한 가게명'])).toEqual(['--note']);
+  });
+});
+
+describe('closeLostRuns — 끝 기록 없이 죽은 실행은 다음 실행이 닫는다', () => {
+  /** select…eq…lt…limit 과 update…eq…eq 모양만. `rows` 는 고른 결과, `updated` 는 닫힌 행 수. */
+  function sweepClient({ rows = [], selectError = null, updated = 1 } = {}) {
+    const calls = { select: [], update: [] };
+    const chain = (record) => {
+      const link = {
+        eq: (col, value) => (record.push(['eq', col, value]), link),
+        lt: (col, value) => (record.push(['lt', col, value]), link),
+        limit: async () => ({ data: selectError ? null : rows, error: selectError }),
+        then: (resolve) => resolve({ error: null, count: updated }),
+      };
+      return link;
+    };
+    return {
+      calls,
+      from: () => ({
+        select: () => {
+          const record = [];
+          calls.select.push(record);
+          return chain(record);
+        },
+        update: (patch) => {
+          const record = [];
+          calls.update.push({ patch, record });
+          return chain(record);
+        },
+      }),
+    };
+  }
+  const now = () => Date.parse('2026-10-28T03:00:00Z');
+
+  it('30분 넘게 심장이 멎은 running 만 골라 "기록 없이 끝남" 으로, 끝 시각은 마지막 심장으로 닫는다 — 진행은 건드리지 않는다', async () => {
+    const client = sweepClient({ rows: [{ id: 'dead', heartbeat_at: '2026-10-10T12:35:28Z' }, { id: 'me', heartbeat_at: '2026-10-10T12:00:00Z' }] });
+    expect(await closeLostRuns(client, { now, exceptId: 'me' })).toBe(1);
+    expect(client.calls.select[0]).toEqual([
+      ['eq', 'status', 'running'],
+      ['lt', 'heartbeat_at', new Date(now() - LOST_AFTER_MS).toISOString()],
+    ]);
+    expect(client.calls.update).toEqual([
+      {
+        patch: { status: 'failed', error: RUN_ERROR.lost, ended_at: '2026-10-10T12:35:28Z' },
+        // 고르는 사이 스스로 닫힌 행은 덮지 않는다
+        record: [
+          ['eq', 'id', 'dead'],
+          ['eq', 'status', 'running'],
+        ],
+      },
+    ]);
+  });
+
+  it('고르기가 실패하거나 던져도 0 — 기록 정리가 본업을 막지 않는다', async () => {
+    expect(await closeLostRuns(sweepClient({ selectError: { message: 'denied' } }), { now })).toBe(0);
+    expect(await closeLostRuns({ from: () => { throw new Error('network'); } }, { now })).toBe(0);
+  });
+
+  it('살아 있는 실행을 닫지 않게 화면의 "중단된 듯"(10분)보다 넉넉하다', () => {
+    expect(LOST_AFTER_MS).toBeGreaterThanOrEqual(30 * 60 * 1000);
   });
 });
