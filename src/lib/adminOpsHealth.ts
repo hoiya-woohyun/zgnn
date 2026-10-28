@@ -107,7 +107,9 @@ function runningOrFailed(
         ...base,
         state: 'fail',
         first: `${outcome.label} · ${ago}`,
-        reason: `마지막 ${base.label}이 ${at || '중간에 '}끊겼어요(끝 기록 없이 멎음) — 프로그램이 죽었으면 그냥 다시 돌리면 돼요`,
+        reason: outcome.settled
+          ? `마지막 ${base.label}이 ${at || '중간에 '}끊겼어요(끝 기록 없이 멎음) — 다시 돌리면 돼요`
+          : `${base.label}이 ${at}중단된 듯해요 — 프로그램이 죽었으면 그냥 다시 돌리면 돼요`,
       };
     case 'limit':
       return { ...base, state: 'warn', first: `${outcome.label} · ${ago}`, reason: `마지막 ${base.label}이 ${at}Claude 한도로 멈췄어요 — 리셋 뒤 다시 돌리면 남은 것부터 이어요` };

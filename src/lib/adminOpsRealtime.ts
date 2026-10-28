@@ -10,6 +10,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { RUN_COLUMNS, type TOpsOverview, type TOpsWorker, type TPipelineRun, type TRunScript } from './adminOps';
 import { runState } from './adminOpsHealth';
+import { runOutcome } from './runOutcome';
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -44,12 +45,13 @@ export function upsertWorker(workers: readonly TOpsWorker[], worker: TOpsWorker)
 
 export type TOpsRealtimeFilter = { scripts?: readonly TRunScript[] | null; failedOnly: boolean };
 
-/** 지금 걸러 보기에 맞는 행인가 — `fetchRuns` 가 서버에서 거르는 것과 같은 규칙(실패만 = failed·partial·중단된 듯). */
+/** 지금 걸러 보기에 맞는 행인가 — `fetchRuns` 가 서버에서 거르는 것과 같은 규칙(실패만 = failed·partial·중단된 듯, 사람이 멈춘 것은 뺀다). */
 export function runMatchesFilter(run: TPipelineRun, filter: TOpsRealtimeFilter, nowMs: number): boolean {
   if (filter.scripts && filter.scripts.length > 0 && !filter.scripts.includes(run.script)) return false;
   if (!filter.failedOnly) return true;
   const state = runState(run, nowMs);
-  return state === 'failed' || state === 'partial' || state === 'stalled';
+  if (state === 'failed') return runOutcome(run, nowMs).kind !== 'stopped';
+  return state === 'partial' || state === 'stalled';
 }
 
 const startedMs = (run: Pick<TPipelineRun, 'started_at'>) => {

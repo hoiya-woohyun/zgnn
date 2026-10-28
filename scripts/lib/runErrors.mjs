@@ -7,6 +7,8 @@ export const RUN_ERROR = Object.freeze({
   claudeLimit: 'Claude 한도',
   dbWrite: 'DB 쓰기 실패',
   sigint: '중단(SIGINT)',
+  /** 상주 워커가 `kill`·OS 종료로 받은 SIGTERM — 사람이 Ctrl+C 로 멈춘 것과 화면이 가른다 */
+  sigterm: '중단(SIGTERM)',
   /** 끝 기록 없이 심장이 멎은 실행을 다음 실행이 닫을 때(`runLog.closeLostRuns`) — 실패가 아니라 "기록이 끊겼다" 다 */
   lost: '기록 없이 끝남',
   unknown: '알 수 없음',

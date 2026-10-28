@@ -126,7 +126,12 @@ export async function beginRun(client, { script, args = null }, { now = Date.now
       if (ended || now() - lastBeat < HEARTBEAT_MS) return;
       lastBeat = now();
       try {
-        await client.from('pipeline_runs').update({ heartbeat_at: new Date(lastBeat).toISOString() }).eq('id', id);
+        // 상태도 함께 "도는 중" 으로 적는다 — 노트북 덮개처럼 30분 넘게 잠든 사이 다른 실행이 이 행을 '기록 없이 끝남' 으로 닫았을 수 있다(`closeLostRuns`).
+        // 이 프로세스가 tick 을 부른다는 것 자체가 살아 있고 아직 끝내지 않았다는 증거라(끝내면 `ended` 로 멈춘다) 덮어써도 남의 끝을 지우지 않는다.
+        await client
+          .from('pipeline_runs')
+          .update({ heartbeat_at: new Date(lastBeat).toISOString(), status: 'running', error: null, ended_at: null })
+          .eq('id', id);
       } catch {
         /* 심장 한 번 놓친 것 — 화면이 10분을 기다리므로 다음 tick 이 메운다 */
       }

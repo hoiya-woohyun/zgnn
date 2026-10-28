@@ -22,6 +22,7 @@ import {
   type TReviewStats,
   type TUsageTotals,
 } from './runSummary';
+import { RUN_ERROR } from '../../scripts/lib/runErrors.mjs';
 
 export type TRunScript = 'collect' | 'analyze' | 'apply' | 'approve' | 'reject';
 
@@ -142,6 +143,7 @@ export type TRunsQuery = {
   scripts?: readonly TRunScript[];
   /**
    * 일이 잘못된 행만 — `failed`·`partial`, 그리고 `heartbeat_at` 이 `stalledBefore` 보다 오래된 `running`(중단된 듯).
+   * 사람이 멈춘 실행(`중단(SIGINT)`·`중단(SIGTERM)`)은 `failed` 로 저장돼도 빼낸다 — 화면은 그것을 실패라고 부르지 않는다(`runOutcome` 의 stopped).
    * 중단된 듯은 저장된 상태가 아니라 계산한 상태라 기준 시각을 부르는 쪽이 준다(임계값은 `adminOpsHealth` 가 가진다).
    */
   failedOnly?: { stalledBefore: string };
@@ -149,6 +151,9 @@ export type TRunsQuery = {
   before?: string;
   limit?: number;
 };
+
+/** 사람·신호가 멈춘 실행의 분류 문구 — PostgREST `in.(…)` 목록. 괄호가 든 값이라 큰따옴표로 감싼다. */
+const STOPPED_ERRORS_SQL = [RUN_ERROR.sigint, RUN_ERROR.sigterm].map((error) => `"${error}"`).join(',');
 
 /**
  * 실행 기록 한 장(최신순). 비운영자에게 RLS 는 에러가 아니라 0행을 주지만, 이 화면은 그 전에 `is_operator` 로 갈라 둔다.
@@ -159,7 +164,8 @@ export async function fetchRuns(client: SupabaseClient, query: TRunsQuery = {}):
   if (query.failedOnly) {
     request = request.or(
       // 심장이 null 인 running(옛 행·손으로 넣은 행)은 `runState` 가 시작 시각으로 판정한다 — SQL 의 `null < x` 는 거짓이라 같은 갈래를 따로 둔다.
-      `status.in.(failed,partial),and(status.eq.running,or(heartbeat_at.lt.${query.failedOnly.stalledBefore},and(heartbeat_at.is.null,started_at.lt.${query.failedOnly.stalledBefore})))`,
+      // `error` 가 null 인 failed(크래시)는 남겨야 한다 — `not.in` 은 null 을 거짓으로 걸러 버린다.
+      `status.eq.partial,and(status.eq.failed,or(error.is.null,error.not.in.(${STOPPED_ERRORS_SQL}))),and(status.eq.running,or(heartbeat_at.lt.${query.failedOnly.stalledBefore},and(heartbeat_at.is.null,started_at.lt.${query.failedOnly.stalledBefore})))`,
     );
   }
   if (query.before) request = request.lt('started_at', query.before);

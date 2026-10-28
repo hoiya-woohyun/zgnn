@@ -112,9 +112,18 @@ export function liveStatus({ workers, runsLatest, requestsQueued, oldestRequestA
   const last = lastRunText(runsLatest, nowMs);
   const staleAgo = staleRequestAgo(oldestRequestAt, nowMs);
   if (staleAgo) {
-    // 요청이 오래 그대로다 — 아무도 안 가져간 것이다. 서버 빌드면 이어 돌리기 줄이 버튼을 갖고 있을 때가 많다(그땐 그 줄이 말한다).
-    const ask = remote ? (resumeShown ? null : '분석을 다시 요청하면 서버가 받아요') : '터미널에서 pnpm data 를 켜 주세요';
-    return { tone: 'warn', headline: `분석 요청이 ${staleAgo}부터 그대로예요`, detail: join('아무도 안 가져갔어요', ask), ...none };
+    // 요청이 오래 그대로다. "아무도 안 가져갔다" 고 단정하지 않는다 — 가져갔는데 글마다 다시 실패해 남은 것(analyzed_at 이 비어 있다)과 이 숫자로는 갈리지 않는다.
+    // 할 일은 누가 받을 수 있는지로 고른다. 분석 버튼을 또 누르라고 하지 않는다 — 안 읽힐 요청이 한 줄 더 쌓일 뿐이다(nextStepText 'requestStale').
+    // 서버 빌드는 밑의 이어 돌리기 줄이 버튼을 들고 있을 때가 많다 — 그땐 그 줄이 말한다.
+    const ask =
+      local.state === 'alive'
+        ? 'PC 워커가 켜져 있는데 안 읽혀요 — 터미널 로그를 봐 주세요'
+        : remote
+          ? resumeShown
+            ? null
+            : '터미널에서 pnpm data 로도 읽을 수 있어요'
+          : '터미널에서 pnpm data 를 켜 주세요';
+    return { tone: 'warn', headline: `분석 요청이 ${staleAgo}부터 그대로예요`, detail: ask, ...none };
   }
   if (queued) {
     // 막 들어온 요청 — 서버가 받는 빌드면 깨우는 사이(수 초)이거나 못 깨운 것(깨우기 실패 줄이 따로 말한다), 또는 사슬이 쉰 것(이어 돌리기 줄이 말한다).

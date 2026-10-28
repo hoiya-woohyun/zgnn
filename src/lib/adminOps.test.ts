@@ -71,7 +71,8 @@ describe('fetchRuns', () => {
     expect(calls).toContainEqual(['in', 'script', ['approve', 'reject']]);
     expect(calls).toContainEqual([
       'or',
-      'status.in.(failed,partial),and(status.eq.running,or(heartbeat_at.lt.2026-10-06T00:00:00.000Z,and(heartbeat_at.is.null,started_at.lt.2026-10-06T00:00:00.000Z)))',
+      // 사람·신호가 멈춘 failed 는 빼고, error 가 null 인 크래시는 남긴다
+      'status.eq.partial,and(status.eq.failed,or(error.is.null,error.not.in.("중단(SIGINT)","중단(SIGTERM)"))),and(status.eq.running,or(heartbeat_at.lt.2026-10-06T00:00:00.000Z,and(heartbeat_at.is.null,started_at.lt.2026-10-06T00:00:00.000Z)))',
     ]);
     expect(calls).toContainEqual(['lt', 'started_at', '2026-10-05T00:00:00.000Z']);
     expect(calls.at(-1)).toEqual(['limit', 10]);

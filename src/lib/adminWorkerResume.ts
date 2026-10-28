@@ -16,7 +16,7 @@ import { REMOTE_WORKER_HOST, type TWakeResult } from './adminWorkerWake';
 import { RUN_ERROR } from '../../scripts/lib/runErrors.mjs';
 
 /**
- * 깨우기 한 번이 읽는 글의 상한 — `scripts/lib/workerRemote.mjs` 의 `MAX_HOPS`(4) × `HOP_ANALYZE_CAP`(5). 앱은 scripts 를 import 하지 않아 값을 한 번 더 적는다.
+ * 깨우기 한 번이 읽는 글의 상한 — `scripts/lib/workerRemote.mjs` 의 `MAX_HOPS`(4) × `HOP_ANALYZE_CAP`(5). workerRemote.mjs 는 서버 전용 의존을 끌어와 화면이 import 하지 않고 값을 한 번 더 적는다.
  * 홉마다 시간 예산(T11)이 글을 더 일찍 끊을 수 있어 "까지" 로만 말한다.
  */
 export const WAKE_BATCH_POSTS = 4 * 5;

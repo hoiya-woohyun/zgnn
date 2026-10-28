@@ -195,7 +195,9 @@ export async function main(argv, { mode, runStep }) {
     if (closing) return;
     closing = true;
     clearInterval(pollTimer);
-    await Promise.race([Promise.all([cycle.abortRun(RUN_ERROR.sigint), heartbeat.close(), realtime?.close()]), sleep(SHUTDOWN_WAIT_MS)]);
+    // 143 은 SIGTERM(kill·OS 종료) — 사람이 멈춘 것(SIGINT)과 운영 현황이 가른다(`runOutcome`).
+    const abortError = code === 143 ? RUN_ERROR.sigterm : RUN_ERROR.sigint;
+    await Promise.race([Promise.all([cycle.abortRun(abortError), heartbeat.close(), realtime?.close()]), sleep(SHUTDOWN_WAIT_MS)]);
     log(`워커 끝(${heartbeat.host})`);
     process.exit(code);
   };

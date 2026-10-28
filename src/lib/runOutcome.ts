@@ -35,10 +35,10 @@ export function runState(run: Pick<TPipelineRun, 'status' | 'heartbeat_at' | 'st
  * - `running` 도는 중
  * - `ok` 끝
  * - `partial` 끝났는데 일부는 다음 실행 몫(분석의 건너뛴 글은 `analyzed_at` 이 비어 다음 실행이 다시 읽는다)
- * - `stopped` 사람이 멈춤(Ctrl+C) — 실패가 아니다
+ * - `stopped` 사람이 멈춤(Ctrl+C) 또는 종료 신호(SIGTERM — `kill`·OS 종료) — 실패가 아니다
  * - `limit` Claude 한도로 멈춤 — 리셋 뒤 다시 돌리면 남은 것부터
  * - `failed` 정말 실패(인증·DB 쓰기·429·모름)
- * - `lost` 끝 기록 없이 중간에 끊김(심장이 멎었다)
+ * - `lost` 끝 기록 없이 중간에 끊김(심장이 멎었다). 아직 `running` 으로 남은 행(10~30분)은 추측이라 "중단된 듯" 이라고만 한다(`settled` false)
  * - `unclosed` 진행은 끝까지 찼는데 끝 기록 없이 멈춤(서버 함수가 `end` 직전에 잘렸다). 진행 뒤에 마무리 쓰기가 남는 스크립트가 있어
  *   "다 했다" 고 단정하지 않는다 — 분석은 안 읽힌 글을 다음 실행이 다시 읽고, 수집은 저장을 한 칸으로 세어 저장 전이면 n/n 이 안 된다.
  */
@@ -53,6 +53,8 @@ export type TRunOutcome = {
   text: string;
   /** 진행 위치 "12/40" — 진행을 안 적은 실행(옛 행·반영)은 null */
   where: string | null;
+  /** 끝이 기록됐나 — false 면 아직 `running` 인 행을 심장으로 추측한 것이다(도는 중이거나 멎은 듯) */
+  settled: boolean;
   /** 끝난(멎은) 시각 — 끝 기록이 없으면 마지막 심장 */
   at: string;
 };
@@ -104,7 +106,7 @@ function kindOf(run: TPipelineRun, nowMs: number): TRunOutcomeKind {
     const step = stepOf(run);
     return step && step.done >= step.total ? 'unclosed' : 'lost';
   }
-  if (run.error === RUN_ERROR.sigint) return 'stopped';
+  if (run.error === RUN_ERROR.sigint || run.error === RUN_ERROR.sigterm) return 'stopped';
   if (run.error === RUN_ERROR.claudeLimit) return 'limit';
   return 'failed';
 }
@@ -123,15 +125,19 @@ export function runOutcome(run: TPipelineRun, nowMs: number): TRunOutcome {
   const step = stepOf(run);
   const where = step ? `${step.done.toLocaleString('ko-KR')}/${step.total.toLocaleString('ko-KR')}` : null;
   const at = kind === 'lost' || kind === 'unclosed' || !run.ended_at ? heartbeatOf(run) : run.ended_at;
+  const settled = run.status !== 'running';
+  const byTerm = run.error === RUN_ERROR.sigterm;
   const text: Record<TRunOutcomeKind, () => string> = {
     running: () => (where ? `${where} 하는 중` : '도는 중'),
     ok: () => '끝',
     partial: () => partialText(run),
-    stopped: () => (where ? `${where}에서 사람이 멈춤` : '사람이 멈춤'),
+    stopped: () => `${where ? `${where}에서 ` : ''}${byTerm ? '종료 신호로 멈춤' : '사람이 멈춤'}`,
     limit: () => `${where ? `${where}에서 ` : ''}Claude 한도로 멈춤 — 리셋 뒤 다시 돌리면 남은 것부터`,
     failed: () => `${where ? `${where}에서 ` : ''}실패 — ${run.error && run.error !== RUN_ERROR.unknown ? run.error : '원인은 터미널·함수 로그에'}`,
-    lost: () => (where ? `${where}에서 끊김` : '중간에 끊김'),
-    unclosed: () => `${where ? `${where}까지 하고 ` : ''}끝 기록 없이 멈춤 — 남은 일은 다음 실행이 이어요`,
+    lost: () => `${where ? `${where}에서 ` : '중간에 '}${settled ? '끊김' : '멎은 듯'}`,
+    // 진행이 끝까지 찬 옛 행 — 지금 스크립트는 마무리(분석)·저장(수집)을 마지막 칸으로 세어 끝 기록 전에는 n/n 이 안 된다.
+    unclosed: () => `${where ? `${where}까지 하고 ` : ''}끝 기록 없이 멈춤 — 마무리 중이었을 수 있어요`,
   };
-  return { kind, tone: TONE[kind], label: LABEL[kind], text: text[kind](), where, at };
+  const label = kind === 'lost' && !settled ? '중단된 듯' : kind === 'stopped' && byTerm ? '멈춤(종료 신호)' : LABEL[kind];
+  return { kind, tone: TONE[kind], label, text: text[kind](), where, at, settled };
 }

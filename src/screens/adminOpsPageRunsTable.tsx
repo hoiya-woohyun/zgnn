@@ -99,12 +99,12 @@ function AdminOpsPageRunRow({
       {state === 'stalled' ? (
         outcome.kind === 'unclosed' ? (
           <p className="px-4 pb-2 text-xs text-tertiary">
-            {outcome.text}({agoLabel(outcome.at, nowMs)}) — 진행은 끝까지 찼으니 다시 돌릴 일은 없어요. 다음 실행이 서면 이 줄을 닫아요.
+            {outcome.text}({agoLabel(outcome.at, nowMs)}). 다음 실행이 설 때 이 줄을 닫아요.
           </p>
         ) : (
           <p className="px-4 pb-2 text-xs text-error-primary">
             {outcome.text} — 생존 신호(심장)가 {agoLabel(outcome.at, nowMs)} 끊겼어요. 프로그램이 죽었으면 그냥 다시 돌리면 돼요(죽은 실행의 잠금은 새 실행이
-            이어받고, 이 줄은 30분 뒤 다음 실행이 「중간에 끊김」 으로 닫아요). 살아 있는데 멎어 있으면 그 프로그램을 끊고 다시 돌려 주세요.
+            이어받고, 심장이 30분 넘게 멎었으면 다음 실행이 설 때 이 줄을 닫아요). 살아 있는데 멎어 있으면 그 프로그램을 끊고 다시 돌려 주세요.
           </p>
         )
       ) : null}

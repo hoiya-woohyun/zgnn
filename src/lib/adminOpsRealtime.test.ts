@@ -93,6 +93,9 @@ describe('runMatchesFilter', () => {
     expect(runMatchesFilter(run(), filter, NOW)).toBe(false);
     expect(runMatchesFilter(run({ status: 'failed' }), filter, NOW)).toBe(true);
     expect(runMatchesFilter(run({ heartbeat_at: ago(30 * MIN) }), filter, NOW)).toBe(true);
+    // 사람이 멈춘 것(Ctrl+C·종료 신호)은 실패가 아니다 — fetchRuns 의 서버 거르기와 같은 규칙
+    expect(runMatchesFilter(run({ status: 'failed', error: '중단(SIGINT)' }), filter, NOW)).toBe(false);
+    expect(runMatchesFilter(run({ status: 'failed', error: '중단(SIGTERM)' }), filter, NOW)).toBe(false);
   });
 });
 

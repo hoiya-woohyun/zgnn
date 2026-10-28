@@ -79,7 +79,14 @@ describe('tick — 60초에 한 번만 쓴다', () => {
     await run.tick();
     await run.tick();
     expect(client.calls.update).toHaveLength(1);
-    expect(client.calls.update[0]).toMatchObject({ patch: { heartbeat_at: new Date(60_000).toISOString() }, col: 'id', value: run.id });
+    // 상태도 도는 중으로 다시 적는다 — 잠든 사이 다른 실행이 '기록 없이 끝남' 으로 닫았으면 깨어난 심장이 되살린다(closeLostRuns)
+    expect(client.calls.update[0]).toEqual({
+      table: 'pipeline_runs',
+      patch: { heartbeat_at: new Date(60_000).toISOString(), status: 'running', error: null, ended_at: null },
+      opts: undefined,
+      col: 'id',
+      value: run.id,
+    });
   });
 
   it('갱신이 던져도 삼킨다', async () => {

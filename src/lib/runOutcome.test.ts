@@ -41,22 +41,30 @@ describe('runOutcome — 저장된 status 넷을 "어떻게 끝났나" 여덟으
       text: '12/53에서 사람이 멈춤',
       where: '12/53',
     });
+    // 상주 워커가 kill·OS 종료로 받은 SIGTERM — 멈춘 것이지만 사람이 아니다
+    expect(runOutcome(run({ status: 'failed', error: '중단(SIGTERM)', progress }), NOW)).toMatchObject({ kind: 'stopped', label: '멈춤(종료 신호)', text: '12/53에서 종료 신호로 멈춤' });
     expect(runOutcome(run({ status: 'failed', error: 'Claude 한도' }), NOW)).toMatchObject({ kind: 'limit', tone: 'warn' });
     expect(runOutcome(run({ status: 'failed', error: 'DB 쓰기 실패', progress }), NOW)).toMatchObject({ kind: 'failed', tone: 'fail', text: '12/53에서 실패 — DB 쓰기 실패' });
     // '알 수 없음' 은 원인 대신 어디를 보면 되는지
     expect(runOutcome(run({ status: 'failed', error: '알 수 없음' }), NOW).text).toBe('실패 — 원인은 터미널·함수 로그에');
   });
 
-  it('끝 기록 없이 멎은 실행 — 진행이 덜 찼으면 끊김(실패), 끝까지 찼으면 끝 무렵 멈춤(할 일 없음). 끝 시각은 마지막 심장', () => {
+  it('끝 기록 없이 멎은 실행 — 진행이 덜 찼으면 끊김(실패), 끝까지 찼으면 끝 무렵 멈춤. 끝 시각은 마지막 심장', () => {
     const beat = ago(2 * 24 * 60 * MIN);
-    const lost = runOutcome(run({ status: 'running', ended_at: null, heartbeat_at: beat, progress: { done: 12, total: 40 } }), NOW);
-    expect(lost).toMatchObject({ kind: 'lost', tone: 'fail', text: '12/40에서 끊김', at: beat });
+    // 아직 running 으로 남은 행은 심장으로 추측한 것이라 단정하지 않는다
+    const stalled = runOutcome(run({ status: 'running', ended_at: null, heartbeat_at: beat, progress: { done: 12, total: 40 } }), NOW);
+    expect(stalled).toMatchObject({ kind: 'lost', tone: 'fail', label: '중단된 듯', text: '12/40에서 멎은 듯', at: beat, settled: false });
+    // 다음 실행이 닫은 행(closeLostRuns)은 끊긴 것이 확정이다
+    const closed = runOutcome(run({ status: 'failed', error: '기록 없이 끝남', ended_at: beat, heartbeat_at: beat, progress: { done: 12, total: 40 } }), NOW);
+    expect(closed).toMatchObject({ kind: 'lost', label: '중간에 끊김', text: '12/40에서 끊김', settled: true });
     // 2026-10-10 서버 워커 6e3179fa: 5/5 인데 running 으로 남았다
     const unclosed = runOutcome(run({ status: 'running', ended_at: null, heartbeat_at: beat, progress: { done: 5, total: 5 } }), NOW);
     expect(unclosed).toMatchObject({ kind: 'unclosed', tone: 'none', label: '끝 무렵 멈춤' });
     // 다음 실행이 닫은 행(`closeLostRuns`)도 같은 말이다 — status 가 failed 여도 실패로 읽지 않는다
     expect(runOutcome(run({ status: 'failed', error: '기록 없이 끝남', progress: { done: 5, total: 5 } }), NOW).kind).toBe('unclosed');
     expect(runOutcome(run({ status: 'failed', error: '기록 없이 끝남' }), NOW)).toMatchObject({ kind: 'lost', text: '중간에 끊김' });
+    // "다시 돌릴 일 없음" 이라고 하지 않는다 — 분석은 글을 다 읽은 뒤 마무리(제안·소개글)가 남아 있었을 수 있다
+    expect(unclosed.text).toBe('5/5까지 하고 끝 기록 없이 멈춤 — 마무리 중이었을 수 있어요');
   });
 
   it('진행은 모양을 믿지 않는다 — total 이 없거나 0 이면 위치를 말하지 않는다', () => {

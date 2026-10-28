@@ -72,13 +72,15 @@ describe('liveStatus', () => {
     expect(liveStatus(input({ requestsQueued: 2, remote: false }))).toMatchObject({ tone: 'warn', detail: '터미널에서 pnpm data 를 켜 주세요' });
   });
 
-  it('요청이 2시간 넘게 그대로면 "곧 받아요" 가 아니라 아무도 안 가져갔다고 말한다 — 운영 현황 분석 칸과 같은 기준', () => {
+  it('요청이 2시간 넘게 그대로면 "곧 받아요" 가 아니라 그대로라고 말하고, 누가 받을 수 있는지로 할 일을 고른다 — 운영 현황 분석 칸과 같은 기준', () => {
     // 2026-10-28 원격: 10-08 요청 1건이 20일째 queued 인데 머리글은 "서버 워커가 곧 받아요" 였다
-    const old = liveStatus(input({ requestsQueued: 1, oldestRequestAt: ago(20 * 86_400) }));
-    expect(old).toMatchObject({ tone: 'warn', headline: '분석 요청이 20일 전부터 그대로예요', detail: '아무도 안 가져갔어요 · 분석을 다시 요청하면 서버가 받아요' });
-    expect(liveStatus(input({ requestsQueued: 1, oldestRequestAt: ago(20 * 86_400), remote: false })).detail).toBe('아무도 안 가져갔어요 · 터미널에서 pnpm data 를 켜 주세요');
-    // 이어 돌리기 줄이 버튼을 들고 있으면 그 줄에 맡긴다
-    expect(liveStatus(input({ requestsQueued: 1, oldestRequestAt: ago(20 * 86_400), resumeShown: true })).detail).toBe('아무도 안 가져갔어요');
+    const stale = { requestsQueued: 1, oldestRequestAt: ago(20 * 86_400) };
+    expect(liveStatus(input(stale))).toMatchObject({ tone: 'warn', headline: '분석 요청이 20일 전부터 그대로예요', detail: '터미널에서 pnpm data 로도 읽을 수 있어요' });
+    expect(liveStatus(input({ ...stale, remote: false })).detail).toBe('터미널에서 pnpm data 를 켜 주세요');
+    // 이어 돌리기 줄이 버튼을 들고 있으면 그 줄에 맡긴다 — 분석 버튼을 또 누르라고 하지 않는다(안 읽힐 요청이 한 줄 더 쌓인다)
+    expect(liveStatus(input({ ...stale, resumeShown: true })).detail).toBeNull();
+    // PC 워커가 살아 있는데 그대로면 받을 이가 없는 게 아니다 — 켜 달라고 하지 않는다
+    expect(liveStatus(input({ ...stale, remote: false, workers: [worker({})] })).detail).toBe('PC 워커가 켜져 있는데 안 읽혀요 — 터미널 로그를 봐 주세요');
     // 막 들어온 요청은 그대로 "곧 받아요", 칸이 없는 옛 원격(undefined)은 나이를 보지 않는다
     expect(liveStatus(input({ requestsQueued: 1, oldestRequestAt: ago(60) })).detail).toBe('서버에서 곧 받아요');
     expect(liveStatus(input({ requestsQueued: 1 })).detail).toBe('서버에서 곧 받아요');
@@ -120,9 +122,9 @@ describe('lastRunText', () => {
     expect(text).toEqual({ text: '분석 끝(일부는 다음에)', ago: '2분 전', tone: 'none' });
   });
 
-  it('심장이 멎은 running 은 마지막 심장에 끝난 것으로 치고, 어디서 끊겼는지 말한다', () => {
+  it('심장이 멎은 running 은 마지막 심장에 끝난 것으로 치고, 어디서 멎었는지 말한다(아직 닫히지 않아 단정하지 않는다)', () => {
     const dead = run({ heartbeat_at: ago(3600), started_at: ago(4000), progress: { done: 12, total: 40 } });
-    expect(lastRunText({ analyze: dead }, NOW)).toEqual({ text: '분석 12/40에서 끊김', ago: '1시간 전', tone: 'fail' });
+    expect(lastRunText({ analyze: dead }, NOW)).toEqual({ text: '분석 12/40에서 멎은 듯', ago: '1시간 전', tone: 'fail' });
   });
 });
 

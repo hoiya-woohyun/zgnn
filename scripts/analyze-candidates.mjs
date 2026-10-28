@@ -773,7 +773,9 @@ async function analyze(argv, args, { onRateLimit, onDeadline, nonInteractive = f
     }
     await run.tick(); // 60초에 한 번만 실제로 쓴다 — 죽으면 이 값이 멎어 화면이 "중단된 듯" 을 읽는다
     // 어디까지 왔나 — 5초에 한 번만 쓴다. 제목 앞 20자(후보에 이미 이름이 있는 글이라 지울 이유가 없다, docs/todo/17 T3.3).
-    await run.progress({ done: index, total: posts.length, current: post.title ? post.title.slice(0, 20) : null });
+    // total 은 글 수 + 1 — 루프 뒤 마무리(분석 불가 닫기 · 제안 · 묶음 소개글)가 한 칸이다. 글만 다 읽고 마무리 중에 죽은 실행이 n/n 으로 보이면
+    // 운영 현황이 "다 했다" 로 읽는다(그 실행의 제안·소개글은 다음 실행이 다시 만들지 않는다 — `runOutcome` 의 unclosed).
+    await run.progress({ done: index, total: posts.length + 1, current: post.title ? post.title.slice(0, 20) : null });
     console.log(`글 ${post.url} (${post.title ?? '제목 없음'})`);
     try {
       if (!prepared.ok) throw prepared.error;
@@ -978,7 +980,7 @@ async function analyze(argv, args, { onRateLimit, onDeadline, nonInteractive = f
   // 네이버 fatal(뒤 절반)로 끊겼으면 떠 있던 추출과 먼저 끝나 쌓아 둔 결과는 버려진다(다음 실행이 다시 읽는다) — 최대 `lookaheadFor(--concurrency)` − 1 건, 받아들인 값이다.
   await prefetch.settle();
   // 막대의 마지막 값 — 5초 스로틀을 건너뛴다(안 그러면 "11/12" 에 멈춘 채 끝난다). 끊긴 실행은 손댄 글 수까지만.
-  await run.progress({ done: processed, total: posts.length, current: null }, { force: true });
+  await run.progress({ done: processed, total: posts.length + 1, current: '마무리(제안·소개글)' }, { force: true });
 
   // "분석 불가" 닫기 — 성공이 1건이라도 있어야 파이프라인이 살아 있다는 증거다. 아니면 글이 아니라 구조가 고장 난 것이니 닫지 않는다.
   // 예외는 글 자체가 원인으로 확실한 것(`sure` — 너무 긴 글)뿐이다.
