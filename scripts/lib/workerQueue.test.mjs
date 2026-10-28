@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PEER_FRESH_MS, closeRequests, isSchemaMissing, localWorkerAlive, remoteWorkerBusy, takeRequests } from './workerQueue.mjs';
+import { PEER_FRESH_MS, closeRequests, isSchemaMissing, localWorkerAlive, remoteWorkerBusy, settleAnalyzeRequests, takeRequests } from './workerQueue.mjs';
 
 /** `from('pipeline_requests').update(patch).in('id', ids)` · `.eq('id', id)` 모양만. */
 function fakeClient(error = null) {
@@ -115,5 +115,59 @@ describe('closeRequests — 요청 행 쓰기는 fail-soft', () => {
     ]);
     expect(lines).toHaveLength(1);
     expect(lines[0]).toMatch(/요청 b 가 3번 돌지 못해 done/);
+  });
+});
+
+describe('settleAnalyzeRequests — 터미널 분석이 채운 「지금 분석」 요청을 닫는다', () => {
+  /** select…eq…eq…order 와 update…eq…eq…select 모양만. `won` 이 false 인 id 는 그 사이 워커가 집은 것(0행). */
+  function settleClient({ rows = [], selectError = null, lost = new Set() } = {}) {
+    const calls = { select: [], update: [] };
+    return {
+      calls,
+      from: () => ({
+        select: () => {
+          const record = [];
+          calls.select.push(record);
+          const link = {
+            eq: (col, value) => (record.push(['eq', col, value]), link),
+            order: async (col, opts) => (record.push(['order', col, opts]), { data: selectError ? null : rows, error: selectError }),
+          };
+          return link;
+        },
+        update: (patch) => {
+          const entry = { patch, eq: [] };
+          calls.update.push(entry);
+          const link = {
+            eq: (col, value) => (entry.eq.push([col, value]), link),
+            select: async () => {
+              const id = entry.eq.find(([col]) => col === 'id')?.[1];
+              return { data: lost.has(id) ? [] : [{ id }], error: null };
+            },
+          };
+          return link;
+        },
+      }),
+    };
+  }
+
+  it('오래된 것부터, 분석한 글 수로 다 채울 수 있는 요청만 닫고 실행 id 를 잇는다', async () => {
+    const client = settleClient({ rows: [{ id: 'a', args: { limit: 10 } }, { id: 'b', args: { limit: 30 } }, { id: 'c', args: { limit: 5 } }] });
+    expect(await settleAnalyzeRequests(client, { analyzed: 25, runId: 'run-1' })).toBe(1);
+    expect(client.calls.select[0]).toEqual([
+      ['eq', 'kind', 'analyze'],
+      ['eq', 'status', 'queued'],
+      ['order', 'requested_at', { ascending: true }],
+    ]);
+    // b(30) 를 못 채우면 거기서 멈춘다 — 순서를 건너뛰어 c 를 닫지 않는다(뒤의 것이 앞의 것보다 먼저 끝난 것처럼 보이지 않게)
+    expect(client.calls.update).toEqual([{ patch: { status: 'done', run_id: 'run-1' }, eq: [['id', 'a'], ['status', 'queued']] }]);
+  });
+
+  it('그 사이 워커가 집은 줄은 건너뛰고 건수도 쓰지 않는다 · 0건·오류는 아무것도 안 한다', async () => {
+    const client = settleClient({ rows: [{ id: 'a', args: { limit: 10 } }, { id: 'b', args: { limit: 10 } }], lost: new Set(['a']) });
+    expect(await settleAnalyzeRequests(client, { analyzed: 10 })).toBe(1);
+    expect(client.calls.update.map((entry) => entry.patch)).toEqual([{ status: 'done' }, { status: 'done' }]);
+    expect(await settleAnalyzeRequests(settleClient({ rows: [{ id: 'a' }] }), { analyzed: 0 })).toBe(0);
+    expect(await settleAnalyzeRequests(settleClient({ selectError: { message: 'denied' } }), { analyzed: 50 })).toBe(0);
+    expect(await settleAnalyzeRequests({ from: () => { throw new Error('network'); } }, { analyzed: 50 })).toBe(0);
   });
 });

@@ -1,6 +1,7 @@
 # ADR-024 — 수집·분석·반영은 터미널에 상주하는 로컬 워커 하나가 DB 를 보고 돈다. 큐는 새로 만들지 않고 기존 표의 상태 칸이고, 진행 상태는 표 하나·칸 하나로 화면에 실시간으로 비친다
 
-> 최종 수정: 2026-10-13 (v4: 결정 6 의 "도는 동안 보는 화면" 은 `/admin` 머리글의 실시간 한 줄 몫이 됐다 — 운영 현황은 같은 줄을 그리되 기간에 걸친 건강·기록을 보는 화면이다([todo/15 T8](../todo/15-ops-dashboard.md)))
+> 최종 수정: 2026-10-28 (v5: 결정 2 보완 — **터미널에서 직접 돌린 저수지 분석도 「지금 분석」 요청을 닫는다.** 요청은 워커만 집으므로, 서버 사슬이 끊긴 뒤(10-10 함수가 끝 기록 전에 죽었다) 운영자가 터미널에서 `pnpm data analyze --limit` 로 같은 일을 아홉 번 해도 10-08 요청이 20일 queued 로 남았다. 직접 실행(워커 훅 없음 · `--requested-only`·`--dry-run` 아님 · 실패 아님)이 끝나면 분석한 글 수로 오래된 요청부터 그 건수를 다 채울 수 있는 것만 `done`(+ `run_id`)으로 닫는다 — `workerQueue.settleAnalyzeRequests`)
+> 이전 2026-10-13 (v4: 결정 6 의 "도는 동안 보는 화면" 은 `/admin` 머리글의 실시간 한 줄 몫이 됐다 — 운영 현황은 같은 줄을 그리되 기간에 걸친 건강·기록을 보는 화면이다([todo/15 T8](../todo/15-ops-dashboard.md)))
 > 이전 2026-10-08 (v3: 「하지 않은 것」 첫 줄의 Vercel 부분을 [ADR-028](ADR-028-vercel-remote-worker.md) 로 번복 — `setup-token` 으로 함수 안 `claude -p` 가 돈다(실측). 결정 3 의 터미널 상주는 실행기 둘 중 하나가 됐다)
 > 이전 2026-10-07 (v2: 리뷰 18 — `/admin` 승인은 approved 를 거치지 않고, apply 는 막 승인된 행을 60초 묵힌다. 쌍둥이 장소 경쟁)
 > 이전 2026-10-07 (v1: 결정. 구현은 [docs/todo/17](../todo/17-local-worker.md) 가 추적한다)
@@ -28,7 +29,7 @@ candidates.status = 'approved'       → 반영할 것        (analyze 가 auto 
 
 1. **진입점은 `pnpm data <하위 명령>` 하나다.** `package.json` 의 `data:*` 13줄은 `"data": "node … scripts/data.mjs"` 한 줄이 된다. 하위 명령: `(없음)` = 상주 워커 · `once` = 한 바퀴 · `collect` / `analyze` / `apply` = 단계 하나(디버깅·수동) · `login` / `logout` · `pull`(Vercel `buildCommand` 가 부른다) · `eval …`. 죽은 다섯(`fetch-images` · `optimize-images` · `homepage` · `review` · `seed`/`normalize` 의 스크립트 줄)은 지운다 — `seed-db.mjs` · `normalize.mjs` **파일**은 재해복구용으로 남기고 `node scripts/…` 로 직접 부른다. 기존 `collect-blog.mjs` 등은 옮기지 않고 **함수를 export** 해 `data.mjs` 가 import 한다 — 진입점만 모으는 것이지 코드를 옮기는 것이 아니다.
 2. **큐를 새로 만들지 않는다.** 워커가 보는 큐는 위 세 상태 칸이다. 새로 더하는 것은 셋뿐이다.
-   - `pipeline_requests` 표 — "**지금** 돌려 줘" 라는 사람의 의도. `kind`(collect/analyze/apply) · `args`(limit 같은 플래그 이름·수만) · `status`(queued/taken/done) · `run_id`. `/admin` 의 「지금 분석」 버튼이 한 줄 넣고 워커가 집는다. 이것만은 상태 칸으로 표현할 자리가 없다(저수지의 글 N건을 "이번에" 읽으라는 말이라).
+   - `pipeline_requests` 표 — "**지금** 돌려 줘" 라는 사람의 의도. `kind`(collect/analyze/apply) · `args`(limit 같은 플래그 이름·수만) · `status`(queued/taken/done) · `run_id`. `/admin` 의 「지금 분석」 버튼이 한 줄 넣고 워커가 집는다. 터미널에서 직접 돌린 저수지 분석이 그 건수를 채웠으면 그 실행이 닫는다(v5 — 안 그러면 일은 끝났는데 요청이 영영 남는다). 이것만은 상태 칸으로 표현할 자리가 없다(저수지의 글 N건을 "이번에" 읽으라는 말이라).
    - `workers` 표 — 기기당 한 행. `host` · `last_seen_at` · `phase`(idle / collect / analyze / apply / login-needed / rate-limited) · `run_id`. 화면이 "로컬 워커 · 살아 있음(3초 전) · 분석 중" 또는 "워커 없음 — `pnpm data` 를 켜 주세요" 를 그리는 근거다.
    - `pipeline_runs.progress` jsonb 칸 — `{done, total, current}` 를 5초마다. `heartbeat_at`(60초, 건강 판정용)과 역할이 다르다 — 하나는 "살아 있나", 하나는 "어디까지 왔나".
 3. **워커는 터미널에 상주한다**(`pnpm data`). (v3: 실행기 둘 중 하나다 — 다른 하나는 버튼이 깨우는 서버 워커, [ADR-028](ADR-028-vercel-remote-worker.md). 둘은 `workers` 심장으로 비킨다.) launchd·cron·Actions 가 아니다. 깨우는 길은 셋이고 **전부 같은 `wake()` 를 부른다** — Realtime 구독(`postgres_changes`, ~1초) 이 주, 60초 폴링이 안전망, 하루 한 번 타이머(09:00 KST)가 키워드 정기 수집. `wake()` 는 "도는 중이면 끝난 뒤 한 번 더" 로 디바운스하고, 한 바퀴는 collect(요청만) → analyze → apply 순이다. 세 길이 겹쳐 불러도 멱등이라 중복은 비용이 아니라 안전망이다. `runLock` 은 그대로 — 워커 둘(또는 워커 + 손 실행)이 analyze 를 겹치지 않게.

@@ -95,6 +95,7 @@ import { naverKeyPairProblem } from './lib/naverKeyFormat.mjs';
 import { readHidden, restoreTtyOnExit } from './lib/readHidden.mjs';
 import { readNaverCalls } from './lib/naverSearchApi.mjs';
 import { argFlags, beginRun, classifyRunError, NO_RUN, RUN_ERROR } from './lib/runLog.mjs';
+import { settleAnalyzeRequests } from './lib/workerQueue.mjs';
 import { acquireRunLock } from './lib/runLock.mjs';
 import { createSupabase } from './lib/supabaseClient.mjs';
 import { notExcluded, probeExcludedAt } from './lib/postExclusion.mjs';
@@ -1144,6 +1145,11 @@ async function analyze(argv, args, { onRateLimit, onDeadline, nonInteractive = f
   const failedReason =
     fatalError?.name === 'ClaudeCliError' && fatalError.code === 'auth' ? RUN_ERROR.claudeAuth : rateLimited && !fatal ? RUN_ERROR.claudeLimit : classifyRunError(fatalError);
   await run.end({ status: failedRun ? 'failed' : stats.skipped > 0 ? 'partial' : 'ok', stats: runStats, error: failedRun ? failedReason : null });
+  // 터미널에서 직접 돌린 저수지 분석이면(워커는 `onRateLimit` 훅을 넘긴다 — 요청은 워커가 집고 닫는다) 그만큼 채운 「지금 분석」 요청을 닫는다.
+  if (!onRateLimit && !dryRun && !requestedOnly && !failedRun) {
+    const settled = await settleAnalyzeRequests(supabase, { analyzed: stats.analyzed, runId: run.id });
+    if (settled > 0) console.log(`「지금 분석」 요청 ${settled}건을 이 실행이 채워 닫았어요`);
+  }
   const limitHit = rateLimited ?? synthLimited;
   if (limitHit) onRateLimit?.(limitHit.message);
   return failedRun ? 1 : 0;

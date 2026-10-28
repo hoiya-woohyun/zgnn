@@ -2,6 +2,7 @@
 // 큐는 대부분 기존 표의 상태 칸이다(ADR-024 결정 2) — 새 표는 `pipeline_requests` 하나. 수만 세는 질의는 `head: true` 로 행을 받지 않는다.
 import { settledApprovedFilter } from '../analyze/applyApproved.mjs';
 import { isTableMissing } from './collectRequests.mjs';
+import { requestLimit } from './workerLoop.mjs';
 
 /** 표나 칸이 원격에 없나(마이그레이션 미적용). 칸 없음은 Postgres 42703 · PostgREST 가 schema cache 를 말하는 꼴. */
 export function isSchemaMissing(error) {
@@ -87,6 +88,45 @@ export async function closeRequests(client, rows, decide, warn = (line) => conso
     if (gaveUp) warn(`⚠️ 요청 ${row.id} 가 ${patch.args?.attempts}번 돌지 못해 done 으로 닫는다 — 터미널의 앞선 줄(잠금·키·세션)을 보고 /admin 에서 다시 넣는다`);
     const { error } = await client.from('pipeline_requests').update(patch).eq('id', row.id);
     if (error) warn(`⚠️ 요청 ${row.id} 를 ${patch.status} 로 못 적음 — ${error.message}`);
+  }
+}
+
+/**
+ * 터미널에서 **직접** 돌린 분석(`pnpm data analyze --limit N` — 워커 밖)이 「지금 분석」 요청 몫을 해냈으면 그 요청을 닫는다.
+ * 요청은 상주 워커·서버 워커만 집으므로, 서버 사슬이 끊긴 뒤 운영자가 터미널에서 같은 일을 해도 요청은 queued 로 남아
+ * `/admin` 이 "분석 요청이 20일 전부터 그대로예요" 라고 말한다(2026-10: 10-08 요청이 10-12 의 터미널 분석 아홉 번 뒤에도 남았다).
+ * 오래된 것부터, 그 요청의 건수(`requestLimit`)를 이번 실행이 분석한 글 수로 다 채울 수 있을 때만 닫는다 — 덜 했으면 그대로 둔다(워커가 마저 한다).
+ * 집기와 같은 원자성: `status = queued` 일 때만 바꾸고 돌아온 행으로 이겼는지 안다(그 사이 워커가 집었으면 건드리지 않는다). 실패는 삼킨다(fail-soft).
+ * @returns {Promise<number>} 닫은 요청 수
+ */
+export async function settleAnalyzeRequests(client, { analyzed, runId = null }) {
+  if (!(analyzed > 0)) return 0;
+  try {
+    const { data, error } = await client
+      .from('pipeline_requests')
+      .select('id, args')
+      .eq('kind', 'analyze')
+      .eq('status', 'queued')
+      .order('requested_at', { ascending: true });
+    if (error || !Array.isArray(data)) return 0;
+    let left = analyzed;
+    let closed = 0;
+    for (const row of data) {
+      const need = requestLimit(row);
+      if (need > left) break;
+      const { data: hit, error: updateError } = await client
+        .from('pipeline_requests')
+        .update({ status: 'done', ...(runId ? { run_id: runId } : {}) })
+        .eq('id', row.id)
+        .eq('status', 'queued')
+        .select('id');
+      if (updateError || (hit ?? []).length === 0) continue;
+      left -= need;
+      closed += 1;
+    }
+    return closed;
+  } catch {
+    return 0;
   }
 }
 

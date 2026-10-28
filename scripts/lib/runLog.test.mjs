@@ -249,6 +249,7 @@ describe('closeLostRuns — 끝 기록 없이 죽은 실행은 다음 실행이 
       const link = {
         eq: (col, value) => (record.push(['eq', col, value]), link),
         lt: (col, value) => (record.push(['lt', col, value]), link),
+        or: (filter) => (record.push(['or', filter]), link),
         limit: async () => ({ data: selectError ? null : rows, error: selectError }),
         then: (resolve) => resolve({ error: null, count: updated }),
       };
@@ -273,11 +274,18 @@ describe('closeLostRuns — 끝 기록 없이 죽은 실행은 다음 실행이 
   const now = () => Date.parse('2026-10-28T03:00:00Z');
 
   it('30분 넘게 심장이 멎은 running 만 골라 "기록 없이 끝남" 으로, 끝 시각은 마지막 심장으로 닫는다 — 진행은 건드리지 않는다', async () => {
-    const client = sweepClient({ rows: [{ id: 'dead', heartbeat_at: '2026-10-10T12:35:28Z' }, { id: 'me', heartbeat_at: '2026-10-10T12:00:00Z' }] });
+    const client = sweepClient({
+      rows: [
+        { id: 'dead', heartbeat_at: '2026-10-10T12:35:28Z', started_at: '2026-10-10T12:31:29Z' },
+        { id: 'me', heartbeat_at: '2026-10-10T12:00:00Z', started_at: '2026-10-10T12:00:00Z' },
+      ],
+    });
     expect(await closeLostRuns(client, { now, exceptId: 'me' })).toBe(1);
+    const before = new Date(now() - LOST_AFTER_MS).toISOString();
     expect(client.calls.select[0]).toEqual([
       ['eq', 'status', 'running'],
-      ['lt', 'heartbeat_at', new Date(now() - LOST_AFTER_MS).toISOString()],
+      // 심장이 null 인 옛 행은 시작 시각으로 — 화면의 heartbeatOf 와 같은 갈래
+      ['or', `heartbeat_at.lt.${before},and(heartbeat_at.is.null,started_at.lt.${before})`],
     ]);
     expect(client.calls.update).toEqual([
       {

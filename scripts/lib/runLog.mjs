@@ -73,9 +73,10 @@ export async function closeLostRuns(client, { now = Date.now, exceptId = null } 
     const before = new Date(now() - LOST_AFTER_MS).toISOString();
     const { data, error } = await client
       .from('pipeline_runs')
-      .select('id, heartbeat_at')
+      .select('id, heartbeat_at, started_at')
       .eq('status', 'running')
-      .lt('heartbeat_at', before)
+      // 심장이 null 인 옛 행·손으로 넣은 행은 시작 시각으로 본다 — SQL 의 `null < x` 는 거짓이라 화면(`heartbeatOf`)과 같은 갈래를 따로 둔다
+      .or(`heartbeat_at.lt.${before},and(heartbeat_at.is.null,started_at.lt.${before})`)
       .limit(50);
     if (error || !Array.isArray(data)) return 0;
     let closed = 0;
@@ -84,7 +85,7 @@ export async function closeLostRuns(client, { now = Date.now, exceptId = null } 
       // status 를 다시 건다 — 고르는 사이 그 실행이 스스로 닫혔으면 덮지 않는다.
       const { error: updateError, count } = await client
         .from('pipeline_runs')
-        .update({ status: 'failed', error: RUN_ERROR.lost, ended_at: row.heartbeat_at }, { count: 'exact' })
+        .update({ status: 'failed', error: RUN_ERROR.lost, ended_at: row.heartbeat_at ?? row.started_at }, { count: 'exact' })
         .eq('id', row.id)
         .eq('status', 'running');
       if (!updateError && count) closed += 1;
