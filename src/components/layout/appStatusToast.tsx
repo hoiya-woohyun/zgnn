@@ -32,7 +32,7 @@ const liveStickyAction = (): HTMLElement | null =>
  * `role="status"` 상자는 **늘 DOM 에 있다** — 라이브 영역은 먼저 있어야 나중에 바뀐 글을 읽어 준다.
  * 비었을 때는 아무것도 그리지 않아 눈에도, 손가락에도 걸리지 않는다(`pointer-events-none`).
  *
- * 자리는 모바일에서 탭바 바로 위(`--tab-bar-h` + 솟은 원 16px + 여유 — 가운데 원에 가리지 않게),
+ * 자리는 모바일에서 탭바 바로 위(`--tab-bar-h` + 여유 12px),
  * 데스크톱은 사이드바를 뺀 콘텐츠 폭의 가운데 아래. 폰에서 화면 아래에 붙는 주 버튼 줄이 있으면 그 위(14 W261010.7c).
  */
 export function AppStatusToast() {
@@ -86,7 +86,7 @@ export function AppStatusToast() {
       ref={boxRef}
       role="status"
       aria-live="polite"
-      className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--tab-bar-h)+28px+env(safe-area-inset-bottom,0px))] z-50 flex justify-center px-4 md:bottom-6 md:left-64"
+      className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--tab-bar-h)+12px+env(safe-area-inset-bottom,0px))] z-50 flex justify-center px-4 md:bottom-6 md:left-64"
     >
       {status && (
         <p

@@ -339,13 +339,13 @@ export function DogProfilePage() {
               스와이프 중 `<main>` 의 transform). 폼의 **직속 자식**이어야 폼 높이만큼 따라다닌다. 몸무게 되묻기도 이 줄 안에 —
               중간에서 누른 사람에게 폼 끝의 카드는 안 보인다. '프로필 삭제' 는 줄 밖(주 버튼 바로 밑에 붙지 않게).
               줄의 면은 탭바 윗선까지 내려온다(14 W261013.5) — 원이 솟는 띠만큼 비워 두었더니 그 틈으로 선택지가 비쳐 지나갔다.
-              버튼 자리는 그대로다: 띠는 줄 아래 여백(`pb-9` = 원 16 + 여유 8 + 줄 여백 12)이 된다. `data-sticky-action` 은
+              버튼 자리는 그대로다: 띠는 줄 아래 여백(`pb-5`)이 된다. `data-sticky-action` 은
               키보드 포커스가 줄 뒤로 숨지 않게 하는 스크롤 여백의 스위치다(globals.css).
             */}
             <div
               data-sticky-action
               style={{ bottom: STICKY_ACTION_BOTTOM }}
-              className="z-10 space-y-3 max-md:sticky max-md:-mx-4 max-md:border-t max-md:border-secondary max-md:bg-secondary max-md:px-4 max-md:pt-3 max-md:pb-9"
+              className="z-10 space-y-3 max-md:sticky max-md:-mx-4 max-md:border-t max-md:border-secondary max-md:bg-secondary max-md:px-4 max-md:pt-3 max-md:pb-5"
             >
               {/* 막혔으면 빠진 것의 요약(알림), 아니면 아직 안 고른 이동 수단 — 줄이 그 선택지를 덮어도 여기 말은 보인다. */}
               {actionNote &&

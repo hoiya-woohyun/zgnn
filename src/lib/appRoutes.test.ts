@@ -150,7 +150,7 @@ describe('SWIPE_ROUTES — 손가락으로 넘기는 한 줄', () => {
     expect(SWIPE_ROUTES[swipeIndexOf('/') + 1]).toBe('/places/stay');
   });
 
-  it('지도는 가운데다 — 탭바의 솟은 원형 버튼 자리와 같다(navItems 의 prominent)', () => {
+  it('지도는 가운데다 — 탭바 다섯 칸의 가운데 자리와 같다(navItems)', () => {
     expect(swipeIndexOf('/map')).toBe(4);
     expect(SWIPE_ROUTES[swipeIndexOf('/map') + 1]).toBe('/checklist');
   });
