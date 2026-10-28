@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
+import { Analytics } from '@/components/analytics';
 import { AppShell } from '@/components/layout/appShell';
 import { siteOpenGraph } from '@/lib/ogImage';
 import { PLACES, SITE_BLURB } from '@/lib/places';
@@ -98,6 +99,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <StoreHydration />
           <AppShell>{children}</AppShell>
         </RouteProvider>
+        <Analytics />
       </body>
     </html>
   );

@@ -129,6 +129,7 @@
 1. **애널리틱스** — Vercel Web Analytics(Hobby, 페이지뷰만, 쿠키 없음, 같은 출처). ADR-015 결정 2 의 두 번째 예외라 ADR 한 편 + Vercel 대시보드에서 켜기(사람 손).
    권고: **들인다** — 없으면 §4 정량 go 가 없다. 사용자 정의 이벤트(외부 클릭)는 Pro 전용이라 안 쓴다. 이 트랙의 T1~T5 는 이 결정과 무관하게 진행한다.
    **결정(사용자 2026-10-27): 들인다.** ADR 한 편(ADR-031) + 코드는 NOW 「지금」, 🧑 Vercel 대시보드 켜기는 「기다림」 — 정량 go(12-03)는 배포한 날부터 쌓인 페이지뷰로 잰다
+   > 메모(2026-10-28): 코드 들어감 — [ADR-031](../decisions/ADR-031-vercel-web-analytics.md) · `src/components/analytics.tsx` · `analyticsUrlOf`(운영 주소의 사람 방문만, 경로만). Vercel 대시보드에서 켜야 쌓이기 시작한다(NOW 「기다림」 🧑).
 
 ## 6. 하지 않는 것
 

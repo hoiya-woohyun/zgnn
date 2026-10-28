@@ -1,6 +1,7 @@
 # 프로젝트 아키텍처 인덱스
 
-> 최종 수정: 2026-10-20 (v27: 라우트 `/saved/plan` 「날짜별로 정리」 + ADR 표에 ADR-030 — 날짜·순서는 끌어 놓기 화면 하나에서)
+> 최종 수정: 2026-10-28 (v28: ADR 표에 ADR-031 — 방문 수는 Vercel Web Analytics 로, 페이지뷰만. 「런타임 fetch 없음」 의 세 번째 예외)
+> 이전 2026-10-20 (v27: 라우트 `/saved/plan` 「날짜별로 정리」 + ADR 표에 ADR-030 — 날짜·순서는 끌어 놓기 화면 하나에서)
 > 이전 2026-10-15 (v26: ADR 표에 ADR-029 — 실사용 이벤트를 `ui_events` 에 insert 만. 「런타임 fetch 없음」 의 예외에 쓰기 둘(제보·이벤트)을 적었다)
 > 이전 2026-10-08 (v25: ADR 표에 ADR-028 — 서버 워커(Vercel `zgnn-worker`), 레포에 `worker/`)
 > 이전 2026-10-08 (v24: ADR 표에 ADR-027 — 지역은 추천이 아니라 판정 개수로(홈 6권역 카드, [features/area-cards](./features/area-cards.md)))
@@ -229,6 +230,7 @@ data/                         # Notion 추출본(커밋) · raw/(무시)
 | [ADR-028](./decisions/ADR-028-vercel-remote-worker.md) | 수집·분석을 **버튼이 깨우는 Vercel 함수**에서도 돌린다(별도 프로젝트 `zgnn-worker`, 레포의 `worker/` — 사이트는 정적 그대로). 권한은 버튼을 누른 운영자의 JWT, 서버 장기 값은 Claude `setup-token`·네이버 키 둘. 한 호출은 로컬 `once` 와 같은 한 바퀴를 분석 하나·글 5건까지 돌고 같은 JWT 로 자기를 다시 부른다. 로컬 워커와는 `workers` 심장으로 비킨다. cron·자동 실행은 없다 |
 | [ADR-029](./decisions/ADR-029-ui-events.md) | **실사용 이벤트**는 우리 Supabase `ui_events` 에 비로그인 insert 만(제보와 같은 선) — 외부 분석 도구 없음. 셸이 모든 탭을 요소 종류로 거칠게 받고(`dead` 를 잡으려면 필요하다) 이름은 `data-ev` 단 소수에만. 탭 단위 임시 아이디, 화면 글자·검색어는 안 받는다. 운영 주소에서만, 90일 보관, `/ux-eval` 은 집계 한 줄만 메인이 읽는다. insert 문마다 50줄·150 MB 상한 (원격 적용 2026-10-15) |
 | [ADR-030](./decisions/ADR-030-trip-plan-drag-page.md) | **저장한 곳의 날짜·순서는 「날짜별로 정리」(`/saved/plan`) 한 화면에서 끌어 놓아** 정한다 — 저장 카드의 select·↑↓ 임시안을 대신한다. 칸 다섯(1~4일차 + 미정), 손잡이만 끈다(dnd-kit · 누르자마자), 놓은 자리가 손 순서 · 시트로 날만 고르면 제안이 자리. 끄는 동안은 화면 초안만, 스토어는 놓을 때 한 번 |
+| [ADR-031](./decisions/ADR-031-vercel-web-analytics.md) | 방문 수는 **Vercel Web Analytics 로, 페이지뷰만** — `@vercel/analytics` 를 루트 레이아웃에, 같은 출처 비컨·쿠키 없음. 운영 주소의 사람 방문만 센다(`analyticsUrlOf` 가 호스트·webdriver·`/admin` 을 거른다). 19 §4 정량 go 의 모수 |
 
 ## 버그 기록
 
