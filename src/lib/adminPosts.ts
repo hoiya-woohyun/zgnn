@@ -170,6 +170,16 @@ export async function countPosts(client: SupabaseClient): Promise<TPostCounts> {
 }
 
 /**
+ * 기준 뒤에 들어온 글 수 — 수집 완료 탭의 `새 N`(`adminTabCounts.ts`). 세기만 한다(`head`).
+ * `fetched_at` 은 수집의 `ignoreDuplicates` upsert 라 이미 있는 글을 다시 만나도 바뀌지 않는다 — 곧 "처음 들어온 시각" 이다.
+ */
+export async function countPostsSince(client: SupabaseClient, since: string): Promise<number> {
+  const { count, error } = await headCount(client).gt('fetched_at', since);
+  if (error) throw new Error(`새 글을 세지 못했어요 (${error.message})`);
+  return count ?? 0;
+}
+
+/**
  * 미분석 글이 **어디에 쌓여 있나**(todo/13 T4.4) — 검색어별·달별 건수. 5,953건이 문장 하나("미분석 N건")로만 보이던 자리라,
  * 어느 검색어를 더 모을지·어디서 멈출지(03 「멈출 지점」)를 정할 바탕이 없었다.
  * 둘 다 많은 쪽이 위다(달은 최근 달이 위). 모르는 값은 버리지 않고 한 칸에 모은다 — 합이 미분석 수와 같아야 표를 믿는다.

@@ -69,6 +69,7 @@ import { type TPlaceEditPatch, updatePlace } from '../lib/adminPlaceEdit';
 import { filledColumnLabels } from '../lib/adminLatest';
 import {
   countPosts,
+  countPostsSince,
   excludePosts,
   fetchPostBacklog,
   fetchPosts,
@@ -128,6 +129,18 @@ import {
   type TAdminSession,
 } from '../lib/adminSession';
 import { createAdminClient, isOperator } from '../lib/adminSupabase';
+import {
+  adminTabWork,
+  freshCandidateGroups,
+  freshText,
+  isSeenTab,
+  openSeenVisit,
+  readAdminSeen,
+  seenSince,
+  writeAdminSeen,
+  type TSeenTab,
+  type TSeenVisits,
+} from '../lib/adminTabCounts';
 import {
   parseAdminUrl,
   writeAdminUrl,
@@ -212,6 +225,7 @@ const TAB_LABELS: { key: TTab; label: string }[] = [
  */
 const HELP_LINES = [
   '여기서 바꾼 것은 사이트가 다시 빌드된 뒤에 보여요.',
+  '탭 숫자는 그 칸에 남은 일이에요 — 수집 완료는 미분석 글, 검수 대기는 결정 안 한 곳, 등록 완료는 열린 제보·장소 제안·게시 대기, 등록 해제는 열린 제보. 「새」 는 이 브라우저에서 그 칸을 마지막으로 연 뒤 들어온 것이에요.',
   '줄을 누르면 근거(원문 · 나갈 값 · 블로그 인용)가 펼쳐지고, 그 끝에서 이 줄을 등록하거나 제외해요.',
   '제외: 사유를 고르면 후보는 목록에서 빠져요. 「블랙리스트에」 를 3개월·영구로 고르면 그 가게 이름의 새 글도 한동안 후보로 올라오지 않아요.',
   '줄 앞 체크박스로 여러 곳을 고르면 표 위에 한꺼번에 처리하는 줄이 떠요.',
@@ -420,6 +434,15 @@ export function AdminPage() {
   const [placeNotice, setPlaceNotice] = useState<{ text: string; mode: 'active' | 'archived' } | undefined>(undefined);
   const [postCounts, setPostCounts] = useState<TPostCounts | undefined>(undefined);
   const [postError, setPostError] = useState<string | undefined>(undefined);
+  /**
+   * 탭의 `새 N` 기준(`adminTabCounts.ts`). 저장값은 마운트 때 한 번 읽는다(이 화면은 `ssr: false` 라 첫 렌더부터 브라우저다) — 칸을 열 때
+   * 저장소에 지금 시각을 적어도 화면 기준은 `visits` 가 이번 방문 동안 고정한다. `seenOpenedRef` 는 같은 칸을 두 번 여는 것(StrictMode 효과 두 번)을 막는다.
+   */
+  const [seenStored] = useState(readAdminSeen);
+  const [seenVisits, setSeenVisits] = useState<TSeenVisits>({});
+  const seenOpenedRef = useRef<TTab | null>(null);
+  /** 수집 완료의 `새 N` — 어느 기준으로 센 값인지 같이 든다(기준이 바뀌면 다시 셀 때까지 숫자를 안 단다). */
+  const [postFresh, setPostFresh] = useState<{ since: string; count: number } | null>(null);
   /**
    * 미분석 글의 집계와 다음 30건(todo/13 T4.4). 6천 행을 읽으므로 로그인 직후가 아니라 **수집 완료 칸을 처음 열 때** 한 번 읽는다.
    * undefined = 아직 안 읽었다(또는 읽는 중). 실패는 그 칸에서만 말한다.
@@ -807,6 +830,44 @@ export function AdminPage() {
     backlogAskedRef.current = true;
     void loadBacklog(client, postCounts.excluded !== null);
   }, [loadBacklog, phase, postCounts, tab]);
+
+  /*
+   * 칸을 **열었다** — 탭 버튼만이 아니라 `?tab=` 첫 칸·머리글 `…칸에서 보기`·`장소 보기` 도 칸을 바꾸므로 `tab` 을 본다. 로그인 전 방문은 세지 않는다.
+   * 저장은 열 때 한다(떠날 때만 적으면 창을 닫는 순간이 빠져 다음 방문에 같은 것이 또 새것이다).
+   */
+  useEffect(() => {
+    if (phase !== 'ready') {
+      seenOpenedRef.current = null;
+      return;
+    }
+    if (seenOpenedRef.current === tab) return;
+    seenOpenedRef.current = tab;
+    if (!isSeenTab(tab)) return;
+    const now = new Date().toISOString();
+    writeAdminSeen(tab, now);
+    // 이번 방문의 기준을 고정한다 — 칸이 바뀔 때 한 번뿐이라 렌더가 렌더를 부르지 않는다.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSeenVisits((prev) => openSeenVisit(prev, tab, seenStored, now));
+  }, [phase, tab, seenStored]);
+
+  const seenSinceOf = (of: TSeenTab) => seenSince(seenVisits, of, tab, seenStored);
+  const postsSince = seenSinceOf('posts');
+  /** 기준 뒤에 들어온 글 — 기준이 바뀌거나 건수를 다시 셀 때(수집이 끝났다) 센다. 실패하면 말하지 않는다(0 으로 말하지 않는다). */
+  useEffect(() => {
+    const client = clientRef.current;
+    if (phase !== 'ready' || !client || !postsSince || !postCounts) return;
+    let alive = true;
+    countPostsSince(client, postsSince).then(
+      (count) => alive && setPostFresh({ since: postsSince, count }),
+      () => alive && setPostFresh(null),
+    );
+    return () => {
+      alive = false;
+    };
+  }, [phase, postsSince, postCounts]);
+  const postFreshCount = postFresh && postFresh.since === postsSince ? postFresh.count : undefined;
+  const candidatesSince = seenSinceOf('candidates');
+  const candidateFresh = useMemo(() => freshCandidateGroups(groups, candidatesSince), [groups, candidatesSince]);
 
   /*
    * 마운트 뒤에야 localStorage 를 읽는다 — 서버에는 그 저장소가 없다(그래서 이 화면은 `ssr: false` 다).
@@ -1983,22 +2044,22 @@ export function AdminPage() {
   if (!session) return null;
 
   /*
-   * 칸마다 제목·설명·탭 건수. 건수는 **이미 든 것에서 센다** — 탭을 바꿔도 다시 읽지 않는다.
-   * 못 센 것(아직 읽는 중·실패)은 숫자를 안 단다(0 으로 말하지 않는다). `미적용` 은 원격에 표가 아직 없다는 뜻이다(09 「실행 규약」).
-   * 수집 완료 칸에는 달지 않는다(2026-10-06, todo/13 T4.4) — 칸 전체가 아니라 '글 단위 분석 제외' 한 기능의 사정이라 라벨 옆에선 뜻이
-   * 읽히지 않았다. 그 사정은 패널의 그 줄이 말한다. 블랙리스트는 칸 전체가 그 표라 남긴다.
+   * 칸마다 제목·설명·탭 숫자. 탭 숫자는 **그 칸에 남은 일**이다(2026-10-29, `adminTabWork`) — 누적 재고(수집 완료 7,627)는 늘 같아서
+   * 오늘 볼 것이 있는지 말하지 못했다. 누적 수는 설명줄로 옮겼다. 숫자는 **이미 든 것에서 센다** — 탭을 바꿔도 다시 읽지 않는다.
+   * 못 센 것(아직 읽는 중·실패)은 숫자를 안 단다(0 으로 말하지 않는다). 다 센 0 은 0 이다 — 일이 끝났다는 신호.
+   * `미적용` 은 원격에 표가 아직 없다는 뜻이다(09 「실행 규약」) — 블랙리스트만 단다(칸 전체가 그 표다). 수집 완료의 '글 단위 분석 제외' 미적용은
+   * 칸 전체가 아니라 한 기능의 사정이라 패널의 그 줄이 말한다(2026-10-06, todo/13 T4.4).
+   * `새 N` 은 이 브라우저에서 그 칸을 마지막으로 연 뒤 들어온 것이다(`adminTabCounts.ts`).
    */
   const publishedCount = managed?.filter((place) => place.status === 'published').length;
   const draftCount = managed?.filter((place) => place.status === 'draft').length;
   const archivedCount = managed?.filter((place) => place.status === 'archived').length;
+  const inbox = reports?.kind === 'ok' ? reportInbox(reports.rows, managed ?? [], new Date()) : undefined;
   const n = (value: number) => value.toLocaleString('ko-KR');
-  const tabCount: Record<TTab, string | undefined> = {
-    posts: postCounts ? n(postCounts.total) : undefined,
-    candidates: n(groups.length),
-    places: publishedCount === undefined || draftCount === undefined ? undefined : n(publishedCount + draftCount),
-    archived: archivedCount === undefined ? undefined : n(archivedCount),
-    blocks: blockSummary?.kind === 'ok' ? n(blockSummary.active) : undefined,
-  };
+  const tabWork = adminTabWork({ posts: postCounts, groups: groups.length, inbox, draft: draftCount });
+  const tabFresh: Partial<Record<TTab, number>> = { posts: postFreshCount, candidates: candidateFresh?.fresh };
+  const postsFreshLine = freshText(postFreshCount);
+  const candidatesFreshLine = freshText(candidateFresh?.fresh, candidateFresh?.again);
   const tabUnapplied: Partial<Record<TTab, boolean>> = {
     blocks: blockSummary?.kind === 'unavailable',
   };
@@ -2006,10 +2067,10 @@ export function AdminPage() {
     posts: {
       title: '수집 완료',
       description: postCounts
-        ? `전체 ${n(postCounts.total)} · 미분석 ${n(postCounts.unanalyzed)}${postCounts.excluded === null ? '' : ` · 제외 ${n(postCounts.excluded)}`}`
+        ? `전체 ${n(postCounts.total)} · 미분석 ${n(postCounts.unanalyzed)}${postCounts.excluded === null ? '' : ` · 제외 ${n(postCounts.excluded)}`}${postsFreshLine ? ` · ${postsFreshLine}` : ''}`
         : '수집한 글을 세고 있어요',
     },
-    candidates: { title: '검수 대기', description: `${groups.length}곳` },
+    candidates: { title: '검수 대기', description: `${n(groups.length)}곳${candidatesFreshLine ? ` · ${candidatesFreshLine}` : ''}` },
     places: {
       title: '등록 완료',
       description:
@@ -2060,7 +2121,6 @@ export function AdminPage() {
     </>
   );
 
-  const inbox = reports?.kind === 'ok' ? reportInbox(reports.rows, managed ?? [], new Date()) : undefined;
   const inboxLine = inbox ? reportInboxText(inbox) : null;
   const inboxGoTo = inbox ? inboxDestination(inbox) : null;
 
@@ -2214,6 +2274,8 @@ export function AdminPage() {
       <div className="mt-3 flex gap-5 overflow-x-auto border-b border-secondary px-4 md:px-6" role="tablist" aria-label="검수 칸">
         {TAB_LABELS.map((entry) => {
           const active = entry.key === tab;
+          const work = tabWork[entry.key];
+          const fresh = tabFresh[entry.key];
           return (
             <button
               key={entry.key}
@@ -2227,7 +2289,9 @@ export function AdminPage() {
               )}
             >
               {entry.label}
-              {tabCount[entry.key] !== undefined ? <span className="ml-1 font-normal tabular-nums">{tabCount[entry.key]}</span> : null}
+              {work !== undefined ? <span className="ml-1 font-normal tabular-nums">{n(work)}</span> : null}
+              {/* 새것은 숫자 뒤 작은 글자 하나 — 채움 배지는 상태 표시라 쓰지 않는다. 그 칸을 열어 둔 동안은 남는다(기준이 방문 동안 고정). */}
+              {fresh ? <span className="ml-1 text-xs tabular-nums text-brand-secondary">새 {n(fresh)}</span> : null}
               {tabUnapplied[entry.key] ? <span className="ml-1 text-xs font-normal text-warning-primary">미적용</span> : null}
             </button>
           );
@@ -2516,6 +2580,7 @@ export function AdminPage() {
                   onReanalyze={() => void reanalyze([group.key], { key: group.key })}
                   collect={collectView(collectRequests, group.lead.extracted, group.rows.map((row) => row.extracted))}
                   onRequestCollect={() => void requestCollectFor(group)}
+                  fresh={candidateFresh?.keys.has(group.key) ?? false}
                 />
               );
             })}

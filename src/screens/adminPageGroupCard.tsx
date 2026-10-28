@@ -108,6 +108,8 @@ type TAdminPageGroupCardProps = {
   /** 추가 수집 — 페이지가 이 가게의 마지막 요청으로 만든다(`adminCollectRequest.ts`). 요청 목록을 못 읽었으면 없다. */
   collect?: ComponentProps<typeof AdminPageGroupActions>['collect'];
   onRequestCollect?: () => void;
+  /** 이 칸을 마지막으로 연 뒤 들어온 묶음(`freshCandidates`) — 이름 옆 작은 `새`. 기준이 없으면(처음 방문) 오지 않는다. */
+  fresh?: boolean;
 };
 
 /**
@@ -187,6 +189,7 @@ export function AdminPageGroupCard({
   onReanalyze,
   collect,
   onRequestCollect,
+  fresh = false,
 }: TAdminPageGroupCardProps) {
   /** 줄 전체 · 결정 줄 — 붙는 동작 줄이 접은 뒤 이 줄로, 내려가기·제외로 결정 줄로 데려간다(14 W261010.11). 아래의 `done` 갈래보다 먼저 선다(훅 순서). */
   const rowRef = useRef<HTMLLIElement>(null);
@@ -354,6 +357,8 @@ export function AdminPageGroupCard({
             */}
           <span className="block min-w-0">
             <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
+              {/* 새것은 글자 하나 — 정상은 안 보이고 이상만이라는 줄의 규칙을 깨지 않게 배지가 아니라 이름 앞 작은 글자다. */}
+              {fresh && <span className="text-xs font-semibold text-brand-secondary">새</span>}
               <span className="text-sm font-bold text-primary">{extracted.name || '(이름 없음)'}</span>
               <ChevronDown
                 aria-hidden="true"
