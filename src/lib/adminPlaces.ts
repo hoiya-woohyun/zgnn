@@ -17,6 +17,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { chunkForUrlFilter } from '../../scripts/lib/chunkForUrlFilter.mjs';
 import { appendReviewerNote } from './adminSession';
 import { regionUsable, type TPlaceRow, type TPlaceStatus } from './adminCandidates';
+import type { TVerifiedMethod } from '../types';
 import { parsePetPolicy, toPetBadges, withPolicyFacts, type TPetBadge } from './petPolicy';
 
 /**
@@ -330,8 +331,32 @@ export function publishDraft(
 /** 원격 `places` 에 `verified_at` 칸이 있나 — `select('*')` 로 읽은 행에 키가 있으면 있다(마이그레이션 `20261001140000`). */
 export const hasVerifiedColumn = (rows: readonly Partial<TPlaceRow>[]): boolean => rows.some((row) => 'verified_at' in row);
 
+/** 원격 `places` 에 `verified_method` 칸이 있나 — `hasVerifiedColumn` 과 같은 읽기(마이그레이션 `20261028120000`). 날짜 칸과 따로 본다: 날짜만 있는 원격이 있다. */
+export const hasVerifiedMethodColumn = (rows: readonly Partial<TPlaceRow>[]): boolean => rows.some((row) => 'verified_method' in row);
+
+/**
+ * 확인 날짜와 함께 쓰는 칸 — **같은 쓰기 한 번**이다(따로 쓰면 재빌드 훅이 두 번 돌고, 날짜만 바뀐 사이에 옛 방법이 새 날짜에 붙는다).
+ * 방법 칸이 있는 원격에서는 `method` 가 없어도 null 로 **지운다**: 새 날짜를 찍으면서 옛 날짜의 방법을 남기면 거짓이 된다. 순수.
+ */
+export function verifiedWrite(
+  nowIso: string,
+  method: TVerifiedMethod | null | undefined,
+  methodColumnExists: boolean,
+): { verified_at: string; verified_method?: TVerifiedMethod | null } {
+  return methodColumnExists ? { verified_at: nowIso, verified_method: method ?? null } : { verified_at: nowIso };
+}
+
+/**
+ * 화면 쪽 행 복사본에 방금 찍은 확인을 적는다 — 쓰기(`verifiedWrite`)와 같은 모양이어야 새로고침 없이도 같은 값이 보인다. 순수.
+ * 방법 칸이 없는 행(원격에 칸이 없다)은 날짜만 적는다.
+ */
+export function withVerifiedStamp<T extends Partial<TPlaceRow>>(row: T, nowIso: string, method: TVerifiedMethod | null): T {
+  return 'verified_method' in row ? { ...row, verified_at: nowIso, verified_method: method } : { ...row, verified_at: nowIso };
+}
+
 /**
  * "사람이 지금도 맞다고 봤다" 를 찍는다(ADR-021 R5) — 칸이 없으면 아무것도 안 하고 null.
+ * `method` 는 그 확인을 **무엇으로** 했나(후기·전화·현장·제보, 14 W261007.17) — 모르면 안 넘긴다(null 로 남아 사이트는 날짜만 말한다).
  * 실패해도 던지지 않는다: 확인 날짜는 부가이고, 이것 때문에 이미 끝난 승인·처리를 실패로 말하면 사람이 다시 눌러 두 번 쓴다.
  * `places` 가 바뀌므로 게시중이면 재빌드 트리거가 다음 빌드를 부른다 — 날짜가 사이트에 보이려면 그 빌드가 필요하다.
  */
@@ -340,10 +365,13 @@ export async function markPlaceVerified(
   place: Pick<TPlaceRow, 'id'> & Partial<TPlaceRow>,
   nowIso: string,
   columnExists?: boolean,
+  method?: TVerifiedMethod | null,
+  methodColumnExists?: boolean,
 ): Promise<string | null> {
   // 기본값 자리에 `'verified_at' in place` 를 쓰면 SWC(빌드)가 파싱하지 못한다 — tsc 는 통과한다. 그래서 본문에서 가른다.
   if (!(columnExists ?? 'verified_at' in place)) return null;
-  const { error } = await client.from('places').update({ verified_at: nowIso }).eq('id', place.id);
+  const write = verifiedWrite(nowIso, method, methodColumnExists ?? 'verified_method' in place);
+  const { error } = await client.from('places').update(write).eq('id', place.id);
   return error ? null : nowIso;
 }
 
@@ -353,6 +381,9 @@ export async function markPlaceVerified(
  * "2026년 9월 확인" 이 보인다 — 그래서 버튼이 그 말을 확인 문장에 싣는다.
  */
 export const SEED_VERIFIED_AT = '2026-09-20T00:00:00+09:00';
+
+/** 시드 날짜의 방법 — 원본(노션)이 짱구누나가 다녀와 쓴 후기다. 시드 날짜를 "옮긴 날" 로 보는 것(위)과 같은 줄이다: 이 날짜가 가리키는 것은 노션 후기를 읽고 사람이 본 일이다. */
+export const SEED_VERIFIED_METHOD: TVerifiedMethod = 'review';
 
 /** 날짜를 찍을 시드 — `source='notion'` 이고 확인 날짜가 비었고 **칸이 있는** 행(칸이 없으면 마이그레이션 전이라 쓰면 실패한다). 순수. */
 export function seedVerifyTargets(places: readonly TPlaceRow[]): TPlaceRow[] {
@@ -364,11 +395,15 @@ export function seedVerifyTargets(places: readonly TPlaceRow[]): TPlaceRow[] {
  * 게시 장소의 update 라 재빌드 트리거가 돈다(행 단위 — Vercel 이 같은 브랜치의 대기 빌드를 합친다).
  * @returns 찍은 행 id
  */
-export async function stampSeedVerified(client: SupabaseClient, ids: readonly string[]): Promise<string[]> {
+export async function stampSeedVerified(
+  client: SupabaseClient,
+  ids: readonly string[],
+  methodColumnExists = false,
+): Promise<string[]> {
   if (!ids.length) return [];
   const { data, error } = await client
     .from('places')
-    .update({ verified_at: SEED_VERIFIED_AT })
+    .update(verifiedWrite(SEED_VERIFIED_AT, SEED_VERIFIED_METHOD, methodColumnExists))
     .in('id', [...ids])
     .is('verified_at', null)
     .select('id');

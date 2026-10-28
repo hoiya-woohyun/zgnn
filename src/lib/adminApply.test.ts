@@ -617,6 +617,12 @@ describe('confirmSite — 사이트가 맞아요(11 U8)', () => {
     expect(calls.some((call) => call.table === 'place_blocks')).toBe(false);
   });
 
+  it('방법 칸이 있는 행이면 후기로 찍는다', async () => {
+    const { calls, client } = createFakeClient();
+    await confirmSite(client, group([candidate()]), { id: 'p1', verified_at: null, verified_method: null }, '2026-10-02T00:00:00.000Z');
+    expect(calls[0].payload).toEqual({ verified_at: '2026-10-02T00:00:00.000Z', verified_method: 'review' });
+  });
+
   it('칸이 없는 원격이면 날짜 없이 후보만 눕힌다', async () => {
     const { calls, client } = createFakeClient();
     const out = await confirmSite(client, group([candidate()]), { id: 'p1' }, '2026-10-02T00:00:00.000Z');

@@ -121,6 +121,17 @@ describe('verifiedAt', () => {
   });
 });
 
+describe('verifiedMethod', () => {
+  it('날짜와 함께 알려진 방법만 싣고, 아니면 키가 빠진다(칸이 없는 원격 포함)', () => {
+    const at = '2026-10-01T01:00:00+00:00';
+    expect(fromPlaceRow({ ...row, verified_at: at, verified_method: 'phone' }).verifiedMethod).toBe('phone');
+    for (const method of [null, undefined, 'fax']) {
+      expect('verifiedMethod' in JSON.parse(JSON.stringify(fromPlaceRow({ ...row, verified_at: at, verified_method: method })))).toBe(false);
+    }
+    expect('verifiedMethod' in JSON.parse(JSON.stringify(fromPlaceRow({ ...row, verified_at: null, verified_method: 'phone' })))).toBe(false);
+  });
+});
+
 describe('phone', () => {
   it('정규 표기로 싣고, 없거나 읽을 수 없으면 키가 빠진다(칸이 없는 원격도 같다)', () => {
     expect(fromPlaceRow({ ...row, phone: '064-123-4567' }).phone).toBe('064-123-4567');

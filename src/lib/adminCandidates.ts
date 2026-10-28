@@ -18,7 +18,7 @@ import { feeLinesOf, type TCorrectionDrop } from '../../scripts/lib/petPolicyFac
 import { selectAllPages } from '../../scripts/lib/selectAllPages.mjs';
 import { parsePetPolicy, toPetBadges, withPolicyFacts, type TPetBadge } from './petPolicy';
 import { PLACES } from './places';
-import type { TDirection, TPetPolicyFacts, TPetPolicyGuide, TRegion, TStayEnvironment } from '../types';
+import type { TDirection, TPetPolicyFacts, TPetPolicyGuide, TRegion, TStayEnvironment, TVerifiedMethod } from '../types';
 
 export type TCandidateType = 'stay' | 'restaurant' | 'cafe' | 'other';
 export type TCandidateTier = 'auto' | 'ask' | 'new';
@@ -159,6 +159,11 @@ export type TPlaceRow = {
    * 쓰는 쪽은 `'phone' in row` 로 칸이 있는지 보고 나서만 쓴다(없는 칸을 쓰면 update 전체가 실패한다).
    */
   phone?: string | null;
+  /**
+   * 확인 날짜를 무엇으로 찍었나(14 W261007.17). 마이그레이션 `20261028120000` 전의 원격에는 칸 자체가 없다 — 그래서 선택이고,
+   * 쓰는 쪽은 `'verified_method' in row` 로 칸이 있는지 보고 나서만 쓴다. `verified_at` 과 **같은 쓰기에** 실린다.
+   */
+  verified_method?: TVerifiedMethod | null;
 };
 
 /**

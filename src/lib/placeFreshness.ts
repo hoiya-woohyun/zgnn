@@ -9,9 +9,19 @@
  *  - 원문에 동반 조건이 없다(`policy.noInfo` — "정보 없음. 문의해 보세요" · `unread` — 적혀는 있는데 읽을 조건이 없다, 14 W261007.17).
  *    이 줄은 반려동물 이용 카드 맨 아래라 "확인했어요" 가 **조건을 확인했다** 로 읽힌다 — 확인할 조건이 없는데 그렇게 말하면 거짓이다.
  *    판정 레벨(강아지마다 다르다)이 아니라 원문의 플래그로 가른다. 일반 허용 문장뿐(`genericOnly`)은 그린다 — "동반 가능" 은 확인한 사실이다.
- * "누가·무엇으로"(후기·전화·현장)는 적지 않는다 — 날짜를 찍는 길 셋(시드 버튼·승인·사실 칸 수정)이 방법을 남기지 않는다.
+ * "무엇으로"(`verifiedMethod` — 후기·전화·현장·제보)는 **알 때만** 날짜 앞에 붙는다(14 W261007.17). 모르면(null · 방법 칸이 없던 때 찍힌 날짜) 날짜만 말한다 — 지어낸 방법은 없는 방법보다 나쁘다.
  * 날짜만 보인다 — 건수·제보 내용은 보이지 않는다(후기 서비스가 아니다).
  */
+
+import type { TVerifiedMethod } from '../types';
+
+/** "2026년 9월에 ___ 확인했어요" 의 빈칸. 후기는 "읽고" 라고 말한다 — 우리가 가 본 것이 아니라 글을 읽은 것이다(가장 흔한 길이라 정직이 중요하다). */
+export const VERIFIED_METHOD_PHRASE: Record<TVerifiedMethod, string> = {
+  review: '후기를 보고',
+  phone: '전화로',
+  visit: '직접 가서',
+  report: '제보로',
+};
 
 /** 1년이 넘으면 톤을 낮춘다 — 날짜는 그대로 말하되 "오래됐을 수 있다" 를 붙인다. */
 export const STALE_AFTER_DAYS = 365;
@@ -36,6 +46,7 @@ export function monthLabel(day: string): string | null {
  */
 type TFreshnessInput = {
   verifiedAt?: string;
+  verifiedMethod?: TVerifiedMethod;
   openReportKinds?: string[];
   policy?: { noInfo: boolean; unread: boolean };
 };
@@ -47,9 +58,12 @@ export function freshnessOf(place: TFreshnessInput, now: number | null): TFreshn
   if (!label) return null;
   const verified = new Date(`${place.verifiedAt}T00:00:00+09:00`).getTime();
   const stale = now !== null && now - verified > STALE_AFTER_DAYS * DAY_MS;
+  // 모르는 값(타입 밖)은 날짜만 — `?.` 가 undefined 를 돌려준다.
+  const how = place.verifiedMethod ? VERIFIED_METHOD_PHRASE[place.verifiedMethod] : undefined;
+  const by = how ? `${how} ` : '';
   return stale
-    ? { text: `${label}에 마지막으로 확인했어요. 1년이 넘어 지금은 다를 수 있어요`, stale }
-    : { text: `${label}에 확인했어요`, stale };
+    ? { text: `${label}에 ${by}마지막으로 확인했어요. 1년이 넘어 지금은 다를 수 있어요`, stale }
+    : { text: `${label}에 ${by}확인했어요`, stale };
 }
 
 /** 지금(`now`)의 해 — 한국 날짜 기준(`verifiedAt` 도 KST 날짜라 UTC 로 보면 연말·연초에 하루가 어긋난다). */

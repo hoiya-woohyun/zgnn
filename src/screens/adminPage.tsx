@@ -54,12 +54,15 @@ import { fetchGroupIntros, groupIntroOf, NO_GROUP_INTROS, type TGroupIntros } fr
 import {
   fetchManagedPlaces,
   markPlaceVerified,
+  hasVerifiedMethodColumn,
   matchesGroupQuery,
   publishDraft,
   SEED_VERIFIED_AT,
+  SEED_VERIFIED_METHOD,
   seedVerifyTargets,
   sortManagedPlaces,
   stampSeedVerified,
+  withVerifiedStamp,
   type TArchiveReason,
 } from '../lib/adminPlaces';
 import { type TPlaceEditPatch, updatePlace } from '../lib/adminPlaceEdit';
@@ -928,8 +931,10 @@ export function AdminPage() {
   const seedVerify = useCallback(
     () =>
       withWrite(async (client) => {
-        const stamped = new Set(await stampSeedVerified(client, seedVerifyTargets(managed ?? []).map((place) => place.id)));
-        const stamp = (row: TPlaceRow) => (stamped.has(row.id) ? { ...row, verified_at: SEED_VERIFIED_AT } : row);
+        const stamped = new Set(
+          await stampSeedVerified(client, seedVerifyTargets(managed ?? []).map((place) => place.id), hasVerifiedMethodColumn(managed ?? [])),
+        );
+        const stamp = (row: TPlaceRow) => (stamped.has(row.id) ? withVerifiedStamp(row, SEED_VERIFIED_AT, SEED_VERIFIED_METHOD) : row);
         placesRef.current = placesRef.current.map(stamp);
         setManaged((prev) => (prev ? prev.map(stamp) : prev));
         afterWrite();
@@ -1126,9 +1131,9 @@ export function AdminPage() {
         const nowIso = new Date().toISOString();
         patchReportRows(await setReportStatus(client, ids, status, note, nowIso));
         // `고쳤어요` 는 운영자가 이 가게를 다시 본 것이다 — 확인 날짜를 올린다(ADR-021 R5). `무시` 는 고친 것이 없어 올리지 않는다.
-        const verifiedAt = status === 'handled' ? await markPlaceVerified(client, place, nowIso) : null;
+        const verifiedAt = status === 'handled' ? await markPlaceVerified(client, place, nowIso, undefined, 'report') : null;
         if (verifiedAt) {
-          setManaged((prev) => (prev ? prev.map((row) => (row.id === place.id ? { ...row, verified_at: verifiedAt } : row)) : prev));
+          setManaged((prev) => (prev ? prev.map((row) => (row.id === place.id ? withVerifiedStamp(row, verifiedAt, 'report') : row)) : prev));
           afterWrite();
         }
         patchPlaceState(place.id, {
@@ -1153,9 +1158,9 @@ export function AdminPage() {
       patchPlaceState(place.id, { busy: 'reports', error: undefined, done: undefined });
       try {
         const nowIso = new Date().toISOString();
-        const verifiedAt = await markPlaceVerified(client, place, nowIso);
+        const verifiedAt = await markPlaceVerified(client, place, nowIso, undefined, 'report');
         if (!verifiedAt) throw new Error('확인 날짜 칸이 아직 없어요 — DB 마이그레이션(20261001140000)이 적용되면 반영할 수 있어요.');
-        setManaged((prev) => (prev ? prev.map((row) => (row.id === place.id ? { ...row, verified_at: verifiedAt } : row)) : prev));
+        setManaged((prev) => (prev ? prev.map((row) => (row.id === place.id ? withVerifiedStamp(row, verifiedAt, 'report') : row)) : prev));
         patchReportRows(await setReportStatus(client, ids, 'handled', '최근 확인으로 반영', nowIso));
         patchPlaceState(place.id, { busy: undefined, done: '최근 확인으로 반영했어요 · 다음 빌드부터 사이트에 날짜가 보여요' });
         afterWrite();
@@ -1431,7 +1436,7 @@ export function AdminPage() {
       patchState(group.key, { busy: 'confirming', error: undefined });
       try {
         const { verifiedAt } = await confirmSite(client, group, place, new Date().toISOString());
-        if (verifiedAt) place.verified_at = verifiedAt;
+        if (verifiedAt) Object.assign(place, withVerifiedStamp(place, verifiedAt, 'review'));
         patchState(group.key, {
           busy: undefined,
           done: verifiedAt

@@ -122,6 +122,9 @@ export type TPlaceHomepage = {
   image?: string;
 };
 
+/** 확인 날짜를 무엇으로 찍었나 — 후기(블로그·노션 글) · 전화 · 현장 · 제보. 마이그레이션 `20261028120000` 의 check 와 `VERIFIED_METHODS`(placeFields.mjs)와 짝이다. */
+export type TVerifiedMethod = 'review' | 'phone' | 'visit' | 'report';
+
 export type TPlace = {
   id: string;
   type: TPlaceType;
@@ -153,6 +156,8 @@ export type TPlace = {
   homepage?: TPlaceHomepage;
   /** 사람이 마지막으로 확인한 날(`YYYY-MM-DD`). 없으면 확인 기록이 없다 — 상세는 날짜를 그리지 않는다(ADR-021 R5). */
   verifiedAt?: string;
+  /** 그 날짜를 무엇으로 찍었나(`places.verified_method`). 없으면 모른다 — 상세는 날짜만 말한다. */
+  verifiedMethod?: TVerifiedMethod;
   cover?: string;
   images: string[];
   stay?: TStayInfo;

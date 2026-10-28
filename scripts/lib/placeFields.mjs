@@ -9,6 +9,9 @@
 import { canonicalTown } from './jejuRegions.mjs';
 import { normalizePhone } from './phone.mjs';
 
+/** 확인 날짜를 무엇으로 찍었나(places.verified_method — 마이그레이션 20261028120000 의 check 와 짝). 모르면 null → 사이트는 날짜만 말한다. */
+export const VERIFIED_METHODS = ['review', 'phone', 'visit', 'report'];
+
 export const DIRECTION = { 동: 'east', 서: 'west', 남: 'south', 북: 'north' };
 
 export const clean = (s) => (s ?? '').split('\n').map((l) => l.trim()).filter(Boolean).join('\n');
@@ -86,6 +89,9 @@ export function toPlace(f) {
     // 사람이 마지막으로 확인한 날(places.verified_at, ADR-021 R5). **한국 날짜**만 싣는다 — UTC 앞 10자를 자르면 밤 9시 뒤의 확인이
     // 전날로 적히고, 시각까지 실으면 빌드마다 바이트가 흔들린다. 시드는 null → undefined → 키가 빠져 JSON 바이트가 그대로다.
     verifiedAt: f.verifiedAt ? kstDay(f.verifiedAt) : undefined,
+    // 그 날짜를 무엇으로 찍었나(places.verified_method). 모르는 값(DB check 를 우회해 손으로 넣은 것)은 싣지 않는다 — 날짜만 말하는 쪽이 안전하다.
+    // 날짜가 없으면 방법만 있을 수 없다. 없는 값은 undefined → 키가 빠져 JSON 바이트가 그대로다(칸이 없는 원격 포함).
+    verifiedMethod: f.verifiedAt && VERIFIED_METHODS.includes(f.verifiedMethod) ? f.verifiedMethod : undefined,
     cover: f.cover || undefined,
     images: f.images ?? [],
   };
@@ -127,6 +133,7 @@ export function fromPlaceRow(row) {
     homepageName: row.homepage_name,
     homepageImage: row.homepage_image,
     verifiedAt: row.verified_at,
+    verifiedMethod: row.verified_method,
     stayPriceText: row.stay_price_text,
     stayAmenitiesText: row.stay_amenities_text,
     stayEnvironment: row.stay_environment,

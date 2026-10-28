@@ -12,6 +12,7 @@ import { EDITABLE_TYPES, type TPolicyDraft } from '../lib/adminEdit';
 import {
   placeCurrentText,
   hasPhoneColumn,
+  hasVerifiedMethodColumn,
   placeEditBadgeShift,
   placeEditChanges,
   placeEditDraft,
@@ -24,6 +25,8 @@ import {
   renameRisksTwin,
 } from '../lib/adminPlaceEdit';
 import { patchPublicText } from '../lib/adminPublicText';
+import { VERIFIED_METHOD_PHRASE } from '../lib/placeFreshness';
+import type { TVerifiedMethod } from '../types';
 import { naverMapSearchUrl, naverPlaceHomeUrl, parseNaverPlaceId } from '../lib/naverPlaceLink';
 import type { TPetBadge } from '../lib/petPolicy';
 import { cx } from '../utils/cx';
@@ -94,6 +97,8 @@ export function AdminPagePlaceEditForm({
   const hasHomepage = 'homepage_url' in place;
   const hasPhone = hasPhoneColumn(place);
   const hasTextPublic = 'pet_policy_text_public' in place;
+  /* 이 저장이 확인 날짜를 찍을 때만 "무엇으로" 를 묻는다(`patchVerifies` — 번호·소개 오타만 고친 저장은 날짜를 안 찍는다). */
+  const asksMethod = hasVerifiedMethodColumn(place) && Boolean(patch && 'verified_method' in patch);
   /* 좌표도 플레이스 id 도 없는 장소의 이름을 바꿀 때만 경고한다(`renameRisksTwin`) — 그때만 옛 이름의 새 글이 쌍둥이로 올라올 수 있다. */
   const twinRisk = renameRisksTwin(place, draft);
 
@@ -394,6 +399,26 @@ export function AdminPagePlaceEditForm({
       {/* 저장 줄은 화면 아래에 붙는다(`md` 이상) — 후보 폼과 같은 이유(폼이 한 화면을 넘는다). 막는 이유도 같이 붙어 다닌다. */}
       <div className="flex flex-wrap items-center gap-2 border-t border-secondary bg-active py-2 md:sticky md:bottom-0">
         {problem && <p className="w-full text-xs text-error-primary">{problem}</p>}
+        {/* 확인 날짜가 찍히는 저장이면 무엇으로 확인했는지 — 모르면 '모르겠어요' 로 두면 사이트는 날짜만 말한다(지어내지 않는다). */}
+        {asksMethod && (
+          <div className="flex w-full items-center gap-2">
+            <span className="text-xs text-secondary">무엇으로 확인했나요</span>
+            <Select
+              aria-label="확인 방법"
+              size="sm"
+              selectedKey={draft.verifiedMethod || 'unknown'}
+              onSelectionChange={(key) => key && set({ verifiedMethod: key === 'unknown' ? '' : (key as TVerifiedMethod) })}
+              isDisabled={busy}
+            >
+              <Select.Item id="unknown">모르겠어요 (날짜만)</Select.Item>
+              {(Object.keys(VERIFIED_METHOD_PHRASE) as TVerifiedMethod[]).map((method) => (
+                <Select.Item key={method} id={method}>
+                  {VERIFIED_METHOD_PHRASE[method]}
+                </Select.Item>
+              ))}
+            </Select>
+          </div>
+        )}
         {/* 막지 않는다 — 저장은 된다(판단에 값이 남는다). 다만 사이트는 그 칸을 빼고 보므로 "고쳤다" 로 읽고 닫지 않게 버튼 바로 위에서 말한다. */}
         {!problem && patch && ineffective.length > 0 && (
           <p className="w-full text-xs font-semibold text-warning-primary">

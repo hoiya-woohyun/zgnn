@@ -9,6 +9,19 @@ describe('freshnessOf', () => {
     expect(freshnessOf({ verifiedAt: '2026-09-28' }, now)).toEqual({ text: '2026년 9월에 확인했어요', stale: false });
   });
 
+  it('방법을 알면 날짜 앞에 붙이고, 모르면 날짜만 말한다(14 W261007.17)', () => {
+    expect(freshnessOf({ verifiedAt: '2026-09-28', verifiedMethod: 'review' }, now)?.text).toBe('2026년 9월에 후기를 보고 확인했어요');
+    expect(freshnessOf({ verifiedAt: '2026-09-28', verifiedMethod: 'phone' }, now)?.text).toBe('2026년 9월에 전화로 확인했어요');
+    expect(freshnessOf({ verifiedAt: '2025-09-01', verifiedMethod: 'visit' }, now)?.text).toBe(
+      '2025년 9월에 직접 가서 마지막으로 확인했어요. 1년이 넘어 지금은 다를 수 있어요',
+    );
+    // 날짜 없이 방법만으로는 그리지 않는다. 타입 밖 값은 날짜만.
+    expect(freshnessOf({ verifiedMethod: 'report' }, now)).toBeNull();
+    expect(freshnessOf({ verifiedAt: '2026-09-28', verifiedMethod: 'x' as never }, now)?.text).toBe('2026년 9월에 확인했어요');
+    // 카드·시트의 짧은 꼬리표는 방법을 말하지 않는다(메타 줄이 말줄임에 먼저 걸린다).
+    expect(freshnessShortLabel({ verifiedAt: '2026-09-28', verifiedMethod: 'phone' }, now)).toBe('9월 확인');
+  });
+
   it('1년이 넘으면 톤을 낮춘다', () => {
     expect(freshnessOf({ verifiedAt: '2025-09-01' }, now)?.stale).toBe(true);
     expect(freshnessOf({ verifiedAt: '2025-09-01' }, now)?.text).toContain('다를 수 있어요');

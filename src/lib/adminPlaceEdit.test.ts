@@ -403,3 +403,30 @@ describe('전화번호 칸(07 P0)', () => {
     expect(placeEditProblem(typed(row, '010-1234-5678'))).toBeNull();
   });
 });
+
+describe('placeEditPatch — 확인 방법(14 W261007.17)', () => {
+  const withMethod = (over: Partial<TPlaceRow> = {}) => place({ verified_at: null, verified_method: null, ...over });
+
+  it('확인 날짜가 찍히는 저장이면 고른 방법을 같은 쓰기에 싣는다', () => {
+    const row = withMethod();
+    const patch = placeEditPatch(row, { ...placeEditDraft(row), address: '제주 1', verifiedMethod: 'phone' });
+    expect(patch).toEqual({ address: '제주 1', verified_method: 'phone' });
+    expect(patchVerifies(patch!)).toBe(true);
+  });
+
+  it('고르지 않았으면 null 로 지운다 — 옛 날짜의 방법이 새 날짜에 남지 않는다', () => {
+    const row = withMethod({ verified_method: 'visit' });
+    expect(placeEditPatch(row, { ...placeEditDraft(row), address: '제주 1' })).toEqual({ address: '제주 1', verified_method: null });
+  });
+
+  it('초안은 저장된 방법을 물려받지 않는다', () => {
+    expect(placeEditDraft(withMethod({ verified_method: 'visit' })).verifiedMethod).toBe('');
+  });
+
+  it('날짜를 안 찍는 저장(번호·소개)이나 칸이 없는 원격에는 싣지 않는다', () => {
+    const row = withMethod({ phone: null });
+    expect(placeEditPatch(row, { ...placeEditDraft(row), phone: '064-123-4567', verifiedMethod: 'phone' })).toEqual({ phone: '064-123-4567' });
+    const noMethod = place({ verified_at: null });
+    expect(placeEditPatch(noMethod, { ...placeEditDraft(noMethod), address: '제주 1', verifiedMethod: 'phone' })).toEqual({ address: '제주 1' });
+  });
+});

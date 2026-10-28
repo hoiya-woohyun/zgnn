@@ -14,7 +14,18 @@ import {
   shownPlaceCount,
   withMovedPlaces,
 } from './adminPlaces';
-import { publishDraft, publishDraftProblem, hasVerifiedColumn, markPlaceVerified, seedVerifyTargets } from './adminPlaces';
+import {
+  publishDraft,
+  publishDraftProblem,
+  hasVerifiedColumn,
+  hasVerifiedMethodColumn,
+  markPlaceVerified,
+  seedVerifyTargets,
+  stampSeedVerified,
+  SEED_VERIFIED_AT,
+  verifiedWrite,
+  withVerifiedStamp,
+} from './adminPlaces';
 import type { TPlaceRow } from './adminCandidates';
 
 const place = (patch: Partial<TPlaceRow> = {}): TPlaceRow => ({
@@ -321,6 +332,63 @@ describe('markPlaceVerified · 확인 날짜', () => {
     expect(await markPlaceVerified(client, { id: 'p1', verified_at: null }, '2026-10-01T00:00:00.000Z')).toBe('2026-10-01T00:00:00.000Z');
     expect(writes).toEqual([{ verified_at: '2026-10-01T00:00:00.000Z' }]);
     expect(hasVerifiedColumn([{ id: 'a' }, { id: 'b', verified_at: null }])).toBe(true);
+  });
+});
+
+describe('확인 방법(14 W261007.17)', () => {
+  const fake = () => {
+    const writes: Record<string, unknown>[] = [];
+    const client = {
+      from: () => ({
+        update: (payload: Record<string, unknown>) => {
+          writes.push(payload);
+          const done = Promise.resolve({ error: null, data: [{ id: 'p1' }] });
+          const chain: Record<string, unknown> = { eq: () => done, in: () => chain, is: () => chain, select: () => done };
+          return chain;
+        },
+      }),
+    } as unknown as import('@supabase/supabase-js').SupabaseClient;
+    return { writes, client };
+  };
+
+  it('방법 칸이 있는 원격에서는 날짜와 같은 쓰기에 싣고, 안 넘기면 null 로 지운다', async () => {
+    const { writes, client } = fake();
+    await markPlaceVerified(client, { id: 'p1', verified_at: null, verified_method: 'visit' }, '2026-10-01T00:00:00.000Z', undefined, 'phone');
+    await markPlaceVerified(client, { id: 'p1', verified_at: null, verified_method: 'visit' }, '2026-10-02T00:00:00.000Z');
+    expect(writes).toEqual([
+      { verified_at: '2026-10-01T00:00:00.000Z', verified_method: 'phone' },
+      { verified_at: '2026-10-02T00:00:00.000Z', verified_method: null },
+    ]);
+  });
+
+  it('칸이 없는 원격에는 방법을 쓰지 않는다 — 날짜 칸만 있는 원격이 깨지지 않는다', async () => {
+    const { writes, client } = fake();
+    await markPlaceVerified(client, { id: 'p1', verified_at: null }, '2026-10-01T00:00:00.000Z', undefined, 'review');
+    expect(writes).toEqual([{ verified_at: '2026-10-01T00:00:00.000Z' }]);
+    expect(hasVerifiedMethodColumn([{ id: 'a', verified_at: null }])).toBe(false);
+    expect(hasVerifiedMethodColumn([{ id: 'a' }, { id: 'b', verified_method: null }])).toBe(true);
+  });
+
+  it('새 행(키가 없음)도 장부가 칸을 알면 명시한 플래그로 쓴다', async () => {
+    const { writes, client } = fake();
+    await markPlaceVerified(client, { id: 'p1' }, '2026-10-01T00:00:00.000Z', true, 'review', true);
+    expect(writes).toEqual([{ verified_at: '2026-10-01T00:00:00.000Z', verified_method: 'review' }]);
+  });
+
+  it('시드 백필은 후기로 찍고, 칸이 없으면 날짜만', async () => {
+    const { writes, client } = fake();
+    await stampSeedVerified(client, ['p1'], true);
+    await stampSeedVerified(client, ['p1']);
+    expect(writes).toEqual([
+      { verified_at: SEED_VERIFIED_AT, verified_method: 'review' },
+      { verified_at: SEED_VERIFIED_AT },
+    ]);
+    expect(verifiedWrite('x', undefined, false)).toEqual({ verified_at: 'x' });
+  });
+
+  it('화면 쪽 행 복사본도 같은 모양으로 적는다', () => {
+    expect(withVerifiedStamp({ id: 'a', verified_at: null, verified_method: null }, 'T', 'report')).toEqual({ id: 'a', verified_at: 'T', verified_method: 'report' });
+    expect(withVerifiedStamp({ id: 'a', verified_at: null }, 'T', 'report')).toEqual({ id: 'a', verified_at: 'T' });
   });
 });
 

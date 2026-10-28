@@ -34,7 +34,7 @@ import {
 import { placeBadges } from './adminPlaces';
 import { parseNaverPlaceId } from './naverPlaceLink';
 import type { TPetBadge } from './petPolicy';
-import type { TPetPolicyFacts } from '../types';
+import type { TPetPolicyFacts, TVerifiedMethod } from '../types';
 
 /**
  * 폼이 들고 있는 값 — 후보 초안 + 장소에만 있는 칸. **전부 문자열**이라는 규칙도 그대로다(`policy` 만 예외, 후보와 같다 — 장소 쪽은 체크 하나 `petPolicyTextPublic` 도).
@@ -55,6 +55,11 @@ export type TPlaceEditDraft = TCandidateEditDraft & {
    * 원문을 고쳤다고 저절로 바뀌지 않는다(고친 원문이 누구의 문장인지는 고친 사람만 안다).
    */
   petPolicyTextPublic: boolean;
+  /**
+   * 이 저장이 확인 날짜를 찍을 때(`patchVerifies`) 그 확인을 **무엇으로** 했나 — 운영자가 고른다. '' = 모른다(null 로 쓴다).
+   * 저장된 값을 고치는 칸이 아니라 **저장하는 순간의 한 번 답**이라 늘 ''로 시작한다(옛 방법을 물려받으면 새 날짜에 거짓이 붙는다).
+   */
+  verifiedMethod: '' | TVerifiedMethod;
 };
 
 export function placeEditDraft(place: TPlaceRow): TPlaceEditDraft {
@@ -79,6 +84,7 @@ export function placeEditDraft(place: TPlaceRow): TPlaceEditDraft {
     stayPriceText: place.stay_price_text ?? '',
     stayAmenitiesText: place.stay_amenities_text ?? '',
     petPolicyTextPublic: place.pet_policy_text_public === true,
+    verifiedMethod: '',
   };
 }
 
@@ -87,6 +93,9 @@ const hasHomepageColumns = (place: TPlaceRow): boolean => 'homepage_url' in plac
 
 /** 원격에 전화번호 칸이 있나(마이그레이션 `20261027120000`) — 같은 이유. 없으면 폼에 줄도 세우지 않는다. */
 export const hasPhoneColumn = (place: TPlaceRow): boolean => 'phone' in place;
+
+/** 원격에 확인 방법 칸이 있나(마이그레이션 `20261028120000`) — 같은 이유. 날짜 칸이 없으면 방법만 쓸 일이 없으니 둘 다 본다. */
+export const hasVerifiedMethodColumn = (place: TPlaceRow): boolean => 'verified_at' in place && 'verified_method' in place;
 
 /** 원격에 원문 공개 칸이 있나(마이그레이션 `20261012120000`) — 같은 이유. 없으면 폼에 체크도 세우지 않는다. */
 const hasTextPublicColumn = (place: TPlaceRow): boolean => 'pet_policy_text_public' in place;
@@ -147,6 +156,7 @@ export type TPlaceEditPatch = Partial<
     | 'pet_policy_text_public'
     | 'stay_price_text'
     | 'stay_amenities_text'
+    | 'verified_method'
   >
 >;
 
@@ -236,6 +246,9 @@ export function placeEditPatch(place: TPlaceRow, draft: TPlaceEditDraft): TPlace
     const amenities = orNull(draft.stayAmenitiesText);
     if (amenities !== (place.stay_amenities_text ?? null)) patch.stay_amenities_text = amenities;
   }
+
+  // 확인 날짜가 찍히는 저장이면 그 방법도 **같은 쓰기에** 싣는다(`updatePlace`). 모르면 null — 옛 날짜의 방법이 새 날짜에 남지 않게 지운다.
+  if (hasVerifiedMethodColumn(place) && patchVerifies(patch)) patch.verified_method = draft.verifiedMethod || null;
 
   return Object.keys(patch).length ? patch : null;
 }
