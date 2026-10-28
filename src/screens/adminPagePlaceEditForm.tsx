@@ -11,6 +11,7 @@ import { correctionView } from '../lib/adminCorrection';
 import { EDITABLE_TYPES, type TPolicyDraft } from '../lib/adminEdit';
 import {
   placeCurrentText,
+  hasPhoneColumn,
   placeEditBadgeShift,
   placeEditChanges,
   placeEditDraft,
@@ -91,6 +92,7 @@ export function AdminPagePlaceEditForm({
   const badgeShift = placeEditBadgeShift(preview.before, preview.after);
   const placeHref = place.naver_url || naverPlaceHomeUrl(place.naver_place_id ?? undefined);
   const hasHomepage = 'homepage_url' in place;
+  const hasPhone = hasPhoneColumn(place);
   const hasTextPublic = 'pet_policy_text_public' in place;
   /* 좌표도 플레이스 id 도 없는 장소의 이름을 바꿀 때만 경고한다(`renameRisksTwin`) — 그때만 옛 이름의 새 글이 쌍둥이로 올라올 수 있다. */
   const twinRisk = renameRisksTwin(place, draft);
@@ -208,6 +210,26 @@ export function AdminPagePlaceEditForm({
             isDisabled={busy}
           />,
         )}
+        {/*
+          * 전화번호(07 P0) — 저장 때 한 번 접힌다(`normalizePhone`: 064-123-4567 · 010-… · 0507-… · 1588-…). 지역번호까지 적어야 한다.
+          * 네이버 플레이스 줄 바로 밑: 번호를 옮겨 적는 곳이 그 화면이다. 사실 칸이 아니라 확인 날짜를 찍지 않는다.
+          * 칸이 없는 원격(마이그레이션 20261027120000 전)에서는 줄을 세우지 않는다 — 쓰기에도 실리지 않는다(`placeEditPatch`).
+          */}
+        {hasPhone &&
+          row(
+            'phone',
+            '전화번호',
+            <Input {...NO_AUTOFILL}
+              aria-label="전화번호"
+              size="sm"
+              inputMode="tel"
+              placeholder="064-123-4567"
+              value={draft.phone}
+              onChange={(value) => set({ phone: value })}
+              hint="지역번호부터 적어요. 띄어쓰기·하이픈은 저장할 때 맞춰요. 비우면 번호를 지워요"
+              isDisabled={busy}
+            />,
+          )}
         {/* 홈페이지 카드는 세 칸이 한 벌이다 — 주소를 비우면 카드째 빠진다. 칸이 없는 원격(마이그레이션 20260930120000 전)에서는 줄을 세우지 않는다. */}
         {hasHomepage && (
           <>

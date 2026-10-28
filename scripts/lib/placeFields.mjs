@@ -7,6 +7,7 @@
 // 순수 모듈이다: 브라우저(src/lib/admin*)도 import 한다 — node 모듈을 다시 넣지 말 것(ADR-018). 그래서 writeDataJson 은 dataJson.mjs 로 뺐다.
 
 import { canonicalTown } from './jejuRegions.mjs';
+import { normalizePhone } from './phone.mjs';
 
 export const DIRECTION = { 동: 'east', 서: 'west', 남: 'south', 북: 'north' };
 
@@ -74,6 +75,9 @@ export function toPlace(f) {
     naverPlaceId: f.naverPlaceId || undefined,
     geo: f.lat != null && f.lng != null ? { lat: f.lat, lng: f.lng } : undefined,
     address: f.address || undefined,
+    // 가게 전화번호(places.phone, 07 P0) — 저장 때 정규화된 꼴이지만 손으로 고친 DB 값도 여기서 한 번 더 접는다. 읽을 수 없으면 싣지 않는다(틀린 번호보다 없는 번호).
+    // 없는 값은 undefined → 키가 빠져 JSON 바이트가 그대로다. 칸이 없는 원격(마이그레이션 전)에서도 row.phone 이 undefined 라 같다.
+    phone: f.phone ? (normalizePhone(f.phone).phone ?? undefined) : undefined,
     category: f.category || undefined,
     // 공식 홈페이지 링크 카드(ADR-002 v2). 주소가 없으면 카드도 없다 — 시드는 undefined 라 키가 빠져 JSON 바이트가 그대로다.
     homepage: f.homepageUrl
@@ -117,6 +121,7 @@ export function fromPlaceRow(row) {
     lat: row.lat,
     lng: row.lng,
     address: row.address,
+    phone: row.phone,
     category: row.category,
     homepageUrl: row.homepage_url,
     homepageName: row.homepage_name,

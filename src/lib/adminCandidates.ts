@@ -154,6 +154,11 @@ export type TPlaceRow = {
    * 그래서 선택이고, 쓰는 쪽은 `'verified_at' in row` 로 칸이 있는지 보고 나서만 쓴다(없는 칸을 쓰면 승인 전체가 실패한다).
    */
   verified_at?: string | null;
+  /**
+   * 가게 전화번호(07 P0). 마이그레이션 `20261027120000` 전의 원격에는 칸 자체가 없다 — 그래서 선택이고,
+   * 쓰는 쪽은 `'phone' in row` 로 칸이 있는지 보고 나서만 쓴다(없는 칸을 쓰면 update 전체가 실패한다).
+   */
+  phone?: string | null;
 };
 
 /**

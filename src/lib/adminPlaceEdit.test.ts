@@ -365,3 +365,41 @@ describe('플레이스 id 를 지울 때의 링크', () => {
     expect(placeEditPatch(row, { ...placeEditDraft(row), naverPlace: '' })).toEqual({ naver_place_id: null });
   });
 });
+
+describe('전화번호 칸(07 P0)', () => {
+  const withPhone = (phone: string | null = null) => place({ phone, verified_at: null });
+  const typed = (row: TPlaceRow, phone: string) => ({ ...placeEditDraft(row), phone });
+
+  it('칸이 없는 원격(마이그레이션 전)에서는 쓰기에도 목록에도 번호가 없다', () => {
+    const row = place();
+    expect(placeEditPatch(row, typed(row, '064-123-4567'))).toBeNull();
+    expect(placeEditChanges(row, typed(row, '064-123-4567'))).toEqual([]);
+  });
+
+  it('손으로 적은 번호는 저장 때 접혀서 실린다 — 확인 날짜는 찍지 않는다', () => {
+    const row = withPhone();
+    const patch = placeEditPatch(row, typed(row, '064 123 4567'));
+    expect(patch).toEqual({ phone: '064-123-4567' });
+    expect(patchVerifies(patch!)).toBe(false);
+    expect(placeEditChanges(row, typed(row, '064 123 4567'))).toEqual([
+      { key: 'phone', label: '전화번호', before: '(비어 있음)', after: '064-123-4567' },
+    ]);
+  });
+
+  it('이미 같은 번호면 쓰지 않는다 — 띄어쓰기만 다른 것도', () => {
+    const row = withPhone('064-123-4567');
+    expect(placeEditPatch(row, placeEditDraft(row))).toBeNull();
+    expect(placeEditPatch(row, typed(row, '0641234567'))).toBeNull();
+  });
+
+  it('비우면 번호를 지운다(null)', () => {
+    const row = withPhone('064-123-4567');
+    expect(placeEditPatch(row, typed(row, ''))).toEqual({ phone: null });
+  });
+
+  it('읽을 수 없는 번호는 저장을 막는다', () => {
+    const row = withPhone();
+    expect(placeEditProblem(typed(row, '723-4567'))).toMatch(/전화번호/);
+    expect(placeEditProblem(typed(row, '010-1234-5678'))).toBeNull();
+  });
+});

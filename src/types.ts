@@ -143,6 +143,8 @@ export type TPlace = {
   naverPlaceId?: string;
   geo?: TGeo;
   address?: string;
+  /** 가게 전화번호(`places.phone`, 하이픈 정규 표기 — `scripts/lib/phone.mjs`). 운영자가 `/admin` 에서 채운다. 없으면 키가 없다. */
+  phone?: string;
   category?: string;
   /**
    * 업체 공식 홈페이지 링크 카드(ADR-002 v2). `image` 는 업체가 공유용으로 내놓은 `og:image` 의 **URL** 이다 —

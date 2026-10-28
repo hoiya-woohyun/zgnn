@@ -121,6 +121,19 @@ describe('verifiedAt', () => {
   });
 });
 
+describe('phone', () => {
+  it('정규 표기로 싣고, 없거나 읽을 수 없으면 키가 빠진다(칸이 없는 원격도 같다)', () => {
+    expect(fromPlaceRow({ ...row, phone: '064-123-4567' }).phone).toBe('064-123-4567');
+    expect(fromPlaceRow({ ...row, phone: '0641234567' }).phone).toBe('064-123-4567');
+    for (const phone of [null, '', '문의', undefined]) expect('phone' in JSON.parse(JSON.stringify(fromPlaceRow({ ...row, phone })))).toBe(false);
+  });
+
+  it('키 순서는 주소 바로 뒤다(places.json diff 가 읽히게)', () => {
+    const keys = Object.keys(fromPlaceRow({ ...row, address: '제주시 1', phone: '064-123-4567' }));
+    expect(keys.indexOf('phone')).toBe(keys.indexOf('address') + 1);
+  });
+});
+
 describe('withReportFlags', () => {
   it('표식이 있는 장소에만 맨 뒤 키로 얹는다', async () => {
     const { withReportFlags } = await import('./placeFields.mjs');

@@ -17,6 +17,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { naverPlaceHomeUrl } from '../../scripts/analyze/applyApproved.mjs';
+import { normalizePhone } from '../../scripts/lib/phone.mjs';
 import { correctPetPolicyFacts, type TCorrectionDrop } from '../../scripts/lib/petPolicyFacts.mjs';
 import { regionUsable, type TPlaceRow } from './adminCandidates';
 import {
@@ -43,6 +44,8 @@ export type TPlaceEditDraft = TCandidateEditDraft & {
   /** 기존 장소들이 쓰는 표기 중 하나(`REGION_OPTIONS`) — 새 표기를 만들면 그 장소 혼자 다른 읍·면 칩을 단다. */
   regionRaw: string;
   homepageName: string;
+  /** 가게 전화번호(`places.phone`) — 손으로 적은 그대로. 저장 때 `normalizePhone` 으로 한 번 접는다. 칸이 없는 원격에서는 폼에 서지 않고 늘 ''. */
+  phone: string;
   category: string;
   /** 숙소일 때만 폼에 서고 쓰기에 실린다. */
   stayPriceText: string;
@@ -68,6 +71,7 @@ export function placeEditDraft(place: TPlaceRow): TPlaceEditDraft {
     homepageUrl: place.homepage_url ?? '',
     homepageName: place.homepage_name ?? '',
     homepageImage: place.homepage_image ?? '',
+    phone: place.phone ?? '',
     category: place.category ?? '',
     features: place.features ?? '',
     petPolicyText: place.pet_policy_text ?? '',
@@ -80,6 +84,9 @@ export function placeEditDraft(place: TPlaceRow): TPlaceEditDraft {
 
 /** 원격에 홈페이지 세 칸이 있나(마이그레이션 `20260930120000`) — 없는 칸을 쓰면 update 전체가 실패한다. */
 const hasHomepageColumns = (place: TPlaceRow): boolean => 'homepage_url' in place;
+
+/** 원격에 전화번호 칸이 있나(마이그레이션 `20261027120000`) — 같은 이유. 없으면 폼에 줄도 세우지 않는다. */
+export const hasPhoneColumn = (place: TPlaceRow): boolean => 'phone' in place;
 
 /** 원격에 원문 공개 칸이 있나(마이그레이션 `20261012120000`) — 같은 이유. 없으면 폼에 체크도 세우지 않는다. */
 const hasTextPublicColumn = (place: TPlaceRow): boolean => 'pet_policy_text_public' in place;
@@ -94,6 +101,8 @@ export function placeEditProblem(draft: TPlaceEditDraft): string | null {
   if (!regionUsable(draft.regionRaw)) return '지역을 골라 주세요.';
   // 이름은 카드의 일부라 주소 없이 혼자 남지 않는다(`homepageColumns` 와 같은 한 벌) — 조용히 버리지 않고 말한다.
   if (draft.homepageName.trim() && !draft.homepageUrl.trim()) return '홈페이지 주소 없이 이름만 둘 수 없어요.';
+  const phone = normalizePhone(draft.phone);
+  if ('error' in phone) return phone.error;
   return null;
 }
 
@@ -130,6 +139,7 @@ export type TPlaceEditPatch = Partial<
     | 'homepage_url'
     | 'homepage_name'
     | 'homepage_image'
+    | 'phone'
     | 'category'
     | 'features'
     | 'pet_policy_text'
@@ -193,6 +203,14 @@ export function placeEditPatch(place: TPlaceRow, draft: TPlaceEditDraft): TPlace
     if ((Object.keys(card) as (keyof typeof card)[]).some((col) => card[col] !== (place[col] ?? null))) Object.assign(patch, card);
   }
 
+  // 번호는 저장 때 한 번 접는다(`normalizePhone`). 칸이 없는 원격에는 싣지 않는다 — 없는 칸을 쓰면 update 전체가 실패한다.
+  // 사실 칸이 아니다: 확인 날짜를 찍지 않는다(`VERIFYING_COLUMNS` 에 없다).
+  if (hasPhoneColumn(place)) {
+    const phone = normalizePhone(draft.phone);
+    const next = 'phone' in phone ? phone.phone : null;
+    if (next !== (place.phone ?? null)) patch.phone = next;
+  }
+
   const category = orNull(draft.category);
   if (category !== (place.category ?? null)) patch.category = category;
   const features = draft.features.trim();
@@ -228,6 +246,14 @@ const textOf = (raw: string): string => raw.trim() || EMPTY_VALUE;
 const EXTRA_FIELDS: Record<string, { label: string; read: (draft: TPlaceEditDraft) => string }> = {
   regionRaw: { label: '지역', read: (d) => textOf(d.regionRaw) },
   homepageName: { label: '홈페이지 이름', read: (d) => textOf(d.homepageName) },
+  // 접힌 꼴로 보인다 — 저장되는 값과 같은 말이어야 "고친 값" 이 거짓말이 아니다. 읽을 수 없으면 적은 그대로(검사가 저장을 막는다).
+  phone: {
+    label: '전화번호',
+    read: (d) => {
+      const phone = normalizePhone(d.phone);
+      return textOf('phone' in phone ? (phone.phone ?? '') : d.phone);
+    },
+  },
   category: { label: '카테고리', read: (d) => textOf(d.category) },
   stayPriceText: { label: '숙박 요금', read: (d) => textOf(d.stayPriceText) },
   stayAmenitiesText: { label: '숙소 시설', read: (d) => textOf(d.stayAmenitiesText) },
@@ -272,6 +298,7 @@ export function placeEditChanges(place: TPlaceRow, draft: TPlaceEditDraft): TEdi
   };
 
   for (const key of ['name', 'type', 'regionRaw', 'address', 'geo', 'naverPlace']) take(key);
+  if (hasPhoneColumn(place)) take('phone');
   if (hasHomepageColumns(place)) for (const key of ['homepageUrl', 'homepageName', 'homepageImage']) take(key);
   for (const key of ['category', 'features', 'petPolicyText']) take(key);
   if (hasTextPublicColumn(place)) take('petPolicyTextPublic');
