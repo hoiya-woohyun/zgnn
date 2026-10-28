@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { Heart } from '@untitledui/icons';
 import { Button } from '../components/base/button';
+import { InkButton } from '../components/inkButton';
 import { CARD_SURFACE } from '../components/cardSurface';
 import { PageHeader } from '../components/layout/pageHeader';
 import { showAppStatus } from '../lib/appStatus';
@@ -59,9 +60,9 @@ export function SavedPageShared({ shared, onDone }: TSavedPageSharedProps) {
       <div className="px-4 pt-4 md:px-6">
         <div className={`${CARD_SURFACE} p-4`}>
           {fresh.length > 0 ? (
-            <Button color="primary" size="lg" iconLeading={Heart} onClick={add} className="w-full">
+            <InkButton size="lg" iconLeading={Heart} onClick={add} className="w-full">
               내 저장에 담기 {fresh.length}곳
-            </Button>
+            </InkButton>
           ) : (
             <Button color="secondary" size="lg" onClick={onDone} className="w-full">
               {places.length > 0 ? '모두 저장돼 있어요 · 내 목록 보기' : '내 목록 보기'}

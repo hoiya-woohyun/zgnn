@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CalendarDate, MarkerPin01, Share01 } from '@untitledui/icons';
 import { Button } from '../components/base/button';
+import { InkButton } from '../components/inkButton';
 import { PageHeader } from '../components/layout/pageHeader';
 import { EmptyState } from '../components/layout/emptyState';
 import { showAppStatus } from '../lib/appStatus';
@@ -104,9 +105,9 @@ export function SavedPage() {
         <>
           {/* 같이 가는 사람에게 목록을 통째로 보낸다(07 P1). 지도가 주 동작이라 넓게, 공유는 옆 칸. */}
           <div className="flex gap-2 px-4 pt-4 md:px-6">
-            <Button color="primary" size="lg" iconLeading={MarkerPin01} href="/map/?saved=1" className="flex-1">
+            <InkButton size="lg" iconLeading={MarkerPin01} href="/map/?saved=1" className="flex-1">
               지도에서 보기
-            </Button>
+            </InkButton>
             <Button color="secondary" size="lg" iconLeading={Share01} onClick={share} className="shrink-0">
               목록 공유
             </Button>

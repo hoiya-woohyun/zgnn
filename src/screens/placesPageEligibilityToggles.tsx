@@ -2,10 +2,9 @@ import { FilterChip } from '../components/filterChip';
 import type { TPlaceType } from '../types';
 
 /*
- * 켜진 필터의 표시는 앱 전체에서 한 가지 규칙을 따른다: **지도 오버레이 위의 컨트롤만**
- * 진한 브랜드 면(bg-brand-solid + 흰 글씨)을 쓰고, 그 밖의 선택 상태는 전부 연한 워시다.
- * 그 워시 모양은 `FilterChip` 하나가 갖는다(08 T4.2) — 이 토글만 워시이고 옆 조건 칩은 진한
- * 면이던 어긋남(D6)을 칩 컴포넌트를 하나로 모아 닫았다.
+ * 켜진 필터의 표시는 앱 전체에서 한 가지 규칙을 따른다 — 칩의 켜짐 모양은 `FilterChip` 하나가 갖는다
+ * (08 T4.2 · 지금은 잉크 면 + 흰 글자, ADR-003 v28). 이 토글만 워시이고 옆 조건 칩은 진한 면이던
+ * 어긋남(D6)을 칩 컴포넌트를 하나로 모아 닫았다.
  */
 
 type TPlacesPageEligibilityTogglesProps = {

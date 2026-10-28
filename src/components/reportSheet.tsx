@@ -2,7 +2,7 @@
 
 import { useId, useState } from 'react';
 import { BottomSheet } from './base/bottom-sheet';
-import { Button } from './base/button';
+import { InkButton } from './inkButton';
 import { showAppStatus } from '../lib/appStatus';
 import {
   buildReport,
@@ -245,9 +245,9 @@ export function ReportSheet({
             {problem}
           </p>
         )}
-        <Button size="lg" color="primary" className="mt-3 h-11 w-full shrink-0" isLoading={sending} isDisabled={sending} onClick={() => void submit()}>
+        <InkButton size="lg" className="mt-3 h-11 w-full shrink-0" isLoading={sending} isDisabled={sending} onClick={() => void submit()}>
           {sending ? '보내고 있어요' : '보내기'}
-        </Button>
+        </InkButton>
       </div>
     </BottomSheet>
   );

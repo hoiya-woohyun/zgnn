@@ -129,7 +129,6 @@
 
 ## 지금 (위에서부터)
 
-- [ ] 주 행동 색을 잉크로 — [22 G6.0](22-human-design-pass.md) · 왜 지금: 결정(사용자 2026-10-27, A 잉크 — [감도 레퍼런스 §4](../reviews/design-audit/2026-10-20-tone-references.md) · 결과 버튼 propose 4a63fce) · **opus · 혼자**(공용 부품·여러 화면) · 규칙 먼저(A-6 갱신 · ADR-003 새 판 · CLAUDE.md 색 줄) → `bg-brand-solid`·`Button color="primary"` 쓰임을 **행동 / 상태로 갈라 행동만** 잉크(`bg-primary-solid` + `text-white`) — 켠 칩·라디오·체크박스·토글·탭바 활성은 상태라 핑크 그대로, `base/` 복사본·테마 토큰을 통째로 바꾸지 않는다 · G6.1(탭바)·G6.2(히어로) 스펙과 맞춘다 · 사용자 화면만(`/admin` 은 밖)
 - [ ] 🔒(전화번호 칸 커밋 + 🧑 db push · 번호 입력 뒤 걷는다 — 설계는 끝: [ADR-003 v30](../decisions/ADR-003-untitled-ui-and-palette.md) · 07 P0 하단 줄 메모) 상세 전화 버튼 + 하단 고정 줄 구현 — [07 P0](07-product-and-ux.md) · 왜 지금: 반복 6회 — 번호가 생기면 "확인이 필요해요" 의 출구 · ADR-003 v30 스펙대로 `tel:` 버튼(번호가 있고 판정 cond·unknown 일 때 잉크 주 버튼) + 하단 고정 줄(폰 `저장·길찾기·전화` · 제목 밑 셋 · md 여섯 칸) · 번호 없는 곳 문구 · 제보 종류 `phone` 을 고를 수 있게(`PICKABLE_REPORT_KINDS`) · `features/place-detail.md` 를 만들 계기(07 P0 문서 줄) · 끝나면 아래 식당 칸 줄의 🔒(…) 를 저널로 걷는다
 - [ ] 🔒(상세 전화 버튼 커밋 뒤 걷는다) 동네 카드에 식당 칸 — [19 T8](19-area-cards.md) · [14 W261010.10](14-weekly-ux-eval.md) · 왜 지금: 반복 4회(10-19 영자 "식당이 없는 줄 알아요") · 결정: 전화와 같이 연다(사용자 2026-10-27) · 같은 셈(`isReachable`)으로 "식당 n" · 19 §1·§6 식당 규칙 · `features/area-cards` · ADR-027 을 같은 커밋에
 - [ ] 동네 섹션 머리 제주 한 줄 — [19 T7.1](19-area-cards.md) · 왜 지금: T7 설계(§7)가 지역 하나인 지금 화면 몫으로 자른 유일한 줄 — 작은 다듬기 · `areaGroups.ts` 에 상수 `DEST = { id: 'jeju', label: '제주' }` 하나 + `homePageAreaCards.tsx` h2 밑 묶음 머리 꼴(`text-sm` 600 `text-tertiary`) 한 줄 · 320·390px headless · features/area-cards 「사용자가 보는 것」 1
@@ -188,3 +187,5 @@
 ## 발견 (분류 전)
 
 <!-- /next 가 작업 중 찾은 것을 한 줄씩 — 출처: <커밋/파일>. 멈출 때 번호 문서로 옮긴다 -->
+- G6.0 뒤 `/design-audit review` 한 번(주 행동 잉크 — 필터 시트 · 지도 시트 · 저장 · /dog · 제보 시트) — 레인은 서브에이전트를 못 띄운다 — 출처: src/components/inkButton.tsx
+- 22 G6.1 줄의 "화면당 `bg-brand-solid` 1개" · 저장 '지도에서 보기' 테두리 버튼은 G6.0(주 행동 잉크) 이전 문장 — G6.1 을 할 때 잉크 규칙으로 다시 읽는다 — 출처: docs/todo/22-human-design-pass.md

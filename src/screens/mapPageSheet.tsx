@@ -7,7 +7,7 @@ import { PlaceTypeMark } from '../components/placeTypeMark';
 import { SaveButton } from '../components/saveButton';
 import { SavedNoteLine } from '../components/savedNoteLine';
 import { VerdictText } from '../components/verdictLine';
-import { Button } from '@/components/base/button';
+import { InkButton } from '@/components/inkButton';
 import { distanceLabel } from '../lib/distanceSort';
 import { primaryReason } from '../lib/eligibility';
 import { naverDirectionsUrl } from '../lib/naverPlaceLink';
@@ -123,9 +123,9 @@ export function MapPageSheetCard({ place, origin, onSheetHeight }: TMapPageSheet
       )}
 
       <div className="mt-4 flex gap-2">
-        <Button color="primary" size="lg" href={`/place/${place.id}/`} className="flex-1">
+        <InkButton size="lg" href={`/place/${place.id}/`} className="flex-1">
           자세히 보기
-        </Button>
+        </InkButton>
         <SaveButton id={place.id} name={place.name} variant="full" className="w-24 shrink-0" />
       </div>
     </div>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ChevronRight } from '@untitledui/icons';
 import { Checkbox as AriaCheckbox } from 'react-aria-components';
 import { Button } from '../components/base/button';
+import { InkButton } from '../components/inkButton';
 import { CheckboxBase } from '../components/base/checkbox';
 import { useReplay } from '../hooks/useReplay';
 import { showAppStatus } from '../lib/appStatus';
@@ -119,9 +120,9 @@ export function ChecklistPageItemRow({ item, checked, onToggleChecked, onOpenDet
         <div className="mx-2 mb-2 rounded-lg bg-secondary p-3" role="group" aria-label="이동 수단 바꾸기">
           <p className="text-sm text-secondary">우리 강아지 이동 수단도 &lsquo;이동가방&rsquo; 으로 바꿀까요?</p>
           <div className="mt-2 flex gap-2">
-            <Button size="sm" color="primary" className="h-11" onClick={acceptCarrier}>
+            <InkButton size="sm" className="h-11" onClick={acceptCarrier}>
               바꾸기
-            </Button>
+            </InkButton>
             <Button size="sm" color="secondary" className="h-11" onClick={() => setAskCarrier(false)}>
               괜찮아요
             </Button>

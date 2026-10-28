@@ -10,6 +10,7 @@ import { HomePageTripCard } from './homePageTripCard';
 import { HomeTypeCard } from './homeTypeCard';
 import { BottomSheet } from '../components/base/bottom-sheet';
 import { Button } from '../components/base/button';
+import { InkButton } from '../components/inkButton';
 import { PawMark } from '../components/pawMark';
 import { PlaceLinkList } from '../components/placeLinkList';
 import { dogCallNames, withJosa } from '../lib/korean';
@@ -115,9 +116,9 @@ export function HomePage() {
           ))}
         </div>
 
-        <Button color="primary" size="lg" iconLeading={Map01} href="/map/" className="home-scroll-depth mt-3 w-full">
+        <InkButton size="lg" iconLeading={Map01} href="/map/" className="home-scroll-depth mt-3 w-full">
           지도로 보기
-        </Button>
+        </InkButton>
       </section>
 
       <HomePageAreaCards />

@@ -2,6 +2,7 @@ import { PlacesPageFilterSheetDog } from './placesPageFilterSheetDog';
 import { PlacesPageFilterSheetChecks } from './placesPageFilterSheetChecks';
 import { PlacesPageFilterSheetRegion } from './placesPageFilterSheetRegion';
 import { BottomSheet } from '../components/base/bottom-sheet';
+import { INK_ACTION } from '../components/inkButton';
 import { RefreshCw01 } from '@untitledui/icons';
 import { cx } from '../utils/cx';
 import type { TAreaId } from '../lib/areaGroups';
@@ -175,7 +176,7 @@ export function PlacesPageFilterSheet({
               onClick={() => onOpenChange(false)}
               className={cx(
                 'h-12 min-w-0 flex-1 rounded-lg text-md font-semibold',
-                resultCount > 0 ? 'cursor-pointer bg-brand-solid text-primary_on-brand hover:bg-brand-solid_hover' : 'bg-tertiary text-quaternary',
+                resultCount > 0 ? cx('cursor-pointer', INK_ACTION) : 'bg-tertiary text-quaternary',
               )}
             >
               {resultCount > 0 ? `${resultCount}곳 보기` : '조건에 맞는 곳이 없어요'}

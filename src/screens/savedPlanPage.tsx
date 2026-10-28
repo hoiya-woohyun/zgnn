@@ -21,7 +21,7 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Button } from '../components/base/button';
+import { InkButton } from '../components/inkButton';
 import { goBackInApp } from '../components/layout/appShellStack';
 import { EmptyState } from '../components/layout/emptyState';
 import { PageHeader } from '../components/layout/pageHeader';
@@ -266,9 +266,9 @@ export function SavedPlanPage() {
 
       {/* 놓는 순간 저장된다 — 이 버튼은 저장이 아니라 돌아가는 길이다. 저장 버튼을 찾는 사람에게 끝났다는 자리를 준다. */}
       <div className="px-4 pt-8 md:px-6">
-        <Button color="primary" size="lg" className="w-full" onClick={() => goBackInApp('/saved')} data-ev="plan-done">
+        <InkButton size="lg" className="w-full" onClick={() => goBackInApp('/saved')} data-ev="plan-done">
           다 정했어요
-        </Button>
+        </InkButton>
       </div>
 
       <SavedPlanPageMoveSheet

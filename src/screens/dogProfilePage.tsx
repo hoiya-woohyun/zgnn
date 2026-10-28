@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from 'react';
 import { Button } from '../components/base/button';
+import { InkButton } from '../components/inkButton';
 import { PageHeader } from '../components/layout/pageHeader';
 import { parentRouteOf } from '../lib/appRoutes';
 import { goBackInApp } from '../components/layout/appShellStack';
@@ -367,9 +368,9 @@ export function DogProfilePage() {
                     {HEAVY_DOG_CONFIRM_KG}kg 이 넘으면 대형견 기준으로 판정해요. 소수점을 빼고 쓰지 않았는지 확인해 주세요.
                   </p>
                   <div className="mt-3 flex gap-2">
-                    <Button type="button" size="sm" color="primary" className="h-11" onClick={() => save(true)}>
+                    <InkButton type="button" size="sm" className="h-11" onClick={() => save(true)}>
                       맞아요, {dog ? '고치기' : '등록하기'}
-                    </Button>
+                    </InkButton>
                     <Button type="button" size="sm" color="secondary" className="h-11" onClick={() => setHeavyAsk(null)}>
                       다시 볼게요
                     </Button>
@@ -378,9 +379,9 @@ export function DogProfilePage() {
               )}
               {/* 화면 제목과 같은 동사 — `저장` 은 장소 저장(하트)의 낱말이라 핵심 명사가 둘로 갈렸다(디자인 리뷰 §10). */}
               {/* 이동 수단을 안 골랐으면 "이동 수단 고르기" — 누르면 그 칸으로 간다(`save`). submit 그대로 둔다: 폼에 submit 버튼이 없으면 Enter 가 브라우저 규칙에 맡겨진다. */}
-              <Button type="submit" size="lg" className="w-full">
+              <InkButton type="submit" size="lg" className="w-full">
                 {dogProfileSubmitLabel({ editing: Boolean(dog), carrierChosen: carrier !== null })}
-              </Button>
+              </InkButton>
             </div>
             {/*
               '프로필 삭제' 는 주 버튼과 같은 크기로 바로 밑(26px)에 있었다 — 손이 떨려 두 번 눌리면 둘째가 '등록하기' 를 눌렀다
