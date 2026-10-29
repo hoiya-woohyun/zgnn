@@ -222,6 +222,12 @@ describe('runDurationLabel', () => {
     expect(runDurationLabel({ started_at: '2026-10-06T00:00:00Z', ended_at: null }, at('2026-10-06T00:03:00Z'))).toBe('3분째');
     expect(runDurationLabel({ started_at: '2026-10-03T00:00:00Z', ended_at: null }, at('2026-10-06T02:00:00Z'))).toBe('3일 2시간째');
   });
+  it('심장이 멎은 행은 마지막 심장까지 — "N일째" 로 아직 도는 것처럼 말하지 않는다', () => {
+    const stalled = { started_at: '2026-10-10T00:00:00Z', ended_at: null, status: 'running' as const, heartbeat_at: '2026-10-10T00:41:00Z' };
+    expect(runDurationLabel(stalled, at('2026-10-27T00:00:00Z'))).toBe('41분');
+    // 심장이 살아 있으면 지금까지
+    expect(runDurationLabel({ ...stalled, heartbeat_at: '2026-10-10T00:41:00Z' }, at('2026-10-10T00:45:00Z'))).toBe('45분째');
+  });
 });
 
 describe('flattenStats', () => {

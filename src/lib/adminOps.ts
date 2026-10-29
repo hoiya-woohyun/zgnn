@@ -23,10 +23,11 @@ import {
   type TUsageTotals,
 } from './runSummary';
 import { RUN_ERROR } from '../../scripts/lib/runErrors.mjs';
+import { heartbeatOf, runState } from './runOutcome';
 
 export type TRunScript = 'collect' | 'analyze' | 'apply' | 'approve' | 'reject';
 
-/** 저장된 상태. 화면이 보는 상태(`중단된 듯` 포함)는 `adminOpsHealth.runState` 가 이것과 `heartbeat_at` 으로 계산한다. */
+/** 저장된 상태. 화면이 보는 상태(`중단된 듯` 포함)는 `runOutcome.runState` 가 이것과 `heartbeat_at` 으로 계산한다. */
 export type TRunStatus = 'running' | 'ok' | 'partial' | 'failed';
 
 /** Slack 트리거(T5)가 남기는 칸. T5 전까지는 언제나 null 이다. */
@@ -272,10 +273,16 @@ function numericLeaves(value: unknown, key = ''): boolean {
 /**
  * 소요 열 — 끝났으면 `ended_at − started_at`, 아직 안 끝났으면 "N분째"(지금까지). 분석은 보통 수십 분이라 초는 1분 안쪽에서만 쓴다.
  * 콘솔의 `formatElapsed`(12.4초 · 2분 3초)와 다르다 — 그쪽은 한 번 찍고 끝나는 줄이고, 여기는 열을 세로로 훑는 칸이다.
+ * 끝 기록 없이 심장이 멎은 행은 마지막 심장까지만 센다 — 지금까지 세면 상태 칸이 "중단된 듯" 인데 옆 칸이 "17일째" 로 아직 도는 것처럼 말한다.
  */
-export function runDurationLabel(run: Pick<TPipelineRun, 'started_at' | 'ended_at'>, nowMs: number): string {
+export function runDurationLabel(
+  run: Pick<TPipelineRun, 'started_at' | 'ended_at'> & Partial<Pick<TPipelineRun, 'status' | 'heartbeat_at'>>,
+  nowMs: number,
+): string {
   const start = Date.parse(run.started_at);
-  const end = run.ended_at ? Date.parse(run.ended_at) : nowMs;
+  const beat = { status: 'running' as const, started_at: run.started_at, heartbeat_at: run.heartbeat_at ?? null };
+  const stalled = !run.ended_at && run.status === 'running' && runState(beat, nowMs) === 'stalled';
+  const end = run.ended_at ? Date.parse(run.ended_at) : stalled ? Date.parse(heartbeatOf(beat)) : nowMs;
   if (Number.isNaN(start) || Number.isNaN(end)) return '';
   const seconds = Math.max(0, Math.round((end - start) / 1000));
   const minutes = Math.floor(seconds / 60);
@@ -289,7 +296,7 @@ export function runDurationLabel(run: Pick<TPipelineRun, 'started_at' | 'ended_a
         : hours < 24
           ? `${hours}시간 ${minutes % 60}분`
           : `${Math.floor(hours / 24)}일 ${hours % 24}시간`;
-  return run.ended_at ? text : `${text}째`;
+  return run.ended_at || stalled ? text : `${text}째`;
 }
 
 /**
