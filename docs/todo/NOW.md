@@ -189,3 +189,4 @@
 ## 발견 (분류 전)
 
 <!-- /next 가 작업 중 찾은 것을 한 줄씩 — 출처: <커밋/파일>. 멈출 때 번호 문서로 옮긴다 -->
+- `/worker-watch` 봇이 운영자 Chrome 으로 `/admin` 을 열면 「새」 기준(localStorage `zgnn.admin.seen`)을 운영자보다 먼저 넘긴다 — 봇은 `?seen=keep` 같은 플래그로 열고 그때 `writeAdminSeen`·방문 기록을 건너뛰게(스킬 Chrome 주소도 함께). 출처: c68a0be
